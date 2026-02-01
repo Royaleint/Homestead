@@ -30,3 +30,6 @@ missing_vendors.lua
 # Windows junk
 nul
 Thumbs.db
+
+# Libraries (fetched by packager via .pkgmeta externals)
+Libs/
