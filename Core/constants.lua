@@ -1,6 +1,8 @@
 --[[
-    HousingAddon - Constants
+    Homestead - Constants
     Defines icons, colors, text strings, and configuration defaults
+
+    A complete housing collection, vendor, and progress tracker for WoW
 ]]
 
 local addonName, HA = ...
@@ -13,22 +15,23 @@ local Constants = HA.Constants
 -- Version Info
 -------------------------------------------------------------------------------
 Constants.VERSION = "0.1.0"
-Constants.ADDON_NAME = "HousingAddon"
-Constants.ADDON_SHORT = "HA"
+Constants.ADDON_NAME = "Homestead"
+Constants.ADDON_SHORT = "HS"
 
 -------------------------------------------------------------------------------
 -- Icon Definitions
 -- These represent the various states a decor item can be in
+-- Using WoW housing-style icons where available
 -------------------------------------------------------------------------------
 Constants.Icons = {
-    -- Collection status icons
-    COLLECTED = "Interface\\RaidFrame\\ReadyCheck-Ready",
-    COLLECTED_PLACED = "Interface\\AddOns\\HousingAddon\\Textures\\collected_placed",
-    NOT_COLLECTED = "Interface\\RaidFrame\\ReadyCheck-NotReady",
+    -- Collection status icons (using housing/furniture style icons)
+    COLLECTED = "Interface\\RaidFrame\\ReadyCheck-Ready",               -- Green checkmark
+    COLLECTED_PLACED = "Interface\\ICONS\\INV_Misc_Furniture_Chair_03", -- Placed furniture
+    NOT_COLLECTED = "Interface\\RaidFrame\\ReadyCheck-NotReady",        -- Red X
 
     -- Source type icons (shown when not collected)
-    PURCHASABLE = "Interface\\GossipFrame\\VendorGossipIcon",
-    CRAFTABLE = "Interface\\ICONS\\Trade_BlackSmithing",
+    PURCHASABLE = "Interface\\GossipFrame\\VendorGossipIcon",           -- Gold bag (vendor)
+    CRAFTABLE = "Interface\\ICONS\\INV_Misc_Furniture_Anvil_01",        -- Crafting anvil
     ACHIEVEMENT_REWARD = "Interface\\AchievementFrame\\UI-Achievement-TinyShield",
     DROP_SOURCE = "Interface\\ICONS\\INV_Misc_Bone_Skull_01",
     QUEST_REWARD = "Interface\\GossipFrame\\AvailableQuestIcon",
@@ -39,7 +42,15 @@ Constants.Icons = {
     WARBOUND = "Interface\\ICONS\\Spell_ChargePositive",
 
     -- UI icons
-    MINIMAP = "Interface\\ICONS\\Garrison_Building_Storehouse",
+    -- Custom icon in Textures folder (user provides icon.png or icon.tga)
+    MINIMAP = "Interface\\AddOns\\Homestead\\Textures\\icon",
+}
+
+-- Atlas-based icons (WoW 12.0+ housing atlases if available)
+-- These will be checked and used if they exist
+Constants.Atlases = {
+    COLLECTED = "UI-HUD-MicroMenu-Questlog-Mouseover",  -- fallback atlas
+    NOT_COLLECTED = "UI-HUD-MicroMenu-Questlog-Disabled",
 }
 
 -------------------------------------------------------------------------------
@@ -163,6 +174,7 @@ Constants.Defaults = {
     profile = {
         -- General settings
         enabled = true,
+        debug = false,
         minimap = {
             hide = false,
         },
@@ -190,9 +202,14 @@ Constants.Defaults = {
         -- Vendor tracer settings
         vendorTracer = {
             showMapPins = true,
-            showMinimapPins = false,
+            showMinimapPins = true,
             useTomTom = true,
+            useNativeWaypoints = true,
             autoWaypoint = false,
+            showVendorDetails = true,
+            showMissingAtVendor = true,
+            navigateModifier = "shift",  -- shift, ctrl, alt, or none
+            showOppositeFaction = true,  -- Show vendors for opposite faction with faction emblem
         },
 
         -- Endeavour tracker settings
@@ -214,6 +231,14 @@ Constants.Defaults = {
         -- Cross-character data
         vendorVisited = {},
         dyeRecipesKnown = {},
+        -- Persistent ownership cache (workaround for Blizzard API bug)
+        -- Items are added here when the API reports them as owned
+        -- This data persists even when the API returns stale data after reload
+        ownedDecor = {},  -- [itemID] = { recordID, lastSeen, name }
+        -- Scanned vendor data from VendorScanner
+        scannedVendors = {},  -- [npcID] = { npcID, name, mapID, coords, decor, ... }
+        -- NPC ID corrections detected when visiting vendors
+        npcIDCorrections = {},  -- [vendorName] = { oldID, newID, correctedAt }
     },
 }
 
@@ -248,8 +273,8 @@ Constants.Events = {
 -- Slash Commands
 -------------------------------------------------------------------------------
 Constants.SlashCommands = {
-    PRIMARY = "/ha",
-    SECONDARY = "/housingaddon",
+    PRIMARY = "/hs",
+    SECONDARY = "/homestead",
 }
 
 -- Make constants accessible globally for the addon
