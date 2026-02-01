@@ -1,0 +1,32 @@
+﻿# Planning & Development docs
+DEVELOPMENT_PLAN.md
+FEATURES.md
+TECHNICAL_REFERENCE.md
+ICON_SCALE_RESEARCH.md
+TODO.md
+VENDOR_VERIFICATION_SUMMARY.md
+Differential_Export_Plan.md
+alias-system-plan.md
+alias-system-plan.txt
+CLAUDE.md
+
+# Scripts and tools
+scripts/
+.claude/
+
+# Backup files
+Data/Backups/
+Data/VendorDatabase_backup.lua
+*_backup.lua
+
+# Verification/comparison outputs
+addon_vendor_comparison.txt
+vendor_verification_*.txt
+missing_vendors.lua
+
+# Copy files
+*- Copy.lua
+
+# Windows junk
+nul
+Thumbs.db
