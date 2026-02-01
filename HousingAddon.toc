@@ -1,0 +1,37 @@
+## Interface: 110207
+## Title: Housing Addon
+## Notes: Decor collection tracker, vendor tracer, endeavour tracker, and housing completionist tool
+## Author: Your Name
+## Version: 0.1.0
+## SavedVariables: HousingAddonDB
+## IconTexture: Interface\AddOns\HousingAddon\Textures\icon
+## Category: Housing
+## X-Website: https://github.com/yourusername/HousingAddon
+## X-License: MIT
+
+# Libraries
+embeds.xml
+
+# Localization
+Locale\enUS.lua
+
+# Core
+Core\constants.lua
+Core\core.lua
+Core\events.lua
+Core\cache.lua
+
+# Data Classes
+Data\DecorData.lua
+
+# Modules
+Modules\DecorTracker.lua
+
+# Overlay System
+Overlay\overlay.lua
+Overlay\Containers.lua
+Overlay\Merchant.lua
+Overlay\Tooltips.lua
+
+# UI
+UI\Options.lua
