@@ -1,19 +1,27 @@
 --[[
-    HousingAddon - Core
+    Homestead - Core
     Main addon initialization and Ace3 setup
+
+    A complete housing collection, vendor, and progress tracker for WoW
 ]]
 
 local addonName, HA = ...
 
 -- Create the main addon object using Ace3
-local HousingAddon = LibStub("AceAddon-3.0"):NewAddon(
+local Homestead = LibStub("AceAddon-3.0"):NewAddon(
     addonName,
     "AceConsole-3.0",
     "AceEvent-3.0"
 )
 
 -- Store reference in namespace
-HA.Addon = HousingAddon
+HA.Addon = Homestead
+
+-- Expose globally for debugging (allows /dump Homestead commands)
+_G.Homestead = HA
+
+-- Backwards compatibility alias
+local HousingAddon = Homestead
 
 -- Localization reference (will be populated by locale files)
 local L = HA.L or {}
@@ -29,7 +37,7 @@ local format = string.format
 
 function HousingAddon:OnInitialize()
     -- Initialize SavedVariables database
-    self.db = LibStub("AceDB-3.0"):New("HousingAddonDB", Constants.Defaults, true)
+    self.db = LibStub("AceDB-3.0"):New("HomesteadDB", Constants.Defaults, true)
 
     -- Set up profile callbacks
     self.db.RegisterCallback(self, "OnProfileChanged", "OnProfileChanged")
@@ -40,13 +48,13 @@ function HousingAddon:OnInitialize()
     self:InitializeMinimapButton()
 
     -- Register slash commands
-    self:RegisterChatCommand("ha", "SlashCommandHandler")
-    self:RegisterChatCommand("housingaddon", "SlashCommandHandler")
+    self:RegisterChatCommand("hs", "SlashCommandHandler")
+    self:RegisterChatCommand("homestead", "SlashCommandHandler")
 
     -- Initialize modules (will be called when modules are created)
     -- self:InitializeModules()
 
-    self:Debug("HousingAddon initialized")
+    self:Debug("Homestead initialized")
 end
 
 function HousingAddon:OnEnable()
@@ -58,14 +66,39 @@ function HousingAddon:OnEnable()
         HA.Cache:Initialize()
     end
 
-    self:Debug("HousingAddon enabled")
+    -- Initialize CatalogScanner for bulk ownership scanning
+    if HA.CatalogScanner then
+        HA.CatalogScanner:Initialize()
+    end
+
+    -- Initialize VendorScanner for automatic vendor discovery
+    if HA.VendorScanner then
+        HA.VendorScanner:Initialize()
+    end
+
+    -- Initialize Waypoints utility
+    if HA.Waypoints then
+        HA.Waypoints:Initialize()
+    end
+
+    -- Initialize VendorTracer module
+    if HA.VendorTracer then
+        HA.VendorTracer:Initialize()
+    end
+
+    -- Initialize VendorMapPins for world map integration
+    if HA.VendorMapPins then
+        HA.VendorMapPins:Initialize()
+    end
+
+    self:Debug("Homestead enabled")
 end
 
 function HousingAddon:OnDisable()
     -- Unregister all events
     self:UnregisterAllEvents()
 
-    self:Debug("HousingAddon disabled")
+    self:Debug("Homestead disabled")
 end
 
 function HousingAddon:OnProfileChanged()
@@ -89,19 +122,58 @@ function HousingAddon:InitializeMinimapButton()
     -- Create data broker object
     local dataObj = LDB:NewDataObject(addonName, {
         type = "launcher",
-        text = "Housing Addon",
+        text = "Homestead",
         icon = Constants.Icons.MINIMAP,
         OnClick = function(_, button)
             if button == "LeftButton" then
                 self:ToggleMainFrame()
             elseif button == "RightButton" then
                 self:OpenOptions()
+            elseif button == "MiddleButton" then
+                -- Middle-click: trigger a catalog scan
+                if HA.CatalogScanner and HA.CatalogScanner.ManualScan then
+                    HA.CatalogScanner:ManualScan()
+                else
+                    self:Print("CatalogScanner not available for middle-click scan")
+                end
             end
         end,
         OnTooltipShow = function(tooltip)
-            tooltip:AddLine("|cFF00FF00Housing Addon|r")
+            tooltip:AddLine("|cFFFFD700Homestead|r")
+
+            -- Collection progress
+            if C_HousingCatalog and C_HousingCatalog.GetDecorTotalOwnedCount and C_HousingCatalog.GetDecorMaxOwnedCount then
+                local owned = C_HousingCatalog.GetDecorTotalOwnedCount()
+                local total = C_HousingCatalog.GetDecorMaxOwnedCount()
+                if owned and total and total > 0 then
+                    local percent = math.floor((owned / total) * 100)
+                    tooltip:AddLine(format("Collection: %d / %d (%d%%)", owned, total, percent), 1, 1, 1)
+                end
+            end
+
+            -- Vendors in current zone
+            if HA.VendorData and HA.VendorData.GetVendorsInMap then
+                local mapID = C_Map and C_Map.GetBestMapForUnit and C_Map.GetBestMapForUnit("player")
+                if mapID then
+                    local vendors = HA.VendorData:GetVendorsInMap(mapID)
+                    if vendors then
+                        tooltip:AddLine(format("Vendors nearby: %d", #vendors), 1, 1, 1)
+                    end
+                end
+            end
+
+            -- Scanned vendors count
+            if self.db and self.db.global and self.db.global.scannedVendors then
+                local count = 0
+                for _ in pairs(self.db.global.scannedVendors) do
+                    count = count + 1
+                end
+                tooltip:AddLine(format("Vendors scanned: %d", count), 1, 1, 1)
+            end
+
             tooltip:AddLine(" ")
             tooltip:AddLine("|cFFFFFFFFLeft-Click:|r Toggle main window")
+            tooltip:AddLine("|cFFFFFFFFMiddle-Click:|r Scan collection")
             tooltip:AddLine("|cFFFFFFFFRight-Click:|r Open options")
         end,
     })
@@ -109,7 +181,7 @@ function HousingAddon:InitializeMinimapButton()
     -- Store reference
     self.LDB = dataObj
 
-    -- Register minimap icon
+    -- Register with LibDBIcon
     LDBIcon:Register(addonName, dataObj, self.db.profile.minimap)
 end
 
@@ -124,16 +196,52 @@ function HousingAddon:SlashCommandHandler(input)
         self:ToggleMainFrame()
     elseif input == "config" or input == "options" or input == "settings" then
         self:OpenOptions()
-    elseif input == "export" then
-        self:ExportData()
     elseif input == "vendor" or input:match("^vendor%s+") then
         local search = input:match("^vendor%s+(.+)$")
-        self:OpenVendorPanel(search)
+        self:SearchVendors(search)
+    elseif input == "waypoint" or input == "wp" then
+        self:ClearWaypoint()
     elseif input == "debug" then
         self.db.profile.debug = not self.db.profile.debug
         self:Print("Debug mode:", self.db.profile.debug and "ON" or "OFF")
+    elseif input == "cache" then
+        self:ShowCacheInfo()
+    elseif input == "clearcache" then
+        self:ClearOwnershipCache()
+    elseif input == "scan" then
+        self:ScanCatalog()
+    elseif input == "debugscan" then
+        self:DebugScanCatalog()
+    elseif input == "vendors" then
+        self:ShowScannedVendors()
+    elseif input == "refreshmap" then
+        self:RefreshMapPins()
+    elseif input == "corrections" or input == "npcfixes" then
+        self:ShowNPCIDCorrections()
+    elseif input == "debugglobal" then
+        self:DebugGlobalData()
     elseif input == "help" then
         self:PrintHelp()
+    elseif input == "export" then
+        if HA.ExportImport then
+            HA.ExportImport:ExportScannedVendors()
+        end
+    elseif input == "import" then
+        if HA.ExportImport then
+            HA.ExportImport:ShowImportDialog()
+        end  
+    elseif input == "validate" then
+        if HA.Validation then
+            HA.Validation:RunFullValidation()
+        end
+    elseif input == "validate details" then
+        if HA.Validation then
+            HA.Validation:ShowDetails()
+        end
+    elseif input == "achievements" then
+        if HA.AchievementDecor and HA.AchievementDecor.DebugPrint then
+            HA.AchievementDecor:DebugPrint()
+        end
     else
         self:Print("Unknown command:", input)
         self:PrintHelp()
@@ -141,13 +249,463 @@ function HousingAddon:SlashCommandHandler(input)
 end
 
 function HousingAddon:PrintHelp()
-    self:Print("Housing Addon Commands:")
-    self:Print("  /ha - Toggle main window")
-    self:Print("  /ha options - Open options panel")
-    self:Print("  /ha export - Export collection data")
-    self:Print("  /ha vendor [search] - Open vendor panel")
-    self:Print("  /ha debug - Toggle debug mode")
-    self:Print("  /ha help - Show this help")
+    self:Print("Homestead Commands:")
+    self:Print("  /hs - Toggle main window")
+    self:Print("  /hs options - Open options panel")
+    self:Print("  /hs scan - Scan catalog for owned items")
+    self:Print("  /hs vendor [search] - Search for decor vendors")
+    self:Print("  /hs vendors - Show scanned vendor data")
+    self:Print("  /hs waypoint - Clear current waypoint")
+    self:Print("  /hs cache - Show ownership cache info")
+    self:Print("  /hs clearcache - Clear ownership cache")
+    self:Print("  /hs refreshmap - Refresh world map pins")
+    self:Print("  /hs corrections - Show NPC ID corrections found")
+    self:Print("  /hs export - Export scanned vendor data")
+    self:Print("  /hs import - Import vendor data")
+    self:Print("  /hs validate - Validate vendor database")
+    self:Print("  /hs debug - Toggle debug mode")
+    self:Print("  /hs help - Show this help")
+end
+
+-- Refresh map pins manually
+function HousingAddon:RefreshMapPins()
+    if HA.VendorMapPins then
+        HA.VendorMapPins:RefreshPins()
+        self:Print("Map pins refreshed.")
+    else
+        self:Print("VendorMapPins module not available.")
+    end
+end
+
+-- Scan the housing catalog for owned items
+function HousingAddon:ScanCatalog()
+    if HA.CatalogScanner then
+        HA.CatalogScanner:ManualScan()
+    else
+        self:Print("CatalogScanner module not available.")
+    end
+end
+
+-- Debug scan to show raw API data
+function HousingAddon:DebugScanCatalog()
+    if HA.CatalogScanner then
+        HA.CatalogScanner:DebugScan()
+    else
+        self:Print("CatalogScanner module not available.")
+    end
+end
+
+-- Search for vendors
+function HousingAddon:SearchVendors(searchText)
+    if not HA.VendorData then
+        self:Print("VendorData module not available.")
+        return
+    end
+
+    if not searchText or searchText == "" then
+        -- Show vendor count
+        local count = HA.VendorData:GetVendorCount()
+        self:Print("Vendor database contains", count, "vendors.")
+        self:Print("Use /hs vendor <name or zone> to search.")
+        return
+    end
+
+    local results = HA.VendorData:SearchVendors(searchText)
+    if #results == 0 then
+        self:Print("No vendors found matching:", searchText)
+        return
+    end
+
+    self:Print("Found", #results, "vendor(s) matching:", searchText)
+    for i, vendor in ipairs(results) do
+        if i <= 5 then -- Limit to 5 results in chat
+            local locationStr = vendor.zone or "Unknown"
+            self:Print("  " .. vendor.name .. " - " .. locationStr)
+        end
+    end
+    if #results > 5 then
+        self:Print("  ... and", #results - 5, "more.")
+    end
+end
+
+-- Clear current waypoint
+function HousingAddon:ClearWaypoint()
+    if HA.Waypoints then
+        if HA.Waypoints:HasWaypoint() then
+            HA.Waypoints:Clear()
+            self:Print("Waypoint cleared.")
+        else
+            self:Print("No active waypoint.")
+        end
+    elseif HA.VendorTracer then
+        HA.VendorTracer:ClearWaypoint()
+        self:Print("Waypoint cleared.")
+    else
+        self:Print("Waypoint system not available.")
+    end
+end
+
+-------------------------------------------------------------------------------
+-- Testing/Debugging
+-------------------------------------------------------------------------------
+
+-- Show ownership cache information
+function HousingAddon:ShowCacheInfo()
+    local output = {}
+    table.insert(output, "=== Homestead Ownership Cache ===")
+    table.insert(output, "")
+
+    if not self.db or not self.db.global or not self.db.global.ownedDecor then
+        table.insert(output, "No ownership cache data found.")
+        self:ShowCopyableText(table.concat(output, "\n"))
+        return
+    end
+
+    local ownedDecor = self.db.global.ownedDecor
+    local count = 0
+    local items = {}
+
+    for itemID, data in pairs(ownedDecor) do
+        count = count + 1
+        local name = data.name or ("ItemID: " .. itemID)
+        local lastSeen = data.lastSeen and date("%Y-%m-%d %H:%M", data.lastSeen) or "unknown"
+        table.insert(items, "  " .. name .. " (ID: " .. itemID .. ") - Last seen: " .. lastSeen)
+    end
+
+    table.insert(output, "Total cached items: " .. count)
+    table.insert(output, "")
+    table.insert(output, "This cache persists across reloads to work around")
+    table.insert(output, "a Blizzard API bug where owned items may show as")
+    table.insert(output, "unowned until the Housing Catalog UI is opened.")
+    table.insert(output, "")
+
+    if count > 0 then
+        table.insert(output, "Cached items:")
+        table.sort(items)
+        for _, item in ipairs(items) do
+            table.insert(output, item)
+        end
+    end
+
+    self:ShowCopyableText(table.concat(output, "\n"))
+end
+
+-- Clear the ownership cache
+function HousingAddon:ClearOwnershipCache()
+    if self.db and self.db.global then
+        local count = 0
+        if self.db.global.ownedDecor then
+            for _ in pairs(self.db.global.ownedDecor) do
+                count = count + 1
+            end
+        end
+        self.db.global.ownedDecor = {}
+        self:Print("Cleared ownership cache. Removed " .. count .. " cached items.")
+        self:Print("Use /hs scan or open the Housing Catalog to rebuild the cache.")
+    end
+end
+
+-- Show scanned vendor data
+function HousingAddon:ShowScannedVendors()
+    if not self.db or not self.db.global then
+        self:Print("SavedVariables not initialized.")
+        return
+    end
+
+    local scannedVendors = self.db.global.scannedVendors
+    if not scannedVendors then
+        self:Print("No vendors have been scanned yet.")
+        self:Print("Visit vendors to automatically scan their decor items.")
+        return
+    end
+
+    local count = 0
+    local totalItems = 0
+    for npcID, vendorData in pairs(scannedVendors) do
+        count = count + 1
+        local itemCount = vendorData.decor and #vendorData.decor or 0
+        totalItems = totalItems + itemCount
+        self:Print(string.format("  %s (NPC %d): %d decor items",
+            vendorData.name or "Unknown", npcID, itemCount))
+    end
+
+    if count == 0 then
+        self:Print("No vendors have been scanned yet.")
+        self:Print("Visit vendors to automatically scan their decor items.")
+    else
+        self:Print(string.format("Total: %d vendors scanned, %d decor items found.", count, totalItems))
+    end
+end
+
+-- Debug: Show what's in global SavedVariables
+function HousingAddon:DebugGlobalData()
+    local output = {}
+    table.insert(output, "=== Debug Global Data ===")
+    table.insert(output, "Character: " .. (UnitName("player") or "Unknown") .. " - " .. (GetRealmName() or "Unknown"))
+    table.insert(output, "")
+
+    if not self.db then
+        table.insert(output, "ERROR: self.db is nil")
+        self:ShowCopyableText(table.concat(output, "\n"))
+        return
+    end
+
+    if not self.db.global then
+        table.insert(output, "ERROR: self.db.global is nil")
+        self:ShowCopyableText(table.concat(output, "\n"))
+        return
+    end
+
+    table.insert(output, "self.db.global exists")
+    table.insert(output, "")
+
+    -- List all keys in global
+    table.insert(output, "Global keys:")
+    local keys = {}
+    for key, value in pairs(self.db.global) do
+        local valueType = type(value)
+        local count = 0
+        if valueType == "table" then
+            for _ in pairs(value) do count = count + 1 end
+        end
+        table.insert(keys, string.format("  %s (%s, %d entries)", key, valueType, count))
+    end
+
+    if #keys == 0 then
+        table.insert(output, "  (no keys in global)")
+    else
+        table.sort(keys)
+        for _, k in ipairs(keys) do
+            table.insert(output, k)
+        end
+    end
+
+    -- Check scannedVendors specifically
+    table.insert(output, "")
+    if self.db.global.scannedVendors then
+        table.insert(output, "scannedVendors details:")
+        for npcID, data in pairs(self.db.global.scannedVendors) do
+            local itemCount = data.decor and #data.decor or 0
+            table.insert(output, string.format("  NPC %d: %s (%d items)", npcID, data.name or "Unknown", itemCount))
+        end
+    else
+        table.insert(output, "scannedVendors: nil or not present")
+    end
+
+    -- Check npcIDCorrections
+    table.insert(output, "")
+    if self.db.global.npcIDCorrections then
+        table.insert(output, "npcIDCorrections details:")
+        for name, correction in pairs(self.db.global.npcIDCorrections) do
+            table.insert(output, string.format("  %s: %d -> %d", name, correction.oldID, correction.newID))
+        end
+    else
+        table.insert(output, "npcIDCorrections: nil or not present")
+    end
+
+    -- Check ownedDecor count
+    table.insert(output, "")
+    if self.db.global.ownedDecor then
+        local count = 0
+        for _ in pairs(self.db.global.ownedDecor) do count = count + 1 end
+        table.insert(output, string.format("ownedDecor: %d cached items", count))
+    else
+        table.insert(output, "ownedDecor: nil or not present")
+    end
+
+    self:ShowCopyableText(table.concat(output, "\n"))
+end
+
+-- Show NPC ID corrections that were detected during vendor scans
+function HousingAddon:ShowNPCIDCorrections()
+    if not self.db or not self.db.global then
+        self:Print("SavedVariables not initialized.")
+        return
+    end
+
+    local output = {}
+    local hasContent = false
+
+    -- Section 1: Confirmed NPC ID Corrections (detected during scans)
+    local corrections = self.db.global.npcIDCorrections
+    if corrections and next(corrections) then
+        hasContent = true
+        table.insert(output, "=== Confirmed NPC ID Corrections ===")
+        table.insert(output, "")
+        table.insert(output, "These corrections were detected when visiting vendors.")
+        table.insert(output, "The database NPC ID did not match the actual in-game ID.")
+        table.insert(output, "")
+
+        local count = 0
+        for vendorName, correction in pairs(corrections) do
+            count = count + 1
+            local correctedDate = correction.correctedAt and date("%Y-%m-%d", correction.correctedAt) or "unknown"
+            table.insert(output, string.format("  %s", vendorName))
+            table.insert(output, string.format("    Old NPC ID: %d -> New NPC ID: %d (found %s)",
+                correction.oldID, correction.newID, correctedDate))
+            table.insert(output, string.format("    Action: npcID = %d,", correction.newID))
+            table.insert(output, "")
+        end
+        table.insert(output, string.format("Total: %d confirmed correction(s).", count))
+        table.insert(output, "")
+    end
+
+    -- Section 2: Possible NPC ID Mismatches (name match, ID mismatch)
+    local scannedVendors = self.db.global.scannedVendors
+    if scannedVendors and HA.VendorData then
+        -- Build lookup of static vendor names -> npcID
+        local staticNameToNPC = {}
+        local allVendors = HA.VendorData:GetAllVendors()
+        for _, vendor in ipairs(allVendors) do
+            if vendor.name then
+                -- Normalize name for comparison (lowercase, trim whitespace)
+                local normalizedName = vendor.name:lower():gsub("^%s+", ""):gsub("%s+$", "")
+                staticNameToNPC[normalizedName] = {
+                    npcID = vendor.npcID,
+                    name = vendor.name,
+                    mapID = vendor.mapID,
+                    zone = vendor.zone,
+                }
+            end
+        end
+
+        -- Check each scanned vendor for name matches with different NPC IDs
+        local mismatches = {}
+        for scannedNpcID, scannedData in pairs(scannedVendors) do
+            if scannedData.name then
+                local normalizedScannedName = scannedData.name:lower():gsub("^%s+", ""):gsub("%s+$", "")
+                local staticEntry = staticNameToNPC[normalizedScannedName]
+
+                -- If name matches but NPC ID differs, it's a potential mismatch
+                if staticEntry and staticEntry.npcID ~= scannedNpcID then
+                    -- Check if the scanned NPC ID exists in static DB
+                    local scannedInStatic = HA.VendorData:GetVendor(scannedNpcID)
+
+                    table.insert(mismatches, {
+                        scannedName = scannedData.name,
+                        scannedNpcID = scannedNpcID,
+                        scannedHasDecor = scannedData.hasDecor,
+                        scannedMapID = scannedData.mapID,
+                        staticName = staticEntry.name,
+                        staticNpcID = staticEntry.npcID,
+                        staticZone = staticEntry.zone,
+                        scannedExistsInStatic = scannedInStatic ~= nil,
+                    })
+                end
+            end
+        end
+
+        if #mismatches > 0 then
+            hasContent = true
+            if #output > 0 then
+                table.insert(output, "")
+            end
+            table.insert(output, "=== Possible NPC ID Mismatches ===")
+            table.insert(output, "")
+            table.insert(output, "Scanned vendor names match static DB names but NPC IDs differ.")
+            table.insert(output, "This may indicate data entry errors in VendorDatabase.lua.")
+            table.insert(output, "")
+
+            for _, mismatch in ipairs(mismatches) do
+                table.insert(output, string.format("  %s", mismatch.scannedName))
+                table.insert(output, string.format("    Scanned: NPC %d (hasDecor: %s, mapID: %s)",
+                    mismatch.scannedNpcID,
+                    tostring(mismatch.scannedHasDecor),
+                    tostring(mismatch.scannedMapID)))
+                table.insert(output, string.format("    Static:  NPC %d (%s)",
+                    mismatch.staticNpcID,
+                    mismatch.staticZone or "unknown zone"))
+
+                if mismatch.scannedExistsInStatic then
+                    table.insert(output, "    Note: Scanned NPC ID also exists in static DB (different vendor?)")
+                else
+                    table.insert(output, string.format("    Action: Update static DB to use NPC %d", mismatch.scannedNpcID))
+                end
+                table.insert(output, "")
+            end
+            table.insert(output, string.format("Total: %d possible mismatch(es).", #mismatches))
+        end
+    end
+
+    if not hasContent then
+        self:Print("No NPC ID corrections or mismatches found.")
+        self:Print("Visit vendors to automatically detect issues.")
+        return
+    end
+
+    -- Show in output window
+    if HA.OutputWindow then
+        HA.OutputWindow:Show("NPC ID Corrections", table.concat(output, "\n"))
+    else
+        -- Fallback to old method
+        self:ShowCopyableText(table.concat(output, "\n"))
+    end
+end
+
+-- Show text in a copyable popup window
+function HousingAddon:ShowCopyableText(text)
+    -- Create frame if it doesn't exist
+    if not self.copyFrame then
+        local frame = CreateFrame("Frame", "HomesteadCopyFrame", UIParent, "BackdropTemplate")
+        frame:SetSize(500, 400)
+        frame:SetPoint("CENTER")
+        frame:SetBackdrop({
+            bgFile = "Interface\\DialogFrame\\UI-DialogBox-Background",
+            edgeFile = "Interface\\DialogFrame\\UI-DialogBox-Border",
+            tile = true, tileSize = 32, edgeSize = 32,
+            insets = { left = 8, right = 8, top = 8, bottom = 8 }
+        })
+        frame:SetMovable(true)
+        frame:EnableMouse(true)
+        frame:RegisterForDrag("LeftButton")
+        frame:SetScript("OnDragStart", frame.StartMoving)
+        frame:SetScript("OnDragStop", frame.StopMovingOrSizing)
+        frame:SetFrameStrata("DIALOG")
+
+        -- Title
+        local title = frame:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
+        title:SetPoint("TOP", 0, -16)
+        title:SetText("Homestead - Output")
+
+        -- Close button
+        local closeBtn = CreateFrame("Button", nil, frame, "UIPanelCloseButton")
+        closeBtn:SetPoint("TOPRIGHT", -5, -5)
+
+        -- Scroll frame
+        local scrollFrame = CreateFrame("ScrollFrame", nil, frame, "UIPanelScrollFrameTemplate")
+        scrollFrame:SetPoint("TOPLEFT", 16, -40)
+        scrollFrame:SetPoint("BOTTOMRIGHT", -36, 50)
+
+        -- Edit box
+        local editBox = CreateFrame("EditBox", nil, scrollFrame)
+        editBox:SetMultiLine(true)
+        editBox:SetFontObject(GameFontHighlight)
+        editBox:SetWidth(440)
+        editBox:SetAutoFocus(false)
+        editBox:SetScript("OnEscapePressed", function(self) self:ClearFocus() end)
+        scrollFrame:SetScrollChild(editBox)
+
+        -- Select all button
+        local selectBtn = CreateFrame("Button", nil, frame, "UIPanelButtonTemplate")
+        selectBtn:SetSize(100, 22)
+        selectBtn:SetPoint("BOTTOMLEFT", 16, 16)
+        selectBtn:SetText("Select All")
+        selectBtn:SetScript("OnClick", function()
+            editBox:HighlightText()
+            editBox:SetFocus()
+        end)
+
+        -- Copy hint
+        local hint = frame:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+        hint:SetPoint("BOTTOM", 0, 20)
+        hint:SetText("Press Ctrl+C to copy after selecting")
+
+        frame.editBox = editBox
+        self.copyFrame = frame
+    end
+
+    self.copyFrame.editBox:SetText(text)
+    self.copyFrame:Show()
 end
 
 -------------------------------------------------------------------------------
@@ -180,6 +738,20 @@ end
 
 function HousingAddon:OnPlayerEnteringWorld()
     self:Debug("Player entering world")
+
+    -- Try to request housing market info refresh to initialize the API
+    -- This may help with the Blizzard bug where data is stale after reload
+    if C_HousingCatalog and C_HousingCatalog.RequestHousingMarketInfoRefresh then
+        local success, err = pcall(function()
+            C_HousingCatalog.RequestHousingMarketInfoRefresh()
+        end)
+        if success then
+            self:Debug("Requested housing market info refresh")
+        else
+            self:Debug("Housing market refresh failed:", err)
+        end
+    end
+
     -- Refresh overlays when entering world
     self:RefreshAllOverlays()
 end
@@ -206,13 +778,32 @@ end
 -------------------------------------------------------------------------------
 
 function HousingAddon:ToggleMainFrame()
-    -- Will be implemented in UI/MainFrame.lua
-    self:Print("Main frame toggle - not yet implemented")
+    if HA.MainFrame then
+        HA.MainFrame:Toggle()
+    else
+        self:Print("Main frame not available")
+    end
 end
 
 function HousingAddon:OpenOptions()
     -- Open Blizzard options panel
-    Settings.OpenToCategory(addonName)
+    -- In modern WoW, we need to use the category ID returned by AceConfigDialog
+    local AceConfigDialog = LibStub("AceConfigDialog-3.0", true)
+    if AceConfigDialog then
+        -- Use AceConfigDialog's Open method which handles the panel correctly
+        AceConfigDialog:Open(addonName)
+    else
+        -- Fallback: Try to open via Settings API with proper error handling
+        local success = pcall(function()
+            -- Try to find our category in the settings
+            if Settings and Settings.OpenToCategory then
+                Settings.OpenToCategory("Housing Addon")
+            end
+        end)
+        if not success then
+            self:Print("Could not open options panel. Use /ha config in chat.")
+        end
+    end
 end
 
 function HousingAddon:ExportData()
@@ -261,7 +852,12 @@ function HousingAddon:Debug(...)
 end
 
 function HousingAddon:Print(...)
-    local msg = format("|cFF00FF00[Housing Addon]|r %s", table.concat({...}, " "))
+    local args = {...}
+    local parts = {}
+    for i = 1, #args do
+        parts[i] = tostring(args[i])
+    end
+    local msg = format("|cFF00FF00[Homestead]|r %s", table.concat(parts, " "))
     print(msg)
 end
 
