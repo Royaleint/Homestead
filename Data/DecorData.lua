@@ -1,5 +1,5 @@
 --[[
-    HousingAddon - DecorData
+    Homestead - DecorData
     Data class representing a housing decor item and its collection status
 ]]
 
@@ -148,11 +148,77 @@ function DecorData:ApplyHousingCatalogInfo(info)
         self.iconIsAtlas = true
     end
 
-    -- Ownership data
-    self.isOwned = (info.quantity and info.quantity > 0) or false
+    -- Ownership data - use entrySubtype to determine ownership
+    -- entrySubtype is inside the entryID table, not at the top level!
+    -- Enum.HousingCatalogEntrySubtype values (from live API):
+    -- Invalid = 0
+    -- Unowned = 1
+    -- OwnedModifiedStack = 2
+    -- OwnedUnmodifiedStack = 3
+
+    -- Extract entrySubtype from the entryID table
+    -- Note: The entryID object may be a Blizzard mixin that doesn't expose
+    -- properties directly via info.entryID.entrySubtype, but does via pairs()
+    local entrySubtype = nil
+    local recordID = nil
+
+    if info.entryID and type(info.entryID) == "table" then
+        -- Try direct access first
+        entrySubtype = info.entryID.entrySubtype
+        recordID = info.entryID.recordID
+
+        -- If direct access failed, iterate to find the values
+        -- (Some Blizzard tables don't expose fields directly but do via pairs)
+        if not entrySubtype or not recordID then
+            for k, v in pairs(info.entryID) do
+                if k == "entrySubtype" then
+                    entrySubtype = v
+                elseif k == "recordID" then
+                    recordID = v
+                end
+            end
+        end
+
+        self.recordID = recordID
+    end
+    self.entrySubtype = entrySubtype
+
     self.quantityOwned = info.quantity or 0
     self.numPlaced = info.numPlaced or 0
     self.remainingRedeemable = info.remainingRedeemable or 0
+
+    -- Primary ownership check: entrySubtype indicates owned (2 or 3)
+    -- Note: There's a known Blizzard bug where items in storage may show as "Unowned" (1)
+    local subtypeOwned = false
+    if entrySubtype then
+        if Enum and Enum.HousingCatalogEntrySubtype then
+            -- Owned if it's OwnedModifiedStack (2) or OwnedUnmodifiedStack (3)
+            subtypeOwned = (entrySubtype == Enum.HousingCatalogEntrySubtype.OwnedModifiedStack) or
+                           (entrySubtype == Enum.HousingCatalogEntrySubtype.OwnedUnmodifiedStack)
+        else
+            -- Fallback: 2 or 3 = owned based on discovered enum values
+            subtypeOwned = (entrySubtype >= 2)
+        end
+    end
+
+    -- Fallback checks if entrySubtype says unowned
+    local quantityOwned = (self.quantityOwned > 0) or (self.numPlaced > 0) or (self.remainingRedeemable > 0)
+
+    -- Also check player's bags for this item
+    local inBags = self:CheckItemInBags(self.itemID)
+
+    -- Check persistent ownership cache (workaround for Blizzard API bug)
+    -- The API may return stale data after reload until the Housing Catalog is opened
+    local cachedOwned = self:CheckPersistentOwnership(self.itemID)
+
+    self.isOwned = subtypeOwned or quantityOwned or inBags or cachedOwned
+    self.inBags = inBags
+    self.cachedOwned = cachedOwned
+
+    -- If we detected ownership through API, save to persistent cache
+    if subtypeOwned or quantityOwned then
+        self:SavePersistentOwnership(self.itemID, info.name, self.recordID)
+    end
 
     -- Customization
     self.canCustomize = info.canCustomize or false
@@ -399,6 +465,40 @@ end
 -- Utility Methods
 -------------------------------------------------------------------------------
 
+-- Check if an item is in the player's bags
+function DecorData:CheckItemInBags(itemID)
+    if not itemID then return false end
+
+    -- Check all bag slots
+    for bag = 0, 4 do
+        local numSlots = C_Container.GetContainerNumSlots(bag)
+        for slot = 1, numSlots do
+            local info = C_Container.GetContainerItemInfo(bag, slot)
+            if info and info.itemID == itemID then
+                return true
+            end
+        end
+    end
+
+    -- Also check bank if available
+    -- Bank bags are -1 (main bank) and 6-12 (bank bags)
+    -- Note: Bank data may not be available if bank isn't open
+    local bankBags = {-1, 6, 7, 8, 9, 10, 11, 12}
+    for _, bag in ipairs(bankBags) do
+        local numSlots = C_Container.GetContainerNumSlots(bag)
+        if numSlots and numSlots > 0 then
+            for slot = 1, numSlots do
+                local info = C_Container.GetContainerItemInfo(bag, slot)
+                if info and info.itemID == itemID then
+                    return true
+                end
+            end
+        end
+    end
+
+    return false
+end
+
 -- Check if this is a valid decor item
 function DecorData:IsValid()
     return self.entryID ~= nil or (self.itemID ~= nil and self.name ~= nil)
@@ -427,4 +527,83 @@ function DecorData:Refresh()
     elseif self.entryID then
         self:LoadFromEntryID(self.entryID)
     end
+end
+
+-------------------------------------------------------------------------------
+-- Persistent Ownership Cache (Workaround for Blizzard API Bug)
+-------------------------------------------------------------------------------
+-- The C_HousingCatalog API returns stale/incorrect data after a /reload
+-- until the player opens the Housing Catalog UI. Other addons like
+-- Housing Reps and Housing Vendor have documented this same issue.
+-- Our solution: Cache ownership data in SavedVariables when the API
+-- reports an item as owned, then use that cache as a fallback.
+
+-- Check if an item is marked as owned in our persistent cache
+function DecorData:CheckPersistentOwnership(itemID)
+    if not itemID then return false end
+    if not HA.Addon or not HA.Addon.db then return false end
+
+    local ownedDecor = HA.Addon.db.global.ownedDecor
+    if not ownedDecor then return false end
+
+    return ownedDecor[itemID] ~= nil
+end
+
+-- Save an item as owned in our persistent cache
+function DecorData:SavePersistentOwnership(itemID, name, recordID)
+    if not itemID then return end
+    if not HA.Addon or not HA.Addon.db then return end
+
+    -- Ensure the table exists
+    if not HA.Addon.db.global.ownedDecor then
+        HA.Addon.db.global.ownedDecor = {}
+    end
+
+    local ownedDecor = HA.Addon.db.global.ownedDecor
+
+    -- Only update if not already cached, or update lastSeen
+    if not ownedDecor[itemID] then
+        ownedDecor[itemID] = {
+            name = name,
+            recordID = recordID,
+            firstSeen = time(),
+            lastSeen = time(),
+        }
+        if HA.Addon.db.profile.debug then
+            HA.Addon:Debug("Cached owned decor:", name or itemID)
+        end
+    else
+        -- Update lastSeen timestamp
+        ownedDecor[itemID].lastSeen = time()
+    end
+end
+
+-- Remove an item from persistent ownership cache (for manual corrections)
+function DecorData:RemovePersistentOwnership(itemID)
+    if not itemID then return end
+    if not HA.Addon or not HA.Addon.db then return end
+
+    local ownedDecor = HA.Addon.db.global.ownedDecor
+    if ownedDecor then
+        ownedDecor[itemID] = nil
+    end
+end
+
+-- Get persistent ownership cache stats
+function DecorData:GetPersistentCacheStats()
+    if not HA.Addon or not HA.Addon.db then
+        return { count = 0 }
+    end
+
+    local ownedDecor = HA.Addon.db.global.ownedDecor
+    if not ownedDecor then
+        return { count = 0 }
+    end
+
+    local count = 0
+    for _ in pairs(ownedDecor) do
+        count = count + 1
+    end
+
+    return { count = count }
 end

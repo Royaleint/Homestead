@@ -1,0 +1,178 @@
+[
+  {
+    "name": ".classic",
+    "path": ".contrib/.classic",
+    "sha": "6f5b8eacc481a13509e70086919b2e15fdb65ef7",
+    "size": 0,
+    "url": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/contents/.contrib/.classic?ref=master",
+    "html_url": "https://github.com/ATTWoWAddon/AllTheThings/tree/master/.contrib/.classic",
+    "git_url": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/git/trees/6f5b8eacc481a13509e70086919b2e15fdb65ef7",
+    "download_url": null,
+    "type": "dir",
+    "_links": {
+      "self": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/contents/.contrib/.classic?ref=master",
+      "git": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/git/trees/6f5b8eacc481a13509e70086919b2e15fdb65ef7",
+      "html": "https://github.com/ATTWoWAddon/AllTheThings/tree/master/.contrib/.classic"
+    }
+  },
+  {
+    "name": ".raw",
+    "path": ".contrib/.raw",
+    "sha": "35268ee1c67da85ee50501f7df1125e52d388087",
+    "size": 0,
+    "url": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/contents/.contrib/.raw?ref=master",
+    "html_url": "https://github.com/ATTWoWAddon/AllTheThings/tree/master/.contrib/.raw",
+    "git_url": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/git/trees/35268ee1c67da85ee50501f7df1125e52d388087",
+    "download_url": null,
+    "type": "dir",
+    "_links": {
+      "self": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/contents/.contrib/.raw?ref=master",
+      "git": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/git/trees/35268ee1c67da85ee50501f7df1125e52d388087",
+      "html": "https://github.com/ATTWoWAddon/AllTheThings/tree/master/.contrib/.raw"
+    }
+  },
+  {
+    "name": ".source",
+    "path": ".contrib/.source",
+    "sha": "06149d676ee56dc56367387e99e9a83ad9c912b6",
+    "size": 0,
+    "url": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/contents/.contrib/.source?ref=master",
+    "html_url": "https://github.com/ATTWoWAddon/AllTheThings/tree/master/.contrib/.source",
+    "git_url": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/git/trees/06149d676ee56dc56367387e99e9a83ad9c912b6",
+    "download_url": null,
+    "type": "dir",
+    "_links": {
+      "self": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/contents/.contrib/.source?ref=master",
+      "git": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/git/trees/06149d676ee56dc56367387e99e9a83ad9c912b6",
+      "html": "https://github.com/ATTWoWAddon/AllTheThings/tree/master/.contrib/.source"
+    }
+  },
+  {
+    "name": ".tools",
+    "path": ".contrib/.tools",
+    "sha": "44034d2f133033d2e2de924b7935386846ecea4c",
+    "size": 0,
+    "url": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/contents/.contrib/.tools?ref=master",
+    "html_url": "https://github.com/ATTWoWAddon/AllTheThings/tree/master/.contrib/.tools",
+    "git_url": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/git/trees/44034d2f133033d2e2de924b7935386846ecea4c",
+    "download_url": null,
+    "type": "dir",
+    "_links": {
+      "self": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/contents/.contrib/.tools?ref=master",
+      "git": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/git/trees/44034d2f133033d2e2de924b7935386846ecea4c",
+      "html": "https://github.com/ATTWoWAddon/AllTheThings/tree/master/.contrib/.tools"
+    }
+  },
+  {
+    "name": ".wago",
+    "path": ".contrib/.wago",
+    "sha": "59e22d59c1cd452a6763ca55ec4fc88a694bb93d",
+    "size": 0,
+    "url": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/contents/.contrib/.wago?ref=master",
+    "html_url": "https://github.com/ATTWoWAddon/AllTheThings/tree/master/.contrib/.wago",
+    "git_url": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/git/trees/59e22d59c1cd452a6763ca55ec4fc88a694bb93d",
+    "download_url": null,
+    "type": "dir",
+    "_links": {
+      "self": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/contents/.contrib/.wago?ref=master",
+      "git": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/git/trees/59e22d59c1cd452a6763ca55ec4fc88a694bb93d",
+      "html": "https://github.com/ATTWoWAddon/AllTheThings/tree/master/.contrib/.wago"
+    }
+  },
+  {
+    "name": "GlobalStrings.lua",
+    "path": ".contrib/GlobalStrings.lua",
+    "sha": "cbf0fd8117d1ce4f2fabc7e11ef4ace5cb751826",
+    "size": 1557511,
+    "url": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/contents/.contrib/GlobalStrings.lua?ref=master",
+    "html_url": "https://github.com/ATTWoWAddon/AllTheThings/blob/master/.contrib/GlobalStrings.lua",
+    "git_url": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/git/blobs/cbf0fd8117d1ce4f2fabc7e11ef4ace5cb751826",
+    "download_url": "https://raw.githubusercontent.com/ATTWoWAddon/AllTheThings/master/.contrib/GlobalStrings.lua",
+    "type": "file",
+    "_links": {
+      "self": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/contents/.contrib/GlobalStrings.lua?ref=master",
+      "git": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/git/blobs/cbf0fd8117d1ce4f2fabc7e11ef4ace5cb751826",
+      "html": "https://github.com/ATTWoWAddon/AllTheThings/blob/master/.contrib/GlobalStrings.lua"
+    }
+  },
+  {
+    "name": "Harvesters",
+    "path": ".contrib/Harvesters",
+    "sha": "d491de369074e31e8442147e32e54cb565a7d638",
+    "size": 0,
+    "url": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/contents/.contrib/Harvesters?ref=master",
+    "html_url": "https://github.com/ATTWoWAddon/AllTheThings/tree/master/.contrib/Harvesters",
+    "git_url": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/git/trees/d491de369074e31e8442147e32e54cb565a7d638",
+    "download_url": null,
+    "type": "dir",
+    "_links": {
+      "self": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/contents/.contrib/Harvesters?ref=master",
+      "git": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/git/trees/d491de369074e31e8442147e32e54cb565a7d638",
+      "html": "https://github.com/ATTWoWAddon/AllTheThings/tree/master/.contrib/Harvesters"
+    }
+  },
+  {
+    "name": "Parser",
+    "path": ".contrib/Parser",
+    "sha": "d9795028b8766cc1ee7b62a7ca76f0e9fdf10286",
+    "size": 0,
+    "url": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/contents/.contrib/Parser?ref=master",
+    "html_url": "https://github.com/ATTWoWAddon/AllTheThings/tree/master/.contrib/Parser",
+    "git_url": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/git/trees/d9795028b8766cc1ee7b62a7ca76f0e9fdf10286",
+    "download_url": null,
+    "type": "dir",
+    "_links": {
+      "self": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/contents/.contrib/Parser?ref=master",
+      "git": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/git/trees/d9795028b8766cc1ee7b62a7ca76f0e9fdf10286",
+      "html": "https://github.com/ATTWoWAddon/AllTheThings/tree/master/.contrib/Parser"
+    }
+  },
+  {
+    "name": "Source Code",
+    "path": ".contrib/Source Code",
+    "sha": "271b9fafebe2d3cf81c69777af3817ab22b46de8",
+    "size": 0,
+    "url": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/contents/.contrib/Source%20Code?ref=master",
+    "html_url": "https://github.com/ATTWoWAddon/AllTheThings/tree/master/.contrib/Source%20Code",
+    "git_url": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/git/trees/271b9fafebe2d3cf81c69777af3817ab22b46de8",
+    "download_url": null,
+    "type": "dir",
+    "_links": {
+      "self": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/contents/.contrib/Source%20Code?ref=master",
+      "git": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/git/trees/271b9fafebe2d3cf81c69777af3817ab22b46de8",
+      "html": "https://github.com/ATTWoWAddon/AllTheThings/tree/master/.contrib/Source%20Code"
+    }
+  },
+  {
+    "name": "Standard.lua",
+    "path": ".contrib/Standard.lua",
+    "sha": "84997ce17c2ffb5bcd07d8ce94be03430916432a",
+    "size": 7825,
+    "url": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/contents/.contrib/Standard.lua?ref=master",
+    "html_url": "https://github.com/ATTWoWAddon/AllTheThings/blob/master/.contrib/Standard.lua",
+    "git_url": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/git/blobs/84997ce17c2ffb5bcd07d8ce94be03430916432a",
+    "download_url": "https://raw.githubusercontent.com/ATTWoWAddon/AllTheThings/master/.contrib/Standard.lua",
+    "type": "file",
+    "_links": {
+      "self": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/contents/.contrib/Standard.lua?ref=master",
+      "git": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/git/blobs/84997ce17c2ffb5bcd07d8ce94be03430916432a",
+      "html": "https://github.com/ATTWoWAddon/AllTheThings/blob/master/.contrib/Standard.lua"
+    }
+  },
+  {
+    "name": "Update.bat",
+    "path": ".contrib/Update.bat",
+    "sha": "468b67548f55b08800d08cdd7d0a5d4575da721f",
+    "size": 419,
+    "url": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/contents/.contrib/Update.bat?ref=master",
+    "html_url": "https://github.com/ATTWoWAddon/AllTheThings/blob/master/.contrib/Update.bat",
+    "git_url": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/git/blobs/468b67548f55b08800d08cdd7d0a5d4575da721f",
+    "download_url": "https://raw.githubusercontent.com/ATTWoWAddon/AllTheThings/master/.contrib/Update.bat",
+    "type": "file",
+    "_links": {
+      "self": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/contents/.contrib/Update.bat?ref=master",
+      "git": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/git/blobs/468b67548f55b08800d08cdd7d0a5d4575da721f",
+      "html": "https://github.com/ATTWoWAddon/AllTheThings/blob/master/.contrib/Update.bat"
+    }
+  }
+]

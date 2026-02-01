@@ -7,7 +7,7 @@
 ## IconTexture: Interface\AddOns\Homestead\Textures\icon
 ## Category: Housing
 ## X-Website: https://github.com/Royaleint/Homestead
-## X-License: MIT
+## X-License: GPL-3.0
 
 # Libraries
 embeds.xml

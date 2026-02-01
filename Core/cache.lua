@@ -1,5 +1,5 @@
 --[[
-    HousingAddon - Cache
+    Homestead - Cache
     Multi-tier caching system for API responses
 ]]
 
@@ -71,13 +71,35 @@ local MAX_ENTRIES = Constants.Cache and Constants.Cache.MAX_ENTRIES or 1000
 -- Initialize the cache system
 function Cache:Initialize()
     -- Register for events that should invalidate cache
+    -- Note: Housing events may have different names or may not exist yet
+    -- We'll use a safe registration approach
     if HA.Addon then
-        HA.Addon:RegisterEvent("HOUSING_CATALOG_UPDATED", function()
-            Cache:InvalidateTier("decor")
-        end)
+        -- Try to register housing events safely
+        local housingEvents = {
+            "HOUSING_CATALOG_UPDATED",
+            "HOUSING_DECOR_PLACE_SUCCESS",
+            "HOUSING_DECOR_REMOVE_SUCCESS",
+        }
+
+        for _, eventName in ipairs(housingEvents) do
+            -- Use pcall to safely attempt registration
+            local success = pcall(function()
+                HA.Addon:RegisterEvent(eventName, function()
+                    Cache:InvalidateTier("decor")
+                end)
+            end)
+            if success then
+                HA.Addon:Debug("Registered event:", eventName)
+            end
+        end
+
+        -- Start maintenance timer
+        Cache:StartMaintenanceTimer(60)
     end
 
-    HA.Addon:Debug("Cache system initialized")
+    if HA.Addon then
+        HA.Addon:Debug("Cache system initialized")
+    end
 end
 
 -- Get a value from cache

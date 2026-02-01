@@ -1,5 +1,5 @@
 --[[
-    HousingAddon - Merchant Overlays
+    Homestead - Merchant Overlays
     Overlays for vendor/merchant frames
 ]]
 

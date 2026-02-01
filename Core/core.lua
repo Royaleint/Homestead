@@ -128,9 +128,14 @@ function HousingAddon:InitializeMinimapButton()
             if button == "LeftButton" then
                 self:ToggleMainFrame()
             elseif button == "RightButton" then
-                self:OpenOptions()
+                if IsShiftKeyDown() then
+                    if HA.ExportImport and HA.ExportImport.ShowExportDialog then
+                        HA.ExportImport:ShowExportDialog()
+                    end
+                else
+                    self:OpenOptions()
+                end
             elseif button == "MiddleButton" then
-                -- Middle-click: trigger a catalog scan
                 if HA.CatalogScanner and HA.CatalogScanner.ManualScan then
                     HA.CatalogScanner:ManualScan()
                 else
@@ -174,6 +179,7 @@ function HousingAddon:InitializeMinimapButton()
             tooltip:AddLine(" ")
             tooltip:AddLine("|cFFFFFFFFLeft-Click:|r Toggle main window")
             tooltip:AddLine("|cFFFFFFFFMiddle-Click:|r Scan collection")
+            tooltip:AddLine("|cFFFFFFFFShift+Right-Click:|r Export data")
             tooltip:AddLine("|cFFFFFFFFRight-Click:|r Open options")
         end,
     })
@@ -220,11 +226,22 @@ function HousingAddon:SlashCommandHandler(input)
         self:ShowNPCIDCorrections()
     elseif input == "debugglobal" then
         self:DebugGlobalData()
+    elseif input == "aliases" then
+        self:ShowAliases()
+    elseif input == "clearaliases" then
+        if HomesteadDB and HomesteadDB.global then
+            HomesteadDB.global.discoveredAliases = {}
+            self:Print("Cleared all discovered aliases")
+        end
     elseif input == "help" then
         self:PrintHelp()
     elseif input == "export" then
         if HA.ExportImport then
-            HA.ExportImport:ExportScannedVendors()
+            HA.ExportImport:ExportScannedVendors(false)
+        end
+    elseif input == "export full" then
+        if HA.ExportImport then
+            HA.ExportImport:ExportScannedVendors(true)
         end
     elseif input == "import" then
         if HA.ExportImport then
@@ -242,10 +259,210 @@ function HousingAddon:SlashCommandHandler(input)
         if HA.AchievementDecor and HA.AchievementDecor.DebugPrint then
             HA.AchievementDecor:DebugPrint()
         end
+    elseif input:match("^testlookup%s+") or input:match("^testlookup$") then
+        local itemIDStr = input:match("^testlookup%s+(%d+)$")
+        self:TestItemLookup(itemIDStr and tonumber(itemIDStr))
+    elseif input:match("^testsource%s+") or input:match("^testsource$") then
+        local itemIDStr = input:match("^testsource%s+(%d+)$")
+        self:TestSourceInfo(itemIDStr and tonumber(itemIDStr))
     else
         self:Print("Unknown command:", input)
         self:PrintHelp()
     end
+end
+
+-- Test item lookup in vendor database (debug command)
+function HousingAddon:TestItemLookup(itemID)
+    if not itemID then
+        self:Print("Usage: /hs testlookup <itemID>")
+        self:Print("Example: /hs testlookup 248333")
+        return
+    end
+
+    self:Print("Testing lookup for itemID:", itemID)
+
+    -- Check if index exists
+    if not HA.VendorDatabase then
+        self:Print("  ERROR: VendorDatabase not loaded")
+        return
+    end
+
+    if not HA.VendorDatabase.ByItemID then
+        self:Print("  WARNING: ByItemID index not built")
+        self:Print("  Falling back to iteration...")
+    else
+        local indexEntry = HA.VendorDatabase.ByItemID[itemID]
+        if indexEntry then
+            self:Print("  Index: FOUND (" .. #indexEntry .. " vendor(s))")
+        else
+            self:Print("  Index: NOT FOUND")
+        end
+    end
+
+    -- Use VendorData to get vendors
+    if HA.VendorData then
+        local vendors = HA.VendorData:GetVendorsForItem(itemID)
+        if #vendors > 0 then
+            self:Print("  Result: " .. #vendors .. " vendor(s) found:")
+            for i, vendor in ipairs(vendors) do
+                local info = string.format("    %d. %s (NPC %d) - %s",
+                    i,
+                    vendor.name or "Unknown",
+                    vendor.npcID or 0,
+                    vendor.zone or "Unknown Zone"
+                )
+                self:Print(info)
+                if vendor.notes then
+                    self:Print("       Note: " .. vendor.notes)
+                end
+            end
+        else
+            self:Print("  Result: No vendors found for this item")
+        end
+    else
+        self:Print("  ERROR: VendorData not loaded")
+    end
+
+    -- Try to get item name
+    local itemName = C_Item.GetItemNameByID(itemID)
+    if itemName then
+        self:Print("  Item name: " .. itemName)
+    end
+end
+
+-- Test C_HousingCatalog source info for an item (debug command)
+function HousingAddon:TestSourceInfo(itemID)
+    -- If no itemID provided, try to get from mouseover tooltip
+    if not itemID then
+        if GameTooltip and GameTooltip:IsShown() then
+            local _, itemLink = GameTooltip:GetItem()
+            if itemLink then
+                itemID = tonumber(itemLink:match("item:(%d+)"))
+                if itemID then
+                    self:Print("Using mouseover item:", itemLink)
+                end
+            end
+        end
+    end
+
+    if not itemID then
+        self:Print("Usage: /hs testsource <itemID>")
+        self:Print("       /hs testsource          (uses mouseover item)")
+        self:Print("Example: /hs testsource 245561")
+        return
+    end
+
+    self:Print("Testing C_HousingCatalog for itemID:", itemID)
+
+    -- Get item info
+    local itemName = C_Item.GetItemNameByID(itemID)
+    if itemName then
+        self:Print("  Item name:", itemName)
+    else
+        self:Print("  Item name: (not cached, may need to mouseover first)")
+    end
+
+    -- Check if C_HousingCatalog exists
+    if not C_HousingCatalog or not C_HousingCatalog.GetCatalogEntryInfoByItem then
+        self:Print("  ERROR: C_HousingCatalog API not available")
+        return
+    end
+
+    -- Build item link
+    local itemLink = "item:" .. itemID
+
+    -- Try to get catalog entry info
+    local success, info = pcall(function()
+        return C_HousingCatalog.GetCatalogEntryInfoByItem(itemLink, true)
+    end)
+
+    if not success then
+        self:Print("  ERROR: API call failed:", info)
+        return
+    end
+
+    if not info then
+        self:Print("  Result: Not a housing decor item (info is nil)")
+        return
+    end
+
+    self:Print("  Result: Housing decor item found!")
+
+    -- Print all available fields
+    if info.name then
+        self:Print("    name:", info.name)
+    end
+    if info.sourceText then
+        self:Print("    sourceText:", info.sourceText)
+    else
+        self:Print("    sourceText: (nil - no source text from API)")
+    end
+    if info.entrySubtype then
+        local subtypeNames = {
+            [0] = "Invalid",
+            [1] = "Unowned",
+            [2] = "Owned",
+        }
+        self:Print("    entrySubtype:", info.entrySubtype, "(" .. (subtypeNames[info.entrySubtype] or "Unknown") .. ")")
+    end
+    if info.quantity then
+        self:Print("    quantity:", info.quantity)
+    end
+    if info.numPlaced then
+        self:Print("    numPlaced:", info.numPlaced)
+    end
+    if info.categoryID then
+        self:Print("    categoryID:", info.categoryID)
+    end
+    if info.subcategoryID then
+        self:Print("    subcategoryID:", info.subcategoryID)
+    end
+
+    -- Check our VendorDatabase for this item
+    if HA.VendorData then
+        local vendors = HA.VendorData:GetVendorsForItem(itemID)
+        if #vendors > 0 then
+            self:Print("  VendorDatabase: Found in " .. #vendors .. " vendor(s)")
+            for i, vendor in ipairs(vendors) do
+                self:Print("    - " .. (vendor.name or "Unknown") .. " (" .. (vendor.zone or "Unknown") .. ")")
+            end
+        else
+            self:Print("  VendorDatabase: Not found (may be achievement/quest item)")
+        end
+    end
+end
+
+function HousingAddon:ShowAliases()
+    self:Print("=== NPC ID Aliases ===")
+
+    if not HA.VendorDatabase then
+        self:Print("VendorDatabase not loaded")
+        return
+    end
+
+    local staticCount, discoveredCount = HA.VendorDatabase:GetAliasCount()
+    self:Print("Static aliases:", staticCount)
+    self:Print("Discovered aliases:", discoveredCount)
+
+    if HomesteadDB and HomesteadDB.global and HomesteadDB.global.discoveredAliases then
+        self:Print(" ")
+        self:Print("Discovered (pending review):")
+        local hasAny = false
+        for npcID, data in pairs(HomesteadDB.global.discoveredAliases) do
+            hasAny = true
+            local status = data.confirmed and "|cFF00FF00confirmed|r" or "|cFFFFFF00pending|r"
+            local canonicalVendor = HA.VendorDatabase.Vendors[data.canonical]
+            local vendorName = canonicalVendor and canonicalVendor.name or data.name or "Unknown"
+            self:Print(string.format("  %d -> %d (%s) [%s] seen %dx",
+                npcID, data.canonical, vendorName, status, data.encounters or 1))
+        end
+        if not hasAny then
+            self:Print("  (none)")
+        end
+    end
+
+    self:Print(" ")
+    self:Print("Use '/hs clearaliases' to clear discovered aliases")
 end
 
 function HousingAddon:PrintHelp()
@@ -260,9 +477,14 @@ function HousingAddon:PrintHelp()
     self:Print("  /hs clearcache - Clear ownership cache")
     self:Print("  /hs refreshmap - Refresh world map pins")
     self:Print("  /hs corrections - Show NPC ID corrections found")
-    self:Print("  /hs export - Export scanned vendor data")
+    self:Print("  /hs aliases - Show NPC ID alias mappings")
+    self:Print("  /hs clearaliases - Clear discovered aliases")
+    self:Print("  /hs export - Export NEW vendor data (differential)")
+    self:Print("  /hs export full - Export ALL scanned vendor data")
     self:Print("  /hs import - Import vendor data")
     self:Print("  /hs validate - Validate vendor database")
+    self:Print("  /hs testlookup <itemID> - Test item source lookup")
+    self:Print("  /hs testsource [itemID] - Test C_HousingCatalog API")
     self:Print("  /hs debug - Toggle debug mode")
     self:Print("  /hs help - Show this help")
 end

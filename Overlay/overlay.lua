@@ -1,5 +1,5 @@
 --[[
-    HousingAddon - Overlay System
+    Homestead - Overlay System
     Core framework for displaying collection status icons on item frames
 
     IMPORTANT: This is an original implementation built from scratch.

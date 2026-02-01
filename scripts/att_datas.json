@@ -1,0 +1,418 @@
+[
+  {
+    "name": "00 - DB",
+    "path": ".contrib/Parser/DATAS/00 - DB",
+    "sha": "2737f0ec0c3d603d1eb5db8ef0cd56d8f786a599",
+    "size": 0,
+    "url": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/contents/.contrib/Parser/DATAS/00%20-%20DB?ref=master",
+    "html_url": "https://github.com/ATTWoWAddon/AllTheThings/tree/master/.contrib/Parser/DATAS/00%20-%20DB",
+    "git_url": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/git/trees/2737f0ec0c3d603d1eb5db8ef0cd56d8f786a599",
+    "download_url": null,
+    "type": "dir",
+    "_links": {
+      "self": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/contents/.contrib/Parser/DATAS/00%20-%20DB?ref=master",
+      "git": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/git/trees/2737f0ec0c3d603d1eb5db8ef0cd56d8f786a599",
+      "html": "https://github.com/ATTWoWAddon/AllTheThings/tree/master/.contrib/Parser/DATAS/00%20-%20DB"
+    }
+  },
+  {
+    "name": "00 - Item DB",
+    "path": ".contrib/Parser/DATAS/00 - Item DB",
+    "sha": "f318a0d5b6fdd2ac584cbb513e7b35565e9ed81d",
+    "size": 0,
+    "url": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/contents/.contrib/Parser/DATAS/00%20-%20Item%20DB?ref=master",
+    "html_url": "https://github.com/ATTWoWAddon/AllTheThings/tree/master/.contrib/Parser/DATAS/00%20-%20Item%20DB",
+    "git_url": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/git/trees/f318a0d5b6fdd2ac584cbb513e7b35565e9ed81d",
+    "download_url": null,
+    "type": "dir",
+    "_links": {
+      "self": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/contents/.contrib/Parser/DATAS/00%20-%20Item%20DB?ref=master",
+      "git": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/git/trees/f318a0d5b6fdd2ac584cbb513e7b35565e9ed81d",
+      "html": "https://github.com/ATTWoWAddon/AllTheThings/tree/master/.contrib/Parser/DATAS/00%20-%20Item%20DB"
+    }
+  },
+  {
+    "name": "00 - Missing DB",
+    "path": ".contrib/Parser/DATAS/00 - Missing DB",
+    "sha": "c7707c25c9da6ad0abf19d149f213223ce91b398",
+    "size": 0,
+    "url": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/contents/.contrib/Parser/DATAS/00%20-%20Missing%20DB?ref=master",
+    "html_url": "https://github.com/ATTWoWAddon/AllTheThings/tree/master/.contrib/Parser/DATAS/00%20-%20Missing%20DB",
+    "git_url": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/git/trees/c7707c25c9da6ad0abf19d149f213223ce91b398",
+    "download_url": null,
+    "type": "dir",
+    "_links": {
+      "self": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/contents/.contrib/Parser/DATAS/00%20-%20Missing%20DB?ref=master",
+      "git": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/git/trees/c7707c25c9da6ad0abf19d149f213223ce91b398",
+      "html": "https://github.com/ATTWoWAddon/AllTheThings/tree/master/.contrib/Parser/DATAS/00%20-%20Missing%20DB"
+    }
+  },
+  {
+    "name": "00 - Profession DB",
+    "path": ".contrib/Parser/DATAS/00 - Profession DB",
+    "sha": "24f9b056cc187d90956cd8ac6345fe8e6c427301",
+    "size": 0,
+    "url": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/contents/.contrib/Parser/DATAS/00%20-%20Profession%20DB?ref=master",
+    "html_url": "https://github.com/ATTWoWAddon/AllTheThings/tree/master/.contrib/Parser/DATAS/00%20-%20Profession%20DB",
+    "git_url": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/git/trees/24f9b056cc187d90956cd8ac6345fe8e6c427301",
+    "download_url": null,
+    "type": "dir",
+    "_links": {
+      "self": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/contents/.contrib/Parser/DATAS/00%20-%20Profession%20DB?ref=master",
+      "git": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/git/trees/24f9b056cc187d90956cd8ac6345fe8e6c427301",
+      "html": "https://github.com/ATTWoWAddon/AllTheThings/tree/master/.contrib/Parser/DATAS/00%20-%20Profession%20DB"
+    }
+  },
+  {
+    "name": "01 - Dungeons Raids",
+    "path": ".contrib/Parser/DATAS/01 - Dungeons Raids",
+    "sha": "e79047b04ff658adebb7f8655d93be6651886073",
+    "size": 0,
+    "url": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/contents/.contrib/Parser/DATAS/01%20-%20Dungeons%20Raids?ref=master",
+    "html_url": "https://github.com/ATTWoWAddon/AllTheThings/tree/master/.contrib/Parser/DATAS/01%20-%20Dungeons%20Raids",
+    "git_url": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/git/trees/e79047b04ff658adebb7f8655d93be6651886073",
+    "download_url": null,
+    "type": "dir",
+    "_links": {
+      "self": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/contents/.contrib/Parser/DATAS/01%20-%20Dungeons%20Raids?ref=master",
+      "git": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/git/trees/e79047b04ff658adebb7f8655d93be6651886073",
+      "html": "https://github.com/ATTWoWAddon/AllTheThings/tree/master/.contrib/Parser/DATAS/01%20-%20Dungeons%20Raids"
+    }
+  },
+  {
+    "name": "02 - Delves",
+    "path": ".contrib/Parser/DATAS/02 - Delves",
+    "sha": "f9e096a5c0d14ab1dea02435d4989d3c6a580c33",
+    "size": 0,
+    "url": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/contents/.contrib/Parser/DATAS/02%20-%20Delves?ref=master",
+    "html_url": "https://github.com/ATTWoWAddon/AllTheThings/tree/master/.contrib/Parser/DATAS/02%20-%20Delves",
+    "git_url": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/git/trees/f9e096a5c0d14ab1dea02435d4989d3c6a580c33",
+    "download_url": null,
+    "type": "dir",
+    "_links": {
+      "self": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/contents/.contrib/Parser/DATAS/02%20-%20Delves?ref=master",
+      "git": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/git/trees/f9e096a5c0d14ab1dea02435d4989d3c6a580c33",
+      "html": "https://github.com/ATTWoWAddon/AllTheThings/tree/master/.contrib/Parser/DATAS/02%20-%20Delves"
+    }
+  },
+  {
+    "name": "02 - Outdoor Zones",
+    "path": ".contrib/Parser/DATAS/02 - Outdoor Zones",
+    "sha": "a7fbf7f66e81791d58b49f8294cf21a33d398220",
+    "size": 0,
+    "url": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/contents/.contrib/Parser/DATAS/02%20-%20Outdoor%20Zones?ref=master",
+    "html_url": "https://github.com/ATTWoWAddon/AllTheThings/tree/master/.contrib/Parser/DATAS/02%20-%20Outdoor%20Zones",
+    "git_url": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/git/trees/a7fbf7f66e81791d58b49f8294cf21a33d398220",
+    "download_url": null,
+    "type": "dir",
+    "_links": {
+      "self": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/contents/.contrib/Parser/DATAS/02%20-%20Outdoor%20Zones?ref=master",
+      "git": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/git/trees/a7fbf7f66e81791d58b49f8294cf21a33d398220",
+      "html": "https://github.com/ATTWoWAddon/AllTheThings/tree/master/.contrib/Parser/DATAS/02%20-%20Outdoor%20Zones"
+    }
+  },
+  {
+    "name": "03 - World Drops",
+    "path": ".contrib/Parser/DATAS/03 - World Drops",
+    "sha": "a035b16c84e95047e9690297fcf38e5f9f576e8e",
+    "size": 0,
+    "url": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/contents/.contrib/Parser/DATAS/03%20-%20World%20Drops?ref=master",
+    "html_url": "https://github.com/ATTWoWAddon/AllTheThings/tree/master/.contrib/Parser/DATAS/03%20-%20World%20Drops",
+    "git_url": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/git/trees/a035b16c84e95047e9690297fcf38e5f9f576e8e",
+    "download_url": null,
+    "type": "dir",
+    "_links": {
+      "self": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/contents/.contrib/Parser/DATAS/03%20-%20World%20Drops?ref=master",
+      "git": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/git/trees/a035b16c84e95047e9690297fcf38e5f9f576e8e",
+      "html": "https://github.com/ATTWoWAddon/AllTheThings/tree/master/.contrib/Parser/DATAS/03%20-%20World%20Drops"
+    }
+  },
+  {
+    "name": "04 - Group Finder",
+    "path": ".contrib/Parser/DATAS/04 - Group Finder",
+    "sha": "cda65ef5e54ba4f7dfa336853d67603a01e40648",
+    "size": 0,
+    "url": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/contents/.contrib/Parser/DATAS/04%20-%20Group%20Finder?ref=master",
+    "html_url": "https://github.com/ATTWoWAddon/AllTheThings/tree/master/.contrib/Parser/DATAS/04%20-%20Group%20Finder",
+    "git_url": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/git/trees/cda65ef5e54ba4f7dfa336853d67603a01e40648",
+    "download_url": null,
+    "type": "dir",
+    "_links": {
+      "self": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/contents/.contrib/Parser/DATAS/04%20-%20Group%20Finder?ref=master",
+      "git": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/git/trees/cda65ef5e54ba4f7dfa336853d67603a01e40648",
+      "html": "https://github.com/ATTWoWAddon/AllTheThings/tree/master/.contrib/Parser/DATAS/04%20-%20Group%20Finder"
+    }
+  },
+  {
+    "name": "05 - Achievements",
+    "path": ".contrib/Parser/DATAS/05 - Achievements",
+    "sha": "fababf96ebcb72e665ccaeec4880768a1b783bd4",
+    "size": 0,
+    "url": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/contents/.contrib/Parser/DATAS/05%20-%20Achievements?ref=master",
+    "html_url": "https://github.com/ATTWoWAddon/AllTheThings/tree/master/.contrib/Parser/DATAS/05%20-%20Achievements",
+    "git_url": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/git/trees/fababf96ebcb72e665ccaeec4880768a1b783bd4",
+    "download_url": null,
+    "type": "dir",
+    "_links": {
+      "self": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/contents/.contrib/Parser/DATAS/05%20-%20Achievements?ref=master",
+      "git": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/git/trees/fababf96ebcb72e665ccaeec4880768a1b783bd4",
+      "html": "https://github.com/ATTWoWAddon/AllTheThings/tree/master/.contrib/Parser/DATAS/05%20-%20Achievements"
+    }
+  },
+  {
+    "name": "06 - Expansion Features",
+    "path": ".contrib/Parser/DATAS/06 - Expansion Features",
+    "sha": "1085bd93eade4bd567e44338680a3e7b4afc801e",
+    "size": 0,
+    "url": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/contents/.contrib/Parser/DATAS/06%20-%20Expansion%20Features?ref=master",
+    "html_url": "https://github.com/ATTWoWAddon/AllTheThings/tree/master/.contrib/Parser/DATAS/06%20-%20Expansion%20Features",
+    "git_url": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/git/trees/1085bd93eade4bd567e44338680a3e7b4afc801e",
+    "download_url": null,
+    "type": "dir",
+    "_links": {
+      "self": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/contents/.contrib/Parser/DATAS/06%20-%20Expansion%20Features?ref=master",
+      "git": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/git/trees/1085bd93eade4bd567e44338680a3e7b4afc801e",
+      "html": "https://github.com/ATTWoWAddon/AllTheThings/tree/master/.contrib/Parser/DATAS/06%20-%20Expansion%20Features"
+    }
+  },
+  {
+    "name": "07 - Events",
+    "path": ".contrib/Parser/DATAS/07 - Events",
+    "sha": "7b5ceda25f250c04b95280ffa59ac5e994373376",
+    "size": 0,
+    "url": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/contents/.contrib/Parser/DATAS/07%20-%20Events?ref=master",
+    "html_url": "https://github.com/ATTWoWAddon/AllTheThings/tree/master/.contrib/Parser/DATAS/07%20-%20Events",
+    "git_url": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/git/trees/7b5ceda25f250c04b95280ffa59ac5e994373376",
+    "download_url": null,
+    "type": "dir",
+    "_links": {
+      "self": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/contents/.contrib/Parser/DATAS/07%20-%20Events?ref=master",
+      "git": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/git/trees/7b5ceda25f250c04b95280ffa59ac5e994373376",
+      "html": "https://github.com/ATTWoWAddon/AllTheThings/tree/master/.contrib/Parser/DATAS/07%20-%20Events"
+    }
+  },
+  {
+    "name": "08 - PvP",
+    "path": ".contrib/Parser/DATAS/08 - PvP",
+    "sha": "2aba1e0f012724bf127fbecaa4fad0776a03c040",
+    "size": 0,
+    "url": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/contents/.contrib/Parser/DATAS/08%20-%20PvP?ref=master",
+    "html_url": "https://github.com/ATTWoWAddon/AllTheThings/tree/master/.contrib/Parser/DATAS/08%20-%20PvP",
+    "git_url": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/git/trees/2aba1e0f012724bf127fbecaa4fad0776a03c040",
+    "download_url": null,
+    "type": "dir",
+    "_links": {
+      "self": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/contents/.contrib/Parser/DATAS/08%20-%20PvP?ref=master",
+      "git": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/git/trees/2aba1e0f012724bf127fbecaa4fad0776a03c040",
+      "html": "https://github.com/ATTWoWAddon/AllTheThings/tree/master/.contrib/Parser/DATAS/08%20-%20PvP"
+    }
+  },
+  {
+    "name": "09 - Crafted Items",
+    "path": ".contrib/Parser/DATAS/09 - Crafted Items",
+    "sha": "e77060f7702df333c47b155ffbf3de42077bb588",
+    "size": 0,
+    "url": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/contents/.contrib/Parser/DATAS/09%20-%20Crafted%20Items?ref=master",
+    "html_url": "https://github.com/ATTWoWAddon/AllTheThings/tree/master/.contrib/Parser/DATAS/09%20-%20Crafted%20Items",
+    "git_url": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/git/trees/e77060f7702df333c47b155ffbf3de42077bb588",
+    "download_url": null,
+    "type": "dir",
+    "_links": {
+      "self": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/contents/.contrib/Parser/DATAS/09%20-%20Crafted%20Items?ref=master",
+      "git": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/git/trees/e77060f7702df333c47b155ffbf3de42077bb588",
+      "html": "https://github.com/ATTWoWAddon/AllTheThings/tree/master/.contrib/Parser/DATAS/09%20-%20Crafted%20Items"
+    }
+  },
+  {
+    "name": "10 - Professions",
+    "path": ".contrib/Parser/DATAS/10 - Professions",
+    "sha": "8ecedb3cec7c61da12fe9a3d0aaef7cf4255479b",
+    "size": 0,
+    "url": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/contents/.contrib/Parser/DATAS/10%20-%20Professions?ref=master",
+    "html_url": "https://github.com/ATTWoWAddon/AllTheThings/tree/master/.contrib/Parser/DATAS/10%20-%20Professions",
+    "git_url": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/git/trees/8ecedb3cec7c61da12fe9a3d0aaef7cf4255479b",
+    "download_url": null,
+    "type": "dir",
+    "_links": {
+      "self": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/contents/.contrib/Parser/DATAS/10%20-%20Professions?ref=master",
+      "git": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/git/trees/8ecedb3cec7c61da12fe9a3d0aaef7cf4255479b",
+      "html": "https://github.com/ATTWoWAddon/AllTheThings/tree/master/.contrib/Parser/DATAS/10%20-%20Professions"
+    }
+  },
+  {
+    "name": "10 - Secrets",
+    "path": ".contrib/Parser/DATAS/10 - Secrets",
+    "sha": "812380bef8f8f7f9586e2b97157a7e2da2a0ccd2",
+    "size": 0,
+    "url": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/contents/.contrib/Parser/DATAS/10%20-%20Secrets?ref=master",
+    "html_url": "https://github.com/ATTWoWAddon/AllTheThings/tree/master/.contrib/Parser/DATAS/10%20-%20Secrets",
+    "git_url": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/git/trees/812380bef8f8f7f9586e2b97157a7e2da2a0ccd2",
+    "download_url": null,
+    "type": "dir",
+    "_links": {
+      "self": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/contents/.contrib/Parser/DATAS/10%20-%20Secrets?ref=master",
+      "git": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/git/trees/812380bef8f8f7f9586e2b97157a7e2da2a0ccd2",
+      "html": "https://github.com/ATTWoWAddon/AllTheThings/tree/master/.contrib/Parser/DATAS/10%20-%20Secrets"
+    }
+  },
+  {
+    "name": "11 - Character",
+    "path": ".contrib/Parser/DATAS/11 - Character",
+    "sha": "697d4a3a5124a0e11322dacbf27134ba4a96407e",
+    "size": 0,
+    "url": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/contents/.contrib/Parser/DATAS/11%20-%20Character?ref=master",
+    "html_url": "https://github.com/ATTWoWAddon/AllTheThings/tree/master/.contrib/Parser/DATAS/11%20-%20Character",
+    "git_url": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/git/trees/697d4a3a5124a0e11322dacbf27134ba4a96407e",
+    "download_url": null,
+    "type": "dir",
+    "_links": {
+      "self": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/contents/.contrib/Parser/DATAS/11%20-%20Character?ref=master",
+      "git": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/git/trees/697d4a3a5124a0e11322dacbf27134ba4a96407e",
+      "html": "https://github.com/ATTWoWAddon/AllTheThings/tree/master/.contrib/Parser/DATAS/11%20-%20Character"
+    }
+  },
+  {
+    "name": "12 - Housing",
+    "path": ".contrib/Parser/DATAS/12 - Housing",
+    "sha": "0abc65b19205f794fbe6665075617815d0df7f79",
+    "size": 0,
+    "url": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/contents/.contrib/Parser/DATAS/12%20-%20Housing?ref=master",
+    "html_url": "https://github.com/ATTWoWAddon/AllTheThings/tree/master/.contrib/Parser/DATAS/12%20-%20Housing",
+    "git_url": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/git/trees/0abc65b19205f794fbe6665075617815d0df7f79",
+    "download_url": null,
+    "type": "dir",
+    "_links": {
+      "self": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/contents/.contrib/Parser/DATAS/12%20-%20Housing?ref=master",
+      "git": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/git/trees/0abc65b19205f794fbe6665075617815d0df7f79",
+      "html": "https://github.com/ATTWoWAddon/AllTheThings/tree/master/.contrib/Parser/DATAS/12%20-%20Housing"
+    }
+  },
+  {
+    "name": "12 - Promotions",
+    "path": ".contrib/Parser/DATAS/12 - Promotions",
+    "sha": "fd82b82807420c20d0e2fa2b543a3d8be8777075",
+    "size": 0,
+    "url": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/contents/.contrib/Parser/DATAS/12%20-%20Promotions?ref=master",
+    "html_url": "https://github.com/ATTWoWAddon/AllTheThings/tree/master/.contrib/Parser/DATAS/12%20-%20Promotions",
+    "git_url": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/git/trees/fd82b82807420c20d0e2fa2b543a3d8be8777075",
+    "download_url": null,
+    "type": "dir",
+    "_links": {
+      "self": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/contents/.contrib/Parser/DATAS/12%20-%20Promotions?ref=master",
+      "git": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/git/trees/fd82b82807420c20d0e2fa2b543a3d8be8777075",
+      "html": "https://github.com/ATTWoWAddon/AllTheThings/tree/master/.contrib/Parser/DATAS/12%20-%20Promotions"
+    }
+  },
+  {
+    "name": "13 - Black Market Auction House",
+    "path": ".contrib/Parser/DATAS/13 - Black Market Auction House",
+    "sha": "54091723acdb3b681cd39f776622443b65a02f63",
+    "size": 0,
+    "url": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/contents/.contrib/Parser/DATAS/13%20-%20Black%20Market%20Auction%20House?ref=master",
+    "html_url": "https://github.com/ATTWoWAddon/AllTheThings/tree/master/.contrib/Parser/DATAS/13%20-%20Black%20Market%20Auction%20House",
+    "git_url": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/git/trees/54091723acdb3b681cd39f776622443b65a02f63",
+    "download_url": null,
+    "type": "dir",
+    "_links": {
+      "self": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/contents/.contrib/Parser/DATAS/13%20-%20Black%20Market%20Auction%20House?ref=master",
+      "git": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/git/trees/54091723acdb3b681cd39f776622443b65a02f63",
+      "html": "https://github.com/ATTWoWAddon/AllTheThings/tree/master/.contrib/Parser/DATAS/13%20-%20Black%20Market%20Auction%20House"
+    }
+  },
+  {
+    "name": "13 - In-Game Shop",
+    "path": ".contrib/Parser/DATAS/13 - In-Game Shop",
+    "sha": "9966227785a65488ce79a2e34ee8e4a1f5b1557f",
+    "size": 0,
+    "url": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/contents/.contrib/Parser/DATAS/13%20-%20In-Game%20Shop?ref=master",
+    "html_url": "https://github.com/ATTWoWAddon/AllTheThings/tree/master/.contrib/Parser/DATAS/13%20-%20In-Game%20Shop",
+    "git_url": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/git/trees/9966227785a65488ce79a2e34ee8e4a1f5b1557f",
+    "download_url": null,
+    "type": "dir",
+    "_links": {
+      "self": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/contents/.contrib/Parser/DATAS/13%20-%20In-Game%20Shop?ref=master",
+      "git": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/git/trees/9966227785a65488ce79a2e34ee8e4a1f5b1557f",
+      "html": "https://github.com/ATTWoWAddon/AllTheThings/tree/master/.contrib/Parser/DATAS/13%20-%20In-Game%20Shop"
+    }
+  },
+  {
+    "name": "14 - Trading Post",
+    "path": ".contrib/Parser/DATAS/14 - Trading Post",
+    "sha": "86f462e380d1f95b97b013e6a3c071bc82dfd2f8",
+    "size": 0,
+    "url": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/contents/.contrib/Parser/DATAS/14%20-%20Trading%20Post?ref=master",
+    "html_url": "https://github.com/ATTWoWAddon/AllTheThings/tree/master/.contrib/Parser/DATAS/14%20-%20Trading%20Post",
+    "git_url": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/git/trees/86f462e380d1f95b97b013e6a3c071bc82dfd2f8",
+    "download_url": null,
+    "type": "dir",
+    "_links": {
+      "self": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/contents/.contrib/Parser/DATAS/14%20-%20Trading%20Post?ref=master",
+      "git": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/git/trees/86f462e380d1f95b97b013e6a3c071bc82dfd2f8",
+      "html": "https://github.com/ATTWoWAddon/AllTheThings/tree/master/.contrib/Parser/DATAS/14%20-%20Trading%20Post"
+    }
+  },
+  {
+    "name": "15 - Pet Battles",
+    "path": ".contrib/Parser/DATAS/15 - Pet Battles",
+    "sha": "340bc6edeb07ef23d665b57d5f6647a35e833eb8",
+    "size": 0,
+    "url": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/contents/.contrib/Parser/DATAS/15%20-%20Pet%20Battles?ref=master",
+    "html_url": "https://github.com/ATTWoWAddon/AllTheThings/tree/master/.contrib/Parser/DATAS/15%20-%20Pet%20Battles",
+    "git_url": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/git/trees/340bc6edeb07ef23d665b57d5f6647a35e833eb8",
+    "download_url": null,
+    "type": "dir",
+    "_links": {
+      "self": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/contents/.contrib/Parser/DATAS/15%20-%20Pet%20Battles?ref=master",
+      "git": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/git/trees/340bc6edeb07ef23d665b57d5f6647a35e833eb8",
+      "html": "https://github.com/ATTWoWAddon/AllTheThings/tree/master/.contrib/Parser/DATAS/15%20-%20Pet%20Battles"
+    }
+  },
+  {
+    "name": "17 - NYI",
+    "path": ".contrib/Parser/DATAS/17 - NYI",
+    "sha": "1172dbf915316dd300be486bc48d8955eea92627",
+    "size": 0,
+    "url": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/contents/.contrib/Parser/DATAS/17%20-%20NYI?ref=master",
+    "html_url": "https://github.com/ATTWoWAddon/AllTheThings/tree/master/.contrib/Parser/DATAS/17%20-%20NYI",
+    "git_url": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/git/trees/1172dbf915316dd300be486bc48d8955eea92627",
+    "download_url": null,
+    "type": "dir",
+    "_links": {
+      "self": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/contents/.contrib/Parser/DATAS/17%20-%20NYI?ref=master",
+      "git": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/git/trees/1172dbf915316dd300be486bc48d8955eea92627",
+      "html": "https://github.com/ATTWoWAddon/AllTheThings/tree/master/.contrib/Parser/DATAS/17%20-%20NYI"
+    }
+  },
+  {
+    "name": "21 - Holidays",
+    "path": ".contrib/Parser/DATAS/21 - Holidays",
+    "sha": "ff2f8a359a4335526701bf322c168b0b72716e18",
+    "size": 0,
+    "url": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/contents/.contrib/Parser/DATAS/21%20-%20Holidays?ref=master",
+    "html_url": "https://github.com/ATTWoWAddon/AllTheThings/tree/master/.contrib/Parser/DATAS/21%20-%20Holidays",
+    "git_url": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/git/trees/ff2f8a359a4335526701bf322c168b0b72716e18",
+    "download_url": null,
+    "type": "dir",
+    "_links": {
+      "self": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/contents/.contrib/Parser/DATAS/21%20-%20Holidays?ref=master",
+      "git": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/git/trees/ff2f8a359a4335526701bf322c168b0b72716e18",
+      "html": "https://github.com/ATTWoWAddon/AllTheThings/tree/master/.contrib/Parser/DATAS/21%20-%20Holidays"
+    }
+  },
+  {
+    "name": "23 - NPC Types",
+    "path": ".contrib/Parser/DATAS/23 - NPC Types",
+    "sha": "f58b38c21251684d999507fddf43481c80cc1bdc",
+    "size": 0,
+    "url": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/contents/.contrib/Parser/DATAS/23%20-%20NPC%20Types?ref=master",
+    "html_url": "https://github.com/ATTWoWAddon/AllTheThings/tree/master/.contrib/Parser/DATAS/23%20-%20NPC%20Types",
+    "git_url": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/git/trees/f58b38c21251684d999507fddf43481c80cc1bdc",
+    "download_url": null,
+    "type": "dir",
+    "_links": {
+      "self": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/contents/.contrib/Parser/DATAS/23%20-%20NPC%20Types?ref=master",
+      "git": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/git/trees/f58b38c21251684d999507fddf43481c80cc1bdc",
+      "html": "https://github.com/ATTWoWAddon/AllTheThings/tree/master/.contrib/Parser/DATAS/23%20-%20NPC%20Types"
+    }
+  }
+]

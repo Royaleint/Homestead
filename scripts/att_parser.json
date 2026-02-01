@@ -1,0 +1,530 @@
+[
+  {
+    "name": ".config",
+    "path": ".contrib/Parser/.config",
+    "sha": "ace523d85870381dce037a59f08a69de760a1562",
+    "size": 0,
+    "url": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/contents/.contrib/Parser/.config?ref=master",
+    "html_url": "https://github.com/ATTWoWAddon/AllTheThings/tree/master/.contrib/Parser/.config",
+    "git_url": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/git/trees/ace523d85870381dce037a59f08a69de760a1562",
+    "download_url": null,
+    "type": "dir",
+    "_links": {
+      "self": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/contents/.contrib/Parser/.config?ref=master",
+      "git": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/git/trees/ace523d85870381dce037a59f08a69de760a1562",
+      "html": "https://github.com/ATTWoWAddon/AllTheThings/tree/master/.contrib/Parser/.config"
+    }
+  },
+  {
+    "name": "Csv.dll",
+    "path": ".contrib/Parser/Csv.dll",
+    "sha": "02cf8c81996ec2e60d5aa33298cd225509a5036a",
+    "size": 23040,
+    "url": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/contents/.contrib/Parser/Csv.dll?ref=master",
+    "html_url": "https://github.com/ATTWoWAddon/AllTheThings/blob/master/.contrib/Parser/Csv.dll",
+    "git_url": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/git/blobs/02cf8c81996ec2e60d5aa33298cd225509a5036a",
+    "download_url": "https://raw.githubusercontent.com/ATTWoWAddon/AllTheThings/master/.contrib/Parser/Csv.dll",
+    "type": "file",
+    "_links": {
+      "self": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/contents/.contrib/Parser/Csv.dll?ref=master",
+      "git": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/git/blobs/02cf8c81996ec2e60d5aa33298cd225509a5036a",
+      "html": "https://github.com/ATTWoWAddon/AllTheThings/blob/master/.contrib/Parser/Csv.dll"
+    }
+  },
+  {
+    "name": "Csv.xml",
+    "path": ".contrib/Parser/Csv.xml",
+    "sha": "0268d86930a65985c0556120115f1340b37e41ef",
+    "size": 11712,
+    "url": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/contents/.contrib/Parser/Csv.xml?ref=master",
+    "html_url": "https://github.com/ATTWoWAddon/AllTheThings/blob/master/.contrib/Parser/Csv.xml",
+    "git_url": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/git/blobs/0268d86930a65985c0556120115f1340b37e41ef",
+    "download_url": "https://raw.githubusercontent.com/ATTWoWAddon/AllTheThings/master/.contrib/Parser/Csv.xml",
+    "type": "file",
+    "_links": {
+      "self": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/contents/.contrib/Parser/Csv.xml?ref=master",
+      "git": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/git/blobs/0268d86930a65985c0556120115f1340b37e41ef",
+      "html": "https://github.com/ATTWoWAddon/AllTheThings/blob/master/.contrib/Parser/Csv.xml"
+    }
+  },
+  {
+    "name": "DATAS",
+    "path": ".contrib/Parser/DATAS",
+    "sha": "26a22d87f65f09b9f0137a5886e185e10fc1f353",
+    "size": 0,
+    "url": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/contents/.contrib/Parser/DATAS?ref=master",
+    "html_url": "https://github.com/ATTWoWAddon/AllTheThings/tree/master/.contrib/Parser/DATAS",
+    "git_url": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/git/trees/26a22d87f65f09b9f0137a5886e185e10fc1f353",
+    "download_url": null,
+    "type": "dir",
+    "_links": {
+      "self": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/contents/.contrib/Parser/DATAS?ref=master",
+      "git": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/git/trees/26a22d87f65f09b9f0137a5886e185e10fc1f353",
+      "html": "https://github.com/ATTWoWAddon/AllTheThings/tree/master/.contrib/Parser/DATAS"
+    }
+  },
+  {
+    "name": "KeraLua.dll",
+    "path": ".contrib/Parser/KeraLua.dll",
+    "sha": "65fc0f18345bc851cbec07cd51946c229cab0827",
+    "size": 30208,
+    "url": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/contents/.contrib/Parser/KeraLua.dll?ref=master",
+    "html_url": "https://github.com/ATTWoWAddon/AllTheThings/blob/master/.contrib/Parser/KeraLua.dll",
+    "git_url": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/git/blobs/65fc0f18345bc851cbec07cd51946c229cab0827",
+    "download_url": "https://raw.githubusercontent.com/ATTWoWAddon/AllTheThings/master/.contrib/Parser/KeraLua.dll",
+    "type": "file",
+    "_links": {
+      "self": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/contents/.contrib/Parser/KeraLua.dll?ref=master",
+      "git": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/git/blobs/65fc0f18345bc851cbec07cd51946c229cab0827",
+      "html": "https://github.com/ATTWoWAddon/AllTheThings/blob/master/.contrib/Parser/KeraLua.dll"
+    }
+  },
+  {
+    "name": "NLua.dll",
+    "path": ".contrib/Parser/NLua.dll",
+    "sha": "519d6bc2bda845b1aa2030747e983eeb3c69c234",
+    "size": 84992,
+    "url": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/contents/.contrib/Parser/NLua.dll?ref=master",
+    "html_url": "https://github.com/ATTWoWAddon/AllTheThings/blob/master/.contrib/Parser/NLua.dll",
+    "git_url": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/git/blobs/519d6bc2bda845b1aa2030747e983eeb3c69c234",
+    "download_url": "https://raw.githubusercontent.com/ATTWoWAddon/AllTheThings/master/.contrib/Parser/NLua.dll",
+    "type": "file",
+    "_links": {
+      "self": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/contents/.contrib/Parser/NLua.dll?ref=master",
+      "git": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/git/blobs/519d6bc2bda845b1aa2030747e983eeb3c69c234",
+      "html": "https://github.com/ATTWoWAddon/AllTheThings/blob/master/.contrib/Parser/NLua.dll"
+    }
+  },
+  {
+    "name": "NLua.pdb",
+    "path": ".contrib/Parser/NLua.pdb",
+    "sha": "7f68f451a788942c9de230d982f1230628ea8106",
+    "size": 34996,
+    "url": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/contents/.contrib/Parser/NLua.pdb?ref=master",
+    "html_url": "https://github.com/ATTWoWAddon/AllTheThings/blob/master/.contrib/Parser/NLua.pdb",
+    "git_url": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/git/blobs/7f68f451a788942c9de230d982f1230628ea8106",
+    "download_url": "https://raw.githubusercontent.com/ATTWoWAddon/AllTheThings/master/.contrib/Parser/NLua.pdb",
+    "type": "file",
+    "_links": {
+      "self": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/contents/.contrib/Parser/NLua.pdb?ref=master",
+      "git": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/git/blobs/7f68f451a788942c9de230d982f1230628ea8106",
+      "html": "https://github.com/ATTWoWAddon/AllTheThings/blob/master/.contrib/Parser/NLua.pdb"
+    }
+  },
+  {
+    "name": "Newtonsoft.Json.dll",
+    "path": ".contrib/Parser/Newtonsoft.Json.dll",
+    "sha": "d035c38b4edec5c10d4bc421a2dce19f5f998677",
+    "size": 712464,
+    "url": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/contents/.contrib/Parser/Newtonsoft.Json.dll?ref=master",
+    "html_url": "https://github.com/ATTWoWAddon/AllTheThings/blob/master/.contrib/Parser/Newtonsoft.Json.dll",
+    "git_url": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/git/blobs/d035c38b4edec5c10d4bc421a2dce19f5f998677",
+    "download_url": "https://raw.githubusercontent.com/ATTWoWAddon/AllTheThings/master/.contrib/Parser/Newtonsoft.Json.dll",
+    "type": "file",
+    "_links": {
+      "self": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/contents/.contrib/Parser/Newtonsoft.Json.dll?ref=master",
+      "git": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/git/blobs/d035c38b4edec5c10d4bc421a2dce19f5f998677",
+      "html": "https://github.com/ATTWoWAddon/AllTheThings/blob/master/.contrib/Parser/Newtonsoft.Json.dll"
+    }
+  },
+  {
+    "name": "Parse All.bat",
+    "path": ".contrib/Parser/Parse All.bat",
+    "sha": "0975026ab35cf93467ae574f3ee79ef7983e0537",
+    "size": 587,
+    "url": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/contents/.contrib/Parser/Parse%20All.bat?ref=master",
+    "html_url": "https://github.com/ATTWoWAddon/AllTheThings/blob/master/.contrib/Parser/Parse%20All.bat",
+    "git_url": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/git/blobs/0975026ab35cf93467ae574f3ee79ef7983e0537",
+    "download_url": "https://raw.githubusercontent.com/ATTWoWAddon/AllTheThings/master/.contrib/Parser/Parse%20All.bat",
+    "type": "file",
+    "_links": {
+      "self": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/contents/.contrib/Parser/Parse%20All.bat?ref=master",
+      "git": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/git/blobs/0975026ab35cf93467ae574f3ee79ef7983e0537",
+      "html": "https://github.com/ATTWoWAddon/AllTheThings/blob/master/.contrib/Parser/Parse%20All.bat"
+    }
+  },
+  {
+    "name": "Parser for BETA with Debug Mode.bat",
+    "path": ".contrib/Parser/Parser for BETA with Debug Mode.bat",
+    "sha": "315edf647af9b79ab65428ca05e723a075716038",
+    "size": 102,
+    "url": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/contents/.contrib/Parser/Parser%20for%20BETA%20with%20Debug%20Mode.bat?ref=master",
+    "html_url": "https://github.com/ATTWoWAddon/AllTheThings/blob/master/.contrib/Parser/Parser%20for%20BETA%20with%20Debug%20Mode.bat",
+    "git_url": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/git/blobs/315edf647af9b79ab65428ca05e723a075716038",
+    "download_url": "https://raw.githubusercontent.com/ATTWoWAddon/AllTheThings/master/.contrib/Parser/Parser%20for%20BETA%20with%20Debug%20Mode.bat",
+    "type": "file",
+    "_links": {
+      "self": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/contents/.contrib/Parser/Parser%20for%20BETA%20with%20Debug%20Mode.bat?ref=master",
+      "git": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/git/blobs/315edf647af9b79ab65428ca05e723a075716038",
+      "html": "https://github.com/ATTWoWAddon/AllTheThings/blob/master/.contrib/Parser/Parser%20for%20BETA%20with%20Debug%20Mode.bat"
+    }
+  },
+  {
+    "name": "Parser for BETA.bat",
+    "path": ".contrib/Parser/Parser for BETA.bat",
+    "sha": "0cf27e4485e00de553aa4bb1b21fcce5035caa50",
+    "size": 96,
+    "url": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/contents/.contrib/Parser/Parser%20for%20BETA.bat?ref=master",
+    "html_url": "https://github.com/ATTWoWAddon/AllTheThings/blob/master/.contrib/Parser/Parser%20for%20BETA.bat",
+    "git_url": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/git/blobs/0cf27e4485e00de553aa4bb1b21fcce5035caa50",
+    "download_url": "https://raw.githubusercontent.com/ATTWoWAddon/AllTheThings/master/.contrib/Parser/Parser%20for%20BETA.bat",
+    "type": "file",
+    "_links": {
+      "self": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/contents/.contrib/Parser/Parser%20for%20BETA.bat?ref=master",
+      "git": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/git/blobs/0cf27e4485e00de553aa4bb1b21fcce5035caa50",
+      "html": "https://github.com/ATTWoWAddon/AllTheThings/blob/master/.contrib/Parser/Parser%20for%20BETA.bat"
+    }
+  },
+  {
+    "name": "Parser for Classic (01 - Classic Era) with Debug Mode.bat",
+    "path": ".contrib/Parser/Parser for Classic (01 - Classic Era) with Debug Mode.bat",
+    "sha": "dee68186078232a8dd3da8be7c3fc245bda65ebb",
+    "size": 114,
+    "url": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/contents/.contrib/Parser/Parser%20for%20Classic%20(01%20-%20Classic%20Era)%20with%20Debug%20Mode.bat?ref=master",
+    "html_url": "https://github.com/ATTWoWAddon/AllTheThings/blob/master/.contrib/Parser/Parser%20for%20Classic%20(01%20-%20Classic%20Era)%20with%20Debug%20Mode.bat",
+    "git_url": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/git/blobs/dee68186078232a8dd3da8be7c3fc245bda65ebb",
+    "download_url": "https://raw.githubusercontent.com/ATTWoWAddon/AllTheThings/master/.contrib/Parser/Parser%20for%20Classic%20(01%20-%20Classic%20Era)%20with%20Debug%20Mode.bat",
+    "type": "file",
+    "_links": {
+      "self": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/contents/.contrib/Parser/Parser%20for%20Classic%20(01%20-%20Classic%20Era)%20with%20Debug%20Mode.bat?ref=master",
+      "git": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/git/blobs/dee68186078232a8dd3da8be7c3fc245bda65ebb",
+      "html": "https://github.com/ATTWoWAddon/AllTheThings/blob/master/.contrib/Parser/Parser%20for%20Classic%20(01%20-%20Classic%20Era)%20with%20Debug%20Mode.bat"
+    }
+  },
+  {
+    "name": "Parser for Classic (01 - Classic Era).bat",
+    "path": ".contrib/Parser/Parser for Classic (01 - Classic Era).bat",
+    "sha": "6d94b8f649c19fbc81fc012cb7d01868d36abd83",
+    "size": 61,
+    "url": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/contents/.contrib/Parser/Parser%20for%20Classic%20(01%20-%20Classic%20Era).bat?ref=master",
+    "html_url": "https://github.com/ATTWoWAddon/AllTheThings/blob/master/.contrib/Parser/Parser%20for%20Classic%20(01%20-%20Classic%20Era).bat",
+    "git_url": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/git/blobs/6d94b8f649c19fbc81fc012cb7d01868d36abd83",
+    "download_url": "https://raw.githubusercontent.com/ATTWoWAddon/AllTheThings/master/.contrib/Parser/Parser%20for%20Classic%20(01%20-%20Classic%20Era).bat",
+    "type": "file",
+    "_links": {
+      "self": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/contents/.contrib/Parser/Parser%20for%20Classic%20(01%20-%20Classic%20Era).bat?ref=master",
+      "git": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/git/blobs/6d94b8f649c19fbc81fc012cb7d01868d36abd83",
+      "html": "https://github.com/ATTWoWAddon/AllTheThings/blob/master/.contrib/Parser/Parser%20for%20Classic%20(01%20-%20Classic%20Era).bat"
+    }
+  },
+  {
+    "name": "Parser for Classic (01 - Classic SOD) with Debug Mode.bat",
+    "path": ".contrib/Parser/Parser for Classic (01 - Classic SOD) with Debug Mode.bat",
+    "sha": "924882ced1c1fcb2764c3d6993a2e4a3dd9dba9b",
+    "size": 114,
+    "url": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/contents/.contrib/Parser/Parser%20for%20Classic%20(01%20-%20Classic%20SOD)%20with%20Debug%20Mode.bat?ref=master",
+    "html_url": "https://github.com/ATTWoWAddon/AllTheThings/blob/master/.contrib/Parser/Parser%20for%20Classic%20(01%20-%20Classic%20SOD)%20with%20Debug%20Mode.bat",
+    "git_url": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/git/blobs/924882ced1c1fcb2764c3d6993a2e4a3dd9dba9b",
+    "download_url": "https://raw.githubusercontent.com/ATTWoWAddon/AllTheThings/master/.contrib/Parser/Parser%20for%20Classic%20(01%20-%20Classic%20SOD)%20with%20Debug%20Mode.bat",
+    "type": "file",
+    "_links": {
+      "self": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/contents/.contrib/Parser/Parser%20for%20Classic%20(01%20-%20Classic%20SOD)%20with%20Debug%20Mode.bat?ref=master",
+      "git": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/git/blobs/924882ced1c1fcb2764c3d6993a2e4a3dd9dba9b",
+      "html": "https://github.com/ATTWoWAddon/AllTheThings/blob/master/.contrib/Parser/Parser%20for%20Classic%20(01%20-%20Classic%20SOD)%20with%20Debug%20Mode.bat"
+    }
+  },
+  {
+    "name": "Parser for Classic (01 - Classic SOD).bat",
+    "path": ".contrib/Parser/Parser for Classic (01 - Classic SOD).bat",
+    "sha": "3bf84ddb5aa90d78e82f73d0bd1c3eb0982f6fbb",
+    "size": 61,
+    "url": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/contents/.contrib/Parser/Parser%20for%20Classic%20(01%20-%20Classic%20SOD).bat?ref=master",
+    "html_url": "https://github.com/ATTWoWAddon/AllTheThings/blob/master/.contrib/Parser/Parser%20for%20Classic%20(01%20-%20Classic%20SOD).bat",
+    "git_url": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/git/blobs/3bf84ddb5aa90d78e82f73d0bd1c3eb0982f6fbb",
+    "download_url": "https://raw.githubusercontent.com/ATTWoWAddon/AllTheThings/master/.contrib/Parser/Parser%20for%20Classic%20(01%20-%20Classic%20SOD).bat",
+    "type": "file",
+    "_links": {
+      "self": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/contents/.contrib/Parser/Parser%20for%20Classic%20(01%20-%20Classic%20SOD).bat?ref=master",
+      "git": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/git/blobs/3bf84ddb5aa90d78e82f73d0bd1c3eb0982f6fbb",
+      "html": "https://github.com/ATTWoWAddon/AllTheThings/blob/master/.contrib/Parser/Parser%20for%20Classic%20(01%20-%20Classic%20SOD).bat"
+    }
+  },
+  {
+    "name": "Parser for Classic (02 - TBC) with Debug Mode.bat",
+    "path": ".contrib/Parser/Parser for Classic (02 - TBC) with Debug Mode.bat",
+    "sha": "09cc98f449b04074b0787542d41d9af4e6e68324",
+    "size": 106,
+    "url": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/contents/.contrib/Parser/Parser%20for%20Classic%20(02%20-%20TBC)%20with%20Debug%20Mode.bat?ref=master",
+    "html_url": "https://github.com/ATTWoWAddon/AllTheThings/blob/master/.contrib/Parser/Parser%20for%20Classic%20(02%20-%20TBC)%20with%20Debug%20Mode.bat",
+    "git_url": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/git/blobs/09cc98f449b04074b0787542d41d9af4e6e68324",
+    "download_url": "https://raw.githubusercontent.com/ATTWoWAddon/AllTheThings/master/.contrib/Parser/Parser%20for%20Classic%20(02%20-%20TBC)%20with%20Debug%20Mode.bat",
+    "type": "file",
+    "_links": {
+      "self": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/contents/.contrib/Parser/Parser%20for%20Classic%20(02%20-%20TBC)%20with%20Debug%20Mode.bat?ref=master",
+      "git": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/git/blobs/09cc98f449b04074b0787542d41d9af4e6e68324",
+      "html": "https://github.com/ATTWoWAddon/AllTheThings/blob/master/.contrib/Parser/Parser%20for%20Classic%20(02%20-%20TBC)%20with%20Debug%20Mode.bat"
+    }
+  },
+  {
+    "name": "Parser for Classic (02 - TBC).bat",
+    "path": ".contrib/Parser/Parser for Classic (02 - TBC).bat",
+    "sha": "77cea19e413e597e2f77242a524d12bdc2d4f67e",
+    "size": 53,
+    "url": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/contents/.contrib/Parser/Parser%20for%20Classic%20(02%20-%20TBC).bat?ref=master",
+    "html_url": "https://github.com/ATTWoWAddon/AllTheThings/blob/master/.contrib/Parser/Parser%20for%20Classic%20(02%20-%20TBC).bat",
+    "git_url": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/git/blobs/77cea19e413e597e2f77242a524d12bdc2d4f67e",
+    "download_url": "https://raw.githubusercontent.com/ATTWoWAddon/AllTheThings/master/.contrib/Parser/Parser%20for%20Classic%20(02%20-%20TBC).bat",
+    "type": "file",
+    "_links": {
+      "self": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/contents/.contrib/Parser/Parser%20for%20Classic%20(02%20-%20TBC).bat?ref=master",
+      "git": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/git/blobs/77cea19e413e597e2f77242a524d12bdc2d4f67e",
+      "html": "https://github.com/ATTWoWAddon/AllTheThings/blob/master/.contrib/Parser/Parser%20for%20Classic%20(02%20-%20TBC).bat"
+    }
+  },
+  {
+    "name": "Parser for Classic (03 - Wrath) with Debug Mode.bat",
+    "path": ".contrib/Parser/Parser for Classic (03 - Wrath) with Debug Mode.bat",
+    "sha": "a3790f4de1f90742a644af37d7758f038ede4357",
+    "size": 108,
+    "url": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/contents/.contrib/Parser/Parser%20for%20Classic%20(03%20-%20Wrath)%20with%20Debug%20Mode.bat?ref=master",
+    "html_url": "https://github.com/ATTWoWAddon/AllTheThings/blob/master/.contrib/Parser/Parser%20for%20Classic%20(03%20-%20Wrath)%20with%20Debug%20Mode.bat",
+    "git_url": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/git/blobs/a3790f4de1f90742a644af37d7758f038ede4357",
+    "download_url": "https://raw.githubusercontent.com/ATTWoWAddon/AllTheThings/master/.contrib/Parser/Parser%20for%20Classic%20(03%20-%20Wrath)%20with%20Debug%20Mode.bat",
+    "type": "file",
+    "_links": {
+      "self": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/contents/.contrib/Parser/Parser%20for%20Classic%20(03%20-%20Wrath)%20with%20Debug%20Mode.bat?ref=master",
+      "git": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/git/blobs/a3790f4de1f90742a644af37d7758f038ede4357",
+      "html": "https://github.com/ATTWoWAddon/AllTheThings/blob/master/.contrib/Parser/Parser%20for%20Classic%20(03%20-%20Wrath)%20with%20Debug%20Mode.bat"
+    }
+  },
+  {
+    "name": "Parser for Classic (03 - Wrath).bat",
+    "path": ".contrib/Parser/Parser for Classic (03 - Wrath).bat",
+    "sha": "a2c3682d19ea861721a838c1f350e940cd93436d",
+    "size": 55,
+    "url": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/contents/.contrib/Parser/Parser%20for%20Classic%20(03%20-%20Wrath).bat?ref=master",
+    "html_url": "https://github.com/ATTWoWAddon/AllTheThings/blob/master/.contrib/Parser/Parser%20for%20Classic%20(03%20-%20Wrath).bat",
+    "git_url": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/git/blobs/a2c3682d19ea861721a838c1f350e940cd93436d",
+    "download_url": "https://raw.githubusercontent.com/ATTWoWAddon/AllTheThings/master/.contrib/Parser/Parser%20for%20Classic%20(03%20-%20Wrath).bat",
+    "type": "file",
+    "_links": {
+      "self": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/contents/.contrib/Parser/Parser%20for%20Classic%20(03%20-%20Wrath).bat?ref=master",
+      "git": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/git/blobs/a2c3682d19ea861721a838c1f350e940cd93436d",
+      "html": "https://github.com/ATTWoWAddon/AllTheThings/blob/master/.contrib/Parser/Parser%20for%20Classic%20(03%20-%20Wrath).bat"
+    }
+  },
+  {
+    "name": "Parser for Classic (04 - Cataclysm) with Debug Mode.bat",
+    "path": ".contrib/Parser/Parser for Classic (04 - Cataclysm) with Debug Mode.bat",
+    "sha": "ad92325cfa8243a21fdb6c15383c04f5d46ed779",
+    "size": 112,
+    "url": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/contents/.contrib/Parser/Parser%20for%20Classic%20(04%20-%20Cataclysm)%20with%20Debug%20Mode.bat?ref=master",
+    "html_url": "https://github.com/ATTWoWAddon/AllTheThings/blob/master/.contrib/Parser/Parser%20for%20Classic%20(04%20-%20Cataclysm)%20with%20Debug%20Mode.bat",
+    "git_url": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/git/blobs/ad92325cfa8243a21fdb6c15383c04f5d46ed779",
+    "download_url": "https://raw.githubusercontent.com/ATTWoWAddon/AllTheThings/master/.contrib/Parser/Parser%20for%20Classic%20(04%20-%20Cataclysm)%20with%20Debug%20Mode.bat",
+    "type": "file",
+    "_links": {
+      "self": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/contents/.contrib/Parser/Parser%20for%20Classic%20(04%20-%20Cataclysm)%20with%20Debug%20Mode.bat?ref=master",
+      "git": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/git/blobs/ad92325cfa8243a21fdb6c15383c04f5d46ed779",
+      "html": "https://github.com/ATTWoWAddon/AllTheThings/blob/master/.contrib/Parser/Parser%20for%20Classic%20(04%20-%20Cataclysm)%20with%20Debug%20Mode.bat"
+    }
+  },
+  {
+    "name": "Parser for Classic (04 - Cataclysm).bat",
+    "path": ".contrib/Parser/Parser for Classic (04 - Cataclysm).bat",
+    "sha": "551b640bced0879d08549b38be71e1c7b25bd990",
+    "size": 59,
+    "url": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/contents/.contrib/Parser/Parser%20for%20Classic%20(04%20-%20Cataclysm).bat?ref=master",
+    "html_url": "https://github.com/ATTWoWAddon/AllTheThings/blob/master/.contrib/Parser/Parser%20for%20Classic%20(04%20-%20Cataclysm).bat",
+    "git_url": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/git/blobs/551b640bced0879d08549b38be71e1c7b25bd990",
+    "download_url": "https://raw.githubusercontent.com/ATTWoWAddon/AllTheThings/master/.contrib/Parser/Parser%20for%20Classic%20(04%20-%20Cataclysm).bat",
+    "type": "file",
+    "_links": {
+      "self": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/contents/.contrib/Parser/Parser%20for%20Classic%20(04%20-%20Cataclysm).bat?ref=master",
+      "git": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/git/blobs/551b640bced0879d08549b38be71e1c7b25bd990",
+      "html": "https://github.com/ATTWoWAddon/AllTheThings/blob/master/.contrib/Parser/Parser%20for%20Classic%20(04%20-%20Cataclysm).bat"
+    }
+  },
+  {
+    "name": "Parser for Classic (05 - Mists of Pandaria) with Debug Mode.bat",
+    "path": ".contrib/Parser/Parser for Classic (05 - Mists of Pandaria) with Debug Mode.bat",
+    "sha": "0e4bc55307f1291ed874534284269340049be976",
+    "size": 120,
+    "url": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/contents/.contrib/Parser/Parser%20for%20Classic%20(05%20-%20Mists%20of%20Pandaria)%20with%20Debug%20Mode.bat?ref=master",
+    "html_url": "https://github.com/ATTWoWAddon/AllTheThings/blob/master/.contrib/Parser/Parser%20for%20Classic%20(05%20-%20Mists%20of%20Pandaria)%20with%20Debug%20Mode.bat",
+    "git_url": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/git/blobs/0e4bc55307f1291ed874534284269340049be976",
+    "download_url": "https://raw.githubusercontent.com/ATTWoWAddon/AllTheThings/master/.contrib/Parser/Parser%20for%20Classic%20(05%20-%20Mists%20of%20Pandaria)%20with%20Debug%20Mode.bat",
+    "type": "file",
+    "_links": {
+      "self": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/contents/.contrib/Parser/Parser%20for%20Classic%20(05%20-%20Mists%20of%20Pandaria)%20with%20Debug%20Mode.bat?ref=master",
+      "git": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/git/blobs/0e4bc55307f1291ed874534284269340049be976",
+      "html": "https://github.com/ATTWoWAddon/AllTheThings/blob/master/.contrib/Parser/Parser%20for%20Classic%20(05%20-%20Mists%20of%20Pandaria)%20with%20Debug%20Mode.bat"
+    }
+  },
+  {
+    "name": "Parser for Classic (05 - Mists of Pandaria).bat",
+    "path": ".contrib/Parser/Parser for Classic (05 - Mists of Pandaria).bat",
+    "sha": "4437eaf678d7d0fdb2212bfbb42f2480bfc4c2ed",
+    "size": 67,
+    "url": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/contents/.contrib/Parser/Parser%20for%20Classic%20(05%20-%20Mists%20of%20Pandaria).bat?ref=master",
+    "html_url": "https://github.com/ATTWoWAddon/AllTheThings/blob/master/.contrib/Parser/Parser%20for%20Classic%20(05%20-%20Mists%20of%20Pandaria).bat",
+    "git_url": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/git/blobs/4437eaf678d7d0fdb2212bfbb42f2480bfc4c2ed",
+    "download_url": "https://raw.githubusercontent.com/ATTWoWAddon/AllTheThings/master/.contrib/Parser/Parser%20for%20Classic%20(05%20-%20Mists%20of%20Pandaria).bat",
+    "type": "file",
+    "_links": {
+      "self": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/contents/.contrib/Parser/Parser%20for%20Classic%20(05%20-%20Mists%20of%20Pandaria).bat?ref=master",
+      "git": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/git/blobs/4437eaf678d7d0fdb2212bfbb42f2480bfc4c2ed",
+      "html": "https://github.com/ATTWoWAddon/AllTheThings/blob/master/.contrib/Parser/Parser%20for%20Classic%20(05%20-%20Mists%20of%20Pandaria).bat"
+    }
+  },
+  {
+    "name": "Parser for Classic.bat",
+    "path": ".contrib/Parser/Parser for Classic.bat",
+    "sha": "7f25093b4dd9d605f5f78c2a53c437be3e6d3ea1",
+    "size": 361,
+    "url": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/contents/.contrib/Parser/Parser%20for%20Classic.bat?ref=master",
+    "html_url": "https://github.com/ATTWoWAddon/AllTheThings/blob/master/.contrib/Parser/Parser%20for%20Classic.bat",
+    "git_url": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/git/blobs/7f25093b4dd9d605f5f78c2a53c437be3e6d3ea1",
+    "download_url": "https://raw.githubusercontent.com/ATTWoWAddon/AllTheThings/master/.contrib/Parser/Parser%20for%20Classic.bat",
+    "type": "file",
+    "_links": {
+      "self": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/contents/.contrib/Parser/Parser%20for%20Classic.bat?ref=master",
+      "git": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/git/blobs/7f25093b4dd9d605f5f78c2a53c437be3e6d3ea1",
+      "html": "https://github.com/ATTWoWAddon/AllTheThings/blob/master/.contrib/Parser/Parser%20for%20Classic.bat"
+    }
+  },
+  {
+    "name": "Parser for PTR with Debug Mode.bat",
+    "path": ".contrib/Parser/Parser for PTR with Debug Mode.bat",
+    "sha": "f5a56bfd30ab051996fe05ad7d964c2f173d249d",
+    "size": 101,
+    "url": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/contents/.contrib/Parser/Parser%20for%20PTR%20with%20Debug%20Mode.bat?ref=master",
+    "html_url": "https://github.com/ATTWoWAddon/AllTheThings/blob/master/.contrib/Parser/Parser%20for%20PTR%20with%20Debug%20Mode.bat",
+    "git_url": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/git/blobs/f5a56bfd30ab051996fe05ad7d964c2f173d249d",
+    "download_url": "https://raw.githubusercontent.com/ATTWoWAddon/AllTheThings/master/.contrib/Parser/Parser%20for%20PTR%20with%20Debug%20Mode.bat",
+    "type": "file",
+    "_links": {
+      "self": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/contents/.contrib/Parser/Parser%20for%20PTR%20with%20Debug%20Mode.bat?ref=master",
+      "git": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/git/blobs/f5a56bfd30ab051996fe05ad7d964c2f173d249d",
+      "html": "https://github.com/ATTWoWAddon/AllTheThings/blob/master/.contrib/Parser/Parser%20for%20PTR%20with%20Debug%20Mode.bat"
+    }
+  },
+  {
+    "name": "Parser for PTR.bat",
+    "path": ".contrib/Parser/Parser for PTR.bat",
+    "sha": "b3c2ed1e4c7bb827894b15b33e6085c17c978baf",
+    "size": 95,
+    "url": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/contents/.contrib/Parser/Parser%20for%20PTR.bat?ref=master",
+    "html_url": "https://github.com/ATTWoWAddon/AllTheThings/blob/master/.contrib/Parser/Parser%20for%20PTR.bat",
+    "git_url": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/git/blobs/b3c2ed1e4c7bb827894b15b33e6085c17c978baf",
+    "download_url": "https://raw.githubusercontent.com/ATTWoWAddon/AllTheThings/master/.contrib/Parser/Parser%20for%20PTR.bat",
+    "type": "file",
+    "_links": {
+      "self": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/contents/.contrib/Parser/Parser%20for%20PTR.bat?ref=master",
+      "git": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/git/blobs/b3c2ed1e4c7bb827894b15b33e6085c17c978baf",
+      "html": "https://github.com/ATTWoWAddon/AllTheThings/blob/master/.contrib/Parser/Parser%20for%20PTR.bat"
+    }
+  },
+  {
+    "name": "Parser for Retail with Debug Mode.bat",
+    "path": ".contrib/Parser/Parser for Retail with Debug Mode.bat",
+    "sha": "3bf2de8ba88735eb23ddfcf40908f0b54e7321f8",
+    "size": 109,
+    "url": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/contents/.contrib/Parser/Parser%20for%20Retail%20with%20Debug%20Mode.bat?ref=master",
+    "html_url": "https://github.com/ATTWoWAddon/AllTheThings/blob/master/.contrib/Parser/Parser%20for%20Retail%20with%20Debug%20Mode.bat",
+    "git_url": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/git/blobs/3bf2de8ba88735eb23ddfcf40908f0b54e7321f8",
+    "download_url": "https://raw.githubusercontent.com/ATTWoWAddon/AllTheThings/master/.contrib/Parser/Parser%20for%20Retail%20with%20Debug%20Mode.bat",
+    "type": "file",
+    "_links": {
+      "self": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/contents/.contrib/Parser/Parser%20for%20Retail%20with%20Debug%20Mode.bat?ref=master",
+      "git": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/git/blobs/3bf2de8ba88735eb23ddfcf40908f0b54e7321f8",
+      "html": "https://github.com/ATTWoWAddon/AllTheThings/blob/master/.contrib/Parser/Parser%20for%20Retail%20with%20Debug%20Mode.bat"
+    }
+  },
+  {
+    "name": "Parser for Retail with Objectives.bat",
+    "path": ".contrib/Parser/Parser for Retail with Objectives.bat",
+    "sha": "9bd61bd59f561ae60525370ad70b1928de06dcf1",
+    "size": 92,
+    "url": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/contents/.contrib/Parser/Parser%20for%20Retail%20with%20Objectives.bat?ref=master",
+    "html_url": "https://github.com/ATTWoWAddon/AllTheThings/blob/master/.contrib/Parser/Parser%20for%20Retail%20with%20Objectives.bat",
+    "git_url": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/git/blobs/9bd61bd59f561ae60525370ad70b1928de06dcf1",
+    "download_url": "https://raw.githubusercontent.com/ATTWoWAddon/AllTheThings/master/.contrib/Parser/Parser%20for%20Retail%20with%20Objectives.bat",
+    "type": "file",
+    "_links": {
+      "self": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/contents/.contrib/Parser/Parser%20for%20Retail%20with%20Objectives.bat?ref=master",
+      "git": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/git/blobs/9bd61bd59f561ae60525370ad70b1928de06dcf1",
+      "html": "https://github.com/ATTWoWAddon/AllTheThings/blob/master/.contrib/Parser/Parser%20for%20Retail%20with%20Objectives.bat"
+    }
+  },
+  {
+    "name": "Parser for Retail.bat",
+    "path": ".contrib/Parser/Parser for Retail.bat",
+    "sha": "2ae66757a5530cf9259ad2db753ee560b6053c6c",
+    "size": 52,
+    "url": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/contents/.contrib/Parser/Parser%20for%20Retail.bat?ref=master",
+    "html_url": "https://github.com/ATTWoWAddon/AllTheThings/blob/master/.contrib/Parser/Parser%20for%20Retail.bat",
+    "git_url": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/git/blobs/2ae66757a5530cf9259ad2db753ee560b6053c6c",
+    "download_url": "https://raw.githubusercontent.com/ATTWoWAddon/AllTheThings/master/.contrib/Parser/Parser%20for%20Retail.bat",
+    "type": "file",
+    "_links": {
+      "self": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/contents/.contrib/Parser/Parser%20for%20Retail.bat?ref=master",
+      "git": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/git/blobs/2ae66757a5530cf9259ad2db753ee560b6053c6c",
+      "html": "https://github.com/ATTWoWAddon/AllTheThings/blob/master/.contrib/Parser/Parser%20for%20Retail.bat"
+    }
+  },
+  {
+    "name": "Parser.exe",
+    "path": ".contrib/Parser/Parser.exe",
+    "sha": "134c5cb18a492ff193d57f75d7288300e709dae7",
+    "size": 532480,
+    "url": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/contents/.contrib/Parser/Parser.exe?ref=master",
+    "html_url": "https://github.com/ATTWoWAddon/AllTheThings/blob/master/.contrib/Parser/Parser.exe",
+    "git_url": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/git/blobs/134c5cb18a492ff193d57f75d7288300e709dae7",
+    "download_url": "https://raw.githubusercontent.com/ATTWoWAddon/AllTheThings/master/.contrib/Parser/Parser.exe",
+    "type": "file",
+    "_links": {
+      "self": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/contents/.contrib/Parser/Parser.exe?ref=master",
+      "git": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/git/blobs/134c5cb18a492ff193d57f75d7288300e709dae7",
+      "html": "https://github.com/ATTWoWAddon/AllTheThings/blob/master/.contrib/Parser/Parser.exe"
+    }
+  },
+  {
+    "name": "_main.lua",
+    "path": ".contrib/Parser/_main.lua",
+    "sha": "2f31113accdd411ce53ebb9008761b3f875b2d37",
+    "size": 381,
+    "url": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/contents/.contrib/Parser/_main.lua?ref=master",
+    "html_url": "https://github.com/ATTWoWAddon/AllTheThings/blob/master/.contrib/Parser/_main.lua",
+    "git_url": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/git/blobs/2f31113accdd411ce53ebb9008761b3f875b2d37",
+    "download_url": "https://raw.githubusercontent.com/ATTWoWAddon/AllTheThings/master/.contrib/Parser/_main.lua",
+    "type": "file",
+    "_links": {
+      "self": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/contents/.contrib/Parser/_main.lua?ref=master",
+      "git": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/git/blobs/2f31113accdd411ce53ebb9008761b3f875b2d37",
+      "html": "https://github.com/ATTWoWAddon/AllTheThings/blob/master/.contrib/Parser/_main.lua"
+    }
+  },
+  {
+    "name": "lib",
+    "path": ".contrib/Parser/lib",
+    "sha": "75b14b18e7c44d3d794ce0e9f4780d41336d5323",
+    "size": 0,
+    "url": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/contents/.contrib/Parser/lib?ref=master",
+    "html_url": "https://github.com/ATTWoWAddon/AllTheThings/tree/master/.contrib/Parser/lib",
+    "git_url": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/git/trees/75b14b18e7c44d3d794ce0e9f4780d41336d5323",
+    "download_url": null,
+    "type": "dir",
+    "_links": {
+      "self": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/contents/.contrib/Parser/lib?ref=master",
+      "git": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/git/trees/75b14b18e7c44d3d794ce0e9f4780d41336d5323",
+      "html": "https://github.com/ATTWoWAddon/AllTheThings/tree/master/.contrib/Parser/lib"
+    }
+  },
+  {
+    "name": "lua54.dll",
+    "path": ".contrib/Parser/lua54.dll",
+    "sha": "6a31c762af5a7ed291c297737f4e2a1ef4d683b4",
+    "size": 503296,
+    "url": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/contents/.contrib/Parser/lua54.dll?ref=master",
+    "html_url": "https://github.com/ATTWoWAddon/AllTheThings/blob/master/.contrib/Parser/lua54.dll",
+    "git_url": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/git/blobs/6a31c762af5a7ed291c297737f4e2a1ef4d683b4",
+    "download_url": "https://raw.githubusercontent.com/ATTWoWAddon/AllTheThings/master/.contrib/Parser/lua54.dll",
+    "type": "file",
+    "_links": {
+      "self": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/contents/.contrib/Parser/lua54.dll?ref=master",
+      "git": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/git/blobs/6a31c762af5a7ed291c297737f4e2a1ef4d683b4",
+      "html": "https://github.com/ATTWoWAddon/AllTheThings/blob/master/.contrib/Parser/lua54.dll"
+    }
+  }
+]

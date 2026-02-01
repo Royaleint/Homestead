@@ -194,8 +194,9 @@ Constants.Defaults = {
         -- Tooltip settings
         tooltip = {
             enabled = true,
+            showOwned = true,
             showSource = true,
-            showQuantity = true,
+            showQuantity = false,  -- off by default, can be noisy
             showDyeSlots = true,
         },
 

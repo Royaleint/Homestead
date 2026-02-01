@@ -11,6 +11,30 @@ HA.ExportImport = ExportImport
 local EXPORT_VERSION = "V1"
 local EXPORT_PREFIX = "HOMESTEAD_EXPORT_" .. EXPORT_VERSION .. ":"
 
+local function GetNewItems(scannedDecor, existingItems)
+    if not scannedDecor or #scannedDecor == 0 then
+        return {}
+    end
+
+    -- Build lookup of existing items for O(1) checks
+    local existingLookup = {}
+    if existingItems then
+        for _, itemID in ipairs(existingItems) do
+            existingLookup[itemID] = true
+        end
+    end
+
+    -- Find items in scanned that aren't in existing
+    local newItems = {}
+    for _, item in ipairs(scannedDecor) do
+        if item.itemID and not existingLookup[item.itemID] then
+            table.insert(newItems, item.itemID)
+        end
+    end
+
+    return newItems
+end
+
 -------------------------------------------------------------------------------
 -- Export Frame (Copyable Text)
 -------------------------------------------------------------------------------
@@ -124,11 +148,98 @@ local function ShowImportFrame()
     f.editBox:SetFocus()
 end
 
+local exportDialogFrame = nil
+
+local function CreateExportDialog()
+    if exportDialogFrame then return exportDialogFrame end
+
+    local f = CreateFrame("Frame", "HomesteadExportDialog", UIParent, "BackdropTemplate")
+    f:SetSize(280, 140)
+    f:SetPoint("CENTER")
+    f:SetFrameStrata("DIALOG")
+    f:SetBackdrop({
+        bgFile = "Interface/Tooltips/UI-Tooltip-Background",
+        edgeFile = "Interface/Tooltips/UI-Tooltip-Border",
+        edgeSize = 16,
+        insets = {left = 4, right = 4, top = 4, bottom = 4},
+    })
+    f:SetBackdropColor(0, 0, 0, 0.95)
+    f:SetBackdropBorderColor(0.6, 0.6, 0.6, 1)
+    f:EnableMouse(true)
+    f:SetMovable(true)
+    f:RegisterForDrag("LeftButton")
+    f:SetScript("OnDragStart", f.StartMoving)
+    f:SetScript("OnDragStop", f.StopMovingOrSizing)
+
+    -- Title
+    local title = f:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
+    title:SetPoint("TOP", 0, -15)
+    title:SetText("Export Vendor Data")
+
+    -- Description
+    local desc = f:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    desc:SetPoint("TOP", title, "BOTTOM", 0, -8)
+    desc:SetWidth(250)
+    desc:SetText("Choose what to export:")
+
+    -- Differential export button
+    local diffBtn = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
+    diffBtn:SetSize(200, 26)
+    diffBtn:SetPoint("TOP", desc, "BOTTOM", 0, -12)
+    diffBtn:SetText("Export New Data Only")
+    diffBtn:SetScript("OnClick", function()
+        f:Hide()
+        ExportImport:ExportScannedVendors(false)
+    end)
+
+    -- Tooltip for differential button
+    diffBtn:SetScript("OnEnter", function(self)
+        GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+        GameTooltip:SetText("Differential Export", 1, 1, 1)
+        GameTooltip:AddLine("Only exports vendors not yet in the database,", 1, 0.82, 0, true)
+        GameTooltip:AddLine("or vendors with new items discovered.", 1, 0.82, 0, true)
+        GameTooltip:Show()
+    end)
+    diffBtn:SetScript("OnLeave", GameTooltip_Hide)
+
+    -- Full export button
+    local fullBtn = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
+    fullBtn:SetSize(200, 26)
+    fullBtn:SetPoint("TOP", diffBtn, "BOTTOM", 0, -6)
+    fullBtn:SetText("Export All Scanned Data")
+    fullBtn:SetScript("OnClick", function()
+        f:Hide()
+        ExportImport:ExportScannedVendors(true)
+    end)
+
+    -- Tooltip for full button
+    fullBtn:SetScript("OnEnter", function(self)
+        GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+        GameTooltip:SetText("Full Export", 1, 1, 1)
+        GameTooltip:AddLine("Exports all scanned vendor data,", 1, 0.82, 0, true)
+        GameTooltip:AddLine("including data already in the database.", 1, 0.82, 0, true)
+        GameTooltip:Show()
+    end)
+    fullBtn:SetScript("OnLeave", GameTooltip_Hide)
+
+    -- Close button (X)
+    local closeBtn = CreateFrame("Button", nil, f, "UIPanelCloseButton")
+    closeBtn:SetPoint("TOPRIGHT", -3, -3)
+
+    exportDialogFrame = f
+    return f
+end
+
+function ExportImport:ShowExportDialog()
+    local f = CreateExportDialog()
+    f:Show()
+end
+
 -------------------------------------------------------------------------------
 -- Export Functions
 -------------------------------------------------------------------------------
 
-function ExportImport:ExportScannedVendors()
+function ExportImport:ExportScannedVendors(fullExport)
     if not HA.Addon or not HA.Addon.db then
         HA.Addon:Print("Database not available.")
         return
@@ -140,54 +251,98 @@ function ExportImport:ExportScannedVendors()
         return
     end
 
-    -- Build output EXACTLY like Validation.lua does
     local output = {}
-    local vendorCount = 0
+    local newVendors = 0
+    local updatedVendors = 0
+    local skippedVendors = 0
     local totalItems = 0
 
     table.insert(output, EXPORT_PREFIX .. "\n")
 
     for npcID, vendor in pairs(data) do
-        vendorCount = vendorCount + 1
+        local itemsToExport = {}
+        local exportReason = nil
 
-        -- Count items
-        local itemCount = 0
-        local itemIDs = {}
-        if vendor.decor then
-            for _, item in ipairs(vendor.decor) do
-                if item.itemID then
-                    itemCount = itemCount + 1
-                    table.insert(itemIDs, item.itemID)
+        if fullExport then
+            -- Full export: include all items
+            if vendor.decor then
+                for _, item in ipairs(vendor.decor) do
+                    if item.itemID then
+                        table.insert(itemsToExport, item.itemID)
+                    end
+                end
+            end
+            if #itemsToExport > 0 or not HA.VendorDatabase:HasVendor(npcID) then
+                exportReason = "full"
+            end
+        else
+            -- Differential export: check against VendorDatabase
+            local existingVendor = HA.VendorDatabase:GetVendor(npcID)
+
+            if not existingVendor then
+                -- New vendor not in database
+                if vendor.decor then
+                    for _, item in ipairs(vendor.decor) do
+                        if item.itemID then
+                            table.insert(itemsToExport, item.itemID)
+                        end
+                    end
+                end
+                exportReason = "new"
+                newVendors = newVendors + 1
+            else
+                -- Existing vendor - check for new items
+                local newItems = GetNewItems(vendor.decor, existingVendor.items)
+                if #newItems > 0 then
+                    itemsToExport = newItems
+                    exportReason = "updated"
+                    updatedVendors = updatedVendors + 1
+                else
+                    skippedVendors = skippedVendors + 1
                 end
             end
         end
-        totalItems = totalItems + itemCount
 
-        -- Format: npcID<TAB>name<TAB>mapID<TAB>x<TAB>y<TAB>lastScanned<TAB>itemCount<TAB>itemIDs
-        local entry = string.format(
-            "%d\t%s\t%d\t%.4f\t%.4f\t%d\t%d\t%s;\n",
-            vendor.npcID or npcID,
-            (vendor.name or "Unknown"):gsub("\t", " "),
-            vendor.mapID or 0,
-            vendor.coords and vendor.coords.x or 0,
-            vendor.coords and vendor.coords.y or 0,
-            vendor.lastScanned or 0,
-            itemCount,
-            table.concat(itemIDs, ",")
-        )
-        table.insert(output, entry)
+        -- Only add to output if there's a reason to export
+        if exportReason then
+            totalItems = totalItems + #itemsToExport
+
+            local entry = string.format(
+                "%d\t%s\t%d\t%.4f\t%.4f\t%d\t%d\t%s;\n",
+                vendor.npcID or npcID,
+                (vendor.name or "Unknown"):gsub("\t", " "),
+                vendor.mapID or 0,
+                vendor.coords and vendor.coords.x or 0,
+                vendor.coords and vendor.coords.y or 0,
+                vendor.lastScanned or 0,
+                #itemsToExport,
+                table.concat(itemsToExport, ",")
+            )
+            table.insert(output, entry)
+        end
     end
 
-    HA.Addon:Print(string.format("Exported %d vendors with %d items.", vendorCount, totalItems))
-
-    -- Show output window - EXACTLY like Validation.lua
-    if HA.OutputWindow then
-        HA.OutputWindow:Show("Export Data", table.concat(output))
+    -- Print summary
+    if fullExport then
+        local totalVendors = 0
+        for _ in pairs(data) do totalVendors = totalVendors + 1 end
+        HA.Addon:Print(string.format("Full export: %d vendors with %d items.", totalVendors, totalItems))
     else
-        -- Fallback to chat
-        for _, line in ipairs(output) do
-            HA.Addon:Print(line)
+        HA.Addon:Print(string.format("Differential export: %d new, %d updated, %d skipped (already in database).",
+            newVendors, updatedVendors, skippedVendors))
+    end
+
+    -- Show output if there's anything to export
+    if #output > 1 then
+        if HA.OutputWindow then
+            HA.OutputWindow:Show("Export Data", table.concat(output))
+        else
+            for _, line in ipairs(output) do
+                HA.Addon:Print(line)
+            end
         end
+    else
+        HA.Addon:Print("Nothing new to export. All scanned data is already in VendorDatabase.")
     end
 end
 

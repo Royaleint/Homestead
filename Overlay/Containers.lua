@@ -1,5 +1,5 @@
 --[[
-    HousingAddon - Container Overlays
+    Homestead - Container Overlays
     Overlays for bags and bank frames
 ]]
 

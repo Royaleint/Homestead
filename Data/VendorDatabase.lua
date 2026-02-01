@@ -15,6 +15,22 @@ local VendorDatabase = {}
 HA.VendorDatabase = VendorDatabase
 
 -------------------------------------------------------------------------------
+-- NPC ID Aliases
+-- Maps alternate NPC IDs to their canonical (primary) ID in VendorDatabase.Vendors
+-- Use case: Same vendor appears with different IDs in different zones/expansions
+-------------------------------------------------------------------------------
+
+VendorDatabase.Aliases = {
+    -- Pascal-K1N6: Housing vendor (248525) also exists in Mechagon with different IDs
+    [150359] = 248525,  -- BFA Mechagon version
+    [150497] = 248525,  -- Midnight Mechagon version
+    -- Add more aliases as discovered
+}
+
+-- Runtime lookup index (populated by BuildAliasIndex from static + discovered aliases)
+VendorDatabase.AliasLookup = {}
+
+-------------------------------------------------------------------------------
 -- Vendors (keyed by NPC ID)
 -------------------------------------------------------------------------------
 
@@ -401,7 +417,7 @@ VendorDatabase.Vendors = {
     },
 	[44114] = {
         name = "Wilkinson",
-        mapID = 47,
+        mapID = 57,
         x = 0.176, y = 0.56,
         zone = "Duskwood",
         subzone = "Darkshire",
@@ -692,7 +708,7 @@ VendorDatabase.Vendors = {
     },
 	[78564] = {
         name = "Sergeant Crowler",
-        mapID = 539,
+        mapID = 582,
         x = 0.365, y = 0.401,
         zone = "Lunarfall (Alliance Garrison)",
         faction = "Alliance",
@@ -703,7 +719,7 @@ VendorDatabase.Vendors = {
 	[79774] = {
         name = "Sergeant Grimjaw",
         mapID = 525,
-        x = 0.5, y = 0.5,
+        x = 0.444, y = 0.476,
         zone = "Frostwall",
         subzone = "Garrison",
         faction = "Horde",
@@ -735,7 +751,7 @@ VendorDatabase.Vendors = {
     },
 	[85427] = {
         name = "Maaria",
-        mapID = 539,
+        mapID = 582,
         x = 0.296, y = 0.162,
         zone = "Lunarfall (Alliance Garrison)",
         faction = "Alliance",
@@ -756,7 +772,7 @@ VendorDatabase.Vendors = {
 	[85946] = {
         name = "Shadow-Sage Brakoss",
         mapID = 622,
-        x = 0.5, y = 0.5,
+        x = 0.432, y = 0.776,
         zone = "Stormshield",
         faction = "Alliance",
         currency = "Gold",
@@ -799,63 +815,64 @@ VendorDatabase.Vendors = {
 	[86776] = {
         name = "Ribchewer",
         mapID = 525,
-        x = 0.5, y = 0.5,
+        x = 0.520, y = 0.586,
         zone = "Frostwall",
         subzone = "Trading Post",
         faction = "Horde",
         currency = "Garrison Resources",
         expansion = "WoD",
         items = {},
-        notes = "Trading Post trader, requires Trading Post building",
+        notes = "Trading Post trader, located in level 2+ garrison trading post",
     },
 	[86778] = {
         name = "Pyxni Pennypocket",
         mapID = 582,
-        x = 0.5, y = 0.5,
+        x = 0.518, y = 0.586,
         zone = "Lunarfall",
         subzone = "Trading Post",
         faction = "Alliance",
         currency = "Garrison Resources",
         expansion = "WoD",
         items = {},
-        notes = "Trading Post trader, requires Trading Post building",
+        notes = "Trading Post trader, located in level 2+ garrison trading post",
     },
 	[86779] = {
 		name = "Krixel Pinchwhistle",
 		x = 0.3100,
 		y = 0.1500,
-		mapID = 539,
+		mapID = 582,
 		expansion = "WOD",
 		items = {},  -- TODO: Scan vendor in-game
+		notes = "Located in level 3 garrison trading post",
 	},
 	[87015] = {
         name = "Kil'rip",
         mapID = 525,
-        x = 0.5, y = 0.5,
+        x = 0.516, y = 0.606,
         zone = "Frostwall",
         subzone = "Garrison",
         faction = "Horde",
         currency = "Apexis Crystals",
         expansion = "WoD",
         items = {},
-        notes = "Laughing Skull Quartermaster",
+        notes = "Laughing Skull Quartermaster, located in level 2+ garrison trading post",
     },
 	[87312] = {
         name = "Vora Strongarm",
         mapID = 525,
-        x = 0.5, y = 0.5,
+        x = 0.520, y = 0.598,
         zone = "Frostwall",
         subzone = "Tavern",
         faction = "Horde",
         currency = "Garrison Resources",
         expansion = "WoD",
         items = {},
-        notes = "Bartender, sells Wooden Mug",
+        notes = "Bartender, sells Wooden Mug, located in level 2+ garrison trading post",
     },
 	[87775] = {
         name = "Ruuan the Seer",
         mapID = 542,
-        x = 0.5, y = 0.5,
+        x = 0.466, y = 0.450,
         zone = "Spires of Arak",
         faction = "Neutral",
         currency = "Gold",
@@ -865,7 +882,7 @@ VendorDatabase.Vendors = {
     },
 	[88220] = {
         name = "Peter",
-        mapID = 539,
+        mapID = 582,
         x = 0.296, y = 0.162,
         zone = "Lunarfall (Alliance Garrison)",
         faction = "Alliance",
@@ -883,7 +900,7 @@ VendorDatabase.Vendors = {
 	},
 	[93550] = {
         name = "Quartermaster Ozorg",
-        mapID = 23,
+        mapID = 647,
         x = 0.838, y = 0.498,
         zone = "Acherus: The Ebon Hold",
         faction = "Neutral",
@@ -914,7 +931,7 @@ VendorDatabase.Vendors = {
     },
 	[100196] = {
         name = "Eadric the Pure",
-        mapID = 23,
+        mapID = 24,
         x = 0.757, y = 0.522,
         zone = "Sanctum of Light",
         faction = "Neutral",
@@ -926,7 +943,7 @@ VendorDatabase.Vendors = {
     },
 	[103693] = {
         name = "Outfitter Reynolds",
-        mapID = 650,
+        mapID = 739,
         x = 0.356, y = 0.356,
         zone = "Trueshot Lodge",
         faction = "Neutral",
@@ -1084,7 +1101,7 @@ VendorDatabase.Vendors = {
     },
 	[112323] = {
         name = "Amurra Thistledew",
-        mapID = 641,
+        mapID = 747,
         x = 0.446, y = 0.326,
         zone = "The Dreamgrove",
         faction = "Neutral",
@@ -1323,7 +1340,7 @@ VendorDatabase.Vendors = {
         faction = "Alliance",
         currency = "War Resources",
         expansion = "BFA",
-        items = {},
+        items = { 252388, 252387, 246222, 252402, 252036 },
     },
 	[136189] = {
         name = "Mako",
@@ -1358,6 +1375,26 @@ VendorDatabase.Vendors = {
         expansion = "BFA",
         items = {},
     },
+	[142115] = {
+        name = "Fiona",
+        mapID = 1161,
+        x = 0.6778, y = 0.4129,
+        zone = "Boralus",
+        faction = "Alliance",
+        currency = "Gold",
+        expansion = "BFA",
+        items = { 248796 },
+    },
+	[142169] = {
+        name = "Phil Gresham",
+        mapID = 1161,
+        x = 0.7071, y = 0.1948,
+        zone = "Boralus",
+        faction = "Alliance",
+        currency = "Gold",
+        expansion = "BFA",
+        items = {},
+    },
 	[142192] = {
         name = "Hoddruc Bladebender",
         mapID = 36,
@@ -1373,7 +1410,7 @@ VendorDatabase.Vendors = {
 	[144129] = {
         name = "Plugger Spazzring",
         mapID = 242,
-        x = 0.5, y = 0.5,
+        x = 0.477, y = 0.657,
         zone = "Blackrock Depths",
         subzone = "The Grim Guzzler",
         faction = "Neutral",
@@ -1679,8 +1716,8 @@ VendorDatabase.Vendors = {
 	},
 	[217642] = {
         name = "Nalina Ironsong",
-        mapID = 2339,
-        x = 0.5, y = 0.5,
+        mapID = 2215,
+        x = 0.428, y = 0.558,
         zone = "Dornogal",
         faction = "Neutral",
         currency = "Gold",
@@ -1852,8 +1889,8 @@ VendorDatabase.Vendors = {
     },
 	[235621] = {
         name = "Ando the Gat",
-        mapID = 2346,
-        x = 0.5, y = 0.5,
+        mapID = 2406,
+        x = 0.433, y = 0.519,
         zone = "Liberation of Undermine",
         subzone = "Incontinental Hotel",
         faction = "Neutral",
@@ -1864,9 +1901,9 @@ VendorDatabase.Vendors = {
     },
 	[239333] = {
         name = "Street Food Vendor",
-        mapID = 2255,
-        x = 0.5, y = 0.5,
-        zone = "Azj-Kahet",
+        mapID = 2346,
+        x = 0.262, y = 0.428,
+        zone = "Undermine",
         faction = "Neutral",
         currency = "Gold",
         expansion = "TWW",
@@ -1951,7 +1988,7 @@ VendorDatabase.Vendors = {
 		name = "Domelius",
 		x = 0.5506,
 		y = 0.7797,
-		mapID = 619,
+		mapID = 627,
 		expansion = "Legion",
 		items = {},  -- TODO: Scan vendor in-game
 	},
@@ -1971,7 +2008,7 @@ VendorDatabase.Vendors = {
 	[251911] = {
         name = "Stacks Topskimmer",
         mapID = 2346,
-        x = 0.5, y = 0.5,
+        x = 0.432, y = 0.505,
         zone = "Undermine",
         subzone = "Incontinental Hotel",
         faction = "Neutral",
@@ -2028,7 +2065,7 @@ VendorDatabase.Vendors = {
         faction = "Alliance",
         currency = "Gold",
         expansion = "BFA",
-        items = {},
+        items = { 252405, 252392 },
         notes = "Chandelier Maker",
     },
 	[252326] = {
@@ -2048,7 +2085,7 @@ VendorDatabase.Vendors = {
 		y = 0.1566,
 		mapID = 1161,
 		expansion = "BfA",
-		items = {},  -- TODO: Scan vendor in-game
+		items = { 252654, 252406, 252386, 252400, 252403, 252653, 252754, 245271 },
 	},
 	[252498] = {
 		name = "Corbin Branbell",
@@ -2068,9 +2105,9 @@ VendorDatabase.Vendors = {
 	},
 	[252887] = {
         name = "Chert",
-        mapID = 2339,
-        x = 0.5, y = 0.5,
-        zone = "Dornogal",
+        mapID = 2214,
+        x = 0.434, y = 0.330,
+        zone = "The Ringing Deeps",
         faction = "Neutral",
         currency = "Gold",
         expansion = "TWW",
@@ -2472,9 +2509,9 @@ VendorDatabase.Vendors = {
 	},
 	[256783] = {
         name = "Gabbun",
-        mapID = 2255,
-        x = 0.5, y = 0.5,
-        zone = "Azj-Kahet",
+        mapID = 2214,
+        x = 0.434, y = 0.333,
+        zone = "The Ringing Deeps",
         faction = "Neutral",
         currency = "Gold",
         expansion = "TWW",
@@ -2491,7 +2528,7 @@ VendorDatabase.Vendors = {
 	[256946] = {
         name = "Duskcaller Erthix",
         mapID = 535,
-        x = 0.5, y = 0.5,
+        x = 0.704, y = 0.574,
         zone = "Talador",
         subzone = "Refuge",
         faction = "Neutral",
@@ -2548,6 +2585,7 @@ VendorDatabase.ZoneToContinentMap = {
     [32] = 13,
     [36] = 13,
     [48] = 13,
+    [50] = 13,     -- Northern Stranglethorn
     [56] = 13,
     [57] = 13,
     [69] = 12,
@@ -2571,9 +2609,11 @@ VendorDatabase.ZoneToContinentMap = {
     [125] = 113,
     [127] = 113,
     [217] = 13,
+    [218] = 13,    -- Ruins of Gilneas
     [224] = 13,
     [241] = 13,
     [242] = 13,
+    [369] = 13,    -- Bizmo's Brawlpub
     [371] = 424,
     [376] = 424,
     [379] = 424,
@@ -2581,6 +2621,7 @@ VendorDatabase.ZoneToContinentMap = {
     [390] = 424,
     [407] = 12,
     [418] = 424,
+    [503] = 12,    -- Brawl'gar Arena
     [525] = 572,
     [535] = 572,
     [539] = 572,
@@ -2620,6 +2661,7 @@ VendorDatabase.ZoneToContinentMap = {
     [1161] = 876,
     [1165] = 875,
     [1462] = 876,
+    [1473] = 12,   -- Chamber of Heart (Silithus)
     [1525] = 1550,
     [1533] = 1550,
     [1536] = 1550,
@@ -2642,6 +2684,9 @@ VendorDatabase.ZoneToContinentMap = {
     [2255] = 2274,
     [2339] = 2274,
     [2346] = 2274,
+    [2351] = 2274, -- Hollowed Halls (Housing)
+    [2352] = 2274, -- Housing instance
+    [2406] = 2274, -- Liberation of Undermine (dungeon)
     [2472] = 2274,
 }
 
@@ -2672,8 +2717,14 @@ function VendorDatabase:BuildIndexes()
     self.ByMapID = {}
     self.ByExpansion = {}
     self.ByName = {}
+    self.ByItemID = {}  -- Reverse index: itemID -> { npcID1, npcID2, ... }
+
+    local vendorCount = 0
+    local itemCount = 0
 
     for npcID, vendor in pairs(self.Vendors) do
+        vendorCount = vendorCount + 1
+
         -- Index by mapID
         local mapID = vendor.mapID
         if mapID then
@@ -2696,6 +2747,25 @@ function VendorDatabase:BuildIndexes()
         if vendor.name then
             self.ByName[vendor.name:lower()] = npcID
         end
+
+        -- Index by itemID (reverse lookup for tooltip source)
+        if vendor.items then
+            for _, itemID in ipairs(vendor.items) do
+                if not self.ByItemID[itemID] then
+                    self.ByItemID[itemID] = {}
+                    itemCount = itemCount + 1
+                end
+                table.insert(self.ByItemID[itemID], npcID)
+            end
+        end
+    end
+
+    -- Build alias index after main indexes are ready
+    self:BuildAliasIndex()
+
+    -- Debug output
+    if HA.Addon and HA.Addon.db and HA.Addon.db.profile.debug then
+        HA.Addon:Debug("VendorDatabase index built:", itemCount, "items from", vendorCount, "vendors")
     end
 end
 
@@ -2703,18 +2773,23 @@ end
 -- Query Functions
 -------------------------------------------------------------------------------
 
--- Direct lookup by NPC ID: O(1)
+-- Direct lookup by NPC ID: O(1) with alias resolution
 function VendorDatabase:GetVendor(npcID)
-    local vendor = self.Vendors[npcID]
+    local canonicalID = self:ResolveNpcID(npcID)
+    local vendor = self.Vendors[canonicalID]
     if vendor then
-        vendor.npcID = npcID
+        vendor.npcID = canonicalID
+        if canonicalID ~= npcID then
+            vendor.queriedNpcID = npcID
+        end
     end
     return vendor
 end
 
--- Check if vendor exists
+-- Check if vendor exists (with alias resolution)
 function VendorDatabase:HasVendor(npcID)
-    return self.Vendors[npcID] ~= nil
+    local canonicalID = self:ResolveNpcID(npcID)
+    return self.Vendors[canonicalID] ~= nil
 end
 
 -- Get all vendors
@@ -2780,4 +2855,119 @@ function VendorDatabase:GetVendorCount()
         count = count + 1
     end
     return count
+end
+
+-------------------------------------------------------------------------------
+-- NPC ID Alias Resolution
+-------------------------------------------------------------------------------
+
+-- Resolves an NPC ID to its canonical ID (returns original if no alias exists)
+function VendorDatabase:ResolveNpcID(npcID)
+    return self.AliasLookup[npcID] or self.Aliases[npcID] or npcID
+end
+
+-- Builds the runtime alias lookup index from static aliases + discovered aliases
+function VendorDatabase:BuildAliasIndex()
+    wipe(self.AliasLookup)
+
+    -- Load static aliases
+    for aliasID, canonicalID in pairs(self.Aliases) do
+        self.AliasLookup[aliasID] = canonicalID
+    end
+
+    -- Load discovered aliases from SavedVariables (if available)
+    if HomesteadDB and HomesteadDB.global and HomesteadDB.global.discoveredAliases then
+        for aliasID, data in pairs(HomesteadDB.global.discoveredAliases) do
+            if data.confirmed or (data.encounters and data.encounters >= 2) then
+                if not self.AliasLookup[aliasID] then
+                    self.AliasLookup[aliasID] = data.canonical
+                end
+            end
+        end
+    end
+
+    -- Debug output
+    if HA.Addon and HA.Addon.db and HA.Addon.db.profile and HA.Addon.db.profile.debug then
+        local count = 0
+        for _ in pairs(self.AliasLookup) do count = count + 1 end
+        HA.Addon:Debug("Alias index built with", count, "entries")
+    end
+end
+
+-- Discovers a potential alias when encountering an unknown NPC ID
+-- Returns canonical NPC ID if match found, nil otherwise
+function VendorDatabase:DiscoverAlias(npcID, npcName)
+    -- Already known vendor or alias?
+    if self.Vendors[npcID] then
+        return npcID
+    end
+    if self.AliasLookup[npcID] then
+        return self.AliasLookup[npcID]
+    end
+
+    -- Search for existing vendor with matching name
+    local matchedCanonicalID = nil
+    if npcName and self.ByName then
+        matchedCanonicalID = self.ByName[npcName:lower()]
+    end
+
+    -- Fallback: slower full search
+    if not matchedCanonicalID and npcName then
+        local lowerName = npcName:lower()
+        for existingNpcID, vendorData in pairs(self.Vendors) do
+            if vendorData.name and vendorData.name:lower() == lowerName then
+                matchedCanonicalID = existingNpcID
+                break
+            end
+        end
+    end
+
+    if not matchedCanonicalID then
+        return nil
+    end
+
+    -- Record discovery in SavedVariables
+    if HomesteadDB then
+        HomesteadDB.global = HomesteadDB.global or {}
+        HomesteadDB.global.discoveredAliases = HomesteadDB.global.discoveredAliases or {}
+
+        local existing = HomesteadDB.global.discoveredAliases[npcID]
+        if existing then
+            existing.encounters = (existing.encounters or 1) + 1
+            existing.lastSeen = time()
+        else
+            HomesteadDB.global.discoveredAliases[npcID] = {
+                canonical = matchedCanonicalID,
+                name = npcName,
+                encounters = 1,
+                discoveredAt = time(),
+                lastSeen = time(),
+                confirmed = false,
+            }
+
+            if HA.Addon then
+                HA.Addon:Print("Discovered NPC alias:", npcName, "(ID", npcID, "->", matchedCanonicalID .. ")")
+            end
+        end
+    end
+
+    -- Add to runtime lookup immediately
+    self.AliasLookup[npcID] = matchedCanonicalID
+
+    return matchedCanonicalID
+end
+
+-- Get count of known aliases (static + discovered)
+function VendorDatabase:GetAliasCount()
+    local staticCount = 0
+    for _ in pairs(self.Aliases) do staticCount = staticCount + 1 end
+
+    local discoveredCount = 0
+    if HomesteadDB and HomesteadDB.global and HomesteadDB.global.discoveredAliases then
+        for _ in pairs(HomesteadDB.global.discoveredAliases) do
+            discoveredCount = discoveredCount + 1
+        end
+    end
+
+    return staticCount, discoveredCount
 end

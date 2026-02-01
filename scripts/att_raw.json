@@ -1,0 +1,18 @@
+[
+  {
+    "name": "ItemDB",
+    "path": ".contrib/.raw/ItemDB",
+    "sha": "ccf7a61ad90806e9efe93d333817494c660d7d20",
+    "size": 0,
+    "url": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/contents/.contrib/.raw/ItemDB?ref=master",
+    "html_url": "https://github.com/ATTWoWAddon/AllTheThings/tree/master/.contrib/.raw/ItemDB",
+    "git_url": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/git/trees/ccf7a61ad90806e9efe93d333817494c660d7d20",
+    "download_url": null,
+    "type": "dir",
+    "_links": {
+      "self": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/contents/.contrib/.raw/ItemDB?ref=master",
+      "git": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/git/trees/ccf7a61ad90806e9efe93d333817494c660d7d20",
+      "html": "https://github.com/ATTWoWAddon/AllTheThings/tree/master/.contrib/.raw/ItemDB"
+    }
+  }
+]

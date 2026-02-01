@@ -1,5 +1,5 @@
 --[[
-    HousingAddon - Events
+    Homestead - Events
     Smart event system with throttling for performance
 ]]
 
@@ -123,6 +123,22 @@ end
 -- Unregister all callbacks for an update type
 function Events:UnregisterCallbacks(updateType)
     updateCallbacks[updateType] = nil
+end
+
+-- Fire an event immediately (bypass throttling for custom events)
+function Events:Fire(eventName, ...)
+    local callbacks = updateCallbacks[eventName]
+    if callbacks then
+        local args = {...}
+        for _, callback in pairs(callbacks) do
+            local success, err = pcall(function()
+                callback(unpack(args))
+            end)
+            if not success and HA.Addon then
+                HA.Addon:Debug("Error in event callback for", eventName, ":", err)
+            end
+        end
+    end
 end
 
 -------------------------------------------------------------------------------

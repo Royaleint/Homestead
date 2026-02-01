@@ -1,0 +1,873 @@
+======================================================================
+VENDOR DATABASE COMPARISON REPORT
+Homestead vs HomeBound vs DecorVendor
+======================================================================
+
+SUMMARY
+----------------------------------------------------------------------
+Vendors in our database:     186
+Vendors in HomeBound:        173
+Vendors in DecorVendor:      157
+Missing from our DB:         56
+Name mismatches:             5
+Coordinate differences (HB): 119
+Coordinate differences (DV): 0
+Map ID mismatches:           32
+
+VENDORS MISSING FROM OUR DATABASE
+----------------------------------------------------------------------
+These vendors exist in other addons but not in ours:
+
+[13217] Thanthaldis Snowgleam
+  Source: HomeBound + DecorVendor
+  Coords: (44.80, 46.40), MapID: 25
+
+[44337] Maurice Essman
+  Source: HomeBound + DecorVendor
+  Coords: (45.80, 88.60), MapID: 17
+
+[86779] Krixel Pinchwhistle
+  Source: HomeBound + DecorVendor
+  Coords: (31.00, 15.00), MapID: 539
+
+[89939] Berazus
+  Source: HomeBound + DecorVendor
+  Coords: (47.80, 23.60), MapID: 630
+
+[93971] Leyweaver Inondra
+  Source: HomeBound + DecorVendor
+  Coords: (40.32, 69.73), MapID: 680
+
+[106901] Sylvia Hartshorn
+  Source: HomeBound + DecorVendor
+  Coords: (54.70, 73.25), MapID: 641
+
+[109306] Myria Glenbrook
+  Source: HomeBound + DecorVendor
+  Coords: (60.20, 84.86), MapID: 641
+
+[112634] Hilseth Travelstride
+  Source: HomeBound + DecorVendor
+  Coords: (57.14, 71.91), MapID: 641
+
+[115736] First Arcanist Thalyssra
+  Source: HomeBound + DecorVendor
+  Coords: (36.49, 45.83), MapID: 680
+
+[115805] Hoddruc Bladebender
+  Source: HomeBound + DecorVendor
+  Coords: (46.80, 44.60), MapID: 36
+
+[142115] Fiona
+  Source: DecorVendor
+  Coords: (67.60, 40.80), MapID: 1161
+
+[152194] MOTHER
+  Source: HomeBound + DecorVendor
+  Coords: (50.15, 66.93), MapID: 1473
+
+[189226] Cataloger Jakes
+  Source: HomeBound + DecorVendor
+  Coords: (47.00, 82.60), MapID: 2022
+
+[191025] Lifecaller Tzadrak
+  Source: HomeBound + DecorVendor
+  Coords: (62.00, 73.80), MapID: 2022
+
+[193659] Provisioner Thom
+  Source: HomeBound + DecorVendor
+  Coords: (36.80, 50.60), MapID: 2112
+
+[199605] Evantkis
+  Source: HomeBound + DecorVendor
+  Coords: (58.40, 57.40), MapID: 2112
+
+[209220] Ironus Coldsteel
+  Source: HomeBound + DecorVendor
+  Coords: (52.20, 80.80), MapID: 2025
+
+[216888] Samantha Buckley
+  Source: HomeBound + DecorVendor
+  Coords: (61.99, 36.72), MapID: 218
+
+[240465] Lonomia
+  Source: HomeBound + DecorVendor
+  Coords: (68.29, 75.50), MapID: 2351
+
+[248525] Pascal-K1N6
+  Source: HomeBound
+  Coords: (54.13, 55.98), MapID: 2351
+
+[248594] Sundries Merchant
+  Source: HomeBound + DecorVendor
+  Coords: (50.90, 77.78), MapID: 680
+
+[249684] Brother Dovetail
+  Source: HomeBound
+  Coords: (54.36, 56.12), MapID: 2351
+
+[250820] Hordranin
+  Source: HomeBound
+  Coords: (54.20, 56.20), MapID: 2351
+
+[251042] Domelius
+  Source: HomeBound
+  Coords: (55.06, 77.97), MapID: 619
+
+[252043] Halenthos Brightstride
+  Source: HomeBound + DecorVendor
+  Coords: (67.46, 33.89), MapID: 627
+
+[252345] Pearl Barlow
+  Source: HomeBound + DecorVendor
+  Coords: (70.74, 15.66), MapID: 1161
+
+[252498] Corbin Branbell
+  Source: HomeBound + DecorVendor
+  Coords: (42.09, 59.38), MapID: 641
+
+[252605] Aeeshna
+  Source: HomeBound
+  Coords: (54.40, 56.20), MapID: 2351
+
+[252969] Jocenna
+  Source: HomeBound + DecorVendor
+  Coords: (49.63, 62.83), MapID: 680
+
+[253067] Silvrath
+  Source: HomeBound + DecorVendor
+  Coords: (71.53, 49.62), MapID: 2112
+
+[253086] Jolinth
+  Source: HomeBound + DecorVendor
+  Coords: (35.20, 57.00), MapID: 2151
+
+[253235] Dedric Sleetshaper
+  Source: HomeBound + DecorVendor
+  Coords: (24.72, 43.93), MapID: 87
+
+[253387] Selfira Ambergrove
+  Source: HomeBound + DecorVendor
+  Coords: (54.26, 72.36), MapID: 641
+
+[253434] Sileas Duskvine
+  Source: HomeBound + DecorVendor
+  Coords: (79.92, 73.89), MapID: 641
+
+[253596] The Last Architect
+  Source: HomeBound
+  Coords: (53.80, 57.40), MapID: 2351
+
+[253602] Frederick the Fabulous
+  Source: DecorVendor
+  Coords: (57.72, 15.68), MapID: 371
+
+[255101] Mynde
+  Source: HomeBound + DecorVendor
+  Coords: (45.58, 69.15), MapID: 680
+
+[255203] Xiao Dan
+  Source: HomeBound + DecorVendor
+  Coords: (51.95, 38.31), MapID: 2352
+
+[255213] Faarden the Builder
+  Source: HomeBound + DecorVendor
+  Coords: (52.00, 38.40), MapID: 2352
+
+[255216] Balen Starfinder
+  Source: HomeBound + DecorVendor
+  Coords: (52.20, 38.00), MapID: 2352
+
+[255218] Argan Hammerfist
+  Source: HomeBound + DecorVendor
+  Coords: (52.20, 37.80), MapID: 2352
+
+[255221] Trevor Grenner
+  Source: HomeBound + DecorVendor
+  Coords: (53.47, 40.93), MapID: 2352
+
+[255222] \
+  Source: HomeBound + DecorVendor
+  Coords: (62.40, 80.20), MapID: 2352
+
+[255228] \
+  Source: HomeBound + DecorVendor
+  Coords: (62.40, 80.00), MapID: 2352
+
+[255230] \
+  Source: HomeBound + DecorVendor
+  Coords: (62.23, 80.30), MapID: 2352
+
+[255278] Gronthul
+  Source: HomeBound + DecorVendor
+  Coords: (54.12, 59.11), MapID: 2351
+
+[255297] Shon'ja
+  Source: HomeBound + DecorVendor
+  Coords: (54.13, 59.05), MapID: 2351
+
+[255298] Jehzar Starfall
+  Source: HomeBound + DecorVendor
+  Coords: (53.56, 58.49), MapID: 2351
+
+[255299] Lefton Farrer
+  Source: HomeBound + DecorVendor
+  Coords: (53.80, 59.40), MapID: 2351
+
+[255301] Botanist Boh'an
+  Source: HomeBound + DecorVendor
+  Coords: (54.00, 58.40), MapID: 2351
+
+[255319] \
+  Source: HomeBound + DecorVendor
+  Coords: (40.30, 73.00), MapID: 2351
+
+[255325] \
+  Source: HomeBound
+  Coords: (39.80, 72.80), MapID: 2351
+
+[255326] \
+  Source: HomeBound + DecorVendor
+  Coords: (39.91, 73.30), MapID: 2351
+
+[256750] Klasa
+  Source: HomeBound + DecorVendor
+  Coords: (58.30, 61.68), MapID: 2352
+
+[256826] Mrgrgrl
+  Source: HomeBound + DecorVendor
+  Coords: (15.11, 53.33), MapID: 680
+
+[257897] Harlowe Marl
+  Source: HomeBound
+  Coords: (53.04, 38.05), MapID: 2352
+
+NAME MISMATCHES
+----------------------------------------------------------------------
+[64001]
+  Our DB:     "Farmer Yoon"
+  HomeBound:  "Sage Lotusbloom"
+
+[64032]
+  Our DB:     "Jogu the Drunk"
+  HomeBound:  "Sage Whiteheart"
+
+[78564]
+  Our DB:     "Sergeant Grimjaw"
+  HomeBound:  "Sergeant Crowler"
+
+[127151]
+  Our DB:     "Chieftain Hatuun"
+  HomeBound:  "Toraan the Revered"
+
+[145695]
+  Our DB:     "N/A"
+  HomeBound:  "\"
+
+COORDINATE DIFFERENCES (HomeBound)
+----------------------------------------------------------------------
+[1247] Innkeeper Belm
+  Our DB:     (0.54, 0.51)
+  HomeBound:  (93.92, 70.91)
+
+[1465] Drac Roughcut
+  Our DB:     (0.35, 0.46)
+  HomeBound:  (35.60, 49.00)
+
+[2140] Edwin Harly
+  Our DB:     (0.46, 0.42)
+  HomeBound:  (44.06, 39.68)
+
+[2483] Jaquilina Dramet
+  Our DB:     (0.43, 0.23)
+  HomeBound:  (43.80, 23.20)
+
+[3178] Stuart Fleming
+  Our DB:     (0.06, 0.58)
+  HomeBound:  (6.27, 57.45)
+
+[14624] Master Smith Burninate
+  Our DB:     (0.39, 0.29)
+  HomeBound:  (38.60, 28.70)
+
+[16528] Provisioner Vredigar
+  Our DB:     (0.48, 0.32)
+  HomeBound:  (47.60, 32.40)
+
+[23995] Axle
+  Our DB:     (0.42, 0.74)
+  HomeBound:  (41.90, 73.90)
+
+[25206] Ahlurglgr
+  Our DB:     (0.43, 0.56)
+  HomeBound:  (43.04, 13.81)
+
+[27391] Woodsman Drake
+  Our DB:     (0.33, 0.60)
+  HomeBound:  (32.40, 59.80)
+
+[28038] Purser Boulian
+  Our DB:     (0.27, 0.59)
+  HomeBound:  (26.80, 59.20)
+
+[44114] Wilkinson
+  Our DB:     (0.18, 0.56)
+  HomeBound:  (20.27, 58.35)
+
+[45417] Fiona
+  Our DB:     (0.09, 0.67)
+  HomeBound:  (67.60, 40.80)
+
+[49386] Craw MacGraw
+  Our DB:     (0.49, 0.31)
+  HomeBound:  (48.61, 30.68)
+
+[49877] Captain Lancy Revshon
+  Our DB:     (0.68, 0.73)
+  HomeBound:  (67.79, 73.05)
+
+[50304] Captain Donald Adams
+  Our DB:     (0.63, 0.49)
+  HomeBound:  (63.20, 49.00)
+
+[50307] Lord Candren
+  Our DB:     (0.56, 0.13)
+  HomeBound:  (37.20, 47.60)
+
+[50309] Captain Stonehelm
+  Our DB:     (0.56, 0.48)
+  HomeBound:  (55.45, 47.15)
+
+[50483] Brave Tuho
+  Our DB:     (0.47, 0.50)
+  HomeBound:  (46.20, 50.60)
+
+[50488] Stone Guard Nargol
+  Our DB:     (0.48, 0.71)
+  HomeBound:  (50.20, 58.40)
+
+[58414] San Redscale
+  Our DB:     (0.57, 0.44)
+  HomeBound:  (56.70, 44.38)
+
+[58706] Gina Mudclaw
+  Our DB:     (0.53, 0.52)
+  HomeBound:  (53.20, 51.80)
+
+[59698] Brother Furtrim
+  Our DB:     (0.57, 0.61)
+  HomeBound:  (57.24, 60.96)
+
+[62088] Lali the Assistant
+  Our DB:     (0.84, 0.32)
+  HomeBound:  (23.88, 21.79)
+
+[64001] Farmer Yoon
+  Our DB:     (0.52, 0.49)
+  HomeBound:  (62.80, 23.20)
+
+[64032] Jogu the Drunk
+  Our DB:     (0.53, 0.52)
+  HomeBound:  (85.20, 61.60)
+
+[64605] Tan Shin Tiao
+  Our DB:     (0.82, 0.29)
+  HomeBound:  (82.23, 29.33)
+
+[68363] Quackenbush
+  Our DB:     (0.69, 0.17)
+  HomeBound:  (51.00, 30.00)
+
+[68364] Paul North
+  Our DB:     (0.48, 0.62)
+  HomeBound:  (52.00, 27.80)
+
+[76872] Supplymaster Eri
+  Our DB:     (0.36, 0.40)
+  HomeBound:  (48.00, 66.00)
+
+[78564] Sergeant Grimjaw
+  Our DB:     (0.36, 0.40)
+  HomeBound:  (38.50, 31.40)
+
+[79774] Sergeant Grimjaw
+  Our DB:     (0.50, 0.50)
+  HomeBound:  (43.80, 47.40)
+
+[79812] Moz'def
+  Our DB:     (0.36, 0.40)
+  HomeBound:  (48.00, 66.00)
+
+[81133] Artificer Kallaes
+  Our DB:     (0.47, 0.38)
+  HomeBound:  (46.20, 39.30)
+
+[85427] Maaria
+  Our DB:     (0.30, 0.16)
+  HomeBound:  (31.00, 15.00)
+
+[85932] Vindicator Nuurem
+  Our DB:     (0.46, 0.77)
+  HomeBound:  (46.40, 74.60)
+
+[85946] Shadow-Sage Brakoss
+  Our DB:     (0.50, 0.50)
+  HomeBound:  (44.40, 75.20)
+
+[85950] Trader Caerel
+  Our DB:     (0.41, 0.60)
+  HomeBound:  (40.97, 59.54)
+
+[86037] Ravenspeaker Skeega
+  Our DB:     (0.53, 0.60)
+  HomeBound:  (53.48, 59.74)
+
+[86776] Ribchewer
+  Our DB:     (0.50, 0.50)
+  HomeBound:  (51.40, 62.00)
+
+[87015] Kil'rip
+  Our DB:     (0.50, 0.50)
+  HomeBound:  (48.00, 66.00)
+
+[87312] Vora Strongarm
+  Our DB:     (0.50, 0.50)
+  HomeBound:  (48.00, 66.00)
+
+[87775] Ruuan the Seer
+  Our DB:     (0.50, 0.50)
+  HomeBound:  (46.70, 44.96)
+
+[88220] Peter
+  Our DB:     (0.30, 0.16)
+  HomeBound:  (31.00, 15.00)
+
+[93550] Quartermaster Ozorg
+  Our DB:     (0.84, 0.50)
+  HomeBound:  (43.90, 37.17)
+
+[100196] Eadric the Pure
+  Our DB:     (0.76, 0.52)
+  HomeBound:  (75.64, 49.09)
+
+[103693] Outfitter Reynolds
+  Our DB:     (0.36, 0.36)
+  HomeBound:  (44.56, 48.88)
+
+[105333] Val'zuun
+  Our DB:     (0.59, 0.48)
+  HomeBound:  (67.36, 63.22)
+
+[105986] Kelsey Steelspark
+  Our DB:     (0.55, 0.61)
+  HomeBound:  (26.92, 36.83)
+
+[106902] Ransa Greyfeather
+  Our DB:     (0.38, 0.46)
+  HomeBound:  (45.88, 60.49)
+
+[108017] Torv Dubstomp
+  Our DB:     (0.55, 0.78)
+  HomeBound:  (52.80, 80.00)
+
+[108537] Crafty Palu
+  Our DB:     (0.38, 0.47)
+  HomeBound:  (41.62, 10.44)
+
+[112318] Flamesmith Lanying
+  Our DB:     (0.30, 0.53)
+  HomeBound:  (30.32, 60.69)
+
+[112323] Amurra Thistledew
+  Our DB:     (0.45, 0.33)
+  HomeBound:  (40.02, 17.72)
+
+[112338] Caydori Brightstar
+  Our DB:     (0.51, 0.43)
+  HomeBound:  (50.33, 59.13)
+
+[112392] Quartermaster Durnolf
+  Our DB:     (0.59, 0.13)
+  HomeBound:  (55.49, 25.91)
+
+[112401] Meridelle Lightspark
+  Our DB:     (0.51, 0.48)
+  HomeBound:  (38.62, 23.77)
+
+[112407] Falara Nightsong
+  Our DB:     (0.58, 0.51)
+  HomeBound:  (61.00, 56.73)
+
+[112434] Gigi Gigavoid
+  Our DB:     (0.59, 0.38)
+  HomeBound:  (58.76, 32.69)
+
+[112440] Jackson Watkins
+  Our DB:     (0.29, 0.49)
+  HomeBound:  (44.75, 57.87)
+
+[112716] Rasil Fireborne
+  Our DB:     (0.43, 0.51)
+  HomeBound:  (43.40, 49.40)
+
+[127151] Chieftain Hatuun
+  Our DB:     (0.42, 0.76)
+  HomeBound:  (68.22, 56.91)
+
+[135459] Provisioner Lija
+  Our DB:     (0.39, 0.54)
+  HomeBound:  (39.11, 79.47)
+
+[135808] Provisioner Fray
+  Our DB:     (0.68, 0.22)
+  HomeBound:  (67.60, 21.80)
+
+[144129] Plugger Spazzring
+  Our DB:     (0.50, 0.50)
+  HomeBound:  (49.77, 32.22)
+
+[145695] None
+  Our DB:     (0.48, 0.62)
+  HomeBound:  (50.84, 29.13)
+
+[148923] Captain Zen'taga
+  Our DB:     (0.44, 0.87)
+  HomeBound:  (44.60, 94.40)
+
+[148924] Provisioner Mukra
+  Our DB:     (0.51, 0.95)
+  HomeBound:  (51.22, 95.08)
+
+[150716] Stolen Royal Vendorbot
+  Our DB:     (0.74, 0.37)
+  HomeBound:  (73.70, 36.91)
+
+[151941] Dershway the Triggered
+  Our DB:     (0.69, 0.17)
+  HomeBound:  (54.25, 25.13)
+
+[162804] Ve'nari
+  Our DB:     (0.47, 0.42)
+  HomeBound:  (46.80, 41.60)
+
+[174710] Chachi the Artiste
+  Our DB:     (0.33, 0.44)
+  HomeBound:  (54.00, 24.80)
+
+[188265] Rae'ana
+  Our DB:     (0.48, 0.82)
+  HomeBound:  (47.80, 82.20)
+
+[193015] Unatos
+  Our DB:     (0.58, 0.35)
+  HomeBound:  (58.20, 35.60)
+
+[196637] Tethalash
+  Our DB:     (0.26, 0.34)
+  HomeBound:  (25.52, 33.65)
+
+[209192] Provisioner Aristta
+  Our DB:     (0.61, 0.31)
+  HomeBound:  (61.40, 31.40)
+
+[210608] Celestine of the Harvest
+  Our DB:     (0.51, 0.43)
+  HomeBound:  (58.40, 67.80)
+
+[211065] Marie Allen
+  Our DB:     (0.60, 0.92)
+  HomeBound:  (60.40, 92.40)
+
+[216284] Mythrin'dir
+  Our DB:     (0.54, 0.61)
+  HomeBound:  (54.00, 60.80)
+
+[216285] Ellandrieth
+  Our DB:     (0.48, 0.54)
+  HomeBound:  (48.40, 53.60)
+
+[216286] Moon Priestess Lasara
+  Our DB:     (0.47, 0.71)
+  HomeBound:  (46.60, 70.60)
+
+[217642] Nalina Ironsong
+  Our DB:     (0.50, 0.50)
+  HomeBound:  (42.80, 55.83)
+
+[218202] Thripps
+  Our DB:     (0.49, 0.32)
+  HomeBound:  (50.00, 31.60)
+
+[219217] Velerd
+  Our DB:     (0.56, 0.76)
+  HomeBound:  (55.20, 76.40)
+
+[219318] Jorid
+  Our DB:     (0.57, 0.61)
+  HomeBound:  (57.00, 60.60)
+
+[221390] Waxmonger Squick
+  Our DB:     (0.43, 0.33)
+  HomeBound:  (43.20, 32.80)
+
+[223728] Auditor Balwurz
+  Our DB:     (0.39, 0.24)
+  HomeBound:  (39.20, 24.40)
+
+[226205] Cendvin
+  Our DB:     (0.74, 0.45)
+  HomeBound:  (74.40, 45.20)
+
+[226994] Blair Bass
+  Our DB:     (0.34, 0.72)
+  HomeBound:  (34.00, 70.80)
+
+[231396] Sitch Lowdown
+  Our DB:     (0.31, 0.39)
+  HomeBound:  (30.78, 38.93)
+
+[231405] Boatswain Hardee
+  Our DB:     (0.63, 0.17)
+  HomeBound:  (63.43, 16.80)
+
+[231406] Rocco Razzboom
+  Our DB:     (0.39, 0.22)
+  HomeBound:  (39.16, 22.20)
+
+[231407] Shredz the Scrapper
+  Our DB:     (0.53, 0.73)
+  HomeBound:  (53.34, 72.69)
+
+[231408] Lab Assistant Laszly
+  Our DB:     (0.27, 0.72)
+  HomeBound:  (27.18, 72.54)
+
+[231409] Smaks Topskimmer
+  Our DB:     (0.44, 0.51)
+  HomeBound:  (43.80, 50.80)
+
+[235252] Om'sirik
+  Our DB:     (0.41, 0.29)
+  HomeBound:  (40.33, 29.36)
+
+[235314] Ta'sam
+  Our DB:     (0.43, 0.35)
+  HomeBound:  (43.20, 34.80)
+
+[235621] Ando the Gat
+  Our DB:     (0.50, 0.50)
+  HomeBound:  (43.29, 51.89)
+
+[239333] Street Food Vendor
+  Our DB:     (0.50, 0.50)
+  HomeBound:  (26.20, 42.80)
+
+[240852] Lars Bronsmaelt
+  Our DB:     (0.28, 0.56)
+  HomeBound:  (28.28, 56.18)
+
+[246721] Janey Forrest
+  Our DB:     (0.56, 0.46)
+  HomeBound:  (56.29, 45.82)
+
+[249196] Materialist Ophinell
+  Our DB:     (0.50, 0.81)
+  HomeBound:  (49.60, 81.20)
+
+[251911] Stacks Topskimmer
+  Our DB:     (0.50, 0.50)
+  HomeBound:  (43.19, 50.47)
+
+[251921] Arcanist Peroleth
+  Our DB:     (0.58, 0.63)
+  HomeBound:  (58.00, 62.60)
+
+[252312] Second Chair Pawdo
+  Our DB:     (0.53, 0.68)
+  HomeBound:  (52.84, 68.00)
+
+[252313] Caspian
+  Our DB:     (0.59, 0.70)
+  HomeBound:  (59.60, 69.60)
+
+[252316] Delphine
+  Our DB:     (0.53, 0.31)
+  HomeBound:  (53.40, 31.20)
+
+[252326] T'lama
+  Our DB:     (0.39, 0.17)
+  HomeBound:  (36.94, 59.17)
+
+[252887] Chert
+  Our DB:     (0.50, 0.50)
+  HomeBound:  (43.40, 33.00)
+
+[252901] Cinnabar
+  Our DB:     (0.42, 0.73)
+  HomeBound:  (42.00, 73.00)
+
+[252910] Garnett
+  Our DB:     (0.54, 0.57)
+  HomeBound:  (54.68, 57.24)
+
+[253227] Breana Bitterbrand
+  Our DB:     (0.50, 0.30)
+  HomeBound:  (49.74, 29.57)
+
+[253232] Inge Brightview
+  Our DB:     (0.75, 0.10)
+  HomeBound:  (75.80, 9.40)
+
+[254603] Riica
+  Our DB:     (0.78, 0.66)
+  HomeBound:  (77.83, 65.77)
+
+[254606] Joruh
+  Our DB:     (0.39, 0.72)
+  HomeBound:  (38.80, 71.93)
+
+[256071] Solelo
+  Our DB:     (0.50, 0.80)
+  HomeBound:  (49.26, 80.09)
+
+[256119] Lonalo
+  Our DB:     (0.59, 0.51)
+  HomeBound:  (99.87, 12.10)
+
+[256783] Gabbun
+  Our DB:     (0.50, 0.50)
+  HomeBound:  (43.35, 33.27)
+
+[256946] Duskcaller Erthix
+  Our DB:     (0.50, 0.50)
+  HomeBound:  (70.40, 57.40)
+
+MAP ID MISMATCHES
+----------------------------------------------------------------------
+[1247] Innkeeper Belm
+  Our DB:     27
+  HomeBound:  469
+
+[45417] Fiona
+  Our DB:     23
+  HomeBound:  1161
+
+[50307] Lord Candren
+  Our DB:     84
+  HomeBound:  89
+
+[62088] Lali the Assistant
+  Our DB:     390
+  HomeBound:  433
+
+[64001] Farmer Yoon
+  Our DB:     376
+  HomeBound:  390
+
+[64032] Jogu the Drunk
+  Our DB:     376
+  HomeBound:  1530
+
+[68363] Quackenbush
+  Our DB:     84
+  HomeBound:  499
+
+[68364] Paul North
+  Our DB:     85
+  HomeBound:  503
+
+[78564] Sergeant Grimjaw
+  Our DB:     525
+  HomeBound:  582
+
+[79774] Sergeant Grimjaw
+  Our DB:     525
+  HomeBound:  590
+
+[86776] Ribchewer
+  Our DB:     525
+  HomeBound:  585
+
+[93550] Quartermaster Ozorg
+  Our DB:     23
+  HomeBound:  647
+
+[103693] Outfitter Reynolds
+  Our DB:     650
+  HomeBound:  739
+
+[105333] Val'zuun
+  Our DB:     627
+  HomeBound:  628
+
+[105986] Kelsey Steelspark
+  Our DB:     627
+  HomeBound:  626
+
+[112323] Amurra Thistledew
+  Our DB:     641
+  HomeBound:  747
+
+[112440] Jackson Watkins
+  Our DB:     627
+  HomeBound:  735
+
+[112716] Rasil Fireborne
+  Our DB:     627
+  HomeBound:  626
+
+[127151] Chieftain Hatuun
+  Our DB:     885
+  HomeBound:  940
+
+[144129] Plugger Spazzring
+  Our DB:     242
+  HomeBound:  1186
+
+[145695] None
+  Our DB:     85
+  HomeBound:  503
+
+[151941] Dershway the Triggered
+  Our DB:     84
+  HomeBound:  500
+
+[210608] Celestine of the Harvest
+  Our DB:     2025
+  HomeBound:  2022
+
+[217642] Nalina Ironsong
+  Our DB:     2339
+  HomeBound:  2215
+
+[218202] Thripps
+  Our DB:     2255
+  HomeBound:  2213
+
+[235621] Ando the Gat
+  Our DB:     2346
+  HomeBound:  2406
+
+[239333] Street Food Vendor
+  Our DB:     2255
+  HomeBound:  2346
+
+[252326] T'lama
+  Our DB:     1165
+  HomeBound:  1164
+
+[252887] Chert
+  Our DB:     2339
+  HomeBound:  2214
+
+[252901] Cinnabar
+  Our DB:     2200
+  HomeBound:  2248
+
+[256119] Lonalo
+  Our DB:     85
+  HomeBound:  86
+
+[256783] Gabbun
+  Our DB:     2255
+  HomeBound:  2214

@@ -1,5 +1,5 @@
 --[[
-    HousingAddon - DecorTracker Module
+    Homestead - DecorTracker Module
     Core decor collection tracking logic
 ]]
 

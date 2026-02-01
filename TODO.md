@@ -18,6 +18,14 @@
 - [ ] External API verification
 - [ ] Crowdsourced data submission
 
+## Tech Debt
+- [ ] Consolidate zoneToContinent tables (VendorMapPins.lua local + VendorDatabase.ZoneToContinentMap) into single source of truth
+
+## Future Enhancements
+- [ ] CraftedDecor database for profession-made items
+- [ ] QuestDecor database for quest rewards
+- [ ] Scan remaining 195 vendors for item data
+
 ## Completed
 - [x] VendorDatabase migration to NPC-keyed structure (2026-01-31)
 - [x] Fix empty vendor filtering
@@ -126,3 +134,32 @@
 2. Verify remaining 3 name mismatches: [64001], [64032], [127151]
 3. Test /hs export with new tab-delimited format
 4. Review 32 MapID mismatches
+
+## Session Summary (2026-01-31) - Evening
+
+### Release Preparation
+- ✓ Created README.md for GitHub
+  - Features, installation, commands, known limitations
+- ✓ Created LICENSE file (MIT, Copyright 2026 Nubs)
+- ✓ Fixed minimap icon path to use custom Textures/icon
+  - Users place icon.tga or icon.png in Textures folder
+
+### Git Commits
+- `6c68b32` - Fix bugs and add vendor data from scanning session
+- `9fe1466` - Use custom icon path for minimap button
+
+### Files Created
+- `README.md` - GitHub repository documentation
+- `LICENSE` - MIT license file
+
+### Repository
+- https://github.com/Royaleint/Homestead
+- Version: 0.1.0-alpha
+- Status: Ready for alpha testing
+
+### Next Steps
+1. Add custom icon.tga to Textures folder
+2. Test addon in-game after /reload
+3. Continue vendor scanning to populate items
+4. Verify 3 remaining name mismatches
+5. Consider first GitHub release tag

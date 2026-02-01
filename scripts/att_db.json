@@ -1,0 +1,306 @@
+[
+  {
+    "name": "AccountWideQuestsDB.lua",
+    "path": ".contrib/Parser/DATAS/00 - DB/AccountWideQuestsDB.lua",
+    "sha": "6996ded153fb89822ebec00f74905b6028dbb83f",
+    "size": 57317,
+    "url": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/contents/.contrib/Parser/DATAS/00%20-%20DB/AccountWideQuestsDB.lua?ref=master",
+    "html_url": "https://github.com/ATTWoWAddon/AllTheThings/blob/master/.contrib/Parser/DATAS/00%20-%20DB/AccountWideQuestsDB.lua",
+    "git_url": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/git/blobs/6996ded153fb89822ebec00f74905b6028dbb83f",
+    "download_url": "https://raw.githubusercontent.com/ATTWoWAddon/AllTheThings/master/.contrib/Parser/DATAS/00%20-%20DB/AccountWideQuestsDB.lua",
+    "type": "file",
+    "_links": {
+      "self": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/contents/.contrib/Parser/DATAS/00%20-%20DB/AccountWideQuestsDB.lua?ref=master",
+      "git": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/git/blobs/6996ded153fb89822ebec00f74905b6028dbb83f",
+      "html": "https://github.com/ATTWoWAddon/AllTheThings/blob/master/.contrib/Parser/DATAS/00%20-%20DB/AccountWideQuestsDB.lua"
+    }
+  },
+  {
+    "name": "AreaPOIDB.lua",
+    "path": ".contrib/Parser/DATAS/00 - DB/AreaPOIDB.lua",
+    "sha": "b131c8d9a54bd9e5ac2dc463d096587ca1422565",
+    "size": 2715,
+    "url": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/contents/.contrib/Parser/DATAS/00%20-%20DB/AreaPOIDB.lua?ref=master",
+    "html_url": "https://github.com/ATTWoWAddon/AllTheThings/blob/master/.contrib/Parser/DATAS/00%20-%20DB/AreaPOIDB.lua",
+    "git_url": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/git/blobs/b131c8d9a54bd9e5ac2dc463d096587ca1422565",
+    "download_url": "https://raw.githubusercontent.com/ATTWoWAddon/AllTheThings/master/.contrib/Parser/DATAS/00%20-%20DB/AreaPOIDB.lua",
+    "type": "file",
+    "_links": {
+      "self": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/contents/.contrib/Parser/DATAS/00%20-%20DB/AreaPOIDB.lua?ref=master",
+      "git": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/git/blobs/b131c8d9a54bd9e5ac2dc463d096587ca1422565",
+      "html": "https://github.com/ATTWoWAddon/AllTheThings/blob/master/.contrib/Parser/DATAS/00%20-%20DB/AreaPOIDB.lua"
+    }
+  },
+  {
+    "name": "ArtifactDB.lua",
+    "path": ".contrib/Parser/DATAS/00 - DB/ArtifactDB.lua",
+    "sha": "dfad9cf3b737ff13d8b60d6022256b339f012d9c",
+    "size": 7483,
+    "url": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/contents/.contrib/Parser/DATAS/00%20-%20DB/ArtifactDB.lua?ref=master",
+    "html_url": "https://github.com/ATTWoWAddon/AllTheThings/blob/master/.contrib/Parser/DATAS/00%20-%20DB/ArtifactDB.lua",
+    "git_url": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/git/blobs/dfad9cf3b737ff13d8b60d6022256b339f012d9c",
+    "download_url": "https://raw.githubusercontent.com/ATTWoWAddon/AllTheThings/master/.contrib/Parser/DATAS/00%20-%20DB/ArtifactDB.lua",
+    "type": "file",
+    "_links": {
+      "self": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/contents/.contrib/Parser/DATAS/00%20-%20DB/ArtifactDB.lua?ref=master",
+      "git": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/git/blobs/dfad9cf3b737ff13d8b60d6022256b339f012d9c",
+      "html": "https://github.com/ATTWoWAddon/AllTheThings/blob/master/.contrib/Parser/DATAS/00%20-%20DB/ArtifactDB.lua"
+    }
+  },
+  {
+    "name": "CategoryDB.lua",
+    "path": ".contrib/Parser/DATAS/00 - DB/CategoryDB.lua",
+    "sha": "ea144cf00eb536f248ee20580f89ed3440ab6719",
+    "size": 156488,
+    "url": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/contents/.contrib/Parser/DATAS/00%20-%20DB/CategoryDB.lua?ref=master",
+    "html_url": "https://github.com/ATTWoWAddon/AllTheThings/blob/master/.contrib/Parser/DATAS/00%20-%20DB/CategoryDB.lua",
+    "git_url": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/git/blobs/ea144cf00eb536f248ee20580f89ed3440ab6719",
+    "download_url": "https://raw.githubusercontent.com/ATTWoWAddon/AllTheThings/master/.contrib/Parser/DATAS/00%20-%20DB/CategoryDB.lua",
+    "type": "file",
+    "_links": {
+      "self": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/contents/.contrib/Parser/DATAS/00%20-%20DB/CategoryDB.lua?ref=master",
+      "git": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/git/blobs/ea144cf00eb536f248ee20580f89ed3440ab6719",
+      "html": "https://github.com/ATTWoWAddon/AllTheThings/blob/master/.contrib/Parser/DATAS/00%20-%20DB/CategoryDB.lua"
+    }
+  },
+  {
+    "name": "ClassInfoDB.lua",
+    "path": ".contrib/Parser/DATAS/00 - DB/ClassInfoDB.lua",
+    "sha": "c28dd7d2e0ad36e5d0679cbefedbc8d78a410efd",
+    "size": 3539,
+    "url": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/contents/.contrib/Parser/DATAS/00%20-%20DB/ClassInfoDB.lua?ref=master",
+    "html_url": "https://github.com/ATTWoWAddon/AllTheThings/blob/master/.contrib/Parser/DATAS/00%20-%20DB/ClassInfoDB.lua",
+    "git_url": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/git/blobs/c28dd7d2e0ad36e5d0679cbefedbc8d78a410efd",
+    "download_url": "https://raw.githubusercontent.com/ATTWoWAddon/AllTheThings/master/.contrib/Parser/DATAS/00%20-%20DB/ClassInfoDB.lua",
+    "type": "file",
+    "_links": {
+      "self": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/contents/.contrib/Parser/DATAS/00%20-%20DB/ClassInfoDB.lua?ref=master",
+      "git": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/git/blobs/c28dd7d2e0ad36e5d0679cbefedbc8d78a410efd",
+      "html": "https://github.com/ATTWoWAddon/AllTheThings/blob/master/.contrib/Parser/DATAS/00%20-%20DB/ClassInfoDB.lua"
+    }
+  },
+  {
+    "name": "ClassPresetsDB",
+    "path": ".contrib/Parser/DATAS/00 - DB/ClassPresetsDB",
+    "sha": "f48f569b08de0a4a9ada72339672c2f29378bc71",
+    "size": 0,
+    "url": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/contents/.contrib/Parser/DATAS/00%20-%20DB/ClassPresetsDB?ref=master",
+    "html_url": "https://github.com/ATTWoWAddon/AllTheThings/tree/master/.contrib/Parser/DATAS/00%20-%20DB/ClassPresetsDB",
+    "git_url": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/git/trees/f48f569b08de0a4a9ada72339672c2f29378bc71",
+    "download_url": null,
+    "type": "dir",
+    "_links": {
+      "self": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/contents/.contrib/Parser/DATAS/00%20-%20DB/ClassPresetsDB?ref=master",
+      "git": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/git/trees/f48f569b08de0a4a9ada72339672c2f29378bc71",
+      "html": "https://github.com/ATTWoWAddon/AllTheThings/tree/master/.contrib/Parser/DATAS/00%20-%20DB/ClassPresetsDB"
+    }
+  },
+  {
+    "name": "Dynamic",
+    "path": ".contrib/Parser/DATAS/00 - DB/Dynamic",
+    "sha": "380d1346b4e9a8326575d5bdfa0275ed68692f66",
+    "size": 0,
+    "url": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/contents/.contrib/Parser/DATAS/00%20-%20DB/Dynamic?ref=master",
+    "html_url": "https://github.com/ATTWoWAddon/AllTheThings/tree/master/.contrib/Parser/DATAS/00%20-%20DB/Dynamic",
+    "git_url": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/git/trees/380d1346b4e9a8326575d5bdfa0275ed68692f66",
+    "download_url": null,
+    "type": "dir",
+    "_links": {
+      "self": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/contents/.contrib/Parser/DATAS/00%20-%20DB/Dynamic?ref=master",
+      "git": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/git/trees/380d1346b4e9a8326575d5bdfa0275ed68692f66",
+      "html": "https://github.com/ATTWoWAddon/AllTheThings/tree/master/.contrib/Parser/DATAS/00%20-%20DB/Dynamic"
+    }
+  },
+  {
+    "name": "ExplorationDB",
+    "path": ".contrib/Parser/DATAS/00 - DB/ExplorationDB",
+    "sha": "0acac822a20e71a1119f8925db8529a3b530ccaa",
+    "size": 0,
+    "url": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/contents/.contrib/Parser/DATAS/00%20-%20DB/ExplorationDB?ref=master",
+    "html_url": "https://github.com/ATTWoWAddon/AllTheThings/tree/master/.contrib/Parser/DATAS/00%20-%20DB/ExplorationDB",
+    "git_url": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/git/trees/0acac822a20e71a1119f8925db8529a3b530ccaa",
+    "download_url": null,
+    "type": "dir",
+    "_links": {
+      "self": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/contents/.contrib/Parser/DATAS/00%20-%20DB/ExplorationDB?ref=master",
+      "git": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/git/trees/0acac822a20e71a1119f8925db8529a3b530ccaa",
+      "html": "https://github.com/ATTWoWAddon/AllTheThings/tree/master/.contrib/Parser/DATAS/00%20-%20DB/ExplorationDB"
+    }
+  },
+  {
+    "name": "FilterDB.lua",
+    "path": ".contrib/Parser/DATAS/00 - DB/FilterDB.lua",
+    "sha": "a3befdd82469eeb7438a28b1804dfa7205228b04",
+    "size": 10715,
+    "url": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/contents/.contrib/Parser/DATAS/00%20-%20DB/FilterDB.lua?ref=master",
+    "html_url": "https://github.com/ATTWoWAddon/AllTheThings/blob/master/.contrib/Parser/DATAS/00%20-%20DB/FilterDB.lua",
+    "git_url": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/git/blobs/a3befdd82469eeb7438a28b1804dfa7205228b04",
+    "download_url": "https://raw.githubusercontent.com/ATTWoWAddon/AllTheThings/master/.contrib/Parser/DATAS/00%20-%20DB/FilterDB.lua",
+    "type": "file",
+    "_links": {
+      "self": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/contents/.contrib/Parser/DATAS/00%20-%20DB/FilterDB.lua?ref=master",
+      "git": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/git/blobs/a3befdd82469eeb7438a28b1804dfa7205228b04",
+      "html": "https://github.com/ATTWoWAddon/AllTheThings/blob/master/.contrib/Parser/DATAS/00%20-%20DB/FilterDB.lua"
+    }
+  },
+  {
+    "name": "IllusionDB.lua",
+    "path": ".contrib/Parser/DATAS/00 - DB/IllusionDB.lua",
+    "sha": "5ec3f70453a598be3fc9dfe8cc3c547cccb9ca84",
+    "size": 4937,
+    "url": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/contents/.contrib/Parser/DATAS/00%20-%20DB/IllusionDB.lua?ref=master",
+    "html_url": "https://github.com/ATTWoWAddon/AllTheThings/blob/master/.contrib/Parser/DATAS/00%20-%20DB/IllusionDB.lua",
+    "git_url": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/git/blobs/5ec3f70453a598be3fc9dfe8cc3c547cccb9ca84",
+    "download_url": "https://raw.githubusercontent.com/ATTWoWAddon/AllTheThings/master/.contrib/Parser/DATAS/00%20-%20DB/IllusionDB.lua",
+    "type": "file",
+    "_links": {
+      "self": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/contents/.contrib/Parser/DATAS/00%20-%20DB/IllusionDB.lua?ref=master",
+      "git": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/git/blobs/5ec3f70453a598be3fc9dfe8cc3c547cccb9ca84",
+      "html": "https://github.com/ATTWoWAddon/AllTheThings/blob/master/.contrib/Parser/DATAS/00%20-%20DB/IllusionDB.lua"
+    }
+  },
+  {
+    "name": "InstanceDB.lua",
+    "path": ".contrib/Parser/DATAS/00 - DB/InstanceDB.lua",
+    "sha": "52245c1b16ba45c4b579a6cb7eadc2c14672bf06",
+    "size": 9260,
+    "url": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/contents/.contrib/Parser/DATAS/00%20-%20DB/InstanceDB.lua?ref=master",
+    "html_url": "https://github.com/ATTWoWAddon/AllTheThings/blob/master/.contrib/Parser/DATAS/00%20-%20DB/InstanceDB.lua",
+    "git_url": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/git/blobs/52245c1b16ba45c4b579a6cb7eadc2c14672bf06",
+    "download_url": "https://raw.githubusercontent.com/ATTWoWAddon/AllTheThings/master/.contrib/Parser/DATAS/00%20-%20DB/InstanceDB.lua",
+    "type": "file",
+    "_links": {
+      "self": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/contents/.contrib/Parser/DATAS/00%20-%20DB/InstanceDB.lua?ref=master",
+      "git": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/git/blobs/52245c1b16ba45c4b579a6cb7eadc2c14672bf06",
+      "html": "https://github.com/ATTWoWAddon/AllTheThings/blob/master/.contrib/Parser/DATAS/00%20-%20DB/InstanceDB.lua"
+    }
+  },
+  {
+    "name": "MountDB.lua",
+    "path": ".contrib/Parser/DATAS/00 - DB/MountDB.lua",
+    "sha": "37d3e573d40995fb621d2f6caf245bd62d1f5372",
+    "size": 87714,
+    "url": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/contents/.contrib/Parser/DATAS/00%20-%20DB/MountDB.lua?ref=master",
+    "html_url": "https://github.com/ATTWoWAddon/AllTheThings/blob/master/.contrib/Parser/DATAS/00%20-%20DB/MountDB.lua",
+    "git_url": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/git/blobs/37d3e573d40995fb621d2f6caf245bd62d1f5372",
+    "download_url": "https://raw.githubusercontent.com/ATTWoWAddon/AllTheThings/master/.contrib/Parser/DATAS/00%20-%20DB/MountDB.lua",
+    "type": "file",
+    "_links": {
+      "self": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/contents/.contrib/Parser/DATAS/00%20-%20DB/MountDB.lua?ref=master",
+      "git": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/git/blobs/37d3e573d40995fb621d2f6caf245bd62d1f5372",
+      "html": "https://github.com/ATTWoWAddon/AllTheThings/blob/master/.contrib/Parser/DATAS/00%20-%20DB/MountDB.lua"
+    }
+  },
+  {
+    "name": "ObjectDB.lua",
+    "path": ".contrib/Parser/DATAS/00 - DB/ObjectDB.lua",
+    "sha": "fe4db6a38a092a2709ef89874dd0d4b8836a73a2",
+    "size": 7554332,
+    "url": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/contents/.contrib/Parser/DATAS/00%20-%20DB/ObjectDB.lua?ref=master",
+    "html_url": "https://github.com/ATTWoWAddon/AllTheThings/blob/master/.contrib/Parser/DATAS/00%20-%20DB/ObjectDB.lua",
+    "git_url": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/git/blobs/fe4db6a38a092a2709ef89874dd0d4b8836a73a2",
+    "download_url": "https://raw.githubusercontent.com/ATTWoWAddon/AllTheThings/master/.contrib/Parser/DATAS/00%20-%20DB/ObjectDB.lua",
+    "type": "file",
+    "_links": {
+      "self": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/contents/.contrib/Parser/DATAS/00%20-%20DB/ObjectDB.lua?ref=master",
+      "git": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/git/blobs/fe4db6a38a092a2709ef89874dd0d4b8836a73a2",
+      "html": "https://github.com/ATTWoWAddon/AllTheThings/blob/master/.contrib/Parser/DATAS/00%20-%20DB/ObjectDB.lua"
+    }
+  },
+  {
+    "name": "ObjectDB_Conditionals.lua",
+    "path": ".contrib/Parser/DATAS/00 - DB/ObjectDB_Conditionals.lua",
+    "sha": "28c0b1d05ee3a8aecee8a3ebebefd3ed1b1ac27b",
+    "size": 8918,
+    "url": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/contents/.contrib/Parser/DATAS/00%20-%20DB/ObjectDB_Conditionals.lua?ref=master",
+    "html_url": "https://github.com/ATTWoWAddon/AllTheThings/blob/master/.contrib/Parser/DATAS/00%20-%20DB/ObjectDB_Conditionals.lua",
+    "git_url": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/git/blobs/28c0b1d05ee3a8aecee8a3ebebefd3ed1b1ac27b",
+    "download_url": "https://raw.githubusercontent.com/ATTWoWAddon/AllTheThings/master/.contrib/Parser/DATAS/00%20-%20DB/ObjectDB_Conditionals.lua",
+    "type": "file",
+    "_links": {
+      "self": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/contents/.contrib/Parser/DATAS/00%20-%20DB/ObjectDB_Conditionals.lua?ref=master",
+      "git": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/git/blobs/28c0b1d05ee3a8aecee8a3ebebefd3ed1b1ac27b",
+      "html": "https://github.com/ATTWoWAddon/AllTheThings/blob/master/.contrib/Parser/DATAS/00%20-%20DB/ObjectDB_Conditionals.lua"
+    }
+  },
+  {
+    "name": "Parser Setup Data",
+    "path": ".contrib/Parser/DATAS/00 - DB/Parser Setup Data",
+    "sha": "037bc85e769f7d67a0d23ee13a13465aa55b67d9",
+    "size": 0,
+    "url": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/contents/.contrib/Parser/DATAS/00%20-%20DB/Parser%20Setup%20Data?ref=master",
+    "html_url": "https://github.com/ATTWoWAddon/AllTheThings/tree/master/.contrib/Parser/DATAS/00%20-%20DB/Parser%20Setup%20Data",
+    "git_url": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/git/trees/037bc85e769f7d67a0d23ee13a13465aa55b67d9",
+    "download_url": null,
+    "type": "dir",
+    "_links": {
+      "self": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/contents/.contrib/Parser/DATAS/00%20-%20DB/Parser%20Setup%20Data?ref=master",
+      "git": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/git/trees/037bc85e769f7d67a0d23ee13a13465aa55b67d9",
+      "html": "https://github.com/ATTWoWAddon/AllTheThings/tree/master/.contrib/Parser/DATAS/00%20-%20DB/Parser%20Setup%20Data"
+    }
+  },
+  {
+    "name": "PetDB.lua",
+    "path": ".contrib/Parser/DATAS/00 - DB/PetDB.lua",
+    "sha": "a4e75d2b8e47fd2e8698c9ce0a3ba14760e15f92",
+    "size": 144370,
+    "url": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/contents/.contrib/Parser/DATAS/00%20-%20DB/PetDB.lua?ref=master",
+    "html_url": "https://github.com/ATTWoWAddon/AllTheThings/blob/master/.contrib/Parser/DATAS/00%20-%20DB/PetDB.lua",
+    "git_url": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/git/blobs/a4e75d2b8e47fd2e8698c9ce0a3ba14760e15f92",
+    "download_url": "https://raw.githubusercontent.com/ATTWoWAddon/AllTheThings/master/.contrib/Parser/DATAS/00%20-%20DB/PetDB.lua",
+    "type": "file",
+    "_links": {
+      "self": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/contents/.contrib/Parser/DATAS/00%20-%20DB/PetDB.lua?ref=master",
+      "git": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/git/blobs/a4e75d2b8e47fd2e8698c9ce0a3ba14760e15f92",
+      "html": "https://github.com/ATTWoWAddon/AllTheThings/blob/master/.contrib/Parser/DATAS/00%20-%20DB/PetDB.lua"
+    }
+  },
+  {
+    "name": "PetTypeDB.lua",
+    "path": ".contrib/Parser/DATAS/00 - DB/PetTypeDB.lua",
+    "sha": "b1956502d2a19cebbfea62597b107b615cf3ae6b",
+    "size": 39114,
+    "url": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/contents/.contrib/Parser/DATAS/00%20-%20DB/PetTypeDB.lua?ref=master",
+    "html_url": "https://github.com/ATTWoWAddon/AllTheThings/blob/master/.contrib/Parser/DATAS/00%20-%20DB/PetTypeDB.lua",
+    "git_url": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/git/blobs/b1956502d2a19cebbfea62597b107b615cf3ae6b",
+    "download_url": "https://raw.githubusercontent.com/ATTWoWAddon/AllTheThings/master/.contrib/Parser/DATAS/00%20-%20DB/PetTypeDB.lua",
+    "type": "file",
+    "_links": {
+      "self": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/contents/.contrib/Parser/DATAS/00%20-%20DB/PetTypeDB.lua?ref=master",
+      "git": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/git/blobs/b1956502d2a19cebbfea62597b107b615cf3ae6b",
+      "html": "https://github.com/ATTWoWAddon/AllTheThings/blob/master/.contrib/Parser/DATAS/00%20-%20DB/PetTypeDB.lua"
+    }
+  },
+  {
+    "name": "ReagentsDB.Retail.lua",
+    "path": ".contrib/Parser/DATAS/00 - DB/ReagentsDB.Retail.lua",
+    "sha": "fc430998466f9b4ffbef621080dcea459c005ec6",
+    "size": 1138201,
+    "url": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/contents/.contrib/Parser/DATAS/00%20-%20DB/ReagentsDB.Retail.lua?ref=master",
+    "html_url": "https://github.com/ATTWoWAddon/AllTheThings/blob/master/.contrib/Parser/DATAS/00%20-%20DB/ReagentsDB.Retail.lua",
+    "git_url": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/git/blobs/fc430998466f9b4ffbef621080dcea459c005ec6",
+    "download_url": "https://raw.githubusercontent.com/ATTWoWAddon/AllTheThings/master/.contrib/Parser/DATAS/00%20-%20DB/ReagentsDB.Retail.lua",
+    "type": "file",
+    "_links": {
+      "self": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/contents/.contrib/Parser/DATAS/00%20-%20DB/ReagentsDB.Retail.lua?ref=master",
+      "git": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/git/blobs/fc430998466f9b4ffbef621080dcea459c005ec6",
+      "html": "https://github.com/ATTWoWAddon/AllTheThings/blob/master/.contrib/Parser/DATAS/00%20-%20DB/ReagentsDB.Retail.lua"
+    }
+  },
+  {
+    "name": "ToyDB.lua",
+    "path": ".contrib/Parser/DATAS/00 - DB/ToyDB.lua",
+    "sha": "59058ff2376d83912cc072fe05410f27e3686959",
+    "size": 48353,
+    "url": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/contents/.contrib/Parser/DATAS/00%20-%20DB/ToyDB.lua?ref=master",
+    "html_url": "https://github.com/ATTWoWAddon/AllTheThings/blob/master/.contrib/Parser/DATAS/00%20-%20DB/ToyDB.lua",
+    "git_url": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/git/blobs/59058ff2376d83912cc072fe05410f27e3686959",
+    "download_url": "https://raw.githubusercontent.com/ATTWoWAddon/AllTheThings/master/.contrib/Parser/DATAS/00%20-%20DB/ToyDB.lua",
+    "type": "file",
+    "_links": {
+      "self": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/contents/.contrib/Parser/DATAS/00%20-%20DB/ToyDB.lua?ref=master",
+      "git": "https://api.github.com/repos/ATTWoWAddon/AllTheThings/git/blobs/59058ff2376d83912cc072fe05410f27e3686959",
+      "html": "https://github.com/ATTWoWAddon/AllTheThings/blob/master/.contrib/Parser/DATAS/00%20-%20DB/ToyDB.lua"
+    }
+  }
+]

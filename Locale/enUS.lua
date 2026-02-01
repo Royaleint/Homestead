@@ -1,5 +1,5 @@
 --[[
-    HousingAddon - Locale: English (US)
+    Homestead - Locale: English (US)
     Default localization strings
 ]]
 
