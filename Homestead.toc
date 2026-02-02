@@ -2,7 +2,7 @@
 ## Title: Homestead
 ## Notes: See housing decor vendors and their wares on your map and track your collection progress
 ## Author: Nubs
-## Version: 0.1.0-alpha
+## Version: @project-version@
 ## SavedVariables: HomesteadDB
 ## IconTexture: Interface\AddOns\Homestead\Textures\icon
 ## Category: Housing
