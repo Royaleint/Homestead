@@ -681,10 +681,12 @@ function VendorMapPins:VendorHasUncollectedItems(vendor)
 
     local items = {}
 
-    -- Add static items from vendor database (new format: items = {itemID, itemID, ...})
+    -- Add static items from vendor database
+    -- New format: items can be plain integers OR tables with cost data
     if vendor.items and #vendor.items > 0 then
-        for _, itemID in ipairs(vendor.items) do
-            -- In new format, item IS the itemID (a number)
+        for _, item in ipairs(vendor.items) do
+            -- Handle both formats: plain number or table with cost
+            local itemID = HA.VendorData and HA.VendorData:GetItemID(item) or (type(item) == "number" and item or item[1])
             if itemID then
                 items[itemID] = {itemID = itemID}
             end
@@ -935,10 +937,12 @@ function VendorMapPins:ShowVendorTooltip(pin, vendor)
     local allItems = {}
     local itemsSeen = {}
 
-    -- Add static items (new format: items = {itemID, itemID, ...})
+    -- Add static items
+    -- New format: items can be plain integers OR tables with cost data
     if vendor.items then
-        for _, itemID in ipairs(vendor.items) do
-            -- In new format, item IS the itemID (a number)
+        for _, item in ipairs(vendor.items) do
+            -- Handle both formats: plain number or table with cost
+            local itemID = HA.VendorData and HA.VendorData:GetItemID(item) or (type(item) == "number" and item or item[1])
             if itemID and not itemsSeen[itemID] then
                 itemsSeen[itemID] = true
                 table.insert(allItems, {itemID = itemID})

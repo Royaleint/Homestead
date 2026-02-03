@@ -92,21 +92,30 @@ local function ValidateVendor(vendor, source)
         end
     end
     
-    -- Items validation (handles both old {itemID=..., name=...} and new {itemID, itemID} formats)
+    -- Items validation (handles multiple formats):
+    -- 1. Plain number: 245603
+    -- 2. Table with cost: {245603, cost = {...}}
+    -- 3. Legacy format: {itemID = 245603, name = "..."}
     if vendor.items then
         for i, item in ipairs(vendor.items) do
-            -- New format: items is array of raw itemIDs
             if type(item) == "number" then
+                -- Plain itemID number
                 if item <= 0 then
                     table.insert(warnings, string.format(
                         "%s: item #%d has invalid itemID %d", context, i, item
                     ))
                 end
-            -- Old format: items is array of {itemID=..., name=...}
             elseif type(item) == "table" then
-                if not item.itemID then
+                -- New format with cost: {itemID, cost = {...}} where itemID is at [1]
+                -- Or legacy format: {itemID = 123, name = "..."}
+                local itemID = item[1] or item.itemID
+                if not itemID then
                     table.insert(warnings, string.format(
                         "%s: item #%d missing itemID", context, i
+                    ))
+                elseif type(itemID) ~= "number" or itemID <= 0 then
+                    table.insert(warnings, string.format(
+                        "%s: item #%d has invalid itemID %s", context, i, tostring(itemID)
                     ))
                 end
             end

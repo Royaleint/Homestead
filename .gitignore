@@ -1,4 +1,4 @@
-﻿# Planning & Development docs
+# Planning & Development docs
 DEVELOPMENT_PLAN.md
 FEATURES.md
 TECHNICAL_REFERENCE.md
@@ -9,6 +9,9 @@ Differential_Export_Plan.md
 alias-system-plan.md
 alias-system-plan.txt
 CLAUDE.md
+CURRENT_TASK.md
+*-plan.md
+claude-code-*.md
 
 # Scripts and tools
 scripts/
@@ -17,7 +20,10 @@ scripts/
 # Backup files
 Data/Backups/
 Data/VendorDatabase_backup.lua
+Data/VendorDatabase_backup_*.lua
+Data/VendorDatabase_updated.lua
 *_backup.lua
+*_backup_*.lua
 
 # Verification/comparison outputs
 addon_vendor_comparison.txt
@@ -27,9 +33,16 @@ missing_vendors.lua
 # Copy files
 *- Copy.lua
 
+# External data files
+*.csv
+*.json
+
 # Windows junk
 nul
 Thumbs.db
 
 # Libraries (fetched by packager via .pkgmeta externals)
 Libs/
+
+# Midnight exclusion docs
+Data/MIDNIGHT_VENDORS_EXCLUDED.md

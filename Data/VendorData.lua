@@ -15,6 +15,170 @@ local VendorData = {}
 HA.VendorData = VendorData
 
 -------------------------------------------------------------------------------
+-- Vendor Name to NPC ID Mapping
+-- Maps official vendor names (as they appear in C_HousingCatalog source data)
+-- to their NPC IDs in VendorDatabase. Some vendors have multiple NPC IDs
+-- due to appearing in multiple locations.
+-------------------------------------------------------------------------------
+
+VendorData.VendorNameToNPC = {
+    -- Housing hub vendors (Razorwind Shores / Founder's Point)
+    ["\"High Tides\" Ren"] = {231012, 255222, 255325},
+    ["\"Len\" Splinthoof"] = {255228, 255326},
+    ["\"Yen\" Malone"] = {255230, 255319},
+    ["Argan Hammerfist"] = {255218},
+    ["Balen Starfinder"] = {255216},
+    ["Botanist Boh'an"] = {255301},
+    ["Faarden the Builder"] = {255213},
+    ["Gronthul"] = {255278},
+    ["Jehzar Starfall"] = {255298},
+    ["Klasa"] = {256750},
+    ["Lefton Farrer"] = {255299},
+    ["Lonomia"] = {240465},
+    ["Shon'ja"] = {255297},
+    ["Trevor Grenner"] = {255221},
+    ["Xiao Dan"] = {255203},
+
+    -- Dornogal
+    ["Auditor Balwurz"] = {223728},
+    ["Second Chair Pawdo"] = {252312},
+
+    -- Undermine
+    ["Lab Assistant Laszly"] = {231408},
+    ["Stacks Topskimmer"] = {251911},
+
+    -- Valdrakken
+    ["Silvrath"] = {253067},
+    ["Unatos"] = {193015},
+
+    -- Amirdrassil / Night Elf
+    ["Ellandrieth"] = {207514, 216285},
+    ["Mythrin'dir"] = {216284},
+
+    -- Gilneas
+    ["Marie Allen"] = {211065},
+    ["Samantha Buckley"] = {216888},
+
+    -- Suramar
+    ["Jocenna"] = {120897, 252969},
+    ["Sileas Duskvine"] = {253434},
+
+    -- Val'sharah
+    ["Selfira Ambergrove"] = {120899, 253387},
+    ["Sylvia Hartshorn"] = {106887, 106901},
+
+    -- Legion zones
+    ["Amurra Thistledew"] = {112323},
+    ["Berazus"] = {89939, 116305},
+    ["Rasil Fireborne"] = {112716},
+    ["Toraan the Revered"] = {125346},
+
+    -- Stormwind / Alliance
+    ["Captain Lancy Revshon"] = {45389, 49877},
+    ["Lord Candren"] = {50307},
+    ["Riica"] = {254603},
+    ["Solelo"] = {256071},
+
+    -- Warlords of Draenor
+    ["Vindicator Nuurem"] = {85932},
+
+    -- BfA
+    ["Provisioner Fray"] = {135808},
+
+    -- Pandaria
+    ["San Redscale"] = {58414},
+
+    -- Classic zones
+    ["Jaquilina Dramet"] = {2483, 6574},
+    ["Purser Boulian"] = {28038, 61911, 72111},
+
+    -- Missing vendors (need NPC IDs from in-game)
+    -- ["Ripley Kiefer"] = {},  -- Teldrassil vendor, needs investigation
+    -- ["Eastern Kingdoms World Vendors"] = {},  -- Placeholder, not a real NPC
+}
+
+-- Reverse lookup: NPC ID to vendor name
+VendorData.NPCToVendorName = {}
+
+-------------------------------------------------------------------------------
+-- Item Format Helpers
+-- New format: items can be either:
+--   - Plain integer: 245603 (no cost data)
+--   - Table: {245603, cost = {gold = 5000000, currencies = {{id = 1220, amount = 100}}}}
+-------------------------------------------------------------------------------
+
+-- Extract the item ID from an item entry (handles both formats)
+function VendorData:GetItemID(item)
+    if type(item) == "number" then
+        return item
+    end
+    if type(item) == "table" then
+        return item[1]
+    end
+    return nil
+end
+
+-- Extract cost data from an item entry (returns nil if no cost data)
+function VendorData:GetItemCost(item)
+    if type(item) == "table" and item.cost then
+        return item.cost
+    end
+    return nil
+end
+
+-- Format cost as a display string (e.g., "10g 50s" or "500 Honor")
+function VendorData:FormatCost(cost)
+    if not cost then return nil end
+
+    local parts = {}
+
+    -- Format gold (stored in copper, convert to gold display)
+    if cost.gold and cost.gold > 0 then
+        local gold = math.floor(cost.gold / 10000)
+        local silver = math.floor((cost.gold % 10000) / 100)
+        local copper = cost.gold % 100
+
+        local goldStr = ""
+        if gold > 0 then
+            goldStr = goldStr .. gold .. "g"
+        end
+        if silver > 0 then
+            goldStr = goldStr .. (goldStr ~= "" and " " or "") .. silver .. "s"
+        end
+        if copper > 0 then
+            goldStr = goldStr .. (goldStr ~= "" and " " or "") .. copper .. "c"
+        end
+
+        if goldStr ~= "" then
+            table.insert(parts, goldStr)
+        end
+    end
+
+    -- Format currencies
+    if cost.currencies then
+        for _, currency in ipairs(cost.currencies) do
+            if currency.id and currency.amount then
+                local currencyName = "Currency " .. currency.id
+                -- Try to get currency name from API
+                if C_CurrencyInfo and C_CurrencyInfo.GetCurrencyInfo then
+                    local info = C_CurrencyInfo.GetCurrencyInfo(currency.id)
+                    if info and info.name then
+                        currencyName = info.name
+                    end
+                end
+                table.insert(parts, currency.amount .. " " .. currencyName)
+            end
+        end
+    end
+
+    if #parts == 0 then
+        return nil
+    end
+
+    return table.concat(parts, " + ")
+end
+
+-------------------------------------------------------------------------------
 -- Query Functions (delegate to VendorDatabase)
 -------------------------------------------------------------------------------
 
@@ -81,7 +245,9 @@ function VendorData:GetVendorsForItem(itemID)
     -- Fallback: iterate all vendors (if index not built yet)
     for npcID, vendor in pairs(HA.VendorDatabase.Vendors) do
         if vendor.items then
-            for _, vendorItemID in ipairs(vendor.items) do
+            for _, item in ipairs(vendor.items) do
+                -- Handle both formats: plain number or table with cost
+                local vendorItemID = self:GetItemID(item)
                 if vendorItemID == itemID then
                     vendor.npcID = npcID
                     table.insert(result, vendor)
@@ -191,6 +357,52 @@ function VendorData:FindVendorByName(name)
 end
 
 -------------------------------------------------------------------------------
+-- Vendor Name Lookup Functions
+-- For cross-referencing DecorSources data with VendorDatabase
+-------------------------------------------------------------------------------
+
+-- Get NPC IDs for a vendor name (from VendorNameToNPC mapping)
+function VendorData:GetNPCsForVendorName(vendorName)
+    return self.VendorNameToNPC[vendorName]
+end
+
+-- Get vendor name for an NPC ID (reverse lookup)
+function VendorData:GetVendorNameForNPC(npcID)
+    return self.NPCToVendorName[npcID]
+end
+
+-- Check if a vendor name is known in our mapping
+function VendorData:HasVendorName(vendorName)
+    return self.VendorNameToNPC[vendorName] ~= nil
+end
+
+-- Get all vendors from VendorDatabase that match a DecorSources vendor name
+function VendorData:GetVendorsByDecorSourceName(vendorName)
+    local npcIDs = self:GetNPCsForVendorName(vendorName)
+    if not npcIDs then return {} end
+
+    local vendors = {}
+    for _, npcID in ipairs(npcIDs) do
+        local vendor = self:GetVendor(npcID)
+        if vendor then
+            vendor.npcID = npcID
+            table.insert(vendors, vendor)
+        end
+    end
+    return vendors
+end
+
+-- Build the reverse lookup table (called during initialization)
+function VendorData:BuildNameIndex()
+    self.NPCToVendorName = {}
+    for name, npcIDs in pairs(self.VendorNameToNPC) do
+        for _, npcID in ipairs(npcIDs) do
+            self.NPCToVendorName[npcID] = name
+        end
+    end
+end
+
+-------------------------------------------------------------------------------
 -- Initialization
 -------------------------------------------------------------------------------
 
@@ -200,8 +412,16 @@ function VendorData:Initialize()
         HA.VendorDatabase:BuildIndexes()
     end
 
+    -- Build reverse lookup for vendor names
+    self:BuildNameIndex()
+
     if HA.Addon then
+        local nameCount = 0
+        for _ in pairs(self.VendorNameToNPC) do
+            nameCount = nameCount + 1
+        end
         HA.Addon:Debug("VendorData initialized with", self:GetVendorCount(), "vendors")
+        HA.Addon:Debug("  VendorNameToNPC mappings:", nameCount)
     end
 end
 

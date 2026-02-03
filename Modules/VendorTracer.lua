@@ -266,19 +266,22 @@ function VendorTracer:GetMissingItemVendors()
         local missingItems = {}
 
         if vendor.items then
-            -- New format: items = {itemID, itemID, ...}
-            for _, itemID in ipairs(vendor.items) do
-                -- Check if player owns this item
-                local isOwned = false
+            -- Handle both formats: plain number or table with cost data
+            for _, item in ipairs(vendor.items) do
+                local itemID = HA.VendorData and HA.VendorData:GetItemID(item) or (type(item) == "number" and item or item[1])
+                if itemID then
+                    -- Check if player owns this item
+                    local isOwned = false
 
-                if HA.DecorTracker then
-                    isOwned = HA.DecorTracker:IsCollected(itemID)
-                elseif HA.Addon and HA.Addon.db and HA.Addon.db.global.ownedDecor then
-                    isOwned = HA.Addon.db.global.ownedDecor[itemID] ~= nil
-                end
+                    if HA.DecorTracker then
+                        isOwned = HA.DecorTracker:IsCollected(itemID)
+                    elseif HA.Addon and HA.Addon.db and HA.Addon.db.global.ownedDecor then
+                        isOwned = HA.Addon.db.global.ownedDecor[itemID] ~= nil
+                    end
 
-                if not isOwned then
-                    table.insert(missingItems, {itemID = itemID})
+                    if not isOwned then
+                        table.insert(missingItems, {itemID = itemID})
+                    end
                 end
             end
         end
@@ -376,24 +379,29 @@ function VendorTracer:GetMissingAtCurrentVendor()
     local missingItems = {}
 
     if vendor.items then
-        -- New format: items = {itemID, itemID, ...}
-        for _, itemID in ipairs(vendor.items) do
-            local isOwned = false
+        -- Handle both formats: plain number or table with cost data
+        for _, item in ipairs(vendor.items) do
+            local itemID = HA.VendorData and HA.VendorData:GetItemID(item) or (type(item) == "number" and item or item[1])
+            if itemID then
+                local isOwned = false
 
-            if HA.DecorTracker then
-                isOwned = HA.DecorTracker:IsCollected(itemID)
-            elseif HA.Addon and HA.Addon.db and HA.Addon.db.global.ownedDecor then
-                isOwned = HA.Addon.db.global.ownedDecor[itemID] ~= nil
-            end
+                if HA.DecorTracker then
+                    isOwned = HA.DecorTracker:IsCollected(itemID)
+                elseif HA.Addon and HA.Addon.db and HA.Addon.db.global.ownedDecor then
+                    isOwned = HA.Addon.db.global.ownedDecor[itemID] ~= nil
+                end
 
-            if not isOwned then
-                local itemName = GetItemInfo(itemID)
-                table.insert(missingItems, {
-                    itemID = itemID,
-                    name = itemName,
-                    cost = nil,  -- Cost info not in new format
-                    canAfford = nil,
-                })
+                if not isOwned then
+                    local itemName = GetItemInfo(itemID)
+                    -- Get cost from item if available
+                    local cost = HA.VendorData and HA.VendorData:GetItemCost(item) or (type(item) == "table" and item.cost)
+                    table.insert(missingItems, {
+                        itemID = itemID,
+                        name = itemName,
+                        cost = cost,
+                        canAfford = nil,
+                    })
+                end
             end
         end
     end

@@ -91,6 +91,11 @@ function HousingAddon:OnEnable()
         HA.VendorMapPins:Initialize()
     end
 
+    -- Initialize WelcomeFrame for first-run onboarding
+    if HA.WelcomeFrame then
+        HA.WelcomeFrame:Initialize()
+    end
+
     self:Debug("Homestead enabled")
 end
 
@@ -237,11 +242,19 @@ function HousingAddon:SlashCommandHandler(input)
         self:PrintHelp()
     elseif input == "export" then
         if HA.ExportImport then
-            HA.ExportImport:ExportScannedVendors(false)
+            HA.ExportImport:ShowExportDialog()
         end
     elseif input == "export full" then
         if HA.ExportImport then
-            HA.ExportImport:ExportScannedVendors(true)
+            HA.ExportImport:ExportScannedVendorsV2(true, false)
+        end
+    elseif input == "exportall" then
+        if HA.ExportImport then
+            HA.ExportImport:ExportScannedVendorsV2(true, true)
+        end
+    elseif input == "clearscans" then
+        if HA.ExportImport then
+            HA.ExportImport:ClearScannedData()
         end
     elseif input == "import" then
         if HA.ExportImport then
@@ -265,6 +278,10 @@ function HousingAddon:SlashCommandHandler(input)
     elseif input:match("^testsource%s+") or input:match("^testsource$") then
         local itemIDStr = input:match("^testsource%s+(%d+)$")
         self:TestSourceInfo(itemIDStr and tonumber(itemIDStr))
+    elseif input == "welcome" then
+        if HA.WelcomeFrame then
+            HA.WelcomeFrame:Show()
+        end
     else
         self:Print("Unknown command:", input)
         self:PrintHelp()
@@ -479,12 +496,15 @@ function HousingAddon:PrintHelp()
     self:Print("  /hs corrections - Show NPC ID corrections found")
     self:Print("  /hs aliases - Show NPC ID alias mappings")
     self:Print("  /hs clearaliases - Clear discovered aliases")
-    self:Print("  /hs export - Export NEW vendor data (differential)")
-    self:Print("  /hs export full - Export ALL scanned vendor data")
+    self:Print("  /hs export - Show export dialog (V2 format)")
+    self:Print("  /hs export full - Export all scanned vendors (V2)")
+    self:Print("  /hs exportall - Export ALL, bypass timestamp filter")
+    self:Print("  /hs clearscans - Clear all scanned vendor data")
     self:Print("  /hs import - Import vendor data")
     self:Print("  /hs validate - Validate vendor database")
     self:Print("  /hs testlookup <itemID> - Test item source lookup")
     self:Print("  /hs testsource [itemID] - Test C_HousingCatalog API")
+    self:Print("  /hs welcome - Show welcome/onboarding screen")
     self:Print("  /hs debug - Toggle debug mode")
     self:Print("  /hs help - Show this help")
 end

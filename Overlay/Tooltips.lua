@@ -120,15 +120,91 @@ local function IsDecorOwned(itemLink)
 end
 
 -------------------------------------------------------------------------------
--- Source Lookup Functions
+-- Cost Lookup Functions
 -------------------------------------------------------------------------------
 
--- Check if item is from an achievement
-local function GetAchievementSource(itemID)
+-- Fallback cost formatting if VendorData not available
+local function FormatCostFallback(cost)
+    if not cost then return nil end
+    local parts = {}
+
+    if cost.gold and cost.gold > 0 then
+        local gold = math.floor(cost.gold / 10000)
+        local silver = math.floor((cost.gold % 10000) / 100)
+        if gold > 0 then
+            table.insert(parts, gold .. "g")
+        end
+        if silver > 0 then
+            table.insert(parts, silver .. "s")
+        end
+    end
+
+    if cost.currencies then
+        for _, currency in ipairs(cost.currencies) do
+            if currency.id and currency.amount then
+                local name = "Currency"
+                if C_CurrencyInfo and C_CurrencyInfo.GetCurrencyInfo then
+                    local info = C_CurrencyInfo.GetCurrencyInfo(currency.id)
+                    if info and info.name then name = info.name end
+                end
+                table.insert(parts, currency.amount .. " " .. name)
+            end
+        end
+    end
+
+    return #parts > 0 and table.concat(parts, " + ") or nil
+end
+
+-- Get cost for an item from a specific vendor
+local function GetItemCostFromVendor(itemID, npcID)
+    if not itemID then return nil end
+    if not HA.VendorDatabase or not HA.VendorDatabase.Vendors then return nil end
+
+    -- If npcID provided, check that vendor first
+    if npcID then
+        local vendor = HA.VendorDatabase.Vendors[npcID]
+        if vendor and vendor.items then
+            for _, item in ipairs(vendor.items) do
+                local vendorItemID = HA.VendorData and HA.VendorData:GetItemID(item) or (type(item) == "number" and item or item[1])
+                if vendorItemID == itemID then
+                    local cost = HA.VendorData and HA.VendorData:GetItemCost(item) or (type(item) == "table" and item.cost)
+                    if cost then
+                        return HA.VendorData and HA.VendorData:FormatCost(cost) or FormatCostFallback(cost)
+                    end
+                    break
+                end
+            end
+        end
+    end
+
+    -- Fallback: search all vendors for this item
+    for vendorNpcID, vendor in pairs(HA.VendorDatabase.Vendors) do
+        if vendor.items then
+            for _, item in ipairs(vendor.items) do
+                local vendorItemID = HA.VendorData and HA.VendorData:GetItemID(item) or (type(item) == "number" and item or item[1])
+                if vendorItemID == itemID then
+                    local cost = HA.VendorData and HA.VendorData:GetItemCost(item) or (type(item) == "table" and item.cost)
+                    if cost then
+                        return HA.VendorData and HA.VendorData:FormatCost(cost) or FormatCostFallback(cost)
+                    end
+                    -- Found item but no cost, keep searching other vendors
+                end
+            end
+        end
+    end
+
+    return nil
+end
+
+-------------------------------------------------------------------------------
+-- Source Lookup Functions (Legacy - kept for compatibility)
+-------------------------------------------------------------------------------
+
+-- Check if item is from an achievement (legacy AchievementDecor)
+local function GetAchievementSourceLegacy(itemID)
     if not HA.AchievementDecor or not HA.AchievementDecor.GetAchievementForItem then
         return nil
     end
-
     return HA.AchievementDecor:GetAchievementForItem(itemID)
 end
 
@@ -137,12 +213,10 @@ local function GetVendorSource(itemID)
     if not HA.VendorData or not HA.VendorData.GetVendorsForItem then
         return nil
     end
-
     local vendors = HA.VendorData:GetVendorsForItem(itemID)
     if vendors and #vendors > 0 then
-        return vendors[1] -- Return first vendor
+        return vendors[1]
     end
-
     return nil
 end
 
@@ -151,13 +225,98 @@ end
 -------------------------------------------------------------------------------
 
 -- Add source information lines to a tooltip (shared between item and catalog tooltips)
+-- Uses SourceManager for comprehensive source lookup
 local function AddSourceInfoToTooltip(tooltip, itemID, skipOwnership)
     if not itemID then return false end
 
-    local addedLines = false
+    -- Use SourceManager if available for comprehensive source lookup
+    if HA.SourceManager and HA.SourceManager.GetSource then
+        local source = HA.SourceManager:GetSource(itemID)
 
-    -- Check for achievement source
-    local achievementInfo = GetAchievementSource(itemID)
+        if source then
+            if source.type == "vendor" then
+                -- Vendor source
+                local vendorName = source.data.name or "Unknown Vendor"
+                local zoneName = source.data.zone or "Unknown Location"
+
+                tooltip:AddLine("Source: " .. vendorName, COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
+                tooltip:AddLine("  Location: " .. zoneName, COLOR_WHITE.r, COLOR_WHITE.g, COLOR_WHITE.b)
+
+                -- Show faction if not neutral
+                if source.data.faction and source.data.faction ~= "Neutral" then
+                    local factionColor = source.data.faction == "Alliance" and "|cFF0078FF" or "|cFFFF0000"
+                    tooltip:AddLine("  Faction: " .. factionColor .. source.data.faction .. "|r", COLOR_GRAY.r, COLOR_GRAY.g, COLOR_GRAY.b)
+                end
+
+                -- Show cost if available
+                if source.data.cost then
+                    local costStr = HA.VendorData and HA.VendorData:FormatCost(source.data.cost)
+                    if costStr then
+                        tooltip:AddLine("  Cost: " .. costStr, COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
+                    end
+                else
+                    -- Try fallback cost lookup
+                    local costStr = GetItemCostFromVendor(itemID, source.data.npcID)
+                    if costStr then
+                        tooltip:AddLine("  Cost: " .. costStr, COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
+                    end
+                end
+
+                return true
+
+            elseif source.type == "quest" then
+                -- Quest source
+                local questName = source.data.questName or "Unknown Quest"
+                tooltip:AddLine("Source: Quest", COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
+                tooltip:AddLine("  " .. questName, COLOR_WHITE.r, COLOR_WHITE.g, COLOR_WHITE.b)
+                return true
+
+            elseif source.type == "achievement" then
+                -- Achievement source
+                local achievementName = source.data.achievementName or "Unknown Achievement"
+                local achievementID = source.data.achievementID
+
+                -- Check if achievement is completed
+                local isCompleted = false
+                if achievementID and GetAchievementInfo then
+                    local _, _, _, completed = GetAchievementInfo(achievementID)
+                    isCompleted = completed
+                end
+
+                if isCompleted then
+                    tooltip:AddLine("Source: Achievement |cFF00FF00(Completed)|r", COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
+                else
+                    tooltip:AddLine("Source: Achievement |cFFFF0000(Incomplete)|r", COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
+                end
+                tooltip:AddLine("  " .. achievementName, COLOR_WHITE.r, COLOR_WHITE.g, COLOR_WHITE.b)
+                return true
+
+            elseif source.type == "profession" then
+                -- Profession source
+                local profession = source.data.profession or "Unknown"
+                local recipeName = source.data.recipeName or "Unknown Recipe"
+                tooltip:AddLine("Source: " .. profession, COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
+                tooltip:AddLine("  Recipe: " .. recipeName, COLOR_WHITE.r, COLOR_WHITE.g, COLOR_WHITE.b)
+                return true
+
+            elseif source.type == "drop" then
+                -- Drop source
+                local mobName = source.data.mobName or "Unknown"
+                local zone = source.data.zone or "Unknown Location"
+                tooltip:AddLine("Source: Drop", COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
+                tooltip:AddLine("  " .. mobName, COLOR_WHITE.r, COLOR_WHITE.g, COLOR_WHITE.b)
+                tooltip:AddLine("  Zone: " .. zone, COLOR_GRAY.r, COLOR_GRAY.g, COLOR_GRAY.b)
+                if source.data.notes then
+                    tooltip:AddLine("  " .. source.data.notes, COLOR_GRAY.r, COLOR_GRAY.g, COLOR_GRAY.b)
+                end
+                return true
+            end
+        end
+    end
+
+    -- Fallback: Legacy source lookup (AchievementDecor + VendorData)
+    -- Check for achievement source (legacy AchievementDecor)
+    local achievementInfo = GetAchievementSourceLegacy(itemID)
     if achievementInfo then
         local achievementName = achievementInfo.name or "Unknown Achievement"
         local isCompleted = achievementInfo.completed
@@ -168,7 +327,6 @@ local function AddSourceInfoToTooltip(tooltip, itemID, skipOwnership)
             tooltip:AddLine("Source: " .. achievementName .. " |cFFFF0000(Incomplete)|r", COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
         end
 
-        -- Show expansion if available
         if achievementInfo.expansion then
             tooltip:AddLine("  Expansion: " .. achievementInfo.expansion, COLOR_GRAY.r, COLOR_GRAY.g, COLOR_GRAY.b)
         end
@@ -176,22 +334,25 @@ local function AddSourceInfoToTooltip(tooltip, itemID, skipOwnership)
         return true
     end
 
-    -- Check for vendor source
+    -- Check for vendor source (fallback)
     local vendorInfo = GetVendorSource(itemID)
     if vendorInfo then
         local vendorName = vendorInfo.name or "Unknown Vendor"
         local zoneName = vendorInfo.zone or "Unknown Location"
 
         tooltip:AddLine("Source: " .. vendorName, COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
-        tooltip:AddLine("  Location: " .. zoneName, COLOR_GRAY.r, COLOR_GRAY.g, COLOR_GRAY.b)
+        tooltip:AddLine("  Location: " .. zoneName, COLOR_WHITE.r, COLOR_WHITE.g, COLOR_WHITE.b)
 
-        -- Show faction if not neutral
         if vendorInfo.faction and vendorInfo.faction ~= "Neutral" then
             local factionColor = vendorInfo.faction == "Alliance" and "|cFF0078FF" or "|cFFFF0000"
             tooltip:AddLine("  Faction: " .. factionColor .. vendorInfo.faction .. "|r", COLOR_GRAY.r, COLOR_GRAY.g, COLOR_GRAY.b)
         end
 
-        -- Show vendor notes if present (e.g., garrison requirements, rep requirements)
+        local costStr = GetItemCostFromVendor(itemID, vendorInfo.npcID)
+        if costStr then
+            tooltip:AddLine("  Cost: " .. costStr, COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
+        end
+
         if vendorInfo.notes then
             tooltip:AddLine("  " .. vendorInfo.notes, COLOR_GRAY.r, COLOR_GRAY.g, COLOR_GRAY.b)
         end

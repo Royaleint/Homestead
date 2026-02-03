@@ -113,13 +113,15 @@ local function CollectAllKnownItemIDs()
     local itemIDs = {}
     local seen = {}
 
-    -- Collect from static vendor database (new format: items = {itemID, itemID, ...})
+    -- Collect from static vendor database
+    -- New format: items can be plain integers OR tables with cost data
     if HA.VendorData and HA.VendorData.GetAllVendors then
         local allVendors = HA.VendorData:GetAllVendors()
         for _, vendor in ipairs(allVendors) do
             if vendor.items then
-                for _, itemID in ipairs(vendor.items) do
-                    -- In new format, item IS the itemID (a number)
+                for _, item in ipairs(vendor.items) do
+                    -- Handle both formats: plain number or table with cost
+                    local itemID = HA.VendorData:GetItemID(item)
                     if itemID and not seen[itemID] then
                         seen[itemID] = true
                         table.insert(itemIDs, {
@@ -158,12 +160,12 @@ end
 
 -- Scan a single item by itemID
 local function ScanItem(itemID)
-    if not itemID then return nil end
+    if not itemID or type(itemID) ~= "number" then return nil end
     if not C_HousingCatalog or not C_HousingCatalog.GetCatalogEntryInfoByItem then
         return nil
     end
 
-    local itemLink = "item:" .. itemID
+    local itemLink = "item:" .. tostring(itemID)
     local success, info = pcall(function()
         return C_HousingCatalog.GetCatalogEntryInfoByItem(itemLink, true)
     end)

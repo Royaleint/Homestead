@@ -29,6 +29,8 @@ local scannedVendorsThisSession = {}
 local scanQueue = {}
 local isScanning = false
 local scanFrame = nil
+local pendingScanNpcID = nil      -- NPC ID waiting for MERCHANT_UPDATE
+local pendingScanRetries = 0      -- Retry counter for data loading
 
 -- Configuration
 local SCAN_BATCH_SIZE = 5      -- Items to scan per frame
@@ -56,10 +58,13 @@ function VendorScanner:Initialize()
     -- Register for WoW merchant events directly (not through custom Events system)
     local eventFrame = CreateFrame("Frame")
     eventFrame:RegisterEvent("MERCHANT_SHOW")
+    eventFrame:RegisterEvent("MERCHANT_UPDATE")
     eventFrame:RegisterEvent("MERCHANT_CLOSED")
     eventFrame:SetScript("OnEvent", function(self, event, ...)
         if event == "MERCHANT_SHOW" then
             VendorScanner:OnMerchantShow()
+        elseif event == "MERCHANT_UPDATE" then
+            VendorScanner:OnMerchantUpdate()
         elseif event == "MERCHANT_CLOSED" then
             VendorScanner:OnMerchantClosed()
         end
@@ -119,11 +124,68 @@ function VendorScanner:OnMerchantShow()
     -- Mark as scanned for this session
     scannedVendorsThisSession[npcID] = true
 
-    -- Start scanning
+    -- Queue the scan - wait for MERCHANT_UPDATE to ensure data is loaded
+    pendingScanNpcID = npcID
+    pendingScanRetries = 0
+
+    -- Also set a fallback timer in case MERCHANT_UPDATE doesn't fire
+    C_Timer.After(0.2, function()
+        if pendingScanNpcID == npcID then
+            self:TryStartScan(npcID, "timer_fallback")
+        end
+    end)
+end
+
+function VendorScanner:OnMerchantUpdate()
+    if HA.Addon then
+        HA.Addon:Debug("MERCHANT_UPDATE event received")
+    end
+
+    -- If we have a pending scan, try to start it now
+    if pendingScanNpcID then
+        self:TryStartScan(pendingScanNpcID, "merchant_update")
+    end
+end
+
+function VendorScanner:TryStartScan(npcID, source)
+    -- Check if merchant data is ready
+    local numItems = _G.GetMerchantNumItems and _G.GetMerchantNumItems() or 0
+
+    if numItems == 0 then
+        pendingScanRetries = pendingScanRetries + 1
+        if pendingScanRetries < 5 then
+            if HA.Addon then
+                HA.Addon:Debug("Merchant data not ready (attempt", pendingScanRetries, "), retrying...")
+            end
+            -- Retry after a short delay
+            C_Timer.After(0.1, function()
+                if pendingScanNpcID == npcID then
+                    self:TryStartScan(npcID, "retry")
+                end
+            end)
+            return
+        else
+            if HA.Addon then
+                HA.Addon:Debug("Merchant data still not ready after 5 attempts, giving up")
+            end
+            pendingScanNpcID = nil
+            return
+        end
+    end
+
+    -- Data is ready, start the scan
+    if HA.Addon then
+        HA.Addon:Debug("Starting scan from", source, "- found", numItems, "items")
+    end
+    pendingScanNpcID = nil
     self:StartScan(npcID)
 end
 
 function VendorScanner:OnMerchantClosed()
+    -- Clear pending scan
+    pendingScanNpcID = nil
+    pendingScanRetries = 0
+
     -- Stop any in-progress scan
     self:StopScan()
 end
@@ -149,21 +211,26 @@ function VendorScanner:StartScan(npcID)
     local mapID = C_Map.GetBestMapForUnit("player")
     local position = C_Map.GetPlayerMapPosition(mapID, "player")
 
+    -- Get player faction for vendor classification
+    local faction = UnitFactionGroup("player") or "Neutral"
+
     -- Initialize scan state
     scanQueue = {
         npcID = npcID,
         vendorName = vendorName,
         mapID = mapID,
         coords = position and { x = position.x, y = position.y } or { x = 0.5, y = 0.5 },
+        faction = faction,
         currentIndex = 1,
         totalItems = numItems,
         decorItems = {},
+        allItems = {},  -- Track all items for itemCount
     }
 
     isScanning = true
     scanFrame:Show()
 
-    HA.Addon:Debug("Starting vendor scan: " .. vendorName .. " (NPC ID: " .. npcID .. "), " .. numItems .. " items")
+    HA.Addon:Debug("Starting vendor scan: " .. vendorName .. " (NPC ID: " .. npcID .. "), " .. numItems .. " items, faction: " .. faction)
 end
 
 function VendorScanner:StopScan()
@@ -190,18 +257,84 @@ function VendorScanner:ProcessScanQueue()
     for i = startIndex, endIndex do
         local itemLink = _G.GetMerchantItemLink and _G.GetMerchantItemLink(i)
         if itemLink then
-            local isDecor, decorInfo = self:CheckIfDecorItem(itemLink)
-            if isDecor then
-                local name, texture, price, quantity, numAvailable, isPurchasable, isUsable, extendedCost
-                if _G.GetMerchantItemInfo then
-                    name, texture, price, quantity, numAvailable, isPurchasable, isUsable, extendedCost = _G.GetMerchantItemInfo(i)
+            local itemID = _G.GetMerchantItemID and _G.GetMerchantItemID(i)
+
+            -- Get full merchant item info using new C_MerchantFrame API (11.0+)
+            -- Returns a table instead of multiple values
+            local name, texture, price, stackCount, numAvailable, isPurchasable, isUsable, extendedCost, currencyID, spellID
+            if C_MerchantFrame and C_MerchantFrame.GetItemInfo then
+                local info = C_MerchantFrame.GetItemInfo(i)
+                if info then
+                    name = info.name
+                    texture = info.texture
+                    price = info.price
+                    stackCount = info.stackCount
+                    numAvailable = info.numAvailable
+                    isPurchasable = info.isPurchasable
+                    isUsable = info.isUsable
+                    extendedCost = info.hasExtendedCost
+                    currencyID = info.currencyID
+                    spellID = info.spellID
                 end
+            end
+
+            -- Extract all cost components (items and currencies) if extendedCost is true
+            local currencies = {}
+            local itemCosts = {}
+            if extendedCost and _G.GetMerchantItemCostInfo then
+                local itemCostCount, currencyCount = _G.GetMerchantItemCostInfo(i)
+                local totalCosts = (itemCostCount or 0) + (currencyCount or 0)
+
+                -- Iterate through ALL cost components
+                for c = 1, totalCosts do
+                    if _G.GetMerchantItemCostItem then
+                        local tex, amount, link, costName = _G.GetMerchantItemCostItem(i, c)
+                        if link and amount then
+                            -- Check if it's a currency link
+                            local currID = link:match("currency:(%d+)")
+                            if currID then
+                                table.insert(currencies, {
+                                    currencyID = tonumber(currID),
+                                    amount = amount,
+                                    name = costName,
+                                })
+                            else
+                                -- It's an item cost (tokens, reagents, etc.)
+                                local costItemID = link:match("item:(%d+)")
+                                if costItemID then
+                                    table.insert(itemCosts, {
+                                        itemID = tonumber(costItemID),
+                                        amount = amount,
+                                        name = costName,
+                                    })
+                                end
+                            end
+                        end
+                    end
+                end
+            end
+
+            -- Check if this is a housing decor item
+            local isDecor, decorInfo = self:CheckIfDecorItem(itemLink)
+
+            -- Track all items for itemCount
+            table.insert(scanQueue.allItems, {
+                itemID = itemID or GetItemInfoInstant(itemLink),
+                name = name,
+                isDecor = isDecor,
+            })
+
+            -- Store decor items with full data
+            if isDecor then
                 table.insert(scanQueue.decorItems, {
                     itemLink = itemLink,
-                    name = name or decorInfo.name or "Unknown",
-                    itemID = decorInfo.itemID,
+                    itemID = itemID or (decorInfo and decorInfo.itemID) or GetItemInfoInstant(itemLink),
+                    name = name or (decorInfo and decorInfo.name) or "Unknown",
                     price = price,
-                    extendedCost = extendedCost,
+                    stackCount = stackCount,
+                    isPurchasable = isPurchasable,
+                    currencies = (#currencies > 0) and currencies or nil,
+                    itemCosts = (#itemCosts > 0) and itemCosts or nil,
                     merchantSlot = i,
                 })
             end
@@ -213,11 +346,12 @@ function VendorScanner:ProcessScanQueue()
     -- Check if scan is complete
     if scanQueue.currentIndex > scanQueue.totalItems then
         local decorCount = #scanQueue.decorItems
+        local itemCount = #scanQueue.allItems
         if HA.Addon then
-            HA.Addon:Debug("Scan complete: found " .. decorCount .. " decor items")
+            HA.Addon:Debug("Scan complete: " .. itemCount .. " total items, " .. decorCount .. " decor items")
             -- Show user-visible message when decor items are found
             if decorCount > 0 then
-                HA.Addon:Print("Scanned vendor: " .. (scanQueue.vendorName or "Unknown") .. " - found " .. decorCount .. " decor item(s)")
+                HA.Addon:Print("Scanned vendor: " .. (scanQueue.vendorName or "Unknown") .. " - " .. decorCount .. "/" .. itemCount .. " decor item(s)")
             end
         end
         self:StopScan()
@@ -407,25 +541,45 @@ function VendorScanner:SaveVendorData(scanData)
 
     local existingData = HA.Addon.db.global.scannedVendors[scanData.npcID]
 
-    -- Build vendor record
+    -- Build vendor record with enhanced data
     local decorCount = scanData.decorItems and #scanData.decorItems or 0
+    local itemCount = scanData.allItems and #scanData.allItems or scanData.totalItems or 0
+
     local vendorRecord = {
         npcID = scanData.npcID,
         name = scanData.vendorName,
         mapID = scanData.mapID,
         coords = scanData.coords,
+        faction = scanData.faction or "Neutral",
         lastScanned = time(),
+        itemCount = itemCount,      -- Total items at vendor
+        decorCount = decorCount,    -- Housing decor items
         hasDecor = decorCount > 0,  -- Flag to identify if vendor sells housing decor
-        decor = {},
+        items = {},                 -- Enhanced item data (replaces 'decor')
     }
 
-    -- Add decor items
-    for _, item in ipairs(scanData.decorItems) do
-        table.insert(vendorRecord.decor, {
+    -- Add decor items with full enhanced data
+    for _, item in ipairs(scanData.decorItems or {}) do
+        local itemRecord = {
             itemID = item.itemID,
             name = item.name,
-            extendedCost = item.extendedCost,
-        })
+            price = item.price,
+            stackCount = item.stackCount,
+            isPurchasable = item.isPurchasable,
+            isDecor = true,
+        }
+
+        -- Add currency data if present
+        if item.currencies and #item.currencies > 0 then
+            itemRecord.currencies = item.currencies
+        end
+
+        -- Add item cost data if present (tokens, reagents, etc.)
+        if item.itemCosts and #item.itemCosts > 0 then
+            itemRecord.itemCosts = item.itemCosts
+        end
+
+        table.insert(vendorRecord.items, itemRecord)
     end
 
     -- Merge with existing data if present (keep more complete record)
@@ -437,18 +591,27 @@ function VendorScanner:SaveVendorData(scanData)
             vendorRecord.coords = existingData.coords
         end
 
-        -- DON'T merge decor lists - use the current scan as authoritative
-        -- Old behavior merged items which could resurrect stale data
+        -- Preserve faction from existing data if current scan didn't capture it
+        if not vendorRecord.faction or vendorRecord.faction == "Neutral" then
+            if existingData.faction and existingData.faction ~= "Neutral" then
+                vendorRecord.faction = existingData.faction
+            end
+        end
+
+        -- DON'T merge item lists - use the current scan as authoritative
         -- The current scan is the source of truth for what the vendor sells NOW
     end
 
-    -- Recalculate hasDecor based on final decor list
-    vendorRecord.hasDecor = #vendorRecord.decor > 0
+    -- Recalculate counts based on final data
+    vendorRecord.decorCount = #vendorRecord.items
+    vendorRecord.hasDecor = vendorRecord.decorCount > 0
 
     -- Save the record
     HA.Addon.db.global.scannedVendors[scanData.npcID] = vendorRecord
 
-    HA.Addon:Debug("Saved vendor data for " .. scanData.vendorName .. " with " .. #vendorRecord.decor .. " decor items")
+    HA.Addon:Debug("Saved vendor data for " .. scanData.vendorName ..
+        " - " .. vendorRecord.decorCount .. "/" .. vendorRecord.itemCount ..
+        " decor items, faction: " .. vendorRecord.faction)
 
     -- Fire callback for other modules
     if HA.Events then

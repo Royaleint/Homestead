@@ -27,7 +27,14 @@ Core\cache.lua
 Data\DecorData.lua
 Data\VendorDatabase.lua
 Data\VendorData.lua
-Data/AchievementDecor.lua
+Data\AchievementDecor.lua
+
+# Source Data (non-vendor acquisition)
+Data\QuestSources.lua
+Data\AchievementSources.lua
+Data\ProfessionSources.lua
+Data\DropSources.lua
+Data\SourceManager.lua
 
 # Utilities
 Utils\waypoints.lua
@@ -47,6 +54,7 @@ Overlay\Merchant.lua
 Overlay\Tooltips.lua
 
 # UI
+UI\WelcomeFrame.lua
 UI\MainFrame.lua
 UI\OutputWindow.lua
 UI\VendorMapPins.lua
