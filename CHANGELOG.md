@@ -8,24 +8,44 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+---
+
+## [1.1.0] - 2026-02-03 — The "Help Us Build the Database" Update
+
 ### Added
+- **Welcome Screen** — First-run onboarding popup; re-open with `/hs welcome`
+- **V2 Vendor Export** — Enhanced format with full pricing data (gold, currencies, item costs)
+- **Differential Export** — Timestamp-based filtering; only exports vendors scanned since last export
+- **Source Data System** — Quest, achievement, profession, and drop source lookups
+- **Enhanced Tooltips** — Decor tooltips now show source info and cost when available (WIP)
+- **Vendor Name Mapping** — Cross-references C_HousingCatalog source names with VendorDatabase
+- New commands: `/hs welcome`, `/hs exportall`, `/hs clearscans`
+
+### Fixed
+- **Vendor scanning not capturing prices** — Migrated from deprecated `GetMerchantItemInfo()` to `C_MerchantFrame.GetItemInfo()` (WoW 11.0+)
+- **Scan timing issues** — Scans now wait for `MERCHANT_UPDATE` with retry logic before capturing
+- **Lua 5.1 compatibility** — Replaced `goto` with flag pattern in ExportImport
+- **WelcomeFrame not auto-showing** — Added missing `Initialize()` call in `OnEnable`
+
+### Changed
+- Item format now supports plain integers or tables with embedded cost data
+- All modules updated for new item format (CatalogScanner, Validation, VendorTracer, VendorMapPins)
+- Export dialog offers V2 (recommended) and V1 (legacy) options
+- Vendor records now store faction, itemCount, decorCount, and full cost data per item
+
+### Database Updates
+- Major VendorDatabase refresh with populated item lists and corrected coordinates
+- Added vendor name cross-referencing for better source detection
+
+### Previous Unreleased
 - Item-by-item catalog scanning (replaces broken category enumeration)
 - Multi-zone minimap pin coverage (HandyNotes-style behavior)
 - `floatOnEdge` parameter for minimap pins
-
-### Fixed
 - CatalogScanner now finds owned items (was returning 0 due to API limitations)
 - Minimap pins now show vendors in adjacent zones
 - Event method corrected: `TriggerEvent` → `Fire`
-
-### Changed
 - CatalogScanner uses `GetCatalogEntryInfoByItem` instead of category enumeration
 - Minimap pin frames parented to UIParent instead of Minimap
-
-### Technical Notes
-- Confirmed Blizzard API bug: `CreateCatalogSearcher()` is internal-only
-- Confirmed Blizzard API bug: `GetCatalogSubcategoryInfo()` returns nil
-- Confirmed Blizzard API bug: Ownership data stale after `/reload`
 
 ---
 
