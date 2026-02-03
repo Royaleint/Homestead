@@ -476,7 +476,8 @@ local function IsVendorScannedWithNoDecor(vendor)
             else
                 -- hasDecor is nil (old scan data before flag was added)
                 -- Check if decor table is empty as fallback
-                if scannedData.decor and #scannedData.decor == 0 then
+                local scannedItems = scannedData.items or scannedData.decor
+                if scannedItems and #scannedItems == 0 then
                     if HA.Addon.db.profile.debug then
                         HA.Addon:Debug(string.format("Vendor %s (NPC %d): HIDING - old scan data with empty decor table",
                             vendor.name or "Unknown", npcID))
@@ -706,8 +707,9 @@ function VendorMapPins:VendorHasUncollectedItems(vendor)
             end
         end
 
-        if scannedData and scannedData.decor then
-            for _, item in ipairs(scannedData.decor) do
+        local scannedItems = scannedData and (scannedData.items or scannedData.decor)
+        if scannedItems then
+            for _, item in ipairs(scannedItems) do
                 if item.itemID then
                     items[item.itemID] = item
                 end
@@ -950,11 +952,12 @@ function VendorMapPins:ShowVendorTooltip(pin, vendor)
         end
     end
 
-    -- Add scanned items (old format: decor = {{itemID=..., name=...}, ...})
+    -- Add scanned items (new format: items = {...}, old format: decor = {...})
     if vendor.npcID and HA.Addon and HA.Addon.db and HA.Addon.db.global.scannedVendors then
         local scannedData = HA.Addon.db.global.scannedVendors[vendor.npcID]
-        if scannedData and scannedData.decor then
-            for _, item in ipairs(scannedData.decor) do
+        local scannedItems = scannedData and (scannedData.items or scannedData.decor)
+        if scannedItems then
+            for _, item in ipairs(scannedItems) do
                 if item.itemID and not itemsSeen[item.itemID] then
                     itemsSeen[item.itemID] = true
                     table.insert(allItems, item)

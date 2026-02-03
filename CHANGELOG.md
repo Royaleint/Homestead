@@ -10,6 +10,19 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [1.1.1] - 2026-02-03
+
+### Fixed
+- **Map pin tooltips not updating after vendor scan** — VendorMapPins was reading `scannedData.decor` (old field name) instead of `scannedData.items` (new field name from v1.1.0 scanner changes). Tooltips, collection status badges, and vendor filtering now check both `.items` and `.decor` for backward compatibility.
+
+### Database Updates
+- **Balen Starfinder** (NPC 255216) — Updated with 46 items and full gold pricing, corrected coords and faction
+- **Argan Hammerfist** (NPC 255218) — Updated with 13 items and full gold pricing, corrected coords and faction
+- **Ta'sam** (NPC 235314) — Added 1 Resonance Crystal item (Cartel Collector's Cage)
+- **Om'sirik** (NPC 235252) — Added 12 Resonance Crystal items (K'areshi pipes, portal, warp platform/cannon)
+
+---
+
 ## [1.1.0] - 2026-02-03 — The "Help Us Build the Database" Update
 
 ### Added
