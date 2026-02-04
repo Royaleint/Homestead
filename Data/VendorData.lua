@@ -178,6 +178,73 @@ function VendorData:FormatCost(cost)
     return table.concat(parts, " + ")
 end
 
+-- Convert scanned item cost format to static item cost format
+-- Scanned: {price = copper, currencies = {{currencyID, amount, name}}, itemCosts = {{itemID, amount, name}}}
+-- Static:  {gold = copper, currencies = {{id, amount}}}
+function VendorData:NormalizeScannedCost(scannedItem)
+    if not scannedItem then return nil end
+
+    local cost = {}
+    local hasCost = false
+
+    -- Convert price (copper) to gold field
+    if scannedItem.price and scannedItem.price > 0 then
+        cost.gold = scannedItem.price
+        hasCost = true
+    end
+
+    -- Convert currencies array (currencyID -> id)
+    if scannedItem.currencies and #scannedItem.currencies > 0 then
+        cost.currencies = {}
+        for _, curr in ipairs(scannedItem.currencies) do
+            table.insert(cost.currencies, {
+                id = curr.currencyID,
+                amount = curr.amount,
+            })
+        end
+        hasCost = true
+    end
+
+    return hasCost and cost or nil
+end
+
+-- Get cost for an item from scanned vendor data
+-- Returns cost in static format {gold = ..., currencies = {...}} or nil
+function VendorData:GetScannedItemCost(itemID, npcID)
+    local db = HA.Addon and HA.Addon.db
+    if not db or not db.global or not db.global.scannedVendors then
+        return nil
+    end
+
+    -- If npcID given, check that vendor specifically
+    if npcID then
+        local vendor = db.global.scannedVendors[npcID]
+        if vendor and vendor.items then
+            for _, item in ipairs(vendor.items) do
+                if item.itemID == itemID then
+                    return self:NormalizeScannedCost(item)
+                end
+            end
+        end
+    end
+
+    -- Otherwise search all scanned vendors via index
+    if self.ScannedByItemID and self.ScannedByItemID[itemID] then
+        for _, scanNpcID in ipairs(self.ScannedByItemID[itemID]) do
+            local vendor = db.global.scannedVendors[scanNpcID]
+            if vendor and vendor.items then
+                for _, item in ipairs(vendor.items) do
+                    if item.itemID == itemID then
+                        return self:NormalizeScannedCost(item)
+                    end
+                end
+            end
+        end
+    end
+
+    return nil
+end
+
 -------------------------------------------------------------------------------
 -- Query Functions (delegate to VendorDatabase)
 -------------------------------------------------------------------------------
@@ -226,32 +293,71 @@ end
 
 -- Get all vendors that sell a specific item
 function VendorData:GetVendorsForItem(itemID)
-    if not HA.VendorDatabase then return {} end
+    if not itemID then return {} end
 
     local result = {}
+    local seenNPCs = {}  -- Track NPC IDs to avoid duplicates
 
-    -- Use ByItemID index if available (O(1) lookup)
-    if HA.VendorDatabase.ByItemID and HA.VendorDatabase.ByItemID[itemID] then
-        for _, npcID in ipairs(HA.VendorDatabase.ByItemID[itemID]) do
-            local vendor = HA.VendorDatabase.Vendors[npcID]
-            if vendor then
-                vendor.npcID = npcID
-                table.insert(result, vendor)
-            end
-        end
-        return result
-    end
-
-    -- Fallback: iterate all vendors (if index not built yet)
-    for npcID, vendor in pairs(HA.VendorDatabase.Vendors) do
-        if vendor.items then
-            for _, item in ipairs(vendor.items) do
-                -- Handle both formats: plain number or table with cost
-                local vendorItemID = self:GetItemID(item)
-                if vendorItemID == itemID then
+    -- Priority 1: Static VendorDatabase (curated, authoritative)
+    if HA.VendorDatabase then
+        if HA.VendorDatabase.ByItemID and HA.VendorDatabase.ByItemID[itemID] then
+            for _, npcID in ipairs(HA.VendorDatabase.ByItemID[itemID]) do
+                local vendor = HA.VendorDatabase.Vendors[npcID]
+                if vendor then
                     vendor.npcID = npcID
                     table.insert(result, vendor)
-                    break
+                    seenNPCs[npcID] = true
+                end
+            end
+        else
+            -- Fallback: iterate all vendors (if index not built yet)
+            for npcID, vendor in pairs(HA.VendorDatabase.Vendors) do
+                if vendor.items then
+                    for _, item in ipairs(vendor.items) do
+                        local vendorItemID = self:GetItemID(item)
+                        if vendorItemID == itemID then
+                            vendor.npcID = npcID
+                            table.insert(result, vendor)
+                            seenNPCs[npcID] = true
+                            break
+                        end
+                    end
+                end
+            end
+        end
+    end
+
+    -- Priority 2: Scanned vendor data (fallback for items not in static DB)
+    if self.ScannedByItemID and self.ScannedByItemID[itemID] then
+        local db = HA.Addon and HA.Addon.db
+        if db and db.global and db.global.scannedVendors then
+            for _, npcID in ipairs(self.ScannedByItemID[itemID]) do
+                if not seenNPCs[npcID] then
+                    local scannedVendor = db.global.scannedVendors[npcID]
+                    if scannedVendor then
+                        -- Resolve zone name from mapID
+                        local zoneName
+                        if scannedVendor.mapID and C_Map and C_Map.GetMapInfo then
+                            local mapInfo = C_Map.GetMapInfo(scannedVendor.mapID)
+                            if mapInfo then
+                                zoneName = mapInfo.name
+                            end
+                        end
+
+                        local vendorObj = {
+                            npcID = npcID,
+                            name = scannedVendor.name,
+                            mapID = scannedVendor.mapID,
+                            x = scannedVendor.coords and scannedVendor.coords.x,
+                            y = scannedVendor.coords and scannedVendor.coords.y,
+                            zone = zoneName or ("Map " .. (scannedVendor.mapID or "?")),
+                            faction = scannedVendor.faction,
+                            items = scannedVendor.items,
+                            _isScanned = true,
+                        }
+                        table.insert(result, vendorObj)
+                        seenNPCs[npcID] = true
+                    end
                 end
             end
         end
@@ -403,6 +509,69 @@ function VendorData:BuildNameIndex()
 end
 
 -------------------------------------------------------------------------------
+-- Scanned Vendor Index
+-------------------------------------------------------------------------------
+
+-- Build reverse index from scanned vendor data: itemID -> {npcID, ...}
+function VendorData:BuildScannedIndex()
+    self.ScannedByItemID = {}
+
+    local db = HA.Addon and HA.Addon.db
+    if not db or not db.global or not db.global.scannedVendors then
+        return
+    end
+
+    local itemCount = 0
+    for npcID, vendorRecord in pairs(db.global.scannedVendors) do
+        if vendorRecord.items then
+            for _, item in ipairs(vendorRecord.items) do
+                local itemID = item.itemID
+                if itemID then
+                    if not self.ScannedByItemID[itemID] then
+                        self.ScannedByItemID[itemID] = {}
+                        itemCount = itemCount + 1
+                    end
+                    table.insert(self.ScannedByItemID[itemID], npcID)
+                end
+            end
+        end
+    end
+
+    if HA.Addon then
+        HA.Addon:Debug("VendorData scanned index built:", itemCount, "unique items")
+    end
+end
+
+-- Incrementally update scanned index when a vendor is scanned
+function VendorData:OnVendorScanned(vendorRecord)
+    if not vendorRecord or not vendorRecord.items then return end
+    if not self.ScannedByItemID then
+        self.ScannedByItemID = {}
+    end
+
+    local npcID = vendorRecord.npcID
+    for _, item in ipairs(vendorRecord.items) do
+        local itemID = item.itemID
+        if itemID then
+            if not self.ScannedByItemID[itemID] then
+                self.ScannedByItemID[itemID] = {}
+            end
+            -- Avoid duplicate npcID entries
+            local found = false
+            for _, existingNPC in ipairs(self.ScannedByItemID[itemID]) do
+                if existingNPC == npcID then
+                    found = true
+                    break
+                end
+            end
+            if not found then
+                table.insert(self.ScannedByItemID[itemID], npcID)
+            end
+        end
+    end
+end
+
+-------------------------------------------------------------------------------
 -- Initialization
 -------------------------------------------------------------------------------
 
@@ -414,6 +583,16 @@ function VendorData:Initialize()
 
     -- Build reverse lookup for vendor names
     self:BuildNameIndex()
+
+    -- Build scanned vendor item index
+    self:BuildScannedIndex()
+
+    -- Listen for new vendor scans to update index
+    if HA.Events then
+        HA.Events:RegisterCallback("VENDOR_SCANNED", function(vendorRecord)
+            VendorData:OnVendorScanned(vendorRecord)
+        end)
+    end
 
     if HA.Addon then
         local nameCount = 0

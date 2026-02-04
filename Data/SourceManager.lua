@@ -109,11 +109,17 @@ function SourceManager:GetVendorSource(itemID)
 
         -- Try to get cost data for this item
         local cost = nil
-        if vendor.items and HA.VendorData.GetItemCost then
+        if vendor.items and HA.VendorData then
             for _, item in ipairs(vendor.items) do
-                local vendorItemID = HA.VendorData:GetItemID(item)
+                -- Handle both static format (number or {itemID, cost=...})
+                -- and scanned format ({itemID=123, price=..., currencies=...})
+                local vendorItemID = HA.VendorData:GetItemID(item) or item.itemID
                 if vendorItemID == itemID then
                     cost = HA.VendorData:GetItemCost(item)
+                    -- If no static-format cost, try scanned format
+                    if not cost and vendor._isScanned and HA.VendorData.NormalizeScannedCost then
+                        cost = HA.VendorData:NormalizeScannedCost(item)
+                    end
                     break
                 end
             end

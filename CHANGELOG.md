@@ -10,6 +10,18 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [1.1.3] - 2026-02-03
+
+### New Features
+- **Scanned vendor data now reaches tooltips** — Cost data captured by VendorScanner (gold, currencies) now displays in Housing Catalog and item tooltips, not just static database entries
+- Scanned item index built at init and updated live on VENDOR_SCANNED events
+
+### Improvements
+- Welcome screen refreshed: streamlined to 3 bullets, added Housing Catalog ownership warning
+- VendorData now serves as unified access layer for both static and scanned vendor data
+
+---
+
 ## [1.1.2] - 2026-02-03
 
 ### New Features

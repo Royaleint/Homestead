@@ -193,6 +193,14 @@ local function GetItemCostFromVendor(itemID, npcID)
         end
     end
 
+    -- Fallback: check scanned vendor data
+    if HA.VendorData and HA.VendorData.GetScannedItemCost then
+        local scannedCost = HA.VendorData:GetScannedItemCost(itemID, npcID)
+        if scannedCost then
+            return HA.VendorData:FormatCost(scannedCost) or FormatCostFallback(scannedCost)
+        end
+    end
+
     return nil
 end
 

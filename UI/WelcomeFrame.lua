@@ -18,8 +18,8 @@ local CONTENT_WIDTH = FRAME_WIDTH - (PADDING * 2) - 24  -- account for border in
 local SECTION_GAP = 14
 local LINE_GAP = 4
 
--- SavedVariable key (bumped to V3 so existing users see the updated welcome)
-local SV_KEY = "hasSeenWelcomeV3"
+-- SavedVariable key (bumped to V4 so existing users see the updated welcome)
+local SV_KEY = "hasSeenWelcomeV4"
 
 -------------------------------------------------------------------------------
 -- Helpers: all anchored relative to a previous element
@@ -144,7 +144,7 @@ local function CreateWelcomeFrame()
 
     local tagline = frame:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
     tagline:SetPoint("TOP", title, "BOTTOM", -15, -12)
-    tagline:SetText("|cFFFFD100Your house won't decorate itself!|r")
+    tagline:SetText("|cFFFFD100Every decor vendor on your map. That's it.|r")
 
     -- =========================================================================
     -- Content area (no scroll - everything fits at this size)
@@ -161,50 +161,42 @@ local function CreateWelcomeFrame()
     topAnchor:SetHeight(1)
 
     -- =====================================================================
-    -- SECTION 1: Discover Housing Decor
+    -- SECTION 1: Quick Start
     -- =====================================================================
 
-    local sec1Header = AddHeader(content, topAnchor, "Discover Housing Decor", 2)
+    local sec1Header = AddHeader(content, topAnchor, "Quick Start", 2)
 
     local sec1Intro = AddParagraph(content, sec1Header,
-        "Ready to furnish your dream home? Homestead helps " ..
-        "you find and collect decor from vendors all across Azeroth!",
+        "Lightweight vendor tracking. No complex UI - just pins and tooltips.",
         6)
 
     -- Bullet icons: use recognizable WoW icons that match each feature
     local worldMapIcon = "Interface\\WorldMap\\WorldMap-Icon"
-    local minimapIcon = "Interface\\MINIMAP\\TRACKING\\None"
 
     local bullet1 = AddBullet(content, sec1Intro,
         "|T" .. worldMapIcon .. ":14:14:0:0|t",
-        "Vendor pins on your |cFFFFD100World Map|r so you never miss a decor shop",
+        "Open your |cFFFFD100World Map|r - vendor pins are already there",
         8)
 
     local bullet2 = AddBullet(content, bullet1,
-        "|T" .. minimapIcon .. ":14:14:0:0|t",
-        "|cFFFFD100Minimap pins|r for nearby vendor tracking",
+        "|TInterface\\GossipFrame\\VendorGossipIcon:14:14:0:0|t",
+        "|cFFFFD100Hover any pin|r to see inventory and what you own",
         6)
 
     local bullet3 = AddBullet(content, bullet2,
-        "|TInterface\\GossipFrame\\VendorGossipIcon:14:14:0:0|t",
-        "Hover over any pin to |cFFFFD100preview vendor inventory|r",
-        6)
-
-    local bullet4 = AddBullet(content, bullet3,
         "|TInterface\\RaidFrame\\ReadyCheck-Ready:14:14:0:0|t",
-        "Track which items you |cFF00FF00own|r vs. still need",
+        "Visit vendors to |cFF00FF00auto-scan|r and help improve the database",
         6)
 
-    local bullet5 = AddBullet(content, bullet4,
-        "|TInterface\\GossipFrame\\AvailableQuestIcon:14:14:0:0|t",
-        "Tooltips show |cFFFFD100source and cost|r of decor items from your Housing Catalog |cFF888888(WIP)|r",
-        6)
+    local warning = AddParagraph(content, bullet3,
+        "|TInterface\\DialogFrame\\UI-Dialog-Icon-AlertNew:14:14:0:0|t |cFFFFCC00Open the Housing Catalog once per session to enable ownership tracking.|r",
+        12)
 
     -- =====================================================================
     -- SECTION 2: Key Commands
     -- =====================================================================
 
-    local sec2Header = AddHeader(content, bullet5, "Key Commands", SECTION_GAP)
+    local sec2Header = AddHeader(content, warning, "Key Commands", SECTION_GAP)
 
     local cmd1 = AddCommand(content, sec2Header, "/hs", "Open main window", 6)
     local cmd2 = AddCommand(content, cmd1, "/hs scan", "Scan current vendor")
