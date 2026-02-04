@@ -613,6 +613,11 @@ function VendorScanner:SaveVendorData(scanData)
         " - " .. vendorRecord.decorCount .. "/" .. vendorRecord.itemCount ..
         " decor items, faction: " .. vendorRecord.faction)
 
+    -- Track vendor scan
+    if HA.Analytics then
+        HA.Analytics:IncrementCounter("VendorScans")
+    end
+
     -- Fire callback for other modules
     if HA.Events then
         HA.Events:Fire("VENDOR_SCANNED", vendorRecord)

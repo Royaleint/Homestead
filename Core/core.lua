@@ -20,6 +20,12 @@ HA.Addon = Homestead
 -- Expose globally for debugging (allows /dump Homestead commands)
 _G.Homestead = HA
 
+-- WagoAnalytics: silent load, graceful fallback for local dev
+local WagoAnalytics = LibStub("WagoAnalytics", true)
+if WagoAnalytics then
+    HA.Analytics = WagoAnalytics:Register("aNDMQ86o")
+end
+
 -- Backwards compatibility alias
 local HousingAddon = Homestead
 

@@ -55,7 +55,9 @@ local zoneToContinent = {
     [2248] = 2274, -- Isle of Dorn
     [2214] = 2274, -- The Ringing Deeps
     [2215] = 2274, -- Hallowfall
+    [2213] = 2274, -- The City of Threads
     [2255] = 2274, -- Azj-Kahet
+    [2338] = 2274, -- Smuggler's Coast
     [2346] = 2274, -- Undermine
     [2406] = 2274, -- Liberation of Undermine (dungeon)
     [2472] = 2274, -- Tazavesh (K'aresh)
@@ -83,6 +85,7 @@ local zoneToContinent = {
     [1565] = 1550, -- Ardenweald
     [1670] = 1550, -- Oribos
     [1699] = 1550, -- Sinfall
+    [1961] = 1550, -- Korthia
 
     -- Kul Tiras (876)
     [895] = 876,   -- Tiragarde Sound
@@ -115,6 +118,7 @@ local zoneToContinent = {
     [726] = 619,   -- The Maelstrom (Shaman)
     [734] = 619,   -- Hall of the Guardian (Mage)
     [739] = 619,   -- Trueshot Lodge (Hunter)
+    [745] = 619,   -- Trueshot Lodge (Hunter, alternate)
     [747] = 619,   -- The Dreamgrove (Druid)
     [830] = 619,   -- Krokuun (Argus)
     [882] = 619,   -- Eredath (Argus)
@@ -125,6 +129,7 @@ local zoneToContinent = {
     [535] = 572,   -- Talador
     [539] = 572,   -- Shadowmoon Valley (Draenor)
     [542] = 572,   -- Spires of Arak
+    [534] = 572,   -- Tanaan Jungle
     [543] = 572,   -- Gorgrond
     [550] = 572,   -- Nagrand (Draenor)
     [582] = 572,   -- Lunarfall (Alliance Garrison)
@@ -139,6 +144,9 @@ local zoneToContinent = {
     [388] = 424,   -- Townlong Steppes
     [390] = 424,   -- Vale of Eternal Blossoms
     [418] = 424,   -- Krasarang Wilds
+    [504] = 424,   -- Isle of Thunder
+    [554] = 424,   -- Timeless Isle
+    [1530] = 424,  -- Shrine of Two Moons
 
     -- Northrend (113)
     [114] = 113,   -- Borean Tundra
@@ -147,6 +155,7 @@ local zoneToContinent = {
     [117] = 113,   -- Howling Fjord
     [119] = 113,   -- Sholazar Basin
     [120] = 113,   -- The Storm Peaks
+    [118] = 113,   -- Icecrown
     [121] = 113,   -- Zul'Drak
     [125] = 113,   -- Dalaran (Northrend)
     [127] = 113,   -- Crystalsong Forest
@@ -174,14 +183,22 @@ local zoneToContinent = {
     [224] = 13,    -- Stranglethorn Vale
     [241] = 13,    -- Twilight Highlands
     [242] = 13,    -- Blackrock Depths (dungeon)
+    [2437] = 13,   -- Zul'Aman
 
     -- Kalimdor (12)
     [69] = 12,     -- Feralas / Darkmoon Island
     [70] = 12,     -- Dustwallow Marsh
+    [71] = 12,     -- Tanaris
     [85] = 12,     -- Orgrimmar
     [88] = 12,     -- Thunder Bluff
     [89] = 12,     -- Darnassus
+    [97] = 12,     -- Azuremyst Isle
     [407] = 12,    -- Darkmoon Island
+
+    -- Outland (101)
+    [102] = 101,   -- Zangarmarsh
+    [107] = 101,   -- Nagrand (Outland)
+    [111] = 101,   -- Shattrath
 
     -- Special Instances
     [369] = 13,    -- Bizmo's Brawlpub (Eastern Kingdoms)
@@ -253,6 +270,9 @@ local function CreateVendorPinFrame(vendor, isOppositeFaction)
     -- Tooltip handlers
     frame:SetScript("OnEnter", function(self)
         VendorMapPins:ShowVendorTooltip(self, self.vendor)
+        if HA.Analytics then
+            HA.Analytics:IncrementCounter("TooltipViews")
+        end
     end)
     frame:SetScript("OnLeave", function(self)
         GameTooltip:Hide()
@@ -260,6 +280,9 @@ local function CreateVendorPinFrame(vendor, isOppositeFaction)
     frame:SetScript("OnMouseUp", function(self, button)
         if button == "LeftButton" then
             VendorMapPins:SetWaypointToVendor(self.vendor)
+            if HA.Analytics then
+                HA.Analytics:IncrementCounter("MapPinClicks")
+            end
         end
     end)
 
@@ -381,9 +404,9 @@ local function CreateMinimapPinFrame(vendor, isOppositeFaction)
     frame:SetSize(MINIMAP_ICON_SIZE, MINIMAP_ICON_SIZE)
     frame:EnableMouse(true)
 
-    -- Use BACKGROUND strata so player arrow renders on top
+    -- Set frame strata for minimap visibility
     frame:SetFrameStrata("BACKGROUND")
-    frame:SetFrameLevel(2)
+    frame:SetFrameLevel(1)
 
     -- Simple housing icon only - no decorative borders for minimap
     frame.icon = frame:CreateTexture(nil, "ARTWORK")
@@ -418,6 +441,9 @@ local function CreateMinimapPinFrame(vendor, isOppositeFaction)
     frame:SetScript("OnMouseUp", function(self, button)
         if button == "LeftButton" then
             VendorMapPins:SetWaypointToVendor(self.vendor)
+            if HA.Analytics then
+                HA.Analytics:IncrementCounter("MinimapPinClicks")
+            end
         end
     end)
 
@@ -444,44 +470,26 @@ local function AreValidCoordinates(x, y)
     return true
 end
 
--- Check if a vendor has been scanned and confirmed to have NO decor items
--- Returns true if vendor should be hidden (was scanned with no decor)
--- Returns false if vendor should be shown (has decor OR hasn't been scanned yet)
-local function IsVendorScannedWithNoDecor(vendor)
-    if not vendor or not vendor.npcID then
-        return false
-    end
+-- Check if a vendor should be hidden from all pin displays
+-- Returns true if vendor should be hidden (unreleased or scanned with no decor)
+local function ShouldHideVendor(vendor)
+    if not vendor then return true end
 
-    -- Check scanned vendor data
-    if HA.Addon and HA.Addon.db and HA.Addon.db.global.scannedVendors then
-        local npcID = vendor.npcID
-        local scannedData = HA.Addon.db.global.scannedVendors[npcID]
+    -- Hide unreleased/datamined vendors
+    if vendor.unreleased then return true end
+
+    -- Hide vendors confirmed to have no housing decor
+    if vendor.npcID and HA.Addon and HA.Addon.db and HA.Addon.db.global.scannedVendors then
+        local scannedData = HA.Addon.db.global.scannedVendors[vendor.npcID]
 
         if scannedData then
-            -- hasDecor can be: true (has decor), false (no decor), or nil (old data before flag was added)
-            -- Only hide if explicitly false (not nil, which means unknown/old data)
+            -- hasDecor: true (has decor), false (no decor), nil (old data)
             if scannedData.hasDecor == false then
-                if HA.Addon.db.profile.debug then
-                    HA.Addon:Debug(string.format("Vendor %s (NPC %d): HIDING - scanned with hasDecor=false",
-                        vendor.name or "Unknown", npcID))
-                end
                 return true
-            elseif scannedData.hasDecor == true then
-                -- Explicitly has decor, show it
-                if HA.Addon.db.profile.debug then
-                    HA.Addon:Debug(string.format("Vendor %s (NPC %d): showing - scanned with hasDecor=true",
-                        vendor.name or "Unknown", npcID))
-                end
-                return false
-            else
-                -- hasDecor is nil (old scan data before flag was added)
-                -- Check if decor table is empty as fallback
+            elseif scannedData.hasDecor == nil then
+                -- Old scan data before flag was added - check if decor table is empty
                 local scannedItems = scannedData.items or scannedData.decor
                 if scannedItems and #scannedItems == 0 then
-                    if HA.Addon.db.profile.debug then
-                        HA.Addon:Debug(string.format("Vendor %s (NPC %d): HIDING - old scan data with empty decor table",
-                            vendor.name or "Unknown", npcID))
-                    end
                     return true
                 end
             end
@@ -747,8 +755,8 @@ function VendorMapPins:GetZoneVendorCounts(continentMapID)
 
     for _, vendor in ipairs(allVendors) do
         -- Skip vendors that have been scanned and confirmed to have no decor items
-        if IsVendorScannedWithNoDecor(vendor) then
-            -- Vendor was scanned and has no housing decor - don't count
+        if ShouldHideVendor(vendor) then
+            -- Vendor is unreleased or was scanned with no housing decor - don't count
         else
             -- Get best coordinates (scanned preferred over static)
             local coords, zoneMapID, source = GetBestVendorCoordinates(vendor)
@@ -810,8 +818,8 @@ function VendorMapPins:GetContinentVendorCounts()
 
     for _, vendor in ipairs(allVendors) do
         -- Skip vendors that have been scanned and confirmed to have no decor items
-        if IsVendorScannedWithNoDecor(vendor) then
-            -- Vendor was scanned and has no housing decor - don't count
+        if ShouldHideVendor(vendor) then
+            -- Vendor is unreleased or was scanned with no housing decor - don't count
         else
             -- Get best coordinates (scanned preferred over static)
             local coords, zoneMapID, source = GetBestVendorCoordinates(vendor)
@@ -1141,8 +1149,18 @@ function VendorMapPins:RefreshMinimapPins()
 
     -- Add sibling zones in the same continent for cross-zone visibility
     -- This is what makes pins appear when you're near a zone boundary
+    --
+    -- Exclude continents in separate world spaces (Outland, Draenor, Shadowlands)
+    -- HBD can't translate cross-dimension coords, which causes pins to collapse
+    -- onto the player arrow position.
+    local minimapExcludedContinents = {
+        [101] = true,   -- Outland (separate world space)
+        [572] = true,   -- Draenor (alternate dimension)
+        [1550] = true,  -- Shadowlands (afterlife dimension)
+    }
+
     local continentID = GetContinentForZone(playerMapID)
-    if continentID then
+    if continentID and not minimapExcludedContinents[continentID] then
         for zoneMapID, contID in pairs(zoneToContinent) do
             if contID == continentID and not mapsToCheckSet[zoneMapID] then
                 mapsToCheck[#mapsToCheck + 1] = zoneMapID
@@ -1160,9 +1178,9 @@ function VendorMapPins:RefreshMinimapPins()
             for _, vendor in ipairs(vendors) do
                 -- Use npcID for deduplication (vendor tables may be different objects)
                 if vendor.npcID and not addedVendors[vendor.npcID] then
-                    -- Skip vendors that have been scanned and confirmed to have no decor items
-                    if IsVendorScannedWithNoDecor(vendor) then
-                        -- Vendor was scanned and has no housing decor - don't show pin
+                    -- Skip unreleased or no-decor vendors
+                    if ShouldHideVendor(vendor) then
+                        -- Vendor is unreleased or has no housing decor - don't show pin
                     else
                         -- Get best coordinates (scanned preferred over static)
                         local coords, vendorMapID, source = GetBestVendorCoordinates(vendor)
@@ -1244,8 +1262,8 @@ function VendorMapPins:ShowVendorPins(mapID)
         if not vendor or not vendor.npcID then return end
         if addedVendors[vendor.npcID] then return end
 
-        -- Skip vendors that have been scanned and confirmed to have no decor items
-        if IsVendorScannedWithNoDecor(vendor) then
+        -- Skip unreleased or no-decor vendors
+        if ShouldHideVendor(vendor) then
             -- Mark as processed to avoid re-checking in scanned vendors loop
             addedVendors[vendor.npcID] = true
             return
@@ -1281,10 +1299,10 @@ function VendorMapPins:ShowVendorPins(mapID)
             local shouldSkip = false
             local skipReason = nil
 
-            -- Check 1: Skip if vendor scanned with no decor (hasDecor=false)
-            if IsVendorScannedWithNoDecor(vendor) then
+            -- Check 1: Skip unreleased or no-decor vendors
+            if ShouldHideVendor(vendor) then
                 shouldSkip = true
-                skipReason = "no decor"
+                skipReason = vendor.unreleased and "unreleased" or "no decor"
             end
 
             -- Check 2: Skip if vendor was scanned on a DIFFERENT map
@@ -1469,6 +1487,12 @@ function VendorMapPins:Initialize()
     if HA.Addon and HA.Addon.db and HA.Addon.db.profile.vendorTracer then
         pinsEnabled = HA.Addon.db.profile.vendorTracer.showMapPins ~= false
         minimapPinsEnabled = HA.Addon.db.profile.vendorTracer.showMinimapPins ~= false
+    end
+
+    -- Track pin settings state
+    if HA.Analytics then
+        HA.Analytics:Switch("MapPinsEnabled", pinsEnabled)
+        HA.Analytics:Switch("MinimapPinsEnabled", minimapPinsEnabled)
     end
 
     -- Hook WorldMapFrame to refresh pins when map changes

@@ -23,3 +23,6 @@ externals:
   Libs/LibDataBroker-1.1: https://repos.wowace.com/wow/libdatabroker-1-1
   Libs/LibDBIcon-1.0: https://repos.wowace.com/wow/libdbicon-1-0/trunk/LibDBIcon-1.0
   Libs/HereBeDragons: https://github.com/Nevcairiel/HereBeDragons.git
+  Libs/WagoAnalytics:
+    url: https://github.com/wagoio/WagoAnalyticsShim.git
+    branch: main

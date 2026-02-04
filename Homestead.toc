@@ -9,10 +9,12 @@
 ## X-Website: https://github.com/Royaleint/Homestead
 ## X-License: GPL-3.0
 ## X-Wago-ID: aNDMQ86o
+## OptionalDependencies: WagoAnalytics
 ## X-Curse-Project-ID: 1450714
 
 # Libraries
 embeds.xml
+Libs\WagoAnalytics\Shim.lua
 
 # Localization
 Locale\enUS.lua

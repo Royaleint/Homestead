@@ -11,15 +11,15 @@ HA.WelcomeFrame = WelcomeFrame
 local welcomeFrame = nil
 
 -- Layout constants
-local FRAME_WIDTH = 525
-local FRAME_HEIGHT = 540
+local FRAME_WIDTH = 700
+local FRAME_HEIGHT = 655
 local PADDING = 25
 local CONTENT_WIDTH = FRAME_WIDTH - (PADDING * 2) - 24  -- account for border insets
 local SECTION_GAP = 14
 local LINE_GAP = 4
 
--- SavedVariable key (bumped to V2 so existing users see the updated welcome)
-local SV_KEY = "hasSeenWelcomeV2"
+-- SavedVariable key (bumped to V3 so existing users see the updated welcome)
+local SV_KEY = "hasSeenWelcomeV3"
 
 -------------------------------------------------------------------------------
 -- Helpers: all anchored relative to a previous element
@@ -36,6 +36,8 @@ end
 
 local function AddParagraph(parent, anchor, text, gap)
     local fs = parent:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+    local font, size, flags = fs:GetFont()
+    fs:SetFont(font, size + 2, flags)
     fs:SetPoint("TOPLEFT", anchor, "BOTTOMLEFT", 0, -(gap or LINE_GAP))
     fs:SetWidth(CONTENT_WIDTH)
     fs:SetJustifyH("LEFT")
@@ -46,6 +48,8 @@ end
 
 local function AddBullet(parent, anchor, iconStr, text, gap)
     local fs = parent:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+    local font, size, flags = fs:GetFont()
+    fs:SetFont(font, size + 2, flags)
     fs:SetPoint("TOPLEFT", anchor, "BOTTOMLEFT", 0, -(gap or LINE_GAP))
     fs:SetWidth(CONTENT_WIDTH - 10)
     fs:SetJustifyH("LEFT")
@@ -55,6 +59,8 @@ end
 
 local function AddCommand(parent, anchor, command, description, gap)
     local fs = parent:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+    local font, size, flags = fs:GetFont()
+    fs:SetFont(font, size + 2, flags)
     fs:SetPoint("TOPLEFT", anchor, "BOTTOMLEFT", 0, -(gap or LINE_GAP))
     fs:SetWidth(CONTENT_WIDTH - 10)
     fs:SetJustifyH("LEFT")
@@ -64,6 +70,8 @@ end
 
 local function AddSmallText(parent, anchor, text, gap)
     local fs = parent:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    local font, size, flags = fs:GetFont()
+    fs:SetFont(font, size + 2, flags)
     fs:SetPoint("TOPLEFT", anchor, "BOTTOMLEFT", 0, -(gap or LINE_GAP))
     fs:SetWidth(CONTENT_WIDTH)
     fs:SetJustifyH("LEFT")
@@ -117,32 +125,34 @@ local function CreateWelcomeFrame()
     closeBtn:SetScript("OnClick", function() WelcomeFrame:Hide() end)
 
     -- =========================================================================
-    -- Title block: icon left of title, tagline below
+    -- Title block: centered icon + title, tagline below
     -- =========================================================================
 
+    -- Title anchored near top-center; offset right to visually center the
+    -- icon+title group (icon 48px + 10px gap ≈ 29px half-offset).
+    local title = frame:CreateFontString(nil, "OVERLAY", "GameFontNormalHuge2")
+    title:SetPoint("TOP", frame, "TOP", 15, -24)
+    title:SetText("|cFF00FF00Homestead|r")
+
     local icon = frame:CreateTexture(nil, "OVERLAY")
-    icon:SetSize(45, 45)
-    icon:SetPoint("TOPLEFT", PADDING, -18)
+    icon:SetSize(48, 48)
+    icon:SetPoint("RIGHT", title, "LEFT", -10, -2)
     icon:SetTexture("Interface\\AddOns\\Homestead\\Textures\\icon")
     if not icon:GetTexture() then
         icon:SetTexture("Interface\\ICONS\\INV_Misc_Furniture_Chair_03")
     end
 
-    local title = frame:CreateFontString(nil, "OVERLAY", "GameFontNormalHuge")
-    title:SetPoint("LEFT", icon, "RIGHT", 10, 8)
-    title:SetText("|cFF00FF00Homestead|r")
-
-    local tagline = frame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-    tagline:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 0, -2)
-    tagline:SetText("|cFFCCBB88Your house won't decorate itself!|r")
+    local tagline = frame:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
+    tagline:SetPoint("TOP", title, "BOTTOM", -15, -12)
+    tagline:SetText("|cFFFFD100Your house won't decorate itself!|r")
 
     -- =========================================================================
     -- Content area (no scroll - everything fits at this size)
     -- =========================================================================
 
     local content = CreateFrame("Frame", nil, frame)
-    content:SetPoint("TOPLEFT", PADDING, -64)
-    content:SetPoint("BOTTOMRIGHT", -PADDING, 56)
+    content:SetPoint("TOPLEFT", PADDING, -96)
+    content:SetPoint("BOTTOMRIGHT", -PADDING, 66)
 
     -- Invisible top anchor
     local topAnchor = content:CreateFontString(nil, "OVERLAY", "GameFontNormal")
@@ -208,30 +218,30 @@ local function CreateWelcomeFrame()
     local sec3Header = AddHeader(content, cmd4, "Help Us Grow the Database!", SECTION_GAP)
 
     local sec3Body = AddParagraph(content, sec3Header,
-        "Visit vendors in-game, then use |cFF00FF00/hs export|r to " ..
-        "share your discoveries with the community!",
+        "Help expand our database! After scanning vendors, use " ..
+        "|cFF00FF00/hs export|r and submit your data:",
         6)
 
-    local submitLabel = AddSmallText(content, sec3Body, "Submit exports to:", 8)
+    local formLabel = AddSmallText(content, sec3Body,
+        "|cFFFFD100Submit vendor data (Google Form):|r", 8)
+    local formBox = AddURLBox(content, formLabel,
+        "https://forms.gle/QkYBVnGZfVWYhFudA", 2)
 
-    local ghLabel = AddSmallText(content, submitLabel, "|cFFAAAAAAGitHub:|r", 6)
-    local ghBox = AddURLBox(content, ghLabel, "https://github.com/Royaleint/Homestead/issues", 2)
+    local issueLabel = AddSmallText(content, formBox,
+        "|cFFAAAAAAReport issues:|r", 10)
+    local ghBox = AddURLBox(content, issueLabel,
+        "https://github.com/Royaleint/Homestead/issues", 2)
 
-    -- Anchor cfLabel to ghBox with extra gap and x-offset to clear InputBoxTemplate border art
-    local cfLabel = content:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-    cfLabel:SetPoint("TOPLEFT", ghBox, "BOTTOMLEFT", 4, -10)
-    cfLabel:SetWidth(CONTENT_WIDTH - 4)
-    cfLabel:SetJustifyH("LEFT")
-    cfLabel:SetText("|cFFAAAAACurseForge:|r")
-
-    local cfBox = AddURLBox(content, cfLabel, "https://www.curseforge.com/wow/addons/homestead-wow", 2)
+    local cfLabel = AddSmallText(content, ghBox, "|cFFAAAAACurseForge:|r", 6)
+    local cfBox = AddURLBox(content, cfLabel,
+        "https://www.curseforge.com/wow/addons/homestead-wow", 2)
 
     -- =========================================================================
     -- Bottom bar: checkbox + button (fixed to frame bottom)
     -- =========================================================================
 
     local checkBtn = CreateFrame("CheckButton", nil, frame, "UICheckButtonTemplate")
-    checkBtn:SetPoint("BOTTOMLEFT", 18, 18)
+    checkBtn:SetPoint("BOTTOMLEFT", 18, 28)
     checkBtn:SetSize(24, 24)
     checkBtn:SetScript("OnClick", function(self)
         if HA.Addon and HA.Addon.db then
@@ -246,7 +256,7 @@ local function CreateWelcomeFrame()
 
     local startBtn = CreateFrame("Button", nil, frame, "UIPanelButtonTemplate")
     startBtn:SetSize(120, 24)
-    startBtn:SetPoint("BOTTOMRIGHT", -18, 18)
+    startBtn:SetPoint("BOTTOMRIGHT", -18, 28)
     startBtn:SetText("Let's Decorate!")
     startBtn:SetScript("OnClick", function() WelcomeFrame:Hide() end)
 
@@ -264,6 +274,9 @@ end
 function WelcomeFrame:Show()
     local frame = CreateWelcomeFrame()
     frame:Show()
+    if HA.Analytics then
+        HA.Analytics:Switch("WelcomeScreenSeen")
+    end
 end
 
 function WelcomeFrame:Hide()
@@ -271,6 +284,9 @@ function WelcomeFrame:Hide()
         welcomeFrame:Hide()
         if HA.Addon and HA.Addon.db then
             HA.Addon.db.global[SV_KEY] = true
+        end
+        if HA.Analytics then
+            HA.Analytics:IncrementCounter("WelcomeScreenClosed")
         end
     end
 end

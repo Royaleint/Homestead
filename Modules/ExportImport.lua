@@ -559,6 +559,11 @@ function ExportImport:ExportScannedVendorsV2(fullExport, exportAll)
 
     -- Show output and update timestamp
     if vendorCount > 0 then
+        -- Track V2 export
+        if HA.Analytics then
+            HA.Analytics:IncrementCounter("ExportsV2")
+        end
+
         -- Update last export timestamp
         HA.Addon.db.global.lastExportTimestamp = time()
 

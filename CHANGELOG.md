@@ -10,6 +10,31 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [1.1.2] - 2026-02-03
+
+### New Features
+- **WagoAnalytics integration** — Anonymous usage tracking to help improve the addon
+- **17 new vendors added** — Orgrimmar, Dornogal, Hallowfall, Azj-Kahet, and Ringing Deeps
+- **Unreleased vendor filtering** — Datamined Midnight vendors now hidden until content goes live
+
+### Bug Fixes
+- **Fixed missing/misplaced vendor pins:**
+  - Nalina Ironsong (was showing in wrong zone)
+  - Thripps (now correctly in City of Threads)
+  - Cinnabar (now correctly in Isle of Dorn)
+  - Shadow-Sage Brakoss (corrected coordinates)
+  - Shadow Hunter Denjai, Mender Naemee, Kelsey Steelspark, Jackson Watkins, Arcanist Peroleth
+- **Refined coordinates** for Velerd, Jorid, Waxmonger Squick, Cendvin, Lars Bronsmaelt, Chert, and Gabbun
+- **Removed non-decor vendors** Krinn and Kradan from database
+- **Fixed minimap pins** in Outland/Draenor/Shadowlands zones collapsing onto player position
+- **Added 15 missing zone mappings** for proper minimap pin display across older content
+
+### Improvements
+- Welcome screen redesigned: larger, easier to read, includes feedback form link
+- Internal code cleanup for vendor visibility checks
+
+---
+
 ## [1.1.1] - 2026-02-03
 
 ### Fixed
