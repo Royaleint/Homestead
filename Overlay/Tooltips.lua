@@ -560,24 +560,7 @@ local function HookTooltips()
         return
     end
 
-    -- Fallback for older API (shouldn't be needed in 12.0)
-    if GameTooltip and GameTooltip.HookScript then
-        local success = pcall(function()
-            GameTooltip:HookScript("OnTooltipSetItem", function(self)
-                local _, itemLink = self:GetItem()
-                if itemLink then
-                    AddDecorInfoToTooltip(self, itemLink)
-                end
-            end)
-        end)
-
-        if success then
-            isHooked = true
-            if HA.Addon then
-                HA.Addon:Debug("Tooltips hooked via legacy HookScript")
-            end
-        end
-    end
+    -- No legacy fallback: TooltipDataProcessor is the supported path.
 end
 
 -------------------------------------------------------------------------------

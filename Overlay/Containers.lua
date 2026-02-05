@@ -114,7 +114,7 @@ local function HookBankFrame()
         local button = _G["BankFrameItem" .. i]
         if button and not button.HousingAddonHooked then
             Overlay:AddToFrame(button, function(overlay)
-                local itemLink = GetContainerItemLink(BANK_CONTAINER, i)
+                local itemLink = C_Container.GetContainerItemLink(BANK_CONTAINER, i)
                 Overlay:SetIcon(overlay, itemLink)
             end)
             button.HousingAddonHooked = true

@@ -18,6 +18,7 @@ local Homestead = LibStub("AceAddon-3.0"):NewAddon(
 HA.Addon = Homestead
 
 -- Expose globally for debugging (allows /dump Homestead commands)
+-- Intentional global: addon interop, WeakAura detection, /dump access
 _G.Homestead = HA
 
 -- WagoAnalytics: silent load, graceful fallback for local dev
@@ -894,7 +895,7 @@ end
 function HousingAddon:ShowCopyableText(text)
     -- Create frame if it doesn't exist
     if not self.copyFrame then
-        local frame = CreateFrame("Frame", "HomesteadCopyFrame", UIParent, "BackdropTemplate")
+        local frame = CreateFrame("Frame", nil, UIParent, "BackdropTemplate")
         frame:SetSize(500, 400)
         frame:SetPoint("CENTER")
         frame:SetBackdrop({

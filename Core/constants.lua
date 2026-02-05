@@ -278,5 +278,4 @@ Constants.SlashCommands = {
     SECONDARY = "/homestead",
 }
 
--- Make constants accessible globally for the addon
-_G[addonName] = HA
+-- Constants are attached to the addon namespace (HA)

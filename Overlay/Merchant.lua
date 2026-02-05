@@ -114,7 +114,7 @@ end
 -- Update Functions
 -------------------------------------------------------------------------------
 
-function UpdateAllMerchantOverlays()
+local function UpdateAllMerchantOverlays()
     local itemsPerPage = MERCHANT_ITEMS_PER_PAGE or 10
 
     for i = 1, itemsPerPage do

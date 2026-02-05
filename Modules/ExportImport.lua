@@ -50,6 +50,7 @@ local function CreateExportFrame()
     f:SetSize(600, 200)
     f:SetPoint("CENTER")
     f:SetFrameStrata("DIALOG")
+    tinsert(UISpecialFrames, "HomesteadExportFrame")
     f:SetBackdrop({
         bgFile = "Interface/Tooltips/UI-Tooltip-Background",
         edgeFile = "Interface/Tooltips/UI-Tooltip-Border",
@@ -159,6 +160,7 @@ local function CreateExportDialog()
     f:SetSize(280, 200)
     f:SetPoint("CENTER")
     f:SetFrameStrata("DIALOG")
+    tinsert(UISpecialFrames, "HomesteadExportDialog")
     f:SetBackdrop({
         bgFile = "Interface/Tooltips/UI-Tooltip-Background",
         edgeFile = "Interface/Tooltips/UI-Tooltip-Border",

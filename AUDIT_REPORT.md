@@ -53,16 +53,17 @@ Auditor: OpenAI Codex
 | 3 | `HomesteadWelcomeFrame` | `UI/WelcomeFrame.lua:102` | intentional | ACCEPTABLE | Allowed |
 | 4 | `HomesteadOutputWindow` | `UI/OutputWindow.lua:26` | intentional | ACCEPTABLE | Allowed |
 | 5 | `HomesteadExportFrame` | `Modules/ExportImport.lua:49` | intentional | ACCEPTABLE | Allowed |
-| 6 | `StaticPopupDialogs["HOMESTEAD_CLEAR_CACHE"]` | `UI/MainFrame.lua:637` | intentional | ACCEPTABLE | Allowed |
+| 6 | `HomesteadExportDialog` | `Modules/ExportImport.lua:159` | intentional | ACCEPTABLE | Allowed |
+| 7 | `StaticPopupDialogs["HOMESTEAD_CLEAR_CACHE"]` | `UI/MainFrame.lua:637` | intentional | ACCEPTABLE | Allowed |
 
 Before/After summary:
 | Metric | Before | After |
 |--------|--------|-------|
-| Total addon globals | 10 | 6 |
+| Total addon globals | 10 | 7 |
 | HIGH severity | 1 | 0 |
 | MEDIUM severity | 2 | 1 |
 | LOW severity | 3 | 0 |
-| ACCEPTABLE | 4 | 5 |
+| ACCEPTABLE | 4 | 6 |
 
 ## 4. Global Allowlist
 | Symbol | File | Justification |
@@ -72,6 +73,7 @@ Before/After summary:
 | `HomesteadWelcomeFrame` | `UI/WelcomeFrame.lua` | Required for UISpecialFrames (Escape-to-close) |
 | `HomesteadOutputWindow` | `UI/OutputWindow.lua` | Required for UISpecialFrames (Escape-to-close) |
 | `HomesteadExportFrame` | `Modules/ExportImport.lua` | Required for UISpecialFrames (Escape-to-close) |
+| `HomesteadExportDialog` | `Modules/ExportImport.lua` | Required for UISpecialFrames (Escape-to-close) |
 | `StaticPopupDialogs["HOMESTEAD_CLEAR_CACHE"]` | `UI/MainFrame.lua` | Required for Blizzard StaticPopupDialogs system |
 
 ## 5. Deprecated / Risky API Findings
@@ -94,7 +96,8 @@ Before/After summary:
 | `Overlay/Merchant.lua` | 117 | Make helper local | `function UpdateAllMerchantOverlays()` | `local function UpdateAllMerchantOverlays()` |
 | `Modules/ExportImport.lua` | 49 | Restore `HomesteadExportFrame` global | `CreateFrame(..., nil, ...)` | `CreateFrame(..., "HomesteadExportFrame", ...)` |
 | `Modules/ExportImport.lua` | ~55 | Restore escape close | (none) | `tinsert(UISpecialFrames, "HomesteadExportFrame")` |
-| `Modules/ExportImport.lua` | 158 | Remove global dialog name | `CreateFrame(..., "HomesteadExportDialog", ...)` | `CreateFrame(..., nil, ...)` |
+| `Modules/ExportImport.lua` | 159 | Restore `HomesteadExportDialog` global | `CreateFrame(..., nil, ...)` | `CreateFrame(..., "HomesteadExportDialog", ...)` |
+| `Modules/ExportImport.lua` | ~163 | Restore escape close | (none) | `tinsert(UISpecialFrames, "HomesteadExportDialog")` |
 | `Overlay/Containers.lua` | 117 | Update container API | `GetContainerItemLink` | `C_Container.GetContainerItemLink` |
 | `Overlay/Tooltips.lua` | ~540–565 | Remove legacy tooltip fallback | `GameTooltip:HookScript(...)` | Removed |
 
