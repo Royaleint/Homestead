@@ -643,9 +643,9 @@ end
 -- Get the setting for showing unverified vendors
 local function ShouldShowUnverifiedVendors()
     if HA.Addon and HA.Addon.db and HA.Addon.db.profile.vendorTracer then
-        return HA.Addon.db.profile.vendorTracer.showUnverifiedVendors ~= false
+        return HA.Addon.db.profile.vendorTracer.showUnverifiedVendors == true
     end
-    return true  -- Default to showing
+    return false  -- Default to hidden (new users shouldn't see unverified data)
 end
 
 -- Helper function to cache an owned item

@@ -304,9 +304,9 @@ local function GetOptionsTable()
                     showUnverifiedVendors = {
                         type = "toggle",
                         name = L["Show unverified vendors"] or "Show unverified vendors",
-                        desc = "Show vendors with unverified locations (orange pins). Visit these vendors in-game to confirm their location and remove the warning.",
+                        desc = "Show vendors with unverified locations (orange pins). These are imported from external sources and may have incorrect coordinates. Visit these vendors in-game to verify their location.",
                         order = 6,
-                        get = function() return HA.Addon.db.profile.vendorTracer.showUnverifiedVendors ~= false end,
+                        get = function() return HA.Addon.db.profile.vendorTracer.showUnverifiedVendors == true end,
                         set = function(_, value)
                             HA.Addon.db.profile.vendorTracer.showUnverifiedVendors = value
                             if HA.VendorMapPins then
