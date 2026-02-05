@@ -10,15 +10,23 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
-## [1.1.3] - 2026-02-03
+## v1.1.3 (2026-02-05)
+### Fixed — Namespace Compliance
+- Removed duplicate _G[addonName] write in constants.lua
+- Made UpdateAllMerchantOverlays local in Merchant.lua
+- Removed unnecessary global name from CopyFrame
+- Added ESC-to-close for export dialog (HomesteadExportDialog)
+- Replaced deprecated GetContainerItemLink with C_Container.GetContainerItemLink
+- Removed legacy GameTooltip:HookScript fallback
 
-### New Features
-- **Scanned vendor data now reaches tooltips** â€” Cost data captured by VendorScanner (gold, currencies) now displays in Housing Catalog and item tooltips, not just static database entries
-- Scanned item index built at init and updated live on VENDOR_SCANNED events
+### Changed
+- Updated WelcomeFrame branding and Quick Start
+- Fixed UTF-8 encoding issues in WelcomeFrame
 
-### Improvements
-- Welcome screen refreshed: streamlined to 3 bullets, added Housing Catalog ownership warning
-- VendorData now serves as unified access layer for both static and scanned vendor data
+### Added
+- AUDIT_REPORT.md — full compliance audit documentation
+- .luacheckrc for static analysis
+- Global Allowlist (7 justified globals)
 
 ---
 
@@ -150,3 +158,4 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ### From 0.1.x to 0.2.x
 - New SavedVariables structure for scannedVendors
 - Old scan data will be lost (expected during alpha)
+

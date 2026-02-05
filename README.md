@@ -1,6 +1,6 @@
 # Homestead
 
-See housing decor vendors and their wares on your map and track your collection progress.
+Every decor vendor on your map. That's it.
 
 ## Features
 
@@ -38,4 +38,4 @@ Scanned vendor data welcome! Use `/hs export` and submit via GitHub issues.
 
 ## License
 
-MIT
+GPL-3.0
