@@ -32,6 +32,30 @@ missing_vendors.lua
 LUACHECK_RESULTS.txt
 LUACHECK_ADDON_ONLY.txt
 
+# Binaries
+luacheck.exe
+
+# Python
+__pycache__/
+*.pyc
+
+# Downloaded archives
+*.zip
+
+# Generated reports
+scripts/import_report.txt
+scripts/import_sources_report.txt
+vendor_verification_att_report.txt
+vendor_verification_report.txt
+
+# Generated data
+parsed_decor_sources.json
+db2_complete_vendor_data.json
+
+# ATT cache/snapshots
+scripts/att_cache/
+scripts/att_*.json
+
 # Copy files
 *- Copy.lua
 
