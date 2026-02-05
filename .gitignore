@@ -29,6 +29,8 @@ Data/VendorDatabase_updated.lua
 addon_vendor_comparison.txt
 vendor_verification_*.txt
 missing_vendors.lua
+LUACHECK_RESULTS.txt
+LUACHECK_ADDON_ONLY.txt
 
 # Copy files
 *- Copy.lua
