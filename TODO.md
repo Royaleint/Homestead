@@ -3,11 +3,11 @@
 ## Current Version: v1.1.3 (released 2026-02-05)
 
 ## High Priority
-- [x] **Scanned cost data not used in tooltips** — VendorScanner captures full cost data (gold, currencies, item costs) and stores it in `db.global.scannedVendors`, but `VendorData:GetVendorsForItem()` and `GetItemCostFromVendor()` only query the static VendorDatabase. Scanned costs are orphaned. Fix: add scannedVendors as a fallback/overlay in the lookup chain so dynamically discovered prices appear in housing catalog and item tooltips. (2026-02-05)
+- [x] **Scanned cost data not used in tooltips** ï¿½ VendorScanner captures full cost data (gold, currencies, item costs) and stores it in `db.global.scannedVendors`, but `VendorData:GetVendorsForItem()` and `GetItemCostFromVendor()` only query the static VendorDatabase. Scanned costs are orphaned. Fix: add scannedVendors as a fallback/overlay in the lookup chain so dynamically discovered prices appear in housing catalog and item tooltips. (2026-02-05)
 - [ ] Verify 3 name mismatches in-game: [64001], [64032], [127151]
 - [ ] Fix 15 vendors with placeholder coordinates via in-game scanning
 - [ ] Review 32 MapID mismatches (see VENDOR_VERIFICATION_SUMMARY.md)
-- [ ] Scan remaining vendors for item data (many now populated from Housing-Vendor import)
+- [ ] Scan remaining vendors for item data
 
 ## Normal
 - [ ] Bag overlays (Phase 9)
@@ -37,7 +37,7 @@
 - [x] Code audit: Global namespace compliance (10 -> 7 justified globals) (2026-02-05)
 - [x] Code audit: Deprecated API replacement (GetContainerItemLink, GameTooltip:HookScript) (2026-02-05)
 - [x] Fix ESC-to-close for export dialog (HomesteadExportDialog) (2026-02-05)
-- [x] Updated WelcomeFrame branding — new tagline, Quick Start, Housing Catalog warning (2026-02-05)
+- [x] Updated WelcomeFrame branding ï¿½ new tagline, Quick Start, Housing Catalog warning (2026-02-05)
 - [x] Fixed UTF-8 encoding in WelcomeFrame (2026-02-05)
 - [x] Rewrite CurseForge and Wago descriptions (2026-02-05)
 - [x] Add screenshots to CurseForge and Wago listings (2026-02-05)

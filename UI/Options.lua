@@ -301,6 +301,20 @@ local function GetOptionsTable()
                             end
                         end,
                     },
+                    showUnverifiedVendors = {
+                        type = "toggle",
+                        name = L["Show unverified vendors"] or "Show unverified vendors",
+                        desc = "Show vendors with unverified locations (orange pins). Visit these vendors in-game to confirm their location and remove the warning.",
+                        order = 6,
+                        get = function() return HA.Addon.db.profile.vendorTracer.showUnverifiedVendors ~= false end,
+                        set = function(_, value)
+                            HA.Addon.db.profile.vendorTracer.showUnverifiedVendors = value
+                            if HA.VendorMapPins then
+                                HA.VendorMapPins:RefreshPins()
+                                HA.VendorMapPins:RefreshMinimapPins()
+                            end
+                        end,
+                    },
 
                     -- Waypoint Group
                     waypointHeader = {

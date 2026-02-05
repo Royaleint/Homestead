@@ -533,8 +533,7 @@ end
 -- Persistent Ownership Cache (Workaround for Blizzard API Bug)
 -------------------------------------------------------------------------------
 -- The C_HousingCatalog API returns stale/incorrect data after a /reload
--- until the player opens the Housing Catalog UI. Other addons like
--- Housing Reps and Housing Vendor have documented this same issue.
+-- until the player opens the Housing Catalog UI. This is a known issue.
 -- Our solution: Cache ownership data in SavedVariables when the API
 -- reports an item as owned, then use that cache as a fallback.
 

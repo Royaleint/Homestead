@@ -214,7 +214,7 @@ end
 -- Pin Frame Creation
 -------------------------------------------------------------------------------
 
-local function CreateVendorPinFrame(vendor, isOppositeFaction)
+local function CreateVendorPinFrame(vendor, isOppositeFaction, isUnverified)
     local frame = CreateFrame("Frame", nil, UIParent)
 
     -- Apply scale to counter canvas scaling
@@ -232,22 +232,37 @@ local function CreateVendorPinFrame(vendor, isOppositeFaction)
     frame.bg:SetAtlas("auctionhouse-itemicon-border-white", false)
     frame.bg:SetVertexColor(0.1, 0.08, 0.02, 1)
 
-    -- Golden ring border (dimmed for opposite faction)
+    -- Ring border color based on status:
+    -- - Unverified: Orange ring (warning color)
+    -- - Opposite faction: Dimmed gray ring
+    -- - Normal: Gold ring
     frame.ring = frame:CreateTexture(nil, "BORDER")
     frame.ring:SetPoint("CENTER")
     frame.ring:SetSize(baseSize + 8, baseSize + 8)
     frame.ring:SetAtlas("auctionhouse-itemicon-border-artifact", false)
-    if isOppositeFaction then
+    if isUnverified then
+        frame.ring:SetVertexColor(1.0, 0.6, 0.2, 0.9)  -- Orange ring for unverified
+    elseif isOppositeFaction then
         frame.ring:SetVertexColor(0.5, 0.5, 0.5, 0.8)  -- Dim the ring for opposite faction
     end
 
-    -- Housing icon (dimmed for opposite faction)
+    -- Housing icon (tinted based on status)
     frame.icon = frame:CreateTexture(nil, "ARTWORK")
     frame.icon:SetPoint("CENTER")
     frame.icon:SetSize(baseSize - 8, baseSize - 8)
     frame.icon:SetAtlas("housing-dashboard-homestone-icon", true)
-    if isOppositeFaction then
+    if isUnverified then
+        frame.icon:SetVertexColor(1.0, 0.7, 0.4, 0.9)  -- Orange tint for unverified
+    elseif isOppositeFaction then
         frame.icon:SetVertexColor(0.6, 0.6, 0.6, 0.9)  -- Slightly dimmed
+    end
+
+    -- Question mark indicator for unverified vendors
+    if isUnverified then
+        frame.unverifiedIcon = frame:CreateTexture(nil, "OVERLAY", nil, 3)
+        frame.unverifiedIcon:SetSize(14, 14)
+        frame.unverifiedIcon:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", 4, -4)
+        frame.unverifiedIcon:SetAtlas("QuestRepeatableTurnin", true)  -- Yellow ? icon
     end
 
     -- Faction emblem for opposite faction vendors
@@ -263,9 +278,10 @@ local function CreateVendorPinFrame(vendor, isOppositeFaction)
         end
     end
 
-    -- Store vendor data and faction status
+    -- Store vendor data and status
     frame.vendor = vendor
     frame.isOppositeFaction = isOppositeFaction
+    frame.isUnverified = isUnverified
 
     -- Tooltip handlers
     frame:SetScript("OnEnter", function(self)
@@ -397,7 +413,7 @@ local function CreateBadgePinFrame(badgeData)
     return frame
 end
 
-local function CreateMinimapPinFrame(vendor, isOppositeFaction)
+local function CreateMinimapPinFrame(vendor, isOppositeFaction, isUnverified)
     -- Parent to UIParent for consistency with world map pins
     -- HereBeDragons handles positioning relative to minimap
     local frame = CreateFrame("Frame", nil, UIParent)
@@ -412,13 +428,16 @@ local function CreateMinimapPinFrame(vendor, isOppositeFaction)
     frame.icon = frame:CreateTexture(nil, "ARTWORK")
     frame.icon:SetAllPoints()
     frame.icon:SetAtlas("housing-dashboard-homestone-icon", true)
-    if isOppositeFaction then
+    if isUnverified then
+        frame.icon:SetVertexColor(1.0, 0.6, 0.2, 0.9)  -- Orange tint for unverified
+    elseif isOppositeFaction then
         frame.icon:SetVertexColor(0.5, 0.5, 0.5, 0.8)
     end
 
     -- Store vendor data
     frame.vendor = vendor
     frame.isOppositeFaction = isOppositeFaction
+    frame.isUnverified = isUnverified
 
     -- Simple tooltip on hover
     frame:SetScript("OnEnter", function(self)
@@ -427,6 +446,9 @@ local function CreateMinimapPinFrame(vendor, isOppositeFaction)
         GameTooltip:AddLine(self.vendor.name, 1, 1, 1)
         if self.vendor.zone then
             GameTooltip:AddLine(self.vendor.zone, 0.7, 0.7, 0.7)
+        end
+        if self.isUnverified then
+            GameTooltip:AddLine("Unverified location", 1.0, 0.6, 0.2)
         end
         if self.isOppositeFaction then
             GameTooltip:AddLine("Opposite faction", 0.8, 0.3, 0.3)
@@ -468,6 +490,25 @@ local function AreValidCoordinates(x, y)
         return false
     end
     return true
+end
+
+-- Check if a vendor's data has been verified (scanned in-game or original data)
+-- Returns true if vendor is verified, false if unverified (imported data not yet confirmed)
+local function IsVendorVerified(vendor)
+    if not vendor then return true end  -- No vendor = don't show warning
+
+    -- If vendor doesn't have the unverified flag, it's original/verified data
+    if not vendor.unverified then return true end
+
+    -- Check if vendor has been scanned in-game (scanned data = verified)
+    if vendor.npcID and HA.Addon and HA.Addon.db and HA.Addon.db.global.scannedVendors then
+        local scannedData = HA.Addon.db.global.scannedVendors[vendor.npcID]
+        if scannedData then
+            return true  -- Has been scanned in-game = verified
+        end
+    end
+
+    return false  -- Has unverified flag and hasn't been scanned
 end
 
 -- Check if a vendor should be hidden from all pin displays
@@ -595,6 +636,14 @@ end
 local function ShouldShowOppositeFaction()
     if HA.Addon and HA.Addon.db and HA.Addon.db.profile.vendorTracer then
         return HA.Addon.db.profile.vendorTracer.showOppositeFaction
+    end
+    return true  -- Default to showing
+end
+
+-- Get the setting for showing unverified vendors
+local function ShouldShowUnverifiedVendors()
+    if HA.Addon and HA.Addon.db and HA.Addon.db.profile.vendorTracer then
+        return HA.Addon.db.profile.vendorTracer.showUnverifiedVendors ~= false
     end
     return true  -- Default to showing
 end
@@ -918,6 +967,7 @@ function VendorMapPins:ShowVendorTooltip(pin, vendor)
     if not vendor then return end
 
     local isOpposite = self:IsOppositeFaction(vendor)
+    local isUnverified = not IsVendorVerified(vendor)
 
     GameTooltip:SetOwner(pin, "ANCHOR_RIGHT")
     GameTooltip:ClearLines()
@@ -930,6 +980,12 @@ function VendorMapPins:ShowVendorTooltip(pin, vendor)
     if vendor.faction and vendor.faction ~= "Neutral" then
         local factionColor = vendor.faction == "Alliance" and {0, 0.44, 0.87} or {0.77, 0.12, 0.23}
         GameTooltip:AddLine(vendor.faction, unpack(factionColor))
+    end
+
+    -- Warning for unverified vendors (imported data not yet confirmed in-game)
+    if isUnverified then
+        GameTooltip:AddLine(" ")
+        GameTooltip:AddLine("Unverified location - visit to confirm", 1.0, 0.6, 0.2)
     end
 
     -- Warning for opposite faction vendors
@@ -1189,10 +1245,15 @@ function VendorMapPins:RefreshMinimapPins()
                         if coords and vendorMapID then
                             local canAccess = self:CanAccessVendor(vendor)
                             local isOpposite = self:IsOppositeFaction(vendor)
+                            local isUnverified = not IsVendorVerified(vendor)
+                            local showUnverified = ShouldShowUnverifiedVendors()
 
+                            -- Skip unverified vendors if setting is disabled
+                            if isUnverified and not showUnverified then
+                                -- Don't show this vendor, continue to next
                             -- Show vendor if accessible OR if opposite faction and setting enabled
-                            if canAccess or (isOpposite and showOpposite) then
-                                local frame = CreateMinimapPinFrame(vendor, isOpposite)
+                            elseif canAccess or (isOpposite and showOpposite) then
+                                local frame = CreateMinimapPinFrame(vendor, isOpposite, isUnverified)
                                 minimapPinFrames[vendor] = frame
                                 addedVendors[vendor.npcID] = true
 
@@ -1277,10 +1338,18 @@ function VendorMapPins:ShowVendorPins(mapID)
         if coords and vendorMapID == mapID then
             local canAccess = self:CanAccessVendor(vendor)
             local isOpposite = self:IsOppositeFaction(vendor)
+            local isUnverified = not IsVendorVerified(vendor)
+            local showUnverified = ShouldShowUnverifiedVendors()
+
+            -- Skip unverified vendors if setting is disabled
+            if isUnverified and not showUnverified then
+                addedVendors[vendor.npcID] = true
+                return
+            end
 
             -- Show vendor if accessible OR if opposite faction and setting enabled
             if canAccess or (isOpposite and showOpposite) then
-                local frame = CreateVendorPinFrame(vendor, isOpposite)
+                local frame = CreateVendorPinFrame(vendor, isOpposite, isUnverified)
                 vendorPinFrames[vendor] = frame
                 addedVendors[vendor.npcID] = true
 

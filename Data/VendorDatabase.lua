@@ -6,7 +6,6 @@
     VendorDatabase.Vendors[npcID] = { name, mapID, x, y, zone, ... }
 
     Updated: 2026-02-01 22:14
-    Data merged from Housing-Vendor addon
 ]]
 
 local addonName, HA = ...
@@ -274,6 +273,7 @@ VendorDatabase.Vendors = {
         items = {256049, 257419},
     },
 	[17544] = {
+        unverified = true,
         name = "Artificer's Rep",
         mapID = 97,
         x = 0.476, y = 0.706,
@@ -284,6 +284,7 @@ VendorDatabase.Vendors = {
         items = {251547, 265331},
     },
 	[18382] = {
+        unverified = true,
         name = "Mycah",
         mapID = 102,
         x = 0.178, y = 0.512,
@@ -294,6 +295,7 @@ VendorDatabase.Vendors = {
         items = {247764, 247771, 247772, 247778, 247779, 247781, 247782},
     },
 	[19321] = {
+        unverified = true,
         name = "Quartermaster Endarin",
         mapID = 111,
         x = 0.482, y = 0.262,
@@ -304,6 +306,7 @@ VendorDatabase.Vendors = {
         items = {256044, 257417},
     },
 	[21432] = {
+        unverified = true,
         name = "Koren",
         mapID = 107,
         x = 0.428, y = 0.426,
@@ -314,6 +317,7 @@ VendorDatabase.Vendors = {
         items = {252044},
     },
 	[21643] = {
+        unverified = true,
         name = "Alurmi",
         mapID = 71,
         x = 0.508, y = 0.708,
@@ -412,6 +416,7 @@ VendorDatabase.Vendors = {
         items = {},
     },
 	[29156] = {
+        unverified = true,
         name = "Breanni",
         mapID = 627,
         x = 0.586, y = 0.394,
@@ -444,6 +449,7 @@ VendorDatabase.Vendors = {
         items = {},
     },
 	[32517] = {
+        unverified = true,
         name = "Val'zuun",
         mapID = 125,
         x = 0.462, y = 0.386,
@@ -476,6 +482,7 @@ VendorDatabase.Vendors = {
         items = {},
     },
 	[34882] = {
+        unverified = true,
         name = "Dame Evamere",
         mapID = 118,
         x = 0.708, y = 0.234,
@@ -507,6 +514,7 @@ VendorDatabase.Vendors = {
         items = {248333, 248336, 248617, 248619, 248620, 248662, 248665, 248794, 248795, 248798, 248801, 248938, 248939},
     },
 	[45389] = {
+        unverified = true,
         name = "Captain Lancy Revshon",
         mapID = 84,
         x = 0.75, y = 0.66,
@@ -517,6 +525,7 @@ VendorDatabase.Vendors = {
         items = {},
     },
 	[45408] = {
+        unverified = true,
         name = "Materialist Ophinell",
         mapID = 241,
         x = 0.49, y = 0.81,
@@ -625,6 +634,7 @@ VendorDatabase.Vendors = {
         items = {243335},
     },
 	[50484] = {
+        unverified = true,
         name = "Magistrix Nizara",
         mapID = 94,
         x = 0.494, y = 0.468,
@@ -656,6 +666,7 @@ VendorDatabase.Vendors = {
         items = {},
     },
 	[56687] = {
+        unverified = true,
         name = "Uncle Keen",
         mapID = 371,
         x = 0.596, y = 0.72,
@@ -699,6 +710,7 @@ VendorDatabase.Vendors = {
         items = {264349},
     },
 	[61911] = {
+        unverified = true,
         name = "Purser Boulian",
         mapID = 119,
         x = 0.268, y = 0.592,
@@ -709,6 +721,7 @@ VendorDatabase.Vendors = {
         items = {},
     },
 	[62032] = {
+        unverified = true,
         name = "Sage Lotusbloom",
         mapID = 390,
         x = 0.628, y = 0.232,
@@ -752,6 +765,7 @@ VendorDatabase.Vendors = {
         items = {},
     },
 	[63509] = {
+        unverified = true,
         name = "Nat Pagle",
         mapID = 418,
         x = 0.7, y = 0.3,
@@ -784,6 +798,7 @@ VendorDatabase.Vendors = {
         items = {245511, 247729, 264362},
     },
 	[64395] = {
+        unverified = true,
         name = "Nam Ironpaw",
         mapID = 376,
         x = 0.526, y = 0.514,
@@ -794,6 +809,7 @@ VendorDatabase.Vendors = {
         items = {248937},
     },
 	[64595] = {
+        unverified = true,
         name = "Rushi the Fox",
         mapID = 379,
         x = 0.36, y = 0.46,
@@ -826,6 +842,7 @@ VendorDatabase.Vendors = {
         items = {{245512, cost = {gold = 3000000}}, 247662, 247663, 247855, 247858, 258147},
     },
 	[65066] = {
+        unverified = true,
         name = "Jojo Ironbrow",
         mapID = 84,
         x = 0.74, y = 0.18,
@@ -836,6 +853,7 @@ VendorDatabase.Vendors = {
         items = {247661, 247728, 247733, 247735, 247736, 247738},
     },
 	[67052] = {
+        unverified = true,
         name = "Gina Mudclaw",
         mapID = 376,
         x = 0.46, y = 0.432,
@@ -866,6 +884,7 @@ VendorDatabase.Vendors = {
         items = {},
     },
 	[69971] = {
+        unverified = true,
         name = "Krosh Firehand",
         mapID = 504,
         x = 0.33, y = 0.32,
@@ -876,6 +895,7 @@ VendorDatabase.Vendors = {
         items = {264336},
     },
 	[70313] = {
+        unverified = true,
         name = "Hiren Loresong",
         mapID = 504,
         x = 0.33, y = 0.32,
@@ -886,6 +906,7 @@ VendorDatabase.Vendors = {
         items = {264337},
     },
 	[72111] = {
+        unverified = true,
         name = "Purser Boulian",
         mapID = 119,
         x = 0.268, y = 0.592,
@@ -896,6 +917,7 @@ VendorDatabase.Vendors = {
         items = {},
     },
 	[73819] = {
+        unverified = true,
         name = "Ku-Mo",
         mapID = 554,
         x = 0.422, y = 0.546,
@@ -916,6 +938,7 @@ VendorDatabase.Vendors = {
         items = {244324},
     },
 	[77440] = {
+        unverified = true,
         name = "Sage Whiteheart",
         mapID = 1530,
         x = 0.852, y = 0.616,
@@ -968,6 +991,7 @@ VendorDatabase.Vendors = {
         items = {245442, 251544, 257349},
     },
 	[81358] = {
+        unverified = true,
         name = "Exarch Menelaos",
         mapID = 539,
         x = 0.286, y = 0.314,
@@ -978,6 +1002,7 @@ VendorDatabase.Vendors = {
         items = {251329},
     },
 	[82003] = {
+        unverified = true,
         name = "Sage Whiteheart",
         mapID = 1530,
         x = 0.852, y = 0.616,
@@ -988,6 +1013,7 @@ VendorDatabase.Vendors = {
         items = {},
     },
 	[82110] = {
+        unverified = true,
         name = "Sooty",
         mapID = 535,
         x = 0.584, y = 0.516,
@@ -998,6 +1024,7 @@ VendorDatabase.Vendors = {
         items = {244326, 248663},
     },
 	[82159] = {
+        unverified = true,
         name = "Ve'nari",
         mapID = 1543,
         x = 0.468, y = 0.416,
@@ -1008,6 +1035,7 @@ VendorDatabase.Vendors = {
         items = {},
     },
 	[82775] = {
+        unverified = true,
         name = "Krixel Pinchwhistle",
         mapID = 542,
         x = 0.602, y = 0.924,
@@ -1068,6 +1096,7 @@ VendorDatabase.Vendors = {
         items = {{258743, cost = {gold = 100000}}, {258746, cost = {gold = 100000}}, {258747, cost = {gold = 100000}}},
     },
 	[86049] = {
+        unverified = true,
         name = "Shadow Hunter Denjai",
         mapID = 534,
         x = 0.606, y = 0.462,
@@ -1089,6 +1118,7 @@ VendorDatabase.Vendors = {
         items = {244321, 244322, {244533, cost = {gold = 500000}}, 244653, 245423, 245431, 245434, 245435, 245436, 245444, 245445, {251545, cost = {gold = 1000000}}},
     },
 	[86699] = {
+        unverified = true,
         name = "Ged'kah",
         mapID = 525,
         x = 0.528, y = 0.286,
@@ -1153,6 +1183,7 @@ VendorDatabase.Vendors = {
         items = {239162, 244313, 244314},
     },
 	[87771] = {
+        unverified = true,
         name = "Peralta",
         mapID = 542,
         x = 0.386, y = 0.408,
@@ -1193,6 +1224,7 @@ VendorDatabase.Vendors = {
         items = {246864},
     },
 	[91684] = {
+        unverified = true,
         name = "Zrik",
         mapID = 534,
         x = 0.604, y = 0.468,
@@ -1223,6 +1255,7 @@ VendorDatabase.Vendors = {
         items = {247912, 247919},
     },
 	[95424] = {
+        unverified = true,
         name = "Dawn-Seeker Krull",
         mapID = 534,
         x = 0.374, y = 0.586,
@@ -1254,6 +1287,7 @@ VendorDatabase.Vendors = {
         items = {{245655, cost = {currencies = {{id = 2003, amount = 10}}}}, {246487, cost = {gold = 750000}}, 247908, 247915, {248116, cost = {gold = 750000}}, 248934, 250230, 250231, 250232, 250233, 250234, 250235, 250236, 253168, 253173, {256168, cost = {currencies = {{id = 2003, amount = 10}}}}},
     },
 	[102325] = {
+        unverified = true,
         name = "Mender Naemee",
         mapID = 739,
         x = 0.524, y = 0.602,
@@ -1371,6 +1405,7 @@ VendorDatabase.Vendors = {
         items = {},
     },
 	[108397] = {
+        unverified = true,
         name = "The Mad Merchant",
         mapID = 627,
         x = 0.39, y = 0.394,
@@ -1514,6 +1549,7 @@ VendorDatabase.Vendors = {
         items = {246851},
     },
 	[114822] = {
+        unverified = true,
         name = "Archivist Elysiana",
         mapID = 627,
         x = 0.312, y = 0.484,
@@ -1555,6 +1591,7 @@ VendorDatabase.Vendors = {
         items = {},
     },
 	[119885] = {
+        unverified = true,
         name = "Uncle Keen",
         mapID = 371,
         x = 0.596, y = 0.72,
@@ -1620,6 +1657,7 @@ VendorDatabase.Vendors = {
         items = {},
     },
 	[131287] = {
+        unverified = true,
         name = "Natal'hakata",
         mapID = 862,
         x = 0.584, y = 0.444,
@@ -1641,6 +1679,7 @@ VendorDatabase.Vendors = {
         items = {},
     },
 	[133523] = {
+        unverified = true,
         name = "Ji Firepaw",
         mapID = 85,
         x = 0.512, y = 0.366,
@@ -1684,6 +1723,7 @@ VendorDatabase.Vendors = {
         items = {},
     },
 	[135800] = {
+        unverified = true,
         name = "Sister Lilyana",
         mapID = 942,
         x = 0.593, y = 0.694,
@@ -1843,6 +1883,7 @@ VendorDatabase.Vendors = {
         items = {{247667, cost = {gold = 100000}}, {247668, cost = {gold = 100000}}},
     },
 	[152206] = {
+        unverified = true,
         name = "MOTHER",
         mapID = 1473,
         x = 0.482, y = 0.724,
@@ -1853,6 +1894,7 @@ VendorDatabase.Vendors = {
         items = {244852, 247667, 247668},
     },
 	[160350] = {
+        unverified = true,
         name = "Host Ta'rela",
         mapID = 1670,
         x = 0.614, y = 0.716,
@@ -1874,6 +1916,7 @@ VendorDatabase.Vendors = {
         items = {},
     },
 	[161908] = {
+        unverified = true,
         name = "Stolen Royal Vendorbot",
         mapID = 95,
         x = 0.737, y = 0.369,
@@ -1917,6 +1960,7 @@ VendorDatabase.Vendors = {
         items = {},
     },
 	[164104] = {
+        unverified = true,
         name = "Ardent Sila",
         mapID = 1565,
         x = 0.596, y = 0.528,
@@ -1927,6 +1971,7 @@ VendorDatabase.Vendors = {
         items = {247854},
     },
 	[164448] = {
+        unverified = true,
         name = "Adjutant Nikos",
         mapID = 1533,
         x = 0.522, y = 0.47,
@@ -1937,6 +1982,7 @@ VendorDatabase.Vendors = {
         items = {248106},
     },
 	[165780] = {
+        unverified = true,
         name = "Mistress Mihi",
         mapID = 1525,
         x = 0.614, y = 0.638,
@@ -1947,6 +1993,7 @@ VendorDatabase.Vendors = {
         items = {258149},
     },
 	[166311] = {
+        unverified = true,
         name = "Surom",
         mapID = 1536,
         x = 0.536, y = 0.692,
@@ -1957,6 +2004,7 @@ VendorDatabase.Vendors = {
         items = {248110},
     },
 	[167300] = {
+        unverified = true,
         name = "Smaks Topskimmer",
         mapID = 2346,
         x = 0.438, y = 0.508,
@@ -1978,6 +2026,7 @@ VendorDatabase.Vendors = {
         items = {},
     },
 	[172555] = {
+        unverified = true,
         name = "Chamberlain",
         mapID = 1525,
         x = 0.4, y = 0.526,
@@ -1998,6 +2047,7 @@ VendorDatabase.Vendors = {
         items = {245501},
     },
 	[175395] = {
+        unverified = true,
         name = "Dallan",
         mapID = 1961,
         x = 0.612, y = 0.504,
@@ -2008,6 +2058,7 @@ VendorDatabase.Vendors = {
         items = {245513},
     },
 	[175440] = {
+        unverified = true,
         name = "Bipsi",
         mapID = 1961,
         x = 0.628, y = 0.546,
@@ -2018,6 +2069,7 @@ VendorDatabase.Vendors = {
         items = {245510},
     },
 	[177774] = {
+        unverified = true,
         name = "Ve'nari",
         mapID = 1543,
         x = 0.468, y = 0.416,
@@ -2028,6 +2080,7 @@ VendorDatabase.Vendors = {
         items = {},
     },
 	[178343] = {
+        unverified = true,
         name = "Taam",
         mapID = 2472,
         x = 0.614, y = 0.642,
@@ -2038,6 +2091,7 @@ VendorDatabase.Vendors = {
         items = {{243321, cost = {gold = 100000, currencies = {{id = 2815, amount = 800}}}}, 258322, 262907, 263043, 263044, 263045, 263046, 263047, 263048, 265031},
     },
 	[179482] = {
+        unverified = true,
         name = "Chachi the Artiste",
         mapID = 1533,
         x = 0.54, y = 0.248,
@@ -2069,6 +2123,7 @@ VendorDatabase.Vendors = {
         items = {},
     },
 	[190155] = {
+        unverified = true,
         name = "Caretaker Azkra",
         mapID = 217,
         x = 0.502, y = 0.618,
@@ -2089,6 +2144,7 @@ VendorDatabase.Vendors = {
         items = {},
     },
 	[191069] = {
+        unverified = true,
         name = "Cataloger Jakes",
         mapID = 2112,
         x = 0.264, y = 0.344,
@@ -2110,6 +2166,7 @@ VendorDatabase.Vendors = {
         items = {{248103, cost = {gold = 100000}}, {248112, cost = {gold = 100000}}, {248652, cost = {gold = 100000}}, {256169, cost = {gold = 100000}}},
     },
 	[193351] = {
+        unverified = true,
         name = "Storyteller Iskraal",
         mapID = 2024,
         x = 0.134, y = 0.486,
@@ -2152,6 +2209,7 @@ VendorDatabase.Vendors = {
         items = {},
     },
 	[199424] = {
+        unverified = true,
         name = "Tethalos",
         mapID = 2112,
         x = 0.264, y = 0.554,
@@ -2172,6 +2230,7 @@ VendorDatabase.Vendors = {
         items = {249547, 249548, {249549, cost = {gold = 3000000, currencies = {{id = 2003, amount = 200}}}}, 249824},
     },
 	[202353] = {
+        unverified = true,
         name = "Soridormi",
         mapID = 2025,
         x = 0.512, y = 0.35,
@@ -2182,6 +2241,7 @@ VendorDatabase.Vendors = {
         items = {},
     },
 	[207514] = {
+        unverified = true,
         name = "Ellandrieth",
         mapID = 217,
         x = 0.498, y = 0.63,
@@ -2322,6 +2382,7 @@ VendorDatabase.Vendors = {
         items = {},
     },
 	[219460] = {
+        unverified = true,
         name = "Sir Finley Mrrgglton",
         mapID = 2339,
         x = 0.468, y = 0.44,
@@ -2332,6 +2393,7 @@ VendorDatabase.Vendors = {
         items = {263994, 263994, 263995, 263995, 263996, 264007, 264170, 264170},
     },
 	[219531] = {
+        unverified = true,
         name = "Dazzel",
         mapID = 217,
         x = 0.552, y = 0.332,
@@ -2342,6 +2404,7 @@ VendorDatabase.Vendors = {
         items = {258535, 258536, 258537, 258538, 264175, 264175, 264176, 264177, 264178, 264251, 264252, 264333, 264350, 265685, 265685, 265688, 265688, 265700, 265700, 265703, 265703},
     },
 	[219532] = {
+        unverified = true,
         name = "Suntreader D'lyana",
         mapID = 217,
         x = 0.548, y = 0.326,
@@ -2537,10 +2600,11 @@ VendorDatabase.Vendors = {
         items = {},
     },
     -- UNRELEASED VENDORS (Midnight 12.0.0)
-    -- Datamined from Housing-Vendor addon. NPC IDs map to unrelated creatures on Wowhead.
+    -- NPC IDs may map to unrelated creatures on Wowhead (datamined content).
     -- Items flagged "not attainable" on Wowhead. Will be enabled when Midnight launches.
     -- Set unreleased = true to hide pins until content is live.
 	[225138] = {
+        unverified = true,
         name = "Aura",
         mapID = 2339,
         x = 0.482, y = 0.402,
@@ -2552,6 +2616,7 @@ VendorDatabase.Vendors = {
         items = {266440, 266441, 266442, 266445, 266446, 266447},
     },
 	[225139] = {
+        unverified = true,
         name = "Lurah",
         mapID = 2339,
         x = 0.478, y = 0.408,
@@ -2563,6 +2628,7 @@ VendorDatabase.Vendors = {
         items = {{258659, cost = {gold = 1500000}}, 258660, 258661, 266240, 266241, 266242, 266243, 266244, 266245, 266246, 266247, 266248, 266249, 266250, 266251, 266252, 266253, 266254, 266255, 266443, 266444, 267209},
     },
 	[225140] = {
+        unverified = true,
         name = "Kallos",
         mapID = 2339,
         x = 0.48, y = 0.414,
@@ -2574,6 +2640,7 @@ VendorDatabase.Vendors = {
         items = {266450, 266455},
     },
 	[225141] = {
+        unverified = true,
         name = "Preyseeker Vark",
         mapID = 2339,
         x = 0.48, y = 0.41,
@@ -2607,6 +2674,7 @@ VendorDatabase.Vendors = {
         items = {},
     },
 	[228965] = {
+        unverified = true,
         name = "Kaelan",
         mapID = 2239,
         x = 0.452, y = 0.386,
@@ -2617,6 +2685,7 @@ VendorDatabase.Vendors = {
         items = {266580, 266581, 266582, 266583, 266584, 266585, 266586, 266587, 266590, 266591},
     },
 	[231012] = {
+        unverified = true,
         name = "\"High Tides\" Ren",
         mapID = 2338,
         x = 0.524, y = 0.612,
@@ -2734,6 +2803,7 @@ VendorDatabase.Vendors = {
         items = {},
     },
 	[240279] = {
+        unverified = true,
         name = "Magovu",
         mapID = 2437,
         x = 0.458, y = 0.658,
@@ -2754,6 +2824,7 @@ VendorDatabase.Vendors = {
         items = {245400, 245401, 245402, 245403, 245404, 264005},
     },
 	[240838] = {
+        unverified = true,
         name = "Caeris Fairdawn",
         mapID = 2395,
         x = 0.4352, y = 0.4752,
@@ -2775,6 +2846,7 @@ VendorDatabase.Vendors = {
         items = {{241617, cost = {gold = 500000}}, {241618, cost = {gold = 100000}}, {241620, cost = {gold = 1000000}}, {241622, cost = {gold = 750000}}, {243242, cost = {gold = 500000}}, {243243, cost = {gold = 750000}}, {243495, cost = {gold = 1000000}}, {244781, cost = {gold = 500000}}, 246249, {246250, cost = {gold = 1250000}}, {246251, cost = {gold = 750000}}, {246252, cost = {gold = 500000}}, {246253, cost = {gold = 1000000}}, {246254, cost = {gold = 500000}}, {246255, cost = {gold = 1250000}}, {246256, cost = {gold = 750000}}, 246257, {246258, cost = {gold = 1000000}}, {246691, cost = {gold = 500000}}, {246711, cost = {gold = 100000}}, 246961, {247501, cost = {gold = 750000}}, 248760, 251981, 251982, {253180, cost = {gold = 1000000}}, 253181, {253441, cost = {gold = 1000000}}, {253479, cost = {gold = 500000}}, {253490, cost = {gold = 750000}}, {253493, cost = {gold = 1000000}}, 255650, {257690, cost = {gold = 1000000}}},
     },
 	[242398] = {
+        unverified = true,
         name = "Naleidea Rivergleam",
         mapID = 110,
         x = 0.552, y = 0.724,
@@ -2785,6 +2857,7 @@ VendorDatabase.Vendors = {
         items = {245283, 245285, 245286, 245287, 245288, 245290, 245423, 245433, 245478, 245479, 245480, 245481, 245508, {245603, cost = {gold = 3500000}}, 245605, 245941, 246222, 247670, 247734, 247737, 251476, 251479, 251481, 251483, 251484, 251493, 251551, 252036, 252387, 252388, 252394, 252396, 252398, 252402, 252652, 256040, 256049, 257419, 257422, 263206, 263212, 263228, 263229, 263234, 264264, 264265},
     },
 	[242724] = {
+        unverified = true,
         name = "Caeris Fairdawn",
         mapID = 2395,
         x = 0.4352, y = 0.4752,
@@ -2795,6 +2868,7 @@ VendorDatabase.Vendors = {
         items = {263239, 263241, 263242, 263243, 263292, 263293, 263294, 263295, 263296, 263297, 263300, 263301, 263302, 263303, 264680, 264681, 264682, 264683, 264684, 264685, 264686, 264687, 264688, 264689, 264690, 264691, 265387, 265388, 265389, 265390, 265391, 265392, 265393, 265394, 265395, 265396, 265397, 265398, 265544, 265546, 265547, 265548, 265549, 265550, 265551, 265552, 265553},
     },
 	[242726] = {
+        unverified = true,
         name = "Neriv",
         mapID = 2395,
         x = 0.435, y = 0.475,
@@ -2888,6 +2962,7 @@ VendorDatabase.Vendors = {
         items = {},
     },
 	[251259] = {
+        unverified = true,
         name = "Mothkeeper Wew'tam",
         mapID = 2694,
         x = 0.4926, y = 0.5434,
@@ -3003,6 +3078,7 @@ VendorDatabase.Vendors = {
         items = {},
     },
 	[252873] = {
+        unverified = true,
         name = "Morta Gage",
         mapID = 2350,
         x = 0.45, y = 0.67,
@@ -3085,6 +3161,7 @@ VendorDatabase.Vendors = {
         items = {246108, 246425, 246427, 246428, 250915, {250916, cost = {gold = 20000, currencies = {{id = 1220, amount = 500}}}}, {250918, cost = {gold = 20000, currencies = {{id = 1220, amount = 500}}}}, 251014, 251015, 257403},
     },
 	[253228] = {
+        unverified = true,
         name = "Morta Gage",
         mapID = 125,
         x = 0.482, y = 0.402,
@@ -3095,6 +3172,7 @@ VendorDatabase.Vendors = {
         items = {250124},
     },
 	[253229] = {
+        unverified = true,
         name = "Arcantina",
         mapID = 125,
         x = 0.48, y = 0.414,
@@ -3265,6 +3343,7 @@ VendorDatabase.Vendors = {
         items = {257393, {257598, cost = {gold = 100000, currencies = {{id = 1155, amount = 125}}}}},
     },
 	[255114] = {
+        unverified = true,
         name = "Maku",
         mapID = 2694,
         x = 0.53, y = 0.508,
@@ -3509,6 +3588,7 @@ VendorDatabase.Vendors = {
         items = {258222},
     },
 	[256828] = {
+        unverified = true,
         name = "Dennia Silvertongue",
         mapID = 2393,
         x = 0.511, y = 0.564,
@@ -3530,6 +3610,7 @@ VendorDatabase.Vendors = {
         items = {},
     },
 	[257633] = {
+        unverified = true,
         name = "World Vendors",
         mapID = 2395,
         x = 0.72, y = 0.395,
@@ -3550,6 +3631,7 @@ VendorDatabase.Vendors = {
         items = {264915, 264916, 264917, 264918, 264919, 264920, 264921, 264922, 264923, 264924, 264925, 265032, 265541},
     },
 	[258328] = {
+        unverified = true,
         name = "Thraxadar",
         mapID = 2214,
         x = 0.3796, y = 0.849,
@@ -3560,6 +3642,7 @@ VendorDatabase.Vendors = {
         items = {{244534, cost = {gold = 500000}}, {244661, cost = {gold = 500000}}, {244662, cost = {gold = 500000}}, {244663, cost = {gold = 500000}}, 245265, {245266, cost = {gold = 500000}}, 246402, 246408, {246613, cost = {gold = 1250000}}, {246614, cost = {gold = 1000000}}, 246959, 246960, {247221, cost = {gold = 500000}}, 247785, 249768, {250094, cost = {gold = 750000}}, 251980, 263019, 263039, 263194, 263195, 264253, 264267, 264268, 264269, 264345},
     },
 	[258540] = {
+        unverified = true,
         name = "Hawli",
         mapID = 2694,
         x = 0.5, y = 0.5,
@@ -3570,6 +3653,7 @@ VendorDatabase.Vendors = {
         items = {},
     },
 	[259922] = {
+        unverified = true,
         name = "Void Researcher Aemely",
         mapID = 15958,
         x = 0.72, y = 0.552,
