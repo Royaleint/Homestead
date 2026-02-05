@@ -29,6 +29,7 @@ local defaults = {
 local currentWaypoint = nil
 local tomtomWaypoint = nil
 local arrivalCheckTimer = nil
+local StopArrivalCheck  -- forward declaration (used in StartArrivalCheck before definition)
 
 -------------------------------------------------------------------------------
 -- TomTom Integration
@@ -161,7 +162,7 @@ local function StartArrivalCheck()
 end
 
 -- Stop checking for arrival
-local function StopArrivalCheck()
+StopArrivalCheck = function()
     if arrivalCheckTimer then
         arrivalCheckTimer:Cancel()
         arrivalCheckTimer = nil

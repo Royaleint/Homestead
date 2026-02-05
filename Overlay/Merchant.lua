@@ -12,6 +12,7 @@ local Events = HA.Events
 -- Local state
 local isHooked = false
 local merchantButtons = {}
+local UpdateAllMerchantOverlays  -- forward declaration (used in HookMerchantFrame before definition)
 
 -------------------------------------------------------------------------------
 -- Merchant Item Update Function
@@ -114,7 +115,7 @@ end
 -- Update Functions
 -------------------------------------------------------------------------------
 
-local function UpdateAllMerchantOverlays()
+UpdateAllMerchantOverlays = function()
     local itemsPerPage = MERCHANT_ITEMS_PER_PAGE or 10
 
     for i = 1, itemsPerPage do
