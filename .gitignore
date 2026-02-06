@@ -23,6 +23,18 @@ Data/VendorDatabase_updated.lua
 *_backup.lua
 *_backup_*.lua
 
+# Validation logs and working artifacts
+validation_log_*.txt
+currency_corrections.txt
+high_priority_scans.txt
+high_confidence_vendors.txt
+new_vendors_discovered.txt
+removal_verification.txt
+vendor_validation_report.txt
+wowdb_housing_hub_verification.txt
+fix_instructions.md
+VENDOR_VALIDATION_PLAN.md
+
 # Verification/comparison outputs
 addon_vendor_comparison.txt
 vendor_verification_*.txt
