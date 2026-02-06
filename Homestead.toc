@@ -18,6 +18,7 @@ Libs\WagoAnalytics\Shim.lua
 
 # Localization
 Locale\enUS.lua
+Locale\ruRU.lua
 
 # Core
 Core\constants.lua
