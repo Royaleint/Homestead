@@ -5,6 +5,8 @@
 
 local addonName, HA = ...
 
+if GetLocale() ~= "ruRU" then return end
+
 -- Initialize localization table
 local L = {}
 HA.L = L
