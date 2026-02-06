@@ -146,6 +146,33 @@ local achievementData = {
             {itemID = 257400, name = "Tome of Silvermoon Intrigue"},
         },
     },
+    [42187] = {
+        name = "Lorewalking: Ethereal Wisdom",
+        category = "lorewalking",
+        expansion = "TWW",
+        items = {
+            {itemID = 257354, name = "Tale of Ethereal Wisdom"},
+            {itemID = 258858, name = "K'aresh Historian"},
+        },
+    },
+    [42188] = {
+        name = "Lorewalking: Blade's Bane",
+        category = "lorewalking",
+        expansion = "TWW",
+        items = {
+            {itemID = 257355, name = "Tale of Blade's Bane"},
+            {itemID = 258859, name = "Survivor's Tale"},
+        },
+    },
+    [42189] = {
+        name = "Lorewalking: The Lich King",
+        category = "lorewalking",
+        expansion = "TWW",
+        items = {
+            {itemID = 257351, name = "Tale of the Penultimate Lich King"},
+            {itemID = 258860, name = "Lich King Lore"},
+        },
+    },
 
     ---------------------------------------------------------------------------
     -- Dragonflight (DF)
@@ -428,6 +455,14 @@ local achievementData = {
             {itemID = 245900, name = "Replica Libram of the Dead"},
         },
     },
+    [60981] = {
+        name = "Raise an Army for Acherus",
+        category = "class_hall",
+        expansion = "Legion",
+        items = {
+            {itemID = 250112, name = "Ebon Blade Planning Map"},
+        },
+    },
 
     -- Demon Hunter
     [42271] = {
@@ -452,6 +487,14 @@ local achievementData = {
         expansion = "Legion",
         items = {
             {itemID = 245901, name = "Replica Tome of Fel Secrets"},
+        },
+    },
+    [60982] = {
+        name = "Raise an Army for the Fel Hammer",
+        category = "class_hall",
+        expansion = "Legion",
+        items = {
+            {itemID = 249518, name = "Fel Hammer Scouting Map"},
         },
     },
 
@@ -480,6 +523,14 @@ local achievementData = {
             {itemID = 245878, name = "Replica Tome of the Ancients"},
         },
     },
+    [60983] = {
+        name = "Raise an Army for the Dreamgrove",
+        category = "class_hall",
+        expansion = "Legion",
+        items = {
+            {itemID = 251013, name = "Cenarion Arch"},
+        },
+    },
 
     -- Hunter
     [42273] = {
@@ -504,6 +555,14 @@ local achievementData = {
         expansion = "Legion",
         items = {
             {itemID = 245903, name = "Replica Tome of the Unseen Path"},
+        },
+    },
+    [60984] = {
+        name = "Raise an Army for the Trueshot Lodge",
+        category = "class_hall",
+        expansion = "Legion",
+        items = {
+            {itemID = 250126, name = "Unseen Path Archer's Gallery"},
         },
     },
 
@@ -532,6 +591,14 @@ local achievementData = {
             {itemID = 251275, name = "Conjured Archive of the Tirisgarde"},
         },
     },
+    [60985] = {
+        name = "Raise an Army for the Hall of the Guardian",
+        category = "class_hall",
+        expansion = "Legion",
+        items = {
+            {itemID = 250131, name = "Tirisgarde War Map"},
+        },
+    },
 
     -- Monk
     [42275] = {
@@ -556,6 +623,14 @@ local achievementData = {
         expansion = "Legion",
         items = {
             {itemID = 245905, name = "Replica Tome of Pandaria"},
+        },
+    },
+    [60986] = {
+        name = "Raise an Army for the Temple of Five Dawns",
+        category = "class_hall",
+        expansion = "Legion",
+        items = {
+            {itemID = 248942, name = "Five Dawns Planning Table"},
         },
     },
 
@@ -584,6 +659,14 @@ local achievementData = {
             {itemID = 245906, name = "Replica Tome of the Silver Hand"},
         },
     },
+    [60987] = {
+        name = "Raise an Army for the Sanctum of Light",
+        category = "class_hall",
+        expansion = "Legion",
+        items = {
+            {itemID = 250236, name = "Silver Hand Weapon Rack"},
+        },
+    },
 
     -- Priest
     [42277] = {
@@ -608,6 +691,14 @@ local achievementData = {
         expansion = "Legion",
         items = {
             {itemID = 245907, name = "Replica Tome of the Light"},
+        },
+    },
+    [60988] = {
+        name = "Raise an Army for the Netherlight Temple",
+        category = "class_hall",
+        expansion = "Legion",
+        items = {
+            {itemID = 251636, name = "Netherlight Command Map"},
         },
     },
 
@@ -636,6 +727,14 @@ local achievementData = {
             {itemID = 245908, name = "Replica Tome of Shadows"},
         },
     },
+    [60989] = {
+        name = "Raise an Army for the Hall of Shadows",
+        category = "class_hall",
+        expansion = "Legion",
+        items = {
+            {itemID = 250786, name = "Uncrowned Planning Table"},
+        },
+    },
 
     -- Shaman
     [42280] = {
@@ -660,6 +759,14 @@ local achievementData = {
         expansion = "Legion",
         items = {
             {itemID = 245909, name = "Replica Tome of the Elements"},
+        },
+    },
+    [60990] = {
+        name = "Raise an Army for the Maelstrom",
+        category = "class_hall",
+        expansion = "Legion",
+        items = {
+            {itemID = 251014, name = "Earthen Ring Scouting Map"},
         },
     },
 
@@ -688,6 +795,14 @@ local achievementData = {
             {itemID = 245910, name = "Replica Tome of Fel Mastery"},
         },
     },
+    [60991] = {
+        name = "Raise an Army for the Dreadscar Rift",
+        category = "class_hall",
+        expansion = "Legion",
+        items = {
+            {itemID = 264242, name = "Dreadscar Battle Planning Map"},
+        },
+    },
 
     -- Warrior
     [42281] = {
@@ -714,6 +829,14 @@ local achievementData = {
             {itemID = 245911, name = "Replica Tome of the Valarjar"},
         },
     },
+    [60992] = {
+        name = "Raise an Army for Skyhold",
+        category = "class_hall",
+        expansion = "Legion",
+        items = {
+            {itemID = 249461, name = "Skyhold War Table"},
+        },
+    },
 
     ---------------------------------------------------------------------------
     -- Legion - Zone/Quest Achievements
@@ -733,6 +856,14 @@ local achievementData = {
         expansion = "Legion",
         items = {
             {itemID = 243982, name = "Deluxe Suramar Sleeper"},
+        },
+    },
+    [11341] = {
+        name = "Nightborne Armory",
+        category = "quests",
+        expansion = "Legion",
+        items = {
+            {itemID = 257721, name = "Nightborne Armory Display"},
         },
     },
     [10698] = {
@@ -954,6 +1085,7 @@ local achievementData = {
         expansion = "Classic",
         items = {
             {itemID = 241674, name = "Head of the Broodmother"},
+            {itemID = 244852, name = "Head of the Broodmother"},
         },
     },
 

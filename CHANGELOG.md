@@ -10,8 +10,55 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## v1.2.0 (2026-02-05) — The Great Vendor Audit
+
+Thanks everyone for being patient while we worked out the non-decor vendor issue!
+Your reports helped us realize the database needed more than a quick fix — it needed
+a proper audit.
+
+So that's what we did. Every vendor in the database got verified for accuracy. We
+corrected currencies, fixed coordinates, and cleaned up item lists across all
+expansions from Classic through The War Within. Vendors we couldn't verify are now
+hidden by default, so you'll only see pins for confirmed housing decor vendors.
+
+The result: cleaner maps, accurate tooltips, and way fewer "why is this vendor here?" moments.
+
+### Database — Vendors
+- **17 vendor entries removed** (13 aliased to canonical NPCs, 4 deleted as empty/unverifiable)
+- **12 new aliases added** to merge duplicate/phased NPC variants (24 total aliases)
+- **275 vendor entries** validated across 11 expansions
+- Unverified vendors now hidden by default (v1.1.3 system)
+
+### Database — Currency Corrections
+- **64 currency-related changes** across all expansions:
+  - 43 direct currency field corrections (Gold to correct currency)
+  - 20 altCurrency additions for mixed-currency vendors
+  - 1 spelling correction (Seafarer's Doubloons to Seafarer's Dubloon)
+- New currencies cataloged: Community Coupons, Sizzling Cinderpollen, "Gold" Fish,
+  Brimming Arcana, Voidlight Marl, Twilight's Blade Insignia
+
+### Database — Location & Metadata
+- **34 zone field populations** (empty zone names filled in from Hub data)
+- **24 Housing area vendors** assigned to Razorwind Shores (Horde) or Founder's Point (Alliance)
+- **3 expansion tag corrections** (vendors tagged to wrong expansion)
+- **3 faction corrections** (Alliance/Horde/Neutral mismatches)
+- **1 vendor name fix** (NPC 242724 corrected from "Caeris Fairdawn" to "Ranger Allorn")
+- **4 coordinate updates** from in-game scan data
+- **9 duplicate itemIDs removed** from 3 vendor item arrays (scanner artifacts)
+
+### Database — Items & Sources
+- **8 items imported** from in-game scan data (Tethalash, Tuuran, Jorid, Velerd)
+- **1 misattributed item** (244852 Head of the Broodmother) moved from vendor entries
+  to AchievementDecor.lua under "More Dots! (25 player)"
+- **16 achievement-to-decor mappings added** to AchievementDecor.lua:
+  - 12 Raise an Army class hall achievements
+  - 3 Lorewalking achievements
+  - 1 Nightborne Armory achievement
+
+---
+
 ## v1.1.3 (2026-02-05)
-### Fixed � Namespace Compliance
+### Fixed � Namespace Compliance
 - Removed duplicate _G[addonName] write in constants.lua
 - Made UpdateAllMerchantOverlays local in Merchant.lua
 - Removed unnecessary global name from CopyFrame
@@ -24,7 +71,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Fixed UTF-8 encoding issues in WelcomeFrame
 
 ### Added
-- AUDIT_REPORT.md � full compliance audit documentation
+- AUDIT_REPORT.md � full compliance audit documentation
 - .luacheckrc for static analysis
 - Global Allowlist (7 justified globals)
 

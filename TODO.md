@@ -1,26 +1,16 @@
 # Homestead TODO
 
-## v1.2.0 — Reddit Response Release (test and push ASAP)
-
-These are all in the tunnel already. Verify and push.
-
-### Must verify before pushing:
-- [ ] Unverified vendor system: 85 imported vendors show orange pins, auto-verify when player visits via existing scanner. **Test: hover an unverified vendor with empty items — tooltip must explain why there's no data (e.g. "Unverified — visit to update"), not just show a blank tooltip.**
-- [ ] Default visibility setting for unverified vendors: **confirm it defaults to HIDDEN, not shown.** New Reddit users are installing right now. First impression matters.
-- [ ] Non-decor vendor hiding: Bob on r/WoWUI reports pins for vendors that don't sell decor (Kalimdor, Zuldazar). Verify ShouldHideVendor() actually catches these. Likely cause: imported vendors have items in their DB entry that aren't real housing decor. hasDecor == false only triggers if scanner confirms no decor — unscanned vendors with bad item lists won't be caught.
-- [ ] Housing-Vendor attribution removed from VendorDatabase.lua header comment
-- [ ] v1.1.3 audit fixes included: deprecated API replacements, global cleanup, ESC-to-close (already done, sitting unpushed)
-- [ ] Changelog: add v1.2.0 section covering unverified vendor system, setting to show/hide unverified, auto-verification on scan. The v1.1.3 audit fixes also need to be in the changelog.
+## Known Issues
+- Some vendors may still show incorrect item counts (PARTIAL status from audit)
+- TBC vendors largely deprecated (items removed from game)
 
 ---
 
-## v1.2.1 — Data Quality Pass
+## Next — Data Quality Follow-up
 
-### Duplicate vendors (41 names appear more than once)
-- [ ] Audit all 41 duplicate vendor names in VendorDatabase.lua
-- [ ] Determine which are legitimate faction variants (e.g. High Tides Ren Alliance/Horde) vs merge artifacts
-- [ ] For merge artifacts: merge items into canonical entry, add duplicate NPC ID to Aliases table, remove duplicate entry
-- [ ] For faction variants: ensure both have correct faction field and distinct NPC IDs
+### In-game scans needed
+- [ ] ~93 high-priority items still needing in-game scans (was 201, reduced by Razorwind import)
+- [ ] Events expansion validation (seasonal vendors — defer until events are active)
 
 ### Expansion naming inconsistency
 - [ ] Standardize: "MoP" (10 vendors) vs "Mists of Pandaria" (14 vendors) — pick one, update all
@@ -38,7 +28,11 @@ These are all in the tunnel already. Verify and push.
 
 ---
 
-## v1.2.2+ — Feature Requests
+## Feature Requests
+
+### Map icon visibility improvements (Reddit feedback)
+- [ ] Icons blend into map — need better contrast or outline (multiple reports)
+- [ ] Continent-level pin placement refinement (melaspike666 feedback)
 
 ### Hide/recolor fully-collected vendors (requested by OMFGitsBob on r/WoWUI)
 - [ ] When all items from a vendor are owned, change pin color (green/dimmed) instead of removing
@@ -70,10 +64,25 @@ These are all in the tunnel already. Verify and push.
 - [ ] Remove non-decor items from vendor entries
 
 ### Duplicate entry technical debt
-- [ ] After v1.2.1 dedup, verify no pins stack on top of each other
+- [ ] After dedup, verify no pins stack on top of each other
 - [ ] Verify alias system correctly resolves all merged NPC IDs
 
 ---
+
+## Completed (v1.2.0)
+- [x] v1.2.0 data quality audit — full Hub validation, Classic through TWW (2026-02-05)
+- [x] Hub validation: 275 vendors validated across 11 expansions (2026-02-05)
+- [x] Razorwind Shores vendor population — 24 Housing area vendors with zone names and items (2026-02-05)
+- [x] Currency corrections — 64 currency-related changes across all expansions (2026-02-05)
+- [x] Coordinate fixes — 4 coordinate updates from in-game scan data (2026-02-05)
+- [x] Unverified vendor system — 85 imported vendors flagged, hidden by default (2026-02-05)
+- [x] Duplicate vendors audit — 41 duplicate names audited, 13 aliased to canonical NPCs (2026-02-05)
+- [x] 17 vendor entries removed (13 aliased, 4 deleted as empty/unverifiable) (2026-02-05)
+- [x] Non-decor vendor hiding verified (2026-02-05)
+- [x] Default visibility setting confirmed hidden for unverified vendors (2026-02-05)
+- [x] Housing-Vendor attribution removed from VendorDatabase.lua header (2026-02-05)
+- [x] Changelog: v1.2.0 section written (2026-02-05)
+- [x] Scan data imported: Tethalash, Tuuran, Jorid, Velerd, and 11 Razorwind Shores vendors (2026-02-05)
 
 ## Completed (v1.1.3 and earlier)
 - [x] Code audit: Global namespace compliance (10 -> 7 justified globals) (2026-02-05)
@@ -102,7 +111,7 @@ These are all in the tunnel already. Verify and push.
 - [x] Fix Validation.lua case mismatches (.vendors → .Vendors, .zoneToContinent → .ZoneToContinentMap)
 - [x] Fix Validation.lua iteration (ipairs → pairs for NPC-keyed hash table)
 - [x] Add missing vendor name [145695] "Bad Luck" Symmes (2026-01-31)
-- [x] Fix NPC 78564: Sergeant Grimjaw → Sergeant Crowler, Horde → Alliance, mapID 525 → 539 (2026-01-31)
+- [x] Fix NPC 78564: Sergeant Grimjaw → Sergeant Crowler, Horde → Alliance, mapID 525 → 539 (2026-02-05)
 - [x] Add global reference _G.Homestead for /dump debugging (2026-01-31)
 - [x] Fix /hs export blank window - pipe delimiter, OutputWindow integration, table.concat pattern (2026-01-31)
 - [x] Merge scanned items into VendorDatabase for 10 vendors (2026-01-31)

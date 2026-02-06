@@ -1,7 +1,7 @@
 --[[
     Homestead - Quest Sources
     Generated: 2026-02-01 23:11:17
-    Total entries: 96
+    Total entries: 102
     
     Maps itemID to quest source information.
 ]]
@@ -80,14 +80,19 @@ HA.QuestSources = {
     [245489] = {questID = 47250, questName = "We'll Meet Again"},
     [245491] = {questID = 50808, questName = "Halting the Empire's Fall"},
     [245493] = {questID = 47741, questName = "To Sacrifice a Loa"},
+    [245518] = {questID = 24675, questName = "Last Meal"},
+    [245620] = {questID = 14402, questName = "Ready to Go"},
     [245702] = {questID = 38147, questName = "A Bit of Fresh Air"},
     [246703] = {questID = 55736, questName = "Welcome to the Resistance"},
     [246706] = {questID = 67047, questName = "Warm Away These Shivers"},
+    [246427] = {questID = 28244, questName = "Eye Spy"},
+    [246428] = {questID = 28655, questName = "Wild, Wild, Wildhammer Wedding"},
     [246863] = {questID = 66001, questName = "A Last Hope"},
     [247223] = {questID = 67063, questName = "A Hearty Meal"},
     [247858] = {questID = 32816, questName = "The Last Emperor"},
     [248651] = {questID = 72935, questName = "Remembering the Fallen"},
     [248653] = {questID = 71097, questName = "A Seat at the Table"},
+    [248622] = {questID = 12227, questName = "Doing Your Duty"},
     [248655] = {questID = 70880, questName = "To Cook With Finery"},
     [250701] = {questID = 72935, questName = "Trader's Tally"},
     [250703] = {questID = 75456, questName = "The War Creche"},
@@ -99,6 +104,7 @@ HA.QuestSources = {
     [252754] = {questID = 55045, questName = "My Brother's Keeper"},
     [256429] = {questID = 70745, questName = "The City of Dragons"},
     [257597] = {questID = 82103, questName = "Commercial Interruption"},
+    [258220] = {questID = 11566, questName = "Surrender... Not!"},
     [264281] = {questID = 78444, questName = "Beginning a New Dawn"},
     [264349] = {questID = 30612, questName = "The Leader Hozen"},
     [264482] = {questID = 49767, questName = "The Ghostlands"},

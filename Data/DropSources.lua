@@ -32,7 +32,7 @@ HA.DropSources = {
     [247664] = {mobName = "Sha of Doubt", zone = "Temple of the Jade Serpent", mapID = 371, coords = {x = 0.0, y = 0.0}, notes = "100% Drop Rate (Dungeon) - Final Boss"},
     [247665] = {mobName = "Tanaan Rares", zone = "Tanaan Jungle", mapID = 534, coords = {x = 0.0, y = 0.0}, notes = "Rare World Drop - Various Rare Elites throughout Tanaan Jungle"},
     [247742] = {mobName = "Zhu-Gon the Sour", zone = "Timeless Isle", mapID = 554, coords = {x = 0.526, y = 0.634}, notes = "Rare Drop"},
-    [247913] = {mobName = "Brackenspore", zone = "Highmaul", mapID = 610, coords = {x = 0.5, y = 0.5}, notes = "Alt/outdated/mislabel."},
+    [247913] = {mobName = "Advisor Melandrus", zone = "Court of Stars", mapID = 761, coords = {x = 0.5, y = 0.5}, notes = "Final boss of Court of Stars dungeon."},
     [248101] = {mobName = "Coren Direbrew", zone = "Blackrock Depths", mapID = 229, coords = {x = 0.0, y = 0.0}, notes = "Seasonal Dungeon Loot - Available during Brewfest holiday event"},
     [248332] = {mobName = "Vanessa VanCleef", zone = "The Deadmines", mapID = 36, coords = {x = 0.246, y = 0.824}, notes = "Final boss."},
     [250703] = {mobName = "Creche Warden", zone = "Forbidden Reach", mapID = 2151, coords = {x = 0.51, y = 0.61}, notes = "Elite Mob Farm"},
