@@ -1,5 +1,7 @@
 # Homestead TODO
 
+> **Note:** This file is a living document — update it, don't replace it. It tracks both open tasks and completed work history. Mark items `[x]` when done and add new completed items to the appropriate version section.
+
 ## Known Issues
 - Some vendors may still show incorrect item counts (PARTIAL status from audit)
 - TBC vendors largely deprecated (items removed from game)
@@ -31,11 +33,15 @@
 ## Feature Requests
 
 ### Map icon visibility improvements (Reddit feedback)
-- [ ] Icons blend into map — need better contrast or outline (multiple reports)
+- [x] Configurable pin color: 10 presets + custom picker with preview swatch (2026-02-07)
+- [x] Fix color fidelity: desaturate icon before tinting so blues/cyans render accurately (2026-02-07)
+- [x] Badge count: remove black box, use outlined + shadowed text scaled with pin size (2026-02-07)
+- [x] Vendor pins show collected/total ratio (e.g., "3/12") with toggle to disable (2026-02-07)
+- [x] Badge count colors: green=all collected, white=partial, red=none collected (2026-02-07)
 - [ ] Continent-level pin placement refinement (melaspike666 feedback)
 
 ### Hide/recolor fully-collected vendors (requested by OMFGitsBob on r/WoWUI)
-- [ ] When all items from a vendor are owned, change pin color (green/dimmed) instead of removing
+- [x] Vendor pins color-coded by collection status (green/white/red ratio text) (2026-02-07)
 - [ ] Add option to fully hide completed vendors
 - [ ] Default: color change (completionists still want to see where they've been)
 
@@ -62,6 +68,21 @@
 - [ ] Verify alias system correctly resolves all merged NPC IDs
 
 ---
+
+## Completed (v1.2.4)
+- [x] Pin color: desaturate-before-tint for accurate cool colors (blues, cyans, purples) (2026-02-07)
+- [x] Pin color: 10 presets (added light blue, white, yellow) + custom picker (2026-02-07)
+- [x] Pin color: IsCustomPinColor() checks preset name, not RGB values (2026-02-07)
+- [x] Badge counts: removed black box, outlined + shadowed text, font scales with pin size (2026-02-07)
+- [x] Badge count colors: green=fully collected, white=partial, red=all uncollected (2026-02-07)
+- [x] Vendor pins: collected/total ratio display (e.g., "3/12") with "Show collection counts" toggle (2026-02-07)
+- [x] Removed misidentified vendors: Mistress Mihi (165780), Chamberlain (172555) (2026-02-07)
+- [x] Configurable pin color feature: presets + custom color picker (2026-02-07)
+- [x] Pin color preview swatch in Options showing approximate map appearance (2026-02-07)
+- [x] Circular backplate using TempPortraitAlphaMask for clean color tinting on world map (2026-02-07)
+- [x] Ring tinting + natural white icon for non-default colors (2026-02-07)
+- [x] Unverified pins remain orange regardless of color selection (2026-02-07)
+- [x] MINIMAP_ICON_SIZE reduced from 14 to 12 (2026-02-07)
 
 ## Completed (v1.2.3)
 - [x] MoP vendor cleanup: Sage Whiteheart NPC 77440→64032, mapID/coords fixed; Jojo Ironbrow removed (crafted items); dangling alias cleaned (2026-02-07)
