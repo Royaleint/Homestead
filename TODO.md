@@ -13,12 +13,12 @@
 - [ ] Events expansion validation (seasonal vendors — defer until events are active)
 
 ### Expansion naming inconsistency
-- [ ] Standardize: "MoP" (10 vendors) vs "Mists of Pandaria" (14 vendors) — pick one, update all
+- [x] MoP: all 7 active vendors now use "Mists of Pandaria" (no "MoP" abbreviations remain)
 - [ ] Check and standardize all other expansions: "TWW" vs "The War Within", etc.
 - [ ] Ensure nothing filters or groups by expansion string (would break with inconsistent names)
 
 ### Placeholder coordinates
-- [ ] Fix Nat Pagle (NPC 63509) — currently x=0.7, y=0.3 in Krasarang Wilds. Get real coords or mark unverified.
+- [x] Nat Pagle (NPC 63509) — removed from DB (not a housing vendor, item deleted from game)
 - [ ] Fix vendor at x=0.5, y=0.5 — find which NPC this is, get real coords or mark unverified.
 
 ### Zone-specific data sweeps (flagged by Reddit users)
@@ -62,6 +62,13 @@
 - [ ] Verify alias system correctly resolves all merged NPC IDs
 
 ---
+
+## Completed (v1.2.3)
+- [x] MoP vendor cleanup: Sage Whiteheart NPC 77440→64032, mapID/coords fixed; Jojo Ironbrow removed (crafted items); dangling alias cleaned (2026-02-07)
+- [x] Sub-zone mapID corrections applied: Val'zuun 627→628, Torv Dubstomp 650→652, Sileas Duskvine 641→680 (2026-02-07)
+- [x] Fix missing VendorDatabase:GetAliasCount() — /hs aliases was crashing (2026-02-07)
+- [x] Nil-guard mapID in VendorScanner before GetPlayerMapPosition (2026-02-07)
+- [x] MoP priority scans fully resolved — all 16 issues closed (2026-02-07)
 
 ## Completed (v1.2.1)
 - [x] WagoAnalytics local dev fix — added no-op shim stub at Libs/WagoAnalytics/Shim.lua (2026-02-06)
