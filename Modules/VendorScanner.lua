@@ -210,7 +210,7 @@ function VendorScanner:StartScan(npcID)
     -- Get vendor info
     local vendorName = UnitName("npc") or "Unknown Vendor"
     local mapID = C_Map.GetBestMapForUnit("player")
-    local position = C_Map.GetPlayerMapPosition(mapID, "player")
+    local position = mapID and C_Map.GetPlayerMapPosition(mapID, "player") or nil
 
     -- Get NPC faction for vendor classification
     local faction = UnitFactionGroup("npc") or "Neutral"
@@ -410,7 +410,7 @@ function VendorScanner:VerifyAndUpdateDatabaseEntry(npcID, vendorName)
 
     -- Get current player position for coordinate update
     local mapID = C_Map.GetBestMapForUnit("player")
-    local position = C_Map.GetPlayerMapPosition(mapID, "player")
+    local position = mapID and C_Map.GetPlayerMapPosition(mapID, "player") or nil
     local currentCoords = position and { x = position.x, y = position.y } or nil
 
     -- Search all vendors in the database for a name match

@@ -36,7 +36,7 @@ VendorDatabase.Aliases = {
     [61911] = 28038,
     [67052] = 58706,
     [72111] = 28038,
-    [82003] = 77440,
+    [82003] = 64032,
     [115736] = 97140,
     [138223] = 252345,
     [82159] = 162804,
@@ -47,7 +47,6 @@ VendorDatabase.Aliases = {
     [32517] = 105333,
     [252873] = 253228,
     [161908] = 150716,
-    [63721] = 63509,
 }
 
 -- Runtime lookup index (populated by BuildAliasIndex from static + discovered aliases)
@@ -418,17 +417,6 @@ VendorDatabase.Vendors = {
         expansion = "Mists of Pandaria",
         items = {{245512, cost = {gold = 3000000}}, {247662, cost = {gold = 5000000}}, {247663, cost = {gold = 20000000}}, {247855, cost = {gold = 3000000}}, {247858, cost = {gold = 20000000}}, {258147, cost = {gold = 10000000}}},
     },
-	[65066] = {
-        unverified = true,
-        name = "Jojo Ironbrow",
-        mapID = 84,
-        x = 0.74, y = 0.18,
-        zone = "Stormwind City - Eastern Earthshrine",
-        faction = "Neutral",
-        currency = "Gold",
-        expansion = "Mists of Pandaria",
-        items = {247661, 247728, 247733, 247735, 247736, 247738},
-    },
 	[68363] = {
         name = "Quackenbush",
         mapID = 369,
@@ -459,10 +447,10 @@ VendorDatabase.Vendors = {
         expansion = "Warlords of Draenor",
         items = {244324},
     },
-	[77440] = {
+	[64032] = {
         name = "Sage Whiteheart",
-        mapID = 1530,
-        x = 0.852, y = 0.616,
+        mapID = 390,
+        x = 0.846, y = 0.634,
         zone = "Shrine of the Seven Stars",
         faction = "Alliance",
         currency = "Gold",
@@ -807,7 +795,7 @@ VendorDatabase.Vendors = {
     },
 	[105333] = {
         name = "Val'zuun",
-        mapID = 627,
+        mapID = 628,
         x = 0.674, y = 0.632,
         zone = "Dalaran",
         subzone = "The Underbelly",
@@ -851,7 +839,7 @@ VendorDatabase.Vendors = {
     },
 	[108017] = {
         name = "Torv Dubstomp",
-        mapID = 650,
+        mapID = 652,
         x = 0.545, y = 0.778,
         zone = "Highmountain",
         subzone = "Thunder Totem Basement",
@@ -2397,9 +2385,9 @@ VendorDatabase.Vendors = {
     },
 	[253434] = {
         name = "Sileas Duskvine",
-        mapID = 641,
+        mapID = 680,
         x = 0.7992, y = 0.7389,
-        zone = "",
+        zone = "Suramar",
         faction = "Neutral",
         currency = "Order Resources",
         expansion = "Legion",
@@ -3120,6 +3108,20 @@ function VendorDatabase:GetVendorCount()
         count = count + 1
     end
     return count
+end
+
+function VendorDatabase:GetAliasCount()
+    local staticCount = 0
+    for _ in pairs(self.Aliases) do
+        staticCount = staticCount + 1
+    end
+    local discoveredCount = 0
+    if HomesteadDB and HomesteadDB.global and HomesteadDB.global.discoveredAliases then
+        for _ in pairs(HomesteadDB.global.discoveredAliases) do
+            discoveredCount = discoveredCount + 1
+        end
+    end
+    return staticCount, discoveredCount
 end
 
 return VendorDatabase
