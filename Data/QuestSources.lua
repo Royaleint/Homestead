@@ -94,6 +94,7 @@ HA.QuestSources = {
     [248653] = {questID = 71097, questName = "A Seat at the Table"},
     [248622] = {questID = 12227, questName = "Doing Your Duty"},
     [248655] = {questID = 70880, questName = "To Cook With Finery"},
+    [248663] = {questID = 30526, questName = "Lost and Lonely"},
     [250701] = {questID = 72935, questName = "Trader's Tally"},
     [250703] = {questID = 75456, questName = "The War Creche"},
     [250704] = {questID = 74332, questName = "Zskera Vaults"},

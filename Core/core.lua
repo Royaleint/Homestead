@@ -253,11 +253,11 @@ function HousingAddon:SlashCommandHandler(input)
         end
     elseif input == "export full" then
         if HA.ExportImport then
-            HA.ExportImport:ExportScannedVendorsV2(true, false)
+            HA.ExportImport:ExportScannedVendors(true, false)
         end
     elseif input == "exportall" then
         if HA.ExportImport then
-            HA.ExportImport:ExportScannedVendorsV2(true, true)
+            HA.ExportImport:ExportScannedVendors(true, true)
         end
     elseif input == "clearscans" then
         if HA.ExportImport then
@@ -503,8 +503,8 @@ function HousingAddon:PrintHelp()
     self:Print("  /hs corrections - Show NPC ID corrections found")
     self:Print("  /hs aliases - Show NPC ID alias mappings")
     self:Print("  /hs clearaliases - Clear discovered aliases")
-    self:Print("  /hs export - Show export dialog (V2 format)")
-    self:Print("  /hs export full - Export all scanned vendors (V2)")
+    self:Print("  /hs export - Show export dialog")
+    self:Print("  /hs export full - Export all scanned vendors")
     self:Print("  /hs exportall - Export ALL, bypass timestamp filter")
     self:Print("  /hs clearscans - Clear all scanned vendor data")
     self:Print("  /hs import - Import vendor data")
@@ -672,7 +672,8 @@ function HousingAddon:ShowScannedVendors()
     local totalItems = 0
     for npcID, vendorData in pairs(scannedVendors) do
         count = count + 1
-        local itemCount = vendorData.decor and #vendorData.decor or 0
+        local items = vendorData.items or vendorData.decor
+        local itemCount = items and #items or 0
         totalItems = totalItems + itemCount
         self:Print(string.format("  %s (NPC %d): %d decor items",
             vendorData.name or "Unknown", npcID, itemCount))
@@ -734,7 +735,8 @@ function HousingAddon:DebugGlobalData()
     if self.db.global.scannedVendors then
         table.insert(output, "scannedVendors details:")
         for npcID, data in pairs(self.db.global.scannedVendors) do
-            local itemCount = data.decor and #data.decor or 0
+            local items = data.items or data.decor
+            local itemCount = items and #items or 0
             table.insert(output, string.format("  NPC %d: %s (%d items)", npcID, data.name or "Unknown", itemCount))
         end
     else

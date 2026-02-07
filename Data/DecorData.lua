@@ -102,8 +102,10 @@ function DecorData:LoadFromItemLink(itemLink)
     -- Query the housing catalog API
     -- Note: This API may not be available outside of housing context
     if C_HousingCatalog and C_HousingCatalog.GetCatalogEntryInfoByItem then
-        local info = C_HousingCatalog.GetCatalogEntryInfoByItem(itemLink, true)
-        if info then
+        local success, info = pcall(function()
+            return C_HousingCatalog.GetCatalogEntryInfoByItem(itemLink, true)
+        end)
+        if success and info then
             self:ApplyHousingCatalogInfo(info)
             -- Cache the result
             Cache:SetDecorInfo(itemID, self:ToCacheData())
@@ -120,10 +122,11 @@ end
 -- Load data from a catalog entry ID
 function DecorData:LoadFromEntryID(entryID)
     if not entryID then return false end
-
     if C_HousingCatalog and C_HousingCatalog.GetCatalogEntryInfo then
-        local info = C_HousingCatalog.GetCatalogEntryInfo(entryID, true)
-        if info then
+        local success, info = pcall(function()
+            return C_HousingCatalog.GetCatalogEntryInfo(entryID, true)
+        end)
+        if success and info then
             self:ApplyHousingCatalogInfo(info)
             return true
         end
@@ -606,3 +609,4 @@ function DecorData:GetPersistentCacheStats()
 
     return { count = count }
 end
+

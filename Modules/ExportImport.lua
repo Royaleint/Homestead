@@ -8,34 +8,7 @@ local addonName, HA = ...
 local ExportImport = {}
 HA.ExportImport = ExportImport
 
-local EXPORT_VERSION_V1 = "V1"
-local EXPORT_VERSION_V2 = "V2"
-local EXPORT_PREFIX_V1 = "HOMESTEAD_EXPORT_" .. EXPORT_VERSION_V1 .. ":"
-local EXPORT_PREFIX_V2 = "HOMESTEAD_VENDOR_EXPORT_" .. EXPORT_VERSION_V2 .. ":"
-
-local function GetNewItems(scannedDecor, existingItems)
-    if not scannedDecor or #scannedDecor == 0 then
-        return {}
-    end
-
-    -- Build lookup of existing items for O(1) checks
-    local existingLookup = {}
-    if existingItems then
-        for _, itemID in ipairs(existingItems) do
-            existingLookup[itemID] = true
-        end
-    end
-
-    -- Find items in scanned that aren't in existing
-    local newItems = {}
-    for _, item in ipairs(scannedDecor) do
-        if item.itemID and not existingLookup[item.itemID] then
-            table.insert(newItems, item.itemID)
-        end
-    end
-
-    return newItems
-end
+local EXPORT_PREFIX = "HOMESTEAD_VENDOR_EXPORT_V2:"
 
 -------------------------------------------------------------------------------
 -- Export Frame (Copyable Text)
@@ -123,6 +96,7 @@ local function ShowExportFrame(text, vendorCount, itemCount)
     local f = CreateExportFrame()
     f.title:SetText("Homestead Export")
     f.instructions:SetText("Press Ctrl+C to copy, then share with the community")
+    f.editBox:SetScript("OnEnterPressed", nil)
     f.editBox:SetText(text)
     f.editBox:HighlightText()
     f.editBox:SetCursorPosition(0)
@@ -157,7 +131,7 @@ local function CreateExportDialog()
     if exportDialogFrame then return exportDialogFrame end
 
     local f = CreateFrame("Frame", "HomesteadExportDialog", UIParent, "BackdropTemplate")
-    f:SetSize(280, 200)
+    f:SetSize(280, 155)
     f:SetPoint("CENTER")
     f:SetFrameStrata("DIALOG")
     tinsert(UISpecialFrames, "HomesteadExportDialog")
@@ -184,72 +158,47 @@ local function CreateExportDialog()
     local desc = f:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
     desc:SetPoint("TOP", title, "BOTTOM", 0, -8)
     desc:SetWidth(250)
-    desc:SetText("Choose export format:")
+    desc:SetText("Choose export option:")
 
-    -- V2 New Scans export button (recommended)
-    local v2Btn = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
-    v2Btn:SetSize(200, 26)
-    v2Btn:SetPoint("TOP", desc, "BOTTOM", 0, -12)
-    v2Btn:SetText("V2 New Scans (Recommended)")
-    v2Btn:SetScript("OnClick", function()
+    -- New Scans export button
+    local newBtn = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
+    newBtn:SetSize(200, 26)
+    newBtn:SetPoint("TOP", desc, "BOTTOM", 0, -12)
+    newBtn:SetText("Export New Scans")
+    newBtn:SetScript("OnClick", function()
         f:Hide()
-        ExportImport:ExportScannedVendorsV2(false, false)
+        ExportImport:ExportScannedVendors(false, false)
     end)
 
-    -- Tooltip for V2 button
-    v2Btn:SetScript("OnEnter", function(self)
+    -- Tooltip for new scans button
+    newBtn:SetScript("OnEnter", function(self)
         GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-        GameTooltip:SetText("V2 New Scans Export", 1, 1, 1)
+        GameTooltip:SetText("Export New Scans", 1, 1, 1)
         GameTooltip:AddLine("Exports vendors scanned since last export.", 1, 0.82, 0, true)
         GameTooltip:AddLine("Includes: price, currencies, faction, catalog info", 1, 0.82, 0, true)
         GameTooltip:Show()
     end)
-    v2Btn:SetScript("OnLeave", GameTooltip_Hide)
+    newBtn:SetScript("OnLeave", GameTooltip_Hide)
 
-    -- V2 Export All button
-    local v2FullBtn = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
-    v2FullBtn:SetSize(200, 26)
-    v2FullBtn:SetPoint("TOP", v2Btn, "BOTTOM", 0, -6)
-    v2FullBtn:SetText("V2 Export All")
-    v2FullBtn:SetScript("OnClick", function()
+    -- Export All button
+    local allBtn = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
+    allBtn:SetSize(200, 26)
+    allBtn:SetPoint("TOP", newBtn, "BOTTOM", 0, -6)
+    allBtn:SetText("Export All")
+    allBtn:SetScript("OnClick", function()
         f:Hide()
-        ExportImport:ExportScannedVendorsV2(true, true)
+        ExportImport:ExportScannedVendors(true, true)
     end)
 
-    -- Tooltip for V2 full button
-    v2FullBtn:SetScript("OnEnter", function(self)
+    -- Tooltip for export all button
+    allBtn:SetScript("OnEnter", function(self)
         GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-        GameTooltip:SetText("V2 Export All", 1, 1, 1)
+        GameTooltip:SetText("Export All", 1, 1, 1)
         GameTooltip:AddLine("Exports ALL scanned vendors, bypassing", 1, 0.82, 0, true)
         GameTooltip:AddLine("the timestamp filter.", 1, 0.82, 0, true)
         GameTooltip:Show()
     end)
-    v2FullBtn:SetScript("OnLeave", GameTooltip_Hide)
-
-    -- Separator
-    local sep = f:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
-    sep:SetPoint("TOP", v2FullBtn, "BOTTOM", 0, -8)
-    sep:SetText("-- Legacy Formats --")
-
-    -- V1 Differential export button
-    local diffBtn = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
-    diffBtn:SetSize(200, 26)
-    diffBtn:SetPoint("TOP", sep, "BOTTOM", 0, -6)
-    diffBtn:SetText("V1 New Data Only")
-    diffBtn:SetScript("OnClick", function()
-        f:Hide()
-        ExportImport:ExportScannedVendors(false)
-    end)
-
-    -- Tooltip for V1 differential button
-    diffBtn:SetScript("OnEnter", function(self)
-        GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-        GameTooltip:SetText("V1 Differential Export", 1, 1, 1)
-        GameTooltip:AddLine("Legacy format - item IDs only.", 1, 0.82, 0, true)
-        GameTooltip:AddLine("Only exports new vendors/items.", 1, 0.82, 0, true)
-        GameTooltip:Show()
-    end)
-    diffBtn:SetScript("OnLeave", GameTooltip_Hide)
+    allBtn:SetScript("OnLeave", GameTooltip_Hide)
 
     -- Close button (X)
     local closeBtn = CreateFrame("Button", nil, f, "UIPanelCloseButton")
@@ -266,118 +215,6 @@ end
 
 -------------------------------------------------------------------------------
 -- Export Functions
--------------------------------------------------------------------------------
-
-function ExportImport:ExportScannedVendors(fullExport)
-    if not HA.Addon or not HA.Addon.db then
-        HA.Addon:Print("Database not available.")
-        return
-    end
-
-    local data = HA.Addon.db.global.scannedVendors
-    if not data or not next(data) then
-        HA.Addon:Print("No scanned vendor data to export. Visit some vendors first!")
-        return
-    end
-
-    local output = {}
-    local newVendors = 0
-    local updatedVendors = 0
-    local skippedVendors = 0
-    local totalItems = 0
-
-    table.insert(output, EXPORT_PREFIX_V1 .. "\n")
-
-    for npcID, vendor in pairs(data) do
-        local itemsToExport = {}
-        local exportReason = nil
-
-        if fullExport then
-            -- Full export: include all items
-            if vendor.decor then
-                for _, item in ipairs(vendor.decor) do
-                    if item.itemID then
-                        table.insert(itemsToExport, item.itemID)
-                    end
-                end
-            end
-            if #itemsToExport > 0 or not HA.VendorDatabase:HasVendor(npcID) then
-                exportReason = "full"
-            end
-        else
-            -- Differential export: check against VendorDatabase
-            local existingVendor = HA.VendorDatabase:GetVendor(npcID)
-
-            if not existingVendor then
-                -- New vendor not in database
-                if vendor.decor then
-                    for _, item in ipairs(vendor.decor) do
-                        if item.itemID then
-                            table.insert(itemsToExport, item.itemID)
-                        end
-                    end
-                end
-                exportReason = "new"
-                newVendors = newVendors + 1
-            else
-                -- Existing vendor - check for new items
-                local newItems = GetNewItems(vendor.decor, existingVendor.items)
-                if #newItems > 0 then
-                    itemsToExport = newItems
-                    exportReason = "updated"
-                    updatedVendors = updatedVendors + 1
-                else
-                    skippedVendors = skippedVendors + 1
-                end
-            end
-        end
-
-        -- Only add to output if there's a reason to export
-        if exportReason then
-            totalItems = totalItems + #itemsToExport
-
-            local entry = string.format(
-                "%d\t%s\t%d\t%.4f\t%.4f\t%d\t%d\t%s;\n",
-                vendor.npcID or npcID,
-                (vendor.name or "Unknown"):gsub("\t", " "),
-                vendor.mapID or 0,
-                vendor.coords and vendor.coords.x or 0,
-                vendor.coords and vendor.coords.y or 0,
-                vendor.lastScanned or 0,
-                #itemsToExport,
-                table.concat(itemsToExport, ",")
-            )
-            table.insert(output, entry)
-        end
-    end
-
-    -- Print summary
-    if fullExport then
-        local totalVendors = 0
-        for _ in pairs(data) do totalVendors = totalVendors + 1 end
-        HA.Addon:Print(string.format("Full export: %d vendors with %d items.", totalVendors, totalItems))
-    else
-        HA.Addon:Print(string.format("Differential export: %d new, %d updated, %d skipped (already in database).",
-            newVendors, updatedVendors, skippedVendors))
-    end
-
-    -- Show output if there's anything to export
-    if #output > 1 then
-        if HA.OutputWindow then
-            HA.OutputWindow:Show("Export Data", table.concat(output))
-        else
-            for _, line in ipairs(output) do
-                HA.Addon:Print(line)
-            end
-        end
-    else
-        HA.Addon:Print("Nothing new to export. All scanned data is already in VendorDatabase.")
-    end
-end
-
--------------------------------------------------------------------------------
--- V2 Export (Enhanced Data)
--- Exports full item data: price, currencies, catalogInfo
 -------------------------------------------------------------------------------
 
 -- Format cost data as "c3008:100,i12345:5" string
@@ -406,15 +243,10 @@ local function FormatCostData(currencies, itemCosts)
     return table.concat(parts, ",")
 end
 
--- Legacy function for backwards compatibility
-local function FormatCurrencyData(currencies)
-    return FormatCostData(currencies, nil)
-end
-
--- Export with enhanced V2 format
+-- Export scanned vendor data
 -- fullExport: include vendors already in VendorDatabase
 -- exportAll: bypass timestamp filter (export everything scanned)
-function ExportImport:ExportScannedVendorsV2(fullExport, exportAll)
+function ExportImport:ExportScannedVendors(fullExport, exportAll)
     if not HA.Addon or not HA.Addon.db then
         HA.Addon:Print("Database not available.")
         return
@@ -435,7 +267,7 @@ function ExportImport:ExportScannedVendorsV2(fullExport, exportAll)
     local skippedPrevExport = 0
     local skippedInDatabase = 0
 
-    table.insert(output, EXPORT_PREFIX_V2 .. "\n")
+    table.insert(output, EXPORT_PREFIX .. "\n")
 
     for npcID, vendor in pairs(data) do
         -- Get items from either 'items' (new format) or 'decor' (old format)
@@ -552,25 +384,24 @@ function ExportImport:ExportScannedVendorsV2(fullExport, exportAll)
     end
 
     if exportAll then
-        HA.Addon:Print(string.format("V2 Export ALL: %d vendors, %d items.%s", vendorCount, itemCount, skipMsg))
+        HA.Addon:Print(string.format("Export ALL: %d vendors, %d items.%s", vendorCount, itemCount, skipMsg))
     elseif fullExport then
-        HA.Addon:Print(string.format("V2 Full export: %d vendors, %d items.%s", vendorCount, itemCount, skipMsg))
+        HA.Addon:Print(string.format("Full export: %d vendors, %d items.%s", vendorCount, itemCount, skipMsg))
     else
-        HA.Addon:Print(string.format("V2 Exported %d new vendors, %d items.%s", vendorCount, itemCount, skipMsg))
+        HA.Addon:Print(string.format("Exported %d new vendors, %d items.%s", vendorCount, itemCount, skipMsg))
     end
 
     -- Show output and update timestamp
     if vendorCount > 0 then
-        -- Track V2 export
         if HA.Analytics then
-            HA.Analytics:IncrementCounter("ExportsV2")
+            HA.Analytics:IncrementCounter("Exports")
         end
 
         -- Update last export timestamp
         HA.Addon.db.global.lastExportTimestamp = time()
 
         if HA.OutputWindow then
-            HA.OutputWindow:Show("Export Data (V2)", table.concat(output))
+            HA.OutputWindow:Show("Export Data", table.concat(output))
         else
             for _, line in ipairs(output) do
                 HA.Addon:Print(line)
@@ -623,12 +454,6 @@ local function ParseCostData(costStr)
     end
 
     return (#currencies > 0 and currencies or nil), (#itemCosts > 0 and itemCosts or nil)
-end
-
--- Legacy function for backwards compatibility
-local function ParseCurrencyData(currencyStr)
-    local currencies, _ = ParseCostData(currencyStr)
-    return currencies
 end
 
 function ExportImport:ImportData(input)
@@ -723,8 +548,11 @@ function ExportImport:ImportDataV1(input)
 
     -- Refresh map pins if any data changed
     if imported > 0 or updated > 0 then
-        if HA.VendorMapPins and HA.VendorMapPins.RefreshAllPins then
-            HA.VendorMapPins:RefreshAllPins()
+        if HA.VendorMapPins then
+            if WorldMapFrame and WorldMapFrame:IsShown() then
+                HA.VendorMapPins:RefreshPins()
+            end
+            HA.VendorMapPins:RefreshMinimapPins()
         end
     end
 end
@@ -837,8 +665,11 @@ function ExportImport:ImportDataV2(input)
 
     -- Refresh map pins if any data changed
     if imported > 0 or updated > 0 then
-        if HA.VendorMapPins and HA.VendorMapPins.RefreshAllPins then
-            HA.VendorMapPins:RefreshAllPins()
+        if HA.VendorMapPins then
+            if WorldMapFrame and WorldMapFrame:IsShown() then
+                HA.VendorMapPins:RefreshPins()
+            end
+            HA.VendorMapPins:RefreshMinimapPins()
         end
     end
 end
@@ -877,8 +708,11 @@ function ExportImport:ClearScannedData()
     HA.Addon:Print(string.format("Cleared %d scanned vendor(s) and reset export timestamp.", count))
 
     -- Refresh map pins
-    if HA.VendorMapPins and HA.VendorMapPins.RefreshAllPins then
-        HA.VendorMapPins:RefreshAllPins()
+    if HA.VendorMapPins then
+        if WorldMapFrame and WorldMapFrame:IsShown() then
+            HA.VendorMapPins:RefreshPins()
+        end
+        HA.VendorMapPins:RefreshMinimapPins()
     end
 end
 
@@ -887,7 +721,7 @@ end
 -------------------------------------------------------------------------------
 
 -- These get registered in core.lua:
--- /hs export - shows export dialog (V1 and V2 options)
+-- /hs export - shows export dialog
 -- /hs exportall - exports all scanned data (bypasses timestamp filter)
 -- /hs clearscans - clears all scanned vendor data
 -- /hs import - calls ExportImport:ShowImportDialog()
@@ -899,3 +733,4 @@ end
 if HA.Addon then
     HA.Addon:RegisterModule("ExportImport", ExportImport)
 end
+

@@ -123,8 +123,9 @@ local function ValidateVendor(vendor, source)
     end
 
     -- Decor validation (scanned data format)
-    if vendor.decor then
-        for i, item in ipairs(vendor.decor) do
+    local scannedItems = vendor.items or vendor.decor
+    if scannedItems then
+        for i, item in ipairs(scannedItems) do
             if not item.itemID then
                 table.insert(warnings, string.format(
                     "%s: decor #%d missing itemID", context, i

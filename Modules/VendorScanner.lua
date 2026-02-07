@@ -19,7 +19,7 @@ HA.VendorScanner = VendorScanner
 
 -- Local references for performance
 -- Note: Some merchant APIs may be nil at load time, accessed via _G at runtime
-local C_HousingCatalog = C_HousingCatalog
+-- Note: Do NOT cache C_HousingCatalog at load time — it may not exist yet
 local UnitGUID = UnitGUID
 local UnitName = UnitName
 local C_Map = C_Map
@@ -168,6 +168,7 @@ function VendorScanner:TryStartScan(npcID, source)
             if HA.Addon then
                 HA.Addon:Debug("Merchant data still not ready after 5 attempts, giving up")
             end
+            scannedVendorsThisSession[npcID] = nil
             pendingScanNpcID = nil
             return
         end
@@ -363,12 +364,13 @@ end
 -------------------------------------------------------------------------------
 
 function VendorScanner:CheckIfDecorItem(itemLink)
-    if not itemLink or not C_HousingCatalog then
+    local CHC = _G.C_HousingCatalog
+    if not itemLink or not CHC or not CHC.GetCatalogEntryInfoByItem then
         return false, nil
     end
 
     -- Use the Housing Catalog API to check if this item is decor
-    local catalogInfo = C_HousingCatalog.GetCatalogEntryInfoByItem(itemLink, true)
+    local catalogInfo = CHC.GetCatalogEntryInfoByItem(itemLink, true)
     if catalogInfo then
         -- Extract item ID from link
         local itemID = GetItemInfoInstant(itemLink)
@@ -680,7 +682,7 @@ function VendorScanner:ExportScannedData()
             name = data.name,
             mapID = data.mapID,
             coords = data.coords,
-            decor = data.decor,
+            items = data.items or data.decor,
         })
     end
 
@@ -697,7 +699,7 @@ function VendorScanner:ExportScannedData()
         output = output .. "    mapID = " .. (vendor.mapID or 0) .. ",\n"
         output = output .. "    coords = { x = " .. string.format("%.3f", vendor.coords.x) .. ", y = " .. string.format("%.3f", vendor.coords.y) .. " },\n"
         output = output .. "    items = {\n"
-        for _, item in ipairs(vendor.decor or {}) do
+        for _, item in ipairs(vendor.items or {}) do
             output = output .. "        { itemID = " .. (item.itemID or 0) .. ", name = \"" .. (item.name or "") .. "\" },\n"
         end
         output = output .. "    },\n"
@@ -731,3 +733,4 @@ end
 if HA.Addon then
     HA.Addon:RegisterModule("VendorScanner", VendorScanner)
 end
+

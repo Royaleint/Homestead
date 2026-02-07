@@ -11,10 +11,10 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ### Fixed
 - Hotfix for FPS stutter in vendor-dense locations
   - Debounce zone change events so rapid transitions only trigger one minimap refresh
-  - Cache GetAllVendors result instead of rebuilding 262-vendor table on every call
+  - Cache GetAllVendors
   - Cache per-vendor uncollected status to avoid repeated pcall/API hits on every refresh
-  - Build reverse continent-to-zones index at load time instead of scanning 200+ entries per zone change
-  - Use existing ByItemID index for tooltip cost lookup instead of full vendor table scan
+  - Build reverse continent-to-zones index at load time.
+  - Use existing ByItemID index for tooltip cost lookup.
 
 ---
 
@@ -143,7 +143,7 @@ The result: cleaner maps, accurate tooltips, and way fewer "why is this vendor h
 ### Changed
 - Item format now supports plain integers or tables with embedded cost data
 - All modules updated for new item format (CatalogScanner, Validation, VendorTracer, VendorMapPins)
-- Export dialog offers V2 (recommended) and V1 (legacy) options
+- Export dialog offers a single unified export option (legacy V1 export removed)
 - Vendor records now store faction, itemCount, decorCount, and full cost data per item
 
 ### Database Updates

@@ -187,13 +187,13 @@ function Waypoints:Set(mapID, x, y, options)
     -- Get user preferences
     local useTomTom = defaults.useTomTom
     local useNative = defaults.useNative
-
-    if HA.Addon and HA.Addon.db and HA.Addon.db.profile then
-        if HA.Addon.db.profile.useTomTom ~= nil then
-            useTomTom = HA.Addon.db.profile.useTomTom
+    if HA.Addon and HA.Addon.db and HA.Addon.db.profile and HA.Addon.db.profile.vendorTracer then
+        local vendorTracer = HA.Addon.db.profile.vendorTracer
+        if vendorTracer.useTomTom ~= nil then
+            useTomTom = vendorTracer.useTomTom
         end
-        if HA.Addon.db.profile.useNativeWaypoints ~= nil then
-            useNative = HA.Addon.db.profile.useNativeWaypoints
+        if vendorTracer.useNativeWaypoints ~= nil then
+            useNative = vendorTracer.useNativeWaypoints
         end
     end
 
@@ -343,23 +343,42 @@ function Waypoints:NormalizeCoords(x, y)
 end
 
 -------------------------------------------------------------------------------
+-- Configuration Sync
+-------------------------------------------------------------------------------
+
+function Waypoints:UpdateConfig()
+    if not HA.Addon or not HA.Addon.db or not HA.Addon.db.profile then
+        return
+    end
+
+    local profile = HA.Addon.db.profile
+    local vendorTracer = profile.vendorTracer
+
+    if vendorTracer then
+        if vendorTracer.useTomTom ~= nil then
+            defaults.useTomTom = vendorTracer.useTomTom
+        end
+        if vendorTracer.useNativeWaypoints ~= nil then
+            defaults.useNative = vendorTracer.useNativeWaypoints
+        end
+    end
+
+    if profile.announceWaypoint ~= nil then
+        defaults.announceWaypoint = profile.announceWaypoint
+    end
+    if profile.autoRemoveOnArrival ~= nil then
+        defaults.autoRemoveOnArrival = profile.autoRemoveOnArrival
+    end
+    if profile.arrivalDistance ~= nil then
+        defaults.arrivalDistance = profile.arrivalDistance
+    end
+end
+-------------------------------------------------------------------------------
 -- Initialization
 -------------------------------------------------------------------------------
 
 function Waypoints:Initialize()
-    -- Load user preferences
-    if HA.Addon and HA.Addon.db and HA.Addon.db.profile then
-        local profile = HA.Addon.db.profile
-        if profile.useTomTom ~= nil then
-            defaults.useTomTom = profile.useTomTom
-        end
-        if profile.useNativeWaypoints ~= nil then
-            defaults.useNative = profile.useNativeWaypoints
-        end
-        if profile.announceWaypoint ~= nil then
-            defaults.announceWaypoint = profile.announceWaypoint
-        end
-    end
+    self:UpdateConfig()
 
     if HA.Addon then
         HA.Addon:Debug("Waypoints utility initialized")
@@ -376,3 +395,4 @@ end
 if HA.Addon then
     HA.Addon:RegisterModule("Waypoints", Waypoints)
 end
+

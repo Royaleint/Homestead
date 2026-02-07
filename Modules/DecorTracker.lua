@@ -44,8 +44,10 @@ function DecorTracker:IsDecorItem(itemLink)
 
     -- Try to get catalog info
     if C_HousingCatalog and C_HousingCatalog.GetCatalogEntryInfoByItem then
-        local info = C_HousingCatalog.GetCatalogEntryInfoByItem(itemLink, false)
-        return info ~= nil
+        local success, info = pcall(function()
+            return C_HousingCatalog.GetCatalogEntryInfoByItem(itemLink, false)
+        end)
+        return success and info ~= nil
     end
 
     return false
@@ -258,3 +260,4 @@ end
 if HA.Addon then
     HA.Addon:RegisterModule("DecorTracker", DecorTracker)
 end
+
