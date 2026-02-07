@@ -551,13 +551,13 @@ VendorDatabase.Vendors = {
 	[85427] = {
         name = "Maaria",
         mapID = 582,
-        x = 0.296, y = 0.162,
+        x = 0.3331, y = 0.5034,
         zone = "Lunarfall (Alliance Garrison)",
         faction = "Alliance",
         currency = "Apexis Crystal",
         altCurrency = "Gold",
         expansion = "Warlords of Draenor",
-        items = {245423, 245424, 251655},
+        items = {245423, 245424, 251544, 251655},
     },
 	[85932] = {
         name = "Vindicator Nuurem",
