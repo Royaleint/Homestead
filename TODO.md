@@ -65,6 +65,7 @@
 
 ## Completed (v1.2.1)
 - [x] WagoAnalytics local dev fix — added no-op shim stub at Libs/WagoAnalytics/Shim.lua (2026-02-06)
+- [x] FPS stutter hotfix — debounce zone changes, cache GetAllVendors/uncollected status, reverse continent index, ByItemID tooltip lookup (2026-02-06)
 
 ## Completed (v1.2.0)
 - [x] v1.2.0 data quality audit — full Hub validation, Classic through TWW (2026-02-05)
