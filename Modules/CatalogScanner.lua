@@ -49,10 +49,10 @@ local function IsOwned(info)
         return true
     end
 
-    -- Check entrySubtype from entryID table
+    -- Check entrySubtype (top-level first, then nested in entryID)
     -- Enum.HousingCatalogEntrySubtype: Invalid=0, Unowned=1, OwnedModifiedStack=2, OwnedUnmodifiedStack=3
-    local entrySubtype = nil
-    if info.entryID and type(info.entryID) == "table" then
+    local entrySubtype = info.entrySubtype
+    if not entrySubtype and info.entryID and type(info.entryID) == "table" then
         entrySubtype = info.entryID.entrySubtype
         if not entrySubtype then
             for k, v in pairs(info.entryID) do

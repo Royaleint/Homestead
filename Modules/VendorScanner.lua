@@ -310,6 +310,18 @@ function VendorScanner:ProcessScanQueue()
                                     })
                                 end
                             end
+                        elseif not link and costName and amount and amount > 0 then
+                            -- Currency with nil link — API returns name instead
+                            -- Try to find currencyID by searching known currencies
+                            local inferredID = nil
+                            if C_CurrencyInfo and C_CurrencyInfo.GetCurrencyIDFromLink then
+                                -- Not available without a link, but future-proof
+                            end
+                            table.insert(currencies, {
+                                currencyID = inferredID,
+                                amount = amount,
+                                name = costName,
+                            })
                         end
                     end
                 end

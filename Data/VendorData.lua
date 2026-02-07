@@ -157,16 +157,24 @@ function VendorData:FormatCost(cost)
     -- Format currencies
     if cost.currencies then
         for _, currency in ipairs(cost.currencies) do
-            if currency.id and currency.amount then
-                local currencyName = "Currency " .. currency.id
-                -- Try to get currency name from API
-                if C_CurrencyInfo and C_CurrencyInfo.GetCurrencyInfo then
-                    local info = C_CurrencyInfo.GetCurrencyInfo(currency.id)
-                    if info and info.name then
-                        currencyName = info.name
+            if currency.amount then
+                local currencyName
+                if currency.id then
+                    currencyName = "Currency " .. currency.id
+                    -- Try to get currency name from API
+                    if C_CurrencyInfo and C_CurrencyInfo.GetCurrencyInfo then
+                        local info = C_CurrencyInfo.GetCurrencyInfo(currency.id)
+                        if info and info.name then
+                            currencyName = info.name
+                        end
                     end
+                elseif currency.name then
+                    -- No ID available, use stored name from scan
+                    currencyName = currency.name
                 end
-                table.insert(parts, currency.amount .. " " .. currencyName)
+                if currencyName then
+                    table.insert(parts, currency.amount .. " " .. currencyName)
+                end
             end
         end
     end
@@ -180,7 +188,7 @@ end
 
 -- Convert scanned item cost format to static item cost format
 -- Scanned: {price = copper, currencies = {{currencyID, amount, name}}, itemCosts = {{itemID, amount, name}}}
--- Static:  {gold = copper, currencies = {{id, amount}}}
+-- Static:  {gold = copper, currencies = {{id, amount, name}}}
 function VendorData:NormalizeScannedCost(scannedItem)
     if not scannedItem then return nil end
 
@@ -193,13 +201,14 @@ function VendorData:NormalizeScannedCost(scannedItem)
         hasCost = true
     end
 
-    -- Convert currencies array (currencyID -> id)
+    -- Convert currencies array (currencyID -> id, preserve name as fallback)
     if scannedItem.currencies and #scannedItem.currencies > 0 then
         cost.currencies = {}
         for _, curr in ipairs(scannedItem.currencies) do
             table.insert(cost.currencies, {
                 id = curr.currencyID,
                 amount = curr.amount,
+                name = curr.name,
             })
         end
         hasCost = true
