@@ -211,6 +211,8 @@ Constants.Defaults = {
             showMissingAtVendor = true,
             navigateModifier = "shift",  -- shift, ctrl, alt, or none
             showOppositeFaction = true,  -- Show vendors for opposite faction with faction emblem
+            pinColorPreset = "default",              -- Color preset key or "custom"
+            pinColorCustom = { r = 1, g = 1, b = 1 }, -- RGB for custom pin color
         },
 
         -- Endeavour tracker settings

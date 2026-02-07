@@ -326,6 +326,68 @@ local function GetOptionsTable()
                         end,
                     },
 
+                    -- Pin Appearance
+                    pinColorPreset = {
+                        type = "select",
+                        name = "Pin color",
+                        desc = "Choose a color for map and minimap pins. Unverified pins always show orange.",
+                        order = 7,
+                        values = {
+                            default = "Default (Gold)",
+                            green   = "Bright Green",
+                            blue    = "Ice Blue",
+                            purple  = "Purple",
+                            pink    = "Hot Pink",
+                            red     = "Red",
+                            cyan    = "Cyan",
+                            custom  = "Custom...",
+                        },
+                        sorting = { "default", "green", "blue", "cyan", "purple", "pink", "red", "custom" },
+                        get = function()
+                            return HA.Addon.db.profile.vendorTracer.pinColorPreset or "default"
+                        end,
+                        set = function(_, value)
+                            HA.Addon.db.profile.vendorTracer.pinColorPreset = value
+                            if HA.VendorMapPins then
+                                HA.VendorMapPins:RefreshAllPinColors()
+                            end
+                        end,
+                    },
+                    pinColorCustom = {
+                        type = "color",
+                        name = "Custom color",
+                        desc = "Pick a custom base color for map pins",
+                        order = 8,
+                        hidden = function()
+                            return (HA.Addon.db.profile.vendorTracer.pinColorPreset or "default") ~= "custom"
+                        end,
+                        get = function()
+                            local c = HA.Addon.db.profile.vendorTracer.pinColorCustom
+                            return c.r, c.g, c.b
+                        end,
+                        set = function(_, r, g, b)
+                            HA.Addon.db.profile.vendorTracer.pinColorCustom = { r = r, g = g, b = b }
+                            if HA.VendorMapPins then
+                                HA.VendorMapPins:RefreshAllPinColors()
+                            end
+                        end,
+                    },
+                    pinColorPreview = {
+                        type = "description",
+                        name = function()
+                            local hex = "f2d173" -- fallback gold
+                            if HA.VendorMapPins and HA.VendorMapPins.GetPinColorPreviewHex then
+                                hex = HA.VendorMapPins:GetPinColorPreviewHex()
+                            end
+                            return string.format(
+                                "|cff%s\226\150\136\226\150\136\226\150\136\226\150\136\226\150\136\226\150\136\226\150\136\226\150\136|r  Approximate map appearance",
+                                hex
+                            )
+                        end,
+                        order = 9,
+                        width = "double",
+                    },
+
                     -- Waypoint Group
                     waypointHeader = {
                         type = "header",
