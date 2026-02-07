@@ -27,6 +27,8 @@ local isInitialized = false
 local isScanning = false
 local lastScanTime = 0
 local SCAN_COOLDOWN = 5 -- Minimum seconds between scans
+local pendingScanTimer = nil
+local scanRequestedDuringActive = false
 
 -- Batching settings to prevent frame hitches
 local ITEMS_PER_BATCH = 20
@@ -184,6 +186,23 @@ local function ScanItem(itemID)
     }
 end
 
+-- Debounced scan request — coalesces rapid housing events into a single scan
+-- Forward-declared here so ScanFullCatalog's ProcessBatch can reference it
+local function RequestScan()
+    if pendingScanTimer then
+        pendingScanTimer:Cancel()
+    end
+    pendingScanTimer = C_Timer.NewTimer(1.0, function()
+        pendingScanTimer = nil
+        if isScanning then
+            -- Scan in progress — flag for rescan when it finishes
+            scanRequestedDuringActive = true
+        else
+            CatalogScanner:ScanFullCatalog()
+        end
+    end)
+end
+
 -- Perform a full scan of all known items (batched for performance)
 function CatalogScanner:ScanFullCatalog(callback)
     if isScanning then
@@ -263,6 +282,12 @@ function CatalogScanner:ScanFullCatalog(callback)
             if callback then
                 callback(ownedCount, checkedCount)
             end
+
+            -- If a scan was requested while we were running, schedule another
+            if scanRequestedDuringActive then
+                scanRequestedDuringActive = false
+                RequestScan()
+            end
         end
     end
 
@@ -326,27 +351,15 @@ local function SetupEventScanning()
             -- Check if a Blizzard housing UI addon loaded
             if loadedAddon and loadedAddon:match("^Blizzard_Housing") then
                 HA.Addon:Debug("Housing addon loaded:", loadedAddon)
-                -- Delay scan to ensure UI is ready
+                -- One-time startup scan — direct call, not debounced
                 C_Timer.After(1, function()
                     CatalogScanner:ScanFullCatalog()
                 end)
             end
-        elseif event == "HOUSING_STORAGE_UPDATED" then
-            HA.Addon:Debug("HOUSING_STORAGE_UPDATED event fired")
-            C_Timer.After(0.3, function()
-                CatalogScanner:ScanFullCatalog()
-            end)
-        elseif event == "NEW_HOUSING_ITEM_ACQUIRED" then
-            HA.Addon:Debug("NEW_HOUSING_ITEM_ACQUIRED event fired")
-            C_Timer.After(0.5, function()
-                CatalogScanner:ScanFullCatalog()
-            end)
-        elseif event == "HOUSING_DECOR_PLACE_SUCCESS" or event == "HOUSING_DECOR_REMOVED" then
-            -- Placement/removal might affect ownership counts
-            HA.Addon:Debug(event, "fired")
-            C_Timer.After(0.5, function()
-                CatalogScanner:ScanFullCatalog()
-            end)
+        else
+            -- All housing events coalesce into a single debounced scan
+            HA.Addon:Debug(event, "fired — requesting scan")
+            RequestScan()
         end
     end)
 end

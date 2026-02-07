@@ -48,8 +48,16 @@ local minimapPinsEnabled = true
 -- Cached uncollected status per vendor (invalidated on ownership changes)
 local uncollectedCache = {}
 
+-- Cached badge counts (invalidated on ownership/scan/settings changes)
+local cachedZoneBadges = {}       -- [continentMapID] = zoneCounts table
+local cachedContinentBadges = nil -- continentCounts table
+
 -- Debounce timer for zone change minimap refresh
 local minimapRefreshTimer = nil
+
+-- Dedup guards for minimap and world map refreshes
+local lastMinimapMapID = nil
+local lastWorldMapID = nil
 
 -------------------------------------------------------------------------------
 -- Zone to Parent Map Mapping
@@ -823,17 +831,30 @@ function VendorMapPins:VendorHasUncollectedItems(vendor)
     return false  -- All items collected
 end
 
+function VendorMapPins:InvalidateBadgeCache()
+    wipe(cachedZoneBadges)
+    cachedContinentBadges = nil
+    lastWorldMapID = nil
+    lastMinimapMapID = nil
+end
+
 function VendorMapPins:GetZoneVendorCounts(continentMapID)
+    if cachedZoneBadges[continentMapID] then return cachedZoneBadges[continentMapID] end
+
     local zoneCounts = {}
     if not HA.VendorData then return zoneCounts end
 
     local allVendors = HA.VendorData:GetAllVendors()
     local showOpposite = ShouldShowOppositeFaction()
 
+    local showUnverified = ShouldShowUnverifiedVendors()
+
     for _, vendor in ipairs(allVendors) do
         -- Skip vendors that have been scanned and confirmed to have no decor items
         if ShouldHideVendor(vendor) then
             -- Vendor is unreleased or was scanned with no housing decor - don't count
+        elseif not showUnverified and not IsVendorVerified(vendor) then
+            -- Unverified vendor hidden by user setting - don't count
         else
             -- Get best coordinates (scanned preferred over static)
             local coords, zoneMapID, source = GetBestVendorCoordinates(vendor)
@@ -883,20 +904,26 @@ function VendorMapPins:GetZoneVendorCounts(continentMapID)
         end
     end
 
+    cachedZoneBadges[continentMapID] = zoneCounts
     return zoneCounts
 end
 
 function VendorMapPins:GetContinentVendorCounts()
+    if cachedContinentBadges then return cachedContinentBadges end
+
     local continentCounts = {}
     if not HA.VendorData then return continentCounts end
 
     local allVendors = HA.VendorData:GetAllVendors()
     local showOpposite = ShouldShowOppositeFaction()
+    local showUnverified = ShouldShowUnverifiedVendors()
 
     for _, vendor in ipairs(allVendors) do
         -- Skip vendors that have been scanned and confirmed to have no decor items
         if ShouldHideVendor(vendor) then
             -- Vendor is unreleased or was scanned with no housing decor - don't count
+        elseif not showUnverified and not IsVendorVerified(vendor) then
+            -- Unverified vendor hidden by user setting - don't count
         else
             -- Get best coordinates (scanned preferred over static)
             local coords, zoneMapID, source = GetBestVendorCoordinates(vendor)
@@ -941,6 +968,7 @@ function VendorMapPins:GetContinentVendorCounts()
         end
     end
 
+    cachedContinentBadges = continentCounts
     return continentCounts
 end
 
@@ -1600,7 +1628,9 @@ function VendorMapPins:Initialize()
         self:RefreshPins()
     end)
 
-    hooksecurefunc(WorldMapFrame, "SetMapID", function()
+    hooksecurefunc(WorldMapFrame, "SetMapID", function(_, mapID)
+        if mapID == lastWorldMapID then return end
+        lastWorldMapID = mapID
         -- Small delay to let the map update first
         C_Timer.After(0, function()
             self:RefreshPins()
@@ -1610,10 +1640,11 @@ function VendorMapPins:Initialize()
     -- Listen for vendor scan events to refresh pins with new data
     if HA.Events then
         HA.Events:RegisterCallback("VENDOR_SCANNED", function(vendorRecord)
-            -- Invalidate uncollected cache for rescanned vendor
+            -- Invalidate caches for rescanned vendor
             if vendorRecord and vendorRecord.npcID then
                 uncollectedCache[vendorRecord.npcID] = nil
             end
+            self:InvalidateBadgeCache()
             -- Refresh pins if the world map is currently open
             if WorldMapFrame:IsShown() then
                 C_Timer.After(0.1, function()
@@ -1628,8 +1659,9 @@ function VendorMapPins:Initialize()
 
         -- Also listen for ownership cache updates
         HA.Events:RegisterCallback("OWNERSHIP_UPDATED", function()
-            -- Ownership changed — flush all uncollected status
+            -- Ownership changed — flush all caches
             wipe(uncollectedCache)
+            self:InvalidateBadgeCache()
             if WorldMapFrame:IsShown() then
                 C_Timer.After(0.1, function()
                     self:RefreshPins()
@@ -1644,6 +1676,7 @@ function VendorMapPins:Initialize()
     merchantFrame:SetScript("OnEvent", function()
         -- Small delay to ensure scanned data is saved
         C_Timer.After(0.3, function()
+            self:InvalidateBadgeCache()
             if WorldMapFrame:IsShown() then
                 self:RefreshPins()
             end
@@ -1658,6 +1691,11 @@ function VendorMapPins:Initialize()
     zoneFrame:RegisterEvent("ZONE_CHANGED_NEW_AREA")
     zoneFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
     zoneFrame:SetScript("OnEvent", function(self, event)
+        -- Skip refresh if player hasn't actually changed zones
+        local currentMapID = C_Map.GetBestMapForUnit("player")
+        if currentMapID == lastMinimapMapID then return end
+        lastMinimapMapID = currentMapID
+
         -- Debounce: cancel any pending refresh so rapid zone changes
         -- (ZONE_CHANGED + ZONE_CHANGED_INDOORS firing together) only trigger one refresh
         if minimapRefreshTimer then

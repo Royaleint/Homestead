@@ -304,6 +304,7 @@ local function GetOptionsTable()
                         set = function(_, value)
                             HA.Addon.db.profile.vendorTracer.showOppositeFaction = value
                             if HA.VendorMapPins then
+                                HA.VendorMapPins:InvalidateBadgeCache()
                                 HA.VendorMapPins:RefreshPins()
                             end
                         end,
@@ -318,6 +319,7 @@ local function GetOptionsTable()
                         set = function(_, value)
                             HA.Addon.db.profile.vendorTracer.showUnverifiedVendors = value
                             if HA.VendorMapPins then
+                                HA.VendorMapPins:InvalidateBadgeCache()
                                 HA.VendorMapPins:RefreshPins()
                                 HA.VendorMapPins:RefreshMinimapPins()
                             end
