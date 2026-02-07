@@ -333,16 +333,19 @@ local function GetOptionsTable()
                         desc = "Choose a color for map and minimap pins. Unverified pins always show orange.",
                         order = 7,
                         values = {
-                            default = "Default (Gold)",
-                            green   = "Bright Green",
-                            blue    = "Ice Blue",
-                            purple  = "Purple",
-                            pink    = "Hot Pink",
-                            red     = "Red",
-                            cyan    = "Cyan",
-                            custom  = "Custom...",
+                            default   = "Default (Gold)",
+                            green     = "Bright Green",
+                            blue      = "Ice Blue",
+                            lightblue = "Light Blue",
+                            purple    = "Purple",
+                            pink      = "Pink",
+                            red       = "Red",
+                            cyan      = "Cyan",
+                            white     = "White",
+                            yellow    = "Yellow",
+                            custom    = "Custom...",
                         },
-                        sorting = { "default", "green", "blue", "cyan", "purple", "pink", "red", "custom" },
+                        sorting = { "default", "green", "blue", "lightblue", "cyan", "purple", "pink", "red", "yellow", "white", "custom" },
                         get = function()
                             return HA.Addon.db.profile.vendorTracer.pinColorPreset or "default"
                         end,
@@ -387,19 +390,72 @@ local function GetOptionsTable()
                         order = 9,
                         width = "double",
                     },
+                    pinIconSize = {
+                        type = "range",
+                        name = "World map pin size",
+                        desc = "Adjust the size of vendor pins on the world map. Default (20) matches Blizzard POI icons.",
+                        order = 10,
+                        min = 12,
+                        max = 32,
+                        step = 2,
+                        width = "double",
+                        get = function()
+                            return HA.Addon.db.profile.vendorTracer.pinIconSize or 20
+                        end,
+                        set = function(_, value)
+                            HA.Addon.db.profile.vendorTracer.pinIconSize = value
+                            if HA.VendorMapPins then
+                                HA.VendorMapPins:RefreshAllPinColors()
+                            end
+                        end,
+                    },
+                    minimapIconSize = {
+                        type = "range",
+                        name = "Minimap pin size",
+                        desc = "Adjust the size of vendor pins on the minimap. Increase if pins are hard to see, or decrease to reduce minimap clutter.",
+                        order = 11,
+                        min = 8,
+                        max = 24,
+                        step = 1,
+                        width = "double",
+                        get = function()
+                            return HA.Addon.db.profile.vendorTracer.minimapIconSize or 12
+                        end,
+                        set = function(_, value)
+                            HA.Addon.db.profile.vendorTracer.minimapIconSize = value
+                            if HA.VendorMapPins then
+                                HA.VendorMapPins:RefreshMinimapPins()
+                            end
+                        end,
+                    },
+
+                    showPinCounts = {
+                        type = "toggle",
+                        name = "Show collection counts",
+                        desc = "Display collected/total item counts on vendor pins (e.g., 3/12). Disable to reduce map clutter.",
+                        width = "double",
+                        order = 12,
+                        get = function() return HA.Addon.db.profile.vendorTracer.showPinCounts ~= false end,
+                        set = function(_, value)
+                            HA.Addon.db.profile.vendorTracer.showPinCounts = value
+                            if HA.VendorMapPins then
+                                HA.VendorMapPins:RefreshPins()
+                            end
+                        end,
+                    },
 
                     -- Waypoint Group
                     waypointHeader = {
                         type = "header",
                         name = "Waypoints",
-                        order = 10,
+                        order = 13,
                     },
                     useTomTom = {
                         type = "toggle",
                         name = L["Use TomTom for waypoints"] or "Use TomTom for waypoints",
                         desc = "Use TomTom addon for waypoint arrows (if installed)",
                         width = "double",
-                        order = 11,
+                        order = 13,
                         get = function() return HA.Addon.db.profile.vendorTracer.useTomTom end,
                         set = function(_, value)
                             HA.Addon.db.profile.vendorTracer.useTomTom = value
@@ -413,7 +469,7 @@ local function GetOptionsTable()
                         name = L["Use native waypoints"] or "Use native waypoints",
                         desc = "Use WoW's built-in waypoint system with map pin",
                         width = "double",
-                        order = 12,
+                        order = 14,
                         get = function() return HA.Addon.db.profile.vendorTracer.useNativeWaypoints end,
                         set = function(_, value)
                             HA.Addon.db.profile.vendorTracer.useNativeWaypoints = value
@@ -427,7 +483,7 @@ local function GetOptionsTable()
                         name = L["Auto-create waypoint on click"] or "Auto-create waypoint on click",
                         desc = "Automatically create a waypoint when clicking on a vendor in the list or map",
                         width = "double",
-                        order = 13,
+                        order = 15,
                         get = function() return HA.Addon.db.profile.vendorTracer.autoWaypoint end,
                         set = function(_, value)
                             HA.Addon.db.profile.vendorTracer.autoWaypoint = value
@@ -443,7 +499,7 @@ local function GetOptionsTable()
                             alt = "Alt",
                             none = "None (always)",
                         },
-                        order = 14,
+                        order = 16,
                         get = function() return HA.Addon.db.profile.vendorTracer.navigateModifier end,
                         set = function(_, value)
                             HA.Addon.db.profile.vendorTracer.navigateModifier = value

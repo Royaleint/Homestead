@@ -3,7 +3,7 @@
     World map integration for housing decor vendor locations
 
     Uses HereBeDragons-Pins-2.0 library for reliable map pin management.
-    Applies SetScale() to counter canvas scaling for proper icon sizes.
+    HBD pin SetScalingLimits(1, 1.0, 1.2) handles zoom behavior.
 
     Features:
     - Zone view: Shows pin icons at vendor locations
@@ -37,25 +37,26 @@ local vendorPinFrames = {}
 local badgePinFrames = {}
 local minimapPinFrames = {}
 
--- Scale factor to counter canvas scaling (adjust if icons are too big/small)
-local ICON_SCALE = 0.4
 -- Minimap icon size - 12 is HandyNotes standard
 local MINIMAP_ICON_SIZE = 12
 
 -- Pin color presets (base tint applied via SetVertexColor)
 local PIN_COLOR_PRESETS = {
-    default = { 1.0, 1.0, 1.0 },   -- Natural atlas gold (no tint)
-    green   = { 0.2, 1.0, 0.2 },   -- Bright Green
-    blue    = { 0.3, 0.6, 1.0 },   -- Ice Blue
-    purple  = { 0.7, 0.3, 1.0 },   -- Purple
-    pink    = { 1.0, 0.2, 0.6 },   -- Hot Pink
-    red     = { 1.0, 0.2, 0.2 },   -- Red
-    cyan    = { 0.2, 1.0, 1.0 },   -- Cyan
+    default   = { 1.0, 1.0, 1.0 },   -- Natural atlas gold (no tint)
+    green     = { 0.2, 1.0, 0.2 },   -- Bright Green
+    blue      = { 0.3, 0.6, 1.0 },   -- Ice Blue
+    lightblue = { 0.6, 0.85, 1.0 },  -- Light Blue
+    purple    = { 0.7, 0.3, 1.0 },   -- Purple
+    pink      = { 1.0, 0.4, 0.7 },   -- Pink
+    red       = { 1.0, 0.2, 0.2 },   -- Red
+    cyan      = { 0.2, 1.0, 1.0 },   -- Cyan
+    white     = { 1.0, 1.0, 1.0 },   -- White (desaturated icon, no tint)
+    yellow    = { 1.0, 0.9, 0.3 },   -- Yellow
 }
 
--- Approximate multiplier the housing-icon atlas applies to vertex colors.
--- Used by Options preview swatch (atlas bakes in warm gold tones).
-local ATLAS_TINT_APPROX = { 0.95, 0.82, 0.45 }
+-- Desaturated atlas base luminance (~82% grey). Used for Options preview swatch
+-- when a custom color is active (desaturated icon tints accurately).
+local DESAT_LUMINANCE = 0.82
 
 -- Minimap pins enabled state
 local minimapPinsEnabled = true
@@ -265,12 +266,37 @@ function VendorMapPins:GetPinColor()
     return 1, 1, 1
 end
 
+function VendorMapPins:GetPinIconSize()
+    local db = HA.Addon and HA.Addon.db
+    if not db then return 20 end
+    local size = db.profile.vendorTracer.pinIconSize or 20
+    return math.max(12, math.min(32, size))
+end
+
+function VendorMapPins:GetMinimapIconSize()
+    local db = HA.Addon and HA.Addon.db
+    if not db then return MINIMAP_ICON_SIZE end
+    return db.profile.vendorTracer.minimapIconSize or MINIMAP_ICON_SIZE
+end
+
+function VendorMapPins:IsCustomPinColor()
+    local db = HA.Addon and HA.Addon.db
+    if not db then return false end
+    local preset = db.profile.vendorTracer.pinColorPreset or "default"
+    return preset ~= "default"
+end
+
 function VendorMapPins:GetPinColorPreviewHex()
     local r, g, b = self:GetPinColor()
-    local cr = math.min(r * ATLAS_TINT_APPROX[1], 1.0)
-    local cg = math.min(g * ATLAS_TINT_APPROX[2], 1.0)
-    local cb = math.min(b * ATLAS_TINT_APPROX[3], 1.0)
-    return string.format("%02x%02x%02x", cr * 255, cg * 255, cb * 255)
+    if self:IsCustomPinColor() then
+        -- Custom colors tint a desaturated (~82% grey) icon, so preview = color × luminance
+        local cr = math.min(r * DESAT_LUMINANCE, 1.0)
+        local cg = math.min(g * DESAT_LUMINANCE, 1.0)
+        local cb = math.min(b * DESAT_LUMINANCE, 1.0)
+        return string.format("%02x%02x%02x", cr * 255, cg * 255, cb * 255)
+    end
+    -- Default: natural gold atlas
+    return "f2d173"
 end
 
 function VendorMapPins:RefreshAllPinColors()
@@ -294,17 +320,14 @@ end
 local function CreateVendorPinFrame(vendor, isOppositeFaction, isUnverified)
     local frame = CreateFrame("Frame", nil, UIParent)
 
-    -- Apply scale to counter canvas scaling
-    frame:SetScale(ICON_SCALE)
-
-    -- Base size (will appear smaller due to scale)
-    local baseSize = 32
+    -- Base size from settings (HBD pin SetScalingLimits handles zoom behavior)
+    local baseSize = VendorMapPins:GetPinIconSize()
     frame:SetSize(baseSize, baseSize)
     frame:EnableMouse(true)
 
     -- User-selected base pin color
     local br, bg, bb = VendorMapPins:GetPinColor()
-    local isCustomColor = not (br == 1 and bg == 1 and bb == 1)
+    local isCustomColor = VendorMapPins:IsCustomPinColor()
 
     -- Dark circular background
     frame.bg = frame:CreateTexture(nil, "BACKGROUND")
@@ -313,68 +336,93 @@ local function CreateVendorPinFrame(vendor, isOppositeFaction, isUnverified)
     frame.bg:SetAtlas("auctionhouse-itemicon-border-white", false)
     frame.bg:SetVertexColor(0.1, 0.08, 0.02, 1)
 
-    -- Colored backplate: solid color circle between bg and ring (only for non-default)
+    -- Colored backplate: dark tinted circle for depth (only for non-default)
     if isCustomColor then
-        frame.backplate = CreateCircularBackplate(frame, baseSize + 4)
+        frame.backplate = CreateCircularBackplate(frame, baseSize + 2)
         if isUnverified then
-            frame.backplate:SetVertexColor(1.0, 0.6, 0.2, 0.9)
+            frame.backplate:SetVertexColor(0.3, 0.18, 0.06, 0.5)
         elseif isOppositeFaction then
-            frame.backplate:SetVertexColor(br * 0.5, bg * 0.5, bb * 0.5, 0.9)
+            frame.backplate:SetVertexColor(0.15, 0.15, 0.15, 0.4)
         else
-            frame.backplate:SetVertexColor(br, bg, bb, 0.9)
+            frame.backplate:SetVertexColor(br * 0.3, bg * 0.3, bb * 0.3, 0.5)
         end
     end
 
-    -- Ring border
+    -- Ring border (subdued — icon should be focal point)
     frame.ring = frame:CreateTexture(nil, "BORDER")
     frame.ring:SetPoint("CENTER")
-    frame.ring:SetSize(baseSize + 8, baseSize + 8)
+    frame.ring:SetSize(baseSize + 4, baseSize + 4)
     frame.ring:SetAtlas("auctionhouse-itemicon-border-artifact", false)
     if isUnverified then
-        frame.ring:SetVertexColor(1.0, 0.6, 0.2, 0.9)  -- Override: always orange
+        frame.ring:SetVertexColor(0.7, 0.42, 0.14, 0.7)
     elseif isOppositeFaction then
         if isCustomColor then
-            frame.ring:SetVertexColor(br * 0.6, bg * 0.6, bb * 0.6, 0.9)
+            frame.ring:SetVertexColor(br * 0.35, bg * 0.35, bb * 0.35, 0.6)
         else
-            frame.ring:SetVertexColor(0.5, 0.5, 0.5, 0.8)
+            frame.ring:SetVertexColor(0.35, 0.35, 0.35, 0.6)
         end
     elseif isCustomColor then
-        frame.ring:SetVertexColor(br, bg, bb, 0.9)
+        frame.ring:SetVertexColor(br * 0.7, bg * 0.7, bb * 0.7, 0.7)
     end
 
-    -- Housing icon: white when non-default, colored backplate shows through
-    local iconSize = baseSize - 8
+    -- Housing icon (focal point — brightest element)
+    local iconSize = baseSize
     frame.icon = frame:CreateTexture(nil, "ARTWORK")
     frame.icon:SetPoint("CENTER")
     frame.icon:SetSize(iconSize, iconSize)
-    frame.icon:SetAtlas("housing-dashboard-homestone-icon", true)
-    if isCustomColor then
-        frame.icon:SetDesaturated(false)
-        frame.icon:SetVertexColor(1.0, 1.0, 1.0, 1.0)
-    elseif isUnverified then
-        frame.icon:SetVertexColor(1.0, 0.7, 0.4, 0.9)  -- Override: always orange
+    frame.icon:SetAtlas("housing-dashboard-homestone-icon", false)
+    if isUnverified then
+        frame.icon:SetVertexColor(1.0, 0.6, 0.2, 0.9)
     elseif isOppositeFaction then
+        frame.icon:SetDesaturated(true)
         frame.icon:SetVertexColor(0.6, 0.6, 0.6, 0.9)
+    elseif isCustomColor then
+        frame.icon:SetDesaturated(true)
+        frame.icon:SetVertexColor(br, bg, bb, 0.95)
     end
 
     -- Question mark indicator for unverified vendors
     if isUnverified then
         frame.unverifiedIcon = frame:CreateTexture(nil, "OVERLAY", nil, 3)
-        frame.unverifiedIcon:SetSize(14, 14)
-        frame.unverifiedIcon:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", 4, -4)
-        frame.unverifiedIcon:SetAtlas("QuestRepeatableTurnin", true)  -- Yellow ? icon
+        frame.unverifiedIcon:SetSize(10, 10)
+        frame.unverifiedIcon:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", 2, -2)
+        frame.unverifiedIcon:SetAtlas("QuestRepeatableTurnin", true)
     end
 
     -- Faction emblem for opposite faction vendors
     if isOppositeFaction and vendor.faction then
         frame.factionEmblem = frame:CreateTexture(nil, "ARTWORK", nil, 2)
-        frame.factionEmblem:SetSize(16, 16)
-        frame.factionEmblem:SetPoint("TOPLEFT", frame, "TOPLEFT", -6, 6)
+        frame.factionEmblem:SetSize(10, 10)
+        frame.factionEmblem:SetPoint("TOPLEFT", frame, "TOPLEFT", -3, 3)
 
         if vendor.faction == "Alliance" then
             frame.factionEmblem:SetAtlas("ui-frame-alliancecrest-portrait", true)
         elseif vendor.faction == "Horde" then
             frame.factionEmblem:SetAtlas("ui-frame-hordecrest-portrait", true)
+        end
+    end
+
+    -- Collection ratio text (e.g., "3/12")
+    local showCounts = HA.Addon and HA.Addon.db and HA.Addon.db.profile.vendorTracer.showPinCounts ~= false
+    local collected, total = 0, 0
+    if showCounts then
+        collected, total = VendorMapPins:GetVendorCollectionCounts(vendor)
+    end
+    if total > 0 then
+        local fontSize = math.max(8, math.floor(baseSize * 0.4))
+        frame.count = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal", 2)
+        frame.count:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", 3, -3)
+        local fontPath = frame.count:GetFont()
+        frame.count:SetFont(fontPath, fontSize, "OUTLINE")
+        frame.count:SetShadowColor(0, 0, 0, 0.8)
+        frame.count:SetShadowOffset(1, -1)
+        frame.count:SetText(collected .. "/" .. total)
+        if collected == total then
+            frame.count:SetTextColor(0.2, 1, 0.2)  -- Green = fully collected
+        elseif collected > 0 then
+            frame.count:SetTextColor(1, 1, 1)  -- White = partially collected
+        else
+            frame.count:SetTextColor(1, 0.2, 0.2)  -- Red = none collected
         end
     end
 
@@ -408,11 +456,8 @@ end
 local function CreateBadgePinFrame(badgeData)
     local frame = CreateFrame("Frame", nil, UIParent)
 
-    -- Apply scale to counter canvas scaling
-    frame:SetScale(ICON_SCALE)
-
-    -- Base size (will appear smaller due to scale)
-    local baseSize = 32
+    -- Base size from settings (HBD pin SetScalingLimits handles zoom behavior)
+    local baseSize = VendorMapPins:GetPinIconSize()
     frame:SetSize(baseSize, baseSize)
     frame:EnableMouse(true)
 
@@ -422,7 +467,7 @@ local function CreateBadgePinFrame(badgeData)
 
     -- User-selected base pin color
     local br, bg, bb = VendorMapPins:GetPinColor()
-    local isCustomColor = not (br == 1 and bg == 1 and bb == 1)
+    local isCustomColor = VendorMapPins:IsCustomPinColor()
 
     -- Dark circular background
     frame.bg = frame:CreateTexture(nil, "BACKGROUND")
@@ -431,49 +476,50 @@ local function CreateBadgePinFrame(badgeData)
     frame.bg:SetAtlas("auctionhouse-itemicon-border-white", false)
     frame.bg:SetVertexColor(0.1, 0.08, 0.02, 1)
 
-    -- Colored backplate (only for non-default)
+    -- Colored backplate: dark tinted circle for depth (only for non-default)
     if isCustomColor then
-        frame.backplate = CreateCircularBackplate(frame, baseSize + 4)
+        frame.backplate = CreateCircularBackplate(frame, baseSize + 2)
         if isOppositeFactionOnly then
-            frame.backplate:SetVertexColor(br * 0.6, bg * 0.6, bb * 0.6, 0.9)
+            frame.backplate:SetVertexColor(0.15, 0.15, 0.15, 0.4)
         else
-            frame.backplate:SetVertexColor(br, bg, bb, 0.9)
+            frame.backplate:SetVertexColor(br * 0.3, bg * 0.3, bb * 0.3, 0.5)
         end
     end
 
-    -- Ring border
+    -- Ring border (subdued — icon should be focal point)
     frame.ring = frame:CreateTexture(nil, "BORDER")
     frame.ring:SetPoint("CENTER")
-    frame.ring:SetSize(baseSize + 8, baseSize + 8)
+    frame.ring:SetSize(baseSize + 4, baseSize + 4)
     frame.ring:SetAtlas("auctionhouse-itemicon-border-artifact", false)
     if isOppositeFactionOnly then
         if isCustomColor then
-            frame.ring:SetVertexColor(br * 0.6, bg * 0.6, bb * 0.6, 0.9)
+            frame.ring:SetVertexColor(br * 0.35, bg * 0.35, bb * 0.35, 0.6)
         else
-            frame.ring:SetVertexColor(0.6, 0.6, 0.6, 0.8)
+            frame.ring:SetVertexColor(0.35, 0.35, 0.35, 0.6)
         end
     elseif isCustomColor then
-        frame.ring:SetVertexColor(br, bg, bb, 0.9)
+        frame.ring:SetVertexColor(br * 0.7, bg * 0.7, bb * 0.7, 0.7)
     end
 
-    -- Housing icon: white when non-default
-    local iconSize = baseSize - 8
+    -- Housing icon (focal point — brightest element)
+    local iconSize = baseSize
     frame.icon = frame:CreateTexture(nil, "ARTWORK")
     frame.icon:SetPoint("CENTER")
     frame.icon:SetSize(iconSize, iconSize)
-    frame.icon:SetAtlas("housing-dashboard-homestone-icon", true)
-    if isCustomColor then
-        frame.icon:SetDesaturated(false)
-        frame.icon:SetVertexColor(1.0, 1.0, 1.0, 1.0)
-    elseif isOppositeFactionOnly then
-        frame.icon:SetVertexColor(0.7, 0.7, 0.7, 0.9)
+    frame.icon:SetAtlas("housing-dashboard-homestone-icon", false)
+    if isOppositeFactionOnly then
+        frame.icon:SetDesaturated(true)
+        frame.icon:SetVertexColor(0.6, 0.6, 0.6, 0.9)
+    elseif isCustomColor then
+        frame.icon:SetDesaturated(true)
+        frame.icon:SetVertexColor(br, bg, bb, 0.95)
     end
 
     -- Faction emblem (shown if zone has opposite faction vendors)
     if badgeData.dominantFaction or (badgeData.oppositeFactionCount and badgeData.oppositeFactionCount > 0) then
         frame.factionEmblem = frame:CreateTexture(nil, "ARTWORK", nil, 2)
-        frame.factionEmblem:SetSize(14, 14)
-        frame.factionEmblem:SetPoint("TOPLEFT", frame, "TOPLEFT", -4, 4)
+        frame.factionEmblem:SetSize(10, 10)
+        frame.factionEmblem:SetPoint("TOPLEFT", frame, "TOPLEFT", -2, 2)
 
         -- Determine which faction emblem to show
         local factionToShow = badgeData.dominantFaction
@@ -492,17 +538,14 @@ local function CreateBadgePinFrame(badgeData)
         end
     end
 
-    -- Count text background for better visibility
-    frame.countBg = frame:CreateTexture(nil, "OVERLAY", nil, 1)
-    frame.countBg:SetColorTexture(0, 0, 0, 0.8)
-    frame.countBg:SetSize(20, 16)
-    frame.countBg:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", 6, -6)
-
-    -- Count text (scaled up to compensate for frame scale)
+    -- Count text (outlined + shadowed for readability without a black box)
+    local fontSize = math.max(8, math.floor(baseSize * 0.4))
     frame.count = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal", 2)
-    frame.count:SetPoint("CENTER", frame.countBg, "CENTER", 0, 0)
-    local fontPath, _, fontFlags = frame.count:GetFont()
-    frame.count:SetFont(fontPath, 14, "OUTLINE")
+    frame.count:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", 3, -3)
+    local fontPath = frame.count:GetFont()
+    frame.count:SetFont(fontPath, fontSize, "OUTLINE")
+    frame.count:SetShadowColor(0, 0, 0, 0.8)
+    frame.count:SetShadowOffset(1, -1)
 
     -- Store badge data
     frame.badgeData = badgeData
@@ -513,12 +556,12 @@ local function CreateBadgePinFrame(badgeData)
         -- Opposite faction only - show in faction color but dimmed
         local factionColor = badgeData.dominantFaction == "Alliance" and {0.2, 0.4, 0.8} or {0.8, 0.2, 0.2}
         frame.count:SetTextColor(factionColor[1], factionColor[2], factionColor[3])
-    elseif badgeData.uncollectedCount and badgeData.uncollectedCount > 0 then
-        frame.count:SetTextColor(0.2, 1, 0.2)  -- Green = has uncollected items
-    elseif badgeData.unknownCount and badgeData.unknownCount > 0 then
-        frame.count:SetTextColor(1, 0.82, 0)  -- Yellow = unknown status (no item data)
+    elseif (badgeData.uncollectedCount or 0) == 0 then
+        frame.count:SetTextColor(0.2, 1, 0.2)  -- Green = all vendors fully collected
+    elseif badgeData.uncollectedCount < badgeData.vendorCount then
+        frame.count:SetTextColor(1, 1, 1)  -- White = some vendors have uncollected items
     else
-        frame.count:SetTextColor(0.5, 0.5, 0.5)  -- Gray = all collected
+        frame.count:SetTextColor(1, 0.2, 0.2)  -- Red = all vendors have uncollected items
     end
 
     -- Tooltip handlers
@@ -541,7 +584,10 @@ local function CreateMinimapPinFrame(vendor, isOppositeFaction, isUnverified)
     -- Parent to UIParent for consistency with world map pins
     -- HereBeDragons handles positioning relative to minimap
     local frame = CreateFrame("Frame", nil, UIParent)
-    frame:SetSize(MINIMAP_ICON_SIZE, MINIMAP_ICON_SIZE)
+
+    -- Minimap icon size from its own setting (independent of world map pin size)
+    local mmSize = VendorMapPins:GetMinimapIconSize()
+    frame:SetSize(mmSize, mmSize)
     frame:EnableMouse(true)
 
     -- Set frame strata for minimap visibility
@@ -550,11 +596,11 @@ local function CreateMinimapPinFrame(vendor, isOppositeFaction, isUnverified)
 
     -- User-selected base pin color
     local br, bg, bb = VendorMapPins:GetPinColor()
-    local isCustomColor = not (br == 1 and bg == 1 and bb == 1)
+    local isCustomColor = VendorMapPins:IsCustomPinColor()
 
     -- Colored backplate behind icon (only for non-default)
     if isCustomColor then
-        frame.backplate = CreateCircularBackplate(frame, MINIMAP_ICON_SIZE)
+        frame.backplate = CreateCircularBackplate(frame, mmSize + 2)
         if isUnverified then
             frame.backplate:SetVertexColor(1.0, 0.6, 0.2, 0.9)
         elseif isOppositeFaction then
@@ -564,20 +610,22 @@ local function CreateMinimapPinFrame(vendor, isOppositeFaction, isUnverified)
         end
     end
 
-    -- Housing icon: white when non-default, smaller to show backplate
-    local iconSize = isCustomColor and (MINIMAP_ICON_SIZE - 1) or MINIMAP_ICON_SIZE
+    -- Housing icon: tinted when non-default, smaller to show backplate
+    local iconSize = isCustomColor and (mmSize - 2) or mmSize
     frame.icon = frame:CreateTexture(nil, "ARTWORK")
     frame.icon:SetPoint("CENTER")
     frame.icon:SetSize(iconSize, iconSize)
-    frame.icon:SetAtlas("housing-dashboard-homestone-icon", true)
-    if isCustomColor then
-        frame.icon:SetDesaturated(false)
-        frame.icon:SetVertexColor(1.0, 1.0, 1.0, 1.0)
-    elseif isUnverified then
+    frame.icon:SetAtlas("housing-dashboard-homestone-icon", false)
+    if isUnverified then
         frame.icon:SetVertexColor(1.0, 0.6, 0.2, 0.9)  -- Override: always orange
     elseif isOppositeFaction then
-        frame.icon:SetVertexColor(0.5, 0.5, 0.5, 0.8)
+        frame.icon:SetDesaturated(true)
+        frame.icon:SetVertexColor(0.6, 0.6, 0.6, 0.9)
+    elseif isCustomColor then
+        frame.icon:SetDesaturated(true)
+        frame.icon:SetVertexColor(br, bg, bb, 0.95)
     end
+    -- Default: no vertex color call = natural gold atlas
 
     -- Store vendor data
     frame.vendor = vendor
@@ -951,6 +999,50 @@ function VendorMapPins:VendorHasUncollectedItems(vendor)
 
     uncollectedCache[vendor.npcID] = false
     return false  -- All items collected
+end
+
+function VendorMapPins:GetVendorCollectionCounts(vendor)
+    if not vendor or not vendor.npcID then return 0, 0 end
+
+    local items = {}
+
+    -- Static items from vendor database
+    if vendor.items and #vendor.items > 0 then
+        for _, item in ipairs(vendor.items) do
+            local itemID = HA.VendorData and HA.VendorData:GetItemID(item) or (type(item) == "number" and item or item[1])
+            if itemID then
+                items[itemID] = true
+            end
+        end
+    end
+
+    -- Scanned items from VendorScanner
+    if vendor.npcID and HA.Addon and HA.Addon.db and HA.Addon.db.global.scannedVendors then
+        local scannedData = HA.Addon.db.global.scannedVendors[vendor.npcID]
+        if not scannedData and vendor.name and HA.VendorScanner then
+            local correctedID = HA.VendorScanner:GetCorrectedNPCID(vendor.name)
+            if correctedID then
+                scannedData = HA.Addon.db.global.scannedVendors[correctedID]
+            end
+        end
+        local scannedItems = scannedData and (scannedData.items or scannedData.decor)
+        if scannedItems then
+            for _, item in ipairs(scannedItems) do
+                if item.itemID then
+                    items[item.itemID] = true
+                end
+            end
+        end
+    end
+
+    local total, collected = 0, 0
+    for itemID in pairs(items) do
+        total = total + 1
+        if IsItemOwned(itemID) then
+            collected = collected + 1
+        end
+    end
+    return collected, total
 end
 
 function VendorMapPins:InvalidateBadgeCache()
