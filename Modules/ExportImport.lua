@@ -217,16 +217,20 @@ end
 -- Export Functions
 -------------------------------------------------------------------------------
 
--- Format cost data as "c3008:100,i12345:5" string
--- c = currency, i = item cost
+-- Format cost data as "c3008:100,i12345:5,nHonor:500" string
+-- c = currency (by ID), i = item cost, n = currency (by name, no ID available)
 local function FormatCostData(currencies, itemCosts)
     local parts = {}
 
-    -- Add currencies with 'c' prefix
+    -- Add currencies with 'c' prefix (ID known) or 'n' prefix (name only)
     if currencies then
         for _, c in ipairs(currencies) do
             if c.currencyID and c.amount then
                 table.insert(parts, "c" .. c.currencyID .. ":" .. c.amount)
+            elseif c.name and c.amount then
+                -- Escape commas and colons in name to avoid breaking the format
+                local escapedName = c.name:gsub(",", "%%2C"):gsub(":", "%%3A")
+                table.insert(parts, "n" .. escapedName .. ":" .. c.amount)
             end
         end
     end
@@ -442,13 +446,23 @@ local function ParseCostData(costStr)
                 })
             end
         else
-            -- Legacy format: 3008:100 (assume currency)
-            id, amount = pair:match("^(%d+):(%d+)$")
-            if id and amount then
+            -- Name-only currency format: nEscapedName:amount
+            local escapedName, nameAmount = pair:match("^n(.+):(%d+)$")
+            if escapedName and nameAmount then
+                local name = escapedName:gsub("%%2C", ","):gsub("%%3A", ":")
                 table.insert(currencies, {
-                    currencyID = tonumber(id),
-                    amount = tonumber(amount),
+                    name = name,
+                    amount = tonumber(nameAmount),
                 })
+            else
+                -- Legacy format: 3008:100 (assume currency)
+                id, amount = pair:match("^(%d+):(%d+)$")
+                if id and amount then
+                    table.insert(currencies, {
+                        currencyID = tonumber(id),
+                        amount = tonumber(amount),
+                    })
+                end
             end
         end
     end
