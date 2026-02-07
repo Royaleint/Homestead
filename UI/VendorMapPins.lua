@@ -39,8 +39,8 @@ local minimapPinFrames = {}
 
 -- Scale factor to counter canvas scaling (adjust if icons are too big/small)
 local ICON_SCALE = 0.4
--- Minimap icon size - 12 is HandyNotes standard, we use 14 for visibility
-local MINIMAP_ICON_SIZE = 14
+-- Minimap icon size - 12 is HandyNotes standard
+local MINIMAP_ICON_SIZE = 12
 
 -- Pin color presets (base tint applied via SetVertexColor)
 local PIN_COLOR_PRESETS = {
@@ -282,6 +282,15 @@ end
 -- Pin Frame Creation
 -------------------------------------------------------------------------------
 
+local function CreateCircularBackplate(frame, size)
+    local backplate = frame:CreateTexture(nil, "BACKGROUND", nil, 1)
+    backplate:SetPoint("CENTER")
+    backplate:SetSize(size, size)
+    backplate:SetTexture("Interface\\CharacterFrame\\TempPortraitAlphaMask")
+    backplate:SetBlendMode("BLEND")
+    return backplate
+end
+
 local function CreateVendorPinFrame(vendor, isOppositeFaction, isUnverified)
     local frame = CreateFrame("Frame", nil, UIParent)
 
@@ -304,7 +313,19 @@ local function CreateVendorPinFrame(vendor, isOppositeFaction, isUnverified)
     frame.bg:SetAtlas("auctionhouse-itemicon-border-white", false)
     frame.bg:SetVertexColor(0.1, 0.08, 0.02, 1)
 
-    -- Ring border (stays natural gold — atlas doesn't respond well to desaturation)
+    -- Colored backplate: solid color circle between bg and ring (only for non-default)
+    if isCustomColor then
+        frame.backplate = CreateCircularBackplate(frame, baseSize + 4)
+        if isUnverified then
+            frame.backplate:SetVertexColor(1.0, 0.6, 0.2, 0.9)
+        elseif isOppositeFaction then
+            frame.backplate:SetVertexColor(br * 0.5, bg * 0.5, bb * 0.5, 0.9)
+        else
+            frame.backplate:SetVertexColor(br, bg, bb, 0.9)
+        end
+    end
+
+    -- Ring border
     frame.ring = frame:CreateTexture(nil, "BORDER")
     frame.ring:SetPoint("CENTER")
     frame.ring:SetSize(baseSize + 8, baseSize + 8)
@@ -312,23 +333,26 @@ local function CreateVendorPinFrame(vendor, isOppositeFaction, isUnverified)
     if isUnverified then
         frame.ring:SetVertexColor(1.0, 0.6, 0.2, 0.9)  -- Override: always orange
     elseif isOppositeFaction then
-        frame.ring:SetVertexColor(0.5, 0.5, 0.5, 0.8)
+        if isCustomColor then
+            frame.ring:SetVertexColor(br * 0.6, bg * 0.6, bb * 0.6, 0.9)
+        else
+            frame.ring:SetVertexColor(0.5, 0.5, 0.5, 0.8)
+        end
+    elseif isCustomColor then
+        frame.ring:SetVertexColor(br, bg, bb, 0.9)
     end
 
-    -- Housing icon: desaturated + tinted with selected color (same approach as minimap)
+    -- Housing icon: white when non-default, colored backplate shows through
+    local iconSize = baseSize - 8
     frame.icon = frame:CreateTexture(nil, "ARTWORK")
     frame.icon:SetPoint("CENTER")
-    frame.icon:SetSize(baseSize - 8, baseSize - 8)
+    frame.icon:SetSize(iconSize, iconSize)
     frame.icon:SetAtlas("housing-dashboard-homestone-icon", true)
-    if isUnverified then
+    if isCustomColor then
+        frame.icon:SetDesaturated(false)
+        frame.icon:SetVertexColor(1.0, 1.0, 1.0, 1.0)
+    elseif isUnverified then
         frame.icon:SetVertexColor(1.0, 0.7, 0.4, 0.9)  -- Override: always orange
-    elseif isCustomColor then
-        frame.icon:SetDesaturated(true)
-        if isOppositeFaction then
-            frame.icon:SetVertexColor(br * 0.5, bg * 0.5, bb * 0.5, 0.9)
-        else
-            frame.icon:SetVertexColor(br, bg, bb)
-        end
     elseif isOppositeFaction then
         frame.icon:SetVertexColor(0.6, 0.6, 0.6, 0.9)
     end
@@ -407,27 +431,40 @@ local function CreateBadgePinFrame(badgeData)
     frame.bg:SetAtlas("auctionhouse-itemicon-border-white", false)
     frame.bg:SetVertexColor(0.1, 0.08, 0.02, 1)
 
-    -- Ring border (stays natural gold)
+    -- Colored backplate (only for non-default)
+    if isCustomColor then
+        frame.backplate = CreateCircularBackplate(frame, baseSize + 4)
+        if isOppositeFactionOnly then
+            frame.backplate:SetVertexColor(br * 0.6, bg * 0.6, bb * 0.6, 0.9)
+        else
+            frame.backplate:SetVertexColor(br, bg, bb, 0.9)
+        end
+    end
+
+    -- Ring border
     frame.ring = frame:CreateTexture(nil, "BORDER")
     frame.ring:SetPoint("CENTER")
     frame.ring:SetSize(baseSize + 8, baseSize + 8)
     frame.ring:SetAtlas("auctionhouse-itemicon-border-artifact", false)
     if isOppositeFactionOnly then
-        frame.ring:SetVertexColor(0.6, 0.6, 0.6, 0.8)
+        if isCustomColor then
+            frame.ring:SetVertexColor(br * 0.6, bg * 0.6, bb * 0.6, 0.9)
+        else
+            frame.ring:SetVertexColor(0.6, 0.6, 0.6, 0.8)
+        end
+    elseif isCustomColor then
+        frame.ring:SetVertexColor(br, bg, bb, 0.9)
     end
 
-    -- Housing icon: desaturated + tinted with selected color (same approach as minimap)
+    -- Housing icon: white when non-default
+    local iconSize = baseSize - 8
     frame.icon = frame:CreateTexture(nil, "ARTWORK")
     frame.icon:SetPoint("CENTER")
-    frame.icon:SetSize(baseSize - 8, baseSize - 8)
+    frame.icon:SetSize(iconSize, iconSize)
     frame.icon:SetAtlas("housing-dashboard-homestone-icon", true)
     if isCustomColor then
-        frame.icon:SetDesaturated(true)
-        if isOppositeFactionOnly then
-            frame.icon:SetVertexColor(br * 0.6, bg * 0.6, bb * 0.6, 0.9)
-        else
-            frame.icon:SetVertexColor(br, bg, bb)
-        end
+        frame.icon:SetDesaturated(false)
+        frame.icon:SetVertexColor(1.0, 1.0, 1.0, 1.0)
     elseif isOppositeFactionOnly then
         frame.icon:SetVertexColor(0.7, 0.7, 0.7, 0.9)
     end
@@ -515,20 +552,29 @@ local function CreateMinimapPinFrame(vendor, isOppositeFaction, isUnverified)
     local br, bg, bb = VendorMapPins:GetPinColor()
     local isCustomColor = not (br == 1 and bg == 1 and bb == 1)
 
-    -- Simple housing icon only - no decorative borders for minimap
-    -- Minimap has no ring, so the icon itself carries the color for visibility
-    frame.icon = frame:CreateTexture(nil, "ARTWORK")
-    frame.icon:SetAllPoints()
-    frame.icon:SetAtlas("housing-dashboard-homestone-icon", true)
-    if isUnverified then
-        frame.icon:SetVertexColor(1.0, 0.6, 0.2, 0.9)  -- Override: always orange
-    elseif isCustomColor then
-        frame.icon:SetDesaturated(true)
-        if isOppositeFaction then
-            frame.icon:SetVertexColor(br * 0.5, bg * 0.5, bb * 0.5, 0.8)
+    -- Colored backplate behind icon (only for non-default)
+    if isCustomColor then
+        frame.backplate = CreateCircularBackplate(frame, MINIMAP_ICON_SIZE)
+        if isUnverified then
+            frame.backplate:SetVertexColor(1.0, 0.6, 0.2, 0.9)
+        elseif isOppositeFaction then
+            frame.backplate:SetVertexColor(br * 0.5, bg * 0.5, bb * 0.5, 0.9)
         else
-            frame.icon:SetVertexColor(br, bg, bb)
+            frame.backplate:SetVertexColor(br, bg, bb, 0.9)
         end
+    end
+
+    -- Housing icon: white when non-default, smaller to show backplate
+    local iconSize = isCustomColor and (MINIMAP_ICON_SIZE - 1) or MINIMAP_ICON_SIZE
+    frame.icon = frame:CreateTexture(nil, "ARTWORK")
+    frame.icon:SetPoint("CENTER")
+    frame.icon:SetSize(iconSize, iconSize)
+    frame.icon:SetAtlas("housing-dashboard-homestone-icon", true)
+    if isCustomColor then
+        frame.icon:SetDesaturated(false)
+        frame.icon:SetVertexColor(1.0, 1.0, 1.0, 1.0)
+    elseif isUnverified then
+        frame.icon:SetVertexColor(1.0, 0.6, 0.2, 0.9)  -- Override: always orange
     elseif isOppositeFaction then
         frame.icon:SetVertexColor(0.5, 0.5, 0.5, 0.8)
     end
