@@ -177,17 +177,22 @@ local function GetItemCostFromVendor(itemID, npcID)
         end
     end
 
-    -- Fallback: search all vendors for this item
-    for vendorNpcID, vendor in pairs(HA.VendorDatabase.Vendors) do
-        if vendor.items then
-            for _, item in ipairs(vendor.items) do
-                local vendorItemID = HA.VendorData and HA.VendorData:GetItemID(item) or (type(item) == "number" and item or item[1])
-                if vendorItemID == itemID then
-                    local cost = HA.VendorData and HA.VendorData:GetItemCost(item) or (type(item) == "table" and item.cost)
-                    if cost then
-                        return HA.VendorData and HA.VendorData:FormatCost(cost) or FormatCostFallback(cost)
+    -- Fallback: use ByItemID index to find vendors that sell this item
+    if HA.VendorDatabase.ByItemID then
+        local npcIDs = HA.VendorDatabase.ByItemID[itemID]
+        if npcIDs then
+            for _, vendorNpcID in ipairs(npcIDs) do
+                local vendor = HA.VendorDatabase.Vendors[vendorNpcID]
+                if vendor and vendor.items then
+                    for _, item in ipairs(vendor.items) do
+                        local vendorItemID = HA.VendorData and HA.VendorData:GetItemID(item) or (type(item) == "number" and item or item[1])
+                        if vendorItemID == itemID then
+                            local cost = HA.VendorData and HA.VendorData:GetItemCost(item) or (type(item) == "table" and item.cost)
+                            if cost then
+                                return HA.VendorData and HA.VendorData:FormatCost(cost) or FormatCostFallback(cost)
+                            end
+                        end
                     end
-                    -- Found item but no cost, keep searching other vendors
                 end
             end
         end

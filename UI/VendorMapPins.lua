@@ -45,6 +45,12 @@ local MINIMAP_ICON_SIZE = 14
 -- Minimap pins enabled state
 local minimapPinsEnabled = true
 
+-- Cached uncollected status per vendor (invalidated on ownership changes)
+local uncollectedCache = {}
+
+-- Debounce timer for zone change minimap refresh
+local minimapRefreshTimer = nil
+
 -------------------------------------------------------------------------------
 -- Zone to Parent Map Mapping
 -------------------------------------------------------------------------------
@@ -205,6 +211,15 @@ local zoneToContinent = {
     [503] = 12,    -- Brawl'gar Arena (Kalimdor)
     [1473] = 12,   -- Chamber of Heart (Silithus)
 }
+
+-- Reverse index: continent → list of zone mapIDs (built once at load time)
+local continentToZones = {}
+for zoneMapID, contID in pairs(zoneToContinent) do
+    if not continentToZones[contID] then
+        continentToZones[contID] = {}
+    end
+    continentToZones[contID][#continentToZones[contID] + 1] = zoneMapID
+end
 
 local function GetContinentForZone(zoneMapID)
     return zoneToContinent[zoneMapID] or nil
@@ -733,6 +748,16 @@ local function IsItemOwned(itemID)
 end
 
 function VendorMapPins:VendorHasUncollectedItems(vendor)
+    if not vendor or not vendor.npcID then return nil end
+
+    -- Return cached result if available
+    local cached = uncollectedCache[vendor.npcID]
+    if cached ~= nil then
+        -- Cache stores "unknown" string for nil results (nil can't be stored as a value)
+        if cached == "unknown" then return nil end
+        return cached
+    end
+
     -- Get items from multiple sources:
     -- 1. Static data from VendorDatabase (vendor.items)
     -- 2. Dynamic data from VendorScanner (scannedVendors)
@@ -782,16 +807,19 @@ function VendorMapPins:VendorHasUncollectedItems(vendor)
     end
 
     if not hasAnyItems then
+        uncollectedCache[vendor.npcID] = "unknown"
         return nil  -- Unknown - no item data available
     end
 
     -- Check if any items are uncollected
     for itemID, _ in pairs(items) do
         if not IsItemOwned(itemID) then
+            uncollectedCache[vendor.npcID] = true
             return true  -- Has uncollected items
         end
     end
 
+    uncollectedCache[vendor.npcID] = false
     return false  -- All items collected
 end
 
@@ -1217,10 +1245,13 @@ function VendorMapPins:RefreshMinimapPins()
 
     local continentID = GetContinentForZone(playerMapID)
     if continentID and not minimapExcludedContinents[continentID] then
-        for zoneMapID, contID in pairs(zoneToContinent) do
-            if contID == continentID and not mapsToCheckSet[zoneMapID] then
-                mapsToCheck[#mapsToCheck + 1] = zoneMapID
-                mapsToCheckSet[zoneMapID] = true
+        local siblingZones = continentToZones[continentID]
+        if siblingZones then
+            for _, zoneMapID in ipairs(siblingZones) do
+                if not mapsToCheckSet[zoneMapID] then
+                    mapsToCheck[#mapsToCheck + 1] = zoneMapID
+                    mapsToCheckSet[zoneMapID] = true
+                end
             end
         end
     end
@@ -1579,6 +1610,10 @@ function VendorMapPins:Initialize()
     -- Listen for vendor scan events to refresh pins with new data
     if HA.Events then
         HA.Events:RegisterCallback("VENDOR_SCANNED", function(vendorRecord)
+            -- Invalidate uncollected cache for rescanned vendor
+            if vendorRecord and vendorRecord.npcID then
+                uncollectedCache[vendorRecord.npcID] = nil
+            end
             -- Refresh pins if the world map is currently open
             if WorldMapFrame:IsShown() then
                 C_Timer.After(0.1, function()
@@ -1593,6 +1628,8 @@ function VendorMapPins:Initialize()
 
         -- Also listen for ownership cache updates
         HA.Events:RegisterCallback("OWNERSHIP_UPDATED", function()
+            -- Ownership changed — flush all uncollected status
+            wipe(uncollectedCache)
             if WorldMapFrame:IsShown() then
                 C_Timer.After(0.1, function()
                     self:RefreshPins()
@@ -1621,8 +1658,13 @@ function VendorMapPins:Initialize()
     zoneFrame:RegisterEvent("ZONE_CHANGED_NEW_AREA")
     zoneFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
     zoneFrame:SetScript("OnEvent", function(self, event)
-        -- Small delay to ensure map data is available
-        C_Timer.After(0.5, function()
+        -- Debounce: cancel any pending refresh so rapid zone changes
+        -- (ZONE_CHANGED + ZONE_CHANGED_INDOORS firing together) only trigger one refresh
+        if minimapRefreshTimer then
+            minimapRefreshTimer:Cancel()
+        end
+        minimapRefreshTimer = C_Timer.NewTimer(0.5, function()
+            minimapRefreshTimer = nil
             VendorMapPins:RefreshMinimapPins()
         end)
     end)

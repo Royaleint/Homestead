@@ -618,6 +618,11 @@ function VendorScanner:SaveVendorData(scanData)
         HA.Analytics:IncrementCounter("VendorScans")
     end
 
+    -- Invalidate cached vendor list (new scan data may affect results)
+    if HA.VendorDatabase and HA.VendorDatabase.InvalidateVendorCache then
+        HA.VendorDatabase:InvalidateVendorCache()
+    end
+
     -- Fire callback for other modules
     if HA.Events then
         HA.Events:Fire("VENDOR_SCANNED", vendorRecord)

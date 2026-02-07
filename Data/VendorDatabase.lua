@@ -3229,14 +3229,22 @@ function VendorDatabase:HasVendor(npcID)
     return self.Vendors[npcID] ~= nil
 end
 
--- Get all vendors
+-- Get all vendors (cached — result is rebuilt only when InvalidateVendorCache is called)
+local cachedAllVendors = nil
+
 function VendorDatabase:GetAllVendors()
+    if cachedAllVendors then return cachedAllVendors end
     local all = {}
     for npcID, vendor in pairs(self.Vendors) do
         vendor.npcID = npcID
-        table.insert(all, vendor)
+        all[#all + 1] = vendor
     end
+    cachedAllVendors = all
     return all
+end
+
+function VendorDatabase:InvalidateVendorCache()
+    cachedAllVendors = nil
 end
 
 -- Get vendors by map ID

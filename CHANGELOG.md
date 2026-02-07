@@ -6,7 +6,15 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
-## [Unreleased]
+## v1.2.1 (2026-02-06)
+
+### Fixed
+- Hotfix for FPS stutter in vendor-dense locations
+  - Debounce zone change events so rapid transitions only trigger one minimap refresh
+  - Cache GetAllVendors result instead of rebuilding 262-vendor table on every call
+  - Cache per-vendor uncollected status to avoid repeated pcall/API hits on every refresh
+  - Build reverse continent-to-zones index at load time instead of scanning 200+ entries per zone change
+  - Use existing ByItemID index for tooltip cost lookup instead of full vendor table scan
 
 ---
 

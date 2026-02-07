@@ -43,12 +43,6 @@
 - [ ] Bob confirmed tooltip info (rep requirements, world quest vs regular quest distinction) is a differentiator vs ATT
 - [ ] Expand: more source detail, prerequisite info, currency requirements in tooltip
 
-### WagoAnalytics local dev fix
-- [ ] Blocked: WagoAnalyticsShim only downloads during BigWigs packaging, not local dev
-- [ ] Option A: clone shim repo locally
-- [ ] Option B: add defensive nil checks around all analytics calls
-- [ ] Pick one and implement so local dev doesn't throw 16 Lua errors
-
 ---
 
 ## Ongoing / Systemic
@@ -68,6 +62,9 @@
 - [ ] Verify alias system correctly resolves all merged NPC IDs
 
 ---
+
+## Completed (v1.2.1)
+- [x] WagoAnalytics local dev fix — added no-op shim stub at Libs/WagoAnalytics/Shim.lua (2026-02-06)
 
 ## Completed (v1.2.0)
 - [x] v1.2.0 data quality audit — full Hub validation, Classic through TWW (2026-02-05)
