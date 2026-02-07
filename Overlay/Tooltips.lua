@@ -71,7 +71,7 @@ local function IsDecorOwnedByID(itemID)
 
         if success and info then
             -- entrySubtype: 0 = Invalid, 1 = Unowned, 2+ = Owned variants
-            return info.entrySubtype >= 2 or (info.quantity and info.quantity > 0)
+            return (info.entrySubtype and info.entrySubtype >= 2) or (info.quantity and info.quantity > 0)
         end
     end
 

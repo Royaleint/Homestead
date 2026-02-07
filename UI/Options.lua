@@ -123,6 +123,7 @@ local function GetOptionsTable()
                         type = "toggle",
                         name = L["Show on auction house"] or "Show on auction house",
                         desc = "Show overlay icons on auction house items",
+                        width = "double",
                         order = 6,
                         get = function() return HA.Addon.db.profile.overlay.showOnAuctionHouse end,
                         set = function(_, value)
@@ -134,6 +135,7 @@ local function GetOptionsTable()
                         type = "toggle",
                         name = L["Show on housing catalog"] or "Show on housing catalog",
                         desc = "Show overlay icons on housing catalog items",
+                        width = "double",
                         order = 7,
                         get = function() return HA.Addon.db.profile.overlay.showOnHousingCatalog end,
                         set = function(_, value)
@@ -202,6 +204,7 @@ local function GetOptionsTable()
                         type = "toggle",
                         name = L["Show source information"] or "Show source information",
                         desc = "Show where to obtain uncollected items",
+                        width = "double",
                         order = 2,
                         get = function() return HA.Addon.db.profile.tooltip.showSource end,
                         set = function(_, value)
@@ -222,6 +225,7 @@ local function GetOptionsTable()
                         type = "toggle",
                         name = L["Show dye slot information"] or "Show dye slot information",
                         desc = "Show if item can be dyed and how many dye slots",
+                        width = "double",
                         order = 4,
                         get = function() return HA.Addon.db.profile.tooltip.showDyeSlots end,
                         set = function(_, value)
@@ -265,6 +269,7 @@ local function GetOptionsTable()
                         type = "toggle",
                         name = L["Show minimap pins"] or "Show minimap pins",
                         desc = "Show vendor locations on the minimap with elevation arrows",
+                        width = "double",
                         order = 3,
                         get = function() return HA.Addon.db.profile.vendorTracer.showMinimapPins end,
                         set = function(_, value)
@@ -282,6 +287,7 @@ local function GetOptionsTable()
                         type = "toggle",
                         name = L["Show vendor details in tooltips"] or "Show vendor details in tooltips",
                         desc = "Show items sold and collection status when hovering over map pins",
+                        width = "double",
                         order = 4,
                         get = function() return HA.Addon.db.profile.vendorTracer.showVendorDetails end,
                         set = function(_, value)
@@ -292,6 +298,7 @@ local function GetOptionsTable()
                         type = "toggle",
                         name = L["Show opposite faction vendors"] or "Show opposite faction vendors",
                         desc = "Show vendors for the opposite faction with their faction emblem. Useful for completionists to see all available vendors.",
+                        width = "double",
                         order = 5,
                         get = function() return HA.Addon.db.profile.vendorTracer.showOppositeFaction end,
                         set = function(_, value)
@@ -305,6 +312,7 @@ local function GetOptionsTable()
                         type = "toggle",
                         name = L["Show unverified vendors"] or "Show unverified vendors",
                         desc = "Show vendors with unverified locations (orange pins). These are imported from external sources and may have incorrect coordinates. Visit these vendors in-game to verify their location.",
+                        width = "double",
                         order = 6,
                         get = function() return HA.Addon.db.profile.vendorTracer.showUnverifiedVendors == true end,
                         set = function(_, value)
@@ -326,6 +334,7 @@ local function GetOptionsTable()
                         type = "toggle",
                         name = L["Use TomTom for waypoints"] or "Use TomTom for waypoints",
                         desc = "Use TomTom addon for waypoint arrows (if installed)",
+                        width = "double",
                         order = 11,
                         get = function() return HA.Addon.db.profile.vendorTracer.useTomTom end,
                         set = function(_, value)
@@ -339,6 +348,7 @@ local function GetOptionsTable()
                         type = "toggle",
                         name = L["Use native waypoints"] or "Use native waypoints",
                         desc = "Use WoW's built-in waypoint system with map pin",
+                        width = "double",
                         order = 12,
                         get = function() return HA.Addon.db.profile.vendorTracer.useNativeWaypoints end,
                         set = function(_, value)
@@ -352,6 +362,7 @@ local function GetOptionsTable()
                         type = "toggle",
                         name = L["Auto-create waypoint on click"] or "Auto-create waypoint on click",
                         desc = "Automatically create a waypoint when clicking on a vendor in the list or map",
+                        width = "double",
                         order = 13,
                         get = function() return HA.Addon.db.profile.vendorTracer.autoWaypoint end,
                         set = function(_, value)

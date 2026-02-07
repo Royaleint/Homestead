@@ -212,8 +212,8 @@ function VendorScanner:StartScan(npcID)
     local mapID = C_Map.GetBestMapForUnit("player")
     local position = C_Map.GetPlayerMapPosition(mapID, "player")
 
-    -- Get player faction for vendor classification
-    local faction = UnitFactionGroup("player") or "Neutral"
+    -- Get NPC faction for vendor classification
+    local faction = UnitFactionGroup("npc") or "Neutral"
 
     -- Initialize scan state
     scanQueue = {
@@ -370,8 +370,8 @@ function VendorScanner:CheckIfDecorItem(itemLink)
     end
 
     -- Use the Housing Catalog API to check if this item is decor
-    local catalogInfo = CHC.GetCatalogEntryInfoByItem(itemLink, true)
-    if catalogInfo then
+    local ok, catalogInfo = pcall(CHC.GetCatalogEntryInfoByItem, itemLink, true)
+    if ok and catalogInfo then
         -- Extract item ID from link
         local itemID = GetItemInfoInstant(itemLink)
         return true, {

@@ -59,14 +59,14 @@ local function CreateMainFrame()
         edgeFile = nil,
     })
 
-    -- Title text
-    local titleText = frame:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
-    titleText:SetPoint("TOP", 0, -20)
+    -- Title text (parented to titleBar so it renders on top)
+    local titleText = titleBar:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
+    titleText:SetPoint("CENTER", titleBar, "CENTER", 0, 0)
     titleText:SetText("|cFF00FF00Homestead|r")
 
-    -- Version text
-    local versionText = frame:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-    versionText:SetPoint("TOPRIGHT", -20, -20)
+    -- Version text (parented to titleBar, anchored left of close button)
+    local versionText = titleBar:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    versionText:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -40, -20)
     versionText:SetText("v" .. (Constants.VERSION or "0.1.0"))
     versionText:SetTextColor(0.6, 0.6, 0.6)
 

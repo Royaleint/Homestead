@@ -77,6 +77,10 @@ local function SetNativeWaypoint(mapID, x, y, title)
 
     -- Create a user waypoint
     if C_Map and C_Map.SetUserWaypoint then
+        if C_Map and C_Map.CanSetUserWaypointOnMap and not C_Map.CanSetUserWaypointOnMap(mapID) then
+            return false
+        end
+
         local mapPoint = UiMapPoint.CreateFromCoordinates(mapID, x, y)
         C_Map.SetUserWaypoint(mapPoint)
 
@@ -171,14 +175,20 @@ function VendorTracer:SetWaypoint(mapID, x, y, title, vendorInfo)
         return false
     end
 
-    -- Clear existing waypoints
+    -- Delegate to Waypoints utility if available (respects user preferences)
+    if HA.Waypoints then
+        return HA.Waypoints:Set(mapID, x, y, {title = title or "Vendor"})
+    end
+
+    -- Fallback: Clear existing waypoints
     self:ClearWaypoint()
 
     local success = false
     local usedTomTom = false
 
     -- Check user preference for TomTom
-    local preferTomTom = HA.Addon and HA.Addon.db and HA.Addon.db.profile.preferTomTom
+    local vendorTracer = HA.Addon and HA.Addon.db and HA.Addon.db.profile.vendorTracer
+    local preferTomTom = vendorTracer and vendorTracer.useTomTom
 
     -- Try TomTom first if preferred and available
     if preferTomTom and IsTomTomAvailable() then
@@ -188,8 +198,9 @@ function VendorTracer:SetWaypoint(mapID, x, y, title, vendorInfo)
         end
     end
 
-    -- Always set native waypoint (works alongside TomTom)
-    if SetNativeWaypoint(mapID, x, y, title) then
+    -- Set native waypoint if preferred
+    local useNative = not vendorTracer or vendorTracer.useNativeWaypoints ~= false
+    if useNative and SetNativeWaypoint(mapID, x, y, title) then
         success = true
     end
 

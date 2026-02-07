@@ -14,7 +14,7 @@ local Constants = HA.Constants
 -------------------------------------------------------------------------------
 -- Version Info
 -------------------------------------------------------------------------------
-Constants.VERSION = "0.1.0"
+Constants.VERSION = "1.2.2"
 Constants.ADDON_NAME = "Homestead"
 Constants.ADDON_SHORT = "HS"
 
@@ -248,9 +248,9 @@ Constants.Defaults = {
 -------------------------------------------------------------------------------
 Constants.Events = {
     -- Housing events
-    "HOUSING_CATALOG_UPDATED",
+    "HOUSING_STORAGE_UPDATED",
     "HOUSING_DECOR_PLACE_SUCCESS",
-    "HOUSING_DECOR_REMOVE_SUCCESS",
+    "HOUSING_DECOR_REMOVED",
 
     -- Endeavour events
     "NEIGHBORHOOD_INITIATIVE_UPDATED",

@@ -25,11 +25,6 @@ local isInitialized = false
 function DecorTracker:Initialize()
     if isInitialized then return end
 
-    -- Register for housing events
-    Events:RegisterCallback("housingCatalog", function()
-        DecorTracker:OnCatalogUpdated()
-    end)
-
     isInitialized = true
     HA.Addon:Debug("DecorTracker initialized")
 end
@@ -199,20 +194,6 @@ function DecorTracker:GetDecorFromVendor(npcID)
     -- and return all decor items sold by that vendor
 
     return results
-end
-
--------------------------------------------------------------------------------
--- Event Handlers
--------------------------------------------------------------------------------
-
-function DecorTracker:OnCatalogUpdated()
-    -- Clear relevant caches
-    Cache:InvalidateTier("decor")
-
-    -- Notify overlays to refresh
-    Events:RequestUpdate("all")
-
-    HA.Addon:Debug("Decor catalog updated, cache cleared")
 end
 
 -------------------------------------------------------------------------------

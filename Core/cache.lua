@@ -76,9 +76,9 @@ function Cache:Initialize()
     if HA.Addon then
         -- Try to register housing events safely
         local housingEvents = {
-            "HOUSING_CATALOG_UPDATED",
+            "HOUSING_STORAGE_UPDATED",
             "HOUSING_DECOR_PLACE_SUCCESS",
-            "HOUSING_DECOR_REMOVE_SUCCESS",
+            "HOUSING_DECOR_REMOVED",
         }
 
         for _, eventName in ipairs(housingEvents) do

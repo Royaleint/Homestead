@@ -308,10 +308,10 @@ local function SetupEventScanning()
 
     -- These events indicate ownership may have changed
     local housingEvents = {
-        "HOUSING_CATALOG_UPDATED",
+        "HOUSING_STORAGE_UPDATED",
         "NEW_HOUSING_ITEM_ACQUIRED",
         "HOUSING_DECOR_PLACE_SUCCESS",
-        "HOUSING_DECOR_REMOVE_SUCCESS",
+        "HOUSING_DECOR_REMOVED",
     }
 
     for _, event in ipairs(housingEvents) do
@@ -331,8 +331,8 @@ local function SetupEventScanning()
                     CatalogScanner:ScanFullCatalog()
                 end)
             end
-        elseif event == "HOUSING_CATALOG_UPDATED" then
-            HA.Addon:Debug("HOUSING_CATALOG_UPDATED event fired")
+        elseif event == "HOUSING_STORAGE_UPDATED" then
+            HA.Addon:Debug("HOUSING_STORAGE_UPDATED event fired")
             C_Timer.After(0.3, function()
                 CatalogScanner:ScanFullCatalog()
             end)
@@ -341,7 +341,7 @@ local function SetupEventScanning()
             C_Timer.After(0.5, function()
                 CatalogScanner:ScanFullCatalog()
             end)
-        elseif event == "HOUSING_DECOR_PLACE_SUCCESS" or event == "HOUSING_DECOR_REMOVE_SUCCESS" then
+        elseif event == "HOUSING_DECOR_PLACE_SUCCESS" or event == "HOUSING_DECOR_REMOVED" then
             -- Placement/removal might affect ownership counts
             HA.Addon:Debug(event, "fired")
             C_Timer.After(0.5, function()

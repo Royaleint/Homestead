@@ -77,6 +77,10 @@ local function SetNativeWaypoint(mapID, x, y, options)
     end
 
     -- Create new waypoint
+    if C_Map and C_Map.CanSetUserWaypointOnMap and not C_Map.CanSetUserWaypointOnMap(mapID) then
+        return false
+    end
+
     local mapPoint = UiMapPoint.CreateFromCoordinates(mapID, x, y)
     if not mapPoint then
         return false
