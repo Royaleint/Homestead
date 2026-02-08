@@ -54,6 +54,13 @@ always know what you still need.
 - **Nil guards**: mapID in VendorScanner before GetPlayerMapPosition; entrySubtype in Tooltips
 - **Missing method**: Add VendorDatabase:GetAliasCount() (/hs aliases was crashing)
 - **UI polish**: Title bar layering, version text clipping, truncated toggle labels
+- **Stale ScannedByItemID index** after import or clear — tooltip "sold by" lookups now rebuild the index immediately
+- **hasDecor false positive** in V2 import — now checks both `.items` and `.decor` keys when computing flag
+- **Pin and badge caches not invalidated** after import/clear — new `InvalidateAllCaches()` ensures map UI reflects imported data immediately
+- **Partial scans saved as authoritative** — if merchant is closed mid-scan, partial data is now discarded and session lock cleared so vendor can be re-scanned
+- **showVendorDetails wrong profile path** — was `profile.showVendorDetails` (always nil), now correctly reads `profile.vendorTracer.showVendorDetails`
+- **Validation false warnings** for static-format items — removed redundant decor check that assumed `.itemID` key on positional format
+- **Dead AliasLookup infrastructure** cleaned up — removed unused table; aliases resolve at scan time only
 
 ### Database — Vendor Cleanup
 - **Removed 5 vendors**: Jojo Ironbrow (65066, crafted items not vendor-sold), Mistress Mihi (165780, misnamed — actually Mistress Mihaela, no decor), Chamberlain (172555, actually Lord Chamberlain, no decor), and 2 stale aliases
@@ -226,57 +233,5 @@ The result: cleaner maps, accurate tooltips, and way fewer "why is this vendor h
 - CatalogScanner uses `GetCatalogEntryInfoByItem` instead of category enumeration
 - Minimap pin frames parented to UIParent instead of Minimap
 
----
 
-## [0.3.0-alpha] - 2025-01-XX
-
-### Added
-- Vendor Map Pins on world map and minimap
-- HereBeDragons integration for accurate pin positioning
-- Color-coded pins by faction
-- Vendor tooltips with item counts and currency info
-
-### Fixed
-- NPC ID auto-correction system working
-
----
-
-## [0.2.0-alpha] - 2025-01-XX
-
-### Added
-- Vendor Scanner auto-captures vendor data on MERCHANT_SHOW
-- NPC ID correction detection
-- SavedVariables persistence for scanned data
-- `/hs corrections` command
-
----
-
-## [0.1.0-alpha] - 2025-01-XX
-
-### Added
-- Initial addon structure with Ace3 framework
-- Core module system
-- Basic vendor database (187 vendors)
-- Options panel
-- Minimap button via LibDBIcon
-- Slash commands
-
----
-
-## Version Numbering
-
-- **Major.Minor.Patch**
-- Major: Breaking changes or major features
-- Minor: New features, backward compatible
-- Patch: Bug fixes
-
-## Upgrade Notes
-
-### From 0.2.x to 0.3.x
-- No SavedVariables migration needed
-- Map pins are new, no action required
-
-### From 0.1.x to 0.2.x
-- New SavedVariables structure for scannedVendors
-- Old scan data will be lost (expected during alpha)
 

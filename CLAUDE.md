@@ -86,6 +86,9 @@ See `HOUSING_API_REFERENCE.md` for full API surface (343 functions, 125 events).
 - Local functions must be defined before callers in Lua 5.1 (no forward references)
 - `HOUSING_DECOR_REMOVED` not `REMOVE_SUCCESS`; `HOUSING_STORAGE_UPDATED` not `CATALOG_UPDATED`
 - Lua 5.1: no `goto`, no bitwise operators (use `bit.band`/`bit.bor`), `#` undefined on sparse tables
+- After modifying `scannedVendors`, always rebuild `ScannedByItemID` index AND call `InvalidateAllCaches()`
+- Profile settings are nested: `profile.vendorTracer.showVendorDetails`, not `profile.showVendorDetails`
+- Alias system resolves at scan time only (VendorScanner); runtime lookups use canonical NPC IDs
 - See `WOW_ADDON_PATTERNS.md` for comprehensive Lua/WoW development patterns
 
 ## Architecture

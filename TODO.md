@@ -65,7 +65,12 @@
 
 ### Duplicate entry technical debt
 - [ ] After dedup, verify no pins stack on top of each other
-- [ ] Verify alias system correctly resolves all merged NPC IDs
+- [x] Alias system: dead AliasLookup infrastructure cleaned up; aliases resolve at scan time only (2026-02-08)
+
+### Remaining low-priority Codex findings (deferred)
+- [ ] Zone-to-continent mapping duplicated in VendorDatabase.lua and Validation.lua — consolidate to constants.lua
+- [ ] FindVendorByName nondeterministic with duplicate names (low risk, last-write-wins is acceptable)
+- [ ] "Closest vendor" tooltip logic picks first match, not geographically closest (cosmetic)
 
 ---
 
@@ -83,6 +88,17 @@
 - [x] Ring tinting + natural white icon for non-default colors (2026-02-07)
 - [x] Unverified pins remain orange regardless of color selection (2026-02-07)
 - [x] MINIMAP_ICON_SIZE reduced from 14 to 12 (2026-02-07)
+- [x] WOW_ADDON_PATTERNS.md expanded: 579→1152 lines, 9 new sections (texture/atlas, Lua 5.1, color/markup, Map API, pcall, TOC, secure hooks, frame pools, 12.0.0 API changes) (2026-02-08)
+- [x] CLAUDE.md trimmed and improved: 249→204 lines, added lessons learned, git conventions, session workflow, removed redundancy (2026-02-08)
+- [x] Fix stale ScannedByItemID after import/clear — rebuild index in ImportV1, ImportV2, ClearScannedData (2026-02-08)
+- [x] Fix partial vendor scans saved as authoritative — add scanComplete flag, discard partial data on merchant close, clear session lock for re-scan (2026-02-08)
+- [x] Fix hasDecor false positive in V2 import — check both .items and .decor keys (2026-02-08)
+- [x] Fix pin/badge caches not invalidated after import/clear — new InvalidateAllCaches() method (2026-02-08)
+- [x] Fix showVendorDetails reading wrong profile path — profile.showVendorDetails → profile.vendorTracer.showVendorDetails (2026-02-08)
+- [x] Fix validation false warnings — remove redundant decor check that assumed .itemID on static-format items (2026-02-08)
+- [x] Clean up dead AliasLookup infrastructure — remove unused table and misleading BuildAliasIndex comment (2026-02-08)
+- [x] Agentic team plan created (AGENTIC_TEAM_PLAN.md) — Claude lead + Codex/Gemini/ChatGPT (2026-02-08)
+- [x] First Codex 5.3 code review completed — 10 findings, 7 confirmed and fixed (2026-02-08)
 
 ## Completed (v1.2.3)
 - [x] MoP vendor cleanup: Sage Whiteheart NPC 77440→64032, mapID/coords fixed; Jojo Ironbrow removed (crafted items); dangling alias cleaned (2026-02-07)
