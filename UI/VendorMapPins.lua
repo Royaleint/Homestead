@@ -75,6 +75,27 @@ local minimapRefreshTimer = nil
 local lastMinimapMapID = nil
 local lastWorldMapID = nil
 
+-- Item info event tracking for tooltip refresh (GET_ITEM_INFO_RECEIVED)
+local itemInfoEventFrame = CreateFrame("Frame")
+local activeTooltipData = nil      -- {pin, vendor} while tooltip is visible
+local tooltipRebuildPending = false -- Debounce flag for batching rebuilds
+
+itemInfoEventFrame:SetScript("OnEvent", function(self, event, itemID, success)
+    if not success or not activeTooltipData then return end
+    if not tooltipRebuildPending then
+        tooltipRebuildPending = true
+        C_Timer.After(0.05, function()
+            tooltipRebuildPending = false
+            if activeTooltipData and GameTooltip:IsShown() then
+                VendorMapPins:ShowVendorTooltip(
+                    activeTooltipData.pin,
+                    activeTooltipData.vendor
+                )
+            end
+        end)
+    end
+end)
+
 -------------------------------------------------------------------------------
 -- Zone to Parent Map Mapping
 -------------------------------------------------------------------------------
@@ -439,6 +460,8 @@ local function CreateVendorPinFrame(vendor, isOppositeFaction, isUnverified)
         end
     end)
     frame:SetScript("OnLeave", function(self)
+        activeTooltipData = nil
+        itemInfoEventFrame:UnregisterEvent("GET_ITEM_INFO_RECEIVED")
         GameTooltip:Hide()
     end)
     frame:SetScript("OnMouseUp", function(self, button)
@@ -1241,6 +1264,10 @@ end
 function VendorMapPins:ShowVendorTooltip(pin, vendor)
     if not vendor then return end
 
+    -- Track active tooltip for GET_ITEM_INFO_RECEIVED refresh
+    activeTooltipData = { pin = pin, vendor = vendor }
+    itemInfoEventFrame:RegisterEvent("GET_ITEM_INFO_RECEIVED")
+
     local isOpposite = self:IsOppositeFaction(vendor)
     local isUnverified = not IsVendorVerified(vendor)
 
@@ -1695,6 +1722,37 @@ function VendorMapPins:ShowVendorPins(mapID)
                         faction = "Neutral",  -- Default, unknown from scan
                     }
                     ProcessVendor(tempVendor)
+                end
+            end
+        end
+    end
+
+    -- Pre-warm item info cache for all visible vendor pins
+    -- GetItemInfo() triggers async server fetch if not cached; fire-and-forget
+    for _, frame in pairs(vendorPinFrames) do
+        local vendor = frame.vendor
+        if vendor then
+            -- Static DB items (plain int or {itemID, cost=...})
+            if vendor.items then
+                for _, item in ipairs(vendor.items) do
+                    local itemID = HA.VendorData and HA.VendorData:GetItemID(item)
+                        or (type(item) == "number" and item or item[1])
+                    if itemID then
+                        GetItemInfo(itemID)
+                    end
+                end
+            end
+            -- Scanned items ({itemID = X, name = "...", ...})
+            if vendor.npcID and HA.Addon and HA.Addon.db
+                    and HA.Addon.db.global.scannedVendors then
+                local scanned = HA.Addon.db.global.scannedVendors[vendor.npcID]
+                local scannedItems = scanned and (scanned.items or scanned.decor)
+                if scannedItems then
+                    for _, item in ipairs(scannedItems) do
+                        if item.itemID then
+                            GetItemInfo(item.itemID)
+                        end
+                    end
                 end
             end
         end
