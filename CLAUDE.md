@@ -152,6 +152,36 @@ db.global.ownedDecor[itemID] = {
 }
 ```
 
+### V2 Export Format
+Vendor export data format used by `/hs export` command (see ExportImport.lua:339-371).
+
+**Format:**
+```
+V    npcID    name    mapID    x    y    faction    lastScanned    itemCount    decorCount
+I    npcID    itemID    name    price    costData
+```
+
+**Vendor Line Fields:**
+- `itemCount`: Total merchant items (including non-housing items)
+- `decorCount`: Housing decor items only (subset of itemCount)
+- `lastScanned`: Unix timestamp of last scan
+- `coords`: Normalized 0-1 (not 0-100)
+
+**Item Line Fields:**
+- `price`: In copper (1,000,000 copper = 100 gold)
+- `costData`: Format `c3363:100,i12345:5,nHonor:500`
+  - `c` prefix: Currency by ID (e.g., c3363 = Kej)
+  - `i` prefix: Item cost by ID
+  - `n` prefix: Currency by name (when ID unavailable)
+
+**Example:**
+```
+V    255278    Gronthul    2351    0.5410    0.5907    Alliance    1770251675    59    59
+I    255278    244662    Closed Leather Curtains    500000
+I    255278    250094    Empty Orgrimmar Bathtub    750000
+I    255278    250231    Silver Hand Banner    0    c1220:500
+```
+
 ## Known Blizzard API Behaviors
 
 1. **Taint on Catalog Functions**: Most `GetCatalogEntryInfo*` are `AllowedWhenUntainted` — addon code gets nil/errors
