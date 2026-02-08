@@ -6,6 +6,72 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## v1.3.0 (2026-02-07) — Pin Colors, Collection Tracking & Performance
+
+This release overhauls map pin visuals, adds collection progress tracking directly
+on the map, and delivers a wave of performance improvements and bug fixes. Pins are
+now customizable, color-accurate, and show at-a-glance collection status so you
+always know what you still need.
+
+### Added — Pin Color System
+- **10 color presets** for map and minimap pins: Default (Gold), Bright Green, Ice Blue, Light Blue, Cyan, Purple, Pink, Red, Yellow, White
+- **Custom color picker** for full RGB control beyond presets
+- **Color preview swatch** in Options showing approximate in-game appearance
+- Unverified pins always stay orange regardless of color selection
+- Opposite-faction pins dim the chosen color for visual distinction
+
+### Added — Collection Progress on Map
+- **Collected/total ratio** displayed on vendor pins (e.g., "3/12") when viewing zone maps
+- **Color-coded badge counts** on continent and zone maps: green = all collected, white = partial, red = none collected
+- **"Show collection counts" toggle** in Options to disable vendor pin ratios for a cleaner map
+- **Independent size sliders** for world map pins (12-32, default 20) and minimap pins (8-24, default 12)
+
+### Improved — Pin Rendering
+- **Desaturate-before-tint**: Custom colors now desaturate the atlas icon to neutral grey before applying vertex color, so blues, cyans, and purples render accurately instead of being warped to teal by the gold atlas
+- **Circular backplate** using TempPortraitAlphaMask for clean color tinting behind icons
+- **Ring border tinting** subdued to keep icon as focal point
+- **Badge count text** uses outlined + shadowed font instead of a black rectangle, scaled proportionally with pin size (min 8px)
+- **Zoom behavior restored** by removing static SetScale — HereBeDragons SetScalingLimits handles map zoom naturally
+- Default pin size (20) matches Blizzard POI icons for visual consistency
+
+### Improved — Performance
+- **Badge count caching** with cache-miss pattern — computed once, invalidated on ownership changes, vendor scans, merchant close, and settings toggles
+- **Catalog scan coalescing** through a single RequestScan() debounce with scan-while-scanning flag
+- **Minimap dedup guard** skips redundant zone-change refreshes when mapID is unchanged
+- **World map dedup guard** skips redundant SetMapID refreshes
+- Unverified vendors excluded from badge counts when hidden by settings
+
+### Fixed — Bugs
+- **Housing event names**: Replace nonexistent HOUSING_CATALOG_UPDATED with HOUSING_STORAGE_UPDATED; rename HOUSING_DECOR_REMOVE_SUCCESS to HOUSING_DECOR_REMOVED
+- **Vendor faction tagging**: Use UnitFactionGroup("npc") instead of "player"
+- **Taint safety**: Wrap CheckIfDecorItem and C_HousingCatalog calls in pcall
+- **Waypoint guards**: Add CanSetUserWaypointOnMap check before SetUserWaypoint; fix settings path for TomTom preference
+- **Scanner fixes**: CatalogScanner now reads vendor.items (was only checking legacy .decor); VendorScanner no longer caches API at load time; scan retry clears session flag correctly
+- **Export fixes**: Remove broken V1 export path; V2 is now the single format; clear OnEnterPressed handler to prevent sticking
+- **V2 export format**: Extended with 'n' token for name-only currency costs
+- **Currency recording**: Handle nil-link currency costs from GetMerchantItemCostItem with name fallback
+- **Ownership detection**: Check top-level entrySubtype first, then entryID nested
+- **Nil guards**: mapID in VendorScanner before GetPlayerMapPosition; entrySubtype in Tooltips
+- **Missing method**: Add VendorDatabase:GetAliasCount() (/hs aliases was crashing)
+- **UI polish**: Title bar layering, version text clipping, truncated toggle labels
+
+### Database — Vendor Cleanup
+- **Removed 5 vendors**: Jojo Ironbrow (65066, crafted items not vendor-sold), Mistress Mihi (165780, misnamed — actually Mistress Mihaela, no decor), Chamberlain (172555, actually Lord Chamberlain, no decor), and 2 stale aliases
+- **MoP cleanup**: Sage Whiteheart corrected from test NPC 77440 to real NPC 64032 with proper mapID/coords; dangling alias cleaned
+
+### Database — Location Corrections
+- **Sub-zone mapIDs**: Val'zuun 627 to 628 (Underbelly), Torv Dubstomp 650 to 652 (Thunder Totem), Sileas Duskvine 641 to 680 (Suramar)
+- **Scan-verified coordinates** updated for Cinnabar, Cendvin, Faarden the Builder, Maaria
+
+### Database — Item Updates
+- **Faarden the Builder (255213)**: 22 incorrect items replaced with 35 scan-verified items (old items belonged to nearby vendor Xiao Dan)
+- **Silvrath (253067)**: 6 new items added with Dragon Isles Supplies costs (now 14 total)
+- **Cinnabar (252901)**: Populated with 3 Resonance Crystal items (was empty)
+- **Cendvin (226205)**: Populated with 1 item (was empty)
+- **Maaria (85427)**: Added Telredor Recliner, updated coords from scan data
+
+---
+
 ## v1.2.1 (2026-02-06)
 
 ### Fixed

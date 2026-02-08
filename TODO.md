@@ -69,7 +69,7 @@
 
 ---
 
-## Completed (v1.2.4)
+## Completed (v1.3.0)
 - [x] Pin color: desaturate-before-tint for accurate cool colors (blues, cyans, purples) (2026-02-07)
 - [x] Pin color: 10 presets (added light blue, white, yellow) + custom picker (2026-02-07)
 - [x] Pin color: IsCustomPinColor() checks preset name, not RGB values (2026-02-07)
