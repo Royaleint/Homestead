@@ -274,7 +274,7 @@ VendorDatabase.Vendors = {
         faction = "Alliance",
         currency = "Gold",
         expansion = "Classic",
-        items = {{248333, cost = {gold = 1000000}}, {248336, cost = {gold = 3000000}}, {248617, cost = {gold = 1500000}}, {248618, cost = {gold = 2000000}}, {248619, cost = {gold = 2500000}}, {248620, cost = {gold = 1500000}}, {248621, cost = {gold = 3000000}}, {248662, cost = {gold = 5000000}}, {248665, cost = {gold = 2500000}}, {248794, cost = {gold = 500000}}, {248795, cost = {gold = 750000}}, {248797, cost = {gold = 500000}}, {248798, cost = {gold = 2000000}}, {248801, cost = {gold = 1000000}}, {248938, cost = {gold = 1500000}}, {248939, cost = {gold = 1000000}}, {256673, cost = {gold = 10000000}}},
+        items = {{248333, cost = {gold = 1000000}}, {248336, cost = {gold = 3000000}}, {248617, cost = {gold = 1500000}}, {248618, cost = {gold = 2000000}}, {248619, cost = {gold = 2500000}}, {248620, cost = {gold = 1500000}}, {248621, cost = {gold = 3000000}}, {248662, cost = {gold = 5000000}}, {248665, cost = {gold = 2500000}}, {248794, cost = {gold = 500000}}, {248795, cost = {gold = 750000}}, {248797, cost = {gold = 500000}}, {248798, cost = {gold = 2000000}}, {248801, cost = {gold = 1000000}}, {248938, cost = {gold = 1500000}}, {248939, cost = {gold = 1000000}}, {253168, cost = {gold = 160000}}, {256673, cost = {gold = 10000000}}},
     },
 	[50304] = {
         name = "Captain Donald Adams",
@@ -1538,8 +1538,9 @@ VendorDatabase.Vendors = {
         subzone = "Foundation Hall",
         faction = "Neutral",
         currency = "Resonance Crystals",
+        altCurrency = "Gold",
         expansion = "The War Within",
-        items = {245295},
+        items = {{245295, cost = {currencies = {{id = 2815, amount = 1000}}}}, {245296, cost = {currencies = {{id = 2815, amount = 1000}}}}, {245297, cost = {currencies = {{id = 2815, amount = 1000}}}}, {245561, cost = {currencies = {{id = 2815, amount = 650}}}}, {253168, cost = {gold = 200000}}},
     },
     -- Vendors added from in-game scanning (2026-02-03)
     [46555] = {
@@ -2215,7 +2216,7 @@ VendorDatabase.Vendors = {
         faction = "Neutral",
         currency = "Resonance Crystals",
         expansion = "The War Within",
-        items = {253037},
+        items = {{252756, cost = {currencies = {{id = 2815, amount = 800}}}}, {252757, cost = {currencies = {{id = 2815, amount = 900}}}}, {253023, cost = {currencies = {{id = 2815, amount = 800}}}}, {253034, cost = {currencies = {{id = 2815, amount = 450}}}}, {253037, cost = {currencies = {{id = 2815, amount = 600}}}}, {253038, cost = {currencies = {{id = 2815, amount = 500}}}}, {253163, cost = {currencies = {{id = 2815, amount = 900}}}}},
     },
 	[252969] = {
         name = "Jocenna",
@@ -2377,9 +2378,10 @@ VendorDatabase.Vendors = {
         x = 0.538, y = 0.574,
         zone = "Razorwind Shores",
         faction = "Neutral",
-        currency = "Gold",
+        currency = "Kej",
+        altCurrency = "Gold",
         expansion = "The War Within",
-        items = {},
+        items = {{262453, cost = {gold = 5000000, currencies = {{id = 3363, amount = 30}}}}},
     },
 	[254603] = {
         name = "Riica",
