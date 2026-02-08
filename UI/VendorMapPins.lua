@@ -1052,6 +1052,11 @@ function VendorMapPins:InvalidateBadgeCache()
     lastMinimapMapID = nil
 end
 
+function VendorMapPins:InvalidateAllCaches()
+    wipe(uncollectedCache)
+    self:InvalidateBadgeCache()
+end
+
 function VendorMapPins:GetZoneVendorCounts(continentMapID)
     if cachedZoneBadges[continentMapID] then return cachedZoneBadges[continentMapID] end
 

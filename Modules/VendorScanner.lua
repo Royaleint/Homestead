@@ -240,10 +240,18 @@ function VendorScanner:StopScan()
     scanFrame:Hide()
     isScanning = false
 
-    -- Always save vendor data, even if no decor items found
-    -- This allows us to track vendors that have been verified as having no decor
     if scanQueue and scanQueue.npcID then
-        self:SaveVendorData(scanQueue)
+        if scanQueue.scanComplete then
+            -- Full scan finished — save as authoritative data
+            self:SaveVendorData(scanQueue)
+        else
+            -- Merchant closed before scan finished — discard partial data
+            -- Clear session lock so vendor can be re-scanned this session
+            scannedVendorsThisSession[scanQueue.npcID] = nil
+            if HA.Addon then
+                HA.Addon:Debug("Scan aborted for " .. (scanQueue.vendorName or "Unknown") .. " — partial data discarded")
+            end
+        end
     end
 
     scanQueue = {}
@@ -367,6 +375,7 @@ function VendorScanner:ProcessScanQueue()
                 HA.Addon:Print("Scanned vendor: " .. (scanQueue.vendorName or "Unknown") .. " - " .. decorCount .. "/" .. itemCount .. " decor item(s)")
             end
         end
+        scanQueue.scanComplete = true
         self:StopScan()
     end
 end

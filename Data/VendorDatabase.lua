@@ -49,8 +49,8 @@ VendorDatabase.Aliases = {
     [161908] = 150716,
 }
 
--- Runtime lookup index (populated by BuildAliasIndex from static + discovered aliases)
-VendorDatabase.AliasLookup = {}
+-- Note: Aliases are resolved at scan time by VendorScanner:VerifyAndUpdateDatabaseEntry().
+-- Runtime lookups (GetVendor, HasVendor) use canonical NPC IDs only.
 
 -------------------------------------------------------------------------------
 -- Vendors (keyed by NPC ID)

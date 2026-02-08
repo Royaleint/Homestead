@@ -560,9 +560,13 @@ function ExportImport:ImportDataV1(input)
     HA.Addon:Print(string.format("V1 Import complete: %d new, %d updated, %d skipped.",
         imported, updated, skipped))
 
-    -- Refresh map pins if any data changed
+    -- Rebuild indexes and refresh map pins if any data changed
     if imported > 0 or updated > 0 then
+        if HA.VendorData then
+            HA.VendorData:BuildScannedIndex()
+        end
         if HA.VendorMapPins then
+            HA.VendorMapPins:InvalidateAllCaches()
             if WorldMapFrame and WorldMapFrame:IsShown() then
                 HA.VendorMapPins:RefreshPins()
             end
@@ -665,7 +669,7 @@ function ExportImport:ImportDataV2(input)
                 existing.items = items
                 existing.decor = nil  -- Remove old format
             end
-            existing.hasDecor = #(existing.items or {}) > 0
+            existing.hasDecor = #(existing.items or existing.decor or {}) > 0
             existing.importedFrom = "community_v2"
             existing.importedAt = time()
             updated = updated + 1
@@ -677,9 +681,13 @@ function ExportImport:ImportDataV2(input)
     HA.Addon:Print(string.format("V2 Import complete: %d new, %d updated, %d skipped, %d items.",
         imported, updated, skipped, itemsImported))
 
-    -- Refresh map pins if any data changed
+    -- Rebuild indexes and refresh map pins if any data changed
     if imported > 0 or updated > 0 then
+        if HA.VendorData then
+            HA.VendorData:BuildScannedIndex()
+        end
         if HA.VendorMapPins then
+            HA.VendorMapPins:InvalidateAllCaches()
             if WorldMapFrame and WorldMapFrame:IsShown() then
                 HA.VendorMapPins:RefreshPins()
             end
@@ -721,8 +729,12 @@ function ExportImport:ClearScannedData()
 
     HA.Addon:Print(string.format("Cleared %d scanned vendor(s) and reset export timestamp.", count))
 
-    -- Refresh map pins
+    -- Rebuild indexes and refresh map pins
+    if HA.VendorData then
+        HA.VendorData:BuildScannedIndex()
+    end
     if HA.VendorMapPins then
+        HA.VendorMapPins:InvalidateAllCaches()
         if WorldMapFrame and WorldMapFrame:IsShown() then
             HA.VendorMapPins:RefreshPins()
         end

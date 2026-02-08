@@ -243,7 +243,7 @@ function VendorTracer:ShowVendorInfo(vendor)
     if not vendor then return end
 
     -- Check if user wants verbose vendor info
-    if HA.Addon and HA.Addon.db and not HA.Addon.db.profile.showVendorDetails then
+    if HA.Addon and HA.Addon.db and not HA.Addon.db.profile.vendorTracer.showVendorDetails then
         return
     end
 
