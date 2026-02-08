@@ -1759,13 +1759,13 @@ VendorDatabase.Vendors = {
 	[226205] = {
         name = "Cendvin",
         mapID = 2248,
-        x = 0.7437, y = 0.4530,
+        x = 0.7435, y = 0.4528,
         zone = "Isle of Dorn",
         subzone = "Cinderbrew Meadery",
         faction = "Neutral",
         currency = "Sizzling Cinderpollen",
         expansion = "The War Within",
-        items = {},
+        items = {246707},
     },
 	[226994] = {
         name = "Blair Bass",
@@ -2198,13 +2198,13 @@ VendorDatabase.Vendors = {
 	[252901] = {
         name = "Cinnabar",
         mapID = 2248,
-        x = 0.4206, y = 0.7305,
+        x = 0.4204, y = 0.7306,
         zone = "Isle of Dorn",
         subzone = "Freywold Village",
         faction = "Neutral",
         currency = "Resonance Crystals",
         expansion = "The War Within",
-        items = {},
+        items = {{253021, cost = {currencies = {{id = 2815, amount = 400}}}}, {253035, cost = {currencies = {{id = 2815, amount = 300}}}}, {253166, cost = {currencies = {{id = 2815, amount = 1100}}}}},
     },
 	[252910] = {
         name = "Garnett",
@@ -2236,7 +2236,7 @@ VendorDatabase.Vendors = {
         faction = "Neutral",
         currency = "Dragon Isles Supplies",
         expansion = "Dragonflight",
-        items = {{246706, cost = {gold = 100000, currencies = {{id = 2003, amount = 100}}}}, 248104, 248124, 248651, 248653, 248655, 262616, 267082},
+        items = {{246706, cost = {currencies = {{id = 2003, amount = 100}}}}, {247223, cost = {currencies = {{id = 2003, amount = 175}}}}, {248103, cost = {currencies = {{id = 2003, amount = 300}}}}, 248104, {248112, cost = {currencies = {{id = 2003, amount = 400}}}}, 248124, {248651, cost = {currencies = {{id = 2003, amount = 600}}}}, {248652, cost = {currencies = {{id = 2003, amount = 250}}}}, {248653, cost = {currencies = {{id = 2003, amount = 50}}}}, {248655, cost = {currencies = {{id = 2003, amount = 200}}}}, {256169, cost = {currencies = {{id = 2003, amount = 500}}}}, {256429, cost = {currencies = {{id = 2003, amount = 200}}}}, 262616, 267082},
     },
 	[253086] = {
         name = "Jolinth",
@@ -2457,12 +2457,12 @@ VendorDatabase.Vendors = {
 	[255213] = {
         name = "Faarden the Builder",
         mapID = 2352,
-        x = 0.52, y = 0.384,
+        x = 0.5205, y = 0.3833,
         zone = "Founder's Point",
         faction = "Neutral",
         currency = "Gold",
         expansion = "The War Within",
-        items = {{235675, cost = {gold = 500000}}, {235677, cost = {gold = 500000}}, {244665, cost = {gold = 500000}}, {244666, cost = {gold = 500000}}, {245336, cost = {gold = 1000000}}, 245370, {245375, cost = {gold = 1000000}}, 245376, {245384, cost = {gold = 500000}}, {245392, cost = {gold = 500000}}, {245548, cost = {gold = 1250000}}, {245556, cost = {gold = 1000000}}, 246103, 246243, {246245, cost = {gold = 1000000}}, 246246, {246247, cost = {gold = 750000}}, {246248, cost = {gold = 500000}}, 246934, 246935, 248621, {252659, cost = {gold = 750000}}},
+        items = {{235523, cost = {gold = 500000}}, {242951, cost = {gold = 750000}}, {243334, cost = {gold = 500000}}, {244667, cost = {gold = 1250000}}, {245357, cost = {gold = 1500000}}, {245359, cost = {gold = 1500000}}, {245360, cost = {gold = 750000}}, {245365, cost = {gold = 1250000}}, {245366, cost = {gold = 1500000}}, {245367, cost = {gold = 1500000}}, {245368, cost = {gold = 1500000}}, {245372, cost = {gold = 1000000}}, {245374, cost = {gold = 1000000}}, {245377, cost = {gold = 750000}}, {245378, cost = {gold = 1250000}}, {245379, cost = {gold = 1250000}}, {245380, cost = {gold = 1250000}}, {245382, cost = {gold = 1250000}}, {245385, cost = {gold = 1000000}}, {245386, cost = {gold = 1250000}}, {245551, cost = {gold = 750000}}, {245656, cost = {gold = 1500000}}, {245657, cost = {gold = 1250000}}, {245662, cost = {gold = 1000000}}, {246102, cost = {gold = 1250000}}, {246104, cost = {gold = 250000}}, {246105, cost = {gold = 1000000}}, {246106, cost = {gold = 100000}}, {246107, cost = {gold = 1250000}}, {246109, cost = {gold = 250000}}, {246219, cost = {gold = 1000000}}, {246588, cost = {gold = 1500000}}, {246742, cost = {gold = 750000}}, {253590, cost = {gold = 1000000}}, {263025, cost = {gold = 1000000}}},
     },
 	[255216] = {
         name = "Balen Starfinder",
