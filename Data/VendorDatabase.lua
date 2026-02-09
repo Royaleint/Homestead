@@ -1386,6 +1386,7 @@ VendorDatabase.Vendors = {
         faction = "Neutral",
         currency = "Dreamsurge Coalescence",
         expansion = "Events",
+        notes = "Location is not static, she moves with the dreamsurge event",
         items = {257352},
     },
 	[211065] = {

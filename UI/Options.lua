@@ -622,19 +622,7 @@ local function GetOptionsTable()
                         name = " ",
                         order = 7,
                     },
-                    exportButton = {
-                        type = "execute",
-                        name = L["Export Collection Data"] or "Export Collection Data",
-                        desc = "Export your collection data to clipboard",
-                        order = 8,
-                        func = function()
-                            if HA.Addon.ExportData then
-                                HA.Addon:ExportData()
-                            else
-                                HA.Addon:Print("Export feature not yet implemented")
-                            end
-                        end,
-                    },
+                    -- exportButton removed: feature not yet implemented
                 },
             },
 

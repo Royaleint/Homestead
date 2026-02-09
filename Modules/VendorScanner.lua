@@ -901,8 +901,8 @@ function VendorScanner:SaveVendorData(scanData)
             confirmCount = confirmCount,   -- must reach 2 before inDatabase is actionable
         }
         if inStaticDB and confirmCount >= 2 then
-            HA.Addon:Print(string.format(
-                "|cffff9900No-Decor:|r %s (NPC %d) has %d items but 0 decor. Flagged for removal (confirmed %dx).",
+            HA.Addon:Debug(string.format(
+                "No-Decor: %s (NPC %d) has %d items but 0 decor. Flagged for removal (confirmed %dx).",
                 vendorRecord.name, scanData.npcID, vendorRecord.itemCount, confirmCount
             ))
         elseif inStaticDB then

@@ -1259,15 +1259,7 @@ function HousingAddon:OpenOptions()
     end
 end
 
-function HousingAddon:ExportData()
-    -- Will be implemented in Modules/DataExport.lua
-    self:Print("Export - not yet implemented")
-end
-
-function HousingAddon:OpenVendorPanel(search)
-    -- Will be implemented in UI/VendorPanel.lua
-    self:Print("Vendor panel - not yet implemented")
-end
+-- ExportData and OpenVendorPanel stubs removed: not yet implemented
 
 -------------------------------------------------------------------------------
 -- Refresh Functions
