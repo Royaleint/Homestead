@@ -1307,28 +1307,28 @@ end
 function AchievementDecor:DebugPrint()
     local stats = self:GetStats()
 
-    HA.Addon:Print("=== Achievement Decor Stats ===")
-    HA.Addon:Print(string.format("Total achievements tracked: %d", stats.total))
-    HA.Addon:Print(string.format("Total decor items: %d", stats.totalItems))
-    HA.Addon:Print(string.format("Completed: %d / %d (%.1f%%)",
+    HA.Addon:Debug("=== Achievement Decor Stats ===")
+    HA.Addon:Debug(string.format("Total achievements tracked: %d", stats.total))
+    HA.Addon:Debug(string.format("Total decor items: %d", stats.totalItems))
+    HA.Addon:Debug(string.format("Completed: %d / %d (%.1f%%)",
         stats.completed, stats.total,
         stats.total > 0 and (stats.completed / stats.total * 100) or 0))
 
     if stats.total > 0 then
-        HA.Addon:Print("By expansion:")
+        HA.Addon:Debug("By expansion:")
         local expansionOrder = {"TWW", "DF", "SL", "BFA", "Legion", "WoD", "MoP", "Cata", "WotLK", "Classic"}
         for _, exp in ipairs(expansionOrder) do
             local count = stats.byExpansion[exp]
             if count then
-                HA.Addon:Print(string.format("  %s: %d", exp, count))
+                HA.Addon:Debug(string.format("  %s: %d", exp, count))
             end
         end
 
-        HA.Addon:Print("By category:")
+        HA.Addon:Debug("By category:")
         for cat, count in pairs(stats.byCategory) do
-            HA.Addon:Print(string.format("  %s: %d", cat, count))
+            HA.Addon:Debug(string.format("  %s: %d", cat, count))
         end
     else
-        HA.Addon:Print("No achievement data loaded.")
+        HA.Addon:Debug("No achievement data loaded.")
     end
 end

@@ -417,21 +417,21 @@ end
 -- Debug scan to show raw API data for sample items
 function CatalogScanner:DebugScan()
     if not C_HousingCatalog then
-        HA.Addon:Print("C_HousingCatalog not available")
+        HA.Addon:Debug("C_HousingCatalog not available")
         return
     end
 
-    HA.Addon:Print("=== Debug Catalog Scan ===")
+    HA.Addon:Debug("=== Debug Catalog Scan ===")
 
     -- Show API totals
     local totalOwned = C_HousingCatalog.GetDecorTotalOwnedCount and C_HousingCatalog.GetDecorTotalOwnedCount() or "N/A"
     local maxOwned = C_HousingCatalog.GetDecorMaxOwnedCount and C_HousingCatalog.GetDecorMaxOwnedCount() or "N/A"
-    HA.Addon:Print("API Total Owned:", totalOwned)
-    HA.Addon:Print("API Max Owned:", maxOwned)
+    HA.Addon:Debug("API Total Owned:", totalOwned)
+    HA.Addon:Debug("API Max Owned:", maxOwned)
 
     -- Show known item count
     local itemList = CollectAllKnownItemIDs()
-    HA.Addon:Print("Known items in database:", #itemList)
+    HA.Addon:Debug("Known items in database:", #itemList)
 
     -- Show cache size
     local cacheSize = 0
@@ -440,10 +440,10 @@ function CatalogScanner:DebugScan()
             cacheSize = cacheSize + 1
         end
     end
-    HA.Addon:Print("Items in ownership cache:", cacheSize)
+    HA.Addon:Debug("Items in ownership cache:", cacheSize)
 
     -- Test a few items
-    HA.Addon:Print("--- Sample Item Checks ---")
+    HA.Addon:Debug("--- Sample Item Checks ---")
     local sampleCount = 0
     for _, itemData in ipairs(itemList) do
         if sampleCount >= 5 then break end
@@ -453,7 +453,7 @@ function CatalogScanner:DebugScan()
             if info then
                 sampleCount = sampleCount + 1
                 local owned = IsOwned(info) and "YES" or "NO"
-                HA.Addon:Print(string.format("  %d: %s - Owned: %s (qty:%d placed:%d)",
+                HA.Addon:Debug(string.format("  %d: %s - Owned: %s (qty:%d placed:%d)",
                     itemData.itemID,
                     info.name or "Unknown",
                     owned,
@@ -465,7 +465,7 @@ function CatalogScanner:DebugScan()
     end
 
     if sampleCount == 0 then
-        HA.Addon:Print("  No items could be checked. Visit vendors to populate database.")
+        HA.Addon:Debug("  No items could be checked. Visit vendors to populate database.")
     end
 end
 

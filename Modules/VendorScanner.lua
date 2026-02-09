@@ -573,9 +573,9 @@ function VendorScanner:ProcessScanQueue()
         local itemCount = #scanQueue.allItems
         if HA.Addon then
             HA.Addon:Debug("Scan complete: " .. itemCount .. " total items, " .. decorCount .. " decor items")
-            -- Show user-visible message when decor items are found
+            -- Show debug message when decor items are found
             if decorCount > 0 then
-                HA.Addon:Print("Scanned vendor: " .. (scanQueue.vendorName or "Unknown") .. " - " .. decorCount .. "/" .. itemCount .. " decor item(s)")
+                HA.Addon:Debug("Scanned vendor: " .. (scanQueue.vendorName or "Unknown") .. " - " .. decorCount .. "/" .. itemCount .. " decor item(s)")
             end
         end
         scanQueue.scanComplete = true
@@ -639,8 +639,8 @@ function VendorScanner:VerifyAndUpdateDatabaseEntry(npcID, vendorName)
             -- Check NPC ID mismatch
             if vendor.npcID ~= npcID then
                 local oldID = vendor.npcID
-                HA.Addon:Print(string.format(
-                    "|cffff9900NPC ID Mismatch:|r %s - Database has %d, actual is %d. Updating...",
+                HA.Addon:Debug(string.format(
+                    "NPC ID Mismatch: %s - Database has %d, actual is %d. Updating...",
                     vendorName, oldID, npcID
                 ))
 
@@ -906,8 +906,8 @@ function VendorScanner:SaveVendorData(scanData)
                 vendorRecord.name, scanData.npcID, vendorRecord.itemCount, confirmCount
             ))
         elseif inStaticDB then
-            HA.Addon:Print(string.format(
-                "|cffff9900No-Decor:|r %s (NPC %d) has %d items but 0 decor. Needs 1 more scan to flag for removal.",
+            HA.Addon:Debug(string.format(
+                "No-Decor: %s (NPC %d) has %d items but 0 decor. Needs 1 more scan to flag for removal.",
                 vendorRecord.name, scanData.npcID, vendorRecord.itemCount
             ))
         end

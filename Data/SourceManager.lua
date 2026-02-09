@@ -219,44 +219,44 @@ end
 function SourceManager:DebugItem(itemID)
     if not HA.Addon then return end
 
-    HA.Addon:Print("=== Source Debug for itemID:", itemID, "===")
+    HA.Addon:Debug("=== Source Debug for itemID:", itemID, "===")
 
     local source = self:GetSource(itemID)
     if source then
-        HA.Addon:Print("Primary source:", source.type)
+        HA.Addon:Debug("Primary source:", source.type)
         if source.type == "vendor" then
-            HA.Addon:Print("  Vendor:", source.data.name)
-            HA.Addon:Print("  Zone:", source.data.zone)
+            HA.Addon:Debug("  Vendor:", source.data.name)
+            HA.Addon:Debug("  Zone:", source.data.zone)
             if source.data.cost then
                 local costStr = HA.VendorData and HA.VendorData:FormatCost(source.data.cost) or "has cost"
-                HA.Addon:Print("  Cost:", costStr)
+                HA.Addon:Debug("  Cost:", costStr)
             end
         elseif source.type == "quest" then
-            HA.Addon:Print("  Quest:", source.data.questName)
-            HA.Addon:Print("  Quest ID:", source.data.questID)
+            HA.Addon:Debug("  Quest:", source.data.questName)
+            HA.Addon:Debug("  Quest ID:", source.data.questID)
         elseif source.type == "achievement" then
-            HA.Addon:Print("  Achievement:", source.data.achievementName)
-            HA.Addon:Print("  Achievement ID:", source.data.achievementID)
+            HA.Addon:Debug("  Achievement:", source.data.achievementName)
+            HA.Addon:Debug("  Achievement ID:", source.data.achievementID)
         elseif source.type == "profession" then
-            HA.Addon:Print("  Profession:", source.data.profession)
-            HA.Addon:Print("  Recipe:", source.data.recipeName)
+            HA.Addon:Debug("  Profession:", source.data.profession)
+            HA.Addon:Debug("  Recipe:", source.data.recipeName)
         elseif source.type == "drop" then
-            HA.Addon:Print("  Mob:", source.data.mobName)
-            HA.Addon:Print("  Zone:", source.data.zone)
+            HA.Addon:Debug("  Mob:", source.data.mobName)
+            HA.Addon:Debug("  Zone:", source.data.zone)
             if source.data.notes then
-                HA.Addon:Print("  Notes:", source.data.notes)
+                HA.Addon:Debug("  Notes:", source.data.notes)
             end
         end
     else
-        HA.Addon:Print("No source found for this item")
+        HA.Addon:Debug("No source found for this item")
     end
 
     -- Show all sources
     local allSources = self:GetAllSources(itemID)
     if #allSources > 1 then
-        HA.Addon:Print("All sources:", #allSources)
+        HA.Addon:Debug("All sources:", #allSources)
         for i, src in ipairs(allSources) do
-            HA.Addon:Print("  ", i, "-", src.type)
+            HA.Addon:Debug("  ", i, "-", src.type)
         end
     end
 end
