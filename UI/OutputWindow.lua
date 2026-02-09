@@ -118,15 +118,15 @@ local function CreateOutputWindow()
     buttonContainer:SetPoint("BOTTOMLEFT", 16, 8)
     buttonContainer:SetPoint("BOTTOMRIGHT", -16, 8)
 
-    -- Copy All button
+    -- Select All button
     local copyBtn = CreateFrame("Button", nil, buttonContainer, "UIPanelButtonTemplate")
     copyBtn:SetSize(100, 25)
     copyBtn:SetPoint("LEFT", 8, 0)
-    copyBtn:SetText("Copy All")
+    copyBtn:SetText("Select All")
     copyBtn:SetScript("OnClick", function()
         editBox:SetFocus()
         editBox:HighlightText()
-        HA.Addon:Print("Text selected. Press Ctrl+C to copy.")
+        HA.Addon:Print("All text selected. Press Ctrl+C to copy to clipboard.")
     end)
 
     -- Close button (bottom)

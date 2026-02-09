@@ -2,6 +2,63 @@
 
 > **Note:** This file is a living document — update it, don't replace it. It tracks both open tasks and completed work history. Mark items `[x]` when done and add new completed items to the appropriate version section.
 
+## Session Summary (2026-02-08, latest)
+
+**Vendor Scanner Overhaul — VENDOR_Plan.md implementation**
+Full plan in `VENDOR_Plan.md`. 5 parts across 3 phases. Status:
+
+- [x] **Part 1: No-Decor Vendor Tracking** (Phase 1) — DONE
+  - `noDecorVendors` persistent tracking with scanConfidence ("confirmed"/"unknown") and confirmCount
+  - Two-scan threshold: `confirmCount >= 2` before actionable for removal
+  - `ClearScannedData()` preserves noDecorVendors; new `ClearNoDecorData()` and `ClearAllData()`
+  - `ShouldHideVendor()` rewritten to check noDecorVendors with scanConfidence guard
+
+- [x] **Part 2: Enhanced Scanner Data Capture** (Phase 2) — DONE
+  - Location capture (zone, subZone, realZone, parentMapID) in StartScan
+  - `isUsable`/`spellID` saved per item; currency inference (primaryCurrency); expansion inference via ContinentToExpansion
+  - V2 export extended: 14-field vendor line, 8-field item line, `SanitizeExportField()`, deterministic sort by npcID/itemID, `#` comment headers
+  - Import V2 updated with nil fallbacks for new fields
+
+- [x] **Part 2.5: Tooltip Requirement Scraping** (Phase 2) — DONE (awaiting in-game test)
+  - Unnamed tooltip (no global namespace pollution), locale-keyed enUS patterns, pcall safety, three-state model, export `R:` format, Options toggle
+  - SetOwner timing fix applied; scrape moved inside `if isDecor` block; delimiter-safe serialization (EscapeReqValue/UnescapeReqValue)
+  - Awaiting in-game test: visit vendor 252910 with `/hs debug` enabled
+
+- [x] **Part 3: DB Maintenance Tools** (Phase 3) — DONE
+  - `/hs suggest`, `/hs nodecor`, `/hs clearnodecor`, `/hs clearall` — all gated behind developer mode
+  - `/hs devmode` toggle, `IsDevMode()` helper, help text conditionally shown
+  - `/hs suggest` outputs deterministic (sorted npcID) with chat fallback when OutputWindow unavailable
+
+- [x] **Part 4: Export & UI Improvements** (Phase 2) — DONE
+  - "Copy All" → "Select All" button in OutputWindow
+  - Options panel: updated clearScannedButton description, added resetNoDecorButton with confirm dialog
+
+- [x] **Part 5: Python Comparison Script** (Phase 3) — DONE
+  - `scripts/compare_exports.py` — V2 export vs VendorDatabase.lua comparison (NEW/MATCH/UPDATED/FEWER)
+  - `EXPORT_COMPARISON_GUIDE.md` — usage manual
+  - Empty input warning + non-zero exit on invalid export files
+
+**Code review fixes applied (3 rounds, 13 findings):**
+- ShouldHideVendor confidence guard on scannedVendors path
+- Unified ClearScannedData as single source of truth (Options/slash/ExportImport all delegate)
+- ClearAllData upgraded with full index rebuild + pin refresh
+- Unnamed tooltip (no global namespace write)
+- Metadata preservation on rescan (6 fields with `or existingData.field` fallback)
+- Sort guard for polymorphic item shapes (table vs number)
+- ClearNoDecorData pin refresh
+- Dev help text hidden from non-dev users
+- compare_exports.py empty input warning
+- /hs suggest deterministic sort + chat fallback
+
+**Previous sessions (2026-02-08, earlier)**
+- First Codex 5.3 code review: 10 findings, 7 bugs confirmed and fixed (commit 1a97fb4)
+- Tooltip "Unknown Item" on first hover fix (commit b0f4995)
+- V2 export format spec added to CLAUDE.md
+- Community export processed: Garnett +6, Auditor Balwurz +4, The Last Architect +1, Lancy Revshon +1 (commit 7fda76b)
+- v1.3.0 tag created (a1efc9e), CurseForge upload pending
+
+---
+
 ## Known Issues
 - Some vendors may still show incorrect item counts (PARTIAL status from audit)
 - TBC vendors largely deprecated (items removed from game)
@@ -56,6 +113,7 @@
 ### Community scan pipeline
 - [ ] Reddit users are submitting exports. Need efficient merge workflow.
 - [ ] Create merge script or process doc so contributed data gets incorporated quickly.
+- [ ] Google Forms submission pipeline: first submission received but user copied response ID instead of export data — need to follow up
 
 ### Verify imported items are actually housing decor
 - [ ] Housing-Vendor merge may have imported non-decor items into vendor item lists
@@ -73,6 +131,15 @@
 - [ ] "Closest vendor" tooltip logic picks first match, not geographically closest (cosmetic)
 
 ---
+
+### Vendor data investigation needed
+- [ ] Botanist Boh'an [255301]: DB has itemID 266243, export has 266443 — possible Blizzard item ID change or data error
+- [ ] Jolinth [253086]: Export shows itemID 248656, DB has 248111/256168/256169 — completely different items, needs in-game verification
+
+## Completed (v1.3.0+)
+- [x] Fix map pin tooltip "Unknown Item" on first hover — pre-warm cache + GET_ITEM_INFO_RECEIVED event refresh (2026-02-08)
+- [x] Add V2 export format specification to CLAUDE.md and MEMORY.md (2026-02-08)
+- [x] Process community vendor export: Garnett +6, Auditor Balwurz +4, The Last Architect +1, Captain Lancy Revshon +1 (2026-02-08)
 
 ## Completed (v1.3.0)
 - [x] Pin color: desaturate-before-tint for accurate cool colors (blues, cyans, purples) (2026-02-07)

@@ -731,23 +731,36 @@ end
 -- Returns true if vendor should be hidden (unreleased or scanned with no decor)
 local function ShouldHideVendor(vendor)
     if not vendor then return true end
-
-    -- Hide unreleased/datamined vendors
     if vendor.unreleased then return true end
 
-    -- Hide vendors confirmed to have no housing decor
-    if vendor.npcID and HA.Addon and HA.Addon.db and HA.Addon.db.global.scannedVendors then
-        local scannedData = HA.Addon.db.global.scannedVendors[vendor.npcID]
+    local npcID = vendor.npcID
+    if not npcID then return false end
 
+    local db = HA.Addon and HA.Addon.db and HA.Addon.db.global
+    if not db then return false end
+
+    -- Persistent no-decor list (survives ClearScannedData)
+    if db.noDecorVendors and db.noDecorVendors[npcID] then
+        local data = db.noDecorVendors[npcID]
+        -- Defensive: only trust confirmed entries (guards against corrupted SVs)
+        if data.scanConfidence == "confirmed" or data.scanComplete then
+            return true
+        end
+    end
+
+    -- Current scan data (only trust confident scans)
+    if db.scannedVendors then
+        local scannedData = db.scannedVendors[npcID]
         if scannedData then
-            -- hasDecor: true (has decor), false (no decor), nil (old data)
-            if scannedData.hasDecor == false then
-                return true
-            elseif scannedData.hasDecor == nil then
-                -- Old scan data before flag was added - check if decor table is empty
-                local scannedItems = scannedData.items or scannedData.decor
-                if scannedItems and #scannedItems == 0 then
+            local trusted = scannedData.scanConfidence == "confirmed" or scannedData.scanComplete == true
+            if trusted then
+                if scannedData.hasDecor == false then
                     return true
+                elseif scannedData.hasDecor == nil then
+                    local scannedItems = scannedData.items or scannedData.decor
+                    if scannedItems and #scannedItems == 0 then
+                        return true
+                    end
                 end
             end
         end

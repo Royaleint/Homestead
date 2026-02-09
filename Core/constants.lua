@@ -243,6 +243,12 @@ Constants.Defaults = {
         ownedDecor = {},  -- [itemID] = { recordID, lastSeen, name }
         -- Scanned vendor data from VendorScanner
         scannedVendors = {},  -- [npcID] = { npcID, name, mapID, coords, decor, ... }
+        -- Persistent no-decor vendor tracking (survives ClearScannedData)
+        noDecorVendors = {},  -- [npcID] = { name, confirmedAt, itemCount, inDatabase, scanConfidence, confirmCount }
+        -- Experimental: tooltip-based requirement detection
+        enableRequirementScraping = true,
+        -- Developer mode flag (gates advanced commands like /hs suggest, /hs nodecor)
+        developerMode = false,
         -- NPC ID corrections detected when visiting vendors
         npcIDCorrections = {},  -- [vendorName] = { oldID, newID, correctedAt }
     },

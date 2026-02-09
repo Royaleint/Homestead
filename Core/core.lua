@@ -207,6 +207,11 @@ end
 -- Slash Command Handler
 -------------------------------------------------------------------------------
 
+-- Helper: Check if developer mode is enabled
+local function IsDevMode()
+    return HA.Addon.db and HA.Addon.db.global and HA.Addon.db.global.developerMode
+end
+
 function HousingAddon:SlashCommandHandler(input)
     input = input and input:trim():lower() or ""
 
@@ -288,6 +293,73 @@ function HousingAddon:SlashCommandHandler(input)
     elseif input == "welcome" then
         if HA.WelcomeFrame then
             HA.WelcomeFrame:Show()
+        end
+    elseif input == "devmode" then
+        if self.db and self.db.global then
+            self.db.global.developerMode = not self.db.global.developerMode
+            self:Print("Developer mode: " .. (self.db.global.developerMode and "|cff00ff00ON|r" or "|cffff0000OFF|r"))
+        end
+    elseif input == "suggest" then
+        if not IsDevMode() then
+            self:Print("Developer mode required. Enable with /hs devmode")
+            return
+        end
+        self:GenerateDBSuggestions()
+    elseif input == "nodecor" then
+        if not IsDevMode() then
+            self:Print("Developer mode required. Enable with /hs devmode")
+            return
+        end
+        local noDecor = self.db and self.db.global and self.db.global.noDecorVendors
+        if not noDecor or not next(noDecor) then
+            self:Print("No vendors flagged as non-decor.")
+        else
+            local lines = {}
+            local dbCount, totalCount = 0, 0
+            for npcID, data in pairs(noDecor) do
+                totalCount = totalCount + 1
+                local prefix = ""
+                -- Live check: inDatabase snapshot may be stale after DB updates ship
+                local isInDB = HA.VendorDatabase and HA.VendorDatabase:HasVendor(npcID)
+                if isInDB and (data.confirmCount or 1) >= 2 then
+                    dbCount = dbCount + 1
+                    prefix = "|cffff0000[REMOVE]|r "
+                elseif isInDB then
+                    prefix = "|cffff9900[1 SCAN]|r "
+                end
+                table.insert(lines, string.format(
+                    "%s%s (NPC %d) — %d items, 0 decor — confirmed %s",
+                    prefix, data.name or "?", npcID, data.itemCount or 0,
+                    date("%Y-%m-%d", data.confirmedAt or 0)))
+            end
+            table.sort(lines)
+            local header = string.format(
+                "Non-Decor Vendors: %d total, %d in VendorDatabase (need removal)\n\n",
+                totalCount, dbCount)
+            if HA.OutputWindow then
+                HA.OutputWindow:Show("Non-Decor Vendors", header .. table.concat(lines, "\n"))
+            else
+                self:Print(header)
+                for _, line in ipairs(lines) do self:Print(line) end
+            end
+        end
+    elseif input == "clearnodecor" then
+        if not IsDevMode() then
+            self:Print("Developer mode required. Enable with /hs devmode")
+            return
+        end
+        -- Clears ONLY the no-decor list (hidden vendors reappear)
+        if HA.VendorScanner and HA.VendorScanner.ClearNoDecorData then
+            HA.VendorScanner:ClearNoDecorData()
+        end
+    elseif input == "clearall" then
+        if not IsDevMode() then
+            self:Print("Developer mode required. Enable with /hs devmode")
+            return
+        end
+        -- Nuclear: clears BOTH scannedVendors AND noDecorVendors
+        if HA.VendorScanner and HA.VendorScanner.ClearAllData then
+            HA.VendorScanner:ClearAllData()
         end
     else
         self:Print("Unknown command:", input)
@@ -513,6 +585,13 @@ function HousingAddon:PrintHelp()
     self:Print("  /hs testsource [itemID] - Test C_HousingCatalog API")
     self:Print("  /hs welcome - Show welcome/onboarding screen")
     self:Print("  /hs debug - Toggle debug mode")
+    if IsDevMode() then
+        self:Print("  /hs suggest - Generate VendorDatabase.lua entries from scans")
+        self:Print("  /hs nodecor - List non-decor vendors (flagged for removal)")
+        self:Print("  /hs clearnodecor - Clear no-decor flags (hidden vendors reappear)")
+        self:Print("  /hs clearall - Clear ALL vendor data including no-decor flags")
+    end
+    self:Print("  /hs devmode - Toggle developer mode")
     self:Print("  /hs help - Show this help")
 end
 
@@ -890,6 +969,125 @@ function HousingAddon:ShowNPCIDCorrections()
     else
         -- Fallback to old method
         self:ShowCopyableText(table.concat(output, "\n"))
+    end
+end
+
+-- Generate VendorDatabase.lua entries from scanned vendor data
+function HousingAddon:GenerateDBSuggestions()
+    local scanned = self.db.global.scannedVendors
+    if not scanned or not next(scanned) then
+        self:Print("No scanned data. Visit vendors first.")
+        return
+    end
+
+    local output = {}
+    local newVendors, updatedVendors = 0, 0
+
+    -- Collect and sort npcIDs for deterministic output
+    local sortedNPCs = {}
+    for npcID in pairs(scanned) do
+        table.insert(sortedNPCs, npcID)
+    end
+    table.sort(sortedNPCs)
+
+    for _, npcID in ipairs(sortedNPCs) do
+        local vendor = scanned[npcID]
+        local shouldProcess = vendor.hasDecor == true or
+            (vendor.items and #vendor.items > 0)
+
+        if shouldProcess then
+            local existing = HA.VendorDatabase and HA.VendorDatabase:GetVendor(npcID)
+            local items = vendor.items or {}
+
+            if not existing then
+                -- NEW vendor: generate full entry
+                newVendors = newVendors + 1
+                table.insert(output, string.format("    -- NEW VENDOR (scanned %s)",
+                    date("%Y-%m-%d", vendor.lastScanned or 0)))
+                table.insert(output, string.format("    [%d] = {", npcID))
+                table.insert(output, string.format('        name = "%s",',
+                    (vendor.name or "?"):gsub('"', '\\"')))
+                table.insert(output, string.format("        mapID = %d,", vendor.mapID or 0))
+                table.insert(output, string.format("        x = %.4f, y = %.4f,",
+                    vendor.coords and vendor.coords.x or 0,
+                    vendor.coords and vendor.coords.y or 0))
+                table.insert(output, string.format('        zone = "%s",', vendor.zone or ""))
+                table.insert(output, string.format('        faction = "%s",',
+                    vendor.faction or "Neutral"))
+                table.insert(output, string.format('        expansion = "%s",',
+                    vendor.expansion or "Unknown"))
+                table.insert(output, string.format('        currency = "%s",',
+                    vendor.currency or "Gold"))
+                table.insert(output, "        items = {")
+                for _, item in ipairs(items) do
+                    if item.currencies and #item.currencies > 0 then
+                        local currParts = {}
+                        for _, c in ipairs(item.currencies) do
+                            table.insert(currParts, string.format(
+                                "{id = %s, amount = %d}",
+                                c.currencyID and tostring(c.currencyID) or "nil",
+                                c.amount or 0))
+                        end
+                        local goldPart = (item.price and item.price > 0)
+                            and string.format("gold = %d, ", item.price) or ""
+                        table.insert(output, string.format(
+                            "            {%d, cost = {%scurrencies = {%s}}}, -- %s",
+                            item.itemID, goldPart,
+                            table.concat(currParts, ", "),
+                            item.name or ""))
+                    elseif item.price and item.price > 0 then
+                        table.insert(output, string.format(
+                            "            {%d, cost = {gold = %d}}, -- %s",
+                            item.itemID, item.price, item.name or ""))
+                    else
+                        table.insert(output, string.format(
+                            "            %d, -- %s", item.itemID, item.name or ""))
+                    end
+                end
+                table.insert(output, "        },")
+                table.insert(output, "    },")
+                table.insert(output, "")
+            else
+                -- EXISTING vendor: show new items not in static DB
+                local existingItems = {}
+                if existing.items then
+                    for _, item in ipairs(existing.items) do
+                        local id = HA.VendorData and HA.VendorData:GetItemID(item)
+                        if id then existingItems[id] = true end
+                    end
+                end
+                local newItems = {}
+                for _, item in ipairs(items) do
+                    if item.itemID and not existingItems[item.itemID] then
+                        table.insert(newItems, item)
+                    end
+                end
+                if #newItems > 0 then
+                    updatedVendors = updatedVendors + 1
+                    table.insert(output, string.format("    -- %s [%d]: ADD %d item(s)",
+                        vendor.name or "?", npcID, #newItems))
+                    for _, item in ipairs(newItems) do
+                        table.insert(output, string.format("    --   + %d (%s)",
+                            item.itemID, item.name or "?"))
+                    end
+                    table.insert(output, "")
+                end
+            end
+        end
+    end
+
+    if #output == 0 then
+        self:Print("No DB changes suggested. Scanned data matches VendorDatabase.")
+    else
+        local header = string.format(
+            "-- DB Suggestions: %d new vendors, %d vendors with new items\n\n",
+            newVendors, updatedVendors)
+        if HA.OutputWindow then
+            HA.OutputWindow:Show("DB Suggestions", header .. table.concat(output, "\n"))
+        else
+            self:Print(header)
+            for _, line in ipairs(output) do self:Print(line) end
+        end
     end
 end
 

@@ -247,6 +247,88 @@ local function FormatCostData(currencies, itemCosts)
     return table.concat(parts, ",")
 end
 
+-- Sanitize string fields for tab-delimited export
+-- Replaces tabs, newlines, carriage returns with spaces (lossy but safe)
+local function SanitizeExportField(value)
+    if type(value) ~= "string" then return value or "" end
+    return value:gsub("[\t\n\r]", " ")
+end
+
+-- Escape delimiters in requirement values for safe serialization
+-- Commas → %2C, semicolons → %3B, percent → %25 (must escape first)
+local function EscapeReqValue(str)
+    if not str then return "" end
+    str = str:gsub("%%", "%%25")
+    str = str:gsub(",", "%%2C")
+    str = str:gsub(";", "%%3B")
+    return str
+end
+
+-- Unescape requirement values on import
+local function UnescapeReqValue(str)
+    if not str then return "" end
+    str = str:gsub("%%2C", ",")
+    str = str:gsub("%%3B", ";")
+    str = str:gsub("%%25", "%%")
+    return str
+end
+
+-- Format requirements table for export
+-- nil → "", {} → "R:none", populated → "R:type,key=val;type,key=val"
+local function FormatRequirements(requirements)
+    if requirements == nil then return "" end
+    if type(requirements) == "table" and #requirements == 0 then return "R:none" end
+
+    local entries = {}
+    for _, req in ipairs(requirements) do
+        local parts = { EscapeReqValue(req.type or "unknown") }
+        if req.faction then table.insert(parts, "faction=" .. EscapeReqValue(SanitizeExportField(req.faction))) end
+        if req.standing then table.insert(parts, "standing=" .. EscapeReqValue(SanitizeExportField(req.standing))) end
+        if req.name then table.insert(parts, "name=" .. EscapeReqValue(SanitizeExportField(req.name))) end
+        if req.id then table.insert(parts, "id=" .. tostring(req.id)) end
+        if req.level then table.insert(parts, "level=" .. tostring(req.level)) end
+        if req.text then table.insert(parts, "text=" .. EscapeReqValue(SanitizeExportField(req.text))) end
+        table.insert(entries, table.concat(parts, ","))
+    end
+    return "R:" .. table.concat(entries, ";")
+end
+
+-- Parse requirements string from import
+-- "" or missing → nil, "R:none" → {}, "R:..." → parsed table
+local function ParseRequirements(str)
+    if not str or str == "" then return nil end
+    if str == "R:none" then return {} end
+
+    local prefix = str:sub(1, 2)
+    if prefix ~= "R:" then return nil end
+
+    local reqs = {}
+    local data = str:sub(3)
+    for entry in data:gmatch("[^;]+") do
+        local req = {}
+        local first = true
+        for token in entry:gmatch("[^,]+") do
+            if first then
+                req.type = UnescapeReqValue(token)
+                first = false
+            else
+                local key, val = token:match("^(.-)=(.+)$")
+                if key and val then
+                    if key == "id" or key == "level" then
+                        req[key] = tonumber(val)
+                    else
+                        req[key] = UnescapeReqValue(val)
+                    end
+                end
+            end
+        end
+        if req.type then
+            table.insert(reqs, req)
+        end
+    end
+    return reqs
+end
+
 -- Export scanned vendor data
 -- fullExport: include vendors already in VendorDatabase
 -- exportAll: bypass timestamp filter (export everything scanned)
@@ -272,8 +354,18 @@ function ExportImport:ExportScannedVendors(fullExport, exportAll)
     local skippedInDatabase = 0
 
     table.insert(output, EXPORT_PREFIX .. "\n")
+    table.insert(output, "# V: npcID\tname\tmapID\tx\ty\tfaction\ttimestamp\titemCount\tdecorCount\tzone\tsubZone\tparentMapID\texpansion\tcurrency\n")
+    table.insert(output, "# I: npcID\titemID\tname\tprice\tcostData\tisUsable\tspellID\trequirements\n")
 
-    for npcID, vendor in pairs(data) do
+    -- Collect and sort npcIDs for deterministic output
+    local sortedNPCs = {}
+    for npcID in pairs(data) do
+        table.insert(sortedNPCs, npcID)
+    end
+    table.sort(sortedNPCs)
+
+    for _, npcID in ipairs(sortedNPCs) do
+        local vendor = data[npcID]
         -- Get items from either 'items' (new format) or 'decor' (old format)
         local items = vendor.items or vendor.decor or {}
         local shouldProcess = true
@@ -336,22 +428,38 @@ function ExportImport:ExportScannedVendors(fullExport, exportAll)
         if shouldProcess then
             vendorCount = vendorCount + 1
 
-            -- VENDOR line: V:npcID	name	mapID	x	y	faction	timestamp	itemCount	decorCount
-            local vendorLine = string.format("V\t%d\t%s\t%d\t%.4f\t%.4f\t%s\t%d\t%d\t%d\n",
+            -- VENDOR line: V npcID name mapID x y faction timestamp itemCount decorCount zone subZone parentMapID expansion currency
+            local vendorLine = string.format("V\t%d\t%s\t%d\t%.4f\t%.4f\t%s\t%d\t%d\t%d\t%s\t%s\t%s\t%s\t%s\n",
                 vendor.npcID or npcID,
-                (vendor.name or "Unknown"):gsub("\t", " "),
+                SanitizeExportField(vendor.name or "Unknown"),
                 vendor.mapID or 0,
                 vendor.coords and vendor.coords.x or 0,
                 vendor.coords and vendor.coords.y or 0,
-                vendor.faction or "Neutral",
+                SanitizeExportField(vendor.faction or "Neutral"),
                 vendor.lastScanned or 0,
                 vendor.itemCount or #items,
-                vendor.decorCount or #items
+                vendor.decorCount or #items,
+                SanitizeExportField(vendor.zone or ""),
+                SanitizeExportField(vendor.subZone or ""),
+                vendor.parentMapID and tostring(vendor.parentMapID) or "",
+                SanitizeExportField(vendor.expansion or ""),
+                SanitizeExportField(vendor.currency or "")
             )
             table.insert(output, vendorLine)
 
-            -- ITEM lines: I:npcID	itemID	name	price	currencyData	entrySubtype
+            -- Sort items within each vendor for deterministic output
+            local sortedItems = {}
             for _, item in ipairs(items) do
+                table.insert(sortedItems, item)
+            end
+            table.sort(sortedItems, function(a, b)
+                local idA = type(a) == "table" and a.itemID or a
+                local idB = type(b) == "table" and b.itemID or b
+                return (idA or 0) < (idB or 0)
+            end)
+
+            -- ITEM lines: I npcID itemID name price costData isUsable spellID
+            for _, item in ipairs(sortedItems) do
                 local itemID = item.itemID or (type(item) == "table" and item[1]) or item
                 if itemID then
                     itemCount = itemCount + 1
@@ -360,13 +468,16 @@ function ExportImport:ExportScannedVendors(fullExport, exportAll)
                     local price = item.price or 0
                     local costData = FormatCostData(item.currencies, item.itemCosts)
 
-                    -- Format: I	npcID	itemID	name	price	costData
-                    local itemLine = string.format("I\t%d\t%d\t%s\t%d\t%s\n",
+                    -- Format: I npcID itemID name price costData isUsable spellID requirements
+                    local itemLine = string.format("I\t%d\t%d\t%s\t%d\t%s\t%s\t%s\t%s\n",
                         vendor.npcID or npcID,
                         itemID,
-                        itemName:gsub("\t", " "),
+                        SanitizeExportField(itemName),
                         price,
-                        costData
+                        costData,
+                        item.isUsable == nil and "" or tostring(item.isUsable),
+                        item.spellID and tostring(item.spellID) or "",
+                        FormatRequirements(item.requirements)
                     )
                     table.insert(output, itemLine)
                 end
@@ -594,10 +705,12 @@ function ExportImport:ImportDataV2(input)
 
     for line in data:gmatch("[^\r\n]+") do
         local lineType = line:sub(1, 1)
-        local lineData = line:sub(3)  -- Skip "V\t" or "I\t"
 
-        if lineType == "V" then
-            -- VENDOR line: npcID	name	mapID	x	y	faction	timestamp	itemCount	decorCount
+        if lineType == "#" then
+            -- Skip header comments
+        elseif lineType == "V" then
+            local lineData = line:sub(3)  -- Skip "V\t"
+            -- VENDOR line: npcID name mapID x y faction timestamp itemCount decorCount zone subZone parentMapID expansion currency
             local parts = {strsplit("\t", lineData)}
             local npcID = tonumber(parts[1])
             if npcID then
@@ -611,22 +724,36 @@ function ExportImport:ImportDataV2(input)
                     lastScanned = tonumber(parts[7]),
                     itemCount = tonumber(parts[8]),
                     decorCount = tonumber(parts[9]),
+                    -- New V2 fields (nil if not present in older exports)
+                    zone = parts[10] and parts[10] ~= "" and parts[10] or nil,
+                    subZone = parts[11] and parts[11] ~= "" and parts[11] or nil,
+                    parentMapID = tonumber(parts[12]),
+                    expansion = parts[13] and parts[13] ~= "" and parts[13] or nil,
+                    currency = parts[14] and parts[14] ~= "" and parts[14] or nil,
                 }
                 vendorItems[npcID] = {}
             end
         elseif lineType == "I" then
-            -- ITEM line: npcID	itemID	name	price	costData
+            local lineData = line:sub(3)  -- Skip "I\t"
+            -- ITEM line: npcID itemID name price costData isUsable spellID
             local parts = {strsplit("\t", lineData)}
             local npcID = tonumber(parts[1])
             local itemID = tonumber(parts[2])
             if npcID and itemID and vendorItems[npcID] then
                 local currencies, itemCosts = ParseCostData(parts[5])
+                -- Parse isUsable: "true"/"false"/""→nil
+                local isUsable = nil
+                if parts[6] == "true" then isUsable = true
+                elseif parts[6] == "false" then isUsable = false end
                 table.insert(vendorItems[npcID], {
                     itemID = itemID,
                     name = parts[3],
                     price = tonumber(parts[4]),
                     currencies = currencies,
                     itemCosts = itemCosts,
+                    isUsable = isUsable,
+                    spellID = tonumber(parts[7]),
+                    requirements = ParseRequirements(parts[8]),
                     isDecor = true,
                 })
                 itemsImported = itemsImported + 1
@@ -647,6 +774,11 @@ function ExportImport:ImportDataV2(input)
                 mapID = vendorData.mapID,
                 coords = {x = vendorData.x, y = vendorData.y},
                 faction = vendorData.faction,
+                zone = vendorData.zone,
+                subZone = vendorData.subZone,
+                parentMapID = vendorData.parentMapID,
+                expansion = vendorData.expansion,
+                currency = vendorData.currency,
                 lastScanned = vendorData.lastScanned,
                 itemCount = vendorData.itemCount,
                 decorCount = vendorData.decorCount,
@@ -661,6 +793,11 @@ function ExportImport:ImportDataV2(input)
             existing.mapID = vendorData.mapID
             existing.coords = {x = vendorData.x, y = vendorData.y}
             existing.faction = vendorData.faction
+            existing.zone = vendorData.zone
+            existing.subZone = vendorData.subZone
+            existing.parentMapID = vendorData.parentMapID
+            existing.expansion = vendorData.expansion
+            existing.currency = vendorData.currency
             existing.lastScanned = vendorData.lastScanned
             existing.itemCount = vendorData.itemCount
             existing.decorCount = vendorData.decorCount
@@ -709,36 +846,11 @@ end
 -------------------------------------------------------------------------------
 
 function ExportImport:ClearScannedData()
-    if not HA.Addon or not HA.Addon.db or not HA.Addon.db.global then
-        HA.Addon:Print("Database not available.")
-        return
-    end
-
-    local count = 0
-    if HA.Addon.db.global.scannedVendors then
-        for _ in pairs(HA.Addon.db.global.scannedVendors) do
-            count = count + 1
-        end
-    end
-
-    -- Clear scanned vendors
-    HA.Addon.db.global.scannedVendors = {}
-
-    -- Also reset export timestamp
-    HA.Addon.db.global.lastExportTimestamp = nil
-
-    HA.Addon:Print(string.format("Cleared %d scanned vendor(s) and reset export timestamp.", count))
-
-    -- Rebuild indexes and refresh map pins
-    if HA.VendorData then
-        HA.VendorData:BuildScannedIndex()
-    end
-    if HA.VendorMapPins then
-        HA.VendorMapPins:InvalidateAllCaches()
-        if WorldMapFrame and WorldMapFrame:IsShown() then
-            HA.VendorMapPins:RefreshPins()
-        end
-        HA.VendorMapPins:RefreshMinimapPins()
+    -- Delegate to VendorScanner (single source of truth for clear behavior)
+    if HA.VendorScanner and HA.VendorScanner.ClearScannedData then
+        HA.VendorScanner:ClearScannedData()
+    else
+        HA.Addon:Print("VendorScanner not available.")
     end
 end
 

@@ -867,19 +867,40 @@ local function GetOptionsTable()
                         name = " ",
                         order = 15,
                     },
+                    enableRequirementScraping = {
+                        type = "toggle",
+                        name = "Scan item requirements (experimental)",
+                        desc = "Reads tooltip text to detect reputation, quest, and achievement requirements. May break after WoW patches.",
+                        order = 15.5,
+                        get = function() return HA.Addon.db.global.enableRequirementScraping end,
+                        set = function(_, val) HA.Addon.db.global.enableRequirementScraping = val end,
+                    },
                     clearScannedButton = {
                         type = "execute",
                         name = "|cffff0000Clear All Scanned Data|r",
-                        desc = "Remove all scanned vendor data (use with caution!)",
+                        desc = "Remove all scanned vendor data. No-decor vendor hiding is preserved.",
                         order = 16,
                         confirm = true,
                         confirmText = "Are you sure you want to clear all scanned vendor data? This cannot be undone.",
                         func = function()
                             if HA.VendorScanner and HA.VendorScanner.ClearScannedData then
                                 HA.VendorScanner:ClearScannedData()
-                                HA.Addon:Print("Scanned vendor data cleared.")
                             else
                                 HA.Addon:Print("VendorScanner not available")
+                            end
+                        end,
+                    },
+                    resetNoDecorButton = {
+                        type = "execute",
+                        name = "|cffff0000Reset Hidden Vendors|r",
+                        desc = "Clear the persistent no-decor list. Hidden vendors reappear until re-scanned.",
+                        order = 17,
+                        confirm = true,
+                        confirmText = "Un-hide all vendors confirmed as non-decor. They reappear until re-scanned.",
+                        func = function()
+                            -- Route through shared function (handles count, print, cache invalidation)
+                            if HA.VendorScanner and HA.VendorScanner.ClearNoDecorData then
+                                HA.VendorScanner:ClearNoDecorData()
                             end
                         end,
                     },

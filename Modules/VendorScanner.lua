@@ -37,6 +37,162 @@ local SCAN_BATCH_SIZE = 5      -- Items to scan per frame
 local SCAN_DELAY = 0.01        -- Seconds between batches (10ms)
 local MAX_ITEMS_TO_SCAN = 200  -- Safety limit
 
+-- Continent mapID → expansion (derived from VendorDatabase.ContinentNames)
+-- Note: EK (13) and Kalimdor (12) default to "Classic" but may contain
+-- TBC/Cataclysm vendors — this is best-effort. Static DB expansion is authoritative.
+local ContinentToExpansion = {
+    [12]   = "Classic",              -- Kalimdor
+    [13]   = "Classic",              -- Eastern Kingdoms
+    [113]  = "Wrath of the Lich King", -- Northrend
+    [424]  = "Mists of Pandaria",    -- Pandaria
+    [572]  = "Warlords of Draenor",  -- Draenor
+    [619]  = "Legion",               -- Broken Isles
+    [875]  = "Battle for Azeroth",   -- Zandalar
+    [876]  = "Battle for Azeroth",   -- Kul Tiras
+    [1550] = "Shadowlands",          -- Shadowlands
+    [1978] = "Dragonflight",         -- Dragon Isles
+    [2274] = "The War Within",       -- Khaz Algar
+}
+
+-- Locale-keyed requirement patterns for tooltip scraping (experimental).
+-- Only enUS is populated. Future locales: deDE, frFR, esES, ptBR, ruRU, koKR, zhCN, zhTW
+local RequirementPatterns = {
+    enUS = {
+        {
+            -- "Requires The Undying Army - Honored"
+            pattern = "^Requires (.+) %- (.+)$",
+            build = function(c) return { type = "reputation", faction = c[1], standing = c[2] } end,
+        },
+        {
+            -- "Requires: Completion of quest 'Example'" or "Requires: Something"
+            pattern = "^Requires: (.+)$",
+            build = function(c) return { type = "quest", name = c[1] } end,
+        },
+        {
+            -- "Requires Raise an Army (12345)" — achievement with ID
+            pattern = "^Requires (.+) %((%d+)%)$",
+            build = function(c) return { type = "achievement", name = c[1], id = tonumber(c[2]) } end,
+        },
+        {
+            -- "Requires Level 70"
+            pattern = "^Requires Level (%d+)$",
+            build = function(c) return { type = "level", level = tonumber(c[1]) } end,
+        },
+    },
+    -- deDE = { ... },
+    -- frFR = { ... },
+}
+
+-- Hidden scanning tooltip for requirement scraping (created once, reused)
+-- Do NOT use GameTooltip — that would interfere with the player's visible tooltips.
+-- Unnamed frame to avoid global namespace pollution. Font strings registered manually.
+-- SetOwner is called before each use in ScrapeItemRequirements(), not here at load time.
+local scanTooltip = CreateFrame("GameTooltip", nil, UIParent)
+local scanTooltipLeftText = {}
+for i = 1, 30 do
+    local left = scanTooltip:CreateFontString(nil, "ARTWORK", "GameTooltipText")
+    local right = scanTooltip:CreateFontString(nil, "ARTWORK", "GameTooltipText")
+    scanTooltip:AddFontStrings(left, right)
+    scanTooltipLeftText[i] = left
+end
+
+-- Scrape item requirements from hidden tooltip (experimental).
+-- Returns: nil (could not check), {} (no requirements), or table of requirements.
+local function ScrapeItemRequirements(slotIndex)
+    -- Debug: log every call
+    local db = HA.Addon and HA.Addon.db and HA.Addon.db.global
+    local locale = GetLocale()
+    local enabled = db and (db.enableRequirementScraping ~= false) or false
+    if HA.Addon then
+        HA.Addon:Debug(string.format("ScrapeRequirements: slot %d, enabled=%s, locale=%s",
+            slotIndex, tostring(enabled), tostring(locale)))
+    end
+
+    -- Check if scraping is enabled
+    if not db or db.enableRequirementScraping == false then
+        return nil  -- nil = "could not check" (feature disabled)
+    end
+
+    -- Check locale support
+    if not RequirementPatterns[locale] then
+        if HA.Addon then
+            HA.Addon:Debug("ScrapeRequirements: no patterns for locale " .. tostring(locale))
+        end
+        return nil  -- nil = "could not check" (unsupported locale)
+    end
+
+    local ok, requirements = pcall(function()
+        scanTooltip:SetOwner(UIParent, "ANCHOR_NONE")
+        scanTooltip:ClearLines()
+        scanTooltip:SetMerchantItem(slotIndex)
+
+        local numLines = scanTooltip:NumLines()
+        if HA.Addon then
+            HA.Addon:Debug(string.format("ScrapeRequirements: tooltip has %d lines", numLines))
+        end
+        if numLines == 0 then
+            return nil  -- tooltip failed to populate
+        end
+
+        local reqs = {}
+        local patterns = RequirementPatterns[locale]
+
+        for i = 1, numLines do
+            local line = scanTooltipLeftText[i]
+            if line then
+                local text = line:GetText()
+                local r, g, b = line:GetTextColor()
+
+                -- Red text indicates unmet requirements (r > 0.9, g < 0.2, b < 0.2)
+                if text and r and r > 0.9 and g < 0.2 and b < 0.2 then
+                    if HA.Addon then
+                        HA.Addon:Debug(string.format("ScrapeRequirements: RED line %d: '%s' (%.2f,%.2f,%.2f)",
+                            i, text, r, g, b))
+                    end
+                    local matched = false
+
+                    -- Try each pattern type
+                    for _, patternDef in ipairs(patterns) do
+                        local captures = { text:match(patternDef.pattern) }
+                        if #captures > 0 then
+                            local req = patternDef.build(captures)
+                            if req then
+                                table.insert(reqs, req)
+                                matched = true
+                                break
+                            end
+                        end
+                    end
+
+                    -- Unrecognized red text — store raw for developer review
+                    if not matched then
+                        table.insert(reqs, { type = "unknown", text = text })
+                    end
+                end
+            end
+        end
+
+        return reqs  -- {} = "checked, found none"; populated = requirements found
+    end)
+
+    -- Debug: log result
+    local resultStr = "nil"
+    if ok and requirements then
+        resultStr = (#requirements == 0) and "empty({})" or tostring(#requirements) .. " reqs"
+    elseif not ok then
+        resultStr = "pcall_error: " .. tostring(requirements)
+    end
+    if HA.Addon then
+        HA.Addon:Debug(string.format("ScrapeRequirements result: %s", resultStr))
+    end
+
+    if ok then
+        return requirements
+    else
+        return nil  -- pcall failed — treat as "could not check"
+    end
+end
+
 -------------------------------------------------------------------------------
 -- Initialization
 -------------------------------------------------------------------------------
@@ -215,6 +371,25 @@ function VendorScanner:StartScan(npcID)
     -- Get NPC faction for vendor classification
     local faction = UnitFactionGroup("npc") or "Neutral"
 
+    -- Get location context (called inline — NOT cached at file load time)
+    local mapInfo = mapID and C_Map.GetMapInfo(mapID) or nil
+    local zoneName = mapInfo and mapInfo.name or nil
+    local parentMapID = mapInfo and mapInfo.parentMapID or nil
+    local subZone = GetSubZoneText() or nil    -- Global WoW API, do NOT upvalue
+    local realZone = GetRealZoneText() or nil  -- Global WoW API, do NOT upvalue
+
+    -- Infer expansion from continent
+    local expansion = nil
+    if parentMapID then
+        expansion = ContinentToExpansion[parentMapID]
+    end
+    if not expansion and mapID and HA.VendorDatabase and HA.VendorDatabase.ZoneToContinentMap then
+        local continentID = HA.VendorDatabase.ZoneToContinentMap[mapID]
+        if continentID then
+            expansion = ContinentToExpansion[continentID]
+        end
+    end
+
     -- Initialize scan state
     scanQueue = {
         npcID = npcID,
@@ -222,6 +397,11 @@ function VendorScanner:StartScan(npcID)
         mapID = mapID,
         coords = position and { x = position.x, y = position.y } or { x = 0.5, y = 0.5 },
         faction = faction,
+        zone = zoneName,
+        subZone = subZone,
+        realZone = realZone,
+        parentMapID = parentMapID,
+        expansion = expansion,
         currentIndex = 1,
         totalItems = numItems,
         decorItems = {},
@@ -265,6 +445,10 @@ function VendorScanner:ProcessScanQueue()
 
     for i = startIndex, endIndex do
         local itemLink = _G.GetMerchantItemLink and _G.GetMerchantItemLink(i)
+        if not itemLink then
+            -- Merchant slot exists but item data hasn't loaded (slow connection, server lag)
+            scanQueue.hadNilSlots = true
+        end
         if itemLink then
             local itemID = _G.GetMerchantItemID and _G.GetMerchantItemID(i)
 
@@ -284,6 +468,9 @@ function VendorScanner:ProcessScanQueue()
                     extendedCost = info.hasExtendedCost
                     currencyID = info.currencyID
                     spellID = info.spellID
+                else
+                    -- C_MerchantFrame.GetItemInfo returned nil for this slot
+                    scanQueue.hadNilSlots = true
                 end
             end
 
@@ -347,6 +534,19 @@ function VendorScanner:ProcessScanQueue()
 
             -- Store decor items with full data
             if isDecor then
+                -- Scrape requirements only for decor items (experimental)
+                local requirements = ScrapeItemRequirements(i)
+
+                -- Debug: log requirements result per item
+                if HA.Addon then
+                    local reqStr = "nil"
+                    if requirements then
+                        reqStr = (#requirements == 0) and "none" or tostring(#requirements) .. " found"
+                    end
+                    HA.Addon:Debug(string.format("Item %d (%s): requirements=%s",
+                        itemID or 0, name or "?", reqStr))
+                end
+
                 table.insert(scanQueue.decorItems, {
                     itemLink = itemLink,
                     itemID = itemID or (decorInfo and decorInfo.itemID) or GetItemInfoInstant(itemLink),
@@ -354,6 +554,9 @@ function VendorScanner:ProcessScanQueue()
                     price = price,
                     stackCount = stackCount,
                     isPurchasable = isPurchasable,
+                    isUsable = isUsable,    -- Whether player can use/buy this
+                    spellID = spellID,      -- Associated spell if any
+                    requirements = requirements, -- Experimental: tooltip-scraped requirements
                     currencies = (#currencies > 0) and currencies or nil,
                     itemCosts = (#itemCosts > 0) and itemCosts or nil,
                     merchantSlot = i,
@@ -574,6 +777,10 @@ function VendorScanner:SaveVendorData(scanData)
         mapID = scanData.mapID,
         coords = scanData.coords,
         faction = scanData.faction or "Neutral",
+        zone = scanData.zone,
+        subZone = scanData.subZone,
+        realZone = scanData.realZone,
+        parentMapID = scanData.parentMapID,
         lastScanned = time(),
         itemCount = itemCount,      -- Total items at vendor
         decorCount = decorCount,    -- Housing decor items
@@ -589,6 +796,9 @@ function VendorScanner:SaveVendorData(scanData)
             price = item.price,
             stackCount = item.stackCount,
             isPurchasable = item.isPurchasable,
+            isUsable = item.isUsable,
+            spellID = item.spellID,
+            requirements = item.requirements,
             isDecor = true,
         }
 
@@ -604,6 +814,26 @@ function VendorScanner:SaveVendorData(scanData)
 
         table.insert(vendorRecord.items, itemRecord)
     end
+
+    -- Infer primary currency from item cost data
+    local currencyCounts = {}
+    for _, item in ipairs(vendorRecord.items) do
+        if item.currencies then
+            for _, c in ipairs(item.currencies) do
+                local key = c.name or ("Currency " .. tostring(c.currencyID or "?"))
+                currencyCounts[key] = (currencyCounts[key] or 0) + 1
+            end
+        end
+    end
+    local maxCount, primaryCurrency = 0, nil
+    for name, count in pairs(currencyCounts) do
+        if count > maxCount then
+            maxCount = count
+            primaryCurrency = name
+        end
+    end
+    vendorRecord.currency = primaryCurrency
+    vendorRecord.expansion = scanData.expansion
 
     -- Merge with existing data if present (keep more complete record)
     if existingData then
@@ -621,6 +851,14 @@ function VendorScanner:SaveVendorData(scanData)
             end
         end
 
+        -- Preserve metadata when new scan has nil (don't overwrite good data)
+        vendorRecord.zone = vendorRecord.zone or existingData.zone
+        vendorRecord.subZone = vendorRecord.subZone or existingData.subZone
+        vendorRecord.realZone = vendorRecord.realZone or existingData.realZone
+        vendorRecord.parentMapID = vendorRecord.parentMapID or existingData.parentMapID
+        vendorRecord.expansion = vendorRecord.expansion or existingData.expansion
+        vendorRecord.currency = vendorRecord.currency or existingData.currency
+
         -- DON'T merge item lists - use the current scan as authoritative
         -- The current scan is the source of truth for what the vendor sells NOW
     end
@@ -635,6 +873,48 @@ function VendorScanner:SaveVendorData(scanData)
     HA.Addon:Debug("Saved vendor data for " .. scanData.vendorName ..
         " - " .. vendorRecord.decorCount .. "/" .. vendorRecord.itemCount ..
         " decor items, faction: " .. vendorRecord.faction)
+
+    -- Maintain persistent no-decor tracking (survives ClearScannedData)
+    if not HA.Addon.db.global.noDecorVendors then
+        HA.Addon.db.global.noDecorVendors = {}
+    end
+
+    -- Determine scan confidence: "confirmed" only if scan completed AND all item
+    -- slots returned valid data. "unknown" if scan completed but any
+    -- GetMerchantItemInfo() call returned nil during ProcessScanQueue().
+    local scanConfidence = "unknown"
+    if scanData.scanComplete and not scanData.hadNilSlots then
+        scanConfidence = "confirmed"
+    end
+
+    if vendorRecord.hasDecor == false and scanConfidence == "confirmed" then
+        -- Only flag when scan is fully confirmed (no interruption, no nil slots)
+        local existing = HA.Addon.db.global.noDecorVendors[scanData.npcID]
+        local confirmCount = (existing and existing.confirmCount or 0) + 1
+        local inStaticDB = HA.VendorDatabase and HA.VendorDatabase:HasVendor(scanData.npcID)
+        HA.Addon.db.global.noDecorVendors[scanData.npcID] = {
+            name = vendorRecord.name,
+            confirmedAt = time(),
+            itemCount = vendorRecord.itemCount,
+            inDatabase = inStaticDB,       -- snapshot; /hs nodecor uses live check
+            scanConfidence = "confirmed",  -- tri-state: "confirmed" or "unknown"
+            confirmCount = confirmCount,   -- must reach 2 before inDatabase is actionable
+        }
+        if inStaticDB and confirmCount >= 2 then
+            HA.Addon:Print(string.format(
+                "|cffff9900No-Decor:|r %s (NPC %d) has %d items but 0 decor. Flagged for removal (confirmed %dx).",
+                vendorRecord.name, scanData.npcID, vendorRecord.itemCount, confirmCount
+            ))
+        elseif inStaticDB then
+            HA.Addon:Print(string.format(
+                "|cffff9900No-Decor:|r %s (NPC %d) has %d items but 0 decor. Needs 1 more scan to flag for removal.",
+                vendorRecord.name, scanData.npcID, vendorRecord.itemCount
+            ))
+        end
+    elseif vendorRecord.hasDecor == true then
+        -- Re-scan found decor: unhide vendor
+        HA.Addon.db.global.noDecorVendors[scanData.npcID] = nil
+    end
 
     -- Track vendor scan
     if HA.Analytics then
@@ -678,11 +958,70 @@ function VendorScanner:GetScannedVendor(npcID)
 end
 
 function VendorScanner:ClearScannedData()
-    if HA.Addon.db and HA.Addon.db.global then
-        HA.Addon.db.global.scannedVendors = {}
+    if not HA.Addon.db or not HA.Addon.db.global then return end
+
+    local count = 0
+    if HA.Addon.db.global.scannedVendors then
+        for _ in pairs(HA.Addon.db.global.scannedVendors) do count = count + 1 end
     end
+
+    HA.Addon.db.global.scannedVendors = {}
+    -- noDecorVendors intentionally preserved
+    HA.Addon.db.global.lastExportTimestamp = nil
     scannedVendorsThisSession = {}
-    HA.Addon:Debug("Cleared all scanned vendor data")
+
+    -- Rebuild indexes and refresh map pins
+    if HA.VendorData then
+        HA.VendorData:BuildScannedIndex()
+    end
+    if HA.VendorMapPins then
+        HA.VendorMapPins:InvalidateAllCaches()
+        if WorldMapFrame and WorldMapFrame:IsShown() then
+            HA.VendorMapPins:RefreshPins()
+        end
+        HA.VendorMapPins:RefreshMinimapPins()
+    end
+
+    HA.Addon:Print(string.format("Cleared %d scanned vendor(s). No-decor flags preserved.", count))
+end
+
+function VendorScanner:ClearNoDecorData()
+    local count = 0
+    if HA.Addon.db and HA.Addon.db.global and HA.Addon.db.global.noDecorVendors then
+        for _ in pairs(HA.Addon.db.global.noDecorVendors) do count = count + 1 end
+        HA.Addon.db.global.noDecorVendors = {}
+    end
+    if HA.VendorMapPins then
+        HA.VendorMapPins:InvalidateAllCaches()
+        if WorldMapFrame and WorldMapFrame:IsShown() then
+            HA.VendorMapPins:RefreshPins()
+        end
+        HA.VendorMapPins:RefreshMinimapPins()
+    end
+    HA.Addon:Print(string.format("Cleared %d no-decor flag(s). Hidden vendors will reappear.", count))
+end
+
+function VendorScanner:ClearAllData()
+    if not HA.Addon.db or not HA.Addon.db.global then return end
+
+    HA.Addon.db.global.scannedVendors = {}
+    HA.Addon.db.global.noDecorVendors = {}
+    HA.Addon.db.global.lastExportTimestamp = nil
+    scannedVendorsThisSession = {}
+
+    -- Rebuild indexes and refresh map pins
+    if HA.VendorData then
+        HA.VendorData:BuildScannedIndex()
+    end
+    if HA.VendorMapPins then
+        HA.VendorMapPins:InvalidateAllCaches()
+        if WorldMapFrame and WorldMapFrame:IsShown() then
+            HA.VendorMapPins:RefreshPins()
+        end
+        HA.VendorMapPins:RefreshMinimapPins()
+    end
+
+    HA.Addon:Print("Cleared ALL vendor data including no-decor flags.")
 end
 
 -------------------------------------------------------------------------------
