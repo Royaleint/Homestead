@@ -2923,6 +2923,7 @@ function VendorDatabase:BuildIndexes()
 
     for npcID, vendor in pairs(self.Vendors) do
         vendorCount = vendorCount + 1
+        vendor.npcID = npcID
 
         -- Index by mapID
         local mapID = vendor.mapID
@@ -2962,6 +2963,7 @@ function VendorDatabase:BuildIndexes()
             end
         end
     end
+    self.VendorCount = vendorCount
 
     -- Debug output
     if HA.Addon and HA.Addon.db and HA.Addon.db.profile.debug then
@@ -2975,11 +2977,7 @@ end
 
 -- Direct lookup by NPC ID: O(1)
 function VendorDatabase:GetVendor(npcID)
-    local vendor = self.Vendors[npcID]
-    if vendor then
-        vendor.npcID = npcID
-    end
-    return vendor
+    return self.Vendors[npcID]
 end
 
 -- Check if vendor exists
@@ -2993,8 +2991,7 @@ local cachedAllVendors = nil
 function VendorDatabase:GetAllVendors()
     if cachedAllVendors then return cachedAllVendors end
     local all = {}
-    for npcID, vendor in pairs(self.Vendors) do
-        vendor.npcID = npcID
+    for _, vendor in pairs(self.Vendors) do
         all[#all + 1] = vendor
     end
     cachedAllVendors = all
@@ -3013,7 +3010,6 @@ function VendorDatabase:GetVendorsByMapID(mapID)
         for _, npcID in ipairs(npcIDs) do
             local vendor = self.Vendors[npcID]
             if vendor then
-                vendor.npcID = npcID
                 table.insert(vendors, vendor)
             end
         end
@@ -3029,7 +3025,6 @@ function VendorDatabase:GetVendorsByExpansion(expansion)
         for _, npcID in ipairs(npcIDs) do
             local vendor = self.Vendors[npcID]
             if vendor then
-                vendor.npcID = npcID
                 table.insert(vendors, vendor)
             end
         end
@@ -3044,7 +3039,6 @@ function VendorDatabase:FindVendorByName(name)
     if npcID then
         local vendor = self.Vendors[npcID]
         if vendor then
-            vendor.npcID = npcID
             return vendor
         end
     end
@@ -3053,10 +3047,15 @@ end
 
 -- Get total vendor count
 function VendorDatabase:GetVendorCount()
+    if self.VendorCount then
+        return self.VendorCount
+    end
+
     local count = 0
     for _ in pairs(self.Vendors) do
         count = count + 1
     end
+    self.VendorCount = count
     return count
 end
 

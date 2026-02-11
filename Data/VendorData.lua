@@ -107,23 +107,27 @@ VendorData.NPCToVendorName = {}
 --   - Table: {245603, cost = {gold = 5000000, currencies = {{id = 1220, amount = 100}}}}
 -------------------------------------------------------------------------------
 
--- Extract the item ID from an item entry (handles both formats)
-function VendorData:GetItemID(item)
+-- Extract itemID and cost from an item entry (handles both formats)
+local function UnpackItem(item)
     if type(item) == "number" then
-        return item
+        return item, nil
     end
     if type(item) == "table" then
-        return item[1]
+        return item[1], item.cost
     end
-    return nil
+    return nil, nil
+end
+
+-- Extract the item ID from an item entry (handles both formats)
+function VendorData:GetItemID(item)
+    local itemID = UnpackItem(item)
+    return itemID
 end
 
 -- Extract cost data from an item entry (returns nil if no cost data)
 function VendorData:GetItemCost(item)
-    if type(item) == "table" and item.cost then
-        return item.cost
-    end
-    return nil
+    local _, cost = UnpackItem(item)
+    return cost
 end
 
 -- Format cost as a display string (e.g., "10g 50s" or "500 Honor")
