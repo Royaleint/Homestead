@@ -6,12 +6,41 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
-## v1.3.0 (2026-02-07) — Pin Colors, Collection Tracking & Performance
+## v1.3.1 (2026-02-10) — Patch 12.0.1 Compatibility
+
+### Changed
+- **TOC updated to 120001** for WoW patch 12.0.1 (Second Midnight Pre-Expansion Update)
+
+### Fixed
+- **Auto-hide no-decor vendors not working** — `ShouldHideVendor()` checked nonexistent `scanComplete` field; now correctly uses only `scanConfidence == "confirmed"`
+- **Decor detection for achievement-gated items** — Added tooltip fallback: when `GetCatalogEntryInfoByItem()` returns nil, scans merchant tooltip for "Housing Decor" text (catches items like Counterfeit Dark Heart of Galakrond)
+- **GameTooltipTemplate for scan tooltip** — Named frame (`HomesteadScanTooltip`) with `GameTooltipTemplate` inherits font strings required by `SetMerchantItem()` in WoW 12.0+
+- **Comparison script parser** — Fixed nested brace handling and depth-aware item ID extraction in `compare_exports.py`
+
+### Database — Vendor Corrections (scan-verified)
+- **Removed 4 vendors**: Sir Finley Mrrgglton x2 (219460, 208070 — no decor items), Captain Lancy Revshon (45389, empty duplicate), Smaks Topskimmer (167300, empty unverified duplicate)
+- **Domelius** (251042, 251179): Marked unverified — Legion Remix vendor, no longer available in game; decor moved to Val'zuun
+- **Stacks Topskimmer** (251911): Replaced 46 incorrect gold-priced items with 13 confirmed Resonance Crystal items
+- **Eadric the Pure** (100196): Trimmed from 16 to 7 confirmed decor items with proper Order Resources costs
+- **Ransa Greyfeather** (106902): Trimmed from 23 to 8 confirmed items, mapID 650→750 (Thunder Totem), removed altCurrency
+- **Sylvia Hartshorn** (106901): Replaced 6 wrong items with 5 confirmed items, fixed zone/subzone/coords/currency
+- **Selfira Ambergrove** (253387): Removed 2 non-decor items, updated costs and coords from export
+- **Sileas Duskvine** (253434): Replaced 5 wrong items with 1 confirmed item (245701), updated coords, added subzone
+- **Shadow-Sage Brakoss** (85946): Restored after incorrect deletion — confirmed 3 Apexis Crystal items from export
+- **14+ vendors** updated with cost data from in-game export scans (Rae'ana, Cataloger Jakes, Unatos, Ellandrieth, Blair Bass, Rocco Razzboom, and others)
+- **Multiple currency corrections**: Ruuan the Seer and Duskcaller Erthix Gold→Apexis Crystal; various altCurrency fixes
+- **WoD scan**: 10 vendors verified as MATCH
+- **Legion Suramar/Val'sharah/Highmountain scan**: 12 vendors verified as MATCH
+
+---
+
+## v1.3.0 (2026-02-08) — Pin Colors, Collection Tracking, Vendor Scanner Overhaul
 
 This release overhauls map pin visuals, adds collection progress tracking directly
-on the map, and delivers a wave of performance improvements and bug fixes. Pins are
-now customizable, color-accurate, and show at-a-glance collection status so you
-always know what you still need.
+on the map, introduces a full vendor scanner overhaul with developer maintenance
+tools, and delivers a wave of performance improvements and bug fixes. Pins are now
+customizable, color-accurate, and show at-a-glance collection status so you always
+know what you still need.
 
 ### Added — Pin Color System
 - **10 color presets** for map and minimap pins: Default (Gold), Bright Green, Ice Blue, Light Blue, Cyan, Purple, Pink, Red, Yellow, White
@@ -25,6 +54,22 @@ always know what you still need.
 - **Color-coded badge counts** on continent and zone maps: green = all collected, white = partial, red = none collected
 - **"Show collection counts" toggle** in Options to disable vendor pin ratios for a cleaner map
 - **Independent size sliders** for world map pins (12-32, default 20) and minimap pins (8-24, default 12)
+
+### Added — Vendor Scanner Overhaul
+- **No-decor vendor tracking**: Vendors confirmed to sell no housing decor are now persistently tracked with a two-scan confirmation threshold before they're hidden from the map
+- **Enhanced scan data capture**: Location (zone, subZone, parentMapID), `isUsable`/`spellID` per item, automatic currency inference, expansion inference from continent
+- **Tooltip requirement scraping**: Red tooltip text (reputation, profession, achievement gates) is captured during vendor scans and exported in `R:` format
+- **Scan confidence model**: Scans tagged with `scanConfidence` ("confirmed"/"unknown") — untrusted single-scans no longer hide vendors from the map
+- **Metadata preservation**: Rescanning a vendor no longer overwrites zone, expansion, or currency data with nil
+- **"Select All" button** in output window replaces "Copy All" with proper text selection
+- **"Reset Hidden Vendors" button** in Options to clear no-decor flags
+
+### Added — Developer Mode & Maintenance Tools
+- **Developer mode** (`/hs devmode`) — Toggle that gates maintenance commands
+- `/hs suggest` — Generate VendorDatabase.lua entry snippets from scan data (deterministic output, chat fallback)
+- `/hs nodecor` — List all vendors flagged as non-decor with removal status
+- `/hs clearnodecor` — Clear no-decor flags so hidden vendors reappear on the map
+- `/hs clearall` — Nuclear option: clear all scan data and no-decor flags
 
 ### Improved — Pin Rendering
 - **Desaturate-before-tint**: Custom colors now desaturate the atlas icon to neutral grey before applying vertex color, so blues, cyans, and purples render accurately instead of being warped to teal by the gold atlas
@@ -41,13 +86,19 @@ always know what you still need.
 - **World map dedup guard** skips redundant SetMapID refreshes
 - Unverified vendors excluded from badge counts when hidden by settings
 
+### Improved — Chat Output Cleanup
+- **85+ diagnostic messages** routed through `Debug()` — scan details, NPC ID mismatches, confidence values, requirement scraping output, and test command results are now silent unless debug mode (`/hs debug`) is enabled
+- **Debug/test commands** (`/hs testlookup`, `/hs testsource`, `/hs debugscan`, `/hs achievements`, `/hs aliases`) hidden from `/hs help` unless debug mode is on
+- Removed placeholder "not yet implemented" messages from Options panel and dead code stubs
+
 ### Fixed — Bugs
+- **Tooltip "Unknown Item" on first hover** — Pre-warms item info cache via `GetItemInfo()` when pins load; `GET_ITEM_INFO_RECEIVED` event auto-refreshes the tooltip with a 0.05s debounce
 - **Housing event names**: Replace nonexistent HOUSING_CATALOG_UPDATED with HOUSING_STORAGE_UPDATED; rename HOUSING_DECOR_REMOVE_SUCCESS to HOUSING_DECOR_REMOVED
 - **Vendor faction tagging**: Use UnitFactionGroup("npc") instead of "player"
 - **Taint safety**: Wrap CheckIfDecorItem and C_HousingCatalog calls in pcall
 - **Waypoint guards**: Add CanSetUserWaypointOnMap check before SetUserWaypoint; fix settings path for TomTom preference
 - **Scanner fixes**: CatalogScanner now reads vendor.items (was only checking legacy .decor); VendorScanner no longer caches API at load time; scan retry clears session flag correctly
-- **Export fixes**: Remove broken V1 export path; V2 is now the single format; clear OnEnterPressed handler to prevent sticking
+- **Export fixes**: Remove broken V1 export path; V2 is now the single format; clear OnEnterPressed handler to prevent sticking; delimiter-safe requirement serialization (`%2C`/`%3B` encoding); sort guard for polymorphic item shapes (table vs number)
 - **V2 export format**: Extended with 'n' token for name-only currency costs
 - **Currency recording**: Handle nil-link currency costs from GetMerchantItemCostItem with name fallback
 - **Ownership detection**: Check top-level entrySubtype first, then entryID nested
@@ -61,6 +112,8 @@ always know what you still need.
 - **showVendorDetails wrong profile path** — was `profile.showVendorDetails` (always nil), now correctly reads `profile.vendorTracer.showVendorDetails`
 - **Validation false warnings** for static-format items — removed redundant decor check that assumed `.itemID` key on positional format
 - **Dead AliasLookup infrastructure** cleaned up — removed unused table; aliases resolve at scan time only
+- **Unified ClearScannedData path** — Options button, `/hs clearscans`, and ExportImport all route through a single source of truth with proper index rebuild, cache invalidation, and pin refresh
+- **ClearNoDecorData** now refreshes world map and minimap pins immediately
 
 ### Database — Vendor Cleanup
 - **Removed 5 vendors**: Jojo Ironbrow (65066, crafted items not vendor-sold), Mistress Mihi (165780, misnamed — actually Mistress Mihaela, no decor), Chamberlain (172555, actually Lord Chamberlain, no decor), and 2 stale aliases
@@ -76,6 +129,10 @@ always know what you still need.
 - **Cinnabar (252901)**: Populated with 3 Resonance Crystal items (was empty)
 - **Cendvin (226205)**: Populated with 1 item (was empty)
 - **Maaria (85427)**: Added Telredor Recliner, updated coords from scan data
+- **Auditor Balwurz (235250)**: Expanded from 1 to 5 items with full Resonance Crystal costs
+- **Garnett (50277)**: +1 item (253168) from community export scan
+- **The Last Architect (254591)**: +1 item, currency corrected to Kej with Gold alt-currency
+- **Celestine of the Harvest (210608)**: Added note — location is not static, moves with dreamsurge event
 
 ---
 

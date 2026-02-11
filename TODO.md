@@ -2,60 +2,19 @@
 
 > **Note:** This file is a living document — update it, don't replace it. It tracks both open tasks and completed work history. Mark items `[x]` when done and add new completed items to the appropriate version section.
 
-## Session Summary (2026-02-08, latest)
+## Session Summary (2026-02-10, latest)
 
-**Vendor Scanner Overhaul — VENDOR_Plan.md implementation**
-Full plan in `VENDOR_Plan.md`. 5 parts across 3 phases. Status:
+**This session completed:**
+- TOC updated from 120000 to 120001 for WoW patch 12.0.1 (Second Midnight Pre-Expansion Update)
+- CLAUDE.md updated with 12.0.1 target, new housing APIs, refactoring contract reference
+- `Homestead-v1.3.1.zip` packaged (315 KB, 92 files) for manual upload
 
-- [x] **Part 1: No-Decor Vendor Tracking** (Phase 1) — DONE
-  - `noDecorVendors` persistent tracking with scanConfidence ("confirmed"/"unknown") and confirmCount
-  - Two-scan threshold: `confirmCount >= 2` before actionable for removal
-  - `ClearScannedData()` preserves noDecorVendors; new `ClearNoDecorData()` and `ClearAllData()`
-  - `ShouldHideVendor()` rewritten to check noDecorVendors with scanConfidence guard
-
-- [x] **Part 2: Enhanced Scanner Data Capture** (Phase 2) — DONE
-  - Location capture (zone, subZone, realZone, parentMapID) in StartScan
-  - `isUsable`/`spellID` saved per item; currency inference (primaryCurrency); expansion inference via ContinentToExpansion
-  - V2 export extended: 14-field vendor line, 8-field item line, `SanitizeExportField()`, deterministic sort by npcID/itemID, `#` comment headers
-  - Import V2 updated with nil fallbacks for new fields
-
-- [x] **Part 2.5: Tooltip Requirement Scraping** (Phase 2) — DONE (awaiting in-game test)
-  - Unnamed tooltip (no global namespace pollution), locale-keyed enUS patterns, pcall safety, three-state model, export `R:` format, Options toggle
-  - SetOwner timing fix applied; scrape moved inside `if isDecor` block; delimiter-safe serialization (EscapeReqValue/UnescapeReqValue)
-  - Awaiting in-game test: visit vendor 252910 with `/hs debug` enabled
-
-- [x] **Part 3: DB Maintenance Tools** (Phase 3) — DONE
-  - `/hs suggest`, `/hs nodecor`, `/hs clearnodecor`, `/hs clearall` — all gated behind developer mode
-  - `/hs devmode` toggle, `IsDevMode()` helper, help text conditionally shown
-  - `/hs suggest` outputs deterministic (sorted npcID) with chat fallback when OutputWindow unavailable
-
-- [x] **Part 4: Export & UI Improvements** (Phase 2) — DONE
-  - "Copy All" → "Select All" button in OutputWindow
-  - Options panel: updated clearScannedButton description, added resetNoDecorButton with confirm dialog
-
-- [x] **Part 5: Python Comparison Script** (Phase 3) — DONE
-  - `scripts/compare_exports.py` — V2 export vs VendorDatabase.lua comparison (NEW/MATCH/UPDATED/FEWER)
-  - `EXPORT_COMPARISON_GUIDE.md` — usage manual
-  - Empty input warning + non-zero exit on invalid export files
-
-**Code review fixes applied (3 rounds, 13 findings):**
-- ShouldHideVendor confidence guard on scannedVendors path
-- Unified ClearScannedData as single source of truth (Options/slash/ExportImport all delegate)
-- ClearAllData upgraded with full index rebuild + pin refresh
-- Unnamed tooltip (no global namespace write)
-- Metadata preservation on rescan (6 fields with `or existingData.field` fallback)
-- Sort guard for polymorphic item shapes (table vs number)
-- ClearNoDecorData pin refresh
-- Dev help text hidden from non-dev users
-- compare_exports.py empty input warning
-- /hs suggest deterministic sort + chat fallback
-
-**Previous sessions (2026-02-08, earlier)**
-- First Codex 5.3 code review: 10 findings, 7 bugs confirmed and fixed (commit 1a97fb4)
-- Tooltip "Unknown Item" on first hover fix (commit b0f4995)
-- V2 export format spec added to CLAUDE.md
-- Community export processed: Garnett +6, Auditor Balwurz +4, The Last Architect +1, Lancy Revshon +1 (commit 7fda76b)
-- v1.3.0 tag created (a1efc9e), CurseForge upload pending
+**Still pending:**
+- [ ] Upload `Homestead-v1.3.1.zip` to CurseForge and Wago (manual)
+- [ ] Push to GitHub when account suspension lifts
+- [ ] Move git tags before push (v1.3.0 stale, v1.3.1 needed)
+- [ ] Test new 12.0.1 housing APIs for taint status (`GetMarketInfoForDecor`, `GetNumFloors`, `BulkRefundDecors`)
+- [ ] Re-scan vendors that were broken pre-12.0.1 (Blizzard fixed "Decor Vendor" NPCs not showing merchandise)
 
 ---
 
@@ -136,7 +95,24 @@ Full plan in `VENDOR_Plan.md`. 5 parts across 3 phases. Status:
 - [ ] Botanist Boh'an [255301]: DB has itemID 266243, export has 266443 — possible Blizzard item ID change or data error
 - [ ] Jolinth [253086]: Export shows itemID 248656, DB has 248111/256168/256169 — completely different items, needs in-game verification
 
+## Completed (v1.3.1)
+- [x] TOC updated to 120001 for WoW patch 12.0.1 (2026-02-10)
+- [x] CLAUDE.md updated with 12.0.1 APIs and refactoring contract (2026-02-10)
+- [x] Homestead-v1.3.1.zip packaged for upload (2026-02-10)
+
 ## Completed (v1.3.0+)
+- [x] Fix auto-hide no-decor vendors — removed nonexistent `scanComplete` field checks, now only uses `scanConfidence` (2026-02-09)
+- [x] Tooltip fallback decor detection — scan tooltip for "Housing Decor" when GetCatalogEntryInfoByItem returns nil (2026-02-09)
+- [x] GameTooltipTemplate fix — named frame + template for SetMerchantItem in WoW 12.0+ (2026-02-09)
+- [x] Comparison script parser fix — brace-depth tracking for nested cost structures (2026-02-09)
+- [x] WoD scan verified: 10 vendors match, Brakoss restored, currency corrections applied (2026-02-09)
+- [x] Legion Suramar/Val'sharah/Highmountain scan: 12 vendors match, 4 corrected (2026-02-09)
+- [x] Stacks Topskimmer: 46 wrong items → 13 confirmed RC items (2026-02-09)
+- [x] Eadric the Pure: 16 → 7 confirmed decor items (2026-02-09)
+- [x] Ransa Greyfeather: 23 → 8 confirmed items, mapID corrected (2026-02-09)
+- [x] Domelius marked unverified (Legion Remix, no longer available) (2026-02-09)
+- [x] Removed Sir Finley x2, Captain Lancy Revshon, Smaks Topskimmer (167300) (2026-02-09)
+- [x] 14+ vendors updated with cost data from DF/TWW export batch (2026-02-09)
 - [x] Fix map pin tooltip "Unknown Item" on first hover — pre-warm cache + GET_ITEM_INFO_RECEIVED event refresh (2026-02-08)
 - [x] Add V2 export format specification to CLAUDE.md and MEMORY.md (2026-02-08)
 - [x] Process community vendor export: Garnett +6, Auditor Balwurz +4, The Last Architect +1, Captain Lancy Revshon +1 (2026-02-08)
