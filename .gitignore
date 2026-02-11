@@ -16,6 +16,16 @@ alias-system-plan.txt
 CURRENT_TASK.md
 *-plan.md
 claude-code-*.md
+CLAUDE.md
+AUDIT_REPORT.md
+EXPORT_COMPARISON_GUIDE.md
+HOUSING_API_REFERENCE.md
+REFACTOR_CONTRACT.md
+REFACTOR_SUMMARY.md
+VENDOR_Plan.md
+empty_vendors_scan_priority.txt
+api-docs/
+refactor_logs/
 
 # Scripts and tools
 scripts/
