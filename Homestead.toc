@@ -1,4 +1,4 @@
-## Interface: 120000
+## Interface: 120001
 ## Title: Homestead
 ## Notes: See housing decor vendors and their wares on your map and track your collection progress
 ## Author: Nubs

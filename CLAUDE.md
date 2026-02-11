@@ -1,6 +1,6 @@
 # Homestead - WoW Housing Addon
 
-A housing collection, vendor, and progress tracker for World of Warcraft Retail (12.0.0+).
+A housing collection, vendor, and progress tracker for World of Warcraft Retail (12.0.1+).
 Current version: v1.3.0
 
 ## Quick Reference
@@ -79,6 +79,11 @@ C_HousingCatalog.GetCatalogEntryInfoByItem(itemLink) -- itemID->decor mapping
 **Stale data after /reload**: Check persistent cache (`db.global.ownedDecor`) first, API second.
 See `HOUSING_API_REFERENCE.md` for full API surface (343 functions, 125 events).
 
+**New in 12.0.1** (not yet taint-tested):
+- `C_HousingCatalog.GetMarketInfoForDecor` — market info for decorations
+- `C_HousingLayout.GetNumFloors` — floor count for layouts
+- `C_CatalogShop.BulkRefundDecors` / `GetVCProductInfos` / `FindBestCurrencyProductForNeededAmount`
+
 ## Lessons Learned (Common Mistakes)
 
 - `SetDesaturated(true)` before `SetVertexColor()` for accurate tinting on colored atlases
@@ -96,7 +101,8 @@ See `HOUSING_API_REFERENCE.md` for full API surface (343 functions, 125 events).
 ```
 Framework: Ace3 (AceAddon, AceDB, AceEvent, AceConsole, AceConfig)
 Map Pins:  HereBeDragons-Pins-2.0
-Target:    WoW Retail 12.0.0+ (Midnight)
+Target:    WoW Retail 12.0.1+ (Midnight pre-patch)
+TOC:       120001
 ```
 
 ### File Load Order (from TOC)
@@ -226,6 +232,10 @@ MERCHANT_SHOW / MERCHANT_UPDATE / MERCHANT_CLOSED  -- Vendor lifecycle
 - Do NOT add new _G writes without updating the allowlist
 - All new frames should be unnamed unless UISpecialFrames requires it
 - Run luacheck before releases (.luacheckrc is in project root)
+
+## Refactoring
+All refactoring work must follow REFACTOR_CONTRACT.md in the project root.
+Do not begin any refactor without reading that document first.
 
 ## Resources
 
