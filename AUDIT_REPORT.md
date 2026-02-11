@@ -55,11 +55,12 @@ Auditor: OpenAI Codex
 | 5 | `HomesteadExportFrame` | `Modules/ExportImport.lua:49` | intentional | ACCEPTABLE | Allowed |
 | 6 | `HomesteadExportDialog` | `Modules/ExportImport.lua:159` | intentional | ACCEPTABLE | Allowed |
 | 7 | `StaticPopupDialogs["HOMESTEAD_CLEAR_CACHE"]` | `UI/MainFrame.lua:637` | intentional | ACCEPTABLE | Allowed |
+| 8 | `HomesteadScanTooltip` | `Modules/VendorScanner.lua:91` | intentional | ACCEPTABLE | Allowed |
 
 Before/After summary:
 | Metric | Before | After |
 |--------|--------|-------|
-| Total addon globals | 10 | 7 |
+| Total addon globals | 10 | 8 |
 | HIGH severity | 1 | 0 |
 | MEDIUM severity | 2 | 1 |
 | LOW severity | 3 | 0 |
@@ -75,6 +76,7 @@ Before/After summary:
 | `HomesteadExportFrame` | `Modules/ExportImport.lua` | Required for UISpecialFrames (Escape-to-close) |
 | `HomesteadExportDialog` | `Modules/ExportImport.lua` | Required for UISpecialFrames (Escape-to-close) |
 | `StaticPopupDialogs["HOMESTEAD_CLEAR_CACHE"]` | `UI/MainFrame.lua` | Required for Blizzard StaticPopupDialogs system |
+| `HomesteadScanTooltip` | `Modules/VendorScanner.lua` | Named frame required for GameTooltipTemplate (SetMerchantItem) |
 
 ## 5. Deprecated / Risky API Findings
 | # | API | File:Line | Category | Replacement | Confidence | Status |

@@ -83,18 +83,12 @@ local RequirementPatterns = {
     -- frFR = { ... },
 }
 
--- Hidden scanning tooltip for requirement scraping (created once, reused)
+-- Hidden scanning tooltip for requirement scraping and decor detection fallback.
 -- Do NOT use GameTooltip — that would interfere with the player's visible tooltips.
--- Unnamed frame to avoid global namespace pollution. Font strings registered manually.
--- SetOwner is called before each use in ScrapeItemRequirements(), not here at load time.
-local scanTooltip = CreateFrame("GameTooltip", nil, UIParent)
-local scanTooltipLeftText = {}
-for i = 1, 30 do
-    local left = scanTooltip:CreateFontString(nil, "ARTWORK", "GameTooltipText")
-    local right = scanTooltip:CreateFontString(nil, "ARTWORK", "GameTooltipText")
-    scanTooltip:AddFontStrings(left, right)
-    scanTooltipLeftText[i] = left
-end
+-- Named frame required: GameTooltipTemplate provides SetMerchantItem and auto-created
+-- font strings (HomesteadScanTooltipTextLeft1..N). Without the template, SetMerchantItem
+-- is nil on custom tooltip frames in 12.0+.
+local scanTooltip = CreateFrame("GameTooltip", "HomesteadScanTooltip", UIParent, "GameTooltipTemplate")
 
 -- Scrape item requirements from hidden tooltip (experimental).
 -- Returns: nil (could not check), {} (no requirements), or table of requirements.
@@ -138,7 +132,7 @@ local function ScrapeItemRequirements(slotIndex)
         local patterns = RequirementPatterns[locale]
 
         for i = 1, numLines do
-            local line = scanTooltipLeftText[i]
+            local line = _G["HomesteadScanTooltipTextLeft" .. i]
             if line then
                 local text = line:GetText()
                 local r, g, b = line:GetTextColor()
@@ -523,7 +517,7 @@ function VendorScanner:ProcessScanQueue()
             end
 
             -- Check if this is a housing decor item
-            local isDecor, decorInfo = self:CheckIfDecorItem(itemLink)
+            local isDecor, decorInfo = self:CheckIfDecorItem(itemLink, i)
 
             -- Track all items for itemCount
             table.insert(scanQueue.allItems, {
@@ -587,7 +581,7 @@ end
 -- Decor Detection
 -------------------------------------------------------------------------------
 
-function VendorScanner:CheckIfDecorItem(itemLink)
+function VendorScanner:CheckIfDecorItem(itemLink, slotIndex)
     local CHC = _G.C_HousingCatalog
     if not itemLink or not CHC or not CHC.GetCatalogEntryInfoByItem then
         return false, nil
@@ -605,6 +599,41 @@ function VendorScanner:CheckIfDecorItem(itemLink)
             isOwned = catalogInfo.isOwned,
             quantityOwned = catalogInfo.quantityOwned,
         }
+    end
+
+    -- Fallback: scan tooltip for "Housing Decor" text.
+    -- Some items (e.g. achievement-gated decor) are in the Housing Catalog
+    -- but GetCatalogEntryInfoByItem() returns nil for them.
+    if slotIndex then
+        local tooltipOk, tooltipDetected = pcall(function()
+            scanTooltip:SetOwner(UIParent, "ANCHOR_NONE")
+            scanTooltip:ClearLines()
+            scanTooltip:SetMerchantItem(slotIndex)
+            local numLines = scanTooltip:NumLines()
+            for i = 1, numLines do
+                local line = _G["HomesteadScanTooltipTextLeft" .. i]
+                if line then
+                    local text = line:GetText()
+                    if text and text == "Housing Decor" then
+                        return true
+                    end
+                end
+            end
+            return false
+        end)
+        if tooltipOk and tooltipDetected then
+            local itemID = GetItemInfoInstant(itemLink)
+            if HA.Addon then
+                HA.Addon:Debug(string.format(
+                    "CheckIfDecorItem: tooltip fallback detected decor for item %d",
+                    itemID or 0))
+            end
+            return true, {
+                itemID = itemID,
+                name = nil,
+                tooltipFallback = true,
+            }
+        end
     end
 
     return false, nil

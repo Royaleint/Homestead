@@ -1,5 +1,8 @@
 # Vendor Scanning System Overhaul
 
+> **STATUS: ALL 5 PARTS COMPLETE** (Feb 8, 2026). Shipped in v1.3.0.
+> Part 2.5 (tooltip requirement scraping) awaits in-game verification.
+
 ## Context
 
 The vendor scanning system detects which merchants sell housing decor. Vendors with **no decor items** should not be in the database and should be flagged for removal. This overhaul addresses:

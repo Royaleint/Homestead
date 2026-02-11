@@ -743,7 +743,7 @@ local function ShouldHideVendor(vendor)
     if db.noDecorVendors and db.noDecorVendors[npcID] then
         local data = db.noDecorVendors[npcID]
         -- Defensive: only trust confirmed entries (guards against corrupted SVs)
-        if data.scanConfidence == "confirmed" or data.scanComplete then
+        if data.scanConfidence == "confirmed" then
             return true
         end
     end
@@ -752,7 +752,7 @@ local function ShouldHideVendor(vendor)
     if db.scannedVendors then
         local scannedData = db.scannedVendors[npcID]
         if scannedData then
-            local trusted = scannedData.scanConfidence == "confirmed" or scannedData.scanComplete == true
+            local trusted = scannedData.scanConfidence == "confirmed"
             if trusted then
                 if scannedData.hasDecor == false then
                     return true
