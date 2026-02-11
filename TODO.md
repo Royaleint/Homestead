@@ -8,11 +8,17 @@
 - TOC updated from 120000 to 120001 for WoW patch 12.0.1 (Second Midnight Pre-Expansion Update)
 - CLAUDE.md updated with 12.0.1 target, new housing APIs, refactoring contract reference
 - `Homestead-v1.3.1.zip` packaged (315 KB, 92 files) for manual upload
+- REFACTOR_CONTRACT.md validated against live codebase; 7 corrections applied + appendix added
+- REFACTOR_SUMMARY.md committed alongside contract
+- Reviewed Codex Section 1 Data Layer refactor — separated mixed commit into non-refactoring (58f4bcc) + refactor-only (14c76d6)
+- Vendor data corrections, scanner tooltip fallback, and auto-hide fixes committed (58f4bcc)
+- Section 1 refactor committed: UnpackItem helper, npcID stamping in BuildIndexes, GetVendorCount caching (14c76d6)
+- Refactor log diff audit updated with GetItemCost truthiness flag
 
 **Still pending:**
 - [ ] Upload `Homestead-v1.3.1.zip` to CurseForge and Wago (manual)
 - [ ] Push to GitHub when account suspension lifts
-- [ ] Move git tags before push (v1.3.0 stale, v1.3.1 needed)
+- [ ] Move git tags before push (v1.3.0 and v1.3.1 tags both stale)
 - [ ] Test new 12.0.1 housing APIs for taint status (`GetMarketInfoForDecor`, `GetNumFloors`, `BulkRefundDecors`)
 - [ ] Re-scan vendors that were broken pre-12.0.1 (Blizzard fixed "Decor Vendor" NPCs not showing merchandise)
 
@@ -99,6 +105,12 @@
 - [x] TOC updated to 120001 for WoW patch 12.0.1 (2026-02-10)
 - [x] CLAUDE.md updated with 12.0.1 APIs and refactoring contract (2026-02-10)
 - [x] Homestead-v1.3.1.zip packaged for upload (2026-02-10)
+- [x] REFACTOR_CONTRACT.md validated and committed with REFACTOR_SUMMARY.md (2026-02-10)
+- [x] Vendor data corrections committed: 20+ vendors updated, 4 removed, 2 marked unverified (2026-02-10)
+- [x] Scanner tooltip rewritten to use GameTooltipTemplate with tooltip fallback for decor detection (2026-02-10)
+- [x] Auto-hide scanComplete field bug committed (2026-02-10)
+- [x] AUDIT_REPORT.md updated: HomesteadScanTooltip as global #8 (2026-02-10)
+- [x] Section 1 refactor: UnpackItem helper, npcID stamping in BuildIndexes, GetVendorCount caching (2026-02-10)
 
 ## Completed (v1.3.0+)
 - [x] Fix auto-hide no-decor vendors — removed nonexistent `scanComplete` field checks, now only uses `scanConfidence` (2026-02-09)

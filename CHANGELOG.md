@@ -6,6 +6,14 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## Unreleased (post-v1.3.1)
+
+### Internal
+- **Section 1 Data Layer refactor**: Extracted `UnpackItem()` helper in VendorData.lua; centralized `vendor.npcID` stamping in `BuildIndexes()`; cached `GetVendorCount()`
+- **Refactor contract**: Added `REFACTOR_CONTRACT.md` and `REFACTOR_SUMMARY.md` — governs all future refactoring work with tiered risk system, verification gates, and evidence logging
+
+---
+
 ## v1.3.1 (2026-02-10) — Patch 12.0.1 Compatibility
 
 ### Changed

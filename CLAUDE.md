@@ -1,7 +1,7 @@
 # Homestead - WoW Housing Addon
 
 A housing collection, vendor, and progress tracker for World of Warcraft Retail (12.0.1+).
-Current version: v1.3.0
+Current version: v1.3.1
 
 ## Quick Reference
 
@@ -94,6 +94,9 @@ See `HOUSING_API_REFERENCE.md` for full API surface (343 functions, 125 events).
 - After modifying `scannedVendors`, always rebuild `ScannedByItemID` index AND call `InvalidateAllCaches()`
 - Profile settings are nested: `profile.vendorTracer.showVendorDetails`, not `profile.showVendorDetails`
 - Alias system resolves at scan time only (VendorScanner); runtime lookups use canonical NPC IDs
+- `vendor.npcID` is stamped once in `VendorDatabase:BuildIndexes()` — query functions don't set it
+- Dual-format items: use `VendorData.UnpackItem(item)` — returns `itemID, cost`; don't inline `type(item) == "table"` checks
+- Refactoring and behavior changes must be in separate commits (see REFACTOR_CONTRACT.md)
 - See `WOW_ADDON_PATTERNS.md` for comprehensive Lua/WoW development patterns
 
 ## Architecture
@@ -228,7 +231,7 @@ MERCHANT_SHOW / MERCHANT_UPDATE / MERCHANT_CLOSED  -- Vendor lifecycle
 - Review `CHANGELOG.md` regularly to avoid duplicating completed work or reopening resolved issues
 
 ## Global Namespace Rules
-- Only 7 globals are permitted (see AUDIT_REPORT.md Global Allowlist)
+- Only 8 globals are permitted (see AUDIT_REPORT.md Global Allowlist)
 - Do NOT add new _G writes without updating the allowlist
 - All new frames should be unnamed unless UISpecialFrames requires it
 - Run luacheck before releases (.luacheckrc is in project root)
