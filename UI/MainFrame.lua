@@ -375,7 +375,7 @@ function MainFrame:CreateScanPanel(parent)
     desc:SetPoint("TOPLEFT", 16, -50)
     desc:SetWidth(380)
     desc:SetJustifyH("LEFT")
-    desc:SetText("Scan the Housing Catalog to populate the ownership cache. This helps work around a Blizzard API bug where ownership data is stale after /reload.")
+    desc:SetText("Scan the Housing Catalog to populate the ownership cache.")
 
     -- Scan button
     local scanBtn = CreateFrame("Button", nil, parent, "UIPanelButtonTemplate")
@@ -405,7 +405,7 @@ function MainFrame:CreateScanPanel(parent)
     note:SetWidth(380)
     note:SetJustifyH("LEFT")
     note:SetTextColor(1, 0.8, 0)
-    note:SetText("Note: For best results, open the Housing Catalog UI in-game before scanning. This forces the API to refresh ownership data.")
+    note:SetText("Note: Ownership is detected automatically. The cache improves performance and serves as a backup.")
 end
 
 -------------------------------------------------------------------------------

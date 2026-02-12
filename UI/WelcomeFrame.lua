@@ -189,7 +189,7 @@ local function CreateWelcomeFrame()
         6)
 
     local warning = AddParagraph(content, bullet3,
-        "|TInterface\\DialogFrame\\UI-Dialog-Icon-AlertNew:14:14:0:0|t |cFFFFCC00Open the Housing Catalog once per session to enable ownership tracking.|r",
+        "|TInterface\\RaidFrame\\ReadyCheck-Ready:14:14:0:0|t |cFF00FF00Ownership tracking is automatic — no extra steps needed!|r",
         12)
 
     -- =====================================================================

@@ -6,7 +6,7 @@
     This works around Blizzard API limitations where:
     - Category/subcategory enumeration doesn't expose entry data
     - CreateCatalogSearcher is internal-only
-    - Ownership data can be stale after /reload until catalog UI is opened
+    - firstAcquisitionBonus == 0 handles stale qty/placed data post-reload
 
     Strategy: Scan all known item IDs from VendorDatabase and scannedVendors,
     using the same API that tooltips use (GetCatalogEntryInfoByItem).
@@ -46,8 +46,10 @@ local function IsOwned(info)
     local quantity = info.quantity or 0
     local numPlaced = info.numPlaced or 0
     local remainingRedeemable = info.remainingRedeemable or 0
+    local firstAcquisitionBonus = info.firstAcquisitionBonus
 
-    if quantity > 0 or numPlaced > 0 or remainingRedeemable > 0 then
+    -- firstAcquisitionBonus == 0 reliably detects ownership even when qty/placed are stale (post-reload)
+    if quantity > 0 or numPlaced > 0 or remainingRedeemable > 0 or firstAcquisitionBonus == 0 then
         return true
     end
 
@@ -103,6 +105,16 @@ local function SaveToOwnershipCache(itemID, name)
         }
     else
         ownedDecor[itemID].lastSeen = time()
+    end
+end
+
+-- Save recordID (decorID) to an existing ownership cache entry
+local function SaveRecordID(itemID, recordID)
+    if not itemID or not recordID then return end
+    if not HA.Addon or not HA.Addon.db then return end
+    local ownedDecor = HA.Addon.db.global.ownedDecor
+    if ownedDecor and ownedDecor[itemID] then
+        ownedDecor[itemID].recordID = recordID
     end
 end
 
@@ -177,12 +189,25 @@ local function ScanItem(itemID)
         return nil
     end
 
+    -- Extract recordID from entryID table (defensive against partial/non-table entryID)
+    local recordID = nil
+    if info.entryID and type(info.entryID) == "table" then
+        recordID = info.entryID.recordID
+        if not recordID then
+            for k, v in pairs(info.entryID) do
+                if k == "recordID" then recordID = v; break end
+            end
+        end
+    end
+
     return {
         itemID = itemID,
         name = info.name,
         isOwned = IsOwned(info),
         quantity = info.quantity or 0,
         numPlaced = info.numPlaced or 0,
+        sourceText = info.sourceText,
+        recordID = recordID,
     }
 end
 
@@ -255,6 +280,16 @@ function CatalogScanner:ScanFullCatalog(callback)
                     if result.isOwned then
                         SaveToOwnershipCache(result.itemID, result.name or itemData.name)
                         ownedCount = ownedCount + 1
+                    end
+
+                    -- Store recordID in ownership cache
+                    if result.recordID then
+                        SaveRecordID(result.itemID, result.recordID)
+                    end
+
+                    -- Forward sourceText to SourceTextScanner for parsing
+                    if result.sourceText and HA.SourceTextScanner then
+                        HA.SourceTextScanner:ProcessScannedItem(result)
                     end
                 end
             end

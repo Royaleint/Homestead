@@ -67,6 +67,8 @@ read_globals = {
     "GetAchievementCriteriaInfo", "GetAchievementInfo",
     "GetItemInfo", "GetItemInfoInstant",
     "GetMerchantItemInfo", "GetMerchantItemLink", "GetMerchantNumItems",
+    "GetLocale",
+    "GetRealZoneText",
     "GetRealmName",
     "GetTime",
     "hooksecurefunc",

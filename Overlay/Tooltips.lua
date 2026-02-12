@@ -70,8 +70,9 @@ local function IsDecorOwnedByID(itemID)
         end)
 
         if success and info then
-            -- entrySubtype: 0 = Invalid, 1 = Unowned, 2+ = Owned variants
+            -- firstAcquisitionBonus == 0 reliably detects ownership even when qty/placed are stale (post-reload)
             return (info.entrySubtype and info.entrySubtype >= 2) or (info.quantity and info.quantity > 0)
+                or (info.firstAcquisitionBonus == 0)
         end
     end
 
@@ -98,6 +99,11 @@ local function IsDecorOwned(itemLink)
         end
 
         -- Fall back to API checks
+        -- firstAcquisitionBonus == 0 reliably detects ownership even when qty/placed are stale (post-reload)
+        if info.firstAcquisitionBonus == 0 then
+            return true
+        end
+
         -- Check quantity first (most reliable indicator of ownership)
         if info.quantity and info.quantity > 0 then
             return true
@@ -247,12 +253,14 @@ local function AddSourceInfoToTooltip(tooltip, itemID, skipOwnership)
         local source = HA.SourceManager:GetSource(itemID)
 
         if source then
+            local parsedTag = source._isParsed and " |cFFAAAAFF(unverified)|r" or ""
+
             if source.type == "vendor" then
                 -- Vendor source
                 local vendorName = source.data.name or "Unknown Vendor"
                 local zoneName = source.data.zone or "Unknown Location"
 
-                tooltip:AddLine("Source: " .. vendorName, COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
+                tooltip:AddLine("Source: " .. vendorName .. parsedTag, COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
                 tooltip:AddLine("  Location: " .. zoneName, COLOR_WHITE.r, COLOR_WHITE.g, COLOR_WHITE.b)
 
                 -- Show faction if not neutral
@@ -280,7 +288,7 @@ local function AddSourceInfoToTooltip(tooltip, itemID, skipOwnership)
             elseif source.type == "quest" then
                 -- Quest source
                 local questName = source.data.questName or "Unknown Quest"
-                tooltip:AddLine("Source: Quest", COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
+                tooltip:AddLine("Source: Quest" .. parsedTag, COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
                 tooltip:AddLine("  " .. questName, COLOR_WHITE.r, COLOR_WHITE.g, COLOR_WHITE.b)
                 return true
 
@@ -297,9 +305,9 @@ local function AddSourceInfoToTooltip(tooltip, itemID, skipOwnership)
                 end
 
                 if isCompleted then
-                    tooltip:AddLine("Source: Achievement |cFF00FF00(Completed)|r", COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
+                    tooltip:AddLine("Source: Achievement |cFF00FF00(Completed)|r" .. parsedTag, COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
                 else
-                    tooltip:AddLine("Source: Achievement |cFFFF0000(Incomplete)|r", COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
+                    tooltip:AddLine("Source: Achievement |cFFFF0000(Incomplete)|r" .. parsedTag, COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
                 end
                 tooltip:AddLine("  " .. achievementName, COLOR_WHITE.r, COLOR_WHITE.g, COLOR_WHITE.b)
                 return true
@@ -308,7 +316,7 @@ local function AddSourceInfoToTooltip(tooltip, itemID, skipOwnership)
                 -- Profession source
                 local profession = source.data.profession or "Unknown"
                 local recipeName = source.data.recipeName or "Unknown Recipe"
-                tooltip:AddLine("Source: " .. profession, COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
+                tooltip:AddLine("Source: " .. profession .. parsedTag, COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
                 tooltip:AddLine("  Recipe: " .. recipeName, COLOR_WHITE.r, COLOR_WHITE.g, COLOR_WHITE.b)
                 return true
 
@@ -316,7 +324,7 @@ local function AddSourceInfoToTooltip(tooltip, itemID, skipOwnership)
                 -- Drop source
                 local mobName = source.data.mobName or "Unknown"
                 local zone = source.data.zone or "Unknown Location"
-                tooltip:AddLine("Source: Drop", COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
+                tooltip:AddLine("Source: Drop" .. parsedTag, COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
                 tooltip:AddLine("  " .. mobName, COLOR_WHITE.r, COLOR_WHITE.g, COLOR_WHITE.b)
                 tooltip:AddLine("  Zone: " .. zone, COLOR_GRAY.r, COLOR_GRAY.g, COLOR_GRAY.b)
                 if source.data.notes then

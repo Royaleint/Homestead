@@ -205,13 +205,14 @@ function DecorData:ApplyHousingCatalogInfo(info)
     end
 
     -- Fallback checks if entrySubtype says unowned
+    -- firstAcquisitionBonus == 0 reliably detects ownership even when qty/placed are stale (post-reload)
     local quantityOwned = (self.quantityOwned > 0) or (self.numPlaced > 0) or (self.remainingRedeemable > 0)
+        or (self.firstAcquisitionBonus == 0)
 
     -- Also check player's bags for this item
     local inBags = self:CheckItemInBags(self.itemID)
 
-    -- Check persistent ownership cache (workaround for Blizzard API bug)
-    -- The API may return stale data after reload until the Housing Catalog is opened
+    -- Check persistent ownership cache (backup for performance)
     local cachedOwned = self:CheckPersistentOwnership(self.itemID)
 
     self.isOwned = subtypeOwned or quantityOwned or inBags or cachedOwned
@@ -535,10 +536,9 @@ end
 -------------------------------------------------------------------------------
 -- Persistent Ownership Cache (Workaround for Blizzard API Bug)
 -------------------------------------------------------------------------------
--- The C_HousingCatalog API returns stale/incorrect data after a /reload
--- until the player opens the Housing Catalog UI. This is a known issue.
--- Our solution: Cache ownership data in SavedVariables when the API
--- reports an item as owned, then use that cache as a fallback.
+-- The C_HousingCatalog API's quantity/numPlaced fields can be stale after /reload.
+-- firstAcquisitionBonus == 0 handles this reliably, but we also cache ownership
+-- data in SavedVariables as a backup and for performance.
 
 -- Check if an item is marked as owned in our persistent cache
 function DecorData:CheckPersistentOwnership(itemID)
