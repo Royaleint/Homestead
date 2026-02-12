@@ -92,9 +92,9 @@ VendorData.VendorNameToNPC = {
     ["Jaquilina Dramet"] = {2483, 6574},
     ["Purser Boulian"] = {28038, 61911, 72111},
 
-    -- Missing vendors (need NPC IDs from in-game)
-    -- ["Ripley Kiefer"] = {},  -- Teldrassil vendor, needs investigation
-    -- ["Eastern Kingdoms World Vendors"] = {},  -- Placeholder, not a real NPC
+    -- Generic source names (not real NPCs, appear in sourceText as vendor references)
+    -- ["Draenor World Vendors"] = {},  -- Placeholder
+    -- ["Eastern Kingdoms World Vendors"] = {},  -- Placeholder
 }
 
 -- Reverse lookup: NPC ID to vendor name
@@ -513,10 +513,56 @@ end
 
 -- Build the reverse lookup table (called during initialization)
 function VendorData:BuildNameIndex()
+    -- Auto-populate VendorNameToNPC from VendorDatabase for any vendors
+    -- not already in the manual table (preserves manual multi-NPC entries)
+    if HA.VendorDatabase and HA.VendorDatabase.Vendors then
+        -- Build set of NPC IDs already covered by manual entries
+        local coveredNPCs = {}
+        for _, npcIDs in pairs(self.VendorNameToNPC) do
+            if type(npcIDs) == "table" then
+                for _, id in ipairs(npcIDs) do
+                    coveredNPCs[id] = true
+                end
+            else
+                coveredNPCs[npcIDs] = true
+            end
+        end
+
+        -- Add any vendor from the database not already covered
+        for npcID, vendor in pairs(HA.VendorDatabase.Vendors) do
+            if vendor.name and not coveredNPCs[npcID] then
+                local existing = self.VendorNameToNPC[vendor.name]
+                if existing then
+                    -- Name already mapped — append this NPC ID if not present
+                    if type(existing) == "table" then
+                        local found = false
+                        for _, id in ipairs(existing) do
+                            if id == npcID then found = true; break end
+                        end
+                        if not found then
+                            table.insert(existing, npcID)
+                        end
+                    else
+                        if existing ~= npcID then
+                            self.VendorNameToNPC[vendor.name] = {existing, npcID}
+                        end
+                    end
+                else
+                    self.VendorNameToNPC[vendor.name] = {npcID}
+                end
+            end
+        end
+    end
+
+    -- Build reverse lookup: NPC ID -> vendor name
     self.NPCToVendorName = {}
     for name, npcIDs in pairs(self.VendorNameToNPC) do
-        for _, npcID in ipairs(npcIDs) do
-            self.NPCToVendorName[npcID] = name
+        if type(npcIDs) == "table" then
+            for _, npcID in ipairs(npcIDs) do
+                self.NPCToVendorName[npcID] = name
+            end
+        else
+            self.NPCToVendorName[npcIDs] = name
         end
     end
 end
