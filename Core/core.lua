@@ -83,6 +83,11 @@ function HousingAddon:OnEnable()
         HA.VendorScanner:Initialize()
     end
 
+    -- Initialize SourceTextScanner for parsed source data
+    if HA.SourceTextScanner then
+        HA.SourceTextScanner:Initialize()
+    end
+
     -- Initialize Waypoints utility
     if HA.Waypoints then
         HA.Waypoints:Initialize()
@@ -207,11 +212,6 @@ end
 -- Slash Command Handler
 -------------------------------------------------------------------------------
 
--- Helper: Check if developer mode is enabled
-local function IsDevMode()
-    return HA.Addon.db and HA.Addon.db.global and HA.Addon.db.global.developerMode
-end
-
 function HousingAddon:SlashCommandHandler(input)
     input = input and input:trim():lower() or ""
 
@@ -233,23 +233,12 @@ function HousingAddon:SlashCommandHandler(input)
         self:ClearOwnershipCache()
     elseif input == "scan" then
         self:ScanCatalog()
-    elseif input == "debugscan" then
-        self:DebugScanCatalog()
     elseif input == "vendors" then
         self:ShowScannedVendors()
     elseif input == "refreshmap" then
         self:RefreshMapPins()
     elseif input == "corrections" or input == "npcfixes" then
         self:ShowNPCIDCorrections()
-    elseif input == "debugglobal" then
-        self:DebugGlobalData()
-    elseif input == "aliases" then
-        self:ShowAliases()
-    elseif input == "clearaliases" then
-        if HomesteadDB and HomesteadDB.global then
-            HomesteadDB.global.discoveredAliases = {}
-            self:Print("Cleared all discovered aliases")
-        end
     elseif input == "help" then
         self:PrintHelp()
     elseif input == "export" then
@@ -271,7 +260,7 @@ function HousingAddon:SlashCommandHandler(input)
     elseif input == "import" then
         if HA.ExportImport then
             HA.ExportImport:ShowImportDialog()
-        end  
+        end
     elseif input == "validate" then
         if HA.Validation then
             HA.Validation:RunFullValidation()
@@ -280,285 +269,14 @@ function HousingAddon:SlashCommandHandler(input)
         if HA.Validation then
             HA.Validation:ShowDetails()
         end
-    elseif input == "achievements" then
-        if HA.AchievementDecor and HA.AchievementDecor.DebugPrint then
-            HA.AchievementDecor:DebugPrint()
-        end
-    elseif input:match("^testlookup%s+") or input:match("^testlookup$") then
-        local itemIDStr = input:match("^testlookup%s+(%d+)$")
-        self:TestItemLookup(itemIDStr and tonumber(itemIDStr))
-    elseif input:match("^testsource%s+") or input:match("^testsource$") then
-        local itemIDStr = input:match("^testsource%s+(%d+)$")
-        self:TestSourceInfo(itemIDStr and tonumber(itemIDStr))
     elseif input == "welcome" then
         if HA.WelcomeFrame then
             HA.WelcomeFrame:Show()
-        end
-    elseif input == "devmode" then
-        if self.db and self.db.global then
-            self.db.global.developerMode = not self.db.global.developerMode
-            self:Print("Developer mode: " .. (self.db.global.developerMode and "|cff00ff00ON|r" or "|cffff0000OFF|r"))
-        end
-    elseif input == "suggest" then
-        if not IsDevMode() then
-            self:Print("Developer mode required. Enable with /hs devmode")
-            return
-        end
-        self:GenerateDBSuggestions()
-    elseif input == "nodecor" then
-        if not IsDevMode() then
-            self:Print("Developer mode required. Enable with /hs devmode")
-            return
-        end
-        local noDecor = self.db and self.db.global and self.db.global.noDecorVendors
-        if not noDecor or not next(noDecor) then
-            self:Print("No vendors flagged as non-decor.")
-        else
-            local lines = {}
-            local dbCount, totalCount = 0, 0
-            for npcID, data in pairs(noDecor) do
-                totalCount = totalCount + 1
-                local prefix = ""
-                -- Live check: inDatabase snapshot may be stale after DB updates ship
-                local isInDB = HA.VendorDatabase and HA.VendorDatabase:HasVendor(npcID)
-                if isInDB and (data.confirmCount or 1) >= 2 then
-                    dbCount = dbCount + 1
-                    prefix = "|cffff0000[REMOVE]|r "
-                elseif isInDB then
-                    prefix = "|cffff9900[1 SCAN]|r "
-                end
-                table.insert(lines, string.format(
-                    "%s%s (NPC %d) — %d items, 0 decor — confirmed %s",
-                    prefix, data.name or "?", npcID, data.itemCount or 0,
-                    date("%Y-%m-%d", data.confirmedAt or 0)))
-            end
-            table.sort(lines)
-            local header = string.format(
-                "Non-Decor Vendors: %d total, %d in VendorDatabase (need removal)\n\n",
-                totalCount, dbCount)
-            if HA.OutputWindow then
-                HA.OutputWindow:Show("Non-Decor Vendors", header .. table.concat(lines, "\n"))
-            else
-                self:Print(header)
-                for _, line in ipairs(lines) do self:Print(line) end
-            end
-        end
-    elseif input == "clearnodecor" then
-        if not IsDevMode() then
-            self:Print("Developer mode required. Enable with /hs devmode")
-            return
-        end
-        -- Clears ONLY the no-decor list (hidden vendors reappear)
-        if HA.VendorScanner and HA.VendorScanner.ClearNoDecorData then
-            HA.VendorScanner:ClearNoDecorData()
-        end
-    elseif input == "clearall" then
-        if not IsDevMode() then
-            self:Print("Developer mode required. Enable with /hs devmode")
-            return
-        end
-        -- Nuclear: clears BOTH scannedVendors AND noDecorVendors
-        if HA.VendorScanner and HA.VendorScanner.ClearAllData then
-            HA.VendorScanner:ClearAllData()
         end
     else
         self:Print("Unknown command:", input)
         self:PrintHelp()
     end
-end
-
--- Test item lookup in vendor database (debug command)
-function HousingAddon:TestItemLookup(itemID)
-    if not itemID then
-        self:Debug("Usage: /hs testlookup <itemID>")
-        self:Debug("Example: /hs testlookup 248333")
-        return
-    end
-
-    self:Debug("Testing lookup for itemID:", itemID)
-
-    -- Check if index exists
-    if not HA.VendorDatabase then
-        self:Debug("  ERROR: VendorDatabase not loaded")
-        return
-    end
-
-    if not HA.VendorDatabase.ByItemID then
-        self:Debug("  WARNING: ByItemID index not built")
-        self:Debug("  Falling back to iteration...")
-    else
-        local indexEntry = HA.VendorDatabase.ByItemID[itemID]
-        if indexEntry then
-            self:Debug("  Index: FOUND (" .. #indexEntry .. " vendor(s))")
-        else
-            self:Debug("  Index: NOT FOUND")
-        end
-    end
-
-    -- Use VendorData to get vendors
-    if HA.VendorData then
-        local vendors = HA.VendorData:GetVendorsForItem(itemID)
-        if #vendors > 0 then
-            self:Debug("  Result: " .. #vendors .. " vendor(s) found:")
-            for i, vendor in ipairs(vendors) do
-                local info = string.format("    %d. %s (NPC %d) - %s",
-                    i,
-                    vendor.name or "Unknown",
-                    vendor.npcID or 0,
-                    vendor.zone or "Unknown Zone"
-                )
-                self:Debug(info)
-                if vendor.notes then
-                    self:Debug("       Note: " .. vendor.notes)
-                end
-            end
-        else
-            self:Debug("  Result: No vendors found for this item")
-        end
-    else
-        self:Debug("  ERROR: VendorData not loaded")
-    end
-
-    -- Try to get item name
-    local itemName = C_Item.GetItemNameByID(itemID)
-    if itemName then
-        self:Debug("  Item name: " .. itemName)
-    end
-end
-
--- Test C_HousingCatalog source info for an item (debug command)
-function HousingAddon:TestSourceInfo(itemID)
-    -- If no itemID provided, try to get from mouseover tooltip
-    if not itemID then
-        if GameTooltip and GameTooltip:IsShown() then
-            local _, itemLink = GameTooltip:GetItem()
-            if itemLink then
-                itemID = tonumber(itemLink:match("item:(%d+)"))
-                if itemID then
-                    self:Debug("Using mouseover item:", itemLink)
-                end
-            end
-        end
-    end
-
-    if not itemID then
-        self:Debug("Usage: /hs testsource <itemID>")
-        self:Debug("       /hs testsource          (uses mouseover item)")
-        self:Debug("Example: /hs testsource 245561")
-        return
-    end
-
-    self:Debug("Testing C_HousingCatalog for itemID:", itemID)
-
-    -- Get item info
-    local itemName = C_Item.GetItemNameByID(itemID)
-    if itemName then
-        self:Debug("  Item name:", itemName)
-    else
-        self:Debug("  Item name: (not cached, may need to mouseover first)")
-    end
-
-    -- Check if C_HousingCatalog exists
-    if not C_HousingCatalog or not C_HousingCatalog.GetCatalogEntryInfoByItem then
-        self:Debug("  ERROR: C_HousingCatalog API not available")
-        return
-    end
-
-    -- Build item link
-    local itemLink = "item:" .. itemID
-
-    -- Try to get catalog entry info
-    local success, info = pcall(function()
-        return C_HousingCatalog.GetCatalogEntryInfoByItem(itemLink, true)
-    end)
-
-    if not success then
-        self:Debug("  ERROR: API call failed:", info)
-        return
-    end
-
-    if not info then
-        self:Debug("  Result: Not a housing decor item (info is nil)")
-        return
-    end
-
-    self:Debug("  Result: Housing decor item found!")
-
-    -- Print all available fields
-    if info.name then
-        self:Debug("    name:", info.name)
-    end
-    if info.sourceText then
-        self:Debug("    sourceText:", info.sourceText)
-    else
-        self:Debug("    sourceText: (nil - no source text from API)")
-    end
-    if info.entrySubtype then
-        local subtypeNames = {
-            [0] = "Invalid",
-            [1] = "Unowned",
-            [2] = "Owned",
-        }
-        self:Debug("    entrySubtype:", info.entrySubtype, "(" .. (subtypeNames[info.entrySubtype] or "Unknown") .. ")")
-    end
-    if info.quantity then
-        self:Debug("    quantity:", info.quantity)
-    end
-    if info.numPlaced then
-        self:Debug("    numPlaced:", info.numPlaced)
-    end
-    if info.categoryID then
-        self:Debug("    categoryID:", info.categoryID)
-    end
-    if info.subcategoryID then
-        self:Debug("    subcategoryID:", info.subcategoryID)
-    end
-
-    -- Check our VendorDatabase for this item
-    if HA.VendorData then
-        local vendors = HA.VendorData:GetVendorsForItem(itemID)
-        if #vendors > 0 then
-            self:Debug("  VendorDatabase: Found in " .. #vendors .. " vendor(s)")
-            for i, vendor in ipairs(vendors) do
-                self:Debug("    - " .. (vendor.name or "Unknown") .. " (" .. (vendor.zone or "Unknown") .. ")")
-            end
-        else
-            self:Debug("  VendorDatabase: Not found (may be achievement/quest item)")
-        end
-    end
-end
-
-function HousingAddon:ShowAliases()
-    self:Debug("=== NPC ID Aliases ===")
-
-    if not HA.VendorDatabase then
-        self:Debug("VendorDatabase not loaded")
-        return
-    end
-
-    local staticCount, discoveredCount = HA.VendorDatabase:GetAliasCount()
-    self:Debug("Static aliases:", staticCount)
-    self:Debug("Discovered aliases:", discoveredCount)
-
-    if HomesteadDB and HomesteadDB.global and HomesteadDB.global.discoveredAliases then
-        self:Debug(" ")
-        self:Debug("Discovered (pending review):")
-        local hasAny = false
-        for npcID, data in pairs(HomesteadDB.global.discoveredAliases) do
-            hasAny = true
-            local status = data.confirmed and "|cFF00FF00confirmed|r" or "|cFFFFFF00pending|r"
-            local canonicalVendor = HA.VendorDatabase.Vendors[data.canonical]
-            local vendorName = canonicalVendor and canonicalVendor.name or data.name or "Unknown"
-            self:Debug(string.format("  %d -> %d (%s) [%s] seen %dx",
-                npcID, data.canonical, vendorName, status, data.encounters or 1))
-        end
-        if not hasAny then
-            self:Debug("  (none)")
-        end
-    end
-
-    self:Debug(" ")
-    self:Debug("Use '/hs clearaliases' to clear discovered aliases")
 end
 
 function HousingAddon:PrintHelp()
@@ -581,21 +299,6 @@ function HousingAddon:PrintHelp()
     self:Print("  /hs validate - Validate vendor database")
     self:Print("  /hs welcome - Show welcome/onboarding screen")
     self:Print("  /hs debug - Toggle debug mode")
-    if self.db and self.db.profile and self.db.profile.debug then
-        self:Print("  /hs debugscan - Debug catalog scan info")
-        self:Print("  /hs testlookup <itemID> - Test item source lookup")
-        self:Print("  /hs testsource [itemID] - Test C_HousingCatalog API")
-        self:Print("  /hs achievements - Show achievement decor stats")
-        self:Print("  /hs aliases - Show NPC ID alias mappings")
-        self:Print("  /hs clearaliases - Clear discovered aliases")
-    end
-    if IsDevMode() then
-        self:Print("  /hs suggest - Generate VendorDatabase.lua entries from scans")
-        self:Print("  /hs nodecor - List non-decor vendors (flagged for removal)")
-        self:Print("  /hs clearnodecor - Clear no-decor flags (hidden vendors reappear)")
-        self:Print("  /hs clearall - Clear ALL vendor data including no-decor flags")
-    end
-    self:Print("  /hs devmode - Toggle developer mode")
     self:Print("  /hs help - Show this help")
 end
 
@@ -613,15 +316,6 @@ end
 function HousingAddon:ScanCatalog()
     if HA.CatalogScanner then
         HA.CatalogScanner:ManualScan()
-    else
-        self:Print("CatalogScanner module not available.")
-    end
-end
-
--- Debug scan to show raw API data
-function HousingAddon:DebugScanCatalog()
-    if HA.CatalogScanner then
-        HA.CatalogScanner:DebugScan()
     else
         self:Print("CatalogScanner module not available.")
     end
@@ -706,9 +400,8 @@ function HousingAddon:ShowCacheInfo()
 
     table.insert(output, "Total cached items: " .. count)
     table.insert(output, "")
-    table.insert(output, "This cache persists across reloads to work around")
-    table.insert(output, "a Blizzard API bug where owned items may show as")
-    table.insert(output, "unowned until the Housing Catalog UI is opened.")
+    table.insert(output, "This cache persists across reloads as a backup for")
+    table.insert(output, "ownership detection via the Housing Catalog API.")
     table.insert(output, "")
 
     if count > 0 then
@@ -733,7 +426,7 @@ function HousingAddon:ClearOwnershipCache()
         end
         self.db.global.ownedDecor = {}
         self:Print("Cleared ownership cache. Removed " .. count .. " cached items.")
-        self:Print("Use /hs scan or open the Housing Catalog to rebuild the cache.")
+        self:Print("Use /hs scan to rebuild the cache.")
     end
 end
 
@@ -768,86 +461,6 @@ function HousingAddon:ShowScannedVendors()
     else
         self:Print(string.format("Total: %d vendors scanned, %d decor items found.", count, totalItems))
     end
-end
-
--- Debug: Show what's in global SavedVariables
-function HousingAddon:DebugGlobalData()
-    local output = {}
-    table.insert(output, "=== Debug Global Data ===")
-    table.insert(output, "Character: " .. (UnitName("player") or "Unknown") .. " - " .. (GetRealmName() or "Unknown"))
-    table.insert(output, "")
-
-    if not self.db then
-        table.insert(output, "ERROR: self.db is nil")
-        self:ShowCopyableText(table.concat(output, "\n"))
-        return
-    end
-
-    if not self.db.global then
-        table.insert(output, "ERROR: self.db.global is nil")
-        self:ShowCopyableText(table.concat(output, "\n"))
-        return
-    end
-
-    table.insert(output, "self.db.global exists")
-    table.insert(output, "")
-
-    -- List all keys in global
-    table.insert(output, "Global keys:")
-    local keys = {}
-    for key, value in pairs(self.db.global) do
-        local valueType = type(value)
-        local count = 0
-        if valueType == "table" then
-            for _ in pairs(value) do count = count + 1 end
-        end
-        table.insert(keys, string.format("  %s (%s, %d entries)", key, valueType, count))
-    end
-
-    if #keys == 0 then
-        table.insert(output, "  (no keys in global)")
-    else
-        table.sort(keys)
-        for _, k in ipairs(keys) do
-            table.insert(output, k)
-        end
-    end
-
-    -- Check scannedVendors specifically
-    table.insert(output, "")
-    if self.db.global.scannedVendors then
-        table.insert(output, "scannedVendors details:")
-        for npcID, data in pairs(self.db.global.scannedVendors) do
-            local items = data.items or data.decor
-            local itemCount = items and #items or 0
-            table.insert(output, string.format("  NPC %d: %s (%d items)", npcID, data.name or "Unknown", itemCount))
-        end
-    else
-        table.insert(output, "scannedVendors: nil or not present")
-    end
-
-    -- Check npcIDCorrections
-    table.insert(output, "")
-    if self.db.global.npcIDCorrections then
-        table.insert(output, "npcIDCorrections details:")
-        for name, correction in pairs(self.db.global.npcIDCorrections) do
-            table.insert(output, string.format("  %s: %d -> %d", name, correction.oldID, correction.newID))
-        end
-    else
-        table.insert(output, "npcIDCorrections: nil or not present")
-    end
-
-    -- Check ownedDecor count
-    table.insert(output, "")
-    if self.db.global.ownedDecor then
-        local count = 0
-        for _ in pairs(self.db.global.ownedDecor) do count = count + 1 end
-        table.insert(output, string.format("ownedDecor: %d cached items", count))
-    else
-        table.insert(output, "ownedDecor: nil or not present")
-    end
-
-    self:ShowCopyableText(table.concat(output, "\n"))
 end
 
 -- Show NPC ID corrections that were detected during vendor scans
@@ -973,125 +586,6 @@ function HousingAddon:ShowNPCIDCorrections()
     else
         -- Fallback to old method
         self:ShowCopyableText(table.concat(output, "\n"))
-    end
-end
-
--- Generate VendorDatabase.lua entries from scanned vendor data
-function HousingAddon:GenerateDBSuggestions()
-    local scanned = self.db.global.scannedVendors
-    if not scanned or not next(scanned) then
-        self:Print("No scanned data. Visit vendors first.")
-        return
-    end
-
-    local output = {}
-    local newVendors, updatedVendors = 0, 0
-
-    -- Collect and sort npcIDs for deterministic output
-    local sortedNPCs = {}
-    for npcID in pairs(scanned) do
-        table.insert(sortedNPCs, npcID)
-    end
-    table.sort(sortedNPCs)
-
-    for _, npcID in ipairs(sortedNPCs) do
-        local vendor = scanned[npcID]
-        local shouldProcess = vendor.hasDecor == true or
-            (vendor.items and #vendor.items > 0)
-
-        if shouldProcess then
-            local existing = HA.VendorDatabase and HA.VendorDatabase:GetVendor(npcID)
-            local items = vendor.items or {}
-
-            if not existing then
-                -- NEW vendor: generate full entry
-                newVendors = newVendors + 1
-                table.insert(output, string.format("    -- NEW VENDOR (scanned %s)",
-                    date("%Y-%m-%d", vendor.lastScanned or 0)))
-                table.insert(output, string.format("    [%d] = {", npcID))
-                table.insert(output, string.format('        name = "%s",',
-                    (vendor.name or "?"):gsub('"', '\\"')))
-                table.insert(output, string.format("        mapID = %d,", vendor.mapID or 0))
-                table.insert(output, string.format("        x = %.4f, y = %.4f,",
-                    vendor.coords and vendor.coords.x or 0,
-                    vendor.coords and vendor.coords.y or 0))
-                table.insert(output, string.format('        zone = "%s",', vendor.zone or ""))
-                table.insert(output, string.format('        faction = "%s",',
-                    vendor.faction or "Neutral"))
-                table.insert(output, string.format('        expansion = "%s",',
-                    vendor.expansion or "Unknown"))
-                table.insert(output, string.format('        currency = "%s",',
-                    vendor.currency or "Gold"))
-                table.insert(output, "        items = {")
-                for _, item in ipairs(items) do
-                    if item.currencies and #item.currencies > 0 then
-                        local currParts = {}
-                        for _, c in ipairs(item.currencies) do
-                            table.insert(currParts, string.format(
-                                "{id = %s, amount = %d}",
-                                c.currencyID and tostring(c.currencyID) or "nil",
-                                c.amount or 0))
-                        end
-                        local goldPart = (item.price and item.price > 0)
-                            and string.format("gold = %d, ", item.price) or ""
-                        table.insert(output, string.format(
-                            "            {%d, cost = {%scurrencies = {%s}}}, -- %s",
-                            item.itemID, goldPart,
-                            table.concat(currParts, ", "),
-                            item.name or ""))
-                    elseif item.price and item.price > 0 then
-                        table.insert(output, string.format(
-                            "            {%d, cost = {gold = %d}}, -- %s",
-                            item.itemID, item.price, item.name or ""))
-                    else
-                        table.insert(output, string.format(
-                            "            %d, -- %s", item.itemID, item.name or ""))
-                    end
-                end
-                table.insert(output, "        },")
-                table.insert(output, "    },")
-                table.insert(output, "")
-            else
-                -- EXISTING vendor: show new items not in static DB
-                local existingItems = {}
-                if existing.items then
-                    for _, item in ipairs(existing.items) do
-                        local id = HA.VendorData and HA.VendorData:GetItemID(item)
-                        if id then existingItems[id] = true end
-                    end
-                end
-                local newItems = {}
-                for _, item in ipairs(items) do
-                    if item.itemID and not existingItems[item.itemID] then
-                        table.insert(newItems, item)
-                    end
-                end
-                if #newItems > 0 then
-                    updatedVendors = updatedVendors + 1
-                    table.insert(output, string.format("    -- %s [%d]: ADD %d item(s)",
-                        vendor.name or "?", npcID, #newItems))
-                    for _, item in ipairs(newItems) do
-                        table.insert(output, string.format("    --   + %d (%s)",
-                            item.itemID, item.name or "?"))
-                    end
-                    table.insert(output, "")
-                end
-            end
-        end
-    end
-
-    if #output == 0 then
-        self:Print("No DB changes suggested. Scanned data matches VendorDatabase.")
-    else
-        local header = string.format(
-            "-- DB Suggestions: %d new vendors, %d vendors with new items\n\n",
-            newVendors, updatedVendors)
-        if HA.OutputWindow then
-            HA.OutputWindow:Show("DB Suggestions", header .. table.concat(output, "\n"))
-        else
-            self:Print(header)
-            for _, line in ipairs(output) do self:Print(line) end
-        end
     end
 end
 

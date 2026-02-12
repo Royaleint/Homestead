@@ -863,6 +863,14 @@ local function GetOptionsTable()
                         get = function() return HA.Addon.db.global.enableRequirementScraping end,
                         set = function(_, val) HA.Addon.db.global.enableRequirementScraping = val end,
                     },
+                    useParsedSources = {
+                        type = "toggle",
+                        name = "Use parsed catalog sources (experimental)",
+                        desc = "Show source information parsed from Housing Catalog text. Data is auto-discovered and may be inaccurate.",
+                        order = 15.6,
+                        get = function() return HA.Addon.db.profile.useParsedSources end,
+                        set = function(_, val) HA.Addon.db.profile.useParsedSources = val end,
+                    },
                     clearScannedButton = {
                         type = "execute",
                         name = "|cffff0000Clear All Scanned Data|r",

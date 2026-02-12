@@ -38,6 +38,8 @@ Data\AchievementSources.lua
 Data\ProfessionSources.lua
 Data\DropSources.lua
 Data\SourceManager.lua
+Data\SourceTextLocaleProfiles.lua
+Data\SourceTextParser.lua
 
 # Utilities
 Utils\waypoints.lua
@@ -45,6 +47,7 @@ Utils\waypoints.lua
 # Modules
 Modules\DecorTracker.lua
 Modules\CatalogScanner.lua
+Modules\SourceTextScanner.lua
 Modules\VendorTracer.lua
 Modules\VendorScanner.lua
 Modules/ExportImport.lua

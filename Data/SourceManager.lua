@@ -58,6 +58,14 @@ function SourceManager:GetSource(itemID)
         return {type = "drop", data = HA.DropSources[itemID]}
     end
 
+    -- Priority 6: Parsed sourceText (runtime discovery fallback, gated)
+    if HA.Addon and HA.Addon.db and HA.Addon.db.profile.useParsedSources then
+        local parsedSource = self:GetParsedSource(itemID)
+        if parsedSource then
+            return parsedSource
+        end
+    end
+
     return nil
 end
 
@@ -92,6 +100,28 @@ function SourceManager:GetAllSources(itemID)
     -- Drop source
     if HA.DropSources and HA.DropSources[itemID] then
         table.insert(sources, {type = "drop", data = HA.DropSources[itemID]})
+    end
+
+    -- Parsed sources (gated behind useParsedSources)
+    if HA.Addon and HA.Addon.db and HA.Addon.db.profile.useParsedSources then
+        if HA.SourceTextScanner then
+            local parsed = HA.SourceTextScanner:GetParsedSource(itemID)
+            if parsed and parsed.sources then
+                -- Composite dedupe: sourceType + name + zone
+                local seen = {}
+                for _, existing in ipairs(sources) do
+                    local key = (existing.type or "") .. "|" .. (existing.data and existing.data.name or "") .. "|" .. (existing.data and existing.data.zone or "")
+                    seen[key] = true
+                end
+                for _, s in ipairs(parsed.sources) do
+                    local key = (s.sourceType or "") .. "|" .. (s.name or "") .. "|" .. (s.zone or "")
+                    if not seen[key] then
+                        seen[key] = true
+                        table.insert(sources, { type = s.sourceType, data = s, _isParsed = true })
+                    end
+                end
+            end
+        end
     end
 
     return sources
@@ -136,6 +166,24 @@ function SourceManager:GetVendorSource(itemID)
         }
     end
 
+    return nil
+end
+
+-- Helper: Get best parsed source for an item (from SourceTextScanner)
+function SourceManager:GetParsedSource(itemID)
+    if not HA.SourceTextScanner then return nil end
+    local parsed = HA.SourceTextScanner:GetParsedSource(itemID)
+    if not parsed or not parsed.sources or #parsed.sources == 0 then return nil end
+
+    local priorityOrder = { vendor = 1, quest = 2, achievement = 3, profession = 4, drop = 5 }
+    local best, bestP = nil, 999
+    for _, s in ipairs(parsed.sources) do
+        local p = priorityOrder[s.sourceType] or 6
+        if p < bestP then bestP = p; best = s end
+    end
+    if best then
+        return { type = best.sourceType, data = best, _isParsed = true }
+    end
     return nil
 end
 

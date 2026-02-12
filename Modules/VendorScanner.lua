@@ -257,6 +257,32 @@ function VendorScanner:OnMerchantShow()
         HA.Addon:Debug("Merchant NPC ID:", npcID, "Name:", vendorName)
     end
 
+    -- Resolve NPC ID aliases to canonical ID (e.g., phased variants → main entry)
+    if HA.VendorDatabase and HA.VendorDatabase.Aliases then
+        local canonicalID = HA.VendorDatabase.Aliases[npcID]
+        if canonicalID then
+            if HA.Addon then
+                HA.Addon:Debug("Alias resolved:", npcID, "->", canonicalID)
+            end
+            npcID = canonicalID
+        end
+    end
+
+    -- Store locale vendor name for cross-reference (runs every visit, not gated by session dedup)
+    if HA.Addon and HA.Addon.db then
+        local locale = GetLocale()
+        local normalized = vendorName:lower():gsub("^%s+", ""):gsub("%s+$", ""):gsub("%s+", " ")
+        local byLocale = HA.Addon.db.global.vendorNameByLocale
+        if not byLocale[locale] then byLocale[locale] = {} end
+        local entry = byLocale[locale][normalized]
+        if entry and entry.npcID == npcID then
+            entry.scanCount = entry.scanCount + 1
+            entry.lastSeen = time()
+        else
+            byLocale[locale][normalized] = { npcID = npcID, scanCount = 1, lastSeen = time() }
+        end
+    end
+
     -- Verify NPC ID matches database entry (and correct if mismatched)
     local verification = self:VerifyAndUpdateDatabaseEntry(npcID, vendorName)
     if verification and verification.corrected then
@@ -446,26 +472,23 @@ function VendorScanner:ProcessScanQueue()
         if itemLink then
             local itemID = _G.GetMerchantItemID and _G.GetMerchantItemID(i)
 
-            -- Get full merchant item info using new C_MerchantFrame API (11.0+)
-            -- Returns a table instead of multiple values
+            -- Get full merchant item info via C_MerchantFrame API (12.0.1+)
             local name, texture, price, stackCount, numAvailable, isPurchasable, isUsable, extendedCost, currencyID, spellID
-            if C_MerchantFrame and C_MerchantFrame.GetItemInfo then
-                local info = C_MerchantFrame.GetItemInfo(i)
-                if info then
-                    name = info.name
-                    texture = info.texture
-                    price = info.price
-                    stackCount = info.stackCount
-                    numAvailable = info.numAvailable
-                    isPurchasable = info.isPurchasable
-                    isUsable = info.isUsable
-                    extendedCost = info.hasExtendedCost
-                    currencyID = info.currencyID
-                    spellID = info.spellID
-                else
-                    -- C_MerchantFrame.GetItemInfo returned nil for this slot
-                    scanQueue.hadNilSlots = true
-                end
+            local info = C_MerchantFrame.GetItemInfo(i)
+            if info then
+                name = info.name
+                texture = info.texture
+                price = info.price
+                stackCount = info.stackCount
+                numAvailable = info.numAvailable
+                isPurchasable = info.isPurchasable
+                isUsable = info.isUsable
+                extendedCost = info.hasExtendedCost
+                currencyID = info.currencyID
+                spellID = info.spellID
+            else
+                -- C_MerchantFrame.GetItemInfo returned nil for this slot
+                scanQueue.hadNilSlots = true
             end
 
             -- Extract all cost components (items and currencies) if extendedCost is true
@@ -910,7 +933,7 @@ function VendorScanner:SaveVendorData(scanData)
 
     -- Determine scan confidence: "confirmed" only if scan completed AND all item
     -- slots returned valid data. "unknown" if scan completed but any
-    -- GetMerchantItemInfo() call returned nil during ProcessScanQueue().
+    -- C_MerchantFrame.GetItemInfo() call returned nil during ProcessScanQueue().
     local scanConfidence = "unknown"
     if scanData.scanComplete and not scanData.hadNilSlots then
         scanConfidence = "confirmed"

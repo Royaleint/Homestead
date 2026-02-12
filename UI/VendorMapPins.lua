@@ -912,7 +912,7 @@ local function IsItemOwned(itemID)
         return true
     end
 
-    -- Try the live API if available (unreliable after /reload, but works when catalog is open)
+    -- Try the live API if available (firstAcquisitionBonus handles stale qty/placed post-reload)
     if C_HousingCatalog and C_HousingCatalog.GetCatalogEntryInfoByItem then
         -- Create a simple item link to check
         local itemLink = "item:" .. itemID
@@ -925,8 +925,10 @@ local function IsItemOwned(itemID)
             local quantity = info.quantity or 0
             local numPlaced = info.numPlaced or 0
             local remainingRedeemable = info.remainingRedeemable or 0
+            local firstAcquisitionBonus = info.firstAcquisitionBonus
 
-            if quantity > 0 or numPlaced > 0 or remainingRedeemable > 0 then
+            -- firstAcquisitionBonus == 0 reliably detects ownership even when qty/placed are stale (post-reload)
+            if quantity > 0 or numPlaced > 0 or remainingRedeemable > 0 or firstAcquisitionBonus == 0 then
                 CacheOwnedItem(itemID, info.name)
                 return true
             end

@@ -175,6 +175,7 @@ Constants.Defaults = {
         -- General settings
         enabled = true,
         debug = false,
+        useParsedSources = false,  -- Gate parsed sources in tooltip/source display
         minimap = {
             hide = false,
         },
@@ -247,10 +248,12 @@ Constants.Defaults = {
         noDecorVendors = {},  -- [npcID] = { name, confirmedAt, itemCount, inDatabase, scanConfidence, confirmCount }
         -- Experimental: tooltip-based requirement detection
         enableRequirementScraping = true,
-        -- Developer mode flag (gates advanced commands like /hs suggest, /hs nodecor)
-        developerMode = false,
         -- NPC ID corrections detected when visiting vendors
         npcIDCorrections = {},  -- [vendorName] = { oldID, newID, correctedAt }
+        -- Runtime parsed source data from CatalogScanner sourceText
+        parsedSources = {},          -- [itemID] = { sources, recordID, lastParsed, sourceHash }
+        -- Locale-learned vendor names for cross-reference
+        vendorNameByLocale = {},     -- [locale] = { [normalizedName] = {npcID, scanCount, lastSeen} }
     },
 }
 
