@@ -52,76 +52,23 @@ local function IsDecorItem(itemLink)
 end
 
 -- Check if a decor item is owned (by itemID)
+-- Delegates to CatalogStore:IsOwnedFresh() (Phase 2) — cache + bags + live API
 local function IsDecorOwnedByID(itemID)
     if not itemID then return nil end
-
-    -- Check persistent cache first as workaround for API bug
-    if HA.Addon and HA.Addon.db and HA.Addon.db.global.ownedDecor then
-        if HA.Addon.db.global.ownedDecor[itemID] then
-            return true
-        end
+    if HA.CatalogStore then
+        return HA.CatalogStore:IsOwnedFresh(itemID)
     end
-
-    -- Try API with item link
-    if C_HousingCatalog and C_HousingCatalog.GetCatalogEntryInfoByItem then
-        local itemLink = "item:" .. itemID
-        local success, info = pcall(function()
-            return C_HousingCatalog.GetCatalogEntryInfoByItem(itemLink, true)
-        end)
-
-        if success and info then
-            -- firstAcquisitionBonus == 0 reliably detects ownership even when qty/placed are stale (post-reload)
-            return (info.entrySubtype and info.entrySubtype >= 2) or (info.quantity and info.quantity > 0)
-                or (info.firstAcquisitionBonus == 0)
-        end
-    end
-
     return nil
 end
 
 -- Check if a decor item is owned (by itemLink)
+-- Delegates to CatalogStore:IsOwnedFresh() (Phase 2)
 local function IsDecorOwned(itemLink)
-    if not C_HousingCatalog or not C_HousingCatalog.GetCatalogEntryInfoByItem then
-        return nil -- Unknown
+    local itemID = GetItemIDFromLink(itemLink)
+    if not itemID then return nil end
+    if HA.CatalogStore then
+        return HA.CatalogStore:IsOwnedFresh(itemID)
     end
-
-    local success, info = pcall(function()
-        return C_HousingCatalog.GetCatalogEntryInfoByItem(itemLink, true)
-    end)
-
-    if success and info then
-        -- Check persistent cache first as workaround for API bug
-        local itemID = GetItemIDFromLink(itemLink)
-        if itemID and HA.Addon and HA.Addon.db and HA.Addon.db.global.ownedDecor then
-            if HA.Addon.db.global.ownedDecor[itemID] then
-                return true
-            end
-        end
-
-        -- Fall back to API checks
-        -- firstAcquisitionBonus == 0 reliably detects ownership even when qty/placed are stale (post-reload)
-        if info.firstAcquisitionBonus == 0 then
-            return true
-        end
-
-        -- Check quantity first (most reliable indicator of ownership)
-        if info.quantity and info.quantity > 0 then
-            return true
-        end
-
-        -- Check numPlaced (items placed in housing)
-        if info.numPlaced and info.numPlaced > 0 then
-            return true
-        end
-
-        -- entrySubtype >= 2 means owned (but field may not exist)
-        if info.entrySubtype and info.entrySubtype >= 2 then
-            return true
-        end
-
-        return false
-    end
-
     return nil
 end
 

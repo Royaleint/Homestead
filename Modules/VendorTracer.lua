@@ -286,8 +286,8 @@ function VendorTracer:GetMissingItemVendors()
 
                     if HA.DecorTracker then
                         isOwned = HA.DecorTracker:IsCollected(itemID)
-                    elseif HA.Addon and HA.Addon.db and HA.Addon.db.global.ownedDecor then
-                        isOwned = HA.Addon.db.global.ownedDecor[itemID] ~= nil
+                    elseif HA.CatalogStore then
+                        isOwned = HA.CatalogStore:IsOwnedFresh(itemID)
                     end
 
                     if not isOwned then
@@ -398,8 +398,8 @@ function VendorTracer:GetMissingAtCurrentVendor()
 
                 if HA.DecorTracker then
                     isOwned = HA.DecorTracker:IsCollected(itemID)
-                elseif HA.Addon and HA.Addon.db and HA.Addon.db.global.ownedDecor then
-                    isOwned = HA.Addon.db.global.ownedDecor[itemID] ~= nil
+                elseif HA.CatalogStore then
+                    isOwned = HA.CatalogStore:IsOwnedFresh(itemID)
                 end
 
                 if not isOwned then

@@ -541,42 +541,21 @@ end
 -- data in SavedVariables as a backup and for performance.
 
 -- Check if an item is marked as owned in our persistent cache
+-- Delegates to CatalogStore (Phase 2)
 function DecorData:CheckPersistentOwnership(itemID)
     if not itemID then return false end
-    if not HA.Addon or not HA.Addon.db then return false end
-
-    local ownedDecor = HA.Addon.db.global.ownedDecor
-    if not ownedDecor then return false end
-
-    return ownedDecor[itemID] ~= nil
+    if HA.CatalogStore then
+        return HA.CatalogStore:IsOwned(itemID)
+    end
+    return false
 end
 
 -- Save an item as owned in our persistent cache
+-- Delegates to CatalogStore (Phase 2) — CatalogStore handles dual-write to ownedDecor
 function DecorData:SavePersistentOwnership(itemID, name, recordID)
     if not itemID then return end
-    if not HA.Addon or not HA.Addon.db then return end
-
-    -- Ensure the table exists
-    if not HA.Addon.db.global.ownedDecor then
-        HA.Addon.db.global.ownedDecor = {}
-    end
-
-    local ownedDecor = HA.Addon.db.global.ownedDecor
-
-    -- Only update if not already cached, or update lastSeen
-    if not ownedDecor[itemID] then
-        ownedDecor[itemID] = {
-            name = name,
-            recordID = recordID,
-            firstSeen = time(),
-            lastSeen = time(),
-        }
-        if HA.Addon.db.profile.debug then
-            HA.Addon:Debug("Cached owned decor:", name or itemID)
-        end
-    else
-        -- Update lastSeen timestamp
-        ownedDecor[itemID].lastSeen = time()
+    if HA.CatalogStore then
+        HA.CatalogStore:SetOwned(itemID, name, recordID)
     end
 end
 
@@ -592,21 +571,11 @@ function DecorData:RemovePersistentOwnership(itemID)
 end
 
 -- Get persistent ownership cache stats
+-- Delegates to CatalogStore (Phase 2)
 function DecorData:GetPersistentCacheStats()
-    if not HA.Addon or not HA.Addon.db then
-        return { count = 0 }
+    if HA.CatalogStore then
+        return { count = HA.CatalogStore:GetOwnedCount() }
     end
-
-    local ownedDecor = HA.Addon.db.global.ownedDecor
-    if not ownedDecor then
-        return { count = 0 }
-    end
-
-    local count = 0
-    for _ in pairs(ownedDecor) do
-        count = count + 1
-    end
-
-    return { count = count }
+    return { count = 0 }
 end
 

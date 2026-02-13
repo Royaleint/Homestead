@@ -201,33 +201,63 @@ function Validation:ValidateOwnershipCache()
     local errors = {}
     local warnings = {}
     local itemCount = 0
-    
+
+    -- Prefer catalogItems if CatalogStore is available
+    if HA.CatalogStore and HA.Addon and HA.Addon.db and HA.Addon.db.global.catalogItems then
+        for itemID, record in pairs(HA.Addon.db.global.catalogItems) do
+            if record.isOwned then
+                itemCount = itemCount + 1
+
+                if type(itemID) ~= "number" then
+                    table.insert(errors, string.format(
+                        "catalogItems: key '%s' is not a number", tostring(itemID)
+                    ))
+                end
+
+                if not record.name then
+                    table.insert(warnings, string.format(
+                        "catalogItems[%s]: missing name", tostring(itemID)
+                    ))
+                end
+
+                if not record.firstSeen then
+                    table.insert(warnings, string.format(
+                        "catalogItems[%s]: missing firstSeen timestamp", tostring(itemID)
+                    ))
+                end
+            end
+        end
+
+        return errors, warnings, itemCount
+    end
+
+    -- Fallback to legacy ownedDecor
     if not HA.Addon or not HA.Addon.db or not HA.Addon.db.global.ownedDecor then
         return errors, warnings, 0
     end
-    
+
     for itemID, data in pairs(HA.Addon.db.global.ownedDecor) do
         itemCount = itemCount + 1
-        
+
         if type(itemID) ~= "number" then
             table.insert(errors, string.format(
                 "ownedDecor: key '%s' is not a number", tostring(itemID)
             ))
         end
-        
+
         if not data.name then
             table.insert(warnings, string.format(
                 "ownedDecor[%s]: missing name", tostring(itemID)
             ))
         end
-        
+
         if not data.firstSeen then
             table.insert(warnings, string.format(
                 "ownedDecor[%s]: missing firstSeen timestamp", tostring(itemID)
             ))
         end
     end
-    
+
     return errors, warnings, itemCount
 end
 
@@ -288,7 +318,7 @@ function Validation:RunFullValidation()
         scCount, #scErrors, #scWarnings))
 
     -- Validate ownership cache
-    table.insert(output, "Checking ownedDecor cache...")
+    table.insert(output, "Checking ownership cache...")
     local owErrors, owWarnings, owCount = self:ValidateOwnershipCache()
     totalErrors = totalErrors + #owErrors
     totalWarnings = totalWarnings + #owWarnings

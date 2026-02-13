@@ -314,12 +314,8 @@ function MainFrame:CreateDashboardPanel(parent)
     end
 
     AddStat("Cached Items", function()
-        if HA.Addon and HA.Addon.db and HA.Addon.db.global.ownedDecor then
-            local count = 0
-            for _ in pairs(HA.Addon.db.global.ownedDecor) do
-                count = count + 1
-            end
-            return count
+        if HA.CatalogStore then
+            return HA.CatalogStore:GetOwnedCount()
         end
         return 0
     end)
@@ -543,12 +539,7 @@ function MainFrame:CreateCachePanel(parent)
     statsText:SetPoint("TOPLEFT", 16, -200)
 
     parent:SetScript("OnShow", function()
-        local count = 0
-        if HA.Addon and HA.Addon.db and HA.Addon.db.global.ownedDecor then
-            for _ in pairs(HA.Addon.db.global.ownedDecor) do
-                count = count + 1
-            end
-        end
+        local count = HA.CatalogStore and HA.CatalogStore:GetOwnedCount() or 0
         statsText:SetText("Items in cache: " .. count)
     end)
 end

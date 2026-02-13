@@ -81,42 +81,8 @@ local function IsOwned(info)
 end
 
 -------------------------------------------------------------------------------
--- Ownership Cache Management
+-- Ownership Cache Management (Phase 2: writes go through CatalogStore)
 -------------------------------------------------------------------------------
-
--- Save an item as owned in the persistent cache
-local function SaveToOwnershipCache(itemID, name)
-    if not itemID then return end
-    if not HA.Addon or not HA.Addon.db then return end
-
-    -- Ensure the table exists
-    if not HA.Addon.db.global.ownedDecor then
-        HA.Addon.db.global.ownedDecor = {}
-    end
-
-    local ownedDecor = HA.Addon.db.global.ownedDecor
-
-    -- Only add new entries or update lastSeen
-    if not ownedDecor[itemID] then
-        ownedDecor[itemID] = {
-            name = name,
-            firstSeen = time(),
-            lastSeen = time(),
-        }
-    else
-        ownedDecor[itemID].lastSeen = time()
-    end
-end
-
--- Save recordID (decorID) to an existing ownership cache entry
-local function SaveRecordID(itemID, recordID)
-    if not itemID or not recordID then return end
-    if not HA.Addon or not HA.Addon.db then return end
-    local ownedDecor = HA.Addon.db.global.ownedDecor
-    if ownedDecor and ownedDecor[itemID] then
-        ownedDecor[itemID].recordID = recordID
-    end
-end
 
 -------------------------------------------------------------------------------
 -- Item Collection
@@ -286,16 +252,10 @@ function CatalogScanner:ScanFullCatalog(callback)
                 if result then
                     checkedCount = checkedCount + 1
                     if result.isOwned then
-                        SaveToOwnershipCache(result.itemID, result.name or itemData.name)
                         ownedCount = ownedCount + 1
                     end
 
-                    -- Store recordID in ownership cache
-                    if result.recordID then
-                        SaveRecordID(result.itemID, result.recordID)
-                    end
-
-                    -- Dual-write to CatalogStore (Phase 1)
+                    -- Write to CatalogStore (handles dual-write to ownedDecor internally)
                     if HA.CatalogStore then
                         if result.isOwned then
                             -- Full path for owned items
@@ -378,7 +338,9 @@ function CatalogScanner:ScanFullCatalogSync()
             if result then
                 checkedCount = checkedCount + 1
                 if result.isOwned then
-                    SaveToOwnershipCache(result.itemID, result.name or itemData.name)
+                    if HA.CatalogStore then
+                        HA.CatalogStore:SetOwned(result.itemID, result.name or itemData.name, result.recordID)
+                    end
                     ownedCount = ownedCount + 1
                 end
             end
@@ -501,12 +463,7 @@ function CatalogScanner:DebugScan()
     HA.Addon:Debug("Known items in database:", #itemList)
 
     -- Show cache size
-    local cacheSize = 0
-    if HA.Addon and HA.Addon.db and HA.Addon.db.global.ownedDecor then
-        for _ in pairs(HA.Addon.db.global.ownedDecor) do
-            cacheSize = cacheSize + 1
-        end
-    end
+    local cacheSize = HA.CatalogStore and HA.CatalogStore:GetOwnedCount() or 0
     HA.Addon:Debug("Items in ownership cache:", cacheSize)
 
     -- Test a few items
@@ -539,12 +496,7 @@ end
 -- Get current scan stats
 function CatalogScanner:GetStats()
     local itemList = CollectAllKnownItemIDs()
-    local cacheSize = 0
-    if HA.Addon and HA.Addon.db and HA.Addon.db.global.ownedDecor then
-        for _ in pairs(HA.Addon.db.global.ownedDecor) do
-            cacheSize = cacheSize + 1
-        end
-    end
+    local cacheSize = HA.CatalogStore and HA.CatalogStore:GetOwnedCount() or 0
 
     local apiTotal = 0
     if C_HousingCatalog and C_HousingCatalog.GetDecorTotalOwnedCount then

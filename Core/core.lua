@@ -386,21 +386,32 @@ function HousingAddon:ShowCacheInfo()
     table.insert(output, "=== Homestead Ownership Cache ===")
     table.insert(output, "")
 
-    if not self.db or not self.db.global or not self.db.global.ownedDecor then
+    -- Use CatalogStore as primary data source
+    local count = HA.CatalogStore and HA.CatalogStore:GetOwnedCount() or 0
+    local items = {}
+
+    if HA.CatalogStore and self.db and self.db.global and self.db.global.catalogItems then
+        for itemID, record in pairs(self.db.global.catalogItems) do
+            if record.isOwned then
+                local name = record.name or ("ItemID: " .. itemID)
+                local lastSeen = record.lastSeen and date("%Y-%m-%d %H:%M", record.lastSeen) or "unknown"
+                table.insert(items, "  " .. name .. " (ID: " .. itemID .. ") - Last seen: " .. lastSeen)
+            end
+        end
+    elseif self.db and self.db.global and self.db.global.ownedDecor then
+        -- Fallback to legacy ownedDecor
+        for itemID, data in pairs(self.db.global.ownedDecor) do
+            count = count + 1
+            local name = data.name or ("ItemID: " .. itemID)
+            local lastSeen = data.lastSeen and date("%Y-%m-%d %H:%M", data.lastSeen) or "unknown"
+            table.insert(items, "  " .. name .. " (ID: " .. itemID .. ") - Last seen: " .. lastSeen)
+        end
+    end
+
+    if count == 0 and #items == 0 then
         table.insert(output, "No ownership cache data found.")
         self:ShowCopyableText(table.concat(output, "\n"))
         return
-    end
-
-    local ownedDecor = self.db.global.ownedDecor
-    local count = 0
-    local items = {}
-
-    for itemID, data in pairs(ownedDecor) do
-        count = count + 1
-        local name = data.name or ("ItemID: " .. itemID)
-        local lastSeen = data.lastSeen and date("%Y-%m-%d %H:%M", data.lastSeen) or "unknown"
-        table.insert(items, "  " .. name .. " (ID: " .. itemID .. ") - Last seen: " .. lastSeen)
     end
 
     table.insert(output, "Total cached items: " .. count)
@@ -409,7 +420,7 @@ function HousingAddon:ShowCacheInfo()
     table.insert(output, "ownership detection via the Housing Catalog API.")
     table.insert(output, "")
 
-    if count > 0 then
+    if #items > 0 then
         table.insert(output, "Cached items:")
         table.sort(items)
         for _, item in ipairs(items) do

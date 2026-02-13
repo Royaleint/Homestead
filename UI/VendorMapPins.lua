@@ -877,89 +877,13 @@ local function ShouldShowUnverifiedVendors()
     return false  -- Default to hidden (new users shouldn't see unverified data)
 end
 
--- Helper function to cache an owned item
-local function CacheOwnedItem(itemID, name)
-    if not itemID then return end
-    if HA.Addon and HA.Addon.db then
-        if not HA.Addon.db.global.ownedDecor then
-            HA.Addon.db.global.ownedDecor = {}
-        end
-        if not HA.Addon.db.global.ownedDecor[itemID] then
-            HA.Addon.db.global.ownedDecor[itemID] = {
-                name = name,
-                firstSeen = time(),
-                lastSeen = time(),
-            }
-        end
-    end
-end
-
 -- Helper function to check if a specific item is owned
+-- Delegates to CatalogStore:IsOwnedFresh() (Phase 2) — cache + bags + live API
 local function IsItemOwned(itemID)
     if not itemID then return false end
-
-    -- First check our persistent cache (most reliable after /reload)
-    if HA.Addon and HA.Addon.db and HA.Addon.db.global.ownedDecor then
-        if HA.Addon.db.global.ownedDecor[itemID] then
-            return true
-        end
+    if HA.CatalogStore then
+        return HA.CatalogStore:IsOwnedFresh(itemID)
     end
-
-    -- Check if item is in player's bags (newly purchased items)
-    local bagCount = _G.GetItemCount and _G.GetItemCount(itemID, true) or 0
-    if bagCount > 0 then
-        CacheOwnedItem(itemID, nil)
-        return true
-    end
-
-    -- Try the live API if available (firstAcquisitionBonus handles stale qty/placed post-reload)
-    if C_HousingCatalog and C_HousingCatalog.GetCatalogEntryInfoByItem then
-        -- Create a simple item link to check
-        local itemLink = "item:" .. itemID
-        local success, info = pcall(function()
-            return C_HousingCatalog.GetCatalogEntryInfoByItem(itemLink, true)
-        end)
-
-        if success and info then
-            -- Check ownership indicators
-            local quantity = info.quantity or 0
-            local numPlaced = info.numPlaced or 0
-            local remainingRedeemable = info.remainingRedeemable or 0
-            local firstAcquisitionBonus = info.firstAcquisitionBonus
-
-            -- firstAcquisitionBonus == 0 reliably detects ownership even when qty/placed are stale (post-reload)
-            if quantity > 0 or numPlaced > 0 or remainingRedeemable > 0 or firstAcquisitionBonus == 0 then
-                CacheOwnedItem(itemID, info.name)
-                return true
-            end
-
-            -- Check entrySubtype (2 = OwnedModifiedStack, 3 = OwnedUnmodifiedStack)
-            local entrySubtype = nil
-            if info.entryID and type(info.entryID) == "table" then
-                entrySubtype = info.entryID.entrySubtype
-                if not entrySubtype then
-                    for k, v in pairs(info.entryID) do
-                        if k == "entrySubtype" then
-                            entrySubtype = v
-                            break
-                        end
-                    end
-                end
-            end
-
-            if entrySubtype and entrySubtype >= 2 then
-                CacheOwnedItem(itemID, info.name)
-                return true
-            end
-
-            -- Check isOwned field directly if present
-            if info.isOwned then
-                CacheOwnedItem(itemID, info.name)
-                return true
-            end
-        end
-    end
-
     return false
 end
 
@@ -1362,7 +1286,7 @@ function VendorMapPins:ShowVendorTooltip(pin, vendor)
                 isOwned = IsItemOwned(item.itemID)
                 -- Debug: Check if item is in cache
                 if HA.Addon and HA.Addon.db and HA.Addon.db.profile.debug then
-                    local inCache = HA.Addon.db.global.ownedDecor and HA.Addon.db.global.ownedDecor[item.itemID]
+                    local inCache = HA.CatalogStore and HA.CatalogStore:IsOwned(item.itemID)
                     HA.Addon:Debug("Item", item.itemID, itemName, "owned:", isOwned, "inCache:", inCache and "yes" or "no")
                 end
             end
