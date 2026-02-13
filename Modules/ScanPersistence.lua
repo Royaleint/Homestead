@@ -180,6 +180,15 @@ function ScanPersistence:SaveVendorData(scanData)
         HA.Addon.db.global.noDecorVendors[scanData.npcID] = nil
     end
 
+    -- Persist item-level requirements to CatalogStore (best-known fallback)
+    if HA.CatalogStore then
+        for _, item in ipairs(vendorRecord.items) do
+            if item.itemID and item.requirements and #item.requirements > 0 then
+                HA.CatalogStore:SetRequirements(item.itemID, item.requirements)
+            end
+        end
+    end
+
     -- Track vendor scan
     if HA.Analytics then
         HA.Analytics:IncrementCounter("VendorScans")

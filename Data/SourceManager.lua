@@ -205,7 +205,7 @@ function SourceManager:GetRequirements(itemID, npcID)
             local items = vendor.items
             if items then
                 for _, item in ipairs(items) do
-                    local vendorItemID = item.itemID or (type(item) == "table" and item[1]) or (type(item) == "number" and item)
+                    local vendorItemID = HA.VendorData:GetItemID(item)
                     if vendorItemID == itemID and item.requirements and #item.requirements > 0 then
                         return item.requirements
                     end

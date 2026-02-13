@@ -279,7 +279,7 @@ function VendorTracer:GetMissingItemVendors()
         if vendor.items then
             -- Handle both formats: plain number or table with cost data
             for _, item in ipairs(vendor.items) do
-                local itemID = HA.VendorData and HA.VendorData:GetItemID(item) or (type(item) == "number" and item or item[1])
+                local itemID = HA.VendorData:GetItemID(item)
                 if itemID then
                     -- Check if player owns this item
                     local isOwned = false
@@ -392,7 +392,7 @@ function VendorTracer:GetMissingAtCurrentVendor()
     if vendor.items then
         -- Handle both formats: plain number or table with cost data
         for _, item in ipairs(vendor.items) do
-            local itemID = HA.VendorData and HA.VendorData:GetItemID(item) or (type(item) == "number" and item or item[1])
+            local itemID = HA.VendorData:GetItemID(item)
             if itemID then
                 local isOwned = false
 

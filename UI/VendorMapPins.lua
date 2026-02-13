@@ -252,7 +252,7 @@ function VendorMapPins:ShowVendorTooltip(pin, vendor)
     if vendor.items then
         for _, item in ipairs(vendor.items) do
             -- Handle both formats: plain number or table with cost
-            local itemID = HA.VendorData and HA.VendorData:GetItemID(item) or (type(item) == "number" and item or item[1])
+            local itemID = HA.VendorData:GetItemID(item)
             if itemID and not itemsSeen[itemID] then
                 itemsSeen[itemID] = true
                 table.insert(allItems, {itemID = itemID})
@@ -677,8 +677,7 @@ function VendorMapPins:ShowVendorPins(mapID)
             -- Static DB items (plain int or {itemID, cost=...})
             if vendor.items then
                 for _, item in ipairs(vendor.items) do
-                    local itemID = HA.VendorData and HA.VendorData:GetItemID(item)
-                        or (type(item) == "number" and item or item[1])
+                    local itemID = HA.VendorData:GetItemID(item)
                     if itemID then
                         GetItemInfo(itemID)
                     end
@@ -733,18 +732,9 @@ end
 function VendorMapPins:ShowContinentBadges()
     local continentCounts = self:GetContinentVendorCounts()
 
-    -- Continents that exist in different dimensions and are NOT on the Azeroth world map
-    local excludedContinents = {
-        [572] = true,   -- Draenor (alternate dimension)
-        [1550] = true,  -- Shadowlands (afterlife dimension)
-        [830] = true,   -- Krokuun (Argus)
-        [882] = true,   -- Mac'Aree (Argus)
-        [885] = true,   -- Antoran Wastes (Argus)
-    }
-
     for continentMapID, continentData in pairs(continentCounts) do
         -- Skip continents not on Azeroth world map
-        if continentData.vendorCount > 0 and not excludedContinents[continentMapID] then
+        if continentData.vendorCount > 0 and not BC.excludedContinents[continentMapID] then
             local badgeData = {
                 mapID = continentMapID,
                 zoneName = continentData.continentName,

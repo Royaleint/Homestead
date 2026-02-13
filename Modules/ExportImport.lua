@@ -394,14 +394,14 @@ function ExportImport:ExportScannedVendors(fullExport, exportAll)
                 local existingLookup = {}
                 if existingVendor.items then
                     for _, item in ipairs(existingVendor.items) do
-                        local existItemID = HA.VendorData and HA.VendorData:GetItemID(item) or (type(item) == "table" and item[1] or item)
+                        local existItemID = HA.VendorData:GetItemID(item)
                         existingLookup[existItemID] = true
                     end
                 end
 
                 local hasNewItems = false
                 for _, item in ipairs(items) do
-                    local itemID = item.itemID or (type(item) == "table" and item[1]) or item
+                    local itemID = HA.VendorData:GetItemID(item)
                     if itemID and not existingLookup[itemID] then
                         hasNewItems = true
                         break
@@ -452,14 +452,14 @@ function ExportImport:ExportScannedVendors(fullExport, exportAll)
                 table.insert(sortedItems, item)
             end
             table.sort(sortedItems, function(a, b)
-                local idA = type(a) == "table" and a.itemID or a
-                local idB = type(b) == "table" and b.itemID or b
+                local idA = HA.VendorData:GetItemID(a)
+                local idB = HA.VendorData:GetItemID(b)
                 return (idA or 0) < (idB or 0)
             end)
 
             -- ITEM lines: I npcID itemID name price costData isUsable spellID
             for _, item in ipairs(sortedItems) do
-                local itemID = item.itemID or (type(item) == "table" and item[1]) or item
+                local itemID = HA.VendorData:GetItemID(item)
                 if itemID then
                     itemCount = itemCount + 1
 

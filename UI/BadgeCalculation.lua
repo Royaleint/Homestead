@@ -246,7 +246,7 @@ function BadgeCalculation:VendorHasUncollectedItems(vendor)
     if vendor.items and #vendor.items > 0 then
         for _, item in ipairs(vendor.items) do
             -- Handle both formats: plain number or table with cost
-            local itemID = HA.VendorData and HA.VendorData:GetItemID(item) or (type(item) == "number" and item or item[1])
+            local itemID = HA.VendorData:GetItemID(item)
             if itemID then
                 items[itemID] = {itemID = itemID}
             end
@@ -308,7 +308,7 @@ function BadgeCalculation:GetVendorCollectionCounts(vendor)
     -- Static items from vendor database
     if vendor.items and #vendor.items > 0 then
         for _, item in ipairs(vendor.items) do
-            local itemID = HA.VendorData and HA.VendorData:GetItemID(item) or (type(item) == "number" and item or item[1])
+            local itemID = HA.VendorData:GetItemID(item)
             if itemID then
                 items[itemID] = true
             end
@@ -506,18 +506,18 @@ end
 -- Map Center Helpers
 -------------------------------------------------------------------------------
 
-function BadgeCalculation:GetContinentCenterOnWorldMap(continentMapID)
-    -- Continents that exist in different dimensions and are NOT on the Azeroth world map
-    -- These should never show badges on the world map
-    local excludedContinents = {
-        [572] = true,   -- Draenor (alternate dimension)
-        [1550] = true,  -- Shadowlands (afterlife dimension)
-        [830] = true,   -- Krokuun (Argus)
-        [882] = true,   -- Mac'Aree (Argus)
-        [885] = true,   -- Antoran Wastes (Argus)
-    }
+-- Continents that exist in different dimensions and are NOT on the Azeroth world map
+-- These should never show badges on the world map
+BadgeCalculation.excludedContinents = {
+    [572] = true,   -- Draenor (alternate dimension)
+    [1550] = true,  -- Shadowlands (afterlife dimension)
+    [830] = true,   -- Krokuun (Argus)
+    [882] = true,   -- Mac'Aree (Argus)
+    [885] = true,   -- Antoran Wastes (Argus)
+}
 
-    if excludedContinents[continentMapID] then
+function BadgeCalculation:GetContinentCenterOnWorldMap(continentMapID)
+    if self.excludedContinents[continentMapID] then
         return nil
     end
 

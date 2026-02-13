@@ -113,7 +113,7 @@ local function UnpackItem(item)
         return item, nil
     end
     if type(item) == "table" then
-        return item[1], item.cost
+        return item.itemID or item[1], item.cost
     end
     return nil, nil
 end
