@@ -81,7 +81,7 @@ C_HousingCatalog.GetCatalogEntryInfo(entryID)       -- Has sourceText but unreac
 **Stale data after /reload**: `quantity` and `numPlaced` return 0 for owned items until Housing Catalog UI is opened.
 **Workaround**: `firstAcquisitionBonus == 0` reliably detects ownership in ALL contexts (post-reload, any zone).
 Also check persistent cache (`db.global.ownedDecor`) as backup.
-See `HOUSING_API_REFERENCE.md` for full API surface (343 functions, 125 events).
+See Warcraft Wiki and Townlong Yak FrameXML for API details.
 
 **New in 12.0.1** (not yet taint-tested):
 - `C_HousingCatalog.GetMarketInfoForDecor` — market info for decorations
@@ -103,7 +103,7 @@ See `HOUSING_API_REFERENCE.md` for full API surface (343 functions, 125 events).
 - `GameTooltipTemplate` is required for custom hidden tooltips that call `SetMerchantItem()` in 12.0+
 - `scanComplete` field doesn't exist; use `scanConfidence == "confirmed"` for hide logic
 - `entrySubtype` is nil from addon context — not usable for ownership detection
-- Refactoring and behavior changes must be in separate commits (see REFACTOR_CONTRACT.md)
+- Refactoring and behavior changes must be in separate commits
 - See `WOW_ADDON_PATTERNS.md` for comprehensive Lua/WoW development patterns
 
 ## Architecture
@@ -118,7 +118,7 @@ TOC:       120001
 ### File Load Order (from TOC)
 ```
 Libs → embeds.xml → Locale → Core (core, constants, events, cache) →
-Data (DecorData, VendorDatabase, VendorData) → Utils →
+Data (DecorData, VendorDatabase, VendorData, CatalogStore) → Utils →
 Modules (DecorTracker, CatalogScanner, VendorTracer, VendorScanner) →
 Overlay (overlay, Containers, Merchant, Tooltips) →
 UI (MainFrame, VendorMapPins, Options)
@@ -243,8 +243,9 @@ MERCHANT_SHOW / MERCHANT_UPDATE / MERCHANT_CLOSED  -- Vendor lifecycle
 - Run luacheck before releases (.luacheckrc is in project root)
 
 ## Refactoring
-All refactoring work must follow REFACTOR_CONTRACT.md in the project root.
-Do not begin any refactor without reading that document first.
+- Refactoring and behavior changes must be in separate commits
+- Each phase of a multi-phase refactor gets its own commit
+- Verify `/reload` clean after each phase before moving on
 
 ## Resources
 
@@ -252,5 +253,4 @@ Do not begin any refactor without reading that document first.
 - [Townlong Yak FrameXML](https://www.townlong-yak.com/framexml/live) — Authoritative API source
 - [Blizzard UI Source](https://github.com/Gethe/wow-ui-source)
 - [HereBeDragons](https://github.com/Nevcairiel/HereBeDragons)
-- `HOUSING_API_REFERENCE.md` — Full Housing API (343 functions, 125 events, taint analysis)
 - `WOW_ADDON_PATTERNS.md` — Comprehensive WoW/Lua development patterns reference
