@@ -2700,6 +2700,7 @@ VendorDatabase.ContinentNames = {
     [424] = "Pandaria",
     [572] = "Draenor",
     [619] = "Broken Isles",
+    [905] = "Argus",
     [875] = "Zandalar",
     [876] = "Kul Tiras",
     [1550] = "Shadowlands",

@@ -55,6 +55,7 @@ local ContinentToExpansion = {
     [424]  = "Mists of Pandaria",    -- Pandaria
     [572]  = "Warlords of Draenor",  -- Draenor
     [619]  = "Legion",               -- Broken Isles
+    [905]  = "Legion",               -- Argus
     [875]  = "Battle for Azeroth",   -- Zandalar
     [876]  = "Battle for Azeroth",   -- Kul Tiras
     [1550] = "Shadowlands",          -- Shadowlands

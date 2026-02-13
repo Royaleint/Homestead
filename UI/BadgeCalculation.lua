@@ -94,9 +94,9 @@ local zoneToContinent = {
     [739] = 619,   -- Trueshot Lodge (Hunter)
     [745] = 619,   -- Trueshot Lodge (Hunter, alternate)
     [747] = 619,   -- The Dreamgrove (Druid)
-    [830] = 619,   -- Krokuun (Argus)
-    [882] = 619,   -- Eredath (Argus)
-    [885] = 619,   -- Mac'Aree (Argus)
+    [830] = 905,   -- Krokuun (Argus)
+    [882] = 905,   -- Eredath (Argus)
+    [885] = 905,   -- Mac'Aree (Argus)
 
     -- Draenor (572)
     [525] = 572,   -- Frostfire Ridge
@@ -512,6 +512,7 @@ end
 -- zoneToContinent, so they roll up under the Broken Isles badge correctly.
 BadgeCalculation.excludedContinents = {
     [572] = true,   -- Draenor (alternate dimension)
+    [905] = true,   -- Argus (separate planet, not on Azeroth world map)
     [1550] = true,  -- Shadowlands (afterlife dimension)
 }
 
