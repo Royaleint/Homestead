@@ -188,6 +188,87 @@ function SourceManager:GetParsedSource(itemID)
 end
 
 -------------------------------------------------------------------------------
+-- Requirements Lookup
+-------------------------------------------------------------------------------
+
+-- Get acquisition requirements for an item, optionally scoped to a vendor.
+-- Resolution priority (per plan gap #7):
+--   1. Vendor-specific: scannedVendors[npcID].items[i].requirements
+--   2. Item-level fallback: CatalogStore:GetRequirements(itemID)
+-- NOT gated by useParsedSources — requirements are always surfaced.
+-- Returns: array of requirement tables, or nil if none found
+function SourceManager:GetRequirements(itemID, npcID)
+    if not itemID then return nil end
+
+    -- Priority 1: Vendor-specific requirements from scanned data
+    if npcID and HA.Addon and HA.Addon.db and HA.Addon.db.global.scannedVendors then
+        local vendor = HA.Addon.db.global.scannedVendors[npcID]
+        if vendor then
+            local items = vendor.items or vendor.decor
+            if items then
+                for _, item in ipairs(items) do
+                    local vendorItemID = item.itemID or (type(item) == "table" and item[1]) or (type(item) == "number" and item)
+                    if vendorItemID == itemID and item.requirements and #item.requirements > 0 then
+                        return item.requirements
+                    end
+                end
+            end
+        end
+    end
+
+    -- Priority 2: Item-level from CatalogStore
+    if HA.CatalogStore then
+        local reqs = HA.CatalogStore:GetRequirements(itemID)
+        if reqs and #reqs > 0 then
+            return reqs
+        end
+    end
+
+    return nil
+end
+
+-- Check if a specific requirement is met by the player.
+-- Returns: true (met), false (unmet), nil (cannot determine)
+function SourceManager:IsRequirementMet(req)
+    if not req or not req.type then return nil end
+
+    if req.type == "reputation" then
+        -- Check faction standing
+        if req.faction and req.standing and C_Reputation and C_Reputation.GetFactionDataByName then
+            local factionData = C_Reputation.GetFactionDataByName(req.faction)
+            if factionData then
+                -- Standing names in order: Hated(1) → Exalted(8) for old, or renown for new
+                local standingOrder = {
+                    ["Hated"] = 1, ["Hostile"] = 2, ["Unfriendly"] = 3, ["Neutral"] = 4,
+                    ["Friendly"] = 5, ["Honored"] = 6, ["Revered"] = 7, ["Exalted"] = 8,
+                }
+                local requiredLevel = standingOrder[req.standing]
+                local currentLevel = factionData.reaction
+                if requiredLevel and currentLevel then
+                    return currentLevel >= requiredLevel
+                end
+            end
+        end
+        return nil  -- Cannot determine
+
+    elseif req.type == "level" then
+        if req.level and UnitLevel then
+            return UnitLevel("player") >= req.level
+        end
+        return nil
+
+    elseif req.type == "achievement" then
+        if req.id and GetAchievementInfo then
+            local _, _, _, completed = GetAchievementInfo(req.id)
+            return completed
+        end
+        return nil
+    end
+
+    return nil  -- Unknown requirement type
+end
+
+-------------------------------------------------------------------------------
 -- Source Type Checkers
 -------------------------------------------------------------------------------
 

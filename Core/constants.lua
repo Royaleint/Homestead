@@ -199,6 +199,7 @@ Constants.Defaults = {
             showSource = true,
             showQuantity = false,  -- off by default, can be noisy
             showDyeSlots = true,
+            showRequirements = true,  -- Show acquisition requirements (rep, quest, etc.)
         },
 
         -- Vendor tracer settings
