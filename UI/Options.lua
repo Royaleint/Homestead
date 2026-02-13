@@ -232,6 +232,17 @@ local function GetOptionsTable()
                             HA.Addon.db.profile.tooltip.showDyeSlots = value
                         end,
                     },
+                    showRequirements = {
+                        type = "toggle",
+                        name = "Show requirements",
+                        desc = "Show acquisition requirements (reputation, quest, etc.) in tooltips",
+                        width = "double",
+                        order = 5,
+                        get = function() return HA.Addon.db.profile.tooltip.showRequirements end,
+                        set = function(_, value)
+                            HA.Addon.db.profile.tooltip.showRequirements = value
+                        end,
+                    },
                 },
             },
 

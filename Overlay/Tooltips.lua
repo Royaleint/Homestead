@@ -190,6 +190,47 @@ end
 -- Shared Tooltip Enhancement (adds source info lines)
 -------------------------------------------------------------------------------
 
+-- Add requirement lines to tooltip for an item (optionally vendor-scoped)
+-- Yellow=requirements, red=unmet, green=met
+local function AddRequirementsToTooltip(tooltip, itemID, npcID)
+    if not HA.SourceManager or not HA.SourceManager.GetRequirements then return end
+
+    -- Check if requirements display is enabled
+    if HA.Addon and HA.Addon.db and HA.Addon.db.profile.tooltip
+            and HA.Addon.db.profile.tooltip.showRequirements == false then
+        return
+    end
+
+    local reqs = HA.SourceManager:GetRequirements(itemID, npcID)
+    if not reqs or #reqs == 0 then return end
+
+    for _, req in ipairs(reqs) do
+        local text = nil
+        if req.type == "reputation" and req.faction and req.standing then
+            text = "Requires: " .. req.faction .. " - " .. req.standing
+        elseif req.type == "quest" and req.name then
+            text = "Requires: " .. req.name
+        elseif req.type == "achievement" and req.name then
+            text = "Requires: " .. req.name
+        elseif req.type == "level" and req.level then
+            text = "Requires Level " .. req.level
+        elseif req.type == "unknown" and req.text then
+            text = req.text
+        end
+
+        if text then
+            local isMet = HA.SourceManager:IsRequirementMet(req)
+            if isMet == true then
+                tooltip:AddLine("  " .. text, 0.0, 0.8, 0.0)  -- Green
+            elseif isMet == false then
+                tooltip:AddLine("  " .. text, 0.8, 0.0, 0.0)  -- Red
+            else
+                tooltip:AddLine("  " .. text, COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)  -- Yellow (unknown)
+            end
+        end
+    end
+end
+
 -- Add source information lines to a tooltip (shared between item and catalog tooltips)
 -- Uses SourceManager for comprehensive source lookup
 local function AddSourceInfoToTooltip(tooltip, itemID, skipOwnership)
@@ -230,6 +271,9 @@ local function AddSourceInfoToTooltip(tooltip, itemID, skipOwnership)
                     end
                 end
 
+                -- Show requirements (vendor-specific when npcID available)
+                AddRequirementsToTooltip(tooltip, itemID, source.data.npcID)
+
                 return true
 
             elseif source.type == "quest" then
@@ -237,6 +281,7 @@ local function AddSourceInfoToTooltip(tooltip, itemID, skipOwnership)
                 local questName = source.data.questName or "Unknown Quest"
                 tooltip:AddLine("Source: Quest" .. parsedTag, COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
                 tooltip:AddLine("  " .. questName, COLOR_WHITE.r, COLOR_WHITE.g, COLOR_WHITE.b)
+                AddRequirementsToTooltip(tooltip, itemID)
                 return true
 
             elseif source.type == "achievement" then
@@ -257,6 +302,7 @@ local function AddSourceInfoToTooltip(tooltip, itemID, skipOwnership)
                     tooltip:AddLine("Source: Achievement |cFFFF0000(Incomplete)|r" .. parsedTag, COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
                 end
                 tooltip:AddLine("  " .. achievementName, COLOR_WHITE.r, COLOR_WHITE.g, COLOR_WHITE.b)
+                AddRequirementsToTooltip(tooltip, itemID)
                 return true
 
             elseif source.type == "profession" then
@@ -265,6 +311,7 @@ local function AddSourceInfoToTooltip(tooltip, itemID, skipOwnership)
                 local recipeName = source.data.recipeName or "Unknown Recipe"
                 tooltip:AddLine("Source: " .. profession .. parsedTag, COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
                 tooltip:AddLine("  Recipe: " .. recipeName, COLOR_WHITE.r, COLOR_WHITE.g, COLOR_WHITE.b)
+                AddRequirementsToTooltip(tooltip, itemID)
                 return true
 
             elseif source.type == "drop" then
@@ -277,6 +324,7 @@ local function AddSourceInfoToTooltip(tooltip, itemID, skipOwnership)
                 if source.data.notes then
                     tooltip:AddLine("  " .. source.data.notes, COLOR_GRAY.r, COLOR_GRAY.g, COLOR_GRAY.b)
                 end
+                AddRequirementsToTooltip(tooltip, itemID)
                 return true
             end
         end
