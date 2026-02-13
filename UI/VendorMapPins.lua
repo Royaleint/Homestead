@@ -37,6 +37,96 @@ local vendorPinFrames = {}
 local badgePinFrames = {}
 local minimapPinFrames = {}
 
+-------------------------------------------------------------------------------
+-- Native Pin Fallback (for maps HBD can't handle, e.g. Argus zones)
+-- HBD stores zero-dimension map data for cross-instance zones, causing
+-- GetWorldCoordinatesFromZone() to return nil and AddWorldMapIconMap() to
+-- silently bail. This fallback uses WoW's native MapCanvasPin system
+-- with zone-normalized (0-1) coordinates directly.
+-------------------------------------------------------------------------------
+
+local NATIVE_PIN_TEMPLATE = "HomesteadNativePinTemplate"
+
+-- Cache which maps HBD can/can't handle (per session)
+local hbdMapSupport = {}
+
+local function IsHBDSupported(mapID)
+    if hbdMapSupport[mapID] ~= nil then return hbdMapSupport[mapID] end
+    local wx = HBD:GetWorldCoordinatesFromZone(0.5, 0.5, mapID)
+    hbdMapSupport[mapID] = (wx ~= nil)
+    return hbdMapSupport[mapID]
+end
+
+-- Native pin mixin (mirrors HBD's pin behavior)
+local nativePinMixin = CreateFromMixins(MapCanvasPinMixin)
+
+function nativePinMixin:OnLoad()
+    self:UseFrameLevelType("PIN_FRAME_LEVEL_AREA_POI")
+    self:SetScalingLimits(1, 1.0, 1.2)
+end
+
+function nativePinMixin:OnAcquired(icon, x, y)
+    self:SetPosition(x, y)
+    self.icon = icon
+    icon:SetParent(self)
+    icon:ClearAllPoints()
+    icon:SetPoint("CENTER", self)
+    icon:Show()
+end
+
+function nativePinMixin:OnReleased()
+    if self.icon then
+        self.icon:Hide()
+        self.icon:SetParent(UIParent)
+        self.icon:ClearAllPoints()
+        self.icon = nil
+    end
+end
+
+-- Suppress in-combat errors (same as HBD)
+nativePinMixin.SetPassThroughButtons = function() end
+
+-- Create pin pool and register with WorldMapFrame
+local nativePool
+if CreateUnsecuredRegionPoolInstance then
+    nativePool = CreateUnsecuredRegionPoolInstance(NATIVE_PIN_TEMPLATE)
+else
+    nativePool = CreateFramePool("FRAME")
+end
+nativePool.parent = WorldMapFrame:GetCanvas()
+nativePool.createFunc = function()
+    local f = CreateFrame("Frame", nil, WorldMapFrame:GetCanvas())
+    f:SetSize(1, 1)
+    return Mixin(f, nativePinMixin)
+end
+nativePool.resetFunc = function(pool, pin)
+    pin:Hide()
+    pin:ClearAllPoints()
+    pin:OnReleased()
+    pin.pinTemplate = nil
+    pin.owningMap = nil
+end
+-- Pre-11.x compat names
+nativePool.creationFunc = nativePool.createFunc
+nativePool.resetterFunc = nativePool.resetFunc
+WorldMapFrame.pinPools[NATIVE_PIN_TEMPLATE] = nativePool
+
+-- Helper: add a pin using HBD if possible, native fallback otherwise.
+-- Returns true if the pin was placed.
+local function AddWorldMapPin(frame, mapID, x, y, showFlag)
+    if IsHBDSupported(mapID) then
+        HBDPins:AddWorldMapIconMap("HomesteadVendors", frame, mapID, x, y, showFlag)
+        return true
+    end
+    -- Native fallback: only works when viewing THIS exact map
+    local currentMapID = WorldMapFrame:GetMapID()
+    if currentMapID == mapID then
+        WorldMapFrame:AcquirePin(NATIVE_PIN_TEMPLATE, frame, x, y)
+        return true
+    end
+    return false
+end
+
 -- Pin color/size helpers delegated to PinFrameFactory (loaded before this file)
 -- Vendor filter/coord helpers delegated to VendorFilter (loaded before this file)
 local VendorFilter = HA.VendorFilter
@@ -388,6 +478,9 @@ function VendorMapPins:ClearAllPins()
     -- Remove all vendor pins from HereBeDragons
     HBDPins:RemoveAllWorldMapIcons("HomesteadVendors")
 
+    -- Remove native fallback pins (Argus, etc.)
+    WorldMapFrame:RemoveAllPinsByTemplate(NATIVE_PIN_TEMPLATE)
+
     -- Hide and release all our frame objects
     for _, frame in pairs(vendorPinFrames) do
         frame:Hide()
@@ -600,9 +693,8 @@ function VendorMapPins:ShowVendorPins(mapID)
                 vendorPinFrames[vendor] = frame
                 addedVendors[vendor.npcID] = true
 
-                -- Add to world map using HereBeDragons
-                HBDPins:AddWorldMapIconMap("HomesteadVendors", frame, mapID,
-                    coords.x, coords.y,
+                -- Add to world map (HBD with native fallback for Argus etc.)
+                AddWorldMapPin(frame, mapID, coords.x, coords.y,
                     HBD_PINS_WORLDMAP_SHOW_PARENT)
             end
         end
@@ -720,9 +812,8 @@ function VendorMapPins:ShowZoneBadges(continentMapID)
                 local frame = CreateBadgePinFrame(badgeData)
                 badgePinFrames[zoneMapID] = frame
 
-                -- Add badge to the continent map
-                HBDPins:AddWorldMapIconMap("HomesteadVendors", frame, continentMapID,
-                    zoneCenter.x, zoneCenter.y,
+                -- Add badge to the continent map (HBD with native fallback)
+                AddWorldMapPin(frame, continentMapID, zoneCenter.x, zoneCenter.y,
                     HBD_PINS_WORLDMAP_SHOW_CONTINENT)
             end
         end
