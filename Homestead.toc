@@ -64,5 +64,6 @@ Overlay\Tooltips.lua
 UI\WelcomeFrame.lua
 UI\MainFrame.lua
 UI\OutputWindow.lua
+UI\PinFrameFactory.lua
 UI\VendorMapPins.lua
 UI\Options.lua
