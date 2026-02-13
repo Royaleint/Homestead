@@ -66,5 +66,6 @@ UI\MainFrame.lua
 UI\OutputWindow.lua
 UI\VendorFilter.lua
 UI\PinFrameFactory.lua
+UI\BadgeCalculation.lua
 UI\VendorMapPins.lua
 UI\Options.lua
