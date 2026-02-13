@@ -508,12 +508,11 @@ end
 
 -- Continents that exist in different dimensions and are NOT on the Azeroth world map
 -- These should never show badges on the world map
+-- Note: Argus zones (830, 882, 885) map to continent 619 (Broken Isles) in
+-- zoneToContinent, so they roll up under the Broken Isles badge correctly.
 BadgeCalculation.excludedContinents = {
     [572] = true,   -- Draenor (alternate dimension)
     [1550] = true,  -- Shadowlands (afterlife dimension)
-    [830] = true,   -- Krokuun (Argus)
-    [882] = true,   -- Mac'Aree (Argus)
-    [885] = true,   -- Antoran Wastes (Argus)
 }
 
 function BadgeCalculation:GetContinentCenterOnWorldMap(continentMapID)
