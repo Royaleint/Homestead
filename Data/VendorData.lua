@@ -191,10 +191,16 @@ function VendorData:FormatCost(cost)
 end
 
 -- Convert scanned item cost format to static item cost format
--- Scanned: {price = copper, currencies = {{currencyID, amount, name}}, itemCosts = {{itemID, amount, name}}}
+-- Scanned (legacy): {price = copper, currencies = {{currencyID, amount, name}}, itemCosts = {{itemID, amount, name}}}
+-- Scanned (future): {cost = {gold = copper, currencies = {{id, amount}}}}
 -- Static:  {gold = copper, currencies = {{id, amount, name}}}
 function VendorData:NormalizeScannedCost(scannedItem)
     if not scannedItem then return nil end
+
+    -- If already normalized (cost field present), return it directly
+    if scannedItem.cost then
+        return scannedItem.cost
+    end
 
     local cost = {}
     local hasCost = false

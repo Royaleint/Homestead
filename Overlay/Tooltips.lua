@@ -76,41 +76,17 @@ end
 -- Cost Lookup Functions
 -------------------------------------------------------------------------------
 
--- Fallback cost formatting if VendorData not available
-local function FormatCostFallback(cost)
-    if not cost then return nil end
-    local parts = {}
-
-    if cost.gold and cost.gold > 0 then
-        local gold = math.floor(cost.gold / 10000)
-        local silver = math.floor((cost.gold % 10000) / 100)
-        if gold > 0 then
-            table.insert(parts, gold .. "g")
-        end
-        if silver > 0 then
-            table.insert(parts, silver .. "s")
-        end
+-- Format cost using VendorData (canonical formatter, always available via TOC load order)
+local function FormatCost(cost)
+    if HA.VendorData then
+        return HA.VendorData:FormatCost(cost)
     end
-
-    if cost.currencies then
-        for _, currency in ipairs(cost.currencies) do
-            if currency.id and currency.amount then
-                local name = "Currency"
-                if C_CurrencyInfo and C_CurrencyInfo.GetCurrencyInfo then
-                    local info = C_CurrencyInfo.GetCurrencyInfo(currency.id)
-                    if info and info.name then name = info.name end
-                end
-                table.insert(parts, currency.amount .. " " .. name)
-            end
-        end
-    end
-
-    return #parts > 0 and table.concat(parts, " + ") or nil
+    return nil
 end
 
--- Get cost for an item from a specific vendor
+-- Get cost for an item from a specific vendor (uses VendorData API, no inline format checks)
 local function GetItemCostFromVendor(itemID, npcID)
-    if not itemID then return nil end
+    if not itemID or not HA.VendorData then return nil end
     if not HA.VendorDatabase or not HA.VendorDatabase.Vendors then return nil end
 
     -- If npcID provided, check that vendor first
@@ -118,12 +94,9 @@ local function GetItemCostFromVendor(itemID, npcID)
         local vendor = HA.VendorDatabase.Vendors[npcID]
         if vendor and vendor.items then
             for _, item in ipairs(vendor.items) do
-                local vendorItemID = HA.VendorData and HA.VendorData:GetItemID(item) or (type(item) == "number" and item or item[1])
-                if vendorItemID == itemID then
-                    local cost = HA.VendorData and HA.VendorData:GetItemCost(item) or (type(item) == "table" and item.cost)
-                    if cost then
-                        return HA.VendorData and HA.VendorData:FormatCost(cost) or FormatCostFallback(cost)
-                    end
+                if HA.VendorData:GetItemID(item) == itemID then
+                    local cost = HA.VendorData:GetItemCost(item)
+                    if cost then return FormatCost(cost) end
                     break
                 end
             end
@@ -138,12 +111,9 @@ local function GetItemCostFromVendor(itemID, npcID)
                 local vendor = HA.VendorDatabase.Vendors[vendorNpcID]
                 if vendor and vendor.items then
                     for _, item in ipairs(vendor.items) do
-                        local vendorItemID = HA.VendorData and HA.VendorData:GetItemID(item) or (type(item) == "number" and item or item[1])
-                        if vendorItemID == itemID then
-                            local cost = HA.VendorData and HA.VendorData:GetItemCost(item) or (type(item) == "table" and item.cost)
-                            if cost then
-                                return HA.VendorData and HA.VendorData:FormatCost(cost) or FormatCostFallback(cost)
-                            end
+                        if HA.VendorData:GetItemID(item) == itemID then
+                            local cost = HA.VendorData:GetItemCost(item)
+                            if cost then return FormatCost(cost) end
                         end
                     end
                 end
@@ -152,11 +122,9 @@ local function GetItemCostFromVendor(itemID, npcID)
     end
 
     -- Fallback: check scanned vendor data
-    if HA.VendorData and HA.VendorData.GetScannedItemCost then
+    if HA.VendorData.GetScannedItemCost then
         local scannedCost = HA.VendorData:GetScannedItemCost(itemID, npcID)
-        if scannedCost then
-            return HA.VendorData:FormatCost(scannedCost) or FormatCostFallback(scannedCost)
-        end
+        if scannedCost then return FormatCost(scannedCost) end
     end
 
     return nil
@@ -259,7 +227,7 @@ local function AddSourceInfoToTooltip(tooltip, itemID, skipOwnership)
 
                 -- Show cost if available
                 if source.data.cost then
-                    local costStr = HA.VendorData and HA.VendorData:FormatCost(source.data.cost)
+                    local costStr = FormatCost(source.data.cost)
                     if costStr then
                         tooltip:AddLine("  Cost: " .. costStr, COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
                     end

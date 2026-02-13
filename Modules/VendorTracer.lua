@@ -405,7 +405,7 @@ function VendorTracer:GetMissingAtCurrentVendor()
                 if not isOwned then
                     local itemName = GetItemInfo(itemID)
                     -- Get cost from item if available
-                    local cost = HA.VendorData and HA.VendorData:GetItemCost(item) or (type(item) == "table" and item.cost)
+                    local cost = HA.VendorData and HA.VendorData:GetItemCost(item)
                     table.insert(missingItems, {
                         itemID = itemID,
                         name = itemName,

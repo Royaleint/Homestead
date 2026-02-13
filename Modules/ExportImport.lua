@@ -395,8 +395,8 @@ function ExportImport:ExportScannedVendors(fullExport, exportAll)
                 local existingLookup = {}
                 if existingVendor.items then
                     for _, item in ipairs(existingVendor.items) do
-                        local itemID = type(item) == "table" and item[1] or item
-                        existingLookup[itemID] = true
+                        local existItemID = HA.VendorData and HA.VendorData:GetItemID(item) or (type(item) == "table" and item[1] or item)
+                        existingLookup[existItemID] = true
                     end
                 end
 
