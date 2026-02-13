@@ -757,7 +757,7 @@ local function ShouldHideVendor(vendor)
                 if scannedData.hasDecor == false then
                     return true
                 elseif scannedData.hasDecor == nil then
-                    local scannedItems = scannedData.items or scannedData.decor
+                    local scannedItems = scannedData.items
                     if scannedItems and #scannedItems == 0 then
                         return true
                     end
@@ -929,7 +929,7 @@ function VendorMapPins:VendorHasUncollectedItems(vendor)
             end
         end
 
-        local scannedItems = scannedData and (scannedData.items or scannedData.decor)
+        local scannedItems = scannedData and (scannedData.items)
         if scannedItems then
             for _, item in ipairs(scannedItems) do
                 if item.itemID then
@@ -987,7 +987,7 @@ function VendorMapPins:GetVendorCollectionCounts(vendor)
                 scannedData = HA.Addon.db.global.scannedVendors[correctedID]
             end
         end
-        local scannedItems = scannedData and (scannedData.items or scannedData.decor)
+        local scannedItems = scannedData and (scannedData.items)
         if scannedItems then
             for _, item in ipairs(scannedItems) do
                 if item.itemID then
@@ -1260,7 +1260,7 @@ function VendorMapPins:ShowVendorTooltip(pin, vendor)
     -- Add scanned items (new format: items = {...}, old format: decor = {...})
     if vendor.npcID and HA.Addon and HA.Addon.db and HA.Addon.db.global.scannedVendors then
         local scannedData = HA.Addon.db.global.scannedVendors[vendor.npcID]
-        local scannedItems = scannedData and (scannedData.items or scannedData.decor)
+        local scannedItems = scannedData and (scannedData.items)
         if scannedItems then
             for _, item in ipairs(scannedItems) do
                 if item.itemID and not itemsSeen[item.itemID] then
@@ -1685,7 +1685,7 @@ function VendorMapPins:ShowVendorPins(mapID)
             if vendor.npcID and HA.Addon and HA.Addon.db
                     and HA.Addon.db.global.scannedVendors then
                 local scanned = HA.Addon.db.global.scannedVendors[vendor.npcID]
-                local scannedItems = scanned and (scanned.items or scanned.decor)
+                local scannedItems = scanned and scanned.items
                 if scannedItems then
                     for _, item in ipairs(scannedItems) do
                         if item.itemID then

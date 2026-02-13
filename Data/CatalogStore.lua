@@ -421,6 +421,35 @@ local function Migration_1_to_2(db)
     end
 end
 
+-- Migration 2→3: Convert scannedVendors .decor to .items
+local function Migration_2_to_3(db)
+    local scannedVendors = db.global.scannedVendors
+    if scannedVendors then
+        local migrated = 0
+        for npcID, vendor in pairs(scannedVendors) do
+            if vendor.decor and not vendor.items then
+                vendor.items = vendor.decor
+                vendor.decor = nil
+                migrated = migrated + 1
+            elseif vendor.decor and vendor.items then
+                -- Both exist: prefer .items (newer), remove .decor
+                vendor.decor = nil
+                migrated = migrated + 1
+            end
+        end
+
+        if HA.Addon and migrated > 0 then
+            HA.Addon:Debug("CatalogStore: Migration 2→3 migrated " .. migrated .. " vendors from .decor to .items")
+        end
+    end
+
+    db.global.schemaVersion = 3
+
+    if HA.Addon then
+        HA.Addon:Debug("CatalogStore: Migration 2→3 complete")
+    end
+end
+
 function CatalogStore:RunMigrations()
     if not HA.Addon or not HA.Addon.db then return end
     local db = HA.Addon.db
@@ -430,8 +459,9 @@ function CatalogStore:RunMigrations()
         Migration_1_to_2(db)
     end
 
-    -- Future migrations go here:
-    -- if version < 3 then Migration_2_to_3(db) end
+    if version < 3 then
+        Migration_2_to_3(db)
+    end
 end
 
 -------------------------------------------------------------------------------

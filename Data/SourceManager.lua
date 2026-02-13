@@ -202,7 +202,7 @@ function SourceManager:GetRequirements(itemID, npcID)
     if npcID and HA.Addon and HA.Addon.db and HA.Addon.db.global.scannedVendors then
         local vendor = HA.Addon.db.global.scannedVendors[npcID]
         if vendor then
-            local items = vendor.items or vendor.decor
+            local items = vendor.items
             if items then
                 for _, item in ipairs(items) do
                     local vendorItemID = item.itemID or (type(item) == "table" and item[1]) or (type(item) == "number" and item)

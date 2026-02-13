@@ -588,7 +588,7 @@ function VendorData:BuildScannedIndex()
 
     local itemCount = 0
     for npcID, vendorRecord in pairs(db.global.scannedVendors) do
-        local items = vendorRecord.items or vendorRecord.decor
+        local items = vendorRecord.items
         if items then
             for _, item in ipairs(items) do
                 local itemID = item.itemID

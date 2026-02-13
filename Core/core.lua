@@ -470,7 +470,7 @@ function HousingAddon:ShowScannedVendors()
     local totalItems = 0
     for npcID, vendorData in pairs(scannedVendors) do
         count = count + 1
-        local items = vendorData.items or vendorData.decor
+        local items = vendorData.items
         local itemCount = items and #items or 0
         totalItems = totalItems + itemCount
         self:Print(string.format("  %s (NPC %d): %d decor items",

@@ -117,7 +117,7 @@ local function CollectAllKnownItemIDs()
     -- Collect from scanned vendors (dynamic data)
     if HA.Addon and HA.Addon.db and HA.Addon.db.global.scannedVendors then
         for npcID, vendorData in pairs(HA.Addon.db.global.scannedVendors) do
-            local scannedItems = vendorData.items or vendorData.decor
+            local scannedItems = vendorData.items
             if scannedItems then
                 for _, item in ipairs(scannedItems) do
                     if item.itemID and not seen[item.itemID] then

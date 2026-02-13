@@ -1094,7 +1094,7 @@ function VendorScanner:ExportScannedData()
             name = data.name,
             mapID = data.mapID,
             coords = data.coords,
-            items = data.items or data.decor,
+            items = data.items,
         })
     end
 

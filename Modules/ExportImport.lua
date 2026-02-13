@@ -366,8 +366,7 @@ function ExportImport:ExportScannedVendors(fullExport, exportAll)
 
     for _, npcID in ipairs(sortedNPCs) do
         local vendor = data[npcID]
-        -- Get items from either 'items' (new format) or 'decor' (old format)
-        local items = vendor.items or vendor.decor or {}
+        local items = vendor.items or {}
         local shouldProcess = true
         local skipReason = nil
 
@@ -646,7 +645,7 @@ function ExportImport:ImportDataV1(input)
                     mapID = mapID,
                     coords = {x = x, y = y},
                     lastScanned = lastScanned,
-                    decor = decor,
+                    items = decor,
                     importedFrom = "community",
                     importedAt = time(),
                 }
@@ -656,8 +655,8 @@ function ExportImport:ImportDataV1(input)
                 existing.mapID = mapID
                 existing.coords = {x = x, y = y}
                 existing.lastScanned = lastScanned
-                if #decor > #(existing.decor or {}) then
-                    existing.decor = decor
+                if #decor > #(existing.items or {}) then
+                    existing.items = decor
                 end
                 existing.importedFrom = "community"
                 existing.importedAt = time()
@@ -802,11 +801,10 @@ function ExportImport:ImportDataV2(input)
             existing.itemCount = vendorData.itemCount
             existing.decorCount = vendorData.decorCount
             -- Replace items with imported data if it has more items
-            if #items > #(existing.items or existing.decor or {}) then
+            if #items > #(existing.items or {}) then
                 existing.items = items
-                existing.decor = nil  -- Remove old format
             end
-            existing.hasDecor = #(existing.items or existing.decor or {}) > 0
+            existing.hasDecor = #(existing.items or {}) > 0
             existing.importedFrom = "community_v2"
             existing.importedAt = time()
             updated = updated + 1
