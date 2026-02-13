@@ -66,6 +66,11 @@ function SourceTextScanner:ProcessScannedItem(result)
         -- Raw sourceText only stored when dev addon is loaded
         raw = HA.DevAddon and result.sourceText or nil,
     }
+
+    -- Dual-write to CatalogStore (Phase 1)
+    if HA.CatalogStore then
+        HA.CatalogStore:SetSources(result.itemID, parsed.sources, hash)
+    end
 end
 
 -------------------------------------------------------------------------------

@@ -249,6 +249,11 @@ function CatalogScanner:ScanFullCatalog(callback)
     isScanning = true
     lastScanTime = currentTime
 
+    -- Begin batch mode on CatalogStore to suppress per-item events
+    if HA.CatalogStore then
+        HA.CatalogStore:BeginBatch()
+    end
+
     HA.Addon:Debug("Starting catalog scan (item-by-item method)...")
 
     -- Collect all known item IDs
@@ -262,6 +267,9 @@ function CatalogScanner:ScanFullCatalog(callback)
 
     if totalItems == 0 then
         isScanning = false
+        if HA.CatalogStore then
+            HA.CatalogStore:EndBatch()
+        end
         HA.Addon:Debug("No items to scan - vendor database may be empty")
         if callback then callback(0, 0) end
         return
@@ -287,6 +295,24 @@ function CatalogScanner:ScanFullCatalog(callback)
                         SaveRecordID(result.itemID, result.recordID)
                     end
 
+                    -- Dual-write to CatalogStore (Phase 1)
+                    if HA.CatalogStore then
+                        if result.isOwned then
+                            -- Full path for owned items
+                            HA.CatalogStore:SetOwned(result.itemID, result.name or itemData.name, result.recordID)
+                            HA.CatalogStore:Save(result.itemID, {
+                                lastScanned = time(),
+                            })
+                        else
+                            -- Minimal fields for unowned items
+                            HA.CatalogStore:Save(result.itemID, {
+                                decorID = result.recordID,
+                                name = result.name or itemData.name,
+                                lastScanned = time(),
+                            })
+                        end
+                    end
+
                     -- Forward sourceText to SourceTextScanner for parsing
                     if result.sourceText and HA.SourceTextScanner then
                         HA.SourceTextScanner:ProcessScannedItem(result)
@@ -303,6 +329,12 @@ function CatalogScanner:ScanFullCatalog(callback)
         else
             -- Scan complete
             isScanning = false
+
+            -- End batch mode on CatalogStore (fires single OWNERSHIP_UPDATED + CATALOG_ITEM_UPDATED)
+            if HA.CatalogStore then
+                HA.CatalogStore:EndBatch()
+            end
+
             HA.Addon:Debug("Catalog scan complete. Checked:", checkedCount, "Owned:", ownedCount)
 
             -- Fire event so other modules know ownership data is updated

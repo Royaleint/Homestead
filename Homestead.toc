@@ -30,6 +30,7 @@ Core\cache.lua
 Data\DecorData.lua
 Data\VendorDatabase.lua
 Data\VendorData.lua
+Data\CatalogStore.lua
 Data\AchievementDecor.lua
 
 # Source Data (non-vendor acquisition)

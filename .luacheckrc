@@ -65,7 +65,7 @@ read_globals = {
 
     -- WoW API (functions)
     "GetAchievementCriteriaInfo", "GetAchievementInfo",
-    "GetItemInfo", "GetItemInfoInstant",
+    "GetItemCount", "GetItemInfo", "GetItemInfoInstant",
     "GetMerchantItemInfo", "GetMerchantItemLink", "GetMerchantNumItems",
     "GetLocale",
     "GetRealZoneText",

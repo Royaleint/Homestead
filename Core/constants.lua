@@ -254,6 +254,9 @@ Constants.Defaults = {
         parsedSources = {},          -- [itemID] = { sources, recordID, lastParsed, sourceHash }
         -- Locale-learned vendor names for cross-reference
         vendorNameByLocale = {},     -- [locale] = { [normalizedName] = {npcID, scanCount, lastSeen} }
+        -- Canonical per-item store (CatalogStore)
+        catalogItems = {},           -- [itemID] = { isOwned, name, decorID, sources, requirements, ... }
+        schemaVersion = 1,           -- Incremented by migrations
     },
 }
 

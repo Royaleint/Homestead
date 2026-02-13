@@ -73,6 +73,11 @@ function HousingAddon:OnEnable()
         HA.Cache:Initialize()
     end
 
+    -- Initialize CatalogStore (must be before CatalogScanner)
+    if HA.CatalogStore then
+        HA.CatalogStore:Initialize()
+    end
+
     -- Initialize CatalogScanner for bulk ownership scanning
     if HA.CatalogScanner then
         HA.CatalogScanner:Initialize()
@@ -415,9 +420,15 @@ function HousingAddon:ShowCacheInfo()
     self:ShowCopyableText(table.concat(output, "\n"))
 end
 
--- Clear the ownership cache
+-- Clear the ownership cache (delegates to CatalogStore which clears both tables)
 function HousingAddon:ClearOwnershipCache()
-    if self.db and self.db.global then
+    if HA.CatalogStore then
+        local count = HA.CatalogStore:GetOwnedCount()
+        HA.CatalogStore:ClearAll()
+        self:Print("Cleared ownership cache. Removed " .. count .. " cached items.")
+        self:Print("Use /hs scan to rebuild the cache.")
+    elseif self.db and self.db.global then
+        -- Fallback if CatalogStore not yet loaded
         local count = 0
         if self.db.global.ownedDecor then
             for _ in pairs(self.db.global.ownedDecor) do
