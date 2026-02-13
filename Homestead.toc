@@ -50,6 +50,7 @@ Modules\DecorTracker.lua
 Modules\CatalogScanner.lua
 Modules\SourceTextScanner.lua
 Modules\VendorTracer.lua
+Modules\DecorClassifier.lua
 Modules\VendorScanner.lua
 Modules/ExportImport.lua
 Modules/Validation.lua
