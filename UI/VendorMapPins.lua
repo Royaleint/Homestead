@@ -433,6 +433,12 @@ function VendorMapPins:ShowZoneBadgeTooltip(pin, zoneInfo)
     GameTooltip:SetOwner(pin, "ANCHOR_RIGHT")
     GameTooltip:ClearLines()
     GameTooltip:AddLine(zoneInfo.zoneName, 1, 1, 1)
+
+    -- Show note (class hall info, access method, etc.)
+    if zoneInfo.note then
+        GameTooltip:AddLine(zoneInfo.note, 0.7, 0.7, 1.0, true)
+    end
+
     GameTooltip:AddLine(string.format("Decor Vendors: %d", zoneInfo.vendorCount), 1, 0.82, 0)
 
     -- Show faction breakdown if there are opposite faction vendors
@@ -807,6 +813,7 @@ function VendorMapPins:ShowZoneBadges(continentMapID)
                     unknownCount = zoneData.unknownCount,
                     oppositeFactionCount = zoneData.oppositeFactionCount,
                     dominantFaction = zoneData.dominantFaction,
+                    note = BC.zoneNotes[zoneMapID],
                 }
 
                 local frame = CreateBadgePinFrame(badgeData)
@@ -818,32 +825,77 @@ function VendorMapPins:ShowZoneBadges(continentMapID)
             end
         end
     end
+
+    -- Show child continent badges (e.g. Argus on Broken Isles)
+    local children = BC.childContinents[continentMapID]
+    if children then
+        local continentCounts = self:GetContinentVendorCounts()
+        for _, child in ipairs(children) do
+            local childData = continentCounts[child.id]
+            if childData and childData.vendorCount > 0 then
+                local badgeData = {
+                    mapID = child.id,
+                    zoneName = childData.continentName,
+                    vendorCount = childData.vendorCount,
+                    uncollectedCount = childData.uncollectedCount,
+                    unknownCount = childData.unknownCount,
+                    oppositeFactionCount = childData.oppositeFactionCount,
+                }
+
+                local frame = CreateBadgePinFrame(badgeData)
+                badgePinFrames["child_" .. child.id] = frame
+
+                -- Place on parent continent map via native fallback
+                AddWorldMapPin(frame, continentMapID, child.x, child.y,
+                    HBD_PINS_WORLDMAP_SHOW_CONTINENT)
+            end
+        end
+    end
 end
 
 function VendorMapPins:ShowContinentBadges()
     local continentCounts = self:GetContinentVendorCounts()
 
     for continentMapID, continentData in pairs(continentCounts) do
-        -- Skip continents not on Azeroth world map
-        if continentData.vendorCount > 0 and not BC.excludedContinents[continentMapID] then
-            local badgeData = {
-                mapID = continentMapID,
-                zoneName = continentData.continentName,
-                vendorCount = continentData.vendorCount,
-                uncollectedCount = continentData.uncollectedCount,
-                unknownCount = continentData.unknownCount,
-                oppositeFactionCount = continentData.oppositeFactionCount,
-            }
+        if continentData.vendorCount > 0 then
+            -- Off-world continent with manual position (e.g. Argus)
+            local manualPos = BC.offWorldContinentPositions[continentMapID]
 
-            local frame = CreateBadgePinFrame(badgeData)
-            badgePinFrames[continentMapID] = frame
+            if manualPos then
+                -- Off-world continent: place badge directly on map 947 canvas
+                -- using native AcquirePin (HBD can't translate these coordinates)
+                local badgeData = {
+                    mapID = continentMapID,
+                    zoneName = continentData.continentName,
+                    vendorCount = continentData.vendorCount,
+                    uncollectedCount = continentData.uncollectedCount,
+                    unknownCount = continentData.unknownCount,
+                    oppositeFactionCount = continentData.oppositeFactionCount,
+                }
 
-            -- Place badge at center of the continent map (0.5, 0.5)
-            -- and let HereBeDragons handle the world map positioning
-            -- by using the continent's mapID with SHOW_WORLD flag
-            HBDPins:AddWorldMapIconMap("HomesteadVendors", frame, continentMapID,
-                0.5, 0.5,
-                HBD_PINS_WORLDMAP_SHOW_WORLD)
+                local frame = CreateBadgePinFrame(badgeData)
+                badgePinFrames[continentMapID] = frame
+
+                WorldMapFrame:AcquirePin(NATIVE_PIN_TEMPLATE, frame, manualPos.x, manualPos.y)
+
+            elseif not BC.excludedContinents[continentMapID] then
+                -- Normal continent — HBD handles world map positioning
+                local badgeData = {
+                    mapID = continentMapID,
+                    zoneName = continentData.continentName,
+                    vendorCount = continentData.vendorCount,
+                    uncollectedCount = continentData.uncollectedCount,
+                    unknownCount = continentData.unknownCount,
+                    oppositeFactionCount = continentData.oppositeFactionCount,
+                }
+
+                local frame = CreateBadgePinFrame(badgeData)
+                badgePinFrames[continentMapID] = frame
+
+                HBDPins:AddWorldMapIconMap("HomesteadVendors", frame, continentMapID,
+                    0.5, 0.5,
+                    HBD_PINS_WORLDMAP_SHOW_WORLD)
+            end
         end
     end
 end

@@ -78,11 +78,13 @@ local zoneToContinent = {
     [24] = 619,    -- Light's Hope Chapel (Paladin)
     [626] = 619,   -- The Hall of Shadows (Rogue)
     [627] = 619,   -- Dalaran (Legion)
+    [628] = 619,   -- Dalaran - The Underbelly (sub-zone of 627)
     [630] = 619,   -- Azsuna
     [634] = 619,   -- Stormheim
     [641] = 619,   -- Val'sharah
     [647] = 619,   -- Acherus (Death Knight)
     [650] = 619,   -- Highmountain
+    [652] = 619,   -- Thunder Totem (sub-zone of 650)
     [680] = 619,   -- Suramar
     [695] = 619,   -- Skyhold (Warrior)
     [702] = 619,   -- Netherlight Temple (Priest)
@@ -94,6 +96,7 @@ local zoneToContinent = {
     [739] = 619,   -- Trueshot Lodge (Hunter)
     [745] = 619,   -- Trueshot Lodge (Hunter, alternate)
     [747] = 619,   -- The Dreamgrove (Druid)
+    [750] = 619,   -- Thunder Totem (alternate mapID)
     [830] = 905,   -- Krokuun (Argus)
     [882] = 905,   -- Eredath (Argus)
     [885] = 905,   -- Mac'Aree (Argus)
@@ -506,19 +509,24 @@ end
 -- Map Center Helpers
 -------------------------------------------------------------------------------
 
--- Continents that exist in different dimensions and are NOT on the Azeroth world map
--- These should never show badges on the world map
--- Note: Argus zones (830, 882, 885) map to continent 619 (Broken Isles) in
--- zoneToContinent, so they roll up under the Broken Isles badge correctly.
+-- Continents NOT physically on the Azeroth world map — skip their badges entirely.
 BadgeCalculation.excludedContinents = {
-    [572] = true,   -- Draenor (alternate dimension)
-    [905] = true,   -- Argus (separate planet, not on Azeroth world map)
+    [572] = true,   -- Draenor (alternate dimension, HBD works at zone level)
     [1550] = true,  -- Shadowlands (afterlife dimension)
 }
 
+-- Off-world continents with manual positions on the Azeroth world map (mapID 947).
+-- These are NOT in excludedContinents — they get badges via native pin fallback.
+-- Argus zones (830, 882, 885) map to continent 905 in zoneToContinent.
+BadgeCalculation.offWorldContinentPositions = {
+    [905] = { x = 0.82, y = 0.18 },  -- Argus (separate planet, upper-right of world map)
+}
+
 function BadgeCalculation:GetContinentCenterOnWorldMap(continentMapID)
-    if self.excludedContinents[continentMapID] then
-        return nil
+    -- Off-world continents use manual positions on the Azeroth world map
+    local manualPos = self.offWorldContinentPositions[continentMapID]
+    if manualPos then
+        return manualPos
     end
 
     -- Use C_Map.GetMapRectOnMap to dynamically calculate continent position on world map
@@ -532,10 +540,70 @@ function BadgeCalculation:GetContinentCenterOnWorldMap(continentMapID)
     return nil
 end
 
+-- Manual zone center positions for cross-instance maps where GetMapRectOnMap returns nil.
+-- Coordinates are normalized 0-1 on the parent continent map. Positions are approximate.
+-- Only used as fallback when C_Map.GetMapRectOnMap() returns nil.
+BadgeCalculation.manualZoneCenters = {
+    -- Argus zones on Argus continent (905)
+    [830] = { [905] = { x = 0.33, y = 0.60 } },  -- Krokuun
+    [882] = { [905] = { x = 0.60, y = 0.65 } },  -- Eredath
+    [885] = { [905] = { x = 0.68, y = 0.30 } },  -- Mac'Aree
+
+    -- Legion class halls on Broken Isles (619) — fallback for instanced zones
+    -- Physically on Broken Isles
+    [739] = { [619] = { x = 0.35, y = 0.26 } },  -- Trueshot Lodge (Highmountain)
+    [747] = { [619] = { x = 0.16, y = 0.50 } },  -- The Dreamgrove (Val'sharah)
+    [647] = { [619] = { x = 0.40, y = 0.78 } },  -- Acherus: The Ebon Hold (above Broken Shore)
+    [695] = { [619] = { x = 0.67, y = 0.16 } },  -- Skyhold (above Stormheim)
+    -- Under/inside Dalaran
+    [626] = { [619] = { x = 0.49, y = 0.44 } },  -- The Hall of Shadows (Dalaran sewers)
+    [734] = { [619] = { x = 0.46, y = 0.48 } },  -- Hall of the Guardian (beneath Dalaran)
+    -- Off-world, accessed via Dalaran portals — clustered near Dalaran
+    [24]  = { [619] = { x = 0.52, y = 0.40 } },  -- Light's Hope Chapel (Paladin)
+    [702] = { [619] = { x = 0.44, y = 0.40 } },  -- Netherlight Temple (Priest)
+    [709] = { [619] = { x = 0.52, y = 0.50 } },  -- The Wandering Isle (Monk)
+    [717] = { [619] = { x = 0.44, y = 0.52 } },  -- Dreadscar Rift (Warlock)
+    [720] = { [619] = { x = 0.54, y = 0.45 } },  -- The Fel Hammer (Demon Hunter)
+    [726] = { [619] = { x = 0.42, y = 0.45 } },  -- The Maelstrom (Shaman)
+}
+
+-- Notes shown in zone badge tooltips for special locations (class halls, etc.)
+BadgeCalculation.zoneNotes = {
+    -- Class halls physically on the Broken Isles
+    [739] = "Hunter Order Hall — Trueshot Lodge in Highmountain",
+    [747] = "Druid Order Hall — Dreamwalk spell",
+    [647] = "Death Knight Order Hall — Death Gate spell",
+    [695] = "Warrior Order Hall — Jump from Krasus' Landing, Dalaran",
+    -- Class halls under/inside Dalaran
+    [626] = "Rogue Order Hall — Entrance in Dalaran sewers",
+    [734] = "Mage Order Hall — Portal from Dalaran",
+    -- Class halls off-world, accessed via Dalaran
+    [24]  = "Paladin Order Hall — Portal from Dalaran",
+    [702] = "Priest Order Hall — Portal from Dalaran",
+    [709] = "Monk Order Hall — Zen Pilgrimage spell",
+    [717] = "Warlock Order Hall — Portal from Dalaran",
+    [720] = "Demon Hunter Order Hall — Portal from Krasus' Landing, Dalaran",
+    [726] = "Shaman Order Hall — Portal from Dalaran",
+}
+
+-- Child continents: shown as aggregate badges on the parent continent map.
+-- e.g. when viewing Broken Isles (619), also show a badge for Argus (905).
+-- Each entry has the child continent ID and its position on the parent map (normalized 0-1).
+BadgeCalculation.childContinents = {
+    [619] = {
+        { id = 905, x = 0.85, y = 0.12 },  -- Argus (upper-right of Broken Isles map)
+    },
+}
+
 function BadgeCalculation:GetZoneCenterOnMap(zoneMapID, parentMapID)
     local minX, maxX, minY, maxY = C_Map.GetMapRectOnMap(zoneMapID, parentMapID)
     if minX and maxX and minY and maxY then
         return { x = (minX + maxX) / 2, y = (minY + maxY) / 2 }
+    end
+    -- Fallback for cross-instance maps (e.g. Argus zones on Argus continent)
+    local manual = self.manualZoneCenters[zoneMapID]
+    if manual and manual[parentMapID] then
+        return manual[parentMapID]
     end
     return nil
 end
