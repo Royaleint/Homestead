@@ -414,13 +414,13 @@ end
 -- The catalog fires "HousingCatalogEntry.TooltipCreated" with (entryFrame, tooltip)
 -- Note: EventRegistry callbacks receive (ownerID, ...) where ... are the TriggerEvent args
 local function OnHousingCatalogTooltipCreated(ownerID, entryFrame, tooltip)
-    -- Debug logging
-    if HA.Addon and HA.Addon.db and HA.Addon.db.profile.debug then
+    -- Debug logging (verbose, dev only)
+    if HA.DevAddon and HA.Addon.db.profile.debug then
         HA.Addon:Debug("Catalog tooltip callback fired")
     end
 
     if not entryFrame or not tooltip then
-        if HA.Addon and HA.Addon.db and HA.Addon.db.profile.debug then
+        if HA.DevAddon and HA.Addon.db.profile.debug then
             HA.Addon:Debug("Catalog tooltip: missing entryFrame or tooltip")
         end
         return
@@ -433,7 +433,7 @@ local function OnHousingCatalogTooltipCreated(ownerID, entryFrame, tooltip)
     -- Get entry info from the catalog entry frame
     local entryInfo = entryFrame.entryInfo
     if not entryInfo then
-        if HA.Addon and HA.Addon.db and HA.Addon.db.profile.debug then
+        if HA.DevAddon and HA.Addon.db.profile.debug then
             HA.Addon:Debug("Catalog tooltip: no entryInfo on frame")
         end
         return
@@ -447,13 +447,13 @@ local function OnHousingCatalogTooltipCreated(ownerID, entryFrame, tooltip)
     end
 
     if not itemID then
-        if HA.Addon and HA.Addon.db and HA.Addon.db.profile.debug then
+        if HA.DevAddon and HA.Addon.db.profile.debug then
             HA.Addon:Debug("Catalog tooltip: no itemID found in entryInfo")
         end
         return
     end
 
-    if HA.Addon and HA.Addon.db and HA.Addon.db.profile.debug then
+    if HA.DevAddon and HA.Addon.db.profile.debug then
         HA.Addon:Debug("Catalog tooltip: processing itemID", itemID)
     end
 
@@ -472,7 +472,7 @@ local function OnHousingCatalogTooltipCreated(ownerID, entryFrame, tooltip)
         if entryInfo.sourceText and entryInfo.sourceText ~= "" then
             tooltip:AddLine("Source: " .. entryInfo.sourceText, COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
             hasSource = true
-            if HA.Addon and HA.Addon.db and HA.Addon.db.profile.debug then
+            if HA.DevAddon and HA.Addon.db.profile.debug then
                 HA.Addon:Debug("Catalog tooltip: using Blizzard sourceText")
             end
         end
@@ -480,7 +480,7 @@ local function OnHousingCatalogTooltipCreated(ownerID, entryFrame, tooltip)
         -- Priority 2: Fall back to our VendorDatabase/AchievementDecor
         if not hasSource then
             hasSource = AddSourceInfoToTooltip(tooltip, itemID, true)
-            if hasSource and HA.Addon and HA.Addon.db and HA.Addon.db.profile.debug then
+            if hasSource and HA.DevAddon and HA.Addon.db.profile.debug then
                 HA.Addon:Debug("Catalog tooltip: using VendorDatabase/AchievementDecor")
             end
         end

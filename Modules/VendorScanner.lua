@@ -114,13 +114,13 @@ function VendorScanner:OnMerchantShow()
         return
     end
 
-    if HA.Addon then
+    if HA.DevAddon then
         HA.Addon:Debug("MERCHANT_SHOW event received")
     end
 
     local npcGUID = UnitGUID("npc")
     if not npcGUID then
-        if HA.Addon then
+        if HA.DevAddon then
             HA.Addon:Debug("No NPC GUID found")
         end
         return
@@ -129,7 +129,7 @@ function VendorScanner:OnMerchantShow()
     -- Extract NPC ID from GUID
     local npcID = self:GetNPCIDFromGUID(npcGUID)
     if not npcID then
-        if HA.Addon then
+        if HA.DevAddon then
             HA.Addon:Debug("Could not extract NPC ID from GUID:", npcGUID)
         end
         return
@@ -137,7 +137,7 @@ function VendorScanner:OnMerchantShow()
 
     local vendorName = UnitName("npc") or "Unknown Vendor"
 
-    if HA.Addon then
+    if HA.DevAddon then
         HA.Addon:Debug("Merchant NPC ID:", npcID, "Name:", vendorName)
     end
 
@@ -145,7 +145,7 @@ function VendorScanner:OnMerchantShow()
     if HA.VendorDatabase and HA.VendorDatabase.Aliases then
         local canonicalID = HA.VendorDatabase.Aliases[npcID]
         if canonicalID then
-            if HA.Addon then
+            if HA.DevAddon then
                 HA.Addon:Debug("Alias resolved:", npcID, "->", canonicalID)
             end
             npcID = canonicalID
@@ -169,13 +169,13 @@ function VendorScanner:OnMerchantShow()
 
     -- Verify NPC ID matches database entry (and correct if mismatched)
     local verification = self:VerifyAndUpdateDatabaseEntry(npcID, vendorName)
-    if verification and verification.corrected then
+    if verification and verification.corrected and HA.DevAddon then
         HA.Addon:Debug("Corrected NPC ID for", vendorName, "from", verification.oldID, "to", verification.newID)
     end
 
     -- Check if we've already scanned this vendor this session
     if scannedVendorsThisSession[npcID] then
-        if HA.Addon then
+        if HA.DevAddon then
             HA.Addon:Debug("Vendor " .. npcID .. " already scanned this session")
         end
         return
@@ -201,7 +201,7 @@ function VendorScanner:OnMerchantUpdate()
         return
     end
 
-    if HA.Addon then
+    if HA.DevAddon then
         HA.Addon:Debug("MERCHANT_UPDATE event received")
     end
 
@@ -218,7 +218,7 @@ function VendorScanner:TryStartScan(npcID, source)
     if numItems == 0 then
         pendingScanRetries = pendingScanRetries + 1
         if pendingScanRetries < 5 then
-            if HA.Addon then
+            if HA.DevAddon then
                 HA.Addon:Debug("Merchant data not ready (attempt", pendingScanRetries, "), retrying...")
             end
             -- Retry after a short delay
@@ -229,7 +229,7 @@ function VendorScanner:TryStartScan(npcID, source)
             end)
             return
         else
-            if HA.Addon then
+            if HA.DevAddon then
                 HA.Addon:Debug("Merchant data still not ready after 5 attempts, giving up")
             end
             scannedVendorsThisSession[npcID] = nil
@@ -239,7 +239,7 @@ function VendorScanner:TryStartScan(npcID, source)
     end
 
     -- Data is ready, start the scan
-    if HA.Addon then
+    if HA.DevAddon then
         HA.Addon:Debug("Starting scan from", source, "- found", numItems, "items")
     end
     pendingScanNpcID = nil
@@ -261,7 +261,7 @@ end
 
 function VendorScanner:StartScan(npcID)
     if isScanning then
-        HA.Addon:Debug("Scan already in progress, skipping")
+        if HA.DevAddon then HA.Addon:Debug("Scan already in progress, skipping") end
         return
     end
 
@@ -319,7 +319,9 @@ function VendorScanner:StartScan(npcID)
     isScanning = true
     scanFrame:Show()
 
-    HA.Addon:Debug("Starting vendor scan: " .. vendorName .. " (NPC ID: " .. npcID .. "), " .. numItems .. " items, faction: " .. faction)
+    if HA.DevAddon then
+        HA.Addon:Debug("Starting vendor scan: " .. vendorName .. " (NPC ID: " .. npcID .. "), " .. numItems .. " items, faction: " .. faction)
+    end
 end
 
 function VendorScanner:StopScan()
@@ -336,7 +338,7 @@ function VendorScanner:StopScan()
             -- Merchant closed before scan finished — discard partial data
             -- Clear session lock so vendor can be re-scanned this session
             scannedVendorsThisSession[scanQueue.npcID] = nil
-            if HA.Addon then
+            if HA.DevAddon then
                 HA.Addon:Debug("Scan aborted for " .. (scanQueue.vendorName or "Unknown") .. " — partial data discarded")
             end
         end
@@ -442,8 +444,8 @@ function VendorScanner:ProcessScanQueue()
                 -- Scrape requirements only for decor items (experimental)
                 local requirements = ScrapeItemRequirements(i)
 
-                -- Debug: log requirements result per item
-                if HA.Addon then
+                -- Debug: log requirements result per item (verbose, dev only)
+                if HA.DevAddon then
                     local reqStr = "nil"
                     if requirements then
                         reqStr = (#requirements == 0) and "none" or tostring(#requirements) .. " found"
@@ -520,10 +522,12 @@ function VendorScanner:VerifyAndUpdateDatabaseEntry(npcID, vendorName)
             -- Check NPC ID mismatch
             if vendor.npcID ~= npcID then
                 local oldID = vendor.npcID
-                HA.Addon:Debug(string.format(
-                    "NPC ID Mismatch: %s - Database has %d, actual is %d. Updating...",
-                    vendorName, oldID, npcID
-                ))
+                if HA.DevAddon then
+                    HA.Addon:Debug(string.format(
+                        "NPC ID Mismatch: %s - Database has %d, actual is %d. Updating...",
+                        vendorName, oldID, npcID
+                    ))
+                end
 
                 -- Store the correction in SavedVariables for persistence
                 if not HA.Addon.db.global.npcIDCorrections then
@@ -577,10 +581,12 @@ function VendorScanner:VerifyAndUpdateDatabaseEntry(npcID, vendorName)
                     vendor.y = currentCoords.y
                     vendor.mapID = mapID
 
-                    HA.Addon:Debug(string.format(
-                        "Coords updated for %s: %.3f, %.3f (map %d)",
-                        vendorName, currentCoords.x, currentCoords.y, mapID
-                    ))
+                    if HA.DevAddon then
+                        HA.Addon:Debug(string.format(
+                            "Coords updated for %s: %.3f, %.3f (map %d)",
+                            vendorName, currentCoords.x, currentCoords.y, mapID
+                        ))
+                    end
 
                     result.coordsUpdated = true
                 end

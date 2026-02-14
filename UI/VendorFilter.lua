@@ -77,7 +77,7 @@ function VendorFilter.GetBestVendorCoordinates(vendor)
             -- Use scanned coords if they're valid and mapID matches (or we have a mapID)
             if VendorFilter.AreValidCoordinates(scannedX, scannedY) and scannedMapID then
                 -- Debug output
-                if HA.Addon and HA.Addon.db and HA.Addon.db.profile.debug then
+                if HA.DevAddon and HA.Addon.db.profile.debug then
                     local staticX, staticY = VendorFilter.GetVendorXY(vendor)
                     staticX = staticX or "nil"
                     staticY = staticY or "nil"

@@ -134,9 +134,11 @@ function ScanPersistence:SaveVendorData(scanData)
     -- Save the record
     HA.Addon.db.global.scannedVendors[scanData.npcID] = vendorRecord
 
-    HA.Addon:Debug("Saved vendor data for " .. scanData.vendorName ..
-        " - " .. vendorRecord.decorCount .. "/" .. vendorRecord.itemCount ..
-        " decor items, faction: " .. vendorRecord.faction)
+    if HA.DevAddon then
+        HA.Addon:Debug("Saved vendor data for " .. scanData.vendorName ..
+            " - " .. vendorRecord.decorCount .. "/" .. vendorRecord.itemCount ..
+            " decor items, faction: " .. vendorRecord.faction)
+    end
 
     -- Maintain persistent no-decor tracking (survives ClearScannedData)
     if not HA.Addon.db.global.noDecorVendors then
@@ -164,12 +166,12 @@ function ScanPersistence:SaveVendorData(scanData)
             scanConfidence = "confirmed",  -- tri-state: "confirmed" or "unknown"
             confirmCount = confirmCount,   -- must reach 2 before inDatabase is actionable
         }
-        if inStaticDB and confirmCount >= 2 then
+        if inStaticDB and confirmCount >= 2 and HA.DevAddon then
             HA.Addon:Debug(string.format(
                 "No-Decor: %s (NPC %d) has %d items but 0 decor. Flagged for removal (confirmed %dx).",
                 vendorRecord.name, scanData.npcID, vendorRecord.itemCount, confirmCount
             ))
-        elseif inStaticDB then
+        elseif inStaticDB and HA.DevAddon then
             HA.Addon:Debug(string.format(
                 "No-Decor: %s (NPC %d) has %d items but 0 decor. Needs 1 more scan to flag for removal.",
                 vendorRecord.name, scanData.npcID, vendorRecord.itemCount

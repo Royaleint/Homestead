@@ -377,8 +377,8 @@ function VendorMapPins:ShowVendorTooltip(pin, vendor)
 
             if item.itemID then
                 isOwned = IsItemOwned(item.itemID)
-                -- Debug: Check if item is in cache
-                if HA.Addon and HA.Addon.db and HA.Addon.db.profile.debug then
+                -- Debug: Check if item is in cache (verbose, dev only)
+                if HA.DevAddon and HA.Addon.db.profile.debug then
                     local inCache = HA.CatalogStore and HA.CatalogStore:IsOwned(item.itemID)
                     HA.Addon:Debug("Item", item.itemID, itemName, "owned:", isOwned, "inCache:", inCache and "yes" or "no")
                 end
@@ -622,13 +622,13 @@ function VendorMapPins:RefreshMinimapPins()
         end
     end
 
-    -- Debug output
-    if HA.Addon and HA.Addon.db and HA.Addon.db.profile.debug then
+    -- Debug output (verbose, dev only)
+    if HA.DevAddon and HA.Addon.db.profile.debug then
         local count = 0
         for _ in pairs(addedVendors) do count = count + 1 end
-        HA.Addon:Debug("RefreshMinimapPins: playerMapID=" .. playerMapID .. 
+        HA.Addon:Debug("RefreshMinimapPins: playerMapID=" .. playerMapID ..
             ", continentID=" .. (continentID or "nil") ..
-            ", mapsChecked=" .. #mapsToCheck .. 
+            ", mapsChecked=" .. #mapsToCheck ..
             ", vendorsAdded=" .. count)
     end
 end
@@ -731,7 +731,7 @@ function VendorMapPins:ShowVendorPins(mapID)
             if shouldSkip then
                 -- Mark as processed to prevent re-check in scanned vendors loop
                 addedVendors[vendor.npcID] = true
-                if HA.Addon and HA.Addon.db and HA.Addon.db.profile.debug then
+                if HA.DevAddon and HA.Addon.db.profile.debug then
                     HA.Addon:Debug(string.format("Skipping static vendor %s (%d) on map %d - %s",
                         vendor.name or "Unknown", vendor.npcID, mapID, skipReason or "unknown"))
                 end

@@ -68,7 +68,7 @@ function DecorClassifier.ScrapeItemRequirements(slotIndex)
     local db = HA.Addon and HA.Addon.db and HA.Addon.db.global
     local locale = GetLocale()
     local enabled = db and (db.enableRequirementScraping ~= false) or false
-    if HA.Addon then
+    if HA.DevAddon then
         HA.Addon:Debug(string.format("ScrapeRequirements: slot %d, enabled=%s, locale=%s",
             slotIndex, tostring(enabled), tostring(locale)))
     end
@@ -81,7 +81,7 @@ function DecorClassifier.ScrapeItemRequirements(slotIndex)
     -- Check locale support
     local patterns = DecorClassifier.RequirementPatterns[locale]
     if not patterns then
-        if HA.Addon then
+        if HA.DevAddon then
             HA.Addon:Debug("ScrapeRequirements: no patterns for locale " .. tostring(locale))
         end
         return nil  -- nil = "could not check" (unsupported locale)
@@ -93,7 +93,7 @@ function DecorClassifier.ScrapeItemRequirements(slotIndex)
         scanTooltip:SetMerchantItem(slotIndex)
 
         local numLines = scanTooltip:NumLines()
-        if HA.Addon then
+        if HA.DevAddon then
             HA.Addon:Debug(string.format("ScrapeRequirements: tooltip has %d lines", numLines))
         end
         if numLines == 0 then
@@ -110,7 +110,7 @@ function DecorClassifier.ScrapeItemRequirements(slotIndex)
 
                 -- Red text indicates unmet requirements (r > 0.9, g < 0.2, b < 0.2)
                 if text and r and r > 0.9 and g < 0.2 and b < 0.2 then
-                    if HA.Addon then
+                    if HA.DevAddon then
                         HA.Addon:Debug(string.format("ScrapeRequirements: RED line %d: '%s' (%.2f,%.2f,%.2f)",
                             i, text, r, g, b))
                     end
@@ -147,7 +147,7 @@ function DecorClassifier.ScrapeItemRequirements(slotIndex)
     elseif not ok then
         resultStr = "pcall_error: " .. tostring(requirements)
     end
-    if HA.Addon then
+    if HA.DevAddon then
         HA.Addon:Debug(string.format("ScrapeRequirements result: %s", resultStr))
     end
 
@@ -207,7 +207,7 @@ function DecorClassifier.CheckIfDecorItem(itemLink, slotIndex)
         end)
         if tooltipOk and tooltipDetected then
             local itemID = GetItemInfoInstant(itemLink)
-            if HA.Addon then
+            if HA.DevAddon then
                 HA.Addon:Debug(string.format(
                     "CheckIfDecorItem: tooltip fallback detected decor for item %d",
                     itemID or 0))
