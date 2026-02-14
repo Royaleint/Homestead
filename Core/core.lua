@@ -262,10 +262,6 @@ function HousingAddon:SlashCommandHandler(input)
         if HA.ExportImport then
             HA.ExportImport:ClearScannedData()
         end
-    elseif input == "import" then
-        if HA.ExportImport then
-            HA.ExportImport:ShowImportDialog()
-        end
     elseif input == "validate" then
         if HA.Validation then
             HA.Validation:RunFullValidation()
@@ -300,7 +296,6 @@ function HousingAddon:PrintHelp()
     self:Print("  /hs export full - Export all scanned vendors")
     self:Print("  /hs exportall - Export ALL, bypass timestamp filter")
     self:Print("  /hs clearscans - Clear all scanned vendor data")
-    self:Print("  /hs import - Import vendor data")
     self:Print("  /hs validate - Validate vendor database")
     self:Print("  /hs welcome - Show welcome/onboarding screen")
     self:Print("  /hs debug - Toggle debug mode")

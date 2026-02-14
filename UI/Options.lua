@@ -704,24 +704,11 @@ local function GetOptionsTable()
                             end
                         end,
                     },
-                    importDataButton = {
-                        type = "execute",
-                        name = "Import Vendor Data",
-                        desc = "Import vendor data from another source",
-                        order = 8,
-                        func = function()
-                            if HA.ExportImport and HA.ExportImport.ShowImportDialog then
-                                HA.ExportImport:ShowImportDialog()
-                            else
-                                HA.Addon:Print("ExportImport not available.")
-                            end
-                        end,
-                    },
                     validateDbButton = {
                         type = "execute",
                         name = "Validate Database",
                         desc = "Run validation checks on the vendor database",
-                        order = 9,
+                        order = 8,
                         func = function()
                             if HA.Validation and HA.Validation.RunFullValidation then
                                 HA.Validation:RunFullValidation()
