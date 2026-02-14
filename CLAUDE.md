@@ -118,10 +118,14 @@ TOC:       120001
 ### File Load Order (from TOC)
 ```
 Libs → embeds.xml → Locale → Core (core, constants, events, cache) →
-Data (DecorData, VendorDatabase, VendorData, CatalogStore) → Utils →
-Modules (DecorTracker, CatalogScanner, VendorTracer, VendorScanner) →
+Data (DecorData, VendorDatabase, VendorData, CatalogStore, AchievementDecor,
+      QuestSources, AchievementSources, ProfessionSources, DropSources,
+      SourceManager, SourceTextLocaleProfiles, SourceTextParser) → Utils →
+Modules (DecorTracker, CatalogScanner, SourceTextScanner, VendorTracer,
+         DecorClassifier, ScanPersistence, VendorScanner, ExportImport, Validation) →
 Overlay (overlay, Containers, Merchant, Tooltips) →
-UI (MainFrame, VendorMapPins, Options)
+UI (WelcomeFrame, MainFrame, OutputWindow, VendorFilter,
+    PinFrameFactory, BadgeCalculation, VendorMapPins, Options)
 ```
 
 ### Module Creation Pattern
@@ -168,8 +172,8 @@ db.global.ownedDecor[itemID] = {
 }
 ```
 
-### V2 Export Format
-Vendor export data format used by `/hs export` command (see ExportImport.lua:339-371).
+### Export Format
+Vendor export data format used by `/hs export` command (see ExportImport.lua).
 
 **Format:**
 ```
@@ -218,11 +222,20 @@ MERCHANT_SHOW / MERCHANT_UPDATE / MERCHANT_CLOSED  -- Vendor lifecycle
 
 | Module | Purpose |
 |--------|---------|
-| `VendorScanner` | Auto-scans vendors on MERCHANT_SHOW, detects NPC ID mismatches |
+| `VendorScanner` | Auto-scans vendors on MERCHANT_SHOW, detects NPC ID mismatches (toggleable) |
+| `DecorClassifier` | Classifies merchant items as housing decor via API + tooltip fallback |
+| `ScanPersistence` | Persists scan results to SavedVariables |
 | `VendorMapPins` | World map + minimap pins via HereBeDragons |
+| `VendorFilter` | Filters vendors by settings (unverified, faction, expansion) |
+| `BadgeCalculation` | Zone/continent badge counts with caching |
+| `PinFrameFactory` | Creates and manages pin frame pools |
 | `CatalogScanner` | Item-by-item ownership scanning (API limitation workaround) |
+| `SourceTextScanner` | Parses sourceText from CatalogScanner, stores in parsedSources |
+| `CatalogStore` | Unified per-item ownership store with migration from legacy caches |
 | `DecorTracker` | Core ownership detection logic |
 | `VendorData` | Unified access to vendor database + scanned data |
+| `SourceManager` | Priority-ordered source lookup (vendor > quest > achievement > profession > drop) |
+| `ExportImport` | Export scanned vendor data (`HOMESTEAD_EXPORT:` format) |
 
 ## Git Conventions
 
