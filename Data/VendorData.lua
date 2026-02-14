@@ -473,14 +473,6 @@ function VendorData:GetVendorsByExpansion(expansion)
     return {}
 end
 
--- Find vendor by name (exact match, case-insensitive)
-function VendorData:FindVendorByName(name)
-    if HA.VendorDatabase then
-        return HA.VendorDatabase:FindVendorByName(name)
-    end
-    return nil
-end
-
 -------------------------------------------------------------------------------
 -- Vendor Name Lookup Functions
 -- For cross-referencing DecorSources data with VendorDatabase

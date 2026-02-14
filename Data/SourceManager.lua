@@ -129,13 +129,12 @@ end
 
 -- Helper: Get vendor source from VendorData
 function SourceManager:GetVendorSource(itemID)
-    if not HA.VendorData or not HA.VendorData.GetVendorsForItem then
+    if not HA.VendorData or not HA.VendorData.GetClosestVendorForItem then
         return nil
     end
 
-    local vendors = HA.VendorData:GetVendorsForItem(itemID)
-    if vendors and #vendors > 0 then
-        local vendor = vendors[1]  -- Return first/closest vendor
+    local vendor = HA.VendorData:GetClosestVendorForItem(itemID)
+    if vendor then
 
         -- Try to get cost data for this item (handles both static and scanned formats)
         local cost = nil

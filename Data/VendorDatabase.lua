@@ -405,7 +405,7 @@ VendorDatabase.Vendors = {
         faction = "Horde",
         currency = "Gold",
         expansion = "Events",
-        items = {},
+        items = {255840, 259071, 263026},
     },
 	[76872] = {
         name = "Supplymaster Eri",
@@ -547,17 +547,50 @@ VendorDatabase.Vendors = {
         faction = "Horde",
         currency = "Garrison Resources",
         expansion = "Warlords of Draenor",
-        items = {},
+        items = {
+            {244321, cost = {currencies = {{id = 824, amount = 100}}}},
+            {244322, cost = {currencies = {{id = 824, amount = 100}}}},
+            {245444, cost = {currencies = {{id = 824, amount = 250}}}},
+            {245445, cost = {currencies = {{id = 824, amount = 150}}}},
+        },
+        notes = "Requires Level 2+ Garrison Trading Post. Not always present.",
     },
+	-- Krixel Pinchwhistle: same NPC in both garrisons, separate entries because
+	-- different mapIDs/coords needed for pins on each garrison map.
+	-- Horde: 86779 (Frostwall) | Alliance: 87200 (Lunarfall)
 	[86779] = {
+        name = "Krixel Pinchwhistle",
+        mapID = 525,
+        x = 0.52, y = 0.586,
+        zone = "Frostwall",
+        subzone = "Trading Post",
+        faction = "Horde",
+        currency = "Garrison Resources",
+        expansion = "Warlords of Draenor",
+        items = {
+            {244321, cost = {currencies = {{id = 824, amount = 100}}}},
+            {244322, cost = {currencies = {{id = 824, amount = 100}}}},
+            {245444, cost = {currencies = {{id = 824, amount = 250}}}},
+            {245445, cost = {currencies = {{id = 824, amount = 150}}}},
+        },
+        notes = "Requires Level 3 Garrison Trading Post. Not always present.",
+    },
+	[87200] = {
         name = "Krixel Pinchwhistle",
         mapID = 582,
         x = 0.31, y = 0.15,
         zone = "Lunarfall",
+        subzone = "Trading Post",
         faction = "Alliance",
         currency = "Garrison Resources",
         expansion = "Warlords of Draenor",
-        items = {},
+        items = {
+            {244321, cost = {currencies = {{id = 824, amount = 100}}}},
+            {244322, cost = {currencies = {{id = 824, amount = 100}}}},
+            {245444, cost = {currencies = {{id = 824, amount = 250}}}},
+            {245445, cost = {currencies = {{id = 824, amount = 150}}}},
+        },
+        notes = "Requires Level 3 Garrison Trading Post. Not always present.",
     },
 	[87015] = {
         name = "Kil'rip",
@@ -1249,13 +1282,13 @@ VendorDatabase.Vendors = {
 	[221390] = {
         name = "Waxmonger Squick",
         mapID = 2214,
-        x = 0.4318, y = 0.3292,
+        x = 0.4317, y = 0.3292,
         zone = "The Ringing Deeps",
         subzone = "Gundargaz",
         faction = "Neutral",
         currency = "Resonance Crystals",
         expansion = "The War Within",
-        items = {},
+        items = {{253162, cost = {currencies = {{id = 2815, amount = 600}}}}},
     },
 	[223728] = {
         name = "Auditor Balwurz",
@@ -1725,12 +1758,18 @@ VendorDatabase.Vendors = {
 	[252887] = {
         name = "Chert",
         mapID = 2214,
-        x = 0.4335, y = 0.3283,
+        x = 0.4335, y = 0.3282,
         zone = "The Ringing Deeps",
+        subzone = "Gundargaz",
         faction = "Neutral",
         currency = "Resonance Crystals",
         expansion = "The War Within",
-        items = {253020},
+        items = {
+            {253020, cost = {currencies = {{id = 2815, amount = 500}}}},
+            {253040, cost = {currencies = {{id = 2815, amount = 650}}}},
+            {253162, cost = {currencies = {{id = 2815, amount = 600}}}},
+            {253172, cost = {currencies = {{id = 2815, amount = 850}}}},
+        },
     },
 	[252901] = {
         name = "Cinnabar",
@@ -2482,15 +2521,15 @@ VendorDatabase.ZoneToContinentMap = {
     [745] = 619,   -- Trueshot Lodge
     [747] = 619,
     [750] = 619,   -- Thunder Totem
-    [830] = 619,
+    [830] = 905,   -- Krokuun (Argus)
     [862] = 875,
     [863] = 875,
     [864] = 875,
-    [882] = 619,
-    [885] = 619,
+    [882] = 905,   -- Eredath (Argus)
+    [885] = 905,   -- Mac'Aree (Argus)
     [895] = 876,
     [896] = 876,
-    [940] = 619,   -- Mac'Aree
+    [940] = 905,   -- Mac'Aree (Argus)
     [942] = 876,
     [1161] = 876,
     [1164] = 875,  -- Zuldazar
@@ -2563,7 +2602,6 @@ VendorDatabase.ContinentNames = {
 function VendorDatabase:BuildIndexes()
     self.ByMapID = {}
     self.ByExpansion = {}
-    self.ByName = {}
     self.ByItemID = {}  -- Reverse index: itemID -> { npcID1, npcID2, ... }
 
     local vendorCount = 0
@@ -2589,11 +2627,6 @@ function VendorDatabase:BuildIndexes()
                 self.ByExpansion[exp] = {}
             end
             table.insert(self.ByExpansion[exp], npcID)
-        end
-
-        -- Index by name (lowercase for matching)
-        if vendor.name then
-            self.ByName[vendor.name:lower()] = npcID
         end
 
         -- Index by itemID (reverse lookup for tooltip source)
@@ -2678,19 +2711,6 @@ function VendorDatabase:GetVendorsByExpansion(expansion)
         end
     end
     return vendors
-end
-
--- Find vendor by name (case-insensitive)
-function VendorDatabase:FindVendorByName(name)
-    if not name then return nil end
-    local npcID = self.ByName and self.ByName[name:lower()]
-    if npcID then
-        local vendor = self.Vendors[npcID]
-        if vendor then
-            return vendor
-        end
-    end
-    return nil
 end
 
 -- Get total vendor count

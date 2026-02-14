@@ -144,14 +144,10 @@ end
 
 -- Check if item is from a vendor
 local function GetVendorSource(itemID)
-    if not HA.VendorData or not HA.VendorData.GetVendorsForItem then
+    if not HA.VendorData or not HA.VendorData.GetClosestVendorForItem then
         return nil
     end
-    local vendors = HA.VendorData:GetVendorsForItem(itemID)
-    if vendors and #vendors > 0 then
-        return vendors[1]
-    end
-    return nil
+    return HA.VendorData:GetClosestVendorForItem(itemID)
 end
 
 -------------------------------------------------------------------------------
