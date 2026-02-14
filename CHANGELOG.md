@@ -34,6 +34,11 @@
 **New and Updated**
 - 15 vendors restored to active status after verification, including 8 new Midnight vendors.
 - Missing items added and decor costs corrected across many existing vendors.
+- **Chert**: Expanded from 1 to 4 items with full costs.
+- **Waxmonger Squick**: Added 1 item (was empty).
+- **Paul North**: Added 3 Brawler's Guild items (Horde counterpart to Quackenbush).
+- **Krixel Pinchwhistle**: Added 4 items. Now appears in both Horde and Alliance garrison Trading Posts.
+- **Ribchewer**: Added 4 items for the Horde garrison Trading Post.
 - **Thripps**: +1 item, currency corrected to Kej, subzone fixed.
 - **Lars Bronsmaelt**: Corrected from 33 items to 1 confirmed item (32 were misattributed from nearby vendors).
 
