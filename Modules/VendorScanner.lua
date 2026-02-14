@@ -45,24 +45,12 @@ local SCAN_BATCH_SIZE = 5      -- Items to scan per frame
 local SCAN_DELAY = 0.01        -- Seconds between batches (10ms)
 local MAX_ITEMS_TO_SCAN = 200  -- Safety limit
 
--- Continent mapID → expansion (derived from VendorDatabase.ContinentNames)
+-- Geography lookups from canonical constants.
 -- Note: EK (13) and Kalimdor (12) default to "Classic" but may contain
--- TBC/Cataclysm vendors — this is best-effort. Static DB expansion is authoritative.
-local ContinentToExpansion = {
-    [12]   = "Classic",              -- Kalimdor
-    [13]   = "Classic",              -- Eastern Kingdoms
-    [101]  = "The Burning Crusade",  -- Outland
-    [113]  = "Wrath of the Lich King", -- Northrend
-    [424]  = "Mists of Pandaria",    -- Pandaria
-    [572]  = "Warlords of Draenor",  -- Draenor
-    [619]  = "Legion",               -- Broken Isles
-    [905]  = "Legion",               -- Argus
-    [875]  = "Battle for Azeroth",   -- Zandalar
-    [876]  = "Battle for Azeroth",   -- Kul Tiras
-    [1550] = "Shadowlands",          -- Shadowlands
-    [1978] = "Dragonflight",         -- Dragon Isles
-    [2274] = "The War Within",       -- Khaz Algar
-}
+-- TBC/Cataclysm vendors; this is best-effort. Static DB expansion is authoritative.
+local Constants = HA.Constants or {}
+local ZoneToContinentMap = Constants.ZoneToContinentMap or {}
+local ContinentToExpansion = Constants.ContinentToExpansion or {}
 
 -- Note: RequirementPatterns, scanTooltip, and ScrapeItemRequirements
 -- are now in DecorClassifier.lua (imported as local upvalues above).
@@ -292,8 +280,8 @@ function VendorScanner:StartScan(npcID)
     if parentMapID then
         expansion = ContinentToExpansion[parentMapID]
     end
-    if not expansion and mapID and HA.VendorDatabase and HA.VendorDatabase.ZoneToContinentMap then
-        local continentID = HA.VendorDatabase.ZoneToContinentMap[mapID]
+    if not expansion and mapID then
+        local continentID = ZoneToContinentMap[mapID]
         if continentID then
             expansion = ContinentToExpansion[continentID]
         end

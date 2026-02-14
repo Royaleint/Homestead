@@ -264,17 +264,25 @@ end
 function Validation:ValidateZoneToContinentMapping()
     local errors = {}
     local warnings = {}
-    
-    if not HA.VendorDatabase or not HA.VendorDatabase.ZoneToContinentMap then
+
+    local canonicalMap = HA.Constants and HA.Constants.ZoneToContinentMap
+    local vendorDBMap = HA.VendorDatabase and HA.VendorDatabase.ZoneToContinentMap
+    local zoneToContinent = canonicalMap or vendorDBMap
+
+    if not zoneToContinent then
         table.insert(warnings, "ZoneToContinentMap mapping not found")
         return errors, warnings
     end
 
+    if canonicalMap and vendorDBMap and canonicalMap ~= vendorDBMap then
+        table.insert(warnings, "VendorDatabase.ZoneToContinentMap is not aliased to canonical constants map")
+    end
+
     -- Check that all vendor mapIDs have continent mappings
-    if HA.VendorDatabase.Vendors then
+    if HA.VendorDatabase and HA.VendorDatabase.Vendors then
         local missingMaps = {}
         for npcID, vendor in pairs(HA.VendorDatabase.Vendors) do
-            if vendor.mapID and not HA.VendorDatabase.ZoneToContinentMap[vendor.mapID] then
+            if vendor.mapID and not zoneToContinent[vendor.mapID] then
                 missingMaps[vendor.mapID] = (missingMaps[vendor.mapID] or 0) + 1
             end
         end
@@ -286,7 +294,22 @@ function Validation:ValidateZoneToContinentMapping()
             ))
         end
     end
-    
+
+    -- Check that every continent referenced in the zone map has a name
+    local continentNames = HA.Constants and HA.Constants.ContinentNames or {}
+    local seenContinents = {}
+    for _, continentID in pairs(zoneToContinent) do
+        if not seenContinents[continentID] then
+            seenContinents[continentID] = true
+            if not continentNames[continentID] then
+                table.insert(warnings, string.format(
+                    "continent %d referenced in ZoneToContinentMap but missing from ContinentNames",
+                    continentID
+                ))
+            end
+        end
+    end
+
     return errors, warnings
 end
 
