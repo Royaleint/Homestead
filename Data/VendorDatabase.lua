@@ -410,7 +410,7 @@ VendorDatabase.Vendors = {
 	[76872] = {
         name = "Supplymaster Eri",
         mapID = 525,
-        x = 0.48, y = 0.66,
+        x = 0.478, y = 0.655,
         zone = "Frostwall (Horde Garrison)",
         faction = "Horde",
         currency = "Garrison Resources",
@@ -453,7 +453,7 @@ VendorDatabase.Vendors = {
 	[79812] = {
         name = "Moz'def",
         mapID = 525,
-        x = 0.48, y = 0.66,
+        x = 0.482, y = 0.655,
         zone = "Frostwall (Horde Garrison)",
         faction = "Horde",
         currency = "Garrison Resources",
@@ -595,7 +595,7 @@ VendorDatabase.Vendors = {
 	[87015] = {
         name = "Kil'rip",
         mapID = 525,
-        x = 0.48, y = 0.66,
+        x = 0.478, y = 0.665,
         zone = "Frostwall",
         subzone = "Garrison",
         faction = "Horde",
@@ -607,7 +607,7 @@ VendorDatabase.Vendors = {
 	[87312] = {
         name = "Vora Strongarm",
         mapID = 525,
-        x = 0.48, y = 0.66,
+        x = 0.482, y = 0.665,
         zone = "Frostwall",
         subzone = "Tavern",
         faction = "Horde",
