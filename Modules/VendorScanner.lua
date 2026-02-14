@@ -109,6 +109,11 @@ end
 -------------------------------------------------------------------------------
 
 function VendorScanner:OnMerchantShow()
+    -- Check if vendor scanning is enabled
+    if HA.Addon and HA.Addon.db and not HA.Addon.db.profile.vendorScanning.enabled then
+        return
+    end
+
     if HA.Addon then
         HA.Addon:Debug("MERCHANT_SHOW event received")
     end
@@ -192,6 +197,10 @@ function VendorScanner:OnMerchantShow()
 end
 
 function VendorScanner:OnMerchantUpdate()
+    if HA.Addon and HA.Addon.db and not HA.Addon.db.profile.vendorScanning.enabled then
+        return
+    end
+
     if HA.Addon then
         HA.Addon:Debug("MERCHANT_UPDATE event received")
     end

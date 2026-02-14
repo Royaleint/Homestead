@@ -220,6 +220,11 @@ Constants.Defaults = {
             showPinCounts = true,                      -- Show collected/total counts on vendor pins
         },
 
+        -- Vendor scanning settings
+        vendorScanning = {
+            enabled = true,  -- Auto-scan merchants for housing decor data
+        },
+
         -- Endeavour tracker settings
         endeavourTracker = {
             enabled = true,

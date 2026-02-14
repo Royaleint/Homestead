@@ -60,6 +60,17 @@ local function GetOptionsTable()
                             end
                         end,
                     },
+                    vendorScanning = {
+                        type = "toggle",
+                        name = "Auto-scan vendors",
+                        desc = "Automatically scan merchant inventory for housing decor data when visiting vendors. Community data helps improve the addon's vendor database. Disabling may slightly improve performance when opening merchants.",
+                        width = "full",
+                        order = 3,
+                        get = function() return HA.Addon.db.profile.vendorScanning.enabled end,
+                        set = function(_, value)
+                            HA.Addon.db.profile.vendorScanning.enabled = value
+                        end,
+                    },
                 },
             },
 
