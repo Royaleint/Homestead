@@ -8,7 +8,7 @@
 
 ---
 
-## v1.3.1 (2026-02-10) — Patch 12.0.1 Compatibility
+## v1.3.1 (2026-02-10) — Patch 12.0.1 Compatibility Update
 
 ### Changed
 - Updated for WoW patch 12.0.1 (Second Midnight Pre-Expansion Update).
@@ -44,7 +44,7 @@
 
 ## v1.3.0 (2026-02-08) — Pin Colors, Collection Tracking, and Vendor Scanner Overhaul
 
-Pins got a major glow-up! You can now customize pin colors, see your collection progress right on the map, and the vendor scanner is much smarter about tracking what's worth visiting. Plus a big round of performance improvements and bug fixes under the hood.
+Hello again, there is a LOT in this release. Probably the biggest to me is the ability to change the color of the map icons and change the size of the map and minimap icons. This release overhauls map pin visuals, adds collection progress tracking directly on the map, and delivers a wave of  performance improvements and bug fixes. Pins are now customizable, color-accurate, and show at-a-glance collection status so you always know what you still need.
 
 ---
 

@@ -244,9 +244,9 @@ MERCHANT_SHOW / MERCHANT_UPDATE / MERCHANT_CLOSED  -- Vendor lifecycle
 
 ## Session Workflow
 
-- **Start**: Read `Home_Dev/session/TODO.md` and `CHANGELOG.md` to understand current state
+- **Start**: Read `Home_Dev/session/TODO.md` and the latest version section of `Home_Dev/CHANGELOG-internal.md` to understand current state
 - **During**: Update `Home_Dev/session/TODO.md` as tasks are completed or discovered
-- **End**: Update `Home_Dev/session/TODO.md` with session summary; update `CHANGELOG.md` if version-worthy changes were made
+- **End**: Add session summary to `Home_Dev/session/COMPLETED.md`; remove finished tasks from TODO.md; update `CHANGELOG.md` if version-worthy changes were made
 - Review `CHANGELOG.md` regularly to avoid duplicating completed work or reopening resolved issues
 
 ## Global Namespace Rules
