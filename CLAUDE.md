@@ -104,7 +104,7 @@ See Warcraft Wiki and Townlong Yak FrameXML for API details.
 - `scanComplete` field doesn't exist; use `scanConfidence == "confirmed"` for hide logic
 - `entrySubtype` is nil from addon context — not usable for ownership detection
 - Refactoring and behavior changes must be in separate commits
-- See `WOW_ADDON_PATTERNS.md` for comprehensive Lua/WoW development patterns
+- See `Home_Dev/reference/WOW_ADDON_PATTERNS.md` for comprehensive Lua/WoW development patterns
 
 ## Architecture
 
@@ -244,9 +244,9 @@ MERCHANT_SHOW / MERCHANT_UPDATE / MERCHANT_CLOSED  -- Vendor lifecycle
 
 ## Session Workflow
 
-- **Start**: Read `TODO.md` and `CHANGELOG.md` to understand current state
-- **During**: Update `TODO.md` as tasks are completed or discovered
-- **End**: Update `TODO.md` with session summary; update `CHANGELOG.md` if version-worthy changes were made
+- **Start**: Read `Home_Dev/session/TODO.md` and `CHANGELOG.md` to understand current state
+- **During**: Update `Home_Dev/session/TODO.md` as tasks are completed or discovered
+- **End**: Update `Home_Dev/session/TODO.md` with session summary; update `CHANGELOG.md` if version-worthy changes were made
 - Review `CHANGELOG.md` regularly to avoid duplicating completed work or reopening resolved issues
 
 ## Global Namespace Rules
@@ -266,4 +266,4 @@ MERCHANT_SHOW / MERCHANT_UPDATE / MERCHANT_CLOSED  -- Vendor lifecycle
 - [Townlong Yak FrameXML](https://www.townlong-yak.com/framexml/live) — Authoritative API source
 - [Blizzard UI Source](https://github.com/Gethe/wow-ui-source)
 - [HereBeDragons](https://github.com/Nevcairiel/HereBeDragons)
-- `WOW_ADDON_PATTERNS.md` — Comprehensive WoW/Lua development patterns reference
+- `Home_Dev/reference/WOW_ADDON_PATTERNS.md` — Comprehensive WoW/Lua development patterns reference

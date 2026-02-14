@@ -1,29 +1,8 @@
-# Agent configs
-AGENTS.md
+# Dev-only documents and working files (consolidated)
+Home_Dev/
 
-# Planning & Development docs
-AGENTIC_TEAM_PLAN.md
-WOW_ADDON_PATTERNS.md
-HOUSING_API_REFERENCE.md
-REFACTOR_CONTRACT.md
-refactor_logs/
-TODO.md
-DEVELOPMENT_PLAN.md
-FEATURES.md
-TECHNICAL_REFERENCE.md
-ICON_SCALE_RESEARCH.md
-VENDOR_VERIFICATION_SUMMARY.md
-Differential_Export_Plan.md
-alias-system-plan.md
-alias-system-plan.txt
-CURRENT_TASK.md
-*-plan.md
-Run_Parser_Upgrade.md
-Parser_explained.md
-runtime_parser_baseline_prompt.md
+# Dev addon (loads in-game, never published)
 Homestead_Dev/
-claude-code-*.md
-session_findings_*.md
 
 # Scan data
 scans/
@@ -31,33 +10,6 @@ scans/
 # Scripts and tools
 scripts/
 .claude/
-
-# Backup files
-Data/Backups/
-Data/VendorDatabase_backup.lua
-Data/VendorDatabase_backup_*.lua
-Data/VendorDatabase_updated.lua
-*_backup.lua
-*_backup_*.lua
-
-# Validation logs and working artifacts
-validation_log_*.txt
-currency_corrections.txt
-high_priority_scans.txt
-high_confidence_vendors.txt
-new_vendors_discovered.txt
-removal_verification.txt
-vendor_validation_report.txt
-wowdb_housing_hub_verification.txt
-fix_instructions.md
-VENDOR_VALIDATION_PLAN.md
-
-# Verification/comparison outputs
-addon_vendor_comparison.txt
-vendor_verification_*.txt
-missing_vendors.lua
-LUACHECK_RESULTS.txt
-LUACHECK_ADDON_ONLY.txt
 
 # Binaries
 luacheck.exe
@@ -69,15 +21,11 @@ __pycache__/
 # Downloaded archives
 *.zip
 
-# Generated reports
-scripts/import_report.txt
-scripts/import_sources_report.txt
-vendor_verification_att_report.txt
-vendor_verification_report.txt
-
 # Generated data
 parsed_decor_sources.json
 db2_complete_vendor_data.json
+*.csv
+*.json
 
 # ATT cache/snapshots
 scripts/att_cache/
@@ -85,10 +33,6 @@ scripts/att_*.json
 
 # Copy files
 *- Copy.lua
-
-# External data files
-*.csv
-*.json
 
 # Windows junk
 nul
@@ -99,3 +43,8 @@ Libs/
 
 # Midnight exclusion docs
 Data/MIDNIGHT_VENDORS_EXCLUDED.md
+
+# Backup files (if any still in root)
+*_backup.lua
+*_backup_*.lua
+missing_vendors.lua
