@@ -51,6 +51,7 @@ local MAX_ITEMS_TO_SCAN = 200  -- Safety limit
 local ContinentToExpansion = {
     [12]   = "Classic",              -- Kalimdor
     [13]   = "Classic",              -- Eastern Kingdoms
+    [101]  = "The Burning Crusade",  -- Outland
     [113]  = "Wrath of the Lich King", -- Northrend
     [424]  = "Mists of Pandaria",    -- Pandaria
     [572]  = "Warlords of Draenor",  -- Draenor

@@ -33,8 +33,12 @@ local zoneToContinent = {
     [2255] = 2274, -- Azj-Kahet
     [2338] = 2274, -- Smuggler's Coast
     [2346] = 2274, -- Undermine
+    [2350] = 2274, -- Arcantina
     [2406] = 2274, -- Liberation of Undermine (dungeon)
+    [2393] = 2274, -- Murder Row
     [2472] = 2274, -- Tazavesh (K'aresh)
+    [2694] = 2274, -- Harandar
+    [15958] = 2274, -- Voidstorm
 
     -- Housing Instances (mapped to Khaz Algar for TWW content)
     [2351] = 2274, -- Hollowed Halls (Housing)
@@ -66,12 +70,14 @@ local zoneToContinent = {
     [896] = 876,   -- Drustvar
     [942] = 876,   -- Stormsong Valley
     [1161] = 876,  -- Boralus
+    [1460] = 876,  -- Mechagon
     [1462] = 876,  -- Mechagon
 
     -- Zandalar (875)
     [862] = 875,   -- Zuldazar
     [863] = 875,   -- Nazmir
     [864] = 875,   -- Vol'dun
+    [1164] = 875,  -- Zuldazar
     [1165] = 875,  -- Dazar'alor
 
     -- Broken Isles / Legion (619)
@@ -100,6 +106,7 @@ local zoneToContinent = {
     [830] = 905,   -- Krokuun (Argus)
     [882] = 905,   -- Eredath (Argus)
     [885] = 905,   -- Mac'Aree (Argus)
+    [940] = 905,   -- Mac'Aree (Argus)
 
     -- Draenor (572)
     [525] = 572,   -- Frostfire Ridge
@@ -161,6 +168,9 @@ local zoneToContinent = {
     [241] = 13,    -- Twilight Highlands
     [242] = 13,    -- Blackrock Depths (dungeon)
     [2437] = 13,   -- Zul'Aman
+    [1186] = 13,   -- Blackrock Depths
+    [2395] = 13,   -- Eversong Woods
+    [2405] = 13,   -- Founder's Point (Stormwind)
 
     -- Kalimdor (12)
     [69] = 12,     -- Feralas / Darkmoon Island
