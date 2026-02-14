@@ -1217,11 +1217,11 @@ VendorDatabase.Vendors = {
         mapID = 2213,
         x = 0.5024, y = 0.3156,
         zone = "The City of Threads",
-        subzone = "Web Furnishings",
+        subzone = "Lower City Armaments",
         faction = "Neutral",
-        currency = "Resonance Crystals",
+        currency = "Kej",
         expansion = "The War Within",
-        items = {},
+        items = {{246866, cost = {currencies = {{id = 3056, amount = 1500}}}}},
     },
 	[219217] = {
         name = "Velerd",
@@ -1659,7 +1659,7 @@ VendorDatabase.Vendors = {
         faction = "Neutral",
         currency = "Resonance Crystals",
         expansion = "The War Within",
-        items = {{241617, cost = {gold = 500000}}, {241618, cost = {gold = 100000}}, {241620, cost = {gold = 1000000}}, {241622, cost = {gold = 750000}}, {243242, cost = {gold = 500000}}, {243243, cost = {gold = 750000}}, {243495, cost = {gold = 1000000}}, {244781, cost = {gold = 500000}}, 246249, {246250, cost = {gold = 1250000}}, {246251, cost = {gold = 750000}}, {246252, cost = {gold = 500000}}, {246253, cost = {gold = 1000000}}, {246254, cost = {gold = 500000}}, {246255, cost = {gold = 1250000}}, {246256, cost = {gold = 750000}}, 246257, {246258, cost = {gold = 1000000}}, {246691, cost = {gold = 500000}}, {246711, cost = {gold = 100000}}, 246961, {247501, cost = {gold = 750000}}, 248760, 251981, 251982, {253180, cost = {gold = 1000000}}, 253181, {253441, cost = {gold = 1000000}}, {253479, cost = {gold = 500000}}, {253490, cost = {gold = 750000}}, {253493, cost = {gold = 1000000}}, 255650, {257690, cost = {gold = 1000000}}},
+        items = {{245293, cost = {currencies = {{id = 2815, amount = 1200}}}}},
     },
 	[242398] = {
         name = "Naleidea Rivergleam",
