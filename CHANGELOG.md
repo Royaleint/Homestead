@@ -19,6 +19,8 @@
 - Fixed class hall vendor badges not showing on the Broken Isles map.
 - Fixed sub-zone vendor pins not rendering on some Legion maps.
 - Fixed several scan and debug messages appearing in chat during normal gameplay.
+- Fixed zone badges not appearing for some vendor locations including Eversong Woods, Arcantina, and Harandar.
+- Fixed "sold by" tooltips sometimes showing a faraway vendor instead of the closest one.
 
 ### Vendor Database
 
