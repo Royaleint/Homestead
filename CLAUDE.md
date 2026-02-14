@@ -254,6 +254,7 @@ MERCHANT_SHOW / MERCHANT_UPDATE / MERCHANT_CLOSED  -- Vendor lifecycle
 - Do NOT add new _G writes without updating the allowlist
 - All new frames should be unnamed unless UISpecialFrames requires it
 - Run luacheck before releases (.luacheckrc is in project root)
+- Update README.md version references with every CurseForge/Wago push
 
 ## Refactoring
 - Refactoring and behavior changes must be in separate commits

@@ -2,9 +2,43 @@
 
 ---
 
-## Unreleased (post-v1.3.1)
+## v1.3.2 (Unreleased)
 
-- Internal code improvements and refactoring.
+### New
+- **Requirement Tooltips** — Item tooltips now show reputation, profession, and achievement requirements so you know what's gating an item before you travel there.
+- **Scanner Toggle** — You can now disable automatic vendor scanning in Options under General settings.
+- **Badge Tooltips** — Zone badges on the continent map now show helpful context like "Paladin Order Hall — Portal from Dalaran" so you know how to get there.
+
+### Changed
+- **Import Removed** — The import feature has been removed. Community data is now submitted via exports only.
+- **Argus Map Pins** — Argus zone pins now display correctly on the Argus continent map. Zones are properly grouped under Argus instead of Broken Isles. An Argus badge also appears on the Broken Isles map.
+
+### Fixed
+- Fixed ownership detection being unreliable after certain login scenarios.
+- Fixed Argus zone badges not appearing on the continent map.
+- Fixed class hall vendor badges not showing on the Broken Isles map.
+- Fixed sub-zone vendor pins not rendering on some Legion maps.
+- Fixed several scan and debug messages appearing in chat during normal gameplay.
+
+### Vendor Database
+
+**Corrections**
+- **Mrgrgrl**: Fixed coordinates and item cost data.
+- **Halenthos**: Corrected faction.
+- **Harlowe Marl**: Moved to Events expansion (was incorrectly tagged).
+- **"High Tides" Ren**: Smuggler's Coast version now correctly links to the Founder's Point vendor with full inventory.
+
+**Removed**
+- Removed 17 vendors that were not confirmed as housing decor sellers, including 3 Orgrimmar PvP quartermasters and 14 unverified TWW vendors with no items.
+
+**New and Updated**
+- 15 vendors restored to active status after verification, including 8 new Midnight vendors.
+- Missing items added and decor costs corrected across many existing vendors.
+- **Thripps**: +1 item, currency corrected to Kej, subzone fixed.
+- **Lars Bronsmaelt**: Corrected from 33 items to 1 confirmed item (32 were misattributed from nearby vendors).
+
+### Internal
+- Major changes under the hood to help with future features and performance.
 
 ---
 
