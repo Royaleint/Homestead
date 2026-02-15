@@ -74,6 +74,7 @@ read_globals = {
     "hooksecurefunc",
     "IsAddOnLoaded",
     "IsAltKeyDown", "IsControlKeyDown", "IsShiftKeyDown",
+    "IsIndoors",
     "OpenAllBags",
     "StaticPopup_Show",
     "ToggleAllBags", "ToggleBag", "ToggleWorldMap",

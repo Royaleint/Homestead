@@ -572,6 +572,7 @@ function VendorMapPins:RefreshMinimapPins()
     end
 
     local showOpposite = ShouldShowOppositeFaction()
+    local floatOnEdge = not IsIndoors()  -- Hide distant pins when inside buildings/caves
     local addedVendors = {}  -- Prevent duplicate pins for same vendor
 
     for _, mapID in ipairs(mapsToCheck) do
@@ -603,17 +604,10 @@ function VendorMapPins:RefreshMinimapPins()
                                 minimapPinFrames[vendor] = frame
                                 addedVendors[vendor.npcID] = true
 
-                                -- AddMinimapIconMap parameters:
-                                -- ref: unique identifier for this addon's pins
-                                -- icon: the frame to display
-                                -- mapID: the map the coordinates are relative to
-                                -- x, y: normalized coordinates (0-1)
-                                -- showArrow: true = show arrow when out of range (elevation indicator)
-                                -- floatOnEdge: true = pin stays at minimap edge when far (HandyNotes style)
                                 HBDPins:AddMinimapIconMap("HomesteadMinimapVendors", frame, vendorMapID,
                                     coords.x, coords.y,
-                                    true,   -- showArrow: enables up/down elevation arrows
-                                    true)   -- floatOnEdge: keeps icon at edge when out of range
+                                    true,         -- showInParentZone
+                                    floatOnEdge)  -- false indoors: hides distant pins
                             end
                         end
                     end
@@ -1111,6 +1105,17 @@ function VendorMapPins:Initialize()
             minimapRefreshTimer = nil
             VendorMapPins:RefreshMinimapPins()
         end)
+    end)
+
+    -- Poll indoor state every second — events don't fire reliably for all buildings
+    local lastKnownIndoors = IsIndoors()
+    C_Timer.NewTicker(1, function()
+        if not minimapPinsEnabled then return end
+        local indoors = IsIndoors()
+        if indoors ~= lastKnownIndoors then
+            lastKnownIndoors = indoors
+            VendorMapPins:RefreshMinimapPins()
+        end
     end)
 
     isInitialized = true
