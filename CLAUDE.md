@@ -1,7 +1,7 @@
 # Homestead - WoW Housing Addon
 
 A housing collection, vendor, and progress tracker for World of Warcraft Retail (12.0.1+).
-Current version: v1.3.1
+Current version: v1.3.3
 
 ## Quick Reference
 
