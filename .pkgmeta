@@ -1,5 +1,8 @@
 package-as: Homestead
 enable-nolib-creation: no
+manual-changelog:
+  filename: CHANGELOG.md
+  markup-type: markdown
 
 ignore:
   - .git
@@ -9,6 +12,7 @@ ignore:
   - .claude
   - "*.md"
   - "!README.md"
+  - "!CHANGELOG.md"
   - HousingAddon.toc
   - Homestead_Dev
 
