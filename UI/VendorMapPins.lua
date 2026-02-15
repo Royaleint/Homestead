@@ -215,8 +215,8 @@ local function CreateBadgePinFrame(badgeData)
     return HA.PinFrameFactory:CreateBadgePinFrame(badgeData)
 end
 
-local function CreateMinimapPinFrame(vendor, isOppositeFaction, isUnverified)
-    return HA.PinFrameFactory:CreateMinimapPinFrame(vendor, isOppositeFaction, isUnverified)
+local function CreateMinimapPinFrame(vendor, isOppositeFaction, isUnverified, elevation)
+    return HA.PinFrameFactory:CreateMinimapPinFrame(vendor, isOppositeFaction, isUnverified, elevation)
 end
 
 -------------------------------------------------------------------------------
@@ -528,6 +528,8 @@ function VendorMapPins:RefreshMinimapPins()
     local playerMapID = C_Map.GetBestMapForUnit("player")
     if not playerMapID then return end
 
+    local showElevationArrows = HA.Addon.db.profile.vendorTracer.showElevationArrows ~= false
+
     -- Collect mapIDs to check: current zone + parent zones + sibling zones in same continent
     -- This enables HandyNotes-style "nearby vendor" pins
     local mapsToCheck = {}
@@ -600,14 +602,34 @@ function VendorMapPins:RefreshMinimapPins()
                                 -- Don't show this vendor, continue to next
                             -- Show vendor if accessible OR if opposite faction and setting enabled
                             elseif canAccess or (isOpposite and showOpposite) then
-                                local frame = CreateMinimapPinFrame(vendor, isOpposite, isUnverified)
-                                minimapPinFrames[vendor] = frame
-                                addedVendors[vendor.npcID] = true
+                                local elevation = Constants.GetElevationDirection(playerMapID, vendorMapID)
 
-                                HBDPins:AddMinimapIconMap("HomesteadMinimapVendors", frame, vendorMapID,
-                                    coords.x, coords.y,
-                                    true,         -- showInParentZone
-                                    floatOnEdge)  -- false indoors: hides distant pins
+                                if elevation then
+                                    -- Cross-floor: use AddMinimapIconWorld to bypass HBD mapID filter
+                                    local worldX, worldY, instanceID = HBD:GetWorldCoordinatesFromZone(
+                                        coords.x, coords.y, vendorMapID)
+                                    if worldX then
+                                        local showArrow = showElevationArrows
+                                        local frame = CreateMinimapPinFrame(vendor, isOpposite, isUnverified,
+                                            showArrow and elevation or nil)
+                                        minimapPinFrames[vendor] = frame
+                                        addedVendors[vendor.npcID] = true
+                                        -- Always float on edge for cross-floor pins; indoor detection
+                                        -- would otherwise hide them in underground zones
+                                        HBDPins:AddMinimapIconWorld("HomesteadMinimapVendors", frame,
+                                            instanceID, worldX, worldY, true)
+                                    end
+                                    -- If conversion fails, skip — zone has no HBD mapData and
+                                    -- AddMinimapIconMap would also fail (same conversion internally)
+                                else
+                                    local frame = CreateMinimapPinFrame(vendor, isOpposite, isUnverified)
+                                    minimapPinFrames[vendor] = frame
+                                    addedVendors[vendor.npcID] = true
+                                    HBDPins:AddMinimapIconMap("HomesteadMinimapVendors", frame, vendorMapID,
+                                        coords.x, coords.y,
+                                        true,         -- showInParentZone
+                                        floatOnEdge)  -- false indoors: hides distant pins
+                                end
                             end
                         end
                     end
@@ -658,6 +680,17 @@ function VendorMapPins:ShowVendorPins(mapID)
     local showOpposite = ShouldShowOppositeFaction()
     local addedVendors = {}  -- Track by npcID to avoid duplicates
 
+    -- Build set of valid mapIDs: current map + child/sub-zone maps
+    -- This ensures vendors in sub-zones (e.g., City of Threads inside Azj-Kahet)
+    -- appear on the parent zone map via HBD's showInParentZone
+    local validMapIDs = { [mapID] = true }
+    local childMaps = C_Map.GetMapChildrenInfo(mapID)
+    if childMaps then
+        for _, childInfo in ipairs(childMaps) do
+            validMapIDs[childInfo.mapID] = true
+        end
+    end
+
     -- Helper function to process a vendor
     local function ProcessVendor(vendor)
         if not vendor or not vendor.npcID then return end
@@ -673,9 +706,9 @@ function VendorMapPins:ShowVendorPins(mapID)
         -- Get best coordinates (scanned preferred over static)
         local coords, vendorMapID, source = GetBestVendorCoordinates(vendor)
 
-        -- Only show pins for vendors with valid coordinates on THIS map
-        -- This is the key check - vendorMapID comes from scanned data if available
-        if coords and vendorMapID == mapID then
+        -- Show pins for vendors on this map OR any child/sub-zone map
+        -- Child map vendors are placed via HBD's showInParentZone (HBD_PINS_WORLDMAP_SHOW_PARENT)
+        if coords and vendorMapID and validMapIDs[vendorMapID] then
             local canAccess = self:CanAccessVendor(vendor)
             local isOpposite = self:IsOppositeFaction(vendor)
             local isUnverified = not IsVendorVerified(vendor)
@@ -693,44 +726,48 @@ function VendorMapPins:ShowVendorPins(mapID)
                 vendorPinFrames[vendor] = frame
                 addedVendors[vendor.npcID] = true
 
-                -- Add to world map (HBD with native fallback for Argus etc.)
-                AddWorldMapPin(frame, mapID, coords.x, coords.y,
+                -- Add to world map using vendor's actual mapID (HBD with native fallback for Argus etc.)
+                -- vendorMapID may differ from mapID for sub-zone vendors; HBD_PINS_WORLDMAP_SHOW_PARENT
+                -- ensures sub-zone pins appear on the parent zone map
+                AddWorldMapPin(frame, vendorMapID, coords.x, coords.y,
                     HBD_PINS_WORLDMAP_SHOW_PARENT)
             end
         end
     end
 
-    -- First, process vendors from static database for this map
-    local staticVendors = HA.VendorData:GetVendorsInMap(mapID)
-    if staticVendors then
-        for _, vendor in ipairs(staticVendors) do
-            local shouldSkip = false
-            local skipReason = nil
+    -- First, process vendors from static database for this map and child maps
+    for queryMapID in pairs(validMapIDs) do
+        local staticVendors = HA.VendorData:GetVendorsInMap(queryMapID)
+        if staticVendors then
+            for _, vendor in ipairs(staticVendors) do
+                local shouldSkip = false
+                local skipReason = nil
 
-            -- Check 1: Skip unreleased or no-decor vendors
-            if ShouldHideVendor(vendor) then
-                shouldSkip = true
-                skipReason = vendor.unreleased and "unreleased" or "no decor"
-            end
-
-            -- Check 2: Skip if vendor was scanned on a DIFFERENT map
-            if not shouldSkip and HA.Addon and HA.Addon.db and HA.Addon.db.global.scannedVendors then
-                local scannedData = HA.Addon.db.global.scannedVendors[vendor.npcID]
-                if scannedData and scannedData.mapID and scannedData.mapID ~= mapID then
+                -- Check 1: Skip unreleased or no-decor vendors
+                if ShouldHideVendor(vendor) then
                     shouldSkip = true
-                    skipReason = string.format("scanned on map %d", scannedData.mapID)
+                    skipReason = vendor.unreleased and "unreleased" or "no decor"
                 end
-            end
 
-            if shouldSkip then
-                -- Mark as processed to prevent re-check in scanned vendors loop
-                addedVendors[vendor.npcID] = true
-                if HA.DevAddon and HA.Addon.db.profile.debug then
-                    HA.Addon:Debug(string.format("Skipping static vendor %s (%d) on map %d - %s",
-                        vendor.name or "Unknown", vendor.npcID, mapID, skipReason or "unknown"))
+                -- Check 2: Skip if vendor was scanned on a map outside this zone hierarchy
+                if not shouldSkip and HA.Addon and HA.Addon.db and HA.Addon.db.global.scannedVendors then
+                    local scannedData = HA.Addon.db.global.scannedVendors[vendor.npcID]
+                    if scannedData and scannedData.mapID and not validMapIDs[scannedData.mapID] then
+                        shouldSkip = true
+                        skipReason = string.format("scanned on map %d", scannedData.mapID)
+                    end
                 end
-            else
-                ProcessVendor(vendor)
+
+                if shouldSkip then
+                    -- Mark as processed to prevent re-check in scanned vendors loop
+                    addedVendors[vendor.npcID] = true
+                    if HA.DevAddon and HA.Addon.db.profile.debug then
+                        HA.Addon:Debug(string.format("Skipping static vendor %s (%d) on map %d - %s",
+                            vendor.name or "Unknown", vendor.npcID, queryMapID, skipReason or "unknown"))
+                    end
+                else
+                    ProcessVendor(vendor)
+                end
             end
         end
     end
@@ -739,9 +776,9 @@ function VendorMapPins:ShowVendorPins(mapID)
     -- than their static entry (e.g., Quackenbush: static=Stormwind, scanned=BrawlersGuild)
     if HA.Addon and HA.Addon.db and HA.Addon.db.global.scannedVendors then
         for npcID, scannedData in pairs(HA.Addon.db.global.scannedVendors) do
-            -- Only process if this scanned vendor's mapID matches the current map
+            -- Only process if this scanned vendor's mapID matches the current map or a child map
             -- AND we haven't already added this vendor from static data
-            if scannedData.mapID == mapID and not addedVendors[npcID] then
+            if validMapIDs[scannedData.mapID] and not addedVendors[npcID] then
                 -- Try to get full vendor info from static data, fall back to scanned data
                 local vendor = HA.VendorData:GetVendor(npcID)
                 if vendor then

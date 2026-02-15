@@ -259,6 +259,7 @@ Constants.ZoneToContinentMap = {
     [2213] = 2274, -- City of Threads
     [2214] = 2274,
     [2215] = 2274,
+    [2216] = 2274, -- City of Threads - Lower
     [2239] = 1978,
     [2248] = 2274,
     [2255] = 2274,
@@ -309,6 +310,27 @@ Constants.ContinentToExpansion = {
     [1978] = "Dragonflight",        -- Dragon Isles
     [2274] = "The War Within",      -- Khaz Algar
 }
+
+-------------------------------------------------------------------------------
+-- Vertical Zone Siblings (for minimap elevation arrows)
+-- Maps zones that are vertically stacked in the same physical location.
+-- Key: player's mapID, Value: { [vendorMapID] = "above"|"below" }
+-- "above" means the vendor is above the player; "below" means below.
+-------------------------------------------------------------------------------
+
+Constants.VerticalSiblings = {
+    -- City of Threads (2213) / City of Threads - Lower (2216)
+    [2213] = { [2216] = "below" },
+    [2216] = { [2213] = "above" },
+    -- Dalaran / Underbelly
+    [627] = { [628] = "below" },
+    [628] = { [627] = "above" },
+}
+
+function Constants.GetElevationDirection(playerMapID, vendorMapID)
+    local siblings = Constants.VerticalSiblings[playerMapID]
+    return siblings and siblings[vendorMapID]
+end
 
 -------------------------------------------------------------------------------
 -- Overlay Configuration

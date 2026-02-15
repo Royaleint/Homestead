@@ -365,7 +365,7 @@ end
 -- Minimap Pin Frame
 -------------------------------------------------------------------------------
 
-function PinFrameFactory:CreateMinimapPinFrame(vendor, isOppositeFaction, isUnverified)
+function PinFrameFactory:CreateMinimapPinFrame(vendor, isOppositeFaction, isUnverified, elevation)
     local frame = CreateFrame("Frame", nil, UIParent)
 
     local mmSize = self:GetMinimapIconSize()
@@ -406,6 +406,28 @@ function PinFrameFactory:CreateMinimapPinFrame(vendor, isOppositeFaction, isUnve
         frame.icon:SetVertexColor(br, bg, bb, 0.95)
     end
 
+    -- Elevation arrow for cross-floor vendors
+    if elevation then
+        frame.elevation = elevation
+        local arrowDim = math.max(math.floor(mmSize * 1.75), 20)
+        local arrow = frame:CreateTexture(nil, "OVERLAY")
+        arrow:SetSize(arrowDim, arrowDim)
+        arrow:SetAtlas("Rotating-MinimapGuideArrow")
+        arrow:SetDesaturated(true)
+        if isCustomColor then
+            arrow:SetVertexColor(br, bg, bb, 1.0)
+        else
+            arrow:SetVertexColor(1, 0.82, 0, 1.0)
+        end
+        if elevation == "above" then
+            arrow:SetPoint("CENTER", frame, "TOP", 0, 3)
+        else
+            arrow:SetTexCoord(0, 1, 1, 0)
+            arrow:SetPoint("CENTER", frame, "BOTTOM", 0, -3)
+        end
+        frame.elevationArrow = arrow
+    end
+
     -- Store vendor data
     frame.vendor = vendor
     frame.isOppositeFaction = isOppositeFaction
@@ -425,17 +447,15 @@ function PinFrameFactory:CreateMinimapPinFrame(vendor, isOppositeFaction, isUnve
         if self.isOppositeFaction then
             GameTooltip:AddLine("Opposite faction", 0.8, 0.3, 0.3)
         end
-        GameTooltip:AddLine(" ")
-        GameTooltip:AddLine("Left-click to set waypoint", 0.5, 0.5, 0.5)
+        if self.elevation == "above" then
+            GameTooltip:AddLine("|A:Rotating-MinimapGuideArrow:0:0|a Above you", 0.6, 0.8, 1.0)
+        elseif self.elevation == "below" then
+            GameTooltip:AddLine("v Below you", 0.6, 0.8, 1.0)
+        end
         GameTooltip:Show()
     end)
     frame:SetScript("OnLeave", function(self)
         GameTooltip:Hide()
-    end)
-    frame:SetScript("OnMouseUp", function(self, button)
-        if button == "LeftButton" and HA.VendorMapPins then
-            HA.VendorMapPins:SetWaypointToVendor(self.vendor)
-        end
     end)
 
     return frame

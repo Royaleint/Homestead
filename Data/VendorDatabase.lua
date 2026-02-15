@@ -1255,6 +1255,7 @@ VendorDatabase.Vendors = {
         faction = "Neutral",
         currency = "Kej",
         expansion = "The War Within",
+        notes = "Located in City of Threads (upper level), not City of Threads Lower",
         items = {{246866, cost = {currencies = {{id = 3056, amount = 1500}}}}},
     },
 	[219217] = {

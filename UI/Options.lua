@@ -320,6 +320,20 @@ local function GetOptionsTable()
                             end
                         end,
                     },
+                    showElevationArrows = {
+                        type = "toggle",
+                        name = "Show elevation arrows",
+                        desc = "Show directional arrows on minimap pins when a vendor is above or below you",
+                        width = "double",
+                        order = 3.5,
+                        get = function() return HA.Addon.db.profile.vendorTracer.showElevationArrows ~= false end,
+                        set = function(_, value)
+                            HA.Addon.db.profile.vendorTracer.showElevationArrows = value
+                            if HA.VendorMapPins then
+                                HA.VendorMapPins:RefreshMinimapPins()
+                            end
+                        end,
+                    },
                     showVendorDetails = {
                         type = "toggle",
                         name = L["Show vendor details in tooltips"] or "Show vendor details in tooltips",
