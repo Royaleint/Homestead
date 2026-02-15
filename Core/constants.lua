@@ -14,7 +14,7 @@ local Constants = HA.Constants
 -------------------------------------------------------------------------------
 -- Version Info
 -------------------------------------------------------------------------------
-Constants.VERSION = "1.3.2"
+Constants.VERSION = "1.3.3"
 Constants.ADDON_NAME = "Homestead"
 Constants.ADDON_SHORT = "HS"
 

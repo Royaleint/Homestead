@@ -2,6 +2,13 @@
 
 ---
 
+## v1.3.3 (2026-02-14)
+
+### Fixed
+- **Hotfix**: Fixed minimap pins showing for distant vendors when the player is indoors.
+
+---
+
 ## v1.3.2 (2026-02-14)
 
 ### New
