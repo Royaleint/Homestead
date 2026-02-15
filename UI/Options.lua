@@ -287,6 +287,21 @@ local function GetOptionsTable()
                             end
                         end,
                     },
+                    worldMapZoneBadges = {
+                        type = "toggle",
+                        name = "Zone badges on world map",
+                        desc = "Show per-zone vendor counts spread across continents on the world map, instead of a single total per continent.",
+                        width = "double",
+                        order = 2.5,
+                        get = function() return HA.Addon.db.profile.vendorTracer.worldMapZoneBadges end,
+                        set = function(_, value)
+                            HA.Addon.db.profile.vendorTracer.worldMapZoneBadges = value
+                            if HA.VendorMapPins then
+                                HA.VendorMapPins:InvalidateBadgeCache()
+                                HA.VendorMapPins:RefreshPins()
+                            end
+                        end,
+                    },
                     showMinimapPins = {
                         type = "toggle",
                         name = L["Show minimap pins"] or "Show minimap pins",

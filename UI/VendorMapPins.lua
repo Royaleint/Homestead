@@ -853,7 +853,62 @@ function VendorMapPins:ShowZoneBadges(continentMapID)
     end
 end
 
+function VendorMapPins:ShowZoneBadgesOnWorldMap()
+    local continentCounts = self:GetContinentVendorCounts()
+
+    for continentMapID, continentData in pairs(continentCounts) do
+        if continentData.vendorCount > 0 then
+            -- Off-world continents: keep as aggregate badge (HBD can't translate)
+            local manualPos = BC.offWorldContinentPositions[continentMapID]
+            if manualPos then
+                local badgeData = {
+                    mapID = continentMapID,
+                    zoneName = continentData.continentName,
+                    vendorCount = continentData.vendorCount,
+                    uncollectedCount = continentData.uncollectedCount,
+                    unknownCount = continentData.unknownCount,
+                    oppositeFactionCount = continentData.oppositeFactionCount,
+                }
+                local frame = CreateBadgePinFrame(badgeData)
+                badgePinFrames[continentMapID] = frame
+                WorldMapFrame:AcquirePin(NATIVE_PIN_TEMPLATE, frame, manualPos.x, manualPos.y)
+
+            elseif not BC.excludedContinents[continentMapID] then
+                -- Normal continent: place individual zone badges
+                local zoneCounts = self:GetZoneVendorCounts(continentMapID)
+                for zoneMapID, zoneData in pairs(zoneCounts) do
+                    if zoneData.vendorCount > 0 then
+                        local badgeData = {
+                            mapID = zoneMapID,
+                            zoneName = zoneData.zoneName,
+                            vendorCount = zoneData.vendorCount,
+                            uncollectedCount = zoneData.uncollectedCount,
+                            unknownCount = zoneData.unknownCount,
+                            oppositeFactionCount = zoneData.oppositeFactionCount,
+                            dominantFaction = zoneData.dominantFaction,
+                            note = BC.zoneNotes[zoneMapID],
+                        }
+                        local frame = CreateBadgePinFrame(badgeData)
+                        badgePinFrames["world_" .. zoneMapID] = frame
+
+                        -- HBD translates zone center to world map position automatically
+                        HBDPins:AddWorldMapIconMap("HomesteadVendors", frame, zoneMapID,
+                            0.5, 0.5,
+                            HBD_PINS_WORLDMAP_SHOW_WORLD)
+                    end
+                end
+            end
+        end
+    end
+end
+
 function VendorMapPins:ShowContinentBadges()
+    -- Toggle: zone-level badges spread across continents vs single continent totals
+    if HA.Addon and HA.Addon.db and HA.Addon.db.profile.vendorTracer.worldMapZoneBadges then
+        self:ShowZoneBadgesOnWorldMap()
+        return
+    end
+
     local continentCounts = self:GetContinentVendorCounts()
 
     for continentMapID, continentData in pairs(continentCounts) do

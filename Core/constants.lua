@@ -398,6 +398,7 @@ Constants.Defaults = {
             pinIconSize = 20,                          -- Base icon size for world map pins (12-32)
             minimapIconSize = 12,                      -- Minimap pin size (8-24)
             showPinCounts = true,                      -- Show collected/total counts on vendor pins
+            worldMapZoneBadges = false,                -- Show zone-level badges on world map instead of continent totals
         },
 
         -- Vendor scanning settings

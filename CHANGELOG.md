@@ -5,6 +5,7 @@
 ## v1.3.2 (Unreleased)
 
 ### New
+- **Zone Badges on World Map** — New toggle in Options to show per-zone vendor counts spread across continents on the world map, instead of a single total per continent. Requested by u/melaspike666 from r/wowaddons.
 - **Requirement Tooltips** — Item tooltips now show reputation, profession, and achievement requirements so you know what's gating an item before you travel there.
 - **Scanner Toggle** — You can now disable automatic vendor scanning in Options under General settings.
 - **Badge Tooltips** — Zone badges on the continent map now show helpful context like "Paladin Order Hall — Portal from Dalaran" so you know how to get there.
