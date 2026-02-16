@@ -153,15 +153,7 @@ function HousingAddon:InitializeMinimapButton()
         icon = Constants.Icons.MINIMAP,
         OnClick = function(_, button)
             if button == "LeftButton" then
-                self:ToggleMainFrame()
-            elseif button == "RightButton" then
-                if IsShiftKeyDown() then
-                    if HA.ExportImport and HA.ExportImport.ShowExportDialog then
-                        HA.ExportImport:ShowExportDialog()
-                    end
-                else
-                    self:OpenOptions()
-                end
+                self:OpenOptions()
             elseif button == "MiddleButton" then
                 if HA.CatalogScanner and HA.CatalogScanner.ManualScan then
                     HA.CatalogScanner:ManualScan()
@@ -204,10 +196,8 @@ function HousingAddon:InitializeMinimapButton()
             end
 
             tooltip:AddLine(" ")
-            tooltip:AddLine("|cFFFFFFFFLeft-Click:|r Toggle main window")
+            tooltip:AddLine("|cFFFFFFFFLeft-Click:|r Open options")
             tooltip:AddLine("|cFFFFFFFFMiddle-Click:|r Scan collection")
-            tooltip:AddLine("|cFFFFFFFFShift+Right-Click:|r Export data")
-            tooltip:AddLine("|cFFFFFFFFRight-Click:|r Open options")
         end,
     })
 
@@ -225,9 +215,7 @@ end
 function HousingAddon:SlashCommandHandler(input)
     input = input and input:trim():lower() or ""
 
-    if input == "" or input == "toggle" then
-        self:ToggleMainFrame()
-    elseif input == "config" or input == "options" or input == "settings" then
+    if input == "" or input == "config" or input == "options" or input == "settings" then
         self:OpenOptions()
     elseif input == "vendor" or input:match("^vendor%s+") then
         local search = input:match("^vendor%s+(.+)$")
@@ -291,8 +279,7 @@ end
 
 function HousingAddon:PrintHelp()
     self:Print("Homestead Commands:")
-    self:Print("  /hs - Toggle main window")
-    self:Print("  /hs options - Open options panel")
+    self:Print("  /hs - Open options panel")
     self:Print("  /hs scan - Scan catalog for owned items")
     self:Print("  /hs vendor [search] - Search for decor vendors")
     self:Print("  /hs vendors - Show scanned vendor data")
@@ -750,14 +737,6 @@ end
 -------------------------------------------------------------------------------
 -- UI Functions (Stubs - will be implemented in UI modules)
 -------------------------------------------------------------------------------
-
-function HousingAddon:ToggleMainFrame()
-    if HA.MainFrame then
-        HA.MainFrame:Toggle()
-    else
-        self:Print("Main frame not available")
-    end
-end
 
 function HousingAddon:OpenOptions()
     -- Open Blizzard options panel
