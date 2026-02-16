@@ -103,6 +103,11 @@ function HousingAddon:OnEnable()
         HA.VendorTracer:Initialize()
     end
 
+    -- Initialize MapSidePanel (before VendorMapPins, shares same hooks)
+    if HA.MapSidePanel then
+        HA.MapSidePanel:Initialize()
+    end
+
     -- Initialize VendorMapPins for world map integration
     if HA.VendorMapPins then
         HA.VendorMapPins:Initialize()

@@ -287,6 +287,24 @@ local function GetOptionsTable()
                             end
                         end,
                     },
+                    showMapSidePanel = {
+                        type = "toggle",
+                        name = "Show vendor panel on world map",
+                        desc = "Show a side panel on the world map listing vendors and collection progress for the current zone",
+                        width = "full",
+                        order = 2.3,
+                        get = function() return HA.Addon.db.profile.vendorTracer.showMapSidePanel end,
+                        set = function(_, value)
+                            HA.Addon.db.profile.vendorTracer.showMapSidePanel = value
+                            if HA.MapSidePanel then
+                                if value then
+                                    HA.MapSidePanel:Show()
+                                else
+                                    HA.MapSidePanel:Hide()
+                                end
+                            end
+                        end,
+                    },
                     worldMapZoneBadges = {
                         type = "toggle",
                         name = "Zone badges on world map",
