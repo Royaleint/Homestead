@@ -64,7 +64,6 @@ Overlay\Tooltips.lua
 
 # UI
 UI\WelcomeFrame.lua
-UI\MainFrame.lua
 UI\OutputWindow.lua
 UI\VendorFilter.lua
 UI\PinFrameFactory.lua
