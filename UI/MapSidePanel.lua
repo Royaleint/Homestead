@@ -27,6 +27,9 @@ local ROW_HEIGHT = 36
 local HEADER_HEIGHT = 36
 local PADDING = 8
 local ICON_SIZE = 14
+local ITEM_ICON_SIZE = 28
+local ITEM_ICON_PAD = 3
+local ITEM_GRID_INSET = 24  -- Left indent for item grid (aligns under name text)
 
 -- State
 local panelFrame = nil
@@ -38,7 +41,262 @@ local summaryText = nil
 local emptyText = nil
 local isInitialized = false
 local vendorRows = {}
+local expandedVendorID = nil  -- npcID of currently expanded vendor (nil = none)
 local lastRefreshMapID = nil
+
+-------------------------------------------------------------------------------
+-- Item Helpers
+-------------------------------------------------------------------------------
+
+-- Check if item is owned (same pattern as BadgeCalculation/VendorMapPins)
+local function IsItemOwned(itemID)
+    if not itemID then return false end
+    if HA.CatalogStore then
+        return HA.CatalogStore:IsOwnedFresh(itemID)
+    end
+    return false
+end
+
+-- Gather all unique item IDs for a vendor (static DB + scanned data)
+local function GetVendorItemIDs(vendor)
+    if not vendor or not vendor.npcID then return {} end
+
+    local items = {}
+    local seen = {}
+
+    -- Static items from vendor database
+    if vendor.items and #vendor.items > 0 then
+        for _, item in ipairs(vendor.items) do
+            local itemID = HA.VendorData:GetItemID(item)
+            if itemID and not seen[itemID] then
+                seen[itemID] = true
+                items[#items + 1] = itemID
+            end
+        end
+    end
+
+    -- Scanned items from VendorScanner
+    if HA.Addon and HA.Addon.db and HA.Addon.db.global.scannedVendors then
+        local scannedData = HA.Addon.db.global.scannedVendors[vendor.npcID]
+        if not scannedData and vendor.name and HA.VendorScanner then
+            local correctedID = HA.VendorScanner:GetCorrectedNPCID(vendor.name)
+            if correctedID then
+                scannedData = HA.Addon.db.global.scannedVendors[correctedID]
+            end
+        end
+        local scannedItems = scannedData and scannedData.items
+        if scannedItems then
+            for _, item in ipairs(scannedItems) do
+                if item.itemID and not seen[item.itemID] then
+                    seen[item.itemID] = true
+                    items[#items + 1] = item.itemID
+                end
+            end
+        end
+    end
+
+    return items
+end
+
+-------------------------------------------------------------------------------
+-- Item Grid (expandable section below each vendor row)
+-------------------------------------------------------------------------------
+
+local function CreateItemIcon(parent)
+    local frame = CreateFrame("Frame", nil, parent)
+    frame:SetSize(ITEM_ICON_SIZE, ITEM_ICON_SIZE)
+
+    -- Item icon texture
+    local tex = frame:CreateTexture(nil, "ARTWORK")
+    tex:SetAllPoints()
+    tex:SetTexCoord(0.08, 0.92, 0.08, 0.92)  -- Trim default icon border
+    frame.texture = tex
+
+    -- Border (behind icon so it shows as a colored rim)
+    local border = frame:CreateTexture(nil, "BACKGROUND")
+    border:SetPoint("TOPLEFT", -1, 1)
+    border:SetPoint("BOTTOMRIGHT", 1, -1)
+    border:SetColorTexture(0.3, 0.3, 0.3, 1)
+    frame.border = border
+
+    -- Owned check overlay
+    local check = frame:CreateTexture(nil, "OVERLAY")
+    check:SetSize(14, 14)
+    check:SetPoint("BOTTOMRIGHT", 2, -2)
+    check:SetAtlas("common-icon-checkmark")
+    check:Hide()
+    frame.check = check
+
+    -- Lock icon for items with unmet requirements
+    local lock = frame:CreateTexture(nil, "OVERLAY")
+    lock:SetSize(12, 12)
+    lock:SetPoint("TOPLEFT", -2, 2)
+    lock:SetAtlas("Padlock")
+    lock:Hide()
+    frame.lock = lock
+
+    frame.itemID = nil
+    frame.npcID = nil        -- Vendor NPC ID for requirement lookups
+    frame.requirements = nil -- Cached requirement data for tooltip
+
+    -- Tooltip on hover (includes requirement info for locked items)
+    frame:EnableMouse(true)
+    frame:SetScript("OnEnter", function(self)
+        if self.itemID then
+            GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+            GameTooltip:SetItemByID(self.itemID)
+            -- Append requirement info for locked items
+            if self.requirements and #self.requirements > 0 then
+                GameTooltip:AddLine(" ")
+                GameTooltip:AddLine("Requirements:", 1, 0.5, 0)
+                local SM = HA.SourceManager
+                for _, req in ipairs(self.requirements) do
+                    local met = SM and SM:IsRequirementMet(req)
+                    local color = met and {0, 1, 0} or {1, 0, 0}
+                    local text
+                    if req.type == "reputation" then
+                        text = string.format("%s - %s", req.faction or "?", req.standing or "?")
+                    elseif req.type == "achievement" then
+                        text = req.name or ("Achievement " .. (req.id or "?"))
+                    elseif req.type == "quest" then
+                        text = "Quest: " .. (req.name or "?")
+                    elseif req.type == "level" then
+                        text = "Level " .. (req.level or "?")
+                    else
+                        text = req.text or "Unknown requirement"
+                    end
+                    GameTooltip:AddLine("  " .. text, color[1], color[2], color[3])
+                end
+            end
+            GameTooltip:Show()
+        end
+    end)
+    frame:SetScript("OnLeave", function()
+        GameTooltip:Hide()
+    end)
+
+    return frame
+end
+
+-- Check if an item has unmet requirements the player hasn't satisfied
+local function GetUnmetRequirements(itemID, npcID)
+    local SM = HA.SourceManager
+    if not SM then return nil end
+    local reqs = SM:GetRequirements(itemID, npcID)
+    if not reqs or #reqs == 0 then return nil end
+
+    local unmet = false
+    for _, req in ipairs(reqs) do
+        local met = SM:IsRequirementMet(req)
+        -- Treat both false (unmet) and nil (can't determine) as locked.
+        -- If a requirement exists but we can't confirm it's met, show locked.
+        if met ~= true then
+            unmet = true
+            break
+        end
+    end
+    return unmet and reqs or nil, reqs
+end
+
+-- Populate the item grid for a vendor row. Returns total height of the grid.
+local function PopulateItemGrid(row, vendor)
+    local itemIDs = GetVendorItemIDs(vendor)
+    if #itemIDs == 0 then return 0 end
+
+    -- Create grid container if not yet created
+    if not row.itemGrid then
+        row.itemGrid = CreateFrame("Frame", nil, row)
+        row.itemGrid:SetPoint("TOPLEFT", row, "TOPLEFT", ITEM_GRID_INSET, -ROW_HEIGHT)
+        row.itemGrid:SetPoint("RIGHT", row, "RIGHT", -PADDING, 0)
+        row.itemIcons = {}
+    end
+
+    local grid = row.itemGrid
+    local icons = row.itemIcons
+
+    -- Calculate how many icons fit per row using actual available width
+    -- scrollChild width = PANEL_WIDTH - 20 (borders) - 22 (scrollbar) = 218
+    local scrollWidth = PANEL_WIDTH - 20 - 22
+    local gridWidth = scrollWidth - ITEM_GRID_INSET - PADDING
+    local iconsPerRow = math.floor((gridWidth + ITEM_ICON_PAD) / (ITEM_ICON_SIZE + ITEM_ICON_PAD))
+    if iconsPerRow < 1 then iconsPerRow = 1 end
+
+    local npcID = vendor.npcID
+
+    -- Ensure enough icon frames
+    while #icons < #itemIDs do
+        icons[#icons + 1] = CreateItemIcon(grid)
+    end
+
+    -- Position and populate icons
+    for i, itemID in ipairs(itemIDs) do
+        local icon = icons[i]
+        icon.itemID = itemID
+        icon.npcID = npcID
+
+        -- Position in grid
+        local col = (i - 1) % iconsPerRow
+        local gridRow = math.floor((i - 1) / iconsPerRow)
+        icon:ClearAllPoints()
+        icon:SetPoint("TOPLEFT", grid, "TOPLEFT",
+            col * (ITEM_ICON_SIZE + ITEM_ICON_PAD),
+            -(gridRow * (ITEM_ICON_SIZE + ITEM_ICON_PAD)))
+
+        -- Set icon texture (async via C_Item)
+        local itemIcon = C_Item.GetItemIconByID(itemID)
+        if itemIcon then
+            icon.texture:SetTexture(itemIcon)
+        else
+            icon.texture:SetTexture("Interface\\Icons\\INV_Misc_QuestionMark")
+        end
+
+        -- Check ownership and requirements
+        local owned = IsItemOwned(itemID)
+        local unmetReqs, allReqs = GetUnmetRequirements(itemID, npcID)
+        icon.requirements = unmetReqs and allReqs or nil
+
+        icon.texture:SetDesaturated(false)
+        icon.texture:SetVertexColor(1, 1, 1)
+        icon.lock:Hide()
+        icon.check:Hide()
+
+        if owned then
+            -- Owned: green border + checkmark
+            icon.border:SetColorTexture(0.2, 0.7, 0.2, 1)
+            icon.check:Show()
+        elseif unmetReqs then
+            -- Locked: red border + desaturated icon + lock icon
+            icon.border:SetColorTexture(0.7, 0.15, 0.15, 1)
+            icon.texture:SetDesaturated(true)
+            icon.texture:SetVertexColor(0.6, 0.4, 0.4)
+            icon.lock:Show()
+        else
+            -- Available to purchase: gold border
+            icon.border:SetColorTexture(0.6, 0.5, 0.2, 1)
+        end
+
+        icon:Show()
+    end
+
+    -- Hide excess icons
+    for i = #itemIDs + 1, #icons do
+        icons[i]:Hide()
+    end
+
+    -- Calculate grid height
+    local numRows = math.ceil(#itemIDs / iconsPerRow)
+    local gridHeight = numRows * (ITEM_ICON_SIZE + ITEM_ICON_PAD)
+    grid:SetHeight(gridHeight)
+    grid:Show()
+
+    return gridHeight + ITEM_ICON_PAD  -- Extra padding below grid
+end
+
+local function HideItemGrid(row)
+    if row.itemGrid then
+        row.itemGrid:Hide()
+    end
+end
 
 -------------------------------------------------------------------------------
 -- Row Creation
@@ -88,10 +346,18 @@ local function CreateVendorRow(parent, index)
     -- Store vendor reference for click handler
     row.vendor = nil
 
+    row:RegisterForClicks("AnyUp")
+
     row:SetScript("OnClick", function(self)
-        if self.vendor and HA.VendorMapPins then
-            HA.VendorMapPins:SetWaypointToVendor(self.vendor)
+        if not self.vendor then return end
+        -- Left-click: toggle item grid expansion
+        local npcID = self.vendor.npcID
+        if expandedVendorID == npcID then
+            expandedVendorID = nil  -- Collapse
+        else
+            expandedVendorID = npcID  -- Expand this one
         end
+        MapSidePanel:RefreshContent()
     end)
 
     row:SetScript("OnEnter", function(self)
@@ -103,12 +369,19 @@ local function CreateVendorRow(parent, index)
             GameTooltip:AddLine(self.vendor.zone, 0.7, 0.7, 0.7)
         end
         if self.collected and self.total and self.total > 0 then
-            local color = self.collected == self.total and {0.5, 0.5, 0.5} or {0, 1, 0}
+            local color
+            if self.collected == self.total then
+                color = {0, 1, 0}       -- Fully collected: green
+            elseif self.collected > 0 then
+                color = {1, 0.82, 0}    -- Partial: yellow
+            else
+                color = {1, 0.3, 0.3}   -- None: red
+            end
             GameTooltip:AddLine(string.format("Collected: %d/%d", self.collected, self.total),
                 color[1], color[2], color[3])
         end
         GameTooltip:AddLine(" ")
-        GameTooltip:AddLine("Click to set waypoint", 0.5, 0.5, 0.5)
+        GameTooltip:AddLine("Click to show items", 0.5, 0.5, 0.5)
         GameTooltip:Show()
     end)
 
@@ -234,7 +507,9 @@ local function CreatePanel()
     scrollFrame:SetPoint("BOTTOMRIGHT", -22, 0)
 
     scrollChild = CreateFrame("Frame", nil, scrollFrame)
-    scrollChild:SetWidth(scrollFrame:GetWidth() or (PANEL_WIDTH - PADDING * 2 - 22))
+    -- Use a computed width (panel is hidden during creation, so GetWidth() returns 0)
+    local scrollWidth = PANEL_WIDTH - BORDER_LEFT - BORDER_RIGHT - 22  -- 22 = scrollbar
+    scrollChild:SetWidth(scrollWidth)
     scrollChild:SetHeight(1)  -- Will be resized dynamically
     scrollFrame:SetScrollChild(scrollChild)
 
@@ -246,13 +521,6 @@ local function CreatePanel()
 
     panel:Hide()
     panelFrame = panel
-
-    -- Recalculate scrollChild width after layout settles
-    C_Timer.After(0, function()
-        if scrollFrame:GetWidth() > 0 then
-            scrollChild:SetWidth(scrollFrame:GetWidth())
-        end
-    end)
 end
 
 -------------------------------------------------------------------------------
@@ -398,7 +666,7 @@ local function CreateOverlayButton()
     local button = CreateFrame("Button", nil, WorldMapFrame)
     button:SetSize(32, 32)
     button:SetFrameStrata("HIGH")
-    button:RegisterForClicks("LeftButtonUp", "RightButtonUp")
+    button:RegisterForClicks("AnyUp")
 
     -- Circular minimap background (same as HandyNotes/Blizzard tracking buttons)
     local bg = button:CreateTexture(nil, "BACKGROUND")
@@ -531,6 +799,11 @@ function MapSidePanel:RefreshContent()
     local mapInfo = C_Map.GetMapInfo(mapID)
     if not mapInfo then return end
 
+    -- Ensure scrollChild has a valid width (may be 0 if panel was hidden during creation)
+    if scrollChild and scrollChild:GetWidth() < 1 then
+        scrollChild:SetWidth(PANEL_WIDTH - 20 - 22)  -- 20 = border insets, 22 = scrollbar
+    end
+
     -- Update header with zone name
     headerText:SetText(mapInfo.name or "")
 
@@ -539,8 +812,10 @@ function MapSidePanel:RefreshContent()
 
     if not isZoneLevel then
         -- Continent or world view — show prompt
+        expandedVendorID = nil
         for _, row in ipairs(vendorRows) do
             row:Hide()
+            HideItemGrid(row)
         end
         emptyText:SetText("Select a zone to see vendors")
         emptyText:Show()
@@ -564,6 +839,7 @@ function MapSidePanel:RefreshContent()
     end
 
     local totalCollected, totalItems = 0, 0
+    local yOffset = 0  -- Tracks cumulative Y position (variable row heights)
 
     for i, entry in ipairs(vendorList) do
         local row = vendorRows[i]
@@ -601,11 +877,11 @@ function MapSidePanel:RefreshContent()
         if total > 0 then
             local countColor
             if collected == total then
-                countColor = {0.5, 0.5, 0.5}  -- Completed: gray
+                countColor = {0, 1, 0}      -- Fully collected: green
             elseif collected > 0 then
-                countColor = {1, 0.82, 0}  -- Partial: gold
+                countColor = {1, 0.82, 0}   -- Partial: yellow/gold
             else
-                countColor = {0, 1, 0}  -- None collected: green (all available)
+                countColor = {1, 0.3, 0.3}  -- None collected: red
             end
             row.countText:SetText(string.format("%d/%d collected", collected, total))
             row.countText:SetTextColor(countColor[1], countColor[2], countColor[3])
@@ -617,20 +893,34 @@ function MapSidePanel:RefreshContent()
         totalCollected = totalCollected + collected
         totalItems = totalItems + total
 
-        -- Position row
+        -- Check if this vendor is expanded (item grid visible)
+        local isExpanded = (expandedVendorID == vendor.npcID)
+        local rowHeight = ROW_HEIGHT
+        if isExpanded then
+            local gridHeight = PopulateItemGrid(row, vendor)
+            rowHeight = ROW_HEIGHT + gridHeight
+        else
+            HideItemGrid(row)
+        end
+
+        -- Position row with variable height
         row:ClearAllPoints()
-        row:SetPoint("TOPLEFT", scrollChild, "TOPLEFT", 0, -(i - 1) * ROW_HEIGHT)
-        row:SetPoint("TOPRIGHT", scrollChild, "TOPRIGHT", 0, -(i - 1) * ROW_HEIGHT)
+        row:SetPoint("TOPLEFT", scrollChild, "TOPLEFT", 0, -yOffset)
+        row:SetPoint("TOPRIGHT", scrollChild, "TOPRIGHT", 0, -yOffset)
+        row:SetHeight(rowHeight)
         row:Show()
+
+        yOffset = yOffset + rowHeight
     end
 
     -- Hide excess rows
     for i = #vendorList + 1, #vendorRows do
         vendorRows[i]:Hide()
+        HideItemGrid(vendorRows[i])
     end
 
-    -- Update scroll height
-    scrollChild:SetHeight(math.max(1, #vendorList * ROW_HEIGHT))
+    -- Update scroll height (variable total)
+    scrollChild:SetHeight(math.max(1, yOffset))
 
     -- Empty state
     if #vendorList == 0 then
@@ -662,6 +952,9 @@ end
 local mapShifted = false
 local savedMapPoint = nil  -- {point, relativeTo, relativePoint, xOfs, yOfs}
 
+-- Saved anchor data for the map's NineSlice top edge (left anchor only)
+local savedMapTopEdge = nil  -- {point, relativeTo, relativePoint, xOfs, yOfs}
+
 local function ShiftMapRight()
     if mapShifted then return end
     -- Save current position
@@ -682,6 +975,91 @@ local function RestoreMapPosition()
 end
 
 -------------------------------------------------------------------------------
+-- Unified Top Border
+-- Extends the map's metal top edge leftward over the Homestead panel
+-- so the two frames share one seamless top border.
+-- Only adjusts the map TopEdge's left anchor — no corner repositioning.
+-------------------------------------------------------------------------------
+
+local borderUnified = false
+
+local savedMapTopLeftCornerShown = nil  -- Was the map's TopLeftCorner shown before?
+
+local function UnifyTopBorder()
+    if borderUnified then return end
+    if not panelFrame then return end
+
+    local mapNS = WorldMapFrame.BorderFrame.NineSlice
+    if not mapNS then return end
+
+    local mapTopEdge = mapNS.TopEdge
+    local mapTopLeft = mapNS.TopLeftCorner
+    local panelNS = panelFrame.NineSlice
+
+    if not mapTopEdge or not panelNS then return end
+
+    -- Save the map TopEdge's original left anchor (point 1)
+    if not savedMapTopEdge then
+        local p1, r1, rp1, x1, y1 = mapTopEdge:GetPoint(1)
+        if p1 then
+            savedMapTopEdge = { p1, r1, rp1, x1, y1 }
+        end
+    end
+
+    -- Hide the map's TopLeftCorner — the panel's portrait corner replaces it
+    if mapTopLeft then
+        savedMapTopLeftCornerShown = mapTopLeft:IsShown()
+        mapTopLeft:Hide()
+    end
+
+    -- Extend the map's top edge leftward to cover the panel.
+    -- Anchor to the hidden map TopLeftCorner but with a large negative X
+    -- offset to extend past the panel. This preserves the original Y
+    -- alignment (same anchor frame, same Y) while stretching the edge left.
+    -- The portrait TopLeftCorner is ~52px wide, so extend by (PANEL_WIDTH - 52).
+    local _, _, _, origX, origY = mapTopEdge:GetPoint(1)
+    mapTopEdge:SetPoint("TOPLEFT", mapTopLeft, "TOPRIGHT", (origX or -2) - PANEL_WIDTH + 52, origY or 0)
+
+    -- Hide the panel's own top edge pieces (they'd create a double line)
+    if panelNS.TopEdge then panelNS.TopEdge:Hide() end
+    if panelNS.TopRightCorner then panelNS.TopRightCorner:Hide() end
+
+    borderUnified = true
+end
+
+local function RestoreTopBorder()
+    if not borderUnified then return end
+
+    local mapNS = WorldMapFrame.BorderFrame.NineSlice
+    if not mapNS then return end
+
+    local mapTopEdge = mapNS.TopEdge
+    local mapTopLeft = mapNS.TopLeftCorner
+    local panelNS = panelFrame and panelFrame.NineSlice
+
+    -- Restore the map TopEdge's original left anchor
+    if mapTopEdge and savedMapTopEdge then
+        mapTopEdge:SetPoint(
+            savedMapTopEdge[1], savedMapTopEdge[2],
+            savedMapTopEdge[3], savedMapTopEdge[4],
+            savedMapTopEdge[5])
+    end
+
+    -- Restore the map's TopLeftCorner visibility
+    if mapTopLeft and savedMapTopLeftCornerShown then
+        mapTopLeft:Show()
+    end
+
+    -- Re-show the panel's top border pieces
+    if panelNS then
+        if panelNS.TopEdge then panelNS.TopEdge:Show() end
+        if panelNS.TopRightCorner then panelNS.TopRightCorner:Show() end
+    end
+
+    borderUnified = false
+end
+
+-------------------------------------------------------------------------------
 -- Toggle / Visibility
 -------------------------------------------------------------------------------
 
@@ -689,10 +1067,12 @@ local function ShowPanel()
     if not panelFrame then return end
     panelFrame:Show()
     ShiftMapRight()
+    UnifyTopBorder()
 end
 
 local function HidePanel()
     if not panelFrame then return end
+    RestoreTopBorder()
     panelFrame:Hide()
     RestoreMapPosition()
 end
@@ -775,7 +1155,8 @@ function MapSidePanel:Initialize()
     end)
 
     WorldMapFrame:HookScript("OnHide", function()
-        -- Restore map position when map closes (so it opens correctly next time)
+        -- Restore border and map position when map closes (so it opens correctly next time)
+        RestoreTopBorder()
         RestoreMapPosition()
         mapShifted = false
     end)

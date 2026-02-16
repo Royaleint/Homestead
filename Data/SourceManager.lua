@@ -189,9 +189,10 @@ end
 -------------------------------------------------------------------------------
 
 -- Get acquisition requirements for an item, optionally scoped to a vendor.
--- Resolution priority (per plan gap #7):
---   1. Vendor-specific: scannedVendors[npcID].items[i].requirements
+-- Resolution priority:
+--   1. Vendor-specific: scannedVendors[npcID].items[i].requirements (tooltip scraping)
 --   2. Item-level fallback: CatalogStore:GetRequirements(itemID)
+--   3. Parsed sourceText: parsedSources[itemID].sources[].faction/standing
 -- NOT gated by useParsedSources — requirements are always surfaced.
 -- Returns: array of requirement tables, or nil if none found
 function SourceManager:GetRequirements(itemID, npcID)
@@ -206,7 +207,23 @@ function SourceManager:GetRequirements(itemID, npcID)
                 for _, item in ipairs(items) do
                     local vendorItemID = HA.VendorData:GetItemID(item)
                     if vendorItemID == itemID and item.requirements and #item.requirements > 0 then
-                        return item.requirements
+                        -- Validate requirements are usable (have type + id/name/faction)
+                        local usable = false
+                        for _, req in ipairs(item.requirements) do
+                            if req.type == "reputation" and req.faction then
+                                usable = true; break
+                            elseif req.type == "achievement" and (req.id or req.name) then
+                                usable = true; break
+                            elseif req.type == "quest" and (req.id or req.name) then
+                                usable = true; break
+                            elseif req.type == "level" and req.level then
+                                usable = true; break
+                            end
+                        end
+                        if usable then
+                            return item.requirements
+                        end
+                        -- Unusable requirements (type="unknown", no data) — fall through
                     end
                 end
             end
@@ -217,11 +234,93 @@ function SourceManager:GetRequirements(itemID, npcID)
     if HA.CatalogStore then
         local reqs = HA.CatalogStore:GetRequirements(itemID)
         if reqs and #reqs > 0 then
-            return reqs
+            -- Validate at least one requirement is usable
+            for _, req in ipairs(reqs) do
+                if (req.type == "reputation" and req.faction)
+                    or (req.type == "achievement" and (req.id or req.name))
+                    or (req.type == "quest" and (req.id or req.name))
+                    or (req.type == "level" and req.level) then
+                    return reqs
+                end
+            end
+            -- All unusable — fall through to other sources
+        end
+    end
+
+    -- Priority 3: Faction/standing from parsed sourceText (no vendor visit needed)
+    if HA.Addon and HA.Addon.db and HA.Addon.db.global.parsedSources then
+        local parsed = HA.Addon.db.global.parsedSources[itemID]
+        if parsed and parsed.sources then
+            for _, source in ipairs(parsed.sources) do
+                if source.faction and source.standing then
+                    return {{
+                        type = "reputation",
+                        faction = source.faction,
+                        standing = source.standing,
+                    }}
+                end
+            end
+        end
+    end
+
+    -- Priority 4: Static achievement source data (AchievementSources.lua)
+    if HA.AchievementSources and HA.AchievementSources[itemID] then
+        local src = HA.AchievementSources[itemID]
+        if src.achievementID then
+            return {{
+                type = "achievement",
+                id = src.achievementID,
+                name = src.achievementName or ("Achievement #" .. src.achievementID),
+            }}
+        end
+    end
+
+    -- Priority 5: Static quest source data (QuestSources.lua)
+    if HA.QuestSources and HA.QuestSources[itemID] then
+        local src = HA.QuestSources[itemID]
+        if src.questID then
+            return {{
+                type = "quest",
+                id = src.questID,
+                name = src.questName or ("Quest #" .. src.questID),
+            }}
         end
     end
 
     return nil
+end
+
+-- Lazy-built cache: faction name → factionID (populated on first use)
+local factionNameToID = nil
+
+-- Build faction name→ID cache from the player's reputation panel + major factions
+local function GetFactionIDByName(name)
+    if not name then return nil end
+
+    -- Build cache on first call
+    if not factionNameToID then
+        factionNameToID = {}
+        -- Scan reputation panel entries
+        if C_Reputation and C_Reputation.GetNumFactions then
+            for i = 1, C_Reputation.GetNumFactions() do
+                local data = C_Reputation.GetFactionDataByIndex(i)
+                if data and data.name and data.factionID then
+                    factionNameToID[data.name] = data.factionID
+                end
+            end
+        end
+        -- Also scan major factions (renown-based, DF/TWW)
+        if C_MajorFactions and C_MajorFactions.GetMajorFactionIDs then
+            for _, factionID in ipairs(C_MajorFactions.GetMajorFactionIDs()) do
+                local data = C_MajorFactions.GetMajorFactionData(factionID)
+                if data and data.name then
+                    factionNameToID[data.name] = factionID
+                end
+            end
+        end
+    end
+
+    return factionNameToID[name]
 end
 
 -- Check if a specific requirement is met by the player.
@@ -230,19 +329,36 @@ function SourceManager:IsRequirementMet(req)
     if not req or not req.type then return nil end
 
     if req.type == "reputation" then
-        -- Check faction standing
-        if req.faction and req.standing and C_Reputation and C_Reputation.GetFactionDataByName then
-            local factionData = C_Reputation.GetFactionDataByName(req.faction)
-            if factionData then
-                -- Standing names in order: Hated(1) → Exalted(8) for old, or renown for new
-                local standingOrder = {
-                    ["Hated"] = 1, ["Hostile"] = 2, ["Unfriendly"] = 3, ["Neutral"] = 4,
-                    ["Friendly"] = 5, ["Honored"] = 6, ["Revered"] = 7, ["Exalted"] = 8,
-                }
-                local requiredLevel = standingOrder[req.standing]
-                local currentLevel = factionData.reaction
-                if requiredLevel and currentLevel then
-                    return currentLevel >= requiredLevel
+        if req.faction and req.standing then
+            local factionID = GetFactionIDByName(req.faction)
+            if not factionID then return nil end
+
+            -- Check for renown-style standing (e.g., "Renown 12")
+            local renownLevel = req.standing:match("^[Rr]enown%s+(%d+)$")
+            if renownLevel then
+                renownLevel = tonumber(renownLevel)
+                if C_MajorFactions and C_MajorFactions.GetMajorFactionData then
+                    local majorData = C_MajorFactions.GetMajorFactionData(factionID)
+                    if majorData and majorData.renownLevel then
+                        return majorData.renownLevel >= renownLevel
+                    end
+                end
+                return nil  -- Cannot determine renown
+            end
+
+            -- Traditional reputation standing (Hated → Exalted)
+            if C_Reputation and C_Reputation.GetFactionDataByID then
+                local factionData = C_Reputation.GetFactionDataByID(factionID)
+                if factionData then
+                    local standingOrder = {
+                        ["Hated"] = 1, ["Hostile"] = 2, ["Unfriendly"] = 3, ["Neutral"] = 4,
+                        ["Friendly"] = 5, ["Honored"] = 6, ["Revered"] = 7, ["Exalted"] = 8,
+                    }
+                    local requiredLevel = standingOrder[req.standing]
+                    local currentLevel = factionData.reaction
+                    if requiredLevel and currentLevel then
+                        return currentLevel >= requiredLevel
+                    end
                 end
             end
         end
@@ -255,9 +371,25 @@ function SourceManager:IsRequirementMet(req)
         return nil
 
     elseif req.type == "achievement" then
-        if req.id and GetAchievementInfo then
-            local _, _, _, completed = GetAchievementInfo(req.id)
+        local achID = req.id
+        -- If no ID but we have a name, try to find the ID from AchievementSources
+        if not achID and req.name and HA.AchievementSources then
+            for _, src in pairs(HA.AchievementSources) do
+                if src.achievementName == req.name then
+                    achID = src.achievementID
+                    break
+                end
+            end
+        end
+        if achID and GetAchievementInfo then
+            local _, _, _, completed = GetAchievementInfo(achID)
             return completed
+        end
+        return nil
+
+    elseif req.type == "quest" then
+        if req.id and C_QuestLog and C_QuestLog.IsQuestFlaggedCompleted then
+            return C_QuestLog.IsQuestFlaggedCompleted(req.id)
         end
         return nil
     end
