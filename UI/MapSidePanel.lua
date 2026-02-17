@@ -837,7 +837,7 @@ local function CreateOverlayButton()
     local button = CreateFrame("Button", nil, WorldMapFrame)
     button:SetSize(32, 32)
     button:SetFrameStrata("HIGH")
-    button:RegisterForClicks("AnyUp")
+    button:RegisterForClicks("LeftButtonUp", "RightButtonUp")
 
     -- Circular minimap background (same as HandyNotes/Blizzard tracking buttons)
     local bg = button:CreateTexture(nil, "BACKGROUND")
@@ -1235,7 +1235,11 @@ end
 local savedPortraitState = nil
 local savedPortraitTexture = nil  -- original portrait texture/ID, restored on close
 local savedTutorialState = nil
-local savedNavBarState = nil
+-- NavBar: surgical save — only the TOPLEFT anchor, strata, and level are modified,
+-- so only those need saving. Avoids SetParent/ClearAllPoints side effects.
+local savedNavBarTOPLEFT = nil  -- {relativeTo, relativePoint, x, y}
+local savedNavBarStrata = nil
+local savedNavBarLevel = nil
 local savedClipStates = {}  -- { [frame] = originalClipBool }
 
 local function SaveFrameState(frame)
@@ -1329,9 +1333,27 @@ local function ReparentMapElements()
     -- 3. Nav bar → extend left anchor to panel (keep right anchor on map).
     --    Walk the entire parent chain from nav bar to WorldMapFrame and
     --    disable clipping on every frame to prevent breadcrumb cutoff.
+    --    Only the TOPLEFT anchor, strata, and level are changed — surgical
+    --    save avoids SetParent/ClearAllPoints side effects on restore.
     local navBar = wm.NavBar
-    if navBar and navBar:GetNumPoints() > 0 then
-        savedNavBarState = SaveFrameState(navBar)
+    if navBar and not savedNavBarTOPLEFT and navBar:GetNumPoints() > 0 then
+        -- Save only what we change: TOPLEFT anchor, strata, level
+        savedNavBarStrata = navBar:GetFrameStrata()
+        savedNavBarLevel = navBar:GetFrameLevel()
+
+        -- Find the TOPLEFT anchor specifically
+        local origRelTo, origRelPt, origX, origY
+        for i = 1, navBar:GetNumPoints() do
+            local p, r, rp, x, y = navBar:GetPoint(i)
+            if p == "TOPLEFT" then
+                origRelTo = r
+                origRelPt = rp
+                origX = x or 0
+                origY = y or 0
+                break
+            end
+        end
+        savedNavBarTOPLEFT = { origRelTo, origRelPt, origX, origY }
 
         -- Walk the entire parent chain from nav bar upward, disabling clipping
         local frame = navBar
@@ -1346,15 +1368,6 @@ local function ReparentMapElements()
         -- Also disable clipping on the nav bar itself
         DisableClipping(navBar)
 
-        -- Find the TOPLEFT anchor specifically (not just index 1)
-        local origY = 0
-        for _, a in ipairs(savedNavBarState.anchors) do
-            if a[1] == "TOPLEFT" then
-                origY = a[5] or 0
-                break
-            end
-        end
-
         -- Raise nav bar above the panel so buttons aren't hidden behind
         -- the panel's opaque background. Panel is HIGH/500; nav bar must
         -- be above that for the left-extending breadcrumbs to be visible.
@@ -1363,7 +1376,7 @@ local function ReparentMapElements()
 
         -- Replace the left anchor: start at the panel's left edge, past
         -- the portrait (≈64px). Keep the original Y offset and right anchor.
-        navBar:SetPoint("TOPLEFT", panelFrame, "TOPLEFT", 64, origY)
+        navBar:SetPoint("TOPLEFT", panelFrame, "TOPLEFT", 64, origY or 0)
 
     end
 end
@@ -1389,11 +1402,16 @@ local function RestoreMapElements()
         savedTutorialState = nil
     end
 
-    -- Nav bar
+    -- Nav bar (surgical restore — only TOPLEFT anchor, strata, level)
     local navBar = wm.NavBar
-    if navBar and savedNavBarState then
-        RestoreFrameState(navBar, savedNavBarState)
-        savedNavBarState = nil
+    if navBar and savedNavBarTOPLEFT then
+        navBar:SetPoint("TOPLEFT", savedNavBarTOPLEFT[1], savedNavBarTOPLEFT[2],
+            savedNavBarTOPLEFT[3], savedNavBarTOPLEFT[4])
+        navBar:SetFrameStrata(savedNavBarStrata)
+        navBar:SetFrameLevel(savedNavBarLevel)
+        savedNavBarTOPLEFT = nil
+        savedNavBarStrata = nil
+        savedNavBarLevel = nil
     end
 
     -- Clipping
@@ -1454,12 +1472,6 @@ local function ApplyContentInset()
         topTileFrame:SetPoint("TOPRIGHT", panelFrame, "TOPRIGHT", -6, insetY)
     end
 
-    -- Clip background below the header zone (prevents dark bg bleeding into
-    -- the map's border area where portrait/info button/breadcrumbs sit)
-    if bgTexture then
-        bgTexture:SetPoint("TOPLEFT", panelFrame, "TOPLEFT", 0, insetY)
-    end
-
     -- Move header below the tiles
     local headerY = insetY - 10  -- 10 = tile height
     headerFrame:ClearAllPoints()
@@ -1476,11 +1488,6 @@ local function RestoreContentInset()
         topTileFrame:ClearAllPoints()
         topTileFrame:SetPoint("TOPLEFT", panelFrame, "TOPLEFT", 6, -DEFAULT_TOP_TILE_OFFSET)
         topTileFrame:SetPoint("TOPRIGHT", panelFrame, "TOPRIGHT", -6, -DEFAULT_TOP_TILE_OFFSET)
-    end
-
-    -- Restore background to fill full panel (standalone/detached mode)
-    if bgTexture then
-        bgTexture:SetPoint("TOPLEFT", panelFrame, "TOPLEFT", 0, 0)
     end
 
     if headerFrame then
@@ -1558,6 +1565,18 @@ local function UnifyTopBorder()
     if panelNS.TopEdge then panelNS.TopEdge:Hide() end
     if panelNS.TopRightCorner then panelNS.TopRightCorner:Hide() end
 
+    -- 6. Clip panel background just below the map's metal top border.
+    --    The panel extends (borderTop - canvasTop) above the canvas; offset
+    --    the bg top upward by 20px from the canvas level to meet the border's
+    --    inner bottom edge.
+    if bgTexture and borderTop and canvasTop then
+        local borderHeight = borderTop - canvasTop
+        local bgOffset = borderHeight - 45  -- 45px up from canvas to border bottom
+        if bgOffset > 0 then
+            bgTexture:SetPoint("TOPLEFT", panelFrame, "TOPLEFT", 0, -bgOffset)
+        end
+    end
+
     borderUnified = true
 end
 
@@ -1578,6 +1597,11 @@ local function RestoreTopBorder()
             savedMapTopEdge[3], savedMapTopEdge[4], savedMapTopEdge[5])
     end
     savedMapTopEdge = nil  -- Re-capture fresh on next UnifyTopBorder
+
+    -- Restore background to fill full panel (no border zone offset)
+    if bgTexture then
+        bgTexture:SetPoint("TOPLEFT", panelFrame, "TOPLEFT", 0, 0)
+    end
 
     -- Restore map TopLeftCorner (portrait ring) visibility
     if mapTopLeft and savedMapTopLeftCornerShown then

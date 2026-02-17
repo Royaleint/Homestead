@@ -153,7 +153,11 @@ function HousingAddon:InitializeMinimapButton()
         icon = Constants.Icons.MINIMAP,
         OnClick = function(_, button)
             if button == "LeftButton" then
-                self:OpenOptions()
+                self:ToggleOptions()
+            elseif button == "RightButton" then
+                if HA.MapSidePanel then
+                    HA.MapSidePanel:ToggleDetached()
+                end
             elseif button == "MiddleButton" then
                 if HA.CatalogScanner and HA.CatalogScanner.ManualScan then
                     HA.CatalogScanner:ManualScan()
@@ -196,7 +200,8 @@ function HousingAddon:InitializeMinimapButton()
             end
 
             tooltip:AddLine(" ")
-            tooltip:AddLine("|cFFFFFFFFLeft-Click:|r Open options")
+            tooltip:AddLine("|cFFFFFFFFLeft-Click:|r Toggle options")
+            tooltip:AddLine("|cFFFFFFFFRight-Click:|r Detach/close vendor panel")
             tooltip:AddLine("|cFFFFFFFFMiddle-Click:|r Scan collection")
         end,
     })
@@ -215,8 +220,10 @@ end
 function HousingAddon:SlashCommandHandler(input)
     input = input and input:trim():lower() or ""
 
-    if input == "" or input == "toggle" or input == "config" or input == "options" or input == "settings" then
+    if input == "" or input == "config" or input == "options" or input == "settings" then
         self:OpenOptions()
+    elseif input == "toggle" then
+        self:ToggleOptions()
     elseif input == "vendor" or input:match("^vendor%s+") then
         local search = input:match("^vendor%s+(.+)$")
         self:SearchVendors(search)
@@ -755,6 +762,29 @@ function HousingAddon:OpenOptions()
         end)
         if not success then
             self:Print("Could not open options panel. Use /ha config in chat.")
+        end
+    end
+end
+
+function HousingAddon:ToggleOptions()
+    local AceConfigDialog = LibStub("AceConfigDialog-3.0", true)
+    if AceConfigDialog then
+        if AceConfigDialog.OpenFrames and AceConfigDialog.OpenFrames[addonName] then
+            AceConfigDialog:Close(addonName)
+        else
+            AceConfigDialog:Open(addonName)
+        end
+    else
+        local success = pcall(function()
+            local settingsPanel = _G.SettingsPanel
+            if settingsPanel and settingsPanel:IsShown() then
+                settingsPanel:Hide()
+            elseif Settings and Settings.OpenToCategory then
+                Settings.OpenToCategory("Housing Addon")
+            end
+        end)
+        if not success then
+            self:Print("Could not toggle options panel. Use /ha config in chat.")
         end
     end
 end
