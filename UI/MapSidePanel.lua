@@ -36,9 +36,12 @@ local panelFrame = nil
 local overlayButton = nil
 local scrollFrame = nil
 local scrollChild = nil
+local headerFrame = nil  -- Title + zone name header region
 local headerText = nil
 local summaryText = nil
 local emptyText = nil
+local topTileFrame = nil   -- Inner decorative top-edge tile
+local topStreaksFrame = nil -- Decorative streaks overlay
 local isInitialized = false
 local vendorRows = {}
 local expandedVendorID = nil  -- npcID of currently expanded vendor (nil = none)
@@ -411,18 +414,23 @@ local function CreatePanel()
     panel:SetFrameLevel(500)
     panel:EnableMouse(true)  -- Prevent clicks falling through to world map
 
-    -- 1. BORDER: NineSlice metal border (same as Blizzard's PortraitFrameTemplate)
+    -- 1. BORDER: NineSlice metal border (PortraitFrameTemplate base, corners overridden)
     panel.NineSlice = CreateFrame("Frame", nil, panel, "NineSlicePanelTemplate")
     panel.NineSlice:SetAllPoints()
     panel.NineSlice:SetFrameLevel(panel:GetFrameLevel() + 2)
     NineSliceUtil.ApplyLayoutByName(panel.NineSlice, "PortraitFrameTemplate")
 
-    -- Override top-right corner to match the map frame's double-corner style
+    -- Replace portrait-style corner with standard metal corner (no portrait circle)
+    if panel.NineSlice.TopLeftCorner then
+        panel.NineSlice.TopLeftCorner:SetAtlas("UI-Frame-Metal-CornerTopLeft", true)
+    end
+
+    -- Match the map frame's double-corner style for top-right
     if panel.NineSlice.TopRightCorner then
         panel.NineSlice.TopRightCorner:SetAtlas("UI-Frame-Metal-CornerTopRightDouble")
     end
 
-    -- Fix top gap: tuck the top edge left anchor under the portrait corner piece
+    -- Re-anchor TopEdge between the (now standard-sized) corners
     if panel.NineSlice.TopEdge then
         panel.NineSlice.TopEdge:ClearAllPoints()
         panel.NineSlice.TopEdge:SetPoint("TOPLEFT", panel.NineSlice.TopLeftCorner, "TOPRIGHT", -2, 0)
@@ -435,48 +443,41 @@ local function CreatePanel()
     bg:SetPoint("TOPLEFT", panel, "TOPLEFT", 0, 0)
     bg:SetPoint("BOTTOMRIGHT", panel, "BOTTOMRIGHT", 0, 0)
 
-    -- 3. PORTRAIT ICON: Homestead icon inside the portrait circle
-    -- PortraitFrameTemplate portrait circle is ~58x58, centered at roughly (-5, 7) from TOPLEFT
-    local portrait = panel:CreateTexture(nil, "OVERLAY")
-    portrait:SetSize(55, 55)
-    portrait:SetPoint("TOPLEFT", panel, "TOPLEFT", -2.5, 5.5)
-    portrait:SetTexture("Interface\\AddOns\\Homestead\\Textures\\icon")
-
-    -- 4. INNER TOP BORDER: Decorative top-edge tile inside the border
-    local topTile = panel:CreateTexture(nil, "ARTWORK")
-    topTile:SetAtlas("_UI-Frame-InnerTopTile", false)
-    topTile:SetHorizTile(true)
-    topTile:SetHeight(10)
-    topTile:SetPoint("TOPLEFT", panel, "TOPLEFT", 6, -24)
-    topTile:SetPoint("TOPRIGHT", panel, "TOPRIGHT", -6, -24)
+    -- 3. INNER TOP BORDER: Decorative top-edge tile inside the border
+    topTileFrame = panel:CreateTexture(nil, "ARTWORK")
+    topTileFrame:SetAtlas("_UI-Frame-InnerTopTile", false)
+    topTileFrame:SetHorizTile(true)
+    topTileFrame:SetHeight(10)
+    topTileFrame:SetPoint("TOPLEFT", panel, "TOPLEFT", 6, -18)
+    topTileFrame:SetPoint("TOPRIGHT", panel, "TOPRIGHT", -6, -18)
 
     -- Decorative streaks overlay on the inner top border
-    local topStreaks = panel:CreateTexture(nil, "ARTWORK", nil, 1)
-    topStreaks:SetAtlas("_UI-Frame-TopTileStreaks", false)
-    topStreaks:SetHorizTile(true)
-    topStreaks:SetHeight(10)
-    topStreaks:SetPoint("TOPLEFT", topTile, "TOPLEFT", 0, 0)
-    topStreaks:SetPoint("TOPRIGHT", topTile, "TOPRIGHT", 0, 0)
+    topStreaksFrame = panel:CreateTexture(nil, "ARTWORK", nil, 1)
+    topStreaksFrame:SetAtlas("_UI-Frame-TopTileStreaks", false)
+    topStreaksFrame:SetHorizTile(true)
+    topStreaksFrame:SetHeight(10)
+    topStreaksFrame:SetPoint("TOPLEFT", topTileFrame, "TOPLEFT", 0, 0)
+    topStreaksFrame:SetPoint("TOPRIGHT", topTileFrame, "TOPRIGHT", 0, 0)
 
     -- Content insets (inside NineSlice border)
     local BORDER_LEFT = 10
     local BORDER_RIGHT = 10
-    local BORDER_TOP = 28
+    local BORDER_TOP = 22  -- Reduced from 28 (portrait corner was larger)
     local BORDER_BOTTOM = 10
 
     -- Title header (centered horizontally)
-    local header = CreateFrame("Frame", nil, panel)
-    header:SetHeight(HEADER_HEIGHT)
-    header:SetPoint("TOPLEFT", BORDER_LEFT, -BORDER_TOP)
-    header:SetPoint("TOPRIGHT", -BORDER_RIGHT, -BORDER_TOP)
+    headerFrame = CreateFrame("Frame", nil, panel)
+    headerFrame:SetHeight(HEADER_HEIGHT)
+    headerFrame:SetPoint("TOPLEFT", BORDER_LEFT, -BORDER_TOP)
+    headerFrame:SetPoint("TOPRIGHT", -BORDER_RIGHT, -BORDER_TOP)
 
-    -- Homestead label (centered, nudged down 3px to clear inner top border)
-    local titleLabel = header:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
-    titleLabel:SetPoint("TOP", header, "TOP", 0, -7.5)
+    -- Homestead label (centered, below inner top border tile)
+    local titleLabel = headerFrame:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+    titleLabel:SetPoint("TOP", headerFrame, "TOP", 0, -4)
     titleLabel:SetText("Homestead")
 
     -- Zone/map name (centered below title)
-    headerText = header:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    headerText = headerFrame:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
     headerText:SetPoint("TOP", titleLabel, "BOTTOM", 0, -3)
     headerText:SetJustifyH("CENTER")
     headerText:SetWordWrap(false)
@@ -484,10 +485,10 @@ local function CreatePanel()
     headerText:SetText("")
 
     -- Header separator line
-    local headerSep = header:CreateTexture(nil, "ARTWORK")
+    local headerSep = headerFrame:CreateTexture(nil, "ARTWORK")
     headerSep:SetHeight(1)
-    headerSep:SetPoint("BOTTOMLEFT", header, "BOTTOMLEFT", 0, 0)
-    headerSep:SetPoint("BOTTOMRIGHT", header, "BOTTOMRIGHT", 0, 0)
+    headerSep:SetPoint("BOTTOMLEFT", headerFrame, "BOTTOMLEFT", 0, 0)
+    headerSep:SetPoint("BOTTOMRIGHT", headerFrame, "BOTTOMRIGHT", 0, 0)
     headerSep:SetColorTexture(0.4, 0.4, 0.4, 0.5)
 
     -- Summary line (centered at bottom)
@@ -499,7 +500,7 @@ local function CreatePanel()
 
     -- Scroll frame for vendor list
     local scrollContainer = CreateFrame("Frame", nil, panel)
-    scrollContainer:SetPoint("TOPLEFT", header, "BOTTOMLEFT", 0, -4)
+    scrollContainer:SetPoint("TOPLEFT", headerFrame, "BOTTOMLEFT", 0, -4)
     scrollContainer:SetPoint("BOTTOMRIGHT", -BORDER_RIGHT, BORDER_BOTTOM + 18)
 
     scrollFrame = CreateFrame("ScrollFrame", nil, scrollContainer, "UIPanelScrollFrameTemplate")
@@ -944,6 +945,49 @@ function MapSidePanel:RefreshContent()
 end
 
 -------------------------------------------------------------------------------
+-- Custom UI Detection
+-- ElvUI, GW2, Tukui, etc. may reskin WorldMapFrame. When detected (or when
+-- the user disables integration), the panel renders self-contained with its
+-- own complete border and never touches map frame elements.
+-------------------------------------------------------------------------------
+
+local useStandaloneMode = nil  -- nil = not yet checked, true/false after check
+
+local function ShouldUseStandaloneMode()
+    -- Cache after first check
+    if useStandaloneMode ~= nil then return useStandaloneMode end
+
+    -- User setting overrides detection
+    if HA.Addon and HA.Addon.db then
+        if HA.Addon.db.profile.vendorTracer.integrateMapBorder == false then
+            useStandaloneMode = true
+            return true
+        end
+    end
+
+    -- Detect custom UIs that replace WorldMapFrame
+    if _G.ElvUI or _G.GW2_UI or _G.Tukui then
+        useStandaloneMode = true
+        return true
+    end
+
+    -- Verify expected Blizzard frame structure exists
+    local bf = WorldMapFrame.BorderFrame
+    if not bf or not bf.NineSlice or not bf.NineSlice.TopEdge then
+        useStandaloneMode = true
+        return true
+    end
+
+    useStandaloneMode = false
+    return false
+end
+
+-- Call when the setting changes to re-evaluate
+local function ResetStandaloneCheck()
+    useStandaloneMode = nil
+end
+
+-------------------------------------------------------------------------------
 -- Map Position Shifting
 -- Nudges the WorldMapFrame right when the panel is open, restores when closed.
 -- Safe because the world map cannot be opened during combat.
@@ -957,7 +1001,6 @@ local savedMapTopEdge = nil  -- {point, relativeTo, relativePoint, xOfs, yOfs}
 
 local function ShiftMapRight()
     if mapShifted then return end
-    -- Save current position
     local point, relativeTo, relativePoint, xOfs, yOfs = WorldMapFrame:GetPoint(1)
     if point then
         savedMapPoint = { point, relativeTo, relativePoint, xOfs or 0, yOfs or 0 }
@@ -975,52 +1018,333 @@ local function RestoreMapPosition()
 end
 
 -------------------------------------------------------------------------------
--- Unified Top Border
+-- Map Element Repositioning (integrated mode)
+--
+-- The old approach (ShiftElementLeft by PANEL_WIDTH) failed because elements
+-- moved outside their parent's clipping rect. New approach:
+--
+-- Portrait + Info button: temporarily reparented to panelFrame so they
+-- render within the panel's bounds at its top-left corner.
+--
+-- Nav bar: left anchor extended to the panel via cross-parent anchoring,
+-- with parent clipping disabled so the breadcrumbs remain visible.
+--
+-- All changes are fully reversed on close.
+-------------------------------------------------------------------------------
+
+-- Saved state per element: { parent, level, strata, anchors = {{p,r,rp,x,y}, ...} }
+local savedPortraitState = nil
+local savedPortraitTexture = nil  -- original portrait texture/ID, restored on close
+local savedTutorialState = nil
+local savedNavBarState = nil
+local savedClipStates = {}  -- { [frame] = originalClipBool }
+
+local function SaveFrameState(frame)
+    if not frame then return nil end
+    local state = {
+        parent = frame:GetParent(),
+        level = frame:GetFrameLevel(),
+        strata = frame:GetFrameStrata(),
+        anchors = {},
+    }
+    for i = 1, frame:GetNumPoints() do
+        local p, r, rp, x, y = frame:GetPoint(i)
+        state.anchors[i] = { p, r, rp, x, y }
+    end
+    return state
+end
+
+local function RestoreFrameState(frame, state)
+    if not frame or not state then return end
+    frame:SetParent(state.parent)
+    frame:SetFrameStrata(state.strata)
+    frame:SetFrameLevel(state.level)
+    frame:ClearAllPoints()
+    for _, a in ipairs(state.anchors) do
+        frame:SetPoint(a[1], a[2], a[3], a[4], a[5])
+    end
+end
+
+local function DisableClipping(frame)
+    if not frame or not frame.SetClipsChildren then return end
+    if savedClipStates[frame] == nil then
+        savedClipStates[frame] = frame:DoesClipChildren()
+    end
+    frame:SetClipsChildren(false)
+end
+
+local function RestoreClipping()
+    for frame, wasClipping in pairs(savedClipStates) do
+        if frame and frame.SetClipsChildren then
+            frame:SetClipsChildren(wasClipping)
+        end
+    end
+    wipe(savedClipStates)
+end
+
+local function ReparentMapElements()
+    if savedPortraitState then return end  -- already done
+    if not panelFrame then return end
+
+    local wm = WorldMapFrame
+    local bf = wm.BorderFrame
+
+    -- 1. Portrait container → reparent to panel, position at top-left corner.
+    --    The container has a CircleMask that clips all textures to a circle,
+    --    which hides the built-in ring border. So we create a separate ring
+    --    frame on top that isn't subject to the mask.
+    local pc = wm.PortraitContainer or (bf and bf.PortraitContainer)
+    if pc then
+        savedPortraitState = SaveFrameState(pc)
+        pc:SetParent(panelFrame)
+        -- Must be above NineSlice (502) AND background.
+        pc:SetFrameLevel(panelFrame:GetFrameLevel() + 10)  -- 510
+        pc:ClearAllPoints()
+        pc:SetPoint("CENTER", panelFrame, "TOPLEFT", 3, -1)
+        pc:Show()
+
+        -- Swap portrait texture to Homestead icon
+        if pc.portrait then
+            if not savedPortraitTexture then
+                savedPortraitTexture = pc.portrait:GetTexture()
+            end
+            pc.portrait:SetTexture("Interface\\AddOns\\Homestead\\Textures\\HomesteadPortrait_64")
+        end
+
+    end
+
+    -- 2. Info / tutorial button → reparent to panel, tuck against portrait
+    --    Position it to the RIGHT of the portrait, vertically centered,
+    --    so it sits between the portrait circle and the "World" breadcrumb.
+    local tutorial = bf and bf.Tutorial
+    if tutorial and pc then
+        savedTutorialState = SaveFrameState(tutorial)
+        tutorial:SetParent(panelFrame)
+        tutorial:SetFrameLevel(panelFrame:GetFrameLevel() + 11)
+        tutorial:ClearAllPoints()
+        -- Absolute position on panel, to the right of the ~40px portrait circle
+        tutorial:SetPoint("TOPLEFT", panelFrame, "TOPLEFT", 52, 23)
+        tutorial:Show()
+    end
+
+    -- 3. Nav bar → extend left anchor to panel (keep right anchor on map).
+    --    Walk the entire parent chain from nav bar to WorldMapFrame and
+    --    disable clipping on every frame to prevent breadcrumb cutoff.
+    local navBar = wm.NavBar
+    if navBar and navBar:GetNumPoints() > 0 then
+        savedNavBarState = SaveFrameState(navBar)
+
+        -- Walk the entire parent chain from nav bar upward, disabling clipping
+        local frame = navBar
+        while frame and frame ~= wm do
+            DisableClipping(frame)
+            local parent = frame:GetParent()
+            if parent == frame then break end  -- safety
+            frame = parent
+        end
+        DisableClipping(wm)
+
+        -- Also disable clipping on the nav bar itself
+        DisableClipping(navBar)
+
+        -- Find the TOPLEFT anchor specifically (not just index 1)
+        local origY = 0
+        for _, a in ipairs(savedNavBarState.anchors) do
+            if a[1] == "TOPLEFT" then
+                origY = a[5] or 0
+                break
+            end
+        end
+
+        -- Raise nav bar above the panel so buttons aren't hidden behind
+        -- the panel's opaque background. Panel is HIGH/500; nav bar must
+        -- be above that for the left-extending breadcrumbs to be visible.
+        navBar:SetFrameStrata("HIGH")
+        navBar:SetFrameLevel(panelFrame:GetFrameLevel() + 15)  -- 515
+
+        -- Replace the left anchor: start at the panel's left edge, past
+        -- the portrait (≈64px). Keep the original Y offset and right anchor.
+        navBar:SetPoint("TOPLEFT", panelFrame, "TOPLEFT", 64, origY)
+
+    end
+end
+
+local function RestoreMapElements()
+    local wm = WorldMapFrame
+    local bf = wm.BorderFrame
+
+    -- Portrait
+    local pc = wm.PortraitContainer or (bf and bf.PortraitContainer)
+    if pc and savedPortraitState then
+        -- Restore original portrait texture before reparenting back
+        if pc.portrait and savedPortraitTexture then
+            pc.portrait:SetTexture(savedPortraitTexture)
+        end
+        RestoreFrameState(pc, savedPortraitState)
+        savedPortraitState = nil
+    end
+    -- Tutorial
+    local tutorial = bf and bf.Tutorial
+    if tutorial and savedTutorialState then
+        RestoreFrameState(tutorial, savedTutorialState)
+        savedTutorialState = nil
+    end
+
+    -- Nav bar
+    local navBar = wm.NavBar
+    if navBar and savedNavBarState then
+        RestoreFrameState(navBar, savedNavBarState)
+        savedNavBarState = nil
+    end
+
+    -- Clipping
+    RestoreClipping()
+end
+
+-------------------------------------------------------------------------------
+-- Content Inset (integrated mode)
+-- Push the panel's content area below the nav bar / portrait header zone.
+-- Only the interior elements move; the panel frame stays at the top.
+-------------------------------------------------------------------------------
+
+local contentInsetApplied = false
+local DEFAULT_TOP_TILE_OFFSET = 18   -- Default tile Y (standalone mode)
+local DEFAULT_HEADER_TOP = 22        -- Default BORDER_TOP for header
+
+-- Measure the lowest bottom edge of the header zone elements (portrait,
+-- nav bar) relative to the panel's top, then re-anchor tiles + header below.
+-- Must run after a layout pass (deferred) for accurate GetBottom/GetTop.
+local function ApplyContentInset()
+    if contentInsetApplied then return end
+    if not panelFrame or not headerFrame then return end
+
+    local panelTop = panelFrame:GetTop()
+    if not panelTop then return end
+
+    -- Find the lowest bottom edge among header zone elements
+    local lowestBottom = nil
+    local wm = WorldMapFrame
+
+    -- Check nav bar (usually extends lower than the portrait)
+    local navBar = wm.NavBar
+    if navBar and navBar:IsShown() then
+        local nb = navBar:GetBottom()
+        if nb then
+            lowestBottom = nb
+        end
+    end
+
+    -- Check portrait container
+    local pc = wm.PortraitContainer or (wm.BorderFrame and wm.BorderFrame.PortraitContainer)
+    if pc then
+        local pb = pc:GetBottom()
+        if pb and (not lowestBottom or pb < lowestBottom) then
+            lowestBottom = pb
+        end
+    end
+
+    if not lowestBottom then return end
+
+    -- Negative offset from panel top to just below the header zone
+    local insetY = lowestBottom - panelTop - 5  -- 5px padding
+
+    -- Move decorative tiles
+    if topTileFrame then
+        topTileFrame:ClearAllPoints()
+        topTileFrame:SetPoint("TOPLEFT", panelFrame, "TOPLEFT", 6, insetY)
+        topTileFrame:SetPoint("TOPRIGHT", panelFrame, "TOPRIGHT", -6, insetY)
+    end
+
+    -- Move header below the tiles
+    local headerY = insetY - 10  -- 10 = tile height
+    headerFrame:ClearAllPoints()
+    headerFrame:SetPoint("TOPLEFT", panelFrame, "TOPLEFT", 10, headerY)
+    headerFrame:SetPoint("TOPRIGHT", panelFrame, "TOPRIGHT", -10, headerY)
+
+    contentInsetApplied = true
+end
+
+local function RestoreContentInset()
+    if not contentInsetApplied then return end
+
+    if topTileFrame then
+        topTileFrame:ClearAllPoints()
+        topTileFrame:SetPoint("TOPLEFT", panelFrame, "TOPLEFT", 6, -DEFAULT_TOP_TILE_OFFSET)
+        topTileFrame:SetPoint("TOPRIGHT", panelFrame, "TOPRIGHT", -6, -DEFAULT_TOP_TILE_OFFSET)
+    end
+
+    if headerFrame then
+        headerFrame:ClearAllPoints()
+        headerFrame:SetPoint("TOPLEFT", panelFrame, "TOPLEFT", 10, -DEFAULT_HEADER_TOP)
+        headerFrame:SetPoint("TOPRIGHT", panelFrame, "TOPRIGHT", -10, -DEFAULT_HEADER_TOP)
+    end
+
+    contentInsetApplied = false
+end
+
+-------------------------------------------------------------------------------
+-- Portrait: swapped to HomesteadPortrait_64 when panel opens, restored on close.
+-- The portrait container is reparented to panelFrame (see ReparentMapElements)
+-- so the entire unit (icon + mask + ring) moves together.
+
+-------------------------------------------------------------------------------
+-- Unified Top Border (integrated mode only)
 -- Extends the map's metal top edge leftward over the Homestead panel
 -- so the two frames share one seamless top border.
--- Only adjusts the map TopEdge's left anchor — no corner repositioning.
+--
+-- Skipped entirely in standalone mode (custom UI or user preference).
+-- All Blizzard frame access is nil-guarded for safety.
 -------------------------------------------------------------------------------
 
 local borderUnified = false
-
-local savedMapTopLeftCornerShown = nil  -- Was the map's TopLeftCorner shown before?
+local savedMapTopLeftCornerShown = nil
 
 local function UnifyTopBorder()
     if borderUnified then return end
     if not panelFrame then return end
+    if ShouldUseStandaloneMode() then return end
 
-    local mapNS = WorldMapFrame.BorderFrame.NineSlice
+    local bf = WorldMapFrame.BorderFrame
+    if not bf then return end
+    local mapNS = bf.NineSlice
     if not mapNS then return end
 
+    local canvas = WorldMapFrame.ScrollContainer
     local mapTopEdge = mapNS.TopEdge
     local mapTopLeft = mapNS.TopLeftCorner
     local panelNS = panelFrame.NineSlice
 
-    if not mapTopEdge or not panelNS then return end
+    if not mapTopEdge or not panelNS or not canvas then return end
 
-    -- Save the map TopEdge's original left anchor (point 1)
+    -- 1. Extend panel upward so its top aligns with the map border top.
+    local borderTop = bf.GetTop and bf:GetTop()
+    local canvasTop = canvas.GetTop and canvas:GetTop()
+    if borderTop and canvasTop and (borderTop - canvasTop) > 0 then
+        panelFrame:SetPoint("TOPRIGHT", canvas, "TOPLEFT", 0, borderTop - canvasTop)
+    end
+
+    -- 2. Save map TopEdge's original left anchor for restore
     if not savedMapTopEdge then
-        local p1, r1, rp1, x1, y1 = mapTopEdge:GetPoint(1)
-        if p1 then
-            savedMapTopEdge = { p1, r1, rp1, x1, y1 }
+        local ok, p, r, rp, x, y = pcall(mapTopEdge.GetPoint, mapTopEdge, 1)
+        if ok and p then
+            savedMapTopEdge = { p, r, rp, x, y }
         end
     end
 
-    -- Hide the map's TopLeftCorner — the panel's portrait corner replaces it
+    -- 3. Hide the map's NineSlice portrait corner (TopLeftCorner is the large
+    --    corner piece with border geometry). The portrait container's own built-in
+    --    gold ring (region 3, texture 136430) handles the circular border.
     if mapTopLeft then
         savedMapTopLeftCornerShown = mapTopLeft:IsShown()
         mapTopLeft:Hide()
     end
 
-    -- Extend the map's top edge leftward to cover the panel.
-    -- Anchor to the hidden map TopLeftCorner but with a large negative X
-    -- offset to extend past the panel. This preserves the original Y
-    -- alignment (same anchor frame, same Y) while stretching the edge left.
-    -- The portrait TopLeftCorner is ~52px wide, so extend by (PANEL_WIDTH - 52).
-    local _, _, _, origX, origY = mapTopEdge:GetPoint(1)
-    mapTopEdge:SetPoint("TOPLEFT", mapTopLeft, "TOPRIGHT", (origX or -2) - PANEL_WIDTH + 52, origY or 0)
+    -- 4. Stretch map TopEdge left to start at the panel's standard corner.
+    if panelNS.TopLeftCorner then
+        mapTopEdge:SetPoint("TOPLEFT", panelNS.TopLeftCorner, "TOPRIGHT", -2, 0)
+    end
 
-    -- Hide the panel's own top edge pieces (they'd create a double line)
+    -- 5. Hide panel's top border (map's extended TopEdge covers this area)
     if panelNS.TopEdge then panelNS.TopEdge:Hide() end
     if panelNS.TopRightCorner then panelNS.TopRightCorner:Hide() end
 
@@ -1030,30 +1354,34 @@ end
 local function RestoreTopBorder()
     if not borderUnified then return end
 
-    local mapNS = WorldMapFrame.BorderFrame.NineSlice
-    if not mapNS then return end
-
-    local mapTopEdge = mapNS.TopEdge
-    local mapTopLeft = mapNS.TopLeftCorner
+    local bf = WorldMapFrame.BorderFrame
+    local mapNS = bf and bf.NineSlice
+    local canvas = WorldMapFrame.ScrollContainer
+    local mapTopEdge = mapNS and mapNS.TopEdge
+    local mapTopLeft = mapNS and mapNS.TopLeftCorner
     local panelNS = panelFrame and panelFrame.NineSlice
 
-    -- Restore the map TopEdge's original left anchor
+    -- Restore map TopEdge original anchor
     if mapTopEdge and savedMapTopEdge then
-        mapTopEdge:SetPoint(
+        pcall(mapTopEdge.SetPoint, mapTopEdge,
             savedMapTopEdge[1], savedMapTopEdge[2],
-            savedMapTopEdge[3], savedMapTopEdge[4],
-            savedMapTopEdge[5])
+            savedMapTopEdge[3], savedMapTopEdge[4], savedMapTopEdge[5])
     end
 
-    -- Restore the map's TopLeftCorner visibility
+    -- Restore map TopLeftCorner (portrait ring) visibility
     if mapTopLeft and savedMapTopLeftCornerShown then
         mapTopLeft:Show()
     end
 
-    -- Re-show the panel's top border pieces
+    -- Restore panel top border pieces
     if panelNS then
         if panelNS.TopEdge then panelNS.TopEdge:Show() end
         if panelNS.TopRightCorner then panelNS.TopRightCorner:Show() end
+    end
+
+    -- Restore panel anchor (back to canvas top, no Y extension)
+    if canvas then
+        panelFrame:SetPoint("TOPRIGHT", canvas, "TOPLEFT", 0, 0)
     end
 
     borderUnified = false
@@ -1063,16 +1391,36 @@ end
 -- Toggle / Visibility
 -------------------------------------------------------------------------------
 
+local panelShowGeneration = 0  -- Incremented each Show, guards deferred callbacks
+
 local function ShowPanel()
     if not panelFrame then return end
     panelFrame:Show()
     ShiftMapRight()
-    UnifyTopBorder()
+
+    if not ShouldUseStandaloneMode() then
+        ReparentMapElements()
+        -- Defer border + content inset by one frame for accurate layout values.
+        -- Guard with generation counter so a quick close cancels this.
+        panelShowGeneration = panelShowGeneration + 1
+        local gen = panelShowGeneration
+        C_Timer.After(0, function()
+            if gen ~= panelShowGeneration then return end  -- stale, panel was toggled
+            if not panelFrame or not panelFrame:IsShown() then return end
+            UnifyTopBorder()
+            ApplyContentInset()
+        end)
+    end
 end
 
 local function HidePanel()
     if not panelFrame then return end
+    -- Bump generation to cancel any pending deferred Show callbacks
+    panelShowGeneration = panelShowGeneration + 1
+
+    RestoreContentInset()
     RestoreTopBorder()
+    RestoreMapElements()
     panelFrame:Hide()
     RestoreMapPosition()
 end
@@ -1109,6 +1457,10 @@ end
 
 function MapSidePanel:IsShown()
     return panelFrame and panelFrame:IsShown()
+end
+
+function MapSidePanel:ResetIntegrationMode()
+    ResetStandaloneCheck()
 end
 
 -------------------------------------------------------------------------------
@@ -1155,8 +1507,12 @@ function MapSidePanel:Initialize()
     end)
 
     WorldMapFrame:HookScript("OnHide", function()
-        -- Restore border and map position when map closes (so it opens correctly next time)
+        -- Restore all map modifications when map closes
+        -- Also bump generation to cancel any pending deferred Show callbacks
+        panelShowGeneration = panelShowGeneration + 1
+        RestoreContentInset()
         RestoreTopBorder()
+        RestoreMapElements()
         RestoreMapPosition()
         mapShifted = false
     end)

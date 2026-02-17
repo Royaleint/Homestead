@@ -422,6 +422,7 @@ Constants.Defaults = {
             showPinCounts = true,                      -- Show collected/total counts on vendor pins
             worldMapZoneBadges = false,                -- Show zone-level badges on world map instead of continent totals
             showMapSidePanel = false,                  -- Show vendor list panel on world map
+            integrateMapBorder = true,                 -- Integrate panel with map frame border (disable for custom UIs)
         },
 
         -- Vendor scanning settings

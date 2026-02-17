@@ -305,6 +305,24 @@ local function GetOptionsTable()
                             end
                         end,
                     },
+                    integrateMapBorder = {
+                        type = "toggle",
+                        name = "Integrate with map frame border",
+                        desc = "Merge the panel's top border with the world map border for a seamless look. Disable if you use a custom UI (ElvUI, GW2, etc.) that conflicts.",
+                        width = "full",
+                        order = 2.4,
+                        get = function() return HA.Addon.db.profile.vendorTracer.integrateMapBorder ~= false end,
+                        set = function(_, value)
+                            HA.Addon.db.profile.vendorTracer.integrateMapBorder = value
+                            if HA.MapSidePanel then
+                                HA.MapSidePanel:ResetIntegrationMode()
+                                if HA.MapSidePanel:IsShown() then
+                                    HA.MapSidePanel:Hide()
+                                    HA.MapSidePanel:Show()
+                                end
+                            end
+                        end,
+                    },
                     worldMapZoneBadges = {
                         type = "toggle",
                         name = "Zone badges on world map",
