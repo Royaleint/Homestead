@@ -1,7 +1,7 @@
 # Homestead - WoW Housing Addon
 
 A housing collection, vendor, and progress tracker for World of Warcraft Retail (12.0.1+).
-Current version: v1.3.3
+Current version: v1.4.0
 
 ## Quick Reference
 
@@ -124,7 +124,7 @@ Data (DecorData, VendorDatabase, VendorData, CatalogStore, AchievementDecor,
 Modules (DecorTracker, CatalogScanner, SourceTextScanner, VendorTracer,
          DecorClassifier, ScanPersistence, VendorScanner, ExportImport, Validation) →
 Overlay (overlay, Containers, Merchant, Tooltips) →
-UI (WelcomeFrame, MainFrame, OutputWindow, VendorFilter,
+UI (WelcomeFrame, MainFrame, OutputWindow, MapSidePanel, VendorFilter,
     PinFrameFactory, BadgeCalculation, VendorMapPins, Options)
 ```
 
@@ -236,6 +236,7 @@ MERCHANT_SHOW / MERCHANT_UPDATE / MERCHANT_CLOSED  -- Vendor lifecycle
 | `VendorData` | Unified access to vendor database + scanned data |
 | `SourceManager` | Priority-ordered source lookup (vendor > quest > achievement > profession > drop) |
 | `ExportImport` | Export scanned vendor data (`HOMESTEAD_EXPORT:` format) |
+| `MapSidePanel` | World map side panel with vendor list, item grid, 3D preview, detachable pop-out |
 
 ## Git Conventions
 
