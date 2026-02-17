@@ -362,8 +362,8 @@ function VendorTracer:IsAtDecorVendor()
         return false, nil
     end
 
-    local npcID = select(6, strsplit("-", guid))
-    npcID = tonumber(npcID)
+    -- Pattern match instead of strsplit to avoid taint on secret GUIDs (12.0+)
+    local npcID = tonumber(string.match(guid, "^%a+%-%d+%-%d+%-%d+%-%d+%-(%d+)"))
 
     if not npcID then
         return false, nil

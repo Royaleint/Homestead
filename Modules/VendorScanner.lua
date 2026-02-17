@@ -636,8 +636,11 @@ function VendorScanner:GetNPCIDFromGUID(guid)
     if not guid then return nil end
 
     -- GUID format: Creature-0-XXXX-XXXX-XXXX-XXXXXXXX
-    -- or: Creature-0-XXXX-XXXX-XXXX-XXXXXXXX-XXXXX
-    local npcID = select(6, strsplit("-", guid))
+    -- Use pattern match instead of strsplit to avoid taint errors.
+    -- UnitGUID can return a "secret string" in instanced content (12.0+);
+    -- strsplit triggers string conversion on the full GUID which errors,
+    -- but string.match with a capture pattern extracts safely.
+    local npcID = string.match(guid, "^%a+%-%d+%-%d+%-%d+%-%d+%-(%d+)")
     return npcID and tonumber(npcID) or nil
 end
 
