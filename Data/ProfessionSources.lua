@@ -1,7 +1,7 @@
 --[[
     Homestead - Profession Sources
     Generated: 2026-02-01 23:11:17
-    Total entries: 333
+    Total entries: 317
     
     Maps itemID to profession/crafting source information.
 ]]
@@ -89,12 +89,7 @@ HA.ProfessionSources = {
     [246705] = {profession = "Cooking", recipeName = "Caramel Mint Noodle Dish", spellID = 1260334},
     [246708] = {profession = "Cooking", recipeName = "Dornic Sliced Mineloaf", spellID = 1245995},
     [246709] = {profession = "Cooking", recipeName = "Earthen Hospitality Cheese-Like Brick", spellID = 1245994},
-    [246856] = {profession = "Inscription", recipeName = "\\"},
-    [246857] = {profession = "Inscription", recipeName = "\\"},
-    [246858] = {profession = "Inscription", recipeName = "\\"},
-    [246859] = {profession = "Inscription", recipeName = "\\"},
-    [246861] = {profession = "Inscription", recipeName = "\\"},
-    [246862] = {profession = "Inscription", recipeName = "\\"},
+    -- 246856-246862 (6 entries) removed: corrupted recipe names (backslash)
     [247220] = {profession = "Cooking", recipeName = "Mushan Dumpling Stack", spellID = 1266563},
     [247222] = {profession = "Cooking", recipeName = "Drake Kebab Platter", spellID = 1266555},
     [247224] = {profession = "Cooking", recipeName = "Valdrakken Blossomfruit Platter", spellID = 1260331},
@@ -160,13 +155,7 @@ HA.ProfessionSources = {
     [253457] = {profession = "Leatherworking", recipeName = "Leather-Bound Haranir Wall Shelf", spellID = 1246938},
     [253506] = {profession = "Alchemy", recipeName = "Rootbound Vat", spellID = 1233133},
     [253508] = {profession = "Inscription", recipeName = "Harandar Signpost", spellID = 1248630},
-    [253602] = {profession = "Inscription", recipeName = "\\"},
-    [253603] = {profession = "Inscription", recipeName = "\\"},
-    [253608] = {profession = "Inscription", recipeName = "\\"},
-    [253617] = {profession = "Inscription", recipeName = "\\"},
-    [253618] = {profession = "Inscription", recipeName = "\\"},
-    [253619] = {profession = "Inscription", recipeName = "\\"},
-    [253620] = {profession = "Inscription", recipeName = "\\"},
+    -- 253602-253620 (7 entries) removed: corrupted recipe names (backslash)
     [256170] = {profession = "Enchanting", recipeName = "Draconic Scribe's Basin", spellID = 1261933},
     [256171] = {profession = "Enchanting", recipeName = "Five Flights' Grimoire", spellID = 1261919},
     [256356] = {profession = "Alchemy", recipeName = "Sunsmoke Censer", spellID = 1233135},
@@ -203,7 +192,7 @@ HA.ProfessionSources = {
     [257101] = {profession = "Enchanting", recipeName = "Stampwhistle's Postal Portal", spellID = 1262825},
     [257102] = {profession = "Alchemy", recipeName = "Nerubian Alchemist's Retort", spellID = 1261878},
     [257400] = {profession = "Leatherworking", recipeName = "Highmountain Tanner's Frame", spellID = 1262273},
-    [257402] = {profession = "Blacksmithing", recipeName = "\\", spellID = 1276113},
+    -- 257402 removed: corrupted recipe name (backslash)
     [257404] = {profession = "Enchanting", recipeName = "Pyrewood Glass Bottle", spellID = 1262331},
     [257406] = {profession = "Jewelcrafting", recipeName = "Smoke Lamp", spellID = 1262357},
     [257409] = {profession = "Blacksmithing", recipeName = "Standing Smoke Lamp", spellID = 1262308},
@@ -292,7 +281,7 @@ HA.ProfessionSources = {
     [262469] = {profession = "Jewelcrafting", recipeName = "Brilliant Phoenix Harp", spellID = 1246895},
     [262470] = {profession = "Enchanting", recipeName = "Spellbound Tome of Thalassian Magics", spellID = 1246907},
     [262471] = {profession = "Jewelcrafting", recipeName = "Bejeweled Sin'dorei Lyre", spellID = 1246891},
-    [262589] = {profession = "Leatherworking", recipeName = "", spellID = 1246940},
+    -- 262589 removed: empty recipe name
     [262590] = {profession = "Enchanting", recipeName = "Rootflame Campfire", spellID = 1246908},
     [262591] = {profession = "Tailoring", recipeName = "Luxurious Silvermoon Lounge Cushion", spellID = 1229002},
     [262592] = {profession = "Tailoring", recipeName = "Plush Silvermoon Bed", spellID = 1229003},
@@ -313,7 +302,7 @@ HA.ProfessionSources = {
     [262617] = {profession = "Engineering", recipeName = "Ren'dorei Crafting Framework", spellID = 1248615},
     [262618] = {profession = "Engineering", recipeName = "Ren'dorei Void Projector", spellID = 1248610},
     [262663] = {profession = "Jewelcrafting", recipeName = "Kyrian Floating Lamp", spellID = 1269502},
-    [262789] = {profession = "Engineering", recipeName = "", spellID = 1248614},
+    -- 262789 removed: empty recipe name
     [262790] = {profession = "Inscription", recipeName = "Restful Bronze Bench", spellID = 1248620},
     [263027] = {profession = "Enchanting", recipeName = "Darkmaster's Mystical Brazier", spellID = 1270459},
     [263034] = {profession = "Inscription", recipeName = "Magnificent Towering Bookcase", spellID = 1248631},

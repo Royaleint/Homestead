@@ -1,7 +1,7 @@
 --[[
     Homestead - Quest Sources
     Generated: 2026-02-01 23:11:17
-    Total entries: 102
+    Total entries: 101
     
     Maps itemID to quest source information.
 ]]
@@ -90,12 +90,12 @@ HA.QuestSources = {
     [246863] = {questID = 66001, questName = "A Last Hope"},
     [247223] = {questID = 67063, questName = "A Hearty Meal"},
     [247858] = {questID = 32816, questName = "The Last Emperor"},
-    [248651] = {questID = 72935, questName = "Remembering the Fallen"},
+    -- 248651 removed: questID 72935 is actually "Archives Return", not "Remembering the Fallen"
     [248653] = {questID = 71097, questName = "A Seat at the Table"},
     [248622] = {questID = 12227, questName = "Doing Your Duty"},
     [248655] = {questID = 70880, questName = "To Cook With Finery"},
     [248663] = {questID = 30526, questName = "Lost and Lonely"},
-    [250701] = {questID = 72935, questName = "Trader's Tally"},
+    -- 250701 removed: questID 72935 is actually "Archives Return", not "Trader's Tally"
     [250703] = {questID = 75456, questName = "The War Creche"},
     [250704] = {questID = 74332, questName = "Zskera Vaults"},
     [252386] = {questID = 50972, questName = "Proudmoore's Parley"},
