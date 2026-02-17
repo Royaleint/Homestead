@@ -53,8 +53,10 @@ local isPoppedOut = false
 local mapShifted = false
 local savedMapPoint = nil  -- {point, relativeTo, relativePoint, xOfs, yOfs}
 local ShiftMapRight  -- forward declaration; body defined in Map Position Shifting section
+local SaveDetachedPosition  -- forward declaration; body defined in Pop-Out section
 
 -- Pop-out UI elements (created in CreatePanel, shown/hidden based on state)
+local resizeHandle = nil   -- Bottom-edge grip for height resize (detached mode)
 local popOutButton = nil   -- Arrow button to detach (docked mode)
 local closeButton = nil    -- X button (detached mode)
 local reattachButton = nil -- Dock-back button (detached mode)
@@ -674,6 +676,49 @@ local function CreatePanel()
     end)
     reattachButton:SetScript("OnLeave", GameTooltip_Hide)
     reattachButton:Hide()
+
+    -- Resize handle (detached mode): thin grip bar at the bottom edge for
+    -- height-only resizing. Hidden when docked.
+    resizeHandle = CreateFrame("Frame", nil, panel)
+    resizeHandle:SetHeight(8)
+    resizeHandle:SetPoint("BOTTOMLEFT", panel, "BOTTOMLEFT", 4, 0)
+    resizeHandle:SetPoint("BOTTOMRIGHT", panel, "BOTTOMRIGHT", -4, 0)
+    resizeHandle:EnableMouse(true)
+    resizeHandle:SetScript("OnMouseDown", function()
+        panelFrame:StartSizing("BOTTOM")
+    end)
+    resizeHandle:SetScript("OnMouseUp", function()
+        panelFrame:StopMovingOrSizing()
+        SaveDetachedPosition()
+    end)
+    resizeHandle:SetScript("OnEnter", function(self)
+        -- Visual feedback: WoW doesn't support custom cursors, so highlight the grip
+        self.highlight:Show()
+    end)
+    resizeHandle:SetScript("OnLeave", function(self)
+        self.highlight:Hide()
+    end)
+
+    -- Grip line visual (subtle horizontal lines)
+    local grip = resizeHandle:CreateTexture(nil, "ARTWORK")
+    grip:SetHeight(2)
+    grip:SetPoint("LEFT", 8, 0)
+    grip:SetPoint("RIGHT", -8, 0)
+    grip:SetColorTexture(0.6, 0.6, 0.6, 0.4)
+    local grip2 = resizeHandle:CreateTexture(nil, "ARTWORK")
+    grip2:SetHeight(2)
+    grip2:SetPoint("LEFT", 8, -3)
+    grip2:SetPoint("RIGHT", -8, -3)
+    grip2:SetColorTexture(0.6, 0.6, 0.6, 0.4)
+
+    -- Hover highlight
+    local hl = resizeHandle:CreateTexture(nil, "HIGHLIGHT")
+    hl:SetAllPoints()
+    hl:SetColorTexture(1, 1, 1, 0.1)
+    hl:Hide()
+    resizeHandle.highlight = hl
+
+    resizeHandle:Hide()
 
     panel:Hide()
     panelFrame = panel
@@ -1703,8 +1748,8 @@ local function EnsureCompleteBorder()
     if ns.TopRightCorner then ns.TopRightCorner:Show() end
 end
 
--- Save detached position to profile
-local function SaveDetachedPosition()
+-- Save detached position to profile (forward-declared at file scope)
+SaveDetachedPosition = function()
     if not panelFrame or not HA.Addon or not HA.Addon.db then return end
     local point, _, _, x, y = panelFrame:GetPoint(1)
     if point then
@@ -1777,7 +1822,12 @@ function MapSidePanel:PopOut()
         SaveDetachedPosition()
     end)
 
-    -- 8. Ensure complete border
+    -- 8. Enable height resizing
+    panelFrame:SetResizable(true)
+    panelFrame:SetResizeBounds(PANEL_WIDTH, 200, PANEL_WIDTH, UIParent:GetHeight() * 0.9)
+    if resizeHandle then resizeHandle:Show() end
+
+    -- 9. Ensure complete border
     EnsureCompleteBorder()
 
     -- 8b. Raise reattach button above NineSlice (only needed when detached;
@@ -1824,11 +1874,13 @@ function MapSidePanel:DockPanel()
     -- 3. Reparent back to WorldMapFrame
     panelFrame:SetParent(WorldMapFrame)
 
-    -- 4. Clear drag handlers
+    -- 4. Clear drag and resize handlers
     panelFrame:SetMovable(false)
+    panelFrame:SetResizable(false)
     panelFrame:SetClampedToScreen(false)
     panelFrame:SetScript("OnDragStart", nil)
     panelFrame:SetScript("OnDragStop", nil)
+    if resizeHandle then resizeHandle:Hide() end
 
     -- 5. Restore original anchors (flush left of canvas, height from top+bottom anchors)
     local canvas = WorldMapFrame.ScrollContainer
@@ -1894,9 +1946,11 @@ function MapSidePanel:CloseDetached()
     -- Reparent back to WorldMapFrame so it's ready for docked mode next time
     panelFrame:SetParent(WorldMapFrame)
     panelFrame:SetMovable(false)
+    panelFrame:SetResizable(false)
     panelFrame:SetClampedToScreen(false)
     panelFrame:SetScript("OnDragStart", nil)
     panelFrame:SetScript("OnDragStop", nil)
+    if resizeHandle then resizeHandle:Hide() end
 
     -- Restore original anchors
     local canvas = WorldMapFrame.ScrollContainer
