@@ -215,7 +215,7 @@ end
 function HousingAddon:SlashCommandHandler(input)
     input = input and input:trim():lower() or ""
 
-    if input == "" or input == "config" or input == "options" or input == "settings" then
+    if input == "" or input == "toggle" or input == "config" or input == "options" or input == "settings" then
         self:OpenOptions()
     elseif input == "vendor" or input:match("^vendor%s+") then
         local search = input:match("^vendor%s+(.+)$")

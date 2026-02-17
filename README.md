@@ -23,7 +23,7 @@ A World of Warcraft housing addon for collectors who want answers, not interface
 
 | Command | Description |
 |---------|-------------|
-| `/hs` | Toggle main UI |
+| `/hs` | Open options panel |
 | `/hs scan` | Refresh your ownership cache |
 | `/hs export` | Export scanned vendor data for sharing |
 | `/hs refreshmap` | Refresh all map pins |
