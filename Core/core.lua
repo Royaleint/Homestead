@@ -275,6 +275,10 @@ function HousingAddon:SlashCommandHandler(input)
         if HA.Validation then
             HA.Validation:ShowDetails()
         end
+    elseif input == "panel" then
+        if HA.MapSidePanel then
+            HA.MapSidePanel:ToggleDetached()
+        end
     elseif input == "welcome" then
         if HA.WelcomeFrame then
             HA.WelcomeFrame:Show()
@@ -295,6 +299,7 @@ function HousingAddon:PrintHelp()
     self:Print("  /hs waypoint - Clear current waypoint")
     self:Print("  /hs cache - Show ownership cache info")
     self:Print("  /hs clearcache - Clear ownership cache")
+    self:Print("  /hs panel - Toggle detached vendor panel")
     self:Print("  /hs refreshmap - Refresh world map pins")
     self:Print("  /hs corrections - Show NPC ID corrections found")
     self:Print("  /hs export - Show export dialog")

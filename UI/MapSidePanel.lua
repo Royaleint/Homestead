@@ -42,10 +42,103 @@ local summaryText = nil
 local emptyText = nil
 local topTileFrame = nil   -- Inner decorative top-edge tile
 local topStreaksFrame = nil -- Decorative streaks overlay
+local bgTexture = nil      -- QuestLogBackground fill (anchored below header zone)
 local isInitialized = false
 local vendorRows = {}
 local expandedVendorID = nil  -- npcID of currently expanded vendor (nil = none)
 local lastRefreshMapID = nil
+local isPoppedOut = false
+
+-- Map shift state (declared early so preview hooks can reference them)
+local mapShifted = false
+local savedMapPoint = nil  -- {point, relativeTo, relativePoint, xOfs, yOfs}
+local ShiftMapRight  -- forward declaration; body defined in Map Position Shifting section
+
+-- Pop-out UI elements (created in CreatePanel, shown/hidden based on state)
+local popOutButton = nil   -- Arrow button to detach (docked mode)
+local closeButton = nil    -- X button (detached mode)
+local reattachButton = nil -- Dock-back button (detached mode)
+
+-------------------------------------------------------------------------------
+-- 3D Item Preview (uses Blizzard's HousingModelPreviewFrame)
+-------------------------------------------------------------------------------
+
+local previewHooked = false  -- true after we hook the preview frame's OnShow
+local previewDragHandle = nil  -- overlay frame for dragging (ModelScene eats drag events)
+
+local function ShowItemPreview(itemID)
+    if not itemID then return end
+
+    -- Demand-load Blizzard's housing preview addon (no-op if already loaded)
+    if not HousingModelPreviewFrame then
+        local loaded, reason = C_AddOns.LoadAddOn("Blizzard_HousingModelPreview")
+        if not loaded then
+            if HA.Addon then
+                HA.Addon:Debug("Preview addon not available:", reason)
+            end
+            return
+        end
+    end
+
+    if not HousingModelPreviewFrame then return end
+
+    -- Hook once after the Blizzard addon is loaded
+    if not previewHooked then
+        local pf = HousingModelPreviewFrame
+
+        -- Re-apply our map shift if Blizzard's preview resets WorldMapFrame
+        local function ReapplyMapShift()
+            if panelFrame and panelFrame:IsShown() and not isPoppedOut then
+                mapShifted = false
+                ShiftMapRight()
+            end
+        end
+
+        -- Re-apply our customizations + map shift each time Blizzard shows it
+        pf:HookScript("OnShow", function(self)
+            self:SetScale(0.75)
+            self:SetMovable(true)
+            self:SetClampedToScreen(true)
+            ReapplyMapShift()
+        end)
+
+        -- Re-apply map shift after close (deferred so Blizzard finishes first)
+        pf:HookScript("OnHide", function()
+            C_Timer.After(0, ReapplyMapShift)
+        end)
+
+        -- Create a drag handle overlay on the title bar area (top ~30px).
+        -- The ModelScene child captures drag for model rotation, so the
+        -- parent frame's OnDragStart never fires. This overlay sits above
+        -- the title bar region only and forwards drag to move the window.
+        previewDragHandle = CreateFrame("Frame", nil, pf)
+        previewDragHandle:SetHeight(30)
+        previewDragHandle:SetPoint("TOPLEFT", pf, "TOPLEFT", 0, 0)
+        previewDragHandle:SetPoint("TOPRIGHT", pf, "TOPRIGHT", -30, 0)  -- avoid close button
+        previewDragHandle:SetFrameLevel(pf:GetFrameLevel() + 100)
+        previewDragHandle:EnableMouse(true)
+        previewDragHandle:RegisterForDrag("LeftButton")
+        previewDragHandle:SetScript("OnDragStart", function()
+            pf:StartMoving()
+        end)
+        previewDragHandle:SetScript("OnDragStop", function()
+            pf:StopMovingOrSizing()
+        end)
+
+        previewHooked = true
+    end
+
+    -- Get catalog entry info directly from itemID
+    local info = C_HousingCatalog.GetCatalogEntryInfoByItem(itemID, true)
+    if not info then
+        if HA.Addon then
+            HA.Addon:Debug("No catalog info for itemID:", itemID)
+        end
+        return
+    end
+
+    HousingModelPreviewFrame:ShowCatalogEntryInfo(info)
+end
 
 -------------------------------------------------------------------------------
 -- Item Helpers
@@ -171,11 +264,20 @@ local function CreateItemIcon(parent)
                     GameTooltip:AddLine("  " .. text, color[1], color[2], color[3])
                 end
             end
+            GameTooltip:AddLine(" ")
+            GameTooltip:AddLine("Click to preview", 0.5, 0.5, 0.5)
             GameTooltip:Show()
         end
     end)
     frame:SetScript("OnLeave", function()
         GameTooltip:Hide()
+    end)
+
+    -- Click to open 3D preview
+    frame:SetScript("OnMouseUp", function(self)
+        if self.itemID then
+            ShowItemPreview(self.itemID)
+        end
     end)
 
     return frame
@@ -405,8 +507,9 @@ local function CreatePanel()
     -- Main panel frame, anchored flush against the left edge of the map canvas.
     -- When shown, the map shifts right to make room (see ShiftMap).
     -- Styled using Blizzard's NineSlice border system to match the map frame.
+    -- Named for UISpecialFrames support (Escape-to-close when detached).
     local canvas = WorldMapFrame.ScrollContainer
-    local panel = CreateFrame("Frame", nil, WorldMapFrame)
+    local panel = CreateFrame("Frame", "HomesteadSidePanel", WorldMapFrame)
     panel:SetWidth(PANEL_WIDTH)
     panel:SetPoint("TOPRIGHT", canvas, "TOPLEFT", 0, 0)
     panel:SetPoint("BOTTOMRIGHT", canvas, "BOTTOMLEFT", 0, 0)
@@ -437,19 +540,23 @@ local function CreatePanel()
         panel.NineSlice.TopEdge:SetPoint("TOPRIGHT", panel.NineSlice.TopRightCorner, "TOPLEFT", 2, 0)
     end
 
-    -- 2. BACKGROUND FILL: Blizzard's quest log background atlas
-    local bg = panel:CreateTexture(nil, "BACKGROUND", nil, -8)
-    bg:SetAtlas("QuestLogBackground", false)
-    bg:SetPoint("TOPLEFT", panel, "TOPLEFT", 0, 0)
-    bg:SetPoint("BOTTOMRIGHT", panel, "BOTTOMRIGHT", 0, 0)
-
-    -- 3. INNER TOP BORDER: Decorative top-edge tile inside the border
+    -- 2. INNER TOP BORDER: Decorative top-edge tile inside the border
+    --    Created before background so bg can anchor to it.
     topTileFrame = panel:CreateTexture(nil, "ARTWORK")
     topTileFrame:SetAtlas("_UI-Frame-InnerTopTile", false)
     topTileFrame:SetHorizTile(true)
     topTileFrame:SetHeight(10)
     topTileFrame:SetPoint("TOPLEFT", panel, "TOPLEFT", 6, -18)
     topTileFrame:SetPoint("TOPRIGHT", panel, "TOPRIGHT", -6, -18)
+
+    -- 3. BACKGROUND FILL: Blizzard's quest log background atlas.
+    --    Fills full panel by default (standalone/detached). In integrated mode,
+    --    ApplyContentInset adjusts the top anchor below the header zone so the
+    --    dark background doesn't bleed into the map's border area.
+    bgTexture = panel:CreateTexture(nil, "BACKGROUND", nil, -8)
+    bgTexture:SetAtlas("QuestLogBackground", false)
+    bgTexture:SetPoint("TOPLEFT", panel, "TOPLEFT", 0, 0)
+    bgTexture:SetPoint("BOTTOMRIGHT", panel, "BOTTOMRIGHT", 0, 0)
 
     -- Decorative streaks overlay on the inner top border
     topStreaksFrame = panel:CreateTexture(nil, "ARTWORK", nil, 1)
@@ -519,6 +626,54 @@ local function CreatePanel()
     emptyText:SetPoint("CENTER", scrollContainer, "CENTER", 0, 0)
     emptyText:SetText("No vendors in this zone")
     emptyText:Hide()
+
+    -- Pop-out button (docked mode): arrow icon in header area next to title
+    popOutButton = CreateFrame("Button", nil, headerFrame)
+    popOutButton:SetSize(16, 16)
+    popOutButton:SetPoint("RIGHT", headerFrame, "RIGHT", -2, -2)
+
+    popOutButton:SetNormalAtlas("RedButton-Expand")
+    popOutButton:SetPushedAtlas("RedButton-Expand-Pressed")
+    popOutButton:SetHighlightAtlas("RedButton-Highlight")
+
+    popOutButton:SetScript("OnClick", function()
+        MapSidePanel:PopOut()
+    end)
+    popOutButton:SetScript("OnEnter", function(self)
+        GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+        GameTooltip:SetText("Detach panel")
+        GameTooltip:Show()
+    end)
+    popOutButton:SetScript("OnLeave", GameTooltip_Hide)
+
+    -- Close button (detached mode): standard X at top-right
+    closeButton = CreateFrame("Button", nil, panel, "UIPanelCloseButton")
+    closeButton:SetPoint("TOPRIGHT", -2, -2)
+    closeButton:SetScript("OnClick", function()
+        -- Full reset: hide panel, clear pop-out state
+        MapSidePanel:CloseDetached()
+    end)
+    closeButton:Hide()
+
+    -- Re-attach button (detached mode): small icon next to close button
+    reattachButton = CreateFrame("Button", nil, panel)
+    reattachButton:SetSize(16, 16)
+    reattachButton:SetPoint("RIGHT", closeButton, "LEFT", 2, 0)
+
+    reattachButton:SetNormalAtlas("RedButton-Condense")
+    reattachButton:SetPushedAtlas("RedButton-Condense-Pressed")
+    reattachButton:SetHighlightAtlas("RedButton-Highlight")
+
+    reattachButton:SetScript("OnClick", function()
+        MapSidePanel:DockPanel()
+    end)
+    reattachButton:SetScript("OnEnter", function(self)
+        GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+        GameTooltip:SetText("Attach to World Map")
+        GameTooltip:Show()
+    end)
+    reattachButton:SetScript("OnLeave", GameTooltip_Hide)
+    reattachButton:Hide()
 
     panel:Hide()
     panelFrame = panel
@@ -652,6 +807,21 @@ local function ShowContextMenu(owner)
             end)
         end
 
+        -- Detach / Attach panel toggle (only when panel is visible or popped out)
+        if panelFrame and (panelFrame:IsShown() or isPoppedOut) then
+            rootDescription:CreateCheckbox(
+                isPoppedOut and "Attach to Map" or "Detach Panel",
+                function() return isPoppedOut end,
+                function()
+                    if isPoppedOut then
+                        MapSidePanel:DockPanel()
+                    else
+                        MapSidePanel:PopOut()
+                    end
+                end
+            )
+        end
+
         -- Open full settings
         rootDescription:CreateDivider()
         rootDescription:CreateButton("Open Settings", function()
@@ -704,6 +874,9 @@ local function CreateOverlayButton()
     button:SetScript("OnClick", function(self, mouseButton)
         if mouseButton == "RightButton" then
             ShowContextMenu(self)
+        elseif isPoppedOut and panelFrame and panelFrame:IsShown() then
+            -- Popped out + visible: raise to front instead of toggling
+            panelFrame:Raise()
         else
             MapSidePanel:Toggle()
         end
@@ -713,7 +886,11 @@ local function CreateOverlayButton()
     button:SetScript("OnEnter", function(self)
         GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
         GameTooltip_SetTitle(GameTooltip, "Homestead")
-        GameTooltip_AddNormalLine(GameTooltip, "Left-click: Toggle vendor panel")
+        if isPoppedOut and panelFrame and panelFrame:IsShown() then
+            GameTooltip_AddNormalLine(GameTooltip, "Left-click: Show vendor panel")
+        else
+            GameTooltip_AddNormalLine(GameTooltip, "Left-click: Toggle vendor panel")
+        end
         GameTooltip_AddNormalLine(GameTooltip, "Right-click: Pin options")
         GameTooltip:Show()
     end)
@@ -794,8 +971,29 @@ function MapSidePanel:RefreshContent()
     if not panelFrame or not panelFrame:IsShown() then return end
     if not VendorData or not BC then return end
 
-    local mapID = WorldMapFrame:GetMapID()
-    if not mapID then return end
+    -- MapID resolution: map frame → last viewed → player zone
+    local mapID
+    if WorldMapFrame:IsShown() then
+        mapID = WorldMapFrame:GetMapID()
+    end
+    if not mapID then
+        mapID = lastRefreshMapID
+    end
+    if not mapID then
+        mapID = C_Map.GetBestMapForUnit("player")
+    end
+    if not mapID then
+        -- No map data available (loading screen, instance)
+        for _, row in ipairs(vendorRows) do
+            row:Hide()
+            HideItemGrid(row)
+        end
+        emptyText:SetText("Open the World Map to view vendors")
+        emptyText:Show()
+        summaryText:SetText("")
+        scrollChild:SetHeight(1)
+        return
+    end
 
     local mapInfo = C_Map.GetMapInfo(mapID)
     if not mapInfo then return end
@@ -818,7 +1016,11 @@ function MapSidePanel:RefreshContent()
             row:Hide()
             HideItemGrid(row)
         end
-        emptyText:SetText("Select a zone to see vendors")
+        if isPoppedOut and not WorldMapFrame:IsShown() then
+            emptyText:SetText("Open the World Map to view vendors")
+        else
+            emptyText:SetText("Select a zone to see vendors")
+        end
         emptyText:Show()
         summaryText:SetText("")
         scrollChild:SetHeight(1)
@@ -993,13 +1195,10 @@ end
 -- Safe because the world map cannot be opened during combat.
 -------------------------------------------------------------------------------
 
-local mapShifted = false
-local savedMapPoint = nil  -- {point, relativeTo, relativePoint, xOfs, yOfs}
-
 -- Saved anchor data for the map's NineSlice top edge (left anchor only)
 local savedMapTopEdge = nil  -- {point, relativeTo, relativePoint, xOfs, yOfs}
 
-local function ShiftMapRight()
+ShiftMapRight = function()
     if mapShifted then return end
     local point, relativeTo, relativePoint, xOfs, yOfs = WorldMapFrame:GetPoint(1)
     if point then
@@ -1255,6 +1454,12 @@ local function ApplyContentInset()
         topTileFrame:SetPoint("TOPRIGHT", panelFrame, "TOPRIGHT", -6, insetY)
     end
 
+    -- Clip background below the header zone (prevents dark bg bleeding into
+    -- the map's border area where portrait/info button/breadcrumbs sit)
+    if bgTexture then
+        bgTexture:SetPoint("TOPLEFT", panelFrame, "TOPLEFT", 0, insetY)
+    end
+
     -- Move header below the tiles
     local headerY = insetY - 10  -- 10 = tile height
     headerFrame:ClearAllPoints()
@@ -1271,6 +1476,11 @@ local function RestoreContentInset()
         topTileFrame:ClearAllPoints()
         topTileFrame:SetPoint("TOPLEFT", panelFrame, "TOPLEFT", 6, -DEFAULT_TOP_TILE_OFFSET)
         topTileFrame:SetPoint("TOPRIGHT", panelFrame, "TOPRIGHT", -6, -DEFAULT_TOP_TILE_OFFSET)
+    end
+
+    -- Restore background to fill full panel (standalone/detached mode)
+    if bgTexture then
+        bgTexture:SetPoint("TOPLEFT", panelFrame, "TOPLEFT", 0, 0)
     end
 
     if headerFrame then
@@ -1367,11 +1577,13 @@ local function RestoreTopBorder()
             savedMapTopEdge[1], savedMapTopEdge[2],
             savedMapTopEdge[3], savedMapTopEdge[4], savedMapTopEdge[5])
     end
+    savedMapTopEdge = nil  -- Re-capture fresh on next UnifyTopBorder
 
     -- Restore map TopLeftCorner (portrait ring) visibility
     if mapTopLeft and savedMapTopLeftCornerShown then
         mapTopLeft:Show()
     end
+    savedMapTopLeftCornerShown = nil
 
     -- Restore panel top border pieces
     if panelNS then
@@ -1396,6 +1608,10 @@ local panelShowGeneration = 0  -- Incremented each Show, guards deferred callbac
 local function ShowPanel()
     if not panelFrame then return end
     panelFrame:Show()
+
+    -- When popped out, skip all map integration (panel is independent)
+    if isPoppedOut then return end
+
     ShiftMapRight()
 
     if not ShouldUseStandaloneMode() then
@@ -1418,6 +1634,12 @@ local function HidePanel()
     -- Bump generation to cancel any pending deferred Show callbacks
     panelShowGeneration = panelShowGeneration + 1
 
+    if isPoppedOut then
+        -- When popped out, just hide the frame — no map restoration needed
+        panelFrame:Hide()
+        return
+    end
+
     RestoreContentInset()
     RestoreTopBorder()
     RestoreMapElements()
@@ -1425,8 +1647,268 @@ local function HidePanel()
     RestoreMapPosition()
 end
 
+-- Update button visibility based on pop-out state
+local function UpdatePopOutButtons()
+    if not popOutButton then return end
+    if isPoppedOut then
+        popOutButton:Hide()
+        closeButton:Show()
+        reattachButton:Show()
+    else
+        popOutButton:Show()
+        closeButton:Hide()
+        reattachButton:Hide()
+    end
+end
+
+-- Re-set frame levels after reparent (SetParent can reset child levels)
+local function RestoreFrameLevels()
+    if not panelFrame then return end
+    panelFrame:SetFrameStrata("HIGH")
+    panelFrame:SetFrameLevel(500)
+    if panelFrame.NineSlice then
+        panelFrame.NineSlice:SetFrameLevel(502)
+    end
+end
+
+-- Ensure NineSlice border is visually complete (re-show pieces hidden by UnifyTopBorder)
+local function EnsureCompleteBorder()
+    if not panelFrame or not panelFrame.NineSlice then return end
+    local ns = panelFrame.NineSlice
+    if ns.TopEdge then ns.TopEdge:Show() end
+    if ns.TopRightCorner then ns.TopRightCorner:Show() end
+end
+
+-- Save detached position to profile
+local function SaveDetachedPosition()
+    if not panelFrame or not HA.Addon or not HA.Addon.db then return end
+    local point, _, _, x, y = panelFrame:GetPoint(1)
+    if point then
+        HA.Addon.db.profile.vendorTracer.sidePanelPosition = {
+            point = point, x = x or 0, y = y or 0,
+        }
+    end
+    HA.Addon.db.profile.vendorTracer.sidePanelHeight = panelFrame:GetHeight()
+end
+
+-- Check if a saved position is on-screen; returns true if valid
+local function IsPositionOnScreen(pos)
+    if not pos or not pos.point then return false end
+    local sw, sh = GetScreenWidth(), GetScreenHeight()
+    local x, y = pos.x or 0, pos.y or 0
+    -- Simple bounds: check if the anchor point is within screen bounds (with margin)
+    if math.abs(x) > sw or math.abs(y) > sh then return false end
+    return true
+end
+
+function MapSidePanel:PopOut()
+    if not panelFrame then return end
+    if isPoppedOut then return end
+
+    -- 1. Capture height before clearing anchors
+    local h = panelFrame:GetHeight()
+    if h < 1 then
+        local db = HA.Addon and HA.Addon.db
+        h = db and db.profile.vendorTracer.sidePanelHeight
+        if not h or h < 1 then
+            h = UIParent:GetHeight() * 0.6
+        end
+    end
+
+    -- 2. Restore all map modifications
+    RestoreContentInset()
+    RestoreTopBorder()
+    RestoreMapElements()
+    RestoreMapPosition()
+
+    -- 3. Reparent to UIParent
+    panelFrame:SetParent(UIParent)
+
+    -- 4. Re-set strata/levels after reparent
+    RestoreFrameLevels()
+
+    -- 5-6. Clear anchors, set size, restore position
+    panelFrame:ClearAllPoints()
+    panelFrame:SetWidth(PANEL_WIDTH)
+    panelFrame:SetHeight(h)
+
+    local db = HA.Addon and HA.Addon.db
+    local saved = db and db.profile.vendorTracer.sidePanelPosition
+    if saved and IsPositionOnScreen(saved) then
+        panelFrame:SetPoint(saved.point, UIParent, saved.point, saved.x, saved.y)
+    else
+        panelFrame:SetPoint("CENTER", UIParent, "CENTER", 0, 0)
+    end
+
+    -- 7. Make movable via panelFrame drag (not headerFrame — header starts 22px
+    --    below the top, so the NineSlice border wouldn't be draggable).
+    --    Child frames (buttons, scroll) capture their own clicks; panelFrame drag
+    --    only activates from "empty" areas like the border and header text.
+    panelFrame:SetMovable(true)
+    panelFrame:SetClampedToScreen(true)
+    panelFrame:RegisterForDrag("LeftButton")
+    panelFrame:SetScript("OnDragStart", panelFrame.StartMoving)
+    panelFrame:SetScript("OnDragStop", function(self)
+        self:StopMovingOrSizing()
+        SaveDetachedPosition()
+    end)
+
+    -- 8. Ensure complete border
+    EnsureCompleteBorder()
+
+    -- 8b. Raise reattach button above NineSlice (only needed when detached;
+    --     setting at creation time breaks the unified top border in docked mode)
+    if reattachButton then
+        reattachButton:SetFrameLevel(panelFrame:GetFrameLevel() + 5)
+    end
+
+    -- 9. Update buttons
+    isPoppedOut = true  -- Set before UpdatePopOutButtons so it reads correctly
+    UpdatePopOutButtons()
+
+    -- 10. UISpecialFrames for Escape-to-close
+    tinsert(UISpecialFrames, "HomesteadSidePanel")
+
+    -- 11. Cancel pending deferred callbacks
+    panelShowGeneration = panelShowGeneration + 1
+
+    -- 12. Save to profile
+    if db then
+        db.profile.vendorTracer.sidePanelPoppedOut = true
+        db.profile.vendorTracer.sidePanelHeight = h
+    end
+
+    panelFrame:Show()
+    self:RefreshContent()
+end
+
+function MapSidePanel:DockPanel()
+    if not panelFrame then return end
+    if not isPoppedOut then return end
+
+    -- 1. Save position and height
+    SaveDetachedPosition()
+
+    -- 2. Remove from UISpecialFrames
+    for i = #UISpecialFrames, 1, -1 do
+        if UISpecialFrames[i] == "HomesteadSidePanel" then
+            table.remove(UISpecialFrames, i)
+            break
+        end
+    end
+
+    -- 3. Reparent back to WorldMapFrame
+    panelFrame:SetParent(WorldMapFrame)
+
+    -- 4. Clear drag handlers
+    panelFrame:SetMovable(false)
+    panelFrame:SetClampedToScreen(false)
+    panelFrame:SetScript("OnDragStart", nil)
+    panelFrame:SetScript("OnDragStop", nil)
+
+    -- 5. Restore original anchors (flush left of canvas, height from top+bottom anchors)
+    local canvas = WorldMapFrame.ScrollContainer
+    panelFrame:ClearAllPoints()
+    panelFrame:SetWidth(PANEL_WIDTH)
+    panelFrame:SetPoint("TOPRIGHT", canvas, "TOPLEFT", 0, 0)
+    panelFrame:SetPoint("BOTTOMRIGHT", canvas, "BOTTOMLEFT", 0, 0)
+
+    -- 6. Re-set strata/levels after reparent
+    RestoreFrameLevels()
+    -- Reattach button level is not reset here — it's hidden when docked
+    -- and touching frame levels during dock disrupts NineSlice rendering.
+
+    -- 7. Update buttons
+    isPoppedOut = false
+    UpdatePopOutButtons()
+
+    -- 8. Pre-hide panel's top NineSlice pieces before integrated mode re-applies.
+    --    EnsureCompleteBorder() during PopOut showed these; UnifyTopBorder will
+    --    hide them again via the deferred callback, but pre-hiding avoids a
+    --    one-frame flash where both the panel's top border and map border overlap.
+    if not ShouldUseStandaloneMode() then
+        local ns = panelFrame.NineSlice
+        if ns then
+            if ns.TopEdge then ns.TopEdge:Hide() end
+            if ns.TopRightCorner then ns.TopRightCorner:Hide() end
+        end
+    end
+
+    -- 9-10. If map is open, re-apply integrated mode; otherwise hide
+    if WorldMapFrame:IsShown() then
+        ShowPanel()
+        self:RefreshContent()
+    else
+        panelFrame:Hide()
+    end
+
+    -- 10. Save to profile
+    if HA.Addon and HA.Addon.db then
+        HA.Addon.db.profile.vendorTracer.sidePanelPoppedOut = false
+    end
+end
+
+function MapSidePanel:CloseDetached()
+    if not panelFrame then return end
+
+    -- Save position while frame is still visible and anchored
+    SaveDetachedPosition()
+
+    -- Full reset: hide panel, clear both pop-out and panel-shown state
+    HidePanel()
+    isPoppedOut = false
+    UpdatePopOutButtons()
+
+    -- Remove from UISpecialFrames
+    for i = #UISpecialFrames, 1, -1 do
+        if UISpecialFrames[i] == "HomesteadSidePanel" then
+            table.remove(UISpecialFrames, i)
+            break
+        end
+    end
+
+    -- Reparent back to WorldMapFrame so it's ready for docked mode next time
+    panelFrame:SetParent(WorldMapFrame)
+    panelFrame:SetMovable(false)
+    panelFrame:SetClampedToScreen(false)
+    panelFrame:SetScript("OnDragStart", nil)
+    panelFrame:SetScript("OnDragStop", nil)
+
+    -- Restore original anchors
+    local canvas = WorldMapFrame.ScrollContainer
+    panelFrame:ClearAllPoints()
+    panelFrame:SetWidth(PANEL_WIDTH)
+    panelFrame:SetPoint("TOPRIGHT", canvas, "TOPLEFT", 0, 0)
+    panelFrame:SetPoint("BOTTOMRIGHT", canvas, "BOTTOMLEFT", 0, 0)
+
+    RestoreFrameLevels()
+
+    if HA.Addon and HA.Addon.db then
+        HA.Addon.db.profile.vendorTracer.sidePanelPoppedOut = false
+        HA.Addon.db.profile.vendorTracer.showMapSidePanel = false
+    end
+end
+
 function MapSidePanel:Toggle()
     if not panelFrame then return end
+
+    if isPoppedOut then
+        if panelFrame:IsShown() then
+            -- Popped out + visible: full reset
+            self:CloseDetached()
+        else
+            -- Popped out + hidden (shouldn't normally happen): open docked
+            isPoppedOut = false
+            UpdatePopOutButtons()
+            ShowPanel()
+            if HA.Addon and HA.Addon.db then
+                HA.Addon.db.profile.vendorTracer.showMapSidePanel = true
+                HA.Addon.db.profile.vendorTracer.sidePanelPoppedOut = false
+            end
+            self:RefreshContent()
+        end
+        return
+    end
 
     if panelFrame:IsShown() then
         HidePanel()
@@ -1457,6 +1939,20 @@ end
 
 function MapSidePanel:IsShown()
     return panelFrame and panelFrame:IsShown()
+end
+
+function MapSidePanel:IsPoppedOut()
+    return isPoppedOut
+end
+
+-- Slash command toggle: pop out if docked/hidden, close if already popped out
+function MapSidePanel:ToggleDetached()
+    if not panelFrame then return end
+    if isPoppedOut then
+        self:CloseDetached()
+    else
+        self:PopOut()
+    end
 end
 
 function MapSidePanel:ResetIntegrationMode()
@@ -1495,6 +1991,11 @@ function MapSidePanel:Initialize()
     end)
 
     WorldMapFrame:HookScript("OnShow", function()
+        if isPoppedOut then
+            -- Popped out: just refresh content (map opened, may have new mapID)
+            MapSidePanel:RefreshContent()
+            return
+        end
         -- Restore panel visibility + shift map when map opens
         if HA.Addon and HA.Addon.db
                 and HA.Addon.db.profile.vendorTracer.showMapSidePanel then
@@ -1507,6 +2008,10 @@ function MapSidePanel:Initialize()
     end)
 
     WorldMapFrame:HookScript("OnHide", function()
+        if isPoppedOut then
+            -- Popped out: panel stays visible, no map elements to restore
+            return
+        end
         -- Restore all map modifications when map closes
         -- Also bump generation to cancel any pending deferred Show callbacks
         panelShowGeneration = panelShowGeneration + 1
@@ -1531,6 +2036,18 @@ function MapSidePanel:Initialize()
     end
 
     isInitialized = true
+
+    -- /reload restoration: if panel was popped out last session, restore it
+    if HA.Addon and HA.Addon.db then
+        local vt = HA.Addon.db.profile.vendorTracer
+        if vt.sidePanelPoppedOut and vt.showMapSidePanel then
+            self:PopOut()
+            -- Defer content refresh — map data may not be available during early load
+            C_Timer.After(0.5, function()
+                MapSidePanel:RefreshContent()
+            end)
+        end
+    end
 
     if HA.Addon then
         HA.Addon:Debug("MapSidePanel initialized")

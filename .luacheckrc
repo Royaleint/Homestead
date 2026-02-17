@@ -69,6 +69,7 @@ read_globals = {
     "GetMerchantItemInfo", "GetMerchantItemLink", "GetMerchantNumItems",
     "GetLocale",
     "GetRealZoneText",
+    "GetScreenWidth", "GetScreenHeight",
     "GetRealmName",
     "GetTime",
     "hooksecurefunc",
