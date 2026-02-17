@@ -2,6 +2,32 @@
 
 ---
 
+## v1.4.0 (2026-02-16)
+
+### New
+
+- **Homestead Panel** — Our new vendor panel now docks to the left side of the world map, showing all decor vendors in the current zone along with your collection progress. Click any vendor to see their full inventory what you've collected, what's available, and what you still need.
+  - Click any item to see a 3D preview of the decor using the in-game model viewer. The preview window is draggable and scaled down for easy browsing.
+  - Locked items display a red border and padlock icon at a glance. Hover over them to see what's needed reputation, achievements, quests, or renown.
+  - Pop the panel out into its own movable window that stays open even after closing the world map. Detach it using the arrow button in the panel header or by right-clicking the minimap button.
+  - A Homestead Panel checkbox has been added to the world map's tracking dropdown, letting you show or hide the panel without closing it.
+  - Your panel position and size are saved between sessions.
+
+- **Sub-Zone Pin Visibility** — Vendor pins now appear correctly on maps such as Dalaran Underbelly, Thunder Totem, and Suramar City.
+
+- **Minimap Elevation Arrows** — Vendor pins on the minimap now show small directional arrows when the vendor is on a different floor above or below you.
+
+### Changed
+
+- **Minimap Left-Click** — Left-clicking the minimap button now opens and closes the options panel.
+- **Minimap Right-Click** — Right-clicking the minimap button now opens or closes the detached vendor panel directly. Middle-click still triggers a collection scan.
+
+### Fixed
+
+- Fixed an error when opening certain vendors in instanced content, such as mount merchants after holiday bosses. (Thanks kittywulfe!)
+
+---
+
 ## v1.3.3 (2026-02-14)
 
 ### Fixed
