@@ -270,6 +270,10 @@ function HousingAddon:SlashCommandHandler(input)
         if HA.Validation then
             HA.Validation:ShowDetails()
         end
+    elseif input == "decorids" then
+        if HA.Validation then
+            HA.Validation:ExportDecorIDs()
+        end
     elseif input == "panel" then
         if HA.MapSidePanel then
             HA.MapSidePanel:ToggleDetached()
@@ -301,6 +305,7 @@ function HousingAddon:PrintHelp()
     self:Print("  /hs exportall - Export ALL, bypass timestamp filter")
     self:Print("  /hs clearscans - Clear all scanned vendor data")
     self:Print("  /hs validate - Validate vendor database")
+    self:Print("  /hs decorids - Validate items & map decorIDs (saves to db.global)")
     self:Print("  /hs welcome - Show welcome/onboarding screen")
     self:Print("  /hs debug - Toggle debug mode")
     self:Print("  /hs help - Show this help")
