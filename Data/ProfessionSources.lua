@@ -1,7 +1,7 @@
 --[[
     Homestead - Profession Sources
     Generated: 2026-02-01 23:11:17
-    Total entries: 317
+    Total entries: 312
     
     Maps itemID to profession/crafting source information.
 ]]
@@ -22,11 +22,6 @@ HA.ProfessionSources = {
     [244318] = {profession = "Alchemy", recipeName = "Wine Barrel", spellID = 1260985},
     [244319] = {profession = "Inscription", recipeName = "Wooden Shipping Crate", spellID = 1261045},
     [244323] = {profession = "Leatherworking", recipeName = "Orcish Sleeping Cot", spellID = 1261122},
-    [244669] = {profession = "Engineering", recipeName = "Tiny Schmancy Goblin Lights"},
-    [244670] = {profession = "Engineering", recipeName = "Small Schmancy Goblin Lights"},
-    [244671] = {profession = "Engineering", recipeName = "Drooping Schmancy Lights"},
-    [244672] = {profession = "Engineering", recipeName = "Very Long Schmancy Lights"},
-    [244673] = {profession = "Engineering", recipeName = "Long Schmancy Goblin Lights"},
     [245305] = {profession = "Tailoring", recipeName = "Undermine Bean Bag Chair", spellID = 1260326},
     [245312] = {profession = "Blacksmithing", recipeName = "Rusting Bolted Bench", spellID = 1259675},
     [245323] = {profession = "Blacksmithing", recipeName = "Shredderwheel Storage Chest", spellID = 1259681},

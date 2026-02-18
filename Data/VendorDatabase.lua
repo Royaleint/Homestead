@@ -808,7 +808,7 @@ VendorDatabase.Vendors = {
         faction = "Neutral",
         currency = "Order Resources",
         expansion = "Legion",
-        items = {248935, 248936, 248942, 248958, 250124, 256679, 258143, 262619},
+        items = {248935, 248936, 248942, 248958, 250124, 256679, 262619},
     },
 	[112392] = {
         name = "Quartermaster Durnolf",
@@ -1134,7 +1134,7 @@ VendorDatabase.Vendors = {
         faction = "Alliance",
         currency = "Gold",
         expansion = "Dragonflight",
-        items = {{243242, cost = {gold = 500000}}, {243243, cost = {gold = 750000}}, 245462, {245575, cost = {gold = 1250000}}, {245576, cost = {gold = 500000}}, 245577, {245578, cost = {gold = 1000000}}, {245579, cost = {gold = 750000}}, 246110, 248401, 251022, 264008},
+        items = {{243242, cost = {gold = 500000}}, {243243, cost = {gold = 750000}}, 245462, {245575, cost = {gold = 1250000}}, {245576, cost = {gold = 500000}}, {245578, cost = {gold = 1000000}}, {245579, cost = {gold = 750000}}, 246110, 248401, 251022, 264008},
     },
 	[209192] = {
         name = "Provisioner Aristta",
@@ -2321,7 +2321,7 @@ VendorDatabase.Vendors = {
         faction = "Neutral",
         currency = "Gold",
         expansion = "Midnight",
-        items = {{244534, cost = {gold = 500000}}, {244661, cost = {gold = 500000}}, {244662, cost = {gold = 500000}}, {244663, cost = {gold = 500000}}, 245265, {245266, cost = {gold = 500000}}, 246402, 246408, {246613, cost = {gold = 1250000}}, {246614, cost = {gold = 1000000}}, 246959, 246960, {247221, cost = {gold = 500000}}, 247785, 249768, {250094, cost = {gold = 750000}}, 251980, 263019, 263039, 263194, 263195, 264253, 264267, 264268, 264269, 264345},
+        items = {{244534, cost = {gold = 500000}}, {244661, cost = {gold = 500000}}, {244662, cost = {gold = 500000}}, {244663, cost = {gold = 500000}}, 245265, {245266, cost = {gold = 500000}}, 246402, 246408, {246613, cost = {gold = 1250000}}, {246614, cost = {gold = 1000000}}, 246959, {247221, cost = {gold = 500000}}, 247785, 249768, {250094, cost = {gold = 750000}}, 251980, 263019, 263039, 263194, 263195, 264253, 264267, 264268, 264269, 264345},
     },
 	[259922] = {
         name = "Void Researcher Aemely",

@@ -1,7 +1,7 @@
 --[[
     Homestead - Drop Sources
     Generated: 2026-02-01 23:11:17
-    Total entries: 77
+    Total entries: 72
     
     Maps itemID to mob/boss drop source information.
     Coordinates are normalized 0-1 format (HereBeDragons compatible).
@@ -14,7 +14,6 @@ HA.DropSources = {
     [241044] = {mobName = "L'ura", zone = "Seat of Triumvirate", mapID = 8910, coords = {x = 0.5, y = 0.5}, notes = "Final boss (dungeon in Mac'Aree, Argus). Drop confirmed. Entrance via Argus portal."},
     [241066] = {mobName = "Granokk", zone = "Arathi Highlands (Warfront Phase)", mapID = 14, coords = {x = 0.47, y = 0.56}, notes = "Rare spawn cycle. Use Zidormi to access present timeline."},
     [244655] = {mobName = "Lord Godfrey", zone = "Shadowfang Keep Dungeon", mapID = 209, coords = {x = 0.468, y = 0.724}, notes = "Final boss upper."},
-    [245292] = {mobName = "Stolen Present", zone = "Major Cities", mapID = 84, coords = {x = 0.0, y = 0.0}, notes = "Yearly Gift Box - Daily loot from Stolen Present objects during Feast of Winter Veil (Stormwind/Orgrimmar)"},
     [245434] = {mobName = "Skulloc", zone = "Iron Docks Dungeon", mapID = 6951, coords = {x = 0.52, y = 0.48}, notes = "Final boss (train platform). Drop ~0.15%. Entrance Gorgrond."},
     [245435] = {mobName = "Warlord Zaela", zone = "Upper Blackrock Spire", mapID = 7307, coords = {x = 0.48, y = 0.7}, notes = "Final boss (throne room). Drop ~0.3%. Entrance Burning Steppes."},
     [245451] = {mobName = "Dargrul", zone = "Neltharion's Lair", mapID = 7546, coords = {x = 0.5, y = 0.5}, notes = "Final boss. Drop ~0.7%; can double-drop. Entrance Highmountain /way 49.6 68.5 (south of Thunder Totem)."},
@@ -29,9 +28,6 @@ HA.DropSources = {
     [246429] = {mobName = "Emperor Dagran Thaurissan", zone = "Blackrock Depths", mapID = 1584, coords = {x = 0.909, y = 0.118}, notes = "Shadowforge final."},
     [246846] = {mobName = "Sha of Doubt", zone = "Temple of Jade Serpent", mapID = 960, coords = {x = 0.486, y = 0.672}, notes = "Boss room."},
     [246865] = {mobName = "Viz'aduum the Watcher", zone = "Eastern Kingdoms", coords = {x = 0.5, y = 0.5}, notes = "Alt: Viz'aduum (Karazhan return) secondary."},
-    [247664] = {mobName = "Sha of Doubt", zone = "Temple of the Jade Serpent", mapID = 371, coords = {x = 0.0, y = 0.0}, notes = "100% Drop Rate (Dungeon) - Final Boss"},
-    [247665] = {mobName = "Tanaan Rares", zone = "Tanaan Jungle", mapID = 534, coords = {x = 0.0, y = 0.0}, notes = "Rare World Drop - Various Rare Elites throughout Tanaan Jungle"},
-    [247742] = {mobName = "Zhu-Gon the Sour", zone = "Timeless Isle", mapID = 554, coords = {x = 0.526, y = 0.634}, notes = "Rare Drop"},
     [247913] = {mobName = "Advisor Melandrus", zone = "Court of Stars", mapID = 761, coords = {x = 0.5, y = 0.5}, notes = "Final boss of Court of Stars dungeon."},
     -- 248101 removed: item doesn't exist on Wowhead
     [248332] = {mobName = "Vanessa VanCleef", zone = "The Deadmines", mapID = 36, coords = {x = 0.246, y = 0.824}, notes = "Final boss."},
@@ -58,7 +54,6 @@ HA.DropSources = {
     [253296] = {mobName = "Lunar Festival Vendor", zone = "Moonglade", coords = {x = 0.0, y = 0.0}, notes = "Lunar Festival holiday event - Purchase with Coin of Ancestry (currency 21100)"},
     [253297] = {mobName = "Lunar Festival Vendor", zone = "Moonglade", coords = {x = 0.0, y = 0.0}, notes = "Lunar Festival holiday event - Purchase with Coin of Ancestry (currency 21100)"},
     -- 253451 removed: Wowhead says drops from Ziekket, not Chimaerus — needs re-verification
-    [253540] = {mobName = "Community Feast Event", zone = "Iskaara", mapID = 2024, coords = {x = 0.136, y = 0.486}, notes = "Community Feast event reward - Iskaara"},
     [255672] = {mobName = "King Mechagon", zone = "Operation: Mechagon", mapID = 2112, coords = {x = 0.502, y = 0.384}, notes = "Final boss (primary)."},
     [256354] = {mobName = "Warlord Sargha", zone = "Neltharus Dungeon", mapID = 14011, coords = {x = 0.5, y = 0.5}, notes = "Final boss."},
     [256428] = {mobName = "Erkhart Stormvein", zone = "Algeth'ar Academy", mapID = 14063, coords = {x = 0.5, y = 0.5}, notes = "Boss (w/ Kyrakka); confirmed DF dungeon."},

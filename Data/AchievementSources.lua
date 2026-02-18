@@ -1,24 +1,23 @@
 --[[
     Homestead - Achievement Sources
     Generated: 2026-02-01 23:11:17
-    Total entries: 162
+    Total entries: 152
 
     Maps itemID to achievement source information.
     Cleaned 2026-02-17: Removed 40 entries with fabricated/conflicting data,
     fixed achievementID for item 248011.
+    Cleaned 2026-02-17: Removed 10 entries with nonexistent itemIDs
+    (confirmed via Wowhead + in-game decorID validation).
 ]]
 
 local addonName, HA = ...
 
 HA.AchievementSources = {
     [241062] = {achievementID = 12509, achievementName = "Ready for War"},
-    [243337] = {achievementID = 61467, achievementName = "Lorewalking: The Elves of Quel'Thalas"},
-    [243338] = {achievementID = 61467, achievementName = "Lorewalking: The Elves of Quel'Thalas"},
     [244325] = {achievementID = 12746, achievementName = "The Zandalari Menu"},
     [244326] = {achievementID = 13018, achievementName = "Dune Rider"},
     [244852] = {achievementID = 4405, achievementName = "More Dots! (25 player)"},
     [245271] = {achievementID = 12582, achievementName = "Come Sail Away"},
-    [245292] = {achievementID = 1691, achievementName = "Merrymaker"},
     [245302] = {achievementID = 41119, achievementName = "One Rank Higher"},
     [245324] = {achievementID = 40894, achievementName = "Sojourner of Undermine"},
     [245332] = {achievementID = 61467, achievementName = "Lorewalking: The Elves of Quel'Thalas"},
@@ -61,7 +60,6 @@ HA.AchievementSources = {
     [247762] = {achievementID = 213, achievementName = "Stormtrooper"},
     [247843] = {achievementID = 11340, achievementName = "Insurrection"},
     [248011] = {achievementID = 42273, achievementName = "The Huntmaster's Campaign"},
-    [248081] = {achievementID = 6548, achievementName = "The Lorewalkers"},
     [248104] = {achievementID = 17773, achievementName = "A Blue Dawn"},
     [248105] = {achievementID = 19507, achievementName = "Fringe Benefits"},
     [248124] = {achievementID = 19458, achievementName = "A World Awoken"},
@@ -118,7 +116,6 @@ HA.AchievementSources = {
     [251636] = {achievementID = 60988, achievementName = "Raise an Army for the Netherlight Temple"},
     [251778] = {achievementID = 61218, achievementName = "The Wardens"},
     [251779] = {achievementID = 42689, achievementName = "Timeworn Keystone Master"},
-    [251916] = {achievementID = 5245, achievementName = "Battle-Hardened"},
     [252653] = {achievementID = 13049, achievementName = "The Long Con"},
     [252654] = {achievementID = 12997, achievementName = "The Pride of Kul Tiras"},
     [252753] = {achievementID = 42655, achievementName = "The Armies of Legionfall"},
@@ -127,10 +124,6 @@ HA.AchievementSources = {
     [253037] = {achievementID = 40859, achievementName = "We're Here All Night"},
     [253163] = {achievementID = 19408, achievementName = "Professional Algari Master"},
     [253170] = {achievementID = 40210, achievementName = "Deephaul Ravine Victory"},
-    [253243] = {achievementID = 19331, achievementName = "Amirdrassil, the Dream's Hope"},
-    [253847] = {achievementID = 8316, achievementName = "Pandaren Diplomat"},
-    [254086] = {achievementID = 9415, achievementName = "Rukhmar's Legacy"},
-    [256624] = {achievementID = 40953, achievementName = "MOTHER's Keeper"},
     [256674] = {achievementID = 60966, achievementName = "Legendary Research of the Tirisgarde"},
     [256677] = {achievementID = 42628, achievementName = "The Nightfallen"},
     [256679] = {achievementID = 60967, achievementName = "Legendary Research of Five Dawns"},
@@ -140,7 +133,6 @@ HA.AchievementSources = {
     [257354] = {achievementID = 42187, achievementName = "Lorewalking: Ethereal Wisdom"},
     [257355] = {achievementID = 42188, achievementName = "Lorewalking: Blade's Bane"},
     [257396] = {achievementID = 60973, achievementName = "Legendary Research of the Valarjar"},
-    [257398] = {achievementID = 19820, achievementName = "Art Appreciation"},
     [257403] = {achievementID = 42280, achievementName = "The Farseer's Campaign"},
     [257721] = {achievementID = 11341, achievementName = "Nightborne Armory"},
     [258223] = {achievementID = 11699, achievementName = "Grand Fin-ale"},
