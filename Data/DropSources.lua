@@ -68,6 +68,7 @@ HA.DropSources = {
     [263238] = {mobName = "Assault of the Zaqali", zone = "Aberrus Raid", mapID = 2569, coords = {x = 0.592, y = 0.418}, notes = "Boss room."},
     -- 263290 (Spring Blossom Tree) removed: source unknown, not Lunar Festival
     -- 263291 (Spring Blossom Pond) removed: source unknown, not Lunar Festival
+    [245315] = {mobName = "S.C.R.A.P. Heap", zone = "The War Within", notes = "Random drop from S.C.R.A.P. heap containers (Half-Empty Bag, Dented Crate, Uncovered Strongbox). Low drop rate (~0.1-0.9%)."},
     [264187] = {mobName = "Belo'ren", zone = "Siren Isle (Rare)", mapID = 16472, coords = {x = 0.5, y = 0.5}, notes = "Final boss drop (Light Ember child). /way Quel'Danas entrance."},
     [264246] = {mobName = "Chimaerus", zone = "Midnight Falls Raid", mapID = 16531, coords = {x = 0.5, y = 0.5}, notes = "Final (only) boss drop. Aberration-themed shroom. Confirmed Wowhead."},
     [264332] = {mobName = "Nalorakk", zone = "Zul'Aman (Siren Update)", mapID = 2437, coords = {x = 0.5, y = 0.5}, notes = "Classic boss (timewalk?)."},
