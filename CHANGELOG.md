@@ -2,25 +2,29 @@
 
 ---
 
-## v1.4.0 (2026-02-16)
+## v1.4.0
 
 ### New
 
-- **Homestead Panel** — Our new vendor panel now docks to the left side of the world map, showing all decor vendors in the current zone along with your collection progress. Click any vendor to see their full inventory what you've collected, what's available, and what you still need.
-  - Click any item to see a 3D preview of the decor using the in-game model viewer. The preview window is draggable and scaled down for easy browsing.
-  - Locked items display a red border and padlock icon at a glance. Hover over them to see what's needed reputation, achievements, quests, or renown.
-  - Pop the panel out into its own movable window that stays open even after closing the world map. Detach it using the arrow button in the panel header or by right-clicking the minimap button.
-  - A Homestead Panel checkbox has been added to the world map's tracking dropdown, letting you show or hide the panel without closing it.
-  - Your panel position and size are saved between sessions.
+**Homestead Panel**
+A vendor panel now docks to the left side of your world map. Open the map in any zone and see every decor vendor there alongside your collection progress. Click any vendor to browse their full inventory: what you own, what's available, and what you still need.
 
-- **Sub-Zone Pin Visibility** — Vendor pins now appear correctly on maps such as Dalaran Underbelly, Thunder Totem, and Suramar City.
+- Click any item in the Homestead Panel to open a 3D model preview using the in-game viewer. The preview window is draggable and scaled for easy browsing.
+- Locked items show a red border in the vendor inventory. Hover over any locked item to see exactly what's required to unlock it, whether it's rep, achievements, quests, or renown.
+- Pop the Homestead Panel into its own floating window that stays open after you close the map. Detach it with the arrow button in the panel header or by right-clicking the minimap button.
+- Toggle the Homestead Panel from the world map's tracking dropdown without closing it.
+- Panel position and size are saved between sessions.
 
-- **Minimap Elevation Arrows** — Vendor pins on the minimap now show small directional arrows when the vendor is on a different floor above or below you.
+**Indoor Vendor Pins**
+Vendor pins now display correctly in indoor maps like Dalaran Underbelly, Thunder Totem, Suramar City, and other interior zones that use their own map layer.
+
+**Minimap Elevation Arrows**
+Minimap pins now show directional arrows when a vendor is on a different floor above or below you.
 
 ### Changed
 
-- **Minimap Left-Click** — Left-clicking the minimap button now opens and closes the options panel.
-- **Minimap Right-Click** — Right-clicking the minimap button now opens or closes the detached vendor panel directly. Middle-click still triggers a collection scan.
+**Minimap Button**
+Left-click opens and closes the options panel. Right-click opens and closes the Homestead Panel. Middle-click still triggers a collection scan.
 
 ### Fixed
 
