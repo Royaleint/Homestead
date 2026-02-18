@@ -2,9 +2,11 @@
     Homestead - MapSidePanel
     World map side panel showing vendors and collection status for the current zone
 
-    Attaches a collapsible panel to the left edge of WorldMapFrame.
+    Collapsible panel positioned at the left edge of WorldMapFrame.
+    Parented to UIParent (not WorldMapFrame) to prevent displacement when
+    the map is maximized, minimized, or closed. Cross-parent anchoring
+    keeps the panel flush with the map canvas in docked mode.
     Shows vendor list with collection counts, click-to-waypoint support.
-    Foundation for future prerequisite/progress tracking UI.
 
     Toggle button uses the same visual pattern as HandyNotes_TWW
     (Krowi_WorldMapButtons): 32x32 circular minimap-style icon positioned
@@ -506,18 +508,20 @@ end
 local function CreatePanel()
     if panelFrame then return end
 
-    -- Main panel frame, anchored flush against the left edge of the map canvas.
-    -- When shown, the map shifts right to make room (see ShiftMap).
+    -- Main panel frame, parented to UIParent with cross-parent anchoring to
+    -- the map canvas. Sits flush against the left edge of the canvas.
+    -- When shown, the map shifts right to make room (see ShiftMapRight).
     -- Styled using Blizzard's NineSlice border system to match the map frame.
     -- Named for UISpecialFrames support (Escape-to-close when detached).
     local canvas = WorldMapFrame.ScrollContainer
-    local panel = CreateFrame("Frame", "HomesteadSidePanel", WorldMapFrame)
+    local panel = CreateFrame("Frame", "HomesteadSidePanel", UIParent)
     panel:SetWidth(PANEL_WIDTH)
     panel:SetPoint("TOPRIGHT", canvas, "TOPLEFT", 0, 0)
     panel:SetPoint("BOTTOMRIGHT", canvas, "BOTTOMLEFT", 0, 0)
     panel:SetFrameStrata("HIGH")
     panel:SetFrameLevel(500)
     panel:EnableMouse(true)  -- Prevent clicks falling through to world map
+    panel:SetClampedToScreen(true)  -- Safety net: prevent off-screen displacement
 
     -- 1. BORDER: NineSlice metal border (PortraitFrameTemplate base, corners overridden)
     panel.NineSlice = CreateFrame("Frame", nil, panel, "NineSlicePanelTemplate")
@@ -1280,11 +1284,7 @@ end
 local savedPortraitState = nil
 local savedPortraitTexture = nil  -- original portrait texture/ID, restored on close
 local savedTutorialState = nil
--- NavBar: surgical save — only the TOPLEFT anchor, strata, and level are modified,
--- so only those need saving. Avoids SetParent/ClearAllPoints side effects.
-local savedNavBarTOPLEFT = nil  -- {relativeTo, relativePoint, x, y}
-local savedNavBarStrata = nil
-local savedNavBarLevel = nil
+local savedNavBarState = nil
 local savedClipStates = {}  -- { [frame] = originalClipBool }
 
 local function SaveFrameState(frame)
@@ -1375,32 +1375,16 @@ local function ReparentMapElements()
         tutorial:Show()
     end
 
-    -- 3. Nav bar → extend left anchor to panel (keep right anchor on map).
-    --    Walk the entire parent chain from nav bar to WorldMapFrame and
-    --    disable clipping on every frame to prevent breadcrumb cutoff.
-    --    Only the TOPLEFT anchor, strata, and level are changed — surgical
-    --    save avoids SetParent/ClearAllPoints side effects on restore.
+    -- 3. Nav bar → reparent to panelFrame so it shares the same rendering
+    --    subtree. Without this, the nav bar (in WorldMapFrame's tree) renders
+    --    behind the panel (on UIParent) regardless of frame level or strata.
+    --    Walk the parent chain first to disable clipping, then reparent.
     local navBar = wm.NavBar
-    if navBar and not savedNavBarTOPLEFT and navBar:GetNumPoints() > 0 then
-        -- Save only what we change: TOPLEFT anchor, strata, level
-        savedNavBarStrata = navBar:GetFrameStrata()
-        savedNavBarLevel = navBar:GetFrameLevel()
+    if navBar and not savedNavBarState then
+        savedNavBarState = SaveFrameState(navBar)
 
-        -- Find the TOPLEFT anchor specifically
-        local origRelTo, origRelPt, origX, origY
-        for i = 1, navBar:GetNumPoints() do
-            local p, r, rp, x, y = navBar:GetPoint(i)
-            if p == "TOPLEFT" then
-                origRelTo = r
-                origRelPt = rp
-                origX = x or 0
-                origY = y or 0
-                break
-            end
-        end
-        savedNavBarTOPLEFT = { origRelTo, origRelPt, origX, origY }
-
-        -- Walk the entire parent chain from nav bar upward, disabling clipping
+        -- Walk the parent chain from nav bar upward, disabling clipping
+        -- (must happen before reparent while the chain is still intact)
         local frame = navBar
         while frame and frame ~= wm do
             DisableClipping(frame)
@@ -1409,20 +1393,36 @@ local function ReparentMapElements()
             frame = parent
         end
         DisableClipping(wm)
-
-        -- Also disable clipping on the nav bar itself
         DisableClipping(navBar)
 
-        -- Raise nav bar above the panel so buttons aren't hidden behind
-        -- the panel's opaque background. Panel is HIGH/500; nav bar must
-        -- be above that for the left-extending breadcrumbs to be visible.
+        -- Find original Y offset from TOPLEFT anchor
+        local origY = 0
+        for _, a in ipairs(savedNavBarState.anchors) do
+            if a[1] == "TOPLEFT" then
+                origY = a[5] or 0
+                break
+            end
+        end
+
+        -- Reparent to panel, then set anchors and level
+        navBar:SetParent(panelFrame)
         navBar:SetFrameStrata("HIGH")
         navBar:SetFrameLevel(panelFrame:GetFrameLevel() + 15)  -- 515
 
-        -- Replace the left anchor: start at the panel's left edge, past
-        -- the portrait (≈64px). Keep the original Y offset and right anchor.
-        navBar:SetPoint("TOPLEFT", panelFrame, "TOPLEFT", 64, origY or 0)
+        -- Proxy SetMapID/GetMapID: Blizzard's NavBar GoToMap calls
+        -- self:GetParent():SetMapID(mapID), which now hits panelFrame.
+        if not panelFrame.SetMapID then
+            panelFrame.SetMapID = function(_, mapID)
+                WorldMapFrame:SetMapID(mapID)
+            end
+            panelFrame.GetMapID = function()
+                return WorldMapFrame:GetMapID()
+            end
+        end
 
+        -- Replace the left anchor: start at the panel's left edge, past
+        -- the portrait (~64px). Keep the original Y offset and right anchor.
+        navBar:SetPoint("TOPLEFT", panelFrame, "TOPLEFT", 64, origY)
     end
 end
 
@@ -1447,16 +1447,11 @@ local function RestoreMapElements()
         savedTutorialState = nil
     end
 
-    -- Nav bar (surgical restore — only TOPLEFT anchor, strata, level)
+    -- Nav bar (full restore — parent, strata, level, all anchors)
     local navBar = wm.NavBar
-    if navBar and savedNavBarTOPLEFT then
-        navBar:SetPoint("TOPLEFT", savedNavBarTOPLEFT[1], savedNavBarTOPLEFT[2],
-            savedNavBarTOPLEFT[3], savedNavBarTOPLEFT[4])
-        navBar:SetFrameStrata(savedNavBarStrata)
-        navBar:SetFrameLevel(savedNavBarLevel)
-        savedNavBarTOPLEFT = nil
-        savedNavBarStrata = nil
-        savedNavBarLevel = nil
+    if navBar and savedNavBarState then
+        RestoreFrameState(navBar, savedNavBarState)
+        savedNavBarState = nil
     end
 
     -- Clipping
@@ -1676,11 +1671,17 @@ local panelShowGeneration = 0  -- Incremented each Show, guards deferred callbac
 
 local function ShowPanel()
     if not panelFrame then return end
-    panelFrame:Show()
 
     -- When popped out, skip all map integration (panel is independent)
-    if isPoppedOut then return end
+    if isPoppedOut then
+        panelFrame:Show()
+        return
+    end
 
+    -- Don't show docked panel when map is maximized (fills the screen)
+    if WorldMapFrame.isMaximized then return end
+
+    panelFrame:Show()
     ShiftMapRight()
 
     if not ShouldUseStandaloneMode() then
@@ -1790,10 +1791,9 @@ function MapSidePanel:PopOut()
     RestoreMapElements()
     RestoreMapPosition()
 
-    -- 3. Reparent to UIParent
-    panelFrame:SetParent(UIParent)
+    -- 3. Panel is already parented to UIParent; no reparent needed
 
-    -- 4. Re-set strata/levels after reparent
+    -- 4. Re-set strata/levels
     RestoreFrameLevels()
 
     -- 5-6. Clear anchors, set size, restore position
@@ -1871,13 +1871,11 @@ function MapSidePanel:DockPanel()
         end
     end
 
-    -- 3. Reparent back to WorldMapFrame
-    panelFrame:SetParent(WorldMapFrame)
+    -- 3. Panel stays parented to UIParent; just reconfigure for docked mode
 
     -- 4. Clear drag and resize handlers
     panelFrame:SetMovable(false)
     panelFrame:SetResizable(false)
-    panelFrame:SetClampedToScreen(false)
     panelFrame:SetScript("OnDragStart", nil)
     panelFrame:SetScript("OnDragStop", nil)
     if resizeHandle then resizeHandle:Hide() end
@@ -1889,7 +1887,7 @@ function MapSidePanel:DockPanel()
     panelFrame:SetPoint("TOPRIGHT", canvas, "TOPLEFT", 0, 0)
     panelFrame:SetPoint("BOTTOMRIGHT", canvas, "BOTTOMLEFT", 0, 0)
 
-    -- 6. Re-set strata/levels after reparent
+    -- 6. Re-set strata/levels
     RestoreFrameLevels()
     -- Reattach button level is not reset here — it's hidden when docked
     -- and touching frame levels during dock disrupts NineSlice rendering.
@@ -1943,11 +1941,9 @@ function MapSidePanel:CloseDetached()
         end
     end
 
-    -- Reparent back to WorldMapFrame so it's ready for docked mode next time
-    panelFrame:SetParent(WorldMapFrame)
+    -- Panel stays on UIParent; just reconfigure for docked mode next time
     panelFrame:SetMovable(false)
     panelFrame:SetResizable(false)
-    panelFrame:SetClampedToScreen(false)
     panelFrame:SetScript("OnDragStart", nil)
     panelFrame:SetScript("OnDragStop", nil)
     if resizeHandle then resizeHandle:Hide() end
@@ -2074,11 +2070,14 @@ function MapSidePanel:Initialize()
             MapSidePanel:RefreshContent()
             return
         end
+        -- Don't show docked panel when map is maximized (fills the screen)
+        if WorldMapFrame.isMaximized then return end
         -- Restore panel visibility + shift map when map opens
         if HA.Addon and HA.Addon.db
                 and HA.Addon.db.profile.vendorTracer.showMapSidePanel then
             -- Delay to let the map settle its position first
             C_Timer.After(0, function()
+                if WorldMapFrame.isMaximized then return end
                 ShowPanel()
                 MapSidePanel:RefreshContent()
             end)
@@ -2096,9 +2095,43 @@ function MapSidePanel:Initialize()
         RestoreContentInset()
         RestoreTopBorder()
         RestoreMapElements()
+        -- Explicitly hide panel (no longer auto-hides since parent is UIParent)
+        if panelFrame then panelFrame:Hide() end
         RestoreMapPosition()
         mapShifted = false
     end)
+
+    -- Handle map maximize: hide docked panel to prevent off-screen displacement.
+    -- hooksecurefunc fires AFTER Blizzard's code has already repositioned the map,
+    -- so we clear our shift state without restoring (the old savedMapPoint is stale).
+    if WorldMapFrame.HandleUserActionMaximizeSelf then
+        hooksecurefunc(WorldMapFrame, "HandleUserActionMaximizeSelf", function()
+            if isPoppedOut then return end
+            if not panelFrame or not panelFrame:IsShown() then return end
+            panelShowGeneration = panelShowGeneration + 1
+            RestoreContentInset()
+            RestoreTopBorder()
+            RestoreMapElements()
+            panelFrame:Hide()
+            mapShifted = false
+            savedMapPoint = nil
+        end)
+    end
+
+    -- Handle map minimize: re-show docked panel
+    if WorldMapFrame.HandleUserActionMinimizeSelf then
+        hooksecurefunc(WorldMapFrame, "HandleUserActionMinimizeSelf", function()
+            if isPoppedOut then return end
+            if not panelFrame then return end
+            if HA.Addon and HA.Addon.db
+                    and HA.Addon.db.profile.vendorTracer.showMapSidePanel then
+                C_Timer.After(0, function()
+                    ShowPanel()
+                    MapSidePanel:RefreshContent()
+                end)
+            end
+        end)
+    end
 
     -- Listen for data changes
     if HA.Events then
