@@ -2,6 +2,16 @@
 
 ---
 
+## v1.4.1
+
+### Bug Fixes
+- Fixed Homestead panel being pushed off-screen when the world map is maximized
+  or minimized
+- Fixed Dragon's Hoard Chest ID and added Trashfire Barrel drop to the database
+- Added 2 new vendors
+
+---
+
 ## v1.4.0
 
 ### New
