@@ -23,11 +23,6 @@ HA.WhatsNew = {
                 body = "Tooltips now show where to find items, what's required to unlock them, and whether you've completed the requirements.",
             },
             {
-                icon = "Interface\\Icons\\Calendar_WinterVeil",
-                heading = "Event Vendor Pins",
-                body = "Holiday vendors now appear on the map automatically when their event is active.",
-            },
-            {
                 icon = "Interface\\Icons\\Trade_Engineering",
                 heading = "Bug Fixes & Performance",
                 body = "Fixed combat taint, scanner errors, and panel displacement. Reorganized settings and improved performance.",
