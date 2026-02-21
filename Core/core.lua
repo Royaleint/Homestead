@@ -19,7 +19,7 @@ HA.Addon = Homestead
 
 -- Expose globally for debugging (allows /dump Homestead commands)
 -- Intentional global: addon interop, WeakAura detection, /dump access
-_G.Homestead = HA
+_G.Homestead = HA -- luacheck: ignore 122
 
 -- WagoAnalytics: silent load, graceful fallback for local dev
 local WagoAnalytics = LibStub("WagoAnalytics", true)
@@ -29,9 +29,6 @@ end
 
 -- Backwards compatibility alias
 local HousingAddon = Homestead
-
--- Localization reference (will be populated by locale files)
-local L = HA.L or {}
 
 -- Local references for performance
 local Constants = HA.Constants
@@ -93,6 +90,11 @@ function HousingAddon:OnEnable()
         HA.SourceTextScanner:Initialize()
     end
 
+    -- Initialize CalendarDetector for seasonal event detection
+    if HA.CalendarDetector then
+        HA.CalendarDetector:Initialize()
+    end
+
     -- Initialize Waypoints utility
     if HA.Waypoints then
         HA.Waypoints:Initialize()
@@ -113,9 +115,14 @@ function HousingAddon:OnEnable()
         HA.VendorMapPins:Initialize()
     end
 
-    -- Initialize WelcomeFrame for first-run onboarding
+    -- Initialize WelcomeFrame for first-run onboarding (new installs only)
     if HA.WelcomeFrame then
         HA.WelcomeFrame:Initialize()
+    end
+
+    -- What's New trigger (version updates, skips for new installs)
+    if HA.WhatsNewFrame then
+        HA.WhatsNewFrame:Initialize()
     end
 
     self:Debug("Homestead enabled")
@@ -278,6 +285,10 @@ function HousingAddon:SlashCommandHandler(input)
         if HA.WelcomeFrame then
             HA.WelcomeFrame:Show()
         end
+    elseif input == "whatsnew" then
+        if HA.WhatsNewFrame then
+            HA.WhatsNewFrame:Show(HA.Constants.VERSION)
+        end
     else
         self:Print("Unknown command:", input)
         self:PrintHelp()
@@ -301,7 +312,8 @@ function HousingAddon:PrintHelp()
     self:Print("  /hs exportall - Export ALL, bypass timestamp filter")
     self:Print("  /hs clearscans - Clear all scanned vendor data")
     self:Print("  /hs validate - Validate vendor database")
-    self:Print("  /hs welcome - Show welcome/onboarding screen")
+    self:Print("  /hs welcome - Show welcome screen")
+    self:Print("  /hs whatsnew - Show What's New panel")
     self:Print("  /hs debug - Toggle debug mode")
     self:Print("  /hs help - Show this help")
 end
@@ -650,7 +662,7 @@ function HousingAddon:ShowCopyableText(text)
         editBox:SetFontObject(GameFontHighlight)
         editBox:SetWidth(440)
         editBox:SetAutoFocus(false)
-        editBox:SetScript("OnEscapePressed", function(self) self:ClearFocus() end)
+        editBox:SetScript("OnEscapePressed", function(self) self:ClearFocus() end) -- luacheck: ignore 432
         scrollFrame:SetScrollChild(editBox)
 
         -- Select all button

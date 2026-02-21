@@ -20,7 +20,7 @@
       All per-item events suppressed. EndBatch fires one of each if needed.
 ]]
 
-local addonName, HA = ...
+local _, HA = ...
 
 local CatalogStore = {}
 HA.CatalogStore = CatalogStore
@@ -35,6 +35,7 @@ local pcall = pcall
 -- Internal state
 local ci = nil              -- shorthand for db.global.catalogItems (set on Initialize)
 local decorToItemID = {}    -- reverse index: decorID → itemID
+local ownedCount = 0        -- cached count of owned items (incremented in SetOwned)
 local batchMode = false     -- true during catalog scan batches
 local batchOwnershipChanged = false
 local batchDataChanged = false
@@ -113,9 +114,10 @@ function CatalogStore:SetOwned(itemID, name, decorID)
         end
     end
 
-    -- Bump negative cache generation on new ownership
+    -- Bump negative cache generation and owned counter on new ownership
     if not wasOwned then
         negativeGeneration = negativeGeneration + 1
+        ownedCount = ownedCount + 1
     end
 
     -- Fire event (or defer in batch mode)
@@ -294,16 +296,9 @@ function CatalogStore:GetRequirements(itemID)
     return record and record.requirements
 end
 
--- Count of owned items in catalogItems
+-- Count of owned items in catalogItems (cached, O(1))
 function CatalogStore:GetOwnedCount()
-    if not ci then return 0 end
-    local count = 0
-    for _, record in pairs(ci) do
-        if record.isOwned then
-            count = count + 1
-        end
-    end
-    return count
+    return ownedCount
 end
 
 -- Get negative cache generation (for external negative cache consumers)
@@ -331,6 +326,9 @@ function CatalogStore:ClearAll()
         HA.Addon.db.global.ownedDecor = {}
     end
 
+    -- Reset cached counter
+    ownedCount = 0
+
     -- Bust negative cache
     negativeGeneration = negativeGeneration + 1
 
@@ -340,15 +338,50 @@ function CatalogStore:ClearAll()
 end
 
 -- Rebuild decorID → itemID reverse index
+-- Seeds from static DecorMapping first, then overlays runtime discoveries
 function CatalogStore:BuildDecorIndex()
     decorToItemID = {}
-    if not ci then return end
 
-    for itemID, record in pairs(ci) do
-        if record.decorID and record.decorID ~= 0 then
-            decorToItemID[record.decorID] = itemID
+    -- Seed from static mapping (generated from Blizzard web API)
+    local staticMapping = HA.DecorMapping
+    if staticMapping then
+        for decorID, itemID in pairs(staticMapping) do
+            decorToItemID[decorID] = itemID
         end
     end
+
+    -- Overlay runtime discoveries from catalogItems (may contain newer data)
+    if ci then
+        for itemID, record in pairs(ci) do
+            if record.decorID and record.decorID ~= 0 then
+                decorToItemID[record.decorID] = itemID
+            end
+        end
+    end
+end
+
+-- Probe ownership by decorID using the safe GetCatalogEntryInfoByRecordID API.
+-- Use for edge cases where we have a decorID but need ownership confirmation.
+-- Returns: info table from API, or nil
+function CatalogStore:ProbeByDecorID(decorID)
+    if not decorID then return nil end
+
+    local CHC = _G.C_HousingCatalog
+    if not CHC or not CHC.GetCatalogEntryInfoByRecordID then return nil end
+
+    local ok, info = pcall(CHC.GetCatalogEntryInfoByRecordID, 1, decorID, true)
+    if ok and info then
+        -- Cache the result in catalogItems if we can resolve the itemID
+        local itemID = decorToItemID[decorID]
+        if itemID and info.firstAcquisitionBonus == 0 then
+            self:SetOwned(itemID, info.name, decorID)
+        elseif itemID then
+            _save(itemID, { decorID = decorID })
+        end
+        return info
+    end
+
+    return nil
 end
 
 -------------------------------------------------------------------------------
@@ -477,15 +510,33 @@ function CatalogStore:Initialize()
     -- Run schema migrations
     self:RunMigrations()
 
-    -- Build reverse index
+    -- Build reverse index (seeds from DecorMapping + runtime data)
     self:BuildDecorIndex()
 
-    if HA.Addon then
-        local count = 0
-        if ci then
-            for _ in pairs(ci) do count = count + 1 end
+    -- Initialize owned count from full table scan (one-time at startup)
+    ownedCount = 0
+    local totalItems = 0
+    if ci then
+        for _, record in pairs(ci) do
+            totalItems = totalItems + 1
+            if record.isOwned then
+                ownedCount = ownedCount + 1
+            end
         end
-        HA.Addon:Debug("CatalogStore: Initialized with", count, "items, schema v" .. (HA.Addon.db.global.schemaVersion or 1))
+    end
+
+    local staticCount = 0
+    if HA.DecorMapping then
+        for _ in pairs(HA.DecorMapping) do staticCount = staticCount + 1 end
+    end
+
+    local indexSize = 0
+    for _ in pairs(decorToItemID) do indexSize = indexSize + 1 end
+
+    if HA.Addon then
+        HA.Addon:Debug("CatalogStore: Initialized with", totalItems, "items,",
+            ownedCount, "owned,", indexSize, "decorID mappings (" .. staticCount .. " static),",
+            "schema v" .. (HA.Addon.db.global.schemaVersion or 1))
     end
 end
 

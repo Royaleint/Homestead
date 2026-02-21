@@ -26,7 +26,7 @@
     /run print(select(4, GetAchievementInfo(ACHIEVEMENT_ID)))
 ]]
 
-local addonName, HA = ...
+local _, HA = ...
 
 local AchievementDecor = {}
 HA.AchievementDecor = AchievementDecor
@@ -220,7 +220,7 @@ local achievementData = {
         category = "exploration",
         expansion = "DF",
         items = {
-            {itemID = 244482, name = "Dragon's Hoard Chest"},
+            {itemID = 248656, name = "Dragon's Hoard Chest"},
         },
     },
 

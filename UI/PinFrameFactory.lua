@@ -7,7 +7,7 @@
     Color/size helpers used by Options.lua for preview swatches.
 ]]
 
-local addonName, HA = ...
+local _, HA = ...
 
 local PinFrameFactory = {}
 HA.PinFrameFactory = PinFrameFactory
@@ -214,18 +214,18 @@ function PinFrameFactory:CreateVendorPinFrame(vendor, isOppositeFaction, isUnver
     frame.isUnverified = isUnverified
 
     -- Tooltip/click handlers (delegate to VendorMapPins at runtime)
-    frame:SetScript("OnEnter", function(self)
+    frame:SetScript("OnEnter", function(self) -- luacheck: ignore 432
         if HA.VendorMapPins then
             HA.VendorMapPins:ShowVendorTooltip(self, self.vendor)
         end
     end)
-    frame:SetScript("OnLeave", function(self)
+    frame:SetScript("OnLeave", function(self) -- luacheck: ignore 432
         if HA.VendorMapPins then
             HA.VendorMapPins:OnPinLeave()
         end
         GameTooltip:Hide()
     end)
-    frame:SetScript("OnMouseUp", function(self, button)
+    frame:SetScript("OnMouseUp", function(self, button) -- luacheck: ignore 432
         if button == "LeftButton" and HA.VendorMapPins then
             HA.VendorMapPins:SetWaypointToVendor(self.vendor)
         end
@@ -344,15 +344,15 @@ function PinFrameFactory:CreateBadgePinFrame(badgeData)
     end
 
     -- Tooltip/click handlers
-    frame:SetScript("OnEnter", function(self)
+    frame:SetScript("OnEnter", function(self) -- luacheck: ignore 432
         if HA.VendorMapPins then
             HA.VendorMapPins:ShowZoneBadgeTooltip(self, self.badgeData)
         end
     end)
-    frame:SetScript("OnLeave", function(self)
+    frame:SetScript("OnLeave", function(self) -- luacheck: ignore 432
         GameTooltip:Hide()
     end)
-    frame:SetScript("OnMouseUp", function(self, button)
+    frame:SetScript("OnMouseUp", function(self, button) -- luacheck: ignore 432
         if button == "LeftButton" and self.badgeData and self.badgeData.mapID then
             WorldMapFrame:SetMapID(self.badgeData.mapID)
         end
@@ -434,7 +434,7 @@ function PinFrameFactory:CreateMinimapPinFrame(vendor, isOppositeFaction, isUnve
     frame.isUnverified = isUnverified
 
     -- Simple tooltip on hover
-    frame:SetScript("OnEnter", function(self)
+    frame:SetScript("OnEnter", function(self) -- luacheck: ignore 432
         GameTooltip:SetOwner(self, "ANCHOR_LEFT")
         GameTooltip:ClearLines()
         GameTooltip:AddLine(self.vendor.name, 1, 1, 1)
@@ -454,7 +454,7 @@ function PinFrameFactory:CreateMinimapPinFrame(vendor, isOppositeFaction, isUnve
         end
         GameTooltip:Show()
     end)
-    frame:SetScript("OnLeave", function(self)
+    frame:SetScript("OnLeave", function(self) -- luacheck: ignore 432
         GameTooltip:Hide()
     end)
 

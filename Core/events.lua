@@ -3,7 +3,7 @@
     Smart event system with throttling for performance
 ]]
 
-local addonName, HA = ...
+local _, HA = ...
 
 -- Create events module
 local Events = {}

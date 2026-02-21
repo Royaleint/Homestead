@@ -6,7 +6,6 @@
 local addonName, HA = ...
 
 -- Local references
-local Constants = HA.Constants
 local L = HA.L or {}
 
 -------------------------------------------------------------------------------
@@ -257,13 +256,13 @@ local function GetOptionsTable()
                 },
             },
 
-            -- Vendor Tracer Section
-            vendorTracer = {
+            -- World Map Section
+            worldMap = {
                 type = "group",
-                name = L["Vendor Tracer"] or "Vendor Tracer",
+                name = "World Map",
                 order = 4,
                 args = {
-                    -- Map Pins Group
+                    -- World Map Pins
                     mapPinsHeader = {
                         type = "header",
                         name = "World Map Pins",
@@ -292,7 +291,7 @@ local function GetOptionsTable()
                         name = "Show vendor panel on world map",
                         desc = "Show a side panel on the world map listing vendors and collection progress for the current zone",
                         width = "full",
-                        order = 2.3,
+                        order = 3,
                         get = function() return HA.Addon.db.profile.vendorTracer.showMapSidePanel end,
                         set = function(_, value)
                             HA.Addon.db.profile.vendorTracer.showMapSidePanel = value
@@ -310,7 +309,7 @@ local function GetOptionsTable()
                         name = "Integrate with map frame border",
                         desc = "Merge the panel's top border with the world map border for a seamless look. Disable if you use a custom UI (ElvUI, GW2, etc.) that conflicts.",
                         width = "full",
-                        order = 2.4,
+                        order = 4,
                         get = function() return HA.Addon.db.profile.vendorTracer.integrateMapBorder ~= false end,
                         set = function(_, value)
                             HA.Addon.db.profile.vendorTracer.integrateMapBorder = value
@@ -328,7 +327,7 @@ local function GetOptionsTable()
                         name = "Zone badges on world map",
                         desc = "Show per-zone vendor counts spread across continents on the world map, instead of a single total per continent.",
                         width = "double",
-                        order = 2.5,
+                        order = 5,
                         get = function() return HA.Addon.db.profile.vendorTracer.worldMapZoneBadges end,
                         set = function(_, value)
                             HA.Addon.db.profile.vendorTracer.worldMapZoneBadges = value
@@ -338,12 +337,19 @@ local function GetOptionsTable()
                             end
                         end,
                     },
+
+                    -- Minimap
+                    minimapHeader = {
+                        type = "header",
+                        name = "Minimap",
+                        order = 6,
+                    },
                     showMinimapPins = {
                         type = "toggle",
                         name = L["Show minimap pins"] or "Show minimap pins",
                         desc = "Show vendor locations on the minimap with elevation arrows",
                         width = "double",
-                        order = 3,
+                        order = 7,
                         get = function() return HA.Addon.db.profile.vendorTracer.showMinimapPins end,
                         set = function(_, value)
                             HA.Addon.db.profile.vendorTracer.showMinimapPins = value
@@ -361,7 +367,7 @@ local function GetOptionsTable()
                         name = "Show elevation arrows",
                         desc = "Show directional arrows on minimap pins when a vendor is above or below you",
                         width = "double",
-                        order = 3.5,
+                        order = 8,
                         get = function() return HA.Addon.db.profile.vendorTracer.showElevationArrows ~= false end,
                         set = function(_, value)
                             HA.Addon.db.profile.vendorTracer.showElevationArrows = value
@@ -370,23 +376,19 @@ local function GetOptionsTable()
                             end
                         end,
                     },
-                    showVendorDetails = {
-                        type = "toggle",
-                        name = L["Show vendor details in tooltips"] or "Show vendor details in tooltips",
-                        desc = "Show items sold and collection status when hovering over map pins",
-                        width = "double",
-                        order = 4,
-                        get = function() return HA.Addon.db.profile.vendorTracer.showVendorDetails end,
-                        set = function(_, value)
-                            HA.Addon.db.profile.vendorTracer.showVendorDetails = value
-                        end,
+
+                    -- Vendor Visibility
+                    vendorVisibilityHeader = {
+                        type = "header",
+                        name = "Vendor Visibility",
+                        order = 9,
                     },
                     showOppositeFaction = {
                         type = "toggle",
                         name = L["Show opposite faction vendors"] or "Show opposite faction vendors",
                         desc = "Show vendors for the opposite faction with their faction emblem. Useful for completionists to see all available vendors.",
                         width = "double",
-                        order = 5,
+                        order = 10,
                         get = function() return HA.Addon.db.profile.vendorTracer.showOppositeFaction end,
                         set = function(_, value)
                             HA.Addon.db.profile.vendorTracer.showOppositeFaction = value
@@ -401,7 +403,7 @@ local function GetOptionsTable()
                         name = L["Show unverified vendors"] or "Show unverified vendors",
                         desc = "Show vendors with unverified locations (orange pins). These are imported from external sources and may have incorrect coordinates. Visit these vendors in-game to verify their location.",
                         width = "double",
-                        order = 6,
+                        order = 11,
                         get = function() return HA.Addon.db.profile.vendorTracer.showUnverifiedVendors == true end,
                         set = function(_, value)
                             HA.Addon.db.profile.vendorTracer.showUnverifiedVendors = value
@@ -412,13 +414,34 @@ local function GetOptionsTable()
                             end
                         end,
                     },
+                    showEventVendors = {
+                        type = "toggle",
+                        name = "Show event vendors",
+                        desc = "Show seasonal holiday vendor pins on the map when their event is active (e.g., Lunar Festival)",
+                        width = "double",
+                        order = 12,
+                        get = function() return HA.Addon.db.profile.vendorTracer.showEventVendors ~= false end,
+                        set = function(_, value)
+                            HA.Addon.db.profile.vendorTracer.showEventVendors = value
+                            if HA.VendorMapPins then
+                                HA.VendorMapPins:InvalidateBadgeCache()
+                                HA.VendorMapPins:RefreshPins()
+                                HA.VendorMapPins:RefreshMinimapPins()
+                            end
+                        end,
+                    },
 
                     -- Pin Appearance
+                    pinAppearanceHeader = {
+                        type = "header",
+                        name = "Pin Appearance",
+                        order = 13,
+                    },
                     pinColorPreset = {
                         type = "select",
                         name = "Pin color",
                         desc = "Choose a color for map and minimap pins. Unverified pins always show orange.",
-                        order = 7,
+                        order = 14,
                         values = {
                             default   = "Default (Gold)",
                             green     = "Bright Green",
@@ -447,7 +470,7 @@ local function GetOptionsTable()
                         type = "color",
                         name = "Custom color",
                         desc = "Pick a custom base color for map pins",
-                        order = 8,
+                        order = 15,
                         hidden = function()
                             return (HA.Addon.db.profile.vendorTracer.pinColorPreset or "default") ~= "custom"
                         end,
@@ -474,14 +497,14 @@ local function GetOptionsTable()
                                 hex
                             )
                         end,
-                        order = 9,
+                        order = 16,
                         width = "double",
                     },
                     pinIconSize = {
                         type = "range",
                         name = "World map pin size",
                         desc = "Adjust the size of vendor pins on the world map. Default (20) matches Blizzard POI icons.",
-                        order = 10,
+                        order = 17,
                         min = 12,
                         max = 32,
                         step = 2,
@@ -500,7 +523,7 @@ local function GetOptionsTable()
                         type = "range",
                         name = "Minimap pin size",
                         desc = "Adjust the size of vendor pins on the minimap. Increase if pins are hard to see, or decrease to reduce minimap clutter.",
-                        order = 11,
+                        order = 18,
                         min = 8,
                         max = 24,
                         step = 1,
@@ -515,13 +538,12 @@ local function GetOptionsTable()
                             end
                         end,
                     },
-
                     showPinCounts = {
                         type = "toggle",
                         name = "Show collection counts",
                         desc = "Display collected/total item counts on vendor pins (e.g., 3/12). Disable to reduce map clutter.",
                         width = "double",
-                        order = 12,
+                        order = 19,
                         get = function() return HA.Addon.db.profile.vendorTracer.showPinCounts ~= false end,
                         set = function(_, value)
                             HA.Addon.db.profile.vendorTracer.showPinCounts = value
@@ -530,19 +552,50 @@ local function GetOptionsTable()
                             end
                         end,
                     },
+                },
+            },
 
-                    -- Waypoint Group
+            -- Vendor Tracer Section
+            vendorTracer = {
+                type = "group",
+                name = L["Vendor Tracer"] or "Vendor Tracer",
+                order = 5,
+                args = {
+                    -- Vendor Details
+                    vendorDetailsHeader = {
+                        type = "header",
+                        name = "Vendor Details",
+                        order = 1,
+                    },
+                    showVendorDetails = {
+                        type = "toggle",
+                        name = L["Show vendor details in tooltips"] or "Show vendor details in tooltips",
+                        desc = "Show items sold and collection status when hovering over map pins",
+                        width = "double",
+                        order = 2,
+                        get = function() return HA.Addon.db.profile.vendorTracer.showVendorDetails end,
+                        set = function(_, value)
+                            HA.Addon.db.profile.vendorTracer.showVendorDetails = value
+                        end,
+                    },
+
+                    -- Waypoints
                     waypointHeader = {
                         type = "header",
                         name = "Waypoints",
-                        order = 13,
+                        order = 3,
+                    },
+                    waypointDesc = {
+                        type = "description",
+                        name = "TomTom shows a directional arrow overlay and requires the TomTom addon to be installed. Native adds a destination pin to the world map. Both can be active at the same time.",
+                        order = 4,
                     },
                     useTomTom = {
                         type = "toggle",
                         name = L["Use TomTom for waypoints"] or "Use TomTom for waypoints",
                         desc = "Use TomTom addon for waypoint arrows (if installed)",
                         width = "double",
-                        order = 13,
+                        order = 5,
                         get = function() return HA.Addon.db.profile.vendorTracer.useTomTom end,
                         set = function(_, value)
                             HA.Addon.db.profile.vendorTracer.useTomTom = value
@@ -556,7 +609,7 @@ local function GetOptionsTable()
                         name = L["Use native waypoints"] or "Use native waypoints",
                         desc = "Use WoW's built-in waypoint system with map pin",
                         width = "double",
-                        order = 14,
+                        order = 6,
                         get = function() return HA.Addon.db.profile.vendorTracer.useNativeWaypoints end,
                         set = function(_, value)
                             HA.Addon.db.profile.vendorTracer.useNativeWaypoints = value
@@ -570,7 +623,7 @@ local function GetOptionsTable()
                         name = L["Auto-create waypoint on click"] or "Auto-create waypoint on click",
                         desc = "Automatically create a waypoint when clicking on a vendor in the list or map",
                         width = "double",
-                        order = 15,
+                        order = 7,
                         get = function() return HA.Addon.db.profile.vendorTracer.autoWaypoint end,
                         set = function(_, value)
                             HA.Addon.db.profile.vendorTracer.autoWaypoint = value
@@ -586,58 +639,28 @@ local function GetOptionsTable()
                             alt = "Alt",
                             none = "None (always)",
                         },
-                        order = 16,
+                        order = 8,
                         get = function() return HA.Addon.db.profile.vendorTracer.navigateModifier end,
                         set = function(_, value)
                             HA.Addon.db.profile.vendorTracer.navigateModifier = value
                         end,
                     },
 
-                    -- Vendor Popup Group
+                    -- Vendor Arrival
                     popupHeader = {
                         type = "header",
                         name = "Vendor Arrival",
-                        order = 20,
+                        order = 9,
                     },
                     showMissingAtVendor = {
                         type = "toggle",
                         name = L["Show missing items at vendor"] or "Show missing items at vendor",
                         desc = "Show a popup when visiting a vendor listing decor items you haven't collected",
                         width = "full",
-                        order = 21,
+                        order = 10,
                         get = function() return HA.Addon.db.profile.vendorTracer.showMissingAtVendor end,
                         set = function(_, value)
                             HA.Addon.db.profile.vendorTracer.showMissingAtVendor = value
-                        end,
-                    },
-                },
-            },
-
-            -- Endeavours Section
-            endeavours = {
-                type = "group",
-                name = L["Endeavours"] or "Endeavours",
-                order = 5,
-                args = {
-                    enabled = {
-                        type = "toggle",
-                        name = "Enable endeavour tracking",
-                        desc = "Track housing endeavour progress",
-                        width = "full",
-                        order = 1,
-                        get = function() return HA.Addon.db.profile.endeavourTracker.enabled end,
-                        set = function(_, value)
-                            HA.Addon.db.profile.endeavourTracker.enabled = value
-                        end,
-                    },
-                    showProgress = {
-                        type = "toggle",
-                        name = "Show progress indicators",
-                        desc = "Show endeavour progress on UI",
-                        order = 2,
-                        get = function() return HA.Addon.db.profile.endeavourTracker.showProgress end,
-                        set = function(_, value)
-                            HA.Addon.db.profile.endeavourTracker.showProgress = value
                         end,
                     },
                 },
@@ -649,328 +672,34 @@ local function GetOptionsTable()
                 name = L["Export"] or "Export",
                 order = 6,
                 args = {
-                    desc = {
+                    exportDesc = {
                         type = "description",
-                        name = "Configure what data to include when exporting collection data.",
+                        name = "Export scanned vendor data for community sharing or backup.",
                         order = 1,
                     },
-                    includeCharacterInfo = {
-                        type = "toggle",
-                        name = L["Character Info"] or "Character Info",
-                        desc = "Include character name, realm, faction, class",
+                    exportNewButton = {
+                        type = "execute",
+                        name = "Export New Scans",
+                        desc = "Exports vendors scanned since your last export. Includes price, currencies, faction, and catalog info.",
                         order = 2,
-                        get = function() return HA.Addon.db.profile.export.includeCharacterInfo end,
-                        set = function(_, value)
-                            HA.Addon.db.profile.export.includeCharacterInfo = value
-                        end,
-                    },
-                    includeDecorList = {
-                        type = "toggle",
-                        name = L["Decor Collection"] or "Decor Collection",
-                        desc = "Include list of collected decor items",
-                        order = 3,
-                        get = function() return HA.Addon.db.profile.export.includeDecorList end,
-                        set = function(_, value)
-                            HA.Addon.db.profile.export.includeDecorList = value
-                        end,
-                    },
-                    includeDyeList = {
-                        type = "toggle",
-                        name = L["Dye Collection"] or "Dye Collection",
-                        desc = "Include list of owned dyes and known recipes",
-                        order = 4,
-                        get = function() return HA.Addon.db.profile.export.includeDyeList end,
-                        set = function(_, value)
-                            HA.Addon.db.profile.export.includeDyeList = value
-                        end,
-                    },
-                    includeEndeavours = {
-                        type = "toggle",
-                        name = L["Endeavour Progress"] or "Endeavour Progress",
-                        desc = "Include endeavour completion status",
-                        order = 5,
-                        get = function() return HA.Addon.db.profile.export.includeEndeavours end,
-                        set = function(_, value)
-                            HA.Addon.db.profile.export.includeEndeavours = value
-                        end,
-                    },
-                    includeVendorsVisited = {
-                        type = "toggle",
-                        name = L["Vendors Visited"] or "Vendors Visited",
-                        desc = "Include list of visited decor vendors",
-                        order = 6,
-                        get = function() return HA.Addon.db.profile.export.includeVendorsVisited end,
-                        set = function(_, value)
-                            HA.Addon.db.profile.export.includeVendorsVisited = value
-                        end,
-                    },
-                    spacer = {
-                        type = "description",
-                        name = " ",
-                        order = 7,
-                    },
-                    -- exportButton removed: feature not yet implemented
-                },
-            },
-
-            -- Actions Section (quick access to common operations)
-            actions = {
-                type = "group",
-                name = L["Actions"] or "Actions",
-                order = 7,
-                args = {
-                    actionsDesc = {
-                        type = "description",
-                        name = "Quick access to common addon operations.",
-                        order = 1,
-                    },
-                    spacer1 = {
-                        type = "description",
-                        name = " ",
-                        order = 2,
-                    },
-                    scanCollectionButton = {
-                        type = "execute",
-                        name = "Scan Collection",
-                        desc = "Scan your housing catalog for owned items and update the ownership cache",
-                        order = 3,
                         func = function()
-                            if HA.CatalogScanner and HA.CatalogScanner.ManualScan then
-                                HA.CatalogScanner:ManualScan()
-                            else
-                                HA.Addon:Print("CatalogScanner not available.")
-                            end
-                        end,
-                    },
-                    refreshMapButton = {
-                        type = "execute",
-                        name = "Refresh Map Pins",
-                        desc = "Refresh all world map and minimap vendor pins",
-                        order = 4,
-                        func = function()
-                            if HA.VendorMapPins then
-                                HA.VendorMapPins:RefreshPins()
-                                HA.VendorMapPins:RefreshMinimapPins()
-                                HA.Addon:Print("Map pins refreshed.")
-                            else
-                                HA.Addon:Print("VendorMapPins not available.")
-                            end
-                        end,
-                    },
-                    spacer2 = {
-                        type = "description",
-                        name = " ",
-                        order = 5,
-                    },
-                    dataHeader = {
-                        type = "header",
-                        name = "Data Management",
-                        order = 6,
-                    },
-                    exportDataButton = {
-                        type = "execute",
-                        name = "Export Vendor Data",
-                        desc = "Export scanned vendor data for sharing or backup",
-                        order = 7,
-                        func = function()
-                            if HA.ExportImport and HA.ExportImport.ExportScannedVendors then
-                                HA.ExportImport:ExportScannedVendors()
+                            if HA.ExportImport then
+                                HA.ExportImport:ExportScannedVendors(false, false)
                             else
                                 HA.Addon:Print("ExportImport not available.")
                             end
                         end,
                     },
-                    validateDbButton = {
+                    exportAllButton = {
                         type = "execute",
-                        name = "Validate Database",
-                        desc = "Run validation checks on the vendor database",
-                        order = 8,
-                        func = function()
-                            if HA.Validation and HA.Validation.RunFullValidation then
-                                HA.Validation:RunFullValidation()
-                            else
-                                HA.Addon:Print("Validation not available.")
-                            end
-                        end,
-                    },
-                    spacer3 = {
-                        type = "description",
-                        name = " ",
-                        order = 10,
-                    },
-                    cacheHeader = {
-                        type = "header",
-                        name = "Cache Management",
-                        order = 11,
-                    },
-                    showCacheButton = {
-                        type = "execute",
-                        name = "Show Ownership Cache",
-                        desc = "Display the ownership cache contents",
-                        order = 12,
-                        func = function()
-                            if HA.Addon.ShowCacheInfo then
-                                HA.Addon:ShowCacheInfo()
-                            end
-                        end,
-                    },
-                    clearCacheButton = {
-                        type = "execute",
-                        name = "|cffff9900Clear Ownership Cache|r",
-                        desc = "Clear the cached ownership data (will be rebuilt on next scan)",
-                        order = 13,
-                        confirm = true,
-                        confirmText = "Are you sure you want to clear the ownership cache?",
-                        func = function()
-                            if HA.Addon.ClearOwnershipCache then
-                                HA.Addon:ClearOwnershipCache()
-                            end
-                        end,
-                    },
-                },
-            },
-
-            -- Developer Tools Section (temporary - remove after vendor data is confirmed)
-            devTools = {
-                type = "group",
-                name = "Developer Tools",
-                order = 99,
-                args = {
-                    devNote = {
-                        type = "description",
-                        name = "|cffff9900Note:|r This section is temporary and will be removed once all vendor data is verified. Use these tools to help correct the vendor database.",
-                        order = 1,
-                        fontSize = "medium",
-                    },
-                    spacer1 = {
-                        type = "description",
-                        name = " ",
-                        order = 2,
-                    },
-                    npcCorrectionsHeader = {
-                        type = "header",
-                        name = "NPC ID Corrections",
+                        name = "Export All",
+                        desc = "Exports all scanned vendors, bypassing the timestamp filter.",
                         order = 3,
-                    },
-                    npcCorrectionsDesc = {
-                        type = "description",
-                        name = "When you visit vendors, the addon detects if the in-game NPC ID differs from the database entry. These corrections are stored so you can export them to update VendorDatabase.lua.",
-                        order = 4,
-                    },
-                    spacer2 = {
-                        type = "description",
-                        name = " ",
-                        order = 5,
-                    },
-                    exportCorrectionsButton = {
-                        type = "execute",
-                        name = "Export NPC ID Corrections",
-                        desc = "Show all detected NPC ID mismatches in a copyable window",
-                        order = 6,
                         func = function()
-                            if HA.Addon.ShowNPCIDCorrections then
-                                HA.Addon:ShowNPCIDCorrections()
+                            if HA.ExportImport then
+                                HA.ExportImport:ExportScannedVendors(true, true)
                             else
-                                HA.Addon:Print("ShowNPCIDCorrections not available")
-                            end
-                        end,
-                    },
-                    spacer3 = {
-                        type = "description",
-                        name = " ",
-                        order = 7,
-                    },
-                    scannedVendorsHeader = {
-                        type = "header",
-                        name = "Scanned Vendor Data",
-                        order = 10,
-                    },
-                    scannedVendorsDesc = {
-                        type = "description",
-                        name = "View data collected from visiting vendors. This includes items sold and can be used to populate the VendorDatabase.",
-                        order = 11,
-                    },
-                    spacer4 = {
-                        type = "description",
-                        name = " ",
-                        order = 12,
-                    },
-                    showScannedButton = {
-                        type = "execute",
-                        name = "Show Scanned Vendors",
-                        desc = "Display list of all scanned vendors in chat",
-                        order = 13,
-                        func = function()
-                            if HA.Addon.ShowScannedVendors then
-                                HA.Addon:ShowScannedVendors()
-                            else
-                                HA.Addon:Print("ShowScannedVendors not available")
-                            end
-                        end,
-                    },
-                    exportScannedButton = {
-                        type = "execute",
-                        name = "Export Scanned Data",
-                        desc = "Export scanned vendor data in Lua format for adding to VendorDatabase.lua",
-                        order = 14,
-                        func = function()
-                            if HA.VendorScanner and HA.VendorScanner.ExportScannedData then
-                                local output = HA.VendorScanner:ExportScannedData()
-                                if output and output ~= "" then
-                                    HA.Addon:ShowCopyableText(output)
-                                end
-                            else
-                                HA.Addon:Print("VendorScanner not available")
-                            end
-                        end,
-                    },
-                    spacer5 = {
-                        type = "description",
-                        name = " ",
-                        order = 15,
-                    },
-                    enableRequirementScraping = {
-                        type = "toggle",
-                        name = "Scan item requirements (experimental)",
-                        desc = "Reads tooltip text to detect reputation, quest, and achievement requirements. May break after WoW patches.",
-                        order = 15.5,
-                        get = function() return HA.Addon.db.global.enableRequirementScraping end,
-                        set = function(_, val) HA.Addon.db.global.enableRequirementScraping = val end,
-                    },
-                    useParsedSources = {
-                        type = "toggle",
-                        name = "Use parsed catalog sources (experimental)",
-                        desc = "Show source information parsed from Housing Catalog text. Data is auto-discovered and may be inaccurate.",
-                        order = 15.6,
-                        get = function() return HA.Addon.db.profile.useParsedSources end,
-                        set = function(_, val) HA.Addon.db.profile.useParsedSources = val end,
-                    },
-                    clearScannedButton = {
-                        type = "execute",
-                        name = "|cffff0000Clear All Scanned Data|r",
-                        desc = "Remove all scanned vendor data. No-decor vendor hiding is preserved.",
-                        order = 16,
-                        confirm = true,
-                        confirmText = "Are you sure you want to clear all scanned vendor data? This cannot be undone.",
-                        func = function()
-                            if HA.VendorScanner and HA.VendorScanner.ClearScannedData then
-                                HA.VendorScanner:ClearScannedData()
-                            else
-                                HA.Addon:Print("VendorScanner not available")
-                            end
-                        end,
-                    },
-                    resetNoDecorButton = {
-                        type = "execute",
-                        name = "|cffff0000Reset Hidden Vendors|r",
-                        desc = "Clear the persistent no-decor list. Hidden vendors reappear until re-scanned.",
-                        order = 17,
-                        confirm = true,
-                        confirmText = "Un-hide all vendors confirmed as non-decor. They reappear until re-scanned.",
-                        func = function()
-                            -- Route through shared function (handles count, print, cache invalidation)
-                            if HA.VendorScanner and HA.VendorScanner.ClearNoDecorData then
-                                HA.VendorScanner:ClearNoDecorData()
+                                HA.Addon:Print("ExportImport not available.")
                             end
                         end,
                     },

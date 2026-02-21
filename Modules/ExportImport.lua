@@ -3,7 +3,7 @@
     Allows users to export scanned vendor data for community sharing
 ]]
 
-local addonName, HA = ...
+local _, HA = ...
 
 local ExportImport = {}
 HA.ExportImport = ExportImport
@@ -11,99 +11,8 @@ HA.ExportImport = ExportImport
 local EXPORT_PREFIX = "HOMESTEAD_EXPORT:"
 
 -------------------------------------------------------------------------------
--- Export Frame (Copyable Text)
+-- Export Dialog
 -------------------------------------------------------------------------------
-
-local exportFrame = nil
-
-local function CreateExportFrame()
-    if exportFrame then return exportFrame end
-
-    local f = CreateFrame("Frame", "HomesteadExportFrame", UIParent, "BackdropTemplate")
-    f:SetSize(600, 200)
-    f:SetPoint("CENTER")
-    f:SetFrameStrata("DIALOG")
-    tinsert(UISpecialFrames, "HomesteadExportFrame")
-    f:SetBackdrop({
-        bgFile = "Interface/Tooltips/UI-Tooltip-Background",
-        edgeFile = "Interface/Tooltips/UI-Tooltip-Border",
-        edgeSize = 16,
-        insets = {left = 4, right = 4, top = 4, bottom = 4},
-    })
-    f:SetBackdropColor(0, 0, 0, 0.95)
-    f:SetBackdropBorderColor(0.6, 0.6, 0.6, 1)
-    f:EnableMouse(true)
-    f:SetMovable(true)
-    f:RegisterForDrag("LeftButton")
-    f:SetScript("OnDragStart", f.StartMoving)
-    f:SetScript("OnDragStop", f.StopMovingOrSizing)
-
-    -- Title
-    local title = f:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
-    title:SetPoint("TOP", 0, -10)
-    title:SetText("Homestead Export")
-    f.title = title
-
-    -- Instructions
-    local instructions = f:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-    instructions:SetPoint("TOP", title, "BOTTOM", 0, -5)
-    instructions:SetText("Press Ctrl+C to copy, then share with the community")
-    f.instructions = instructions
-
-    -- Scroll frame for edit box
-    local scrollFrame = CreateFrame("ScrollFrame", nil, f, "UIPanelScrollFrameTemplate")
-    scrollFrame:SetPoint("TOPLEFT", 15, -50)
-    scrollFrame:SetPoint("BOTTOMRIGHT", -35, 45)
-
-    -- Edit box
-    local editBox = CreateFrame("EditBox", nil, scrollFrame)
-    editBox:SetMultiLine(true)
-    editBox:SetFontObject(GameFontHighlightSmall)
-    editBox:SetWidth(scrollFrame:GetWidth())
-    editBox:SetAutoFocus(true)
-    editBox:SetScript("OnEscapePressed", function() f:Hide() end)
-    editBox:SetScript("OnTextChanged", function(self)
-        -- Auto-adjust height based on content
-        local _, fontHeight = self:GetFont()
-        local text = self:GetText()
-        local numLines = 1
-        for _ in text:gmatch("\n") do
-            numLines = numLines + 1
-        end
-        self:SetHeight(math.max(scrollFrame:GetHeight(), numLines * (fontHeight + 2)))
-    end)
-    scrollFrame:SetScrollChild(editBox)
-    f.editBox = editBox
-
-    -- Close button
-    local closeBtn = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
-    closeBtn:SetSize(80, 22)
-    closeBtn:SetPoint("BOTTOM", 0, 10)
-    closeBtn:SetText("Close")
-    closeBtn:SetScript("OnClick", function() f:Hide() end)
-
-    -- Stats text
-    local stats = f:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-    stats:SetPoint("BOTTOMLEFT", 15, 15)
-    stats:SetTextColor(0.7, 0.7, 0.7)
-    f.stats = stats
-
-    exportFrame = f
-    return f
-end
-
-local function ShowExportFrame(text, vendorCount, itemCount)
-    local f = CreateExportFrame()
-    f.title:SetText("Homestead Export")
-    f.instructions:SetText("Press Ctrl+C to copy, then share with the community")
-    f.editBox:SetScript("OnEnterPressed", nil)
-    f.editBox:SetText(text)
-    f.editBox:HighlightText()
-    f.editBox:SetCursorPosition(0)
-    f.stats:SetText(string.format("Vendors: %d | Items: %d", vendorCount, itemCount))
-    f:Show()
-    f.editBox:SetFocus()
-end
 
 local exportDialogFrame = nil
 

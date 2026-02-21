@@ -9,14 +9,13 @@
     - Vendor info panel showing items sold
 ]]
 
-local addonName, HA = ...
+local _, HA = ...
 
 -- Create VendorTracer module
 local VendorTracer = {}
 HA.VendorTracer = VendorTracer
 
 -- Local references
-local Constants = HA.Constants
 local VendorData = HA.VendorData
 
 -- Local state
@@ -362,8 +361,10 @@ function VendorTracer:IsAtDecorVendor()
         return false, nil
     end
 
-    -- Pattern match instead of strsplit to avoid taint on secret GUIDs (12.0+)
-    local npcID = tonumber(string.match(guid, "^%a+%-%d+%-%d+%-%d+%-%d+%-(%d+)"))
+    -- UnitGUID can be a restricted "secret string" in instanced contexts.
+    -- Guard parsing so GUID matching cannot hard-error.
+    local ok, npcIDText = pcall(string.match, guid, "^%a+%-%d+%-%d+%-%d+%-%d+%-(%d+)")
+    local npcID = ok and tonumber(npcIDText) or nil
 
     if not npcID then
         return false, nil

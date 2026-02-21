@@ -14,7 +14,7 @@
     - Minimap pins: Shows nearby vendors HandyNotes-style (with elevation arrows)
 ]]
 
-local addonName, HA = ...
+local _, HA = ...
 
 -- Create VendorMapPins module
 local VendorMapPins = {}
@@ -26,7 +26,12 @@ local HBDPins = LibStub("HereBeDragons-Pins-2.0")
 
 -- Local references
 local Constants = HA.Constants
-local VendorData = HA.VendorData
+
+-- Upvalued Lua stdlib
+local pairs, ipairs = pairs, ipairs
+local tinsert = table.insert
+local format = string.format
+local unpack = unpack
 
 -- State
 local isInitialized = false
@@ -109,7 +114,7 @@ end
 -- Pre-11.x compat names
 nativePool.creationFunc = nativePool.createFunc
 nativePool.resetterFunc = nativePool.resetFunc
-WorldMapFrame.pinPools[NATIVE_PIN_TEMPLATE] = nativePool
+WorldMapFrame.pinPools[NATIVE_PIN_TEMPLATE] = nativePool -- luacheck: ignore 122
 
 -- Helper: add a pin using HBD if possible, native fallback otherwise.
 -- Returns true if the pin was placed.
@@ -146,6 +151,12 @@ local minimapPinsEnabled = true
 -- Debounce timer for zone change minimap refresh
 local minimapRefreshTimer = nil
 
+-- Runtime event/ticker handles (registered conditionally by feature state)
+local merchantEventFrame = nil
+local zoneEventFrame = nil
+local indoorStateTicker = nil
+local lastKnownIndoors = nil
+
 -- Dedup guards for minimap and world map refreshes
 local lastMinimapMapID = nil
 local lastWorldMapID = nil
@@ -170,6 +181,120 @@ itemInfoEventFrame:SetScript("OnEvent", function(self, event, itemID, success)
         end)
     end
 end)
+
+-- Register/Unregister MERCHANT_CLOSED based on pin feature state.
+local function RegisterMerchantClosedEvent()
+    if not merchantEventFrame then
+        merchantEventFrame = CreateFrame("Frame")
+        merchantEventFrame:SetScript("OnEvent", function()
+            -- Small delay to ensure scanned data is saved.
+            C_Timer.After(0.3, function()
+                VendorMapPins:InvalidateBadgeCache()
+                if WorldMapFrame:IsShown() then
+                    VendorMapPins:RefreshPins()
+                end
+                VendorMapPins:RefreshMinimapPins()
+            end)
+        end)
+    end
+
+    if not merchantEventFrame:IsEventRegistered("MERCHANT_CLOSED") then
+        merchantEventFrame:RegisterEvent("MERCHANT_CLOSED")
+    end
+end
+
+local function UnregisterMerchantClosedEvent()
+    if merchantEventFrame and merchantEventFrame:IsEventRegistered("MERCHANT_CLOSED") then
+        merchantEventFrame:UnregisterEvent("MERCHANT_CLOSED")
+    end
+end
+
+-- Register/Unregister zone-change events used by minimap pin refresh.
+local function RegisterZoneChangeEvents()
+    if not zoneEventFrame then
+        zoneEventFrame = CreateFrame("Frame")
+        zoneEventFrame:SetScript("OnEvent", function()
+            -- Skip refresh if player hasn't actually changed zones.
+            local currentMapID = C_Map.GetBestMapForUnit("player")
+            if currentMapID == lastMinimapMapID then return end
+            lastMinimapMapID = currentMapID
+
+            -- Debounce: cancel any pending refresh so rapid zone changes
+            -- (ZONE_CHANGED + ZONE_CHANGED_INDOORS firing together) only trigger one refresh.
+            if minimapRefreshTimer then
+                minimapRefreshTimer:Cancel()
+            end
+            minimapRefreshTimer = C_Timer.NewTimer(0.5, function()
+                minimapRefreshTimer = nil
+                VendorMapPins:RefreshMinimapPins()
+            end)
+        end)
+    end
+
+    if not zoneEventFrame:IsEventRegistered("ZONE_CHANGED") then
+        zoneEventFrame:RegisterEvent("ZONE_CHANGED")
+        zoneEventFrame:RegisterEvent("ZONE_CHANGED_INDOORS")
+        zoneEventFrame:RegisterEvent("ZONE_CHANGED_NEW_AREA")
+        zoneEventFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
+    end
+end
+
+local function UnregisterZoneChangeEvents()
+    if zoneEventFrame and zoneEventFrame:IsEventRegistered("ZONE_CHANGED") then
+        zoneEventFrame:UnregisterEvent("ZONE_CHANGED")
+        zoneEventFrame:UnregisterEvent("ZONE_CHANGED_INDOORS")
+        zoneEventFrame:UnregisterEvent("ZONE_CHANGED_NEW_AREA")
+        zoneEventFrame:UnregisterEvent("PLAYER_ENTERING_WORLD")
+    end
+
+    if minimapRefreshTimer then
+        minimapRefreshTimer:Cancel()
+        minimapRefreshTimer = nil
+    end
+end
+
+-- Indoor state polling ticker lifecycle (minimap-only).
+local function StartIndoorTicker()
+    if indoorStateTicker then return end
+
+    lastKnownIndoors = IsIndoors()
+    indoorStateTicker = C_Timer.NewTicker(1, function()
+        -- Secondary safeguard; ticker should also be canceled when minimap pins are disabled.
+        if not minimapPinsEnabled then return end
+
+        local indoors = IsIndoors()
+        if indoors ~= lastKnownIndoors then
+            lastKnownIndoors = indoors
+            VendorMapPins:RefreshMinimapPins()
+        end
+    end)
+end
+
+local function StopIndoorTicker()
+    if indoorStateTicker then
+        indoorStateTicker:Cancel()
+        indoorStateTicker = nil
+    end
+end
+
+-- Reconcile event/ticker subscriptions with current feature state.
+local function RefreshRuntimeSubscriptions()
+    if not isInitialized then return end
+
+    if pinsEnabled or minimapPinsEnabled then
+        RegisterMerchantClosedEvent()
+    else
+        UnregisterMerchantClosedEvent()
+    end
+
+    if minimapPinsEnabled then
+        RegisterZoneChangeEvents()
+        StartIndoorTicker()
+    else
+        UnregisterZoneChangeEvents()
+        StopIndoorTicker()
+    end
+end
 
 -------------------------------------------------------------------------------
 -- Pin Color/Size Delegates (forwarded to PinFrameFactory)
@@ -307,7 +432,9 @@ function VendorMapPins:ShowVendorTooltip(pin, vendor)
     GameTooltip:ClearLines()
     GameTooltip:AddLine(vendor.name, 1, 1, 1)
 
-    if vendor.zone then
+    if vendor.subzone then
+        GameTooltip:AddLine(vendor.subzone .. " (" .. vendor.zone .. ")", 0.7, 0.7, 0.7)
+    elseif vendor.zone then
         GameTooltip:AddLine(vendor.zone, 0.7, 0.7, 0.7)
     end
 
@@ -345,7 +472,7 @@ function VendorMapPins:ShowVendorTooltip(pin, vendor)
             local itemID = HA.VendorData:GetItemID(item)
             if itemID and not itemsSeen[itemID] then
                 itemsSeen[itemID] = true
-                table.insert(allItems, {itemID = itemID})
+                tinsert(allItems, {itemID = itemID})
             end
         end
     end
@@ -358,7 +485,7 @@ function VendorMapPins:ShowVendorTooltip(pin, vendor)
             for _, item in ipairs(scannedItems) do
                 if item.itemID and not itemsSeen[item.itemID] then
                     itemsSeen[item.itemID] = true
-                    table.insert(allItems, item)
+                    tinsert(allItems, item)
                 end
             end
         end
@@ -387,7 +514,7 @@ function VendorMapPins:ShowVendorTooltip(pin, vendor)
             if isOwned then
                 collectedCount = collectedCount + 1
             else
-                table.insert(uncollectedItems, itemName)
+                tinsert(uncollectedItems, itemName)
             end
         end
 
@@ -405,13 +532,13 @@ function VendorMapPins:ShowVendorTooltip(pin, vendor)
 
             -- Show collected count summary
             if collectedCount > 0 then
-                GameTooltip:AddLine(string.format("  ... and %d collected item(s)", collectedCount), 0.5, 0.5, 0.5)
+                GameTooltip:AddLine(format("  ... and %d collected item(s)", collectedCount), 0.5, 0.5, 0.5)
             end
         end
 
         GameTooltip:AddLine(" ")
         local statusColor = collectedCount == #allItems and {0.5, 0.5, 0.5} or {0, 1, 0}
-        GameTooltip:AddLine(string.format("Collected: %d/%d", collectedCount, #allItems), unpack(statusColor))
+        GameTooltip:AddLine(format("Collected: %d/%d", collectedCount, #allItems), unpack(statusColor))
     else
         -- No item data available
         GameTooltip:AddLine(" ")
@@ -439,7 +566,7 @@ function VendorMapPins:ShowZoneBadgeTooltip(pin, zoneInfo)
         GameTooltip:AddLine(zoneInfo.note, 0.7, 0.7, 1.0, true)
     end
 
-    GameTooltip:AddLine(string.format("Decor Vendors: %d", zoneInfo.vendorCount), 1, 0.82, 0)
+    GameTooltip:AddLine(format("Decor Vendors: %d", zoneInfo.vendorCount), 1, 0.82, 0)
 
     -- Show faction breakdown if there are opposite faction vendors
     if zoneInfo.oppositeFactionCount and zoneInfo.oppositeFactionCount > 0 then
@@ -448,21 +575,21 @@ function VendorMapPins:ShowZoneBadgeTooltip(pin, zoneInfo)
         local oppositeFaction = playerFaction == "Alliance" and "Horde" or "Alliance"
 
         if accessibleCount > 0 then
-            GameTooltip:AddLine(string.format("  %s: %d", playerFaction, accessibleCount), 0.7, 0.7, 0.7)
+            GameTooltip:AddLine(format("  %s: %d", playerFaction, accessibleCount), 0.7, 0.7, 0.7)
         end
 
         local factionColor = oppositeFaction == "Alliance" and {0.2, 0.4, 0.8} or {0.8, 0.2, 0.2}
-        GameTooltip:AddLine(string.format("  %s: %d", oppositeFaction, zoneInfo.oppositeFactionCount),
+        GameTooltip:AddLine(format("  %s: %d", oppositeFaction, zoneInfo.oppositeFactionCount),
             factionColor[1], factionColor[2], factionColor[3])
     end
 
     -- Show collection status
     if zoneInfo.uncollectedCount and zoneInfo.uncollectedCount > 0 then
-        GameTooltip:AddLine(string.format("With uncollected items: %d", zoneInfo.uncollectedCount), 0, 1, 0)
+        GameTooltip:AddLine(format("With uncollected items: %d", zoneInfo.uncollectedCount), 0, 1, 0)
     end
 
     if zoneInfo.unknownCount and zoneInfo.unknownCount > 0 then
-        GameTooltip:AddLine(string.format("Unknown status: %d (visit to scan)", zoneInfo.unknownCount), 1, 0.82, 0)
+        GameTooltip:AddLine(format("Unknown status: %d (visit to scan)", zoneInfo.unknownCount), 1, 0.82, 0)
     end
 
     local knownVendors = zoneInfo.vendorCount - (zoneInfo.unknownCount or 0)
@@ -583,12 +710,10 @@ function VendorMapPins:RefreshMinimapPins()
             for _, vendor in ipairs(vendors) do
                 -- Use npcID for deduplication (vendor tables may be different objects)
                 if vendor.npcID and not addedVendors[vendor.npcID] then
-                    -- Skip unreleased or no-decor vendors
-                    if ShouldHideVendor(vendor) then
-                        -- Vendor is unreleased or has no housing decor - don't show pin
-                    else
+                    -- Skip unreleased or no-decor vendors.
+                    if not ShouldHideVendor(vendor) then
                         -- Get best coordinates (scanned preferred over static)
-                        local coords, vendorMapID, source = GetBestVendorCoordinates(vendor)
+                        local coords, vendorMapID = GetBestVendorCoordinates(vendor)
 
                         -- Only show pins for vendors with valid coordinates
                         if coords and vendorMapID then
@@ -597,11 +722,8 @@ function VendorMapPins:RefreshMinimapPins()
                             local isUnverified = not IsVendorVerified(vendor)
                             local showUnverified = ShouldShowUnverifiedVendors()
 
-                            -- Skip unverified vendors if setting is disabled
-                            if isUnverified and not showUnverified then
-                                -- Don't show this vendor, continue to next
-                            -- Show vendor if accessible OR if opposite faction and setting enabled
-                            elseif canAccess or (isOpposite and showOpposite) then
+                            -- Show vendor only when allowed by verification and faction-access rules.
+                            if (showUnverified or not isUnverified) and (canAccess or (isOpposite and showOpposite)) then
                                 local elevation = Constants.GetElevationDirection(playerMapID, vendorMapID)
 
                                 if elevation then
@@ -704,7 +826,7 @@ function VendorMapPins:ShowVendorPins(mapID)
         end
 
         -- Get best coordinates (scanned preferred over static)
-        local coords, vendorMapID, source = GetBestVendorCoordinates(vendor)
+        local coords, vendorMapID = GetBestVendorCoordinates(vendor)
 
         -- Show pins for vendors on this map OR any child/sub-zone map
         -- Child map vendors are placed via HBD's showInParentZone (HBD_PINS_WORLDMAP_SHOW_PARENT)
@@ -754,7 +876,7 @@ function VendorMapPins:ShowVendorPins(mapID)
                     local scannedData = HA.Addon.db.global.scannedVendors[vendor.npcID]
                     if scannedData and scannedData.mapID and not validMapIDs[scannedData.mapID] then
                         shouldSkip = true
-                        skipReason = string.format("scanned on map %d", scannedData.mapID)
+                        skipReason = format("scanned on map %d", scannedData.mapID)
                     end
                 end
 
@@ -762,7 +884,7 @@ function VendorMapPins:ShowVendorPins(mapID)
                     -- Mark as processed to prevent re-check in scanned vendors loop
                     addedVendors[vendor.npcID] = true
                     if HA.DevAddon and HA.Addon.db.profile.debug then
-                        HA.Addon:Debug(string.format("Skipping static vendor %s (%d) on map %d - %s",
+                        HA.Addon:Debug(format("Skipping static vendor %s (%d) on map %d - %s",
                             vendor.name or "Unknown", vendor.npcID, queryMapID, skipReason or "unknown"))
                     end
                 else
@@ -993,6 +1115,7 @@ end
 function VendorMapPins:Enable()
     pinsEnabled = true
     if isInitialized then
+        RefreshRuntimeSubscriptions()
         self:RefreshPins()
     end
 end
@@ -1000,14 +1123,16 @@ end
 function VendorMapPins:Disable()
     pinsEnabled = false
     self:ClearAllPins()
+    if isInitialized then
+        RefreshRuntimeSubscriptions()
+    end
 end
 
 function VendorMapPins:Toggle()
-    pinsEnabled = not pinsEnabled
     if pinsEnabled then
-        self:RefreshPins()
+        self:Disable()
     else
-        self:ClearAllPins()
+        self:Enable()
     end
     return pinsEnabled
 end
@@ -1019,6 +1144,7 @@ end
 function VendorMapPins:EnableMinimapPins()
     minimapPinsEnabled = true
     if isInitialized then
+        RefreshRuntimeSubscriptions()
         self:RefreshMinimapPins()
     end
 end
@@ -1026,14 +1152,16 @@ end
 function VendorMapPins:DisableMinimapPins()
     minimapPinsEnabled = false
     self:ClearMinimapPins()
+    if isInitialized then
+        RefreshRuntimeSubscriptions()
+    end
 end
 
 function VendorMapPins:ToggleMinimapPins()
-    minimapPinsEnabled = not minimapPinsEnabled
     if minimapPinsEnabled then
-        self:RefreshMinimapPins()
+        self:DisableMinimapPins()
     else
-        self:ClearMinimapPins()
+        self:EnableMinimapPins()
     end
     return minimapPinsEnabled
 end
@@ -1105,62 +1233,26 @@ function VendorMapPins:Initialize()
                 end)
             end
         end)
-    end
 
-    -- Register for MERCHANT_CLOSED to refresh pins after visiting a vendor
-    local merchantFrame = CreateFrame("Frame")
-    merchantFrame:RegisterEvent("MERCHANT_CLOSED")
-    merchantFrame:SetScript("OnEvent", function()
-        -- Small delay to ensure scanned data is saved
-        C_Timer.After(0.3, function()
+        -- Holiday state changed — event vendor pins may need to appear/disappear
+        HA.Events:RegisterCallback("ACTIVE_HOLIDAYS_CHANGED", function()
             self:InvalidateBadgeCache()
             if WorldMapFrame:IsShown() then
                 self:RefreshPins()
             end
             self:RefreshMinimapPins()
         end)
-    end)
-
-    -- Register for zone change events to update minimap pins
-    local zoneFrame = CreateFrame("Frame")
-    zoneFrame:RegisterEvent("ZONE_CHANGED")
-    zoneFrame:RegisterEvent("ZONE_CHANGED_INDOORS")
-    zoneFrame:RegisterEvent("ZONE_CHANGED_NEW_AREA")
-    zoneFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
-    zoneFrame:SetScript("OnEvent", function(self, event)
-        -- Skip refresh if player hasn't actually changed zones
-        local currentMapID = C_Map.GetBestMapForUnit("player")
-        if currentMapID == lastMinimapMapID then return end
-        lastMinimapMapID = currentMapID
-
-        -- Debounce: cancel any pending refresh so rapid zone changes
-        -- (ZONE_CHANGED + ZONE_CHANGED_INDOORS firing together) only trigger one refresh
-        if minimapRefreshTimer then
-            minimapRefreshTimer:Cancel()
-        end
-        minimapRefreshTimer = C_Timer.NewTimer(0.5, function()
-            minimapRefreshTimer = nil
-            VendorMapPins:RefreshMinimapPins()
-        end)
-    end)
-
-    -- Poll indoor state every second — events don't fire reliably for all buildings
-    local lastKnownIndoors = IsIndoors()
-    C_Timer.NewTicker(1, function()
-        if not minimapPinsEnabled then return end
-        local indoors = IsIndoors()
-        if indoors ~= lastKnownIndoors then
-            lastKnownIndoors = indoors
-            VendorMapPins:RefreshMinimapPins()
-        end
-    end)
+    end
 
     isInitialized = true
+    RefreshRuntimeSubscriptions()
 
     -- Initial minimap pin refresh
-    C_Timer.After(1, function()
-        self:RefreshMinimapPins()
-    end)
+    if minimapPinsEnabled then
+        C_Timer.After(1, function()
+            self:RefreshMinimapPins()
+        end)
+    end
 
     if HA.Addon then
         HA.Addon:Debug("VendorMapPins initialized (HereBeDragons with multi-zone minimap support)")

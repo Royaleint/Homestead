@@ -1,11 +1,11 @@
 --[[
     Homestead - Validation Module
     Validates database integrity and catches data problems early
-    
+
     Usage: /hs validate
 ]]
 
-local addonName, HA = ...
+local _, HA = ...
 
 local Validation = {}
 HA.Validation = Validation
@@ -55,24 +55,24 @@ local function ValidateVendor(vendor, source)
     local errors = {}
     local warnings = {}
     local context = string.format("%s vendor %s", source, vendor.npcID or "unknown")
-    
+
     -- Required fields
     if not vendor.npcID then
         table.insert(errors, context .. ": missing npcID")
     elseif type(vendor.npcID) ~= "number" then
         table.insert(errors, context .. ": npcID is not a number")
     end
-    
+
     if not vendor.name or vendor.name == "" then
         table.insert(errors, context .. ": missing name")
     end
-    
+
     if not vendor.mapID then
         table.insert(warnings, context .. ": missing mapID (won't show on map)")
     elseif type(vendor.mapID) ~= "number" then
         table.insert(errors, context .. ": mapID is not a number")
     end
-    
+
     -- Coordinate validation (handles both old coords.x/y and new x/y formats)
     local vendorX = vendor.x or (vendor.coords and vendor.coords.x)
     local vendorY = vendor.y or (vendor.coords and vendor.coords.y)
@@ -80,7 +80,7 @@ local function ValidateVendor(vendor, source)
     for _, err in ipairs(coordErrors) do
         table.insert(errors, err)
     end
-    
+
     -- Faction validation
     if vendor.faction then
         local validFactions = {Alliance = true, Horde = true, Neutral = true}
@@ -91,7 +91,7 @@ local function ValidateVendor(vendor, source)
             ))
         end
     end
-    
+
     -- Items validation (handles multiple formats):
     -- 1. Plain number: 245603
     -- 2. Table with cost: {245603, cost = {...}}
@@ -133,7 +133,7 @@ function Validation:ValidateVendorDatabase()
     local errors = {}
     local warnings = {}
     local vendorCount = 0
-    
+
     if not HA.VendorDatabase or not HA.VendorDatabase.Vendors then
         table.insert(errors, "VendorDatabase not loaded or empty")
         return errors, warnings, 0
@@ -160,12 +160,12 @@ function Validation:ValidateVendorDatabase()
                 seenNPCIDs[vendor.npcID] = vendor.name or "unknown"
             end
         end
-        
+
         local vErrors, vWarnings = ValidateVendor(vendor, "Static")
         for _, e in ipairs(vErrors) do table.insert(errors, e) end
         for _, w in ipairs(vWarnings) do table.insert(warnings, w) end
     end
-    
+
     return errors, warnings, vendorCount
 end
 
@@ -173,14 +173,14 @@ function Validation:ValidateScannedVendors()
     local errors = {}
     local warnings = {}
     local vendorCount = 0
-    
+
     if not HA.Addon or not HA.Addon.db or not HA.Addon.db.global.scannedVendors then
         return errors, warnings, 0
     end
-    
+
     for npcID, vendor in pairs(HA.Addon.db.global.scannedVendors) do
         vendorCount = vendorCount + 1
-        
+
         -- Ensure npcID matches key
         if vendor.npcID and vendor.npcID ~= npcID then
             table.insert(warnings, string.format(
@@ -188,12 +188,12 @@ function Validation:ValidateScannedVendors()
                 npcID, vendor.npcID
             ))
         end
-        
+
         local vErrors, vWarnings = ValidateVendor(vendor, "Scanned")
         for _, e in ipairs(vErrors) do table.insert(errors, e) end
         for _, w in ipairs(vWarnings) do table.insert(warnings, w) end
     end
-    
+
     return errors, warnings, vendorCount
 end
 
@@ -286,7 +286,7 @@ function Validation:ValidateZoneToContinentMapping()
                 missingMaps[vendor.mapID] = (missingMaps[vendor.mapID] or 0) + 1
             end
         end
-        
+
         for mapID, count in pairs(missingMaps) do
             table.insert(warnings, string.format(
                 "mapID %d used by %d vendors but missing from zoneToContinent",

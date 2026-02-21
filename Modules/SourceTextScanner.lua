@@ -9,7 +9,7 @@
           → SourceTextParser:ParseSourceText() → db.global.parsedSources
 ]]
 
-local addonName, HA = ...
+local _, HA = ...
 
 local SourceTextScanner = {}
 HA.SourceTextScanner = SourceTextScanner

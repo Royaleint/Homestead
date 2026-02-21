@@ -1,16 +1,21 @@
 --[[
     Homestead - Achievement Sources
     Generated: 2026-02-01 23:11:17
-    Total entries: 152
+    Total entries: 155
 
     Maps itemID to achievement source information.
     Cleaned 2026-02-17: Removed 40 entries with fabricated/conflicting data,
     fixed achievementID for item 248011.
     Cleaned 2026-02-17: Removed 10 entries with nonexistent itemIDs
     (confirmed via Wowhead + in-game decorID validation).
+    Validated 2026-02-18: Updated 7 achievement names via API, removed 3
+    NOT_FOUND achievements (19535, 19800, 12248), corrected item 257721
+    from achievement 11341 to 10398 "Drum Circle".
+    Added 2026-02-21: 6 entries from Blizzard web API gap analysis
+    (Wowhead-confirmed itemIDs).
 ]]
 
-local addonName, HA = ...
+local _, HA = ...
 
 HA.AchievementSources = {
     [241062] = {achievementID = 12509, achievementName = "Ready for War"},
@@ -43,6 +48,8 @@ HA.AchievementSources = {
     [246603] = {achievementID = 13475, achievementName = "Junkyard Scavenger"},
     [246866] = {achievementID = 40542, achievementName = "Smelling History"},
     [246867] = {achievementID = 41186, achievementName = "Slate of the Union"},
+    [247667] = {achievementID = 40953, achievementName = "A Farewell to Arms"},       -- MOTHER's Titanic Brazier
+    [247668] = {achievementID = 40953, achievementName = "A Farewell to Arms"},       -- N'Zoth's Captured Eye
     [247727] = {achievementID = 5223, achievementName = "Master of Twin Peaks"},
     [247740] = {achievementID = 6981, achievementName = "Master of Temple of Kotmogu"},
     [247741] = {achievementID = 6981, achievementName = "Master of Temple of Kotmogu"},
@@ -124,9 +131,11 @@ HA.AchievementSources = {
     [253037] = {achievementID = 40859, achievementName = "We're Here All Night"},
     [253163] = {achievementID = 19408, achievementName = "Professional Algari Master"},
     [253170] = {achievementID = 40210, achievementName = "Deephaul Ravine Victory"},
+    [256425] = {achievementID = 8316, achievementName = "Blood in the Snow"},         -- Shadowforge Stone Chair
     [256674] = {achievementID = 60966, achievementName = "Legendary Research of the Tirisgarde"},
     [256677] = {achievementID = 42628, achievementName = "The Nightfallen"},
     [256679] = {achievementID = 60967, achievementName = "Legendary Research of Five Dawns"},
+    [256896] = {achievementID = 5245, achievementName = "Battle for Gilneas Victory"}, -- Smoke Lamppost
     [256907] = {achievementID = 60972, achievementName = "Legendary Research of the Black Harvest"},
     [256913] = {achievementID = 10996, achievementName = "Got to Ketchum All"},
     [257351] = {achievementID = 42189, achievementName = "Lorewalking: The Lich King"},
@@ -134,12 +143,15 @@ HA.AchievementSources = {
     [257355] = {achievementID = 42188, achievementName = "Lorewalking: Blade's Bane"},
     [257396] = {achievementID = 60973, achievementName = "Legendary Research of the Valarjar"},
     [257403] = {achievementID = 42280, achievementName = "The Farseer's Campaign"},
-    [257721] = {achievementID = 11341, achievementName = "Nightborne Armory"},
+    -- [257721] was achievement 11341 "Nightborne Armory" (NOT_FOUND); corrected to 10398 "Drum Circle" via crossref
+    [257721] = {achievementID = 10398, achievementName = "Drum Circle"},
     [258223] = {achievementID = 11699, achievementName = "Grand Fin-ale"},
     [258299] = {achievementID = 42547, achievementName = "Highmountain Tribe"},
+    [258740] = {achievementID = 9415, achievementName = "Secrets of Skettis"},        -- Glorious Pendant of Rukhmar
     [260581] = {achievementID = 42272, achievementName = "The Archdruid's Campaign"},
     [260584] = {achievementID = 60962, achievementName = "Legendary Research of the Ebon Blade"},
     [260776] = {achievementID = 42279, achievementName = "The Shadowblade's Campaign"},
+    [260785] = {achievementID = 62387, achievementName = "It's Nearly Midnight"},     -- Miniature Replica Dark Portal
     [262619] = {achievementID = 42292, achievementName = "Hidden Potential of the Grandmaster"},
     [263997] = {achievementID = 42788, achievementName = "Alchemizing at Midnight"},
     [263998] = {achievementID = 42792, achievementName = "Blacksmithing at Midnight"},
@@ -155,14 +167,14 @@ HA.AchievementSources = {
     [264173] = {achievementID = 42790, achievementName = "Skinning at Midnight"},
     [264174] = {achievementID = 42794, achievementName = "Tailoring at Midnight"},
     [264242] = {achievementID = 60991, achievementName = "Raise an Army for the Dreadscar Rift"},
-    [264281] = {achievementID = 19535, achievementName = "Reclamation of Gilneas"},
-    [264343] = {achievementID = 19800, achievementName = "Void-Touched"},
-    [264482] = {achievementID = 12248, achievementName = "Allied Races: Void Elf"},
-    [267122] = {achievementID = 61451, achievementName = "Galakrond's Downfall"},
-    [267354] = {achievementID = 61683, achievementName = "Berserker's Rage"},
-    [267355] = {achievementID = 61684, achievementName = "Guardian's Stand"},
-    [267356] = {achievementID = 61685, achievementName = "Chaos Incarnate"},
-    [267357] = {achievementID = 61686, achievementName = "Mystery Unveiled"},
-    [267358] = {achievementID = 61687, achievementName = "Healing Touch"},
-    [267359] = {achievementID = 61688, achievementName = "Swift Victory"},
+    -- [264281] removed: achievement 19535 "Reclamation of Gilneas" NOT_FOUND via API (item has quest source 78444)
+    -- [264343] removed: achievement 19800 "Void-Touched" NOT_FOUND via API (Feb 2026)
+    -- [264482] removed: achievement 12248 "Allied Races: Void Elf" NOT_FOUND via API (item has quest source 49767)
+    [267122] = {achievementID = 61451, achievementName = "Worldsoul-Searching"},
+    [267354] = {achievementID = 61683, achievementName = "Entering Battle"},
+    [267355] = {achievementID = 61684, achievementName = "Progressing in Battle"},
+    [267356] = {achievementID = 61685, achievementName = "Proficient in Battle"},
+    [267357] = {achievementID = 61686, achievementName = "Expert in Battle"},
+    [267358] = {achievementID = 61687, achievementName = "Champion in Battle"},
+    [267359] = {achievementID = 61688, achievementName = "Master in Battle"},
 }

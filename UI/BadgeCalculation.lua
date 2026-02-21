@@ -11,7 +11,7 @@
     to ensure dedup guards are also reset.
 ]]
 
-local addonName, HA = ...
+local _, HA = ...
 
 local BadgeCalculation = {}
 HA.BadgeCalculation = BadgeCalculation
@@ -122,11 +122,7 @@ function BadgeCalculation:VendorHasUncollectedItems(vendor)
     end
 
     -- If we have no item data at all, return nil to indicate "unknown status"
-    local hasAnyItems = false
-    for _ in pairs(items) do
-        hasAnyItems = true
-        break
-    end
+    local hasAnyItems = next(items) ~= nil
 
     if not hasAnyItems then
         uncollectedCache[vendor.npcID] = "unknown"
@@ -225,12 +221,8 @@ function BadgeCalculation:GetZoneVendorCounts(continentMapID)
     local showUnverified = VF.ShouldShowUnverifiedVendors()
 
     for _, vendor in ipairs(allVendors) do
-        -- Skip vendors that have been scanned and confirmed to have no decor items
-        if VF.ShouldHideVendor(vendor) then
-            -- Vendor is unreleased or was scanned with no housing decor - don't count
-        elseif not showUnverified and not VF.IsVendorVerified(vendor) then
-            -- Unverified vendor hidden by user setting - don't count
-        else
+        -- Include only vendors not hidden by scan state and visible under verification settings.
+        if not VF.ShouldHideVendor(vendor) and (showUnverified or VF.IsVendorVerified(vendor)) then
             -- Get best coordinates (scanned preferred over static)
             local coords, zoneMapID = VF.GetBestVendorCoordinates(vendor)
 
@@ -294,12 +286,8 @@ function BadgeCalculation:GetContinentVendorCounts()
     local showUnverified = VF.ShouldShowUnverifiedVendors()
 
     for _, vendor in ipairs(allVendors) do
-        -- Skip vendors that have been scanned and confirmed to have no decor items
-        if VF.ShouldHideVendor(vendor) then
-            -- Vendor is unreleased or was scanned with no housing decor - don't count
-        elseif not showUnverified and not VF.IsVendorVerified(vendor) then
-            -- Unverified vendor hidden by user setting - don't count
-        else
+        -- Include only vendors not hidden by scan state and visible under verification settings.
+        if not VF.ShouldHideVendor(vendor) and (showUnverified or VF.IsVendorVerified(vendor)) then
             -- Get best coordinates (scanned preferred over static)
             local coords, zoneMapID = VF.GetBestVendorCoordinates(vendor)
 

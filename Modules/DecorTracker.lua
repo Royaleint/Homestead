@@ -3,17 +3,14 @@
     Core decor collection tracking logic
 ]]
 
-local addonName, HA = ...
+local _, HA = ...
 
 -- Create DecorTracker module
 local DecorTracker = {}
 HA.DecorTracker = DecorTracker
 
 -- Local references
-local Constants = HA.Constants
-local Cache = HA.Cache
 local DecorData = HA.DecorData
-local Events = HA.Events
 
 -- Local state
 local isInitialized = false

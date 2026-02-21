@@ -6,7 +6,7 @@
     of which waypoint system the player prefers to use.
 ]]
 
-local addonName, HA = ...
+local _, HA = ...
 
 -- Create Waypoints utility
 local Waypoints = {}

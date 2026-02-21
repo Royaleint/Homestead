@@ -2,6 +2,28 @@
 
 ---
 
+## v1.5.0 (2026-02-21)
+
+### New
+- **Enhanced Tooltips** — Tooltips now show acquisition sources, unlock requirements, and completion status.
+- **Event Vendor Pins** — Holiday vendors appear on the map automatically when their event is active.
+- **Indoor Vendor Pins** — Vendor pins now work in indoor maps like Dalaran Underbelly and Thunder Totem.
+- **What's New Popup** — See what changed after each update.
+
+### Improved
+- **Homestead Panel** — Now detachable, with item ownership, requirement info, and 3D previews. Right-click the minimap button to toggle.
+- **Options** — Reorganized for a cleaner layout.
+- Refreshed the **Welcome panel**.
+
+### Fixes
+- Fixed the panel shifting off-screen when maximizing or minimizing the world map.
+- Fixed a combat taint error from the side panel.
+- Fixed a rare scanner error in instanced content.
+- Non-decor vendors no longer clutter saved scan data.
+- Corrected several vendor locations, item data, and tooltip sources.
+
+---
+
 ## v1.4.0
 
 ### New

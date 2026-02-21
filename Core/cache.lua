@@ -3,7 +3,7 @@
     Multi-tier caching system for API responses
 ]]
 
-local addonName, HA = ...
+local _, HA = ...
 
 -- Create cache module
 local Cache = {}
@@ -14,7 +14,6 @@ local pairs = pairs
 local ipairs = ipairs
 local time = time
 local wipe = wipe
-local GetTime = GetTime
 
 -- Constants
 local Constants = HA.Constants

@@ -2,11 +2,11 @@
     Homestead - Profession Sources
     Generated: 2026-02-01 23:11:17
     Total entries: 312
-    
+
     Maps itemID to profession/crafting source information.
 ]]
 
-local addonName, HA = ...
+local _, HA = ...
 
 HA.ProfessionSources = {
     [239170] = {profession = "Cooking", recipeName = "Dornic Mine and Cheese Platter", spellID = 1245993},

@@ -6,7 +6,7 @@
     It does not copy or derive from any other addon's overlay system.
 ]]
 
-local addonName, HA = ...
+local _, HA = ...
 
 -- Create Overlay module
 local Overlay = {}
@@ -53,13 +53,13 @@ function Overlay:CreateOverlay(parentFrame, updateFunc)
     if not overlay then
         -- Create new overlay frame
         overlayCount = overlayCount + 1
-        local frameName = "HousingAddonOverlay" .. overlayCount
 
-        overlay = CreateFrame("Frame", frameName, parentFrame)
+        -- Use unnamed frames/textures to avoid polluting the global namespace.
+        overlay = CreateFrame("Frame", nil, parentFrame)
         overlay:SetFrameStrata(OVERLAY_CONFIG.STRATA)
 
         -- Create icon texture
-        local icon = overlay:CreateTexture(frameName .. "Icon", "OVERLAY")
+        local icon = overlay:CreateTexture(nil, "OVERLAY")
         icon:SetSize(OVERLAY_CONFIG.ICON_SIZE, OVERLAY_CONFIG.ICON_SIZE)
         icon:SetPoint(
             OVERLAY_CONFIG.DEFAULT_ANCHOR,
@@ -231,8 +231,8 @@ end
 function Overlay:HookFrameOnShow(frame, getItemLinkFunc)
     if not frame or frame.HousingAddonHooked then return end
 
-    frame:HookScript("OnShow", function(self)
-        local overlay = Overlay:AddToFrame(self, function(o)
+    frame:HookScript("OnShow", function(self) -- luacheck: ignore 432
+        Overlay:AddToFrame(self, function(o)
             local itemLink = getItemLinkFunc(self)
             Overlay:SetIcon(o, itemLink)
         end)
@@ -245,7 +245,7 @@ end
 function Overlay:HookFrameOnHide(frame)
     if not frame or frame.HousingAddonOnHideHooked then return end
 
-    frame:HookScript("OnHide", function(self)
+    frame:HookScript("OnHide", function(self) -- luacheck: ignore 432
         Overlay:RemoveFromFrame(self)
     end)
 

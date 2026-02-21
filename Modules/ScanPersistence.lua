@@ -8,7 +8,7 @@
     Reusable by VendorScanner, ExportImport, Options, etc.
 ]]
 
-local addonName, HA = ...
+local _, HA = ...
 
 local ScanPersistence = {}
 HA.ScanPersistence = ScanPersistence
@@ -57,6 +57,7 @@ function ScanPersistence:SaveVendorData(scanData)
         local itemRecord = {
             itemID = item.itemID,
             name = item.name,
+            decorID = item.decorID,
             price = item.price,
             stackCount = item.stackCount,
             isPurchasable = item.isPurchasable,
@@ -131,8 +132,13 @@ function ScanPersistence:SaveVendorData(scanData)
     vendorRecord.decorCount = #vendorRecord.items
     vendorRecord.hasDecor = vendorRecord.decorCount > 0
 
-    -- Save the record
-    HA.Addon.db.global.scannedVendors[scanData.npcID] = vendorRecord
+    -- Only persist vendors that actually sell decor items
+    if vendorRecord.hasDecor then
+        HA.Addon.db.global.scannedVendors[scanData.npcID] = vendorRecord
+    else
+        -- Remove stale entry if a previous scan found decor but this one does not
+        HA.Addon.db.global.scannedVendors[scanData.npcID] = nil
+    end
 
     if HA.DevAddon then
         HA.Addon:Debug("Saved vendor data for " .. scanData.vendorName ..
@@ -182,11 +188,16 @@ function ScanPersistence:SaveVendorData(scanData)
         HA.Addon.db.global.noDecorVendors[scanData.npcID] = nil
     end
 
-    -- Persist item-level requirements to CatalogStore (best-known fallback)
+    -- Persist item-level data to CatalogStore (requirements + decorID)
     if HA.CatalogStore then
         for _, item in ipairs(vendorRecord.items) do
-            if item.itemID and item.requirements and #item.requirements > 0 then
-                HA.CatalogStore:SetRequirements(item.itemID, item.requirements)
+            if item.itemID then
+                if item.requirements and #item.requirements > 0 then
+                    HA.CatalogStore:SetRequirements(item.itemID, item.requirements)
+                end
+                if item.decorID then
+                    HA.CatalogStore:Save(item.itemID, { decorID = item.decorID })
+                end
             end
         end
     end

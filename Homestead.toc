@@ -30,6 +30,8 @@ Core\cache.lua
 Data\DecorData.lua
 Data\VendorDatabase.lua
 Data\VendorData.lua
+Data\EndeavorsData.lua
+Data\DecorMapping.lua
 Data\CatalogStore.lua
 Data\AchievementDecor.lua
 
@@ -37,7 +39,9 @@ Data\AchievementDecor.lua
 Data\QuestSources.lua
 Data\AchievementSources.lua
 Data\ProfessionSources.lua
+Data\EventSources.lua
 Data\DropSources.lua
+Data\PrerequisiteSources.lua
 Data\SourceManager.lua
 Data\SourceTextLocaleProfiles.lua
 Data\SourceTextParser.lua
@@ -49,6 +53,7 @@ Utils\waypoints.lua
 Modules\DecorTracker.lua
 Modules\CatalogScanner.lua
 Modules\SourceTextScanner.lua
+Modules\CalendarDetector.lua
 Modules\VendorTracer.lua
 Modules\DecorClassifier.lua
 Modules\ScanPersistence.lua
@@ -64,6 +69,8 @@ Overlay\Tooltips.lua
 
 # UI
 UI\WelcomeFrame.lua
+UI\WhatsNewData.lua
+UI\WhatsNewFrame.lua
 UI\OutputWindow.lua
 UI\VendorFilter.lua
 UI\PinFrameFactory.lua

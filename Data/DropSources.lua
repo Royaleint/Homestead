@@ -1,13 +1,13 @@
 --[[
     Homestead - Drop Sources
     Generated: 2026-02-01 23:11:17
-    Total entries: 72
-    
+    Total entries: 56
+
     Maps itemID to mob/boss drop source information.
     Coordinates are normalized 0-1 format (HereBeDragons compatible).
 ]]
 
-local addonName, HA = ...
+local _, HA = ...
 
 HA.DropSources = {
     [238857] = {mobName = "Shade of Xavius", zone = "Darkheart Thicket", mapID = 7673, coords = {x = 0.58, y = 0.68}, notes = "Final boss room (end of dungeon). Drop ~0.5-0.7%. Entrance /way Val'sharah 59.2 31.5. Solo LFR/normal."},
@@ -33,26 +33,12 @@ HA.DropSources = {
     [248332] = {mobName = "Vanessa VanCleef", zone = "The Deadmines", mapID = 36, coords = {x = 0.246, y = 0.824}, notes = "Final boss."},
     [250703] = {mobName = "Creche Warden", zone = "Forbidden Reach", mapID = 2151, coords = {x = 0.51, y = 0.61}, notes = "Elite Mob Farm"},
     [250704] = {mobName = "Zskera Vaults", zone = "Forbidden Reach", mapID = 2151, coords = {x = 0.0, y = 0.0}, notes = "Weekly RNG Chest Loot - Random loot from Vault Chests"},
-    [250794] = {mobName = "Noblegarden Event", zone = "Major Cities", coords = {x = 0.0, y = 0.0}, notes = "Noblegarden holiday event - Purchase with Noblegarden Chocolate (currency 44791)"},
-    [250795] = {mobName = "Noblegarden Event", zone = "Major Cities", coords = {x = 0.0, y = 0.0}, notes = "Noblegarden holiday event - Purchase with Noblegarden Chocolate (currency 44791)"},
-    [250796] = {mobName = "Noblegarden Event", zone = "Major Cities", coords = {x = 0.0, y = 0.0}, notes = "Noblegarden holiday event - Purchase with Noblegarden Chocolate (currency 44791)"},
+    -- 250794, 250795, 250796 moved to EventSources.lua (Noblegarden)
     -- 250797 (Spring Blossom Ceiling Light) removed: source unknown, not Lunar Festival
     -- 250798 (Spring Blossom Shelf) removed: source unknown, not Lunar Festival
     [251331] = {mobName = "Teron'gor", zone = "Auchindoun Dungeon", mapID = 6912, coords = {x = 0.5, y = 0.5}, notes = "Final boss."},
     [253242] = {mobName = "Garrosh Hellscream", zone = "Siege of Orgrimmar", mapID = 6738, coords = {x = 0.5, y = 0.5}, notes = "Final boss (throne platform)."},
-    [253244] = {mobName = "Lunar Festival Vendor", zone = "Moonglade", coords = {x = 0.0, y = 0.0}, notes = "Lunar Festival holiday event - Purchase with Coin of Ancestry (currency 21100)"},
-    [253254] = {mobName = "Lunar Festival Vendor", zone = "Moonglade", coords = {x = 0.0, y = 0.0}, notes = "Lunar Festival holiday event - Purchase with Coin of Ancestry (currency 21100)"},
-    [253255] = {mobName = "Lunar Festival Vendor", zone = "Moonglade", coords = {x = 0.0, y = 0.0}, notes = "Lunar Festival holiday event - Purchase with Coin of Ancestry (currency 21100)"},
-    [253256] = {mobName = "Lunar Festival Vendor", zone = "Moonglade", coords = {x = 0.0, y = 0.0}, notes = "Lunar Festival holiday event - Purchase with Coin of Ancestry (currency 21100)"},
-    [253257] = {mobName = "Lunar Festival Vendor", zone = "Moonglade", coords = {x = 0.0, y = 0.0}, notes = "Lunar Festival holiday event - Purchase with Coin of Ancestry (currency 21100)"},
-    [253290] = {mobName = "Lunar Festival Vendor", zone = "Moonglade", coords = {x = 0.0, y = 0.0}, notes = "Lunar Festival holiday event - Purchase with Coin of Ancestry (currency 21100)"},
-    [253291] = {mobName = "Lunar Festival Vendor", zone = "Moonglade", coords = {x = 0.0, y = 0.0}, notes = "Lunar Festival holiday event - Purchase with Coin of Ancestry (currency 21100)"},
-    [253292] = {mobName = "Lunar Festival Vendor", zone = "Moonglade", coords = {x = 0.0, y = 0.0}, notes = "Lunar Festival holiday event - Purchase with Coin of Ancestry (currency 21100)"},
-    [253293] = {mobName = "Lunar Festival Vendor", zone = "Moonglade", coords = {x = 0.0, y = 0.0}, notes = "Lunar Festival holiday event - Purchase with Coin of Ancestry (currency 21100)"},
-    [253294] = {mobName = "Lunar Festival Vendor", zone = "Moonglade", coords = {x = 0.0, y = 0.0}, notes = "Lunar Festival holiday event - Purchase with Coin of Ancestry (currency 21100)"},
-    [253295] = {mobName = "Lunar Festival Vendor", zone = "Moonglade", coords = {x = 0.0, y = 0.0}, notes = "Lunar Festival holiday event - Purchase with Coin of Ancestry (currency 21100)"},
-    [253296] = {mobName = "Lunar Festival Vendor", zone = "Moonglade", coords = {x = 0.0, y = 0.0}, notes = "Lunar Festival holiday event - Purchase with Coin of Ancestry (currency 21100)"},
-    [253297] = {mobName = "Lunar Festival Vendor", zone = "Moonglade", coords = {x = 0.0, y = 0.0}, notes = "Lunar Festival holiday event - Purchase with Coin of Ancestry (currency 21100)"},
+    -- 253244, 253254-253257, 253290-253297 moved to EventSources.lua (Lunar Festival)
     -- 253451 removed: Wowhead says drops from Ziekket, not Chimaerus — needs re-verification
     [255672] = {mobName = "King Mechagon", zone = "Operation: Mechagon", mapID = 2112, coords = {x = 0.502, y = 0.384}, notes = "Final boss (primary)."},
     [256354] = {mobName = "Warlord Sargha", zone = "Neltharus Dungeon", mapID = 14011, coords = {x = 0.5, y = 0.5}, notes = "Final boss."},
@@ -68,6 +54,7 @@ HA.DropSources = {
     [263238] = {mobName = "Assault of the Zaqali", zone = "Aberrus Raid", mapID = 2569, coords = {x = 0.592, y = 0.418}, notes = "Boss room."},
     -- 263290 (Spring Blossom Tree) removed: source unknown, not Lunar Festival
     -- 263291 (Spring Blossom Pond) removed: source unknown, not Lunar Festival
+    [245315] = {mobName = "S.C.R.A.P. Heap", zone = "The War Within", notes = "Random drop from S.C.R.A.P. heap containers (Half-Empty Bag, Dented Crate, Uncovered Strongbox). Low drop rate (~0.1-0.9%)."},
     [264187] = {mobName = "Belo'ren", zone = "Siren Isle (Rare)", mapID = 16472, coords = {x = 0.5, y = 0.5}, notes = "Final boss drop (Light Ember child). /way Quel'Danas entrance."},
     [264246] = {mobName = "Chimaerus", zone = "Midnight Falls Raid", mapID = 16531, coords = {x = 0.5, y = 0.5}, notes = "Final (only) boss drop. Aberration-themed shroom. Confirmed Wowhead."},
     [264332] = {mobName = "Nalorakk", zone = "Zul'Aman (Siren Update)", mapID = 2437, coords = {x = 0.5, y = 0.5}, notes = "Classic boss (timewalk?)."},

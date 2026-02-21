@@ -5,7 +5,7 @@
     A complete housing collection, vendor, and progress tracker for WoW
 ]]
 
-local addonName, HA = ...
+local _, HA = ...
 
 -- Addon namespace
 HA.Constants = {}
@@ -14,7 +14,7 @@ local Constants = HA.Constants
 -------------------------------------------------------------------------------
 -- Version Info
 -------------------------------------------------------------------------------
-Constants.VERSION = "1.4.0"
+Constants.VERSION = "1.5.0"
 Constants.ADDON_NAME = "Homestead"
 Constants.ADDON_SHORT = "HS"
 
@@ -109,7 +109,6 @@ Constants.Text = {
     -- UI labels
     UI_DECOR_BROWSER = "Decor Browser",
     UI_VENDOR_TRACER = "Vendor Tracer",
-    UI_ENDEAVOURS = "Endeavours",
     UI_COLOR_TRACKER = "Color Tracker",
     UI_EXPORT = "Export Data",
     UI_OPTIONS = "Options",
@@ -151,6 +150,8 @@ Constants.ZoneToContinentMap = {
     [69] = 12,
     [70] = 12,
     [71] = 12,     -- Tanaris
+    [77] = 12,     -- Felwood
+    [80] = 12,     -- Moonglade (Lunar Festival vendor)
     [84] = 13,
     [85] = 12,
     [87] = 13,
@@ -426,26 +427,13 @@ Constants.Defaults = {
             sidePanelPoppedOut = false,                 -- Panel is detached from world map
             sidePanelPosition = nil,                   -- {point, x, y} saved on drag stop
             sidePanelHeight = nil,                     -- Saved detached height for /reload restore
+            showEventVendors = true,                   -- Show seasonal event vendor pins when events are active
+            showUnverifiedVendors = false,             -- Hidden by default; orange pins for unconfirmed locations
         },
 
         -- Vendor scanning settings
         vendorScanning = {
             enabled = true,  -- Auto-scan merchants for housing decor data
-        },
-
-        -- Endeavour tracker settings
-        endeavourTracker = {
-            enabled = true,
-            showProgress = true,
-        },
-
-        -- Export settings
-        export = {
-            includeCharacterInfo = true,
-            includeDecorList = true,
-            includeDyeList = true,
-            includeEndeavours = true,
-            includeVendorsVisited = true,
         },
     },
     global = {
@@ -471,6 +459,8 @@ Constants.Defaults = {
         -- Canonical per-item store (CatalogStore)
         catalogItems = {},           -- [itemID] = { isOwned, name, decorID, sources, requirements, ... }
         schemaVersion = 1,           -- Incremented by migrations
+        lastSeenVersion = "",        -- Last version player acknowledged in What's New
+        suppressWhatsNewUntil = "",  -- Skip auto-popup for this specific version
     },
 }
 

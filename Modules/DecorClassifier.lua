@@ -8,7 +8,7 @@
     Reusable by VendorScanner and any future module needing decor detection.
 ]]
 
-local addonName, HA = ...
+local _, HA = ...
 
 local DecorClassifier = {}
 HA.DecorClassifier = DecorClassifier

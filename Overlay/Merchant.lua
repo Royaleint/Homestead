@@ -3,16 +3,29 @@
     Overlays for vendor/merchant frames
 ]]
 
-local addonName, HA = ...
+local _, HA = ...
 
 -- Wait for Overlay module
 local Overlay = HA.Overlay
 local Events = HA.Events
 
+-- Upvalued Lua stdlib
+local pairs = pairs
+
 -- Local state
 local isHooked = false
 local merchantButtons = {}
+local pendingOverlayTimer = nil
 local UpdateAllMerchantOverlays  -- forward declaration (used in HookMerchantFrame before definition)
+
+-- Debounced scheduler — ensures only one pending timer at a time
+local function ScheduleOverlayUpdate()
+    if pendingOverlayTimer then return end
+    pendingOverlayTimer = C_Timer.After(0.1, function()
+        pendingOverlayTimer = nil
+        UpdateAllMerchantOverlays()
+    end)
+end
 
 -------------------------------------------------------------------------------
 -- Merchant Item Update Function
@@ -60,7 +73,7 @@ local function HookMerchantFrame()
                 UpdateMerchantButton(button, index)
             end)
 
-            button.HousingAddonHooked = true
+            button.HousingAddonHooked = true -- luacheck: ignore 122
         end
     end
 
@@ -68,43 +81,43 @@ local function HookMerchantFrame()
     local nextButton = MerchantNextPageButton
     if nextButton and not nextButton.HousingAddonPageHooked then
         nextButton:HookScript("OnClick", function()
-            C_Timer.After(0.1, UpdateAllMerchantOverlays)
+            ScheduleOverlayUpdate()
         end)
-        nextButton.HousingAddonPageHooked = true
+        nextButton.HousingAddonPageHooked = true -- luacheck: ignore 122
     end
 
     local prevButton = MerchantPrevPageButton
     if prevButton and not prevButton.HousingAddonPageHooked then
         prevButton:HookScript("OnClick", function()
-            C_Timer.After(0.1, UpdateAllMerchantOverlays)
+            ScheduleOverlayUpdate()
         end)
-        prevButton.HousingAddonPageHooked = true
+        prevButton.HousingAddonPageHooked = true -- luacheck: ignore 122
     end
 
     -- Hook tab switching
     local tab1 = MerchantFrameTab1
     if tab1 and not tab1.HousingAddonTabHooked then
         tab1:HookScript("OnClick", function()
-            C_Timer.After(0.1, UpdateAllMerchantOverlays)
+            ScheduleOverlayUpdate()
         end)
-        tab1.HousingAddonTabHooked = true
+        tab1.HousingAddonTabHooked = true -- luacheck: ignore 122
     end
 
     local tab2 = MerchantFrameTab2
     if tab2 and not tab2.HousingAddonTabHooked then
         tab2:HookScript("OnClick", function()
-            C_Timer.After(0.1, UpdateAllMerchantOverlays)
+            ScheduleOverlayUpdate()
         end)
-        tab2.HousingAddonTabHooked = true
+        tab2.HousingAddonTabHooked = true -- luacheck: ignore 122
     end
 
     -- Hook mouse wheel scrolling
     local merchantFrame = MerchantFrame
     if merchantFrame and not merchantFrame.HousingAddonScrollHooked then
         merchantFrame:HookScript("OnMouseWheel", function()
-            C_Timer.After(0.1, UpdateAllMerchantOverlays)
+            ScheduleOverlayUpdate()
         end)
-        merchantFrame.HousingAddonScrollHooked = true
+        merchantFrame.HousingAddonScrollHooked = true -- luacheck: ignore 122
     end
 
     isHooked = true

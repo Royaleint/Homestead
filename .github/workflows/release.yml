@@ -16,6 +16,14 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Extract current version changelog
+        run: |
+          # Extract the first version section from CHANGELOG.md
+          # Grabs everything from the first ## heading to the next --- separator
+          awk '/^## v/{if(found) exit; found=1} found' CHANGELOG.md > RELEASE_NOTES.md
+          echo "--- Extracted release notes ---"
+          cat RELEASE_NOTES.md
+
       - name: Package and Release
         uses: BigWigsMods/packager@v2
         with:

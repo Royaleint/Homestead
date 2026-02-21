@@ -11,7 +11,7 @@
     - Stores data in SavedVariables for persistence
 ]]
 
-local addonName, HA = ...
+local _, HA = ...
 
 -- Create VendorScanner module
 local VendorScanner = {}
@@ -65,7 +65,7 @@ function VendorScanner:Initialize()
     scanFrame:Hide()
     scanFrame.elapsed = 0
 
-    scanFrame:SetScript("OnUpdate", function(self, elapsed)
+    scanFrame:SetScript("OnUpdate", function(self, elapsed) -- luacheck: ignore 432
         self.elapsed = self.elapsed + elapsed
         if self.elapsed >= SCAN_DELAY then
             self.elapsed = 0
@@ -78,7 +78,7 @@ function VendorScanner:Initialize()
     eventFrame:RegisterEvent("MERCHANT_SHOW")
     eventFrame:RegisterEvent("MERCHANT_UPDATE")
     eventFrame:RegisterEvent("MERCHANT_CLOSED")
-    eventFrame:SetScript("OnEvent", function(self, event, ...)
+    eventFrame:SetScript("OnEvent", function(self, event, ...) -- luacheck: ignore 432
         if event == "MERCHANT_SHOW" then
             VendorScanner:OnMerchantShow()
         elseif event == "MERCHANT_UPDATE" then
@@ -119,7 +119,9 @@ function VendorScanner:OnMerchantShow()
     local npcID = self:GetNPCIDFromGUID(npcGUID)
     if not npcID then
         if HA.DevAddon then
-            HA.Addon:Debug("Could not extract NPC ID from GUID:", npcGUID)
+            -- GUID may be a restricted "secret" value in some instance contexts.
+            -- Avoid logging it directly to prevent conversion errors.
+            HA.Addon:Debug("Could not extract NPC ID from GUID (possibly restricted value)")
         end
         return
     end
@@ -133,6 +135,7 @@ function VendorScanner:OnMerchantShow()
     -- Resolve NPC ID aliases to canonical ID (e.g., phased variants → main entry)
     if HA.VendorDatabase and HA.VendorDatabase.Aliases then
         local canonicalID = HA.VendorDatabase.Aliases[npcID]
+            or (HA.EndeavorsData and HA.EndeavorsData.Aliases and HA.EndeavorsData.Aliases[npcID])
         if canonicalID then
             if HA.DevAddon then
                 HA.Addon:Debug("Alias resolved:", npcID, "->", canonicalID)
@@ -352,18 +355,15 @@ function VendorScanner:ProcessScanQueue()
             local itemID = _G.GetMerchantItemID and _G.GetMerchantItemID(i)
 
             -- Get full merchant item info via C_MerchantFrame API (12.0.1+)
-            local name, texture, price, stackCount, numAvailable, isPurchasable, isUsable, extendedCost, currencyID, spellID
+            local name, price, stackCount, isPurchasable, isUsable, extendedCost, spellID
             local info = C_MerchantFrame.GetItemInfo(i)
             if info then
                 name = info.name
-                texture = info.texture
                 price = info.price
                 stackCount = info.stackCount
-                numAvailable = info.numAvailable
                 isPurchasable = info.isPurchasable
                 isUsable = info.isUsable
                 extendedCost = info.hasExtendedCost
-                currencyID = info.currencyID
                 spellID = info.spellID
             else
                 -- C_MerchantFrame.GetItemInfo returned nil for this slot
@@ -380,7 +380,7 @@ function VendorScanner:ProcessScanQueue()
                 -- Iterate through ALL cost components
                 for c = 1, totalCosts do
                     if _G.GetMerchantItemCostItem then
-                        local tex, amount, link, costName = _G.GetMerchantItemCostItem(i, c)
+                        local _, amount, link, costName = _G.GetMerchantItemCostItem(i, c)
                         if link and amount then
                             -- Check if it's a currency link
                             local currID = link:match("currency:(%d+)")
@@ -405,9 +405,7 @@ function VendorScanner:ProcessScanQueue()
                             -- Currency with nil link — API returns name instead
                             -- Try to find currencyID by searching known currencies
                             local inferredID = nil
-                            if C_CurrencyInfo and C_CurrencyInfo.GetCurrencyIDFromLink then
-                                -- Not available without a link, but future-proof
-                            end
+                            -- No link available here; keep currencyID nil and persist name-based cost.
                             table.insert(currencies, {
                                 currencyID = inferredID,
                                 amount = amount,
@@ -443,10 +441,17 @@ function VendorScanner:ProcessScanQueue()
                         itemID or 0, name or "?", reqStr))
                 end
 
+                -- Extract decorID (recordID) from catalog entryID if available
+                local decorID = nil
+                if decorInfo and decorInfo.entryID and type(decorInfo.entryID) == "table" then
+                    decorID = decorInfo.entryID.recordID
+                end
+
                 table.insert(scanQueue.decorItems, {
                     itemLink = itemLink,
                     itemID = itemID or (decorInfo and decorInfo.itemID) or GetItemInfoInstant(itemLink),
                     name = name or (decorInfo and decorInfo.name) or "Unknown",
+                    decorID = decorID,
                     price = price,
                     stackCount = stackCount,
                     isPurchasable = isPurchasable,
@@ -636,11 +641,13 @@ function VendorScanner:GetNPCIDFromGUID(guid)
     if not guid then return nil end
 
     -- GUID format: Creature-0-XXXX-XXXX-XXXX-XXXXXXXX
-    -- Use pattern match instead of strsplit to avoid taint errors.
-    -- UnitGUID can return a "secret string" in instanced content (12.0+);
-    -- strsplit triggers string conversion on the full GUID which errors,
-    -- but string.match with a capture pattern extracts safely.
-    local npcID = string.match(guid, "^%a+%-%d+%-%d+%-%d+%-%d+%-(%d+)")
+    -- UnitGUID can return a restricted "secret string" in instanced content.
+    -- Guard parsing with pcall so matching does not hard-error on restricted values.
+    local ok, npcID = pcall(string.match, guid, "^%a+%-%d+%-%d+%-%d+%-%d+%-(%d+)")
+    if not ok then
+        return nil
+    end
+
     return npcID and tonumber(npcID) or nil
 end
 

@@ -9,7 +9,7 @@
     Reusable by VendorMapPins, VendorTracer, ExportImport, etc.
 ]]
 
-local addonName, HA = ...
+local _, HA = ...
 
 local VendorFilter = {}
 HA.VendorFilter = VendorFilter
@@ -135,6 +135,12 @@ end
 -- Returns true if vendor should be hidden (unreleased or scanned with no decor)
 function VendorFilter.ShouldHideVendor(vendor)
     if not vendor then return true end
+
+    -- Event vendors: only hidden when setting is off (bypass unreleased/noDecor checks)
+    if vendor._isEventVendor then
+        return not VendorFilter.ShouldShowEventVendors()
+    end
+
     if vendor.unreleased then return true end
 
     local npcID = vendor.npcID
@@ -149,24 +155,6 @@ function VendorFilter.ShouldHideVendor(vendor)
         -- Defensive: only trust confirmed entries (guards against corrupted SVs)
         if data.scanConfidence == "confirmed" then
             return true
-        end
-    end
-
-    -- Current scan data (only trust confident scans)
-    if db.scannedVendors then
-        local scannedData = db.scannedVendors[npcID]
-        if scannedData then
-            local trusted = scannedData.scanConfidence == "confirmed"
-            if trusted then
-                if scannedData.hasDecor == false then
-                    return true
-                elseif scannedData.hasDecor == nil then
-                    local scannedItems = scannedData.items
-                    if scannedItems and #scannedItems == 0 then
-                        return true
-                    end
-                end
-            end
         end
     end
 
@@ -213,4 +201,17 @@ function VendorFilter.ShouldShowUnverifiedVendors()
         return HA.Addon.db.profile.vendorTracer.showUnverifiedVendors == true
     end
     return false  -- Default to hidden (new users shouldn't see unverified data)
+end
+
+-- Get the setting for showing event vendors
+function VendorFilter.ShouldShowEventVendors()
+    if HA.Addon and HA.Addon.db and HA.Addon.db.profile.vendorTracer then
+        return HA.Addon.db.profile.vendorTracer.showEventVendors ~= false
+    end
+    return true  -- Default to showing
+end
+
+-- Check if a vendor is an event vendor
+function VendorFilter.IsEventVendor(vendor)
+    return vendor and vendor._isEventVendor == true
 end

@@ -9,7 +9,7 @@
     No WoW API calls. Pure data.
 ]]
 
-local addonName, HA = ...
+local _, HA = ...
 
 local SourceTextLocaleProfiles = {}
 HA.SourceTextLocaleProfiles = SourceTextLocaleProfiles

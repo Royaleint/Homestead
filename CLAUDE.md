@@ -1,7 +1,7 @@
 # Homestead - WoW Housing Addon
 
 A housing collection, vendor, and progress tracker for World of Warcraft Retail (12.0.1+).
-Current version: v1.4.0
+Current version: v1.5.0
 
 ## Quick Reference
 
@@ -118,10 +118,10 @@ TOC:       120001
 ### File Load Order (from TOC)
 ```
 Libs → embeds.xml → Locale → Core (core, constants, events, cache) →
-Data (DecorData, VendorDatabase, VendorData, CatalogStore, AchievementDecor,
-      QuestSources, AchievementSources, ProfessionSources, DropSources,
-      SourceManager, SourceTextLocaleProfiles, SourceTextParser) → Utils →
-Modules (DecorTracker, CatalogScanner, SourceTextScanner, VendorTracer,
+Data (DecorData, VendorDatabase, VendorData, EndeavorsData, DecorMapping, CatalogStore,
+      AchievementDecor, QuestSources, AchievementSources, PrerequisiteSources, ProfessionSources,
+      EventSources, DropSources, SourceManager, SourceTextLocaleProfiles, SourceTextParser) → Utils →
+Modules (DecorTracker, CatalogScanner, SourceTextScanner, CalendarDetector, VendorTracer,
          DecorClassifier, ScanPersistence, VendorScanner, ExportImport, Validation) →
 Overlay (overlay, Containers, Merchant, Tooltips) →
 UI (WelcomeFrame, MainFrame, OutputWindow, MapSidePanel, VendorFilter,
@@ -231,12 +231,13 @@ MERCHANT_SHOW / MERCHANT_UPDATE / MERCHANT_CLOSED  -- Vendor lifecycle
 | `PinFrameFactory` | Creates and manages pin frame pools |
 | `CatalogScanner` | Item-by-item ownership scanning (API limitation workaround) |
 | `SourceTextScanner` | Parses sourceText from CatalogScanner, stores in parsedSources |
-| `CatalogStore` | Unified per-item ownership store with migration from legacy caches |
+| `CatalogStore` | Unified per-item ownership store with static DecorMapping (decorID↔itemID), cached owned count, ProbeByDecorID |
 | `DecorTracker` | Core ownership detection logic |
 | `VendorData` | Unified access to vendor database + scanned data |
 | `SourceManager` | Priority-ordered source lookup (vendor > quest > achievement > profession > drop) |
 | `ExportImport` | Export scanned vendor data (`HOMESTEAD_EXPORT:` format) |
 | `MapSidePanel` | World map side panel with vendor list, item grid, 3D preview, detachable pop-out |
+| `CalendarDetector` | Detects active holidays via C_Calendar API for event vendor pin visibility |
 
 ## Git Conventions
 
@@ -269,3 +270,5 @@ MERCHANT_SHOW / MERCHANT_UPDATE / MERCHANT_CLOSED  -- Vendor lifecycle
 - [Blizzard UI Source](https://github.com/Gethe/wow-ui-source)
 - [HereBeDragons](https://github.com/Nevcairiel/HereBeDragons)
 - `Home_Dev/reference/WOW_ADDON_PATTERNS.md` — Comprehensive WoW/Lua development patterns reference
+- `Home_Dev/reference/HOUSING_API_REFERENCE.md` — In-game Housing API: taint status, ownership detection, events, enums, field dumps
+- `Home_Dev/reference/BLIZZARD_WEB_API_AND_DATA_STRATEGY.md` — Blizzard web API endpoints, export pipeline, combined data sources, strategic analysis

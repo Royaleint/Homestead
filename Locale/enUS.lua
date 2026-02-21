@@ -55,7 +55,6 @@ L["Click to set waypoint"] = "Click to set waypoint"
 L["Housing Addon"] = "Housing Addon"
 L["Decor Browser"] = "Decor Browser"
 L["Vendor Tracer"] = "Vendor Tracer"
-L["Endeavours"] = "Endeavours"
 L["Color Tracker"] = "Color Tracker"
 L["Export Data"] = "Export Data"
 L["Options"] = "Options"
@@ -74,16 +73,6 @@ L["Missing items:"] = "Missing items:"
 L["No vendors found"] = "No vendors found"
 
 -------------------------------------------------------------------------------
--- Endeavours
--------------------------------------------------------------------------------
-L["Endeavour Progress"] = "Endeavour Progress"
-L["Daily Tasks"] = "Daily Tasks"
-L["Weekly Tasks"] = "Weekly Tasks"
-L["Completed"] = "Completed"
-L["In Progress"] = "In Progress"
-L["Available"] = "Available"
-
--------------------------------------------------------------------------------
 -- Color/Dye Tracker
 -------------------------------------------------------------------------------
 L["Dye Collection"] = "Dye Collection"
@@ -94,27 +83,12 @@ L["Apply Dye"] = "Apply Dye"
 L["Preview"] = "Preview"
 
 -------------------------------------------------------------------------------
--- Export
--------------------------------------------------------------------------------
-L["Export Collection Data"] = "Export Collection Data"
-L["Copy to Clipboard"] = "Copy to Clipboard"
-L["Data copied to clipboard!"] = "Data copied to clipboard!"
-L["Export Format:"] = "Export Format:"
-L["Include:"] = "Include:"
-L["Character Info"] = "Character Info"
-L["Decor Collection"] = "Decor Collection"
-L["Dye Collection"] = "Dye Collection"
-L["Endeavour Progress"] = "Endeavour Progress"
-L["Vendors Visited"] = "Vendors Visited"
-
--------------------------------------------------------------------------------
 -- Options
 -------------------------------------------------------------------------------
 L["General"] = "General"
 L["Overlays"] = "Overlays"
 L["Tooltips"] = "Tooltips"
 L["Vendor Tracer"] = "Vendor Tracer"
-L["Endeavours"] = "Endeavours"
 L["Export"] = "Export"
 
 L["Enable addon"] = "Enable addon"
@@ -136,7 +110,6 @@ L["Show dye slot information"] = "Show dye slot information"
 L["Show map pins"] = "Show map pins"
 L["Show minimap pins"] = "Show minimap pins"
 L["Use TomTom for waypoints"] = "Use TomTom for waypoints"
-L["Auto-create waypoint on selection"] = "Auto-create waypoint on selection"
 
 -------------------------------------------------------------------------------
 -- Slash Commands

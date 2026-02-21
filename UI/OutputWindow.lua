@@ -3,7 +3,7 @@
     Reusable popup window for displaying command output
 ]]
 
-local addonName, HA = ...
+local _, HA = ...
 
 -- Create OutputWindow module
 local OutputWindow = {}

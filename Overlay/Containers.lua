@@ -3,7 +3,7 @@
     Overlays for bags and bank frames
 ]]
 
-local addonName, HA = ...
+local _, HA = ...
 
 -- Wait for Overlay module
 local Overlay = HA.Overlay
@@ -117,7 +117,7 @@ local function HookBankFrame()
                 local itemLink = C_Container.GetContainerItemLink(BANK_CONTAINER, i)
                 Overlay:SetIcon(overlay, itemLink)
             end)
-            button.HousingAddonHooked = true
+            button.HousingAddonHooked = true -- luacheck: ignore 122
         end
     end
 

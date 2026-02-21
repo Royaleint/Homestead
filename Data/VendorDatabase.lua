@@ -8,7 +8,7 @@
     Updated: 2026-02-01 22:14
 ]]
 
-local addonName, HA = ...
+local _, HA = ...
 
 -- Create VendorDatabase module
 local VendorDatabase = {}
@@ -27,9 +27,6 @@ VendorDatabase.Aliases = {
     [120897] = 252969,
     [120899] = 253387,
     [142192] = 115805,
-    [150359] = 248525,
-    [150497] = 248525,
-    [252917] = 256202,
     [253419] = 44114,
     [142115] = 45417,
     [253421] = 45417,
@@ -48,8 +45,8 @@ VendorDatabase.Aliases = {
     [231012] = 255222,
 }
 
--- Note: Aliases are resolved at scan time by VendorScanner:VerifyAndUpdateDatabaseEntry().
--- Runtime lookups (GetVendor, HasVendor) use canonical NPC IDs only.
+-- Note: Aliases are resolved at both scan time (VendorScanner) and query time
+-- (VendorData:GetVendor, HasVendor, ResolveAlias).
 
 -------------------------------------------------------------------------------
 -- Vendors (keyed by NPC ID)
@@ -627,6 +624,18 @@ VendorDatabase.Vendors = {
         expansion = "Warlords of Draenor",
         items = {{258740, cost = {gold = 4000000, currencies = {{id = 823, amount = 1000}}}}, {258741, cost = {gold = 3200000, currencies = {{id = 823, amount = 800}}}}, {258745, cost = {gold = 6000000, currencies = {{id = 823, amount = 1500}}}}, {258748, cost = {gold = 8000000, currencies = {{id = 823, amount = 2000}}}}, {258749, cost = {gold = 4800000, currencies = {{id = 823, amount = 1200}}}}},
     },
+	[88126] = {
+        name = "Maybell Maclure-Stonefield",
+        mapID = 582,
+        x = 0.296, y = 0.162,
+        zone = "Lunarfall (Alliance Garrison)",
+        faction = "Alliance",
+        currency = "Gold",
+        altCurrency = "Garrison Resources",
+        expansion = "Warlords of Draenor",
+        notes = "Requires quest 'The Escape' (Elwynn Forest). Needs in-game coord verification.",
+        items = {{253527, cost = {gold = 3000000, currencies = {{id = 824, amount = 500}}}}},
+    },
 	[88220] = {
         name = "Peter",
         mapID = 582,
@@ -1170,17 +1179,6 @@ VendorDatabase.Vendors = {
         notes = "Location is not static, she moves with the dreamsurge event",
         items = {255673, 257352},
     },
-	[257897] = {
-        name = "Harlowe Marl",
-        mapID = 2352,
-        x = 0.5304, y = 0.3805,
-        zone = "Founder's Point",
-        faction = "Neutral",
-        currency = "Community Coupons",
-        expansion = "Events",
-        notes = "Endeavor Trader — only appears when a specific Endeavor is active in a neighborhood. Also appears at Razorwind Shores (Horde) at 54.3, 56.1",
-        items = {264915, 264916, 264917, 264918, 264919, 264920, 264921, 264922, 264923, 264924, 264925, 265032, 265541},
-    },
 	[211065] = {
         name = "Marie Allen",
         mapID = 217,
@@ -1191,6 +1189,17 @@ VendorDatabase.Vendors = {
         currency = "Gold",
         expansion = "Cataclysm",
         items = {{245515, cost = {gold = 750000}}, {245516, cost = {gold = 750000}}, {245520, cost = {gold = 1500000}}, {245604, cost = {gold = 1000000}}, {245617, cost = {gold = 1000000}}, {258301, cost = {gold = 1250000}}},
+    },
+	[48258] = {
+        name = "Willard Harrington",
+        mapID = 77,
+        x = 0.616, y = 0.258,
+        zone = "Felwood",
+        faction = "Alliance",
+        currency = "Gold",
+        expansion = "Cataclysm",
+        notes = "Requires quest 'The Shredders of Irontree'. Blacksmithing Supplies vendor.",
+        items = {{256903, cost = {gold = 750000}}},
     },
 	[216284] = {
         name = "Mythrin'dir",
@@ -1580,34 +1589,6 @@ VendorDatabase.Vendors = {
         expansion = "Battle for Azeroth",
         items = {{252390, cost = {gold = 100000}}, {252391, cost = {gold = 100000}}, {252393, cost = {gold = 100000}}, {252404, cost = {gold = 100000}}, {258765, cost = {gold = 100000}}},
     },
-	[248525] = {
-        name = "Pascal-K1N6",
-        mapID = 2351,
-        x = 0.179, y = 0.175,
-        zone = "Razorwind Shores",
-        faction = "Neutral",
-        currency = "Community Coupons",
-        expansion = "The War Within",
-        items = {
-            {254400, cost = {currencies = {{id = 3363, amount = 2}}}},
-            {254401, cost = {currencies = {{id = 3363, amount = 5}}}},
-            {254402, cost = {currencies = {{id = 3363, amount = 5}}}},
-            {254403, cost = {currencies = {{id = 3363, amount = 10}}}},
-            {254404, cost = {currencies = {{id = 3363, amount = 2}}}},
-            {254405, cost = {currencies = {{id = 3363, amount = 2}}}},
-            {254406, cost = {currencies = {{id = 3363, amount = 2}}}},
-            {254407, cost = {currencies = {{id = 3363, amount = 2}}}},
-            {254408, cost = {currencies = {{id = 3363, amount = 2}}}},
-            {254409, cost = {currencies = {{id = 3363, amount = 2}}}},
-            {254410, cost = {currencies = {{id = 3363, amount = 5}}}},
-            {254411, cost = {currencies = {{id = 3363, amount = 10}}}},
-            {254412, cost = {currencies = {{id = 3363, amount = 2}}}},
-            {254413, cost = {currencies = {{id = 3363, amount = 2}}}},
-            {254415, cost = {currencies = {{id = 3363, amount = 20}}}},
-            {254416, cost = {currencies = {{id = 3363, amount = 15}}}},
-            {254766, cost = {currencies = {{id = 3363, amount = 10}}}},
-        },
-    },
 	[248594] = {
         name = "Sundries Merchant",
         mapID = 680,
@@ -1617,26 +1598,6 @@ VendorDatabase.Vendors = {
         currency = "Ancient Mana",
         expansion = "Legion",
         items = {244654, 244676, 244677, 244678, 246001, 246002},
-    },
-	[249684] = {
-        name = "Brother Dovetail",
-        mapID = 2351,
-        x = 0.5436, y = 0.5612,
-        zone = "Razorwind Shores",
-        faction = "Neutral",
-        currency = "Community Coupons",
-        expansion = "The War Within",
-        items = {246686, 246741, 246838, 248402, 248403, 248405, 248406, 248407, 251472, 251473, 251474, 251475, 252039, 252040, 252041},
-    },
-	[250820] = {
-        name = "Hordranin",
-        mapID = 2351,
-        x = 0.542, y = 0.562,
-        zone = "Razorwind Shores",
-        faction = "Neutral",
-        currency = "Trader's Tender",
-        expansion = "The War Within",
-        items = {{250627, cost = {currencies = {{id = 3363, amount = 5}}}}, {250694, cost = {currencies = {{id = 3363, amount = 15}}}}, {250695, cost = {currencies = {{id = 3363, amount = 10}}}}, {250696, cost = {currencies = {{id = 3363, amount = 10}}}}, {250697, cost = {currencies = {{id = 3363, amount = 10}}}}, {250698, cost = {currencies = {{id = 3363, amount = 10}}}}, {250699, cost = {currencies = {{id = 3363, amount = 10}}}}, {250700, cost = {currencies = {{id = 3363, amount = 5}}}}, {250701, cost = {currencies = {{id = 3363, amount = 20}}}}, {250702, cost = {currencies = {{id = 3363, amount = 5}}}}, {250703, cost = {currencies = {{id = 3363, amount = 10}}}}, {250704, cost = {currencies = {{id = 3363, amount = 15}}}}},
     },
 	[251911] = {
         name = "Stacks Topskimmer",
@@ -1736,16 +1697,6 @@ VendorDatabase.Vendors = {
         expansion = "Legion",
         items = {{245615, cost = {gold = 100000, currencies = {{id = 1220, amount = 350}}}}, {245616, cost = {gold = 100000, currencies = {{id = 1220, amount = 1000}}}}},
     },
-	[252605] = {
-        name = "Aeeshna",
-        mapID = 2351,
-        x = 0.544, y = 0.562,
-        zone = "Razorwind Shores",
-        faction = "Neutral",
-        currency = "Community Coupons",
-        expansion = "The War Within",
-        items = {262907, 263043, 263044, 263045, 263046, 263047, 263048},
-    },
 	[252873] = {
         name = "Morta Gage",
         mapID = 2350,
@@ -1823,7 +1774,7 @@ VendorDatabase.Vendors = {
         faction = "Neutral",
         currency = "Gold",
         expansion = "Dragonflight",
-        items = {248111, {256168, cost = {currencies = {{id = 2003, amount = 10}}}}, {256169, cost = {gold = 100000, currencies = {{id = 2003, amount = 500}}}}},
+        items = {248111, {248656, cost = {currencies = {{id = 2118, amount = 1500}}}}, {256168, cost = {currencies = {{id = 2003, amount = 10}}}}, {256169, cost = {gold = 100000, currencies = {{id = 2003, amount = 500}}}}},
     },
 	[253227] = {
         name = "Breana Bitterbrand",
@@ -2166,12 +2117,12 @@ VendorDatabase.Vendors = {
 	[255301] = {
         name = "Botanist Boh'an",
         mapID = 2351,
-        x = 0.54, y = 0.584,
+        x = 0.537, y = 0.5755,
         zone = "Razorwind Shores",
         faction = "Neutral",
         currency = "Gold",
         expansion = "The War Within",
-        items = {{248337, cost = {gold = 500000}}, {248338, cost = {gold = 500000}}, {248339, cost = {gold = 500000}}, {248625, cost = {gold = 1500000}}, {248626, cost = {gold = 750000}}, {248627, cost = {gold = 100000}}, {248628, cost = {gold = 1500000}}, {248629, cost = {gold = 250000}}, {248630, cost = {gold = 250000}}, {248631, cost = {gold = 1000000}}, {248632, cost = {gold = 750000}}, {248633, cost = {gold = 500000}}, {248634, cost = {gold = 1250000}}, {248636, cost = {gold = 750000}}, {248637, cost = {gold = 100000}}, {248638, cost = {gold = 250000}}, {248650, cost = {gold = 100000}}, {257359, cost = {gold = 100000}}, {257388, cost = {gold = 100000}}, {257390, cost = {gold = 100000}}, {257392, cost = {gold = 100000}}, {260701, cost = {gold = 250000}}, {260702, cost = {gold = 750000}}, {266234, cost = {gold = 1500000}}, {266235, cost = {gold = 1500000}}, {266236, cost = {gold = 1500000}}, {266237, cost = {gold = 1500000}}, {266238, cost = {gold = 1500000}}, {266243, cost = {gold = 750000}}, {266244, cost = {gold = 750000}}, {266245, cost = {gold = 750000}}, {266444, cost = {gold = 500000}}},
+        items = {{248337, cost = {gold = 500000}}, {248338, cost = {gold = 500000}}, {248339, cost = {gold = 500000}}, {248625, cost = {gold = 1500000}}, {248626, cost = {gold = 750000}}, {248627, cost = {gold = 100000}}, {248628, cost = {gold = 1500000}}, {248629, cost = {gold = 250000}}, {248630, cost = {gold = 250000}}, {248631, cost = {gold = 1000000}}, {248632, cost = {gold = 750000}}, {248633, cost = {gold = 500000}}, {248634, cost = {gold = 1250000}}, {248636, cost = {gold = 750000}}, {248637, cost = {gold = 100000}}, {248638, cost = {gold = 250000}}, {248650, cost = {gold = 100000}}, {257359, cost = {gold = 100000}}, {257388, cost = {gold = 100000}}, {257390, cost = {gold = 100000}}, {257392, cost = {gold = 100000}}, {260701, cost = {gold = 250000}}, {260702, cost = {gold = 750000}}, {266234, cost = {gold = 1500000}}, {266235, cost = {gold = 1500000}}, {266236, cost = {gold = 1500000}}, {266237, cost = {gold = 1500000}}, {266238, cost = {gold = 1500000}}, {266244, cost = {gold = 750000}}, {266245, cost = {gold = 750000}}, {266443, cost = {gold = 500000}}, {266444, cost = {gold = 750000}}},
     },
 	[255319] = {
         name = "\"Yen\" Malone",
@@ -2237,18 +2188,6 @@ VendorDatabase.Vendors = {
         expansion = "Midnight",
         unreleased = true,
         items = {253602, 253603, 253604, 253605, 253607, 253608, 253614, 253615, 253616, 253617, 253618, 253619, 253620},
-    },
-	[256202] = {
-        name = "Hesta Forlath",
-        mapID = 110,
-        x = 0.441, y = 0.628,
-        zone = "Silvermoon City",
-        subzone = "The Bazaar",
-        faction = "Horde",
-        currency = "Community Coupons",
-        expansion = "Midnight",
-        unreleased = true,
-        items = {253522, 253523, 253524, 253525, 253526, 253599, 253600, 253601, 254235},
     },
 	[256750] = {
         name = "Klasa",

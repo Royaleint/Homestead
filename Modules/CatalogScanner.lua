@@ -12,15 +12,11 @@
     using the same API that tooltips use (GetCatalogEntryInfoByItem).
 ]]
 
-local addonName, HA = ...
+local _, HA = ...
 
 -- Create CatalogScanner module
 local CatalogScanner = {}
 HA.CatalogScanner = CatalogScanner
-
--- Local references
-local Constants = HA.Constants
-local Cache = HA.Cache
 
 -- Local state
 local isInitialized = false

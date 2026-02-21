@@ -15,7 +15,7 @@
     No WoW API calls. No SavedVariables access.
 ]]
 
-local addonName, HA = ...
+local _, HA = ...
 
 local SourceTextParser = {}
 HA.SourceTextParser = SourceTextParser

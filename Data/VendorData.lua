@@ -8,7 +8,7 @@
     - Merging of scanned vendor data with static database
 ]]
 
-local addonName, HA = ...
+local _, HA = ...
 
 -- Create VendorData module
 local VendorData = {}
@@ -268,42 +268,128 @@ end
 -- Query Functions (delegate to VendorDatabase)
 -------------------------------------------------------------------------------
 
--- Get vendor info by NPC ID
-function VendorData:GetVendor(npcID)
-    if HA.VendorDatabase then
-        return HA.VendorDatabase:GetVendor(npcID)
+-- Resolve an alias NPC ID to its canonical ID.
+-- Returns the canonical ID if an alias exists, nil otherwise.
+-- Checks both VendorDatabase.Aliases and EndeavorsData.Aliases.
+function VendorData:ResolveAlias(npcID)
+    if HA.VendorDatabase and HA.VendorDatabase.Aliases then
+        local id = HA.VendorDatabase.Aliases[npcID]
+        if id then return id end
+    end
+    if HA.EndeavorsData and HA.EndeavorsData.Aliases then
+        local id = HA.EndeavorsData.Aliases[npcID]
+        if id then return id end
     end
     return nil
 end
 
--- Check if vendor exists
-function VendorData:HasVendor(npcID)
+-- Get vendor info by NPC ID (resolves aliases)
+function VendorData:GetVendor(npcID)
     if HA.VendorDatabase then
-        return HA.VendorDatabase:HasVendor(npcID)
+        local vendor = HA.VendorDatabase:GetVendor(npcID)
+        if vendor then return vendor end
+    end
+    if HA.EndeavorsData and HA.EndeavorsData.Vendors then
+        local vendor = HA.EndeavorsData.Vendors[npcID]
+        if vendor then return vendor end
+    end
+    -- Resolve alias and retry (cycle guard: canonicalID must differ)
+    local canonicalID = self:ResolveAlias(npcID)
+    if canonicalID and canonicalID ~= npcID then
+        return self:GetVendor(canonicalID)
+    end
+    return nil
+end
+
+-- Check if vendor exists (resolves aliases)
+function VendorData:HasVendor(npcID)
+    if HA.VendorDatabase and HA.VendorDatabase:HasVendor(npcID) then
+        return true
+    end
+    if HA.EndeavorsData and HA.EndeavorsData.Vendors then
+        if HA.EndeavorsData.Vendors[npcID] then return true end
+    end
+    -- Resolve alias and retry (cycle guard: canonicalID must differ)
+    local canonicalID = self:ResolveAlias(npcID)
+    if canonicalID and canonicalID ~= npcID then
+        return self:HasVendor(canonicalID)
     end
     return false
 end
 
 -- Get all vendors in a specific map/zone
+-- Includes active event vendors from EventSources
 function VendorData:GetVendorsInMap(mapID)
+    local result = {}
+    local addedNPCs = {}
+
+    -- Static database vendors
     if HA.VendorDatabase then
-        return HA.VendorDatabase:GetVendorsByMapID(mapID)
+        local dbVendors = HA.VendorDatabase:GetVendorsByMapID(mapID)
+        if dbVendors then
+            for _, vendor in ipairs(dbVendors) do
+                result[#result + 1] = vendor
+                if vendor.npcID then
+                    addedNPCs[vendor.npcID] = true
+                end
+            end
+        end
     end
-    return {}
+
+    -- Append endeavor vendors for this mapID
+    if HA.EndeavorsData and HA.EndeavorsData.ByMapID then
+        local endeavorVendors = HA.EndeavorsData.ByMapID[mapID]
+        if endeavorVendors then
+            for _, vendor in ipairs(endeavorVendors) do
+                if vendor.npcID and not addedNPCs[vendor.npcID] then
+                    result[#result + 1] = vendor
+                    addedNPCs[vendor.npcID] = true
+                end
+            end
+        end
+    end
+
+    -- Append active event vendors for this mapID
+    if HA.EventSources and HA.EventSources.EventVendorsByMapID then
+        local eventVendors = HA.EventSources.EventVendorsByMapID[mapID]
+        if eventVendors then
+            for _, vendor in ipairs(eventVendors) do
+                -- Dedup: skip if already added (e.g., vendor was scanned in-game)
+                if vendor.npcID and not addedNPCs[vendor.npcID] then
+                    -- Only include if holiday is active (nil = unknown → don't inject)
+                    if HA.CalendarDetector and HA.CalendarDetector:IsHolidayActive(vendor.event) == true then
+                        result[#result + 1] = vendor
+                        addedNPCs[vendor.npcID] = true
+                    end
+                end
+            end
+        end
+    end
+
+    return result
 end
 
 -- Get all vendors for a faction (includes Neutral)
 function VendorData:GetVendorsForFaction(faction)
-    if not HA.VendorDatabase then return {} end
-
     local result = {}
 
-    -- Get all vendors and filter by faction
-    for npcID, vendor in pairs(HA.VendorDatabase.Vendors) do
-        local vendorFaction = vendor.faction or "Neutral"
-        if vendorFaction == faction or vendorFaction == "Neutral" then
-            vendor.npcID = npcID
-            table.insert(result, vendor)
+    -- VendorDatabase vendors
+    if HA.VendorDatabase then
+        for npcID, vendor in pairs(HA.VendorDatabase.Vendors) do
+            local vendorFaction = vendor.faction or "Neutral"
+            if vendorFaction == faction or vendorFaction == "Neutral" then
+                table.insert(result, vendor)
+            end
+        end
+    end
+
+    -- EndeavorsData vendors
+    if HA.EndeavorsData and HA.EndeavorsData.Vendors then
+        for _, vendor in pairs(HA.EndeavorsData.Vendors) do
+            local vendorFaction = vendor.faction or "Neutral"
+            if vendorFaction == faction or vendorFaction == "Neutral" then
+                table.insert(result, vendor)
+            end
         end
     end
 
@@ -323,24 +409,38 @@ function VendorData:GetVendorsForItem(itemID)
             for _, npcID in ipairs(HA.VendorDatabase.ByItemID[itemID]) do
                 local vendor = HA.VendorDatabase.Vendors[npcID]
                 if vendor then
-                    vendor.npcID = npcID
                     table.insert(result, vendor)
                     seenNPCs[npcID] = true
                 end
             end
         else
             -- Fallback: iterate all vendors (if index not built yet)
+            if HA.DevAddon and HA.Addon then
+                HA.Addon:Debug("WARNING: ByItemID index not built — possible init ordering issue")
+            end
             for npcID, vendor in pairs(HA.VendorDatabase.Vendors) do
                 if vendor.items then
                     for _, item in ipairs(vendor.items) do
                         local vendorItemID = self:GetItemID(item)
                         if vendorItemID == itemID then
-                            vendor.npcID = npcID
                             table.insert(result, vendor)
                             seenNPCs[npcID] = true
                             break
                         end
                     end
+                end
+            end
+        end
+    end
+
+    -- Priority 1b: EndeavorsData
+    if HA.EndeavorsData and HA.EndeavorsData.ByItemID and HA.EndeavorsData.ByItemID[itemID] then
+        for _, npcID in ipairs(HA.EndeavorsData.ByItemID[itemID]) do
+            if not seenNPCs[npcID] then
+                local vendor = HA.EndeavorsData.Vendors[npcID]
+                if vendor then
+                    table.insert(result, vendor)
+                    seenNPCs[npcID] = true
                 end
             end
         end
@@ -424,53 +524,151 @@ end
 
 -- Search vendors by name or zone
 function VendorData:SearchVendors(searchText)
-    if not searchText or searchText == "" or not HA.VendorDatabase then
+    if not searchText or searchText == "" then
         return {}
     end
 
     local lowerSearch = searchText:lower()
     local result = {}
+    local addedNPCs = {}
 
-    for npcID, vendor in pairs(HA.VendorDatabase.Vendors) do
-        local matched = false
-        if vendor.name and vendor.name:lower():find(lowerSearch, 1, true) then
-            matched = true
-        elseif vendor.zone and vendor.zone:lower():find(lowerSearch, 1, true) then
-            matched = true
-        elseif vendor.subzone and vendor.subzone:lower():find(lowerSearch, 1, true) then
-            matched = true
+    -- Search static database
+    if HA.VendorDatabase then
+        for npcID, vendor in pairs(HA.VendorDatabase.Vendors) do
+            local matched = false
+            if vendor.name and vendor.name:lower():find(lowerSearch, 1, true) then
+                matched = true
+            elseif vendor.zone and vendor.zone:lower():find(lowerSearch, 1, true) then
+                matched = true
+            elseif vendor.subzone and vendor.subzone:lower():find(lowerSearch, 1, true) then
+                matched = true
+            end
+            if matched then
+                result[#result + 1] = vendor
+                addedNPCs[npcID] = true
+            end
         end
-        if matched then
-            vendor.npcID = npcID
-            table.insert(result, vendor)
+    end
+
+    -- Search endeavor vendors
+    if HA.EndeavorsData and HA.EndeavorsData.Vendors then
+        for npcID, vendor in pairs(HA.EndeavorsData.Vendors) do
+            if not addedNPCs[npcID] then
+                local matched = false
+                if vendor.name and vendor.name:lower():find(lowerSearch, 1, true) then
+                    matched = true
+                elseif vendor.zone and vendor.zone:lower():find(lowerSearch, 1, true) then
+                    matched = true
+                elseif vendor.subzone and vendor.subzone:lower():find(lowerSearch, 1, true) then
+                    matched = true
+                elseif vendor.notes and vendor.notes:lower():find(lowerSearch, 1, true) then
+                    matched = true
+                end
+                if matched then
+                    result[#result + 1] = vendor
+                    addedNPCs[npcID] = true
+                end
+            end
+        end
+    end
+
+    -- Search active event vendors
+    if HA.EventSources and HA.EventSources.EventVendors then
+        for npcID, vendor in pairs(HA.EventSources.EventVendors) do
+            if not addedNPCs[npcID] then
+                if HA.CalendarDetector and HA.CalendarDetector:IsHolidayActive(vendor.event) == true then
+                    local matched = false
+                    if vendor.name and vendor.name:lower():find(lowerSearch, 1, true) then
+                        matched = true
+                    elseif vendor.zone and vendor.zone:lower():find(lowerSearch, 1, true) then
+                        matched = true
+                    elseif vendor.event and vendor.event:lower():find(lowerSearch, 1, true) then
+                        matched = true
+                    end
+                    if matched then
+                        result[#result + 1] = vendor
+                        addedNPCs[npcID] = true
+                    end
+                end
+            end
         end
     end
 
     return result
 end
 
--- Get all vendors
+-- Get all vendors (includes active event vendors)
 function VendorData:GetAllVendors()
+    local result = {}
+    local addedNPCs = {}
+
+    -- Static database vendors
     if HA.VendorDatabase then
-        return HA.VendorDatabase:GetAllVendors()
+        local dbVendors = HA.VendorDatabase:GetAllVendors()
+        if dbVendors then
+            for _, vendor in ipairs(dbVendors) do
+                result[#result + 1] = vendor
+                if vendor.npcID then
+                    addedNPCs[vendor.npcID] = true
+                end
+            end
+        end
     end
-    return {}
+
+    -- Append endeavor vendors
+    if HA.EndeavorsData and HA.EndeavorsData.Vendors then
+        for _, vendor in pairs(HA.EndeavorsData.Vendors) do
+            if vendor.npcID and not addedNPCs[vendor.npcID] then
+                result[#result + 1] = vendor
+                addedNPCs[vendor.npcID] = true
+            end
+        end
+    end
+
+    -- Append active event vendors
+    if HA.EventSources and HA.EventSources.EventVendors then
+        for _, vendor in pairs(HA.EventSources.EventVendors) do
+            if vendor.npcID and not addedNPCs[vendor.npcID] then
+                if HA.CalendarDetector and HA.CalendarDetector:IsHolidayActive(vendor.event) == true then
+                    result[#result + 1] = vendor
+                    addedNPCs[vendor.npcID] = true
+                end
+            end
+        end
+    end
+
+    return result
 end
 
 -- Get vendor count
 function VendorData:GetVendorCount()
+    local count = 0
     if HA.VendorDatabase then
-        return HA.VendorDatabase:GetVendorCount()
+        count = count + HA.VendorDatabase:GetVendorCount()
     end
-    return 0
+    if HA.EndeavorsData then
+        count = count + (HA.EndeavorsData.VendorCount or 0)
+    end
+    return count
 end
 
 -- Get vendors by expansion
 function VendorData:GetVendorsByExpansion(expansion)
+    local result = {}
     if HA.VendorDatabase then
-        return HA.VendorDatabase:GetVendorsByExpansion(expansion)
+        local dbVendors = HA.VendorDatabase:GetVendorsByExpansion(expansion)
+        for _, vendor in ipairs(dbVendors) do
+            result[#result + 1] = vendor
+        end
     end
-    return {}
+    if HA.EndeavorsData and HA.EndeavorsData.Vendors then
+        for _, vendor in pairs(HA.EndeavorsData.Vendors) do
+            if vendor.expansion == expansion then
+                result[#result + 1] = vendor
+            end
+        end
+    end
+    return result
 end
 
 -------------------------------------------------------------------------------
@@ -502,7 +700,6 @@ function VendorData:GetVendorsByDecorSourceName(vendorName)
     for _, npcID in ipairs(npcIDs) do
         local vendor = self:GetVendor(npcID)
         if vendor then
-            vendor.npcID = npcID
             table.insert(vendors, vendor)
         end
     end
@@ -511,27 +708,54 @@ end
 
 -- Build the reverse lookup table (called during initialization)
 function VendorData:BuildNameIndex()
+    -- Build set of NPC IDs already covered by manual entries
+    local coveredNPCs = {}
+
+    for _, npcIDs in pairs(self.VendorNameToNPC) do
+        if type(npcIDs) == "table" then
+            for _, id in ipairs(npcIDs) do
+                coveredNPCs[id] = true
+            end
+        else
+            coveredNPCs[npcIDs] = true
+        end
+    end
+
     -- Auto-populate VendorNameToNPC from VendorDatabase for any vendors
     -- not already in the manual table (preserves manual multi-NPC entries)
     if HA.VendorDatabase and HA.VendorDatabase.Vendors then
-        -- Build set of NPC IDs already covered by manual entries
-        local coveredNPCs = {}
-        for _, npcIDs in pairs(self.VendorNameToNPC) do
-            if type(npcIDs) == "table" then
-                for _, id in ipairs(npcIDs) do
-                    coveredNPCs[id] = true
-                end
-            else
-                coveredNPCs[npcIDs] = true
-            end
-        end
-
         -- Add any vendor from the database not already covered
         for npcID, vendor in pairs(HA.VendorDatabase.Vendors) do
             if vendor.name and not coveredNPCs[npcID] then
                 local existing = self.VendorNameToNPC[vendor.name]
                 if existing then
                     -- Name already mapped — append this NPC ID if not present
+                    if type(existing) == "table" then
+                        local found = false
+                        for _, id in ipairs(existing) do
+                            if id == npcID then found = true; break end
+                        end
+                        if not found then
+                            table.insert(existing, npcID)
+                        end
+                    else
+                        if existing ~= npcID then
+                            self.VendorNameToNPC[vendor.name] = {existing, npcID}
+                        end
+                    end
+                else
+                    self.VendorNameToNPC[vendor.name] = {npcID}
+                end
+            end
+        end
+    end
+
+    -- Also populate from EndeavorsData vendors
+    if HA.EndeavorsData and HA.EndeavorsData.Vendors then
+        for npcID, vendor in pairs(HA.EndeavorsData.Vendors) do
+            if vendor.name and not coveredNPCs[npcID] then
+                local existing = self.VendorNameToNPC[vendor.name]
+                if existing then
                     if type(existing) == "table" then
                         local found = false
                         for _, id in ipairs(existing) do

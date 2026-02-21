@@ -3,7 +3,7 @@
     Data class representing a housing decor item and its collection status
 ]]
 
-local addonName, HA = ...
+local _, HA = ...
 
 -- Create DecorData class
 local DecorData = {}
@@ -20,45 +20,45 @@ local Cache = HA.Cache
 
 -- Create a new DecorData instance from an item link or ID
 function DecorData:FromItemLink(itemLink)
-    local self = setmetatable({}, DecorData)
+    local decor = setmetatable({}, DecorData)
 
     -- Initialize default values
-    self.itemLink = itemLink
-    self.itemID = nil
-    self.entryID = nil
-    self.name = nil
-    self.icon = nil
+    decor.itemLink = itemLink
+    decor.itemID = nil
+    decor.entryID = nil
+    decor.name = nil
+    decor.icon = nil
 
     -- Ownership data
-    self.isOwned = false
-    self.quantityOwned = 0
-    self.numPlaced = 0
-    self.remainingRedeemable = 0
+    decor.isOwned = false
+    decor.quantityOwned = 0
+    decor.numPlaced = 0
+    decor.remainingRedeemable = 0
 
     -- Source information
-    self.sourceType = Constants.SourceTypes.UNKNOWN
-    self.sourceText = nil
-    self.vendorInfo = nil
+    decor.sourceType = Constants.SourceTypes.UNKNOWN
+    decor.sourceText = nil
+    decor.vendorInfo = nil
 
     -- Customization data
-    self.canCustomize = false
-    self.dyeSlots = {}
-    self.customizations = nil
+    decor.canCustomize = false
+    decor.dyeSlots = {}
+    decor.customizations = nil
 
     -- Placement restrictions
-    self.isAllowedIndoors = true
-    self.isAllowedOutdoors = true
+    decor.isAllowedIndoors = true
+    decor.isAllowedOutdoors = true
 
     -- Market info
-    self.marketInfo = nil
-    self.firstAcquisitionBonus = nil
+    decor.marketInfo = nil
+    decor.firstAcquisitionBonus = nil
 
     -- Populate data
     if itemLink then
-        self:LoadFromItemLink(itemLink)
+        decor:LoadFromItemLink(itemLink)
     end
 
-    return self
+    return decor
 end
 
 -- Create a new DecorData instance from an item ID
@@ -69,12 +69,12 @@ end
 
 -- Create a new DecorData instance from a catalog entry ID
 function DecorData:FromEntryID(entryID)
-    local self = setmetatable({}, DecorData)
+    local decor = setmetatable({}, DecorData)
 
-    self.entryID = entryID
-    self:LoadFromEntryID(entryID)
+    decor.entryID = entryID
+    decor:LoadFromEntryID(entryID)
 
-    return self
+    return decor
 end
 
 -------------------------------------------------------------------------------
@@ -163,7 +163,7 @@ function DecorData:ApplyHousingCatalogInfo(info)
     -- Note: The entryID object may be a Blizzard mixin that doesn't expose
     -- properties directly via info.entryID.entrySubtype, but does via pairs()
     local entrySubtype = nil
-    local recordID = nil
+    local recordID
 
     if info.entryID and type(info.entryID) == "table" then
         -- Try direct access first

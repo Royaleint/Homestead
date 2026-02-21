@@ -2,22 +2,26 @@
     Homestead - SourceManager
     Unified source lookup for housing decor items
 
-    Priority order when multiple sources exist:
+    Fixed priority order used by GetSource():
     1. Vendor (most actionable - player can go buy it)
     2. Quest (specific acquisition path)
     3. Achievement (specific goal to work toward)
     4. Profession (craftable)
-    5. Drop (RNG-based)
+    5. Event (seasonal holiday vendor - time-gated)
+    6. Drop (RNG-based)
+
+    For availability-aware selection (requirements met "right now"):
+        local source = HA.SourceManager:GetBestAvailableSource(itemID)
 
     Usage:
         local source = HA.SourceManager:GetSource(itemID)
         if source then
-            print(source.type)  -- "vendor", "quest", "achievement", "profession", "drop"
+            print(source.type)  -- "vendor", "quest", "achievement", "profession", "event", "drop"
             print(source.data)  -- Source-specific data table
         end
 ]]
 
-local addonName, HA = ...
+local _, HA = ...
 
 -- Create SourceManager module
 local SourceManager = {}
@@ -28,7 +32,7 @@ HA.SourceManager = SourceManager
 -------------------------------------------------------------------------------
 
 -- Get the primary source for an item
--- Returns: {type = "vendor|quest|achievement|profession|drop", data = {...}} or nil
+-- Returns: {type = "vendor|quest|achievement|profession|event|drop", data = {...}} or nil
 function SourceManager:GetSource(itemID)
     if not itemID then return nil end
 
@@ -53,16 +57,90 @@ function SourceManager:GetSource(itemID)
         return {type = "profession", data = HA.ProfessionSources[itemID]}
     end
 
-    -- Priority 5: Drop source
+    -- Priority 5: Event source (seasonal holiday vendors)
+    if HA.EventSources and HA.EventSources[itemID] then
+        return {type = "event", data = HA.EventSources[itemID]}
+    end
+
+    -- Priority 6: Drop source
     if HA.DropSources and HA.DropSources[itemID] then
         return {type = "drop", data = HA.DropSources[itemID]}
     end
 
-    -- Priority 6: Parsed sourceText (runtime discovery fallback, gated)
+    -- Priority 7: Parsed sourceText (runtime discovery fallback, gated)
     if HA.Addon and HA.Addon.db and HA.Addon.db.profile.useParsedSources then
         local parsedSource = self:GetParsedSource(itemID)
         if parsedSource then
             return parsedSource
+        end
+    end
+
+    return nil
+end
+
+-- Check whether a specific source is currently available to this character.
+-- Returns:
+--   true  = available now
+--   false = known blocked (requirements unmet / event inactive / etc.)
+--   nil   = unknown (insufficient data)
+function SourceManager:IsSourceAvailableNow(itemID, source)
+    if not itemID or not source or not source.type then return nil end
+
+    local sourceType = source.type
+    local data = source.data or {}
+
+    -- Vendor requirements are the most precise because we can vendor-scope lookup.
+    if sourceType == "vendor" then
+        local vendorNPCID = data.npcID
+        if vendorNPCID then
+            local reqs = self:GetRequirements(itemID, vendorNPCID)
+            if reqs and #reqs > 0 then
+                for _, req in ipairs(reqs) do
+                    local met = self:IsRequirementMet(req)
+                    if met == false then
+                        return false
+                    end
+                end
+            end
+        end
+        return true
+    end
+
+    -- Event sources are unavailable when the event is known inactive.
+    if sourceType == "event" then
+        if HA.CalendarDetector and data.event then
+            local isActive = HA.CalendarDetector:IsHolidayActive(data.event)
+            if isActive == false then
+                return false
+            end
+        end
+        return true
+    end
+
+    -- Quest/Achievement sources are always "available" — they represent the
+    -- acquisition path itself, not a gatekeeper.  A player who doesn't own
+    -- the item yet needs to see "complete quest X" or "earn achievement Y",
+    -- so hiding them when incomplete would be backwards.
+    if sourceType == "quest" or sourceType == "achievement" then
+        return true
+    end
+
+    -- Profession/drop and unknown types: treat as available unless explicitly blocked.
+    return true
+end
+
+-- Get the highest-priority source that appears available "right now".
+-- Falls back to nil if every known source is blocked.
+function SourceManager:GetBestAvailableSource(itemID)
+    if not itemID then return nil end
+
+    local sources = self:GetAllSources(itemID)
+    if #sources == 0 then return nil end
+
+    for _, source in ipairs(sources) do
+        local available = self:IsSourceAvailableNow(itemID, source)
+        if available ~= false then
+            return source
         end
     end
 
@@ -95,6 +173,11 @@ function SourceManager:GetAllSources(itemID)
     -- Profession source
     if HA.ProfessionSources and HA.ProfessionSources[itemID] then
         table.insert(sources, {type = "profession", data = HA.ProfessionSources[itemID]})
+    end
+
+    -- Event source (seasonal holiday vendors)
+    if HA.EventSources and HA.EventSources[itemID] then
+        table.insert(sources, {type = "event", data = HA.EventSources[itemID]})
     end
 
     -- Drop source
@@ -156,6 +239,7 @@ function SourceManager:GetVendorSource(itemID)
             npcID = vendor.npcID,
             name = vendor.name,
             zone = vendor.zone,
+            subzone = vendor.subzone,
             mapID = vendor.mapID,
             faction = vendor.faction,
             coords = vendor.coords or (vendor.x and vendor.y and {x = vendor.x, y = vendor.y}),
@@ -172,7 +256,7 @@ function SourceManager:GetParsedSource(itemID)
     local parsed = HA.SourceTextScanner:GetParsedSource(itemID)
     if not parsed or not parsed.sources or #parsed.sources == 0 then return nil end
 
-    local priorityOrder = { vendor = 1, quest = 2, achievement = 3, profession = 4, drop = 5 }
+    local priorityOrder = { vendor = 1, quest = 2, achievement = 3, profession = 4, event = 5, drop = 6 }
     local best, bestP = nil, 999
     for _, s in ipairs(parsed.sources) do
         local p = priorityOrder[s.sourceType] or 6
@@ -193,6 +277,9 @@ end
 --   1. Vendor-specific: scannedVendors[npcID].items[i].requirements (tooltip scraping)
 --   2. Item-level fallback: CatalogStore:GetRequirements(itemID)
 --   3. Parsed sourceText: parsedSources[itemID].sources[].faction/standing
+--   4. Blizzard-confirmed vendor prerequisites: PrerequisiteSources[itemID]
+--   5. Static achievement source data: AchievementSources[itemID]
+--   6. Static quest source data: QuestSources[itemID]
 -- NOT gated by useParsedSources — requirements are always surfaced.
 -- Returns: array of requirement tables, or nil if none found
 function SourceManager:GetRequirements(itemID, npcID)
@@ -263,7 +350,12 @@ function SourceManager:GetRequirements(itemID, npcID)
         end
     end
 
-    -- Priority 4: Static achievement source data (AchievementSources.lua)
+    -- Priority 4: Blizzard-confirmed vendor prerequisites (PrerequisiteSources.lua)
+    if HA.PrerequisiteSources and HA.PrerequisiteSources[itemID] then
+        return HA.PrerequisiteSources[itemID]
+    end
+
+    -- Priority 5: Static achievement source data (AchievementSources.lua)
     if HA.AchievementSources and HA.AchievementSources[itemID] then
         local src = HA.AchievementSources[itemID]
         if src.achievementID then
@@ -275,7 +367,7 @@ function SourceManager:GetRequirements(itemID, npcID)
         end
     end
 
-    -- Priority 5: Static quest source data (QuestSources.lua)
+    -- Priority 6: Static quest source data (QuestSources.lua)
     if HA.QuestSources and HA.QuestSources[itemID] then
         local src = HA.QuestSources[itemID]
         if src.questID then
@@ -397,6 +489,65 @@ function SourceManager:IsRequirementMet(req)
     return nil  -- Unknown requirement type
 end
 
+-- Get detailed reputation progress for a requirement.
+-- Returns: {met = bool|nil, currentText = string, requiredText = string,
+--           isRenown = bool, factionName = string} or nil
+function SourceManager:GetRequirementProgress(req)
+    if not req or req.type ~= "reputation" then return nil end
+    if not req.faction or not req.standing then return nil end
+
+    local factionID = GetFactionIDByName(req.faction)
+    if not factionID then return nil end
+
+    -- Renown-style standing (e.g., "Renown 12")
+    local renownLevel = req.standing:match("^[Rr]enown%s+(%d+)$")
+    if renownLevel then
+        renownLevel = tonumber(renownLevel)
+        if C_MajorFactions and C_MajorFactions.GetMajorFactionData then
+            local majorData = C_MajorFactions.GetMajorFactionData(factionID)
+            if majorData and majorData.renownLevel then
+                return {
+                    met = majorData.renownLevel >= renownLevel,
+                    currentText = tostring(majorData.renownLevel),
+                    requiredText = tostring(renownLevel),
+                    isRenown = true,
+                    factionName = req.faction,
+                }
+            end
+        end
+        return nil
+    end
+
+    -- Traditional reputation standing
+    local standingNames = {
+        [1] = "Hated", [2] = "Hostile", [3] = "Unfriendly", [4] = "Neutral",
+        [5] = "Friendly", [6] = "Honored", [7] = "Revered", [8] = "Exalted",
+    }
+    local standingOrder = {
+        ["Hated"] = 1, ["Hostile"] = 2, ["Unfriendly"] = 3, ["Neutral"] = 4,
+        ["Friendly"] = 5, ["Honored"] = 6, ["Revered"] = 7, ["Exalted"] = 8,
+    }
+
+    if C_Reputation and C_Reputation.GetFactionDataByID then
+        local factionData = C_Reputation.GetFactionDataByID(factionID)
+        if factionData then
+            local requiredLevel = standingOrder[req.standing]
+            local currentLevel = factionData.reaction
+            if requiredLevel and currentLevel then
+                return {
+                    met = currentLevel >= requiredLevel,
+                    currentText = standingNames[currentLevel] or ("Rank " .. currentLevel),
+                    requiredText = req.standing,
+                    isRenown = false,
+                    factionName = req.faction,
+                }
+            end
+        end
+    end
+
+    return nil
+end
+
 -------------------------------------------------------------------------------
 -- Source Type Checkers
 -------------------------------------------------------------------------------
@@ -417,6 +568,10 @@ function SourceManager:IsProfessionItem(itemID)
     return HA.ProfessionSources and HA.ProfessionSources[itemID] ~= nil
 end
 
+function SourceManager:IsEventItem(itemID)
+    return HA.EventSources and HA.EventSources[itemID] ~= nil
+end
+
 function SourceManager:IsDropItem(itemID)
     return HA.DropSources and HA.DropSources[itemID] ~= nil
 end
@@ -430,6 +585,7 @@ function SourceManager:GetStats()
         quests = 0,
         achievements = 0,
         professions = 0,
+        events = 0,
         drops = 0,
         vendors = 0,
     }
@@ -452,20 +608,33 @@ function SourceManager:GetStats()
         end
     end
 
+    if HA.EventSources then
+        for k in pairs(HA.EventSources) do
+            if type(k) == "number" then  -- Skip EventDefinitions key
+                stats.events = stats.events + 1
+            end
+        end
+    end
+
     if HA.DropSources then
         for _ in pairs(HA.DropSources) do
             stats.drops = stats.drops + 1
         end
     end
 
-    -- Count unique items in VendorDatabase
+    -- Count unique items in VendorDatabase + EndeavorsData
     if HA.VendorDatabase and HA.VendorDatabase.ByItemID then
         for _ in pairs(HA.VendorDatabase.ByItemID) do
             stats.vendors = stats.vendors + 1
         end
     end
+    if HA.EndeavorsData and HA.EndeavorsData.ByItemID then
+        for _ in pairs(HA.EndeavorsData.ByItemID) do
+            stats.vendors = stats.vendors + 1
+        end
+    end
 
-    stats.total = stats.quests + stats.achievements + stats.professions + stats.drops + stats.vendors
+    stats.total = stats.quests + stats.achievements + stats.professions + stats.events + stats.drops + stats.vendors
 
     return stats
 end
@@ -498,6 +667,11 @@ function SourceManager:DebugItem(itemID)
         elseif source.type == "profession" then
             HA.Addon:Debug("  Profession:", source.data.profession)
             HA.Addon:Debug("  Recipe:", source.data.recipeName)
+        elseif source.type == "event" then
+            HA.Addon:Debug("  Event:", source.data.event)
+            HA.Addon:Debug("  Vendor:", source.data.vendorName)
+            HA.Addon:Debug("  Zone:", source.data.zone)
+            HA.Addon:Debug("  Currency:", source.data.currency)
         elseif source.type == "drop" then
             HA.Addon:Debug("  Mob:", source.data.mobName)
             HA.Addon:Debug("  Zone:", source.data.zone)
@@ -531,6 +705,7 @@ function SourceManager:Initialize()
         HA.Addon:Debug("  Quest sources:", stats.quests)
         HA.Addon:Debug("  Achievement sources:", stats.achievements)
         HA.Addon:Debug("  Profession sources:", stats.professions)
+        HA.Addon:Debug("  Event sources:", stats.events)
         HA.Addon:Debug("  Drop sources:", stats.drops)
     end
 end

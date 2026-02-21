@@ -9,11 +9,12 @@
     Note: WoW 10.0.2+ uses TooltipDataProcessor instead of OnTooltipSetItem
 ]]
 
-local addonName, HA = ...
+local _, HA = ...
 
--- Local references
-local Constants = HA.Constants
-local L = HA.L or {}
+-- Upvalued Lua stdlib
+local ipairs = ipairs
+local tonumber = tonumber
+local pcall = pcall
 
 -- Local state
 local isHooked = false
@@ -51,16 +52,6 @@ local function IsDecorItem(itemLink)
     return success and info ~= nil
 end
 
--- Check if a decor item is owned (by itemID)
--- Delegates to CatalogStore:IsOwnedFresh() (Phase 2) — cache + bags + live API
-local function IsDecorOwnedByID(itemID)
-    if not itemID then return nil end
-    if HA.CatalogStore then
-        return HA.CatalogStore:IsOwnedFresh(itemID)
-    end
-    return nil
-end
-
 -- Check if a decor item is owned (by itemLink)
 -- Delegates to CatalogStore:IsOwnedFresh() (Phase 2)
 local function IsDecorOwned(itemLink)
@@ -84,38 +75,45 @@ local function FormatCost(cost)
     return nil
 end
 
+-- Search a vendor's items for a matching itemID and return formatted cost.
+local function SearchVendorItemsForCost(vendor, itemID)
+    if not vendor or not vendor.items then return nil end
+    for _, item in ipairs(vendor.items) do
+        if HA.VendorData:GetItemID(item) == itemID then
+            local cost = HA.VendorData:GetItemCost(item)
+            if cost then return FormatCost(cost) end
+            break
+        end
+    end
+    return nil
+end
+
 -- Get cost for an item from a specific vendor (uses VendorData API, no inline format checks)
 local function GetItemCostFromVendor(itemID, npcID)
     if not itemID or not HA.VendorData then return nil end
-    if not HA.VendorDatabase or not HA.VendorDatabase.Vendors then return nil end
 
-    -- If npcID provided, check that vendor first
+    -- If npcID provided, check that vendor first (VendorDatabase then EndeavorsData)
     if npcID then
-        local vendor = HA.VendorDatabase.Vendors[npcID]
-        if vendor and vendor.items then
-            for _, item in ipairs(vendor.items) do
-                if HA.VendorData:GetItemID(item) == itemID then
-                    local cost = HA.VendorData:GetItemCost(item)
-                    if cost then return FormatCost(cost) end
-                    break
-                end
-            end
-        end
+        local vendor = HA.VendorDatabase and HA.VendorDatabase.Vendors and HA.VendorDatabase.Vendors[npcID]
+            or HA.EndeavorsData and HA.EndeavorsData.Vendors and HA.EndeavorsData.Vendors[npcID]
+        local result = SearchVendorItemsForCost(vendor, itemID)
+        if result then return result end
     end
 
     -- Fallback: use ByItemID index to find vendors that sell this item
-    if HA.VendorDatabase.ByItemID then
-        local npcIDs = HA.VendorDatabase.ByItemID[itemID]
-        if npcIDs then
-            for _, vendorNpcID in ipairs(npcIDs) do
-                local vendor = HA.VendorDatabase.Vendors[vendorNpcID]
-                if vendor and vendor.items then
-                    for _, item in ipairs(vendor.items) do
-                        if HA.VendorData:GetItemID(item) == itemID then
-                            local cost = HA.VendorData:GetItemCost(item)
-                            if cost then return FormatCost(cost) end
-                        end
-                    end
+    local sources = {
+        HA.VendorDatabase and HA.VendorDatabase.ByItemID,
+        HA.EndeavorsData and HA.EndeavorsData.ByItemID,
+    }
+    for _, byItemID in ipairs(sources) do
+        if byItemID then
+            local npcIDs = byItemID[itemID]
+            if npcIDs then
+                for _, vendorNpcID in ipairs(npcIDs) do
+                    local vendor = HA.VendorDatabase and HA.VendorDatabase.Vendors and HA.VendorDatabase.Vendors[vendorNpcID]
+                        or HA.EndeavorsData and HA.EndeavorsData.Vendors and HA.EndeavorsData.Vendors[vendorNpcID]
+                    local result = SearchVendorItemsForCost(vendor, itemID)
+                    if result then return result end
                 end
             end
         end
@@ -170,8 +168,25 @@ local function AddRequirementsToTooltip(tooltip, itemID, npcID)
 
     for _, req in ipairs(reqs) do
         local text = nil
+        local isMet = nil
+
         if req.type == "reputation" and req.faction and req.standing then
-            text = "Requires: " .. req.faction .. " - " .. req.standing
+            -- Try enhanced progress display
+            local progress = HA.SourceManager.GetRequirementProgress
+                and HA.SourceManager:GetRequirementProgress(req)
+            if progress then
+                isMet = progress.met
+                if progress.isRenown then
+                    text = progress.factionName .. " \226\128\148 Renown: "
+                        .. progress.currentText .. " / " .. progress.requiredText .. " required"
+                else
+                    text = progress.factionName .. " \226\128\148 Reputation: "
+                        .. progress.currentText .. " / " .. progress.requiredText .. " required"
+                end
+            else
+                -- Fallback: flat format when progress unavailable
+                text = "Requires: " .. req.faction .. " - " .. req.standing
+            end
         elseif req.type == "quest" and req.name then
             text = "Requires: " .. req.name
         elseif req.type == "achievement" and req.name then
@@ -183,7 +198,9 @@ local function AddRequirementsToTooltip(tooltip, itemID, npcID)
         end
 
         if text then
-            local isMet = HA.SourceManager:IsRequirementMet(req)
+            if isMet == nil then
+                isMet = HA.SourceManager:IsRequirementMet(req)
+            end
             if isMet == true then
                 tooltip:AddLine("  " .. text, 0.0, 0.8, 0.0)  -- Green
             elseif isMet == false then
@@ -195,6 +212,194 @@ local function AddRequirementsToTooltip(tooltip, itemID, npcID)
     end
 end
 
+-------------------------------------------------------------------------------
+-- sourceText Rendering
+-------------------------------------------------------------------------------
+
+-- Render Blizzard's raw sourceText with gold labels and white values.
+-- sourceText uses |n line separators and |cFF...label...|r color codes around labels.
+-- Currency icon hyperlinks (e.g. |Hcurrency:...|h|h) are preserved as-is so WoW renders them.
+-- itemID is used to look up achievement/quest/profession completion status via our indexed DB tables.
+-- Defined after AddRequirementsToTooltip to avoid forward reference (Lua 5.1).
+local function RenderSourceText(tooltip, sourceText, itemID)
+    if not sourceText or sourceText == "" then return end
+
+    -- Determine completion color for achievement/quest/profession using itemID → ID lookup
+    -- (all tables keyed by itemID, so no name matching needed)
+    local completionColor = nil
+    if itemID then
+        -- Achievement: three tiers — this character, account, incomplete
+        -- Only set a color if GetAchievementInfo actually returns data (nil = unreleased/unknown)
+        local achInfo = HA.AchievementSources and HA.AchievementSources[itemID]
+        if achInfo and achInfo.achievementID and GetAchievementInfo then
+            local id, _, _, completed, _, _, _, _, _, _, _, _, wasEarnedByMe = GetAchievementInfo(achInfo.achievementID)
+            if id then
+                -- API returned valid data
+                if wasEarnedByMe then
+                    completionColor = "|cFF00FF00"   -- bright green: this character
+                elseif completed then
+                    completionColor = "|cFF66FF66"   -- light green: account
+                else
+                    completionColor = "|cFFFF0000"   -- red: incomplete
+                end
+                -- else: id is nil = achievement not in game yet, leave completionColor nil (white)
+            end
+        end
+
+        -- Quest: completed or not
+        if not completionColor then
+            local questInfo = HA.QuestSources and HA.QuestSources[itemID]
+            if questInfo and questInfo.questID and C_QuestLog and C_QuestLog.IsQuestFlaggedCompleted then
+                local completed = C_QuestLog.IsQuestFlaggedCompleted(questInfo.questID)
+                completionColor = completed and "|cFF00FF00" or "|cFFFF0000"
+            end
+        end
+
+        -- Profession: craftable > learned > unknown
+        if not completionColor then
+            local profInfo = HA.ProfessionSources and HA.ProfessionSources[itemID]
+            if profInfo and profInfo.spellID and C_TradeSkillUI and C_TradeSkillUI.GetRecipeInfo then
+                local recipeInfo = C_TradeSkillUI.GetRecipeInfo(profInfo.spellID)
+                if recipeInfo then
+                    if recipeInfo.craftable then
+                        completionColor = "|cFF00FF00"   -- bright green: can craft now
+                    elseif recipeInfo.learned then
+                        completionColor = "|cFF66FF66"   -- light green: recipe known
+                    else
+                        completionColor = "|cFFFF0000"   -- red: recipe unknown
+                    end
+                end
+            end
+        end
+    end
+
+    -- Strip color codes and hyperlink wrappers.
+    -- |H...|h[text]|h → keep just [text]  (tooltip:AddLine can't render |H hyperlinks)
+    -- |c/|r color codes stripped so we can apply our own gold/white scheme.
+    -- |n separators are preserved for the split step below.
+    local plain = sourceText
+        :gsub("|H[^|]*|h([^|]*)|h", "%1")   -- |Htype:id|h[display]|h  → display text
+        :gsub("|c%x%x%x%x%x%x%x%x", "")      -- strip |cFFRRGGBB
+        :gsub("|r", "")                        -- strip |r
+
+    -- Source-type prefixes that mark the start of a new logical source block
+    local SOURCE_PREFIXES = {
+        ["Vendor:"] = true,
+        ["Quest:"] = true,
+        ["Achievement:"] = true,
+        ["Profession:"] = true,
+        ["Drop:"] = true,
+    }
+
+    -- Split all |n lines, then re-group into logical blocks by detecting source-type prefix changes.
+    -- Blizzard sometimes separates blocks with |n|n and sometimes runs them together with |n only.
+    local allLines = {}
+    local pos = 1
+    while true do
+        local sep = plain:find("|n", pos, true)
+        if sep then
+            allLines[#allLines + 1] = plain:sub(pos, sep - 1)
+            pos = sep + 2
+        else
+            allLines[#allLines + 1] = plain:sub(pos)
+            break
+        end
+    end
+
+    -- Group lines into blocks: start a new block whenever a source-type prefix is seen
+    -- after the very first line, OR when an empty line is encountered (|n|n produces "")
+    -- Also track which source types are present so we can suppress duplicate requirements.
+    local blocks = {}
+    local blockTypes = {}   -- [blockIdx] = "vendor"|"achievement"|"quest"|etc.
+    local currentBlock = {}
+    local currentType = nil
+    for _, line in ipairs(allLines) do
+        if line == "" then
+            -- Explicit block separator (|n|n)
+            if #currentBlock > 0 then
+                blocks[#blocks + 1] = currentBlock
+                blockTypes[#blocks] = currentType
+                currentBlock = {}
+                currentType = nil
+            end
+        else
+            local prefix = line:match("^(%a+:%s*)")
+            local prefixKey = prefix and prefix:match("^(%a+:)")
+            local isSourceType = prefixKey and SOURCE_PREFIXES[prefixKey]
+            if isSourceType and #currentBlock > 0 then
+                -- New source type encountered mid-block — split here
+                blocks[#blocks + 1] = currentBlock
+                blockTypes[#blocks] = currentType
+                currentBlock = {}
+                currentType = nil
+            end
+            if isSourceType and not currentType then
+                -- Record the source type for this block (lowercase, no colon)
+                currentType = prefixKey:match("^(%a+)"):lower()
+            end
+            currentBlock[#currentBlock + 1] = line
+        end
+    end
+    if #currentBlock > 0 then
+        blocks[#blocks + 1] = currentBlock
+        blockTypes[#blocks] = currentType
+    end
+
+    -- Determine if any block is an achievement or quest — if so, suppress AddRequirementsToTooltip
+    -- since the achievement/quest name IS the requirement and would be duplicated.
+    local hasAchievementOrQuestBlock = false
+    for _, btype in ipairs(blockTypes) do
+        if btype == "achievement" or btype == "quest" then
+            hasAchievementOrQuestBlock = true
+            break
+        end
+    end
+
+    -- Resolve a vendor npcID for this item so requirements can be scoped correctly.
+    -- Check scanned data first, then static DB index.
+    local vendorNpcID = nil
+    if itemID then
+        if HA.VendorData and HA.VendorData.ScannedByItemID then
+            local npcList = HA.VendorData.ScannedByItemID[itemID]
+            if npcList and npcList[1] then vendorNpcID = npcList[1] end
+        end
+        if not vendorNpcID and HA.VendorDatabase and HA.VendorDatabase.ByItemID then
+            local npcList = HA.VendorDatabase.ByItemID[itemID]
+            if npcList and npcList[1] then vendorNpcID = npcList[1] end
+        end
+    end
+
+    for blockIdx, lines in ipairs(blocks) do
+        -- Blank separator line between multiple source blocks
+        if blockIdx > 1 then
+            tooltip:AddLine(" ")
+        end
+
+        for i, line in ipairs(lines) do
+            -- Split "Label: value" into gold label + white/completion-colored value
+            local label, value = line:match("^([^:]+:%s*)(.*)")
+            if label and value and value ~= "" then
+                -- Apply completion color to the value on the first line of the first block only
+                local valueColor = (blockIdx == 1 and i == 1 and completionColor) or "|cFFFFFFFF"
+                tooltip:AddLine("  " .. "|cFFFFD700" .. label .. "|r" .. valueColor .. value .. "|r", 1, 1, 1)
+            elseif label then
+                -- Label-only line
+                tooltip:AddLine("  " .. "|cFFFFD700" .. line .. "|r", COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
+            else
+                -- No colon — plain continuation line (e.g. bare cost value with icon)
+                tooltip:AddLine("  " .. line, COLOR_WHITE.r, COLOR_WHITE.g, COLOR_WHITE.b)
+            end
+        end
+    end
+
+    -- Show requirements (rep, quest gates, etc.) after all source blocks.
+    -- Skip when an achievement/quest block was rendered — the name IS the requirement,
+    -- calling this would duplicate it as "Requires: <achievement name>".
+    if not hasAchievementOrQuestBlock then
+        AddRequirementsToTooltip(tooltip, itemID, vendorNpcID)
+    end
+end
+
 -- Add source information lines to a tooltip (shared between item and catalog tooltips)
 -- Uses SourceManager for comprehensive source lookup
 local function AddSourceInfoToTooltip(tooltip, itemID, skipOwnership)
@@ -202,7 +407,17 @@ local function AddSourceInfoToTooltip(tooltip, itemID, skipOwnership)
 
     -- Use SourceManager if available for comprehensive source lookup
     if HA.SourceManager and HA.SourceManager.GetSource then
-        local source = HA.SourceManager:GetSource(itemID)
+        local source = nil
+
+        -- Prefer "available now" source selection when available.
+        if HA.SourceManager.GetBestAvailableSource then
+            source = HA.SourceManager:GetBestAvailableSource(itemID)
+        end
+
+        -- Backward-compatible fallback: original fixed-priority source.
+        if not source then
+            source = HA.SourceManager:GetSource(itemID)
+        end
 
         if source then
             local parsedTag = source._isParsed and " |cFFAAAAFF(unverified)|r" or ""
@@ -211,27 +426,30 @@ local function AddSourceInfoToTooltip(tooltip, itemID, skipOwnership)
                 -- Vendor source
                 local vendorName = source.data.name or "Unknown Vendor"
                 local zoneName = source.data.zone or "Unknown Location"
+                local locationText = source.data.subzone
+                    and (source.data.subzone .. " (" .. zoneName .. ")")
+                    or zoneName
 
-                tooltip:AddLine("Source: " .. vendorName .. parsedTag, COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
-                tooltip:AddLine("  Location: " .. zoneName, COLOR_WHITE.r, COLOR_WHITE.g, COLOR_WHITE.b)
+                tooltip:AddLine("Source: |cFFFFFFFF" .. vendorName .. "|r" .. parsedTag, COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
+                tooltip:AddLine("  Location: |cFFFFFFFF" .. locationText .. "|r", COLOR_WHITE.r, COLOR_WHITE.g, COLOR_WHITE.b)
 
                 -- Show faction if not neutral
                 if source.data.faction and source.data.faction ~= "Neutral" then
                     local factionColor = source.data.faction == "Alliance" and "|cFF0078FF" or "|cFFFF0000"
-                    tooltip:AddLine("  Faction: " .. factionColor .. source.data.faction .. "|r", COLOR_GRAY.r, COLOR_GRAY.g, COLOR_GRAY.b)
+                    tooltip:AddLine("  Faction: " .. factionColor .. source.data.faction .. "|r", COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
                 end
 
                 -- Show cost if available
                 if source.data.cost then
                     local costStr = FormatCost(source.data.cost)
                     if costStr then
-                        tooltip:AddLine("  Cost: " .. costStr, COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
+                        tooltip:AddLine("  Cost: |cFFFFFFFF" .. costStr .. "|r", COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
                     end
                 else
                     -- Try fallback cost lookup
                     local costStr = GetItemCostFromVendor(itemID, source.data.npcID)
                     if costStr then
-                        tooltip:AddLine("  Cost: " .. costStr, COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
+                        tooltip:AddLine("  Cost: |cFFFFFFFF" .. costStr .. "|r", COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
                     end
                 end
 
@@ -243,9 +461,13 @@ local function AddSourceInfoToTooltip(tooltip, itemID, skipOwnership)
             elseif source.type == "quest" then
                 -- Quest source
                 local questName = source.data.questName or "Unknown Quest"
+                local questID = source.data.questID
+                local isCompleted = questID and C_QuestLog and C_QuestLog.IsQuestFlaggedCompleted and C_QuestLog.IsQuestFlaggedCompleted(questID)
+                local questColor = isCompleted and "|cFF00FF00" or "|cFFFF0000"
+                local statusSuffix = isCompleted and " |cFF00FF00(Completed)|r" or " |cFFFF0000(Incomplete)|r"
                 tooltip:AddLine("Source: Quest" .. parsedTag, COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
-                tooltip:AddLine("  " .. questName, COLOR_WHITE.r, COLOR_WHITE.g, COLOR_WHITE.b)
-                AddRequirementsToTooltip(tooltip, itemID)
+                tooltip:AddLine("  " .. questColor .. questName .. "|r" .. statusSuffix, 1, 1, 1)
+                -- No AddRequirementsToTooltip: the quest IS the source, would duplicate.
                 return true
 
             elseif source.type == "achievement" then
@@ -253,28 +475,83 @@ local function AddSourceInfoToTooltip(tooltip, itemID, skipOwnership)
                 local achievementName = source.data.achievementName or "Unknown Achievement"
                 local achievementID = source.data.achievementID
 
-                -- Check if achievement is completed
-                local isCompleted = false
+                -- Check completion: distinguish character vs account-wide
+                -- wasEarnedByMe = this character earned it; completed = any character on account
+                -- Default to white/unknown when API returns nil (e.g. unreleased achievements)
+                local nameColor, statusSuffix = "|cFFFFFFFF", ""
                 if achievementID and GetAchievementInfo then
-                    local _, _, _, completed = GetAchievementInfo(achievementID)
-                    isCompleted = completed
+                    local id, _, _, completed, _, _, _, _, _, _, _, _, wasEarnedByMe = GetAchievementInfo(achievementID)
+                    if id then
+                        if wasEarnedByMe then
+                            nameColor    = "|cFF00FF00"
+                            statusSuffix = " |cFF00FF00(This Character)|r"
+                        elseif completed then
+                            nameColor    = "|cFF66FF66"
+                            statusSuffix = " |cFF66FF66(Account)|r"
+                        else
+                            nameColor    = "|cFFFF0000"
+                            statusSuffix = " |cFFFF0000(Incomplete)|r"
+                        end
+                    end
                 end
 
-                if isCompleted then
-                    tooltip:AddLine("Source: Achievement |cFF00FF00(Completed)|r" .. parsedTag, COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
-                else
-                    tooltip:AddLine("Source: Achievement |cFFFF0000(Incomplete)|r" .. parsedTag, COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
-                end
-                tooltip:AddLine("  " .. achievementName, COLOR_WHITE.r, COLOR_WHITE.g, COLOR_WHITE.b)
-                AddRequirementsToTooltip(tooltip, itemID)
+                tooltip:AddLine("Source: Achievement" .. parsedTag, COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
+                tooltip:AddLine("  " .. nameColor .. achievementName .. "|r" .. statusSuffix, 1, 1, 1)
+                -- No AddRequirementsToTooltip: the achievement IS the source, would duplicate.
                 return true
 
             elseif source.type == "profession" then
                 -- Profession source
                 local profession = source.data.profession or "Unknown"
                 local recipeName = source.data.recipeName or "Unknown Recipe"
-                tooltip:AddLine("Source: " .. profession .. parsedTag, COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
-                tooltip:AddLine("  Recipe: " .. recipeName, COLOR_WHITE.r, COLOR_WHITE.g, COLOR_WHITE.b)
+                local spellID = source.data.spellID
+
+                -- Check recipe known status via C_TradeSkillUI (more reliable than IsSpellKnown)
+                local recipeColor, recipeSuffix = "|cFFFF0000", " |cFFFF0000(Recipe Unknown)|r"
+                if spellID and C_TradeSkillUI and C_TradeSkillUI.GetRecipeInfo then
+                    local recipeInfo = C_TradeSkillUI.GetRecipeInfo(spellID)
+                    if recipeInfo then
+                        if recipeInfo.craftable then
+                            recipeColor  = "|cFF00FF00"
+                            recipeSuffix = " |cFF00FF00(Can Craft Now)|r"
+                        elseif recipeInfo.learned then
+                            recipeColor  = "|cFF66FF66"
+                            recipeSuffix = " |cFF66FF66(Recipe Known)|r"
+                        end
+                    end
+                end
+
+                tooltip:AddLine("Source: |cFFFFFFFF" .. profession .. "|r" .. parsedTag, COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
+                tooltip:AddLine("  Recipe: " .. recipeColor .. recipeName .. "|r" .. recipeSuffix, 1, 1, 1)
+                AddRequirementsToTooltip(tooltip, itemID)
+                return true
+
+            elseif source.type == "event" then
+                -- Seasonal event vendor source
+                local eventName = source.data.event or "Unknown Event"
+                local vendorName = source.data.vendorName or "Event Vendor"
+                local currency = source.data.currency
+
+                -- Show active/inactive status (omit when unknown/nil)
+                local statusText = ""
+                if HA.CalendarDetector then
+                    local isActive = HA.CalendarDetector:IsHolidayActive(eventName)
+                    if isActive == true then
+                        statusText = " |cff00ff00(Active Now)|r"
+                    elseif isActive == false then
+                        statusText = " |cffff4444(Not Active)|r"
+                    end
+                    -- nil = unknown/loading → omit status entirely
+                end
+
+                tooltip:AddLine("Source: |cFFFFFFFF" .. eventName .. "|r" .. statusText .. parsedTag, COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
+                tooltip:AddLine("  Vendor: |cFFFFFFFF" .. vendorName .. "|r", COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
+                if source.data.zone then
+                    tooltip:AddLine("  Zone: |cFFFFFFFF" .. source.data.zone .. "|r", COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
+                end
+                if currency then
+                    tooltip:AddLine("  Currency: |cFFFFFFFF" .. currency .. "|r", COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
+                end
                 AddRequirementsToTooltip(tooltip, itemID)
                 return true
 
@@ -283,10 +560,10 @@ local function AddSourceInfoToTooltip(tooltip, itemID, skipOwnership)
                 local mobName = source.data.mobName or "Unknown"
                 local zone = source.data.zone or "Unknown Location"
                 tooltip:AddLine("Source: Drop" .. parsedTag, COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
-                tooltip:AddLine("  " .. mobName, COLOR_WHITE.r, COLOR_WHITE.g, COLOR_WHITE.b)
-                tooltip:AddLine("  Zone: " .. zone, COLOR_GRAY.r, COLOR_GRAY.g, COLOR_GRAY.b)
+                tooltip:AddLine("  |cFFFFFFFF" .. mobName .. "|r", COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
+                tooltip:AddLine("  Zone: |cFFFFFFFF" .. zone .. "|r", COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
                 if source.data.notes then
-                    tooltip:AddLine("  " .. source.data.notes, COLOR_GRAY.r, COLOR_GRAY.g, COLOR_GRAY.b)
+                    tooltip:AddLine("  |cFFFFFFFF" .. source.data.notes .. "|r", COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
                 end
                 AddRequirementsToTooltip(tooltip, itemID)
                 return true
@@ -299,16 +576,34 @@ local function AddSourceInfoToTooltip(tooltip, itemID, skipOwnership)
     local achievementInfo = GetAchievementSourceLegacy(itemID)
     if achievementInfo then
         local achievementName = achievementInfo.name or "Unknown Achievement"
-        local isCompleted = achievementInfo.completed
-
-        if isCompleted then
-            tooltip:AddLine("Source: " .. achievementName .. " |cFF00FF00(Completed)|r", COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
-        else
-            tooltip:AddLine("Source: " .. achievementName .. " |cFFFF0000(Incomplete)|r", COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
+        -- Legacy AchievementDecor only has a boolean .completed — no wasEarnedByMe available
+        -- Re-query GetAchievementInfo if we have an ID for the three-tier check
+        local nameColor, statusSuffix = "|cFFFFFFFF", ""
+        local achID = achievementInfo.achievementID
+        if achID and GetAchievementInfo then
+            local id, _, _, completed, _, _, _, _, _, _, _, _, wasEarnedByMe = GetAchievementInfo(achID)
+            if id then
+                if wasEarnedByMe then
+                    nameColor    = "|cFF00FF00"
+                    statusSuffix = " |cFF00FF00(This Character)|r"
+                elseif completed then
+                    nameColor    = "|cFF66FF66"
+                    statusSuffix = " |cFF66FF66(Account)|r"
+                else
+                    nameColor    = "|cFFFF0000"
+                    statusSuffix = " |cFFFF0000(Incomplete)|r"
+                end
+            end
+        elseif achievementInfo.completed then
+            nameColor    = "|cFF00FF00"
+            statusSuffix = " |cFF00FF00(Completed)|r"
         end
 
+        tooltip:AddLine("Source: Achievement", COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
+        tooltip:AddLine("  " .. nameColor .. achievementName .. "|r" .. statusSuffix, 1, 1, 1)
+
         if achievementInfo.expansion then
-            tooltip:AddLine("  Expansion: " .. achievementInfo.expansion, COLOR_GRAY.r, COLOR_GRAY.g, COLOR_GRAY.b)
+            tooltip:AddLine("  Expansion: |cFFFFFFFF" .. achievementInfo.expansion .. "|r", COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
         end
 
         return true
@@ -319,22 +614,25 @@ local function AddSourceInfoToTooltip(tooltip, itemID, skipOwnership)
     if vendorInfo then
         local vendorName = vendorInfo.name or "Unknown Vendor"
         local zoneName = vendorInfo.zone or "Unknown Location"
+        local locationText = vendorInfo.subzone
+            and (vendorInfo.subzone .. " (" .. zoneName .. ")")
+            or zoneName
 
-        tooltip:AddLine("Source: " .. vendorName, COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
-        tooltip:AddLine("  Location: " .. zoneName, COLOR_WHITE.r, COLOR_WHITE.g, COLOR_WHITE.b)
+        tooltip:AddLine("Source: |cFFFFFFFF" .. vendorName .. "|r", COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
+        tooltip:AddLine("  Location: |cFFFFFFFF" .. locationText .. "|r", COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
 
         if vendorInfo.faction and vendorInfo.faction ~= "Neutral" then
             local factionColor = vendorInfo.faction == "Alliance" and "|cFF0078FF" or "|cFFFF0000"
-            tooltip:AddLine("  Faction: " .. factionColor .. vendorInfo.faction .. "|r", COLOR_GRAY.r, COLOR_GRAY.g, COLOR_GRAY.b)
+            tooltip:AddLine("  Faction: " .. factionColor .. vendorInfo.faction .. "|r", COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
         end
 
         local costStr = GetItemCostFromVendor(itemID, vendorInfo.npcID)
         if costStr then
-            tooltip:AddLine("  Cost: " .. costStr, COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
+            tooltip:AddLine("  Cost: |cFFFFFFFF" .. costStr .. "|r", COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
         end
 
         if vendorInfo.notes then
-            tooltip:AddLine("  " .. vendorInfo.notes, COLOR_GRAY.r, COLOR_GRAY.g, COLOR_GRAY.b)
+            tooltip:AddLine("  |cFFFFFFFF" .. vendorInfo.notes .. "|r", COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
         end
 
         return true
@@ -464,16 +762,17 @@ local function OnHousingCatalogTooltipCreated(ownerID, entryFrame, tooltip)
     if not db or db.showSource ~= false then
         local hasSource = false
 
-        -- Priority 1: Check Blizzard's sourceText from catalog entry (authoritative for owned items)
+        -- Priority 1: Blizzard sourceText (authoritative, most complete — includes cost icons,
+        -- all vendor/zone/category fields). Rendered with gold labels + white values.
         if entryInfo.sourceText and entryInfo.sourceText ~= "" then
-            tooltip:AddLine("Source: " .. entryInfo.sourceText, COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
+            RenderSourceText(tooltip, entryInfo.sourceText, itemID)
             hasSource = true
             if HA.DevAddon and HA.Addon.db.profile.debug then
                 HA.Addon:Debug("Catalog tooltip: using Blizzard sourceText")
             end
         end
 
-        -- Priority 2: Fall back to our VendorDatabase/AchievementDecor
+        -- Priority 2: Fall back to our structured DB for items with no sourceText
         if not hasSource then
             hasSource = AddSourceInfoToTooltip(tooltip, itemID, true)
             if hasSource and HA.DevAddon and HA.Addon.db.profile.debug then
@@ -580,11 +879,11 @@ end
 -------------------------------------------------------------------------------
 
 -- Helper to check if addon is loaded (compatible with different WoW versions)
-local function IsAddonLoaded(addonName)
+local function IsAddonLoaded(name)
     if C_AddOns and C_AddOns.IsAddOnLoaded then
-        return C_AddOns.IsAddOnLoaded(addonName)
+        return C_AddOns.IsAddOnLoaded(name)
     elseif IsAddOnLoaded then
-        return IsAddOnLoaded(addonName)
+        return IsAddOnLoaded(name)
     end
     return false
 end
@@ -601,12 +900,18 @@ local function Initialize()
         HookHousingCatalog()
     end
 
-    -- Register for addon load events to hook Housing Catalog when it loads
-    local addonFrame = CreateFrame("Frame")
-    addonFrame:RegisterEvent("ADDON_LOADED")
-    addonFrame:SetScript("OnEvent", function(self, event, loadedAddon)
-        OnAddonLoaded(loadedAddon)
-    end)
+    -- Register for addon load events to hook Housing Catalog when it loads.
+    -- Skip entirely if already hooked during initialization.
+    if not isCatalogHooked then
+        local addonFrame = CreateFrame("Frame")
+        addonFrame:RegisterEvent("ADDON_LOADED")
+        addonFrame:SetScript("OnEvent", function(self, event, loadedAddon)
+            OnAddonLoaded(loadedAddon)
+            if isCatalogHooked then
+                self:UnregisterEvent("ADDON_LOADED")
+            end
+        end)
+    end
 
     if HA.Addon then
         HA.Addon:Debug("Tooltip enhancement module initialized")
