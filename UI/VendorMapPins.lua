@@ -152,6 +152,8 @@ local minimapPinsEnabled = true
 local minimapRefreshTimer = nil
 local MINIMAP_REFRESH_DEFAULT_DELAY = 0.15
 local MINIMAP_REFRESH_ZONE_DELAY = 0.35
+local MINIMAP_WARMUP_DELAY = 0.9
+local MINIMAP_WARMUP_PIN_CAP = 28
 
 -- Pin caps reduce work in dense hubs while preserving nearby visibility.
 local MINIMAP_PIN_CAPS = {
@@ -173,6 +175,8 @@ local merchantEventFrame = nil
 local zoneEventFrame = nil
 local indoorStateTicker = nil
 local lastKnownIndoors = nil
+local minimapWarmupActive = false
+local minimapWarmupTimer = nil
 
 -- Dedup guards for minimap and world map refreshes
 local lastMinimapMapID = nil
@@ -210,6 +214,32 @@ local function ShouldIncludeSiblingZones(playerMapID, mode)
     local vendorsInZone = HA.VendorData:GetVendorsInMap(playerMapID)
     local vendorCount = vendorsInZone and #vendorsInZone or 0
     return vendorCount < 16
+end
+
+local function StartMinimapWarmup(reason)
+    minimapWarmupActive = true
+
+    if minimapWarmupTimer then
+        minimapWarmupTimer:Cancel()
+    end
+
+    minimapWarmupTimer = C_Timer.NewTimer(MINIMAP_WARMUP_DELAY, function()
+        minimapWarmupTimer = nil
+        minimapWarmupActive = false
+        VendorMapPins:RequestMinimapRefresh("warmup_followup", 0.05)
+    end)
+
+    if reason and HA.DevAddon and HA.Addon.db.profile.debug then
+        HA.Addon:Debug(format("Minimap warmup start: %s (%.2fs)", reason, MINIMAP_WARMUP_DELAY))
+    end
+end
+
+local function StopMinimapWarmup()
+    minimapWarmupActive = false
+    if minimapWarmupTimer then
+        minimapWarmupTimer:Cancel()
+        minimapWarmupTimer = nil
+    end
 end
 
 -- Item info event tracking for tooltip refresh (GET_ITEM_INFO_RECEIVED)
@@ -737,6 +767,13 @@ function VendorMapPins:RefreshMinimapPins()
     local crossZoneMode = GetMinimapCrossZoneMode()
     local pinCap = GetMinimapPinCap(crossZoneMode)
     local includeSiblingZones = ShouldIncludeSiblingZones(playerMapID, crossZoneMode)
+    local isWarmupRefresh = minimapWarmupActive
+    if isWarmupRefresh then
+        includeSiblingZones = false
+        if pinCap > MINIMAP_WARMUP_PIN_CAP then
+            pinCap = MINIMAP_WARMUP_PIN_CAP
+        end
+    end
 
     -- Collect mapIDs to check: current zone + parent zones + sibling zones in same continent
     -- This enables HandyNotes-style "nearby vendor" pins
@@ -859,6 +896,7 @@ function VendorMapPins:RefreshMinimapPins()
         HA.Addon:Debug("RefreshMinimapPins: playerMapID=" .. playerMapID ..
             ", continentID=" .. (continentID or "nil") ..
             ", crossZone=" .. crossZoneMode ..
+            ", warmup=" .. (isWarmupRefresh and "yes" or "no") ..
             ", includeSiblings=" .. (includeSiblingZones and "yes" or "no") ..
             ", mapsChecked=" .. #mapsToCheck ..
             ", vendorsAdded=" .. addedCount ..
@@ -1240,13 +1278,15 @@ end
 function VendorMapPins:EnableMinimapPins()
     minimapPinsEnabled = true
     if isInitialized then
+        StartMinimapWarmup("enable_minimap_pins")
         RefreshRuntimeSubscriptions()
-        self:RefreshMinimapPins()
+        self:RequestMinimapRefresh("enable_minimap_pins", 0.02, true)
     end
 end
 
 function VendorMapPins:DisableMinimapPins()
     minimapPinsEnabled = false
+    StopMinimapWarmup()
     self:ClearMinimapPins()
     if isInitialized then
         RefreshRuntimeSubscriptions()
@@ -1342,8 +1382,9 @@ function VendorMapPins:Initialize()
 
     -- Initial minimap pin refresh
     if minimapPinsEnabled then
+        StartMinimapWarmup("initial_load")
         C_Timer.After(1, function()
-            self:RefreshMinimapPins()
+            self:RequestMinimapRefresh("initial_load", 0.02, true)
         end)
     end
 
