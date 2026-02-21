@@ -367,12 +367,33 @@ local function GetOptionsTable()
                         name = "Show elevation arrows",
                         desc = "Show directional arrows on minimap pins when a vendor is above or below you",
                         width = "double",
-                        order = 8,
+                        order = 9,
                         get = function() return HA.Addon.db.profile.vendorTracer.showElevationArrows ~= false end,
                         set = function(_, value)
                             HA.Addon.db.profile.vendorTracer.showElevationArrows = value
                             if HA.VendorMapPins then
-                                HA.VendorMapPins:RefreshMinimapPins()
+                                HA.VendorMapPins:RequestMinimapRefresh("option_showElevationArrows")
+                            end
+                        end,
+                    },
+                    minimapCrossZoneMode = {
+                        type = "select",
+                        name = "Minimap nearby-zone pins",
+                        desc = "Controls cross-zone minimap pins. Auto reduces extra pins in dense city zones for smoother movement.",
+                        width = "double",
+                        order = 8,
+                        values = {
+                            auto = "Auto (recommended)",
+                            off = "Current zone only",
+                            on = "Always show nearby zones",
+                        },
+                        get = function()
+                            return HA.Addon.db.profile.vendorTracer.minimapCrossZoneMode or "auto"
+                        end,
+                        set = function(_, value)
+                            HA.Addon.db.profile.vendorTracer.minimapCrossZoneMode = value
+                            if HA.VendorMapPins then
+                                HA.VendorMapPins:RequestMinimapRefresh("option_minimapCrossZoneMode")
                             end
                         end,
                     },
@@ -381,14 +402,14 @@ local function GetOptionsTable()
                     vendorVisibilityHeader = {
                         type = "header",
                         name = "Vendor Visibility",
-                        order = 9,
+                        order = 10,
                     },
                     showOppositeFaction = {
                         type = "toggle",
                         name = L["Show opposite faction vendors"] or "Show opposite faction vendors",
                         desc = "Show vendors for the opposite faction with their faction emblem. Useful for completionists to see all available vendors.",
                         width = "double",
-                        order = 10,
+                        order = 11,
                         get = function() return HA.Addon.db.profile.vendorTracer.showOppositeFaction end,
                         set = function(_, value)
                             HA.Addon.db.profile.vendorTracer.showOppositeFaction = value
@@ -403,14 +424,14 @@ local function GetOptionsTable()
                         name = L["Show unverified vendors"] or "Show unverified vendors",
                         desc = "Show vendors with unverified locations (orange pins). These are imported from external sources and may have incorrect coordinates. Visit these vendors in-game to verify their location.",
                         width = "double",
-                        order = 11,
+                        order = 12,
                         get = function() return HA.Addon.db.profile.vendorTracer.showUnverifiedVendors == true end,
                         set = function(_, value)
                             HA.Addon.db.profile.vendorTracer.showUnverifiedVendors = value
                             if HA.VendorMapPins then
                                 HA.VendorMapPins:InvalidateBadgeCache()
                                 HA.VendorMapPins:RefreshPins()
-                                HA.VendorMapPins:RefreshMinimapPins()
+                                HA.VendorMapPins:RequestMinimapRefresh("option_showUnverifiedVendors")
                             end
                         end,
                     },
@@ -419,14 +440,14 @@ local function GetOptionsTable()
                         name = "Show event vendors",
                         desc = "Show seasonal holiday vendor pins on the map when their event is active (e.g., Lunar Festival)",
                         width = "double",
-                        order = 12,
+                        order = 13,
                         get = function() return HA.Addon.db.profile.vendorTracer.showEventVendors ~= false end,
                         set = function(_, value)
                             HA.Addon.db.profile.vendorTracer.showEventVendors = value
                             if HA.VendorMapPins then
                                 HA.VendorMapPins:InvalidateBadgeCache()
                                 HA.VendorMapPins:RefreshPins()
-                                HA.VendorMapPins:RefreshMinimapPins()
+                                HA.VendorMapPins:RequestMinimapRefresh("option_showEventVendors")
                             end
                         end,
                     },
@@ -435,13 +456,13 @@ local function GetOptionsTable()
                     pinAppearanceHeader = {
                         type = "header",
                         name = "Pin Appearance",
-                        order = 13,
+                        order = 14,
                     },
                     pinColorPreset = {
                         type = "select",
                         name = "Pin color",
                         desc = "Choose a color for map and minimap pins. Unverified pins always show orange.",
-                        order = 14,
+                        order = 15,
                         values = {
                             default   = "Default (Gold)",
                             green     = "Bright Green",
@@ -470,7 +491,7 @@ local function GetOptionsTable()
                         type = "color",
                         name = "Custom color",
                         desc = "Pick a custom base color for map pins",
-                        order = 15,
+                        order = 16,
                         hidden = function()
                             return (HA.Addon.db.profile.vendorTracer.pinColorPreset or "default") ~= "custom"
                         end,
@@ -497,14 +518,14 @@ local function GetOptionsTable()
                                 hex
                             )
                         end,
-                        order = 16,
+                        order = 17,
                         width = "double",
                     },
                     pinIconSize = {
                         type = "range",
                         name = "World map pin size",
                         desc = "Adjust the size of vendor pins on the world map. Default (20) matches Blizzard POI icons.",
-                        order = 17,
+                        order = 18,
                         min = 12,
                         max = 32,
                         step = 2,
@@ -523,7 +544,7 @@ local function GetOptionsTable()
                         type = "range",
                         name = "Minimap pin size",
                         desc = "Adjust the size of vendor pins on the minimap. Increase if pins are hard to see, or decrease to reduce minimap clutter.",
-                        order = 18,
+                        order = 19,
                         min = 8,
                         max = 24,
                         step = 1,
@@ -534,7 +555,7 @@ local function GetOptionsTable()
                         set = function(_, value)
                             HA.Addon.db.profile.vendorTracer.minimapIconSize = value
                             if HA.VendorMapPins then
-                                HA.VendorMapPins:RefreshMinimapPins()
+                                HA.VendorMapPins:RequestMinimapRefresh("option_minimapIconSize")
                             end
                         end,
                     },
@@ -543,7 +564,7 @@ local function GetOptionsTable()
                         name = "Show collection counts",
                         desc = "Display collected/total item counts on vendor pins (e.g., 3/12). Disable to reduce map clutter.",
                         width = "double",
-                        order = 19,
+                        order = 20,
                         get = function() return HA.Addon.db.profile.vendorTracer.showPinCounts ~= false end,
                         set = function(_, value)
                             HA.Addon.db.profile.vendorTracer.showPinCounts = value

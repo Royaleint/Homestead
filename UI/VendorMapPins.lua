@@ -148,8 +148,25 @@ local GetContinentForZone = BC.GetContinentForZone
 -- Minimap pins enabled state
 local minimapPinsEnabled = true
 
--- Debounce timer for zone change minimap refresh
+-- Shared minimap refresh timer used to coalesce bursty refresh requests.
 local minimapRefreshTimer = nil
+local MINIMAP_REFRESH_DEFAULT_DELAY = 0.15
+local MINIMAP_REFRESH_ZONE_DELAY = 0.35
+
+-- Pin caps reduce work in dense hubs while preserving nearby visibility.
+local MINIMAP_PIN_CAPS = {
+    off = 80,
+    auto = 60,
+    on = 120,
+}
+
+-- Exclude continents in separate world spaces where cross-zone minimap translation
+-- can collapse pins onto the player arrow.
+local minimapExcludedContinents = {
+    [101] = true,   -- Outland (separate world space)
+    [572] = true,   -- Draenor (alternate dimension)
+    [1550] = true,  -- Shadowlands (afterlife dimension)
+}
 
 -- Runtime event/ticker handles (registered conditionally by feature state)
 local merchantEventFrame = nil
@@ -160,6 +177,40 @@ local lastKnownIndoors = nil
 -- Dedup guards for minimap and world map refreshes
 local lastMinimapMapID = nil
 local lastWorldMapID = nil
+
+local function GetMinimapCrossZoneMode()
+    local profile = HA.Addon and HA.Addon.db and HA.Addon.db.profile
+    local tracer = profile and profile.vendorTracer
+    local mode = tracer and tracer.minimapCrossZoneMode
+    if mode == "off" or mode == "on" or mode == "auto" then
+        return mode
+    end
+    return "auto"
+end
+
+local function GetMinimapPinCap(mode)
+    return MINIMAP_PIN_CAPS[mode] or MINIMAP_PIN_CAPS.auto
+end
+
+local function ShouldIncludeSiblingZones(playerMapID, mode)
+    if mode == "off" then
+        return false
+    end
+    if mode == "on" then
+        return true
+    end
+    if IsIndoors() then
+        return false
+    end
+    if not HA.VendorData then
+        return false
+    end
+
+    -- Auto mode disables cross-zone pins in dense maps to avoid hitching.
+    local vendorsInZone = HA.VendorData:GetVendorsInMap(playerMapID)
+    local vendorCount = vendorsInZone and #vendorsInZone or 0
+    return vendorCount < 16
+end
 
 -- Item info event tracking for tooltip refresh (GET_ITEM_INFO_RECEIVED)
 local itemInfoEventFrame = CreateFrame("Frame")
@@ -193,7 +244,7 @@ local function RegisterMerchantClosedEvent()
                 if WorldMapFrame:IsShown() then
                     VendorMapPins:RefreshPins()
                 end
-                VendorMapPins:RefreshMinimapPins()
+                VendorMapPins:RequestMinimapRefresh("merchant_closed", 0.05)
             end)
         end)
     end
@@ -219,15 +270,7 @@ local function RegisterZoneChangeEvents()
             if currentMapID == lastMinimapMapID then return end
             lastMinimapMapID = currentMapID
 
-            -- Debounce: cancel any pending refresh so rapid zone changes
-            -- (ZONE_CHANGED + ZONE_CHANGED_INDOORS firing together) only trigger one refresh.
-            if minimapRefreshTimer then
-                minimapRefreshTimer:Cancel()
-            end
-            minimapRefreshTimer = C_Timer.NewTimer(0.5, function()
-                minimapRefreshTimer = nil
-                VendorMapPins:RefreshMinimapPins()
-            end)
+            VendorMapPins:RequestMinimapRefresh("zone_changed", MINIMAP_REFRESH_ZONE_DELAY)
         end)
     end
 
@@ -265,7 +308,7 @@ local function StartIndoorTicker()
         local indoors = IsIndoors()
         if indoors ~= lastKnownIndoors then
             lastKnownIndoors = indoors
-            VendorMapPins:RefreshMinimapPins()
+            VendorMapPins:RequestMinimapRefresh("indoor_state_changed", 0.05)
         end
     end)
 end
@@ -640,6 +683,41 @@ function VendorMapPins:ClearMinimapPins()
     wipe(minimapPinFrames)
 end
 
+function VendorMapPins:RequestMinimapRefresh(reason, delay, forceImmediate)
+    if not isInitialized then return end
+    if not minimapPinsEnabled then return end
+
+    if minimapRefreshTimer then
+        if forceImmediate then
+            minimapRefreshTimer:Cancel()
+            minimapRefreshTimer = nil
+        else
+            return
+        end
+    end
+
+    if forceImmediate then
+        self:RefreshMinimapPins()
+        return
+    end
+
+    local refreshDelay = delay
+    if refreshDelay == nil then
+        refreshDelay = MINIMAP_REFRESH_DEFAULT_DELAY
+    end
+
+    minimapRefreshTimer = C_Timer.NewTimer(refreshDelay, function()
+        minimapRefreshTimer = nil
+        if minimapPinsEnabled then
+            self:RefreshMinimapPins()
+        end
+    end)
+
+    if reason and HA.DevAddon and HA.Addon.db.profile.debug then
+        HA.Addon:Debug(format("Coalesced minimap refresh: %s (%.2fs)", reason, refreshDelay))
+    end
+end
+
 function VendorMapPins:RefreshMinimapPins()
     if not isInitialized then return end
     if not minimapPinsEnabled then
@@ -656,6 +734,9 @@ function VendorMapPins:RefreshMinimapPins()
     if not playerMapID then return end
 
     local showElevationArrows = HA.Addon.db.profile.vendorTracer.showElevationArrows ~= false
+    local crossZoneMode = GetMinimapCrossZoneMode()
+    local pinCap = GetMinimapPinCap(crossZoneMode)
+    local includeSiblingZones = ShouldIncludeSiblingZones(playerMapID, crossZoneMode)
 
     -- Collect mapIDs to check: current zone + parent zones + sibling zones in same continent
     -- This enables HandyNotes-style "nearby vendor" pins
@@ -675,26 +756,16 @@ function VendorMapPins:RefreshMinimapPins()
         end
     end
 
-    -- Add sibling zones in the same continent for cross-zone visibility
-    -- This is what makes pins appear when you're near a zone boundary
-    --
-    -- Exclude continents in separate world spaces (Outland, Draenor, Shadowlands)
-    -- HBD can't translate cross-dimension coords, which causes pins to collapse
-    -- onto the player arrow position.
-    local minimapExcludedContinents = {
-        [101] = true,   -- Outland (separate world space)
-        [572] = true,   -- Draenor (alternate dimension)
-        [1550] = true,  -- Shadowlands (afterlife dimension)
-    }
-
     local continentID = GetContinentForZone(playerMapID)
-    if continentID and not minimapExcludedContinents[continentID] then
-        local siblingZones = BC.continentToZones[continentID]
-        if siblingZones then
-            for _, zoneMapID in ipairs(siblingZones) do
-                if not mapsToCheckSet[zoneMapID] then
-                    mapsToCheck[#mapsToCheck + 1] = zoneMapID
-                    mapsToCheckSet[zoneMapID] = true
+    if includeSiblingZones then
+        if continentID and not minimapExcludedContinents[continentID] then
+            local siblingZones = BC.continentToZones[continentID]
+            if siblingZones then
+                for _, zoneMapID in ipairs(siblingZones) do
+                    if not mapsToCheckSet[zoneMapID] then
+                        mapsToCheck[#mapsToCheck + 1] = zoneMapID
+                        mapsToCheckSet[zoneMapID] = true
+                    end
                 end
             end
         end
@@ -703,15 +774,36 @@ function VendorMapPins:RefreshMinimapPins()
     local showOpposite = ShouldShowOppositeFaction()
     local floatOnEdge = not IsIndoors()  -- Hide distant pins when inside buildings/caves
     local addedVendors = {}  -- Prevent duplicate pins for same vendor
+    local addedCount = 0
+    local capReached = false
 
     for _, mapID in ipairs(mapsToCheck) do
+        if capReached then break end
+
         local vendors = HA.VendorData:GetVendorsInMap(mapID)
         if vendors then
             for _, vendor in ipairs(vendors) do
+                if addedCount >= pinCap then
+                    capReached = true
+                    break
+                end
+
                 -- Use npcID for deduplication (vendor tables may be different objects)
                 if vendor.npcID and not addedVendors[vendor.npcID] then
-                    -- Skip unreleased or no-decor vendors.
-                    if not ShouldHideVendor(vendor) then
+                    local shouldSkipVendor = ShouldHideVendor(vendor)
+
+                    -- Skip static/scanned map mismatches to avoid misplaced minimap pins.
+                    if not shouldSkipVendor and HA.Addon and HA.Addon.db
+                            and HA.Addon.db.global.scannedVendors then
+                        local scannedData = HA.Addon.db.global.scannedVendors[vendor.npcID]
+                        if scannedData and scannedData.mapID and not mapsToCheckSet[scannedData.mapID] then
+                            shouldSkipVendor = true
+                        end
+                    end
+
+                    if shouldSkipVendor then
+                        addedVendors[vendor.npcID] = true
+                    else
                         -- Get best coordinates (scanned preferred over static)
                         local coords, vendorMapID = GetBestVendorCoordinates(vendor)
 
@@ -736,6 +828,7 @@ function VendorMapPins:RefreshMinimapPins()
                                             showArrow and elevation or nil)
                                         minimapPinFrames[vendor] = frame
                                         addedVendors[vendor.npcID] = true
+                                        addedCount = addedCount + 1
                                         -- Always float on edge for cross-floor pins; indoor detection
                                         -- would otherwise hide them in underground zones
                                         HBDPins:AddMinimapIconWorld("HomesteadMinimapVendors", frame,
@@ -747,6 +840,7 @@ function VendorMapPins:RefreshMinimapPins()
                                     local frame = CreateMinimapPinFrame(vendor, isOpposite, isUnverified)
                                     minimapPinFrames[vendor] = frame
                                     addedVendors[vendor.npcID] = true
+                                    addedCount = addedCount + 1
                                     HBDPins:AddMinimapIconMap("HomesteadMinimapVendors", frame, vendorMapID,
                                         coords.x, coords.y,
                                         true,         -- showInParentZone
@@ -762,12 +856,14 @@ function VendorMapPins:RefreshMinimapPins()
 
     -- Debug output (verbose, dev only)
     if HA.DevAddon and HA.Addon.db.profile.debug then
-        local count = 0
-        for _ in pairs(addedVendors) do count = count + 1 end
         HA.Addon:Debug("RefreshMinimapPins: playerMapID=" .. playerMapID ..
             ", continentID=" .. (continentID or "nil") ..
+            ", crossZone=" .. crossZoneMode ..
+            ", includeSiblings=" .. (includeSiblingZones and "yes" or "no") ..
             ", mapsChecked=" .. #mapsToCheck ..
-            ", vendorsAdded=" .. count)
+            ", vendorsAdded=" .. addedCount ..
+            ", pinCap=" .. pinCap ..
+            ", capReached=" .. (capReached and "yes" or "no"))
     end
 end
 
@@ -1217,10 +1313,7 @@ function VendorMapPins:Initialize()
                     self:RefreshPins()
                 end)
             end
-            -- Also refresh minimap pins
-            C_Timer.After(0.1, function()
-                self:RefreshMinimapPins()
-            end)
+            self:RequestMinimapRefresh("vendor_scanned", 0.1)
         end)
 
         -- Also listen for ownership cache updates
@@ -1240,7 +1333,7 @@ function VendorMapPins:Initialize()
             if WorldMapFrame:IsShown() then
                 self:RefreshPins()
             end
-            self:RefreshMinimapPins()
+            self:RequestMinimapRefresh("holidays_changed")
         end)
     end
 

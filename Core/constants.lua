@@ -409,6 +409,7 @@ Constants.Defaults = {
         vendorTracer = {
             showMapPins = true,
             showMinimapPins = true,
+            minimapCrossZoneMode = "auto",            -- auto|off|on for nearby-zone minimap pins
             useTomTom = true,
             useNativeWaypoints = true,
             autoWaypoint = false,
