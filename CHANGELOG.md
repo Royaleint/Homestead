@@ -5,6 +5,7 @@
 ## Unreleased (post-v1.5.0)
 
 ### New
+- **Zone Collection Progress Bar** — A color-coded progress bar below the panel header shows at-a-glance zone completion. Colors shift from red (<50%) to yellow (51-99%) to green (100%). Hover for a detailed breakdown.
 - **Panel Source Filter** - The Homestead panel now includes a source filter dropdown in the title bar so you can quickly switch between All, Vendor, Quest, Achievement, Profession, Event, and Drop sources.
 - **Multi-Source Tooltips** — Item tooltips now show all known sources instead of just the primary one.
 - **Context-Aware Tooltips** — Tooltips adapt to where you're viewing them: compact at merchants and in bags, detailed in the Homestead panel. Hold Shift to toggle detail level on any tooltip.
