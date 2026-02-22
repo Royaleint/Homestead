@@ -75,86 +75,16 @@ local function FormatCost(cost)
     return nil
 end
 
--- Search a vendor's items for a matching itemID and return formatted cost.
-local function SearchVendorItemsForCost(vendor, itemID)
-    if not vendor or not vendor.items then return nil end
-    for _, item in ipairs(vendor.items) do
-        if HA.VendorData:GetItemID(item) == itemID then
-            local cost = HA.VendorData:GetItemCost(item)
-            if cost then return FormatCost(cost) end
-            break
-        end
-    end
-    return nil
-end
-
--- Get cost for an item from a specific vendor (uses VendorData API, no inline format checks)
-local function GetItemCostFromVendor(itemID, npcID)
-    if not itemID or not HA.VendorData then return nil end
-
-    -- If npcID provided, check that vendor first (VendorDatabase then EndeavorsData)
-    if npcID then
-        local vendor = HA.VendorDatabase and HA.VendorDatabase.Vendors and HA.VendorDatabase.Vendors[npcID]
-            or HA.EndeavorsData and HA.EndeavorsData.Vendors and HA.EndeavorsData.Vendors[npcID]
-        local result = SearchVendorItemsForCost(vendor, itemID)
-        if result then return result end
-    end
-
-    -- Fallback: use ByItemID index to find vendors that sell this item
-    local sources = {
-        HA.VendorDatabase and HA.VendorDatabase.ByItemID,
-        HA.EndeavorsData and HA.EndeavorsData.ByItemID,
-    }
-    for _, byItemID in ipairs(sources) do
-        if byItemID then
-            local npcIDs = byItemID[itemID]
-            if npcIDs then
-                for _, vendorNpcID in ipairs(npcIDs) do
-                    local vendor = HA.VendorDatabase and HA.VendorDatabase.Vendors and HA.VendorDatabase.Vendors[vendorNpcID]
-                        or HA.EndeavorsData and HA.EndeavorsData.Vendors and HA.EndeavorsData.Vendors[vendorNpcID]
-                    local result = SearchVendorItemsForCost(vendor, itemID)
-                    if result then return result end
-                end
-            end
-        end
-    end
-
-    -- Fallback: check scanned vendor data
-    if HA.VendorData.GetScannedItemCost then
-        local scannedCost = HA.VendorData:GetScannedItemCost(itemID, npcID)
-        if scannedCost then return FormatCost(scannedCost) end
-    end
-
-    return nil
-end
-
--------------------------------------------------------------------------------
--- Source Lookup Functions (Legacy - kept for compatibility)
--------------------------------------------------------------------------------
-
--- Check if item is from an achievement (via AchievementSources)
-local function GetAchievementSourceLegacy(itemID)
-    if not HA.AchievementSourcesModule or not HA.AchievementSourcesModule.GetAchievementForItem then
-        return nil
-    end
-    return HA.AchievementSourcesModule:GetAchievementForItem(itemID)
-end
-
--- Check if item is from a vendor
-local function GetVendorSource(itemID)
-    if not HA.VendorData or not HA.VendorData.GetClosestVendorForItem then
-        return nil
-    end
-    return HA.VendorData:GetClosestVendorForItem(itemID)
-end
-
 -------------------------------------------------------------------------------
 -- Shared Tooltip Enhancement (adds source info lines)
 -------------------------------------------------------------------------------
 
 -- Add requirement lines to tooltip for an item (optionally vendor-scoped)
 -- Yellow=requirements, red=unmet, green=met
-local function AddRequirementsToTooltip(tooltip, itemID, npcID)
+-- dedupSet: optional table of source types already rendered (e.g. {achievement=true})
+--   requirements whose type is in dedupSet are skipped (already shown as source lines).
+--   Reputation requirements are NEVER skipped (always additive info).
+local function AddRequirementsToTooltip(tooltip, itemID, npcID, dedupSet)
     if not HA.SourceManager or not HA.SourceManager.GetRequirements then return end
 
     -- Check if requirements display is enabled
@@ -167,46 +97,50 @@ local function AddRequirementsToTooltip(tooltip, itemID, npcID)
     if not reqs or #reqs == 0 then return end
 
     for _, req in ipairs(reqs) do
-        local text = nil
-        local isMet = nil
+        -- Skip requirements whose type was already rendered as a source line,
+        -- EXCEPT reputation (always shown — provides progress info not in sources).
+        if not dedupSet or req.type == "reputation" or not dedupSet[req.type] then
+            local text = nil
+            local isMet = nil
 
-        if req.type == "reputation" and req.faction and req.standing then
-            -- Try enhanced progress display
-            local progress = HA.SourceManager.GetRequirementProgress
-                and HA.SourceManager:GetRequirementProgress(req)
-            if progress then
-                isMet = progress.met
-                if progress.isRenown then
-                    text = progress.factionName .. " \226\128\148 Renown: "
-                        .. progress.currentText .. " / " .. progress.requiredText .. " required"
+            if req.type == "reputation" and req.faction and req.standing then
+                -- Try enhanced progress display
+                local progress = HA.SourceManager.GetRequirementProgress
+                    and HA.SourceManager:GetRequirementProgress(req)
+                if progress then
+                    isMet = progress.met
+                    if progress.isRenown then
+                        text = progress.factionName .. " \226\128\148 Renown: "
+                            .. progress.currentText .. " / " .. progress.requiredText .. " required"
+                    else
+                        text = progress.factionName .. " \226\128\148 Reputation: "
+                            .. progress.currentText .. " / " .. progress.requiredText .. " required"
+                    end
                 else
-                    text = progress.factionName .. " \226\128\148 Reputation: "
-                        .. progress.currentText .. " / " .. progress.requiredText .. " required"
+                    -- Fallback: flat format when progress unavailable
+                    text = "Requires: " .. req.faction .. " - " .. req.standing
                 end
-            else
-                -- Fallback: flat format when progress unavailable
-                text = "Requires: " .. req.faction .. " - " .. req.standing
+            elseif req.type == "quest" and req.name then
+                text = "Requires: " .. req.name
+            elseif req.type == "achievement" and req.name then
+                text = "Requires: " .. req.name
+            elseif req.type == "level" and req.level then
+                text = "Requires Level " .. req.level
+            elseif req.type == "unknown" and req.text then
+                text = req.text
             end
-        elseif req.type == "quest" and req.name then
-            text = "Requires: " .. req.name
-        elseif req.type == "achievement" and req.name then
-            text = "Requires: " .. req.name
-        elseif req.type == "level" and req.level then
-            text = "Requires Level " .. req.level
-        elseif req.type == "unknown" and req.text then
-            text = req.text
-        end
 
-        if text then
-            if isMet == nil then
-                isMet = HA.SourceManager:IsRequirementMet(req)
-            end
-            if isMet == true then
-                tooltip:AddLine("  " .. text, 0.0, 0.8, 0.0)  -- Green
-            elseif isMet == false then
-                tooltip:AddLine("  " .. text, 0.8, 0.0, 0.0)  -- Red
-            else
-                tooltip:AddLine("  " .. text, COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)  -- Yellow (unknown)
+            if text then
+                if isMet == nil then
+                    isMet = HA.SourceManager:IsRequirementMet(req)
+                end
+                if isMet == true then
+                    tooltip:AddLine("  " .. text, 0.0, 0.8, 0.0)  -- Green
+                elseif isMet == false then
+                    tooltip:AddLine("  " .. text, 0.8, 0.0, 0.0)  -- Red
+                else
+                    tooltip:AddLine("  " .. text, COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)  -- Yellow (unknown)
+                end
             end
         end
     end
@@ -385,7 +319,7 @@ end
 -- Each renderer produces identical tooltip lines to the original inline code.
 -------------------------------------------------------------------------------
 
-local function RenderVendorSourceLines(tooltip, source, parsedTag, itemID)
+local function RenderVendorSourceLines(tooltip, source, parsedTag, _itemID)
     local vendorName = source.data.name or "Unknown Vendor"
     local zoneName = source.data.zone or "Unknown Location"
     local locationText = source.data.subzone
@@ -401,22 +335,13 @@ local function RenderVendorSourceLines(tooltip, source, parsedTag, itemID)
         tooltip:AddLine("  Faction: " .. factionColor .. source.data.faction .. "|r", COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
     end
 
-    -- Show cost if available
+    -- Show cost if available (SourceManager includes cost in vendor source data)
     if source.data.cost then
         local costStr = FormatCost(source.data.cost)
         if costStr then
             tooltip:AddLine("  Cost: |cFFFFFFFF" .. costStr .. "|r", COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
         end
-    else
-        -- Try fallback cost lookup
-        local costStr = GetItemCostFromVendor(itemID, source.data.npcID)
-        if costStr then
-            tooltip:AddLine("  Cost: |cFFFFFFFF" .. costStr .. "|r", COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
-        end
     end
-
-    -- Show requirements (vendor-specific when npcID available)
-    AddRequirementsToTooltip(tooltip, itemID, source.data.npcID)
 end
 
 local function RenderQuestSourceLines(tooltip, source, parsedTag, _itemID, completion)
@@ -438,7 +363,7 @@ local function RenderAchievementSourceLines(tooltip, source, parsedTag, _itemID,
     -- No AddRequirementsToTooltip: the achievement IS the source, would duplicate.
 end
 
-local function RenderProfessionSourceLines(tooltip, source, parsedTag, itemID, completion)
+local function RenderProfessionSourceLines(tooltip, source, parsedTag, _itemID, completion)
     local profession = source.data.profession or "Unknown"
     local recipeName = source.data.recipeName or "Unknown Recipe"
     local recipeColor = completion and completion.color or "|cFF808080"
@@ -446,10 +371,9 @@ local function RenderProfessionSourceLines(tooltip, source, parsedTag, itemID, c
 
     tooltip:AddLine("Source: |cFFFFFFFF" .. profession .. "|r" .. parsedTag, COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
     tooltip:AddLine("  Recipe: " .. recipeColor .. recipeName .. "|r" .. recipeSuffix, 1, 1, 1)
-    AddRequirementsToTooltip(tooltip, itemID)
 end
 
-local function RenderEventSourceLines(tooltip, source, parsedTag, itemID)
+local function RenderEventSourceLines(tooltip, source, parsedTag, _itemID)
     local eventName = source.data.event or "Unknown Event"
     local vendorName = source.data.vendorName or "Event Vendor"
     local currency = source.data.currency
@@ -474,10 +398,9 @@ local function RenderEventSourceLines(tooltip, source, parsedTag, itemID)
     if currency then
         tooltip:AddLine("  Currency: |cFFFFFFFF" .. currency .. "|r", COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
     end
-    AddRequirementsToTooltip(tooltip, itemID)
 end
 
-local function RenderDropSourceLines(tooltip, source, parsedTag, itemID)
+local function RenderDropSourceLines(tooltip, source, parsedTag, _itemID)
     local mobName = source.data.mobName or "Unknown"
     local zone = source.data.zone or "Unknown Location"
     tooltip:AddLine("Source: Drop" .. parsedTag, COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
@@ -486,7 +409,6 @@ local function RenderDropSourceLines(tooltip, source, parsedTag, itemID)
     if source.data.notes then
         tooltip:AddLine("  |cFFFFFFFF" .. source.data.notes .. "|r", COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
     end
-    AddRequirementsToTooltip(tooltip, itemID)
 end
 
 -- Dispatch table for per-source-type rendering
@@ -500,107 +422,65 @@ local SOURCE_RENDERERS = {
 }
 
 -- Add source information lines to a tooltip (shared between item and catalog tooltips)
--- Uses SourceManager for comprehensive source lookup
+-- Uses SourceManager:GetAllSources for comprehensive multi-source display.
 -- Intentional UX: tooltips are informational and always show full source context,
 -- independent of any map side-panel source filter setting.
 local function AddSourceInfoToTooltip(tooltip, itemID)
     if not itemID then return false end
+    if not HA.SourceManager or not HA.SourceManager.GetAllSources then return false end
 
-    -- Use SourceManager if available for comprehensive source lookup
-    if HA.SourceManager and HA.SourceManager.GetSource then
-        local source = nil
+    local sources = HA.SourceManager:GetAllSources(itemID)
+    if not sources or #sources == 0 then return false end
 
-        -- Prefer "available now" source selection when available.
-        if HA.SourceManager.GetBestAvailableSource then
-            source = HA.SourceManager:GetBestAvailableSource(itemID)
-        end
+    -- Determine which sources to render
+    local sourcesToRender
+    local db = HA.Addon and HA.Addon.db and HA.Addon.db.profile.tooltip
+    if db and db.showAllSources == false then
+        -- Show primary only: prefer "available now" source (preserves existing behavior)
+        local best = HA.SourceManager.GetBestAvailableSource
+            and HA.SourceManager:GetBestAvailableSource(itemID)
+        sourcesToRender = best and {best} or {sources[1]}
+    else
+        sourcesToRender = sources
+    end
 
-        -- Backward-compatible fallback: original fixed-priority source.
-        if not source then
-            source = HA.SourceManager:GetSource(itemID)
-        end
-
-        if source then
+    -- Render each source via dispatch table, tracking which types were rendered
+    local renderedAny = false
+    local renderedTypes = {}
+    local renderedVendorNpcID = nil
+    for _, source in ipairs(sourcesToRender) do
+        local renderer = SOURCE_RENDERERS[source.type]
+        if renderer then
             local parsedTag = source._isParsed and " |cFFAAAAFF(unverified)|r" or ""
-            local renderer = SOURCE_RENDERERS[source.type]
-            if renderer then
-                local completion = HA.SourceManager.GetCompletionStatus
-                    and HA.SourceManager:GetCompletionStatus(itemID, source.type, source.data)
-                    or nil
-                renderer(tooltip, source, parsedTag, itemID, completion)
-                return true
+            local completion = HA.SourceManager.GetCompletionStatus
+                and HA.SourceManager:GetCompletionStatus(itemID, source.type, source.data)
+                or nil
+            renderer(tooltip, source, parsedTag, itemID, completion)
+            renderedAny = true
+            renderedTypes[#renderedTypes + 1] = source.type
+            if source.type == "vendor" and source.data then
+                renderedVendorNpcID = source.data.npcID
             end
         end
     end
 
-    -- Fallback: Legacy source lookup (AchievementSources + VendorData)
-    -- Check for achievement source (AchievementSources)
-    local achievementInfo = GetAchievementSourceLegacy(itemID)
-    if achievementInfo then
-        local achievementName = achievementInfo.name or "Unknown Achievement"
-        -- AchievementSources only has a boolean .completed — no wasEarnedByMe available
-        -- Re-query GetAchievementInfo if we have an ID for the three-tier check
-        local nameColor, statusSuffix = "|cFFFFFFFF", ""
-        local achID = achievementInfo.achievementID
-        if achID and GetAchievementInfo then
-            local id, _, _, completed, _, _, _, _, _, _, _, _, wasEarnedByMe = GetAchievementInfo(achID)
-            if id then
-                if wasEarnedByMe then
-                    nameColor    = "|cFF00FF00"
-                    statusSuffix = " |cFF00FF00(This Character)|r"
-                elseif completed then
-                    nameColor    = "|cFF66FF66"
-                    statusSuffix = " |cFF66FF66(Account)|r"
-                else
-                    nameColor    = "|cFFFF0000"
-                    statusSuffix = " |cFFFF0000(Incomplete)|r"
-                end
-            end
-        elseif achievementInfo.completed then
-            nameColor    = "|cFF00FF00"
-            statusSuffix = " |cFF00FF00(Completed)|r"
-        end
+    if not renderedAny then return false end
 
-        tooltip:AddLine("Source: Achievement", COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
-        tooltip:AddLine("  " .. nameColor .. achievementName .. "|r" .. statusSuffix, 1, 1, 1)
+    -- Build dedup set from actually-rendered source types
+    local dedupSet = HA.SourceManager.BuildRequirementDedupSet
+        and HA.SourceManager:BuildRequirementDedupSet(renderedTypes)
+        or nil
 
-        if achievementInfo.expansion then
-            tooltip:AddLine("  Expansion: |cFFFFFFFF" .. achievementInfo.expansion .. "|r", COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
-        end
-
-        return true
+    -- npcID scoping: only pass vendor npcID when vendor is the sole rendered source.
+    -- For mixed sources, pass nil to get global (non-vendor-scoped) requirements.
+    -- Note: B4 (context-aware) will also pass npcID in merchant context.
+    local reqNpcID = nil
+    if #renderedTypes == 1 and renderedTypes[1] == "vendor" then
+        reqNpcID = renderedVendorNpcID
     end
 
-    -- Check for vendor source (fallback)
-    local vendorInfo = GetVendorSource(itemID)
-    if vendorInfo then
-        local vendorName = vendorInfo.name or "Unknown Vendor"
-        local zoneName = vendorInfo.zone or "Unknown Location"
-        local locationText = vendorInfo.subzone
-            and (vendorInfo.subzone .. " (" .. zoneName .. ")")
-            or zoneName
-
-        tooltip:AddLine("Source: |cFFFFFFFF" .. vendorName .. "|r", COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
-        tooltip:AddLine("  Location: |cFFFFFFFF" .. locationText .. "|r", COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
-
-        if vendorInfo.faction and vendorInfo.faction ~= "Neutral" then
-            local factionColor = vendorInfo.faction == "Alliance" and "|cFF0078FF" or "|cFFFF0000"
-            tooltip:AddLine("  Faction: " .. factionColor .. vendorInfo.faction .. "|r", COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
-        end
-
-        local costStr = GetItemCostFromVendor(itemID, vendorInfo.npcID)
-        if costStr then
-            tooltip:AddLine("  Cost: |cFFFFFFFF" .. costStr .. "|r", COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
-        end
-
-        if vendorInfo.notes then
-            tooltip:AddLine("  |cFFFFFFFF" .. vendorInfo.notes .. "|r", COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
-        end
-
-        return true
-    end
-
-    return false
+    AddRequirementsToTooltip(tooltip, itemID, reqNpcID, dedupSet)
+    return true
 end
 
 -------------------------------------------------------------------------------
