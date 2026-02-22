@@ -400,6 +400,7 @@ Constants.Defaults = {
             enabled = true,
             showOwned = true,
             showSource = true,
+            showAllSources = true,  -- Show all sources vs primary only
             showQuantity = false,  -- off by default, can be noisy
             showDyeSlots = true,
             showRequirements = true,  -- Show acquisition requirements (rep, quest, etc.)

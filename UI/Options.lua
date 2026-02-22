@@ -210,12 +210,23 @@ local function GetOptionsTable()
                             HA.Addon.db.profile.tooltip.enabled = value
                         end,
                     },
+                    showOwned = {
+                        type = "toggle",
+                        name = "Show ownership status",
+                        desc = "Show whether you own a decor item",
+                        width = "double",
+                        order = 2,
+                        get = function() return HA.Addon.db.profile.tooltip.showOwned end,
+                        set = function(_, value)
+                            HA.Addon.db.profile.tooltip.showOwned = value
+                        end,
+                    },
                     showSource = {
                         type = "toggle",
                         name = L["Show source information"] or "Show source information",
                         desc = "Show where to obtain uncollected items",
                         width = "double",
-                        order = 2,
+                        order = 3,
                         get = function() return HA.Addon.db.profile.tooltip.showSource end,
                         set = function(_, value)
                             HA.Addon.db.profile.tooltip.showSource = value
@@ -225,21 +236,10 @@ local function GetOptionsTable()
                         type = "toggle",
                         name = L["Show quantity owned"] or "Show quantity owned",
                         desc = "Show how many of this item you own",
-                        order = 3,
+                        order = 4,
                         get = function() return HA.Addon.db.profile.tooltip.showQuantity end,
                         set = function(_, value)
                             HA.Addon.db.profile.tooltip.showQuantity = value
-                        end,
-                    },
-                    showDyeSlots = {
-                        type = "toggle",
-                        name = L["Show dye slot information"] or "Show dye slot information",
-                        desc = "Show if item can be dyed and how many dye slots",
-                        width = "double",
-                        order = 4,
-                        get = function() return HA.Addon.db.profile.tooltip.showDyeSlots end,
-                        set = function(_, value)
-                            HA.Addon.db.profile.tooltip.showDyeSlots = value
                         end,
                     },
                     showRequirements = {
@@ -251,6 +251,17 @@ local function GetOptionsTable()
                         get = function() return HA.Addon.db.profile.tooltip.showRequirements end,
                         set = function(_, value)
                             HA.Addon.db.profile.tooltip.showRequirements = value
+                        end,
+                    },
+                    showAllSources = {
+                        type = "toggle",
+                        name = "Show all sources",
+                        desc = "Show all known sources for an item instead of just the primary source",
+                        width = "double",
+                        order = 6,
+                        get = function() return HA.Addon.db.profile.tooltip.showAllSources end,
+                        set = function(_, value)
+                            HA.Addon.db.profile.tooltip.showAllSources = value
                         end,
                     },
                 },
