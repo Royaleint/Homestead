@@ -2,6 +2,17 @@
 
 ---
 
+## Unreleased (post-v1.5.0)
+
+### New
+- **Panel Source Filter** - The Homestead panel now includes a source filter dropdown in the title bar so you can quickly switch between All, Vendor, Quest, Achievement, Profession, Event, and Drop sources.
+
+### Improved
+- **Source-filtered panel browsing** - Vendor item counts and expanded item grids now update based on your selected source filter.
+- **Filter settings sync** - Source filter selection is available in both Options and the panel header control, and stays in sync.
+
+---
+
 ## v1.5.0 (2026-02-21)
 
 ### New
