@@ -159,6 +159,11 @@ local function IsItemOwned(itemID)
 end
 
 local function NormalizePanelSourceFilter(sourceFilter)
+    local SM = HA.SourceManager
+    if SM and SM.NormalizeSourceFilter then
+        return SM:NormalizeSourceFilter(sourceFilter)
+    end
+
     if type(sourceFilter) ~= "string" or sourceFilter == "" then
         return "all"
     end
@@ -166,14 +171,6 @@ local function NormalizePanelSourceFilter(sourceFilter)
     local lower = sourceFilter:lower()
     if lower == "all" then
         return "all"
-    end
-
-    local SM = HA.SourceManager
-    if SM and SM.NormalizeSourceType then
-        local normalized = SM:NormalizeSourceType(lower)
-        if normalized then
-            return normalized
-        end
     end
 
     return lower

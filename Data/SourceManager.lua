@@ -606,6 +606,29 @@ function SourceManager:NormalizeSourceType(sourceType)
     return nil
 end
 
+-- Normalize source filter tokens used by UI/cache consumers.
+-- Returns:
+--   "all" for nil/empty/"all"
+--   canonical source type for known values (including aliases)
+--   lowercase token for unknown values (forward compatibility)
+function SourceManager:NormalizeSourceFilter(sourceFilter)
+    if type(sourceFilter) ~= "string" or sourceFilter == "" then
+        return "all"
+    end
+
+    local lower = sourceFilter:lower()
+    if lower == "all" then
+        return "all"
+    end
+
+    local normalized = self:NormalizeSourceType(lower)
+    if normalized then
+        return normalized
+    end
+
+    return lower
+end
+
 -- Return canonical source type list in stable priority order.
 function SourceManager:GetCanonicalSourceTypes()
     local copy = {}
