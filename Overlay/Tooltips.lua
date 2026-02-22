@@ -21,6 +21,8 @@ local isHooked = false
 local isCatalogHooked = false
 local cachedMerchantNpcID = nil  -- Set by MERCHANT_SHOW, cleared by MERCHANT_CLOSED
 local lastDebugKey = nil         -- Throttle debug logging (item+context+detailed)
+local lastTooltipOwner = nil     -- Owner frame of last decor tooltip (for Shift refresh)
+local lastShiftState = false     -- Previous Shift key state (anti-thrash)
 
 -- Colors
 local COLOR_GREEN = {r = 0, g = 1, b = 0}
@@ -598,6 +600,9 @@ local function AddDecorInfoToTooltip(tooltip, itemLink)
     local context = DetectContext(tooltip)
     local detailed = (context == "panel") or IsShiftKeyDown()
 
+    -- Track owner for Shift-to-refresh (B6)
+    lastTooltipOwner = tooltip:GetOwner()
+
     -- Debug logging (dev mode only, throttled to avoid spam on repeated tooltip updates)
     if HA.DevAddon and HA.Addon.db.profile.debug then
         local debugKey = itemID .. context .. tostring(detailed)
@@ -906,6 +911,33 @@ local function Initialize()
             end
         else
             cachedMerchantNpcID = nil
+        end
+    end)
+
+    -- Shift-to-refresh: re-fire OnEnter when Shift toggles detail level (B6)
+    local modifierFrame = CreateFrame("Frame")
+    modifierFrame:RegisterEvent("MODIFIER_STATE_CHANGED")
+    modifierFrame:SetScript("OnEvent", function(_, _, key, state)
+        -- Guard 1: only Shift keys
+        if key ~= "LSHIFT" and key ~= "RSHIFT" then return end
+        -- Guard 2: no actual state change (anti-thrash)
+        local isDown = (state == 1)
+        if isDown == lastShiftState then return end
+        lastShiftState = isDown
+        -- Guard 3: tooltip not visible
+        if not GameTooltip:IsShown() then return end
+        -- Guard 4: no tracked owner
+        if not lastTooltipOwner then return end
+        -- Guard 5: owner changed since we last rendered
+        local currentOwner = GameTooltip:GetOwner()
+        if currentOwner ~= lastTooltipOwner then
+            lastTooltipOwner = nil
+            return
+        end
+        -- Re-fire OnEnter to rebuild tooltip with new detail level
+        local onEnter = lastTooltipOwner.GetScript and lastTooltipOwner:GetScript("OnEnter")
+        if onEnter then
+            onEnter(lastTooltipOwner)
         end
     end)
 
