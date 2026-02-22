@@ -304,6 +304,34 @@ local function GetOptionsTable()
                             end
                         end,
                     },
+                    mapSidePanelSourceFilter = {
+                        type = "select",
+                        name = "Vendor panel source filter",
+                        desc = "Filter side-panel item counts and expanded grids by acquisition source. Vendor visibility on the map is unchanged.",
+                        width = "full",
+                        order = 3.5,
+                        values = {
+                            all = "All sources",
+                            vendor = "Vendor",
+                            quest = "Quest",
+                            achievement = "Achievement",
+                            profession = "Profession",
+                            event = "Event",
+                            drop = "Drop",
+                        },
+                        get = function()
+                            return HA.Addon.db.profile.vendorTracer.mapSidePanelSourceFilter or "all"
+                        end,
+                        set = function(_, value)
+                            HA.Addon.db.profile.vendorTracer.mapSidePanelSourceFilter = value
+                            if HA.MapSidePanel and HA.MapSidePanel.SetSourceFilter then
+                                HA.MapSidePanel:SetSourceFilter(value)
+                            elseif HA.VendorMapPins and HA.VendorMapPins.InvalidateAllCaches then
+                                -- Keep cache invalidation conservative when panel module isn't available yet.
+                                HA.VendorMapPins:InvalidateAllCaches()
+                            end
+                        end,
+                    },
                     integrateMapBorder = {
                         type = "toggle",
                         name = "Integrate with map frame border",

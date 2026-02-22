@@ -424,6 +424,7 @@ Constants.Defaults = {
             showPinCounts = true,                      -- Show collected/total counts on vendor pins
             worldMapZoneBadges = false,                -- Show zone-level badges on world map instead of continent totals
             showMapSidePanel = false,                  -- Show vendor list panel on world map
+            mapSidePanelSourceFilter = "all",          -- Item source filter for map side panel counts/grid
             integrateMapBorder = true,                 -- Integrate panel with map frame border (disable for custom UIs)
             sidePanelPoppedOut = false,                 -- Panel is detached from world map
             sidePanelPosition = nil,                   -- {point, x, y} saved on drag stop
