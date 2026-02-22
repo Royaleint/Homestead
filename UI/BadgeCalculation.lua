@@ -80,7 +80,8 @@ function BadgeCalculation:VendorHasUncollectedItems(vendor)
         return cached
     end
 
-    -- Merge static + scanned items from shared VendorData helper
+    -- Merge static + scanned items from shared VendorData helper.
+    -- Returned map is key-only: {[itemID] = true}. Values are intentionally unused.
     local items = HA.VendorData and HA.VendorData.GetMergedItemSet
         and HA.VendorData:GetMergedItemSet(vendor)
         or {}
