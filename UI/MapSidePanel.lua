@@ -743,14 +743,14 @@ local function CreatePanel()
     -- Source filter control (title pane): dropdown on left side of header.
     sourceFilterDropdown = CreateFrame("Frame", nil, headerFrame, "UIDropDownMenuTemplate")
     sourceFilterDropdown:SetPoint("LEFT", headerFrame, "LEFT", -14, -1)
-    sourceFilterDropdown:SetScale(0.75) -- 25% smaller footprint than the previous title control
+    sourceFilterDropdown:SetScale(0.825) -- 10% larger than the previous compact version
 
     local setWidth = _G.UIDropDownMenu_SetWidth
     local justifyText = _G.UIDropDownMenu_JustifyText
     local initializeDropdown = _G.UIDropDownMenu_Initialize
 
     if setWidth then
-        setWidth(sourceFilterDropdown, 84)
+        setWidth(sourceFilterDropdown, 67) -- 20% narrower than prior width
     end
     if justifyText then
         justifyText(sourceFilterDropdown, "LEFT")
