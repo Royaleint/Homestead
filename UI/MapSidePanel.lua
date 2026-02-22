@@ -301,54 +301,17 @@ local function CreateItemIcon(parent)
 
     frame.itemID = nil
     frame.npcID = nil        -- Vendor NPC ID for requirement lookups
-    frame.requirements = nil -- Cached requirement data for tooltip
+    frame.requirements = nil -- Cached requirement data for lock icon overlay
+    frame.isHomesteadPanelIcon = true  -- Marker for Tooltips.lua DetectContext()
 
-    -- Tooltip on hover (includes requirement info for locked items)
     frame:EnableMouse(true)
+    -- Tooltip on hover: SetItemByID fires TooltipDataProcessor synchronously,
+    -- so Tooltips.lua adds [Homestead] + sources + requirements. We only add
+    -- the preview hint here to avoid duplicating requirement lines.
     frame:SetScript("OnEnter", function(self)
         if self.itemID then
             GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
             GameTooltip:SetItemByID(self.itemID)
-            -- Append requirement info for locked items
-            if self.requirements and #self.requirements > 0 then
-                GameTooltip:AddLine(" ")
-                GameTooltip:AddLine("Requirements:", 1, 0.5, 0)
-                local SM = HA.SourceManager
-                for _, req in ipairs(self.requirements) do
-                    local text, met
-                    if req.type == "reputation" then
-                        local progress = SM and SM.GetRequirementProgress
-                            and SM:GetRequirementProgress(req)
-                        if progress then
-                            met = progress.met
-                            if progress.isRenown then
-                                text = progress.factionName .. " \226\128\148 Renown: "
-                                    .. progress.currentText .. " / " .. progress.requiredText .. " required"
-                            else
-                                text = progress.factionName .. " \226\128\148 Reputation: "
-                                    .. progress.currentText .. " / " .. progress.requiredText .. " required"
-                            end
-                        else
-                            text = string.format("%s - %s", req.faction or "?", req.standing or "?")
-                        end
-                    elseif req.type == "achievement" then
-                        text = req.name or ("Achievement " .. (req.id or "?"))
-                    elseif req.type == "quest" then
-                        text = "Quest: " .. (req.name or "?")
-                    elseif req.type == "level" then
-                        text = "Level " .. (req.level or "?")
-                    else
-                        text = req.text or "Unknown requirement"
-                    end
-                    if met == nil then
-                        met = SM and SM:IsRequirementMet(req)
-                    end
-                    local color = (met == true) and {0, 1, 0}
-                        or (met == false) and {1, 0, 0}
-                        or {1, 0.82, 0}  -- Yellow for unknown
-                    GameTooltip:AddLine("  " .. text, color[1], color[2], color[3])
-                end
-            end
             GameTooltip:AddLine(" ")
             GameTooltip:AddLine("Click to preview", 0.5, 0.5, 0.5)
             GameTooltip:Show()
