@@ -552,6 +552,185 @@ end
 -- Source Type Checkers
 -------------------------------------------------------------------------------
 
+-- Canonical source taxonomy used by filtering and reporting.
+local SOURCE_TYPE_ORDER = { "vendor", "quest", "achievement", "profession", "event", "drop" }
+local CANONICAL_SOURCE_TYPES = {
+    vendor = true,
+    quest = true,
+    achievement = true,
+    profession = true,
+    event = true,
+    drop = true,
+}
+local SOURCE_TYPE_ALIASES = {
+    craft = "profession", -- Legacy constant alias
+}
+
+local function ForEachItemID(itemIDs, callback)
+    if type(itemIDs) ~= "table" or type(callback) ~= "function" then
+        return
+    end
+
+    -- Array-style input: {1001, 1002, ...}
+    if itemIDs[1] ~= nil then
+        for _, itemID in ipairs(itemIDs) do
+            callback(itemID)
+        end
+        return
+    end
+
+    -- Set-style input: {[1001] = true, [1002] = true}
+    for itemID, included in pairs(itemIDs) do
+        if included then
+            callback(itemID)
+        end
+    end
+end
+
+-- Normalize source type to canonical values used by SourceManager.
+-- Accepts legacy aliases (e.g. "craft" -> "profession").
+-- Returns canonical source type or nil if unsupported.
+function SourceManager:NormalizeSourceType(sourceType)
+    if type(sourceType) ~= "string" then return nil end
+
+    local normalized = sourceType:lower()
+    normalized = SOURCE_TYPE_ALIASES[normalized] or normalized
+
+    if CANONICAL_SOURCE_TYPES[normalized] then
+        return normalized
+    end
+    return nil
+end
+
+-- Return canonical source type list in stable priority order.
+function SourceManager:GetCanonicalSourceTypes()
+    local copy = {}
+    for i, sourceType in ipairs(SOURCE_TYPE_ORDER) do
+        copy[i] = sourceType
+    end
+    return copy
+end
+
+-- Return primary source type for an item, normalized to canonical taxonomy.
+function SourceManager:GetPrimarySourceType(itemID)
+    local source = self:GetSource(itemID)
+    if not source or not source.type then return nil end
+    return self:NormalizeSourceType(source.type)
+end
+
+-- Return per-item source classification flags.
+-- isVendorContext=true marks vendor filter as implicit true for vendor-scoped lists
+-- (e.g. map panel rows built from a known vendor's inventory).
+function SourceManager:GetItemSourceTypes(itemID, isVendorContext)
+    local flags = {
+        vendor = false,
+        quest = false,
+        achievement = false,
+        profession = false,
+        event = false,
+        drop = false,
+    }
+    if not itemID then
+        return flags
+    end
+
+    flags.vendor = (isVendorContext == true) or self:IsVendorItem(itemID)
+    flags.quest = self:IsQuestItem(itemID)
+    flags.achievement = self:IsAchievementItem(itemID)
+    flags.profession = self:IsProfessionItem(itemID)
+    flags.event = self:IsEventItem(itemID)
+    flags.drop = self:IsDropItem(itemID)
+
+    return flags
+end
+
+-- Inclusive item filter predicate.
+-- filterType:
+--   "all" or nil -> always true
+--   canonical source type -> true when item has that source
+--   alias type (e.g. "craft") -> normalized then evaluated
+-- isVendorContext=true treats vendor type as implicit true.
+function SourceManager:ItemMatchesSourceFilter(itemID, filterType, isVendorContext)
+    if filterType == nil then return true end
+    if type(filterType) == "string" and filterType:lower() == "all" then return true end
+    if not itemID then return false end
+
+    local normalizedType = self:NormalizeSourceType(filterType)
+    if not normalizedType then return false end
+
+    if normalizedType == "vendor" and isVendorContext == true then
+        return true
+    end
+
+    if normalizedType == "vendor" then
+        return self:IsVendorItem(itemID)
+    elseif normalizedType == "quest" then
+        return self:IsQuestItem(itemID)
+    elseif normalizedType == "achievement" then
+        return self:IsAchievementItem(itemID)
+    elseif normalizedType == "profession" then
+        return self:IsProfessionItem(itemID)
+    elseif normalizedType == "event" then
+        return self:IsEventItem(itemID)
+    elseif normalizedType == "drop" then
+        return self:IsDropItem(itemID)
+    end
+
+    return false
+end
+
+-- Count items by source type.
+-- itemIDs can be either:
+--   array form: {1001, 1002, ...}
+--   set form: {[1001] = true, [1002] = true}
+-- mode:
+--   "inclusive" (default): item increments every matching source bucket
+--   "primary": item increments only its primary source bucket (GetSource priority)
+-- Returns:
+--   { vendor=0, quest=0, achievement=0, profession=0, event=0, drop=0, unknown=0 }
+function SourceManager:CountItemsBySourceType(itemIDs, mode, isVendorContext)
+    local normalizedMode = (mode == "primary") and "primary" or "inclusive"
+    local counts = {
+        vendor = 0,
+        quest = 0,
+        achievement = 0,
+        profession = 0,
+        event = 0,
+        drop = 0,
+        unknown = 0,
+    }
+    local seen = {}
+
+    ForEachItemID(itemIDs, function(itemID)
+        if not itemID or seen[itemID] then return end
+        seen[itemID] = true
+
+        if normalizedMode == "primary" then
+            local primaryType = self:GetPrimarySourceType(itemID)
+            if primaryType and counts[primaryType] ~= nil then
+                counts[primaryType] = counts[primaryType] + 1
+            else
+                counts.unknown = counts.unknown + 1
+            end
+            return
+        end
+
+        local matched = false
+        local flags = self:GetItemSourceTypes(itemID, isVendorContext)
+        for _, sourceType in ipairs(SOURCE_TYPE_ORDER) do
+            if flags[sourceType] then
+                counts[sourceType] = counts[sourceType] + 1
+                matched = true
+            end
+        end
+        if not matched then
+            counts.unknown = counts.unknown + 1
+        end
+    end)
+
+    return counts
+end
+
 function SourceManager:IsVendorItem(itemID)
     return self:GetVendorSource(itemID) ~= nil
 end
@@ -717,3 +896,4 @@ end
 if HA.Addon then
     HA.Addon:RegisterModule("SourceManager", SourceManager)
 end
+
