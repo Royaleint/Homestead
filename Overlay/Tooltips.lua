@@ -19,6 +19,7 @@ local pcall = pcall
 -- Local state
 local isHooked = false
 local isCatalogHooked = false
+local cachedMerchantNpcID = nil  -- Set by MERCHANT_SHOW, cleared by MERCHANT_CLOSED
 
 -- Colors
 local COLOR_GREEN = {r = 0, g = 1, b = 0}
@@ -421,6 +422,32 @@ local SOURCE_RENDERERS = {
     drop = RenderDropSourceLines,
 }
 
+-------------------------------------------------------------------------------
+-- Context Detection (infrastructure for B4 — not yet wired into render flow)
+-------------------------------------------------------------------------------
+
+-- Detect tooltip context from the tooltip's owner frame.
+-- Returns "panel", "merchant", or "standard".
+-- Defined but NOT called from AddSourceInfoToTooltip until B4 wires it in.
+local function DetectContext(tooltip)
+    local owner = tooltip and tooltip.GetOwner and tooltip:GetOwner()
+    if not owner then return "standard" end
+
+    -- Panel: MapSidePanel stamps this flag on item icon frames (B1)
+    if owner.isHomesteadPanelIcon then return "panel" end
+
+    -- Merchant: only if a merchant is open AND the owner is a merchant item button.
+    -- Prevents misclassifying bag/AH/chat tooltips while vendor window is open.
+    if cachedMerchantNpcID then
+        local ownerName = owner.GetName and owner:GetName()
+        if ownerName and ownerName:match("^MerchantItem%d+ItemButton$") then
+            return "merchant"
+        end
+    end
+
+    return "standard"
+end
+
 -- Add source information lines to a tooltip (shared between item and catalog tooltips)
 -- Uses SourceManager:GetAllSources for comprehensive multi-source display.
 -- Intentional UX: tooltips are informational and always show full source context,
@@ -733,6 +760,24 @@ end
 local function Initialize()
     -- Hook standard item tooltips
     HookTooltips()
+
+    -- Track merchant open/close for context detection (used by DetectContext)
+    local merchantFrame = CreateFrame("Frame")
+    merchantFrame:RegisterEvent("MERCHANT_SHOW")
+    merchantFrame:RegisterEvent("MERCHANT_CLOSED")
+    merchantFrame:SetScript("OnEvent", function(_, event)
+        if event == "MERCHANT_SHOW" then
+            local guid = UnitGUID("npc")
+            if guid then
+                local ok, npcIDText = pcall(string.match, guid, "^%a+%-%d+%-%d+%-%d+%-%d+%-(%d+)")
+                cachedMerchantNpcID = ok and tonumber(npcIDText) or nil
+            else
+                cachedMerchantNpcID = nil
+            end
+        else
+            cachedMerchantNpcID = nil
+        end
+    end)
 
     -- Try to hook Housing Catalog if already loaded
     if IsAddonLoaded("Blizzard_HousingDashboard") or IsAddonLoaded("Blizzard_HousingTemplates") then
