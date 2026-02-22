@@ -380,6 +380,131 @@ local function RenderSourceText(tooltip, sourceText, itemID)
     end
 end
 
+-------------------------------------------------------------------------------
+-- Per-Source-Type Renderers (extracted from AddSourceInfoToTooltip)
+-- Each renderer produces identical tooltip lines to the original inline code.
+-------------------------------------------------------------------------------
+
+local function RenderVendorSourceLines(tooltip, source, parsedTag, itemID)
+    local vendorName = source.data.name or "Unknown Vendor"
+    local zoneName = source.data.zone or "Unknown Location"
+    local locationText = source.data.subzone
+        and (source.data.subzone .. " (" .. zoneName .. ")")
+        or zoneName
+
+    tooltip:AddLine("Source: |cFFFFFFFF" .. vendorName .. "|r" .. parsedTag, COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
+    tooltip:AddLine("  Location: |cFFFFFFFF" .. locationText .. "|r", COLOR_WHITE.r, COLOR_WHITE.g, COLOR_WHITE.b)
+
+    -- Show faction if not neutral
+    if source.data.faction and source.data.faction ~= "Neutral" then
+        local factionColor = source.data.faction == "Alliance" and "|cFF0078FF" or "|cFFFF0000"
+        tooltip:AddLine("  Faction: " .. factionColor .. source.data.faction .. "|r", COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
+    end
+
+    -- Show cost if available
+    if source.data.cost then
+        local costStr = FormatCost(source.data.cost)
+        if costStr then
+            tooltip:AddLine("  Cost: |cFFFFFFFF" .. costStr .. "|r", COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
+        end
+    else
+        -- Try fallback cost lookup
+        local costStr = GetItemCostFromVendor(itemID, source.data.npcID)
+        if costStr then
+            tooltip:AddLine("  Cost: |cFFFFFFFF" .. costStr .. "|r", COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
+        end
+    end
+
+    -- Show requirements (vendor-specific when npcID available)
+    AddRequirementsToTooltip(tooltip, itemID, source.data.npcID)
+end
+
+local function RenderQuestSourceLines(tooltip, source, parsedTag, itemID)
+    local questName = source.data.questName or "Unknown Quest"
+    local completion = HA.SourceManager and HA.SourceManager.GetCompletionStatus
+        and HA.SourceManager:GetCompletionStatus(itemID, source.type, source.data)
+    local questColor = completion and completion.color or "|cFFFFFFFF"
+    local statusSuffix = completion and (completion.color .. completion.suffix .. "|r") or ""
+    tooltip:AddLine("Source: Quest" .. parsedTag, COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
+    tooltip:AddLine("  " .. questColor .. questName .. "|r" .. statusSuffix, 1, 1, 1)
+    -- No AddRequirementsToTooltip: the quest IS the source, would duplicate.
+end
+
+local function RenderAchievementSourceLines(tooltip, source, parsedTag, itemID)
+    local achievementName = source.data.achievementName or "Unknown Achievement"
+    local completion = HA.SourceManager and HA.SourceManager.GetCompletionStatus
+        and HA.SourceManager:GetCompletionStatus(itemID, source.type, source.data)
+    local nameColor = completion and completion.color or "|cFFFFFFFF"
+    local statusSuffix = completion and (completion.color .. completion.suffix .. "|r") or ""
+
+    tooltip:AddLine("Source: Achievement" .. parsedTag, COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
+    tooltip:AddLine("  " .. nameColor .. achievementName .. "|r" .. statusSuffix, 1, 1, 1)
+    -- No AddRequirementsToTooltip: the achievement IS the source, would duplicate.
+end
+
+local function RenderProfessionSourceLines(tooltip, source, parsedTag, itemID)
+    local profession = source.data.profession or "Unknown"
+    local recipeName = source.data.recipeName or "Unknown Recipe"
+    local completion = HA.SourceManager and HA.SourceManager.GetCompletionStatus
+        and HA.SourceManager:GetCompletionStatus(itemID, source.type, source.data)
+    local recipeColor = completion and completion.color or "|cFF808080"
+    local recipeSuffix = completion and (completion.color .. completion.suffix .. "|r") or "|cFF808080 (Unknown)|r"
+
+    tooltip:AddLine("Source: |cFFFFFFFF" .. profession .. "|r" .. parsedTag, COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
+    tooltip:AddLine("  Recipe: " .. recipeColor .. recipeName .. "|r" .. recipeSuffix, 1, 1, 1)
+    AddRequirementsToTooltip(tooltip, itemID)
+end
+
+local function RenderEventSourceLines(tooltip, source, parsedTag, itemID)
+    local eventName = source.data.event or "Unknown Event"
+    local vendorName = source.data.vendorName or "Event Vendor"
+    local currency = source.data.currency
+
+    -- Show active/inactive status (omit when unknown/nil)
+    local statusText = ""
+    if HA.CalendarDetector then
+        local isActive = HA.CalendarDetector:IsHolidayActive(eventName)
+        if isActive == true then
+            statusText = " |cff00ff00(Active Now)|r"
+        elseif isActive == false then
+            statusText = " |cffff4444(Not Active)|r"
+        end
+        -- nil = unknown/loading → omit status entirely
+    end
+
+    tooltip:AddLine("Source: |cFFFFFFFF" .. eventName .. "|r" .. statusText .. parsedTag, COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
+    tooltip:AddLine("  Vendor: |cFFFFFFFF" .. vendorName .. "|r", COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
+    if source.data.zone then
+        tooltip:AddLine("  Zone: |cFFFFFFFF" .. source.data.zone .. "|r", COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
+    end
+    if currency then
+        tooltip:AddLine("  Currency: |cFFFFFFFF" .. currency .. "|r", COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
+    end
+    AddRequirementsToTooltip(tooltip, itemID)
+end
+
+local function RenderDropSourceLines(tooltip, source, parsedTag, itemID)
+    local mobName = source.data.mobName or "Unknown"
+    local zone = source.data.zone or "Unknown Location"
+    tooltip:AddLine("Source: Drop" .. parsedTag, COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
+    tooltip:AddLine("  |cFFFFFFFF" .. mobName .. "|r", COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
+    tooltip:AddLine("  Zone: |cFFFFFFFF" .. zone .. "|r", COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
+    if source.data.notes then
+        tooltip:AddLine("  |cFFFFFFFF" .. source.data.notes .. "|r", COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
+    end
+    AddRequirementsToTooltip(tooltip, itemID)
+end
+
+-- Dispatch table for per-source-type rendering
+local SOURCE_RENDERERS = {
+    vendor = RenderVendorSourceLines,
+    quest = RenderQuestSourceLines,
+    achievement = RenderAchievementSourceLines,
+    profession = RenderProfessionSourceLines,
+    event = RenderEventSourceLines,
+    drop = RenderDropSourceLines,
+}
+
 -- Add source information lines to a tooltip (shared between item and catalog tooltips)
 -- Uses SourceManager for comprehensive source lookup
 -- Intentional UX: tooltips are informational and always show full source context,
@@ -403,122 +528,9 @@ local function AddSourceInfoToTooltip(tooltip, itemID, skipOwnership)
 
         if source then
             local parsedTag = source._isParsed and " |cFFAAAAFF(unverified)|r" or ""
-
-            if source.type == "vendor" then
-                -- Vendor source
-                local vendorName = source.data.name or "Unknown Vendor"
-                local zoneName = source.data.zone or "Unknown Location"
-                local locationText = source.data.subzone
-                    and (source.data.subzone .. " (" .. zoneName .. ")")
-                    or zoneName
-
-                tooltip:AddLine("Source: |cFFFFFFFF" .. vendorName .. "|r" .. parsedTag, COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
-                tooltip:AddLine("  Location: |cFFFFFFFF" .. locationText .. "|r", COLOR_WHITE.r, COLOR_WHITE.g, COLOR_WHITE.b)
-
-                -- Show faction if not neutral
-                if source.data.faction and source.data.faction ~= "Neutral" then
-                    local factionColor = source.data.faction == "Alliance" and "|cFF0078FF" or "|cFFFF0000"
-                    tooltip:AddLine("  Faction: " .. factionColor .. source.data.faction .. "|r", COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
-                end
-
-                -- Show cost if available
-                if source.data.cost then
-                    local costStr = FormatCost(source.data.cost)
-                    if costStr then
-                        tooltip:AddLine("  Cost: |cFFFFFFFF" .. costStr .. "|r", COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
-                    end
-                else
-                    -- Try fallback cost lookup
-                    local costStr = GetItemCostFromVendor(itemID, source.data.npcID)
-                    if costStr then
-                        tooltip:AddLine("  Cost: |cFFFFFFFF" .. costStr .. "|r", COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
-                    end
-                end
-
-                -- Show requirements (vendor-specific when npcID available)
-                AddRequirementsToTooltip(tooltip, itemID, source.data.npcID)
-
-                return true
-
-            elseif source.type == "quest" then
-                -- Quest source
-                local questName = source.data.questName or "Unknown Quest"
-                local completion = HA.SourceManager and HA.SourceManager.GetCompletionStatus
-                    and HA.SourceManager:GetCompletionStatus(itemID, source.type, source.data)
-                local questColor = completion and completion.color or "|cFFFFFFFF"
-                local statusSuffix = completion and (completion.color .. completion.suffix .. "|r") or ""
-                tooltip:AddLine("Source: Quest" .. parsedTag, COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
-                tooltip:AddLine("  " .. questColor .. questName .. "|r" .. statusSuffix, 1, 1, 1)
-                -- No AddRequirementsToTooltip: the quest IS the source, would duplicate.
-                return true
-
-            elseif source.type == "achievement" then
-                -- Achievement source
-                local achievementName = source.data.achievementName or "Unknown Achievement"
-                local completion = HA.SourceManager and HA.SourceManager.GetCompletionStatus
-                    and HA.SourceManager:GetCompletionStatus(itemID, source.type, source.data)
-                local nameColor = completion and completion.color or "|cFFFFFFFF"
-                local statusSuffix = completion and (completion.color .. completion.suffix .. "|r") or ""
-
-                tooltip:AddLine("Source: Achievement" .. parsedTag, COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
-                tooltip:AddLine("  " .. nameColor .. achievementName .. "|r" .. statusSuffix, 1, 1, 1)
-                -- No AddRequirementsToTooltip: the achievement IS the source, would duplicate.
-                return true
-
-            elseif source.type == "profession" then
-                -- Profession source
-                local profession = source.data.profession or "Unknown"
-                local recipeName = source.data.recipeName or "Unknown Recipe"
-                local completion = HA.SourceManager and HA.SourceManager.GetCompletionStatus
-                    and HA.SourceManager:GetCompletionStatus(itemID, source.type, source.data)
-                local recipeColor = completion and completion.color or "|cFF808080"
-                local recipeSuffix = completion and (completion.color .. completion.suffix .. "|r") or "|cFF808080 (Unknown)|r"
-
-                tooltip:AddLine("Source: |cFFFFFFFF" .. profession .. "|r" .. parsedTag, COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
-                tooltip:AddLine("  Recipe: " .. recipeColor .. recipeName .. "|r" .. recipeSuffix, 1, 1, 1)
-                AddRequirementsToTooltip(tooltip, itemID)
-                return true
-
-            elseif source.type == "event" then
-                -- Seasonal event vendor source
-                local eventName = source.data.event or "Unknown Event"
-                local vendorName = source.data.vendorName or "Event Vendor"
-                local currency = source.data.currency
-
-                -- Show active/inactive status (omit when unknown/nil)
-                local statusText = ""
-                if HA.CalendarDetector then
-                    local isActive = HA.CalendarDetector:IsHolidayActive(eventName)
-                    if isActive == true then
-                        statusText = " |cff00ff00(Active Now)|r"
-                    elseif isActive == false then
-                        statusText = " |cffff4444(Not Active)|r"
-                    end
-                    -- nil = unknown/loading → omit status entirely
-                end
-
-                tooltip:AddLine("Source: |cFFFFFFFF" .. eventName .. "|r" .. statusText .. parsedTag, COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
-                tooltip:AddLine("  Vendor: |cFFFFFFFF" .. vendorName .. "|r", COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
-                if source.data.zone then
-                    tooltip:AddLine("  Zone: |cFFFFFFFF" .. source.data.zone .. "|r", COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
-                end
-                if currency then
-                    tooltip:AddLine("  Currency: |cFFFFFFFF" .. currency .. "|r", COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
-                end
-                AddRequirementsToTooltip(tooltip, itemID)
-                return true
-
-            elseif source.type == "drop" then
-                -- Drop source
-                local mobName = source.data.mobName or "Unknown"
-                local zone = source.data.zone or "Unknown Location"
-                tooltip:AddLine("Source: Drop" .. parsedTag, COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
-                tooltip:AddLine("  |cFFFFFFFF" .. mobName .. "|r", COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
-                tooltip:AddLine("  Zone: |cFFFFFFFF" .. zone .. "|r", COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
-                if source.data.notes then
-                    tooltip:AddLine("  |cFFFFFFFF" .. source.data.notes .. "|r", COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
-                end
-                AddRequirementsToTooltip(tooltip, itemID)
+            local renderer = SOURCE_RENDERERS[source.type]
+            if renderer then
+                renderer(tooltip, source, parsedTag, itemID)
                 return true
             end
         end
