@@ -503,7 +503,7 @@ local SOURCE_RENDERERS = {
 -- Uses SourceManager for comprehensive source lookup
 -- Intentional UX: tooltips are informational and always show full source context,
 -- independent of any map side-panel source filter setting.
-local function AddSourceInfoToTooltip(tooltip, itemID, skipOwnership)
+local function AddSourceInfoToTooltip(tooltip, itemID)
     if not itemID then return false end
 
     -- Use SourceManager if available for comprehensive source lookup
@@ -736,7 +736,7 @@ local function OnHousingCatalogTooltipCreated(ownerID, entryFrame, tooltip)
 
         -- Priority 2: Fall back to our structured DB for items with no sourceText
         if not hasSource then
-            hasSource = AddSourceInfoToTooltip(tooltip, itemID, true)
+            hasSource = AddSourceInfoToTooltip(tooltip, itemID)
             if hasSource and HA.DevAddon and HA.Addon.db.profile.debug then
                 HA.Addon:Debug("Catalog tooltip: using VendorDatabase/AchievementSources")
             end
