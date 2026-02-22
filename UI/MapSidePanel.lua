@@ -32,6 +32,7 @@ local ICON_SIZE = 14
 local ITEM_ICON_SIZE = 28
 local ITEM_ICON_PAD = 3
 local ITEM_GRID_INSET = 24  -- Left indent for item grid (aligns under name text)
+local PROGRESS_BAR_HEIGHT = 14
 
 -- State
 local panelFrame = nil
@@ -52,6 +53,10 @@ local lastRefreshMapID = nil
 local isPoppedOut = false
 local panelSourceFilter = "all"  -- all|vendor|quest|achievement|profession|event|drop
 local sourceFilterDropdown = nil
+local progressBar = nil
+local progressBarBg = nil
+local progressBarText = nil
+local scrollContainer = nil  -- Scroll area container (re-anchored by progress bar)
 
 local SOURCE_FILTER_ORDER = { "all", "vendor", "quest", "achievement", "profession", "event", "drop" }
 local SOURCE_FILTER_LABELS = {
@@ -662,8 +667,54 @@ local function CreatePanel()
     summaryText:SetJustifyH("CENTER")
     summaryText:SetTextColor(0.6, 0.6, 0.6)
 
+    -- Progress bar (between header and scroll area, shown at zone level)
+    progressBar = CreateFrame("StatusBar", nil, panel)
+    progressBar:SetHeight(PROGRESS_BAR_HEIGHT)
+    progressBar:SetPoint("TOPLEFT", headerFrame, "BOTTOMLEFT", 0, -3)
+    progressBar:SetPoint("TOPRIGHT", headerFrame, "BOTTOMRIGHT", 0, -3)
+    progressBar:SetStatusBarTexture("Interface\\TargetingFrame\\UI-StatusBar")
+    progressBar:SetStatusBarColor(0.2, 0.6, 0.8)
+    progressBar:Hide()
+
+    -- Dark background behind fill
+    progressBarBg = progressBar:CreateTexture(nil, "BACKGROUND")
+    progressBarBg:SetAllPoints()
+    progressBarBg:SetColorTexture(0.1, 0.1, 0.1, 0.8)
+
+    -- Centered count text
+    progressBarText = progressBar:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    progressBarText:SetPoint("CENTER")
+
+    -- Tooltip on hover
+    progressBar:EnableMouse(true)
+    progressBar:SetScript("OnEnter", function(self)
+        GameTooltip:SetOwner(self, "ANCHOR_BOTTOM")
+        GameTooltip:ClearLines()
+        GameTooltip:AddLine("Zone Collection Progress", 1, 1, 1)
+        local _, max = self:GetMinMaxValues()
+        local val = self:GetValue()
+        if max > 0 then
+            local pct = math.floor(val / max * 100)
+            -- Match tooltip text color to bar fill color
+            local cr, cg, cb
+            if pct >= 100 then
+                cr, cg, cb = 0, 0.8, 0        -- green
+            elseif pct > 50 then
+                cr, cg, cb = 1, 0.82, 0       -- yellow
+            else
+                cr, cg, cb = 0.8, 0.2, 0.2    -- red
+            end
+            GameTooltip:AddLine(string.format("%d of %d items collected (%d%%)", val, max, pct), cr, cg, cb)
+            GameTooltip:AddLine(string.format("%d remaining", max - val), cr, cg, cb)
+        end
+        GameTooltip:Show()
+    end)
+    progressBar:SetScript("OnLeave", function()
+        GameTooltip:Hide()
+    end)
+
     -- Scroll frame for vendor list
-    local scrollContainer = CreateFrame("Frame", nil, panel)
+    scrollContainer = CreateFrame("Frame", nil, panel)
     scrollContainer:SetPoint("TOPLEFT", headerFrame, "BOTTOMLEFT", 0, -4)
     scrollContainer:SetPoint("BOTTOMRIGHT", -BORDER_RIGHT, BORDER_BOTTOM + 18)
 
@@ -1092,9 +1143,43 @@ local function GetVendorsForCurrentMap(mapID)
     return vendors
 end
 
+local function HideProgressBar()
+    if not progressBar then return end
+    progressBar:Hide()
+    -- Re-anchor scroll area directly to header (skip hidden bar)
+    if scrollContainer then
+        scrollContainer:SetPoint("TOPLEFT", headerFrame, "BOTTOMLEFT", 0, -4)
+    end
+end
+
+local function UpdateProgressBar(collected, total)
+    if not progressBar then return end
+    if total > 0 then
+        progressBar:SetMinMaxValues(0, total)
+        progressBar:SetValue(collected)
+        local pct = collected / total
+        if pct >= 1 then
+            progressBar:SetStatusBarColor(0, 0.8, 0)       -- green
+        elseif pct > 0.5 then
+            progressBar:SetStatusBarColor(1, 0.82, 0)      -- yellow
+        else
+            progressBar:SetStatusBarColor(0.8, 0.2, 0.2)   -- red
+        end
+        local pctDisplay = math.floor(pct * 100)
+        progressBarText:SetText(string.format("%d/%d (%d%%)", collected, total, pctDisplay))
+        progressBar:Show()
+        -- Anchor scroll area below bar
+        if scrollContainer then
+            scrollContainer:SetPoint("TOPLEFT", progressBar, "BOTTOMLEFT", 0, -2)
+        end
+    else
+        HideProgressBar()
+    end
+end
+
 function MapSidePanel:RefreshContent()
-    if not panelFrame or not panelFrame:IsShown() then return end
-    if not VendorData or not BC then return end
+    if not panelFrame or not panelFrame:IsShown() then HideProgressBar() return end
+    if not VendorData or not BC then HideProgressBar() return end
 
     -- MapID resolution: map frame → last viewed → player zone
     local mapID
@@ -1117,11 +1202,12 @@ function MapSidePanel:RefreshContent()
         emptyText:Show()
         summaryText:SetText("")
         scrollChild:SetHeight(1)
+        HideProgressBar()
         return
     end
 
     local mapInfo = C_Map.GetMapInfo(mapID)
-    if not mapInfo then return end
+    if not mapInfo then HideProgressBar() return end
 
     -- Ensure scrollChild has a valid width (may be 0 if panel was hidden during creation)
     if scrollChild and scrollChild:GetWidth() < 1 then
@@ -1149,6 +1235,7 @@ function MapSidePanel:RefreshContent()
         emptyText:Show()
         summaryText:SetText("")
         scrollChild:SetHeight(1)
+        HideProgressBar()
         lastRefreshMapID = mapID
         return
     end
@@ -1272,6 +1359,9 @@ function MapSidePanel:RefreshContent()
     else
         summaryText:SetText("")
     end
+
+    -- Progress bar
+    UpdateProgressBar(totalCollected, totalItems)
 
     lastRefreshMapID = mapID
 end
