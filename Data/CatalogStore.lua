@@ -301,6 +301,38 @@ function CatalogStore:GetOwnedCount()
     return ownedCount
 end
 
+-- Get owned-item source counts using SourceManager taxonomy.
+-- mode:
+--   "primary" (default)   -> one bucket per owned item
+--   "inclusive"           -> item may count in multiple source buckets
+function CatalogStore:GetOwnedItemsBySourceType(mode)
+    local counts = {
+        vendor = 0,
+        quest = 0,
+        achievement = 0,
+        profession = 0,
+        event = 0,
+        drop = 0,
+        unknown = 0,
+    }
+    if not ci then return counts end
+
+    local sourceManager = HA.SourceManager
+    if not sourceManager or not sourceManager.CountItemsBySourceType then
+        return counts
+    end
+
+    local ownedItemSet = {}
+    for itemID, record in pairs(ci) do
+        if record and record.isOwned then
+            ownedItemSet[itemID] = true
+        end
+    end
+
+    local normalizedMode = (mode == "inclusive") and "inclusive" or "primary"
+    return sourceManager:CountItemsBySourceType(ownedItemSet, normalizedMode)
+end
+
 -- Get negative cache generation (for external negative cache consumers)
 function CatalogStore:GetGeneration()
     return negativeGeneration
