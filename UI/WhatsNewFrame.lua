@@ -204,7 +204,7 @@ local function BuildContent(frame, version)
     end
 
     -- Checkbox handler
-    frame.dontShowCheck:SetChecked(false)
+    frame.dontShowCheck:SetChecked(true)
     frame.dontShowCheck:SetScript("OnClick", function(cb)
         if HA.Addon and HA.Addon.db then
             if cb:GetChecked() then
@@ -273,7 +273,13 @@ local function CreateWhatsNewFrame()
     -- OnHide: acknowledge version on any close path (button, X, ESC)
     frame:SetScript("OnHide", function()
         if HA.Addon and HA.Addon.db and frame.shownVersion then
-            HA.Addon.db.global.lastSeenVersion = frame.shownVersion
+            local globalDB = HA.Addon.db.global
+            globalDB.lastSeenVersion = frame.shownVersion
+            if frame.dontShowCheck and frame.dontShowCheck:GetChecked() then
+                globalDB.suppressWhatsNewUntil = frame.shownVersion
+            elseif globalDB.suppressWhatsNewUntil == frame.shownVersion then
+                globalDB.suppressWhatsNewUntil = ""
+            end
         end
         if HA.Analytics then
             HA.Analytics:IncrementCounter("WhatsNewClosed")
