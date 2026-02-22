@@ -19,6 +19,7 @@ local pcall = pcall
 -- Local state
 local isHooked = false
 local isCatalogHooked = false
+local completionInvalidationFrame = nil
 
 -- Colors
 local COLOR_GREEN = {r = 0, g = 1, b = 0}
@@ -221,56 +222,39 @@ end
 -- Currency icon hyperlinks (e.g. |Hcurrency:...|h|h) are preserved as-is so WoW renders them.
 -- itemID is used to look up achievement/quest/profession completion status via our indexed DB tables.
 -- Defined after AddRequirementsToTooltip to avoid forward reference (Lua 5.1).
+local SOURCE_PREFIX_FALLBACK = {
+    vendor = true,
+    quest = true,
+    achievement = true,
+    profession = true,
+    drop = true,
+}
+
+local function NormalizeSourceTypeFromPrefix(prefixKey)
+    if not prefixKey then return nil end
+    local sourceType = prefixKey:match("^(%a+):")
+    if not sourceType then return nil end
+
+    sourceType = sourceType:lower()
+    if HA.SourceManager and HA.SourceManager.NormalizeSourceType then
+        return HA.SourceManager:NormalizeSourceType(sourceType)
+    end
+
+    if SOURCE_PREFIX_FALLBACK[sourceType] then
+        return sourceType
+    end
+
+    return nil
+end
+
 local function RenderSourceText(tooltip, sourceText, itemID)
     if not sourceText or sourceText == "" then return end
 
-    -- Determine completion color for achievement/quest/profession using itemID → ID lookup
-    -- (all tables keyed by itemID, so no name matching needed)
+    -- Use SourceManager status API so completion logic is centralized.
     local completionColor = nil
-    if itemID then
-        -- Achievement: three tiers — this character, account, incomplete
-        -- Only set a color if GetAchievementInfo actually returns data (nil = unreleased/unknown)
-        local achInfo = HA.AchievementSources and HA.AchievementSources[itemID]
-        if achInfo and achInfo.achievementID and GetAchievementInfo then
-            local id, _, _, completed, _, _, _, _, _, _, _, _, wasEarnedByMe = GetAchievementInfo(achInfo.achievementID)
-            if id then
-                -- API returned valid data
-                if wasEarnedByMe then
-                    completionColor = "|cFF00FF00"   -- bright green: this character
-                elseif completed then
-                    completionColor = "|cFF66FF66"   -- light green: account
-                else
-                    completionColor = "|cFFFF0000"   -- red: incomplete
-                end
-                -- else: id is nil = achievement not in game yet, leave completionColor nil (white)
-            end
-        end
-
-        -- Quest: completed or not
-        if not completionColor then
-            local questInfo = HA.QuestSources and HA.QuestSources[itemID]
-            if questInfo and questInfo.questID and C_QuestLog and C_QuestLog.IsQuestFlaggedCompleted then
-                local completed = C_QuestLog.IsQuestFlaggedCompleted(questInfo.questID)
-                completionColor = completed and "|cFF00FF00" or "|cFFFF0000"
-            end
-        end
-
-        -- Profession: craftable > learned > unknown
-        if not completionColor then
-            local profInfo = HA.ProfessionSources and HA.ProfessionSources[itemID]
-            if profInfo and profInfo.spellID and C_TradeSkillUI and C_TradeSkillUI.GetRecipeInfo then
-                local recipeInfo = C_TradeSkillUI.GetRecipeInfo(profInfo.spellID)
-                if recipeInfo then
-                    if recipeInfo.craftable then
-                        completionColor = "|cFF00FF00"   -- bright green: can craft now
-                    elseif recipeInfo.learned then
-                        completionColor = "|cFF66FF66"   -- light green: recipe known
-                    else
-                        completionColor = "|cFFFF0000"   -- red: recipe unknown
-                    end
-                end
-            end
-        end
+    if itemID and HA.SourceManager and HA.SourceManager.GetCompletionStatus then
+        local completionStatus = HA.SourceManager:GetCompletionStatus(itemID)
+        completionColor = completionStatus and completionStatus.color or nil
     end
 
     -- Strip color codes and hyperlink wrappers.
@@ -281,15 +265,6 @@ local function RenderSourceText(tooltip, sourceText, itemID)
         :gsub("|H[^|]*|h([^|]*)|h", "%1")   -- |Htype:id|h[display]|h  → display text
         :gsub("|c%x%x%x%x%x%x%x%x", "")      -- strip |cFFRRGGBB
         :gsub("|r", "")                        -- strip |r
-
-    -- Source-type prefixes that mark the start of a new logical source block
-    local SOURCE_PREFIXES = {
-        ["Vendor:"] = true,
-        ["Quest:"] = true,
-        ["Achievement:"] = true,
-        ["Profession:"] = true,
-        ["Drop:"] = true,
-    }
 
     -- Split all |n lines, then re-group into logical blocks by detecting source-type prefix changes.
     -- Blizzard sometimes separates blocks with |n|n and sometimes runs them together with |n only.
@@ -325,7 +300,8 @@ local function RenderSourceText(tooltip, sourceText, itemID)
         else
             local prefix = line:match("^(%a+:%s*)")
             local prefixKey = prefix and prefix:match("^(%a+:)")
-            local isSourceType = prefixKey and SOURCE_PREFIXES[prefixKey]
+            local normalizedType = NormalizeSourceTypeFromPrefix(prefixKey)
+            local isSourceType = normalizedType ~= nil
             if isSourceType and #currentBlock > 0 then
                 -- New source type encountered mid-block — split here
                 blocks[#blocks + 1] = currentBlock
@@ -334,8 +310,8 @@ local function RenderSourceText(tooltip, sourceText, itemID)
                 currentType = nil
             end
             if isSourceType and not currentType then
-                -- Record the source type for this block (lowercase, no colon)
-                currentType = prefixKey:match("^(%a+)"):lower()
+                -- Record canonical source type for this block.
+                currentType = normalizedType
             end
             currentBlock[#currentBlock + 1] = line
         end
@@ -345,13 +321,18 @@ local function RenderSourceText(tooltip, sourceText, itemID)
         blockTypes[#blocks] = currentType
     end
 
-    -- Determine if any block is an achievement or quest — if so, suppress AddRequirementsToTooltip
-    -- since the achievement/quest name IS the requirement and would be duplicated.
+    -- Determine if any block is an achievement or quest — if so, suppress
+    -- AddRequirementsToTooltip since the achievement/quest name already is the requirement.
     local hasAchievementOrQuestBlock = false
-    for _, btype in ipairs(blockTypes) do
-        if btype == "achievement" or btype == "quest" then
-            hasAchievementOrQuestBlock = true
-            break
+    if HA.SourceManager and HA.SourceManager.BuildRequirementDedupSet then
+        local dedupSet = HA.SourceManager:BuildRequirementDedupSet(blockTypes)
+        hasAchievementOrQuestBlock = dedupSet.achievement == true or dedupSet.quest == true
+    else
+        for _, btype in ipairs(blockTypes) do
+            if btype == "achievement" or btype == "quest" then
+                hasAchievementOrQuestBlock = true
+                break
+            end
         end
     end
 
@@ -402,6 +383,8 @@ end
 
 -- Add source information lines to a tooltip (shared between item and catalog tooltips)
 -- Uses SourceManager for comprehensive source lookup
+-- Intentional UX: tooltips are informational and always show full source context,
+-- independent of any map side-panel source filter setting.
 local function AddSourceInfoToTooltip(tooltip, itemID, skipOwnership)
     if not itemID then return false end
 
@@ -461,10 +444,10 @@ local function AddSourceInfoToTooltip(tooltip, itemID, skipOwnership)
             elseif source.type == "quest" then
                 -- Quest source
                 local questName = source.data.questName or "Unknown Quest"
-                local questID = source.data.questID
-                local isCompleted = questID and C_QuestLog and C_QuestLog.IsQuestFlaggedCompleted and C_QuestLog.IsQuestFlaggedCompleted(questID)
-                local questColor = isCompleted and "|cFF00FF00" or "|cFFFF0000"
-                local statusSuffix = isCompleted and " |cFF00FF00(Completed)|r" or " |cFFFF0000(Incomplete)|r"
+                local completion = HA.SourceManager and HA.SourceManager.GetCompletionStatus
+                    and HA.SourceManager:GetCompletionStatus(itemID, source.type, source.data)
+                local questColor = completion and completion.color or "|cFFFFFFFF"
+                local statusSuffix = completion and (completion.color .. completion.suffix .. "|r") or ""
                 tooltip:AddLine("Source: Quest" .. parsedTag, COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
                 tooltip:AddLine("  " .. questColor .. questName .. "|r" .. statusSuffix, 1, 1, 1)
                 -- No AddRequirementsToTooltip: the quest IS the source, would duplicate.
@@ -473,27 +456,10 @@ local function AddSourceInfoToTooltip(tooltip, itemID, skipOwnership)
             elseif source.type == "achievement" then
                 -- Achievement source
                 local achievementName = source.data.achievementName or "Unknown Achievement"
-                local achievementID = source.data.achievementID
-
-                -- Check completion: distinguish character vs account-wide
-                -- wasEarnedByMe = this character earned it; completed = any character on account
-                -- Default to white/unknown when API returns nil (e.g. unreleased achievements)
-                local nameColor, statusSuffix = "|cFFFFFFFF", ""
-                if achievementID and GetAchievementInfo then
-                    local id, _, _, completed, _, _, _, _, _, _, _, _, wasEarnedByMe = GetAchievementInfo(achievementID)
-                    if id then
-                        if wasEarnedByMe then
-                            nameColor    = "|cFF00FF00"
-                            statusSuffix = " |cFF00FF00(This Character)|r"
-                        elseif completed then
-                            nameColor    = "|cFF66FF66"
-                            statusSuffix = " |cFF66FF66(Account)|r"
-                        else
-                            nameColor    = "|cFFFF0000"
-                            statusSuffix = " |cFFFF0000(Incomplete)|r"
-                        end
-                    end
-                end
+                local completion = HA.SourceManager and HA.SourceManager.GetCompletionStatus
+                    and HA.SourceManager:GetCompletionStatus(itemID, source.type, source.data)
+                local nameColor = completion and completion.color or "|cFFFFFFFF"
+                local statusSuffix = completion and (completion.color .. completion.suffix .. "|r") or ""
 
                 tooltip:AddLine("Source: Achievement" .. parsedTag, COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
                 tooltip:AddLine("  " .. nameColor .. achievementName .. "|r" .. statusSuffix, 1, 1, 1)
@@ -504,22 +470,10 @@ local function AddSourceInfoToTooltip(tooltip, itemID, skipOwnership)
                 -- Profession source
                 local profession = source.data.profession or "Unknown"
                 local recipeName = source.data.recipeName or "Unknown Recipe"
-                local spellID = source.data.spellID
-
-                -- Check recipe known status via C_TradeSkillUI (more reliable than IsSpellKnown)
-                local recipeColor, recipeSuffix = "|cFFFF0000", " |cFFFF0000(Recipe Unknown)|r"
-                if spellID and C_TradeSkillUI and C_TradeSkillUI.GetRecipeInfo then
-                    local recipeInfo = C_TradeSkillUI.GetRecipeInfo(spellID)
-                    if recipeInfo then
-                        if recipeInfo.craftable then
-                            recipeColor  = "|cFF00FF00"
-                            recipeSuffix = " |cFF00FF00(Can Craft Now)|r"
-                        elseif recipeInfo.learned then
-                            recipeColor  = "|cFF66FF66"
-                            recipeSuffix = " |cFF66FF66(Recipe Known)|r"
-                        end
-                    end
-                end
+                local completion = HA.SourceManager and HA.SourceManager.GetCompletionStatus
+                    and HA.SourceManager:GetCompletionStatus(itemID, source.type, source.data)
+                local recipeColor = completion and completion.color or "|cFF808080"
+                local recipeSuffix = completion and (completion.color .. completion.suffix .. "|r") or "|cFF808080 (Unknown)|r"
 
                 tooltip:AddLine("Source: |cFFFFFFFF" .. profession .. "|r" .. parsedTag, COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
                 tooltip:AddLine("  Recipe: " .. recipeColor .. recipeName .. "|r" .. recipeSuffix, 1, 1, 1)
@@ -874,6 +828,23 @@ local function OnAddonLoaded(loadedAddonName)
     end
 end
 
+-- Invalidate SourceManager completion-related caches when character progression changes.
+local function HookCompletionCacheInvalidation()
+    if completionInvalidationFrame then return end
+
+    completionInvalidationFrame = CreateFrame("Frame")
+    completionInvalidationFrame:RegisterEvent("ACHIEVEMENT_EARNED")
+    completionInvalidationFrame:RegisterEvent("QUEST_TURNED_IN")
+    completionInvalidationFrame:RegisterEvent("NEW_RECIPE_LEARNED")
+    completionInvalidationFrame:SetScript("OnEvent", function()
+        if HA.SourceManager and HA.SourceManager.InvalidateAllSourceCaches then
+            HA.SourceManager:InvalidateAllSourceCaches()
+        elseif HA.SourceManager and HA.SourceManager.InvalidateCompletionCache then
+            HA.SourceManager:InvalidateCompletionCache()
+        end
+    end)
+end
+
 -------------------------------------------------------------------------------
 -- Initialization
 -------------------------------------------------------------------------------
@@ -889,6 +860,8 @@ local function IsAddonLoaded(name)
 end
 
 local function Initialize()
+    HookCompletionCacheInvalidation()
+
     -- Hook standard item tooltips
     HookTooltips()
 
