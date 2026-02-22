@@ -80,46 +80,10 @@ function BadgeCalculation:VendorHasUncollectedItems(vendor)
         return cached
     end
 
-    -- Get items from multiple sources:
-    -- 1. Static data from VendorDatabase (vendor.items)
-    -- 2. Dynamic data from VendorScanner (scannedVendors)
-
-    local items = {}
-
-    -- Add static items from vendor database
-    -- New format: items can be plain integers OR tables with cost data
-    if vendor.items and #vendor.items > 0 then
-        for _, item in ipairs(vendor.items) do
-            -- Handle both formats: plain number or table with cost
-            local itemID = HA.VendorData:GetItemID(item)
-            if itemID then
-                items[itemID] = {itemID = itemID}
-            end
-        end
-    end
-
-    -- Add/merge scanned items from VendorScanner
-    -- Check both original npcID and any corrected npcID
-    if vendor.npcID and HA.Addon and HA.Addon.db and HA.Addon.db.global.scannedVendors then
-        local scannedData = HA.Addon.db.global.scannedVendors[vendor.npcID]
-
-        -- Also check if there's a corrected NPC ID for this vendor
-        if not scannedData and vendor.name and HA.VendorScanner then
-            local correctedID = HA.VendorScanner:GetCorrectedNPCID(vendor.name)
-            if correctedID then
-                scannedData = HA.Addon.db.global.scannedVendors[correctedID]
-            end
-        end
-
-        local scannedItems = scannedData and (scannedData.items)
-        if scannedItems then
-            for _, item in ipairs(scannedItems) do
-                if item.itemID then
-                    items[item.itemID] = item
-                end
-            end
-        end
-    end
+    -- Merge static + scanned items from shared VendorData helper
+    local items = HA.VendorData and HA.VendorData.GetMergedItemSet
+        and HA.VendorData:GetMergedItemSet(vendor)
+        or {}
 
     -- If we have no item data at all, return nil to indicate "unknown status"
     local hasAnyItems = next(items) ~= nil
@@ -130,7 +94,7 @@ function BadgeCalculation:VendorHasUncollectedItems(vendor)
     end
 
     -- Check if any items are uncollected
-    for itemID, _ in pairs(items) do
+    for itemID in pairs(items) do
         if not IsItemOwned(itemID) then
             uncollectedCache[vendor.npcID] = true
             return true  -- Has uncollected items
@@ -144,36 +108,9 @@ end
 function BadgeCalculation:GetVendorCollectionCounts(vendor)
     if not vendor or not vendor.npcID then return 0, 0 end
 
-    local items = {}
-
-    -- Static items from vendor database
-    if vendor.items and #vendor.items > 0 then
-        for _, item in ipairs(vendor.items) do
-            local itemID = HA.VendorData:GetItemID(item)
-            if itemID then
-                items[itemID] = true
-            end
-        end
-    end
-
-    -- Scanned items from VendorScanner
-    if vendor.npcID and HA.Addon and HA.Addon.db and HA.Addon.db.global.scannedVendors then
-        local scannedData = HA.Addon.db.global.scannedVendors[vendor.npcID]
-        if not scannedData and vendor.name and HA.VendorScanner then
-            local correctedID = HA.VendorScanner:GetCorrectedNPCID(vendor.name)
-            if correctedID then
-                scannedData = HA.Addon.db.global.scannedVendors[correctedID]
-            end
-        end
-        local scannedItems = scannedData and (scannedData.items)
-        if scannedItems then
-            for _, item in ipairs(scannedItems) do
-                if item.itemID then
-                    items[item.itemID] = true
-                end
-            end
-        end
-    end
+    local items = HA.VendorData and HA.VendorData.GetMergedItemSet
+        and HA.VendorData:GetMergedItemSet(vendor)
+        or {}
 
     local total, collected = 0, 0
     for itemID in pairs(items) do

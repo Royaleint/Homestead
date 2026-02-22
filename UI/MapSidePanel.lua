@@ -159,43 +159,10 @@ end
 
 -- Gather all unique item IDs for a vendor (static DB + scanned data)
 local function GetVendorItemIDs(vendor)
-    if not vendor or not vendor.npcID then return {} end
-
-    local items = {}
-    local seen = {}
-
-    -- Static items from vendor database
-    if vendor.items and #vendor.items > 0 then
-        for _, item in ipairs(vendor.items) do
-            local itemID = HA.VendorData:GetItemID(item)
-            if itemID and not seen[itemID] then
-                seen[itemID] = true
-                items[#items + 1] = itemID
-            end
-        end
+    if not HA.VendorData or not HA.VendorData.GetMergedItemIDs then
+        return {}
     end
-
-    -- Scanned items from VendorScanner
-    if HA.Addon and HA.Addon.db and HA.Addon.db.global.scannedVendors then
-        local scannedData = HA.Addon.db.global.scannedVendors[vendor.npcID]
-        if not scannedData and vendor.name and HA.VendorScanner then
-            local correctedID = HA.VendorScanner:GetCorrectedNPCID(vendor.name)
-            if correctedID then
-                scannedData = HA.Addon.db.global.scannedVendors[correctedID]
-            end
-        end
-        local scannedItems = scannedData and scannedData.items
-        if scannedItems then
-            for _, item in ipairs(scannedItems) do
-                if item.itemID and not seen[item.itemID] then
-                    seen[item.itemID] = true
-                    items[#items + 1] = item.itemID
-                end
-            end
-        end
-    end
-
-    return items
+    return HA.VendorData:GetMergedItemIDs(vendor)
 end
 
 -------------------------------------------------------------------------------

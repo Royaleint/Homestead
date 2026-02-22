@@ -265,6 +265,73 @@ function VendorData:GetScannedItemCost(itemID, npcID)
 end
 
 -------------------------------------------------------------------------------
+-- Shared Item Merge Helpers
+-------------------------------------------------------------------------------
+
+-- Merge static vendor items + scanned vendor items into a deduplicated itemID set.
+-- Returns:
+--   itemSet                 -- {[itemID] = true}
+--   orderedItemIDs (opt-in) -- {itemID1, itemID2, ...} in merge order
+-- Merge order matches existing callers: static items first, scanned-only additions second.
+function VendorData:GetMergedItemSet(vendor, includeOrderedIDs)
+    if not vendor or not vendor.npcID then
+        if includeOrderedIDs then
+            return {}, {}
+        end
+        return {}
+    end
+
+    local itemSet = {}
+    local orderedItemIDs = includeOrderedIDs and {} or nil
+
+    local function AddItem(itemID)
+        if itemID and not itemSet[itemID] then
+            itemSet[itemID] = true
+            if orderedItemIDs then
+                orderedItemIDs[#orderedItemIDs + 1] = itemID
+            end
+        end
+    end
+
+    -- Static items from vendor database/endeavors data
+    if vendor.items and #vendor.items > 0 then
+        for _, item in ipairs(vendor.items) do
+            AddItem(self:GetItemID(item))
+        end
+    end
+
+    -- Scanned items from VendorScanner (including corrected NPC ID fallback)
+    local db = HA.Addon and HA.Addon.db
+    if db and db.global and db.global.scannedVendors then
+        local scannedData = db.global.scannedVendors[vendor.npcID]
+        if not scannedData and vendor.name and HA.VendorScanner then
+            local correctedID = HA.VendorScanner:GetCorrectedNPCID(vendor.name)
+            if correctedID then
+                scannedData = db.global.scannedVendors[correctedID]
+            end
+        end
+
+        local scannedItems = scannedData and scannedData.items
+        if scannedItems then
+            for _, item in ipairs(scannedItems) do
+                AddItem(item.itemID)
+            end
+        end
+    end
+
+    if includeOrderedIDs then
+        return itemSet, orderedItemIDs
+    end
+    return itemSet
+end
+
+-- Convenience wrapper: return ordered merged item IDs for a vendor.
+function VendorData:GetMergedItemIDs(vendor)
+    local _, orderedItemIDs = self:GetMergedItemSet(vendor, true)
+    return orderedItemIDs
+end
+
+-------------------------------------------------------------------------------
 -- Query Functions (delegate to VendorDatabase)
 -------------------------------------------------------------------------------
 
