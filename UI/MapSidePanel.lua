@@ -51,7 +51,7 @@ local expandedVendorID = nil  -- npcID of currently expanded vendor (nil = none)
 local lastRefreshMapID = nil
 local isPoppedOut = false
 local panelSourceFilter = "all"  -- all|vendor|quest|achievement|profession|event|drop
-local sourceFilterButton = nil
+local sourceFilterDropdown = nil
 
 local SOURCE_FILTER_ORDER = { "all", "vendor", "quest", "achievement", "profession", "event", "drop" }
 local SOURCE_FILTER_LABELS = {
@@ -193,31 +193,38 @@ local function GetSourceFilterLabel(sourceFilter)
     return SOURCE_FILTER_LABELS[normalized] or normalized
 end
 
-local function GetAdjacentSourceFilter(sourceFilter, direction)
-    local normalized = NormalizePanelSourceFilter(sourceFilter)
-    local step = (direction == -1) and -1 or 1
+local function UpdateSourceFilterDropdownText()
+    if not sourceFilterDropdown then return end
 
-    local currentIndex = 1
-    for i, token in ipairs(SOURCE_FILTER_ORDER) do
-        if token == normalized then
-            currentIndex = i
-            break
-        end
+    local normalized = NormalizePanelSourceFilter(panelSourceFilter)
+    local setSelectedValue = _G.UIDropDownMenu_SetSelectedValue
+    local setText = _G.UIDropDownMenu_SetText
+
+    if setSelectedValue then
+        setSelectedValue(sourceFilterDropdown, normalized)
     end
-
-    local nextIndex = currentIndex + step
-    if nextIndex < 1 then
-        nextIndex = #SOURCE_FILTER_ORDER
-    elseif nextIndex > #SOURCE_FILTER_ORDER then
-        nextIndex = 1
+    if setText then
+        setText(sourceFilterDropdown, GetSourceFilterLabel(normalized))
     end
-
-    return SOURCE_FILTER_ORDER[nextIndex]
 end
 
-local function UpdateSourceFilterButtonText()
-    if not sourceFilterButton then return end
-    sourceFilterButton:SetText(GetSourceFilterLabel(panelSourceFilter))
+local function InitializeSourceFilterDropdown(_, level)
+    if level ~= 1 then return end
+
+    local createInfo = _G.UIDropDownMenu_CreateInfo
+    local addButton = _G.UIDropDownMenu_AddButton
+    if not createInfo or not addButton then return end
+
+    for _, token in ipairs(SOURCE_FILTER_ORDER) do
+        local info = createInfo()
+        info.text = SOURCE_FILTER_LABELS[token] or token
+        info.value = token
+        info.checked = (token == panelSourceFilter)
+        info.func = function(self)
+            MapSidePanel:SetSourceFilter(self.value)
+        end
+        addButton(info, level)
+    end
 end
 
 local function ItemMatchesPanelSourceFilter(itemID, sourceFilter)
@@ -733,26 +740,35 @@ local function CreatePanel()
     end)
     popOutButton:SetScript("OnLeave", GameTooltip_Hide)
 
-    -- Source filter control (title pane): cycles through source filters.
-    sourceFilterButton = CreateFrame("Button", nil, headerFrame, "UIPanelButtonTemplate")
-    sourceFilterButton:SetSize(84, 18)
-    sourceFilterButton:SetPoint("RIGHT", popOutButton, "LEFT", -4, 0)
-    sourceFilterButton:RegisterForClicks("LeftButtonUp", "RightButtonUp")
-    sourceFilterButton:SetScript("OnClick", function(_, button)
-        local direction = (button == "RightButton") and -1 or 1
-        local nextFilter = GetAdjacentSourceFilter(panelSourceFilter, direction)
-        MapSidePanel:SetSourceFilter(nextFilter)
-    end)
-    sourceFilterButton:SetScript("OnEnter", function(self)
-        GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-        GameTooltip:SetText("Item Source Filter")
-        GameTooltip:AddLine("Current: " .. GetSourceFilterLabel(panelSourceFilter), 1, 1, 1)
-        GameTooltip:AddLine("Left-click: Next filter", 0.8, 0.8, 0.8)
-        GameTooltip:AddLine("Right-click: Previous filter", 0.8, 0.8, 0.8)
-        GameTooltip:Show()
-    end)
-    sourceFilterButton:SetScript("OnLeave", GameTooltip_Hide)
-    UpdateSourceFilterButtonText()
+    -- Source filter control (title pane): dropdown on left side of header.
+    sourceFilterDropdown = CreateFrame("Frame", nil, headerFrame, "UIDropDownMenuTemplate")
+    sourceFilterDropdown:SetPoint("LEFT", headerFrame, "LEFT", -14, -1)
+    sourceFilterDropdown:SetScale(0.75) -- 25% smaller footprint than the previous title control
+
+    local setWidth = _G.UIDropDownMenu_SetWidth
+    local justifyText = _G.UIDropDownMenu_JustifyText
+    local initializeDropdown = _G.UIDropDownMenu_Initialize
+
+    if setWidth then
+        setWidth(sourceFilterDropdown, 84)
+    end
+    if justifyText then
+        justifyText(sourceFilterDropdown, "LEFT")
+    end
+    if initializeDropdown then
+        initializeDropdown(sourceFilterDropdown, InitializeSourceFilterDropdown)
+    end
+    UpdateSourceFilterDropdownText()
+
+    if sourceFilterDropdown.Button then
+        sourceFilterDropdown.Button:SetScript("OnEnter", function(self)
+            GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+            GameTooltip:SetText("Item Source Filter")
+            GameTooltip:AddLine("Current: " .. GetSourceFilterLabel(panelSourceFilter), 1, 1, 1)
+            GameTooltip:Show()
+        end)
+        sourceFilterDropdown.Button:SetScript("OnLeave", GameTooltip_Hide)
+    end
 
     -- Close button (detached mode): standard X at top-right
     closeButton = CreateFrame("Button", nil, panel, "UIPanelCloseButton")
@@ -2119,7 +2135,7 @@ end
 function MapSidePanel:SetSourceFilter(sourceFilter)
     local normalized = NormalizePanelSourceFilter(sourceFilter)
     if panelSourceFilter == normalized then
-        UpdateSourceFilterButtonText()
+        UpdateSourceFilterDropdownText()
         return
     end
 
@@ -2129,7 +2145,7 @@ function MapSidePanel:SetSourceFilter(sourceFilter)
         HA.Addon.db.profile.vendorTracer.mapSidePanelSourceFilter = normalized
     end
 
-    UpdateSourceFilterButtonText()
+    UpdateSourceFilterDropdownText()
 
     if BC and BC.InvalidateAllCaches then
         BC:InvalidateAllCaches()
