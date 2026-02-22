@@ -33,11 +33,10 @@ Data\VendorData.lua
 Data\EndeavorsData.lua
 Data\DecorMapping.lua
 Data\CatalogStore.lua
-Data\AchievementDecor.lua
 
 # Source Data (non-vendor acquisition)
-Data\QuestSources.lua
 Data\AchievementSources.lua
+Data\QuestSources.lua
 Data\ProfessionSources.lua
 Data\EventSources.lua
 Data\DropSources.lua
