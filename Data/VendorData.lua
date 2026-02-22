@@ -173,6 +173,23 @@ function VendorData:FormatCost(cost)
         end
     end
 
+    -- Format item-based currencies (e.g., Spare Parts, Polished Pet Charms)
+    if cost.items then
+        for _, itemCost in ipairs(cost.items) do
+            if itemCost.amount and itemCost.id then
+                local itemName = C_Item and C_Item.GetItemNameByID and C_Item.GetItemNameByID(itemCost.id)
+                local iconID = C_Item and C_Item.GetItemIconByID and C_Item.GetItemIconByID(itemCost.id)
+                if iconID then
+                    parts[#parts + 1] = itemCost.amount .. " |T" .. iconID .. ":0:0|t"
+                elseif itemName then
+                    parts[#parts + 1] = itemCost.amount .. " " .. itemName
+                else
+                    parts[#parts + 1] = itemCost.amount .. " Item " .. itemCost.id
+                end
+            end
+        end
+    end
+
     if #parts == 0 then
         return nil
     end

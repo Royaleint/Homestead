@@ -218,7 +218,7 @@ VendorDatabase.Vendors = {
         items = {
             {245284, cost = {currencies = {{id = 3319, amount = 50}}}},
             {245330, cost = {currencies = {{id = 3319, amount = 50}}}},
-            {251997, cost = {currencies = {{id = 3319, amount = 7}}}},
+            {251997, cost = {currencies = {{id = 3319, amount = 75}}}},
         },
     },
 	[45417] = {
@@ -252,7 +252,7 @@ VendorDatabase.Vendors = {
         faction = "Alliance",
         currency = "Gold",
         expansion = "Classic",
-        items = {{248333, cost = {gold = 1000000}}, {248336, cost = {gold = 3000000}}, {248617, cost = {gold = 1500000}}, {248618, cost = {gold = 2000000}}, {248619, cost = {gold = 2500000}}, {248620, cost = {gold = 1500000}}, {248621, cost = {gold = 3000000}}, {248662, cost = {gold = 5000000}}, {248665, cost = {gold = 2500000}}, {248794, cost = {gold = 500000}}, {248795, cost = {gold = 750000}}, {248797, cost = {gold = 500000}}, {248798, cost = {gold = 2000000}}, {248801, cost = {gold = 1000000}}, {248938, cost = {gold = 1500000}}, {248939, cost = {gold = 1000000}}, {253168, cost = {gold = 160000}}, {256673, cost = {gold = 10000000}}},
+        items = {{248333, cost = {gold = 950000}}, {248336, cost = {gold = 2850000}}, {248617, cost = {gold = 1425000}}, {248618, cost = {gold = 1900000}}, {248619, cost = {gold = 2375000}}, {248620, cost = {gold = 1425000}}, {248621, cost = {gold = 2850000}}, {248662, cost = {gold = 4750000}}, {248665, cost = {gold = 2375000}}, {248794, cost = {gold = 475000}}, {248795, cost = {gold = 712500}}, {248797, cost = {gold = 475000}}, {248798, cost = {gold = 1900000}}, {248801, cost = {gold = 950000}}, {248938, cost = {gold = 1425000}}, {248939, cost = {gold = 950000}}, {253168, cost = {gold = 190000}}, {256673, cost = {gold = 9500000}}},
     },
 	[50304] = {
         name = "Captain Donald Adams",
@@ -1583,12 +1583,13 @@ VendorDatabase.Vendors = {
 	[252312] = {
         name = "Second Chair Pawdo",
         mapID = 2339,
-        x = 0.5291, y = 0.6807,
+        x = 0.5287, y = 0.6801,
         zone = "Dornogal",
+        subzone = "The Forgegrounds",
         faction = "Neutral",
-        currency = "Gold",
+        currency = "Dragon Isles Supplies",
         expansion = "The War Within",
-        items = {{245259, cost = {gold = 500000}}, 245655, {246487, cost = {gold = 750000}}, 246601, {247908, cost = {gold = 400000}}, {247915, cost = {gold = 1000000}}, {248116, cost = {gold = 750000}}, {248934, cost = {gold = 15000000}}, {253168, cost = {gold = 200000}}, {253173, cost = {gold = 200000}}, 256168},
+        items = {{245259, cost = {gold = 500000}}, {245655, cost = {currencies = {{id = 2003, amount = 10}}}}, {246487, cost = {gold = 750000}}, {246601, cost = {items = {{id = 166846, amount = 10}}}}, {247908, cost = {gold = 300000, currencies = {{id = 1220, amount = 50}}}}, {247915, cost = {gold = 1000000}}, {248116, cost = {gold = 750000}}, {253168, cost = {gold = 200000}}, {253173, cost = {gold = 200000}}, {256168, cost = {currencies = {{id = 2003, amount = 10}}}}},
     },
 	[252313] = {
         name = "Caspian",
@@ -2229,7 +2230,7 @@ VendorDatabase.Vendors = {
         faction = "Alliance",
         currency = "Gold",
         expansion = "Classic",
-        items = {{260785, cost = {gold = 14250000}}},
+        items = {{260785, cost = {gold = 15000000}}},
     },
 	[261262] = {
         name = "Gabbi",
@@ -2240,7 +2241,7 @@ VendorDatabase.Vendors = {
         faction = "Horde",
         currency = "Gold",
         expansion = "Classic",
-        items = {{260785, cost = {gold = 14250000}}},
+        items = {{260785, cost = {gold = 15000000}}},
     },
 
     -- Midnight vendors (discovered via parsed sourceText, 2026-02-12)
