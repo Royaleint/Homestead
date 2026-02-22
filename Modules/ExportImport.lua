@@ -173,6 +173,49 @@ local function FormatRequirements(requirements)
     return "R:" .. table.concat(entries, ";")
 end
 
+-- Build primary-source counts for a set of itemIDs.
+-- Returns table with canonical source buckets plus unknown.
+local function GetPrimarySourceCounts(itemSet)
+    local counts = {
+        vendor = 0,
+        quest = 0,
+        achievement = 0,
+        profession = 0,
+        event = 0,
+        drop = 0,
+        unknown = 0,
+    }
+
+    local SM = HA.SourceManager
+    if SM and SM.CountItemsBySourceType then
+        return SM:CountItemsBySourceType(itemSet, "primary")
+    end
+
+    -- Fallback for older SourceManager versions.
+    for itemID in pairs(itemSet) do
+        local sourceType = nil
+        if SM and SM.GetPrimarySourceType then
+            sourceType = SM:GetPrimarySourceType(itemID)
+        end
+        if not sourceType and SM and SM.GetSource then
+            local source = SM:GetSource(itemID)
+            sourceType = source and source.type or nil
+        end
+
+        if sourceType == "craft" then
+            sourceType = "profession"
+        end
+
+        if sourceType and counts[sourceType] ~= nil then
+            counts[sourceType] = counts[sourceType] + 1
+        else
+            counts.unknown = counts.unknown + 1
+        end
+    end
+
+    return counts
+end
+
 -- Export scanned vendor data
 -- fullExport: include vendors already in VendorDatabase
 -- exportAll: bypass timestamp filter (export everything scanned)
@@ -196,6 +239,7 @@ function ExportImport:ExportScannedVendors(fullExport, exportAll)
     local itemCount = 0
     local skippedPrevExport = 0
     local skippedInDatabase = 0
+    local exportedUniqueItems = {}
 
     table.insert(output, EXPORT_PREFIX .. "\n")
     table.insert(output, "# V: npcID\tname\tmapID\tx\ty\tfaction\ttimestamp\titemCount\tdecorCount\tzone\tsubZone\tparentMapID\texpansion\tcurrency\n")
@@ -306,6 +350,7 @@ function ExportImport:ExportScannedVendors(fullExport, exportAll)
                 local itemID = HA.VendorData:GetItemID(item)
                 if itemID then
                     itemCount = itemCount + 1
+                    exportedUniqueItems[itemID] = true
 
                     local itemName = item.name or ""
                     local price = item.price or 0
@@ -327,6 +372,25 @@ function ExportImport:ExportScannedVendors(fullExport, exportAll)
             end
         end
     end
+
+    -- Export source summary comments (primary-only categorization, one bucket per unique item).
+    local uniqueItemCount = 0
+    for _ in pairs(exportedUniqueItems) do
+        uniqueItemCount = uniqueItemCount + 1
+    end
+    local sourceCounts = GetPrimarySourceCounts(exportedUniqueItems)
+    table.insert(output, 3, "# sourceSummaryMode: primary (one bucket per unique exported item)\n")
+    table.insert(output, 4, string.format(
+        "# sourceSummary: uniqueItems=%d\tvendor=%d\tquest=%d\tachievement=%d\tprofession=%d\tevent=%d\tdrop=%d\tunknown=%d\n",
+        uniqueItemCount,
+        sourceCounts.vendor or 0,
+        sourceCounts.quest or 0,
+        sourceCounts.achievement or 0,
+        sourceCounts.profession or 0,
+        sourceCounts.event or 0,
+        sourceCounts.drop or 0,
+        sourceCounts.unknown or 0
+    ))
 
     -- Print summary with skip details
     local skipMsg = ""
