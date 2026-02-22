@@ -775,6 +775,17 @@ end
 local function ResolveCompletionSource(itemID, sourceType, sourceData)
     local normalizedType = sourceType and SourceManager:NormalizeSourceType(sourceType) or nil
     if normalizedType then
+        -- When sourceData is nil but type is known, resolve data from source tables.
+        -- Supports callers that know the type but not the data (e.g., catalog sourceText blocks).
+        if not sourceData and itemID then
+            if normalizedType == "achievement" and HA.AchievementSources then
+                sourceData = HA.AchievementSources[itemID]
+            elseif normalizedType == "quest" and HA.QuestSources then
+                sourceData = HA.QuestSources[itemID]
+            elseif normalizedType == "profession" and HA.ProfessionSources then
+                sourceData = HA.ProfessionSources[itemID]
+            end
+        end
         return normalizedType, sourceData
     end
     if not itemID then

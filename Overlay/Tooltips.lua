@@ -186,13 +186,6 @@ end
 local function RenderSourceText(tooltip, sourceText, itemID)
     if not sourceText or sourceText == "" then return end
 
-    -- Use SourceManager status API so completion logic is centralized.
-    local completionColor = nil
-    if itemID and HA.SourceManager and HA.SourceManager.GetCompletionStatus then
-        local completionStatus = HA.SourceManager:GetCompletionStatus(itemID)
-        completionColor = completionStatus and completionStatus.color or nil
-    end
-
     -- Strip color codes and hyperlink wrappers.
     -- |H...|h[text]|h → keep just [text]  (tooltip:AddLine can't render |H hyperlinks)
     -- |c/|r color codes stripped so we can apply our own gold/white scheme.
@@ -257,20 +250,12 @@ local function RenderSourceText(tooltip, sourceText, itemID)
         blockTypes[#blocks] = currentType
     end
 
-    -- Determine if any block is an achievement or quest — if so, suppress
-    -- AddRequirementsToTooltip since the achievement/quest name already is the requirement.
-    local hasAchievementOrQuestBlock = false
-    if HA.SourceManager and HA.SourceManager.BuildRequirementDedupSet then
-        local dedupSet = HA.SourceManager:BuildRequirementDedupSet(blockTypes)
-        hasAchievementOrQuestBlock = dedupSet.achievement == true or dedupSet.quest == true
-    else
-        for _, btype in ipairs(blockTypes) do
-            if btype == "achievement" or btype == "quest" then
-                hasAchievementOrQuestBlock = true
-                break
-            end
-        end
-    end
+    -- Build dedupSet from block types for requirement suppression.
+    -- Unlike the old all-or-nothing approach, this only suppresses specific types
+    -- (e.g., achievement/quest) while still showing reputation and other requirements.
+    local dedupSet = HA.SourceManager and HA.SourceManager.BuildRequirementDedupSet
+        and HA.SourceManager:BuildRequirementDedupSet(blockTypes)
+        or nil
 
     -- Resolve a vendor npcID for this item so requirements can be scoped correctly.
     -- Check scanned data first, then static DB index.
@@ -286,19 +271,29 @@ local function RenderSourceText(tooltip, sourceText, itemID)
         end
     end
 
+    -- Per-block completion lookup via SourceManager
+    local hasCompletionAPI = itemID and HA.SourceManager and HA.SourceManager.GetCompletionStatus
+
     for blockIdx, lines in ipairs(blocks) do
         -- Blank separator line between multiple source blocks
         if blockIdx > 1 then
             tooltip:AddLine(" ")
         end
 
+        -- Resolve per-block completion color + suffix
+        local blockCompletion = nil
+        if hasCompletionAPI and blockTypes[blockIdx] then
+            blockCompletion = HA.SourceManager:GetCompletionStatus(itemID, blockTypes[blockIdx])
+        end
+
         for i, line in ipairs(lines) do
             -- Split "Label: value" into gold label + white/completion-colored value
             local label, value = line:match("^([^:]+:%s*)(.*)")
             if label and value and value ~= "" then
-                -- Apply completion color to the value on the first line of the first block only
-                local valueColor = (blockIdx == 1 and i == 1 and completionColor) or "|cFFFFFFFF"
-                tooltip:AddLine("  " .. "|cFFFFD700" .. label .. "|r" .. valueColor .. value .. "|r", 1, 1, 1)
+                -- Apply per-block completion color to the first line of each block
+                local valueColor = (i == 1 and blockCompletion and blockCompletion.color) or "|cFFFFFFFF"
+                local valueSuffix = (i == 1 and blockCompletion and blockCompletion.suffix) or ""
+                tooltip:AddLine("  " .. "|cFFFFD700" .. label .. "|r" .. valueColor .. value .. valueSuffix .. "|r", 1, 1, 1)
             elseif label then
                 -- Label-only line
                 tooltip:AddLine("  " .. "|cFFFFD700" .. line .. "|r", COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
@@ -309,12 +304,10 @@ local function RenderSourceText(tooltip, sourceText, itemID)
         end
     end
 
-    -- Show requirements (rep, quest gates, etc.) after all source blocks.
-    -- Skip when an achievement/quest block was rendered — the name IS the requirement,
-    -- calling this would duplicate it as "Requires: <achievement name>".
-    if not hasAchievementOrQuestBlock then
-        AddRequirementsToTooltip(tooltip, itemID, vendorNpcID)
-    end
+    -- Show requirements after all source blocks using dedupSet.
+    -- Achievement/quest types are suppressed if rendered as source blocks,
+    -- but reputation and other requirement types always show.
+    AddRequirementsToTooltip(tooltip, itemID, vendorNpcID, dedupSet)
 end
 
 -------------------------------------------------------------------------------
