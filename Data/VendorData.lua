@@ -130,54 +130,44 @@ function VendorData:GetItemCost(item)
     return cost
 end
 
--- Format cost as a display string (e.g., "10g 50s" or "500 Honor")
+-- Format cost as a display string with icons (e.g., "10|Tgold|t 50|Tsilver|t" or "500 |Tcurrency|t")
 function VendorData:FormatCost(cost)
     if not cost then return nil end
 
     local parts = {}
 
-    -- Format gold (stored in copper, convert to gold display)
+    -- Format gold (stored in copper) using GetCoinTextureString for coin icons
     if cost.gold and cost.gold > 0 then
-        local gold = math.floor(cost.gold / 10000)
-        local silver = math.floor((cost.gold % 10000) / 100)
-        local copper = cost.gold % 100
-
-        local goldStr = ""
-        if gold > 0 then
-            goldStr = goldStr .. gold .. "g"
-        end
-        if silver > 0 then
-            goldStr = goldStr .. (goldStr ~= "" and " " or "") .. silver .. "s"
-        end
-        if copper > 0 then
-            goldStr = goldStr .. (goldStr ~= "" and " " or "") .. copper .. "c"
-        end
-
-        if goldStr ~= "" then
-            table.insert(parts, goldStr)
+        if GetCoinTextureString then
+            parts[#parts + 1] = GetCoinTextureString(cost.gold)
+        else
+            -- Fallback if API unavailable
+            local gold = math.floor(cost.gold / 10000)
+            local silver = math.floor((cost.gold % 10000) / 100)
+            local copper = cost.gold % 100
+            local goldStr = ""
+            if gold > 0 then goldStr = gold .. "g" end
+            if silver > 0 then goldStr = goldStr .. (goldStr ~= "" and " " or "") .. silver .. "s" end
+            if copper > 0 then goldStr = goldStr .. (goldStr ~= "" and " " or "") .. copper .. "c" end
+            if goldStr ~= "" then parts[#parts + 1] = goldStr end
         end
     end
 
-    -- Format currencies
+    -- Format currencies with icons
     if cost.currencies then
         for _, currency in ipairs(cost.currencies) do
             if currency.amount then
-                local currencyName
-                if currency.id then
-                    currencyName = "Currency " .. currency.id
-                    -- Try to get currency name from API
-                    if C_CurrencyInfo and C_CurrencyInfo.GetCurrencyInfo then
-                        local info = C_CurrencyInfo.GetCurrencyInfo(currency.id)
-                        if info and info.name then
-                            currencyName = info.name
-                        end
+                if currency.id and C_CurrencyInfo and C_CurrencyInfo.GetCurrencyInfo then
+                    local info = C_CurrencyInfo.GetCurrencyInfo(currency.id)
+                    if info and info.iconFileID then
+                        parts[#parts + 1] = currency.amount .. " |T" .. info.iconFileID .. ":0:0|t"
+                    elseif info and info.name then
+                        parts[#parts + 1] = currency.amount .. " " .. info.name
+                    else
+                        parts[#parts + 1] = currency.amount .. " Currency " .. currency.id
                     end
                 elseif currency.name then
-                    -- No ID available, use stored name from scan
-                    currencyName = currency.name
-                end
-                if currencyName then
-                    table.insert(parts, currency.amount .. " " .. currencyName)
+                    parts[#parts + 1] = currency.amount .. " " .. currency.name
                 end
             end
         end
