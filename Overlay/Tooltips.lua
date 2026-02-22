@@ -419,10 +419,8 @@ local function RenderVendorSourceLines(tooltip, source, parsedTag, itemID)
     AddRequirementsToTooltip(tooltip, itemID, source.data.npcID)
 end
 
-local function RenderQuestSourceLines(tooltip, source, parsedTag, itemID)
+local function RenderQuestSourceLines(tooltip, source, parsedTag, _itemID, completion)
     local questName = source.data.questName or "Unknown Quest"
-    local completion = HA.SourceManager and HA.SourceManager.GetCompletionStatus
-        and HA.SourceManager:GetCompletionStatus(itemID, source.type, source.data)
     local questColor = completion and completion.color or "|cFFFFFFFF"
     local statusSuffix = completion and (completion.color .. completion.suffix .. "|r") or ""
     tooltip:AddLine("Source: Quest" .. parsedTag, COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
@@ -430,10 +428,8 @@ local function RenderQuestSourceLines(tooltip, source, parsedTag, itemID)
     -- No AddRequirementsToTooltip: the quest IS the source, would duplicate.
 end
 
-local function RenderAchievementSourceLines(tooltip, source, parsedTag, itemID)
+local function RenderAchievementSourceLines(tooltip, source, parsedTag, _itemID, completion)
     local achievementName = source.data.achievementName or "Unknown Achievement"
-    local completion = HA.SourceManager and HA.SourceManager.GetCompletionStatus
-        and HA.SourceManager:GetCompletionStatus(itemID, source.type, source.data)
     local nameColor = completion and completion.color or "|cFFFFFFFF"
     local statusSuffix = completion and (completion.color .. completion.suffix .. "|r") or ""
 
@@ -442,11 +438,9 @@ local function RenderAchievementSourceLines(tooltip, source, parsedTag, itemID)
     -- No AddRequirementsToTooltip: the achievement IS the source, would duplicate.
 end
 
-local function RenderProfessionSourceLines(tooltip, source, parsedTag, itemID)
+local function RenderProfessionSourceLines(tooltip, source, parsedTag, itemID, completion)
     local profession = source.data.profession or "Unknown"
     local recipeName = source.data.recipeName or "Unknown Recipe"
-    local completion = HA.SourceManager and HA.SourceManager.GetCompletionStatus
-        and HA.SourceManager:GetCompletionStatus(itemID, source.type, source.data)
     local recipeColor = completion and completion.color or "|cFF808080"
     local recipeSuffix = completion and (completion.color .. completion.suffix .. "|r") or "|cFF808080 (Unknown)|r"
 
@@ -530,7 +524,10 @@ local function AddSourceInfoToTooltip(tooltip, itemID, skipOwnership)
             local parsedTag = source._isParsed and " |cFFAAAAFF(unverified)|r" or ""
             local renderer = SOURCE_RENDERERS[source.type]
             if renderer then
-                renderer(tooltip, source, parsedTag, itemID)
+                local completion = HA.SourceManager.GetCompletionStatus
+                    and HA.SourceManager:GetCompletionStatus(itemID, source.type, source.data)
+                    or nil
+                renderer(tooltip, source, parsedTag, itemID, completion)
                 return true
             end
         end
