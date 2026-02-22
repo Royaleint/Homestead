@@ -6,10 +6,16 @@
 
 ### New
 - **Panel Source Filter** - The Homestead panel now includes a source filter dropdown in the title bar so you can quickly switch between All, Vendor, Quest, Achievement, Profession, Event, and Drop sources.
+- **Multi-Source Tooltips** — Item tooltips now show all known sources instead of just the primary one.
+- **Context-Aware Tooltips** — Tooltips adapt to where you're viewing them: compact at merchants and in bags, detailed in the Homestead panel. Hold Shift to toggle detail level on any tooltip.
+- **Per-Block Completion** — Housing Catalog sourceText blocks now show individual completion status per source type (achievement, quest, profession) instead of a single global status.
+- **Tooltip Settings** — New "Show ownership status" and "Show all sources" toggles in Options. Removed the unused "Show dye slot information" toggle.
 
 ### Improved
 - **Source-filtered panel browsing** - Vendor item counts and expanded item grids now update based on your selected source filter.
 - **Filter settings sync** - Source filter selection is available in both Options and the panel header control, and stays in sync.
+- **Smarter Merchant Tooltips** — Merchant tooltips no longer duplicate Blizzard's built-in vendor/achievement/quest info. Only supplemental sources and reputation requirements are shown.
+- **Panel Tooltip Cleanup** — Fixed duplicate requirement lines in the Homestead panel (requirements were rendered by both the tooltip hook and the panel's OnEnter).
 
 ---
 
