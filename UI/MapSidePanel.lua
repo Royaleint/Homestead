@@ -50,6 +50,7 @@ local vendorRows = {}
 local expandedVendorID = nil  -- npcID of currently expanded vendor (nil = none)
 local lastRefreshMapID = nil
 local isPoppedOut = false
+local panelSourceFilter = "all"  -- all|vendor|quest|achievement|profession|event|drop
 
 -- Map shift state (declared early so preview hooks can reference them)
 local mapShifted = false
@@ -157,12 +158,60 @@ local function IsItemOwned(itemID)
     return false
 end
 
+local function NormalizePanelSourceFilter(sourceFilter)
+    if type(sourceFilter) ~= "string" or sourceFilter == "" then
+        return "all"
+    end
+
+    local lower = sourceFilter:lower()
+    if lower == "all" then
+        return "all"
+    end
+
+    local SM = HA.SourceManager
+    if SM and SM.NormalizeSourceType then
+        local normalized = SM:NormalizeSourceType(lower)
+        if normalized then
+            return normalized
+        end
+    end
+
+    return lower
+end
+
+local function ItemMatchesPanelSourceFilter(itemID, sourceFilter)
+    local normalizedFilter = NormalizePanelSourceFilter(sourceFilter)
+    if normalizedFilter == "all" then
+        return true
+    end
+
+    local SM = HA.SourceManager
+    if SM and SM.ItemMatchesSourceFilter then
+        -- Vendor-scoped list: treat displayed vendor inventory as vendor context.
+        return SM:ItemMatchesSourceFilter(itemID, normalizedFilter, true)
+    end
+
+    return false
+end
+
 -- Gather all unique item IDs for a vendor (static DB + scanned data)
-local function GetVendorItemIDs(vendor)
+local function GetVendorItemIDs(vendor, sourceFilter)
     if not HA.VendorData or not HA.VendorData.GetMergedItemIDs then
         return {}
     end
-    return HA.VendorData:GetMergedItemIDs(vendor)
+
+    local itemIDs = HA.VendorData:GetMergedItemIDs(vendor)
+    if NormalizePanelSourceFilter(sourceFilter) == "all" then
+        return itemIDs
+    end
+
+    local filtered = {}
+    for _, itemID in ipairs(itemIDs) do
+        if ItemMatchesPanelSourceFilter(itemID, sourceFilter) then
+            filtered[#filtered + 1] = itemID
+        end
+    end
+    return filtered
 end
 
 -------------------------------------------------------------------------------
@@ -292,9 +341,14 @@ local function GetUnmetRequirements(itemID, npcID)
 end
 
 -- Populate the item grid for a vendor row. Returns total height of the grid.
-local function PopulateItemGrid(row, vendor)
-    local itemIDs = GetVendorItemIDs(vendor)
-    if #itemIDs == 0 then return 0 end
+local function PopulateItemGrid(row, vendor, sourceFilter)
+    local itemIDs = GetVendorItemIDs(vendor, sourceFilter)
+    if #itemIDs == 0 then
+        if row.itemGrid then
+            row.itemGrid:Hide()
+        end
+        return 0
+    end
 
     -- Create grid container if not yet created
     if not row.itemGrid then
@@ -1060,6 +1114,7 @@ function MapSidePanel:RefreshContent()
 
     -- Zone level — show individual vendors
     local vendorList = GetVendorsForCurrentMap(mapID)
+    local sourceFilter = panelSourceFilter
 
     -- Get pin color for icons
     local r, g, b = HA.PinFrameFactory:GetPinColor()
@@ -1103,7 +1158,7 @@ function MapSidePanel:RefreshContent()
         end
 
         -- Get collection counts
-        local collected, total = BC:GetVendorCollectionCounts(vendor)
+        local collected, total = BC:GetVendorCollectionCounts(vendor, sourceFilter)
         row.collected = collected
         row.total = total
 
@@ -1119,7 +1174,11 @@ function MapSidePanel:RefreshContent()
             row.countText:SetText(string.format("%d/%d collected", collected, total))
             row.countText:SetTextColor(countColor[1], countColor[2], countColor[3])
         else
-            row.countText:SetText("No item data")
+            if sourceFilter ~= "all" then
+                row.countText:SetText("No matching items")
+            else
+                row.countText:SetText("No item data")
+            end
             row.countText:SetTextColor(0.5, 0.5, 0.5)
         end
 
@@ -1130,7 +1189,7 @@ function MapSidePanel:RefreshContent()
         local isExpanded = (expandedVendorID == vendor.npcID)
         local rowHeight = ROW_HEIGHT
         if isExpanded then
-            local gridHeight = PopulateItemGrid(row, vendor)
+            local gridHeight = PopulateItemGrid(row, vendor, sourceFilter)
             rowHeight = ROW_HEIGHT + gridHeight
         else
             HideItemGrid(row)
@@ -1991,6 +2050,22 @@ function MapSidePanel:IsPoppedOut()
     return isPoppedOut
 end
 
+function MapSidePanel:GetSourceFilter()
+    return panelSourceFilter
+end
+
+function MapSidePanel:SetSourceFilter(sourceFilter)
+    local normalized = NormalizePanelSourceFilter(sourceFilter)
+    if panelSourceFilter == normalized then return end
+
+    panelSourceFilter = normalized
+    if BC and BC.InvalidateAllCaches then
+        BC:InvalidateAllCaches()
+    end
+
+    self:RefreshContent()
+end
+
 -- Slash command toggle: pop out if docked/hidden, close if already popped out
 function MapSidePanel:ToggleDetached()
     if not panelFrame then return end
@@ -2016,6 +2091,10 @@ function MapSidePanel:Initialize()
     VendorData = HA.VendorData
     VendorFilter = HA.VendorFilter
     BC = HA.BadgeCalculation
+
+    if HA.Addon and HA.Addon.db and HA.Addon.db.profile and HA.Addon.db.profile.vendorTracer then
+        panelSourceFilter = NormalizePanelSourceFilter(HA.Addon.db.profile.vendorTracer.mapSidePanelSourceFilter)
+    end
 
     if not VendorData or not VendorFilter or not BC then
         if HA.Addon then
