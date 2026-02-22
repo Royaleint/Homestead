@@ -132,12 +132,12 @@ end
 -- Source Lookup Functions (Legacy - kept for compatibility)
 -------------------------------------------------------------------------------
 
--- Check if item is from an achievement (legacy AchievementDecor)
+-- Check if item is from an achievement (via AchievementSources)
 local function GetAchievementSourceLegacy(itemID)
-    if not HA.AchievementDecor or not HA.AchievementDecor.GetAchievementForItem then
+    if not HA.AchievementSourcesModule or not HA.AchievementSourcesModule.GetAchievementForItem then
         return nil
     end
-    return HA.AchievementDecor:GetAchievementForItem(itemID)
+    return HA.AchievementSourcesModule:GetAchievementForItem(itemID)
 end
 
 -- Check if item is from a vendor
@@ -524,12 +524,12 @@ local function AddSourceInfoToTooltip(tooltip, itemID, skipOwnership)
         end
     end
 
-    -- Fallback: Legacy source lookup (AchievementDecor + VendorData)
-    -- Check for achievement source (legacy AchievementDecor)
+    -- Fallback: Legacy source lookup (AchievementSources + VendorData)
+    -- Check for achievement source (AchievementSources)
     local achievementInfo = GetAchievementSourceLegacy(itemID)
     if achievementInfo then
         local achievementName = achievementInfo.name or "Unknown Achievement"
-        -- Legacy AchievementDecor only has a boolean .completed — no wasEarnedByMe available
+        -- AchievementSources only has a boolean .completed — no wasEarnedByMe available
         -- Re-query GetAchievementInfo if we have an ID for the three-tier check
         local nameColor, statusSuffix = "|cFFFFFFFF", ""
         local achID = achievementInfo.achievementID
@@ -729,7 +729,7 @@ local function OnHousingCatalogTooltipCreated(ownerID, entryFrame, tooltip)
         if not hasSource then
             hasSource = AddSourceInfoToTooltip(tooltip, itemID, true)
             if hasSource and HA.DevAddon and HA.Addon.db.profile.debug then
-                HA.Addon:Debug("Catalog tooltip: using VendorDatabase/AchievementDecor")
+                HA.Addon:Debug("Catalog tooltip: using VendorDatabase/AchievementSources")
             end
         end
 
