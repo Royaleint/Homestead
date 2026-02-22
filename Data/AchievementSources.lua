@@ -12,7 +12,8 @@
 
     Categories: meta, exploration, quests, pvp, dungeons, professions, reputation,
                 class_hall, lorewalking, progression
-    Expansions: TWW, DF, SL, BFA, Legion, WoD, MoP, Cata, WotLK, Classic, Midnight
+    Expansions: The War Within, Dragonflight, Shadowlands, Battle for Azeroth, Legion,
+                Warlords of Draenor, Mists of Pandaria, Cataclysm, Wrath of the Lich King, Classic, Midnight
 
     History:
     - Generated 2026-02-01: Original 155 entries from import_all_sources.py
@@ -38,134 +39,134 @@ local sourceData = {
     ---------------------------------------------------------------------------
 
     -- Meta
-    [257353] = {achievementID = 61451, achievementName = "Worldsoul-Searching", category = "meta", expansion = "TWW"},
-    [267122] = {achievementID = 61451, achievementName = "Worldsoul-Searching", category = "meta", expansion = "TWW"},
+    [257353] = {achievementID = 61451, achievementName = "Worldsoul-Searching", category = "meta", expansion = "The War Within"},
+    [267122] = {achievementID = 61451, achievementName = "Worldsoul-Searching", category = "meta", expansion = "The War Within"},
 
     -- Exploration
-    [245324] = {achievementID = 40894, achievementName = "Sojourner of Undermine", category = "exploration", expansion = "TWW"},
-    [246866] = {achievementID = 40542, achievementName = "Smelling History", category = "exploration", expansion = "TWW"},
-    [246867] = {achievementID = 41186, achievementName = "Slate of the Union", category = "exploration", expansion = "TWW"},
-    [249169] = {achievementID = 20595, achievementName = "Sojourner of Isle of Dorn", category = "exploration", expansion = "TWW"},
-    [249181] = {achievementID = 40504, achievementName = "Rocked to Sleep", category = "exploration", expansion = "TWW"},
-    [249185] = {achievementID = 40859, achievementName = "We're Here All Night", category = "exploration", expansion = "TWW"},
-    [251271] = {achievementID = 40894, achievementName = "Sojourner of Undermine", category = "exploration", expansion = "TWW"},
-    [252532] = {achievementID = 40542, achievementName = "Smelling History", category = "exploration", expansion = "TWW"},
-    [252533] = {achievementID = 41186, achievementName = "Slate of the Union", category = "exploration", expansion = "TWW"},
-    [252757] = {achievementID = 20595, achievementName = "Sojourner of Isle of Dorn", category = "exploration", expansion = "TWW"},
-    [253023] = {achievementID = 40504, achievementName = "Rocked to Sleep", category = "exploration", expansion = "TWW"},
-    [253037] = {achievementID = 40859, achievementName = "We're Here All Night", category = "exploration", expansion = "TWW"},
+    [245324] = {achievementID = 40894, achievementName = "Sojourner of Undermine", category = "exploration", expansion = "The War Within"},
+    [246866] = {achievementID = 40542, achievementName = "Smelling History", category = "exploration", expansion = "The War Within"},
+    [246867] = {achievementID = 41186, achievementName = "Slate of the Union", category = "exploration", expansion = "The War Within"},
+    [249169] = {achievementID = 20595, achievementName = "Sojourner of Isle of Dorn", category = "exploration", expansion = "The War Within"},
+    [249181] = {achievementID = 40504, achievementName = "Rocked to Sleep", category = "exploration", expansion = "The War Within"},
+    [249185] = {achievementID = 40859, achievementName = "We're Here All Night", category = "exploration", expansion = "The War Within"},
+    [251271] = {achievementID = 40894, achievementName = "Sojourner of Undermine", category = "exploration", expansion = "The War Within"},
+    [252532] = {achievementID = 40542, achievementName = "Smelling History", category = "exploration", expansion = "The War Within"},
+    [252533] = {achievementID = 41186, achievementName = "Slate of the Union", category = "exploration", expansion = "The War Within"},
+    [252757] = {achievementID = 20595, achievementName = "Sojourner of Isle of Dorn", category = "exploration", expansion = "The War Within"},
+    [253023] = {achievementID = 40504, achievementName = "Rocked to Sleep", category = "exploration", expansion = "The War Within"},
+    [253037] = {achievementID = 40859, achievementName = "We're Here All Night", category = "exploration", expansion = "The War Within"},
 
     -- Lorewalking
-    [245332] = {achievementID = 61467, achievementName = "Lorewalking: The Elves of Quel'Thalas", category = "lorewalking", expansion = "TWW"},
-    [257351] = {achievementID = 42189, achievementName = "Lorewalking: The Lich King", category = "lorewalking", expansion = "TWW"},
-    [257354] = {achievementID = 42187, achievementName = "Lorewalking: Ethereal Wisdom", category = "lorewalking", expansion = "TWW"},
-    [257355] = {achievementID = 42188, achievementName = "Lorewalking: Blade's Bane", category = "lorewalking", expansion = "TWW"},
-    [257400] = {achievementID = 61467, achievementName = "Lorewalking: The Elves of Quel'Thalas", category = "lorewalking", expansion = "TWW"},
-    [258858] = {achievementID = 42187, achievementName = "Lorewalking: Ethereal Wisdom", category = "lorewalking", expansion = "TWW"},
-    [258859] = {achievementID = 42188, achievementName = "Lorewalking: Blade's Bane", category = "lorewalking", expansion = "TWW"},
-    [258860] = {achievementID = 42189, achievementName = "Lorewalking: The Lich King", category = "lorewalking", expansion = "TWW"},
+    [245332] = {achievementID = 61467, achievementName = "Lorewalking: The Elves of Quel'Thalas", category = "lorewalking", expansion = "The War Within"},
+    [257351] = {achievementID = 42189, achievementName = "Lorewalking: The Lich King", category = "lorewalking", expansion = "The War Within"},
+    [257354] = {achievementID = 42187, achievementName = "Lorewalking: Ethereal Wisdom", category = "lorewalking", expansion = "The War Within"},
+    [257355] = {achievementID = 42188, achievementName = "Lorewalking: Blade's Bane", category = "lorewalking", expansion = "The War Within"},
+    [257400] = {achievementID = 61467, achievementName = "Lorewalking: The Elves of Quel'Thalas", category = "lorewalking", expansion = "The War Within"},
+    [258858] = {achievementID = 42187, achievementName = "Lorewalking: Ethereal Wisdom", category = "lorewalking", expansion = "The War Within"},
+    [258859] = {achievementID = 42188, achievementName = "Lorewalking: Blade's Bane", category = "lorewalking", expansion = "The War Within"},
+    [258860] = {achievementID = 42189, achievementName = "Lorewalking: The Lich King", category = "lorewalking", expansion = "The War Within"},
 
     -- Professions
-    [249237] = {achievementID = 19408, achievementName = "Professional Algari Master", category = "professions", expansion = "TWW"},
-    [253163] = {achievementID = 19408, achievementName = "Professional Algari Master", category = "professions", expansion = "TWW"},
+    [249237] = {achievementID = 19408, achievementName = "Professional Algari Master", category = "professions", expansion = "The War Within"},
+    [253163] = {achievementID = 19408, achievementName = "Professional Algari Master", category = "professions", expansion = "The War Within"},
 
     -- Progression
-    [245302] = {achievementID = 41119, achievementName = "One Rank Higher", category = "progression", expansion = "TWW"},
-    [251121] = {achievementID = 41119, achievementName = "One Rank Higher", category = "progression", expansion = "TWW"},
+    [245302] = {achievementID = 41119, achievementName = "One Rank Higher", category = "progression", expansion = "The War Within"},
+    [251121] = {achievementID = 41119, achievementName = "One Rank Higher", category = "progression", expansion = "The War Within"},
 
     -- PvP
-    [243890] = {achievementID = 40612, achievementName = "Sprinting in the Ravine", category = "pvp", expansion = "TWW"},
-    [247750] = {achievementID = 40612, achievementName = "Sprinting in the Ravine", category = "pvp", expansion = "TWW"},
-    [249200] = {achievementID = 40210, achievementName = "Deephaul Ravine Victory", category = "pvp", expansion = "TWW"},
-    [253170] = {achievementID = 40210, achievementName = "Deephaul Ravine Victory", category = "pvp", expansion = "TWW"},
-    [267354] = {achievementID = 61683, achievementName = "Entering Battle", category = "pvp", expansion = "TWW"},
-    [267355] = {achievementID = 61684, achievementName = "Progressing in Battle", category = "pvp", expansion = "TWW"},
-    [267356] = {achievementID = 61685, achievementName = "Proficient in Battle", category = "pvp", expansion = "TWW"},
-    [267357] = {achievementID = 61686, achievementName = "Expert in Battle", category = "pvp", expansion = "TWW"},
-    [267358] = {achievementID = 61687, achievementName = "Champion in Battle", category = "pvp", expansion = "TWW"},
-    [267359] = {achievementID = 61688, achievementName = "Master in Battle", category = "pvp", expansion = "TWW"},
+    [243890] = {achievementID = 40612, achievementName = "Sprinting in the Ravine", category = "pvp", expansion = "The War Within"},
+    [247750] = {achievementID = 40612, achievementName = "Sprinting in the Ravine", category = "pvp", expansion = "The War Within"},
+    [249200] = {achievementID = 40210, achievementName = "Deephaul Ravine Victory", category = "pvp", expansion = "The War Within"},
+    [253170] = {achievementID = 40210, achievementName = "Deephaul Ravine Victory", category = "pvp", expansion = "The War Within"},
+    [267354] = {achievementID = 61683, achievementName = "Entering Battle", category = "pvp", expansion = "The War Within"},
+    [267355] = {achievementID = 61684, achievementName = "Progressing in Battle", category = "pvp", expansion = "The War Within"},
+    [267356] = {achievementID = 61685, achievementName = "Proficient in Battle", category = "pvp", expansion = "The War Within"},
+    [267357] = {achievementID = 61686, achievementName = "Expert in Battle", category = "pvp", expansion = "The War Within"},
+    [267358] = {achievementID = 61687, achievementName = "Champion in Battle", category = "pvp", expansion = "The War Within"},
+    [267359] = {achievementID = 61688, achievementName = "Master in Battle", category = "pvp", expansion = "The War Within"},
 
     ---------------------------------------------------------------------------
     -- Dragonflight (DF)
     ---------------------------------------------------------------------------
 
     -- Meta
-    [248124] = {achievementID = 19458, achievementName = "A World Awoken", category = "meta", expansion = "DF"},
+    [248124] = {achievementID = 19458, achievementName = "A World Awoken", category = "meta", expansion = "Dragonflight"},
 
     -- Exploration
-    [248105] = {achievementID = 19507, achievementName = "Fringe Benefits", category = "exploration", expansion = "DF"},
-    [248200] = {achievementID = 19507, achievementName = "Fringe Benefits", category = "exploration", expansion = "DF"},
-    [248656] = {achievementID = 17529, achievementName = "Forbidden Spoils", category = "exploration", expansion = "DF"},
+    [248105] = {achievementID = 19507, achievementName = "Fringe Benefits", category = "exploration", expansion = "Dragonflight"},
+    [248200] = {achievementID = 19507, achievementName = "Fringe Benefits", category = "exploration", expansion = "Dragonflight"},
+    [248656] = {achievementID = 17529, achievementName = "Forbidden Spoils", category = "exploration", expansion = "Dragonflight"},
 
     -- Quests
-    [240857] = {achievementID = 19719, achievementName = "Reclamation of Gilneas", category = "quests", expansion = "DF"},
-    [245520] = {achievementID = 19719, achievementName = "Reclamation of Gilneas", category = "quests", expansion = "DF"},
-    [247900] = {achievementID = 17773, achievementName = "A Blue Dawn", category = "quests", expansion = "DF"},
-    [248104] = {achievementID = 17773, achievementName = "A Blue Dawn", category = "quests", expansion = "DF"},
+    [240857] = {achievementID = 19719, achievementName = "Reclamation of Gilneas", category = "quests", expansion = "Dragonflight"},
+    [245520] = {achievementID = 19719, achievementName = "Reclamation of Gilneas", category = "quests", expansion = "Dragonflight"},
+    [247900] = {achievementID = 17773, achievementName = "A Blue Dawn", category = "quests", expansion = "Dragonflight"},
+    [248104] = {achievementID = 17773, achievementName = "A Blue Dawn", category = "quests", expansion = "Dragonflight"},
 
     ---------------------------------------------------------------------------
     -- Shadowlands (SL)
     ---------------------------------------------------------------------------
 
     -- Meta
-    [244181] = {achievementID = 20501, achievementName = "Back from the Beyond", category = "meta", expansion = "SL"},
-    [248125] = {achievementID = 20501, achievementName = "Back from the Beyond", category = "meta", expansion = "SL"},
+    [244181] = {achievementID = 20501, achievementName = "Back from the Beyond", category = "meta", expansion = "Shadowlands"},
+    [248125] = {achievementID = 20501, achievementName = "Back from the Beyond", category = "meta", expansion = "Shadowlands"},
 
     ---------------------------------------------------------------------------
     -- Battle for Azeroth (BFA)
     ---------------------------------------------------------------------------
 
     -- Meta
-    [247667] = {achievementID = 40953, achievementName = "A Farewell to Arms", category = "meta", expansion = "BFA"},
-    [247668] = {achievementID = 40953, achievementName = "A Farewell to Arms", category = "meta", expansion = "BFA"},
+    [247667] = {achievementID = 40953, achievementName = "A Farewell to Arms", category = "meta", expansion = "Battle for Azeroth"},
+    [247668] = {achievementID = 40953, achievementName = "A Farewell to Arms", category = "meta", expansion = "Battle for Azeroth"},
 
     -- Quests
-    [241062] = {achievementID = 12509, achievementName = "Ready for War", category = "quests", expansion = "BFA"},
-    [241100] = {achievementID = 12582, achievementName = "Come Sail Away", category = "quests", expansion = "BFA"},
-    [241150] = {achievementID = 12997, achievementName = "The Pride of Kul Tiras", category = "quests", expansion = "BFA"},
-    [241175] = {achievementID = 13038, achievementName = "Raptari Rider", category = "quests", expansion = "BFA"},
-    [241200] = {achievementID = 13049, achievementName = "The Long Con", category = "quests", expansion = "BFA"},
-    [241250] = {achievementID = 12614, achievementName = "Loa Expectations", category = "quests", expansion = "BFA"},
-    [241300] = {achievementID = 13039, achievementName = "Paku'ai", category = "quests", expansion = "BFA"},
-    [241350] = {achievementID = 12509, achievementName = "Ready for War", category = "quests", expansion = "BFA"},
-    [241400] = {achievementID = 12479, achievementName = "Zandalar Forever!", category = "quests", expansion = "BFA"},
-    [241550] = {achievementID = 12869, achievementName = "Azeroth at War: After Lordaeron", category = "quests", expansion = "BFA"},
-    [241600] = {achievementID = 12870, achievementName = "Azeroth at War: Kalimdor on Fire", category = "quests", expansion = "BFA"},
-    [241650] = {achievementID = 12867, achievementName = "Azeroth at War: The Barrens", category = "quests", expansion = "BFA"},
-    [245271] = {achievementID = 12582, achievementName = "Come Sail Away", category = "quests", expansion = "BFA"},
-    [245463] = {achievementID = 12867, achievementName = "Azeroth at War: The Barrens", category = "quests", expansion = "BFA"},
-    [245467] = {achievementID = 12869, achievementName = "Azeroth at War: After Lordaeron", category = "quests", expansion = "BFA"},
-    [245483] = {achievementID = 12870, achievementName = "Azeroth at War: Kalimdor on Fire", category = "quests", expansion = "BFA"},
-    [245487] = {achievementID = 13038, achievementName = "Raptari Rider", category = "quests", expansion = "BFA"},
-    [245494] = {achievementID = 13039, achievementName = "Paku'ai", category = "quests", expansion = "BFA"},
-    [245497] = {achievementID = 12614, achievementName = "Loa Expectations", category = "quests", expansion = "BFA"},
-    [245522] = {achievementID = 12479, achievementName = "Zandalar Forever!", category = "quests", expansion = "BFA"},
-    [252653] = {achievementID = 13049, achievementName = "The Long Con", category = "quests", expansion = "BFA"},
-    [252654] = {achievementID = 12997, achievementName = "The Pride of Kul Tiras", category = "quests", expansion = "BFA"},
+    [241062] = {achievementID = 12509, achievementName = "Ready for War", category = "quests", expansion = "Battle for Azeroth"},
+    [241100] = {achievementID = 12582, achievementName = "Come Sail Away", category = "quests", expansion = "Battle for Azeroth"},
+    [241150] = {achievementID = 12997, achievementName = "The Pride of Kul Tiras", category = "quests", expansion = "Battle for Azeroth"},
+    [241175] = {achievementID = 13038, achievementName = "Raptari Rider", category = "quests", expansion = "Battle for Azeroth"},
+    [241200] = {achievementID = 13049, achievementName = "The Long Con", category = "quests", expansion = "Battle for Azeroth"},
+    [241250] = {achievementID = 12614, achievementName = "Loa Expectations", category = "quests", expansion = "Battle for Azeroth"},
+    [241300] = {achievementID = 13039, achievementName = "Paku'ai", category = "quests", expansion = "Battle for Azeroth"},
+    [241350] = {achievementID = 12509, achievementName = "Ready for War", category = "quests", expansion = "Battle for Azeroth"},
+    [241400] = {achievementID = 12479, achievementName = "Zandalar Forever!", category = "quests", expansion = "Battle for Azeroth"},
+    [241550] = {achievementID = 12869, achievementName = "Azeroth at War: After Lordaeron", category = "quests", expansion = "Battle for Azeroth"},
+    [241600] = {achievementID = 12870, achievementName = "Azeroth at War: Kalimdor on Fire", category = "quests", expansion = "Battle for Azeroth"},
+    [241650] = {achievementID = 12867, achievementName = "Azeroth at War: The Barrens", category = "quests", expansion = "Battle for Azeroth"},
+    [245271] = {achievementID = 12582, achievementName = "Come Sail Away", category = "quests", expansion = "Battle for Azeroth"},
+    [245463] = {achievementID = 12867, achievementName = "Azeroth at War: The Barrens", category = "quests", expansion = "Battle for Azeroth"},
+    [245467] = {achievementID = 12869, achievementName = "Azeroth at War: After Lordaeron", category = "quests", expansion = "Battle for Azeroth"},
+    [245483] = {achievementID = 12870, achievementName = "Azeroth at War: Kalimdor on Fire", category = "quests", expansion = "Battle for Azeroth"},
+    [245487] = {achievementID = 13038, achievementName = "Raptari Rider", category = "quests", expansion = "Battle for Azeroth"},
+    [245494] = {achievementID = 13039, achievementName = "Paku'ai", category = "quests", expansion = "Battle for Azeroth"},
+    [245497] = {achievementID = 12614, achievementName = "Loa Expectations", category = "quests", expansion = "Battle for Azeroth"},
+    [245522] = {achievementID = 12479, achievementName = "Zandalar Forever!", category = "quests", expansion = "Battle for Azeroth"},
+    [252653] = {achievementID = 13049, achievementName = "The Long Con", category = "quests", expansion = "Battle for Azeroth"},
+    [252654] = {achievementID = 12997, achievementName = "The Pride of Kul Tiras", category = "quests", expansion = "Battle for Azeroth"},
 
     -- Professions
-    [241191] = {achievementID = 12733, achievementName = "Professional Zandalari Master", category = "professions", expansion = "BFA"},
-    [241450] = {achievementID = 12746, achievementName = "The Zandalari Menu", category = "professions", expansion = "BFA"},
-    [244325] = {achievementID = 12746, achievementName = "The Zandalari Menu", category = "professions", expansion = "BFA"},
-    [245490] = {achievementID = 12733, achievementName = "Professional Zandalari Master", category = "professions", expansion = "BFA"},
+    [241191] = {achievementID = 12733, achievementName = "Professional Zandalari Master", category = "professions", expansion = "Battle for Azeroth"},
+    [241450] = {achievementID = 12746, achievementName = "The Zandalari Menu", category = "professions", expansion = "Battle for Azeroth"},
+    [244325] = {achievementID = 12746, achievementName = "The Zandalari Menu", category = "professions", expansion = "Battle for Azeroth"},
+    [245490] = {achievementID = 12733, achievementName = "Professional Zandalari Master", category = "professions", expansion = "Battle for Azeroth"},
 
     -- PvP
-    [241500] = {achievementID = 13284, achievementName = "Frontline Warrior", category = "pvp", expansion = "BFA"},
-    [245476] = {achievementID = 13284, achievementName = "Frontline Warrior", category = "pvp", expansion = "BFA"},
+    [241500] = {achievementID = 13284, achievementName = "Frontline Warrior", category = "pvp", expansion = "Battle for Azeroth"},
+    [245476] = {achievementID = 13284, achievementName = "Frontline Warrior", category = "pvp", expansion = "Battle for Azeroth"},
 
     -- Exploration
-    [241750] = {achievementID = 13473, achievementName = "Diversified Investments", category = "exploration", expansion = "BFA"},
-    [241800] = {achievementID = 13018, achievementName = "Dune Rider", category = "exploration", expansion = "BFA"},
-    [241850] = {achievementID = 13477, achievementName = "Junkyard Apprentice", category = "exploration", expansion = "BFA"},
-    [241900] = {achievementID = 13475, achievementName = "Junkyard Scavenger", category = "exploration", expansion = "BFA"},
-    [244326] = {achievementID = 13018, achievementName = "Dune Rider", category = "exploration", expansion = "BFA"},
-    [246483] = {achievementID = 13473, achievementName = "Diversified Investments", category = "exploration", expansion = "BFA"},
-    [246598] = {achievementID = 13477, achievementName = "Junkyard Apprentice", category = "exploration", expansion = "BFA"},
-    [246603] = {achievementID = 13475, achievementName = "Junkyard Scavenger", category = "exploration", expansion = "BFA"},
+    [241750] = {achievementID = 13473, achievementName = "Diversified Investments", category = "exploration", expansion = "Battle for Azeroth"},
+    [241800] = {achievementID = 13018, achievementName = "Dune Rider", category = "exploration", expansion = "Battle for Azeroth"},
+    [241850] = {achievementID = 13477, achievementName = "Junkyard Apprentice", category = "exploration", expansion = "Battle for Azeroth"},
+    [241900] = {achievementID = 13475, achievementName = "Junkyard Scavenger", category = "exploration", expansion = "Battle for Azeroth"},
+    [244326] = {achievementID = 13018, achievementName = "Dune Rider", category = "exploration", expansion = "Battle for Azeroth"},
+    [246483] = {achievementID = 13473, achievementName = "Diversified Investments", category = "exploration", expansion = "Battle for Azeroth"},
+    [246598] = {achievementID = 13477, achievementName = "Junkyard Apprentice", category = "exploration", expansion = "Battle for Azeroth"},
+    [246603] = {achievementID = 13475, achievementName = "Junkyard Scavenger", category = "exploration", expansion = "Battle for Azeroth"},
 
     -- Dungeons
-    [241700] = {achievementID = 13723, achievementName = "M.C., Hammered", category = "dungeons", expansion = "BFA"},
-    [246479] = {achievementID = 13723, achievementName = "M.C., Hammered", category = "dungeons", expansion = "BFA"},
+    [241700] = {achievementID = 13723, achievementName = "M.C., Hammered", category = "dungeons", expansion = "Battle for Azeroth"},
+    [246479] = {achievementID = 13723, achievementName = "M.C., Hammered", category = "dungeons", expansion = "Battle for Azeroth"},
 
     ---------------------------------------------------------------------------
     -- Legion
@@ -306,42 +307,42 @@ local sourceData = {
     ---------------------------------------------------------------------------
 
     -- Exploration
-    [258740] = {achievementID = 9415, achievementName = "Secrets of Skettis", category = "exploration", expansion = "WoD"},
+    [258740] = {achievementID = 9415, achievementName = "Secrets of Skettis", category = "exploration", expansion = "Warlords of Draenor"},
 
     ---------------------------------------------------------------------------
     -- Mists of Pandaria (MoP)
     ---------------------------------------------------------------------------
 
     -- Exploration
-    [251300] = {achievementID = 7322, achievementName = "Roll Club", category = "exploration", expansion = "MoP"},
+    [251300] = {achievementID = 7322, achievementName = "Roll Club", category = "exploration", expansion = "Mists of Pandaria"},
 
     -- PvP
-    [247740] = {achievementID = 6981, achievementName = "Master of Temple of Kotmogu", category = "pvp", expansion = "MoP"},
-    [247741] = {achievementID = 6981, achievementName = "Master of Temple of Kotmogu", category = "pvp", expansion = "MoP"},
-    [251298] = {achievementID = 6981, achievementName = "Master of Temple of Kotmogu", category = "pvp", expansion = "MoP"},
-    [251299] = {achievementID = 6981, achievementName = "Master of Temple of Kotmogu", category = "pvp", expansion = "MoP"},
+    [247740] = {achievementID = 6981, achievementName = "Master of Temple of Kotmogu", category = "pvp", expansion = "Mists of Pandaria"},
+    [247741] = {achievementID = 6981, achievementName = "Master of Temple of Kotmogu", category = "pvp", expansion = "Mists of Pandaria"},
+    [251298] = {achievementID = 6981, achievementName = "Master of Temple of Kotmogu", category = "pvp", expansion = "Mists of Pandaria"},
+    [251299] = {achievementID = 6981, achievementName = "Master of Temple of Kotmogu", category = "pvp", expansion = "Mists of Pandaria"},
 
     -- Dungeons
-    [251301] = {achievementID = 8316, achievementName = "Blood in the Snow", category = "dungeons", expansion = "MoP"},
-    [256425] = {achievementID = 8316, achievementName = "Blood in the Snow", category = "dungeons", expansion = "MoP"},
+    [251301] = {achievementID = 8316, achievementName = "Blood in the Snow", category = "dungeons", expansion = "Mists of Pandaria"},
+    [256425] = {achievementID = 8316, achievementName = "Blood in the Snow", category = "dungeons", expansion = "Mists of Pandaria"},
 
     ---------------------------------------------------------------------------
     -- Cataclysm (Cata)
     ---------------------------------------------------------------------------
 
     -- PvP
-    [247727] = {achievementID = 5223, achievementName = "Master of Twin Peaks", category = "pvp", expansion = "Cata"},
-    [251296] = {achievementID = 5245, achievementName = "Battle for Gilneas Victory", category = "pvp", expansion = "Cata"},
-    [251297] = {achievementID = 5223, achievementName = "Master of Twin Peaks", category = "pvp", expansion = "Cata"},
-    [256896] = {achievementID = 5245, achievementName = "Battle for Gilneas Victory", category = "pvp", expansion = "Cata"},
+    [247727] = {achievementID = 5223, achievementName = "Master of Twin Peaks", category = "pvp", expansion = "Cataclysm"},
+    [251296] = {achievementID = 5245, achievementName = "Battle for Gilneas Victory", category = "pvp", expansion = "Cataclysm"},
+    [251297] = {achievementID = 5223, achievementName = "Master of Twin Peaks", category = "pvp", expansion = "Cataclysm"},
+    [256896] = {achievementID = 5245, achievementName = "Battle for Gilneas Victory", category = "pvp", expansion = "Cataclysm"},
 
     ---------------------------------------------------------------------------
     -- Wrath of the Lich King (WotLK)
     ---------------------------------------------------------------------------
 
     -- Quests
-    [244842] = {achievementID = 938, achievementName = "The Snows of Northrend", category = "quests", expansion = "WotLK"},
-    [248807] = {achievementID = 938, achievementName = "The Snows of Northrend", category = "quests", expansion = "WotLK"},
+    [244842] = {achievementID = 938, achievementName = "The Snows of Northrend", category = "quests", expansion = "Wrath of the Lich King"},
+    [248807] = {achievementID = 938, achievementName = "The Snows of Northrend", category = "quests", expansion = "Wrath of the Lich King"},
 
     ---------------------------------------------------------------------------
     -- Classic
@@ -558,7 +559,7 @@ function AchievementSources:GetUncompletedAchievements()
         end
     end
 
-    local expansionOrder = {TWW = 1, Midnight = 2, DF = 3, SL = 4, BFA = 5, Legion = 6, WoD = 7, MoP = 8, Cata = 9, WotLK = 10, Classic = 11}
+    local expansionOrder = {["The War Within"] = 1, Midnight = 2, Dragonflight = 3, Shadowlands = 4, ["Battle for Azeroth"] = 5, Legion = 6, ["Warlords of Draenor"] = 7, ["Mists of Pandaria"] = 8, Cataclysm = 9, ["Wrath of the Lich King"] = 10, Classic = 11}
     table.sort(uncompleted, function(a, b)
         local orderA = expansionOrder[a.expansion] or 99
         local orderB = expansionOrder[b.expansion] or 99
@@ -586,7 +587,7 @@ function AchievementSources:DebugPrint()
 
     if stats.total > 0 then
         HA.Addon:Debug("By expansion:")
-        local expansionOrder = {"TWW", "Midnight", "DF", "SL", "BFA", "Legion", "WoD", "MoP", "Cata", "WotLK", "Classic"}
+        local expansionOrder = {"The War Within", "Midnight", "Dragonflight", "Shadowlands", "Battle for Azeroth", "Legion", "Warlords of Draenor", "Mists of Pandaria", "Cataclysm", "Wrath of the Lich King", "Classic"}
         for _, exp in ipairs(expansionOrder) do
             local count = stats.byExpansion[exp]
             if count then
