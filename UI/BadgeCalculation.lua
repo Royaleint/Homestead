@@ -45,7 +45,11 @@ end
 -------------------------------------------------------------------------------
 
 -- Cached uncollected status per vendor (invalidated on ownership changes)
+-- Keyed by "npcID|sourceFilter", stores true/false/"unknown".
 local uncollectedCache = {}
+
+-- Cached per-vendor collection counts keyed by "npcID|sourceFilter"
+local collectionCountCache = {}
 
 -- Cached badge counts (invalidated on ownership/scan/settings changes)
 local cachedZoneBadges = {}       -- [continentMapID] = zoneCounts table
@@ -65,15 +69,58 @@ local function IsItemOwned(itemID)
     return false
 end
 
+-- Normalize source filter token used in cache keys and filtering checks.
+local function NormalizeSourceFilter(sourceFilter)
+    if type(sourceFilter) ~= "string" or sourceFilter == "" then
+        return "all"
+    end
+
+    local lower = sourceFilter:lower()
+    if lower == "all" then
+        return "all"
+    end
+
+    local SM = HA.SourceManager
+    if SM and SM.NormalizeSourceType then
+        local normalized = SM:NormalizeSourceType(lower)
+        if normalized then
+            return normalized
+        end
+    end
+
+    return lower
+end
+
+local function BuildVendorFilterCacheKey(vendor, sourceFilter)
+    return tostring(vendor.npcID) .. "|" .. NormalizeSourceFilter(sourceFilter)
+end
+
+local function ItemMatchesSourceFilter(itemID, sourceFilter)
+    local normalizedFilter = NormalizeSourceFilter(sourceFilter)
+    if normalizedFilter == "all" then
+        return true
+    end
+
+    local SM = HA.SourceManager
+    if SM and SM.ItemMatchesSourceFilter then
+        -- Vendor-scoped context: all vendor inventory items are vendor-eligible.
+        return SM:ItemMatchesSourceFilter(itemID, normalizedFilter, true)
+    end
+
+    return false
+end
+
 -------------------------------------------------------------------------------
 -- Collection Status
 -------------------------------------------------------------------------------
 
-function BadgeCalculation:VendorHasUncollectedItems(vendor)
+function BadgeCalculation:VendorHasUncollectedItems(vendor, sourceFilter)
     if not vendor or not vendor.npcID then return nil end
 
+    local cacheKey = BuildVendorFilterCacheKey(vendor, sourceFilter)
+
     -- Return cached result if available
-    local cached = uncollectedCache[vendor.npcID]
+    local cached = uncollectedCache[cacheKey]
     if cached ~= nil then
         -- Cache stores "unknown" string for nil results (nil can't be stored as a value)
         if cached == "unknown" then return nil end
@@ -90,24 +137,41 @@ function BadgeCalculation:VendorHasUncollectedItems(vendor)
     local hasAnyItems = next(items) ~= nil
 
     if not hasAnyItems then
-        uncollectedCache[vendor.npcID] = "unknown"
+        uncollectedCache[cacheKey] = "unknown"
         return nil  -- Unknown - no item data available
     end
 
+    local hasMatchingItems = false
+
     -- Check if any items are uncollected
     for itemID in pairs(items) do
-        if not IsItemOwned(itemID) then
-            uncollectedCache[vendor.npcID] = true
-            return true  -- Has uncollected items
+        if ItemMatchesSourceFilter(itemID, sourceFilter) then
+            hasMatchingItems = true
+            if not IsItemOwned(itemID) then
+                uncollectedCache[cacheKey] = true
+                return true  -- Has uncollected matching items
+            end
         end
     end
 
-    uncollectedCache[vendor.npcID] = false
-    return false  -- All items collected
+    -- No matching items under this filter counts as "not uncollected", not unknown.
+    if not hasMatchingItems then
+        uncollectedCache[cacheKey] = false
+        return false
+    end
+
+    uncollectedCache[cacheKey] = false
+    return false  -- All matching items collected
 end
 
-function BadgeCalculation:GetVendorCollectionCounts(vendor)
+function BadgeCalculation:GetVendorCollectionCounts(vendor, sourceFilter)
     if not vendor or not vendor.npcID then return 0, 0 end
+
+    local cacheKey = BuildVendorFilterCacheKey(vendor, sourceFilter)
+    local cached = collectionCountCache[cacheKey]
+    if cached then
+        return cached.collected or 0, cached.total or 0
+    end
 
     local items = HA.VendorData and HA.VendorData.GetMergedItemSet
         and HA.VendorData:GetMergedItemSet(vendor)
@@ -115,11 +179,19 @@ function BadgeCalculation:GetVendorCollectionCounts(vendor)
 
     local total, collected = 0, 0
     for itemID in pairs(items) do
-        total = total + 1
-        if IsItemOwned(itemID) then
-            collected = collected + 1
+        if ItemMatchesSourceFilter(itemID, sourceFilter) then
+            total = total + 1
+            if IsItemOwned(itemID) then
+                collected = collected + 1
+            end
         end
     end
+
+    collectionCountCache[cacheKey] = {
+        total = total,
+        collected = collected,
+    }
+
     return collected, total
 end
 
@@ -134,13 +206,24 @@ end
 
 function BadgeCalculation:InvalidateAllCaches()
     wipe(uncollectedCache)
+    wipe(collectionCountCache)
     self:InvalidateBadgeCache()
 end
 
 -- Invalidate a specific vendor's uncollected cache entry
 function BadgeCalculation:InvalidateVendorCache(npcID)
     if npcID then
-        uncollectedCache[npcID] = nil
+        local prefix = tostring(npcID) .. "|"
+        for key in pairs(uncollectedCache) do
+            if type(key) == "string" and key:sub(1, #prefix) == prefix then
+                uncollectedCache[key] = nil
+            end
+        end
+        for key in pairs(collectionCountCache) do
+            if type(key) == "string" and key:sub(1, #prefix) == prefix then
+                collectionCountCache[key] = nil
+            end
+        end
     end
 end
 
