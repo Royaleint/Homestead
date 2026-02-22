@@ -27,6 +27,10 @@ local _, HA = ...
 local SourceManager = {}
 HA.SourceManager = SourceManager
 
+-- Cache for completion status checks used by tooltip rendering.
+-- Keys are source-scoped ("achievement:12345", "quest:98765", "profession:54321").
+local completionCache = {}
+
 -------------------------------------------------------------------------------
 -- Source Lookup
 -------------------------------------------------------------------------------
@@ -729,6 +733,170 @@ function SourceManager:CountItemsBySourceType(itemIDs, mode, isVendorContext)
     end)
 
     return counts
+end
+
+-------------------------------------------------------------------------------
+-- Completion Status / Source Cache Helpers
+-------------------------------------------------------------------------------
+
+local function CopyCompletionStatus(status)
+    if not status then return nil end
+    return {
+        color = status.color,
+        suffix = status.suffix,
+        met = status.met,
+    }
+end
+
+local function ResolveCompletionSource(itemID, sourceType, sourceData)
+    local normalizedType = sourceType and SourceManager:NormalizeSourceType(sourceType) or nil
+    if normalizedType then
+        return normalizedType, sourceData
+    end
+    if not itemID then
+        return nil, nil
+    end
+
+    -- Keep legacy priority used by tooltips when sourceType isn't explicit.
+    if HA.AchievementSources and HA.AchievementSources[itemID] then
+        return "achievement", HA.AchievementSources[itemID]
+    end
+    if HA.QuestSources and HA.QuestSources[itemID] then
+        return "quest", HA.QuestSources[itemID]
+    end
+    if HA.ProfessionSources and HA.ProfessionSources[itemID] then
+        return "profession", HA.ProfessionSources[itemID]
+    end
+
+    return nil, nil
+end
+
+-- Returns completion state for source types that can be checked at runtime.
+-- Response shape:
+--   { color = "|cFF......", suffix = " (...)", met = true|false|nil } or nil.
+function SourceManager:GetCompletionStatus(itemID, sourceType, sourceData)
+    local resolvedType, resolvedData = ResolveCompletionSource(itemID, sourceType, sourceData)
+    if not resolvedType then return nil end
+
+    if resolvedType == "achievement" then
+        local achievementID = resolvedData and resolvedData.achievementID
+        if not achievementID or not GetAchievementInfo then return nil end
+
+        local cacheKey = "achievement:" .. achievementID
+        if completionCache[cacheKey] then
+            return CopyCompletionStatus(completionCache[cacheKey])
+        end
+
+        local id, _, _, completed, _, _, _, _, _, _, _, _, wasEarnedByMe = GetAchievementInfo(achievementID)
+        if not id then
+            return nil
+        end
+
+        local result
+        if wasEarnedByMe then
+            result = { color = "|cFF00FF00", suffix = " (This Character)", met = true }
+        elseif completed then
+            result = { color = "|cFF66FF66", suffix = " (Account)", met = true }
+        else
+            result = { color = "|cFFFF0000", suffix = " (Incomplete)", met = false }
+        end
+
+        completionCache[cacheKey] = result
+        return CopyCompletionStatus(result)
+    end
+
+    if resolvedType == "quest" then
+        local questID = resolvedData and resolvedData.questID
+        if not questID or not C_QuestLog or not C_QuestLog.IsQuestFlaggedCompleted then return nil end
+
+        local cacheKey = "quest:" .. questID
+        if completionCache[cacheKey] then
+            return CopyCompletionStatus(completionCache[cacheKey])
+        end
+
+        local completed = C_QuestLog.IsQuestFlaggedCompleted(questID)
+        local result = completed
+            and { color = "|cFF00FF00", suffix = " (Completed)", met = true }
+            or { color = "|cFFFF0000", suffix = " (Incomplete)", met = false }
+
+        completionCache[cacheKey] = result
+        return CopyCompletionStatus(result)
+    end
+
+    if resolvedType == "profession" then
+        local spellID = resolvedData and resolvedData.spellID
+        if not spellID then return nil end
+
+        local tradeSkillUI = _G and _G.C_TradeSkillUI
+        if not tradeSkillUI or not tradeSkillUI.GetRecipeInfo then
+            -- API unavailable until profession systems are ready/opened.
+            return { color = "|cFF808080", suffix = " (Unknown)", met = nil }
+        end
+
+        local recipeInfo = tradeSkillUI.GetRecipeInfo(spellID)
+        if not recipeInfo then
+            return { color = "|cFF808080", suffix = " (Unknown)", met = nil }
+        end
+
+        local result
+        if recipeInfo.craftable then
+            result = { color = "|cFF00FF00", suffix = " (Can Craft Now)", met = true }
+        elseif recipeInfo.learned then
+            result = { color = "|cFF66FF66", suffix = " (Recipe Known)", met = true }
+        else
+            result = { color = "|cFFFF0000", suffix = " (Recipe Unknown)", met = false }
+        end
+
+        return CopyCompletionStatus(result)
+    end
+
+    return nil
+end
+
+-- Return all sources with optional completion metadata attached for supported types.
+function SourceManager:GetAllSourcesWithStatus(itemID)
+    local sources = self:GetAllSources(itemID)
+    if not sources or #sources == 0 then
+        return {}
+    end
+
+    local result = {}
+    for i, source in ipairs(sources) do
+        result[i] = {
+            type = source.type,
+            data = source.data,
+            _isParsed = source._isParsed,
+            completion = self:GetCompletionStatus(itemID, source.type, source.data),
+        }
+    end
+    return result
+end
+
+-- Build a set of source types that should suppress requirement duplication in tooltips.
+function SourceManager:BuildRequirementDedupSet(sourceTypes)
+    local dedup = {}
+    if type(sourceTypes) ~= "table" then
+        return dedup
+    end
+
+    for _, sourceType in pairs(sourceTypes) do
+        local normalized = self:NormalizeSourceType(sourceType)
+        if normalized == "achievement" or normalized == "quest" then
+            dedup[normalized] = true
+        end
+    end
+
+    return dedup
+end
+
+function SourceManager:InvalidateCompletionCache()
+    completionCache = {}
+end
+
+-- Central invalidation entrypoint for source-related caches.
+-- Future source/filter caches should be added here so callers have one API.
+function SourceManager:InvalidateAllSourceCaches()
+    self:InvalidateCompletionCache()
 end
 
 function SourceManager:IsVendorItem(itemID)
