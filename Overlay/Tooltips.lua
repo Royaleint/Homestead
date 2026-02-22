@@ -19,7 +19,6 @@ local pcall = pcall
 -- Local state
 local isHooked = false
 local isCatalogHooked = false
-local completionInvalidationFrame = nil
 
 -- Colors
 local COLOR_GREEN = {r = 0, g = 1, b = 0}
@@ -828,23 +827,6 @@ local function OnAddonLoaded(loadedAddonName)
     end
 end
 
--- Invalidate SourceManager completion-related caches when character progression changes.
-local function HookCompletionCacheInvalidation()
-    if completionInvalidationFrame then return end
-
-    completionInvalidationFrame = CreateFrame("Frame")
-    completionInvalidationFrame:RegisterEvent("ACHIEVEMENT_EARNED")
-    completionInvalidationFrame:RegisterEvent("QUEST_TURNED_IN")
-    completionInvalidationFrame:RegisterEvent("NEW_RECIPE_LEARNED")
-    completionInvalidationFrame:SetScript("OnEvent", function()
-        if HA.SourceManager and HA.SourceManager.InvalidateAllSourceCaches then
-            HA.SourceManager:InvalidateAllSourceCaches()
-        elseif HA.SourceManager and HA.SourceManager.InvalidateCompletionCache then
-            HA.SourceManager:InvalidateCompletionCache()
-        end
-    end)
-end
-
 -------------------------------------------------------------------------------
 -- Initialization
 -------------------------------------------------------------------------------
@@ -860,8 +842,6 @@ local function IsAddonLoaded(name)
 end
 
 local function Initialize()
-    HookCompletionCacheInvalidation()
-
     -- Hook standard item tooltips
     HookTooltips()
 

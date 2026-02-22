@@ -30,6 +30,7 @@ HA.SourceManager = SourceManager
 -- Cache for completion status checks used by tooltip rendering.
 -- Keys are source-scoped ("achievement:12345", "quest:98765", "profession:54321").
 local completionCache = {}
+local completionInvalidationFrame = nil
 
 -------------------------------------------------------------------------------
 -- Source Lookup
@@ -876,25 +877,6 @@ function SourceManager:GetCompletionStatus(itemID, sourceType, sourceData)
     return nil
 end
 
--- Return all sources with optional completion metadata attached for supported types.
-function SourceManager:GetAllSourcesWithStatus(itemID)
-    local sources = self:GetAllSources(itemID)
-    if not sources or #sources == 0 then
-        return {}
-    end
-
-    local result = {}
-    for i, source in ipairs(sources) do
-        result[i] = {
-            type = source.type,
-            data = source.data,
-            _isParsed = source._isParsed,
-            completion = self:GetCompletionStatus(itemID, source.type, source.data),
-        }
-    end
-    return result
-end
-
 -- Build a set of source types that should suppress requirement duplication in tooltips.
 function SourceManager:BuildRequirementDedupSet(sourceTypes)
     local dedup = {}
@@ -920,6 +902,18 @@ end
 -- Future source/filter caches should be added here so callers have one API.
 function SourceManager:InvalidateAllSourceCaches()
     self:InvalidateCompletionCache()
+end
+
+local function HookCompletionCacheInvalidation()
+    if completionInvalidationFrame then return end
+
+    completionInvalidationFrame = CreateFrame("Frame")
+    completionInvalidationFrame:RegisterEvent("ACHIEVEMENT_EARNED")
+    completionInvalidationFrame:RegisterEvent("QUEST_TURNED_IN")
+    completionInvalidationFrame:RegisterEvent("NEW_RECIPE_LEARNED")
+    completionInvalidationFrame:SetScript("OnEvent", function()
+        SourceManager:InvalidateAllSourceCaches()
+    end)
 end
 
 function SourceManager:IsVendorItem(itemID)
@@ -1068,6 +1062,8 @@ end
 -------------------------------------------------------------------------------
 
 function SourceManager:Initialize()
+    HookCompletionCacheInvalidation()
+
     local stats = self:GetStats()
 
     if HA.Addon then
