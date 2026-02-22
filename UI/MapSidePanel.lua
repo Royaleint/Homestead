@@ -51,6 +51,18 @@ local expandedVendorID = nil  -- npcID of currently expanded vendor (nil = none)
 local lastRefreshMapID = nil
 local isPoppedOut = false
 local panelSourceFilter = "all"  -- all|vendor|quest|achievement|profession|event|drop
+local sourceFilterButton = nil
+
+local SOURCE_FILTER_ORDER = { "all", "vendor", "quest", "achievement", "profession", "event", "drop" }
+local SOURCE_FILTER_LABELS = {
+    all = "All",
+    vendor = "Vendor",
+    quest = "Quest",
+    achievement = "Achievement",
+    profession = "Profession",
+    event = "Event",
+    drop = "Drop",
+}
 
 -- Map shift state (declared early so preview hooks can reference them)
 local mapShifted = false
@@ -174,6 +186,38 @@ local function NormalizePanelSourceFilter(sourceFilter)
     end
 
     return lower
+end
+
+local function GetSourceFilterLabel(sourceFilter)
+    local normalized = NormalizePanelSourceFilter(sourceFilter)
+    return SOURCE_FILTER_LABELS[normalized] or normalized
+end
+
+local function GetAdjacentSourceFilter(sourceFilter, direction)
+    local normalized = NormalizePanelSourceFilter(sourceFilter)
+    local step = (direction == -1) and -1 or 1
+
+    local currentIndex = 1
+    for i, token in ipairs(SOURCE_FILTER_ORDER) do
+        if token == normalized then
+            currentIndex = i
+            break
+        end
+    end
+
+    local nextIndex = currentIndex + step
+    if nextIndex < 1 then
+        nextIndex = #SOURCE_FILTER_ORDER
+    elseif nextIndex > #SOURCE_FILTER_ORDER then
+        nextIndex = 1
+    end
+
+    return SOURCE_FILTER_ORDER[nextIndex]
+end
+
+local function UpdateSourceFilterButtonText()
+    if not sourceFilterButton then return end
+    sourceFilterButton:SetText(GetSourceFilterLabel(panelSourceFilter))
 end
 
 local function ItemMatchesPanelSourceFilter(itemID, sourceFilter)
@@ -688,6 +732,27 @@ local function CreatePanel()
         GameTooltip:Show()
     end)
     popOutButton:SetScript("OnLeave", GameTooltip_Hide)
+
+    -- Source filter control (title pane): cycles through source filters.
+    sourceFilterButton = CreateFrame("Button", nil, headerFrame, "UIPanelButtonTemplate")
+    sourceFilterButton:SetSize(84, 18)
+    sourceFilterButton:SetPoint("RIGHT", popOutButton, "LEFT", -4, 0)
+    sourceFilterButton:RegisterForClicks("LeftButtonUp", "RightButtonUp")
+    sourceFilterButton:SetScript("OnClick", function(_, button)
+        local direction = (button == "RightButton") and -1 or 1
+        local nextFilter = GetAdjacentSourceFilter(panelSourceFilter, direction)
+        MapSidePanel:SetSourceFilter(nextFilter)
+    end)
+    sourceFilterButton:SetScript("OnEnter", function(self)
+        GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+        GameTooltip:SetText("Item Source Filter")
+        GameTooltip:AddLine("Current: " .. GetSourceFilterLabel(panelSourceFilter), 1, 1, 1)
+        GameTooltip:AddLine("Left-click: Next filter", 0.8, 0.8, 0.8)
+        GameTooltip:AddLine("Right-click: Previous filter", 0.8, 0.8, 0.8)
+        GameTooltip:Show()
+    end)
+    sourceFilterButton:SetScript("OnLeave", GameTooltip_Hide)
+    UpdateSourceFilterButtonText()
 
     -- Close button (detached mode): standard X at top-right
     closeButton = CreateFrame("Button", nil, panel, "UIPanelCloseButton")
@@ -2053,9 +2118,19 @@ end
 
 function MapSidePanel:SetSourceFilter(sourceFilter)
     local normalized = NormalizePanelSourceFilter(sourceFilter)
-    if panelSourceFilter == normalized then return end
+    if panelSourceFilter == normalized then
+        UpdateSourceFilterButtonText()
+        return
+    end
 
     panelSourceFilter = normalized
+
+    if HA.Addon and HA.Addon.db and HA.Addon.db.profile and HA.Addon.db.profile.vendorTracer then
+        HA.Addon.db.profile.vendorTracer.mapSidePanelSourceFilter = normalized
+    end
+
+    UpdateSourceFilterButtonText()
+
     if BC and BC.InvalidateAllCaches then
         BC:InvalidateAllCaches()
     end
