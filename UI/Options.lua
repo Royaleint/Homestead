@@ -319,6 +319,7 @@ local function GetOptionsTable()
                             event = "Event",
                             drop = "Drop",
                         },
+                        sorting = { "all", "vendor", "quest", "achievement", "profession", "event", "drop" },
                         get = function()
                             return HA.Addon.db.profile.vendorTracer.mapSidePanelSourceFilter or "all"
                         end,
