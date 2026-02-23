@@ -20,6 +20,24 @@ local _, HA = ...
 local EndeavorsData = {}
 HA.EndeavorsData = EndeavorsData
 
+-- Runtime state
+local activeTheme = nil
+local activeThemeKnown = false
+local eventFrame = nil
+local loggedRawTitle = false
+
+-- Normalized title aliases for non-exact title matching fallback
+local titleAliasToTheme = {
+    ["night elf"] = "Night Elf",
+    ["nightelf"] = "Night Elf",
+    ["gilnean"] = "Gilnean",
+    ["gilneas"] = "Gilnean",
+    ["orc"] = "Orc",
+    ["mechagnome"] = "Mechagnome",
+    ["arakkoa"] = "Arakkoa",
+    ["tuskarr"] = "Tuskarr",
+}
+
 -------------------------------------------------------------------------------
 -- Endeavor Theme Metadata (for future C_NeighborhoodInitiative integration)
 -------------------------------------------------------------------------------
@@ -173,6 +191,14 @@ EndeavorsData.Vendors = {
 EndeavorsData.ByMapID = {}
 EndeavorsData.ByItemID = {}
 EndeavorsData.VendorCount = 0
+EndeavorsData.NPCToTheme = {}
+
+for themeName, themeData in pairs(EndeavorsData.Endeavors) do
+    local vendorNPC = themeData and themeData.vendorNPC
+    if vendorNPC then
+        EndeavorsData.NPCToTheme[vendorNPC] = themeName
+    end
+end
 
 for npcID, vendor in pairs(EndeavorsData.Vendors) do
     vendor.npcID = npcID
@@ -198,5 +224,204 @@ for npcID, vendor in pairs(EndeavorsData.Vendors) do
                 table.insert(EndeavorsData.ByItemID[itemID], npcID)
             end
         end
+    end
+end
+
+-------------------------------------------------------------------------------
+-- Active Theme Detection
+-------------------------------------------------------------------------------
+
+local function ResolveCanonicalNPCID(npcID)
+    if type(npcID) ~= "number" then return nil end
+    local canonical = EndeavorsData.Aliases and EndeavorsData.Aliases[npcID]
+    return canonical or npcID
+end
+
+local function ResolveThemeFromTitle(title)
+    if type(title) ~= "string" or title == "" then return nil end
+
+    local loweredTitle = title:lower()
+    local compactTitle = loweredTitle:gsub("[^%a%d]", "")
+
+    -- First pass: exact/substring match against canonical theme names
+    for themeName in pairs(EndeavorsData.Endeavors) do
+        local loweredTheme = themeName:lower()
+        if loweredTitle:find(loweredTheme, 1, true) then
+            return themeName
+        end
+
+        local compactTheme = loweredTheme:gsub("[^%a%d]", "")
+        if compactTheme ~= "" and compactTitle:find(compactTheme, 1, true) then
+            return themeName
+        end
+    end
+
+    -- Second pass: known aliases
+    for aliasToken, themeName in pairs(titleAliasToTheme) do
+        if aliasToken:find(" ", 1, true) then
+            if loweredTitle:find(aliasToken, 1, true) then
+                return themeName
+            end
+        else
+            if compactTitle:find(aliasToken, 1, true) then
+                return themeName
+            end
+        end
+    end
+
+    -- Third pass: vendor name fallback
+    for npcID, vendor in pairs(EndeavorsData.Vendors) do
+        if vendor.name and loweredTitle:find(vendor.name:lower(), 1, true) then
+            return EndeavorsData.NPCToTheme[npcID]
+        end
+    end
+
+    return nil
+end
+
+local function ResolveThemeFromInitiativeInfo(info)
+    if type(info) ~= "table" then return nil, false, nil end
+
+    -- Prefer stable IDs if exposed by API payload.
+    local directNPCFields = {
+        "vendorNPCID",
+        "vendorNpcID",
+        "vendorID",
+        "npcID",
+    }
+
+    for _, fieldName in ipairs(directNPCFields) do
+        local npcID = tonumber(info[fieldName])
+        if npcID then
+            local themeName = EndeavorsData.NPCToTheme[ResolveCanonicalNPCID(npcID)]
+            if themeName then
+                return themeName, true, info.title
+            end
+        end
+    end
+
+    if type(info.vendor) == "table" then
+        for _, fieldName in ipairs({"npcID", "vendorNPCID", "vendorNpcID", "vendorID"}) do
+            local npcID = tonumber(info.vendor[fieldName])
+            if npcID then
+                local themeName = EndeavorsData.NPCToTheme[ResolveCanonicalNPCID(npcID)]
+                if themeName then
+                    return themeName, true, info.title
+                end
+            end
+        end
+    end
+
+    local themeFromTitle = ResolveThemeFromTitle(info.title)
+    if themeFromTitle then
+        return themeFromTitle, true, info.title
+    end
+
+    return nil, false, info.title
+end
+
+local function RefreshActiveTheme(reason)
+    local neighborhoodAPI = _G.C_NeighborhoodInitiative
+    if not neighborhoodAPI or not neighborhoodAPI.GetNeighborhoodInitiativeInfo then
+        return
+    end
+
+    local ok, info = pcall(neighborhoodAPI.GetNeighborhoodInitiativeInfo)
+    if not ok or not info then
+        return
+    end
+
+    local newTheme, newKnown, rawTitle = ResolveThemeFromInitiativeInfo(info)
+    local changed = (newTheme ~= activeTheme) or (newKnown ~= activeThemeKnown)
+
+    activeTheme = newTheme
+    activeThemeKnown = newKnown
+
+    if rawTitle and rawTitle ~= "" and not loggedRawTitle and HA.Addon and HA.Addon.db
+            and HA.Addon.db.profile and HA.Addon.db.profile.debug then
+        HA.Addon:Debug("EndeavorsData: Neighborhood initiative title:", rawTitle)
+        loggedRawTitle = true
+    end
+
+    if HA.Addon and HA.Addon.db and HA.Addon.db.profile and HA.Addon.db.profile.debug then
+        if activeThemeKnown then
+            HA.Addon:Debug("EndeavorsData: active theme:", activeTheme, "(" .. tostring(reason) .. ")")
+        else
+            HA.Addon:Debug("EndeavorsData: active theme unknown", "(" .. tostring(reason) .. ")")
+        end
+    end
+
+    if changed and HA.Events then
+        HA.Events:Fire("ACTIVE_ENDEAVOR_CHANGED")
+    end
+end
+
+-------------------------------------------------------------------------------
+-- Public API
+-------------------------------------------------------------------------------
+
+function EndeavorsData:GetActiveTheme()
+    if not activeThemeKnown then return nil end
+    return activeTheme
+end
+
+-- Returns true/false when known, nil when unknown.
+function EndeavorsData:IsThemeActive(themeName)
+    if type(themeName) ~= "string" or themeName == "" then
+        return nil
+    end
+    if not activeThemeKnown then
+        return nil
+    end
+    return activeTheme == themeName
+end
+
+function EndeavorsData:GetThemeForVendor(vendorOrNPCID)
+    local npcID = vendorOrNPCID
+    if type(vendorOrNPCID) == "table" then
+        npcID = vendorOrNPCID.npcID
+    end
+    npcID = tonumber(npcID)
+    if not npcID then return nil end
+
+    local canonicalNPC = ResolveCanonicalNPCID(npcID)
+    return canonicalNPC and EndeavorsData.NPCToTheme[canonicalNPC] or nil
+end
+
+-- Fail-open while active theme is unknown.
+function EndeavorsData:IsVendorActive(vendorOrNPCID)
+    local themeName = self:GetThemeForVendor(vendorOrNPCID)
+    if not themeName then
+        return true
+    end
+
+    local isActive = self:IsThemeActive(themeName)
+    if isActive == nil then
+        return true
+    end
+    return isActive
+end
+
+function EndeavorsData:Initialize()
+    if eventFrame then return end
+
+    eventFrame = CreateFrame("Frame")
+    eventFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
+    eventFrame:RegisterEvent("NEIGHBORHOOD_INITIATIVE_UPDATED")
+    eventFrame:SetScript("OnEvent", function(_, event)
+        RefreshActiveTheme(event)
+
+        -- Neighborhood API payload can lag behind PLAYER_ENTERING_WORLD.
+        if event == "PLAYER_ENTERING_WORLD" then
+            C_Timer.After(2, function()
+                RefreshActiveTheme("PLAYER_ENTERING_WORLD_DELAYED")
+            end)
+        end
+    end)
+
+    RefreshActiveTheme("Initialize")
+
+    if HA.Addon then
+        HA.Addon:Debug("EndeavorsData initialized")
     end
 end

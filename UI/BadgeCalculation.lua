@@ -69,6 +69,18 @@ local function IsItemOwned(itemID)
     return false
 end
 
+local function ShouldIncludeVendorInBadgeCounts(vendor)
+    if not vendor or not vendor.endeavor then
+        return true
+    end
+
+    if HA.EndeavorsData and HA.EndeavorsData.IsVendorActive then
+        return HA.EndeavorsData:IsVendorActive(vendor)
+    end
+
+    return true
+end
+
 -- Normalize source filter token used in cache keys and filtering checks.
 local function NormalizeSourceFilter(sourceFilter)
     local SM = HA.SourceManager
@@ -240,7 +252,9 @@ function BadgeCalculation:GetZoneVendorCounts(continentMapID)
 
     for _, vendor in ipairs(allVendors) do
         -- Include only vendors not hidden by scan state and visible under verification settings.
-        if not VF.ShouldHideVendor(vendor) and (showUnverified or VF.IsVendorVerified(vendor)) then
+        if ShouldIncludeVendorInBadgeCounts(vendor)
+                and not VF.ShouldHideVendor(vendor)
+                and (showUnverified or VF.IsVendorVerified(vendor)) then
             -- Get best coordinates (scanned preferred over static)
             local coords, zoneMapID = VF.GetBestVendorCoordinates(vendor)
 
@@ -305,7 +319,9 @@ function BadgeCalculation:GetContinentVendorCounts()
 
     for _, vendor in ipairs(allVendors) do
         -- Include only vendors not hidden by scan state and visible under verification settings.
-        if not VF.ShouldHideVendor(vendor) and (showUnverified or VF.IsVendorVerified(vendor)) then
+        if ShouldIncludeVendorInBadgeCounts(vendor)
+                and not VF.ShouldHideVendor(vendor)
+                and (showUnverified or VF.IsVendorVerified(vendor)) then
             -- Get best coordinates (scanned preferred over static)
             local coords, zoneMapID = VF.GetBestVendorCoordinates(vendor)
 

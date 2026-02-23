@@ -952,6 +952,13 @@ function VendorMapPins:ShowVendorPins(mapID)
         if not vendor or not vendor.npcID then return end
         if addedVendors[vendor.npcID] then return end
 
+        -- Endeavor vendors are visible only when their theme is active.
+        if HA.EndeavorsData and HA.EndeavorsData.IsVendorActive
+                and not HA.EndeavorsData:IsVendorActive(vendor) then
+            addedVendors[vendor.npcID] = true
+            return
+        end
+
         -- Skip unreleased or no-decor vendors
         if ShouldHideVendor(vendor) then
             -- Mark as processed to avoid re-checking in scanned vendors loop
@@ -1374,6 +1381,14 @@ function VendorMapPins:Initialize()
                 self:RefreshPins()
             end
             self:RequestMinimapRefresh("holidays_changed")
+        end)
+
+        HA.Events:RegisterCallback("ACTIVE_ENDEAVOR_CHANGED", function()
+            self:InvalidateBadgeCache()
+            if WorldMapFrame:IsShown() then
+                self:RefreshPins()
+            end
+            self:RequestMinimapRefresh("endeavor_changed")
         end)
     end
 

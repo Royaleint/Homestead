@@ -2336,6 +2336,13 @@ function MapSidePanel:Initialize()
                 MapSidePanel:RefreshContent()
             end)
         end)
+
+        HA.Events:RegisterCallback("ACTIVE_ENDEAVOR_CHANGED", function()
+            if BC and BC.InvalidateBadgeCache then
+                BC:InvalidateBadgeCache()
+            end
+            MapSidePanel:RefreshContent()
+        end)
     end
 
     isInitialized = true
