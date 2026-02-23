@@ -1098,21 +1098,10 @@ local function GetVendorsForCurrentMap(mapID)
 
     local vendors = {}
     local seen = {}
-
-    -- Neighborhood endeavor vendors rotate between Razorwind Shores (2351) and
-    -- Founder's Point (2352). Treat these as a shared panel context so the
-    -- currently active endeavor vendor always appears in the side panel.
-    local sharedNeighborhoodMaps = {
-        [2351] = true,
-        [2352] = true,
-    }
+    local isNeighborhoodMap = (mapID == 2351 or mapID == 2352)
 
     -- Get vendors for this map + child maps (same pattern as VendorMapPins:ShowVendorPins)
     local mapsToCheck = { [mapID] = true }
-    if sharedNeighborhoodMaps[mapID] then
-        mapsToCheck[2351] = true
-        mapsToCheck[2352] = true
-    end
     local childMaps = C_Map.GetMapChildrenInfo(mapID)
     if childMaps then
         for _, childInfo in ipairs(childMaps) do
@@ -1123,24 +1112,45 @@ local function GetVendorsForCurrentMap(mapID)
     local showOpposite = VendorFilter.ShouldShowOppositeFaction()
     local showUnverified = VendorFilter.ShouldShowUnverifiedVendors()
 
+    local function TryAddVendor(vendor)
+        if not vendor or not vendor.npcID or seen[vendor.npcID] then
+            return
+        end
+        seen[vendor.npcID] = true
+
+        if VendorFilter.ShouldHideVendor(vendor) then
+            return
+        end
+
+        local isOpposite = VendorFilter.IsOppositeFaction(vendor)
+        local isUnverified = not VendorFilter.IsVendorVerified(vendor)
+        if (showUnverified or not isUnverified) and (showOpposite or not isOpposite) then
+            vendors[#vendors + 1] = {
+                vendor = vendor,
+                isOpposite = isOpposite,
+                isUnverified = isUnverified,
+            }
+        end
+    end
+
     for queryMapID in pairs(mapsToCheck) do
         local mapVendors = VendorData:GetVendorsInMap(queryMapID)
         if mapVendors then
             for _, vendor in ipairs(mapVendors) do
-                if vendor.npcID and not seen[vendor.npcID] then
-                    seen[vendor.npcID] = true
+                TryAddVendor(vendor)
+            end
+        end
+    end
 
-                    if not VendorFilter.ShouldHideVendor(vendor) then
-                        local isOpposite = VendorFilter.IsOppositeFaction(vendor)
-                        local isUnverified = not VendorFilter.IsVendorVerified(vendor)
-
-                        if (showUnverified or not isUnverified) and (showOpposite or not isOpposite) then
-                            vendors[#vendors + 1] = {
-                                vendor = vendor,
-                                isOpposite = isOpposite,
-                                isUnverified = isUnverified,
-                            }
-                        end
+    -- Neighborhood maps are split across 2351/2352; include only active endeavor
+    -- vendor(s) from the sibling map, not all regular vendors.
+    if isNeighborhoodMap then
+        for _, endeavorMapID in ipairs({2351, 2352}) do
+            local mapVendors = VendorData:GetVendorsInMap(endeavorMapID)
+            if mapVendors then
+                for _, vendor in ipairs(mapVendors) do
+                    if vendor.endeavor then
+                        TryAddVendor(vendor)
                     end
                 end
             end
