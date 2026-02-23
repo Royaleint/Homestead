@@ -445,7 +445,7 @@ VendorDatabase.Vendors = {
         currency = "Garrison Resources",
         altCurrency = "Gold",
         expansion = "Warlords of Draenor",
-        items = {244315, 244318, 244320, 244653, 245438, 245443},
+        items = {244315, 244316, 244320, 244653, 245438, 245443},
     },
 	[79812] = {
         name = "Moz'def",
@@ -456,7 +456,7 @@ VendorDatabase.Vendors = {
         currency = "Garrison Resources",
         altCurrency = "Iron Horde Scraps",
         expansion = "Warlords of Draenor",
-        items = {244320, 244323, 245437, 245438, 245443},
+        items = {245437, 245442},
     },
 	[81133] = {
         name = "Artificer Kallaes",
@@ -552,6 +552,23 @@ VendorDatabase.Vendors = {
         },
         notes = "Requires Level 2+ Garrison Trading Post. Not always present.",
     },
+	[86777] = {
+        name = "Elder Surehide",
+        mapID = 525,
+        x = 0.593, y = 0.249,
+        zone = "Frostwall",
+        subzone = "Garrison",
+        faction = "Horde",
+        currency = "Garrison Resources",
+        expansion = "Warlords of Draenor",
+        items = {
+            {244321, cost = {currencies = {{id = 824, amount = 100}}}},
+            {244322, cost = {currencies = {{id = 824, amount = 100}}}},
+            {245444, cost = {currencies = {{id = 824, amount = 250}}}},
+            {245445, cost = {currencies = {{id = 824, amount = 150}}}},
+        },
+        notes = "Garrison vendor. Items also on Ribchewer [86776].",
+    },
 	-- Krixel Pinchwhistle: same NPC in both garrisons, separate entries because
 	-- different mapIDs/coords needed for pins on each garrison map.
 	-- Horde: 86779 (Frostwall) | Alliance: 87200 (Lunarfall)
@@ -599,7 +616,10 @@ VendorDatabase.Vendors = {
         currency = "Apexis Crystals",
         altCurrency = "Gold",
         expansion = "Warlords of Draenor",
-        items = {251655},
+        items = {
+            {245431, cost = {gold = 5000000, currencies = {{id = 823, amount = 1000}}}},
+            {245433, cost = {gold = 5000000, currencies = {{id = 823, amount = 1000}}}},
+        },
     },
 	[87312] = {
         name = "Vora Strongarm",
@@ -611,7 +631,7 @@ VendorDatabase.Vendors = {
         currency = "Garrison Resources",
         altCurrency = "Gold",
         expansion = "Warlords of Draenor",
-        items = {239162, 244313, 244314},
+        items = {239162},
     },
 	[87775] = {
         name = "Ruuan the Seer",
