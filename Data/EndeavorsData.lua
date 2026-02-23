@@ -35,8 +35,16 @@ local titleAliasToTheme = {
     ["orc"] = "Orc",
     ["mechagnome"] = "Mechagnome",
     ["mechagon"] = "Mechagnome",
+    ["mechanization"] = "Mechagnome",
+    ["mechanizaton"] = "Mechagnome",
     ["arakkoa"] = "Arakkoa",
     ["tuskarr"] = "Tuskarr",
+}
+
+-- Stable initiative IDs observed in-game.
+-- Extend as additional themes are observed.
+local initiativeIDToTheme = {
+    [17] = "Mechagnome",
 }
 
 -------------------------------------------------------------------------------
@@ -284,6 +292,11 @@ local function ResolveThemeFromInitiativeInfo(info)
     if type(info) ~= "table" then return nil, false, nil end
     if info.isLoaded ~= true then
         return nil, nil, info.title
+    end
+
+    local initiativeID = tonumber(info.initiativeID)
+    if initiativeID and initiativeIDToTheme[initiativeID] then
+        return initiativeIDToTheme[initiativeID], true, info.title
     end
 
     -- Prefer stable IDs if exposed by API payload.
