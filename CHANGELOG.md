@@ -5,6 +5,7 @@
 ## Unreleased (post-v1.5.0)
 
 ### New
+- **Panel Search** — Search for items, vendors, or zones directly from the side panel. Results show matching vendors with collection counts; click to navigate to the vendor's map and expand their item grid with matching items highlighted.
 - **Zone Collection Progress Bar** — A color-coded progress bar below the panel header shows at-a-glance zone completion. Colors shift from red (<50%) to yellow (51-99%) to green (100%). Hover for a detailed breakdown.
 - **Panel Source Filter** - The Homestead panel now includes a source filter dropdown in the title bar so you can quickly switch between All, Vendor, Quest, Achievement, Profession, Event, and Drop sources.
 - **Multi-Source Tooltips** — Item tooltips now show all known sources instead of just the primary one.
@@ -17,6 +18,15 @@
 - **Filter settings sync** - Source filter selection is available in both Options and the panel header control, and stays in sync.
 - **Smarter Merchant Tooltips** — Merchant tooltips no longer duplicate Blizzard's built-in vendor/achievement/quest info. Only supplemental sources and reputation requirements are shown.
 - **Panel Tooltip Cleanup** — Fixed duplicate requirement lines in the Homestead panel (requirements were rendered by both the tooltip hook and the panel's OnEnter).
+
+### Fixed
+- **Neighborhood Faction Tags** — Corrected faction tags for Razorwind Shores (Horde) and Founder's Point (Alliance) vendors. Search and faction filter now correctly hide opposite-faction neighborhood vendors.
+- **Order Hall Vendor Pins** — Moved Legion Order Hall vendors (DK, Rogue, Mage, Monk) from instanced mapIDs to Dalaran overworld coordinates, fixing misplaced pins and eliminating duplicate "Dalaran" zone entries.
+- **Instanced Vendor Coordinates** — Fixed several vendors on instanced/dungeon maps (Plugger Spazzring, Quackenbush, Dershway, MOTHER, Ripley Kiefer, Wilkinson) to use overworld coordinates for correct pin placement.
+- **Neighborhood Endeavor Vendor Filtering** — Neighborhood cross-map vendor blending now only injects the currently active endeavor vendor from the sibling neighborhood map.
+- **Side Panel Summary Stability** — Fixed continent/world summary errors caused by missing item-count fields in badge rows (`number` vs `nil` comparisons).
+- **Vendor Row Hover Highlight** — Restored and hardened side panel map-pin highlight behavior on vendor-row hover (including safe cleanup on row leave and pin refresh).
+- **Merged Zone Summaries** — Restored vertical sibling canonicalization for summary grouping (for example, Dalaran and Underbelly appear as one merged summary row).
 
 ---
 

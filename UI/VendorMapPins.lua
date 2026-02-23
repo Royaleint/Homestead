@@ -41,6 +41,10 @@ local pinsEnabled = true
 local vendorPinFrames = {}
 local badgePinFrames = {}
 local minimapPinFrames = {}
+local highlightedPinFrame = nil
+local highlightOverlay = nil
+local highlightOriginalScale = nil
+local highlightOriginalFrameLevel = nil
 
 -------------------------------------------------------------------------------
 -- Native Pin Fallback (for maps HBD can't handle, e.g. Argus zones)
@@ -680,7 +684,58 @@ end
 -- Pin Management
 -------------------------------------------------------------------------------
 
+function VendorMapPins:HighlightVendor(npcID)
+    self:ClearHighlight()
+
+    local targetNPCID = tonumber(npcID)
+    if not targetNPCID then return end
+
+    for vendor, frame in pairs(vendorPinFrames) do
+        if frame and frame:IsShown() and vendor and vendor.npcID == targetNPCID then
+            highlightedPinFrame = frame
+            highlightOriginalScale = frame:GetScale() or 1
+            highlightOriginalFrameLevel = frame:GetFrameLevel() or 1
+
+            frame:SetScale(highlightOriginalScale * 1.4)
+            frame:SetFrameLevel(highlightOriginalFrameLevel + 10)
+
+            if not highlightOverlay then
+                highlightOverlay = frame:CreateTexture(nil, "OVERLAY")
+                highlightOverlay:SetAtlas("auctionhouse-itemicon-border-artifact", false)
+                highlightOverlay:SetBlendMode("ADD")
+            end
+
+            highlightOverlay:SetParent(frame)
+            highlightOverlay:ClearAllPoints()
+            highlightOverlay:SetPoint("CENTER", frame, "CENTER", 0, 0)
+            highlightOverlay:SetSize(frame:GetWidth() + 8, frame:GetHeight() + 8)
+            highlightOverlay:SetVertexColor(1, 0.85, 0.2, 0.95)
+            highlightOverlay:Show()
+            return
+        end
+    end
+end
+
+function VendorMapPins:ClearHighlight()
+    if highlightOverlay then
+        highlightOverlay:Hide()
+    end
+
+    if highlightedPinFrame then
+        highlightedPinFrame:SetScale(highlightOriginalScale or 1)
+        if highlightOriginalFrameLevel then
+            highlightedPinFrame:SetFrameLevel(math.max(1, highlightOriginalFrameLevel))
+        end
+    end
+
+    highlightedPinFrame = nil
+    highlightOriginalScale = nil
+    highlightOriginalFrameLevel = nil
+end
+
 function VendorMapPins:ClearAllPins()
+    self:ClearHighlight()
+
     -- Remove all vendor pins from HereBeDragons
     HBDPins:RemoveAllWorldMapIcons("HomesteadVendors")
 
