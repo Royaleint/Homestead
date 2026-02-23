@@ -1099,8 +1099,20 @@ local function GetVendorsForCurrentMap(mapID)
     local vendors = {}
     local seen = {}
 
+    -- Neighborhood endeavor vendors rotate between Razorwind Shores (2351) and
+    -- Founder's Point (2352). Treat these as a shared panel context so the
+    -- currently active endeavor vendor always appears in the side panel.
+    local sharedNeighborhoodMaps = {
+        [2351] = true,
+        [2352] = true,
+    }
+
     -- Get vendors for this map + child maps (same pattern as VendorMapPins:ShowVendorPins)
     local mapsToCheck = { [mapID] = true }
+    if sharedNeighborhoodMaps[mapID] then
+        mapsToCheck[2351] = true
+        mapsToCheck[2352] = true
+    end
     local childMaps = C_Map.GetMapChildrenInfo(mapID)
     if childMaps then
         for _, childInfo in ipairs(childMaps) do
