@@ -391,6 +391,19 @@ function VendorData:HasVendor(npcID)
     return false
 end
 
+-- Display-layer endeavor filter (fail-open while active theme is unknown)
+local function ShouldIncludeEndeavorVendorForDisplay(vendor)
+    if not vendor or not vendor.endeavor then
+        return true
+    end
+
+    if HA.EndeavorsData and HA.EndeavorsData.IsVendorActive then
+        return HA.EndeavorsData:IsVendorActive(vendor)
+    end
+
+    return true
+end
+
 -- Get all vendors in a specific map/zone
 -- Includes active event vendors from EventSources
 function VendorData:GetVendorsInMap(mapID)
@@ -415,7 +428,8 @@ function VendorData:GetVendorsInMap(mapID)
         local endeavorVendors = HA.EndeavorsData.ByMapID[mapID]
         if endeavorVendors then
             for _, vendor in ipairs(endeavorVendors) do
-                if vendor.npcID and not addedNPCs[vendor.npcID] then
+                if vendor.npcID and not addedNPCs[vendor.npcID]
+                        and ShouldIncludeEndeavorVendorForDisplay(vendor) then
                     result[#result + 1] = vendor
                     addedNPCs[vendor.npcID] = true
                 end
@@ -638,7 +652,7 @@ function VendorData:SearchVendors(searchText)
                 elseif vendor.notes and vendor.notes:lower():find(lowerSearch, 1, true) then
                     matched = true
                 end
-                if matched then
+                if matched and ShouldIncludeEndeavorVendorForDisplay(vendor) then
                     result[#result + 1] = vendor
                     addedNPCs[npcID] = true
                 end

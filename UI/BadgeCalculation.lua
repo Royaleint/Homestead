@@ -40,6 +40,25 @@ function BadgeCalculation.GetContinentForZone(zoneMapID)
     return zoneToContinent[zoneMapID] or nil
 end
 
+-- Resolve vertically-sibling zones to a canonical mapID.
+-- The "above" sibling is canonical (e.g., Dalaran 627 absorbs Underbelly 628).
+-- Returns input mapID unchanged if it has no siblings or is already canonical.
+function BadgeCalculation.GetCanonicalZoneMapID(zoneMapID)
+    if not Constants or not Constants.VerticalSiblings then
+        return zoneMapID
+    end
+    local siblings = Constants.VerticalSiblings[zoneMapID]
+    if not siblings then
+        return zoneMapID
+    end
+    for siblingMapID, direction in pairs(siblings) do
+        if direction == "above" then
+            return siblingMapID
+        end
+    end
+    return zoneMapID
+end
+
 -------------------------------------------------------------------------------
 -- Caches
 -------------------------------------------------------------------------------
@@ -67,6 +86,18 @@ local function IsItemOwned(itemID)
         return HA.CatalogStore:IsOwnedFresh(itemID)
     end
     return false
+end
+
+local function ShouldIncludeVendorInBadgeCounts(vendor)
+    if not vendor or not vendor.endeavor then
+        return true
+    end
+
+    if HA.EndeavorsData and HA.EndeavorsData.IsVendorActive then
+        return HA.EndeavorsData:IsVendorActive(vendor)
+    end
+
+    return true
 end
 
 -- Normalize source filter token used in cache keys and filtering checks.
@@ -240,12 +271,16 @@ function BadgeCalculation:GetZoneVendorCounts(continentMapID)
 
     for _, vendor in ipairs(allVendors) do
         -- Include only vendors not hidden by scan state and visible under verification settings.
-        if not VF.ShouldHideVendor(vendor) and (showUnverified or VF.IsVendorVerified(vendor)) then
+        if ShouldIncludeVendorInBadgeCounts(vendor)
+                and not VF.ShouldHideVendor(vendor)
+                and (showUnverified or VF.IsVendorVerified(vendor)) then
             -- Get best coordinates (scanned preferred over static)
             local coords, zoneMapID = VF.GetBestVendorCoordinates(vendor)
 
             -- Only count vendors with valid coordinates
             if coords and zoneMapID then
+                -- Merge vertically-stacked sibling zones into one summary row.
+                zoneMapID = BadgeCalculation.GetCanonicalZoneMapID(zoneMapID)
                 local continent = BadgeCalculation.GetContinentForZone(zoneMapID)
 
                 if continent == continentMapID then
@@ -263,6 +298,8 @@ function BadgeCalculation:GetZoneVendorCounts(continentMapID)
                                 unknownCount = 0,
                                 oppositeFactionCount = 0,
                                 dominantFaction = nil,  -- Will be set to "Alliance", "Horde", or nil (mixed/neutral)
+                                collectedItems = 0,
+                                totalItems = 0,
                             }
                         end
 
@@ -283,6 +320,11 @@ function BadgeCalculation:GetZoneVendorCounts(continentMapID)
                             zoneCounts[zoneMapID].unknownCount = zoneCounts[zoneMapID].unknownCount + 1
                         end
                         -- hasUncollected == false means all collected, don't increment anything
+
+                        -- Aggregate item-level counts for continent/world summary rows.
+                        local collected, total = self:GetVendorCollectionCounts(vendor, "all")
+                        zoneCounts[zoneMapID].collectedItems = zoneCounts[zoneMapID].collectedItems + collected
+                        zoneCounts[zoneMapID].totalItems = zoneCounts[zoneMapID].totalItems + total
                     end
                 end
             end
@@ -305,7 +347,9 @@ function BadgeCalculation:GetContinentVendorCounts()
 
     for _, vendor in ipairs(allVendors) do
         -- Include only vendors not hidden by scan state and visible under verification settings.
-        if not VF.ShouldHideVendor(vendor) and (showUnverified or VF.IsVendorVerified(vendor)) then
+        if ShouldIncludeVendorInBadgeCounts(vendor)
+                and not VF.ShouldHideVendor(vendor)
+                and (showUnverified or VF.IsVendorVerified(vendor)) then
             -- Get best coordinates (scanned preferred over static)
             local coords, zoneMapID = VF.GetBestVendorCoordinates(vendor)
 
@@ -327,6 +371,8 @@ function BadgeCalculation:GetContinentVendorCounts()
                                 uncollectedCount = 0,
                                 unknownCount = 0,
                                 oppositeFactionCount = 0,
+                                collectedItems = 0,
+                                totalItems = 0,
                             }
                         end
 
@@ -343,6 +389,11 @@ function BadgeCalculation:GetContinentVendorCounts()
                             continentCounts[continentMapID].unknownCount = continentCounts[continentMapID].unknownCount + 1
                         end
                         -- hasUncollected == false means all collected, don't increment anything
+
+                        -- Aggregate item-level counts for world summary rows.
+                        local collected, total = self:GetVendorCollectionCounts(vendor, "all")
+                        continentCounts[continentMapID].collectedItems = continentCounts[continentMapID].collectedItems + collected
+                        continentCounts[continentMapID].totalItems = continentCounts[continentMapID].totalItems + total
                     end
                 end
             end
