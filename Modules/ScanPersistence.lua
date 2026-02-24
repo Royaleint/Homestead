@@ -45,6 +45,8 @@ function ScanPersistence:SaveVendorData(scanData)
         subZone = scanData.subZone,
         realZone = scanData.realZone,
         parentMapID = scanData.parentMapID,
+        mapChain = scanData.mapChain,
+        continentMapID = scanData.continentMapID,
         lastScanned = time(),
         itemCount = itemCount,      -- Total items at vendor
         decorCount = decorCount,    -- Housing decor items
@@ -121,6 +123,8 @@ function ScanPersistence:SaveVendorData(scanData)
         vendorRecord.subZone = vendorRecord.subZone or existingData.subZone
         vendorRecord.realZone = vendorRecord.realZone or existingData.realZone
         vendorRecord.parentMapID = vendorRecord.parentMapID or existingData.parentMapID
+        vendorRecord.mapChain = vendorRecord.mapChain or existingData.mapChain
+        vendorRecord.continentMapID = vendorRecord.continentMapID or existingData.continentMapID
         vendorRecord.expansion = vendorRecord.expansion or existingData.expansion
         vendorRecord.currency = vendorRecord.currency or existingData.currency
 

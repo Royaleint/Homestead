@@ -278,9 +278,34 @@ function VendorScanner:StartScan(npcID)
     local subZone = GetSubZoneText() or nil    -- Global WoW API, do NOT upvalue
     local realZone = GetRealZoneText() or nil  -- Global WoW API, do NOT upvalue
 
-    -- Infer expansion from continent
+    -- Build map ancestry chain (zone → region → continent → world → cosmic)
+    -- and identify the continent-level map for reliable expansion inference.
+    local mapChain = {}
+    local continentMapID = nil
+    if mapID then
+        local walkID = mapID
+        while walkID and walkID > 0 do
+            table.insert(mapChain, walkID)
+            local walkInfo = C_Map.GetMapInfo(walkID)
+            if not walkInfo then break end
+            if not continentMapID
+                and walkInfo.mapType == Enum.UIMapType.Continent then
+                continentMapID = walkID
+            end
+            walkID = walkInfo.parentMapID
+        end
+    end
+    -- Fallback: use static lookup if chain walk didn't find a continent
+    if not continentMapID and mapID then
+        continentMapID = ZoneToContinentMap[mapID]
+    end
+
+    -- Infer expansion from continent (prefer the resolved continentMapID)
     local expansion = nil
-    if parentMapID then
+    if continentMapID then
+        expansion = ContinentToExpansion[continentMapID]
+    end
+    if not expansion and parentMapID then
         expansion = ContinentToExpansion[parentMapID]
     end
     if not expansion and mapID then
@@ -301,6 +326,8 @@ function VendorScanner:StartScan(npcID)
         subZone = subZone,
         realZone = realZone,
         parentMapID = parentMapID,
+        mapChain = mapChain,
+        continentMapID = continentMapID,
         expansion = expansion,
         currentIndex = 1,
         totalItems = numItems,
