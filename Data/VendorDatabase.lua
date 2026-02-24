@@ -84,7 +84,7 @@ VendorDatabase.Vendors = {
         faction = "Horde",
         currency = "Gold",
         expansion = "Classic",
-        items = {246426, 246490, 246491},
+        items = {{257412, cost = {gold = 1500000}}},
     },
 	[2483] = {
         name = "Jacquilina Dramet",
@@ -772,7 +772,16 @@ VendorDatabase.Vendors = {
         faction = "Neutral",
         currency = "Order Resources",
         expansion = "Legion",
-        items = {{243290, cost = {currencies = {{id = 1220, amount = 2000}}}}, {243359, cost = {currencies = {{id = 1220, amount = 1000}}}}, {245270, cost = {currencies = {{id = 1220, amount = 1000}}}}, {245405, cost = {currencies = {{id = 1220, amount = 500}}}}, {245409, cost = {currencies = {{id = 1220, amount = 500}}}}, {245450, cost = {currencies = {{id = 1220, amount = 2000}}}}, {245452, cost = {currencies = {{id = 1220, amount = 750}}}}, {245453, cost = {currencies = {{id = 1220, amount = 500}}}}, {245454, cost = {currencies = {{id = 1220, amount = 500}}}}, {245456, cost = {currencies = {{id = 1220, amount = 500}}}}, {245457, cost = {currencies = {{id = 1220, amount = 500}}}}, {245458, cost = {currencies = {{id = 1220, amount = 500}}}}, {245461, cost = {currencies = {{id = 1220, amount = 500}}}}, {248985, cost = {currencies = {{id = 1220, amount = 750}}}}, 257397, 257401, 257722, 257723, 260698},
+        items = {
+            {243290, cost = {currencies = {{id = 1220, amount = 2000}}}},
+            {243359, cost = {currencies = {{id = 1220, amount = 1000}}}},
+            {245270, cost = {currencies = {{id = 1220, amount = 1000}}}},
+            {245450, cost = {currencies = {{id = 1220, amount = 2000}}}},
+            {245452, cost = {currencies = {{id = 1220, amount = 750}}}},
+            {245454, cost = {currencies = {{id = 1220, amount = 500}}}},
+            {245458, cost = {currencies = {{id = 1220, amount = 500}}}},
+            {248985, cost = {currencies = {{id = 1220, amount = 750}}}},
+        },
     },
 	[108017] = {
         name = "Torv Dubstomp",
@@ -837,7 +846,7 @@ VendorDatabase.Vendors = {
         faction = "Neutral",
         currency = "Order Resources",
         expansion = "Legion",
-        items = {248935, 248936, 248942, 248958, 250124, 256679, 262619},
+        items = {248935, 248936, 248942, 248958, 256679, 262619},
     },
 	[112392] = {
         name = "Quartermaster Durnolf",
@@ -1743,7 +1752,7 @@ VendorDatabase.Vendors = {
         faction = "Neutral",
         currency = "Gold",
         expansion = "Dragonflight",
-        items = {248111, {248656, cost = {currencies = {{id = 2118, amount = 1500}}}}, {256168, cost = {currencies = {{id = 2003, amount = 10}}}}, {256169, cost = {gold = 100000, currencies = {{id = 2003, amount = 500}}}}},
+        items = {{248656, cost = {currencies = {{id = 2118, amount = 1500}}}}, {256168, cost = {currencies = {{id = 2003, amount = 10}}}}, {256169, cost = {gold = 100000, currencies = {{id = 2003, amount = 500}}}}},
     },
 	[253227] = {
         name = "Breana Bitterbrand",
