@@ -95,6 +95,11 @@ function HousingAddon:OnEnable()
         HA.CalendarDetector:Initialize()
     end
 
+    -- Initialize EndeavorsData for active endeavor detection
+    if HA.EndeavorsData and HA.EndeavorsData.Initialize then
+        HA.EndeavorsData:Initialize()
+    end
+
     -- Initialize Waypoints utility
     if HA.Waypoints then
         HA.Waypoints:Initialize()
