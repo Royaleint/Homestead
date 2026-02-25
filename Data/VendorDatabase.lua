@@ -2265,16 +2265,6 @@ VendorDatabase.Vendors = {
         expansion = "Warlords of Draenor",
         items = {{258742, cost = {gold = 3000000, currencies = {{id = 823, amount = 600}}}}},
     },
-	[257633] = {
-        name = "World Vendors",
-        mapID = 2395,
-        x = 0.72, y = 0.395,
-        zone = "Eversong Woods",
-        faction = "Horde",
-        currency = "Gold",
-        expansion = "The War Within",
-        items = {246425, 248337, 248338, 248339, 256923, 260785, 264249, 264254, 264655, 266244, 266245, 266443, 266444},
-    },
 	[258328] = {
         name = "Thraxadar",
         mapID = 2214,
