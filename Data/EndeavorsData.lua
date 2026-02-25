@@ -342,13 +342,17 @@ local function ResolveThemeFromInitiativeInfo(info)
     return nil, false, info.title
 end
 
+local requestingInitiative = false
 local function RequestInitiativeInfo(reason)
     local neighborhoodAPI = _G.C_NeighborhoodInitiative
     if not neighborhoodAPI or not neighborhoodAPI.RequestNeighborhoodInitiativeInfo then
         return
     end
+    if requestingInitiative then return end
 
+    requestingInitiative = true
     local ok = pcall(neighborhoodAPI.RequestNeighborhoodInitiativeInfo)
+    requestingInitiative = false
     if ok and HA.Addon and HA.Addon.db and HA.Addon.db.profile and HA.Addon.db.profile.debug then
         HA.Addon:Debug("EndeavorsData: requested initiative info", "(" .. tostring(reason) .. ")")
     end
