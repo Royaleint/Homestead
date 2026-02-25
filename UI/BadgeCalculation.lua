@@ -419,7 +419,7 @@ BadgeCalculation.excludedContinents = {
 -- Argus zones (830, 882, 885) map to continent 905 in zoneToContinent.
 BadgeCalculation.offWorldContinentPositions = {
     [905]  = { x = 0.82, y = 0.18 },  -- Argus (separate planet, upper-right of world map)
-    [2395] = { x = 0.66, y = 0.15 },  -- Midnight (Silvermoon / Blood Elf zones — fallback if not yet on world map)
+    [2537] = { x = 0.66, y = 0.15 },  -- Midnight (Silvermoon / Blood Elf zones — fallback if not yet on world map)
 }
 
 function BadgeCalculation:GetContinentCenterOnWorldMap(continentMapID)
