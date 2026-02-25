@@ -152,7 +152,7 @@ function PinFrameFactory:CreateVendorPinFrame(vendor, isOppositeFaction, isUnver
     frame.icon = frame:CreateTexture(nil, "ARTWORK")
     frame.icon:SetPoint("CENTER")
     frame.icon:SetSize(iconSize, iconSize)
-    frame.icon:SetAtlas("housing-dashboard-homestone-icon", false)
+    frame.icon:SetAtlas("housing-decor-vendor_32", false)
     if isUnverified then
         frame.icon:SetVertexColor(1.0, 0.6, 0.2, 0.9)
     elseif isOppositeFaction then
@@ -288,7 +288,7 @@ function PinFrameFactory:CreateBadgePinFrame(badgeData)
     frame.icon = frame:CreateTexture(nil, "ARTWORK")
     frame.icon:SetPoint("CENTER")
     frame.icon:SetSize(iconSize, iconSize)
-    frame.icon:SetAtlas("housing-dashboard-homestone-icon", false)
+    frame.icon:SetAtlas("housing-decor-vendor_32", false)
     if isOppositeFactionOnly then
         frame.icon:SetDesaturated(true)
         frame.icon:SetVertexColor(0.6, 0.6, 0.6, 0.9)
@@ -395,7 +395,7 @@ function PinFrameFactory:CreateMinimapPinFrame(vendor, isOppositeFaction, isUnve
     frame.icon = frame:CreateTexture(nil, "ARTWORK")
     frame.icon:SetPoint("CENTER")
     frame.icon:SetSize(iconSize, iconSize)
-    frame.icon:SetAtlas("housing-dashboard-homestone-icon", false)
+    frame.icon:SetAtlas("housing-decor-vendor_32", false)
     if isUnverified then
         frame.icon:SetVertexColor(1.0, 0.6, 0.2, 0.9)
     elseif isOppositeFaction then
