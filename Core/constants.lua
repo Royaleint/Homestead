@@ -270,14 +270,13 @@ Constants.ZoneToContinentMap = {
     [2350] = 2274, -- Arcantina
     [2351] = 2274, -- Hollowed Halls (Housing)
     [2352] = 2274, -- Housing instance
-    [2393] = 2274, -- Murder Row
-    [2395] = 13,   -- Eversong Woods
+    [2393] = 2395, -- Murder Row (Midnight Silvermoon)
     [2405] = 13,   -- Founder's Point (Stormwind)
     [2406] = 2274, -- Liberation of Undermine (dungeon)
     [2437] = 13,   -- Zul'Aman
     [2472] = 2274, -- Tazavesh
-    [2694] = 2274, -- Harandar
-    [15958] = 2274, -- Voidstorm
+    [2694] = 2395,  -- Harandar (Midnight)
+    [15958] = 2395, -- Voidstorm (Midnight)
 }
 
 Constants.ContinentNames = {
@@ -294,6 +293,7 @@ Constants.ContinentNames = {
     [1550] = "Shadowlands",
     [1978] = "Dragon Isles",
     [2274] = "Khaz Algar",
+    [2395] = "Midnight",
 }
 
 Constants.ContinentToExpansion = {
@@ -310,6 +310,7 @@ Constants.ContinentToExpansion = {
     [1550] = "Shadowlands",         -- Shadowlands
     [1978] = "Dragonflight",        -- Dragon Isles
     [2274] = "The War Within",      -- Khaz Algar
+    [2395] = "Midnight",            -- Midnight (Silvermoon / Blood Elf zones)
 }
 
 -------------------------------------------------------------------------------
