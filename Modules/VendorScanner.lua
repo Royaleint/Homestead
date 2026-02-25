@@ -280,10 +280,6 @@ function VendorScanner:StartScan(npcID)
 
     -- Build map ancestry chain (zone → region → continent → world → cosmic)
     -- and identify the continent-level map for reliable expansion inference.
-    -- Use the LAST continent in the chain (closest to World), not the first,
-    -- because sub-continents like Quel'Thalas (2537) also report mapType 2
-    -- but are not in ContinentToExpansion — the real continent (e.g. 13
-    -- Eastern Kingdoms) sits above them in the hierarchy.
     local mapChain = {}
     local continentMapID = nil
     if mapID then
@@ -292,8 +288,9 @@ function VendorScanner:StartScan(npcID)
             table.insert(mapChain, walkID)
             local walkInfo = C_Map.GetMapInfo(walkID)
             if not walkInfo then break end
-            if walkInfo.mapType == Enum.UIMapType.Continent then
-                continentMapID = walkID  -- keep overwriting; last one wins
+            if not continentMapID
+                and walkInfo.mapType == Enum.UIMapType.Continent then
+                continentMapID = walkID
             end
             walkID = walkInfo.parentMapID
         end
