@@ -242,7 +242,7 @@ function ExportImport:ExportScannedVendors(fullExport, exportAll)
     local exportedUniqueItems = {}
 
     table.insert(output, EXPORT_PREFIX .. "\n")
-    table.insert(output, "# V: npcID\tname\tmapID\tx\ty\tfaction\ttimestamp\titemCount\tdecorCount\tzone\tsubZone\tparentMapID\texpansion\tcurrency\n")
+    table.insert(output, "# V: npcID\tname\tmapID\tx\ty\tfaction\ttimestamp\titemCount\tdecorCount\tzone\tsubZone\trealZone\tparentMapID\tcontinentMapID\texpansion\tcurrency\tmapChain\n")
     table.insert(output, "# I: npcID\titemID\tname\tprice\tcostData\tisUsable\tspellID\trequirements\n")
 
     -- Collect and sort npcIDs for deterministic output
@@ -315,8 +315,8 @@ function ExportImport:ExportScannedVendors(fullExport, exportAll)
         if shouldProcess then
             vendorCount = vendorCount + 1
 
-            -- VENDOR line: V npcID name mapID x y faction timestamp itemCount decorCount zone subZone parentMapID expansion currency
-            local vendorLine = string.format("V\t%d\t%s\t%d\t%.4f\t%.4f\t%s\t%d\t%d\t%d\t%s\t%s\t%s\t%s\t%s\n",
+            -- VENDOR line: V npcID name mapID x y faction timestamp itemCount decorCount zone subZone realZone parentMapID continentMapID expansion currency mapChain
+            local vendorLine = string.format("V\t%d\t%s\t%d\t%.4f\t%.4f\t%s\t%d\t%d\t%d\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
                 vendor.npcID or npcID,
                 SanitizeExportField(vendor.name or "Unknown"),
                 vendor.mapID or 0,
@@ -328,9 +328,12 @@ function ExportImport:ExportScannedVendors(fullExport, exportAll)
                 vendor.decorCount or #items,
                 SanitizeExportField(vendor.zone or ""),
                 SanitizeExportField(vendor.subZone or ""),
+                SanitizeExportField(vendor.realZone or ""),
                 vendor.parentMapID and tostring(vendor.parentMapID) or "",
+                vendor.continentMapID and tostring(vendor.continentMapID) or "",
                 SanitizeExportField(vendor.expansion or ""),
-                SanitizeExportField(vendor.currency or "")
+                SanitizeExportField(vendor.currency or ""),
+                (vendor.mapChain and #vendor.mapChain > 0) and table.concat(vendor.mapChain, ";") or ""
             )
             table.insert(output, vendorLine)
 
