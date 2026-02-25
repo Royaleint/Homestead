@@ -271,11 +271,15 @@ Constants.ZoneToContinentMap = {
     [2351] = 2274, -- Hollowed Halls (Housing)
     [2352] = 2274, -- Housing instance
     [2393] = 2537, -- Murder Row (Midnight Silvermoon)
-    [2405] = 13,   -- Founder's Point (Stormwind)
+    [2395] = 2537, -- Midnight Silvermoon (zone parent)
+    [2405] = 2537, -- Founder's Point (Midnight)
     [2406] = 2274, -- Liberation of Undermine (dungeon)
-    [2437] = 13,   -- Zul'Aman
+    [2413] = 2537, -- Harandar sub-zone (Midnight)
+    [2437] = 2537, -- Zul'Aman (Midnight)
+    [2444] = 2537, -- Slayer's Rise (Midnight)
     [2472] = 2274, -- Tazavesh
-    [2694] = 2537,  -- Harandar (Midnight)
+    [2576] = 2537, -- The Den / Harandar sub-zone (Midnight)
+    [2694] = 2537, -- Harandar (Midnight)
     [15958] = 2537, -- Voidstorm (Midnight)
 }
 

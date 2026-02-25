@@ -43,6 +43,7 @@ VendorDatabase.Aliases = {
     [32517] = 105333,
     [161908] = 150716,
     [231012] = 255222,
+    [242724] = 240838, -- Caeris Fairdawn alt NPC ID → canonical 240838
 }
 
 -- Note: Aliases are resolved at both scan time (VendorScanner) and query time
@@ -1495,7 +1496,7 @@ VendorDatabase.Vendors = {
         zone = "Zul'Aman",
         faction = "Neutral",
         currency = "Gold",
-        expansion = "The War Within",
+        expansion = "Midnight",
         items = {246425, 264333, 264350},
     },
 	[240465] = {
@@ -1970,7 +1971,7 @@ VendorDatabase.Vendors = {
     },
 	[255114] = {
         name = "Maku",
-        mapID = 2694,
+        mapID = 2413,
         x = 0.53, y = 0.508,
         zone = "Harandar",
         faction = "Neutral",
@@ -2267,9 +2268,9 @@ VendorDatabase.Vendors = {
     },
 	[258328] = {
         name = "Thraxadar",
-        mapID = 2214,
+        mapID = 2444,
         x = 0.394, y = 0.81,
-        zone = "The Ringing Deeps",
+        zone = "Slayer's Rise",
         faction = "Neutral",
         currency = "Gold",
         expansion = "Midnight",
