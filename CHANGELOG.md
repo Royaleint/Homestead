@@ -5,28 +5,52 @@
 ## Unreleased (post-v1.5.0)
 
 ### New
+
 - **Panel Search** — Search for items, vendors, or zones directly from the side panel. Results show matching vendors with collection counts; click to navigate to the vendor's map and expand their item grid with matching items highlighted.
-- **Zone Collection Progress Bar** — A color-coded progress bar below the panel header shows at-a-glance zone completion. Colors shift from red (<50%) to yellow (51-99%) to green (100%). Hover for a detailed breakdown.
-- **Panel Source Filter** - The Homestead panel now includes a source filter dropdown in the title bar so you can quickly switch between All, Vendor, Quest, Achievement, Profession, Event, and Drop sources.
+- **Zone Collection Progress Bar** — A color-coded progress bar below the panel header shows at-a-glance zone completion. Colors shift from red (<50%) to yellow (51–99%) to green (100%). Hover for a detailed breakdown.
+- **Panel Source Filter** — The Homestead panel now includes a source filter dropdown in the title bar so you can quickly switch between All, Vendor, Quest, Achievement, Profession, Event, and Drop sources.
 - **Multi-Source Tooltips** — Item tooltips now show all known sources instead of just the primary one.
 - **Context-Aware Tooltips** — Tooltips adapt to where you're viewing them: compact at merchants and in bags, detailed in the Homestead panel. Hold Shift to toggle detail level on any tooltip.
-- **Per-Block Completion** — Housing Catalog sourceText blocks now show individual completion status per source type (achievement, quest, profession) instead of a single global status.
-- **Tooltip Settings** — New "Show ownership status" and "Show all sources" toggles in Options. Removed the unused "Show dye slot information" toggle.
+- **Per-Block Completion** — Housing Catalog sourceText blocks now show individual completion status per source type instead of a single global status.
+- **Tooltip Settings** — New "Show ownership status" and "Show all sources" toggles in Options.
 
 ### Improved
-- **Source-filtered panel browsing** - Vendor item counts and expanded item grids now update based on your selected source filter.
-- **Filter settings sync** - Source filter selection is available in both Options and the panel header control, and stays in sync.
-- **Smarter Merchant Tooltips** — Merchant tooltips no longer duplicate Blizzard's built-in vendor/achievement/quest info. Only supplemental sources and reputation requirements are shown.
-- **Panel Tooltip Cleanup** — Fixed duplicate requirement lines in the Homestead panel (requirements were rendered by both the tooltip hook and the panel's OnEnter).
+
+- **Vendor Pin Icon** — Vendor map pins now use the game's own decor vendor icon.
+- **Currency Icons in Tooltips** — Item costs now show Blizzard's actual currency icons alongside amounts.
+- **Source-Filtered Panel Browsing** — Vendor item counts and expanded item grids now update based on your selected source filter. The filter is available in both Options and the panel header, and stays in sync.
+- **Smarter Merchant Tooltips** — Merchant tooltips no longer duplicate Blizzard's built-in vendor, achievement, and quest info.
 
 ### Fixed
-- **Neighborhood Faction Tags** — Corrected faction tags for Razorwind Shores (Horde) and Founder's Point (Alliance) vendors. Search and faction filter now correctly hide opposite-faction neighborhood vendors.
-- **Order Hall Vendor Pins** — Moved Legion Order Hall vendors (DK, Rogue, Mage, Monk) from instanced mapIDs to Dalaran overworld coordinates, fixing misplaced pins and eliminating duplicate "Dalaran" zone entries.
-- **Instanced Vendor Coordinates** — Fixed several vendors on instanced/dungeon maps (Plugger Spazzring, Quackenbush, Dershway, MOTHER, Ripley Kiefer, Wilkinson) to use overworld coordinates for correct pin placement.
-- **Neighborhood Endeavor Vendor Filtering** — Neighborhood cross-map vendor blending now only injects the currently active endeavor vendor from the sibling neighborhood map.
-- **Side Panel Summary Stability** — Fixed continent/world summary errors caused by missing item-count fields in badge rows (`number` vs `nil` comparisons).
-- **Vendor Row Hover Highlight** — Restored and hardened side panel map-pin highlight behavior on vendor-row hover (including safe cleanup on row leave and pin refresh).
-- **Merged Zone Summaries** — Restored vertical sibling canonicalization for summary grouping (for example, Dalaran and Underbelly appear as one merged summary row).
+
+- **Order Hall Vendor Pins** — Legion Order Hall vendors (Death Knight, Rogue, Mage, Monk) now have correct pin locations on the world map.
+- Hovering a vendor row in the panel now reliably highlights its map pin.
+- Fixed faction filters incorrectly showing opposite-faction vendors in Razorwind Shores and Founder's Point neighborhoods.
+- Fixed vendor pins landing in the wrong position for several vendors in instanced or dungeon maps.
+
+### Performance
+
+- Zone changes and map transitions feel snappier, with noticeably faster pin loading when you first open a new map.
+
+### Vendor Database
+
+**Midnight Launch**
+
+Midnight launched with confirmed in-game data, replacing all pre-release placeholder entries. Midnight vendors are now correctly grouped under their own continent with accurate locations and item lists.
+
+New vendors:
+- **Tajaka Sawtusk** — Amani'Zar Village, Zul'Aman
+- **Chel the Chip** — Zul'Aman
+- **Sathren Azuredawn** — Saltheril's Haven, Eversong Woods
+- **Apprentice Diell** — Saltheril's Haven
+- **Armorer Goldcrest** — Saltheril's Haven
+- **Hesta Forlath** — The Bazaar, Silvermoon City
+
+Updated from launch scans: **Magovu**, **Caeris Fairdawn**, **Neriv**, **Ranger Allorn**, **Dennia Silvertongue**, **Thraxadar**, **Telemancer Astrandis**, **Void Researcher Aemely**, **Void Researcher Anomander**, **Maku**.
+
+**Other Corrections**
+- Fixed crafted items incorrectly listed as vendor stock on several Frostwall garrison vendors.
+- Corrected item and cost data for several vendors from community scan exports.
 
 ---
 
