@@ -913,8 +913,15 @@ VendorDatabase.Vendors = {
         faction = "Neutral",
         currency = "Order Resources",
         expansion = "Legion",
-        notes = "Order Hall portal entrance — pin marks the Dalaran portal location.",
-        items = {248935, 248936, 248942, 248958, 256679, 262619},
+        notes = "Monk only — enter via class spell Zen Pilgrimage (usable from anywhere).",
+        items = {
+            {248935, cost = {currencies = {{id = 1220, amount = 500}}}},
+            {248936, cost = {currencies = {{id = 1220, amount = 500}}}},
+            {248942, cost = {currencies = {{id = 1220, amount = 1500}}}},
+            {248958, cost = {currencies = {{id = 1220, amount = 1200}}}},
+            {256679, cost = {currencies = {{id = 1220, amount = 2000}}}},
+            {262619, cost = {currencies = {{id = 1220, amount = 2500}}}},
+        },
     },
 	[112392] = {
         name = "Quartermaster Durnolf",
