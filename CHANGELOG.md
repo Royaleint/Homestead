@@ -2,41 +2,40 @@
 
 ---
 
-## Unreleased (post-v1.5.0)
+## Unreleased (v1.6.0)
 
 ### New
 
-- **Panel Search** — Search for items, vendors, or zones directly from the side panel. Results show matching vendors with collection counts; click to navigate to the vendor's map and expand their item grid with matching items highlighted.
-- **Zone Collection Progress Bar** — A color-coded progress bar below the panel header shows at-a-glance zone completion. Colors shift from red (<50%) to yellow (51–99%) to green (100%). Hover for a detailed breakdown.
-- **Panel Source Filter** — The Homestead panel now includes a source filter dropdown in the title bar so you can quickly switch between All, Vendor, Quest, Achievement, Profession, Event, and Drop sources.
-- **Multi-Source Tooltips** — Item tooltips now show all known sources instead of just the primary one.
-- **Context-Aware Tooltips** — Tooltips adapt to where you're viewing them: compact at merchants and in bags, detailed in the Homestead panel. Hold Shift to toggle detail level on any tooltip.
-- **Per-Block Completion** — Housing Catalog sourceText blocks now show individual completion status per source type instead of a single global status.
-- **Tooltip Settings** — New "Show ownership status" and "Show all sources" toggles in Options.
+- **Homestead Panel Search** — Type anything into the search bar and instantly find matching items, vendors, or zones. Matching vendors show your collection progress, and clicking one drops you straight onto their map with their inventory open and your matches highlighted.
+- **Zone Collection Progress Bar** — A color-coded bar under the panel header gives you an instant read on how complete your collection is in the current zone — red when you're just starting out, yellow when you're getting there, green when you've cleaned it out. Hover it for a full breakdown.
+- **Source Filter** — A new dropdown in the panel header lets you filter by source type: Vendor, Quest, Achievement, Profession, Event, or Drop. Item counts and grids update on the fly. It stays in sync with Options so your preference is always saved.
+- **Order Hall Portal Pins** — Legion Order Hall vendors now show two pins: one at the vendor inside the hall, and a class-icon pin at the Dalaran portal so you always know where to enter. No more alt-tabbing to a guide just to find the door.
+- **Multi-Source Tooltips** — Tooltips now show every known source for an item, not just the first one. If something drops, sells, and comes from an achievement, you'll see all three.
+- **Context-Aware Tooltips** — Tooltips know where you are. Compact and clean at merchants and in your bags, full detail in the Homestead panel. Hold Shift anywhere to flip between modes on the fly.
+- **Per-Block Completion** — Housing Catalog tooltips now show completion status for each source separately — so if an item comes from an achievement and a quest, you'll know which one you've done and which you haven't.
+- **Active Endeavor Vendors** — The panel now only shows endeavor vendors when their initiative is actually running in your neighborhood. No more phantom vendors for initiatives you can't access.
+- **Tooltip Settings** — Two new toggles in Options let you control whether tooltips show ownership status and whether they show all sources or just the primary one.
 
 ### Improved
 
-- **Vendor Pin Icon** — Vendor map pins now use the game's own decor vendor icon.
-- **Currency Icons in Tooltips** — Item costs now show Blizzard's actual currency icons alongside amounts.
-- **Source-Filtered Panel Browsing** — Vendor item counts and expanded item grids now update based on your selected source filter. The filter is available in both Options and the panel header, and stays in sync.
-- **Smarter Merchant Tooltips** — Merchant tooltips no longer duplicate Blizzard's built-in vendor, achievement, and quest info.
+- **Currency Icons** — Costs in tooltips now show Blizzard's actual currency icons instead of plain text. Looks the way it always should have.
+- **Vendor Pin Icon** — Map pins now use the game's own housing decor vendor icon, so they fit right in alongside Blizzard's native POIs.
+- **Cleaner Merchant Tooltips** — When you're standing at a vendor, Homestead no longer repeats information Blizzard already shows you. Only the stuff that's actually new.
+- **Faster Map Loading** — Pin loading on zone transitions is noticeably snappier, and the minimap no longer hammers the server with requests when you cross a zone boundary.
 
 ### Fixed
 
-- **Order Hall Vendor Pins** — Legion Order Hall vendors (Death Knight, Rogue, Mage, Monk) now have correct pin locations on the world map.
-- Hovering a vendor row in the panel now reliably highlights its map pin.
-- Fixed faction filters incorrectly showing opposite-faction vendors in Razorwind Shores and Founder's Point neighborhoods.
-- Fixed vendor pins landing in the wrong position for several vendors in instanced or dungeon maps.
-
-### Performance
-
-- Zone changes and map transitions feel snappier, with noticeably faster pin loading when you first open a new map.
+- **Order Hall Vendor Locations** — Death Knight, Paladin, Rogue, Monk, Mage, Warrior, Shaman, Priest, and Demon Hunter Order Hall vendors all had wrong or missing map locations. All corrected with verified in-game coordinates.
+- Fixed the Homestead button landing in the wrong spot on certain world map layouts.
+- Fixed vendor row hovers not consistently lighting up the matching map pin.
+- Fixed stacked vendor pins overlapping each other on the map.
+- Fixed requirement text showing twice in the Homestead panel.
 
 ### Vendor Database
 
-**Midnight Launch**
+**Midnight**
 
-Midnight launched with confirmed in-game data, replacing all pre-release placeholder entries. Midnight vendors are now correctly grouped under their own continent with accurate locations and item lists.
+Midnight vendors are in with confirmed item lists, accurate locations, and real costs from in-game scans.
 
 New vendors:
 - **Tajaka Sawtusk** — Amani'Zar Village, Zul'Aman
@@ -49,8 +48,10 @@ New vendors:
 Updated from launch scans: **Magovu**, **Caeris Fairdawn**, **Neriv**, **Ranger Allorn**, **Dennia Silvertongue**, **Thraxadar**, **Telemancer Astrandis**, **Void Researcher Aemely**, **Void Researcher Anomander**, **Maku**.
 
 **Other Corrections**
-- Fixed crafted items incorrectly listed as vendor stock on several Frostwall garrison vendors.
-- Corrected item and cost data for several vendors from community scan exports.
+- Removed crafted items that were incorrectly listed as vendor stock on several Frostwall garrison vendors.
+- Corrected costs and locations for **Falara Nightsong**, **Joruh**, **Flamesmith Lanying**, and **Caydori Brightstar**.
+- Restored **Eadric the Pure** to the Sanctum of Light with a corrected item list.
+- Various cost and item corrections from community scan exports.
 
 ---
 
