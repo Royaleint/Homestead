@@ -978,7 +978,7 @@ function VendorMapPins:RefreshPins()
     if not mapInfo then return end
 
     -- Determine what to show based on map type
-    if mapInfo.mapType == Enum.UIMapType.World or mapInfo.mapType == Enum.UIMapType.Cosmic then
+    if mapInfo.mapType == Enum.UIMapType.World then
         self:ShowContinentBadges()
     elseif mapInfo.mapType == Enum.UIMapType.Continent then
         self:ShowZoneBadges(mapID)
@@ -1175,28 +1175,31 @@ function VendorMapPins:ShowZoneBadges(continentMapID)
         end
     end
 
-    -- Show child continent badges (e.g. Argus on Broken Isles)
-    local children = BC.childContinents[continentMapID]
-    if children then
-        local continentCounts = self:GetContinentVendorCounts()
-        for _, child in ipairs(children) do
-            local childData = continentCounts[child.id]
-            if childData and childData.vendorCount > 0 then
-                local badgeData = {
-                    mapID = child.id,
-                    zoneName = childData.continentName,
-                    vendorCount = childData.vendorCount,
-                    uncollectedCount = childData.uncollectedCount,
-                    unknownCount = childData.unknownCount,
-                    oppositeFactionCount = childData.oppositeFactionCount,
-                }
-
-                local frame = CreateBadgePinFrame(badgeData)
-                badgePinFrames["child_" .. child.id] = frame
-
-                -- Place on parent continent map via native fallback
-                AddWorldMapPin(frame, continentMapID, child.x, child.y,
-                    HBD_PINS_WORLDMAP_SHOW_CONTINENT)
+    -- Show individual zone badges for continents that merge into this one
+    -- (e.g. Argus zones shown on the Broken Isles continent map)
+    for srcContinentID, destContinentID in pairs(BC.continentMergesInto) do
+        if destContinentID == continentMapID then
+            local mergedZones = self:GetZoneVendorCounts(srcContinentID)
+            for zoneMapID, zoneData in pairs(mergedZones) do
+                if zoneData.vendorCount > 0 then
+                    local zoneCenter = self:GetZoneCenterOnMap(zoneMapID, continentMapID)
+                    if zoneCenter then
+                        local badgeData = {
+                            mapID = zoneMapID,
+                            zoneName = zoneData.zoneName,
+                            vendorCount = zoneData.vendorCount,
+                            uncollectedCount = zoneData.uncollectedCount,
+                            unknownCount = zoneData.unknownCount,
+                            oppositeFactionCount = zoneData.oppositeFactionCount,
+                            dominantFaction = zoneData.dominantFaction,
+                            note = BC.zoneNotes[zoneMapID],
+                        }
+                        local frame = CreateBadgePinFrame(badgeData)
+                        badgePinFrames["merged_" .. zoneMapID] = frame
+                        AddWorldMapPin(frame, continentMapID, zoneCenter.x, zoneCenter.y,
+                            HBD_PINS_WORLDMAP_SHOW_CONTINENT)
+                    end
+                end
             end
         end
     end
@@ -1283,7 +1286,6 @@ function VendorMapPins:ShowContinentBadges()
                 WorldMapFrame:AcquirePin(NATIVE_PIN_TEMPLATE, frame, manualPos.x, manualPos.y)
 
             elseif not BC.excludedContinents[continentMapID] then
-                -- Normal continent — HBD handles world map positioning
                 local badgeData = {
                     mapID = continentMapID,
                     zoneName = continentData.continentName,
@@ -1296,9 +1298,18 @@ function VendorMapPins:ShowContinentBadges()
                 local frame = CreateBadgePinFrame(badgeData)
                 badgePinFrames[continentMapID] = frame
 
-                HBDPins:AddWorldMapIconMap("HomesteadVendors", frame, continentMapID,
-                    0.5, 0.5,
-                    HBD_PINS_WORLDMAP_SHOW_WORLD)
+                -- Prefer native placement: ask WoW where this continent sits on the
+                -- Azeroth world map canvas. Falls back to HBD for continents where
+                -- GetMapRectOnMap returns nil (e.g. pre-patch zones not yet on canvas).
+                local minX, maxX, minY, maxY = C_Map.GetMapRectOnMap(continentMapID, 947)
+                if minX then
+                    WorldMapFrame:AcquirePin(NATIVE_PIN_TEMPLATE, frame,
+                        (minX + maxX) / 2, (minY + maxY) / 2)
+                else
+                    HBDPins:AddWorldMapIconMap("HomesteadVendors", frame, continentMapID,
+                        0.5, 0.5,
+                        HBD_PINS_WORLDMAP_SHOW_WORLD)
+                end
             end
         end
     end

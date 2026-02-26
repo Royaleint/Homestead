@@ -400,6 +400,29 @@ function BadgeCalculation:GetContinentVendorCounts()
         end
     end
 
+    -- Roll child continent counts into their parent (e.g. Argus → Broken Isles)
+    for srcID, destID in pairs(BadgeCalculation.continentMergesInto) do
+        local src = continentCounts[srcID]
+        if src then
+            if not continentCounts[destID] then
+                local mapInfo = C_Map.GetMapInfo(destID)
+                continentCounts[destID] = {
+                    continentName = mapInfo and mapInfo.name or "Unknown",
+                    vendorCount = 0, uncollectedCount = 0, unknownCount = 0,
+                    oppositeFactionCount = 0, collectedItems = 0, totalItems = 0,
+                }
+            end
+            local dest = continentCounts[destID]
+            dest.vendorCount          = dest.vendorCount          + src.vendorCount
+            dest.uncollectedCount     = dest.uncollectedCount     + src.uncollectedCount
+            dest.unknownCount         = dest.unknownCount         + src.unknownCount
+            dest.oppositeFactionCount = dest.oppositeFactionCount + src.oppositeFactionCount
+            dest.collectedItems       = dest.collectedItems       + src.collectedItems
+            dest.totalItems           = dest.totalItems           + src.totalItems
+            continentCounts[srcID] = nil
+        end
+    end
+
     cachedContinentBadges = continentCounts
     return continentCounts
 end
@@ -414,12 +437,18 @@ BadgeCalculation.excludedContinents = {
     [1550] = true,  -- Shadowlands (afterlife dimension)
 }
 
+-- Continents whose vendor counts and zone badges roll into a parent continent.
+-- Argus is accessed via Dalaran (Broken Isles) — logically part of BI on the world map.
+BadgeCalculation.continentMergesInto = {
+    [905] = 619,   -- Argus → Broken Isles
+}
+
 -- Off-world continents with manual positions on the Azeroth world map (mapID 947).
 -- These are NOT in excludedContinents — they get badges via native pin fallback.
 -- Argus zones (830, 882, 885) map to continent 905 in zoneToContinent.
 BadgeCalculation.offWorldContinentPositions = {
-    [905]  = { x = 0.82, y = 0.18 },  -- Argus (separate planet, upper-right of world map)
-    [2537] = { x = 0.66, y = 0.15 },  -- Midnight (Silvermoon / Blood Elf zones — fallback if not yet on world map)
+    -- [905] removed — Argus counts merge into Broken Isles (continentMergesInto)
+    -- [2537] removed — Midnight/Quel'Thalas handed to HBD; manual position was incorrect
 }
 
 function BadgeCalculation:GetContinentCenterOnWorldMap(continentMapID)
@@ -448,6 +477,7 @@ BadgeCalculation.manualZoneCenters = {
     [830] = { [905] = { x = 0.33, y = 0.60 } },  -- Krokuun
     [882] = { [905] = { x = 0.60, y = 0.65 } },  -- Eredath
     [885] = { [905] = { x = 0.68, y = 0.30 } },  -- Mac'Aree
+    [831] = { [619] = { x = 0.84, y = 0.14 } },  -- The Vindicaar (Krokuun area, Argus — approximate, verify in-game)
 
     -- Legion class halls on Broken Isles (619) — fallback for instanced zones
     -- Physically on Broken Isles
@@ -484,15 +514,6 @@ BadgeCalculation.zoneNotes = {
     [717] = "Warlock Order Hall — Portal from Dalaran",
     [720] = "Demon Hunter Order Hall — Portal from Krasus' Landing, Dalaran",
     [726] = "Shaman Order Hall — Portal from Dalaran",
-}
-
--- Child continents: shown as aggregate badges on the parent continent map.
--- e.g. when viewing Broken Isles (619), also show a badge for Argus (905).
--- Each entry has the child continent ID and its position on the parent map (normalized 0-1).
-BadgeCalculation.childContinents = {
-    [619] = {
-        { id = 905, x = 0.85, y = 0.12 },  -- Argus (upper-right of Broken Isles map)
-    },
 }
 
 function BadgeCalculation:GetZoneCenterOnMap(zoneMapID, parentMapID)
