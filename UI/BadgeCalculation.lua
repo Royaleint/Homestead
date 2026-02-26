@@ -63,12 +63,9 @@ end
 -- Caches
 -------------------------------------------------------------------------------
 
--- Cached uncollected status per vendor (invalidated on ownership changes)
--- Keyed by "npcID|sourceFilter", stores true/false/"unknown".
-local uncollectedCache = {}
-
--- Cached per-vendor collection counts keyed by "npcID|sourceFilter"
-local collectionCountCache = {}
+-- Cached per-vendor stats keyed by "npcID|sourceFilter".
+-- hasUncollectedState stores true / false / "unknown".
+local vendorStatsCache = {}
 
 -- Cached badge counts (invalidated on ownership/scan/settings changes)
 local cachedZoneBadges = {}       -- [continentMapID] = zoneCounts table
@@ -142,17 +139,16 @@ end
 -- Collection Status
 -------------------------------------------------------------------------------
 
-function BadgeCalculation:VendorHasUncollectedItems(vendor, sourceFilter)
-    if not vendor or not vendor.npcID then return nil end
+local UNKNOWN_VENDOR_STATS = {
+    hasUncollectedState = "unknown",
+    collected = 0,
+    total = 0,
+}
 
-    local cacheKey = BuildVendorFilterCacheKey(vendor, sourceFilter)
-
-    -- Return cached result if available
-    local cached = uncollectedCache[cacheKey]
-    if cached ~= nil then
-        -- Cache stores "unknown" string for nil results (nil can't be stored as a value)
-        if cached == "unknown" then return nil end
-        return cached
+local function BuildVendorStats(vendor, sourceFilter)
+    -- Keep a defensive guard here because badge hot paths read stats directly.
+    if not vendor or not vendor.npcID then
+        return UNKNOWN_VENDOR_STATS
     end
 
     -- Merge static + scanned items from shared VendorData helper.
@@ -161,66 +157,75 @@ function BadgeCalculation:VendorHasUncollectedItems(vendor, sourceFilter)
         and HA.VendorData:GetMergedItemSet(vendor)
         or {}
 
-    -- If we have no item data at all, return nil to indicate "unknown status"
-    local hasAnyItems = next(items) ~= nil
-
-    if not hasAnyItems then
-        uncollectedCache[cacheKey] = "unknown"
-        return nil  -- Unknown - no item data available
+    -- If we have no item data at all, status is "unknown" and counts are zero.
+    if next(items) == nil then
+        return UNKNOWN_VENDOR_STATS
     end
 
     local hasMatchingItems = false
+    local hasUncollected = false
+    local total, collected = 0, 0
 
-    -- Check if any items are uncollected
     for itemID in pairs(items) do
         if ItemMatchesSourceFilter(itemID, sourceFilter) then
             hasMatchingItems = true
-            if not IsItemOwned(itemID) then
-                uncollectedCache[cacheKey] = true
-                return true  -- Has uncollected matching items
+            total = total + 1
+            if IsItemOwned(itemID) then
+                collected = collected + 1
+            else
+                hasUncollected = true
             end
         end
     end
 
-    -- No matching items under this filter counts as "not uncollected", not unknown.
+    -- No matching items under this filter is a known empty result, not unknown.
     if not hasMatchingItems then
-        uncollectedCache[cacheKey] = false
-        return false
+        return {
+            hasUncollectedState = false,
+            collected = 0,
+            total = 0,
+        }
     end
 
-    uncollectedCache[cacheKey] = false
-    return false  -- All matching items collected
+    return {
+        hasUncollectedState = hasUncollected,
+        collected = collected,
+        total = total,
+    }
+end
+
+local function GetVendorStats(vendor, sourceFilter)
+    if not vendor or not vendor.npcID then
+        return UNKNOWN_VENDOR_STATS
+    end
+
+    local cacheKey = BuildVendorFilterCacheKey(vendor, sourceFilter)
+    local cached = vendorStatsCache[cacheKey]
+    if cached then
+        return cached
+    end
+
+    local stats = BuildVendorStats(vendor, sourceFilter)
+    vendorStatsCache[cacheKey] = stats
+    return stats
+end
+
+function BadgeCalculation:VendorHasUncollectedItems(vendor, sourceFilter)
+    if not vendor or not vendor.npcID then return nil end
+
+    local stats = GetVendorStats(vendor, sourceFilter)
+    if stats.hasUncollectedState == "unknown" then
+        return nil
+    end
+
+    return stats.hasUncollectedState == true
 end
 
 function BadgeCalculation:GetVendorCollectionCounts(vendor, sourceFilter)
     if not vendor or not vendor.npcID then return 0, 0 end
 
-    local cacheKey = BuildVendorFilterCacheKey(vendor, sourceFilter)
-    local cached = collectionCountCache[cacheKey]
-    if cached then
-        return cached.collected or 0, cached.total or 0
-    end
-
-    local items = HA.VendorData and HA.VendorData.GetMergedItemSet
-        and HA.VendorData:GetMergedItemSet(vendor)
-        or {}
-
-    local total, collected = 0, 0
-    for itemID in pairs(items) do
-        if ItemMatchesSourceFilter(itemID, sourceFilter) then
-            total = total + 1
-            if IsItemOwned(itemID) then
-                collected = collected + 1
-            end
-        end
-    end
-
-    collectionCountCache[cacheKey] = {
-        total = total,
-        collected = collected,
-    }
-
-    return collected, total
+    local stats = GetVendorStats(vendor, sourceFilter)
+    return stats.collected or 0, stats.total or 0
 end
 
 -------------------------------------------------------------------------------
@@ -233,23 +238,17 @@ function BadgeCalculation:InvalidateBadgeCache()
 end
 
 function BadgeCalculation:InvalidateAllCaches()
-    wipe(uncollectedCache)
-    wipe(collectionCountCache)
+    wipe(vendorStatsCache)
     self:InvalidateBadgeCache()
 end
 
--- Invalidate a specific vendor's uncollected cache entry
+-- Invalidate all cached vendor stats entries for a specific NPC ID.
 function BadgeCalculation:InvalidateVendorCache(npcID)
     if npcID then
         local prefix = tostring(npcID) .. "|"
-        for key in pairs(uncollectedCache) do
+        for key in pairs(vendorStatsCache) do
             if type(key) == "string" and key:sub(1, #prefix) == prefix then
-                uncollectedCache[key] = nil
-            end
-        end
-        for key in pairs(collectionCountCache) do
-            if type(key) == "string" and key:sub(1, #prefix) == prefix then
-                collectionCountCache[key] = nil
+                vendorStatsCache[key] = nil
             end
         end
     end
@@ -320,18 +319,19 @@ function BadgeCalculation:GetZoneVendorCounts(continentMapID)
                             end
                         end
 
-                        local hasUncollected = self:VendorHasUncollectedItems(vendor)
-                        if hasUncollected == true then
+                        -- Direct stats lookup is intentional in this hot path.
+                        -- Vendor validity is already gated above in this loop.
+                        local stats = GetVendorStats(vendor, "all")
+                        local hasUncollectedState = stats.hasUncollectedState
+                        if hasUncollectedState == true then
                             zoneCounts[zoneMapID].uncollectedCount = zoneCounts[zoneMapID].uncollectedCount + 1
-                        elseif hasUncollected == nil then
+                        elseif hasUncollectedState == "unknown" then
                             zoneCounts[zoneMapID].unknownCount = zoneCounts[zoneMapID].unknownCount + 1
                         end
-                        -- hasUncollected == false means all collected, don't increment anything
+                        -- false means all collected, don't increment uncollected/unknown.
 
-                        -- Aggregate item-level counts for continent/world summary rows.
-                        local collected, total = self:GetVendorCollectionCounts(vendor, "all")
-                        zoneCounts[zoneMapID].collectedItems = zoneCounts[zoneMapID].collectedItems + collected
-                        zoneCounts[zoneMapID].totalItems = zoneCounts[zoneMapID].totalItems + total
+                        zoneCounts[zoneMapID].collectedItems = zoneCounts[zoneMapID].collectedItems + (stats.collected or 0)
+                        zoneCounts[zoneMapID].totalItems = zoneCounts[zoneMapID].totalItems + (stats.total or 0)
                     end
                 end
             end
@@ -389,18 +389,19 @@ function BadgeCalculation:GetContinentVendorCounts()
                             continentCounts[continentMapID].oppositeFactionCount = continentCounts[continentMapID].oppositeFactionCount + 1
                         end
 
-                        local hasUncollected = self:VendorHasUncollectedItems(vendor)
-                        if hasUncollected == true then
+                        -- Direct stats lookup is intentional in this hot path.
+                        -- Vendor validity is already gated above in this loop.
+                        local stats = GetVendorStats(vendor, "all")
+                        local hasUncollectedState = stats.hasUncollectedState
+                        if hasUncollectedState == true then
                             continentCounts[continentMapID].uncollectedCount = continentCounts[continentMapID].uncollectedCount + 1
-                        elseif hasUncollected == nil then
+                        elseif hasUncollectedState == "unknown" then
                             continentCounts[continentMapID].unknownCount = continentCounts[continentMapID].unknownCount + 1
                         end
-                        -- hasUncollected == false means all collected, don't increment anything
+                        -- false means all collected, don't increment uncollected/unknown.
 
-                        -- Aggregate item-level counts for world summary rows.
-                        local collected, total = self:GetVendorCollectionCounts(vendor, "all")
-                        continentCounts[continentMapID].collectedItems = continentCounts[continentMapID].collectedItems + collected
-                        continentCounts[continentMapID].totalItems = continentCounts[continentMapID].totalItems + total
+                        continentCounts[continentMapID].collectedItems = continentCounts[continentMapID].collectedItems + (stats.collected or 0)
+                        continentCounts[continentMapID].totalItems = continentCounts[continentMapID].totalItems + (stats.total or 0)
                     end
                 end
             end
