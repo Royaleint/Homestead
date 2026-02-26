@@ -731,14 +731,17 @@ VendorDatabase.Vendors = {
     },
 	[100196] = {
         name = "Eadric the Pure",
-        mapID = 627,
-        x = 0.325, y = 0.689,
-        zone = "Dalaran",
-        subzone = "Sanctum of Light (Paladin Order Hall)",
+        mapID = 24,
+        x = 0.4099, y = 0.6139,
+        zone = "Light's Hope Chapel",
+        subzone = "Sanctum of Light",
         faction = "Neutral",
         currency = "Order Resources",
         expansion = "Legion",
-        notes = "Order Hall portal entrance — pin marks the Dalaran portal location.",
+        notes = "Paladin only — enter via portal in Dalaran.",
+        portal = { mapID = 627, x = 0.325, y = 0.689 },
+        badgeMapID = 627,
+        class = "PALADIN",
         items = {{250230, cost = {currencies = {{id = 1220, amount = 2500}}}}, {250231, cost = {currencies = {{id = 1220, amount = 500}}}}, {250232, cost = {currencies = {{id = 1220, amount = 500}}}}, {250233, cost = {currencies = {{id = 1220, amount = 2000}}}}, {250234, cost = {currencies = {{id = 1220, amount = 1200}}}}, {250235, cost = {currencies = {{id = 1220, amount = 1000}}}}, {250236, cost = {currencies = {{id = 1220, amount = 1500}}}}},
     },
 	[103693] = {
@@ -889,6 +892,7 @@ VendorDatabase.Vendors = {
         notes = "Shaman only — enter via portal in Dalaran.",
         portal = { mapID = 627, x = 0.6697, y = 0.4813 },
         badgeMapID = 627,
+        class = "SHAMAN",
         items = {
             {250914, cost = {currencies = {{id = 1220, amount = 2500}}}},
             {250915, cost = {currencies = {{id = 1220, amount = 2000}}}},
@@ -948,6 +952,7 @@ VendorDatabase.Vendors = {
         notes = "Warrior only — enter via portal in Dalaran.",
         portal = { mapID = 627, x = 0.754, y = 0.4738 },
         badgeMapID = 627,
+        class = "WARRIOR",
         items = {
             {249458, cost = {currencies = {{id = 1220, amount = 2500}}}},
             {249460, cost = {currencies = {{id = 1220, amount = 500}}}},
@@ -969,6 +974,7 @@ VendorDatabase.Vendors = {
         notes = "Priest only — enter via portal in Dalaran.",
         portal = { mapID = 627, x = 0.391, y = 0.572 },
         badgeMapID = 627,
+        class = "PRIEST",
         items = {
             {250302, cost = {currencies = {{id = 1220, amount = 500}}}},
             {250303, cost = {currencies = {{id = 1220, amount = 500}}}},
@@ -992,6 +998,7 @@ VendorDatabase.Vendors = {
         notes = "Demon Hunter only — enter via portal at the eastern edge of Dalaran.",
         portal = { mapID = 627, x = 0.924, y = 0.642 },
         badgeMapID = 627,
+        class = "DEMONHUNTER",
         items = {
             {249457, cost = {currencies = {{id = 1220, amount = 2500}}}},
             {249459, cost = {currencies = {{id = 1220, amount = 1200}}}},
