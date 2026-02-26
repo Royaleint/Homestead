@@ -208,6 +208,7 @@ Constants.ZoneToContinentMap = {
     [630] = 619,
     [634] = 619,
     [641] = 619,
+    [646] = 619,   -- Broken Shore
     [647] = 619,
     [650] = 619,
     [652] = 619,   -- Thunder Totem (sub-zone)
