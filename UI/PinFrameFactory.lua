@@ -362,6 +362,66 @@ function PinFrameFactory:CreateBadgePinFrame(badgeData)
 end
 
 -------------------------------------------------------------------------------
+-- Portal Badge Pin Frame (Order Hall entrance markers)
+-------------------------------------------------------------------------------
+
+-- Creates a portal badge pin for an Order Hall entrance in Dalaran.
+-- portalData: { vendor = <vendor table> }
+-- Pin is placed at vendor.portal.{mapID,x,y}; click navigates to vendor.mapID.
+function PinFrameFactory:CreatePortalBadgePinFrame(portalData)
+    local baseSize = self:GetPinIconSize()
+    local frame = CreateFrame("Frame", nil, UIParent)
+    frame:SetSize(baseSize, baseSize)
+    frame:EnableMouse(true)
+
+    local bg = frame:CreateTexture(nil, "BACKGROUND")
+    bg:SetAllPoints()
+    bg:SetAtlas("auctionhouse-itemicon-border-white", false)
+    bg:SetVertexColor(0.45, 0.2, 0.9, 0.85)  -- purple, distinct from vendor pins
+
+    local ring = frame:CreateTexture(nil, "OVERLAY")
+    ring:SetAllPoints()
+    ring:SetAtlas("auctionhouse-itemicon-border-artifact", false)
+    ring:SetVertexColor(0.6, 0.3, 1.0)
+
+    local icon = frame:CreateTexture(nil, "ARTWORK")
+    icon:SetSize(baseSize * 0.65, baseSize * 0.65)
+    icon:SetPoint("CENTER")
+    icon:SetAtlas("housing-decor-vendor_32", false)
+    icon:SetVertexColor(0.85, 0.65, 1.0)
+
+    frame.portalData = portalData
+
+    frame:SetScript("OnMouseUp", function(self, button) -- luacheck: ignore 432
+        if button == "LeftButton" then
+            local vendor = self.portalData and self.portalData.vendor
+            if vendor and vendor.mapID then
+                WorldMapFrame:SetMapID(vendor.mapID)
+            end
+        end
+    end)
+
+    frame:SetScript("OnEnter", function(self) -- luacheck: ignore 432
+        local vendor = self.portalData and self.portalData.vendor
+        if not vendor then return end
+        GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+        GameTooltip:AddLine(vendor.name, 1, 1, 1)
+        GameTooltip:AddLine("Order Hall Portal", 0.7, 0.5, 1.0)
+        if vendor.notes then
+            GameTooltip:AddLine(vendor.notes, 1, 0.82, 0, true)
+        end
+        GameTooltip:AddLine("Click to view vendor location", 0.5, 0.5, 0.5)
+        GameTooltip:Show()
+    end)
+
+    frame:SetScript("OnLeave", function() -- luacheck: ignore 432
+        GameTooltip:Hide()
+    end)
+
+    return frame
+end
+
+-------------------------------------------------------------------------------
 -- Minimap Pin Frame
 -------------------------------------------------------------------------------
 

@@ -40,6 +40,7 @@ local pinsEnabled = true
 -- Pin frame pools (we create the actual frames, HBD manages their position)
 local vendorPinFrames = {}
 local badgePinFrames = {}
+local portalPinFrames = {}
 local minimapPinFrames = {}
 local highlightedPinFrame = nil
 local highlightOverlay = nil
@@ -437,6 +438,10 @@ local function CreateBadgePinFrame(badgeData)
     return HA.PinFrameFactory:CreateBadgePinFrame(badgeData)
 end
 
+local function CreatePortalBadgePinFrame(portalData)
+    return HA.PinFrameFactory:CreatePortalBadgePinFrame(portalData)
+end
+
 local function CreateMinimapPinFrame(vendor, isOppositeFaction, isUnverified, elevation)
     return HA.PinFrameFactory:CreateMinimapPinFrame(vendor, isOppositeFaction, isUnverified, elevation)
 end
@@ -773,6 +778,10 @@ function VendorMapPins:ClearAllPins()
     -- Clear the tables
     wipe(vendorPinFrames)
     wipe(badgePinFrames)
+    for _, frame in pairs(portalPinFrames) do
+        frame:Hide()
+    end
+    wipe(portalPinFrames)
 end
 
 function VendorMapPins:ClearMinimapPins()
@@ -1167,6 +1176,21 @@ function VendorMapPins:ShowVendorPins(mapID)
                         end
                     end
                 end
+            end
+        end
+    end
+
+    -- Portal badge pass: draw entrance markers for Order Hall vendors accessible via this map.
+    local allVendors = HA.VendorData:GetAllVendors()
+    for _, vendor in ipairs(allVendors) do
+        local portal = vendor.portal
+        if portal and portal.mapID == mapID then
+            if not ShouldHideVendor(vendor) then
+                local frame = CreatePortalBadgePinFrame({ vendor = vendor })
+                AddWorldMapPin(frame, portal.mapID, portal.x, portal.y,
+                    HBD_PINS_WORLDMAP_SHOW_PARENT)
+                frame:Show()
+                table.insert(portalPinFrames, frame)
             end
         end
     end
