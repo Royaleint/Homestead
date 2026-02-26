@@ -1537,11 +1537,15 @@ local function CountVisibleOverlayButtons()
         return count
     end
 
-    -- No Krowi — count Blizzard's default overlay frames manually
+    -- No Krowi — count Blizzard's default overlay frames manually.
+    -- Filter by height: button-row frames are ~32px tall; larger frames (map
+    -- decorations, zone label overlays, etc.) that also live in overlayFrames
+    -- in 11.x+ must be excluded or they inflate the count and push our button
+    -- down to the centre of the right border.
     local count = 0
     if WorldMapFrame.overlayFrames then
         for _, f in ipairs(WorldMapFrame.overlayFrames) do
-            if f:IsShown() then
+            if f:IsShown() and f:GetHeight() <= 36 then
                 count = count + 1
             end
         end
@@ -1551,11 +1555,12 @@ end
 
 local function PositionOverlayButton()
     if not overlayButton then return end
+    local container = WorldMapFrame:GetCanvasContainer()
+    if not container then return end
     overlayButton:ClearAllPoints()
     local visibleCount = CountVisibleOverlayButtons()
     local yOffset = -(2 + visibleCount * 32)
-    overlayButton:SetPoint("TOPRIGHT", WorldMapFrame:GetCanvasContainer(),
-        "TOPRIGHT", -4, yOffset)
+    overlayButton:SetPoint("TOPRIGHT", container, "TOPRIGHT", -4, yOffset)
 end
 
 -- Right-click context menu: quick-access settings for map pins.
