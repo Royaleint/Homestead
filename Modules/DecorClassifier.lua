@@ -63,6 +63,12 @@ local scanTooltip = CreateFrame("GameTooltip", "HomesteadScanTooltip", UIParent,
 
 -- Scrape item requirements from hidden tooltip (experimental).
 -- Returns: nil (could not check), {} (no requirements), or table of requirements.
+--
+-- WARNING: This calls SetMerchantItem from insecure addon code, which taints
+-- the global GameTooltipMoneyFrame pool with "secret number" button widths,
+-- causing MoneyFrame_Update to crash on subsequent tooltips (world quests, etc.).
+-- This feature is guarded by db.enableRequirementScraping (default: false).
+-- Do NOT enable in production until a taint-safe alternative is found.
 function DecorClassifier.ScrapeItemRequirements(slotIndex)
     -- Debug: log every call
     local db = HA.Addon and HA.Addon.db and HA.Addon.db.global
@@ -162,10 +168,17 @@ end
 -- Decor Detection
 -------------------------------------------------------------------------------
 
--- Check if an item is a housing decor item using the Housing Catalog API,
--- with tooltip fallback for achievement-gated items.
+-- Check if an item is a housing decor item using the Housing Catalog API.
 -- Returns: isDecor (boolean), decorInfo (table or nil)
-function DecorClassifier.CheckIfDecorItem(itemLink, slotIndex)
+--
+-- NOTE: A SetMerchantItem tooltip fallback was removed here (2026-02-25).
+-- SetMerchantItem is a protected Blizzard function. Calling it from addon code
+-- taints GameTooltipMoneyFrame1 (global pool frame) with "secret number" widths,
+-- which then crashes MoneyFrame_Update when ANY subsequent tooltip (e.g. world
+-- quest TaskPOI) reuses that pooled frame. The fallback only caught achievement-
+-- gated edge cases; the taint cost is unacceptable. Items where the catalog API
+-- returns nil are treated as non-decor.
+function DecorClassifier.CheckIfDecorItem(itemLink)
     local CHC = _G.C_HousingCatalog
     if not itemLink or not CHC or not CHC.GetCatalogEntryInfoByItem then
         return false, nil
@@ -183,41 +196,6 @@ function DecorClassifier.CheckIfDecorItem(itemLink, slotIndex)
             isOwned = catalogInfo.isOwned,
             quantityOwned = catalogInfo.quantityOwned,
         }
-    end
-
-    -- Fallback: scan tooltip for "Housing Decor" text.
-    -- Some items (e.g. achievement-gated decor) are in the Housing Catalog
-    -- but GetCatalogEntryInfoByItem() returns nil for them.
-    if slotIndex then
-        local tooltipOk, tooltipDetected = pcall(function()
-            scanTooltip:SetOwner(UIParent, "ANCHOR_NONE")
-            scanTooltip:ClearLines()
-            scanTooltip:SetMerchantItem(slotIndex)
-            local numLines = scanTooltip:NumLines()
-            for i = 1, numLines do
-                local line = _G["HomesteadScanTooltipTextLeft" .. i]
-                if line then
-                    local text = line:GetText()
-                    if text and text == "Housing Decor" then
-                        return true
-                    end
-                end
-            end
-            return false
-        end)
-        if tooltipOk and tooltipDetected then
-            local itemID = GetItemInfoInstant(itemLink)
-            if HA.DevAddon then
-                HA.Addon:Debug(string.format(
-                    "CheckIfDecorItem: tooltip fallback detected decor for item %d",
-                    itemID or 0))
-            end
-            return true, {
-                itemID = itemID,
-                name = nil,
-                tooltipFallback = true,
-            }
-        end
     end
 
     return false, nil

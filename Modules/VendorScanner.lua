@@ -444,7 +444,7 @@ function VendorScanner:ProcessScanQueue()
             end
 
             -- Check if this is a housing decor item
-            local isDecor, decorInfo = CheckIfDecorItem(itemLink, i)
+            local isDecor, decorInfo = CheckIfDecorItem(itemLink)
 
             -- Track all items for itemCount
             table.insert(scanQueue.allItems, {
