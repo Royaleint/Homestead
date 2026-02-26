@@ -63,6 +63,7 @@ local currentDisplayLevel = "zone"  -- "zone" | "continent" | "world"
 local backBar = nil  -- Back navigation bar (visible at zone/continent level)
 local expandedSummaryMapID = nil  -- mapID of expanded summary row (nil = none)
 local summarySubRows = {}         -- reusable sub-row frame pool
+local iconPool = {}               -- reusable item icon frame pool
 
 -- Search state
 local searchEditBox = nil
@@ -373,6 +374,34 @@ local function CreateItemIcon(parent)
     return frame
 end
 
+local function ResetIcon(icon)
+    icon.itemID = nil
+    icon.npcID = nil
+    icon.requirements = nil
+    icon.texture:SetDesaturated(false)
+    icon.texture:SetVertexColor(1, 1, 1)
+    icon.check:Hide()
+    icon.lock:Hide()
+    icon:Hide()
+    icon:ClearAllPoints()
+end
+
+local function AcquireIcon(parent)
+    local icon = table.remove(iconPool)
+    if not icon then
+        icon = CreateItemIcon(parent)
+    else
+        icon:SetParent(parent)
+    end
+    icon:Show()
+    return icon
+end
+
+local function ReleaseIcon(icon)
+    ResetIcon(icon)
+    table.insert(iconPool, icon)
+end
+
 -- Check if an item has unmet requirements the player hasn't satisfied
 local function GetUnmetRequirements(itemID, npcID)
     local SM = HA.SourceManager
@@ -393,13 +422,24 @@ local function GetUnmetRequirements(itemID, npcID)
     return unmet and reqs or nil, reqs
 end
 
+local function HideItemGrid(row)
+    if row.itemGrid then
+        -- Release all icons back to the pool
+        if row.itemIcons then
+            for i = #row.itemIcons, 1, -1 do
+                ReleaseIcon(row.itemIcons[i])
+                row.itemIcons[i] = nil
+            end
+        end
+        row.itemGrid:Hide()
+    end
+end
+
 -- Populate the item grid for a vendor row. Returns total height of the grid.
 local function PopulateItemGrid(row, vendor, sourceFilter, highlightItems)
     local itemIDs = GetVendorItemIDs(vendor, sourceFilter)
     if #itemIDs == 0 then
-        if row.itemGrid then
-            row.itemGrid:Hide()
-        end
+        HideItemGrid(row)
         return 0
     end
 
@@ -423,9 +463,9 @@ local function PopulateItemGrid(row, vendor, sourceFilter, highlightItems)
 
     local npcID = vendor.npcID
 
-    -- Ensure enough icon frames
+    -- Ensure enough icon frames (acquire from pool)
     while #icons < #itemIDs do
-        icons[#icons + 1] = CreateItemIcon(grid)
+        icons[#icons + 1] = AcquireIcon(grid)
     end
 
     -- Position and populate icons
@@ -487,9 +527,10 @@ local function PopulateItemGrid(row, vendor, sourceFilter, highlightItems)
         icon:Show()
     end
 
-    -- Hide excess icons
-    for i = #itemIDs + 1, #icons do
-        icons[i]:Hide()
+    -- Release excess icons back to pool
+    for i = #icons, #itemIDs + 1, -1 do
+        ReleaseIcon(icons[i])
+        icons[i] = nil
     end
 
     -- Calculate grid height
@@ -499,12 +540,6 @@ local function PopulateItemGrid(row, vendor, sourceFilter, highlightItems)
     grid:Show()
 
     return gridHeight + ITEM_ICON_PAD  -- Extra padding below grid
-end
-
-local function HideItemGrid(row)
-    if row.itemGrid then
-        row.itemGrid:Hide()
-    end
 end
 
 -------------------------------------------------------------------------------
