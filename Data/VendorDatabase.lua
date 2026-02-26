@@ -882,7 +882,7 @@ VendorDatabase.Vendors = {
         mapID = 726,
         x = 0.3032, y = 0.6069,
         zone = "The Maelstrom",
-        subzone = "The Heart of Azeroth (Shaman Order Hall)",
+        subzone = "The Heart of Azeroth",
         faction = "Neutral",
         currency = "Order Resources",
         expansion = "Legion",
