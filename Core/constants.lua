@@ -224,6 +224,7 @@ Constants.ZoneToContinentMap = {
     [747] = 619,
     [750] = 619,   -- Thunder Totem
     [830] = 905,   -- Krokuun (Argus)
+    [831] = 905,   -- The Vindicaar (Argus, sub-map of Krokuun)
     [862] = 875,
     [863] = 875,
     [864] = 875,
