@@ -277,6 +277,13 @@ function BadgeCalculation:GetZoneVendorCounts(continentMapID)
             -- Get best coordinates (scanned preferred over static)
             local coords, zoneMapID = VF.GetBestVendorCoordinates(vendor)
 
+            -- Badge zone override: count vendor under its accessible map (e.g. Dalaran portal)
+            -- rather than its inaccessible instance zone. Decoupled from vendor.portal so this
+            -- works independently if the portal pin feature is absent or reverted.
+            if vendor.badgeMapID then
+                zoneMapID = vendor.badgeMapID
+            end
+
             -- Only count vendors with valid coordinates
             if coords and zoneMapID then
                 -- Merge vertically-stacked sibling zones into one summary row.
