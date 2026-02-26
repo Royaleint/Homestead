@@ -174,6 +174,26 @@ local minimapExcludedContinents = {
     [1550] = true,  -- Shadowlands (afterlife dimension)
 }
 
+-- Pin jitter: nudge co-located vendors apart so both pins are visible/hoverable.
+-- Returns (possibly offset) x, y and records the position for future collision checks.
+-- offset ~0.003 ≈ a few pixels at zone zoom; imperceptible for waypoints.
+local PIN_JITTER_OFFSET = 0.003
+
+local function JitterPin(placedPositions, mapIDForPin, x, y)
+    local key = format("%d:%.4f:%.4f", mapIDForPin, x, y)
+    local count = placedPositions[key]
+    if count then
+        placedPositions[key] = count + 1
+        -- Nudge right for the 2nd pin, left for a hypothetical 3rd, etc.
+        local direction = (count % 2 == 1) and 1 or -1
+        local magnitude = math.ceil(count / 2)
+        x = x + PIN_JITTER_OFFSET * direction * magnitude
+    else
+        placedPositions[key] = 1
+    end
+    return x, y
+end
+
 -- Runtime event/ticker handles (registered conditionally by feature state)
 local merchantEventFrame = nil
 local zoneEventFrame = nil
@@ -866,6 +886,7 @@ function VendorMapPins:RefreshMinimapPins()
     local showOpposite = ShouldShowOppositeFaction()
     local floatOnEdge = not IsIndoors()  -- Hide distant pins when inside buildings/caves
     local addedVendors = {}  -- Prevent duplicate pins for same vendor
+    local placedPositions = {}  -- Track placed pin coords for jitter
     local addedCount = 0
     local capReached = false
 
@@ -910,10 +931,12 @@ function VendorMapPins:RefreshMinimapPins()
                             if (showUnverified or not isUnverified) and (canAccess or (isOpposite and showOpposite)) then
                                 local elevation = Constants.GetElevationDirection(playerMapID, vendorMapID)
 
+                                local pinX, pinY = JitterPin(placedPositions, vendorMapID, coords.x, coords.y)
+
                                 if elevation then
                                     -- Cross-floor: use AddMinimapIconWorld to bypass HBD mapID filter
                                     local worldX, worldY, instanceID = HBD:GetWorldCoordinatesFromZone(
-                                        coords.x, coords.y, vendorMapID)
+                                        pinX, pinY, vendorMapID)
                                     if worldX then
                                         local showArrow = showElevationArrows
                                         local frame = CreateMinimapPinFrame(vendor, isOpposite, isUnverified,
@@ -934,7 +957,7 @@ function VendorMapPins:RefreshMinimapPins()
                                     addedVendors[vendor.npcID] = true
                                     addedCount = addedCount + 1
                                     HBDPins:AddMinimapIconMap("HomesteadMinimapVendors", frame, vendorMapID,
-                                        coords.x, coords.y,
+                                        pinX, pinY,
                                         true,         -- showInParentZone
                                         floatOnEdge)  -- false indoors: hides distant pins
                                 end
@@ -990,6 +1013,7 @@ end
 function VendorMapPins:ShowVendorPins(mapID)
     local showOpposite = ShouldShowOppositeFaction()
     local addedVendors = {}  -- Track by npcID to avoid duplicates
+    local placedPositions = {}  -- Track placed pin coords for jitter
 
     -- Build set of valid mapIDs: current map + child/sub-zone maps
     -- This ensures vendors in sub-zones (e.g., City of Threads inside Azj-Kahet)
@@ -1047,7 +1071,8 @@ function VendorMapPins:ShowVendorPins(mapID)
                 -- Add to world map using vendor's actual mapID (HBD with native fallback for Argus etc.)
                 -- vendorMapID may differ from mapID for sub-zone vendors; HBD_PINS_WORLDMAP_SHOW_PARENT
                 -- ensures sub-zone pins appear on the parent zone map
-                AddWorldMapPin(frame, vendorMapID, coords.x, coords.y,
+                local pinX, pinY = JitterPin(placedPositions, vendorMapID, coords.x, coords.y)
+                AddWorldMapPin(frame, vendorMapID, pinX, pinY,
                     HBD_PINS_WORLDMAP_SHOW_PARENT)
             end
         end

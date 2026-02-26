@@ -1166,8 +1166,11 @@ VendorDatabase.Vendors = {
             {246703, cost = {gold = 3000000, items = {{id = 169610, amount = 3}}}},
         },
     },
+	-- Dershway the Triggered: removed from game in Patch 11.2.7 (Dec 2025).
+	-- Replaced by original vendor Quackenbush [68363] at the same Brawlpub spot.
 	[151941] = {
         name = "Dershway the Triggered",
+        unreleased = true,
         mapID = 84,
         x = 0.700, y = 0.370,
         zone = "Stormwind",
