@@ -1292,10 +1292,25 @@ function VendorMapPins:ShowZoneBadgesOnWorldMap()
                         local frame = CreateBadgePinFrame(badgeData)
                         badgePinFrames["world_" .. zoneMapID] = frame
 
-                        -- HBD translates zone center to world map position automatically
-                        HBDPins:AddWorldMapIconMap("HomesteadVendors", frame, zoneMapID,
-                            0.5, 0.5,
-                            HBD_PINS_WORLDMAP_SHOW_WORLD)
+                        -- HBD translates zone center to world map position automatically.
+                        -- Some zones (phased class halls, old-world outliers) can't be
+                        -- projected by HBD for all characters — fall back to the continent's
+                        -- manualZoneCenters entry so the badge still appears on the world map.
+                        if IsHBDSupported(zoneMapID) then
+                            HBDPins:AddWorldMapIconMap("HomesteadVendors", frame, zoneMapID,
+                                0.5, 0.5,
+                                HBD_PINS_WORLDMAP_SHOW_WORLD)
+                        else
+                            local fallbackContinent = BC.GetContinentForZone(zoneMapID)
+                            local fallbackCenter = fallbackContinent
+                                and BC:GetZoneCenterOnMap(zoneMapID, fallbackContinent)
+                            if fallbackCenter and IsHBDSupported(fallbackContinent) then
+                                HBDPins:AddWorldMapIconMap("HomesteadVendors", frame,
+                                    fallbackContinent,
+                                    fallbackCenter.x, fallbackCenter.y,
+                                    HBD_PINS_WORLDMAP_SHOW_WORLD)
+                            end
+                        end
                     end
                 end
             end

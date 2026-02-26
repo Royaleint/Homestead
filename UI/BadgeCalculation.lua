@@ -525,10 +525,14 @@ BadgeCalculation.zoneNotes = {
 
 function BadgeCalculation:GetZoneCenterOnMap(zoneMapID, parentMapID)
     local minX, maxX, minY, maxY = C_Map.GetMapRectOnMap(zoneMapID, parentMapID)
-    if minX and maxX and minY and maxY then
+    -- Guard against degenerate rects (e.g. 0,0,0,0 returned for phased/instanced zones
+    -- that the current character cannot access). In Lua, 0 is truthy, so we must
+    -- explicitly reject a collapsed rect to avoid placing badges at (0, 0).
+    if minX and maxX and minY and maxY and (minX ~= maxX or minY ~= maxY) then
         return { x = (minX + maxX) / 2, y = (minY + maxY) / 2 }
     end
-    -- Fallback for cross-instance maps (e.g. Argus zones on Argus continent)
+    -- Fallback for cross-instance/phased maps (e.g. Argus zones on Argus continent,
+    -- or Trueshot Lodge on Broken Isles for non-hunters)
     local manual = self.manualZoneCenters[zoneMapID]
     if manual and manual[parentMapID] then
         return manual[parentMapID]
