@@ -365,7 +365,18 @@ end
 -- Portal Badge Pin Frame (Order Hall entrance markers)
 -------------------------------------------------------------------------------
 
--- Creates a portal badge pin for an Order Hall entrance in Dalaran.
+-- Legion Order Hall class atlas icons (legionmission-landingbutton-<class>-up)
+local PORTAL_CLASS_ATLAS = {
+    PALADIN     = "legionmission-landingbutton-paladin-up",
+    SHAMAN      = "legionmission-landingbutton-shaman-up",
+    WARRIOR     = "legionmission-landingbutton-warrior-up",
+    PRIEST      = "legionmission-landingbutton-priest-up",
+    DEMONHUNTER = "legionmission-landingbutton-demonhunter-up",
+    MONK        = "legionmission-landingbutton-monk-up",
+    MAGE        = "legionmission-landingbutton-mage-up",
+}
+
+-- Creates a portal badge pin for an Order Hall entrance.
 -- portalData: { vendor = <vendor table> }
 -- Pin is placed at vendor.portal.{mapID,x,y}; click navigates to vendor.mapID.
 function PinFrameFactory:CreatePortalBadgePinFrame(portalData)
@@ -374,41 +385,74 @@ function PinFrameFactory:CreatePortalBadgePinFrame(portalData)
     frame:SetSize(baseSize, baseSize)
     frame:EnableMouse(true)
 
+    local vendor = portalData and portalData.vendor
+    local classAtlas = vendor and vendor.class and PORTAL_CLASS_ATLAS[vendor.class]
+    local classColor = vendor and vendor.class and C_ClassColor.GetClassColor(vendor.class)
+    local cr = classColor and classColor.r or 0.7
+    local cg = classColor and classColor.g or 0.3
+    local cb = classColor and classColor.b or 1.0
+
+    -- Dark circular background
     local bg = frame:CreateTexture(nil, "BACKGROUND")
     bg:SetAllPoints()
     bg:SetAtlas("auctionhouse-itemicon-border-white", false)
-    bg:SetVertexColor(0.45, 0.2, 0.9, 0.85)  -- purple, distinct from vendor pins
+    bg:SetVertexColor(0.08, 0.04, 0.15, 1.0)
 
-    local ring = frame:CreateTexture(nil, "OVERLAY")
-    ring:SetAllPoints()
-    ring:SetAtlas("auctionhouse-itemicon-border-artifact", false)
-    ring:SetVertexColor(0.6, 0.3, 1.0)
+    if classAtlas then
+        -- Class icon fills the pin — the atlas includes its own border and emblem
+        local icon = frame:CreateTexture(nil, "ARTWORK")
+        icon:SetAllPoints()
+        icon:SetAtlas(classAtlas, false)
+    else
+        -- Fallback: tinted ring + housing icon (Warlock and future classes)
+        local ring = frame:CreateTexture(nil, "BORDER")
+        ring:SetAllPoints()
+        ring:SetAtlas("auctionhouse-itemicon-border-artifact", false)
+        ring:SetVertexColor(cr, cg, cb)
 
-    local icon = frame:CreateTexture(nil, "ARTWORK")
-    icon:SetSize(baseSize * 0.65, baseSize * 0.65)
-    icon:SetPoint("CENTER")
-    icon:SetAtlas("housing-decor-vendor_32", false)
-    icon:SetVertexColor(0.85, 0.65, 1.0)
+        local icon = frame:CreateTexture(nil, "ARTWORK")
+        icon:SetSize(baseSize * 0.65, baseSize * 0.65)
+        icon:SetPoint("CENTER")
+        icon:SetAtlas("housing-decor-vendor_32", false)
+        icon:SetDesaturated(true)
+        icon:SetVertexColor(cr, cg, cb, 1.0)
+    end
+
+    -- Pulsing outer glow ring (class-colored, extends beyond pin edges)
+    local glowFrame = CreateFrame("Frame", nil, frame)
+    glowFrame:SetSize(baseSize * 2.2, baseSize * 2.2)
+    glowFrame:SetPoint("CENTER")
+    local glowTex = glowFrame:CreateTexture(nil, "BACKGROUND")
+    glowTex:SetAllPoints()
+    glowTex:SetAtlas("auctionhouse-itemicon-border-artifact", false)
+    glowTex:SetVertexColor(cr, cg, cb)
+    local ag = glowFrame:CreateAnimationGroup()
+    ag:SetLooping("BOUNCE")
+    local anim = ag:CreateAnimation("ALPHA")
+    anim:SetFromAlpha(0.1)
+    anim:SetToAlpha(0.7)
+    anim:SetDuration(1.2)
+    ag:Play()
 
     frame.portalData = portalData
 
     frame:SetScript("OnMouseUp", function(self, button) -- luacheck: ignore 432
         if button == "LeftButton" then
-            local vendor = self.portalData and self.portalData.vendor
-            if vendor and vendor.mapID then
-                WorldMapFrame:SetMapID(vendor.mapID)
+            local v = self.portalData and self.portalData.vendor
+            if v and v.mapID then
+                WorldMapFrame:SetMapID(v.mapID)
             end
         end
     end)
 
     frame:SetScript("OnEnter", function(self) -- luacheck: ignore 432
-        local vendor = self.portalData and self.portalData.vendor
-        if not vendor then return end
+        local v = self.portalData and self.portalData.vendor
+        if not v then return end
         GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-        GameTooltip:AddLine(vendor.name, 1, 1, 1)
+        GameTooltip:AddLine(v.name, 1, 1, 1)
         GameTooltip:AddLine("Order Hall Portal", 0.7, 0.5, 1.0)
-        if vendor.notes then
-            GameTooltip:AddLine(vendor.notes, 1, 0.82, 0, true)
+        if v.notes then
+            GameTooltip:AddLine(v.notes, 1, 0.82, 0, true)
         end
         GameTooltip:AddLine("Click to view vendor location", 0.5, 0.5, 0.5)
         GameTooltip:Show()
