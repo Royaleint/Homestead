@@ -37,11 +37,17 @@ local unpack = unpack
 local isInitialized = false
 local pinsEnabled = true
 
--- Pin frame pools (we create the actual frames, HBD manages their position)
+-- Active frames currently shown by this module.
 local vendorPinFrames = {}
 local badgePinFrames = {}
 local portalPinFrames = {}
 local minimapPinFrames = {}
+
+-- Reusable frame buckets keyed by style/variant signature.
+local vendorFramePool = {}
+local badgeFramePool = {}
+local portalFramePool = {}
+local minimapFramePool = {}
 local highlightedPinFrame = nil
 local highlightOverlay = nil
 local highlightOriginalScale = nil
@@ -135,6 +141,126 @@ local function AddWorldMapPin(frame, mapID, x, y, showFlag)
         return true
     end
     return false
+end
+
+-------------------------------------------------------------------------------
+-- Frame Pool Helpers
+-------------------------------------------------------------------------------
+
+local function BoolToKey(value)
+    return value and "1" or "0"
+end
+
+local function AcquirePooledFrame(poolByKey, poolKey, createFunc)
+    local bucket = poolByKey[poolKey]
+    if bucket then
+        local idx = #bucket
+        if idx > 0 then
+            local frame = bucket[idx]
+            bucket[idx] = nil
+            frame.__hsInPool = false
+            frame.__hsPoolKey = poolKey
+            return frame
+        end
+    end
+
+    local frame = createFunc()
+    frame.__hsInPool = false
+    frame.__hsPoolKey = poolKey
+    return frame
+end
+
+local function ReleasePooledFrame(poolByKey, frame)
+    if not frame or frame.__hsInPool then
+        return
+    end
+
+    frame:Hide()
+
+    local poolKey = frame.__hsPoolKey
+    if not poolKey then
+        return
+    end
+
+    local bucket = poolByKey[poolKey]
+    if not bucket then
+        bucket = {}
+        poolByKey[poolKey] = bucket
+    end
+
+    frame.__hsInPool = true
+    bucket[#bucket + 1] = frame
+end
+
+local function BuildWorldPinStyleKey()
+    local factory = HA.PinFrameFactory
+    local size = factory:GetPinIconSize()
+    local isCustom = factory:IsCustomPinColor()
+    local r, g, b = factory:GetPinColor()
+    return format("ws%d|c%s|%.3f|%.3f|%.3f", size, BoolToKey(isCustom), r, g, b)
+end
+
+local function BuildMinimapPinStyleKey()
+    local factory = HA.PinFrameFactory
+    local size = factory:GetMinimapIconSize()
+    local isCustom = factory:IsCustomPinColor()
+    local r, g, b = factory:GetPinColor()
+    return format("ms%d|c%s|%.3f|%.3f|%.3f", size, BoolToKey(isCustom), r, g, b)
+end
+
+local function GetVendorFramePoolKey(vendor, isOppositeFaction, isUnverified)
+    local factionKey = "neutral"
+    if isOppositeFaction and vendor and vendor.faction then
+        factionKey = vendor.faction
+    end
+
+    return format("%s|o%s|u%s|f%s",
+        BuildWorldPinStyleKey(),
+        BoolToKey(isOppositeFaction),
+        BoolToKey(isUnverified),
+        factionKey)
+end
+
+local function GetBadgeDisplayFactionKey(badgeData)
+    if badgeData and badgeData.dominantFaction then
+        return badgeData.dominantFaction
+    end
+    if badgeData and (badgeData.oppositeFactionCount or 0) > 0 then
+        local playerFaction = UnitFactionGroup("player")
+        if playerFaction == "Alliance" then
+            return "Horde"
+        end
+        return "Alliance"
+    end
+    return "none"
+end
+
+local function GetBadgeFramePoolKey(badgeData)
+    local vendorCount = badgeData and badgeData.vendorCount or 0
+    local uncollectedCount = badgeData and badgeData.uncollectedCount or 0
+    local oppositeCount = badgeData and badgeData.oppositeFactionCount or 0
+    local factionKey = GetBadgeDisplayFactionKey(badgeData)
+
+    return format("%s|v%d|u%d|o%d|f%s",
+        BuildWorldPinStyleKey(),
+        vendorCount,
+        uncollectedCount,
+        oppositeCount,
+        factionKey)
+end
+
+local function GetPortalFramePoolKey(portalData)
+    local vendor = portalData and portalData.vendor
+    local classKey = vendor and vendor.class or "NONE"
+    return format("ps%d|class%s", HA.PinFrameFactory:GetPinIconSize(), classKey)
+end
+
+local function GetMinimapFramePoolKey(isOppositeFaction, isUnverified, elevation)
+    return format("%s|o%s|u%s|e%s",
+        BuildMinimapPinStyleKey(),
+        BoolToKey(isOppositeFaction),
+        BoolToKey(isUnverified),
+        elevation or "none")
 end
 
 -- Pin color/size helpers delegated to PinFrameFactory (loaded before this file)
@@ -431,19 +557,47 @@ end
 
 -- Local wrappers for frame creation (delegate to PinFrameFactory)
 local function CreateVendorPinFrame(vendor, isOppositeFaction, isUnverified)
-    return HA.PinFrameFactory:CreateVendorPinFrame(vendor, isOppositeFaction, isUnverified)
+    local poolKey = GetVendorFramePoolKey(vendor, isOppositeFaction, isUnverified)
+    local frame = AcquirePooledFrame(vendorFramePool, poolKey, function()
+        return HA.PinFrameFactory:CreateVendorPinFrame(vendor, isOppositeFaction, isUnverified)
+    end)
+    frame.vendor = vendor
+    frame.isOppositeFaction = isOppositeFaction
+    frame.isUnverified = isUnverified
+    if HA.PinFrameFactory and HA.PinFrameFactory.RefreshVendorPinCount then
+        HA.PinFrameFactory:RefreshVendorPinCount(frame, vendor)
+    end
+    return frame
 end
 
 local function CreateBadgePinFrame(badgeData)
-    return HA.PinFrameFactory:CreateBadgePinFrame(badgeData)
+    local poolKey = GetBadgeFramePoolKey(badgeData)
+    local frame = AcquirePooledFrame(badgeFramePool, poolKey, function()
+        return HA.PinFrameFactory:CreateBadgePinFrame(badgeData)
+    end)
+    frame.badgeData = badgeData
+    return frame
 end
 
 local function CreatePortalBadgePinFrame(portalData)
-    return HA.PinFrameFactory:CreatePortalBadgePinFrame(portalData)
+    local poolKey = GetPortalFramePoolKey(portalData)
+    local frame = AcquirePooledFrame(portalFramePool, poolKey, function()
+        return HA.PinFrameFactory:CreatePortalBadgePinFrame(portalData)
+    end)
+    frame.portalData = portalData
+    return frame
 end
 
 local function CreateMinimapPinFrame(vendor, isOppositeFaction, isUnverified, elevation)
-    return HA.PinFrameFactory:CreateMinimapPinFrame(vendor, isOppositeFaction, isUnverified, elevation)
+    local poolKey = GetMinimapFramePoolKey(isOppositeFaction, isUnverified, elevation)
+    local frame = AcquirePooledFrame(minimapFramePool, poolKey, function()
+        return HA.PinFrameFactory:CreateMinimapPinFrame(vendor, isOppositeFaction, isUnverified, elevation)
+    end)
+    frame.vendor = vendor
+    frame.isOppositeFaction = isOppositeFaction
+    frame.isUnverified = isUnverified
+    frame.elevation = elevation
+    return frame
 end
 
 -------------------------------------------------------------------------------
@@ -715,7 +869,8 @@ function VendorMapPins:HighlightVendor(npcID)
     local targetNPCID = tonumber(npcID)
     if not targetNPCID then return end
 
-    for vendor, frame in pairs(vendorPinFrames) do
+    for _, frame in ipairs(vendorPinFrames) do
+        local vendor = frame and frame.vendor
         if frame and frame:IsShown() and vendor and vendor.npcID == targetNPCID then
             highlightedPinFrame = frame
             highlightOriginalScale = frame:GetScale() or 1
@@ -760,6 +915,7 @@ end
 
 function VendorMapPins:ClearAllPins()
     self:ClearHighlight()
+    self:OnPinLeave()
 
     -- Remove all vendor pins from HereBeDragons
     HBDPins:RemoveAllWorldMapIcons("HomesteadVendors")
@@ -767,30 +923,31 @@ function VendorMapPins:ClearAllPins()
     -- Remove native fallback pins (Argus, etc.)
     WorldMapFrame:RemoveAllPinsByTemplate(NATIVE_PIN_TEMPLATE)
 
-    -- Hide and release all our frame objects
-    for _, frame in pairs(vendorPinFrames) do
-        frame:Hide()
+    -- Release all active frames back to reusable pools.
+    for _, frame in ipairs(vendorPinFrames) do
+        ReleasePooledFrame(vendorFramePool, frame)
     end
-    for _, frame in pairs(badgePinFrames) do
-        frame:Hide()
+    for _, frame in ipairs(badgePinFrames) do
+        ReleasePooledFrame(badgeFramePool, frame)
+    end
+    for _, frame in ipairs(portalPinFrames) do
+        ReleasePooledFrame(portalFramePool, frame)
     end
 
-    -- Clear the tables
     wipe(vendorPinFrames)
     wipe(badgePinFrames)
-    for _, frame in pairs(portalPinFrames) do
-        frame:Hide()
-    end
     wipe(portalPinFrames)
 end
 
 function VendorMapPins:ClearMinimapPins()
+    self:OnPinLeave()
+
     -- Remove all minimap pins from HereBeDragons
     HBDPins:RemoveAllMinimapIcons("HomesteadMinimapVendors")
 
-    -- Hide and release all minimap frame objects
-    for _, frame in pairs(minimapPinFrames) do
-        frame:Hide()
+    -- Release active minimap frames back to reusable pool.
+    for _, frame in ipairs(minimapPinFrames) do
+        ReleasePooledFrame(minimapFramePool, frame)
     end
 
     -- Clear the table
@@ -950,7 +1107,7 @@ function VendorMapPins:RefreshMinimapPins()
                                         local showArrow = showElevationArrows
                                         local frame = CreateMinimapPinFrame(vendor, isOpposite, isUnverified,
                                             showArrow and elevation or nil)
-                                        minimapPinFrames[vendor] = frame
+                                        minimapPinFrames[#minimapPinFrames + 1] = frame
                                         addedVendors[vendor.npcID] = true
                                         addedCount = addedCount + 1
                                         -- Always float on edge for cross-floor pins; indoor detection
@@ -962,7 +1119,7 @@ function VendorMapPins:RefreshMinimapPins()
                                     -- AddMinimapIconMap would also fail (same conversion internally)
                                 else
                                     local frame = CreateMinimapPinFrame(vendor, isOpposite, isUnverified)
-                                    minimapPinFrames[vendor] = frame
+                                    minimapPinFrames[#minimapPinFrames + 1] = frame
                                     addedVendors[vendor.npcID] = true
                                     addedCount = addedCount + 1
                                     HBDPins:AddMinimapIconMap("HomesteadMinimapVendors", frame, vendorMapID,
@@ -1074,7 +1231,7 @@ function VendorMapPins:ShowVendorPins(mapID)
             -- Show vendor if accessible OR if opposite faction and setting enabled
             if canAccess or (isOpposite and showOpposite) then
                 local frame = CreateVendorPinFrame(vendor, isOpposite, isUnverified)
-                vendorPinFrames[vendor] = frame
+                vendorPinFrames[#vendorPinFrames + 1] = frame
                 addedVendors[vendor.npcID] = true
 
                 -- Add to world map using vendor's actual mapID (HBD with native fallback for Argus etc.)
@@ -1152,7 +1309,7 @@ function VendorMapPins:ShowVendorPins(mapID)
 
     -- Pre-warm item info cache for all visible vendor pins
     -- GetItemInfo() triggers async server fetch if not cached; fire-and-forget
-    for _, frame in pairs(vendorPinFrames) do
+    for _, frame in ipairs(vendorPinFrames) do
         local vendor = frame.vendor
         if vendor then
             -- Static DB items (plain int or {itemID, cost=...})
@@ -1190,7 +1347,7 @@ function VendorMapPins:ShowVendorPins(mapID)
                 AddWorldMapPin(frame, portal.mapID, portal.x, portal.y,
                     HBD_PINS_WORLDMAP_SHOW_PARENT)
                 frame:Show()
-                table.insert(portalPinFrames, frame)
+                portalPinFrames[#portalPinFrames + 1] = frame
             end
         end
     end
@@ -1215,7 +1372,7 @@ function VendorMapPins:ShowZoneBadges(continentMapID)
                 }
 
                 local frame = CreateBadgePinFrame(badgeData)
-                badgePinFrames[zoneMapID] = frame
+                badgePinFrames[#badgePinFrames + 1] = frame
 
                 -- Add badge to the continent map (HBD with native fallback)
                 AddWorldMapPin(frame, continentMapID, zoneCenter.x, zoneCenter.y,
@@ -1244,7 +1401,7 @@ function VendorMapPins:ShowZoneBadges(continentMapID)
                             note = BC.zoneNotes[zoneMapID],
                         }
                         local frame = CreateBadgePinFrame(badgeData)
-                        badgePinFrames["merged_" .. zoneMapID] = frame
+                        badgePinFrames[#badgePinFrames + 1] = frame
                         AddWorldMapPin(frame, continentMapID, zoneCenter.x, zoneCenter.y,
                             HBD_PINS_WORLDMAP_SHOW_CONTINENT)
                     end
@@ -1271,7 +1428,7 @@ function VendorMapPins:ShowZoneBadgesOnWorldMap()
                     oppositeFactionCount = continentData.oppositeFactionCount,
                 }
                 local frame = CreateBadgePinFrame(badgeData)
-                badgePinFrames[continentMapID] = frame
+                badgePinFrames[#badgePinFrames + 1] = frame
                 WorldMapFrame:AcquirePin(NATIVE_PIN_TEMPLATE, frame, manualPos.x, manualPos.y)
 
             elseif not BC.excludedContinents[continentMapID] then
@@ -1290,7 +1447,7 @@ function VendorMapPins:ShowZoneBadgesOnWorldMap()
                             note = BC.zoneNotes[zoneMapID],
                         }
                         local frame = CreateBadgePinFrame(badgeData)
-                        badgePinFrames["world_" .. zoneMapID] = frame
+                        badgePinFrames[#badgePinFrames + 1] = frame
 
                         -- HBD translates zone center to world map position automatically.
                         -- Some zones (phased class halls, old-world outliers) can't be
@@ -1345,7 +1502,7 @@ function VendorMapPins:ShowContinentBadges()
                 }
 
                 local frame = CreateBadgePinFrame(badgeData)
-                badgePinFrames[continentMapID] = frame
+                badgePinFrames[#badgePinFrames + 1] = frame
 
                 WorldMapFrame:AcquirePin(NATIVE_PIN_TEMPLATE, frame, manualPos.x, manualPos.y)
 
@@ -1360,7 +1517,7 @@ function VendorMapPins:ShowContinentBadges()
                 }
 
                 local frame = CreateBadgePinFrame(badgeData)
-                badgePinFrames[continentMapID] = frame
+                badgePinFrames[#badgePinFrames + 1] = frame
 
                 -- Prefer native placement: ask WoW where this continent sits on the
                 -- Azeroth world map canvas. Falls back to HBD for continents where

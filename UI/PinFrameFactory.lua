@@ -184,29 +184,7 @@ function PinFrameFactory:CreateVendorPinFrame(vendor, isOppositeFaction, isUnver
         end
     end
 
-    -- Collection ratio text (e.g., "3/12")
-    local showCounts = HA.Addon and HA.Addon.db and HA.Addon.db.profile.vendorTracer.showPinCounts ~= false
-    local collected, total = 0, 0
-    if showCounts and HA.VendorMapPins then
-        collected, total = HA.VendorMapPins:GetVendorCollectionCounts(vendor)
-    end
-    if total > 0 then
-        local fontSize = math.max(8, math.floor(baseSize * 0.4))
-        frame.count = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal", 2)
-        frame.count:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", 3, -3)
-        local fontPath = frame.count:GetFont()
-        frame.count:SetFont(fontPath, fontSize, "OUTLINE")
-        frame.count:SetShadowColor(0, 0, 0, 0.8)
-        frame.count:SetShadowOffset(1, -1)
-        frame.count:SetText(collected .. "/" .. total)
-        if collected == total then
-            frame.count:SetTextColor(0.2, 1, 0.2)
-        elseif collected > 0 then
-            frame.count:SetTextColor(1, 1, 1)
-        else
-            frame.count:SetTextColor(1, 0.2, 0.2)
-        end
-    end
+    self:RefreshVendorPinCount(frame, vendor)
 
     -- Store vendor data and status
     frame.vendor = vendor
@@ -232,6 +210,54 @@ function PinFrameFactory:CreateVendorPinFrame(vendor, isOppositeFaction, isUnver
     end)
 
     return frame
+end
+
+-- Refreshes vendor count text on an existing vendor pin frame.
+-- Used by frame pooling so reused frames always show current collection counts.
+function PinFrameFactory:RefreshVendorPinCount(frame, vendor)
+    if not frame then return end
+
+    local showCounts = HA.Addon and HA.Addon.db and HA.Addon.db.profile.vendorTracer.showPinCounts ~= false
+    if not showCounts then
+        if frame.count then
+            frame.count:Hide()
+        end
+        return
+    end
+
+    local collected, total = 0, 0
+    if vendor and HA.VendorMapPins then
+        collected, total = HA.VendorMapPins:GetVendorCollectionCounts(vendor)
+    end
+
+    if total <= 0 then
+        if frame.count then
+            frame.count:Hide()
+        end
+        return
+    end
+
+    local baseSize = frame:GetWidth() or self:GetPinIconSize()
+    local fontSize = math.max(8, math.floor(baseSize * 0.4))
+
+    if not frame.count then
+        frame.count = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal", 2)
+        frame.count:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", 3, -3)
+        frame.count:SetShadowColor(0, 0, 0, 0.8)
+        frame.count:SetShadowOffset(1, -1)
+    end
+
+    local fontPath = frame.count:GetFont()
+    frame.count:SetFont(fontPath, fontSize, "OUTLINE")
+    frame.count:SetText(collected .. "/" .. total)
+    if collected == total then
+        frame.count:SetTextColor(0.2, 1, 0.2)
+    elseif collected > 0 then
+        frame.count:SetTextColor(1, 1, 1)
+    else
+        frame.count:SetTextColor(1, 0.2, 0.2)
+    end
+    frame.count:Show()
 end
 
 -------------------------------------------------------------------------------
@@ -387,7 +413,8 @@ function PinFrameFactory:CreatePortalBadgePinFrame(portalData)
 
     local vendor = portalData and portalData.vendor
     local classAtlas = vendor and vendor.class and PORTAL_CLASS_ATLAS[vendor.class]
-    local classColor = vendor and vendor.class and C_ClassColor.GetClassColor(vendor.class)
+    local classColor = vendor and vendor.class and _G.C_ClassColor
+        and _G.C_ClassColor.GetClassColor(vendor.class)
     local cr = classColor and classColor.r or 0.7
     local cg = classColor and classColor.g or 0.3
     local cb = classColor and classColor.b or 1.0
