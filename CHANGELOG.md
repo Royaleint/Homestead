@@ -6,6 +6,7 @@
 
 ### Improved
 - **Zone Progress Bar** — The collection progress bar now smoothly animates to its new value instead of jumping instantly.
+- **Faction Filtering** — Vendors in faction-locked zones (WoD garrisons, Ashran, Boralus, Dazar'alor, housing neighborhoods) are now automatically filtered correctly even if no explicit faction tag is set. Prevents misclassified vendors from showing up on the wrong faction's map.
 
 ---
 
