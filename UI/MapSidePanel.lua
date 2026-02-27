@@ -1939,18 +1939,41 @@ local function UpdateProgressBar(collected, total)
         progressBar:SetPoint("TOPRIGHT", anchor, "BOTTOMRIGHT", 0, -3)
 
         progressBar:SetMinMaxValues(0, total)
-        progressBar:SetValue(collected)
+
+        -- Set color and text immediately (snap to final state)
         local pct = collected / total
         if pct >= 1 then
-            progressBar:SetStatusBarColor(0, 0.8, 0)       -- green
+            progressBar:SetStatusBarColor(0, 0.8, 0)
         elseif pct > 0.5 then
-            progressBar:SetStatusBarColor(1, 0.82, 0)      -- yellow
+            progressBar:SetStatusBarColor(1, 0.82, 0)
         else
-            progressBar:SetStatusBarColor(0.8, 0.2, 0.2)   -- red
+            progressBar:SetStatusBarColor(0.8, 0.2, 0.2)
         end
         local pctDisplay = math.floor(pct * 100)
         progressBarText:SetText(string.format("%d/%d (%d%%)", collected, total, pctDisplay))
         progressBar:Show()
+
+        -- Smooth fill: animate bar value toward target over ~0.4s
+        progressBar.targetValue = collected
+        if not progressBar.filling then
+            progressBar.filling = true
+            progressBar:SetScript("OnUpdate", function(self, elapsed)
+                local current = self:GetValue()
+                local target = self.targetValue
+                local _, max = self:GetMinMaxValues()
+                local step = max * elapsed / 0.4
+                if math.abs(current - target) <= step then
+                    self:SetValue(target)
+                    self.filling = false
+                    self:SetScript("OnUpdate", nil)
+                elseif current < target then
+                    self:SetValue(current + step)
+                else
+                    self:SetValue(current - step)
+                end
+            end)
+        end
+
         -- Anchor scroll area below bar
         if scrollContainer then
             scrollContainer:SetPoint("TOPLEFT", progressBar, "BOTTOMLEFT", 0, -2)

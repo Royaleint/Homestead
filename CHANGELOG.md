@@ -2,6 +2,13 @@
 
 ---
 
+## Unreleased (v1.6.1)
+
+### Improved
+- **Zone Progress Bar** — The collection progress bar now smoothly animates to its new value instead of jumping instantly.
+
+---
+
 ## v1.6.0 (2026-02-26)
 
 ### New
