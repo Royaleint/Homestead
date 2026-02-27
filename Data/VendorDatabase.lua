@@ -2301,10 +2301,14 @@ VendorDatabase.Vendors = {
             {253620, cost = {gold = 50000000}},
         },
     },
+	-- Hesta Forlath has TWO entries across data files:
+	--   [252916] here (VendorDatabase) — static Gold vendor in The Bazaar
+	--   [256202] in EndeavorsData.lua — rotating Gilnean Endeavor vendor (Community Coupons)
+	-- Different NPC IDs, different currencies, different item sets. Both are correct.
 	[252916] = {
         name = "Hesta Forlath",
         mapID = 2393,
-        x = 0.4414, y = 0.6270,
+        x = 0.4444, y = 0.6270,  -- nudged +0.003 from 0.4414; co-located with Corlen Hordralin
         zone = "Silvermoon City",
         subzone = "The Bazaar",
         faction = "Neutral",

@@ -177,6 +177,8 @@ EndeavorsData.Vendors = {
     },
 
     -- Gilnean theme
+    -- Hesta Forlath also exists as [252916] in VendorDatabase.lua (static Gold vendor).
+    -- This entry is her rotating Endeavor incarnation with different NPC ID, currency, and items.
     [256202] = {
         name = "Hesta Forlath",
         mapID = 110,
@@ -187,7 +189,6 @@ EndeavorsData.Vendors = {
         currency = "Community Coupons",
         expansion = "Midnight",
         endeavor = true,
-        unreleased = true,
         notes = "Neighborhood Endeavor vendor (Gilnean theme)",
         items = {253522, 253523, 253524, 253525, 253526, 253599, 253600, 253601, 254235},
     },
