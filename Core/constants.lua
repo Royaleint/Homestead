@@ -132,6 +132,29 @@ Constants.SourceTypes = {
 -------------------------------------------------------------------------------
 -- Geography Mapping
 -------------------------------------------------------------------------------
+
+-- Zones that are hard faction-locked (players of the opposite faction cannot
+-- access vendors there). Used by VendorFilter as a fallback when a vendor's
+-- faction field is nil or "Neutral" but the zone itself is faction-gated.
+-- Values: "Alliance" or "Horde"
+Constants.ZoneToFactionMap = {
+    -- Warlords of Draenor — Garrisons
+    [582] = "Alliance",   -- Lunarfall (Alliance Garrison, Shadowmoon Valley)
+    [525] = "Horde",      -- Frostwall (Horde Garrison, Frostfire Ridge)
+
+    -- Warlords of Draenor — Ashran faction hubs
+    [622] = "Alliance",   -- Stormshield
+    [624] = "Horde",      -- Warspear
+
+    -- Battle for Azeroth — Faction capital cities
+    [1161] = "Alliance",  -- Boralus
+    [1165] = "Horde",     -- Dazar'alor
+
+    -- The War Within — Housing neighborhoods (thematic, not hard-locked)
+    [2352] = "Alliance",  -- Founder's Point
+    [2351] = "Horde",     -- Razorwind Shores
+}
+
 -- Canonical zone-to-continent map consumed by VendorDatabase, BadgeCalculation,
 -- and scanner inference paths.
 Constants.ZoneToContinentMap = {
