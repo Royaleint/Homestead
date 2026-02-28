@@ -17,6 +17,8 @@ local WIDGET_ID = "HomesteadDecorStatus"
 local WIDGET_NAME = "Homestead: Decor Status"
 
 local isRegistered = false
+local waitFrame = nil
+local registeredCorner = nil
 
 -------------------------------------------------------------------------------
 -- Helpers
@@ -29,6 +31,23 @@ local function IsAddonLoaded(name)
         return IsAddOnLoaded(name)
     end
     return false
+end
+
+local function GetWidgetCorner()
+    local anchor = OVERLAY_CONFIG.DEFAULT_ANCHOR or "TOPLEFT"
+    if HA.Addon and HA.Addon.db and HA.Addon.db.profile and HA.Addon.db.profile.overlay then
+        anchor = HA.Addon.db.profile.overlay.iconAnchor or anchor
+    end
+
+    if anchor == "TOPRIGHT" then
+        return "top_right"
+    elseif anchor == "BOTTOMLEFT" then
+        return "bottom_left"
+    elseif anchor == "BOTTOMRIGHT" then
+        return "bottom_right"
+    end
+
+    return "top_left"
 end
 
 local function IsBankBagID(bagID)
@@ -112,7 +131,18 @@ local function InitWidget(itemButton)
     return tex
 end
 
+local function ClearWidget(cornerFrame)
+    if not cornerFrame then
+        return
+    end
+    cornerFrame:SetTexture(nil)
+    cornerFrame:SetVertexColor(1, 1, 1, 1)
+end
+
 local function UpdateWidget(cornerFrame, details)
+    -- Button widgets are recycled by bag addons; clear stale texture state first.
+    ClearWidget(cornerFrame)
+
     if not HA.Addon or not HA.Addon.db or not HA.Addon.db.profile then
         return false
     end
@@ -133,7 +163,7 @@ local function UpdateWidget(cornerFrame, details)
 
     local itemLink = details and details.itemLink
     if not itemLink then
-        -- Let Baganator retry when item identity exists but link is not ready.
+        -- Keep cleared state now, but allow Baganator to retry once link data resolves.
         if details and details.itemID then
             return nil
         end
@@ -173,6 +203,8 @@ local function RegisterWidget()
         return false
     end
 
+    registeredCorner = GetWidgetCorner()
+
     local success, err = pcall(function()
         Baganator.API.RegisterCornerWidget(
             WIDGET_NAME,
@@ -180,7 +212,7 @@ local function RegisterWidget()
             UpdateWidget,
             InitWidget,
             {
-                corner = "top_left",
+                corner = registeredCorner,
                 priority = 5,
             }
         )
@@ -199,17 +231,36 @@ local function RegisterWidget()
     end
 
     if HA.Addon then
-        HA.Addon:Debug("Baganator corner widget registered")
+        HA.Addon:Debug("Baganator corner widget registered", registeredCorner)
     end
     return true
 end
 
-local function Initialize()
-    if not IsAddonLoaded("Baganator") then
+local function WaitForBaganator()
+    if waitFrame then
         return
     end
 
-    RegisterWidget()
+    waitFrame = CreateFrame("Frame")
+    waitFrame:RegisterEvent("ADDON_LOADED")
+    waitFrame:SetScript("OnEvent", function(self, _, addonName)
+        if addonName ~= "Baganator" then
+            return
+        end
+
+        RegisterWidget()
+        self:UnregisterAllEvents()
+        waitFrame = nil
+    end)
+end
+
+local function Initialize()
+    if IsAddonLoaded("Baganator") then
+        RegisterWidget()
+        return
+    end
+
+    WaitForBaganator()
 end
 
 if HA.Addon then

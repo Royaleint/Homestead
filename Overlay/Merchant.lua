@@ -8,6 +8,8 @@ local _, HA = ...
 -- Wait for Overlay module
 local Overlay = HA.Overlay
 local Events = HA.Events
+local DecorTracker = HA.DecorTracker
+local Constants = HA.Constants
 
 -- Upvalued Lua stdlib
 local pairs = pairs
@@ -17,6 +19,8 @@ local isHooked = false
 local merchantButtons = {}
 local pendingOverlayTimer = nil
 local UpdateAllMerchantOverlays  -- forward declaration (used in HookMerchantFrame before definition)
+local OWNED_CHECK_ICON = (Constants and Constants.Icons and Constants.Icons.COLLECTED)
+    or "Interface\\RaidFrame\\ReadyCheck-Ready"
 
 -- Debounced scheduler — ensures only one pending timer at a time
 local function ScheduleOverlayUpdate()
@@ -41,8 +45,43 @@ local function UpdateMerchantButton(button, index)
 
     if not overlay then return end
 
+    if not HA.Addon or not HA.Addon.db or not HA.Addon.db.profile then
+        Overlay:ClearIcon(overlay)
+        return
+    end
+
+    local settings = HA.Addon.db.profile.overlay
+    if not settings or not settings.enabled or not settings.showOnMerchant then
+        Overlay:ClearIcon(overlay)
+        return
+    end
+
+    if not DecorTracker then
+        Overlay:ClearIcon(overlay)
+        return
+    end
+
     -- Get item link from merchant
     local itemLink = GetMerchantItemLink(index)
+    if not itemLink then
+        Overlay:ClearIcon(overlay)
+        return
+    end
+
+    if not DecorTracker:IsDecorItem(itemLink) then
+        Overlay:ClearIcon(overlay)
+        return
+    end
+
+    -- Merchant UX: any owned item (including currently placed) uses checkmark.
+    local isOwned = DecorTracker:IsCollected(itemLink)
+    if isOwned and overlay.icon then
+        overlay.icon:SetTexture(OWNED_CHECK_ICON)
+        overlay.icon:SetVertexColor(1, 1, 1, 1)
+        overlay.icon:Show()
+        return
+    end
+
     Overlay:SetIcon(overlay, itemLink)
 end
 

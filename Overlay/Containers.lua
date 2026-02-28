@@ -10,33 +10,118 @@ local Overlay = HA.Overlay
 local Events = HA.Events
 
 -- Local state
-local isHooked = false
 local containerButtons = {}
 
 -------------------------------------------------------------------------------
 -- Bag Item Update Function
 -------------------------------------------------------------------------------
 
+local function GetButtonItemLink(button)
+    if not button then
+        return nil
+    end
+
+    if button.GetItemLocation and C_Item and C_Item.GetItemLink then
+        local itemLocation = button:GetItemLocation()
+        if itemLocation and itemLocation.IsValid and itemLocation:IsValid() then
+            local itemLink = C_Item.GetItemLink(itemLocation)
+            if itemLink then
+                return itemLink
+            end
+        end
+    end
+
+    local bag = nil
+    if button.GetBagID then
+        bag = button:GetBagID()
+    end
+    if bag == nil then
+        bag = button.bagID
+    end
+    if bag == nil and button.GetParent and button:GetParent() then
+        bag = button:GetParent():GetID()
+    end
+
+    local slot = nil
+    if button.GetID then
+        slot = button:GetID()
+    end
+    if slot == nil then
+        slot = button.slotIndex or button.slot
+    end
+
+    if bag and slot then
+        return C_Container.GetContainerItemLink(bag, slot)
+    end
+
+    return nil
+end
+
+local function IsLikelyItemButton(frame)
+    if not frame then
+        return false
+    end
+    if frame.GetItemLocation or frame.GetBagID then
+        return true
+    end
+    if type(frame.SetItemButtonTexture) == "function" then
+        return true
+    end
+    return false
+end
+
+local function CollectContainerButtons(containerFrame)
+    local buttons = {}
+    local seen = {}
+
+    local function AddButton(button)
+        if not button or seen[button] then
+            return
+        end
+        seen[button] = true
+        table.insert(buttons, button)
+    end
+
+    local items = containerFrame and containerFrame.Items
+    if type(items) == "table" then
+        for _, button in pairs(items) do
+            if IsLikelyItemButton(button) then
+                AddButton(button)
+            end
+        end
+    end
+
+    -- Fallback: traverse children to support frame variants where Items is absent
+    local function ScanChildren(frame, depth)
+        if not frame or depth > 4 then
+            return
+        end
+        local children = { frame:GetChildren() }
+        for _, child in ipairs(children) do
+            if IsLikelyItemButton(child) then
+                AddButton(child)
+            end
+            ScanChildren(child, depth + 1)
+        end
+    end
+    ScanChildren(containerFrame, 1)
+
+    return buttons
+end
+
 local function UpdateContainerButton(button)
     if not button then return end
 
     local overlay = button.HousingAddonOverlay
     if not overlay then
-        overlay = Overlay:AddToFrame(button)
+        overlay = Overlay:AddToFrame(button, function()
+            UpdateContainerButton(button)
+        end)
     end
 
     if not overlay then return end
 
-    -- Get item link from the button
-    local itemLink = nil
-
-    -- Try to get bag and slot from button
-    local bag = button:GetParent() and button:GetParent():GetID()
-    local slot = button:GetID()
-
-    if bag and slot then
-        itemLink = C_Container.GetContainerItemLink(bag, slot)
-    end
+    local itemLink = GetButtonItemLink(button)
 
     Overlay:SetIcon(overlay, itemLink)
 end
@@ -48,54 +133,63 @@ end
 local function HookContainerFrame(containerFrame)
     if not containerFrame then return end
 
-    -- Hook the container's items
-    local items = containerFrame.Items
-    if items then
-        for _, button in ipairs(items) do
-            if not button.HousingAddonHooked then
-                -- Store reference
-                table.insert(containerButtons, button)
+    local hookedCount = 0
 
-                -- Create overlay
-                Overlay:AddToFrame(button, UpdateContainerButton)
+    local items = CollectContainerButtons(containerFrame)
+    for _, button in ipairs(items) do
+        if not button.HousingAddonHooked then
+            -- Store reference
+            table.insert(containerButtons, button)
 
-                -- Hook updates
-                button:HookScript("OnShow", function(self)
-                    UpdateContainerButton(self)
-                end)
+            -- Create overlay
+            Overlay:AddToFrame(button, function()
+                UpdateContainerButton(button)
+            end)
 
+            -- Hook updates
+            button:HookScript("OnShow", function(self)
+                UpdateContainerButton(self)
+            end)
+
+            if type(button.SetItemButtonTexture) == "function" then
                 hooksecurefunc(button, "SetItemButtonTexture", function(self)
                     -- Delay slightly to ensure item data is available
                     C_Timer.After(0, function()
                         UpdateContainerButton(self)
                     end)
                 end)
-
-                button.HousingAddonHooked = true
             end
+
+            button.HousingAddonHooked = true
+            hookedCount = hookedCount + 1
+        else
+            UpdateContainerButton(button)
         end
     end
+
+    return hookedCount
 end
 
 local function HookAllContainers()
-    if isHooked then return end
+    local hookedCount = 0
 
     -- Hook combined bags frame
     local combinedBags = ContainerFrameCombinedBags
     if combinedBags then
-        HookContainerFrame(combinedBags)
+        hookedCount = hookedCount + (HookContainerFrame(combinedBags) or 0)
     end
 
     -- Hook individual bag frames
     local frameContainer = ContainerFrameContainer
     if frameContainer and frameContainer.ContainerFrames then
         for _, bagFrame in ipairs(frameContainer.ContainerFrames) do
-            HookContainerFrame(bagFrame)
+            hookedCount = hookedCount + (HookContainerFrame(bagFrame) or 0)
         end
     end
 
-    isHooked = true
-    HA.Addon:Debug("Container frames hooked")
+    if hookedCount > 0 then
+        HA.Addon:Debug("Container frames hooked", hookedCount)
+    end
 end
 
 -------------------------------------------------------------------------------
@@ -139,7 +233,8 @@ end
 -------------------------------------------------------------------------------
 
 local function OnBagUpdate()
-    -- Throttled through Events system
+    -- Frames can be rebuilt dynamically; re-scan hook targets then refresh.
+    HookAllContainers()
     UpdateAllContainerOverlays()
 end
 
