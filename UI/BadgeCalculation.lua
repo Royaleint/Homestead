@@ -451,6 +451,28 @@ BadgeCalculation.continentMergesInto = {
     [905] = 619,   -- Argus → Broken Isles
 }
 
+-- Continents whose zone badges should also be shown on another continent map.
+-- This is a display-only overlay on continent views; it does not merge totals.
+BadgeCalculation.continentZoneBadgesOnParent = {
+    [2537] = 13,   -- Midnight/Quel'Thalas zones on Eastern Kingdoms continent map
+}
+
+-- Per-source/destination zone exclusions for cross-continent badge overlays.
+-- Excluded zones still count toward continent totals; this only affects
+-- whether individual zone badges render on the destination continent map.
+BadgeCalculation.continentZoneBadgeExclusionsOnParent = {
+    [2537] = {
+        [13] = {
+            [2405] = true,   -- Voidstorm
+            [15958] = true,  -- Voidstorm variant/child map
+            [2444] = true,   -- Slayer's Rise (Voidstorm sub-zone)
+            [2694] = true,   -- Harandar
+            [2576] = true,   -- The Den (Harandar sub-zone)
+            [2413] = true,   -- Harandar sub-zone
+        },
+    },
+}
+
 -- Off-world continents with manual positions on the Azeroth world map (mapID 947).
 -- These are NOT in excludedContinents — they get badges via native pin fallback.
 -- Argus zones (830, 882, 885) map to continent 905 in zoneToContinent.

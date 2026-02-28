@@ -1499,8 +1499,41 @@ function VendorMapPins:ShowZoneBadges(continentMapID)
             end
         end
     end
-end
 
+    -- Show designated child-continent zone badges on this continent map.
+    -- Example: Midnight/Quel'Thalas zones on Eastern Kingdoms.
+    for srcContinentID, destContinentID in pairs(BC.continentZoneBadgesOnParent or {}) do
+        if destContinentID == continentMapID then
+            local excludedBySource = BC.continentZoneBadgeExclusionsOnParent
+                and BC.continentZoneBadgeExclusionsOnParent[srcContinentID]
+            local excludedForDest = excludedBySource and excludedBySource[continentMapID]
+            local sourceZones = self:GetZoneVendorCounts(srcContinentID)
+            for zoneMapID, zoneData in pairs(sourceZones) do
+                local isExcluded = excludedForDest and excludedForDest[zoneMapID]
+                if zoneData.vendorCount > 0 and not isExcluded then
+                    local zoneCenter = self:GetZoneCenterOnMap(zoneMapID, continentMapID)
+                    if zoneCenter then
+                        local badgeData = {
+                            mapID = zoneMapID,
+                            zoneName = zoneData.zoneName,
+                            vendorCount = zoneData.vendorCount,
+                            uncollectedCount = zoneData.uncollectedCount,
+                            unknownCount = zoneData.unknownCount,
+                            oppositeFactionCount = zoneData.oppositeFactionCount,
+                            dominantFaction = zoneData.dominantFaction,
+                            note = BC.zoneNotes[zoneMapID],
+                        }
+                        local frame = CreateBadgePinFrame(badgeData)
+                        badgePinFrames[#badgePinFrames + 1] = frame
+                        AddWorldMapPin(frame, continentMapID, zoneCenter.x, zoneCenter.y,
+                            HBD_PINS_WORLDMAP_SHOW_CONTINENT)
+                    end
+                end
+            end
+        end
+    end
+
+end
 function VendorMapPins:ShowZoneBadgesOnWorldMap()
     local continentCounts = self:GetContinentVendorCounts()
 
