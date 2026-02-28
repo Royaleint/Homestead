@@ -301,14 +301,14 @@ local minimapExcludedContinents = {
     [1550] = true,  -- Shadowlands (afterlife dimension)
 }
 
--- Pin clustering: group co-located vendors and spread them in a horizontal row.
+-- Pin clustering: group co-located vendors and spread them in a radial arc.
 -- CLUSTER_RADIUS: normalized distance threshold — vendors within this distance
 --   are considered co-located (0.010 comfortably covers all known stacking cases).
--- CLUSTER_STEP: horizontal gap between adjacent spread pins; sized to slightly
---   less than one 20px pin diameter (~0.020 normalized on a standard zone map).
+-- SPREAD_DIAMETER: minimum chord length between adjacent spread pins; just over
+--   one 20px pin diameter so all pins are individually hoverable/clickable.
 local PIN_CLUSTER_RADIUS    = 0.010
 local PIN_CLUSTER_RADIUS_SQ = PIN_CLUSTER_RADIUS * PIN_CLUSTER_RADIUS  -- avoids sqrt in hot path
-local PIN_CLUSTER_STEP      = 0.018
+local PIN_SPREAD_DIAMETER   = 0.016
 
 -- ClusterAndSpreadPins: pre-process a list of pin entries, group nearby vendors
 -- into clusters, and return a spread-position table keyed by npcID.
@@ -369,13 +369,16 @@ local function ClusterAndSpreadPins(pinList)
                 local m = cluster.members[1]
                 positions[m.vendor.npcID] = { x = m.coords.x, y = m.coords.y }
             else
-                -- Horizontal row centred on cluster centroid.
-                local halfSpan = (n - 1) * 0.5 * PIN_CLUSTER_STEP
+                -- Radial arrangement: pins on a circle centred on the cluster centroid.
+                -- Radius is the minimum so adjacent pins don't overlap:
+                --   chord = 2*r*sin(π/n) >= PIN_SPREAD_DIAMETER  →  r = d/(2*sin(π/n))
+                -- Pins start at top (-π/2) and are spaced evenly clockwise.
+                local r = PIN_SPREAD_DIAMETER / (2 * math.sin(math.pi / n))
                 for i, m in ipairs(cluster.members) do
-                    local spreadX = cluster.cx - halfSpan + (i - 1) * PIN_CLUSTER_STEP
-                    -- Clamp to valid normalized map range.
-                    spreadX = math.max(0.001, math.min(0.999, spreadX))
-                    positions[m.vendor.npcID] = { x = spreadX, y = cluster.cy }
+                    local angle = (2 * math.pi * (i - 1) / n) - math.pi / 2
+                    local spreadX = math.max(0.001, math.min(0.999, cluster.cx + r * math.cos(angle)))
+                    local spreadY = math.max(0.001, math.min(0.999, cluster.cy + r * math.sin(angle)))
+                    positions[m.vendor.npcID] = { x = spreadX, y = spreadY }
                 end
             end
         end
