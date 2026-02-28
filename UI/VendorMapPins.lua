@@ -20,12 +20,9 @@ local _, HA = ...
 local VendorMapPins = {}
 HA.VendorMapPins = VendorMapPins
 
--- Load HereBeDragons
-local HBD = LibStub("HereBeDragons-2.0")
-local HBDPins = LibStub("HereBeDragons-Pins-2.0")
-
 -- Local references
 local Constants = HA.Constants
+local MPP = HA.MapPinProvider
 
 -- Upvalued Lua stdlib
 local pairs, ipairs = pairs, ipairs
@@ -53,95 +50,6 @@ local highlightOverlay = nil
 local highlightOriginalScale = nil
 local highlightOriginalFrameLevel = nil
 
--------------------------------------------------------------------------------
--- Native Pin Fallback (for maps HBD can't handle, e.g. Argus zones)
--- HBD stores zero-dimension map data for cross-instance zones, causing
--- GetWorldCoordinatesFromZone() to return nil and AddWorldMapIconMap() to
--- silently bail. This fallback uses WoW's native MapCanvasPin system
--- with zone-normalized (0-1) coordinates directly.
--------------------------------------------------------------------------------
-
-local NATIVE_PIN_TEMPLATE = "HomesteadNativePinTemplate"
-
--- Cache which maps HBD can/can't handle (per session)
-local hbdMapSupport = {}
-
-local function IsHBDSupported(mapID)
-    if hbdMapSupport[mapID] ~= nil then return hbdMapSupport[mapID] end
-    local wx = HBD:GetWorldCoordinatesFromZone(0.5, 0.5, mapID)
-    hbdMapSupport[mapID] = (wx ~= nil)
-    return hbdMapSupport[mapID]
-end
-
--- Native pin mixin (mirrors HBD's pin behavior)
-local nativePinMixin = CreateFromMixins(MapCanvasPinMixin)
-
-function nativePinMixin:OnLoad()
-    self:UseFrameLevelType("PIN_FRAME_LEVEL_AREA_POI")
-    self:SetScalingLimits(1, 1.0, 1.2)
-end
-
-function nativePinMixin:OnAcquired(icon, x, y)
-    self:SetPosition(x, y)
-    self.icon = icon
-    icon:SetParent(self)
-    icon:ClearAllPoints()
-    icon:SetPoint("CENTER", self)
-    icon:Show()
-end
-
-function nativePinMixin:OnReleased()
-    if self.icon then
-        self.icon:Hide()
-        self.icon:SetParent(UIParent)
-        self.icon:ClearAllPoints()
-        self.icon = nil
-    end
-end
-
--- Suppress in-combat errors (same as HBD)
-nativePinMixin.SetPassThroughButtons = function() end
-
--- Create pin pool and register with WorldMapFrame
-local nativePool
-if CreateUnsecuredRegionPoolInstance then
-    nativePool = CreateUnsecuredRegionPoolInstance(NATIVE_PIN_TEMPLATE)
-else
-    nativePool = CreateFramePool("FRAME")
-end
-nativePool.parent = WorldMapFrame:GetCanvas()
-nativePool.createFunc = function()
-    local f = CreateFrame("Frame", nil, WorldMapFrame:GetCanvas())
-    f:SetSize(1, 1)
-    return Mixin(f, nativePinMixin)
-end
-nativePool.resetFunc = function(pool, pin)
-    pin:Hide()
-    pin:ClearAllPoints()
-    pin:OnReleased()
-    pin.pinTemplate = nil
-    pin.owningMap = nil
-end
--- Pre-11.x compat names
-nativePool.creationFunc = nativePool.createFunc
-nativePool.resetterFunc = nativePool.resetFunc
-WorldMapFrame.pinPools[NATIVE_PIN_TEMPLATE] = nativePool -- luacheck: ignore 122
-
--- Helper: add a pin using HBD if possible, native fallback otherwise.
--- Returns true if the pin was placed.
-local function AddWorldMapPin(frame, mapID, x, y, showFlag)
-    if IsHBDSupported(mapID) then
-        HBDPins:AddWorldMapIconMap("HomesteadVendors", frame, mapID, x, y, showFlag)
-        return true
-    end
-    -- Native fallback: only works when viewing THIS exact map
-    local currentMapID = WorldMapFrame:GetMapID()
-    if currentMapID == mapID then
-        WorldMapFrame:AcquirePin(NATIVE_PIN_TEMPLATE, frame, x, y)
-        return true
-    end
-    return false
-end
 
 -------------------------------------------------------------------------------
 -- Frame Pool Helpers
@@ -274,7 +182,7 @@ local ShouldShowUnverifiedVendors = VendorFilter.ShouldShowUnverifiedVendors
 
 -- Badge/collection helpers delegated to BadgeCalculation (loaded before this file)
 local BC = HA.BadgeCalculation
-local GetContinentForZone = BC.GetContinentForZone
+local GetContinentForZone = MPP.GetContinentForZone
 
 -- Minimap pins enabled state
 local minimapPinsEnabled = true
@@ -293,99 +201,7 @@ local MINIMAP_PIN_CAPS = {
     on = 120,
 }
 
--- Exclude continents in separate world spaces where cross-zone minimap translation
--- can collapse pins onto the player arrow.
-local minimapExcludedContinents = {
-    [101] = true,   -- Outland (separate world space)
-    [572] = true,   -- Draenor (alternate dimension)
-    [1550] = true,  -- Shadowlands (afterlife dimension)
-}
 
--- Pin clustering: group co-located vendors and spread them in a radial arc.
--- CLUSTER_RADIUS: normalized distance threshold — vendors within this distance
---   are considered co-located (0.010 comfortably covers all known stacking cases).
--- SPREAD_DIAMETER: minimum chord length between adjacent spread pins; just over
---   one 20px pin diameter so all pins are individually hoverable/clickable.
-local PIN_CLUSTER_RADIUS    = 0.010
-local PIN_CLUSTER_RADIUS_SQ = PIN_CLUSTER_RADIUS * PIN_CLUSTER_RADIUS  -- avoids sqrt in hot path
-local PIN_SPREAD_DIAMETER   = 0.016
-
--- ClusterAndSpreadPins: pre-process a list of pin entries, group nearby vendors
--- into clusters, and return a spread-position table keyed by npcID.
---
--- pinList:  array of { vendor=, coords={x,y}, vendorMapID= }
--- Returns:  table [npcID] = {x=, y=}
---
--- Algorithm: greedy single-pass — each vendor joins the first cluster whose
--- centroid is within PIN_CLUSTER_RADIUS; solo vendors pass through unchanged.
--- Clustering is performed per vendorMapID to avoid grouping vendors across maps.
--- Distance comparisons use squared distance (dx*dx+dy*dy < r*r) to avoid
--- math.sqrt in the inner loop — equivalent result, no transcendental overhead.
-local function ClusterAndSpreadPins(pinList)
-    if not pinList or #pinList == 0 then return {} end
-
-    -- Partition by vendorMapID so vendors on different maps are never grouped.
-    local byMap = {}
-    for _, pin in ipairs(pinList) do
-        local mid = pin.vendorMapID
-        if not byMap[mid] then byMap[mid] = {} end
-        byMap[mid][#byMap[mid] + 1] = pin
-    end
-
-    local positions = {}
-
-    for _, mapPins in pairs(byMap) do
-        -- Greedy clustering for this map.
-        local clusters = {}
-
-        for _, pin in ipairs(mapPins) do
-            local placed = false
-            for _, cluster in ipairs(clusters) do
-                local dx = pin.coords.x - cluster.cx
-                local dy = pin.coords.y - cluster.cy
-                if dx * dx + dy * dy < PIN_CLUSTER_RADIUS_SQ then
-                    cluster.members[#cluster.members + 1] = pin
-                    -- Running centroid update.
-                    local n = #cluster.members
-                    cluster.cx = cluster.cx + (pin.coords.x - cluster.cx) / n
-                    cluster.cy = cluster.cy + (pin.coords.y - cluster.cy) / n
-                    placed = true
-                    break
-                end
-            end
-            if not placed then
-                clusters[#clusters + 1] = {
-                    cx      = pin.coords.x,
-                    cy      = pin.coords.y,
-                    members = { pin },
-                }
-            end
-        end
-
-        -- Assign spread positions.
-        for _, cluster in ipairs(clusters) do
-            local n = #cluster.members
-            if n == 1 then
-                local m = cluster.members[1]
-                positions[m.vendor.npcID] = { x = m.coords.x, y = m.coords.y }
-            else
-                -- Radial arrangement: pins on a circle centred on the cluster centroid.
-                -- Radius is the minimum so adjacent pins don't overlap:
-                --   chord = 2*r*sin(π/n) >= PIN_SPREAD_DIAMETER  →  r = d/(2*sin(π/n))
-                -- Pins start at top (-π/2) and are spaced evenly clockwise.
-                local r = PIN_SPREAD_DIAMETER / (2 * math.sin(math.pi / n))
-                for i, m in ipairs(cluster.members) do
-                    local angle = (2 * math.pi * (i - 1) / n) - math.pi / 2
-                    local spreadX = math.max(0.001, math.min(0.999, cluster.cx + r * math.cos(angle)))
-                    local spreadY = math.max(0.001, math.min(0.999, cluster.cy + r * math.sin(angle)))
-                    positions[m.vendor.npcID] = { x = spreadX, y = spreadY }
-                end
-            end
-        end
-    end
-
-    return positions
-end
 
 -- Runtime event/ticker handles (registered conditionally by feature state)
 local merchantEventFrame = nil
@@ -720,11 +536,11 @@ function VendorMapPins:GetContinentVendorCounts()
 end
 
 function VendorMapPins:GetContinentCenterOnWorldMap(continentMapID)
-    return BC:GetContinentCenterOnWorldMap(continentMapID)
+    return MPP:GetContinentCenterOnWorldMap(continentMapID)
 end
 
 function VendorMapPins:GetZoneCenterOnMap(zoneMapID, parentMapID)
-    return BC:GetZoneCenterOnMap(zoneMapID, parentMapID)
+    return MPP:GetZoneCenterOnMap(zoneMapID, parentMapID)
 end
 
 function VendorMapPins:SetWaypointToVendor(vendor)
@@ -983,11 +799,8 @@ function VendorMapPins:ClearAllPins()
     self:ClearHighlight()
     self:OnPinLeave()
 
-    -- Remove all vendor pins from HereBeDragons
-    HBDPins:RemoveAllWorldMapIcons("HomesteadVendors")
-
-    -- Remove native fallback pins (Argus, etc.)
-    WorldMapFrame:RemoveAllPinsByTemplate(NATIVE_PIN_TEMPLATE)
+    -- Remove all vendor pins (HBD + native fallback)
+    MPP.ClearWorldMapPins("HomesteadVendors")
 
     -- Release all active frames back to reusable pools.
     for _, frame in ipairs(vendorPinFrames) do
@@ -1008,8 +821,8 @@ end
 function VendorMapPins:ClearMinimapPins()
     self:OnPinLeave()
 
-    -- Remove all minimap pins from HereBeDragons
-    HBDPins:RemoveAllMinimapIcons("HomesteadMinimapVendors")
+    -- Remove all minimap pins
+    MPP.ClearMinimapPins("HomesteadMinimapVendors")
 
     -- Release active minimap frames back to reusable pool.
     for _, frame in ipairs(minimapPinFrames) do
@@ -1102,8 +915,8 @@ function VendorMapPins:RefreshMinimapPins()
 
     local continentID = GetContinentForZone(playerMapID)
     if includeSiblingZones then
-        if continentID and not minimapExcludedContinents[continentID] then
-            local siblingZones = BC.continentToZones[continentID]
+        if continentID and not MPP.minimapExcludedContinents[continentID] then
+            local siblingZones = MPP.continentToZones[continentID]
             if siblingZones then
                 for _, zoneMapID in ipairs(siblingZones) do
                     if not mapsToCheckSet[zoneMapID] then
@@ -1184,13 +997,13 @@ function VendorMapPins:RefreshMinimapPins()
     end
 
     -- Cluster co-located vendors and place minimap frames at spread positions.
-    local spreadPositions = ClusterAndSpreadPins(pendingPins)
+    local spreadPositions = MPP.ClusterAndSpread(pendingPins)
     for _, pin in ipairs(pendingPins) do
         local sp = spreadPositions[pin.vendor.npcID]
         if sp then
             if pin.elevation then
-                -- Cross-floor: use AddMinimapIconWorld to bypass HBD mapID filter
-                local worldX, worldY, instanceID = HBD:GetWorldCoordinatesFromZone(
+                -- Cross-floor: convert to world coords first, create frame only on success
+                local worldX, worldY, instanceID = MPP.GetWorldCoordinatesForPin(
                     sp.x, sp.y, pin.vendorMapID)
                 if worldX then
                     local frame = CreateMinimapPinFrame(pin.vendor, pin.isOpposite, pin.isUnverified,
@@ -1198,7 +1011,7 @@ function VendorMapPins:RefreshMinimapPins()
                     minimapPinFrames[#minimapPinFrames + 1] = frame
                     -- Always float on edge for cross-floor pins; indoor detection
                     -- would otherwise hide them in underground zones
-                    HBDPins:AddMinimapIconWorld("HomesteadMinimapVendors", frame,
+                    MPP.PlaceMinimapPinWorld("HomesteadMinimapVendors", frame,
                         instanceID, worldX, worldY, true)
                 end
                 -- If conversion fails, skip — zone has no HBD mapData and
@@ -1206,7 +1019,7 @@ function VendorMapPins:RefreshMinimapPins()
             else
                 local frame = CreateMinimapPinFrame(pin.vendor, pin.isOpposite, pin.isUnverified)
                 minimapPinFrames[#minimapPinFrames + 1] = frame
-                HBDPins:AddMinimapIconMap("HomesteadMinimapVendors", frame, pin.vendorMapID,
+                MPP.PlaceMinimapPin("HomesteadMinimapVendors", frame, pin.vendorMapID,
                     sp.x, sp.y,
                     true,           -- showInParentZone
                     floatOnEdge)    -- false indoors: hides distant pins
@@ -1386,13 +1199,13 @@ function VendorMapPins:ShowVendorPins(mapID)
     end
 
     -- Cluster co-located vendors and place frames at spread positions.
-    local spreadPositions = ClusterAndSpreadPins(pendingPins)
+    local spreadPositions = MPP.ClusterAndSpread(pendingPins)
     for _, pin in ipairs(pendingPins) do
         local sp = spreadPositions[pin.vendor.npcID]
         if sp then
             local frame = CreateVendorPinFrame(pin.vendor, pin.isOpposite, pin.isUnverified)
             vendorPinFrames[#vendorPinFrames + 1] = frame
-            AddWorldMapPin(frame, pin.vendorMapID, sp.x, sp.y,
+            MPP.PlaceWorldMapPin("HomesteadVendors", frame, pin.vendorMapID, sp.x, sp.y,
                 HBD_PINS_WORLDMAP_SHOW_PARENT)
         end
     end
@@ -1434,7 +1247,7 @@ function VendorMapPins:ShowVendorPins(mapID)
         if portal and portal.mapID == mapID then
             if not ShouldHideVendor(vendor) then
                 local frame = CreatePortalBadgePinFrame({ vendor = vendor })
-                AddWorldMapPin(frame, portal.mapID, portal.x, portal.y,
+                MPP.PlaceWorldMapPin("HomesteadVendors", frame, portal.mapID, portal.x, portal.y,
                     HBD_PINS_WORLDMAP_SHOW_PARENT)
                 frame:Show()
                 portalPinFrames[#portalPinFrames + 1] = frame
@@ -1458,14 +1271,14 @@ function VendorMapPins:ShowZoneBadges(continentMapID)
                     unknownCount = zoneData.unknownCount,
                     oppositeFactionCount = zoneData.oppositeFactionCount,
                     dominantFaction = zoneData.dominantFaction,
-                    note = BC.zoneNotes[zoneMapID],
+                    note = MPP.zoneNotes[zoneMapID],
                 }
 
                 local frame = CreateBadgePinFrame(badgeData)
                 badgePinFrames[#badgePinFrames + 1] = frame
 
                 -- Add badge to the continent map (HBD with native fallback)
-                AddWorldMapPin(frame, continentMapID, zoneCenter.x, zoneCenter.y,
+                MPP.PlaceWorldMapPin("HomesteadVendors", frame, continentMapID, zoneCenter.x, zoneCenter.y,
                     HBD_PINS_WORLDMAP_SHOW_CONTINENT)
             end
         end
@@ -1473,7 +1286,7 @@ function VendorMapPins:ShowZoneBadges(continentMapID)
 
     -- Show individual zone badges for continents that merge into this one
     -- (e.g. Argus zones shown on the Broken Isles continent map)
-    for srcContinentID, destContinentID in pairs(BC.continentMergesInto) do
+    for srcContinentID, destContinentID in pairs(MPP.continentMergesInto) do
         if destContinentID == continentMapID then
             local mergedZones = self:GetZoneVendorCounts(srcContinentID)
             for zoneMapID, zoneData in pairs(mergedZones) do
@@ -1488,11 +1301,11 @@ function VendorMapPins:ShowZoneBadges(continentMapID)
                             unknownCount = zoneData.unknownCount,
                             oppositeFactionCount = zoneData.oppositeFactionCount,
                             dominantFaction = zoneData.dominantFaction,
-                            note = BC.zoneNotes[zoneMapID],
+                            note = MPP.zoneNotes[zoneMapID],
                         }
                         local frame = CreateBadgePinFrame(badgeData)
                         badgePinFrames[#badgePinFrames + 1] = frame
-                        AddWorldMapPin(frame, continentMapID, zoneCenter.x, zoneCenter.y,
+                        MPP.PlaceWorldMapPin("HomesteadVendors", frame, continentMapID, zoneCenter.x, zoneCenter.y,
                             HBD_PINS_WORLDMAP_SHOW_CONTINENT)
                     end
                 end
@@ -1502,10 +1315,10 @@ function VendorMapPins:ShowZoneBadges(continentMapID)
 
     -- Show designated child-continent zone badges on this continent map.
     -- Example: Midnight/Quel'Thalas zones on Eastern Kingdoms.
-    for srcContinentID, destContinentID in pairs(BC.continentZoneBadgesOnParent or {}) do
+    for srcContinentID, destContinentID in pairs(MPP.continentZoneBadgesOnParent or {}) do
         if destContinentID == continentMapID then
-            local excludedBySource = BC.continentZoneBadgeExclusionsOnParent
-                and BC.continentZoneBadgeExclusionsOnParent[srcContinentID]
+            local excludedBySource = MPP.continentZoneBadgeExclusionsOnParent
+                and MPP.continentZoneBadgeExclusionsOnParent[srcContinentID]
             local excludedForDest = excludedBySource and excludedBySource[continentMapID]
             local sourceZones = self:GetZoneVendorCounts(srcContinentID)
             for zoneMapID, zoneData in pairs(sourceZones) do
@@ -1521,11 +1334,11 @@ function VendorMapPins:ShowZoneBadges(continentMapID)
                             unknownCount = zoneData.unknownCount,
                             oppositeFactionCount = zoneData.oppositeFactionCount,
                             dominantFaction = zoneData.dominantFaction,
-                            note = BC.zoneNotes[zoneMapID],
+                            note = MPP.zoneNotes[zoneMapID],
                         }
                         local frame = CreateBadgePinFrame(badgeData)
                         badgePinFrames[#badgePinFrames + 1] = frame
-                        AddWorldMapPin(frame, continentMapID, zoneCenter.x, zoneCenter.y,
+                        MPP.PlaceWorldMapPin("HomesteadVendors", frame, continentMapID, zoneCenter.x, zoneCenter.y,
                             HBD_PINS_WORLDMAP_SHOW_CONTINENT)
                     end
                 end
@@ -1540,7 +1353,7 @@ function VendorMapPins:ShowZoneBadgesOnWorldMap()
     for continentMapID, continentData in pairs(continentCounts) do
         if continentData.vendorCount > 0 then
             -- Off-world continents: keep as aggregate badge (HBD can't translate)
-            local manualPos = BC.offWorldContinentPositions[continentMapID]
+            local manualPos = MPP.offWorldContinentPositions[continentMapID]
             if manualPos then
                 local badgeData = {
                     mapID = continentMapID,
@@ -1552,9 +1365,9 @@ function VendorMapPins:ShowZoneBadgesOnWorldMap()
                 }
                 local frame = CreateBadgePinFrame(badgeData)
                 badgePinFrames[#badgePinFrames + 1] = frame
-                WorldMapFrame:AcquirePin(NATIVE_PIN_TEMPLATE, frame, manualPos.x, manualPos.y)
+                MPP.PlaceNativePin(frame, manualPos.x, manualPos.y)
 
-            elseif not BC.excludedContinents[continentMapID] then
+            elseif not MPP.excludedContinents[continentMapID] then
                 -- Normal continent: place individual zone badges
                 local zoneCounts = self:GetZoneVendorCounts(continentMapID)
                 for zoneMapID, zoneData in pairs(zoneCounts) do
@@ -1567,7 +1380,7 @@ function VendorMapPins:ShowZoneBadgesOnWorldMap()
                             unknownCount = zoneData.unknownCount,
                             oppositeFactionCount = zoneData.oppositeFactionCount,
                             dominantFaction = zoneData.dominantFaction,
-                            note = BC.zoneNotes[zoneMapID],
+                            note = MPP.zoneNotes[zoneMapID],
                         }
                         local frame = CreateBadgePinFrame(badgeData)
                         badgePinFrames[#badgePinFrames + 1] = frame
@@ -1576,16 +1389,16 @@ function VendorMapPins:ShowZoneBadgesOnWorldMap()
                         -- Some zones (phased class halls, old-world outliers) can't be
                         -- projected by HBD for all characters — fall back to the continent's
                         -- manualZoneCenters entry so the badge still appears on the world map.
-                        if IsHBDSupported(zoneMapID) then
-                            HBDPins:AddWorldMapIconMap("HomesteadVendors", frame, zoneMapID,
+                        if MPP.IsMapSupported(zoneMapID) then
+                            MPP.PlaceWorldMapPinDirect("HomesteadVendors", frame, zoneMapID,
                                 0.5, 0.5,
                                 HBD_PINS_WORLDMAP_SHOW_WORLD)
                         else
-                            local fallbackContinent = BC.GetContinentForZone(zoneMapID)
+                            local fallbackContinent = MPP.GetContinentForZone(zoneMapID)
                             local fallbackCenter = fallbackContinent
-                                and BC:GetZoneCenterOnMap(zoneMapID, fallbackContinent)
-                            if fallbackCenter and IsHBDSupported(fallbackContinent) then
-                                HBDPins:AddWorldMapIconMap("HomesteadVendors", frame,
+                                and MPP:GetZoneCenterOnMap(zoneMapID, fallbackContinent)
+                            if fallbackCenter and MPP.IsMapSupported(fallbackContinent) then
+                                MPP.PlaceWorldMapPinDirect("HomesteadVendors", frame,
                                     fallbackContinent,
                                     fallbackCenter.x, fallbackCenter.y,
                                     HBD_PINS_WORLDMAP_SHOW_WORLD)
@@ -1610,7 +1423,7 @@ function VendorMapPins:ShowContinentBadges()
     for continentMapID, continentData in pairs(continentCounts) do
         if continentData.vendorCount > 0 then
             -- Off-world continent with manual position (e.g. Argus)
-            local manualPos = BC.offWorldContinentPositions[continentMapID]
+            local manualPos = MPP.offWorldContinentPositions[continentMapID]
 
             if manualPos then
                 -- Off-world continent: place badge directly on map 947 canvas
@@ -1627,9 +1440,9 @@ function VendorMapPins:ShowContinentBadges()
                 local frame = CreateBadgePinFrame(badgeData)
                 badgePinFrames[#badgePinFrames + 1] = frame
 
-                WorldMapFrame:AcquirePin(NATIVE_PIN_TEMPLATE, frame, manualPos.x, manualPos.y)
+                MPP.PlaceNativePin(frame, manualPos.x, manualPos.y)
 
-            elseif not BC.excludedContinents[continentMapID] then
+            elseif not MPP.excludedContinents[continentMapID] then
                 local badgeData = {
                     mapID = continentMapID,
                     zoneName = continentData.continentName,
@@ -1647,10 +1460,10 @@ function VendorMapPins:ShowContinentBadges()
                 -- GetMapRectOnMap returns nil (e.g. pre-patch zones not yet on canvas).
                 local minX, maxX, minY, maxY = C_Map.GetMapRectOnMap(continentMapID, 947)
                 if minX then
-                    WorldMapFrame:AcquirePin(NATIVE_PIN_TEMPLATE, frame,
+                    MPP.PlaceNativePin(frame,
                         (minX + maxX) / 2, (minY + maxY) / 2)
                 else
-                    HBDPins:AddWorldMapIconMap("HomesteadVendors", frame, continentMapID,
+                    MPP.PlaceWorldMapPinDirect("HomesteadVendors", frame, continentMapID,
                         0.5, 0.5,
                         HBD_PINS_WORLDMAP_SHOW_WORLD)
                 end
