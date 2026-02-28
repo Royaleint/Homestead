@@ -301,24 +301,90 @@ local minimapExcludedContinents = {
     [1550] = true,  -- Shadowlands (afterlife dimension)
 }
 
--- Pin jitter: nudge co-located vendors apart so both pins are visible/hoverable.
--- Returns (possibly offset) x, y and records the position for future collision checks.
--- offset ~0.003 ≈ a few pixels at zone zoom; imperceptible for waypoints.
-local PIN_JITTER_OFFSET = 0.003
+-- Pin clustering: group co-located vendors and spread them in a radial arc.
+-- CLUSTER_RADIUS: normalized distance threshold — vendors within this distance
+--   are considered co-located (0.010 comfortably covers all known stacking cases).
+-- SPREAD_DIAMETER: minimum chord length between adjacent spread pins; just over
+--   one 20px pin diameter so all pins are individually hoverable/clickable.
+local PIN_CLUSTER_RADIUS    = 0.010
+local PIN_CLUSTER_RADIUS_SQ = PIN_CLUSTER_RADIUS * PIN_CLUSTER_RADIUS  -- avoids sqrt in hot path
+local PIN_SPREAD_DIAMETER   = 0.016
 
-local function JitterPin(placedPositions, mapIDForPin, x, y)
-    local key = format("%d:%.4f:%.4f", mapIDForPin, x, y)
-    local count = placedPositions[key]
-    if count then
-        placedPositions[key] = count + 1
-        -- Nudge right for the 2nd pin, left for a hypothetical 3rd, etc.
-        local direction = (count % 2 == 1) and 1 or -1
-        local magnitude = math.ceil(count / 2)
-        x = x + PIN_JITTER_OFFSET * direction * magnitude
-    else
-        placedPositions[key] = 1
+-- ClusterAndSpreadPins: pre-process a list of pin entries, group nearby vendors
+-- into clusters, and return a spread-position table keyed by npcID.
+--
+-- pinList:  array of { vendor=, coords={x,y}, vendorMapID= }
+-- Returns:  table [npcID] = {x=, y=}
+--
+-- Algorithm: greedy single-pass — each vendor joins the first cluster whose
+-- centroid is within PIN_CLUSTER_RADIUS; solo vendors pass through unchanged.
+-- Clustering is performed per vendorMapID to avoid grouping vendors across maps.
+-- Distance comparisons use squared distance (dx*dx+dy*dy < r*r) to avoid
+-- math.sqrt in the inner loop — equivalent result, no transcendental overhead.
+local function ClusterAndSpreadPins(pinList)
+    if not pinList or #pinList == 0 then return {} end
+
+    -- Partition by vendorMapID so vendors on different maps are never grouped.
+    local byMap = {}
+    for _, pin in ipairs(pinList) do
+        local mid = pin.vendorMapID
+        if not byMap[mid] then byMap[mid] = {} end
+        byMap[mid][#byMap[mid] + 1] = pin
     end
-    return x, y
+
+    local positions = {}
+
+    for _, mapPins in pairs(byMap) do
+        -- Greedy clustering for this map.
+        local clusters = {}
+
+        for _, pin in ipairs(mapPins) do
+            local placed = false
+            for _, cluster in ipairs(clusters) do
+                local dx = pin.coords.x - cluster.cx
+                local dy = pin.coords.y - cluster.cy
+                if dx * dx + dy * dy < PIN_CLUSTER_RADIUS_SQ then
+                    cluster.members[#cluster.members + 1] = pin
+                    -- Running centroid update.
+                    local n = #cluster.members
+                    cluster.cx = cluster.cx + (pin.coords.x - cluster.cx) / n
+                    cluster.cy = cluster.cy + (pin.coords.y - cluster.cy) / n
+                    placed = true
+                    break
+                end
+            end
+            if not placed then
+                clusters[#clusters + 1] = {
+                    cx      = pin.coords.x,
+                    cy      = pin.coords.y,
+                    members = { pin },
+                }
+            end
+        end
+
+        -- Assign spread positions.
+        for _, cluster in ipairs(clusters) do
+            local n = #cluster.members
+            if n == 1 then
+                local m = cluster.members[1]
+                positions[m.vendor.npcID] = { x = m.coords.x, y = m.coords.y }
+            else
+                -- Radial arrangement: pins on a circle centred on the cluster centroid.
+                -- Radius is the minimum so adjacent pins don't overlap:
+                --   chord = 2*r*sin(π/n) >= PIN_SPREAD_DIAMETER  →  r = d/(2*sin(π/n))
+                -- Pins start at top (-π/2) and are spaced evenly clockwise.
+                local r = PIN_SPREAD_DIAMETER / (2 * math.sin(math.pi / n))
+                for i, m in ipairs(cluster.members) do
+                    local angle = (2 * math.pi * (i - 1) / n) - math.pi / 2
+                    local spreadX = math.max(0.001, math.min(0.999, cluster.cx + r * math.cos(angle)))
+                    local spreadY = math.max(0.001, math.min(0.999, cluster.cy + r * math.sin(angle)))
+                    positions[m.vendor.npcID] = { x = spreadX, y = spreadY }
+                end
+            end
+        end
+    end
+
+    return positions
 end
 
 -- Runtime event/ticker handles (registered conditionally by feature state)
@@ -1052,7 +1118,7 @@ function VendorMapPins:RefreshMinimapPins()
     local showOpposite = ShouldShowOppositeFaction()
     local floatOnEdge = not IsIndoors()  -- Hide distant pins when inside buildings/caves
     local addedVendors = {}  -- Prevent duplicate pins for same vendor
-    local placedPositions = {}  -- Track placed pin coords for jitter
+    local pendingPins = {}   -- Collected pins, placed after clustering pass
     local addedCount = 0
     local capReached = false
 
@@ -1097,40 +1163,53 @@ function VendorMapPins:RefreshMinimapPins()
                             if (showUnverified or not isUnverified) and (canAccess or (isOpposite and showOpposite)) then
                                 local elevation = Constants.GetElevationDirection(playerMapID, vendorMapID)
 
-                                local pinX, pinY = JitterPin(placedPositions, vendorMapID, coords.x, coords.y)
-
-                                if elevation then
-                                    -- Cross-floor: use AddMinimapIconWorld to bypass HBD mapID filter
-                                    local worldX, worldY, instanceID = HBD:GetWorldCoordinatesFromZone(
-                                        pinX, pinY, vendorMapID)
-                                    if worldX then
-                                        local showArrow = showElevationArrows
-                                        local frame = CreateMinimapPinFrame(vendor, isOpposite, isUnverified,
-                                            showArrow and elevation or nil)
-                                        minimapPinFrames[#minimapPinFrames + 1] = frame
-                                        addedVendors[vendor.npcID] = true
-                                        addedCount = addedCount + 1
-                                        -- Always float on edge for cross-floor pins; indoor detection
-                                        -- would otherwise hide them in underground zones
-                                        HBDPins:AddMinimapIconWorld("HomesteadMinimapVendors", frame,
-                                            instanceID, worldX, worldY, true)
-                                    end
-                                    -- If conversion fails, skip — zone has no HBD mapData and
-                                    -- AddMinimapIconMap would also fail (same conversion internally)
-                                else
-                                    local frame = CreateMinimapPinFrame(vendor, isOpposite, isUnverified)
-                                    minimapPinFrames[#minimapPinFrames + 1] = frame
-                                    addedVendors[vendor.npcID] = true
-                                    addedCount = addedCount + 1
-                                    HBDPins:AddMinimapIconMap("HomesteadMinimapVendors", frame, vendorMapID,
-                                        pinX, pinY,
-                                        true,         -- showInParentZone
-                                        floatOnEdge)  -- false indoors: hides distant pins
-                                end
+                                -- Collect for clustering pass; frame creation deferred until positions are known.
+                                addedVendors[vendor.npcID] = true
+                                addedCount = addedCount + 1
+                                pendingPins[#pendingPins + 1] = {
+                                    vendor       = vendor,
+                                    coords       = coords,
+                                    vendorMapID  = vendorMapID,
+                                    isOpposite   = isOpposite,
+                                    isUnverified = isUnverified,
+                                    elevation    = elevation,
+                                    showArrow    = showElevationArrows,
+                                }
                             end
                         end
                     end
                 end
+            end
+        end
+    end
+
+    -- Cluster co-located vendors and place minimap frames at spread positions.
+    local spreadPositions = ClusterAndSpreadPins(pendingPins)
+    for _, pin in ipairs(pendingPins) do
+        local sp = spreadPositions[pin.vendor.npcID]
+        if sp then
+            if pin.elevation then
+                -- Cross-floor: use AddMinimapIconWorld to bypass HBD mapID filter
+                local worldX, worldY, instanceID = HBD:GetWorldCoordinatesFromZone(
+                    sp.x, sp.y, pin.vendorMapID)
+                if worldX then
+                    local frame = CreateMinimapPinFrame(pin.vendor, pin.isOpposite, pin.isUnverified,
+                        pin.showArrow and pin.elevation or nil)
+                    minimapPinFrames[#minimapPinFrames + 1] = frame
+                    -- Always float on edge for cross-floor pins; indoor detection
+                    -- would otherwise hide them in underground zones
+                    HBDPins:AddMinimapIconWorld("HomesteadMinimapVendors", frame,
+                        instanceID, worldX, worldY, true)
+                end
+                -- If conversion fails, skip — zone has no HBD mapData and
+                -- AddMinimapIconMap would also fail (same conversion internally)
+            else
+                local frame = CreateMinimapPinFrame(pin.vendor, pin.isOpposite, pin.isUnverified)
+                minimapPinFrames[#minimapPinFrames + 1] = frame
+                HBDPins:AddMinimapIconMap("HomesteadMinimapVendors", frame, pin.vendorMapID,
+                    sp.x, sp.y,
+                    true,           -- showInParentZone
+                    floatOnEdge)    -- false indoors: hides distant pins
             end
         end
     end
@@ -1179,7 +1258,7 @@ end
 function VendorMapPins:ShowVendorPins(mapID)
     local showOpposite = ShouldShowOppositeFaction()
     local addedVendors = {}  -- Track by npcID to avoid duplicates
-    local placedPositions = {}  -- Track placed pin coords for jitter
+    local pendingPins = {}   -- Collected pins, placed after clustering pass
 
     -- Build set of valid mapIDs: current map + child/sub-zone maps
     -- This ensures vendors in sub-zones (e.g., City of Threads inside Azj-Kahet)
@@ -1230,16 +1309,15 @@ function VendorMapPins:ShowVendorPins(mapID)
 
             -- Show vendor if accessible OR if opposite faction and setting enabled
             if canAccess or (isOpposite and showOpposite) then
-                local frame = CreateVendorPinFrame(vendor, isOpposite, isUnverified)
-                vendorPinFrames[#vendorPinFrames + 1] = frame
+                -- Collect for clustering pass; frame creation deferred until positions are known.
                 addedVendors[vendor.npcID] = true
-
-                -- Add to world map using vendor's actual mapID (HBD with native fallback for Argus etc.)
-                -- vendorMapID may differ from mapID for sub-zone vendors; HBD_PINS_WORLDMAP_SHOW_PARENT
-                -- ensures sub-zone pins appear on the parent zone map
-                local pinX, pinY = JitterPin(placedPositions, vendorMapID, coords.x, coords.y)
-                AddWorldMapPin(frame, vendorMapID, pinX, pinY,
-                    HBD_PINS_WORLDMAP_SHOW_PARENT)
+                pendingPins[#pendingPins + 1] = {
+                    vendor       = vendor,
+                    coords       = coords,
+                    vendorMapID  = vendorMapID,
+                    isOpposite   = isOpposite,
+                    isUnverified = isUnverified,
+                }
             end
         end
     end
@@ -1304,6 +1382,18 @@ function VendorMapPins:ShowVendorPins(mapID)
                     ProcessVendor(tempVendor)
                 end
             end
+        end
+    end
+
+    -- Cluster co-located vendors and place frames at spread positions.
+    local spreadPositions = ClusterAndSpreadPins(pendingPins)
+    for _, pin in ipairs(pendingPins) do
+        local sp = spreadPositions[pin.vendor.npcID]
+        if sp then
+            local frame = CreateVendorPinFrame(pin.vendor, pin.isOpposite, pin.isUnverified)
+            vendorPinFrames[#vendorPinFrames + 1] = frame
+            AddWorldMapPin(frame, pin.vendorMapID, sp.x, sp.y,
+                HBD_PINS_WORLDMAP_SHOW_PARENT)
         end
     end
 
