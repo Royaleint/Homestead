@@ -99,7 +99,7 @@ local function GetOptionsTable()
                     showOnBags = {
                         type = "toggle",
                         name = L["Show on bags"] or "Show on bags",
-                        desc = "Show overlay icons on bag items",
+                        desc = "Show overlay icons on bag items (includes Baganator and BetterBags)",
                         order = 3,
                         get = function() return HA.Addon.db.profile.overlay.showOnBags end,
                         set = function(_, value)
