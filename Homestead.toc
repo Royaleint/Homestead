@@ -63,6 +63,8 @@ Modules/Validation.lua
 # Overlay System
 Overlay\overlay.lua
 Overlay\Containers.lua
+Overlay\Baganator.lua
+Overlay\BetterBags.lua
 Overlay\Merchant.lua
 Overlay\Tooltips.lua
 

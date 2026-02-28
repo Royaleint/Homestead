@@ -108,6 +108,7 @@ read_globals = {
     "HBD_PINS_WORLDMAP_SHOW_WORLD",
 
     -- Optional external addons
+    "Baganator",
     "TomTom",
 }
 

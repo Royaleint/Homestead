@@ -32,6 +32,7 @@ local OVERLAY_CONFIG = Constants.Overlay or {
 local activeOverlays = {}
 local overlayPool = {}
 local overlayCount = 0
+local externalRefreshers = {}
 
 -------------------------------------------------------------------------------
 -- Overlay Creation
@@ -192,6 +193,13 @@ function Overlay:RefreshAll()
             end
         end
     end
+
+    for key, refreshFunc in pairs(externalRefreshers) do
+        local success, err = pcall(refreshFunc)
+        if not success then
+            HA.Addon:Debug("Error refreshing external overlays:", key, err)
+        end
+    end
 end
 
 -- Update a single overlay
@@ -268,6 +276,13 @@ function Overlay:UpdateConfig()
                                   db.iconSize or OVERLAY_CONFIG.ICON_SIZE)
         end
     end
+
+    for key, refreshFunc in pairs(externalRefreshers) do
+        local success, err = pcall(refreshFunc)
+        if not success then
+            HA.Addon:Debug("Error refreshing external overlays:", key, err)
+        end
+    end
 end
 
 -- Set icon position for an overlay
@@ -295,6 +310,18 @@ function Overlay:SetIconPosition(overlay, anchor)
     end
 
     overlay.icon:SetPoint(anchor, overlay, anchor, offsetX, offsetY)
+end
+
+-- Register an external refresher for addon-owned bag UIs
+function Overlay:RegisterExternalRefresher(key, refreshFunc)
+    if not key or type(refreshFunc) ~= "function" then return end
+    externalRefreshers[key] = refreshFunc
+end
+
+-- Unregister a previously registered external refresher
+function Overlay:UnregisterExternalRefresher(key)
+    if not key then return end
+    externalRefreshers[key] = nil
 end
 
 -------------------------------------------------------------------------------
