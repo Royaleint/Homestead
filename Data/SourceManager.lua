@@ -277,46 +277,81 @@ end
 -- Requirements Lookup
 -------------------------------------------------------------------------------
 
+-- Check whether a requirement table has enough data to be actionable.
+local function isUsableRequirement(req)
+    if not req or not req.type then return false end
+    if req.type == "reputation" and req.faction then return true end
+    if req.type == "achievement" and (req.id or req.name) then return true end
+    if req.type == "quest" and (req.id or req.name) then return true end
+    if req.type == "level" and req.level then return true end
+    if req.type == "unknown" and req.text then return true end
+    return false
+end
+
+-- Deduplication key for a requirement. Higher-priority source's version wins
+-- (first-seen kept; later duplicates with the same key are discarded).
+local function getRequirementDedupeKey(req)
+    if req.type == "reputation" then
+        return "reputation:" .. (req.faction or "")
+    elseif req.type == "achievement" then
+        return "achievement:" .. tostring(req.id or req.name or "")
+    elseif req.type == "quest" then
+        return "quest:" .. tostring(req.id or req.name or "")
+    elseif req.type == "level" then
+        return "level"
+    elseif req.type == "unknown" then
+        return "unknown:" .. (req.text or "")
+    end
+    return nil -- unrecognized type: no dedup (always added)
+end
+
 -- Get acquisition requirements for an item, optionally scoped to a vendor.
--- Resolution priority:
+-- Collects from ALL sources (higher priority wins on duplicates):
 --   1. Vendor-specific: scannedVendors[npcID].items[i].requirements (tooltip scraping)
---   2. Item-level fallback: CatalogStore:GetRequirements(itemID)
+--   2. Item-level: CatalogStore:GetRequirements(itemID)
 --   3. Parsed sourceText: parsedSources[itemID].sources[].faction/standing
 --   4. Blizzard-confirmed vendor prerequisites: PrerequisiteSources[itemID]
 --   5. Static achievement source data: AchievementSources[itemID]
 --   6. Static quest source data: QuestSources[itemID]
+-- Deduplicates by type + identifying key (faction, achievement ID, quest ID).
 -- NOT gated by useParsedSources — requirements are always surfaced.
 -- Returns: array of requirement tables, or nil if none found
 function SourceManager:GetRequirements(itemID, npcID)
     if not itemID then return nil end
 
+    local merged = {}
+    local seen = {}
+
+    local function addReq(req)
+        if not isUsableRequirement(req) then return end
+        local key = getRequirementDedupeKey(req)
+        if key then
+            if seen[key] then return end
+            seen[key] = true
+        end
+        table.insert(merged, req)
+    end
+
+    local function addReqs(reqs)
+        if not reqs then return end
+        -- Safety: if source returned a single requirement object instead of
+        -- an array, wrap it. A single object has a .type field directly.
+        if reqs.type then
+            addReq(reqs)
+            return
+        end
+        for _, req in ipairs(reqs) do
+            addReq(req)
+        end
+    end
+
     -- Priority 1: Vendor-specific requirements from scanned data
     if npcID and HA.Addon and HA.Addon.db and HA.Addon.db.global.scannedVendors then
         local vendor = HA.Addon.db.global.scannedVendors[npcID]
-        if vendor then
-            local items = vendor.items
-            if items then
-                for _, item in ipairs(items) do
-                    local vendorItemID = HA.VendorData:GetItemID(item)
-                    if vendorItemID == itemID and item.requirements and #item.requirements > 0 then
-                        -- Validate requirements are usable (have type + id/name/faction)
-                        local usable = false
-                        for _, req in ipairs(item.requirements) do
-                            if req.type == "reputation" and req.faction then
-                                usable = true; break
-                            elseif req.type == "achievement" and (req.id or req.name) then
-                                usable = true; break
-                            elseif req.type == "quest" and (req.id or req.name) then
-                                usable = true; break
-                            elseif req.type == "level" and req.level then
-                                usable = true; break
-                            end
-                        end
-                        if usable then
-                            return item.requirements
-                        end
-                        -- Unusable requirements (type="unknown", no data) — fall through
-                    end
+        if vendor and vendor.items then
+            for _, item in ipairs(vendor.items) do
+                if HA.VendorData:GetItemID(item) == itemID then
+                    addReqs(item.requirements)
                 end
             end
         end
@@ -324,19 +359,7 @@ function SourceManager:GetRequirements(itemID, npcID)
 
     -- Priority 2: Item-level from CatalogStore
     if HA.CatalogStore then
-        local reqs = HA.CatalogStore:GetRequirements(itemID)
-        if reqs and #reqs > 0 then
-            -- Validate at least one requirement is usable
-            for _, req in ipairs(reqs) do
-                if (req.type == "reputation" and req.faction)
-                    or (req.type == "achievement" and (req.id or req.name))
-                    or (req.type == "quest" and (req.id or req.name))
-                    or (req.type == "level" and req.level) then
-                    return reqs
-                end
-            end
-            -- All unusable — fall through to other sources
-        end
+        addReqs(HA.CatalogStore:GetRequirements(itemID))
     end
 
     -- Priority 3: Faction/standing from parsed sourceText (no vendor visit needed)
@@ -345,11 +368,11 @@ function SourceManager:GetRequirements(itemID, npcID)
         if parsed and parsed.sources then
             for _, source in ipairs(parsed.sources) do
                 if source.faction and source.standing then
-                    return {{
+                    addReq({
                         type = "reputation",
                         faction = source.faction,
                         standing = source.standing,
-                    }}
+                    })
                 end
             end
         end
@@ -357,18 +380,18 @@ function SourceManager:GetRequirements(itemID, npcID)
 
     -- Priority 4: Blizzard-confirmed vendor prerequisites (PrerequisiteSources.lua)
     if HA.PrerequisiteSources and HA.PrerequisiteSources[itemID] then
-        return HA.PrerequisiteSources[itemID]
+        addReqs(HA.PrerequisiteSources[itemID])
     end
 
     -- Priority 5: Static achievement source data (AchievementSources.lua)
     if HA.AchievementSources and HA.AchievementSources[itemID] then
         local src = HA.AchievementSources[itemID]
         if src.achievementID then
-            return {{
+            addReq({
                 type = "achievement",
                 id = src.achievementID,
                 name = src.achievementName or ("Achievement #" .. src.achievementID),
-            }}
+            })
         end
     end
 
@@ -376,15 +399,15 @@ function SourceManager:GetRequirements(itemID, npcID)
     if HA.QuestSources and HA.QuestSources[itemID] then
         local src = HA.QuestSources[itemID]
         if src.questID then
-            return {{
+            addReq({
                 type = "quest",
                 id = src.questID,
                 name = src.questName or ("Quest #" .. src.questID),
-            }}
+            })
         end
     end
 
-    return nil
+    return #merged > 0 and merged or nil
 end
 
 -- Lazy-built cache: faction name → factionID (populated on first use)
