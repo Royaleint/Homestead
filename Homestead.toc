@@ -75,6 +75,7 @@ UI\WhatsNewFrame.lua
 UI\OutputWindow.lua
 UI\VendorFilter.lua
 UI\PinFrameFactory.lua
+UI\MapPinProvider.lua
 UI\BadgeCalculation.lua
 UI\SearchProvider.lua
 UI\MapSidePanel.lua
