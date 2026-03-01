@@ -249,7 +249,7 @@ end
 -- Suppress in-combat errors (same as HBD)
 nativePinMixin.SetPassThroughButtons = function() end
 
--- Create pin pool and register with WorldMapFrame
+-- Create pin pool (deferred registration to avoid WorldMapFrame taint at load)
 local nativePool
 if CreateUnsecuredRegionPoolInstance then
     nativePool = CreateUnsecuredRegionPoolInstance(NATIVE_PIN_TEMPLATE)
@@ -272,7 +272,16 @@ end
 -- Pre-11.x compat names
 nativePool.creationFunc = nativePool.createFunc
 nativePool.resetterFunc = nativePool.resetFunc
-WorldMapFrame.pinPools[NATIVE_PIN_TEMPLATE] = nativePool -- luacheck: ignore 122
+
+-- Lazy registration: writing to WorldMapFrame.pinPools at file load taints the
+-- protected frame, causing "secret number value tainted by Homestead" errors in
+-- Blizzard tooltip/widget code. Defer until first native pin use.
+local nativePoolRegistered = false
+local function EnsureNativePoolRegistered()
+    if nativePoolRegistered then return end
+    nativePoolRegistered = true
+    WorldMapFrame.pinPools[NATIVE_PIN_TEMPLATE] = nativePool -- luacheck: ignore 122
+end
 
 -------------------------------------------------------------------------------
 -- Pin Placement API
@@ -288,6 +297,7 @@ function MapPinProvider.PlaceWorldMapPin(namespace, frame, mapID, x, y, showFlag
     -- Native fallback: only works when viewing THIS exact map
     local currentMapID = WorldMapFrame:GetMapID()
     if currentMapID == mapID then
+        EnsureNativePoolRegistered()
         WorldMapFrame:AcquirePin(NATIVE_PIN_TEMPLATE, frame, x, y)
         return true
     end
@@ -296,6 +306,7 @@ end
 
 -- Place a native pin directly (no HBD, no fallback check).
 function MapPinProvider.PlaceNativePin(frame, x, y)
+    EnsureNativePoolRegistered()
     WorldMapFrame:AcquirePin(NATIVE_PIN_TEMPLATE, frame, x, y)
 end
 
@@ -325,7 +336,9 @@ end
 -- NOTE: Native pin clear is NOT namespace-scoped (Homestead single-namespace only).
 function MapPinProvider.ClearWorldMapPins(namespace)
     HBDPins:RemoveAllWorldMapIcons(namespace)
-    WorldMapFrame:RemoveAllPinsByTemplate(NATIVE_PIN_TEMPLATE)
+    if nativePoolRegistered then
+        WorldMapFrame:RemoveAllPinsByTemplate(NATIVE_PIN_TEMPLATE)
+    end
 end
 
 -- Clear all minimap pins by namespace.
