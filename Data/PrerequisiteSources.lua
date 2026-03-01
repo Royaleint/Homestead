@@ -1,8 +1,8 @@
 --[[
     Homestead - PrerequisiteSources
-    Generated: 2026-02-21 02:19:31
-    Items with prerequisites: 176
-    Total prerequisite entries: 179
+    Generated: 2026-02-28 22:50:40
+    Items with prerequisites: 182
+    Total prerequisite entries: 185
 
     Blizzard-confirmed vendor purchase prerequisites from web API.
     Used by SourceManager:GetRequirements() as a high-confidence source.
@@ -130,13 +130,16 @@ HA.PrerequisiteSources = {
     [253598] = {{type = "quest", name = "A Frostbitten Tally"}},
     [254319] = {{type = "quest", name = "Can We Heal This?"}},
     [254878] = {{type = "quest", name = "A Last Resort"}},
+    [255648] = {{type = "quest", name = "De Legend of de Hash'ey"}},
     [256331] = {
         {type = "quest", name = "Return to Ariok"},
         {type = "quest", name = "Return to Keeshan"},
     },
     [256429] = {{type = "quest", name = "Enforced Relaxation"}},
+    [256903] = {{type = "quest", name = "The Shredders of Irontree"}},
     [256905] = {{type = "quest", name = "Morbent's Bane"}},
     [256913] = {{type = "achievement", name = "Got to Ketchum All"}},
+    [257412] = {{type = "quest", name = "Pyrewood's Fall"}},
     [257418] = {{type = "quest", name = "Flowers for Amalthea"}},
     [257721] = {{type = "achievement", name = "Drum Circle"}},
     [258220] = {{type = "quest", name = "Surrender... Not!"}},
@@ -152,6 +155,7 @@ HA.PrerequisiteSources = {
     [258745] = {{type = "quest", name = "When All Is Aligned"}},
     [258748] = {{type = "quest", name = "Hot Seat"}},
     [258749] = {{type = "quest", name = "The Avatar of Terokk"}},
+    [262351] = {{type = "quest", name = "Face the Tide"}},
     [262610] = {{type = "quest", name = "Two Tons of Metal and Holy Fire"}},
     [262614] = {{type = "quest", name = "The Traveling Flowers"}},
     [262906] = {{type = "quest", name = "Russula's Outreach"}},
@@ -170,6 +174,7 @@ HA.PrerequisiteSources = {
     [265681] = {{type = "achievement", name = "Prey: Mad Magisters (Nightmare)"}},
     [265682] = {{type = "achievement", name = "Prey: Insane Inventors (Nightmare)"}},
     [265683] = {{type = "achievement", name = "Prey: Ethereal Assassins (Nightmare)"}},
+    [265684] = {{type = "achievement", name = "Prey: Anger Mangement (Nightmare)"}},
     [265685] = {{type = "achievement", name = "Prey: Sadistic Shamans (Nightmare)"}},
     [265686] = {{type = "achievement", name = "Prey: Bloody Green Thumbs (Nightmare)"}},
     [265687] = {{type = "achievement", name = "Prey: Blinded By The Light (Nightmare)"}},
@@ -182,6 +187,7 @@ HA.PrerequisiteSources = {
     [265696] = {{type = "achievement", name = "Prey: Mad Magisters (Hard)"}},
     [265697] = {{type = "achievement", name = "Prey: Insane Inventors (Hard)"}},
     [265698] = {{type = "achievement", name = "Prey: Ethereal Assassins (Hard)"}},
+    [265699] = {{type = "achievement", name = "Prey: Anger Management (Hard)"}},
     [265700] = {{type = "achievement", name = "Prey: Sadistic Shamans (Hard)"}},
     [265701] = {{type = "achievement", name = "Prey: Bloody Green Thumbs (Hard)"}},
     [265702] = {{type = "achievement", name = "Prey: Blinded By The Light (Hard)"}},
