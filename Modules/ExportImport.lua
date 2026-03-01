@@ -242,8 +242,9 @@ function ExportImport:ExportScannedVendors(fullExport, exportAll)
     local exportedUniqueItems = {}
 
     table.insert(output, EXPORT_PREFIX .. "\n")
+    table.insert(output, "# exportFormatVersion: 2\n")
     table.insert(output, "# V: npcID\tname\tmapID\tx\ty\tfaction\ttimestamp\titemCount\tdecorCount\tzone\tsubZone\trealZone\tparentMapID\tcontinentMapID\texpansion\tcurrency\tmapChain\n")
-    table.insert(output, "# I: npcID\titemID\tname\tprice\tcostData\tisUsable\tspellID\trequirements\n")
+    table.insert(output, "# I: npcID\titemID\tname\tprice\tcostData\tisUsable\tspellID\trequirements\tdecorID\n")
 
     -- Collect and sort npcIDs for deterministic output
     local sortedNPCs = {}
@@ -359,8 +360,8 @@ function ExportImport:ExportScannedVendors(fullExport, exportAll)
                     local price = item.price or 0
                     local costData = FormatCostData(item.currencies, item.itemCosts)
 
-                    -- Format: I npcID itemID name price costData isUsable spellID requirements
-                    local itemLine = string.format("I\t%d\t%d\t%s\t%d\t%s\t%s\t%s\t%s\n",
+                    -- Format: I npcID itemID name price costData isUsable spellID requirements decorID
+                    local itemLine = string.format("I\t%d\t%d\t%s\t%d\t%s\t%s\t%s\t%s\t%s\n",
                         vendor.npcID or npcID,
                         itemID,
                         SanitizeExportField(itemName),
@@ -368,7 +369,8 @@ function ExportImport:ExportScannedVendors(fullExport, exportAll)
                         costData,
                         item.isUsable == nil and "" or tostring(item.isUsable),
                         item.spellID and tostring(item.spellID) or "",
-                        FormatRequirements(item.requirements)
+                        FormatRequirements(item.requirements),
+                        item.decorID and tostring(item.decorID) or ""
                     )
                     table.insert(output, itemLine)
                 end
