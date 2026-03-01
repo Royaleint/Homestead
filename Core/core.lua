@@ -414,14 +414,8 @@ function HousingAddon:ShowCacheInfo()
                 table.insert(items, "  " .. name .. " (ID: " .. itemID .. ") - Last seen: " .. lastSeen)
             end
         end
-    elseif self.db and self.db.global and self.db.global.ownedDecor then
-        -- Fallback to legacy ownedDecor
-        for itemID, data in pairs(self.db.global.ownedDecor) do
-            count = count + 1
-            local name = data.name or ("ItemID: " .. itemID)
-            local lastSeen = data.lastSeen and date("%Y-%m-%d %H:%M", data.lastSeen) or "unknown"
-            table.insert(items, "  " .. name .. " (ID: " .. itemID .. ") - Last seen: " .. lastSeen)
-        end
+    else
+        table.insert(output, "CatalogStore unavailable — ownership data cannot be displayed.")
     end
 
     if count == 0 and #items == 0 then
@@ -454,17 +448,8 @@ function HousingAddon:ClearOwnershipCache()
         HA.CatalogStore:ClearAll()
         self:Print("Cleared ownership cache. Removed " .. count .. " cached items.")
         self:Print("Use /hs scan to rebuild the cache.")
-    elseif self.db and self.db.global then
-        -- Fallback if CatalogStore not yet loaded
-        local count = 0
-        if self.db.global.ownedDecor then
-            for _ in pairs(self.db.global.ownedDecor) do
-                count = count + 1
-            end
-        end
-        self.db.global.ownedDecor = {}
-        self:Print("Cleared ownership cache. Removed " .. count .. " cached items.")
-        self:Print("Use /hs scan to rebuild the cache.")
+    else
+        self:Print("CatalogStore unavailable — cannot clear ownership cache.")
     end
 end
 

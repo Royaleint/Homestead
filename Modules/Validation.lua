@@ -228,37 +228,34 @@ function Validation:ValidateOwnershipCache()
             end
         end
 
+        -- Parity check: bidirectional compare during dual-write window
+        local ownedDecor = HA.Addon.db.global.ownedDecor
+        if ownedDecor then
+            -- Direction 1: ownedDecor has item but catalogItems does not
+            for ownedItemID in pairs(ownedDecor) do
+                local record = HA.Addon.db.global.catalogItems[ownedItemID]
+                if not record or not record.isOwned then
+                    table.insert(warnings, string.format(
+                        "ownedDecor[%s] exists but catalogItems says not owned (parity drift)",
+                        tostring(ownedItemID)
+                    ))
+                end
+            end
+            -- Direction 2: catalogItems says owned but ownedDecor missing
+            for catItemID, record in pairs(HA.Addon.db.global.catalogItems) do
+                if record.isOwned and not ownedDecor[catItemID] then
+                    table.insert(warnings, string.format(
+                        "catalogItems[%s] is owned but missing from ownedDecor (parity drift)",
+                        tostring(catItemID)
+                    ))
+                end
+            end
+        end
+
         return errors, warnings, itemCount
     end
 
-    -- Fallback to legacy ownedDecor
-    if not HA.Addon or not HA.Addon.db or not HA.Addon.db.global.ownedDecor then
-        return errors, warnings, 0
-    end
-
-    for itemID, data in pairs(HA.Addon.db.global.ownedDecor) do
-        itemCount = itemCount + 1
-
-        if type(itemID) ~= "number" then
-            table.insert(errors, string.format(
-                "ownedDecor: key '%s' is not a number", tostring(itemID)
-            ))
-        end
-
-        if not data.name then
-            table.insert(warnings, string.format(
-                "ownedDecor[%s]: missing name", tostring(itemID)
-            ))
-        end
-
-        if not data.firstSeen then
-            table.insert(warnings, string.format(
-                "ownedDecor[%s]: missing firstSeen timestamp", tostring(itemID)
-            ))
-        end
-    end
-
-    return errors, warnings, itemCount
+    return errors, warnings, 0
 end
 
 function Validation:ValidateZoneToContinentMapping()

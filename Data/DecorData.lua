@@ -560,13 +560,11 @@ function DecorData:SavePersistentOwnership(itemID, name, recordID)
 end
 
 -- Remove an item from persistent ownership cache (for manual corrections)
+-- Delegates to CatalogStore:SetUnowned which clears both catalogItems and ownedDecor.
 function DecorData:RemovePersistentOwnership(itemID)
     if not itemID then return end
-    if not HA.Addon or not HA.Addon.db then return end
-
-    local ownedDecor = HA.Addon.db.global.ownedDecor
-    if ownedDecor then
-        ownedDecor[itemID] = nil
+    if HA.CatalogStore then
+        HA.CatalogStore:SetUnowned(itemID)
     end
 end
 

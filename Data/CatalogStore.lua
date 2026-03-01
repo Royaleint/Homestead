@@ -130,6 +130,68 @@ function CatalogStore:SetOwned(itemID, name, decorID)
     end
 end
 
+-- Mark an item as no longer owned. Dual-clears both catalogItems and ownedDecor.
+-- Symmetric with SetOwned: maintains ownedCount, negativeGeneration, events.
+-- Idempotent: second call on same item is a no-op (no counter/gen/event changes).
+-- Used for manual ownership corrections.
+--
+-- Contract:
+--   1. State check: wasOwned from catalogItems.isOwned (primary truth for counter)
+--   2. Data: clear isOwned/firstSeen/lastSeen in catalogItems; keep name/decorID
+--   3. Legacy: remove ownedDecor[itemID] for parity during dual-write window
+--   4. Counter: decrement ownedCount only if catalogItems had isOwned=true
+--   5. Cache: bump negativeGeneration on effective ownership change
+--   6. Event: fire OWNERSHIP_UPDATED on transition only; respect batchMode
+function CatalogStore:SetUnowned(itemID)
+    if not itemID then return end
+
+    -- 1. Detect current ownership state (catalogItems is counter authority)
+    local wasOwnedInCatalog = false
+    if ci and ci[itemID] then
+        wasOwnedInCatalog = ci[itemID].isOwned == true
+    end
+
+    -- Also check legacy table for parity cleanup
+    local hadLegacyEntry = false
+    local ownedDecor
+    if HA.Addon and HA.Addon.db then
+        ownedDecor = HA.Addon.db.global.ownedDecor
+        if ownedDecor and ownedDecor[itemID] then
+            hadLegacyEntry = true
+        end
+    end
+
+    -- No-op if not owned anywhere (idempotent)
+    if not wasOwnedInCatalog and not hadLegacyEntry then return end
+
+    -- 2. Clear catalogItems ownership (keep metadata: name, decorID)
+    if ci and ci[itemID] then
+        ci[itemID].isOwned = false
+        ci[itemID].firstSeen = nil
+        ci[itemID].lastSeen = nil
+    end
+
+    -- 3. Remove from legacy ownedDecor (dual-write parity)
+    if ownedDecor then
+        ownedDecor[itemID] = nil
+    end
+
+    -- 4-5. Counter and cache generation (only from catalogItems authority)
+    if wasOwnedInCatalog then
+        ownedCount = ownedCount - 1
+        negativeGeneration = negativeGeneration + 1
+    end
+
+    -- 6. Event on effective ownership transition
+    if wasOwnedInCatalog then
+        if batchMode then
+            batchOwnershipChanged = true
+        elseif HA.Events then
+            HA.Events:Fire("OWNERSHIP_UPDATED")
+        end
+    end
+end
+
 -- Store parsed source data for an item
 function CatalogStore:SetSources(itemID, sources, hash)
     if not ci or not itemID then return end
