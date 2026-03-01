@@ -16,6 +16,9 @@ scripts/
 # Binaries
 luacheck.exe
 
+# Credentials
+.env
+
 # Python
 __pycache__/
 *.pyc
