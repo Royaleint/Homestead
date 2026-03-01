@@ -2,11 +2,21 @@
 
 ---
 
-## Unreleased (v1.6.1)
+## v1.6.1 (2026-02-28)
+
+### Added
+- **Baganator Support** — Ownership icons now appear on decor items in Baganator. (Thanks Karaste from CurseForge!)
+- **BetterBags Support** — Ownership icons now appear on decor items in BetterBags.
 
 ### Improved
 - **Zone Progress Bar** — The collection progress bar now smoothly animates to its new value instead of jumping instantly.
 - **Faction Filtering** — Vendors in faction-locked zones (WoD garrisons, Ashran, Boralus, Dazar'alor, housing neighborhoods) are now automatically filtered correctly even if no explicit faction tag is set. Prevents misclassified vendors from showing up on the wrong faction's map.
+- **Map Pin Clustering** — Vendors that are physically near each other in-game no longer stack into a single unclickable blob on the map. Nearby vendors are automatically detected and spread into a compact radial arrangement so every pin is individually hoverable and clickable.
+- **Requirement Detection** — Items that require multiple things to purchase (like a reputation AND an achievement) now show all requirements in their tooltip, not just the first one.
+
+### Fixed
+- Fixed Eversong Woods and Ghostlands vendor map pins not showing on the Eastern Kingdoms continent map.
+- Fixed an error that could appear when hovering over points of interest on the world map.
 
 ---
 
