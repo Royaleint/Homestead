@@ -260,6 +260,8 @@ VendorDatabase.Vendors = {
         faction = "Alliance",
         currency = "Gold",
         expansion = "Classic",
+        scanConfirmed = "2025-02-25",
+        scanCoverage = "full",
         items = {{248333, cost = {gold = 950000}}, {248336, cost = {gold = 2850000}}, {248617, cost = {gold = 1425000}}, {248618, cost = {gold = 1900000}}, {248619, cost = {gold = 2375000}}, {248620, cost = {gold = 1425000}}, {248621, cost = {gold = 2850000}}, {248662, cost = {gold = 4750000}}, {248665, cost = {gold = 2375000}}, {248794, cost = {gold = 475000}}, {248795, cost = {gold = 712500}}, {248797, cost = {gold = 475000}}, {248798, cost = {gold = 1900000}}, {248801, cost = {gold = 950000}}, {248938, cost = {gold = 1425000}}, {248939, cost = {gold = 950000}}, {253168, cost = {gold = 190000}}, {256673, cost = {gold = 9500000}}},
     },
 	[50304] = {
@@ -401,6 +403,8 @@ VendorDatabase.Vendors = {
         faction = "Alliance",
         currency = "Gold",
         expansion = "Events",
+        scanConfirmed = "2025-02-25",
+        scanCoverage = "full",
         items = {255840, 259071, 263026},
     },
 	[68364] = {
@@ -1445,6 +1449,8 @@ VendorDatabase.Vendors = {
         faction = "Neutral",
         currency = "Honor",
         expansion = "The War Within",
+        scanConfirmed = "2025-02-25",
+        scanCoverage = "full",
         items = {{253170, cost = {currencies = {{id = 1792, amount = 750}}}}, {247750, cost = {currencies = {{id = 1792, amount = 2500}}}}},
     },
 	[219318] = {
@@ -1456,6 +1462,8 @@ VendorDatabase.Vendors = {
         faction = "Neutral",
         currency = "Resonance Crystals",
         expansion = "The War Within",
+        scanConfirmed = "2025-02-25",
+        scanCoverage = "full",
         items = {{246867, cost = {currencies = {{id = 2815, amount = 750}}}}},
     },
 	[221390] = {
@@ -1479,6 +1487,8 @@ VendorDatabase.Vendors = {
         currency = "Resonance Crystals",
         altCurrency = "Gold",
         expansion = "The War Within",
+        scanConfirmed = "2025-02-25",
+        scanCoverage = "full",
         items = {{245295, cost = {currencies = {{id = 2815, amount = 1000}}}}, {245296, cost = {currencies = {{id = 2815, amount = 1000}}}}, {245297, cost = {currencies = {{id = 2815, amount = 1000}}}}, {245561, cost = {currencies = {{id = 2815, amount = 650}}}}, {253168, cost = {gold = 200000}}},
     },
     -- Removed 2026-02-14: 14 bulk-scanned vendors (2026-02-03) with no items, no sourceText,
@@ -1800,6 +1810,8 @@ VendorDatabase.Vendors = {
         faction = "Neutral",
         currency = "Dragon Isles Supplies",
         expansion = "The War Within",
+        scanConfirmed = "2025-02-25",
+        scanCoverage = "full",
         items = {{245259, cost = {gold = 500000}}, {245655, cost = {currencies = {{id = 2003, amount = 10}}}}, {246487, cost = {gold = 750000}}, {246601, cost = {items = {{id = 166846, amount = 10}}}}, {247908, cost = {gold = 300000, currencies = {{id = 1220, amount = 50}}}}, {247915, cost = {gold = 1000000}}, {248116, cost = {gold = 750000}}, 248934, {253168, cost = {gold = 200000}}, {253173, cost = {gold = 200000}}, {256168, cost = {currencies = {{id = 2003, amount = 10}}}}},
     },
 	[252313] = {
@@ -1902,6 +1914,8 @@ VendorDatabase.Vendors = {
         faction = "Neutral",
         currency = "Resonance Crystals",
         expansion = "The War Within",
+        scanConfirmed = "2025-02-25",
+        scanCoverage = "full",
         items = {{252756, cost = {currencies = {{id = 2815, amount = 800}}}}, {252757, cost = {currencies = {{id = 2815, amount = 900}}}}, {253023, cost = {currencies = {{id = 2815, amount = 800}}}}, {253034, cost = {currencies = {{id = 2815, amount = 450}}}}, {253037, cost = {currencies = {{id = 2815, amount = 600}}}}, {253038, cost = {currencies = {{id = 2815, amount = 500}}}}, {253163, cost = {currencies = {{id = 2815, amount = 900}}}}},
     },
 	[252969] = {
@@ -2015,6 +2029,8 @@ VendorDatabase.Vendors = {
         currency = "Honor",
         altCurrency = "Mark of Honor",
         expansion = "Classic",
+        scanConfirmed = "2025-02-25",
+        scanCoverage = "full",
         items = {
             {247762, cost = {currencies = {{id = 1792, amount = 300}}}},
             {247761, cost = {currencies = {{id = 1792, amount = 400}}}},
@@ -2263,6 +2279,8 @@ VendorDatabase.Vendors = {
         currency = "Gold",
         expansion = "Classic",
         notes = "Rotating inventory: only 2 of 6 items available at a time",
+        scanConfirmed = "2025-02-25",
+        scanCoverage = "full",
         items = {{239177, cost = {gold = 20000000}}, {239179, cost = {gold = 20000000}}, {246845, cost = {gold = 20000000}}, {246847, cost = {gold = 20000000}}, {246848, cost = {gold = 20000000}}, {246860, cost = {gold = 20000000}}},
     },
 	[256119] = {
@@ -2314,6 +2332,8 @@ VendorDatabase.Vendors = {
         faction = "Neutral",
         currency = "Gold",
         expansion = "Midnight",
+        scanConfirmed = "2026-03-01",
+        scanCoverage = "full",
         items = {
             {244656, cost = {gold = 1500000}},
             {253606, cost = {gold = 15000000}},
@@ -2366,6 +2386,8 @@ VendorDatabase.Vendors = {
         faction = "Neutral",
         currency = "Gold",
         expansion = "Midnight",
+        scanConfirmed = "2026-02-28",
+        scanCoverage = "full",
         items = {
             {244668, cost = {gold = 25000000}},
             {245939, cost = {gold = 25000000}},
@@ -2438,6 +2460,8 @@ VendorDatabase.Vendors = {
         faction = "Alliance",
         currency = "Gold",
         expansion = "Classic",
+        scanConfirmed = "2025-02-25",
+        scanCoverage = "full",
         items = {{260785, cost = {gold = 15000000}}},
     },
 	[261262] = {
