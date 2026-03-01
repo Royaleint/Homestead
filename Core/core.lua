@@ -43,6 +43,12 @@ function HousingAddon:OnInitialize()
     -- Initialize SavedVariables database
     self.db = LibStub("AceDB-3.0"):New("HomesteadDB", Constants.Defaults, true)
 
+    -- One-time migration: disable requirement scraping for existing users
+    -- (feature causes GameTooltipMoneyFrame taint; sourceText parsing supersedes it)
+    if self.db.global.enableRequirementScraping == true then
+        self.db.global.enableRequirementScraping = false
+    end
+
     -- Set up profile callbacks
     self.db.RegisterCallback(self, "OnProfileChanged", "OnProfileChanged")
     self.db.RegisterCallback(self, "OnProfileCopied", "OnProfileChanged")

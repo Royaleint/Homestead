@@ -482,8 +482,9 @@ Constants.Defaults = {
         scannedVendors = {},  -- [npcID] = { npcID, name, mapID, coords, decor, ... }
         -- Persistent no-decor vendor tracking (survives ClearScannedData)
         noDecorVendors = {},  -- [npcID] = { name, confirmedAt, itemCount, inDatabase, scanConfidence, confirmCount }
-        -- Experimental: tooltip-based requirement detection
-        enableRequirementScraping = true,
+        -- Experimental: tooltip-based requirement detection (disabled — causes
+        -- GameTooltipMoneyFrame taint; sourceText parsing supersedes this)
+        enableRequirementScraping = false,
         -- NPC ID corrections detected when visiting vendors
         npcIDCorrections = {},  -- [vendorName] = { oldID, newID, correctedAt }
         -- Runtime parsed source data from CatalogScanner sourceText
