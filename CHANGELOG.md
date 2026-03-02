@@ -2,6 +2,17 @@
 
 ---
 
+## v1.6.2 (2026-03-02)
+
+### Fixed
+- Fixed vendor map pins showing in wrong locations — 13 vendors corrected from scanner data, including Morta Gage which was on the entirely wrong map.
+- Removed pin clustering system that was shifting vendor pins away from their actual positions, especially noticeable for vendors in Saltheril's Haven.
+- Fixed Caeris Fairdawn and Ranger Allorn showing at the same spot (they had identical placeholder coordinates).
+- Removed stale items from Sathren Azuredawn and Anomander that were incorrectly listed.
+- Added item costs for Morta Gage and Maku (previously displayed without pricing).
+
+---
+
 ## v1.6.1 (2026-02-28)
 
 ### Added
