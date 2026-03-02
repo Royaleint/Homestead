@@ -3,14 +3,7 @@ Home_Dev/
 AGENTS.md
 CLAUDE.md
 
-# Dev addon (loads in-game, never published)
-Homestead_Dev/
-
-# Scan data
-scans/
-
 # Scripts and tools
-scripts/
 .claude/
 
 # Binaries
@@ -32,9 +25,7 @@ db2_complete_vendor_data.json
 *.csv
 *.json
 
-# ATT cache/snapshots
-scripts/att_cache/
-scripts/att_*.json
+# ATT cache/snapshots (legacy, now in Home_Dev/scripts/)
 
 # Copy files
 *- Copy.lua

@@ -8,13 +8,11 @@ ignore:
   - .git
   - .gitignore
   - .pkgmeta
-  - scripts
   - .claude
   - "*.md"
   - "!README.md"
   - "!CHANGELOG.md"
   - HousingAddon.toc
-  - Homestead_Dev
 
 externals:
   Libs/LibStub: https://repos.wowace.com/wow/libstub/trunk
