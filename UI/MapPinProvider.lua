@@ -8,7 +8,6 @@
     - HBD map support detection and coordinate projection
     - Native pin fallback (for maps HBD can't handle)
     - Pin placement API (HBD world map, minimap, native fallback)
-    - Pin clustering (radial arc spread for co-located vendors)
 
     No events registered. No SavedVariables access. Static module with no
     Initialize() — all setup runs at file load time.
@@ -25,8 +24,6 @@ local HBD = LibStub("HereBeDragons-2.0")
 local HBDPins = LibStub("HereBeDragons-Pins-2.0")
 
 local pairs, ipairs = pairs, ipairs
-local math_sin, math_cos, math_pi = math.sin, math.cos, math.pi
-local math_max, math_min = math.max, math.min
 local Constants = HA.Constants
 
 -------------------------------------------------------------------------------
@@ -346,92 +343,3 @@ function MapPinProvider.ClearMinimapPins(namespace)
     HBDPins:RemoveAllMinimapIcons(namespace)
 end
 
--------------------------------------------------------------------------------
--- Pin Clustering
--------------------------------------------------------------------------------
-
--- Pin clustering: group co-located vendors and spread them in a radial arc.
--- CLUSTER_RADIUS: normalized distance threshold — vendors within this distance
---   are considered co-located (0.010 comfortably covers all known stacking cases).
--- SPREAD_DIAMETER: minimum chord length between adjacent spread pins; just over
---   one 20px pin diameter so all pins are individually hoverable/clickable.
-local PIN_CLUSTER_RADIUS    = 0.010
-local PIN_CLUSTER_RADIUS_SQ = PIN_CLUSTER_RADIUS * PIN_CLUSTER_RADIUS  -- avoids sqrt in hot path
-local PIN_SPREAD_DIAMETER   = 0.016
-
--- ClusterAndSpread: pre-process a list of pin entries, group nearby vendors
--- into clusters, and return a spread-position table keyed by npcID.
---
--- pinList:  array of { vendor=, coords={x,y}, vendorMapID= }
--- Returns:  table [npcID] = {x=, y=}
---
--- Algorithm: greedy single-pass — each vendor joins the first cluster whose
--- centroid is within PIN_CLUSTER_RADIUS; solo vendors pass through unchanged.
--- Clustering is performed per vendorMapID to avoid grouping vendors across maps.
--- Distance comparisons use squared distance (dx*dx+dy*dy < r*r) to avoid
--- math.sqrt in the inner loop — equivalent result, no transcendental overhead.
-function MapPinProvider.ClusterAndSpread(pinList)
-    if not pinList or #pinList == 0 then return {} end
-
-    -- Partition by vendorMapID so vendors on different maps are never grouped.
-    local byMap = {}
-    for _, pin in ipairs(pinList) do
-        local mid = pin.vendorMapID
-        if not byMap[mid] then byMap[mid] = {} end
-        byMap[mid][#byMap[mid] + 1] = pin
-    end
-
-    local positions = {}
-
-    for _, mapPins in pairs(byMap) do
-        -- Greedy clustering for this map.
-        local clusters = {}
-
-        for _, pin in ipairs(mapPins) do
-            local placed = false
-            for _, cluster in ipairs(clusters) do
-                local dx = pin.coords.x - cluster.cx
-                local dy = pin.coords.y - cluster.cy
-                if dx * dx + dy * dy < PIN_CLUSTER_RADIUS_SQ then
-                    cluster.members[#cluster.members + 1] = pin
-                    -- Running centroid update.
-                    local n = #cluster.members
-                    cluster.cx = cluster.cx + (pin.coords.x - cluster.cx) / n
-                    cluster.cy = cluster.cy + (pin.coords.y - cluster.cy) / n
-                    placed = true
-                    break
-                end
-            end
-            if not placed then
-                clusters[#clusters + 1] = {
-                    cx      = pin.coords.x,
-                    cy      = pin.coords.y,
-                    members = { pin },
-                }
-            end
-        end
-
-        -- Assign spread positions.
-        for _, cluster in ipairs(clusters) do
-            local n = #cluster.members
-            if n == 1 then
-                local m = cluster.members[1]
-                positions[m.vendor.npcID] = { x = m.coords.x, y = m.coords.y }
-            else
-                -- Radial arrangement: pins on a circle centred on the cluster centroid.
-                -- Radius is the minimum so adjacent pins don't overlap:
-                --   chord = 2*r*sin(π/n) >= PIN_SPREAD_DIAMETER  →  r = d/(2*sin(π/n))
-                -- Pins start at top (-π/2) and are spaced evenly clockwise.
-                local r = PIN_SPREAD_DIAMETER / (2 * math_sin(math_pi / n))
-                for i, m in ipairs(cluster.members) do
-                    local angle = (2 * math_pi * (i - 1) / n) - math_pi / 2
-                    local spreadX = math_max(0.001, math_min(0.999, cluster.cx + r * math_cos(angle)))
-                    local spreadY = math_max(0.001, math_min(0.999, cluster.cy + r * math_sin(angle)))
-                    positions[m.vendor.npcID] = { x = spreadX, y = spreadY }
-                end
-            end
-        end
-    end
-
-    return positions
-end

@@ -996,34 +996,30 @@ function VendorMapPins:RefreshMinimapPins()
         end
     end
 
-    -- Cluster co-located vendors and place minimap frames at spread positions.
-    local spreadPositions = MPP.ClusterAndSpread(pendingPins)
+    -- Place minimap frames at their true coordinates.
     for _, pin in ipairs(pendingPins) do
-        local sp = spreadPositions[pin.vendor.npcID]
-        if sp then
-            if pin.elevation then
-                -- Cross-floor: convert to world coords first, create frame only on success
-                local worldX, worldY, instanceID = MPP.GetWorldCoordinatesForPin(
-                    sp.x, sp.y, pin.vendorMapID)
-                if worldX then
-                    local frame = CreateMinimapPinFrame(pin.vendor, pin.isOpposite, pin.isUnverified,
-                        pin.showArrow and pin.elevation or nil)
-                    minimapPinFrames[#minimapPinFrames + 1] = frame
-                    -- Always float on edge for cross-floor pins; indoor detection
-                    -- would otherwise hide them in underground zones
-                    MPP.PlaceMinimapPinWorld("HomesteadMinimapVendors", frame,
-                        instanceID, worldX, worldY, true)
-                end
-                -- If conversion fails, skip — zone has no HBD mapData and
-                -- AddMinimapIconMap would also fail (same conversion internally)
-            else
-                local frame = CreateMinimapPinFrame(pin.vendor, pin.isOpposite, pin.isUnverified)
+        if pin.elevation then
+            -- Cross-floor: convert to world coords first, create frame only on success
+            local worldX, worldY, instanceID = MPP.GetWorldCoordinatesForPin(
+                pin.coords.x, pin.coords.y, pin.vendorMapID)
+            if worldX then
+                local frame = CreateMinimapPinFrame(pin.vendor, pin.isOpposite, pin.isUnverified,
+                    pin.showArrow and pin.elevation or nil)
                 minimapPinFrames[#minimapPinFrames + 1] = frame
-                MPP.PlaceMinimapPin("HomesteadMinimapVendors", frame, pin.vendorMapID,
-                    sp.x, sp.y,
-                    true,           -- showInParentZone
-                    floatOnEdge)    -- false indoors: hides distant pins
+                -- Always float on edge for cross-floor pins; indoor detection
+                -- would otherwise hide them in underground zones
+                MPP.PlaceMinimapPinWorld("HomesteadMinimapVendors", frame,
+                    instanceID, worldX, worldY, true)
             end
+            -- If conversion fails, skip — zone has no HBD mapData and
+            -- AddMinimapIconMap would also fail (same conversion internally)
+        else
+            local frame = CreateMinimapPinFrame(pin.vendor, pin.isOpposite, pin.isUnverified)
+            minimapPinFrames[#minimapPinFrames + 1] = frame
+            MPP.PlaceMinimapPin("HomesteadMinimapVendors", frame, pin.vendorMapID,
+                pin.coords.x, pin.coords.y,
+                true,           -- showInParentZone
+                floatOnEdge)    -- false indoors: hides distant pins
         end
     end
 
@@ -1198,16 +1194,12 @@ function VendorMapPins:ShowVendorPins(mapID)
         end
     end
 
-    -- Cluster co-located vendors and place frames at spread positions.
-    local spreadPositions = MPP.ClusterAndSpread(pendingPins)
+    -- Place world map frames at their true coordinates.
     for _, pin in ipairs(pendingPins) do
-        local sp = spreadPositions[pin.vendor.npcID]
-        if sp then
-            local frame = CreateVendorPinFrame(pin.vendor, pin.isOpposite, pin.isUnverified)
-            vendorPinFrames[#vendorPinFrames + 1] = frame
-            MPP.PlaceWorldMapPin("HomesteadVendors", frame, pin.vendorMapID, sp.x, sp.y,
-                HBD_PINS_WORLDMAP_SHOW_PARENT)
-        end
+        local frame = CreateVendorPinFrame(pin.vendor, pin.isOpposite, pin.isUnverified)
+        vendorPinFrames[#vendorPinFrames + 1] = frame
+        MPP.PlaceWorldMapPin("HomesteadVendors", frame, pin.vendorMapID,
+            pin.coords.x, pin.coords.y, HBD_PINS_WORLDMAP_SHOW_PARENT)
     end
 
     -- Pre-warm item info cache for all visible vendor pins
