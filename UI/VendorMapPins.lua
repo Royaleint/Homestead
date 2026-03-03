@@ -931,7 +931,7 @@ function VendorMapPins:RefreshMinimapPins()
     local showOpposite = ShouldShowOppositeFaction()
     local floatOnEdge = not IsIndoors()  -- Hide distant pins when inside buildings/caves
     local addedVendors = {}  -- Prevent duplicate pins for same vendor
-    local pendingPins = {}   -- Collected pins, placed after clustering pass
+    local pendingPins = {}   -- Collected pins for batch frame creation
     local addedCount = 0
     local capReached = false
 
@@ -976,7 +976,7 @@ function VendorMapPins:RefreshMinimapPins()
                             if (showUnverified or not isUnverified) and (canAccess or (isOpposite and showOpposite)) then
                                 local elevation = Constants.GetElevationDirection(playerMapID, vendorMapID)
 
-                                -- Collect for clustering pass; frame creation deferred until positions are known.
+                                -- Collect for batch placement; frame creation deferred.
                                 addedVendors[vendor.npcID] = true
                                 addedCount = addedCount + 1
                                 pendingPins[#pendingPins + 1] = {
@@ -1067,7 +1067,7 @@ end
 function VendorMapPins:ShowVendorPins(mapID)
     local showOpposite = ShouldShowOppositeFaction()
     local addedVendors = {}  -- Track by npcID to avoid duplicates
-    local pendingPins = {}   -- Collected pins, placed after clustering pass
+    local pendingPins = {}   -- Collected pins for batch frame creation
 
     -- Build set of valid mapIDs: current map + child/sub-zone maps
     -- This ensures vendors in sub-zones (e.g., City of Threads inside Azj-Kahet)
@@ -1118,7 +1118,7 @@ function VendorMapPins:ShowVendorPins(mapID)
 
             -- Show vendor if accessible OR if opposite faction and setting enabled
             if canAccess or (isOpposite and showOpposite) then
-                -- Collect for clustering pass; frame creation deferred until positions are known.
+                -- Collect for batch placement; frame creation deferred.
                 addedVendors[vendor.npcID] = true
                 pendingPins[#pendingPins + 1] = {
                     vendor       = vendor,
