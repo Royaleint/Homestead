@@ -26,24 +26,28 @@ local activeThemeKnown = false
 local eventFrame = nil
 local loggedRawTitle = false
 
--- Normalized title aliases for non-exact title matching fallback
+-- Cultural keyword aliases for text-based theme fallback resolution.
+-- Keys NOT matching an Endeavors key directly (those are handled by the first
+-- pass in ResolveThemeFromText). Only add keywords that wouldn't substring-match
+-- an Endeavors key name.
 local titleAliasToTheme = {
-    ["night elf"] = "Night Elf",
-    ["nightelf"] = "Night Elf",
-    ["gilnean"] = "Gilnean",
-    ["gilneas"] = "Gilnean",
-    ["orc"] = "Orc",
-    ["mechagnome"] = "Mechagnome",
+    ["kafa"] = "Grummle",
+    ["sin'dorei"] = "Blood Elf",
+    ["silvermoon"] = "Blood Elf",
+    ["thalassian"] = "Blood Elf",
+    ["draconic"] = "Dracthyr",
     ["mechagon"] = "Mechagnome",
     ["mechanization"] = "Mechagnome",
-    ["mechanizaton"] = "Mechagnome",
-    ["arakkoa"] = "Arakkoa",
-    ["tuskarr"] = "Tuskarr",
+    ["mechanizaton"] = "Mechagnome",   -- intentional typo catch
+    ["ethereal"] = "K'areshi",
+    ["consortium"] = "K'areshi",
+    ["loamm"] = "Niffen",
 }
 
 -- Stable initiative IDs observed in-game.
 -- Extend as additional themes are observed.
 local initiativeIDToTheme = {
+    [15] = "Blood Elf",
     [17] = "Mechagnome",
 }
 
@@ -52,12 +56,12 @@ local initiativeIDToTheme = {
 -------------------------------------------------------------------------------
 
 EndeavorsData.Endeavors = {
-    ["Night Elf"]  = { vendorNPC = 249684 },
-    ["Gilnean"]    = { vendorNPC = 256202 },
-    ["Orc"]        = { vendorNPC = 250820 },
+    ["Grummle"]    = { vendorNPC = 249684 },
+    ["Blood Elf"]  = { vendorNPC = 256202 },
+    ["Dracthyr"]   = { vendorNPC = 250820 },
     ["Mechagnome"] = { vendorNPC = 248525 },
-    ["Arakkoa"]    = { vendorNPC = 252605 },
-    ["Tuskarr"]    = { vendorNPC = 257897 },
+    ["K'areshi"]   = { vendorNPC = 252605 },
+    ["Niffen"]     = { vendorNPC = 257897 },
 }
 
 -------------------------------------------------------------------------------
@@ -75,7 +79,7 @@ EndeavorsData.Aliases = {
 -------------------------------------------------------------------------------
 
 EndeavorsData.Vendors = {
-    -- Tuskarr theme
+    -- Niffen theme
     [257897] = {
         name = "Harlowe Marl",
         mapID = 2352,
@@ -85,7 +89,7 @@ EndeavorsData.Vendors = {
         currency = "Community Coupons",
         expansion = "The War Within",
         endeavor = true,
-        notes = "Neighborhood Endeavor vendor (Tuskarr theme). Also appears at Razorwind Shores at 54.3, 56.1",
+        notes = "Neighborhood Endeavor vendor (Niffen theme). Also appears at Razorwind Shores at 54.3, 56.1",
         items = {264915, 264916, 264917, 264918, 264919, 264920, 264921, 264922, 264923, 264924, 264925, 265032, 265541},
     },
 
@@ -121,7 +125,7 @@ EndeavorsData.Vendors = {
         },
     },
 
-    -- Night Elf theme
+    -- Grummle theme
     [249684] = {
         name = "Brother Dovetail",
         mapID = 2351,
@@ -131,11 +135,11 @@ EndeavorsData.Vendors = {
         currency = "Community Coupons",
         expansion = "The War Within",
         endeavor = true,
-        notes = "Neighborhood Endeavor vendor (Night Elf theme)",
+        notes = "Neighborhood Endeavor vendor (Grummle theme)",
         items = {246686, 246741, 246838, 248402, 248403, 248405, 248406, 248407, 251472, 251473, 251474, 251475, 252039, 252040, 252041},
     },
 
-    -- Orc theme
+    -- Dracthyr theme
     [250820] = {
         name = "Hordranin",
         mapID = 2351,
@@ -145,7 +149,7 @@ EndeavorsData.Vendors = {
         currency = "Community Coupons",
         expansion = "The War Within",
         endeavor = true,
-        notes = "Neighborhood Endeavor vendor (Orc theme)",
+        notes = "Neighborhood Endeavor vendor (Dracthyr theme)",
         items = {
             {250627, cost = {currencies = {{id = 3363, amount = 5}}}},
             {250694, cost = {currencies = {{id = 3363, amount = 15}}}},
@@ -162,7 +166,7 @@ EndeavorsData.Vendors = {
         },
     },
 
-    -- Arakkoa theme
+    -- K'areshi theme
     [252605] = {
         name = "Aeeshna",
         mapID = 2351,
@@ -172,24 +176,24 @@ EndeavorsData.Vendors = {
         currency = "Community Coupons",
         expansion = "The War Within",
         endeavor = true,
-        notes = "Neighborhood Endeavor vendor (Arakkoa theme)",
+        notes = "Neighborhood Endeavor vendor (K'areshi theme)",
         items = {262907, 263043, 263044, 263045, 263046, 263047, 263048},
     },
 
-    -- Gilnean theme
+    -- Blood Elf theme
     -- Hesta Forlath also exists as [252916] in VendorDatabase.lua (static Gold vendor).
     -- This entry is her rotating Endeavor incarnation with different NPC ID, currency, and items.
     [256202] = {
         name = "Hesta Forlath",
-        mapID = 110,
-        x = 0.441, y = 0.628,
-        zone = "Silvermoon City",
-        subzone = "The Bazaar",
-        faction = "Horde",
+        mapID = 2352,
+        x = 0.5311, y = 0.3829,
+        zone = "Founder's Point",
+        subzone = "Town Center",
+        faction = "Neutral",
         currency = "Community Coupons",
-        expansion = "Midnight",
+        expansion = "The War Within",
         endeavor = true,
-        notes = "Neighborhood Endeavor vendor (Gilnean theme)",
+        notes = "Neighborhood Endeavor vendor (Blood Elf theme)",
         items = {253522, 253523, 253524, 253525, 253526, 253599, 253600, 253601, 254235},
     },
 }

@@ -2362,7 +2362,7 @@ VendorDatabase.Vendors = {
     },
 	-- Hesta Forlath has TWO entries across data files:
 	--   [252916] here (VendorDatabase) — static Gold vendor in The Bazaar
-	--   [256202] in EndeavorsData.lua — rotating Gilnean Endeavor vendor (Community Coupons)
+	--   [256202] in EndeavorsData.lua — rotating Blood Elf Endeavor vendor (Community Coupons)
 	-- Different NPC IDs, different currencies, different item sets. Both are correct.
 	[252916] = {
         name = "Hesta Forlath",
