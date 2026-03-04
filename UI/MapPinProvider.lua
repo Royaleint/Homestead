@@ -215,8 +215,6 @@ end
 -- with zone-normalized (0-1) coordinates directly.
 -------------------------------------------------------------------------------
 
-local NATIVE_PIN_TEMPLATE = "HomesteadNativePinTemplate"
-
 -- Native pin mixin (mirrors HBD's pin behavior)
 local nativePinMixin = CreateFromMixins(MapCanvasPinMixin)
 
@@ -246,38 +244,37 @@ end
 -- Suppress in-combat errors (same as HBD)
 nativePinMixin.SetPassThroughButtons = function() end
 
--- Create pin pool (deferred registration to avoid WorldMapFrame taint at load)
-local nativePool
-if CreateUnsecuredRegionPoolInstance then
-    nativePool = CreateUnsecuredRegionPoolInstance(NATIVE_PIN_TEMPLATE)
-else
-    nativePool = CreateFramePool("FRAME")
-end
-nativePool.parent = WorldMapFrame:GetCanvas()
-nativePool.createFunc = function()
-    local f = CreateFrame("Frame", nil, WorldMapFrame:GetCanvas())
-    f:SetSize(1, 1)
-    return Mixin(f, nativePinMixin)
-end
-nativePool.resetFunc = function(pool, pin)
-    pin:Hide()
-    pin:ClearAllPoints()
-    pin:OnReleased()
-    pin.pinTemplate = nil
-    pin.owningMap = nil
-end
--- Pre-11.x compat names
-nativePool.creationFunc = nativePool.createFunc
-nativePool.resetterFunc = nativePool.resetFunc
+-- Self-managed pin pool.  We intentionally do NOT write to
+-- WorldMapFrame.pinPools — doing so taints the protected table and causes
+-- "secret number value tainted by Homestead" errors in Blizzard tooltip/widget
+-- code (Blizzard_UIWidgetTemplateTextWithState.lua:35).  Instead we acquire
+-- frames from our own pool, parent them to the canvas, and track them locally.
+local nativePins = {}          -- active pin frames (managed by us)
+local nativePinPool = {}       -- recycled pin frames
 
--- Lazy registration: writing to WorldMapFrame.pinPools at file load taints the
--- protected frame, causing "secret number value tainted by Homestead" errors in
--- Blizzard tooltip/widget code. Defer until first native pin use.
-local nativePoolRegistered = false
-local function EnsureNativePoolRegistered()
-    if nativePoolRegistered then return end
-    nativePoolRegistered = true
-    WorldMapFrame.pinPools[NATIVE_PIN_TEMPLATE] = nativePool -- luacheck: ignore 122
+local function AcquireNativePin()
+    local pin = table.remove(nativePinPool)
+    if not pin then
+        pin = CreateFrame("Frame", nil, WorldMapFrame:GetCanvas())
+        pin:SetSize(1, 1)
+        Mixin(pin, nativePinMixin)
+        pin:OnLoad()
+    end
+    pin:SetParent(WorldMapFrame:GetCanvas())
+    pin:Show()
+    nativePins[#nativePins + 1] = pin
+    return pin
+end
+
+local function ReleaseAllNativePins()
+    for i = #nativePins, 1, -1 do
+        local pin = nativePins[i]
+        pin:Hide()
+        pin:ClearAllPoints()
+        pin:OnReleased()
+        nativePinPool[#nativePinPool + 1] = pin
+        nativePins[i] = nil
+    end
 end
 
 -------------------------------------------------------------------------------
@@ -294,8 +291,8 @@ function MapPinProvider.PlaceWorldMapPin(namespace, frame, mapID, x, y, showFlag
     -- Native fallback: only works when viewing THIS exact map
     local currentMapID = WorldMapFrame:GetMapID()
     if currentMapID == mapID then
-        EnsureNativePoolRegistered()
-        WorldMapFrame:AcquirePin(NATIVE_PIN_TEMPLATE, frame, x, y)
+        local pin = AcquireNativePin()
+        pin:OnAcquired(frame, x, y)
         return true
     end
     return false
@@ -303,8 +300,8 @@ end
 
 -- Place a native pin directly (no HBD, no fallback check).
 function MapPinProvider.PlaceNativePin(frame, x, y)
-    EnsureNativePoolRegistered()
-    WorldMapFrame:AcquirePin(NATIVE_PIN_TEMPLATE, frame, x, y)
+    local pin = AcquireNativePin()
+    pin:OnAcquired(frame, x, y)
 end
 
 -- Place a minimap pin on a specific map via HBD.
@@ -333,9 +330,7 @@ end
 -- NOTE: Native pin clear is NOT namespace-scoped (Homestead single-namespace only).
 function MapPinProvider.ClearWorldMapPins(namespace)
     HBDPins:RemoveAllWorldMapIcons(namespace)
-    if nativePoolRegistered then
-        WorldMapFrame:RemoveAllPinsByTemplate(NATIVE_PIN_TEMPLATE)
-    end
+    ReleaseAllNativePins()
 end
 
 -- Clear all minimap pins by namespace.
