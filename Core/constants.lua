@@ -465,6 +465,11 @@ Constants.Defaults = {
             showUnverifiedVendors = false,             -- Hidden by default; orange pins for unconfirmed locations
         },
 
+        -- Endeavors settings
+        endeavors = {
+            showMilestoneXP = true,
+        },
+
         -- Vendor scanning settings
         vendorScanning = {
             enabled = true,  -- Auto-scan merchants for housing decor data

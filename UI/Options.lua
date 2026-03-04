@@ -616,11 +616,31 @@ local function GetOptionsTable()
                 },
             },
 
+            -- Endeavors Section
+            endeavors = {
+                type = "group",
+                name = "Endeavors",
+                order = 5,
+                args = {
+                    showMilestoneXP = {
+                        type = "toggle",
+                        name = "Show milestone progress on dashboard",
+                        desc = "Display next milestone XP progress on Blizzard's Housing Dashboard Endeavors tab. Disable if you use another addon for this (e.g., Endeavor Simple Progress Tracker).",
+                        width = "full",
+                        order = 1,
+                        get = function() return HA.Addon.db.profile.endeavors.showMilestoneXP end,
+                        set = function(_, value)
+                            HA.Addon.db.profile.endeavors.showMilestoneXP = value
+                        end,
+                    },
+                },
+            },
+
             -- Vendor Tracer Section
             vendorTracer = {
                 type = "group",
                 name = L["Vendor Tracer"] or "Vendor Tracer",
-                order = 5,
+                order = 6,
                 args = {
                     -- Vendor Details
                     vendorDetailsHeader = {
@@ -731,7 +751,7 @@ local function GetOptionsTable()
             export = {
                 type = "group",
                 name = L["Export"] or "Export",
-                order = 6,
+                order = 7,
                 args = {
                     exportDesc = {
                         type = "description",
