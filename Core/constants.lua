@@ -485,6 +485,8 @@ Constants.Defaults = {
         -- Experimental: tooltip-based requirement detection (disabled — causes
         -- GameTooltipMoneyFrame taint; sourceText parsing supersedes this)
         enableRequirementScraping = false,
+        -- Discovered initiative ID → theme mappings (high-confidence matches only)
+        discoveredInitiativeThemes = {},  -- [initiativeID] = themeName
         -- NPC ID corrections detected when visiting vendors
         npcIDCorrections = {},  -- [vendorName] = { oldID, newID, correctedAt }
         -- Runtime parsed source data from CatalogScanner sourceText

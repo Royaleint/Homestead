@@ -26,22 +26,49 @@ local activeThemeKnown = false
 local eventFrame = nil
 local loggedRawTitle = false
 
--- Cultural keyword aliases for text-based theme fallback resolution.
--- Keys NOT matching an Endeavors key directly (those are handled by the first
--- pass in ResolveThemeFromText). Only add keywords that wouldn't substring-match
--- an Endeavors key name.
-local titleAliasToTheme = {
+-- Cultural keyword → theme resolution (fallback for description/title parsing).
+-- Keys are lowercase; matched against lowered text via substring search.
+-- Only include keywords that wouldn't substring-match an Endeavors key name
+-- (those are handled by the first pass in ResolveThemeFromText).
+local culturalKeywordToTheme = {
     ["kafa"] = "Grummle",
+    ["luckydo"] = "Grummle",
     ["sin'dorei"] = "Blood Elf",
     ["silvermoon"] = "Blood Elf",
     ["thalassian"] = "Blood Elf",
     ["draconic"] = "Dracthyr",
+    ["reaching beyond"] = "Dracthyr",
     ["mechagon"] = "Mechagnome",
     ["mechanization"] = "Mechagnome",
     ["mechanizaton"] = "Mechagnome",   -- intentional typo catch
     ["ethereal"] = "K'areshi",
     ["consortium"] = "K'areshi",
     ["loamm"] = "Niffen",
+    ["smell sensation"] = "Niffen",
+    ["olfactory"] = "Niffen",
+    -- Future themes (planned per Wowhead)
+    ["sporeggar"] = "Sporeggar",
+    ["kobold"] = "Kobold",
+    ["you take candle"] = "Kobold",
+    ["deeperholm"] = "Earthen",
+    ["therazane"] = "Earthen",
+    ["holm sweet holm"] = "Earthen",
+}
+
+-- Initiative title → theme (exact match, most reliable after hardcoded IDs).
+-- HIGH confidence: matches from this table are persisted to SavedVariables.
+local initiativeTitleToTheme = {
+    ["Artistic Aid"] = "Blood Elf",
+    ["Moderate Mechanization"] = "Mechagnome",
+    ["Friend of the Grummles"] = "Grummle",
+    ["Reaching Beyond the Possible"] = "Dracthyr",
+    ["Consortium Consternation"] = "K'areshi",
+    ["Smell Sensation"] = "Niffen",
+    -- Future planned titles
+    ["With Regards to Sporeggar"] = "Sporeggar",
+    ["You Take Candle"] = "Kobold",
+    ["Deeperholm"] = "Earthen",
+    ["Holm Sweet Holm"] = "Earthen",
 }
 
 -- Stable initiative IDs observed in-game.
@@ -270,8 +297,8 @@ local function ResolveThemeFromText(text)
         end
     end
 
-    -- Second pass: known aliases
-    for aliasToken, themeName in pairs(titleAliasToTheme) do
+    -- Second pass: cultural keyword aliases
+    for aliasToken, themeName in pairs(culturalKeywordToTheme) do
         if aliasToken:find(" ", 1, true) then
             if loweredText:find(aliasToken, 1, true) then
                 return themeName
@@ -293,6 +320,28 @@ local function ResolveThemeFromText(text)
     return nil
 end
 
+-------------------------------------------------------------------------------
+-- Initiative ID Persistence (SavedVariables)
+-------------------------------------------------------------------------------
+
+local function PersistInitiativeMapping(initiativeID, themeName)
+    if not HA.Addon or not HA.Addon.db then return end
+    local stored = HA.Addon.db.global.discoveredInitiativeThemes
+    if not stored then return end
+    if stored[initiativeID] == themeName then return end  -- already correct
+    stored[initiativeID] = themeName
+end
+
+local function LookupPersistedTheme(initiativeID)
+    if not HA.Addon or not HA.Addon.db then return nil end
+    local stored = HA.Addon.db.global.discoveredInitiativeThemes
+    return stored and stored[initiativeID] or nil
+end
+
+-------------------------------------------------------------------------------
+-- Initiative Info Resolution (6-step confidence chain)
+-------------------------------------------------------------------------------
+
 local function ResolveThemeFromInitiativeInfo(info)
     if type(info) ~= "table" then return nil, false, nil end
     if info.isLoaded ~= true then
@@ -300,11 +349,30 @@ local function ResolveThemeFromInitiativeInfo(info)
     end
 
     local initiativeID = tonumber(info.initiativeID)
+
+    -- Step 1: Hardcoded initiative ID (HIGH confidence)
     if initiativeID and initiativeIDToTheme[initiativeID] then
         return initiativeIDToTheme[initiativeID], true, info.title
     end
 
-    -- Prefer stable IDs if exposed by API payload.
+    -- Step 2: Persisted SavedVariables mapping (HIGH confidence)
+    if initiativeID then
+        local persisted = LookupPersistedTheme(initiativeID)
+        if persisted then
+            return persisted, true, info.title
+        end
+    end
+
+    -- Step 3: Exact title match (HIGH confidence — persists)
+    if type(info.title) == "string" and initiativeTitleToTheme[info.title] then
+        local theme = initiativeTitleToTheme[info.title]
+        if initiativeID then
+            PersistInitiativeMapping(initiativeID, theme)
+        end
+        return theme, true, info.title
+    end
+
+    -- NPC field probing (locale-safe, HIGH confidence)
     local directNPCFields = {
         "vendorNPCID",
         "vendorNpcID",
@@ -334,15 +402,19 @@ local function ResolveThemeFromInitiativeInfo(info)
         end
     end
 
+    -- Step 4: Cultural keyword scan of description (not persisted — session only)
+    local themeFromDescription = ResolveThemeFromText(info.description)
+    if themeFromDescription then
+        return themeFromDescription, true, info.title
+    end
+
+    -- Step 5: Cultural keyword scan of title (not persisted — session only)
     local themeFromTitle = ResolveThemeFromText(info.title)
     if themeFromTitle then
         return themeFromTitle, true, info.title
     end
 
-    local themeFromDescription = ResolveThemeFromText(info.description)
-    if themeFromDescription then
-        return themeFromDescription, true, info.title
-    end
+    -- Step 6: Vendor name fallback handled inside ResolveThemeFromText (not persisted)
 
     return nil, false, info.title
 end
