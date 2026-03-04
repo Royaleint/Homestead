@@ -26,6 +26,11 @@ local activeThemeKnown = false
 local eventFrame = nil
 local loggedRawTitle = false
 
+-- Cached initiative data (populated by RefreshActiveTheme)
+local cachedInitiativeInfo = nil   -- processed fields from last successful API response
+local cachedMilestones = nil       -- milestone array from API payload
+local cachedTasks = nil            -- task array from API payload
+
 -- Cultural keyword → theme resolution (fallback for description/title parsing).
 -- Keys are lowercase; matched against lowered text via substring search.
 -- Only include keywords that wouldn't substring-match an Endeavors key name
@@ -456,6 +461,32 @@ local function RefreshActiveTheme(reason)
     activeTheme = newTheme
     activeThemeKnown = newKnown
 
+    -- Cache the full API payload for public helpers
+    cachedInitiativeInfo = {
+        initiativeID = info.initiativeID,
+        title = info.title,
+        description = info.description,
+        currentProgress = info.currentProgress,
+        progressRequired = info.progressRequired,
+        duration = info.duration,
+        currentCycleID = info.currentCycleID,
+        playerTotalContribution = info.playerTotalContribution,
+        neighborhoodGUID = info.neighborhoodGUID,
+    }
+    -- Shallow-copy arrays so we don't hold references into the API's returned table
+    if info.milestones then
+        cachedMilestones = {}
+        for i, m in ipairs(info.milestones) do cachedMilestones[i] = m end
+    else
+        cachedMilestones = nil
+    end
+    if info.tasks then
+        cachedTasks = {}
+        for i, t in ipairs(info.tasks) do cachedTasks[i] = t end
+    else
+        cachedTasks = nil
+    end
+
     if rawTitle and rawTitle ~= "" and not loggedRawTitle and HA.Addon and HA.Addon.db
             and HA.Addon.db.profile and HA.Addon.db.profile.debug then
         HA.Addon:Debug("EndeavorsData: Neighborhood initiative title:", rawTitle)
@@ -520,6 +551,80 @@ function EndeavorsData:IsVendorActive(vendorOrNPCID)
     end
     return isActive
 end
+
+-------------------------------------------------------------------------------
+-- Initiative Data Helpers (cached from C_NeighborhoodInitiative API)
+-------------------------------------------------------------------------------
+
+function EndeavorsData:RefreshCache()
+    RefreshActiveTheme("cache_refresh")
+end
+
+function EndeavorsData:GetCurrentInitiativeInfo()
+    return cachedInitiativeInfo
+end
+
+function EndeavorsData:GetMilestoneProgress()
+    if not cachedInitiativeInfo or not cachedMilestones then return nil end
+    local current = cachedInitiativeInfo.currentProgress or 0
+    local total = cachedInitiativeInfo.progressRequired or 0
+    local nextMilestone = nil
+    local prevMilestone = 0
+
+    for _, m in ipairs(cachedMilestones) do
+        if current < m.requiredContributionAmount then
+            if not nextMilestone or m.requiredContributionAmount < nextMilestone.requiredContributionAmount then
+                nextMilestone = m
+            end
+        else
+            if m.requiredContributionAmount > prevMilestone then
+                prevMilestone = m.requiredContributionAmount
+            end
+        end
+    end
+
+    return {
+        currentProgress = current,
+        progressRequired = total,
+        previousMilestone = prevMilestone,
+        nextMilestoneAmount = nextMilestone and nextMilestone.requiredContributionAmount or total,
+        nextMilestoneIndex = nextMilestone and (nextMilestone.milestoneOrderIndex + 1) or nil,
+        remaining = nextMilestone and (nextMilestone.requiredContributionAmount - current) or 0,
+        allMilestonesComplete = (nextMilestone == nil),
+        milestoneCount = cachedMilestones and #cachedMilestones or 0,
+    }
+end
+
+function EndeavorsData:GetTasks()
+    return cachedTasks
+end
+
+function EndeavorsData:GetPlayerContribution()
+    return cachedInitiativeInfo and cachedInitiativeInfo.playerTotalContribution or 0
+end
+
+function EndeavorsData:GetTimeRemaining()
+    return cachedInitiativeInfo and cachedInitiativeInfo.duration or 0
+end
+
+local function CallInitiativeAPI(methodName)
+    local api = _G.C_NeighborhoodInitiative
+    if not api or not api[methodName] then return false end
+    local ok, result = pcall(api[methodName])
+    return ok and result == true
+end
+
+function EndeavorsData:IsEnabled()
+    return CallInitiativeAPI("IsInitiativeEnabled")
+end
+
+function EndeavorsData:HasAccess()
+    return CallInitiativeAPI("PlayerHasInitiativeAccess")
+end
+
+-------------------------------------------------------------------------------
+-- Lifecycle
+-------------------------------------------------------------------------------
 
 function EndeavorsData:Initialize()
     if eventFrame then return end
