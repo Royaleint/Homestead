@@ -32,18 +32,23 @@ end
 -- FontString Creation
 -------------------------------------------------------------------------------
 
-local function CreateMilestoneText(parent)
-    local fs = parent:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
-    fs:SetPoint("TOPLEFT", parent.InitiativeDescription, "BOTTOMLEFT", 0, -4)
-    fs:SetPoint("TOPRIGHT", parent.InitiativeDescription, "BOTTOMRIGHT", 0, -4)
+local function CreateBarMilestoneText(progressBar)
+    -- Combined milestone text centered on the progress bar
+    local fs = progressBar:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    fs:SetPoint("CENTER", progressBar, "CENTER", 0, 0)
     fs:SetJustifyH("CENTER")
-    fs:SetTextColor(1, 1, 0)
+    -- Subtle embossed style matching Blizzard's "Endeavor Progress" bar text
+    fs:SetTextColor(1, 1, 1)
+    fs:SetShadowColor(0, 0, 0, 0.8)
+    fs:SetShadowOffset(1, -1)
     return fs
 end
 
-local function CreateOwnershipText(parent, anchorTo)
+local function CreateOwnershipText(parent)
+    -- Vendor ownership line below the "Earn bonus..." text
     local fs = parent:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-    fs:SetPoint("TOP", anchorTo, "BOTTOM", 0, -2)
+    local anchor = parent.NeighborhoodGroupText or parent.ProgressBar
+    fs:SetPoint("TOP", anchor, "BOTTOM", 0, -4)
     fs:SetJustifyH("CENTER")
     fs:SetTextColor(0.8, 0.8, 0.8)
     return fs
@@ -53,11 +58,11 @@ end
 -- Update Logic
 -------------------------------------------------------------------------------
 
-local milestoneText = nil
+local barMilestoneText = nil
 local ownershipText = nil
 
 local function HideOverlayTexts()
-    if milestoneText then milestoneText:Hide() end
+    if barMilestoneText then barMilestoneText:Hide() end
     if ownershipText then ownershipText:Hide() end
 end
 
@@ -78,26 +83,29 @@ local function UpdateMilestoneDisplay()
         return
     end
 
+    local setFrame = frame.InitiativeSetFrame
+
     -- Create FontStrings on first use
-    if not milestoneText then
-        milestoneText = CreateMilestoneText(frame.InitiativeSetFrame)
+    if not barMilestoneText and setFrame.ProgressBar and setFrame.ProgressBar.TextContainer then
+        barMilestoneText = CreateBarMilestoneText(setFrame.ProgressBar)
     end
     if not ownershipText then
-        ownershipText = CreateOwnershipText(frame.InitiativeSetFrame, milestoneText)
+        ownershipText = CreateOwnershipText(setFrame)
     end
 
-    -- Milestone XP line
-    if progress.allMilestonesComplete then
-        milestoneText:SetText("All Milestones Complete!")
-    else
-        milestoneText:SetFormattedText(
-            "Next Milestone: %.0f / %d (%d needed)",
-            progress.currentProgress,
-            progress.nextMilestoneAmount,
-            progress.remaining
-        )
+    -- Bar overlay: combined milestone text
+    if barMilestoneText then
+        if progress.allMilestonesComplete then
+            barMilestoneText:SetText("All Milestones Complete!")
+        else
+            barMilestoneText:SetFormattedText("Next Milestone: %.0f / %d (%d needed)",
+                progress.currentProgress,
+                progress.nextMilestoneAmount,
+                progress.remaining
+            )
+        end
+        barMilestoneText:Show()
     end
-    milestoneText:Show()
 
     -- Vendor ownership line
     local activeTheme = HA.EndeavorsData and HA.EndeavorsData:GetActiveTheme()
@@ -120,7 +128,7 @@ local function UpdateMilestoneDisplay()
         ownershipText:SetFormattedText("%s: %d / %d items owned", vendor.name, owned, total)
         ownershipText:Show()
     else
-        ownershipText:Hide()
+        if ownershipText then ownershipText:Hide() end
     end
 end
 
