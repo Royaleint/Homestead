@@ -1,12 +1,14 @@
 --[[
     Homestead - DecorMapping
-    Generated: 2026-03-02 18:55:02
+    Generated: 2026-03-03 20:42:55
     Total entries: 1383
 
     Static decorID → itemID mapping from Blizzard web API.
     Used by CatalogStore to seed the bidirectional index at startup.
-    Regenerate with: python scripts/generate_decor_mapping.py
-]]
+    Regenerate with: python Home_Dev/scripts/generate_decor_mapping.py
+    DO NOT EDIT — changes will be overwritten. Use overrides file instead:
+    Home_Dev/scripts/overrides/decor_mapping_overrides.lua
+--]]
 
 local _, HA = ...
 
