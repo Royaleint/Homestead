@@ -1,13 +1,15 @@
 --[[
     Homestead - PrerequisiteSources
-    Generated: 2026-03-02 18:55:02
+    Generated: 2026-03-03 20:42:55
     Items with prerequisites: 182
     Total prerequisite entries: 185
 
     Blizzard-confirmed vendor purchase prerequisites from web API.
     Used by SourceManager:GetRequirements() as a high-confidence source.
-    Regenerate with: python scripts/generate_prerequisite_sources.py
-]]
+    Regenerate with: python Home_Dev/scripts/generate_prerequisite_sources.py
+    DO NOT EDIT — changes will be overwritten. Use overrides file instead:
+    Home_Dev/scripts/overrides/prerequisite_sources_overrides.lua
+--]]
 
 local _, HA = ...
 
