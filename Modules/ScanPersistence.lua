@@ -136,11 +136,41 @@ function ScanPersistence:SaveVendorData(scanData)
     vendorRecord.decorCount = #vendorRecord.items
     vendorRecord.hasDecor = vendorRecord.decorCount > 0
 
-    -- Only persist vendors that actually sell decor items
+    -- Determine if this vendor is in any static data source (known decor vendor)
+    local isKnownVendor = HA.VendorData and HA.VendorData:HasVendor(scanData.npcID) or false
+
     if vendorRecord.hasDecor then
+        -- Good scan: save new data
         HA.Addon.db.global.scannedVendors[scanData.npcID] = vendorRecord
+    elseif isKnownVendor then
+        -- Known decor vendor scanned with 0 decor = API failure, not truth.
+        -- Preserve existing scan data; update only location metadata.
+        if existingData then
+            existingData.lastScanned = vendorRecord.lastScanned
+            if vendorRecord.coords and vendorRecord.coords.x ~= 0.5 and vendorRecord.coords.y ~= 0.5 then
+                existingData.coords = vendorRecord.coords
+            end
+            existingData.zone = vendorRecord.zone or existingData.zone
+            existingData.subZone = vendorRecord.subZone or existingData.subZone
+        end
+        if HA.DevAddon then
+            HA.Addon:Debug(string.format(
+                "Scan protection: %s (NPC %d) is a known vendor but scan found 0 decor. "
+                .. "Preserving existing scan data.",
+                scanData.vendorName or "?", scanData.npcID
+            ))
+        end
+    elseif existingData and existingData.hasDecor then
+        -- Previously scanned with decor, now 0. Suspicious — preserve old data.
+        if HA.DevAddon then
+            HA.Addon:Debug(string.format(
+                "Scan protection: %s (NPC %d) previously had %d decor items but new scan found 0. "
+                .. "Preserving previous scan data.",
+                scanData.vendorName or "?", scanData.npcID, existingData.decorCount or 0
+            ))
+        end
     else
-        -- Remove stale entry if a previous scan found decor but this one does not
+        -- Unknown vendor, no prior good data, 0 decor: don't persist
         HA.Addon.db.global.scannedVendors[scanData.npcID] = nil
     end
 
@@ -164,28 +194,33 @@ function ScanPersistence:SaveVendorData(scanData)
     end
 
     if vendorRecord.hasDecor == false and scanConfidence == "confirmed" then
-        -- Only flag when scan is fully confirmed (no interruption, no nil slots)
-        local existing = HA.Addon.db.global.noDecorVendors[scanData.npcID]
-        local confirmCount = (existing and existing.confirmCount or 0) + 1
-        local inStaticDB = HA.VendorDatabase and HA.VendorDatabase:HasVendor(scanData.npcID)
-        HA.Addon.db.global.noDecorVendors[scanData.npcID] = {
-            name = vendorRecord.name,
-            confirmedAt = time(),
-            itemCount = vendorRecord.itemCount,
-            inDatabase = inStaticDB,       -- snapshot; /hs nodecor uses live check
-            scanConfidence = "confirmed",  -- tri-state: "confirmed" or "unknown"
-            confirmCount = confirmCount,   -- must reach 2 before inDatabase is actionable
-        }
-        if inStaticDB and confirmCount >= 2 and HA.DevAddon then
-            HA.Addon:Debug(string.format(
-                "No-Decor: %s (NPC %d) has %d items but 0 decor. Flagged for removal (confirmed %dx).",
-                vendorRecord.name, scanData.npcID, vendorRecord.itemCount, confirmCount
-            ))
-        elseif inStaticDB and HA.DevAddon then
-            HA.Addon:Debug(string.format(
-                "No-Decor: %s (NPC %d) has %d items but 0 decor. Needs 1 more scan to flag for removal.",
-                vendorRecord.name, scanData.npcID, vendorRecord.itemCount
-            ))
+        if isKnownVendor then
+            -- Never flag known vendors as no-decor. Clear any stale entry (recovery).
+            HA.Addon.db.global.noDecorVendors[scanData.npcID] = nil
+            if HA.DevAddon then
+                HA.Addon:Debug(string.format(
+                    "No-Decor BLOCKED: %s (NPC %d) is in static database. Refusing to flag.",
+                    vendorRecord.name or "?", scanData.npcID
+                ))
+            end
+        else
+            -- Unknown vendor: flag normally
+            local existing = HA.Addon.db.global.noDecorVendors[scanData.npcID]
+            local confirmCount = (existing and existing.confirmCount or 0) + 1
+            HA.Addon.db.global.noDecorVendors[scanData.npcID] = {
+                name = vendorRecord.name,
+                confirmedAt = time(),
+                itemCount = vendorRecord.itemCount,
+                inDatabase = false,
+                scanConfidence = "confirmed",
+                confirmCount = confirmCount,
+            }
+            if HA.DevAddon and confirmCount >= 2 then
+                HA.Addon:Debug(string.format(
+                    "No-Decor: %s (NPC %d) has %d items but 0 decor (confirmed %dx).",
+                    vendorRecord.name or "?", scanData.npcID, vendorRecord.itemCount, confirmCount
+                ))
+            end
         end
     elseif vendorRecord.hasDecor == true then
         -- Re-scan found decor: unhide vendor
