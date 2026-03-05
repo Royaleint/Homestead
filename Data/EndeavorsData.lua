@@ -31,6 +31,12 @@ local cachedInitiativeInfo = nil   -- processed fields from last successful API 
 local cachedMilestones = nil       -- milestone array from API payload
 local cachedTasks = nil            -- task array from API payload
 
+-- NPC field names to probe on initiative info objects (hoisted to avoid per-call allocation)
+local DIRECT_NPC_FIELDS = {"vendorNPCID", "vendorNpcID", "vendorID", "npcID"}
+
+-- Vendor name lookup for theme resolution third pass (built after Vendors table)
+local lowerVendorNameToNpcID = {}
+
 -- Cultural keyword → theme resolution (fallback for description/title parsing).
 -- Keys are lowercase; matched against lowered text via substring search.
 -- Only include keywords that wouldn't substring-match an Endeavors key name
@@ -271,6 +277,11 @@ for npcID, vendor in pairs(EndeavorsData.Vendors) do
             end
         end
     end
+
+    -- Build vendor name lookup for ResolveThemeFromText third pass
+    if vendor.name then
+        lowerVendorNameToNpcID[vendor.name:lower()] = npcID
+    end
 end
 
 -------------------------------------------------------------------------------
@@ -315,9 +326,9 @@ local function ResolveThemeFromText(text)
         end
     end
 
-    -- Third pass: vendor name fallback
-    for npcID, vendor in pairs(EndeavorsData.Vendors) do
-        if vendor.name and loweredText:find(vendor.name:lower(), 1, true) then
+    -- Third pass: vendor name fallback (uses pre-computed lookup)
+    for lowerName, npcID in pairs(lowerVendorNameToNpcID) do
+        if loweredText:find(lowerName, 1, true) then
             return EndeavorsData.NPCToTheme[npcID]
         end
     end
@@ -378,14 +389,7 @@ local function ResolveThemeFromInitiativeInfo(info)
     end
 
     -- NPC field probing (locale-safe, HIGH confidence)
-    local directNPCFields = {
-        "vendorNPCID",
-        "vendorNpcID",
-        "vendorID",
-        "npcID",
-    }
-
-    for _, fieldName in ipairs(directNPCFields) do
+    for _, fieldName in ipairs(DIRECT_NPC_FIELDS) do
         local npcID = tonumber(info[fieldName])
         if npcID then
             local themeName = EndeavorsData.NPCToTheme[ResolveCanonicalNPCID(npcID)]
@@ -396,7 +400,7 @@ local function ResolveThemeFromInitiativeInfo(info)
     end
 
     if type(info.vendor) == "table" then
-        for _, fieldName in ipairs({"npcID", "vendorNPCID", "vendorNpcID", "vendorID"}) do
+        for _, fieldName in ipairs(DIRECT_NPC_FIELDS) do
             local npcID = tonumber(info.vendor[fieldName])
             if npcID then
                 local themeName = EndeavorsData.NPCToTheme[ResolveCanonicalNPCID(npcID)]

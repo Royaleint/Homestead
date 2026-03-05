@@ -250,6 +250,12 @@ function HousingAddon:SlashCommandHandler(input)
     elseif input == "debug" then
         self.db.profile.debug = not self.db.profile.debug
         self:Print("Debug mode:", self.db.profile.debug and "ON" or "OFF")
+    elseif input == "debug vertical" then
+        local lines = HA.Constants.GetVerticalSiblingsInfo()
+        self:Print("VerticalSiblings (" .. #lines .. " pairs):")
+        for _, line in ipairs(lines) do
+            self:Print("  " .. line)
+        end
     elseif input == "cache" then
         self:ShowCacheInfo()
     elseif input == "clearcache" then
