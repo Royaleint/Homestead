@@ -440,28 +440,7 @@ local function RequestInitiativeInfo(reason)
     end
 end
 
-local function RefreshActiveTheme(reason)
-    local neighborhoodAPI = _G.C_NeighborhoodInitiative
-    if not neighborhoodAPI or not neighborhoodAPI.GetNeighborhoodInitiativeInfo then
-        return
-    end
-
-    local ok, info = pcall(neighborhoodAPI.GetNeighborhoodInitiativeInfo)
-    if not ok or not info then
-        return
-    end
-
-    local newTheme, newKnown, rawTitle = ResolveThemeFromInitiativeInfo(info)
-    if newKnown == nil then
-        -- API responded but initiative payload is not loaded yet; keep prior state.
-        return
-    end
-    local changed = (newTheme ~= activeTheme) or (newKnown ~= activeThemeKnown)
-
-    activeTheme = newTheme
-    activeThemeKnown = newKnown
-
-    -- Cache the full API payload for public helpers
+local function UpdateCachedPayload(info)
     cachedInitiativeInfo = {
         initiativeID = info.initiativeID,
         title = info.title,
@@ -486,6 +465,36 @@ local function RefreshActiveTheme(reason)
     else
         cachedTasks = nil
     end
+end
+
+local function RefreshActiveTheme(reason)
+    local neighborhoodAPI = _G.C_NeighborhoodInitiative
+    if not neighborhoodAPI or not neighborhoodAPI.GetNeighborhoodInitiativeInfo then
+        return
+    end
+
+    local ok, info = pcall(neighborhoodAPI.GetNeighborhoodInitiativeInfo)
+    if not ok or not info then
+        return
+    end
+
+    -- If theme is already resolved, just update the cached progress data
+    if activeThemeKnown then
+        UpdateCachedPayload(info)
+        return
+    end
+
+    local newTheme, newKnown, rawTitle = ResolveThemeFromInitiativeInfo(info)
+    if newKnown == nil then
+        -- API responded but initiative payload is not loaded yet; keep prior state.
+        return
+    end
+    local changed = (newTheme ~= activeTheme) or (newKnown ~= activeThemeKnown)
+
+    activeTheme = newTheme
+    activeThemeKnown = newKnown
+
+    UpdateCachedPayload(info)
 
     if rawTitle and rawTitle ~= "" and not loggedRawTitle and HA.Addon and HA.Addon.db
             and HA.Addon.db.profile and HA.Addon.db.profile.debug then
