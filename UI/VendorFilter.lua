@@ -154,6 +154,11 @@ function VendorFilter.ShouldHideVendor(vendor)
         local data = db.noDecorVendors[npcID]
         -- Defensive: only trust confirmed entries (guards against corrupted SVs)
         if data.scanConfidence == "confirmed" then
+            -- Never hide vendors that exist in static databases.
+            -- A noDecorVendors entry for a known vendor is a false positive.
+            if HA.VendorData and HA.VendorData:HasVendor(npcID) then
+                return false
+            end
             return true
         end
     end
