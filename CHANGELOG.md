@@ -2,6 +2,22 @@
 
 ---
 
+## Unreleased
+
+### Added
+
+**Housing Dashboard Overlay**
+
+- Your Endeavor progress bar now shows how much XP you need to reach the next milestone — no more guessing or doing math in your head. When you've hit every milestone, it'll let you know.
+- The current Endeavor vendor's item ownership is displayed below the progress bar so you can see at a glance how much of their stock you've collected.
+- Toggle it on or off in Settings under the new "Endeavors" section.
+
+### Improved
+
+- The addon now figures out which Endeavor is active much faster and doesn't keep rechecking once it knows.
+
+---
+
 ## v1.6.2 (2026-03-02)
 
 ### Fixed
