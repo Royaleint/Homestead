@@ -2,6 +2,18 @@
 
 ---
 
+## v1.6.3 (2026-03-05)
+
+### Fixed
+- Fixed a bug where known vendor data was getting erased, causing incorrect item counts.
+- Updated 7 vendors with corrected locations, factions, and item costs from community scan data:
+  - Quackenbush relocated to Deeprun Tram.
+  - Captain Donald Adams relocated to Orgrimmar with 2 new items added.
+  - Multiple vendor faction corrections including those in Bel'ameth and Stormshield.
+  - Added War Resources costs for Arcanist Peroleth and T'lama.
+
+---
+
 ## v1.6.2 (2026-03-02)
 
 ### Fixed
