@@ -4,14 +4,17 @@
     can see at a glance where unowned items come from without hovering.
 
     Badge shows the primary source type (vendor > quest > achievement >
-    profession > event > drop) using SourceManager priority order.
-    Owned items are skipped — Blizzard already marks those.
+    profession > event > drop > hearthsteel) using SourceManager priority
+    order, with a sourceText fallback for items not in static data.
 
     Frame structure (confirmed via in-game spike):
     HousingDashboardFrame > ... > depth-5 unnamed Buttons with .entryInfo
     15 frames in a fixed pool, recycled/virtualized on scroll.
-    OnShow fires ~9,700 times per scroll session but only ~15 have actual
-    itemID changes — cache lastItemID and bail early.
+
+    Hooking strategy: Blizzard's catalog scroll does NOT fire OnShow on
+    entry frames — it repositions them and swaps .entryInfo directly.
+    We use a throttled OnUpdate on the dashboard to re-evaluate badges
+    at 5Hz. The badgeCache makes cache hits (same itemID) near-free.
 ]]
 
 local _, HA = ...
@@ -20,43 +23,59 @@ local Constants = HA.Constants
 local SourceBadgeAtlas = Constants.SourceBadgeAtlas
 
 -- Badge configuration
-local BADGE_SIZE = 14
+local BADGE_SIZE = 20
 local BADGE_PADDING = 2
 
--- Per-frame cache: entryFrame → last processed itemID
-local lastItemID = {}
+-- Per-atlas size overrides for atlases that render too small at BADGE_SIZE
+local ATLAS_SIZE_OVERRIDE = {
+    [SourceBadgeAtlas.profession] = 34,
+}
+
+-- Throttle: how often (seconds) to refresh badges
+local REFRESH_INTERVAL = 0.2
+
+-- Per-frame result cache: entryFrame → {itemID, atlas or false}
+-- Stores the resolved atlas so we skip GetSource on repeat evaluations.
+local badgeCache = {}
 
 -- Per-frame badge texture references
 local badgeTextures = {}
 
--- Whether entry frames have been discovered and hooked
-local entryFramesHooked = false
+-- Set of discovered entry frames (hooked for OnShow as bonus, but OnUpdate
+-- is the primary driver). Keyed by frame reference.
+local hookedFrames = {}
+
+-- Discovery counter: run tree walk for the first N ticks after dashboard
+-- opens, then stop (all frames should be populated by then).
+local DISCOVERY_TICKS = 10
+local discoveryTicksRemaining = 0
+
+-- OnUpdate elapsed accumulator
+local timeSinceRefresh = 0
 
 -------------------------------------------------------------------------------
 -- Frame Discovery
 -------------------------------------------------------------------------------
 
--- Find the 15 entry Button frames inside HousingDashboardFrame.
--- Entry frames are unnamed Buttons at depth 5 with .entryInfo field.
-local function FindEntryFrames()
+-- Scan for entry Button frames with .entryInfo and hook any we haven't seen.
+-- Called periodically during the first ~2 seconds after dashboard opens.
+local function DiscoverEntryFrames()
     local dashboard = _G["HousingDashboardFrame"]
-    if not dashboard then return nil end
+    if not dashboard then return end
 
-    local entries = {}
     local function SearchChildren(frame, depth)
         if depth > 6 then return end
         local children = { frame:GetChildren() }
         for _, child in ipairs(children) do
-            if child.entryInfo and child:GetObjectType() == "Button" then
-                entries[#entries + 1] = child
-            else
-                SearchChildren(child, depth + 1)
+            if child.entryInfo and child:GetObjectType() == "Button"
+                and not hookedFrames[child] then
+                hookedFrames[child] = true
             end
+            SearchChildren(child, depth + 1)
         end
     end
 
     SearchChildren(dashboard, 1)
-    return #entries > 0 and entries or nil
 end
 
 -------------------------------------------------------------------------------
@@ -75,6 +94,19 @@ local function GetSourceBadgeAtlas(itemID)
     return sourceType and SourceBadgeAtlas[sourceType]
 end
 
+-- Fallback: check entryInfo.sourceText for source hints when
+-- SourceManager has no static data for this item.
+local function GetSourceBadgeFromEntryInfo(entryInfo)
+    local sourceText = entryInfo.sourceText
+    if not sourceText or sourceText == "" then return nil end
+
+    if sourceText:find("Hearthsteel") or sourceText:find("Battle.net Shop") then
+        return SourceBadgeAtlas.hearthsteel
+    end
+
+    return nil
+end
+
 -- Create or retrieve the badge texture for an entry frame.
 local function GetBadgeTexture(entryFrame)
     local badge = badgeTextures[entryFrame]
@@ -82,8 +114,8 @@ local function GetBadgeTexture(entryFrame)
 
     badge = entryFrame:CreateTexture(nil, "OVERLAY")
     badge:SetSize(BADGE_SIZE, BADGE_SIZE)
-    badge:SetPoint("BOTTOMRIGHT", entryFrame, "BOTTOMRIGHT",
-        -BADGE_PADDING, BADGE_PADDING)
+    badge:SetPoint("BOTTOMLEFT", entryFrame, "BOTTOMLEFT",
+        BADGE_PADDING, BADGE_PADDING)
     badgeTextures[entryFrame] = badge
     return badge
 end
@@ -94,8 +126,26 @@ local function HideBadge(entryFrame)
     if badge then badge:Hide() end
 end
 
+-- Apply badge atlas to a frame, with per-atlas size override.
+-- Oversized atlases get a negative anchor offset so the visible artwork
+-- stays flush with the bottom-left corner like the default-sized badges.
+local function ShowBadgeAtlas(entryFrame, atlas)
+    local badge = GetBadgeTexture(entryFrame)
+    local size = ATLAS_SIZE_OVERRIDE[atlas] or BADGE_SIZE
+    badge:SetSize(size, size)
+    badge:SetAtlas(atlas, false)
+
+    -- Re-anchor: pull oversized icons toward the corner by half the excess
+    local offset = (size - BADGE_SIZE) / 2
+    badge:ClearAllPoints()
+    badge:SetPoint("BOTTOMLEFT", entryFrame, "BOTTOMLEFT",
+        BADGE_PADDING - offset, BADGE_PADDING - offset)
+
+    badge:Show()
+end
+
 -- Update the source badge on an entry frame.
--- Called from OnShow hook — must be fast.
+-- Called from OnUpdate tick — must be fast on cache hit.
 local function UpdateEntryBadge(entryFrame)
     local entryInfo = entryFrame.entryInfo
     if not entryInfo then return HideBadge(entryFrame) end
@@ -110,46 +160,48 @@ local function UpdateEntryBadge(entryFrame)
         return HideBadge(entryFrame)
     end
 
-    -- Performance guard: bail if itemID hasn't changed
-    if lastItemID[entryFrame] == itemID then
+    -- Cache hit: re-apply visual state without calling GetSource.
+    local cached = badgeCache[entryFrame]
+    if cached and cached[1] == itemID then
+        if cached[2] then
+            ShowBadgeAtlas(entryFrame, cached[2])
+        else
+            HideBadge(entryFrame)
+        end
         return
     end
-    lastItemID[entryFrame] = itemID
 
-    -- Skip owned items — Blizzard already marks these.
-    -- firstAcquisitionBonus == 0 means owned (confirmed in spike).
-    if entryInfo.firstAcquisitionBonus == 0 then return HideBadge(entryFrame) end
+    -- Cache miss: full evaluation
 
-    -- Also check CatalogStore for items owned but not yet reflected
-    -- in entryInfo (e.g. mid-session purchases before catalog refresh)
-    if HA.CatalogStore and HA.CatalogStore:IsOwned(itemID) then
+    -- Look up the source badge atlas (static data first, then sourceText)
+    local atlas = GetSourceBadgeAtlas(itemID)
+    if not atlas then
+        atlas = GetSourceBadgeFromEntryInfo(entryInfo)
+    end
+    if not atlas then
+        badgeCache[entryFrame] = {itemID, false}
         return HideBadge(entryFrame)
     end
 
-    -- Look up the source badge atlas
-    local atlas = GetSourceBadgeAtlas(itemID)
-    if not atlas then return HideBadge(entryFrame) end
-
-    -- Show the badge
-    local badge = GetBadgeTexture(entryFrame)
-    badge:SetAtlas(atlas, false)
-    badge:Show()
+    -- Show the badge and cache the result
+    badgeCache[entryFrame] = {itemID, atlas}
+    ShowBadgeAtlas(entryFrame, atlas)
 end
 
 -------------------------------------------------------------------------------
 -- Cache Invalidation
 -------------------------------------------------------------------------------
 
--- Force all entry frames to re-evaluate on next OnShow.
+-- Force all entry frames to re-evaluate on next tick.
 -- Called when ownership or source data changes.
 local function InvalidateAllBadges()
-    wipe(lastItemID)
+    wipe(badgeCache)
 end
 
 -- Re-badge all currently visible entry frames (after invalidation).
 local function RefreshVisibleBadges()
     InvalidateAllBadges()
-    for entryFrame in pairs(badgeTextures) do
+    for entryFrame in pairs(hookedFrames) do
         if entryFrame:IsShown() then
             UpdateEntryBadge(entryFrame)
         end
@@ -157,50 +209,52 @@ local function RefreshVisibleBadges()
 end
 
 -------------------------------------------------------------------------------
--- Hook Registration
+-- OnUpdate Driver
 -------------------------------------------------------------------------------
 
-local function HookEntryFrames()
-    if entryFramesHooked then return end
+-- Throttled update: discover new frames (early ticks only), then refresh
+-- all visible badges. Runs at ~5Hz while the dashboard is shown.
+local function OnDashboardUpdate(_, elapsed)
+    timeSinceRefresh = timeSinceRefresh + elapsed
+    if timeSinceRefresh < REFRESH_INTERVAL then return end
+    timeSinceRefresh = 0
 
-    local entries = FindEntryFrames()
-    if not entries then return end
+    -- Discover new entry frames for the first ~2 seconds after open
+    if discoveryTicksRemaining > 0 then
+        discoveryTicksRemaining = discoveryTicksRemaining - 1
+        DiscoverEntryFrames()
+    end
 
-    for _, entryFrame in ipairs(entries) do
-        entryFrame:HookScript("OnShow", function(self)
-            UpdateEntryBadge(self)
-        end)
-
-        -- Initial badge for frames already shown
+    -- Refresh visible badges
+    for entryFrame in pairs(hookedFrames) do
         if entryFrame:IsShown() then
             UpdateEntryBadge(entryFrame)
         end
     end
-
-    entryFramesHooked = true
 end
+
+-------------------------------------------------------------------------------
+-- Initialization
+-------------------------------------------------------------------------------
 
 local function OnHousingDashboardLoaded()
-    -- HousingDashboardFrame exists now, but entry frames may not be
-    -- populated until the catalog tab is actually opened.
-    -- Hook OnShow on the dashboard itself to catch first open.
     local dashboard = _G["HousingDashboardFrame"]
     if not dashboard then return end
 
+    -- Reset discovery on each dashboard open so we catch late-populating frames
     dashboard:HookScript("OnShow", function()
-        -- Entry frames are created by the time the dashboard shows.
-        -- Use a short delay to let Blizzard finish populating the pool.
-        C_Timer.After(0, function()
-            HookEntryFrames()
-        end)
+        discoveryTicksRemaining = DISCOVERY_TICKS
+        timeSinceRefresh = 0
     end)
 
-    -- If already shown (player opened catalog before addon loaded),
-    -- hook immediately.
+    -- OnUpdate drives all badge refreshes — fires every render frame,
+    -- throttled internally to REFRESH_INTERVAL.
+    dashboard:HookScript("OnUpdate", OnDashboardUpdate)
+
+    -- If dashboard is already shown (opened before addon loaded), start now
     if dashboard:IsShown() then
-        C_Timer.After(0, function()
-            HookEntryFrames()
-        end)
+        discoveryTicksRemaining = DISCOVERY_TICKS
+        timeSinceRefresh = 0
     end
 end
 

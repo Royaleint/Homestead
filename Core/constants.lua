@@ -55,12 +55,13 @@ Constants.Atlases = {
 
 -- Source type badge atlases for catalog overlay (confirmed in 12.0.1 spike)
 Constants.SourceBadgeAtlas = {
-    vendor      = "coin-gold",
+    vendor      = "auctionhouse-icon-coin-gold",
     quest       = "QuestNormal",
     achievement = "UI-Achievement-Shield-NoPoints",
-    profession  = "Profession",
+    profession  = "UI-HUD-MicroMenu-Professions-Mouseover",
     event       = "UI-HUD-Calendar-1-Up",
     drop        = "worldquest-icon-pvp-ffa",
+    hearthsteel = "hearthsteel-icon-32x32",
 }
 
 -------------------------------------------------------------------------------
