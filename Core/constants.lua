@@ -53,6 +53,16 @@ Constants.Atlases = {
     NOT_COLLECTED = "UI-HUD-MicroMenu-Questlog-Disabled",
 }
 
+-- Source type badge atlases for catalog overlay (confirmed in 12.0.1 spike)
+Constants.SourceBadgeAtlas = {
+    vendor      = "coin-gold",
+    quest       = "QuestNormal",
+    achievement = "UI-Achievement-Shield-NoPoints",
+    profession  = "Profession",
+    event       = "UI-HUD-Calendar-1-Up",
+    drop        = "worldquest-icon-pvp-ffa",
+}
+
 -------------------------------------------------------------------------------
 -- Color Definitions (RGBA format)
 -------------------------------------------------------------------------------
