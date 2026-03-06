@@ -493,16 +493,19 @@ function VendorData:GetVendorsForItem(itemID)
 
     -- Priority 1: Static VendorDatabase (curated, authoritative)
     if HA.VendorDatabase then
-        if HA.VendorDatabase.ByItemID and HA.VendorDatabase.ByItemID[itemID] then
-            for _, npcID in ipairs(HA.VendorDatabase.ByItemID[itemID]) do
-                local vendor = HA.VendorDatabase.Vendors[npcID]
-                if vendor then
-                    table.insert(result, vendor)
-                    seenNPCs[npcID] = true
+        if HA.VendorDatabase.ByItemID then
+            -- Index is built: fast lookup (nil result = item not sold by any vendor)
+            if HA.VendorDatabase.ByItemID[itemID] then
+                for _, npcID in ipairs(HA.VendorDatabase.ByItemID[itemID]) do
+                    local vendor = HA.VendorDatabase.Vendors[npcID]
+                    if vendor then
+                        table.insert(result, vendor)
+                        seenNPCs[npcID] = true
+                    end
                 end
             end
         else
-            -- Fallback: iterate all vendors (if index not built yet)
+            -- Fallback: iterate all vendors (index not built yet)
             if HA.DevAddon and HA.Addon then
                 HA.Addon:Debug("WARNING: ByItemID index not built — possible init ordering issue")
             end

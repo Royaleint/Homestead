@@ -4,7 +4,7 @@
     Cleaned: 2026-02-17 — Removed 63 entries keyed by decorID instead of itemID,
     3 entries with nonexistent itemIDs.
     Validated 2026-02-18: Updated 11 quest names via API.
-    Total entries: 35
+    Total entries: 41
 
     Maps itemID to quest source information.
 ]]
@@ -12,6 +12,7 @@
 local _, HA = ...
 
 HA.QuestSources = {
+    [245259] = {questID = 92577, questName = "Dreamy Inspiration"},
     [245263] = {questID = 48554, questName = "The Source of the Problem"},
     [245417] = {questID = 47874, questName = "Clearing the Fog"},
     [245485] = {questID = 50963, questName = "Of Dark Deeds and Dark Days"},
@@ -24,11 +25,14 @@ HA.QuestSources = {
     [245702] = {questID = 38147, questName = "Entangled Dreams"},
     [246427] = {questID = 28244, questName = "Eye Spy"},
     [246428] = {questID = 28655, questName = "Wild, Wild, Wildhammer Wedding"},
+    [246487] = {questID = 92580, questName = "Spare A Chair"},
     [246703] = {questID = 55736, questName = "Welcome to the Resistance"},
     [246706] = {questID = 67047, questName = "Warm Away These Shivers"},
     [246863] = {questID = 66001, questName = "A Last Hope"},
     [247223] = {questID = 67063, questName = "10,000 Years of Roasting"},
     [247858] = {questID = 32816, questName = "Path of the Last Emperor"},
+    [247915] = {questID = 92581, questName = "Last Light"},
+    [248116] = {questID = 92578, questName = "Draconic Decor"},
     [248622] = {questID = 12227, questName = "Doing Your Duty"},
     [248653] = {questID = 71097, questName = "A Helping Claw"},
     [248655] = {questID = 70880, questName = "To Cook With Finery"},
@@ -40,6 +44,8 @@ HA.QuestSources = {
     [252403] = {questID = 53720, questName = "Allegiance of Kul Tiras"},
     [252406] = {questID = 47489, questName = "Stow and Go"},
     [252754] = {questID = 55045, questName = "My Brother's Keeper"},
+    [253173] = {questID = 92572, questName = "Furniture Favor"},
+    [253527] = {questID = 114, questName = "The Escape"},
     [256429] = {questID = 70745, questName = "Enforced Relaxation"},
     [258220] = {questID = 11566, questName = "Surrender... Not!"},
     [264281] = {questID = 78444, questName = "A Worthy Ally: Dream Wardens"},
