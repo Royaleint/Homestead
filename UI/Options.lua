@@ -216,35 +216,21 @@ local function GetOptionsTable()
                             if HA.Overlay then HA.Overlay:RefreshAll() end
                         end,
                     },
-                    showGlowOnOwned = {
-                        type = "toggle",
-                        name = "Show glow on owned items",
-                        desc = "Show green glow on items you already own. Disable to only show glow on unowned items.",
-                        width = "double",
-                        order = 33,
-                        disabled = function()
-                            return not HA.Addon.db.profile.overlay.showAccessibilityGlow
-                        end,
-                        get = function() return HA.Addon.db.profile.overlay.showGlowOnOwned end,
-                        set = function(_, value)
-                            HA.Addon.db.profile.overlay.showGlowOnOwned = value
-                            if HA.Overlay then HA.Overlay:RefreshAll() end
-                        end,
-                    },
                     ownedItemStyle = {
                         type = "select",
                         name = "Owned item style",
                         desc = "How to visually distinguish items you already own in the Housing Catalog.",
                         width = "double",
-                        order = 34,
+                        order = 33,
                         values = {
+                            default = "Green highlight (default)",
                             none = "None",
-                            dim = "Dim (reduced opacity)",
-                            checkmark = "Checkmark overlay",
+                            dim = "Dimmed",
+                            checkmark = "Checkmark",
                         },
-                        sorting = { "none", "dim", "checkmark" },
+                        sorting = { "default", "none", "dim", "checkmark" },
                         get = function()
-                            return HA.Addon.db.profile.overlay.ownedItemStyle or "dim"
+                            return HA.Addon.db.profile.overlay.ownedItemStyle or "default"
                         end,
                         set = function(_, value)
                             HA.Addon.db.profile.overlay.ownedItemStyle = value

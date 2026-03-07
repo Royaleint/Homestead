@@ -249,7 +249,7 @@ HideCheckmark = function(entryFrame)
 end
 
 -- Apply owned item visual style to an entry frame.
--- style: "none", "dim", or "checkmark"
+-- style: "default", "none", "dim", or "checkmark"
 -- isOwned: true if the item is owned
 local function ApplyOwnedStyle(entryFrame, style, isOwned)
     if not isOwned then
@@ -264,7 +264,7 @@ local function ApplyOwnedStyle(entryFrame, style, isOwned)
     elseif style == "checkmark" then
         entryFrame:SetAlpha(1.0)
         ShowCheckmark(entryFrame)
-    else -- "none"
+    else -- "default" or "none": no additional visual treatment
         entryFrame:SetAlpha(1.0)
         HideCheckmark(entryFrame)
     end
@@ -351,8 +351,7 @@ local function UpdateEntryOverlay(entryFrame)
         and HA.Addon.db.profile and HA.Addon.db.profile.overlay
     local showBadges = not settings or settings.showOnHousingCatalog ~= false
     local showGlow = not settings or settings.showAccessibilityGlow ~= false
-    local showGlowOnOwned = not settings or settings.showGlowOnOwned ~= false
-    local ownedStyle = settings and settings.ownedItemStyle or "dim"
+    local ownedStyle = settings and settings.ownedItemStyle or "default"
 
     if not showBadges and not showGlow then
         return HideAllOverlays(entryFrame)
@@ -367,9 +366,9 @@ local function UpdateEntryOverlay(entryFrame)
         else
             HideBadge(entryFrame)
         end
-        -- Glow
+        -- Glow: owned glow only shows for "default" style
         if showGlow and cached[3] then
-            if cached[3] == "owned" and not showGlowOnOwned then
+            if cached[3] == "owned" and ownedStyle ~= "default" then
                 HideGlow(entryFrame)
             else
                 ShowGlow(entryFrame, cached[3])
@@ -403,7 +402,7 @@ local function UpdateEntryOverlay(entryFrame)
     local glowState = GetAccessibilityState(itemID, entryInfo, sourceText)
 
     if showGlow and glowState then
-        if glowState == "owned" and not showGlowOnOwned then
+        if glowState == "owned" and ownedStyle ~= "default" then
             HideGlow(entryFrame)
         else
             ShowGlow(entryFrame, glowState)
