@@ -460,6 +460,8 @@ Constants.Defaults = {
             showOnAuctionHouse = true,
             showOnHousingCatalog = true,
             showAccessibilityGlow = true,
+            showGlowOnOwned = true,
+            ownedItemStyle = "dim",
             iconSize = 14,
             iconAnchor = "TOPLEFT",
         },
