@@ -293,6 +293,7 @@ local function UpdateEntryOverlay(entryFrame)
         and HA.Addon.db.profile and HA.Addon.db.profile.overlay
     local showBadges = not settings or settings.showOnHousingCatalog ~= false
     local showGlow = not settings or settings.showAccessibilityGlow ~= false
+    local showGlowOnOwned = not settings or settings.showGlowOnOwned ~= false
 
     if not showBadges and not showGlow then
         return HideAllOverlays(entryFrame)
@@ -309,7 +310,11 @@ local function UpdateEntryOverlay(entryFrame)
         end
         -- Glow
         if showGlow and cached[3] then
-            ShowGlow(entryFrame, cached[3])
+            if cached[3] == "owned" and not showGlowOnOwned then
+                HideGlow(entryFrame)
+            else
+                ShowGlow(entryFrame, cached[3])
+            end
         else
             HideGlow(entryFrame)
         end
@@ -337,7 +342,11 @@ local function UpdateEntryOverlay(entryFrame)
     local glowState = GetAccessibilityState(itemID, entryInfo, sourceText)
 
     if showGlow and glowState then
-        ShowGlow(entryFrame, glowState)
+        if glowState == "owned" and not showGlowOnOwned then
+            HideGlow(entryFrame)
+        else
+            ShowGlow(entryFrame, glowState)
+        end
     else
         HideGlow(entryFrame)
     end
