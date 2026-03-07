@@ -66,29 +66,31 @@ local hookedFrames = setmetatable({}, { __mode = "k" })
 
 -- OnUpdate elapsed accumulator
 local timeSinceRefresh = 0
+local dashboardVisible = false
 
 -------------------------------------------------------------------------------
 -- Frame Discovery
 -------------------------------------------------------------------------------
 
+-- Recursively search for entry Button frames with .entryInfo.
+-- Hoisted to file scope to avoid closure allocation per tick.
+local function SearchChildren(frame, depth)
+    if depth > 6 then return end
+    local children = { frame:GetChildren() }
+    for _, child in ipairs(children) do
+        if child.entryInfo and child:GetObjectType() == "Button"
+            and not hookedFrames[child] then
+            hookedFrames[child] = true
+        end
+        SearchChildren(child, depth + 1)
+    end
+end
+
 -- Scan for entry Button frames with .entryInfo and hook any we haven't seen.
--- Called periodically during the first ~2 seconds after dashboard opens.
+-- Called periodically while the dashboard is shown.
 local function DiscoverEntryFrames()
     local dashboard = _G["HousingDashboardFrame"]
     if not dashboard then return end
-
-    local function SearchChildren(frame, depth)
-        if depth > 6 then return end
-        local children = { frame:GetChildren() }
-        for _, child in ipairs(children) do
-            if child.entryInfo and child:GetObjectType() == "Button"
-                and not hookedFrames[child] then
-                hookedFrames[child] = true
-            end
-            SearchChildren(child, depth + 1)
-        end
-    end
-
     SearchChildren(dashboard, 1)
 end
 
@@ -355,8 +357,11 @@ local function InvalidateAllOverlays()
 end
 
 -- Re-evaluate all currently visible entry frames (after invalidation).
+-- Skips work when the dashboard is not visible — OnUpdate will pick up
+-- changes naturally when the player reopens the catalog.
 local function RefreshVisibleOverlays()
     InvalidateAllOverlays()
+    if not dashboardVisible then return end
     for entryFrame in pairs(hookedFrames) do
         if entryFrame:IsShown() then
             UpdateEntryOverlay(entryFrame)
@@ -404,9 +409,13 @@ local function OnHousingDashboardLoaded()
     local dashboard = _G["HousingDashboardFrame"]
     if not dashboard then return end
 
-    -- Reset refresh timer on each dashboard open
+    -- Track visibility to skip event-driven refreshes when catalog is closed
     dashboard:HookScript("OnShow", function()
         timeSinceRefresh = 0
+        dashboardVisible = true
+    end)
+    dashboard:HookScript("OnHide", function()
+        dashboardVisible = false
     end)
 
     -- OnUpdate drives all overlay refreshes — fires every render frame,
