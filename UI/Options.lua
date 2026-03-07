@@ -79,6 +79,7 @@ local function GetOptionsTable()
                 name = L["Overlays"] or "Overlays",
                 order = 2,
                 args = {
+                    -- Master toggle
                     enabled = {
                         type = "toggle",
                         name = L["Enable overlays"] or "Enable overlays",
@@ -91,85 +92,8 @@ local function GetOptionsTable()
                             if HA.Overlay then HA.Overlay:RefreshAll() end
                         end,
                     },
-                    spacer1 = {
-                        type = "description",
-                        name = " ",
-                        order = 2,
-                    },
-                    showOnBags = {
-                        type = "toggle",
-                        name = L["Show on bags"] or "Show on bags",
-                        desc = "Show overlay icons on bag items (includes Baganator and BetterBags)",
-                        order = 3,
-                        get = function() return HA.Addon.db.profile.overlay.showOnBags end,
-                        set = function(_, value)
-                            HA.Addon.db.profile.overlay.showOnBags = value
-                            if HA.Overlay then HA.Overlay:RefreshAll() end
-                        end,
-                    },
-                    showOnBank = {
-                        type = "toggle",
-                        name = L["Show on bank"] or "Show on bank",
-                        desc = "Show overlay icons on bank items",
-                        order = 4,
-                        get = function() return HA.Addon.db.profile.overlay.showOnBank end,
-                        set = function(_, value)
-                            HA.Addon.db.profile.overlay.showOnBank = value
-                            if HA.Overlay then HA.Overlay:RefreshAll() end
-                        end,
-                    },
-                    showOnMerchant = {
-                        type = "toggle",
-                        name = L["Show on merchant"] or "Show on merchant",
-                        desc = "Show overlay icons on vendor items",
-                        order = 5,
-                        get = function() return HA.Addon.db.profile.overlay.showOnMerchant end,
-                        set = function(_, value)
-                            HA.Addon.db.profile.overlay.showOnMerchant = value
-                            if HA.Overlay then HA.Overlay:RefreshAll() end
-                        end,
-                    },
-                    showOnAuctionHouse = {
-                        type = "toggle",
-                        name = L["Show on auction house"] or "Show on auction house",
-                        desc = "Show overlay icons on auction house items",
-                        width = "double",
-                        order = 6,
-                        get = function() return HA.Addon.db.profile.overlay.showOnAuctionHouse end,
-                        set = function(_, value)
-                            HA.Addon.db.profile.overlay.showOnAuctionHouse = value
-                            if HA.Overlay then HA.Overlay:RefreshAll() end
-                        end,
-                    },
-                    showOnHousingCatalog = {
-                        type = "toggle",
-                        name = L["Show on housing catalog"] or "Show on housing catalog",
-                        desc = "Show overlay icons on housing catalog items",
-                        width = "double",
-                        order = 7,
-                        get = function() return HA.Addon.db.profile.overlay.showOnHousingCatalog end,
-                        set = function(_, value)
-                            HA.Addon.db.profile.overlay.showOnHousingCatalog = value
-                            if HA.Overlay then HA.Overlay:RefreshAll() end
-                        end,
-                    },
-                    showAccessibilityGlow = {
-                        type = "toggle",
-                        name = "Show accessibility glow",
-                        desc = "Show green/yellow/red border glow on housing catalog items based on ownership and availability",
-                        width = "double",
-                        order = 8,
-                        get = function() return HA.Addon.db.profile.overlay.showAccessibilityGlow end,
-                        set = function(_, value)
-                            HA.Addon.db.profile.overlay.showAccessibilityGlow = value
-                            if HA.Overlay then HA.Overlay:RefreshAll() end
-                        end,
-                    },
-                    spacer2 = {
-                        type = "description",
-                        name = " ",
-                        order = 9,
-                    },
+
+                    -- Icon appearance
                     iconSize = {
                         type = "range",
                         name = L["Icon size"] or "Icon size",
@@ -177,7 +101,7 @@ local function GetOptionsTable()
                         min = 8,
                         max = 32,
                         step = 1,
-                        order = 10,
+                        order = 2,
                         get = function() return HA.Addon.db.profile.overlay.iconSize end,
                         set = function(_, value)
                             HA.Addon.db.profile.overlay.iconSize = value
@@ -195,11 +119,136 @@ local function GetOptionsTable()
                             BOTTOMRIGHT = "Bottom Right",
                             CENTER = "Center",
                         },
-                        order = 11,
+                        order = 3,
                         get = function() return HA.Addon.db.profile.overlay.iconAnchor end,
                         set = function(_, value)
                             HA.Addon.db.profile.overlay.iconAnchor = value
                             if HA.Overlay then HA.Overlay:UpdateConfig() end
+                        end,
+                    },
+
+                    -- Inventory
+                    inventoryHeader = {
+                        type = "header",
+                        name = "Inventory",
+                        order = 10,
+                    },
+                    showOnBags = {
+                        type = "toggle",
+                        name = L["Show on bags"] or "Show on bags",
+                        desc = "Show overlay icons on bag items (includes Baganator and BetterBags)",
+                        order = 11,
+                        get = function() return HA.Addon.db.profile.overlay.showOnBags end,
+                        set = function(_, value)
+                            HA.Addon.db.profile.overlay.showOnBags = value
+                            if HA.Overlay then HA.Overlay:RefreshAll() end
+                        end,
+                    },
+                    showOnBank = {
+                        type = "toggle",
+                        name = L["Show on bank"] or "Show on bank",
+                        desc = "Show overlay icons on bank items",
+                        order = 12,
+                        get = function() return HA.Addon.db.profile.overlay.showOnBank end,
+                        set = function(_, value)
+                            HA.Addon.db.profile.overlay.showOnBank = value
+                            if HA.Overlay then HA.Overlay:RefreshAll() end
+                        end,
+                    },
+                    showOnAuctionHouse = {
+                        type = "toggle",
+                        name = L["Show on auction house"] or "Show on auction house",
+                        desc = "Show overlay icons on auction house items",
+                        width = "double",
+                        order = 13,
+                        get = function() return HA.Addon.db.profile.overlay.showOnAuctionHouse end,
+                        set = function(_, value)
+                            HA.Addon.db.profile.overlay.showOnAuctionHouse = value
+                            if HA.Overlay then HA.Overlay:RefreshAll() end
+                        end,
+                    },
+
+                    -- Merchant
+                    merchantHeader = {
+                        type = "header",
+                        name = "Merchant",
+                        order = 20,
+                    },
+                    showOnMerchant = {
+                        type = "toggle",
+                        name = L["Show on merchant"] or "Show on merchant",
+                        desc = "Show overlay icons on vendor items",
+                        order = 21,
+                        get = function() return HA.Addon.db.profile.overlay.showOnMerchant end,
+                        set = function(_, value)
+                            HA.Addon.db.profile.overlay.showOnMerchant = value
+                            if HA.Overlay then HA.Overlay:RefreshAll() end
+                        end,
+                    },
+
+                    -- Housing Catalog
+                    housingCatalogHeader = {
+                        type = "header",
+                        name = "Housing Catalog",
+                        order = 30,
+                    },
+                    showOnHousingCatalog = {
+                        type = "toggle",
+                        name = L["Show on housing catalog"] or "Show on housing catalog",
+                        desc = "Show overlay icons on housing catalog items",
+                        width = "double",
+                        order = 31,
+                        get = function() return HA.Addon.db.profile.overlay.showOnHousingCatalog end,
+                        set = function(_, value)
+                            HA.Addon.db.profile.overlay.showOnHousingCatalog = value
+                            if HA.Overlay then HA.Overlay:RefreshAll() end
+                        end,
+                    },
+                    showAccessibilityGlow = {
+                        type = "toggle",
+                        name = "Show accessibility glow",
+                        desc = "Show green/yellow/red border glow on housing catalog items based on ownership and availability",
+                        width = "double",
+                        order = 32,
+                        get = function() return HA.Addon.db.profile.overlay.showAccessibilityGlow end,
+                        set = function(_, value)
+                            HA.Addon.db.profile.overlay.showAccessibilityGlow = value
+                            if HA.Overlay then HA.Overlay:RefreshAll() end
+                        end,
+                    },
+                    showGlowOnOwned = {
+                        type = "toggle",
+                        name = "Show glow on owned items",
+                        desc = "Show green glow on items you already own. Disable to only show glow on unowned items.",
+                        width = "double",
+                        order = 33,
+                        disabled = function()
+                            return not HA.Addon.db.profile.overlay.showAccessibilityGlow
+                        end,
+                        get = function() return HA.Addon.db.profile.overlay.showGlowOnOwned end,
+                        set = function(_, value)
+                            HA.Addon.db.profile.overlay.showGlowOnOwned = value
+                            if HA.Overlay then HA.Overlay:RefreshAll() end
+                        end,
+                    },
+                    ownedItemStyle = {
+                        type = "select",
+                        name = "Owned item style",
+                        desc = "How to visually distinguish items you already own in the Housing Catalog.",
+                        width = "double",
+                        order = 34,
+                        values = {
+                            none = "None",
+                            dim = "Dim (reduced opacity)",
+                            checkmark = "Checkmark overlay",
+                        },
+                        sorting = { "none", "dim", "checkmark" },
+                        get = function()
+                            return HA.Addon.db.profile.overlay.ownedItemStyle or "dim"
+                        end,
+                        set = function(_, value)
+                            HA.Addon.db.profile.overlay.ownedItemStyle = value
+                            if HA.Overlay then HA.Overlay:RefreshAll() end
                         end,
                     },
                 },

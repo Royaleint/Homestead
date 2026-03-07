@@ -60,6 +60,9 @@ local badgeTextures = setmetatable({}, { __mode = "k" })
 -- Per-frame glow texture references
 local glowTextures = setmetatable({}, { __mode = "k" })
 
+-- Per-frame checkmark texture references
+local checkmarkTextures = setmetatable({}, { __mode = "k" })
+
 -- Set of discovered entry frames (hooked for OnShow as bonus, but OnUpdate
 -- is the primary driver). Keyed by frame reference.
 local hookedFrames = setmetatable({}, { __mode = "k" })
@@ -183,6 +186,9 @@ end
 -- Forward declaration for HideGlow (referenced by ShowGlow fallback)
 local HideGlow
 
+-- Forward declaration for HideCheckmark (referenced by HideAllOverlays)
+local HideCheckmark
+
 -- Create or retrieve the border glow texture for an entry frame.
 -- Atlas is desaturated so SetVertexColor produces exact colors.
 local function GetGlowTexture(entryFrame)
@@ -212,6 +218,56 @@ end
 HideGlow = function(entryFrame)
     local glow = glowTextures[entryFrame]
     if glow then glow:Hide() end
+end
+
+-------------------------------------------------------------------------------
+-- Owned Item Style
+-------------------------------------------------------------------------------
+
+-- Create or retrieve checkmark texture for an entry frame.
+local function GetCheckmarkTexture(entryFrame)
+    local check = checkmarkTextures[entryFrame]
+    if check then return check end
+
+    check = entryFrame:CreateTexture(nil, "OVERLAY", nil, 2)
+    check:SetSize(20, 20)
+    check:SetPoint("TOPRIGHT", entryFrame, "TOPRIGHT", -2, -2)
+    check:SetAtlas("common-icon-checkmark")
+    check:SetVertexColor(0.0, 0.9, 0.0)
+    check:Hide()
+    checkmarkTextures[entryFrame] = check
+    return check
+end
+
+local function ShowCheckmark(entryFrame)
+    GetCheckmarkTexture(entryFrame):Show()
+end
+
+HideCheckmark = function(entryFrame)
+    local check = checkmarkTextures[entryFrame]
+    if check then check:Hide() end
+end
+
+-- Apply owned item visual style to an entry frame.
+-- style: "none", "dim", or "checkmark"
+-- isOwned: true if the item is owned
+local function ApplyOwnedStyle(entryFrame, style, isOwned)
+    if not isOwned then
+        entryFrame:SetAlpha(1.0)
+        HideCheckmark(entryFrame)
+        return
+    end
+
+    if style == "dim" then
+        entryFrame:SetAlpha(0.5)
+        HideCheckmark(entryFrame)
+    elseif style == "checkmark" then
+        entryFrame:SetAlpha(1.0)
+        ShowCheckmark(entryFrame)
+    else -- "none"
+        entryFrame:SetAlpha(1.0)
+        HideCheckmark(entryFrame)
+    end
 end
 
 -- Determine the accessibility state for an item.
@@ -254,6 +310,8 @@ end
 local function HideAllOverlays(entryFrame)
     HideBadge(entryFrame)
     HideGlow(entryFrame)
+    HideCheckmark(entryFrame)
+    entryFrame:SetAlpha(1.0)
 end
 
 -------------------------------------------------------------------------------
@@ -293,6 +351,8 @@ local function UpdateEntryOverlay(entryFrame)
         and HA.Addon.db.profile and HA.Addon.db.profile.overlay
     local showBadges = not settings or settings.showOnHousingCatalog ~= false
     local showGlow = not settings or settings.showAccessibilityGlow ~= false
+    local showGlowOnOwned = not settings or settings.showGlowOnOwned ~= false
+    local ownedStyle = settings and settings.ownedItemStyle or "dim"
 
     if not showBadges and not showGlow then
         return HideAllOverlays(entryFrame)
@@ -309,10 +369,16 @@ local function UpdateEntryOverlay(entryFrame)
         end
         -- Glow
         if showGlow and cached[3] then
-            ShowGlow(entryFrame, cached[3])
+            if cached[3] == "owned" and not showGlowOnOwned then
+                HideGlow(entryFrame)
+            else
+                ShowGlow(entryFrame, cached[3])
+            end
         else
             HideGlow(entryFrame)
         end
+        -- Owned item style
+        ApplyOwnedStyle(entryFrame, ownedStyle, cached[3] == "owned")
         return
     end
 
@@ -337,10 +403,17 @@ local function UpdateEntryOverlay(entryFrame)
     local glowState = GetAccessibilityState(itemID, entryInfo, sourceText)
 
     if showGlow and glowState then
-        ShowGlow(entryFrame, glowState)
+        if glowState == "owned" and not showGlowOnOwned then
+            HideGlow(entryFrame)
+        else
+            ShowGlow(entryFrame, glowState)
+        end
     else
         HideGlow(entryFrame)
     end
+
+    -- Owned item style
+    ApplyOwnedStyle(entryFrame, ownedStyle, glowState == "owned")
 
     -- Cache both results
     overlayCache[entryFrame] = {itemID, atlas or false, glowState or false}
