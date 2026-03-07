@@ -381,46 +381,6 @@ function VendorTracer:IsAtDecorVendor()
     return false, nil
 end
 
--- Get items at current vendor that player doesn't own
-function VendorTracer:GetMissingAtCurrentVendor()
-    local isDecorVendor, vendor = self:IsAtDecorVendor()
-    if not isDecorVendor or not vendor then
-        return {}
-    end
-
-    local missingItems = {}
-
-    if vendor.items then
-        -- Handle both formats: plain number or table with cost data
-        for _, item in ipairs(vendor.items) do
-            local itemID = HA.VendorData:GetItemID(item)
-            if itemID then
-                local isOwned = false
-
-                if HA.DecorTracker then
-                    isOwned = HA.DecorTracker:IsCollected(itemID)
-                elseif HA.CatalogStore then
-                    isOwned = HA.CatalogStore:IsOwnedFresh(itemID)
-                end
-
-                if not isOwned then
-                    local itemName = GetItemInfo(itemID)
-                    -- Get cost from item if available
-                    local cost = HA.VendorData and HA.VendorData:GetItemCost(item)
-                    table.insert(missingItems, {
-                        itemID = itemID,
-                        name = itemName,
-                        cost = cost,
-                        canAfford = nil,
-                    })
-                end
-            end
-        end
-    end
-
-    return missingItems
-end
-
 -------------------------------------------------------------------------------
 -- Initialization
 -------------------------------------------------------------------------------
@@ -466,14 +426,6 @@ function VendorTracer:OnMerchantShow()
         end
     end
 
-    -- Show missing items notification
-    local showNotification = HA.Addon and HA.Addon.db and HA.Addon.db.profile.showMissingAtVendor
-    if showNotification ~= false then -- Default to true
-        local missingItems = self:GetMissingAtCurrentVendor()
-        if #missingItems > 0 then
-            HA.Addon:Print("This vendor has", #missingItems, "decor item(s) you don't own!")
-        end
-    end
 end
 
 -------------------------------------------------------------------------------
