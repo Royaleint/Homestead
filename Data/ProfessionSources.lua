@@ -322,7 +322,7 @@ HA.ProfessionSources = {
     [264713] = {profession = "Tailoring", recipeName = "Heart of the Forest Banner", spellID = 1272575},
     [264899] = {profession = "Alchemy", recipeName = "Arakkoan Alchemist's Concoction", spellID = 1273070},
     [264900] = {profession = "Alchemy", recipeName = "Arakkoan Alchemist's Bottle", spellID = 1273064},
-    [265791] = {profession = "Leatherworking", recipeName = "Haranir Canopy Bed", spellID = 1246939},
+    [265791] = {profession = "Leatherworking", recipeName = "Haranir Canopy Bed", spellID = 1246939, skillTier = "Midnight Leatherworking", skillLevel = 50},
     [268038] = {profession = "Enchanting", recipeName = "Endless Codex of Blooming Light", spellID = 1281342},
     [268039] = {profession = "Enchanting", recipeName = "Endless Codex of Nature's Grace", spellID = 1281348},
     [268041] = {profession = "Enchanting", recipeName = "Endless Codex of the Voidtouched", spellID = 1281349},

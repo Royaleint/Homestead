@@ -2311,6 +2311,20 @@ VendorDatabase.Vendors = {
         expansion = "The War Within",
         items = {{235523, cost = {gold = 500000}}, {242951, cost = {gold = 750000}}, {243334, cost = {gold = 500000}}, {244667, cost = {gold = 1250000}}, {245357, cost = {gold = 1500000}}, {245359, cost = {gold = 1500000}}, {245360, cost = {gold = 750000}}, {245365, cost = {gold = 1250000}}, {245366, cost = {gold = 1500000}}, {245367, cost = {gold = 1500000}}, {245368, cost = {gold = 1500000}}, {245372, cost = {gold = 1000000}}, {245374, cost = {gold = 1000000}}, {245377, cost = {gold = 750000}}, {245378, cost = {gold = 1250000}}, {245379, cost = {gold = 1250000}}, {245380, cost = {gold = 1250000}}, {245382, cost = {gold = 1250000}}, {245385, cost = {gold = 1000000}}, {245386, cost = {gold = 1250000}}, {245551, cost = {gold = 750000}}, {245656, cost = {gold = 1500000}}, {245657, cost = {gold = 1250000}}, {245662, cost = {gold = 1000000}}, {246102, cost = {gold = 1250000}}, {246104, cost = {gold = 250000}}, {246105, cost = {gold = 1000000}}, {246106, cost = {gold = 100000}}, {246107, cost = {gold = 1250000}}, {246109, cost = {gold = 250000}}, {246219, cost = {gold = 1000000}}, {246588, cost = {gold = 1500000}}, {246742, cost = {gold = 750000}}, {253590, cost = {gold = 1000000}}, {263025, cost = {gold = 1000000}}},
     },
+	[256026] = {
+        name = "Irodalmin",
+        mapID = 2393,
+        x = 0.5, y = 0.5,
+        zone = "Silvermoon City",
+        faction = "Neutral",
+        currency = "Gold",
+        expansion = "Midnight",
+        notes = "Profession achievement vendor — items require specific profession achievements.",
+        items = {
+            {264003, cost = {gold = 500000000}},
+            {264004, cost = {gold = 500000000}},
+        },
+    },
 	[256071] = {
         name = "Solelo",
         mapID = 84,
