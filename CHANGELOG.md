@@ -12,9 +12,21 @@
 - The current Endeavor vendor's item ownership is displayed below the progress bar so you can see at a glance how much of their stock you've collected.
 - Toggle it on or off in Settings under the new "Endeavors" section.
 
+**Housing Catalog Glow**
+
+- Items in your Housing Catalog now glow based on whether you can actually obtain them right now. Green means at least one source is available to your character, red means everything is blocked — wrong profession, incomplete achievement, or faction-locked. No glow means you already own it.
+- Achievement-gated items now correctly show as blocked (red) when you haven't completed the required achievement yet.
+- Profession items now check your actual skill level, not just whether you have the profession. If your Midnight Leatherworking is 1/100 and a recipe needs 50, it'll show as blocked until you level up.
+
 ### Improved
 
 - The addon now figures out which Endeavor is active much faster and doesn't keep rechecking once it knows.
+
+### Vendor Database
+
+**New Vendors**
+
+- **Irodalmin** — Profession achievement vendor in Silvermoon City. Sells 2 items for 50,000 gold each.
 
 ---
 
