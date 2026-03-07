@@ -17,10 +17,9 @@ local _, HA = ...
 local VendorScanner = {}
 HA.VendorScanner = VendorScanner
 
--- Classification module (decor detection + requirement scraping)
+-- Classification module (decor detection)
 local DC = HA.DecorClassifier
 local CheckIfDecorItem = DC.CheckIfDecorItem
-local ScrapeItemRequirements = DC.ScrapeItemRequirements
 
 -- Persistence module (data storage, retrieval, clearing, export)
 local SP = HA.ScanPersistence
@@ -52,8 +51,9 @@ local Constants = HA.Constants or {}
 local ZoneToContinentMap = Constants.ZoneToContinentMap or {}
 local ContinentToExpansion = Constants.ContinentToExpansion or {}
 
--- Note: RequirementPatterns, scanTooltip, and ScrapeItemRequirements
--- are now in DecorClassifier.lua (imported as local upvalues above).
+-- Note: Requirement scraping (ScrapeItemRequirements, scanTooltip,
+-- RequirementPatterns) was removed — it caused GameTooltipMoneyFrame taint
+-- via SetMerchantItem. sourceText parsing in SourceTextParser.lua supersedes it.
 
 -------------------------------------------------------------------------------
 -- Initialization
@@ -455,19 +455,6 @@ function VendorScanner:ProcessScanQueue()
 
             -- Store decor items with full data
             if isDecor then
-                -- Scrape requirements only for decor items (experimental)
-                local requirements = ScrapeItemRequirements(i)
-
-                -- Debug: log requirements result per item (verbose, dev only)
-                if HA.DevAddon then
-                    local reqStr = "nil"
-                    if requirements then
-                        reqStr = (#requirements == 0) and "none" or tostring(#requirements) .. " found"
-                    end
-                    HA.Addon:Debug(string.format("Item %d (%s): requirements=%s",
-                        itemID or 0, name or "?", reqStr))
-                end
-
                 -- Extract decorID (recordID) from catalog entryID if available
                 local decorID = nil
                 if decorInfo and decorInfo.entryID and type(decorInfo.entryID) == "table" then
@@ -484,7 +471,6 @@ function VendorScanner:ProcessScanQueue()
                     isPurchasable = isPurchasable,
                     isUsable = isUsable,    -- Whether player can use/buy this
                     spellID = spellID,      -- Associated spell if any
-                    requirements = requirements, -- Experimental: tooltip-scraped requirements
                     currencies = (#currencies > 0) and currencies or nil,
                     itemCosts = (#itemCosts > 0) and itemCosts or nil,
                     merchantSlot = i,
