@@ -345,10 +345,16 @@ local function UpdateEntryOverlay(entryFrame)
     local itemID = entryInfo.itemID
     if not itemID then return HideAllOverlays(entryFrame) end
 
-    -- Read settings: check both toggles before cache guard so toggling
+    -- Read settings: check toggles before cache guard so toggling
     -- takes effect immediately
     local settings = HA.Addon and HA.Addon.db
         and HA.Addon.db.profile and HA.Addon.db.profile.overlay
+
+    -- Master overlay toggle gates everything
+    if settings and settings.enabled == false then
+        return HideAllOverlays(entryFrame)
+    end
+
     local showBadges = not settings or settings.showOnHousingCatalog ~= false
     local showGlow = not settings or settings.showAccessibilityGlow ~= false
     local ownedStyle = settings and settings.ownedItemStyle or "default"
