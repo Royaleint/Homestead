@@ -1,11 +1,18 @@
 --[[
     Homestead - Catalog Source Intelligence
-    Adds source type badge icons to Housing Catalog grid items so players
-    can see at a glance where unowned items come from without hovering.
+    Adds source type badge icons and accessibility border glow to Housing
+    Catalog grid items so players can see at a glance where unowned items
+    come from and whether they can obtain them without hovering.
 
     Badge shows the primary source type (vendor > quest > achievement >
     profession > event > drop > hearthsteel) using SourceManager priority
     order, with a sourceText fallback for items not in static data.
+
+    Glow shows accessibility state:
+    - Green: owned (at least 1 copy)
+    - Yellow: unowned but a source has all requirements met
+    - Red: unowned and no source has met requirements
+    - No glow: no source data available
 
     Frame structure (confirmed via in-game spike):
     HousingDashboardFrame > ... > depth-5 unnamed Buttons with .entryInfo
@@ -13,8 +20,8 @@
 
     Hooking strategy: Blizzard's catalog scroll does NOT fire OnShow on
     entry frames — it repositions them and swaps .entryInfo directly.
-    We use a throttled OnUpdate on the dashboard to re-evaluate badges
-    at 5Hz. The badgeCache makes cache hits (same itemID) near-free.
+    We use a throttled OnUpdate on the dashboard to re-evaluate overlays
+    at 5Hz. The overlayCache makes cache hits (same itemID) near-free.
 ]]
 
 local _, HA = ...
@@ -29,26 +36,33 @@ local BADGE_PADDING = 2
 -- Per-atlas size overrides for atlases that render too small at BADGE_SIZE
 local ATLAS_SIZE_OVERRIDE = {
     [SourceBadgeAtlas.profession] = 34,
+    [SourceBadgeAtlas.drop] = 34,
 }
 
--- Throttle: how often (seconds) to refresh badges
+-- Accessibility glow colors: {r, g, b, alpha}
+-- Tuning point: adjust these after in-game testing
+local GLOW_COLORS = {
+    owned     = { 0.0, 0.8, 0.0, 0.6 },  -- green: you have at least 1
+    available = { 1.0, 0.8, 0.0, 0.6 },  -- yellow: unowned, source reqs met
+    blocked   = { 1.0, 0.15, 0.15, 0.9 }, -- red: unowned, all sources blocked
+}
+
+-- Throttle: how often (seconds) to refresh overlays
 local REFRESH_INTERVAL = 0.2
 
--- Per-frame result cache: entryFrame → {itemID, atlas or false}
--- Stores the resolved atlas so we skip GetSource on repeat evaluations.
-local badgeCache = {}
+-- Per-frame result cache: entryFrame → {itemID, atlas or false, glowState or false}
+-- Stores resolved badge + glow so we skip GetSource on repeat evaluations.
+local overlayCache = setmetatable({}, { __mode = "k" })
 
 -- Per-frame badge texture references
-local badgeTextures = {}
+local badgeTextures = setmetatable({}, { __mode = "k" })
+
+-- Per-frame glow texture references
+local glowTextures = setmetatable({}, { __mode = "k" })
 
 -- Set of discovered entry frames (hooked for OnShow as bonus, but OnUpdate
 -- is the primary driver). Keyed by frame reference.
-local hookedFrames = {}
-
--- Discovery counter: run tree walk for the first N ticks after dashboard
--- opens, then stop (all frames should be populated by then).
-local DISCOVERY_TICKS = 10
-local discoveryTicksRemaining = 0
+local hookedFrames = setmetatable({}, { __mode = "k" })
 
 -- OnUpdate elapsed accumulator
 local timeSinceRefresh = 0
@@ -79,6 +93,28 @@ local function DiscoverEntryFrames()
 end
 
 -------------------------------------------------------------------------------
+-- sourceText Resolution
+-------------------------------------------------------------------------------
+
+-- Resolve sourceText for a catalog item.  Tries the frame's entryInfo first,
+-- falls back to the Blizzard API (safe from addon code per CLAUDE.md).
+-- Result is NOT cached here — the overlayCache in UpdateEntryOverlay handles it.
+local function ResolveSourceText(entryInfo, itemID)
+    local sourceText = entryInfo and entryInfo.sourceText
+    if sourceText and sourceText ~= "" then return sourceText end
+
+    -- Frame entryInfo may omit sourceText; fetch via API
+    if itemID and C_HousingCatalog and C_HousingCatalog.GetCatalogEntryInfoByItem then
+        local ok, fullInfo = pcall(C_HousingCatalog.GetCatalogEntryInfoByItem, itemID, false)
+        if ok and fullInfo and fullInfo.sourceText and fullInfo.sourceText ~= "" then
+            return fullInfo.sourceText
+        end
+    end
+
+    return nil
+end
+
+-------------------------------------------------------------------------------
 -- Badge Logic
 -------------------------------------------------------------------------------
 
@@ -94,17 +130,29 @@ local function GetSourceBadgeAtlas(itemID)
     return sourceType and SourceBadgeAtlas[sourceType]
 end
 
--- Fallback: check entryInfo.sourceText for source hints when
--- SourceManager has no static data for this item.
-local function GetSourceBadgeFromEntryInfo(entryInfo)
-    local sourceText = entryInfo.sourceText
+-- Fallback: resolve sourceText through the shared parser so catalog badges stay
+-- aligned with the addon's source taxonomy and locale profiles.
+local function GetSourceBadgeFromSourceText(sourceText)
     if not sourceText or sourceText == "" then return nil end
 
     if sourceText:find("Hearthsteel") or sourceText:find("Battle.net Shop") then
         return SourceBadgeAtlas.hearthsteel
     end
 
-    return nil
+    if not HA.SourceTextParser or not HA.SourceTextParser.ParseSourceText
+        or not HA.SourceManager or not HA.SourceManager.NormalizeSourceType then
+        return nil
+    end
+
+    local locale = GetLocale and GetLocale() or "enUS"
+    local parsed = HA.SourceTextParser:ParseSourceText(sourceText, locale)
+    local firstSource = parsed and parsed.sources and parsed.sources[1]
+    if not firstSource or not firstSource.sourceType then
+        return nil
+    end
+
+    local normalizedType = HA.SourceManager:NormalizeSourceType(firstSource.sourceType)
+    return normalizedType and SourceBadgeAtlas[normalizedType]
 end
 
 -- Create or retrieve the badge texture for an entry frame.
@@ -126,6 +174,90 @@ local function HideBadge(entryFrame)
     if badge then badge:Hide() end
 end
 
+-------------------------------------------------------------------------------
+-- Glow Logic
+-------------------------------------------------------------------------------
+
+-- Forward declaration for HideGlow (referenced by ShowGlow fallback)
+local HideGlow
+
+-- Create or retrieve the border glow texture for an entry frame.
+-- Atlas is desaturated so SetVertexColor produces exact colors.
+local function GetGlowTexture(entryFrame)
+    local glow = glowTextures[entryFrame]
+    if glow then return glow end
+
+    glow = entryFrame:CreateTexture(nil, "BACKGROUND", nil, 1)
+    glow:SetAllPoints(entryFrame)
+    glow:SetAtlas("bags-glow-heirloom")
+    glow:SetDesaturated(true)
+    glow:Hide()
+    glowTextures[entryFrame] = glow
+    return glow
+end
+
+-- Show glow with the color for a given state ("owned", "available", "blocked").
+local function ShowGlow(entryFrame, state)
+    local color = GLOW_COLORS[state]
+    if not color then return HideGlow(entryFrame) end
+
+    local glow = GetGlowTexture(entryFrame)
+    glow:SetVertexColor(color[1], color[2], color[3], color[4])
+    glow:Show()
+end
+
+-- Hide the glow texture if it exists for this frame.
+HideGlow = function(entryFrame)
+    local glow = glowTextures[entryFrame]
+    if glow then glow:Hide() end
+end
+
+-- Determine the accessibility state for an item.
+-- Returns "owned", "available", "blocked", or nil (no source data).
+-- Uses entryInfo.firstAcquisitionBonus for live ownership (0 = owned),
+-- which matches Blizzard's Collected/Uncollected filter exactly.
+-- sourceText is pre-resolved by the caller to avoid redundant API calls.
+local function GetAccessibilityState(itemID, entryInfo, sourceText)
+    -- Check ownership via live Blizzard data (firstAcquisitionBonus == 0 = owned)
+    if entryInfo and entryInfo.firstAcquisitionBonus == 0 then
+        return "owned"
+    end
+
+    -- Check if any source has requirements met
+    if HA.SourceManager then
+        local bestSource = HA.SourceManager:GetBestAvailableSource(itemID)
+        if bestSource then
+            return "available"
+        end
+
+        -- Has sources but none available right now
+        local primarySource = HA.SourceManager:GetSource(itemID)
+        if primarySource then
+            return "blocked"
+        end
+    end
+
+    -- Fallback: if Blizzard provides sourceText, the item has a known source
+    -- even though it's not in our static data tables. Default to "available"
+    -- since we can't determine requirements from sourceText alone.
+    if sourceText and sourceText ~= "" then
+        return "available"
+    end
+
+    -- No source data at all
+    return nil
+end
+
+-- Hide both badge and glow for an entry frame (used by early-return paths).
+local function HideAllOverlays(entryFrame)
+    HideBadge(entryFrame)
+    HideGlow(entryFrame)
+end
+
+-------------------------------------------------------------------------------
+-- Badge Display
+-------------------------------------------------------------------------------
+
 -- Apply badge atlas to a frame, with per-atlas size override.
 -- Oversized atlases get a negative anchor offset so the visible artwork
 -- stays flush with the bottom-left corner like the default-sized badges.
@@ -144,48 +276,72 @@ local function ShowBadgeAtlas(entryFrame, atlas)
     badge:Show()
 end
 
--- Update the source badge on an entry frame.
+-- Update source badge and accessibility glow on an entry frame.
 -- Called from OnUpdate tick — must be fast on cache hit.
-local function UpdateEntryBadge(entryFrame)
+local function UpdateEntryOverlay(entryFrame)
     local entryInfo = entryFrame.entryInfo
-    if not entryInfo then return HideBadge(entryFrame) end
+    if not entryInfo then return HideAllOverlays(entryFrame) end
 
     local itemID = entryInfo.itemID
-    if not itemID then return HideBadge(entryFrame) end
+    if not itemID then return HideAllOverlays(entryFrame) end
 
-    -- Settings check before cache guard so toggling takes effect immediately
-    if HA.Addon and HA.Addon.db
-        and HA.Addon.db.profile.overlay
-        and not HA.Addon.db.profile.overlay.showOnHousingCatalog then
-        return HideBadge(entryFrame)
+    -- Read settings: check both toggles before cache guard so toggling
+    -- takes effect immediately
+    local settings = HA.Addon and HA.Addon.db
+        and HA.Addon.db.profile and HA.Addon.db.profile.overlay
+    local showBadges = not settings or settings.showOnHousingCatalog ~= false
+    local showGlow = not settings or settings.showAccessibilityGlow ~= false
+
+    if not showBadges and not showGlow then
+        return HideAllOverlays(entryFrame)
     end
 
     -- Cache hit: re-apply visual state without calling GetSource.
-    local cached = badgeCache[entryFrame]
+    local cached = overlayCache[entryFrame]
     if cached and cached[1] == itemID then
-        if cached[2] then
+        -- Badge
+        if showBadges and cached[2] then
             ShowBadgeAtlas(entryFrame, cached[2])
         else
             HideBadge(entryFrame)
+        end
+        -- Glow
+        if showGlow and cached[3] then
+            ShowGlow(entryFrame, cached[3])
+        else
+            HideGlow(entryFrame)
         end
         return
     end
 
     -- Cache miss: full evaluation
 
-    -- Look up the source badge atlas (static data first, then sourceText)
+    -- Resolve sourceText once (frame entryInfo → API fallback) for badge + glow
+    local sourceText = ResolveSourceText(entryInfo, itemID)
+
+    -- Badge: look up source atlas (static data first, then sourceText)
     local atlas = GetSourceBadgeAtlas(itemID)
     if not atlas then
-        atlas = GetSourceBadgeFromEntryInfo(entryInfo)
-    end
-    if not atlas then
-        badgeCache[entryFrame] = {itemID, false}
-        return HideBadge(entryFrame)
+        atlas = GetSourceBadgeFromSourceText(sourceText)
     end
 
-    -- Show the badge and cache the result
-    badgeCache[entryFrame] = {itemID, atlas}
-    ShowBadgeAtlas(entryFrame, atlas)
+    if showBadges and atlas then
+        ShowBadgeAtlas(entryFrame, atlas)
+    else
+        HideBadge(entryFrame)
+    end
+
+    -- Glow: determine accessibility state
+    local glowState = GetAccessibilityState(itemID, entryInfo, sourceText)
+
+    if showGlow and glowState then
+        ShowGlow(entryFrame, glowState)
+    else
+        HideGlow(entryFrame)
+    end
+
+    -- Cache both results
+    overlayCache[entryFrame] = {itemID, atlas or false, glowState or false}
 end
 
 -------------------------------------------------------------------------------
@@ -194,41 +350,48 @@ end
 
 -- Force all entry frames to re-evaluate on next tick.
 -- Called when ownership or source data changes.
-local function InvalidateAllBadges()
-    wipe(badgeCache)
+local function InvalidateAllOverlays()
+    wipe(overlayCache)
 end
 
--- Re-badge all currently visible entry frames (after invalidation).
-local function RefreshVisibleBadges()
-    InvalidateAllBadges()
+-- Re-evaluate all currently visible entry frames (after invalidation).
+local function RefreshVisibleOverlays()
+    InvalidateAllOverlays()
     for entryFrame in pairs(hookedFrames) do
         if entryFrame:IsShown() then
-            UpdateEntryBadge(entryFrame)
+            UpdateEntryOverlay(entryFrame)
         end
     end
+end
+
+local function RefreshAvailabilityOverlays()
+    if HA.SourceManager and HA.SourceManager.InvalidateAllSourceCaches then
+        HA.SourceManager:InvalidateAllSourceCaches()
+    end
+    RefreshVisibleOverlays()
 end
 
 -------------------------------------------------------------------------------
 -- OnUpdate Driver
 -------------------------------------------------------------------------------
 
--- Throttled update: discover new frames (early ticks only), then refresh
--- all visible badges. Runs at ~5Hz while the dashboard is shown.
+-- Throttled update: discover frames and refresh overlays.
+-- Runs at ~5Hz while the dashboard is shown.
+-- Discovery runs every tick because Blizzard lazily creates/recycles
+-- entry frames on scroll — limiting it to the first N ticks misses frames.
+-- The tree walk is cheap (~15 Button children) and skips already-hooked frames.
 local function OnDashboardUpdate(_, elapsed)
     timeSinceRefresh = timeSinceRefresh + elapsed
     if timeSinceRefresh < REFRESH_INTERVAL then return end
     timeSinceRefresh = 0
 
-    -- Discover new entry frames for the first ~2 seconds after open
-    if discoveryTicksRemaining > 0 then
-        discoveryTicksRemaining = discoveryTicksRemaining - 1
-        DiscoverEntryFrames()
-    end
+    -- Discover any new entry frames (handles scroll-created frames)
+    DiscoverEntryFrames()
 
-    -- Refresh visible badges
+    -- Refresh visible overlays (badges + glow)
     for entryFrame in pairs(hookedFrames) do
         if entryFrame:IsShown() then
-            UpdateEntryBadge(entryFrame)
+            UpdateEntryOverlay(entryFrame)
         end
     end
 end
@@ -241,21 +404,14 @@ local function OnHousingDashboardLoaded()
     local dashboard = _G["HousingDashboardFrame"]
     if not dashboard then return end
 
-    -- Reset discovery on each dashboard open so we catch late-populating frames
+    -- Reset refresh timer on each dashboard open
     dashboard:HookScript("OnShow", function()
-        discoveryTicksRemaining = DISCOVERY_TICKS
         timeSinceRefresh = 0
     end)
 
-    -- OnUpdate drives all badge refreshes — fires every render frame,
+    -- OnUpdate drives all overlay refreshes — fires every render frame,
     -- throttled internally to REFRESH_INTERVAL.
     dashboard:HookScript("OnUpdate", OnDashboardUpdate)
-
-    -- If dashboard is already shown (opened before addon loaded), start now
-    if dashboard:IsShown() then
-        discoveryTicksRemaining = DISCOVERY_TICKS
-        timeSinceRefresh = 0
-    end
 end
 
 -------------------------------------------------------------------------------
@@ -266,18 +422,26 @@ local eventFrame = CreateFrame("Frame")
 eventFrame:RegisterEvent("ACHIEVEMENT_EARNED")
 eventFrame:RegisterEvent("QUEST_TURNED_IN")
 eventFrame:RegisterEvent("NEW_RECIPE_LEARNED")
-eventFrame:SetScript("OnEvent", function()
-    RefreshVisibleBadges()
+eventFrame:RegisterEvent("SKILL_LINES_CHANGED")
+eventFrame:RegisterEvent("UPDATE_FACTION")
+eventFrame:RegisterEvent("MAJOR_FACTION_RENOWN_LEVEL_CHANGED")
+eventFrame:SetScript("OnEvent", function(_, event)
+    if event == "UPDATE_FACTION" or event == "MAJOR_FACTION_RENOWN_LEVEL_CHANGED" then
+        RefreshAvailabilityOverlays()
+    else
+        RefreshVisibleOverlays()
+    end
 end)
 
--- Inter-module ownership change
+-- Inter-module ownership and availability change
 if HA.Events then
-    HA.Events:RegisterCallback("OWNERSHIP_UPDATED", RefreshVisibleBadges)
+    HA.Events:RegisterCallback("OWNERSHIP_UPDATED", RefreshVisibleOverlays)
+    HA.Events:RegisterCallback("ACTIVE_HOLIDAYS_CHANGED", RefreshAvailabilityOverlays)
 end
 
--- Register external refresher so Overlay:RefreshAll() also updates catalog badges
+-- Register external refresher so Overlay:RefreshAll() also updates catalog overlays
 if HA.Overlay then
-    HA.Overlay:RegisterExternalRefresher("catalogBadges", RefreshVisibleBadges)
+    HA.Overlay:RegisterExternalRefresher("catalogBadges", RefreshVisibleOverlays)
 end
 
 -------------------------------------------------------------------------------
@@ -287,5 +451,8 @@ end
 if C_AddOns.IsAddOnLoaded("Blizzard_HousingDashboard") then
     OnHousingDashboardLoaded()
 else
-    EventUtil.ContinueOnAddOnLoaded("Blizzard_HousingDashboard", OnHousingDashboardLoaded)
+    local eventUtil = _G and _G.EventUtil
+    if eventUtil and eventUtil.ContinueOnAddOnLoaded then
+        eventUtil.ContinueOnAddOnLoaded("Blizzard_HousingDashboard", OnHousingDashboardLoaded)
+    end
 end

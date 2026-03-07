@@ -153,10 +153,22 @@ local function GetOptionsTable()
                             if HA.Overlay then HA.Overlay:RefreshAll() end
                         end,
                     },
+                    showAccessibilityGlow = {
+                        type = "toggle",
+                        name = "Show accessibility glow",
+                        desc = "Show green/yellow/red border glow on housing catalog items based on ownership and availability",
+                        width = "double",
+                        order = 8,
+                        get = function() return HA.Addon.db.profile.overlay.showAccessibilityGlow end,
+                        set = function(_, value)
+                            HA.Addon.db.profile.overlay.showAccessibilityGlow = value
+                            if HA.Overlay then HA.Overlay:RefreshAll() end
+                        end,
+                    },
                     spacer2 = {
                         type = "description",
                         name = " ",
-                        order = 8,
+                        order = 9,
                     },
                     iconSize = {
                         type = "range",
@@ -165,7 +177,7 @@ local function GetOptionsTable()
                         min = 8,
                         max = 32,
                         step = 1,
-                        order = 9,
+                        order = 10,
                         get = function() return HA.Addon.db.profile.overlay.iconSize end,
                         set = function(_, value)
                             HA.Addon.db.profile.overlay.iconSize = value
@@ -183,7 +195,7 @@ local function GetOptionsTable()
                             BOTTOMRIGHT = "Bottom Right",
                             CENTER = "Center",
                         },
-                        order = 10,
+                        order = 11,
                         get = function() return HA.Addon.db.profile.overlay.iconAnchor end,
                         set = function(_, value)
                             HA.Addon.db.profile.overlay.iconAnchor = value

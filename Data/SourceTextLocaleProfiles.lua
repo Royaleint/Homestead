@@ -25,6 +25,8 @@ SourceTextLocaleProfiles.Profiles = {
             ["Achievement:"] = "achievement",
             ["Profession:"] = "profession",
             ["Drop:"] = "drop",
+            ["Event:"] = "event",
+            ["Holiday:"] = "event",
         },
         -- Field prefixes (subsequent lines within a block)
         fields = {

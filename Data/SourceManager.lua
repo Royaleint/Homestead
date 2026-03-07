@@ -83,6 +83,69 @@ function SourceManager:GetSource(itemID)
     return nil
 end
 
+local PROFESSION_NAME_TO_SKILLLINE_ID = {
+    Alchemy = 171,
+    Blacksmithing = 164,
+    Cooking = 185,
+    Enchanting = 333,
+    Engineering = 202,
+    Fishing = 356,
+    Herbalism = 182,
+    Inscription = 773,
+    Jewelcrafting = 755,
+    Leatherworking = 165,
+    Mining = 186,
+    Skinning = 393,
+    Tailoring = 197,
+}
+
+local SECONDARY_PROFESSION_SKILL_LINES = {
+    [185] = true, -- Cooking
+    [356] = true, -- Fishing
+}
+
+local activeHolidayInvalidationRegistered = false
+
+local function ResolveProfessionSkillLineID(sourceData)
+    if type(sourceData) ~= "table" then return nil end
+    if sourceData.skillLineID then return sourceData.skillLineID end
+
+    local professionName = sourceData.profession
+    if not professionName or professionName == "Miscellaneous" then
+        return nil
+    end
+
+    return PROFESSION_NAME_TO_SKILLLINE_ID[professionName]
+end
+
+-- Check whether the player has the profession required by a source row.
+-- Prefers locale-neutral skillLineID and falls back to a small canonical mapping
+-- for existing profession source records that only store English names.
+-- Returns true if the profession is available to the player, false otherwise.
+function SourceManager:PlayerHasProfession(sourceData)
+    local skillLineID = ResolveProfessionSkillLineID(sourceData)
+    if not skillLineID then return nil end
+    if SECONDARY_PROFESSION_SKILL_LINES[skillLineID] then return true end
+
+    local getProfessions = _G and _G.GetProfessions
+    local getProfessionInfo = _G and _G.GetProfessionInfo
+    if not getProfessions or not getProfessionInfo then return nil end
+
+    local prof1, prof2 = getProfessions()
+
+    if prof1 then
+        local _, _, _, _, _, _, skillLine = getProfessionInfo(prof1)
+        if skillLine == skillLineID then return true end
+    end
+
+    if prof2 then
+        local _, _, _, _, _, _, skillLine = getProfessionInfo(prof2)
+        if skillLine == skillLineID then return true end
+    end
+
+    return false
+end
+
 -- Check whether a specific source is currently available to this character.
 -- Returns:
 --   true  = available now
@@ -130,7 +193,17 @@ function SourceManager:IsSourceAvailableNow(itemID, source)
         return true
     end
 
-    -- Profession/drop and unknown types: treat as available unless explicitly blocked.
+    -- Profession sources: check whether the player has the required profession.
+    -- Secondary professions and miscellaneous recipes remain available to everyone.
+    if sourceType == "profession" then
+        local hasProf = self:PlayerHasProfession(data)
+        if hasProf == false then
+            return false
+        end
+        return true
+    end
+
+    -- Drop and unknown types: treat as available unless explicitly blocked.
     return true
 end
 
@@ -882,6 +955,12 @@ function SourceManager:GetCompletionStatus(itemID, sourceType, sourceData)
     end
 
     if resolvedType == "profession" then
+        -- Check if the player has this profession before querying recipe status.
+        local hasProf = self:PlayerHasProfession(resolvedData)
+        if hasProf == false then
+            return { color = "|cFFFF0000", suffix = " (Not Your Profession)", met = false }
+        end
+
         local spellID = resolvedData and resolvedData.spellID
         if not spellID then return nil end
 
@@ -936,6 +1015,7 @@ end
 -- Future source/filter caches should be added here so callers have one API.
 function SourceManager:InvalidateAllSourceCaches()
     self:InvalidateCompletionCache()
+    factionNameToID = nil
 end
 
 local function HookCompletionCacheInvalidation()
@@ -945,9 +1025,19 @@ local function HookCompletionCacheInvalidation()
     completionInvalidationFrame:RegisterEvent("ACHIEVEMENT_EARNED")
     completionInvalidationFrame:RegisterEvent("QUEST_TURNED_IN")
     completionInvalidationFrame:RegisterEvent("NEW_RECIPE_LEARNED")
+    completionInvalidationFrame:RegisterEvent("SKILL_LINES_CHANGED")
+    completionInvalidationFrame:RegisterEvent("UPDATE_FACTION")
+    completionInvalidationFrame:RegisterEvent("MAJOR_FACTION_RENOWN_LEVEL_CHANGED")
     completionInvalidationFrame:SetScript("OnEvent", function()
         SourceManager:InvalidateAllSourceCaches()
     end)
+
+    if HA.Events and not activeHolidayInvalidationRegistered then
+        HA.Events:RegisterCallback("ACTIVE_HOLIDAYS_CHANGED", function()
+            SourceManager:InvalidateAllSourceCaches()
+        end)
+        activeHolidayInvalidationRegistered = true
+    end
 end
 
 function SourceManager:IsVendorItem(itemID)

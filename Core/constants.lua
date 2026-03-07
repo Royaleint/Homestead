@@ -60,7 +60,7 @@ Constants.SourceBadgeAtlas = {
     achievement = "UI-Achievement-Shield-NoPoints",
     profession  = "UI-HUD-MicroMenu-Professions-Mouseover",
     event       = "UI-HUD-Calendar-1-Up",
-    drop        = "worldquest-icon-pvp-ffa",
+    drop        = "Crosshair_lootall_64",
     hearthsteel = "hearthsteel-icon-32x32",
 }
 
@@ -459,6 +459,7 @@ Constants.Defaults = {
             showOnMerchant = true,
             showOnAuctionHouse = true,
             showOnHousingCatalog = true,
+            showAccessibilityGlow = true,
             iconSize = 14,
             iconAnchor = "TOPLEFT",
         },
