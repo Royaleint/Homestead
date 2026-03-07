@@ -146,6 +146,35 @@ function SourceManager:PlayerHasProfession(sourceData)
     return false
 end
 
+-- Check whether the player meets the expansion-tier skill level for a recipe.
+-- Uses C_TradeSkillUI to query expansion-specific skill levels (works without UI open).
+-- Returns true if met, false if not, nil if can't determine.
+function SourceManager:PlayerMeetsSkillLevel(sourceData)
+    if type(sourceData) ~= "table" then return nil end
+    local requiredTier = sourceData.skillTier
+    local requiredLevel = sourceData.skillLevel
+    if not requiredTier or not requiredLevel then return nil end
+
+    local tradeSkillUI = _G and _G.C_TradeSkillUI
+    if not tradeSkillUI or not tradeSkillUI.GetAllProfessionTradeSkillLines
+            or not tradeSkillUI.GetProfessionInfoBySkillLineID then
+        return nil
+    end
+
+    local skillLines = tradeSkillUI.GetAllProfessionTradeSkillLines()
+    if not skillLines then return nil end
+
+    for _, skillLineID in ipairs(skillLines) do
+        local info = tradeSkillUI.GetProfessionInfoBySkillLineID(skillLineID)
+        if info and info.professionName == requiredTier then
+            return (info.skillLevel or 0) >= requiredLevel
+        end
+    end
+
+    -- Tier not found in player's skill lines — haven't trained this expansion tier
+    return false
+end
+
 -- Check whether a specific source is currently available to this character.
 -- Returns:
 --   true  = available now
@@ -185,20 +214,40 @@ function SourceManager:IsSourceAvailableNow(itemID, source)
         return true
     end
 
-    -- Quest/Achievement sources are always "available" — they represent the
-    -- acquisition path itself, not a gatekeeper.  A player who doesn't own
-    -- the item yet needs to see "complete quest X" or "earn achievement Y",
-    -- so hiding them when incomplete would be backwards.
-    if sourceType == "quest" or sourceType == "achievement" then
+    -- Quest sources are always "available" — they represent the acquisition
+    -- path itself, not a gatekeeper.
+    if sourceType == "quest" then
         return true
     end
 
-    -- Profession sources: check whether the player has the required profession.
+    -- Achievement sources: check whether the achievement is actually completed.
+    -- Incomplete achievements mean the item isn't obtainable right now → blocked.
+    -- The tooltip still shows the achievement name so the player knows the path.
+    if sourceType == "achievement" then
+        if data.achievementID and GetAchievementInfo then
+            local _, _, _, completed = GetAchievementInfo(data.achievementID)
+            return completed == true
+        end
+        return true  -- No achievementID to check → assume available
+    end
+
+    -- Profession sources: check whether the player has the required profession
+    -- AND meets the expansion-tier skill level requirement.
+    -- Uses C_TradeSkillUI.GetAllProfessionTradeSkillLines + GetProfessionInfoBySkillLineID
+    -- to query expansion-specific skill levels (works without trade skill UI open).
     -- Secondary professions and miscellaneous recipes remain available to everyone.
     if sourceType == "profession" then
         local hasProf = self:PlayerHasProfession(data)
         if hasProf == false then
             return false
+        end
+        -- Check expansion-tier skill level when we have the required data.
+        -- e.g., skillTier = "Midnight Leatherworking", skillLevel = 50
+        if hasProf == true then
+            local meetsLevel = self:PlayerMeetsSkillLevel(data)
+            if meetsLevel == false then
+                return false
+            end
         end
         return true
     end
@@ -959,6 +1008,12 @@ function SourceManager:GetCompletionStatus(itemID, sourceType, sourceData)
         local hasProf = self:PlayerHasProfession(resolvedData)
         if hasProf == false then
             return { color = "|cFFFF0000", suffix = " (Not Your Profession)", met = false }
+        end
+
+        -- Check expansion-tier skill level (e.g., Midnight Leatherworking 50)
+        local meetsLevel = self:PlayerMeetsSkillLevel(resolvedData)
+        if meetsLevel == false then
+            return { color = "|cFFFF0000", suffix = " (Skill Too Low)", met = false }
         end
 
         local spellID = resolvedData and resolvedData.spellID
