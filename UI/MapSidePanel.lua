@@ -118,6 +118,7 @@ local resizeHandle = nil   -- Bottom-edge grip for height resize (detached mode)
 local popOutButton = nil   -- Arrow button to detach (docked mode)
 local closeButton = nil    -- X button (detached mode)
 local reattachButton = nil -- Dock-back button (detached mode)
+local pendingDockedAction = nil  -- "apply" | "remove" | "clear" | nil
 
 -------------------------------------------------------------------------------
 -- 3D Item Preview (uses Blizzard's HousingModelPreviewFrame)
@@ -149,6 +150,10 @@ local function ShowItemPreview(itemID)
         -- Re-apply our map shift if Blizzard's preview resets WorldMapFrame
         local function ReapplyMapShift()
             if panelFrame and panelFrame:IsShown() and not isPoppedOut then
+                if InCombatLockdown() then
+                    pendingDockedAction = "apply"
+                    return
+                end
                 mapShifted = false
                 ShiftMapRight()
             end
@@ -3023,6 +3028,67 @@ end
 
 local panelShowGeneration = 0  -- Incremented each Show, guards deferred callbacks
 
+local function ApplyDockedIntegration()
+    ShiftMapRight()
+
+    if not ShouldUseStandaloneMode() then
+        ReparentMapElements()
+        -- Defer border + content inset by one frame for accurate layout values.
+        -- Guard with generation counter so a quick close cancels this.
+        panelShowGeneration = panelShowGeneration + 1
+        local gen = panelShowGeneration
+        C_Timer.After(0, function()
+            if gen ~= panelShowGeneration then return end
+            if not panelFrame or not panelFrame:IsShown() then return end
+            UnifyTopBorder()
+            ApplyContentInset()
+        end)
+    end
+end
+
+local function RemoveDockedIntegration(restoreMapPosition)
+    RestoreContentInset()
+    RestoreTopBorder()
+    RestoreMapElements()
+    if restoreMapPosition then
+        RestoreMapPosition()
+    else
+        mapShifted = false
+        savedMapPoint = nil
+    end
+end
+
+-------------------------------------------------------------------------------
+-- Combat Lockdown Deferral
+-- WorldMapFrame and its children are protected frames. Mutating them during
+-- combat (SetPoint, SetParent, ClearAllPoints, etc.) triggers
+-- ADDON_ACTION_BLOCKED errors and taints layout values. All docked-mode
+-- map mutations are gated behind InCombatLockdown() and replayed via
+-- PLAYER_REGEN_ENABLED when combat ends.
+-------------------------------------------------------------------------------
+
+local combatFrame = CreateFrame("Frame")
+combatFrame:RegisterEvent("PLAYER_REGEN_ENABLED")
+combatFrame:SetScript("OnEvent", function()
+    if not pendingDockedAction then return end
+    local action = pendingDockedAction
+    pendingDockedAction = nil
+    if action == "apply" then
+        -- Panel was shown during combat; apply map integration now
+        if panelFrame and panelFrame:IsShown() and not isPoppedOut
+                and not WorldMapFrame.isMaximized
+                and WorldMapFrame:IsShown() then
+            ApplyDockedIntegration()
+        end
+    elseif action == "remove" then
+        -- Panel was hidden during combat; restore map now
+        RemoveDockedIntegration(true)
+    elseif action == "clear" then
+        -- Blizzard already repositioned the map; only clear our integrated state.
+        RemoveDockedIntegration(false)
+    end
+end)
+
 local function ShowPanel()
     if not panelFrame then return end
 
@@ -3036,21 +3102,14 @@ local function ShowPanel()
     if WorldMapFrame.isMaximized then return end
 
     panelFrame:Show()
-    ShiftMapRight()
 
-    if not ShouldUseStandaloneMode() then
-        ReparentMapElements()
-        -- Defer border + content inset by one frame for accurate layout values.
-        -- Guard with generation counter so a quick close cancels this.
-        panelShowGeneration = panelShowGeneration + 1
-        local gen = panelShowGeneration
-        C_Timer.After(0, function()
-            if gen ~= panelShowGeneration then return end  -- stale, panel was toggled
-            if not panelFrame or not panelFrame:IsShown() then return end
-            UnifyTopBorder()
-            ApplyContentInset()
-        end)
+    -- Defer all docked map mutations until combat ends
+    if InCombatLockdown() then
+        pendingDockedAction = "apply"
+        return
     end
+
+    ApplyDockedIntegration()
 end
 
 local function HidePanel()
@@ -3069,11 +3128,15 @@ local function HidePanel()
         return
     end
 
-    RestoreContentInset()
-    RestoreTopBorder()
-    RestoreMapElements()
     panelFrame:Hide()
-    RestoreMapPosition()
+
+    -- Defer map restoration until combat ends
+    if InCombatLockdown() then
+        pendingDockedAction = "remove"
+        return
+    end
+
+    RemoveDockedIntegration(true)
 end
 
 -- Update button visibility based on pop-out state
@@ -3153,10 +3216,11 @@ function MapSidePanel:PopOut()
     end
 
     -- 2. Restore all map modifications
-    RestoreContentInset()
-    RestoreTopBorder()
-    RestoreMapElements()
-    RestoreMapPosition()
+    if InCombatLockdown() then
+        pendingDockedAction = "remove"
+    else
+        RemoveDockedIntegration(true)
+    end
 
     -- 3. Panel is already parented to UIParent; no reparent needed
 
@@ -3476,11 +3540,19 @@ function MapSidePanel:Initialize()
         -- Restore all map modifications when map closes
         -- Also bump generation to cancel any pending deferred Show callbacks
         panelShowGeneration = panelShowGeneration + 1
+        -- Explicitly hide panel (no longer auto-hides since parent is UIParent)
+        if panelFrame then panelFrame:Hide() end
+
+        if InCombatLockdown() then
+            -- Map is closing during combat; defer restoration.
+            -- Cancel any pending "apply" — the map is gone, nothing to integrate.
+            pendingDockedAction = "remove"
+            return
+        end
+
         RestoreContentInset()
         RestoreTopBorder()
         RestoreMapElements()
-        -- Explicitly hide panel (no longer auto-hides since parent is UIParent)
-        if panelFrame then panelFrame:Hide() end
         RestoreMapPosition()
         mapShifted = false
     end)
@@ -3493,12 +3565,16 @@ function MapSidePanel:Initialize()
             if isPoppedOut then return end
             if not panelFrame or not panelFrame:IsShown() then return end
             panelShowGeneration = panelShowGeneration + 1
-            RestoreContentInset()
-            RestoreTopBorder()
-            RestoreMapElements()
             panelFrame:Hide()
-            mapShifted = false
-            savedMapPoint = nil
+
+            if InCombatLockdown() then
+                mapShifted = false
+                savedMapPoint = nil
+                pendingDockedAction = "clear"
+                return
+            end
+
+            RemoveDockedIntegration(false)
         end)
     end
 

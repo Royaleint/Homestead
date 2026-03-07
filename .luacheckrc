@@ -88,6 +88,7 @@ read_globals = {
     "GetRealmName",
     "GetTime",
     "HideUIPanel",
+    "InCombatLockdown",
     "HousingModelPreviewFrame",
     "hooksecurefunc",
     "IsAddOnLoaded",
