@@ -377,10 +377,13 @@ local function RenderAchievementSourceLines(tooltip, source, parsedTag, _itemID,
 end
 
 local function RenderProfessionSourceLines(tooltip, source, parsedTag, _itemID, completion, detailed)
-    local profession = source.data.profession or "Unknown"
+    local professionDisplay = source.data.skillTier or source.data.profession or "Unknown"
+    if source.data.skillLevel then
+        professionDisplay = professionDisplay .. " (" .. source.data.skillLevel .. ")"
+    end
 
     if not detailed then
-        tooltip:AddLine("Source: Profession - |cFFFFFFFF" .. profession .. "|r" .. parsedTag, COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
+        tooltip:AddLine("Source: Profession - |cFFFFFFFF" .. professionDisplay .. "|r" .. parsedTag, COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
         return
     end
 
@@ -388,7 +391,7 @@ local function RenderProfessionSourceLines(tooltip, source, parsedTag, _itemID, 
     local recipeColor = completion and completion.color or "|cFF808080"
     local recipeSuffix = completion and (completion.color .. completion.suffix .. "|r") or "|cFF808080 (Unknown)|r"
 
-    tooltip:AddLine("Source: |cFFFFFFFF" .. profession .. "|r" .. parsedTag, COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
+    tooltip:AddLine("Source: |cFFFFFFFF" .. professionDisplay .. "|r" .. parsedTag, COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
     tooltip:AddLine("  Recipe: " .. recipeColor .. recipeName .. "|r" .. recipeSuffix, 1, 1, 1)
 end
 
