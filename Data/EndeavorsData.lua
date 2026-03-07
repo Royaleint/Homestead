@@ -37,6 +37,10 @@ local DIRECT_NPC_FIELDS = {"vendorNPCID", "vendorNpcID", "vendorID", "npcID"}
 -- Vendor name lookup for theme resolution third pass (built after Vendors table)
 local lowerVendorNameToNpcID = {}
 
+local function IsDebugEnabled()
+    return HA.Addon and HA.Addon.db and HA.Addon.db.profile and HA.Addon.db.profile.debug
+end
+
 -- Cultural keyword → theme resolution (fallback for description/title parsing).
 -- Keys are lowercase; matched against lowered text via substring search.
 -- Only include keywords that wouldn't substring-match an Endeavors key name
@@ -439,7 +443,7 @@ local function RequestInitiativeInfo(reason)
     requestingInitiative = true
     local ok = pcall(neighborhoodAPI.RequestNeighborhoodInitiativeInfo)
     requestingInitiative = false
-    if ok and HA.Addon and HA.Addon.db and HA.Addon.db.profile and HA.Addon.db.profile.debug then
+    if ok and IsDebugEnabled() then
         HA.Addon:Debug("EndeavorsData: requested initiative info", "(" .. tostring(reason) .. ")")
     end
 end
@@ -500,13 +504,12 @@ local function RefreshActiveTheme(reason)
 
     UpdateCachedPayload(info)
 
-    if rawTitle and rawTitle ~= "" and not loggedRawTitle and HA.Addon and HA.Addon.db
-            and HA.Addon.db.profile and HA.Addon.db.profile.debug then
+    if rawTitle and rawTitle ~= "" and not loggedRawTitle and IsDebugEnabled() then
         HA.Addon:Debug("EndeavorsData: Neighborhood initiative title:", rawTitle)
         loggedRawTitle = true
     end
 
-    if HA.Addon and HA.Addon.db and HA.Addon.db.profile and HA.Addon.db.profile.debug then
+    if IsDebugEnabled() then
         if activeThemeKnown then
             HA.Addon:Debug("EndeavorsData: active theme:", activeTheme, "(" .. tostring(reason) .. ")")
         else
