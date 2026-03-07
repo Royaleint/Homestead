@@ -49,10 +49,7 @@ local function IsDecorItem(itemLink)
         return false
     end
 
-    local success, info = pcall(function()
-        return C_HousingCatalog.GetCatalogEntryInfoByItem(itemLink, false)
-    end)
-
+    local success, info = pcall(C_HousingCatalog.GetCatalogEntryInfoByItem, itemLink, false)
     return success and info ~= nil
 end
 
@@ -160,29 +157,12 @@ end
 -- Currency icon hyperlinks (e.g. |Hcurrency:...|h|h) are preserved as-is so WoW renders them.
 -- itemID is used to look up achievement/quest/profession completion status via our indexed DB tables.
 -- Defined after AddRequirementsToTooltip to avoid forward reference (Lua 5.1).
-local SOURCE_PREFIX_FALLBACK = {
-    vendor = true,
-    quest = true,
-    achievement = true,
-    profession = true,
-    drop = true,
-}
-
 local function NormalizeSourceTypeFromPrefix(prefixKey)
     if not prefixKey then return nil end
     local sourceType = prefixKey:match("^(%a+):")
     if not sourceType then return nil end
 
-    sourceType = sourceType:lower()
-    if HA.SourceManager and HA.SourceManager.NormalizeSourceType then
-        return HA.SourceManager:NormalizeSourceType(sourceType)
-    end
-
-    if SOURCE_PREFIX_FALLBACK[sourceType] then
-        return sourceType
-    end
-
-    return nil
+    return HA.SourceManager:NormalizeSourceType(sourceType:lower())
 end
 
 local function RenderSourceText(tooltip, sourceText, itemID)
@@ -885,16 +865,6 @@ end
 -- Initialization
 -------------------------------------------------------------------------------
 
--- Helper to check if addon is loaded (compatible with different WoW versions)
-local function IsAddonLoaded(name)
-    if C_AddOns and C_AddOns.IsAddOnLoaded then
-        return C_AddOns.IsAddOnLoaded(name)
-    elseif IsAddOnLoaded then
-        return IsAddOnLoaded(name)
-    end
-    return false
-end
-
 local function Initialize()
     -- Hook standard item tooltips
     HookTooltips()
@@ -907,8 +877,8 @@ local function Initialize()
         if event == "MERCHANT_SHOW" then
             local guid = UnitGUID("npc")
             if guid then
-                local ok, npcIDText = pcall(string.match, guid, "^%a+%-%d+%-%d+%-%d+%-%d+%-(%d+)")
-                cachedMerchantNpcID = ok and tonumber(npcIDText) or nil
+                local npcIDText = guid:match("^%a+%-%d+%-%d+%-%d+%-%d+%-(%d+)")
+                cachedMerchantNpcID = tonumber(npcIDText)
             else
                 cachedMerchantNpcID = nil
             end
@@ -945,7 +915,7 @@ local function Initialize()
     end)
 
     -- Try to hook Housing Catalog if already loaded
-    if IsAddonLoaded("Blizzard_HousingDashboard") or IsAddonLoaded("Blizzard_HousingTemplates") then
+    if C_AddOns.IsAddOnLoaded("Blizzard_HousingDashboard") or C_AddOns.IsAddOnLoaded("Blizzard_HousingTemplates") then
         if HA.Addon then
             HA.Addon:Debug("Housing addon already loaded, hooking now")
         end
@@ -982,38 +952,3 @@ else
     end)
 end
 
--------------------------------------------------------------------------------
--- Public API
--------------------------------------------------------------------------------
-
-HA.Tooltips = {
-    -- Manual refresh (re-hook if needed)
-    Refresh = function()
-        if not isHooked then
-            HookTooltips()
-        end
-        if not isCatalogHooked then
-            HookHousingCatalog()
-        end
-    end,
-
-    -- Check if tooltips are hooked
-    IsHooked = function()
-        return isHooked
-    end,
-
-    -- Check if catalog tooltips are hooked
-    IsCatalogHooked = function()
-        return isCatalogHooked
-    end,
-
-    -- Manually add decor info to a tooltip (for custom UI)
-    AddDecorInfo = function(tooltip, itemLink)
-        AddDecorInfoToTooltip(tooltip, itemLink)
-    end,
-
-    -- Add source info only (for external use)
-    AddSourceInfo = function(tooltip, itemID)
-        return AddSourceInfoToTooltip(tooltip, itemID)
-    end,
-}
