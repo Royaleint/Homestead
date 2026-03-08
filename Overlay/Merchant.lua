@@ -73,7 +73,8 @@ local function UpdateMerchantButton(button, index)
         return
     end
 
-    -- Merchant UX: any owned item (including currently placed) uses checkmark.
+    -- Merchant UX: checkmark on owned items, nothing on unowned (Blizzard
+    -- already provides a red overlay and unlock requirements for locked items).
     local isOwned = DecorTracker:IsCollected(itemLink)
     if isOwned and overlay.icon then
         overlay.icon:SetTexture(OWNED_CHECK_ICON)
@@ -82,7 +83,7 @@ local function UpdateMerchantButton(button, index)
         return
     end
 
-    Overlay:SetIcon(overlay, itemLink)
+    Overlay:ClearIcon(overlay)
 end
 
 -------------------------------------------------------------------------------
