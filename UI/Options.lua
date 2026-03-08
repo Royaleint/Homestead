@@ -83,7 +83,7 @@ local function GetOptionsTable()
                     enabled = {
                         type = "toggle",
                         name = L["Enable overlays"] or "Enable overlays",
-                        desc = "Show collection status icons on items",
+                        desc = "Add small icons and highlights to decor items throughout the game so you can tell at a glance which ones you've collected. Turning this off hides all Homestead overlays everywhere.",
                         width = "full",
                         order = 1,
                         get = function() return HA.Addon.db.profile.overlay.enabled end,
@@ -97,7 +97,7 @@ local function GetOptionsTable()
                     iconSize = {
                         type = "range",
                         name = L["Icon size"] or "Icon size",
-                        desc = "Size of the overlay icons",
+                        desc = "Controls how large the collection icons appear on item slots.",
                         min = 8,
                         max = 32,
                         step = 1,
@@ -111,7 +111,7 @@ local function GetOptionsTable()
                     iconAnchor = {
                         type = "select",
                         name = L["Icon position"] or "Icon position",
-                        desc = "Position of the overlay icon on items",
+                        desc = "Which corner of the item slot the collection icon sits in.",
                         values = {
                             TOPLEFT = "Top Left",
                             TOPRIGHT = "Top Right",
@@ -136,7 +136,7 @@ local function GetOptionsTable()
                     showOnBags = {
                         type = "toggle",
                         name = L["Show on bags"] or "Show on bags",
-                        desc = "Show overlay icons on bag items (includes Baganator and BetterBags)",
+                        desc = "Adds a |TInterface\\RaidFrame\\ReadyCheck-Ready:16|t to decor items in your bags that you've already collected. Works with default bags, Baganator, and BetterBags.",
                         order = 11,
                         get = function() return HA.Addon.db.profile.overlay.showOnBags end,
                         set = function(_, value)
@@ -147,7 +147,7 @@ local function GetOptionsTable()
                     showOnBank = {
                         type = "toggle",
                         name = L["Show on bank"] or "Show on bank",
-                        desc = "Show overlay icons on bank items",
+                        desc = "Mark decor items in your bank so you can see which ones you've already collected.",
                         order = 12,
                         get = function() return HA.Addon.db.profile.overlay.showOnBank end,
                         set = function(_, value)
@@ -158,7 +158,7 @@ local function GetOptionsTable()
                     showOnAuctionHouse = {
                         type = "toggle",
                         name = L["Show on auction house"] or "Show on auction house",
-                        desc = "Show overlay icons on auction house items",
+                        desc = "Mark decor items on the auction house so you can avoid buying duplicates.",
                         width = "double",
                         order = 13,
                         get = function() return HA.Addon.db.profile.overlay.showOnAuctionHouse end,
@@ -177,7 +177,7 @@ local function GetOptionsTable()
                     showOnMerchant = {
                         type = "toggle",
                         name = L["Show on merchant"] or "Show on merchant",
-                        desc = "Show overlay icons on vendor items",
+                        desc = "Adds a |TInterface\\RaidFrame\\ReadyCheck-Ready:16|t to decor items at vendors that you've already collected.",
                         order = 21,
                         get = function() return HA.Addon.db.profile.overlay.showOnMerchant end,
                         set = function(_, value)
@@ -195,7 +195,14 @@ local function GetOptionsTable()
                     showOnHousingCatalog = {
                         type = "toggle",
                         name = L["Show on housing catalog"] or "Show on housing catalog",
-                        desc = "Show overlay icons on housing catalog items",
+                        desc = "Mark items in the Housing Catalog with collection icons showing where each item comes from.\n\n"
+                            .. "|A:auctionhouse-icon-coin-gold:16:16|a Vendor\n"
+                            .. "|A:QuestNormal:16:16|a Quest\n"
+                            .. "|A:UI-Achievement-Shield-NoPoints:16:16|a Achievement\n"
+                            .. "|A:UI-HUD-MicroMenu-Professions-Mouseover:16:16|a Profession\n"
+                            .. "|A:UI-HUD-Calendar-1-Up:16:16|a Event\n"
+                            .. "|A:Crosshair_lootall_64:16:16|a Drop\n"
+                            .. "|A:hearthsteel-icon-32x32:16:16|a Battle.net Shop",
                         width = "double",
                         order = 31,
                         get = function() return HA.Addon.db.profile.overlay.showOnHousingCatalog end,
@@ -207,7 +214,7 @@ local function GetOptionsTable()
                     showAccessibilityGlow = {
                         type = "toggle",
                         name = "Show accessibility glow",
-                        desc = "Show green/yellow/red border glow on housing catalog items based on ownership and availability",
+                        desc = "Add a colored border glow to Housing Catalog items: green for owned, yellow for items you can get, and red for items that are locked behind requirements you haven't met yet.",
                         width = "double",
                         order = 32,
                         get = function() return HA.Addon.db.profile.overlay.showAccessibilityGlow end,
@@ -219,7 +226,7 @@ local function GetOptionsTable()
                     ownedItemStyle = {
                         type = "select",
                         name = "Owned item style",
-                        desc = "How to visually distinguish items you already own in the Housing Catalog.",
+                        desc = "Choose how collected items look in the Housing Catalog. Green highlight shows the default glow, Dimmed fades them out, and Checkmark adds a small green check. Pick None to leave them untouched.",
                         width = "double",
                         order = 33,
                         values = {
