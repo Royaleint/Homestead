@@ -380,7 +380,7 @@ local function GetOptionsTable()
                     enabled = {
                         type = "toggle",
                         name = L["Enable tooltip additions"] or "Enable tooltip additions",
-                        desc = "Add collection status to item tooltips",
+                        desc = "Add Homestead information to item tooltips when you hover over decor items. Turning this off removes all tooltip additions.",
                         width = "full",
                         order = 1,
                         get = function() return HA.Addon.db.profile.tooltip.enabled end,
@@ -391,7 +391,7 @@ local function GetOptionsTable()
                     showOwned = {
                         type = "toggle",
                         name = "Show ownership status",
-                        desc = "Show whether you own a decor item",
+                        desc = "Add a line to tooltips showing whether you've already collected a decor item.",
                         width = "double",
                         order = 2,
                         get = function() return HA.Addon.db.profile.tooltip.showOwned end,
@@ -402,7 +402,7 @@ local function GetOptionsTable()
                     showSource = {
                         type = "toggle",
                         name = L["Show source information"] or "Show source information",
-                        desc = "Show where to obtain uncollected items",
+                        desc = "Show where uncollected items come from, such as which vendor sells it or what quest rewards it.",
                         width = "double",
                         order = 3,
                         get = function() return HA.Addon.db.profile.tooltip.showSource end,
@@ -413,7 +413,7 @@ local function GetOptionsTable()
                     showQuantity = {
                         type = "toggle",
                         name = L["Show quantity owned"] or "Show quantity owned",
-                        desc = "Show how many of this item you own",
+                        desc = "Display how many copies of a decor item you currently own.",
                         order = 4,
                         get = function() return HA.Addon.db.profile.tooltip.showQuantity end,
                         set = function(_, value)
@@ -423,7 +423,7 @@ local function GetOptionsTable()
                     showRequirements = {
                         type = "toggle",
                         name = "Show requirements",
-                        desc = "Show acquisition requirements (reputation, quest, etc.) in tooltips",
+                        desc = "Display purchase requirements like reputation, quest completion, or achievements needed to buy an item.",
                         width = "double",
                         order = 5,
                         get = function() return HA.Addon.db.profile.tooltip.showRequirements end,
@@ -434,7 +434,7 @@ local function GetOptionsTable()
                     showAllSources = {
                         type = "toggle",
                         name = "Show all sources",
-                        desc = "Show all known sources for an item instead of just the primary source",
+                        desc = "List every known way to obtain an item instead of just the primary source. Helpful when an item is sold by multiple vendors or available from both a quest and a vendor.",
                         width = "double",
                         order = 6,
                         get = function() return HA.Addon.db.profile.tooltip.showAllSources end,
@@ -452,7 +452,7 @@ local function GetOptionsTable()
                     showVendorDetails = {
                         type = "toggle",
                         name = L["Show vendor details in tooltips"] or "Show vendor details in tooltips",
-                        desc = "Show items sold and collection status when hovering over map pins",
+                        desc = "Show a vendor's full inventory and your collection progress when hovering over their map pin. Disable for a simpler tooltip with just the vendor name.",
                         width = "double",
                         order = 11,
                         get = function() return HA.Addon.db.profile.vendorTracer.showVendorDetails end,
