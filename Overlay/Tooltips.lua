@@ -253,6 +253,62 @@ local function RenderSourceText(tooltip, sourceText, itemID)
         end
     end
 
+    -- Merge separate vendor blocks with the same vendor name.
+    -- Blizzard sometimes separates each zone into its own |n|n-delimited block.
+    -- This collapses them into a single block before rendering.
+    local mergedBlocks = {}
+    local mergedBlockTypes = {}
+    for blockIdx, lines in ipairs(blocks) do
+        local bType = blockTypes[blockIdx]
+        if bType == "vendor" and #mergedBlocks > 0 then
+            local prevIdx = #mergedBlocks
+            if mergedBlockTypes[prevIdx] == "vendor" then
+                -- Compare vendor names (first line of each block)
+                local prevName = mergedBlocks[prevIdx][1] and mergedBlocks[prevIdx][1]:match("^Vendor:%s*(.+)")
+                local curName = lines[1] and lines[1]:match("^Vendor:%s*(.+)")
+                if prevName and curName and prevName == curName then
+                    -- Merge: skip the duplicate "Vendor:" header line, append rest
+                    for i = 2, #lines do
+                        mergedBlocks[prevIdx][#mergedBlocks[prevIdx] + 1] = lines[i]
+                    end
+                    -- skip adding as separate block
+                    goto continue
+                end
+            end
+        end
+        mergedBlocks[#mergedBlocks + 1] = lines
+        mergedBlockTypes[#mergedBlocks] = bType
+        ::continue::
+    end
+    blocks = mergedBlocks
+    blockTypes = mergedBlockTypes
+
+    -- Consolidate duplicate "Zone:" lines within vendor blocks.
+    -- Blizzard sometimes lists the same vendor with multiple zones (e.g. Mimzy Miscellanea
+    -- in Stormwind, Orgrimmar, Dornogal, Silvermoon). Keep only the first zone and append
+    -- a count suffix so the tooltip stays compact.
+    for blockIdx, lines in ipairs(blocks) do
+        if blockTypes[blockIdx] == "vendor" then
+            local zoneLines = {}
+            for i, line in ipairs(lines) do
+                if line:match("^Zone:%s*") then
+                    zoneLines[#zoneLines + 1] = i
+                end
+            end
+            if #zoneLines > 1 then
+                -- Extract first zone value for the consolidated line
+                local firstLabel, firstValue = lines[zoneLines[1]]:match("^([^:]+:%s*)(.*)")
+                local extra = #zoneLines - 1
+                lines[zoneLines[1]] = (firstLabel or "Zone: ") .. (firstValue or "Unknown")
+                    .. " (+" .. extra .. " more location" .. (extra > 1 and "s" or "") .. ")"
+                -- Remove remaining zone lines in reverse order to preserve indices
+                for j = #zoneLines, 2, -1 do
+                    table.remove(lines, zoneLines[j])
+                end
+            end
+        end
+    end
+
     -- Per-block completion lookup via SourceManager
     local hasCompletionAPI = itemID and HA.SourceManager and HA.SourceManager.GetCompletionStatus
 
@@ -505,6 +561,25 @@ local function AddSourceInfoToTooltip(tooltip, itemID, context, detailed)
             end
         end
         sourcesToRender = filtered
+    end
+
+    -- Consolidate same-name vendor sources: when parsed sourceText yields
+    -- multiple vendor entries for the same NPC in different zones, keep only
+    -- the first occurrence so the tooltip stays compact.
+    if #sourcesToRender > 1 then
+        local seenVendors = {}
+        local consolidated = {}
+        for _, source in ipairs(sourcesToRender) do
+            if source.type == "vendor" and source.data and source.data.name then
+                if not seenVendors[source.data.name] then
+                    seenVendors[source.data.name] = true
+                    consolidated[#consolidated + 1] = source
+                end
+            else
+                consolidated[#consolidated + 1] = source
+            end
+        end
+        sourcesToRender = consolidated
     end
 
     -- Render each source via dispatch table, tracking which types were rendered
