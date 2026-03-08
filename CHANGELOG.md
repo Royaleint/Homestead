@@ -21,6 +21,12 @@
 ### Improved
 
 - The addon now figures out which Endeavor is active much faster and doesn't keep rechecking once it knows.
+- Reorganized the Settings panel — minimap and waypoint options now have their own tab, vendor visibility and pin colors moved to General, and option descriptions are clearer throughout.
+
+### Fixed
+
+- Fixed a crash ("attempt to perform arithmetic on a secret number value") that could occur when hovering over world quest icons on the map after visiting a merchant. (Thanks sampconrad on CurseForge!)
+- Fixed "AddOn tried to call the protected function 'WorldMapFrame:SetPoint()'" errors when opening the world map during combat with the vendor panel enabled. The panel now waits for combat to end before adjusting the map layout. (Thanks sampconrad on CurseForge!)
 
 ### Vendor Database
 

@@ -485,7 +485,6 @@ Constants.Defaults = {
             useNativeWaypoints = true,
             autoWaypoint = false,
             showVendorDetails = true,
-            showMissingAtVendor = true,
             navigateModifier = "shift",  -- shift, ctrl, alt, or none
             showOppositeFaction = true,  -- Show vendors for opposite faction with faction emblem
             pinColorPreset = "default",              -- Color preset key or "custom"
@@ -526,9 +525,6 @@ Constants.Defaults = {
         scannedVendors = {},  -- [npcID] = { npcID, name, mapID, coords, decor, ... }
         -- Persistent no-decor vendor tracking (survives ClearScannedData)
         noDecorVendors = {},  -- [npcID] = { name, confirmedAt, itemCount, inDatabase, scanConfidence, confirmCount }
-        -- Experimental: tooltip-based requirement detection (disabled — causes
-        -- GameTooltipMoneyFrame taint; sourceText parsing supersedes this)
-        enableRequirementScraping = false,
         -- Discovered initiative ID → theme mappings (high-confidence matches only)
         discoveredInitiativeThemes = {},  -- [initiativeID] = themeName
         -- NPC ID corrections detected when visiting vendors
