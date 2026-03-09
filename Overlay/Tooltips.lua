@@ -260,6 +260,7 @@ local function RenderSourceText(tooltip, sourceText, itemID)
     local mergedBlockTypes = {}
     for blockIdx, lines in ipairs(blocks) do
         local bType = blockTypes[blockIdx]
+        local merged = false
         if bType == "vendor" and #mergedBlocks > 0 then
             local prevIdx = #mergedBlocks
             if mergedBlockTypes[prevIdx] == "vendor" then
@@ -271,14 +272,14 @@ local function RenderSourceText(tooltip, sourceText, itemID)
                     for i = 2, #lines do
                         mergedBlocks[prevIdx][#mergedBlocks[prevIdx] + 1] = lines[i]
                     end
-                    -- skip adding as separate block
-                    goto continue
+                    merged = true
                 end
             end
         end
-        mergedBlocks[#mergedBlocks + 1] = lines
-        mergedBlockTypes[#mergedBlocks] = bType
-        ::continue::
+        if not merged then
+            mergedBlocks[#mergedBlocks + 1] = lines
+            mergedBlockTypes[#mergedBlocks] = bType
+        end
     end
     blocks = mergedBlocks
     blockTypes = mergedBlockTypes
