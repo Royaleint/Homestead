@@ -77,12 +77,7 @@ local function RegisterDefaultProviders()
             end
         end,
         getSources = function(itemID)
-            -- Phase 2 will add GetVendorSources (multi-vendor); single for now
-            local vendorData = SourceManager:GetVendorSource(itemID)
-            if vendorData then
-                return {{type = "vendor", data = vendorData}}
-            end
-            return EMPTY_SOURCES
+            return SourceManager:GetVendorSources(itemID)
         end,
     })
 
@@ -431,6 +426,37 @@ function SourceManager:GetAllSources(itemID)
     return sources
 end
 
+local function BuildVendorSourceData(itemID, vendor)
+    if not itemID or not vendor then return nil end
+
+    local cost = nil
+    if vendor.items and HA.VendorData then
+        for _, item in ipairs(vendor.items) do
+            local vendorItemID = HA.VendorData:GetItemID(item) or item.itemID
+            if vendorItemID == itemID then
+                cost = HA.VendorData:GetItemCost(item)
+                if not cost and vendor._isScanned then
+                    cost = HA.VendorData:NormalizeScannedCost(item)
+                end
+                break
+            end
+        end
+    end
+
+    return {
+        vendor = vendor,
+        npcID = vendor.npcID,
+        name = vendor.name,
+        vendorName = vendor.name,
+        zone = vendor.zone,
+        subzone = vendor.subzone,
+        mapID = vendor.mapID,
+        faction = vendor.faction,
+        coords = vendor.coords or (vendor.x and vendor.y and {x = vendor.x, y = vendor.y}),
+        cost = cost,
+    }
+end
+
 -- Helper: Get vendor source from VendorData
 function SourceManager:GetVendorSource(itemID)
     if not HA.VendorData or not HA.VendorData.GetClosestVendorForItem then
@@ -438,37 +464,30 @@ function SourceManager:GetVendorSource(itemID)
     end
 
     local vendor = HA.VendorData:GetClosestVendorForItem(itemID)
-    if vendor then
+    return BuildVendorSourceData(itemID, vendor)
+end
 
-        -- Try to get cost data for this item (handles both static and scanned formats)
-        local cost = nil
-        if vendor.items then
-            for _, item in ipairs(vendor.items) do
-                local vendorItemID = HA.VendorData:GetItemID(item) or item.itemID
-                if vendorItemID == itemID then
-                    cost = HA.VendorData:GetItemCost(item)
-                    -- If no static-format cost, try scanned format normalization
-                    if not cost and vendor._isScanned then
-                        cost = HA.VendorData:NormalizeScannedCost(item)
-                    end
-                    break
-                end
-            end
-        end
-
-        return {
-            npcID = vendor.npcID,
-            name = vendor.name,
-            zone = vendor.zone,
-            subzone = vendor.subzone,
-            mapID = vendor.mapID,
-            faction = vendor.faction,
-            coords = vendor.coords or (vendor.x and vendor.y and {x = vendor.x, y = vendor.y}),
-            cost = cost,
-        }
+-- Get ALL vendor sources for an item (not just the closest).
+-- Returns array of {type = "vendor", data = {...}} entries.
+function SourceManager:GetVendorSources(itemID)
+    if not itemID or not HA.VendorData or not HA.VendorData.GetVendorsForItem then
+        return EMPTY_SOURCES
     end
 
-    return nil
+    local vendors = HA.VendorData:GetVendorsForItem(itemID)
+    if not vendors or #vendors == 0 then
+        return EMPTY_SOURCES
+    end
+
+    local sources = {}
+    for _, vendor in ipairs(vendors) do
+        local vendorData = BuildVendorSourceData(itemID, vendor)
+        if vendorData then
+            sources[#sources + 1] = { type = "vendor", data = vendorData }
+        end
+    end
+
+    return sources
 end
 
 -- Helper: Get best parsed source for an item (from SourceTextScanner)
