@@ -5,7 +5,7 @@
     STRUCTURE: NPC-keyed for O(1) lookups
     VendorDatabase.Vendors[npcID] = { name, mapID, x, y, zone, ... }
 
-    Updated: 2026-02-01 22:14
+    Updated: 2026-03-08 10:14
 ]]
 
 local _, HA = ...
@@ -1242,6 +1242,8 @@ VendorDatabase.Vendors = {
         faction = "Neutral",
         currency = "Dragon Isles Supplies",
         expansion = "Dragonflight",
+        scanConfirmed = "2026-03-08",
+        scanCoverage = "full",
         items = {{238975, cost = {currencies = {{id = 2003, amount = 750}}}}, {245283, cost = {currencies = {{id = 2003, amount = 400}}}}, {245285, cost = {currencies = {{id = 2003, amount = 100}}}}, {245286, cost = {currencies = {{id = 2003, amount = 250}}}}, {245287, cost = {currencies = {{id = 2003, amount = 250}}}}, {245288, cost = {currencies = {{id = 2003, amount = 250}}}}},
     },
 	[189226] = {
@@ -1253,27 +1255,21 @@ VendorDatabase.Vendors = {
         faction = "Neutral",
         currency = "Dragon Isles Supplies",
         expansion = "Dragonflight",
+        scanConfirmed = "2026-03-08",
+        scanCoverage = "full",
         items = {{238975, cost = {currencies = {{id = 2003, amount = 750}}}}, {245283, cost = {currencies = {{id = 2003, amount = 400}}}}, {245285, cost = {currencies = {{id = 2003, amount = 100}}}}, {245286, cost = {currencies = {{id = 2003, amount = 250}}}}, {245287, cost = {currencies = {{id = 2003, amount = 250}}}}, {245288, cost = {currencies = {{id = 2003, amount = 250}}}}},
-    },
-	[191069] = {
-        name = "Cataloger Jakes",
-        mapID = 2112,
-        x = 0.264, y = 0.344,
-        zone = "Valdrakken",
-        faction = "Neutral",
-        currency = "Gold",
-        expansion = "Dragonflight",
-        items = {248117, 250912},
     },
 	[193015] = {
         name = "Unatos",
         mapID = 2112,
         x = 0.58, y = 0.354,
         zone = "Valdrakken",
-        subzone = "Seat of the Aspects",
+        subzone = "The Seat of the Aspects",
         faction = "Neutral",
         currency = "Dragon Isles Supplies",
         expansion = "Dragonflight",
+        scanConfirmed = "2026-03-08",
+        scanCoverage = "full",
         items = {{248103, cost = {currencies = {{id = 2003, amount = 300}}}}, {248112, cost = {currencies = {{id = 2003, amount = 400}}}}, {248652, cost = {currencies = {{id = 2003, amount = 250}}}}, {256168, cost = {currencies = {{id = 2003, amount = 10}}}}, {256169, cost = {currencies = {{id = 2003, amount = 500}}}}},
     },
 	[193659] = {
@@ -1281,9 +1277,12 @@ VendorDatabase.Vendors = {
         mapID = 2112,
         x = 0.368, y = 0.506,
         zone = "Valdrakken",
+        subzone = "The Obsidian Enclave",
         faction = "Neutral",
         currency = "Dragon Isles Supplies",
         expansion = "Dragonflight",
+        scanConfirmed = "2026-03-08",
+        scanCoverage = "full",
         items = {250912},
     },
 	[196637] = {
@@ -1296,6 +1295,8 @@ VendorDatabase.Vendors = {
         currency = "Gold",
         altCurrency = "Dragon Isles Supplies",
         expansion = "Dragonflight",
+        scanConfirmed = "2026-03-08",
+        scanCoverage = "partial",
         items = {246091, 246863, 248759, 249545, {249547, cost = {gold = 2500000}}, {249548, cost = {gold = 2500000}}, {249549, cost = {gold = 3000000, currencies = {{id = 2003, amount = 200}}}}, {249824, cost = {gold = 2500000}}},
     },
 	[199605] = {
@@ -1303,21 +1304,13 @@ VendorDatabase.Vendors = {
         mapID = 2112,
         x = 0.584, y = 0.574,
         zone = "Valdrakken",
+        subzone = "Valdrakken Treasury Hoard",
         faction = "Neutral",
         currency = "Dragon Isles Supplies",
-        altCurrency = "Gold",
         expansion = "Dragonflight",
-        items = {248124, 249547, 249548, {249549, cost = {gold = 3000000, currencies = {{id = 2003, amount = 200}}}}, 249824},
-    },
-	[207514] = {
-        name = "Ellandrieth",
-        mapID = 217,
-        x = 0.498, y = 0.63,
-        zone = "Bel'ameth",
-        faction = "Alliance",
-        currency = "Gold",
-        expansion = "Dragonflight",
-        items = {{243242, cost = {gold = 500000}}, {243243, cost = {gold = 750000}}, 245462, {245575, cost = {gold = 1250000}}, {245576, cost = {gold = 500000}}, {245578, cost = {gold = 1000000}}, {245579, cost = {gold = 750000}}, 246110, 248401, 251022, 264008},
+        scanConfirmed = "2026-03-08",
+        scanCoverage = "full",
+        items = {{248124, cost = {currencies = {{id = 2003, amount = 7500}}}}},
     },
 	[209192] = {
         name = "Provisioner Aristta",
@@ -1950,10 +1943,13 @@ VendorDatabase.Vendors = {
         mapID = 2112,
         x = 0.715, y = 0.496,
         zone = "Valdrakken",
+        subzone = "The Parting Glass",
         faction = "Neutral",
         currency = "Dragon Isles Supplies",
         expansion = "Dragonflight",
-        items = {{246706, cost = {currencies = {{id = 2003, amount = 100}}}}, {247223, cost = {currencies = {{id = 2003, amount = 175}}}}, {248103, cost = {currencies = {{id = 2003, amount = 300}}}}, 248104, {248112, cost = {currencies = {{id = 2003, amount = 400}}}}, 248124, {248651, cost = {currencies = {{id = 2003, amount = 600}}}}, {248652, cost = {currencies = {{id = 2003, amount = 250}}}}, {248653, cost = {currencies = {{id = 2003, amount = 50}}}}, {248655, cost = {currencies = {{id = 2003, amount = 200}}}}, {256169, cost = {currencies = {{id = 2003, amount = 500}}}}, {256429, cost = {currencies = {{id = 2003, amount = 200}}}}, 262616, 267082},
+        scanConfirmed = "2026-03-08",
+        scanCoverage = "full",
+        items = {{246706, cost = {currencies = {{id = 2003, amount = 100}}}}, {247223, cost = {currencies = {{id = 2003, amount = 175}}}}, {248103, cost = {currencies = {{id = 2003, amount = 300}}}}, {248104, cost = {currencies = {{id = 2003, amount = 150}}}}, {248112, cost = {currencies = {{id = 2003, amount = 400}}}}, {248651, cost = {currencies = {{id = 2003, amount = 600}}}}, {248652, cost = {currencies = {{id = 2003, amount = 250}}}}, {248653, cost = {currencies = {{id = 2003, amount = 50}}}}, {248655, cost = {currencies = {{id = 2003, amount = 200}}}}, {256169, cost = {currencies = {{id = 2003, amount = 500}}}}, {256429, cost = {currencies = {{id = 2003, amount = 200}}}}},
     },
 	[253086] = {
         name = "Jolinth",
@@ -2657,9 +2653,12 @@ VendorDatabase.Vendors = {
         mapID = 2022,
         x = 0.618, y = 0.738,
         zone = "The Waking Shores",
+        subzone = "Ruby Lifeshrine",
         faction = "Neutral",
         currency = "Gold",
         expansion = "Dragonflight",
+        scanConfirmed = "2026-03-08",
+        scanCoverage = "full",
         items = {246863},
     },
     -- Midnight: Zul'Aman vendors
