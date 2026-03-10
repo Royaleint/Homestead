@@ -96,8 +96,8 @@ local function CollectContainerButtons(containerFrame)
         if not frame or depth > 4 then
             return
         end
-        local children = { frame:GetChildren() }
-        for _, child in ipairs(children) do
+        for i = 1, select("#", frame:GetChildren()) do
+            local child = select(i, frame:GetChildren())
             if IsLikelyItemButton(child) then
                 AddButton(child)
             end

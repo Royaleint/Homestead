@@ -77,16 +77,20 @@ local dashboardVisible = false
 
 -- Recursively search for entry Button frames with .entryInfo.
 -- Hoisted to file scope to avoid closure allocation per tick.
-local function SearchChildren(frame, depth)
+local function ProcessChildren(depth, ...)
     if depth > 6 then return end
-    local children = { frame:GetChildren() }
-    for _, child in ipairs(children) do
+    for i = 1, select("#", ...) do
+        local child = select(i, ...)
         if child.entryInfo and child:GetObjectType() == "Button"
             and not hookedFrames[child] then
             hookedFrames[child] = true
         end
-        SearchChildren(child, depth + 1)
+        ProcessChildren(depth + 1, child:GetChildren())
     end
+end
+
+local function SearchChildren(frame, depth)
+    ProcessChildren(depth, frame:GetChildren())
 end
 
 -- Scan for entry Button frames with .entryInfo and hook any we haven't seen.
@@ -420,8 +424,15 @@ local function UpdateEntryOverlay(entryFrame)
     -- Owned item style
     ApplyOwnedStyle(entryFrame, ownedStyle, glowState == "owned")
 
-    -- Cache both results
-    overlayCache[entryFrame] = {itemID, atlas or false, glowState or false}
+    -- Cache both results (reuse existing table to avoid allocation)
+    local cache = overlayCache[entryFrame]
+    if cache then
+        cache[1] = itemID
+        cache[2] = atlas or false
+        cache[3] = glowState or false
+    else
+        overlayCache[entryFrame] = {itemID, atlas or false, glowState or false}
+    end
 end
 
 -------------------------------------------------------------------------------
