@@ -167,9 +167,19 @@ local function BuildIndex()
             searchIndex.sourceItems[itemID] = entry
         end
 
+        local searchText = (data[nameField] or ""):lower()
+        if sourceType == "event" and data.event then
+            local eventText = data.event:lower()
+            if eventText ~= "" and not searchText:find(eventText, 1, true) then
+                searchText = searchText ~= ""
+                    and (searchText .. " " .. eventText)
+                    or eventText
+            end
+        end
+
         entry.sources[#entry.sources + 1] = {
             type = sourceType,
-            searchText = (data[nameField] or ""):lower(),
+            searchText = searchText,
             data = data,
         }
     end)

@@ -31,8 +31,12 @@ local PADDING = 8
 local ICON_SIZE = 14
 local ITEM_ICON_SIZE = 28
 local ITEM_ICON_PAD = 3
+local ITEM_RESULT_ICON_SIZE = 20
+local ITEM_RESULT_BADGE_SIZE = 14
+local ITEM_RESULT_LINE_HEIGHT = 18
 local ITEM_GRID_INSET = 24  -- Left indent for item grid (aligns under name text)
 local PROGRESS_BAR_HEIGHT = 14
+local SEARCH_OPTIONS = { includeItemResults = true }
 
 -- State
 local panelFrame = nil
@@ -48,7 +52,9 @@ local topStreaksFrame = nil -- Decorative streaks overlay
 local bgTexture = nil      -- QuestLogBackground fill (anchored below header zone)
 local isInitialized = false
 local vendorRows = {}
+local itemResultRows = {}
 local expandedVendorID = nil  -- npcID of currently expanded vendor (nil = none)
+local expandedItemID = nil    -- itemID of currently expanded item result row
 local lastRefreshMapID = nil
 local isPoppedOut = false
 local panelSourceFilter = "all"  -- all|vendor|quest|achievement|profession|event|drop
@@ -548,6 +554,402 @@ local function PopulateItemGrid(row, vendor, sourceFilter, highlightItems)
 end
 
 -------------------------------------------------------------------------------
+-- Item Search Result Rows
+-------------------------------------------------------------------------------
+
+local function GetSourceTypeLabel(sourceType)
+    local SM = HA.SourceManager
+    local normalizedType = sourceType
+    if SM and SM.NormalizeSourceType then
+        normalizedType = SM:NormalizeSourceType(sourceType) or sourceType
+    end
+    return SOURCE_FILTER_LABELS[normalizedType] or normalizedType or "Source"
+end
+
+local function GetSourceBadgeAtlas(sourceType)
+    local SM = HA.SourceManager
+    local normalizedType = sourceType
+    if SM and SM.NormalizeSourceType then
+        normalizedType = SM:NormalizeSourceType(sourceType) or sourceType
+    end
+
+    local badgeAtlases = HA.Constants and HA.Constants.SourceBadgeAtlas
+    return badgeAtlases and badgeAtlases[normalizedType] or nil
+end
+
+local function ApplySourceBadge(texture, sourceType)
+    if not texture or not sourceType then
+        if texture then texture:Hide() end
+        return
+    end
+
+    local atlas = GetSourceBadgeAtlas(sourceType)
+    if atlas then
+        texture:SetTexture(nil)
+        texture:SetAtlas(atlas, false)
+        texture:SetTexCoord(0, 1, 0, 1)
+    else
+        local SM = HA.SourceManager
+        local icon = SM and SM.GetSourceTypeIcon and SM:GetSourceTypeIcon(sourceType)
+        texture:SetTexture(icon or "Interface\\Icons\\INV_Misc_QuestionMark")
+        texture:SetTexCoord(0.08, 0.92, 0.08, 0.92)
+    end
+
+    texture:Show()
+end
+
+local function GetSourceLocationText(data)
+    if type(data) ~= "table" then return nil end
+
+    if data.subzone and data.zone then
+        return data.subzone .. ", " .. data.zone
+    end
+
+    return data.zone or data.subzone
+end
+
+local function FormatSourceSummary(source)
+    if not source then
+        return "Source details unavailable"
+    end
+
+    local sourceType = source.type or source.sourceType
+    local data = source.data or source
+    local label = GetSourceTypeLabel(sourceType)
+    local detail
+
+    if sourceType == "vendor" then
+        local vendorName = data.name or data.vendorName or "Unknown Vendor"
+        local location = GetSourceLocationText(data)
+        detail = location and (vendorName .. " (" .. location .. ")") or vendorName
+    elseif sourceType == "quest" then
+        detail = data.questName or "Unknown Quest"
+    elseif sourceType == "achievement" then
+        detail = data.achievementName or "Unknown Achievement"
+    elseif sourceType == "profession" then
+        local recipeName = data.recipeName or data.name
+        local professionName = data.skillTier or data.profession
+        if recipeName and professionName then
+            detail = recipeName .. " (" .. professionName .. ")"
+        else
+            detail = recipeName or professionName or "Unknown Recipe"
+        end
+    elseif sourceType == "event" then
+        local eventName = data.event or data.vendorName or "Unknown Event"
+        local vendorName = data.vendorName
+        local location = GetSourceLocationText(data)
+        if vendorName and vendorName ~= eventName then
+            local vendorDisplay = location and (vendorName .. " - " .. location) or vendorName
+            detail = eventName .. " / " .. vendorDisplay
+        else
+            detail = location and (eventName .. " (" .. location .. ")") or eventName
+        end
+    elseif sourceType == "drop" then
+        local mobName = data.mobName or "Unknown Drop"
+        local location = data.zone
+        detail = location and (mobName .. " (" .. location .. ")") or mobName
+    else
+        detail = data.name or data.sourceText or "Unknown Source"
+    end
+
+    return label .. ": " .. detail
+end
+
+local function GetDisplaySourcesForItem(itemID, sourceFilter)
+    local SM = HA.SourceManager
+    if not itemID or not SM or not SM.GetAllSources then
+        return {}
+    end
+
+    local allSources = SM:GetAllSources(itemID) or {}
+    local normalizedFilter = NormalizePanelSourceFilter(sourceFilter)
+    if normalizedFilter == "all" then
+        return allSources
+    end
+
+    local filteredSources = {}
+    for _, source in ipairs(allSources) do
+        local normalizedType = source.type
+        if SM.NormalizeSourceType then
+            normalizedType = SM:NormalizeSourceType(source.type) or source.type
+        end
+        if normalizedType == normalizedFilter then
+            filteredSources[#filteredSources + 1] = source
+        end
+    end
+
+    return filteredSources
+end
+
+local function GetPreferredDisplaySource(result, displaySources)
+    if not displaySources or #displaySources == 0 then return nil end
+    if not result then return displaySources[1] end
+
+    local SM = HA.SourceManager
+    local desiredType = result.sourceType
+    if SM and SM.NormalizeSourceType then
+        desiredType = SM:NormalizeSourceType(desiredType) or desiredType
+    end
+
+    if result.sourceData then
+        for _, source in ipairs(displaySources) do
+            if source.data == result.sourceData then
+                return source
+            end
+        end
+    end
+
+    if desiredType then
+        for _, source in ipairs(displaySources) do
+            local normalizedType = source.type
+            if SM and SM.NormalizeSourceType then
+                normalizedType = SM:NormalizeSourceType(source.type) or source.type
+            end
+            if normalizedType == desiredType then
+                return source
+            end
+        end
+    end
+
+    return displaySources[1]
+end
+
+local function CreateItemResultSourceLine(parent)
+    local line = CreateFrame("Frame", nil, parent)
+    line:SetHeight(ITEM_RESULT_LINE_HEIGHT)
+
+    local badge = line:CreateTexture(nil, "ARTWORK")
+    badge:SetSize(ITEM_RESULT_BADGE_SIZE, ITEM_RESULT_BADGE_SIZE)
+    badge:SetPoint("LEFT", line, "LEFT", 0, 0)
+    line.badge = badge
+
+    local text = line:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    text:SetPoint("LEFT", badge, "RIGHT", 6, 0)
+    text:SetPoint("RIGHT", line, "RIGHT", 0, 0)
+    text:SetJustifyH("LEFT")
+    text:SetWordWrap(false)
+    line.text = text
+
+    return line
+end
+
+local function HideItemSourceList(row)
+    if row and row.sourcesFrame then
+        row.sourcesFrame:Hide()
+    end
+
+    if row and row.sourceLines then
+        for _, line in ipairs(row.sourceLines) do
+            line:Hide()
+        end
+    end
+end
+
+local function PopulateItemSourceList(row, itemID, sourceFilter)
+    if not row then return 0 end
+
+    if not row.sourcesFrame then
+        row.sourcesFrame = CreateFrame("Frame", nil, row)
+        row.sourcesFrame:SetPoint("TOPLEFT", row, "TOPLEFT", PADDING + ITEM_RESULT_ICON_SIZE + 8, -ROW_HEIGHT - 2)
+        row.sourcesFrame:SetPoint("TOPRIGHT", row, "TOPRIGHT", -PADDING, -ROW_HEIGHT - 2)
+        row.sourceLines = {}
+    end
+
+    local sourcesFrame = row.sourcesFrame
+    local sourceLines = row.sourceLines
+    local displaySources = GetDisplaySourcesForItem(itemID, sourceFilter)
+    local renderedCount
+
+    if #displaySources == 0 then
+        renderedCount = 1
+        if not sourceLines[1] then
+            sourceLines[1] = CreateItemResultSourceLine(sourcesFrame)
+        end
+
+        local line = sourceLines[1]
+        line:ClearAllPoints()
+        line:SetPoint("TOPLEFT", sourcesFrame, "TOPLEFT", 0, 0)
+        line:SetPoint("TOPRIGHT", sourcesFrame, "TOPRIGHT", 0, 0)
+        line.badge:Hide()
+
+        if NormalizePanelSourceFilter(sourceFilter) == "all" then
+            line.text:SetText("Source details unavailable")
+        else
+            line.text:SetText("No matching " .. GetSourceFilterLabel(sourceFilter):lower() .. " sources")
+        end
+
+        line.text:SetTextColor(0.5, 0.5, 0.5)
+        line:Show()
+    else
+        while #sourceLines < #displaySources do
+            sourceLines[#sourceLines + 1] = CreateItemResultSourceLine(sourcesFrame)
+        end
+
+        for i, source in ipairs(displaySources) do
+            local line = sourceLines[i]
+            line:ClearAllPoints()
+            line:SetPoint("TOPLEFT", sourcesFrame, "TOPLEFT", 0, -((i - 1) * ITEM_RESULT_LINE_HEIGHT))
+            line:SetPoint("TOPRIGHT", sourcesFrame, "TOPRIGHT", 0, -((i - 1) * ITEM_RESULT_LINE_HEIGHT))
+            ApplySourceBadge(line.badge, source.type)
+            line.text:SetText(FormatSourceSummary(source))
+            line.text:SetTextColor(0.8, 0.8, 0.8)
+            line:Show()
+        end
+
+        renderedCount = #displaySources
+    end
+
+    for i = renderedCount + 1, #sourceLines do
+        sourceLines[i]:Hide()
+    end
+
+    local totalHeight = renderedCount * ITEM_RESULT_LINE_HEIGHT + 4
+    sourcesFrame:SetHeight(totalHeight)
+    sourcesFrame:Show()
+    return totalHeight
+end
+
+local function HideAllItemResultRows()
+    for _, row in ipairs(itemResultRows) do
+        row:Hide()
+        HideItemSourceList(row)
+    end
+end
+
+local function CreateItemResultRow(parent, index)
+    local row = CreateFrame("Button", nil, parent)
+    row:SetHeight(ROW_HEIGHT)
+    row:SetPoint("TOPLEFT", 0, -(index - 1) * ROW_HEIGHT)
+    row:SetPoint("TOPRIGHT", 0, -(index - 1) * ROW_HEIGHT)
+
+    local highlight = row:CreateTexture(nil, "HIGHLIGHT")
+    highlight:SetAllPoints()
+    highlight:SetColorTexture(0.3, 0.3, 0.3, 0.3)
+
+    local iconBorder = row:CreateTexture(nil, "BACKGROUND")
+    iconBorder:SetSize(ITEM_RESULT_ICON_SIZE + 2, ITEM_RESULT_ICON_SIZE + 2)
+    iconBorder:SetPoint("TOPLEFT", row, "TOPLEFT", PADDING, -7)
+    iconBorder:SetColorTexture(0.25, 0.25, 0.25, 1)
+    row.iconBorder = iconBorder
+
+    local icon = row:CreateTexture(nil, "ARTWORK")
+    icon:SetSize(ITEM_RESULT_ICON_SIZE, ITEM_RESULT_ICON_SIZE)
+    icon:SetPoint("TOPLEFT", row, "TOPLEFT", PADDING + 1, -8)
+    icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
+    row.icon = icon
+
+    local nameText = row:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    nameText:SetPoint("TOPLEFT", icon, "TOPRIGHT", 8, 0)
+    nameText:SetPoint("TOPRIGHT", row, "TOPRIGHT", -PADDING, 0)
+    nameText:SetJustifyH("LEFT")
+    nameText:SetWordWrap(false)
+    row.nameText = nameText
+
+    local sourceBadge = row:CreateTexture(nil, "ARTWORK")
+    sourceBadge:SetSize(ITEM_RESULT_BADGE_SIZE, ITEM_RESULT_BADGE_SIZE)
+    sourceBadge:SetPoint("TOPLEFT", row, "TOPLEFT", PADDING + ITEM_RESULT_ICON_SIZE + 8, -20)
+    row.sourceBadge = sourceBadge
+
+    local sourceText = row:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+    sourceText:SetPoint("LEFT", sourceBadge, "RIGHT", 6, 0)
+    sourceText:SetPoint("RIGHT", row, "RIGHT", -PADDING, 0)
+    sourceText:SetJustifyH("LEFT")
+    sourceText:SetWordWrap(false)
+    row.sourceText = sourceText
+
+    local sep = row:CreateTexture(nil, "BACKGROUND")
+    sep:SetHeight(1)
+    sep:SetPoint("BOTTOMLEFT", 4, 0)
+    sep:SetPoint("BOTTOMRIGHT", -4, 0)
+    sep:SetColorTexture(0.3, 0.3, 0.3, 0.4)
+
+    row.itemID = nil
+    row.result = nil
+
+    row:RegisterForClicks("AnyUp")
+
+    row:SetScript("OnClick", function(self)
+        if not self.itemID then return end
+
+        if expandedItemID == self.itemID then
+            expandedItemID = nil
+        else
+            expandedItemID = self.itemID
+        end
+
+        MapSidePanel:RefreshContent()
+    end)
+
+    row:SetScript("OnEnter", function(self)
+        if not self.itemID then return end
+
+        GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+        GameTooltip:SetItemByID(self.itemID)
+        GameTooltip:AddLine(" ")
+        if expandedItemID == self.itemID then
+            GameTooltip:AddLine("Click to collapse sources", 0.5, 0.5, 0.5)
+        else
+            GameTooltip:AddLine("Click to show all sources", 0.5, 0.5, 0.5)
+        end
+        GameTooltip:Show()
+    end)
+
+    row:SetScript("OnLeave", function()
+        GameTooltip:Hide()
+    end)
+
+    return row
+end
+
+local function PopulateItemResultRow(row, result, sourceFilter)
+    if not row or not result then return false end
+
+    local itemID = result.itemID
+    local itemName = result.itemName or C_Item.GetItemNameByID(itemID) or ("Item " .. tostring(itemID))
+    local itemIcon = C_Item.GetItemIconByID(itemID)
+    local displaySources = GetDisplaySourcesForItem(itemID, sourceFilter)
+    local preferredSource = GetPreferredDisplaySource(result, displaySources)
+
+    row.itemID = itemID
+    row.result = result
+    row.icon:SetTexture(itemIcon or "Interface\\Icons\\INV_Misc_QuestionMark")
+    row.nameText:SetText(itemName)
+
+    if IsItemOwned(itemID) then
+        row.iconBorder:SetColorTexture(0.2, 0.7, 0.2, 1)
+        row.nameText:SetTextColor(0.7, 1, 0.7)
+    else
+        row.iconBorder:SetColorTexture(0.6, 0.5, 0.2, 1)
+        row.nameText:SetTextColor(1, 1, 1)
+    end
+
+    if preferredSource then
+        ApplySourceBadge(row.sourceBadge, preferredSource.type)
+        row.sourceText:SetText(FormatSourceSummary(preferredSource))
+        row.sourceText:SetTextColor(0.8, 0.8, 0.8)
+    else
+        row.sourceBadge:Hide()
+        if NormalizePanelSourceFilter(sourceFilter) == "all" then
+            row.sourceText:SetText("Source details unavailable")
+        else
+            row.sourceText:SetText("No matching " .. GetSourceFilterLabel(sourceFilter):lower() .. " sources")
+        end
+        row.sourceText:SetTextColor(0.5, 0.5, 0.5)
+    end
+
+    local isExpanded = (expandedItemID == itemID)
+    if isExpanded then
+        local detailHeight = PopulateItemSourceList(row, itemID, sourceFilter)
+        row:SetHeight(ROW_HEIGHT + detailHeight)
+    else
+        HideItemSourceList(row)
+        row:SetHeight(ROW_HEIGHT)
+    end
+
+    return isExpanded
+end
+
+-------------------------------------------------------------------------------
 -- Search Helpers
 -------------------------------------------------------------------------------
 
@@ -562,7 +964,7 @@ local function ExecuteSearch()
         searchResults = nil
         searchResultsRevision = nil
     else
-        searchResults = SP:Search(query)
+        searchResults = SP:Search(query, SEARCH_OPTIONS)
         searchResultsRevision = SP:GetRevision()
     end
     MapSidePanel:RefreshContent()
@@ -572,12 +974,14 @@ local function ClearSearch(refreshNow)
     searchText = ""
     searchResults = nil
     searchResultsRevision = nil
+    expandedItemID = nil
     if searchDebounceTimer then searchDebounceTimer:Cancel(); searchDebounceTimer = nil end
     if searchEditBox then
         suppressTextChanged = true
         searchEditBox:SetText("")
         suppressTextChanged = false
     end
+    HideAllItemResultRows()
     if refreshNow then
         MapSidePanel:RefreshContent()
     end
@@ -2251,7 +2655,7 @@ function MapSidePanel:RefreshSearchResults()
     -- Self-healing: re-query if index was invalidated since last results
     local SP = HA.SearchProvider
     if SP and searchResultsRevision ~= SP:GetRevision() then
-        searchResults = SP:Search(searchText)
+        searchResults = SP:Search(searchText, SEARCH_OPTIONS)
         searchResultsRevision = SP:GetRevision()
     end
 
@@ -2265,6 +2669,7 @@ function MapSidePanel:RefreshSearchResults()
         HideItemGrid(row)
         row.searchMode = false
     end
+    HideAllItemResultRows()
 
     if not searchResults or #searchResults == 0 then
         emptyText:SetText("No results found")
@@ -2278,77 +2683,108 @@ function MapSidePanel:RefreshSearchResults()
     emptyText:Hide()
     headerText:SetText("Search Results")
 
-    -- Ensure we have enough rows
-    while #vendorRows < #searchResults do
-        local row = CreateVendorRow(scrollChild, #vendorRows + 1)
-        vendorRows[#vendorRows + 1] = row
-    end
-
     local yOffset = 0
-    for i, result in ipairs(searchResults) do
-        local vendor = result.vendor
-        local row = vendorRows[i]
-        row.vendor = vendor
-        row.searchMode = true
+    local vendorCount = 0
+    local itemCount = 0
+    local r, g, b = HA.PinFrameFactory:GetPinColor()
 
-        row.nameText:SetText(GetVendorDisplayName(vendor))
-        row.nameText:SetTextColor(1, 1, 1)
+    for _, result in ipairs(searchResults) do
+        if result.resultType == "item" then
+            itemCount = itemCount + 1
+            local row = itemResultRows[itemCount]
+            if not row then
+                row = CreateItemResultRow(scrollChild, itemCount)
+                itemResultRows[itemCount] = row
+            end
 
-        -- Collection counts (uses panelSourceFilter for display only)
-        local collected, total = BC:GetVendorCollectionCounts(vendor, panelSourceFilter)
-        row.collected = collected
-        row.total = total
-        if result.matchType == "item" then
-            row.countText:SetText(string.format("%d match%s | %d/%d",
-                result.matchCount, result.matchCount == 1 and "" or "es",
-                collected, total))
+            local isExpanded = PopulateItemResultRow(row, result, panelSourceFilter)
+            row:ClearAllPoints()
+            row:SetPoint("TOPLEFT", scrollChild, "TOPLEFT", 0, -yOffset)
+            row:SetPoint("TOPRIGHT", scrollChild, "TOPRIGHT", 0, -yOffset)
+            row:Show()
+
+            yOffset = yOffset + (isExpanded and row:GetHeight() or ROW_HEIGHT)
         else
-            row.countText:SetText(string.format("%d/%d", collected, total))
+            vendorCount = vendorCount + 1
+            local vendor = result.vendor
+            local row = vendorRows[vendorCount]
+            if not row then
+                row = CreateVendorRow(scrollChild, vendorCount)
+                vendorRows[vendorCount] = row
+            end
+
+            row.vendor = vendor
+            row.searchMode = true
+
+            row.nameText:SetText(GetVendorDisplayName(vendor))
+            row.nameText:SetTextColor(1, 1, 1)
+
+            -- Collection counts (uses panelSourceFilter for display only)
+            local collected, total = BC:GetVendorCollectionCounts(vendor, panelSourceFilter)
+            row.collected = collected
+            row.total = total
+            if result.matchType == "item" then
+                row.countText:SetText(string.format("%d match%s | %d/%d",
+                    result.matchCount, result.matchCount == 1 and "" or "es",
+                    collected, total))
+            else
+                row.countText:SetText(string.format("%d/%d", collected, total))
+            end
+
+            local cr, cg, cb
+            if total > 0 and collected == total then
+                cr, cg, cb = 0, 1, 0
+            elseif collected > 0 then
+                cr, cg, cb = 1, 0.82, 0
+            else
+                cr, cg, cb = 1, 0.3, 0.3
+            end
+            row.countText:SetTextColor(cr, cg, cb)
+
+            row.icon:SetDesaturated(true)
+            row.icon:SetVertexColor(r, g, b)
+
+            local isExpanded = (expandedVendorID == vendor.npcID)
+            if isExpanded then
+                local gridHeight = PopulateItemGrid(row, vendor, panelSourceFilter, result.matchedItems)
+                row:SetHeight(ROW_HEIGHT + gridHeight)
+            else
+                HideItemGrid(row)
+                row:SetHeight(ROW_HEIGHT)
+            end
+
+            row:ClearAllPoints()
+            row:SetPoint("TOPLEFT", scrollChild, "TOPLEFT", 0, -yOffset)
+            row:SetPoint("TOPRIGHT", scrollChild, "TOPRIGHT", 0, -yOffset)
+            row:Show()
+
+            yOffset = yOffset + (isExpanded and row:GetHeight() or ROW_HEIGHT)
         end
-        -- Color by collection status
-        local cr, cg, cb
-        if total > 0 and collected == total then
-            cr, cg, cb = 0, 1, 0
-        elseif collected > 0 then
-            cr, cg, cb = 1, 0.82, 0
-        else
-            cr, cg, cb = 1, 0.3, 0.3
-        end
-        row.countText:SetTextColor(cr, cg, cb)
-
-        -- Pin color on icon
-        local r, g, b = HA.PinFrameFactory:GetPinColor()
-        row.icon:SetDesaturated(true)
-        row.icon:SetVertexColor(r, g, b)
-
-        -- Expand item grid if this vendor is selected
-        local isExpanded = (expandedVendorID == vendor.npcID)
-        if isExpanded then
-            local gridHeight = PopulateItemGrid(row, vendor, panelSourceFilter, result.matchedItems)
-            row:SetHeight(ROW_HEIGHT + gridHeight)
-        else
-            HideItemGrid(row)
-            row:SetHeight(ROW_HEIGHT)
-        end
-
-        row:ClearAllPoints()
-        row:SetPoint("TOPLEFT", scrollChild, "TOPLEFT", 0, -yOffset)
-        row:SetPoint("TOPRIGHT", scrollChild, "TOPRIGHT", 0, -yOffset)
-        row:Show()
-
-        yOffset = yOffset + (isExpanded and row:GetHeight() or ROW_HEIGHT)
     end
 
     -- Hide excess rows
-    for i = #searchResults + 1, #vendorRows do
+    for i = vendorCount + 1, #vendorRows do
         vendorRows[i]:Hide()
         HideItemGrid(vendorRows[i])
         vendorRows[i].searchMode = false
     end
+    for i = itemCount + 1, #itemResultRows do
+        itemResultRows[i]:Hide()
+        HideItemSourceList(itemResultRows[i])
+    end
 
     scrollChild:SetHeight(math.max(1, yOffset))
-    summaryText:SetText(string.format("%d vendor%s found",
-        #searchResults, #searchResults == 1 and "" or "s"))
+    if vendorCount > 0 and itemCount > 0 then
+        summaryText:SetText(string.format("%d vendor%s, %d item%s found",
+            vendorCount, vendorCount == 1 and "" or "s",
+            itemCount, itemCount == 1 and "" or "s"))
+    elseif vendorCount > 0 then
+        summaryText:SetText(string.format("%d vendor%s found",
+            vendorCount, vendorCount == 1 and "" or "s"))
+    else
+        summaryText:SetText(string.format("%d item%s found",
+            itemCount, itemCount == 1 and "" or "s"))
+    end
 end
 
 -------------------------------------------------------------------------------
@@ -2364,6 +2800,9 @@ function MapSidePanel:RefreshContent()
         self:RefreshSearchResults()
         return
     end
+
+    expandedItemID = nil
+    HideAllItemResultRows()
 
     -- MapID resolution: map frame → last viewed → player zone
     local mapID
