@@ -51,6 +51,7 @@ function ScanPersistence:SaveVendorData(scanData)
         itemCount = itemCount,      -- Total items at vendor
         decorCount = decorCount,    -- Housing decor items
         hasDecor = decorCount > 0,  -- Flag to identify if vendor sells housing decor
+        lastScanHadDecor = decorCount > 0, -- Last observed scan result, even if old items are preserved
         items = {},                 -- Enhanced item data
     }
 
@@ -144,9 +145,10 @@ function ScanPersistence:SaveVendorData(scanData)
         HA.Addon.db.global.scannedVendors[scanData.npcID] = vendorRecord
     elseif isKnownVendor then
         -- Known decor vendor scanned with 0 decor = API failure, not truth.
-        -- Preserve existing scan data; update only location metadata.
+        -- Preserve existing scan data; record the latest scan result separately.
         if existingData then
             existingData.lastScanned = vendorRecord.lastScanned
+            existingData.lastScanHadDecor = false
             if vendorRecord.coords and vendorRecord.coords.x ~= 0.5 and vendorRecord.coords.y ~= 0.5 then
                 existingData.coords = vendorRecord.coords
             end
@@ -162,6 +164,8 @@ function ScanPersistence:SaveVendorData(scanData)
         end
     elseif existingData and existingData.hasDecor then
         -- Previously scanned with decor, now 0. Suspicious — preserve old data.
+        existingData.lastScanned = vendorRecord.lastScanned
+        existingData.lastScanHadDecor = false
         if HA.DevAddon then
             HA.Addon:Debug(string.format(
                 "Scan protection: %s (NPC %d) previously had %d decor items but new scan found 0. "

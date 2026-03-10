@@ -63,8 +63,8 @@ local function CreateExportDialog()
     newBtn:SetScript("OnEnter", function(self)
         GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
         GameTooltip:SetText("Export New Scans", 1, 1, 1)
-        GameTooltip:AddLine("Exports vendors scanned since last export.", 1, 0.82, 0, true)
-        GameTooltip:AddLine("Includes: price, currencies, faction, catalog info", 1, 0.82, 0, true)
+        GameTooltip:AddLine("Exports all vendors scanned since last export.", 1, 0.82, 0, true)
+        GameTooltip:AddLine("Includes vendors already in database for verification.", 1, 0.82, 0, true)
         GameTooltip:Show()
     end)
     newBtn:SetScript("OnLeave", GameTooltip_Hide)
@@ -216,6 +216,19 @@ local function GetPrimarySourceCounts(itemSet)
     return counts
 end
 
+local function IsDelistCandidate(vendor, npcID)
+    if not vendor or not HA.VendorDatabase or not HA.VendorDatabase:HasVendor(npcID) then
+        return false
+    end
+
+    if vendor.lastScanHadDecor == false then
+        return true
+    end
+
+    local items = vendor.items or {}
+    return #items == 0 and (vendor.itemCount or 0) > 0
+end
+
 -- Export scanned vendor data
 -- fullExport: include vendors already in VendorDatabase
 -- exportAll: bypass timestamp filter (export everything scanned)
@@ -238,13 +251,16 @@ function ExportImport:ExportScannedVendors(fullExport, exportAll)
     local vendorCount = 0
     local itemCount = 0
     local skippedPrevExport = 0
-    local skippedInDatabase = 0
+    local skippedNoDecor = 0
+    local delistedCount = 0
+    local hasReportData = false
     local exportedUniqueItems = {}
 
     table.insert(output, EXPORT_PREFIX .. "\n")
     table.insert(output, "# exportFormatVersion: 2\n")
     table.insert(output, "# V: npcID\tname\tmapID\tx\ty\tfaction\ttimestamp\titemCount\tdecorCount\tzone\tsubZone\trealZone\tparentMapID\tcontinentMapID\texpansion\tcurrency\tmapChain\n")
     table.insert(output, "# I: npcID\titemID\tname\tprice\tcostData\tisUsable\tspellID\trequirements\tdecorID\n")
+    table.insert(output, "# D: npcID\tname\tmapID\tx\ty\tzone\ttimestamp (vendor in DB but scanned with 0 decor)\n")
 
     -- Collect and sort npcIDs for deterministic output
     local sortedNPCs = {}
@@ -265,55 +281,42 @@ function ExportImport:ExportScannedVendors(fullExport, exportAll)
             skipReason = "prev_export"
         end
 
-        -- Skip if no items and not doing full export of empty vendors
-        if shouldProcess and #items == 0 and not fullExport then
-            -- Check if this is a new vendor not in database
-            if HA.VendorDatabase:HasVendor(npcID) then
-                -- Skip - already in database with no new items
-                shouldProcess = false
-                skipReason = "in_database"
-            end
-        end
-
-        -- Skip if differential and vendor already fully in database
-        if shouldProcess and not fullExport then
-            local existingVendor = HA.VendorDatabase:GetVendor(npcID)
-            if existingVendor then
-                -- Check if we have any new items
-                local existingLookup = {}
-                if existingVendor.items then
-                    for _, item in ipairs(existingVendor.items) do
-                        local existItemID = HA.VendorData:GetItemID(item)
-                        existingLookup[existItemID] = true
-                    end
-                end
-
-                local hasNewItems = false
-                for _, item in ipairs(items) do
-                    local itemID = HA.VendorData:GetItemID(item)
-                    if itemID and not existingLookup[itemID] then
-                        hasNewItems = true
-                        break
-                    end
-                end
-
-                if not hasNewItems then
-                    shouldProcess = false
-                    skipReason = "in_database"
-                end
-            end
+        -- Handle vendors with no decor items
+        if shouldProcess and IsDelistCandidate(vendor, npcID) then
+            -- Vendor is in our DB but scanned with 0 decor — flag for review
+            shouldProcess = false
+            skipReason = "delist"
+        elseif shouldProcess and #items == 0 then
+            -- Not in DB, nothing to export
+            shouldProcess = false
+            skipReason = "no_decor"
         end
 
         -- Track skip reasons
         if not shouldProcess then
             if skipReason == "prev_export" then
                 skippedPrevExport = skippedPrevExport + 1
-            elseif skipReason == "in_database" then
-                skippedInDatabase = skippedInDatabase + 1
+            elseif skipReason == "delist" then
+                delistedCount = delistedCount + 1
+                hasReportData = true
+                -- Emit a delist line so we know to update the DB
+                local delistLine = string.format("D\t%d\t%s\t%d\t%.4f\t%.4f\t%s\t%d\n",
+                    vendor.npcID or npcID,
+                    SanitizeExportField(vendor.name or "Unknown"),
+                    vendor.mapID or 0,
+                    vendor.coords and vendor.coords.x or 0,
+                    vendor.coords and vendor.coords.y or 0,
+                    SanitizeExportField(vendor.zone or ""),
+                    vendor.lastScanned or 0
+                )
+                table.insert(output, delistLine)
+            elseif skipReason == "no_decor" then
+                skippedNoDecor = skippedNoDecor + 1
             end
         end
 
         if shouldProcess then
+            hasReportData = true
             vendorCount = vendorCount + 1
 
             -- VENDOR line: V npcID name mapID x y faction timestamp itemCount decorCount zone subZone realZone parentMapID continentMapID expansion currency mapChain
@@ -399,27 +402,28 @@ function ExportImport:ExportScannedVendors(fullExport, exportAll)
 
     -- Print summary with skip details
     local skipMsg = ""
-    if skippedPrevExport > 0 or skippedInDatabase > 0 then
+    if skippedPrevExport > 0 or skippedNoDecor > 0 then
         local parts = {}
         if skippedPrevExport > 0 then
             table.insert(parts, skippedPrevExport .. " previously exported")
         end
-        if skippedInDatabase > 0 then
-            table.insert(parts, skippedInDatabase .. " already in database")
+        if skippedNoDecor > 0 then
+            table.insert(parts, skippedNoDecor .. " no decor items")
         end
         skipMsg = " (" .. table.concat(parts, ", ") .. " skipped)"
+    end
+    if delistedCount > 0 then
+        skipMsg = skipMsg .. string.format(" [%d flagged for delist - in DB but 0 decor]", delistedCount)
     end
 
     if exportAll then
         HA.Addon:Print(string.format("Export ALL: %d vendors, %d items.%s", vendorCount, itemCount, skipMsg))
-    elseif fullExport then
-        HA.Addon:Print(string.format("Full export: %d vendors, %d items.%s", vendorCount, itemCount, skipMsg))
     else
-        HA.Addon:Print(string.format("Exported %d new vendors, %d items.%s", vendorCount, itemCount, skipMsg))
+        HA.Addon:Print(string.format("Exported %d vendors, %d items.%s", vendorCount, itemCount, skipMsg))
     end
 
     -- Show output and update timestamp
-    if vendorCount > 0 then
+    if hasReportData then
         if HA.Analytics then
             HA.Analytics:IncrementCounter("Exports")
         end
@@ -435,7 +439,7 @@ function ExportImport:ExportScannedVendors(fullExport, exportAll)
             end
         end
     else
-        HA.Addon:Print("Nothing new to export. All scanned data is already in VendorDatabase.")
+        HA.Addon:Print("Nothing new to export. All scanned data is already exported or has no decor items.")
     end
 end
 
