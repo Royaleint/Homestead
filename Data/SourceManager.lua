@@ -163,6 +163,9 @@ end
 -------------------------------------------------------------------------------
 
 -- Get the primary source for an item.
+-- Primary source policy: first provider with a singular result wins.
+-- This intentionally does NOT derive the result from GetAllSources()[1].
+-- Vendor primary selection remains proximity-based via GetClosestVendorForItem().
 -- Walks registered providers in priority order (SOURCE_TYPE_ORDER).
 -- Returns: {type = "vendor|quest|achievement|profession|event|drop", data = {...}} or nil
 function SourceManager:GetSource(itemID)
@@ -364,6 +367,8 @@ function SourceManager:IsSourceAvailableNow(itemID, source)
 end
 
 -- Get the highest-priority source that appears available "right now".
+-- Evaluates the full GetAllSources() result set, including multi-vendor rows,
+-- and returns the first source not known to be blocked.
 -- Falls back to nil if every known source is blocked.
 function SourceManager:GetBestAvailableSource(itemID)
     if not itemID then return nil end
@@ -383,6 +388,7 @@ end
 
 -- Get all sources for an item (for items with multiple acquisition methods).
 -- Walks registered providers via getSources(), then appends parsed sources.
+-- Unlike GetSource(), this returns every vendor location emitted by GetVendorSources().
 -- Returns: array of {type = "...", data = {...}}
 function SourceManager:GetAllSources(itemID)
     if not itemID then return {} end
