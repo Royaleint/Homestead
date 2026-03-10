@@ -7,16 +7,33 @@
 local _, HA = ...
 
 HA.WhatsNew = {
+    ["2.0.0"] = {
+        heroTexture = "Interface\\AddOns\\Homestead\\Textures\\homestead_collage_labeled_1024x256", 
+        heroHeight = 190,
+        title = "Homestead - What's New in v2.0!",
+        features = {
+            {
+                icon = "Interface\\Icons\\INV_Misc_Gem_Variety_02",
+                heading = "Catalog Glow",
+                body = "Catalog items now glow by status: green if you own it, yellow if you can get it now, red if something's blocking you.",
+            },
+            {
+                icon = "Interface\\AddOns\\Homestead\\Textures\\HomesteadPortrait_64",
+                heading = "Endeavor Dashboard",
+                body = "See how much XP you need for your next Endeavor milestone and how much of the vendor's stock you've collected, right on the progress bar.",
+            },
+            {
+                icon = "Interface\\Icons\\INV_Misc_Spyglass_02",
+                heading = "Catalog Source Badges",
+                body = "Each catalog item now shows a small icon for its source type: coin for vendors, quest mark, achievement shield, profession hammer & pick, calendar for events, and lootbags for drops.",
+            },
+        },
+    },
     ["1.6.0"] = {
         heroTexture = "Interface\\AddOns\\Homestead\\Textures\\Midnight",
         heroHeight = 190,
         title = "Homestead - What's New in v1.6!",
         features = {
-            {
-                icon = "Interface\\AddOns\\Homestead\\Textures\\HomesteadPortrait_64",
-                heading = "In by Midnight!",
-                body = "Homestead is updated for Midnight with NEW badge icons for Midnight and all the vendors scanned and \"hopefully\" verified.",
-            },
             {
                 icon = "Interface\\Icons\\INV_Misc_Spyglass_02",
                 heading = "Panel Search & Source Filter",

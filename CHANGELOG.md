@@ -2,7 +2,7 @@
 
 ---
 
-## Unreleased
+## v2.0.0 (2026-03-09)
 
 ### Added
 
@@ -14,7 +14,7 @@
 
 **Housing Catalog Glow**
 
-- Items in your Housing Catalog now glow based on whether you can actually obtain them right now. Green means at least one source is available to your character, red means everything is blocked — wrong profession, incomplete achievement, or faction-locked. No glow means you already own it.
+- Items in your Housing Catalog now glow based on their status. Green means you own it, yellow means you can obtain it right now, and red means all sources are blocked — wrong profession, incomplete achievement, or faction-locked. No glow means no source data is available.
 - Achievement-gated items now correctly show as blocked (red) when you haven't completed the required achievement yet.
 - Profession items now check your actual skill level, not just whether you have the profession. If your Midnight Leatherworking is 1/100 and a recipe needs 50, it'll show as blocked until you level up.
 
@@ -22,6 +22,7 @@
 
 - The addon now figures out which Endeavor is active much faster and doesn't keep rechecking once it knows.
 - Reorganized the Settings panel — minimap and waypoint options now have their own tab, vendor visibility and pin colors moved to General, and option descriptions are clearer throughout.
+- Export pipeline now detects vendors in the database that scan with 0 decor items and flags them for review instead of silently skipping.
 
 ### Fixed
 
@@ -33,6 +34,12 @@
 **New Vendors**
 
 - **Irodalmin** — Profession achievement vendor in Silvermoon City. Sells 2 items for 50,000 gold each.
+
+**Updated**
+
+- Added scan confirmations and subzone data for 8 Dragonflight vendors.
+- Removed Cataloger Jakes and Ellandrieth (no longer sell housing decor).
+- Updated item lists and costs for several Valdrakken vendors from latest scan data.
 
 ---
 
