@@ -5,9 +5,9 @@
     Single source of truth for item ownership, metadata, sources, and requirements.
     All writes go through this module. Read API provides cache-only and fresh paths.
 
-    Phase 1: Dual-write alongside existing ownedDecor/parsedSources tables.
-    Phase 2 (future): Consumers migrate reads to CatalogStore API.
-    Phase 8 (future): Remove legacy dual-write.
+    Phase 1-8: Dual-write alongside existing ownedDecor/parsedSources tables.
+    Phase 9: Stop mutation-path writes to ownedDecor after a startup forward-sync.
+    Phase 10 (future): Remove legacy ownedDecor fallback and cleanup.
 
     Event contract:
       _save()            — internal table merge, NEVER fires events
@@ -69,7 +69,7 @@ end
 -- Write API
 -------------------------------------------------------------------------------
 
--- Mark an item as owned. Dual-writes to ownedDecor for backward compat.
+-- Mark an item as owned. Phase 9 stops mutation-path writes to ownedDecor.
 -- Fires OWNERSHIP_UPDATED only if newly owned (not on repeated calls).
 function CatalogStore:SetOwned(itemID, name, decorID)
     if not ci or not itemID then return end
@@ -92,28 +92,6 @@ function CatalogStore:SetOwned(itemID, name, decorID)
 
     _save(itemID, fields)
 
-    -- Dual-write to legacy ownedDecor (Phase 1-7 safety)
-    if HA.Addon and HA.Addon.db then
-        local ownedDecor = HA.Addon.db.global.ownedDecor
-        if ownedDecor then
-            if not ownedDecor[itemID] then
-                ownedDecor[itemID] = {
-                    name = name,
-                    firstSeen = now,
-                    lastSeen = now,
-                }
-            else
-                ownedDecor[itemID].lastSeen = now
-                if name then
-                    ownedDecor[itemID].name = name
-                end
-            end
-            if decorID and ownedDecor[itemID] then
-                ownedDecor[itemID].recordID = decorID
-            end
-        end
-    end
-
     -- Bump negative cache generation and owned counter on new ownership
     if not wasOwned then
         negativeGeneration = negativeGeneration + 1
@@ -130,7 +108,8 @@ function CatalogStore:SetOwned(itemID, name, decorID)
     end
 end
 
--- Mark an item as no longer owned. Dual-clears both catalogItems and ownedDecor.
+-- Mark an item as no longer owned.
+-- Phase 9 clears catalogItems only; ownedDecor remains read-only fallback data.
 -- Symmetric with SetOwned: maintains ownedCount, negativeGeneration, events.
 -- Idempotent: second call on same item is a no-op (no counter/gen/event changes).
 -- Used for manual ownership corrections.
@@ -138,10 +117,9 @@ end
 -- Contract:
 --   1. State check: wasOwned from catalogItems.isOwned (primary truth for counter)
 --   2. Data: clear isOwned/firstSeen/lastSeen in catalogItems; keep name/decorID
---   3. Legacy: remove ownedDecor[itemID] for parity during dual-write window
---   4. Counter: decrement ownedCount only if catalogItems had isOwned=true
---   5. Cache: bump negativeGeneration on effective ownership change
---   6. Event: fire OWNERSHIP_UPDATED on transition only; respect batchMode
+--   3. Counter: decrement ownedCount only if catalogItems had isOwned=true
+--   4. Cache: bump negativeGeneration on effective ownership change
+--   5. Event: fire OWNERSHIP_UPDATED on transition only; respect batchMode
 function CatalogStore:SetUnowned(itemID)
     if not itemID then return end
 
@@ -151,18 +129,8 @@ function CatalogStore:SetUnowned(itemID)
         wasOwnedInCatalog = ci[itemID].isOwned == true
     end
 
-    -- Also check legacy table for parity cleanup
-    local hadLegacyEntry = false
-    local ownedDecor
-    if HA.Addon and HA.Addon.db then
-        ownedDecor = HA.Addon.db.global.ownedDecor
-        if ownedDecor and ownedDecor[itemID] then
-            hadLegacyEntry = true
-        end
-    end
-
-    -- No-op if not owned anywhere (idempotent)
-    if not wasOwnedInCatalog and not hadLegacyEntry then return end
+    -- No-op if not owned in catalogItems (idempotent).
+    if not wasOwnedInCatalog then return end
 
     -- 2. Clear catalogItems ownership (keep metadata: name, decorID)
     if ci and ci[itemID] then
@@ -171,18 +139,13 @@ function CatalogStore:SetUnowned(itemID)
         ci[itemID].lastSeen = nil
     end
 
-    -- 3. Remove from legacy ownedDecor (dual-write parity)
-    if ownedDecor then
-        ownedDecor[itemID] = nil
-    end
-
-    -- 4-5. Counter and cache generation (only from catalogItems authority)
+    -- 3-4. Counter and cache generation (only from catalogItems authority)
     if wasOwnedInCatalog then
         ownedCount = ownedCount - 1
         negativeGeneration = negativeGeneration + 1
     end
 
-    -- 6. Event on effective ownership transition
+    -- 5. Event on effective ownership transition
     if wasOwnedInCatalog then
         if batchMode then
             batchOwnershipChanged = true
@@ -285,7 +248,7 @@ function CatalogStore:Get(itemID)
 end
 
 -- Cache-only ownership check (fast, no API calls)
--- Checks catalogItems first, falls back to legacy ownedDecor for compat
+-- Checks catalogItems first, falls back to legacy ownedDecor during the Phase 9 window.
 function CatalogStore:IsOwned(itemID)
     if not itemID then return false end
 
@@ -606,6 +569,49 @@ end
 -- Initialization
 -------------------------------------------------------------------------------
 
+-- Phase 9: One-time forward-sync to make ownedDecor complete before dual-write
+-- retirement. Users who downgrade get a snapshot up to this release.
+local function ForwardSyncOwnedDecor()
+    if not HA.Addon or not HA.Addon.db then return end
+
+    local ownedDecor = HA.Addon.db.global.ownedDecor
+    if not ownedDecor or not ci then return end
+
+    local synced = 0
+    for itemID, record in pairs(ci) do
+        if record.isOwned then
+            local legacy = ownedDecor[itemID]
+            if not legacy then
+                legacy = {
+                    name = record.name,
+                    firstSeen = record.firstSeen,
+                    lastSeen = record.lastSeen,
+                }
+                ownedDecor[itemID] = legacy
+                synced = synced + 1
+            else
+                if not legacy.name and record.name then
+                    legacy.name = record.name
+                end
+                if not legacy.firstSeen and record.firstSeen then
+                    legacy.firstSeen = record.firstSeen
+                end
+                if not legacy.lastSeen and record.lastSeen then
+                    legacy.lastSeen = record.lastSeen
+                end
+            end
+
+            if record.decorID and not legacy.recordID then
+                legacy.recordID = record.decorID
+            end
+        end
+    end
+
+    if HA.Addon then
+        HA.Addon:Debug("CatalogStore: Forward-synced " .. synced .. " items to ownedDecor")
+    end
+end
+
 function CatalogStore:Initialize()
     if not HA.Addon or not HA.Addon.db then return end
 
@@ -614,6 +620,9 @@ function CatalogStore:Initialize()
 
     -- Run schema migrations
     self:RunMigrations()
+
+    -- Phase 9: make legacy ownedDecor complete before write retirement.
+    ForwardSyncOwnedDecor()
 
     -- Build reverse index (seeds from DecorMapping + runtime data)
     self:BuildDecorIndex()
