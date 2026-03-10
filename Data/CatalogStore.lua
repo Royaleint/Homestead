@@ -268,7 +268,7 @@ end
 -------------------------------------------------------------------------------
 
 -- Check if an item is a housing decor item.
--- Safe runtime probe used by overlays after DecorTracker removal.
+-- Safe runtime probe used by overlays and compatibility APIs.
 function CatalogStore:IsDecorItem(itemLink)
     if not itemLink then return false end
     if C_HousingCatalog and C_HousingCatalog.GetCatalogEntryInfoByItem then

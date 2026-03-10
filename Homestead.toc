@@ -27,7 +27,6 @@ Core\events.lua
 Core\cache.lua
 
 # Data Classes
-Data\DecorData.lua
 Data\VendorDatabase.lua
 Data\VendorData.lua
 Data\EndeavorsData.lua
@@ -49,7 +48,6 @@ Data\SourceTextParser.lua
 Utils\waypoints.lua
 
 # Modules
-Modules\DecorTracker.lua
 Modules\CatalogScanner.lua
 Modules\SourceTextScanner.lua
 Modules\CalendarDetector.lua

@@ -935,7 +935,7 @@ function SourceManager:GetSourceTypeIcon(sourceType)
     return SOURCE_TYPE_ICONS[normalizedType] or icons.NOT_COLLECTED
 end
 
--- Get status icon for a decor item without constructing a DecorData object.
+-- Get status icon for a decor item without constructing a heavyweight wrapper.
 -- Preserves the owned / placed / unowned icon behavior used by overlays.
 function SourceManager:GetItemStatusIcon(itemID)
     if not itemID then return nil end
@@ -959,7 +959,7 @@ function SourceManager:GetItemStatusIcon(itemID)
     return icons.NOT_COLLECTED
 end
 
--- Get status color for a decor item without constructing a DecorData object.
+-- Get status color for a decor item without constructing a heavyweight wrapper.
 -- Preserves the owned / placed / unowned color behavior used by overlays.
 function SourceManager:GetItemStatusColor(itemID)
     if not itemID then return nil end
