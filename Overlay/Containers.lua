@@ -92,19 +92,19 @@ local function CollectContainerButtons(containerFrame)
     end
 
     -- Fallback: traverse children to support frame variants where Items is absent
-    local function ScanChildren(frame, depth)
-        if not frame or depth > 4 then
-            return
-        end
-        for i = 1, select("#", frame:GetChildren()) do
-            local child = select(i, frame:GetChildren())
+    local function ProcessContainerChildren(depth, ...)
+        if depth > 4 then return end
+        for i = 1, select("#", ...) do
+            local child = select(i, ...)
             if IsLikelyItemButton(child) then
                 AddButton(child)
             end
-            ScanChildren(child, depth + 1)
+            ProcessContainerChildren(depth + 1, child:GetChildren())
         end
     end
-    ScanChildren(containerFrame, 1)
+    if containerFrame then
+        ProcessContainerChildren(1, containerFrame:GetChildren())
+    end
 
     return buttons
 end
