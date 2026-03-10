@@ -573,6 +573,23 @@ function VendorData:GetVendorsForItem(itemID)
         end
     end
 
+    -- Priority 3: Active event vendors
+    if HA.EventSources and HA.EventSources.EventVendors then
+        for _, eventVendor in pairs(HA.EventSources.EventVendors) do
+            if eventVendor.npcID and not seenNPCs[eventVendor.npcID]
+                    and eventVendor.items and HA.CalendarDetector
+                    and HA.CalendarDetector:IsHolidayActive(eventVendor.event) == true then
+                for _, eventItemID in ipairs(eventVendor.items) do
+                    if eventItemID == itemID then
+                        result[#result + 1] = eventVendor
+                        seenNPCs[eventVendor.npcID] = true
+                        break
+                    end
+                end
+            end
+        end
+    end
+
     return result
 end
 
