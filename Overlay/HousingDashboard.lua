@@ -6,6 +6,7 @@
 
 local _, HA = ...
 
+local EventUtil = _G.EventUtil
 local initiativesFrame = nil
 
 -------------------------------------------------------------------------------
@@ -112,17 +113,12 @@ local function UpdateMilestoneDisplay()
     local themeData = activeTheme and HA.EndeavorsData.Endeavors[activeTheme]
     local vendorNPC = themeData and themeData.vendorNPC
     local vendor = vendorNPC and HA.EndeavorsData.Vendors[vendorNPC]
-    if vendor and vendor.items and HA.VendorData and (HA.DecorTracker or HA.CatalogStore) then
+    if vendor and vendor.items and HA.VendorData and HA.CatalogStore then
         local total = #vendor.items
         local owned = 0
         for _, item in ipairs(vendor.items) do
             local itemID = HA.VendorData:GetItemID(item)
-            local isOwned = false
-            if HA.DecorTracker then
-                isOwned = HA.DecorTracker:IsCollected(itemID)
-            elseif HA.CatalogStore then
-                isOwned = HA.CatalogStore:IsOwnedFresh(itemID)
-            end
+            local isOwned = HA.CatalogStore:IsOwnedFresh(itemID)
             if isOwned then owned = owned + 1 end
         end
         ownershipText:SetFormattedText("%s: %d / %d items owned", vendor.name, owned, total)

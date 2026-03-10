@@ -8,7 +8,7 @@ local _, HA = ...
 -- Wait for Overlay module
 local Overlay = HA.Overlay
 local Events = HA.Events
-local DecorTracker = HA.DecorTracker
+local CatalogStore = HA.CatalogStore
 local Constants = HA.Constants
 
 -- Upvalued Lua stdlib
@@ -56,7 +56,7 @@ local function UpdateMerchantButton(button, index)
         return
     end
 
-    if not DecorTracker then
+    if not CatalogStore then
         Overlay:ClearIcon(overlay)
         return
     end
@@ -68,14 +68,15 @@ local function UpdateMerchantButton(button, index)
         return
     end
 
-    if not DecorTracker:IsDecorItem(itemLink) then
+    local itemID = GetItemInfoInstant(itemLink)
+    if not itemID or not CatalogStore:IsDecorItem(itemLink) then
         Overlay:ClearIcon(overlay)
         return
     end
 
     -- Merchant UX: checkmark on owned items, nothing on unowned (Blizzard
     -- already provides a red overlay and unlock requirements for locked items).
-    local isOwned = DecorTracker:IsCollected(itemLink)
+    local isOwned = CatalogStore:IsOwnedFresh(itemID)
     if isOwned and overlay.icon then
         overlay.icon:SetTexture(OWNED_CHECK_ICON)
         overlay.icon:SetVertexColor(1, 1, 1, 1)

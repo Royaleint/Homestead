@@ -267,6 +267,17 @@ end
 -- Read API
 -------------------------------------------------------------------------------
 
+-- Check if an item is a housing decor item.
+-- Safe runtime probe used by overlays after DecorTracker removal.
+function CatalogStore:IsDecorItem(itemLink)
+    if not itemLink then return false end
+    if C_HousingCatalog and C_HousingCatalog.GetCatalogEntryInfoByItem then
+        local success, info = pcall(C_HousingCatalog.GetCatalogEntryInfoByItem, itemLink, false)
+        return success and info ~= nil
+    end
+    return false
+end
+
 -- Raw record access (no allocation, direct table reference)
 function CatalogStore:Get(itemID)
     if not ci or not itemID then return nil end

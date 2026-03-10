@@ -856,20 +856,78 @@ end
 -- Public API
 -------------------------------------------------------------------------------
 
+local DecorInfoCompat = {}
+local DecorInfoCompatMT = { __index = DecorInfoCompat }
+
+function DecorInfoCompat:GetStatus()
+    if self.isOwned then
+        return self.numPlaced > 0 and "COLLECTED_PLACED" or "COLLECTED"
+    end
+    return "NOT_COLLECTED"
+end
+
+function DecorInfoCompat:GetStatusIcon()
+    local sourceManager = HA.SourceManager
+    return sourceManager and sourceManager.GetItemStatusIcon
+        and sourceManager:GetItemStatusIcon(self.itemID) or nil
+end
+
+function DecorInfoCompat:GetStatusColor()
+    local sourceManager = HA.SourceManager
+    return sourceManager and sourceManager.GetItemStatusColor
+        and sourceManager:GetItemStatusColor(self.itemID) or nil
+end
+
+function DecorInfoCompat:GetSourceIcon()
+    local sourceManager = HA.SourceManager
+    return sourceManager and sourceManager.GetSourceTypeIcon
+        and sourceManager:GetSourceTypeIcon(self.sourceType) or nil
+end
+
+function DecorInfoCompat:IsValid()
+    return self.itemID ~= nil
+end
+
 -- Check if a decor item is collected
 function HousingAddon:IsDecorCollected(itemID)
-    if HA.DecorTracker then
-        return HA.DecorTracker:IsCollected(itemID)
+    if HA.CatalogStore then
+        return HA.CatalogStore:IsOwnedFresh(itemID)
     end
     return nil
 end
 
 -- Get decor info for an item
 function HousingAddon:GetDecorInfo(itemLink)
-    if HA.DecorTracker then
-        return HA.DecorTracker:GetDecorInfo(itemLink)
+    if not itemLink then return nil end
+
+    local itemID = GetItemInfoInstant(itemLink)
+    if not itemID then return nil end
+
+    local catalogStore = HA.CatalogStore
+    local sourceManager = HA.SourceManager
+    if not catalogStore or not catalogStore:IsDecorItem(itemLink) then
+        return nil
     end
-    return nil
+
+    local record = catalogStore:Get(itemID)
+    local source = sourceManager and sourceManager.GetSource and sourceManager:GetSource(itemID) or nil
+    local sourceType = source and sourceManager and sourceManager.NormalizeSourceType
+        and sourceManager:NormalizeSourceType(source.type) or "unknown"
+    local numPlaced = sourceManager and sourceManager.GetPlacedCountForItem
+        and sourceManager:GetPlacedCountForItem(itemID) or 0
+    local itemName = (record and record.name)
+        or (C_Item and C_Item.GetItemNameByID and C_Item.GetItemNameByID(itemID))
+
+    local info = {
+        itemID = itemID,
+        itemLink = itemLink,
+        name = itemName,
+        isOwned = catalogStore:IsOwnedFresh(itemID),
+        numPlaced = numPlaced,
+        sourceType = sourceType,
+    }
+
+    return setmetatable(info, DecorInfoCompatMT)
 end
 
 -- Get all decor from a vendor

@@ -432,6 +432,22 @@ function SourceManager:GetAllSources(itemID)
     return sources
 end
 
+local function GetPlacedCount(itemID)
+    if not itemID then return 0 end
+    if C_HousingCatalog and C_HousingCatalog.GetCatalogEntryInfoByItem then
+        local itemLink = "item:" .. tostring(itemID)
+        local success, info = pcall(C_HousingCatalog.GetCatalogEntryInfoByItem, itemLink, true)
+        if success and info then
+            return info.numPlaced or 0
+        end
+    end
+    return 0
+end
+
+function SourceManager:GetPlacedCountForItem(itemID)
+    return GetPlacedCount(itemID)
+end
+
 local function BuildVendorSourceData(itemID, vendor)
     if not itemID or not vendor then return nil end
 
@@ -833,6 +849,15 @@ local CANONICAL_SOURCE_TYPES = {
 local SOURCE_TYPE_ALIASES = {
     craft = "profession", -- Legacy constant alias
 }
+local SOURCE_TYPE_ICONS = {
+    vendor = HA.Constants.Icons.PURCHASABLE,
+    profession = HA.Constants.Icons.CRAFTABLE,
+    achievement = HA.Constants.Icons.ACHIEVEMENT_REWARD,
+    drop = HA.Constants.Icons.DROP_SOURCE,
+    quest = HA.Constants.Icons.QUEST_REWARD,
+    event = HA.Constants.Icons.PURCHASABLE,
+    reputation = HA.Constants.Icons.REPUTATION,
+}
 
 local function ForEachItemID(itemIDs, callback)
     if type(itemIDs) ~= "table" or type(callback) ~= "function" then
@@ -900,6 +925,57 @@ function SourceManager:GetCanonicalSourceTypes()
         copy[i] = sourceType
     end
     return copy
+end
+
+function SourceManager:GetSourceTypeIcon(sourceType)
+    local icons = HA.Constants and HA.Constants.Icons
+    if not icons then return nil end
+
+    local normalizedType = self:NormalizeSourceType(sourceType) or sourceType
+    return SOURCE_TYPE_ICONS[normalizedType] or icons.NOT_COLLECTED
+end
+
+-- Get status icon for a decor item without constructing a DecorData object.
+-- Preserves the owned / placed / unowned icon behavior used by overlays.
+function SourceManager:GetItemStatusIcon(itemID)
+    if not itemID then return nil end
+
+    local icons = HA.Constants and HA.Constants.Icons
+    local catalogStore = HA.CatalogStore
+    if not icons or not catalogStore then return nil end
+
+    if catalogStore:IsOwnedFresh(itemID) then
+        if GetPlacedCount(itemID) > 0 then
+            return icons.COLLECTED_PLACED
+        end
+        return icons.COLLECTED
+    end
+
+    local source = self:GetSource(itemID)
+    if source then
+        return self:GetSourceTypeIcon(source.type)
+    end
+
+    return icons.NOT_COLLECTED
+end
+
+-- Get status color for a decor item without constructing a DecorData object.
+-- Preserves the owned / placed / unowned color behavior used by overlays.
+function SourceManager:GetItemStatusColor(itemID)
+    if not itemID then return nil end
+
+    local colors = HA.Constants and HA.Constants.Colors
+    local catalogStore = HA.CatalogStore
+    if not colors or not catalogStore then return nil end
+
+    if catalogStore:IsOwnedFresh(itemID) then
+        if GetPlacedCount(itemID) > 0 then
+            return colors.COLLECTED_PLACED
+        end
+        return colors.COLLECTED
+    end
+
+    return colors.NOT_COLLECTED
 end
 
 -- Return primary source type for an item, normalized to canonical taxonomy.

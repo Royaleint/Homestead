@@ -281,13 +281,7 @@ function VendorTracer:GetMissingItemVendors()
                 local itemID = HA.VendorData:GetItemID(item)
                 if itemID then
                     -- Check if player owns this item
-                    local isOwned = false
-
-                    if HA.DecorTracker then
-                        isOwned = HA.DecorTracker:IsCollected(itemID)
-                    elseif HA.CatalogStore then
-                        isOwned = HA.CatalogStore:IsOwnedFresh(itemID)
-                    end
+                    local isOwned = HA.CatalogStore and HA.CatalogStore:IsOwnedFresh(itemID)
 
                     if not isOwned then
                         table.insert(missingItems, {itemID = itemID})
