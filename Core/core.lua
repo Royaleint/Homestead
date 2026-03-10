@@ -103,6 +103,11 @@ function HousingAddon:OnEnable()
         HA.EndeavorsData:Initialize()
     end
 
+    -- Initialize SourceManager after source tables/scanners are available
+    if HA.SourceManager and HA.SourceManager.Initialize then
+        HA.SourceManager:Initialize()
+    end
+
     -- Initialize Waypoints utility
     if HA.Waypoints then
         HA.Waypoints:Initialize()
