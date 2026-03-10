@@ -2,6 +2,14 @@
 
 ---
 
+## v2.0.1 (2026-03-10)
+
+### Fixed
+
+- Fixed memory leak in Housing Dashboard.
+
+---
+
 ## v2.0.0 (2026-03-09)
 
 ### Added
