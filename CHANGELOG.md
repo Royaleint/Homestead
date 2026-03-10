@@ -8,38 +8,44 @@
 
 **Housing Dashboard Overlay**
 
-- Your Endeavor progress bar now shows how much XP you need to reach the next milestone — no more guessing or doing math in your head. When you've hit every milestone, it'll let you know.
+- Your Endeavor progress bar now shows how much XP you need to reach the next milestone, no more guessing or doing math in your head. When you've hit every milestone, it'll let you know.
 - The current Endeavor vendor's item ownership is displayed below the progress bar so you can see at a glance how much of their stock you've collected.
 - Toggle it on or off in Settings under the new "Endeavors" section.
 
 **Housing Catalog Glow**
 
-- Items in your Housing Catalog now glow based on their status. Green means you own it, yellow means you can obtain it right now, and red means all sources are blocked — wrong profession, incomplete achievement, or faction-locked. No glow means no source data is available.
+- Items in your Housing Catalog now glow based on their status. Green means you own it, yellow means you can get it right now, and red means all sources are blocked. No glow means no source data is available.
 - Achievement-gated items now correctly show as blocked (red) when you haven't completed the required achievement yet.
 - Profession items now check your actual skill level, not just whether you have the profession. If your Midnight Leatherworking is 1/100 and a recipe needs 50, it'll show as blocked until you level up.
+
+**Catalog Source Badges**
+
+- Every item in the Housing Catalog now shows a small icon in the corner for its source type: coin for vendors, quest mark, achievement shield, profession hammer, calendar for events, and crosshair for drops.
+
+**Owned Item Styles**
+
+- New options for how owned items look in the catalog. Choose between the default glow, a dimmed look, or a green checkmark. Find it in Settings under Overlays.
+
+**Profession Tooltips**
+
+- Tooltips for profession-sourced items now show the skill tier and level needed, so you know exactly what you're working toward.
 
 ### Improved
 
 - The addon now figures out which Endeavor is active much faster and doesn't keep rechecking once it knows.
-- Reorganized the Settings panel — minimap and waypoint options now have their own tab, vendor visibility and pin colors moved to General, and option descriptions are clearer throughout.
-- Export pipeline now detects vendors in the database that scan with 0 decor items and flags them for review instead of silently skipping.
+- Reorganized the Settings panel. Minimap and waypoint options now have their own tab, vendor visibility and pin colors moved to General, and option descriptions are clearer throughout.
 
 ### Fixed
 
 - Fixed a crash ("attempt to perform arithmetic on a secret number value") that could occur when hovering over world quest icons on the map after visiting a merchant. (Thanks sampconrad on CurseForge!)
+- Fixed a separate taint issue where hovering over Area POI tooltips on the world map could cause arithmetic errors. (Thanks sampconrad on CurseForge!)
 - Fixed "AddOn tried to call the protected function 'WorldMapFrame:SetPoint()'" errors when opening the world map during combat with the vendor panel enabled. The panel now waits for combat to end before adjusting the map layout. (Thanks sampconrad on CurseForge!)
+- Fixed profession tooltips not checking your actual skill level when showing completion status.
+- Fixed the vendor scanner losing previously scanned data when Blizzard's API returned empty results for a known vendor.
 
 ### Vendor Database
 
-**New Vendors**
-
-- **Irodalmin** — Profession achievement vendor in Silvermoon City. Sells 2 items for 50,000 gold each.
-
-**Updated**
-
-- Added scan confirmations and subzone data for 8 Dragonflight vendors.
-- Removed Cataloger Jakes and Ellandrieth (no longer sell housing decor).
-- Updated item lists and costs for several Valdrakken vendors from latest scan data.
+- **Irodalmin** added. Profession achievement vendor in Silvermoon City selling 2 items for 50,000 gold each.
 
 ---
 
