@@ -80,7 +80,6 @@ local searchDebounceTimer = nil      -- C_Timer.NewTimer handle (cancelable)
 local searchResultsRevision = nil    -- Tracks which index revision results came from
 local suppressTextChanged = false    -- Prevents debounce on programmatic SetText
 
-local SOURCE_FILTER_ORDER = { "all", "vendor", "quest", "achievement", "profession", "event", "drop" }
 local SOURCE_FILTER_LABELS = {
     all = "All",
     vendor = "Vendor",
@@ -269,15 +268,29 @@ local function InitializeSourceFilterDropdown(_, level)
     local addButton = _G.UIDropDownMenu_AddButton
     if not createInfo or not addButton then return end
 
-    for _, token in ipairs(SOURCE_FILTER_ORDER) do
-        local info = createInfo()
-        info.text = SOURCE_FILTER_LABELS[token] or token
-        info.value = token
-        info.checked = (token == panelSourceFilter)
-        info.func = function(self)
+    local sourceTypes = {}
+    if HA.SourceManager and HA.SourceManager.GetRegisteredSourceTypes then
+        sourceTypes = HA.SourceManager:GetRegisteredSourceTypes()
+    end
+
+    local info = createInfo()
+    info.text = SOURCE_FILTER_LABELS.all
+    info.value = "all"
+    info.checked = (panelSourceFilter == "all")
+    info.func = function(self)
+        MapSidePanel:SetSourceFilter(self.value)
+    end
+    addButton(info, level)
+
+    for _, token in ipairs(sourceTypes) do
+        local entryInfo = createInfo()
+        entryInfo.text = SOURCE_FILTER_LABELS[token] or token
+        entryInfo.value = token
+        entryInfo.checked = (token == panelSourceFilter)
+        entryInfo.func = function(self)
             MapSidePanel:SetSourceFilter(self.value)
         end
-        addButton(info, level)
+        addButton(entryInfo, level)
     end
 end
 

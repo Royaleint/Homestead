@@ -927,6 +927,17 @@ function SourceManager:GetCanonicalSourceTypes()
     return copy
 end
 
+-- Return registered provider types in stable priority order.
+function SourceManager:GetRegisteredSourceTypes()
+    EnsureProvidersRegistered()
+
+    local copy = {}
+    for i, sourceType in ipairs(providerOrder) do
+        copy[i] = sourceType
+    end
+    return copy
+end
+
 function SourceManager:GetSourceTypeIcon(sourceType)
     local icons = HA.Constants and HA.Constants.Icons
     if not icons then return nil end
