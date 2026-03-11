@@ -517,10 +517,6 @@ Constants.Defaults = {
         -- Cross-character data
         vendorVisited = {},
         dyeRecipesKnown = {},
-        -- Persistent ownership cache (workaround for Blizzard API bug)
-        -- Items are added here when the API reports them as owned
-        -- This data persists even when the API returns stale data after reload
-        ownedDecor = {},  -- [itemID] = { recordID, lastSeen, name }
         -- Scanned vendor data from VendorScanner
         scannedVendors = {},  -- [npcID] = { npcID, name, mapID, coords, decor, ... }
         -- Persistent no-decor vendor tracking (survives ClearScannedData)

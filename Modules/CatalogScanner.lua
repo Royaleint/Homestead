@@ -251,7 +251,7 @@ function CatalogScanner:ScanFullCatalog(callback)
                         ownedCount = ownedCount + 1
                     end
 
-                    -- Write to CatalogStore (handles dual-write to ownedDecor internally)
+                    -- Write to CatalogStore, the canonical ownership store.
                     if HA.CatalogStore then
                         if result.isOwned then
                             -- Full path for owned items
