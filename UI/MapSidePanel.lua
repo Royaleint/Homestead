@@ -647,9 +647,11 @@ local function CreateVendorRow(parent, index)
                 local VF = HA.VendorFilter
                 if VF then
                     local _, vendorMapID = VF.GetBestVendorCoordinates(self.vendor)
-                    if vendorMapID and WorldMapFrame and WorldMapFrame:IsShown() then
+                    if vendorMapID and WorldMapFrame then
+                        if not WorldMapFrame:IsShown() then
+                            WorldMapFrame:Show()
+                        end
                         WorldMapFrame:SetMapID(vendorMapID)
-                        -- SetMapID may not fire a change event if already on this map
                     end
                 end
             end
@@ -1921,6 +1923,10 @@ function MapSidePanel:NavigateBack()
     if not mapInfo or not mapInfo.parentMapID or mapInfo.parentMapID <= 0 then return end
     if WorldMapFrame:IsShown() then
         WorldMapFrame:SetMapID(mapInfo.parentMapID)
+    else
+        -- Detached mode: map not open, navigate via internal state
+        lastRefreshMapID = mapInfo.parentMapID
+        self:RefreshContent()
     end
 end
 
@@ -2366,8 +2372,9 @@ function MapSidePanel:RefreshContent()
     end
 
     -- MapID resolution: map frame → last viewed → player zone
+    -- When detached, panel keeps its own navigation state
     local mapID
-    if WorldMapFrame:IsShown() then
+    if not isPoppedOut and WorldMapFrame:IsShown() then
         mapID = WorldMapFrame:GetMapID()
     end
     if not mapID then
@@ -3514,8 +3521,7 @@ function MapSidePanel:Initialize()
 
     WorldMapFrame:HookScript("OnShow", function()
         if isPoppedOut then
-            -- Popped out: just refresh content (map opened, may have new mapID)
-            MapSidePanel:RefreshContent()
+            -- Popped out: panel maintains its own navigation state
             return
         end
         -- Don't show docked panel when map is maximized (fills the screen)

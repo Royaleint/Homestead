@@ -224,7 +224,12 @@ function nativePinMixin:OnLoad()
 end
 
 function nativePinMixin:OnAcquired(icon, x, y)
-    self:SetPosition(x, y)
+    local ok = pcall(self.SetPosition, self, x, y)
+    if not ok then
+        -- Canvas insets not ready (map transition race); suppress pin
+        self:Hide()
+        return
+    end
     self.icon = icon
     icon:SetParent(self)
     icon:ClearAllPoints()
@@ -253,14 +258,16 @@ local nativePins = {}          -- active pin frames (managed by us)
 local nativePinPool = {}       -- recycled pin frames
 
 local function AcquireNativePin()
+    local canvas = WorldMapFrame:GetCanvas()
+    if not canvas then return nil end
     local pin = table.remove(nativePinPool)
     if not pin then
-        pin = CreateFrame("Frame", nil, WorldMapFrame:GetCanvas())
+        pin = CreateFrame("Frame", nil, canvas)
         pin:SetSize(1, 1)
         Mixin(pin, nativePinMixin)
         pin:OnLoad()
     end
-    pin:SetParent(WorldMapFrame:GetCanvas())
+    pin:SetParent(canvas)
     pin:Show()
     nativePins[#nativePins + 1] = pin
     return pin
@@ -292,6 +299,7 @@ function MapPinProvider.PlaceWorldMapPin(namespace, frame, mapID, x, y, showFlag
     local currentMapID = WorldMapFrame:GetMapID()
     if currentMapID == mapID then
         local pin = AcquireNativePin()
+        if not pin then return false end
         pin:OnAcquired(frame, x, y)
         return true
     end
@@ -301,6 +309,7 @@ end
 -- Place a native pin directly (no HBD, no fallback check).
 function MapPinProvider.PlaceNativePin(frame, x, y)
     local pin = AcquireNativePin()
+    if not pin then return end
     pin:OnAcquired(frame, x, y)
 end
 
