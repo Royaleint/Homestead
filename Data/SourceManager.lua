@@ -27,52 +27,162 @@ local _, HA = ...
 local SourceManager = {}
 HA.SourceManager = SourceManager
 
+-- Source provider registry (internal).
+-- Each provider: { getSource = fn(itemID), getSources = fn(itemID) }
+-- Tables are allocated once at registration time, never per-call.
+local sourceProviders = {}  -- name → provider table
+local providerOrder = {}    -- ordered list of provider names (rebuilt on registration)
+local providersRegistered = false
+local sourceManagerInitialized = false
+local SOURCE_TYPE_ORDER = { "vendor", "quest", "achievement", "profession", "event", "drop" }
+local EMPTY_SOURCES = {}
+
 -- Cache for completion status checks used by tooltip rendering.
 -- Keys are source-scoped ("achievement:12345", "quest:98765", "profession:54321").
 local completionCache = {}
 local completionInvalidationFrame = nil
 
 -------------------------------------------------------------------------------
+-- Provider Registry
+-------------------------------------------------------------------------------
+
+-- Register a source provider. Provider table must have:
+--   getSource(itemID)  → {type, data} or nil  (single best result)
+--   getSources(itemID) → {{type, data}, ...}   (all results)
+-- Provider functions are created once at registration; never per-call.
+function SourceManager:RegisterProvider(name, provider)
+    sourceProviders[name] = provider
+    -- Rebuild ordered list from SOURCE_TYPE_ORDER
+    -- to maintain priority sequence. Only includes registered types.
+    providerOrder = {}
+    for _, stype in ipairs(SOURCE_TYPE_ORDER) do
+        if sourceProviders[stype] then
+            providerOrder[#providerOrder + 1] = stype
+        end
+    end
+end
+
+-- Register the 6 built-in source types as providers.
+-- Called once from Initialize(). Each closure captures its data source
+-- reference at call time — no per-lookup allocation.
+local function RegisterDefaultProviders()
+    if providersRegistered then return end
+    providersRegistered = true
+
+    SourceManager:RegisterProvider("vendor", {
+        getSource = function(itemID)
+            local vendorData = SourceManager:GetVendorSource(itemID)
+            if vendorData then
+                return {type = "vendor", data = vendorData}
+            end
+        end,
+        getSources = function(itemID)
+            return SourceManager:GetVendorSources(itemID)
+        end,
+    })
+
+    SourceManager:RegisterProvider("quest", {
+        getSource = function(itemID)
+            if HA.QuestSources and HA.QuestSources[itemID] then
+                return {type = "quest", data = HA.QuestSources[itemID]}
+            end
+        end,
+        getSources = function(itemID)
+            if HA.QuestSources and HA.QuestSources[itemID] then
+                return {{type = "quest", data = HA.QuestSources[itemID]}}
+            end
+            return EMPTY_SOURCES
+        end,
+    })
+
+    SourceManager:RegisterProvider("achievement", {
+        getSource = function(itemID)
+            if HA.AchievementSources and HA.AchievementSources[itemID] then
+                return {type = "achievement", data = HA.AchievementSources[itemID]}
+            end
+        end,
+        getSources = function(itemID)
+            if HA.AchievementSources and HA.AchievementSources[itemID] then
+                return {{type = "achievement", data = HA.AchievementSources[itemID]}}
+            end
+            return EMPTY_SOURCES
+        end,
+    })
+
+    SourceManager:RegisterProvider("profession", {
+        getSource = function(itemID)
+            if HA.ProfessionSources and HA.ProfessionSources[itemID] then
+                return {type = "profession", data = HA.ProfessionSources[itemID]}
+            end
+        end,
+        getSources = function(itemID)
+            if HA.ProfessionSources and HA.ProfessionSources[itemID] then
+                return {{type = "profession", data = HA.ProfessionSources[itemID]}}
+            end
+            return EMPTY_SOURCES
+        end,
+    })
+
+    SourceManager:RegisterProvider("event", {
+        getSource = function(itemID)
+            if HA.EventSources and HA.EventSources[itemID] then
+                return {type = "event", data = HA.EventSources[itemID]}
+            end
+        end,
+        getSources = function(itemID)
+            if HA.EventSources and HA.EventSources[itemID] then
+                return {{type = "event", data = HA.EventSources[itemID]}}
+            end
+            return EMPTY_SOURCES
+        end,
+    })
+
+    SourceManager:RegisterProvider("drop", {
+        getSource = function(itemID)
+            if HA.DropSources and HA.DropSources[itemID] then
+                return {type = "drop", data = HA.DropSources[itemID]}
+            end
+        end,
+        getSources = function(itemID)
+            if HA.DropSources and HA.DropSources[itemID] then
+                return {{type = "drop", data = HA.DropSources[itemID]}}
+            end
+            return EMPTY_SOURCES
+        end,
+    })
+end
+
+local function EnsureProvidersRegistered()
+    if not providersRegistered then
+        RegisterDefaultProviders()
+    end
+end
+
+-------------------------------------------------------------------------------
 -- Source Lookup
 -------------------------------------------------------------------------------
 
--- Get the primary source for an item
+-- Get the primary source for an item.
+-- Primary source policy: first provider with a singular result wins.
+-- This intentionally does NOT derive the result from GetAllSources()[1].
+-- Vendor primary selection remains proximity-based via GetClosestVendorForItem().
+-- Walks registered providers in priority order (SOURCE_TYPE_ORDER).
 -- Returns: {type = "vendor|quest|achievement|profession|event|drop", data = {...}} or nil
 function SourceManager:GetSource(itemID)
     if not itemID then return nil end
+    EnsureProvidersRegistered()
 
-    -- Priority 1: Vendor source (from VendorDatabase)
-    local vendorSource = self:GetVendorSource(itemID)
-    if vendorSource then
-        return {type = "vendor", data = vendorSource}
+    -- Walk registered providers in priority order
+    for _, name in ipairs(providerOrder) do
+        local provider = sourceProviders[name]
+        if provider and provider.getSource then
+            local source = provider.getSource(itemID)
+            if source then return source end
+        end
     end
 
-    -- Priority 2: Quest source
-    if HA.QuestSources and HA.QuestSources[itemID] then
-        return {type = "quest", data = HA.QuestSources[itemID]}
-    end
-
-    -- Priority 3: Achievement source
-    if HA.AchievementSources and HA.AchievementSources[itemID] then
-        return {type = "achievement", data = HA.AchievementSources[itemID]}
-    end
-
-    -- Priority 4: Profession source
-    if HA.ProfessionSources and HA.ProfessionSources[itemID] then
-        return {type = "profession", data = HA.ProfessionSources[itemID]}
-    end
-
-    -- Priority 5: Event source (seasonal holiday vendors)
-    if HA.EventSources and HA.EventSources[itemID] then
-        return {type = "event", data = HA.EventSources[itemID]}
-    end
-
-    -- Priority 6: Drop source
-    if HA.DropSources and HA.DropSources[itemID] then
-        return {type = "drop", data = HA.DropSources[itemID]}
-    end
-
-    -- Priority 7: Parsed sourceText (runtime discovery fallback, gated)
+    -- Fallback: Parsed sourceText (runtime discovery, gated by profile setting).
+    -- Not a registered provider — requires profile gating and dedup logic.
     if HA.Addon and HA.Addon.db and HA.Addon.db.profile.useParsedSources then
         local parsedSource = self:GetParsedSource(itemID)
         if parsedSource then
@@ -257,6 +367,8 @@ function SourceManager:IsSourceAvailableNow(itemID, source)
 end
 
 -- Get the highest-priority source that appears available "right now".
+-- Evaluates the full GetAllSources() result set, including multi-vendor rows,
+-- and returns the first source not known to be blocked.
 -- Falls back to nil if every known source is blocked.
 function SourceManager:GetBestAvailableSource(itemID)
     if not itemID then return nil end
@@ -274,45 +386,28 @@ function SourceManager:GetBestAvailableSource(itemID)
     return nil
 end
 
--- Get all sources for an item (for items with multiple acquisition methods)
+-- Get all sources for an item (for items with multiple acquisition methods).
+-- Walks registered providers via getSources(), then appends parsed sources.
+-- Unlike GetSource(), this returns every vendor location emitted by GetVendorSources().
 -- Returns: array of {type = "...", data = {...}}
 function SourceManager:GetAllSources(itemID)
     if not itemID then return {} end
+    EnsureProvidersRegistered()
 
     local sources = {}
 
-    -- Vendor source
-    local vendorSource = self:GetVendorSource(itemID)
-    if vendorSource then
-        table.insert(sources, {type = "vendor", data = vendorSource})
+    -- Walk registered providers in priority order
+    for _, name in ipairs(providerOrder) do
+        local provider = sourceProviders[name]
+        if provider and provider.getSources then
+            local providerSources = provider.getSources(itemID)
+            for _, source in ipairs(providerSources) do
+                sources[#sources + 1] = source
+            end
+        end
     end
 
-    -- Quest source
-    if HA.QuestSources and HA.QuestSources[itemID] then
-        table.insert(sources, {type = "quest", data = HA.QuestSources[itemID]})
-    end
-
-    -- Achievement source
-    if HA.AchievementSources and HA.AchievementSources[itemID] then
-        table.insert(sources, {type = "achievement", data = HA.AchievementSources[itemID]})
-    end
-
-    -- Profession source
-    if HA.ProfessionSources and HA.ProfessionSources[itemID] then
-        table.insert(sources, {type = "profession", data = HA.ProfessionSources[itemID]})
-    end
-
-    -- Event source (seasonal holiday vendors)
-    if HA.EventSources and HA.EventSources[itemID] then
-        table.insert(sources, {type = "event", data = HA.EventSources[itemID]})
-    end
-
-    -- Drop source
-    if HA.DropSources and HA.DropSources[itemID] then
-        table.insert(sources, {type = "drop", data = HA.DropSources[itemID]})
-    end
-
-    -- Parsed sources (gated behind useParsedSources)
+    -- Parsed sources fallback (gated, with composite dedup against static sources)
     if HA.Addon and HA.Addon.db and HA.Addon.db.profile.useParsedSources then
         if HA.SourceTextScanner then
             local parsed = HA.SourceTextScanner:GetParsedSource(itemID)
@@ -327,7 +422,7 @@ function SourceManager:GetAllSources(itemID)
                     local key = (s.sourceType or "") .. "|" .. (s.name or "") .. "|" .. (s.zone or "")
                     if not seen[key] then
                         seen[key] = true
-                        table.insert(sources, { type = s.sourceType, data = s, _isParsed = true })
+                        sources[#sources + 1] = { type = s.sourceType, data = s, _isParsed = true }
                     end
                 end
             end
@@ -337,6 +432,53 @@ function SourceManager:GetAllSources(itemID)
     return sources
 end
 
+local function GetPlacedCount(itemID)
+    if not itemID then return 0 end
+    if C_HousingCatalog and C_HousingCatalog.GetCatalogEntryInfoByItem then
+        local itemLink = "item:" .. tostring(itemID)
+        local success, info = pcall(C_HousingCatalog.GetCatalogEntryInfoByItem, itemLink, true)
+        if success and info then
+            return info.numPlaced or 0
+        end
+    end
+    return 0
+end
+
+function SourceManager:GetPlacedCountForItem(itemID)
+    return GetPlacedCount(itemID)
+end
+
+local function BuildVendorSourceData(itemID, vendor)
+    if not itemID or not vendor then return nil end
+
+    local cost = nil
+    if vendor.items and HA.VendorData then
+        for _, item in ipairs(vendor.items) do
+            local vendorItemID = HA.VendorData:GetItemID(item) or item.itemID
+            if vendorItemID == itemID then
+                cost = HA.VendorData:GetItemCost(item)
+                if not cost and vendor._isScanned then
+                    cost = HA.VendorData:NormalizeScannedCost(item)
+                end
+                break
+            end
+        end
+    end
+
+    return {
+        vendor = vendor,
+        npcID = vendor.npcID,
+        name = vendor.name,
+        vendorName = vendor.name,
+        zone = vendor.zone,
+        subzone = vendor.subzone,
+        mapID = vendor.mapID,
+        faction = vendor.faction,
+        coords = vendor.coords or (vendor.x and vendor.y and {x = vendor.x, y = vendor.y}),
+        cost = cost,
+    }
+end
+
 -- Helper: Get vendor source from VendorData
 function SourceManager:GetVendorSource(itemID)
     if not HA.VendorData or not HA.VendorData.GetClosestVendorForItem then
@@ -344,37 +486,30 @@ function SourceManager:GetVendorSource(itemID)
     end
 
     local vendor = HA.VendorData:GetClosestVendorForItem(itemID)
-    if vendor then
+    return BuildVendorSourceData(itemID, vendor)
+end
 
-        -- Try to get cost data for this item (handles both static and scanned formats)
-        local cost = nil
-        if vendor.items then
-            for _, item in ipairs(vendor.items) do
-                local vendorItemID = HA.VendorData:GetItemID(item) or item.itemID
-                if vendorItemID == itemID then
-                    cost = HA.VendorData:GetItemCost(item)
-                    -- If no static-format cost, try scanned format normalization
-                    if not cost and vendor._isScanned then
-                        cost = HA.VendorData:NormalizeScannedCost(item)
-                    end
-                    break
-                end
-            end
-        end
-
-        return {
-            npcID = vendor.npcID,
-            name = vendor.name,
-            zone = vendor.zone,
-            subzone = vendor.subzone,
-            mapID = vendor.mapID,
-            faction = vendor.faction,
-            coords = vendor.coords or (vendor.x and vendor.y and {x = vendor.x, y = vendor.y}),
-            cost = cost,
-        }
+-- Get ALL vendor sources for an item (not just the closest).
+-- Returns array of {type = "vendor", data = {...}} entries.
+function SourceManager:GetVendorSources(itemID)
+    if not itemID or not HA.VendorData or not HA.VendorData.GetVendorsForItem then
+        return EMPTY_SOURCES
     end
 
-    return nil
+    local vendors = HA.VendorData:GetVendorsForItem(itemID)
+    if not vendors or #vendors == 0 then
+        return EMPTY_SOURCES
+    end
+
+    local sources = {}
+    for _, vendor in ipairs(vendors) do
+        local vendorData = BuildVendorSourceData(itemID, vendor)
+        if vendorData then
+            sources[#sources + 1] = { type = "vendor", data = vendorData }
+        end
+    end
+
+    return sources
 end
 
 -- Helper: Get best parsed source for an item (from SourceTextScanner)
@@ -703,7 +838,6 @@ end
 -------------------------------------------------------------------------------
 
 -- Canonical source taxonomy used by filtering and reporting.
-local SOURCE_TYPE_ORDER = { "vendor", "quest", "achievement", "profession", "event", "drop" }
 local CANONICAL_SOURCE_TYPES = {
     vendor = true,
     quest = true,
@@ -714,6 +848,15 @@ local CANONICAL_SOURCE_TYPES = {
 }
 local SOURCE_TYPE_ALIASES = {
     craft = "profession", -- Legacy constant alias
+}
+local SOURCE_TYPE_ICONS = {
+    vendor = HA.Constants.Icons.PURCHASABLE,
+    profession = HA.Constants.Icons.CRAFTABLE,
+    achievement = HA.Constants.Icons.ACHIEVEMENT_REWARD,
+    drop = HA.Constants.Icons.DROP_SOURCE,
+    quest = HA.Constants.Icons.QUEST_REWARD,
+    event = HA.Constants.Icons.PURCHASABLE,
+    reputation = HA.Constants.Icons.REPUTATION,
 }
 
 local function ForEachItemID(itemIDs, callback)
@@ -782,6 +925,68 @@ function SourceManager:GetCanonicalSourceTypes()
         copy[i] = sourceType
     end
     return copy
+end
+
+-- Return registered provider types in stable priority order.
+function SourceManager:GetRegisteredSourceTypes()
+    EnsureProvidersRegistered()
+
+    local copy = {}
+    for i, sourceType in ipairs(providerOrder) do
+        copy[i] = sourceType
+    end
+    return copy
+end
+
+function SourceManager:GetSourceTypeIcon(sourceType)
+    local icons = HA.Constants and HA.Constants.Icons
+    if not icons then return nil end
+
+    local normalizedType = self:NormalizeSourceType(sourceType) or sourceType
+    return SOURCE_TYPE_ICONS[normalizedType] or icons.NOT_COLLECTED
+end
+
+-- Get status icon for a decor item without constructing a heavyweight wrapper.
+-- Preserves the owned / placed / unowned icon behavior used by overlays.
+function SourceManager:GetItemStatusIcon(itemID)
+    if not itemID then return nil end
+
+    local icons = HA.Constants and HA.Constants.Icons
+    local catalogStore = HA.CatalogStore
+    if not icons or not catalogStore then return nil end
+
+    if catalogStore:IsOwnedFresh(itemID) then
+        if GetPlacedCount(itemID) > 0 then
+            return icons.COLLECTED_PLACED
+        end
+        return icons.COLLECTED
+    end
+
+    local source = self:GetSource(itemID)
+    if source then
+        return self:GetSourceTypeIcon(source.type)
+    end
+
+    return icons.NOT_COLLECTED
+end
+
+-- Get status color for a decor item without constructing a heavyweight wrapper.
+-- Preserves the owned / placed / unowned color behavior used by overlays.
+function SourceManager:GetItemStatusColor(itemID)
+    if not itemID then return nil end
+
+    local colors = HA.Constants and HA.Constants.Colors
+    local catalogStore = HA.CatalogStore
+    if not colors or not catalogStore then return nil end
+
+    if catalogStore:IsOwnedFresh(itemID) then
+        if GetPlacedCount(itemID) > 0 then
+            return colors.COLLECTED_PLACED
+        end
+        return colors.COLLECTED
+    end
+
+    return colors.NOT_COLLECTED
 end
 
 -- Return primary source type for an item, normalized to canonical taxonomy.
@@ -1241,12 +1446,16 @@ end
 -------------------------------------------------------------------------------
 
 function SourceManager:Initialize()
+    if sourceManagerInitialized then return end
+    sourceManagerInitialized = true
+
+    EnsureProvidersRegistered()
     HookCompletionCacheInvalidation()
 
     local stats = self:GetStats()
 
     if HA.Addon then
-        HA.Addon:Debug("SourceManager initialized")
+        HA.Addon:Debug("SourceManager initialized (" .. #providerOrder .. " providers)")
         HA.Addon:Debug("  Quest sources:", stats.quests)
         HA.Addon:Debug("  Achievement sources:", stats.achievements)
         HA.Addon:Debug("  Profession sources:", stats.professions)

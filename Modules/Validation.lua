@@ -228,30 +228,6 @@ function Validation:ValidateOwnershipCache()
             end
         end
 
-        -- Parity check: bidirectional compare during dual-write window
-        local ownedDecor = HA.Addon.db.global.ownedDecor
-        if ownedDecor then
-            -- Direction 1: ownedDecor has item but catalogItems does not
-            for ownedItemID in pairs(ownedDecor) do
-                local record = HA.Addon.db.global.catalogItems[ownedItemID]
-                if not record or not record.isOwned then
-                    table.insert(warnings, string.format(
-                        "ownedDecor[%s] exists but catalogItems says not owned (parity drift)",
-                        tostring(ownedItemID)
-                    ))
-                end
-            end
-            -- Direction 2: catalogItems says owned but ownedDecor missing
-            for catItemID, record in pairs(HA.Addon.db.global.catalogItems) do
-                if record.isOwned and not ownedDecor[catItemID] then
-                    table.insert(warnings, string.format(
-                        "catalogItems[%s] is owned but missing from ownedDecor (parity drift)",
-                        tostring(catItemID)
-                    ))
-                end
-            end
-        end
-
         return errors, warnings, itemCount
     end
 

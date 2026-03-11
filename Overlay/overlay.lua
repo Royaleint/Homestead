@@ -15,7 +15,8 @@ HA.Overlay = Overlay
 -- Local references
 local Constants = HA.Constants
 local Events = HA.Events
-local DecorTracker = HA.DecorTracker
+local CatalogStore = HA.CatalogStore
+local SourceManager = HA.SourceManager
 
 -- Configuration
 local OVERLAY_CONFIG = Constants.Overlay or {
@@ -130,7 +131,7 @@ function Overlay:SetIcon(overlay, itemLink)
     end
 
     -- Check if item is a decor item
-    if not DecorTracker then
+    if not CatalogStore or not SourceManager then
         overlay.icon:Hide()
         return
     end
@@ -141,13 +142,14 @@ function Overlay:SetIcon(overlay, itemLink)
     end
 
     -- Check if this is a decor item
-    if not DecorTracker:IsDecorItem(itemLink) then
+    local itemID = GetItemInfoInstant(itemLink)
+    if not itemID or not CatalogStore:IsDecorItem(itemLink) then
         overlay.icon:Hide()
         return
     end
 
     -- Get status icon
-    local iconTexture = DecorTracker:GetStatusIcon(itemLink)
+    local iconTexture = SourceManager:GetItemStatusIcon(itemID)
     if not iconTexture then
         overlay.icon:Hide()
         return
@@ -158,7 +160,7 @@ function Overlay:SetIcon(overlay, itemLink)
     overlay.icon:Show()
 
     -- Apply color tint if needed
-    local color = DecorTracker:GetStatusColor(itemLink)
+    local color = SourceManager:GetItemStatusColor(itemID)
     if color then
         overlay.icon:SetVertexColor(color.r, color.g, color.b, color.a or 1)
     else

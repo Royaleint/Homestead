@@ -5,9 +5,10 @@
 
 local _, HA = ...
 
-local DecorTracker = HA.DecorTracker
+local CatalogStore = HA.CatalogStore
 local Constants = HA.Constants
 local Overlay = HA.Overlay
+local SourceManager = HA.SourceManager
 
 local OVERLAY_CONFIG = Constants.Overlay or {
     ICON_SIZE = 14,
@@ -157,7 +158,7 @@ local function UpdateWidget(cornerFrame, details)
         return false
     end
 
-    if not DecorTracker then
+    if not CatalogStore or not SourceManager then
         return false
     end
 
@@ -170,11 +171,12 @@ local function UpdateWidget(cornerFrame, details)
         return false
     end
 
-    if not DecorTracker:IsDecorItem(itemLink) then
+    local itemID = (details and details.itemID) or GetItemInfoInstant(itemLink)
+    if not itemID or not CatalogStore:IsDecorItem(itemLink) then
         return false
     end
 
-    local iconTexture = DecorTracker:GetStatusIcon(itemLink)
+    local iconTexture = SourceManager:GetItemStatusIcon(itemID)
     if not iconTexture then
         return false
     end
@@ -182,7 +184,7 @@ local function UpdateWidget(cornerFrame, details)
     cornerFrame:SetTexture(iconTexture)
     cornerFrame:SetSize(settings.iconSize or OVERLAY_CONFIG.ICON_SIZE, settings.iconSize or OVERLAY_CONFIG.ICON_SIZE)
 
-    local color = DecorTracker:GetStatusColor(itemLink)
+    local color = SourceManager:GetItemStatusColor(itemID)
     if color then
         cornerFrame:SetVertexColor(color.r, color.g, color.b, color.a or 1)
     else

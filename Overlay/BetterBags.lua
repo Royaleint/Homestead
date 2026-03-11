@@ -5,9 +5,10 @@
 
 local _, HA = ...
 
-local DecorTracker = HA.DecorTracker
+local CatalogStore = HA.CatalogStore
 local Constants = HA.Constants
 local Overlay = HA.Overlay
+local SourceManager = HA.SourceManager
 
 local OVERLAY_CONFIG = Constants.Overlay or {
     ICON_SIZE = 14,
@@ -132,7 +133,7 @@ local function OnItemUpdated(_, item, decoration)
         return
     end
 
-    if not DecorTracker then
+    if not CatalogStore or not SourceManager then
         ClearIcon(decoration)
         return
     end
@@ -160,12 +161,13 @@ local function OnItemUpdated(_, item, decoration)
         return
     end
 
-    if not DecorTracker:IsDecorItem(itemLink) then
+    local itemID = (itemInfo and itemInfo.itemID) or GetItemInfoInstant(itemLink)
+    if not itemID or not CatalogStore:IsDecorItem(itemLink) then
         ClearIcon(decoration)
         return
     end
 
-    local iconTexture = DecorTracker:GetStatusIcon(itemLink)
+    local iconTexture = SourceManager:GetItemStatusIcon(itemID)
     if not iconTexture then
         ClearIcon(decoration)
         return
@@ -179,7 +181,7 @@ local function OnItemUpdated(_, item, decoration)
     tex:SetSize(settings.iconSize or OVERLAY_CONFIG.ICON_SIZE, settings.iconSize or OVERLAY_CONFIG.ICON_SIZE)
     tex:SetTexture(iconTexture)
 
-    local color = DecorTracker:GetStatusColor(itemLink)
+    local color = SourceManager:GetItemStatusColor(itemID)
     if color then
         tex:SetVertexColor(color.r, color.g, color.b, color.a or 1)
     else
