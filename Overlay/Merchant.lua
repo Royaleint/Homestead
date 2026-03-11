@@ -213,6 +213,11 @@ end
 local function Initialize()
     -- Register callbacks
     Events:RegisterCallback("merchant", UpdateAllMerchantOverlays)
+    Events:RegisterCallback("OWNERSHIP_UPDATED", function()
+        if MerchantFrame and MerchantFrame:IsShown() then
+            ScheduleOverlayUpdate()
+        end
+    end)
 
     -- Register for merchant events
     local frame = CreateFrame("Frame")
