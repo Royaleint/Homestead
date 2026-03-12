@@ -1252,6 +1252,10 @@ local function CreateSummaryRow(parent, index)
             -- Right-click: navigate
             if WorldMapFrame:IsShown() then
                 WorldMapFrame:SetMapID(self.targetMapID)
+            else
+                -- Detached mode: navigate via internal state
+                lastRefreshMapID = self.targetMapID
+                MapSidePanel:RefreshContent()
             end
         else
             -- Left-click: toggle expand/collapse
@@ -1372,12 +1376,17 @@ local function CreateSummarySubRow(parent)
 
     row:SetScript("OnClick", function(self)
         if not self.targetMapID then return end
-        if not WorldMapFrame:IsShown() then return end
         -- Pre-set expandedVendorID so the item grid opens at zone level
         if self.vendor and self.vendor.npcID then
             expandedVendorID = self.vendor.npcID
         end
-        WorldMapFrame:SetMapID(self.targetMapID)
+        if WorldMapFrame:IsShown() then
+            WorldMapFrame:SetMapID(self.targetMapID)
+        else
+            -- Detached mode: navigate via internal state
+            lastRefreshMapID = self.targetMapID
+            MapSidePanel:RefreshContent()
+        end
     end)
 
     row:SetScript("OnEnter", function(self)
