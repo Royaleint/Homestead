@@ -19,6 +19,7 @@
 
 - Fixed memory leak in Housing Dashboard.
 - Fixed the side panel back button not working when the panel is detached from the World Map.
+- Fixed drilling down into zones and vendors not working when the panel is detached and the World Map is closed.
 - Fixed the detached panel resetting to the map's location when you open the World Map.
 - Fixed clicking a vendor in search results not opening the map when the panel is detached.
 - Fixed merchant overlay checkmarks updating one purchase late instead of immediately.
