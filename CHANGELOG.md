@@ -4,9 +4,30 @@
 
 ## v2.0.1 (2026-03-10)
 
+### Improved
+
+**Smarter Search**
+
+- Search now finds items from all source types, not just vendors. Search for "Lunar Festival" and you'll see the event items, search for an achievement name and those rewards show up too.
+- Item search results expand to show all acquisition sources when clicked.
+
+**Dynamic Source Filter**
+
+- The source filter dropdown now automatically includes every source type the addon knows about. No more waiting for manual updates when new sources are added.
+
 ### Fixed
 
 - Fixed memory leak in Housing Dashboard.
+- Fixed the side panel back button not working when the panel is detached from the World Map.
+- Fixed the detached panel resetting to the map's location when you open the World Map.
+- Fixed clicking a vendor in search results not opening the map when the panel is detached.
+- Fixed merchant overlay checkmarks updating one purchase late instead of immediately.
+- Fixed a tooltip error that could trigger on repair mounts/anvils and other merchant-like interactions.
+- Fixed world map vendor pin, badge, portal, and minimap hovers sharing Blizzard's tooltip path and contributing to map tooltip taint issues.
+
+### Polished
+
+- The World Map side panel now uses its own Blizzard-style tooltip again without changing the classic docked map-shift behavior.
 
 ---
 

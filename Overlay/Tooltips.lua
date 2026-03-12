@@ -15,12 +15,15 @@ local _, HA = ...
 local ipairs = ipairs
 local tonumber = tonumber
 local pcall = pcall
+local stringMatch = string.match
 
 -- Local state
 local isHooked = false
 local isCatalogHooked = false
-local cachedMerchantNpcID = nil  -- Set by MERCHANT_SHOW, cleared by MERCHANT_CLOSED
+local merchantFrameOpen = false   -- Set by MERCHANT_SHOW, cleared by MERCHANT_CLOSED
+local cachedMerchantNpcID = nil   -- Best-effort NPC ID cache for vendor-scoped requirements
 local lastDebugKey = nil         -- Throttle debug logging (item+context+detailed)
+local lastTooltipFrame = nil     -- Tooltip frame we most recently augmented
 local lastTooltipOwner = nil     -- Owner frame of last decor tooltip (for Shift refresh)
 local lastShiftState = false     -- Previous Shift key state (anti-thrash)
 
@@ -40,6 +43,20 @@ local function GetItemIDFromLink(itemLink)
     if not itemLink then return nil end
     local itemID = itemLink:match("item:(%d+)")
     return itemID and tonumber(itemID)
+end
+
+local function GetNPCIDFromGUID(guid)
+    if not guid then return nil end
+
+    -- UnitGUID can be a restricted "secret string" in some merchant contexts
+    -- (for example repair mounts/anvils). Guard matching so tooltip setup
+    -- degrades to an unscoped merchant context instead of hard-erroring.
+    local ok, npcIDText = pcall(stringMatch, guid, "^%a+%-%d+%-%d+%-%d+%-%d+%-(%d+)")
+    if not ok then
+        return nil
+    end
+
+    return npcIDText and tonumber(npcIDText) or nil
 end
 
 -- Check if an item is a housing decor item using the Housing Catalog API
@@ -499,6 +516,10 @@ local SOURCE_RENDERERS = {
 -- Detect tooltip context from the tooltip's owner frame.
 -- Returns "panel", "merchant", or "standard".
 local function DetectContext(tooltip)
+    if tooltip and tooltip.isHomesteadPanelTooltip then
+        return "panel"
+    end
+
     local owner = tooltip and tooltip.GetOwner and tooltip:GetOwner()
     if not owner then return "standard" end
 
@@ -507,7 +528,7 @@ local function DetectContext(tooltip)
 
     -- Merchant: only if a merchant is open AND the owner is a merchant item button.
     -- Prevents misclassifying bag/AH/chat tooltips while vendor window is open.
-    if cachedMerchantNpcID then
+    if merchantFrameOpen then
         local ownerName = owner.GetName and owner:GetName()
         if ownerName and ownerName:match("^MerchantItem%d+ItemButton$") then
             return "merchant"
@@ -660,6 +681,7 @@ local function AddDecorInfoToTooltip(tooltip, itemLink)
     local detailed = (context == "panel") or IsShiftKeyDown()
 
     -- Track owner for Shift-to-refresh (B6)
+    lastTooltipFrame = tooltip
     lastTooltipOwner = tooltip:GetOwner()
 
     -- Debug logging (dev mode only, throttled to avoid spam on repeated tooltip updates)
@@ -881,8 +903,12 @@ local function HookTooltips()
     -- Use TooltipDataProcessor for modern WoW (10.0.2+)
     if TooltipDataProcessor and TooltipDataProcessor.AddTooltipPostCall then
         TooltipDataProcessor.AddTooltipPostCall(Enum.TooltipDataType.Item, function(tooltip, data)
-            -- Only process GameTooltip and similar tooltips
-            if tooltip == GameTooltip or tooltip == ItemRefTooltip or tooltip == ShoppingTooltip1 or tooltip == ShoppingTooltip2 then
+            -- Only process Blizzard's shared item tooltips plus explicit Homestead-managed ones.
+            if tooltip == GameTooltip
+                    or tooltip == ItemRefTooltip
+                    or tooltip == ShoppingTooltip1
+                    or tooltip == ShoppingTooltip2
+                    or (tooltip and tooltip.isHomesteadManagedTooltip) then
                 OnTooltipSetItem(tooltip, data)
             end
         end)
@@ -951,14 +977,10 @@ local function Initialize()
     merchantFrame:RegisterEvent("MERCHANT_CLOSED")
     merchantFrame:SetScript("OnEvent", function(_, event)
         if event == "MERCHANT_SHOW" then
-            local guid = UnitGUID("npc")
-            if guid then
-                local npcIDText = guid:match("^%a+%-%d+%-%d+%-%d+%-%d+%-(%d+)")
-                cachedMerchantNpcID = tonumber(npcIDText)
-            else
-                cachedMerchantNpcID = nil
-            end
+            merchantFrameOpen = true
+            cachedMerchantNpcID = GetNPCIDFromGUID(UnitGUID("npc"))
         else
+            merchantFrameOpen = false
             cachedMerchantNpcID = nil
         end
     end)
@@ -974,12 +996,13 @@ local function Initialize()
         if isDown == lastShiftState then return end
         lastShiftState = isDown
         -- Guard 3: tooltip not visible
-        if not GameTooltip:IsShown() then return end
+        if not lastTooltipFrame or not lastTooltipFrame:IsShown() then return end
         -- Guard 4: no tracked owner
         if not lastTooltipOwner then return end
         -- Guard 5: owner changed since we last rendered
-        local currentOwner = GameTooltip:GetOwner()
+        local currentOwner = lastTooltipFrame:GetOwner()
         if currentOwner ~= lastTooltipOwner then
+            lastTooltipFrame = nil
             lastTooltipOwner = nil
             return
         end

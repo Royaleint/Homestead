@@ -33,6 +33,7 @@ local unpack = unpack
 -- State
 local isInitialized = false
 local pinsEnabled = true
+local PIN_TOOLTIP_NAME = "HomesteadVendorMapPinsTooltip"
 
 -- Active frames currently shown by this module.
 local vendorPinFrames = {}
@@ -277,8 +278,40 @@ end
 
 -- Item info event tracking for tooltip refresh (GET_ITEM_INFO_RECEIVED)
 local itemInfoEventFrame = CreateFrame("Frame")
-local activeTooltipData = nil      -- {pin, vendor} while tooltip is visible
+local activeTooltipData = nil      -- {kind="vendor", pin, vendor} while vendor tooltip is visible
 local tooltipRebuildPending = false -- Debounce flag for batching rebuilds
+local pinTooltip = nil
+
+local function GetPinTooltip()
+    if pinTooltip then
+        return pinTooltip
+    end
+
+    local tooltip = CreateFrame("GameTooltip", PIN_TOOLTIP_NAME, UIParent, "GameTooltipTemplate")
+    tooltip:SetFrameStrata("TOOLTIP")
+    tooltip:SetClampedToScreen(true)
+    pinTooltip = tooltip
+    return tooltip
+end
+
+local function BeginPinTooltip(owner, anchor)
+    local tooltip = GetPinTooltip()
+    tooltip:SetOwner(owner, anchor or "ANCHOR_RIGHT")
+    tooltip:ClearLines()
+    return tooltip
+end
+
+local function IsActiveVendorTooltipVisible()
+    if not activeTooltipData or activeTooltipData.kind ~= "vendor" or not pinTooltip then
+        return false
+    end
+
+    if not pinTooltip:IsShown() then
+        return false
+    end
+
+    return pinTooltip:GetOwner() == activeTooltipData.pin
+end
 
 itemInfoEventFrame:SetScript("OnEvent", function(self, event, itemID, success)
     if not success or not activeTooltipData then return end
@@ -286,7 +319,7 @@ itemInfoEventFrame:SetScript("OnEvent", function(self, event, itemID, success)
         tooltipRebuildPending = true
         C_Timer.After(0.05, function()
             tooltipRebuildPending = false
-            if activeTooltipData and GameTooltip:IsShown() then
+            if IsActiveVendorTooltipVisible() then
                 VendorMapPins:ShowVendorTooltip(
                     activeTooltipData.pin,
                     activeTooltipData.vendor
@@ -435,6 +468,13 @@ end
 function VendorMapPins:OnPinLeave()
     activeTooltipData = nil
     itemInfoEventFrame:UnregisterEvent("GET_ITEM_INFO_RECEIVED")
+    if pinTooltip then
+        pinTooltip:Hide()
+    end
+end
+
+function VendorMapPins:HidePinTooltip()
+    self:OnPinLeave()
 end
 
 -- Local wrappers for frame creation (delegate to PinFrameFactory)
@@ -560,42 +600,41 @@ function VendorMapPins:ShowVendorTooltip(pin, vendor)
     if not vendor then return end
 
     -- Track active tooltip for GET_ITEM_INFO_RECEIVED refresh
-    activeTooltipData = { pin = pin, vendor = vendor }
+    activeTooltipData = { kind = "vendor", pin = pin, vendor = vendor }
     itemInfoEventFrame:RegisterEvent("GET_ITEM_INFO_RECEIVED")
 
     local isOpposite = self:IsOppositeFaction(vendor)
     local isUnverified = not IsVendorVerified(vendor)
 
-    GameTooltip:SetOwner(pin, "ANCHOR_RIGHT")
-    GameTooltip:ClearLines()
-    GameTooltip:AddLine(vendor.name, 1, 1, 1)
+    local tooltip = BeginPinTooltip(pin, "ANCHOR_RIGHT")
+    tooltip:AddLine(vendor.name, 1, 1, 1)
 
     if vendor.subzone then
-        GameTooltip:AddLine(vendor.subzone .. " (" .. vendor.zone .. ")", 0.7, 0.7, 0.7)
+        tooltip:AddLine(vendor.subzone .. " (" .. vendor.zone .. ")", 0.7, 0.7, 0.7)
     elseif vendor.zone then
-        GameTooltip:AddLine(vendor.zone, 0.7, 0.7, 0.7)
+        tooltip:AddLine(vendor.zone, 0.7, 0.7, 0.7)
     end
 
     if vendor.faction and vendor.faction ~= "Neutral" then
         local factionColor = vendor.faction == "Alliance" and {0, 0.44, 0.87} or {0.77, 0.12, 0.23}
-        GameTooltip:AddLine(vendor.faction, unpack(factionColor))
+        tooltip:AddLine(vendor.faction, unpack(factionColor))
     end
 
     -- Warning for unverified vendors (imported data not yet confirmed in-game)
     if isUnverified then
-        GameTooltip:AddLine(" ")
-        GameTooltip:AddLine("Unverified location - visit to confirm", 1.0, 0.6, 0.2)
+        tooltip:AddLine(" ")
+        tooltip:AddLine("Unverified location - visit to confirm", 1.0, 0.6, 0.2)
     end
 
     -- Warning for opposite faction vendors
     if isOpposite then
-        GameTooltip:AddLine(" ")
-        GameTooltip:AddLine("Cannot access - opposite faction vendor", 0.8, 0.3, 0.3)
+        tooltip:AddLine(" ")
+        tooltip:AddLine("Cannot access - opposite faction vendor", 0.8, 0.3, 0.3)
     end
 
     if vendor.notes then
-        GameTooltip:AddLine(" ")
-        GameTooltip:AddLine(vendor.notes, 1, 0.82, 0, true)
+        tooltip:AddLine(" ")
+        tooltip:AddLine(vendor.notes, 1, 0.82, 0, true)
     end
 
     -- Gather items from both static and scanned data
@@ -630,8 +669,8 @@ function VendorMapPins:ShowVendorTooltip(pin, vendor)
     end
 
     if #allItems > 0 then
-        GameTooltip:AddLine(" ")
-        GameTooltip:AddLine("Items Sold:", 1, 1, 0)
+        tooltip:AddLine(" ")
+        tooltip:AddLine("Items Sold:", 1, 1, 0)
 
         local collectedCount = 0
         local uncollectedItems = {}
@@ -660,51 +699,53 @@ function VendorMapPins:ShowVendorTooltip(pin, vendor)
         if #uncollectedItems == 0 then
             for _, item in ipairs(allItems) do
                 local itemName = item.name or (item.itemID and GetItemInfo(item.itemID)) or "Unknown Item"
-                GameTooltip:AddLine("  " .. itemName .. " (owned)", 0.5, 0.5, 0.5)
+                tooltip:AddLine("  " .. itemName .. " (owned)", 0.5, 0.5, 0.5)
             end
         else
             -- Show uncollected items first (in green)
             for _, itemName in ipairs(uncollectedItems) do
-                GameTooltip:AddLine("  " .. itemName, 0, 1, 0)
+                tooltip:AddLine("  " .. itemName, 0, 1, 0)
             end
 
             -- Show collected count summary
             if collectedCount > 0 then
-                GameTooltip:AddLine(format("  ... and %d collected item(s)", collectedCount), 0.5, 0.5, 0.5)
+                tooltip:AddLine(format("  ... and %d collected item(s)", collectedCount), 0.5, 0.5, 0.5)
             end
         end
 
-        GameTooltip:AddLine(" ")
+        tooltip:AddLine(" ")
         local statusColor = collectedCount == #allItems and {0.5, 0.5, 0.5} or {0, 1, 0}
-        GameTooltip:AddLine(format("Collected: %d/%d", collectedCount, #allItems), unpack(statusColor))
+        tooltip:AddLine(format("Collected: %d/%d", collectedCount, #allItems), unpack(statusColor))
     else
         -- No item data available
-        GameTooltip:AddLine(" ")
-        GameTooltip:AddLine("Item data unknown - visit vendor to scan", 1, 0.82, 0)
+        tooltip:AddLine(" ")
+        tooltip:AddLine("Item data unknown - visit vendor to scan", 1, 0.82, 0)
     end
 
-    GameTooltip:AddLine(" ")
+    tooltip:AddLine(" ")
     if isOpposite then
-        GameTooltip:AddLine("Left-click to set waypoint (for alts)", 0.5, 0.5, 0.5)
+        tooltip:AddLine("Left-click to set waypoint (for alts)", 0.5, 0.5, 0.5)
     else
-        GameTooltip:AddLine("Left-click to set waypoint", 0.5, 0.5, 0.5)
+        tooltip:AddLine("Left-click to set waypoint", 0.5, 0.5, 0.5)
     end
-    GameTooltip:Show()
+    tooltip:Show()
 end
 
 function VendorMapPins:ShowZoneBadgeTooltip(pin, zoneInfo)
     if not zoneInfo then return end
 
-    GameTooltip:SetOwner(pin, "ANCHOR_RIGHT")
-    GameTooltip:ClearLines()
-    GameTooltip:AddLine(zoneInfo.zoneName, 1, 1, 1)
+    activeTooltipData = nil
+    itemInfoEventFrame:UnregisterEvent("GET_ITEM_INFO_RECEIVED")
+
+    local tooltip = BeginPinTooltip(pin, "ANCHOR_RIGHT")
+    tooltip:AddLine(zoneInfo.zoneName, 1, 1, 1)
 
     -- Show note (class hall info, access method, etc.)
     if zoneInfo.note then
-        GameTooltip:AddLine(zoneInfo.note, 0.7, 0.7, 1.0, true)
+        tooltip:AddLine(zoneInfo.note, 0.7, 0.7, 1.0, true)
     end
 
-    GameTooltip:AddLine(format("Decor Vendors: %d", zoneInfo.vendorCount), 1, 0.82, 0)
+    tooltip:AddLine(format("Decor Vendors: %d", zoneInfo.vendorCount), 1, 0.82, 0)
 
     -- Show faction breakdown if there are opposite faction vendors
     if zoneInfo.oppositeFactionCount and zoneInfo.oppositeFactionCount > 0 then
@@ -713,32 +754,73 @@ function VendorMapPins:ShowZoneBadgeTooltip(pin, zoneInfo)
         local oppositeFaction = playerFaction == "Alliance" and "Horde" or "Alliance"
 
         if accessibleCount > 0 then
-            GameTooltip:AddLine(format("  %s: %d", playerFaction, accessibleCount), 0.7, 0.7, 0.7)
+            tooltip:AddLine(format("  %s: %d", playerFaction, accessibleCount), 0.7, 0.7, 0.7)
         end
 
         local factionColor = oppositeFaction == "Alliance" and {0.2, 0.4, 0.8} or {0.8, 0.2, 0.2}
-        GameTooltip:AddLine(format("  %s: %d", oppositeFaction, zoneInfo.oppositeFactionCount),
+        tooltip:AddLine(format("  %s: %d", oppositeFaction, zoneInfo.oppositeFactionCount),
             factionColor[1], factionColor[2], factionColor[3])
     end
 
     -- Show collection status
     if zoneInfo.uncollectedCount and zoneInfo.uncollectedCount > 0 then
-        GameTooltip:AddLine(format("With uncollected items: %d", zoneInfo.uncollectedCount), 0, 1, 0)
+        tooltip:AddLine(format("With uncollected items: %d", zoneInfo.uncollectedCount), 0, 1, 0)
     end
 
     if zoneInfo.unknownCount and zoneInfo.unknownCount > 0 then
-        GameTooltip:AddLine(format("Unknown status: %d (visit to scan)", zoneInfo.unknownCount), 1, 0.82, 0)
+        tooltip:AddLine(format("Unknown status: %d (visit to scan)", zoneInfo.unknownCount), 1, 0.82, 0)
     end
 
     local knownVendors = zoneInfo.vendorCount - (zoneInfo.unknownCount or 0)
     local allCollected = (zoneInfo.uncollectedCount or 0) == 0 and knownVendors > 0
     if allCollected and (zoneInfo.unknownCount or 0) == 0 then
-        GameTooltip:AddLine("All items collected!", 0.5, 0.5, 0.5)
+        tooltip:AddLine("All items collected!", 0.5, 0.5, 0.5)
     end
 
-    GameTooltip:AddLine(" ")
-    GameTooltip:AddLine("Left-click to view zone map", 0.5, 0.5, 0.5)
-    GameTooltip:Show()
+    tooltip:AddLine(" ")
+    tooltip:AddLine("Left-click to view zone map", 0.5, 0.5, 0.5)
+    tooltip:Show()
+end
+
+function VendorMapPins:ShowPortalTooltip(pin, vendor)
+    if not vendor then return end
+
+    activeTooltipData = nil
+    itemInfoEventFrame:UnregisterEvent("GET_ITEM_INFO_RECEIVED")
+
+    local tooltip = BeginPinTooltip(pin, "ANCHOR_RIGHT")
+    tooltip:AddLine(vendor.name, 1, 1, 1)
+    tooltip:AddLine("Order Hall Portal", 0.7, 0.5, 1.0)
+    if vendor.notes then
+        tooltip:AddLine(vendor.notes, 1, 0.82, 0, true)
+    end
+    tooltip:AddLine("Click to view vendor location", 0.5, 0.5, 0.5)
+    tooltip:Show()
+end
+
+function VendorMapPins:ShowMinimapTooltip(pin, vendor, isOppositeFaction, isUnverified, elevation)
+    if not vendor then return end
+
+    activeTooltipData = nil
+    itemInfoEventFrame:UnregisterEvent("GET_ITEM_INFO_RECEIVED")
+
+    local tooltip = BeginPinTooltip(pin, "ANCHOR_LEFT")
+    tooltip:AddLine(vendor.name, 1, 1, 1)
+    if vendor.zone then
+        tooltip:AddLine(vendor.zone, 0.7, 0.7, 0.7)
+    end
+    if isUnverified then
+        tooltip:AddLine("Unverified location", 1.0, 0.6, 0.2)
+    end
+    if isOppositeFaction then
+        tooltip:AddLine("Opposite faction", 0.8, 0.3, 0.3)
+    end
+    if elevation == "above" then
+        tooltip:AddLine("|A:Rotating-MinimapGuideArrow:0:0|a Above you", 0.6, 0.8, 1.0)
+    elseif elevation == "below" then
+        tooltip:AddLine("v Below you", 0.6, 0.8, 1.0)
+    end
+    tooltip:Show()
 end
 
 -------------------------------------------------------------------------------

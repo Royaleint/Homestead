@@ -37,6 +37,7 @@ local ITEM_RESULT_LINE_HEIGHT = 18
 local ITEM_GRID_INSET = 24  -- Left indent for item grid (aligns under name text)
 local PROGRESS_BAR_HEIGHT = 14
 local SEARCH_OPTIONS = { includeItemResults = true }
+local PANEL_TOOLTIP_NAME = "HomesteadMapSidePanelTooltip"
 
 -- State
 local panelFrame = nil
@@ -124,6 +125,34 @@ local popOutButton = nil   -- Arrow button to detach (docked mode)
 local closeButton = nil    -- X button (detached mode)
 local reattachButton = nil -- Dock-back button (detached mode)
 local pendingDockedAction = nil  -- "apply" | "remove" | "clear" | nil
+local panelTooltip = nil
+
+local function GetPanelTooltip()
+    if panelTooltip then
+        return panelTooltip
+    end
+
+    local tooltip = CreateFrame("GameTooltip", PANEL_TOOLTIP_NAME, UIParent, "GameTooltipTemplate")
+    tooltip:SetFrameStrata("TOOLTIP")
+    tooltip:SetClampedToScreen(true)
+    tooltip.isHomesteadManagedTooltip = true
+    tooltip.isHomesteadPanelTooltip = true
+    panelTooltip = tooltip
+    return tooltip
+end
+
+local function BeginPanelTooltip(owner, anchor)
+    local tooltip = GetPanelTooltip()
+    tooltip:SetOwner(owner, anchor or "ANCHOR_RIGHT")
+    tooltip:ClearLines()
+    return tooltip
+end
+
+local function HidePanelTooltip()
+    if panelTooltip then
+        panelTooltip:Hide()
+    end
+end
 
 -------------------------------------------------------------------------------
 -- 3D Item Preview (uses Blizzard's HousingModelPreviewFrame)
@@ -377,16 +406,14 @@ local function CreateItemIcon(parent)
     -- the preview hint here to avoid duplicating requirement lines.
     frame:SetScript("OnEnter", function(self)
         if self.itemID then
-            GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-            GameTooltip:SetItemByID(self.itemID)
-            GameTooltip:AddLine(" ")
-            GameTooltip:AddLine("Click to preview", 0.5, 0.5, 0.5)
-            GameTooltip:Show()
+            local tooltip = BeginPanelTooltip(self, "ANCHOR_RIGHT")
+            tooltip:SetItemByID(self.itemID)
+            tooltip:AddLine(" ")
+            tooltip:AddLine("Click to preview", 0.5, 0.5, 0.5)
+            tooltip:Show()
         end
     end)
-    frame:SetScript("OnLeave", function()
-        GameTooltip:Hide()
-    end)
+    frame:SetScript("OnLeave", HidePanelTooltip)
 
     -- Click to open 3D preview
     frame:SetScript("OnMouseUp", function(self)
@@ -896,20 +923,18 @@ local function CreateItemResultRow(parent, index)
     row:SetScript("OnEnter", function(self)
         if not self.itemID then return end
 
-        GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-        GameTooltip:SetItemByID(self.itemID)
-        GameTooltip:AddLine(" ")
+        local tooltip = BeginPanelTooltip(self, "ANCHOR_RIGHT")
+        tooltip:SetItemByID(self.itemID)
+        tooltip:AddLine(" ")
         if expandedItemID == self.itemID then
-            GameTooltip:AddLine("Click to collapse sources", 0.5, 0.5, 0.5)
+            tooltip:AddLine("Click to collapse sources", 0.5, 0.5, 0.5)
         else
-            GameTooltip:AddLine("Click to show all sources", 0.5, 0.5, 0.5)
+            tooltip:AddLine("Click to show all sources", 0.5, 0.5, 0.5)
         end
-        GameTooltip:Show()
+        tooltip:Show()
     end)
 
-    row:SetScript("OnLeave", function()
-        GameTooltip:Hide()
-    end)
+    row:SetScript("OnLeave", HidePanelTooltip)
 
     return row
 end
@@ -1088,16 +1113,15 @@ local function CreateVendorRow(parent, index)
 
     row:SetScript("OnEnter", function(self)
         if not self.vendor then return end
-        GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-        GameTooltip:ClearLines()
-        GameTooltip:AddLine(self.vendor.name or "Unknown", 1, 1, 1)
+        local tooltip = BeginPanelTooltip(self, "ANCHOR_RIGHT")
+        tooltip:AddLine(self.vendor.name or "Unknown", 1, 1, 1)
         if self.vendor.subzone then
-            GameTooltip:AddLine(self.vendor.subzone .. " (" .. (self.vendor.zone or "?") .. ")", 0.7, 0.7, 0.7)
+            tooltip:AddLine(self.vendor.subzone .. " (" .. (self.vendor.zone or "?") .. ")", 0.7, 0.7, 0.7)
         elseif self.vendor.zone then
-            GameTooltip:AddLine(self.vendor.zone, 0.7, 0.7, 0.7)
+            tooltip:AddLine(self.vendor.zone, 0.7, 0.7, 0.7)
         end
         if self.vendor.mapID and ORDER_HALL_MAPS[self.vendor.mapID] then
-            GameTooltip:AddLine("Legion Order Hall", 1, 0.82, 0)
+            tooltip:AddLine("Legion Order Hall", 1, 0.82, 0)
         end
         if self.collected and self.total and self.total > 0 then
             local color
@@ -1108,23 +1132,23 @@ local function CreateVendorRow(parent, index)
             else
                 color = {1, 0.3, 0.3}   -- None: red
             end
-            GameTooltip:AddLine(string.format("Collected: %d/%d", self.collected, self.total),
+            tooltip:AddLine(string.format("Collected: %d/%d", self.collected, self.total),
                 color[1], color[2], color[3])
         end
-        GameTooltip:AddLine(" ")
+        tooltip:AddLine(" ")
         if self.searchMode then
             if self.vendor.expansion then
-                GameTooltip:AddLine(self.vendor.expansion, 0.5, 0.5, 0.5)
+                tooltip:AddLine(self.vendor.expansion, 0.5, 0.5, 0.5)
             end
             if expandedVendorID == self.vendor.npcID then
-                GameTooltip:AddLine("Click to collapse items", 0.5, 0.5, 0.5)
+                tooltip:AddLine("Click to collapse items", 0.5, 0.5, 0.5)
             else
-                GameTooltip:AddLine("Click to show items and go to vendor", 0.5, 0.5, 0.5)
+                tooltip:AddLine("Click to show items and go to vendor", 0.5, 0.5, 0.5)
             end
         else
-            GameTooltip:AddLine("Click to show items", 0.5, 0.5, 0.5)
+            tooltip:AddLine("Click to show items", 0.5, 0.5, 0.5)
         end
-        GameTooltip:Show()
+        tooltip:Show()
         -- Highlight the corresponding map pin at zone level
         if HA.VendorMapPins and HA.VendorMapPins.HighlightVendor and self.vendor.npcID then
             HA.VendorMapPins:HighlightVendor(self.vendor.npcID)
@@ -1132,7 +1156,7 @@ local function CreateVendorRow(parent, index)
     end)
 
     row:SetScript("OnLeave", function()
-        GameTooltip:Hide()
+        HidePanelTooltip()
         if HA.VendorMapPins and HA.VendorMapPins.ClearHighlight then
             HA.VendorMapPins:ClearHighlight()
         end
@@ -1180,16 +1204,16 @@ local function CreateSummaryRow(parent, index)
         end
     end)
     navButton:SetScript("OnEnter", function(self)
-        GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+        local tooltip = BeginPanelTooltip(self, "ANCHOR_RIGHT")
         local level = currentDisplayLevel
         if level == "world" then
-            GameTooltip:SetText("Navigate to continent")
+            tooltip:SetText("Navigate to continent")
         else
-            GameTooltip:SetText("Navigate to zone")
+            tooltip:SetText("Navigate to zone")
         end
-        GameTooltip:Show()
+        tooltip:Show()
     end)
-    navButton:SetScript("OnLeave", GameTooltip_Hide)
+    navButton:SetScript("OnLeave", HidePanelTooltip)
     row.navButton = navButton
 
     -- Zone/continent name (leave room for nav button)
@@ -1241,11 +1265,10 @@ local function CreateSummaryRow(parent, index)
     end)
 
     row:SetScript("OnEnter", function(self)
-        GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-        GameTooltip:ClearLines()
-        GameTooltip:AddLine(self.nameText:GetText() or "Unknown", 1, 1, 1)
+        local tooltip = BeginPanelTooltip(self, "ANCHOR_RIGHT")
+        tooltip:AddLine(self.nameText:GetText() or "Unknown", 1, 1, 1)
         if self.vendorCount > 0 then
-            GameTooltip:AddLine(string.format("%d vendors", self.vendorCount), 0.7, 0.7, 0.7)
+            tooltip:AddLine(string.format("%d vendors", self.vendorCount), 0.7, 0.7, 0.7)
         end
         if self.totalItems > 0 then
             local pct = math.floor(self.collectedItems / self.totalItems * 100)
@@ -1257,17 +1280,15 @@ local function CreateSummaryRow(parent, index)
             else
                 cr, cg, cb = 1, 0.3, 0.3
             end
-            GameTooltip:AddLine(string.format("Collected: %d/%d (%d%%)",
+            tooltip:AddLine(string.format("Collected: %d/%d (%d%%)",
                 self.collectedItems, self.totalItems, pct), cr, cg, cb)
         end
-        GameTooltip:AddLine(" ")
-        GameTooltip:AddLine("Click to expand | Right-click to navigate", 0.5, 0.5, 0.5)
-        GameTooltip:Show()
+        tooltip:AddLine(" ")
+        tooltip:AddLine("Click to expand | Right-click to navigate", 0.5, 0.5, 0.5)
+        tooltip:Show()
     end)
 
-    row:SetScript("OnLeave", function()
-        GameTooltip:Hide()
-    end)
+    row:SetScript("OnLeave", HidePanelTooltip)
 
     return row
 end
@@ -1361,26 +1382,23 @@ local function CreateSummarySubRow(parent)
 
     row:SetScript("OnEnter", function(self)
         if not self.tooltipText then return end
-        GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-        GameTooltip:ClearLines()
-        GameTooltip:AddLine(self.tooltipText, 1, 1, 1)
+        local tooltip = BeginPanelTooltip(self, "ANCHOR_RIGHT")
+        tooltip:AddLine(self.tooltipText, 1, 1, 1)
         if self.isOrderHall then
-            GameTooltip:AddLine("Legion Order Hall", 1, 0.82, 0)
+            tooltip:AddLine("Legion Order Hall", 1, 0.82, 0)
         end
         if self.tooltipSub then
-            GameTooltip:AddLine(self.tooltipSub, 0.7, 0.7, 0.7)
+            tooltip:AddLine(self.tooltipSub, 0.7, 0.7, 0.7)
         end
-        GameTooltip:AddLine(" ")
+        tooltip:AddLine(" ")
         if self.vendor then
-            GameTooltip:AddLine("Click to view items", 0.5, 0.5, 0.5)
+            tooltip:AddLine("Click to view items", 0.5, 0.5, 0.5)
         else
-            GameTooltip:AddLine("Click to view zone", 0.5, 0.5, 0.5)
+            tooltip:AddLine("Click to view zone", 0.5, 0.5, 0.5)
         end
-        GameTooltip:Show()
+        tooltip:Show()
     end)
-    row:SetScript("OnLeave", function()
-        GameTooltip:Hide()
-    end)
+    row:SetScript("OnLeave", HidePanelTooltip)
 
     return row
 end
@@ -1772,11 +1790,11 @@ local function CreatePanel()
         MapSidePanel:NavigateBack()
     end)
     backBar:SetScript("OnEnter", function(self)
-        GameTooltip:SetOwner(self, "ANCHOR_BOTTOM")
-        GameTooltip:SetText("Go back")
-        GameTooltip:Show()
+        local tooltip = BeginPanelTooltip(self, "ANCHOR_BOTTOM")
+        tooltip:SetText("Go back")
+        tooltip:Show()
     end)
-    backBar:SetScript("OnLeave", GameTooltip_Hide)
+    backBar:SetScript("OnLeave", HidePanelTooltip)
     backBar:Hide()
 
     -- Progress bar (between header and scroll area, shown at zone level)
@@ -1800,9 +1818,8 @@ local function CreatePanel()
     -- Tooltip on hover
     progressBar:EnableMouse(true)
     progressBar:SetScript("OnEnter", function(self)
-        GameTooltip:SetOwner(self, "ANCHOR_BOTTOM")
-        GameTooltip:ClearLines()
-        GameTooltip:AddLine(DISPLAY_LEVEL_TITLES[currentDisplayLevel] or "Collection Progress", 1, 1, 1)
+        local tooltip = BeginPanelTooltip(self, "ANCHOR_BOTTOM")
+        tooltip:AddLine(DISPLAY_LEVEL_TITLES[currentDisplayLevel] or "Collection Progress", 1, 1, 1)
         local _, max = self:GetMinMaxValues()
         local val = self:GetValue()
         if max > 0 then
@@ -1816,14 +1833,12 @@ local function CreatePanel()
             else
                 cr, cg, cb = 0.8, 0.2, 0.2    -- red
             end
-            GameTooltip:AddLine(string.format("%d of %d items collected (%d%%)", val, max, pct), cr, cg, cb)
-            GameTooltip:AddLine(string.format("%d remaining", max - val), cr, cg, cb)
+            tooltip:AddLine(string.format("%d of %d items collected (%d%%)", val, max, pct), cr, cg, cb)
+            tooltip:AddLine(string.format("%d remaining", max - val), cr, cg, cb)
         end
-        GameTooltip:Show()
+        tooltip:Show()
     end)
-    progressBar:SetScript("OnLeave", function()
-        GameTooltip:Hide()
-    end)
+    progressBar:SetScript("OnLeave", HidePanelTooltip)
 
     -- Scroll frame for vendor list
     scrollContainer = CreateFrame("Frame", nil, panel)
@@ -1860,11 +1875,11 @@ local function CreatePanel()
         MapSidePanel:PopOut()
     end)
     popOutButton:SetScript("OnEnter", function(self)
-        GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-        GameTooltip:SetText("Detach panel")
-        GameTooltip:Show()
+        local tooltip = BeginPanelTooltip(self, "ANCHOR_RIGHT")
+        tooltip:SetText("Detach panel")
+        tooltip:Show()
     end)
-    popOutButton:SetScript("OnLeave", GameTooltip_Hide)
+    popOutButton:SetScript("OnLeave", HidePanelTooltip)
 
     -- Source filter control (title pane): dropdown on left side of header.
     sourceFilterDropdown = CreateFrame("Frame", nil, headerFrame, "UIDropDownMenuTemplate")
@@ -1888,12 +1903,12 @@ local function CreatePanel()
 
     if sourceFilterDropdown.Button then
         sourceFilterDropdown.Button:SetScript("OnEnter", function(self)
-            GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-            GameTooltip:SetText("Item Source Filter")
-            GameTooltip:AddLine("Current: " .. GetSourceFilterLabel(panelSourceFilter), 1, 1, 1)
-            GameTooltip:Show()
+            local tooltip = BeginPanelTooltip(self, "ANCHOR_RIGHT")
+            tooltip:SetText("Item Source Filter")
+            tooltip:AddLine("Current: " .. GetSourceFilterLabel(panelSourceFilter), 1, 1, 1)
+            tooltip:Show()
         end)
-        sourceFilterDropdown.Button:SetScript("OnLeave", GameTooltip_Hide)
+        sourceFilterDropdown.Button:SetScript("OnLeave", HidePanelTooltip)
     end
 
     -- Close button (detached mode): standard X at top-right
@@ -1918,11 +1933,11 @@ local function CreatePanel()
         MapSidePanel:DockPanel()
     end)
     reattachButton:SetScript("OnEnter", function(self)
-        GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-        GameTooltip:SetText("Attach to World Map")
-        GameTooltip:Show()
+        local tooltip = BeginPanelTooltip(self, "ANCHOR_RIGHT")
+        tooltip:SetText("Attach to World Map")
+        tooltip:Show()
     end)
-    reattachButton:SetScript("OnLeave", GameTooltip_Hide)
+    reattachButton:SetScript("OnLeave", HidePanelTooltip)
     reattachButton:Hide()
 
     -- Resize handle (detached mode): thin grip bar at the bottom edge for
@@ -2181,18 +2196,18 @@ local function CreateOverlayButton()
     end)
 
     button:SetScript("OnEnter", function(self)
-        GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-        GameTooltip_SetTitle(GameTooltip, "Homestead")
+        local tooltip = BeginPanelTooltip(self, "ANCHOR_RIGHT")
+        GameTooltip_SetTitle(tooltip, "Homestead")
         if isPoppedOut and panelFrame and panelFrame:IsShown() then
-            GameTooltip_AddNormalLine(GameTooltip, "Left-click: Show vendor panel")
+            GameTooltip_AddNormalLine(tooltip, "Left-click: Show vendor panel")
         else
-            GameTooltip_AddNormalLine(GameTooltip, "Left-click: Toggle vendor panel")
+            GameTooltip_AddNormalLine(tooltip, "Left-click: Toggle vendor panel")
         end
-        GameTooltip_AddNormalLine(GameTooltip, "Right-click: Pin options")
-        GameTooltip:Show()
+        GameTooltip_AddNormalLine(tooltip, "Right-click: Pin options")
+        tooltip:Show()
     end)
 
-    button:SetScript("OnLeave", GameTooltip_Hide)
+    button:SetScript("OnLeave", HidePanelTooltip)
 
     -- Press feedback (same as HandyNotes: icon shifts 2px down-right on press)
     button:SetScript("OnMouseDown", function(self)

@@ -201,7 +201,6 @@ function PinFrameFactory:CreateVendorPinFrame(vendor, isOppositeFaction, isUnver
         if HA.VendorMapPins then
             HA.VendorMapPins:OnPinLeave()
         end
-        GameTooltip:Hide()
     end)
     frame:SetScript("OnMouseUp", function(self, button) -- luacheck: ignore 432
         if button == "LeftButton" and HA.VendorMapPins then
@@ -376,7 +375,9 @@ function PinFrameFactory:CreateBadgePinFrame(badgeData)
         end
     end)
     frame:SetScript("OnLeave", function(self) -- luacheck: ignore 432
-        GameTooltip:Hide()
+        if HA.VendorMapPins then
+            HA.VendorMapPins:HidePinTooltip()
+        end
     end)
     frame:SetScript("OnMouseUp", function(self, button) -- luacheck: ignore 432
         if button == "LeftButton" and self.badgeData and self.badgeData.mapID then
@@ -474,19 +475,15 @@ function PinFrameFactory:CreatePortalBadgePinFrame(portalData)
 
     frame:SetScript("OnEnter", function(self) -- luacheck: ignore 432
         local v = self.portalData and self.portalData.vendor
-        if not v then return end
-        GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-        GameTooltip:AddLine(v.name, 1, 1, 1)
-        GameTooltip:AddLine("Order Hall Portal", 0.7, 0.5, 1.0)
-        if v.notes then
-            GameTooltip:AddLine(v.notes, 1, 0.82, 0, true)
+        if HA.VendorMapPins and v then
+            HA.VendorMapPins:ShowPortalTooltip(self, v)
         end
-        GameTooltip:AddLine("Click to view vendor location", 0.5, 0.5, 0.5)
-        GameTooltip:Show()
     end)
 
     frame:SetScript("OnLeave", function() -- luacheck: ignore 432
-        GameTooltip:Hide()
+        if HA.VendorMapPins then
+            HA.VendorMapPins:HidePinTooltip()
+        end
     end)
 
     return frame
@@ -566,27 +563,20 @@ function PinFrameFactory:CreateMinimapPinFrame(vendor, isOppositeFaction, isUnve
 
     -- Simple tooltip on hover
     frame:SetScript("OnEnter", function(self) -- luacheck: ignore 432
-        GameTooltip:SetOwner(self, "ANCHOR_LEFT")
-        GameTooltip:ClearLines()
-        GameTooltip:AddLine(self.vendor.name, 1, 1, 1)
-        if self.vendor.zone then
-            GameTooltip:AddLine(self.vendor.zone, 0.7, 0.7, 0.7)
+        if HA.VendorMapPins then
+            HA.VendorMapPins:ShowMinimapTooltip(
+                self,
+                self.vendor,
+                self.isOppositeFaction,
+                self.isUnverified,
+                self.elevation
+            )
         end
-        if self.isUnverified then
-            GameTooltip:AddLine("Unverified location", 1.0, 0.6, 0.2)
-        end
-        if self.isOppositeFaction then
-            GameTooltip:AddLine("Opposite faction", 0.8, 0.3, 0.3)
-        end
-        if self.elevation == "above" then
-            GameTooltip:AddLine("|A:Rotating-MinimapGuideArrow:0:0|a Above you", 0.6, 0.8, 1.0)
-        elseif self.elevation == "below" then
-            GameTooltip:AddLine("v Below you", 0.6, 0.8, 1.0)
-        end
-        GameTooltip:Show()
     end)
     frame:SetScript("OnLeave", function(self) -- luacheck: ignore 432
-        GameTooltip:Hide()
+        if HA.VendorMapPins then
+            HA.VendorMapPins:HidePinTooltip()
+        end
     end)
 
     return frame
