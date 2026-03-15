@@ -268,6 +268,9 @@ local function AcquireNativePin()
         pin:OnLoad()
     end
     pin:SetParent(canvas)
+    -- MapCanvasPinMixin:SetPosition() calls self:GetMap() internally.
+    -- Without owningMap, GetMap() returns nil → "attempt to index a nil value".
+    pin.owningMap = WorldMapFrame
     pin:Show()
     nativePins[#nativePins + 1] = pin
     return pin
