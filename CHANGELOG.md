@@ -17,6 +17,10 @@
 
 ### Fixed
 
+- Fixed reputation and friendship requirements showing incorrect progress for Midnight sub-faction vendors (Blood Knights, Magisters, Farstriders, Shades of the Row). If you were at Interloper rank, the tooltip would say you met the requirement when you didn't.
+- Fixed duplicate "Faction:" lines appearing in Housing Catalog tooltips.
+- Fixed duplicate requirement lines showing on merchant tooltips when Shift-hovering.
+- Reputation, friendship, and renown requirements in Housing Dashboard tooltips now show a clearer two-line format: what's required on top, and your current progress below, color-coded green when met and red when not.
 - Fixed memory leak in Housing Dashboard.
 - Fixed the side panel back button not working when the panel is detached from the World Map.
 - Fixed drilling down into zones and vendors not working when the panel is detached and the World Map is closed.
