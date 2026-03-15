@@ -66,6 +66,7 @@ read_globals = {
     "C_Container",
     "C_CurrencyInfo",
     "C_DateInfo",
+    "C_GossipInfo",
     "C_Housing",
     "C_HousingCatalog",
     "C_Item",
@@ -76,6 +77,8 @@ read_globals = {
     "C_Reputation",
     "C_SuperTrack",
     "C_Timer",
+    "C_TooltipInfo",
+    "C_TradeSkillUI",
     "Enum",
     "UiMapPoint",
 

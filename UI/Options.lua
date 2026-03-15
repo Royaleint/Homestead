@@ -402,7 +402,7 @@ local function GetOptionsTable()
                     showSource = {
                         type = "toggle",
                         name = L["Show source information"] or "Show source information",
-                        desc = "Show where uncollected items come from, such as which vendor sells it or what quest rewards it.",
+                        desc = "Show how to obtain a decor item — vendors, quests, achievements, professions, events, and drops.",
                         width = "double",
                         order = 3,
                         get = function() return HA.Addon.db.profile.tooltip.showSource end,
@@ -434,7 +434,7 @@ local function GetOptionsTable()
                     showAllSources = {
                         type = "toggle",
                         name = "Show all sources",
-                        desc = "List every known way to obtain an item instead of just the primary source. Helpful when an item is sold by multiple vendors or available from both a quest and a vendor.",
+                        desc = "List every known way to obtain an item instead of just the best available source. Helpful when an item can be acquired from multiple vendors, quests, or other sources.",
                         width = "double",
                         order = 6,
                         get = function() return HA.Addon.db.profile.tooltip.showAllSources end,

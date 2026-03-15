@@ -370,6 +370,9 @@ end
 -- Evaluates the full GetAllSources() result set, including multi-vendor rows,
 -- and returns the first source not known to be blocked.
 -- Falls back to nil if every known source is blocked.
+-- Single-source tooltip policy: "best available" — returns the first source not
+-- known to be blocked, not the first in priority order. This is the contract
+-- used by showAllSources=false in AddSourceInfoToTooltip().
 function SourceManager:GetBestAvailableSource(itemID)
     if not itemID then return nil end
 
@@ -534,14 +537,56 @@ end
 -- Requirements Lookup
 -------------------------------------------------------------------------------
 
--- Check whether a requirement table has enough data to be actionable.
-local function isUsableRequirement(req)
+-- Try to convert a raw-text requirement into a structured reputation requirement.
+-- Handles two formats from Blizzard's Housing Catalog requirement text:
+--   Renown:     "Requires Renown Rank 15 with the Silvermoon Court."
+--   Friendship: "Requires the Socialite rank or above with the Blood Knights of Silvermoon"
+-- Returns structured {type="reputation", faction=..., standing=...} or nil.
+local function parseRawRequirementText(text)
+    if not text then return nil end
+
+    -- Renown: "Requires Renown Rank 15 with the Silvermoon Court."
+    -- (trailing period optional, "Rank"/"rank" case-insensitive)
+    local renownLevel, renownFaction = text:match("^Requires Renown [Rr]ank (%d+) with the (.+)$")
+    if not renownLevel then
+        renownLevel, renownFaction = text:match("^Requires Renown [Rr]ank (%d+) with (.+)$")
+    end
+    if renownLevel and renownFaction then
+        renownFaction = renownFaction:gsub("%.$", "")  -- strip trailing period
+        return { type = "reputation", faction = renownFaction, standing = "Renown " .. renownLevel }
+    end
+
+    -- Friendship: "Requires the Socialite rank or above with the Blood Knights of Silvermoon"
+    local rank, faction = text:match("^Requires the (.+) rank or above with the (.+)$")
+    if rank and faction then
+        return { type = "reputation", faction = faction, standing = rank }
+    end
+
+    return nil
+end
+
+-- Normalize a requirement and check whether it has enough data to be actionable.
+-- Unknown-type requirements with parseable text are converted IN PLACE to
+-- structured reputation requirements (mutates req.type, req.faction, req.standing,
+-- clears req.text). This is a deliberate one-way upgrade of scanned data.
+local function normalizeAndValidateRequirement(req)
     if not req or not req.type then return false end
     if req.type == "reputation" and req.faction then return true end
     if req.type == "achievement" and (req.id or req.name) then return true end
     if req.type == "quest" and (req.id or req.name) then return true end
     if req.type == "level" and req.level then return true end
-    if req.type == "unknown" and req.text then return true end
+    if req.type == "unknown" and req.text then
+        -- Try to parse raw text into structured reputation data
+        local parsed = parseRawRequirementText(req.text)
+        if parsed then
+            req.type = parsed.type
+            req.faction = parsed.faction
+            req.standing = parsed.standing
+            req.text = nil
+            return true
+        end
+        return true
+    end
     return false
 end
 
@@ -563,13 +608,14 @@ local function getRequirementDedupeKey(req)
 end
 
 -- Get acquisition requirements for an item, optionally scoped to a vendor.
--- Collects from ALL sources (higher priority wins on duplicates):
+-- Collects from prerequisite sources (higher priority wins on duplicates):
 --   1. Vendor-specific: scannedVendors[npcID].items[i].requirements (tooltip scraping)
 --   2. Item-level: CatalogStore:GetRequirements(itemID)
 --   3. Parsed sourceText: parsedSources[itemID].sources[].faction/standing
 --   4. Blizzard-confirmed vendor prerequisites: PrerequisiteSources[itemID]
---   5. Static achievement source data: AchievementSources[itemID]
---   6. Static quest source data: QuestSources[itemID]
+-- Note: AchievementSources and QuestSources are acquisition paths (the item IS
+-- the reward), not vendor prerequisites — they render as peer sources via
+-- GetAllSources(), not as "Requires:" lines.
 -- Deduplicates by type + identifying key (faction, achievement ID, quest ID).
 -- NOT gated by useParsedSources — requirements are always surfaced.
 -- Returns: array of requirement tables, or nil if none found
@@ -580,7 +626,7 @@ function SourceManager:GetRequirements(itemID, npcID)
     local seen = {}
 
     local function addReq(req)
-        if not isUsableRequirement(req) then return end
+        if not normalizeAndValidateRequirement(req) then return end
         local key = getRequirementDedupeKey(req)
         if key then
             if seen[key] then return end
@@ -640,44 +686,37 @@ function SourceManager:GetRequirements(itemID, npcID)
         addReqs(HA.PrerequisiteSources[itemID])
     end
 
-    -- Priority 5: Static achievement source data (AchievementSources.lua)
-    if HA.AchievementSources and HA.AchievementSources[itemID] then
-        local src = HA.AchievementSources[itemID]
-        if src.achievementID then
-            addReq({
-                type = "achievement",
-                id = src.achievementID,
-                name = src.achievementName or ("Achievement #" .. src.achievementID),
-            })
-        end
-    end
-
-    -- Priority 6: Static quest source data (QuestSources.lua)
-    if HA.QuestSources and HA.QuestSources[itemID] then
-        local src = HA.QuestSources[itemID]
-        if src.questID then
-            addReq({
-                type = "quest",
-                id = src.questID,
-                name = src.questName or ("Quest #" .. src.questID),
-            })
-        end
-    end
+    -- AchievementSources and QuestSources are acquisition paths (the item IS the
+    -- reward), not vendor prerequisites. They are rendered as peer sources via
+    -- GetAllSources(), not as "Requires:" lines. Vendor prerequisites are covered
+    -- by PrerequisiteSources (tier 4) which is generated from the Blizzard web API.
 
     return #merged > 0 and merged or nil
 end
 
+-- Midnight friendship sub-faction rank order (Silvermoon Court sub-factions).
+-- Used by IsRequirementMet, GetRequirementProgress, and Tooltips.lua for
+-- friendship rank comparison and display classification.
+-- Exposed as SourceManager.FRIENDSHIP_RANK_ORDER for cross-module access.
+local FRIENDSHIP_RANK_ORDER = {
+    ["Interloper"] = 1, ["Guest"] = 2, ["Socialite"] = 3,
+    ["Trendsetter"] = 4, ["Host"] = 5, ["Luminary"] = 6,
+}
+SourceManager.FRIENDSHIP_RANK_ORDER = FRIENDSHIP_RANK_ORDER
+
 -- Lazy-built cache: faction name → factionID (populated on first use)
 local factionNameToID = nil
+local factionCacheExpandScheduled = false
 
 -- Build faction name→ID cache from the player's reputation panel + major factions
 local function GetFactionIDByName(name)
     if not name then return nil end
 
-    -- Build cache on first call
+    -- Build cache on first call (visible factions only — expanding headers
+    -- causes C stack overflow via CVar callback re-entry)
     if not factionNameToID then
         factionNameToID = {}
-        -- Scan reputation panel entries
+        -- Scan visible reputation panel entries
         if C_Reputation and C_Reputation.GetNumFactions then
             for i = 1, C_Reputation.GetNumFactions() do
                 local data = C_Reputation.GetFactionDataByIndex(i)
@@ -697,7 +736,51 @@ local function GetFactionIDByName(name)
         end
     end
 
-    return factionNameToID[name]
+    -- Normalize: strip trailing period (SavedVariables may have "Silvermoon Court."
+    -- from in-place mutation of scanned requirement text).
+    local cleaned = name:gsub("%.$", "")
+
+    local id = factionNameToID[cleaned]
+    if id then return id end
+
+    -- Fallback: strip " of <Location>" suffix and retry.
+    -- Blizzard vendor tooltips append location context to faction names
+    -- (e.g., "Blood Knights of Silvermoon" → API name "Blood Knights").
+    local baseName = cleaned:match("^(.+) of .+$")
+    if baseName then
+        id = factionNameToID[baseName]
+        if id then return id end
+    end
+
+    -- Cache miss: schedule a deferred rebuild with expanded headers.
+    -- ExpandAllFactionHeaders causes C stack overflow if called during
+    -- CatalogOverlay's OnUpdate chain, so we defer it via C_Timer.
+    -- Side effect: expands all collapsed faction headers in the player's
+    -- reputation panel (standard addon pattern — many addons do this).
+    if not factionCacheExpandScheduled then
+        factionCacheExpandScheduled = true
+        if C_Timer and C_Timer.After and C_Reputation and C_Reputation.ExpandAllFactionHeaders then
+            C_Timer.After(0, function()
+                -- ExpandAllFactionHeaders fires UPDATE_FACTION synchronously,
+                -- which triggers InvalidateAllSourceCaches → factionNameToID = nil.
+                -- We must initialize the table AFTER the expand call completes.
+                C_Reputation.ExpandAllFactionHeaders()
+                if not factionNameToID then
+                    factionNameToID = {}
+                end
+                if C_Reputation.GetNumFactions then
+                    for i = 1, C_Reputation.GetNumFactions() do
+                        local data = C_Reputation.GetFactionDataByIndex(i)
+                        if data and data.name and data.factionID then
+                            factionNameToID[data.name] = data.factionID
+                        end
+                    end
+                end
+            end)
+        end
+    end
+
+    return nil
 end
 
 -- Check if a specific requirement is met by the player.
@@ -721,6 +804,23 @@ function SourceManager:IsRequirementMet(req)
                     end
                 end
                 return nil  -- Cannot determine renown
+            end
+
+            -- Friendship sub-faction standings (Midnight: Silvermoon Court sub-factions).
+            -- C_GossipInfo.GetFriendshipReputation returns the rank NAME in .reaction
+            -- (e.g., "Interloper"), NOT the numeric standing from C_Reputation.
+            if FRIENDSHIP_RANK_ORDER[req.standing] then
+                if C_GossipInfo and C_GossipInfo.GetFriendshipReputation then
+                    local info = C_GossipInfo.GetFriendshipReputation(factionID)
+                    if info and info.friendshipFactionID and info.friendshipFactionID > 0 then
+                        local currentRank = FRIENDSHIP_RANK_ORDER[info.reaction]
+                        local requiredRank = FRIENDSHIP_RANK_ORDER[req.standing]
+                        if currentRank and requiredRank then
+                            return currentRank >= requiredRank
+                        end
+                    end
+                end
+                return nil
             end
 
             -- Traditional reputation standing (Hated → Exalted)
@@ -798,6 +898,28 @@ function SourceManager:GetRequirementProgress(req)
                     isRenown = true,
                     factionName = req.faction,
                 }
+            end
+        end
+        return nil
+    end
+
+    -- Friendship sub-faction standings (Midnight: Silvermoon Court sub-factions).
+    -- Friendship sub-faction standings — uses FRIENDSHIP_RANK_ORDER (module-level).
+    if FRIENDSHIP_RANK_ORDER[req.standing] then
+        if C_GossipInfo and C_GossipInfo.GetFriendshipReputation then
+            local info = C_GossipInfo.GetFriendshipReputation(factionID)
+            if info and info.friendshipFactionID and info.friendshipFactionID > 0 then
+                local currentRank = FRIENDSHIP_RANK_ORDER[info.reaction]
+                local requiredRank = FRIENDSHIP_RANK_ORDER[req.standing]
+                if currentRank and requiredRank then
+                    return {
+                        met = currentRank >= requiredRank,
+                        currentText = info.reaction or "Unknown",
+                        requiredText = req.standing,
+                        isRenown = false,
+                        factionName = req.faction,
+                    }
+                end
             end
         end
         return nil
@@ -1251,16 +1373,33 @@ function SourceManager:GetCompletionStatus(itemID, sourceType, sourceData)
 end
 
 -- Build a set of source types that should suppress requirement duplication in tooltips.
-function SourceManager:BuildRequirementDedupSet(sourceTypes)
+-- Build a dedup set to suppress requirement lines that duplicate rendered sources.
+-- sourceTypes: array of type strings (broad suppression, used by sourceText path)
+-- renderedSources (optional): array of source objects from GetAllSources(). When
+--   provided, builds specific keys ("quest:QuestName") instead of broad type keys,
+--   so only the exact rendered quest/achievement is suppressed as a requirement.
+function SourceManager:BuildRequirementDedupSet(sourceTypes, renderedSources)
     local dedup = {}
     if type(sourceTypes) ~= "table" then
         return dedup
     end
 
-    for _, sourceType in pairs(sourceTypes) do
-        local normalized = self:NormalizeSourceType(sourceType)
-        if normalized == "achievement" or normalized == "quest" then
-            dedup[normalized] = true
+    if renderedSources then
+        -- Specific dedup: suppress only the exact quest/achievement that was rendered
+        for _, source in ipairs(renderedSources) do
+            if source.type == "quest" and source.data and source.data.questName then
+                dedup["quest:" .. source.data.questName] = true
+            elseif source.type == "achievement" and source.data and source.data.achievementName then
+                dedup["achievement:" .. source.data.achievementName] = true
+            end
+        end
+    else
+        -- Broad dedup: suppress all quest/achievement requirements (sourceText path)
+        for _, sourceType in pairs(sourceTypes) do
+            local normalized = self:NormalizeSourceType(sourceType)
+            if normalized == "achievement" or normalized == "quest" then
+                dedup[normalized] = true
+            end
         end
     end
 
@@ -1276,6 +1415,7 @@ end
 function SourceManager:InvalidateAllSourceCaches()
     self:InvalidateCompletionCache()
     factionNameToID = nil
+    factionCacheExpandScheduled = false
 end
 
 local function HookCompletionCacheInvalidation()

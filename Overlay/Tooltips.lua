@@ -103,41 +103,64 @@ end
 --   requirements whose type is in dedupSet are skipped (already shown as source lines).
 --   Reputation requirements are NEVER skipped (always additive info).
 -- reputationOnly: if true, only render reputation requirements (merchant compact mode)
+-- Returns: set of faction names that had reputation progress rendered (for cross-path dedup),
+--   or nil if no reputation progress was rendered.
 local function AddRequirementsToTooltip(tooltip, itemID, npcID, dedupSet, reputationOnly)
-    if not HA.SourceManager or not HA.SourceManager.GetRequirements then return end
+    if not HA.SourceManager or not HA.SourceManager.GetRequirements then return nil end
 
     -- Check if requirements display is enabled
     if HA.Addon and HA.Addon.db and HA.Addon.db.profile.tooltip
             and HA.Addon.db.profile.tooltip.showRequirements == false then
-        return
+        return nil
     end
 
     local reqs = HA.SourceManager:GetRequirements(itemID, npcID)
-    if not reqs or #reqs == 0 then return end
+    if not reqs or #reqs == 0 then return nil end
+
+    local renderedFactions = nil  -- tracks factions with progress lines (for cross-path dedup)
 
     for _, req in ipairs(reqs) do
-        -- Filter: reputationOnly skips non-reputation; dedupSet skips already-rendered (except reputation)
-        if (not reputationOnly or req.type == "reputation")
-                and (not dedupSet or req.type == "reputation" or not dedupSet[req.type]) then
+        -- Filter: reputationOnly skips non-reputation; dedupSet skips already-rendered (except reputation).
+        -- Dedup checks both broad type keys ("quest") from merchant/sourceText contexts and
+        -- specific name keys ("quest:QuestName") from rendered source objects.
+        local isDuped = false
+        if dedupSet and req.type ~= "reputation" then
+            isDuped = dedupSet[req.type]
+                or (req.name and dedupSet[req.type .. ":" .. req.name])
+        end
+        if (not reputationOnly or req.type == "reputation") and not isDuped then
             local text = nil
             local isMet = nil
 
             if req.type == "reputation" and req.faction and req.standing then
-                -- Try enhanced progress display
+                -- Requirement line: "Requires Renown/Friendship/Reputation: Faction - Standing"
+                local friendshipRanks = HA.SourceManager and HA.SourceManager.FRIENDSHIP_RANK_ORDER
+                local prefix
+                local renownLevel = req.standing:match("^[Rr]enown%s+(%d+)$")
+                if renownLevel then
+                    prefix = "Requires Renown"
+                elseif friendshipRanks and friendshipRanks[req.standing] then
+                    prefix = "Requires Friendship"
+                else
+                    prefix = "Requires Reputation"
+                end
+                local displayFaction = req.faction:gsub("%.$", "")  -- strip trailing period from SavedVars
+                tooltip:AddLine("  " .. prefix .. ": " .. displayFaction .. " - " .. req.standing,
+                    COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
+
+                -- Progress line: "Your renown: X / Y" or "Your standing: X / Y"
                 local progress = HA.SourceManager.GetRequirementProgress
                     and HA.SourceManager:GetRequirementProgress(req)
                 if progress then
                     isMet = progress.met
                     if progress.isRenown then
-                        text = progress.factionName .. " \226\128\148 Renown: "
-                            .. progress.currentText .. " / " .. progress.requiredText .. " required"
+                        text = "Your renown: " .. progress.currentText .. " / " .. progress.requiredText
                     else
-                        text = progress.factionName .. " \226\128\148 Reputation: "
-                            .. progress.currentText .. " / " .. progress.requiredText .. " required"
+                        text = "Your standing: " .. progress.currentText .. " / " .. progress.requiredText
                     end
-                else
-                    -- Fallback: flat format when progress unavailable
-                    text = "Requires: " .. req.faction .. " - " .. req.standing
+                    -- Track rendered faction for cross-path dedup with AddReputationProgressToTooltip
+                    renderedFactions = renderedFactions or {}
+                    renderedFactions[displayFaction] = true
                 end
             elseif req.type == "quest" and req.name then
                 text = "Requires: " .. req.name
@@ -159,6 +182,81 @@ local function AddRequirementsToTooltip(tooltip, itemID, npcID, dedupSet, reputa
                     tooltip:AddLine("  " .. text, 0.8, 0.0, 0.0)  -- Red
                 else
                     tooltip:AddLine("  " .. text, COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)  -- Yellow (unknown)
+                end
+            end
+        end
+    end
+
+    return renderedFactions
+end
+
+-- Query Blizzard's item tooltip data for reputation/renown requirements.
+-- Uses C_TooltipInfo.GetItemByID() to read structured tooltip lines without
+-- needing to scan a rendered tooltip frame (works for any tooltip type).
+-- Returns a table of parsed requirement objects suitable for GetRequirementProgress().
+local function GetItemReputationRequirements(itemID)
+    local reqs = {}
+    if not itemID then return reqs end
+    if not C_TooltipInfo or not C_TooltipInfo.GetItemByID then return reqs end
+
+    local tooltipData = C_TooltipInfo.GetItemByID(itemID)
+    if not tooltipData or not tooltipData.lines then return reqs end
+
+    for _, lineData in ipairs(tooltipData.lines) do
+        local text = lineData.leftText
+        if text then
+            -- Renown: "Requires Renown Rank 15 with the Silvermoon Court"
+            -- Case-insensitive on "Rank"/"rank" to match both tooltip and catalog text.
+            local level, faction = text:match("Requires Renown [Rr]ank (%d+) with the (.+)")
+            if not level then
+                level, faction = text:match("Requires Renown [Rr]ank (%d+) with (.+)")
+            end
+            if level and faction then
+                faction = faction:gsub("%.$", "")  -- strip trailing period
+                reqs[#reqs + 1] = { type = "reputation", faction = faction, standing = "Renown " .. level }
+            else
+                -- Friendship: "Requires the Socialite rank or above with the Blood Knights of Silvermoon"
+                local rank, factionName = text:match("Requires the (.+) rank or above with the (.+)")
+                if rank and factionName then
+                    reqs[#reqs + 1] = { type = "reputation", faction = factionName, standing = rank }
+                end
+            end
+        end
+    end
+    return reqs
+end
+
+-- Add progress lines for reputation/renown requirements scanned from the tooltip.
+-- Shows player's current standing vs required, colored red/green.
+-- renderedFactions: optional set of faction names already rendered by AddRequirementsToTooltip
+--   (cross-path dedup to prevent duplicate progress lines for the same faction).
+local function AddReputationProgressToTooltip(tooltip, itemReqs, renderedFactions)
+    if not itemReqs or #itemReqs == 0 then return end
+    if not HA.SourceManager or not HA.SourceManager.GetRequirementProgress then return end
+
+    if HA.Addon and HA.Addon.db and HA.Addon.db.profile.tooltip
+            and HA.Addon.db.profile.tooltip.showRequirements == false then
+        return
+    end
+
+    for _, req in ipairs(itemReqs) do
+        -- Skip factions already rendered by AddRequirementsToTooltip
+        local factionName = req.faction and req.faction:gsub("%.$", "")
+        if not (renderedFactions and factionName and renderedFactions[factionName]) then
+            local progress = HA.SourceManager:GetRequirementProgress(req)
+            if progress then
+                local text
+                if progress.isRenown then
+                    text = "Your renown: " .. progress.currentText .. " / " .. progress.requiredText
+                else
+                    text = "Your standing: " .. progress.currentText .. " / " .. progress.requiredText
+                end
+                if progress.met == true then
+                    tooltip:AddLine(text, 0.0, 0.8, 0.0)  -- Green
+                elseif progress.met == false then
+                    tooltip:AddLine(text, 0.8, 0.0, 0.0)  -- Red
+                else
+                    tooltip:AddLine(text, COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
                 end
             end
         end
@@ -192,6 +290,7 @@ local function RenderSourceText(tooltip, sourceText, itemID)
     local plain = sourceText
         :gsub("|H[^|]*|h([^|]*)|h", "%1")   -- |Htype:id|h[display]|h  → display text
         :gsub("|c%x%x%x%x%x%x%x%x", "")      -- strip |cFFRRGGBB
+        :gsub("|cn[^:]*:", "")                 -- strip |cnNAMED_COLOR: (WoW 10.x+ named colors)
         :gsub("|r", "")                        -- strip |r
 
     -- Split all |n lines, then re-group into logical blocks by detecting source-type prefix changes.
@@ -343,19 +442,23 @@ local function RenderSourceText(tooltip, sourceText, itemID)
         end
 
         for i, line in ipairs(lines) do
-            -- Split "Label: value" into gold label + white/completion-colored value
-            local label, value = line:match("^([^:]+:%s*)(.*)")
-            if label and value and value ~= "" then
-                -- Apply per-block completion color to the first line of each block
-                local valueColor = (i == 1 and blockCompletion and blockCompletion.color) or "|cFFFFFFFF"
-                local valueSuffix = (i == 1 and blockCompletion and blockCompletion.suffix) or ""
-                tooltip:AddLine("  " .. "|cFFFFD700" .. label .. "|r" .. valueColor .. value .. valueSuffix .. "|r", 1, 1, 1)
-            elseif label then
-                -- Label-only line
-                tooltip:AddLine("  " .. "|cFFFFD700" .. line .. "|r", COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
-            else
-                -- No colon — plain continuation line (e.g. bare cost value with icon)
-                tooltip:AddLine("  " .. line, COLOR_WHITE.r, COLOR_WHITE.g, COLOR_WHITE.b)
+            -- Skip "Faction:" lines — our structured requirement rendering
+            -- (AddRequirementsToTooltip) shows this with progress info instead.
+            if not line:match("^Faction:%s*") then
+                -- Split "Label: value" into gold label + white/completion-colored value
+                local label, value = line:match("^([^:]+:%s*)(.*)")
+                if label and value and value ~= "" then
+                    -- Apply per-block completion color to the first line of each block
+                    local valueColor = (i == 1 and blockCompletion and blockCompletion.color) or "|cFFFFFFFF"
+                    local valueSuffix = (i == 1 and blockCompletion and blockCompletion.suffix) or ""
+                    tooltip:AddLine("  " .. "|cFFFFD700" .. label .. "|r" .. valueColor .. value .. valueSuffix .. "|r", 1, 1, 1)
+                elseif label then
+                    -- Label-only line
+                    tooltip:AddLine("  " .. "|cFFFFD700" .. line .. "|r", COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
+                else
+                    -- No colon — plain continuation line (e.g. bare cost value with icon)
+                    tooltip:AddLine("  " .. line, COLOR_WHITE.r, COLOR_WHITE.g, COLOR_WHITE.b)
+                end
             end
         end
     end
@@ -363,7 +466,8 @@ local function RenderSourceText(tooltip, sourceText, itemID)
     -- Show requirements after all source blocks using dedupSet.
     -- Achievement/quest types are suppressed if rendered as source blocks,
     -- but reputation and other requirement types always show.
-    AddRequirementsToTooltip(tooltip, itemID, vendorNpcID, dedupSet)
+    -- Returns renderedFactions set for cross-path dedup with AddReputationProgressToTooltip.
+    return AddRequirementsToTooltip(tooltip, itemID, vendorNpcID, dedupSet)
 end
 
 -------------------------------------------------------------------------------
@@ -604,9 +708,10 @@ local function AddSourceInfoToTooltip(tooltip, itemID, context, detailed)
         sourcesToRender = consolidated
     end
 
-    -- Render each source via dispatch table, tracking which types were rendered
+    -- Render each source via dispatch table, tracking which types/sources were rendered
     local renderedAny = false
     local renderedTypes = {}
+    local renderedSources = {}
     local renderedVendorNpcID = nil
     for _, source in ipairs(sourcesToRender) do
         local renderer = SOURCE_RENDERERS[source.type]
@@ -618,6 +723,7 @@ local function AddSourceInfoToTooltip(tooltip, itemID, context, detailed)
             renderer(tooltip, source, parsedTag, itemID, completion, detailed)
             renderedAny = true
             renderedTypes[#renderedTypes + 1] = source.type
+            renderedSources[#renderedSources + 1] = source
             if source.type == "vendor" and source.data then
                 renderedVendorNpcID = source.data.npcID
             end
@@ -631,15 +737,16 @@ local function AddSourceInfoToTooltip(tooltip, itemID, context, detailed)
     -- Detailed (any context) or panel: show requirements with dedupSet
     if detailed then
         local dedupSet = HA.SourceManager.BuildRequirementDedupSet
-            and HA.SourceManager:BuildRequirementDedupSet(renderedTypes)
+            and HA.SourceManager:BuildRequirementDedupSet(renderedTypes, renderedSources)
             or nil
 
-        -- In merchant context, Blizzard already shows achievement/quest requirements
-        -- on the merchant tooltip — suppress ours to avoid duplication.
+        -- In merchant context, Blizzard already shows achievement/quest/unknown
+        -- requirements on the merchant tooltip — suppress ours to avoid duplication.
         if context == "merchant" then
             dedupSet = dedupSet or {}
             dedupSet["achievement"] = true
             dedupSet["quest"] = true
+            dedupSet["unknown"] = true
         end
 
         -- npcID scoping: pass vendor npcID when vendor is sole rendered source,
@@ -651,7 +758,8 @@ local function AddSourceInfoToTooltip(tooltip, itemID, context, detailed)
             reqNpcID = cachedMerchantNpcID
         end
 
-        AddRequirementsToTooltip(tooltip, itemID, reqNpcID, dedupSet)
+        local reqRenderedFactions = AddRequirementsToTooltip(tooltip, itemID, reqNpcID, dedupSet)
+        return true, reqRenderedFactions
     end
 
     return true
@@ -722,32 +830,44 @@ local function AddDecorInfoToTooltip(tooltip, itemLink)
         end
     end
 
+    -- Query item's reputation/renown requirements from Blizzard's tooltip data.
+    -- Blizzard renders these natively above our section; we add progress lines below.
+    local itemReqs = GetItemReputationRequirements(itemID)
+
     -- Add source info (if enabled - default true)
+    -- renderedFactions tracks which factions already have progress lines from
+    -- AddRequirementsToTooltip, so AddReputationProgressToTooltip can skip them.
+    local renderedFactions = nil
     if not db or db.showSource ~= false then
         if context == "merchant" then
             if not detailed then
                 -- Merchant compact: only show reputation requirements (our value-add).
                 -- Blizzard already shows cost, vendor name, basic requirements.
-                AddRequirementsToTooltip(tooltip, itemID, cachedMerchantNpcID, nil, true)
+                renderedFactions = AddRequirementsToTooltip(tooltip, itemID, cachedMerchantNpcID, nil, true)
             else
                 -- Merchant detailed: show supplemental sources + all requirements.
                 -- No "Source: Unknown" fallback — the vendor IS the source.
-                local hasSupplemental = AddSourceInfoToTooltip(tooltip, itemID, context, detailed)
+                local hasSupplemental
+                hasSupplemental, renderedFactions = AddSourceInfoToTooltip(tooltip, itemID, context, detailed)
                 -- If no supplemental sources rendered, AddSourceInfoToTooltip skipped
                 -- requirements internally — show them here with merchant npcID scope.
-                -- Suppress achievement/quest requirements (Blizzard shows these).
+                -- Suppress achievement/quest/unknown requirements (Blizzard shows these).
                 if not hasSupplemental then
-                    local merchantDedupSet = { achievement = true, quest = true }
-                    AddRequirementsToTooltip(tooltip, itemID, cachedMerchantNpcID, merchantDedupSet)
+                    local merchantDedupSet = { achievement = true, quest = true, unknown = true }
+                    renderedFactions = AddRequirementsToTooltip(tooltip, itemID, cachedMerchantNpcID, merchantDedupSet)
                 end
             end
         else
-            local hasSource = AddSourceInfoToTooltip(tooltip, itemID, context, detailed)
+            local hasSource
+            hasSource, renderedFactions = AddSourceInfoToTooltip(tooltip, itemID, context, detailed)
             if not hasSource then
                 tooltip:AddLine("Source: Unknown", COLOR_GRAY.r, COLOR_GRAY.g, COLOR_GRAY.b)
             end
         end
     end
+
+    -- Add reputation/renown progress from Blizzard's native requirement lines
+    AddReputationProgressToTooltip(tooltip, itemReqs, renderedFactions)
 
     -- Show Shift hint in compact mode when detailed would reveal more content
     if not detailed and context ~= "panel" then
@@ -842,15 +962,22 @@ local function OnHousingCatalogTooltipCreated(ownerID, entryFrame, tooltip)
     -- Add header
     tooltip:AddLine("|cFFFFD700[Homestead]|r")
 
+    -- Query item's reputation/renown requirements from Blizzard's tooltip data
+    local itemReqs = GetItemReputationRequirements(itemID)
+
     -- Add source info (ownership is already shown by the catalog UI)
     -- Only show if enabled (default true)
+    -- renderedFactions tracks which factions already have progress lines (cross-path dedup).
+    local renderedFactions = nil
     if not db or db.showSource ~= false then
         local hasSource = false
 
         -- Priority 1: Blizzard sourceText (authoritative, most complete — includes cost icons,
         -- all vendor/zone/category fields). Rendered with gold labels + white values.
+        -- Always shown when present, regardless of showAllSources toggle — this is Blizzard's
+        -- own catalog data and is intentionally not governed by the user's source filter.
         if entryInfo.sourceText and entryInfo.sourceText ~= "" then
-            RenderSourceText(tooltip, entryInfo.sourceText, itemID)
+            renderedFactions = RenderSourceText(tooltip, entryInfo.sourceText, itemID)
             hasSource = true
             if HA.DevAddon and HA.Addon.db.profile.debug then
                 HA.Addon:Debug("Catalog tooltip: using Blizzard sourceText")
@@ -859,7 +986,9 @@ local function OnHousingCatalogTooltipCreated(ownerID, entryFrame, tooltip)
 
         -- Priority 2: Fall back to our structured DB for items with no sourceText
         if not hasSource then
-            hasSource = AddSourceInfoToTooltip(tooltip, itemID)
+            local rf
+            hasSource, rf = AddSourceInfoToTooltip(tooltip, itemID)
+            renderedFactions = renderedFactions or rf
             if hasSource and HA.DevAddon and HA.Addon.db.profile.debug then
                 HA.Addon:Debug("Catalog tooltip: using VendorDatabase/AchievementSources")
             end
@@ -870,6 +999,9 @@ local function OnHousingCatalogTooltipCreated(ownerID, entryFrame, tooltip)
             tooltip:AddLine("Source: Unknown", COLOR_GRAY.r, COLOR_GRAY.g, COLOR_GRAY.b)
         end
     end
+
+    -- Add reputation/renown progress from Blizzard's native requirement lines
+    AddReputationProgressToTooltip(tooltip, itemReqs, renderedFactions)
 
     -- Refresh tooltip to show new lines
     tooltip:Show()
