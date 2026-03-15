@@ -2,7 +2,7 @@
 
 ---
 
-## v2.0.1 (2026-03-10)
+## v2.1.0 (2026-03-15)
 
 ### Improved
 
@@ -13,7 +13,7 @@
 
 **Dynamic Source Filter**
 
-- The source filter dropdown now automatically includes every source type the addon knows about. No more waiting for manual updates when new sources are added.
+- The source filter dropdown now automatically includes every source type the addon knows about.
 
 ### Fixed
 
@@ -21,19 +21,40 @@
 - Fixed duplicate "Faction:" lines appearing in Housing Catalog tooltips.
 - Fixed duplicate requirement lines showing on merchant tooltips when Shift-hovering.
 - Reputation, friendship, and renown requirements in Housing Dashboard tooltips now show a clearer two-line format: what's required on top, and your current progress below, color-coded green when met and red when not.
-- Fixed memory leak in Housing Dashboard.
 - Fixed the side panel back button not working when the panel is detached from the World Map.
 - Fixed drilling down into zones and vendors not working when the panel is detached and the World Map is closed.
 - Fixed the detached panel resetting to the map's location when you open the World Map.
 - Fixed clicking a vendor in search results not opening the map when the panel is detached.
 - Fixed merchant overlay checkmarks updating one purchase late instead of immediately.
-- Fixed a tooltip error that could trigger on repair mounts/anvils and other merchant-like interactions.
-- Fixed world map vendor pin, badge, portal, and minimap hovers sharing Blizzard's tooltip path and contributing to map tooltip taint issues.
-- Fixed a Lua error that could appear when opening the World Map ("attempt to index a nil value" in SetPosition).
+- Fixed a tooltip error that could trigger on repair mounts/anvils and other merchant-like interactions. (Thanks serb1tar from CF)
+- Fixed world map vendor pin, badge, portal, and minimap hovers sharing Blizzard's tooltip path and contributing to map tooltip lua errors (Thanks sampconrad and others from CF)
+- Fixed a Lua error that could appear when opening the World Map ("attempt to index a nil value" in SetPosition). (Thanks user_buf1pnlq41pahpfi for the CF issue submission)
+
+### Vendor Database
+
+**Corrections**
+
+- **Axle** (Mudsprocket): Fixed completely wrong item list — now correctly shows Definitely Real, Not At All Fake Head of the Broodmother. (Thanks xinkyimpx from CF)
+- **Arcanist Peroleth** (Dazar'alor): Removed 2 phantom items and corrected location.
+
+**Cost & Location Updates**
+
+- Added missing prices for **Woodsman Drake**, **Purser Boulian**, **Provisioner Fray**, **Delphine**, **Captain Zen'taga**, and **Ahlurglgr**.
+- Fixed locations for **Pearl Barlow**, **T'lama**, **Arcanist Peroleth**, and **Captain Zen'taga**.
+- Updated costs for **T'lama** and **Arcanist Peroleth** to match current in-game values.
 
 ### Polished
 
 - The World Map side panel now uses its own Blizzard-style tooltip again without changing the classic docked map-shift behavior.
+- Cleaned up a lot of internal plumbing. Homestead is now leaner and faster under the hood, with no changes to how anything looks or works.
+
+---
+
+## v2.0.1 (2026-03-10)
+
+### Fixed
+
+- Fixed memory leak in Housing Dashboard.
 
 ---
 
