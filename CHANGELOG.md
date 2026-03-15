@@ -29,6 +29,7 @@
 - Fixed merchant overlay checkmarks updating one purchase late instead of immediately.
 - Fixed a tooltip error that could trigger on repair mounts/anvils and other merchant-like interactions.
 - Fixed world map vendor pin, badge, portal, and minimap hovers sharing Blizzard's tooltip path and contributing to map tooltip taint issues.
+- Fixed a Lua error that could appear when opening the World Map ("attempt to index a nil value" in SetPosition).
 
 ### Polished
 

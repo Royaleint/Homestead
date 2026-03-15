@@ -6,7 +6,6 @@
 
 local _, HA = ...
 
-local EventUtil = _G.EventUtil
 local initiativesFrame = nil
 
 -------------------------------------------------------------------------------
@@ -156,5 +155,5 @@ end
 if C_AddOns.IsAddOnLoaded("Blizzard_HousingDashboard") then
     OnHousingDashboardLoaded()
 else
-    EventUtil.ContinueOnAddOnLoaded("Blizzard_HousingDashboard", OnHousingDashboardLoaded)
+    _G.EventUtil.ContinueOnAddOnLoaded("Blizzard_HousingDashboard", OnHousingDashboardLoaded)
 end
