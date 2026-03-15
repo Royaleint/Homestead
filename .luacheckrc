@@ -8,7 +8,6 @@ globals = {
     "HomesteadVendorMapPinsTooltip",
     "SlashCmdList",
     "SLASH_HOMESTEAD1", "SLASH_HOMESTEAD2",
-    "StaticPopupDialogs",
     -- SavedVariables (created by WoW, read/written by addon)
     "HomesteadDB",
 }
@@ -100,7 +99,6 @@ read_globals = {
     "IsAltKeyDown", "IsControlKeyDown", "IsShiftKeyDown",
     "IsIndoors",
     "OpenAllBags",
-    "StaticPopup_Show",
     "SOUNDKIT",
     "ToggleAllBags", "ToggleBag", "ToggleWorldMap",
     "UnitFactionGroup", "UnitGUID", "UnitLevel", "UnitName",

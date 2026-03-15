@@ -9,7 +9,7 @@ description: >
   updating map pins or zone mappings, or doing vendor validation. Also trigger
   on mentions of Homestead, vendor scanning, ownership cache, NPC ID corrections,
   VendorData, firstAcquisitionBonus, or C_HousingCatalog functions.
-  DO NOT use for general WoW addon patterns — use the Studio-Bawr
+  DO NOT use for general WoW addon patterns — use the BawrLabs
   wow-addon-dev platform skill instead.
 ---
 
@@ -19,11 +19,11 @@ description: >
 
 1. **Start**: Run `/start-session` skill — it handles git status, BACKLOG
    In Progress summary, recent changelog, and session brief.
-2. **During**: Keep `../Studio-Bawr/BACKLOG.md` updated with current scope and
+2. **During**: Keep `../BawrLabs/BACKLOG.md` updated with current scope and
    next action on In Progress items. Promote new findings to the correct
    long-lived destination: Homestead-specific findings to
    `.claude/skills/homestead/known-patterns.md`, general WoW addon patterns to
-   `../Studio-Bawr/.claude/skills/wow-addon-dev/`.
+   `../BawrLabs/.claude/skills/wow-addon-dev/`.
 3. **End**: Run `/end-session` skill — it handles COMPLETED.md, skill
    promotion, BACKLOG status updates, changelog check, and release reminders.
 
