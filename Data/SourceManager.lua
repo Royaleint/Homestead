@@ -29,7 +29,8 @@ HA.SourceManager = SourceManager
 
 -- Source provider registry (internal).
 -- Each provider: { getSource = fn(itemID), getSources = fn(itemID) }
--- Tables are allocated once at registration time, never per-call.
+-- Provider closures are allocated once at registration time; result tables
+-- ({type, data}) are allocated per call — acceptable for tooltip-frequency paths.
 local sourceProviders = {}  -- name → provider table
 local providerOrder = {}    -- ordered list of provider names (rebuilt on registration)
 local providersRegistered = false
@@ -49,7 +50,7 @@ local completionInvalidationFrame = nil
 -- Register a source provider. Provider table must have:
 --   getSource(itemID)  → {type, data} or nil  (single best result)
 --   getSources(itemID) → {{type, data}, ...}   (all results)
--- Provider functions are created once at registration; never per-call.
+-- Provider closures are created once at registration; result tables are per-call.
 function SourceManager:RegisterProvider(name, provider)
     sourceProviders[name] = provider
     -- Rebuild ordered list from SOURCE_TYPE_ORDER

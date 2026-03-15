@@ -9,10 +9,8 @@ local _, HA = ...
 local Events = {}
 HA.Events = Events
 
--- Local references for performance
+-- Local references (Lua stdlib only; WoW API called directly at runtime per project rules)
 local pairs = pairs
-local GetTime = GetTime
-local C_Timer = C_Timer
 
 -------------------------------------------------------------------------------
 -- Configuration

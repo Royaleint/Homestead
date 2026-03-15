@@ -514,6 +514,22 @@ local function Migration_2_to_3(db)
     end
 end
 
+-- Migration 3→4: Clean up orphaned ownedDecor table
+local function Migration_3_to_4(db)
+    if db.global.ownedDecor then
+        db.global.ownedDecor = nil
+        if HA.Addon then
+            HA.Addon:Debug("CatalogStore: Migration 3→4 removed orphaned ownedDecor")
+        end
+    end
+
+    db.global.schemaVersion = 4
+
+    if HA.Addon then
+        HA.Addon:Debug("CatalogStore: Migration 3→4 complete")
+    end
+end
+
 function CatalogStore:RunMigrations()
     if not HA.Addon or not HA.Addon.db then return end
     local db = HA.Addon.db
@@ -525,6 +541,10 @@ function CatalogStore:RunMigrations()
 
     if version < 3 then
         Migration_2_to_3(db)
+    end
+
+    if version < 4 then
+        Migration_3_to_4(db)
     end
 end
 

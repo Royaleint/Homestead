@@ -23,7 +23,7 @@ HA.MapPinProvider = MapPinProvider
 local HBD = LibStub("HereBeDragons-2.0")
 local HBDPins = LibStub("HereBeDragons-Pins-2.0")
 
-local pairs, ipairs = pairs, ipairs
+local pairs = pairs
 local Constants = HA.Constants
 
 -------------------------------------------------------------------------------

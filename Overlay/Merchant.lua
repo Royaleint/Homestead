@@ -56,11 +56,6 @@ local function UpdateMerchantButton(button, index)
         return
     end
 
-    if not CatalogStore then
-        Overlay:ClearIcon(overlay)
-        return
-    end
-
     -- Get item link from merchant
     local itemLink = GetMerchantItemLink(index)
     if not itemLink then

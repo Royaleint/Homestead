@@ -24,12 +24,9 @@ local CheckIfDecorItem = DC.CheckIfDecorItem
 -- Persistence module (data storage, retrieval, clearing, export)
 local SP = HA.ScanPersistence
 
--- Local references for performance
 -- Note: Some merchant APIs may be nil at load time, accessed via _G at runtime
 -- Note: Do NOT cache C_HousingCatalog at load time — it may not exist yet
-local UnitGUID = UnitGUID
-local UnitName = UnitName
-local C_Map = C_Map
+-- Note: WoW API (UnitGUID, UnitName, C_Map) called directly at runtime per project rules
 
 -- Scanner state
 local scannedVendorsThisSession = {}
