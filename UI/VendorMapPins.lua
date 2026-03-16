@@ -806,7 +806,9 @@ function VendorMapPins:ShowMinimapTooltip(pin, vendor, isOppositeFaction, isUnve
 
     local tooltip = BeginPinTooltip(pin, "ANCHOR_LEFT")
     tooltip:AddLine(vendor.name, 1, 1, 1)
-    if vendor.zone then
+    if vendor.subzone and vendor.subzone ~= "" then
+        tooltip:AddLine(vendor.subzone, 0.7, 0.7, 0.7)
+    elseif vendor.zone then
         tooltip:AddLine(vendor.zone, 0.7, 0.7, 0.7)
     end
     if isUnverified then
