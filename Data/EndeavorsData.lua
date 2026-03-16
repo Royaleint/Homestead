@@ -236,7 +236,17 @@ EndeavorsData.Vendors = {
         expansion = "The War Within",
         endeavor = true,
         notes = "Neighborhood Endeavor vendor (Blood Elf theme)",
-        items = {253522, 253523, 253524, 253525, 253526, 253599, 253600, 253601, 254235},
+        items = {
+            {253522, cost = {currencies = {{id = 3363, amount = 5}}}},
+            {253523, cost = {currencies = {{id = 3363, amount = 5}}}},
+            {253524, cost = {currencies = {{id = 3363, amount = 10}}}},
+            {253525, cost = {currencies = {{id = 3363, amount = 10}}}},
+            {253526, cost = {currencies = {{id = 3363, amount = 15}}}},
+            {253599, cost = {currencies = {{id = 3363, amount = 15}}}},
+            {253600, cost = {currencies = {{id = 3363, amount = 5}}}},
+            {253601, cost = {currencies = {{id = 3363, amount = 5}}}},
+            {254235, cost = {currencies = {{id = 3363, amount = 5}}}},
+        },
     },
 }
 
