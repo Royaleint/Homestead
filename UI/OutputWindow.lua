@@ -9,6 +9,8 @@ local _, HA = ...
 local OutputWindow = {}
 HA.OutputWindow = OutputWindow
 
+local L = HA.L or {}
+
 -- Frame reference
 local outputFrame = nil
 local scrollFrame = nil
@@ -61,7 +63,7 @@ local function CreateOutputWindow()
     -- Title text
     titleText = frame:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
     titleText:SetPoint("TOP", titleBar, "TOP", 0, -8)
-    titleText:SetText("Output")
+    titleText:SetText(L["Output"] or "Output")
 
     -- Close button
     local closeBtn = CreateFrame("Button", nil, frame, "UIPanelCloseButton")
@@ -122,18 +124,18 @@ local function CreateOutputWindow()
     local copyBtn = CreateFrame("Button", nil, buttonContainer, "UIPanelButtonTemplate")
     copyBtn:SetSize(100, 25)
     copyBtn:SetPoint("LEFT", 8, 0)
-    copyBtn:SetText("Select All")
+    copyBtn:SetText(L["Select All"] or "Select All")
     copyBtn:SetScript("OnClick", function()
         editBox:SetFocus()
         editBox:HighlightText()
-        HA.Addon:Print("All text selected. Press Ctrl+C to copy to clipboard.")
+        HA.Addon:Print(L["All text selected. Press Ctrl+C to copy to clipboard."] or "All text selected. Press Ctrl+C to copy to clipboard.")
     end)
 
     -- Close button (bottom)
     local closeBottomBtn = CreateFrame("Button", nil, buttonContainer, "UIPanelButtonTemplate")
     closeBottomBtn:SetSize(100, 25)
     closeBottomBtn:SetPoint("RIGHT", -8, 0)
-    closeBottomBtn:SetText("Close")
+    closeBottomBtn:SetText(L["Close"] or "Close")
     closeBottomBtn:SetScript("OnClick", function()
         frame:Hide()
     end)

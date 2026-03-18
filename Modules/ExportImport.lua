@@ -8,6 +8,8 @@ local _, HA = ...
 local ExportImport = {}
 HA.ExportImport = ExportImport
 
+local L = HA.L or {}
+
 local EXPORT_PREFIX = "HOMESTEAD_EXPORT:"
 
 -------------------------------------------------------------------------------
@@ -41,19 +43,19 @@ local function CreateExportDialog()
     -- Title
     local title = f:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
     title:SetPoint("TOP", 0, -15)
-    title:SetText("Export Vendor Data")
+    title:SetText(L["Export Vendor Data"] or "Export Vendor Data")
 
     -- Description
     local desc = f:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
     desc:SetPoint("TOP", title, "BOTTOM", 0, -8)
     desc:SetWidth(250)
-    desc:SetText("Choose export option:")
+    desc:SetText(L["Choose export option:"] or "Choose export option:")
 
     -- New Scans export button
     local newBtn = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
     newBtn:SetSize(200, 26)
     newBtn:SetPoint("TOP", desc, "BOTTOM", 0, -12)
-    newBtn:SetText("Export New Scans")
+    newBtn:SetText(L["Export New Scans"] or "Export New Scans")
     newBtn:SetScript("OnClick", function()
         f:Hide()
         ExportImport:ExportScannedVendors(false, false)
@@ -73,7 +75,7 @@ local function CreateExportDialog()
     local allBtn = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
     allBtn:SetSize(200, 26)
     allBtn:SetPoint("TOP", newBtn, "BOTTOM", 0, -6)
-    allBtn:SetText("Export All")
+    allBtn:SetText(L["Export All"] or "Export All")
     allBtn:SetScript("OnClick", function()
         f:Hide()
         ExportImport:ExportScannedVendors(true, true)

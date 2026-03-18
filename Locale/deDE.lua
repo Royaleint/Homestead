@@ -90,7 +90,6 @@ L["Preview"] = "Vorschau"
 L["General"] = "Allgemein"
 L["Overlays"] = "Overlays"
 L["Tooltips"] = "Tooltips"
-L["Vendor Tracer"] = "Händlersuche"
 L["Export"] = "Exportieren"
 
 L["Enable addon"] = "Addon aktivieren"
@@ -103,26 +102,54 @@ L["Show on auction house"] = "Im Auktionshaus anzeigen"
 L["Show on housing catalog"] = "Im Wohnungskatalog anzeigen"
 L["Icon size"] = "Symbolgröße"
 L["Icon position"] = "Symbolposition"
+L["Show opposite faction vendors"] = "Händler der Gegenfraktion anzeigen"
+L["Show unverified vendors"] = "Unbestätigte Händler anzeigen"
 
 L["Enable tooltip additions"] = "Tooltip-Ergänzungen aktivieren"
 L["Show source information"] = "Quellinformationen anzeigen"
 L["Show quantity owned"] = "Besitzmenge anzeigen"
 L["Show dye slot information"] = "Farbslot-Informationen anzeigen"
+L["Show vendor details in tooltips"] = "Händlerdetails in Tooltips anzeigen"
 
 L["Show map pins"] = "Kartenmarkierungen anzeigen"
 L["Show minimap pins"] = "Minikartenmarkierungen anzeigen"
 L["Use TomTom for waypoints"] = "TomTom für Wegpunkte verwenden"
+L["Use native waypoints"] = "Native Wegpunkte verwenden"
+L["Auto-create waypoint on click"] = "Wegpunkt bei Klick automatisch erstellen"
+L["Navigate modifier key"] = "Navigationsmodifikatortaste"
+
+-------------------------------------------------------------------------------
+-- Minimap Tooltip
+-------------------------------------------------------------------------------
+L["Collection: %d / %d (%d%%)"] = "Sammlung: %d / %d (%d%%)"
+L["Vendors nearby: %d"] = "Händler in der Nähe: %d"
+L["Vendors scanned: %d"] = "Gescannte Händler: %d"
+L["Left-Click: Toggle options"] = "|cFFFFFFFFLinksklick:|r Optionen umschalten"
+L["Right-Click: Detach/close vendor panel"] = "|cFFFFFFFFRechtsklick:|r Händlerpanel lösen/schließen"
+L["Middle-Click: Scan collection"] = "|cFFFFFFFFMittelklick:|r Sammlung scannen"
 
 -------------------------------------------------------------------------------
 -- Slash Commands
 -------------------------------------------------------------------------------
-L["Housing Addon Commands:"] = "Homestead-Befehle:"
-L["/ha - Toggle main window"] = "/ha — Hauptfenster öffnen/schließen"
-L["/ha options - Open options panel"] = "/ha options — Optionen öffnen"
-L["/ha export - Export collection data"] = "/ha export — Sammlungsdaten exportieren"
-L["/ha vendor [search] - Open vendor panel"] = "/ha vendor [Suche] — Händlerpanel öffnen"
-L["/ha debug - Toggle debug mode"] = "/ha debug — Debugmodus umschalten"
-L["/ha help - Show this help"] = "/ha help — Diese Hilfe anzeigen"
+L["Homestead Commands:"] = "Homestead-Befehle:"
+L["/hs - Open options panel"] = "/hs — Optionen öffnen"
+L["/hs scan - Scan catalog"] = "/hs scan — Katalog nach eigenen Items scannen"
+L["/hs vendor [search] - Search vendors"] = "/hs vendor [Suche] — Dekorhändler suchen"
+L["/hs export - Show export dialog"] = "/hs export — Exportdialog anzeigen"
+L["/hs debug - Toggle debug mode"] = "/hs debug — Debugmodus umschalten"
+L["/hs help - Show this help"] = "/hs help — Diese Hilfe anzeigen"
+
+-------------------------------------------------------------------------------
+-- Slash Command Feedback
+-------------------------------------------------------------------------------
+L["Map pins refreshed."] = "Kartenmarkierungen aktualisiert."
+L["No active waypoint."] = "Kein aktiver Wegpunkt."
+L["Waypoint cleared."] = "Wegpunkt gelöscht."
+L["Vendor database contains %d vendors."] = "Händlerdatenbank enthält %d Händler."
+L["Use /hs vendor <name or zone> to search."] = "Verwende /hs vendor <Name oder Zone> zum Suchen."
+L["No vendors found matching: %s"] = "Keine Händler gefunden für: %s"
+L["Found %d vendor(s) matching: %s"] = "%d Händler gefunden für: %s"
+L["... and %d more."] = "... und %d weitere."
 
 -------------------------------------------------------------------------------
 -- Messages
@@ -132,6 +159,37 @@ L["ON"] = "AN"
 L["OFF"] = "AUS"
 L["Unknown command: %s"] = "Unbekannter Befehl: %s"
 L["Not yet implemented"] = "Noch nicht implementiert"
+
+-------------------------------------------------------------------------------
+-- Export Dialog
+-------------------------------------------------------------------------------
+L["Export Vendor Data"] = "Händlerdaten exportieren"
+L["Choose export option:"] = "Exportoption wählen:"
+L["Export New Scans"] = "Neue Scans exportieren"
+L["Export All"] = "Alle exportieren"
+
+-------------------------------------------------------------------------------
+-- Map Side Panel
+-------------------------------------------------------------------------------
+L["All"] = "Alle"
+L["Vendor"] = "Händler"
+L["Quest"] = "Quest"
+L["Achievement"] = "Erfolg"
+L["Profession"] = "Beruf"
+L["Event"] = "Event"
+L["Drop"] = "Beute"
+L["Zone Collection Progress"] = "Zonensammlungsfortschritt"
+L["Continent Collection Progress"] = "Kontinentsammlungsfortschritt"
+L["Global Collection Progress"] = "Globaler Sammlungsfortschritt"
+L["Order Hall"] = "Ordenshalle"
+L["Click to preview"] = "Klicken für Vorschau"
+
+-------------------------------------------------------------------------------
+-- Output Window
+-------------------------------------------------------------------------------
+L["Output"] = "Ausgabe"
+L["Select All"] = "Alles auswählen"
+L["All text selected. Press Ctrl+C to copy to clipboard."] = "Text ausgewählt. Strg+C zum Kopieren drücken."
 
 -------------------------------------------------------------------------------
 -- Statistics
