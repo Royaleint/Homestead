@@ -18,6 +18,12 @@ Libs\WagoAnalytics\Shim.lua
 
 # Localization
 Locale\enUS.lua
+Locale\deDE.lua
+Locale\frFR.lua
+Locale\esES.lua
+Locale\esMX.lua
+Locale\ptBR.lua
+Locale\koKR.lua
 Locale\ruRU.lua
 Locale\zhCN.lua
 
