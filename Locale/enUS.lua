@@ -88,7 +88,6 @@ L["Preview"] = "Preview"
 L["General"] = "General"
 L["Overlays"] = "Overlays"
 L["Tooltips"] = "Tooltips"
-L["Vendor Tracer"] = "Vendor Tracer"
 L["Export"] = "Export"
 
 L["Enable addon"] = "Enable addon"
