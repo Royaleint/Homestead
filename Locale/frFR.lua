@@ -60,7 +60,7 @@ L["Vendor Tracer"] = "Recherche de vendeurs"
 L["Color Tracker"] = "Suivi des teintures"
 L["Export Data"] = "Exporter les données"
 L["Options"] = "Options"
-L["Search"] = "Rechercher"
+L["Search"] = "Recherche"
 L["Filter"] = "Filtrer"
 L["Close"] = "Fermer"
 

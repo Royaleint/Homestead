@@ -61,7 +61,7 @@ L["Color Tracker"] = "Seguimiento de tintes"
 L["Export Data"] = "Exportar datos"
 L["Options"] = "Opciones"
 L["Search"] = "Buscar"
-L["Filter"] = "Filtrar"
+L["Filter"] = "Filtro"
 L["Close"] = "Cerrar"
 
 -------------------------------------------------------------------------------

@@ -60,7 +60,7 @@ L["Vendor Tracer"] = "Buscador de vendedores"
 L["Color Tracker"] = "Rastreador de tintas"
 L["Export Data"] = "Exportar dados"
 L["Options"] = "Opções"
-L["Search"] = "Buscar"
+L["Search"] = "Procurar"
 L["Filter"] = "Filtrar"
 L["Close"] = "Fechar"
 
@@ -82,7 +82,7 @@ L["Owned Dyes"] = "Tintas possuídas"
 L["Known Recipes"] = "Receitas conhecidas"
 L["Dye Slots"] = "Espaços de tinta"
 L["Apply Dye"] = "Aplicar tinta"
-L["Preview"] = "Visualizar"
+L["Preview"] = "Prévia"
 
 -------------------------------------------------------------------------------
 -- Options
