@@ -32,6 +32,7 @@ local HousingAddon = Homestead
 
 -- Local references for performance
 local Constants = HA.Constants
+local L = HA.L or {}
 local print = print
 local format = string.format
 
@@ -195,7 +196,7 @@ function HousingAddon:InitializeMinimapButton()
                 local total = C_HousingCatalog.GetDecorMaxOwnedCount()
                 if owned and total and total > 0 then
                     local percent = math.floor((owned / total) * 100)
-                    tooltip:AddLine(format("Collection: %d / %d (%d%%)", owned, total, percent), 1, 1, 1)
+                    tooltip:AddLine(format(L["Collection: %d / %d (%d%%)"] or "Collection: %d / %d (%d%%)", owned, total, percent), 1, 1, 1)
                 end
             end
 
@@ -205,7 +206,7 @@ function HousingAddon:InitializeMinimapButton()
                 if mapID then
                     local vendors = HA.VendorData:GetVendorsInMap(mapID)
                     if vendors then
-                        tooltip:AddLine(format("Vendors nearby: %d", #vendors), 1, 1, 1)
+                        tooltip:AddLine(format(L["Vendors nearby: %d"] or "Vendors nearby: %d", #vendors), 1, 1, 1)
                     end
                 end
             end
@@ -216,13 +217,13 @@ function HousingAddon:InitializeMinimapButton()
                 for _ in pairs(self.db.global.scannedVendors) do
                     count = count + 1
                 end
-                tooltip:AddLine(format("Vendors scanned: %d", count), 1, 1, 1)
+                tooltip:AddLine(format(L["Vendors scanned: %d"] or "Vendors scanned: %d", count), 1, 1, 1)
             end
 
             tooltip:AddLine(" ")
-            tooltip:AddLine("|cFFFFFFFFLeft-Click:|r Toggle options")
-            tooltip:AddLine("|cFFFFFFFFRight-Click:|r Detach/close vendor panel")
-            tooltip:AddLine("|cFFFFFFFFMiddle-Click:|r Scan collection")
+            tooltip:AddLine(L["Left-Click: Toggle options"] or "|cFFFFFFFFLeft-Click:|r Toggle options")
+            tooltip:AddLine(L["Right-Click: Detach/close vendor panel"] or "|cFFFFFFFFRight-Click:|r Detach/close vendor panel")
+            tooltip:AddLine(L["Middle-Click: Scan collection"] or "|cFFFFFFFFMiddle-Click:|r Scan collection")
         end,
     })
 
@@ -251,7 +252,7 @@ function HousingAddon:SlashCommandHandler(input)
         self:ClearWaypoint()
     elseif input == "debug" then
         self.db.profile.debug = not self.db.profile.debug
-        self:Print("Debug mode:", self.db.profile.debug and "ON" or "OFF")
+        self:Print(format(L["Debug mode: %s"] or "Debug mode: %s", self.db.profile.debug and (L["ON"] or "ON") or (L["OFF"] or "OFF")))
     elseif input == "debug vertical" then
         local lines = HA.Constants.GetVerticalSiblingsInfo()
         self:Print("VerticalSiblings (" .. #lines .. " pairs):")
@@ -309,16 +310,16 @@ function HousingAddon:SlashCommandHandler(input)
             HA.WhatsNewFrame:Show(HA.Constants.VERSION)
         end
     else
-        self:Print("Unknown command:", input)
+        self:Print(format(L["Unknown command: %s"] or "Unknown command: %s", input))
         self:PrintHelp()
     end
 end
 
 function HousingAddon:PrintHelp()
-    self:Print("Homestead Commands:")
-    self:Print("  /hs - Open options panel")
-    self:Print("  /hs scan - Scan catalog for owned items")
-    self:Print("  /hs vendor [search] - Search for decor vendors")
+    self:Print(L["Homestead Commands:"] or "Homestead Commands:")
+    self:Print("  " .. (L["/hs - Open options panel"] or "/hs — Open options panel"))
+    self:Print("  " .. (L["/hs scan - Scan catalog"] or "/hs scan — Scan catalog for owned items"))
+    self:Print("  " .. (L["/hs vendor [search] - Search vendors"] or "/hs vendor [search] — Search for decor vendors"))
     self:Print("  /hs vendors - Show scanned vendor data")
     self:Print("  /hs waypoint - Clear current waypoint")
     self:Print("  /hs cache - Show ownership cache info")
@@ -326,22 +327,22 @@ function HousingAddon:PrintHelp()
     self:Print("  /hs panel - Toggle detached vendor panel")
     self:Print("  /hs refreshmap - Refresh world map pins")
     self:Print("  /hs corrections - Show NPC ID corrections found")
-    self:Print("  /hs export - Show export dialog")
-    self:Print("  /hs export full - Export all scanned vendors")
-    self:Print("  /hs exportall - Export ALL, bypass timestamp filter")
+    self:Print("  " .. (L["/hs export - Show export dialog"] or "/hs export — Show export dialog"))
+    self:Print("  /hs export full — Export all scanned vendors")
+    self:Print("  /hs exportall — Export ALL, bypass timestamp filter")
     self:Print("  /hs clearscans - Clear all scanned vendor data")
     self:Print("  /hs validate - Validate vendor database")
     self:Print("  /hs welcome - Show welcome screen")
     self:Print("  /hs whatsnew - Show What's New panel")
-    self:Print("  /hs debug - Toggle debug mode")
-    self:Print("  /hs help - Show this help")
+    self:Print("  " .. (L["/hs debug - Toggle debug mode"] or "/hs debug — Toggle debug mode"))
+    self:Print("  " .. (L["/hs help - Show this help"] or "/hs help — Show this help"))
 end
 
 -- Refresh map pins manually
 function HousingAddon:RefreshMapPins()
     if HA.VendorMapPins then
         HA.VendorMapPins:RefreshPins()
-        self:Print("Map pins refreshed.")
+        self:Print(L["Map pins refreshed."] or "Map pins refreshed.")
     else
         self:Print("VendorMapPins module not available.")
     end
@@ -366,18 +367,18 @@ function HousingAddon:SearchVendors(searchText)
     if not searchText or searchText == "" then
         -- Show vendor count
         local count = HA.VendorData:GetVendorCount()
-        self:Print("Vendor database contains", count, "vendors.")
-        self:Print("Use /hs vendor <name or zone> to search.")
+        self:Print(format(L["Vendor database contains %d vendors."] or "Vendor database contains %d vendors.", count))
+        self:Print(L["Use /hs vendor <name or zone> to search."] or "Use /hs vendor <name or zone> to search.")
         return
     end
 
     local results = HA.VendorData:SearchVendors(searchText)
     if #results == 0 then
-        self:Print("No vendors found matching:", searchText)
+        self:Print(format(L["No vendors found matching: %s"] or "No vendors found matching: %s", searchText))
         return
     end
 
-    self:Print("Found", #results, "vendor(s) matching:", searchText)
+    self:Print(format(L["Found %d vendor(s) matching: %s"] or "Found %d vendor(s) matching: %s", #results, searchText))
     for i, vendor in ipairs(results) do
         if i <= 5 then -- Limit to 5 results in chat
             local locationStr = vendor.zone or "Unknown"
@@ -385,7 +386,7 @@ function HousingAddon:SearchVendors(searchText)
         end
     end
     if #results > 5 then
-        self:Print("  ... and", #results - 5, "more.")
+        self:Print("  " .. format(L["... and %d more."] or "... and %d more.", #results - 5))
     end
 end
 
@@ -394,13 +395,13 @@ function HousingAddon:ClearWaypoint()
     if HA.Waypoints then
         if HA.Waypoints:HasWaypoint() then
             HA.Waypoints:Clear()
-            self:Print("Waypoint cleared.")
+            self:Print(L["Waypoint cleared."] or "Waypoint cleared.")
         else
-            self:Print("No active waypoint.")
+            self:Print(L["No active waypoint."] or "No active waypoint.")
         end
     elseif HA.VendorTracer then
         HA.VendorTracer:ClearWaypoint()
-        self:Print("Waypoint cleared.")
+        self:Print(L["Waypoint cleared."] or "Waypoint cleared.")
     else
         self:Print("Waypoint system not available.")
     end

@@ -82,15 +82,14 @@ L["Owned Dyes"] = "Имеющиеся краски"
 L["Known Recipes"] = "Известные рецепты"
 L["Dye Slots"] = "Слоты окрашивания"
 L["Apply Dye"] = "Применить краску"
-L["Preview"] = "Предпросмотр"
+L["Preview"] = "Просмотр"
 
 -------------------------------------------------------------------------------
 -- Options
 -------------------------------------------------------------------------------
-L["General"] = "Общие"
+L["General"] = "Общий"
 L["Overlays"] = "Оверлеи"
 L["Tooltips"] = "Подсказки"
-L["Vendor Tracer"] = "Поиск торговцев"
 L["Export"] = "Экспорт"
 
 L["Enable addon"] = "Включить аддон"
@@ -103,26 +102,54 @@ L["Show on auction house"] = "Показывать на аукционе"
 L["Show on housing catalog"] = "Показывать в каталоге жилья"
 L["Icon size"] = "Размер иконки"
 L["Icon position"] = "Положение иконки"
+L["Show opposite faction vendors"] = "Показывать торговцев вражеской фракции"
+L["Show unverified vendors"] = "Показывать непроверенных торговцев"
 
 L["Enable tooltip additions"] = "Включить добавление подсказок"
 L["Show source information"] = "Показывать источник"
 L["Show quantity owned"] = "Показывать количество в наличии"
 L["Show dye slot information"] = "Показывать информацию о слотах окрашивания"
+L["Show vendor details in tooltips"] = "Показывать данные торговца в подсказках"
 
 L["Show map pins"] = "Показывать метки на карте"
 L["Show minimap pins"] = "Показывать метки на миникарте"
 L["Use TomTom for waypoints"] = "Использовать TomTom для путевых точек"
+L["Use native waypoints"] = "Использовать встроенные путевые точки"
+L["Auto-create waypoint on click"] = "Автоматически создавать путевую точку по клику"
+L["Navigate modifier key"] = "Клавиша-модификатор навигации"
+
+-------------------------------------------------------------------------------
+-- Minimap Tooltip
+-------------------------------------------------------------------------------
+L["Collection: %d / %d (%d%%)"] = "Коллекция: %d / %d (%d%%)"
+L["Vendors nearby: %d"] = "Торговцев рядом: %d"
+L["Vendors scanned: %d"] = "Просканировано торговцев: %d"
+L["Left-Click: Toggle options"] = "|cFFFFFFFFЛКМ:|r Открыть настройки"
+L["Right-Click: Detach/close vendor panel"] = "|cFFFFFFFFПКМ:|r Открепить/закрыть панель торговцев"
+L["Middle-Click: Scan collection"] = "|cFFFFFFFFСКМ:|r Сканировать коллекцию"
 
 -------------------------------------------------------------------------------
 -- Slash Commands
 -------------------------------------------------------------------------------
-L["Housing Addon Commands:"] = "Команды аддона Homestead:"
-L["/ha - Toggle main window"] = "/ha — открыть/закрыть главное окно"
-L["/ha options - Open options panel"] = "/ha options — открыть панель настроек"
-L["/ha export - Export collection data"] = "/ha export — экспортировать данные коллекции"
-L["/ha vendor [search] - Open vendor panel"] = "/ha vendor [поиск] — открыть панель торговцев"
-L["/ha debug - Toggle debug mode"] = "/ha debug — включить/выключить режим отладки"
-L["/ha help - Show this help"] = "/ha help — показать эту справку"
+L["Homestead Commands:"] = "Команды Homestead:"
+L["/hs - Open options panel"] = "/hs — открыть настройки"
+L["/hs scan - Scan catalog"] = "/hs scan — сканировать каталог"
+L["/hs vendor [search] - Search vendors"] = "/hs vendor [поиск] — поиск торговцев декора"
+L["/hs export - Show export dialog"] = "/hs export — показать диалог экспорта"
+L["/hs debug - Toggle debug mode"] = "/hs debug — переключить режим отладки"
+L["/hs help - Show this help"] = "/hs help — показать справку"
+
+-------------------------------------------------------------------------------
+-- Slash Command Feedback
+-------------------------------------------------------------------------------
+L["Map pins refreshed."] = "Метки на карте обновлены."
+L["No active waypoint."] = "Нет активной путевой точки."
+L["Waypoint cleared."] = "Путевая точка удалена."
+L["Vendor database contains %d vendors."] = "База данных содержит %d торговцев."
+L["Use /hs vendor <name or zone> to search."] = "Используйте /hs vendor <имя или зона> для поиска."
+L["No vendors found matching: %s"] = "Торговцы не найдены по запросу: %s"
+L["Found %d vendor(s) matching: %s"] = "Найдено %d торговец(ов) по запросу: %s"
+L["... and %d more."] = "... и ещё %d."
 
 -------------------------------------------------------------------------------
 -- Messages
@@ -132,6 +159,37 @@ L["ON"] = "ВКЛ"
 L["OFF"] = "ВЫКЛ"
 L["Unknown command: %s"] = "Неизвестная команда: %s"
 L["Not yet implemented"] = "Ещё не реализовано"
+
+-------------------------------------------------------------------------------
+-- Export Dialog
+-------------------------------------------------------------------------------
+L["Export Vendor Data"] = "Экспорт данных торговцев"
+L["Choose export option:"] = "Выберите вариант экспорта:"
+L["Export New Scans"] = "Экспорт новых сканов"
+L["Export All"] = "Экспортировать всё"
+
+-------------------------------------------------------------------------------
+-- Map Side Panel
+-------------------------------------------------------------------------------
+L["All"] = "Все"
+L["Vendor"] = "Торговец"
+L["Quest"] = "Задание"
+L["Achievement"] = "Достижение"
+L["Profession"] = "Профессия"
+L["Event"] = "Событие"
+L["Drop"] = "Добыча"
+L["Zone Collection Progress"] = "Прогресс коллекции зоны"
+L["Continent Collection Progress"] = "Прогресс коллекции континента"
+L["Global Collection Progress"] = "Общий прогресс коллекции"
+L["Order Hall"] = "Оплот класса"
+L["Click to preview"] = "Нажмите для предпросмотра"
+
+-------------------------------------------------------------------------------
+-- Output Window
+-------------------------------------------------------------------------------
+L["Output"] = "Вывод"
+L["Select All"] = "Выбрать всё"
+L["All text selected. Press Ctrl+C to copy to clipboard."] = "Текст выделен. Нажмите Ctrl+C для копирования."
 
 -------------------------------------------------------------------------------
 -- Statistics

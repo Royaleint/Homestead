@@ -100,26 +100,54 @@ L["Show on auction house"] = "Show on auction house"
 L["Show on housing catalog"] = "Show on housing catalog"
 L["Icon size"] = "Icon size"
 L["Icon position"] = "Icon position"
+L["Show opposite faction vendors"] = "Show opposite faction vendors"
+L["Show unverified vendors"] = "Show unverified vendors"
 
 L["Enable tooltip additions"] = "Enable tooltip additions"
 L["Show source information"] = "Show source information"
 L["Show quantity owned"] = "Show quantity owned"
 L["Show dye slot information"] = "Show dye slot information"
+L["Show vendor details in tooltips"] = "Show vendor details in tooltips"
 
 L["Show map pins"] = "Show map pins"
 L["Show minimap pins"] = "Show minimap pins"
 L["Use TomTom for waypoints"] = "Use TomTom for waypoints"
+L["Use native waypoints"] = "Use native waypoints"
+L["Auto-create waypoint on click"] = "Auto-create waypoint on click"
+L["Navigate modifier key"] = "Navigate modifier key"
+
+-------------------------------------------------------------------------------
+-- Minimap Tooltip
+-------------------------------------------------------------------------------
+L["Collection: %d / %d (%d%%)"] = "Collection: %d / %d (%d%%)"
+L["Vendors nearby: %d"] = "Vendors nearby: %d"
+L["Vendors scanned: %d"] = "Vendors scanned: %d"
+L["Left-Click: Toggle options"] = "|cFFFFFFFFLeft-Click:|r Toggle options"
+L["Right-Click: Detach/close vendor panel"] = "|cFFFFFFFFRight-Click:|r Detach/close vendor panel"
+L["Middle-Click: Scan collection"] = "|cFFFFFFFFMiddle-Click:|r Scan collection"
 
 -------------------------------------------------------------------------------
 -- Slash Commands
 -------------------------------------------------------------------------------
-L["Housing Addon Commands:"] = "Housing Addon Commands:"
-L["/ha - Toggle main window"] = "/ha - Toggle main window"
-L["/ha options - Open options panel"] = "/ha options - Open options panel"
-L["/ha export - Export collection data"] = "/ha export - Export collection data"
-L["/ha vendor [search] - Open vendor panel"] = "/ha vendor [search] - Open vendor panel"
-L["/ha debug - Toggle debug mode"] = "/ha debug - Toggle debug mode"
-L["/ha help - Show this help"] = "/ha help - Show this help"
+L["Homestead Commands:"] = "Homestead Commands:"
+L["/hs - Open options panel"] = "/hs — Open options panel"
+L["/hs scan - Scan catalog"] = "/hs scan — Scan catalog for owned items"
+L["/hs vendor [search] - Search vendors"] = "/hs vendor [search] — Search for decor vendors"
+L["/hs export - Show export dialog"] = "/hs export — Show export dialog"
+L["/hs debug - Toggle debug mode"] = "/hs debug — Toggle debug mode"
+L["/hs help - Show this help"] = "/hs help — Show this help"
+
+-------------------------------------------------------------------------------
+-- Slash Command Feedback
+-------------------------------------------------------------------------------
+L["Map pins refreshed."] = "Map pins refreshed."
+L["No active waypoint."] = "No active waypoint."
+L["Waypoint cleared."] = "Waypoint cleared."
+L["Vendor database contains %d vendors."] = "Vendor database contains %d vendors."
+L["Use /hs vendor <name or zone> to search."] = "Use /hs vendor <name or zone> to search."
+L["No vendors found matching: %s"] = "No vendors found matching: %s"
+L["Found %d vendor(s) matching: %s"] = "Found %d vendor(s) matching: %s"
+L["... and %d more."] = "... and %d more."
 
 -------------------------------------------------------------------------------
 -- Messages
@@ -129,6 +157,37 @@ L["ON"] = "ON"
 L["OFF"] = "OFF"
 L["Unknown command: %s"] = "Unknown command: %s"
 L["Not yet implemented"] = "Not yet implemented"
+
+-------------------------------------------------------------------------------
+-- Export Dialog
+-------------------------------------------------------------------------------
+L["Export Vendor Data"] = "Export Vendor Data"
+L["Choose export option:"] = "Choose export option:"
+L["Export New Scans"] = "Export New Scans"
+L["Export All"] = "Export All"
+
+-------------------------------------------------------------------------------
+-- Map Side Panel
+-------------------------------------------------------------------------------
+L["All"] = "All"
+L["Vendor"] = "Vendor"
+L["Quest"] = "Quest"
+L["Achievement"] = "Achievement"
+L["Profession"] = "Profession"
+L["Event"] = "Event"
+L["Drop"] = "Drop"
+L["Zone Collection Progress"] = "Zone Collection Progress"
+L["Continent Collection Progress"] = "Continent Collection Progress"
+L["Global Collection Progress"] = "Global Collection Progress"
+L["Order Hall"] = "Order Hall"
+L["Click to preview"] = "Click to preview"
+
+-------------------------------------------------------------------------------
+-- Output Window
+-------------------------------------------------------------------------------
+L["Output"] = "Output"
+L["Select All"] = "Select All"
+L["All text selected. Press Ctrl+C to copy to clipboard."] = "All text selected. Press Ctrl+C to copy to clipboard."
 
 -------------------------------------------------------------------------------
 -- Statistics

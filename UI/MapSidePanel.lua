@@ -18,6 +18,8 @@ local _, HA = ...
 local MapSidePanel = {}
 HA.MapSidePanel = MapSidePanel
 
+local L = HA.L or {}
+
 -- Module references (set during Initialize, after TOC load order)
 local VendorData
 local VendorFilter
@@ -82,19 +84,19 @@ local searchResultsRevision = nil    -- Tracks which index revision results came
 local suppressTextChanged = false    -- Prevents debounce on programmatic SetText
 
 local SOURCE_FILTER_LABELS = {
-    all = "All",
-    vendor = "Vendor",
-    quest = "Quest",
-    achievement = "Achievement",
-    profession = "Profession",
-    event = "Event",
-    drop = "Drop",
+    all = L["All"] or "All",
+    vendor = L["Vendor"] or "Vendor",
+    quest = L["Quest"] or "Quest",
+    achievement = L["Achievement"] or "Achievement",
+    profession = L["Profession"] or "Profession",
+    event = L["Event"] or "Event",
+    drop = L["Drop"] or "Drop",
 }
 
 local DISPLAY_LEVEL_TITLES = {
-    zone = "Zone Collection Progress",
-    continent = "Continent Collection Progress",
-    world = "Global Collection Progress",
+    zone = L["Zone Collection Progress"] or "Zone Collection Progress",
+    continent = L["Continent Collection Progress"] or "Continent Collection Progress",
+    world = L["Global Collection Progress"] or "Global Collection Progress",
 }
 
 -- Order Hall mapIDs (only the 3 that have housing vendors)
@@ -108,7 +110,7 @@ local ORDER_HALL_MAPS = {
 local function GetVendorDisplayName(vendor)
     local name = vendor.name or "Unknown"
     if vendor.mapID and ORDER_HALL_MAPS[vendor.mapID] then
-        name = name .. " |cff888888(Order Hall)|r"
+        name = name .. " |cff888888(" .. (L["Order Hall"] or "Order Hall") .. ")|r"
     end
     return name
 end
@@ -409,7 +411,7 @@ local function CreateItemIcon(parent)
             local tooltip = BeginPanelTooltip(self, "ANCHOR_RIGHT")
             tooltip:SetItemByID(self.itemID)
             tooltip:AddLine(" ")
-            tooltip:AddLine("Click to preview", 0.5, 0.5, 0.5)
+            tooltip:AddLine(L["Click to preview"] or "Click to preview", 0.5, 0.5, 0.5)
             tooltip:Show()
         end
     end)
