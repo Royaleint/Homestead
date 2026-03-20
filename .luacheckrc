@@ -106,11 +106,6 @@ read_globals = {
     -- Ace3 / Libraries
     "LibStub",
 
-    -- HereBeDragons library
-    "HBD_PINS_WORLDMAP_SHOW_CONTINENT",
-    "HBD_PINS_WORLDMAP_SHOW_PARENT",
-    "HBD_PINS_WORLDMAP_SHOW_WORLD",
-
     -- Optional external addons
     "Baganator",
     "TomTom",

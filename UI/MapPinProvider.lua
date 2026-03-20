@@ -5,9 +5,9 @@
     Single source of truth for:
     - Geography lookup tables (continent exclusions, merges, manual centers)
     - Zone-continent reverse index
-    - HBD map support detection and coordinate projection
-    - Native pin fallback (for maps HBD can't handle)
-    - Pin placement API (HBD world map, minimap, native fallback)
+    - Native coordinate projection helpers
+    - Native world-map pin placement and cleanup
+    - Shared world-coordinate helpers for the custom minimap overlay
 
     No events registered. No SavedVariables access. Static module with no
     Initialize() — all setup runs at file load time.
@@ -19,9 +19,6 @@
 local _, HA = ...
 local MapPinProvider = {}
 HA.MapPinProvider = MapPinProvider
-
-local HBD = LibStub("HereBeDragons-2.0")
-local HBDPins = LibStub("HereBeDragons-Pins-2.0")
 
 local pairs = pairs
 local Constants = HA.Constants
@@ -53,7 +50,7 @@ end
 
 -- Continents NOT physically on the Azeroth world map — skip their badges entirely.
 MapPinProvider.excludedContinents = {
-    [572] = true,   -- Draenor (alternate dimension, HBD works at zone level)
+    [572] = true,   -- Draenor (alternate dimension)
     [1550] = true,  -- Shadowlands (afterlife dimension)
 }
 
@@ -90,7 +87,7 @@ MapPinProvider.continentZoneBadgeExclusionsOnParent = {
 -- Argus zones (830, 882, 885) map to continent 905 in zoneToContinent.
 MapPinProvider.offWorldContinentPositions = {
     -- [905] removed — Argus counts merge into Broken Isles (continentMergesInto)
-    -- [2537] removed — Midnight/Quel'Thalas handed to HBD; manual position was incorrect
+    -- [2537] removed — Midnight/Quel'Thalas now projects natively on Eastern Kingdoms
 }
 
 -- Manual zone center positions for cross-instance maps where GetMapRectOnMap returns nil.
@@ -115,7 +112,7 @@ MapPinProvider.manualZoneCenters = {
     -- Off-world, accessed via Dalaran portals — clustered near Dalaran
     [24]  = { [619] = { x = 0.52, y = 0.40 } },  -- Light's Hope Chapel (Paladin)
     [702] = { [619] = { x = 0.44, y = 0.40 } },  -- Netherlight Temple (Priest)
-    [709] = { [619] = { x = 0.52, y = 0.50 } },  -- The Wandering Isle (Monk)
+    [709] = { [619] = { x = 0.46, y = 0.65 } },  -- The Wandering Isle (Monk, legacy fallback near Dalaran)
     [717] = { [619] = { x = 0.44, y = 0.52 } },  -- Dreadscar Rift (Warlock)
     [720] = { [619] = { x = 0.54, y = 0.45 } },  -- The Fel Hammer (Demon Hunter)
     [726] = { [619] = { x = 0.42, y = 0.45 } },  -- The Maelstrom (Shaman)
@@ -148,24 +145,6 @@ MapPinProvider.minimapExcludedContinents = {
     [1550] = true,  -- Shadowlands (afterlife dimension)
 }
 
--------------------------------------------------------------------------------
--- HBD Map Support Cache
--------------------------------------------------------------------------------
-
-local hbdMapSupport = {}
-
--- Check whether HBD can translate coordinates for a given mapID.
--- Caches result per session since map data is static.
-function MapPinProvider.IsMapSupported(mapID)
-    if hbdMapSupport[mapID] ~= nil then return hbdMapSupport[mapID] end
-    local wx = HBD:GetWorldCoordinatesFromZone(0.5, 0.5, mapID)
-    hbdMapSupport[mapID] = (wx ~= nil)
-    return hbdMapSupport[mapID]
-end
-
--------------------------------------------------------------------------------
--- Coordinate Projection
--------------------------------------------------------------------------------
 
 -- Get continent center position on Azeroth world map (mapID 947).
 -- Fallback chain: offWorldContinentPositions → GetMapRectOnMap → nil.
@@ -189,164 +168,323 @@ end
 
 -- Get zone center position on a parent map.
 -- Fallback chain: GetMapRectOnMap → manualZoneCenters → nil.
--- NOTE: No HBD projection fallback — exact semantics from BadgeCalculation.
+-- NOTE: No extra projection fallback beyond manual centers — exact semantics from BadgeCalculation.
 function MapPinProvider:GetZoneCenterOnMap(zoneMapID, parentMapID)
-    local minX, maxX, minY, maxY = C_Map.GetMapRectOnMap(zoneMapID, parentMapID)
-    -- Guard against degenerate rects (e.g. 0,0,0,0 returned for phased/instanced zones
-    -- that the current character cannot access). In Lua, 0 is truthy, so we must
-    -- explicitly reject a collapsed rect to avoid placing badges at (0, 0).
-    if minX and maxX and minY and maxY and (minX ~= maxX or minY ~= maxY) then
-        return { x = (minX + maxX) / 2, y = (minY + maxY) / 2 }
-    end
-    -- Fallback for cross-instance/phased maps (e.g. Argus zones on Argus continent,
-    -- or Trueshot Lodge on Broken Isles for non-hunters)
-    local manual = self.manualZoneCenters[zoneMapID]
-    if manual and manual[parentMapID] then
-        return manual[parentMapID]
+    local ok, x, y = self:ProjectZoneBadgeToContinentView(parentMapID, zoneMapID)
+    if ok then
+        return { x = x, y = y }
     end
     return nil
 end
 
--------------------------------------------------------------------------------
--- Native Pin Fallback (for maps HBD can't handle, e.g. Argus zones)
--- HBD stores zero-dimension map data for cross-instance zones, causing
--- GetWorldCoordinatesFromZone() to return nil and AddWorldMapIconMap() to
--- silently bail. This fallback uses WoW's native MapCanvasPin system
--- with zone-normalized (0-1) coordinates directly.
--------------------------------------------------------------------------------
-
--- Native pin mixin (mirrors HBD's pin behavior)
-local nativePinMixin = CreateFromMixins(MapCanvasPinMixin)
-
-function nativePinMixin:OnLoad()
-    self:UseFrameLevelType("PIN_FRAME_LEVEL_AREA_POI")
-    self:SetScalingLimits(1, 1.0, 1.2)
-end
-
-function nativePinMixin:OnAcquired(icon, x, y)
-    local ok = pcall(self.SetPosition, self, x, y)
-    if not ok then
-        -- Canvas insets not ready (map transition race); suppress pin
-        self:Hide()
-        return
+local function ProjectViaRect(sourceMapID, destMapID, x, y)
+    local minX, maxX, minY, maxY = C_Map.GetMapRectOnMap(sourceMapID, destMapID)
+    if minX == nil or maxX == nil or minY == nil or maxY == nil then
+        return false, nil, nil, "nil_rect"
     end
-    self.icon = icon
-    icon:SetParent(self)
-    icon:ClearAllPoints()
-    icon:SetPoint("CENTER", self)
-    icon:Show()
-end
 
-function nativePinMixin:OnReleased()
-    if self.icon then
-        self.icon:Hide()
-        self.icon:SetParent(UIParent)
-        self.icon:ClearAllPoints()
-        self.icon = nil
+    if minX == maxX and minY == maxY then
+        return false, nil, nil, "degenerate_rect"
     end
+
+    return true,
+        minX + ((maxX - minX) * x),
+        minY + ((maxY - minY) * y),
+        "rect_projection"
 end
 
--- Suppress in-combat errors (same as HBD)
-nativePinMixin.SetPassThroughButtons = function() end
+function MapPinProvider:GetParentMapID(mapID)
+    local mapInfo = C_Map.GetMapInfo(mapID)
+    local parentMapID = mapInfo and mapInfo.parentMapID
+    if parentMapID and parentMapID > 0 then
+        return parentMapID
+    end
+    return nil
+end
 
--- Self-managed pin pool.  We intentionally do NOT write to
--- WorldMapFrame.pinPools — doing so taints the protected table and causes
--- "secret number value tainted by Homestead" errors in Blizzard tooltip/widget
--- code (Blizzard_UIWidgetTemplateTextWithState.lua:35).  Instead we acquire
--- frames from our own pool, parent them to the canvas, and track them locally.
-local nativePins = {}          -- active pin frames (managed by us)
-local nativePinPool = {}       -- recycled pin frames
+function MapPinProvider:ProjectMapPositionToAncestorView(sourceMapID, viewMapID, x, y)
+    if sourceMapID == viewMapID then
+        return true, x, y, "same_map"
+    end
+
+    local currentMapID = sourceMapID
+    local projectedX = x
+    local projectedY = y
+
+    while currentMapID and currentMapID ~= viewMapID do
+        local parentMapID = self:GetParentMapID(currentMapID)
+        if not parentMapID then
+            return false, nil, nil, "no_parent_path"
+        end
+
+        local ok, nextX, nextY, reason = ProjectViaRect(currentMapID, parentMapID, projectedX, projectedY)
+        if not ok then
+            return false, nil, nil, reason
+        end
+
+        projectedX = nextX
+        projectedY = nextY
+        currentMapID = parentMapID
+    end
+
+    if currentMapID ~= viewMapID then
+        return false, nil, nil, "no_parent_path"
+    end
+
+    return true, projectedX, projectedY, "rect_projection"
+end
+
+function MapPinProvider:ProjectVendorPinToZoneView(viewMapID, vendorMapID, x, y)
+    return self:ProjectMapPositionToAncestorView(vendorMapID, viewMapID, x, y)
+end
+
+function MapPinProvider:ProjectZoneBadgeToContinentView(viewMapID, zoneMapID)
+    local ok, x, y, reason = self:ProjectMapPositionToAncestorView(zoneMapID, viewMapID, 0.5, 0.5)
+    if ok then
+        return true, x, y, reason
+    end
+
+    local manual = self.manualZoneCenters[zoneMapID]
+    if manual and manual[viewMapID] then
+        return true, manual[viewMapID].x, manual[viewMapID].y, "manual_zone_center"
+    end
+
+    return false, nil, nil, reason
+end
+
+function MapPinProvider:ProjectZoneBadgeToWorldView(zoneMapID)
+    local continentMapID = self.GetContinentForZone(zoneMapID)
+    if not continentMapID then
+        return false, nil, nil, "no_parent_path"
+    end
+
+    if self.excludedContinents[continentMapID] then
+        return false, nil, nil, "excluded_continent"
+    end
+
+    local ok, x, y, reason = self:ProjectMapPositionToAncestorView(zoneMapID, 947, 0.5, 0.5)
+    if ok then
+        return true, x, y, reason
+    end
+
+    local manual = self.manualZoneCenters[zoneMapID]
+    if manual and manual[continentMapID] then
+        local parentOk, parentX, parentY = self:ProjectMapPositionToAncestorView(
+            continentMapID,
+            947,
+            manual[continentMapID].x,
+            manual[continentMapID].y
+        )
+        if parentOk then
+            return true, parentX, parentY, "manual_zone_center"
+        end
+    end
+
+    return false, nil, nil, reason
+end
+
+function MapPinProvider:ProjectContinentBadgeToWorldView(continentMapID)
+    if self.excludedContinents[continentMapID] then
+        return false, nil, nil, "excluded_continent"
+    end
+
+    local ok, x, y, reason = self:ProjectMapPositionToAncestorView(continentMapID, 947, 0.5, 0.5)
+    if ok then
+        return true, x, y, reason
+    end
+
+    local manualPos = self.offWorldContinentPositions[continentMapID]
+    if manualPos then
+        return true, manualPos.x, manualPos.y, "manual_continent_position"
+    end
+
+    return false, nil, nil, reason
+end
+
+-- Native world-map pins
+-- Homestead uses a self-managed pool instead of WorldMapFrame.pinPools to
+-- avoid tainting Blizzard's protected map pin state.
+-------------------------------------------------------------------------------
+
+-- Plain-frame world-map wrappers.
+-- No MapCanvasPinMixin, no AddDataProvider, no AcquirePin — these all enter
+-- Blizzard's managed pin lifecycle which calls protected SetPassThroughButtons
+-- in combat. Plain frames parented to the canvas with manual SetPoint avoid
+-- the entire taint path.
+-------------------------------------------------------------------------------
+
+local nativePins = {}          -- active wrapper frames
+local nativePinPool = {}       -- recycled wrapper frames
+-- Blizzard's map pin frame levels (MEDIUM strata):
+--   Canvas base:    3
+--   Area POI:       2023
+--   Event POI:      2737
+-- Homestead shares the Area POI level so neither dominates the other.
+local HOMESTEAD_WORLD_PIN_STRATA = "MEDIUM"
+local HOMESTEAD_WORLD_PIN_FRAME_LEVEL = 2023
+
+
+local function GetCanvasAndContainer()
+    if not WorldMapFrame then return nil, nil end
+    local canvas = WorldMapFrame.GetCanvas and WorldMapFrame:GetCanvas() or nil
+    local container = WorldMapFrame.GetCanvasContainer and WorldMapFrame:GetCanvasContainer() or nil
+    return canvas, container
+end
 
 local function AcquireNativePin()
-    local canvas = WorldMapFrame:GetCanvas()
-    if not canvas then return nil end
-    local pin = table.remove(nativePinPool)
-    if not pin then
-        pin = CreateFrame("Frame", nil, canvas)
-        pin:SetSize(1, 1)
-        Mixin(pin, nativePinMixin)
-        pin:OnLoad()
+    local canvas, container = GetCanvasAndContainer()
+    if not canvas or not container then return nil end
+    local wrapper = table.remove(nativePinPool)
+    if not wrapper then
+        wrapper = CreateFrame("Frame", nil, canvas)
     end
-    pin:SetParent(canvas)
-    -- MapCanvasPinMixin:SetPosition() calls self:GetMap() internally.
-    -- Without owningMap, GetMap() returns nil → "attempt to index a nil value".
-    pin.owningMap = WorldMapFrame
-    pin:Show()
-    nativePins[#nativePins + 1] = pin
-    return pin
+    wrapper:SetParent(canvas)
+    if wrapper.SetIgnoreParentScale then
+        wrapper:SetIgnoreParentScale(false)
+    end
+    local canvasEffectiveScale = canvas:GetEffectiveScale() or 1
+    local uiEffectiveScale = UIParent:GetEffectiveScale() or 1
+    if canvasEffectiveScale > 0 then
+        wrapper:SetScale(uiEffectiveScale / canvasEffectiveScale)
+    else
+        wrapper:SetScale(1)
+    end
+    local strata = HOMESTEAD_WORLD_PIN_STRATA
+    local level = HOMESTEAD_WORLD_PIN_FRAME_LEVEL
+    wrapper:SetFrameStrata(strata)
+    wrapper:SetFrameLevel(level)
+    wrapper:Show()
+    nativePins[#nativePins + 1] = wrapper
+    return wrapper
+end
+
+local function PositionWrapper(wrapper, normX, normY)
+    -- Match Blizzard's map-pin placement model:
+    -- use full canvas coordinates, divided by the wrapper's counter-scale.
+    local canvas = wrapper:GetParent()
+    if not canvas then
+        wrapper:Hide()
+        return false
+    end
+    local width = canvas:GetWidth()
+    local height = canvas:GetHeight()
+    if not width or not height or width <= 0 or height <= 0 then
+        wrapper:Hide()
+        return false
+    end
+    wrapper.__hsNormX = normX
+    wrapper.__hsNormY = normY
+    local pinScale = wrapper:GetScale()
+    if not pinScale or pinScale <= 0 then pinScale = 1 end
+    wrapper:ClearAllPoints()
+    wrapper:SetPoint("CENTER", canvas, "TOPLEFT",
+        (width * normX) / pinScale,
+        -(height * normY) / pinScale)
+    wrapper:Show()
+    return true
 end
 
 local function ReleaseAllNativePins()
     for i = #nativePins, 1, -1 do
-        local pin = nativePins[i]
-        pin:Hide()
-        pin:ClearAllPoints()
-        pin:OnReleased()
-        nativePinPool[#nativePinPool + 1] = pin
+        local wrapper = nativePins[i]
+        if wrapper.icon then
+            wrapper.icon:Hide()
+            wrapper.icon:SetParent(UIParent)
+            wrapper.icon:ClearAllPoints()
+            wrapper.icon = nil
+        end
+        wrapper.__hsNormX = nil
+        wrapper.__hsNormY = nil
+        wrapper:Hide()
+        wrapper:ClearAllPoints()
+        wrapper:SetParent(UIParent)
+        nativePinPool[#nativePinPool + 1] = wrapper
         nativePins[i] = nil
     end
 end
 
--------------------------------------------------------------------------------
+-- Reposition all active wrappers from stored normalized coords.
+-- Called when canvas size changes (maximize/minimize) without rebuilding data.
+function MapPinProvider.RepositionWorldMapPins()
+    local canvas = GetCanvasAndContainer()
+    if not canvas then return end
+    local width = canvas:GetWidth()
+    local height = canvas:GetHeight()
+    if not width or not height or width <= 0 or height <= 0 then return end
+    local canvasEffectiveScale = canvas:GetEffectiveScale() or 1
+    local uiEffectiveScale = UIParent:GetEffectiveScale() or 1
+    local newScale = 1
+    if canvasEffectiveScale > 0 then
+        newScale = uiEffectiveScale / canvasEffectiveScale
+    end
+    for _, wrapper in ipairs(nativePins) do
+        if wrapper.__hsNormX and wrapper.__hsNormY then
+            wrapper:SetParent(canvas)
+            if wrapper.SetIgnoreParentScale then
+                wrapper:SetIgnoreParentScale(false)
+            end
+            wrapper:SetScale(newScale)
+            wrapper:ClearAllPoints()
+            wrapper:SetPoint("CENTER", canvas, "TOPLEFT",
+                (width * wrapper.__hsNormX) / newScale,
+                -(height * wrapper.__hsNormY) / newScale)
+        end
+    end
+end
+
 -- Pin Placement API
 -------------------------------------------------------------------------------
 
--- Place a pin using HBD if possible, native fallback otherwise.
--- Returns true if the pin was placed.
-function MapPinProvider.PlaceWorldMapPin(namespace, frame, mapID, x, y, showFlag)
-    if MapPinProvider.IsMapSupported(mapID) then
-        HBDPins:AddWorldMapIconMap(namespace, frame, mapID, x, y, showFlag)
-        return true
-    end
-    -- Native fallback: only works when viewing THIS exact map
-    local currentMapID = WorldMapFrame:GetMapID()
-    if currentMapID == mapID then
-        local pin = AcquireNativePin()
-        if not pin then return false end
-        pin:OnAcquired(frame, x, y)
-        return true
-    end
-    return false
-end
-
--- Place a native pin directly (no HBD, no fallback check).
+-- Place a plain-frame world-map pin. Attaches the content frame as a child.
 function MapPinProvider.PlaceNativePin(frame, x, y)
-    local pin = AcquireNativePin()
-    if not pin then return end
-    pin:OnAcquired(frame, x, y)
+    local wrapper = AcquireNativePin()
+    if not wrapper then return nil end
+
+    -- Size wrapper to content frame
+    local iconW = frame and frame.GetWidth and frame:GetWidth() or 1
+    local iconH = frame and frame.GetHeight and frame:GetHeight() or 1
+    local iconScale = frame and frame.GetScale and frame:GetScale() or 1
+    wrapper:SetSize(math.max(1, iconW * iconScale), math.max(1, iconH * iconScale))
+
+    -- Attach content frame
+    wrapper.icon = frame
+    frame:SetParent(wrapper)
+    frame:ClearAllPoints()
+    frame:SetPoint("CENTER", wrapper)
+    local strata = wrapper:GetFrameStrata()
+    if frame.SetFrameStrata then frame:SetFrameStrata(strata) end
+    if frame.SetFrameLevel then frame:SetFrameLevel(wrapper:GetFrameLevel() + 1) end
+    frame:Show()
+
+    -- Position on canvas
+    PositionWrapper(wrapper, x, y)
+    return wrapper
 end
 
--- Place a minimap pin on a specific map via HBD.
-function MapPinProvider.PlaceMinimapPin(namespace, frame, mapID, x, y, showInParent, floatOnEdge)
-    HBDPins:AddMinimapIconMap(namespace, frame, mapID, x, y, showInParent, floatOnEdge)
+function MapPinProvider.GetNativeWorldCoordinates(mapID, x, y)
+    local pos = _G.CreateVector2D(x, y)
+    local instanceID, worldPos = C_Map.GetWorldPosFromMapPos(mapID, pos)
+    if not instanceID or not worldPos then
+        return nil, nil, nil
+    end
+
+    local worldPosX, worldPosY = worldPos:GetXY()
+    if not worldPosX or not worldPosY then
+        return nil, nil, nil
+    end
+
+    -- Match the UnitPosition axis order used by the minimap overlay.
+    return worldPosY, worldPosX, instanceID
 end
 
--- Convert zone coordinates to world coordinates for cross-floor minimap placement.
--- Returns worldX, worldY, instanceID or nil (caller decides frame lifecycle).
-function MapPinProvider.GetWorldCoordinatesForPin(x, y, mapID)
-    return HBD:GetWorldCoordinatesFromZone(x, y, mapID)
-end
-
--- Place a minimap pin using world coordinates (for cross-floor pins).
-function MapPinProvider.PlaceMinimapPinWorld(namespace, frame, instanceID, worldX, worldY, floatOnEdge)
-    HBDPins:AddMinimapIconWorld(namespace, frame, instanceID, worldX, worldY, floatOnEdge)
-end
-
--- Place a world map pin via HBD directly (no native fallback).
--- Only use at call sites that were previously raw HBDPins:AddWorldMapIconMap.
-function MapPinProvider.PlaceWorldMapPinDirect(namespace, frame, mapID, x, y, showFlag)
-    HBDPins:AddWorldMapIconMap(namespace, frame, mapID, x, y, showFlag)
-end
-
--- Clear all world map pins: HBD by namespace + native pins globally by template.
--- NOTE: Native pin clear is NOT namespace-scoped (Homestead single-namespace only).
-function MapPinProvider.ClearWorldMapPins(namespace)
-    HBDPins:RemoveAllWorldMapIcons(namespace)
+-- Clear all native world-map pins.
+-- NOTE: Clear is not namespace-scoped (Homestead single-namespace only).
+function MapPinProvider.ClearWorldMapPins(_)
     ReleaseAllNativePins()
 end
 
--- Clear all minimap pins by namespace.
-function MapPinProvider.ClearMinimapPins(namespace)
-    HBDPins:RemoveAllMinimapIcons(namespace)
+-- Native minimap overlay manages its own frames. Keep this as a stable no-op
+-- API so existing clear paths do not need to special-case the new overlay.
+function MapPinProvider.ClearMinimapPins(_)
 end
 

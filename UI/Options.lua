@@ -565,12 +565,12 @@ local function GetOptionsTable()
                         name = L["World map pin size"],
                         desc = L["desc_world_pin_size"],
                         order = 6,
-                        min = 12,
-                        max = 32,
+                        min = 2,
+                        max = 18,
                         step = 2,
                         width = "double",
                         get = function()
-                            return HA.Addon.db.profile.vendorTracer.pinIconSize or 20
+                            return HA.PinFrameFactory:GetPinIconSize()
                         end,
                         set = function(_, value)
                             HA.Addon.db.profile.vendorTracer.pinIconSize = value
