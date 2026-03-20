@@ -5,6 +5,7 @@ CLAUDE.md
 
 # Scripts and tools
 .claude/
+.mcp.json
 
 # Binaries
 luacheck.exe
@@ -24,6 +25,7 @@ parsed_decor_sources.json
 db2_complete_vendor_data.json
 *.csv
 *.json
+!.mcp.json
 
 # ATT cache/snapshots (legacy, now in Home_Dev/scripts/)
 

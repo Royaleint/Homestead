@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "wow-api": {
+      "command": "node",
+      "args": ["../BawrLabs/mcp-servers/wow-api/src/index.mjs"]
+    }
+  }
+}
