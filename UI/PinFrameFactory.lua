@@ -55,9 +55,9 @@ end
 
 function PinFrameFactory:GetPinIconSize()
     local db = HA.Addon and HA.Addon.db
-    if not db then return 20 end
-    local size = db.profile.vendorTracer.pinIconSize or 20
-    return math.max(12, math.min(32, size))
+    if not db then return 14 end
+    local size = db.profile.vendorTracer.pinIconSize or 14
+    return math.max(2, math.min(18, size))
 end
 
 function PinFrameFactory:GetMinimapIconSize()
@@ -97,6 +97,36 @@ local function CreateCircularBackplate(frame, size)
     return backplate
 end
 
+local function GetWorldPinVisualSizes(baseSize)
+    -- The world-map wrapper uses a counter-scale tied to effective scale,
+    -- which can reduce apparent size at high resolutions. Compensate by
+    -- sizing the frame and icon relative to the UIParent effective scale
+    -- so the slider value matches perceived on-screen size.
+    local uiScale = UIParent and UIParent.GetEffectiveScale and UIParent:GetEffectiveScale() or 1
+    local scaleCompensation = (uiScale > 0) and (1 / uiScale) or 1
+    local adjustedSize = math.floor((baseSize * scaleCompensation) + 0.5)
+    local iconSize = math.floor((adjustedSize * 1.15) + 0.5)
+    return adjustedSize, 0, iconSize
+end
+
+local function GetVendorCountTextMetrics(baseSize)
+    local uiScale = UIParent and UIParent.GetEffectiveScale and UIParent:GetEffectiveScale() or 1
+    local scaleCompensation = (uiScale > 0) and (1 / uiScale) or 1
+    local adjusted = baseSize * scaleCompensation
+    local fontSize = math.max(8, math.floor(adjusted * 0.50))
+    local offset = math.max(2, math.floor(adjusted * 0.18))
+    return fontSize, offset
+end
+
+local function GetBadgeCountTextMetrics(baseSize)
+    local uiScale = UIParent and UIParent.GetEffectiveScale and UIParent:GetEffectiveScale() or 1
+    local scaleCompensation = (uiScale > 0) and (1 / uiScale) or 1
+    local adjusted = baseSize * scaleCompensation
+    local fontSize = math.max(8, math.floor(adjusted * 0.46))
+    local offset = math.max(1, math.floor(adjusted * 0.12))
+    return fontSize, offset
+end
+
 -------------------------------------------------------------------------------
 -- Vendor Pin Frame (zone-level individual vendor pins)
 -------------------------------------------------------------------------------
@@ -105,50 +135,14 @@ function PinFrameFactory:CreateVendorPinFrame(vendor, isOppositeFaction, isUnver
     local frame = CreateFrame("Frame", nil, UIParent)
 
     local baseSize = self:GetPinIconSize()
+    local _, _, iconSize = GetWorldPinVisualSizes(baseSize)
     frame:SetSize(baseSize, baseSize)
     frame:EnableMouse(true)
 
     local br, bg, bb = self:GetPinColor()
     local isCustomColor = self:IsCustomPinColor()
 
-    -- Dark circular background
-    frame.bg = frame:CreateTexture(nil, "BACKGROUND")
-    frame.bg:SetPoint("CENTER")
-    frame.bg:SetSize(baseSize + 4, baseSize + 4)
-    frame.bg:SetAtlas("auctionhouse-itemicon-border-white", false)
-    frame.bg:SetVertexColor(0.1, 0.08, 0.02, 1)
-
-    -- Colored backplate for depth (only for non-default)
-    if isCustomColor then
-        frame.backplate = CreateCircularBackplate(frame, baseSize + 2)
-        if isUnverified then
-            frame.backplate:SetVertexColor(0.3, 0.18, 0.06, 0.5)
-        elseif isOppositeFaction then
-            frame.backplate:SetVertexColor(0.15, 0.15, 0.15, 0.4)
-        else
-            frame.backplate:SetVertexColor(br * 0.3, bg * 0.3, bb * 0.3, 0.5)
-        end
-    end
-
-    -- Ring border
-    frame.ring = frame:CreateTexture(nil, "BORDER")
-    frame.ring:SetPoint("CENTER")
-    frame.ring:SetSize(baseSize + 4, baseSize + 4)
-    frame.ring:SetAtlas("auctionhouse-itemicon-border-artifact", false)
-    if isUnverified then
-        frame.ring:SetVertexColor(0.7, 0.42, 0.14, 0.7)
-    elseif isOppositeFaction then
-        if isCustomColor then
-            frame.ring:SetVertexColor(br * 0.35, bg * 0.35, bb * 0.35, 0.6)
-        else
-            frame.ring:SetVertexColor(0.35, 0.35, 0.35, 0.6)
-        end
-    elseif isCustomColor then
-        frame.ring:SetVertexColor(br * 0.7, bg * 0.7, bb * 0.7, 0.7)
-    end
-
     -- Housing icon
-    local iconSize = baseSize
     frame.icon = frame:CreateTexture(nil, "ARTWORK")
     frame.icon:SetPoint("CENTER")
     frame.icon:SetSize(iconSize, iconSize)
@@ -237,15 +231,17 @@ function PinFrameFactory:RefreshVendorPinCount(frame, vendor)
     end
 
     local baseSize = frame:GetWidth() or self:GetPinIconSize()
-    local fontSize = math.max(8, math.floor(baseSize * 0.4))
+    local fontSize = GetVendorCountTextMetrics(baseSize)
 
     if not frame.count then
         frame.count = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal", 2)
-        frame.count:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", 3, -3)
-        frame.count:SetShadowColor(0, 0, 0, 0.8)
-        frame.count:SetShadowOffset(1, -1)
+        frame.count:SetDrawLayer("OVERLAY", 7)
+        frame.count:SetShadowColor(0, 0, 0, 0)
+        frame.count:SetShadowOffset(0, 0)
     end
 
+    frame.count:ClearAllPoints()
+    frame.count:SetPoint("TOP", frame, "BOTTOM", 0, -2)
     local fontPath = frame.count:GetFont()
     frame.count:SetFont(fontPath, fontSize, "OUTLINE")
     frame.count:SetText(collected .. "/" .. total)
@@ -267,6 +263,7 @@ function PinFrameFactory:CreateBadgePinFrame(badgeData)
     local frame = CreateFrame("Frame", nil, UIParent)
 
     local baseSize = self:GetPinIconSize()
+    local _, _, iconSize = GetWorldPinVisualSizes(baseSize)
     frame:SetSize(baseSize, baseSize)
     frame:EnableMouse(true)
 
@@ -276,40 +273,7 @@ function PinFrameFactory:CreateBadgePinFrame(badgeData)
     local br, bg, bb = self:GetPinColor()
     local isCustomColor = self:IsCustomPinColor()
 
-    -- Dark circular background
-    frame.bg = frame:CreateTexture(nil, "BACKGROUND")
-    frame.bg:SetPoint("CENTER")
-    frame.bg:SetSize(baseSize + 4, baseSize + 4)
-    frame.bg:SetAtlas("auctionhouse-itemicon-border-white", false)
-    frame.bg:SetVertexColor(0.1, 0.08, 0.02, 1)
-
-    -- Colored backplate for depth (only for non-default)
-    if isCustomColor then
-        frame.backplate = CreateCircularBackplate(frame, baseSize + 2)
-        if isOppositeFactionOnly then
-            frame.backplate:SetVertexColor(0.15, 0.15, 0.15, 0.4)
-        else
-            frame.backplate:SetVertexColor(br * 0.3, bg * 0.3, bb * 0.3, 0.5)
-        end
-    end
-
-    -- Ring border
-    frame.ring = frame:CreateTexture(nil, "BORDER")
-    frame.ring:SetPoint("CENTER")
-    frame.ring:SetSize(baseSize + 4, baseSize + 4)
-    frame.ring:SetAtlas("auctionhouse-itemicon-border-artifact", false)
-    if isOppositeFactionOnly then
-        if isCustomColor then
-            frame.ring:SetVertexColor(br * 0.35, bg * 0.35, bb * 0.35, 0.6)
-        else
-            frame.ring:SetVertexColor(0.35, 0.35, 0.35, 0.6)
-        end
-    elseif isCustomColor then
-        frame.ring:SetVertexColor(br * 0.7, bg * 0.7, bb * 0.7, 0.7)
-    end
-
     -- Housing icon
-    local iconSize = baseSize
     frame.icon = frame:CreateTexture(nil, "ARTWORK")
     frame.icon:SetPoint("CENTER")
     frame.icon:SetSize(iconSize, iconSize)
@@ -344,13 +308,13 @@ function PinFrameFactory:CreateBadgePinFrame(badgeData)
     end
 
     -- Count text
-    local fontSize = math.max(8, math.floor(baseSize * 0.4))
+    local fontSize = GetBadgeCountTextMetrics(baseSize)
     frame.count = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal", 2)
-    frame.count:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", 3, -3)
+    frame.count:SetPoint("TOP", frame, "BOTTOM", 0, -2)
     local fontPath = frame.count:GetFont()
     frame.count:SetFont(fontPath, fontSize, "OUTLINE")
-    frame.count:SetShadowColor(0, 0, 0, 0.8)
-    frame.count:SetShadowOffset(1, -1)
+    frame.count:SetShadowColor(0, 0, 0, 0)
+    frame.count:SetShadowOffset(0, 0)
 
     -- Store badge data
     frame.badgeData = badgeData
@@ -461,6 +425,8 @@ function PinFrameFactory:CreatePortalBadgePinFrame(portalData)
     anim:SetToAlpha(0.7)
     anim:SetDuration(1.2)
     ag:Play()
+    frame.glowFrame = glowFrame
+    frame.glowAnim = ag
 
     frame.portalData = portalData
 

@@ -76,6 +76,7 @@ UI\OutputWindow.lua
 UI\VendorFilter.lua
 UI\PinFrameFactory.lua
 UI\MapPinProvider.lua
+UI\HomesteadWorldMapProvider.lua
 UI\BadgeCalculation.lua
 UI\SearchProvider.lua
 UI\MapSidePanel.lua

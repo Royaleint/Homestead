@@ -570,14 +570,14 @@ local function GetOptionsTable()
                     pinIconSize = {
                         type = "range",
                         name = "World map pin size",
-                        desc = "Adjust the size of vendor pins on the world map. Default (20) matches Blizzard POI icons.",
+                        desc = "Adjust the size of vendor pins on the world map. Default is 14.",
                         order = 6,
-                        min = 12,
-                        max = 32,
+                        min = 2,
+                        max = 18,
                         step = 2,
                         width = "double",
                         get = function()
-                            return HA.Addon.db.profile.vendorTracer.pinIconSize or 20
+                            return HA.PinFrameFactory:GetPinIconSize()
                         end,
                         set = function(_, value)
                             HA.Addon.db.profile.vendorTracer.pinIconSize = value

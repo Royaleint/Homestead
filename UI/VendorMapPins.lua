@@ -1,9 +1,9 @@
 --[[
     Homestead - VendorMapPins
-    World map integration for housing decor vendor locations
+    World and minimap integration for housing decor vendor locations
 
-    Uses HereBeDragons-Pins-2.0 library for reliable map pin management.
-    HBD pin SetScalingLimits(1, 1.0, 1.2) handles zoom behavior.
+    World map pins are now rendered through Homestead's native world-map provider.
+    Minimap pins are rendered through Homestead's native minimap overlay.
 
     Features:
     - Zone view: Shows pin icons at vendor locations
@@ -23,6 +23,8 @@ HA.VendorMapPins = VendorMapPins
 -- Local references
 local Constants = HA.Constants
 local MPP = HA.MapPinProvider
+local WorldMapProvider = HA.HomesteadWorldMapProvider
+local MinimapOverlay = HA.HomesteadMinimapOverlay
 
 -- Upvalued Lua stdlib
 local pairs, ipairs = pairs, ipairs
@@ -35,142 +37,11 @@ local isInitialized = false
 local pinsEnabled = true
 local PIN_TOOLTIP_NAME = "HomesteadVendorMapPinsTooltip"
 
--- Active frames currently shown by this module.
-local vendorPinFrames = {}
-local badgePinFrames = {}
-local portalPinFrames = {}
-local minimapPinFrames = {}
-
--- Reusable frame buckets keyed by style/variant signature.
-local vendorFramePool = {}
-local badgeFramePool = {}
-local portalFramePool = {}
-local minimapFramePool = {}
 local highlightedPinFrame = nil
 local highlightOverlay = nil
 local highlightOriginalScale = nil
 local highlightOriginalFrameLevel = nil
 
-
--------------------------------------------------------------------------------
--- Frame Pool Helpers
--------------------------------------------------------------------------------
-
-local function BoolToKey(value)
-    return value and "1" or "0"
-end
-
-local function AcquirePooledFrame(poolByKey, poolKey, createFunc)
-    local bucket = poolByKey[poolKey]
-    if bucket then
-        local idx = #bucket
-        if idx > 0 then
-            local frame = bucket[idx]
-            bucket[idx] = nil
-            frame.__hsInPool = false
-            frame.__hsPoolKey = poolKey
-            return frame
-        end
-    end
-
-    local frame = createFunc()
-    frame.__hsInPool = false
-    frame.__hsPoolKey = poolKey
-    return frame
-end
-
-local function ReleasePooledFrame(poolByKey, frame)
-    if not frame or frame.__hsInPool then
-        return
-    end
-
-    frame:Hide()
-
-    local poolKey = frame.__hsPoolKey
-    if not poolKey then
-        return
-    end
-
-    local bucket = poolByKey[poolKey]
-    if not bucket then
-        bucket = {}
-        poolByKey[poolKey] = bucket
-    end
-
-    frame.__hsInPool = true
-    bucket[#bucket + 1] = frame
-end
-
-local function BuildWorldPinStyleKey()
-    local factory = HA.PinFrameFactory
-    local size = factory:GetPinIconSize()
-    local isCustom = factory:IsCustomPinColor()
-    local r, g, b = factory:GetPinColor()
-    return format("ws%d|c%s|%.3f|%.3f|%.3f", size, BoolToKey(isCustom), r, g, b)
-end
-
-local function BuildMinimapPinStyleKey()
-    local factory = HA.PinFrameFactory
-    local size = factory:GetMinimapIconSize()
-    local isCustom = factory:IsCustomPinColor()
-    local r, g, b = factory:GetPinColor()
-    return format("ms%d|c%s|%.3f|%.3f|%.3f", size, BoolToKey(isCustom), r, g, b)
-end
-
-local function GetVendorFramePoolKey(vendor, isOppositeFaction, isUnverified)
-    local factionKey = "neutral"
-    if isOppositeFaction and vendor and vendor.faction then
-        factionKey = vendor.faction
-    end
-
-    return format("%s|o%s|u%s|f%s",
-        BuildWorldPinStyleKey(),
-        BoolToKey(isOppositeFaction),
-        BoolToKey(isUnverified),
-        factionKey)
-end
-
-local function GetBadgeDisplayFactionKey(badgeData)
-    if badgeData and badgeData.dominantFaction then
-        return badgeData.dominantFaction
-    end
-    if badgeData and (badgeData.oppositeFactionCount or 0) > 0 then
-        local playerFaction = UnitFactionGroup("player")
-        if playerFaction == "Alliance" then
-            return "Horde"
-        end
-        return "Alliance"
-    end
-    return "none"
-end
-
-local function GetBadgeFramePoolKey(badgeData)
-    local vendorCount = badgeData and badgeData.vendorCount or 0
-    local uncollectedCount = badgeData and badgeData.uncollectedCount or 0
-    local oppositeCount = badgeData and badgeData.oppositeFactionCount or 0
-    local factionKey = GetBadgeDisplayFactionKey(badgeData)
-
-    return format("%s|v%d|u%d|o%d|f%s",
-        BuildWorldPinStyleKey(),
-        vendorCount,
-        uncollectedCount,
-        oppositeCount,
-        factionKey)
-end
-
-local function GetPortalFramePoolKey(portalData)
-    local vendor = portalData and portalData.vendor
-    local classKey = vendor and vendor.class or "NONE"
-    return format("ps%d|class%s", HA.PinFrameFactory:GetPinIconSize(), classKey)
-end
-
-local function GetMinimapFramePoolKey(isOppositeFaction, isUnverified, elevation)
-    return format("%s|o%s|u%s|e%s",
-        BuildMinimapPinStyleKey(),
-        BoolToKey(isOppositeFaction),
-        BoolToKey(isUnverified),
-        elevation or "none")
-end
 
 -- Pin color/size helpers delegated to PinFrameFactory (loaded before this file)
 -- Vendor filter/coord helpers delegated to VendorFilter (loaded before this file)
@@ -190,6 +61,8 @@ local minimapPinsEnabled = true
 
 -- Shared minimap refresh timer used to coalesce bursty refresh requests.
 local minimapRefreshTimer = nil
+local worldMapRefreshTimer = nil
+local WORLDMAP_REFRESH_DEFAULT_DELAY = 0.02
 local MINIMAP_REFRESH_DEFAULT_DELAY = 0.15
 local MINIMAP_REFRESH_ZONE_DELAY = 0.35
 local MINIMAP_WARMUP_DELAY = 0.9
@@ -204,17 +77,139 @@ local MINIMAP_PIN_CAPS = {
 
 
 
--- Runtime event/ticker handles (registered conditionally by feature state)
+-- Runtime event handles (registered conditionally by feature state)
 local merchantEventFrame = nil
 local zoneEventFrame = nil
-local indoorStateTicker = nil
-local lastKnownIndoors = nil
 local minimapWarmupActive = false
 local minimapWarmupTimer = nil
 
 -- Dedup guards for minimap and world map refreshes
 local lastMinimapMapID = nil
-local lastWorldMapID = nil
+local lastRenderedWorldMapID = nil
+local worldMapDirty = true
+local worldMapDebugStats = {
+    refreshRequests = 0,
+    skippedRequests = 0,
+    builtStates = 0,
+    lastLogTime = 0,
+    lastLoggedRequests = 0,
+    lastLoggedSkips = 0,
+    lastLoggedBuilds = 0,
+    lastLoggedProviderCalls = 0,
+    lastLoggedProviderRenders = 0,
+    lastLoggedProviderNoops = 0,
+    lastLoggedProviderHidden = 0,
+    lastLoggedProviderMismatch = 0,
+    lastLoggedMemoryKB = nil,
+}
+
+local function IsDebugModeEnabled()
+    return HA.DevAddon and HA.Addon and HA.Addon.db and HA.Addon.db.profile.debug
+end
+
+local function GetWorldRenderStateTotal(renderState)
+    if not renderState then
+        return 0
+    end
+
+    return #(renderState.vendorPins or {})
+        + #(renderState.zoneBadges or {})
+        + #(renderState.portalBadges or {})
+        + #(renderState.continentBadges or {})
+end
+
+local function LogWorldMapPerf(mapID, renderState, force)
+    if not IsDebugModeEnabled() then
+        return
+    end
+
+    local now = (_G.GetTimePreciseSec and _G.GetTimePreciseSec()) or _G.GetTime()
+    local previousLogTime = worldMapDebugStats.lastLogTime or 0
+    if not force and (now - previousLogTime) < 1 then
+        return
+    end
+
+    worldMapDebugStats.lastLogTime = now
+
+    local providerStats = WorldMapProvider and WorldMapProvider.GetDebugStats and WorldMapProvider:GetDebugStats()
+    local totalRequests = worldMapDebugStats.refreshRequests
+    local totalSkips = worldMapDebugStats.skippedRequests
+    local totalBuilds = worldMapDebugStats.builtStates
+    local totalProviderCalls = providerStats and providerStats.refreshCalls or 0
+    local totalProviderRenders = providerStats and providerStats.renderedPasses or 0
+    local totalProviderNoops = providerStats and providerStats.skippedUnchanged or 0
+    local totalProviderHidden = providerStats and providerStats.skippedHidden or 0
+    local totalProviderMismatch = providerStats and providerStats.skippedMapMismatch or 0
+    local deltaRequests = totalRequests - (worldMapDebugStats.lastLoggedRequests or 0)
+    local deltaSkips = totalSkips - (worldMapDebugStats.lastLoggedSkips or 0)
+    local deltaBuilds = totalBuilds - (worldMapDebugStats.lastLoggedBuilds or 0)
+    local deltaProviderCalls = totalProviderCalls - (worldMapDebugStats.lastLoggedProviderCalls or 0)
+    local deltaProviderRenders = totalProviderRenders - (worldMapDebugStats.lastLoggedProviderRenders or 0)
+    local deltaProviderNoops = totalProviderNoops - (worldMapDebugStats.lastLoggedProviderNoops or 0)
+    local deltaProviderHidden = totalProviderHidden - (worldMapDebugStats.lastLoggedProviderHidden or 0)
+    local deltaProviderMismatch = totalProviderMismatch - (worldMapDebugStats.lastLoggedProviderMismatch or 0)
+    local elapsed = previousLogTime > 0 and (now - previousLogTime) or 0
+    local total = GetWorldRenderStateTotal(renderState)
+    local vendorCount = renderState and #(renderState.vendorPins or {}) or 0
+    local zoneBadgeCount = renderState and #(renderState.zoneBadges or {}) or 0
+    local portalCount = renderState and #(renderState.portalBadges or {}) or 0
+    local continentCount = renderState and #(renderState.continentBadges or {}) or 0
+    local currentMemoryKB = nil
+    local memoryDeltaKB = nil
+
+    if _G.UpdateAddOnMemoryUsage and _G.GetAddOnMemoryUsage then
+        _G.UpdateAddOnMemoryUsage()
+        currentMemoryKB = _G.GetAddOnMemoryUsage("Homestead")
+        if currentMemoryKB and worldMapDebugStats.lastLoggedMemoryKB then
+            memoryDeltaKB = currentMemoryKB - worldMapDebugStats.lastLoggedMemoryKB
+        end
+    end
+
+    HA.Addon:Debug(format(
+        "WorldMapPerf: map=%s req=%d(+%d) skip=%d(+%d) builds=%d(+%d) providerCalls=%d(+%d) providerRenders=%d(+%d) providerNoops=%d(+%d) providerHidden=%d(+%d) providerMismatch=%d(+%d) mem=%.2fKB(%+.2fKB) dt=%.2fs entries=v%d/z%d/p%d/c%d total=%d dirty=%s force=%s",
+        tostring(mapID),
+        totalRequests,
+        deltaRequests,
+        totalSkips,
+        deltaSkips,
+        totalBuilds,
+        deltaBuilds,
+        totalProviderCalls,
+        deltaProviderCalls,
+        totalProviderRenders,
+        deltaProviderRenders,
+        totalProviderNoops,
+        deltaProviderNoops,
+        totalProviderHidden,
+        deltaProviderHidden,
+        totalProviderMismatch,
+        deltaProviderMismatch,
+        currentMemoryKB or -1,
+        memoryDeltaKB or 0,
+        elapsed,
+        vendorCount,
+        zoneBadgeCount,
+        portalCount,
+        continentCount,
+        total,
+        worldMapDirty and "yes" or "no",
+        force and "yes" or "no"
+    ))
+
+    worldMapDebugStats.lastLoggedRequests = totalRequests
+    worldMapDebugStats.lastLoggedSkips = totalSkips
+    worldMapDebugStats.lastLoggedBuilds = totalBuilds
+    worldMapDebugStats.lastLoggedProviderCalls = totalProviderCalls
+    worldMapDebugStats.lastLoggedProviderRenders = totalProviderRenders
+    worldMapDebugStats.lastLoggedProviderNoops = totalProviderNoops
+    worldMapDebugStats.lastLoggedProviderHidden = totalProviderHidden
+    worldMapDebugStats.lastLoggedProviderMismatch = totalProviderMismatch
+    worldMapDebugStats.lastLoggedMemoryKB = currentMemoryKB
+end
+
+local function IsSilvermoonClusterDebugMap(mapID)
+    return mapID == 2393 or mapID == 2395
+end
 
 local function GetMinimapCrossZoneMode()
     local profile = HA.Addon and HA.Addon.db and HA.Addon.db.profile
@@ -375,6 +370,7 @@ local function RegisterZoneChangeEvents()
         zoneEventFrame:RegisterEvent("ZONE_CHANGED_INDOORS")
         zoneEventFrame:RegisterEvent("ZONE_CHANGED_NEW_AREA")
         zoneEventFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
+        zoneEventFrame:RegisterEvent("NEW_WMO_CHUNK")
     end
 end
 
@@ -384,35 +380,12 @@ local function UnregisterZoneChangeEvents()
         zoneEventFrame:UnregisterEvent("ZONE_CHANGED_INDOORS")
         zoneEventFrame:UnregisterEvent("ZONE_CHANGED_NEW_AREA")
         zoneEventFrame:UnregisterEvent("PLAYER_ENTERING_WORLD")
+        zoneEventFrame:UnregisterEvent("NEW_WMO_CHUNK")
     end
 
     if minimapRefreshTimer then
         minimapRefreshTimer:Cancel()
         minimapRefreshTimer = nil
-    end
-end
-
--- Indoor state polling ticker lifecycle (minimap-only).
-local function StartIndoorTicker()
-    if indoorStateTicker then return end
-
-    lastKnownIndoors = IsIndoors()
-    indoorStateTicker = C_Timer.NewTicker(1, function()
-        -- Secondary safeguard; ticker should also be canceled when minimap pins are disabled.
-        if not minimapPinsEnabled then return end
-
-        local indoors = IsIndoors()
-        if indoors ~= lastKnownIndoors then
-            lastKnownIndoors = indoors
-            VendorMapPins:RequestMinimapRefresh("indoor_state_changed", 0.05)
-        end
-    end)
-end
-
-local function StopIndoorTicker()
-    if indoorStateTicker then
-        indoorStateTicker:Cancel()
-        indoorStateTicker = nil
     end
 end
 
@@ -428,10 +401,8 @@ local function RefreshRuntimeSubscriptions()
 
     if minimapPinsEnabled then
         RegisterZoneChangeEvents()
-        StartIndoorTicker()
     else
         UnregisterZoneChangeEvents()
-        StopIndoorTicker()
     end
 end
 
@@ -460,7 +431,22 @@ function VendorMapPins:GetPinColorPreviewHex()
 end
 
 function VendorMapPins:RefreshAllPinColors()
-    self:RefreshPins()
+    worldMapDirty = true
+    lastRenderedWorldMapID = nil
+
+    if WorldMapProvider and WorldMapProvider.FlushPools then
+        WorldMapProvider:FlushPools()
+    else
+        self:ClearAllPins()
+    end
+
+    if MinimapOverlay and MinimapOverlay.FlushPools then
+        MinimapOverlay:FlushPools()
+    else
+        self:ClearMinimapPins()
+    end
+
+    self:RefreshPins(true)
     self:RefreshMinimapPins()
 end
 
@@ -475,51 +461,6 @@ end
 
 function VendorMapPins:HidePinTooltip()
     self:OnPinLeave()
-end
-
--- Local wrappers for frame creation (delegate to PinFrameFactory)
-local function CreateVendorPinFrame(vendor, isOppositeFaction, isUnverified)
-    local poolKey = GetVendorFramePoolKey(vendor, isOppositeFaction, isUnverified)
-    local frame = AcquirePooledFrame(vendorFramePool, poolKey, function()
-        return HA.PinFrameFactory:CreateVendorPinFrame(vendor, isOppositeFaction, isUnverified)
-    end)
-    frame.vendor = vendor
-    frame.isOppositeFaction = isOppositeFaction
-    frame.isUnverified = isUnverified
-    if HA.PinFrameFactory and HA.PinFrameFactory.RefreshVendorPinCount then
-        HA.PinFrameFactory:RefreshVendorPinCount(frame, vendor)
-    end
-    return frame
-end
-
-local function CreateBadgePinFrame(badgeData)
-    local poolKey = GetBadgeFramePoolKey(badgeData)
-    local frame = AcquirePooledFrame(badgeFramePool, poolKey, function()
-        return HA.PinFrameFactory:CreateBadgePinFrame(badgeData)
-    end)
-    frame.badgeData = badgeData
-    return frame
-end
-
-local function CreatePortalBadgePinFrame(portalData)
-    local poolKey = GetPortalFramePoolKey(portalData)
-    local frame = AcquirePooledFrame(portalFramePool, poolKey, function()
-        return HA.PinFrameFactory:CreatePortalBadgePinFrame(portalData)
-    end)
-    frame.portalData = portalData
-    return frame
-end
-
-local function CreateMinimapPinFrame(vendor, isOppositeFaction, isUnverified, elevation)
-    local poolKey = GetMinimapFramePoolKey(isOppositeFaction, isUnverified, elevation)
-    local frame = AcquirePooledFrame(minimapFramePool, poolKey, function()
-        return HA.PinFrameFactory:CreateMinimapPinFrame(vendor, isOppositeFaction, isUnverified, elevation)
-    end)
-    frame.vendor = vendor
-    frame.isOppositeFaction = isOppositeFaction
-    frame.isUnverified = isUnverified
-    frame.elevation = elevation
-    return frame
 end
 
 -------------------------------------------------------------------------------
@@ -557,13 +498,15 @@ end
 
 function VendorMapPins:InvalidateBadgeCache()
     BC:InvalidateBadgeCache()
-    lastWorldMapID = nil
+    lastRenderedWorldMapID = nil
+    worldMapDirty = true
     lastMinimapMapID = nil
 end
 
 function VendorMapPins:InvalidateAllCaches()
     BC:InvalidateAllCaches()
-    lastWorldMapID = nil
+    lastRenderedWorldMapID = nil
+    worldMapDirty = true
     lastMinimapMapID = nil
 end
 
@@ -681,11 +624,6 @@ function VendorMapPins:ShowVendorTooltip(pin, vendor)
 
             if item.itemID then
                 isOwned = IsItemOwned(item.itemID)
-                -- Debug: Check if item is in cache (verbose, dev only)
-                if HA.DevAddon and HA.Addon.db.profile.debug then
-                    local inCache = HA.CatalogStore and HA.CatalogStore:IsOwned(item.itemID)
-                    HA.Addon:Debug("Item", item.itemID, itemName, "owned:", isOwned, "inCache:", inCache and "yes" or "no")
-                end
             end
 
             if isOwned then
@@ -835,7 +773,10 @@ function VendorMapPins:HighlightVendor(npcID)
     local targetNPCID = tonumber(npcID)
     if not targetNPCID then return end
 
-    for _, frame in ipairs(vendorPinFrames) do
+    local activeFrames = WorldMapProvider and WorldMapProvider.GetActiveVendorFrames
+        and WorldMapProvider:GetActiveVendorFrames() or {}
+
+    for _, frame in ipairs(activeFrames) do
         local vendor = frame and frame.vendor
         if frame and frame:IsShown() and vendor and vendor.npcID == targetNPCID then
             highlightedPinFrame = frame
@@ -882,39 +823,63 @@ end
 function VendorMapPins:ClearAllPins()
     self:ClearHighlight()
     self:OnPinLeave()
-
-    -- Remove all vendor pins (HBD + native fallback)
-    MPP.ClearWorldMapPins("HomesteadVendors")
-
-    -- Release all active frames back to reusable pools.
-    for _, frame in ipairs(vendorPinFrames) do
-        ReleasePooledFrame(vendorFramePool, frame)
-    end
-    for _, frame in ipairs(badgePinFrames) do
-        ReleasePooledFrame(badgeFramePool, frame)
-    end
-    for _, frame in ipairs(portalPinFrames) do
-        ReleasePooledFrame(portalFramePool, frame)
+    lastRenderedWorldMapID = nil
+    worldMapDirty = true
+    if worldMapRefreshTimer then
+        worldMapRefreshTimer:Cancel()
+        worldMapRefreshTimer = nil
     end
 
-    wipe(vendorPinFrames)
-    wipe(badgePinFrames)
-    wipe(portalPinFrames)
+    if WorldMapProvider then
+        WorldMapProvider:RemoveAllData()
+    else
+        MPP.ClearWorldMapPins("HomesteadVendors")
+    end
 end
 
 function VendorMapPins:ClearMinimapPins()
     self:OnPinLeave()
-
-    -- Remove all minimap pins
     MPP.ClearMinimapPins("HomesteadMinimapVendors")
+    if MinimapOverlay then
+        MinimapOverlay:Clear()
+    end
+end
 
-    -- Release active minimap frames back to reusable pool.
-    for _, frame in ipairs(minimapPinFrames) do
-        ReleasePooledFrame(minimapFramePool, frame)
+function VendorMapPins:RequestWorldMapRefresh(reason, delay, forceImmediate)
+    if not isInitialized then return end
+    if not pinsEnabled then return end
+
+    worldMapDirty = true
+
+    if worldMapRefreshTimer then
+        if forceImmediate then
+            worldMapRefreshTimer:Cancel()
+            worldMapRefreshTimer = nil
+        else
+            return
+        end
     end
 
-    -- Clear the table
-    wipe(minimapPinFrames)
+    if forceImmediate then
+        self:RefreshPins(true)
+        return
+    end
+
+    local refreshDelay = delay
+    if refreshDelay == nil then
+        refreshDelay = WORLDMAP_REFRESH_DEFAULT_DELAY
+    end
+
+    worldMapRefreshTimer = C_Timer.NewTimer(refreshDelay, function()
+        worldMapRefreshTimer = nil
+        if pinsEnabled then
+            self:RefreshPins(true)
+        end
+    end)
+
+    if IsDebugModeEnabled() and reason then
+        HA.Addon:Debug(format("Coalesced world map refresh: %s (%.2fs)", reason, refreshDelay))
+    end
 end
 
 function VendorMapPins:RequestMinimapRefresh(reason, delay, forceImmediate)
@@ -997,6 +962,19 @@ function VendorMapPins:RefreshMinimapPins()
         end
     end
 
+    -- Always include explicit vertical siblings even when generic cross-zone
+    -- discovery is disabled; elevation-pair behavior should not depend on the
+    -- broader sibling-zone policy.
+    local verticalSiblings = Constants.VerticalSiblings[playerMapID]
+    if verticalSiblings then
+        for siblingMapID in pairs(verticalSiblings) do
+            if not mapsToCheckSet[siblingMapID] then
+                mapsToCheck[#mapsToCheck + 1] = siblingMapID
+                mapsToCheckSet[siblingMapID] = true
+            end
+        end
+    end
+
     local continentID = GetContinentForZone(playerMapID)
     if includeSiblingZones then
         if continentID and not MPP.minimapExcludedContinents[continentID] then
@@ -1013,9 +991,8 @@ function VendorMapPins:RefreshMinimapPins()
     end
 
     local showOpposite = ShouldShowOppositeFaction()
-    local floatOnEdge = not IsIndoors()  -- Hide distant pins when inside buildings/caves
     local addedVendors = {}  -- Prevent duplicate pins for same vendor
-    local pendingPins = {}   -- Collected pins for batch frame creation
+    local pendingPins = {}   -- Collected pins for overlay placement
     local addedCount = 0
     local capReached = false
 
@@ -1055,23 +1032,44 @@ function VendorMapPins:RefreshMinimapPins()
                             local isOpposite = self:IsOppositeFaction(vendor)
                             local isUnverified = not IsVendorVerified(vendor)
                             local showUnverified = ShouldShowUnverifiedVendors()
+                            local isPortalOnlyMinimapVendor = vendor.portal and playerMapID ~= vendor.mapID
 
                             -- Show vendor only when allowed by verification and faction-access rules.
-                            if (showUnverified or not isUnverified) and (canAccess or (isOpposite and showOpposite)) then
+                            if not isPortalOnlyMinimapVendor
+                                    and (showUnverified or not isUnverified)
+                                    and (canAccess or (isOpposite and showOpposite)) then
                                 local elevation = Constants.GetElevationDirection(playerMapID, vendorMapID)
+                                local relationship
+                                if playerMapID == vendorMapID then
+                                    relationship = "same_map"
+                                elseif elevation then
+                                    relationship = "vertical_sibling"
+                                else
+                                    relationship = "parent_child"
+                                end
 
-                                -- Collect for batch placement; frame creation deferred.
-                                addedVendors[vendor.npcID] = true
-                                addedCount = addedCount + 1
-                                pendingPins[#pendingPins + 1] = {
-                                    vendor       = vendor,
-                                    coords       = coords,
-                                    vendorMapID  = vendorMapID,
-                                    isOpposite   = isOpposite,
-                                    isUnverified = isUnverified,
-                                    elevation    = elevation,
-                                    showArrow    = showElevationArrows,
-                                }
+                                local worldX, worldY, instanceID = MPP.GetNativeWorldCoordinates(
+                                    vendorMapID,
+                                    coords.x,
+                                    coords.y
+                                )
+
+                                if worldX and worldY then
+                                    addedVendors[vendor.npcID] = true
+                                    addedCount = addedCount + 1
+                                    pendingPins[#pendingPins + 1] = {
+                                        vendor = vendor,
+                                        mapID = vendorMapID,
+                                        instanceID = instanceID,
+                                        worldX = worldX,
+                                        worldY = worldY,
+                                        relationship = relationship,
+                                        floatOnEdge = elevation and true or false,
+                                        elevation = showElevationArrows and elevation or nil,
+                                        isOppositeFaction = isOpposite,
+                                        isUnverified = isUnverified,
+                                    }
+                                end
                             end
                         end
                     end
@@ -1080,31 +1078,8 @@ function VendorMapPins:RefreshMinimapPins()
         end
     end
 
-    -- Place minimap frames at their true coordinates.
-    for _, pin in ipairs(pendingPins) do
-        if pin.elevation then
-            -- Cross-floor: convert to world coords first, create frame only on success
-            local worldX, worldY, instanceID = MPP.GetWorldCoordinatesForPin(
-                pin.coords.x, pin.coords.y, pin.vendorMapID)
-            if worldX then
-                local frame = CreateMinimapPinFrame(pin.vendor, pin.isOpposite, pin.isUnverified,
-                    pin.showArrow and pin.elevation or nil)
-                minimapPinFrames[#minimapPinFrames + 1] = frame
-                -- Always float on edge for cross-floor pins; indoor detection
-                -- would otherwise hide them in underground zones
-                MPP.PlaceMinimapPinWorld("HomesteadMinimapVendors", frame,
-                    instanceID, worldX, worldY, true)
-            end
-            -- If conversion fails, skip — zone has no HBD mapData and
-            -- AddMinimapIconMap would also fail (same conversion internally)
-        else
-            local frame = CreateMinimapPinFrame(pin.vendor, pin.isOpposite, pin.isUnverified)
-            minimapPinFrames[#minimapPinFrames + 1] = frame
-            MPP.PlaceMinimapPin("HomesteadMinimapVendors", frame, pin.vendorMapID,
-                pin.coords.x, pin.coords.y,
-                true,           -- showInParentZone
-                floatOnEdge)    -- false indoors: hides distant pins
-        end
+    if MinimapOverlay then
+        MinimapOverlay:SetPins(pendingPins)
     end
 
     -- Debug output (verbose, dev only)
@@ -1121,46 +1096,116 @@ function VendorMapPins:RefreshMinimapPins()
     end
 end
 
-function VendorMapPins:RefreshPins()
+local function DebugWorldMapProjectionSkip(kind, sourceMapID, viewMapID, reason)
+    if not (HA.DevAddon and HA.Addon and HA.Addon.db and HA.Addon.db.profile.debug) then
+        return
+    end
+
+    HA.Addon:Debug(format(
+        "World map projection skipped: kind=%s source=%s view=%s reason=%s",
+        kind or "?",
+        tostring(sourceMapID),
+        tostring(viewMapID),
+        tostring(reason)
+    ))
+end
+
+local function BuildBadgeData(mapID, zoneName, zoneData)
+    return {
+        mapID = mapID,
+        zoneName = zoneName,
+        vendorCount = zoneData.vendorCount,
+        uncollectedCount = zoneData.uncollectedCount,
+        unknownCount = zoneData.unknownCount,
+        oppositeFactionCount = zoneData.oppositeFactionCount,
+        dominantFaction = zoneData.dominantFaction,
+        note = MPP.zoneNotes[mapID],
+    }
+end
+
+function VendorMapPins:BuildWorldMapRenderState(mapID)
+    worldMapDebugStats.builtStates = worldMapDebugStats.builtStates + 1
+
+    local mapInfo = C_Map.GetMapInfo(mapID)
+    local renderState = {
+        mapID = mapID,
+        mapType = mapInfo and mapInfo.mapType or nil,
+        vendorPins = {},
+        zoneBadges = {},
+        portalBadges = {},
+        continentBadges = {},
+    }
+
+    if not mapInfo then
+        return renderState
+    end
+
+    if mapInfo.mapType == Enum.UIMapType.World then
+        self:ShowContinentBadges(renderState)
+    elseif mapInfo.mapType == Enum.UIMapType.Continent then
+        self:ShowZoneBadges(mapID, renderState)
+    else
+        self:ShowVendorPins(mapID, renderState)
+    end
+
+    return renderState
+end
+
+function VendorMapPins:RefreshPins(force)
     if not isInitialized then return end
+    worldMapDebugStats.refreshRequests = worldMapDebugStats.refreshRequests + 1
+
     if not pinsEnabled then
         self:ClearAllPins()
         return
     end
 
-    self:ClearAllPins()
-
     if not HA.VendorData then return end
 
     local mapID = WorldMapFrame:GetMapID()
     if not mapID then return end
+    if not WorldMapProvider then return end
 
-    local mapInfo = C_Map.GetMapInfo(mapID)
-    if not mapInfo then return end
-
-    -- Determine what to show based on map type
-    if mapInfo.mapType == Enum.UIMapType.World then
-        self:ShowContinentBadges()
-    elseif mapInfo.mapType == Enum.UIMapType.Continent then
-        self:ShowZoneBadges(mapID)
-    else
-        self:ShowVendorPins(mapID)
+    if not force and not worldMapDirty and mapID == lastRenderedWorldMapID then
+        worldMapDebugStats.skippedRequests = worldMapDebugStats.skippedRequests + 1
+        LogWorldMapPerf(mapID, nil, false)
+        return
     end
+
+    WorldMapProvider:EnsureRegistered()
+
+    local renderState = self:BuildWorldMapRenderState(mapID)
+    WorldMapProvider:SetRenderState(renderState)
+    WorldMapProvider:Refresh()
+    lastRenderedWorldMapID = mapID
+    worldMapDirty = false
+    LogWorldMapPerf(mapID, renderState, force)
 end
 
-function VendorMapPins:ShowVendorPins(mapID)
+function VendorMapPins:ShowVendorPins(mapID, renderState)
     local showOpposite = ShouldShowOppositeFaction()
     local addedVendors = {}  -- Track by npcID to avoid duplicates
-    local pendingPins = {}   -- Collected pins for batch frame creation
+    local shouldLogSilvermoonDebug = IsDebugModeEnabled() and IsSilvermoonClusterDebugMap(mapID)
+    local staticVendorCount = 0
+    local staticProcessedCount = 0
+    local staticSkippedCount = 0
+    local scannedFallbackCount = 0
+    local scannedFallbackProcessedCount = 0
+    local portalBadgeCount = 0
+    local startVendorPinCount = #renderState.vendorPins
+    local startPortalBadgeCount = #renderState.portalBadges
 
     -- Build set of valid mapIDs: current map + child/sub-zone maps
-    -- This ensures vendors in sub-zones (e.g., City of Threads inside Azj-Kahet)
-    -- appear on the parent zone map via HBD's showInParentZone
+    -- This ensures vendors in sub-zones appear on the parent zone map.
     local validMapIDs = { [mapID] = true }
+    local validMapIDCount = 1
     local childMaps = C_Map.GetMapChildrenInfo(mapID)
     if childMaps then
         for _, childInfo in ipairs(childMaps) do
-            validMapIDs[childInfo.mapID] = true
+            if not validMapIDs[childInfo.mapID] then
+                validMapIDs[childInfo.mapID] = true
+                validMapIDCount = validMapIDCount + 1
+            end
         end
     end
 
@@ -1186,9 +1231,11 @@ function VendorMapPins:ShowVendorPins(mapID)
         -- Get best coordinates (scanned preferred over static)
         local coords, vendorMapID = GetBestVendorCoordinates(vendor)
 
-        -- Show pins for vendors on this map OR any child/sub-zone map
-        -- Child map vendors are placed via HBD's showInParentZone (HBD_PINS_WORLDMAP_SHOW_PARENT)
-        if coords and vendorMapID and validMapIDs[vendorMapID] then
+        -- Use the vendor's STATIC mapID for inclusion check — the scanned mapID
+        -- reflects where the player was, not where the vendor belongs. Scanned
+        -- coords are still used for position precision via vendorMapID.
+        local staticMapID = vendor.mapID
+        if coords and vendorMapID and (validMapIDs[vendorMapID] or validMapIDs[staticMapID]) then
             local canAccess = self:CanAccessVendor(vendor)
             local isOpposite = self:IsOppositeFaction(vendor)
             local isUnverified = not IsVendorVerified(vendor)
@@ -1202,26 +1249,47 @@ function VendorMapPins:ShowVendorPins(mapID)
 
             -- Show vendor if accessible OR if opposite faction and setting enabled
             if canAccess or (isOpposite and showOpposite) then
-                -- Collect for batch placement; frame creation deferred.
+                -- Try projection with the coordinate source mapID first.
+                -- If that fails and the static mapID differs, retry with static.
+                local ok, projectedX, projectedY, reason = MPP:ProjectVendorPinToZoneView(
+                    mapID,
+                    vendorMapID,
+                    coords.x,
+                    coords.y
+                )
+                if not ok and staticMapID and staticMapID ~= vendorMapID then
+                    local sx, sy = VendorFilter.GetVendorXY(vendor)
+                    if sx and sy then
+                        ok, projectedX, projectedY, reason = MPP:ProjectVendorPinToZoneView(
+                            mapID, staticMapID, sx, sy)
+                    end
+                end
                 addedVendors[vendor.npcID] = true
-                pendingPins[#pendingPins + 1] = {
-                    vendor       = vendor,
-                    coords       = coords,
-                    vendorMapID  = vendorMapID,
-                    isOpposite   = isOpposite,
-                    isUnverified = isUnverified,
-                }
+                if ok then
+                    renderState.vendorPins[#renderState.vendorPins + 1] = {
+                        vendor = vendor,
+                        mapID = vendorMapID,
+                        x = projectedX,
+                        y = projectedY,
+                        reason = reason,
+                        isOppositeFaction = isOpposite,
+                        isUnverified = isUnverified,
+                    }
+                else
+                    DebugWorldMapProjectionSkip("vendor", vendorMapID, mapID, reason)
+                end
             end
         end
     end
 
     -- First, process vendors from static database for this map and child maps
-    for queryMapID in pairs(validMapIDs) do
-        local staticVendors = HA.VendorData:GetVendorsInMap(queryMapID)
-        if staticVendors then
-            for _, vendor in ipairs(staticVendors) do
-                local shouldSkip = false
-                local skipReason = nil
+	    for queryMapID in pairs(validMapIDs) do
+	        local staticVendors = HA.VendorData:GetVendorsInMap(queryMapID)
+	        if staticVendors then
+	            staticVendorCount = staticVendorCount + #staticVendors
+	            for _, vendor in ipairs(staticVendors) do
+	                local shouldSkip = false
+	                local skipReason = nil
 
                 -- Check 1: Skip unreleased or no-decor vendors
                 if ShouldHideVendor(vendor) then
@@ -1229,133 +1297,109 @@ function VendorMapPins:ShowVendorPins(mapID)
                     skipReason = vendor.unreleased and "unreleased" or "no decor"
                 end
 
-                -- Check 2: Skip if vendor was scanned on a map outside this zone hierarchy
-                if not shouldSkip and HA.Addon and HA.Addon.db and HA.Addon.db.global.scannedVendors then
-                    local scannedData = HA.Addon.db.global.scannedVendors[vendor.npcID]
-                    if scannedData and scannedData.mapID and not validMapIDs[scannedData.mapID] then
-                        shouldSkip = true
-                        skipReason = format("scanned on map %d", scannedData.mapID)
-                    end
-                end
+                -- Check 2 disabled: scanned mapID filter was skipping vendors whose
+                -- scanned location differs from static. The projection handles
+                -- visibility — if the vendor can't project onto this view, it
+                -- won't render. No pre-filter needed.
 
-                if shouldSkip then
-                    -- Mark as processed to prevent re-check in scanned vendors loop
-                    addedVendors[vendor.npcID] = true
-                    if HA.DevAddon and HA.Addon.db.profile.debug then
+	                if shouldSkip then
+	                    staticSkippedCount = staticSkippedCount + 1
+	                    -- Mark as processed to prevent re-check in scanned vendors loop
+	                    addedVendors[vendor.npcID] = true
+	                    if HA.DevAddon and HA.Addon.db.profile.debug then
                         HA.Addon:Debug(format("Skipping static vendor %s (%d) on map %d - %s",
                             vendor.name or "Unknown", vendor.npcID, queryMapID, skipReason or "unknown"))
                     end
-                else
-                    ProcessVendor(vendor)
-                end
-            end
-        end
-    end
+	                else
+	                    staticProcessedCount = staticProcessedCount + 1
+	                    ProcessVendor(vendor)
+	                end
+	            end
+	        end
+	    end
 
     -- Second, check ALL scanned vendors - they may have been scanned on a different map
     -- than their static entry (e.g., Quackenbush: static=Stormwind, scanned=BrawlersGuild)
-    if HA.Addon and HA.Addon.db and HA.Addon.db.global.scannedVendors then
-        for npcID, scannedData in pairs(HA.Addon.db.global.scannedVendors) do
-            -- Only process if this scanned vendor's mapID matches the current map or a child map
-            -- AND we haven't already added this vendor from static data
-            if validMapIDs[scannedData.mapID] and not addedVendors[npcID] then
-                -- Try to get full vendor info from static data, fall back to scanned data
-                local vendor = HA.VendorData:GetVendor(npcID)
-                if vendor then
-                    ProcessVendor(vendor)
-                else
-                    -- Vendor not in static database - create a temporary vendor object from scanned data
+	    if HA.Addon and HA.Addon.db and HA.Addon.db.global.scannedVendors then
+	        for npcID, scannedData in pairs(HA.Addon.db.global.scannedVendors) do
+	            -- Only process if this scanned vendor's mapID matches the current map or a child map
+	            -- AND we haven't already added this vendor from static data
+	            if validMapIDs[scannedData.mapID] and not addedVendors[npcID] then
+	                scannedFallbackCount = scannedFallbackCount + 1
+	                -- Try to get full vendor info from static data, fall back to scanned data
+	                local vendor = HA.VendorData:GetVendor(npcID)
+	                if vendor then
+	                    scannedFallbackProcessedCount = scannedFallbackProcessedCount + 1
+	                    ProcessVendor(vendor)
+	                else
+	                    -- Vendor not in static database - create a temporary vendor object from scanned data
                     local tempVendor = {
                         npcID = npcID,
                         name = scannedData.name or "Unknown Vendor",
                         mapID = scannedData.mapID,
                         coords = scannedData.coords,
-                        faction = "Neutral",  -- Default, unknown from scan
-                    }
-                    ProcessVendor(tempVendor)
-                end
-            end
-        end
-    end
-
-    -- Place world map frames at their true coordinates.
-    for _, pin in ipairs(pendingPins) do
-        local frame = CreateVendorPinFrame(pin.vendor, pin.isOpposite, pin.isUnverified)
-        vendorPinFrames[#vendorPinFrames + 1] = frame
-        MPP.PlaceWorldMapPin("HomesteadVendors", frame, pin.vendorMapID,
-            pin.coords.x, pin.coords.y, HBD_PINS_WORLDMAP_SHOW_PARENT)
-    end
-
-    -- Pre-warm item info cache for all visible vendor pins
-    -- GetItemInfo() triggers async server fetch if not cached; fire-and-forget
-    for _, frame in ipairs(vendorPinFrames) do
-        local vendor = frame.vendor
-        if vendor then
-            -- Static DB items (plain int or {itemID, cost=...})
-            if vendor.items then
-                for _, item in ipairs(vendor.items) do
-                    local itemID = HA.VendorData:GetItemID(item)
-                    if itemID then
-                        GetItemInfo(itemID)
-                    end
-                end
-            end
-            -- Scanned items ({itemID = X, name = "...", ...})
-            if vendor.npcID and HA.Addon and HA.Addon.db
-                    and HA.Addon.db.global.scannedVendors then
-                local scanned = HA.Addon.db.global.scannedVendors[vendor.npcID]
-                local scannedItems = scanned and scanned.items
-                if scannedItems then
-                    for _, item in ipairs(scannedItems) do
-                        if item.itemID then
-                            GetItemInfo(item.itemID)
-                        end
-                    end
-                end
-            end
-        end
-    end
+	                        faction = "Neutral",  -- Default, unknown from scan
+	                    }
+	                    scannedFallbackProcessedCount = scannedFallbackProcessedCount + 1
+	                    ProcessVendor(tempVendor)
+	                end
+	            end
+	        end
+	    end
 
     -- Portal badge pass: draw entrance markers for Order Hall vendors accessible via this map.
-    local allVendors = HA.VendorData:GetAllVendors()
-    for _, vendor in ipairs(allVendors) do
-        local portal = vendor.portal
-        if portal and portal.mapID == mapID then
-            if not ShouldHideVendor(vendor) then
-                local frame = CreatePortalBadgePinFrame({ vendor = vendor })
-                MPP.PlaceWorldMapPin("HomesteadVendors", frame, portal.mapID, portal.x, portal.y,
-                    HBD_PINS_WORLDMAP_SHOW_PARENT)
-                frame:Show()
-                portalPinFrames[#portalPinFrames + 1] = frame
-            end
-        end
+	    local allVendors = HA.VendorData:GetAllVendors()
+	    for _, vendor in ipairs(allVendors) do
+	        local portal = vendor.portal
+	        if portal and portal.mapID == mapID then
+	            if not ShouldHideVendor(vendor) then
+	                portalBadgeCount = portalBadgeCount + 1
+	                renderState.portalBadges[#renderState.portalBadges + 1] = {
+	                    portalData = { vendor = vendor },
+	                    mapID = portal.mapID,
+                    x = portal.x,
+                    y = portal.y,
+                    reason = "same_map",
+                }
+	            end
+	        end
+	    end
+
+    if shouldLogSilvermoonDebug then
+        local renderedVendorPins = #renderState.vendorPins - startVendorPinCount
+        local renderedPortalBadges = #renderState.portalBadges - startPortalBadgeCount
+        HA.Addon:Debug(format(
+            "SilvermoonMapDebug: map=%d validMaps=%d staticSeen=%d staticProcessed=%d staticSkipped=%d scannedFallbackSeen=%d scannedFallbackProcessed=%d renderedVendors=%d portalCandidates=%d renderedPortals=%d",
+            mapID,
+            validMapIDCount,
+            staticVendorCount,
+            staticProcessedCount,
+            staticSkippedCount,
+            scannedFallbackCount,
+            scannedFallbackProcessedCount,
+            renderedVendorPins,
+            portalBadgeCount,
+            renderedPortalBadges
+        ))
     end
 end
 
-function VendorMapPins:ShowZoneBadges(continentMapID)
+function VendorMapPins:ShowZoneBadges(continentMapID, renderState)
     local zoneCounts = self:GetZoneVendorCounts(continentMapID)
 
     for zoneMapID, zoneData in pairs(zoneCounts) do
         if zoneData.vendorCount > 0 then
-            local zoneCenter = self:GetZoneCenterOnMap(zoneMapID, continentMapID)
-            if zoneCenter then
-                local badgeData = {
+            local ok, x, y, reason = MPP:ProjectZoneBadgeToContinentView(continentMapID, zoneMapID)
+            if ok then
+                renderState.zoneBadges[#renderState.zoneBadges + 1] = {
+                    badgeData = BuildBadgeData(zoneMapID, zoneData.zoneName, zoneData),
                     mapID = zoneMapID,
-                    zoneName = zoneData.zoneName,
-                    vendorCount = zoneData.vendorCount,
-                    uncollectedCount = zoneData.uncollectedCount,
-                    unknownCount = zoneData.unknownCount,
-                    oppositeFactionCount = zoneData.oppositeFactionCount,
-                    dominantFaction = zoneData.dominantFaction,
-                    note = MPP.zoneNotes[zoneMapID],
+                    x = x,
+                    y = y,
+                    reason = reason,
                 }
-
-                local frame = CreateBadgePinFrame(badgeData)
-                badgePinFrames[#badgePinFrames + 1] = frame
-
-                -- Add badge to the continent map (HBD with native fallback)
-                MPP.PlaceWorldMapPin("HomesteadVendors", frame, continentMapID, zoneCenter.x, zoneCenter.y,
-                    HBD_PINS_WORLDMAP_SHOW_CONTINENT)
+            else
+                DebugWorldMapProjectionSkip("zone_badge", zoneMapID, continentMapID, reason)
             end
         end
     end
@@ -1367,22 +1411,17 @@ function VendorMapPins:ShowZoneBadges(continentMapID)
             local mergedZones = self:GetZoneVendorCounts(srcContinentID)
             for zoneMapID, zoneData in pairs(mergedZones) do
                 if zoneData.vendorCount > 0 then
-                    local zoneCenter = self:GetZoneCenterOnMap(zoneMapID, continentMapID)
-                    if zoneCenter then
-                        local badgeData = {
+                    local ok, x, y, reason = MPP:ProjectZoneBadgeToContinentView(continentMapID, zoneMapID)
+                    if ok then
+                        renderState.zoneBadges[#renderState.zoneBadges + 1] = {
+                            badgeData = BuildBadgeData(zoneMapID, zoneData.zoneName, zoneData),
                             mapID = zoneMapID,
-                            zoneName = zoneData.zoneName,
-                            vendorCount = zoneData.vendorCount,
-                            uncollectedCount = zoneData.uncollectedCount,
-                            unknownCount = zoneData.unknownCount,
-                            oppositeFactionCount = zoneData.oppositeFactionCount,
-                            dominantFaction = zoneData.dominantFaction,
-                            note = MPP.zoneNotes[zoneMapID],
+                            x = x,
+                            y = y,
+                            reason = reason,
                         }
-                        local frame = CreateBadgePinFrame(badgeData)
-                        badgePinFrames[#badgePinFrames + 1] = frame
-                        MPP.PlaceWorldMapPin("HomesteadVendors", frame, continentMapID, zoneCenter.x, zoneCenter.y,
-                            HBD_PINS_WORLDMAP_SHOW_CONTINENT)
+                    else
+                        DebugWorldMapProjectionSkip("merged_zone_badge", zoneMapID, continentMapID, reason)
                     end
                 end
             end
@@ -1400,22 +1439,17 @@ function VendorMapPins:ShowZoneBadges(continentMapID)
             for zoneMapID, zoneData in pairs(sourceZones) do
                 local isExcluded = excludedForDest and excludedForDest[zoneMapID]
                 if zoneData.vendorCount > 0 and not isExcluded then
-                    local zoneCenter = self:GetZoneCenterOnMap(zoneMapID, continentMapID)
-                    if zoneCenter then
-                        local badgeData = {
+                    local ok, x, y, reason = MPP:ProjectZoneBadgeToContinentView(continentMapID, zoneMapID)
+                    if ok then
+                        renderState.zoneBadges[#renderState.zoneBadges + 1] = {
+                            badgeData = BuildBadgeData(zoneMapID, zoneData.zoneName, zoneData),
                             mapID = zoneMapID,
-                            zoneName = zoneData.zoneName,
-                            vendorCount = zoneData.vendorCount,
-                            uncollectedCount = zoneData.uncollectedCount,
-                            unknownCount = zoneData.unknownCount,
-                            oppositeFactionCount = zoneData.oppositeFactionCount,
-                            dominantFaction = zoneData.dominantFaction,
-                            note = MPP.zoneNotes[zoneMapID],
+                            x = x,
+                            y = y,
+                            reason = reason,
                         }
-                        local frame = CreateBadgePinFrame(badgeData)
-                        badgePinFrames[#badgePinFrames + 1] = frame
-                        MPP.PlaceWorldMapPin("HomesteadVendors", frame, continentMapID, zoneCenter.x, zoneCenter.y,
-                            HBD_PINS_WORLDMAP_SHOW_CONTINENT)
+                    else
+                        DebugWorldMapProjectionSkip("overlay_zone_badge", zoneMapID, continentMapID, reason)
                     end
                 end
             end
@@ -1423,14 +1457,13 @@ function VendorMapPins:ShowZoneBadges(continentMapID)
     end
 
 end
-function VendorMapPins:ShowZoneBadgesOnWorldMap()
+function VendorMapPins:ShowZoneBadgesOnWorldMap(renderState)
     local continentCounts = self:GetContinentVendorCounts()
 
     for continentMapID, continentData in pairs(continentCounts) do
         if continentData.vendorCount > 0 then
-            -- Off-world continents: keep as aggregate badge (HBD can't translate)
-            local manualPos = MPP.offWorldContinentPositions[continentMapID]
-            if manualPos then
+            local projectedContinent = MPP.offWorldContinentPositions[continentMapID]
+            if projectedContinent then
                 local badgeData = {
                     mapID = continentMapID,
                     zoneName = continentData.continentName,
@@ -1439,46 +1472,28 @@ function VendorMapPins:ShowZoneBadgesOnWorldMap()
                     unknownCount = continentData.unknownCount,
                     oppositeFactionCount = continentData.oppositeFactionCount,
                 }
-                local frame = CreateBadgePinFrame(badgeData)
-                badgePinFrames[#badgePinFrames + 1] = frame
-                MPP.PlaceNativePin(frame, manualPos.x, manualPos.y)
-
+                renderState.continentBadges[#renderState.continentBadges + 1] = {
+                    badgeData = badgeData,
+                    mapID = continentMapID,
+                    x = projectedContinent.x,
+                    y = projectedContinent.y,
+                    reason = "manual_continent_position",
+                }
             elseif not MPP.excludedContinents[continentMapID] then
-                -- Normal continent: place individual zone badges
                 local zoneCounts = self:GetZoneVendorCounts(continentMapID)
                 for zoneMapID, zoneData in pairs(zoneCounts) do
                     if zoneData.vendorCount > 0 then
-                        local badgeData = {
-                            mapID = zoneMapID,
-                            zoneName = zoneData.zoneName,
-                            vendorCount = zoneData.vendorCount,
-                            uncollectedCount = zoneData.uncollectedCount,
-                            unknownCount = zoneData.unknownCount,
-                            oppositeFactionCount = zoneData.oppositeFactionCount,
-                            dominantFaction = zoneData.dominantFaction,
-                            note = MPP.zoneNotes[zoneMapID],
-                        }
-                        local frame = CreateBadgePinFrame(badgeData)
-                        badgePinFrames[#badgePinFrames + 1] = frame
-
-                        -- HBD translates zone center to world map position automatically.
-                        -- Some zones (phased class halls, old-world outliers) can't be
-                        -- projected by HBD for all characters — fall back to the continent's
-                        -- manualZoneCenters entry so the badge still appears on the world map.
-                        if MPP.IsMapSupported(zoneMapID) then
-                            MPP.PlaceWorldMapPinDirect("HomesteadVendors", frame, zoneMapID,
-                                0.5, 0.5,
-                                HBD_PINS_WORLDMAP_SHOW_WORLD)
+                        local ok, x, y, reason = MPP:ProjectZoneBadgeToWorldView(zoneMapID)
+                        if ok then
+                            renderState.zoneBadges[#renderState.zoneBadges + 1] = {
+                                badgeData = BuildBadgeData(zoneMapID, zoneData.zoneName, zoneData),
+                                mapID = zoneMapID,
+                                x = x,
+                                y = y,
+                                reason = reason,
+                            }
                         else
-                            local fallbackContinent = MPP.GetContinentForZone(zoneMapID)
-                            local fallbackCenter = fallbackContinent
-                                and MPP:GetZoneCenterOnMap(zoneMapID, fallbackContinent)
-                            if fallbackCenter and MPP.IsMapSupported(fallbackContinent) then
-                                MPP.PlaceWorldMapPinDirect("HomesteadVendors", frame,
-                                    fallbackContinent,
-                                    fallbackCenter.x, fallbackCenter.y,
-                                    HBD_PINS_WORLDMAP_SHOW_WORLD)
-                            end
+                            DebugWorldMapProjectionSkip("world_zone_badge", zoneMapID, 947, reason)
                         end
                     end
                 end
@@ -1487,10 +1502,10 @@ function VendorMapPins:ShowZoneBadgesOnWorldMap()
     end
 end
 
-function VendorMapPins:ShowContinentBadges()
+function VendorMapPins:ShowContinentBadges(renderState)
     -- Toggle: zone-level badges spread across continents vs single continent totals
     if HA.Addon and HA.Addon.db and HA.Addon.db.profile.vendorTracer.worldMapZoneBadges then
-        self:ShowZoneBadgesOnWorldMap()
+        self:ShowZoneBadgesOnWorldMap(renderState)
         return
     end
 
@@ -1498,12 +1513,7 @@ function VendorMapPins:ShowContinentBadges()
 
     for continentMapID, continentData in pairs(continentCounts) do
         if continentData.vendorCount > 0 then
-            -- Off-world continent with manual position (e.g. Argus)
-            local manualPos = MPP.offWorldContinentPositions[continentMapID]
-
-            if manualPos then
-                -- Off-world continent: place badge directly on map 947 canvas
-                -- using native AcquirePin (HBD can't translate these coordinates)
+            if not MPP.excludedContinents[continentMapID] then
                 local badgeData = {
                     mapID = continentMapID,
                     zoneName = continentData.continentName,
@@ -1513,35 +1523,17 @@ function VendorMapPins:ShowContinentBadges()
                     oppositeFactionCount = continentData.oppositeFactionCount,
                 }
 
-                local frame = CreateBadgePinFrame(badgeData)
-                badgePinFrames[#badgePinFrames + 1] = frame
-
-                MPP.PlaceNativePin(frame, manualPos.x, manualPos.y)
-
-            elseif not MPP.excludedContinents[continentMapID] then
-                local badgeData = {
-                    mapID = continentMapID,
-                    zoneName = continentData.continentName,
-                    vendorCount = continentData.vendorCount,
-                    uncollectedCount = continentData.uncollectedCount,
-                    unknownCount = continentData.unknownCount,
-                    oppositeFactionCount = continentData.oppositeFactionCount,
-                }
-
-                local frame = CreateBadgePinFrame(badgeData)
-                badgePinFrames[#badgePinFrames + 1] = frame
-
-                -- Prefer native placement: ask WoW where this continent sits on the
-                -- Azeroth world map canvas. Falls back to HBD for continents where
-                -- GetMapRectOnMap returns nil (e.g. pre-patch zones not yet on canvas).
-                local minX, maxX, minY, maxY = C_Map.GetMapRectOnMap(continentMapID, 947)
-                if minX then
-                    MPP.PlaceNativePin(frame,
-                        (minX + maxX) / 2, (minY + maxY) / 2)
+                local ok, x, y, reason = MPP:ProjectContinentBadgeToWorldView(continentMapID)
+                if ok then
+                    renderState.continentBadges[#renderState.continentBadges + 1] = {
+                        badgeData = badgeData,
+                        mapID = continentMapID,
+                        x = x,
+                        y = y,
+                        reason = reason,
+                    }
                 else
-                    MPP.PlaceWorldMapPinDirect("HomesteadVendors", frame, continentMapID,
-                        0.5, 0.5,
-                        HBD_PINS_WORLDMAP_SHOW_WORLD)
+                    DebugWorldMapProjectionSkip("continent_badge", continentMapID, 947, reason)
                 end
             end
         end
@@ -1631,19 +1623,15 @@ function VendorMapPins:Initialize()
         HA.Analytics:Switch("MinimapPinsEnabled", minimapPinsEnabled)
     end
 
-    -- Hook WorldMapFrame to refresh pins when map changes
-    WorldMapFrame:HookScript("OnShow", function()
-        self:RefreshPins()
-    end)
+    if WorldMapProvider then
+        WorldMapProvider:EnsureRegistered()
+    end
 
-    hooksecurefunc(WorldMapFrame, "SetMapID", function(_, mapID)
-        if mapID == lastWorldMapID then return end
-        lastWorldMapID = mapID
-        -- Small delay to let the map update first
-        C_Timer.After(0, function()
-            self:RefreshPins()
-        end)
-    end)
+    -- World map refresh is driven by the provider's watcher frame
+    -- (HomesteadWorldMapProvider:EnsureRegistered). Do NOT hook WorldMapFrame
+    -- OnShow or SetMapID directly — those run during Blizzard's secure
+    -- map-open path and taint the execution context, causing
+    -- SetPassThroughButtons() errors in combat.
 
     -- Listen for vendor scan events to refresh pins with new data
     if HA.Events then
@@ -1655,9 +1643,7 @@ function VendorMapPins:Initialize()
             self:InvalidateBadgeCache()
             -- Refresh pins if the world map is currently open
             if WorldMapFrame:IsShown() then
-                C_Timer.After(0.1, function()
-                    self:RefreshPins()
-                end)
+                self:RequestWorldMapRefresh("vendor_scanned", 0.1)
             end
             self:RequestMinimapRefresh("vendor_scanned", 0.1)
         end)
@@ -1667,9 +1653,7 @@ function VendorMapPins:Initialize()
             -- Ownership changed — flush all caches
             self:InvalidateAllCaches()
             if WorldMapFrame:IsShown() then
-                C_Timer.After(0.1, function()
-                    self:RefreshPins()
-                end)
+                self:RequestWorldMapRefresh("ownership_updated", 0.1)
             end
         end)
 
@@ -1677,7 +1661,7 @@ function VendorMapPins:Initialize()
         HA.Events:RegisterCallback("ACTIVE_HOLIDAYS_CHANGED", function()
             self:InvalidateBadgeCache()
             if WorldMapFrame:IsShown() then
-                self:RefreshPins()
+                self:RequestWorldMapRefresh("holidays_changed")
             end
             self:RequestMinimapRefresh("holidays_changed")
         end)
@@ -1685,7 +1669,7 @@ function VendorMapPins:Initialize()
         HA.Events:RegisterCallback("ACTIVE_ENDEAVOR_CHANGED", function()
             self:InvalidateBadgeCache()
             if WorldMapFrame:IsShown() then
-                self:RefreshPins()
+                self:RequestWorldMapRefresh("endeavor_changed")
             end
             self:RequestMinimapRefresh("endeavor_changed")
         end)
@@ -1703,7 +1687,7 @@ function VendorMapPins:Initialize()
     end
 
     if HA.Addon then
-        HA.Addon:Debug("VendorMapPins initialized (HereBeDragons with multi-zone minimap support)")
+        HA.Addon:Debug("VendorMapPins initialized (native world map and minimap overlay)")
     end
 end
 

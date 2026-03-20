@@ -2067,20 +2067,18 @@ local PIN_COLOR_ORDER = {
 }
 
 local PIN_SIZE_LABELS = {
-    [12] = "Tiny (12)",
-    [14] = "Small (14)",
-    [16] = "Medium-Small (16)",
-    [18] = "Medium (18)",
-    [20] = "Default (20)",
-    [22] = "Medium-Large (22)",
-    [24] = "Large (24)",
-    [26] = "Extra Large (26)",
-    [28] = "Huge (28)",
-    [30] = "Giant (30)",
-    [32] = "Maximum (32)",
+    [2] = "2 px",
+    [4] = "4 px",
+    [6] = "6 px",
+    [8] = "8 px",
+    [10] = "10 px",
+    [12] = "12 px",
+    [14] = "Default (14)",
+    [16] = "16 px",
+    [18] = "18 px",
 }
 
-local PIN_SIZE_ORDER = { 12, 14, 16, 18, 20, 22, 24, 26, 28, 30, 32 }
+local PIN_SIZE_ORDER = { 2, 4, 6, 8, 10, 12, 14, 16, 18 }
 
 local function ShowContextMenu(owner)
     MenuUtil.CreateContextMenu(owner, function(_, rootDescription)
@@ -2119,7 +2117,7 @@ local function ShowContextMenu(owner)
         local sizeSubmenu = rootDescription:CreateButton("World Map Pin Size")
         for _, size in ipairs(PIN_SIZE_ORDER) do
             sizeSubmenu:CreateRadio(PIN_SIZE_LABELS[size], function()
-                return (HA.Addon.db.profile.vendorTracer.pinIconSize or 20) == size
+                return HA.PinFrameFactory:GetPinIconSize() == size
             end, function()
                 HA.Addon.db.profile.vendorTracer.pinIconSize = size
                 if HA.VendorMapPins then

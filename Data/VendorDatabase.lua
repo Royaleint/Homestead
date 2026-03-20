@@ -942,6 +942,8 @@ VendorDatabase.Vendors = {
         expansion = "Legion",
         class = "MONK",
         notes = "Monk only — enter via class spell Zen Pilgrimage (usable from anywhere).",
+        portal = { mapID = 627, x = 0.523, y = 0.567 },
+        badgeMapID = 627,
         items = {
             {248935, cost = {currencies = {{id = 1220, amount = 500}}}},
             {248936, cost = {currencies = {{id = 1220, amount = 500}}}},
