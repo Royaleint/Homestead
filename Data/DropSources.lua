@@ -4,7 +4,7 @@
     Total entries: 56
 
     Maps itemID to mob/boss drop source information.
-    Coordinates are normalized 0-1 format (HereBeDragons compatible).
+    Coordinates are normalized 0-1 format.
 ]]
 
 local _, HA = ...
