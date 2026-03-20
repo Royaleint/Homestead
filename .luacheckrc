@@ -67,6 +67,7 @@ read_globals = {
     "C_DateInfo",
     "C_GossipInfo",
     "C_Housing",
+    "C_AreaPoiInfo",
     "C_HousingCatalog",
     "C_Item",
     "C_Map",
