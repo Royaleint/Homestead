@@ -2,6 +2,25 @@
 
 ---
 
+## Unreleased
+
+### Fixed
+
+- **Eliminated combat map taint errors.** Opening the World Map during combat no longer triggers "AddOn tried to call protected function" errors. The entire map pin system was rebuilt from scratch to avoid Blizzard's protected pin lifecycle. This was the #1 reported technical issue.
+- Map pins now coexist cleanly with Blizzard's own points of interest instead of covering them. Pins near event POIs (like Saltheril's Soiree or Abundance) will nudge slightly to the side so both are visible and clickable.
+- Vendor pin count text (like "3/5") now sits below the icon instead of on top of it.
+
+### Improved
+
+- Zooming in on the World Map now works smoothly — pins stay at their correct map positions and maintain a consistent size at any zoom level.
+- Pin sizes now match the slider value more accurately at all screen resolutions.
+
+### Removed
+
+- HereBeDragons library dependency removed. One less external library to load.
+
+---
+
 ## v2.1.0 (2026-03-15)
 
 ### Improved
