@@ -47,7 +47,6 @@ read_globals = {
     "TooltipDataProcessor",
     "UIParent", "UISpecialFrames",
     "MenuUtil",
-    "MapCanvasPinMixin",
     "Mixin",
     "NineSliceUtil",
     "PlaySound",

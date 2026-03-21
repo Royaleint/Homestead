@@ -5,7 +5,6 @@ CLAUDE.md
 
 # Scripts and tools
 .claude/
-.mcp.json
 
 # Binaries
 luacheck.exe
