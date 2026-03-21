@@ -44,13 +44,15 @@ local highlightOriginalFrameLevel = nil
 
 
 -- Pin color/size helpers delegated to PinFrameFactory (loaded before this file)
--- Vendor filter/coord helpers delegated to VendorFilter (loaded before this file)
-local VendorFilter = HA.VendorFilter
-local IsVendorVerified = VendorFilter.IsVendorVerified
-local ShouldHideVendor = VendorFilter.ShouldHideVendor
-local GetBestVendorCoordinates = VendorFilter.GetBestVendorCoordinates
-local ShouldShowOppositeFaction = VendorFilter.ShouldShowOppositeFaction
-local ShouldShowUnverifiedVendors = VendorFilter.ShouldShowUnverifiedVendors
+-- Vendor filter/coord helpers resolved in Initialize() to avoid load-order fragility.
+local IsVendorVerified
+local ShouldHideVendor
+local GetBestVendorCoordinates
+local ShouldShowOppositeFaction
+local ShouldShowUnverifiedVendors
+local CanAccessVendor
+local IsOppositeFaction
+local GetVendorXY
 
 -- Badge/collection helpers delegated to BadgeCalculation (loaded before this file)
 local BC = HA.BadgeCalculation
@@ -468,11 +470,11 @@ end
 -------------------------------------------------------------------------------
 
 function VendorMapPins:CanAccessVendor(vendor)
-    return VendorFilter.CanAccessVendor(vendor)
+    return CanAccessVendor(vendor)
 end
 
 function VendorMapPins:IsOppositeFaction(vendor)
-    return VendorFilter.IsOppositeFaction(vendor)
+    return IsOppositeFaction(vendor)
 end
 
 -------------------------------------------------------------------------------
@@ -1258,7 +1260,7 @@ function VendorMapPins:ShowVendorPins(mapID, renderState)
                     coords.y
                 )
                 if not ok and staticMapID and staticMapID ~= vendorMapID then
-                    local sx, sy = VendorFilter.GetVendorXY(vendor)
+                    local sx, sy = GetVendorXY(vendor)
                     if sx and sy then
                         ok, projectedX, projectedY, reason = MPP:ProjectVendorPinToZoneView(
                             mapID, staticMapID, sx, sy)
@@ -1610,6 +1612,17 @@ end
 
 function VendorMapPins:Initialize()
     if isInitialized then return end
+
+    -- Resolve VendorFilter functions now that all modules are loaded
+    local VendorFilter = HA.VendorFilter
+    IsVendorVerified = VendorFilter.IsVendorVerified
+    ShouldHideVendor = VendorFilter.ShouldHideVendor
+    GetBestVendorCoordinates = VendorFilter.GetBestVendorCoordinates
+    ShouldShowOppositeFaction = VendorFilter.ShouldShowOppositeFaction
+    ShouldShowUnverifiedVendors = VendorFilter.ShouldShowUnverifiedVendors
+    CanAccessVendor = VendorFilter.CanAccessVendor
+    IsOppositeFaction = VendorFilter.IsOppositeFaction
+    GetVendorXY = VendorFilter.GetVendorXY
 
     -- Get settings from saved variables
     if HA.Addon and HA.Addon.db and HA.Addon.db.profile.vendorTracer then

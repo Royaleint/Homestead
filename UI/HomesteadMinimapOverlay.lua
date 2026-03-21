@@ -13,10 +13,14 @@ local Overlay = {}
 HA.HomesteadMinimapOverlay = Overlay
 
 local PinFrameFactory = HA.PinFrameFactory
+local FPU = HA.FramePoolUtils
 
 local cos, sin, max, sqrt = math.cos, math.sin, math.max, math.sqrt
 local format = string.format
 local ipairs = ipairs
+
+local BoolToKey = FPU.BoolToKey
+local AcquirePooledFrame = FPU.AcquirePooledFrame
 
 local updateFrame = CreateFrame("Frame")
 local activePins = {}
@@ -52,10 +56,6 @@ local minimapShapes = {
     ["TRICORNER-BOTTOMRIGHT"] = { false, true,  true,  true },
 }
 
-local function BoolToKey(value)
-    return value and "1" or "0"
-end
-
 local function BuildMinimapPinStyleKey()
     local size = PinFrameFactory:GetMinimapIconSize()
     local isCustom = PinFrameFactory:IsCustomPinColor()
@@ -71,68 +71,20 @@ local function GetFramePoolKey(pin)
         pin.elevation or "none")
 end
 
-local function AcquirePooledFrame(poolByKey, poolKey, createFunc)
-    local bucket = poolByKey[poolKey]
-    if bucket then
-        local idx = #bucket
-        if idx > 0 then
-            local frame = bucket[idx]
-            bucket[idx] = nil
-            frame.__hsInPool = false
-            frame.__hsPoolKey = poolKey
-            return frame
-        end
-    end
-
-    local frame = createFunc()
-    frame.__hsInPool = false
-    frame.__hsPoolKey = poolKey
-    return frame
-end
-
-local function ReleasePooledFrame(poolByKey, frame)
-    if not frame or frame.__hsInPool then
-        return
-    end
-
+local function CleanupMinimapFrame(frame)
     frame:Hide()
     frame:ClearAllPoints()
     frame:SetParent(UIParent)
     frame:SetFrameStrata("BACKGROUND")
     frame:SetFrameLevel(1)
+end
 
-    local poolKey = frame.__hsPoolKey
-    if not poolKey then
-        return
-    end
-
-    local bucket = poolByKey[poolKey]
-    if not bucket then
-        bucket = {}
-        poolByKey[poolKey] = bucket
-    end
-
-    frame.__hsInPool = true
-    bucket[#bucket + 1] = frame
+local function ReleasePooledFrame(poolByKey, frame)
+    FPU.ReleasePooledFrame(poolByKey, frame, CleanupMinimapFrame)
 end
 
 local function FlushPoolBuckets(poolByKey)
-    for poolKey, bucket in pairs(poolByKey) do
-        for i = #bucket, 1, -1 do
-            local frame = bucket[i]
-            if frame then
-                frame:Hide()
-                frame:ClearAllPoints()
-                frame:SetParent(UIParent)
-                frame:SetFrameStrata("BACKGROUND")
-                frame:SetFrameLevel(1)
-                frame.__hsInPool = false
-                frame.__hsPoolKey = nil
-            end
-            bucket[i] = nil
-        end
-        poolByKey[poolKey] = nil
-    end
+    FPU.FlushPoolBuckets(poolByKey, CleanupMinimapFrame)
 end
 
 local function AcquireFrame(pin)

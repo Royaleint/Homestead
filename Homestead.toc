@@ -81,6 +81,7 @@ UI\WhatsNewData.lua
 UI\WhatsNewFrame.lua
 UI\OutputWindow.lua
 UI\VendorFilter.lua
+UI\FramePoolUtils.lua
 UI\PinFrameFactory.lua
 UI\MapPinProvider.lua
 UI\HomesteadWorldMapProvider.lua

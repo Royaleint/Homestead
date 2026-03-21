@@ -15,10 +15,13 @@ HA.HomesteadWorldMapProvider = Provider
 
 local MPP = HA.MapPinProvider
 local PinFrameFactory = HA.PinFrameFactory
+local FPU = HA.FramePoolUtils
 
 local ipairs = ipairs
-local pairs = pairs
 local format = string.format
+
+local BoolToKey = FPU.BoolToKey
+local AcquirePooledFrame = FPU.AcquirePooledFrame
 
 local renderState = nil
 local isRegistered = false
@@ -357,34 +360,7 @@ local function ApplyAreaPoiDodge(entry, x, y)
            Clamp01(y + (direction[2] * nudgePixels) / height)
 end
 
-local function BoolToKey(value)
-    return value and "1" or "0"
-end
-
-local function AcquirePooledFrame(poolByKey, poolKey, createFunc)
-    local bucket = poolByKey[poolKey]
-    if bucket then
-        local idx = #bucket
-        if idx > 0 then
-            local frame = bucket[idx]
-            bucket[idx] = nil
-            frame.__hsInPool = false
-            frame.__hsPoolKey = poolKey
-            return frame
-        end
-    end
-
-    local frame = createFunc()
-    frame.__hsInPool = false
-    frame.__hsPoolKey = poolKey
-    return frame
-end
-
-local function ReleasePooledFrame(poolByKey, frame)
-    if not frame or frame.__hsInPool then
-        return
-    end
-
+local function CleanupWorldMapFrame(frame)
     frame:Hide()
     if frame.glowAnim and frame.glowAnim.Stop then
         frame.glowAnim:Stop()
@@ -396,20 +372,10 @@ local function ReleasePooledFrame(poolByKey, frame)
     if frame.SetIgnoreParentScale then
         frame:SetIgnoreParentScale(false)
     end
+end
 
-    local poolKey = frame.__hsPoolKey
-    if not poolKey then
-        return
-    end
-
-    local bucket = poolByKey[poolKey]
-    if not bucket then
-        bucket = {}
-        poolByKey[poolKey] = bucket
-    end
-
-    frame.__hsInPool = true
-    bucket[#bucket + 1] = frame
+local function ReleasePooledFrame(poolByKey, frame)
+    FPU.ReleasePooledFrame(poolByKey, frame, CleanupWorldMapFrame)
 end
 
 local function GetEntryDisplayScale(kind, mapType)
@@ -556,29 +522,22 @@ local function ReleaseEntryFrame(entry)
     end
 end
 
-local function FlushPoolBuckets(poolByKey)
-    for poolKey, bucket in pairs(poolByKey) do
-        for i = #bucket, 1, -1 do
-            local frame = bucket[i]
-            if frame then
-                frame:Hide()
-                frame:ClearAllPoints()
-                frame:SetParent(UIParent)
-                frame:SetFrameStrata("BACKGROUND")
-                frame:SetFrameLevel(1)
-                frame.__hsInPool = false
-                frame.__hsPoolKey = nil
-                if frame.glowAnim and frame.glowAnim.Stop then
-                    frame.glowAnim:Stop()
-                end
-                if frame.glowFrame then
-                    frame.glowFrame:Hide()
-                end
-            end
-            bucket[i] = nil
-        end
-        poolByKey[poolKey] = nil
+local function FlushWorldMapFrame(frame)
+    frame:Hide()
+    frame:ClearAllPoints()
+    frame:SetParent(UIParent)
+    frame:SetFrameStrata("BACKGROUND")
+    frame:SetFrameLevel(1)
+    if frame.glowAnim and frame.glowAnim.Stop then
+        frame.glowAnim:Stop()
     end
+    if frame.glowFrame then
+        frame.glowFrame:Hide()
+    end
+end
+
+local function FlushPoolBuckets(poolByKey)
+    FPU.FlushPoolBuckets(poolByKey, FlushWorldMapFrame)
 end
 
 function Provider:EnsureRegistered()
