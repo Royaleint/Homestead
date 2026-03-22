@@ -1250,6 +1250,7 @@ HA.DecorMapping = {
     [15160] = 263320,    -- Rope-Bound Amani Basket
     [15260] = 263499,    -- Sturdy Void Elf Trunk
     [15399] = 263994,    -- Fungal Chest
+    [15400] = 263995,    -- Delver's Bountiful Coffer
     [15401] = 263996,    -- Twilight Tabernacle
     [15410] = 264005,    -- Midnight Jewelcrafter's Shop Sign
     [15412] = 264007,    -- Corewarden's Spoils
