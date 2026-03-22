@@ -365,6 +365,9 @@ local PORTAL_CLASS_ATLAS = {
     DEMONHUNTER = "legionmission-landingbutton-demonhunter-up",
     MONK        = "legionmission-landingbutton-monk-up",
     MAGE        = "legionmission-landingbutton-mage-up",
+    ROGUE       = "legionmission-landingbutton-rogue-up",
+    HUNTER      = "legionmission-landingbutton-hunter-up",
+    WARLOCK     = "legionmission-landingbutton-warlock-up",
 }
 
 -- Creates a portal badge pin for an Order Hall entrance.
@@ -372,8 +375,9 @@ local PORTAL_CLASS_ATLAS = {
 -- Pin is placed at vendor.portal.{mapID,x,y}; click navigates to vendor.mapID.
 function PinFrameFactory:CreatePortalBadgePinFrame(portalData)
     local baseSize = self:GetPinIconSize()
+    local adjustedSize, _, iconSize = GetWorldPinVisualSizes(baseSize)
     local frame = CreateFrame("Frame", nil, UIParent)
-    frame:SetSize(baseSize, baseSize)
+    frame:SetSize(adjustedSize, adjustedSize)
     frame:EnableMouse(true)
 
     local vendor = portalData and portalData.vendor
@@ -393,7 +397,8 @@ function PinFrameFactory:CreatePortalBadgePinFrame(portalData)
     if classAtlas then
         -- Class icon fills the pin — the atlas includes its own border and emblem
         local icon = frame:CreateTexture(nil, "ARTWORK")
-        icon:SetAllPoints()
+        icon:SetSize(iconSize, iconSize)
+        icon:SetPoint("CENTER")
         icon:SetAtlas(classAtlas, false)
     else
         -- Fallback: tinted ring + housing icon (Warlock and future classes)
@@ -403,7 +408,7 @@ function PinFrameFactory:CreatePortalBadgePinFrame(portalData)
         ring:SetVertexColor(cr, cg, cb)
 
         local icon = frame:CreateTexture(nil, "ARTWORK")
-        icon:SetSize(baseSize * 0.65, baseSize * 0.65)
+        icon:SetSize(iconSize * 0.65, iconSize * 0.65)
         icon:SetPoint("CENTER")
         icon:SetAtlas("housing-decor-vendor_32", false)
         icon:SetDesaturated(true)
@@ -412,7 +417,7 @@ function PinFrameFactory:CreatePortalBadgePinFrame(portalData)
 
     -- Pulsing outer glow ring (class-colored, extends beyond pin edges)
     local glowFrame = CreateFrame("Frame", nil, frame)
-    glowFrame:SetSize(baseSize * 2.2, baseSize * 2.2)
+    glowFrame:SetSize(adjustedSize * 2.2, adjustedSize * 2.2)
     glowFrame:SetPoint("CENTER")
     local glowTex = glowFrame:CreateTexture(nil, "BACKGROUND")
     glowTex:SetAllPoints()
