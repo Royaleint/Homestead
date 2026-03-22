@@ -90,7 +90,6 @@ local SOURCE_FILTER_LABELS = {
     achievement = L["Achievement"] or "Achievement",
     profession = L["Profession"] or "Profession",
     event = L["Event"] or "Event",
-    shop = L["Shop"] or "Shop",
     drop = L["Drop"] or "Drop",
 }
 
@@ -696,7 +695,7 @@ local function FormatSourceSummary(source)
         if method == "hearthsteel" and data.cost then
             detail = data.cost .. " Hearthsteel"
         else
-            detail = data.name or "Shop"
+            detail = data.name or "In-Game Shop"
         end
         if data.expires then
             detail = detail .. " (until " .. data.expires .. ")"

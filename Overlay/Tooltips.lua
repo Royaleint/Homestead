@@ -603,13 +603,15 @@ local function RenderDropSourceLines(tooltip, source, parsedTag, _itemID, _compl
     end
 end
 
+local HEARTHSTEEL_ICON = "|A:hearthsteel-icon-32x32:16:16|a"
+
 local function RenderShopSourceLines(tooltip, source, parsedTag, _itemID, _completion, detailed)
     local data = source.data
     local method = data.method or "hearthsteel"
 
     local summary
     if method == "hearthsteel" and data.cost then
-        summary = data.cost .. " Hearthsteel"
+        summary = data.cost .. " " .. HEARTHSTEEL_ICON
     elseif method == "twitch" then
         summary = "Twitch Drop"
     elseif method == "charity" then
@@ -619,13 +621,16 @@ local function RenderShopSourceLines(tooltip, source, parsedTag, _itemID, _compl
     end
 
     if not detailed then
-        tooltip:AddLine("Source: Shop - |cFFFFFFFF" .. summary .. "|r" .. parsedTag, COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
+        tooltip:AddLine("Source: In-Game Shop - |cFFFFFFFF" .. summary .. "|r" .. parsedTag, COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
         return
     end
 
-    tooltip:AddLine("Source: Shop" .. parsedTag, COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
-    tooltip:AddLine("  |cFFFFFFFF" .. summary .. "|r", COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
-    if data.cost and data.name and method == "hearthsteel" then
+    tooltip:AddLine("Source: |cFFFFFFFFIn-Game Shop|r" .. parsedTag, COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
+    tooltip:AddLine("  Zone: |cFFFFFFFFN/A|r", COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
+    if method == "hearthsteel" and data.cost then
+        tooltip:AddLine("  Cost: |cFFFFFFFF" .. data.cost .. " " .. HEARTHSTEEL_ICON .. "|r", COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
+    end
+    if data.name then
         tooltip:AddLine("  Pack: |cFFFFFFFF" .. data.name .. "|r", COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
     end
     if data.expires then
@@ -972,11 +977,14 @@ local function OnHousingCatalogTooltipCreated(ownerID, entryFrame, tooltip)
     -- Get item ID from entry info (may be itemID or nested in entryID)
     local itemID = entryInfo.itemID
     if not itemID and entryInfo.entryID then
-        -- Some entries store itemID differently
-        itemID = entryInfo.entryID.itemID or entryInfo.entryID
+        if type(entryInfo.entryID) == "number" then
+            itemID = entryInfo.entryID
+        elseif type(entryInfo.entryID) == "table" then
+            itemID = entryInfo.entryID.itemID
+        end
     end
 
-    if not itemID then
+    if type(itemID) ~= "number" then
         if HA.DevAddon and HA.Addon.db.profile.debug then
             HA.Addon:Debug("Catalog tooltip: no itemID found in entryInfo")
         end
