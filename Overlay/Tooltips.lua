@@ -603,6 +603,36 @@ local function RenderDropSourceLines(tooltip, source, parsedTag, _itemID, _compl
     end
 end
 
+local function RenderShopSourceLines(tooltip, source, parsedTag, _itemID, _completion, detailed)
+    local data = source.data
+    local method = data.method or "hearthsteel"
+
+    local summary
+    if method == "hearthsteel" and data.cost then
+        summary = data.cost .. " Hearthsteel"
+    elseif method == "twitch" then
+        summary = "Twitch Drop"
+    elseif method == "charity" then
+        summary = data.name or "Charity Pack"
+    else
+        summary = data.name or "Promotion"
+    end
+
+    if not detailed then
+        tooltip:AddLine("Source: Shop - |cFFFFFFFF" .. summary .. "|r" .. parsedTag, COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
+        return
+    end
+
+    tooltip:AddLine("Source: Shop" .. parsedTag, COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
+    tooltip:AddLine("  |cFFFFFFFF" .. summary .. "|r", COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
+    if data.cost and data.name and method == "hearthsteel" then
+        tooltip:AddLine("  Pack: |cFFFFFFFF" .. data.name .. "|r", COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
+    end
+    if data.expires then
+        tooltip:AddLine("  Available until: |cFFFFFFFF" .. data.expires .. "|r", COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
+    end
+end
+
 -- Dispatch table for per-source-type rendering
 local SOURCE_RENDERERS = {
     vendor = RenderVendorSourceLines,
@@ -610,6 +640,7 @@ local SOURCE_RENDERERS = {
     achievement = RenderAchievementSourceLines,
     profession = RenderProfessionSourceLines,
     event = RenderEventSourceLines,
+    shop = RenderShopSourceLines,
     drop = RenderDropSourceLines,
 }
 
