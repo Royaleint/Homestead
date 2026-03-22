@@ -46,6 +46,7 @@ Data\QuestSources.lua
 Data\ProfessionSources.lua
 Data\EventSources.lua
 Data\DropSources.lua
+Data\ShopSources.lua
 Data\PrerequisiteSources.lua
 Data\SourceManager.lua
 Data\SourceTextLocaleProfiles.lua

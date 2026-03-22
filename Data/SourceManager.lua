@@ -35,7 +35,7 @@ local sourceProviders = {}  -- name → provider table
 local providerOrder = {}    -- ordered list of provider names (rebuilt on registration)
 local providersRegistered = false
 local sourceManagerInitialized = false
-local SOURCE_TYPE_ORDER = { "vendor", "quest", "achievement", "profession", "event", "drop" }
+local SOURCE_TYPE_ORDER = { "vendor", "quest", "achievement", "profession", "event", "shop", "drop" }
 local EMPTY_SOURCES = {}
 
 -- Cache for completion status checks used by tooltip rendering.
@@ -147,6 +147,20 @@ local function RegisterDefaultProviders()
         getSources = function(itemID)
             if HA.DropSources and HA.DropSources[itemID] then
                 return {{type = "drop", data = HA.DropSources[itemID]}}
+            end
+            return EMPTY_SOURCES
+        end,
+    })
+
+    SourceManager:RegisterProvider("shop", {
+        getSource = function(itemID)
+            if HA.ShopSources and HA.ShopSources[itemID] then
+                return {type = "shop", data = HA.ShopSources[itemID]}
+            end
+        end,
+        getSources = function(itemID)
+            if HA.ShopSources and HA.ShopSources[itemID] then
+                return {{type = "shop", data = HA.ShopSources[itemID]}}
             end
             return EMPTY_SOURCES
         end,
@@ -967,6 +981,7 @@ local CANONICAL_SOURCE_TYPES = {
     achievement = true,
     profession = true,
     event = true,
+    shop = true,
     drop = true,
 }
 local SOURCE_TYPE_ALIASES = {
@@ -979,6 +994,7 @@ local SOURCE_TYPE_ICONS = {
     drop = HA.Constants.Icons.DROP_SOURCE,
     quest = HA.Constants.Icons.QUEST_REWARD,
     event = HA.Constants.Icons.PURCHASABLE,
+    shop = HA.Constants.Icons.PURCHASABLE,
     reputation = HA.Constants.Icons.REPUTATION,
 }
 
