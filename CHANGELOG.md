@@ -10,6 +10,10 @@
 
 ### Fixed
 
+- **Corrected Voidlight Marl vendor prices.** All Midnight vendors that sell items for Voidlight Marl were showing inflated costs (roughly 3x too high). Prices now match what's shown in-game.
+- **Naleidea Rivergleam updated for Midnight.** Her vendor inventory now correctly shows her Midnight-era Undercoin items instead of an outdated item list.
+- **New items added:** Delver's Bountiful Coffer (Telemancer Astrandis), Swirling Ritual Pedestal and Ren'dorei Spired Tent (Sathren Azuredawn).
+- **Trader Caerel and Construct Ali'a** now show correct currency costs in tooltips and the side panel.
 - Order Hall portal pins are now properly sized — they were appearing too small after the map pin rebuild.
 - **Eliminated combat map taint errors.** Opening the World Map during combat no longer triggers "AddOn tried to call protected function" errors. The entire map pin system was rebuilt from scratch to avoid Blizzard's protected pin lifecycle. This was the #1 reported technical issue.
 - Map pins now coexist cleanly with Blizzard's own points of interest instead of covering them. Pins near event POIs (like Saltheril's Soiree or Abundance) will nudge slightly to the side so both are visible and clickable.
