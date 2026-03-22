@@ -61,6 +61,7 @@ Constants.SourceBadgeAtlas = {
     profession  = "UI-HUD-MicroMenu-Professions-Mouseover",
     event       = "UI-HUD-Calendar-1-Up",
     drop        = "Crosshair_lootall_64",
+    shop        = "hearthsteel-icon-32x32",
     hearthsteel = "hearthsteel-icon-32x32",
 }
 

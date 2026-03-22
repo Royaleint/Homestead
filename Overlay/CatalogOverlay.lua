@@ -144,8 +144,8 @@ end
 local function GetSourceBadgeFromSourceText(sourceText)
     if not sourceText or sourceText == "" then return nil end
 
-    if sourceText:find("Hearthsteel") or sourceText:find("Battle.net Shop") then
-        return SourceBadgeAtlas.hearthsteel
+    if sourceText:find("Hearthsteel") or sourceText:find("Battle.net Shop") or sourceText:find("In%-Game Shop") then
+        return SourceBadgeAtlas.shop
     end
 
     if not HA.SourceTextParser or not HA.SourceTextParser.ParseSourceText

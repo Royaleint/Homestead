@@ -90,6 +90,7 @@ local SOURCE_FILTER_LABELS = {
     achievement = L["Achievement"] or "Achievement",
     profession = L["Profession"] or "Profession",
     event = L["Event"] or "Event",
+    shop = L["Shop"] or "Shop",
     drop = L["Drop"] or "Drop",
 }
 
@@ -690,6 +691,16 @@ local function FormatSourceSummary(source)
         local mobName = data.mobName or "Unknown Drop"
         local location = data.zone
         detail = location and (mobName .. " (" .. location .. ")") or mobName
+    elseif sourceType == "shop" then
+        local method = data.method or "hearthsteel"
+        if method == "hearthsteel" and data.cost then
+            detail = data.cost .. " Hearthsteel"
+        else
+            detail = data.name or "Shop"
+        end
+        if data.expires then
+            detail = detail .. " (until " .. data.expires .. ")"
+        end
     else
         detail = data.name or data.sourceText or "Unknown Source"
     end
