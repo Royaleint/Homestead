@@ -2,22 +2,28 @@
 
 ---
 
-## Unreleased
+## v2.2.0 (2026-03-22)
 
 ### Added
 
-- **Order Hall portal pins for Rogue, Hunter, and Warlock.** Each now shows a class-themed portal badge on the Dalaran map at the Order Hall entrance, matching the existing portals for Paladin, Shaman, Warrior, Priest, Demon Hunter, Monk, and Mage. Hunter's portal pin at Talua also fixes the Trueshot Lodge vendor not appearing for non-hunter characters.
+- **In-Game Shop source tracking.** Items purchased from the Hearthsteel shop, Twitch drops, and promotional items (like the Zillow decor and Roofus Charity Pack) now show where they come from in tooltips and catalog badges. Shop items display the Hearthsteel icon alongside their cost.
+- **Localization: 7 new languages.** Added support for German (deDE), French (frFR), Spanish (esES), Mexican Spanish (esMX), Brazilian Portuguese (ptBR), Korean (koKR), and Simplified Chinese (zhCN). All addon text, settings descriptions, and source labels are now translatable. (Thanks maxevil051 from CF for the zhCN request)
+- **Order Hall portal pins for Rogue, Hunter, and Warlock.** Each now shows a class-themed portal badge on the Dalaran map at the Order Hall entrance, matching the existing portals for the other seven classes. Hunter's portal pin at Talua also fixes the Trueshot Lodge vendor not appearing for non-hunter characters.
+- **Hesta Forlath** now shows Community Coupon costs for all 9 items.
 
 ### Fixed
 
-- **Corrected Voidlight Marl vendor prices.** All Midnight vendors that sell items for Voidlight Marl were showing inflated costs (roughly 3x too high). Prices now match what's shown in-game.
-- **Naleidea Rivergleam updated for Midnight.** Her vendor inventory now correctly shows her Midnight-era Undercoin items instead of an outdated item list.
+- **Opening the World Map during combat no longer causes errors.** The entire map pin system was rebuilt from scratch to prevent this. This was the #1 reported issue.
+- **Corrected Voidlight Marl vendor prices.** All Midnight vendors that sell items for Voidlight Marl were showing inflated costs (roughly 3-5x too high). Prices now match what's shown in-game.
+- **Naleidea Rivergleam updated for Midnight.** Her vendor inventory now correctly shows her current items instead of an outdated list.
 - **New items added:** Delver's Bountiful Coffer (Telemancer Astrandis), Swirling Ritual Pedestal and Ren'dorei Spired Tent (Sathren Azuredawn).
 - **Trader Caerel and Construct Ali'a** now show correct currency costs in tooltips and the side panel.
+- Chel the Chip's Abundance locations now show their correct subzone names instead of internal notes.
 - Order Hall portal pins are now properly sized — they were appearing too small after the map pin rebuild.
-- **Eliminated combat map taint errors.** Opening the World Map during combat no longer triggers "AddOn tried to call protected function" errors. The entire map pin system was rebuilt from scratch to avoid Blizzard's protected pin lifecycle. This was the #1 reported technical issue.
 - Map pins now coexist cleanly with Blizzard's own points of interest instead of covering them. Pins near event POIs (like Saltheril's Soiree or Abundance) will nudge slightly to the side so both are visible and clickable.
 - Vendor pin count text (like "3/5") now sits below the icon instead of on top of it.
+- Minimap pin tooltips now show the subzone name (like "Trade District") instead of just the zone name.
+- Minimap pins from other zones no longer appear on the edge of the minimap.
 
 ### Improved
 
