@@ -1,5 +1,6 @@
 -- ShopSources.lua — Static source data for shop, promotional, and Twitch drop items.
--- Created: 2026-03-22 | Entries: 17
+-- Created: 2026-03-22 | Entries: 39
+-- Sources: catalog sourceText scan (27 "Shop" items) + Wowhead pack articles + Roofus charity pack
 --
 -- Schema:
 --   [itemID] = {
@@ -11,6 +12,24 @@
 local _, HA = ...
 
 HA.ShopSources = {
+    ---------------------------------------------------------------------------
+    -- Individual Hearthsteel items (shop-only, not available from gold vendors)
+    ---------------------------------------------------------------------------
+    [256764] = { method = "hearthsteel", name = "In-Game Shop" },              -- Sanctuary's Horadric Cube
+    [258211] = { method = "hearthsteel", name = "In-Game Shop" },              -- Kirin Tor Glass Table
+    [259055] = { method = "hearthsteel", name = "In-Game Shop" },              -- Hatred's Wolfpelt Rug
+    [259056] = { method = "hearthsteel", name = "In-Game Shop" },              -- Prime Evil's Chest
+    [263052] = { method = "hearthsteel", name = "In-Game Shop" },              -- Beloved Lion Plushie
+    [263053] = { method = "hearthsteel", name = "In-Game Shop" },              -- Beloved Wolf Plushie
+    [263383] = { method = "hearthsteel", name = "In-Game Shop" },              -- Corked Bottle of Liquid Mystery
+    [264278] = { method = "hearthsteel", name = "In-Game Shop" },              -- Sturdy Portable Ice Chest
+    [264279] = { method = "hearthsteel", name = "In-Game Shop" },              -- Tall Corked Bottle of Liquid Mystery
+    [264280] = { method = "hearthsteel", name = "In-Game Shop" },              -- Short Corked Bottle of Liquid Mystery
+    [264281] = { method = "hearthsteel", name = "In-Game Shop" },              -- Preserved Gift of Gilneas
+    [264282] = { method = "hearthsteel", name = "In-Game Shop" },              -- Bluebird's Golden Cage
+    [264283] = { method = "hearthsteel", name = "In-Game Shop" },              -- Backboard and Hoop Playset
+    [264384] = { method = "hearthsteel", name = "In-Game Shop" },              -- Zapmaster Viewer 3000
+
     ---------------------------------------------------------------------------
     -- Spring Blossom Pack (Hearthsteel)
     ---------------------------------------------------------------------------
@@ -39,7 +58,20 @@ HA.ShopSources = {
     [260728] = { method = "hearthsteel", name = "Starter Pack" },               -- Horde Doormat
 
     ---------------------------------------------------------------------------
+    -- Roofus Charity Pack
+    ---------------------------------------------------------------------------
+    [259044] = { method = "charity", name = "Roofus Charity Pack" },            -- Paw Pal Water Dish
+    [259045] = { method = "charity", name = "Roofus Charity Pack" },            -- Paw Pal Bed and Blanket
+    [259046] = { method = "charity", name = "Roofus Charity Pack" },            -- Paw Pal Bed
+    [259093] = { method = "charity", name = "Roofus Charity Pack" },            -- Paw Pal Dog House Frame
+    [259094] = { method = "charity", name = "Roofus Charity Pack" },            -- Paw Pal Dog House Elwynn Roof
+    [264275] = { method = "charity", name = "Roofus Charity Pack" },            -- Paw Pal Dog House Durotar Roof
+    [264276] = { method = "charity", name = "Roofus Charity Pack" },            -- Paw Pal Dog House Eversong Roof
+    [264277] = { method = "charity", name = "Roofus Charity Pack" },            -- Paw Pal Dog House Shadowglen Roof
+
+    ---------------------------------------------------------------------------
     -- Promotional
     ---------------------------------------------------------------------------
+    [264396] = { method = "promo", name = "Zillow for Warcraft" },              -- Naturally Elegant Doormat
     [264397] = { method = "promo", name = "Zillow for Warcraft" },              -- Simply Adorned Vase and Flowers
 }
