@@ -19,6 +19,7 @@
 - **New items added:** Delver's Bountiful Coffer (Telemancer Astrandis), Swirling Ritual Pedestal and Ren'dorei Spired Tent (Sathren Azuredawn).
 - **Trader Caerel and Construct Ali'a** now show correct currency costs in tooltips and the side panel.
 - Chel the Chip's Abundance locations now show their correct subzone names instead of internal notes.
+- **Housing Dashboard tooltips no longer error on non-item catalog entries.** Hovering over certain catalog entries while inside your house could cause a Lua error (50x spam). Fixed by properly handling catalog entries that use composite keys instead of simple item IDs.
 - Order Hall portal pins are now properly sized — they were appearing too small after the map pin rebuild.
 - Map pins now coexist cleanly with Blizzard's own points of interest instead of covering them. Pins near event POIs (like Saltheril's Soiree or Abundance) will nudge slightly to the side so both are visible and clickable.
 - Vendor pin count text (like "3/5") now sits below the icon instead of on top of it.
