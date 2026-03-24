@@ -971,6 +971,130 @@ function SourceManager:GetRequirementProgress(req)
 end
 
 -------------------------------------------------------------------------------
+-- Availability Classification
+-------------------------------------------------------------------------------
+
+-- Build a human-readable blocker label from a single requirement.
+local function GetRequirementBlockerLabel(req)
+    if not req then return nil end
+
+    if req.type == "reputation" then
+        local standing = req.standing or "Required"
+        local faction = req.faction or "Unknown Faction"
+        if standing:match("^Renown") then
+            return standing .. " " .. faction
+        end
+        return standing .. " with " .. faction
+    end
+
+    if req.type == "achievement" then
+        return "Achievement: " .. (req.name or "Unknown Achievement")
+    end
+
+    if req.type == "quest" then
+        return "Quest: " .. (req.name or "Unknown Quest")
+    end
+
+    if req.type == "profession" then
+        return req.profession and ("Profession: " .. req.profession) or "Profession requirement"
+    end
+
+    if req.text then
+        return req.text
+    end
+
+    return "Other requirements"
+end
+
+-- Append a blocker label to a list, deduplicating by string equality.
+local function AppendUniqueBlockerLabel(labels, label)
+    if not label then return labels end
+
+    labels = labels or {}
+    for _, existing in ipairs(labels) do
+        if existing == label then
+            return labels
+        end
+    end
+
+    labels[#labels + 1] = label
+    return labels
+end
+
+-- Classify an item's availability based on its requirements.
+-- Returns: state, isUnverified, hasVerifiableRequirement, blockerLabels
+--   state: "purchasable" or "locked"
+--   isUnverified: true when all requirements are unknown type
+--   hasVerifiableRequirement: true when at least one req has a known type
+--   blockerLabels: array of human-readable strings (only when locked), or nil
+local function EvaluateRequirementAvailability(reqs)
+    if not reqs or #reqs == 0 then
+        return "purchasable", false, false, nil
+    end
+
+    local hasVerifiableRequirement = false
+    local blockerLabels = nil
+    for _, req in ipairs(reqs) do
+        if req.type ~= "unknown" then
+            hasVerifiableRequirement = true
+        end
+
+        if SourceManager:IsRequirementMet(req) == false then
+            blockerLabels = AppendUniqueBlockerLabel(blockerLabels, GetRequirementBlockerLabel(req))
+        end
+    end
+
+    if blockerLabels then
+        return "locked", false, hasVerifiableRequirement, blockerLabels
+    end
+
+    return "purchasable", not hasVerifiableRequirement, hasVerifiableRequirement, nil
+end
+
+-- Vendor-scoped availability: classifies an item in a specific vendor context.
+-- Returns: state, isUnverified, hasVerifiableRequirement, blockerLabels
+function SourceManager:GetVendorItemAvailabilityState(itemID, npcID)
+    if not itemID then return "unknown", false, false, nil end
+
+    -- Intentional duplicate ownership guard for standalone callers such as tooltips.
+    if HA.CatalogStore and HA.CatalogStore:IsOwnedFresh(itemID) then
+        return "owned", false, false, nil
+    end
+
+    if not npcID then
+        return "unknown", false, false, nil
+    end
+
+    local reqs = self:GetRequirements(itemID, npcID)
+    return EvaluateRequirementAvailability(reqs)
+end
+
+-- Generic availability: uses vendor scope when npcID is given, otherwise
+-- falls back to source-level availability checks.
+-- Returns: state, isUnverified, hasVerifiableRequirement, blockerLabels
+function SourceManager:GetItemAvailabilityState(itemID, npcID)
+    if not itemID then return "unknown", false, false, nil end
+
+    if npcID then
+        return self:GetVendorItemAvailabilityState(itemID, npcID)
+    end
+
+    if HA.CatalogStore and HA.CatalogStore:IsOwnedFresh(itemID) then
+        return "owned", false, false, nil
+    end
+
+    if self:GetBestAvailableSource(itemID) then
+        return "available", false, false, nil
+    end
+
+    if self:GetSource(itemID) then
+        return "blocked", false, false, nil
+    end
+
+    return "unknown", false, false, nil
+end
+
+-------------------------------------------------------------------------------
 -- Source Type Checkers
 -------------------------------------------------------------------------------
 
@@ -1429,10 +1553,16 @@ end
 
 -- Central invalidation entrypoint for source-related caches.
 -- Future source/filter caches should be added here so callers have one API.
+-- Fires SOURCE_CACHES_INVALIDATED so UI modules can repaint without
+-- duplicating WoW event registrations.
 function SourceManager:InvalidateAllSourceCaches()
     self:InvalidateCompletionCache()
     factionNameToID = nil
     factionCacheExpandScheduled = false
+
+    if HA.Events then
+        HA.Events:Fire("SOURCE_CACHES_INVALIDATED")
+    end
 end
 
 local function HookCompletionCacheInvalidation()
