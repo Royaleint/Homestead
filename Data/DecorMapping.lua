@@ -1,7 +1,7 @@
 --[[
     Homestead - DecorMapping
-    Generated: 2026-03-03 20:42:55
-    Total entries: 1383
+    Generated: 2026-03-23 22:08:58
+    Total entries: 1387
 
     Static decorID → itemID mapping from Blizzard web API.
     Used by CatalogStore to seed the bidirectional index at startup.
@@ -1252,12 +1252,15 @@ HA.DecorMapping = {
     [15399] = 263994,    -- Fungal Chest
     [15400] = 263995,    -- Delver's Bountiful Coffer
     [15401] = 263996,    -- Twilight Tabernacle
+    [15408] = 264003,    -- Midnight Herbalist's Shop Sign
+    [15409] = 264004,    -- Midnight Scribe's Shop Sign
     [15410] = 264005,    -- Midnight Jewelcrafter's Shop Sign
     [15412] = 264007,    -- Corewarden's Spoils
     [15413] = 264008,    -- Root-Wrapped Reliquary
     [15453] = 264168,    -- Cenarion Round Rug
     [15454] = 264169,    -- Homestone Doormat
     [15455] = 264170,    -- Ancient Kaldorei Coffer
+    [15458] = 264173,    -- Midnight Skinner's Shop Sign
     [15460] = 264175,    -- Amani Strongbox
     [15463] = 264178,    -- Harandar Charcuterie Board
     [15477] = 264242,    -- Dreadscar Battle Planning Map

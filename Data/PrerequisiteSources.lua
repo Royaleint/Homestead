@@ -1,8 +1,8 @@
 --[[
     Homestead - PrerequisiteSources
-    Generated: 2026-03-03 20:42:55
-    Items with prerequisites: 182
-    Total prerequisite entries: 185
+    Generated: 2026-03-23 22:08:58
+    Items with prerequisites: 183
+    Total prerequisite entries: 186
 
     Blizzard-confirmed vendor purchase prerequisites from web API.
     Used by SourceManager:GetRequirements() as a high-confidence source.
@@ -167,6 +167,7 @@ HA.PrerequisiteSources = {
     [263196] = {{type = "quest", name = "Aln'hara's Bloom"}},
     [263231] = {{type = "quest", name = "Paved in Ash"}},
     [263315] = {{type = "quest", name = "The Cauldron of Echoes"}},
+    [264173] = {{type = "achievement", name = "Skinning at Midnight"}},
     [264178] = {{type = "quest", name = "Root Dash Delivery"}},
     [264259] = {{type = "achievement", name = "Legends Never Die"}},
     [264262] = {{type = "quest", name = "The Echoless Flame"}},

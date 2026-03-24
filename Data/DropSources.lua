@@ -1,11 +1,13 @@
 --[[
-    Homestead - Drop Sources
-    Generated: 2026-02-01 23:11:17
-    Total entries: 56
+    Homestead - DropSources
+    Generated: 2026-03-23 22:08:58
+    Total entries: 57
 
-    Maps itemID to mob/boss drop source information.
-    Coordinates are normalized 0-1 format.
-]]
+    World drop source data for housing decor items.
+    Regenerate with: python Home_Dev/scripts/generate_source_tables.py --table drop
+    DO NOT EDIT — changes will be overwritten. Use overrides file instead:
+    Home_Dev/scripts/overrides/drop_sources_overrides.lua
+--]]
 
 local _, HA = ...
 
@@ -14,6 +16,7 @@ HA.DropSources = {
     [241044] = {mobName = "L'ura", zone = "Seat of Triumvirate", mapID = 8910, coords = {x = 0.5, y = 0.5}, notes = "Final boss (dungeon in Mac'Aree, Argus). Drop confirmed. Entrance via Argus portal."},
     [241066] = {mobName = "Granokk", zone = "Arathi Highlands (Warfront Phase)", mapID = 14, coords = {x = 0.47, y = 0.56}, notes = "Rare spawn cycle. Use Zidormi to access present timeline."},
     [244655] = {mobName = "Lord Godfrey", zone = "Shadowfang Keep Dungeon", mapID = 209, coords = {x = 0.468, y = 0.724}, notes = "Final boss upper."},
+    [245315] = {mobName = "S.C.R.A.P. Heap", zone = "The War Within", notes = "Random drop from S.C.R.A.P. heap containers (Half-Empty Bag, Dented Crate, Uncovered Strongbox). Low drop rate (~0.1-0.9%)."},
     [245434] = {mobName = "Skulloc", zone = "Iron Docks Dungeon", mapID = 6951, coords = {x = 0.52, y = 0.48}, notes = "Final boss (train platform). Drop ~0.15%. Entrance Gorgrond."},
     [245435] = {mobName = "Warlord Zaela", zone = "Upper Blackrock Spire", mapID = 7307, coords = {x = 0.48, y = 0.7}, notes = "Final boss (throne room). Drop ~0.3%. Entrance Burning Steppes."},
     [245451] = {mobName = "Dargrul", zone = "Neltharion's Lair", mapID = 7546, coords = {x = 0.5, y = 0.5}, notes = "Final boss. Drop ~0.7%; can double-drop. Entrance Highmountain /way 49.6 68.5 (south of Thunder Totem)."},
@@ -29,17 +32,11 @@ HA.DropSources = {
     [246846] = {mobName = "Sha of Doubt", zone = "Temple of Jade Serpent", mapID = 960, coords = {x = 0.486, y = 0.672}, notes = "Boss room."},
     [246865] = {mobName = "Viz'aduum the Watcher", zone = "Eastern Kingdoms", coords = {x = 0.5, y = 0.5}, notes = "Alt: Viz'aduum (Karazhan return) secondary."},
     [247913] = {mobName = "Advisor Melandrus", zone = "Court of Stars", mapID = 761, coords = {x = 0.5, y = 0.5}, notes = "Final boss of Court of Stars dungeon."},
-    -- 248101 removed: item doesn't exist on Wowhead
     [248332] = {mobName = "Vanessa VanCleef", zone = "The Deadmines", mapID = 36, coords = {x = 0.246, y = 0.824}, notes = "Final boss."},
     [250703] = {mobName = "Creche Warden", zone = "Forbidden Reach", mapID = 2151, coords = {x = 0.51, y = 0.61}, notes = "Elite Mob Farm"},
     [250704] = {mobName = "Zskera Vaults", zone = "Forbidden Reach", mapID = 2151, coords = {x = 0.0, y = 0.0}, notes = "Weekly RNG Chest Loot - Random loot from Vault Chests"},
-    -- 250794, 250795, 250796 moved to EventSources.lua (Noblegarden)
-    -- 250797 (Spring Blossom Ceiling Light) removed: source unknown, not Lunar Festival
-    -- 250798 (Spring Blossom Shelf) removed: source unknown, not Lunar Festival
     [251331] = {mobName = "Teron'gor", zone = "Auchindoun Dungeon", mapID = 6912, coords = {x = 0.5, y = 0.5}, notes = "Final boss."},
     [253242] = {mobName = "Garrosh Hellscream", zone = "Siege of Orgrimmar", mapID = 6738, coords = {x = 0.5, y = 0.5}, notes = "Final boss (throne platform)."},
-    -- 253244, 253254-253257, 253290-253297 moved to EventSources.lua (Lunar Festival)
-    -- 253451 removed: Wowhead says drops from Ziekket, not Chimaerus — needs re-verification
     [255672] = {mobName = "King Mechagon", zone = "Operation: Mechagon", mapID = 2112, coords = {x = 0.502, y = 0.384}, notes = "Final boss (primary)."},
     [256354] = {mobName = "Warlord Sargha", zone = "Neltharus Dungeon", mapID = 14011, coords = {x = 0.5, y = 0.5}, notes = "Final boss."},
     [256428] = {mobName = "Erkhart Stormvein", zone = "Algeth'ar Academy", mapID = 14063, coords = {x = 0.5, y = 0.5}, notes = "Boss (w/ Kyrakka); confirmed DF dungeon."},
@@ -48,13 +45,9 @@ HA.DropSources = {
     [258268] = {mobName = "The Darkness", zone = "Darkflame Cleft", mapID = 14882, coords = {x = 0.5, y = 0.5}, notes = "Dungeon boss. Confirmed on Wowhead; drops in follower dungeons."},
     [258744] = {mobName = "High Sage Viryx", zone = "Skyreach Dungeon", mapID = 1492, coords = {x = 0.5, y = 0.5}, notes = "WoD dungeon final boss."},
     [260359] = {mobName = "Echo of Doragosa", zone = "Algeth'ar Academy", mapID = 2097, coords = {x = 0.624, y = 0.405}, notes = "Corrected: Final boss (Thaldraszus dungeon); 1/drop low diff."},
-    -- 260785 removed: Wowhead says achievement reward / vendor (Tuuran/Gabbi), not a drop
     [262957] = {mobName = "Volcoross", zone = "Amirdrassil, the Dream's Hope", mapID = 2549, coords = {x = 0.5, y = 0.5}, notes = "Alt/primary drop."},
     [263230] = {mobName = "Magistrix Vulira", zone = "Siren Isle", mapID = 2346, coords = {x = 0.5, y = 0.5}, notes = "Silvermoon-themed dungeon."},
     [263238] = {mobName = "Assault of the Zaqali", zone = "Aberrus Raid", mapID = 2569, coords = {x = 0.592, y = 0.418}, notes = "Boss room."},
-    -- 263290 (Spring Blossom Tree) removed: source unknown, not Lunar Festival
-    -- 263291 (Spring Blossom Pond) removed: source unknown, not Lunar Festival
-    [245315] = {mobName = "S.C.R.A.P. Heap", zone = "The War Within", notes = "Random drop from S.C.R.A.P. heap containers (Half-Empty Bag, Dented Crate, Uncovered Strongbox). Low drop rate (~0.1-0.9%)."},
     [264187] = {mobName = "Belo'ren", zone = "Siren Isle (Rare)", mapID = 16472, coords = {x = 0.5, y = 0.5}, notes = "Final boss drop (Light Ember child). /way Quel'Danas entrance."},
     [264246] = {mobName = "Chimaerus", zone = "Midnight Falls Raid", mapID = 16531, coords = {x = 0.5, y = 0.5}, notes = "Final (only) boss drop. Aberration-themed shroom. Confirmed Wowhead."},
     [264332] = {mobName = "Nalorakk", zone = "Zul'Aman (Siren Update)", mapID = 2437, coords = {x = 0.5, y = 0.5}, notes = "Classic boss (timewalk?)."},
@@ -62,22 +55,18 @@ HA.DropSources = {
     [264338] = {mobName = "Lothraxion", zone = "Midnight", mapID = 1963, coords = {x = 0.0, y = 0.0}, notes = "Blinded by betrayal, Lothraxion storms the Nexus-Point alone."},
     [264352] = {mobName = "Eversong Rares", zone = "Eversong Woods (Midnight)", mapID = 94, coords = {x = 0.0, y = 0.0}, notes = "World Rare Drop - Various rare elite spawns in Eversong Woods"},
     [264491] = {mobName = "Charonus", zone = "Siren Isle", mapID = 2346, coords = {x = 0.5, y = 0.5}, notes = "Void-themed delve boss."},
-    -- 264492 removed: Wowhead says drops from L'ura in March on Quel'danas, not Power of Temptation
     [264494] = {mobName = "Fallen-King Salhadaar", zone = "Siren Isle", mapID = 2346, coords = {x = 0.5, y = 0.5}, notes = "Delve/raid drop."},
     [264497] = {mobName = "Lothraxion (Void)", zone = "Hallowfall / Siren Isle", mapID = 2215, coords = {x = 0.5, y = 0.5}, notes = "Boss drop (Encounter 63626). Void-themed crystal."},
     [264498] = {mobName = "Vorasius", zone = "Hallowfall (Voidspire)", mapID = 2215, coords = {x = 0.5, y = 0.5}, notes = "Egg drop (Encounter 63658)."},
     [264500] = {mobName = "Alleria / Vaelgor", zone = "Siren Isle Scenario", mapID = 2346, coords = {x = 0.5, y = 0.5}, notes = "Final encounter drop."},
     [264717] = {mobName = "Rak'tul", zone = "Siren Isle", mapID = 2346, coords = {x = 0.5, y = 0.5}, notes = "Troll boss drop."},
-    -- 265949 removed: same fabricated "Power of Temptation" attribution
     [265950] = {mobName = "Chimaerus", zone = "Midnight Falls Raid", mapID = 4080, coords = {x = 0.5, y = 0.5}, notes = "Cutting Edge: Chimaerus achievement reward (Mythic). Aureate tier. Auto-House Chest."},
     [265951] = {mobName = "Crown of the Cosmos Raid Boss", zone = "The Voidspire (Raid)", coords = {x = 0.0, y = 0.0}, notes = "Raid drop from Crown of the Cosmos raid - The Voidspire"},
-    -- 266885 removed: same fabricated "Power of Temptation" attribution
     [266886] = {mobName = "Chimaerus", zone = "Midnight Falls Raid", mapID = 4080, coords = {x = 0.5, y = 0.5}, notes = "Cutting Edge Gleaming tier."},
     [266887] = {mobName = "Crown of the Cosmos", zone = "The Voidspire", mapID = 2215, coords = {x = 0.5, y = 0.5}, notes = "Gleaming."},
     [267007] = {mobName = "Razorgore the Untamed", zone = "Blackwing Lair", mapID = 469, coords = {x = 0.0, y = 0.0}},
     [267008] = {mobName = "Zaxasj the Speaker", zone = "Crucible of Storms", mapID = 2133, coords = {x = 0.492, y = 0.524}, notes = "Final boss; confirmed."},
     [267645] = {mobName = "Chimaerus", zone = "Midnight Falls Raid", mapID = 4080, coords = {x = 0.5, y = 0.5}, notes = "Argent tier."},
-    -- 267646 removed: same fabricated "Power of Temptation" attribution
     [268049] = {mobName = "Crown of Cosmos", zone = "Hallowfall", mapID = 2215, coords = {x = 0.5, y = 0.5}, notes = "Argent tier."},
     [269269] = {mobName = "Devouring Host", zone = "Ghostlands: Windrunner Spire", mapID = 95, coords = {x = 0.0, y = 0.0}, notes = "Rare Elite Drop (Midnight)"},
 }
