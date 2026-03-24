@@ -51,6 +51,7 @@ VendorDatabase.Aliases = {
     [253287] = 242724, -- Ranger Allorn Saltheril's Haven variant
     [16191]  = 259864, -- Sathren Azuredawn classic ID → Midnight NPC 259864
     [127151] = 125346, -- Toraan the Revered phased/interior-map variant (mapID 831) → canonical 125346 (mapID 830)
+    [135447] = 106902, -- Ransa Greyfeather variant (scanner-detected, unverified — possible endeavor/faction NPC)
 }
 
 -- Note: Aliases are resolved at both scan time (VendorScanner) and query time
@@ -2762,12 +2763,14 @@ VendorDatabase.Vendors = {
     },
 	[251091] = {
         name = "Nael Silvertongue",
-        mapID = 110,
-        x = 0.5, y = 0.5,
+        mapID = 2393,
+        x = 0.5073, y = 0.5616,
         zone = "Silvermoon City",
+        subzone = "Murder Row",
         faction = "Horde",
         currency = "Gold",
         expansion = "Midnight",
+        scanCoverage = "full",
         items = {257418},
     },
 	[252520] = {
