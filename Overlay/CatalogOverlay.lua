@@ -459,9 +459,6 @@ local function RefreshVisibleOverlays()
 end
 
 local function RefreshAvailabilityOverlays()
-    if HA.SourceManager and HA.SourceManager.InvalidateAllSourceCaches then
-        HA.SourceManager:InvalidateAllSourceCaches()
-    end
     RefreshVisibleOverlays()
 end
 
@@ -516,25 +513,13 @@ end
 -- Event-Driven Cache Invalidation
 -------------------------------------------------------------------------------
 
-local eventFrame = CreateFrame("Frame")
-eventFrame:RegisterEvent("ACHIEVEMENT_EARNED")
-eventFrame:RegisterEvent("QUEST_TURNED_IN")
-eventFrame:RegisterEvent("NEW_RECIPE_LEARNED")
-eventFrame:RegisterEvent("SKILL_LINES_CHANGED")
-eventFrame:RegisterEvent("UPDATE_FACTION")
-eventFrame:RegisterEvent("MAJOR_FACTION_RENOWN_LEVEL_CHANGED")
-eventFrame:SetScript("OnEvent", function(_, event)
-    if event == "UPDATE_FACTION" or event == "MAJOR_FACTION_RENOWN_LEVEL_CHANGED" then
-        RefreshAvailabilityOverlays()
-    else
-        RefreshVisibleOverlays()
-    end
-end)
-
--- Inter-module ownership and availability change
+-- Inter-module ownership and availability change.
+-- SourceManager owns the single WoW event frame for achievement/quest/reputation/
+-- profession/holiday invalidation and fires SOURCE_CACHES_INVALIDATED.
+-- CatalogOverlay only repaints — no duplicate WoW event registrations.
 if HA.Events then
     HA.Events:RegisterCallback("OWNERSHIP_UPDATED", RefreshVisibleOverlays)
-    HA.Events:RegisterCallback("ACTIVE_HOLIDAYS_CHANGED", RefreshAvailabilityOverlays)
+    HA.Events:RegisterCallback("SOURCE_CACHES_INVALIDATED", RefreshAvailabilityOverlays)
 end
 
 -- Register external refresher so Overlay:RefreshAll() also updates catalog overlays

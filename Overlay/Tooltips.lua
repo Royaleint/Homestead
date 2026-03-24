@@ -846,13 +846,48 @@ local function AddDecorInfoToTooltip(tooltip, itemLink)
 
     -- Check ownership status (always check, but only display if setting enabled)
     local isOwned = IsDecorOwned(itemLink)
+
+    -- Resolve vendor NPC scope for availability classification
+    local vendorNpcID = nil
+    if context == "merchant" then
+        vendorNpcID = cachedMerchantNpcID
+    elseif context == "panel" and lastTooltipOwner and lastTooltipOwner.npcID then
+        vendorNpcID = lastTooltipOwner.npcID
+    end
+
+    -- Classify availability using shared SourceManager helpers
+    local availabilityState = nil
+    if detailed and HA.SourceManager and HA.SourceManager.GetItemAvailabilityState then
+        availabilityState = HA.SourceManager:GetItemAvailabilityState(itemID, vendorNpcID)
+    end
+
     if not db or db.showOwned ~= false then
-        if isOwned == true then
+        if availabilityState == "owned" or isOwned == true then
             tooltip:AddLine("Status: Owned", COLOR_GREEN.r, COLOR_GREEN.g, COLOR_GREEN.b)
+        elseif vendorNpcID and availabilityState == "purchasable" then
+            tooltip:AddLine("Status: Purchasable", COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
+        elseif vendorNpcID and availabilityState == "locked" then
+            tooltip:AddLine("Status: Locked", COLOR_RED.r, COLOR_RED.g, COLOR_RED.b)
+        elseif availabilityState == "available" then
+            tooltip:AddLine("Status: Available Now", COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
+        elseif availabilityState == "blocked" then
+            tooltip:AddLine("Status: Blocked", COLOR_RED.r, COLOR_RED.g, COLOR_RED.b)
         elseif isOwned == false then
             tooltip:AddLine("Status: Not Owned", COLOR_RED.r, COLOR_RED.g, COLOR_RED.b)
         else
             tooltip:AddLine("Status: Unknown", COLOR_GRAY.r, COLOR_GRAY.g, COLOR_GRAY.b)
+        end
+    end
+
+    -- Panel-only opposite-faction vendor access note
+    if context == "panel" and vendorNpcID then
+        local scopedVendor = HA.VendorData and HA.VendorData.GetVendor
+            and HA.VendorData:GetVendor(vendorNpcID)
+        if scopedVendor and HA.VendorFilter and HA.VendorFilter.IsOppositeFaction
+                and HA.VendorFilter.IsOppositeFaction(scopedVendor)
+                and HA.VendorFilter.CanAccessVendor
+                and not HA.VendorFilter.CanAccessVendor(scopedVendor) then
+            tooltip:AddLine("Vendor access: Opposite-faction vendor on this character", 1.0, 0.5, 0.5)
         end
     end
 

@@ -218,12 +218,11 @@ function PinFrameFactory:RefreshVendorPinCount(frame, vendor)
         return
     end
 
-    local collected, total = 0, 0
-    if vendor and HA.VendorMapPins then
-        collected, total = HA.VendorMapPins:GetVendorCollectionCounts(vendor)
+    local stats
+    if vendor and HA.VendorMapPins and HA.VendorMapPins.GetVendorStats then
+        stats = HA.VendorMapPins:GetVendorStats(vendor)
     end
-
-    if total <= 0 then
+    if not stats or (stats.total or 0) <= 0 then
         if frame.count then
             frame.count:Hide()
         end
@@ -244,14 +243,10 @@ function PinFrameFactory:RefreshVendorPinCount(frame, vendor)
     frame.count:SetPoint("TOP", frame, "BOTTOM", 0, -2)
     local fontPath = frame.count:GetFont()
     frame.count:SetFont(fontPath, fontSize, "OUTLINE")
-    frame.count:SetText(collected .. "/" .. total)
-    if collected == total then
-        frame.count:SetTextColor(0.2, 1, 0.2)
-    elseif collected > 0 then
-        frame.count:SetTextColor(1, 1, 1)
-    else
-        frame.count:SetTextColor(1, 0.2, 0.2)
-    end
+    local BC = HA.BadgeCalculation
+    frame.count:SetText(BC and BC.FormatCountText(stats.collected, stats.total, stats.locked) or "")
+    -- Use white as base color; inline escapes handle segment coloring.
+    frame.count:SetTextColor(1, 1, 1)
     frame.count:Show()
 end
 

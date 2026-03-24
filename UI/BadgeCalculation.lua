@@ -132,6 +132,10 @@ end
 local UNKNOWN_VENDOR_STATS = {
     hasUncollectedState = "unknown",
     collected = 0,
+    purchasable = 0,
+    locked = 0,
+    unverified = 0,
+    blockers = nil,
     total = 0,
 }
 
@@ -153,17 +157,45 @@ local function BuildVendorStats(vendor, sourceFilter)
     end
 
     local hasMatchingItems = false
-    local hasUncollected = false
-    local total, collected = 0, 0
+    local total, collected, purchasable, locked = 0, 0, 0, 0
+    local provisionalUnverified = 0
+    local hasAnyVerifiableRequirements = false
+    local lockedBlockerCounts = {}
 
     for itemID in pairs(items) do
         if ItemMatchesSourceFilter(itemID, sourceFilter) then
             hasMatchingItems = true
             total = total + 1
+
             if IsItemOwned(itemID) then
                 collected = collected + 1
             else
-                hasUncollected = true
+                local SM = HA.SourceManager
+                local state, isUnverified = "purchasable", false
+                local hasVerifiableRequirement = false
+                local blockerLabels = nil
+
+                if SM and SM.GetVendorItemAvailabilityState then
+                    state, isUnverified, hasVerifiableRequirement, blockerLabels =
+                        SM:GetVendorItemAvailabilityState(itemID, vendor.npcID)
+                end
+
+                if isUnverified then
+                    provisionalUnverified = provisionalUnverified + 1
+                elseif hasVerifiableRequirement then
+                    hasAnyVerifiableRequirements = true
+                end
+
+                if state == "locked" then
+                    locked = locked + 1
+                    if blockerLabels then
+                        for _, blockerLabel in ipairs(blockerLabels) do
+                            lockedBlockerCounts[blockerLabel] = (lockedBlockerCounts[blockerLabel] or 0) + 1
+                        end
+                    end
+                else
+                    purchasable = purchasable + 1
+                end
             end
         end
     end
@@ -173,18 +205,48 @@ local function BuildVendorStats(vendor, sourceFilter)
         return {
             hasUncollectedState = false,
             collected = 0,
+            purchasable = 0,
+            locked = 0,
+            unverified = 0,
+            blockers = nil,
             total = 0,
         }
     end
 
+    -- Sort blockers by count descending, then alphabetically for stability.
+    local blockers = nil
+    if next(lockedBlockerCounts) ~= nil then
+        blockers = {}
+        for label, count in pairs(lockedBlockerCounts) do
+            blockers[#blockers + 1] = {
+                label = label,
+                count = count,
+            }
+        end
+        table.sort(blockers, function(a, b)
+            if a.count ~= b.count then
+                return a.count > b.count
+            end
+            return a.label < b.label
+        end)
+    end
+
     return {
-        hasUncollectedState = hasUncollected,
+        hasUncollectedState = (purchasable + locked) > 0,
         collected = collected,
+        purchasable = purchasable,
+        locked = locked,
+        -- Only report unverified when the vendor has at least some verifiable data.
+        -- Pure no-data vendors stay optimistic with zero unverified.
+        unverified = hasAnyVerifiableRequirements and provisionalUnverified or 0,
+        blockers = blockers,
         total = total,
     }
 end
 
-local function GetVendorStats(vendor, sourceFilter)
+-- Public vendor stats accessor with caching. All UI consumers should use
+-- this instead of re-deriving counts independently.
+function BadgeCalculation:GetVendorStats(vendor, sourceFilter)
     if not vendor or not vendor.npcID then
         return UNKNOWN_VENDOR_STATS
     end
@@ -200,6 +262,12 @@ local function GetVendorStats(vendor, sourceFilter)
     return stats
 end
 
+-- Local alias for internal callers (aggregate builders) that need
+-- the same caching without going through the colon-method dispatch.
+local function GetVendorStats(vendor, sourceFilter)
+    return BadgeCalculation:GetVendorStats(vendor, sourceFilter)
+end
+
 function BadgeCalculation:VendorHasUncollectedItems(vendor, sourceFilter)
     if not vendor or not vendor.npcID then return nil end
 
@@ -211,11 +279,26 @@ function BadgeCalculation:VendorHasUncollectedItems(vendor, sourceFilter)
     return stats.hasUncollectedState == true
 end
 
+-- Backward-compatible wrapper: returns collected, total only.
 function BadgeCalculation:GetVendorCollectionCounts(vendor, sourceFilter)
     if not vendor or not vendor.npcID then return 0, 0 end
 
-    local stats = GetVendorStats(vendor, sourceFilter)
+    local stats = self:GetVendorStats(vendor, sourceFilter)
     return stats.collected or 0, stats.total or 0
+end
+
+-- Format count text with inline color escapes: green owned / white total / red locked.
+-- Falls back to owned/total when locked == 0.
+-- Shared by PinFrameFactory and MapSidePanel.
+function BadgeCalculation.FormatCountText(collected, total, locked)
+    local ownedText = string.format("|cFF00FF00%d|r", collected or 0)
+    local totalText = string.format("|cFFFFFFFF%d|r", total or 0)
+
+    if locked and locked > 0 then
+        return ownedText .. "/" .. totalText .. "/" .. string.format("|cFFFF4040%d|r", locked)
+    end
+
+    return ownedText .. "/" .. totalText
 end
 
 -------------------------------------------------------------------------------
@@ -296,6 +379,8 @@ function BadgeCalculation:GetZoneVendorCounts(continentMapID)
                                 dominantFaction = nil,  -- Will be set to "Alliance", "Horde", or nil (mixed/neutral)
                                 collectedItems = 0,
                                 totalItems = 0,
+                                lockedItems = 0,
+                                unverifiedItems = 0,
                             }
                         end
 
@@ -322,6 +407,8 @@ function BadgeCalculation:GetZoneVendorCounts(continentMapID)
 
                         zoneCounts[zoneMapID].collectedItems = zoneCounts[zoneMapID].collectedItems + (stats.collected or 0)
                         zoneCounts[zoneMapID].totalItems = zoneCounts[zoneMapID].totalItems + (stats.total or 0)
+                        zoneCounts[zoneMapID].lockedItems = zoneCounts[zoneMapID].lockedItems + (stats.locked or 0)
+                        zoneCounts[zoneMapID].unverifiedItems = zoneCounts[zoneMapID].unverifiedItems + (stats.unverified or 0)
                     end
                 end
             end
@@ -370,6 +457,8 @@ function BadgeCalculation:GetContinentVendorCounts()
                                 oppositeFactionCount = 0,
                                 collectedItems = 0,
                                 totalItems = 0,
+                                lockedItems = 0,
+                                unverifiedItems = 0,
                             }
                         end
 
@@ -392,6 +481,8 @@ function BadgeCalculation:GetContinentVendorCounts()
 
                         continentCounts[continentMapID].collectedItems = continentCounts[continentMapID].collectedItems + (stats.collected or 0)
                         continentCounts[continentMapID].totalItems = continentCounts[continentMapID].totalItems + (stats.total or 0)
+                        continentCounts[continentMapID].lockedItems = continentCounts[continentMapID].lockedItems + (stats.locked or 0)
+                        continentCounts[continentMapID].unverifiedItems = continentCounts[continentMapID].unverifiedItems + (stats.unverified or 0)
                     end
                 end
             end
@@ -408,6 +499,7 @@ function BadgeCalculation:GetContinentVendorCounts()
                     continentName = mapInfo and mapInfo.name or "Unknown",
                     vendorCount = 0, uncollectedCount = 0, unknownCount = 0,
                     oppositeFactionCount = 0, collectedItems = 0, totalItems = 0,
+                    lockedItems = 0, unverifiedItems = 0,
                 }
             end
             local dest = continentCounts[destID]
@@ -417,6 +509,8 @@ function BadgeCalculation:GetContinentVendorCounts()
             dest.oppositeFactionCount = dest.oppositeFactionCount + src.oppositeFactionCount
             dest.collectedItems       = dest.collectedItems       + src.collectedItems
             dest.totalItems           = dest.totalItems           + src.totalItems
+            dest.lockedItems          = dest.lockedItems          + src.lockedItems
+            dest.unverifiedItems      = dest.unverifiedItems      + src.unverifiedItems
             continentCounts[srcID] = nil
         end
     end
@@ -443,4 +537,14 @@ end
 
 function BadgeCalculation:GetZoneCenterOnMap(zoneMapID, parentMapID)
     return MPP:GetZoneCenterOnMap(zoneMapID, parentMapID)
+end
+
+-------------------------------------------------------------------------------
+-- Event-Driven Cache Invalidation
+-------------------------------------------------------------------------------
+
+if HA.Events then
+    HA.Events:RegisterCallback("SOURCE_CACHES_INVALIDATED", function()
+        BadgeCalculation:InvalidateAllCaches()
+    end)
 end
