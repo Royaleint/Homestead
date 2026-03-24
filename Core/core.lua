@@ -47,6 +47,13 @@ function HousingAddon:OnInitialize()
     -- Clean up removed setting from SavedVariables (requirement scraping removed)
     self.db.global.enableRequirementScraping = nil
 
+    -- One-time migration: pin size default was too large for native pin system.
+    -- Old default was 20, runtime clamped to 18. Reset users at either value to 10.
+    local vt = self.db.profile.vendorTracer
+    if vt and vt.pinIconSize and vt.pinIconSize >= 18 then
+        vt.pinIconSize = 10
+    end
+
     -- Set up profile callbacks
     self.db.RegisterCallback(self, "OnProfileChanged", "OnProfileChanged")
     self.db.RegisterCallback(self, "OnProfileCopied", "OnProfileChanged")

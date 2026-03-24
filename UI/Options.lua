@@ -565,7 +565,7 @@ local function GetOptionsTable()
                         name = L["World map pin size"],
                         desc = L["desc_world_pin_size"],
                         order = 6,
-                        min = 2,
+                        min = 8,
                         max = 18,
                         step = 2,
                         width = "double",

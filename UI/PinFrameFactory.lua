@@ -55,9 +55,9 @@ end
 
 function PinFrameFactory:GetPinIconSize()
     local db = HA.Addon and HA.Addon.db
-    if not db then return 14 end
-    local size = db.profile.vendorTracer.pinIconSize or 14
-    return math.max(2, math.min(18, size))
+    if not db then return 10 end
+    local size = db.profile.vendorTracer.pinIconSize or 10
+    return math.max(8, math.min(18, size))
 end
 
 function PinFrameFactory:GetMinimapIconSize()

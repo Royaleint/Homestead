@@ -2079,18 +2079,15 @@ local PIN_COLOR_ORDER = {
 }
 
 local PIN_SIZE_LABELS = {
-    [2] = "2 px",
-    [4] = "4 px",
-    [6] = "6 px",
     [8] = "8 px",
-    [10] = "10 px",
+    [10] = "Default (10)",
     [12] = "12 px",
-    [14] = "Default (14)",
+    [14] = "14 px",
     [16] = "16 px",
     [18] = "18 px",
 }
 
-local PIN_SIZE_ORDER = { 2, 4, 6, 8, 10, 12, 14, 16, 18 }
+local PIN_SIZE_ORDER = { 8, 10, 12, 14, 16, 18 }
 
 local function ShowContextMenu(owner)
     MenuUtil.CreateContextMenu(owner, function(_, rootDescription)
