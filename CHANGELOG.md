@@ -2,6 +2,14 @@
 
 ---
 
+## v2.2.1 (2026-03-23)
+
+### Fixed
+
+- **World map pins were way too large.** The pin size default has been reduced and existing users will be automatically migrated to the new default. The pin size slider now ranges from 8-18 (previously 2-18), and the right-click pin size menu has been updated to match.
+
+---
+
 ## v2.2.0 (2026-03-22)
 
 ### Added
