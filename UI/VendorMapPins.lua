@@ -498,6 +498,10 @@ function VendorMapPins:GetVendorCollectionCounts(vendor)
     return BC:GetVendorCollectionCounts(vendor)
 end
 
+function VendorMapPins:GetVendorStats(vendor, sourceFilter)
+    return BC:GetVendorStats(vendor, sourceFilter)
+end
+
 function VendorMapPins:InvalidateBadgeCache()
     BC:InvalidateBadgeCache()
     lastRenderedWorldMapID = nil
@@ -653,13 +657,41 @@ function VendorMapPins:ShowVendorTooltip(pin, vendor)
             end
         end
 
-        tooltip:AddLine(" ")
-        local statusColor = collectedCount == #allItems and {0.5, 0.5, 0.5} or {0, 1, 0}
-        tooltip:AddLine(format("Collected: %d/%d", collectedCount, #allItems), unpack(statusColor))
     else
         -- No item data available
         tooltip:AddLine(" ")
         tooltip:AddLine("Item data unknown - visit vendor to scan", 1, 0.82, 0)
+    end
+
+    -- Purchasability summary (only when we have item data)
+    local stats = self:GetVendorStats(vendor, "all")
+    if stats.total > 0 then
+        tooltip:AddLine(" ")
+        tooltip:AddLine(string.format(
+            "|cFF00FF00Collected|r: %d | |cFFFFD100Purchasable|r: %d | |cFFFF4040Locked|r: %d",
+            stats.collected or 0,
+            stats.purchasable or 0,
+            stats.locked or 0
+        ), 1, 1, 1)
+
+        if isOpposite and not self:CanAccessVendor(vendor) then
+            tooltip:AddLine("Cannot buy on this character - opposite faction vendor", 1.0, 0.5, 0.5)
+            tooltip:AddLine("Locked counts above only reflect requirement gates.", 0.9, 0.7, 0.7)
+        end
+
+        local blockers = stats.blockers or {}
+        for i = 1, math.min(3, #blockers) do
+            local blocker = blockers[i]
+            tooltip:AddLine(string.format("Locked by: %s (%d)", blocker.label, blocker.count), 1.0, 0.82, 0)
+        end
+
+        if #blockers > 3 then
+            tooltip:AddLine(string.format("Locked by: +%d more blocker types", #blockers - 3), 0.8, 0.8, 0.8)
+        end
+
+        if (stats.unverified or 0) > 0 then
+            tooltip:AddLine(string.format("(%d unverified)", stats.unverified), 1.0, 0.82, 0.0)
+        end
     end
 
     tooltip:AddLine(" ")
@@ -1670,13 +1702,14 @@ function VendorMapPins:Initialize()
             end
         end)
 
-        -- Holiday state changed — event vendor pins may need to appear/disappear
-        HA.Events:RegisterCallback("ACTIVE_HOLIDAYS_CHANGED", function()
+        -- Source caches invalidated — covers achievement, quest, reputation,
+        -- profession, and holiday changes through SourceManager.
+        HA.Events:RegisterCallback("SOURCE_CACHES_INVALIDATED", function()
             self:InvalidateBadgeCache()
             if WorldMapFrame:IsShown() then
-                self:RequestWorldMapRefresh("holidays_changed")
+                self:RequestWorldMapRefresh("source_caches_invalidated", 0.1)
             end
-            self:RequestMinimapRefresh("holidays_changed")
+            self:RequestMinimapRefresh("source_caches_invalidated", 0.1)
         end)
 
         HA.Events:RegisterCallback("ACTIVE_ENDEAVOR_CHANGED", function()

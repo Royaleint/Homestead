@@ -64,6 +64,7 @@ local panelSourceFilter = "all"  -- all|vendor|quest|achievement|profession|even
 local sourceFilterDropdown = nil
 local progressBar = nil
 local progressBarBg = nil
+local progressBarLockedFill = nil
 local progressBarText = nil
 local scrollContainer = nil  -- Scroll area container (re-anchored by progress bar)
 
@@ -455,6 +456,11 @@ local function ReleaseIcon(icon)
     table.insert(iconPool, icon)
 end
 
+-- Shared count text formatter (green owned / white total / red locked).
+local function FormatPurchasabilityCountText(collected, total, locked)
+    return BC.FormatCountText(collected, total, locked)
+end
+
 -- Check if an item has unmet requirements the player hasn't satisfied
 local function GetUnmetRequirements(itemID, npcID)
     local SM = HA.SourceManager
@@ -462,17 +468,17 @@ local function GetUnmetRequirements(itemID, npcID)
     local reqs = SM:GetRequirements(itemID, npcID)
     if not reqs or #reqs == 0 then return nil end
 
-    local unmet = false
-    for _, req in ipairs(reqs) do
-        local met = SM:IsRequirementMet(req)
-        -- Treat both false (unmet) and nil (can't determine) as locked.
-        -- If a requirement exists but we can't confirm it's met, show locked.
-        if met ~= true then
-            unmet = true
-            break
-        end
+    -- Use vendor-scoped availability classification when possible.
+    -- Only confirmed false (not nil/unknown) counts as locked.
+    local state = SM.GetVendorItemAvailabilityState
+        and SM:GetVendorItemAvailabilityState(itemID, npcID)
+        or nil
+
+    if state == "locked" then
+        return reqs, reqs
     end
-    return unmet and reqs or nil, reqs
+
+    return nil, reqs
 end
 
 local function HideItemGrid(row)
@@ -1485,19 +1491,11 @@ local function PopulateZoneExpansion(zoneMapID, yOffsetStart, subRowIndex)
         subRow.nameText:SetTextColor(0.9, 0.9, 0.9)
 
         -- Collection counts using same filter as panel
-        local collected, total = BC:GetVendorCollectionCounts(vendor, panelSourceFilter)
-        if total > 0 then
-            local cr, cg, cb
-            if collected == total then
-                cr, cg, cb = 0, 1, 0
-            elseif collected > 0 then
-                cr, cg, cb = 1, 0.82, 0
-            else
-                cr, cg, cb = 1, 0.3, 0.3
-            end
-            subRow.countText:SetText(string.format("%d/%d", collected, total))
-            subRow.countText:SetTextColor(cr, cg, cb)
-            subRow.tooltipSub = string.format("Collected: %d/%d", collected, total)
+        local stats = BC:GetVendorStats(vendor, panelSourceFilter)
+        if (stats.total or 0) > 0 then
+            subRow.countText:SetText(FormatPurchasabilityCountText(stats.collected, stats.total, stats.locked))
+            subRow.countText:SetTextColor(1, 1, 1)
+            subRow.tooltipSub = string.format("Collected: %d/%d", stats.collected or 0, stats.total or 0)
         else
             subRow.countText:SetText("")
             subRow.tooltipSub = nil
@@ -1551,17 +1549,10 @@ local function PopulateContinentExpansion(continentMapID, yOffsetStart, subRowIn
         subRow.nameText:SetTextColor(0.9, 0.9, 0.9)
 
         -- Zone collection counts
+        local dataLocked = data.lockedItems or 0
         if dataTotal > 0 then
-            local cr, cg, cb
-            if dataCollected == dataTotal then
-                cr, cg, cb = 0, 1, 0
-            elseif dataCollected > 0 then
-                cr, cg, cb = 1, 0.82, 0
-            else
-                cr, cg, cb = 1, 0.3, 0.3
-            end
-            subRow.countText:SetText(string.format("%d/%d", dataCollected, dataTotal))
-            subRow.countText:SetTextColor(cr, cg, cb)
+            subRow.countText:SetText(FormatPurchasabilityCountText(dataCollected, dataTotal, dataLocked))
+            subRow.countText:SetTextColor(1, 1, 1)
             subRow.tooltipSub = string.format("%d vendors | %d/%d collected",
                 dataVendorCount, dataCollected, dataTotal)
         else
@@ -1832,6 +1823,14 @@ local function CreatePanel()
     progressBarBg:SetAllPoints()
     progressBarBg:SetColorTexture(0.1, 0.1, 0.1, 0.8)
 
+    -- Right-anchored locked fill (red segment)
+    progressBarLockedFill = progressBar:CreateTexture(nil, "ARTWORK", nil, 1)
+    progressBarLockedFill:SetPoint("TOPRIGHT", progressBar, "TOPRIGHT", 0, 0)
+    progressBarLockedFill:SetPoint("BOTTOMRIGHT", progressBar, "BOTTOMRIGHT", 0, 0)
+    progressBarLockedFill:SetWidth(0)
+    progressBarLockedFill:SetColorTexture(0.80, 0.20, 0.20, 0.95)
+    progressBarLockedFill:Hide()
+
     -- Centered count text
     progressBarText = progressBar:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
     progressBarText:SetPoint("CENTER")
@@ -1845,17 +1844,12 @@ local function CreatePanel()
         local val = self:GetValue()
         if max > 0 then
             local pct = math.floor(val / max * 100)
-            -- Match tooltip text color to bar fill color
-            local cr, cg, cb
-            if pct >= 100 then
-                cr, cg, cb = 0, 0.8, 0        -- green
-            elseif pct > 50 then
-                cr, cg, cb = 1, 0.82, 0       -- yellow
-            else
-                cr, cg, cb = 0.8, 0.2, 0.2    -- red
-            end
-            tooltip:AddLine(string.format("%d of %d items collected (%d%%)", val, max, pct), cr, cg, cb)
-            tooltip:AddLine(string.format("%d remaining", max - val), cr, cg, cb)
+            tooltip:AddLine(string.format("%d of %d items collected (%d%%)", val, max, pct), 0, 0.8, 0)
+            local lockedVal = self.lockedValue or 0
+            local purchasableVal = self.purchasableValue or math.max(0, max - val - lockedVal)
+            tooltip:AddLine(string.format("Collected: %d", val), 0, 0.8, 0)
+            tooltip:AddLine(string.format("Purchasable: %d", purchasableVal), 1, 0.82, 0)
+            tooltip:AddLine(string.format("Locked: %d", lockedVal), 0.8, 0.2, 0.2)
         end
         tooltip:Show()
     end)
@@ -2381,6 +2375,14 @@ end
 local function HideProgressBar()
     if not progressBar then return end
     progressBar:Hide()
+    if progressBarLockedFill then
+        progressBarLockedFill:Hide()
+        progressBarLockedFill:SetWidth(0)
+    end
+    progressBar.lockedValue = nil
+    progressBar.purchasableValue = nil
+    progressBar.pendingLockedRatio = nil
+    progressBar.needsLockedFillLayout = false
     -- Re-anchor scroll area below back bar or header (skip hidden progress bar)
     local anchor = GetContentTopAnchor()
     if scrollContainer then
@@ -2388,8 +2390,9 @@ local function HideProgressBar()
     end
 end
 
-local function UpdateProgressBar(collected, total)
+local function UpdateProgressBar(collected, total, locked)
     if not progressBar then return end
+    locked = locked or 0
     if total > 0 then
         -- Anchor progress bar below back bar or header
         local anchor = GetContentTopAnchor()
@@ -2399,20 +2402,22 @@ local function UpdateProgressBar(collected, total)
 
         progressBar:SetMinMaxValues(0, total)
 
-        -- Set color and text immediately (snap to final state)
+        -- Consistent blue fill — locked segment carries the red role
+        progressBar:SetStatusBarColor(0.2, 0.6, 0.8)
         local pct = collected / total
-        if pct >= 1 then
-            progressBar:SetStatusBarColor(0, 0.8, 0)
-        elseif pct > 0.5 then
-            progressBar:SetStatusBarColor(1, 0.82, 0)
-        else
-            progressBar:SetStatusBarColor(0.8, 0.2, 0.2)
-        end
         local pctDisplay = math.floor(pct * 100)
         progressBarText:SetText(string.format("%d/%d (%d%%)", collected, total, pctDisplay))
+
+        -- Store locked metadata for tooltip and OnUpdate layout
+        progressBar.lockedValue = locked
+        progressBar.purchasableValue = math.max(0, total - collected - locked)
+        progressBar.pendingLockedRatio = locked / total
+        progressBar.needsLockedFillLayout = true
+
         progressBar:Show()
 
-        -- Smooth fill: animate bar value toward target over ~0.4s
+        -- Smooth fill: animate bar value toward target over ~0.4s.
+        -- Also sizes the locked fill texture once layout width is available.
         progressBar.targetValue = collected
         if not progressBar.filling then
             progressBar.filling = true
@@ -2424,11 +2429,35 @@ local function UpdateProgressBar(collected, total)
                 if math.abs(current - target) <= step then
                     self:SetValue(target)
                     self.filling = false
-                    self:SetScript("OnUpdate", nil)
+                    -- Keep OnUpdate alive if locked fill still needs layout
+                    if not self.needsLockedFillLayout then
+                        self:SetScript("OnUpdate", nil)
+                    end
                 elseif current < target then
                     self:SetValue(current + step)
                 else
                     self:SetValue(current - step)
+                end
+
+                -- Deferred locked-fill sizing (needs valid GetWidth after layout pass)
+                if self.needsLockedFillLayout and progressBarLockedFill then
+                    local barWidth = self:GetWidth()
+                    if barWidth and barWidth > 0 then
+                        local lockedRatio = self.pendingLockedRatio or 0
+                        local lockedWidth = math.floor(barWidth * lockedRatio + 0.5)
+                        if lockedWidth > 0 then
+                            progressBarLockedFill:SetWidth(lockedWidth)
+                            progressBarLockedFill:Show()
+                        else
+                            progressBarLockedFill:SetWidth(0)
+                            progressBarLockedFill:Hide()
+                        end
+                        self.needsLockedFillLayout = false
+                        -- Clear OnUpdate entirely if fill animation also finished
+                        if not self.filling then
+                            self:SetScript("OnUpdate", nil)
+                        end
+                    end
                 end
             end)
         end
@@ -2485,7 +2514,7 @@ function MapSidePanel:RefreshZoneSummaries(mapID, mapInfo)
         summaryRows[#summaryRows + 1] = CreateSummaryRow(scrollChild, #summaryRows + 1)
     end
 
-    local totalCollected, totalItems = 0, 0
+    local totalCollected, totalItems, totalLocked = 0, 0, 0
     local zoneCount = 0
     local yOffset = 0
     local subRowIndex = 1  -- shared pool index across all expansions
@@ -2496,6 +2525,7 @@ function MapSidePanel:RefreshZoneSummaries(mapID, mapInfo)
         local dataVendorCount = data.vendorCount or 0
         local dataCollected = data.collectedItems or 0
         local dataTotal = data.totalItems or 0
+        local dataLocked = data.lockedItems or 0
 
         row.targetMapID = entry.mapID
         row.vendorCount = dataVendorCount
@@ -2509,19 +2539,11 @@ function MapSidePanel:RefreshZoneSummaries(mapID, mapInfo)
         local isExpanded = (expandedSummaryMapID == entry.mapID)
         row.arrow:SetAtlas(isExpanded and "common-icon-downarrow" or "common-icon-forwardarrow")
 
-        -- Summary line: "N vendors | X/Y" with color coding
+        -- Summary line: "N vendors | owned/total[/locked]" with inline colors
         if dataTotal > 0 then
-            local cr, cg, cb
-            if dataCollected == dataTotal then
-                cr, cg, cb = 0, 1, 0        -- green (complete)
-            elseif dataCollected > 0 then
-                cr, cg, cb = 1, 0.82, 0     -- yellow (partial)
-            else
-                cr, cg, cb = 1, 0.3, 0.3    -- red (none)
-            end
-            row.summaryLine:SetText(string.format("%d vendors | %d/%d",
-                dataVendorCount, dataCollected, dataTotal))
-            row.summaryLine:SetTextColor(cr, cg, cb)
+            row.summaryLine:SetText(string.format("%d vendors | %s",
+                dataVendorCount, FormatPurchasabilityCountText(dataCollected, dataTotal, dataLocked)))
+            row.summaryLine:SetTextColor(1, 1, 1)
         elseif dataVendorCount > 0 then
             row.summaryLine:SetText(string.format("%d vendors (no item data)", dataVendorCount))
             row.summaryLine:SetTextColor(0.5, 0.5, 0.5)
@@ -2545,6 +2567,7 @@ function MapSidePanel:RefreshZoneSummaries(mapID, mapInfo)
 
         totalCollected = totalCollected + dataCollected
         totalItems = totalItems + dataTotal
+        totalLocked = totalLocked + dataLocked
         zoneCount = zoneCount + 1
     end
 
@@ -2561,14 +2584,14 @@ function MapSidePanel:RefreshZoneSummaries(mapID, mapInfo)
 
     -- Summary line
     if totalItems > 0 then
-        summaryText:SetText(string.format("%d zones | %d/%d items",
-            zoneCount, totalCollected, totalItems))
+        summaryText:SetText(string.format("%d zones | %s items",
+            zoneCount, FormatPurchasabilityCountText(totalCollected, totalItems, totalLocked)))
     else
         summaryText:SetText(string.format("%d zones", zoneCount))
     end
 
     UpdateBackBar()
-    UpdateProgressBar(totalCollected, totalItems)
+    UpdateProgressBar(totalCollected, totalItems, totalLocked)
 end
 
 function MapSidePanel:RefreshContinentSummaries(mapID, mapInfo)
@@ -2610,7 +2633,7 @@ function MapSidePanel:RefreshContinentSummaries(mapID, mapInfo)
         summaryRows[#summaryRows + 1] = CreateSummaryRow(scrollChild, #summaryRows + 1)
     end
 
-    local totalCollected, totalItems = 0, 0
+    local totalCollected, totalItems, totalLocked = 0, 0, 0
     local contCount = 0
     local yOffset = 0
     local subRowIndex = 1
@@ -2621,6 +2644,7 @@ function MapSidePanel:RefreshContinentSummaries(mapID, mapInfo)
         local dataVendorCount = data.vendorCount or 0
         local dataCollected = data.collectedItems or 0
         local dataTotal = data.totalItems or 0
+        local dataLocked = data.lockedItems or 0
 
         row.targetMapID = entry.mapID
         row.vendorCount = dataVendorCount
@@ -2635,19 +2659,11 @@ function MapSidePanel:RefreshContinentSummaries(mapID, mapInfo)
         local isExpanded = (expandedSummaryMapID == entry.mapID)
         row.arrow:SetAtlas(isExpanded and "common-icon-downarrow" or "common-icon-forwardarrow")
 
-        -- Summary line: "N vendors | X/Y" with color coding
+        -- Summary line: "N vendors | owned/total[/locked]" with inline colors
         if dataTotal > 0 then
-            local cr, cg, cb
-            if dataCollected == dataTotal then
-                cr, cg, cb = 0, 1, 0
-            elseif dataCollected > 0 then
-                cr, cg, cb = 1, 0.82, 0
-            else
-                cr, cg, cb = 1, 0.3, 0.3
-            end
-            row.summaryLine:SetText(string.format("%d vendors | %d/%d",
-                dataVendorCount, dataCollected, dataTotal))
-            row.summaryLine:SetTextColor(cr, cg, cb)
+            row.summaryLine:SetText(string.format("%d vendors | %s",
+                dataVendorCount, FormatPurchasabilityCountText(dataCollected, dataTotal, dataLocked)))
+            row.summaryLine:SetTextColor(1, 1, 1)
         elseif dataVendorCount > 0 then
             row.summaryLine:SetText(string.format("%d vendors (no item data)", dataVendorCount))
             row.summaryLine:SetTextColor(0.5, 0.5, 0.5)
@@ -2671,6 +2687,7 @@ function MapSidePanel:RefreshContinentSummaries(mapID, mapInfo)
 
         totalCollected = totalCollected + dataCollected
         totalItems = totalItems + dataTotal
+        totalLocked = totalLocked + dataLocked
         contCount = contCount + 1
     end
 
@@ -2687,14 +2704,14 @@ function MapSidePanel:RefreshContinentSummaries(mapID, mapInfo)
 
     -- Summary line
     if totalItems > 0 then
-        summaryText:SetText(string.format("%d continents | %d/%d items",
-            contCount, totalCollected, totalItems))
+        summaryText:SetText(string.format("%d continents | %s items",
+            contCount, FormatPurchasabilityCountText(totalCollected, totalItems, totalLocked)))
     else
         summaryText:SetText(string.format("%d continents", contCount))
     end
 
     UpdateBackBar()
-    UpdateProgressBar(totalCollected, totalItems)
+    UpdateProgressBar(totalCollected, totalItems, totalLocked)
 end
 
 -------------------------------------------------------------------------------
@@ -2769,27 +2786,19 @@ function MapSidePanel:RefreshSearchResults()
             row.nameText:SetText(GetVendorDisplayName(vendor))
             row.nameText:SetTextColor(1, 1, 1)
 
-            -- Collection counts (uses panelSourceFilter for display only)
-            local collected, total = BC:GetVendorCollectionCounts(vendor, panelSourceFilter)
-            row.collected = collected
-            row.total = total
+            -- Collection stats (uses panelSourceFilter for display only)
+            local stats = BC:GetVendorStats(vendor, panelSourceFilter)
+            row.collected = stats.collected or 0
+            row.total = stats.total or 0
+            row.locked = stats.locked or 0
             if result.matchType == "item" then
-                row.countText:SetText(string.format("%d match%s | %d/%d",
+                row.countText:SetText(string.format("%d match%s | %s",
                     result.matchCount, result.matchCount == 1 and "" or "es",
-                    collected, total))
+                    FormatPurchasabilityCountText(row.collected, row.total, row.locked)))
             else
-                row.countText:SetText(string.format("%d/%d", collected, total))
+                row.countText:SetText(FormatPurchasabilityCountText(row.collected, row.total, row.locked))
             end
-
-            local cr, cg, cb
-            if total > 0 and collected == total then
-                cr, cg, cb = 0, 1, 0
-            elseif collected > 0 then
-                cr, cg, cb = 1, 0.82, 0
-            else
-                cr, cg, cb = 1, 0.3, 0.3
-            end
-            row.countText:SetTextColor(cr, cg, cb)
+            row.countText:SetTextColor(1, 1, 1)
 
             row.icon:SetDesaturated(true)
             row.icon:SetVertexColor(r, g, b)
@@ -2931,7 +2940,7 @@ function MapSidePanel:RefreshContent()
         vendorRows[#vendorRows + 1] = row
     end
 
-    local totalCollected, totalItems = 0, 0
+    local totalCollected, totalItems, totalLocked = 0, 0, 0
     local yOffset = 0  -- Tracks cumulative Y position (variable row heights)
 
     for i, entry in ipairs(vendorList) do
@@ -2963,22 +2972,16 @@ function MapSidePanel:RefreshContent()
             row.icon:SetVertexColor(1, 0.6, 0)
         end
 
-        -- Get collection counts
-        local collected, total = BC:GetVendorCollectionCounts(vendor, sourceFilter)
-        row.collected = collected
-        row.total = total
+        -- Get collection stats (includes purchasable/locked breakdown)
+        local stats = BC:GetVendorStats(vendor, sourceFilter)
+        row.collected = stats.collected or 0
+        row.total = stats.total or 0
+        row.locked = stats.locked or 0
 
-        if total > 0 then
-            local countColor
-            if collected == total then
-                countColor = {0, 1, 0}      -- Fully collected: green
-            elseif collected > 0 then
-                countColor = {1, 0.82, 0}   -- Partial: yellow/gold
-            else
-                countColor = {1, 0.3, 0.3}  -- None collected: red
-            end
-            row.countText:SetText(string.format("%d/%d collected", collected, total))
-            row.countText:SetTextColor(countColor[1], countColor[2], countColor[3])
+        if row.total > 0 then
+            row.countText:SetText(FormatPurchasabilityCountText(row.collected, row.total, row.locked))
+            -- White base color — inline escapes handle segment coloring
+            row.countText:SetTextColor(1, 1, 1)
         else
             if sourceFilter ~= "all" then
                 row.countText:SetText("No matching items")
@@ -2988,8 +2991,9 @@ function MapSidePanel:RefreshContent()
             row.countText:SetTextColor(0.5, 0.5, 0.5)
         end
 
-        totalCollected = totalCollected + collected
-        totalItems = totalItems + total
+        totalCollected = totalCollected + row.collected
+        totalItems = totalItems + row.total
+        totalLocked = totalLocked + row.locked
 
         -- Check if this vendor is expanded (item grid visible)
         local isExpanded = (expandedVendorID == vendor.npcID)
@@ -3030,8 +3034,8 @@ function MapSidePanel:RefreshContent()
 
     -- Summary line
     if totalItems > 0 then
-        summaryText:SetText(string.format("%d vendors | %d/%d items",
-            #vendorList, totalCollected, totalItems))
+        summaryText:SetText(string.format("%d vendors | %s items",
+            #vendorList, FormatPurchasabilityCountText(totalCollected, totalItems, totalLocked)))
     elseif #vendorList > 0 then
         summaryText:SetText(string.format("%d vendors", #vendorList))
     else
@@ -3040,7 +3044,7 @@ function MapSidePanel:RefreshContent()
 
     -- Back bar + progress bar
     UpdateBackBar()
-    UpdateProgressBar(totalCollected, totalItems)
+    UpdateProgressBar(totalCollected, totalItems, totalLocked)
 end
 
 -------------------------------------------------------------------------------
@@ -4094,7 +4098,9 @@ function MapSidePanel:Initialize()
             end)
         end)
 
-        HA.Events:RegisterCallback("ACTIVE_HOLIDAYS_CHANGED", function()
+        -- Source caches invalidated — covers achievement, quest, reputation,
+        -- profession, and holiday changes through SourceManager.
+        HA.Events:RegisterCallback("SOURCE_CACHES_INVALIDATED", function()
             MapSidePanel:RefreshContent()
         end)
     end

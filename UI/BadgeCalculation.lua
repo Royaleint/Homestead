@@ -287,6 +287,20 @@ function BadgeCalculation:GetVendorCollectionCounts(vendor, sourceFilter)
     return stats.collected or 0, stats.total or 0
 end
 
+-- Format count text with inline color escapes: green owned / white total / red locked.
+-- Falls back to owned/total when locked == 0.
+-- Shared by PinFrameFactory and MapSidePanel.
+function BadgeCalculation.FormatCountText(collected, total, locked)
+    local ownedText = string.format("|cFF00FF00%d|r", collected or 0)
+    local totalText = string.format("|cFFFFFFFF%d|r", total or 0)
+
+    if locked and locked > 0 then
+        return ownedText .. "/" .. totalText .. "/" .. string.format("|cFFFF4040%d|r", locked)
+    end
+
+    return ownedText .. "/" .. totalText
+end
+
 -------------------------------------------------------------------------------
 -- Cache Invalidation
 -------------------------------------------------------------------------------
