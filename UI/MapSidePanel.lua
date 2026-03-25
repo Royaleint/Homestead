@@ -1142,6 +1142,14 @@ local function CreateVendorRow(parent, index)
         if self.vendor.mapID and ORDER_HALL_MAPS[self.vendor.mapID] then
             tooltip:AddLine("Legion Order Hall", 1, 0.82, 0)
         end
+        if self.vendor.faction and self.vendor.faction ~= "Neutral" then
+            local factionColor = self.vendor.faction == "Alliance" and {0, 0.44, 0.87} or {0.77, 0.12, 0.23}
+            tooltip:AddLine(self.vendor.faction, unpack(factionColor))
+        end
+        if HA.VendorFilter and HA.VendorFilter.IsOppositeFaction
+                and HA.VendorFilter.IsOppositeFaction(self.vendor) then
+            tooltip:AddLine("Cannot access - opposite faction vendor", 0.8, 0.3, 0.3)
+        end
         if self.total and self.total > 0 then
             local stats = BC:GetVendorStats(self.vendor, panelSourceFilter)
             tooltip:AddLine(string.format(
