@@ -30,13 +30,13 @@ local Constants = HA.Constants
 local SourceBadgeAtlas = Constants.SourceBadgeAtlas
 
 -- Badge configuration
-local BADGE_SIZE = 20
+local BADGE_SIZE = 18
 local BADGE_PADDING = 2
 
 -- Per-atlas size overrides for atlases that render too small at BADGE_SIZE
 local ATLAS_SIZE_OVERRIDE = {
-    [SourceBadgeAtlas.profession] = 34,
-    [SourceBadgeAtlas.drop] = 34,
+    [SourceBadgeAtlas.profession] = 30,
+    [SourceBadgeAtlas.drop] = 30,
 }
 
 -- Accessibility glow colors: {r, g, b, alpha}
