@@ -218,8 +218,12 @@ EndeavorsData.Vendors = {
         currency = "Community Coupons",
         expansion = "The War Within",
         endeavor = true,
+        scanConfirmed = "2026-03-24",
         notes = "Neighborhood Endeavor vendor (K'areshi theme)",
-        items = {262907, 263043, 263044, 263045, 263046, 263047, 263048},
+        items = {
+            262664, 262665, 262666, 262667, 262884,
+            262907, 263043, 263044, 263045, 263046, 263047, 263048,
+        },
     },
 
     -- Blood Elf theme

@@ -1,7 +1,7 @@
 --[[
     Homestead - DecorMapping
     Generated: 2026-03-23 22:08:58
-    Total entries: 1387
+    Total entries: 1392
 
     Static decorID → itemID mapping from Blizzard web API.
     Used by CatalogStore to seed the bidirectional index at startup.
@@ -1198,6 +1198,11 @@ HA.DecorMapping = {
     [14639] = 262614,    -- Harandar Runestone
     [14641] = 262616,    -- Lively Songwriter's Quill
     [14644] = 262619,    -- Replica Forge of the Roaring Mountain
+    [14677] = 262664,    -- Complete Guide to K'areshi Wrappings, Vol. 11
+    [14678] = 262665,    -- K'areshi Holo-Crystal Projector
+    [14679] = 262666,    -- K'areshi Incense Burner
+    [14680] = 262667,    -- Oath Scale
+    [14793] = 262884,    -- Consortium Glowpost
     [14799] = 262906,    -- Harandar Anvil
     [14800] = 262907,    -- Tazaveshi Hookah
     [14808] = 263019,    -- Haranir Pennant
