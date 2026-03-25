@@ -58,8 +58,9 @@ end
 local vendorStatsCache = {}
 
 -- Cached badge counts (invalidated on ownership/scan/settings changes)
-local cachedZoneBadges = {}       -- [continentMapID] = zoneCounts table
-local cachedContinentBadges = nil -- continentCounts table
+-- Keyed by "continentMapID|sourceFilter" for zone badges, sourceFilter for continent badges.
+local cachedZoneBadges = {}
+local cachedContinentBadges = {}
 
 -------------------------------------------------------------------------------
 -- Ownership Helper
@@ -307,7 +308,7 @@ end
 
 function BadgeCalculation:InvalidateBadgeCache()
     wipe(cachedZoneBadges)
-    cachedContinentBadges = nil
+    wipe(cachedContinentBadges)
 end
 
 function BadgeCalculation:InvalidateAllCaches()
@@ -331,8 +332,10 @@ end
 -- Badge Count Computation
 -------------------------------------------------------------------------------
 
-function BadgeCalculation:GetZoneVendorCounts(continentMapID)
-    if cachedZoneBadges[continentMapID] then return cachedZoneBadges[continentMapID] end
+function BadgeCalculation:GetZoneVendorCounts(continentMapID, sourceFilter)
+    sourceFilter = NormalizeSourceFilter(sourceFilter)
+    local cacheKey = tostring(continentMapID) .. "|" .. sourceFilter
+    if cachedZoneBadges[cacheKey] then return cachedZoneBadges[cacheKey] end
 
     local zoneCounts = {}
     if not HA.VendorData then return zoneCounts end
@@ -396,7 +399,7 @@ function BadgeCalculation:GetZoneVendorCounts(continentMapID)
 
                         -- Direct stats lookup is intentional in this hot path.
                         -- Vendor validity is already gated above in this loop.
-                        local stats = GetVendorStats(vendor, "all")
+                        local stats = GetVendorStats(vendor, sourceFilter)
                         local hasUncollectedState = stats.hasUncollectedState
                         if hasUncollectedState == true then
                             zoneCounts[zoneMapID].uncollectedCount = zoneCounts[zoneMapID].uncollectedCount + 1
@@ -415,12 +418,13 @@ function BadgeCalculation:GetZoneVendorCounts(continentMapID)
         end
     end
 
-    cachedZoneBadges[continentMapID] = zoneCounts
+    cachedZoneBadges[cacheKey] = zoneCounts
     return zoneCounts
 end
 
-function BadgeCalculation:GetContinentVendorCounts()
-    if cachedContinentBadges then return cachedContinentBadges end
+function BadgeCalculation:GetContinentVendorCounts(sourceFilter)
+    sourceFilter = NormalizeSourceFilter(sourceFilter)
+    if cachedContinentBadges[sourceFilter] then return cachedContinentBadges[sourceFilter] end
 
     local continentCounts = {}
     if not HA.VendorData then return continentCounts end
@@ -470,7 +474,7 @@ function BadgeCalculation:GetContinentVendorCounts()
 
                         -- Direct stats lookup is intentional in this hot path.
                         -- Vendor validity is already gated above in this loop.
-                        local stats = GetVendorStats(vendor, "all")
+                        local stats = GetVendorStats(vendor, sourceFilter)
                         local hasUncollectedState = stats.hasUncollectedState
                         if hasUncollectedState == true then
                             continentCounts[continentMapID].uncollectedCount = continentCounts[continentMapID].uncollectedCount + 1
@@ -515,7 +519,7 @@ function BadgeCalculation:GetContinentVendorCounts()
         end
     end
 
-    cachedContinentBadges = continentCounts
+    cachedContinentBadges[sourceFilter] = continentCounts
     return continentCounts
 end
 
