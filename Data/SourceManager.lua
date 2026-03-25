@@ -42,6 +42,7 @@ local EMPTY_SOURCES = {}
 -- Keys are source-scoped ("achievement:12345", "quest:98765", "profession:54321").
 local completionCache = {}
 local completionInvalidationFrame = nil
+local suppressInvalidationEvent = false
 
 -------------------------------------------------------------------------------
 -- Provider Registry
@@ -779,7 +780,12 @@ local function GetFactionIDByName(name)
                 -- ExpandAllFactionHeaders fires UPDATE_FACTION synchronously,
                 -- which triggers InvalidateAllSourceCaches → factionNameToID = nil.
                 -- We must initialize the table AFTER the expand call completes.
+                -- Suppress the event fire during self-triggered expansion to avoid
+                -- an invalidation loop (expand → UPDATE_FACTION → invalidate →
+                -- refresh → faction miss → expand → ...).
+                suppressInvalidationEvent = true
                 C_Reputation.ExpandAllFactionHeaders()
+                suppressInvalidationEvent = false
                 if not factionNameToID then
                     factionNameToID = {}
                 end
@@ -1039,7 +1045,7 @@ local function EvaluateRequirementAvailability(reqs)
             hasVerifiableRequirement = true
         end
 
-        if SourceManager:IsRequirementMet(req) == false then
+        if SourceManager:IsRequirementMet(req) ~= true then
             blockerLabels = AppendUniqueBlockerLabel(blockerLabels, GetRequirementBlockerLabel(req))
         end
     end
@@ -1560,7 +1566,7 @@ function SourceManager:InvalidateAllSourceCaches()
     factionNameToID = nil
     factionCacheExpandScheduled = false
 
-    if HA.Events then
+    if HA.Events and not suppressInvalidationEvent then
         HA.Events:Fire("SOURCE_CACHES_INVALIDATED")
     end
 end

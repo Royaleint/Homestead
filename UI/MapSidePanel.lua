@@ -65,6 +65,7 @@ local sourceFilterDropdown = nil
 local progressBar = nil
 local progressBarBg = nil
 local progressBarLockedFill = nil
+local progressBarPurchasableFill = nil
 local progressBarText = nil
 local scrollContainer = nil  -- Scroll area container (re-anchored by progress bar)
 
@@ -1141,17 +1142,18 @@ local function CreateVendorRow(parent, index)
         if self.vendor.mapID and ORDER_HALL_MAPS[self.vendor.mapID] then
             tooltip:AddLine("Legion Order Hall", 1, 0.82, 0)
         end
-        if self.collected and self.total and self.total > 0 then
-            local color
-            if self.collected == self.total then
-                color = {0, 1, 0}       -- Fully collected: green
-            elseif self.collected > 0 then
-                color = {1, 0.82, 0}    -- Partial: yellow
-            else
-                color = {1, 0.3, 0.3}   -- None: red
+        if self.total and self.total > 0 then
+            local stats = BC:GetVendorStats(self.vendor, panelSourceFilter)
+            tooltip:AddLine(string.format(
+                "|cFF00FF00Collected|r: %d | |cFFFFD100Purchasable|r: %d | |cFFFF4040Locked|r: %d",
+                stats.collected or 0,
+                stats.purchasable or 0,
+                stats.locked or 0
+            ), 1, 1, 1)
+
+            if (stats.unverified or 0) > 0 then
+                tooltip:AddLine(string.format("(%d unverified)", stats.unverified), 1.0, 0.82, 0.0)
             end
-            tooltip:AddLine(string.format("Collected: %d/%d", self.collected, self.total),
-                color[1], color[2], color[3])
         end
         tooltip:AddLine(" ")
         if self.searchMode then
@@ -1293,17 +1295,16 @@ local function CreateSummaryRow(parent, index)
             tooltip:AddLine(string.format("%d vendors", self.vendorCount), 0.7, 0.7, 0.7)
         end
         if self.totalItems > 0 then
-            local pct = math.floor(self.collectedItems / self.totalItems * 100)
-            local cr, cg, cb
-            if self.collectedItems == self.totalItems then
-                cr, cg, cb = 0, 1, 0
-            elseif self.collectedItems > 0 then
-                cr, cg, cb = 1, 0.82, 0
-            else
-                cr, cg, cb = 1, 0.3, 0.3
+            local lockedCount = self.lockedItems or 0
+            local purchasableCount = math.max(0, self.totalItems - self.collectedItems - lockedCount)
+            tooltip:AddLine(string.format(
+                "|cFF00FF00Collected|r: %d | |cFFFFD100Purchasable|r: %d | |cFFFF4040Locked|r: %d",
+                self.collectedItems, purchasableCount, lockedCount
+            ), 1, 1, 1)
+
+            if (self.unverifiedItems or 0) > 0 then
+                tooltip:AddLine(string.format("(%d unverified)", self.unverifiedItems), 1.0, 0.82, 0.0)
             end
-            tooltip:AddLine(string.format("Collected: %d/%d (%d%%)",
-                self.collectedItems, self.totalItems, pct), cr, cg, cb)
         end
         tooltip:AddLine(" ")
         tooltip:AddLine("Click to expand | Right-click to navigate", 0.5, 0.5, 0.5)
@@ -1522,7 +1523,7 @@ end
 local function PopulateContinentExpansion(continentMapID, yOffsetStart, subRowIndex)
     if not BC then return 0, subRowIndex end
 
-    local zoneCounts = BC:GetZoneVendorCounts(continentMapID)
+    local zoneCounts = BC:GetZoneVendorCounts(continentMapID, panelSourceFilter)
 
     -- Build sorted zone list
     local zoneList = {}
@@ -1823,17 +1824,40 @@ local function CreatePanel()
     progressBarBg:SetAllPoints()
     progressBarBg:SetColorTexture(0.1, 0.1, 0.1, 0.8)
 
-    -- Right-anchored locked fill (red segment)
-    progressBarLockedFill = progressBar:CreateTexture(nil, "ARTWORK", nil, 1)
+    -- Full-width purchasable fill (muted gold, sits behind the blue collected fill)
+    -- The blue StatusBar fill covers collected items from the left; the red locked
+    -- fill covers locked items from the right; this middle layer fills the rest
+    -- so the purchasable segment has a visible color instead of just dark background.
+    progressBarPurchasableFill = progressBar:CreateTexture(nil, "ARTWORK", nil, -1)
+    progressBarPurchasableFill:SetAllPoints()
+    progressBarPurchasableFill:SetTexture("Interface\\TargetingFrame\\UI-StatusBar")
+    progressBarPurchasableFill:SetVertexColor(0.9, 0.7, 0.0, 0.8)
+
+    -- Right-anchored locked fill (nested StatusBar so it renders with the same
+    -- gradient stripes as the blue fill, not a flat texture)
+    progressBarLockedFill = CreateFrame("StatusBar", nil, progressBar)
     progressBarLockedFill:SetPoint("TOPRIGHT", progressBar, "TOPRIGHT", 0, 0)
     progressBarLockedFill:SetPoint("BOTTOMRIGHT", progressBar, "BOTTOMRIGHT", 0, 0)
     progressBarLockedFill:SetWidth(0)
-    progressBarLockedFill:SetColorTexture(0.80, 0.20, 0.20, 0.95)
+    progressBarLockedFill:SetStatusBarTexture("Interface\\TargetingFrame\\UI-StatusBar")
+    progressBarLockedFill:SetStatusBarColor(0.80, 0.20, 0.20, 0.95)
+    progressBarLockedFill:SetMinMaxValues(0, 1)
+    progressBarLockedFill:SetValue(1)
     progressBarLockedFill:Hide()
 
-    -- Centered count text
-    progressBarText = progressBar:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-    progressBarText:SetPoint("CENTER")
+    -- Diagonal stripe overlay on locked segment (blocked/disabled visual cue)
+    progressBarLockedFill.hashOverlay = progressBar:CreateTexture(nil, "ARTWORK", nil, 2)
+    progressBarLockedFill.hashOverlay:SetAllPoints(progressBarLockedFill)
+    progressBarLockedFill.hashOverlay:SetTexture("Interface\\PaperDollInfoFrame\\UI-GearManager-LeaveItem-Transparent")
+    progressBarLockedFill.hashOverlay:SetAlpha(0.4)
+    progressBarLockedFill.hashOverlay:Hide()
+
+    -- Ensure locked fill doesn't cover the text — lower its frame level
+    progressBarLockedFill:SetFrameLevel(progressBar:GetFrameLevel() + 1)
+
+    -- Centered count text (on a higher frame level so it draws above both fills)
+    progressBarText = progressBarLockedFill:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    progressBarText:SetPoint("CENTER", progressBar, "CENTER")
 
     -- Tooltip on hover
     progressBar:EnableMouse(true)
@@ -2378,6 +2402,9 @@ local function HideProgressBar()
     if progressBarLockedFill then
         progressBarLockedFill:Hide()
         progressBarLockedFill:SetWidth(0)
+        if progressBarLockedFill.hashOverlay then
+            progressBarLockedFill.hashOverlay:Hide()
+        end
     end
     progressBar.lockedValue = nil
     progressBar.purchasableValue = nil
@@ -2402,8 +2429,8 @@ local function UpdateProgressBar(collected, total, locked)
 
         progressBar:SetMinMaxValues(0, total)
 
-        -- Consistent blue fill — locked segment carries the red role
-        progressBar:SetStatusBarColor(0.2, 0.6, 0.8)
+        -- Green fill for collected items
+        progressBar:SetStatusBarColor(0.0, 0.7, 0.0)
         local pct = collected / total
         local pctDisplay = math.floor(pct * 100)
         progressBarText:SetText(string.format("%d/%d (%d%%)", collected, total, pctDisplay))
@@ -2448,9 +2475,15 @@ local function UpdateProgressBar(collected, total, locked)
                         if lockedWidth > 0 then
                             progressBarLockedFill:SetWidth(lockedWidth)
                             progressBarLockedFill:Show()
+                            if progressBarLockedFill.hashOverlay then
+                                progressBarLockedFill.hashOverlay:Show()
+                            end
                         else
                             progressBarLockedFill:SetWidth(0)
                             progressBarLockedFill:Hide()
+                            if progressBarLockedFill.hashOverlay then
+                                progressBarLockedFill.hashOverlay:Hide()
+                            end
                         end
                         self.needsLockedFillLayout = false
                         -- Clear OnUpdate entirely if fill animation also finished
@@ -2531,6 +2564,8 @@ function MapSidePanel:RefreshZoneSummaries(mapID, mapInfo)
         row.vendorCount = dataVendorCount
         row.collectedItems = dataCollected
         row.totalItems = dataTotal
+        row.lockedItems = dataLocked
+        row.unverifiedItems = data.unverifiedItems or 0
 
         row.nameText:SetText(data.zoneName or "Unknown")
         row.nameText:SetTextColor(1, 1, 1)
@@ -2607,12 +2642,19 @@ function MapSidePanel:RefreshContinentSummaries(mapID, mapInfo)
 
     headerText:SetText(mapInfo.name or "")
 
-    local continentCounts = BC:GetContinentVendorCounts()
+    local continentCounts = BC:GetContinentVendorCounts(panelSourceFilter)
 
-    -- Build sorted continent list
+    -- Build sorted continent list, filtered to children of the current map view.
+    -- On Azeroth (947) this excludes Draenor continents; on Draenor it excludes Azeroth.
+    -- Cosmic map (946) or unknown parents show all.
     local continentList = {}
     for contMapID, data in pairs(continentCounts) do
-        continentList[#continentList + 1] = { mapID = contMapID, data = data }
+        local contInfo = C_Map.GetMapInfo(contMapID)
+        if not contInfo or not contInfo.parentMapID
+                or contInfo.parentMapID == mapID
+                or mapID == 946 then
+            continentList[#continentList + 1] = { mapID = contMapID, data = data }
+        end
     end
     table.sort(continentList, function(a, b)
         return (a.data.continentName or "") < (b.data.continentName or "")
@@ -2650,6 +2692,8 @@ function MapSidePanel:RefreshContinentSummaries(mapID, mapInfo)
         row.vendorCount = dataVendorCount
         row.collectedItems = dataCollected
         row.totalItems = dataTotal
+        row.lockedItems = dataLocked
+        row.unverifiedItems = data.unverifiedItems or 0
 
         -- Gold color for continent names
         row.nameText:SetText(data.continentName or "Unknown")
