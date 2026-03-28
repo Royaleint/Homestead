@@ -17,6 +17,24 @@ local scrollFrame = nil
 local editBox = nil
 local titleText = nil
 
+local function EnableSafeEscapeClose(frame)
+    if not frame then return end
+
+    frame:EnableKeyboard(true)
+    frame:SetPropagateKeyboardInput(true)
+    frame:HookScript("OnShow", function(self)
+        self:SetPropagateKeyboardInput(true)
+    end)
+    frame:SetScript("OnKeyDown", function(self, key)
+        if key == "ESCAPE" then
+            self:SetPropagateKeyboardInput(false)
+            OutputWindow:Hide()
+        else
+            self:SetPropagateKeyboardInput(true)
+        end
+    end)
+end
+
 -------------------------------------------------------------------------------
 -- Frame Creation
 -------------------------------------------------------------------------------
@@ -165,8 +183,8 @@ local function CreateOutputWindow()
         editBox:ClearFocus()
     end)
 
-    -- Register for ESC key to close
-    tinsert(UISpecialFrames, "HomesteadOutputWindow")
+    -- Close on Escape without touching UISpecialFrames.
+    EnableSafeEscapeClose(frame)
 
     outputFrame = frame
     return frame

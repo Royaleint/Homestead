@@ -12,6 +12,24 @@ local L = HA.L or {}
 
 local EXPORT_PREFIX = "HOMESTEAD_EXPORT:"
 
+local function EnableSafeEscapeClose(frame)
+    if not frame then return end
+
+    frame:EnableKeyboard(true)
+    frame:SetPropagateKeyboardInput(true)
+    frame:HookScript("OnShow", function(self)
+        self:SetPropagateKeyboardInput(true)
+    end)
+    frame:SetScript("OnKeyDown", function(self, key)
+        if key == "ESCAPE" then
+            self:SetPropagateKeyboardInput(false)
+            self:Hide()
+        else
+            self:SetPropagateKeyboardInput(true)
+        end
+    end)
+end
+
 -------------------------------------------------------------------------------
 -- Export Dialog
 -------------------------------------------------------------------------------
@@ -25,7 +43,7 @@ local function CreateExportDialog()
     f:SetSize(280, 130)
     f:SetPoint("CENTER")
     f:SetFrameStrata("DIALOG")
-    tinsert(UISpecialFrames, "HomesteadExportDialog")
+    EnableSafeEscapeClose(f)
     f:SetBackdrop({
         bgFile = "Interface/Tooltips/UI-Tooltip-Background",
         edgeFile = "Interface/Tooltips/UI-Tooltip-Border",

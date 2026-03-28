@@ -26,7 +26,6 @@ local ipairs = ipairs
 local tonumber = tonumber
 local math_max = math.max
 local table_sort = table.sort
-local tinsert = tinsert
 
 -------------------------------------------------------------------------------
 -- Version comparison utilities (local scope only)
@@ -234,6 +233,8 @@ local function CreateWhatsNewFrame()
     frame:SetFrameLevel(200)
     frame:SetMovable(true)
     frame:EnableMouse(true)
+    frame:EnableKeyboard(true)
+    frame:SetPropagateKeyboardInput(true)
     frame:RegisterForDrag("LeftButton")
     frame:SetScript("OnDragStart", frame.StartMoving)
     frame:SetScript("OnDragStop", frame.StopMovingOrSizing)
@@ -307,6 +308,9 @@ local function CreateWhatsNewFrame()
     closeButton:SetScript("OnClick", function() WhatsNewFrame:Hide() end)
 
     frame:Hide()
+    frame:HookScript("OnShow", function(self)
+        self:SetPropagateKeyboardInput(true)
+    end)
     -- Close on Escape via SetScript instead of UISpecialFrames to avoid taint.
     -- UISpecialFrames is read by protected Blizzard code; tinsert taints it.
     frame:SetScript("OnKeyDown", function(self, key)

@@ -23,6 +23,24 @@ local FEATURE_GAP = 14
 -- SavedVariable key (bumped to V4 so existing users see the updated welcome)
 local SV_KEY = "hasSeenWelcomeV4"
 
+local function EnableSafeEscapeClose(frame)
+    if not frame then return end
+
+    frame:EnableKeyboard(true)
+    frame:SetPropagateKeyboardInput(true)
+    frame:HookScript("OnShow", function(self)
+        self:SetPropagateKeyboardInput(true)
+    end)
+    frame:SetScript("OnKeyDown", function(self, key)
+        if key == "ESCAPE" then
+            self:SetPropagateKeyboardInput(false)
+            WelcomeFrame:Hide()
+        else
+            self:SetPropagateKeyboardInput(true)
+        end
+    end)
+end
+
 -------------------------------------------------------------------------------
 -- Helpers: all anchored relative to a previous element
 -------------------------------------------------------------------------------
@@ -326,7 +344,7 @@ local function CreateWelcomeFrame()
     startBtn:SetScript("OnClick", function() WelcomeFrame:Hide() end)
 
     frame:Hide()
-    tinsert(UISpecialFrames, "HomesteadWelcomeFrame")
+    EnableSafeEscapeClose(frame)
 
     welcomeFrame = frame
     return frame
