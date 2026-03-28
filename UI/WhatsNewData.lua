@@ -8,7 +8,7 @@ local _, HA = ...
 
 HA.WhatsNew = {
     ["2.0.0"] = {
-        heroTexture = "Interface\\AddOns\\Homestead\\Textures\\homestead_collage_labeled_1024x256", 
+        heroTexture = "Interface\\AddOns\\Homestead\\Textures\\homestead_collage_labeled_1024x256",
         heroHeight = 190,
         title = "Homestead - What's New in v2.0!",
         features = {

@@ -2959,7 +2959,6 @@ function MapSidePanel:RefreshContent()
 
     -- Get pin color for icons
     local r, g, b = HA.PinFrameFactory:GetPinColor()
-    local isCustomColor = HA.PinFrameFactory:IsCustomPinColor()
 
     -- Ensure we have enough rows
     while #vendorRows < #vendorList do
