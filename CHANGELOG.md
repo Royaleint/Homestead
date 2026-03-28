@@ -2,18 +2,35 @@
 
 ---
 
-## Unreleased
+## v2.3.0 (2026-03-28)
 
 ### Added
 
-- **Purchasability awareness.** Vendor pins, side panel rows, and zone summaries now show at a glance how many items you've collected, how many are still available, and how many are locked behind requirements like reputation or quests. The progress bar at the top of the side panel also shows your locked item count.
-- **Traffic light progress bar.** The side panel progress bar now fills in three colors: blue for collected, gold for available, and red for locked. You can see your purchasability breakdown for each zone at a glance.
-- **Blocker summaries.** Hovering a vendor pin shows what's blocking locked items — which reputation, quest, or profession requirement is in the way and how many items it affects.
-- **Item status colors in pin tooltips.** Hovering a vendor pin now colors each item by status: green for collected, white for available, and red for locked.
+- **Decor Availabliity** Vendor pins, side panel rows, and zone summaries now break down your collection into three states: collected, available, and locked. If something is locked behind a reputation, quest, or profession requirement, you'll know before you make the trip.
+- **Color-coded collection progress bar.** The side panel progress bar now fills in three colors — green for what you own, gold for what you can buy right now, and red for what's locked. One look tells you where you stand.
+- **Requirement details on hover.** When items are locked at a vendor, hovering the pin tells you exactly what's blocking it. 
+- **Item-by-item status in pin tooltips.** Hovering over a decor vendor pin now shows every item colored by status: green for collected, white for available, red for locked.
 
 ### Improved
 
-- Tooltip labels are now consistent across all surfaces — vendor pins, side panel rows, zone summaries, and the progress bar all use the same format and vocabulary.
+- Decor source filtering now works at continent and world map levels.
+- Tooltips are now more consistent everywhere.
+
+### Fixed
+
+- Vendor row tooltips in the side panel now show faction and opposite-faction warnings.
+- Housing Dashboard badge icons are now smaller and less intrusive.
+
+### Vendor Database
+
+- **Nael Silvertongue**: corrected location, added faction and currency data.
+- **Dennia Silvertongue**: corrected prices.
+- **Aeeshna**: 5 new items added.
+
+### Removed
+
+- Removed the "Show unverified vendors" setting — it had no effect.
+- Removed the "Show quantity owned" tooltip setting — the data was unreliable after reloading.
 
 ---
 

@@ -7,6 +7,23 @@
 local _, HA = ...
 
 HA.WhatsNew = {
+    ["2.3.0"] = {
+        heroTexture = "Interface\\AddOns\\Homestead\\Textures\\WhatsNew_v230",
+        heroHeight = 250,
+        title = "Homestead - What's New in v2.3!",
+        features = {
+            {
+                atlas = "housing-decor-vendor_32",
+                heading = "Decor Availability",
+                body = "Every decor vendor now shows how many items you've collected, versus how many decor items are available to buy, and how many are locked behind reputation, quests, or other requirements. The progress bar fills in three colors so you can see your status at a glance.",
+            },
+            {
+                icon = "Interface\\Icons\\INV_Misc_Map_01",
+                heading = "Unified Tooltips",
+                body = "Vendor pin tooltips now list every item colored by status: green for collected, white for available, red for locked. The summary line is consistent everywhere you hover.",
+            },
+        },
+    },
     ["2.0.0"] = {
         heroTexture = "Interface\\AddOns\\Homestead\\Textures\\homestead_collage_labeled_1024x256",
         heroHeight = 190,
@@ -21,11 +38,6 @@ HA.WhatsNew = {
                 icon = "Interface\\AddOns\\Homestead\\Textures\\HomesteadPortrait_64",
                 heading = "Endeavor Dashboard",
                 body = "See how much XP you need for your next Endeavor milestone and how much of the vendor's stock you've collected, right on the progress bar.",
-            },
-            {
-                icon = "Interface\\Icons\\INV_Misc_Spyglass_02",
-                heading = "Catalog Source Badges",
-                body = "Each catalog item now shows a small icon for its source type: coin for vendors, quest mark, achievement shield, profession hammer & pick, calendar for events, and lootbags for drops.",
             },
         },
     },

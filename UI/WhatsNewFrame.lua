@@ -90,7 +90,11 @@ local function CreateFeatureRow(parent, anchor, feature, iconSize, alpha, gap)
     local icon = row:CreateTexture(nil, "ARTWORK")
     icon:SetSize(iconSize, iconSize)
     icon:SetPoint("TOPLEFT", 0, 0)
-    icon:SetTexture(feature.icon)
+    if feature.atlas then
+        icon:SetAtlas(feature.atlas, false)
+    else
+        icon:SetTexture(feature.icon)
+    end
 
     local textLeft = iconSize + 10
     local textWidth = CONTENT_WIDTH - textLeft
