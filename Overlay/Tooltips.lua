@@ -891,15 +891,6 @@ local function AddDecorInfoToTooltip(tooltip, itemLink)
         end
     end
 
-    -- Show quantity if owned and setting enabled
-    if isOwned and db and db.showQuantity then
-        local success, info = pcall(function()
-            return C_HousingCatalog.GetCatalogEntryInfoByItem(itemLink, true)
-        end)
-        if success and info and info.quantity and info.quantity > 0 then
-            tooltip:AddLine("Quantity: " .. info.quantity, COLOR_WHITE.r, COLOR_WHITE.g, COLOR_WHITE.b)
-        end
-    end
 
     -- Query item's reputation/renown requirements from Blizzard's tooltip data.
     -- Blizzard renders these natively above our section; we add progress lines below.

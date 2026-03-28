@@ -64,10 +64,9 @@ local function BuildMinimapPinStyleKey()
 end
 
 local function GetFramePoolKey(pin)
-    return format("%s|o%s|u%s|e%s",
+    return format("%s|o%s|e%s",
         BuildMinimapPinStyleKey(),
         BoolToKey(pin.isOppositeFaction),
-        BoolToKey(pin.isUnverified),
         pin.elevation or "none")
 end
 
@@ -94,13 +93,11 @@ local function AcquireFrame(pin)
         return PinFrameFactory:CreateMinimapPinFrame(
             pin.vendor,
             pin.isOppositeFaction,
-            pin.isUnverified,
             pin.elevation
         )
     end)
     frame.vendor = pin.vendor
     frame.isOppositeFaction = pin.isOppositeFaction
-    frame.isUnverified = pin.isUnverified
     frame.elevation = pin.elevation
     frame:SetParent(_G.Minimap)
     frame:SetFrameStrata(minimap:GetFrameStrata())

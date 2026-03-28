@@ -472,7 +472,7 @@ Constants.Defaults = {
             showOwned = true,
             showSource = true,
             showAllSources = true,  -- Show all sources vs primary only
-            showQuantity = false,  -- off by default, can be noisy
+            -- showQuantity removed: C_HousingCatalog.quantity returns 0 after /reload until catalog opens
             showDyeSlots = true,
             showRequirements = true,  -- Show acquisition requirements (rep, quest, etc.)
         },
@@ -501,7 +501,7 @@ Constants.Defaults = {
             sidePanelPosition = nil,                   -- {point, x, y} saved on drag stop
             sidePanelHeight = nil,                     -- Saved detached height for /reload restore
             showEventVendors = true,                   -- Show seasonal event vendor pins when events are active
-            showUnverifiedVendors = false,             -- Hidden by default; orange pins for unconfirmed locations
+            -- showUnverifiedVendors removed: no vendors use the unverified flag
         },
 
         -- Endeavors settings

@@ -45,11 +45,9 @@ local highlightOriginalFrameLevel = nil
 
 -- Pin color/size helpers delegated to PinFrameFactory (loaded before this file)
 -- Vendor filter/coord helpers resolved in Initialize() to avoid load-order fragility.
-local IsVendorVerified
 local ShouldHideVendor
 local GetBestVendorCoordinates
 local ShouldShowOppositeFaction
-local ShouldShowUnverifiedVendors
 local CanAccessVendor
 local IsOppositeFaction
 local GetVendorXY
@@ -553,7 +551,6 @@ function VendorMapPins:ShowVendorTooltip(pin, vendor)
     itemInfoEventFrame:RegisterEvent("GET_ITEM_INFO_RECEIVED")
 
     local isOpposite = self:IsOppositeFaction(vendor)
-    local isUnverified = not IsVendorVerified(vendor)
 
     local tooltip = BeginPinTooltip(pin, "ANCHOR_RIGHT")
     tooltip:AddLine(vendor.name, 1, 1, 1)
@@ -567,12 +564,6 @@ function VendorMapPins:ShowVendorTooltip(pin, vendor)
     if vendor.faction and vendor.faction ~= "Neutral" then
         local factionColor = vendor.faction == "Alliance" and {0, 0.44, 0.87} or {0.77, 0.12, 0.23}
         tooltip:AddLine(vendor.faction, unpack(factionColor))
-    end
-
-    -- Warning for unverified vendors (imported data not yet confirmed in-game)
-    if isUnverified then
-        tooltip:AddLine(" ")
-        tooltip:AddLine("Unverified location - visit to confirm", 1.0, 0.6, 0.2)
     end
 
     -- Warning for opposite faction vendors
@@ -746,7 +737,7 @@ function VendorMapPins:ShowPortalTooltip(pin, vendor)
     tooltip:Show()
 end
 
-function VendorMapPins:ShowMinimapTooltip(pin, vendor, isOppositeFaction, isUnverified, elevation)
+function VendorMapPins:ShowMinimapTooltip(pin, vendor, isOppositeFaction, elevation)
     if not vendor then return end
 
     activeTooltipData = nil
@@ -758,9 +749,6 @@ function VendorMapPins:ShowMinimapTooltip(pin, vendor, isOppositeFaction, isUnve
         tooltip:AddLine(vendor.subzone, 0.7, 0.7, 0.7)
     elseif vendor.zone then
         tooltip:AddLine(vendor.zone, 0.7, 0.7, 0.7)
-    end
-    if isUnverified then
-        tooltip:AddLine("Unverified location", 1.0, 0.6, 0.2)
     end
     if isOppositeFaction then
         tooltip:AddLine("Opposite faction", 0.8, 0.3, 0.3)
@@ -1040,13 +1028,10 @@ function VendorMapPins:RefreshMinimapPins()
                         if coords and vendorMapID then
                             local canAccess = self:CanAccessVendor(vendor)
                             local isOpposite = self:IsOppositeFaction(vendor)
-                            local isUnverified = not IsVendorVerified(vendor)
-                            local showUnverified = ShouldShowUnverifiedVendors()
                             local isPortalOnlyMinimapVendor = vendor.portal and playerMapID ~= vendor.mapID
 
-                            -- Show vendor only when allowed by verification and faction-access rules.
+                            -- Show vendor only when allowed by faction-access rules.
                             if not isPortalOnlyMinimapVendor
-                                    and (showUnverified or not isUnverified)
                                     and (canAccess or (isOpposite and showOpposite)) then
                                 local elevation = Constants.GetElevationDirection(playerMapID, vendorMapID)
                                 local relationship
@@ -1077,7 +1062,6 @@ function VendorMapPins:RefreshMinimapPins()
                                         floatOnEdge = elevation and true or false,
                                         elevation = showElevationArrows and elevation or nil,
                                         isOppositeFaction = isOpposite,
-                                        isUnverified = isUnverified,
                                     }
                                 end
                             end
@@ -1248,14 +1232,6 @@ function VendorMapPins:ShowVendorPins(mapID, renderState)
         if coords and vendorMapID and (validMapIDs[vendorMapID] or validMapIDs[staticMapID]) then
             local canAccess = self:CanAccessVendor(vendor)
             local isOpposite = self:IsOppositeFaction(vendor)
-            local isUnverified = not IsVendorVerified(vendor)
-            local showUnverified = ShouldShowUnverifiedVendors()
-
-            -- Skip unverified vendors if setting is disabled
-            if isUnverified and not showUnverified then
-                addedVendors[vendor.npcID] = true
-                return
-            end
 
             -- Show vendor if accessible OR if opposite faction and setting enabled
             if canAccess or (isOpposite and showOpposite) then
@@ -1283,7 +1259,6 @@ function VendorMapPins:ShowVendorPins(mapID, renderState)
                         y = projectedY,
                         reason = reason,
                         isOppositeFaction = isOpposite,
-                        isUnverified = isUnverified,
                     }
                 else
                     DebugWorldMapProjectionSkip("vendor", vendorMapID, mapID, reason)
@@ -1623,11 +1598,9 @@ function VendorMapPins:Initialize()
 
     -- Resolve VendorFilter functions now that all modules are loaded
     local VendorFilter = HA.VendorFilter
-    IsVendorVerified = VendorFilter.IsVendorVerified
     ShouldHideVendor = VendorFilter.ShouldHideVendor
     GetBestVendorCoordinates = VendorFilter.GetBestVendorCoordinates
     ShouldShowOppositeFaction = VendorFilter.ShouldShowOppositeFaction
-    ShouldShowUnverifiedVendors = VendorFilter.ShouldShowUnverifiedVendors
     CanAccessVendor = VendorFilter.CanAccessVendor
     IsOppositeFaction = VendorFilter.IsOppositeFaction
     GetVendorXY = VendorFilter.GetVendorXY

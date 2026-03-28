@@ -370,13 +370,10 @@ function BadgeCalculation:GetZoneVendorCounts(continentMapID, sourceFilter)
 
     local allVendors = HA.VendorData:GetAllVendors()
     local showOpposite = VF.ShouldShowOppositeFaction()
-    local showUnverified = VF.ShouldShowUnverifiedVendors()
 
     for _, vendor in ipairs(allVendors) do
-        -- Include only vendors not hidden by scan state and visible under verification settings.
         if ShouldIncludeVendorInBadgeCounts(vendor)
-                and not VF.ShouldHideVendor(vendor)
-                and (showUnverified or VF.IsVendorVerified(vendor)) then
+                and not VF.ShouldHideVendor(vendor) then
             -- Get best coordinates (scanned preferred over static)
             local coords, zoneMapID = VF.GetBestVendorCoordinates(vendor)
 
@@ -459,13 +456,10 @@ function BadgeCalculation:GetContinentVendorCounts(sourceFilter)
 
     local allVendors = HA.VendorData:GetAllVendors()
     local showOpposite = VF.ShouldShowOppositeFaction()
-    local showUnverified = VF.ShouldShowUnverifiedVendors()
 
     for _, vendor in ipairs(allVendors) do
-        -- Include only vendors not hidden by scan state and visible under verification settings.
         if ShouldIncludeVendorInBadgeCounts(vendor)
-                and not VF.ShouldHideVendor(vendor)
-                and (showUnverified or VF.IsVendorVerified(vendor)) then
+                and not VF.ShouldHideVendor(vendor) then
             -- Get best coordinates (scanned preferred over static)
             local coords, zoneMapID = VF.GetBestVendorCoordinates(vendor)
 

@@ -92,22 +92,6 @@ local function GetOptionsTable()
                             end
                         end,
                     },
-                    showUnverifiedVendors = {
-                        type = "toggle",
-                        name = L["Show unverified vendors"],
-                        desc = L["desc_unverified_vendors"],
-                        width = "double",
-                        order = 12,
-                        get = function() return HA.Addon.db.profile.vendorTracer.showUnverifiedVendors == true end,
-                        set = function(_, value)
-                            HA.Addon.db.profile.vendorTracer.showUnverifiedVendors = value
-                            if HA.VendorMapPins then
-                                HA.VendorMapPins:InvalidateBadgeCache()
-                                HA.VendorMapPins:RefreshPins()
-                                HA.VendorMapPins:RequestMinimapRefresh("option_showUnverifiedVendors")
-                            end
-                        end,
-                    },
                     showEventVendors = {
                         type = "toggle",
                         name = L["Show event vendors"],
@@ -401,16 +385,6 @@ local function GetOptionsTable()
                         get = function() return HA.Addon.db.profile.tooltip.showSource end,
                         set = function(_, value)
                             HA.Addon.db.profile.tooltip.showSource = value
-                        end,
-                    },
-                    showQuantity = {
-                        type = "toggle",
-                        name = L["Show quantity owned"],
-                        desc = L["desc_show_quantity"],
-                        order = 4,
-                        get = function() return HA.Addon.db.profile.tooltip.showQuantity end,
-                        set = function(_, value)
-                            HA.Addon.db.profile.tooltip.showQuantity = value
                         end,
                     },
                     showRequirements = {

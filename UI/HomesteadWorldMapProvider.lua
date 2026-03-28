@@ -433,10 +433,9 @@ local function GetVendorFramePoolKey(entry)
         factionKey = entry.vendor.faction
     end
 
-    return format("%s|o%s|u%s|f%s",
+    return format("%s|o%s|f%s",
         BuildWorldPinStyleKey(),
         BoolToKey(entry.isOppositeFaction),
-        BoolToKey(entry.isUnverified),
         factionKey)
 end
 
@@ -477,11 +476,10 @@ end
 local function AcquireVendorFrame(entry)
     local poolKey = GetVendorFramePoolKey(entry)
     local frame = AcquirePooledFrame(vendorFramePool, poolKey, function()
-        return PinFrameFactory:CreateVendorPinFrame(entry.vendor, entry.isOppositeFaction, entry.isUnverified)
+        return PinFrameFactory:CreateVendorPinFrame(entry.vendor, entry.isOppositeFaction)
     end)
     frame.vendor = entry.vendor
     frame.isOppositeFaction = entry.isOppositeFaction
-    frame.isUnverified = entry.isUnverified
     if PinFrameFactory.RefreshVendorPinCount then
         PinFrameFactory:RefreshVendorPinCount(frame, entry.vendor)
     end

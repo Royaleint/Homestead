@@ -131,7 +131,7 @@ end
 -- Vendor Pin Frame (zone-level individual vendor pins)
 -------------------------------------------------------------------------------
 
-function PinFrameFactory:CreateVendorPinFrame(vendor, isOppositeFaction, isUnverified)
+function PinFrameFactory:CreateVendorPinFrame(vendor, isOppositeFaction)
     local frame = CreateFrame("Frame", nil, UIParent)
 
     local baseSize = self:GetPinIconSize()
@@ -147,22 +147,12 @@ function PinFrameFactory:CreateVendorPinFrame(vendor, isOppositeFaction, isUnver
     frame.icon:SetPoint("CENTER")
     frame.icon:SetSize(iconSize, iconSize)
     frame.icon:SetAtlas("housing-decor-vendor_32", false)
-    if isUnverified then
-        frame.icon:SetVertexColor(1.0, 0.6, 0.2, 0.9)
-    elseif isOppositeFaction then
+    if isOppositeFaction then
         frame.icon:SetDesaturated(true)
         frame.icon:SetVertexColor(0.6, 0.6, 0.6, 0.9)
     elseif isCustomColor then
         frame.icon:SetDesaturated(true)
         frame.icon:SetVertexColor(br, bg, bb, 0.95)
-    end
-
-    -- Question mark for unverified vendors
-    if isUnverified then
-        frame.unverifiedIcon = frame:CreateTexture(nil, "OVERLAY", nil, 3)
-        frame.unverifiedIcon:SetSize(10, 10)
-        frame.unverifiedIcon:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", 2, -2)
-        frame.unverifiedIcon:SetAtlas("QuestRepeatableTurnin", true)
     end
 
     -- Faction emblem for opposite faction vendors
@@ -183,7 +173,6 @@ function PinFrameFactory:CreateVendorPinFrame(vendor, isOppositeFaction, isUnver
     -- Store vendor data and status
     frame.vendor = vendor
     frame.isOppositeFaction = isOppositeFaction
-    frame.isUnverified = isUnverified
 
     -- Tooltip/click handlers (delegate to VendorMapPins at runtime)
     frame:SetScript("OnEnter", function(self) -- luacheck: ignore 432
@@ -459,7 +448,7 @@ end
 -- Minimap Pin Frame
 -------------------------------------------------------------------------------
 
-function PinFrameFactory:CreateMinimapPinFrame(vendor, isOppositeFaction, isUnverified, elevation)
+function PinFrameFactory:CreateMinimapPinFrame(vendor, isOppositeFaction, elevation)
     local frame = CreateFrame("Frame", nil, UIParent)
 
     local mmSize = self:GetMinimapIconSize()
@@ -475,9 +464,7 @@ function PinFrameFactory:CreateMinimapPinFrame(vendor, isOppositeFaction, isUnve
     -- Colored backplate behind icon (only for non-default)
     if isCustomColor then
         frame.backplate = CreateCircularBackplate(frame, mmSize + 2)
-        if isUnverified then
-            frame.backplate:SetVertexColor(1.0, 0.6, 0.2, 0.9)
-        elseif isOppositeFaction then
+        if isOppositeFaction then
             frame.backplate:SetVertexColor(br * 0.5, bg * 0.5, bb * 0.5, 0.9)
         else
             frame.backplate:SetVertexColor(br, bg, bb, 0.9)
@@ -490,9 +477,7 @@ function PinFrameFactory:CreateMinimapPinFrame(vendor, isOppositeFaction, isUnve
     frame.icon:SetPoint("CENTER")
     frame.icon:SetSize(iconSize, iconSize)
     frame.icon:SetAtlas("housing-decor-vendor_32", false)
-    if isUnverified then
-        frame.icon:SetVertexColor(1.0, 0.6, 0.2, 0.9)
-    elseif isOppositeFaction then
+    if isOppositeFaction then
         frame.icon:SetDesaturated(true)
         frame.icon:SetVertexColor(0.6, 0.6, 0.6, 0.9)
     elseif isCustomColor then
@@ -525,7 +510,6 @@ function PinFrameFactory:CreateMinimapPinFrame(vendor, isOppositeFaction, isUnve
     -- Store vendor data
     frame.vendor = vendor
     frame.isOppositeFaction = isOppositeFaction
-    frame.isUnverified = isUnverified
 
     -- Simple tooltip on hover
     frame:SetScript("OnEnter", function(self) -- luacheck: ignore 432
@@ -534,7 +518,6 @@ function PinFrameFactory:CreateMinimapPinFrame(vendor, isOppositeFaction, isUnve
                 self,
                 self.vendor,
                 self.isOppositeFaction,
-                self.isUnverified,
                 self.elevation
             )
         end

@@ -1438,7 +1438,6 @@ local function PopulateZoneExpansion(zoneMapID, yOffsetStart, subRowIndex)
     local VF = HA.VendorFilter
     local allVendors = VendorData:GetAllVendors()
     local showOpposite = VF.ShouldShowOppositeFaction()
-    local showUnverified = VF.ShouldShowUnverifiedVendors()
 
     -- Build set of maps to include (canonical + siblings for merged zones)
     local targetMaps = {[zoneMapID] = true}
@@ -1452,7 +1451,7 @@ local function PopulateZoneExpansion(zoneMapID, yOffsetStart, subRowIndex)
     -- Gather vendors in this zone using same logic as badge calculation
     local zoneVendors = {}
     for _, vendor in ipairs(allVendors) do
-        if not VF.ShouldHideVendor(vendor) and (showUnverified or VF.IsVendorVerified(vendor)) then
+        if not VF.ShouldHideVendor(vendor) then
             local coords, vendorMapID = VF.GetBestVendorCoordinates(vendor)
             if coords and targetMaps[vendorMapID] then
                 local canAccess = VF.CanAccessVendor(vendor)
@@ -2277,7 +2276,6 @@ local function GetVendorsForCurrentMap(mapID)
     end
 
     local showOpposite = VendorFilter.ShouldShowOppositeFaction()
-    local showUnverified = VendorFilter.ShouldShowUnverifiedVendors()
 
     local function TryAddVendor(vendor)
         if not vendor or not vendor.npcID or seen[vendor.npcID] then
@@ -2290,12 +2288,10 @@ local function GetVendorsForCurrentMap(mapID)
         end
 
         local isOpposite = VendorFilter.IsOppositeFaction(vendor)
-        local isUnverified = not VendorFilter.IsVendorVerified(vendor)
-        if (showUnverified or not isUnverified) and (showOpposite or not isOpposite) then
+        if showOpposite or not isOpposite then
             vendors[#vendors + 1] = {
                 vendor = vendor,
                 isOpposite = isOpposite,
-                isUnverified = isUnverified,
             }
         end
     end
@@ -2982,26 +2978,13 @@ function MapSidePanel:RefreshContent()
         row.searchMode = false
 
         -- Set name with color coding
-        local nameColor
-        if entry.isOpposite then
-            nameColor = {0.5, 0.5, 0.5}
-        elseif entry.isUnverified then
-            nameColor = {1, 0.6, 0}
-        else
-            nameColor = {1, 1, 1}
-        end
+        local nameColor = entry.isOpposite and {0.5, 0.5, 0.5} or {1, 1, 1}
         row.nameText:SetText(GetVendorDisplayName(vendor))
         row.nameText:SetTextColor(nameColor[1], nameColor[2], nameColor[3])
 
         -- Set icon color
-        if isCustomColor or (not entry.isUnverified) then
-            row.icon:SetDesaturated(true)
-            row.icon:SetVertexColor(r, g, b)
-        else
-            -- Unverified: orange
-            row.icon:SetDesaturated(true)
-            row.icon:SetVertexColor(1, 0.6, 0)
-        end
+        row.icon:SetDesaturated(true)
+        row.icon:SetVertexColor(r, g, b)
 
         -- Get collection stats (includes purchasable/locked breakdown)
         local stats = BC:GetVendorStats(vendor, sourceFilter)

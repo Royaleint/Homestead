@@ -112,24 +112,6 @@ end
 -- Vendor Visibility Filters
 -------------------------------------------------------------------------------
 
--- Check if a vendor's data has been verified (scanned in-game or original data)
--- Returns true if vendor is verified, false if unverified (imported data not yet confirmed)
-function VendorFilter.IsVendorVerified(vendor)
-    if not vendor then return true end  -- No vendor = don't show warning
-
-    -- If vendor doesn't have the unverified flag, it's original/verified data
-    if not vendor.unverified then return true end
-
-    -- Check if vendor has been scanned in-game (scanned data = verified)
-    if vendor.npcID and HA.Addon and HA.Addon.db and HA.Addon.db.global.scannedVendors then
-        local scannedData = HA.Addon.db.global.scannedVendors[vendor.npcID]
-        if scannedData then
-            return true  -- Has been scanned in-game = verified
-        end
-    end
-
-    return false  -- Has unverified flag and hasn't been scanned
-end
 
 -- Check if a vendor should be hidden from all pin displays
 -- Returns true if vendor should be hidden (unreleased or scanned with no decor)
@@ -207,13 +189,6 @@ function VendorFilter.ShouldShowOppositeFaction()
     return true  -- Default to showing
 end
 
--- Get the setting for showing unverified vendors
-function VendorFilter.ShouldShowUnverifiedVendors()
-    if HA.Addon and HA.Addon.db and HA.Addon.db.profile.vendorTracer then
-        return HA.Addon.db.profile.vendorTracer.showUnverifiedVendors == true
-    end
-    return false  -- Default to hidden (new users shouldn't see unverified data)
-end
 
 -- Get the setting for showing event vendors
 function VendorFilter.ShouldShowEventVendors()
