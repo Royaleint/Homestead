@@ -20,6 +20,7 @@
 
 - Vendor row tooltips in the side panel now show faction and opposite-faction warnings.
 - Housing Dashboard badge icons are now smaller and less intrusive.
+- **Non-English clients no longer get errors opening the options panel.** Localized clients (German, French, Spanish, etc.) were missing fallback text for untranslated strings, causing nil errors in the settings UI.
 
 ### Vendor Database
 
