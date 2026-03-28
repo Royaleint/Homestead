@@ -865,7 +865,7 @@ local function AddDecorInfoToTooltip(tooltip, itemLink)
         if availabilityState == "owned" or isOwned == true then
             tooltip:AddLine("Status: Owned", COLOR_GREEN.r, COLOR_GREEN.g, COLOR_GREEN.b)
         elseif vendorNpcID and availabilityState == "purchasable" then
-            tooltip:AddLine("Status: Purchasable", COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
+            tooltip:AddLine("Status: Available", COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
         elseif vendorNpcID and availabilityState == "locked" then
             tooltip:AddLine("Status: Locked", COLOR_RED.r, COLOR_RED.g, COLOR_RED.b)
         elseif availabilityState == "available" then

@@ -621,39 +621,26 @@ function VendorMapPins:ShowVendorTooltip(pin, vendor)
         tooltip:AddLine(" ")
         tooltip:AddLine("Items Sold:", 1, 1, 0)
 
-        local collectedCount = 0
-        local uncollectedItems = {}
+        local SM = HA.SourceManager
 
         for _, item in ipairs(allItems) do
             local itemName = item.name or (item.itemID and GetItemInfo(item.itemID)) or "Unknown Item"
-            local isOwned = false
 
-            if item.itemID then
-                isOwned = IsItemOwned(item.itemID)
-            end
-
-            if isOwned then
-                collectedCount = collectedCount + 1
-            else
-                tinsert(uncollectedItems, itemName)
-            end
-        end
-
-        -- If all items are collected, show them all in grey
-        if #uncollectedItems == 0 then
-            for _, item in ipairs(allItems) do
-                local itemName = item.name or (item.itemID and GetItemInfo(item.itemID)) or "Unknown Item"
-                tooltip:AddLine("  " .. itemName .. " (owned)", 0.5, 0.5, 0.5)
-            end
-        else
-            -- Show uncollected items first (in green)
-            for _, itemName in ipairs(uncollectedItems) do
+            if item.itemID and IsItemOwned(item.itemID) then
+                -- Collected: green
                 tooltip:AddLine("  " .. itemName, 0, 1, 0)
-            end
-
-            -- Show collected count summary
-            if collectedCount > 0 then
-                tooltip:AddLine(format("  ... and %d collected item(s)", collectedCount), 0.5, 0.5, 0.5)
+            elseif item.itemID and SM and SM.GetVendorItemAvailabilityState then
+                local state = SM:GetVendorItemAvailabilityState(item.itemID, vendor.npcID)
+                if state == "locked" then
+                    -- Locked: red
+                    tooltip:AddLine("  " .. itemName, 1, 0.25, 0.25)
+                else
+                    -- Available: white
+                    tooltip:AddLine("  " .. itemName, 1, 1, 1)
+                end
+            else
+                -- Unknown state: white
+                tooltip:AddLine("  " .. itemName, 1, 1, 1)
             end
         end
 
@@ -667,12 +654,7 @@ function VendorMapPins:ShowVendorTooltip(pin, vendor)
     local stats = self:GetVendorStats(vendor, "all")
     if stats.total > 0 then
         tooltip:AddLine(" ")
-        tooltip:AddLine(string.format(
-            "|cFF00FF00Collected|r: %d | |cFFFFD100Purchasable|r: %d | |cFFFF4040Locked|r: %d",
-            stats.collected or 0,
-            stats.purchasable or 0,
-            stats.locked or 0
-        ), 1, 1, 1)
+        BC.AddSummaryLine(tooltip, stats.collected, stats.total, stats.locked, stats.unverified)
 
         if isOpposite and not self:CanAccessVendor(vendor) then
             tooltip:AddLine("Cannot buy on this character - opposite faction vendor", 1.0, 0.5, 0.5)
@@ -687,10 +669,6 @@ function VendorMapPins:ShowVendorTooltip(pin, vendor)
 
         if #blockers > 3 then
             tooltip:AddLine(string.format("Locked by: +%d more blocker types", #blockers - 3), 0.8, 0.8, 0.8)
-        end
-
-        if (stats.unverified or 0) > 0 then
-            tooltip:AddLine(string.format("(%d unverified)", stats.unverified), 1.0, 0.82, 0.0)
         end
     end
 
@@ -734,13 +712,11 @@ function VendorMapPins:ShowZoneBadgeTooltip(pin, zoneInfo)
             factionColor[1], factionColor[2], factionColor[3])
     end
 
-    -- Show collection status
-    if zoneInfo.uncollectedCount and zoneInfo.uncollectedCount > 0 then
-        tooltip:AddLine(format("With uncollected items: %d", zoneInfo.uncollectedCount), 0, 1, 0)
-    end
+    -- Collection summary
+    BC.AddSummaryLine(tooltip, zoneInfo.collectedItems, zoneInfo.totalItems, zoneInfo.lockedItems, zoneInfo.unverifiedItems)
 
     if zoneInfo.unknownCount and zoneInfo.unknownCount > 0 then
-        tooltip:AddLine(format("Unknown status: %d (visit to scan)", zoneInfo.unknownCount), 1, 0.82, 0)
+        tooltip:AddLine(format("Unknown status: %d vendor(s) (visit to scan)", zoneInfo.unknownCount), 1, 0.82, 0)
     end
 
     local knownVendors = zoneInfo.vendorCount - (zoneInfo.unknownCount or 0)

@@ -288,8 +288,8 @@ function BadgeCalculation:GetVendorCollectionCounts(vendor, sourceFilter)
     return stats.collected or 0, stats.total or 0
 end
 
--- Format count text with inline color escapes: green owned / white total / red locked.
--- Falls back to owned/total when locked == 0.
+-- Format count text with inline color escapes: green collected / white total / red locked.
+-- Falls back to collected/total when locked == 0.
 -- Shared by PinFrameFactory and MapSidePanel.
 function BadgeCalculation.FormatCountText(collected, total, locked)
     local ownedText = string.format("|cFF00FF00%d|r", collected or 0)
@@ -300,6 +300,34 @@ function BadgeCalculation.FormatCountText(collected, total, locked)
     end
 
     return ownedText .. "/" .. totalText
+end
+
+-- Format the tooltip summary line: "Collected: X/Y | Locked: Z".
+-- Adds the line directly to the given tooltip. Shared by all vendor/zone tooltips.
+-- Optional unverified count shown on a second line when > 0.
+function BadgeCalculation.AddSummaryLine(tooltip, collected, total, locked, unverified)
+    collected = collected or 0
+    total = total or 0
+    locked = locked or 0
+    unverified = unverified or 0
+
+    if total == 0 then return end
+
+    if locked > 0 then
+        tooltip:AddLine(string.format(
+            "|cFF00FF00Collected|r: %d/%d | |cFFFF4040Locked|r: %d",
+            collected, total, locked
+        ), 1, 1, 1)
+    else
+        tooltip:AddLine(string.format(
+            "|cFF00FF00Collected|r: %d/%d",
+            collected, total
+        ), 1, 1, 1)
+    end
+
+    if unverified > 0 then
+        tooltip:AddLine(string.format("(%d unverified)", unverified), 1.0, 0.82, 0.0)
+    end
 end
 
 -------------------------------------------------------------------------------

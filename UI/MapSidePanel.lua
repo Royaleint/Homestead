@@ -457,7 +457,7 @@ local function ReleaseIcon(icon)
     table.insert(iconPool, icon)
 end
 
--- Shared count text formatter (green owned / white total / red locked).
+-- Shared count text formatter (green collected / white total / red locked).
 local function FormatPurchasabilityCountText(collected, total, locked)
     return BC.FormatCountText(collected, total, locked)
 end
@@ -1152,16 +1152,7 @@ local function CreateVendorRow(parent, index)
         end
         if self.total and self.total > 0 then
             local stats = BC:GetVendorStats(self.vendor, panelSourceFilter)
-            tooltip:AddLine(string.format(
-                "|cFF00FF00Collected|r: %d | |cFFFFD100Purchasable|r: %d | |cFFFF4040Locked|r: %d",
-                stats.collected or 0,
-                stats.purchasable or 0,
-                stats.locked or 0
-            ), 1, 1, 1)
-
-            if (stats.unverified or 0) > 0 then
-                tooltip:AddLine(string.format("(%d unverified)", stats.unverified), 1.0, 0.82, 0.0)
-            end
+            BC.AddSummaryLine(tooltip, stats.collected, stats.total, stats.locked, stats.unverified)
         end
         tooltip:AddLine(" ")
         if self.searchMode then
@@ -1303,16 +1294,7 @@ local function CreateSummaryRow(parent, index)
             tooltip:AddLine(string.format("%d vendors", self.vendorCount), 0.7, 0.7, 0.7)
         end
         if self.totalItems > 0 then
-            local lockedCount = self.lockedItems or 0
-            local purchasableCount = math.max(0, self.totalItems - self.collectedItems - lockedCount)
-            tooltip:AddLine(string.format(
-                "|cFF00FF00Collected|r: %d | |cFFFFD100Purchasable|r: %d | |cFFFF4040Locked|r: %d",
-                self.collectedItems, purchasableCount, lockedCount
-            ), 1, 1, 1)
-
-            if (self.unverifiedItems or 0) > 0 then
-                tooltip:AddLine(string.format("(%d unverified)", self.unverifiedItems), 1.0, 0.82, 0.0)
-            end
+            BC.AddSummaryLine(tooltip, self.collectedItems, self.totalItems, self.lockedItems, self.unverifiedItems)
         end
         tooltip:AddLine(" ")
         tooltip:AddLine("Click to expand | Right-click to navigate", 0.5, 0.5, 0.5)
@@ -1876,12 +1858,9 @@ local function CreatePanel()
         local val = self:GetValue()
         if max > 0 then
             local pct = math.floor(val / max * 100)
-            tooltip:AddLine(string.format("%d of %d items collected (%d%%)", val, max, pct), 0, 0.8, 0)
+            tooltip:AddLine(string.format("%d of %d items (%d%%)", val, max, pct), 0.4, 0.8, 0.8)
             local lockedVal = self.lockedValue or 0
-            local purchasableVal = self.purchasableValue or math.max(0, max - val - lockedVal)
-            tooltip:AddLine(string.format("Collected: %d", val), 0, 0.8, 0)
-            tooltip:AddLine(string.format("Purchasable: %d", purchasableVal), 1, 0.82, 0)
-            tooltip:AddLine(string.format("Locked: %d", lockedVal), 0.8, 0.2, 0.2)
+            BC.AddSummaryLine(tooltip, val, max, lockedVal)
         end
         tooltip:Show()
     end)

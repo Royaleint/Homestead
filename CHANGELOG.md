@@ -2,6 +2,21 @@
 
 ---
 
+## Unreleased
+
+### Added
+
+- **Purchasability awareness.** Vendor pins, side panel rows, and zone summaries now show at a glance how many items you've collected, how many are still available, and how many are locked behind requirements like reputation or quests. The progress bar at the top of the side panel also shows your locked item count.
+- **Traffic light progress bar.** The side panel progress bar now fills in three colors: blue for collected, gold for available, and red for locked. You can see your purchasability breakdown for each zone at a glance.
+- **Blocker summaries.** Hovering a vendor pin shows what's blocking locked items — which reputation, quest, or profession requirement is in the way and how many items it affects.
+- **Item status colors in pin tooltips.** Hovering a vendor pin now colors each item by status: green for collected, white for available, and red for locked.
+
+### Improved
+
+- Tooltip labels are now consistent across all surfaces — vendor pins, side panel rows, zone summaries, and the progress bar all use the same format and vocabulary.
+
+---
+
 ## v2.2.1 (2026-03-23)
 
 ### Fixed
