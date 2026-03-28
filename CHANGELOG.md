@@ -2,6 +2,14 @@
 
 ---
 
+## v2.3.1 (2026-03-28)
+
+### Fixed
+
+- Fixed a taint issue that could cause Lua errors when interacting with Blizzard UI elements like quest tooltips and the game menu.
+
+---
+
 ## v2.3.0 (2026-03-28)
 
 ### Added
