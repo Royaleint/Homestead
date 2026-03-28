@@ -303,7 +303,16 @@ local function CreateWhatsNewFrame()
     closeButton:SetScript("OnClick", function() WhatsNewFrame:Hide() end)
 
     frame:Hide()
-    tinsert(UISpecialFrames, "HomesteadWhatsNewFrame")
+    -- Close on Escape via SetScript instead of UISpecialFrames to avoid taint.
+    -- UISpecialFrames is read by protected Blizzard code; tinsert taints it.
+    frame:SetScript("OnKeyDown", function(self, key)
+        if key == "ESCAPE" then
+            self:SetPropagateKeyboardInput(false)
+            WhatsNewFrame:Hide()
+        else
+            self:SetPropagateKeyboardInput(true)
+        end
+    end)
 
     whatsNewFrame = frame
     return frame
