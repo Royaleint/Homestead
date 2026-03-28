@@ -7,9 +7,8 @@ local addonName, HA = ...
 
 if GetLocale() ~= "ptBR" then return end
 
--- Initialize localization table
-local L = {}
-HA.L = L
+-- Override translated keys; enUS fallbacks remain for missing entries
+local L = HA.L
 
 -------------------------------------------------------------------------------
 -- Collection Status
