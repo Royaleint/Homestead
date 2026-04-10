@@ -5,7 +5,7 @@
     STRUCTURE: NPC-keyed for O(1) lookups
     VendorDatabase.Vendors[npcID] = { name, mapID, x, y, zone, ... }
 
-    Updated: 2026-03-08 10:14
+    Updated: 2026-04-09
 ]]
 
 local _, HA = ...
@@ -2542,6 +2542,8 @@ VendorDatabase.Vendors = {
             {252668, cost = {gold = 50000000}},
             {252669, cost = {gold = 50000000}},
             {260785, cost = {gold = 15000000}},
+            259044, 259045, 259046, 259093, 259094,
+            264275, 264276, 264277,
         },
     },
 	[256009] = {
@@ -2626,7 +2628,11 @@ VendorDatabase.Vendors = {
         expansion = "Classic",
         scanConfirmed = "2026-02-25",
         scanCoverage = "full",
-        items = {{260785, cost = {gold = 15000000}}},
+        items = {
+            {260785, cost = {gold = 15000000}},
+            259044, 259045, 259046, 259093, 259094,
+            264275, 264276, 264277,
+        },
     },
 	[261262] = {
         name = "Gabbi",
@@ -2637,7 +2643,11 @@ VendorDatabase.Vendors = {
         faction = "Horde",
         currency = "Gold",
         expansion = "Classic",
-        items = {{260785, cost = {gold = 15000000}}},
+        items = {
+            {260785, cost = {gold = 15000000}},
+            259044, 259045, 259046, 259093, 259094,
+            264275, 264276, 264277,
+        },
     },
 
     -- Midnight vendors (discovered via parsed sourceText, 2026-02-12)
@@ -2953,6 +2963,33 @@ VendorDatabase.Vendors = {
         scanCoverage = "full",
         items = {
             {263203, cost = {currencies = {{id = 3379, amount = 150}}}},
+        },
+    },
+	[255495] = {
+        name = "Rae'ana",
+        unreleased = true,
+        mapID = 2393,
+        x = 0.476, y = 0.504,
+        zone = "Silvermoon City",
+        faction = "Neutral",
+        currency = "Unknown",
+        expansion = "Midnight",
+        notes = "12.0.5 — Void Elf themed. Currency TBD",
+        items = {271158, 273159, 273135, 273142, 273157, 273147},
+    },
+	[264056] = {
+        name = "Disguised Decor Duel Vendor",
+        unreleased = true,
+        mapID = 2393,
+        x = 0.5, y = 0.5,
+        zone = "Silvermoon City",
+        faction = "Neutral",
+        currency = "Illusionary Coin",
+        expansion = "Midnight",
+        notes = "12.0.5 — Decor Duels reward vendor. Coords placeholder, currency ID TBD",
+        items = {
+            268457, 269613, 269614, 269636, 269641, 271162,
+            272441, 272442, 272443, 272444, 272445, 272446,
         },
     },
 }

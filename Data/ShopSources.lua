@@ -1,5 +1,5 @@
 -- ShopSources.lua — Static source data for shop, promotional, and Twitch drop items.
--- Created: 2026-03-22 | Entries: 39
+-- Created: 2026-03-22 | Entries: 42
 -- Sources: catalog sourceText scan (27 "Shop" items) + Wowhead pack articles + Roofus charity pack
 --
 -- Schema:
@@ -40,6 +40,7 @@ HA.ShopSources = {
     [258568] = { method = "hearthsteel", name = "Spring Blossom Pack" },        -- Spring Blossom Window
     [258569] = { method = "hearthsteel", name = "Spring Blossom Pack" },        -- Spring Blossom Gazebo
     [263290] = { method = "hearthsteel", name = "Spring Blossom Pack" },        -- Spring Blossom Tree
+    [266167] = { method = "hearthsteel", name = "Spring Blossom Pack" },        -- Spring Blossom Pond
 
     ---------------------------------------------------------------------------
     -- Lush Garden Pack (Hearthsteel)
@@ -50,6 +51,8 @@ HA.ShopSources = {
     [258294] = { method = "hearthsteel", name = "Lush Garden Pack" },           -- Lush Garden Gnome-Like Statue
     [258567] = { method = "hearthsteel", name = "Lush Garden Pack" },           -- Lush Garden Fungal Chair
     [258888] = { method = "hearthsteel", name = "Lush Garden Pack" },           -- Lush Garden Fungal Fountain
+    [266070] = { method = "hearthsteel", name = "Lush Garden Pack" },           -- Lush Garden Fungal Table
+    [266163] = { method = "hearthsteel", name = "Lush Garden Pack" },           -- Lush Garden Fungal Planter
 
     ---------------------------------------------------------------------------
     -- Starter Pack (Hearthsteel)
