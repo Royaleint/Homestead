@@ -74,8 +74,12 @@ function VendorFilter.GetBestVendorCoordinates(vendor)
             local scannedY = scannedData.coords.y
             local scannedMapID = scannedData.mapID
 
-            -- Use scanned coords if they're valid and mapID matches (or we have a mapID)
-            if VendorFilter.AreValidCoordinates(scannedX, scannedY) and scannedMapID then
+            -- Use scanned coords if they're valid and mapID matches.
+            -- For endeavor vendors, skip scan data from a different mapID — it may
+            -- be stale from a previous neighborhood rotation.
+            local scanMapMismatch = vendor.endeavor and scannedMapID ~= vendor.mapID
+            if VendorFilter.AreValidCoordinates(scannedX, scannedY) and scannedMapID
+                    and not scanMapMismatch then
                 -- Debug output
                 if HA.DevAddon and HA.Addon.db.profile.debug then
                     local staticX, staticY = VendorFilter.GetVendorXY(vendor)

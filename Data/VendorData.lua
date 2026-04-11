@@ -435,6 +435,9 @@ function VendorData:GetVendorsInMap(mapID)
                 end
             end
         end
+
+        -- Note: alt-location entries are already in ByMapID (indexed at load time
+        -- with correct coordinates for each neighborhood). No runtime fallback needed.
     end
 
     -- Append active event vendors for this mapID

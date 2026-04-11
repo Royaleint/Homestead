@@ -127,25 +127,44 @@ EndeavorsData.Vendors = {
         mapID = 2352,
         x = 0.5304, y = 0.3805,
         zone = "Founder's Point",
+        altMapID = 2351,
+        altX = 0.5431, altY = 0.5610,
+        altZone = "Razorwind Shores",
         faction = "Neutral",
         currency = "Community Coupons",
         expansion = "The War Within",
         endeavor = true,
-        notes = "Neighborhood Endeavor vendor (Niffen theme). Also appears at Razorwind Shores at 54.3, 56.1",
-        items = {264915, 264916, 264917, 264918, 264919, 264920, 264921, 264922, 264923, 264924, 264925, 265032, 265541},
+        scanConfirmed = "2026-04-10",
+        items = {
+            {264915, cost = {currencies = {{id = 3363, amount = 15}}}},
+            {264916, cost = {currencies = {{id = 3363, amount = 20}}}},
+            {264917, cost = {currencies = {{id = 3363, amount = 5}}}},
+            {264918, cost = {currencies = {{id = 3363, amount = 2}}}},
+            {264919, cost = {currencies = {{id = 3363, amount = 20}}}},
+            {264920, cost = {currencies = {{id = 3363, amount = 5}}}},
+            {264921, cost = {currencies = {{id = 3363, amount = 20}}}},
+            {264922, cost = {currencies = {{id = 3363, amount = 2}}}},
+            {264923, cost = {currencies = {{id = 3363, amount = 15}}}},
+            {264924, cost = {currencies = {{id = 3363, amount = 10}}}},
+            {264925, cost = {currencies = {{id = 3363, amount = 5}}}},
+            {265032, cost = {currencies = {{id = 3363, amount = 5}}}},
+            {265541, cost = {currencies = {{id = 3363, amount = 1}}}},
+        },
     },
 
     -- Mechagnome theme
     [248525] = {
         name = "Pascal-K1N6",
         mapID = 2351,
-        x = 0.179, y = 0.175,
+        x = 0.543, y = 0.561,
         zone = "Razorwind Shores",
+        altMapID = 2352,
+        altX = 0.530, altY = 0.382,
+        altZone = "Founder's Point",
         faction = "Neutral",
         currency = "Community Coupons",
         expansion = "The War Within",
         endeavor = true,
-        notes = "Neighborhood Endeavor vendor (Mechagnome theme)",
         items = {
             {254400, cost = {currencies = {{id = 3363, amount = 2}}}},
             {254401, cost = {currencies = {{id = 3363, amount = 5}}}},
@@ -173,25 +192,46 @@ EndeavorsData.Vendors = {
         mapID = 2351,
         x = 0.5436, y = 0.5612,
         zone = "Razorwind Shores",
+        altMapID = 2352,
+        altX = 0.5302, altY = 0.3809,
+        altZone = "Founder's Point",
         faction = "Neutral",
         currency = "Community Coupons",
         expansion = "The War Within",
         endeavor = true,
-        notes = "Neighborhood Endeavor vendor (Grummle theme)",
-        items = {246686, 246741, 246838, 248402, 248403, 248405, 248406, 248407, 251472, 251473, 251474, 251475, 252039, 252040, 252041},
+        scanConfirmed = "2026-04-10",
+        items = {
+            {246686, cost = {currencies = {{id = 3363, amount = 10}}}},
+            {246741, cost = {currencies = {{id = 3363, amount = 10}}}},
+            {246838, cost = {currencies = {{id = 3363, amount = 10}}}},
+            {248402, cost = {currencies = {{id = 3363, amount = 15}}}},
+            {248403, cost = {currencies = {{id = 3363, amount = 10}}}},
+            {248405, cost = {currencies = {{id = 3363, amount = 5}}}},
+            {248406, cost = {currencies = {{id = 3363, amount = 10}}}},
+            {248407, cost = {currencies = {{id = 3363, amount = 10}}}},
+            {251472, cost = {currencies = {{id = 3363, amount = 10}}}},
+            {251473, cost = {currencies = {{id = 3363, amount = 5}}}},
+            {251474, cost = {currencies = {{id = 3363, amount = 5}}}},
+            {251475, cost = {currencies = {{id = 3363, amount = 10}}}},
+            {252039, cost = {currencies = {{id = 3363, amount = 5}}}},
+            {252040, cost = {currencies = {{id = 3363, amount = 5}}}},
+            {252041, cost = {currencies = {{id = 3363, amount = 15}}}},
+        },
     },
 
     -- Dracthyr theme
     [250820] = {
         name = "Hordranin",
         mapID = 2351,
-        x = 0.542, y = 0.562,
+        x = 0.543, y = 0.561,
         zone = "Razorwind Shores",
+        altMapID = 2352,
+        altX = 0.530, altY = 0.382,
+        altZone = "Founder's Point",
         faction = "Neutral",
         currency = "Community Coupons",
         expansion = "The War Within",
         endeavor = true,
-        notes = "Neighborhood Endeavor vendor (Dracthyr theme)",
         items = {
             {250627, cost = {currencies = {{id = 3363, amount = 5}}}},
             {250694, cost = {currencies = {{id = 3363, amount = 15}}}},
@@ -214,15 +254,27 @@ EndeavorsData.Vendors = {
         mapID = 2351,
         x = 0.544, y = 0.562,
         zone = "Razorwind Shores",
+        altMapID = 2352,
+        altX = 0.5300, altY = 0.3990,
+        altZone = "Founder's Point",
         faction = "Neutral",
         currency = "Community Coupons",
         expansion = "The War Within",
         endeavor = true,
-        scanConfirmed = "2026-03-24",
-        notes = "Neighborhood Endeavor vendor (K'areshi theme)",
+        scanConfirmed = "2026-04-10",
         items = {
-            262664, 262665, 262666, 262667, 262884,
-            262907, 263043, 263044, 263045, 263046, 263047, 263048,
+            {262664, cost = {currencies = {{id = 3363, amount = 5}}}},
+            {262665, cost = {currencies = {{id = 3363, amount = 5}}}},
+            {262666, cost = {currencies = {{id = 3363, amount = 2}}}},
+            {262667, cost = {currencies = {{id = 3363, amount = 5}}}},
+            {262884, cost = {currencies = {{id = 3363, amount = 10}}}},
+            {262907, cost = {currencies = {{id = 3363, amount = 10}}}},
+            {263043, cost = {currencies = {{id = 3363, amount = 10}}}},
+            {263044, cost = {currencies = {{id = 3363, amount = 5}}}},
+            {263045, cost = {currencies = {{id = 3363, amount = 20}}}},
+            {263046, cost = {currencies = {{id = 3363, amount = 10}}}},
+            {263047, cost = {currencies = {{id = 3363, amount = 5}}}},
+            {263048, cost = {currencies = {{id = 3363, amount = 15}}}},
         },
     },
 
@@ -274,13 +326,27 @@ for npcID, vendor in pairs(EndeavorsData.Vendors) do
     vendor.npcID = npcID
     EndeavorsData.VendorCount = EndeavorsData.VendorCount + 1
 
-    -- Index by mapID
+    -- Index by primary mapID
     local mapID = vendor.mapID
     if mapID then
         if not EndeavorsData.ByMapID[mapID] then
             EndeavorsData.ByMapID[mapID] = {}
         end
         table.insert(EndeavorsData.ByMapID[mapID], vendor)
+    end
+
+    -- Index by alt mapID (endeavor vendors rotate between neighborhoods)
+    if vendor.altMapID then
+        local altEntry = {}
+        for k, v in pairs(vendor) do altEntry[k] = v end
+        altEntry.mapID = vendor.altMapID
+        altEntry.x = vendor.altX
+        altEntry.y = vendor.altY
+        altEntry.zone = vendor.altZone or vendor.zone
+        if not EndeavorsData.ByMapID[vendor.altMapID] then
+            EndeavorsData.ByMapID[vendor.altMapID] = {}
+        end
+        table.insert(EndeavorsData.ByMapID[vendor.altMapID], altEntry)
     end
 
     -- Index by itemID
@@ -497,12 +563,6 @@ local function RefreshActiveTheme(reason)
 
     local ok, info = pcall(neighborhoodAPI.GetNeighborhoodInitiativeInfo)
     if not ok or not info then
-        return
-    end
-
-    -- If theme is already resolved, just update the cached progress data
-    if activeThemeKnown then
-        UpdateCachedPayload(info)
         return
     end
 

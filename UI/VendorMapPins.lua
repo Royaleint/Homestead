@@ -1010,7 +1010,10 @@ function VendorMapPins:RefreshMinimapPins()
                     local shouldSkipVendor = ShouldHideVendor(vendor)
 
                     -- Skip static/scanned map mismatches to avoid misplaced minimap pins.
-                    if not shouldSkipVendor and HA.Addon and HA.Addon.db
+                    -- Bypass for endeavor vendors: scan data may be stale from a previous
+                    -- neighborhood rotation. GetBestVendorCoordinates handles the fallback.
+                    if not shouldSkipVendor and not vendor.endeavor
+                            and HA.Addon and HA.Addon.db
                             and HA.Addon.db.global.scannedVendors then
                         local scannedData = HA.Addon.db.global.scannedVendors[vendor.npcID]
                         if scannedData and scannedData.mapID and not mapsToCheckSet[scannedData.mapID] then
