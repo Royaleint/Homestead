@@ -1117,6 +1117,10 @@ local function BuildBadgeData(mapID, zoneName, zoneData)
         oppositeFactionCount = zoneData.oppositeFactionCount,
         dominantFaction = zoneData.dominantFaction,
         note = MPP.zoneNotes[mapID],
+        collectedItems = zoneData.collectedItems,
+        totalItems = zoneData.totalItems,
+        lockedItems = zoneData.lockedItems,
+        unverifiedItems = zoneData.unverifiedItems,
     }
 end
 
@@ -1459,6 +1463,10 @@ function VendorMapPins:ShowZoneBadgesOnWorldMap(renderState)
                     uncollectedCount = continentData.uncollectedCount,
                     unknownCount = continentData.unknownCount,
                     oppositeFactionCount = continentData.oppositeFactionCount,
+                    collectedItems = continentData.collectedItems,
+                    totalItems = continentData.totalItems,
+                    lockedItems = continentData.lockedItems,
+                    unverifiedItems = continentData.unverifiedItems,
                 }
                 renderState.continentBadges[#renderState.continentBadges + 1] = {
                     badgeData = badgeData,
@@ -1509,6 +1517,10 @@ function VendorMapPins:ShowContinentBadges(renderState)
                     uncollectedCount = continentData.uncollectedCount,
                     unknownCount = continentData.unknownCount,
                     oppositeFactionCount = continentData.oppositeFactionCount,
+                    collectedItems = continentData.collectedItems,
+                    totalItems = continentData.totalItems,
+                    lockedItems = continentData.lockedItems,
+                    unverifiedItems = continentData.unverifiedItems,
                 }
 
                 local ok, x, y, reason = MPP:ProjectContinentBadgeToWorldView(continentMapID)
