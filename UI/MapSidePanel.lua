@@ -1844,8 +1844,12 @@ local function CreatePanel()
     -- Ensure locked fill doesn't cover the text — lower its frame level
     progressBarLockedFill:SetFrameLevel(progressBar:GetFrameLevel() + 1)
 
-    -- Centered count text (on a higher frame level so it draws above both fills)
-    progressBarText = progressBarLockedFill:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    -- Centered count text on its own frame above both fills — must not be
+    -- a child of progressBarLockedFill or it hides when locked == 0
+    local textOverlay = CreateFrame("Frame", nil, progressBar)
+    textOverlay:SetAllPoints()
+    textOverlay:SetFrameLevel(progressBarLockedFill:GetFrameLevel() + 1)
+    progressBarText = textOverlay:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
     progressBarText:SetPoint("CENTER", progressBar, "CENTER")
 
     -- Tooltip on hover
