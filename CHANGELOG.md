@@ -2,6 +2,29 @@
 
 ---
 
+## Unreleased
+
+### Bug Fixes
+
+- Fixed endeavor vendor map pins not appearing after the monthly endeavor rotated. If you were online when the rotation happened, the pin for the new vendor now shows up without requiring a UI reload.
+- Endeavor vendors now display correctly whether they spawn in Founder's Point or Razorwind Shores. Previously, pins could go missing if the vendor moved to the opposite neighborhood from their last known location.
+
+### Vendor Database
+
+**Corrections**
+
+- **Naynar**: Fixed zone, subzone, and currency. Prices now show Voidlight Marl costs instead of gold. Item list trimmed to what the vendor actually sells.
+- **Pascal-K1N6**: Fixed pin location on the neighborhood map.
+- **Trevor Grenner**: Corrected faction so the pin shows for both Alliance and Horde players.
+
+**New and Updated Vendors**
+
+- **Rendron**: Added new vendor in Silvermoon City selling the Midnight Skinner's Shop Sign. Requires Skinning.
+- **Sathren Azuredawn**: Added 4 new decor items with prices — Grand Aethercharged Crystal, Sumptuous Berry Pie, Farstriders' Pride Statue, Farstriders' Glory Statue.
+- **Brother Dovetail, Aeeshna, Harlowe Marl**: Prices now display correctly on all items.
+
+---
+
 ## v2.3.1 (2026-03-28)
 
 ### Fixed
