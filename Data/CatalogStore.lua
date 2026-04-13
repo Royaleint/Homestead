@@ -33,6 +33,7 @@ local pcall = pcall
 -- Internal state
 local ci = nil              -- shorthand for db.global.catalogItems (set on Initialize)
 local decorToItemID = {}    -- reverse index: decorID → itemID
+local itemIDToDecor = {}    -- forward index: itemID → decorID (for byRecordID fallback probes)
 local ownedCount = 0        -- cached count of owned items (incremented in SetOwned)
 local batchMode = false     -- true during catalog scan batches
 local batchOwnershipChanged = false
@@ -57,9 +58,10 @@ local function _save(itemID, fields)
         record[k] = v
     end
 
-    -- Update decorToItemID reverse index if decorID present
+    -- Update decor index (both directions) if decorID present
     if fields.decorID and fields.decorID ~= 0 then
         decorToItemID[fields.decorID] = itemID
+        itemIDToDecor[itemID] = fields.decorID
     end
 end
 
@@ -259,7 +261,7 @@ function CatalogStore:IsOwned(itemID)
 end
 
 -- Fresh ownership check for UI display paths
--- IsOwned() + bag check + live API probe
+-- IsOwned() + bag check + live byItem probe + byRecordID fallback
 -- Use this for VendorMapPins, Tooltips, VendorTracer — NOT for badge counts or export
 function CatalogStore:IsOwnedFresh(itemID)
     if not itemID then return false end
@@ -273,13 +275,17 @@ function CatalogStore:IsOwnedFresh(itemID)
     if GetItemCount then
         local bagCount = GetItemCount(itemID)
         if bagCount and bagCount > 0 then
-            -- Found in bags — cache it for next time
-            self:SetOwned(itemID, nil, nil)
+            -- Found in bags — cache it for next time.
+            -- Enrich with decorID from the reverse index so the cache record
+            -- is complete (prevents "isOwned=true, decorID=nil" partial records
+            -- from post-purchase bag-hit flows — see HS-059).
+            local decorID = itemIDToDecor[itemID]
+            self:SetOwned(itemID, nil, decorID)
             return true
         end
     end
 
-    -- Live API probe (handles post-purchase before next scan)
+    -- Live byItem probe (handles post-purchase before next scan)
     if C_HousingCatalog and C_HousingCatalog.GetCatalogEntryInfoByItem then
         local itemLink = "item:" .. tostring(itemID)
         local success, info = pcall(C_HousingCatalog.GetCatalogEntryInfoByItem, itemLink, true)
@@ -293,6 +299,19 @@ function CatalogStore:IsOwnedFresh(itemID)
                 self:SetOwned(itemID, info.name, recordID)
                 return true
             end
+        end
+    end
+
+    -- Stage 4: byRecordID fallback via reverse index.
+    -- GetCatalogEntryInfoByItem returns nil for some items on 12.0.1 (HS-059:
+    -- itemID 244778 Sethraliss Priest's Pillow). ProbeByDecorID uses the
+    -- reliable GetCatalogEntryInfoByRecordID signature and writes through
+    -- SetOwned on success (firstAcquisitionBonus == 0).
+    local decorID = itemIDToDecor[itemID]
+    if decorID then
+        local info = self:ProbeByDecorID(decorID)
+        if info and info.firstAcquisitionBonus == 0 then
+            return true
         end
     end
 
@@ -310,6 +329,18 @@ end
 function CatalogStore:GetItemIDFromDecorID(decorID)
     if not decorID then return nil end
     return decorToItemID[decorID]
+end
+
+-- Forward lookup: itemID → decorID (checks runtime record first, then static index)
+function CatalogStore:GetDecorIDFromItemID(itemID)
+    if not itemID then return nil end
+    if ci then
+        local record = ci[itemID]
+        if record and record.decorID and record.decorID ~= 0 then
+            return record.decorID
+        end
+    end
+    return itemIDToDecor[itemID]
 end
 
 -- Get item-level requirements
@@ -387,16 +418,18 @@ function CatalogStore:ClearAll()
     end
 end
 
--- Rebuild decorID → itemID reverse index
+-- Rebuild decorID ↔ itemID indexes (both directions)
 -- Seeds from static DecorMapping first, then overlays runtime discoveries
 function CatalogStore:BuildDecorIndex()
     decorToItemID = {}
+    itemIDToDecor = {}
 
     -- Seed from static mapping (generated from Blizzard web API)
     local staticMapping = HA.DecorMapping
     if staticMapping then
         for decorID, itemID in pairs(staticMapping) do
             decorToItemID[decorID] = itemID
+            itemIDToDecor[itemID] = decorID
         end
     end
 
@@ -405,6 +438,7 @@ function CatalogStore:BuildDecorIndex()
         for itemID, record in pairs(ci) do
             if record.decorID and record.decorID ~= 0 then
                 decorToItemID[record.decorID] = itemID
+                itemIDToDecor[itemID] = record.decorID
             end
         end
     end
