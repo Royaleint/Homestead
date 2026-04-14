@@ -8,6 +8,7 @@
 
 - Fixed endeavor vendor map pins not appearing after the monthly endeavor rotated. If you were online when the rotation happened, the pin for the new vendor now shows up without requiring a UI reload.
 - Endeavor vendors now display correctly whether they spawn in Founder's Point or Razorwind Shores. Previously, pins could go missing if the vendor moved to the opposite neighborhood from their last known location.
+- Fixed some owned decor items showing as "not collected" on vendor tooltips. Sethraliss Priest's Pillow was the reported case, but the fix applies to any item affected by the same issue. Thanks Kittywulfe from CurseForge.
 
 ### Vendor Database
 
