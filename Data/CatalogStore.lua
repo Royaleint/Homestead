@@ -487,9 +487,12 @@ local function Migration_1_to_2(db)
             record.sources = record.sources or data.sources
             record.sourceHash = record.sourceHash or data.sourceHash
             record.lastParsed = record.lastParsed or data.lastParsed
-            -- Map parsedSources recordID to decorID
+            -- Map parsedSources recordID to decorID.
+            -- Route through _save so the reverse index (itemIDToDecor /
+            -- decorToItemID) is updated structurally rather than
+            -- depending on BuildDecorIndex ordering.
             if data.recordID and not record.decorID then
-                record.decorID = data.recordID
+                _save(itemID, { decorID = data.recordID })
             end
         end
     end
