@@ -140,6 +140,16 @@ completion date. Active and queued work lives in `Home_Tracker.md`.
   - Ren/Gronthul data asymmetry at Razorwind Shores (Gronthul's 58-item list omits 244778) — possible Horde-mirror quirk. File separately if mirror parity is desired.
 - **Spec:** `Homestead/Home_Dev/plans/active/HS-059-sethraliss-pillow-ownership.md`
 
+### HS-061 Route Migration 1→2 decorID write through `_save`
+- **Type:** Maintenance (Hardening)
+- **Priority:** Low
+- **Status:** Complete (2026-04-15)
+- **Completed:** 2026-04-15 — Commit `fbba0bb`, merge `b610766` to Homestead main. Argus Gate 1 PASS on all five lenses. Rawb Gate 2 PASS (smoke test: `/reload` clean, ownership counts unchanged).
+- **Discovered:** Argus Gate 1 review of HS-059 (originally proposed as HS-059-FU-4).
+- **Acceptance criteria:** In `Data/CatalogStore.lua`, the Migration 1→2 path that writes `record.decorID = data.recordID` directly is refactored to route through `_save` (or an equivalent helper that also updates the `itemIDToDecor` reverse index). Reverse-index invariant is enforced structurally, not by `Initialize` ordering.
+- **Session context:** Currently safe by ordering — `BuildDecorIndex` runs after migrations in `Initialize`, so the rebuild captures the migration's writes. If a future code path runs `BuildDecorIndex` before migrations, the reverse index drifts silently.
+- **Notes:** A trap, not a current bug. Zero player impact today. Argus Gate 1 strengthened the rejection rationale for alt (b) — `self:Save` would fire `CATALOG_ITEM_UPDATED` mid-migration before subscribers expect a coherent store.
+
 ### HS-057 Update Wago.io landing page
 - **Reclassified:** Originally logged as HS-051 (duplicate ID). Renumbered to HS-057 in STU-023.
 - **Type:** Community
