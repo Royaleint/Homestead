@@ -202,14 +202,6 @@ Active and queued work for the Homestead addon. Completed items live in
 - **Session context:** Identified during HS-023 Phase 1 verification. The purchasability summary (Collected/Purchasable/Locked + blocker groups) gives a good overview, but there is no way to drill into per-item requirement detail from a map pin hover. Design questions: what does the expanded view show (per-item states? full requirement lists?), tooltip size management.
 - **Notes:** Depends on HS-023 Phase 1 being complete. Follow-up feature, not a Phase 1 blocker.
 
-### HS-057 Update Wago.io landing page
-- **Reclassified:** Originally logged as HS-051 (duplicate ID). Renumbered to HS-057 in STU-023.
-- **Type:** Community
-- **Priority:** Medium
-- **Status:** Backlog
-- **Acceptance criteria:** Wago.io addon page updated with compelling description, screenshots, and feature highlights to attract more downloads.
-- **Notes:** Current page may be using default/minimal description. Review competitor addon pages for what works.
-
 ### Data
 
 ### HS-007 In-game vendor verification queue
@@ -367,6 +359,8 @@ Active and queued work for the Homestead addon. Completed items live in
 - **Status:** In Progress (worktree)
 - **Acceptance criteria:** Vendors in same-mapID hubs (e.g. Dornogal) display on correct floor.
 - **Session context:** Implemented on worktree branch `feature/dynamic-floor-detection` at `../Homestead-feature-dynamic-floors`. Two commits: dynamic floor detection API in MapPinProvider + consumer wiring. VerticalSiblings manual overrides + dynamic map group detection.
+
+  2026-04-19 — Flagged by Rawb as growing stale. Decision needed: complete the in-progress work on `feature/dynamic-floor-detection` worktree or close the item.
 - **Notes:** Not merged to main. Needs in-game verification before merge.
 
 ### HS-058 Investigate 12.0.5 housing changes
