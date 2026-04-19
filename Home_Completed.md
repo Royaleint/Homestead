@@ -140,6 +140,15 @@ completion date. Active and queued work lives in `Home_Tracker.md`.
   - Ren/Gronthul data asymmetry at Razorwind Shores (Gronthul's 58-item list omits 244778) — possible Horde-mirror quirk. File separately if mirror parity is desired.
 - **Spec:** `Homestead/Home_Dev/plans/active/HS-059-sethraliss-pillow-ownership.md`
 
+### HS-057 Update Wago.io landing page
+- **Reclassified:** Originally logged as HS-051 (duplicate ID). Renumbered to HS-057 in STU-023.
+- **Type:** Community
+- **Priority:** Medium
+- **Status:** Complete
+- **Completed:** 2026-04-19
+- **Acceptance criteria:** Wago.io addon page updated with compelling description, screenshots, and feature highlights to attract more downloads.
+- **Notes:** Current page may be using default/minimal description. Review competitor addon pages for what works.
+
 ---
 Pre-split history: Royaleint/BawrLabs@<CUTOVER-SHA>:BACKLOG.md
 Archaeology: `git log -S "<ITEM-ID>" -- BACKLOG.md` at that SHA
