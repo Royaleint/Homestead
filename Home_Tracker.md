@@ -4,6 +4,43 @@ Active and queued work for the Homestead addon. Completed items live in
 `Home_Completed.md`. Cross-project status rollup lives in
 `BawrLabs/INDEX.md`.
 
+## Open Decisions (2026-04-20 — from audit review)
+
+Three structural decisions are pending before the next-sprint work kicks off.
+Each affects ticket sequencing or scope. Resolve at the start of the next
+session.
+
+1. **Sprint restructure** — the original plumbing-PR (6 items bundled) no
+   longer fits. With scope expansions, HS-022, HS-030, and HS-040 each
+   need their own plan doc + worktree. Proposed revised order:
+   **6** (done) → **4** (done) → **1a** HS-019 quick win →
+   **3** HS-018 wire-up → **1b** HS-022 plan + build →
+   **1c** HS-030 plan + build → **1d** HS-040 plan + build →
+   **2** HS-060 plan + build. Alternative: power through as one mega-PR
+   (not recommended — harder review, useless bisect, regression risk).
+   *Decision owner:* Rawb.
+
+2. **HS-051 consolidation timing** — HS-040's expanded scope fully absorbs
+   HS-051. Close HS-051 as consolidated-into-HS-040 before HS-040 plan
+   work begins, or retroactively after HS-040 ships. Same pattern as
+   HS-015 → HS-049. *Decision owner:* Rawb.
+
+3. **HS-022+3 dependency on HS-018** — the per-source-type hide scope
+   (sub-item 3 in HS-022's expanded AC) requires the `sourceFilter`
+   plumbing that HS-018 delivers. Options: (a) sequence HS-018 before
+   HS-022 so the plumbing is ready, (b) ship HS-022 sub-items 1+2 as a
+   standalone PR and layer 3 on after HS-018, (c) merge the two plans
+   into one worktree. *Decision owner:* Rawb (shapes plan-doc boundaries).
+
+Two tickets have pending state changes noted in their entries:
+
+- **HS-026** — umbrella split into HS-063 (catalog tag filter), HS-064
+  (HousingPlot supertrack probe), HS-065 (interaction context detection
+  — likely skip). Queued as a separate `docs(tracker):` commit.
+- **HS-031** — closure pending. Investigation confirmed interpretation
+  (a): Python pipeline already parses decorID (`export_review.py:352`).
+  Rawb to confirm intent, then move to `Home_Completed.md`.
+
 ## Backlog
 
 ### Next Release
@@ -47,10 +84,13 @@ Active and queued work for the Homestead addon. Completed items live in
 ### HS-019 Search: highlight/scroll to matched item in panel
 - **Type:** Feature
 - **Priority:** Medium
-- **Status:** Backlog
-- **Acceptance criteria:** Selecting a search result scrolls to and highlights the matched item in the expanded vendor grid.
-- **Session context:** Currently dims non-matches; vendor rows only. Item-first rows use separate expansion via v2.0 vendor-as-peer Phase 8. No auto-scroll behavior exists.
-- **Notes:** None.
+- **Status:** Backlog — **spec approved 2026-04-20, queued for implementation**
+- **Acceptance criteria (expanded 2026-04-20):**
+  1. Selecting a search result scrolls the matched item into view in the expanded vendor grid.
+  2. **Persistent highlight** — matched item stays visually distinct until search is cleared (no 3-pulse flash). Highlight style TBD during plan (border color shift or subtle glow).
+  3. **Match cycling** — clicking the same search result repeatedly cycles through multiple matches for that item (different vendors, item-first rows). Wraps at end.
+- **Session context (2026-04-20):** Verified during audit that row click-to-expand logic is at `UI/MapSidePanel.lua:930–1007`. `ScrollFrame` is the anchor point for scroll calls. No auto-scroll behavior exists today; currently dims non-matches. Item-first rows have separate expansion via v2.0 vendor-as-peer Phase 8 — cycling must handle both vendor-row and item-first-row cases. Still quick-win scope after expansion.
+- **Notes:** Single worktree with HS-018 plumbing or standalone — decide at plan time. Argus Gate 1 before merge.
 
 ### HS-021 Continent-level pin placement refinement
 - **Type:** Feature
@@ -63,10 +103,14 @@ Active and queued work for the Homestead addon. Completed items live in
 ### HS-022 Option to fully hide completed vendors
 - **Type:** Feature
 - **Priority:** Medium
-- **Status:** Backlog
-- **Acceptance criteria:** Setting available to hide completed vendor pins entirely (default remains color change only).
-- **Session context:** None.
-- **Notes:** None.
+- **Status:** Backlog — **spec approved 2026-04-20, plan doc required (promoted from quick win)**
+- **Acceptance criteria (expanded 2026-04-20):**
+  1. **Three-state setting** replacing the current binary: "Always show" / "Color change only" (current default) / "Hide completely" (new).
+  2. **Badge hiding** — when "Hide completely" is selected, fully-collected continent and zone summary badges are also suppressed on the world map, not just per-vendor pins.
+  3. **Per-source-type scope** — allow hiding completed **vendor** pins while leaving completed **quest-source** / **achievement-source** / **profession-source** / etc. pins visible. Scope selector is checkbox list, not radio.
+- **Session context (2026-04-20):** Original quick-win framing was binary on/off; Rawb expanded scope during audit review. Per-source-type hide requires the `sourceFilter` plumbing that HS-018 wire-up delivers — this ticket is now **dependent on HS-018** landing first. Badge-hide logic needs `UI/BadgeCalculation.lua` extension so `GetZoneVendorCounts` / `GetContinentVendorCounts` can exclude fully-collected vendors from counts.
+- **Open question (2026-04-20):** Does "Color change only" mode for the mid-state preserve today's exact behaviour, or is this the chance to revisit what "completed" color means (fully dim vs current pastel)? Leaving for plan doc.
+- **Notes:** Needs PLAN_TEMPLATE.md. **Blocked on HS-018 wire-up** for sub-item 3. Could ship sub-items 1+2 first as a standalone PR and add 3 after HS-018 — decision at plan time.
 
 ### HS-024 Ambient Profession Awareness suite
 - **Type:** Feature
@@ -85,15 +129,15 @@ Active and queued work for the Homestead addon. Completed items live in
 - **Notes:** None.
 
 ### HS-026 Housing API exploration
-- **Type:** Investigation
+- **Type:** Investigation (umbrella)
 - **Priority:** Low
-- **Status:** Backlog
-- **Acceptance criteria:** Each sub-item investigated and either promoted to a feature ticket or documented as not viable.
-- **Sub-items:**
-  - **Interaction type monitoring** (was HS-026): Detect housing UI context (cornerstone, bulletin board, pedestal) via `PLAYER_INTERACTION_MANAGER_FRAME_SHOW` types 70-78. May enable context-sensitive features.
-  - **Catalog category display** (was HS-027): Filter/category UI powered by `GetAllFilterTagGroups()` data (6 groups, 82 tags). See HOUSING_API_REFERENCE.md §Quick Taint Reference.
-  - **SuperTrackingMapPinType.HousingPlot** (was HS-028): Determine if type 4 can integrate with navigate-to-vendor waypoint system. See HOUSING_API_REFERENCE.md §SuperTrackingMapPinType.
-- **Notes:** All exploratory — may not result in features. Consolidated from HS-026 + HS-027 + HS-028.
+- **Status:** Backlog — **split pending (2026-04-20)**
+- **Investigation summary (2026-04-20):** All three sub-items investigated via wow-api MCP + code grep. None clears the bar for a quick-win commit. Recommend splitting the umbrella into three independent items:
+  - **HS-063 (new) — Catalog tag-based filtering.** `GetAllFilterTagGroups()` works, returns 6 groups / 82 tags. Real user value (filter by theme/culture/style/expansion). **Not a quick win** — needs pipeline work to export `dataTagsByID` per item, VendorDatabase schema addition, panel UI for multi-facet filtering. Must sequence after HS-018 (source-aware filtering) to avoid shipping two incomplete filter systems.
+  - **HS-064 (new) — SuperTrackingMapPinType.HousingPlot probe.** `Enum.SuperTrackingMapPinType.HousingPlot = 4` confirmed. Value unknown without in-game testing — needs `/hsdev` probe to determine what this supertracks and whether it's useful for vendor navigation. Research, not implementation.
+  - **HS-065 (new or skip) — PLAYER_INTERACTION_MANAGER_FRAME_SHOW context detection.** Types 70–79 in `Enum.PlayerInteractionType` are housing-related (Cornerstone, BulletinBoard, Pedestal, etc.). Pure infrastructure — no standalone value, no consumer. Recommend skip until a feature actually needs it.
+- **Acceptance criteria (updated 2026-04-20):** HS-026 umbrella closed. HS-063 and HS-064 created as separate tickets. HS-065 skipped unless a feature consumer emerges.
+- **Notes:** Tracker split queued as a separate `docs(tracker):` commit so it doesn't tangle with active plumbing-PR work. Consolidated from HS-026 + HS-027 + HS-028 originally.
 
 ### HS-029 Data pipeline report improvements
 - **Type:** Feature
@@ -114,18 +158,27 @@ Active and queued work for the Homestead addon. Completed items live in
 ### HS-030 Validation tool: EndeavorsData coverage
 - **Type:** Feature
 - **Priority:** Medium
-- **Status:** Backlog
-- **Acceptance criteria:** `/hsdev validate sources` checks EndeavorsData.Vendors, eliminating ~60 false positive NEW_VENDOR rows.
-- **Session context:** Currently only checks VendorDatabase.
-- **Notes:** None.
+- **Status:** Backlog — **spec approved 2026-04-20, plan doc required (promoted from quick win)**
+- **Acceptance criteria (expanded 2026-04-20):**
+  1. Validator loop extended from VendorDatabase-only to cover **all 7 source tables**: VendorDatabase, EndeavorsData.Vendors, QuestSources, AchievementSources, ProfessionSources, EventSources, DropSources, ShopSources.
+  2. Eliminates ~60 false-positive NEW_VENDOR rows for endeavor vendors (original HS-030 scope) plus similar false positives from the other source tables.
+  3. **Summary line** added to the report: "Validated N vendors across M source tables, K false-positive NEW_VENDOR rows suppressed."
+  4. **Cross-source consistency check** — new error class that flags items appearing in multiple source tables with inconsistent metadata (e.g. same itemID with different `decorID`, different `skillTier`, conflicting rewards).
+- **Session context (2026-04-20):** Original scope was EndeavorsData only; Rawb expanded to full source-table coverage + cross-source consistency during audit review. Cross-source check is a meaningfully new feature, not a loop extension — warrants plan doc. Original validator loop at `Modules/Validation.lua:132` (`ValidateVendorDatabase` at line 144).
+- **Notes:** Needs PLAN_TEMPLATE.md. Plan should define the conflict taxonomy (what counts as "inconsistent metadata") before implementation.
 
 ### HS-031 ExportImport.lua import side — parse decorID
 - **Type:** Feature
 - **Priority:** Medium
-- **Status:** Backlog
+- **Status:** Backlog — **closure pending (2026-04-20)**
 - **Acceptance criteria:** Import parses new `decorID` field from I: lines (field 9, 0-indexed). Currently export-only.
-- **Session context:** None.
-- **Notes:** None.
+- **Session context (2026-04-20):** Investigated during audit review. The "import" referenced here is the **Python pipeline's** ingestion of scanner exports, not an in-game import feature (no in-game import exists). Original scope already complete:
+  - Commit `fb230a0` (2026-03-01) added `decorID` to scanner I: lines with explicit note "Future-facing: the Python pipeline currently ingests only the TSV export, not the scanner export. **This prepares for scanner ingestion.**"
+  - `Home_Dev/scripts/export_review.py:352` parses `parts[9]` as decorID from I: lines.
+  - `Home_Dev/scripts/tests/test_export_review.py:30` asserts `item["decorID"] == 12345` — test coverage exists.
+  - Landed via session 25-28 commit `a44948f` ("parse-export hardening").
+- **Open question (2026-04-20):** Rawb to confirm intent was Python-pipeline parsing (interpretation (a), already done) vs in-game import feature (interpretation (b), would be a medium feature). Leaning (a) based on code + commit history. If (a), move to `Home_Completed.md` referencing `fb230a0` + `a44948f` + `export_review.py:352`. If (b), needs PLAN_TEMPLATE.md.
+- **Notes:** No code work required if interpretation (a). Audit review traced both interpretations; commit history supports (a).
 
 ### HS-032 Reduce /parse-export VERIFY noise
 - **Type:** Feature
@@ -138,20 +191,39 @@ Active and queued work for the Homestead addon. Completed items live in
 ### HS-051 Wago analytics — meaningful switches and counters
 - **Type:** Feature
 - **Priority:** Medium
-- **Status:** Backlog
+- **Status:** Backlog — **consolidation into HS-040 pending (2026-04-20)**
 - **Acceptance criteria:** (1) Replace always-true switches with behavior-differentiating ones. (2) Add counters that track real usage patterns. (3) Dashboard shows actionable development priority data.
-- **Session context:** Current switches (WelcomeScreenSeen, MapPinsEnabled, MinimapPinsEnabled) are all 100% — no signal. Region/locale overview data is useful (EU+RU > Americas). Class distribution is not actionable for a housing addon.
+- **Session context (2026-04-20):** Rawb expanded HS-040 scope to fold in all of HS-051's switches and counters. Pending decision: close HS-051 as consolidated-into-HS-040 before HS-040 plan work begins, or wait until HS-040 ships and close retroactively. Same pattern as HS-015 → HS-049.
+- **Original context:** Current switches (WelcomeScreenSeen, MapPinsEnabled, MinimapPinsEnabled) are all 100% — no signal. Region/locale overview data is useful (EU+RU > Americas). Class distribution is not actionable for a housing addon.
 - **Switches to add:** Panel mode (docked vs floating), source filter usage, custom pin color usage.
 - **Counters to add:** Pin hover frequency, waypoints set, panel search usage, vendors scanned per session.
 - **Notes:** Existing Wago integration is via WagoAnalytics module. Keep counters lightweight — no per-frame tracking. Session-level aggregates preferred.
 
-### HS-040 Wago Analytics — vendor counters
+### HS-040 Wago Analytics — comprehensive instrumentation
 - **Type:** Feature
-- **Priority:** Low
-- **Status:** Backlog
-- **Acceptance criteria:** (1) `Counter("vendor:" .. npcID, 1)` fires on MERCHANT_SHOW — vendor visit frequency on Wago dashboard. (2) `Counter("vendor:{npcID}:{mapID}:{x}:{y}", 1)` fires on vendor visit — crowdsources coordinate verification via Wago.
-- **Session context:** HA.Analytics already integrated (registered as `aNDMQ86o`). Current counters: VendorScans, Exports, WelcomeScreenClosed, WhatsNewClosed. 128-char name limit, 512 counter limit per addon, no item data. Both counters use the same MERCHANT_SHOW hook.
-- **Notes:** Consolidated from HS-040 + HS-041.
+- **Priority:** Medium (upgraded from Low 2026-04-20 after scope expansion)
+- **Status:** Backlog — **spec approved 2026-04-20, plan doc required (promoted from quick win)**
+- **Philosophy (2026-04-20):** Rawb's direction — "use Wago analytics to the fullest possible ability to enhance and validate our database where possible." This ticket is the omnibus Wago instrumentation pass.
+- **Acceptance criteria (expanded 2026-04-20):**
+  1. **Vendor visit counters** (original HS-040 scope):
+     - `Counter("vendor:" .. npcID, 1)` on MERCHANT_SHOW — vendor visit frequency.
+     - `Counter("vendor:{npcID}:{mapID}:{x}:{y}", 1)` on vendor visit — crowdsourced coordinate verification.
+  2. **HS-051 scope folded in** (switches):
+     - Panel mode (docked vs floating) — Switch
+     - Source filter usage — Switch
+     - Custom pin color usage — Switch
+  3. **HS-051 scope folded in** (counters):
+     - Pin hover frequency — Counter
+     - Waypoints set — Counter
+     - Panel search usage — Counter
+     - Vendors scanned per session — Counter
+  4. **Session deduplication** — fire the vendor-visit counter once per session per vendor (not per MERCHANT_SHOW). Prevents a player repeatedly opening the same vendor from skewing the dashboard.
+  5. **NPC discovery analytics** — emit a counter for newly-discovered NPC IDs (`Counter("newnpc:{npcID}", 1)`) the first time a player scans a vendor we don't have in VendorDatabase. Crowdsources unknown vendors.
+- **Session context (2026-04-20):** `HA.Analytics` already integrated (registered as `aNDMQ86o`). Current counters: VendorScans, Exports, WelcomeScreenClosed, WhatsNewClosed. Wago constraints: 128-char name limit, 512 counter limit per addon, no item data allowed. Key infrastructure: `Core/core.lua:758` (OnMerchantShow hook), `HA.Analytics:IncrementCounter(...)` / `HA.Analytics:Switch(...)` API. Session-aware dedup needs a `seenVendorsThisSession` table cleared on PLAYER_LOGIN / PLAYER_ENTERING_WORLD.
+- **Open questions (2026-04-20):**
+  1. Counter budget — 7 new counters + per-vendor counters (one per unique NPC) + per-coord counters (one per unique scan location) + newnpc counters. Need to estimate worst case against the 512-counter ceiling and decide if coord counters should be coarser (2 decimal → 1 decimal) or sampled.
+  2. Timing for HS-051 closure as consolidated-into-HS-040: before plan work starts, or retroactively after ship.
+- **Notes:** Needs PLAN_TEMPLATE.md. Consolidated from HS-040 + HS-041. HS-051 absorption pending — decide closure timing during plan. Original ticket was a quick-win two-counter addition; expansion promoted it to a medium omnibus instrumentation feature.
 
 ### HS-044 Dynamic event pin positioning
 - **Type:** Feature
