@@ -159,6 +159,24 @@ completion date. Active and queued work lives in `Home_Tracker.md`.
 - **Acceptance criteria:** Wago.io addon page updated with compelling description, screenshots, and feature highlights to attract more downloads.
 - **Notes:** Current page may be using default/minimal description. Review competitor addon pages for what works.
 
+### HS-052 World map panel taint — ShiftMapRight / UnifyTopBorder
+- **Type:** Bug
+- **Priority:** High
+- **Status:** Complete
+- **Completed:** 2026-04-20 (Gate 2 passed — no reproduction on current main)
+- **Summary:** Combat-lockdown guards at `UI/MapSidePanel.lua:3581–3623` (InCombatLockdown + PLAYER_REGEN_ENABLED deferral for ShowPanel/HidePanel) eliminated the taint cascade reported in the ticket. Rawb verified 2026-04-20 by hovering area POIs, quest POIs, world quests, and quest offers on a docked panel — no secret-number errors, no `ADDON_ACTION_BLOCKED` attributed to Homestead. The 0.1s canvas-width ticker in `UI/HomesteadWorldMapProvider.lua` is read-only and non-tainting. The 2026-03-28 user-reported secret-number stacks most likely matched the UISpecialFrames taint fix (`09e93ad`) rather than a separate issue.
+- **Notes:** Verified with main at `3104666`. No code work required. The protected-frame mutations (`ShiftMapRight`, SetParent on portrait/navBar/tutorial) remain in place; combat gating is what made them safe.
+
+### HS-062 ADDON_ACTION_FORBIDDEN on world map toggle in PvP (PerformEmote taint)
+- **Type:** Bug
+- **Priority:** Medium
+- **Status:** Complete
+- **Completed:** 2026-04-20 (Gate 2 passed — Tests 1+2 from investigation brief do not reproduce)
+- **GitHub:** [#33](https://github.com/Royaleint/Homestead/issues/33)
+- **Investigation brief:** `Home_Dev/plans/active/HS-062-performemote-taint-investigation.md` (prepped 2026-04-15, 10 taint vectors T1–T10 inventoried, Gate 3 had 1 non-blocking open question).
+- **Summary:** `ADDON_ACTION_FORBIDDEN: PerformEmote()` does not fire on current main. Rawb ran Tests 1 and 2 from the investigation brief on 2026-04-20 — error does not reproduce in any context tested, including the original PvP trigger. Most likely cause: the HS-052 combat-lockdown guards at `UI/MapSidePanel.lua:3581–3623` deferred enough of the Show/Hide mutation path to break the cascade into Blizzard's secure TOGGLEWORLDMAP execution. All suspect hooks (`SetMapID` at 4019, `HandleUserActionMaximizeSelf` at 4074, `HandleUserActionMinimizeSelf` at 4093, `RefreshOverlayFrames` at 2208) and SetParent calls (3217/3240/3278) remain in place but are no longer producing cascade errors.
+- **Notes:** Verified with main at `3104666`. No code work required. Tests 3–10 (deeper vector isolation) are not needed since T1–T2 pass. Move the investigation brief to `Home_Dev/plans/completed/` on next wrapup. Close GitHub #33 referencing this commit.
+
 ---
 Pre-split history: Royaleint/BawrLabs@2951ea8:BACKLOG.md
 Archaeology: `git log -S "<ITEM-ID>" -- BACKLOG.md` at commit 2951ea8^ (the commit before BACKLOG.md was deleted)

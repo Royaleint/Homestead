@@ -12,14 +12,6 @@ Active and queued work for the Homestead addon. Completed items live in
 
 ### Bugs
 
-### HS-052 World map panel taint — ShiftMapRight / UnifyTopBorder
-- **Type:** Bug
-- **Priority:** High
-- **Status:** Backlog
-- **Acceptance criteria:** No taint errors when hovering Blizzard world map POIs (area POI, quest POI, world quest, quest offers) with the side panel open and docked.
-- **Session context:** `ShiftMapRight()` calls `WorldMapFrame:SetPoint()` directly, tainting the protected frame's layout. `UnifyTopBorder()` reads `GetTop()`/`GetBottom()` from protected children (NavBar, BorderFrame, ScrollContainer) and modifies `TopEdge:SetPoint()`. `ApplyContentInset()` reads `GetBottom()` from protected children. The `HomesteadWorldMapProvider` ticker reads `canvas:GetWidth()` every 0.1s. All in `UI/MapSidePanel.lua` and `UI/HomesteadWorldMapProvider.lua`. Taint cascades to `GameTooltip` widget system (`GameTooltip_AddWidgetSet`, `GameTooltip_InsertFrame`), quest frame, and tooltip layout. Latest 2026-03-28 user-reported secret-number stacks matched the now-fixed UISpecialFrames taint, so this item remains unconfirmed until reproduced with `09e93ad` in place.
-- **Notes:** Separate from the UISpecialFrames taint, which was fully removed in `09e93ad` after the original partial fix in `8f906ff`. Pre-existing since panel border integration was built. Requires reworking how the panel docks to the map — cannot directly call SetPoint/GetTop/GetBottom on WorldMapFrame or its protected children. Needs PLAN_TEMPLATE.md.
-
 ### HS-054 World-level continent summary should scope to current map view
 - **Type:** Bug
 - **Priority:** Medium
@@ -366,29 +358,6 @@ Active and queued work for the Homestead addon. Completed items live in
   - Consider new catalogspike subcommand to inspect dye variant data on entry frames
   - Add Decor Duels test item to `ApiTest.lua TEST_ITEMS` after PTR scan
 - **Notes:** Research at `BawrLabs/projects/` (no dedicated doc yet). Blizzard Watch, Wowhead, MMO-Champion, and official PTR notes all reviewed.
-
-### HS-062 ADDON_ACTION_FORBIDDEN on world map toggle in PvP (PerformEmote taint)
-- **Type:** Bug
-- **Priority:** Medium
-- **Status:** In Progress (investigation prepped)
-- **GitHub:** [#33](https://github.com/Royaleint/Homestead/issues/33)
-- **Reported:** 2026-04-13, via BugGrabber capture during a PvP match (Homestead v2.3.1).
-- **Symptom:** `ADDON_ACTION_FORBIDDEN: AddOn 'Homestead' tried to call the protected function 'PerformEmote()'` fires when the user opens the world map in PvP. Map still opens; error is noise, not a functional block.
-- **Stack:** Entirely Blizzard code — `TOGGLEWORLDMAP` → `ToggleWorldMap` → `HandleUserActionToggleSelf` → `SetDisplayState` → `ShowUIPanel` → `SetAttribute` → `Show` → `Blizzard_WorldMap.lua:352` (anon handler) → `PerformEmote`. Homestead does not appear in the stack. This is a **taint cascade**, not a direct call — Blizzard attributes blame to the most-recently-tainted addon in the execution context.
-- **Suspect code paths (`UI/MapSidePanel.lua`):**
-  - `hooksecurefunc(WorldMapFrame, "HandleUserActionMaximizeSelf", ...)` at 4074 and `"MinimizeSelf"` at 4093 — siblings to the `HandleUserActionToggleSelf` in the stack.
-  - `hooksecurefunc(WorldMapFrame, "SetMapID", ...)` at 4019.
-  - `hooksecurefunc(WorldMapFrame, "RefreshOverlayFrames", ...)` at 2208.
-  - `WorldMapFrame:SetPoint(...)` in `ShiftMapRight` (~3120) for side-panel nudge.
-  - `SetParent(panelFrame)` on Blizzard-owned subframes (`portraitContainer`, `navBar`, `tutorial`) at 3207–3278 for integrated mode.
-- **Acceptance criteria:** BugGrabber no longer captures `ADDON_ACTION_FORBIDDEN / PerformEmote` attributed to Homestead when opening the world map, in PvP and in all other contexts verified during the investigation. Side-panel integration still works on default UI.
-- **Investigation plan (Gate 0, before any fix):**
-  1. Reproduce without PvP — dungeon, raid, arena lobby, BG waiting room, open world. PvP may just be first-noticed, not causal.
-  2. Test with `integrateMapBorder = false` (standalone mode) — if error disappears, the reparenting of Blizzard subframes is the taint source. Standalone mode doesn't reparent.
-  3. If standalone mode still errors, the `hooksecurefunc` closures on `HandleUserActionMaximizeSelf`/`MinimizeSelf` become prime suspects — disable those hooks and retest.
-  4. Investigate replacing `SetParent` on Blizzard subframes with cross-parent anchoring (positioning-only) — would remove the most taint-heavy operation while preserving the visual integration.
-- **Session context (2026-04-15):** Investigation brief completed with full Gate 0 code read of MapSidePanel.lua. 10 taint vectors inventoried (T1–T10, ranked high→low). Grep confirmed all WorldMapFrame mutations scoped to MapSidePanel.lua only. Gate 3 has 1 non-blocking open question (PerformEmote identity at Blizzard_WorldMap.lua:352). Q1 (other files) and Q2 (integrateMapBorder profile key: `HA.Addon.db.profile.vendorTracer.integrateMapBorder`, toggle labeled "Integrate with map frame border") resolved. Investigation brief at `Home_Dev/plans/active/HS-062-performemote-taint-investigation.md`. NOT approved. Next action: Rawb runs Tests 1 and 2 in-game, reports BugGrabber results. Test 3 (code-edit diagnostic) follows via Prodigy/Douglock.
-- **Notes:** Not player-blocking but eroding trust (error spam during PvP). Do not start a fix until the investigation pinpoints the taint source — this is exactly the class of bug that gets "fixed" by a plausible change that doesn't actually address the root cause.
 
 ## Awaiting Gate 2
 
