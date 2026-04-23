@@ -33,6 +33,11 @@ local PIN_COLOR_PRESETS = {
 -- when a custom color is active (desaturated icon tints accurately).
 local DESAT_LUMINANCE = 0.82
 
+-- Alpha applied when vertex-tinting a desaturated vendor pin atlas.
+-- Exposed as a module-level constant so the Options preview widget can match
+-- the in-game render exactly (single source of truth for the tint alpha).
+PinFrameFactory.DESAT_ALPHA = 0.95
+
 -- Default minimap icon size (HandyNotes standard)
 local MINIMAP_ICON_SIZE = 12
 
@@ -152,7 +157,7 @@ function PinFrameFactory:CreateVendorPinFrame(vendor, isOppositeFaction)
         frame.icon:SetVertexColor(0.6, 0.6, 0.6, 0.9)
     elseif isCustomColor then
         frame.icon:SetDesaturated(true)
-        frame.icon:SetVertexColor(br, bg, bb, 0.95)
+        frame.icon:SetVertexColor(br, bg, bb, PinFrameFactory.DESAT_ALPHA)
     end
 
     -- Faction emblem for opposite faction vendors
@@ -267,7 +272,7 @@ function PinFrameFactory:CreateBadgePinFrame(badgeData)
         frame.icon:SetVertexColor(0.6, 0.6, 0.6, 0.9)
     elseif isCustomColor then
         frame.icon:SetDesaturated(true)
-        frame.icon:SetVertexColor(br, bg, bb, 0.95)
+        frame.icon:SetVertexColor(br, bg, bb, PinFrameFactory.DESAT_ALPHA)
     end
 
     -- Faction emblem
@@ -482,7 +487,7 @@ function PinFrameFactory:CreateMinimapPinFrame(vendor, isOppositeFaction, elevat
         frame.icon:SetVertexColor(0.6, 0.6, 0.6, 0.9)
     elseif isCustomColor then
         frame.icon:SetDesaturated(true)
-        frame.icon:SetVertexColor(br, bg, bb, 0.95)
+        frame.icon:SetVertexColor(br, bg, bb, PinFrameFactory.DESAT_ALPHA)
     end
 
     -- Elevation arrow for cross-floor vendors
