@@ -2530,7 +2530,7 @@ VendorDatabase.Vendors = {
         faction = "Neutral",
         currency = "Gold",
         expansion = "Midnight",
-        scanConfirmed = "2026-03-24",
+        scanConfirmed = "2026-04-22",
         scanCoverage = "full",
         items = {
             {244668, cost = {gold = 150000000}},
@@ -2624,7 +2624,7 @@ VendorDatabase.Vendors = {
         faction = "Alliance",
         currency = "Gold",
         expansion = "Classic",
-        scanConfirmed = "2026-02-25",
+        scanConfirmed = "2026-04-22",
         scanCoverage = "full",
         items = {
             {260785, cost = {gold = 15000000}},
@@ -2639,6 +2639,7 @@ VendorDatabase.Vendors = {
         faction = "Horde",
         currency = "Gold",
         expansion = "Classic",
+        scanConfirmed = "2026-04-22",
         items = {
             {260785, cost = {gold = 15000000}},
         },
