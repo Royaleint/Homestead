@@ -8,6 +8,11 @@ Updated for WoW patch 12.0.5. New Decor Duels vendor, a new Void Elf scribe's ve
 
 ---
 
+### Improved
+
+- Show the actual map pin icon in the Pin Appearance settings preview. The eight color swatches now use the real vendor pin art tinted to match what you'll see on the world map, instead of the empty boxes that were rendering before.
+- Update the pin preview live as you drag the custom color picker, so you can see the pin change as you pick the color instead of waiting until you close the picker.
+
 ### Bug Fixes
 
 - Fix endeavor vendor map pins not appearing after the monthly rotation. If you were online when the rotation happened, the new vendor's pin now shows up without a UI reload.
