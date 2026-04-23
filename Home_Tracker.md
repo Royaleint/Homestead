@@ -271,6 +271,9 @@ Two tickets have pending state changes noted in their entries:
 - **Acceptance criteria:** Remaining PARSED_ONLY items either added to static tables or documented as intentionally excluded.
 - **Session context:** ~70 "Decor Treasure Hunt" quests (TWW weekly rotation, low priority), ~6 PvP "Battle" achievement items (247763-247770, not in AchievementSources but most are in VendorDatabase as PvP vendor items), ~24 "Prey:" achievement items (265681-265799, in PrerequisiteSources/DecorMapping but not AchievementSources), misc quest sources. ~~Draenor World Vendors: 4 items (244321, 244322, 245444, 245445)~~ — resolved, all in VendorDatabase. AchievementSources regenerated 2026-03-03 with 263 entries.
 - **Added 2026-04-10:** 7 orphaned Harandar/Rutaani items removed from Naynar (263019 Haranir Pennant, 263039 Harandar Flowering Lamp, 263194 Harandar Glowvine Sconce, 263195 Harandar Glowvine Lamppost, 264267 Rutaani Birdfeeder, 264268 Rutaani Birdbath, 264269 Rutaani Bird Perch) — in DecorMapping but sourced nowhere. Likely sold by an unscanned vendor in Harandar zone. Wowhead has no source data.
+- **Added 2026-04-22 (v2.3.2 prep):** 12 additional orphaned items in DecorMapping with no current vendor source. Mappings retained — `decorID ↔ itemID` is factual independent of vendor source.
+  - **8 Paw Pal items** (259044 Water Dish, 259045 Bed and Blanket, 259046 Bed, 259093 Dog House Frame, 259094 Elwynn Roof, 264275 Durotar Roof, 264276 Eversong Roof, 264277 Shadowglen Roof). Speculatively staged onto Dennia Silvertongue, Tuuran, and Gabbi in the v2.3.2 prep commit; stripped after a 2026-04-22 live scan of Dennia confirmed they are not on her vendor list. Tuuran and Gabbi unscanned but stripped on the same precaution.
+  - **4 Decor Duel guesses** (272443 Suramar Arcfruit Bowl, 272444 Small Decorative Dornogal Opal, 272445 Decorative Dornogal Opal, 272446 Large Decorative Dornogal Opal). Speculatively added with Disguised Decor Duel Vendor; live scan confirmed only 8 of the originally-listed 12 items.
 - **Notes:** Counts reduced since Feb 18. Some categories are low priority (weekly rotation quests).
 
 ### HS-014 ProfessionSources skillTier backfill
@@ -385,6 +388,19 @@ Two tickets have pending state changes noted in their entries:
 - **Notes:** Data collection scope absorbed by HS-049 (Shop source type). HS-049 covers collection + source type + tooltip integration.
 
 ## In Progress
+
+### HS-066 Pin color preview — real atlas swatch
+- **Type:** Feature (UI polish)
+- **Priority:** Low–Medium
+- **Status:** In Progress (spec drafted, awaiting handoff to Douglock)
+- **Acceptance criteria:** Pin Appearance preview swatch in Options → General shows the actual `housing-decor-vendor_32` atlas rendered exactly as it appears on the world map — default preset untreated, non-default presets + custom desaturated and vertex-tinted at alpha `PinFrameFactory.DESAT_ALPHA (0.95)`. No U+2588 block glyphs remain. Live refresh on preset/custom change. luacheck clean.
+- **Session context (2026-04-22):** Identified by Rawb from screenshot — 8 tofu boxes where the color swatch should be. Root cause: `pinColorPreview` in `UI/Options.lua:166-180` uses `U+2588` block glyphs with `|cff...|r` color escape, which fall back to tofu in most fonts. Spec saved at `Home_Dev/plans/active/HS-066-pin-color-preview-swatch.md`. Approach: single AceGUI custom widget `HomesteadPinColorPreview` with real Texture frame; matches in-game render contract at `UI/PinFrameFactory.lua:149-155`. Gate 0 complete (4 Ace3 questions resolved from vendored source), Gate 3 empty.
+  - **Worktree created:** `C:\Projects\Homestead-pin-color-preview-swatch` on branch `feature/pin-color-preview-swatch`.
+  - **Douglock session 1 — spec-scope gap caught:** Spec Gate 0 only anchored `:155`, but the `0.95` alpha literal also appears at `:275` (`CreateBadgePinFrame`) and `:490` (`CreateMinimapPinFrame`). Rawb ruled **broad** — refactor all three sites in Commit 1.
+  - **Commit 1 staged (broad, awaiting Rawb commit approval):** `PinFrameFactory.DESAT_ALPHA = 0.95` added as module-level constant; all three call sites (`:160`, `:275`, `:490`) updated to reference it. Opposite-faction `0.9` alpha untouched (out of scope). Luacheck 0/0. Diff verified.
+- **Current file:** `UI/PinFrameFactory.lua` (staged in worktree)
+- **Next action:** Rawb confirms commit; Douglock commits Commit 1 and stops; Rawb greenlights Commit 2 (widget + Options wiring + TOC). Then Argus Gate 1 on uncommitted worktree; Rawb Gate 2 in-game post-merge.
+- **Notes:** Post-Gate-2 cleanup follow-up ticket queued — `GetPinColorPreviewHex` at `UI/PinFrameFactory.lua:76-85` and `UI/VendorMapPins.lua:429-430` become dead after this ships; removal deferred per Rawb until in-game verification passes.
 
 ### HS-038 FloorHints for same-mapID hubs
 - **Type:** Feature
