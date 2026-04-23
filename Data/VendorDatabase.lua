@@ -5,7 +5,7 @@
     STRUCTURE: NPC-keyed for O(1) lookups
     VendorDatabase.Vendors[npcID] = { name, mapID, x, y, zone, ... }
 
-    Updated: 2026-03-08 10:14
+    Updated: 2026-04-22
 ]]
 
 local _, HA = ...
@@ -2530,7 +2530,7 @@ VendorDatabase.Vendors = {
         faction = "Neutral",
         currency = "Gold",
         expansion = "Midnight",
-        scanConfirmed = "2026-03-24",
+        scanConfirmed = "2026-04-22",
         scanCoverage = "full",
         items = {
             {244668, cost = {gold = 150000000}},
@@ -2624,9 +2624,11 @@ VendorDatabase.Vendors = {
         faction = "Alliance",
         currency = "Gold",
         expansion = "Classic",
-        scanConfirmed = "2026-02-25",
+        scanConfirmed = "2026-04-22",
         scanCoverage = "full",
-        items = {{260785, cost = {gold = 15000000}}},
+        items = {
+            {260785, cost = {gold = 15000000}},
+        },
     },
 	[261262] = {
         name = "Gabbi",
@@ -2637,7 +2639,10 @@ VendorDatabase.Vendors = {
         faction = "Horde",
         currency = "Gold",
         expansion = "Classic",
-        items = {{260785, cost = {gold = 15000000}}},
+        scanConfirmed = "2026-04-22",
+        items = {
+            {260785, cost = {gold = 15000000}},
+        },
     },
 
     -- Midnight vendors (discovered via parsed sourceText, 2026-02-12)
@@ -2953,6 +2958,48 @@ VendorDatabase.Vendors = {
         scanCoverage = "full",
         items = {
             {263203, cost = {currencies = {{id = 3379, amount = 150}}}},
+        },
+    },
+	[255495] = {
+        name = "Rae'ana",
+        mapID = 2393,
+        x = 0.4771, y = 0.5052,
+        zone = "Silvermoon City",
+        subzone = "The Bazaar",
+        faction = "Neutral",
+        currency = "Voidlight Marl",
+        expansion = "Midnight",
+        scanConfirmed = "2026-04-22",
+        scanCoverage = "full",
+        items = {
+            {271158, cost = {currencies = {{id = 3316, amount = 500}}}},
+            {273159, cost = {currencies = {{id = 3316, amount = 250}}}},
+            {273135, cost = {currencies = {{id = 3316, amount = 150}}}},
+            {273142, cost = {currencies = {{id = 3316, amount = 150}}}},
+            {273157, cost = {currencies = {{id = 3316, amount = 150}}}},
+            {273147, cost = {currencies = {{id = 3316, amount = 150}}}},
+        },
+    },
+	[264056] = {
+        name = "Disguised Decor Duel Vendor",
+        mapID = 2393,
+        x = 0.3165, y = 0.7693,
+        zone = "Silvermoon City",
+        subzone = "Falconwing Square",
+        faction = "Neutral",
+        currency = "Illusionary Coin",
+        expansion = "Midnight",
+        scanConfirmed = "2026-04-22",
+        scanCoverage = "full",
+        items = {
+            {268457, cost = {currencies = {{id = 3393, amount = 50}}}},
+            {269613, cost = {currencies = {{id = 3393, amount = 30}}}},
+            {269614, cost = {currencies = {{id = 3393, amount = 15}}}},
+            {269636, cost = {currencies = {{id = 3393, amount = 15}}}},
+            {269641, cost = {currencies = {{id = 3393, amount = 50}}}},
+            {271162, cost = {currencies = {{id = 3393, amount = 120}}}},
+            {272441, cost = {currencies = {{id = 3393, amount = 10}}}},
+            {272442, cost = {currencies = {{id = 3393, amount = 20}}}},
         },
     },
 }

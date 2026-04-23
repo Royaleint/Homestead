@@ -1,7 +1,7 @@
 --[[
     Homestead - DecorMapping
-    Generated: 2026-03-23 22:08:58
-    Total entries: 1392
+    Generated: 2026-04-09
+    Total entries: 1418
 
     Static decorID → itemID mapping from Blizzard web API.
     Used by CatalogStore to seed the bidirectional index at startup.
@@ -1171,7 +1171,12 @@ HA.DecorMapping = {
     [12217] = 258835,    -- Exposed Intersecting Ethereal Pipe Segment
     [12218] = 258836,    -- Reinforced Corner Ethereal Pipe Segment
     [12220] = 258885,    -- Exposed Angled Ethereal Pipe Segment
+    [12244] = 259044,    -- Paw Pal Water Dish
+    [12245] = 259045,    -- Paw Pal Bed and Blanket
+    [12246] = 259046,    -- Paw Pal Bed
     [12263] = 259071,    -- Brawler's Guild Punching Bag
+    [12264] = 259093,    -- Paw Pal Dog House Frame
+    [12265] = 259094,    -- Paw Pal Dog House Elwynn Roof
     [14204] = 260202,    -- Visage of Akil'zon, Loa of Victory
     [14350] = 260514,    -- Visage of Nalorakk, Loa of War
     [14351] = 260515,    -- Visage of Halazzi, Loa of the Hunt
@@ -1285,6 +1290,9 @@ HA.DecorMapping = {
     [15502] = 264267,    -- Rutaani Birdfeeder
     [15503] = 264268,    -- Rutaani Birdbath
     [15504] = 264269,    -- Rutaani Bird Perch
+    [15547] = 264275,    -- Paw Pal Dog House Durotar Roof
+    [15548] = 264276,    -- Paw Pal Dog House Eversong Roof
+    [15549] = 264277,    -- Paw Pal Dog House Shadowglen Roof
     [15571] = 264333,    -- Amani Incense Burner
     [15572] = 264334,    -- Amani War Drum
     [15573] = 264335,    -- Colossal Amani Stone Visage
@@ -1409,4 +1417,22 @@ HA.DecorMapping = {
     [17919] = 266444,    -- Granite Cobblestone Path
     [18617] = 267082,    -- Ornate Cosmic Table
     [18800] = 267209,    -- Open Void Elf Bedroll
+    [19763] = 268457,    -- Sin'dorei Tiffin-Style Lamp
+    [21079] = 269613,    -- Sin'dorei Covered Cookpot
+    [21080] = 269614,    -- Sin'dorei Open Cookpot
+    [21101] = 269636,    -- Sin'dorei Cookpot Lid
+    [21106] = 269641,    -- Sin'dorei Display Case
+    [21598] = 271158,    -- Dark Obelisk
+    [21602] = 271162,    -- Sin'dorei Garden Swing
+    [22006] = 272441,    -- Small Lumber Pile
+    [22007] = 272442,    -- Empty Wooden Toolbox
+    [22008] = 272443,    -- Suramar Arcfruit Bowl
+    [22009] = 272444,    -- Small Decorative Dornogal Opal
+    [22010] = 272445,    -- Decorative Dornogal Opal
+    [22011] = 272446,    -- Large Decorative Dornogal Opal
+    [22143] = 273159,    -- Void Elf Scribe's Desk
+    [22181] = 273135,    -- Void Elf Floating Desk
+    [22182] = 273142,    -- Runic Parchment
+    [22183] = 273157,    -- Void Elf Flame Candle
+    [22388] = 273147,    -- Void Inkwell
 }
