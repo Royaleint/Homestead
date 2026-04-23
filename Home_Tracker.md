@@ -65,6 +65,14 @@ Two tickets have pending state changes noted in their entries:
 
 ### Features
 
+### HS-067 Remove dead GetPinColorPreviewHex helpers
+- **Type:** Chore (cleanup)
+- **Priority:** Low
+- **Status:** Backlog — post-HS-066 follow-up
+- **Acceptance criteria:** Delete `PinFrameFactory:GetPinColorPreviewHex` (`UI/PinFrameFactory.lua:76-85`) and `VendorMapPins:GetPinColorPreviewHex` (`UI/VendorMapPins.lua:429-430`). Grep-verify no other callers before deletion. Luacheck clean.
+- **Session context:** Both helpers became dead after HS-066 landed — the only caller was the pre-refactor `pinColorPreview.name` closure at `UI/Options.lua:166-180`, which no longer exists. Removal was deliberately deferred per Rawb's Gate-2-first rule and kept out of HS-066 scope to keep that commit focused.
+- **Notes:** Single small commit, worktree optional (micro-chore). Argus Gate 1 trivial — verify no callers before delete.
+
 ### HS-017 Currency requirements display
 - **Type:** Feature
 - **Priority:** Medium
@@ -389,19 +397,6 @@ Two tickets have pending state changes noted in their entries:
 
 ## In Progress
 
-### HS-066 Pin color preview — real atlas swatch
-- **Type:** Feature (UI polish)
-- **Priority:** Low–Medium
-- **Status:** In Progress (spec drafted, awaiting handoff to Douglock)
-- **Acceptance criteria:** Pin Appearance preview swatch in Options → General shows the actual `housing-decor-vendor_32` atlas rendered exactly as it appears on the world map — default preset untreated, non-default presets + custom desaturated and vertex-tinted at alpha `PinFrameFactory.DESAT_ALPHA (0.95)`. No U+2588 block glyphs remain. Live refresh on preset/custom change. luacheck clean.
-- **Session context (2026-04-22):** Identified by Rawb from screenshot — 8 tofu boxes where the color swatch should be. Root cause: `pinColorPreview` in `UI/Options.lua:166-180` uses `U+2588` block glyphs with `|cff...|r` color escape, which fall back to tofu in most fonts. Spec saved at `Home_Dev/plans/active/HS-066-pin-color-preview-swatch.md`. Approach: single AceGUI custom widget `HomesteadPinColorPreview` with real Texture frame; matches in-game render contract at `UI/PinFrameFactory.lua:149-155`. Gate 0 complete (4 Ace3 questions resolved from vendored source), Gate 3 empty.
-  - **Worktree created:** `C:\Projects\Homestead-pin-color-preview-swatch` on branch `feature/pin-color-preview-swatch`.
-  - **Douglock session 1 — spec-scope gap caught:** Spec Gate 0 only anchored `:155`, but the `0.95` alpha literal also appears at `:275` (`CreateBadgePinFrame`) and `:490` (`CreateMinimapPinFrame`). Rawb ruled **broad** — refactor all three sites in Commit 1.
-  - **Commit 1 staged (broad, awaiting Rawb commit approval):** `PinFrameFactory.DESAT_ALPHA = 0.95` added as module-level constant; all three call sites (`:160`, `:275`, `:490`) updated to reference it. Opposite-faction `0.9` alpha untouched (out of scope). Luacheck 0/0. Diff verified.
-- **Current file:** `UI/PinFrameFactory.lua` (staged in worktree)
-- **Next action:** Rawb confirms commit; Douglock commits Commit 1 and stops; Rawb greenlights Commit 2 (widget + Options wiring + TOC). Then Argus Gate 1 on uncommitted worktree; Rawb Gate 2 in-game post-merge.
-- **Notes:** Post-Gate-2 cleanup follow-up ticket queued — `GetPinColorPreviewHex` at `UI/PinFrameFactory.lua:76-85` and `UI/VendorMapPins.lua:429-430` become dead after this ships; removal deferred per Rawb until in-game verification passes.
-
 ### HS-038 FloorHints for same-mapID hubs
 - **Type:** Feature
 - **Priority:** Low
@@ -472,4 +467,12 @@ Two tickets have pending state changes noted in their entries:
 
 ## Awaiting Release
 
-*(None.)*
+### HS-066 Pin color preview — real atlas swatch
+- **Type:** Feature (UI polish)
+- **Priority:** Low–Medium
+- **Status:** Gate 2 PASS (2026-04-22) — merged to main, awaiting release packaging
+- **Commits on main:** `c30a75d` (DESAT_ALPHA extraction), `34e6944` (widget + Options wiring), `6ae235b` (merge), `6b63af7` (color-picker NotifyChange fix)
+- **Spec:** `Home_Dev/plans/active/HS-066-pin-color-preview-swatch.md` (move to `completed/` at release)
+- **Session summary:** Replaced 8× U+2588 block-glyph swatch in Options → Pin Appearance with a custom AceGUI widget (`HomesteadPinColorPreview`) that renders the real `housing-decor-vendor_32` atlas using the same desat+tint path as in-game pins. Matches map pin appearance exactly — default preset untreated, non-default + custom desaturated and tinted at `PinFrameFactory.DESAT_ALPHA = 0.95`. Live preview during custom color drag.
+- **Release versioning decision pending:** Rawb to decide whether HS-066 rides along with v2.3.2 tag (already on main, will be included by default) or tags separately as v2.3.3.
+- **Post-release follow-up queued:** HS-067 — remove dead `GetPinColorPreviewHex` helpers.
