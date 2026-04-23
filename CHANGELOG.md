@@ -2,27 +2,38 @@
 
 ---
 
-## Unreleased
+## v2.3.2 (2026-04-22) — Patch 12.0.5 Support
+
+Updated for WoW patch 12.0.5. New Decor Duels vendor, a new Void Elf scribe's vendor in Silvermoon, and a wave of fixes for endeavor vendors, ownership detection, and badge tooltips.
+
+---
 
 ### Bug Fixes
 
-- Fixed endeavor vendor map pins not appearing after the monthly endeavor rotated. If you were online when the rotation happened, the pin for the new vendor now shows up without requiring a UI reload.
-- Endeavor vendors now display correctly whether they spawn in Founder's Point or Razorwind Shores. Previously, pins could go missing if the vendor moved to the opposite neighborhood from their last known location.
-- Fixed some owned decor items showing as "not collected" on vendor tooltips. Sethraliss Priest's Pillow was the reported case, but the fix applies to any item affected by the same issue. Thanks Kittywulfe from CurseForge.
+- Fix endeavor vendor map pins not appearing after the monthly rotation. If you were online when the rotation happened, the new vendor's pin now shows up without a UI reload.
+- Show endeavor vendor pins at the correct neighborhood — Founder's Point or Razorwind Shores — based on where the vendor actually spawned that month. Pins no longer go missing when a vendor moves to the opposite neighborhood from their last known location.
+- Fix owned decor items showing as "not collected" on vendor tooltips. Sethraliss Priest's Pillow was the reported case, but the fix applies to any item affected by the same issue. Thanks Kittywulfe on CurseForge.
+- Restore the collection summary line on continent and zone badge tooltips on the world map. It had gone missing.
+- Fix the progress bar text disappearing when nothing was locked. The numbers now stay visible in every state.
 
 ### Vendor Database
 
 **Corrections**
 
-- **Naynar**: Fixed zone, subzone, and currency. Prices now show Voidlight Marl costs instead of gold. Item list trimmed to what the vendor actually sells.
-- **Pascal-K1N6**: Fixed pin location on the neighborhood map.
-- **Trevor Grenner**: Corrected faction so the pin shows for both Alliance and Horde players.
+- **Naynar**: Correct zone, subzone, and currency. Prices now show Voidlight Marl costs instead of gold, and the item list is trimmed to what the vendor actually sells.
+- **Pascal-K1N6**: Fix pin location on the neighborhood map.
+- **Trevor Grenner**: Correct faction so the pin shows for both Alliance and Horde players.
 
-**New and Updated Vendors**
+**New Vendors**
 
-- **Rendron**: Added new vendor in Silvermoon City selling the Midnight Skinner's Shop Sign. Requires Skinning.
-- **Sathren Azuredawn**: Added 4 new decor items with prices — Grand Aethercharged Crystal, Sumptuous Berry Pie, Farstriders' Pride Statue, Farstriders' Glory Statue.
-- **Brother Dovetail, Aeeshna, Harlowe Marl**: Prices now display correctly on all items.
+- **Rae'ana**: Add new Void Elf vendor in The Bazaar, Silvermoon City. Sells 6 items for Voidlight Marl, including the Dark Obelisk and the Void Inkwell.
+- **Disguised Decor Duel Vendor**: Add new vendor in Falconwing Square, Silvermoon City. Sells 8 Sin'dorei-themed items — including the Sin'dorei Tiffin-Style Lamp, Sin'dorei Display Case, and Sin'dorei Garden Swing — for Illusionary Coin earned in Decor Duels.
+- **Rendron**: Add new vendor in Silvermoon City selling the Midnight Skinner's Shop Sign. Requires Skinning.
+
+**Updated Vendors**
+
+- **Sathren Azuredawn**: Add 4 new decor items with prices — Grand Aethercharged Crystal, Sumptuous Berry Pie, Farstriders' Pride Statue, Farstriders' Glory Statue.
+- **Brother Dovetail, Aeeshna, Harlowe Marl**: Show prices correctly on all items.
 
 ---
 
