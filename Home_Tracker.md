@@ -431,7 +431,17 @@ Two tickets have pending state changes noted in their entries:
   - **Still pending on v2.3.2:** TOC bump (120001→120005), Constants.VERSION → 2.3.2, CLAUDE.md version line, WhatsNewData.lua entry, README.md, CHANGELOG.md + CHANGELOG-internal.md, Argus Gate 1, merge to main, tag v2.3.2, Gate 2 in-game, push tag.
   - **Parallel Triage work still queued:** Triage TOC bump (11508, 50503, 120001 → 120005), optional v1.0.1 release bundling TRI-027/028 + TOC bump. Not started.
   - **KNOWLEDGE entries added this session:** 8 `[PROMOTE]`-tagged entries in `Home_Dev/session/KNOWLEDGE.md` covering pipeline tooling gotchas, Wowhead name-collision NPCs, PTR vendor-attribution over-claim pattern, scanner_corrections status taxonomy, the 4-script orchestration gap.
-- **Open:** Illusionary Coin currency ID, Rae'ana currency type, Decor Duel Vendor coords, Lush Garden Window itemID, Gamesmaster Fleurian data.
+- **Session 2026-04-22 (cont.) — release prep complete:**
+  - **Path B applied:** Paw Pal items stripped from Dennia Silvertongue, Tuuran, Gabbi (commit `1281a08`). Tracked as orphans under HS-012.
+  - **Disguised Decor Duel Vendor live scan applied:** Falconwing Square (0.3165/0.7693), Illusionary Coin (currency id `3393`), 8 items with full c3393 cost structures, `unreleased = true` removed (commit `44d9ba6`). Four stale guess itemIDs (272443/444/445/446) dropped from the original 12-item list — also tracked as orphans under HS-012.
+  - **Rae'ana live scan committed** alongside Decor Duel in `44d9ba6`.
+  - **Worktree rebased onto main** — clean rebase, no conflicts.
+  - **Version bumped to v2.3.2 / TOC 120005** (commits `6ba9af3`, `847dc14`).
+  - **AGENTS.md version line bumped** in Home_Dev (commit `d3dc21c` on Home_Dev master). Hard-link between `Homestead/AGENTS.md` and `Home_Dev/AGENTS.md` was severed by the Edit tool and manually restored. CLAUDE.md (Claude Code's local-only file) also bumped.
+  - **CHANGELOG.md (public) closed for v2.3.2** with imperative voice and headline "Patch 12.0.5 Support" (commit `34e85a0` on worktree). CHANGELOG-internal.md likewise (commit `03bf5b2` on Home_Dev master).
+  - **Resolved open questions:** Illusionary Coin = currency id 3393. Rae'ana currency = Voidlight Marl (id 3316). Decor Duel coords = 0.3165/0.7693. Gamesmaster Fleurian has no decor items (confirmed by Rawb — excluded from scope).
+- **Still pending on v2.3.2:** Argus Gate 1 review on the 6-commit branch, merge to main, tag `v2.3.2`, Rawb Gate 2 in-game (Rae'ana, Decor Duel Vendor, regression-check Dennia/Tuuran/Gabbi show no Paw Pal, endeavor pins still work, ownership detection still healthy), `git push origin v2.3.2`.
+- **Open:** Lush Garden Window itemID — deferred to a future patch session (no scan yet, not in any current vendor).
 - **Initial research (2026-03-25):**
   - **Decor Duels** — new 5v5 prop hunt in Silvermoon. New vendor (Disguised Decor Duel Vendor), new currency (Illusionary Coin), Sin'dorei-themed decor rewards. Needs new vendor entry + currency support.
   - **317 new decor items datamined** — full pipeline run needed when live.
