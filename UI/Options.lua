@@ -161,6 +161,11 @@ local function GetOptionsTable()
                             if HA.VendorMapPins then
                                 HA.VendorMapPins:RefreshAllPinColors()
                             end
+                            -- AceGUI color picker only fires OnValueConfirmed when hasAlpha=true
+                            -- (AceGUIWidget-ColorPicker.lua:39-41). Without this notify the Options
+                            -- panel never rebuilds on custom color change, so the pinColorPreview
+                            -- widget would stay stale. NotifyChange schedules a debounced refresh.
+                            LibStub("AceConfigRegistry-3.0"):NotifyChange(addonName)
                         end,
                     },
                     pinColorPreview = {
