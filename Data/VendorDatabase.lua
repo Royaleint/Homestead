@@ -5,7 +5,7 @@
     STRUCTURE: NPC-keyed for O(1) lookups
     VendorDatabase.Vendors[npcID] = { name, mapID, x, y, zone, ... }
 
-    Updated: 2026-04-09
+    Updated: 2026-04-22
 ]]
 
 local _, HA = ...
@@ -2967,29 +2967,44 @@ VendorDatabase.Vendors = {
     },
 	[255495] = {
         name = "Rae'ana",
-        unreleased = true,
         mapID = 2393,
-        x = 0.476, y = 0.504,
+        x = 0.4771, y = 0.5052,
         zone = "Silvermoon City",
+        subzone = "The Bazaar",
         faction = "Neutral",
-        currency = "Unknown",
+        currency = "Voidlight Marl",
         expansion = "Midnight",
-        notes = "12.0.5 — Void Elf themed. Currency TBD",
-        items = {271158, 273159, 273135, 273142, 273157, 273147},
+        scanConfirmed = "2026-04-22",
+        scanCoverage = "full",
+        items = {
+            {271158, cost = {currencies = {{id = 3316, amount = 500}}}},
+            {273159, cost = {currencies = {{id = 3316, amount = 250}}}},
+            {273135, cost = {currencies = {{id = 3316, amount = 150}}}},
+            {273142, cost = {currencies = {{id = 3316, amount = 150}}}},
+            {273157, cost = {currencies = {{id = 3316, amount = 150}}}},
+            {273147, cost = {currencies = {{id = 3316, amount = 150}}}},
+        },
     },
 	[264056] = {
         name = "Disguised Decor Duel Vendor",
-        unreleased = true,
         mapID = 2393,
-        x = 0.5, y = 0.5,
+        x = 0.3165, y = 0.7693,
         zone = "Silvermoon City",
+        subzone = "Falconwing Square",
         faction = "Neutral",
         currency = "Illusionary Coin",
         expansion = "Midnight",
-        notes = "12.0.5 — Decor Duels reward vendor. Coords placeholder, currency ID TBD",
+        scanConfirmed = "2026-04-22",
+        scanCoverage = "full",
         items = {
-            268457, 269613, 269614, 269636, 269641, 271162,
-            272441, 272442, 272443, 272444, 272445, 272446,
+            {268457, cost = {currencies = {{id = 3393, amount = 50}}}},
+            {269613, cost = {currencies = {{id = 3393, amount = 30}}}},
+            {269614, cost = {currencies = {{id = 3393, amount = 15}}}},
+            {269636, cost = {currencies = {{id = 3393, amount = 15}}}},
+            {269641, cost = {currencies = {{id = 3393, amount = 50}}}},
+            {271162, cost = {currencies = {{id = 3393, amount = 120}}}},
+            {272441, cost = {currencies = {{id = 3393, amount = 10}}}},
+            {272442, cost = {currencies = {{id = 3393, amount = 20}}}},
         },
     },
 }
