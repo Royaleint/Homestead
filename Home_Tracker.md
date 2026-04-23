@@ -407,72 +407,10 @@ Two tickets have pending state changes noted in their entries:
   2026-04-19 — Flagged by Rawb as growing stale. Decision needed: complete the in-progress work on `feature/dynamic-floor-detection` worktree or close the item.
 - **Notes:** Not merged to main. Needs in-game verification before merge.
 
-### HS-058 Investigate 12.0.5 housing changes
-- **Reclassified:** Originally logged as HS-052 (duplicate ID). Renumbered to HS-058 in STU-023.
-- **Type:** Investigation
-- **Priority:** High
-- **Status:** In Progress
-- **Acceptance criteria:** All 12.0.5 housing-related changes documented — new APIs, new items, vendor changes, UI changes. Impact on Homestead assessed with action items created for any required updates.
-- **Session context:** PTR live since March 12, expected live April 21 2026. PTR Build 66741 is Release Candidate (2026-03-31).
-- **Data implementation (2026-04-09):** All vendor data additions implemented on worktree branch `feature/12-0-5-vendors` (commit `8c14663`). 2 new vendors with `unreleased = true`, 3 existing vendors updated, 26 DecorMappings, 3 ShopSources. Plan at `Home_Dev/plans/active/12-0-5-vendor-additions.md`. Spec review + luacheck passed.
-- **Blocked:** Housing Catalog disabled on PTR — CatalogOverlay compatibility (steps 1, 2, 3, 6, 7) cannot be tested until patch goes live.
-- **Next action:** On patch day (April 21): remove `unreleased = true` from Rae'ana [255495] and Disguised Decor Duel Vendor [264056], merge branch to main, in-game scan all 5 vendors to backfill costs/coords/scanConfirmed, run pipeline regeneration.
-- **Session 2026-04-22 — HANDOFF to Homestead-direct session:** Studio-level workflow ran through pipeline audit + one applied edit, then Rawb pivoted to continue work in the Homestead repo directly. Studio tooling gap (no `/patch-audit` orchestrator, no versioned pipeline outputs, no EndeavorsData cross-check in vendor-diff script) is the reason; filed as `STU-037` in `BawrLabs/Studio_Tracker.md`.
-  - **Applied on `feature/12-0-5-vendors` worktree (uncommitted):** Rae'ana [255495] updated per live scan — currency `Voidlight Marl`, coords 0.4771/0.5052, subzone "The Bazaar", 6 items with cost structures (500/250/150/150/150/150 Voidlight Marl), `scanConfirmed = "2026-04-22"`, `scanCoverage = "full"`, `unreleased = true` removed. Header date bumped to 2026-04-22. Luacheck clean (pre-existing warning at line 720 unrelated).
-  - **Still in commit `8c14663` (2026-04-09), awaiting Rawb decision:** 8 Paw Pal items on Dennia (confirmed NOT on her per scan), 8 on Tuuran (unverified), 8 on Gabbi (unverified), 8 Paw Pal DecorMapping entries, Disguised Decor Duel Vendor [264056] + 12 items (unscanned, `unreleased = true` gates visibility), 14 Decor Duel DecorMapping entries, 3 ShopSources entries. Three paths (A keep-all / B strip-Dennia-only / C Rae'ana + TOC only) proposed; Rawb to decide in Homestead session.
-  - **Pipeline outputs:** `Home_Dev/scripts/exports/blizzard_latest/` (11 CSVs dated 2026-04-22 19:27–23:28). `vendor_diff_new_candidates.csv`, `vendor_diff_missing_items.csv`, `vendor_diff_triage.csv`, `scanner_corrections.csv`, `source_parity_report.txt` all fresh. DecorMapping generator output at `/tmp/hs-diff/DecorMapping_generated.lua` — 1413 entries.
-  - **Confirmed rulings:** Ransa Greyfeather 106902 (Highmountain) vs 135447 (Zuldazar) are distinct NPCs sharing a name — not a phased variant, do not alias. Hesta Forlath 252916 (static Silvermoon) is endeavor-handled at EndeavorsData.Vendors[256202] (Founder's Point endeavor). Brother Dovetail [249684] is in EndeavorsData.Vendors line 171.
-  - **Deferred for future patches:** 36 SCAN_REQUIRED items (Dennia 18, Hesta 8, Sathren 4, Anomander 1), 313 PARSED_ONLY source-parity items, 370 STATIC_ONLY, 134 ProfessionSources conflicts, all table regenerations, 13-item block [9265]–[9281] (253244–253297) of unidentified new decorIDs, 7 real new-vendor candidates (Aeeshna, Dethelin, Harlowe Marl, Hordranin, Pascal-K1N6, Rendron — most suspected endeavor).
-  - **Still pending on v2.3.2:** TOC bump (120001→120005), Constants.VERSION → 2.3.2, CLAUDE.md version line, WhatsNewData.lua entry, README.md, CHANGELOG.md + CHANGELOG-internal.md, Argus Gate 1, merge to main, tag v2.3.2, Gate 2 in-game, push tag.
-  - **Parallel Triage work still queued:** Triage TOC bump (11508, 50503, 120001 → 120005), optional v1.0.1 release bundling TRI-027/028 + TOC bump. Not started.
-  - **KNOWLEDGE entries added this session:** 8 `[PROMOTE]`-tagged entries in `Home_Dev/session/KNOWLEDGE.md` covering pipeline tooling gotchas, Wowhead name-collision NPCs, PTR vendor-attribution over-claim pattern, scanner_corrections status taxonomy, the 4-script orchestration gap.
-- **Session 2026-04-22 (cont.) — release prep complete:**
-  - **Path B applied:** Paw Pal items stripped from Dennia Silvertongue, Tuuran, Gabbi (commit `1281a08`). Tracked as orphans under HS-012.
-  - **Disguised Decor Duel Vendor live scan applied:** Falconwing Square (0.3165/0.7693), Illusionary Coin (currency id `3393`), 8 items with full c3393 cost structures, `unreleased = true` removed (commit `44d9ba6`). Four stale guess itemIDs (272443/444/445/446) dropped from the original 12-item list — also tracked as orphans under HS-012.
-  - **Rae'ana live scan committed** alongside Decor Duel in `44d9ba6`.
-  - **Worktree rebased onto main** — clean rebase, no conflicts.
-  - **Version bumped to v2.3.2 / TOC 120005** (commits `6ba9af3`, `847dc14`).
-  - **AGENTS.md version line bumped** in Home_Dev (commit `d3dc21c` on Home_Dev master). Hard-link between `Homestead/AGENTS.md` and `Home_Dev/AGENTS.md` was severed by the Edit tool and manually restored. CLAUDE.md (Claude Code's local-only file) also bumped.
-  - **CHANGELOG.md (public) closed for v2.3.2** with imperative voice and headline "Patch 12.0.5 Support" (commit `34e85a0` on worktree). CHANGELOG-internal.md likewise (commit `03bf5b2` on Home_Dev master).
-  - **Resolved open questions:** Illusionary Coin = currency id 3393. Rae'ana currency = Voidlight Marl (id 3316). Decor Duel coords = 0.3165/0.7693. Gamesmaster Fleurian has no decor items (confirmed by Rawb — excluded from scope).
-- **Still pending on v2.3.2:** Argus Gate 1 review on the 6-commit branch, merge to main, tag `v2.3.2`, Rawb Gate 2 in-game (Rae'ana, Decor Duel Vendor, regression-check Dennia/Tuuran/Gabbi show no Paw Pal, endeavor pins still work, ownership detection still healthy), `git push origin v2.3.2`.
-- **Open:** Lush Garden Window itemID — deferred to a future patch session (no scan yet, not in any current vendor).
-- **Initial research (2026-03-25):**
-  - **Decor Duels** — new 5v5 prop hunt in Silvermoon. New vendor (Disguised Decor Duel Vendor), new currency (Illusionary Coin), Sin'dorei-themed decor rewards. Needs new vendor entry + currency support.
-  - **317 new decor items datamined** — full pipeline run needed when live.
-  - **Catalog UI restructuring** — dyed variants consolidated onto single cards, Shift+Click linking, new filters. **Highest risk: CatalogOverlay may break if card `.entryInfo` structure changed.**
-  - **Endeavor tooltip changes** — now shows House XP + Community Coupons earned. Check tooltip hook conflict.
-  - **Community Coupons cap** increased 500 → 2000.
-  - **Artisanal House** — new house type.
-  - **Voidlight Marl repricing** — already live via March 24 hotfix, broader than HS-006 corrections.
-  - **New already-live decor sources:** Artistic Aid Endeavor (8 paintings), Cuddly Void Grrgle (Twitch drop Mar 26), London Treasure Hunt (3 items), Roofus Charity Pack.
-- **PTR testing plan:**
-  1. Run `/hsdev catalogspike` — verify `HousingDashboardFrame` exists and `.entryInfo` structure on dye-consolidated cards
-  2. Run `/hstest api` — check for new/changed `C_HousingCatalog` functions
-  3. Run `/hsdev discover start` — fresh recordID scan for item count delta
-  4. Run `/hstest currency <illusionary_coin_id>` — probe new Decor Duels currency
-  5. Visit Decor Duels vendor, run `/hsdev suggest` — generate DB entry
-  6. Check `GetAllFilterTagGroups` for new filter structure
-  7. Verify existing safe API calls still return same structure
-- **Dev addon updates needed before PTR:**
-  - `SourceValidator.lua` — update `DATA_REVIEWED_BUILD` and build number after review
-  - `DevCommands.lua` — verify `MAX_DECOR_ID = 19500` still sufficient
-  - Consider new catalogspike subcommand to inspect dye variant data on entry frames
-  - Add Decor Duels test item to `ApiTest.lua TEST_ITEMS` after PTR scan
-- **Notes:** Research at `BawrLabs/projects/` (no dedicated doc yet). Blizzard Watch, Wowhead, MMO-Champion, and official PTR notes all reviewed.
-
 ## Awaiting Gate 2
 
 *(None.)*
 
 ## Awaiting Release
 
-### HS-066 Pin color preview — real atlas swatch
-- **Type:** Feature (UI polish)
-- **Priority:** Low–Medium
-- **Status:** Gate 2 PASS (2026-04-22) — merged to main, awaiting release packaging
-- **Commits on main:** `c30a75d` (DESAT_ALPHA extraction), `34e6944` (widget + Options wiring), `6ae235b` (merge), `6b63af7` (color-picker NotifyChange fix)
-- **Spec:** `Home_Dev/plans/active/HS-066-pin-color-preview-swatch.md` (move to `completed/` at release)
-- **Session summary:** Replaced 8× U+2588 block-glyph swatch in Options → Pin Appearance with a custom AceGUI widget (`HomesteadPinColorPreview`) that renders the real `housing-decor-vendor_32` atlas using the same desat+tint path as in-game pins. Matches map pin appearance exactly — default preset untreated, non-default + custom desaturated and tinted at `PinFrameFactory.DESAT_ALPHA = 0.95`. Live preview during custom color drag.
-- **Release versioning decision pending:** Rawb to decide whether HS-066 rides along with v2.3.2 tag (already on main, will be included by default) or tags separately as v2.3.3.
-- **Post-release follow-up queued:** HS-067 — remove dead `GetPinColorPreviewHex` helpers.
+*(None.)*

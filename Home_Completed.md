@@ -177,6 +177,24 @@ completion date. Active and queued work lives in `Home_Tracker.md`.
 - **Summary:** `ADDON_ACTION_FORBIDDEN: PerformEmote()` does not fire on current main. Rawb ran Tests 1 and 2 from the investigation brief on 2026-04-20 — error does not reproduce in any context tested, including the original PvP trigger. Most likely cause: the HS-052 combat-lockdown guards at `UI/MapSidePanel.lua:3581–3623` deferred enough of the Show/Hide mutation path to break the cascade into Blizzard's secure TOGGLEWORLDMAP execution. All suspect hooks (`SetMapID` at 4019, `HandleUserActionMaximizeSelf` at 4074, `HandleUserActionMinimizeSelf` at 4093, `RefreshOverlayFrames` at 2208) and SetParent calls (3217/3240/3278) remain in place but are no longer producing cascade errors.
 - **Notes:** Verified with main at `3104666`. No code work required. Tests 3–10 (deeper vector isolation) are not needed since T1–T2 pass. Move the investigation brief to `Home_Dev/plans/completed/` on next wrapup. Close GitHub #33 referencing this commit.
 
+### HS-058 Investigate 12.0.5 housing changes
+- **Reclassified:** Originally logged as HS-052 (duplicate ID). Renumbered to HS-058 in STU-023.
+- **Type:** Investigation / Release
+- **Priority:** High
+- **Status:** Complete
+- **Completed:** 2026-04-22 (shipped in v2.3.2 — tag at merge commit `724c4ae`. GitHub release published; CurseForge + Wago via BigWigs Packager. CI build success in 1m4s.)
+- **Summary:** Patch 12.0.5 support landed. TOC bumped 120001 → 120005. Two new Midnight vendors with full live-scan data: **Rae'ana** [255495] (Silvermoon City / The Bazaar, Voidlight Marl, 6 items) and **Disguised Decor Duel Vendor** [264056] (Silvermoon City / Falconwing Square, Illusionary Coin id `3393`, 8 Sin'dorei items). Speculative Paw Pal items stripped from Dennia Silvertongue, Tuuran, and Gabbi after a 2026-04-22 live scan of Dennia confirmed she does not sell them (Path B per Rawb). Argus Gate 1 PASS (CONDITIONAL → resolved via `scanConfirmed` bumps in `78bf331`). Rawb Gate 2 PASS.
+- **Open follow-ups:** Lush Garden Window itemID — deferred to a future patch session (not in any current vendor). 12 new orphan DecorMapping entries tracked under HS-012 (8 Paw Pal + 4 stale Decor Duel guesses 272443/444/445/446).
+
+### HS-066 Pin color preview — real atlas swatch
+- **Type:** Feature (UI polish)
+- **Priority:** Low–Medium
+- **Status:** Complete
+- **Completed:** 2026-04-22 (shipped in v2.3.2)
+- **Commits:** `c30a75d` (DESAT_ALPHA extraction), `34e6944` (widget + Options wiring), `6ae235b` (merge), `6b63af7` (color-picker NotifyChange fix)
+- **Summary:** Replaced the 8× U+2588 block-glyph swatches in Options → Pin Appearance with a custom AceGUI widget (`HomesteadPinColorPreview`) that renders the real `housing-decor-vendor_32` atlas using the same desaturate + vertex-tint path as in-game pins. Default preset untreated; non-default presets and custom colors desaturated and tinted at `PinFrameFactory.DESAT_ALPHA = 0.95`. Live preview during custom color drag via explicit `AceConfigRegistry:NotifyChange()` workaround for the AceGUI color picker not firing `OnValueConfirmed` when `hasAlpha = false`.
+- **Follow-up queued:** HS-067 — remove dead `PinFrameFactory:GetPinColorPreviewHex` and `VendorMapPins` wrapper (their only caller was the pre-HS-066 `pinColorPreview.name` closure).
+
 ---
 Pre-split history: Royaleint/BawrLabs@2951ea8:BACKLOG.md
 Archaeology: `git log -S "<ITEM-ID>" -- BACKLOG.md` at commit 2951ea8^ (the commit before BACKLOG.md was deleted)
