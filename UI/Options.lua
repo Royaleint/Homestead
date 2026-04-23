@@ -165,16 +165,8 @@ local function GetOptionsTable()
                     },
                     pinColorPreview = {
                         type = "description",
-                        name = function()
-                            local hex = "f2d173" -- fallback gold
-                            if HA.VendorMapPins and HA.VendorMapPins.GetPinColorPreviewHex then
-                                hex = HA.VendorMapPins:GetPinColorPreviewHex()
-                            end
-                            return string.format(
-                                "|cff%s\226\150\136\226\150\136\226\150\136\226\150\136\226\150\136\226\150\136\226\150\136\226\150\136|r  %s",
-                                hex, L["Approximate map appearance"]
-                            )
-                        end,
+                        name = L["Approximate map appearance"],
+                        dialogControl = "HomesteadPinColorPreview",
                         order = 23,
                         width = "double",
                     },

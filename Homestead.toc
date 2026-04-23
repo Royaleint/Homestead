@@ -84,6 +84,7 @@ UI\OutputWindow.lua
 UI\VendorFilter.lua
 UI\FramePoolUtils.lua
 UI\PinFrameFactory.lua
+UI\PinColorPreviewWidget.lua
 UI\MapPinProvider.lua
 UI\HomesteadWorldMapProvider.lua
 UI\HomesteadMinimapOverlay.lua
