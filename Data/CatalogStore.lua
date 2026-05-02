@@ -261,7 +261,7 @@ function CatalogStore:IsOwned(itemID)
 end
 
 -- Fresh ownership check for UI display paths
--- IsOwned() + bag check + live byItem probe + byRecordID fallback
+-- IsOwned() + live byItem probe + byRecordID fallback
 -- Use this for VendorMapPins, Tooltips, VendorTracer — NOT for badge counts or export
 function CatalogStore:IsOwnedFresh(itemID)
     if not itemID then return false end
@@ -269,20 +269,6 @@ function CatalogStore:IsOwnedFresh(itemID)
     -- Fast path: cache says owned
     if self:IsOwned(itemID) then
         return true
-    end
-
-    -- Check bags (immediate purchase detection)
-    if GetItemCount then
-        local bagCount = GetItemCount(itemID)
-        if bagCount and bagCount > 0 then
-            -- Found in bags — cache it for next time.
-            -- Enrich with decorID from the reverse index so the cache record
-            -- is complete (prevents "isOwned=true, decorID=nil" partial records
-            -- from post-purchase bag-hit flows — see HS-059).
-            local decorID = itemIDToDecor[itemID]
-            self:SetOwned(itemID, nil, decorID)
-            return true
-        end
     end
 
     -- Live byItem probe (handles post-purchase before next scan)

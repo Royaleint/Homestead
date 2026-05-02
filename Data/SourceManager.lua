@@ -1258,6 +1258,30 @@ function SourceManager:GetItemStatusColor(itemID)
     return colors.NOT_COLLECTED
 end
 
+-- Inventory render paths already know the slot contains this item.
+-- If the catalog does not report ownership, the item is present but unlearned.
+function SourceManager:GetInventoryItemStatus(itemID)
+    if not itemID then return nil end
+
+    local catalogStore = HA.CatalogStore
+    if catalogStore and catalogStore:IsOwnedFresh(itemID) then
+        return "owned"
+    end
+
+    return "in_bags_unlearned"
+end
+
+function SourceManager:GetMerchantItemStatus(itemID)
+    if not itemID then return nil end
+
+    local catalogStore = HA.CatalogStore
+    if catalogStore and catalogStore:IsOwnedFresh(itemID) then
+        return "owned"
+    end
+
+    return "unowned"
+end
+
 -- Return primary source type for an item, normalized to canonical taxonomy.
 function SourceManager:GetPrimarySourceType(itemID)
     local source = self:GetSource(itemID)
