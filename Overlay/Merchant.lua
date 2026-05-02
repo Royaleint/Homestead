@@ -9,7 +9,7 @@ local _, HA = ...
 local Overlay = HA.Overlay
 local Events = HA.Events
 local CatalogStore = HA.CatalogStore
-local Constants = HA.Constants
+local SourceManager = HA.SourceManager
 
 -- Upvalued Lua stdlib
 local pairs = pairs
@@ -19,8 +19,6 @@ local isHooked = false
 local merchantButtons = {}
 local pendingOverlayTimer = nil
 local UpdateAllMerchantOverlays  -- forward declaration (used in HookMerchantFrame before definition)
-local OWNED_CHECK_ICON = (Constants and Constants.Icons and Constants.Icons.COLLECTED)
-    or "Interface\\RaidFrame\\ReadyCheck-Ready"
 
 -- Debounced scheduler — ensures only one pending timer at a time
 local function ScheduleOverlayUpdate()
@@ -64,22 +62,21 @@ local function UpdateMerchantButton(button, index)
     end
 
     local itemID = GetItemInfoInstant(itemLink)
-    if not itemID or not CatalogStore:IsDecorItem(itemLink) then
+    if not itemID or not CatalogStore or not SourceManager or not CatalogStore:IsDecorItem(itemLink) then
         Overlay:ClearIcon(overlay)
         return
     end
 
-    -- Merchant UX: checkmark on owned items, nothing on unowned (Blizzard
-    -- already provides a red overlay and unlock requirements for locked items).
-    local isOwned = CatalogStore:IsOwnedFresh(itemID)
-    if isOwned and overlay.icon then
-        overlay.icon:SetTexture(OWNED_CHECK_ICON)
-        overlay.icon:SetVertexColor(1, 1, 1, 1)
-        overlay.icon:Show()
-        return
+    local status = SourceManager:GetMerchantItemStatus(itemID)
+    if status then
+        Overlay:SetHomestoneState(overlay, status)
+        if overlay.icon then
+            overlay.icon:Hide()
+            overlay.icon:SetTexture(nil)
+        end
+    else
+        Overlay:ClearIcon(overlay)
     end
-
-    Overlay:ClearIcon(overlay)
 end
 
 -------------------------------------------------------------------------------

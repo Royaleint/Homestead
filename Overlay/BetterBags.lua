@@ -70,41 +70,11 @@ local function IsBankContext(bagID)
     return false
 end
 
-local function GetAnchorOffsets(anchor)
-    local offsetX = OVERLAY_CONFIG.OFFSET_X or 2
-    local offsetY = OVERLAY_CONFIG.OFFSET_Y or -2
-
-    if anchor == "TOPRIGHT" then
-        offsetX = -offsetX
-    elseif anchor == "BOTTOMLEFT" then
-        offsetY = -offsetY
-    elseif anchor == "BOTTOMRIGHT" then
-        offsetX = -offsetX
-        offsetY = -offsetY
-    elseif anchor == "CENTER" then
-        offsetX = 0
-        offsetY = 0
-    end
-
-    return offsetX, offsetY
-end
-
-local function EnsureIcon(decoration)
-    if decoration.HomesteadDecorIcon then
-        return decoration.HomesteadDecorIcon
-    end
-
-    local tex = decoration:CreateTexture(nil, "OVERLAY")
-    decoration.HomesteadDecorIcon = tex
-    return tex
-end
-
 local function ClearIcon(decoration)
     if not decoration then return end
-    local tex = decoration.HomesteadDecorIcon
-    if not tex then return end
-    tex:Hide()
-    tex:SetTexture(nil)
+    if Overlay and Overlay.ClearHomestoneTextures then
+        Overlay:ClearHomestoneTextures(decoration)
+    end
 end
 
 local function RefreshWidgets()
@@ -167,28 +137,17 @@ local function OnItemUpdated(_, item, decoration)
         return
     end
 
-    local iconTexture = SourceManager:GetItemStatusIcon(itemID)
-    if not iconTexture then
+    local status = SourceManager:GetInventoryItemStatus(itemID)
+    if not status then
         ClearIcon(decoration)
         return
     end
 
-    local tex = EnsureIcon(decoration)
     local anchor = settings.iconAnchor or OVERLAY_CONFIG.DEFAULT_ANCHOR or "TOPLEFT"
-    local offsetX, offsetY = GetAnchorOffsets(anchor)
-    tex:ClearAllPoints()
-    tex:SetPoint(anchor, decoration, anchor, offsetX, offsetY)
-    tex:SetSize(settings.iconSize or OVERLAY_CONFIG.ICON_SIZE, settings.iconSize or OVERLAY_CONFIG.ICON_SIZE)
-    tex:SetTexture(iconTexture)
-
-    local color = SourceManager:GetItemStatusColor(itemID)
-    if color then
-        tex:SetVertexColor(color.r, color.g, color.b, color.a or 1)
-    else
-        tex:SetVertexColor(1, 1, 1, 1)
-    end
-
-    tex:Show()
+    Overlay:SetHomestoneState(decoration, status, {
+        size = settings.iconSize or OVERLAY_CONFIG.ICON_SIZE,
+        anchor = anchor,
+    })
 end
 
 local function OnItemClearing(_, _, decoration)

@@ -8,6 +8,8 @@ local _, HA = ...
 -- Wait for Overlay module
 local Overlay = HA.Overlay
 local Events = HA.Events
+local CatalogStore = HA.CatalogStore
+local SourceManager = HA.SourceManager
 
 -- Local state
 local containerButtons = {}
@@ -131,6 +133,28 @@ local function IsContextEnabled(button, isBankButton)
     return settings.showOnBags
 end
 
+local function SetInventoryHomestone(overlay, itemLink)
+    if not overlay then return end
+
+    if not CatalogStore or not SourceManager or not itemLink then
+        Overlay:ClearIcon(overlay)
+        return
+    end
+
+    local itemID = GetItemInfoInstant(itemLink)
+    if not itemID or not CatalogStore:IsDecorItem(itemLink) then
+        Overlay:ClearIcon(overlay)
+        return
+    end
+
+    local status = SourceManager:GetInventoryItemStatus(itemID)
+    Overlay:SetHomestoneState(overlay, status)
+    if overlay.icon then
+        overlay.icon:Hide()
+        overlay.icon:SetTexture(nil)
+    end
+end
+
 local function IsLikelyItemButton(frame)
     if not frame then
         return false
@@ -202,7 +226,7 @@ local function UpdateContainerButton(button)
 
     local itemLink = GetButtonItemLink(button)
 
-    Overlay:SetIcon(overlay, itemLink)
+    SetInventoryHomestone(overlay, itemLink)
 end
 
 -------------------------------------------------------------------------------
@@ -293,7 +317,7 @@ local function HookBankFrame()
                 end
 
                 local itemLink = C_Container.GetContainerItemLink(BANK_CONTAINER, i)
-                Overlay:SetIcon(overlay, itemLink)
+                SetInventoryHomestone(overlay, itemLink)
             end)
             button.HousingAddonHooked = true -- luacheck: ignore 122
         end
