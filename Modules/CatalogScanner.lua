@@ -76,6 +76,40 @@ local function IsOwned(info)
     return false
 end
 
+local function ExtractRecordID(info)
+    if not info or not info.entryID or type(info.entryID) ~= "table" then
+        return nil
+    end
+
+    local recordID = info.entryID.recordID
+    if recordID then
+        return recordID
+    end
+
+    for k, v in pairs(info.entryID) do
+        if k == "recordID" then
+            return v
+        end
+    end
+
+    return nil
+end
+
+local function BuildScanResult(itemID, info, fallbackRecordID)
+    if not itemID or not info then return nil end
+
+    local recordID = ExtractRecordID(info) or fallbackRecordID
+    return {
+        itemID = itemID,
+        name = info.name,
+        isOwned = IsOwned(info),
+        quantity = info.quantity or 0,
+        numPlaced = info.numPlaced or 0,
+        sourceText = info.sourceText,
+        recordID = recordID,
+    }
+end
+
 -------------------------------------------------------------------------------
 -- Ownership Cache Management (Phase 2: writes go through CatalogStore)
 -------------------------------------------------------------------------------
@@ -138,39 +172,33 @@ end
 -- Scan a single item by itemID
 local function ScanItem(itemID)
     if not itemID or type(itemID) ~= "number" then return nil end
-    if not C_HousingCatalog or not C_HousingCatalog.GetCatalogEntryInfoByItem then
+    if not C_HousingCatalog then
         return nil
     end
 
-    local itemLink = "item:" .. tostring(itemID)
-    local success, info = pcall(function()
-        return C_HousingCatalog.GetCatalogEntryInfoByItem(itemLink, true)
-    end)
+    if C_HousingCatalog.GetCatalogEntryInfoByItem then
+        local itemLink = "item:" .. tostring(itemID)
+        local success, info = pcall(function()
+            return C_HousingCatalog.GetCatalogEntryInfoByItem(itemLink, true)
+        end)
 
-    if not success or not info then
-        return nil
+        if success and info then
+            return BuildScanResult(itemID, info)
+        end
     end
 
-    -- Extract recordID from entryID table (defensive against partial/non-table entryID)
-    local recordID = nil
-    if info.entryID and type(info.entryID) == "table" then
-        recordID = info.entryID.recordID
-        if not recordID then
-            for k, v in pairs(info.entryID) do
-                if k == "recordID" then recordID = v; break end
+    local catalogStore = HA.CatalogStore
+    if catalogStore and catalogStore.GetDecorIDFromItemID and catalogStore.ProbeByDecorID then
+        local decorID = catalogStore:GetDecorIDFromItemID(itemID)
+        if decorID then
+            local info = catalogStore:ProbeByDecorID(decorID)
+            if info then
+                return BuildScanResult(itemID, info, decorID)
             end
         end
     end
 
-    return {
-        itemID = itemID,
-        name = info.name,
-        isOwned = IsOwned(info),
-        quantity = info.quantity or 0,
-        numPlaced = info.numPlaced or 0,
-        sourceText = info.sourceText,
-        recordID = recordID,
-    }
+    return nil
 end
 
 -- Debounced scan request — coalesces rapid housing events into a single scan
@@ -260,6 +288,9 @@ function CatalogScanner:ScanFullCatalog(callback)
                                 lastScanned = time(),
                             })
                         else
+                            if HA.CatalogStore:IsOwned(result.itemID) then
+                                HA.CatalogStore:SetUnowned(result.itemID)
+                            end
                             -- Minimal fields for unowned items
                             HA.CatalogStore:Save(result.itemID, {
                                 decorID = result.recordID,
@@ -336,8 +367,20 @@ function CatalogScanner:ScanFullCatalogSync()
                 if result.isOwned then
                     if HA.CatalogStore then
                         HA.CatalogStore:SetOwned(result.itemID, result.name or itemData.name, result.recordID)
+                        HA.CatalogStore:Save(result.itemID, {
+                            lastScanned = time(),
+                        })
                     end
                     ownedCount = ownedCount + 1
+                elseif HA.CatalogStore then
+                    if HA.CatalogStore:IsOwned(result.itemID) then
+                        HA.CatalogStore:SetUnowned(result.itemID)
+                    end
+                    HA.CatalogStore:Save(result.itemID, {
+                        decorID = result.recordID,
+                        name = result.name or itemData.name,
+                        lastScanned = time(),
+                    })
                 end
             end
         end
