@@ -57,6 +57,80 @@ local function GetButtonItemLink(button)
     return nil
 end
 
+local function GetButtonBagID(button)
+    if not button then return nil end
+
+    if button.GetBagID then
+        local bagID = button:GetBagID()
+        if bagID ~= nil then
+            return bagID
+        end
+    end
+    if button.bagID ~= nil then
+        return button.bagID
+    end
+    if button.GetParent and button:GetParent() then
+        return button:GetParent():GetID()
+    end
+
+    return nil
+end
+
+local function IsBankBagID(bagID)
+    if bagID == BANK_CONTAINER then
+        return true
+    end
+    if type(bagID) ~= "number" or not Enum or not Enum.BagIndex then
+        return false
+    end
+
+    local bagIndex = Enum.BagIndex
+    local characterBankMain = bagIndex.Characterbanktab or bagIndex.CharacterBank
+    return bagID == bagIndex.Bank
+        or bagID == bagIndex.Reagentbank
+        or bagID == bagIndex.BankBag_1
+        or bagID == bagIndex.BankBag_2
+        or bagID == bagIndex.BankBag_3
+        or bagID == bagIndex.BankBag_4
+        or bagID == bagIndex.BankBag_5
+        or bagID == bagIndex.BankBag_6
+        or bagID == bagIndex.BankBag_7
+        or (characterBankMain and bagID == characterBankMain)
+        or bagID == bagIndex.CharacterBankTab_1
+        or bagID == bagIndex.CharacterBankTab_2
+        or bagID == bagIndex.CharacterBankTab_3
+        or bagID == bagIndex.CharacterBankTab_4
+        or bagID == bagIndex.CharacterBankTab_5
+        or bagID == bagIndex.CharacterBankTab_6
+        or bagID == bagIndex.AccountBankTab_1
+        or bagID == bagIndex.AccountBankTab_2
+        or bagID == bagIndex.AccountBankTab_3
+        or bagID == bagIndex.AccountBankTab_4
+        or bagID == bagIndex.AccountBankTab_5
+end
+
+local function IsContextEnabled(button, isBankButton)
+    local profile = HA.Addon and HA.Addon.db and HA.Addon.db.profile
+    local settings = profile and profile.overlay
+    if not settings or not settings.enabled then
+        return false
+    end
+
+    if isBankButton then
+        return settings.showOnBank
+    end
+
+    local bagID = GetButtonBagID(button)
+    if bagID == nil then
+        return settings.showOnBags or settings.showOnBank
+    end
+    if IsBankBagID(bagID) then
+        return settings.showOnBank
+    end
+
+    return settings.showOnBags
+end
+
 local function IsLikelyItemButton(frame)
     if not frame then
         return false
@@ -120,6 +194,11 @@ local function UpdateContainerButton(button)
     end
 
     if not overlay then return end
+
+    if not IsContextEnabled(button) then
+        Overlay:ClearIcon(overlay)
+        return
+    end
 
     local itemLink = GetButtonItemLink(button)
 
@@ -208,6 +287,11 @@ local function HookBankFrame()
         local button = _G["BankFrameItem" .. i]
         if button and not button.HousingAddonHooked then
             Overlay:AddToFrame(button, function(overlay)
+                if not IsContextEnabled(button, true) then
+                    Overlay:ClearIcon(overlay)
+                    return
+                end
+
                 local itemLink = C_Container.GetContainerItemLink(BANK_CONTAINER, i)
                 Overlay:SetIcon(overlay, itemLink)
             end)
