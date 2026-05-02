@@ -28,6 +28,8 @@ Constants.Icons = {
     COLLECTED = "Interface\\RaidFrame\\ReadyCheck-Ready",               -- Green checkmark
     COLLECTED_PLACED = "Interface\\ICONS\\INV_Misc_Furniture_Chair_03", -- Placed furniture
     NOT_COLLECTED = "Interface\\RaidFrame\\ReadyCheck-NotReady",        -- Red X
+    HOMESTONE_BASE = { atlas = "homestone-minimap-icon" },
+    HOMESTONE_INNERGLOW = { atlas = "homestone-minimap-icon-innerglow" },
 
     -- Source type icons (shown when not collected)
     PURCHASABLE = "Interface\\GossipFrame\\VendorGossipIcon",           -- Gold bag (vendor)
@@ -72,6 +74,7 @@ Constants.Colors = {
     -- Status colors
     COLLECTED = { r = 0.0, g = 0.8, b = 0.0, a = 1.0 },        -- Green
     COLLECTED_PLACED = { r = 0.0, g = 0.5, b = 1.0, a = 1.0 }, -- Blue
+    IN_BAGS_UNLEARNED = { r = 1.0, g = 0.82, b = 0.0, a = 1.0 }, -- Yellow
     NOT_COLLECTED = { r = 0.8, g = 0.0, b = 0.0, a = 1.0 },    -- Red
 
     -- Source colors

@@ -123,21 +123,25 @@ end
 -------------------------------------------------------------------------------
 
 local function InitWidget(itemButton)
-    local tex = itemButton:CreateTexture(nil, "OVERLAY")
+    local frame = CreateFrame("Frame", nil, itemButton)
     local iconSize = OVERLAY_CONFIG.ICON_SIZE or 14
     if HA.Addon and HA.Addon.db and HA.Addon.db.profile and HA.Addon.db.profile.overlay then
         iconSize = HA.Addon.db.profile.overlay.iconSize or iconSize
     end
-    tex:SetSize(iconSize, iconSize)
-    return tex
+    frame:SetSize(iconSize, iconSize)
+    if Overlay and Overlay.EnsureHomestoneTextures then
+        Overlay:EnsureHomestoneTextures(frame)
+    end
+    return frame
 end
 
 local function ClearWidget(cornerFrame)
     if not cornerFrame then
         return
     end
-    cornerFrame:SetTexture(nil)
-    cornerFrame:SetVertexColor(1, 1, 1, 1)
+    if Overlay and Overlay.ClearHomestoneTextures then
+        Overlay:ClearHomestoneTextures(cornerFrame)
+    end
 end
 
 local function UpdateWidget(cornerFrame, details)
@@ -176,20 +180,19 @@ local function UpdateWidget(cornerFrame, details)
         return false
     end
 
-    local iconTexture = SourceManager:GetItemStatusIcon(itemID)
-    if not iconTexture then
+    local status = SourceManager:GetInventoryItemStatus(itemID)
+    if not status then
         return false
     end
 
-    cornerFrame:SetTexture(iconTexture)
-    cornerFrame:SetSize(settings.iconSize or OVERLAY_CONFIG.ICON_SIZE, settings.iconSize or OVERLAY_CONFIG.ICON_SIZE)
-
-    local color = SourceManager:GetItemStatusColor(itemID)
-    if color then
-        cornerFrame:SetVertexColor(color.r, color.g, color.b, color.a or 1)
-    else
-        cornerFrame:SetVertexColor(1, 1, 1, 1)
-    end
+    local iconSize = settings.iconSize or OVERLAY_CONFIG.ICON_SIZE
+    cornerFrame:SetSize(iconSize, iconSize)
+    Overlay:SetHomestoneState(cornerFrame, status, {
+        size = iconSize,
+        anchor = "CENTER",
+        offsetX = 0,
+        offsetY = 0,
+    })
 
     return true
 end

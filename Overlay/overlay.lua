@@ -35,6 +35,62 @@ local overlayPool = {}
 local overlayCount = 0
 local externalRefreshers = {}
 
+local function GetProfileOverlaySettings()
+    return HA.Addon and HA.Addon.db and HA.Addon.db.profile and HA.Addon.db.profile.overlay
+end
+
+local function GetAnchorOffsets(anchor, offsetX, offsetY)
+    offsetX = offsetX or OVERLAY_CONFIG.OFFSET_X
+    offsetY = offsetY or OVERLAY_CONFIG.OFFSET_Y
+
+    if anchor == "TOPRIGHT" then
+        offsetX = -offsetX
+    elseif anchor == "BOTTOMLEFT" then
+        offsetY = -offsetY
+    elseif anchor == "BOTTOMRIGHT" then
+        offsetX = -offsetX
+        offsetY = -offsetY
+    elseif anchor == "CENTER" then
+        offsetX = 0
+        offsetY = 0
+    end
+
+    return offsetX, offsetY
+end
+
+local function ApplyIconDefinition(texture, definition)
+    if not texture or not definition then return end
+
+    if type(definition) == "table" and definition.atlas and texture.SetAtlas then
+        texture:SetAtlas(definition.atlas, false)
+    else
+        texture:SetTexture(definition)
+    end
+end
+
+local function GetHomestoneColor(state)
+    local colors = Constants and Constants.Colors
+    if not colors then return nil end
+
+    if state == "owned" then
+        return colors.COLLECTED
+    elseif state == "in_bags_unlearned" then
+        return colors.IN_BAGS_UNLEARNED
+    elseif state == "unowned" then
+        return colors.NOT_COLLECTED
+    end
+
+    return nil
+end
+
+local function PositionHomestoneTexture(parent, texture, size, anchor, offsetX, offsetY)
+    if not texture then return end
+
+    texture:ClearAllPoints()
+    texture:SetPoint(anchor, parent, anchor, offsetX, offsetY)
+    texture:SetSize(size, size)
+end
+
 -------------------------------------------------------------------------------
 -- Overlay Creation
 -------------------------------------------------------------------------------
@@ -101,7 +157,7 @@ function Overlay:ReleaseOverlay(overlay)
     -- Hide and clear
     overlay:Hide()
     overlay:ClearAllPoints()
-    overlay.icon:SetTexture(nil)
+    self:ClearIcon(overlay)
     overlay.updateFunc = nil
 
     -- Remove from parent
@@ -120,6 +176,84 @@ end
 -- Icon Display
 -------------------------------------------------------------------------------
 
+function Overlay:EnsureHomestoneTextures(parent)
+    if not parent then return nil, nil end
+
+    if parent.HomestoneBase and parent.HomestoneGlow then
+        return parent.HomestoneBase, parent.HomestoneGlow
+    end
+
+    local base = parent.HomestoneBase or parent:CreateTexture(nil, "OVERLAY")
+    local glow = parent.HomestoneGlow or parent:CreateTexture(nil, "OVERLAY")
+
+    parent.HomestoneBase = base
+    parent.HomestoneGlow = glow
+
+    return base, glow
+end
+
+function Overlay:SetHomestoneState(parent, state, opts)
+    if not parent then return end
+
+    local base, glow = self:EnsureHomestoneTextures(parent)
+    if not base or not glow then return end
+
+    if state == nil then
+        self:ClearHomestoneTextures(parent)
+        return
+    end
+
+    local settings = GetProfileOverlaySettings()
+    opts = opts or {}
+
+    local size = opts.size or (settings and settings.iconSize) or OVERLAY_CONFIG.ICON_SIZE
+    local anchor = opts.anchor or (settings and settings.iconAnchor) or OVERLAY_CONFIG.DEFAULT_ANCHOR
+    local offsetX, offsetY = GetAnchorOffsets(anchor, opts.offsetX, opts.offsetY)
+
+    parent.HomestoneState = state
+    parent.HomestoneOptions = {
+        size = size,
+        anchor = anchor,
+        offsetX = opts.offsetX,
+        offsetY = opts.offsetY,
+    }
+
+    PositionHomestoneTexture(parent, base, size, anchor, offsetX, offsetY)
+    PositionHomestoneTexture(parent, glow, size, anchor, offsetX, offsetY)
+
+    local icons = Constants and Constants.Icons
+    ApplyIconDefinition(base, icons and icons.HOMESTONE_BASE)
+    ApplyIconDefinition(glow, icons and icons.HOMESTONE_INNERGLOW)
+
+    base:SetVertexColor(1, 1, 1, 1)
+
+    local color = GetHomestoneColor(state)
+    if color then
+        glow:SetVertexColor(color.r, color.g, color.b, color.a or 1)
+    else
+        glow:SetVertexColor(1, 1, 1, 1)
+    end
+
+    base:Show()
+    glow:Show()
+end
+
+function Overlay:ClearHomestoneTextures(parent)
+    if not parent then return end
+
+    if parent.HomestoneBase then
+        parent.HomestoneBase:Hide()
+        parent.HomestoneBase:SetTexture(nil)
+    end
+    if parent.HomestoneGlow then
+        parent.HomestoneGlow:Hide()
+        parent.HomestoneGlow:SetTexture(nil)
+    end
+
+    parent.HomestoneState = nil
+    parent.HomestoneOptions = nil
+end
+
 -- Set the icon on an overlay based on item status
 function Overlay:SetIcon(overlay, itemLink)
     if not overlay or not overlay.icon then return end
@@ -127,17 +261,20 @@ function Overlay:SetIcon(overlay, itemLink)
     -- Check if overlays are enabled
     if not HA.Addon or not HA.Addon.db or not HA.Addon.db.profile.overlay.enabled then
         overlay.icon:Hide()
+        self:ClearHomestoneTextures(overlay)
         return
     end
 
     -- Check if item is a decor item
     if not CatalogStore or not SourceManager then
         overlay.icon:Hide()
+        self:ClearHomestoneTextures(overlay)
         return
     end
 
     if not itemLink then
         overlay.icon:Hide()
+        self:ClearHomestoneTextures(overlay)
         return
     end
 
@@ -145,6 +282,7 @@ function Overlay:SetIcon(overlay, itemLink)
     local itemID = GetItemInfoInstant(itemLink)
     if not itemID or not CatalogStore:IsDecorItem(itemLink) then
         overlay.icon:Hide()
+        self:ClearHomestoneTextures(overlay)
         return
     end
 
@@ -152,8 +290,11 @@ function Overlay:SetIcon(overlay, itemLink)
     local iconTexture = SourceManager:GetItemStatusIcon(itemID)
     if not iconTexture then
         overlay.icon:Hide()
+        self:ClearHomestoneTextures(overlay)
         return
     end
+
+    self:ClearHomestoneTextures(overlay)
 
     -- Set the icon texture
     overlay.icon:SetTexture(iconTexture)
@@ -174,6 +315,7 @@ function Overlay:ClearIcon(overlay)
         overlay.icon:Hide()
         overlay.icon:SetTexture(nil)
     end
+    self:ClearHomestoneTextures(overlay)
 end
 
 -------------------------------------------------------------------------------
@@ -277,6 +419,15 @@ function Overlay:UpdateConfig()
             overlay.icon:SetSize(db.iconSize or OVERLAY_CONFIG.ICON_SIZE,
                                   db.iconSize or OVERLAY_CONFIG.ICON_SIZE)
         end
+        if overlay.HomestoneState then
+            local prev = overlay.HomestoneOptions
+            self:SetHomestoneState(overlay, overlay.HomestoneState, {
+                size    = db.iconSize or OVERLAY_CONFIG.ICON_SIZE,
+                anchor  = db.iconAnchor or OVERLAY_CONFIG.DEFAULT_ANCHOR,
+                offsetX = prev and prev.offsetX,
+                offsetY = prev and prev.offsetY,
+            })
+        end
     end
 
     for key, refreshFunc in pairs(externalRefreshers) do
@@ -312,6 +463,9 @@ function Overlay:SetIconPosition(overlay, anchor)
     end
 
     overlay.icon:SetPoint(anchor, overlay, anchor, offsetX, offsetY)
+    if overlay.HomestoneState then
+        self:SetHomestoneState(overlay, overlay.HomestoneState, { anchor = anchor })
+    end
 end
 
 -- Register an external refresher for addon-owned bag UIs
