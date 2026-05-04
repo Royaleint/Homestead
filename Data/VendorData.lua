@@ -935,33 +935,11 @@ function VendorData:BuildScannedIndex()
     end
 end
 
--- Incrementally update scanned index when a vendor is scanned
-function VendorData:OnVendorScanned(vendorRecord)
-    if not vendorRecord or not vendorRecord.items then return end
-    if not self.ScannedByItemID then
-        self.ScannedByItemID = {}
-    end
-
-    local npcID = vendorRecord.npcID
-    for _, item in ipairs(vendorRecord.items) do
-        local itemID = item.itemID
-        if itemID then
-            if not self.ScannedByItemID[itemID] then
-                self.ScannedByItemID[itemID] = {}
-            end
-            -- Avoid duplicate npcID entries
-            local found = false
-            for _, existingNPC in ipairs(self.ScannedByItemID[itemID]) do
-                if existingNPC == npcID then
-                    found = true
-                    break
-                end
-            end
-            if not found then
-                table.insert(self.ScannedByItemID[itemID], npcID)
-            end
-        end
-    end
+-- Rebuild the full scanned-index from authoritative SavedVariables.
+-- Cheap (~1ms for ~200 vendors) and structurally prevents stale
+-- (itemID -> npcID) leakage when a vendor's item set changes between scans.
+function VendorData:OnVendorScanned(_)
+    self:BuildScannedIndex()
 end
 
 -------------------------------------------------------------------------------
