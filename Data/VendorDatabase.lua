@@ -5,7 +5,7 @@
     STRUCTURE: NPC-keyed for O(1) lookups
     VendorDatabase.Vendors[npcID] = { name, mapID, x, y, zone, ... }
 
-    Updated: 2026-04-22
+    Updated: 2026-05-03
 ]]
 
 local _, HA = ...
@@ -717,7 +717,6 @@ VendorDatabase.Vendors = {
         faction = "Neutral",
         currency = "Order Resources",
         expansion = "Legion",
-        notes = "Death Knight only — enter via class spell Death Gate (usable from anywhere).",
         items = {
             {250112, cost = {currencies = {{id = 1220, amount = 1500}}}},
             {250113, cost = {currencies = {{id = 1220, amount = 500}}}},
@@ -727,7 +726,7 @@ VendorDatabase.Vendors = {
             {250124, cost = {currencies = {{id = 1220, amount = 1000}}}},
             {260584, cost = {currencies = {{id = 1220, amount = 2000}}}},
         },
-        notes = "Order Hall portal entrance — pin marks the Dalaran portal location.",
+        notes = "Death Knight only — enter via class spell Death Gate (usable from anywhere). Pin marks the Dalaran Order Hall portal entrance.",
     },
 	[93971] = {
         name = "Leyweaver Inondra",
