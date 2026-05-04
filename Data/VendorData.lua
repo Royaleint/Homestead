@@ -234,43 +234,6 @@ function VendorData:NormalizeScannedCost(scannedItem)
     return hasCost and cost or nil
 end
 
--- Get cost for an item from scanned vendor data
--- Returns cost in static format {gold = ..., currencies = {...}} or nil
-function VendorData:GetScannedItemCost(itemID, npcID)
-    local db = HA.Addon and HA.Addon.db
-    if not db or not db.global or not db.global.scannedVendors then
-        return nil
-    end
-
-    -- If npcID given, check that vendor specifically
-    if npcID then
-        local vendor = db.global.scannedVendors[npcID]
-        if vendor and vendor.items then
-            for _, item in ipairs(vendor.items) do
-                if item.itemID == itemID then
-                    return self:NormalizeScannedCost(item)
-                end
-            end
-        end
-    end
-
-    -- Otherwise search all scanned vendors via index
-    if self.ScannedByItemID and self.ScannedByItemID[itemID] then
-        for _, scanNpcID in ipairs(self.ScannedByItemID[itemID]) do
-            local vendor = db.global.scannedVendors[scanNpcID]
-            if vendor and vendor.items then
-                for _, item in ipairs(vendor.items) do
-                    if item.itemID == itemID then
-                        return self:NormalizeScannedCost(item)
-                    end
-                end
-            end
-        end
-    end
-
-    return nil
-end
-
 -------------------------------------------------------------------------------
 -- Shared Item Merge Helpers
 -------------------------------------------------------------------------------
@@ -935,33 +898,11 @@ function VendorData:BuildScannedIndex()
     end
 end
 
--- Incrementally update scanned index when a vendor is scanned
-function VendorData:OnVendorScanned(vendorRecord)
-    if not vendorRecord or not vendorRecord.items then return end
-    if not self.ScannedByItemID then
-        self.ScannedByItemID = {}
-    end
-
-    local npcID = vendorRecord.npcID
-    for _, item in ipairs(vendorRecord.items) do
-        local itemID = item.itemID
-        if itemID then
-            if not self.ScannedByItemID[itemID] then
-                self.ScannedByItemID[itemID] = {}
-            end
-            -- Avoid duplicate npcID entries
-            local found = false
-            for _, existingNPC in ipairs(self.ScannedByItemID[itemID]) do
-                if existingNPC == npcID then
-                    found = true
-                    break
-                end
-            end
-            if not found then
-                table.insert(self.ScannedByItemID[itemID], npcID)
-            end
-        end
-    end
+-- Rebuild the full scanned-index from authoritative SavedVariables.
+-- Cheap (~1ms for ~200 vendors) and structurally prevents stale
+-- (itemID -> npcID) leakage when a vendor's item set changes between scans.
+function VendorData:OnVendorScanned(_)
+    self:BuildScannedIndex()
 end
 
 -------------------------------------------------------------------------------
