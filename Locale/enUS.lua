@@ -3,7 +3,7 @@
     Default localization strings
 ]]
 
-local addonName, HA = ...
+local _, HA = ...
 
 -- Initialize localization table
 local L = {}

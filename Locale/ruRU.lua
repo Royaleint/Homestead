@@ -3,7 +3,7 @@
     Translator ZamestoTV
 ]]
 
-local addonName, HA = ...
+local _, HA = ...
 
 if GetLocale() ~= "ruRU" then return end
 

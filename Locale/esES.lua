@@ -3,7 +3,7 @@
     Machine-translated — contributions welcome
 ]]
 
-local addonName, HA = ...
+local _, HA = ...
 
 if GetLocale() ~= "esES" then return end
 
