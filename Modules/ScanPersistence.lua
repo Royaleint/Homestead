@@ -176,6 +176,12 @@ function ScanPersistence:SaveVendorData(scanData)
     else
         -- Unknown vendor, no prior good data, 0 decor: don't persist
         HA.Addon.db.global.scannedVendors[scanData.npcID] = nil
+        -- Deletion path fires no VENDOR_SCANNED, so rebuild the reverse
+        -- index directly to drop stale (itemID -> npcID) entries pointing
+        -- at the removed record.
+        if HA.VendorData and HA.VendorData.BuildScannedIndex then
+            HA.VendorData:BuildScannedIndex()
+        end
     end
 
     if HA.DevAddon then
