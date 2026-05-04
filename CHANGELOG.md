@@ -2,6 +2,26 @@
 
 ---
 
+## v2.3.3 (2026-05-04)
+
+A new status icon for bag and merchant overlays, plus fixes for catalog ownership accuracy and tooltip vendor attribution.
+
+---
+
+### Improved
+
+- Replace the green checkmark on bag and merchant items with a housing-themed icon that changes color based on whether you own the item — green when collected, red when not. The icon is consistent across bags, bank, Baganator, BetterBags, and the merchant frame.
+- Honor the per-context show/hide settings for the default Blizzard bag and bank overlays. Previously they ignored those toggles; only Baganator and BetterBags were gated correctly.
+
+### Bug Fixes
+
+- Fix items in your bags being mistakenly counted as collected in the catalog. Bag presence no longer counts as ownership — only actual catalog ownership does. Closes CurseForge issue #6.
+- Fix the addon pointing to the wrong vendor on item tooltips after that vendor's inventory changed. Tooltips now stay accurate as vendors rotate stock.
+- Fix the scanner missing roughly 10% of items where the housing API returned no data on the first lookup. The scanner falls back to a second lookup path, restoring parity with the rest of the addon.
+- Restore the "Death Knight only" note on the Acherus Order Hall vendor. A duplicate notes field was silently overwriting it.
+
+---
+
 ## v2.3.2 (2026-04-22) — Patch 12.0.5 Support
 
 Updated for WoW patch 12.0.5. New Decor Duels vendor, a new Void Elf scribe's vendor in Silvermoon, and a wave of fixes for endeavor vendors, ownership detection, and badge tooltips.
