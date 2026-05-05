@@ -407,27 +407,6 @@ Two tickets have pending state changes noted in their entries:
   2026-04-19 — Flagged by Rawb as growing stale. Decision needed: complete the in-progress work on `feature/dynamic-floor-detection` worktree or close the item.
 - **Notes:** Not merged to main. Needs in-game verification before merge.
 
-### HS-068 CurseForge issue #6 — overlay ownership and bag gating
-- **Type:** Bug + Feature (visual scope under D6)
-- **Priority:** High
-- **Status:** In Progress — handed to Douglock 2026-05-01
-- **Source:** CurseForge issue #6 ("Confused by icon overlay"), karaste, 2026-04-16
-- **Spec:** `Home_Dev/plans/active/HS-068-issue-6-overlay-bugs.md`
-- **Branch:** `fix/hs-068-issue-6-overlay-bugs` (worktree at `../Homestead-hs-068`)
-- **Supersedes:** HS-060 (predicate-breadth audit) — Q2 dump 2026-04-30 proved the predicate is sound; HS-060 closes without code changes.
-- **Acceptance criteria:**
-  1. Bag presence no longer poisons `db.global.catalogItems` with `isOwned=true` (bag-hit `SetOwned` write-through removed).
-  2. Default Blizzard bag/bank overlays honour `showOnBags` / `showOnBank` toggles (per-context gate added to `Overlay/Containers.lua`).
-  3. Bag-held-but-unlearned decor renders as `IN_BAGS_UNLEARNED` (yellow Homestone), not the green check.
-  4. All four overlay surfaces (default Blizzard bags, bank, Baganator, BetterBags, merchant) render via the unified Homestone primitive — green for owned, yellow for in-bags-unlearned (inventory only), red for unowned.
-  5. `CatalogScanner` is authoritative — calls `SetUnowned` on transition, with a nil-result guard preventing HS-059-class regressions. Both async (`ProcessBatch`) and sync (`ScanFullCatalogSync`) paths covered. byRecordID fallback added to `ScanItem`.
-  6. Already-poisoned caches self-heal organically via the existing scanner trigger surface (`ADDON_LOADED` filtered to `Blizzard_Housing*`, four housing events, `Initialize` 3 s scan).
-- **Gate dependencies:**
-  - Gate 1 (Argus) — five-lens review per commit; explicit verification of D5 nil-result guard in Commit 5 and composite lifecycle in Commit 3.
-  - Gate 2 (Rawb) — option B visual sign-off required before Commit 4 merges; full 19-case verification suite in the plan.
-- **Commits (5):** Containers per-context gate → drop bag-hit + semantic helpers → Homestone primitive + lifecycle → wire integrations → scanner authoritative writeback.
-- **Notes:** Plan went through three review rounds (Codex, then two Argus-style passes) before handoff. All Gate 3 questions resolved including Q4 (Baganator/BetterBags Frame compatibility, confirmed by source inspection of `Baganator/API/Main.lua:224`). Co-author line on every commit: `Co-Authored-By: Royaleint and Claude Code`.
-
 ## Awaiting Gate 2
 
 *(None.)*

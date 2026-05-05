@@ -195,6 +195,17 @@ completion date. Active and queued work lives in `Home_Tracker.md`.
 - **Summary:** Replaced the 8× U+2588 block-glyph swatches in Options → Pin Appearance with a custom AceGUI widget (`HomesteadPinColorPreview`) that renders the real `housing-decor-vendor_32` atlas using the same desaturate + vertex-tint path as in-game pins. Default preset untreated; non-default presets and custom colors desaturated and tinted at `PinFrameFactory.DESAT_ALPHA = 0.95`. Live preview during custom color drag via explicit `AceConfigRegistry:NotifyChange()` workaround for the AceGUI color picker not firing `OnValueConfirmed` when `hasAlpha = false`.
 - **Follow-up queued:** HS-067 — remove dead `PinFrameFactory:GetPinColorPreviewHex` and `VendorMapPins` wrapper (their only caller was the pre-HS-066 `pinColorPreview.name` closure).
 
+### HS-068 CurseForge issue #6 — overlay ownership and bag gating
+- **Type:** Bug + Feature (visual scope under D6)
+- **Priority:** High
+- **Status:** Complete
+- **Completed:** 2026-05-04 (shipped in v2.3.3 — tag at commit `457682f`. Implementation merged 2026-05-02 at `b29f1bd`.)
+- **Source:** CurseForge issue #6 ("Confused by icon overlay"), karaste, 2026-04-16
+- **Supersedes:** HS-060 (predicate-breadth audit closed without code changes — Q2 dump 2026-04-30 proved the predicate sound).
+- **Commits (5):** `1cc5084` (D4 Containers per-context gate), `e705f88` (D1+D2 drop bag-hit + semantic helpers), `8dffe7d` (D6 Homestone primitive + lifecycle), `9f9046c` (D6 wire integrations), `25eae3b` (D5 scanner authoritative writeback + byRecordID fallback). Merge `b29f1bd`.
+- **Summary:** Closed all six acceptance criteria — bag presence no longer counts as catalog ownership (cache-poisoning vector closed at the source); default Blizzard bag and bank overlays now honor per-context show/hide toggles; the green checkmark across all four overlay surfaces (bags, bank, Baganator, BetterBags, merchant) replaced with a unified housing-themed icon that color-codes by ownership state; CatalogScanner authoritative for the cache contract with byRecordID fallback restoring scanner parity with IsOwnedFresh's Stage 4 (~10% items previously returning nil from byItem); HS-059-class regression structurally prevented via nil-result guard in both async and sync scan paths.
+- **Open follow-ups:** HS-067 (cleanup of dead `PinFrameFactory:GetPinColorPreviewHex` from prior HS-066 work) remains in Backlog — separate from HS-068 scope.
+
 ---
 Pre-split history: Royaleint/BawrLabs@2951ea8:BACKLOG.md
 Archaeology: `git log -S "<ITEM-ID>" -- BACKLOG.md` at commit 2951ea8^ (the commit before BACKLOG.md was deleted)
