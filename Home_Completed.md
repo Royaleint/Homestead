@@ -3,6 +3,14 @@
 Completed work for the Homestead addon, in chronological order by
 completion date. Active and queued work lives in `Home_Tracker.md`.
 
+### Decor-crafting findings MCP follow-up
+- **Type:** Research
+- **Priority:** Medium
+- **Status:** Complete
+- **Completed:** 2026-05-05
+- **Summary:** Updated `Home_Dev/reference/FINDINGS-decor-crafting.md` with wow-api validation notes for HS-024-adjacent profession and dye research. Confirmed current wow-api index reports 8 `C_DyeColor` functions, while the registered Homestead housing API reference still has stale 7-function count references. Confirmed local Retail Blizzard UI source uses `C_DyeColor.GetDyeColorInfo` only; `GetAllDyeColors` / `IsDyeColorOwned` still need empirical addon-context testing for taint and ownership scope. Confirmed `ProfessionsUtil.lua:91` triggers `ProfessionsRecipeListMixin.Event.OnRecipeSelected`; recipe row mixin/template names remain not locally source-verified because the registered Blizzard UI source tree lacks the `Blizzard_Professions*` directories.
+- **Notes:** Public `CHANGELOG.md` unchanged because no player-facing addon behavior changed. `Home_Dev/session/COMPLETED.md` also records the lightweight session wrapup.
+
 ### HS-003 Build offline data validation pipeline
 - **Type:** Feature
 - **Priority:** High

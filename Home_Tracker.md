@@ -126,6 +126,12 @@ Two tickets have pending state changes noted in their entries:
 - **Status:** Backlog
 - **Acceptance criteria:** (1) Profession window overlay annotates craftable housing decor recipes. (2) Tooltips show "Craftable: [Profession] ([Skill Tier])" for ProfessionSources items. (3) Catalog overlay shows profession badge for craftable items.
 - **Session context:** ProfessionSources is a registered v2.0 provider. `GetAllSources()` and `GetSourceTypeIcon("profession")` handle it. Existing `CatalogOverlay.lua` can be extended. Current tooltip code in `Overlay/Tooltips.lua` may partially surface this — audit first. Needs reverse mapping from spellID/recipeID to identify recipe rows in profession frame. Design constraint: overlay only, no new windows.
+- **Research context (2026-05-05):** `Home_Dev/reference/FINDINGS-decor-crafting.md` was updated with wow-api MCP follow-up notes. Current MCP confirms `C_TradeSkillUI.GetRecipeOutputItemData(...) -> CraftingRecipeOutputInfo` and `C_TradeSkillUI.GetRecipeSchematic(...) -> CraftingRecipeSchematic`, plus the `ProfessionsRecipeListMixin.Event.OnRecipeSelected` trigger in `ProfessionsUtil.lua:91`. Caveat: the local registered Retail Blizzard UI source tree lacks the `Blizzard_Professions*` directories, so recipe row mixin/template names remain unverified through wow-api. Dye research also confirms 8 current `C_DyeColor` functions, but `GetAllDyeColors` / `IsDyeColorOwned` still need empirical addon-context testing for taint and ownership scope.
+- **Potential expansion candidates (2026-05-05 market-gap pass):**
+  1. **Material intent tooltips** - annotate reagents, recipes, and crafted decor with housing relevance so players can see whether an item contributes to known or missing decor outcomes before vendoring, banking, mailing, or crafting.
+  2. **Crafting opportunity prompts** - surface currently actionable decor crafts only at natural decision points such as profession windows, vendors, auction workflows, bank, or warband bank, based on known recipes and visible materials.
+  3. **Account recipe gap map** - show which character or profession can craft each decor item, which recipes are still missing, and where an account has coverage gaps across alts.
+- **Scope note:** These are candidate Homestead inclusions, not approved HS-024 scope. Account Recipe Gap Map is the strongest candidate from the market-gap pass, but all three depend on mature profession-source data, recipe-to-decor/reagent mapping, and validated account-wide visibility.
 - **Notes:** Depends on HS-014 (ProfessionSources skillTier backfill). Requires plan. Three sub-features can be phased.
 
 ### HS-025 House dashboard tooltip updates
@@ -251,6 +257,21 @@ Two tickets have pending state changes noted in their entries:
 - **Acceptance criteria:** Holding Shift on a vendor map pin tooltip expands it to show per-item availability states and requirement details, similar to how item tooltips show detailed info on Shift.
 - **Session context:** Identified during HS-023 Phase 1 verification. The purchasability summary (Collected/Purchasable/Locked + blocker groups) gives a good overview, but there is no way to drill into per-item requirement detail from a map pin hover. Design questions: what does the expanded view show (per-item states? full requirement lists?), tooltip size management.
 - **Notes:** Depends on HS-023 Phase 1 being complete. Follow-up feature, not a Phase 1 blocker.
+
+### HS-069 Housing social / neighborhood operations research
+- **Type:** Investigation / Feature
+- **Priority:** Low
+- **Status:** Backlog
+- **Acceptance criteria:**
+  1. Validate whether Midnight exposes enough addon-safe API state for neighborhood tasks, Endeavor contribution progress, pinned houses, recent visits, or house ownership/social metadata.
+  2. Validate player demand from current housing communities rather than assuming Discord coordination should move into the addon.
+  3. Compare overlap with HomeDecor's Endeavor dashboard, roleplay/social addons, and out-of-game community tooling before proposing any Homestead scope.
+  4. Decide whether the ideas should split into concrete Homestead tickets or be closed as outside the product philosophy.
+- **Session context (2026-05-05 market-gap pass):**
+  - **Endeavor Contribution Planner** - help players understand which furniture or resources can satisfy active neighborhood goals and what they already own or can craft.
+  - **Neighborhood Activity Awareness** - surface lightweight awareness around active neighborhood activity, public house updates, and group-relevant housing state if the API exposes reliable signals.
+  - **House Visit / Social Trail** - preserve useful context around visited or pinned homes, such as creator, style, notes, and why the player saved the house.
+- **Notes:** Research only. Do not implement until API feasibility and organic demand are validated.
 
 ### Data
 
