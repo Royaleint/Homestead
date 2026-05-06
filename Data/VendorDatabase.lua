@@ -5,7 +5,7 @@
     STRUCTURE: NPC-keyed for O(1) lookups
     VendorDatabase.Vendors[npcID] = { name, mapID, x, y, zone, ... }
 
-    Updated: 2026-05-03
+    Updated: 2026-05-05
 ]]
 
 local _, HA = ...
@@ -2728,7 +2728,7 @@ VendorDatabase.Vendors = {
         faction = "Neutral",
         currency = "Voidlight Marl",
         expansion = "Midnight",
-        scanConfirmed = "2026-04-10",
+        scanConfirmed = "2026-05-05",
         scanCoverage = "full",
         items = {
             {246402, cost = {currencies = {{id = 3316, amount = 150}}}},
@@ -2736,6 +2736,61 @@ VendorDatabase.Vendors = {
             {246959, cost = {currencies = {{id = 3316, amount = 150}}}},
             {249768, cost = {currencies = {{id = 3316, amount = 250}}}},
             {251980, cost = {currencies = {{id = 3316, amount = 150}}}},
+        },
+    },
+    [255114] = {
+        name = "Maku",
+        mapID = 2576,
+        x = 0.6236, y = 0.3439,
+        zone = "Harandar",
+        subzone = "The Den",
+        faction = "Neutral",
+        currency = "Voidlight Marl",
+        expansion = "Midnight",
+        scanConfirmed = "2026-05-05",
+        scanCoverage = "full",
+        items = {
+            {245535, cost = {currencies = {{id = 3316, amount = 250}}}},
+            {246407, cost = {currencies = {{id = 3316, amount = 150}}}},
+            {246415, cost = {currencies = {{id = 3316, amount = 150}}}},
+            {246416, cost = {currencies = {{id = 3316, amount = 150}}}},
+            {247234, cost = {currencies = {{id = 3316, amount = 250}}}},
+            {252045, cost = {currencies = {{id = 3316, amount = 500}}}},
+            {253443, cost = {currencies = {{id = 3316, amount = 250}}}},
+            {253467, cost = {currencies = {{id = 3316, amount = 250}}}},
+            {254319, cost = {currencies = {{id = 3316, amount = 500}}}},
+            {254878, cost = {currencies = {{id = 3316, amount = 250}}}},
+            {262614, cost = {currencies = {{id = 3316, amount = 150}}}},
+            {262906, cost = {currencies = {{id = 3316, amount = 250}}}},
+            {263020, cost = {currencies = {{id = 3316, amount = 250}}}},
+            {263037, cost = {currencies = {{id = 3316, amount = 150}}}},
+            {263041, cost = {currencies = {{id = 3316, amount = 150}}}},
+            {263196, cost = {currencies = {{id = 3316, amount = 250}}}},
+            {263315, cost = {currencies = {{id = 3316, amount = 250}}}},
+            {264178, cost = {currencies = {{id = 3316, amount = 150}}}},
+            {264259, cost = {currencies = {{id = 3316, amount = 150}}}},
+            {264262, cost = {currencies = {{id = 3316, amount = 150}}}},
+            {264266, cost = {currencies = {{id = 3316, amount = 250}}}},
+            {265792, cost = {currencies = {{id = 3316, amount = 250}}}},
+            {266259, cost = {currencies = {{id = 3316, amount = 250}}}},
+        },
+    },
+    [251259] = {
+        name = "Mothkeeper Wew'tam",
+        mapID = 2413,
+        x = 0.4928, y = 0.5435,
+        zone = "Harandar",
+        subzone = "The Den",
+        faction = "Neutral",
+        currency = "Luminous Dust",
+        expansion = "Midnight",
+        scanConfirmed = "2026-05-05",
+        scanCoverage = "full",
+        notes = "Decor unlocks by capturing Glowing Moths in Harandar (30, 60, and 90 captures).",
+        items = {
+            {265943, cost = {currencies = {{id = 3385, amount = 10}}}},
+            {265945, cost = {currencies = {{id = 3385, amount = 10}}}},
+            {265946, cost = {currencies = {{id = 3385, amount = 10}}}},
         },
     },
 	[259864] = {
@@ -2925,6 +2980,26 @@ VendorDatabase.Vendors = {
             {264480, cost = {currencies = {{id = 3316, amount = 250}}}},
             {264481, cost = {currencies = {{id = 3316, amount = 250}}}},
             {264715, cost = {currencies = {{id = 3316, amount = 250}}}},
+        },
+    },
+    [260180] = {
+        name = "Depthdiver Tu'nakit",
+        mapID = 2437,
+        x = 0.6827, y = 0.2026,
+        zone = "Zul'Aman",
+        subzone = "Zul'Aman Depths",
+        faction = "Neutral",
+        currency = "Angler Pearls",
+        expansion = "Midnight",
+        scanConfirmed = "2026-05-05",
+        scanCoverage = "full",
+        items = {
+            {258535, cost = {currencies = {{id = 3373, amount = 750}}}},
+            {258536, cost = {currencies = {{id = 3373, amount = 750}}}},
+            {258537, cost = {currencies = {{id = 3373, amount = 750}}}},
+            {258538, cost = {currencies = {{id = 3373, amount = 750}}}},
+            {264251, cost = {currencies = {{id = 3373, amount = 1000}}}},
+            {264252, cost = {currencies = {{id = 3373, amount = 1000}}}},
         },
     },
     -- Midnight: Saltheril's Haven vendors (confirmed NPC IDs from scanner)
