@@ -27,6 +27,9 @@ local activePins = {}
 local framePool = {}
 local isUpdating = false
 
+local PLAYER_ARROW_CLEAR_RADIUS = 12
+local PLAYER_ARROW_OVERLAP_ALPHA = 0.3
+
 local lastZoom
 local lastFacing
 local lastPlayerX
@@ -76,6 +79,7 @@ local function CleanupMinimapFrame(frame)
     frame:SetParent(UIParent)
     frame:SetFrameStrata("BACKGROUND")
     frame:SetFrameLevel(1)
+    frame:SetAlpha(1)
 end
 
 local function ReleasePooledFrame(poolByKey, frame)
@@ -102,6 +106,7 @@ local function AcquireFrame(pin)
     frame:SetParent(_G.Minimap)
     frame:SetFrameStrata(minimap:GetFrameStrata())
     frame:SetFrameLevel(minimap:GetFrameLevel() + 10)
+    frame:SetAlpha(1)
     return frame
 end
 
@@ -170,9 +175,15 @@ local function DrawPin(pin, playerX, playerY, rotateMinimap)
     end
 
     if dist <= 1 or pin.floatOnEdge then
+        local pixelX = diffX * minimapWidth
+        local pixelY = -diffY * minimapHeight
+        local clearRadiusSq = PLAYER_ARROW_CLEAR_RADIUS * PLAYER_ARROW_CLEAR_RADIUS
+        local centerDistSq = pixelX * pixelX + pixelY * pixelY
+
         pin.frame:Show()
         pin.frame:ClearAllPoints()
-        pin.frame:SetPoint("CENTER", _G.Minimap, "CENTER", diffX * minimapWidth, -diffY * minimapHeight)
+        pin.frame:SetPoint("CENTER", _G.Minimap, "CENTER", pixelX, pixelY)
+        pin.frame:SetAlpha(centerDistSq <= clearRadiusSq and PLAYER_ARROW_OVERLAP_ALPHA or 1)
     else
         pin.frame:Hide()
     end
