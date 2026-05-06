@@ -1,17 +1,22 @@
 # Homestead
 
-A World of Warcraft housing addon for collectors who want answers, not interfaces. Open your map and see exactly where to find the decor you're missing no massive windows, no menus, no setup.
+> **Current version:** v2.3.31 | TOC: 120005 | WoW Retail 12.0.5+
+
+A World of Warcraft housing addon for collectors who want answers, not interfaces. Open your map and see exactly where to find the decor you're missing — no massive windows, no menus, no setup.
 
 ## Features
 
 - **Map Pins** — Housing decor vendors pinned to your world map and minimap with full inventory tooltips on hover.
 - **Pin Colors** — Customize your pins with 10 color presets or a full RGB picker. Unverified vendors stay orange so you can spot them at a glance.
-- **Collection Progress** — See how many items you've collected from each vendor right on the map (e.g., "3/12"). Zone and continent badges show green for complete, white for partial, red for uncollected.
-- **Ownership Tracking** — Items tracked globally, so ownership is accurate regardless of source vendor purchase, quest reward, achievement unlock, or profession craft.
+- **Decor Availability** — Vendor pins, zone summaries, and the side panel break down each vendor's stock into three states: collected, available now, and locked behind reputation, quests, or profession requirements.
+- **Color-Coded Progress** — Collection progress bars fill in three colors: green for what you own, gold for what you can buy right now, and red for what's locked.
+- **Requirements on Hover** — Hover a vendor pin and see exactly what's blocking each locked item — the rep, quest, or profession you still need.
+- **Bag and Merchant Icons** — A housing-themed icon overlays decor items in your bags, bank, and at merchants — green when collected, red when not. Works with Blizzard's default UI, Baganator, and BetterBags.
+- **Ownership Tracking** — Items tracked globally, so ownership is accurate regardless of source — vendor purchase, quest reward, achievement unlock, or profession craft.
 - **Auto-Scanning** — Visit a vendor and Homestead automatically records what they sell, including prices and item requirements. Toggle this off in Options if you prefer.
-- **Multi-Source Database** — Vendors, quest rewards, achievement unlocks, profession recipes, and world drops tracked across all expansions from Classic through The War Within.
+- **Multi-Source Database** — Vendors, quest rewards, achievement unlocks, profession recipes, and world drops tracked across all expansions from Classic through Midnight.
 - **Faction Filtering** — Opposite-faction vendors hidden by default. Toggle visibility in Options.
-- **Community Data Sharing** — Export your scanned vendor data and submit it to help fill gaps in the database.[Submit your export here] (https://forms.gle/hap2Mn1GKhweu1vp9)
+- **Community Data Sharing** — Export your scanned vendor data and submit it to help fill gaps in the database. [Submit your export here](https://forms.gle/hap2Mn1GKhweu1vp9)
 
 ## Installation
 
@@ -25,9 +30,14 @@ A World of Warcraft housing addon for collectors who want answers, not interface
 |---------|-------------|
 | `/hs` | Open options panel |
 | `/hs scan` | Refresh your ownership cache |
-| `/hs export` | Export scanned vendor data for sharing |
+| `/hs vendor [name]` | Search for a decor vendor by name |
+| `/hs vendors` | List scanned vendor data |
+| `/hs panel` | Toggle the detached vendor panel |
 | `/hs refreshmap` | Refresh all map pins |
+| `/hs corrections` | Show detected NPC ID corrections |
+| `/hs export` | Export scanned vendor data for sharing |
 | `/hs welcome` | Reopen the welcome screen |
+| `/hs whatsnew` | Reopen the latest What's New screen |
 | `/hs debug` | Toggle debug mode (useful for bug reports) |
 
 ## How It Works

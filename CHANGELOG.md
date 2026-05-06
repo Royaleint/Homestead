@@ -2,6 +2,23 @@
 
 ---
 
+## Homestead v2.3.31 HOTFIX (05-05-2026)
+
+Two new Midnight vendors and a small minimap pin polish.
+
+---
+
+### Improved
+
+- Minimap vendor pins no longer obscure player arrow when close to vendor.
+
+### New Vendors
+
+- **Mothkeeper Wew'tam**: Vendor in Harandar above the Den. Capture 30, 60, or 90 Glowing Moths in Harandar to unlock 3 decor items — Firm Haranir Pillow, Warm Haranir Blanket, and Haranir Reclined Bed — at 10 Luminous Dust each.
+- **Depthdiver Tu'nakit**: Vendor in Zul'Aman Depths. Sells 6 Amani-themed charms and decor for Angler Pearls.
+
+---
+
 ## v2.3.3 (2026-05-04)
 
 A new status icon for bag and merchant overlays, plus fixes for catalog ownership accuracy and tooltip vendor attribution.
