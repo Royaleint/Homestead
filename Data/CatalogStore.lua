@@ -40,22 +40,6 @@ local batchOwnershipChanged = false
 local batchDataChanged = false
 local negativeGeneration = 0  -- bumped on SetOwned/ClearAll to bust negative cache
 
--- HS-070 instrumentation (worktree-only, gated on HA.DevAddon).
--- Traces effective ownership transitions only (skips noops) so chat stays
--- readable during a 200-item scan. The scan-begin/scan-end markers in
--- CatalogScanner cover the no-change steady-state case. Remove before merge.
--- luacheck: globals debugstack
-local function HS070_Trace(action, itemID, transition)
-    if not HA.DevAddon then return end
-    if transition:sub(1, 4) == "noop" then return end
-    local name = (ci and ci[itemID] and ci[itemID].name) or "?"
-    -- debugstack(3, 1, 0) returns the call site of SetOwned/SetUnowned itself.
-    local stack = debugstack(3, 1, 0) or ""
-    local caller = stack:match("([^\n]+)") or "?"
-    print(string.format("[HS-070] %s itemID=%d name=%s transition=%s | %s",
-        action, itemID, tostring(name), transition, caller))
-end
-
 -------------------------------------------------------------------------------
 -- Internal: Table Merge (no events, no side effects beyond storage)
 -------------------------------------------------------------------------------
@@ -92,8 +76,6 @@ function CatalogStore:SetOwned(itemID, name, decorID)
 
     local record = ci[itemID]
     local wasOwned = record and record.isOwned
-
-    HS070_Trace("SetOwned", itemID, wasOwned and "noop(true→true)" or "false→true")
 
     local now = time()
     local fields = {
@@ -145,8 +127,6 @@ function CatalogStore:SetUnowned(itemID)
     if ci and ci[itemID] then
         wasOwnedInCatalog = ci[itemID].isOwned == true
     end
-
-    HS070_Trace("SetUnowned", itemID, wasOwnedInCatalog and "true→false" or "noop(false→false)")
 
     -- No-op if not owned in catalogItems (idempotent).
     if not wasOwnedInCatalog then return end
