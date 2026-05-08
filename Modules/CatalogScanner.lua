@@ -246,6 +246,16 @@ function CatalogScanner:ScanFullCatalog(callback)
 
     HA.Addon:Debug("Starting catalog scan (item-by-item method)...")
 
+    -- HS-070 instrumentation (worktree-only, gated on HA.DevAddon).
+    if HA.DevAddon then
+        local apiTotal = (C_HousingCatalog and C_HousingCatalog.GetDecorTotalOwnedCount
+            and C_HousingCatalog.GetDecorTotalOwnedCount()) or -1
+        local cacheOwned = (HA.CatalogStore and HA.CatalogStore.GetOwnedCount
+            and HA.CatalogStore:GetOwnedCount()) or -1
+        print(string.format("[HS-070] scan-begin t=%.2f api.totalOwned=%s cache.owned=%s",
+            currentTime, tostring(apiTotal), tostring(cacheOwned)))
+    end
+
     -- Collect all known item IDs
     local itemList = CollectAllKnownItemIDs()
     local totalItems = #itemList
@@ -323,6 +333,16 @@ function CatalogScanner:ScanFullCatalog(callback)
             end
 
             HA.Addon:Debug("Catalog scan complete. Checked:", checkedCount, "Owned:", ownedCount)
+
+            -- HS-070 instrumentation (worktree-only, gated on HA.DevAddon).
+            if HA.DevAddon then
+                local apiTotal = (C_HousingCatalog and C_HousingCatalog.GetDecorTotalOwnedCount
+                    and C_HousingCatalog.GetDecorTotalOwnedCount()) or -1
+                local cacheOwned = (HA.CatalogStore and HA.CatalogStore.GetOwnedCount
+                    and HA.CatalogStore:GetOwnedCount()) or -1
+                print(string.format("[HS-070] scan-end t=%.2f checked=%d owned=%d api.totalOwned=%s cache.owned=%s",
+                    GetTime(), checkedCount, ownedCount, tostring(apiTotal), tostring(cacheOwned)))
+            end
 
             -- Fire event so other modules know ownership data is updated
             if HA.Events and HA.Events.TriggerEvent then
@@ -419,6 +439,9 @@ local function SetupEventScanning()
             -- Check if a Blizzard housing UI addon loaded
             if loadedAddon and loadedAddon:match("^Blizzard_Housing") then
                 HA.Addon:Debug("Housing addon loaded:", loadedAddon)
+                if HA.DevAddon then
+                    print(string.format("[HS-070] addon-loaded=%s -> scan in 1s", tostring(loadedAddon)))
+                end
                 -- One-time startup scan — direct call, not debounced
                 C_Timer.After(1, function()
                     CatalogScanner:ScanFullCatalog()
@@ -427,6 +450,10 @@ local function SetupEventScanning()
         else
             -- All housing events coalesce into a single debounced scan
             HA.Addon:Debug(event, "fired — requesting scan")
+            if HA.DevAddon then
+                print(string.format("[HS-070] event=%s t=%.2f -> RequestScan (1s debounce)",
+                    tostring(event), GetTime()))
+            end
             RequestScan()
         end
     end)
@@ -446,6 +473,9 @@ function CatalogScanner:Initialize()
     C_Timer.After(3, function()
         if C_HousingCatalog and C_HousingCatalog.GetCatalogEntryInfoByItem then
             HA.Addon:Debug("Attempting initial catalog scan...")
+            if HA.DevAddon then
+                print(string.format("[HS-070] initial-scan timer fired t=%.2f", GetTime()))
+            end
             CatalogScanner:ScanFullCatalog()
         end
     end)
