@@ -214,6 +214,22 @@ completion date. Active and queued work lives in `Home_Tracker.md`.
 - **Summary:** Closed all six acceptance criteria — bag presence no longer counts as catalog ownership (cache-poisoning vector closed at the source); default Blizzard bag and bank overlays now honor per-context show/hide toggles; the green checkmark across all four overlay surfaces (bags, bank, Baganator, BetterBags, merchant) replaced with a unified housing-themed icon that color-codes by ownership state; CatalogScanner authoritative for the cache contract with byRecordID fallback restoring scanner parity with IsOwnedFresh's Stage 4 (~10% items previously returning nil from byItem); HS-059-class regression structurally prevented via nil-result guard in both async and sync scan paths.
 - **Open follow-ups:** HS-067 (cleanup of dead `PinFrameFactory:GetPinColorPreviewHex` from prior HS-066 work) remains in Backlog — separate from HS-068 scope.
 
+### HS-070 Homestone ownership color drops after reload/zone
+- **Type:** Bug
+- **Priority:** High (downgraded to closed — not reproducible)
+- **Status:** Complete — closed as not reproducible
+- **Completed:** 2026-05-07
+- **Source:** CurseForge community report (no specific itemIDs or addon list captured)
+- **Investigation summary:** Two falsifiable hypotheses tested via `HA.DevAddon`-gated instrumentation, both refuted on Rawb's account.
+  - **H1 — HS-068 D5 authoritative writeback (`25eae3b`) erases cached ownership during the post-reload Blizzard catalog hydration window.** Tested across login, zone change, catalog open (`HOUSING_STORAGE_UPDATED`), and reload-after-catalog scenarios. Cache size held steady at 875 across all four scans. Zero `SetUnowned transition=true→false` lines fired. `GetCatalogEntryInfoByItem` ownership reads survive the post-reload window cleanly — `firstAcquisitionBonus == 0` is reliable even when `GetDecorTotalOwnedCount()` returns 0.
+  - **H2 — Cache poisoning surviving the v2.3.3 bag-presence-write-through removal (`e705f88`).** `/hsdev hs070audit` reported `cache+/api-=0` both pre-hydration (api.totalOwned=0) and post-hydration (api.totalOwned=850). Every one of the 875 cache-owned items passes byItem with `fb==0`. Cache and byItem agree.
+- **Residual finding (not HS-070):** Cache 875 vs `GetDecorTotalOwnedCount` 850 is a 25-item gap between two Blizzard APIs, not between cache and Blizzard. byItem reports `fb==0` for 873 items; `GetDecorTotalOwnedCount` says 850. This is a Blizzard-side counting nuance (likely decorID-vs-itemID multiplicity), not data corruption. No action required.
+- **Visual observation:** Homestone overlay icons stayed correctly colored across all four test scenarios on Rawb's account.
+- **Why closed:** Without the original CurseForge reporter's itemIDs or addon list, we cannot reproduce. Both major causal hypotheses are refuted on the available test setup. Continuing to dig blind isn't productive.
+- **Ongoing monitoring:** Render-side per-item status transition trace remains in `Data/SourceManager.lua` (`HS070_TraceRead` in `GetInventoryItemStatus` / `GetMerchantItemStatus`), gated on `HA.DevAddon`, silent in steady-state. If the bug ever manifests in normal play, the trace will print the transition with `cache.isOwned=` to disambiguate cache vs render. `/hsdev hs070audit` remains available in Homestead_Dev as an on-demand cache/API consistency check.
+- **Reopen criteria:** Reopen if a community reporter provides specific itemIDs or third-party bag-UI conditions, OR if the silent render-side trace fires in normal play.
+- **Reverted:** Chatty write-side trace commit `bd63054` (CatalogStore + CatalogScanner verbose prints) reverted after the diagnostic ran its course.
+
 ---
 Pre-split history: Royaleint/BawrLabs@2951ea8:BACKLOG.md
 Archaeology: `git log -S "<ITEM-ID>" -- BACKLOG.md` at commit 2951ea8^ (the commit before BACKLOG.md was deleted)
