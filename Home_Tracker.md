@@ -435,4 +435,10 @@ Two tickets have pending state changes noted in their entries:
 
 ## Awaiting Release
 
-*(None.)*
+### HS-071 Homestone overlay icon — poke outside the corner
+- **Type:** Feature (UI polish)
+- **Priority:** Low
+- **Status:** Awaiting Release (Gate 2 passed 2026-05-09, on main)
+- **Commit:** `bad1b93`
+- **Summary:** Moved the homestone overlay icon from inset (2, -2) to outset (-2, 2) in `Constants.Overlay` so it reads as a corner badge instead of a glyph pasted inside the icon, matching Blizzard's crafting quality gem placement. Baganator's `RegisterCornerWidget` API applies its own (2, -2) inset that cancelled the outset, so `Overlay/Baganator.lua` now sets `frame.padding = 0` on the corner widget to opt out of that inset and drops the `CENTER, 0, 0` override so it follows the same offset path as Containers, Merchant, and BetterBags.
+- **Surfaces verified:** Baganator confirmed in-game by Rawb. Default Blizzard containers, BetterBags, and merchant frame inherit the change via the shared `OFFSET_X/Y` constants.
