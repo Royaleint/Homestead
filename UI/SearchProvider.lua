@@ -102,12 +102,14 @@ function SearchProvider:PreWarm()
         AddItemID(itemID)
     end)
 
-    -- Batch: 100 items per tick to avoid frame hitch
+    -- Batch: 100 items per tick to avoid frame hitch.
+    -- C_Item.RequestLoadItemDataByID is the modern cache-warm API; the
+    -- deprecated global GetItemInfo also did this as a side effect.
     local idx = 1
     local function ProcessBatch()
         local batchEnd = math.min(idx + 99, #allItems)
         for i = idx, batchEnd do
-            GetItemInfo(allItems[i])
+            C_Item.RequestLoadItemDataByID(allItems[i])
         end
         idx = batchEnd + 1
         if idx <= #allItems then
