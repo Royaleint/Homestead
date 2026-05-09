@@ -129,6 +129,10 @@ local function InitWidget(itemButton)
         iconSize = HA.Addon.db.profile.overlay.iconSize or iconSize
     end
     frame:SetSize(iconSize, iconSize)
+    -- Baganator insets corner widgets by (2, -2) by default (multiplied by
+    -- this `padding` field). Setting it to 0 places our frame flush with the
+    -- bag slot's corner so the OFFSET_X/Y constants control the outset.
+    frame.padding = 0
     if Overlay and Overlay.EnsureHomestoneTextures then
         Overlay:EnsureHomestoneTextures(frame)
     end
@@ -187,11 +191,11 @@ local function UpdateWidget(cornerFrame, details)
 
     local iconSize = settings.iconSize or OVERLAY_CONFIG.ICON_SIZE
     cornerFrame:SetSize(iconSize, iconSize)
+    -- No anchor override: SetHomestoneState picks up the profile's iconAnchor
+    -- and the OFFSET_X/Y constants, so the texture pokes outside Baganator's
+    -- corner widget the same way it does on Containers/Merchant/BetterBags.
     Overlay:SetHomestoneState(cornerFrame, status, {
         size = iconSize,
-        anchor = "CENTER",
-        offsetX = 0,
-        offsetY = 0,
     })
 
     return true

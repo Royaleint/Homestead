@@ -415,9 +415,12 @@ Constants.Overlay = {
     -- Position anchor (can be: TOPLEFT, TOPRIGHT, BOTTOMLEFT, BOTTOMRIGHT, CENTER)
     DEFAULT_ANCHOR = "TOPLEFT",
 
-    -- Offset from anchor point
-    OFFSET_X = 2,
-    OFFSET_Y = -2,
+    -- Offset from anchor point. Negative values cause the icon to poke
+    -- outside the corner (like Blizzard's crafting quality gem).
+    -- GetAnchorOffsets in Overlay/overlay.lua mirrors signs for non-TOPLEFT
+    -- anchors so this stays consistent across all four corners.
+    OFFSET_X = -2,
+    OFFSET_Y = 2,
 
     -- Update throttle (seconds between updates)
     UPDATE_THROTTLE = 0.1,
