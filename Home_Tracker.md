@@ -89,23 +89,6 @@ Two tickets have pending state changes noted in their entries:
 - **Session context:** A source filter dropdown already exists in the side panel (MapSidePanel.lua lines 280-326) but only affects panel display. `panelSourceFilter` is ignored by `GetZoneVendorCounts`/`GetContinentVendorCounts` (hardcoded `"all"` in `BadgeCalculation.lua:314`). VendorFilter handles faction/verification visibility but has no source-type filtering.
 - **Notes:** Significant feature — requires PLAN_TEMPLATE.md. Consolidated from HS-018 + HS-020.
 
-### HS-019 Search: highlight/scroll to matched item in panel
-- **Type:** Feature
-- **Priority:** Medium
-- **Status:** Backlog — **spec approved 2026-04-20, queued for implementation**
-- **Acceptance criteria (expanded 2026-04-20):**
-  1. Selecting a search result scrolls the matched item into view in the expanded vendor grid.
-  2. **Persistent highlight** — matched item stays visually distinct until search is cleared (no 3-pulse flash). Highlight style TBD during plan (border color shift or subtle glow).
-  3. **Match cycling** — clicking the same search result repeatedly cycles through multiple matches for that item (different vendors, item-first rows). Wraps at end.
-- **Session context (2026-04-20):** Verified during audit that row click-to-expand logic is at `UI/MapSidePanel.lua:930–1007`. `ScrollFrame` is the anchor point for scroll calls. No auto-scroll behavior exists today. Item-first rows have separate expansion via v2.0 vendor-as-peer Phase 8 — cycling must handle both vendor-row and item-first-row cases. Still quick-win scope after expansion.
-- **Session context (2026-05-09 — staleness audit + search-stack review):**
-  - **Refinement of the 2026-04-20 dim claim.** The "currently dims non-matches" framing is correct *at the grid-cell level inside an expanded vendor row* — `PopulateItemGrid` (`UI/MapSidePanel.lua:499`) desaturates and dims border on grid icons whose itemID is not in the `highlightItems` set (`UI/MapSidePanel.lua:578-585`). At the row level, however, behavior is full layout replacement via `MapSidePanel:RefreshSearchResults` (`UI/MapSidePanel.lua:2752`) — non-matching vendor and item-first rows are not drawn at all. Practical effect on the plan: persistent highlight is a third visual state layered on grid cells (alongside owned/locked/unowned) and on item-first rows, not a row-level toggle that replaces dimming.
-  - **`searchResultsRevision` self-healing path** added between the spec date and now (`UI/MapSidePanel.lua:85, 1025, 2755-2757`). When the SearchProvider index revision changes mid-cycle, results get re-queried. Match cycling state needs a stance: reset position to 0 on revision change, or tolerate it. Plan-time decision; defaulting to reset-on-change is recommended.
-  - **Search APIs and refactor coverage confirmed sound.** SearchProvider routes through the unified VendorData gateway (`GetAllVendors`, `GetMergedItemIDs`), invalidates on `VENDOR_SCANNED` and `ACTIVE_HOLIDAYS_CHANGED`, honors faction filter, ignores source filter at match time (correct separation). HS-068 CatalogStore changes flow into render via `MapSidePanel.IsItemOwned → CatalogStore:IsOwnedFresh` (`MapSidePanel.lua:251-257`). v2.3.3 `VendorData:OnVendorScanned` rebuild fix means the index rebuilds against a clean reverse-index. SourceManager is consumed at render time only (`GetDisplaySourcesForItem`, `GetPreferredDisplaySource`) — appropriate.
-  - **Cycling data already returned by Search.** `result.matchedItems` is a `{[itemID] = true}` set per vendor result (`SearchProvider.lua:229, 261, 273`); item-first rows are deduped against vendor coverage (`SearchProvider.lua:290-305`). No SearchProvider API change required for HS-019.
-  - **HS-073 PreWarm modernization landed (`4dfaf15`).** Side cleanup found while auditing the search stack — does not affect HS-019 implementation.
-- **Notes:** Single worktree with HS-018 plumbing or standalone — decide at plan time. Argus Gate 1 before merge.
-
 ### HS-021 Continent-level pin placement refinement
 - **Type:** Feature
 - **Priority:** Medium
@@ -424,6 +407,34 @@ Two tickets have pending state changes noted in their entries:
 - **Notes:** Data collection scope absorbed by HS-049 (Shop source type). HS-049 covers collection + source type + tooltip integration.
 
 ## In Progress
+
+### HS-019 Search: highlight/scroll to matched item in panel
+- **Type:** Feature
+- **Priority:** Medium
+- **Status:** In Progress (Tier 1 — plan approved 2026-05-09, worktree pending)
+- **Plan:** `Home_Dev/plans/active/HS-019-search-highlight-scroll.md`
+- **Acceptance criteria (final, 2026-05-09):**
+  1. Selecting a search result with a unique itemID scrolls the panel so the matched position is in view (top-aligned with ~8px header offset).
+  2. Persistent highlight on the matched grid cell or item-first row top portion until search query changes or clears.
+  3. Clicking the same result repeatedly cycles the cursor through `cycleTargets` (vendor-grid positions first, item-first row last); wraps at end.
+  4. Search-index revision change rebuilds `cycleTargets` for the same `cycleItemID` rather than dropping cycle state.
+  5. No SearchProvider changes. No SavedVariables changes. luacheck clean.
+- **Session context (2026-04-20):** Row click-to-expand logic at `UI/MapSidePanel.lua:930–1007`. `ScrollFrame` anchor. Item-first rows have separate expansion via v2.0 vendor-as-peer Phase 8 — cycling must handle both vendor-row and item-first-row cases.
+- **Session context (2026-05-09 — staleness audit + search-stack review):**
+  - **Dim claim refined.** Dim exists at grid-cell level inside expanded vendor rows (`PopulateItemGrid`, `UI/MapSidePanel.lua:499, 578-585`); row-level behavior is full layout replacement via `MapSidePanel:RefreshSearchResults` (`UI/MapSidePanel.lua:2752`). Highlight is a third visual state layered alongside owned/locked/unowned, not a row-level toggle.
+  - **`searchResultsRevision` self-healing path** added since the spec (`UI/MapSidePanel.lua:85, 1025, 2755-2757`). Plan rebuilds `cycleTargets` against new results on revision change.
+  - **Search APIs and refactor coverage sound.** SearchProvider routes through unified VendorData gateway, invalidates on `VENDOR_SCANNED`/`ACTIVE_HOLIDAYS_CHANGED`, honors faction filter, ignores source filter at match time. HS-068 CatalogStore changes flow into render via `IsOwnedFresh`. v2.3.3 `OnVendorScanned` rebuild gives clean reverse-index. SourceManager consumed at render time only.
+  - **Cycling data already returned.** `result.matchedItems` is a per-vendor itemID set; item-first rows deduped against vendor coverage. No SearchProvider API change required.
+  - **HS-073 PreWarm modernization landed (`4dfaf15`).** Side cleanup found during audit; does not affect HS-019.
+- **Plan decisions baked in (2026-05-09 gaps review):**
+  1. Cycling activates only when click resolves to a unique itemID (item-first rows always; vendor rows only when `#matchedItems == 1`).
+  2. HS-019 wraps existing OnClick handlers, doesn't replace them.
+  3. Highlight rendered from file-scope state (`cycleItemID`, `cycleCursor`, `cycleTargets`), not stored on pool-recycled frames.
+  4. `expandedVendorID` toggling cost on cycle hops accepted for v1.
+  5. Item-first row highlight scope: top portion only.
+  6. Scroll alignment: top-align with ~8px header offset.
+  - Visual choices (highlight tint, scroll offset, item-first highlight scope) are tentative — subject to Gate 2 visual review.
+- **Notes:** Single worktree at `feature/hs-019-search-highlight-scroll`. Argus Lens 1 + Lens 2 before merge.
 
 ### HS-038 FloorHints for same-mapID hubs
 - **Type:** Feature
