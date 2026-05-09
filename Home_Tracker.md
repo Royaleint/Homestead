@@ -97,7 +97,13 @@ Two tickets have pending state changes noted in their entries:
   1. Selecting a search result scrolls the matched item into view in the expanded vendor grid.
   2. **Persistent highlight** — matched item stays visually distinct until search is cleared (no 3-pulse flash). Highlight style TBD during plan (border color shift or subtle glow).
   3. **Match cycling** — clicking the same search result repeatedly cycles through multiple matches for that item (different vendors, item-first rows). Wraps at end.
-- **Session context (2026-04-20):** Verified during audit that row click-to-expand logic is at `UI/MapSidePanel.lua:930–1007`. `ScrollFrame` is the anchor point for scroll calls. No auto-scroll behavior exists today; currently dims non-matches. Item-first rows have separate expansion via v2.0 vendor-as-peer Phase 8 — cycling must handle both vendor-row and item-first-row cases. Still quick-win scope after expansion.
+- **Session context (2026-04-20):** Verified during audit that row click-to-expand logic is at `UI/MapSidePanel.lua:930–1007`. `ScrollFrame` is the anchor point for scroll calls. No auto-scroll behavior exists today. Item-first rows have separate expansion via v2.0 vendor-as-peer Phase 8 — cycling must handle both vendor-row and item-first-row cases. Still quick-win scope after expansion.
+- **Session context (2026-05-09 — staleness audit + search-stack review):**
+  - **Correction to 2026-04-20 entry.** "Currently dims non-matches" is wrong. Today's search path (`MapSidePanel:RefreshSearchResults`, `UI/MapSidePanel.lua:2752`) does a **full layout replacement** — `HideAllNonVendorContent` then renders a dedicated search-results list. Non-matches are not drawn, not dimmed. Practical effect on the plan: there is no "remove dim, add highlight" toggle to design — the persistent highlight is a brand-new visual state on rows that already only contain matches.
+  - **`searchResultsRevision` self-healing path** added between the spec date and now (`UI/MapSidePanel.lua:85, 1025, 2755-2757`). When the SearchProvider index revision changes mid-cycle, results get re-queried. Match cycling state needs a stance: reset position to 0 on revision change, or tolerate it. Plan-time decision; defaulting to reset-on-change is recommended.
+  - **Search APIs and refactor coverage confirmed sound.** SearchProvider routes through the unified VendorData gateway (`GetAllVendors`, `GetMergedItemIDs`), invalidates on `VENDOR_SCANNED` and `ACTIVE_HOLIDAYS_CHANGED`, honors faction filter, ignores source filter at match time (correct separation). HS-068 CatalogStore changes flow into render via `MapSidePanel.IsItemOwned → CatalogStore:IsOwnedFresh` (`MapSidePanel.lua:251-257`). v2.3.3 `VendorData:OnVendorScanned` rebuild fix means the index rebuilds against a clean reverse-index. SourceManager is consumed at render time only (`GetDisplaySourcesForItem`, `GetPreferredDisplaySource`) — appropriate.
+  - **Cycling data already returned by Search.** `result.matchedItems` is a `{[itemID] = true}` set per vendor result (`SearchProvider.lua:229, 261, 273`); item-first rows are deduped against vendor coverage (`SearchProvider.lua:290-305`). No SearchProvider API change required for HS-019.
+  - **HS-073 PreWarm modernization landed (`4dfaf15`).** Side cleanup found while auditing the search stack — does not affect HS-019 implementation.
 - **Notes:** Single worktree with HS-018 plumbing or standalone — decide at plan time. Argus Gate 1 before merge.
 
 ### HS-021 Continent-level pin placement refinement
@@ -430,6 +436,15 @@ Two tickets have pending state changes noted in their entries:
 - **Notes:** Not merged to main. Needs in-game verification before merge.
 
 ## Awaiting Gate 2
+
+### HS-073 SearchProvider:PreWarm — modernize deprecated GetItemInfo cache-warm
+- **Type:** Refactor (API hygiene)
+- **Priority:** Low
+- **Status:** Awaiting Gate 2 (commit `4dfaf15` on main, Tier 0 — Argus skipped per CLAUDE.md)
+- **GitHub:** [#37](https://github.com/Royaleint/Homestead/issues/37)
+- **Summary:** `UI/SearchProvider.lua:110` (pre-fix) called the deprecated global `GetItemInfo(itemID)` purely for its async cache-fetch side effect. Swapped to `C_Item.RequestLoadItemDataByID(itemID)` — the modern explicit cache-warm API — preserving fire-and-forget shape, 100/tick batching, and zero return-value consumption. Surfaced during the HS-019 search-stack audit on 2026-05-09.
+- **Acceptance criteria:** First search after fresh login returns item-name matches with no fewer hits than before. Luacheck clean. No new globals introduced.
+- **Follow-up:** `Modules/VendorTracer.lua:164` has a sibling deprecated `GetItemInfo(itemID)` call that **reads** `itemName` from the return — different replacement (`C_Item.GetItemNameByID`). Out of HS-073 scope to keep the refactor commit tight; will file separately when convenient.
 
 ### HS-072 Vendor coord debug log fires for matching coords (precision bug)
 - **Type:** Bug
