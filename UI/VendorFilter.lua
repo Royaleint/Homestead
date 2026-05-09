@@ -82,14 +82,16 @@ function VendorFilter.GetBestVendorCoordinates(vendor)
                     and not scanMapMismatch then
                 -- Debug output
                 if HA.DevAddon and HA.Addon.db.profile.debug then
-                    local staticX, staticY = VendorFilter.GetVendorXY(vendor)
-                    staticX = staticX or "nil"
-                    staticY = staticY or "nil"
-                    if staticX ~= scannedX or staticY ~= scannedY then
+                    -- Compare with epsilon matched to %.2f display precision so
+                    -- the log only fires when the formatted output would differ.
+                    local sx, sy = VendorFilter.GetVendorXY(vendor)
+                    if not sx or not sy
+                            or math.abs(sx - scannedX) > 0.005
+                            or math.abs(sy - scannedY) > 0.005 then
                         HA.Addon:Debug(string.format("Vendor %s (%d): using SCANNED coords (%.2f, %.2f) instead of static (%.2f, %.2f)",
                             vendor.name or "Unknown", vendor.npcID,
                             scannedX, scannedY,
-                            tonumber(staticX) or 0, tonumber(staticY) or 0))
+                            sx or 0, sy or 0))
                     end
                 end
                 return {x = scannedX, y = scannedY}, scannedMapID, "scanned"

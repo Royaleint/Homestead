@@ -431,7 +431,14 @@ Two tickets have pending state changes noted in their entries:
 
 ## Awaiting Gate 2
 
-*(None.)*
+### HS-072 Vendor coord debug log fires for matching coords (precision bug)
+- **Type:** Bug
+- **Priority:** Low
+- **Status:** Awaiting Gate 2 (worktree `fix/hs-072-debug-coord-precision`, Tier 0 — Argus skipped per CLAUDE.md)
+- **Summary:** `VendorFilter.GetBestVendorCoordinates` (`UI/VendorFilter.lua:84-94`) compared static and scanned coords with exact float `~=` while the debug message formatted both with `%.2f`. Scanned coords come from `C_Map.GetPlayerMapPosition()` at full precision (e.g. `0.32478…`) and static DB entries are hand-entered 2-decimal literals (`0.32`), so the comparison was true but the rendered strings were identical. Result: any minimap pin refresh logged "using SCANNED coords (X, Y) instead of static (X, Y)" for every persisted scan record in pin range, even when nothing differed at display resolution. Fix gates the log on `math.abs(sx - scannedX) > 0.005` (half of one `%.2f` unit) and preserves the missing-static path with an explicit `not sx or not sy` clause.
+- **Acceptance criteria:** With debug mode on, opening a merchant or triggering a minimap refresh prints "using SCANNED coords" only for vendors whose stored static coords differ from the scanned coords at 2-decimal precision (or whose static coords are missing). Maku's `0.62/0.35` vs `0.63/0.34` case still logs; the other ~23 false positives in the original report do not.
+- **Surfaces affected:** Dev-only debug output. No player-visible impact, no DB writes, no scan-vs-static decision change (`return {x = scannedX, y = scannedY}, …` at line 95 is outside the modified block).
+- **Notes:** Dev-only debug-log path; no luacheck warnings introduced.
 
 ## Awaiting Release
 
