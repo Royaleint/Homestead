@@ -411,8 +411,13 @@ Two tickets have pending state changes noted in their entries:
 ### HS-019 Search: highlight/scroll to matched item in panel
 - **Type:** Feature
 - **Priority:** Medium
-- **Status:** In Progress (Tier 1 — plan approved 2026-05-09, worktree pending)
+- **Status:** In Progress (Tier 1 — feature committed on worktree as `655b2f1`, awaiting Argus Lens 1+2 review before merge)
 - **Plan:** `Home_Dev/plans/active/HS-019-search-highlight-scroll.md`
+- **Worktree:** `C:\Projects\Homestead-feature-search-highlight-scroll` on `feature/hs-019-search-highlight-scroll`. Single-file diff: `UI/MapSidePanel.lua` +207 / -3. Luacheck 0/0.
+- **Phase progress:** P1-P5 ✓ all phases implemented. Cycle is tied to expansion (expand initiates, collapse clears) for clean dismiss across both row types.
+- **Phase 2 mid-flight fix:** `BuildCycleTargets` per-type-counter rewrite (`vendorCount`/`itemCount`) so callers can resolve `vendorRows[i]` / `itemResultRows[i]` directly.
+- **Visual choices (tentative pending Gate 2):** pin-color factory border tint, top-aligned scroll with 8px header offset, item-first highlight scope = top portion only.
+- **Next action:** Argus Lens 1+2 review of the worktree commit; on pass, fast-forward merge to main.
 - **Acceptance criteria (final, 2026-05-09):**
   1. Selecting a search result with a unique itemID scrolls the panel so the matched position is in view (top-aligned with ~8px header offset).
   2. Persistent highlight on the matched grid cell or item-first row top portion until search query changes or clears.
