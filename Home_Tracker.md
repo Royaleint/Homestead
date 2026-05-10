@@ -408,39 +408,6 @@ Two tickets have pending state changes noted in their entries:
 
 ## In Progress
 
-### HS-019 Search: highlight/scroll to matched item in panel
-- **Type:** Feature
-- **Priority:** Medium
-- **Status:** In Progress (Tier 1 — feature committed on worktree as `655b2f1`, awaiting Argus Lens 1+2 review before merge)
-- **Plan:** `Home_Dev/plans/active/HS-019-search-highlight-scroll.md`
-- **Worktree:** `C:\Projects\Homestead-feature-search-highlight-scroll` on `feature/hs-019-search-highlight-scroll`. Single-file diff: `UI/MapSidePanel.lua` +207 / -3. Luacheck 0/0.
-- **Phase progress:** P1-P5 ✓ all phases implemented. Cycle is tied to expansion (expand initiates, collapse clears) for clean dismiss across both row types.
-- **Phase 2 mid-flight fix:** `BuildCycleTargets` per-type-counter rewrite (`vendorCount`/`itemCount`) so callers can resolve `vendorRows[i]` / `itemResultRows[i]` directly.
-- **Visual choices (tentative pending Gate 2):** pin-color factory border tint, top-aligned scroll with 8px header offset, item-first highlight scope = top portion only.
-- **Next action:** Argus Lens 1+2 review of the worktree commit; on pass, fast-forward merge to main.
-- **Acceptance criteria (final, 2026-05-09):**
-  1. Selecting a search result with a unique itemID scrolls the panel so the matched position is in view (top-aligned with ~8px header offset).
-  2. Persistent highlight on the matched grid cell or item-first row top portion until search query changes or clears.
-  3. Clicking the same result repeatedly cycles the cursor through `cycleTargets` (vendor-grid positions first, item-first row last); wraps at end.
-  4. Search-index revision change rebuilds `cycleTargets` for the same `cycleItemID` rather than dropping cycle state.
-  5. No SearchProvider changes. No SavedVariables changes. luacheck clean.
-- **Session context (2026-04-20):** Row click-to-expand logic at `UI/MapSidePanel.lua:930–1007`. `ScrollFrame` anchor. Item-first rows have separate expansion via v2.0 vendor-as-peer Phase 8 — cycling must handle both vendor-row and item-first-row cases.
-- **Session context (2026-05-09 — staleness audit + search-stack review):**
-  - **Dim claim refined.** Dim exists at grid-cell level inside expanded vendor rows (`PopulateItemGrid`, `UI/MapSidePanel.lua:499, 578-585`); row-level behavior is full layout replacement via `MapSidePanel:RefreshSearchResults` (`UI/MapSidePanel.lua:2752`). Highlight is a third visual state layered alongside owned/locked/unowned, not a row-level toggle.
-  - **`searchResultsRevision` self-healing path** added since the spec (`UI/MapSidePanel.lua:85, 1025, 2755-2757`). Plan rebuilds `cycleTargets` against new results on revision change.
-  - **Search APIs and refactor coverage sound.** SearchProvider routes through unified VendorData gateway, invalidates on `VENDOR_SCANNED`/`ACTIVE_HOLIDAYS_CHANGED`, honors faction filter, ignores source filter at match time. HS-068 CatalogStore changes flow into render via `IsOwnedFresh`. v2.3.3 `OnVendorScanned` rebuild gives clean reverse-index. SourceManager consumed at render time only.
-  - **Cycling data already returned.** `result.matchedItems` is a per-vendor itemID set; item-first rows deduped against vendor coverage. No SearchProvider API change required.
-  - **HS-073 PreWarm modernization landed (`4dfaf15`).** Side cleanup found during audit; does not affect HS-019.
-- **Plan decisions baked in (2026-05-09 gaps review):**
-  1. Cycling activates only when click resolves to a unique itemID (item-first rows always; vendor rows only when `#matchedItems == 1`).
-  2. HS-019 wraps existing OnClick handlers, doesn't replace them.
-  3. Highlight rendered from file-scope state (`cycleItemID`, `cycleCursor`, `cycleTargets`), not stored on pool-recycled frames.
-  4. `expandedVendorID` toggling cost on cycle hops accepted for v1.
-  5. Item-first row highlight scope: top portion only.
-  6. Scroll alignment: top-align with ~8px header offset.
-  - Visual choices (highlight tint, scroll offset, item-first highlight scope) are tentative — subject to Gate 2 visual review.
-- **Notes:** Single worktree at `feature/hs-019-search-highlight-scroll`. Argus Lens 1 + Lens 2 before merge.
-
 ### HS-038 FloorHints for same-mapID hubs
 - **Type:** Feature
 - **Priority:** Low
@@ -452,6 +419,22 @@ Two tickets have pending state changes noted in their entries:
 - **Notes:** Not merged to main. Needs in-game verification before merge.
 
 ## Awaiting Gate 2
+
+### HS-019 Search: highlight/scroll to matched item in panel
+- **Type:** Feature
+- **Priority:** Medium
+- **Status:** Awaiting Gate 2 (Tier 1, on main as `b4bb2bb` + `4858031`, Argus Lens 1+2 PASS)
+- **Plan:** `Home_Dev/plans/active/HS-019-search-highlight-scroll.md`
+- **Acceptance criteria (final):**
+  1. Selecting a search result with a unique itemID scrolls the panel so the matched position is in view (top-aligned with ~8px header offset).
+  2. Persistent highlight on the matched grid cell or item-first row top portion until search query changes or clears.
+  3. Clicking the same result repeatedly cycles the cursor through `cycleTargets` (vendor-grid positions first, item-first row last); wraps at end.
+  4. Search-index revision change rebuilds `cycleTargets` for the same `cycleItemID` rather than dropping cycle state.
+  5. Cycle is tied to expansion: expand initiates, collapse clears (symmetric across both row types).
+- **Plan decisions baked in:** Cycling activates only when click resolves to a unique itemID (item-first rows always; vendor rows only when `#matchedItems == 1`). Highlight rendered from file-scope state, not stored on pool-recycled frames. Visual choices (pin-color border tint, 8px scroll offset, item-first highlight scope = top portion only) are tentative pending Gate 2 visual review.
+- **Argus Lens 1+2 notes (PASS):** FocusTarget(nil) safety verified; ScrollToTarget hidden-frame guards correct; vendor-row map-nav suppression on cycle advance intentional; file-scope-state design validated against icon pool recycling. Lens 1 Note A ("latent landmine: row.searchMatchedItems not nilled at row-reset paths") fixed in `4858031`. Lens 2 Note B (BuildCycleTargets two-walk) accepted as-is per Argus.
+- **Gate 2 step for Rawb:** Type a known item name in the side-panel search; verify (1) clicking a result scrolls + highlights, (2) repeated clicks cycle through positions, (3) clearing search clears highlight, (4) collapse dismisses cycle cleanly. If pin-color tint / 8px offset / item-first scope read poorly, flag for v1.1 polish.
+- **Notes:** Single-file feature, +209 / -3 lines. Worktree merged + cleaned up. Visual iterations from Gate 2 land as separate small commits.
 
 ### HS-073 SearchProvider:PreWarm — modernize deprecated GetItemInfo cache-warm
 - **Type:** Refactor (API hygiene)
