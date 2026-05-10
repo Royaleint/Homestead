@@ -84,9 +84,10 @@ Two tickets have pending state changes noted in their entries:
 ### HS-018 Source-aware map filtering
 - **Type:** Feature
 - **Priority:** Medium
-- **Status:** Backlog
+- **Status:** Backlog — spec in progress (Prodigy, handoff 2026-05-10)
 - **Acceptance criteria:** (1) Map-level filter dropdown controls which pins appear on the world map. (2) Badge counts respect active source filter instead of hardcoded "all". (3) Non-vendor sources get map presence (quest zones, achievement locations, profession trainers). (4) Zone summaries count items by source type.
 - **Session context:** A source filter dropdown already exists in the side panel (MapSidePanel.lua lines 280-326) but only affects panel display. `panelSourceFilter` is ignored by `GetZoneVendorCounts`/`GetContinentVendorCounts` (hardcoded `"all"` in `BadgeCalculation.lua:314`). VendorFilter handles faction/verification visibility but has no source-type filtering.
+- **Cross-references:** HS-018 builds the infrastructure (non-vendor-source pin pipeline) that **HS-075** (profession-pin smart filtering + rich tooltips) depends on. Plan must carve a clean boundary: HS-018 owns the baseline pin-placement for quest / achievement / profession-trainer sources; HS-075 owns the profession-aware filtering (skill + ownership) and recipe/reagent tooltip layered on top. Also: **HS-022** sub-item 3 (per-source-type hide) depends on HS-018's `sourceFilter` plumbing — see 2026-04-20 Open Decisions.
 - **Notes:** Significant feature — requires PLAN_TEMPLATE.md. Consolidated from HS-018 + HS-020.
 
 ### HS-021 Continent-level pin placement refinement
@@ -286,7 +287,8 @@ Two tickets have pending state changes noted in their entries:
 - **Open questions (2026-05-10):**
   1. Do most decor recipes require a specific crafting station, or can they be crafted anywhere from the profession window? If anywhere, "crafting station location" reduces to "profession trainer location" — much narrower.
   2. Interaction with HS-022 hide-completed: should profession pins respect the same hide-when-collected setting as vendor pins?
-- **Notes:** Depends on HS-014 (ProfessionSources skillTier backfill) and HS-024 architecture. Architecture: extends the world-map pin provider with a new pin type. Likely requires extending VendorDatabase-style location data for crafting stations / profession trainers.
+- **Cross-references:** **Prerequisite: HS-018** — that ticket builds the non-vendor-source pin pipeline (acceptance criterion 3: "Non-vendor sources get map presence (quest zones, achievement locations, profession trainers)"). HS-075 layers profession-aware filtering (skill + ownership check) and a recipe/reagent tooltip on top of HS-018's baseline. Plan boundary: HS-018 = pin placement infrastructure; HS-075 = smart filter + rich tooltip.
+- **Notes:** Depends on HS-014 (ProfessionSources skillTier backfill), HS-018 (non-vendor pin pipeline), and HS-024 architecture. Likely requires extending VendorDatabase-style location data for crafting stations / profession trainers.
 
 ### HS-076 Bag/inventory reagent overlay — "used in N missing housing decor recipes"
 - **Type:** Feature
