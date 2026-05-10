@@ -420,22 +420,6 @@ Two tickets have pending state changes noted in their entries:
 
 ## Awaiting Gate 2
 
-### HS-019 Search: highlight/scroll to matched item in panel
-- **Type:** Feature
-- **Priority:** Medium
-- **Status:** Awaiting Gate 2 (Tier 1, on main as `b4bb2bb` + `4858031`, Argus Lens 1+2 PASS)
-- **Plan:** `Home_Dev/plans/active/HS-019-search-highlight-scroll.md`
-- **Acceptance criteria (final):**
-  1. Selecting a search result with a unique itemID scrolls the panel so the matched position is in view (top-aligned with ~8px header offset).
-  2. Persistent highlight on the matched grid cell or item-first row top portion until search query changes or clears.
-  3. Clicking the same result repeatedly cycles the cursor through `cycleTargets` (vendor-grid positions first, item-first row last); wraps at end.
-  4. Search-index revision change rebuilds `cycleTargets` for the same `cycleItemID` rather than dropping cycle state.
-  5. Cycle is tied to expansion: expand initiates, collapse clears (symmetric across both row types).
-- **Plan decisions baked in:** Cycling activates only when click resolves to a unique itemID (item-first rows always; vendor rows only when `#matchedItems == 1`). Highlight rendered from file-scope state, not stored on pool-recycled frames. Visual choices (pin-color border tint, 8px scroll offset, item-first highlight scope = top portion only) are tentative pending Gate 2 visual review.
-- **Argus Lens 1+2 notes (PASS):** FocusTarget(nil) safety verified; ScrollToTarget hidden-frame guards correct; vendor-row map-nav suppression on cycle advance intentional; file-scope-state design validated against icon pool recycling. Lens 1 Note A ("latent landmine: row.searchMatchedItems not nilled at row-reset paths") fixed in `4858031`. Lens 2 Note B (BuildCycleTargets two-walk) accepted as-is per Argus.
-- **Gate 2 step for Rawb:** Type a known item name in the side-panel search; verify (1) clicking a result scrolls + highlights, (2) repeated clicks cycle through positions, (3) clearing search clears highlight, (4) collapse dismisses cycle cleanly. If pin-color tint / 8px offset / item-first scope read poorly, flag for v1.1 polish.
-- **Notes:** Single-file feature, +209 / -3 lines. Worktree merged + cleaned up. Visual iterations from Gate 2 land as separate small commits.
-
 ### HS-073 SearchProvider:PreWarm — modernize deprecated GetItemInfo cache-warm
 - **Type:** Refactor (API hygiene)
 - **Priority:** Low
@@ -456,6 +440,16 @@ Two tickets have pending state changes noted in their entries:
 - **Notes:** Dev-only debug-log path; no luacheck warnings introduced.
 
 ## Awaiting Release
+
+### HS-019 Search: section headers, multi-match highlight, no cycling
+- **Type:** Feature
+- **Priority:** Medium
+- **Status:** Awaiting Release (Gate 2 PASS 2026-05-10, on main)
+- **Commits:** original `b4bb2bb` + `4858031` + `2888ade` (initial implementation); rework `12eea0a` (Gate-2-driven simplification).
+- **Final behavior:** Side-panel search results render in named sections by attainment type — **Vendors**, **Profession**, **Quest**, **Achievement**, **Event**, **Drop**. Empty sections are skipped. Inside an expanded vendor's item grid, every item in `result.matchedItems` is wrapped in a yellow outer ring rendered behind the ownership-color border, so red (locked) / green (owned) / gold (available) accessibility coloring + lock/check overlays remain visible on a matched item. Non-matching items dim. Closing the docked panel via the world map clears the search bar; popped-out panels keep their search state.
+- **Dropped behavior:** Click-to-cycle through vendor-grid positions and the item-first row (Gate 2 found this architecturally unreachable from item-first rows because `SearchProvider` deduplicates vendor-covered items out of the item-first list, and it only fired on the narrow `#matchedItems == 1` vendor-row case). Removed `cycleItemID`, `cycleCursor`, `cycleTargets`, `BuildCycleTargets`, `FocusTarget`, `ScrollToTarget` plus every cycle path in both click handlers — net -210 lines.
+- **Gate 2 (2026-05-10) — passed:** "couch" search showed vendor + per-source-type sections with centered gold headers; expanding any vendor highlighted every couch in the grid with a yellow ring without erasing the locked-red / owned-green border; map close → reopen → empty search box.
+- **Plan:** `Home_Dev/plans/active/HS-019-search-highlight-scroll.md` (original; superseded by the rework — move to `completed/` next session)
 
 ### HS-071 Homestone overlay icon — poke outside the corner
 - **Type:** Feature (UI polish)
