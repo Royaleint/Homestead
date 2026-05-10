@@ -262,6 +262,47 @@ Two tickets have pending state changes noted in their entries:
   - **House Visit / Social Trail** - preserve useful context around visited or pinned homes, such as creator, style, notes, and why the player saved the house.
 - **Notes:** Research only. Do not implement until API feasibility and organic demand are validated.
 
+### HS-074 Vendor pin tooltip — "you can craft N more right now"
+- **Type:** Feature
+- **Priority:** Medium
+- **Status:** Backlog
+- **Acceptance criteria:**
+  1. When hovering a vendor pin (world map or minimap), the existing collection-summary line ("you own X/Y items") is followed by a profession-aware annotation: "You can craft N more right now" where N counts unowned items at that vendor whose profession source the player knows and has the required skill tier for.
+  2. Annotation only renders when N > 0.
+  3. Annotation respects both of the player's current primary profession slots.
+- **Session context (2026-05-10):** Brainstorm what-if from Rawb. Sub-feature of HS-024 Ambient Profession Awareness. Phase split candidate: phase 1 = skill/recipe-known check (no materials check); phase 2 = "with current bag contents" (requires bag scan). Phase 1 ships when ProfessionSources is reliable; phase 2 ships when bag-snapshot infrastructure exists.
+- **Notes:** Depends on HS-014 (ProfessionSources skillTier backfill) and HS-024 architecture. Open product question: vendor pins already accumulate a lot of tooltip text — needs a visual review of total tooltip height before shipping.
+
+### HS-075 Profession-sourced decor pins at crafting station locations
+- **Type:** Feature
+- **Priority:** Medium
+- **Status:** Backlog
+- **Acceptance criteria:**
+  1. Items with a profession source appear as a distinct pin (different color / icon than vendor pins) at the world-map and minimap locations of the relevant crafting station, profession trainer, or recipe-required interactable.
+  2. Pin only renders for items the player can actually craft (knows the profession + recipe + meets skill tier).
+  3. Pin only renders for unowned items — owned profession decor is suppressed (mirrors HS-022 hide-completed semantics where applicable).
+  4. Pin tooltip surfaces item name, recipe name, profession + skill tier required, and reagents needed.
+- **Session context (2026-05-10):** Brainstorm what-if from Rawb. Sub-feature of HS-024. Distinct from HS-074 (which annotates existing vendor pins); this creates new pins for profession-only decor.
+- **Open questions (2026-05-10):**
+  1. Do most decor recipes require a specific crafting station, or can they be crafted anywhere from the profession window? If anywhere, "crafting station location" reduces to "profession trainer location" — much narrower.
+  2. Interaction with HS-022 hide-completed: should profession pins respect the same hide-when-collected setting as vendor pins?
+- **Notes:** Depends on HS-014 (ProfessionSources skillTier backfill) and HS-024 architecture. Architecture: extends the world-map pin provider with a new pin type. Likely requires extending VendorDatabase-style location data for crafting stations / profession trainers.
+
+### HS-076 Bag/inventory reagent overlay — "used in N missing housing decor recipes"
+- **Type:** Feature
+- **Priority:** Medium
+- **Status:** Backlog — Rawb-favored as the most ambient of three 2026-05-10 what-ifs
+- **Acceptance criteria:**
+  1. When hovering an item in a bag / bank / warband bank / merchant frame, if that item is a reagent used in one or more housing decor recipes the player can learn or knows, the tooltip is appended with a line: "Used in N housing decor recipes you're missing" — where N is the count of unowned decor outputs whose recipes consume this reagent.
+  2. Overlay only fires when N > 0.
+  3. Reagent → decor reverse index is built lazily from `C_TradeSkillUI.GetRecipeSchematic` data; gracefully no-ops if the recipe data isn't loaded yet (player hasn't opened a profession window this session).
+  4. Overlay works across default Blizzard bags, Baganator, BetterBags, and merchant frames — mirrors the HS-071 cross-bag surface coverage pattern.
+- **Session context (2026-05-10):** Brainstorm what-if from Rawb. Identified as the strongest of the three because it surfaces a housing-relevance signal while the player is doing something unrelated (managing bags), making it the most ambient. Sub-candidate of HS-024 "Material Intent Tooltips" already noted in the 2026-05-05 market-gap pass.
+- **Open questions (2026-05-10):**
+  1. Cold-start UX — recipe data is lazily populated. First-session bag hovers will silently no-op until the player opens a profession window once. Need to decide between (a) silent no-op (current proposal), (b) one-time hint in welcome screen, or (c) auto-prime `C_TradeSkillUI.GetRecipeSchematic` for all known recipes at PLAYER_LOGIN if API allows.
+  2. Reagent index is many-to-many — a single reagent can feed dozens of recipes. Need an efficient lookup that doesn't bloat SavedVariables and isn't rebuilt on every tooltip.
+- **Notes:** Depends on HS-014 (ProfessionSources skillTier backfill) and HS-024 architecture. Tooltip hook follows the existing `Overlay/Tooltips.lua` `DetectContext` pattern. Phase candidate inside HS-024 — strongest stand-alone deliverable so it could ship before the broader suite.
+
 ### Data
 
 ### HS-007 In-game vendor verification queue
