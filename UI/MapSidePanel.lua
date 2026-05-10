@@ -2967,6 +2967,7 @@ function MapSidePanel:RefreshSearchResults()
         row:Hide()
         HideItemGrid(row)
         row.searchMode = false
+        row.searchMatchedItems = nil
     end
     HideAllItemResultRows()
 
@@ -3183,6 +3184,7 @@ function MapSidePanel:RefreshContent()
 
         row.vendor = vendor
         row.searchMode = false
+        row.searchMatchedItems = nil
 
         -- Set name with color coding
         local nameColor = entry.isOpposite and {0.5, 0.5, 0.5} or {1, 1, 1}
