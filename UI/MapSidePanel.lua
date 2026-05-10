@@ -85,12 +85,9 @@ local searchDebounceTimer = nil      -- C_Timer.NewTimer handle (cancelable)
 local searchResultsRevision = nil    -- Tracks which index revision results came from
 local suppressTextChanged = false    -- Prevents debounce on programmatic SetText
 
--- HS-019 cycle state: highlight + scroll-to + match cycling for search results.
--- cycleTargets is an array of {kind, index, itemID} populated by Phase 2.
--- All three reset on query change, search clear, or index revision change.
-local cycleItemID = nil
-local cycleCursor = 0
-local cycleTargets = nil
+-- HS-019: search-result section header pool (one header row per active source
+-- section: Vendors / Profession / Quest / Achievement / Event / Drop).
+local searchHeaderRows = {}
 
 local SOURCE_FILTER_LABELS = {
     all = L["All"] or "All",
@@ -383,6 +380,15 @@ local function CreateItemIcon(parent)
     tex:SetTexCoord(0.08, 0.92, 0.08, 0.92)  -- Trim default icon border
     frame.texture = tex
 
+    -- HS-019: search-match ring (yellow, rendered BEHIND the ownership border so
+    -- red/green/gold accessibility coloring remains visible on matched items).
+    local matchRing = frame:CreateTexture(nil, "BACKGROUND", nil, -1)
+    matchRing:SetPoint("TOPLEFT", -3, 3)
+    matchRing:SetPoint("BOTTOMRIGHT", 3, -3)
+    matchRing:SetColorTexture(1, 0.9, 0.2, 1)
+    matchRing:Hide()
+    frame.matchRing = matchRing
+
     -- Border (behind icon so it shows as a colored rim)
     local border = frame:CreateTexture(nil, "BACKGROUND")
     border:SetPoint("TOPLEFT", -1, 1)
@@ -444,6 +450,7 @@ local function ResetIcon(icon)
     icon.texture:SetVertexColor(1, 1, 1)
     icon.check:Hide()
     icon.lock:Hide()
+    if icon.matchRing then icon.matchRing:Hide() end
     icon:Hide()
     icon:ClearAllPoints()
 end
@@ -582,29 +589,22 @@ local function PopulateItemGrid(row, vendor, sourceFilter, highlightItems)
             icon.border:SetColorTexture(0.6, 0.5, 0.2, 1)
         end
 
-        -- Dim non-matching items in search mode
-        if highlightItems and not highlightItems[itemID] then
-            icon.texture:SetDesaturated(true)
-            icon.texture:SetVertexColor(0.4, 0.4, 0.4)
-            icon.border:SetColorTexture(0.2, 0.2, 0.2, 0.5)
-            icon.check:Hide()
-            icon.lock:Hide()
-        end
-
-        -- HS-019: cycle-hit override wins over dim, owned, locked, and unowned
-        -- visuals so the active cycle position reads as the panel's focal point.
-        -- Pin-color tint is the v1 visual; subject to Gate 2 review.
-        local cycleTarget = cycleTargets and cycleTargets[cycleCursor + 1]
-        if cycleTarget
-                and cycleTarget.kind == "grid"
-                and cycleTarget.itemID == itemID
-                and cycleTarget.npcID == npcID then
-            icon.texture:SetDesaturated(false)
-            icon.texture:SetVertexColor(1, 1, 1)
-            local r, g, b = HA.PinFrameFactory:GetPinColor()
-            icon.border:SetColorTexture(r, g, b, 1)
-            icon.check:Hide()
-            icon.lock:Hide()
+        -- HS-019: in search mode, dim non-matching items; matched items get a
+        -- yellow outer ring (rendered behind the ownership border) so red/green
+        -- /gold accessibility coloring + lock/check indicators remain readable.
+        if highlightItems then
+            if highlightItems[itemID] then
+                icon.matchRing:Show()
+            else
+                icon.matchRing:Hide()
+                icon.texture:SetDesaturated(true)
+                icon.texture:SetVertexColor(0.4, 0.4, 0.4)
+                icon.border:SetColorTexture(0.2, 0.2, 0.2, 0.5)
+                icon.check:Hide()
+                icon.lock:Hide()
+            end
+        else
+            icon.matchRing:Hide()
         end
 
         icon:Show()
@@ -891,86 +891,37 @@ local function PopulateItemSourceList(row, itemID, sourceFilter)
     return totalHeight
 end
 
--- HS-019: Build the ordered list of positions where `itemID` appears in the
--- current search results. Vendor-grid positions first (in result order), then
--- the item-first row last.
---
--- `index` is the per-type row position (vendor-row count or item-row count),
--- matching how RefreshSearchResults assigns vendorRows[vendorCount] and
--- itemResultRows[itemCount]. `npcID` is stored on grid targets so Phase 4's
--- highlight predicate and FocusTarget's vendor-expand step don't need to
--- re-walk searchResults to resolve the vendor.
-local function BuildCycleTargets(itemID)
-    local list = {}
-    if not itemID or not searchResults then return list end
+-- HS-019: search-result section header. Non-interactive divider that labels
+-- the section by source type (Vendors / Profession / Quest / Achievement /
+-- Event / Drop). One per active section; emitted on type transitions in
+-- RefreshSearchResults.
+local SEARCH_HEADER_HEIGHT = 22
 
-    local vendorCount = 0
-    for _, result in ipairs(searchResults) do
-        if result.resultType == "vendor" then
-            vendorCount = vendorCount + 1
-            if result.matchedItems
-                    and result.matchedItems[itemID]
-                    and result.vendor then
-                list[#list + 1] = {
-                    kind = "grid",
-                    index = vendorCount,
-                    itemID = itemID,
-                    npcID = result.vendor.npcID,
-                }
-            end
-        end
-    end
+local function CreateSearchHeaderRow(parent, index)
+    local row = CreateFrame("Frame", nil, parent)
+    row:SetHeight(SEARCH_HEADER_HEIGHT)
+    row:SetPoint("TOPLEFT", 0, -(index - 1) * SEARCH_HEADER_HEIGHT)
+    row:SetPoint("TOPRIGHT", 0, -(index - 1) * SEARCH_HEADER_HEIGHT)
 
-    local itemCount = 0
-    for _, result in ipairs(searchResults) do
-        if result.resultType == "item" then
-            itemCount = itemCount + 1
-            if result.itemID == itemID then
-                list[#list + 1] = {
-                    kind = "itemRow",
-                    index = itemCount,
-                    itemID = itemID,
-                }
-            end
-        end
-    end
+    local bg = row:CreateTexture(nil, "BACKGROUND")
+    bg:SetPoint("TOPLEFT", 2, -2)
+    bg:SetPoint("BOTTOMRIGHT", -2, 2)
+    bg:SetColorTexture(0.15, 0.15, 0.15, 0.6)
 
-    return list
+    local text = row:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    text:SetPoint("LEFT", row, "LEFT", PADDING, 0)
+    text:SetPoint("RIGHT", row, "RIGHT", -PADDING, 0)
+    text:SetJustifyH("CENTER")
+    text:SetTextColor(1, 0.82, 0)
+    row.text = text
+
+    return row
 end
 
--- HS-019: Scroll the panel so the target row's top sits ~8px below the
--- panel header. Silently no-ops on hidden frames (e.g. faction filter
--- toggled mid-cycle) and clamps to scrollChild bounds.
-local function ScrollToTarget(target)
-    if not target then return end
-
-    local frame
-    if target.kind == "grid" then
-        frame = vendorRows[target.index]
-    else
-        frame = itemResultRows[target.index]
+local function HideAllSearchHeaderRows()
+    for _, row in ipairs(searchHeaderRows) do
+        row:Hide()
     end
-    if not frame or not frame:IsShown() then return end
-    if not scrollFrame or not scrollChild then return end
-
-    local panelTop = scrollFrame:GetTop() or 0
-    local frameTop = frame:GetTop() or panelTop
-    local current = scrollFrame:GetVerticalScroll() or 0
-    local desired = current + (panelTop - frameTop) - 8  -- 8px header offset
-    local maxScroll = math.max(0, scrollChild:GetHeight() - scrollFrame:GetHeight())
-    scrollFrame:SetVerticalScroll(math.min(maxScroll, math.max(0, desired)))
-end
-
--- HS-019: Click-time focus: expand the vendor row if the target needs the
--- grid rendered, refresh the panel once, then scroll. Callers update cycle
--- state first; this function is the single repaint+scroll point so the
--- click handler doesn't have to manage RefreshContent itself.
-local function FocusTarget(target)
-    if target and target.kind == "grid" and expandedVendorID ~= target.npcID then
-        expandedVendorID = target.npcID
-    end
-    MapSidePanel:RefreshContent()
-    if target then ScrollToTarget(target) end
 end
 
 local function HideAllItemResultRows()
@@ -1035,40 +986,12 @@ local function CreateItemResultRow(parent, index)
     row:SetScript("OnClick", function(self)
         if not self.itemID then return end
 
-        -- HS-019: same-target click advances the cycle cursor without
-        -- re-toggling expansion, so repeated clicks walk through positions
-        -- instead of fighting the expand/collapse legacy.
-        if cycleItemID == self.itemID
-                and cycleTargets
-                and #cycleTargets > 1 then
-            cycleCursor = (cycleCursor + 1) % #cycleTargets
-            FocusTarget(cycleTargets[cycleCursor + 1])
-            return
-        end
-
-        -- Toggle expansion
-        local nowExpanded
         if expandedItemID == self.itemID then
             expandedItemID = nil
-            nowExpanded = false
         else
             expandedItemID = self.itemID
-            nowExpanded = true
         end
-
-        -- HS-019: cycle is tied to expansion. Expand initiates cycle on
-        -- this itemID; collapse clears cycle so the dismiss reads cleanly.
-        if nowExpanded then
-            cycleItemID = self.itemID
-            cycleCursor = 0
-            cycleTargets = BuildCycleTargets(self.itemID)
-            FocusTarget(cycleTargets[1])
-        else
-            cycleItemID = nil
-            cycleCursor = 0
-            cycleTargets = nil
-            MapSidePanel:RefreshContent()
-        end
+        MapSidePanel:RefreshContent()
     end)
 
     row:SetScript("OnEnter", function(self)
@@ -1112,16 +1035,6 @@ local function PopulateItemResultRow(row, result, sourceFilter)
         row.nameText:SetTextColor(1, 1, 1)
     end
 
-    -- HS-019: cycle-hit override on the item-first row's top portion only
-    -- (icon border). Expanded source-list area is unaffected.
-    local cycleTarget = cycleTargets and cycleTargets[cycleCursor + 1]
-    if cycleTarget
-            and cycleTarget.kind == "itemRow"
-            and cycleTarget.itemID == itemID then
-        local r, g, b = HA.PinFrameFactory:GetPinColor()
-        row.iconBorder:SetColorTexture(r, g, b, 1)
-    end
-
     if preferredSource then
         ApplySourceBadge(row.sourceBadge, preferredSource.type)
         row.sourceText:SetText(FormatSourceSummary(preferredSource))
@@ -1159,9 +1072,6 @@ local function ExecuteSearch()
     local query = searchEditBox and searchEditBox:GetText() or ""
     query = query:match("^%s*(.-)%s*$") or ""  -- trim
     searchText = query
-    cycleItemID = nil
-    cycleCursor = 0
-    cycleTargets = nil
     if query == "" then
         searchResults = nil
         searchResultsRevision = nil
@@ -1177,9 +1087,6 @@ local function ClearSearch(refreshNow)
     searchResults = nil
     searchResultsRevision = nil
     expandedItemID = nil
-    cycleItemID = nil
-    cycleCursor = 0
-    cycleTargets = nil
     if searchDebounceTimer then searchDebounceTimer:Cancel(); searchDebounceTimer = nil end
     if searchEditBox then
         suppressTextChanged = true
@@ -1187,6 +1094,7 @@ local function ClearSearch(refreshNow)
         suppressTextChanged = false
     end
     HideAllItemResultRows()
+    HideAllSearchHeaderRows()
     if refreshNow then
         MapSidePanel:RefreshContent()
     end
@@ -1245,42 +1153,13 @@ local function CreateVendorRow(parent, index)
     row:SetScript("OnClick", function(self)
         if not self.vendor then return end
 
-        -- Search mode: toggle expand + navigate to vendor's zone (with
-        -- HS-019 cycle layer when the row's matched-items set has a
-        -- single entry — that's when "this row matches one item" is
-        -- unambiguous enough to drive cycling).
-        if self.searchMode then
-            -- HS-019: derive the unique matched itemID for cycle eligibility.
-            local uniqueItemID = nil
-            if self.searchMatchedItems then
-                local count = 0
-                for id in pairs(self.searchMatchedItems) do
-                    count = count + 1
-                    uniqueItemID = id
-                    if count > 1 then uniqueItemID = nil; break end
-                end
-            end
-
-            -- HS-019: same-target advance — no toggle, no map nav, just cursor.
-            if uniqueItemID
-                    and cycleItemID == uniqueItemID
-                    and cycleTargets
-                    and #cycleTargets > 1 then
-                cycleCursor = (cycleCursor + 1) % #cycleTargets
-                FocusTarget(cycleTargets[cycleCursor + 1])
-                return
-            end
-
-            -- Existing search-mode toggle + map nav
-            local npcID = self.vendor.npcID
-            local nowExpanded
-            if expandedVendorID == npcID then
-                expandedVendorID = nil  -- collapse
-                nowExpanded = false
-            else
-                expandedVendorID = npcID
-                nowExpanded = true
-                -- Navigate map to vendor's zone
+        local npcID = self.vendor.npcID
+        if expandedVendorID == npcID then
+            expandedVendorID = nil
+        else
+            expandedVendorID = npcID
+            -- Search mode: also navigate the world map to this vendor's zone.
+            if self.searchMode then
                 local VF = HA.VendorFilter
                 if VF then
                     local _, vendorMapID = VF.GetBestVendorCoordinates(self.vendor)
@@ -1292,30 +1171,6 @@ local function CreateVendorRow(parent, index)
                     end
                 end
             end
-
-            -- HS-019: cycle is tied to expansion + unambiguous match. Expand
-            -- with a unique itemID initiates cycle; collapse or multi-match
-            -- expansion clears any active cycle for clean dismiss/handoff.
-            if nowExpanded and uniqueItemID then
-                cycleItemID = uniqueItemID
-                cycleCursor = 0
-                cycleTargets = BuildCycleTargets(uniqueItemID)
-                FocusTarget(cycleTargets[1])
-            else
-                cycleItemID = nil
-                cycleCursor = 0
-                cycleTargets = nil
-                MapSidePanel:RefreshContent()
-            end
-            return
-        end
-
-        -- Normal mode: toggle item grid expansion
-        local npcID = self.vendor.npcID
-        if expandedVendorID == npcID then
-            expandedVendorID = nil  -- Collapse
-        else
-            expandedVendorID = npcID  -- Expand this one
         end
         MapSidePanel:RefreshContent()
     end)
@@ -2939,23 +2794,24 @@ end
 -- Search Results Refresh
 -------------------------------------------------------------------------------
 
+-- HS-019: header labels keyed by source-section identifier. The vendor
+-- section always shows when any vendor result is present; item sections only
+-- show when at least one item-first row in that source type is present.
+local SEARCH_SECTION_LABELS = {
+    vendor      = L["Vendors"] or "Vendors",
+    profession  = L["Profession"] or "Profession",
+    quest       = L["Quest"] or "Quest",
+    achievement = L["Achievement"] or "Achievement",
+    event       = L["Event"] or "Event",
+    drop        = L["Drop"] or "Drop",
+}
+
 function MapSidePanel:RefreshSearchResults()
     -- Self-healing: re-query if index was invalidated since last results
     local SP = HA.SearchProvider
     if SP and searchResultsRevision ~= SP:GetRevision() then
         searchResults = SP:Search(searchText, SEARCH_OPTIONS)
         searchResultsRevision = SP:GetRevision()
-        -- HS-019: rebuild cycle targets against the new results so cycling
-        -- survives index churn. Reset cursor to 0 since position semantics
-        -- changed; the matched item identity is preserved.
-        if cycleItemID then
-            cycleTargets = BuildCycleTargets(cycleItemID)
-            cycleCursor = 0
-            if #cycleTargets == 0 then
-                cycleItemID = nil
-                cycleTargets = nil
-            end
-        end
     end
 
     HideAllNonVendorContent()
@@ -2970,6 +2826,7 @@ function MapSidePanel:RefreshSearchResults()
         row.searchMatchedItems = nil
     end
     HideAllItemResultRows()
+    HideAllSearchHeaderRows()
 
     if not searchResults or #searchResults == 0 then
         emptyText:SetText("No results found")
@@ -2986,10 +2843,30 @@ function MapSidePanel:RefreshSearchResults()
     local yOffset = 0
     local vendorCount = 0
     local itemCount = 0
+    local headerCount = 0
+    local lastSection = nil
     local r, g, b = HA.PinFrameFactory:GetPinColor()
+
+    local function EmitHeader(sectionKey)
+        if sectionKey == lastSection then return end
+        lastSection = sectionKey
+        headerCount = headerCount + 1
+        local header = searchHeaderRows[headerCount]
+        if not header then
+            header = CreateSearchHeaderRow(scrollChild, headerCount)
+            searchHeaderRows[headerCount] = header
+        end
+        header.text:SetText(SEARCH_SECTION_LABELS[sectionKey] or sectionKey)
+        header:ClearAllPoints()
+        header:SetPoint("TOPLEFT", scrollChild, "TOPLEFT", 0, -yOffset)
+        header:SetPoint("TOPRIGHT", scrollChild, "TOPRIGHT", 0, -yOffset)
+        header:Show()
+        yOffset = yOffset + SEARCH_HEADER_HEIGHT
+    end
 
     for _, result in ipairs(searchResults) do
         if result.resultType == "item" then
+            EmitHeader(result.sourceType or "drop")
             itemCount = itemCount + 1
             local row = itemResultRows[itemCount]
             if not row then
@@ -3005,6 +2882,7 @@ function MapSidePanel:RefreshSearchResults()
 
             yOffset = yOffset + (isExpanded and row:GetHeight() or ROW_HEIGHT)
         else
+            EmitHeader("vendor")
             vendorCount = vendorCount + 1
             local vendor = result.vendor
             local row = vendorRows[vendorCount]
@@ -3015,8 +2893,6 @@ function MapSidePanel:RefreshSearchResults()
 
             row.vendor = vendor
             row.searchMode = true
-            -- HS-019: stash the per-result matchedItems set so the click
-            -- handler can decide cycle eligibility without re-walking results.
             row.searchMatchedItems = result.matchedItems
 
             row.nameText:SetText(GetVendorDisplayName(vendor))
@@ -3066,6 +2942,9 @@ function MapSidePanel:RefreshSearchResults()
     for i = itemCount + 1, #itemResultRows do
         itemResultRows[i]:Hide()
         HideItemSourceList(itemResultRows[i])
+    end
+    for i = headerCount + 1, #searchHeaderRows do
+        searchHeaderRows[i]:Hide()
     end
 
     scrollChild:SetHeight(math.max(1, yOffset))
@@ -4253,6 +4132,10 @@ function MapSidePanel:Initialize()
             -- Popped out: panel stays visible, no map elements to restore
             return
         end
+        -- HS-019: clear any active search when the docked panel closes with the
+        -- map. Popped-out panels keep their search state (handled by the early
+        -- return above).
+        ClearSearch(false)
         -- Restore all map modifications when map closes
         -- Also bump generation to cancel any pending deferred Show callbacks
         panelShowGeneration = panelShowGeneration + 1

@@ -361,10 +361,16 @@ function SearchProvider:Search(query, options)
         end
     end
 
+    -- HS-019: group item-first results by source type so the panel can emit
+    -- section headers (Profession / Quest / Achievement / Event / Drop) on
+    -- sourceType transitions. Alphabetical within each group.
+    local SOURCE_TYPE_ORDER = {
+        profession = 1, quest = 2, achievement = 3, event = 4, drop = 5,
+    }
     table.sort(itemResults, function(a, b)
-        if a.matchType ~= b.matchType then
-            return a.matchType == "source"
-        end
+        local ao = SOURCE_TYPE_ORDER[a.sourceType] or 99
+        local bo = SOURCE_TYPE_ORDER[b.sourceType] or 99
+        if ao ~= bo then return ao < bo end
         return (a.itemName or "") < (b.itemName or "")
     end)
 

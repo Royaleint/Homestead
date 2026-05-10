@@ -171,6 +171,7 @@ L["Export All"] = "Export All"
 -------------------------------------------------------------------------------
 L["All"] = "All"
 L["Vendor"] = "Vendor"
+L["Vendors"] = "Vendors"
 L["Quest"] = "Quest"
 L["Achievement"] = "Achievement"
 L["Profession"] = "Profession"
