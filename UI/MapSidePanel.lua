@@ -903,17 +903,25 @@ local function CreateSearchHeaderRow(parent, index)
     row:SetPoint("TOPLEFT", 0, -(index - 1) * SEARCH_HEADER_HEIGHT)
     row:SetPoint("TOPRIGHT", 0, -(index - 1) * SEARCH_HEADER_HEIGHT)
 
-    local bg = row:CreateTexture(nil, "BACKGROUND")
-    bg:SetPoint("TOPLEFT", 2, -2)
-    bg:SetPoint("BOTTOMRIGHT", -2, 2)
-    bg:SetColorTexture(0.15, 0.15, 0.15, 0.6)
-
     local text = row:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-    text:SetPoint("LEFT", row, "LEFT", PADDING, 0)
-    text:SetPoint("RIGHT", row, "RIGHT", -PADDING, 0)
-    text:SetJustifyH("CENTER")
+    text:SetPoint("CENTER", row, "CENTER", 0, 0)
     text:SetTextColor(1, 0.82, 0)
     row.text = text
+
+    -- HS-019: hairlines bracket the centered label. Anchored to the text's
+    -- left/right edges with a 6px gap, so they reflow automatically when
+    -- different section labels (different lengths) are set.
+    local leftLine = row:CreateTexture(nil, "ARTWORK")
+    leftLine:SetHeight(1)
+    leftLine:SetPoint("LEFT", row, "LEFT", PADDING, 0)
+    leftLine:SetPoint("RIGHT", text, "LEFT", -6, 0)
+    leftLine:SetColorTexture(1, 0.82, 0, 0.4)
+
+    local rightLine = row:CreateTexture(nil, "ARTWORK")
+    rightLine:SetHeight(1)
+    rightLine:SetPoint("LEFT", text, "RIGHT", 6, 0)
+    rightLine:SetPoint("RIGHT", row, "RIGHT", -PADDING, 0)
+    rightLine:SetColorTexture(1, 0.82, 0, 0.4)
 
     return row
 end
