@@ -1159,10 +1159,68 @@ function VendorMapPins:BuildWorldMapRenderState(mapID)
     elseif mapInfo.mapType == Enum.UIMapType.Continent then
         self:ShowZoneBadges(mapID, renderState)
     else
-        self:ShowVendorPins(mapID, renderState)
+        self:CollectSourcePins(mapID, renderState)
     end
 
     return renderState
+end
+
+-------------------------------------------------------------------------------
+-- HS-018: Pin Source Provider Registry
+--
+-- Registry of per-source-type pin collectors. Each entry is a table:
+--   { collect = function(self, mapID, validMapIDs, filter, renderState) end }
+-- Only the vendor slot is populated in HS-018 commit 2. Drop is filled in by
+-- commit 3. Future tickets plug in profession (HS-075), quest, achievement,
+-- shop without modifying CollectSourcePins.
+--
+-- Filter semantics:
+--   "all"                 -> every populated provider runs
+--   <canonical sourceType>-> only the matching provider runs (if populated)
+--
+-- Portal badges are intrinsically vendor-context (they mark transports to
+-- vendor zones). They render only when the filter resolves to {vendor, all}.
+-------------------------------------------------------------------------------
+
+VendorMapPins.pinSourceProviders = {
+    vendor      = nil,  -- assigned below once CollectVendorPinRecords is defined
+    drop        = nil,  -- HS-018 commit 3
+    event       = nil,  -- EventVendors flow through vendor pipeline
+    profession  = nil,  -- HS-075
+    quest       = nil,  -- registry slot reserved
+    achievement = nil,  -- registry slot reserved
+    shop        = nil,  -- registry slot reserved
+}
+
+local function ProviderMatchesFilter(sourceType, filter)
+    if filter == "all" or filter == nil then return true end
+    return sourceType == filter
+end
+
+function VendorMapPins:CollectSourcePins(mapID, renderState)
+    local filter = GetActiveSourceFilter()
+
+    -- Build set of valid mapIDs: current map + child/sub-zone maps. Shared
+    -- across providers so each provider doesn't re-walk the map tree.
+    local validMapIDs = { [mapID] = true }
+    local childMaps = C_Map.GetMapChildrenInfo(mapID)
+    if childMaps then
+        for _, childInfo in ipairs(childMaps) do
+            validMapIDs[childInfo.mapID] = true
+        end
+    end
+
+    for sourceType, provider in pairs(self.pinSourceProviders) do
+        if provider and provider.collect and ProviderMatchesFilter(sourceType, filter) then
+            provider.collect(self, mapID, validMapIDs, filter, renderState)
+        end
+    end
+
+    -- Portal badges are vendor-context navigation aids; only emit under
+    -- vendor/all filters (Decision 2).
+    if filter == "all" or filter == "vendor" then
+        self:EmitPortalBadges(mapID, renderState)
+    end
 end
 
 function VendorMapPins:RefreshPins(force)
@@ -1196,7 +1254,16 @@ function VendorMapPins:RefreshPins(force)
     LogWorldMapPerf(mapID, renderState, force)
 end
 
-function VendorMapPins:ShowVendorPins(mapID, renderState)
+-------------------------------------------------------------------------------
+-- HS-018: Vendor pin provider
+--
+-- Collects vendor pins for the given mapID into renderState.vendorPins.
+-- Extracted from the previous ShowVendorPins so it can be plugged into the
+-- pinSourceProviders registry. Portal badges are emitted separately by
+-- EmitPortalBadges (called from CollectSourcePins under vendor/all filters).
+-------------------------------------------------------------------------------
+
+local function CollectVendorPinRecords(self, mapID, validMapIDs, _filter, renderState)
     local showOpposite = ShouldShowOppositeFaction()
     local addedVendors = {}  -- Track by npcID to avoid duplicates
     local shouldLogSilvermoonDebug = IsDebugModeEnabled() and IsSilvermoonClusterDebugMap(mapID)
@@ -1205,23 +1272,9 @@ function VendorMapPins:ShowVendorPins(mapID, renderState)
     local staticSkippedCount = 0
     local scannedFallbackCount = 0
     local scannedFallbackProcessedCount = 0
-    local portalBadgeCount = 0
     local startVendorPinCount = #renderState.vendorPins
-    local startPortalBadgeCount = #renderState.portalBadges
-
-    -- Build set of valid mapIDs: current map + child/sub-zone maps
-    -- This ensures vendors in sub-zones appear on the parent zone map.
-    local validMapIDs = { [mapID] = true }
-    local validMapIDCount = 1
-    local childMaps = C_Map.GetMapChildrenInfo(mapID)
-    if childMaps then
-        for _, childInfo in ipairs(childMaps) do
-            if not validMapIDs[childInfo.mapID] then
-                validMapIDs[childInfo.mapID] = true
-                validMapIDCount = validMapIDCount + 1
-            end
-        end
-    end
+    local validMapIDCount = 0
+    for _ in pairs(validMapIDs) do validMapIDCount = validMapIDCount + 1 end
 
     -- Helper function to process a vendor
     local function ProcessVendor(vendor)
@@ -1279,6 +1332,7 @@ function VendorMapPins:ShowVendorPins(mapID, renderState)
                         y = projectedY,
                         reason = reason,
                         isOppositeFaction = isOpposite,
+                        sourceType = "vendor",
                     }
                 else
                     DebugWorldMapProjectionSkip("vendor", vendorMapID, mapID, reason)
@@ -1288,13 +1342,13 @@ function VendorMapPins:ShowVendorPins(mapID, renderState)
     end
 
     -- First, process vendors from static database for this map and child maps
-	    for queryMapID in pairs(validMapIDs) do
-	        local staticVendors = HA.VendorData:GetVendorsInMap(queryMapID)
-	        if staticVendors then
-	            staticVendorCount = staticVendorCount + #staticVendors
-	            for _, vendor in ipairs(staticVendors) do
-	                local shouldSkip = false
-	                local skipReason = nil
+    for queryMapID in pairs(validMapIDs) do
+        local staticVendors = HA.VendorData:GetVendorsInMap(queryMapID)
+        if staticVendors then
+            staticVendorCount = staticVendorCount + #staticVendors
+            for _, vendor in ipairs(staticVendors) do
+                local shouldSkip = false
+                local skipReason = nil
 
                 -- Check 1: Skip unreleased or no-decor vendors
                 if ShouldHideVendor(vendor) then
@@ -1307,74 +1361,55 @@ function VendorMapPins:ShowVendorPins(mapID, renderState)
                 -- visibility — if the vendor can't project onto this view, it
                 -- won't render. No pre-filter needed.
 
-	                if shouldSkip then
-	                    staticSkippedCount = staticSkippedCount + 1
-	                    -- Mark as processed to prevent re-check in scanned vendors loop
-	                    addedVendors[vendor.npcID] = true
-	                    if HA.DevAddon and HA.Addon.db.profile.debug then
+                if shouldSkip then
+                    staticSkippedCount = staticSkippedCount + 1
+                    -- Mark as processed to prevent re-check in scanned vendors loop
+                    addedVendors[vendor.npcID] = true
+                    if HA.DevAddon and HA.Addon.db.profile.debug then
                         HA.Addon:Debug(format("Skipping static vendor %s (%d) on map %d - %s",
                             vendor.name or "Unknown", vendor.npcID, queryMapID, skipReason or "unknown"))
                     end
-	                else
-	                    staticProcessedCount = staticProcessedCount + 1
-	                    ProcessVendor(vendor)
-	                end
-	            end
-	        end
-	    end
+                else
+                    staticProcessedCount = staticProcessedCount + 1
+                    ProcessVendor(vendor)
+                end
+            end
+        end
+    end
 
     -- Second, check ALL scanned vendors - they may have been scanned on a different map
     -- than their static entry (e.g., Quackenbush: static=Stormwind, scanned=BrawlersGuild)
-	    if HA.Addon and HA.Addon.db and HA.Addon.db.global.scannedVendors then
-	        for npcID, scannedData in pairs(HA.Addon.db.global.scannedVendors) do
-	            -- Only process if this scanned vendor's mapID matches the current map or a child map
-	            -- AND we haven't already added this vendor from static data
-	            if validMapIDs[scannedData.mapID] and not addedVendors[npcID] then
-	                scannedFallbackCount = scannedFallbackCount + 1
-	                -- Try to get full vendor info from static data, fall back to scanned data
-	                local vendor = HA.VendorData:GetVendor(npcID)
-	                if vendor then
-	                    scannedFallbackProcessedCount = scannedFallbackProcessedCount + 1
-	                    ProcessVendor(vendor)
-	                else
-	                    -- Vendor not in static database - create a temporary vendor object from scanned data
+    if HA.Addon and HA.Addon.db and HA.Addon.db.global.scannedVendors then
+        for npcID, scannedData in pairs(HA.Addon.db.global.scannedVendors) do
+            -- Only process if this scanned vendor's mapID matches the current map or a child map
+            -- AND we haven't already added this vendor from static data
+            if validMapIDs[scannedData.mapID] and not addedVendors[npcID] then
+                scannedFallbackCount = scannedFallbackCount + 1
+                -- Try to get full vendor info from static data, fall back to scanned data
+                local vendor = HA.VendorData:GetVendor(npcID)
+                if vendor then
+                    scannedFallbackProcessedCount = scannedFallbackProcessedCount + 1
+                    ProcessVendor(vendor)
+                else
+                    -- Vendor not in static database - create a temporary vendor object from scanned data
                     local tempVendor = {
                         npcID = npcID,
                         name = scannedData.name or "Unknown Vendor",
                         mapID = scannedData.mapID,
                         coords = scannedData.coords,
-	                        faction = "Neutral",  -- Default, unknown from scan
-	                    }
-	                    scannedFallbackProcessedCount = scannedFallbackProcessedCount + 1
-	                    ProcessVendor(tempVendor)
-	                end
-	            end
-	        end
-	    end
-
-    -- Portal badge pass: draw entrance markers for Order Hall vendors accessible via this map.
-	    local allVendors = HA.VendorData:GetAllVendors()
-	    for _, vendor in ipairs(allVendors) do
-	        local portal = vendor.portal
-	        if portal and portal.mapID == mapID then
-	            if not ShouldHideVendor(vendor) then
-	                portalBadgeCount = portalBadgeCount + 1
-	                renderState.portalBadges[#renderState.portalBadges + 1] = {
-	                    portalData = { vendor = vendor },
-	                    mapID = portal.mapID,
-                    x = portal.x,
-                    y = portal.y,
-                    reason = "same_map",
-                }
-	            end
-	        end
-	    end
+                        faction = "Neutral",  -- Default, unknown from scan
+                    }
+                    scannedFallbackProcessedCount = scannedFallbackProcessedCount + 1
+                    ProcessVendor(tempVendor)
+                end
+            end
+        end
+    end
 
     if shouldLogSilvermoonDebug then
         local renderedVendorPins = #renderState.vendorPins - startVendorPinCount
-        local renderedPortalBadges = #renderState.portalBadges - startPortalBadgeCount
         HA.Addon:Debug(format(
-            "SilvermoonMapDebug: map=%d validMaps=%d staticSeen=%d staticProcessed=%d staticSkipped=%d scannedFallbackSeen=%d scannedFallbackProcessed=%d renderedVendors=%d portalCandidates=%d renderedPortals=%d",
+            "SilvermoonMapDebug: map=%d validMaps=%d staticSeen=%d staticProcessed=%d staticSkipped=%d scannedFallbackSeen=%d scannedFallbackProcessed=%d renderedVendors=%d",
             mapID,
             validMapIDCount,
             staticVendorCount,
@@ -1382,10 +1417,30 @@ function VendorMapPins:ShowVendorPins(mapID, renderState)
             staticSkippedCount,
             scannedFallbackCount,
             scannedFallbackProcessedCount,
-            renderedVendorPins,
-            portalBadgeCount,
-            renderedPortalBadges
+            renderedVendorPins
         ))
+    end
+end
+
+VendorMapPins.pinSourceProviders.vendor = { collect = CollectVendorPinRecords }
+
+function VendorMapPins:EmitPortalBadges(mapID, renderState)
+    -- Portal badge pass: draw entrance markers for Order Hall vendors
+    -- accessible via this map. Gated to vendor/all filters by CollectSourcePins.
+    local allVendors = HA.VendorData:GetAllVendors()
+    for _, vendor in ipairs(allVendors) do
+        local portal = vendor.portal
+        if portal and portal.mapID == mapID then
+            if not ShouldHideVendor(vendor) then
+                renderState.portalBadges[#renderState.portalBadges + 1] = {
+                    portalData = { vendor = vendor },
+                    mapID = portal.mapID,
+                    x = portal.x,
+                    y = portal.y,
+                    reason = "same_map",
+                }
+            end
+        end
     end
 end
 

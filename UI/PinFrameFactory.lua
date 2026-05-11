@@ -199,6 +199,29 @@ function PinFrameFactory:CreateVendorPinFrame(vendor, isOppositeFaction)
     return frame
 end
 
+-------------------------------------------------------------------------------
+-- HS-018: Source-typed pin factory
+--
+-- Dispatch entry for the pin source provider registry. Returns a frame for a
+-- pin record of the given source type. Commit 2 wires the "vendor" path
+-- (delegates to CreateVendorPinFrame) and stubs "drop" (filled in by commit 3).
+-- Future source types (profession, quest, achievement, shop) plug in here
+-- without modifying the registry iterator in VendorMapPins.
+-------------------------------------------------------------------------------
+
+function PinFrameFactory:CreateSourcePinFrame(sourceType, record)
+    if not record then return nil end
+
+    if sourceType == "vendor" then
+        return self:CreateVendorPinFrame(record.vendor, record.isOppositeFaction)
+    end
+
+    -- Drop pins ship in HS-018 commit 3. Other source types (profession,
+    -- quest, achievement, shop) are reserved registry slots awaiting their
+    -- own tickets.
+    return nil
+end
+
 -- Refreshes vendor count text on an existing vendor pin frame.
 -- Used by frame pooling so reused frames always show current collection counts.
 function PinFrameFactory:RefreshVendorPinCount(frame, vendor)
