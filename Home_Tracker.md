@@ -4,33 +4,54 @@ Active and queued work for the Homestead addon. Completed items live in
 `Home_Completed.md`. Cross-project status rollup lives in
 `BawrLabs/INDEX.md`.
 
-## Open Decisions (2026-04-20 — from audit review)
+## Sprint State (2026-05-10)
 
-Three structural decisions are pending before the next-sprint work kicks off.
-Each affects ticket sequencing or scope. Resolve at the start of the next
-session.
+**Shipped this cycle (Awaiting Release, riding the 2026-05-12 Tuesday release):**
 
-1. **Sprint restructure** — the original plumbing-PR (6 items bundled) no
-   longer fits. With scope expansions, HS-022, HS-030, and HS-040 each
-   need their own plan doc + worktree. Proposed revised order:
-   **6** (done) → **4** (done) → **1a** HS-019 quick win →
-   **3** HS-018 wire-up → **1b** HS-022 plan + build →
-   **1c** HS-030 plan + build → **1d** HS-040 plan + build →
-   **2** HS-060 plan + build. Alternative: power through as one mega-PR
-   (not recommended — harder review, useless bisect, regression risk).
-   *Decision owner:* Rawb.
+- HS-019 search section headers + multi-match highlight
+- HS-018 source-aware map filtering (+ Gate 2 follow-up `9a47c17`)
+- HS-071 homestone overlay icon polish
+- HS-072 vendor coord debug log precision
+- HS-073 SearchProvider PreWarm modernization
 
-2. **HS-051 consolidation timing** — HS-040's expanded scope fully absorbs
+**Next sprint — Profession initiative (High priority, raised 2026-05-10):**
+
+1. **HS-014** ProfessionSources skillTier backfill — **prerequisite for the rest.**
+   Three-step pipeline already designed (dev addon spellID→skillLineAbilityID
+   export → web API recipe-id→skill-tier dump → merge script). Land first.
+2. **HS-079** Map pin coverage umbrella — **profession baseline goes here**
+   (trainer/station location data + basic pin emission via the HS-018 registry).
+   Quest and Achievement sub-phases can phase later; profession is the priority
+   slot.
+3. **HS-075** Profession smart layer — skill + ownership filter + recipe/reagent
+   tooltip layered on top of HS-079's profession baseline.
+4. **HS-024** Ambient Profession Awareness suite — profession-window overlay +
+   craftable badge in catalog. Can run in parallel with HS-075 once HS-014 lands.
+5. **HS-074** Vendor pin "you can craft N more right now" annotation.
+6. **HS-076** Bag/inventory reagent overlay ("used in N missing decor recipes")
+   — Rawb-favored as the most ambient surface.
+
+The four non-profession sprint items (**HS-022, HS-030, HS-040, HS-060**) defer
+until the profession initiative reaches a stable milestone or Rawb shifts focus
+back. They retain their Medium priority; this is a sequencing call, not a
+priority demotion.
+
+## Open Decisions (carried forward from 2026-04-20 audit)
+
+1. **HS-051 consolidation timing** — HS-040's expanded scope fully absorbs
    HS-051. Close HS-051 as consolidated-into-HS-040 before HS-040 plan
    work begins, or retroactively after HS-040 ships. Same pattern as
-   HS-015 → HS-049. *Decision owner:* Rawb.
+   HS-015 → HS-049. *Decision owner:* Rawb. Deferred while profession sprint
+   runs.
 
-3. **HS-022+3 dependency on HS-018** — the per-source-type hide scope
-   (sub-item 3 in HS-022's expanded AC) requires the `sourceFilter`
-   plumbing that HS-018 delivers. Options: (a) sequence HS-018 before
-   HS-022 so the plumbing is ready, (b) ship HS-022 sub-items 1+2 as a
-   standalone PR and layer 3 on after HS-018, (c) merge the two plans
-   into one worktree. *Decision owner:* Rawb (shapes plan-doc boundaries).
+**Resolved 2026-05-10:**
+
+- ~~Sprint restructure~~ — superseded by the profession-sprint sequencing above.
+  HS-019 + HS-018 shipped per the proposed order; remaining items (HS-022 /
+  HS-030 / HS-040 / HS-060) deferred pending profession sprint completion.
+- ~~HS-022+3 dependency on HS-018~~ — resolved as option (a) per HS-018 plan
+  Gate 3 Q2: HS-018 ships first (done), HS-022 builds on the `sourceFilter`
+  plumbing later.
 
 Two tickets have pending state changes noted in their entries:
 
