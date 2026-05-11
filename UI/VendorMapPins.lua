@@ -1145,6 +1145,7 @@ function VendorMapPins:BuildWorldMapRenderState(mapID)
         mapID = mapID,
         mapType = mapInfo and mapInfo.mapType or nil,
         vendorPins = {},
+        sourcePins = {},      -- HS-018: non-vendor source pins (drop, etc.)
         zoneBadges = {},
         portalBadges = {},
         continentBadges = {},
@@ -1423,6 +1424,94 @@ local function CollectVendorPinRecords(self, mapID, validMapIDs, _filter, render
 end
 
 VendorMapPins.pinSourceProviders.vendor = { collect = CollectVendorPinRecords }
+
+-------------------------------------------------------------------------------
+-- HS-018: Drop pin provider
+--
+-- Walks HA.DropSources and emits pins for drop records whose location data
+-- passes Decision 7 hygiene:
+--   1. Skip records with no mapID (zone-only data).
+--   2. Skip records with coords = {0, 0} (explicit placeholder).
+--   3. Emit {0.5, 0.5} as approximate-center pins as-is.
+--   4. Clamp x/y to [0, 1] defensively; reject NaN.
+--   5. No log spam on skipped records.
+--
+-- Records carry sourceType = "drop" so PinFrameFactory:CreateSourcePinFrame
+-- knows which factory branch to take.
+-------------------------------------------------------------------------------
+
+local function IsFiniteNumber(n)
+    return type(n) == "number" and n == n  -- NaN != NaN
+end
+
+local function ClampUnit(value)
+    if value < 0 then return 0 end
+    if value > 1 then return 1 end
+    return value
+end
+
+local function CollectDropPinRecords(self, mapID, validMapIDs, _filter, renderState)
+    local drops = HA.DropSources
+    if not drops then return end
+
+    for itemID, drop in pairs(drops) do
+        local dropMapID = drop.mapID
+        if dropMapID and validMapIDs[dropMapID] then
+            local coords = drop.coords
+            if coords then
+                local cx, cy = coords.x, coords.y
+                -- Hygiene: reject NaN; skip exact-zero placeholders.
+                if IsFiniteNumber(cx) and IsFiniteNumber(cy)
+                        and not (cx == 0 and cy == 0) then
+                    local clampedX, clampedY = ClampUnit(cx), ClampUnit(cy)
+                    local ok, projectedX, projectedY, reason = MPP:ProjectVendorPinToZoneView(
+                        mapID, dropMapID, clampedX, clampedY)
+                    if ok then
+                        renderState.sourcePins[#renderState.sourcePins + 1] = {
+                            sourceType = "drop",
+                            itemID = itemID,
+                            drop = drop,
+                            mapID = dropMapID,
+                            x = projectedX,
+                            y = projectedY,
+                            reason = reason,
+                        }
+                    else
+                        DebugWorldMapProjectionSkip("drop", dropMapID, mapID, reason)
+                    end
+                end
+            end
+        end
+    end
+end
+
+VendorMapPins.pinSourceProviders.drop = { collect = CollectDropPinRecords }
+
+function VendorMapPins:ShowDropPinTooltip(pin, record)
+    if not record then return end
+
+    activeTooltipData = nil
+    itemInfoEventFrame:UnregisterEvent("GET_ITEM_INFO_RECEIVED")
+
+    local drop = record.drop
+    local tooltip = BeginPinTooltip(pin, "ANCHOR_RIGHT")
+    local itemName
+    if record.itemID then
+        itemName = GetItemInfo(record.itemID)
+    end
+    tooltip:AddLine(itemName or ("Item " .. tostring(record.itemID or "?")), 1, 1, 1)
+    if drop and drop.mobName then
+        tooltip:AddLine(drop.mobName, 0.9, 0.4, 0.4)
+    end
+    if drop and drop.zone then
+        tooltip:AddLine(drop.zone, 0.7, 0.7, 0.7)
+    end
+    if drop and drop.notes then
+        tooltip:AddLine(" ")
+        tooltip:AddLine(drop.notes, 1, 0.82, 0, true)
+    end
+    tooltip:Show()
+end
 
 function VendorMapPins:EmitPortalBadges(mapID, renderState)
     -- Portal badge pass: draw entrance markers for Order Hall vendors

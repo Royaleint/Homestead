@@ -214,12 +214,60 @@ function PinFrameFactory:CreateSourcePinFrame(sourceType, record)
 
     if sourceType == "vendor" then
         return self:CreateVendorPinFrame(record.vendor, record.isOppositeFaction)
+    elseif sourceType == "drop" then
+        return self:CreateDropPinFrame(record)
     end
 
-    -- Drop pins ship in HS-018 commit 3. Other source types (profession,
-    -- quest, achievement, shop) are reserved registry slots awaiting their
-    -- own tickets.
+    -- Other source types (profession, quest, achievement, shop) are reserved
+    -- registry slots awaiting their own tickets.
     return nil
+end
+
+-------------------------------------------------------------------------------
+-- HS-018: Drop Pin Frame
+--
+-- Visually distinct from vendor pins so filter = "Drop" reads at a glance.
+-- Same base size as vendor pins for consistency. Click does nothing (no
+-- waypoint target for a mob drop); hover surfaces mob/zone/notes via
+-- VendorMapPins:ShowDropPinTooltip.
+-------------------------------------------------------------------------------
+
+function PinFrameFactory:CreateDropPinFrame(record)
+    local frame = CreateFrame("Frame", nil, UIParent)
+
+    local baseSize = self:GetPinIconSize()
+    local _, _, iconSize = GetWorldPinVisualSizes(baseSize)
+    frame:SetSize(baseSize, baseSize)
+    frame:EnableMouse(true)
+
+    -- Use the DROP_SOURCE icon constant (texture path; matches the side-panel
+    -- drop badge). Falls back to an atlas if Constants are unavailable.
+    frame.icon = frame:CreateTexture(nil, "ARTWORK")
+    frame.icon:SetPoint("CENTER")
+    frame.icon:SetSize(iconSize, iconSize)
+    local dropIcon = HA.Constants and HA.Constants.Icons and HA.Constants.Icons.DROP_SOURCE
+    if type(dropIcon) == "string" then
+        frame.icon:SetTexture(dropIcon)
+    else
+        frame.icon:SetAtlas("poi-rare", false)
+    end
+    -- Tint red-orange so drop pins read as combat/loot, not commerce.
+    frame.icon:SetVertexColor(1.0, 0.4, 0.25, 1.0)
+
+    frame.record = record
+
+    frame:SetScript("OnEnter", function(self) -- luacheck: ignore 432
+        if HA.VendorMapPins then
+            HA.VendorMapPins:ShowDropPinTooltip(self, self.record)
+        end
+    end)
+    frame:SetScript("OnLeave", function() -- luacheck: ignore 432
+        if HA.VendorMapPins then
+            HA.VendorMapPins:OnPinLeave()
+        end
+    end)
+
+    return frame
 end
 
 -- Refreshes vendor count text on an existing vendor pin frame.
