@@ -81,16 +81,6 @@ Two tickets have pending state changes noted in their entries:
 - **Session context:** None.
 - **Notes:** Applies to both side panel and tooltip surfaces.
 
-### HS-018 Source-aware map filtering
-- **Type:** Feature
-- **Priority:** Medium
-- **Status:** Awaiting Gate 2 re-verification — Gate 2 round 1 partial pass 2026-05-10 (merge `79f0d4f`); follow-up fixes landed as `9a47c17` (drop tooltip via `SetItemByID`, Shop hidden from map source-filter dropdown). Two related data tickets filed: HS-077 (Voidspire/Hallowfall mapID correction) and HS-078 (DropSources backfill via Encounter Journal API). Next action: Rawb re-tests the drop tooltip and the Shop dropdown removal; on PASS, HS-018 moves to Awaiting Release.
-- **Acceptance criteria:** (1) Map-level filter dropdown controls which pins appear on the world map. (2) Badge counts respect active source filter instead of hardcoded "all" (vendor + event sources only in v1). (3) Non-vendor sources get map presence — Drop confirmed in v1; Quest / Achievement / Profession get registry slots reserved (Profession handed to HS-075). (4) Zone summaries count items by source type for sources that contribute (vendor + event in v1).
-- **Session context (2026-05-10):** Tier 2, 3 commits planned (~165 LOC total) on branch `feature/source-aware-map-filtering`. Existing plumbing already 60% there — `BadgeCalculation.GetZoneVendorCounts(continentMapID, sourceFilter)` accepts and caches on filter; 11 total call sites currently drop/force the filter (9 in `VendorMapPins.lua`, `PinFrameFactory.lua:217`, and `MapSidePanel.lua:2564`). Plan introduces a `pinSourceProviders` registry on `VendorMapPins` as the HS-075 inheritance contract, reserves the `shop` provider slot, and adds SourceManager shop-filter plumbing because Shop is already registered in the dropdown.
-- **Gate 3 resolutions (2026-05-10):** Q1 drops do NOT contribute to non-vendor badges (defer until full location data) → BadgeCalculation gets only vendor-count gating with `(stats.total or 0) > 0`, not drop aggregation. Q2 sequential HS-018 → HS-022. Q3 HS-075 owns profession trainer data + filtering logic. Q4 minimap untouched in HS-018 (`HomesteadMinimapOverlay` not modified). Q5 sprint order confirmed.
-- **Cross-references:** HS-018 builds the infrastructure (non-vendor-source pin pipeline) that **HS-075** (profession-pin smart filtering + rich tooltips) depends on. Plan must carve a clean boundary: HS-018 owns the baseline pin-placement for quest / achievement / profession-trainer sources; HS-075 owns the profession-aware filtering (skill + ownership) and recipe/reagent tooltip layered on top. Also: **HS-022** sub-item 3 (per-source-type hide) depends on HS-018's `sourceFilter` plumbing — see 2026-04-20 Open Decisions.
-- **Notes:** Significant feature — requires PLAN_TEMPLATE.md. Consolidated from HS-018 + HS-020.
-
 ### HS-021 Continent-level pin placement refinement
 - **Type:** Feature
 - **Priority:** Medium
@@ -524,6 +514,17 @@ Two tickets have pending state changes noted in their entries:
 - **Notes:** Dev-only debug-log path; no luacheck warnings introduced.
 
 ## Awaiting Release
+
+### HS-018 Source-aware map filtering
+- **Type:** Feature
+- **Priority:** Medium
+- **Status:** Awaiting Release (Gate 2 PASS 2026-05-10, on main)
+- **Commits:** `79f0d4f` (merge of 3-commit worktree: `7d25e2c` + `3991275` + `b53d491`) + `9a47c17` (Gate 2 follow-up: drop tooltip `SetItemByID`, Shop hidden from map dropdown)
+- **Plan:** `Home_Dev/plans/active/HS-018-source-aware-map-filtering.md` @ Home_Dev `47e3181` (Revision 3 — move to `completed/` next session)
+- **Final behavior:** Side-panel Source filter dropdown drives world-map pin visibility, badge counts, and zone-summary numbers. Vendor + event sources contribute to badges; vendor-count gating with `(stats.total or 0) > 0` prevents degenerate "N vendors / 0 items" badges when filter is non-vendor. Drop sources render as pins with `Constants.Icons.DROP_SOURCE` (skull, red-orange) at locations from `HA.DropSources`; placeholder coords `{0, 0}` skipped, `{0.5, 0.5}` emitted as approximate. Drop pin tooltip uses `SetItemByID` so the full Blizzard item body + Homestead's Tooltips.lua source layers render, then mob/zone/notes append. Portal badges suppress when filter ∉ {`all`, `vendor`}. Shop is hidden from the dropdown (no map presence; SourceManager plumbing intact for housing dashboard). Filter changes trigger immediate world-map refresh via `RequestWorldMapRefresh("source_filter_changed", 0, true)`. Minimap untouched.
+- **HS-075 inheritance contract:** `VendorMapPins.pinSourceProviders` registry (vendor/drop populated; profession/quest/achievement/shop reserved as nil). HS-075 plugs in `pinSourceProviders.profession.collect(self, mapID, validMapIDs, filter, renderState)` and gets the renderer-level integration for free.
+- **Gate 2 (2026-05-10):** Round 1 partial — drop tooltip lacked item info, Shop dropdown was inert, drop pin overlap with vendor pins from `{0.5, 0.5}` placeholders. Round 1 surfaced two data-quality issues filed separately: **HS-077** (Voidspire/Hallowfall mapID mismatch) and **HS-078** (Encounter Journal API backfill of placeholder coords). Round 2 PASS after `9a47c17`.
+- **Follow-up data tickets (not blocking release):** HS-077, HS-078.
 
 ### HS-019 Search: section headers, multi-match highlight, no cycling
 - **Type:** Feature
