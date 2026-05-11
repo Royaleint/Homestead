@@ -299,6 +299,14 @@ local function UpdateSourceFilterDropdownText()
     end
 end
 
+-- Source types that SourceManager registers but should not appear in the map
+-- side panel's filter dropdown — they have no map presence (housing dashboard
+-- consumers only). Shop sits here because shop items don't render as pins
+-- and there's no plan to.
+local MAP_DROPDOWN_HIDDEN_TYPES = {
+    shop = true,
+}
+
 local function InitializeSourceFilterDropdown(_, level)
     if level ~= 1 then return end
 
@@ -321,14 +329,16 @@ local function InitializeSourceFilterDropdown(_, level)
     addButton(info, level)
 
     for _, token in ipairs(sourceTypes) do
-        local entryInfo = createInfo()
-        entryInfo.text = SOURCE_FILTER_LABELS[token] or token
-        entryInfo.value = token
-        entryInfo.checked = (token == panelSourceFilter)
-        entryInfo.func = function(self)
-            MapSidePanel:SetSourceFilter(self.value)
+        if not MAP_DROPDOWN_HIDDEN_TYPES[token] then
+            local entryInfo = createInfo()
+            entryInfo.text = SOURCE_FILTER_LABELS[token] or token
+            entryInfo.value = token
+            entryInfo.checked = (token == panelSourceFilter)
+            entryInfo.func = function(self)
+                MapSidePanel:SetSourceFilter(self.value)
+            end
+            addButton(entryInfo, level)
         end
-        addButton(entryInfo, level)
     end
 end
 

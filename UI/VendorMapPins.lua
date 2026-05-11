@@ -1493,14 +1493,17 @@ function VendorMapPins:ShowDropPinTooltip(pin, record)
     activeTooltipData = nil
     itemInfoEventFrame:UnregisterEvent("GET_ITEM_INFO_RECEIVED")
 
-    local drop = record.drop
     local tooltip = BeginPinTooltip(pin, "ANCHOR_RIGHT")
-    local itemName
     if record.itemID then
-        itemName = GetItemInfo(record.itemID)
+        -- SetItemByID renders the full WoW item tooltip body and fires
+        -- TooltipDataProcessor, so Homestead's Tooltips.lua DetectContext
+        -- can layer source/requirement info just like elsewhere.
+        tooltip:SetItemByID(record.itemID)
     end
-    tooltip:AddLine(itemName or ("Item " .. tostring(record.itemID or "?")), 1, 1, 1)
+
+    local drop = record.drop
     if drop and drop.mobName then
+        tooltip:AddLine(" ")
         tooltip:AddLine(drop.mobName, 0.9, 0.4, 0.4)
     end
     if drop and drop.zone then
