@@ -103,7 +103,7 @@ Two tickets have pending state changes noted in their entries:
 
 ### HS-024 Ambient Profession Awareness suite
 - **Type:** Feature
-- **Priority:** Medium
+- **Priority:** High (raised from Medium 2026-05-10 — profession sprint focus)
 - **Status:** Backlog
 - **Acceptance criteria:** (1) Profession window overlay annotates craftable housing decor recipes. (2) Tooltips show "Craftable: [Profession] ([Skill Tier])" for ProfessionSources items. (3) Catalog overlay shows profession badge for craftable items.
 - **Session context:** ProfessionSources is a registered v2.0 provider. `GetAllSources()` and `GetSourceTypeIcon("profession")` handle it. Existing `CatalogOverlay.lua` can be extended. Current tooltip code in `Overlay/Tooltips.lua` may partially surface this — audit first. Needs reverse mapping from spellID/recipeID to identify recipe rows in profession frame. Design constraint: overlay only, no new windows.
@@ -256,7 +256,7 @@ Two tickets have pending state changes noted in their entries:
 
 ### HS-074 Vendor pin tooltip — "you can craft N more right now"
 - **Type:** Feature
-- **Priority:** Medium
+- **Priority:** High (raised from Medium 2026-05-10 — profession sprint focus)
 - **Status:** Backlog
 - **Acceptance criteria:**
   1. When hovering a vendor pin (world map or minimap), the existing collection-summary line ("you own X/Y items") is followed by a profession-aware annotation: "You can craft N more right now" where N counts unowned items at that vendor whose profession source the player knows and has the required skill tier for.
@@ -267,7 +267,7 @@ Two tickets have pending state changes noted in their entries:
 
 ### HS-075 Profession-sourced decor pins at crafting station locations
 - **Type:** Feature
-- **Priority:** Medium
+- **Priority:** High (raised from Medium 2026-05-10 — profession sprint focus)
 - **Status:** Backlog
 - **Acceptance criteria:**
   1. Items with a profession source appear as a distinct pin (different color / icon than vendor pins) at the world-map and minimap locations of the relevant crafting station, profession trainer, or recipe-required interactable.
@@ -286,7 +286,7 @@ Two tickets have pending state changes noted in their entries:
 
 ### HS-079 Map pin coverage — drops, quests, achievements, professions (non-vendor sources umbrella)
 - **Type:** Feature (umbrella)
-- **Priority:** Medium
+- **Priority:** High (raised from Medium 2026-05-10 — profession sprint focus)
 - **Status:** Backlog
 - **Source:** 2026-05-10 — HS-018 shipped the `pinSourceProviders` registry with slots reserved for non-vendor source types. This ticket coordinates filling out the four non-vendor slots as a coherent workstream rather than letting them drift as one-off tickets.
 - **Acceptance criteria:**
@@ -350,7 +350,7 @@ Two tickets have pending state changes noted in their entries:
 
 ### HS-076 Bag/inventory reagent overlay — "used in N missing housing decor recipes"
 - **Type:** Feature
-- **Priority:** Medium
+- **Priority:** High (raised from Medium 2026-05-10 — profession sprint focus)
 - **Status:** Backlog — Rawb-favored as the most ambient of three 2026-05-10 what-ifs
 - **Acceptance criteria:**
   1. When hovering an item in a bag / bank / warband bank / merchant frame, if that item is a reagent used in one or more housing decor recipes the player can learn or knows, the tooltip is appended with a line: "Used in N housing decor recipes you're missing" — where N is the count of unowned decor outputs whose recipes consume this reagent.
@@ -398,7 +398,7 @@ Two tickets have pending state changes noted in their entries:
 
 ### HS-014 ProfessionSources skillTier backfill
 - **Type:** Data
-- **Priority:** Medium
+- **Priority:** High (raised from Medium 2026-05-10 — profession sprint focus; unblocks HS-024/HS-074/HS-075/HS-076)
 - **Status:** Backlog
 - **Acceptance criteria:** All 170 ProfessionSources entries have correct skillTier values.
 - **Session context:** Three-step process: (1) Dev addon exports spellID→skillLineAbilityID, (2) Web API script saves full recipe_id→skill_tier lookup (~11k recipes), (3) merge script joins on skillLineAbilityID=recipe_id. See KNOWLEDGE.md 2026-03-06 entry.
