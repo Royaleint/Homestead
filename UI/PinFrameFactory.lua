@@ -214,7 +214,14 @@ function PinFrameFactory:RefreshVendorPinCount(frame, vendor)
 
     local stats
     if vendor and HA.VendorMapPins and HA.VendorMapPins.GetVendorStats then
-        stats = HA.VendorMapPins:GetVendorStats(vendor)
+        -- HS-018: respect the active source filter so pin counts match the
+        -- side-panel filter. Defensive fallback to "all" if MapSidePanel isn't
+        -- loaded yet (early init order).
+        local sourceFilter = "all"
+        if HA.MapSidePanel and HA.MapSidePanel.GetSourceFilter then
+            sourceFilter = HA.MapSidePanel:GetSourceFilter() or "all"
+        end
+        stats = HA.VendorMapPins:GetVendorStats(vendor, sourceFilter)
     end
     if not stats or (stats.total or 0) <= 0 then
         if frame.count then

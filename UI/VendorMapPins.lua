@@ -56,6 +56,19 @@ local GetVendorXY
 local BC = HA.BadgeCalculation
 local GetContinentForZone = MPP.GetContinentForZone
 
+-- HS-018: read the active side-panel source filter, with a defensive fallback
+-- to "all" if MapSidePanel isn't loaded yet (e.g. early init before panel module
+-- finishes Initialize()). MapSidePanel:GetSourceFilter() reads the persisted
+-- profile value at module load, so this returns the user's setting even when
+-- the panel UI is hidden.
+local function GetActiveSourceFilter()
+    local panel = HA.MapSidePanel
+    if panel and panel.GetSourceFilter then
+        return panel:GetSourceFilter() or "all"
+    end
+    return "all"
+end
+
 -- Minimap pins enabled state
 local minimapPinsEnabled = true
 
@@ -514,12 +527,12 @@ function VendorMapPins:InvalidateAllCaches()
     lastMinimapMapID = nil
 end
 
-function VendorMapPins:GetZoneVendorCounts(continentMapID)
-    return BC:GetZoneVendorCounts(continentMapID)
+function VendorMapPins:GetZoneVendorCounts(continentMapID, sourceFilter)
+    return BC:GetZoneVendorCounts(continentMapID, sourceFilter or GetActiveSourceFilter())
 end
 
-function VendorMapPins:GetContinentVendorCounts()
-    return BC:GetContinentVendorCounts()
+function VendorMapPins:GetContinentVendorCounts(sourceFilter)
+    return BC:GetContinentVendorCounts(sourceFilter or GetActiveSourceFilter())
 end
 
 function VendorMapPins:GetContinentCenterOnWorldMap(continentMapID)
@@ -642,7 +655,7 @@ function VendorMapPins:ShowVendorTooltip(pin, vendor)
     end
 
     -- Purchasability summary (only when we have item data)
-    local stats = self:GetVendorStats(vendor, "all")
+    local stats = self:GetVendorStats(vendor, GetActiveSourceFilter())
     if stats.total > 0 then
         tooltip:AddLine(" ")
         BC.AddSummaryLine(tooltip, stats.collected, stats.total, stats.locked, stats.unverified)
@@ -1377,7 +1390,8 @@ function VendorMapPins:ShowVendorPins(mapID, renderState)
 end
 
 function VendorMapPins:ShowZoneBadges(continentMapID, renderState)
-    local zoneCounts = self:GetZoneVendorCounts(continentMapID)
+    local sourceFilter = GetActiveSourceFilter()
+    local zoneCounts = self:GetZoneVendorCounts(continentMapID, sourceFilter)
 
     for zoneMapID, zoneData in pairs(zoneCounts) do
         if zoneData.vendorCount > 0 then
@@ -1400,7 +1414,7 @@ function VendorMapPins:ShowZoneBadges(continentMapID, renderState)
     -- (e.g. Argus zones shown on the Broken Isles continent map)
     for srcContinentID, destContinentID in pairs(MPP.continentMergesInto) do
         if destContinentID == continentMapID then
-            local mergedZones = self:GetZoneVendorCounts(srcContinentID)
+            local mergedZones = self:GetZoneVendorCounts(srcContinentID, sourceFilter)
             for zoneMapID, zoneData in pairs(mergedZones) do
                 if zoneData.vendorCount > 0 then
                     local ok, x, y, reason = MPP:ProjectZoneBadgeToContinentView(continentMapID, zoneMapID)
@@ -1427,7 +1441,7 @@ function VendorMapPins:ShowZoneBadges(continentMapID, renderState)
             local excludedBySource = MPP.continentZoneBadgeExclusionsOnParent
                 and MPP.continentZoneBadgeExclusionsOnParent[srcContinentID]
             local excludedForDest = excludedBySource and excludedBySource[continentMapID]
-            local sourceZones = self:GetZoneVendorCounts(srcContinentID)
+            local sourceZones = self:GetZoneVendorCounts(srcContinentID, sourceFilter)
             for zoneMapID, zoneData in pairs(sourceZones) do
                 local isExcluded = excludedForDest and excludedForDest[zoneMapID]
                 if zoneData.vendorCount > 0 and not isExcluded then
@@ -1450,7 +1464,8 @@ function VendorMapPins:ShowZoneBadges(continentMapID, renderState)
 
 end
 function VendorMapPins:ShowZoneBadgesOnWorldMap(renderState)
-    local continentCounts = self:GetContinentVendorCounts()
+    local sourceFilter = GetActiveSourceFilter()
+    local continentCounts = self:GetContinentVendorCounts(sourceFilter)
 
     for continentMapID, continentData in pairs(continentCounts) do
         if continentData.vendorCount > 0 then
@@ -1476,7 +1491,7 @@ function VendorMapPins:ShowZoneBadgesOnWorldMap(renderState)
                     reason = "manual_continent_position",
                 }
             elseif not MPP.excludedContinents[continentMapID] then
-                local zoneCounts = self:GetZoneVendorCounts(continentMapID)
+                local zoneCounts = self:GetZoneVendorCounts(continentMapID, sourceFilter)
                 for zoneMapID, zoneData in pairs(zoneCounts) do
                     if zoneData.vendorCount > 0 then
                         local ok, x, y, reason = MPP:ProjectZoneBadgeToWorldView(zoneMapID)
@@ -1505,7 +1520,7 @@ function VendorMapPins:ShowContinentBadges(renderState)
         return
     end
 
-    local continentCounts = self:GetContinentVendorCounts()
+    local continentCounts = self:GetContinentVendorCounts(GetActiveSourceFilter())
 
     for continentMapID, continentData in pairs(continentCounts) do
         if continentData.vendorCount > 0 then

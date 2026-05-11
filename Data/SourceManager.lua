@@ -1326,6 +1326,7 @@ function SourceManager:GetItemSourceTypes(itemID, isVendorContext)
         achievement = false,
         profession = false,
         event = false,
+        shop = false,
         drop = false,
     }
     if not itemID then
@@ -1337,6 +1338,7 @@ function SourceManager:GetItemSourceTypes(itemID, isVendorContext)
     flags.achievement = self:IsAchievementItem(itemID)
     flags.profession = self:IsProfessionItem(itemID)
     flags.event = self:IsEventItem(itemID)
+    flags.shop = self:IsShopItem(itemID)
     flags.drop = self:IsDropItem(itemID)
 
     return flags
@@ -1370,6 +1372,8 @@ function SourceManager:ItemMatchesSourceFilter(itemID, filterType, isVendorConte
         return self:IsProfessionItem(itemID)
     elseif normalizedType == "event" then
         return self:IsEventItem(itemID)
+    elseif normalizedType == "shop" then
+        return self:IsShopItem(itemID)
     elseif normalizedType == "drop" then
         return self:IsDropItem(itemID)
     end
@@ -1394,6 +1398,7 @@ function SourceManager:CountItemsBySourceType(itemIDs, mode, isVendorContext)
         achievement = 0,
         profession = 0,
         event = 0,
+        shop = 0,
         drop = 0,
         unknown = 0,
     }
@@ -1662,6 +1667,10 @@ end
 
 function SourceManager:IsEventItem(itemID)
     return HA.EventSources and HA.EventSources[itemID] ~= nil
+end
+
+function SourceManager:IsShopItem(itemID)
+    return HA.ShopSources and HA.ShopSources[itemID] ~= nil
 end
 
 function SourceManager:IsDropItem(itemID)
