@@ -96,6 +96,7 @@ local SOURCE_FILTER_LABELS = {
     achievement = L["Achievement"] or "Achievement",
     profession = L["Profession"] or "Profession",
     event = L["Event"] or "Event",
+    shop = L["Shop"] or "Shop",
     drop = L["Drop"] or "Drop",
 }
 
@@ -2561,7 +2562,9 @@ function MapSidePanel:RefreshZoneSummaries(mapID, mapInfo)
 
     headerText:SetText(mapInfo.name or "")
 
-    local zoneCounts = BC:GetZoneVendorCounts(mapID)
+    -- HS-018: honor the panel's source filter at continent view so per-zone
+    -- summary rows reflect the active filter (was previously unfiltered).
+    local zoneCounts = BC:GetZoneVendorCounts(mapID, panelSourceFilter)
 
     -- Build sorted zone list
     local zoneList = {}
@@ -4055,13 +4058,19 @@ function MapSidePanel:SetSourceFilter(sourceFilter)
 
     UpdateSourceFilterDropdownText()
 
-    -- QA Fix #3: Source filter is ignored at continent/world level (shows unfiltered
-    -- totals). Only invalidate caches when at zone level — the badge caches will be
-    -- rebuilt with the current filter when the user next navigates to a zone.
-    if currentDisplayLevel == "zone" then
-        if BC and BC.InvalidateAllCaches then
-            BC:InvalidateAllCaches()
-        end
+    -- HS-018: continent/world badges now honor the filter, so invalidate caches
+    -- unconditionally on filter change (the prior zone-only gate at this site
+    -- was a workaround for the unfiltered higher-level paths). Also kick a
+    -- world-map repaint when the map is currently open so pins/badges update
+    -- in place rather than waiting for the next map re-open.
+    if HA.VendorMapPins and HA.VendorMapPins.InvalidateAllCaches then
+        HA.VendorMapPins:InvalidateAllCaches()
+    elseif BC and BC.InvalidateAllCaches then
+        BC:InvalidateAllCaches()
+    end
+    if HA.VendorMapPins and HA.VendorMapPins.RequestWorldMapRefresh
+            and WorldMapFrame and WorldMapFrame:IsShown() then
+        HA.VendorMapPins:RequestWorldMapRefresh("source_filter_changed", 0, true)
     end
 
     self:RefreshContent()

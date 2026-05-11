@@ -67,6 +67,8 @@ local cachedPoiMapID = nil
 local vendorFramePool = {}
 local badgeFramePool = {}
 local portalFramePool = {}
+-- HS-018: pool for non-vendor source pins (drop, future profession etc.)
+local sourceFramePool = {}
 -- Frame level constant no longer needed — plain frames use direct SetFrameLevel
 
 local function IsDebugModeEnabled()
@@ -79,6 +81,7 @@ local function GetRenderStateTotal()
     end
 
     return #(renderState.vendorPins or {})
+        + #(renderState.sourcePins or {})
         + #(renderState.zoneBadges or {})
         + #(renderState.portalBadges or {})
         + #(renderState.continentBadges or {})
@@ -510,6 +513,41 @@ local function AcquirePortalFrame(entry)
     return frame
 end
 
+-- HS-018: source pins (drop today; profession/quest/achievement/shop later).
+-- Pool key is keyed on size + sourceType so each source type has its own bucket
+-- inside the source pool — required because CreateSourcePinFrame dispatches by
+-- sourceType.
+local function GetSourceFramePoolKey(entry)
+    local sourceType = entry and entry.sourceType or "unknown"
+    return format("ss%d|t%s", PinFrameFactory:GetPinIconSize(), sourceType)
+end
+
+local function AcquireSourceFrame(entry)
+    local poolKey = GetSourceFramePoolKey(entry)
+    local sourceType = entry.sourceType
+    -- PinFrameFactory:CreateSourcePinFrame returns nil for unsupported source
+    -- types. Check the pool first so a recycled frame is reused without
+    -- invoking the factory (and tripping the nil branch). If the pool is empty
+    -- and the factory returns nil, propagate nil — RenderEntries skips it.
+    local bucket = sourceFramePool[poolKey]
+    if bucket and #bucket > 0 then
+        local frame = AcquirePooledFrame(sourceFramePool, poolKey, function()
+            return PinFrameFactory:CreateSourcePinFrame(sourceType, entry)
+        end)
+        frame.record = entry
+        return frame
+    end
+
+    local newFrame = PinFrameFactory:CreateSourcePinFrame(sourceType, entry)
+    if not newFrame then
+        return nil
+    end
+    newFrame.__hsInPool = false
+    newFrame.__hsPoolKey = poolKey
+    newFrame.record = entry
+    return newFrame
+end
+
 local function ReleaseEntryFrame(entry)
     if entry.kind == "vendor" then
         ReleasePooledFrame(vendorFramePool, entry.frame)
@@ -517,6 +555,8 @@ local function ReleaseEntryFrame(entry)
         ReleasePooledFrame(badgeFramePool, entry.frame)
     elseif entry.kind == "portal" then
         ReleasePooledFrame(portalFramePool, entry.frame)
+    elseif entry.kind == "source" then
+        ReleasePooledFrame(sourceFramePool, entry.frame)
     end
 end
 
@@ -640,6 +680,7 @@ function Provider:FlushPools()
     FlushPoolBuckets(vendorFramePool)
     FlushPoolBuckets(badgeFramePool)
     FlushPoolBuckets(portalFramePool)
+    FlushPoolBuckets(sourceFramePool)
 end
 
 function Provider:RenderEntries(entries, kind)
@@ -652,26 +693,33 @@ function Provider:RenderEntries(entries, kind)
             activeVendorFrames[#activeVendorFrames + 1] = frame
         elseif kind == "badge" then
             frame = AcquireBadgeFrame(entry)
+        elseif kind == "source" then
+            frame = AcquireSourceFrame(entry)
         else
             frame = AcquirePortalFrame(entry)
         end
 
-        if frame.SetIgnoreParentScale then
-            frame:SetIgnoreParentScale(false)
+        -- HS-018: source-pin factory may return nil for unsupported source
+        -- types (registry has slots reserved for profession/quest/etc with no
+        -- factory branch yet). Skip rendering rather than erroring.
+        if frame then
+            if frame.SetIgnoreParentScale then
+                frame:SetIgnoreParentScale(false)
+            end
+            frame:SetScale(GetEntryDisplayScale(kind, viewMapType))
+
+            entry.kind = kind
+            local x, y = entry.x, entry.y
+            x, y = ApplyAreaPoiDodge(entry, x, y)
+            local wrapper = MPP.PlaceNativePin(frame, x, y)
+            MaybeLogPlacementProbe(entry, wrapper, kind, index)
+            MaybeLogSizeProbe(frame, wrapper, kind, index)
+
+            activeEntries[#activeEntries + 1] = {
+                kind = kind,
+                frame = frame,
+            }
         end
-        frame:SetScale(GetEntryDisplayScale(kind, viewMapType))
-
-        entry.kind = kind
-        local x, y = entry.x, entry.y
-        x, y = ApplyAreaPoiDodge(entry, x, y)
-        local wrapper = MPP.PlaceNativePin(frame, x, y)
-        MaybeLogPlacementProbe(entry, wrapper, kind, index)
-        MaybeLogSizeProbe(frame, wrapper, kind, index)
-
-        activeEntries[#activeEntries + 1] = {
-            kind = kind,
-            frame = frame,
-        }
     end
 end
 
@@ -702,6 +750,7 @@ function Provider:RefreshAllData()
     self:RemoveAllData()
 
     self:RenderEntries(renderState.vendorPins or {}, "vendor")
+    self:RenderEntries(renderState.sourcePins or {}, "source")
     self:RenderEntries(renderState.zoneBadges or {}, "badge")
     self:RenderEntries(renderState.portalBadges or {}, "portal")
     self:RenderEntries(renderState.continentBadges or {}, "badge")

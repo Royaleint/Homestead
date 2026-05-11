@@ -412,31 +412,39 @@ function BadgeCalculation:GetZoneVendorCounts(continentMapID, sourceFilter)
                             }
                         end
 
-                        zoneCounts[zoneMapID].vendorCount = zoneCounts[zoneMapID].vendorCount + 1
-
-                        if isOpposite then
-                            zoneCounts[zoneMapID].oppositeFactionCount = zoneCounts[zoneMapID].oppositeFactionCount + 1
-                            -- Track the opposite faction for this zone
-                            if vendor.faction then
-                                zoneCounts[zoneMapID].dominantFaction = vendor.faction
-                            end
-                        end
-
                         -- Direct stats lookup is intentional in this hot path.
                         -- Vendor validity is already gated above in this loop.
                         local stats = GetVendorStats(vendor, sourceFilter)
-                        local hasUncollectedState = stats.hasUncollectedState
-                        if hasUncollectedState == true then
-                            zoneCounts[zoneMapID].uncollectedCount = zoneCounts[zoneMapID].uncollectedCount + 1
-                        elseif hasUncollectedState == "unknown" then
-                            zoneCounts[zoneMapID].unknownCount = zoneCounts[zoneMapID].unknownCount + 1
-                        end
-                        -- false means all collected, don't increment uncollected/unknown.
 
-                        zoneCounts[zoneMapID].collectedItems = zoneCounts[zoneMapID].collectedItems + (stats.collected or 0)
-                        zoneCounts[zoneMapID].totalItems = zoneCounts[zoneMapID].totalItems + (stats.total or 0)
-                        zoneCounts[zoneMapID].lockedItems = zoneCounts[zoneMapID].lockedItems + (stats.locked or 0)
-                        zoneCounts[zoneMapID].unverifiedItems = zoneCounts[zoneMapID].unverifiedItems + (stats.unverified or 0)
+                        -- HS-018: gate vendor-context counters on the vendor actually
+                        -- contributing at least one item that passes the filter. Prevents
+                        -- "N vendors / 0 items" degenerate badges under non-vendor filters.
+                        -- For filter == "all" or "vendor" every accessible vendor contributes
+                        -- >= 1 item, so this is a no-op vs. prior behavior.
+                        if (stats.total or 0) > 0 then
+                            zoneCounts[zoneMapID].vendorCount = zoneCounts[zoneMapID].vendorCount + 1
+
+                            if isOpposite then
+                                zoneCounts[zoneMapID].oppositeFactionCount = zoneCounts[zoneMapID].oppositeFactionCount + 1
+                                -- Track the opposite faction for this zone
+                                if vendor.faction then
+                                    zoneCounts[zoneMapID].dominantFaction = vendor.faction
+                                end
+                            end
+
+                            local hasUncollectedState = stats.hasUncollectedState
+                            if hasUncollectedState == true then
+                                zoneCounts[zoneMapID].uncollectedCount = zoneCounts[zoneMapID].uncollectedCount + 1
+                            elseif hasUncollectedState == "unknown" then
+                                zoneCounts[zoneMapID].unknownCount = zoneCounts[zoneMapID].unknownCount + 1
+                            end
+                            -- false means all collected, don't increment uncollected/unknown.
+
+                            zoneCounts[zoneMapID].collectedItems = zoneCounts[zoneMapID].collectedItems + (stats.collected or 0)
+                            zoneCounts[zoneMapID].totalItems = zoneCounts[zoneMapID].totalItems + (stats.total or 0)
+                            zoneCounts[zoneMapID].lockedItems = zoneCounts[zoneMapID].lockedItems + (stats.locked or 0)
+                            zoneCounts[zoneMapID].unverifiedItems = zoneCounts[zoneMapID].unverifiedItems + (stats.unverified or 0)
+                        end
                     end
                 end
             end
@@ -488,27 +496,33 @@ function BadgeCalculation:GetContinentVendorCounts(sourceFilter)
                             }
                         end
 
-                        continentCounts[continentMapID].vendorCount = continentCounts[continentMapID].vendorCount + 1
-
-                        if isOpposite then
-                            continentCounts[continentMapID].oppositeFactionCount = continentCounts[continentMapID].oppositeFactionCount + 1
-                        end
-
                         -- Direct stats lookup is intentional in this hot path.
                         -- Vendor validity is already gated above in this loop.
                         local stats = GetVendorStats(vendor, sourceFilter)
-                        local hasUncollectedState = stats.hasUncollectedState
-                        if hasUncollectedState == true then
-                            continentCounts[continentMapID].uncollectedCount = continentCounts[continentMapID].uncollectedCount + 1
-                        elseif hasUncollectedState == "unknown" then
-                            continentCounts[continentMapID].unknownCount = continentCounts[continentMapID].unknownCount + 1
-                        end
-                        -- false means all collected, don't increment uncollected/unknown.
 
-                        continentCounts[continentMapID].collectedItems = continentCounts[continentMapID].collectedItems + (stats.collected or 0)
-                        continentCounts[continentMapID].totalItems = continentCounts[continentMapID].totalItems + (stats.total or 0)
-                        continentCounts[continentMapID].lockedItems = continentCounts[continentMapID].lockedItems + (stats.locked or 0)
-                        continentCounts[continentMapID].unverifiedItems = continentCounts[continentMapID].unverifiedItems + (stats.unverified or 0)
+                        -- HS-018: gate vendor-context counters on filter contribution
+                        -- (see GetZoneVendorCounts for rationale; same behavior at
+                        -- continent scope).
+                        if (stats.total or 0) > 0 then
+                            continentCounts[continentMapID].vendorCount = continentCounts[continentMapID].vendorCount + 1
+
+                            if isOpposite then
+                                continentCounts[continentMapID].oppositeFactionCount = continentCounts[continentMapID].oppositeFactionCount + 1
+                            end
+
+                            local hasUncollectedState = stats.hasUncollectedState
+                            if hasUncollectedState == true then
+                                continentCounts[continentMapID].uncollectedCount = continentCounts[continentMapID].uncollectedCount + 1
+                            elseif hasUncollectedState == "unknown" then
+                                continentCounts[continentMapID].unknownCount = continentCounts[continentMapID].unknownCount + 1
+                            end
+                            -- false means all collected, don't increment uncollected/unknown.
+
+                            continentCounts[continentMapID].collectedItems = continentCounts[continentMapID].collectedItems + (stats.collected or 0)
+                            continentCounts[continentMapID].totalItems = continentCounts[continentMapID].totalItems + (stats.total or 0)
+                            continentCounts[continentMapID].lockedItems = continentCounts[continentMapID].lockedItems + (stats.locked or 0)
+                            continentCounts[continentMapID].unverifiedItems = continentCounts[continentMapID].unverifiedItems + (stats.unverified or 0)
+                        end
                     end
                 end
             end
