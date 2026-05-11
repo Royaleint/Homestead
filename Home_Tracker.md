@@ -84,7 +84,7 @@ Two tickets have pending state changes noted in their entries:
 ### HS-018 Source-aware map filtering
 - **Type:** Feature
 - **Priority:** Medium
-- **Status:** Awaiting Gate 2 — merged to main as `79f0d4f` (3 commits: `7d25e2c` → `3991275` → `b53d491`). Argus Gate 1 PASS across all 5 lenses 2026-05-10. Plan: `Home_Dev/plans/active/HS-018-source-aware-map-filtering.md` @ Home_Dev `47e3181`. Worktree at `C:\Projects\Homestead-source-aware-map-filtering` retained pending Gate 2 — remove after PASS. Next action: Rawb runs the 13-point in-game Gate 2 verification (key checks: drop filter on a known-drop zone, toggle while map is open, shop filter with no Lua errors).
+- **Status:** Awaiting Gate 2 re-verification — Gate 2 round 1 partial pass 2026-05-10 (merge `79f0d4f`); follow-up fixes landed as `9a47c17` (drop tooltip via `SetItemByID`, Shop hidden from map source-filter dropdown). Two related data tickets filed: HS-077 (Voidspire/Hallowfall mapID correction) and HS-078 (DropSources backfill via Encounter Journal API). Next action: Rawb re-tests the drop tooltip and the Shop dropdown removal; on PASS, HS-018 moves to Awaiting Release.
 - **Acceptance criteria:** (1) Map-level filter dropdown controls which pins appear on the world map. (2) Badge counts respect active source filter instead of hardcoded "all" (vendor + event sources only in v1). (3) Non-vendor sources get map presence — Drop confirmed in v1; Quest / Achievement / Profession get registry slots reserved (Profession handed to HS-075). (4) Zone summaries count items by source type for sources that contribute (vendor + event in v1).
 - **Session context (2026-05-10):** Tier 2, 3 commits planned (~165 LOC total) on branch `feature/source-aware-map-filtering`. Existing plumbing already 60% there — `BadgeCalculation.GetZoneVendorCounts(continentMapID, sourceFilter)` accepts and caches on filter; 11 total call sites currently drop/force the filter (9 in `VendorMapPins.lua`, `PinFrameFactory.lua:217`, and `MapSidePanel.lua:2564`). Plan introduces a `pinSourceProviders` registry on `VendorMapPins` as the HS-075 inheritance contract, reserves the `shop` provider slot, and adds SourceManager shop-filter plumbing because Shop is already registered in the dropdown.
 - **Gate 3 resolutions (2026-05-10):** Q1 drops do NOT contribute to non-vendor badges (defer until full location data) → BadgeCalculation gets only vendor-count gating with `(stats.total or 0) > 0`, not drop aggregation. Q2 sequential HS-018 → HS-022. Q3 HS-075 owns profession trainer data + filtering logic. Q4 minimap untouched in HS-018 (`HomesteadMinimapOverlay` not modified). Q5 sprint order confirmed.
@@ -290,6 +290,46 @@ Two tickets have pending state changes noted in their entries:
   2. Interaction with HS-022 hide-completed: should profession pins respect the same hide-when-collected setting as vendor pins?
 - **Cross-references:** **Prerequisite: HS-018** — that ticket builds the non-vendor-source pin pipeline (acceptance criterion 3: "Non-vendor sources get map presence (quest zones, achievement locations, profession trainers)"). HS-075 layers profession-aware filtering (skill + ownership check) and a recipe/reagent tooltip on top of HS-018's baseline. Plan boundary: HS-018 = pin placement infrastructure; HS-075 = smart filter + rich tooltip.
 - **Notes:** Depends on HS-014 (ProfessionSources skillTier backfill), HS-018 (non-vendor pin pipeline), and HS-024 architecture. Likely requires extending VendorDatabase-style location data for crafting stations / profession trainers.
+
+### HS-077 Voidspire / Hallowfall mapID correction in DropSources
+- **Type:** Data
+- **Priority:** Medium
+- **Status:** Backlog
+- **Source:** HS-018 Gate 2 (2026-05-10) — Crown of the Cosmos Gleaming Trophy drop pin renders in Hallowfall, but the tooltip says "The Voidspire." `DropSources.lua` has three entries (`[264497]`, `[264498]`, `[266887]`, possibly `[265951]` and `[268049]`) whose `zone` text references Voidspire while `mapID = 2215` (Hallowfall). KNOWLEDGE entry filed 2026-05-10: "DropSources mapID vs zone-string can disagree — trust mapID for placement."
+- **Acceptance criteria:**
+  1. For each affected entry, determine the correct mapID for the actual drop location (Voidspire raid map vs. Hallowfall zone map).
+  2. Update either the `mapID` to match the `zone` string, or rewrite the `zone` string to match the actual mapID's location.
+  3. Spot-check by reading `EJ_GetMapEncounter(uiMapID, index, fromJournal)` and `EJ_GetInstanceForMap(mapID)` against the encounters that drop each item — see HS-078 for the API spike that should land first.
+  4. Verify in-game that the pin lands in the correct zone after the fix.
+- **API leverage available:**
+  - `EJ_GetInstanceForMap(mapID)` returns `instanceID` for a given uiMapID — direct reverse lookup.
+  - `EJ_GetEncounterInfo(journalEncounterID)` returns `instanceID` plus `dungeonEncounterID`. The latter is the encounter ID fired by `ENCOUNTER_LOOT_RECEIVED`.
+  - `EJ_GetMapEncounter(uiMapID, index, fromJournal)` returns `x, y, instanceID, name, …` — gives encounter coordinates on a uiMap when available.
+- **Notes:** Likely a 5-entry data correction. Investigate the Voidspire encounter IDs in EJ to know which is the right map. Coordinate with HS-078 — same API surface.
+
+### HS-078 DropSources location backfill via Encounter Journal API
+- **Type:** Data / Investigation
+- **Priority:** Medium
+- **Status:** Backlog — API spike first
+- **Source:** HS-018 Gate 2 (2026-05-10) — many `DropSources` entries use `coords = {0.5, 0.5}` ("centered, approximate") per Decision 7. Visible side effect: drop pins overlap real vendor pins near zone centers (e.g. Embellished Dwarven Tome stacking on Twilight Highlands vendor pin). Rawb's direction (2026-05-10): drop locations should come from the Adventure Guide / Encounter Journal API, not manual coord entry.
+- **Acceptance criteria:**
+  1. **Spike phase** — confirm the `itemID → encounter → instance → uiMap` chain works for the housing-decor drop set we care about. Build a one-shot `/hsdev` command that iterates `HA.DropSources`, looks up each itemID's encounter via EJ, and reports: items with full data (instanceID + map coords), items found only at instance-entrance granularity (no per-boss coords), items not in EJ at all (world drops, rares).
+  2. **Backfill phase** — for items with EJ-derived locations, replace placeholder coords with EJ values. For items at instance-entrance granularity, use the dungeon entrance position via `C_EncounterJournal.GetDungeonEntrancesForMap(uiMapID)`. For world drops not in EJ, keep `{0.5, 0.5}` and document as "placeholder, no EJ data."
+  3. **Pipeline integration** — fold the lookup into the Python export pipeline so future data passes auto-populate from EJ snapshots, similar to how `ProfessionSources` skillTier gets backfilled (HS-014 pattern).
+  4. Drop-pin overlap on Twilight Highlands, Hallowfall, and similar zones should drop dramatically after backfill.
+- **Relevant APIs (research 2026-05-10):**
+  - `EJ_GetInstanceForMap(mapID)` → `instanceID` — given a uiMapID, find the EJ instance.
+  - `EJ_GetEncounterInfoByIndex(index, journalInstanceID)` → walks encounters in an instance.
+  - `EJ_GetEncounterInfo(journalEncounterID)` → returns `journalInstanceID`, `dungeonEncounterID`, `instanceID`.
+  - `EJ_SelectInstance` + `EJ_SetLootFilter` + `EJ_GetNumLoot` + `EJ_GetLootInfoByIndex` — iterate loot for a given encounter (legacy path; the C_EncounterJournal table has `GetLootInfoByIndex(index, encounterIndex)` as the modern equivalent).
+  - `C_EncounterJournal.GetEncountersOnMap(uiMapID)` → returns `EncounterJournalMapEncounterInfo[]` with `instanceID`, `encounterID`, name. Open-world encounters that appear in the Adventure Guide (e.g. world bosses, rare elites) surface here.
+  - `C_EncounterJournal.GetDungeonEntrancesForMap(uiMapID)` → returns `DungeonEntranceMapInfo[]` for dungeon entrances on a world map. Used in `Blizzard_SharedMapDataProviders\DungeonEntranceDataProvider.lua:33` (verified by Blizzard UI source) — the path for entrance-level placement.
+  - `EJ_GetMapEncounter(uiMapID, index, fromJournal)` → `x, y, instanceID, ...` for encounters with per-map coordinates (rare/open-world).
+- **Open questions for spike:**
+  1. Does `C_EncounterJournal.GetLootInfo(id)` accept an `itemID` directly, or only the encounter-loot-index? If only the index, we need to invert: walk all encounters and build a reverse map.
+  2. How many of our ~80 drop records have an EJ encounter? Spike reports the percentage.
+  3. For instance-entrance-only locations, is "drop pin at dungeon entrance on world map" the right UX, or should we surface the in-instance map separately (linked from the entrance)?
+- **Notes:** Replaces manual coord entry as the long-term path. The spike command lives in `Home_Dev/Homestead_Dev/` (dev-only) and produces a report; the backfill itself is a separate commit once the spike output is reviewed. Pipeline integration is a third phase.
 
 ### HS-076 Bag/inventory reagent overlay — "used in N missing housing decor recipes"
 - **Type:** Feature
