@@ -278,8 +278,35 @@ Two tickets have pending state changes noted in their entries:
 - **Open questions (2026-05-10):**
   1. Do most decor recipes require a specific crafting station, or can they be crafted anywhere from the profession window? If anywhere, "crafting station location" reduces to "profession trainer location" — much narrower.
   2. Interaction with HS-022 hide-completed: should profession pins respect the same hide-when-collected setting as vendor pins?
-- **Cross-references:** **Prerequisite: HS-018** — that ticket builds the non-vendor-source pin pipeline (acceptance criterion 3: "Non-vendor sources get map presence (quest zones, achievement locations, profession trainers)"). HS-075 layers profession-aware filtering (skill + ownership check) and a recipe/reagent tooltip on top of HS-018's baseline. Plan boundary: HS-018 = pin placement infrastructure; HS-075 = smart filter + rich tooltip.
-- **Notes:** Depends on HS-014 (ProfessionSources skillTier backfill), HS-018 (non-vendor pin pipeline), and HS-024 architecture. Likely requires extending VendorDatabase-style location data for crafting stations / profession trainers.
+- **Cross-references:**
+  - **HS-018** — foundation (shipped). Registry slot `pinSourceProviders.profession` reserved; HS-075 plugs in.
+  - **HS-079** (umbrella) — owns the profession baseline: trainer/station location data table and basic pin emission. HS-075 layers profession-aware filtering (skill + ownership) and the recipe/reagent tooltip on top.
+  - Plan boundary (revised 2026-05-10): HS-079 = baseline placement + data table; HS-075 = smart filter + rich tooltip. Implementation order: HS-079's profession sub-phase lands first, then HS-075 wraps it.
+- **Notes:** Depends on HS-014 (ProfessionSources skillTier backfill), HS-018 (non-vendor pin pipeline, shipped), HS-079 (profession baseline placement), and HS-024 architecture. Location data for crafting stations / profession trainers is now owned by HS-079, not HS-075.
+
+### HS-079 Map pin coverage — drops, quests, achievements, professions (non-vendor sources umbrella)
+- **Type:** Feature (umbrella)
+- **Priority:** Medium
+- **Status:** Backlog
+- **Source:** 2026-05-10 — HS-018 shipped the `pinSourceProviders` registry with slots reserved for non-vendor source types. This ticket coordinates filling out the four non-vendor slots as a coherent workstream rather than letting them drift as one-off tickets.
+- **Acceptance criteria:**
+  1. **Drops** — pins emit correctly with real coordinates (not `{0.5, 0.5}` placeholders), driven by the data improvements in HS-078. Drop-only zones show pins at the correct dungeon entrance, world-boss location, or rare spawn.
+  2. **Quests** — quest-sourced decor items emit pins at the quest's reward location (questgiver position or quest objective zone). Need a `questID → uiMapID + coords` data layer; investigate `C_QuestLog.GetQuestInfo`, `C_TaskQuest.GetQuestLocation`, or fall back to a hand-curated quest-location table. Pin tooltip shows quest name + zone.
+  3. **Achievements** — achievement-sourced decor emits pins at the achievement's relevant zone (where the achievement is earned — boss location, world event POI, etc.). Need an `achievementID → uiMapID + coords` data layer. Many achievements aren't zone-bound and should produce no pin; this is acceptable.
+  4. **Professions** — baseline profession-source pins emit at crafting station / trainer / interactable locations. **HS-075 covers the smart-filter layer on top of this baseline** (skill check, ownership, recipe-aware tooltip). HS-079 owns the data table and the basic pin emission; HS-075 owns the smart filter and rich tooltip.
+- **Phasing:** This is an umbrella. Sub-tickets file per source type as the data layers solidify. Recommended order: drops (HS-078 lands first → HS-079 verifies pin polish) → professions (HS-075 lands → trainer location data + baseline pins) → quests → achievements. Quests and achievements are last because their location-data work is the heaviest.
+- **Cross-references:**
+  - **HS-018** — foundation. Shipped. The `pinSourceProviders` registry, `CreateSourcePinFrame` factory, and `HomesteadWorldMapProvider` source-pin rendering all already exist. Plugging in a new source type means: write a `Collect<X>PinRecords` collector, assign `pinSourceProviders.<x> = { collect = ... }`, optionally register a custom frame in `CreateSourcePinFrame`.
+  - **HS-075** — profession smart layer + recipe tooltip. **Companion ticket**. HS-079 builds the profession baseline (trainer locations, basic pin emission); HS-075 adds skill/ownership filtering and the recipe/reagent tooltip on top.
+  - **HS-078** — drop coord backfill via Encounter Journal API. Feeds the drops portion of HS-079.
+  - **HS-074** — vendor pin tooltip annotation ("you can craft N more"). Adjacent, not blocking — operates on vendor pins, not non-vendor pins.
+- **API leverage available** (per HS-078 spike notes 2026-05-10):
+  - `C_EncounterJournal.GetDungeonEntrancesForMap(uiMapID)` — entrance-level pin placement, Blizzard-verified in `DungeonEntranceDataProvider.lua:33`.
+  - `EJ_GetMapEncounter(uiMapID, index)` — open-world encounter coords (rares, world bosses).
+  - `C_EncounterJournal.GetEncountersOnMap(uiMapID)` — enumerate encounters on a world map.
+  - For quests: `C_QuestLog.GetQuestInfo`, `C_TaskQuest.GetQuestLocation`, `C_QuestLog.GetMapForQuestPOIs`.
+  - For achievements: `GetAchievementInfo`, `GetAchievementCriteriaInfo`, `GetAchievementCategory`. No direct location API exists for most achievements; likely needs hand-curated data.
+- **Notes:** Each source type can ship independently. The umbrella exists to keep the four threads coordinated so they share the registry contract, the pin-frame factory, the same hygiene rules (Decision 7-style skip/clamp), and tooltip patterns (`SetItemByID` + Tooltips.lua source layering). Significant feature — requires PLAN_TEMPLATE.md when sub-tickets reach implementation.
 
 ### HS-077 Voidspire / Hallowfall mapID correction in DropSources
 - **Type:** Data
