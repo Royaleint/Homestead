@@ -16,10 +16,10 @@ Active and queued work for the Homestead addon. Completed items live in
 
 **Next sprint — Profession initiative (High priority, raised 2026-05-10):**
 
-1. ~~**HS-014** ProfessionSources skillTier backfill~~ — **Gate 1 PASS 2026-05-11,
-   Awaiting Gate 2** (on `feature/hs014-skilltier-backfill`). 308/312 `skillTier`,
-   109/312 `skillLevel`. 4 no-`spellID` entries spun off as HS-080. The other
-   profession-sprint items can now proceed once this merges.
+1. ~~**HS-014** ProfessionSources skillTier backfill~~ — **DONE: Gate 1 + Gate 2 PASS
+   2026-05-11**, merged to main (`68885dc`), Awaiting Release. 308/312 `skillTier`,
+   109/312 `skillLevel`. 4 no-`spellID` entries → HS-080. The rest of the
+   profession sprint (HS-079 / HS-075 / HS-024 / HS-074 / HS-076) is unblocked.
 2. **HS-079** Map pin coverage umbrella — **profession baseline goes here**
    (trainer/station location data + basic pin emission via the HS-018 registry).
    Quest and Achievement sub-phases can phase later; profession is the priority
@@ -431,14 +431,15 @@ Two tickets have pending state changes noted in their entries:
 ### HS-014 ProfessionSources skillTier backfill
 - **Type:** Data
 - **Priority:** High (profession sprint focus; unblocks HS-024/HS-074/HS-075/HS-076)
-- **Status:** Awaiting Gate 2 (Gate 1 PASS 2026-05-11; on `feature/hs014-skilltier-backfill`, not yet merged) — *move to the Awaiting Gate 2 section on next tracker sync*
+- **Status:** Awaiting Release (Gate 1 PASS 2026-05-11; **Gate 2 PASS 2026-05-11**, merged to main `68885dc`) — *move to the Awaiting Release section on next tracker sync*
 - **Acceptance criteria:** ProfessionSources entries carry `skillTier` (+ `skillLevel` where available). **Met:** 308/312 `skillTier`, 109/312 `skillLevel`. The 4 without `skillTier` are entries with no `spellID` → spun off as HS-080.
 - **Implementation (2026-05-11):**
   - **Phase 1** — `/hsdev exportskillability` (new dev command, Home_Dev `2a47a56`): iterates `HA.ProfessionSources`, calls `C_TradeSkillUI.GetRecipeInfo(spellID)`, emits `itemID/spellID/skillLineAbilityID/...` TSV → `Home_Dev/scripts/exports/skill_ability.tsv`. 308/312 resolved.
   - **Phase 2** — `Home_Dev/scripts/dump_all_recipes.py` (new, Home_Dev `fa8d5a8`): dumps `blizzard_recipes_all.csv` (10,965 recipes, full `recipe_id→skill_tier`) via `export_blizzard_sourcetext.py:fetch_all_recipe_ids()`. The decor-filtered `blizzard_recipe_decor.csv` (134 rows) alone only covered ~134/312 — the full table was the missing piece. Web API export refreshed (Home_Dev `740d321`).
   - **Phase 3** — `generate_source_tables.py` `_enrich_skill_tier()` (Home_Dev `fa8d5a8`): runs after `merge_layers` (override-set `skillTier` wins). Priority: in-game TSV (`skillTier`+`skillLevel`) > `skill_ability.tsv`→`blizzard_recipes_all.csv` (`skillTier` only) > nothing. `_emit_lua` emits the new fields; `SCHEMA` bumped; `MERGE_CONTRACT.md` documents it. `Data/ProfessionSources.lua` regenerated (public, `feature/hs014-skilltier-backfill` `886216d`).
 - **Caveats:** the 191 bridge-sourced `skillTier` values come from a `recipe_id` dedup that keeps the first skill-tier seen — low risk for single-expansion decor recipes but less authoritative than the 117 TSV-sourced ones, and they carry no `skillLevel`. Could fetch per-recipe `skillLevel` for those 191 in ~30s if HS-024/074 demand it.
-- **Gate 2 (Rawb):** spot-check ~5 entries in-game — confirm `GetProfessionInfoBySkillLineID().professionName` strings exactly match the Web-API tier names this backfill produces (e.g. one Khaz Algar + one Draenor recipe), and that tooltip profession lines for a couple of bridge-sourced items show the expected expansion. Merge `feature/hs014-skilltier-backfill` → main per the usual flow.
+- **Gate 2 (2026-05-11 — PASS):** Reload + tooltip checks pass — profession-source tooltip lines now show `recipeName (skillTier)` with the level where available; TSV-sourced vs bridge-sourced render correctly; `(Can craft now)` shows for craftable items (so the `GetProfessionInfoBySkillLineID().professionName` ↔ Web-API tier-name match works); bridge-sourced expansions look right; no new Lua errors. The map side panel doesn't surface profession sources as standalone entries — expected, profession decor has no map location; that's HS-079's `pinSourceProviders.profession` slot, not an HS-014 gap.
+- **Follow-ups:** HS-080 (4 no-`spellID` entries). HS-079 (profession baseline map placement — unblocked by this). Pipeline commits in Home_Dev nested repo: `2a47a56`, `fa8d5a8`, `740d321`, `5640410` (not pushed). Public commit on main: merge `68885dc`. Worktree `Homestead-hs014-skilltier` eligible for cleanup; push of main + Home_Dev `master` pending release flow.
 - **Notes:** Required for Ambient Profession Awareness features (HS-024). Argus Gate 1 verdict: PASS-WITH-NITS (both nits fixed before commit).
 
 ### HS-080 ProfessionSources — 4 entries with no spellID
