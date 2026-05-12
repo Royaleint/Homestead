@@ -2265,11 +2265,11 @@ local function CreateOverlayButton()
     hl:SetTexture("Interface\\Minimap\\UI-Minimap-ZoomButton-Highlight")
     hl:SetBlendMode("ADD")
 
-    -- Position after existing overlay buttons
+    -- Position after existing overlay buttons. Re-runs from the WorldMapFrame
+    -- state poll in MapSidePanel:Initialize (on map open / zone change / overlay-
+    -- count change) -- HS-081 removed the RefreshOverlayFrames hooksecurefunc that
+    -- used to do this, because it ran inside Blizzard's secure map path and tainted it.
     PositionOverlayButton()
-
-    -- Reposition when map refreshes its overlay frames
-    hooksecurefunc(WorldMapFrame, "RefreshOverlayFrames", PositionOverlayButton)
 
     button:SetScript("OnClick", function(self, mouseButton)
         if mouseButton == "RightButton" then
@@ -4127,97 +4127,126 @@ function MapSidePanel:Initialize()
     CreatePanel()
     CreateOverlayButton()
 
-    -- Hook WorldMapFrame to refresh on map change
-    hooksecurefunc(WorldMapFrame, "SetMapID", function(_, mapID)
-        if mapID == lastRefreshMapID then return end
-        C_Timer.After(0, function()
-            MapSidePanel:RefreshContent()
-        end)
-    end)
+    -- HS-081: passive WorldMapFrame state poll. Replaces 6 hooksecurefunc/HookScript
+    -- callbacks (SetMapID, OnShow, OnHide, HandleUserActionMaximizeSelf,
+    -- HandleUserActionMinimizeSelf, and the RefreshOverlayFrames hook in
+    -- CreateOverlayButton) that fired inside Blizzard's secure ToggleWorldMap ->
+    -- ShowUIPanel(WorldMapFrame) -> Show()/SetMapID() path; the posthook bodies left
+    -- that context tainted, blocking the protected SetPassThroughButtons continuation
+    -- (QuestDataProvider -> MapCanvasPinMixin:CheckMouseButtonPassthrough), surfacing
+    -- as [ADDON_ACTION_BLOCKED] tainted by 'Homestead'. The ticker reacts AFTER the
+    -- secure path has returned, so the reaction is never in a tainted context -- the
+    -- same pattern as UI/HomesteadWorldMapProvider.lua (which has zero WorldMapFrame
+    -- hooks). Behavior is unchanged: the in-combat docked-panel deferral via
+    -- pendingDockedAction / PLAYER_REGEN_ENABLED is preserved verbatim, and mapWatch is
+    -- seeded from the current WorldMapFrame state so /reload with the map already open
+    -- is a no-op -- matching the old behavior, where the OnShow hook was installed after
+    -- the map was already shown and therefore never fired.
+    local mapWatch = {
+        shown        = WorldMapFrame and WorldMapFrame:IsShown() or false,
+        maximized    = false,
+        mapID        = nil,
+        overlayCount = nil,
+    }
+    if mapWatch.shown then
+        mapWatch.maximized    = WorldMapFrame.isMaximized and true or false
+        mapWatch.mapID        = WorldMapFrame:GetMapID()
+        mapWatch.overlayCount = CountVisibleOverlayButtons()
+    end
 
-    WorldMapFrame:HookScript("OnShow", function()
-        if isPoppedOut then
-            -- Popped out: panel maintains its own navigation state
-            return
-        end
-        -- Don't show docked panel when map is maximized (fills the screen)
-        if WorldMapFrame.isMaximized then return end
-        -- Restore panel visibility + shift map when map opens
-        if HA.Addon and HA.Addon.db
-                and HA.Addon.db.profile.vendorTracer.showMapSidePanel then
-            -- Delay to let the map settle its position first
-            C_Timer.After(0, function()
-                if WorldMapFrame.isMaximized then return end
+    C_Timer.NewTicker(0.1, function()
+        local shown     = WorldMapFrame and WorldMapFrame:IsShown() or false
+        local maximized = shown and (WorldMapFrame.isMaximized and true or false) or false
+        local mapID     = shown and WorldMapFrame:GetMapID() or nil
+
+        if shown and not mapWatch.shown then
+            -- Map just opened (was: WorldMapFrame OnShow hook). No C_Timer.After(0)
+            -- wrapper -- the ticker already runs after the secure path; ShowPanel ->
+            -- ApplyDockedIntegration keeps its own one-frame border/inset defer.
+            if not isPoppedOut and not maximized
+                    and HA.Addon and HA.Addon.db
+                    and HA.Addon.db.profile.vendorTracer.showMapSidePanel then
                 ShowPanel()
                 MapSidePanel:RefreshContent()
-            end)
-        end
-    end)
+            end
+            -- (was: RefreshOverlayFrames hook -- a map open rebuilds overlayFrames)
+            PositionOverlayButton()
+            mapWatch.overlayCount = CountVisibleOverlayButtons()
 
-    WorldMapFrame:HookScript("OnHide", function()
-        if isPoppedOut then
-            -- Popped out: panel stays visible, no map elements to restore
-            return
-        end
-        -- HS-019: clear any active search when the docked panel closes with the
-        -- map. Popped-out panels keep their search state (handled by the early
-        -- return above).
-        ClearSearch(false)
-        -- Restore all map modifications when map closes
-        -- Also bump generation to cancel any pending deferred Show callbacks
-        panelShowGeneration = panelShowGeneration + 1
-        -- Explicitly hide panel (no longer auto-hides since parent is UIParent)
-        if panelFrame then panelFrame:Hide() end
+        elseif not shown and mapWatch.shown then
+            -- Map just closed (was: WorldMapFrame OnHide hook).
+            if not isPoppedOut then
+                -- HS-019: clear any active search when the docked panel closes with
+                -- the map. Popped-out panels keep their search state (early return above).
+                ClearSearch(false)
+                -- Bump generation to cancel any pending deferred Show callbacks.
+                panelShowGeneration = panelShowGeneration + 1
+                if panelFrame then panelFrame:Hide() end
 
-        if InCombatLockdown() then
-            -- Map is closing during combat; defer restoration.
-            -- Cancel any pending "apply" — the map is gone, nothing to integrate.
-            pendingDockedAction = "remove"
-            return
-        end
-
-        RestoreContentInset()
-        RestoreTopBorder()
-        RestoreMapElements()
-        RestoreMapPosition()
-        mapShifted = false
-    end)
-
-    -- Handle map maximize: hide docked panel to prevent off-screen displacement.
-    -- hooksecurefunc fires AFTER Blizzard's code has already repositioned the map,
-    -- so we clear our shift state without restoring (the old savedMapPoint is stale).
-    if WorldMapFrame.HandleUserActionMaximizeSelf then
-        hooksecurefunc(WorldMapFrame, "HandleUserActionMaximizeSelf", function()
-            if isPoppedOut then return end
-            if not panelFrame or not panelFrame:IsShown() then return end
-            panelShowGeneration = panelShowGeneration + 1
-            panelFrame:Hide()
-
-            if InCombatLockdown() then
-                mapShifted = false
-                savedMapPoint = nil
-                pendingDockedAction = "clear"
-                return
+                if InCombatLockdown() then
+                    -- Closing during combat; defer restoration. Cancel any pending
+                    -- "apply" -- the map is gone, nothing to integrate.
+                    pendingDockedAction = "remove"
+                else
+                    RestoreContentInset()
+                    RestoreTopBorder()
+                    RestoreMapElements()
+                    RestoreMapPosition()
+                    mapShifted = false
+                end
             end
 
-            RemoveDockedIntegration(false)
-        end)
-    end
+        elseif shown then
+            if maximized and not mapWatch.maximized then
+                -- Map maximized (was: HandleUserActionMaximizeSelf hook). Blizzard has
+                -- already repositioned the map, so clear our shift state without
+                -- restoring (the saved point is stale).
+                if not isPoppedOut and panelFrame and panelFrame:IsShown() then
+                    panelShowGeneration = panelShowGeneration + 1
+                    panelFrame:Hide()
 
-    -- Handle map minimize: re-show docked panel
-    if WorldMapFrame.HandleUserActionMinimizeSelf then
-        hooksecurefunc(WorldMapFrame, "HandleUserActionMinimizeSelf", function()
-            if isPoppedOut then return end
-            if not panelFrame then return end
-            if HA.Addon and HA.Addon.db
-                    and HA.Addon.db.profile.vendorTracer.showMapSidePanel then
-                C_Timer.After(0, function()
+                    if InCombatLockdown() then
+                        mapShifted = false
+                        savedMapPoint = nil
+                        pendingDockedAction = "clear"
+                    else
+                        RemoveDockedIntegration(false)
+                    end
+                end
+
+            elseif not maximized and mapWatch.maximized then
+                -- Map minimized (was: HandleUserActionMinimizeSelf hook).
+                if not isPoppedOut and panelFrame
+                        and HA.Addon and HA.Addon.db
+                        and HA.Addon.db.profile.vendorTracer.showMapSidePanel then
                     ShowPanel()
                     MapSidePanel:RefreshContent()
-                end)
+                end
+
+            elseif mapID and mapID ~= mapWatch.mapID and mapID ~= lastRefreshMapID then
+                -- Blizzard-driven zone change (was: SetMapID hook). Self-driven nav
+                -- (vendor/summary-row clicks, back button) already calls RefreshContent
+                -- synchronously and sets lastRefreshMapID, so this fires only for
+                -- map-canvas / NavBar navigation.
+                MapSidePanel:RefreshContent()
+                PositionOverlayButton()  -- a zone change rebuilds overlayFrames
+                mapWatch.overlayCount = CountVisibleOverlayButtons()
+
+            else
+                -- Residual overlay-button count change (was: RefreshOverlayFrames hook
+                -- on a non-zone-change overlay toggle).
+                local oc = CountVisibleOverlayButtons()
+                if oc ~= mapWatch.overlayCount then
+                    mapWatch.overlayCount = oc
+                    PositionOverlayButton()
+                end
             end
-        end)
-    end
+        end
+
+        mapWatch.shown     = shown
+        mapWatch.maximized = maximized
+        mapWatch.mapID     = mapID
+    end)
 
     -- Listen for data changes
     if HA.Events then
