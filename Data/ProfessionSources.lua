@@ -1,7 +1,7 @@
 --[[
     Homestead - ProfessionSources
-    Generated: 2026-05-11 20:57:19
-    Total entries: 312
+    Generated: 2026-05-11 22:26:15
+    Total entries: 308
 
     Profession recipe source data for housing decor items.
     Regenerate with: python Home_Dev/scripts/generate_source_tables.py --table profession
@@ -300,11 +300,7 @@ HA.ProfessionSources = {
     [263027] = {profession = "Enchanting", recipeName = "Darkmaster's Mystical Brazier", spellID = 1270459, skillTier = "Classic Enchanting"},
     [263034] = {profession = "Inscription", recipeName = "Magnificent Towering Bookcase", spellID = 1248631, skillTier = "Midnight Inscription"},
     [263049] = {profession = "Engineering", recipeName = "Ren'dorei Lightpost", spellID = 1248611, skillTier = "Midnight Engineering"},
-    [263383] = {profession = "Alchemy", recipeName = "Corked Bottle of Liquid Mystery"},
     [264244] = {profession = "Leatherworking", recipeName = "Plush Haranir Leather Pillow", spellID = 1246943, skillTier = "Midnight Leatherworking"},
-    [264279] = {profession = "Alchemy", recipeName = "Tall Bottle of Liquid Mystery"},
-    [264280] = {profession = "Alchemy", recipeName = "Short Bottle of Liquid Mystery"},
-    [264384] = {profession = "Engineering", recipeName = "Zapmaster Viewer 3000"},
     [264676] = {profession = "Blacksmithing", recipeName = "Dalaran Sewer Gate", spellID = 1272662, skillTier = "Northrend Blacksmithing"},
     [264677] = {profession = "Leatherworking", recipeName = "Rolled Scarab Rug", spellID = 1272588, skillTier = "Cataclysm Leatherworking"},
     [264678] = {profession = "Tailoring", recipeName = "Aspirant's Ringed Banner", spellID = 1272578, skillTier = "Shadowlands Tailoring"},
