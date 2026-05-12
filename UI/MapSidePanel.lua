@@ -4171,6 +4171,7 @@ function MapSidePanel:Initialize()
             end
             -- (was: RefreshOverlayFrames hook -- a map open rebuilds overlayFrames)
             PositionOverlayButton()
+            mapWatch.overlayCount = CountVisibleOverlayButtons()
 
         elseif not shown and mapWatch.shown then
             -- Map just closed (was: WorldMapFrame OnHide hook).
@@ -4229,6 +4230,7 @@ function MapSidePanel:Initialize()
                 -- map-canvas / NavBar navigation.
                 MapSidePanel:RefreshContent()
                 PositionOverlayButton()  -- a zone change rebuilds overlayFrames
+                mapWatch.overlayCount = CountVisibleOverlayButtons()
 
             else
                 -- Residual overlay-button count change (was: RefreshOverlayFrames hook
