@@ -1494,16 +1494,20 @@ function VendorMapPins:ShowDropPinTooltip(pin, record)
     itemInfoEventFrame:UnregisterEvent("GET_ITEM_INFO_RECEIVED")
 
     local tooltip = BeginPinTooltip(pin, "ANCHOR_RIGHT")
-    if record.itemID then
-        -- SetItemByID renders the full WoW item tooltip body and fires
-        -- TooltipDataProcessor, so Homestead's Tooltips.lua DetectContext
-        -- can layer source/requirement info just like elsewhere.
-        tooltip:SetItemByID(record.itemID)
-    end
+    -- Issue #38: build a plain item-name line rather than tooltip:SetItemByID().
+    -- This pin tooltip is a private GameTooltipTemplate frame, not flagged
+    -- isHomesteadManagedTooltip, so the Tooltips.lua post-call bails on it anyway
+    -- (the source-layering the 9a47c17 commit message promised never happened) --
+    -- and SetItemByID drags the whole TooltipDataProcessor / EmbeddedItemTooltip
+    -- machinery into a hover path that doesn't need it. C_Item.GetItemNameByID is
+    -- the non-deprecated lookup the rest of the addon already uses.
+    local itemName = record.itemID
+        and (C_Item.GetItemNameByID(record.itemID) or ("Item " .. tostring(record.itemID)))
+        or "Item ?"
+    tooltip:AddLine(itemName, 1, 1, 1)
 
     local drop = record.drop
     if drop and drop.mobName then
-        tooltip:AddLine(" ")
         tooltip:AddLine(drop.mobName, 0.9, 0.4, 0.4)
     end
     if drop and drop.zone then
