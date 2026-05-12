@@ -442,18 +442,14 @@ Two tickets have pending state changes noted in their entries:
 - **Follow-ups:** HS-080 (4 no-`spellID` entries). HS-079 (profession baseline map placement — unblocked by this). Pipeline commits in Home_Dev nested repo: `2a47a56`, `fa8d5a8`, `740d321`, `5640410` (not pushed). Public commit on main: merge `68885dc`. Worktree `Homestead-hs014-skilltier` eligible for cleanup; push of main + Home_Dev `master` pending release flow.
 - **Notes:** Required for Ambient Profession Awareness features (HS-024). Argus Gate 1 verdict: PASS-WITH-NITS (both nits fixed before commit).
 
-### HS-080 ProfessionSources — 4 entries with no spellID
-- **Type:** Data
+### HS-080 ProfessionSources — 4 misclassified shop items
+- **Type:** Data (correction)
 - **Priority:** Low
-- **Status:** Backlog — spun off from HS-014 (2026-05-11)
-- **Acceptance criteria:** The 4 entries below get a `spellID` (and therefore a `skillTier` via the HS-014 backfill on the next regen), or are confirmed as not profession-craftable decor and removed / re-classified.
-- **Session context:** Surfaced during HS-014. These 4 of 312 `ProfessionSources` entries have no `spellID`, so `/hsdev exportskillability` can't resolve a `skillLineAbilityID` and `generate_source_tables.py` can't backfill `skillTier`:
-  - `263383` Corked Bottle of Liquid Mystery (Alchemy)
-  - `264279` Tall Bottle of Liquid Mystery (Alchemy)
-  - `264280` Short Bottle of Liquid Mystery (Alchemy)
-  - `264384` Zapmaster Viewer 3000 (Engineering)
-  The "Liquid Mystery" bottles look like Alchemy intermediates rather than placeable decor — verify whether they belong in `ProfessionSources` at all.
-- **Notes:** Tiny. Once `spellID`s are added to `profession_sources_overrides.lua`, `python Home_Dev/scripts/generate_source_tables.py --table profession --apply` picks up the `skillTier`.
+- **Status:** Awaiting Gate 2 (Tier 1; on `refactor/hs080-shop-item-misclassification`, not merged) — *move to Awaiting Gate 2 / done on next tracker sync*
+- **Resolution (2026-05-11):** The 4 entries weren't missing a `spellID` — they don't belong in `ProfessionSources` at all. `263383` "Corked Bottle of Liquid Mystery", `264279`/`264280` the Tall/Short Corked variants, and `264384` "Zapmaster Viewer 3000" are **in-game-shop (hearthsteel) items**, already correctly listed in `ShopSources.lua` (with the correct "...Corked Bottle..." names). They were hand-added to `profession_sources_overrides.lua` in commit `9f235ee` with a guessed `profession` and no `spellID`; none are in `DecorMapping` or the Blizzard Web API decor data; there is no profession recipe behind them. (The Classic-range spell IDs that surfaced during investigation — 15229/15551/15552/15654 — are unrelated old items with similar names.) Removed from the override file → regenerated `ProfessionSources.lua` is **308 entries, 308/308 with `skillTier`** (the 4 uncovered were exactly these).
+- **Commits:** Home_Dev `fd40d3c` (override-file removal); public `refactor/hs080-shop-item-misclassification` `810ef37` (regenerated `ProfessionSources.lua`).
+- **Gate 2 (Rawb):** light spot-check — hover one of the 4 items in the catalog, confirm its source line now shows the in-game shop (via `ShopSources`) and not a phantom "Profession: Alchemy/Engineering". Merge the branch when satisfied.
+- **Tangential:** these 4 shop items have no `DecorMapping` entry (decorID↔itemID) and aren't in the Web API decor data — separate pre-existing gap in `ShopSources` coverage, not in HS-080 scope.
 
 ### HS-016 Pre-Midnight faction IDs in VendorDatabase
 - **Type:** Data
