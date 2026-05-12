@@ -1094,6 +1094,21 @@ local function OnTooltipSetItem(tooltip, data)
     end
 end
 
+-- Issue #38: a tooltip owned by a Blizzard MapCanvas pin (AreaPOI / event-POI /
+-- quest-offer / quest pins) must never be touched from our post-call. Doing so
+-- runs Homestead (insecure) code inside Blizzard's secure map-data-provider flow
+-- and taints it; the next time Blizzard touches a "secret" value in that flow
+-- (UI-widget bar width arithmetic, ResizeLayoutMixin anchor-count compare,
+-- SetPassThroughButtons) it errors or gets blocked. MapCanvas pins are the only
+-- frames that expose a :GetMap() method (MapCanvasPinMixin); Homestead's own
+-- world-map pins are plain CreateFrame frames with no such method, so this stays
+-- narrowly targeted and changes nothing for any tooltip Homestead legitimately
+-- decorates (bags, banks, merchants, the side panel, our own pins).
+local function IsBlizzardMapPinOwnedTooltip(tooltip)
+    local owner = tooltip and tooltip.GetOwner and tooltip:GetOwner()
+    return owner ~= nil and type(owner.GetMap) == "function"
+end
+
 local function HookTooltips()
     if isHooked then return end
 
@@ -1101,13 +1116,18 @@ local function HookTooltips()
     if TooltipDataProcessor and TooltipDataProcessor.AddTooltipPostCall then
         TooltipDataProcessor.AddTooltipPostCall(Enum.TooltipDataType.Item, function(tooltip, data)
             -- Only process Blizzard's shared item tooltips plus explicit Homestead-managed ones.
-            if tooltip == GameTooltip
+            if not (tooltip == GameTooltip
                     or tooltip == ItemRefTooltip
                     or tooltip == ShoppingTooltip1
                     or tooltip == ShoppingTooltip2
-                    or (tooltip and tooltip.isHomesteadManagedTooltip) then
-                OnTooltipSetItem(tooltip, data)
+                    or (tooltip and tooltip.isHomesteadManagedTooltip)) then
+                return
             end
+            -- Issue #38: never augment a Blizzard map-pin tooltip (taint vector).
+            if IsBlizzardMapPinOwnedTooltip(tooltip) then
+                return
+            end
+            OnTooltipSetItem(tooltip, data)
         end)
 
         isHooked = true
