@@ -14,20 +14,30 @@ Active and queued work for the Homestead addon. Completed items live in
 - HS-072 vendor coord debug log precision
 - HS-073 SearchProvider PreWarm modernization
 
-**Next sprint — Profession initiative (High priority, raised 2026-05-10):**
+**Next sprint — Profession initiative (High priority):**
 
-1. ~~**HS-014** ProfessionSources skillTier backfill~~ — **DONE: Gate 1 + Gate 2 PASS
-   2026-05-11**, merged to main (`68885dc`), Awaiting Release. 308/312 `skillTier`,
-   109/312 `skillLevel`. 4 no-`spellID` entries → HS-080. The rest of the
-   profession sprint (HS-079 / HS-075 / HS-024 / HS-074 / HS-076) is unblocked.
-2. **HS-079** Map pin coverage umbrella — **profession baseline goes here**
-   (trainer/station location data + basic pin emission via the HS-018 registry).
-   Quest and Achievement sub-phases can phase later; profession is the priority
-   slot.
+- ✅ **HS-014** ProfessionSources skillTier backfill — **DONE** (Gate 1 + Gate 2 PASS
+  2026-05-11, merged `68885dc`, Awaiting Release). 308/308 `skillTier`, 109/312
+  `skillLevel`. 4 misclassified shop items split to HS-080 (also done). Unblocked
+  the rest of the sprint.
+
+- ▶ **HS-079 — profession sub-phase: NEXT (start here next session).** Profession-source
+  map pins at trainer / crafting-station / interactable locations, via the HS-018
+  `pinSourceProviders.profession` registry slot. The umbrella's drops/quests/achievements
+  sub-phases phase later — profession is the priority slot. **First action:** Gate 0
+  research + a `PLAN_TEMPLATE.md` plan — scope the `recipeID/professionID → uiMapID + coords`
+  location data table (trainer locations are the bulk; verify whether decor recipes
+  actually need a specific crafting station vs. craftable anywhere from the profession
+  window — see HS-075 open question 1, it narrows the data work a lot if "anywhere") and
+  the `CollectProfessionPinRecords` collector + `pinSourceProviders.profession.collect`
+  wiring. Tier 2 (multi-module, new data table, map-pin surface) → full gates.
+
 3. **HS-075** Profession smart layer — skill + ownership filter + recipe/reagent
-   tooltip layered on top of HS-079's profession baseline.
+   tooltip, layered on top of HS-079's profession baseline. Follows the HS-079
+   profession sub-phase.
 4. **HS-024** Ambient Profession Awareness suite — profession-window overlay +
-   craftable badge in catalog. Can run in parallel with HS-075 once HS-014 lands.
+   craftable badge in catalog. Can run in parallel with HS-075 once HS-079's
+   profession baseline lands.
 5. **HS-074** Vendor pin "you can craft N more right now" annotation.
 6. **HS-076** Bag/inventory reagent overlay ("used in N missing decor recipes")
    — Rawb-favored as the most ambient surface.
@@ -323,8 +333,8 @@ Two tickets have pending state changes noted in their entries:
 
 ### HS-079 Map pin coverage — drops, quests, achievements, professions (non-vendor sources umbrella)
 - **Type:** Feature (umbrella)
-- **Priority:** High (raised from Medium 2026-05-10 — profession sprint focus)
-- **Status:** Backlog
+- **Priority:** High (profession sprint focus)
+- **Status:** Backlog — **▶ NEXT for next session: the profession sub-phase.** HS-014 is done, so the profession baseline is unblocked. Next action: Gate 0 + `PLAN_TEMPLATE.md` for profession-source pins — the `recipeID/professionID → uiMapID + coords` location data table (resolve HS-075 open question 1 first: do decor recipes require a specific crafting station, or are they craftable anywhere from the profession window? — narrows the data work substantially) and the `CollectProfessionPinRecords` collector + `pinSourceProviders.profession.collect(self, mapID, validMapIDs, filter, renderState)` wiring (the renderer integration is free from HS-018). Drops/quests/achievements sub-phases stay deferred behind the profession slot. Tier 2.
 - **Source:** 2026-05-10 — HS-018 shipped the `pinSourceProviders` registry with slots reserved for non-vendor source types. This ticket coordinates filling out the four non-vendor slots as a coherent workstream rather than letting them drift as one-off tickets.
 - **Acceptance criteria:**
   1. **Drops** — pins emit correctly with real coordinates (not `{0.5, 0.5}` placeholders), driven by the data improvements in HS-078. Drop-only zones show pins at the correct dungeon entrance, world-boss location, or rare spawn.
