@@ -447,14 +447,22 @@ Two tickets have pending state changes noted in their entries:
 - **Follow-ups:** HS-080 (4 no-`spellID` entries). HS-079 (profession baseline map placement — unblocked by this). Pipeline commits in Home_Dev nested repo: `2a47a56`, `fa8d5a8`, `740d321`, `5640410` (not pushed). Public commit on main: merge `68885dc`. Worktree `Homestead-hs014-skilltier` eligible for cleanup; push of main + Home_Dev `master` pending release flow.
 - **Notes:** Required for Ambient Profession Awareness features (HS-024). Argus Gate 1 verdict: PASS-WITH-NITS (both nits fixed before commit).
 
-### HS-080 ProfessionSources — 4 misclassified shop items
+### HS-080 ProfessionSources — 4 misclassified shop items — DONE
 - **Type:** Data (correction)
 - **Priority:** Low
-- **Status:** Awaiting Gate 2 (Tier 1; on `refactor/hs080-shop-item-misclassification`, not merged) — *move to Awaiting Gate 2 / done on next tracker sync*
-- **Resolution (2026-05-11):** The 4 entries weren't missing a `spellID` — they don't belong in `ProfessionSources` at all. `263383` "Corked Bottle of Liquid Mystery", `264279`/`264280` the Tall/Short Corked variants, and `264384` "Zapmaster Viewer 3000" are **in-game-shop (hearthsteel) items**, already correctly listed in `ShopSources.lua` (with the correct "...Corked Bottle..." names). They were hand-added to `profession_sources_overrides.lua` in commit `9f235ee` with a guessed `profession` and no `spellID`; none are in `DecorMapping` or the Blizzard Web API decor data; there is no profession recipe behind them. (The Classic-range spell IDs that surfaced during investigation — 15229/15551/15552/15654 — are unrelated old items with similar names.) Removed from the override file → regenerated `ProfessionSources.lua` is **308 entries, 308/308 with `skillTier`** (the 4 uncovered were exactly these).
-- **Commits:** Home_Dev `fd40d3c` (override-file removal); public `refactor/hs080-shop-item-misclassification` `810ef37` (regenerated `ProfessionSources.lua`).
-- **Gate 2 (Rawb):** light spot-check — hover one of the 4 items in the catalog, confirm its source line now shows the in-game shop (via `ShopSources`) and not a phantom "Profession: Alchemy/Engineering". Merge the branch when satisfied.
-- **Tangential:** these 4 shop items have no `DecorMapping` entry (decorID↔itemID) and aren't in the Web API decor data — separate pre-existing gap in `ShopSources` coverage, not in HS-080 scope.
+- **Status:** Done (Tier 1) — merged to main `9cebbe7` 2026-05-11. Gate 2 N/A (see below).
+- **Resolution (2026-05-11):** The 4 entries weren't missing a `spellID` — they don't belong in `ProfessionSources` at all. `263383` "Corked Bottle of Liquid Mystery", `264279`/`264280` the Tall/Short Corked variants, and `264384` "Zapmaster Viewer 3000" were hand-added to `profession_sources_overrides.lua` in commit `9f235ee` with a guessed `profession` and no `spellID`; none are in `DecorMapping` or the Blizzard Web API decor data; there is no profession recipe behind them. They were listed in `ShopSources.lua` as `hearthsteel` items. (The Classic-range spell IDs that surfaced during investigation — 15229/15551/15552/15654 — are unrelated old items with similar names.) Removed from the override file → regenerated `ProfessionSources.lua` is **308 entries, 308/308 with `skillTier`** (the 4 uncovered were exactly these).
+- **Commits:** Home_Dev `fd40d3c` (override-file removal); public `810ef37` + `324e18c`, merged to main as `9cebbe7`.
+- **Gate 2:** N/A — Rawb confirmed (2026-05-11) the 4 items aren't in the Housing Catalog in-game, so there's no UI surface to spot-check. The removal is verified by luacheck-clean output + the data evidence above (strictly fewer entries; nothing referenced these 4 as profession sources except the bad override rows).
+- **Spawned follow-up — HS-082:** these 4 items aren't in `C_HousingCatalog`, `DecorMapping`, or the Web API decor data, yet they sit in `ShopSources.lua`. They may not be valid current decor items at all (removed by Blizzard, never decor, or noise from an old "Shop" sourceText scan). Worth a `ShopSources` audit — possibly more entries in the same state.
+
+### HS-082 Audit ShopSources for stale / non-catalog entries
+- **Type:** Data (audit)
+- **Priority:** Low
+- **Status:** Backlog — spawned from HS-080 (2026-05-11)
+- **Acceptance criteria:** Every `ShopSources.lua` entry is either confirmed to be a current housing-decor item (in `C_HousingCatalog` and/or the Web API decor data, with a `DecorMapping` entry), or removed/documented as intentionally retained.
+- **Session context:** HS-080 found `263383` / `264279` / `264280` / `264384` in `ShopSources.lua` despite not being in the catalog, `DecorMapping`, or the Web API decor data — and not in-game either (Rawb confirmed). `ShopSources.lua` was built from "catalog sourceText scan (27 'Shop' items) + Wowhead pack articles + Roofus charity pack" (header) — the sourceText scan may have swept in items Blizzard has since removed, or non-decor items. Cross-check the 42 entries against current `C_HousingCatalog` (a `/hsdev` probe over `ShopSources` itemIDs would do it) and `DecorMapping`.
+- **Notes:** Likely overlaps the HS-012 "source data gaps" cleanup pattern. Low urgency — `ShopSources` is read-only display data; stale entries are cosmetic, not breaking.
 
 ### HS-016 Pre-Midnight faction IDs in VendorDatabase
 - **Type:** Data
