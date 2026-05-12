@@ -16,9 +16,10 @@ Active and queued work for the Homestead addon. Completed items live in
 
 **Next sprint — Profession initiative (High priority, raised 2026-05-10):**
 
-1. **HS-014** ProfessionSources skillTier backfill — **prerequisite for the rest.**
-   Three-step pipeline already designed (dev addon spellID→skillLineAbilityID
-   export → web API recipe-id→skill-tier dump → merge script). Land first.
+1. ~~**HS-014** ProfessionSources skillTier backfill~~ — **Gate 1 PASS 2026-05-11,
+   Awaiting Gate 2** (on `feature/hs014-skilltier-backfill`). 308/312 `skillTier`,
+   109/312 `skillLevel`. 4 no-`spellID` entries spun off as HS-080. The other
+   profession-sprint items can now proceed once this merges.
 2. **HS-079** Map pin coverage umbrella — **profession baseline goes here**
    (trainer/station location data + basic pin emission via the HS-018 registry).
    Quest and Achievement sub-phases can phase later; profession is the priority
@@ -69,6 +70,16 @@ Two tickets have pending state changes noted in their entries:
 *(None — populated by Rawb as scope decisions are made.)*
 
 ### Bugs
+
+### HS-081 Homestead taints Blizzard map-data-provider pipeline
+- **Type:** Bug
+- **Priority:** High (potentially release-blocking for HS-018)
+- **Status:** Backlog — needs investigation
+- **GitHub:** [#38](https://github.com/Royaleint/Homestead/issues/38)
+- **Summary:** BugSack captures three taint-rooted errors ("execution tainted by 'Homestead'"): (1) `Blizzard_UIWidgetTemplateBase.lua:1030` arithmetic on a secret `barWidth` — hovering an AreaPOI / event POI pin (status-bar widget partitions in the POI tooltip); (2) `LayoutFrame.lua:491` compare on a secret number — hovering a quest-offer pin (`QuestOfferDataProvider.AddSuppressedPinsToTooltip`); (3) `[ADDON_ACTION_BLOCKED] Button:SetPassThroughButtons()` — opening the world map (`QuestDataProvider.AcquirePin` → `MapCanvas_DataProviderBase.CheckMouseButtonPassthrough`).
+- **Session context (2026-05-11):** Reported by Rawb in-game during HS-014 testing. Common thread: `HomesteadWorldMapProvider` (or a hook it installs) runs inside Blizzard's shared map-data-provider flow and carries Homestead's taint into it. **Prime suspect: HS-018 (source-aware map filtering, shipped to main 2026-05-10, Awaiting Release)** — most recent change to that layer; added drop-source pins + source-pin rendering on `HomesteadWorldMapProvider`. Passed Gate 2 2026-05-10, but this taint only fires on hovering specific POI pins / opening the map in a particular state. **Not caused by HS-014.**
+- **Next steps:** Bisect — disable HS-018's source-pin path (or revert HS-018 in a test build) and check whether the errors stop. If HS-018: it's release-blocking and should not ride a release with this active. If pre-existing: trace which Homestead map hook / data-provider method is the taint origin. Use the systematic-debugging skill.
+- **Notes:** Closest existing item is HS-036 (VendorMapPins runtime lifecycle QA) — predates HS-018, different scope.
 
 ### HS-054 World-level continent summary should scope to current map view
 - **Type:** Bug
@@ -419,11 +430,29 @@ Two tickets have pending state changes noted in their entries:
 
 ### HS-014 ProfessionSources skillTier backfill
 - **Type:** Data
-- **Priority:** High (raised from Medium 2026-05-10 — profession sprint focus; unblocks HS-024/HS-074/HS-075/HS-076)
-- **Status:** Backlog
-- **Acceptance criteria:** All 170 ProfessionSources entries have correct skillTier values.
-- **Session context:** Three-step process: (1) Dev addon exports spellID→skillLineAbilityID, (2) Web API script saves full recipe_id→skill_tier lookup (~11k recipes), (3) merge script joins on skillLineAbilityID=recipe_id. See KNOWLEDGE.md 2026-03-06 entry.
-- **Notes:** Required for Ambient Profession Awareness features (HS-024).
+- **Priority:** High (profession sprint focus; unblocks HS-024/HS-074/HS-075/HS-076)
+- **Status:** Awaiting Gate 2 (Gate 1 PASS 2026-05-11; on `feature/hs014-skilltier-backfill`, not yet merged) — *move to the Awaiting Gate 2 section on next tracker sync*
+- **Acceptance criteria:** ProfessionSources entries carry `skillTier` (+ `skillLevel` where available). **Met:** 308/312 `skillTier`, 109/312 `skillLevel`. The 4 without `skillTier` are entries with no `spellID` → spun off as HS-080.
+- **Implementation (2026-05-11):**
+  - **Phase 1** — `/hsdev exportskillability` (new dev command, Home_Dev `2a47a56`): iterates `HA.ProfessionSources`, calls `C_TradeSkillUI.GetRecipeInfo(spellID)`, emits `itemID/spellID/skillLineAbilityID/...` TSV → `Home_Dev/scripts/exports/skill_ability.tsv`. 308/312 resolved.
+  - **Phase 2** — `Home_Dev/scripts/dump_all_recipes.py` (new, Home_Dev `fa8d5a8`): dumps `blizzard_recipes_all.csv` (10,965 recipes, full `recipe_id→skill_tier`) via `export_blizzard_sourcetext.py:fetch_all_recipe_ids()`. The decor-filtered `blizzard_recipe_decor.csv` (134 rows) alone only covered ~134/312 — the full table was the missing piece. Web API export refreshed (Home_Dev `740d321`).
+  - **Phase 3** — `generate_source_tables.py` `_enrich_skill_tier()` (Home_Dev `fa8d5a8`): runs after `merge_layers` (override-set `skillTier` wins). Priority: in-game TSV (`skillTier`+`skillLevel`) > `skill_ability.tsv`→`blizzard_recipes_all.csv` (`skillTier` only) > nothing. `_emit_lua` emits the new fields; `SCHEMA` bumped; `MERGE_CONTRACT.md` documents it. `Data/ProfessionSources.lua` regenerated (public, `feature/hs014-skilltier-backfill` `886216d`).
+- **Caveats:** the 191 bridge-sourced `skillTier` values come from a `recipe_id` dedup that keeps the first skill-tier seen — low risk for single-expansion decor recipes but less authoritative than the 117 TSV-sourced ones, and they carry no `skillLevel`. Could fetch per-recipe `skillLevel` for those 191 in ~30s if HS-024/074 demand it.
+- **Gate 2 (Rawb):** spot-check ~5 entries in-game — confirm `GetProfessionInfoBySkillLineID().professionName` strings exactly match the Web-API tier names this backfill produces (e.g. one Khaz Algar + one Draenor recipe), and that tooltip profession lines for a couple of bridge-sourced items show the expected expansion. Merge `feature/hs014-skilltier-backfill` → main per the usual flow.
+- **Notes:** Required for Ambient Profession Awareness features (HS-024). Argus Gate 1 verdict: PASS-WITH-NITS (both nits fixed before commit).
+
+### HS-080 ProfessionSources — 4 entries with no spellID
+- **Type:** Data
+- **Priority:** Low
+- **Status:** Backlog — spun off from HS-014 (2026-05-11)
+- **Acceptance criteria:** The 4 entries below get a `spellID` (and therefore a `skillTier` via the HS-014 backfill on the next regen), or are confirmed as not profession-craftable decor and removed / re-classified.
+- **Session context:** Surfaced during HS-014. These 4 of 312 `ProfessionSources` entries have no `spellID`, so `/hsdev exportskillability` can't resolve a `skillLineAbilityID` and `generate_source_tables.py` can't backfill `skillTier`:
+  - `263383` Corked Bottle of Liquid Mystery (Alchemy)
+  - `264279` Tall Bottle of Liquid Mystery (Alchemy)
+  - `264280` Short Bottle of Liquid Mystery (Alchemy)
+  - `264384` Zapmaster Viewer 3000 (Engineering)
+  The "Liquid Mystery" bottles look like Alchemy intermediates rather than placeable decor — verify whether they belong in `ProfessionSources` at all.
+- **Notes:** Tiny. Once `spellID`s are added to `profession_sources_overrides.lua`, `python Home_Dev/scripts/generate_source_tables.py --table profession --apply` picks up the `skillTier`.
 
 ### HS-016 Pre-Midnight faction IDs in VendorDatabase
 - **Type:** Data
