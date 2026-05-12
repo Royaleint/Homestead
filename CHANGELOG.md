@@ -2,6 +2,18 @@
 
 ---
 
+## Unreleased
+
+A fix for world-map pin tooltip errors.
+
+---
+
+### Bug Fixes
+
+- Fixed hovering quest and point-of-interest pins on the world map sometimes throwing tooltip errors. Homestead's collection info no longer appears inside those Blizzard map pin tooltips — it still shows everywhere else (bags, bank, merchants, the side panel).
+
+---
+
 ## Homestead v2.3.31 HOTFIX (05-05-2026)
 
 Two new Midnight vendors and a small minimap pin polish.
