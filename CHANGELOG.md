@@ -2,21 +2,23 @@
 
 ---
 
-## Unreleased
+## Homestead v2.3.40 (05-12-2026)
 
-More detail on profession-crafted decor, plus fixes for world-map pin and side-panel errors.
+A reworked side-panel search that surfaces every source for a decor item, more detail on profession-crafted decor, plus a batch of world-map and side-panel fixes.
 
 ---
 
 ### Improved
 
-- Profession-crafted decor now shows the specific profession skill line and level it requires — tooltips and the map side panel say things like "Midnight Leatherworking, level 50" instead of just "Leatherworking".
+- Search the map side panel for any decor item and see all of its sources, not just vendors: profession recipes, drops, quests, and more. Matching items all highlight at once.
+- Show the specific profession skill line and level on profession-crafted decor. Tooltips and the map side panel now say things like "Midnight Leatherworking, level 50" instead of just "Leatherworking".
+- Tuck Homestead's ownership marker into the icon corner, like a crafting-quality gem, instead of covering part of the icon.
 
 ### Bug Fixes
 
-- Fixed hovering quest and point-of-interest pins on the world map sometimes throwing tooltip errors. Homestead's collection info no longer appears inside those Blizzard map pin tooltips — it still shows everywhere else (bags, bank, merchants, the side panel).
-- Fixed a rare error (and the occasional missing quest pin) that could happen when opening the world map during combat with the map side panel enabled. The side panel now updates from a passive watcher instead of hooking the world map directly.
-- Corrected a few decor items that were incorrectly labelled as profession-crafted.
+- Fix hovering quest and point-of-interest pins on the world map sometimes throwing tooltip errors. Homestead's collection info no longer appears inside those Blizzard map pin tooltips, though it still shows everywhere else (bags, bank, merchants, the side panel).
+- Fix a rare error (and the occasional missing quest pin) when opening the world map in combat with the map side panel enabled. The side panel now updates from a passive watcher instead of hooking the world map directly.
+- Correct a few decor items that were incorrectly labelled as profession-crafted.
 
 ---
 
