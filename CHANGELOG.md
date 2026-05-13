@@ -4,7 +4,7 @@
 
 ## Unreleased
 
-More detail on profession-crafted decor, plus a fix for world-map pin tooltip errors.
+More detail on profession-crafted decor, plus fixes for world-map pin and side-panel errors.
 
 ---
 
@@ -15,6 +15,7 @@ More detail on profession-crafted decor, plus a fix for world-map pin tooltip er
 ### Bug Fixes
 
 - Fixed hovering quest and point-of-interest pins on the world map sometimes throwing tooltip errors. Homestead's collection info no longer appears inside those Blizzard map pin tooltips — it still shows everywhere else (bags, bank, merchants, the side panel).
+- Fixed a rare error (and the occasional missing quest pin) that could happen when opening the world map during combat with the map side panel enabled. The side panel now updates from a passive watcher instead of hooking the world map directly.
 - Corrected a few decor items that were incorrectly labelled as profession-crafted.
 
 ---
