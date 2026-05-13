@@ -1,6 +1,6 @@
 --[[
     Homestead - ProfessionSources
-    Generated: 2026-05-11 22:26:15
+    Generated: 2026-05-12 18:06:11
     Total entries: 308
 
     Profession recipe source data for housing decor items.
@@ -79,7 +79,7 @@ HA.ProfessionSources = {
     [246595] = {profession = "Miscellaneous", recipeName = "Junkyard Tinkering (Item 246595)", spellID = 1243783, skillTier = "Junkyard Tinkering"},
     [246596] = {profession = "Miscellaneous", recipeName = "Junkyard Tinkering (Item 246596)", spellID = 1243780, skillTier = "Junkyard Tinkering"},
     [246597] = {profession = "Miscellaneous", recipeName = "Junkyard Tinkering (Item 246597)", spellID = 1243793, skillTier = "Junkyard Tinkering"},
-    [246604] = {profession = "Engineering", recipeName = "Deactivated Atomic Recalibrator ", spellID = 1260349, skillTier = "Battle for Azeroth Engineering", skillLevel = 140},
+    [246604] = {profession = "Engineering", recipeName = "Deactivated Atomic Recalibrator", spellID = 1260349, skillTier = "Battle for Azeroth Engineering", skillLevel = 140},
     [246606] = {profession = "Miscellaneous", recipeName = "Junkyard Tinkering (Item 246606)", spellID = 1243801, skillTier = "Junkyard Tinkering"},
     [246685] = {profession = "Tailoring", recipeName = "Dwarven District Banner", spellID = 1261695, skillTier = "Classic Tailoring", skillLevel = 240},
     [246693] = {profession = "Enchanting", recipeName = "Self-Pouring Thalassian Sunwine", spellID = 1246909, skillTier = "Midnight Enchanting", skillLevel = 50},
