@@ -483,6 +483,14 @@ Two tickets have pending state changes noted in their entries:
 - **Session context:** HS-080 found `263383` / `264279` / `264280` / `264384` in `ShopSources.lua` despite not being in the catalog, `DecorMapping`, or the Web API decor data — and not in-game either (Rawb confirmed). `ShopSources.lua` was built from "catalog sourceText scan (27 'Shop' items) + Wowhead pack articles + Roofus charity pack" (header) — the sourceText scan may have swept in items Blizzard has since removed, or non-decor items. Cross-check the 42 entries against current `C_HousingCatalog` (a `/hsdev` probe over `ShopSources` itemIDs would do it) and `DecorMapping`.
 - **Notes:** Likely overlaps the HS-012 "source data gaps" cleanup pattern. Low urgency — `ShopSources` is read-only display data; stale entries are cosmetic, not breaking.
 
+### HS-083 Exclude `Home_Dev/` from `.luacheckrc` (or prune stale dev backup/scan dumps)
+- **Type:** Chore (tooling)
+- **Priority:** Low
+- **Status:** Backlog — spawned from the v2.3.40 release run (2026-05-12)
+- **Acceptance criteria:** `luacheck . --config .luacheckrc` from the repo root reports clean shipped code without `Home_Dev/` noise — either `.luacheckrc` `exclude_files` gains `Home_Dev/`, or the offending stale files are removed.
+- **Session context:** During the v2.3.40 release, `luacheck . --config .luacheckrc` reported **1041 warnings / 3 errors / 143 files** — but all 3 errors and ~770 of the warnings are in `Home_Dev/` (gitignored, not packaged): `backups/VendorDatabase_backup_preimport.lua`, `backups/VendorDatabase_updated.lua`, `scan-data/missing_vendors.lua` (the errors), plus old backup dumps (the warnings). Shipped code (`--exclude-files 'Home_Dev/**'`) is **0 errors / 267 warnings** (all in `Libs/` — the usual Ace3 `geterrorhandler` etc.); Homestead's own non-`Libs/` code is **0 warnings / 0 errors**. The `Home_Dev/` noise drowns the release-relevant signal and forces an `--exclude-files` workaround in `/release` Step 3.
+- **Notes:** Cleanest fix is one line in `.luacheckrc` (`exclude_files = { …, "Home_Dev/" }`); alternative is pruning `Home_Dev/backups/` + `Home_Dev/scan-data/` stale dumps. Trivial — do whenever someone's next in `.luacheckrc`.
+
 ### HS-016 Pre-Midnight faction IDs in VendorDatabase
 - **Type:** Data
 - **Priority:** Medium
