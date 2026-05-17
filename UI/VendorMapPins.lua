@@ -501,6 +501,50 @@ local function IsItemOwned(itemID)
     return false
 end
 
+-- HS-074 test: inline-texture glyphs for non-vendor source types.
+-- Filter implicit: vendor/event/shop are not in this table, so they render no glyph
+-- (the current tooltip context IS a vendor — its own type would be redundant).
+local SOURCE_TOOLTIP_ICONS = {
+    profession  = "|TInterface\\ICONS\\INV_Misc_Furniture_Anvil_01:12:12|t",
+    drop        = "|TInterface\\ICONS\\INV_Misc_Bone_Skull_01:12:12|t",
+    quest       = "|TInterface\\GossipFrame\\AvailableQuestIcon:12:12|t",
+    achievement = "|TInterface\\AchievementFrame\\UI-Achievement-TinyShield:12:12|t",
+}
+
+-- HS-074 test: concatenated icon string for an item's non-vendor source types.
+-- Returns empty string when item is vendor-only or has no source data.
+local function BuildItemSourceIconText(itemID)
+    if not itemID or not HA.SourceManager then return "" end
+    local sources = HA.SourceManager:GetAllSources(itemID)
+    if not sources or #sources == 0 then return "" end
+
+    local seen = {}
+    local parts = {}
+    for _, src in ipairs(sources) do
+        local glyph = SOURCE_TOOLTIP_ICONS[src.type]
+        if glyph and not seen[src.type] then
+            seen[src.type] = true
+            parts[#parts + 1] = glyph
+        end
+    end
+    if #parts == 0 then return "" end
+    return " " .. table.concat(parts, "")
+end
+
+-- HS-074 test: true when the item has no source types other than vendor-like
+-- (vendor/event/shop). Approximation of "this vendor-NPC is the only path."
+local function IsItemVendorOnly(itemID)
+    if not itemID or not HA.SourceManager then return false end
+    local sources = HA.SourceManager:GetAllSources(itemID)
+    if not sources or #sources == 0 then return true end
+    for _, src in ipairs(sources) do
+        if src.type ~= "vendor" and src.type ~= "event" and src.type ~= "shop" then
+            return false
+        end
+    end
+    return true
+end
+
 function VendorMapPins:VendorHasUncollectedItems(vendor)
     return BC:VendorHasUncollectedItems(vendor)
 end
@@ -630,22 +674,23 @@ function VendorMapPins:ShowVendorTooltip(pin, vendor)
         for _, item in ipairs(allItems) do
             local itemName = item.name or (item.itemID and GetItemInfo(item.itemID)) or "Unknown Item"
 
+            -- HS-074 test: alternative-source glyphs trailing the name + cost-with-icons
+            -- in the right column. Missing cost data renders as "?".
+            local sourceIcons = BuildItemSourceIconText(item.itemID)
+            local costText = HA.VendorData:FormatCost(HA.VendorData:GetItemCost(item)) or "?"
+            local leftText = "  " .. itemName .. sourceIcons
+
+            local lr, lg, lb = 1, 1, 1  -- default: white (available)
             if item.itemID and IsItemOwned(item.itemID) then
-                -- Collected: green
-                tooltip:AddLine("  " .. itemName, 0, 1, 0)
+                lr, lg, lb = 0, 1, 0    -- Collected: green
             elseif item.itemID and SM and SM.GetVendorItemAvailabilityState then
                 local state = SM:GetVendorItemAvailabilityState(item.itemID, vendor.npcID)
                 if state == "locked" then
-                    -- Locked: red
-                    tooltip:AddLine("  " .. itemName, 1, 0.25, 0.25)
-                else
-                    -- Available: white
-                    tooltip:AddLine("  " .. itemName, 1, 1, 1)
+                    lr, lg, lb = 1, 0.25, 0.25  -- Locked: red
                 end
-            else
-                -- Unknown state: white
-                tooltip:AddLine("  " .. itemName, 1, 1, 1)
             end
+
+            tooltip:AddDoubleLine(leftText, costText, lr, lg, lb, 1, 0.82, 0)
         end
 
     else
@@ -659,6 +704,18 @@ function VendorMapPins:ShowVendorTooltip(pin, vendor)
     if stats.total > 0 then
         tooltip:AddLine(" ")
         BC.AddSummaryLine(tooltip, stats.collected, stats.total, stats.locked, stats.unverified)
+
+        -- HS-074 test: count items at this vendor with no non-vendor source type.
+        -- Wording is a stand-in; refine during design review.
+        local vendorOnlyCount = 0
+        for _, item in ipairs(allItems) do
+            if item.itemID and IsItemVendorOnly(item.itemID) then
+                vendorOnlyCount = vendorOnlyCount + 1
+            end
+        end
+        if vendorOnlyCount > 0 then
+            tooltip:AddLine(string.format("Vendor-only: %d", vendorOnlyCount), 0.85, 0.85, 0.85)
+        end
 
         if isOpposite and not self:CanAccessVendor(vendor) then
             tooltip:AddLine("Cannot buy on this character - opposite faction vendor", 1.0, 0.5, 0.5)
