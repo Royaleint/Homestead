@@ -44,6 +44,7 @@ Data\CatalogStore.lua
 Data\AchievementSources.lua
 Data\QuestSources.lua
 Data\ProfessionSources.lua
+Data\ProfessionTrainerLocations.lua
 Data\EventSources.lua
 Data\DropSources.lua
 Data\ShopSources.lua
