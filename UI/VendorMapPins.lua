@@ -1487,6 +1487,92 @@ end
 
 VendorMapPins.pinSourceProviders.drop = { collect = CollectDropPinRecords }
 
+-------------------------------------------------------------------------------
+-- HS-079: Profession pin provider
+--
+-- Pattern mirrors the vendor pin collector at lines 1346-1359:
+--   for queryMapID in pairs(validMapIDs) do
+--       <get trainers at queryMapID via ByMapID index>
+--       for each trainer: project, look up items, push pin record
+--
+-- One pin per (mapID, x, y, profession, skillTier) tuple. The aggregated
+-- itemIDs list is attached to the record for the tooltip to read.
+--
+-- Hygiene mirrors the drop collector (Decision 7 in HS-018):
+--   1. Skip records with NaN / out-of-range coords (defensive).
+--   2. Reject records whose projection across the parent chain fails.
+--   3. Skip trainers whose (profession, skillTier) has zero items in
+--      ProfessionSources — emits no pin (no items to advertise).
+-------------------------------------------------------------------------------
+
+-- File-local lazy reverse index: "profession|skillTier" -> { itemID, ... }
+-- Mirrors the VendorDatabase.ByItemID reverse-index precedent at line 3060.
+-- Built once on first call, cached. ProfessionSources is static, no invalidation needed.
+local itemsByProfessionTier  -- nil until first call
+
+local function GetItemsForProfessionTier(profession, skillTier)
+    if not itemsByProfessionTier then
+        itemsByProfessionTier = {}
+        if HA.ProfessionSources then
+            for itemID, profSource in pairs(HA.ProfessionSources) do
+                local p = profSource.profession
+                local t = profSource.skillTier
+                if p and t then
+                    local key = p .. "|" .. t
+                    if not itemsByProfessionTier[key] then
+                        itemsByProfessionTier[key] = {}
+                    end
+                    local list = itemsByProfessionTier[key]
+                    list[#list + 1] = itemID
+                end
+            end
+        end
+    end
+    return itemsByProfessionTier[profession .. "|" .. skillTier]
+end
+
+local function CollectProfessionPinRecords(self, mapID, validMapIDs, _filter, renderState)
+    local trainers = HA.ProfessionTrainerLocations
+    if not trainers or not trainers.ByMapID then return end
+
+    -- Iterate by validMapIDs first (matches vendor collector at line 1346).
+    for queryMapID in pairs(validMapIDs) do
+        local trainersAtMap = trainers.ByMapID[queryMapID]
+        if trainersAtMap then
+            for _, entry in ipairs(trainersAtMap) do
+                local cx, cy = entry.x, entry.y
+                -- Coord hygiene: NaN guard + range clamp check.
+                if type(cx) == "number" and type(cy) == "number"
+                        and cx == cx and cy == cy
+                        and cx >= 0 and cx <= 1 and cy >= 0 and cy <= 1 then
+                    local ok, projectedX, projectedY, reason =
+                        MPP:ProjectVendorPinToZoneView(mapID, queryMapID, cx, cy)
+                    if ok then
+                        local itemIDs = GetItemsForProfessionTier(entry.profession, entry.skillTier)
+                        if itemIDs and #itemIDs > 0 then
+                            renderState.sourcePins[#renderState.sourcePins + 1] = {
+                                sourceType = "profession",
+                                profession = entry.profession,
+                                skillTier = entry.skillTier,
+                                mapID = queryMapID,
+                                x = projectedX,
+                                y = projectedY,
+                                reason = reason,
+                                itemIDs = itemIDs,
+                                faction = entry.faction,  -- nil-safe; reserved for Classic
+                            }
+                        end
+                    else
+                        DebugWorldMapProjectionSkip("profession", queryMapID, mapID, reason)
+                    end
+                end
+            end
+        end
+    end
+end
+
+VendorMapPins.pinSourceProviders.profession = { collect = CollectProfessionPinRecords }
+
 function VendorMapPins:ShowDropPinTooltip(pin, record)
     if not record then return end
 
