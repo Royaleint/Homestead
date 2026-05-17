@@ -1558,7 +1558,7 @@ local function CollectProfessionPinRecords(self, mapID, validMapIDs, _filter, re
                                 x = projectedX,
                                 y = projectedY,
                                 reason = reason,
-                                itemIDs = itemIDs,
+                                itemIDs = itemIDs,  -- shared ref from cache; do not mutate
                                 faction = entry.faction,  -- nil-safe; reserved for Classic
                             }
                         end
