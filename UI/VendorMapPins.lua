@@ -1606,6 +1606,61 @@ function VendorMapPins:ShowDropPinTooltip(pin, record)
     tooltip:Show()
 end
 
+-------------------------------------------------------------------------------
+-- HS-079: Profession pin tooltip
+--
+-- Header: "<Profession> Trainer" (white)
+-- Subhead: "<skillTier>" (gray)
+-- Section: "Decor recipes:" (yellow)
+-- Items: name green if owned, white if not. Sorted alphabetically for stable
+-- rendering across refreshes.
+-- Hint: "Visit a profession trainer to learn recipes" (light yellow, wrap).
+-------------------------------------------------------------------------------
+
+function VendorMapPins:ShowProfessionPinTooltip(pin, record)
+    if not record then return end
+
+    activeTooltipData = nil
+    itemInfoEventFrame:UnregisterEvent("GET_ITEM_INFO_RECEIVED")
+
+    local tooltip = BeginPinTooltip(pin, "ANCHOR_RIGHT")
+
+    local profession = record.profession or "?"
+    local skillTier = record.skillTier or ""
+
+    tooltip:AddLine(profession .. " Trainer", 1, 1, 1)
+    if skillTier ~= "" then
+        tooltip:AddLine(skillTier, 0.7, 0.7, 0.7)
+    end
+
+    local itemIDs = record.itemIDs or {}
+    if #itemIDs > 0 then
+        -- Resolve names + sort alphabetically for stable order across refreshes.
+        -- record.itemIDs is a shared reference from GetItemsForProfessionTier's
+        -- cache (see Task 4); build a local `resolved` table — do not mutate itemIDs.
+        local resolved = {}
+        for _, itemID in ipairs(itemIDs) do
+            local name = C_Item.GetItemNameByID(itemID) or ("Item " .. tostring(itemID))
+            resolved[#resolved + 1] = { itemID = itemID, name = name }
+        end
+        table.sort(resolved, function(a, b) return a.name < b.name end)
+
+        tooltip:AddLine(" ")
+        tooltip:AddLine("Decor recipes:", 1, 1, 0)
+        for _, entry in ipairs(resolved) do
+            if IsItemOwned(entry.itemID) then
+                tooltip:AddLine("  " .. entry.name, 0, 1, 0)  -- green: owned
+            else
+                tooltip:AddLine("  " .. entry.name, 1, 1, 1)  -- white: not owned
+            end
+        end
+    end
+
+    tooltip:AddLine(" ")
+    tooltip:AddLine("Visit a profession trainer to learn recipes", 1, 0.82, 0, true)
+    tooltip:Show()
+end
+
 function VendorMapPins:EmitPortalBadges(mapID, renderState)
     -- Portal badge pass: draw entrance markers for Order Hall vendors
     -- accessible via this map. Gated to vendor/all filters by CollectSourcePins.
