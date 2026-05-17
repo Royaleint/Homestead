@@ -286,78 +286,6 @@ function Validation:ValidateZoneToContinentMapping()
     return errors, warnings
 end
 
-function Validation:ValidateProfessionTrainerLocations()
-    local errors = {}
-    local warnings = {}
-    local entryCount = 0
-
-    if not HA.ProfessionTrainerLocations then
-        table.insert(errors, "ProfessionTrainerLocations not loaded")
-        return errors, warnings, 0
-    end
-
-    -- Collect all skill tiers present in ProfessionSources for cross-check.
-    local seenTiers = {}
-    if HA.ProfessionSources then
-        for _, profSource in pairs(HA.ProfessionSources) do
-            if profSource.profession and profSource.skillTier then
-                seenTiers[profSource.profession .. "|" .. profSource.skillTier] = true
-            end
-        end
-    else
-        table.insert(warnings, "ProfessionSources not loaded — skill-tier coverage check skipped")
-    end
-
-    -- Walk the flat trainer array and validate each record.
-    local coveredTiers = {}
-    for i, entry in ipairs(HA.ProfessionTrainerLocations) do
-        entryCount = entryCount + 1
-        local context = string.format("ProfessionTrainerLocations[%d]", i)
-
-        if type(entry.profession) ~= "string" or entry.profession == "" then
-            table.insert(errors, context .. ": missing or non-string profession")
-        end
-        if type(entry.skillTier) ~= "string" or entry.skillTier == "" then
-            table.insert(errors, context .. ": missing or non-string skillTier")
-        end
-        if type(entry.mapID) ~= "number" then
-            table.insert(errors, context .. ": mapID is missing or not a number")
-        end
-
-        local coordErrors = ValidateCoordinates(entry.x, entry.y, context)
-        for _, err in ipairs(coordErrors) do
-            table.insert(errors, err)
-        end
-
-        if entry.faction and entry.faction ~= "Alliance"
-                and entry.faction ~= "Horde" and entry.faction ~= "Neutral" then
-            table.insert(warnings, string.format(
-                "%s: invalid faction '%s'", context, tostring(entry.faction)))
-        end
-
-        if entry.profession and entry.skillTier then
-            coveredTiers[entry.profession .. "|" .. entry.skillTier] = true
-        end
-    end
-
-    -- ByMapID index sanity (built at file load — should always exist).
-    if type(HA.ProfessionTrainerLocations.ByMapID) ~= "table" then
-        table.insert(errors, "ProfessionTrainerLocations.ByMapID index missing or wrong type")
-    end
-
-    -- Cross-check: every skillTier in ProfessionSources should have a trainer
-    -- location. Warning only — older tiers are intentionally deferred in v1.
-    for key in pairs(seenTiers) do
-        if not coveredTiers[key] then
-            table.insert(warnings, string.format(
-                "ProfessionTrainerLocations: no entry for skillTier '%s' "
-                .. "(items with this tier will not get profession pins)", key))
-        end
-    end
-
-    return errors, warnings, entryCount
-end
-
 -------------------------------------------------------------------------------
 -- Main Validation Command
 -------------------------------------------------------------------------------
@@ -401,14 +329,6 @@ function Validation:RunFullValidation()
     table.insert(output, string.format("  %d errors, %d warnings\n",
         #zmErrors, #zmWarnings))
 
-    -- HS-079: Validate profession trainer locations
-    table.insert(output, "Checking ProfessionTrainerLocations...")
-    local ptlErrors, ptlWarnings, ptlCount = self:ValidateProfessionTrainerLocations()
-    totalErrors = totalErrors + #ptlErrors
-    totalWarnings = totalWarnings + #ptlWarnings
-    table.insert(output, string.format("  %d trainer entries, %d errors, %d warnings\n",
-        ptlCount, #ptlErrors, #ptlWarnings))
-
     -- Summary
     table.insert(output, "---\n")
     if totalErrors == 0 and totalWarnings == 0 then
@@ -431,12 +351,10 @@ function Validation:RunFullValidation()
     for _, e in ipairs(scErrors) do table.insert(self.lastResults.errors, e) end
     for _, e in ipairs(owErrors) do table.insert(self.lastResults.errors, e) end
     for _, e in ipairs(zmErrors) do table.insert(self.lastResults.errors, e) end
-    for _, e in ipairs(ptlErrors) do table.insert(self.lastResults.errors, e) end
     for _, w in ipairs(dbWarnings) do table.insert(self.lastResults.warnings, w) end
     for _, w in ipairs(scWarnings) do table.insert(self.lastResults.warnings, w) end
     for _, w in ipairs(owWarnings) do table.insert(self.lastResults.warnings, w) end
     for _, w in ipairs(zmWarnings) do table.insert(self.lastResults.warnings, w) end
-    for _, w in ipairs(ptlWarnings) do table.insert(self.lastResults.warnings, w) end
 
     -- Add details if there are issues
     if totalErrors > 0 or totalWarnings > 0 then

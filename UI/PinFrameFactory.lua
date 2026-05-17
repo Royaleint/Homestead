@@ -216,12 +216,10 @@ function PinFrameFactory:CreateSourcePinFrame(sourceType, record)
         return self:CreateVendorPinFrame(record.vendor, record.isOppositeFaction)
     elseif sourceType == "drop" then
         return self:CreateDropPinFrame(record)
-    elseif sourceType == "profession" then
-        return self:CreateProfessionPinFrame(record)
     end
 
-    -- Other source types (quest, achievement, shop) are reserved registry slots
-    -- awaiting their own tickets.
+    -- Other source types (profession, quest, achievement, shop) are reserved
+    -- registry slots awaiting their own tickets.
     return nil
 end
 
@@ -261,63 +259,6 @@ function PinFrameFactory:CreateDropPinFrame(record)
     frame:SetScript("OnEnter", function(self) -- luacheck: ignore 432
         if HA.VendorMapPins then
             HA.VendorMapPins:ShowDropPinTooltip(self, self.record)
-        end
-    end)
-    frame:SetScript("OnLeave", function() -- luacheck: ignore 432
-        if HA.VendorMapPins then
-            HA.VendorMapPins:OnPinLeave()
-        end
-    end)
-
-    return frame
-end
-
--------------------------------------------------------------------------------
--- HS-079: Profession Pin Frame
---
--- Visually distinct from vendor / drop pins so filter = "Profession" reads at
--- a glance. Same base size as vendor pins for consistency. Click does nothing
--- (Decision F — no waypoint in v1); hover surfaces profession + skill tier +
--- decor item list via VendorMapPins:ShowProfessionPinTooltip.
--------------------------------------------------------------------------------
-
--- Golden-amber tint. Single-use constant (no other call sites).
-local PROFESSION_PIN_TINT = { 0.95, 0.75, 0.20, 1.0 }
-
-function PinFrameFactory:CreateProfessionPinFrame(record)
-    local frame = CreateFrame("Frame", nil, UIParent)
-
-    local baseSize = self:GetPinIconSize()
-    local _, _, iconSize = GetWorldPinVisualSizes(baseSize)
-    frame:SetSize(baseSize, baseSize)
-    frame:EnableMouse(true)
-
-    frame.icon = frame:CreateTexture(nil, "ARTWORK")
-    frame.icon:SetPoint("CENTER")
-    frame.icon:SetSize(iconSize, iconSize)
-
-    -- Texture path first (HA.Constants.Icons.CRAFTABLE is the canonical
-    -- profession-source icon, already used by SourceManager). Atlas fallback
-    -- only if the constant is missing — matches the drop pin pattern.
-    local profIcon = HA.Constants and HA.Constants.Icons and HA.Constants.Icons.CRAFTABLE
-    if type(profIcon) == "string" then
-        frame.icon:SetTexture(profIcon)
-    else
-        local atlas = HA.Constants and HA.Constants.SourceBadgeAtlas
-            and HA.Constants.SourceBadgeAtlas.profession
-            or "UI-HUD-MicroMenu-Professions-Mouseover"
-        frame.icon:SetAtlas(atlas, false)
-    end
-
-    -- Golden-amber tint so profession pins read as craft/learn, not commerce
-    -- (vendor) or combat/loot (drop).
-    frame.icon:SetVertexColor(unpack(PROFESSION_PIN_TINT))
-
-    frame.record = record
-
-    frame:SetScript("OnEnter", function(self) -- luacheck: ignore 432
-        if HA.VendorMapPins then
-            HA.VendorMapPins:ShowProfessionPinTooltip(self, self.record)
         end
     end)
     frame:SetScript("OnLeave", function() -- luacheck: ignore 432
