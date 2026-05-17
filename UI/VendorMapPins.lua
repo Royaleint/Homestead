@@ -505,10 +505,10 @@ end
 -- Filter implicit: vendor/event/shop are not in this table, so they render no glyph
 -- (the current tooltip context IS a vendor — its own type would be redundant).
 local SOURCE_TOOLTIP_ICONS = {
-    profession  = "|TInterface\\ICONS\\INV_Misc_Furniture_Anvil_01:12:12|t",
-    drop        = "|TInterface\\ICONS\\INV_Misc_Bone_Skull_01:12:12|t",
-    quest       = "|TInterface\\GossipFrame\\AvailableQuestIcon:12:12|t",
-    achievement = "|TInterface\\AchievementFrame\\UI-Achievement-TinyShield:12:12|t",
+    profession  = "|TInterface\\ICONS\\INV_Misc_Furniture_Anvil_01:16:16|t",
+    drop        = "|TInterface\\ICONS\\INV_Misc_Bone_Skull_01:16:16|t",
+    quest       = "|TInterface\\GossipFrame\\AvailableQuestIcon:16:16|t",
+    achievement = "|TInterface\\AchievementFrame\\UI-Achievement-TinyShield:16:16|t",
 }
 
 -- HS-074 test: concatenated icon string for an item's non-vendor source types.
@@ -646,7 +646,10 @@ function VendorMapPins:ShowVendorTooltip(pin, vendor)
             local itemID = HA.VendorData:GetItemID(item)
             if itemID and not itemsSeen[itemID] then
                 itemsSeen[itemID] = true
-                tinsert(allItems, {itemID = itemID})
+                -- HS-074 test: preserve cost on the wrapped record so the right column
+                -- can format it. Previously stripped, which is why the cost column
+                -- rendered "?" even for vendors that had data populated.
+                tinsert(allItems, {itemID = itemID, cost = HA.VendorData:GetItemCost(item)})
             end
         end
     end
@@ -677,7 +680,7 @@ function VendorMapPins:ShowVendorTooltip(pin, vendor)
             -- HS-074 test: alternative-source glyphs trailing the name + cost-with-icons
             -- in the right column. Missing cost data renders as "?".
             local sourceIcons = BuildItemSourceIconText(item.itemID)
-            local costText = HA.VendorData:FormatCost(HA.VendorData:GetItemCost(item)) or "?"
+            local costText = HA.VendorData:FormatCost(item.cost) or "?"
             local leftText = "  " .. itemName .. sourceIcons
 
             local lr, lg, lb = 1, 1, 1  -- default: white (available)
