@@ -501,14 +501,17 @@ local function IsItemOwned(itemID)
     return false
 end
 
--- HS-074 test: inline-texture glyphs for non-vendor source types.
+-- HS-074 test: atlas-based inline glyphs for non-vendor source types.
+-- Atlas rendering tends to be sharper at small inline sizes than item-icon
+-- texture paths (which can look pixelated when scaled down from 64x64). Atlas
+-- names mirror Constants.SourceBadgeAtlas (the catalog overlay's pick).
 -- Filter implicit: vendor/event/shop are not in this table, so they render no glyph
 -- (the current tooltip context IS a vendor — its own type would be redundant).
 local SOURCE_TOOLTIP_ICONS = {
-    profession  = "|TInterface\\ICONS\\INV_Misc_Furniture_Anvil_01:20:20|t",
-    drop        = "|TInterface\\ICONS\\INV_Misc_Bone_Skull_01:20:20|t",
-    quest       = "|TInterface\\GossipFrame\\AvailableQuestIcon:20:20|t",
-    achievement = "|TInterface\\AchievementFrame\\UI-Achievement-TinyShield:20:20|t",
+    profession  = "|A:UI-HUD-MicroMenu-Professions-Mouseover:24:24|a",
+    drop        = "|A:Crosshair_lootall_64:24:24|a",
+    quest       = "|A:QuestNormal:24:24|a",
+    achievement = "|A:UI-Achievement-Shield-NoPoints:24:24|a",
 }
 
 -- HS-074 test: concatenated icon string for an item's non-vendor source types.
@@ -528,7 +531,9 @@ local function BuildItemSourceIconText(itemID)
         end
     end
     if #parts == 0 then return "" end
-    return " " .. table.concat(parts, "")
+    -- Two spaces between name and first icon (single space looked attached to text);
+    -- one space between adjacent icons when multiple types apply.
+    return "  " .. table.concat(parts, " ")
 end
 
 -- HS-074 test: true when the item has no source types other than vendor-like
