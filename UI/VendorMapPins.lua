@@ -505,10 +505,10 @@ end
 -- Filter implicit: vendor/event/shop are not in this table, so they render no glyph
 -- (the current tooltip context IS a vendor — its own type would be redundant).
 local SOURCE_TOOLTIP_ICONS = {
-    profession  = "|TInterface\\ICONS\\INV_Misc_Furniture_Anvil_01:16:16|t",
-    drop        = "|TInterface\\ICONS\\INV_Misc_Bone_Skull_01:16:16|t",
-    quest       = "|TInterface\\GossipFrame\\AvailableQuestIcon:16:16|t",
-    achievement = "|TInterface\\AchievementFrame\\UI-Achievement-TinyShield:16:16|t",
+    profession  = "|TInterface\\ICONS\\INV_Misc_Furniture_Anvil_01:20:20|t",
+    drop        = "|TInterface\\ICONS\\INV_Misc_Bone_Skull_01:20:20|t",
+    quest       = "|TInterface\\GossipFrame\\AvailableQuestIcon:20:20|t",
+    achievement = "|TInterface\\AchievementFrame\\UI-Achievement-TinyShield:20:20|t",
 }
 
 -- HS-074 test: concatenated icon string for an item's non-vendor source types.
