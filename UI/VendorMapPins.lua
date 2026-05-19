@@ -501,55 +501,6 @@ local function IsItemOwned(itemID)
     return false
 end
 
--- HS-074 test: atlas-based inline glyphs for non-vendor source types.
--- Atlas rendering tends to be sharper at small inline sizes than item-icon
--- texture paths (which can look pixelated when scaled down from 64x64). Atlas
--- names mirror Constants.SourceBadgeAtlas (the catalog overlay's pick).
--- Filter implicit: vendor/event/shop are not in this table, so they render no glyph
--- (the current tooltip context IS a vendor — its own type would be redundant).
-local SOURCE_TOOLTIP_ICONS = {
-    profession  = "|A:UI-HUD-MicroMenu-Professions-Mouseover:24:24|a",
-    drop        = "|A:Crosshair_lootall_64:24:24|a",
-    quest       = "|A:QuestNormal:24:24|a",
-    achievement = "|A:UI-Achievement-Shield-NoPoints:24:24|a",
-}
-
--- HS-074 test: concatenated icon string for an item's non-vendor source types.
--- Returns empty string when item is vendor-only or has no source data.
-local function BuildItemSourceIconText(itemID)
-    if not itemID or not HA.SourceManager then return "" end
-    local sources = HA.SourceManager:GetAllSources(itemID)
-    if not sources or #sources == 0 then return "" end
-
-    local seen = {}
-    local parts = {}
-    for _, src in ipairs(sources) do
-        local glyph = SOURCE_TOOLTIP_ICONS[src.type]
-        if glyph and not seen[src.type] then
-            seen[src.type] = true
-            parts[#parts + 1] = glyph
-        end
-    end
-    if #parts == 0 then return "" end
-    -- Two spaces between name and first icon (single space looked attached to text);
-    -- one space between adjacent icons when multiple types apply.
-    return "  " .. table.concat(parts, " ")
-end
-
--- HS-074 test: true when the item has no source types other than vendor-like
--- (vendor/event/shop). Approximation of "this vendor-NPC is the only path."
-local function IsItemVendorOnly(itemID)
-    if not itemID or not HA.SourceManager then return false end
-    local sources = HA.SourceManager:GetAllSources(itemID)
-    if not sources or #sources == 0 then return true end
-    for _, src in ipairs(sources) do
-        if src.type ~= "vendor" and src.type ~= "event" and src.type ~= "shop" then
-            return false
-        end
-    end
-    return true
-end
-
 function VendorMapPins:VendorHasUncollectedItems(vendor)
     return BC:VendorHasUncollectedItems(vendor)
 end
@@ -651,10 +602,7 @@ function VendorMapPins:ShowVendorTooltip(pin, vendor)
             local itemID = HA.VendorData:GetItemID(item)
             if itemID and not itemsSeen[itemID] then
                 itemsSeen[itemID] = true
-                -- HS-074 test: preserve cost on the wrapped record so the right column
-                -- can format it. Previously stripped, which is why the cost column
-                -- rendered "?" even for vendors that had data populated.
-                tinsert(allItems, {itemID = itemID, cost = HA.VendorData:GetItemCost(item)})
+                tinsert(allItems, {itemID = itemID})
             end
         end
     end
@@ -682,23 +630,22 @@ function VendorMapPins:ShowVendorTooltip(pin, vendor)
         for _, item in ipairs(allItems) do
             local itemName = item.name or (item.itemID and GetItemInfo(item.itemID)) or "Unknown Item"
 
-            -- HS-074 test: alternative-source glyphs trailing the name + cost-with-icons
-            -- in the right column. Missing cost data renders as "?".
-            local sourceIcons = BuildItemSourceIconText(item.itemID)
-            local costText = HA.VendorData:FormatCost(item.cost) or "?"
-            local leftText = "  " .. itemName .. sourceIcons
-
-            local lr, lg, lb = 1, 1, 1  -- default: white (available)
             if item.itemID and IsItemOwned(item.itemID) then
-                lr, lg, lb = 0, 1, 0    -- Collected: green
+                -- Collected: green
+                tooltip:AddLine("  " .. itemName, 0, 1, 0)
             elseif item.itemID and SM and SM.GetVendorItemAvailabilityState then
                 local state = SM:GetVendorItemAvailabilityState(item.itemID, vendor.npcID)
                 if state == "locked" then
-                    lr, lg, lb = 1, 0.25, 0.25  -- Locked: red
+                    -- Locked: red
+                    tooltip:AddLine("  " .. itemName, 1, 0.25, 0.25)
+                else
+                    -- Available: white
+                    tooltip:AddLine("  " .. itemName, 1, 1, 1)
                 end
+            else
+                -- Unknown state: white
+                tooltip:AddLine("  " .. itemName, 1, 1, 1)
             end
-
-            tooltip:AddDoubleLine(leftText, costText, lr, lg, lb, 1, 0.82, 0)
         end
 
     else
@@ -712,18 +659,6 @@ function VendorMapPins:ShowVendorTooltip(pin, vendor)
     if stats.total > 0 then
         tooltip:AddLine(" ")
         BC.AddSummaryLine(tooltip, stats.collected, stats.total, stats.locked, stats.unverified)
-
-        -- HS-074 test: count items at this vendor with no non-vendor source type.
-        -- Wording is a stand-in; refine during design review.
-        local vendorOnlyCount = 0
-        for _, item in ipairs(allItems) do
-            if item.itemID and IsItemVendorOnly(item.itemID) then
-                vendorOnlyCount = vendorOnlyCount + 1
-            end
-        end
-        if vendorOnlyCount > 0 then
-            tooltip:AddLine(string.format("Vendor-only: %d", vendorOnlyCount), 0.85, 0.85, 0.85)
-        end
 
         if isOpposite and not self:CanAccessVendor(vendor) then
             tooltip:AddLine("Cannot buy on this character - opposite faction vendor", 1.0, 0.5, 0.5)
