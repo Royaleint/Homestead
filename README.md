@@ -65,7 +65,7 @@ Special thanks to Azro, author of [HomeDecor](https://www.curseforge.com/wow/add
 
 ### Libraries
 
-- [Ace3](https://www.wowace.com/projects/ace3) (AceAddon, AceConfig, AceConsole, AceDB, AceEvent, AceGUI)
+- [Ace3](https://www.wowace.com/projects/ace3) (AceAddon, AceConsole, AceDB, AceEvent)
 - [CallbackHandler](https://www.wowace.com/projects/callbackhandler)
 - [LibDataBroker](https://www.wowace.com/projects/libdatabroker-1-1)
 - [LibDBIcon](https://www.wowace.com/projects/libdbicon-1-0)
