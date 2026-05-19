@@ -32,6 +32,7 @@ local SCROLL_SPACING = 6
 local NAV_SELECTED_COLOR = { r = 1.0, g = 0.82, b = 0.0 }
 local NAV_NORMAL_COLOR = { r = 1.0, g = 0.82, b = 0.0 }
 local NAV_HOVER_COLOR = { r = 1.0, g = 0.93, b = 0.45 }
+local HOMESTEAD_PORTRAIT_TEXTURE = "Interface\\AddOns\\Homestead\\Textures\\icon"
 
 local DEFAULT_ROW_HEIGHTS = {
     header = 36,
@@ -354,8 +355,15 @@ local function SetTitle(ownerFrame)
     ownerFrame.titleText:SetText(title)
 end
 
+local function SetPortrait(ownerFrame)
+    local portrait = ownerFrame.GetPortrait and ownerFrame:GetPortrait()
+    if portrait then
+        portrait:SetTexture(HOMESTEAD_PORTRAIT_TEXTURE)
+    end
+end
+
 local function CreateShell()
-    local ownerFrame = CreateFrame("Frame", "HomesteadOptionsFrame", UIParent, "DefaultPanelTemplate")
+    local ownerFrame = CreateFrame("Frame", "HomesteadOptionsFrame", UIParent, "PortraitFrameTemplate")
     ownerFrame.homesteadAddonName = addonName
     ownerFrame:SetSize(DEFAULT_WIDTH, DEFAULT_HEIGHT)
     ownerFrame:SetPoint("CENTER")
@@ -367,6 +375,7 @@ local function CreateShell()
     ownerFrame:Hide()
 
     SetTitle(ownerFrame)
+    SetPortrait(ownerFrame)
 
     local closeButton = CreateFrame("Button", nil, ownerFrame, "UIPanelCloseButtonDefaultAnchors")
     closeButton:SetScript("OnClick", function()
