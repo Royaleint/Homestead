@@ -16,6 +16,7 @@ local activeSection = "general"
 local rowControlCache = {}
 local sectionHeaderRows = {}
 local sectionDescriptionRows = {}
+local headerDescriptionRows = {}
 local settingsBridgeRegistered = false
 
 local DEFAULT_WIDTH = 760
@@ -26,7 +27,7 @@ local NAV_WIDTH = 170
 local NAV_BUTTON_HEIGHT = 28
 local NAV_BUTTON_SPACING = 2
 local CONTENT_INSET = 18
-local SCROLL_SPACING = 8
+local SCROLL_SPACING = 6
 
 local NAV_SELECTED_COLOR = { r = 1.0, g = 0.82, b = 0.0 }
 local NAV_NORMAL_COLOR = { r = 1.0, g = 0.82, b = 0.0 }
@@ -34,7 +35,7 @@ local NAV_HOVER_COLOR = { r = 1.0, g = 0.93, b = 0.45 }
 
 local DEFAULT_ROW_HEIGHTS = {
     header = 36,
-    description = 34,
+    description = 24,
     checkbox = 32,
     button = 32,
     slider = 46,
@@ -119,16 +120,9 @@ local function EnableSafeEscapeClose(targetFrame)
     end
 
     targetFrame:EnableKeyboard(true)
-    targetFrame:SetPropagateKeyboardInput(true)
-    targetFrame:HookScript("OnShow", function(self)
-        self:SetPropagateKeyboardInput(true)
-    end)
     targetFrame:SetScript("OnKeyDown", function(self, key)
         if key == "ESCAPE" then
-            self:SetPropagateKeyboardInput(false)
             self:Hide()
-        else
-            self:SetPropagateKeyboardInput(true)
         end
     end)
 end
@@ -183,7 +177,27 @@ local function GetSectionDescriptionRow(section)
     end
 
     row.label = section.description
+    row.height = 24
     return row
+end
+
+local function GetHeaderDescriptionRow(row)
+    if not row or not row.key or not row.description then
+        return nil
+    end
+
+    local descriptionRow = headerDescriptionRows[row]
+    if not descriptionRow then
+        descriptionRow = {
+            key = row.key .. "Description",
+            type = "description",
+            height = 24,
+        }
+        headerDescriptionRows[row] = descriptionRow
+    end
+
+    descriptionRow.label = row.description
+    return descriptionRow
 end
 
 local function ClearRenderedChild(rowFrame)
@@ -358,7 +372,8 @@ local function CreateShell()
     ownerFrame.homesteadAddonName = addonName
     ownerFrame:SetSize(DEFAULT_WIDTH, DEFAULT_HEIGHT)
     ownerFrame:SetPoint("CENTER")
-    ownerFrame:SetFrameStrata("HIGH")
+    ownerFrame:SetFrameStrata("FULLSCREEN_DIALOG")
+    ownerFrame:SetToplevel(true)
     ownerFrame:SetMovable(true)
     ownerFrame:EnableMouse(true)
     ownerFrame:SetClampedToScreen(true)
@@ -499,6 +514,7 @@ function OptionsFrame:Open(sectionKey)
     self:Initialize()
     RestoreGeometry()
     frame:Show()
+    frame:Raise()
     self:ShowSection(sectionKey or activeSection)
 end
 
@@ -542,6 +558,10 @@ function OptionsFrame:ShowSection(sectionKey)
     for _, row in ipairs(section.rows or {}) do
         if IsRowVisible(row) then
             dataProvider:Insert(row)
+            local headerDescription = GetHeaderDescriptionRow(row)
+            if headerDescription then
+                dataProvider:Insert(headerDescription)
+            end
         end
     end
 

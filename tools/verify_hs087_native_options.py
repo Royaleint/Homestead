@@ -24,6 +24,10 @@ REQUIRED = {
         "button.selectedTexture",
         "GetSectionHeaderRow",
         "GetSectionDescriptionRow",
+        "GetHeaderDescriptionRow",
+        'ownerFrame:SetFrameStrata("FULLSCREEN_DIALOG")',
+        "ownerFrame:SetToplevel(true)",
+        "frame:Raise()",
     ],
     "UI/OptionsControls.lua": [
         "CreateHeaderSeparator",
@@ -40,6 +44,13 @@ REQUIRED = {
         "desc_options_minimap",
         "desc_options_endeavors",
         "desc_options_export",
+        "desc_vendor_visibility_section",
+        "desc_pin_appearance_section",
+        "desc_overlay_inventory_section",
+        "desc_overlay_merchant_section",
+        "desc_overlay_catalog_section",
+        "desc_tooltip_map_pins_section",
+        "desc_minimap_waypoints_section",
     ],
 }
 
@@ -52,6 +63,7 @@ FORBIDDEN_SNIPPETS = {
         'CreateFrame("Button", nil, parent, "UIPanelButtonTemplate")',
         "house-drawing-stone-bg",
         "backgroundShade",
+        "SetPropagateKeyboardInput",
     ],
 }
 

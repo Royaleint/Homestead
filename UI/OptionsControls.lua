@@ -10,7 +10,7 @@ HA.OptionsControls = Controls
 
 local ROW_HEIGHT = 32
 local HEADER_HEIGHT = 36
-local DESCRIPTION_HEIGHT = 34
+local DESCRIPTION_HEIGHT = 24
 local SLIDER_HEIGHT = 46
 local DROPDOWN_HEIGHT = 40
 local COLOR_HEIGHT = 34

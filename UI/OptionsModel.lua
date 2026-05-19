@@ -256,6 +256,7 @@ OptionsModel.sections = {
                 key = "vendorVisibilityHeader",
                 type = "header",
                 label = L["Vendor Visibility"],
+                description = L["desc_vendor_visibility_section"],
             },
             {
                 key = "showOppositeFaction",
@@ -294,6 +295,7 @@ OptionsModel.sections = {
                 key = "pinAppearanceHeader",
                 type = "header",
                 label = L["Pin Appearance"],
+                description = L["desc_pin_appearance_section"],
             },
             {
                 key = "pinColorPreset",
@@ -399,6 +401,7 @@ OptionsModel.sections = {
                 key = "inventoryHeader",
                 type = "header",
                 label = L["Inventory"],
+                description = L["desc_overlay_inventory_section"],
             },
             {
                 key = "showOnBags",
@@ -452,6 +455,7 @@ OptionsModel.sections = {
                 key = "merchantHeader",
                 type = "header",
                 label = L["Merchant"],
+                description = L["desc_overlay_merchant_section"],
             },
             {
                 key = "showOnMerchant",
@@ -473,6 +477,7 @@ OptionsModel.sections = {
                 key = "housingCatalogHeader",
                 type = "header",
                 label = L["Housing Catalog"],
+                description = L["desc_overlay_catalog_section"],
             },
             {
                 key = "showOnHousingCatalog",
@@ -614,6 +619,7 @@ OptionsModel.sections = {
                 key = "mapPinTooltipHeader",
                 type = "header",
                 label = L["Map Pins"],
+                description = L["desc_tooltip_map_pins_section"],
             },
             {
                 key = "showVendorDetails",
@@ -858,6 +864,7 @@ OptionsModel.sections = {
                 key = "waypointHeader",
                 type = "header",
                 label = L["Waypoints"],
+                description = L["desc_minimap_waypoints_section"],
             },
             {
                 key = "waypointDesc",
