@@ -28,6 +28,9 @@ REQUIRED = {
         'ownerFrame:SetFrameStrata("HIGH")',
         "ownerFrame:SetToplevel(true)",
         "frame:Raise()",
+        'CreateFrame("Frame", nil, content, "InsetFrameTemplate")',
+        "ownerFrame.navInset",
+        "ownerFrame.contentInset",
     ],
     "UI/OptionsControls.lua": [
         "CreateHeaderSeparator",
@@ -65,6 +68,7 @@ FORBIDDEN_SNIPPETS = {
         'CreateFrame("Button", nil, parent, "UIPanelButtonTemplate")',
         "house-drawing-stone-bg",
         "backgroundShade",
+        "navBackground",
         "SetPropagateKeyboardInput",
         "FULLSCREEN_DIALOG",
         "EnableKeyboard",

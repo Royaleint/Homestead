@@ -387,10 +387,10 @@ local function CreateShell()
     nav:SetWidth(NAV_WIDTH)
     ownerFrame.nav = nav
 
-    local navBackground = nav:CreateTexture(nil, "BACKGROUND")
-    navBackground:SetAllPoints(nav)
-    navBackground:SetColorTexture(0.02, 0.02, 0.02, 0.32)
-    ownerFrame.navBackground = navBackground
+    local navInset = CreateFrame("Frame", nil, content, "InsetFrameTemplate")
+    navInset:SetPoint("TOPLEFT", nav, "TOPLEFT", -4, 4)
+    navInset:SetPoint("BOTTOMRIGHT", nav, "BOTTOMRIGHT", 4, -4)
+    ownerFrame.navInset = navInset
 
     local navDivider = content:CreateTexture(nil, "ARTWORK")
     navDivider:SetPoint("TOPLEFT", nav, "TOPRIGHT", 10, 0)
@@ -403,6 +403,11 @@ local function CreateShell()
     scrollBar:SetPoint("TOPRIGHT", content, "TOPRIGHT", -2, -8)
     scrollBar:SetPoint("BOTTOMRIGHT", content, "BOTTOMRIGHT", -2, 8)
     ownerFrame.scrollBar = scrollBar
+
+    local contentInset = CreateFrame("Frame", nil, content, "InsetFrameTemplate")
+    contentInset:SetPoint("TOPLEFT", nav, "TOPRIGHT", 18, 4)
+    contentInset:SetPoint("BOTTOMRIGHT", scrollBar, "BOTTOMLEFT", -2, -4)
+    ownerFrame.contentInset = contentInset
 
     local scrollBox = CreateFrame("Frame", nil, content, "WowScrollBoxList")
     scrollBox:SetPoint("TOPLEFT", nav, "TOPRIGHT", 26, 0)
