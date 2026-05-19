@@ -14,6 +14,7 @@ local frame
 local navButtons = {}
 local activeSection = "general"
 local rowControlCache = {}
+local sectionHeaderRows = {}
 local settingsBridgeRegistered = false
 
 local DEFAULT_WIDTH = 760
@@ -146,6 +147,24 @@ local function IsRowVisible(row)
         return not row.hidden()
     end
     return true
+end
+
+local function GetSectionHeaderRow(section)
+    if not section or not section.key then
+        return nil
+    end
+
+    local row = sectionHeaderRows[section.key]
+    if not row then
+        row = {
+            key = section.key .. "Header",
+            type = "header",
+        }
+        sectionHeaderRows[section.key] = row
+    end
+
+    row.label = section.label or section.key
+    return row
 end
 
 local function ClearRenderedChild(rowFrame)
@@ -506,6 +525,10 @@ function OptionsFrame:ShowSection(sectionKey)
     UpdateNavButtons()
 
     local dataProvider = CreateDataProvider()
+    local sectionHeader = GetSectionHeaderRow(section)
+    if sectionHeader then
+        dataProvider:Insert(sectionHeader)
+    end
     for _, row in ipairs(section.rows or {}) do
         if IsRowVisible(row) then
             dataProvider:Insert(row)

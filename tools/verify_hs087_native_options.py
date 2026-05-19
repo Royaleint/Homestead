@@ -22,11 +22,14 @@ REQUIRED = {
         "local NAV_SELECTED_COLOR",
         "ApplyNavButtonState",
         "button.selectedTexture",
+        "GetSectionHeaderRow",
     ],
     "UI/OptionsControls.lua": [
         "CreateHeaderSeparator",
         "GameFontHighlightLarge",
         "separator:SetColorTexture",
+        "CONTROL_RIGHT_PADDING",
+        'dropdown:SetPoint("RIGHT"',
     ],
 }
 

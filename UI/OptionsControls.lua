@@ -19,6 +19,7 @@ local PIN_PREVIEW_HEIGHT = 34
 local LEFT_WIDTH = 260
 local RIGHT_WIDTH = 240
 local CONTROL_GAP = 14
+local CONTROL_RIGHT_PADDING = 36
 
 local function GetTooltip()
     local tooltip = _G.HomesteadOptionsTooltip
@@ -284,7 +285,7 @@ function Controls.CreateDropdown(parent, row, refresh)
 
     local dropdown = CreateFrame("DropdownButton", nil, frame, "WowStyle1DropdownTemplate")
     dropdown:SetPoint("LEFT", frame, "LEFT", LEFT_WIDTH + CONTROL_GAP, 0)
-    dropdown:SetWidth(RIGHT_WIDTH)
+    dropdown:SetPoint("RIGHT", frame, "RIGHT", -CONTROL_RIGHT_PADDING, 0)
     SetDropdownText(dropdown, row)
     frame.homesteadRefresh = function()
         SetDropdownText(dropdown, row)
