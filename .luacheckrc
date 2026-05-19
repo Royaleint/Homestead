@@ -44,6 +44,7 @@ read_globals = {
     "ItemRefTooltip",
     "MerchantFrame", "MerchantFrameTab1", "MerchantFrameTab2",
     "MerchantNextPageButton", "MerchantPrevPageButton",
+    "InterfaceOptions_AddCategory",
     "Settings",
     "ShoppingTooltip1", "ShoppingTooltip2",
     "ScrollUtil",

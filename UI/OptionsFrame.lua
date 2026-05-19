@@ -14,6 +14,7 @@ local frame
 local navButtons = {}
 local activeSection = "general"
 local rowControlCache = {}
+local settingsBridgeRegistered = false
 
 local DEFAULT_WIDTH = 760
 local DEFAULT_HEIGHT = 560
@@ -321,12 +322,66 @@ local function CreateShell()
     return ownerFrame
 end
 
-function OptionsFrame:Initialize()
-    if frame then
-        return frame
+local function CreateSettingsPanel()
+    local panel = OptionsFrame.settingsPanel
+    if panel then
+        return panel
     end
 
-    frame = CreateShell()
+    panel = CreateFrame("Frame", "HomesteadSettingsPanel")
+    panel.name = "Homestead"
+
+    local label = panel:CreateFontString(nil, "ARTWORK", "GameFontNormalLarge")
+    label:SetPoint("TOPLEFT", panel, "TOPLEFT", 16, -16)
+    label:SetText("Homestead")
+    panel.label = label
+
+    local button = CreateFrame("Button", nil, panel, "UIPanelButtonTemplate")
+    button:SetSize(200, 24)
+    button:SetPoint("TOPLEFT", label, "BOTTOMLEFT", 0, -16)
+    button:SetText("Open Homestead Options")
+    button:SetScript("OnClick", function()
+        OptionsFrame:Open()
+    end)
+    panel.openButton = button
+
+    OptionsFrame.settingsPanel = panel
+    return panel
+end
+
+local function RegisterSettingsBridge()
+    if settingsBridgeRegistered then
+        return
+    end
+
+    local panel = CreateSettingsPanel()
+
+    if Settings and Settings.RegisterCanvasLayoutCategory and Settings.RegisterAddOnCategory then
+        local categoryOk, category = pcall(Settings.RegisterCanvasLayoutCategory, panel, "Homestead")
+        if categoryOk and category then
+            local addonOk = pcall(Settings.RegisterAddOnCategory, category)
+            if addonOk then
+                OptionsFrame.settingsCategory = category
+                settingsBridgeRegistered = true
+                return
+            end
+        end
+    end
+
+    if InterfaceOptions_AddCategory then
+        local legacyOk = pcall(InterfaceOptions_AddCategory, panel)
+        if legacyOk then
+            settingsBridgeRegistered = true
+        end
+    end
+end
+
+function OptionsFrame:Initialize()
+    if not frame then
+        frame = CreateShell()
+    end
+
+    RegisterSettingsBridge()
     return frame
 end
 

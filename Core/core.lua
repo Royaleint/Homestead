@@ -770,46 +770,18 @@ end
 -------------------------------------------------------------------------------
 
 function HousingAddon:OpenOptions()
-    -- Open Blizzard options panel
-    -- In modern WoW, we need to use the category ID returned by AceConfigDialog
-    local AceConfigDialog = LibStub("AceConfigDialog-3.0", true)
-    if AceConfigDialog then
-        -- Use AceConfigDialog's Open method which handles the panel correctly
-        AceConfigDialog:Open(addonName)
+    if HA.OptionsFrame and HA.OptionsFrame.Open then
+        HA.OptionsFrame:Open()
     else
-        -- Fallback: Try to open via Settings API with proper error handling
-        local success = pcall(function()
-            -- Try to find our category in the settings
-            if Settings and Settings.OpenToCategory then
-                Settings.OpenToCategory("Housing Addon")
-            end
-        end)
-        if not success then
-            self:Print("Could not open options panel. Use /ha config in chat.")
-        end
+        self:Print("Options are not available yet.")
     end
 end
 
 function HousingAddon:ToggleOptions()
-    local AceConfigDialog = LibStub("AceConfigDialog-3.0", true)
-    if AceConfigDialog then
-        if AceConfigDialog.OpenFrames and AceConfigDialog.OpenFrames[addonName] then
-            AceConfigDialog:Close(addonName)
-        else
-            AceConfigDialog:Open(addonName)
-        end
+    if HA.OptionsFrame and HA.OptionsFrame.Toggle then
+        HA.OptionsFrame:Toggle()
     else
-        local success = pcall(function()
-            local settingsPanel = _G.SettingsPanel
-            if settingsPanel and settingsPanel:IsShown() then
-                settingsPanel:Hide()
-            elseif Settings and Settings.OpenToCategory then
-                Settings.OpenToCategory("Housing Addon")
-            end
-        end)
-        if not success then
-            self:Print("Could not toggle options panel. Use /ha config in chat.")
-        end
+        self:Print("Options are not available yet.")
     end
 end
 
