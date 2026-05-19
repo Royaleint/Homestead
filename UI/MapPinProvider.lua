@@ -24,7 +24,7 @@ local pairs = pairs
 local Constants = HA.Constants
 local projectionRectCache = {}
 local parentMapCache = {}
-local immediateChildMapIDsCache = {}
+local citySummaryChildMapIDsCache = {}
 local childMapIDsCache = {}
 
 -------------------------------------------------------------------------------
@@ -92,6 +92,23 @@ MapPinProvider.continentZoneBadgeExclusionsOnParent = {
 MapPinProvider.offWorldContinentPositions = {
     -- [905] removed — Argus counts merge into Broken Isles (continentMergesInto)
     -- [2537] removed — Midnight/Quel'Thalas now projects natively on Eastern Kingdoms
+}
+
+-- City-like child maps that should summarize as one badge on their parent zone
+-- instead of spilling every vendor pin into the parent view. Blizzard exposes no
+-- Enum.UIMapType.City on Retail; keep this explicit and tied to known city maps.
+MapPinProvider.childCitySummaryMaps = {
+    [84] = true,    -- Stormwind
+    [85] = true,    -- Orgrimmar
+    [110] = true,   -- Silvermoon City (legacy)
+    [111] = true,   -- Shattrath City
+    [627] = true,   -- Dalaran
+    [680] = true,   -- Suramar
+    [1161] = true,  -- Boralus
+    [1165] = true,  -- Dazar'alor
+    [2213] = true,  -- The City of Threads
+    [2339] = true,  -- Dornogal
+    [2393] = true,  -- Silvermoon City (Midnight)
 }
 
 -- Manual zone center positions for cross-instance maps where GetMapRectOnMap returns nil.
@@ -249,22 +266,27 @@ function MapPinProvider:GetDisplayableMapForPlayer()
     return C_Map.GetFallbackWorldMapID and C_Map.GetFallbackWorldMapID() or nil
 end
 
-function MapPinProvider:GetImmediateChildMapIDs(mapID, childMapType)
-    local cacheKey = tostring(mapID) .. ":" .. tostring(childMapType or "all")
-    local cached = immediateChildMapIDsCache[cacheKey]
+function MapPinProvider:IsChildCitySummaryMap(mapID)
+    return self.childCitySummaryMaps[mapID] == true
+end
+
+function MapPinProvider:GetImmediateCitySummaryChildMapIDs(mapID)
+    local cached = citySummaryChildMapIDsCache[mapID]
     if cached then
         return cached
     end
 
     local childMapIDs = {}
-    local childMaps = C_Map.GetMapChildrenInfo(mapID, childMapType)
+    local childMaps = C_Map.GetMapChildrenInfo(mapID)
     if childMaps then
         for _, childInfo in ipairs(childMaps) do
-            childMapIDs[#childMapIDs + 1] = childInfo.mapID
+            if childInfo.mapID and self:IsChildCitySummaryMap(childInfo.mapID) then
+                childMapIDs[#childMapIDs + 1] = childInfo.mapID
+            end
         end
     end
 
-    immediateChildMapIDsCache[cacheKey] = childMapIDs
+    citySummaryChildMapIDsCache[mapID] = childMapIDs
     return childMapIDs
 end
 

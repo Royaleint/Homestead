@@ -1226,6 +1226,7 @@ function VendorMapPins:BuildWorldMapRenderState(mapID)
         self:ShowZoneBadges(mapID, renderState)
     else
         self:CollectSourcePins(mapID, renderState)
+        self:EmitChildCityBadges(mapID, renderState)
     end
 
     return renderState
@@ -1266,13 +1267,15 @@ end
 function VendorMapPins:CollectSourcePins(mapID, renderState)
     local filter = GetActiveSourceFilter()
 
-    -- Build set of valid mapIDs: current map + immediate child maps. Some
-    -- city maps are child maps without a higher mapType, but parent zone views
-    -- should still render their vendor pins when Blizzard can project them.
+    -- Build set of valid mapIDs: current map + more-specific child/detail maps.
+    -- City child maps are summarized by EmitChildCityBadges to avoid cluttering
+    -- parent zone views with every city vendor pin.
     local validMapIDs = { [mapID] = true }
-    local childMapIDs = MPP:GetImmediateChildMapIDs(mapID)
+    local childMapIDs = MPP:GetMoreSpecificChildMapIDs(mapID)
     for _, childMapID in ipairs(childMapIDs) do
-        validMapIDs[childMapID] = true
+        if not MPP:IsChildCitySummaryMap(childMapID) then
+            validMapIDs[childMapID] = true
+        end
     end
 
     for sourceType, provider in pairs(self.pinSourceProviders) do
@@ -1285,6 +1288,36 @@ function VendorMapPins:CollectSourcePins(mapID, renderState)
     -- vendor/all filters (Decision 2).
     if filter == "all" or filter == "vendor" then
         self:EmitPortalBadges(mapID, renderState)
+    end
+end
+
+function VendorMapPins:EmitChildCityBadges(mapID, renderState)
+    local childMapIDs = MPP:GetImmediateCitySummaryChildMapIDs(mapID)
+    if #childMapIDs == 0 then
+        return
+    end
+
+    local sourceFilter = GetActiveSourceFilter()
+    for _, cityMapID in ipairs(childMapIDs) do
+        local continentMapID = GetContinentForZone(cityMapID)
+        if continentMapID then
+            local zoneCounts = self:GetZoneVendorCounts(continentMapID, sourceFilter)
+            local zoneData = zoneCounts and zoneCounts[cityMapID]
+            if zoneData and zoneData.vendorCount > 0 then
+                local ok, x, y, reason = MPP:ProjectZoneBadgeToContinentView(mapID, cityMapID)
+                if ok then
+                    renderState.zoneBadges[#renderState.zoneBadges + 1] = {
+                        badgeData = BuildBadgeData(cityMapID, zoneData.zoneName, zoneData),
+                        mapID = cityMapID,
+                        x = x,
+                        y = y,
+                        reason = reason,
+                    }
+                else
+                    DebugWorldMapProjectionSkip("child_city_badge", cityMapID, mapID, reason)
+                end
+            end
+        end
     end
 end
 

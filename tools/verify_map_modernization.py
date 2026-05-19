@@ -40,7 +40,11 @@ def main():
     require(world_provider, "UI/HomesteadWorldMapProvider.lua", "lastCanvasHeight", failures)
     require(world_provider, "UI/HomesteadWorldMapProvider.lua", "canvasHeight", failures)
 
-    require(vendor_pins, "UI/VendorMapPins.lua", "MPP:GetImmediateChildMapIDs", failures)
+    require(vendor_pins, "UI/VendorMapPins.lua", "MPP:GetMoreSpecificChildMapIDs", failures)
+    require(vendor_pins, "UI/VendorMapPins.lua", "EmitChildCityBadges", failures)
+    require(map_provider, "UI/MapPinProvider.lua", "GetImmediateCitySummaryChildMapIDs", failures)
+    require(map_provider, "UI/MapPinProvider.lua", "childCitySummaryMaps", failures)
+    forbid(vendor_pins, "UI/VendorMapPins.lua", "MPP:GetImmediateChildMapIDs", failures)
     forbid(vendor_pins, "UI/VendorMapPins.lua", "C_Map.GetMapChildrenInfo", failures)
     require(side_panel, "UI/MapSidePanel.lua", "MPP:GetMoreSpecificChildMapIDs", failures)
     forbid(side_panel, "UI/MapSidePanel.lua", "C_Map.GetMapChildrenInfo", failures)
