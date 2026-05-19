@@ -24,6 +24,7 @@ local pairs = pairs
 local Constants = HA.Constants
 local projectionRectCache = {}
 local parentMapCache = {}
+local immediateChildMapIDsCache = {}
 local childMapIDsCache = {}
 
 -------------------------------------------------------------------------------
@@ -246,6 +247,25 @@ function MapPinProvider:GetDisplayableMapForPlayer()
     end
 
     return C_Map.GetFallbackWorldMapID and C_Map.GetFallbackWorldMapID() or nil
+end
+
+function MapPinProvider:GetImmediateChildMapIDs(mapID, childMapType)
+    local cacheKey = tostring(mapID) .. ":" .. tostring(childMapType or "all")
+    local cached = immediateChildMapIDsCache[cacheKey]
+    if cached then
+        return cached
+    end
+
+    local childMapIDs = {}
+    local childMaps = C_Map.GetMapChildrenInfo(mapID, childMapType)
+    if childMaps then
+        for _, childInfo in ipairs(childMaps) do
+            childMapIDs[#childMapIDs + 1] = childInfo.mapID
+        end
+    end
+
+    immediateChildMapIDsCache[cacheKey] = childMapIDs
+    return childMapIDs
 end
 
 function MapPinProvider:GetMoreSpecificChildMapIDs(mapID, childMapType)

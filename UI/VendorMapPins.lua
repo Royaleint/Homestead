@@ -1266,10 +1266,11 @@ end
 function VendorMapPins:CollectSourcePins(mapID, renderState)
     local filter = GetActiveSourceFilter()
 
-    -- Build set of valid mapIDs: current map + more-specific child/sub-zone
-    -- maps. Shared across providers so each provider doesn't re-walk the map tree.
+    -- Build set of valid mapIDs: current map + immediate child maps. Some
+    -- city maps are child maps without a higher mapType, but parent zone views
+    -- should still render their vendor pins when Blizzard can project them.
     local validMapIDs = { [mapID] = true }
-    local childMapIDs = MPP:GetMoreSpecificChildMapIDs(mapID)
+    local childMapIDs = MPP:GetImmediateChildMapIDs(mapID)
     for _, childMapID in ipairs(childMapIDs) do
         validMapIDs[childMapID] = true
     end
