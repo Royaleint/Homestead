@@ -90,6 +90,10 @@ local function RefreshAllPinColors()
     CallVendorMapPins("RefreshAllPinColors")
 end
 
+local function RefreshWorldMapPinsNow(reason)
+    CallVendorMapPins("RequestWorldMapRefresh", reason, 0, true)
+end
+
 local function RequestMinimapRefresh(reason)
     CallVendorMapPins("RequestMinimapRefresh", reason)
 end
@@ -778,7 +782,7 @@ OptionsModel.sections = {
                     local vendorTracer = GetVendorTracer()
                     if not vendorTracer then return end
                     vendorTracer.showPinCounts = value
-                    CallVendorMapPins("RefreshPins")
+                    RefreshWorldMapPinsNow("option_show_pin_counts_changed")
                 end,
             },
         },

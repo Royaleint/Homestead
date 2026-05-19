@@ -57,6 +57,8 @@ REQUIRED = {
         "desc_overlay_catalog_section",
         "desc_tooltip_map_pins_section",
         "desc_minimap_waypoints_section",
+        "RefreshWorldMapPinsNow",
+        "option_show_pin_counts_changed",
     ],
 }
 
