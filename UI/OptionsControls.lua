@@ -129,10 +129,10 @@ function Controls.AttachTooltip(frame, title, body)
         tooltip:SetOwner(self, "ANCHOR_RIGHT")
         tooltip:ClearLines()
         if tooltipTitle then
-            tooltip:SetText(tooltipTitle, 1, 1, 1, true)
+            GameTooltip_SetTitle(tooltip, tooltipTitle)
         end
         if tooltipBody then
-            tooltip:AddLine(tooltipBody, 0.85, 0.85, 0.85, true)
+            GameTooltip_AddNormalLine(tooltip, tooltipBody)
         end
         tooltip:Show()
     end)
