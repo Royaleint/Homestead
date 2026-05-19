@@ -41,6 +41,7 @@ local strmatch = string.match
 -------------------------------------------------------------------------------
 local PREFIX           = "HmstdVC"
 local PROTOCOL         = 1
+local PROTOCOL_STR     = tostring(PROTOCOL)
 local CMD_HELLO        = "H"
 local CMD_VERSION      = "V"
 local REPLY_DELAY      = 3
@@ -288,7 +289,7 @@ function VersionCheck:Initialize()
             local prefix, message, channel, sender = ...
             if prefix ~= PREFIX then return end
             local proto, cmd, a, b = ParsePayload(message)
-            if proto ~= tostring(PROTOCOL) then return end
+            if proto ~= PROTOCOL_STR then return end
             if cmd == CMD_HELLO then
                 OnHello(sender, channel)
             elseif cmd == CMD_VERSION then
