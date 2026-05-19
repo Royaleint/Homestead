@@ -23,6 +23,7 @@ REQUIRED = {
         "ApplyNavButtonState",
         "button.selectedTexture",
         "GetSectionHeaderRow",
+        "GetSectionDescriptionRow",
     ],
     "UI/OptionsControls.lua": [
         "CreateHeaderSeparator",
@@ -30,6 +31,15 @@ REQUIRED = {
         "separator:SetColorTexture",
         "CONTROL_RIGHT_PADDING",
         'dropdown:SetPoint("RIGHT"',
+    ],
+    "UI/OptionsModel.lua": [
+        "desc_options_general",
+        "desc_options_overlays",
+        "desc_options_tooltips",
+        "desc_options_world_map",
+        "desc_options_minimap",
+        "desc_options_endeavors",
+        "desc_options_export",
     ],
 }
 
@@ -40,6 +50,8 @@ DELETED = [
 FORBIDDEN_SNIPPETS = {
     "UI/OptionsFrame.lua": [
         'CreateFrame("Button", nil, parent, "UIPanelButtonTemplate")',
+        "house-drawing-stone-bg",
+        "backgroundShade",
     ],
 }
 

@@ -190,6 +190,7 @@ OptionsModel.sections = {
     {
         key = "general",
         label = L["General"],
+        description = L["desc_options_general"],
         rows = {
             {
                 key = "enabled",
@@ -340,6 +341,7 @@ OptionsModel.sections = {
     {
         key = "overlays",
         label = L["Overlays"],
+        description = L["desc_options_overlays"],
         rows = {
             {
                 key = "enabled",
@@ -526,6 +528,7 @@ OptionsModel.sections = {
     {
         key = "tooltips",
         label = L["Tooltips"],
+        description = L["desc_options_tooltips"],
         rows = {
             {
                 key = "enabled",
@@ -633,6 +636,7 @@ OptionsModel.sections = {
     {
         key = "worldMap",
         label = L["World Map"],
+        description = L["desc_options_world_map"],
         rows = {
             {
                 key = "showMapPins",
@@ -776,6 +780,7 @@ OptionsModel.sections = {
     {
         key = "minimap",
         label = L["Minimap"],
+        description = L["desc_options_minimap"],
         rows = {
             {
                 key = "showMinimapPins",
@@ -929,6 +934,7 @@ OptionsModel.sections = {
     {
         key = "endeavors",
         label = L["Endeavors"],
+        description = L["desc_options_endeavors"],
         rows = {
             {
                 key = "showMilestoneXP",
@@ -951,6 +957,7 @@ OptionsModel.sections = {
     {
         key = "export",
         label = L["Export"],
+        description = L["desc_options_export"],
         rows = {
             {
                 key = "exportDesc",

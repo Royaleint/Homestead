@@ -15,6 +15,7 @@ local navButtons = {}
 local activeSection = "general"
 local rowControlCache = {}
 local sectionHeaderRows = {}
+local sectionDescriptionRows = {}
 local settingsBridgeRegistered = false
 
 local DEFAULT_WIDTH = 760
@@ -164,6 +165,24 @@ local function GetSectionHeaderRow(section)
     end
 
     row.label = section.label or section.key
+    return row
+end
+
+local function GetSectionDescriptionRow(section)
+    if not section or not section.key or not section.description then
+        return nil
+    end
+
+    local row = sectionDescriptionRows[section.key]
+    if not row then
+        row = {
+            key = section.key .. "Description",
+            type = "description",
+        }
+        sectionDescriptionRows[section.key] = row
+    end
+
+    row.label = section.description
     return row
 end
 
@@ -360,19 +379,6 @@ local function CreateShell()
     content:SetPoint("BOTTOMRIGHT", ownerFrame, "BOTTOMRIGHT", -CONTENT_INSET, CONTENT_INSET)
     ownerFrame.content = content
 
-    local background = content:CreateTexture(nil, "BACKGROUND", nil, -7)
-    background:SetPoint("TOPLEFT", content, "TOPLEFT", -4, 4)
-    background:SetPoint("BOTTOMRIGHT", content, "BOTTOMRIGHT", 4, -4)
-    background:SetAtlas("house-drawing-stone-bg", false)
-    background:SetAlpha(0.28)
-    ownerFrame.background = background
-
-    local backgroundShade = content:CreateTexture(nil, "BACKGROUND", nil, -6)
-    backgroundShade:SetPoint("TOPLEFT", content, "TOPLEFT", -4, 4)
-    backgroundShade:SetPoint("BOTTOMRIGHT", content, "BOTTOMRIGHT", 4, -4)
-    backgroundShade:SetColorTexture(0, 0, 0, 0.34)
-    ownerFrame.backgroundShade = backgroundShade
-
     local nav = CreateFrame("Frame", nil, content)
     nav:SetPoint("TOPLEFT", content, "TOPLEFT", 0, -8)
     nav:SetPoint("BOTTOMLEFT", content, "BOTTOMLEFT", 0, 8)
@@ -528,6 +534,10 @@ function OptionsFrame:ShowSection(sectionKey)
     local sectionHeader = GetSectionHeaderRow(section)
     if sectionHeader then
         dataProvider:Insert(sectionHeader)
+    end
+    local sectionDescription = GetSectionDescriptionRow(section)
+    if sectionDescription then
+        dataProvider:Insert(sectionDescription)
     end
     for _, row in ipairs(section.rows or {}) do
         if IsRowVisible(row) then
