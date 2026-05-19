@@ -31,6 +31,15 @@ local tomtomWaypoint = nil
 local arrivalCheckTimer = nil
 local StopArrivalCheck  -- forward declaration (used in StartArrivalCheck before definition)
 
+local function PlayWaypointSound(soundKitKey)
+    local soundKit = _G.SOUNDKIT
+    local playSound = _G.PlaySound
+    local soundID = soundKit and soundKit[soundKitKey]
+    if playSound and soundID then
+        playSound(soundID)
+    end
+end
+
 local function GetDisplayableMapForPlayer()
     local MPP = HA.MapPinProvider
     if MPP and MPP.GetDisplayableMapForPlayer then
@@ -133,17 +142,23 @@ local function SetNativeWaypoint(mapID, x, y, options)
     if C_SuperTrack and C_SuperTrack.SetSuperTrackedUserWaypoint then
         C_SuperTrack.SetSuperTrackedUserWaypoint(true)
     end
+    PlayWaypointSound("UI_MAP_WAYPOINT_SUPER_TRACK_ON")
 
     return true, nil
 end
 
 -- Clear native WoW waypoint
-local function ClearNativeWaypoint()
+local function ClearNativeWaypoint(playFeedback)
+    local clearedWaypoint = false
     if C_Map.HasUserWaypoint and C_Map.HasUserWaypoint() then
         C_Map.ClearUserWaypoint()
+        clearedWaypoint = true
     end
     if C_SuperTrack and C_SuperTrack.SetSuperTrackedUserWaypoint then
         C_SuperTrack.SetSuperTrackedUserWaypoint(false)
+    end
+    if clearedWaypoint and playFeedback ~= false then
+        PlayWaypointSound("UI_MAP_WAYPOINT_REMOVE")
     end
 end
 
@@ -225,9 +240,6 @@ end
 function Waypoints:Set(mapID, x, y, options)
     options = options or {}
 
-    -- Clear existing waypoint first
-    self:Clear()
-
     -- Get user preferences
     local useTomTom = defaults.useTomTom
     local useNative = defaults.useNative
@@ -243,11 +255,13 @@ function Waypoints:Set(mapID, x, y, options)
 
     local success = false
     local nativeFailureReason = nil
+    local previousTomTomWaypoint = tomtomWaypoint
+    local replacementTomTomWaypoint = nil
 
     -- Set TomTom waypoint if preferred
     if useTomTom and self:IsTomTomAvailable() then
-        tomtomWaypoint = AddTomTomWaypoint(mapID, x, y, options)
-        if tomtomWaypoint then
+        replacementTomTomWaypoint = AddTomTomWaypoint(mapID, x, y, options)
+        if replacementTomTomWaypoint then
             success = true
         end
     end
@@ -263,6 +277,11 @@ function Waypoints:Set(mapID, x, y, options)
     end
 
     if success then
+        if previousTomTomWaypoint and previousTomTomWaypoint ~= replacementTomTomWaypoint then
+            RemoveTomTomWaypoint(previousTomTomWaypoint)
+        end
+        tomtomWaypoint = replacementTomTomWaypoint
+
         -- Store current waypoint info
         currentWaypoint = {
             mapID = mapID,
@@ -283,7 +302,7 @@ function Waypoints:Set(mapID, x, y, options)
             local zoneName = mapInfo and mapInfo.name or "Unknown"
             local coordStr = string.format("%.1f, %.1f", x * 100, y * 100)
 
-            HA.Addon:Print("Waypoint set:", options.title or "Destination")
+            HA.Addon:Print("Waypoint set to:", options.title or "Destination")
             HA.Addon:Print("  " .. zoneName .. " (" .. coordStr .. ")")
         end
     elseif useNative and nativeFailureReason then
@@ -294,7 +313,7 @@ function Waypoints:Set(mapID, x, y, options)
 end
 
 -- Clear current waypoint
-function Waypoints:Clear()
+function Waypoints:Clear(playFeedback)
     -- Remove TomTom waypoint
     if tomtomWaypoint then
         RemoveTomTomWaypoint(tomtomWaypoint)
@@ -302,7 +321,7 @@ function Waypoints:Clear()
     end
 
     -- Clear native waypoint
-    ClearNativeWaypoint()
+    ClearNativeWaypoint(playFeedback)
 
     -- Clear state
     currentWaypoint = nil
