@@ -159,6 +159,16 @@ L["Unknown command: %s"] = "Unknown command: %s"
 L["Not yet implemented"] = "Not yet implemented"
 
 -------------------------------------------------------------------------------
+-- Version Check
+-------------------------------------------------------------------------------
+L["Your Homestead version is out-of-date."] = "Your Homestead version is out-of-date."
+L["Version %s (%s) can be downloaded at CurseForge, Wago, or GitHub Releases."] = "Version %s (%s) can be downloaded at CurseForge, Wago, or GitHub Releases."
+L["Homestead version: %s (%s)"] = "Homestead version: %s (%s)"
+L["Newest version seen this session: %s (%s)"] = "Newest version seen this session: %s (%s)"
+L["No newer version seen this session."] = "No newer version seen this session."
+L["Version-check notifications: %s"] = "Version-check notifications: %s"
+
+-------------------------------------------------------------------------------
 -- Export Dialog
 -------------------------------------------------------------------------------
 L["Export Vendor Data"] = "Export Vendor Data"

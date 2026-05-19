@@ -146,6 +146,11 @@ function HousingAddon:OnEnable()
         HA.WhatsNewFrame:Initialize()
     end
 
+    -- Version-check peer broadcast (HS-086)
+    if HA.VersionCheck then
+        HA.VersionCheck:Initialize()
+    end
+
     self:Debug("Homestead enabled")
 end
 
@@ -316,6 +321,10 @@ function HousingAddon:SlashCommandHandler(input)
         if HA.WhatsNewFrame then
             HA.WhatsNewFrame:Show(HA.Constants.VERSION)
         end
+    elseif input == "version" or input:match("^version%s+") then
+        if HA.VersionCheck then
+            HA.VersionCheck:HandleSlash(input:match("^version%s*(.-)$") or "")
+        end
     else
         self:Print(format(L["Unknown command: %s"] or "Unknown command: %s", input))
         self:PrintHelp()
@@ -341,6 +350,7 @@ function HousingAddon:PrintHelp()
     self:Print("  /hs validate - Validate vendor database")
     self:Print("  /hs welcome - Show welcome screen")
     self:Print("  /hs whatsnew - Show What's New panel")
+    self:Print("  /hs version - Show version + toggle update notifications (on/off)")
     self:Print("  " .. (L["/hs debug - Toggle debug mode"] or "/hs debug — Toggle debug mode"))
     self:Print("  " .. (L["/hs help - Show this help"] or "/hs help — Show this help"))
 end
