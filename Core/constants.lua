@@ -15,6 +15,7 @@ local Constants = HA.Constants
 -- Version Info
 -------------------------------------------------------------------------------
 Constants.VERSION = "2.3.40"
+Constants.RELEASE_DATE = "2026-05-18"   -- ISO YYYY-MM-DD. Bump alongside VERSION.
 Constants.ADDON_NAME = "Homestead"
 Constants.ADDON_SHORT = "HS"
 
@@ -518,6 +519,11 @@ Constants.Defaults = {
         -- Vendor scanning settings
         vendorScanning = {
             enabled = true,  -- Auto-scan merchants for housing decor data
+        },
+
+        -- Version-check notifications (HS-086)
+        versionCheck = {
+            notify = true,
         },
     },
     global = {
