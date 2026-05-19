@@ -359,7 +359,7 @@ local function CreateShell()
     ownerFrame.homesteadAddonName = addonName
     ownerFrame:SetSize(DEFAULT_WIDTH, DEFAULT_HEIGHT)
     ownerFrame:SetPoint("CENTER")
-    ownerFrame:SetFrameStrata("FULLSCREEN_DIALOG")
+    ownerFrame:SetFrameStrata("HIGH")
     ownerFrame:SetToplevel(true)
     ownerFrame:SetMovable(true)
     ownerFrame:EnableMouse(true)
