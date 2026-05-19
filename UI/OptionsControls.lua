@@ -88,6 +88,28 @@ local function CreateHeaderSeparator(parent, label)
     return separator
 end
 
+local function CreateSliderTrackBackground(parent, slider)
+    local trackBackground = parent:CreateTexture(nil, "BACKGROUND")
+    trackBackground:SetPoint("LEFT", slider, "LEFT", -2, 0)
+    trackBackground:SetPoint("RIGHT", slider, "RIGHT", 2, 0)
+    trackBackground:SetHeight(8)
+    trackBackground:SetColorTexture(0.02, 0.02, 0.02, 0.78)
+
+    local topLine = parent:CreateTexture(nil, "BORDER")
+    topLine:SetPoint("BOTTOMLEFT", trackBackground, "TOPLEFT", 0, 0)
+    topLine:SetPoint("BOTTOMRIGHT", trackBackground, "TOPRIGHT", 0, 0)
+    topLine:SetHeight(1)
+    topLine:SetColorTexture(0.65, 0.6, 0.48, 0.35)
+
+    local bottomLine = parent:CreateTexture(nil, "BORDER")
+    bottomLine:SetPoint("TOPLEFT", trackBackground, "BOTTOMLEFT", 0, 0)
+    bottomLine:SetPoint("TOPRIGHT", trackBackground, "BOTTOMRIGHT", 0, 0)
+    bottomLine:SetHeight(1)
+    bottomLine:SetColorTexture(0, 0, 0, 0.75)
+
+    return trackBackground
+end
+
 local function GetDropdownLabel(row)
     local selected = SafeGet(row, nil)
     for _, value in ipairs(row.values or {}) do
@@ -233,6 +255,7 @@ function Controls.CreateSlider(parent, row, refresh)
     local slider = CreateFrame("Slider", nil, frame, "UISliderTemplate")
     slider:SetPoint("LEFT", frame, "LEFT", LEFT_WIDTH + CONTROL_GAP, 0)
     slider:SetSize(RIGHT_WIDTH, 18)
+    slider.trackBackground = CreateSliderTrackBackground(frame, slider)
     slider:SetMinMaxValues(row.min or 0, row.max or 100)
     if row.step then
         slider:SetValueStep(row.step)

@@ -31,8 +31,10 @@ REQUIRED = {
     ],
     "UI/OptionsControls.lua": [
         "CreateHeaderSeparator",
+        "CreateSliderTrackBackground",
         "GameFontHighlightLarge",
         "separator:SetColorTexture",
+        "trackBackground:SetColorTexture",
         "CONTROL_RIGHT_PADDING",
         'dropdown:SetPoint("RIGHT"',
     ],
