@@ -31,6 +31,48 @@ local tomtomWaypoint = nil
 local arrivalCheckTimer = nil
 local StopArrivalCheck  -- forward declaration (used in StartArrivalCheck before definition)
 
+local function GetDisplayableMapForPlayer()
+    local MPP = HA.MapPinProvider
+    if MPP and MPP.GetDisplayableMapForPlayer then
+        return MPP:GetDisplayableMapForPlayer()
+    end
+
+    return C_Map.GetBestMapForUnit("player")
+end
+
+local function GetPlayerPositionForWaypoint()
+    if not currentWaypoint then
+        return nil, nil
+    end
+
+    local playerMapID = C_Map.GetBestMapForUnit("player")
+    if playerMapID == currentWaypoint.mapID then
+        return playerMapID, C_Map.GetPlayerMapPosition(playerMapID, "player")
+    end
+
+    local displayableMapID = GetDisplayableMapForPlayer()
+    if displayableMapID == currentWaypoint.mapID then
+        return displayableMapID, C_Map.GetPlayerMapPosition(displayableMapID, "player")
+    end
+
+    return nil, nil
+end
+
+local function ShowWaypointFailure(reason)
+    if reason ~= "invalid_map" and reason ~= "invalid_point" then
+        return
+    end
+
+    local message = _G.MAP_PIN_INVALID_MAP or "Cannot set a waypoint on this map."
+    local errorFrame = _G.UIErrorsFrame
+    local redFontColor = _G.RED_FONT_COLOR
+    if errorFrame and redFontColor then
+        errorFrame:AddMessage(message, redFontColor:GetRGBA())
+    elseif HA.Addon then
+        HA.Addon:Print(message)
+    end
+end
+
 -------------------------------------------------------------------------------
 -- TomTom Integration
 -------------------------------------------------------------------------------
@@ -71,19 +113,18 @@ end
 
 -- Set native WoW waypoint using the supertracking system
 local function SetNativeWaypoint(mapID, x, y, options)
-    -- Clear existing user waypoint
-    if C_Map.HasUserWaypoint and C_Map.HasUserWaypoint() then
-        C_Map.ClearUserWaypoint()
-    end
-
-    -- Create new waypoint
     if C_Map and C_Map.CanSetUserWaypointOnMap and not C_Map.CanSetUserWaypointOnMap(mapID) then
-        return false
+        return false, "invalid_map"
     end
 
     local mapPoint = UiMapPoint.CreateFromCoordinates(mapID, x, y)
     if not mapPoint then
-        return false
+        return false, "invalid_point"
+    end
+
+    -- Clear existing user waypoint only after the replacement is known valid.
+    if C_Map.HasUserWaypoint and C_Map.HasUserWaypoint() then
+        C_Map.ClearUserWaypoint()
     end
 
     C_Map.SetUserWaypoint(mapPoint)
@@ -93,7 +134,7 @@ local function SetNativeWaypoint(mapID, x, y, options)
         C_SuperTrack.SetSuperTrackedUserWaypoint(true)
     end
 
-    return true
+    return true, nil
 end
 
 -- Clear native WoW waypoint
@@ -101,8 +142,8 @@ local function ClearNativeWaypoint()
     if C_Map.HasUserWaypoint and C_Map.HasUserWaypoint() then
         C_Map.ClearUserWaypoint()
     end
-    if C_SuperTrack then
-        C_SuperTrack.ClearAllSuperTracked()
+    if C_SuperTrack and C_SuperTrack.SetSuperTrackedUserWaypoint then
+        C_SuperTrack.SetSuperTrackedUserWaypoint(false)
     end
 end
 
@@ -116,12 +157,11 @@ local function CheckArrival()
         return false
     end
 
-    local playerMapID = C_Map.GetBestMapForUnit("player")
-    if playerMapID ~= currentWaypoint.mapID then
+    local playerMapID, playerPos = GetPlayerPositionForWaypoint()
+    if not playerMapID then
         return false
     end
 
-    local playerPos = C_Map.GetPlayerMapPosition(playerMapID, "player")
     if not playerPos then
         return false
     end
@@ -202,6 +242,7 @@ function Waypoints:Set(mapID, x, y, options)
     end
 
     local success = false
+    local nativeFailureReason = nil
 
     -- Set TomTom waypoint if preferred
     if useTomTom and self:IsTomTomAvailable() then
@@ -213,8 +254,11 @@ function Waypoints:Set(mapID, x, y, options)
 
     -- Set native waypoint
     if useNative then
-        if SetNativeWaypoint(mapID, x, y, options) then
+        local nativeSuccess, failureReason = SetNativeWaypoint(mapID, x, y, options)
+        if nativeSuccess then
             success = true
+        else
+            nativeFailureReason = failureReason
         end
     end
 
@@ -242,6 +286,8 @@ function Waypoints:Set(mapID, x, y, options)
             HA.Addon:Print("Waypoint set:", options.title or "Destination")
             HA.Addon:Print("  " .. zoneName .. " (" .. coordStr .. ")")
         end
+    elseif useNative and nativeFailureReason then
+        ShowWaypointFailure(nativeFailureReason)
     end
 
     return success
@@ -281,12 +327,11 @@ function Waypoints:GetDistanceToCurrent()
         return nil
     end
 
-    local playerMapID = C_Map.GetBestMapForUnit("player")
-    if playerMapID ~= currentWaypoint.mapID then
+    local playerMapID, playerPos = GetPlayerPositionForWaypoint()
+    if not playerMapID then
         return nil, "different_map"
     end
 
-    local playerPos = C_Map.GetPlayerMapPosition(playerMapID, "player")
     if not playerPos then
         return nil, "no_position"
     end

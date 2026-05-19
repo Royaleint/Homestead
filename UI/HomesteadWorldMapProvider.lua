@@ -592,6 +592,7 @@ function Provider:EnsureRegistered()
 
     local lastMapID = nil
     local lastCanvasWidth = nil
+    local lastCanvasHeight = nil
     local lastCanvasEffectiveScale = nil
     -- Passive polling watcher — no WorldMapFrame hooks at all.
     -- HookScript and hooksecurefunc on WorldMapFrame run during Blizzard's
@@ -613,6 +614,7 @@ function Provider:EnsureRegistered()
             wasShown = false
             lastMapID = nil
             lastCanvasWidth = nil
+            lastCanvasHeight = nil
             lastCanvasEffectiveScale = nil
             self:RemoveAllData()
         elseif isShown then
@@ -621,13 +623,16 @@ function Provider:EnsureRegistered()
             local container = WorldMapFrame:GetCanvasContainer()
             local canvas = WorldMapFrame.GetCanvas and WorldMapFrame:GetCanvas()
             local canvasWidth = container and container:GetWidth() or 0
+            local canvasHeight = container and container:GetHeight() or 0
             local canvasEffectiveScale = canvas and canvas:GetEffectiveScale() or 0
 
             if mapID ~= lastMapID then
                 lastMapID = mapID
                 RequestDeferredRefresh()
-            elseif canvasWidth > 0 and canvasWidth ~= lastCanvasWidth then
+            elseif (canvasWidth > 0 and canvasWidth ~= lastCanvasWidth)
+                    or (canvasHeight > 0 and canvasHeight ~= lastCanvasHeight) then
                 lastCanvasWidth = canvasWidth
+                lastCanvasHeight = canvasHeight
                 lastCanvasEffectiveScale = canvasEffectiveScale
                 MPP.RepositionWorldMapPins()
             elseif canvasEffectiveScale > 0 and (not lastCanvasEffectiveScale or math.abs(canvasEffectiveScale - lastCanvasEffectiveScale) > 0.0001) then

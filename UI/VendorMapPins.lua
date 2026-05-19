@@ -1266,14 +1266,12 @@ end
 function VendorMapPins:CollectSourcePins(mapID, renderState)
     local filter = GetActiveSourceFilter()
 
-    -- Build set of valid mapIDs: current map + child/sub-zone maps. Shared
-    -- across providers so each provider doesn't re-walk the map tree.
+    -- Build set of valid mapIDs: current map + more-specific child/sub-zone
+    -- maps. Shared across providers so each provider doesn't re-walk the map tree.
     local validMapIDs = { [mapID] = true }
-    local childMaps = C_Map.GetMapChildrenInfo(mapID)
-    if childMaps then
-        for _, childInfo in ipairs(childMaps) do
-            validMapIDs[childInfo.mapID] = true
-        end
+    local childMapIDs = MPP:GetMoreSpecificChildMapIDs(mapID)
+    for _, childMapID in ipairs(childMapIDs) do
+        validMapIDs[childMapID] = true
     end
 
     for sourceType, provider in pairs(self.pinSourceProviders) do

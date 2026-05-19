@@ -19,6 +19,7 @@ local MapSidePanel = {}
 HA.MapSidePanel = MapSidePanel
 
 local L = HA.L or {}
+local MPP = HA.MapPinProvider
 
 -- Module references (set during Initialize, after TOC load order)
 local VendorData
@@ -2322,27 +2323,11 @@ local function GetVendorsForCurrentMap(mapID)
     local seen = {}
     local isNeighborhoodMap = (mapID == 2351 or mapID == 2352)
 
-    -- Get vendors for this map + sub-zone child maps.
-    -- Filter children to only include maps MORE specific than the current map.
-    -- Some child links report nil mapType, so resolve fallback via GetMapInfo
-    -- before deciding whether to include the child.
+    -- Get vendors for this map + more-specific sub-zone child maps.
     local mapsToCheck = { [mapID] = true }
-    local currentMapInfo = C_Map.GetMapInfo(mapID)
-    local currentMapType = currentMapInfo and currentMapInfo.mapType
-    local childMaps = C_Map.GetMapChildrenInfo(mapID)
-    if childMaps then
-        for _, childInfo in ipairs(childMaps) do
-            local childMapType = childInfo.mapType
-            if not childMapType then
-                local childMapInfo = C_Map.GetMapInfo(childInfo.mapID)
-                childMapType = childMapInfo and childMapInfo.mapType
-            end
-            -- Only include children that are more specific than the current map
-            -- (higher mapType = more specific: Zone < Dungeon < Micro)
-            if not currentMapType or (childMapType and childMapType > currentMapType) then
-                mapsToCheck[childInfo.mapID] = true
-            end
-        end
+    local childMapIDs = MPP:GetMoreSpecificChildMapIDs(mapID)
+    for _, childMapID in ipairs(childMapIDs) do
+        mapsToCheck[childMapID] = true
     end
 
     local showOpposite = VendorFilter.ShouldShowOppositeFaction()

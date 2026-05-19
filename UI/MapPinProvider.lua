@@ -22,6 +22,9 @@ HA.MapPinProvider = MapPinProvider
 
 local pairs = pairs
 local Constants = HA.Constants
+local projectionRectCache = {}
+local parentMapCache = {}
+local childMapIDsCache = {}
 
 -------------------------------------------------------------------------------
 -- Zone-Continent Reverse Index
@@ -177,14 +180,39 @@ function MapPinProvider:GetZoneCenterOnMap(zoneMapID, parentMapID)
     return nil
 end
 
-local function ProjectViaRect(sourceMapID, destMapID, x, y)
+local function GetProjectionRect(sourceMapID, destMapID)
+    local cacheKey = tostring(sourceMapID) .. ":" .. tostring(destMapID)
+    local cached = projectionRectCache[cacheKey]
+    if cached then
+        return cached.ok, cached.minX, cached.maxX, cached.minY, cached.maxY, cached.reason
+    end
+
     local minX, maxX, minY, maxY = C_Map.GetMapRectOnMap(sourceMapID, destMapID)
     if minX == nil or maxX == nil or minY == nil or maxY == nil then
-        return false, nil, nil, "nil_rect"
+        projectionRectCache[cacheKey] = { ok = false, reason = "nil_rect" }
+        return false, nil, nil, nil, nil, "nil_rect"
     end
 
     if minX == maxX and minY == maxY then
-        return false, nil, nil, "degenerate_rect"
+        projectionRectCache[cacheKey] = { ok = false, reason = "degenerate_rect" }
+        return false, nil, nil, nil, nil, "degenerate_rect"
+    end
+
+    projectionRectCache[cacheKey] = {
+        ok = true,
+        minX = minX,
+        maxX = maxX,
+        minY = minY,
+        maxY = maxY,
+    }
+
+    return true, minX, maxX, minY, maxY, "rect_projection"
+end
+
+local function ProjectViaRect(sourceMapID, destMapID, x, y)
+    local ok, minX, maxX, minY, maxY, reason = GetProjectionRect(sourceMapID, destMapID)
+    if not ok then
+        return false, nil, nil, reason
     end
 
     return true,
@@ -194,12 +222,59 @@ local function ProjectViaRect(sourceMapID, destMapID, x, y)
 end
 
 function MapPinProvider:GetParentMapID(mapID)
+    if parentMapCache[mapID] ~= nil then
+        return parentMapCache[mapID] or nil
+    end
+
     local mapInfo = C_Map.GetMapInfo(mapID)
     local parentMapID = mapInfo and mapInfo.parentMapID
     if parentMapID and parentMapID > 0 then
+        parentMapCache[mapID] = parentMapID
         return parentMapID
     end
+    parentMapCache[mapID] = false
     return nil
+end
+
+function MapPinProvider:GetDisplayableMapForPlayer()
+    local mapID = C_Map.GetBestMapForUnit("player")
+    while mapID and mapID > 0 do
+        if C_Map.MapHasArt and C_Map.MapHasArt(mapID) then
+            return mapID
+        end
+        mapID = self:GetParentMapID(mapID)
+    end
+
+    return C_Map.GetFallbackWorldMapID and C_Map.GetFallbackWorldMapID() or nil
+end
+
+function MapPinProvider:GetMoreSpecificChildMapIDs(mapID, childMapType)
+    local cacheKey = tostring(mapID) .. ":" .. tostring(childMapType or "all")
+    local cached = childMapIDsCache[cacheKey]
+    if cached then
+        return cached
+    end
+
+    local childMapIDs = {}
+    local currentMapInfo = C_Map.GetMapInfo(mapID)
+    local currentMapType = currentMapInfo and currentMapInfo.mapType
+    local childMaps = C_Map.GetMapChildrenInfo(mapID, childMapType)
+
+    if childMaps then
+        for _, childInfo in ipairs(childMaps) do
+            local resolvedChildMapType = childInfo.mapType
+            if not resolvedChildMapType then
+                local childMapInfo = C_Map.GetMapInfo(childInfo.mapID)
+                resolvedChildMapType = childMapInfo and childMapInfo.mapType
+            end
+            if not currentMapType or (resolvedChildMapType and resolvedChildMapType > currentMapType) then
+                childMapIDs[#childMapIDs + 1] = childInfo.mapID
+            end
+        end
+    end
+
+    childMapIDsCache[cacheKey] = childMapIDs
+    return childMapIDs
 end
 
 function MapPinProvider:ProjectMapPositionToAncestorView(sourceMapID, viewMapID, x, y)

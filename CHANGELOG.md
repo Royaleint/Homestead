@@ -4,9 +4,16 @@
 
 ## Unreleased
 
+### Improved
+
+- Make Homestead's map and waypoint helpers lean further on Blizzard map data: shared child-map discovery, cached map projections, and displayable-map fallback for waypoint distance checks.
+
 ### Bug Fixes
 
 - Fix custom minimap pin colors drawing a large colored circle behind the vendor icon. Custom colors now tint only the Homestead bag icon.
+- Clear only the active user waypoint/supertracking state when Homestead clears a waypoint, instead of clearing all Blizzard supertracking.
+- Show Blizzard's invalid-map waypoint message when a Homestead vendor waypoint cannot be set on the current map.
+- Reposition Homestead world-map pins when the map canvas height changes, not only when its width changes.
 
 ---
 
