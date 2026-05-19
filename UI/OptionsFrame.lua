@@ -13,6 +13,7 @@ HA.OptionsFrame = OptionsFrame
 local frame
 local navButtons = {}
 local activeSection = "general"
+local rowControlCache = {}
 
 local DEFAULT_WIDTH = 760
 local DEFAULT_HEIGHT = 560
@@ -33,6 +34,18 @@ local DEFAULT_ROW_HEIGHTS = {
     dropdown = 40,
     color = 34,
     pinPreview = 34,
+}
+
+local VALID_POINTS = {
+    CENTER = true,
+    TOP = true,
+    BOTTOM = true,
+    LEFT = true,
+    RIGHT = true,
+    TOPLEFT = true,
+    TOPRIGHT = true,
+    BOTTOMLEFT = true,
+    BOTTOMRIGHT = true,
 }
 
 local function GetProfile()
@@ -81,8 +94,13 @@ local function RestoreGeometry()
     local height = geometry and tonumber(geometry.height)
     frame:SetSize(math.max(width or DEFAULT_WIDTH, MIN_WIDTH), math.max(height or DEFAULT_HEIGHT, MIN_HEIGHT))
 
-    if geometry and geometry.point then
-        frame:SetPoint(geometry.point, UIParent, geometry.relativePoint or geometry.point, geometry.x or 0, geometry.y or 0)
+    local point = geometry and geometry.point
+    local relativePoint = geometry and (geometry.relativePoint or point)
+    if point and VALID_POINTS[point] and relativePoint and VALID_POINTS[relativePoint] then
+        local ok = pcall(frame.SetPoint, frame, point, UIParent, relativePoint, geometry.x or 0, geometry.y or 0)
+        if not ok then
+            frame:SetPoint("CENTER")
+        end
     else
         frame:SetPoint("CENTER")
     end
@@ -134,6 +152,7 @@ local function ClearRenderedChild(rowFrame)
     child:Hide()
     child:ClearAllPoints()
     child:SetParent(nil)
+    child.homesteadOwnerRowFrame = nil
     rowFrame.homesteadOptionsChild = nil
 end
 
@@ -142,12 +161,30 @@ local function AttachRenderedChild(rowFrame, child, height)
         return
     end
 
+    if child.homesteadOwnerRowFrame and child.homesteadOwnerRowFrame ~= rowFrame then
+        child.homesteadOwnerRowFrame.homesteadOptionsChild = nil
+    end
+
     child:SetParent(rowFrame)
     child:ClearAllPoints()
     child:SetAllPoints(rowFrame)
     child:SetHeight(height)
+    if child.homesteadRefresh then
+        child:homesteadRefresh()
+    end
     child:Show()
     rowFrame.homesteadOptionsChild = child
+    child.homesteadOwnerRowFrame = rowFrame
+end
+
+local function GetCachedControl(row)
+    return row and rowControlCache[row]
+end
+
+local function CacheControl(row, child)
+    if row and child then
+        rowControlCache[row] = child
+    end
 end
 
 local function UpdateNavButtons()
@@ -345,35 +382,39 @@ function OptionsFrame:Refresh()
 end
 
 function OptionsFrame:RenderRow(rowFrame, row)
-    ClearRenderedChild(rowFrame)
-
     local controls = HA.OptionsControls
     if not controls or not row then
+        ClearRenderedChild(rowFrame)
         return
     end
 
     local height = GetRowHeight(row)
     rowFrame:SetHeight(height)
 
-    local child
-    if row.type == "header" then
-        child = controls.CreateHeader(rowFrame, row)
-    elseif row.type == "description" then
-        child = controls.CreateDescription(rowFrame, row)
-    elseif row.type == "checkbox" then
-        child = controls.CreateCheckbox(rowFrame, row, function() OptionsFrame:Refresh() end)
-    elseif row.type == "button" then
-        child = controls.CreateButton(rowFrame, row)
-    elseif row.type == "slider" then
-        child = controls.CreateSlider(rowFrame, row, function() OptionsFrame:Refresh() end)
-    elseif row.type == "dropdown" then
-        child = controls.CreateDropdown(rowFrame, row, function() OptionsFrame:Refresh() end)
-    elseif row.type == "color" then
-        child = controls.CreateColor(rowFrame, row, function() OptionsFrame:Refresh() end)
-    elseif row.type == "pinPreview" then
-        child = controls.CreatePinPreview(rowFrame, row)
+    local child = GetCachedControl(row)
+    if not child then
+        if row.type == "header" then
+            child = controls.CreateHeader(rowFrame, row)
+        elseif row.type == "description" then
+            child = controls.CreateDescription(rowFrame, row)
+        elseif row.type == "checkbox" then
+            child = controls.CreateCheckbox(rowFrame, row, function() OptionsFrame:Refresh() end)
+        elseif row.type == "button" then
+            child = controls.CreateButton(rowFrame, row)
+        elseif row.type == "slider" then
+            child = controls.CreateSlider(rowFrame, row, function() OptionsFrame:Refresh() end)
+        elseif row.type == "dropdown" then
+            child = controls.CreateDropdown(rowFrame, row, function() OptionsFrame:Refresh() end)
+        elseif row.type == "color" then
+            child = controls.CreateColor(rowFrame, row, function() OptionsFrame:Refresh() end)
+        elseif row.type == "pinPreview" then
+            child = controls.CreatePinPreview(rowFrame, row)
+        end
+
+        CacheControl(row, child)
     end
 
+    ClearRenderedChild(rowFrame)
     AttachRenderedChild(rowFrame, child, height)
 end
 

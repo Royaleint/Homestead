@@ -173,6 +173,9 @@ function Controls.CreateCheckbox(parent, row, refresh)
     local checkbox = CreateFrame("CheckButton", nil, frame, "UICheckButtonTemplate")
     checkbox:SetPoint("LEFT", frame, "LEFT", -4, 0)
     checkbox:SetChecked(SafeGet(row, false) and true or false)
+    frame.homesteadRefresh = function()
+        checkbox:SetChecked(SafeGet(row, false) and true or false)
+    end
 
     local label = frame:CreateFontString(nil, "ARTWORK", "GameFontNormal")
     label:SetPoint("LEFT", checkbox, "RIGHT", 2, 0)
@@ -237,6 +240,11 @@ function Controls.CreateSlider(parent, row, refresh)
     local initialValue = Clamp(RoundToStep(tonumber(SafeGet(row, row.min or 0)) or 0, row.min, row.step), row.min, row.max)
     slider:SetValue(initialValue)
     UpdateValueText(initialValue)
+    frame.homesteadRefresh = function()
+        local value = Clamp(RoundToStep(tonumber(SafeGet(row, row.min or 0)) or 0, row.min, row.step), row.min, row.max)
+        slider:SetValue(value)
+        UpdateValueText(value)
+    end
 
     slider:SetScript("OnValueChanged", function(self, value)
         local newValue = Clamp(RoundToStep(value, row.min, row.step), row.min, row.max)
@@ -270,6 +278,9 @@ function Controls.CreateDropdown(parent, row, refresh)
     dropdown:SetPoint("LEFT", frame, "LEFT", LEFT_WIDTH + CONTROL_GAP, 0)
     dropdown:SetWidth(RIGHT_WIDTH)
     SetDropdownText(dropdown, row)
+    frame.homesteadRefresh = function()
+        SetDropdownText(dropdown, row)
+    end
 
     if dropdown.SetupMenu then
         dropdown:SetupMenu(function(_, root)
@@ -326,6 +337,9 @@ function Controls.CreateColor(parent, row, refresh)
 
     local r, g, b = GetColor()
     SetSwatchColor(r, g, b)
+    frame.homesteadRefresh = function()
+        SetSwatchColor(GetColor())
+    end
 
     swatch:SetScript("OnClick", function()
         local previousR, previousG, previousB = GetColor()
@@ -389,15 +403,18 @@ function Controls.CreatePinPreview(parent, row)
     icon:SetSize(20, 20)
     icon:SetAtlas("housing-decor-vendor_32", false)
 
-    local r, g, b = HA.OptionsModel:GetPinPreviewColor()
-    local alpha = HA.OptionsModel:GetPinPreviewAlpha()
-    if HA.OptionsModel:IsCustomPinColor() then
-        icon:SetDesaturated(true)
-        icon:SetVertexColor(r or 1, g or 1, b or 1, alpha or 1)
-    else
-        icon:SetDesaturated(false)
-        icon:SetVertexColor(1, 1, 1, 1)
+    frame.homesteadRefresh = function()
+        local r, g, b = HA.OptionsModel:GetPinPreviewColor()
+        local alpha = HA.OptionsModel:GetPinPreviewAlpha()
+        if HA.OptionsModel:IsCustomPinColor() then
+            icon:SetDesaturated(true)
+            icon:SetVertexColor(r or 1, g or 1, b or 1, alpha or 1)
+        else
+            icon:SetDesaturated(false)
+            icon:SetVertexColor(1, 1, 1, 1)
+        end
     end
+    frame.homesteadRefresh()
 
     return frame
 end
