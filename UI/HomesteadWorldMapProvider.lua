@@ -44,6 +44,14 @@ local debugStats = {
     lastLoggedSkippedHidden = 0,
     lastLoggedSkippedMapMismatch = 0,
 }
+local watcherStats = {
+    opened = 0,
+    closed = 0,
+    mapChanged = 0,
+    resized = 0,
+    zoomChanged = 0,
+    deferredRefreshes = 0,
+}
 local placementDebugMaps = {
     [2393] = true,
     [2395] = true,
@@ -403,9 +411,14 @@ local function GetEntryDisplayScale(kind, mapType)
     return 1
 end
 
-local function RequestDeferredRefresh()
+local function RequestDeferredRefresh(reason)
     if refreshPending then
         return
+    end
+
+    watcherStats.deferredRefreshes = watcherStats.deferredRefreshes + 1
+    if IsDebugModeEnabled() and reason then
+        HA.Addon:Debug("WorldMapWatcher: " .. reason)
     end
 
     refreshPending = true
@@ -605,13 +618,15 @@ function Provider:EnsureRegistered()
         if isShown and not wasShown then
             -- Map just opened — force refresh after secure path completes
             wasShown = true
+            watcherStats.opened = watcherStats.opened + 1
             lastMapID = nil
             C_Timer.After(0, function()
-                RequestDeferredRefresh()
+                RequestDeferredRefresh("watcher_opened")
             end)
         elseif not isShown and wasShown then
             -- Map just closed — cleanup
             wasShown = false
+            watcherStats.closed = watcherStats.closed + 1
             lastMapID = nil
             lastCanvasWidth = nil
             lastCanvasHeight = nil
@@ -628,18 +643,24 @@ function Provider:EnsureRegistered()
 
             if mapID ~= lastMapID then
                 lastMapID = mapID
-                RequestDeferredRefresh()
+                watcherStats.mapChanged = watcherStats.mapChanged + 1
+                RequestDeferredRefresh("watcher_map_changed")
             elseif (canvasWidth > 0 and canvasWidth ~= lastCanvasWidth)
                     or (canvasHeight > 0 and canvasHeight ~= lastCanvasHeight) then
                 lastCanvasWidth = canvasWidth
                 lastCanvasHeight = canvasHeight
                 lastCanvasEffectiveScale = canvasEffectiveScale
+                watcherStats.resized = watcherStats.resized + 1
+                if IsDebugModeEnabled() then
+                    HA.Addon:Debug("WorldMapWatcher: watcher_resize")
+                end
                 MPP.RepositionWorldMapPins()
             elseif canvasEffectiveScale > 0 and (not lastCanvasEffectiveScale or math.abs(canvasEffectiveScale - lastCanvasEffectiveScale) > 0.0001) then
                 lastCanvasEffectiveScale = canvasEffectiveScale
+                watcherStats.zoomChanged = watcherStats.zoomChanged + 1
                 -- Full refresh on zoom change so POI dodge recalculates
                 -- with the new zoom factor (pins drift back at high zoom).
-                RequestDeferredRefresh()
+                RequestDeferredRefresh("watcher_zoom")
             end
         end
     end)
@@ -661,6 +682,10 @@ end
 
 function Provider:GetDebugStats()
     return debugStats
+end
+
+function Provider:GetWatcherStats()
+    return watcherStats
 end
 
 function Provider:Refresh()

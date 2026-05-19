@@ -271,6 +271,8 @@ function HousingAddon:SlashCommandHandler(input)
         for _, line in ipairs(lines) do
             self:Print("  " .. line)
         end
+    elseif input == "debug geography" then
+        self:PrintManualGeographyAuditReport()
     elseif input == "cache" then
         self:ShowCacheInfo()
     elseif input == "clearcache" then
@@ -351,8 +353,42 @@ function HousingAddon:PrintHelp()
     self:Print("  /hs welcome - Show welcome screen")
     self:Print("  /hs whatsnew - Show What's New panel")
     self:Print("  /hs version - Show version + toggle update notifications (on/off)")
+    self:Print("  /hs debug geography - Audit manual map geography entries")
     self:Print("  " .. (L["/hs debug - Toggle debug mode"] or "/hs debug — Toggle debug mode"))
     self:Print("  " .. (L["/hs help - Show this help"] or "/hs help — Show this help"))
+end
+
+function HousingAddon:PrintManualGeographyAuditReport()
+    local MPP = HA.MapPinProvider
+    if not MPP or not MPP.GetManualGeographyAuditReport then
+        self:Print("MapPinProvider audit is not available.")
+        return
+    end
+
+    local report = MPP:GetManualGeographyAuditReport()
+    local summary = report and report.summary or {}
+    self:Print(format(
+        "Manual geography audit: %d checked, %d required, %d redundant candidates",
+        summary.checked or 0,
+        summary.manualRequired or 0,
+        summary.redundantCandidates or 0
+    ))
+
+    if not report or not report.rows or #report.rows == 0 then
+        return
+    end
+
+    for _, row in ipairs(report.rows) do
+        self:Print(format(
+            "  %s %s->%s: %s (%s; native=%s)",
+            row.tableName or "?",
+            tostring(row.sourceMapID),
+            tostring(row.viewMapID),
+            row.status or "?",
+            row.manualReason or "?",
+            row.nativeReason or "unknown"
+        ))
+    end
 end
 
 -- Refresh map pins manually

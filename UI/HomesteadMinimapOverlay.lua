@@ -41,6 +41,7 @@ local mapRadius
 local mapSin
 local mapCos
 local minimapShape
+local lastHybridMinimapReason
 
 local minimapShapes = {
     -- { upper-left, lower-left, upper-right, lower-right }
@@ -118,9 +119,48 @@ local function GetPlayerWorldPosition()
     return x, y
 end
 
-local function IsHybridMinimapActive()
+function Overlay:GetHybridMinimapState()
+    local minimapAPI = _G.C_Minimap
+    -- Blizzard enables HybridMinimap from Minimap.lua via
+    -- C_Minimap.ShouldUseHybridMinimap(), then shows the HybridMinimap frame.
+    local shouldUse = minimapAPI
+        and minimapAPI.ShouldUseHybridMinimap
+        and minimapAPI.ShouldUseHybridMinimap()
+        or false
     local hybridMinimap = _G.HybridMinimap
-    return hybridMinimap and hybridMinimap:IsShown()
+    -- The frame check mirrors HybridMinimap:IsShown() without assuming the
+    -- Blizzard_HybridMinimap addon has already been loaded.
+    local frameShown = hybridMinimap
+        and hybridMinimap.IsShown
+        and hybridMinimap:IsShown()
+        or false
+    local reason
+    if frameShown then
+        reason = "frame_shown"
+    elseif shouldUse then
+        reason = "api_should_use_frame_hidden"
+    else
+        reason = "inactive"
+    end
+    return frameShown == true, reason, shouldUse == true, frameShown == true
+end
+
+function Overlay:IsHybridMinimapActive()
+    local active, reason = self:GetHybridMinimapState()
+    return active, reason
+end
+
+local function IsHybridMinimapActive()
+    local active, reason = Overlay:IsHybridMinimapActive()
+    if active and reason ~= lastHybridMinimapReason then
+        lastHybridMinimapReason = reason
+        if HA.Addon and HA.Addon.db and HA.Addon.db.profile.debug then
+            HA.Addon:Debug("HybridMinimap active; Homestead minimap pins hidden (" .. reason .. ")")
+        end
+    elseif not active then
+        lastHybridMinimapReason = nil
+    end
+    return active
 end
 
 local function RefreshPlacementMetrics(facing)

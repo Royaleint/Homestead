@@ -1002,6 +1002,13 @@ function VendorMapPins:RefreshMinimapPins()
 
     self:ClearMinimapPins()
 
+    if MinimapOverlay and MinimapOverlay.IsHybridMinimapActive then
+        local hybridActive = MinimapOverlay:IsHybridMinimapActive()
+        if hybridActive then
+            return
+        end
+    end
+
     if not HA.VendorData then return end
 
     -- Get the player's current zone

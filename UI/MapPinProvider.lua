@@ -376,6 +376,80 @@ function MapPinProvider:ProjectContinentBadgeToWorldView(continentMapID)
     return false, nil, nil, reason
 end
 
+local function AddManualGeographyAuditRow(rows, tableName, sourceMapID, viewMapID, nativeOk, nativeReason, manualReason)
+    local status = nativeOk and "manual_redundant_candidate" or "manual_required"
+    rows[#rows + 1] = {
+        tableName = tableName,
+        sourceMapID = sourceMapID,
+        viewMapID = viewMapID,
+        nativeStatus = nativeOk and "native_ok" or "native_failed",
+        status = status,
+        nativeReason = nativeReason,
+        manualReason = manualReason,
+    }
+end
+
+function MapPinProvider:GetManualGeographyAuditReport()
+    local rows = {}
+    local summary = {
+        checked = 0,
+        manualRequired = 0,
+        redundantCandidates = 0,
+    }
+
+    for continentMapID in pairs(self.offWorldContinentPositions or {}) do
+        local nativeOk, _, _, nativeReason = self:ProjectMapPositionToAncestorView(continentMapID, 947, 0.5, 0.5)
+        AddManualGeographyAuditRow(
+            rows,
+            "offWorldContinentPositions",
+            continentMapID,
+            947,
+            nativeOk,
+            nativeReason,
+            "manual_continent_position"
+        )
+    end
+
+    for zoneMapID, parentPositions in pairs(self.manualZoneCenters or {}) do
+        for parentMapID in pairs(parentPositions) do
+            local nativeOk, _, _, nativeReason = self:ProjectMapPositionToAncestorView(zoneMapID, parentMapID, 0.5, 0.5)
+            AddManualGeographyAuditRow(
+                rows,
+                "manualZoneCenters",
+                zoneMapID,
+                parentMapID,
+                nativeOk,
+                nativeReason,
+                "manual_zone_center"
+            )
+        end
+    end
+
+    table.sort(rows, function(a, b)
+        if a.tableName ~= b.tableName then
+            return a.tableName < b.tableName
+        end
+        if a.sourceMapID ~= b.sourceMapID then
+            return a.sourceMapID < b.sourceMapID
+        end
+        return a.viewMapID < b.viewMapID
+    end)
+
+    summary.checked = #rows
+    for _, row in ipairs(rows) do
+        if row.status == "manual_redundant_candidate" then
+            summary.redundantCandidates = summary.redundantCandidates + 1
+        elseif row.status == "manual_required" then
+            summary.manualRequired = summary.manualRequired + 1
+        end
+    end
+
+    return {
+        rows = rows,
+        summary = summary,
+    }
+end
+
 -- Native world-map pins
 -- Homestead uses a self-managed pool instead of WorldMapFrame.pinPools to
 -- avoid tainting Blizzard's protected map pin state.
