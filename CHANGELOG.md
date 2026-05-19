@@ -2,6 +2,14 @@
 
 ---
 
+## Unreleased
+
+### Bug Fixes
+
+- Fix custom minimap pin colors drawing a large colored circle behind the vendor icon. Custom colors now tint only the Homestead bag icon.
+
+---
+
 ## Homestead v2.3.40 (05-12-2026)
 
 A reworked side-panel search that surfaces every source for a decor item, more detail on profession-crafted decor, plus a batch of world-map and side-panel fixes.

@@ -93,15 +93,6 @@ end
 -- Frame Creation Helpers
 -------------------------------------------------------------------------------
 
-local function CreateCircularBackplate(frame, size)
-    local backplate = frame:CreateTexture(nil, "BACKGROUND", nil, 1)
-    backplate:SetPoint("CENTER")
-    backplate:SetSize(size, size)
-    backplate:SetTexture("Interface\\CharacterFrame\\TempPortraitAlphaMask")
-    backplate:SetBlendMode("BLEND")
-    return backplate
-end
-
 local function GetWorldPinVisualSizes(baseSize)
     -- The world-map wrapper uses a counter-scale tied to effective scale,
     -- which can reduce apparent size at high resolutions. Compensate by
@@ -544,21 +535,10 @@ function PinFrameFactory:CreateMinimapPinFrame(vendor, isOppositeFaction, elevat
     local br, bg, bb = self:GetPinColor()
     local isCustomColor = self:IsCustomPinColor()
 
-    -- Colored backplate behind icon (only for non-default)
-    if isCustomColor then
-        frame.backplate = CreateCircularBackplate(frame, mmSize + 2)
-        if isOppositeFaction then
-            frame.backplate:SetVertexColor(br * 0.5, bg * 0.5, bb * 0.5, 0.9)
-        else
-            frame.backplate:SetVertexColor(br, bg, bb, 0.9)
-        end
-    end
-
     -- Housing icon
-    local iconSize = isCustomColor and (mmSize - 2) or mmSize
     frame.icon = frame:CreateTexture(nil, "ARTWORK")
     frame.icon:SetPoint("CENTER")
-    frame.icon:SetSize(iconSize, iconSize)
+    frame.icon:SetSize(mmSize, mmSize)
     frame.icon:SetAtlas("housing-decor-vendor_32", false)
     if isOppositeFaction then
         frame.icon:SetDesaturated(true)
