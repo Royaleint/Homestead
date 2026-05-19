@@ -114,19 +114,6 @@ local function RestoreGeometry()
     end
 end
 
-local function EnableSafeEscapeClose(targetFrame)
-    if not targetFrame then
-        return
-    end
-
-    targetFrame:EnableKeyboard(true)
-    targetFrame:SetScript("OnKeyDown", function(self, key)
-        if key == "ESCAPE" then
-            self:Hide()
-        end
-    end)
-end
-
 local function GetRowHeight(row)
     if row and row.height then
         return row.height
@@ -442,8 +429,6 @@ local function CreateShell()
     end
 
     ownerFrame:HookScript("OnHide", SaveGeometry)
-    EnableSafeEscapeClose(ownerFrame)
-
     return ownerFrame
 end
 

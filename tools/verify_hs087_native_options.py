@@ -64,6 +64,8 @@ FORBIDDEN_SNIPPETS = {
         "house-drawing-stone-bg",
         "backgroundShade",
         "SetPropagateKeyboardInput",
+        "EnableKeyboard",
+        "OnKeyDown",
     ],
 }
 
