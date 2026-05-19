@@ -2226,7 +2226,9 @@ local function ShowContextMenu(owner)
         rootDescription:CreateDivider()
         rootDescription:CreateButton("Open Settings", function()
             HideUIPanel(WorldMapFrame)
-            Settings.OpenToCategory("Homestead")
+            if HA.OptionsFrame and HA.OptionsFrame.Open then
+                HA.OptionsFrame:Open()
+            end
         end)
     end)
 end
