@@ -18,11 +18,27 @@ REQUIRED = {
         "UI/OptionsFrame.lua",
         "UI/Options.lua",
     ],
+    "UI/OptionsFrame.lua": [
+        "local NAV_SELECTED_COLOR",
+        "ApplyNavButtonState",
+        "button.selectedTexture",
+    ],
+    "UI/OptionsControls.lua": [
+        "CreateHeaderSeparator",
+        "GameFontHighlightLarge",
+        "separator:SetColorTexture",
+    ],
 }
 
 DELETED = [
     "UI/PinColorPreviewWidget.lua",
 ]
+
+FORBIDDEN_SNIPPETS = {
+    "UI/OptionsFrame.lua": [
+        'CreateFrame("Button", nil, parent, "UIPanelButtonTemplate")',
+    ],
+}
 
 def read(relpath):
     path = ROOT / relpath
@@ -56,6 +72,14 @@ def main():
         for needle in required:
             if needle not in text:
                 failures.append(f"{relpath}: required entry missing: {needle}")
+    for relpath, forbidden in FORBIDDEN_SNIPPETS.items():
+        text = read(relpath)
+        if text is None:
+            failures.append(f"{relpath}: expected file missing")
+            continue
+        for needle in forbidden:
+            if needle in text:
+                failures.append(f"{relpath}: forbidden implementation remains: {needle}")
     for relpath in DELETED:
         if (ROOT / relpath).exists():
             failures.append(f"{relpath}: file should be removed")

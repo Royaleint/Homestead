@@ -16,9 +16,9 @@ local DROPDOWN_HEIGHT = 40
 local COLOR_HEIGHT = 34
 local PIN_PREVIEW_HEIGHT = 34
 
-local LEFT_WIDTH = 210
+local LEFT_WIDTH = 260
 local RIGHT_WIDTH = 240
-local CONTROL_GAP = 12
+local CONTROL_GAP = 14
 
 local function GetTooltip()
     local tooltip = _G.HomesteadOptionsTooltip
@@ -76,6 +76,15 @@ local function CreateLabel(parent, row)
     label:SetJustifyH("LEFT")
     label:SetText(row.label or "")
     return label
+end
+
+local function CreateHeaderSeparator(parent, label)
+    local separator = parent:CreateTexture(nil, "ARTWORK")
+    separator:SetPoint("LEFT", label, "RIGHT", 12, -1)
+    separator:SetPoint("RIGHT", parent, "RIGHT", -4, -1)
+    separator:SetHeight(1)
+    separator:SetColorTexture(0.68, 0.6, 0.42, 0.42)
+    return separator
 end
 
 local function GetDropdownLabel(row)
@@ -146,9 +155,12 @@ function Controls.CreateHeader(parent, row)
     local frame = CreateFrame("Frame", nil, parent)
     SetRowHeight(frame, HEADER_HEIGHT)
 
-    local label = frame:CreateFontString(nil, "ARTWORK", "GameFontNormalLarge")
-    label:SetPoint("LEFT", frame, "LEFT", 0, -2)
+    local label = frame:CreateFontString(nil, "ARTWORK", "GameFontHighlightLarge")
+    label:SetPoint("LEFT", frame, "LEFT", 0, -3)
     label:SetText(row.label or "")
+    label:SetTextColor(1, 0.96, 0.84, 1)
+
+    frame.separator = CreateHeaderSeparator(frame, label)
 
     return frame
 end
@@ -170,18 +182,14 @@ function Controls.CreateCheckbox(parent, row, refresh)
     local frame = CreateFrame("Frame", nil, parent)
     SetRowHeight(frame, ROW_HEIGHT)
 
+    CreateLabel(frame, row)
+
     local checkbox = CreateFrame("CheckButton", nil, frame, "UICheckButtonTemplate")
-    checkbox:SetPoint("LEFT", frame, "LEFT", -4, 0)
+    checkbox:SetPoint("LEFT", frame, "LEFT", LEFT_WIDTH + CONTROL_GAP - 4, 0)
     checkbox:SetChecked(SafeGet(row, false) and true or false)
     frame.homesteadRefresh = function()
         checkbox:SetChecked(SafeGet(row, false) and true or false)
     end
-
-    local label = frame:CreateFontString(nil, "ARTWORK", "GameFontNormal")
-    label:SetPoint("LEFT", checkbox, "RIGHT", 2, 0)
-    label:SetPoint("RIGHT", frame, "RIGHT", 0, 0)
-    label:SetJustifyH("LEFT")
-    label:SetText(row.label or "")
 
     checkbox:SetScript("OnClick", function(self)
         if row.set then

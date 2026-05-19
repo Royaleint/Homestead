@@ -20,11 +20,15 @@ local DEFAULT_WIDTH = 760
 local DEFAULT_HEIGHT = 560
 local MIN_WIDTH = 640
 local MIN_HEIGHT = 420
-local NAV_WIDTH = 150
-local NAV_BUTTON_HEIGHT = 24
-local NAV_BUTTON_SPACING = 6
+local NAV_WIDTH = 170
+local NAV_BUTTON_HEIGHT = 28
+local NAV_BUTTON_SPACING = 2
 local CONTENT_INSET = 18
 local SCROLL_SPACING = 8
+
+local NAV_SELECTED_COLOR = { r = 1.0, g = 0.82, b = 0.0 }
+local NAV_NORMAL_COLOR = { r = 1.0, g = 0.82, b = 0.0 }
+local NAV_HOVER_COLOR = { r = 1.0, g = 0.93, b = 0.45 }
 
 local DEFAULT_ROW_HEIGHTS = {
     header = 36,
@@ -188,27 +192,90 @@ local function CacheControl(row, child)
     end
 end
 
+local function ApplyNavButtonState(button, isActive)
+    if not button then
+        return
+    end
+
+    button.isActive = isActive and true or false
+
+    if button.selectedTexture then
+        button.selectedTexture:SetShown(button.isActive)
+    end
+    if button.leftAccent then
+        button.leftAccent:SetShown(button.isActive)
+    end
+    if button.text then
+        local color = button.isActive and NAV_SELECTED_COLOR or NAV_NORMAL_COLOR
+        button.text:SetTextColor(color.r, color.g, color.b)
+    end
+end
+
 local function UpdateNavButtons()
     for _, button in ipairs(navButtons) do
         local isActive = button.sectionKey == activeSection
-        button:SetEnabled(not isActive)
-        if isActive and button.LockHighlight then
-            button:LockHighlight()
-        elseif button.UnlockHighlight then
-            button:UnlockHighlight()
-        end
+        button:SetEnabled(true)
+        ApplyNavButtonState(button, isActive)
     end
 end
 
 local function CreateNavButton(parent, section, index)
-    local button = CreateFrame("Button", nil, parent, "UIPanelButtonTemplate")
+    local button = CreateFrame("Button", nil, parent)
     button:SetSize(NAV_WIDTH, NAV_BUTTON_HEIGHT)
     button:SetPoint("TOPLEFT", parent, "TOPLEFT", 0, -((index - 1) * (NAV_BUTTON_HEIGHT + NAV_BUTTON_SPACING)))
-    button:SetText(section.label or section.key or "")
     button.sectionKey = section.key
+
+    button.backgroundTexture = button:CreateTexture(nil, "BACKGROUND")
+    button.backgroundTexture:SetAllPoints(button)
+    button.backgroundTexture:SetColorTexture(0.02, 0.02, 0.02, 0.46)
+
+    button.selectedTexture = button:CreateTexture(nil, "BORDER")
+    button.selectedTexture:SetAllPoints(button)
+    button.selectedTexture:SetColorTexture(0.33, 0.28, 0.09, 0.42)
+    button.selectedTexture:Hide()
+
+    button.leftAccent = button:CreateTexture(nil, "ARTWORK")
+    button.leftAccent:SetPoint("TOPLEFT", button, "TOPLEFT", 0, -3)
+    button.leftAccent:SetPoint("BOTTOMLEFT", button, "BOTTOMLEFT", 0, 3)
+    button.leftAccent:SetWidth(2)
+    button.leftAccent:SetColorTexture(1.0, 0.82, 0.0, 0.82)
+    button.leftAccent:Hide()
+
+    button.hoverTexture = button:CreateTexture(nil, "HIGHLIGHT")
+    button.hoverTexture:SetAllPoints(button)
+    button.hoverTexture:SetColorTexture(1.0, 0.82, 0.0, 0.12)
+
+    local topLine = button:CreateTexture(nil, "ARTWORK")
+    topLine:SetPoint("TOPLEFT", button, "TOPLEFT", 0, 0)
+    topLine:SetPoint("TOPRIGHT", button, "TOPRIGHT", 0, 0)
+    topLine:SetHeight(1)
+    topLine:SetColorTexture(0.75, 0.66, 0.46, 0.18)
+
+    local bottomLine = button:CreateTexture(nil, "ARTWORK")
+    bottomLine:SetPoint("BOTTOMLEFT", button, "BOTTOMLEFT", 0, 0)
+    bottomLine:SetPoint("BOTTOMRIGHT", button, "BOTTOMRIGHT", 0, 0)
+    bottomLine:SetHeight(1)
+    bottomLine:SetColorTexture(0, 0, 0, 0.6)
+
+    button.text = button:CreateFontString(nil, "ARTWORK", "GameFontNormal")
+    button.text:SetPoint("LEFT", button, "LEFT", 14, 0)
+    button.text:SetPoint("RIGHT", button, "RIGHT", -8, 0)
+    button.text:SetJustifyH("LEFT")
+    button.text:SetText(section.label or section.key or "")
+
+    button:SetScript("OnEnter", function(self)
+        if self.text then
+            self.text:SetTextColor(NAV_HOVER_COLOR.r, NAV_HOVER_COLOR.g, NAV_HOVER_COLOR.b)
+        end
+    end)
+    button:SetScript("OnLeave", function(self)
+        ApplyNavButtonState(self, self.isActive)
+    end)
     button:SetScript("OnClick", function(self)
         OptionsFrame:ShowSection(self.sectionKey)
     end)
+
+    ApplyNavButtonState(button, section.key == activeSection)
     navButtons[index] = button
 end
 
@@ -278,8 +345,14 @@ local function CreateShell()
     background:SetPoint("TOPLEFT", content, "TOPLEFT", -4, 4)
     background:SetPoint("BOTTOMRIGHT", content, "BOTTOMRIGHT", 4, -4)
     background:SetAtlas("house-drawing-stone-bg", false)
-    background:SetAlpha(0.45)
+    background:SetAlpha(0.28)
     ownerFrame.background = background
+
+    local backgroundShade = content:CreateTexture(nil, "BACKGROUND", nil, -6)
+    backgroundShade:SetPoint("TOPLEFT", content, "TOPLEFT", -4, 4)
+    backgroundShade:SetPoint("BOTTOMRIGHT", content, "BOTTOMRIGHT", 4, -4)
+    backgroundShade:SetColorTexture(0, 0, 0, 0.34)
+    ownerFrame.backgroundShade = backgroundShade
 
     local nav = CreateFrame("Frame", nil, content)
     nav:SetPoint("TOPLEFT", content, "TOPLEFT", 0, -8)
@@ -287,13 +360,25 @@ local function CreateShell()
     nav:SetWidth(NAV_WIDTH)
     ownerFrame.nav = nav
 
+    local navBackground = nav:CreateTexture(nil, "BACKGROUND")
+    navBackground:SetAllPoints(nav)
+    navBackground:SetColorTexture(0.02, 0.02, 0.02, 0.32)
+    ownerFrame.navBackground = navBackground
+
+    local navDivider = content:CreateTexture(nil, "ARTWORK")
+    navDivider:SetPoint("TOPLEFT", nav, "TOPRIGHT", 10, 0)
+    navDivider:SetPoint("BOTTOMLEFT", nav, "BOTTOMRIGHT", 10, 0)
+    navDivider:SetWidth(1)
+    navDivider:SetColorTexture(0.68, 0.6, 0.42, 0.28)
+    ownerFrame.navDivider = navDivider
+
     local scrollBar = CreateFrame("EventFrame", nil, content, "MinimalScrollBar")
     scrollBar:SetPoint("TOPRIGHT", content, "TOPRIGHT", -2, -8)
     scrollBar:SetPoint("BOTTOMRIGHT", content, "BOTTOMRIGHT", -2, 8)
     ownerFrame.scrollBar = scrollBar
 
     local scrollBox = CreateFrame("Frame", nil, content, "WowScrollBoxList")
-    scrollBox:SetPoint("TOPLEFT", nav, "TOPRIGHT", 18, 0)
+    scrollBox:SetPoint("TOPLEFT", nav, "TOPRIGHT", 26, 0)
     scrollBox:SetPoint("BOTTOMRIGHT", scrollBar, "BOTTOMLEFT", -10, 0)
     ownerFrame.scrollBox = scrollBox
 
