@@ -26,6 +26,8 @@ REQUIRED = {
         "GetSectionDescriptionRow",
         "GetHeaderDescriptionRow",
         "HOMESTEAD_PORTRAIT_TEXTURE",
+        "POSITION_PORTRAIT_OFFSET_Y",
+        "PositionPortrait",
         'CreateFrame("Frame", "HomesteadOptionsFrame", UIParent, "PortraitFrameTemplate")',
         'ownerFrame:SetFrameStrata("HIGH")',
         "ownerFrame:SetToplevel(true)",
