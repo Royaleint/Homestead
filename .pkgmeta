@@ -1,7 +1,7 @@
 package-as: Homestead
 enable-nolib-creation: no
 manual-changelog:
-  filename: CHANGELOG.md
+  filename: RELEASE_NOTES.md
   markup-type: markdown
 
 ignore:
@@ -12,6 +12,7 @@ ignore:
   - "*.md"
   - "!README.md"
   - "!CHANGELOG.md"
+  - "!RELEASE_NOTES.md"
   - HousingAddon.toc
 
 externals:

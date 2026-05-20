@@ -16,6 +16,38 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Extract current version changelog
+        run: |
+          # Extract from the first version header to the next.
+          # Robust to both legacy and current heading formats:
+          #   ## v2.3.3 (...)
+          #   ## Homestead v2.3.40 (...)
+          #   ## Homestead v2.3.31 HOTFIX (...)
+          awk '/^## (Homestead )?v[0-9]/{if(found) exit; found=1} found' CHANGELOG.md > RELEASE_NOTES.md
+
+          # Validate: file must be non-empty (catches regex mismatch).
+          if [ ! -s RELEASE_NOTES.md ]; then
+            echo "::error::RELEASE_NOTES.md is empty after extraction."
+            echo "Expected heading pattern in CHANGELOG.md: '## [Homestead ]vX.Y.Z'"
+            echo "First 10 lines of CHANGELOG.md:"
+            head -10 CHANGELOG.md
+            exit 1
+          fi
+
+          # Validate: extracted heading must match the tag being released
+          # (catches the case where CHANGELOG.md wasn't updated for this release).
+          TAG_VERSION="${GITHUB_REF_NAME#v}"
+          if ! head -1 RELEASE_NOTES.md | grep -q "v${TAG_VERSION}"; then
+            echo "::error::Extracted release notes don't match tag ${GITHUB_REF_NAME}."
+            echo "Extracted first line: $(head -1 RELEASE_NOTES.md)"
+            echo "Expected version: v${TAG_VERSION}"
+            echo "Did you forget to write the v${TAG_VERSION} entry to CHANGELOG.md?"
+            exit 1
+          fi
+
+          echo "--- Extracted release notes for ${GITHUB_REF_NAME} ---"
+          cat RELEASE_NOTES.md
+
       - name: Package and Release
         uses: BigWigsMods/packager@v2
         with:

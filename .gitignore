@@ -23,6 +23,9 @@ __pycache__/
 # Downloaded archives
 *.zip
 
+# Generated at CI time by the release workflow (extracted from CHANGELOG.md)
+RELEASE_NOTES.md
+
 # Generated data
 parsed_decor_sources.json
 db2_complete_vendor_data.json

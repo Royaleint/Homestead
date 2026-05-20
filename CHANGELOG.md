@@ -2,18 +2,31 @@
 
 ---
 
-## Unreleased
+## Homestead v2.4.0 (05-19-2026)
+
+A redesigned native options panel, version-update notices, and a batch of map, waypoint, and minimap polish.
+
+---
 
 ### Improved
 
-- Make Homestead's map and waypoint helpers lean further on Blizzard map data: shared child-map discovery, cached map projections, and displayable-map fallback for waypoint distance checks.
+- Redesigned the Homestead options window with a native WoW-style panel, which means clearer sections, native controls, and a familiar look.
+- Updated map and minimap options so visible pins refresh more reliably while the map is already open.
+- Added version notices when a newer Homestead release is available through CurseForge, Wago, or GitHub Releases.
+- Improved map pin placement across zone, continent, and world map views.
+- Improved waypoint behavior when setting or clearing Homestead vendor waypoints.
+- Improved minimap pin handling in areas where Blizzard shows its own hybrid minimap.
+
+---
 
 ### Bug Fixes
 
-- Fix custom minimap pin colors drawing a large colored circle behind the vendor icon. Custom colors now tint only the Homestead bag icon.
-- Clear only the active user waypoint/supertracking state when Homestead clears a waypoint, instead of clearing all Blizzard supertracking.
-- Show Blizzard's invalid-map waypoint message when a Homestead vendor waypoint cannot be set on the current map.
-- Reposition Homestead world-map pins when the map canvas height changes, not only when its width changes.
+- Fixed the options window blocking keyboard movement while it was open.
+- Fixed custom minimap pin colors drawing a large colored circle behind the vendor icon.
+- Fixed the World Map "Show collection counts" option not updating visible pins until the map refreshed.
+- Fixed Homestead clearing more waypoint tracking than intended.
+- Fixed invalid vendor waypoints failing without Blizzard's normal map warning.
+- Fixed world-map pins not repositioning correctly after some map size changes.
 
 ---
 
