@@ -45,8 +45,27 @@ jobs:
             exit 1
           fi
 
-          echo "--- Extracted release notes for ${GITHUB_REF_NAME} ---"
+          echo "--- Extracted markdown for ${GITHUB_REF_NAME} ---"
           cat RELEASE_NOTES.md
+
+          # Convert markdown to HTML for the upload.
+          # CurseForge's API claims to accept changelogType: markdown but renders
+          # it as plain text (collapses newlines, shows ## and --- as literal
+          # characters). Wago accepts HTML and renders it correctly, so HTML
+          # works for both platforms. GitHub Release notes are also fine with
+          # inline HTML inside the body. Pre-converting in CI keeps a single
+          # markdown source of truth (CHANGELOG.md) while shipping a format CF
+          # actually renders. BigWigs packager does NOT pandoc-convert for CF
+          # (release.sh's pandoc branch is wowi-only), so this conversion has
+          # to happen here.
+          if ! command -v pandoc &>/dev/null; then
+            echo "pandoc not preinstalled — installing"
+            sudo apt-get update -qq && sudo apt-get install -y pandoc
+          fi
+          pandoc --wrap=none -f commonmark -t html RELEASE_NOTES.md -o RELEASE_NOTES.html
+
+          echo "--- Converted HTML uploaded to CurseForge / Wago ---"
+          cat RELEASE_NOTES.html
 
       - name: Package and Release
         uses: BigWigsMods/packager@v2
