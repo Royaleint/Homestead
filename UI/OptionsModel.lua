@@ -3,7 +3,7 @@
     Data-only settings descriptors for the native Blizzard options UI.
 ]]
 
-local addonName, HA = ...
+local _, HA = ...
 
 local L = HA.L or {}
 
@@ -230,12 +230,11 @@ OptionsModel.sections = {
                     if not minimap then return end
                     minimap.hide = not value
 
-                    local LDBIcon = LibStub("LibDBIcon-1.0", true)
-                    if LDBIcon then
+                    if HA.MinimapButton then
                         if value then
-                            LDBIcon:Show(addonName)
+                            HA.MinimapButton:Show()
                         else
-                            LDBIcon:Hide(addonName)
+                            HA.MinimapButton:Hide()
                         end
                     end
                 end,

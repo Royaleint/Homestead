@@ -167,15 +167,14 @@ function HousingAddon:OnProfileChanged()
 end
 
 -------------------------------------------------------------------------------
--- Minimap Button (LibDataBroker + LibDBIcon)
+-- Minimap Button (LibDataBroker broker + custom HA.MinimapButton + Addon Compartment)
 -------------------------------------------------------------------------------
 
 function HousingAddon:InitializeMinimapButton()
     local LDB = LibStub("LibDataBroker-1.1", true)
-    local LDBIcon = LibStub("LibDBIcon-1.0", true)
 
-    if not LDB or not LDBIcon then
-        self:Debug("LibDataBroker or LibDBIcon not available")
+    if not LDB then
+        self:Debug("LibDataBroker not available")
         return
     end
 
@@ -242,8 +241,26 @@ function HousingAddon:InitializeMinimapButton()
     -- Store reference
     self.LDB = dataObj
 
-    -- Register with LibDBIcon
-    LDBIcon:Register(addonName, dataObj, self.db.profile.minimap)
+    -- Custom minimap button (replaces LibDBIcon)
+    if HA.MinimapButton then
+        HA.MinimapButton:Initialize(dataObj, self.db.profile.minimap)
+    end
+
+    -- Blizzard Addon Compartment (native surface; reuses the same behavior)
+    local AddonCompartmentFrame = _G.AddonCompartmentFrame
+    if AddonCompartmentFrame and AddonCompartmentFrame.RegisterAddon then
+        AddonCompartmentFrame:RegisterAddon({
+            text = "Homestead",
+            icon = Constants.Icons.MINIMAP,
+            func = function() self:ToggleOptions() end,
+            funcOnEnter = function(btn)
+                GameTooltip:SetOwner(btn, "ANCHOR_LEFT")
+                dataObj.OnTooltipShow(GameTooltip)
+                GameTooltip:Show()
+            end,
+            funcOnLeave = function() GameTooltip:Hide() end,
+        })
+    end
 end
 
 -------------------------------------------------------------------------------
@@ -839,12 +856,11 @@ end
 
 function HousingAddon:RefreshConfig()
     -- Refresh minimap button visibility
-    local LDBIcon = LibStub("LibDBIcon-1.0", true)
-    if LDBIcon then
+    if HA.MinimapButton then
         if self.db.profile.minimap.hide then
-            LDBIcon:Hide(addonName)
+            HA.MinimapButton:Hide()
         else
-            LDBIcon:Show(addonName)
+            HA.MinimapButton:Show()
         end
     end
 
