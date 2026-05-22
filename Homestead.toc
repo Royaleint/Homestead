@@ -4,7 +4,7 @@
 ## Author: Nubs
 ## Version: @project-version@
 ## SavedVariables: HomesteadDB
-## IconTexture: Interface\AddOns\Homestead\Textures\icon
+## IconTexture: Interface\AddOns\Homestead\Textures\HomesteadMinimap
 ## Category: Housing
 ## X-Website: https://github.com/Royaleint/Homestead
 ## X-License: GPL-3.0
