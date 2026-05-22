@@ -4,6 +4,7 @@ max_line_length = false
 globals = {
     -- Addon globals (intentionally written)
     "Homestead",
+    "HomesteadMinimapButton",
     "HomesteadMapSidePanelTooltip",
     "HomesteadVendorMapPinsTooltip",
     "SlashCmdList",

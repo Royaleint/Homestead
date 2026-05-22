@@ -55,7 +55,10 @@ local function ApplyPosition()
         x = math.max(-w, math.min(x * diagW, w))
         y = math.max(-h, math.min(y * diagH, h))
     end
-    button:ClearAllPoints()
+    -- No ClearAllPoints: SetPoint("CENTER", ...) overwrites the single existing CENTER
+    -- anchor. This keeps the button collector-safe -- MinimapButtonBag-style addons grab
+    -- the button and neutralize its SetPoint; without a ClearAllPoints our update becomes a
+    -- harmless no-op instead of unanchoring the button (matches LibDBIcon/ATT behavior).
     button:SetPoint("CENTER", Minimap, "CENTER", math.floor(x + 0.5), math.floor(y + 0.5))
 end
 
@@ -104,7 +107,9 @@ function MinimapButton:Initialize(obj, minimapDB)
     dataObject = obj
     savedPos = minimapDB
 
-    button = CreateFrame("Button", nil, _G.Minimap)  -- unnamed: no new global
+    -- Named (not unnamed) so minimap-button collectors (MinimapButtonBag Reborn, etc.) can
+    -- find it via Minimap:GetChildren() + GetName(). The global is allowlisted in .luacheckrc.
+    button = CreateFrame("Button", "HomesteadMinimapButton", _G.Minimap)
     button:SetFrameStrata("MEDIUM")
     button:SetFrameLevel(8)
     button:SetSize(BUTTON_SIZE, BUTTON_SIZE)
