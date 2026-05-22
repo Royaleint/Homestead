@@ -2,6 +2,14 @@
 
 ---
 
+## Unreleased
+
+### Improved
+
+- New minimap button: redesigned icon, now also available in Blizzard's Addon Compartment.
+
+---
+
 ## Homestead v2.4.0 (05-19-2026)
 
 A redesigned native options panel, version-update notices, and a batch of map, waypoint, and minimap polish.
