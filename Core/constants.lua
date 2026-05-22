@@ -46,7 +46,7 @@ Constants.Icons = {
 
     -- UI icons
     -- Custom icon in Textures folder (user provides icon.png or icon.tga)
-    MINIMAP = "Interface\\AddOns\\Homestead\\Textures\\icon",
+    MINIMAP = "Interface\\AddOns\\Homestead\\Textures\\HomesteadMinimap",
 }
 
 -- Atlas-based icons (WoW 12.0+ housing atlases if available)
