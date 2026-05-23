@@ -6,6 +6,9 @@ Home_Tracker_Audit.md
 AGENTS.md
 CLAUDE.md
 
+# Git worktrees (studio standard — live inside the repo, never committed)
+.worktrees/
+
 # Scripts and tools
 .agents/
 .claude/
