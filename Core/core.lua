@@ -54,11 +54,6 @@ function HousingAddon:OnInitialize()
         vt.pinIconSize = 10
     end
 
-    -- Set up profile callbacks
-    self.db.RegisterCallback(self, "OnProfileChanged", "OnProfileChanged")
-    self.db.RegisterCallback(self, "OnProfileCopied", "OnProfileChanged")
-    self.db.RegisterCallback(self, "OnProfileReset", "OnProfileChanged")
-
     -- Initialize minimap button
     self:InitializeMinimapButton()
 
@@ -159,11 +154,6 @@ function HousingAddon:OnDisable()
     self:UnregisterAllEvents()
 
     self:Debug("Homestead disabled")
-end
-
-function HousingAddon:OnProfileChanged()
-    -- Refresh settings when profile changes
-    self:RefreshConfig()
 end
 
 -------------------------------------------------------------------------------
@@ -853,20 +843,6 @@ end
 -------------------------------------------------------------------------------
 -- Refresh Functions
 -------------------------------------------------------------------------------
-
-function HousingAddon:RefreshConfig()
-    -- Refresh minimap button visibility
-    if HA.MinimapButton then
-        if self.db.profile.minimap.hide then
-            HA.MinimapButton:Hide()
-        else
-            HA.MinimapButton:Show()
-        end
-    end
-
-    -- Refresh overlays
-    self:RefreshAllOverlays()
-end
 
 function HousingAddon:RefreshAllOverlays()
     if HA.Overlay then
