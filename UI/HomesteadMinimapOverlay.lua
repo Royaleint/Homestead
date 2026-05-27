@@ -43,6 +43,18 @@ local mapCos
 local minimapShape
 local lastHybridMinimapReason
 
+-- HS-090 Phase H: cache the rotateMinimap cvar instead of calling GetCVar
+-- every OnUpdate tick. Refresh on CVAR_UPDATE so live toggles of "Rotate
+-- Minimap" in the Blizzard Interface options work without /reload.
+local rotateMinimapEnabled = _G.GetCVar and _G.GetCVar("rotateMinimap") == "1" or false
+local cvarFrame = CreateFrame("Frame")
+cvarFrame:RegisterEvent("CVAR_UPDATE")
+cvarFrame:SetScript("OnEvent", function(_, _, cvarName, value)
+    if cvarName == "rotateMinimap" then
+        rotateMinimapEnabled = value == "1"
+    end
+end)
+
 local minimapShapes = {
     -- { upper-left, lower-left, upper-right, lower-right }
     ["SQUARE"]                = { false, false, false, false },
@@ -242,7 +254,7 @@ function Overlay:RefreshPositions(force)
     end
 
     local playerX, playerY = GetPlayerWorldPosition()
-    local rotateMinimap = _G.GetCVar("rotateMinimap") == "1"
+    local rotateMinimap = rotateMinimapEnabled
     local facing = rotateMinimap and _G.GetPlayerFacing() or nil
 
     if not playerX or not playerY or (rotateMinimap and not facing) then
