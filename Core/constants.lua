@@ -434,19 +434,6 @@ Constants.Overlay = {
 }
 
 -------------------------------------------------------------------------------
--- Cache Configuration
--------------------------------------------------------------------------------
-Constants.Cache = {
-    -- Time to live for cached data (seconds)
-    TTL_DECOR_INFO = 300,      -- 5 minutes
-    TTL_VENDOR_INFO = 3600,    -- 1 hour
-    TTL_DYE_INFO = 300,        -- 5 minutes
-
-    -- Maximum cache entries
-    MAX_ENTRIES = 1000,
-}
-
--------------------------------------------------------------------------------
 -- Default Options
 -------------------------------------------------------------------------------
 Constants.Defaults = {

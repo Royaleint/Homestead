@@ -71,11 +71,6 @@ function HousingAddon:OnEnable()
     -- Register for events
     self:RegisterEvents()
 
-    -- Initialize cache
-    if HA.Cache then
-        HA.Cache:Initialize()
-    end
-
     -- Initialize CatalogStore (must be before CatalogScanner)
     if HA.CatalogStore then
         HA.CatalogStore:Initialize()

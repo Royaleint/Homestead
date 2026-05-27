@@ -31,7 +31,6 @@ Locale\ruRU.lua
 Core\constants.lua
 Core\core.lua
 Core\events.lua
-Core\cache.lua
 
 # Data Classes
 Data\VendorDatabase.lua
