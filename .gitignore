@@ -35,7 +35,9 @@ RELEASE_NOTES.html
 parsed_decor_sources.json
 db2_complete_vendor_data.json
 *.csv
+# LuaLS workspace config — checked in alongside .luacheckrc
 *.json
+!.luarc.json
 
 # ATT cache/snapshots (legacy, now in Home_Dev/scripts/)
 
