@@ -77,7 +77,7 @@ def main() -> int:
 
     calendar = read("Modules/CalendarDetector.lua")
     require("Modules/CalendarDetector.lua", "C_DateAndTime.GetCurrentCalendarTime", "canonical date API")
-    require("Modules/CalendarDetector.lua", "enableSeasonalDetection", "default-off seasonal activation flag")
+    require("Modules/CalendarDetector.lua", "CalendarDetector.enableSeasonalDetection = true", "enabled seasonal detection flag")
     if re.search(r"C_DateInfo\s+and\s+C_DateInfo\.GetCurrentCalendarTime", calendar):
         fail("Modules/CalendarDetector.lua: ungated C_DateInfo date lookup remains")
 

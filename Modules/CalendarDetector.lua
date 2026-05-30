@@ -18,7 +18,7 @@ local _, HA = ...
 
 local CalendarDetector = {}
 HA.CalendarDetector = CalendarDetector
-CalendarDetector.enableSeasonalDetection = false
+CalendarDetector.enableSeasonalDetection = true
 
 -- State
 local activeHolidays = nil  -- nil = not yet scanned, {} = scanned but none active
@@ -57,7 +57,7 @@ local function ScanTodaysHolidays()
         return nil
     end
 
-    -- Default-off until the reactivated seasonal vendor path gets /reload UI verification.
+    -- Seasonal vendor path is enabled after Gate 2 verification of the downstream UI.
     if not CalendarDetector.enableSeasonalDetection then return nil end
 
     local today = C_DateAndTime and C_DateAndTime.GetCurrentCalendarTime and C_DateAndTime.GetCurrentCalendarTime()
