@@ -678,7 +678,7 @@ function EndeavorsData:GetMilestoneProgress()
         progressRequired = total,
         previousMilestone = prevMilestone,
         nextMilestoneAmount = nextMilestone and nextMilestone.requiredContributionAmount or total,
-        nextMilestoneIndex = nextMilestone and (nextMilestone.milestoneOrderIndex + 1) or nil,
+        nextMilestoneIndex = nextMilestone and nextMilestone.milestoneOrderIndex and (nextMilestone.milestoneOrderIndex + 1) or nil,
         remaining = nextMilestone and (nextMilestone.requiredContributionAmount - current) or 0,
         allMilestonesComplete = (nextMilestone == nil),
         milestoneCount = cachedMilestones and #cachedMilestones or 0,

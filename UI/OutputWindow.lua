@@ -122,6 +122,7 @@ local function CreateOutputWindow()
     editBox:SetScript("OnTextChanged", function(self)
         -- Auto-adjust height based on content
         local _, fontHeight = self:GetFont()
+        fontHeight = fontHeight or 14
         local text = self:GetText()
         local numLines = 1
         for _ in text:gmatch("\n") do

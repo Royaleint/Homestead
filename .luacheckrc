@@ -70,6 +70,7 @@ read_globals = {
     "C_ChatInfo",
     "C_Container",
     "C_CurrencyInfo",
+    "C_DateAndTime",
     "C_DateInfo",
     "C_GossipInfo",
     "C_Housing",

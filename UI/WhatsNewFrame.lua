@@ -26,6 +26,7 @@ local ipairs = ipairs
 local tonumber = tonumber
 local math_max = math.max
 local table_sort = table.sort
+local WELCOME_SEEN_VERSION_MAX = HA.Constants.WELCOME_SEEN_VERSION_MAX or 4
 
 -------------------------------------------------------------------------------
 -- Version comparison utilities (local scope only)
@@ -367,7 +368,7 @@ function WhatsNewFrame:Initialize()
     if (db.lastSeenVersion or "") == "" then
         -- Check any welcome key to distinguish existing user from brand-new install
         local isExistingUser = false
-        for i = 1, 10 do
+        for i = 1, WELCOME_SEEN_VERSION_MAX do
             if db["hasSeenWelcomeV" .. i] then
                 isExistingUser = true
                 break

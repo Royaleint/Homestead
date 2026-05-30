@@ -913,7 +913,7 @@ end
 function HousingAddon:GetDecorInfo(itemLink)
     if not itemLink then return nil end
 
-    local itemID = GetItemInfoInstant(itemLink)
+    local itemID = C_Item.GetItemInfoInstant(itemLink)
     if not itemID then return nil end
 
     local catalogStore = HA.CatalogStore

@@ -141,7 +141,7 @@ local function SetInventoryHomestone(overlay, itemLink)
         return
     end
 
-    local itemID = GetItemInfoInstant(itemLink)
+    local itemID = C_Item.GetItemInfoInstant(itemLink)
     if not itemID or not CatalogStore:IsDecorItem(itemLink) then
         Overlay:ClearIcon(overlay)
         return

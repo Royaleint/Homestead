@@ -389,6 +389,9 @@ function Controls.CreateColor(parent, row, refresh)
             end
 
             local newR, newG, newB = picker:GetColorRGB()
+            newR = newR or previousR
+            newG = newG or previousG
+            newB = newB or previousB
             if row.set then
                 row.set(newR, newG, newB)
             end
