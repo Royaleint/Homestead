@@ -11,6 +11,7 @@
 ## X-Wago-ID: aNDMQ86o
 ## OptionalDependencies: WagoAnalytics
 ## X-Curse-Project-ID: 1450714
+## Dependencies: Foundry-1.0
 
 # Libraries
 embeds.xml
