@@ -136,10 +136,10 @@ function VendorData:FormatCost(cost)
 
     local parts = {}
 
-    -- Format gold (stored in copper) using GetCoinTextureString for coin icons
+    -- Format gold (stored in copper) using C_CurrencyInfo.GetCoinTextureString for coin icons
     if cost.gold and cost.gold > 0 then
-        if GetCoinTextureString then
-            parts[#parts + 1] = GetCoinTextureString(cost.gold)
+        if C_CurrencyInfo and C_CurrencyInfo.GetCoinTextureString then
+            parts[#parts + 1] = C_CurrencyInfo.GetCoinTextureString(cost.gold)
         else
             -- Fallback if API unavailable
             local gold = math.floor(cost.gold / 10000)

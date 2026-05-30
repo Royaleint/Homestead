@@ -279,7 +279,7 @@ function Overlay:SetIcon(overlay, itemLink)
     end
 
     -- Check if this is a decor item
-    local itemID = GetItemInfoInstant(itemLink)
+    local itemID = C_Item.GetItemInfoInstant(itemLink)
     if not itemID or not CatalogStore:IsDecorItem(itemLink) then
         overlay.icon:Hide()
         self:ClearHomestoneTextures(overlay)

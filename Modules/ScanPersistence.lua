@@ -106,7 +106,8 @@ function ScanPersistence:SaveVendorData(scanData)
     -- Merge with existing data if present (keep more complete record)
     if existingData then
         -- Use newer coords if available
-        if scanData.coords.x ~= 0.5 and scanData.coords.y ~= 0.5 then
+        if scanData.coords and scanData.coords.x and scanData.coords.y
+            and scanData.coords.x ~= 0.5 and scanData.coords.y ~= 0.5 then
             vendorRecord.coords = scanData.coords
         elseif existingData.coords then
             vendorRecord.coords = existingData.coords

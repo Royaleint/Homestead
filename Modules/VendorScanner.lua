@@ -398,8 +398,7 @@ function VendorScanner:ProcessScanQueue()
             local currencies = {}
             local itemCosts = {}
             if extendedCost and _G.GetMerchantItemCostInfo then
-                local itemCostCount, currencyCount = _G.GetMerchantItemCostInfo(i)
-                local totalCosts = (itemCostCount or 0) + (currencyCount or 0)
+                local totalCosts = _G.GetMerchantItemCostInfo(i) or 0
 
                 -- Iterate through ALL cost components
                 for c = 1, totalCosts do
@@ -445,7 +444,7 @@ function VendorScanner:ProcessScanQueue()
 
             -- Track all items for itemCount
             table.insert(scanQueue.allItems, {
-                itemID = itemID or GetItemInfoInstant(itemLink),
+                itemID = itemID or C_Item.GetItemInfoInstant(itemLink),
                 name = name,
                 isDecor = isDecor,
             })
@@ -460,7 +459,7 @@ function VendorScanner:ProcessScanQueue()
 
                 table.insert(scanQueue.decorItems, {
                     itemLink = itemLink,
-                    itemID = itemID or (decorInfo and decorInfo.itemID) or GetItemInfoInstant(itemLink),
+                    itemID = itemID or (decorInfo and decorInfo.itemID) or C_Item.GetItemInfoInstant(itemLink),
                     name = name or (decorInfo and decorInfo.name) or "Unknown",
                     decorID = decorID,
                     price = price,

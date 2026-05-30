@@ -131,7 +131,7 @@ local function OnItemUpdated(_, item, decoration)
         return
     end
 
-    local itemID = (itemInfo and itemInfo.itemID) or GetItemInfoInstant(itemLink)
+    local itemID = (itemInfo and itemInfo.itemID) or C_Item.GetItemInfoInstant(itemLink)
     if not itemID or not CatalogStore:IsDecorItem(itemLink) then
         ClearIcon(decoration)
         return

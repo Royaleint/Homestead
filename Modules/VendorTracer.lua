@@ -161,7 +161,7 @@ function VendorTracer:NavigateToItemVendor(itemID)
     end
 
     -- Get item name for waypoint title
-    local itemName = GetItemInfo(itemID) or ("Item " .. itemID)
+    local itemName = C_Item.GetItemInfo(itemID) or ("Item " .. itemID)
     local title = vendor.name .. " (" .. itemName .. ")"
 
     return self:SetWaypoint(vendor.mapID, x, y, title, vendor)

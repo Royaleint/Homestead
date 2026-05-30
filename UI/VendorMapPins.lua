@@ -628,7 +628,7 @@ function VendorMapPins:ShowVendorTooltip(pin, vendor)
         local SM = HA.SourceManager
 
         for _, item in ipairs(allItems) do
-            local itemName = item.name or (item.itemID and GetItemInfo(item.itemID)) or "Unknown Item"
+            local itemName = item.name or (item.itemID and C_Item.GetItemInfo(item.itemID)) or "Unknown Item"
 
             if item.itemID and IsItemOwned(item.itemID) then
                 -- Collected: green

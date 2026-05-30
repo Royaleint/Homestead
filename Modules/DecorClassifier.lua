@@ -29,7 +29,7 @@ function DecorClassifier.CheckIfDecorItem(itemLink)
     local ok, catalogInfo = pcall(CHC.GetCatalogEntryInfoByItem, itemLink, true)
     if ok and catalogInfo then
         -- Extract item ID from link
-        local itemID = GetItemInfoInstant(itemLink)
+        local itemID = C_Item.GetItemInfoInstant(itemLink)
         return true, {
             itemID = itemID,
             entryID = catalogInfo.entryID,

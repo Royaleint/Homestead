@@ -20,8 +20,9 @@ local LINE_GAP = 4
 local FEATURE_ICON_SIZE = 28
 local FEATURE_GAP = 14
 
--- SavedVariable key (bumped to V4 so existing users see the updated welcome)
-local SV_KEY = "hasSeenWelcomeV4"
+-- SavedVariable key (bumped when existing users should see the updated welcome)
+local WELCOME_SEEN_VERSION_MAX = HA.Constants.WELCOME_SEEN_VERSION_MAX or 4
+local SV_KEY = "hasSeenWelcomeV" .. WELCOME_SEEN_VERSION_MAX
 
 local function EnableSafeEscapeClose(frame)
     if not frame then return end

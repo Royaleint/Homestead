@@ -1497,6 +1497,7 @@ function SourceManager:GetCompletionStatus(itemID, sourceType, sourceData)
             return CopyCompletionStatus(completionCache[cacheKey])
         end
 
+        -- wasEarnedByMe is the 13th return value from GetAchievementInfo.
         local id, _, _, completed, _, _, _, _, _, _, _, _, wasEarnedByMe = GetAchievementInfo(achievementID)
         if not id then
             return nil

@@ -179,7 +179,7 @@ local function UpdateWidget(cornerFrame, details)
         return false
     end
 
-    local itemID = (details and details.itemID) or GetItemInfoInstant(itemLink)
+    local itemID = (details and details.itemID) or C_Item.GetItemInfoInstant(itemLink)
     if not itemID or not CatalogStore:IsDecorItem(itemLink) then
         return false
     end
