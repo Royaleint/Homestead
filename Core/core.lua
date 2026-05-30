@@ -10,7 +10,6 @@ local addonName, HA = ...
 -- Create the main addon object using Ace3
 local Homestead = LibStub("AceAddon-3.0"):NewAddon(
     addonName,
-    "AceConsole-3.0",
     "AceEvent-3.0"
 )
 
@@ -57,9 +56,143 @@ function HousingAddon:OnInitialize()
     -- Initialize minimap button
     self:InitializeMinimapButton()
 
-    -- Register slash commands
-    self:RegisterChatCommand("hs", "SlashCommandHandler")
-    self:RegisterChatCommand("homestead", "SlashCommandHandler")
+    -- Register slash commands via Foundry.Commands (replaces AceConsole-3.0).
+    local F = _G.Foundry_1_0
+    if not F then
+        error("Homestead requires Foundry-1.0. Please install or enable it.")
+    end
+
+    local cmd = F.Commands:New({
+        name = "Homestead",
+        slashes = { "/hs", "/homestead" },
+        defaultHandler = function() self:OpenOptions() end,
+        description = L["Homestead Commands:"] or "Homestead Commands:",
+        unknownMessage = function(input)
+            return format(L["Unknown command: %s"] or "Unknown command: %s", input)
+        end,
+    })
+
+    cmd:Register({ name = "config", aliases = { "options", "settings" },
+        help = "Open the options panel.",
+        handler = function() self:OpenOptions() end })
+    cmd:Register({ name = "toggle",
+        help = "Toggle the options panel.",
+        handler = function() self:ToggleOptions() end })
+    cmd:Register({ name = "vendor", args = "[search]",
+        help = "Search for decor vendors.",
+        handler = function(rest) self:SearchVendors(rest ~= "" and rest or nil) end })
+    cmd:Register({ name = "waypoint", aliases = { "wp" },
+        help = "Clear the current map waypoint.",
+        handler = function() self:ClearWaypoint() end })
+    cmd:Register({ name = "scan",
+        help = "Scan the catalog for owned items.",
+        handler = function() self:ScanCatalog() end })
+    cmd:Register({ name = "vendors",
+        help = "Show scanned vendor data.",
+        handler = function() self:ShowScannedVendors() end })
+    cmd:Register({ name = "cache",
+        help = "Show ownership cache info.",
+        handler = function() self:ShowCacheInfo() end })
+    cmd:Register({ name = "clearcache",
+        help = "Clear the ownership cache.",
+        handler = function() self:ClearOwnershipCache() end })
+    cmd:Register({ name = "panel",
+        help = "Toggle the detached vendor panel.",
+        handler = function()
+            if HA.MapSidePanel then
+                HA.MapSidePanel:ToggleDetached()
+            end
+        end })
+    cmd:Register({ name = "refreshmap",
+        help = "Refresh world map pins.",
+        handler = function() self:RefreshMapPins() end })
+    cmd:Register({ name = "corrections", aliases = { "npcfixes" },
+        help = "Show detected NPC ID corrections.",
+        handler = function() self:ShowNPCIDCorrections() end })
+    cmd:Register({ name = "export",
+        help = "Show the export dialog.",
+        handler = function()
+            if HA.ExportImport then
+                HA.ExportImport:ShowExportDialog()
+            end
+        end })
+    cmd:Register({ name = "export full",
+        help = "Export all scanned vendors.",
+        handler = function()
+            if HA.ExportImport then
+                HA.ExportImport:ExportScannedVendors(true, false)
+            end
+        end })
+    cmd:Register({ name = "exportall",
+        help = "Export ALL, bypassing the timestamp filter.",
+        handler = function()
+            if HA.ExportImport then
+                HA.ExportImport:ExportScannedVendors(true, true)
+            end
+        end })
+    cmd:Register({ name = "clearscans",
+        help = "Clear all scanned vendor data.",
+        handler = function()
+            if HA.ExportImport then
+                HA.ExportImport:ClearScannedData()
+            end
+        end })
+    cmd:Register({ name = "validate",
+        help = "Validate the vendor database.",
+        handler = function()
+            if HA.Validation then
+                HA.Validation:RunFullValidation()
+            end
+        end })
+    cmd:Register({ name = "validate details",
+        help = "Show validation details.",
+        handler = function()
+            if HA.Validation then
+                HA.Validation:ShowDetails()
+            end
+        end })
+    cmd:Register({ name = "welcome",
+        help = "Show the welcome screen.",
+        handler = function()
+            if HA.WelcomeFrame then
+                HA.WelcomeFrame:Show()
+            end
+        end })
+    cmd:Register({ name = "whatsnew",
+        help = "Show the What's New panel.",
+        handler = function()
+            if HA.WhatsNewFrame then
+                HA.WhatsNewFrame:Show(HA.Constants.VERSION)
+            end
+        end })
+    cmd:Register({ name = "version", args = "[on|off]",
+        help = "Show version; toggle update notifications.",
+        handler = function(rest)
+            if HA.VersionCheck then
+                HA.VersionCheck:HandleSlash(rest)
+            end
+        end })
+    cmd:Register({ name = "debug",
+        help = "Toggle debug mode.",
+        handler = function()
+            self.db.profile.debug = not self.db.profile.debug
+            self:Print(format(L["Debug mode: %s"] or "Debug mode: %s",
+                self.db.profile.debug and (L["ON"] or "ON") or (L["OFF"] or "OFF")))
+        end })
+    cmd:Register({ name = "debug vertical",
+        help = "Print vertical-sibling info.",
+        handler = function()
+            local lines = HA.Constants.GetVerticalSiblingsInfo()
+            self:Print("VerticalSiblings (" .. #lines .. " pairs):")
+            for _, line in ipairs(lines) do
+                self:Print("  " .. line)
+            end
+        end })
+    cmd:Register({ name = "debug geography",
+        help = "Audit manual map geography entries.",
+        handler = function() self:PrintManualGeographyAuditReport() end })
+
+    self.commands = cmd
 
     -- Initialize modules (will be called when modules are created)
     -- self:InitializeModules()
@@ -249,116 +382,8 @@ function HousingAddon:InitializeMinimapButton()
 end
 
 -------------------------------------------------------------------------------
--- Slash Command Handler
+-- Slash Command Helpers
 -------------------------------------------------------------------------------
-
-function HousingAddon:SlashCommandHandler(input)
-    input = input and input:trim():lower() or ""
-
-    if input == "" or input == "config" or input == "options" or input == "settings" then
-        self:OpenOptions()
-    elseif input == "toggle" then
-        self:ToggleOptions()
-    elseif input == "vendor" or input:match("^vendor%s+") then
-        local search = input:match("^vendor%s+(.+)$")
-        self:SearchVendors(search)
-    elseif input == "waypoint" or input == "wp" then
-        self:ClearWaypoint()
-    elseif input == "debug" then
-        self.db.profile.debug = not self.db.profile.debug
-        self:Print(format(L["Debug mode: %s"] or "Debug mode: %s", self.db.profile.debug and (L["ON"] or "ON") or (L["OFF"] or "OFF")))
-    elseif input == "debug vertical" then
-        local lines = HA.Constants.GetVerticalSiblingsInfo()
-        self:Print("VerticalSiblings (" .. #lines .. " pairs):")
-        for _, line in ipairs(lines) do
-            self:Print("  " .. line)
-        end
-    elseif input == "debug geography" then
-        self:PrintManualGeographyAuditReport()
-    elseif input == "cache" then
-        self:ShowCacheInfo()
-    elseif input == "clearcache" then
-        self:ClearOwnershipCache()
-    elseif input == "scan" then
-        self:ScanCatalog()
-    elseif input == "vendors" then
-        self:ShowScannedVendors()
-    elseif input == "refreshmap" then
-        self:RefreshMapPins()
-    elseif input == "corrections" or input == "npcfixes" then
-        self:ShowNPCIDCorrections()
-    elseif input == "help" then
-        self:PrintHelp()
-    elseif input == "export" then
-        if HA.ExportImport then
-            HA.ExportImport:ShowExportDialog()
-        end
-    elseif input == "export full" then
-        if HA.ExportImport then
-            HA.ExportImport:ExportScannedVendors(true, false)
-        end
-    elseif input == "exportall" then
-        if HA.ExportImport then
-            HA.ExportImport:ExportScannedVendors(true, true)
-        end
-    elseif input == "clearscans" then
-        if HA.ExportImport then
-            HA.ExportImport:ClearScannedData()
-        end
-    elseif input == "validate" then
-        if HA.Validation then
-            HA.Validation:RunFullValidation()
-        end
-    elseif input == "validate details" then
-        if HA.Validation then
-            HA.Validation:ShowDetails()
-        end
-    elseif input == "panel" then
-        if HA.MapSidePanel then
-            HA.MapSidePanel:ToggleDetached()
-        end
-    elseif input == "welcome" then
-        if HA.WelcomeFrame then
-            HA.WelcomeFrame:Show()
-        end
-    elseif input == "whatsnew" then
-        if HA.WhatsNewFrame then
-            HA.WhatsNewFrame:Show(HA.Constants.VERSION)
-        end
-    elseif input == "version" or input:match("^version%s+") then
-        if HA.VersionCheck then
-            HA.VersionCheck:HandleSlash(input:match("^version%s*(.-)$") or "")
-        end
-    else
-        self:Print(format(L["Unknown command: %s"] or "Unknown command: %s", input))
-        self:PrintHelp()
-    end
-end
-
-function HousingAddon:PrintHelp()
-    self:Print(L["Homestead Commands:"] or "Homestead Commands:")
-    self:Print("  " .. (L["/hs - Open options panel"] or "/hs — Open options panel"))
-    self:Print("  " .. (L["/hs scan - Scan catalog"] or "/hs scan — Scan catalog for owned items"))
-    self:Print("  " .. (L["/hs vendor [search] - Search vendors"] or "/hs vendor [search] — Search for decor vendors"))
-    self:Print("  /hs vendors - Show scanned vendor data")
-    self:Print("  /hs waypoint - Clear current waypoint")
-    self:Print("  /hs cache - Show ownership cache info")
-    self:Print("  /hs clearcache - Clear ownership cache")
-    self:Print("  /hs panel - Toggle detached vendor panel")
-    self:Print("  /hs refreshmap - Refresh world map pins")
-    self:Print("  /hs corrections - Show NPC ID corrections found")
-    self:Print("  " .. (L["/hs export - Show export dialog"] or "/hs export — Show export dialog"))
-    self:Print("  /hs export full — Export all scanned vendors")
-    self:Print("  /hs exportall — Export ALL, bypass timestamp filter")
-    self:Print("  /hs clearscans - Clear all scanned vendor data")
-    self:Print("  /hs validate - Validate vendor database")
-    self:Print("  /hs welcome - Show welcome screen")
-    self:Print("  /hs whatsnew - Show What's New panel")
-    self:Print("  /hs version - Show version + toggle update notifications (on/off)")
-    self:Print("  /hs debug geography - Audit manual map geography entries")
-    self:Print("  " .. (L["/hs debug - Toggle debug mode"] or "/hs debug — Toggle debug mode"))
-    self:Print("  " .. (L["/hs help - Show this help"] or "/hs help — Show this help"))
-end
 
 function HousingAddon:PrintManualGeographyAuditReport()
     local MPP = HA.MapPinProvider
