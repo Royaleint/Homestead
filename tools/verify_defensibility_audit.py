@@ -86,8 +86,12 @@ def main() -> int:
     require("UI/WhatsNewFrame.lua", "WELCOME_SEEN_VERSION_MAX", "WhatsNewFrame shared welcome version max")
     forbid("UI/WhatsNewFrame.lua", r"for i = 1,\s*10 do", "magic welcome version bound")
 
-    require("Data/SourceManager.lua", "C_Reputation.GetFactionDataByIndex", "deferred reputation fallback left present")
-    require("UI/MapSidePanel.lua", "UIDropDownMenuTemplate", "deferred UIDropDownMenu path left present")
+    forbid("UI/MapSidePanel.lua", r"UIDropDownMenu(?:Template|_[A-Za-z0-9_]+)?", "legacy UIDropDownMenu source filter path")
+    require("UI/MapSidePanel.lua", "CreateFrame(\"DropdownButton\"", "native dropdown button source filter")
+    require("UI/MapSidePanel.lua", "MenuUtil.CreateContextMenu(sourceFilterDropdown", "MenuUtil source filter menu")
+
+    forbid("Data/SourceManager.lua", r"C_Reputation\.GetNumFactions", "non-Mainline reputation count API")
+    forbid("Data/SourceManager.lua", r"C_Reputation\.ExpandAllFactionHeaders", "non-Mainline reputation header expansion API")
 
     print("defensibility audit verifier passed")
     return 0
