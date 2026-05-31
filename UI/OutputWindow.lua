@@ -5,7 +5,6 @@
 
 local _, HA = ...
 
--- Create OutputWindow module
 local OutputWindow = {}
 HA.OutputWindow = OutputWindow
 
@@ -150,7 +149,6 @@ local function CreateOutputWindow()
         HA.Addon:Print(L["All text selected. Press Ctrl+C to copy to clipboard."] or "All text selected. Press Ctrl+C to copy to clipboard.")
     end)
 
-    -- Close button (bottom)
     local closeBottomBtn = CreateFrame("Button", nil, buttonContainer, "UIPanelButtonTemplate")
     closeBottomBtn:SetSize(100, 25)
     closeBottomBtn:SetPoint("RIGHT", -8, 0)

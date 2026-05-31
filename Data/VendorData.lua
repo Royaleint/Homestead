@@ -10,7 +10,6 @@
 
 local _, HA = ...
 
--- Create VendorData module
 local VendorData = {}
 HA.VendorData = VendorData
 

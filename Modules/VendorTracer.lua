@@ -11,7 +11,6 @@
 
 local _, HA = ...
 
--- Create VendorTracer module
 local VendorTracer = {}
 HA.VendorTracer = VendorTracer
 
@@ -408,7 +407,6 @@ function VendorTracer:Initialize()
     end
 end
 
--- Called when merchant window opens
 function VendorTracer:OnMerchantShow()
     local isDecorVendor, vendor = self:IsAtDecorVendor()
     if not isDecorVendor then

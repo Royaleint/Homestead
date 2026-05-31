@@ -8,7 +8,6 @@
 
 local _, HA = ...
 
--- Create Waypoints utility
 local Waypoints = {}
 HA.Waypoints = Waypoints
 
@@ -86,12 +85,10 @@ end
 -- TomTom Integration
 -------------------------------------------------------------------------------
 
--- Check if TomTom addon is available
 function Waypoints:IsTomTomAvailable()
     return TomTom and TomTom.AddWaypoint and TomTom.RemoveWaypoint and true or false
 end
 
--- Add a TomTom waypoint
 local function AddTomTomWaypoint(mapID, x, y, options)
     if not Waypoints:IsTomTomAvailable() then
         return nil
@@ -109,7 +106,6 @@ local function AddTomTomWaypoint(mapID, x, y, options)
     return TomTom:AddWaypoint(mapID, x, y, opts)
 end
 
--- Remove a TomTom waypoint
 local function RemoveTomTomWaypoint(uid)
     if uid and Waypoints:IsTomTomAvailable() then
         TomTom:RemoveWaypoint(uid)
@@ -147,7 +143,6 @@ local function SetNativeWaypoint(mapID, x, y, options)
     return true, nil
 end
 
--- Clear native WoW waypoint
 local function ClearNativeWaypoint(playFeedback)
     local clearedWaypoint = false
     if C_Map.HasUserWaypoint and C_Map.HasUserWaypoint() then
@@ -193,7 +188,6 @@ local function CheckArrival()
     return distance <= threshold
 end
 
--- Start checking for arrival
 local function StartArrivalCheck()
     if arrivalCheckTimer then
         return -- Already checking
@@ -220,7 +214,6 @@ local function StartArrivalCheck()
     end)
 end
 
--- Stop checking for arrival
 StopArrivalCheck = function()
     if arrivalCheckTimer then
         arrivalCheckTimer:Cancel()

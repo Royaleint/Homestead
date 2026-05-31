@@ -5,7 +5,6 @@
 
 local _, HA = ...
 
--- Wait for Overlay module
 local Overlay = HA.Overlay
 local Events = HA.Events
 local CatalogStore = HA.CatalogStore
@@ -94,7 +93,6 @@ local function HookMerchantFrame()
         local button = _G[buttonName]
 
         if button and not button.HousingAddonHooked then
-            -- Store reference
             merchantButtons[i] = button
 
             -- Create overlay with update function

@@ -393,7 +393,6 @@ function CatalogStore:ClearAll()
         end
     end
 
-    -- Reset cached counter
     ownedCount = 0
 
     -- Bust negative cache
@@ -577,7 +576,6 @@ function CatalogStore:Initialize()
     -- Bind local reference to catalogItems table
     ci = HA.Addon.db.global.catalogItems
 
-    -- Run schema migrations
     self:RunMigrations()
 
     -- Build reverse index (seeds from DecorMapping + runtime data)

@@ -5,7 +5,6 @@
 
 local _, HA = ...
 
--- Wait for Overlay module
 local Overlay = HA.Overlay
 local Events = HA.Events
 local CatalogStore = HA.CatalogStore
@@ -241,7 +240,6 @@ local function HookContainerFrame(containerFrame)
     local items = CollectContainerButtons(containerFrame)
     for _, button in ipairs(items) do
         if not button.HousingAddonHooked then
-            -- Store reference
             table.insert(containerButtons, button)
 
             -- Create overlay
@@ -249,7 +247,6 @@ local function HookContainerFrame(containerFrame)
                 UpdateContainerButton(button)
             end)
 
-            -- Hook updates
             button:HookScript("OnShow", function(self)
                 UpdateContainerButton(self)
             end)

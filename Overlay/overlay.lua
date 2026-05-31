@@ -8,7 +8,6 @@
 
 local _, HA = ...
 
--- Create Overlay module
 local Overlay = {}
 HA.Overlay = Overlay
 
@@ -105,7 +104,6 @@ function Overlay:CreateOverlay(parentFrame, updateFunc)
         return existingOverlay
     end
 
-    -- Try to get from pool
     local overlay = table.remove(overlayPool)
 
     if not overlay then
@@ -116,7 +114,6 @@ function Overlay:CreateOverlay(parentFrame, updateFunc)
         overlay = CreateFrame("Frame", nil, parentFrame)
         overlay:SetFrameStrata(OVERLAY_CONFIG.STRATA)
 
-        -- Create icon texture
         local icon = overlay:CreateTexture(nil, "OVERLAY")
         icon:SetSize(OVERLAY_CONFIG.ICON_SIZE, OVERLAY_CONFIG.ICON_SIZE)
         icon:SetPoint(
@@ -362,7 +359,6 @@ function Overlay:AddToFrame(frame, updateFunc)
 
     local overlay = self:CreateOverlay(frame, updateFunc)
     if overlay and updateFunc then
-        -- Initial update
         updateFunc(overlay)
     end
 

@@ -40,7 +40,6 @@ local ATLAS_SIZE_OVERRIDE = {
 }
 
 -- Accessibility glow colors: {r, g, b, alpha}
--- Tuning point: adjust these after in-game testing
 local GLOW_COLORS = {
     owned     = { 0.0, 0.8, 0.0, 0.6 },  -- green: you have at least 1
     available = { 1.0, 0.8, 0.0, 0.6 },  -- yellow: unowned, source reqs met
