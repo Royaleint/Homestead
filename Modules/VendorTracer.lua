@@ -387,12 +387,16 @@ function VendorTracer:Initialize()
         VendorData:Initialize()
     end
 
-    -- Register for merchant events
-    if HA.Addon then
-        HA.Addon:RegisterEvent("MERCHANT_SHOW", function()
-            VendorTracer:OnMerchantShow()
-        end)
-    end
+    -- Register for merchant events via a module-owned Foundry.Events controller.
+    -- This is the live MERCHANT_SHOW handler (under AceEvent it won last-write-wins
+    -- over core's, which never fired). A separate controller preserves that: core
+    -- no longer registers MERCHANT_SHOW, so only this handler fires. Held on the
+    -- module so the controller is not garbage-collected.
+    local F = _G.Foundry_1_0
+    VendorTracer.events = F.Events:New("Homestead.VendorTracer")
+    VendorTracer.events:Register("MERCHANT_SHOW", function(event, ...)
+        VendorTracer:OnMerchantShow()
+    end)
 
     isInitialized = true
 
