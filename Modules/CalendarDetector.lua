@@ -73,7 +73,7 @@ local function ScanTodaysHolidays()
         if event and event.calendarType == "HOLIDAY" and event.sequenceType ~= "END" then
             local eventIDStr = tostring(event.eventID)
 
-            -- Match by stable eventID first
+            -- Match by stable eventID
             local eventName = holidayIDToEvent[eventIDStr]
             if eventName then
                 found[eventName] = true

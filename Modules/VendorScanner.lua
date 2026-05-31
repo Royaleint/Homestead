@@ -426,7 +426,6 @@ function VendorScanner:ProcessScanQueue()
                             end
                         elseif not link and costName and amount and amount > 0 then
                             -- Currency with nil link — API returns name instead
-                            -- Try to find currencyID by searching known currencies
                             local inferredID = nil
                             -- No link available here; keep currencyID nil and persist name-based cost.
                             table.insert(currencies, {
@@ -498,8 +497,9 @@ end
 
 -------------------------------------------------------------------------------
 -- Database Verification & Correction
--- NOTE: This section is temporary and will be removed once all vendor
--- NPC IDs in VendorDatabase.lua have been verified as correct.
+-- Detects when a scanned vendor's live NPC ID differs from the one stored in
+-- VendorDatabase (phased zones, instances, beta builds). Detected corrections
+-- persist to SavedVariables (db.global.npcIDCorrections) and surface via /hs corrections.
 -------------------------------------------------------------------------------
 
 -- Check if the scanned vendor matches a database entry by name and update NPC ID/coords if mismatched

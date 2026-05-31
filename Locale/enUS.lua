@@ -212,7 +212,7 @@ L["Remaining:"] = "Remaining:"
 L["Collection Progress: %d%%"] = "Collection Progress: %d%%"
 
 -------------------------------------------------------------------------------
--- Options - Names (missing from original)
+-- Options - Names
 -------------------------------------------------------------------------------
 L["Show opposite faction vendors"] = "Show opposite faction vendors"
 L["Show unverified vendors"] = "Show unverified vendors"

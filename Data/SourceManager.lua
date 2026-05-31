@@ -8,7 +8,8 @@
     3. Achievement (specific goal to work toward)
     4. Profession (craftable)
     5. Event (seasonal holiday vendor - time-gated)
-    6. Drop (RNG-based)
+    6. Shop (in-game shop)
+    7. Drop (RNG-based)
 
     For availability-aware selection (requirements met "right now"):
         local source = HA.SourceManager:GetBestAvailableSource(itemID)
@@ -16,7 +17,7 @@
     Usage:
         local source = HA.SourceManager:GetSource(itemID)
         if source then
-            print(source.type)  -- "vendor", "quest", "achievement", "profession", "event", "drop"
+            print(source.type)  -- "vendor", "quest", "achievement", "profession", "event", "shop", "drop"
             print(source.data)  -- Source-specific data table
         end
 ]]
@@ -183,7 +184,7 @@ end
 -- This intentionally does NOT derive the result from GetAllSources()[1].
 -- Vendor primary selection remains proximity-based via GetClosestVendorForItem().
 -- Walks registered providers in priority order (SOURCE_TYPE_ORDER).
--- Returns: {type = "vendor|quest|achievement|profession|event|drop", data = {...}} or nil
+-- Returns: {type = "vendor|quest|achievement|profession|event|shop|drop", data = {...}} or nil
 function SourceManager:GetSource(itemID)
     if not itemID then return nil end
     EnsureProvidersRegistered()

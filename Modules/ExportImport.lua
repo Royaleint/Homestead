@@ -372,7 +372,7 @@ function ExportImport:ExportScannedVendors(fullExport, exportAll)
                 return (idA or 0) < (idB or 0)
             end)
 
-            -- ITEM lines: I npcID itemID name price costData isUsable spellID
+            -- ITEM lines: I npcID itemID name price costData isUsable spellID requirements decorID
             for _, item in ipairs(sortedItems) do
                 local itemID = HA.VendorData:GetItemID(item)
                 if itemID then

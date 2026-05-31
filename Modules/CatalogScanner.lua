@@ -14,7 +14,6 @@
 
 local _, HA = ...
 
--- Create CatalogScanner module
 local CatalogScanner = {}
 HA.CatalogScanner = CatalogScanner
 

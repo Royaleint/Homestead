@@ -12,7 +12,7 @@
     - 4-tier milestone progression gates item availability
     - Dedicated API: C_NeighborhoodInitiative
 
-    6 vendors, 73 items total.
+    6 vendors, 78 items total.
 ]]
 
 local _, HA = ...

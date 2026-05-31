@@ -5,7 +5,6 @@
 
 local _, HA = ...
 
--- Create events module
 local Events = {}
 HA.Events = Events
 
@@ -214,5 +213,4 @@ function Events:Initialize()
     end)
 end
 
--- Initialize immediately
 Events:Initialize()

@@ -1,6 +1,6 @@
 --[[
     Homestead - Core
-    Main addon initialization and Ace3 setup
+    Main addon initialization (AceAddon-3.0 + AceDB-3.0; events/commands via Foundry)
 
     A complete housing collection, vendor, and progress tracker for WoW
 ]]
@@ -190,9 +190,6 @@ function HousingAddon:OnInitialize()
         handler = function() self:PrintManualGeographyAuditReport() end })
 
     self.commands = cmd
-
-    -- Initialize modules (will be called when modules are created)
-    -- self:InitializeModules()
 
     self:Debug("Homestead initialized")
 end
