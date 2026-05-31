@@ -6,7 +6,6 @@
     <!-- Ace3 Core Libraries -->
     <Include file="Libs\AceAddon-3.0\AceAddon-3.0.xml"/>
     <Include file="Libs\AceDB-3.0\AceDB-3.0.xml"/>
-    <Include file="Libs\AceEvent-3.0\AceEvent-3.0.xml"/>
 
     <!-- DataBroker for Minimap Button -->
     <Script file="Libs\LibDataBroker-1.1\LibDataBroker-1.1.lua"/>

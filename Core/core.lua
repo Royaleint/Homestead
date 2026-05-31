@@ -7,11 +7,8 @@
 
 local addonName, HA = ...
 
--- Create the main addon object using Ace3
-local Homestead = LibStub("AceAddon-3.0"):NewAddon(
-    addonName,
-    "AceEvent-3.0"
-)
+-- Create the main addon object using Ace3 (event handling via Foundry.Events)
+local Homestead = LibStub("AceAddon-3.0"):NewAddon(addonName)
 
 -- Store reference in namespace
 HA.Addon = Homestead
@@ -278,8 +275,10 @@ function HousingAddon:OnEnable()
 end
 
 function HousingAddon:OnDisable()
-    -- Unregister all events
-    self:UnregisterAllEvents()
+    -- Unregister all events on the Foundry.Events controller
+    if self.events then
+        self.events:UnregisterAll()
+    end
 
     self:Debug("Homestead disabled")
 end
@@ -778,14 +777,25 @@ end
 -------------------------------------------------------------------------------
 
 function HousingAddon:RegisterEvents()
-    -- Register housing events
-    self:RegisterEvent("PLAYER_LOGIN", "OnPlayerLogin")
-    self:RegisterEvent("PLAYER_ENTERING_WORLD", "OnPlayerEnteringWorld")
+    -- Event handling via Foundry.Events controller (replaces AceEvent-3.0).
+    local F = _G.Foundry_1_0
+    local events = F.Events:New("Homestead.Core")
+    self.events = events
+
+    -- Register housing events. The closure binds the addon `self` and absorbs
+    -- the dropped native frame `self` (Foundry handlers are `(event, ...)`).
+    events:Register("PLAYER_LOGIN",          function(event, ...) self:OnPlayerLogin(...) end)
+    events:Register("PLAYER_ENTERING_WORLD", function(event, ...) self:OnPlayerEnteringWorld(...) end)
 
     -- Register UI events for overlay updates
-    self:RegisterEvent("BAG_UPDATE_DELAYED", "OnBagUpdate")
-    self:RegisterEvent("MERCHANT_SHOW", "OnMerchantShow")
-    self:RegisterEvent("MERCHANT_CLOSED", "OnMerchantClosed")
+    events:Register("BAG_UPDATE_DELAYED",    function(event, ...) self:OnBagUpdate(...) end)
+    events:Register("MERCHANT_CLOSED",       function(event, ...) self:OnMerchantClosed(...) end)
+
+    -- MERCHANT_SHOW is intentionally NOT registered here. Under AceEvent the core
+    -- "OnMerchantShow" registration was silently clobbered by VendorTracer's later
+    -- registration on the same object (last-write-wins), so it never fired. The
+    -- live MERCHANT_SHOW handler is VendorTracer's own controller. Not registering
+    -- it here preserves that behavior exactly.
 
     -- Note: Housing-specific events will be registered when those features are implemented
     -- These events may not exist in current WoW API - will be verified on PTR
@@ -828,11 +838,11 @@ function HousingAddon:OnBagUpdate()
     end
 end
 
-function HousingAddon:OnMerchantShow()
-    if HA.Overlay then
-        HA.Overlay:RequestUpdate("merchant")
-    end
-end
+-- Note: a core HousingAddon:OnMerchantShow handler previously existed here but
+-- was dead under AceEvent (its MERCHANT_SHOW registration was clobbered by
+-- VendorTracer's, last-write-wins) and had no other caller. The merchant overlay
+-- still refreshes through Overlay/Merchant.lua's own standalone frame. Removed as
+-- part of HS-097 to resolve the registration ambiguity (see RegisterEvents).
 
 function HousingAddon:OnMerchantClosed()
     -- Clean up merchant overlays
