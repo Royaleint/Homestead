@@ -65,16 +65,16 @@ function HousingAddon:OnInitialize()
         defaultHandler = function() self:OpenOptions() end,
         description = L["Homestead Commands:"] or "Homestead Commands:",
         unknownMessage = function(input)
-            return format(L["Unknown command: %s"] or "Unknown command: %s", input)
+            local msg = format(L["Unknown command: %s"] or "Unknown command: %s", input)
+            local hint = L["Type /hs help for a list of commands."]
+                or "Type /hs help for a list of commands."
+            return msg .. " " .. hint
         end,
     })
 
-    cmd:Register({ name = "config", aliases = { "options", "settings" },
+    cmd:Register({ name = "config",
         help = "Open the options panel.",
         handler = function() self:OpenOptions() end })
-    cmd:Register({ name = "toggle",
-        help = "Toggle the options panel.",
-        handler = function() self:ToggleOptions() end })
     cmd:Register({ name = "vendor", args = "[search]",
         help = "Search for decor vendors.",
         handler = function(rest) self:SearchVendors(rest ~= "" and rest or nil) end })

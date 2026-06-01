@@ -156,6 +156,7 @@ L["Debug mode: %s"] = "Debug mode: %s"
 L["ON"] = "ON"
 L["OFF"] = "OFF"
 L["Unknown command: %s"] = "Unknown command: %s"
+L["Type /hs help for a list of commands."] = "Type /hs help for a list of commands."
 L["Not yet implemented"] = "Not yet implemented"
 
 -------------------------------------------------------------------------------
