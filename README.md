@@ -44,7 +44,7 @@ A World of Warcraft housing addon for collectors who want answers, not interface
 
 Homestead tracks your housing decor collection across your entire account. When you acquire a decor item from any source like buying from a vendor, completing a quest, or earning an achievement it's recorded and reflected everywhere. If two vendors sell the same item, buying from either one marks it as owned on both.
 
-Visit any decor vendor and Homestead will automatically scan their inventory, recording items, prices, and requirements. This data shows up in map pin tooltips so you always know what a vendor sells before you travel there. This helps us keep the database up-to-date! Not interested in this? Disable vendor scanning in /hs options
+Visit any decor vendor and Homestead will automatically scan their inventory, recording items, prices, and requirements. This data shows up in map pin tooltips so you always know what a vendor sells before you travel there. This helps us keep the database up-to-date! Not interested in this? Disable vendor scanning in /hs config
 
 ## Known Limitations
 
