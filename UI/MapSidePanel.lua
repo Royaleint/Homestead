@@ -289,14 +289,11 @@ local function UpdateSourceFilterDropdownText()
     if not sourceFilterDropdown then return end
 
     local normalized = NormalizePanelSourceFilter(panelSourceFilter)
-    local setSelectedValue = _G.UIDropDownMenu_SetSelectedValue
-    local setText = _G.UIDropDownMenu_SetText
 
-    if setSelectedValue then
-        setSelectedValue(sourceFilterDropdown, normalized)
-    end
-    if setText then
-        setText(sourceFilterDropdown, GetSourceFilterLabel(normalized))
+    if sourceFilterDropdown.SetDefaultText then
+        sourceFilterDropdown:SetDefaultText(GetSourceFilterLabel(normalized))
+    elseif sourceFilterDropdown.SetText then
+        sourceFilterDropdown:SetText(GetSourceFilterLabel(normalized))
     end
 end
 
@@ -308,39 +305,39 @@ local MAP_DROPDOWN_HIDDEN_TYPES = {
     shop = true,
 }
 
-local function InitializeSourceFilterDropdown(_, level)
-    if level ~= 1 then return end
-
-    local createInfo = _G.UIDropDownMenu_CreateInfo
-    local addButton = _G.UIDropDownMenu_AddButton
-    if not createInfo or not addButton then return end
-
+local function AddSourceFilterMenuEntries(rootDescription)
     local sourceTypes = {}
     if HA.SourceManager and HA.SourceManager.GetRegisteredSourceTypes then
         sourceTypes = HA.SourceManager:GetRegisteredSourceTypes()
     end
 
-    local info = createInfo()
-    info.text = SOURCE_FILTER_LABELS.all
-    info.value = "all"
-    info.checked = (panelSourceFilter == "all")
-    info.func = function(self)
-        MapSidePanel:SetSourceFilter(self.value)
-    end
-    addButton(info, level)
+    rootDescription:CreateRadio(SOURCE_FILTER_LABELS.all, function()
+        return NormalizePanelSourceFilter(panelSourceFilter) == "all"
+    end, function()
+        MapSidePanel:SetSourceFilter("all")
+    end)
 
     for _, token in ipairs(sourceTypes) do
         if not MAP_DROPDOWN_HIDDEN_TYPES[token] then
-            local entryInfo = createInfo()
-            entryInfo.text = SOURCE_FILTER_LABELS[token] or token
-            entryInfo.value = token
-            entryInfo.checked = (token == panelSourceFilter)
-            entryInfo.func = function(self)
-                MapSidePanel:SetSourceFilter(self.value)
-            end
-            addButton(entryInfo, level)
+            local menuToken = token
+            local menuLabel = SOURCE_FILTER_LABELS[menuToken] or menuToken
+            rootDescription:CreateRadio(menuLabel, function()
+                return NormalizePanelSourceFilter(panelSourceFilter) == menuToken
+            end, function()
+                MapSidePanel:SetSourceFilter(menuToken)
+            end)
         end
     end
+end
+
+local function OpenSourceFilterDropdown()
+    if not sourceFilterDropdown or not MenuUtil or not MenuUtil.CreateContextMenu then
+        return
+    end
+
+    MenuUtil.CreateContextMenu(sourceFilterDropdown, function(_, rootDescription)
+        AddSourceFilterMenuEntries(rootDescription)
+    end)
 end
 
 local function ItemMatchesPanelSourceFilter(itemID, sourceFilter)
@@ -1976,34 +1973,19 @@ local function CreatePanel()
     popOutButton:SetScript("OnLeave", HidePanelTooltip)
 
     -- Source filter control (title pane): dropdown on left side of header.
-    sourceFilterDropdown = CreateFrame("Frame", nil, headerFrame, "UIDropDownMenuTemplate")
-    sourceFilterDropdown:SetPoint("LEFT", headerFrame, "LEFT", -14, -1)
-    sourceFilterDropdown:SetScale(0.825) -- 10% larger than the previous compact version
-
-    local setWidth = _G.UIDropDownMenu_SetWidth
-    local justifyText = _G.UIDropDownMenu_JustifyText
-    local initializeDropdown = _G.UIDropDownMenu_Initialize
-
-    if setWidth then
-        setWidth(sourceFilterDropdown, 67) -- 20% narrower than prior width
-    end
-    if justifyText then
-        justifyText(sourceFilterDropdown, "LEFT")
-    end
-    if initializeDropdown then
-        initializeDropdown(sourceFilterDropdown, InitializeSourceFilterDropdown)
-    end
+    sourceFilterDropdown = CreateFrame("DropdownButton", nil, headerFrame, "WowStyle1DropdownTemplate")
+    sourceFilterDropdown:SetPoint("LEFT", headerFrame, "LEFT", -4, -1)
+    sourceFilterDropdown:SetSize(104, 22)
     UpdateSourceFilterDropdownText()
 
-    if sourceFilterDropdown.Button then
-        sourceFilterDropdown.Button:SetScript("OnEnter", function(self)
-            local tooltip = BeginPanelTooltip(self, "ANCHOR_RIGHT")
-            tooltip:SetText("Item Source Filter")
-            tooltip:AddLine("Current: " .. GetSourceFilterLabel(panelSourceFilter), 1, 1, 1)
-            tooltip:Show()
-        end)
-        sourceFilterDropdown.Button:SetScript("OnLeave", HidePanelTooltip)
-    end
+    sourceFilterDropdown:SetScript("OnClick", OpenSourceFilterDropdown)
+    sourceFilterDropdown:SetScript("OnEnter", function(self)
+        local tooltip = BeginPanelTooltip(self, "ANCHOR_RIGHT")
+        tooltip:SetText("Item Source Filter")
+        tooltip:AddLine("Current: " .. GetSourceFilterLabel(panelSourceFilter), 1, 1, 1)
+        tooltip:Show()
+    end)
+    sourceFilterDropdown:SetScript("OnLeave", HidePanelTooltip)
 
     -- Close button (detached mode): standard X at top-right
     closeButton = CreateFrame("Button", nil, panel, "UIPanelCloseButton")

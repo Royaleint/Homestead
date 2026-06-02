@@ -43,7 +43,6 @@ local EMPTY_SOURCES = {}
 -- Keys are source-scoped ("achievement:12345", "quest:98765", "profession:54321").
 local completionCache = {}
 local completionInvalidationFrame = nil
-local suppressInvalidationEvent = false
 
 -------------------------------------------------------------------------------
 -- Provider Registry
@@ -723,26 +722,15 @@ SourceManager.FRIENDSHIP_RANK_ORDER = FRIENDSHIP_RANK_ORDER
 
 -- Lazy-built cache: faction name → factionID (populated on first use)
 local factionNameToID = nil
-local factionCacheExpandScheduled = false
 
--- Build faction name→ID cache from the player's reputation panel + major factions
+-- Build faction name→ID cache from Mainline major factions.
 local function GetFactionIDByName(name)
     if not name then return nil end
 
-    -- Build cache on first call (visible factions only — expanding headers
-    -- causes C stack overflow via CVar callback re-entry)
+    -- Build cache on first call. Homestead is Retail-only, so do not enumerate
+    -- legacy reputation-panel APIs that are unavailable on Mainline.
     if not factionNameToID then
         factionNameToID = {}
-        -- Scan visible reputation panel entries
-        if C_Reputation and C_Reputation.GetNumFactions then
-            for i = 1, C_Reputation.GetNumFactions() do
-                local data = C_Reputation.GetFactionDataByIndex(i)
-                if data and data.name and data.factionID then
-                    factionNameToID[data.name] = data.factionID
-                end
-            end
-        end
-        -- Also scan major factions (renown-based, DF/TWW)
         if C_MajorFactions and C_MajorFactions.GetMajorFactionIDs then
             for _, factionID in ipairs(C_MajorFactions.GetMajorFactionIDs()) do
                 local data = C_MajorFactions.GetMajorFactionData(factionID)
@@ -767,39 +755,6 @@ local function GetFactionIDByName(name)
     if baseName then
         id = factionNameToID[baseName]
         if id then return id end
-    end
-
-    -- Cache miss: schedule a deferred rebuild with expanded headers.
-    -- ExpandAllFactionHeaders causes C stack overflow if called during
-    -- CatalogOverlay's OnUpdate chain, so we defer it via C_Timer.
-    -- Side effect: expands all collapsed faction headers in the player's
-    -- reputation panel (standard addon pattern — many addons do this).
-    if not factionCacheExpandScheduled then
-        factionCacheExpandScheduled = true
-        if C_Timer and C_Timer.After and C_Reputation and C_Reputation.ExpandAllFactionHeaders then
-            C_Timer.After(0, function()
-                -- ExpandAllFactionHeaders fires UPDATE_FACTION synchronously,
-                -- which triggers InvalidateAllSourceCaches → factionNameToID = nil.
-                -- We must initialize the table AFTER the expand call completes.
-                -- Suppress the event fire during self-triggered expansion to avoid
-                -- an invalidation loop (expand → UPDATE_FACTION → invalidate →
-                -- refresh → faction miss → expand → ...).
-                suppressInvalidationEvent = true
-                C_Reputation.ExpandAllFactionHeaders()
-                suppressInvalidationEvent = false
-                if not factionNameToID then
-                    factionNameToID = {}
-                end
-                if C_Reputation.GetNumFactions then
-                    for i = 1, C_Reputation.GetNumFactions() do
-                        local data = C_Reputation.GetFactionDataByIndex(i)
-                        if data and data.name and data.factionID then
-                            factionNameToID[data.name] = data.factionID
-                        end
-                    end
-                end
-            end)
-        end
     end
 
     return nil
@@ -1622,9 +1577,8 @@ end
 function SourceManager:InvalidateAllSourceCaches()
     self:InvalidateCompletionCache()
     factionNameToID = nil
-    factionCacheExpandScheduled = false
 
-    if HA.Events and not suppressInvalidationEvent then
+    if HA.Events then
         HA.Events:Fire("SOURCE_CACHES_INVALIDATED")
     end
 end
