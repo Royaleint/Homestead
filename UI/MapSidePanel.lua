@@ -49,6 +49,7 @@ local scrollFrame = nil
 local scrollChild = nil
 local headerFrame = nil  -- Title + zone name header region
 local headerText = nil
+local sourceFilterBar = nil
 local summaryText = nil
 local emptyText = nil
 local topTileFrame = nil   -- Inner decorative top-edge tile
@@ -1732,6 +1733,13 @@ local function CreatePanel()
     headerSep:SetPoint("BOTTOMRIGHT", headerFrame, "BOTTOMRIGHT", 0, 0)
     headerSep:SetColorTexture(0.4, 0.4, 0.4, 0.5)
 
+    -- Source filter row below the title header. Kept outside headerFrame so
+    -- the native dropdown cannot overlap the centered Homestead title.
+    sourceFilterBar = CreateFrame("Frame", nil, panel)
+    sourceFilterBar:SetHeight(24)
+    sourceFilterBar:SetPoint("TOPLEFT", headerFrame, "BOTTOMLEFT", 0, -1)
+    sourceFilterBar:SetPoint("TOPRIGHT", headerFrame, "BOTTOMRIGHT", 0, -1)
+
     -- Summary line (centered at bottom)
     summaryText = panel:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
     summaryText:SetPoint("BOTTOMLEFT", panel, "BOTTOMLEFT", BORDER_LEFT, BORDER_BOTTOM)
@@ -1824,8 +1832,8 @@ local function CreatePanel()
     -- Back navigation bar (between header and progress bar / scroll area)
     backBar = CreateFrame("Button", nil, panel)
     backBar:SetHeight(20)
-    backBar:SetPoint("TOPLEFT", headerFrame, "BOTTOMLEFT", 0, 0)
-    backBar:SetPoint("TOPRIGHT", headerFrame, "BOTTOMRIGHT", 0, 0)
+    backBar:SetPoint("TOPLEFT", sourceFilterBar, "BOTTOMLEFT", 0, 0)
+    backBar:SetPoint("TOPRIGHT", sourceFilterBar, "BOTTOMRIGHT", 0, 0)
 
     local backArrow = backBar:CreateTexture(nil, "ARTWORK")
     backArrow:SetSize(12, 12)
@@ -1864,8 +1872,8 @@ local function CreatePanel()
     -- Progress bar (between header and scroll area, shown at zone level)
     progressBar = CreateFrame("StatusBar", nil, panel)
     progressBar:SetHeight(PROGRESS_BAR_HEIGHT)
-    progressBar:SetPoint("TOPLEFT", headerFrame, "BOTTOMLEFT", 0, -3)
-    progressBar:SetPoint("TOPRIGHT", headerFrame, "BOTTOMRIGHT", 0, -3)
+    progressBar:SetPoint("TOPLEFT", sourceFilterBar, "BOTTOMLEFT", 0, -3)
+    progressBar:SetPoint("TOPRIGHT", sourceFilterBar, "BOTTOMRIGHT", 0, -3)
     progressBar:SetStatusBarTexture("Interface\\TargetingFrame\\UI-StatusBar")
     progressBar:SetStatusBarColor(0.2, 0.6, 0.8)
     progressBar:Hide()
@@ -1933,7 +1941,7 @@ local function CreatePanel()
 
     -- Scroll frame for vendor list
     scrollContainer = CreateFrame("Frame", nil, panel)
-    scrollContainer:SetPoint("TOPLEFT", headerFrame, "BOTTOMLEFT", 0, -4)
+    scrollContainer:SetPoint("TOPLEFT", sourceFilterBar, "BOTTOMLEFT", 0, -4)
     scrollContainer:SetPoint("BOTTOMRIGHT", searchBar, "TOPRIGHT", 0, -2)
 
     scrollFrame = CreateFrame("ScrollFrame", nil, scrollContainer, "UIPanelScrollFrameTemplate")
@@ -1972,9 +1980,9 @@ local function CreatePanel()
     end)
     popOutButton:SetScript("OnLeave", HidePanelTooltip)
 
-    -- Source filter control (title pane): dropdown on left side of header.
-    sourceFilterDropdown = CreateFrame("DropdownButton", nil, headerFrame, "WowStyle1DropdownTemplate")
-    sourceFilterDropdown:SetPoint("LEFT", headerFrame, "LEFT", -4, -1)
+    -- Source filter control: native dropdown below the title header.
+    sourceFilterDropdown = CreateFrame("DropdownButton", nil, sourceFilterBar, "WowStyle1DropdownTemplate")
+    sourceFilterDropdown:SetPoint("LEFT", sourceFilterBar, "LEFT", -4, 0)
     sourceFilterDropdown:SetSize(104, 22)
     UpdateSourceFilterDropdownText()
 
@@ -2375,10 +2383,11 @@ local function GetVendorsForCurrentMap(mapID)
 end
 
 -- Returns the frame that content (progress bar / scroll area) should anchor below.
--- When backBar is visible, content sits below it; otherwise directly below header.
+-- When backBar is visible, content sits below it; otherwise below the source
+-- filter row that follows the title header.
 local function GetContentTopAnchor()
     if backBar and backBar:IsShown() then return backBar end
-    return headerFrame
+    return sourceFilterBar or headerFrame
 end
 
 local function UpdateBackBar()
