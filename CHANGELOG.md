@@ -8,6 +8,10 @@
 
 - New minimap button: redesigned icon, now also available in Blizzard's Addon Compartment.
 
+### Bug Fixes
+
+- Fixed holiday detection so seasonal event vendor pins and event-source availability can update again when Blizzard's calendar reports an active holiday.
+
 ---
 
 ## Homestead v2.4.0 (05-19-2026)
