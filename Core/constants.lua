@@ -440,7 +440,6 @@ Constants.Overlay = {
 Constants.Defaults = {
     profile = {
         -- General settings
-        enabled = true,
         debug = false,
         useParsedSources = false,  -- Gate parsed sources in tooltip/source display
         minimap = {

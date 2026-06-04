@@ -196,26 +196,9 @@ OptionsModel.sections = {
         label = L["General"],
         description = L["desc_options_general"],
         rows = {
-            {
-                key = "enabled",
-                type = "checkbox",
-                label = L["Enable addon"],
-                tooltip = L["desc_enable_addon"],
-                get = function()
-                    local profile = GetProfile()
-                    return profile and profile.enabled
-                end,
-                set = function(value)
-                    local profile = GetProfile()
-                    if not profile then return end
-                    profile.enabled = value
-                    if value then
-                        CallAddon("Enable")
-                    else
-                        CallAddon("Disable")
-                    end
-                end,
-            },
+            -- (Runtime "Enable addon" checkbox removed in HS-109 with AceAddon-3.0:
+            -- it called AceAddon's :Enable/:Disable, was a no-op across /reload, and
+            -- left overlays/pins up when "disabled". Disable via the AddOns list.)
             {
                 key = "minimapButton",
                 type = "checkbox",

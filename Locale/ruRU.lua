@@ -91,7 +91,6 @@ L["Overlays"] = "Оверлеи"
 L["Tooltips"] = "Подсказки"
 L["Export"] = "Экспорт"
 
-L["Enable addon"] = "Включить аддон"
 L["Show minimap button"] = "Показывать кнопку у миникарты"
 L["Enable overlays"] = "Включить оверлеи"
 L["Show on bags"] = "Показывать в сумках"

@@ -8,6 +8,10 @@
 
 - New minimap button: redesigned icon, now also available in Blizzard's Addon Compartment.
 
+### Changed
+
+- Removed the "Enable addon" options checkbox — it toggled an internal state that didn't persist across reloads. To turn Homestead off, disable it from the AddOns list.
+
 ### Bug Fixes
 
 - Fixed holiday detection so seasonal event vendor pins and event-source availability can update again when Blizzard's calendar reports an active holiday.

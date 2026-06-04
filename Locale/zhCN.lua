@@ -91,7 +91,6 @@ L["Overlays"] = "覆盖层"
 L["Tooltips"] = "提示信息"
 L["Export"] = "导出"
 
-L["Enable addon"] = "启用插件"
 L["Show minimap button"] = "显示小地图按钮"
 L["Enable overlays"] = "启用覆盖层"
 L["Show on bags"] = "在背包中显示"

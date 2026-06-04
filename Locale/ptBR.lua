@@ -91,7 +91,6 @@ L["Overlays"] = "Sobreposições"
 L["Tooltips"] = "Dicas"
 L["Export"] = "Exportar"
 
-L["Enable addon"] = "Ativar addon"
 L["Show minimap button"] = "Mostrar botão do minimapa"
 L["Enable overlays"] = "Ativar sobreposições"
 L["Show on bags"] = "Mostrar nas bolsas"

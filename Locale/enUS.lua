@@ -90,7 +90,6 @@ L["Overlays"] = "Overlays"
 L["Tooltips"] = "Tooltips"
 L["Export"] = "Export"
 
-L["Enable addon"] = "Enable addon"
 L["Show minimap button"] = "Show minimap button"
 L["Enable overlays"] = "Enable overlays"
 L["Show on bags"] = "Show on bags"
@@ -257,7 +256,6 @@ L["Housing Catalog"] = "Housing Catalog"
 -------------------------------------------------------------------------------
 -- Options - Descriptions
 -------------------------------------------------------------------------------
-L["desc_enable_addon"] = "Enable or disable Homestead"
 L["desc_minimap_button"] = "Show or hide the minimap button"
 L["desc_auto_scan_vendors"] = "Automatically scan merchant inventory for housing decor data when visiting vendors. Community data helps improve the addon's vendor database. Disabling may slightly improve performance when opening merchants."
 L["desc_options_general"] = "Core addon behavior, minimap access, vendor scanning, and map pin appearance."
