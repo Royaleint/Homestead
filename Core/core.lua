@@ -1,14 +1,25 @@
 --[[
     Homestead - Core
-    Main addon initialization (AceAddon-3.0 + AceDB-3.0; events/commands via Foundry)
+    Main addon initialization (AceDB-3.0 SavedVariables; lifecycle/events/commands via Foundry)
 
     A complete housing collection, vendor, and progress tracker for WoW
 ]]
 
 local addonName, HA = ...
 
--- Create the main addon object using Ace3 (event handling via Foundry.Events)
-local Homestead = LibStub("AceAddon-3.0"):NewAddon(addonName)
+-- Foundry-1.0 is a hard dependency (## Dependencies: Foundry-1.0), so it is
+-- guaranteed loaded before Homestead. Bind it at file load: the Lifecycle adopt
+-- below needs it now, and a missing Foundry is a hard load-time error (it cannot
+-- be absent given the TOC dependency line).
+local F = _G.Foundry_1_0
+if not F then
+    error("Homestead requires Foundry-1.0. Please install or enable it.")
+end
+
+-- The main addon object: a plain table adopted onto a Foundry.Lifecycle
+-- controller (replaces AceAddon-3.0's NewAddon). Lifecycle writes nothing into
+-- this table; AceDB-3.0 still backs SavedVariables (self.db, set in OnInitialize).
+local Homestead = {}
 
 -- Store reference in namespace
 HA.Addon = Homestead
@@ -25,6 +36,19 @@ end
 
 -- Backwards compatibility alias
 local HousingAddon = Homestead
+
+-- Adopt the addon object onto a Foundry.Lifecycle controller and subscribe the
+-- startup callbacks (replaces AceAddon's NewAddon + OnInitialize/OnEnable
+-- dispatch). Wrapper indirection -- not direct method references -- so the
+-- late-defined OnInitialize/OnEnable resolve at fire time, exactly as AceAddon's
+-- deferred callbacks did (mirrors how RegisterEvents binds Events handlers):
+--   addon-loaded -> OnInitialize (post-SavedVariables: AceDB, migrations, slash)
+--   login        -> OnEnable     (event registration + module init chain)
+-- There is deliberately no OnLogout subscription: Homestead has no load-bearing
+-- logout teardown (frame/event cleanup happens on session end).
+local lifecycle = F.Lifecycle:New(Homestead, addonName)
+lifecycle:OnAddonLoaded(function() Homestead:OnInitialize() end)
+lifecycle:OnLogin(function() Homestead:OnEnable() end)
 
 -- Local references for performance
 local Constants = HA.Constants
@@ -54,11 +78,7 @@ function HousingAddon:OnInitialize()
     self:InitializeMinimapButton()
 
     -- Register slash commands via Foundry.Commands (replaces AceConsole-3.0).
-    local F = _G.Foundry_1_0
-    if not F then
-        error("Homestead requires Foundry-1.0. Please install or enable it.")
-    end
-
+    -- F is the file-scope Foundry bind (guarded at load; see top of file).
     local cmd = F.Commands:New({
         name = "Homestead",
         slashes = { "/hs", "/homestead" },
@@ -271,14 +291,10 @@ function HousingAddon:OnEnable()
     self:Debug("Homestead enabled")
 end
 
-function HousingAddon:OnDisable()
-    -- Unregister all events on the Foundry.Events controller
-    if self.events then
-        self.events:UnregisterAll()
-    end
-
-    self:Debug("Homestead disabled")
-end
+-- No OnDisable / runtime-disable path. AceAddon-3.0's manual :Enable/:Disable
+-- affordance was removed with AceAddon (HS-109): the addon is enabled for the
+-- session, and disabling is done via the AddOns list + /reload. No logout
+-- teardown is needed -- frame/event cleanup happens on session end.
 
 -------------------------------------------------------------------------------
 -- Minimap Button (LibDataBroker broker + custom HA.MinimapButton + Addon Compartment)
@@ -775,7 +791,7 @@ end
 
 function HousingAddon:RegisterEvents()
     -- Event handling via Foundry.Events controller (replaces AceEvent-3.0).
-    local F = _G.Foundry_1_0
+    -- F is the file-scope Foundry bind (see top of file).
     local events = F.Events:New("Homestead.Core")
     self.events = events
 
