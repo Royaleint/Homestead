@@ -91,7 +91,6 @@ L["Overlays"] = "Superpositions"
 L["Tooltips"] = "Infobulles"
 L["Export"] = "Exporter"
 
-L["Enable addon"] = "Activer l'addon"
 L["Show minimap button"] = "Afficher le bouton de minicarte"
 L["Enable overlays"] = "Activer les superpositions"
 L["Show on bags"] = "Afficher dans les sacs"

@@ -221,10 +221,21 @@ function HousingAddon:OnInitialize()
 
     self.commands = cmd
 
+    self._initialized = true
     self:Debug("Homestead initialized")
 end
 
 function HousingAddon:OnEnable()
+    -- Guard: the login hook must not run the enable chain unless the addon-loaded
+    -- hook (OnInitialize) completed. If OnInitialize errored, or the two lifecycle
+    -- hooks were ever mis-ordered, self.db and module state are absent and the
+    -- chain below would cascade into nil-index errors. Fail loud, don't half-enable.
+    if not self._initialized then
+        F:RaiseDevError("Homestead:OnEnable ran before OnInitialize completed; "
+            .. "skipping the enable chain (addon not initialized).")
+        return
+    end
+
     -- Register for events
     self:RegisterEvents()
 

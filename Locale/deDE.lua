@@ -91,7 +91,6 @@ L["Overlays"] = "Overlays"
 L["Tooltips"] = "Tooltips"
 L["Export"] = "Exportieren"
 
-L["Enable addon"] = "Addon aktivieren"
 L["Show minimap button"] = "Minikartenknopf anzeigen"
 L["Enable overlays"] = "Overlays aktivieren"
 L["Show on bags"] = "In Taschen anzeigen"

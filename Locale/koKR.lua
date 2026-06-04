@@ -91,7 +91,6 @@ L["Overlays"] = "오버레이"
 L["Tooltips"] = "툴팁"
 L["Export"] = "내보내기"
 
-L["Enable addon"] = "애드온 활성화"
 L["Show minimap button"] = "미니맵 버튼 표시"
 L["Enable overlays"] = "오버레이 활성화"
 L["Show on bags"] = "가방에 표시"
