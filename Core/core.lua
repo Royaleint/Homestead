@@ -46,7 +46,17 @@ local HousingAddon = Homestead
 --   login        -> OnEnable     (event registration + module init chain)
 -- There is deliberately no OnLogout subscription: Homestead has no load-bearing
 -- logout teardown (frame/event cleanup happens on session end).
-local lifecycle = F.Lifecycle:New(Homestead, addonName)
+--
+-- F:RequireModule (not F.Lifecycle directly) fails loud with a clear diagnostic
+-- if a too-old Foundry without the Lifecycle module is loaded -- the version-skew
+-- window before Foundry's Lifecycle release lands -- instead of an opaque
+-- nil-index. (Foundry-itself-missing is the guard above.)
+local Lifecycle = F:RequireModule("Lifecycle", 1)
+local lifecycle = Lifecycle:New(Homestead, addonName)
+-- Subscription ORDER is load-bearing for the load-on-demand catch-up path: if
+-- Homestead were ever loaded on demand AFTER login, both hooks catch up
+-- synchronously here in registration order, so OnAddonLoaded must precede OnLogin
+-- or OnEnable would run before OnInitialize had built self.db.
 lifecycle:OnAddonLoaded(function() Homestead:OnInitialize() end)
 lifecycle:OnLogin(function() Homestead:OnEnable() end)
 
