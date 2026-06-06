@@ -37,7 +37,7 @@
 
     Taint: the row is ProfessionsRecipeListRecipeTemplate, a plain virtual
     <Button> (not Secure/Protected). We parent an unmanaged Texture and only
-    Show/Hide/SetAtlas/SetPoint our own region. We never mutate the row's
+    Show/Hide/SetTexture/SetPoint our own region. We never mutate the row's
     Label / Count / SkillUps / LockedIcon, and the badge is NOT added to Init's
     rightFrames table (which drives Label width math), so it cannot truncate
     recipe names. Reads only; no selectionBehavior / SetDataProvider / craft-button
@@ -50,17 +50,18 @@
 
 local _, HA = ...
 
-local Constants = HA.Constants
-local SourceBadgeAtlas = Constants and Constants.SourceBadgeAtlas
-
 local M = {}
 HA.ProfessionOverlay = M
 
--- Badge sizing: the recipe row is ~20px tall, so we use a compact icon (NOT the
--- 30px catalog-grid override). RIGHT inset — the LEFT gutter is Blizzard's
--- SkillUps indicator, which we must never overlap or mutate.
-local BADGE_SIZE = 16
-local BADGE_INSET = -2
+-- Badge: the Homestead house icon (Textures/HomesteadMinimap) — the recognizable
+-- brand mark from the mockup — chosen over the catalog's profession source-type
+-- glyph for visibility/recognizability on the recipe row (Gate-2 decision, Rawb
+-- 2026-06-05; the catalog overlay keeps its profession glyph). The recipe row is
+-- ~20px tall, so the badge stays compact. RIGHT inset — the LEFT gutter is
+-- Blizzard's SkillUps indicator, which we must never overlap or mutate.
+local BADGE_TEXTURE = "Interface\\AddOns\\Homestead\\Textures\\HomesteadMinimap"
+local BADGE_SIZE = 18
+local BADGE_INSET = -3
 
 -- Lazy weak-keyed (__mode='k') badge Texture per recipe row Button. Weak keys
 -- let Blizzard's frame pool reclaim row frames without us pinning them.
@@ -176,9 +177,8 @@ local function GetBadge(rowButton)
     badge = rowButton:CreateTexture(nil, "OVERLAY")
     badge:SetSize(BADGE_SIZE, BADGE_SIZE)
     badge:SetPoint("RIGHT", rowButton, "RIGHT", BADGE_INSET, 0)
-    if SourceBadgeAtlas and SourceBadgeAtlas.profession then
-        badge:SetAtlas(SourceBadgeAtlas.profession, false)
-    end
+    badge:SetTexture(BADGE_TEXTURE)
+    badge.isHomesteadProfBadge = true  -- tag for /hsdev professiondiag detection
     badge:Hide()
     badgeTextures[rowButton] = badge
     return badge
