@@ -210,6 +210,10 @@ end
 
 local hookInstalled = false
 
+-- Forward declaration: the window-open reconcile lives in the freshness section
+-- below but is referenced by InstallHook's OnShow handler.
+local RepaintVisibleRows
+
 -- Install the post-hook on the recipe-list row mixin. Idempotent and
 -- drift-guarded: if Blizzard renames/restructures the mixin or its Init, we
 -- dev-warn and bail (fail-loud-on-drift) rather than nil-hooking. Deferred until
@@ -227,6 +231,85 @@ local function InstallHook()
 
     hooksecurefunc(mixin, "Init", OnRecipeRowInit)
     hookInstalled = true
+
+    -- One-shot bounded IsOwnedFresh reconcile on each window open: catches décor
+    -- already owned at open time (cache may be stale before the first scan). The
+    -- subsequent EvaluateRow uses the now-warm cache, so this stays off the
+    -- per-Init hot path. Guarded so a missing frame can't error.
+    local frame = _G and _G.ProfessionsFrame
+    if frame and frame.HookScript then
+        frame:HookScript("OnShow", function()
+            RepaintVisibleRows(true)
+        end)
+    end
+end
+
+-------------------------------------------------------------------------------
+-- Freshness: live-row re-evaluation + window-open reconcile
+-------------------------------------------------------------------------------
+
+-- Dirty flag: set when ownership/source data changes while the window is closed
+-- (or not scrolled). Consumed by the window-open reconcile and naturally cleared
+-- as Init refires on the next open/scroll.
+M.needsRepaint = false
+
+-- Resolve the live ProfessionsFrame recipe-list ScrollBox, defensively.
+-- Returns the ScrollBox or nil if the frame isn't built/shown.
+local function GetRecipeScrollBox()
+    local frame = _G and _G.ProfessionsFrame
+    if not frame or not frame:IsShown() then return nil end
+    local craftingPage = frame.CraftingPage
+    local recipeList = craftingPage and craftingPage.RecipeList
+    local scrollBox = recipeList and recipeList.ScrollBox
+    if not scrollBox or type(scrollBox.GetFrames) ~= "function" then return nil end
+    return scrollBox
+end
+
+-- Resolve a realized row frame's recipeID. ScrollBox row frames expose
+-- GetElementData(), whose result is the tree node (same shape Init receives),
+-- so we reuse ResolveRowRecipeID for a single verified extraction path.
+local function ResolveFrameRecipeID(frame)
+    if not frame or type(frame.GetElementData) ~= "function" then return nil end
+    return ResolveRowRecipeID(frame:GetElementData())
+end
+
+-- Re-evaluate every currently realized recipe row in place. Handles the
+-- stationary-window case (a craft/learn/purchase with the window open and no
+-- scroll) that the Init hook alone misses; the every-Init recompute remains the
+-- backstop for scrolled rows. Optionally runs a bounded IsOwnedFresh reconcile
+-- (used once on window open to catch décor already owned at open time).
+RepaintVisibleRows = function(reconcileFresh)
+    local scrollBox = GetRecipeScrollBox()
+    if not scrollBox then return end
+
+    for _, frame in ipairs(scrollBox:GetFrames()) do
+        local recipeID = ResolveFrameRecipeID(frame)
+        if recipeID then
+            -- Bounded fresh reconcile: only on window open, only for rows that
+            -- resolve to décor, and only the live probe (no per-scroll storm).
+            if reconcileFresh then
+                local itemID = M:ResolveDecorForRecipe(recipeID)
+                local store = HA.CatalogStore
+                if itemID and store and store.IsOwnedFresh then
+                    store:IsOwnedFresh(itemID)  -- writes ownership through on success
+                end
+            end
+            EvaluateRow(frame, recipeID)
+        else
+            EvaluateRow(frame, nil)  -- hide any stale badge on a non-recipe row
+        end
+    end
+
+    M.needsRepaint = false
+end
+
+-- Inter-module repaint on ownership/source change. SourceManager owns the single
+-- WoW event frame and fires these custom events; we only repaint — no duplicate
+-- WoW event registration (CLAUDE.md rule #1). Sets the dirty flag for the
+-- window-closed case and, if the window is open, re-evaluates live rows now.
+local function Repaint()
+    M.needsRepaint = true
+    RepaintVisibleRows(false)
 end
 
 -------------------------------------------------------------------------------
@@ -242,4 +325,21 @@ else
     if eventUtil and eventUtil.ContinueOnAddOnLoaded then
         eventUtil.ContinueOnAddOnLoaded("Blizzard_Professions", InstallHook)
     end
+end
+
+-------------------------------------------------------------------------------
+-- Event-driven repaint (no new WoW event frame — inter-module only)
+-------------------------------------------------------------------------------
+
+-- OWNERSHIP_UPDATED fires when a décor is acquired/removed; SOURCE_CACHES_INVALIDATED
+-- fires when profession/availability caches change (SourceManager owns the single
+-- WoW event frame). We only repaint — no duplicate WoW event registration.
+if HA.Events then
+    HA.Events:RegisterCallback("OWNERSHIP_UPDATED", Repaint)
+    HA.Events:RegisterCallback("SOURCE_CACHES_INVALIDATED", Repaint)
+end
+
+-- Let Overlay:RefreshAll() also drive profession-window badges.
+if HA.Overlay then
+    HA.Overlay:RegisterExternalRefresher("professionBadges", Repaint)
 end
