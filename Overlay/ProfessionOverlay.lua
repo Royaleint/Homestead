@@ -53,14 +53,15 @@ local _, HA = ...
 local M = {}
 HA.ProfessionOverlay = M
 
--- Badge: the Homestead house icon (Textures/HomesteadMinimap) — the recognizable
--- brand mark from the mockup — chosen over the catalog's profession source-type
--- glyph for visibility/recognizability on the recipe row (Gate-2 decision, Rawb
--- 2026-06-05; the catalog overlay keeps its profession glyph). The recipe row is
--- ~20px tall, so the badge stays compact. RIGHT inset — the LEFT gutter is
--- Blizzard's SkillUps indicator, which we must never overlap or mutate.
-local BADGE_TEXTURE = "Interface\\AddOns\\Homestead\\Textures\\HomesteadMinimap"
-local BADGE_SIZE = 18
+-- Badge: a dedicated, tightly-cropped Homestead house texture
+-- (Textures/HomesteadProfBadge) — the mockup house art with the minimap-button
+-- padding removed so the house fills the badge (the full HomesteadMinimap.tga
+-- rendered the house too small). Chosen over the catalog's profession source-type
+-- glyph for recognizability (Gate-2, Rawb 2026-06-05; the catalog overlay keeps
+-- its profession glyph). RIGHT inset — the LEFT gutter is Blizzard's SkillUps
+-- indicator, which we never overlap or mutate.
+local BADGE_TEXTURE = "Interface\\AddOns\\Homestead\\Textures\\HomesteadProfBadge"
+local BADGE_SIZE = 20
 local BADGE_INSET = -3
 
 -- Lazy weak-keyed (__mode='k') badge Texture per recipe row Button. Weak keys
