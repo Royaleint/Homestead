@@ -75,6 +75,8 @@ Overlay\BetterBags.lua
 Overlay\Merchant.lua
 Overlay\Tooltips.lua
 Overlay\CatalogOverlay.lua
+# ProfessionOverlay depends on SourceManager + ProfessionSources + CatalogStore (all in the Data block above)
+Overlay\ProfessionOverlay.lua
 Overlay\HousingDashboard.lua
 
 # UI
