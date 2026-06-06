@@ -61,7 +61,7 @@ HA.ProfessionOverlay = M
 -- its profession glyph). RIGHT inset — the LEFT gutter is Blizzard's SkillUps
 -- indicator, which we never overlap or mutate.
 local BADGE_TEXTURE = "Interface\\AddOns\\Homestead\\Textures\\HomesteadProfBadge"
-local BADGE_SIZE = 20
+local BADGE_SIZE = 18
 local BADGE_INSET = -3
 
 -- Lazy weak-keyed (__mode='k') badge Texture per recipe row Button. Weak keys
