@@ -55,14 +55,14 @@ HA.ProfessionOverlay = M
 
 -- Badge: a dedicated, tightly-cropped Homestead house texture
 -- (Textures/HomesteadProfBadge) — the mockup house art with the minimap-button
--- padding removed so the house fills the badge (the full HomesteadMinimap.tga
--- rendered the house too small). Chosen over the catalog's profession source-type
--- glyph for recognizability (Gate-2, Rawb 2026-06-05; the catalog overlay keeps
--- its profession glyph). RIGHT inset — the LEFT gutter is Blizzard's SkillUps
--- indicator, which we never overlap or mutate.
+-- padding removed so the house fills the badge. Chosen over the catalog's
+-- profession source-type glyph for recognizability (Gate-2, Rawb 2026-06-05; the
+-- catalog overlay keeps its glyph). Placed on the LEFT, just before the recipe
+-- name (Gate-2, Rawb 2026-06-05) — anchored to the Label so it tracks the name
+-- and never overlaps it (reads the Label's position, does not mutate it).
 local BADGE_TEXTURE = "Interface\\AddOns\\Homestead\\Textures\\HomesteadProfBadge"
 local BADGE_SIZE = 18
-local BADGE_INSET = -3
+local BADGE_INSET = -2  -- gap between the badge's right edge and the recipe name
 
 -- Lazy weak-keyed (__mode='k') badge Texture per recipe row Button. Weak keys
 -- let Blizzard's frame pool reclaim row frames without us pinning them.
@@ -177,7 +177,15 @@ local function GetBadge(rowButton)
 
     badge = rowButton:CreateTexture(nil, "OVERLAY")
     badge:SetSize(BADGE_SIZE, BADGE_SIZE)
-    badge:SetPoint("RIGHT", rowButton, "RIGHT", BADGE_INSET, 0)
+    -- LEFT side: sit just before the recipe name. Anchored to the Label's LEFT so
+    -- the badge tracks the name and never overlaps it; falls back to the row's left
+    -- edge if the Label region is ever unavailable.
+    local label = rowButton.Label
+    if label then
+        badge:SetPoint("RIGHT", label, "LEFT", BADGE_INSET, 0)
+    else
+        badge:SetPoint("LEFT", rowButton, "LEFT", 2, 0)
+    end
     badge:SetTexture(BADGE_TEXTURE)
     badge.isHomesteadProfBadge = true  -- tag for /hsdev professiondiag detection
     badge:Hide()
