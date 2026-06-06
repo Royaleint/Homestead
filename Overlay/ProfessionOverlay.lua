@@ -2,25 +2,38 @@
     Homestead - Profession Window Décor Overlay (HS-024 Phase 1)
 
     Ambiently badges Blizzard's Professions recipe-list rows that produce
-    housing décor the player CAN craft (profession known AND skill tier met)
-    and does NOT yet own. Absence is the signal — no badge on owned,
+    housing décor the player CAN craft (recipe LEARNED and craftable now) and
+    does NOT yet own. Absence is the signal — no badge on owned, unlearned,
     not-craftable, or non-décor rows. No new UI window; this enhances
     Blizzard's own Professions frame (Apple method).
 
-    Smart filter (HS-075, absorbed) — a row badges iff:
+    Smart filter (HS-075, absorbed; HS-024 Rev-2 "can craft" = learned +
+    craftable-now per Rawb) — a row badges iff:
       1. recipeID resolves to a known décor item (ResolveDecorForRecipe), AND
-      2. the player can craft it now:
-         SourceManager:IsSourceAvailableNow(itemID, {type='profession', data=entry}) ~= false
-         (~=false, NOT ==true: Miscellaneous / skill-less décor returns nil → allow;
-          an untrained tier returns false → block), AND
+      2. the player can craft it now — read from the row's own recipeInfo
+         (node:GetData().recipeInfo), ZERO extra C calls:
+           recipeInfo.learned == true  AND  recipeInfo.craftable == true.
+         `learned == true` subsumes the old profession+skillTier check (a
+         recipe can only be learned if the player has the profession and met
+         the tier), so SourceManager:IsSourceAvailableNow is no longer called
+         on the hot path (HS-024 Rev-2 #1/#3 — kills the per-row allocation in
+         PlayerMeetsSkillLevel). `craftable == true` is Blizzard's own
+         can-make-it-now flag (Blizzard_ProfessionsCrafting.lua:570 gates on
+         `not craftable or disabled`). AND
       3. the player does not own the output: not CatalogStore:IsOwned(itemID)
          (cache-only on the hot path — IsOwnedFresh is reserved for the
           bounded window-open reconcile, never the per-Init path).
 
     Hook strategy (Gate 0, in-game verified 2026-06-05 via /hsdev recipespike):
     post-hook hooksecurefunc(ProfessionsRecipeListRecipeMixin, "Init", handler).
-    Fires per recipe row per recycle. recipeID via node:GetData().recipeInfo.recipeID.
-    recipeID == ProfessionSources.spellID (verified four ways, 1:1 reverse map).
+    Fires per recipe row per recycle. recipeInfo via node:GetData().recipeInfo
+    (Init path) — Blizzard_ProfessionsRecipeList.lua:237-241 reads learned from
+    exactly this; we thread that same recipeInfo through to gate the badge.
+    recipeID == recipeInfo.recipeID == ProfessionSources.spellID (verified four
+    ways, 1:1 reverse map). Live-row repaint reads recipeInfo via
+    frame:GetElementData().data.recipeInfo (the .data FIELD — verified vs
+    Blizzard_ProfessionsRecipeList.lua:353-354), distinct from the Init node's
+    :GetData() METHOD (HS-024 Rev-2 #2).
 
     Taint: the row is ProfessionsRecipeListRecipeTemplate, a plain virtual
     <Button> (not Secure/Protected). We parent an unmanaged Texture and only
@@ -113,25 +126,29 @@ function M:ResolveDecorForRecipe(recipeID)
 end
 
 -- Predicate: should this recipe row carry the décor badge?
--- Returns shouldBadge (bool), itemID, entry.  Smart-filter short-circuit order:
+-- `recipeInfo` is the row's own recipeInfo table (node:GetData().recipeInfo on
+-- the Init path, GetElementData().data.recipeInfo on the live-repaint path);
+-- both expose recipeID, learned, and craftable. Returns shouldBadge (bool),
+-- itemID, entry. Smart-filter short-circuit order (HS-024 Rev-2):
 --   1. resolves to décor (else no badge)
---   2. can craft now: IsSourceAvailableNow(...) ~= false
+--   2. can craft now: recipeInfo.learned == true AND recipeInfo.craftable == true
+--      — read straight off the row's recipeInfo, ZERO extra C calls. `learned`
+--      subsumes the old profession+skillTier gate, so IsSourceAvailableNow (and
+--      its PlayerMeetsSkillLevel allocation) is no longer on the hot path.
 --   3. doesn't own output: not IsOwned(itemID) — cache-only
-function M:ShouldBadgeRecipe(recipeID)
+function M:ShouldBadgeRecipe(recipeInfo)
+    local recipeID = recipeInfo and recipeInfo.recipeID
     local itemID, entry = self:ResolveDecorForRecipe(recipeID)
     if not itemID then
         return false
     end
 
-    -- Can craft now? ~=false is load-bearing (see file header). A nil result
-    -- (Miscellaneous / skill-less) is treated as craftable; only an explicit
-    -- false (wrong profession / untrained tier) blocks the badge.
-    local sm = HA.SourceManager
-    if sm and sm.IsSourceAvailableNow then
-        local available = sm:IsSourceAvailableNow(itemID, { type = "profession", data = entry })
-        if available == false then
-            return false, itemID, entry
-        end
+    -- Can craft now? "can craft" = learned + craftable-now (Rawb, HS-024 Rev-2).
+    -- Both flags live on the row's recipeInfo already in hand (no C call). An
+    -- unlearned recipe (Blizzard still renders it as an Init-firing row) or one
+    -- not currently craftable (missing reagents / wrong context) does not badge.
+    if recipeInfo.learned ~= true or recipeInfo.craftable ~= true then
+        return false, itemID, entry
     end
 
     -- Already owned? Cache-only on the hot path (IsOwnedFresh is reserved for
@@ -171,28 +188,31 @@ end
 -- Recipe-row hook (post-hook on the list mixin's Init)
 -------------------------------------------------------------------------------
 
--- Pull the recipeID out of a recipe row's element data, defensively.
--- Init's node is the tree element; recipe rows expose GetData().recipeInfo.recipeID.
--- Headers/dividers use a different element shape, so a nil here = not a recipe row.
-local function ResolveRowRecipeID(node)
+-- Pull the recipeInfo out of an Init node's element data, defensively.
+-- Init's node is the tree element; recipe rows expose GetData().recipeInfo
+-- (verified Blizzard_ProfessionsRecipeList.lua:237 — `local elementData =
+-- node:GetData()` then reads `elementData.recipeInfo.learned`). Headers/dividers
+-- use a different element shape, so a nil here = not a recipe row. We return the
+-- whole recipeInfo (not a bare recipeID) so ShouldBadgeRecipe can read its
+-- learned/craftable flags with zero extra C calls (HS-024 Rev-2 #1).
+local function ResolveNodeRecipeInfo(node)
     if not node or type(node.GetData) ~= "function" then return nil end
     local data = node:GetData()
-    local recipeInfo = data and data.recipeInfo
-    return recipeInfo and recipeInfo.recipeID
+    return data and data.recipeInfo
 end
 
--- Recompute show/hide for one realized recipe row Button against its recipeID.
+-- Recompute show/hide for one realized recipe row Button against its recipeInfo.
 -- Recycle-safe: called every Init, no per-row persistent state beyond the
 -- weak-cached texture; the show/hide decision is recomputed from scratch.
-local function EvaluateRow(rowButton, recipeID)
-    if not recipeID then
-        -- Not a recipe row (or recipeID unavailable): ensure any stale badge from
-        -- a prior occupant of this recycled frame is hidden.
+local function EvaluateRow(rowButton, recipeInfo)
+    if not recipeInfo then
+        -- Not a recipe row (or recipeInfo unavailable): ensure any stale badge
+        -- from a prior occupant of this recycled frame is hidden.
         local existing = badgeTextures[rowButton]
         if existing then existing:Hide() end
         return
     end
-    GetBadge(rowButton):SetShown(M:ShouldBadgeRecipe(recipeID))
+    GetBadge(rowButton):SetShown(M:ShouldBadgeRecipe(recipeInfo))
 end
 
 -- Post-hook handler installed on ProfessionsRecipeListRecipeMixin.Init.
@@ -201,7 +221,7 @@ end
 local function OnRecipeRowInit(self, node)
     if not self then return end
     local ok, err = pcall(function()
-        EvaluateRow(self, ResolveRowRecipeID(node))
+        EvaluateRow(self, ResolveNodeRecipeInfo(node))
     end)
     if not ok and HA.Addon and HA.Addon.Debug then
         HA.Addon:Debug("ProfessionOverlay: row Init handler error:", tostring(err))
@@ -265,12 +285,22 @@ local function GetRecipeScrollBox()
     return scrollBox
 end
 
--- Resolve a realized row frame's recipeID. ScrollBox row frames expose
--- GetElementData(), whose result is the tree node (same shape Init receives),
--- so we reuse ResolveRowRecipeID for a single verified extraction path.
-local function ResolveFrameRecipeID(frame)
+-- Resolve a realized row frame's recipeInfo. A LIVE ScrollBox row frame exposes
+-- GetElementData(), whose result wraps the tree node — the recipeInfo lives on
+-- the .data FIELD of that result (frame:GetElementData().data.recipeInfo), NOT
+-- via a :GetData() method. Verified vs Blizzard source: the row mixin's own
+-- OnEnter reads exactly `self:GetElementData().data.recipeInfo.recipeID`
+-- (Blizzard_ProfessionsRecipeList.lua:353-354). This is a DIFFERENT shape from
+-- the Init node (which is the raw node, accessed via node:GetData()), so the
+-- repaint path needs its own accessor — reusing the Init-node accessor here
+-- silently no-ops the stationary-window repaint (HS-024 Rev-2 #2).
+-- GetFrames() returns a mixed-template list (categories/dividers too), so a nil
+-- here = a non-recipe frame the caller must skip.
+local function ResolveFrameRecipeInfo(frame)
     if not frame or type(frame.GetElementData) ~= "function" then return nil end
-    return ResolveRowRecipeID(frame:GetElementData())
+    local elementData = frame:GetElementData()
+    local data = elementData and elementData.data
+    return data and data.recipeInfo
 end
 
 -- Re-evaluate every currently realized recipe row in place. Handles the
@@ -282,22 +312,40 @@ RepaintVisibleRows = function(reconcileFresh)
     local scrollBox = GetRecipeScrollBox()
     if not scrollBox then return end
 
-    for _, frame in ipairs(scrollBox:GetFrames()) do
-        local recipeID = ResolveFrameRecipeID(frame)
-        if recipeID then
+    local frames = scrollBox:GetFrames()
+    local store = HA.CatalogStore
+
+    -- Fix #4: the window-open reconcile runs IsOwnedFresh over every visible
+    -- décor row; each successful probe writes ownership through and would fire
+    -- its own OWNERSHIP_UPDATED, re-entering Repaint per row — an O(visible²)
+    -- cascade. Wrap the whole reconcile pass in a batch so it fires at most one
+    -- trailing OWNERSHIP_UPDATED (CatalogStore contract: "always wrap bulk
+    -- operations"). Guarded + pcall'd so a missing or throwing batch API can't
+    -- leave the store stuck in batch mode.
+    local batched = reconcileFresh and store and store.BeginBatch and store.EndBatch
+    if batched then
+        pcall(store.BeginBatch, store)
+    end
+
+    for _, frame in ipairs(frames) do
+        local recipeInfo = ResolveFrameRecipeInfo(frame)
+        if recipeInfo then
             -- Bounded fresh reconcile: only on window open, only for rows that
             -- resolve to décor, and only the live probe (no per-scroll storm).
             if reconcileFresh then
-                local itemID = M:ResolveDecorForRecipe(recipeID)
-                local store = HA.CatalogStore
+                local itemID = M:ResolveDecorForRecipe(recipeInfo.recipeID)
                 if itemID and store and store.IsOwnedFresh then
                     store:IsOwnedFresh(itemID)  -- writes ownership through on success
                 end
             end
-            EvaluateRow(frame, recipeID)
+            EvaluateRow(frame, recipeInfo)
         else
             EvaluateRow(frame, nil)  -- hide any stale badge on a non-recipe row
         end
+    end
+
+    if batched then
+        pcall(store.EndBatch, store)  -- fires at most one trailing OWNERSHIP_UPDATED
     end
 
     M.needsRepaint = false
