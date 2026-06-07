@@ -161,6 +161,24 @@ local function CollectAllKnownItemIDs()
         end
     end
 
+    -- Collect craft-only décor itemIDs (HS-024). ProfessionSources is keyed by
+    -- catalog itemID and is the exact domain ShouldBadgeRecipe reads via
+    -- cache-only IsOwned; it also backs GetOwnedCount / GetOwnedItemsBySourceType.
+    -- Shares the `seen` table with the vendor blocks above, so any itemID a vendor
+    -- already inserted is skipped here — vendor records (with vendor name) win,
+    -- and the craft block adds only the genuinely net-new itemIDs.
+    if HA.ProfessionSources then
+        for craftItemID in pairs(HA.ProfessionSources) do
+            if type(craftItemID) == "number" and not seen[craftItemID] then
+                seen[craftItemID] = true
+                table.insert(itemIDs, {
+                    itemID = craftItemID,
+                    name = nil,  -- fetched during ScanItem like vendor items
+                })
+            end
+        end
+    end
+
     return itemIDs
 end
 
