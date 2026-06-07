@@ -78,6 +78,7 @@ Overlay\CatalogOverlay.lua
 # ProfessionOverlay depends on SourceManager + ProfessionSources + CatalogStore (all in the Data block above)
 Overlay\ProfessionOverlay.lua
 Overlay\HousingDashboard.lua
+Overlay\CatalogDetailSource.lua
 
 # UI
 UI\WelcomeFrame.lua

@@ -465,6 +465,7 @@ Constants.Defaults = {
             enabled = true,
             showOwned = true,
             showSource = true,
+            showDetailSource = true,  -- Show source in catalog detail pane when native is empty (HS-113)
             showAllSources = true,  -- Show all sources vs primary only
             -- showQuantity removed: C_HousingCatalog.quantity returns 0 after /reload until catalog opens
             showDyeSlots = true,
