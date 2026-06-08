@@ -1503,8 +1503,14 @@ function SourceManager:GetCompletionStatus(itemID, sourceType, sourceData)
             return { color = "|cFFFF0000", suffix = " (Skill Too Low)", met = false }
         end
 
+        -- A profession block was recognized but we can't resolve recipe state
+        -- (no ProfessionSources row for this item, or the row lacks a spellID).
+        -- Return a definite "(Unknown)" rather than nil so every profession décor
+        -- renders a consistent suffix — never a bare line with no status (HS-111).
         local spellID = resolvedData and resolvedData.spellID
-        if not spellID then return nil end
+        if not spellID then
+            return { color = "|cFF808080", suffix = " (Unknown)", met = nil }
+        end
 
         local tradeSkillUI = _G and _G.C_TradeSkillUI
         if not tradeSkillUI or not tradeSkillUI.GetRecipeInfo then
@@ -1517,11 +1523,13 @@ function SourceManager:GetCompletionStatus(itemID, sourceType, sourceData)
             return { color = "|cFF808080", suffix = " (Unknown)", met = nil }
         end
 
+        -- Report only what we KNOW: whether the recipe is learned. NOT "Can Craft
+        -- Now" — recipeInfo.craftable is recipe/context state (station-dependent),
+        -- not material availability, and no API exposes whether the player has the
+        -- reagents. A learned recipe reads "(Recipe Known)" regardless of craftable.
         local result
-        if recipeInfo.craftable then
-            result = { color = "|cFF00FF00", suffix = " (Can Craft Now)", met = true }
-        elseif recipeInfo.learned then
-            result = { color = "|cFF66FF66", suffix = " (Recipe Known)", met = true }
+        if recipeInfo.learned then
+            result = { color = "|cFF00FF00", suffix = " (Recipe Known)", met = true }
         else
             result = { color = "|cFFFF0000", suffix = " (Recipe Unknown)", met = false }
         end

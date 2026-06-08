@@ -34,12 +34,12 @@ local COLOR_YELLOW = {r = 1, g = 0.82, b = 0}
 local COLOR_WHITE = {r = 1, g = 1, b = 1}
 local COLOR_GRAY = {r = 0.5, g = 0.5, b = 0.5}
 
--- Pre-built "craftable, not yet collected" tooltip lines, keyed by profession
+-- Pre-built "known recipe, not yet collected" tooltip lines, keyed by profession
 -- name (HS-024 Phase 2a). Professions are a closed static set across the
 -- ProfessionSources entries, so the per-profession strings are built ONCE at
--- module load — no per-hover string concatenation. Material-neutral copy:
--- "craftable" can fold in reagent availability, so the line never implies the
--- player has the materials (see Overlay/ProfessionOverlay.lua reagent note).
+-- module load — no per-hover string concatenation. Copy reports only what we
+-- KNOW: the recipe is learned. It deliberately avoids "craftable" / "can craft
+-- now" — no API tells us whether the player has the reagents.
 -- ProfessionSources loads before this file (Homestead.toc), so iterating it at
 -- file scope is load-order safe.
 local craftableLineByProfession = {}
@@ -48,7 +48,7 @@ if HA.ProfessionSources then
         local profession = entry.profession
         if profession and not craftableLineByProfession[profession] then
             craftableLineByProfession[profession] =
-                "Craftable via " .. profession .. " — not yet collected"
+                "Known " .. profession .. " recipe — not yet collected"
         end
     end
 end
