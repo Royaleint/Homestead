@@ -25,8 +25,6 @@ HA.WhatsNew = {
         },
     },
     ["2.0.0"] = {
-        heroTexture = "Interface\\AddOns\\Homestead\\Textures\\homestead_collage_labeled_1024x256",
-        heroHeight = 190,
         title = "Homestead - What's New in v2.0!",
         features = {
             {
@@ -42,8 +40,6 @@ HA.WhatsNew = {
         },
     },
     ["1.6.0"] = {
-        heroTexture = "Interface\\AddOns\\Homestead\\Textures\\Midnight",
-        heroHeight = 190,
         title = "Homestead - What's New in v1.6!",
         features = {
             {
@@ -59,8 +55,6 @@ HA.WhatsNew = {
         },
     },
     ["1.5.0"] = {
-        heroTexture = "Interface\\AddOns\\Homestead\\Textures\\HomesteadPanel",
-        heroHeight = 250,
         title = "Homestead - What's New in v1.5!",
         features = {
             {
