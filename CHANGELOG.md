@@ -4,31 +4,28 @@
 
 ## Homestead v2.5.0 (06-09-2026)
 
-Badge craftable decor in the profession window, a redesigned minimap button, clearer source info on tooltips and the map side panel, and a leaner install.
+Homestead badge next to decor in your profession window, a redesigned minimap button, clearer source info on tooltips, and a leaner install.
 
 ---
 
-### New — Craftable Decor in the Profession Window
+### New — Homestead Tag in the Profession Window
 
-- Badge recipes for decor you can craft but haven't collected, right in the profession window — skill- and ownership-aware, so you only see what you can actually make.
-- Update badges live: craft or acquire a piece with the window open and its badge clears immediately.
-- Recognize newer profession-only decor correctly, with expanded coverage.
+- Homestead badges appear for home decor recipes you have the ability to craft but haven't collected, right in the profession window.
 
 ### Improved
 
-- Redesign the custom minimap button with new icon and pin art, add Addon Compartment support, and improve compatibility with minimap collector addons.
+- Redesigned the Homestead minimap button with new icon and pin art, and improved compatibility with minimap collector addons.
 - Show a consistent source status on decor tooltips — items without recipe data now read as "(Unknown)" instead of a bare line.
-- Rebuild the source filter on WoW's native menu system and move it under the map side panel title.
-- Detect active seasonal and holiday events again, so event vendor pins and event sources update while an event is running.
+- Homestead now detects active seasonal and holiday events, so event vendor pins and event sources update while an event is running.
 - Trim about 3.7 MB of unused art for a smaller install.
 
 ### Changed
 
-- Remove the "Enable addon" options checkbox — it toggled an internal state that didn't persist across reloads. To turn Homestead off, disable it from the AddOns list.
+- Removed the "Enable addon" options checkbox — it toggled an internal state that didn't persist across reloads. To turn Homestead off, disable it from the AddOns list.
 
 ### Polished
 
-- Move off the remaining Ace3 internals onto BawrLabs' Foundry library, with performance cleanup and release-pipeline hardening under the hood. No changes to how anything looks or works.
+- Move off the remaining Ace3 internals onto BawrLabs' Foundry (you will see it under libraries in your addon list) library. No changes to how anything looks or works.
 
 ---
 
