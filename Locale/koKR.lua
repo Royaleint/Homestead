@@ -124,7 +124,6 @@ L["Vendors nearby: %d"] = "근처 상인: %d"
 L["Vendors scanned: %d"] = "스캔한 상인: %d"
 L["Left-Click: Toggle options"] = "|cFFFFFFFF좌클릭:|r 설정 열기"
 L["Right-Click: Detach/close vendor panel"] = "|cFFFFFFFF우클릭:|r 상인 패널 분리/닫기"
-L["Middle-Click: Scan collection"] = "|cFFFFFFFF중클릭:|r 컬렉션 스캔"
 
 -------------------------------------------------------------------------------
 -- Slash Commands

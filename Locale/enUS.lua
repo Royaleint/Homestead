@@ -123,7 +123,6 @@ L["Vendors nearby: %d"] = "Vendors nearby: %d"
 L["Vendors scanned: %d"] = "Vendors scanned: %d"
 L["Left-Click: Toggle options"] = "|cFFFFFFFFLeft-Click:|r Toggle options"
 L["Right-Click: Detach/close vendor panel"] = "|cFFFFFFFFRight-Click:|r Detach/close vendor panel"
-L["Middle-Click: Scan collection"] = "|cFFFFFFFFMiddle-Click:|r Scan collection"
 
 -------------------------------------------------------------------------------
 -- Slash Commands

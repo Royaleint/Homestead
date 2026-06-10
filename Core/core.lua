@@ -341,12 +341,6 @@ function HousingAddon:InitializeMinimapButton()
                 if HA.MapSidePanel then
                     HA.MapSidePanel:ToggleDetached()
                 end
-            elseif button == "MiddleButton" then
-                if HA.CatalogScanner and HA.CatalogScanner.ManualScan then
-                    HA.CatalogScanner:ManualScan()
-                else
-                    self:Print("CatalogScanner not available for middle-click scan")
-                end
             end
         end,
         OnTooltipShow = function(tooltip)
@@ -385,7 +379,6 @@ function HousingAddon:InitializeMinimapButton()
             tooltip:AddLine(" ")
             tooltip:AddLine(L["Left-Click: Toggle options"] or "|cFFFFFFFFLeft-Click:|r Toggle options")
             tooltip:AddLine(L["Right-Click: Detach/close vendor panel"] or "|cFFFFFFFFRight-Click:|r Detach/close vendor panel")
-            tooltip:AddLine(L["Middle-Click: Scan collection"] or "|cFFFFFFFFMiddle-Click:|r Scan collection")
         end,
     })
 

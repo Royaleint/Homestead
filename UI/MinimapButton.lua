@@ -116,7 +116,7 @@ function MinimapButton:Initialize(obj, minimapDB)
     button:SetMovable(true)
     button:EnableMouse(true)
     button:RegisterForDrag("LeftButton")
-    button:RegisterForClicks("LeftButtonUp", "RightButtonUp", "MiddleButtonUp")
+    button:RegisterForClicks("LeftButtonUp", "RightButtonUp")
 
     local icon = button:CreateTexture(nil, "ARTWORK")
     icon:SetAllPoints()

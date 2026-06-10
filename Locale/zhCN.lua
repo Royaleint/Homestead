@@ -124,7 +124,6 @@ L["Vendors nearby: %d"] = "附近商人: %d"
 L["Vendors scanned: %d"] = "已扫描商人: %d"
 L["Left-Click: Toggle options"] = "|cFFFFFFFF左键点击:|r 打开选项"
 L["Right-Click: Detach/close vendor panel"] = "|cFFFFFFFF右键点击:|r 分离/关闭商人面板"
-L["Middle-Click: Scan collection"] = "|cFFFFFFFF中键点击:|r 扫描收藏"
 
 -------------------------------------------------------------------------------
 -- Slash Commands

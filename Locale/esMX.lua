@@ -124,7 +124,6 @@ L["Vendors nearby: %d"] = "Vendedores cercanos: %d"
 L["Vendors scanned: %d"] = "Vendedores escaneados: %d"
 L["Left-Click: Toggle options"] = "|cFFFFFFFFClic izquierdo:|r Abrir opciones"
 L["Right-Click: Detach/close vendor panel"] = "|cFFFFFFFFClic derecho:|r Separar/cerrar panel de vendedores"
-L["Middle-Click: Scan collection"] = "|cFFFFFFFFClic central:|r Escanear colección"
 
 -------------------------------------------------------------------------------
 -- Slash Commands
