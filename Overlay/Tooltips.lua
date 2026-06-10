@@ -34,25 +34,6 @@ local COLOR_YELLOW = {r = 1, g = 0.82, b = 0}
 local COLOR_WHITE = {r = 1, g = 1, b = 1}
 local COLOR_GRAY = {r = 0.5, g = 0.5, b = 0.5}
 
--- Pre-built "known recipe, not yet collected" tooltip lines, keyed by profession
--- name (HS-024 Phase 2a). Professions are a closed static set across the
--- ProfessionSources entries, so the per-profession strings are built ONCE at
--- module load — no per-hover string concatenation. Copy reports only what we
--- KNOW: the recipe is learned. It deliberately avoids "craftable" / "can craft
--- now" — no API tells us whether the player has the reagents.
--- ProfessionSources loads before this file (Homestead.toc), so iterating it at
--- file scope is load-order safe.
-local craftableLineByProfession = {}
-if HA.ProfessionSources then
-    for _, entry in pairs(HA.ProfessionSources) do
-        local profession = entry.profession
-        if profession and not craftableLineByProfession[profession] then
-            craftableLineByProfession[profession] =
-                "Known " .. profession .. " recipe — not yet collected"
-        end
-    end
-end
-
 -------------------------------------------------------------------------------
 -- Helper Functions
 -------------------------------------------------------------------------------
@@ -895,32 +876,6 @@ local function AddDecorInfoToTooltip(tooltip, itemLink)
             tooltip:AddLine("Status: Not Owned", COLOR_RED.r, COLOR_RED.g, COLOR_RED.b)
         else
             tooltip:AddLine("Status: Unknown", COLOR_GRAY.r, COLOR_GRAY.g, COLOR_GRAY.b)
-        end
-    end
-
-    -- Craftable, not-yet-collected annotation (HS-024 Phase 2a).
-    -- Smart-filtered status signal: one material-neutral line when the decor is
-    -- craftable on this character but not yet owned. Mirrors the Phase-1 window
-    -- badge predicate (Overlay/ProfessionOverlay.lua:
-    -- recipeInfo.learned == true and recipeInfo.craftable == true) by citation,
-    -- not by shared code (Phase 1 is mid-Gate-2).
-    --   1. ProfessionSources[itemID] — O(1) fast-reject before any new C-call.
-    --   2. GetRecipeInfo(spellID) — runtime call, never upvalued at file scope.
-    --      learned/craftable are valid cold (no profession window); learned is
-    --      nil for unlearned/wrong-profession recipes, so "~= true" excludes
-    --      them (the nil gotcha). See Home_Dev/session/KNOWLEDGE.md.
-    --   3. Reuse the fresh isOwned local computed above (IsOwnedFresh) — do NOT
-    --      re-query ownership; this also dodges the HS-105 >=256000 false-unowned
-    --      cache bug on this surface.
-    local professionEntry = HA.ProfessionSources and HA.ProfessionSources[itemID]
-    if professionEntry and isOwned ~= true
-            and C_TradeSkillUI and C_TradeSkillUI.GetRecipeInfo then
-        local recipeInfo = C_TradeSkillUI.GetRecipeInfo(professionEntry.spellID)
-        if recipeInfo and recipeInfo.learned == true and recipeInfo.craftable == true then
-            local craftableLine = craftableLineByProfession[professionEntry.profession]
-            if craftableLine then
-                tooltip:AddLine(craftableLine, COLOR_GREEN.r, COLOR_GREEN.g, COLOR_GREEN.b)
-            end
         end
     end
 
