@@ -2,19 +2,33 @@
 
 ---
 
-## Unreleased
+## Homestead v2.5.0 (06-09-2026)
+
+Badge craftable decor in the profession window, a redesigned minimap button, clearer source info on tooltips and the map side panel, and a leaner install.
+
+---
+
+### New — Craftable Decor in the Profession Window
+
+- Badge recipes for decor you can craft but haven't collected, right in the profession window — skill- and ownership-aware, so you only see what you can actually make.
+- Update badges live: craft or acquire a piece with the window open and its badge clears immediately.
+- Recognize newer profession-only decor correctly, with expanded coverage.
 
 ### Improved
 
-- New minimap button: redesigned icon, now also available in Blizzard's Addon Compartment.
+- Redesign the custom minimap button with new icon and pin art, add Addon Compartment support, and improve compatibility with minimap collector addons.
+- Show a consistent source status on decor tooltips — items without recipe data now read as "(Unknown)" instead of a bare line.
+- Rebuild the source filter on WoW's native menu system and move it under the map side panel title.
+- Detect active seasonal and holiday events again, so event vendor pins and event sources update while an event is running.
+- Trim about 3.7 MB of unused art for a smaller install.
 
 ### Changed
 
-- Removed the "Enable addon" options checkbox — it toggled an internal state that didn't persist across reloads. To turn Homestead off, disable it from the AddOns list.
+- Remove the "Enable addon" options checkbox — it toggled an internal state that didn't persist across reloads. To turn Homestead off, disable it from the AddOns list.
 
-### Bug Fixes
+### Polished
 
-- Fixed holiday detection so seasonal event vendor pins and event-source availability can update again when Blizzard's calendar reports an active holiday.
+- Move off the remaining Ace3 internals onto BawrLabs' Foundry library, with performance cleanup and release-pipeline hardening under the hood. No changes to how anything looks or works.
 
 ---
 
