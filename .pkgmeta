@@ -17,7 +17,7 @@ ignore:
   - HousingAddon.toc
 
 required-dependencies:
-  - Foundry-1.0
+  - foundry
 
 externals:
   Libs/LibStub: https://repos.wowace.com/wow/libstub/trunk
