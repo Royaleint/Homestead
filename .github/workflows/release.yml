@@ -117,12 +117,19 @@ jobs:
           echo "--- Converted HTML uploaded to CurseForge / Wago ---"
           cat RELEASE_NOTES.html
 
-      - name: Package and Release
+      - name: Package and Release — CurseForge + GitHub
         if: steps.guard.outputs.publish == 'true'
         uses: BigWigsMods/packager@v2
         with:
-          args: -g retail
+          args: -g retail -a 0
         env:
           CF_API_KEY: ${{ secrets.CF_API_KEY }}
-          WAGO_API_TOKEN: ${{ secrets.WAGO_API_TOKEN }}
           GITHUB_OAUTH: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Package and Release — Wago (Foundry embedded)
+        if: steps.guard.outputs.publish == 'true'
+        uses: BigWigsMods/packager@v2
+        with:
+          args: -m .pkgmeta.wago -g retail -p 0
+        env:
+          WAGO_API_TOKEN: ${{ secrets.WAGO_API_TOKEN }}
