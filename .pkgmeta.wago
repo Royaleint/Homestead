@@ -21,8 +21,13 @@ move-folders:
 
 externals:
   Foundry-1.0:
+    # wago-embed = the release tag minus Foundry's own "## X-Wago-ID:" TOC line.
+    # A bundled TOC claiming a DIFFERENT Wago product (Foundry's own listing) is
+    # the prime suspect in Wago's "internal processing error" on the co-shipped
+    # package; this branch tests/avoids that. Revert to "tag: latest" only if
+    # Wago confirms foreign product IDs inside an artifact are acceptable.
     url: https://github.com/Royaleint/Foundry.git
-    tag: latest
+    branch: wago-embed
   Libs/LibStub: https://repos.wowace.com/wow/libstub/trunk
   Libs/CallbackHandler-1.0: https://repos.wowace.com/wow/callbackhandler/trunk/CallbackHandler-1.0
   Libs/AceDB-3.0: https://repos.wowace.com/wow/ace3/trunk/AceDB-3.0
