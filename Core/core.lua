@@ -1,6 +1,6 @@
 --[[
     Homestead - Core
-    Main addon initialization (SavedVariables, lifecycle, events, and commands via Foundry)
+    Main addon initialization (AceDB-3.0 SavedVariables; lifecycle/events/commands via Foundry)
 
     A complete housing collection, vendor, and progress tracker for WoW
 ]]
@@ -18,7 +18,7 @@ end
 
 -- The main addon object: a plain table adopted onto a Foundry.Lifecycle
 -- controller (replaces AceAddon-3.0's NewAddon). Lifecycle writes nothing into
--- this table; Foundry.DB backs SavedVariables (self.db, set in OnInitialize).
+-- this table; AceDB-3.0 still backs SavedVariables (self.db, set in OnInitialize).
 local Homestead = {}
 
 -- Store reference in namespace
@@ -42,7 +42,7 @@ local HousingAddon = Homestead
 -- dispatch). Wrapper indirection -- not direct method references -- so the
 -- late-defined OnInitialize/OnEnable resolve at fire time, exactly as AceAddon's
 -- deferred callbacks did (mirrors how RegisterEvents binds Events handlers):
---   addon-loaded -> OnInitialize (post-SavedVariables: Foundry.DB, migrations, slash)
+--   addon-loaded -> OnInitialize (post-SavedVariables: AceDB, migrations, slash)
 --   login        -> OnEnable     (event registration + module init chain)
 -- There is deliberately no OnLogout subscription: Homestead has no load-bearing
 -- logout teardown (frame/event cleanup happens on session end).
@@ -52,9 +52,6 @@ local HousingAddon = Homestead
 -- window before Foundry's Lifecycle release lands -- instead of an opaque
 -- nil-index. (Foundry-itself-missing is the guard above.)
 local Lifecycle = F:RequireModule("Lifecycle", 1)
--- Fail loud at load if this Foundry build lacks the DB module (HS-117; the
--- BSP-060 guard precedent — RequireModule raises in BOTH builds).
-F:RequireModule("DB", 1)
 local lifecycle = Lifecycle:New(Homestead, addonName)
 -- Subscription ORDER is load-bearing for the load-on-demand catch-up path: if
 -- Homestead were ever loaded on demand AFTER login, both hooks catch up
@@ -75,7 +72,7 @@ local format = string.format
 
 function HousingAddon:OnInitialize()
     -- Initialize SavedVariables database
-    self.db = F.DB:New({ name = "Homestead", sv = "HomesteadDB", defaults = Constants.Defaults, defaultProfile = true })
+    self.db = LibStub("AceDB-3.0"):New("HomesteadDB", Constants.Defaults, true)
 
     -- Clean up removed setting from SavedVariables (requirement scraping removed)
     self.db.global.enableRequirementScraping = nil
