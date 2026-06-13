@@ -2,6 +2,15 @@
 
 ---
 
+## Unreleased (12.0.7)
+
+### New Vendor Data
+
+- Added Zuronar, a new Lightveil Artificer currency vendor in the Showdown zones (Val and Naigtal). Sells 6 housing decor items for Voidlight Marl.
+- Added 86+ new Founder's Point items to existing vendors ahead of patch 12.0.7.
+
+---
+
 ## Homestead v2.5.0 (06-09-2026)
 
 Homestead badge next to decor in your profession window, a redesigned minimap button, clearer source info on tooltips, and a leaner install.
