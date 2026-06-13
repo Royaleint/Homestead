@@ -3039,6 +3039,24 @@ VendorDatabase.Vendors = {
             {272442, cost = {currencies = {{id = 3393, amount = 20}}}},
         },
     },
+    [265581] = {
+        name = "Zuronar",
+        mapID = 16900,                      -- Val; also in Naigtal (16943, x=0.480 y=0.830)
+        x = 0.634, y = 0.210,
+        zone = "Val",
+        subzone = "",
+        faction = "Neutral",
+        currency = "Voidlight Marl",
+        expansion = "The War Within",
+        items = {
+            {267211, cost = {currencies = {{id = 3316, amount = 150}}}}, -- Luminant Scout's Golden Fence
+            {276316, cost = {currencies = {{id = 3316, amount = 250}}}}, -- Lightveil's Transport Pad
+            {276318, cost = {currencies = {{id = 3316, amount = 150}}}}, -- Luminant Soldier's War Banner
+            {276321, cost = {currencies = {{id = 3316, amount = 150}}}}, -- Luminant Defender's Golden Barricade
+            {276429, cost = {currencies = {{id = 3316, amount = 250}}}}, -- Grand Artificer's Lightforged Console
+            {276432, cost = {currencies = {{id = 3316, amount = 500}}}}, -- De-Powered Lightforged Siegebreaker
+        },
+    },
 }
 
 -------------------------------------------------------------------------------
