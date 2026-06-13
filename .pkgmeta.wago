@@ -16,18 +16,13 @@ ignore:
   - RELEASE_NOTES.html
   - HousingAddon.toc
 
-move-folders:
-  Homestead/Foundry-1.0: Foundry-1.0
-
 externals:
-  Foundry-1.0:
-    # wago-embed = the release tag minus Foundry's own "## X-Wago-ID:" TOC line.
-    # A bundled TOC claiming a DIFFERENT Wago product (Foundry's own listing) is
-    # the prime suspect in Wago's "internal processing error" on the co-shipped
-    # package; this branch tests/avoids that. Revert to "tag: latest" only if
-    # Wago confirms foreign product IDs inside an artifact are acceptable.
+  Libs/Foundry-1.0:
+    # Embedded inside Libs/ — one addon folder in the zip, no sibling-folder
+    # issues. Standalone Foundry-1.0 wins via OptionalDeps ordering when installed;
+    # this embed stands down silently via the v1.0.4 bootstrap gate.
     url: https://github.com/Royaleint/Foundry.git
-    branch: wago-embed
+    tag: v1.0.4
   Libs/LibStub: https://repos.wowace.com/wow/libstub/trunk
   Libs/CallbackHandler-1.0: https://repos.wowace.com/wow/callbackhandler/trunk/CallbackHandler-1.0
   Libs/LibDataBroker-1.1: https://repos.wowace.com/wow/libdatabroker-1-1

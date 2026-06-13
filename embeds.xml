@@ -1,4 +1,13 @@
 <Ui xmlns="http://www.blizzard.com/wow/ui/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.blizzard.com/wow/ui/ https://raw.githubusercontent.com/Gethe/wow-ui-source/live/Interface/FrameXML/UI.xsd">
+    <!-- Foundry-1.0 embedded at v1.0.4 (HS-119/FND-007). Standalone Foundry-1.0 wins
+         when installed (OptionalDeps ordering); this embed stands down silently via
+         the bootstrap gate. Wago-build only — CF build uses required-dependencies. -->
+    <Script file="Libs\Foundry-1.0\Foundry.lua"/>
+    <Script file="Libs\Foundry-1.0\Modules\Commands.lua"/>
+    <Script file="Libs\Foundry-1.0\Modules\Events.lua"/>
+    <Script file="Libs\Foundry-1.0\Modules\Lifecycle.lua"/>
+    <Script file="Libs\Foundry-1.0\Modules\DB.lua"/>
+
     <!-- Library Loader -->
     <Script file="Libs\LibStub\LibStub.lua"/>
     <Include file="Libs\CallbackHandler-1.0\CallbackHandler-1.0.xml"/>

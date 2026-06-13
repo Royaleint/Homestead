@@ -2,6 +2,12 @@
 
 ---
 
+## Homestead v2.5.001-wago (2026-06-13) — Wago hotfix
+
+Foundry-1.0 is now bundled inside this release so Homestead works on Wago without requiring a separate Foundry install. No feature changes from v2.5.0 — this build fixes the broken Wago install only and will be replaced by v2.5.1 or v2.6 when the next patch lands.
+
+---
+
 ## Unreleased (12.0.7)
 
 ### New Vendor Data

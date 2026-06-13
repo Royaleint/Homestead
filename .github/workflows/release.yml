@@ -50,6 +50,7 @@ jobs:
           ALL_TAGS=$(git -c versionsort.suffix=-alpha \
                          -c versionsort.suffix=-beta \
                          -c versionsort.suffix=-rc \
+                         -c versionsort.suffix=-wago \
                          tag --sort=-v:refname --list 'v*')
           NEWEST="${ALL_TAGS%%$'\n'*}"
           echo "Triggering tag:     $TAG"
@@ -118,7 +119,7 @@ jobs:
           cat RELEASE_NOTES.html
 
       - name: Package and Release — CurseForge + GitHub
-        if: steps.guard.outputs.publish == 'true'
+        if: steps.guard.outputs.publish == 'true' && !contains(github.ref_name, '-wago')
         uses: BigWigsMods/packager@v2
         with:
           args: -g retail -a 0
