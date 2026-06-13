@@ -56,8 +56,16 @@ jobs:
           echo "Triggering tag:     $TAG"
           echo "Newest tag in repo: $NEWEST"
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
-          if [ "$TAG" = "$NEWEST" ] || [ "${{ inputs.force }}" = "true" ]; then
-            if [ "$TAG" != "$NEWEST" ]; then
+          # -wago tags are always intentional hotfixes pushed manually;
+          # skip the newest-tag guard for them (versionsort doesn't reliably
+          # place them relative to standard semver tags).
+          IS_WAGO_TAG=false
+          if [[ "$TAG" == *"-wago" ]]; then IS_WAGO_TAG=true; fi
+
+          if [ "$TAG" = "$NEWEST" ] || [ "${{ inputs.force }}" = "true" ] || [ "$IS_WAGO_TAG" = "true" ]; then
+            if [ "$TAG" != "$NEWEST" ] && [ "${{ inputs.force }}" != "true" ]; then
+              echo "::notice::Wago-only tag $TAG bypassing newest-tag guard (guard applies to standard semver tags only)."
+            elif [ "$TAG" != "$NEWEST" ]; then
               echo "::warning::Publishing $TAG via force override even though $NEWEST is newer."
             fi
             echo "publish=true" >> "$GITHUB_OUTPUT"
