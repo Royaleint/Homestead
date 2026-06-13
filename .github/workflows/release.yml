@@ -141,9 +141,7 @@ jobs:
         with:
           args: -m .pkgmeta.wago -g retail -p 0
         env:
-          # WAGO_API_TOKEN intentionally absent: only GITHUB_OAUTH so the packager
-          # creates a GitHub Release; Wago's webhook fires on the Release and
-          # delivers the package. Passing both would double-publish.
+          WAGO_API_TOKEN: ${{ secrets.WAGO_API_TOKEN }}
           GITHUB_OAUTH: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Package and Release — Wago (standard tag, GitHub Release already created)
