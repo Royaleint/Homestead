@@ -48,8 +48,12 @@ db2_complete_vendor_data.json
 nul
 Thumbs.db
 
-# Libraries (fetched by packager via .pkgmeta externals)
-Libs/
+# Libraries (fetched by packager via .pkgmeta externals), EXCEPT the vendored
+# Foundry-1.0 embed (HS-120): it is tracked so it ships in every build (CF, Wago,
+# and the local dev tree), so embeds.xml never references absent files. A
+# standalone Foundry-1.0, when installed, still wins via the guarded embed.
+Libs/*
+!Libs/Foundry-1.0/
 
 # Midnight exclusion docs
 Data/MIDNIGHT_VENDORS_EXCLUDED.md

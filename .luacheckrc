@@ -122,3 +122,8 @@ read_globals = {
 }
 
 ignore = {"21[23]"}  -- Ace3 callback patterns
+
+-- Vendored third-party libraries are linted in their own repos, not here. The
+-- Foundry-1.0 embed (HS-120) is the one tracked lib in Libs/; exclude the whole
+-- Libs/ tree so `luacheck .` covers only Homestead's own files.
+exclude_files = {"Libs/"}
