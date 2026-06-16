@@ -2,18 +2,28 @@
 
 ---
 
-## Homestead v2.5.001-wago (2026-06-13) — Wago hotfix
+## Homestead v2.5.1 (06-15-2026)
 
-Foundry-1.0 is now bundled inside this release so Homestead works on Wago without requiring a separate Foundry install. No feature changes from v2.5.0 — this build fixes the broken Wago install only and will be replaced by v2.5.1 or v2.6 when the next patch lands.
+Updated for patch 12.0.7 including a new vendor and a ton of fresh decor in the faction neighborhoods.
 
 ---
 
-## Unreleased (12.0.7)
-
 ### New Vendor Data
 
-- Added Zuronar, a new Lightveil Artificer currency vendor in the Showdown zones (Val and Naigtal). Sells 6 housing decor items for Voidlight Marl.
-- Added 86+ new Founder's Point items to existing vendors ahead of patch 12.0.7.
+- Added **Zuronar**, a new Lightveil Artificer currency vendor in the Showdown zones (Val and Naigtal). Sells 6 housing decor items for Voidlight Marl.
+- Added 86+ new items to Founder's Point/Razorwind Shores vendors going live in patch 12.0.7.
+
+---
+
+### Polished
+
+- Finished moving Homestead's saved data onto the Foundry library, completing the move off the older Ace3 libraries. Your settings and collection data are unchanged, and nothing looks or works differently.
+
+---
+
+## Homestead v2.5.001-wago (2026-06-13) — Wago hotfix
+
+Foundry-1.0 is now bundled inside this release so Homestead works on Wago without requiring a separate Foundry install. No feature changes from v2.5.0 — this build fixes the broken Wago install only and will be replaced by v2.5.1 or v2.6 when the next patch lands.
 
 ---
 

@@ -7,6 +7,21 @@
 local _, HA = ...
 
 HA.WhatsNew = {
+    ["2.5.1"] = {
+        title = "Homestead - What's New in v2.5.1!",
+        features = {
+            {
+                atlas = "housing-decor-vendor_32",
+                heading = "New Currency Vendor",
+                body = "Updated for patch 12.0.7 including Zuronar in the Showdown zones.",
+            },
+            {
+                icon = "Interface\\Icons\\INV_Misc_Gem_Variety_02",
+                heading = "Fresh Decor for Patch 12.0.7",
+                body = "Added 86+ new items to the Founder's Point and Razorwind Shores vendors, ready the moment patch 12.0.7 goes live.",
+            },
+        },
+    },
     ["2.3.0"] = {
         heroTexture = "Interface\\AddOns\\Homestead\\Textures\\WhatsNew_v230",
         heroHeight = 250,
