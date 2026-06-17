@@ -82,12 +82,32 @@ local function GetHomestoneColor(state)
     return nil
 end
 
+local function GetHomestoneBaseColor(state)
+    local color = GetHomestoneColor(state)
+    if not color then return nil end
+
+    return {
+        r = 0.55 + (color.r * 0.45),
+        g = 0.55 + (color.g * 0.45),
+        b = 0.55 + (color.b * 0.45),
+        a = color.a or 1,
+    }
+end
+
 local function PositionHomestoneTexture(parent, texture, size, anchor, offsetX, offsetY)
     if not texture then return end
 
     texture:ClearAllPoints()
     texture:SetPoint(anchor, parent, anchor, offsetX, offsetY)
     texture:SetSize(size, size)
+end
+
+local function PositionHomestoneGlow(base, glow, size)
+    if not base or not glow then return end
+
+    glow:ClearAllPoints()
+    glow:SetPoint("CENTER", base, "CENTER", 0, 0)
+    glow:SetSize(size, size)
 end
 
 -------------------------------------------------------------------------------
@@ -216,18 +236,19 @@ function Overlay:SetHomestoneState(parent, state, opts)
     }
 
     PositionHomestoneTexture(parent, base, size, anchor, offsetX, offsetY)
-    PositionHomestoneTexture(parent, glow, size, anchor, offsetX, offsetY)
+    PositionHomestoneGlow(base, glow, size * 1.12)
 
     local icons = Constants and Constants.Icons
     ApplyIconDefinition(base, icons and icons.HOMESTONE_BASE)
     ApplyIconDefinition(glow, icons and icons.HOMESTONE_INNERGLOW)
 
-    base:SetVertexColor(1, 1, 1, 1)
-
     local color = GetHomestoneColor(state)
+    local baseColor = GetHomestoneBaseColor(state)
     if color then
+        base:SetVertexColor(baseColor.r, baseColor.g, baseColor.b, baseColor.a or 1)
         glow:SetVertexColor(color.r, color.g, color.b, color.a or 1)
     else
+        base:SetVertexColor(1, 1, 1, 1)
         glow:SetVertexColor(1, 1, 1, 1)
     end
 
