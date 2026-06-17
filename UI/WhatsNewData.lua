@@ -7,6 +7,21 @@
 local _, HA = ...
 
 HA.WhatsNew = {
+    ["2.5.2"] = {
+        title = "Homestead - What's New in v2.5.2!",
+        features = {
+            {
+                icon = "Interface\\Icons\\INV_Misc_Gem_Variety_02",
+                heading = "Decor Ownership Corrected",
+                body = "Patch 12.0.7 decor was incorrectly showing as already collected on vendors. Ownership now displays correctly for all decor, new and old.",
+            },
+            {
+                atlas = "housing-decor-vendor_32",
+                heading = "Clearer Collection Badges",
+                body = "The Homestead badge is easier to read at a glance, and color consistently correct in the vendor window.",
+            },
+        },
+    },
     ["2.5.1"] = {
         title = "Homestead - What's New in v2.5.1!",
         features = {

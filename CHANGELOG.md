@@ -2,6 +2,14 @@
 
 ---
 
+## Homestead v2.5.2 HOTFIX (06-16-2026)
+
+Fixed — New patch decor was incorrectly showing as already collected on vendors.
+Corrected — decor ownership is now correctly showing for all decor, new and old.
+Improved — the Homestead badge is easier to read at a glance, and color consistently correct in the vendor window.
+
+---
+
 ## Homestead v2.5.1 (06-15-2026)
 
 Updated for patch 12.0.7 including a new vendor and a ton of fresh decor in the faction neighborhoods.
