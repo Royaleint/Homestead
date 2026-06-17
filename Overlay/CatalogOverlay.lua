@@ -170,8 +170,8 @@ local function GetBadgeTexture(entryFrame)
 
     badge = entryFrame:CreateTexture(nil, "OVERLAY")
     badge:SetSize(BADGE_SIZE, BADGE_SIZE)
-    badge:SetPoint("BOTTOMLEFT", entryFrame, "BOTTOMLEFT",
-        BADGE_PADDING, BADGE_PADDING)
+    badge:SetPoint("TOPLEFT", entryFrame, "TOPLEFT",
+        BADGE_PADDING, -BADGE_PADDING)
     badgeTextures[entryFrame] = badge
     return badge
 end
@@ -329,7 +329,7 @@ end
 
 -- Apply badge atlas to a frame, with per-atlas size override.
 -- Oversized atlases get a negative anchor offset so the visible artwork
--- stays flush with the bottom-left corner like the default-sized badges.
+-- stays flush with the top-left corner like the default-sized badges.
 local function ShowBadgeAtlas(entryFrame, atlas)
     local badge = GetBadgeTexture(entryFrame)
     local size = ATLAS_SIZE_OVERRIDE[atlas] or BADGE_SIZE
@@ -339,8 +339,8 @@ local function ShowBadgeAtlas(entryFrame, atlas)
     -- Re-anchor: pull oversized icons toward the corner by half the excess
     local offset = (size - BADGE_SIZE) / 2
     badge:ClearAllPoints()
-    badge:SetPoint("BOTTOMLEFT", entryFrame, "BOTTOMLEFT",
-        BADGE_PADDING - offset, BADGE_PADDING - offset)
+    badge:SetPoint("TOPLEFT", entryFrame, "TOPLEFT",
+        BADGE_PADDING - offset, -(BADGE_PADDING - offset))
 
     badge:Show()
 end
