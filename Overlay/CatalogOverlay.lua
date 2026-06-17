@@ -280,8 +280,13 @@ end
 -- totalNumPlaced > 0), which matches Blizzard's Collected/Uncollected filter.
 -- sourceText is pre-resolved by the caller to avoid redundant API calls.
 local function GetAccessibilityState(itemID, entryInfo, sourceText)
-    -- Check ownership via live Blizzard data (GetEntryTotalOwned > 0 = owned)
-    if HA.CatalogStore and HA.CatalogStore:ComputeOwnedFromInfo(entryInfo) then
+    -- Check ownership via the cache-aware path (same as tooltips/merchant badge).
+    -- NOT ComputeOwnedFromInfo(entryInfo): the catalog frame's entryInfo carries
+    -- firstAcquisitionBonus but NOT the owned-count fields (totalNumStored/…),
+    -- so the count formula false-negatived every owned item to "available" (all
+    -- yellow — HS-123 Gate-2). IsOwnedFresh serves owned from the persistent cache
+    -- plus a fresh tryGetOwnedInfo probe, so it has the counts it needs.
+    if HA.CatalogStore and HA.CatalogStore:IsOwnedFresh(itemID, true) then
         return "owned"
     end
 

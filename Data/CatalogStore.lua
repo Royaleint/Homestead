@@ -277,7 +277,11 @@ end
 -- Fresh ownership check for UI display paths
 -- IsOwned() + live byItem probe + byRecordID fallback
 -- Use this for VendorMapPins, Tooltips, VendorTracer — NOT for badge counts or export
-function CatalogStore:IsOwnedFresh(itemID)
+-- readOnly=true: skip ALL cache writes (SetOwned / ProbeByDecorID). Use from
+-- render / OnUpdate paths (e.g. the catalog overlay accessibility badge) where a
+-- write would fire OWNERSHIP_UPDATED mid-render, wipe the overlay cache and thrash.
+-- The scanner remains the authoritative cache writer.
+function CatalogStore:IsOwnedFresh(itemID, readOnly)
     if not itemID then return false end
 
     -- Fast path: cache says owned
@@ -292,11 +296,13 @@ function CatalogStore:IsOwnedFresh(itemID)
         if success and info then
             -- Ownership = GetEntryTotalOwned > 0 (Blizzard's contract)
             if self:ComputeOwnedFromInfo(info) then
-                local recordID = nil
-                if info.entryID and type(info.entryID) == "table" then
-                    recordID = info.entryID.recordID
+                if not readOnly then
+                    local recordID = nil
+                    if info.entryID and type(info.entryID) == "table" then
+                        recordID = info.entryID.recordID
+                    end
+                    self:SetOwned(itemID, info.name, recordID)
                 end
-                self:SetOwned(itemID, info.name, recordID)
                 return true
             end
         end
@@ -307,11 +313,14 @@ function CatalogStore:IsOwnedFresh(itemID)
     -- itemID 244778 Sethraliss Priest's Pillow). ProbeByDecorID uses the
     -- reliable GetCatalogEntryInfoByRecordID signature and writes through
     -- SetOwned on success (GetEntryTotalOwned > 0).
-    local decorID = itemIDToDecor[itemID]
-    if decorID then
-        local info = self:ProbeByDecorID(decorID)
-        if self:ComputeOwnedFromInfo(info) then
-            return true
+    -- ProbeByDecorID writes via SetOwned on success — skip in readOnly mode.
+    if not readOnly then
+        local decorID = itemIDToDecor[itemID]
+        if decorID then
+            local info = self:ProbeByDecorID(decorID)
+            if self:ComputeOwnedFromInfo(info) then
+                return true
+            end
         end
     end
 
