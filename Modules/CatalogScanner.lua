@@ -6,7 +6,12 @@
     This works around Blizzard API limitations where:
     - Category/subcategory enumeration doesn't expose entry data
     - CreateCatalogSearcher is internal-only
-    - firstAcquisitionBonus == 0 handles stale qty/placed data post-reload
+
+    Ownership is derived from Blizzard's GetEntryTotalOwned contract
+    (totalNumStored + remainingRedeemable + totalNumPlaced > 0) via
+    CatalogStore:ComputeOwnedFromInfo. Those count fields are stale-0 cold
+    (before storage data loads), so SetUnowned is warm-gated on dataLoaded —
+    the scanner never erases ownership from a cold read.
 
     Strategy: Scan all known item IDs from VendorDatabase and scannedVendors,
     using the same API that tooltips use (GetCatalogEntryInfoByItem).
@@ -25,6 +30,13 @@ local SCAN_COOLDOWN = 5 -- Minimum seconds between scans
 local pendingScanTimer = nil
 local scanRequestedDuringActive = false
 
+-- Warm-gate for ownership erasure. The catalog count fields (totalNumStored etc.)
+-- are stale-0 until storage data loads, so a cold scan reads every owned item as
+-- not-owned. SetUnowned must therefore run ONLY once storage data is known loaded.
+-- Set true on the first HOUSING_STORAGE_UPDATED of the session. SetOwned needs no
+-- gate (counts are only > 0 warm, so it never false-positives cold).
+local dataLoaded = false
+
 -- Batching settings to prevent frame hitches
 local ITEMS_PER_BATCH = 20
 local BATCH_DELAY = 0.01 -- seconds between batches
@@ -33,46 +45,24 @@ local BATCH_DELAY = 0.01 -- seconds between batches
 -- Ownership Detection
 -------------------------------------------------------------------------------
 
--- Check if an item info table indicates ownership
+-- Check if an item info table indicates ownership.
+-- Delegates to CatalogStore:ComputeOwnedFromInfo — Blizzard's GetEntryTotalOwned
+-- contract (totalNumStored + remainingRedeemable + totalNumPlaced > 0). This is
+-- the single source of truth for ownership derivation. These count fields are
+-- stale-0 cold (before storage data loads), which is why the scanner warm-gates
+-- the SetUnowned branches below.
 local function IsOwned(info)
     if not info then return false end
-
-    -- Check quantity indicators
-    local quantity = info.quantity or 0
-    local numPlaced = info.numPlaced or 0
+    if HA.CatalogStore then
+        return HA.CatalogStore:ComputeOwnedFromInfo(info)
+    end
+    -- Fallback if CatalogStore is unavailable (should not happen given load order):
+    -- replicate the count formula directly. quantity/numPlaced are aliases of
+    -- totalNumStored/totalNumPlaced.
+    local totalNumStored = info.totalNumStored or info.quantity or 0
+    local totalNumPlaced = info.totalNumPlaced or info.numPlaced or 0
     local remainingRedeemable = info.remainingRedeemable or 0
-    local firstAcquisitionBonus = info.firstAcquisitionBonus
-
-    -- firstAcquisitionBonus == 0 reliably detects ownership even when qty/placed are stale (post-reload)
-    if quantity > 0 or numPlaced > 0 or remainingRedeemable > 0 or firstAcquisitionBonus == 0 then
-        return true
-    end
-
-    -- Check entrySubtype (top-level first, then nested in entryID)
-    -- Enum.HousingCatalogEntrySubtype: Invalid=0, Unowned=1, OwnedModifiedStack=2, OwnedUnmodifiedStack=3
-    local entrySubtype = info.entrySubtype
-    if not entrySubtype and info.entryID and type(info.entryID) == "table" then
-        entrySubtype = info.entryID.entrySubtype
-        if not entrySubtype then
-            for k, v in pairs(info.entryID) do
-                if k == "entrySubtype" then
-                    entrySubtype = v
-                    break
-                end
-            end
-        end
-    end
-
-    if entrySubtype and entrySubtype >= 2 then
-        return true
-    end
-
-    -- Check isOwned field if present
-    if info.isOwned then
-        return true
-    end
-
-    return false
+    return (totalNumStored + remainingRedeemable + totalNumPlaced) > 0
 end
 
 local function ExtractRecordID(info)
@@ -305,7 +295,10 @@ function CatalogScanner:ScanFullCatalog(callback)
                                 lastScanned = time(),
                             })
                         else
-                            if HA.CatalogStore:IsOwned(result.itemID) then
+                            -- Warm-gate: only erase ownership once storage data is
+                            -- loaded. Cold reads are stale-0 and would wrongly clear
+                            -- owned items; the persistent cache serves them instead.
+                            if dataLoaded and HA.CatalogStore:IsOwned(result.itemID) then
                                 HA.CatalogStore:SetUnowned(result.itemID)
                             end
                             -- Minimal fields for unowned items
@@ -390,7 +383,9 @@ function CatalogScanner:ScanFullCatalogSync()
                     end
                     ownedCount = ownedCount + 1
                 elseif HA.CatalogStore then
-                    if HA.CatalogStore:IsOwned(result.itemID) then
+                    -- Warm-gate: only erase ownership once storage data is loaded
+                    -- (see ProcessBatch above and the dataLoaded comment).
+                    if dataLoaded and HA.CatalogStore:IsOwned(result.itemID) then
                         HA.CatalogStore:SetUnowned(result.itemID)
                     end
                     HA.CatalogStore:Save(result.itemID, {
@@ -442,6 +437,17 @@ local function SetupEventScanning()
                 end)
             end
         else
+            -- HOUSING_STORAGE_UPDATED is the signal that storage/ownership data
+            -- has loaded for this session. Latch the warm-gate so SetUnowned may
+            -- run — count fields are now authoritative, not stale-0. Corroborate
+            -- with GetDecorTotalOwnedCount() > 0 before latching: a bare event
+            -- can fire while counts are still stale-0, which would let SetUnowned
+            -- wrongly clear ownership. A 0-decor character never latches, but
+            -- SetUnowned is moot there anyway. (Plan design #2.)
+            if event == "HOUSING_STORAGE_UPDATED"
+                and (C_HousingCatalog.GetDecorTotalOwnedCount and C_HousingCatalog.GetDecorTotalOwnedCount() or 0) > 0 then
+                dataLoaded = true
+            end
             -- All housing events coalesce into a single debounced scan
             HA.Addon:Debug(event, "fired — requesting scan")
             RequestScan()

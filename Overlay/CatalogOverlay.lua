@@ -275,12 +275,13 @@ end
 
 -- Determine the accessibility state for an item.
 -- Returns "owned", "available", "blocked", or nil (no source data).
--- Uses entryInfo.firstAcquisitionBonus for live ownership (0 = owned),
--- which matches Blizzard's Collected/Uncollected filter exactly.
+-- Ownership uses Blizzard's GetEntryTotalOwned contract via
+-- CatalogStore:ComputeOwnedFromInfo (totalNumStored + remainingRedeemable +
+-- totalNumPlaced > 0), which matches Blizzard's Collected/Uncollected filter.
 -- sourceText is pre-resolved by the caller to avoid redundant API calls.
 local function GetAccessibilityState(itemID, entryInfo, sourceText)
-    -- Check ownership via live Blizzard data (firstAcquisitionBonus == 0 = owned)
-    if entryInfo and entryInfo.firstAcquisitionBonus == 0 then
+    -- Check ownership via live Blizzard data (GetEntryTotalOwned > 0 = owned)
+    if HA.CatalogStore and HA.CatalogStore:ComputeOwnedFromInfo(entryInfo) then
         return "owned"
     end
 

@@ -229,6 +229,20 @@ end
 -- Read API
 -------------------------------------------------------------------------------
 
+-- Derive ownership from a catalog entry info table.
+-- This is Blizzard's exact ownership contract: GetEntryTotalOwned(entryInfo) =
+-- totalNumStored + remainingRedeemable + totalNumPlaced, styled "owned" when > 0
+-- (Blizzard_HousingCatalogEntry.lua). totalNumStored/totalNumPlaced are the
+-- source-confirmed field names; the older quantity/numPlaced are current aliases.
+-- firstAcquisitionBonus is display-only (a tooltip favor line) and is 0 for both
+-- owned items AND new décor that carry no favor — it is NOT an ownership signal.
+-- These count fields are stale-0 cold (before storage data loads), so a "false"
+-- result is only authoritative when storage data is loaded — callers that erase
+-- ownership must warm-gate accordingly. nil-safe.
+function CatalogStore:ComputeOwnedFromInfo(info)
+    return (info and ((info.totalNumStored or 0) + (info.remainingRedeemable or 0) + (info.totalNumPlaced or 0)) > 0) or false
+end
+
 -- Check if an item is a housing decor item.
 -- Safe runtime probe used by overlays and compatibility APIs.
 function CatalogStore:IsDecorItem(itemLink)
@@ -276,8 +290,8 @@ function CatalogStore:IsOwnedFresh(itemID)
         local itemLink = "item:" .. tostring(itemID)
         local success, info = pcall(C_HousingCatalog.GetCatalogEntryInfoByItem, itemLink, true)
         if success and info then
-            -- firstAcquisitionBonus == 0 reliably detects ownership
-            if info.firstAcquisitionBonus == 0 then
+            -- Ownership = GetEntryTotalOwned > 0 (Blizzard's contract)
+            if self:ComputeOwnedFromInfo(info) then
                 local recordID = nil
                 if info.entryID and type(info.entryID) == "table" then
                     recordID = info.entryID.recordID
@@ -292,11 +306,11 @@ function CatalogStore:IsOwnedFresh(itemID)
     -- GetCatalogEntryInfoByItem returns nil for some items on 12.0.1 (HS-059:
     -- itemID 244778 Sethraliss Priest's Pillow). ProbeByDecorID uses the
     -- reliable GetCatalogEntryInfoByRecordID signature and writes through
-    -- SetOwned on success (firstAcquisitionBonus == 0).
+    -- SetOwned on success (GetEntryTotalOwned > 0).
     local decorID = itemIDToDecor[itemID]
     if decorID then
         local info = self:ProbeByDecorID(decorID)
-        if info and info.firstAcquisitionBonus == 0 then
+        if self:ComputeOwnedFromInfo(info) then
             return true
         end
     end
@@ -442,7 +456,7 @@ function CatalogStore:ProbeByDecorID(decorID)
     if ok and info then
         -- Cache the result in catalogItems if we can resolve the itemID
         local itemID = decorToItemID[decorID]
-        if itemID and info.firstAcquisitionBonus == 0 then
+        if itemID and self:ComputeOwnedFromInfo(info) then
             self:SetOwned(itemID, info.name, decorID)
         elseif itemID then
             _save(itemID, { decorID = decorID })
