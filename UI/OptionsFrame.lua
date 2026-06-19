@@ -5,12 +5,18 @@
 
 local addonName, HA = ...
 
+-- Foundry-1.0 is a hard dependency, guaranteed present before Homestead loads.
+-- Binding at file load mirrors the core.lua pattern; a missing Foundry is a
+-- load-time error (cannot be absent given the TOC dependency line).
+local F = _G.Foundry_1_0
+
 local L = HA.L or {}
 
 local OptionsFrame = {}
 HA.OptionsFrame = OptionsFrame
 
 local frame
+local list        -- Foundry.List controller for the options scroll area
 local navButtons = {}
 local activeSection = "general"
 local rowControlCache = {}
@@ -399,32 +405,46 @@ local function CreateShell()
     navDivider:SetColorTexture(0.68, 0.6, 0.42, 0.28)
     ownerFrame.navDivider = navDivider
 
-    local scrollBar = CreateFrame("EventFrame", nil, content, "MinimalScrollBar")
+    -- Foundry.List builds the five-object ScrollBox composition (scrollBox frame,
+    -- scrollBar EventFrame, LinearView, DataProvider, ScrollUtil wiring) in the
+    -- correct order and returns a small controller. RequireModule fails loud if a
+    -- standalone Foundry < v1.0.5 (without List) is loaded instead of the embed.
+    local List = F:RequireModule("List", 1)
+    list = List:New({
+        name            = "HomesteadOptionsScroll",
+        parent          = content,
+        elementType     = "Frame",
+        extentCalculator = function(_, row)
+            return GetRowHeight(row)
+        end,
+        initializer     = function(rowFrame, row)
+            OptionsFrame:RenderRow(rowFrame, row)
+        end,
+        spacing         = SCROLL_SPACING,
+    })
+
+    -- Re-anchor the native handles to match the original nav+gutter layout.
+    -- ClearAllPoints on both before setting new anchors — List:New sets default
+    -- fill anchors that conflict with the two-sided gutter positioning here.
+    local handles = list:GetNativeHandles()
+    local scrollBar = handles.scrollBar
+    local scrollBox = handles.scrollBox
+
+    scrollBar:ClearAllPoints()
     scrollBar:SetPoint("TOPRIGHT", content, "TOPRIGHT", -2, -8)
     scrollBar:SetPoint("BOTTOMRIGHT", content, "BOTTOMRIGHT", -2, 8)
-    ownerFrame.scrollBar = scrollBar
 
+    -- contentInset is not part of List — it is a plain decorative inset frame
+    -- anchored to nav and scrollBar. Keep it as an ownerFrame field so other
+    -- code can reference it without going through the List controller.
     local contentInset = CreateFrame("Frame", nil, content, "InsetFrameTemplate")
     contentInset:SetPoint("TOPLEFT", nav, "TOPRIGHT", 18, 4)
     contentInset:SetPoint("BOTTOMRIGHT", scrollBar, "BOTTOMLEFT", -2, -4)
     ownerFrame.contentInset = contentInset
 
-    local scrollBox = CreateFrame("Frame", nil, content, "WowScrollBoxList")
+    scrollBox:ClearAllPoints()
     scrollBox:SetPoint("TOPLEFT", nav, "TOPRIGHT", 26, 0)
     scrollBox:SetPoint("BOTTOMRIGHT", scrollBar, "BOTTOMLEFT", -10, 0)
-    ownerFrame.scrollBox = scrollBox
-
-    local view = CreateScrollBoxListLinearView(0, 0, 0, 0, SCROLL_SPACING)
-    view:SetElementExtentCalculator(function(_, row)
-        return GetRowHeight(row)
-    end)
-    view:SetElementFactory(function(factory, row)
-        factory("Frame", function(rowFrame)
-            OptionsFrame:RenderRow(rowFrame, row)
-        end)
-    end)
-    ScrollUtil.InitScrollBoxListWithScrollBar(scrollBox, scrollBar, view)
-    ownerFrame.view = view
 
     local model = HA.OptionsModel
     if model and model.GetSections then
@@ -536,26 +556,26 @@ function OptionsFrame:ShowSection(sectionKey)
     activeSection = section.key or activeSection
     UpdateNavButtons()
 
-    local dataProvider = CreateDataProvider()
+    local rows = {}
     local sectionHeader = GetSectionHeaderRow(section)
     if sectionHeader then
-        dataProvider:Insert(sectionHeader)
+        rows[#rows + 1] = sectionHeader
     end
     local sectionDescription = GetSectionDescriptionRow(section)
     if sectionDescription then
-        dataProvider:Insert(sectionDescription)
+        rows[#rows + 1] = sectionDescription
     end
     for _, row in ipairs(section.rows or {}) do
         if IsRowVisible(row) then
-            dataProvider:Insert(row)
+            rows[#rows + 1] = row
             local headerDescription = GetHeaderDescriptionRow(row)
             if headerDescription then
-                dataProvider:Insert(headerDescription)
+                rows[#rows + 1] = headerDescription
             end
         end
     end
 
-    frame.scrollBox:SetDataProvider(dataProvider)
+    list:SetData(rows)
 end
 
 function OptionsFrame:Refresh()
