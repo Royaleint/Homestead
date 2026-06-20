@@ -2,6 +2,15 @@
 
 ---
 
+## Homestead v2.5.3 (06-20-2026)
+
+A couple of stability fixes.
+
+- Fixed some owned decor incorrectly showing as uncollected in tooltips and the catalog.
+- Fixed the Homestead options panel not appearing in the WoW Settings menu on some sessions.
+
+---
+
 ## Homestead v2.5.2 HOTFIX (06-16-2026)
 
 Fixed — New patch decor was incorrectly showing as already collected on vendors.

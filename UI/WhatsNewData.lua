@@ -7,6 +7,21 @@
 local _, HA = ...
 
 HA.WhatsNew = {
+    ["2.5.3"] = {
+        title = "Homestead - What's New in v2.5.3!",
+        features = {
+            {
+                icon = "Interface\\Icons\\INV_Misc_Gem_Variety_02",
+                heading = "Ownership Display Fixed",
+                body = "Some owned decor was incorrectly showing as uncollected in tooltips and the catalog. This is now correct.",
+            },
+            {
+                icon = "Interface\\Icons\\INV_Misc_Note_06",
+                heading = "Options Panel Fixed",
+                body = "The Homestead options panel was missing from the WoW Settings menu on some sessions. It now appears reliably.",
+            },
+        },
+    },
     ["2.5.2"] = {
         title = "Homestead - What's New in v2.5.2!",
         features = {
