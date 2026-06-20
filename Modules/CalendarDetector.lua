@@ -70,13 +70,21 @@ local function ScanTodaysHolidays()
 
     for i = 1, numEvents do
         local event = C_Calendar.GetDayEvent(0, today.monthDay, i)
-        if event and event.calendarType == "HOLIDAY" and event.sequenceType ~= "END" then
-            local eventIDStr = tostring(event.eventID)
-
-            -- Match by stable eventID
-            local eventName = holidayIDToEvent[eventIDStr]
+        if event then
+            -- Match by stable eventID first (numeric field, not a protected string).
+            -- calendarType and sequenceType are secret strings when tainted; comparing
+            -- them directly throws and can propagate into other addons (HS-121/#40).
+            -- Only read those fields for events we actually track, inside a pcall.
+            -- If pcall fails (tainted), the eventID match alone is treated as active
+            -- (false positive is harmless; false negative suppresses seasonal detection).
+            local eventName = holidayIDToEvent[tostring(event.eventID)]
             if eventName then
-                found[eventName] = true
+                local ok, isActive = pcall(function()
+                    return event.calendarType == "HOLIDAY" and event.sequenceType ~= "END"
+                end)
+                if not ok or isActive then
+                    found[eventName] = true
+                end
             end
         end
     end
