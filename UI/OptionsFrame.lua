@@ -490,9 +490,10 @@ function OptionsFrame:Initialize()
     end
 
     if not OptionsFrame.settingsController then
+        if not F.Settings then return frame end
         local panel = CreateSettingsPanel()
         OptionsFrame.settingsController = F.Settings:New({
-            title = HA.L["Homestead"],
+            title = HA.L["Homestead"] or "Homestead",
             frame = panel,
         })
     end

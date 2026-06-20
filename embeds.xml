@@ -8,6 +8,7 @@
     <Script file="Libs\Foundry-1.0\Modules\Lifecycle.lua"/>
     <Script file="Libs\Foundry-1.0\Modules\DB.lua"/>
     <Script file="Libs\Foundry-1.0\Modules\List.lua"/>
+    <Script file="Libs\Foundry-1.0\Modules\Settings.lua"/>
 
     <!-- Library Loader -->
     <Script file="Libs\LibStub\LibStub.lua"/>
