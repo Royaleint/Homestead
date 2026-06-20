@@ -54,6 +54,7 @@ Thumbs.db
 # standalone Foundry-1.0, when installed, still wins via the guarded embed.
 Libs/*
 !Libs/Foundry-1.0/
+!Libs/WagoAnalytics/
 
 # Midnight exclusion docs
 Data/MIDNIGHT_VENDORS_EXCLUDED.md
