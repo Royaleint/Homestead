@@ -6,6 +6,14 @@ if LibStub:GetLibrary("WagoAnalytics", true) then return end
 local lib = LibStub:NewLibrary("WagoAnalytics", 1)
 if not lib then return end
 
+local analytics = {}
+
+function analytics:Switch()
+end
+
+function analytics:IncrementCounter()
+end
+
 function lib:Register()
-    return {}
+    return analytics
 end
