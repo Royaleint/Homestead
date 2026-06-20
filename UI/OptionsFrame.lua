@@ -23,7 +23,7 @@ local rowControlCache = {}
 local sectionHeaderRows = {}
 local sectionDescriptionRows = {}
 local headerDescriptionRows = {}
-local settingsBridgeRegistered = false
+-- settingsBridgeRegistered removed: duplicate-refusal is now owned by Foundry.Settings
 
 local DEFAULT_WIDTH = 760
 local DEFAULT_HEIGHT = 560
@@ -484,39 +484,19 @@ local function CreateSettingsPanel()
     return panel
 end
 
-local function RegisterSettingsBridge()
-    if settingsBridgeRegistered then
-        return
-    end
-
-    local panel = CreateSettingsPanel()
-
-    if Settings and Settings.RegisterCanvasLayoutCategory and Settings.RegisterAddOnCategory then
-        local categoryOk, category = pcall(Settings.RegisterCanvasLayoutCategory, panel, "Homestead")
-        if categoryOk and category then
-            local addonOk = pcall(Settings.RegisterAddOnCategory, category)
-            if addonOk then
-                OptionsFrame.settingsCategory = category
-                settingsBridgeRegistered = true
-                return
-            end
-        end
-    end
-
-    if InterfaceOptions_AddCategory then
-        local legacyOk = pcall(InterfaceOptions_AddCategory, panel)
-        if legacyOk then
-            settingsBridgeRegistered = true
-        end
-    end
-end
-
 function OptionsFrame:Initialize()
     if not frame then
         frame = CreateShell()
     end
 
-    RegisterSettingsBridge()
+    if not OptionsFrame.settingsController then
+        local panel = CreateSettingsPanel()
+        OptionsFrame.settingsController = F.Settings:New({
+            title = HA.L["Homestead"],
+            frame = panel,
+        })
+    end
+
     return frame
 end
 
