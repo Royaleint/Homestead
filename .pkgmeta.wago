@@ -10,6 +10,9 @@ ignore:
   - .pkgmeta
   - .pkgmeta.wago
   - .claude
+  - .github
+  - .luacheckrc
+  - .luarc.json
   - "*.md"
   - "!README.md"
   - "!CHANGELOG.md"
