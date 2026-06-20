@@ -310,16 +310,24 @@ function CatalogStore:IsOwnedFresh(itemID, readOnly)
 
     -- Stage 4: byRecordID fallback via reverse index.
     -- GetCatalogEntryInfoByItem returns nil for some items on 12.0.1 (HS-059:
-    -- itemID 244778 Sethraliss Priest's Pillow). ProbeByDecorID uses the
-    -- reliable GetCatalogEntryInfoByRecordID signature and writes through
-    -- SetOwned on success (GetEntryTotalOwned > 0).
-    -- ProbeByDecorID writes via SetOwned on success — skip in readOnly mode.
-    if not readOnly then
-        local decorID = itemIDToDecor[itemID]
-        if decorID then
+    -- itemID 244778 Sethraliss Priest's Pillow). GetCatalogEntryInfoByRecordID
+    -- indexes the catalog directly without requiring item-cache data and is reliable.
+    -- In readOnly mode: probe without writing to cache.
+    -- In write mode: ProbeByDecorID handles the probe and SetOwned cache write together.
+    local decorID = itemIDToDecor[itemID]
+    if decorID then
+        if not readOnly then
             local info = self:ProbeByDecorID(decorID)
             if self:ComputeOwnedFromInfo(info) then
                 return true
+            end
+        else
+            local CHC = _G.C_HousingCatalog
+            if CHC and CHC.GetCatalogEntryInfoByRecordID then
+                local ok, info = pcall(CHC.GetCatalogEntryInfoByRecordID, 1, decorID, true)
+                if ok and self:ComputeOwnedFromInfo(info) then
+                    return true
+                end
             end
         end
     end
