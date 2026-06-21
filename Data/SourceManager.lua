@@ -1013,6 +1013,27 @@ local function EvaluateRequirementAvailability(reqs)
     return "purchasable", not hasVerifiableRequirement, hasVerifiableRequirement, nil
 end
 
+local function GetScannedVendorItem(itemID, npcID)
+    if not itemID or not npcID then return nil end
+    if not HA.Addon or not HA.Addon.db or not HA.Addon.db.global.scannedVendors then
+        return nil
+    end
+
+    local vendor = HA.Addon.db.global.scannedVendors[npcID]
+    if not vendor or not vendor.items then return nil end
+
+    for _, item in ipairs(vendor.items) do
+        local scannedItemID = HA.VendorData and HA.VendorData.GetItemID
+            and HA.VendorData:GetItemID(item)
+            or item.itemID
+        if scannedItemID == itemID then
+            return item
+        end
+    end
+
+    return nil
+end
+
 -- Vendor-scoped availability: classifies an item in a specific vendor context.
 -- Returns: state, isUnverified, hasVerifiableRequirement, blockerLabels
 function SourceManager:GetVendorItemAvailabilityState(itemID, npcID)
@@ -1028,7 +1049,15 @@ function SourceManager:GetVendorItemAvailabilityState(itemID, npcID)
     end
 
     local reqs = self:GetRequirements(itemID, npcID)
-    return EvaluateRequirementAvailability(reqs)
+    local state, isUnverified, hasVerifiableRequirement, blockerLabels = EvaluateRequirementAvailability(reqs)
+    if state == "purchasable" then
+        local scannedItem = GetScannedVendorItem(itemID, npcID)
+        if scannedItem and scannedItem.isUsable == false then
+            return "locked", false, false, { "Vendor restriction" }
+        end
+    end
+
+    return state, isUnverified, hasVerifiableRequirement, blockerLabels
 end
 
 -- Generic availability: uses vendor scope when npcID is given, otherwise

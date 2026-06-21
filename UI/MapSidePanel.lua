@@ -491,18 +491,22 @@ local function GetUnmetRequirements(itemID, npcID)
     local SM = HA.SourceManager
     if not SM then return nil end
     local reqs = SM:GetRequirements(itemID, npcID)
-    if not reqs or #reqs == 0 then return nil end
 
     -- Use vendor-scoped availability classification when possible.
     -- Only confirmed false (not nil/unknown) counts as locked.
-    local state = SM.GetVendorItemAvailabilityState
-        and SM:GetVendorItemAvailabilityState(itemID, npcID)
-        or nil
-
-    if state == "locked" then
-        return reqs, reqs
+    local state, blockerLabels
+    if SM.GetVendorItemAvailabilityState then
+        local availability = { SM:GetVendorItemAvailabilityState(itemID, npcID) }
+        state = availability[1]
+        blockerLabels = availability[4]
     end
 
+    if state == "locked" then
+        local details = reqs or blockerLabels
+        return details or true, details
+    end
+
+    if not reqs or #reqs == 0 then return nil end
     return nil, reqs
 end
 
