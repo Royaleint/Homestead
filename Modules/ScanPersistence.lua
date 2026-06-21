@@ -390,6 +390,10 @@ end
 -- Export
 -------------------------------------------------------------------------------
 
+-- DEPRECATED: legacy debug renderer, not the canonical export path.
+-- Canonical export = ExportImport:ExportScannedVendors() (format version 2).
+-- Output is stripped (itemID + name only; no cost data, no currencies).
+-- Candidate for removal after HS-135 (T2-5 VendorDatabase migration) is confirmed complete.
 function ScanPersistence:ExportScannedData()
     local vendors = self:GetScannedVendors()
     local export = {
