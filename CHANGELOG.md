@@ -2,6 +2,13 @@
 
 ---
 
+## Unreleased
+
+- Fixed a login error on CurseForge/local builds when the WagoAnalytics fallback
+  shim was active.
+
+---
+
 ## Homestead v2.5.3 (06-20-2026)
 
 A couple of stability fixes.
