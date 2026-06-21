@@ -279,7 +279,7 @@ function ExportImport:ExportScannedVendors(fullExport, exportAll)
     table.insert(output, EXPORT_PREFIX .. "\n")
     table.insert(output, "# exportFormatVersion: 2\n")
     table.insert(output, "# V: npcID\tname\tmapID\tx\ty\tfaction\ttimestamp\titemCount\tdecorCount\tzone\tsubZone\trealZone\tparentMapID\tcontinentMapID\texpansion\tcurrency\tmapChain\n")
-    table.insert(output, "# I: npcID\titemID\tname\tprice\tcostData\tisUsable\tspellID\trequirements\tdecorID\n")
+    table.insert(output, "# I: npcID\titemID\tname\tprice\tcostData\tisUsable\tisPurchasable\tspellID\trequirements\tdecorID\n")
     table.insert(output, "# D: npcID\tname\tmapID\tx\ty\tzone\ttimestamp (vendor in DB but scanned with 0 decor)\n")
 
     -- Collect and sort npcIDs for deterministic output
@@ -372,7 +372,7 @@ function ExportImport:ExportScannedVendors(fullExport, exportAll)
                 return (idA or 0) < (idB or 0)
             end)
 
-            -- ITEM lines: I npcID itemID name price costData isUsable spellID requirements decorID
+            -- ITEM lines: I npcID itemID name price costData isUsable isPurchasable spellID requirements decorID
             for _, item in ipairs(sortedItems) do
                 local itemID = HA.VendorData:GetItemID(item)
                 if itemID then
@@ -383,14 +383,15 @@ function ExportImport:ExportScannedVendors(fullExport, exportAll)
                     local price = item.price or 0
                     local costData = FormatCostData(item.currencies, item.itemCosts)
 
-                    -- Format: I npcID itemID name price costData isUsable spellID requirements decorID
-                    local itemLine = string.format("I\t%d\t%d\t%s\t%d\t%s\t%s\t%s\t%s\t%s\n",
+                    -- Format: I npcID itemID name price costData isUsable isPurchasable spellID requirements decorID
+                    local itemLine = string.format("I\t%d\t%d\t%s\t%d\t%s\t%s\t%s\t%s\t%s\t%s\n",
                         vendor.npcID or npcID,
                         itemID,
                         SanitizeExportField(itemName),
                         price,
                         costData,
                         item.isUsable == nil and "" or tostring(item.isUsable),
+                        item.isPurchasable == nil and "" or tostring(item.isPurchasable),
                         item.spellID and tostring(item.spellID) or "",
                         FormatRequirements(item.requirements),
                         item.decorID and tostring(item.decorID) or ""
