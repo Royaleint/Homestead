@@ -469,6 +469,7 @@ function VendorScanner:ProcessScanQueue()
                     currencies = (#currencies > 0) and currencies or nil,
                     itemCosts = (#itemCosts > 0) and itemCosts or nil,
                     merchantSlot = i,
+                    hasExtendedCost = extendedCost,
                 })
             end
         end

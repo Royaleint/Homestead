@@ -68,6 +68,8 @@ function ScanPersistence:SaveVendorData(scanData)
             spellID = item.spellID,
             requirements = item.requirements,
             isDecor = true,
+            merchantSlot = item.merchantSlot,
+            hasExtendedCost = item.hasExtendedCost,
         }
 
         -- Add currency data if present
