@@ -397,7 +397,7 @@ function ExportImport:ExportScannedVendors(fullExport, exportAll)
                         FormatRequirements(item.requirements),
                         item.decorID and tostring(item.decorID) or "",
                         tostring(item.merchantSlot or ""),
-                        tostring(item.hasExtendedCost or "")
+                        item.hasExtendedCost == nil and "" or tostring(item.hasExtendedCost)
                     )
                     table.insert(output, itemLine)
                 end
