@@ -1052,8 +1052,8 @@ function SourceManager:GetVendorItemAvailabilityState(itemID, npcID)
     local state, isUnverified, hasVerifiableRequirement, blockerLabels = EvaluateRequirementAvailability(reqs)
     if state == "purchasable" then
         local scannedItem = GetScannedVendorItem(itemID, npcID)
-        if scannedItem and scannedItem.isUsable == false then
-            return "locked", false, false, { "Vendor restriction" }
+        if scannedItem and scannedItem.isPurchasable == false then
+            return "locked", false, false, { "Purchase gated" }
         end
     end
 
