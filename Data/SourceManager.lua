@@ -1214,27 +1214,6 @@ function SourceManager:GetItemStatusColor(itemID)
     return colors.NOT_COLLECTED
 end
 
--- HS-070 instrumentation (worktree-only, gated on HA.DevAddon).
--- Tracks per-item status returned by render-side helpers so we can detect
--- transitions ("green→red") that aren't accompanied by a SetUnowned write.
--- First observation per itemID is silent; only changes print. Remove before merge.
-local hs070_lastInventory = {}
-local hs070_lastMerchant = {}
-
-local function HS070_TraceRead(label, lastTable, itemID, status)
-    if not HA.DevAddon then return end
-    local prev = lastTable[itemID]
-    if prev == status then return end
-    lastTable[itemID] = status
-    if prev == nil then return end
-    local catalogStore = HA.CatalogStore
-    local record = catalogStore and catalogStore.Get and catalogStore:Get(itemID)
-    local name = (record and record.name) or "?"
-    local cacheOwned = (record and record.isOwned) and "true" or "false"
-    print(string.format("[HS-070] %s itemID=%d name=%s %s -> %s | cache.isOwned=%s",
-        label, itemID, tostring(name), tostring(prev), tostring(status), cacheOwned))
-end
-
 -- Inventory render paths already know the slot contains this item.
 -- If the catalog does not report ownership, the item is present but unlearned.
 function SourceManager:GetInventoryItemStatus(itemID)
@@ -1247,7 +1226,6 @@ function SourceManager:GetInventoryItemStatus(itemID)
     else
         status = "in_bags_unlearned"
     end
-    HS070_TraceRead("inventory-status", hs070_lastInventory, itemID, status)
     return status
 end
 
@@ -1261,7 +1239,6 @@ function SourceManager:GetMerchantItemStatus(itemID)
     else
         status = "unowned"
     end
-    HS070_TraceRead("merchant-status", hs070_lastMerchant, itemID, status)
     return status
 end
 
