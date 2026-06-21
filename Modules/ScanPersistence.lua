@@ -203,6 +203,7 @@ function ScanPersistence:SaveVendorData(scanData)
     if scanData.scanComplete and not scanData.hadNilSlots then
         scanConfidence = "confirmed"
     end
+    vendorRecord.scanConfidence = scanConfidence
 
     if vendorRecord.hasDecor == false and scanConfidence == "confirmed" then
         if isKnownVendor then

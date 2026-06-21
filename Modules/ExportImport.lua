@@ -278,7 +278,7 @@ function ExportImport:ExportScannedVendors(fullExport, exportAll)
 
     table.insert(output, EXPORT_PREFIX .. "\n")
     table.insert(output, "# exportFormatVersion: 2\n")
-    table.insert(output, "# V: npcID\tname\tmapID\tx\ty\tfaction\ttimestamp\titemCount\tdecorCount\tzone\tsubZone\trealZone\tparentMapID\tcontinentMapID\texpansion\tcurrency\tmapChain\n")
+    table.insert(output, "# V: npcID\tname\tmapID\tx\ty\tfaction\ttimestamp\titemCount\tdecorCount\tzone\tsubZone\trealZone\tparentMapID\tcontinentMapID\texpansion\tcurrency\tmapChain\tscanConfidence\n")
     table.insert(output, "# I: npcID\titemID\tname\tprice\tcostData\tisUsable\tisPurchasable\tspellID\trequirements\tdecorID\n")
     table.insert(output, "# D: npcID\tname\tmapID\tx\ty\tzone\ttimestamp (vendor in DB but scanned with 0 decor)\n")
 
@@ -339,8 +339,8 @@ function ExportImport:ExportScannedVendors(fullExport, exportAll)
             hasReportData = true
             vendorCount = vendorCount + 1
 
-            -- VENDOR line: V npcID name mapID x y faction timestamp itemCount decorCount zone subZone realZone parentMapID continentMapID expansion currency mapChain
-            local vendorLine = string.format("V\t%d\t%s\t%d\t%.4f\t%.4f\t%s\t%d\t%d\t%d\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
+            -- VENDOR line: V npcID name mapID x y faction timestamp itemCount decorCount zone subZone realZone parentMapID continentMapID expansion currency mapChain scanConfidence
+            local vendorLine = string.format("V\t%d\t%s\t%d\t%.4f\t%.4f\t%s\t%d\t%d\t%d\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
                 vendor.npcID or npcID,
                 SanitizeExportField(vendor.name or "Unknown"),
                 vendor.mapID or 0,
@@ -357,7 +357,8 @@ function ExportImport:ExportScannedVendors(fullExport, exportAll)
                 vendor.continentMapID and tostring(vendor.continentMapID) or "",
                 SanitizeExportField(vendor.expansion or ""),
                 SanitizeExportField(vendor.currency or ""),
-                (vendor.mapChain and #vendor.mapChain > 0) and table.concat(vendor.mapChain, ";") or ""
+                (vendor.mapChain and #vendor.mapChain > 0) and table.concat(vendor.mapChain, ";") or "",
+                tostring(vendor.scanConfidence or "unknown")
             )
             table.insert(output, vendorLine)
 
