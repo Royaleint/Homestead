@@ -697,16 +697,15 @@ function SourceManager:GetRequirements(itemID, npcID)
         end
     end
 
-    -- Priority 4: Blizzard-confirmed vendor prerequisites (PrerequisiteSources.lua)
-    if HA.PrerequisiteSources and HA.PrerequisiteSources[itemID] then
-        addReqs(HA.PrerequisiteSources[itemID])
-    end
-
-    -- Priority 4b: offerKey composite fallback (npcID:itemID) for vendor-specific overrides.
-    -- Fires only when the bare itemID lookup produced no results.
-    local offerKey = npcID and (tostring(npcID) .. ":" .. tostring(itemID)) or nil
-    if #merged == 0 and offerKey and HA.PrerequisiteSources then
-        addReqs(HA.PrerequisiteSources[offerKey])
+    -- Priority 4: vendor requirements — offerKey (npcID:itemID) takes precedence over bare
+    -- itemID, so a vendor-specific entry overrides a global one for the same item.
+    if HA.PrerequisiteSources then
+        local offerKey = npcID and (tostring(npcID) .. ":" .. tostring(itemID)) or nil
+        if offerKey and HA.PrerequisiteSources[offerKey] then
+            addReqs(HA.PrerequisiteSources[offerKey])
+        elseif HA.PrerequisiteSources[itemID] then
+            addReqs(HA.PrerequisiteSources[itemID])
+        end
     end
 
     -- AchievementSources and QuestSources are acquisition paths (the item IS the
@@ -774,10 +773,10 @@ function SourceManager:IsRequirementMet(req)
 
     if req.type == "reputation" then
         -- Integer fast-path: when factionID is pre-populated, skip name→ID resolution
-        -- and the standing string-parse entirely. Uses C_MajorFactions.GetFactionData
+        -- and the standing string-parse entirely. Uses C_MajorFactions.GetMajorFactionData
         -- (returns current renownLevel for the player) — called at runtime only.
-        if type(req.factionID) == "number" then
-            local factionData = C_MajorFactions.GetFactionData(req.factionID)
+        if type(req.factionID) == "number" and C_MajorFactions and C_MajorFactions.GetMajorFactionData then
+            local factionData = C_MajorFactions.GetMajorFactionData(req.factionID)
             if factionData and type(req.renownLevel) == "number" then
                 return (factionData.renownLevel or 0) >= req.renownLevel
             end
