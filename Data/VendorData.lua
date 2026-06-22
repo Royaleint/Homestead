@@ -938,6 +938,41 @@ function VendorData:Initialize()
 end
 
 -------------------------------------------------------------------------------
+-- Offer Data
+-------------------------------------------------------------------------------
+
+-- Get the merged offer table for an NPC from VendorOffers.
+-- Returns {[itemID] = offerRecord, ...} with ManualOverrides winning over GeneratedBase,
+-- and Tombstones suppressing entries. Returns nil if no offer data exists for npcID.
+function VendorData:GetOffers(npcID)
+    if not HA.VendorOffers then return nil end
+    local base       = HA.VendorOffers.GeneratedBase[npcID]
+    local overrides  = HA.VendorOffers.ManualOverrides[npcID]
+    local tombstones = HA.VendorOffers.Tombstones
+    if not base and not overrides then return nil end
+    local result = {}
+    if overrides then
+        for itemID, offer in pairs(overrides) do
+            local key = tostring(npcID) .. ":" .. tostring(itemID)
+            if not tombstones[itemID] and not tombstones[key] then
+                result[itemID] = offer
+            end
+        end
+    end
+    if base then
+        for itemID, offer in pairs(base) do
+            if not result[itemID] then
+                local key = tostring(npcID) .. ":" .. tostring(itemID)
+                if not tombstones[itemID] and not tombstones[key] then
+                    result[itemID] = offer
+                end
+            end
+        end
+    end
+    return next(result) and result or nil
+end
+
+-------------------------------------------------------------------------------
 -- Module Registration
 -------------------------------------------------------------------------------
 

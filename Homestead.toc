@@ -35,6 +35,7 @@ Core\events.lua
 
 # Data Classes
 Data\VendorDatabase.lua
+Data\VendorOffers.lua
 Data\VendorData.lua
 Data\EndeavorsData.lua
 Data\DecorMapping.lua
