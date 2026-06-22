@@ -702,6 +702,13 @@ function SourceManager:GetRequirements(itemID, npcID)
         addReqs(HA.PrerequisiteSources[itemID])
     end
 
+    -- Priority 4b: offerKey composite fallback (npcID:itemID) for vendor-specific overrides.
+    -- Fires only when the bare itemID lookup produced no results.
+    local offerKey = npcID and (tostring(npcID) .. ":" .. tostring(itemID)) or nil
+    if #merged == 0 and offerKey and HA.PrerequisiteSources then
+        addReqs(HA.PrerequisiteSources[offerKey])
+    end
+
     -- AchievementSources and QuestSources are acquisition paths (the item IS the
     -- reward), not vendor prerequisites. They are rendered as peer sources via
     -- GetAllSources(), not as "Requires:" lines. Vendor prerequisites are covered
@@ -766,6 +773,16 @@ function SourceManager:IsRequirementMet(req)
     if not req or not req.type then return nil end
 
     if req.type == "reputation" then
+        -- Integer fast-path: when factionID is pre-populated, skip name→ID resolution
+        -- and the standing string-parse entirely. Uses C_MajorFactions.GetFactionData
+        -- (returns current renownLevel for the player) — called at runtime only.
+        if type(req.factionID) == "number" then
+            local factionData = C_MajorFactions.GetFactionData(req.factionID)
+            if factionData and type(req.renownLevel) == "number" then
+                return (factionData.renownLevel or 0) >= req.renownLevel
+            end
+        end
+
         if req.faction and req.standing then
             local factionID = GetFactionIDByName(req.faction)
             if not factionID then return nil end

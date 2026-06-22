@@ -1,14 +1,16 @@
 --[[
     Homestead - PrerequisiteSources
-    Generated: 2026-06-12 23:37:36
-    Items with prerequisites: 349
-    Total prerequisite entries: 352
+    Generated: 2026-06-21 13:01:20
+    Items with prerequisites: 364
+    Total prerequisite entries: 367
 
     Blizzard-confirmed vendor purchase prerequisites from web API.
     Used by SourceManager:GetRequirements() as a high-confidence source.
     Regenerate with: python Home_Dev/scripts/generate_prerequisite_sources.py
     DO NOT EDIT — changes will be overwritten. Use overrides file instead:
     Home_Dev/scripts/overrides/prerequisite_sources_overrides.lua
+
+    factionID values: run '/hsdev renownvendor tsv midnight' and cross-reference by faction name
 --]]
 
 local _, HA = ...
@@ -274,7 +276,12 @@ HA.PrerequisiteSources = {
     [256903] = {{type = "quest", name = "The Shredders of Irontree"}},
     [256905] = {{type = "quest", name = "Morbent's Bane"}},
     [256913] = {{type = "achievement", name = "Got to Ketchum All"}},
+    [256924] = {{type = "reputation", faction = "Amani Tribe", standing = "Renown 15", factionID = nil, renownLevel = 15}},
     [256925] = {{type = "achievement", name = "Zul'Aman: The Highest Peaks"}},
+    [256926] = {{type = "reputation", faction = "Amani Tribe", standing = "Renown 15", factionID = nil, renownLevel = 15}},
+    [256927] = {{type = "reputation", faction = "Amani Tribe", standing = "Renown 7", factionID = nil, renownLevel = 7}},
+    [256933] = {{type = "reputation", faction = "Amani Tribe", standing = "Renown 7", factionID = nil, renownLevel = 7}},
+    [256934] = {{type = "reputation", faction = "Amani Tribe", standing = "Renown 15", factionID = nil, renownLevel = 15}},
     [257352] = {{type = "quest", name = "A Multi-Front Battle"}},
     [257397] = {{type = "quest", name = "Huln's War - The Nathrezim"}},
     [257401] = {{type = "quest", name = "The Skies of Highmountain"}},
@@ -293,12 +300,18 @@ HA.PrerequisiteSources = {
     [258264] = {{type = "quest", name = "New Candle, New Hope"}},
     [258265] = {{type = "quest", name = "Bump off the Boss"}},
     [258267] = {{type = "quest", name = "Janky Candles"}},
+    [258290] = {{type = "reputation", faction = "Amani Tribe", standing = "Renown 7", factionID = nil, renownLevel = 7}},
+    [258549] = {{type = "reputation", faction = "Amani Tribe", standing = "Renown 11", factionID = nil, renownLevel = 11}},
     [258740] = {{type = "achievement", name = "Secrets of Skettis"}},
     [258741] = {{type = "quest", name = "A Gathering of Shadows"}},
     [258742] = {{type = "quest", name = "Kura's Vengeance"}},
     [258745] = {{type = "quest", name = "When All Is Aligned"}},
     [258748] = {{type = "quest", name = "Hot Seat"}},
     [258749] = {{type = "quest", name = "The Avatar of Terokk"}},
+    [260202] = {{type = "reputation", faction = "Amani Tribe", standing = "Renown 18", factionID = nil, renownLevel = 18}},
+    [260514] = {{type = "reputation", faction = "Amani Tribe", standing = "Renown 18", factionID = nil, renownLevel = 18}},
+    [260515] = {{type = "reputation", faction = "Amani Tribe", standing = "Renown 18", factionID = nil, renownLevel = 18}},
+    [260516] = {{type = "reputation", faction = "Amani Tribe", standing = "Renown 18", factionID = nil, renownLevel = 18}},
     [260582] = {{type = "quest", name = "Manaforge Omega: Dimensius Looms"}},
     [260583] = {{type = "quest", name = "To Kill a Queen"}},
     [260700] = {{type = "quest", name = "Showdown in the Attic"}},
@@ -315,6 +328,8 @@ HA.PrerequisiteSources = {
     [263231] = {{type = "quest", name = "Paved in Ash"}},
     [263240] = {{type = "quest", name = "Work Disruption"}},
     [263315] = {{type = "quest", name = "The Cauldron of Echoes"}},
+    [263318] = {{type = "reputation", faction = "Amani Tribe", standing = "Renown 3", factionID = nil, renownLevel = 3}},
+    [263320] = {{type = "reputation", faction = "Amani Tribe", standing = "Renown 3", factionID = nil, renownLevel = 3}},
     [264173] = {{type = "achievement", name = "Skinning at Midnight"}},
     [264178] = {{type = "quest", name = "Root Dash Delivery"}},
     [264248] = {{type = "quest", name = "Fairbreeze Favors"}},
@@ -323,10 +338,12 @@ HA.PrerequisiteSources = {
     [264259] = {{type = "achievement", name = "Legends Never Die"}},
     [264262] = {{type = "quest", name = "The Echoless Flame"}},
     [264266] = {{type = "achievement", name = "Leaf None Behind"}},
+    [264333] = {{type = "reputation", faction = "Amani Tribe", standing = "Renown 11", factionID = nil, renownLevel = 11}},
     [264334] = {{type = "quest", name = "Amani Clarion Call"}},
     [264335] = {{type = "achievement", name = "Tallest Tree in the Forest"}},
     [264340] = {{type = "quest", name = "Third, Blow It Up"}},
     [264349] = {{type = "quest", name = "The Leader Hozen"}},
+    [264350] = {{type = "reputation", faction = "Amani Tribe", standing = "Renown 7", factionID = nil, renownLevel = 7}},
     [264362] = {{type = "quest", name = "The Jade Serpent"}},
     [264480] = {{type = "quest", name = "Den of Nalorakk: A Taste of Vengeance"}},
     [264481] = {{type = "quest", name = "Den of Nalorakk: A Taste of Vengeance"}},
