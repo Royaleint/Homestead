@@ -6,6 +6,12 @@
 
 - Fixed a login error on CurseForge/local builds when the WagoAnalytics fallback
   shim was active.
+- Fixed owned decor occasionally not being recognized as collected after a reload.
+  Certain items were returning incomplete data from one catalog lookup path;
+  Homestead now uses a more reliable fallback automatically.
+- Corrected prices for Granite Cobblestone Path and Granite Cobblestone Long Path
+  on several Midnight neighborhood vendors (Trevor Grenner, Yen Malone, Botanist
+  Boh'an).
 
 ---
 
