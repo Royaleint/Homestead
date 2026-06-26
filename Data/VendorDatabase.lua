@@ -1751,7 +1751,7 @@ VendorDatabase.Vendors = {
         faction = "Neutral",
         currency = "Undercoin",
         expansion = "Midnight",
-        scanConfirmed = "2026-03-22",
+        scanConfirmed = "2026-06-25",
         scanCoverage = "full",
         items = {
             {246779, cost = {currencies = {{id = 2803, amount = 500}}}},
@@ -2283,7 +2283,7 @@ VendorDatabase.Vendors = {
         faction = "Neutral",
         currency = "Gold",
         expansion = "The War Within",
-        items = {{245327, cost = {gold = 500000}}, {245328, cost = {gold = 250000}}, {245329, cost = {gold = 250000}}, {245369, cost = {gold = 250000}}, {245371, cost = {gold = 750000}}, {245658, cost = {gold = 100000}}, {245659, cost = {gold = 100000}}, {245660, cost = {gold = 100000}}, {245661, cost = {gold = 100000}}, {248337, cost = {gold = 500000}}, {248338, cost = {gold = 500000}}, {248339, cost = {gold = 500000}}, {248635, cost = {gold = 250000}}, {248639, cost = {gold = 250000}}, {248640, cost = {gold = 250000}}, {248641, cost = {gold = 250000}}, {248642, cost = {gold = 500000}}, {248643, cost = {gold = 1250000}}, {248644, cost = {gold = 250000}}, {248645, cost = {gold = 250000}}, {248646, cost = {gold = 500000}}, {248647, cost = {gold = 100000}}, {248648, cost = {gold = 500000}}, {248649, cost = {gold = 1250000}}, {248802, cost = {gold = 100000}}, {248803, cost = {gold = 250000}}, {248811, cost = {gold = 100000}}, {255644, cost = {gold = 1500000}}, {255646, cost = {gold = 1500000}}, {258658, cost = {gold = 1500000}}, {258659, cost = {gold = 1500000}}, {266239, cost = {gold = 1500000}}, {266240, cost = {gold = 1500000}}, {266241, cost = {gold = 1500000}}, {266242, cost = {gold = 1500000}}, {266243, cost = {gold = 1500000}}, {266244, cost = {gold = 750000}}, {266245, cost = {gold = 750000}}, {266443, cost = {gold = 500000}}, {266444, cost = {gold = 750000}}},
+        items = {{245327, cost = {gold = 500000}}, {245328, cost = {gold = 250000}}, {245329, cost = {gold = 250000}}, {245369, cost = {gold = 250000}}, {245371, cost = {gold = 750000}}, {245658, cost = {gold = 100000}}, {245659, cost = {gold = 100000}}, {245660, cost = {gold = 100000}}, {245661, cost = {gold = 100000}}, {248337, cost = {gold = 500000}}, {248338, cost = {gold = 500000}}, {248339, cost = {gold = 500000}}, {248635, cost = {gold = 250000}}, {248639, cost = {gold = 250000}}, {248640, cost = {gold = 250000}}, {248641, cost = {gold = 250000}}, {248642, cost = {gold = 500000}}, {248643, cost = {gold = 1250000}}, {248644, cost = {gold = 250000}}, {248645, cost = {gold = 250000}}, {248646, cost = {gold = 500000}}, {248647, cost = {gold = 100000}}, {248648, cost = {gold = 500000}}, {248649, cost = {gold = 1250000}}, {248802, cost = {gold = 100000}}, {248803, cost = {gold = 250000}}, {248811, cost = {gold = 100000}}, {255644, cost = {gold = 1500000}}, {255646, cost = {gold = 1500000}}, {258658, cost = {gold = 1500000}}, {258659, cost = {gold = 1500000}}, {266239, cost = {gold = 1500000}}, {266240, cost = {gold = 1500000}}, {266241, cost = {gold = 1500000}}, {266242, cost = {gold = 1500000}}, {266243, cost = {gold = 1500000}}, {266244, cost = {gold = 750000}}, {266245, cost = {gold = 750000}}, {266443, cost = {gold = 750000}}, {266444, cost = {gold = 500000}}},
     },
 	[255222] = {
         name = "\"High Tides\" Ren",
@@ -2316,7 +2316,7 @@ VendorDatabase.Vendors = {
         faction = "Neutral",
         currency = "Gold",
         expansion = "The War Within",
-        items = {{248337, cost = {gold = 500000}}, {248338, cost = {gold = 500000}}, {248339, cost = {gold = 500000}}, {248625, cost = {gold = 1500000}}, {248626, cost = {gold = 750000}}, {248627, cost = {gold = 100000}}, {248628, cost = {gold = 1500000}}, {248629, cost = {gold = 250000}}, {248630, cost = {gold = 250000}}, {248631, cost = {gold = 1000000}}, {248632, cost = {gold = 750000}}, {248633, cost = {gold = 500000}}, {248634, cost = {gold = 1250000}}, {248636, cost = {gold = 750000}}, {248637, cost = {gold = 100000}}, {248638, cost = {gold = 250000}}, {248650, cost = {gold = 100000}}, {257359, cost = {gold = 100000}}, {257388, cost = {gold = 100000}}, {257390, cost = {gold = 100000}}, {257392, cost = {gold = 100000}}, {260701, cost = {gold = 250000}}, {260702, cost = {gold = 750000}}, {266234, cost = {gold = 1500000}}, {266235, cost = {gold = 1500000}}, {266236, cost = {gold = 1500000}}, {266237, cost = {gold = 1500000}}, {266238, cost = {gold = 1500000}}, {266244, cost = {gold = 750000}}, {266245, cost = {gold = 750000}}, {266443, cost = {gold = 500000}}, {266444, cost = {gold = 750000}}},
+        items = {{248337, cost = {gold = 500000}}, {248338, cost = {gold = 500000}}, {248339, cost = {gold = 500000}}, {248625, cost = {gold = 1500000}}, {248626, cost = {gold = 750000}}, {248627, cost = {gold = 100000}}, {248628, cost = {gold = 1500000}}, {248629, cost = {gold = 250000}}, {248630, cost = {gold = 250000}}, {248631, cost = {gold = 1000000}}, {248632, cost = {gold = 750000}}, {248633, cost = {gold = 500000}}, {248634, cost = {gold = 1250000}}, {248636, cost = {gold = 750000}}, {248637, cost = {gold = 100000}}, {248638, cost = {gold = 250000}}, {248650, cost = {gold = 100000}}, {257359, cost = {gold = 100000}}, {257388, cost = {gold = 100000}}, {257390, cost = {gold = 100000}}, {257392, cost = {gold = 100000}}, {260701, cost = {gold = 250000}}, {260702, cost = {gold = 750000}}, {266234, cost = {gold = 1500000}}, {266235, cost = {gold = 1500000}}, {266236, cost = {gold = 1500000}}, {266237, cost = {gold = 1500000}}, {266238, cost = {gold = 1500000}}, {266244, cost = {gold = 750000}}, {266245, cost = {gold = 750000}}, {266443, cost = {gold = 750000}}, {266444, cost = {gold = 500000}}},
     },
 	[255278] = {
         name = "Gronthul",
@@ -2366,7 +2366,7 @@ VendorDatabase.Vendors = {
         faction = "Horde",
         currency = "Gold",
         expansion = "The War Within",
-        items = {{248337, cost = {gold = 500000}}, {248338, cost = {gold = 500000}}, {248339, cost = {gold = 500000}}, {248625, cost = {gold = 1500000}}, {248626, cost = {gold = 750000}}, {248627, cost = {gold = 100000}}, {248628, cost = {gold = 1500000}}, {248629, cost = {gold = 250000}}, {248630, cost = {gold = 250000}}, {248631, cost = {gold = 1000000}}, {248632, cost = {gold = 750000}}, {248633, cost = {gold = 500000}}, {248634, cost = {gold = 1250000}}, {248636, cost = {gold = 750000}}, {248637, cost = {gold = 100000}}, {248638, cost = {gold = 250000}}, {248650, cost = {gold = 100000}}, {257359, cost = {gold = 100000}}, {257388, cost = {gold = 100000}}, {257390, cost = {gold = 100000}}, {257392, cost = {gold = 100000}}, {260701, cost = {gold = 250000}}, {260702, cost = {gold = 750000}}, {266234, cost = {gold = 1500000}}, {266235, cost = {gold = 1500000}}, {266236, cost = {gold = 1500000}}, {266237, cost = {gold = 1500000}}, {266238, cost = {gold = 1500000}}, {266244, cost = {gold = 750000}}, {266245, cost = {gold = 750000}}, {266443, cost = {gold = 500000}}, {266444, cost = {gold = 750000}}},
+        items = {{248337, cost = {gold = 500000}}, {248338, cost = {gold = 500000}}, {248339, cost = {gold = 500000}}, {248625, cost = {gold = 1500000}}, {248626, cost = {gold = 750000}}, {248627, cost = {gold = 100000}}, {248628, cost = {gold = 1500000}}, {248629, cost = {gold = 250000}}, {248630, cost = {gold = 250000}}, {248631, cost = {gold = 1000000}}, {248632, cost = {gold = 750000}}, {248633, cost = {gold = 500000}}, {248634, cost = {gold = 1250000}}, {248636, cost = {gold = 750000}}, {248637, cost = {gold = 100000}}, {248638, cost = {gold = 250000}}, {248650, cost = {gold = 100000}}, {257359, cost = {gold = 100000}}, {257388, cost = {gold = 100000}}, {257390, cost = {gold = 100000}}, {257392, cost = {gold = 100000}}, {260701, cost = {gold = 250000}}, {260702, cost = {gold = 750000}}, {266234, cost = {gold = 1500000}}, {266235, cost = {gold = 1500000}}, {266236, cost = {gold = 1500000}}, {266237, cost = {gold = 1500000}}, {266238, cost = {gold = 1500000}}, {266244, cost = {gold = 750000}}, {266245, cost = {gold = 750000}}, {266443, cost = {gold = 750000}}, {266444, cost = {gold = 500000}}},
     },
 	[255319] = {
         name = "\"Yen\" Malone",
@@ -2529,7 +2529,7 @@ VendorDatabase.Vendors = {
         faction = "Neutral",
         currency = "Gold",
         expansion = "Midnight",
-        scanConfirmed = "2026-04-22",
+        scanConfirmed = "2026-06-25",
         scanCoverage = "full",
         items = {
             {244668, cost = {gold = 150000000}},
@@ -2540,6 +2540,22 @@ VendorDatabase.Vendors = {
             {252667, cost = {gold = 50000000}},
             {252668, cost = {gold = 50000000}},
             {252669, cost = {gold = 50000000}},
+            {259055, cost = {gold = 10000000}},
+            {259056, cost = {gold = 10000000}},
+            {259057, cost = {gold = 10000000}},
+            {259058, cost = {gold = 10000000}},
+            {259059, cost = {gold = 2500000}},
+            {259060, cost = {gold = 2500000}},
+            {259061, cost = {gold = 2500000}},
+            {259062, cost = {gold = 2500000}},
+            {259063, cost = {gold = 2500000}},
+            {259064, cost = {gold = 2500000}},
+            {259065, cost = {gold = 2500000}},
+            {259066, cost = {gold = 2500000}},
+            {259067, cost = {gold = 2500000}},
+            {259068, cost = {gold = 2500000}},
+            {259069, cost = {gold = 2500000}},
+            {259070, cost = {gold = 2500000}},
             {260785, cost = {gold = 15000000}},
         },
     },
@@ -2654,7 +2670,7 @@ VendorDatabase.Vendors = {
         faction = "Neutral",
         currency = "Remnant of Anguish",
         expansion = "Midnight",
-        scanConfirmed = "2026-03-22",
+        scanConfirmed = "2026-06-25",
         scanCoverage = "full",
         items = {
             {265681, cost = {currencies = {{id = 3392, amount = 1200}}}},
@@ -2800,7 +2816,7 @@ VendorDatabase.Vendors = {
         faction = "Neutral",
         currency = "Voidlight Marl",
         expansion = "Midnight",
-        scanConfirmed = "2026-03-22",
+        scanConfirmed = "2026-06-25",
         scanCoverage = "full",
         items = {
             {263994, cost = {currencies = {{id = 3316, amount = 250}}}},
@@ -2954,7 +2970,7 @@ VendorDatabase.Vendors = {
         faction = "Neutral",
         currency = "Angler Pearls",
         expansion = "Midnight",
-        scanConfirmed = "2026-05-05",
+        scanConfirmed = "2026-06-25",
         scanCoverage = "full",
         items = {
             {258535, cost = {currencies = {{id = 3373, amount = 750}}}},
@@ -3041,13 +3057,15 @@ VendorDatabase.Vendors = {
     },
     [265581] = {
         name = "Zuronar",
-        mapID = 16900,                      -- Val; also in Naigtal (16943, x=0.480 y=0.830)
-        x = 0.634, y = 0.210,
+        mapID = 2599,                       -- Val / Umbral Base Camp; also in Naigtal (mapID TBD, x=0.480 y=0.830)
+        x = 0.6354, y = 0.2097,
         zone = "Val",
-        subzone = "",
+        subzone = "Umbral Base Camp",
         faction = "Neutral",
         currency = "Voidlight Marl",
-        expansion = "The War Within",
+        expansion = "Midnight",
+        scanConfirmed = "2026-06-25",
+        scanCoverage = "full",
         items = {
             {267211, cost = {currencies = {{id = 3316, amount = 150}}}}, -- Luminant Scout's Golden Fence
             {276316, cost = {currencies = {{id = 3316, amount = 250}}}}, -- Lightveil's Transport Pad
@@ -3055,6 +3073,174 @@ VendorDatabase.Vendors = {
             {276321, cost = {currencies = {{id = 3316, amount = 150}}}}, -- Luminant Defender's Golden Barricade
             {276429, cost = {currencies = {{id = 3316, amount = 250}}}}, -- Grand Artificer's Lightforged Console
             {276432, cost = {currencies = {{id = 3316, amount = 500}}}}, -- De-Powered Lightforged Siegebreaker
+        },
+    },
+
+    -- =========================================================================
+    -- Midnight 12.1 — Unreleased. Costs/coords unconfirmed; rescan on PTR.
+    -- Remove unreleased = true once patch goes live.
+    -- =========================================================================
+
+    -- Razorwind Shores additions
+    [260485] = {
+        name = "Griftah",
+        unreleased = true,
+        mapID = 2351,
+        x = 0.5427, y = 0.5605,
+        zone = "Razorwind Shores",
+        expansion = "Midnight",
+        currency = "Community Coupons",
+        items = {},
+    },
+    [265551] = {
+        name = "Roshai Lightstep",
+        unreleased = true,
+        mapID = 2351,
+        x = 0.5420, y = 0.5597,
+        zone = "Razorwind Shores",
+        expansion = "Midnight",
+        currency = "Gold",
+        items = {
+            {276626}, {276650}, {276652}, {276654}, {276656},
+            {276658}, {276661}, {276663}, {276665}, {276667},
+            {276669}, {276671}, {276673}, {276675}, {276677},
+        },
+    },
+    [267794] = {
+        name = "Agratha",
+        unreleased = true,
+        mapID = 2351,
+        x = 0.5362, y = 0.5448,
+        zone = "Razorwind Shores",
+        expansion = "Midnight",
+        currency = "Gold",
+        items = {
+            {277121}, {277138}, {277142}, {277144}, {277149}, {277160}, {277163},
+        },
+    },
+    [268106] = {
+        name = "Taifa",
+        unreleased = true,
+        mapID = 2351,
+        x = 0.5487, y = 0.5730,
+        zone = "Razorwind Shores",
+        expansion = "Midnight",
+        currency = "Gold",
+        items = {
+            {280215}, {280221}, {280223}, {280225}, {280227},
+            {280230}, {280232}, {280234}, {280236}, {280238},
+            {280240}, {280242}, {280244},
+        },
+    },
+    [271173] = {
+        name = "Timicky",
+        unreleased = true,
+        mapID = 2351,
+        x = 0.5489, y = 0.5728,
+        zone = "Razorwind Shores",
+        expansion = "Midnight",
+        currency = "Gold",
+        items = {
+            {280246}, {280249}, {280251}, {280253}, {280255},
+            {280257}, {280259}, {280261}, {280263}, {280265},
+            {280267}, {280269}, {280271}, {280273}, {280275},
+        },
+    },
+    [271366] = {
+        name = "Unknown Vendor",  -- NPC name unconfirmed; replace from PTR scan
+        unreleased = true,
+        mapID = 2351,
+        x = 0.5239, y = 0.5428,
+        zone = "Razorwind Shores",
+        expansion = "Midnight",
+        currency = "Gold",
+        items = {
+            {280335},
+        },
+    },
+
+    -- Founder's Point additions
+    [257332] = {
+        name = "Devin Slatesmith",
+        unreleased = true,
+        mapID = 2352,
+        x = 0.5200, y = 0.3840,
+        zone = "Founder's Point",
+        expansion = "Midnight",
+        currency = "Gold",
+        items = {
+            {280142}, {280144}, {280146}, {280148}, {280150}, {280152},
+            {280154}, {280156}, {280158}, {280160}, {280162}, {280164},
+        },
+    },
+    [271165] = {
+        name = "Carver Sprocket",
+        unreleased = true,
+        zone = "Founder's Point",  -- same items as Devin Slatesmith; confirm location from PTR
+        expansion = "Midnight",
+        currency = "Gold",
+        items = {
+            {280142}, {280144}, {280146}, {280148}, {280150}, {280152},
+            {280154}, {280156}, {280158}, {280160}, {280162}, {280164},
+        },
+    },
+
+    -- The Coiled Isle (new 12.1 zone; mapID/coords unknown until PTR scan)
+    [268228] = {
+        name = "Jan'sari the Watchful",
+        unreleased = true,
+        zone = "The Coiled Isle",
+        expansion = "Midnight",
+        currency = "Gold",
+        items = {
+            {267377}, {269778}, {269779}, {271177},
+            {276457}, {276459},
+            {277271}, {277273}, {277275}, {277280}, {277323},
+        },
+    },
+    [270399] = {
+        name = "Firetender Zab'ni",
+        unreleased = true,
+        zone = "The Coiled Isle",
+        expansion = "Midnight",
+        currency = "Gold",
+        items = {
+            {271176}, {271609}, {271851},
+            {279285}, {279292}, {279452}, {279508}, {280218},
+        },
+    },
+    [257598] = {
+        name = "Second Mate Sluggs",
+        unreleased = true,
+        zone = "The Coiled Isle",
+        expansion = "Midnight",
+        currency = "Gold",
+        items = {
+            {277921}, {277923}, {277925}, {277927}, {277929}, {277931},
+        },
+    },
+
+    -- Vaults of Atal'Utek (12.1 dungeon; mapID/coords unknown until PTR scan)
+    [262880] = {
+        name = "Er'inye",
+        unreleased = true,
+        zone = "Vaults of Atal'Utek",
+        expansion = "Midnight",
+        currency = "Gold",
+        items = {
+            {266169}, {267378}, {269637}, {271358}, {271604}, {271850},
+            {272362}, {275578}, {275628}, {279917}, {279919}, {279922},
+        },
+    },
+
+    -- Location unknown (12.1); confirm from PTR scan
+    [262726] = {
+        name = "Cursed Keepsake",
+        unreleased = true,
+        expansion = "Midnight",
+        currency = "Gold",
+        items = {
+            {278696}, {278701},
         },
     },
 }

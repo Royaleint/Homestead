@@ -183,6 +183,8 @@ local function ScanItem(itemID)
         return nil
     end
 
+    local byItemResult = nil
+
     if C_HousingCatalog.GetCatalogEntryInfoByItem then
         local itemLink = "item:" .. tostring(itemID)
         local success, info = pcall(function()
@@ -190,7 +192,13 @@ local function ScanItem(itemID)
         end)
 
         if success and info then
-            return BuildScanResult(itemID, info)
+            if IsOwned(info) then
+                return BuildScanResult(itemID, info)
+            end
+            -- byItem returned info with 0 counts — save result but fall through to
+            -- RecordID probe. Some items (e.g. 244778, HS-059) return stale-0 via
+            -- byItem even when owned; RecordID is authoritative for those.
+            byItemResult = BuildScanResult(itemID, info)
         end
     end
 
@@ -205,7 +213,7 @@ local function ScanItem(itemID)
         end
     end
 
-    return nil
+    return byItemResult
 end
 
 -- Debounced scan request — coalesces rapid housing events into a single scan

@@ -1540,7 +1540,18 @@ local GeneratedBase = {
 }
 
 -- MANUAL: safe to edit. Same schema as GeneratedBase. Values here win over GeneratedBase.
-local ManualOverrides = {}
+-- Verified live-scan price corrections (2026-06-26). GeneratedBase was produced from
+-- a PTR scan where 266443/266444 prices were swapped vs live. ManualOverrides wins per-item.
+local ManualOverrides = {
+    [255221] = { -- Trevor Grenner (Founder's Point)
+        [266443] = { price = 750000, currencies = {}, isUsable = true }, -- Granite Cobblestone Long Path
+        [266444] = { price = 500000, currencies = {}, isUsable = true }, -- Granite Cobblestone Path
+    },
+    [255301] = { -- Botanist Boh'an (Razorwind Shores)
+        [266443] = { price = 750000, currencies = {}, isUsable = true }, -- Granite Cobblestone Long Path
+        [266444] = { price = 500000, currencies = {}, isUsable = true }, -- Granite Cobblestone Path
+    },
+}
 
 -- TOMBSTONES: bare itemID or "npcID:itemID" string key to suppress from all offer output.
 local Tombstones = {}

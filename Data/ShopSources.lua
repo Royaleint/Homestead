@@ -31,6 +31,24 @@ HA.ShopSources = {
     [264384] = { method = "hearthsteel", name = "In-Game Shop" },              -- Zapmaster Viewer 3000
 
     ---------------------------------------------------------------------------
+    -- Sanctuary Chess Set (Hearthsteel — also sold by Dennia Silvertongue [256828] for gold)
+    ---------------------------------------------------------------------------
+    [259057] = { method = "hearthsteel", name = "Sanctuary Chess Set" },           -- Sanctuary's Chess Match
+    [259058] = { method = "hearthsteel", name = "Sanctuary Chess Set" },           -- Sanctuary's Chess Board
+    [259059] = { method = "hearthsteel", name = "Sanctuary Chess Set" },           -- Sanctuary Chess Dark Bishop
+    [259060] = { method = "hearthsteel", name = "Sanctuary Chess Set" },           -- Sanctuary Chess Dark Rook
+    [259061] = { method = "hearthsteel", name = "Sanctuary Chess Set" },           -- Sanctuary Chess Dark Queen
+    [259062] = { method = "hearthsteel", name = "Sanctuary Chess Set" },           -- Sanctuary Chess Dark Pawn
+    [259063] = { method = "hearthsteel", name = "Sanctuary Chess Set" },           -- Sanctuary Chess Dark Knight
+    [259064] = { method = "hearthsteel", name = "Sanctuary Chess Set" },           -- Sanctuary Chess Dark King
+    [259065] = { method = "hearthsteel", name = "Sanctuary Chess Set" },           -- Sanctuary Chess Light Bishop
+    [259066] = { method = "hearthsteel", name = "Sanctuary Chess Set" },           -- Sanctuary Chess Light Rook
+    [259067] = { method = "hearthsteel", name = "Sanctuary Chess Set" },           -- Sanctuary Chess Light Queen
+    [259068] = { method = "hearthsteel", name = "Sanctuary Chess Set" },           -- Sanctuary Chess Light Pawn
+    [259069] = { method = "hearthsteel", name = "Sanctuary Chess Set" },           -- Sanctuary Chess Light Knight
+    [259070] = { method = "hearthsteel", name = "Sanctuary Chess Set" },           -- Sanctuary Chess Light King
+
+    ---------------------------------------------------------------------------
     -- Spring Blossom Pack (Hearthsteel)
     ---------------------------------------------------------------------------
     [250798] = { method = "hearthsteel", name = "Spring Blossom Pack" },        -- Spring Blossom Shelf
