@@ -12,6 +12,9 @@
 - Corrected prices for Granite Cobblestone Path and Granite Cobblestone Long Path
   on several Midnight neighborhood vendors (Trevor Grenner, Yen Malone, Botanist
   Boh'an).
+- Filled in more of the latest Founder's Point decor — additional items on Xiao Dan
+  and Trevor Grenner now show their vendor and price, and Luminous Rotshroom now
+  lists where it drops (Rotmire, in Sporefall).
 
 ---
 
