@@ -1,6 +1,6 @@
 --[[
     Homestead - DropSources
-    Generated: 2026-06-27 18:08:30
+    Generated: 2026-06-27 18:09:58
     Total entries: 58
 
     World drop source data for housing decor items.
@@ -31,7 +31,7 @@ HA.DropSources = {
     [246429] = {mobName = "Emperor Dagran Thaurissan", zone = "Blackrock Depths", mapID = 1584, coords = {x = 0.909, y = 0.118}, notes = "Shadowforge final."},
     [246846] = {mobName = "Sha of Doubt", zone = "Temple of Jade Serpent", mapID = 960, coords = {x = 0.486, y = 0.672}, notes = "Boss room."},
     [246865] = {mobName = "Viz'aduum the Watcher", zone = "Eastern Kingdoms", coords = {x = 0.5, y = 0.5}, notes = "Alt: Viz'aduum (Karazhan return) secondary."},
-    [247235] = {mobName = "Rotmire", zone = "Sporefall", notes = "Luminous Rotshroom -- bonus loot from the Rotmire encounter in Sporefall. Confirmed in-game via Adventure Guide 2026-06-27 (HS-110)."},
+    [247235] = {mobName = "Rotmire", zone = "Sporefall", notes = "Bonus loot from the Rotmire encounter in Sporefall."},
     [247913] = {mobName = "Advisor Melandrus", zone = "Court of Stars", mapID = 761, coords = {x = 0.5, y = 0.5}, notes = "Final boss of Court of Stars dungeon."},
     [248332] = {mobName = "Vanessa VanCleef", zone = "The Deadmines", mapID = 36, coords = {x = 0.246, y = 0.824}, notes = "Final boss."},
     [250703] = {mobName = "Creche Warden", zone = "Forbidden Reach", mapID = 2151, coords = {x = 0.51, y = 0.61}, notes = "Elite Mob Farm"},
