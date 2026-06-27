@@ -1778,13 +1778,11 @@ local GeneratedBase = {
 }
 
 -- MANUAL: safe to edit. Same schema as GeneratedBase. Values here win over GeneratedBase.
--- Verified live-scan price corrections (2026-06-26). GeneratedBase was produced from
--- a PTR scan where 266443/266444 prices were swapped vs live. ManualOverrides wins per-item.
+-- 266443/266444 prices were swapped in a PTR scan vs live. Boh'an (255301, Razorwind Shores)
+-- was not in the 2026-06-27 VendorOffers refresh, so its GeneratedBase still carries the PTR
+-- swap and needs this correction. Trevor 255221's override was pruned 2026-06-27 once the
+-- refresh corrected its GeneratedBase (HS-110).
 local ManualOverrides = {
-    [255221] = { -- Trevor Grenner (Founder's Point)
-        [266443] = { price = 750000, currencies = {}, isUsable = true }, -- Granite Cobblestone Long Path
-        [266444] = { price = 500000, currencies = {}, isUsable = true }, -- Granite Cobblestone Path
-    },
     [255301] = { -- Botanist Boh'an (Razorwind Shores)
         [266443] = { price = 750000, currencies = {}, isUsable = true }, -- Granite Cobblestone Long Path
         [266444] = { price = 500000, currencies = {}, isUsable = true }, -- Granite Cobblestone Path
