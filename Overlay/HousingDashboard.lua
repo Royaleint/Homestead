@@ -112,12 +112,21 @@ local function UpdateMilestoneDisplay()
     local themeData = activeTheme and HA.EndeavorsData.Endeavors[activeTheme]
     local vendorNPC = themeData and themeData.vendorNPC
     local vendor = vendorNPC and HA.EndeavorsData.Vendors[vendorNPC]
-    if vendor and vendor.items and HA.VendorData and HA.CatalogStore then
+    if vendor and vendor.items and HA.VendorData then
         local total = #vendor.items
         local owned = 0
         for _, item in ipairs(vendor.items) do
             local itemID = HA.VendorData:GetItemID(item)
-            local isOwned = HA.CatalogStore:IsOwnedFresh(itemID)
+            local isOwned = false
+            if itemID and HA.SourceManager and HA.SourceManager.GetItemPresentation then
+                local presentation = HA.SourceManager:GetItemPresentation(itemID, {
+                    context = "housingDashboard",
+                    readOnlyOwnership = true,
+                })
+                isOwned = presentation and presentation.isOwned == true
+            elseif itemID and HA.CatalogStore then
+                isOwned = HA.CatalogStore:IsOwnedFresh(itemID, true) == true
+            end
             if isOwned then owned = owned + 1 end
         end
         ownershipText:SetFormattedText("%s: %d / %d items owned", vendor.name, owned, total)

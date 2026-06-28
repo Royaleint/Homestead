@@ -684,9 +684,9 @@ end
 -- detailed: true for full sub-lines + requirements, false for compact one-liners (default true)
 -- Intentional UX: tooltips are informational and always show full source context,
 -- independent of any map side-panel source filter setting.
-local function AddSourceInfoToTooltip(tooltip, itemID, context, detailed)
+local function AddSourceInfoToTooltip(tooltip, itemID, context, detailed, presentation)
     if not itemID then return false end
-    if not HA.SourceManager or not HA.SourceManager.GetAllSources then return false end
+    if not HA.SourceManager or (not presentation and not HA.SourceManager.GetAllSources) then return false end
 
     -- Defaults (backward-compatible for catalog handler which passes no context/detailed)
     context = context or "standard"
@@ -697,7 +697,7 @@ local function AddSourceInfoToTooltip(tooltip, itemID, context, detailed)
         return false
     end
 
-    local sources = HA.SourceManager:GetAllSources(itemID)
+    local sources = presentation and presentation.allSources or HA.SourceManager:GetAllSources(itemID)
     if not sources or #sources == 0 then return false end
 
     -- Determine which sources to render
@@ -705,8 +705,9 @@ local function AddSourceInfoToTooltip(tooltip, itemID, context, detailed)
     local db = HA.Addon and HA.Addon.db and HA.Addon.db.profile.tooltip
     if db and db.showAllSources == false then
         -- Show primary only: prefer "available now" source (preserves existing behavior)
-        local best = HA.SourceManager.GetBestAvailableSource
-            and HA.SourceManager:GetBestAvailableSource(itemID)
+        local best = presentation and presentation.bestSource
+            or (HA.SourceManager.GetBestAvailableSource
+                and HA.SourceManager:GetBestAvailableSource(itemID))
         sourcesToRender = best and {best} or {sources[1]}
     else
         sourcesToRender = sources
@@ -844,9 +845,6 @@ local function AddDecorInfoToTooltip(tooltip, itemLink)
     -- Add header
     tooltip:AddLine("|cFFFFD700[Homestead]|r")
 
-    -- Check ownership status (always check, but only display if setting enabled)
-    local isOwned = IsDecorOwned(itemLink)
-
     -- Resolve vendor NPC scope for availability classification
     local vendorNpcID = nil
     if context == "merchant" then
@@ -855,9 +853,21 @@ local function AddDecorInfoToTooltip(tooltip, itemLink)
         vendorNpcID = lastTooltipOwner.npcID
     end
 
-    -- Classify availability using shared SourceManager helpers
-    local availabilityState = nil
-    if detailed and HA.SourceManager and HA.SourceManager.GetItemAvailabilityState then
+    local presentation = nil
+    if HA.SourceManager and HA.SourceManager.GetItemPresentation then
+        presentation = HA.SourceManager:GetItemPresentation(itemID, {
+            context = context,
+            npcID = vendorNpcID,
+        })
+    end
+
+    local isOwned = presentation and presentation.isOwned
+    if not presentation then
+        isOwned = IsDecorOwned(itemLink)
+    end
+
+    local availabilityState = detailed and presentation and presentation.availabilityState or nil
+    if detailed and not presentation and HA.SourceManager and HA.SourceManager.GetItemAvailabilityState then
         availabilityState = HA.SourceManager:GetItemAvailabilityState(itemID, vendorNpcID)
     end
 
@@ -910,7 +920,8 @@ local function AddDecorInfoToTooltip(tooltip, itemLink)
                 -- Merchant detailed: show supplemental sources + all requirements.
                 -- No "Source: Unknown" fallback — the vendor IS the source.
                 local hasSupplemental
-                hasSupplemental, renderedFactions = AddSourceInfoToTooltip(tooltip, itemID, context, detailed)
+                hasSupplemental, renderedFactions = AddSourceInfoToTooltip(
+                    tooltip, itemID, context, detailed, presentation)
                 -- If no supplemental sources rendered, AddSourceInfoToTooltip skipped
                 -- requirements internally — show them here with merchant npcID scope.
                 -- Suppress achievement/quest/unknown requirements (Blizzard shows these).
@@ -921,7 +932,8 @@ local function AddDecorInfoToTooltip(tooltip, itemLink)
             end
         else
             local hasSource
-            hasSource, renderedFactions = AddSourceInfoToTooltip(tooltip, itemID, context, detailed)
+            hasSource, renderedFactions = AddSourceInfoToTooltip(
+                tooltip, itemID, context, detailed, presentation)
             if not hasSource then
                 tooltip:AddLine("Source: Unknown", COLOR_GRAY.r, COLOR_GRAY.g, COLOR_GRAY.b)
             end

@@ -1189,7 +1189,7 @@ function SourceManager:GetItemPresentation(itemID, options)
         end
     end
 
-    local displaySource = nil
+    local displaySource
     if normalizedFilter ~= "all" then
         displaySource = preferredSource or displaySources[1]
     else
@@ -1401,29 +1401,13 @@ end
 -- Inventory render paths already know the slot contains this item.
 -- If the catalog does not report ownership, the item is present but unlearned.
 function SourceManager:GetInventoryItemStatus(itemID)
-    if not itemID then return nil end
-
-    local catalogStore = HA.CatalogStore
-    local status
-    if catalogStore and catalogStore:IsOwnedFresh(itemID) then
-        status = "owned"
-    else
-        status = "in_bags_unlearned"
-    end
-    return status
+    local presentation = self:GetItemPresentation(itemID, "inventory")
+    return presentation and presentation.inventoryStatus or nil
 end
 
 function SourceManager:GetMerchantItemStatus(itemID)
-    if not itemID then return nil end
-
-    local catalogStore = HA.CatalogStore
-    local status
-    if catalogStore and catalogStore:IsOwnedFresh(itemID) then
-        status = "owned"
-    else
-        status = "unowned"
-    end
-    return status
+    local presentation = self:GetItemPresentation(itemID, "merchant")
+    return presentation and presentation.merchantStatus or nil
 end
 
 -- Return primary source type for an item, normalized to canonical taxonomy.

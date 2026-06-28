@@ -128,14 +128,14 @@ end
 
 -- Get the atlas name for the primary source of an item.
 -- Returns atlas string or nil if no source is known.
-local function GetSourceBadgeAtlas(itemID)
-    if not HA.SourceManager then return nil end
+local function GetCatalogPresentation(itemID)
+    if not HA.SourceManager or not HA.SourceManager.GetItemPresentation then return nil end
+    return HA.SourceManager:GetItemPresentation(itemID, "catalog")
+end
 
-    local source = HA.SourceManager:GetSource(itemID)
-    if not source then return nil end
-
-    local sourceType = HA.SourceManager:NormalizeSourceType(source.type)
-    return sourceType and SourceBadgeAtlas[sourceType]
+local function GetSourceBadgeAtlas(itemID, presentation)
+    presentation = presentation or GetCatalogPresentation(itemID)
+    return presentation and presentation.sourceBadgeAtlas or nil
 end
 
 -- Fallback: resolve sourceText through the shared parser so catalog badges stay
@@ -273,35 +273,12 @@ local function ApplyOwnedStyle(entryFrame, style, isOwned)
     end
 end
 
--- Determine the accessibility state for an item.
--- Returns "owned", "available", "blocked", or nil (no source data).
--- Ownership uses Blizzard's GetEntryTotalOwned contract via
--- CatalogStore:ComputeOwnedFromInfo (totalNumStored + remainingRedeemable +
--- totalNumPlaced > 0), which matches Blizzard's Collected/Uncollected filter.
--- sourceText is pre-resolved by the caller to avoid redundant API calls.
-local function GetAccessibilityState(itemID, entryInfo, sourceText)
-    -- Check ownership via the cache-aware path (same as tooltips/merchant badge).
-    -- NOT ComputeOwnedFromInfo(entryInfo): the catalog frame's entryInfo carries
-    -- firstAcquisitionBonus but NOT the owned-count fields (totalNumStored/…),
-    -- so the count formula false-negatived every owned item to "available" (all
-    -- yellow — HS-123 Gate-2). IsOwnedFresh serves owned from the persistent cache
-    -- plus a fresh tryGetOwnedInfo probe, so it has the counts it needs.
-    if HA.CatalogStore and HA.CatalogStore:IsOwnedFresh(itemID, true) then
-        return "owned"
-    end
-
-    -- Check if any source has requirements met
-    if HA.SourceManager then
-        local bestSource = HA.SourceManager:GetBestAvailableSource(itemID)
-        if bestSource then
-            return "available"
-        end
-
-        -- Has sources but none available right now
-        local primarySource = HA.SourceManager:GetSource(itemID)
-        if primarySource then
-            return "blocked"
-        end
+-- Determine the accessibility state for an item. SourceManager owns the
+-- ownership/source decision; sourceText is only a fallback for catalog-only data.
+local function GetAccessibilityState(itemID, sourceText, presentation)
+    presentation = presentation or GetCatalogPresentation(itemID)
+    if presentation and presentation.catalogGlowState then
+        return presentation.catalogGlowState
     end
 
     -- Fallback: if Blizzard provides sourceText, the item has a known source
@@ -311,7 +288,6 @@ local function GetAccessibilityState(itemID, entryInfo, sourceText)
         return "available"
     end
 
-    -- No source data at all
     return nil
 end
 
@@ -402,7 +378,8 @@ local function UpdateEntryOverlay(entryFrame)
     local sourceText = ResolveSourceText(entryInfo, itemID)
 
     -- Badge: look up source atlas (static data first, then sourceText)
-    local atlas = GetSourceBadgeAtlas(itemID)
+    local presentation = GetCatalogPresentation(itemID)
+    local atlas = GetSourceBadgeAtlas(itemID, presentation)
     if not atlas then
         atlas = GetSourceBadgeFromSourceText(sourceText)
     end
@@ -414,7 +391,7 @@ local function UpdateEntryOverlay(entryFrame)
     end
 
     -- Glow: determine accessibility state
-    local glowState = GetAccessibilityState(itemID, entryInfo, sourceText)
+    local glowState = GetAccessibilityState(itemID, sourceText, presentation)
 
     if showGlow and glowState then
         if glowState == "owned" and ownedStyle ~= "default" then
