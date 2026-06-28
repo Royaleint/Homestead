@@ -356,7 +356,7 @@ local function ItemMatchesPanelSourceFilter(itemID, sourceFilter)
     return false
 end
 
-local function GetPanelItemPresentation(itemID, npcID, sourceFilter)
+local function GetPanelItemPresentation(itemID, npcID, sourceFilter, result)
     local SM = HA.SourceManager
     if not SM or not SM.GetItemPresentation then
         return nil
@@ -367,6 +367,8 @@ local function GetPanelItemPresentation(itemID, npcID, sourceFilter)
         npcID = npcID,
         sourceFilter = sourceFilter,
         isVendorContext = true,
+        preferredSourceType = result and result.sourceType or nil,
+        preferredSourceData = result and result.sourceData or nil,
     })
 end
 
@@ -680,20 +682,20 @@ local function GetSourceBadgeAtlas(sourceType)
     return badgeAtlases and badgeAtlases[normalizedType] or nil
 end
 
-local function ApplySourceBadge(texture, sourceType)
-    if not texture or not sourceType then
+local function ApplySourceBadge(texture, sourceType, atlas, icon)
+    if not texture or (not sourceType and not atlas and not icon) then
         if texture then texture:Hide() end
         return
     end
 
-    local atlas = GetSourceBadgeAtlas(sourceType)
+    atlas = atlas or GetSourceBadgeAtlas(sourceType)
     if atlas then
         texture:SetTexture(nil)
         texture:SetAtlas(atlas, false)
         texture:SetTexCoord(0, 1, 0, 1)
     else
         local SM = HA.SourceManager
-        local icon = SM and SM.GetSourceTypeIcon and SM:GetSourceTypeIcon(sourceType)
+        icon = icon or (SM and SM.GetSourceTypeIcon and SM:GetSourceTypeIcon(sourceType))
         texture:SetTexture(icon or "Interface\\Icons\\INV_Misc_QuestionMark")
         texture:SetTexCoord(0.08, 0.92, 0.08, 0.92)
     end
@@ -1058,15 +1060,21 @@ local function PopulateItemResultRow(row, result, sourceFilter)
     local itemID = result.itemID
     local itemName = result.itemName or C_Item.GetItemNameByID(itemID) or ("Item " .. tostring(itemID))
     local itemIcon = C_Item.GetItemIconByID(itemID)
-    local displaySources = GetDisplaySourcesForItem(itemID, sourceFilter)
-    local preferredSource = GetPreferredDisplaySource(result, displaySources)
+    local presentation = GetPanelItemPresentation(itemID, nil, sourceFilter, result)
+    local displaySources = presentation and presentation.displaySources or GetDisplaySourcesForItem(itemID, sourceFilter)
+    local preferredSource = presentation and presentation.displaySource or GetPreferredDisplaySource(result, displaySources)
 
     row.itemID = itemID
     row.result = result
     row.icon:SetTexture(itemIcon or "Interface\\Icons\\INV_Misc_QuestionMark")
     row.nameText:SetText(itemName)
 
-    if IsItemOwned(itemID) then
+    local owned = presentation and presentation.isOwned
+    if not presentation then
+        owned = IsItemOwned(itemID)
+    end
+
+    if owned then
         row.iconBorder:SetColorTexture(0.2, 0.7, 0.2, 1)
         row.nameText:SetTextColor(0.7, 1, 0.7)
     else
@@ -1075,7 +1083,9 @@ local function PopulateItemResultRow(row, result, sourceFilter)
     end
 
     if preferredSource then
-        ApplySourceBadge(row.sourceBadge, preferredSource.type)
+        ApplySourceBadge(row.sourceBadge, preferredSource.type,
+            presentation and presentation.sourceBadgeAtlas,
+            presentation and presentation.sourceIcon)
         row.sourceText:SetText(FormatSourceSummary(preferredSource))
         row.sourceText:SetTextColor(0.8, 0.8, 0.8)
     else

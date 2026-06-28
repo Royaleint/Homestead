@@ -1164,7 +1164,36 @@ function SourceManager:GetItemPresentation(itemID, options)
     end
 
     local primarySource = self:GetSource(itemID)
-    local displaySource = bestSource or primarySource or displaySources[1]
+    local preferredSource = nil
+    local desiredType = options.preferredSourceType
+    if desiredType then
+        desiredType = self:NormalizeSourceType(desiredType) or desiredType
+    end
+
+    if options.preferredSourceData then
+        for _, source in ipairs(displaySources) do
+            if source.data == options.preferredSourceData then
+                preferredSource = source
+                break
+            end
+        end
+    end
+
+    if not preferredSource and desiredType then
+        for _, source in ipairs(displaySources) do
+            local normalizedType = self:NormalizeSourceType(source.type) or source.type
+            if normalizedType == desiredType then
+                preferredSource = source
+                break
+            end
+        end
+    end
+
+    local displaySource = preferredSource
+        or (normalizedFilter ~= "all" and displaySources[1])
+        or bestSource
+        or primarySource
+        or displaySources[1]
     local sourceType = displaySource and self:NormalizeSourceType(displaySource.type) or nil
 
     local catalogGlowState = nil
