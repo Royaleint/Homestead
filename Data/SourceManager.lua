@@ -1189,11 +1189,12 @@ function SourceManager:GetItemPresentation(itemID, options)
         end
     end
 
-    local displaySource = preferredSource
-        or (normalizedFilter ~= "all" and displaySources[1])
-        or bestSource
-        or primarySource
-        or displaySources[1]
+    local displaySource = nil
+    if normalizedFilter ~= "all" then
+        displaySource = preferredSource or displaySources[1]
+    else
+        displaySource = preferredSource or bestSource or primarySource or displaySources[1]
+    end
     local sourceType = displaySource and self:NormalizeSourceType(displaySource.type) or nil
 
     local catalogGlowState = nil
