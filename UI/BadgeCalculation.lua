@@ -174,7 +174,12 @@ local function BuildVendorStats(vendor, sourceFilter)
             local hasVerifiableRequirement = presentation and presentation.hasVerifiableRequirement or false
             local blockerLabels = presentation and presentation.blockerLabels or nil
 
-            if presentation and presentation.isOwned then
+            local isOwned = presentation and presentation.isOwned
+            if not presentation and HA.CatalogStore and HA.CatalogStore.IsOwnedFresh then
+                isOwned = HA.CatalogStore:IsOwnedFresh(itemID) == true
+            end
+
+            if isOwned then
                 collected = collected + 1
             else
                 if isUnverified then
