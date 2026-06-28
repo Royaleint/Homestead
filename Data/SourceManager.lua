@@ -1196,6 +1196,11 @@ function SourceManager:GetItemPresentation(itemID, options)
         displaySource = preferredSource or bestSource or primarySource or displaySources[1]
     end
     local sourceType = displaySource and self:NormalizeSourceType(displaySource.type) or nil
+    local primarySourceType = primarySource and self:NormalizeSourceType(primarySource.type) or nil
+    local sourceBadgeAtlases = HA.Constants and HA.Constants.SourceBadgeAtlas or nil
+    local sourceBadgeAtlas = sourceType and sourceBadgeAtlases and sourceBadgeAtlases[sourceType] or nil
+    local primarySourceBadgeAtlas = primarySourceType and sourceBadgeAtlases
+        and sourceBadgeAtlases[primarySourceType] or nil
 
     local catalogGlowState = nil
     if availabilityState == "owned" then
@@ -1231,12 +1236,14 @@ function SourceManager:GetItemPresentation(itemID, options)
         allSources = allSources,
         displaySources = displaySources,
         sourceType = sourceType,
-        sourceBadgeAtlas = sourceType and HA.Constants and HA.Constants.SourceBadgeAtlas and HA.Constants.SourceBadgeAtlas[sourceType] or nil,
+        sourceBadgeAtlas = sourceBadgeAtlas,
+        primarySourceBadgeAtlas = primarySourceBadgeAtlas,
         sourceIcon = sourceType and self:GetSourceTypeIcon(sourceType) or nil,
         catalogGlowState = catalogGlowState,
         merchantStatus = merchantStatus,
         inventoryStatus = inventoryStatus,
-        matchesSourceFilter = normalizedFilter == "all" or self:ItemMatchesSourceFilter(itemID, normalizedFilter, isVendorContext),
+        matchesSourceFilter = normalizedFilter == "all"
+            or self:ItemMatchesSourceFilter(itemID, normalizedFilter, isVendorContext),
     }
 end
 

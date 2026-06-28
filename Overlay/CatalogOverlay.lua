@@ -135,7 +135,8 @@ end
 
 local function GetSourceBadgeAtlas(itemID, presentation)
     presentation = presentation or GetCatalogPresentation(itemID)
-    return presentation and presentation.sourceBadgeAtlas or nil
+    if not presentation then return nil end
+    return presentation.primarySourceBadgeAtlas or presentation.sourceBadgeAtlas
 end
 
 -- Fallback: resolve sourceText through the shared parser so catalog badges stay
