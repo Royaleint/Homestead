@@ -492,15 +492,6 @@ end
 -- Badge/Collection Delegates (forwarded to BadgeCalculation)
 -------------------------------------------------------------------------------
 
--- Helper function to check if a specific item is owned (used by tooltips)
-local function IsItemOwned(itemID)
-    if not itemID then return false end
-    if HA.CatalogStore then
-        return HA.CatalogStore:IsOwnedFresh(itemID)
-    end
-    return false
-end
-
 function VendorMapPins:VendorHasUncollectedItems(vendor)
     return BC:VendorHasUncollectedItems(vendor)
 end
@@ -629,21 +620,27 @@ function VendorMapPins:ShowVendorTooltip(pin, vendor)
 
         for _, item in ipairs(allItems) do
             local itemName = item.name or (item.itemID and C_Item.GetItemInfo(item.itemID)) or "Unknown Item"
+            local availabilityState = nil
 
-            if item.itemID and IsItemOwned(item.itemID) then
-                -- Collected: green
-                tooltip:AddLine("  " .. itemName, 0, 1, 0)
+            if item.itemID and SM and SM.GetItemPresentation then
+                local presentation = SM:GetItemPresentation(item.itemID, {
+                    context = "vendorMapPin",
+                    npcID = vendor.npcID,
+                    sourceFilter = GetActiveSourceFilter(),
+                    isVendorContext = true,
+                })
+                availabilityState = presentation and presentation.availabilityState
+            elseif item.itemID and HA.CatalogStore and HA.CatalogStore:IsOwnedFresh(item.itemID) then
+                availabilityState = "owned"
             elseif item.itemID and SM and SM.GetVendorItemAvailabilityState then
-                local state = SM:GetVendorItemAvailabilityState(item.itemID, vendor.npcID)
-                if state == "locked" then
-                    -- Locked: red
-                    tooltip:AddLine("  " .. itemName, 1, 0.25, 0.25)
-                else
-                    -- Available: white
-                    tooltip:AddLine("  " .. itemName, 1, 1, 1)
-                end
+                availabilityState = SM:GetVendorItemAvailabilityState(item.itemID, vendor.npcID)
+            end
+
+            if availabilityState == "owned" then
+                tooltip:AddLine("  " .. itemName, 0, 1, 0)
+            elseif availabilityState == "locked" then
+                tooltip:AddLine("  " .. itemName, 1, 0.25, 0.25)
             else
-                -- Unknown state: white
                 tooltip:AddLine("  " .. itemName, 1, 1, 1)
             end
         end
