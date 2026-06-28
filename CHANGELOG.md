@@ -4,6 +4,7 @@
 
 ## Unreleased
 
+- Made Homestead's source, ownership, and availability displays more consistent across tooltips, catalog overlays, map panels, badges, and vendor overlays.
 - Fixed a login error on CurseForge/local builds when the WagoAnalytics fallback
   shim was active.
 - Fixed owned decor occasionally not being recognized as collected after a reload.
