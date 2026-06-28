@@ -62,20 +62,6 @@ local vendorStatsCache = {}
 local cachedZoneBadges = {}
 local cachedContinentBadges = {}
 
--------------------------------------------------------------------------------
--- Ownership Helper
--------------------------------------------------------------------------------
-
--- Helper function to check if a specific item is owned
--- Delegates to CatalogStore:IsOwnedFresh() — cache + bags + live API
-local function IsItemOwned(itemID)
-    if not itemID then return false end
-    if HA.CatalogStore then
-        return HA.CatalogStore:IsOwnedFresh(itemID)
-    end
-    return false
-end
-
 local function ShouldIncludeVendorInBadgeCounts(vendor)
     if not vendor or not vendor.endeavor then
         return true
@@ -163,24 +149,34 @@ local function BuildVendorStats(vendor, sourceFilter)
     local hasAnyVerifiableRequirements = false
     local lockedBlockerCounts = {}
 
+    local SM = HA.SourceManager
+
     for itemID in pairs(items) do
-        if ItemMatchesSourceFilter(itemID, sourceFilter) then
+        local presentation = nil
+        if SM and SM.GetItemPresentation then
+            presentation = SM:GetItemPresentation(itemID, {
+                context = "badge",
+                npcID = vendor.npcID,
+                sourceFilter = sourceFilter,
+                isVendorContext = true,
+            })
+        end
+
+        local matchesSourceFilter = presentation and presentation.matchesSourceFilter
+            or (not presentation and ItemMatchesSourceFilter(itemID, sourceFilter))
+
+        if matchesSourceFilter then
             hasMatchingItems = true
             total = total + 1
 
-            if IsItemOwned(itemID) then
+            local state = presentation and presentation.availabilityState or "purchasable"
+            local isUnverified = presentation and presentation.isUnverified or false
+            local hasVerifiableRequirement = presentation and presentation.hasVerifiableRequirement or false
+            local blockerLabels = presentation and presentation.blockerLabels or nil
+
+            if presentation and presentation.isOwned then
                 collected = collected + 1
             else
-                local SM = HA.SourceManager
-                local state, isUnverified = "purchasable", false
-                local hasVerifiableRequirement = false
-                local blockerLabels = nil
-
-                if SM and SM.GetVendorItemAvailabilityState then
-                    state, isUnverified, hasVerifiableRequirement, blockerLabels =
-                        SM:GetVendorItemAvailabilityState(itemID, vendor.npcID)
-                end
-
                 if isUnverified then
                     provisionalUnverified = provisionalUnverified + 1
                 elseif hasVerifiableRequirement then
