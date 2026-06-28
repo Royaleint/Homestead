@@ -1101,6 +1101,115 @@ function SourceManager:GetItemAvailabilityState(itemID, npcID)
     return "unknown", false, false, nil
 end
 
+-- Return a normalized presentation payload for UI and overlay consumers.
+-- This does not determine ownership itself; ownership remains delegated to
+-- CatalogStore:IsOwnedFresh(). Catalog render paths pass readOnly=true so they
+-- do not write ownership state or fire events while Blizzard recycles frames.
+function SourceManager:GetItemPresentation(itemID, options)
+    if not itemID then return nil end
+
+    if type(options) == "string" then
+        options = { context = options }
+    elseif type(options) ~= "table" then
+        options = {}
+    end
+
+    local context = options.context or "standard"
+    local npcID = options.npcID or options.vendorNpcID
+    local sourceFilter = options.sourceFilter
+    local isVendorContext = options.isVendorContext
+    local readOnlyOwnership = options.readOnlyOwnership == true or context == "catalog"
+
+    local catalogStore = HA.CatalogStore
+    local isOwned = false
+    if catalogStore and catalogStore.IsOwnedFresh then
+        isOwned = catalogStore:IsOwnedFresh(itemID, readOnlyOwnership) == true
+    end
+
+    local availabilityState = "unknown"
+    local isUnverified = false
+    local hasVerifiableRequirement = false
+    local blockerLabels = nil
+
+    local allSources = self:GetAllSources(itemID) or EMPTY_SOURCES
+    local bestSource = nil
+    for _, source in ipairs(allSources) do
+        local available = self:IsSourceAvailableNow(itemID, source)
+        if available ~= false then
+            bestSource = source
+            break
+        end
+    end
+
+    if isOwned then
+        availabilityState = "owned"
+    elseif npcID then
+        availabilityState, isUnverified, hasVerifiableRequirement, blockerLabels =
+            self:GetVendorItemAvailabilityState(itemID, npcID)
+    elseif bestSource then
+        availabilityState = "available"
+    elseif self:GetSource(itemID) then
+        availabilityState = "blocked"
+    end
+    local displaySources = allSources
+    local normalizedFilter = self:NormalizeSourceFilter(sourceFilter)
+    if normalizedFilter ~= "all" then
+        displaySources = {}
+        for _, source in ipairs(allSources) do
+            local normalizedType = self:NormalizeSourceType(source.type) or source.type
+            if normalizedType == normalizedFilter then
+                displaySources[#displaySources + 1] = source
+            end
+        end
+    end
+
+    local primarySource = self:GetSource(itemID)
+    local displaySource = bestSource or primarySource or displaySources[1]
+    local sourceType = displaySource and self:NormalizeSourceType(displaySource.type) or nil
+
+    local catalogGlowState = nil
+    if availabilityState == "owned" then
+        catalogGlowState = "owned"
+    elseif availabilityState == "available" or availabilityState == "purchasable" then
+        catalogGlowState = "available"
+    elseif availabilityState == "blocked" or availabilityState == "locked" then
+        catalogGlowState = "blocked"
+    end
+
+    local merchantStatus = nil
+    if context == "merchant" then
+        merchantStatus = isOwned and "owned" or "unowned"
+    end
+
+    local inventoryStatus = nil
+    if context == "inventory" then
+        inventoryStatus = isOwned and "owned" or "in_bags_unlearned"
+    end
+
+    return {
+        itemID = itemID,
+        context = context,
+        isOwned = isOwned,
+        ownershipState = isOwned and "owned" or "unowned",
+        availabilityState = availabilityState,
+        isUnverified = isUnverified,
+        hasVerifiableRequirement = hasVerifiableRequirement,
+        blockerLabels = blockerLabels,
+        primarySource = primarySource,
+        bestSource = bestSource,
+        displaySource = displaySource,
+        allSources = allSources,
+        displaySources = displaySources,
+        sourceType = sourceType,
+        sourceBadgeAtlas = sourceType and HA.Constants and HA.Constants.SourceBadgeAtlas and HA.Constants.SourceBadgeAtlas[sourceType] or nil,
+        sourceIcon = sourceType and self:GetSourceTypeIcon(sourceType) or nil,
+        catalogGlowState = catalogGlowState,
+        merchantStatus = merchantStatus,
+        inventoryStatus = inventoryStatus,
+        matchesSourceFilter = normalizedFilter == "all" or self:ItemMatchesSourceFilter(itemID, normalizedFilter, isVendorContext),
+    }
+end
+
 -------------------------------------------------------------------------------
 -- Source Type Checkers
 -------------------------------------------------------------------------------
