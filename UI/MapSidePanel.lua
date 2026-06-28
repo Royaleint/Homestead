@@ -356,6 +356,20 @@ local function ItemMatchesPanelSourceFilter(itemID, sourceFilter)
     return false
 end
 
+local function GetPanelItemPresentation(itemID, npcID, sourceFilter)
+    local SM = HA.SourceManager
+    if not SM or not SM.GetItemPresentation then
+        return nil
+    end
+
+    return SM:GetItemPresentation(itemID, {
+        context = "sidePanel",
+        npcID = npcID,
+        sourceFilter = sourceFilter,
+        isVendorContext = true,
+    })
+end
+
 -- Gather all unique item IDs for a vendor (static DB + scanned data)
 local function GetVendorItemIDs(vendor, sourceFilter)
     if not HA.VendorData or not HA.VendorData.GetMergedItemIDs then
@@ -487,15 +501,15 @@ local function FormatPurchasabilityCountText(collected, total, locked)
 end
 
 -- Check if an item has unmet requirements the player hasn't satisfied
-local function GetUnmetRequirements(itemID, npcID)
+local function GetUnmetRequirements(itemID, npcID, presentation)
     local SM = HA.SourceManager
     if not SM then return nil end
     local reqs = SM:GetRequirements(itemID, npcID)
 
-    -- Use vendor-scoped availability classification when possible.
-    -- Only confirmed false (not nil/unknown) counts as locked.
-    local state, blockerLabels
-    if SM.GetVendorItemAvailabilityState then
+    local state = presentation and presentation.availabilityState
+    local blockerLabels = presentation and presentation.blockerLabels
+
+    if not presentation and SM.GetVendorItemAvailabilityState then
         local availability = { SM:GetVendorItemAvailabilityState(itemID, npcID) }
         state = availability[1]
         blockerLabels = availability[4]
@@ -578,9 +592,12 @@ local function PopulateItemGrid(row, vendor, sourceFilter, highlightItems)
             icon.texture:SetTexture("Interface\\Icons\\INV_Misc_QuestionMark")
         end
 
-        -- Check ownership and requirements
-        local owned = IsItemOwned(itemID)
-        local unmetReqs, allReqs = GetUnmetRequirements(itemID, npcID)
+        local presentation = GetPanelItemPresentation(itemID, npcID, sourceFilter)
+        local owned = presentation and presentation.isOwned
+        if not presentation then
+            owned = IsItemOwned(itemID)
+        end
+        local unmetReqs, allReqs = GetUnmetRequirements(itemID, npcID, presentation)
         icon.requirements = unmetReqs and allReqs or nil
 
         icon.texture:SetDesaturated(false)
