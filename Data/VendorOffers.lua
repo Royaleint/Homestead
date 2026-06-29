@@ -18,7 +18,9 @@
                 isPurchasable    = <bool>,
                 merchantSlot     = <n>,
                 hasExtendedCost  = <bool>,
+                displayOrder     = <n>,  -- legacy item order; 999999 for scan-only extras
             },
+            -- isUsable is merchant metadata; isPurchasable is the lock signal when present.
             ...
         }
 ]]
@@ -27,7 +29,7 @@ local _, HA = ...
 
 -- GENERATED: do not hand-edit. Regenerate: node Home_Dev/scripts/generate-vendor-offers.mjs
 -- [npcID] = { [itemID] = { price, currencies, itemCosts, namedCosts,
---     isUsable, isPurchasable, merchantSlot, hasExtendedCost } }
+--     isUsable, isPurchasable, merchantSlot, hasExtendedCost, displayOrder } }
 local GeneratedBase = {
   [1247] = {
     [256330] = {
