@@ -15,6 +15,8 @@
 
 local _, HA = ...
 
+local F = _G.Foundry_1_0
+
 local MapSidePanel = {}
 HA.MapSidePanel = MapSidePanel
 
@@ -64,6 +66,8 @@ local lastRefreshMapID = nil
 local isPoppedOut = false
 local panelSourceFilter = "all"  -- all|vendor|quest|achievement|profession|event|drop
 local sourceFilterDropdown = nil
+local menuContextMenu   -- Foundry.Menu controller, set in MapSidePanel:Initialize()
+local menuSourceFilter  -- Foundry.Menu controller, set in MapSidePanel:Initialize()
 local progressBar = nil
 local progressBarBg = nil
 local progressBarLockedFill = nil
@@ -332,13 +336,8 @@ local function AddSourceFilterMenuEntries(rootDescription)
 end
 
 local function OpenSourceFilterDropdown()
-    if not sourceFilterDropdown or not MenuUtil or not MenuUtil.CreateContextMenu then
-        return
-    end
-
-    MenuUtil.CreateContextMenu(sourceFilterDropdown, function(_, rootDescription)
-        AddSourceFilterMenuEntries(rootDescription)
-    end)
+    if not sourceFilterDropdown or not menuSourceFilter then return end
+    menuSourceFilter:CreateContextMenu(sourceFilterDropdown)
 end
 
 local function ItemMatchesPanelSourceFilter(itemID, sourceFilter)
@@ -2184,75 +2183,9 @@ local PIN_SIZE_LABELS = {
 local PIN_SIZE_ORDER = { 8, 10, 12, 14, 16, 18 }
 
 local function ShowContextMenu(owner)
-    MenuUtil.CreateContextMenu(owner, function(_, rootDescription)
-        rootDescription:CreateTitle("Homestead")
-
-        -- Toggle: Show map pins
-        rootDescription:CreateCheckbox("Show Map Pins", function()
-            return HA.Addon.db.profile.vendorTracer.showMapPins ~= false
-        end, function()
-            local newVal = HA.Addon.db.profile.vendorTracer.showMapPins == false
-            HA.Addon.db.profile.vendorTracer.showMapPins = newVal
-            if HA.VendorMapPins then
-                if newVal then
-                    HA.VendorMapPins:Enable()
-                else
-                    HA.VendorMapPins:Disable()
-                end
-            end
-        end)
-
-        -- Submenu: Pin color
-        local colorSubmenu = rootDescription:CreateButton("Pin Color")
-        for _, preset in ipairs(PIN_COLOR_ORDER) do
-            colorSubmenu:CreateRadio(PIN_COLOR_NAMES[preset], function()
-                return (HA.Addon.db.profile.vendorTracer.pinColorPreset or "default") == preset
-            end, function()
-                HA.Addon.db.profile.vendorTracer.pinColorPreset = preset
-                if HA.VendorMapPins then
-                    HA.VendorMapPins:RefreshAllPinColors()
-                end
-                MapSidePanel:RefreshContent()
-            end)
-        end
-
-        -- Submenu: Pin size
-        local sizeSubmenu = rootDescription:CreateButton("World Map Pin Size")
-        for _, size in ipairs(PIN_SIZE_ORDER) do
-            sizeSubmenu:CreateRadio(PIN_SIZE_LABELS[size], function()
-                return HA.PinFrameFactory:GetPinIconSize() == size
-            end, function()
-                HA.Addon.db.profile.vendorTracer.pinIconSize = size
-                if HA.VendorMapPins then
-                    HA.VendorMapPins:RefreshAllPinColors()
-                end
-            end)
-        end
-
-        -- Detach / Attach panel toggle (only when panel is visible or popped out)
-        if panelFrame and (panelFrame:IsShown() or isPoppedOut) then
-            rootDescription:CreateCheckbox(
-                isPoppedOut and "Attach to Map" or "Detach Panel",
-                function() return isPoppedOut end,
-                function()
-                    if isPoppedOut then
-                        MapSidePanel:DockPanel()
-                    else
-                        MapSidePanel:PopOut()
-                    end
-                end
-            )
-        end
-
-        -- Open full settings
-        rootDescription:CreateDivider()
-        rootDescription:CreateButton("Open Settings", function()
-            HideUIPanel(WorldMapFrame)
-            if HA.OptionsFrame and HA.OptionsFrame.Open then
-                HA.OptionsFrame:Open()
-            end
-        end)
-    end)
+    if menuContextMenu then
+        menuContextMenu:CreateContextMenu(owner)
+    end
 end
 
 local function CreateOverlayButton()
@@ -4279,6 +4212,89 @@ function MapSidePanel:Initialize()
     -- Initialize SearchProvider
     if HA.SearchProvider and HA.SearchProvider.Initialize then
         HA.SearchProvider:Initialize()
+    end
+
+    -- Foundry.Menu controllers for context menus and source-filter dropdown
+    if F then
+        menuContextMenu = F.Menu:New({
+            name    = "HS.ContextMenu",
+            builder = function(owner, rootDescription)
+                rootDescription:CreateTitle("Homestead")
+
+                -- Toggle: Show map pins
+                rootDescription:CreateCheckbox("Show Map Pins", function()
+                    return HA.Addon.db.profile.vendorTracer.showMapPins ~= false
+                end, function()
+                    local newVal = HA.Addon.db.profile.vendorTracer.showMapPins == false
+                    HA.Addon.db.profile.vendorTracer.showMapPins = newVal
+                    if HA.VendorMapPins then
+                        if newVal then
+                            HA.VendorMapPins:Enable()
+                        else
+                            HA.VendorMapPins:Disable()
+                        end
+                    end
+                end)
+
+                -- Submenu: Pin color
+                local colorSubmenu = rootDescription:CreateButton("Pin Color")
+                for _, preset in ipairs(PIN_COLOR_ORDER) do
+                    colorSubmenu:CreateRadio(PIN_COLOR_NAMES[preset], function()
+                        return (HA.Addon.db.profile.vendorTracer.pinColorPreset or "default") == preset
+                    end, function()
+                        HA.Addon.db.profile.vendorTracer.pinColorPreset = preset
+                        if HA.VendorMapPins then
+                            HA.VendorMapPins:RefreshAllPinColors()
+                        end
+                        MapSidePanel:RefreshContent()
+                    end)
+                end
+
+                -- Submenu: Pin size
+                local sizeSubmenu = rootDescription:CreateButton("World Map Pin Size")
+                for _, size in ipairs(PIN_SIZE_ORDER) do
+                    sizeSubmenu:CreateRadio(PIN_SIZE_LABELS[size], function()
+                        return HA.PinFrameFactory:GetPinIconSize() == size
+                    end, function()
+                        HA.Addon.db.profile.vendorTracer.pinIconSize = size
+                        if HA.VendorMapPins then
+                            HA.VendorMapPins:RefreshAllPinColors()
+                        end
+                    end)
+                end
+
+                -- Detach / Attach panel toggle (only when panel is visible or popped out)
+                if panelFrame and (panelFrame:IsShown() or isPoppedOut) then
+                    rootDescription:CreateCheckbox(
+                        isPoppedOut and "Attach to Map" or "Detach Panel",
+                        function() return isPoppedOut end,
+                        function()
+                            if isPoppedOut then
+                                MapSidePanel:DockPanel()
+                            else
+                                MapSidePanel:PopOut()
+                            end
+                        end
+                    )
+                end
+
+                -- Open full settings
+                rootDescription:CreateDivider()
+                rootDescription:CreateButton("Open Settings", function()
+                    HideUIPanel(WorldMapFrame)
+                    if HA.OptionsFrame and HA.OptionsFrame.Open then
+                        HA.OptionsFrame:Open()
+                    end
+                end)
+            end,
+        })
+
+        menuSourceFilter = F.Menu:New({
+            name    = "HS.SourceFilter",
+            builder = function(_, rootDescription)
+                AddSourceFilterMenuEntries(rootDescription)
+            end,
+        })
     end
 
     isInitialized = true
