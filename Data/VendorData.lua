@@ -327,11 +327,22 @@ function VendorData:ResolveAlias(npcID)
     return nil
 end
 
+local function ProjectVendorWithItems(self, vendor, npcID)
+    if not vendor then return nil end
+
+    local copy = {}
+    for key, value in pairs(vendor) do
+        copy[key] = value
+    end
+    copy.items = vendor.items or self:GetVendorItems(npcID or vendor.npcID)
+    return copy
+end
+
 -- Get vendor info by NPC ID (resolves aliases)
 function VendorData:GetVendor(npcID)
     if HA.VendorIdentity then
         local vendor = HA.VendorIdentity:GetVendor(npcID)
-        if vendor then return vendor end
+        if vendor then return ProjectVendorWithItems(self, vendor, npcID) end
     end
     if HA.EndeavorsData and HA.EndeavorsData.Vendors then
         local vendor = HA.EndeavorsData.Vendors[npcID]
@@ -392,7 +403,7 @@ function VendorData:GetVendorsInMap(mapID)
         local identityVendors = HA.VendorIdentity:GetVendorsByMapID(mapID)
         if identityVendors then
             for _, vendor in ipairs(identityVendors) do
-                result[#result + 1] = vendor
+                result[#result + 1] = ProjectVendorWithItems(self, vendor)
                 if vendor.npcID then
                     addedNPCs[vendor.npcID] = true
                 end
@@ -402,7 +413,7 @@ function VendorData:GetVendorsInMap(mapID)
         local dbVendors = HA.VendorDatabase:GetVendorsByMapID(mapID)
         if dbVendors then
             for _, vendor in ipairs(dbVendors) do
-                result[#result + 1] = vendor
+                result[#result + 1] = ProjectVendorWithItems(self, vendor)
                 if vendor.npcID then
                     addedNPCs[vendor.npcID] = true
                 end
@@ -458,7 +469,7 @@ function VendorData:GetVendorsForFaction(faction)
         for _, vendor in pairs(staticVendors) do
             local vendorFaction = vendor.faction or "Neutral"
             if vendorFaction == faction or vendorFaction == "Neutral" then
-                table.insert(result, vendor)
+                table.insert(result, ProjectVendorWithItems(self, vendor, vendor.npcID))
             end
         end
     end
@@ -635,7 +646,7 @@ function VendorData:SearchVendors(searchText)
                 matched = true
             end
             if matched then
-                result[#result + 1] = vendor
+                result[#result + 1] = ProjectVendorWithItems(self, vendor, npcID)
                 addedNPCs[npcID] = true
             end
         end
@@ -698,7 +709,7 @@ function VendorData:GetAllVendors()
             or (HA.VendorDatabase and HA.VendorDatabase:GetAllVendors())
     if staticVendors then
         for _, vendor in ipairs(staticVendors) do
-            result[#result + 1] = vendor
+            result[#result + 1] = ProjectVendorWithItems(self, vendor)
             if vendor.npcID then
                 addedNPCs[vendor.npcID] = true
             end
@@ -751,7 +762,7 @@ function VendorData:GetVendorsByExpansion(expansion)
             or (HA.VendorDatabase and HA.VendorDatabase:GetVendorsByExpansion(expansion))
     if staticVendors then
         for _, vendor in ipairs(staticVendors) do
-            result[#result + 1] = vendor
+            result[#result + 1] = ProjectVendorWithItems(self, vendor)
         end
     end
     if HA.EndeavorsData and HA.EndeavorsData.Vendors then
@@ -1080,15 +1091,7 @@ function VendorData:GetVendorItems(npcID)
 end
 
 function VendorData:GetVendorWithItems(npcID)
-    local vendor = self:GetVendor(npcID)
-    if not vendor then return nil end
-
-    local copy = {}
-    for key, value in pairs(vendor) do
-        copy[key] = value
-    end
-    copy.items = self:GetVendorItems(npcID)
-    return copy
+    return self:GetVendor(npcID)
 end
 
 function VendorData:BuildOfferIndexes()
