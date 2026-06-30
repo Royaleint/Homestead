@@ -237,7 +237,7 @@ end
 -- Shared Item Merge Helpers
 -------------------------------------------------------------------------------
 
--- Merge static vendor items + scanned vendor items into a deduplicated itemID set.
+-- Merge static/offer-backed vendor items + scanned vendor items into a deduplicated itemID set.
 -- Returns:
 --   itemSet                 -- {[itemID] = true}
 --   orderedItemIDs (opt-in) -- {itemID1, itemID2, ...} in merge order
@@ -262,9 +262,13 @@ function VendorData:GetMergedItemSet(vendor, includeOrderedIDs)
         end
     end
 
-    -- Static items from vendor database/endeavors data
-    if vendor.items and #vendor.items > 0 then
-        for _, item in ipairs(vendor.items) do
+    -- Static items from explicit vendor rows or projected VendorOffers data.
+    local staticItems = vendor.items
+    if (not staticItems or #staticItems == 0) and vendor.npcID then
+        staticItems = self:GetVendorItems(vendor.npcID)
+    end
+    if staticItems and #staticItems > 0 then
+        for _, item in ipairs(staticItems) do
             AddItem(self:GetItemID(item))
         end
     end
@@ -301,13 +305,17 @@ function VendorData:GetMergedItemIDs(vendor)
 end
 
 -------------------------------------------------------------------------------
--- Query Functions (delegate to VendorDatabase)
+-- Query Functions
 -------------------------------------------------------------------------------
 
 -- Resolve an alias NPC ID to its canonical ID.
 -- Returns the canonical ID if an alias exists, nil otherwise.
--- Checks both VendorDatabase.Aliases and EndeavorsData.Aliases.
+-- Checks VendorIdentity, VendorDatabase, and EndeavorsData aliases.
 function VendorData:ResolveAlias(npcID)
+    if HA.VendorIdentity and HA.VendorIdentity.Aliases then
+        local id = HA.VendorIdentity.Aliases[npcID]
+        if id then return id end
+    end
     if HA.VendorDatabase and HA.VendorDatabase.Aliases then
         local id = HA.VendorDatabase.Aliases[npcID]
         if id then return id end
@@ -321,12 +329,16 @@ end
 
 -- Get vendor info by NPC ID (resolves aliases)
 function VendorData:GetVendor(npcID)
-    if HA.VendorDatabase then
-        local vendor = HA.VendorDatabase:GetVendor(npcID)
+    if HA.VendorIdentity then
+        local vendor = HA.VendorIdentity:GetVendor(npcID)
         if vendor then return vendor end
     end
     if HA.EndeavorsData and HA.EndeavorsData.Vendors then
         local vendor = HA.EndeavorsData.Vendors[npcID]
+        if vendor then return vendor end
+    end
+    if HA.VendorDatabase then
+        local vendor = HA.VendorDatabase:GetVendor(npcID)
         if vendor then return vendor end
     end
     -- Resolve alias and retry (cycle guard: canonicalID must differ)
@@ -339,11 +351,14 @@ end
 
 -- Check if vendor exists (resolves aliases)
 function VendorData:HasVendor(npcID)
-    if HA.VendorDatabase and HA.VendorDatabase:HasVendor(npcID) then
+    if HA.VendorIdentity and HA.VendorIdentity:HasVendor(npcID) then
         return true
     end
     if HA.EndeavorsData and HA.EndeavorsData.Vendors then
         if HA.EndeavorsData.Vendors[npcID] then return true end
+    end
+    if HA.VendorDatabase and HA.VendorDatabase:HasVendor(npcID) then
+        return true
     end
     -- Resolve alias and retry (cycle guard: canonicalID must differ)
     local canonicalID = self:ResolveAlias(npcID)
@@ -372,8 +387,18 @@ function VendorData:GetVendorsInMap(mapID)
     local result = {}
     local addedNPCs = {}
 
-    -- Static database vendors
-    if HA.VendorDatabase then
+    -- Static identity vendors
+    if HA.VendorIdentity then
+        local identityVendors = HA.VendorIdentity:GetVendorsByMapID(mapID)
+        if identityVendors then
+            for _, vendor in ipairs(identityVendors) do
+                result[#result + 1] = vendor
+                if vendor.npcID then
+                    addedNPCs[vendor.npcID] = true
+                end
+            end
+        end
+    elseif HA.VendorDatabase then
         local dbVendors = HA.VendorDatabase:GetVendorsByMapID(mapID)
         if dbVendors then
             for _, vendor in ipairs(dbVendors) do
@@ -426,9 +451,11 @@ end
 function VendorData:GetVendorsForFaction(faction)
     local result = {}
 
-    -- VendorDatabase vendors
-    if HA.VendorDatabase then
-        for npcID, vendor in pairs(HA.VendorDatabase.Vendors) do
+    -- Static identity vendors
+    local staticVendors = HA.VendorIdentity and HA.VendorIdentity.Vendors
+            or (HA.VendorDatabase and HA.VendorDatabase.Vendors)
+    if staticVendors then
+        for _, vendor in pairs(staticVendors) do
             local vendorFaction = vendor.faction or "Neutral"
             if vendorFaction == faction or vendorFaction == "Neutral" then
                 table.insert(result, vendor)
@@ -456,34 +483,23 @@ function VendorData:GetVendorsForItem(itemID)
     local result = {}
     local seenNPCs = {}  -- Track NPC IDs to avoid duplicates
 
-    -- Priority 1: Static VendorDatabase (curated, authoritative)
-    if HA.VendorDatabase then
-        if HA.VendorDatabase.ByItemID then
-            -- Index is built: fast lookup (nil result = item not sold by any vendor)
-            if HA.VendorDatabase.ByItemID[itemID] then
-                for _, npcID in ipairs(HA.VendorDatabase.ByItemID[itemID]) do
-                    local vendor = HA.VendorDatabase.Vendors[npcID]
-                    if vendor then
-                        table.insert(result, vendor)
-                        seenNPCs[npcID] = true
-                    end
-                end
+    -- Priority 1: Static offer index (curated, authoritative)
+    if self.OfferByItemID and self.OfferByItemID[itemID] then
+        for _, npcID in ipairs(self.OfferByItemID[itemID]) do
+            local vendor = self:GetVendor(npcID)
+            if vendor then
+                table.insert(result, vendor)
+                seenNPCs[npcID] = true
             end
-        else
-            -- Fallback: iterate all vendors (index not built yet)
-            if HA.DevAddon and HA.Addon then
-                HA.Addon:Debug("WARNING: ByItemID index not built — possible init ordering issue")
-            end
-            for npcID, vendor in pairs(HA.VendorDatabase.Vendors) do
-                if vendor.items then
-                    for _, item in ipairs(vendor.items) do
-                        local vendorItemID = self:GetItemID(item)
-                        if vendorItemID == itemID then
-                            table.insert(result, vendor)
-                            seenNPCs[npcID] = true
-                            break
-                        end
-                    end
+        end
+    elseif HA.VendorDatabase then
+        -- Phase-3 fallback while legacy VendorDatabase still loads.
+        if HA.VendorDatabase.ByItemID and HA.VendorDatabase.ByItemID[itemID] then
+            for _, npcID in ipairs(HA.VendorDatabase.ByItemID[itemID]) do
+                local vendor = self:GetVendor(npcID)
+                if vendor then
+                    table.insert(result, vendor)
+                    seenNPCs[npcID] = true
                 end
             end
         end
@@ -605,9 +621,11 @@ function VendorData:SearchVendors(searchText)
     local result = {}
     local addedNPCs = {}
 
-    -- Search static database
-    if HA.VendorDatabase then
-        for npcID, vendor in pairs(HA.VendorDatabase.Vendors) do
+    -- Search static identity data
+    local staticVendors = HA.VendorIdentity and HA.VendorIdentity.Vendors
+            or (HA.VendorDatabase and HA.VendorDatabase.Vendors)
+    if staticVendors then
+        for npcID, vendor in pairs(staticVendors) do
             local matched = false
             if vendor.name and vendor.name:lower():find(lowerSearch, 1, true) then
                 matched = true
@@ -675,15 +693,14 @@ function VendorData:GetAllVendors()
     local result = {}
     local addedNPCs = {}
 
-    -- Static database vendors
-    if HA.VendorDatabase then
-        local dbVendors = HA.VendorDatabase:GetAllVendors()
-        if dbVendors then
-            for _, vendor in ipairs(dbVendors) do
-                result[#result + 1] = vendor
-                if vendor.npcID then
-                    addedNPCs[vendor.npcID] = true
-                end
+    -- Static identity vendors
+    local staticVendors = HA.VendorIdentity and HA.VendorIdentity:GetAllVendors()
+            or (HA.VendorDatabase and HA.VendorDatabase:GetAllVendors())
+    if staticVendors then
+        for _, vendor in ipairs(staticVendors) do
+            result[#result + 1] = vendor
+            if vendor.npcID then
+                addedNPCs[vendor.npcID] = true
             end
         end
     end
@@ -716,7 +733,9 @@ end
 -- Get vendor count
 function VendorData:GetVendorCount()
     local count = 0
-    if HA.VendorDatabase then
+    if HA.VendorIdentity then
+        count = count + HA.VendorIdentity:GetVendorCount()
+    elseif HA.VendorDatabase then
         count = count + HA.VendorDatabase:GetVendorCount()
     end
     if HA.EndeavorsData then
@@ -728,9 +747,10 @@ end
 -- Get vendors by expansion
 function VendorData:GetVendorsByExpansion(expansion)
     local result = {}
-    if HA.VendorDatabase then
-        local dbVendors = HA.VendorDatabase:GetVendorsByExpansion(expansion)
-        for _, vendor in ipairs(dbVendors) do
+    local staticVendors = HA.VendorIdentity and HA.VendorIdentity:GetVendorsByExpansion(expansion)
+            or (HA.VendorDatabase and HA.VendorDatabase:GetVendorsByExpansion(expansion))
+    if staticVendors then
+        for _, vendor in ipairs(staticVendors) do
             result[#result + 1] = vendor
         end
     end
@@ -794,11 +814,13 @@ function VendorData:BuildNameIndex()
         end
     end
 
-    -- Auto-populate VendorNameToNPC from VendorDatabase for any vendors
+    -- Auto-populate VendorNameToNPC from static identity data for any vendors
     -- not already in the manual table (preserves manual multi-NPC entries)
-    if HA.VendorDatabase and HA.VendorDatabase.Vendors then
-        -- Add any vendor from the database not already covered
-        for npcID, vendor in pairs(HA.VendorDatabase.Vendors) do
+    local staticVendors = HA.VendorIdentity and HA.VendorIdentity.Vendors
+            or (HA.VendorDatabase and HA.VendorDatabase.Vendors)
+    if staticVendors then
+        -- Add any vendor from the static authority not already covered
+        for npcID, vendor in pairs(staticVendors) do
             if vendor.name and not coveredNPCs[npcID] then
                 local existing = self.VendorNameToNPC[vendor.name]
                 if existing then
@@ -909,10 +931,15 @@ end
 -------------------------------------------------------------------------------
 
 function VendorData:Initialize()
-    -- Build indexes in VendorDatabase
+    -- Build indexes in static vendor authorities.
+    if HA.VendorIdentity and HA.VendorIdentity.BuildIndexes then
+        HA.VendorIdentity:BuildIndexes()
+    end
     if HA.VendorDatabase and HA.VendorDatabase.BuildIndexes then
         HA.VendorDatabase:BuildIndexes()
     end
+
+    self:BuildOfferIndexes()
 
     -- Build reverse lookup for vendor names
     self:BuildNameIndex()
@@ -971,6 +998,127 @@ function VendorData:GetOffers(npcID)
     end
     return next(result) and result or nil
 end
+
+-- Convert a VendorOffers row into the legacy VendorDatabase item shape.
+function VendorData:OfferToLegacyItem(itemID, offer)
+    local _ = self
+    if not offer then return itemID end
+
+    local cost = nil
+
+    if offer.price and offer.price > 0 then
+        cost = cost or {}
+        cost.gold = offer.price
+    end
+
+    if offer.currencies and #offer.currencies > 0 then
+        cost = cost or {}
+        cost.currencies = {}
+        for _, currency in ipairs(offer.currencies) do
+            cost.currencies[#cost.currencies + 1] = {
+                id = currency.id,
+                amount = currency.amount,
+                name = currency.name,
+            }
+        end
+    end
+
+    if offer.namedCosts and #offer.namedCosts > 0 then
+        cost = cost or {}
+        cost.currencies = cost.currencies or {}
+        for _, namedCost in ipairs(offer.namedCosts) do
+            cost.currencies[#cost.currencies + 1] = {
+                name = namedCost.name,
+                amount = namedCost.amount,
+            }
+        end
+    end
+
+    if offer.itemCosts and #offer.itemCosts > 0 then
+        cost = cost or {}
+        cost.items = {}
+        for _, itemCost in ipairs(offer.itemCosts) do
+            cost.items[#cost.items + 1] = {
+                id = itemCost.id or itemCost.itemID,
+                amount = itemCost.amount,
+                name = itemCost.name,
+            }
+        end
+    end
+
+    if not cost then
+        return itemID
+    end
+
+    return { itemID, cost = cost }
+end
+
+function VendorData:GetVendorItems(npcID)
+    local offers = self:GetOffers(npcID)
+    if not offers then return {} end
+
+    local ordered = {}
+    for itemID, offer in pairs(offers) do
+        ordered[#ordered + 1] = {
+            itemID = itemID,
+            offer = offer,
+            displayOrder = offer.displayOrder or 999999,
+        }
+    end
+    table.sort(ordered, function(left, right)
+        if left.displayOrder ~= right.displayOrder then
+            return left.displayOrder < right.displayOrder
+        end
+        return left.itemID < right.itemID
+    end)
+
+    local items = {}
+    for _, row in ipairs(ordered) do
+        items[#items + 1] = self:OfferToLegacyItem(row.itemID, row.offer)
+    end
+    return items
+end
+
+function VendorData:GetVendorWithItems(npcID)
+    local vendor = self:GetVendor(npcID)
+    if not vendor then return nil end
+
+    local copy = {}
+    for key, value in pairs(vendor) do
+        copy[key] = value
+    end
+    copy.items = self:GetVendorItems(npcID)
+    return copy
+end
+
+function VendorData:BuildOfferIndexes()
+    self.OfferByItemID = {}
+    if not HA.VendorOffers then return end
+
+    local seenNPCs = {}
+    local function addNPC(npcID)
+        if seenNPCs[npcID] then return end
+        seenNPCs[npcID] = true
+        local offers = self:GetOffers(npcID)
+        if not offers then return end
+        for itemID in pairs(offers) do
+            self.OfferByItemID[itemID] = self.OfferByItemID[itemID] or {}
+            table.insert(self.OfferByItemID[itemID], npcID)
+        end
+    end
+
+    for npcID in pairs(HA.VendorOffers.GeneratedBase or {}) do addNPC(npcID) end
+    for npcID in pairs(HA.VendorOffers.ManualOverrides or {}) do addNPC(npcID) end
+end
+
+function VendorData:InvalidateVendorCaches()
+    if HA.VendorIdentity and HA.VendorIdentity.InvalidateVendorCache then
+        HA.VendorIdentity:InvalidateVendorCache()
+    end
+    self:BuildOfferIndexes()
+    self:BuildScannedIndex()
+end
+
 
 -------------------------------------------------------------------------------
 -- Module Registration
