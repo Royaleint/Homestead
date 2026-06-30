@@ -237,7 +237,7 @@ local function GetPrimarySourceCounts(itemSet)
 end
 
 local function IsDelistCandidate(vendor, npcID)
-    if not vendor or not HA.VendorDatabase or not HA.VendorDatabase:HasVendor(npcID) then
+    if not vendor or not HA.VendorData or not HA.VendorData.HasVendor or not HA.VendorData:HasVendor(npcID) then
         return false
     end
 

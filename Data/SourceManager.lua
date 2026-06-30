@@ -471,8 +471,9 @@ local function BuildVendorSourceData(itemID, vendor)
     if not itemID or not vendor then return nil end
 
     local cost = nil
-    if vendor.items and HA.VendorData then
-        for _, item in ipairs(vendor.items) do
+    if HA.VendorData then
+        local vendorItems = HA.VendorData.GetItemsForVendor and HA.VendorData:GetItemsForVendor(vendor) or {}
+        for _, item in ipairs(vendorItems) do
             local vendorItemID = HA.VendorData:GetItemID(item) or item.itemID
             if vendorItemID == itemID then
                 cost = HA.VendorData:GetItemCost(item)
@@ -666,9 +667,9 @@ function SourceManager:GetRequirements(itemID, npcID)
 
     -- Priority 1: Vendor-specific requirements from scanned data
     if npcID and HA.Addon and HA.Addon.db and HA.Addon.db.global.scannedVendors then
-        local vendor = HA.Addon.db.global.scannedVendors[npcID]
-        if vendor and vendor.items then
-            for _, item in ipairs(vendor.items) do
+        local scannedVendor = HA.Addon.db.global.scannedVendors[npcID]
+        if scannedVendor and scannedVendor.items then
+            for _, item in ipairs(scannedVendor.items) do
                 if HA.VendorData:GetItemID(item) == itemID then
                     addReqs(item.requirements)
                 end
@@ -1035,10 +1036,10 @@ local function GetScannedVendorItem(itemID, npcID)
         return nil
     end
 
-    local vendor = HA.Addon.db.global.scannedVendors[npcID]
-    if not vendor or not vendor.items then return nil end
+    local scannedVendor = HA.Addon.db.global.scannedVendors[npcID]
+    if not scannedVendor or not scannedVendor.items then return nil end
 
-    for _, item in ipairs(vendor.items) do
+    for _, item in ipairs(scannedVendor.items) do
         local scannedItemID = HA.VendorData and HA.VendorData.GetItemID
             and HA.VendorData:GetItemID(item)
             or item.itemID
@@ -1839,11 +1840,9 @@ function SourceManager:GetStats()
         end
     end
 
-    -- Count unique items in VendorDatabase + EndeavorsData
-    if HA.VendorDatabase and HA.VendorDatabase.ByItemID then
-        for _ in pairs(HA.VendorDatabase.ByItemID) do
-            stats.vendors = stats.vendors + 1
-        end
+    -- Count unique items through the unified vendor facade + EndeavorsData
+    if HA.VendorData and HA.VendorData.GetOfferItemCount then
+        stats.vendors = stats.vendors + HA.VendorData:GetOfferItemCount()
     end
     if HA.EndeavorsData and HA.EndeavorsData.ByItemID then
         for _ in pairs(HA.EndeavorsData.ByItemID) do

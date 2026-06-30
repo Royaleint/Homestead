@@ -1090,6 +1090,33 @@ function VendorData:GetVendorItems(npcID)
     return items
 end
 
+function VendorData:GetItemsForVendor(vendorOrNPC)
+    if not vendorOrNPC then return {} end
+
+    if type(vendorOrNPC) == "number" then
+        return self:GetVendorItems(vendorOrNPC)
+    end
+
+    local npcID = vendorOrNPC.npcID
+    if npcID then
+        local projectedItems = self:GetVendorItems(npcID)
+        if projectedItems and #projectedItems > 0 then
+            return projectedItems
+        end
+    end
+
+    return vendorOrNPC.items or {}
+end
+
+function VendorData:GetOfferItemCount()
+    local count = 0
+    if not self.OfferByItemID then return count end
+    for _ in pairs(self.OfferByItemID) do
+        count = count + 1
+    end
+    return count
+end
+
 function VendorData:GetVendorWithItems(npcID)
     return self:GetVendor(npcID)
 end

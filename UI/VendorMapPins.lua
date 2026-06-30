@@ -585,16 +585,13 @@ function VendorMapPins:ShowVendorTooltip(pin, vendor)
     local allItems = {}
     local itemsSeen = {}
 
-    -- Add static items
-    -- New format: items can be plain integers OR tables with cost data
-    if vendor.items then
-        for _, item in ipairs(vendor.items) do
-            -- Handle both formats: plain number or table with cost
-            local itemID = HA.VendorData:GetItemID(item)
-            if itemID and not itemsSeen[itemID] then
-                itemsSeen[itemID] = true
-                tinsert(allItems, {itemID = itemID})
-            end
+    -- Add static items from the unified vendor access layer.
+    local vendorItems = HA.VendorData and HA.VendorData.GetItemsForVendor and HA.VendorData:GetItemsForVendor(vendor) or {}
+    for _, item in ipairs(vendorItems) do
+        local itemID = HA.VendorData:GetItemID(item)
+        if itemID and not itemsSeen[itemID] then
+            itemsSeen[itemID] = true
+            tinsert(allItems, {itemID = itemID})
         end
     end
 
