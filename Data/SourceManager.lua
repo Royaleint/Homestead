@@ -1845,8 +1845,13 @@ function SourceManager:GetStats()
         stats.vendors = stats.vendors + HA.VendorData:GetOfferItemCount()
     end
     if HA.EndeavorsData and HA.EndeavorsData.ByItemID then
-        for _ in pairs(HA.EndeavorsData.ByItemID) do
-            stats.vendors = stats.vendors + 1
+        -- Endeavor vendors also appear in VendorOffers; count each item once.
+        local vendorData = HA.VendorData
+        local canDedupe = vendorData and vendorData.HasOfferForItem
+        for itemID in pairs(HA.EndeavorsData.ByItemID) do
+            if not (canDedupe and vendorData:HasOfferForItem(itemID)) then
+                stats.vendors = stats.vendors + 1
+            end
         end
     end
 

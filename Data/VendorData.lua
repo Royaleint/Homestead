@@ -1097,6 +1097,13 @@ function VendorData:GetItemsForVendor(vendorOrNPC)
         return self:GetVendorItems(vendorOrNPC)
     end
 
+    -- Scanned vendor objects carry their own authoritative item rows; a known
+    -- vendor scanned selling an item the static offers lack must not have that
+    -- row shadowed by offer projection.
+    if vendorOrNPC._isScanned then
+        return vendorOrNPC.items or {}
+    end
+
     local npcID = vendorOrNPC.npcID
     if npcID then
         local projectedItems = self:GetVendorItems(npcID)
@@ -1115,6 +1122,10 @@ function VendorData:GetOfferItemCount()
         count = count + 1
     end
     return count
+end
+
+function VendorData:HasOfferForItem(itemID)
+    return self.OfferByItemID ~= nil and self.OfferByItemID[itemID] ~= nil
 end
 
 function VendorData:GetVendorWithItems(npcID)

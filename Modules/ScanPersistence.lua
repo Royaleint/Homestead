@@ -260,9 +260,9 @@ function ScanPersistence:SaveVendorData(scanData)
         HA.Analytics:IncrementCounter("VendorScans")
     end
 
-    -- Invalidate cached vendor list (new scan data may affect results)
-    if HA.VendorDatabase and HA.VendorDatabase.InvalidateVendorCache then
-        HA.VendorDatabase:InvalidateVendorCache()
+    -- Invalidate cached vendor data (new scan data may affect results)
+    if HA.VendorData and HA.VendorData.InvalidateVendorCaches then
+        HA.VendorData:InvalidateVendorCaches()
     end
 
     -- Fire callback for other modules

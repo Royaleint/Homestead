@@ -542,7 +542,8 @@ function VendorScanner:VerifyAndUpdateDatabaseEntry(npcID, vendorName)
                     correctedAt = time(),
                 }
 
-                -- Update the vendor entry in memory (this won't persist to the Lua file)
+                -- Stamp the corrected ID on this session's projected copy only;
+                -- the durable record is npcIDCorrections above.
                 vendor.npcID = npcID
 
                 result.oldID = oldID
