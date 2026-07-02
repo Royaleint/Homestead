@@ -34,7 +34,7 @@ Core\core.lua
 Core\events.lua
 
 # Data Classes
-Data\VendorDatabase.lua
+Data\VendorIdentity.lua
 Data\VendorOffers.lua
 Data\VendorData.lua
 Data\EndeavorsData.lua
@@ -100,3 +100,4 @@ UI\SearchProvider.lua
 UI\MapSidePanel.lua
 UI\VendorMapPins.lua
 UI\Options.lua
+

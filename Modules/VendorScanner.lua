@@ -129,10 +129,9 @@ function VendorScanner:OnMerchantShow()
         HA.Addon:Debug("Merchant NPC ID:", npcID, "Name:", vendorName)
     end
 
-    -- Resolve NPC ID aliases to canonical ID (e.g., phased variants → main entry)
-    if HA.VendorDatabase and HA.VendorDatabase.Aliases then
-        local canonicalID = HA.VendorDatabase.Aliases[npcID]
-            or (HA.EndeavorsData and HA.EndeavorsData.Aliases and HA.EndeavorsData.Aliases[npcID])
+    -- Resolve NPC ID aliases to canonical ID (e.g., phased variants -> main entry)
+    if HA.VendorData and HA.VendorData.ResolveAlias then
+        local canonicalID = HA.VendorData:ResolveAlias(npcID)
         if canonicalID then
             if HA.DevAddon then
                 HA.Addon:Debug("Alias resolved:", npcID, "->", canonicalID)
@@ -505,15 +504,15 @@ end
 
 -- Check if the scanned vendor matches a database entry by name and update NPC ID/coords if mismatched
 function VendorScanner:VerifyAndUpdateDatabaseEntry(npcID, vendorName)
-    if not HA.VendorDatabase then return nil end
+    if not HA.VendorData or not HA.VendorData.GetAllVendors then return nil end
 
     -- Get current player position for coordinate update
     local mapID = C_Map.GetBestMapForUnit("player")
     local position = mapID and C_Map.GetPlayerMapPosition(mapID, "player") or nil
     local currentCoords = position and { x = position.x, y = position.y } or nil
 
-    -- Search all vendors in the database for a name match
-    local allVendors = HA.VendorDatabase:GetAllVendors()
+    -- Search all known vendors for a name match
+    local allVendors = HA.VendorData:GetAllVendors()
     for _, vendor in ipairs(allVendors) do
         -- Case-insensitive name comparison
         if vendor.name and vendor.name:lower() == vendorName:lower() then
@@ -543,7 +542,8 @@ function VendorScanner:VerifyAndUpdateDatabaseEntry(npcID, vendorName)
                     correctedAt = time(),
                 }
 
-                -- Update the vendor entry in memory (this won't persist to the Lua file)
+                -- Stamp the corrected ID on this session's projected copy only;
+                -- the durable record is npcIDCorrections above.
                 vendor.npcID = npcID
 
                 result.oldID = oldID

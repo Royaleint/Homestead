@@ -112,10 +112,11 @@ local function UpdateMilestoneDisplay()
     local themeData = activeTheme and HA.EndeavorsData.Endeavors[activeTheme]
     local vendorNPC = themeData and themeData.vendorNPC
     local vendor = vendorNPC and HA.EndeavorsData.Vendors[vendorNPC]
-    if vendor and vendor.items and HA.VendorData then
-        local total = #vendor.items
+    if vendor and HA.VendorData and HA.VendorData.GetItemsForVendor then
+        local vendorItems = HA.VendorData:GetItemsForVendor(vendor)
+        local total = #vendorItems
         local owned = 0
-        for _, item in ipairs(vendor.items) do
+        for _, item in ipairs(vendorItems) do
             local itemID = HA.VendorData:GetItemID(item)
             local isOwned = false
             if itemID and HA.SourceManager and HA.SourceManager.GetItemPresentation then

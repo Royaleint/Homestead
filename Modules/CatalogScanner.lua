@@ -112,22 +112,19 @@ local function CollectAllKnownItemIDs()
     local itemIDs = {}
     local seen = {}
 
-    -- Collect from static vendor database
-    -- New format: items can be plain integers OR tables with cost data
-    if HA.VendorData and HA.VendorData.GetAllVendors then
+    -- Collect from static vendor accessors.
+    if HA.VendorData and HA.VendorData.GetAllVendors and HA.VendorData.GetItemsForVendor then
         local allVendors = HA.VendorData:GetAllVendors()
         for _, vendor in ipairs(allVendors) do
-            if vendor.items then
-                for _, item in ipairs(vendor.items) do
-                    -- Handle both formats: plain number or table with cost
-                    local itemID = HA.VendorData:GetItemID(item)
-                    if itemID and not seen[itemID] then
-                        seen[itemID] = true
-                        table.insert(itemIDs, {
-                            itemID = itemID,
-                            name = nil,  -- Will be fetched by GetItemInfo later
-                        })
-                    end
+            local vendorItems = HA.VendorData:GetItemsForVendor(vendor)
+            for _, item in ipairs(vendorItems) do
+                local itemID = HA.VendorData:GetItemID(item)
+                if itemID and not seen[itemID] then
+                    seen[itemID] = true
+                    table.insert(itemIDs, {
+                        itemID = itemID,
+                        name = nil,  -- Will be fetched by GetItemInfo later
+                    })
                 end
             end
         end

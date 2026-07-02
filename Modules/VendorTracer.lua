@@ -274,17 +274,15 @@ function VendorTracer:GetMissingItemVendors()
     for _, vendor in ipairs(allVendors) do
         local missingItems = {}
 
-        if vendor.items then
-            -- Handle both formats: plain number or table with cost data
-            for _, item in ipairs(vendor.items) do
-                local itemID = HA.VendorData:GetItemID(item)
-                if itemID then
-                    -- Check if player owns this item
-                    local isOwned = HA.CatalogStore and HA.CatalogStore:IsOwnedFresh(itemID)
+        local vendorItems = HA.VendorData.GetItemsForVendor and HA.VendorData:GetItemsForVendor(vendor) or {}
+        for _, item in ipairs(vendorItems) do
+            local itemID = HA.VendorData:GetItemID(item)
+            if itemID then
+                -- Check if player owns this item
+                local isOwned = HA.CatalogStore and HA.CatalogStore:IsOwnedFresh(itemID)
 
-                    if not isOwned then
-                        table.insert(missingItems, {itemID = itemID})
-                    end
+                if not isOwned then
+                    table.insert(missingItems, {itemID = itemID})
                 end
             end
         end

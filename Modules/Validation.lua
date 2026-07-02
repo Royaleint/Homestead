@@ -129,44 +129,175 @@ end
 -- Validation Functions
 -------------------------------------------------------------------------------
 
-function Validation:ValidateVendorDatabase()
+function Validation:ValidateVendorIdentity()
     local errors = {}
     local warnings = {}
     local vendorCount = 0
 
-    if not HA.VendorDatabase or not HA.VendorDatabase.Vendors then
-        table.insert(errors, "VendorDatabase not loaded or empty")
+    if not HA.VendorIdentity or not HA.VendorIdentity.Vendors then
+        table.insert(errors, "VendorIdentity not loaded or empty")
         return errors, warnings, 0
     end
 
-    local seenNPCIDs = {}
-
-    for npcID, vendor in pairs(HA.VendorDatabase.Vendors) do
+    for npcID, vendor in pairs(HA.VendorIdentity.Vendors) do
         vendorCount = vendorCount + 1
+        local context = string.format("Identity vendor %s", vendor.npcID or npcID)
 
         -- Ensure vendor has npcID set (from key)
         if not vendor.npcID then
             vendor.npcID = npcID
         end
 
-        -- Check for duplicates
-        if vendor.npcID then
-            if seenNPCIDs[vendor.npcID] then
-                table.insert(errors, string.format(
-                    "Duplicate npcID %d (%s and %s)",
-                    vendor.npcID, seenNPCIDs[vendor.npcID], vendor.name or "unknown"
-                ))
-            else
-                seenNPCIDs[vendor.npcID] = vendor.name or "unknown"
-            end
+        -- Identity rows must never carry offer data
+        if vendor.items then
+            table.insert(errors, context .. ": identity row carries an items array")
         end
 
-        local vErrors, vWarnings = ValidateVendor(vendor, "Static")
+        if not vendor.zone then
+            table.insert(warnings, context .. ": missing zone")
+        end
+        if not vendor.faction then
+            table.insert(warnings, context .. ": missing faction")
+        end
+        if not vendor.expansion then
+            table.insert(warnings, context .. ": missing expansion")
+        end
+
+        local vErrors, vWarnings = ValidateVendor(vendor, "Identity")
         for _, e in ipairs(vErrors) do table.insert(errors, e) end
         for _, w in ipairs(vWarnings) do table.insert(warnings, w) end
     end
 
     return errors, warnings, vendorCount
+end
+
+local function ValidateOfferRow(source, npcID, itemID, offer, errors)
+    local context = string.format("%s offer %s:%s", source, tostring(npcID), tostring(itemID))
+
+    if type(itemID) ~= "number" then
+        table.insert(errors, context .. ": itemID is not a number")
+    end
+
+    if type(offer) ~= "table" then
+        table.insert(errors, context .. ": offer row is not a table")
+        return
+    end
+
+    if offer.price ~= nil and type(offer.price) ~= "number" then
+        table.insert(errors, context .. ": price is not a number")
+    end
+
+    if offer.currencies ~= nil then
+        if type(offer.currencies) ~= "table" then
+            table.insert(errors, context .. ": currencies is not a table")
+        else
+            for i, currency in ipairs(offer.currencies) do
+                if type(currency) ~= "table"
+                        or type(currency.id) ~= "number"
+                        or type(currency.amount) ~= "number" then
+                    table.insert(errors, string.format(
+                        "%s: currencies[%d] needs numeric id and amount", context, i))
+                end
+            end
+        end
+    end
+
+    if offer.itemCosts ~= nil then
+        if type(offer.itemCosts) ~= "table" then
+            table.insert(errors, context .. ": itemCosts is not a table")
+        else
+            for i, itemCost in ipairs(offer.itemCosts) do
+                if type(itemCost) ~= "table"
+                        or type(itemCost.itemID) ~= "number"
+                        or type(itemCost.amount) ~= "number" then
+                    table.insert(errors, string.format(
+                        "%s: itemCosts[%d] needs numeric itemID and amount", context, i))
+                end
+            end
+        end
+    end
+end
+
+function Validation:ValidateVendorOffers()
+    local errors = {}
+    local warnings = {}
+    local offerCount = 0
+
+    if not HA.VendorOffers then
+        table.insert(errors, "VendorOffers not loaded")
+        return errors, warnings, 0
+    end
+
+    local scannedVendors = HA.Addon and HA.Addon.db and HA.Addon.db.global
+        and HA.Addon.db.global.scannedVendors
+
+    local function hasKnownVendor(npcID)
+        local canonicalID = npcID
+        if HA.VendorData and HA.VendorData.ResolveAlias then
+            canonicalID = HA.VendorData:ResolveAlias(npcID) or npcID
+        end
+        if HA.VendorIdentity and HA.VendorIdentity:HasVendor(canonicalID) then
+            return true
+        end
+        if HA.EndeavorsData and HA.EndeavorsData.Vendors
+                and (HA.EndeavorsData.Vendors[canonicalID] or HA.EndeavorsData.Vendors[npcID]) then
+            return true
+        end
+        if scannedVendors and (scannedVendors[canonicalID] or scannedVendors[npcID]) then
+            return true
+        end
+        return false
+    end
+
+    local groups = {
+        { "Generated", HA.VendorOffers.GeneratedBase },
+        { "Manual", HA.VendorOffers.ManualOverrides },
+    }
+    for _, group in ipairs(groups) do
+        local source, offersByNPC = group[1], group[2]
+        for npcID, offers in pairs(offersByNPC or {}) do
+            if type(npcID) ~= "number" then
+                table.insert(errors, string.format(
+                    "%s offers: npcID key '%s' is not a number", source, tostring(npcID)))
+            elseif not hasKnownVendor(npcID) then
+                table.insert(warnings, string.format(
+                    "%s offers: npcID %d has no identity, endeavor, or scanned record",
+                    source, npcID))
+            end
+            if type(offers) == "table" then
+                for itemID, offer in pairs(offers) do
+                    offerCount = offerCount + 1
+                    ValidateOfferRow(source, npcID, itemID, offer, errors)
+                end
+            else
+                table.insert(errors, string.format(
+                    "%s offers: entry for npcID %s is not a table", source, tostring(npcID)))
+            end
+        end
+    end
+
+    -- Tombstone keys are bare itemIDs or "npcID:itemID" strings
+    local tombstones = HA.VendorOffers.Tombstones
+    if tombstones ~= nil then
+        if type(tombstones) ~= "table" then
+            table.insert(errors, "Tombstones is not a table")
+        else
+            for key in pairs(tombstones) do
+                if type(key) == "string" then
+                    if not key:match("^%d+:%d+$") then
+                        table.insert(errors, string.format(
+                            "Tombstones: string key '%s' is not 'npcID:itemID'", key))
+                    end
+                elseif type(key) ~= "number" then
+                    table.insert(errors, string.format(
+                        "Tombstones: key '%s' is not a number or 'npcID:itemID' string",
+                        tostring(key)))
+                end
+            end
+        end
+    end
+
+    return errors, warnings, offerCount
 end
 
 function Validation:ValidateScannedVendors()
@@ -239,22 +370,22 @@ function Validation:ValidateZoneToContinentMapping()
     local warnings = {}
 
     local canonicalMap = HA.Constants and HA.Constants.ZoneToContinentMap
-    local vendorDBMap = HA.VendorDatabase and HA.VendorDatabase.ZoneToContinentMap
-    local zoneToContinent = canonicalMap or vendorDBMap
+    local identityMap = HA.VendorIdentity and HA.VendorIdentity.ZoneToContinentMap
+    local zoneToContinent = canonicalMap or identityMap
 
     if not zoneToContinent then
         table.insert(warnings, "ZoneToContinentMap mapping not found")
         return errors, warnings
     end
 
-    if canonicalMap and vendorDBMap and canonicalMap ~= vendorDBMap then
-        table.insert(warnings, "VendorDatabase.ZoneToContinentMap is not aliased to canonical constants map")
+    if canonicalMap and identityMap and canonicalMap ~= identityMap then
+        table.insert(warnings, "VendorIdentity.ZoneToContinentMap is not aliased to canonical constants map")
     end
 
     -- Check that all vendor mapIDs have continent mappings
-    if HA.VendorDatabase and HA.VendorDatabase.Vendors then
+    if HA.VendorIdentity and HA.VendorIdentity.Vendors then
         local missingMaps = {}
-        for npcID, vendor in pairs(HA.VendorDatabase.Vendors) do
+        for npcID, vendor in pairs(HA.VendorIdentity.Vendors) do
             if vendor.mapID and not zoneToContinent[vendor.mapID] then
                 missingMaps[vendor.mapID] = (missingMaps[vendor.mapID] or 0) + 1
             end
@@ -297,13 +428,21 @@ function Validation:RunFullValidation()
     local totalErrors = 0
     local totalWarnings = 0
 
-    -- Validate static vendor database
-    table.insert(output, "Checking VendorDatabase...")
-    local dbErrors, dbWarnings, dbCount = self:ValidateVendorDatabase()
+    -- Validate static vendor identity
+    table.insert(output, "Checking VendorIdentity...")
+    local dbErrors, dbWarnings, dbCount = self:ValidateVendorIdentity()
     totalErrors = totalErrors + #dbErrors
     totalWarnings = totalWarnings + #dbWarnings
     table.insert(output, string.format("  %d vendors, %d errors, %d warnings\n",
         dbCount, #dbErrors, #dbWarnings))
+
+    -- Validate vendor offers
+    table.insert(output, "Checking VendorOffers...")
+    local ofErrors, ofWarnings, ofCount = self:ValidateVendorOffers()
+    totalErrors = totalErrors + #ofErrors
+    totalWarnings = totalWarnings + #ofWarnings
+    table.insert(output, string.format("  %d offers, %d errors, %d warnings\n",
+        ofCount, #ofErrors, #ofWarnings))
 
     -- Validate scanned vendors
     table.insert(output, "Checking scannedVendors...")
@@ -348,10 +487,12 @@ function Validation:RunFullValidation()
         warnings = {},
     }
     for _, e in ipairs(dbErrors) do table.insert(self.lastResults.errors, e) end
+    for _, e in ipairs(ofErrors) do table.insert(self.lastResults.errors, e) end
     for _, e in ipairs(scErrors) do table.insert(self.lastResults.errors, e) end
     for _, e in ipairs(owErrors) do table.insert(self.lastResults.errors, e) end
     for _, e in ipairs(zmErrors) do table.insert(self.lastResults.errors, e) end
     for _, w in ipairs(dbWarnings) do table.insert(self.lastResults.warnings, w) end
+    for _, w in ipairs(ofWarnings) do table.insert(self.lastResults.warnings, w) end
     for _, w in ipairs(scWarnings) do table.insert(self.lastResults.warnings, w) end
     for _, w in ipairs(owWarnings) do table.insert(self.lastResults.warnings, w) end
     for _, w in ipairs(zmWarnings) do table.insert(self.lastResults.warnings, w) end
