@@ -34,7 +34,6 @@ Core\core.lua
 Core\events.lua
 
 # Data Classes
-Data\VendorDatabase.lua
 Data\VendorIdentity.lua
 Data\VendorOffers.lua
 Data\VendorData.lua

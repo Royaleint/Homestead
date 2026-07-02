@@ -1,6 +1,12 @@
 --[[
     Homestead - VendorDatabase
-    Database of housing decor vendors with locations and items
+
+    RETIRED FROM RUNTIME: this file is not listed in Homestead.toc and does
+    not load in the addon. It remains a build-time legacy seed for the
+    Home_Dev generators (VendorIdentity, VendorOffers, parity reports) until
+    canonical evidence fully replaces current_homestead_db rows. Runtime
+    vendor reads go through VendorData, backed by VendorIdentity and
+    VendorOffers.
 
     STRUCTURE: NPC-keyed for O(1) lookups
     VendorDatabase.Vendors[npcID] = { name, mapID, x, y, zone, ... }
