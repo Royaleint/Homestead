@@ -285,10 +285,13 @@ local function RenderSourceText(tooltip, sourceText, itemID)
 
     -- Strip color codes and hyperlink wrappers.
     -- |H...|h[text]|h → keep just [text]  (tooltip:AddLine can't render |H hyperlinks)
+    -- The display capture is non-greedy dot, not [^|]*, because currency links carry
+    -- their icon INSIDE the display text (|Hcurrency:ID|h|T...|t|h) and the texture
+    -- escape must survive the strip or the raw |H prefix leaks into the tooltip.
     -- |c/|r color codes stripped so we can apply our own gold/white scheme.
     -- |n separators are preserved for the split step below.
     local plain = sourceText
-        :gsub("|H[^|]*|h([^|]*)|h", "%1")   -- |Htype:id|h[display]|h  → display text
+        :gsub("|H[^|]*|h(.-)|h", "%1")      -- |Htype:id|h[display]|h  → display text
         :gsub("|c%x%x%x%x%x%x%x%x", "")      -- strip |cFFRRGGBB
         :gsub("|cn[^:]*:", "")                 -- strip |cnNAMED_COLOR: (WoW 10.x+ named colors)
         :gsub("|r", "")                        -- strip |r
