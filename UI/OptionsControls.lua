@@ -5,6 +5,8 @@
 
 local _, HA = ...
 
+local F = _G.Foundry_1_0
+
 local Controls = {}
 HA.OptionsControls = Controls
 
@@ -314,21 +316,25 @@ function Controls.CreateDropdown(parent, row, refresh)
         SetDropdownText(dropdown, row)
     end
 
-    if dropdown.SetupMenu then
-        dropdown:SetupMenu(function(_, root)
-            root:CreateTitle(row.label or "")
-            for _, value in ipairs(row.values or {}) do
-                root:CreateRadio(value.label, function()
-                    return SafeGet(row, nil) == value.key
-                end, function()
-                    if row.set then
-                        row.set(value.key)
-                    end
-                    SetDropdownText(dropdown, row)
-                    AttachRefresh(refresh)
-                end)
-            end
-        end)
+    if F then
+        local ctrl = F.Menu:New({
+            name    = "HS.Options." .. (row.key or ""),
+            builder = function(_, root)
+                root:CreateTitle(row.label or "")
+                for _, value in ipairs(row.values or {}) do
+                    root:CreateRadio(value.label, function()
+                        return SafeGet(row, nil) == value.key
+                    end, function()
+                        if row.set then
+                            row.set(value.key)
+                        end
+                        SetDropdownText(dropdown, row)
+                        AttachRefresh(refresh)
+                    end)
+                end
+            end,
+        })
+        if ctrl then ctrl:SetupDropdown(dropdown) end
     end
 
     Controls.AttachTooltip(frame, row.label, row.tooltip)
