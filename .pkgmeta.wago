@@ -10,7 +10,6 @@ ignore:
   - .pkgmeta
   - .pkgmeta.wago
   - .claude
-  - .agents
   - .github
   - .luacheckrc
   - .luarc.json
