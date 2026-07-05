@@ -8,7 +8,6 @@ ignore:
   - .git
   - .gitignore
   - .pkgmeta
-  - .pkgmeta.wago
   - .claude
   - .github
   - .luacheckrc
@@ -24,6 +23,11 @@ ignore:
   - RELEASE_NOTES.html
   - HousingAddon.toc
 
+# CF-only upload metadata: the packager sends this as a CurseForge relation
+# when a CF project id is active. Wago's upload API has no dependency field,
+# so the Wago packager steps (-p 0) simply never use it — one recipe serves
+# both platforms. (Foundry itself is vendored at Libs/Foundry-1.0/ per HS-120;
+# the relation is a CF-page listing, not a packaging instruction.)
 required-dependencies:
   - foundry
 
