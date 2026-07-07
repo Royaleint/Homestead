@@ -61,7 +61,7 @@ local culturalKeywordToTheme = {
     ["loamm"] = "Niffen",
     ["smell sensation"] = "Niffen",
     ["olfactory"] = "Niffen",
-    -- Future themes (planned per Wowhead)
+    -- Future themes (planned)
     ["sporeggar"] = "Sporeggar",
     ["kobold"] = "Kobold",
     ["you take candle"] = "Kobold",

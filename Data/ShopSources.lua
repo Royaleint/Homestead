@@ -1,6 +1,6 @@
 -- ShopSources.lua — Static source data for shop, promotional, and Twitch drop items.
 -- Created: 2026-03-22 | Entries: 42
--- Sources: catalog sourceText scan (27 "Shop" items) + Wowhead pack articles + Roofus charity pack
+-- Sources: catalog sourceText scan (27 "Shop" items) + community pack research + Roofus charity pack
 --
 -- Schema:
 --   [itemID] = {
