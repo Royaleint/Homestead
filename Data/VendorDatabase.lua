@@ -58,6 +58,7 @@ VendorDatabase.Aliases = {
     [16191]  = 259864, -- Sathren Azuredawn classic ID → Midnight NPC 259864
     [127151] = 125346, -- Toraan the Revered phased/interior-map variant (mapID 831) → canonical 125346 (mapID 830)
     [135447] = 106902, -- Ransa Greyfeather variant (scanner-detected, unverified — possible endeavor/faction NPC)
+    [88223]  = 78564,  -- Sergeant Crowler garrison-building variant → canonical Lunarfall ID
 }
 
 -- Note: Aliases are resolved at both scan time (VendorScanner) and query time
