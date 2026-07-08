@@ -25,6 +25,7 @@ local activeHolidays = nil  -- nil = not yet scanned, {} = scanned but none acti
 local calendarReady = false
 local refreshTimer = nil
 local REFRESH_INTERVAL = 14400  -- 4 hours (safety net only)
+local pendingCombatRescan = false  -- scan aborted on combat-secret values; rescan on regen
 
 -------------------------------------------------------------------------------
 -- Holiday ID Mapping
@@ -71,6 +72,14 @@ local function ScanTodaysHolidays()
     for i = 1, numEvents do
         local event = C_Calendar.GetDayEvent(0, today.monthDay, i)
         if event then
+            -- In combat, Midnight can return eventID as a SECRET value; using a
+            -- secret as a table key throws "cannot be indexed with secret keys"
+            -- (HS-168, Sentry 2026-07-07). Treat the whole scan as unavailable so
+            -- stale holiday state persists instead of being wrongly cleared, and
+            -- signal the caller to rescan once combat ends.
+            if issecretvalue and issecretvalue(event.eventID) then
+                return nil, "combat_secret"
+            end
             -- Match by stable eventID first (numeric field, not a protected string).
             -- calendarType and sequenceType are secret strings when tainted; comparing
             -- them directly throws and can propagate into other addons (HS-121/#40).
@@ -93,9 +102,14 @@ local function ScanTodaysHolidays()
 end
 
 local function RefreshHolidays()
-    local result = ScanTodaysHolidays()
+    local result, unavailableReason = ScanTodaysHolidays()
     if result == nil then
-        -- Calendar data not available yet
+        -- Calendar data not available yet. If the scan aborted on combat-secret
+        -- values, arm a one-shot rescan for PLAYER_REGEN_ENABLED — the periodic
+        -- ticker is a 4-hour safety net, far too slow to recover after combat.
+        if unavailableReason == "combat_secret" then
+            pendingCombatRescan = true
+        end
         return
     end
 
@@ -196,6 +210,9 @@ function CalendarDetector:Initialize()
     -- Also listen for PEW to trigger calendar open
     eventFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
 
+    -- One-shot rescan after combat when a scan aborted on secret values (HS-168)
+    eventFrame:RegisterEvent("PLAYER_REGEN_ENABLED")
+
     eventFrame:SetScript("OnEvent", function(_, event)
         if event == "PLAYER_ENTERING_WORLD" then
             -- Request calendar data (required before GetDayEvent works)
@@ -210,6 +227,11 @@ function CalendarDetector:Initialize()
         elseif event == "CALENDAR_UPDATE_EVENT_LIST" then
             -- Calendar data arrived or changed — scan immediately
             RefreshHolidays()
+        elseif event == "PLAYER_REGEN_ENABLED" then
+            if pendingCombatRescan then
+                pendingCombatRescan = false
+                RefreshHolidays()
+            end
         end
     end)
 
