@@ -21,6 +21,7 @@ read_globals = {
     "tinsert", "tremove", "wipe", "strsplit",
     "time", "date", "math", "string", "table",
     "error", "pcall", "rawget", "rawset", "setmetatable", "getmetatable",
+    "issecretvalue", -- Midnight combat-secrecy probe (HS-168)
 
     -- WoW constants
     "BANK_CONTAINER",
