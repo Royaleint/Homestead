@@ -13,16 +13,12 @@
 
     First promotion: HS-153, 2026-07-07 (77 offers, 1 vendor identity).
 ]]
+-- Graduated 2026-07-08: 0 offer(s) graduated, 3 culled (see human-review-ledger.json).
 -- Graduated 2026-07-08: 74 offer(s) graduated, 0 culled (see human-review-ledger.json).
 
 local _, HA = ...
 
 HA.VendorOffers.StagedAdditions = {
-  [240407] = {
-    [263039] = { price = 0, currencies = {{id = 3316, amount = 250}}, isUsable = true, unverified = true },
-    [263194] = { price = 0, currencies = {{id = 3316, amount = 250}}, isUsable = true, unverified = true },
-    [263195] = { price = 0, currencies = {{id = 3316, amount = 250}}, isUsable = true, unverified = true },
-  },
 }
 
 HA.VendorIdentity.StagedAdditions = {
