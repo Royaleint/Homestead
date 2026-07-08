@@ -2230,7 +2230,7 @@ VendorIdentity.ContinentNames = (HA.Constants and HA.Constants.ContinentNames) o
 function VendorIdentity:BuildIndexes()
     self.ByMapID = {}
     self.ByExpansion = {}
-    for npcID, vendor in pairs(self.Vendors) do
+    local function indexVendor(npcID, vendor)
         vendor.npcID = npcID
         if vendor.mapID then
             self.ByMapID[vendor.mapID] = self.ByMapID[vendor.mapID] or {}
@@ -2241,11 +2241,24 @@ function VendorIdentity:BuildIndexes()
             table.insert(self.ByExpansion[vendor.expansion], npcID)
         end
     end
+    for npcID, vendor in pairs(self.Vendors) do
+        indexVendor(npcID, vendor)
+    end
+    -- Staged additions (Data/VendorStagedAdditions.lua, pipeline-owned) join
+    -- the indexes unless a baseline row already owns the npcID.
+    for npcID, vendor in pairs(self.StagedAdditions or {}) do
+        if not self.Vendors[npcID] then
+            indexVendor(npcID, vendor)
+        end
+    end
 end
 
 function VendorIdentity:GetVendor(npcID)
     local canonicalID = self.Aliases and self.Aliases[npcID]
-    return self.Vendors[npcID] or (canonicalID and self.Vendors[canonicalID]) or nil
+    return self.Vendors[npcID]
+        or (canonicalID and self.Vendors[canonicalID])
+        or (self.StagedAdditions and self.StagedAdditions[npcID])
+        or nil
 end
 
 function VendorIdentity:HasVendor(npcID)
@@ -2256,6 +2269,11 @@ function VendorIdentity:GetAllVendors()
     local vendors = {}
     for _, vendor in pairs(self.Vendors) do
         vendors[#vendors + 1] = vendor
+    end
+    for npcID, vendor in pairs(self.StagedAdditions or {}) do
+        if not self.Vendors[npcID] then
+            vendors[#vendors + 1] = vendor
+        end
     end
     return vendors
 end
