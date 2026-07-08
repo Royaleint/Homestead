@@ -278,6 +278,12 @@ function ExportImport:ExportScannedVendors(fullExport, exportAll)
 
     table.insert(output, EXPORT_PREFIX .. "\n")
     table.insert(output, "# exportFormatVersion: 2\n")
+    -- Client build stamps every export so the data pipeline reads the live
+    -- build from scans instead of external checkouts that lag hotfix builds.
+    local clientVersion, clientBuild = GetBuildInfo()
+    if clientVersion and clientBuild then
+        table.insert(output, "# clientBuild: " .. clientVersion .. "." .. clientBuild .. "\n")
+    end
     table.insert(output, "# V: npcID\tname\tmapID\tx\ty\tfaction\ttimestamp\titemCount\tdecorCount\tzone\tsubZone\trealZone\tparentMapID\tcontinentMapID\texpansion\tcurrency\tmapChain\tscanConfidence\n")
     table.insert(output, "# I: npcID\titemID\tname\tprice\tcostData\tisUsable\tisPurchasable\tspellID\trequirements\tdecorID\tmerchantSlot\thasExtendedCost\n")
     table.insert(output, "# D: npcID\tname\tmapID\tx\ty\tzone\ttimestamp (vendor in DB but scanned with 0 decor)\n")

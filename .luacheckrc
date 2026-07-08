@@ -22,6 +22,7 @@ read_globals = {
     "time", "date", "math", "string", "table",
     "error", "pcall", "rawget", "rawset", "setmetatable", "getmetatable",
     "issecretvalue", -- Midnight combat-secrecy probe (HS-168)
+    "GetBuildInfo",
 
     -- WoW constants
     "BANK_CONTAINER",
