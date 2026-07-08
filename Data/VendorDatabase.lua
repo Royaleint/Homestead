@@ -394,7 +394,8 @@ VendorDatabase.Vendors = {
         faction = "Neutral",
         currency = "Gold",
         expansion = "Events",
-        items = {{245332, cost = {gold = 20000000}}, {257351, cost = {gold = 20000000}}, {257354, cost = {gold = 20000000}}, {257355, cost = {gold = 20000000}}},
+        scanConfirmed = "2026-07-06",
+        items = {{245332, cost = {gold = 20000000}}, {257351, cost = {gold = 20000000}}, {257354, cost = {gold = 20000000}}, {257355, cost = {gold = 20000000}}, {271971, cost = {gold = 20000000}}},
     },
 	[64605] = {
         name = "Tan Shin Tiao",
@@ -970,6 +971,7 @@ VendorDatabase.Vendors = {
         notes = "Monk only — enter via class spell Zen Pilgrimage (usable from anywhere).",
         portal = { mapID = 627, x = 0.523, y = 0.567 },
         badgeMapID = 627,
+        scanConfirmed = "2026-07-06",
         items = {
             {248935, cost = {currencies = {{id = 1220, amount = 500}}}},
             {248936, cost = {currencies = {{id = 1220, amount = 500}}}},
@@ -977,6 +979,7 @@ VendorDatabase.Vendors = {
             {248958, cost = {currencies = {{id = 1220, amount = 1200}}}},
             {256679, cost = {currencies = {{id = 1220, amount = 2000}}}},
             {262619, cost = {currencies = {{id = 1220, amount = 2500}}}},
+            {267372, cost = {currencies = {{id = 1220, amount = 1000}}}},
         },
     },
 	[112392] = {
@@ -1818,6 +1821,18 @@ VendorDatabase.Vendors = {
         expansion = "Legion",
         items = {244654, 244676, 244677, 244678, 246001, 246002},
     },
+    [250982] = {
+        name = "Dethelin",
+        mapID = 2393,
+        x = 0.5247, y = 0.473,
+        zone = "Silvermoon City",
+        subzone = "Murder Row",
+        faction = "Neutral",
+        currency = "Resonance Crystals",
+        expansion = "Midnight",
+        scanConfirmed = "2026-07-07",
+        items = {{245284, cost = {currencies = {{id = 2815, amount = 3000}}}}, {245330, cost = {currencies = {{id = 2815, amount = 3000}}}}, {251997, cost = {currencies = {{id = 2815, amount = 5000}}}}},
+    },
 	[251911] = {
         name = "Stacks Topskimmer",
         mapID = 2346,
@@ -1969,7 +1984,7 @@ VendorDatabase.Vendors = {
         faction = "Neutral",
         currency = "Voidlight Marl",
         expansion = "Midnight",
-        scanConfirmed = "2026-03-22",
+        scanConfirmed = "2026-07-06",
         scanCoverage = "full",
         items = {
             {253174, cost = {currencies = {{id = 3316, amount = 150}}}},
@@ -1983,6 +1998,7 @@ VendorDatabase.Vendors = {
             {253544, cost = {currencies = {{id = 3316, amount = 150}}}},
             {253598, cost = {currencies = {{id = 3316, amount = 500}}}},
             {253700, cost = {currencies = {{id = 3316, amount = 250}}}},
+            269316,
         },
     },
 	[252887] = {
@@ -2341,7 +2357,8 @@ VendorDatabase.Vendors = {
         faction = "Horde",
         currency = "Gold",
         expansion = "The War Within",
-        items = {{236653, cost = {gold = 750000}}, {236654, cost = {gold = 1000000}}, {236655, cost = {gold = 1000000}}, {236666, cost = {gold = 500000}}, {236667, cost = {gold = 500000}}, {244533, cost = {gold = 500000}}, {244534, cost = {gold = 500000}}, {244661, cost = {gold = 500000}}, {244662, cost = {gold = 500000}}, {244663, cost = {gold = 500000}}, {245264, cost = {gold = 100000}}, {245265, cost = {gold = 100000}}, {245266, cost = {gold = 500000}}, {245393, cost = {gold = 1000000}}, {245394, cost = {gold = 1000000}}, {245395, cost = {gold = 750000}}, {245398, cost = {gold = 1000000}}, {245532, cost = {gold = 500000}}, {245545, cost = {gold = 250000}}, {245555, cost = {gold = 1000000}}, {245680, cost = {gold = 750000}}, {246036, cost = {gold = 750000}}, {246037, cost = {gold = 750000}}, {246038, cost = {gold = 750000}}, {246223, cost = {gold = 750000}}, {246224, cost = {gold = 750000}}, {246225, cost = {gold = 500000}}, {246259, cost = {gold = 500000}}, {246260, cost = {gold = 1000000}}, {246261, cost = {gold = 1250000}}, {246262, cost = {gold = 750000}}, {246263, cost = {gold = 500000}}, {246587, cost = {gold = 250000}}, {246607, cost = {gold = 750000}}, {246608, cost = {gold = 1250000}}, {246609, cost = {gold = 1000000}}, {246610, cost = {gold = 1000000}}, {246613, cost = {gold = 1250000}}, {246614, cost = {gold = 1000000}}, {246687, cost = {gold = 100000}}, {246869, cost = {gold = 750000}}, {246879, cost = {gold = 250000}}, {247221, cost = {gold = 500000}}, {248246, cost = {gold = 750000}}, {250093, cost = {gold = 750000}}, {250094, cost = {gold = 750000}}, {250913, cost = {gold = 750000}}, {250920, cost = {gold = 250000}}, {251639, cost = {gold = 1000000}}, {251973, cost = {gold = 500000}}, {251974, cost = {gold = 500000}}, {251975, cost = {gold = 250000}}, {251976, cost = {gold = 500000}}, {252657, cost = {gold = 500000}}, {254316, cost = {gold = 750000}}, {254560, cost = {gold = 500000}}, {256050, cost = {gold = 750000}}, {257389, cost = {gold = 500000}}, {258148, cost = {gold = 750000}}},
+        scanConfirmed = "2026-07-06",
+        items = {{236653, cost = {gold = 750000}}, {236654, cost = {gold = 1000000}}, {236655, cost = {gold = 1000000}}, {236666, cost = {gold = 500000}}, {236667, cost = {gold = 500000}}, {244533, cost = {gold = 500000}}, {244534, cost = {gold = 500000}}, {244661, cost = {gold = 500000}}, {244662, cost = {gold = 500000}}, {244663, cost = {gold = 500000}}, {245264, cost = {gold = 100000}}, {245265, cost = {gold = 100000}}, {245266, cost = {gold = 500000}}, {245393, cost = {gold = 1000000}}, {245394, cost = {gold = 1000000}}, {245395, cost = {gold = 750000}}, {245398, cost = {gold = 1000000}}, {245532, cost = {gold = 500000}}, {245545, cost = {gold = 250000}}, {245555, cost = {gold = 1000000}}, {245680, cost = {gold = 750000}}, {246036, cost = {gold = 750000}}, {246037, cost = {gold = 750000}}, {246038, cost = {gold = 750000}}, {246223, cost = {gold = 750000}}, {246224, cost = {gold = 750000}}, {246225, cost = {gold = 500000}}, {246259, cost = {gold = 500000}}, {246260, cost = {gold = 1000000}}, {246261, cost = {gold = 1250000}}, {246262, cost = {gold = 750000}}, {246263, cost = {gold = 500000}}, {246587, cost = {gold = 250000}}, {246607, cost = {gold = 750000}}, {246608, cost = {gold = 1250000}}, {246609, cost = {gold = 1000000}}, {246610, cost = {gold = 1000000}}, {246613, cost = {gold = 1250000}}, {246614, cost = {gold = 1000000}}, {246687, cost = {gold = 100000}}, {246869, cost = {gold = 750000}}, {246879, cost = {gold = 250000}}, {247221, cost = {gold = 500000}}, {248246, cost = {gold = 750000}}, {250093, cost = {gold = 750000}}, {250094, cost = {gold = 750000}}, {250913, cost = {gold = 750000}}, {250920, cost = {gold = 250000}}, {251639, cost = {gold = 1000000}}, {251973, cost = {gold = 500000}}, {251974, cost = {gold = 500000}}, {251975, cost = {gold = 250000}}, {251976, cost = {gold = 500000}}, {252657, cost = {gold = 500000}}, {254316, cost = {gold = 750000}}, {254560, cost = {gold = 500000}}, {256050, cost = {gold = 750000}}, {257389, cost = {gold = 500000}}, {258148, cost = {gold = 750000}}, {250691, cost = {gold = 500000}}, {250692, cost = {gold = 500000}}, {254395, cost = {gold = 100000}}, {254396, cost = {gold = 100000}}, {254397, cost = {gold = 100000}}, {254398, cost = {gold = 100000}}, {254399, cost = {gold = 100000}}, {254678, cost = {gold = 100000}}, {255706, cost = {gold = 500000}}, {255707, cost = {gold = 500000}}, {256329, cost = {gold = 750000}}, {258664, cost = {gold = 500000}}, {258665, cost = {gold = 250000}}, {259464, cost = {gold = 250000}}, {259465, cost = {gold = 500000}}, {259466, cost = {gold = 500000}}, {259467, cost = {gold = 500000}}, {259468, cost = {gold = 500000}}, {259469, cost = {gold = 750000}}, {259470, cost = {gold = 750000}}, {265924, cost = {gold = 500000}}, {265925, cost = {gold = 500000}}, {265926, cost = {gold = 500000}}, {267088, cost = {gold = 250000}}},
     },
 	[255297] = {
         name = "Shon'ja",
@@ -2351,7 +2368,8 @@ VendorDatabase.Vendors = {
         faction = "Horde",
         currency = "Gold",
         expansion = "The War Within",
-        items = {{244532, cost = {gold = 100000}}, {244535, cost = {gold = 1500000}}, {245533, cost = {gold = 500000}}, {245546, cost = {gold = 500000}}, {246217, cost = {gold = 750000}}, {246218, cost = {gold = 250000}}, {246220, cost = {gold = 1250000}}, {246241, cost = {gold = 100000}}, {246611, cost = {gold = 1250000}}, {246612, cost = {gold = 1000000}}, {246615, cost = {gold = 100000}}, {246616, cost = {gold = 250000}}, {246868, cost = {gold = 1000000}}, {246880, cost = {gold = 100000}}, {246881, cost = {gold = 100000}}, {246882, cost = {gold = 1000000}}, {246883, cost = {gold = 250000}}, {246884, cost = {gold = 250000}}, {249550, cost = {gold = 1500000}}, {251545, cost = {gold = 1000000}}, {251637, cost = {gold = 1000000}}, {251638, cost = {gold = 1500000}}, {254893, cost = {gold = 1500000}}, {255708, cost = {gold = 1000000}}, {256357, cost = {gold = 750000}}, {257099, cost = {gold = 1000000}}},
+        scanConfirmed = "2026-07-06",
+        items = {{244532, cost = {gold = 100000}}, {244535, cost = {gold = 1500000}}, {245533, cost = {gold = 500000}}, {245546, cost = {gold = 500000}}, {246217, cost = {gold = 750000}}, {246218, cost = {gold = 250000}}, {246220, cost = {gold = 1250000}}, {246241, cost = {gold = 100000}}, {246611, cost = {gold = 1250000}}, {246612, cost = {gold = 1000000}}, {246615, cost = {gold = 100000}}, {246616, cost = {gold = 250000}}, {246868, cost = {gold = 1000000}}, {246880, cost = {gold = 100000}}, {246881, cost = {gold = 100000}}, {246882, cost = {gold = 1000000}}, {246883, cost = {gold = 250000}}, {246884, cost = {gold = 250000}}, {249550, cost = {gold = 1500000}}, {251545, cost = {gold = 1000000}}, {251637, cost = {gold = 1000000}}, {251638, cost = {gold = 1500000}}, {254893, cost = {gold = 1500000}}, {255708, cost = {gold = 1000000}}, {256357, cost = {gold = 750000}}, {257099, cost = {gold = 1000000}}, {251011, cost = {gold = 250000}}, {251012, cost = {gold = 500000}}, {252008, cost = {gold = 500000}}, {253019, cost = {gold = 100000}}, {255709, cost = {gold = 1250000}}, {258300, cost = {gold = 1250000}}, {258307, cost = {gold = 1250000}}, {258663, cost = {gold = 500000}}, {260486, cost = {gold = 250000}}, {260487, cost = {gold = 500000}}, {260488, cost = {gold = 750000}}, {263031, cost = {gold = 250000}}, {263032, cost = {gold = 1500000}}, {263581, cost = {gold = 100000}}, {263582, cost = {gold = 500000}}, {263583, cost = {gold = 100000}}, {263584, cost = {gold = 1500000}}, {267083, cost = {gold = 500000}}, {267616, cost = {gold = 100000}}, {268026, cost = {gold = 100000}}, {268027, cost = {gold = 100000}}, {268028, cost = {gold = 100000}}},
     },
 	[255298] = {
         name = "Jehzar Starfall",
@@ -2361,7 +2379,8 @@ VendorDatabase.Vendors = {
         faction = "Horde",
         currency = "Gold",
         expansion = "The War Within",
-        items = {{235994, cost = {gold = 1000000}}, {241617, cost = {gold = 500000}}, {241618, cost = {gold = 100000}}, {241620, cost = {gold = 1000000}}, {241621, cost = {gold = 250000}}, {241622, cost = {gold = 750000}}, {243242, cost = {gold = 500000}}, {243243, cost = {gold = 750000}}, {243495, cost = {gold = 1000000}}, {244781, cost = {gold = 500000}}, {245575, cost = {gold = 1000000}}, {245576, cost = {gold = 500000}}, {245578, cost = {gold = 1000000}}, {245579, cost = {gold = 750000}}, {245581, cost = {gold = 500000}}, {245582, cost = {gold = 750000}}, {245583, cost = {gold = 1000000}}, {245649, cost = {gold = 1000000}}, {246249, cost = {gold = 500000}}, {246250, cost = {gold = 1250000}}, {246251, cost = {gold = 750000}}, {246252, cost = {gold = 500000}}, {246253, cost = {gold = 1000000}}, {246254, cost = {gold = 500000}}, {246255, cost = {gold = 1250000}}, {246256, cost = {gold = 750000}}, {246257, cost = {gold = 500000}}, {246258, cost = {gold = 1000000}}, {246431, cost = {gold = 500000}}, {246691, cost = {gold = 500000}}, {246711, cost = {gold = 100000}}, {246961, cost = {gold = 100000}}, {247501, cost = {gold = 750000}}, {248760, cost = {gold = 500000}}, {249558, cost = {gold = 1000000}}, {251981, cost = {gold = 500000}}, {251982, cost = {gold = 750000}}, {253180, cost = {gold = 1000000}}, {253181, cost = {gold = 500000}}, {253441, cost = {gold = 1000000}}, {253479, cost = {gold = 500000}}, {253490, cost = {gold = 750000}}, {253493, cost = {gold = 1000000}}, {255650, cost = {gold = 250000}}, {257690, cost = {gold = 1000000}}, {264169, cost = {gold = 250000}}},
+        scanConfirmed = "2026-07-07",
+        items = {{235994, cost = {gold = 1000000}}, {241617, cost = {gold = 500000}}, {241618, cost = {gold = 100000}}, {241620, cost = {gold = 1000000}}, {241621, cost = {gold = 250000}}, {241622, cost = {gold = 750000}}, {243242, cost = {gold = 500000}}, {243243, cost = {gold = 750000}}, {243495, cost = {gold = 1000000}}, {244781, cost = {gold = 500000}}, {245575, cost = {gold = 1000000}}, {245576, cost = {gold = 500000}}, {245578, cost = {gold = 1000000}}, {245579, cost = {gold = 750000}}, {245581, cost = {gold = 500000}}, {245582, cost = {gold = 750000}}, {245583, cost = {gold = 1000000}}, {245649, cost = {gold = 1000000}}, {246249, cost = {gold = 500000}}, {246250, cost = {gold = 1250000}}, {246251, cost = {gold = 750000}}, {246252, cost = {gold = 500000}}, {246253, cost = {gold = 1000000}}, {246254, cost = {gold = 500000}}, {246255, cost = {gold = 1250000}}, {246256, cost = {gold = 750000}}, {246257, cost = {gold = 500000}}, {246258, cost = {gold = 1000000}}, {246431, cost = {gold = 500000}}, {246691, cost = {gold = 500000}}, {246711, cost = {gold = 100000}}, {246961, cost = {gold = 100000}}, {247501, cost = {gold = 750000}}, {248760, cost = {gold = 500000}}, {249558, cost = {gold = 1000000}}, {251981, cost = {gold = 500000}}, {251982, cost = {gold = 750000}}, {253180, cost = {gold = 1000000}}, {253181, cost = {gold = 500000}}, {253441, cost = {gold = 1000000}}, {253479, cost = {gold = 500000}}, {253490, cost = {gold = 750000}}, {253493, cost = {gold = 1000000}}, {255650, cost = {gold = 250000}}, {257690, cost = {gold = 1000000}}, {264169, cost = {gold = 250000}}, {264352, cost = {gold = 1250000}}, {264353, cost = {gold = 1250000}}, {265653, cost = {gold = 750000}}, {265654, cost = {gold = 750000}}, {267075, cost = {gold = 750000}}},
     },
 	[255299] = {
         name = "Lefton Farrer",
@@ -2371,7 +2390,8 @@ VendorDatabase.Vendors = {
         faction = "Horde",
         currency = "Gold",
         expansion = "The War Within",
-        items = {{241623, cost = {gold = 100000}}, {243088, cost = {gold = 1000000}}, {244118, cost = {gold = 1000000}}, {244169, cost = {gold = 1000000}}, {244780, cost = {gold = 1000000}}, {244782, cost = {gold = 500000}}, {247502, cost = {gold = 1500000}}, {248658, cost = {gold = 250000}}, {253437, cost = {gold = 750000}}, {253439, cost = {gold = 750000}}, {253495, cost = {gold = 1250000}}, {257691, cost = {gold = 100000}}, {257692, cost = {gold = 1000000}}},
+        scanConfirmed = "2026-07-07",
+        items = {{241623, cost = {gold = 100000}}, {243088, cost = {gold = 1000000}}, {244118, cost = {gold = 1000000}}, {244169, cost = {gold = 1000000}}, {244780, cost = {gold = 1000000}}, {244782, cost = {gold = 500000}}, {247502, cost = {gold = 1500000}}, {248658, cost = {gold = 250000}}, {253437, cost = {gold = 750000}}, {253439, cost = {gold = 750000}}, {253495, cost = {gold = 1250000}}, {257691, cost = {gold = 100000}}, {257692, cost = {gold = 1000000}}, {267202, cost = {gold = 1250000}}},
     },
 	[255301] = {
         name = "Botanist Boh'an",
@@ -2391,7 +2411,8 @@ VendorDatabase.Vendors = {
         faction = "Horde",
         currency = "Gold",
         expansion = "The War Within",
-        items = {{245327, cost = {gold = 500000}}, {245328, cost = {gold = 250000}}, {245329, cost = {gold = 250000}}, {245369, cost = {gold = 250000}}, {245371, cost = {gold = 750000}}, {245658, cost = {gold = 100000}}, {245659, cost = {gold = 100000}}, {245660, cost = {gold = 100000}}, {245661, cost = {gold = 100000}}, {248635, cost = {gold = 250000}}, {248639, cost = {gold = 250000}}, {248640, cost = {gold = 250000}}, {248641, cost = {gold = 250000}}, {248642, cost = {gold = 500000}}, {248643, cost = {gold = 1250000}}, {248644, cost = {gold = 250000}}, {248645, cost = {gold = 250000}}, {248646, cost = {gold = 500000}}, {248647, cost = {gold = 100000}}, {248648, cost = {gold = 500000}}, {248649, cost = {gold = 1250000}}, {248802, cost = {gold = 100000}}, {248803, cost = {gold = 250000}}, {248811, cost = {gold = 100000}}, {255644, cost = {gold = 1500000}}, {255646, cost = {gold = 1500000}}, {258658, cost = {gold = 1500000}}, {258659, cost = {gold = 1500000}}, {266239, cost = {gold = 1500000}}, {266240, cost = {gold = 1500000}}, {266241, cost = {gold = 1500000}}, {266242, cost = {gold = 1500000}}, {266243, cost = {gold = 1500000}}},
+        scanConfirmed = "2026-07-07",
+        items = {{245327, cost = {gold = 500000}}, {245328, cost = {gold = 250000}}, {245329, cost = {gold = 250000}}, {245369, cost = {gold = 250000}}, {245371, cost = {gold = 750000}}, {245658, cost = {gold = 100000}}, {245659, cost = {gold = 100000}}, {245660, cost = {gold = 100000}}, {245661, cost = {gold = 100000}}, {248635, cost = {gold = 250000}}, {248639, cost = {gold = 250000}}, {248640, cost = {gold = 250000}}, {248641, cost = {gold = 250000}}, {248642, cost = {gold = 500000}}, {248643, cost = {gold = 1250000}}, {248644, cost = {gold = 250000}}, {248645, cost = {gold = 250000}}, {248646, cost = {gold = 500000}}, {248647, cost = {gold = 100000}}, {248648, cost = {gold = 500000}}, {248649, cost = {gold = 1250000}}, {248802, cost = {gold = 100000}}, {248803, cost = {gold = 250000}}, {248811, cost = {gold = 100000}}, {255644, cost = {gold = 1500000}}, {255646, cost = {gold = 1500000}}, {258658, cost = {gold = 1500000}}, {258659, cost = {gold = 1500000}}, {266239, cost = {gold = 1500000}}, {266240, cost = {gold = 1500000}}, {266241, cost = {gold = 1500000}}, {266242, cost = {gold = 1500000}}, {266243, cost = {gold = 1500000}}, {245298, cost = {gold = 250000}}, {245299, cost = {gold = 250000}}, {245300, cost = {gold = 250000}}},
     },
 	[255325] = {
         name = "\"High Tides\" Ren",
@@ -2401,7 +2422,8 @@ VendorDatabase.Vendors = {
         faction = "Horde",
         currency = "Gold",
         expansion = "The War Within",
-        items = {{235633, cost = {gold = 500000}}, {235675, cost = {gold = 500000}}, {235677, cost = {gold = 500000}}, {236675, cost = {gold = 500000}}, {236676, cost = {gold = 750000}}, {236677, cost = {gold = 1000000}}, {236678, cost = {gold = 1000000}}, {239075, cost = {gold = 500000}}, {242255, cost = {gold = 750000}}, {244530, cost = {gold = 750000}}, {244531, cost = {gold = 1000000}}, {244664, cost = {gold = 500000}}, {244665, cost = {gold = 500000}}, {244666, cost = {gold = 500000}}, {244778, cost = {gold = 2500000}}, {245267, cost = {gold = 100000}}, {245268, cost = {gold = 100000}}, {245334, cost = {gold = 100000}}, {245335, cost = {gold = 100000}}, {245336, cost = {gold = 1000000}}, {245352, cost = {gold = 500000}}, {245353, cost = {gold = 750000}}, {245354, cost = {gold = 250000}}, {245355, cost = {gold = 500000}}, {245356, cost = {gold = 500000}}, {245358, cost = {gold = 100000}}, {245370, cost = {gold = 1250000}}, {245375, cost = {gold = 1000000}}, {245376, cost = {gold = 1250000}}, {245383, cost = {gold = 1500000}}, {245384, cost = {gold = 500000}}, {245392, cost = {gold = 500000}}, {245393, cost = {gold = 1000000}}, {245394, cost = {gold = 1000000}}, {245395, cost = {gold = 750000}}, {245547, cost = {gold = 1000000}}, {245548, cost = {gold = 1000000}}, {245556, cost = {gold = 1000000}}, {246101, cost = {gold = 100000}}, {246103, cost = {gold = 250000}}, {246106, cost = {gold = 100000}}, {246243, cost = {gold = 500000}}, {246245, cost = {gold = 1000000}}, {246246, cost = {gold = 1250000}}, {246247, cost = {gold = 750000}}, {246248, cost = {gold = 500000}}, {246502, cost = {gold = 1000000}}, {252417, cost = {gold = 500000}}, {252659, cost = {gold = 750000}}, {253589, cost = {gold = 750000}}, {253592, cost = {gold = 750000}}, {253593, cost = {gold = 1250000}}, {258670, cost = {gold = 750000}}},
+        scanConfirmed = "2026-07-07",
+        items = {{235633, cost = {gold = 500000}}, {235675, cost = {gold = 500000}}, {235677, cost = {gold = 500000}}, {236675, cost = {gold = 500000}}, {236676, cost = {gold = 750000}}, {236677, cost = {gold = 1000000}}, {236678, cost = {gold = 1000000}}, {239075, cost = {gold = 500000}}, {242255, cost = {gold = 750000}}, {244530, cost = {gold = 750000}}, {244531, cost = {gold = 1000000}}, {244664, cost = {gold = 500000}}, {244665, cost = {gold = 500000}}, {244666, cost = {gold = 500000}}, {244778, cost = {gold = 2500000}}, {245267, cost = {gold = 100000}}, {245268, cost = {gold = 100000}}, {245334, cost = {gold = 100000}}, {245335, cost = {gold = 100000}}, {245336, cost = {gold = 1000000}}, {245352, cost = {gold = 500000}}, {245353, cost = {gold = 750000}}, {245354, cost = {gold = 250000}}, {245355, cost = {gold = 500000}}, {245356, cost = {gold = 500000}}, {245358, cost = {gold = 100000}}, {245370, cost = {gold = 1250000}}, {245375, cost = {gold = 1000000}}, {245376, cost = {gold = 1250000}}, {245383, cost = {gold = 1500000}}, {245384, cost = {gold = 500000}}, {245392, cost = {gold = 500000}}, {245393, cost = {gold = 1000000}}, {245394, cost = {gold = 1000000}}, {245395, cost = {gold = 750000}}, {245547, cost = {gold = 1000000}}, {245548, cost = {gold = 1000000}}, {245556, cost = {gold = 1000000}}, {246101, cost = {gold = 100000}}, {246103, cost = {gold = 250000}}, {246106, cost = {gold = 100000}}, {246243, cost = {gold = 500000}}, {246245, cost = {gold = 1000000}}, {246246, cost = {gold = 1250000}}, {246247, cost = {gold = 750000}}, {246248, cost = {gold = 500000}}, {246502, cost = {gold = 1000000}}, {252417, cost = {gold = 500000}}, {252659, cost = {gold = 750000}}, {253589, cost = {gold = 750000}}, {253592, cost = {gold = 750000}}, {253593, cost = {gold = 1250000}}, {258670, cost = {gold = 750000}}, {246934, cost = {gold = 500000}}, {246935, cost = {gold = 500000}}, {250092, cost = {gold = 100000}}, {252037, cost = {gold = 750000}}, {252038, cost = {gold = 750000}}, {258570, cost = {gold = 1000000}}, {262962, cost = {gold = 250000}}, {266233, cost = {gold = 250000}}, {266249, cost = {gold = 250000}}, {266250, cost = {gold = 250000}}, {268029, cost = {gold = 500000}}, {268030, cost = {gold = 500000}}, {272359, cost = {gold = 500000}}},
     },
 	[255326] = {
         name = "\"Len\" Splinthoof",

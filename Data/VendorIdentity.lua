@@ -208,6 +208,7 @@ VendorIdentity.Vendors = {
         zone = "Felwood",
         faction = "Alliance",
         expansion = "Cataclysm",
+        notes = "Requires quest 'The Shredders of Irontree'. Blacksmithing Supplies vendor.",
     },
     [49386] = {
         name = "Craw MacGraw",
@@ -297,6 +298,7 @@ VendorIdentity.Vendors = {
         subzone = "Halfhill",
         faction = "Neutral",
         expansion = "Mists of Pandaria",
+        notes = "Items require Tillers friendship rep: Cooking Table (Tina Mudclaw), Pantry (Ella), Well (Farmer Fung), Brew Keg (Jogu the Drunk). Doghouse has no rep req.",
     },
     [59698] = {
         name = "Brother Furtrim",
@@ -326,6 +328,7 @@ VendorIdentity.Vendors = {
         subzone = "Seat of Knowledge",
         faction = "Neutral",
         expansion = "Events",
+        scanConfirmed = "2026-07-06",
     },
     [64032] = {
         name = "Sage Whiteheart",
@@ -479,6 +482,7 @@ VendorIdentity.Vendors = {
         subzone = "Trading Post",
         faction = "Horde",
         expansion = "Warlords of Draenor",
+        notes = "Requires Level 2+ Garrison Trading Post. Not always present.",
     },
     [86777] = {
         name = "Elder Surehide",
@@ -489,6 +493,7 @@ VendorIdentity.Vendors = {
         subzone = "Garrison",
         faction = "Horde",
         expansion = "Warlords of Draenor",
+        notes = "Garrison vendor. Items also on Ribchewer [86776].",
     },
     [86779] = {
         name = "Krixel Pinchwhistle",
@@ -499,6 +504,7 @@ VendorIdentity.Vendors = {
         subzone = "Trading Post",
         faction = "Horde",
         expansion = "Warlords of Draenor",
+        notes = "Requires Level 3 Garrison Trading Post. Not always present.",
     },
     [87015] = {
         name = "Kil'rip",
@@ -519,6 +525,7 @@ VendorIdentity.Vendors = {
         subzone = "Trading Post",
         faction = "Alliance",
         expansion = "Warlords of Draenor",
+        notes = "Requires Level 3 Garrison Trading Post. Not always present.",
     },
     [87312] = {
         name = "Vora Strongarm",
@@ -547,6 +554,7 @@ VendorIdentity.Vendors = {
         zone = "Lunarfall (Alliance Garrison)",
         faction = "Alliance",
         expansion = "Warlords of Draenor",
+        notes = "Requires quest 'The Escape' (Elwynn Forest). Needs in-game coord verification.",
     },
     [88220] = {
         name = "Peter",
@@ -575,6 +583,7 @@ VendorIdentity.Vendors = {
         subzone = "Acherus: The Ebon Hold (DK Order Hall)",
         faction = "Neutral",
         expansion = "Legion",
+        notes = "Death Knight only — enter via class spell Death Gate (usable from anywhere). Pin marks the Dalaran Order Hall portal entrance.",
     },
     [93971] = {
         name = "Leyweaver Inondra",
@@ -604,6 +613,10 @@ VendorIdentity.Vendors = {
         subzone = "Sanctum of Light",
         faction = "Neutral",
         expansion = "Legion",
+        notes = "Paladin only — enter via portal in Dalaran.",
+        class = "PALADIN",
+        portal = { mapID = 627, x = 0.325, y = 0.689 },
+        badgeMapID = 627,
     },
     [103693] = {
         name = "Outfitter Reynolds",
@@ -613,6 +626,10 @@ VendorIdentity.Vendors = {
         zone = "Trueshot Lodge",
         faction = "Neutral",
         expansion = "Legion",
+        notes = "Hunter only — talk to Talua in Dalaran to fly to Trueshot Lodge.",
+        class = "HUNTER",
+        portal = { mapID = 627, x = 0.72, y = 0.403 },
+        badgeMapID = 627,
     },
     [105333] = {
         name = "Val'zuun",
@@ -633,6 +650,10 @@ VendorIdentity.Vendors = {
         subzone = "Den of Thieves",
         faction = "Neutral",
         expansion = "Legion",
+        notes = "Rogue only — enter via pipe entrance in Dalaran.",
+        class = "ROGUE",
+        portal = { mapID = 627, x = 0.467, y = 0.264 },
+        badgeMapID = 627,
     },
     [106901] = {
         name = "Sylvia Hartshorn",
@@ -663,6 +684,7 @@ VendorIdentity.Vendors = {
         subzone = "Thunder Totem Basement",
         faction = "Neutral",
         expansion = "Legion",
+        notes = "Decor Specialist - Take elevator down",
     },
     [108537] = {
         name = "Crafty Palu",
@@ -692,6 +714,10 @@ VendorIdentity.Vendors = {
         subzone = "The Heart of Azeroth",
         faction = "Neutral",
         expansion = "Legion",
+        notes = "Shaman only — enter via portal in Dalaran.",
+        class = "SHAMAN",
+        portal = { mapID = 627, x = 0.683, y = 0.502 },
+        badgeMapID = 627,
     },
     [112323] = {
         name = "Amurra Thistledew",
@@ -701,6 +727,7 @@ VendorIdentity.Vendors = {
         zone = "The Dreamgrove",
         faction = "Neutral",
         expansion = "Legion",
+        notes = "Druid only — enter via class spell Dreamwalk (usable from anywhere).",
     },
     [112338] = {
         name = "Caydori Brightstar",
@@ -711,6 +738,11 @@ VendorIdentity.Vendors = {
         subzone = "The Laughing Crane",
         faction = "Neutral",
         expansion = "Legion",
+        notes = "Monk only — enter via class spell Zen Pilgrimage (usable from anywhere).",
+        class = "MONK",
+        scanConfirmed = "2026-07-06",
+        portal = { mapID = 627, x = 0.523, y = 0.567 },
+        badgeMapID = 627,
     },
     [112392] = {
         name = "Quartermaster Durnolf",
@@ -720,6 +752,10 @@ VendorIdentity.Vendors = {
         zone = "Skyhold",
         faction = "Neutral",
         expansion = "Legion",
+        notes = "Warrior only — enter via portal in Dalaran.",
+        class = "WARRIOR",
+        portal = { mapID = 627, x = 0.754, y = 0.4738 },
+        badgeMapID = 627,
     },
     [112401] = {
         name = "Meridelle Lightspark",
@@ -729,6 +765,10 @@ VendorIdentity.Vendors = {
         zone = "Netherlight Temple",
         faction = "Neutral",
         expansion = "Legion",
+        notes = "Priest only — enter via portal in Dalaran.",
+        class = "PRIEST",
+        portal = { mapID = 627, x = 0.391, y = 0.572 },
+        badgeMapID = 627,
     },
     [112407] = {
         name = "Falara Nightsong",
@@ -739,6 +779,10 @@ VendorIdentity.Vendors = {
         subzone = "The Fel Hammer",
         faction = "Neutral",
         expansion = "Legion",
+        notes = "Demon Hunter only — enter via portal at the eastern edge of Dalaran.",
+        class = "DEMONHUNTER",
+        portal = { mapID = 627, x = 0.924, y = 0.642 },
+        badgeMapID = 627,
     },
     [112434] = {
         name = "Gigi Gigavoid",
@@ -748,6 +792,10 @@ VendorIdentity.Vendors = {
         zone = "Dreadscar Rift",
         faction = "Neutral",
         expansion = "Legion",
+        notes = "Warlock only — enter via portal in the Dalaran Underbelly.",
+        class = "WARLOCK",
+        portal = { mapID = 628, x = 0.273, y = 0.438 },
+        badgeMapID = 628,
     },
     [112440] = {
         name = "Jackson Watkins",
@@ -757,6 +805,10 @@ VendorIdentity.Vendors = {
         zone = "Hall of the Guardian",
         faction = "Neutral",
         expansion = "Legion",
+        notes = "Mage only — enter via class spell Teleport: Hall of the Guardian.",
+        class = "MAGE",
+        portal = { mapID = 627, x = 0.286, y = 0.524 },
+        badgeMapID = 627,
     },
     [112634] = {
         name = "Hilseth Travelstride",
@@ -766,6 +818,7 @@ VendorIdentity.Vendors = {
         zone = "Val'sharah",
         faction = "Neutral",
         expansion = "Legion",
+        notes = "Patrols the road through Lorlathil — coordinates may vary.",
     },
     [112716] = {
         name = "Rasil Fireborne",
@@ -1013,6 +1066,7 @@ VendorIdentity.Vendors = {
         subzone = "Dreamsurge (Rotating)",
         faction = "Neutral",
         expansion = "Events",
+        notes = "Location is not static, she moves with the dreamsurge event",
     },
     [211065] = {
         name = "Marie Allen",
@@ -1082,6 +1136,7 @@ VendorIdentity.Vendors = {
         subzone = "Lower City Armaments",
         faction = "Neutral",
         expansion = "The War Within",
+        notes = "Located in City of Threads (upper level), not City of Threads Lower",
     },
     [219217] = {
         name = "Velerd",
@@ -1421,6 +1476,17 @@ VendorIdentity.Vendors = {
         faction = "Neutral",
         expansion = "Cataclysm",
     },
+    [250982] = {
+        name = "Dethelin",
+        mapID = 2393,
+        x = 0.5247,
+        y = 0.473,
+        zone = "Silvermoon City",
+        subzone = "Murder Row",
+        faction = "Neutral",
+        expansion = "Midnight",
+        scanConfirmed = "2026-07-07",
+    },
     [251091] = {
         name = "Nael Silvertongue",
         mapID = 2393,
@@ -1441,6 +1507,7 @@ VendorIdentity.Vendors = {
         subzone = "The Den",
         faction = "Neutral",
         expansion = "Midnight",
+        notes = "Decor unlocks by capturing Glowing Moths in Harandar (30, 60, and 90 captures).",
         scanConfirmed = "2026-05-05",
     },
     [251911] = {
@@ -1555,7 +1622,7 @@ VendorIdentity.Vendors = {
         zone = "Arcantina",
         faction = "Neutral",
         expansion = "Midnight",
-        scanConfirmed = "2026-03-22",
+        scanConfirmed = "2026-07-06",
     },
     [252887] = {
         name = "Chert",
@@ -1839,6 +1906,7 @@ VendorIdentity.Vendors = {
         zone = "Razorwind Shores",
         faction = "Horde",
         expansion = "The War Within",
+        scanConfirmed = "2026-07-06",
     },
     [255297] = {
         name = "Shon'ja",
@@ -1848,6 +1916,7 @@ VendorIdentity.Vendors = {
         zone = "Razorwind Shores",
         faction = "Horde",
         expansion = "The War Within",
+        scanConfirmed = "2026-07-06",
     },
     [255298] = {
         name = "Jehzar Starfall",
@@ -1857,6 +1926,7 @@ VendorIdentity.Vendors = {
         zone = "Razorwind Shores",
         faction = "Horde",
         expansion = "The War Within",
+        scanConfirmed = "2026-07-07",
     },
     [255299] = {
         name = "Lefton Farrer",
@@ -1866,6 +1936,7 @@ VendorIdentity.Vendors = {
         zone = "Razorwind Shores",
         faction = "Horde",
         expansion = "The War Within",
+        scanConfirmed = "2026-07-07",
     },
     [255301] = {
         name = "Botanist Boh'an",
@@ -1884,6 +1955,7 @@ VendorIdentity.Vendors = {
         zone = "Razorwind Shores",
         faction = "Horde",
         expansion = "The War Within",
+        scanConfirmed = "2026-07-07",
     },
     [255325] = {
         name = "\"High Tides\" Ren",
@@ -1893,6 +1965,7 @@ VendorIdentity.Vendors = {
         zone = "Razorwind Shores",
         faction = "Horde",
         expansion = "The War Within",
+        scanConfirmed = "2026-07-07",
     },
     [255326] = {
         name = "\"Len\" Splinthoof",
@@ -1923,6 +1996,7 @@ VendorIdentity.Vendors = {
         subzone = "The Bazaar",
         faction = "Neutral",
         expansion = "Midnight",
+        notes = "Requires Skinning profession",
         scanConfirmed = "2026-04-10",
     },
     [256026] = {
@@ -1933,6 +2007,7 @@ VendorIdentity.Vendors = {
         zone = "Silvermoon City",
         faction = "Neutral",
         expansion = "Midnight",
+        notes = "Profession achievement vendor — items require specific profession achievements.",
     },
     [256071] = {
         name = "Solelo",
@@ -1943,6 +2018,7 @@ VendorIdentity.Vendors = {
         subzone = "The Mage Quarter",
         faction = "Alliance",
         expansion = "Classic",
+        notes = "Rotating inventory: only 2 of 6 items available at a time",
         scanConfirmed = "2026-02-25",
     },
     [256119] = {
@@ -1981,6 +2057,7 @@ VendorIdentity.Vendors = {
         zone = "Suramar",
         faction = "Neutral",
         expansion = "Legion",
+        notes = "Requires quest: Mglrgrs Of Our Grmlgrlr",
     },
     [256828] = {
         name = "Dennia Silvertongue",
