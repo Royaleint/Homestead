@@ -449,10 +449,18 @@ local function GetVendorFramePoolKey(entry)
         factionKey = entry.vendor.faction
     end
 
-    return format("%s|o%s|f%s",
+    -- HS-158/160 §5: vendorType affects the icon set at frame-create time
+    -- (PinFrameFactory:CreateVendorPinFrame), so it must join the pool key —
+    -- same class of fix as GetPortalFramePoolKey's `class` component below.
+    -- Without this, a pooled default-art frame could serve a professionShop
+    -- vendor non-deterministically.
+    local vendorTypeKey = (entry.vendor and entry.vendor.vendorType) or "none"
+
+    return format("%s|o%s|f%s|vt%s",
         BuildWorldPinStyleKey(),
         BoolToKey(entry.isOppositeFaction),
-        factionKey)
+        factionKey,
+        vendorTypeKey)
 end
 
 local function GetBadgeDisplayFactionKey(badgeData)

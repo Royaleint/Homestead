@@ -166,8 +166,53 @@ local function AddRequirementsToTooltip(tooltip, itemID, npcID, dedupSet, reputa
                 text = "Requires: " .. req.name
             elseif req.type == "achievement" and req.name then
                 text = "Requires: " .. req.name
+                -- Richmond case: completing the achievement auto-grants one copy;
+                -- price only applies to buying extras. Not gated by isMet — always
+                -- show the note once an achievement req is marked granted=true.
+                if req.granted then
+                    tooltip:AddLine("  Completing this grants one copy; price applies to additional copies",
+                        COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
+                end
             elseif req.type == "level" and req.level then
                 text = "Requires Level " .. req.level
+            elseif req.type == "professionRank" and req.profession and req.rank then
+                text = "Requires " .. req.profession .. " Rank " .. req.rank
+                isMet = HA.SourceManager:IsRequirementMet(req)
+                -- Progress line: "Your <profession>: X" (mirrors the reputation
+                -- progress-line pattern above). Only rendered when we can
+                -- resolve the player's current rank for this profession.
+                if GetProfessions and GetProfessionInfo then
+                    local profIndices = { GetProfessions() }
+                    for _, profIndex in ipairs(profIndices) do
+                        if profIndex then
+                            local profName, _, skillLevel = GetProfessionInfo(profIndex)
+                            if profName == req.profession then
+                                tooltip:AddLine("  " .. text,
+                                    isMet and 0.0 or 0.8, isMet and 0.8 or 0.0, 0.0)
+                                tooltip:AddLine("  Your " .. req.profession .. ": " .. tostring(skillLevel or 0),
+                                    COLOR_WHITE.r, COLOR_WHITE.g, COLOR_WHITE.b)
+                                text = nil  -- lines already rendered above
+                                break
+                            end
+                        end
+                    end
+                end
+            elseif req.type == "promotion" then
+                -- Not a met/unmet requirement — decision 4 excludes promotion
+                -- items from uncollected counts whether live or expired, but
+                -- the tooltip still differentiates live vs. expired so the
+                -- item stays discoverable while the promo is running.
+                local isExpired = HA.SourceManager.IsPromotionExpired
+                    and HA.SourceManager:IsPromotionExpired(req)
+                if isExpired then
+                    tooltip:AddLine("  No longer obtainable", COLOR_GRAY.r, COLOR_GRAY.g, COLOR_GRAY.b)
+                else
+                    local promoText = "Promotion reward — " .. (req.name or "Unknown Promotion")
+                    if req.endsAt then
+                        promoText = promoText .. ", through " .. req.endsAt
+                    end
+                    tooltip:AddLine("  " .. promoText, COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
+                end
             elseif req.type == "unknown" and req.text then
                 text = req.text
             end

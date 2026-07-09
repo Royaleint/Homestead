@@ -592,6 +592,8 @@ local function normalizeAndValidateRequirement(req)
     if req.type == "achievement" and (req.id or req.name) then return true end
     if req.type == "quest" and (req.id or req.name) then return true end
     if req.type == "level" and req.level then return true end
+    if req.type == "promotion" and req.name then return true end
+    if req.type == "professionRank" and req.profession and req.rank then return true end
     if req.type == "unknown" and req.text then
         -- Try to parse raw text into structured reputation data
         local parsed = parseRawRequirementText(req.text)
@@ -618,6 +620,10 @@ local function getRequirementDedupeKey(req)
         return "quest:" .. tostring(req.id or req.name or "")
     elseif req.type == "level" then
         return "level"
+    elseif req.type == "promotion" then
+        return "promotion:" .. (req.name or "")
+    elseif req.type == "professionRank" then
+        return "professionRank:" .. (req.profession or "")
     elseif req.type == "unknown" then
         return "unknown:" .. (req.text or "")
     end
@@ -863,6 +869,29 @@ function SourceManager:IsRequirementMet(req)
             return C_QuestLog.IsQuestFlaggedCompleted(req.id)
         end
         return nil
+
+    elseif req.type == "professionRank" then
+        if not req.profession or not req.rank then return nil end
+        if GetProfessions and GetProfessionInfo then
+            local profIndices = { GetProfessions() }
+            for _, profIndex in ipairs(profIndices) do
+                if profIndex then
+                    local name, _, skillLevel = GetProfessionInfo(profIndex)
+                    if name == req.profession then
+                        return (skillLevel or 0) >= req.rank
+                    end
+                end
+            end
+        end
+        return nil  -- Player doesn't have this profession, or API unavailable
+
+    elseif req.type == "promotion" then
+        -- Not a per-player fact: reflects whether the promotion is still live.
+        -- EvaluateRequirementAvailability does NOT consult this for counting
+        -- purposes (decision 4 — promotion items are unobtainable-for-counts
+        -- whether live or expired). This exists for generic callers/tooltips
+        -- that want live-vs-expired as a met/unmet signal.
+        return not self:IsPromotionExpired(req)
     end
 
     return nil  -- Unknown requirement type
@@ -978,11 +1007,96 @@ local function GetRequirementBlockerLabel(req)
         return req.profession and ("Profession: " .. req.profession) or "Profession requirement"
     end
 
+    if req.type == "professionRank" then
+        if req.profession and req.rank then
+            return "Profession: " .. req.profession .. " Rank " .. req.rank
+        end
+        return "Profession rank requirement"
+    end
+
+    if req.type == "promotion" then
+        return "Promotion: " .. (req.name or "Unknown Promotion")
+    end
+
     if req.text then
         return req.text
     end
 
     return "Other requirements"
+end
+
+-------------------------------------------------------------------------------
+-- Server-date helpers (HS-158/160 §1)
+--
+-- Availability windows (promotion expiry) are compared against SERVER time,
+-- never the local clock — matches CalendarDetector.lua's ScanTodaysHolidays
+-- precedent (same C_DateAndTime API, same nil-guard shape).
+-------------------------------------------------------------------------------
+
+-- Memoized server-date stamp. This is called from BadgeCalculation's cache-key
+-- construction on EVERY GetVendorStats call (including cache hits), so it must
+-- not allocate on every call — a fresh calendar table + string.format per call
+-- would land an unconditional allocation in the hottest stats path (Argus Gate 1,
+-- HS-158/160 Phase B review). Recompute is throttled off GetTime() (a cheap
+-- monotonic read), NOT off the calendar API itself (that would be circular).
+-- A stamp lagging an actual midnight rollover by up to ~60s is fine — the
+-- day-stamped caches simply roll on the next recompute after that; no timers.
+local serverDateStampCache = nil
+local serverDateStampCacheTime = nil
+local SERVER_DATE_STAMP_THROTTLE = 60  -- seconds
+
+-- Returns "YYYY-MM-DD" for the current SERVER date, or nil if unavailable
+-- (e.g. very early in load, or a future client removes the API).
+-- Public so other modules (BadgeCalculation's cache keys) can day-stamp their
+-- own availability-derived caches without duplicating the C_DateAndTime call.
+function SourceManager:GetServerDateStamp()
+    local now = GetTime and GetTime() or nil
+    if serverDateStampCache ~= nil and now and serverDateStampCacheTime
+            and (now - serverDateStampCacheTime) < SERVER_DATE_STAMP_THROTTLE then
+        return serverDateStampCache
+    end
+
+    local today = C_DateAndTime and C_DateAndTime.GetCurrentCalendarTime and C_DateAndTime.GetCurrentCalendarTime()
+    local stamp = nil
+    if today and today.year and today.month and today.monthDay then
+        stamp = string.format("%04d-%02d-%02d", today.year, today.month, today.monthDay)
+    end
+
+    -- Cache the result (including nil, e.g. during a loading screen) so a
+    -- transient unavailability doesn't force a recompute every call within
+    -- the throttle window. Only advance serverDateStampCacheTime when we
+    -- actually had a GetTime() reading to throttle against.
+    serverDateStampCache = stamp
+    if now then
+        serverDateStampCacheTime = now
+    end
+    return stamp
+end
+
+-- Day-stamped cache: promotion name -> { dateStamp = "...", expired = bool }.
+-- Rebuilt whenever the server date rolls over (key mismatch), so expiry takes
+-- effect on the next evaluation after midnight without a timer (plan §1).
+local promotionExpiredCache = {}
+
+-- Is this promotion requirement no longer obtainable?
+-- True when endsAt has passed (string date compare works for zero-padded
+-- YYYY-MM-DD) or the data explicitly marks available = false.
+-- A promotion with no endsAt and available ~= false is treated as live.
+function SourceManager:IsPromotionExpired(req)
+    if not req or req.type ~= "promotion" then return false end
+    if req.available == false then return true end
+    if not req.endsAt then return false end
+
+    local dateStamp = self:GetServerDateStamp()
+    local cacheKey = (req.name or "") .. "|" .. req.endsAt
+    local cached = promotionExpiredCache[cacheKey]
+    if cached and cached.dateStamp == dateStamp then
+        return cached.expired
+    end
+
+    local expired = dateStamp ~= nil and dateStamp > req.endsAt
+    promotionExpiredCache[cacheKey] = { dateStamp = dateStamp, expired = expired }
+    return expired
 end
 
 -- Append a blocker label to a list, deduplicating by string equality.
@@ -1009,6 +1123,20 @@ end
 local function EvaluateRequirementAvailability(reqs)
     if not reqs or #reqs == 0 then
         return "purchasable", false, false, nil
+    end
+
+    -- Promotion items are "unobtainable" for counting purposes whether the
+    -- promotion is currently live or has expired (ratified plan decision 4 —
+    -- the addon cannot know which players participated in a live promo, so
+    -- uncollected counts stay uniform; the tooltip is what differentiates
+    -- live vs expired via Tooltips.lua's separate IsPromotionExpired check).
+    -- This must be checked BEFORE the met/blocked loop below so an
+    -- unowned promotion item never reads as "locked" (locked implies
+    -- satisfiable later; a promotion never is, once gated).
+    for _, req in ipairs(reqs) do
+        if req.type == "promotion" then
+            return "unobtainable", false, true, nil
+        end
     end
 
     local hasVerifiableRequirement = false
@@ -1091,6 +1219,19 @@ function SourceManager:GetItemAvailabilityState(itemID, npcID)
         return "owned", false, false, nil
     end
 
+    -- HS-158/160 §4: the no-npcID (catalog) path never derived gated states
+    -- because it doesn't call GetRequirements/EvaluateRequirementAvailability.
+    -- PrerequisiteSources is itemID-keyed, so a promotion requirement can be
+    -- consulted here without a vendor context — an expired promo must not
+    -- glow "available" in the catalog while tooltips say otherwise.
+    if HA.PrerequisiteSources and HA.PrerequisiteSources[itemID] then
+        for _, req in ipairs(HA.PrerequisiteSources[itemID]) do
+            if req.type == "promotion" then
+                return "unobtainable", false, true, nil
+            end
+        end
+    end
+
     if self:GetBestAvailableSource(itemID) then
         return "available", false, false, nil
     end
@@ -1142,11 +1283,28 @@ function SourceManager:GetItemPresentation(itemID, options)
         end
     end
 
+    -- HS-158/160 §4: consult item-keyed PrerequisiteSources for a promotion
+    -- requirement before falling back to source-based availability, so the
+    -- non-vendor (catalog) path can't glow "available" on an unobtainable
+    -- promo item. Mirrors GetItemAvailabilityState's no-npcID branch.
+    local hasPromotionRequirement = false
+    if not npcID and HA.PrerequisiteSources and HA.PrerequisiteSources[itemID] then
+        for _, req in ipairs(HA.PrerequisiteSources[itemID]) do
+            if req.type == "promotion" then
+                hasPromotionRequirement = true
+                break
+            end
+        end
+    end
+
     if isOwned then
         availabilityState = "owned"
     elseif npcID then
         availabilityState, isUnverified, hasVerifiableRequirement, blockerLabels =
             self:GetVendorItemAvailabilityState(itemID, npcID)
+    elseif hasPromotionRequirement then
+        availabilityState = "unobtainable"
+        hasVerifiableRequirement = true
     elseif bestSource then
         availabilityState = "available"
     elseif self:GetSource(itemID) then
@@ -1210,6 +1368,8 @@ function SourceManager:GetItemPresentation(itemID, options)
         catalogGlowState = "available"
     elseif availabilityState == "blocked" or availabilityState == "locked" then
         catalogGlowState = "blocked"
+    elseif availabilityState == "unobtainable" then
+        catalogGlowState = "unobtainable"
     end
 
     local merchantStatus = nil

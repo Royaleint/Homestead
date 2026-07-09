@@ -93,8 +93,24 @@ local function NormalizeSourceFilter(sourceFilter)
     return lower
 end
 
+-- HS-158/160 §1/H3: availability (promotion expiry) is day-stamped at the
+-- SourceManager layer, but these caches are otherwise only invalidated by
+-- ownership/scan/settings EVENTS — a vendor's stats computed before midnight
+-- would keep reading the stale unobtainable classification until an
+-- unrelated event fired. Folding the server date into every availability-
+-- derived cache key here makes them expire naturally at server midnight,
+-- no timers required. Falls back to a stable placeholder if the API is
+-- unavailable so caching still works (just without the day-of-month split).
+local function GetAvailabilityDateStamp()
+    local SM = HA.SourceManager
+    if SM and SM.GetServerDateStamp then
+        return SM:GetServerDateStamp() or "unknown"
+    end
+    return "unknown"
+end
+
 local function BuildVendorFilterCacheKey(vendor, sourceFilter)
-    return tostring(vendor.npcID) .. "|" .. NormalizeSourceFilter(sourceFilter)
+    return tostring(vendor.npcID) .. "|" .. NormalizeSourceFilter(sourceFilter) .. "|" .. GetAvailabilityDateStamp()
 end
 
 local function ItemMatchesSourceFilter(itemID, sourceFilter)
@@ -122,6 +138,7 @@ local UNKNOWN_VENDOR_STATS = {
     purchasable = 0,
     locked = 0,
     unverified = 0,
+    unobtainable = 0,
     blockers = nil,
     total = 0,
 }
@@ -145,6 +162,7 @@ local function BuildVendorStats(vendor, sourceFilter)
 
     local hasMatchingItems = false
     local total, collected, purchasable, locked = 0, 0, 0, 0
+    local unobtainable = 0
     local provisionalUnverified = 0
     local hasAnyVerifiableRequirements = false
     local lockedBlockerCounts = {}
@@ -167,7 +185,6 @@ local function BuildVendorStats(vendor, sourceFilter)
 
         if matchesSourceFilter then
             hasMatchingItems = true
-            total = total + 1
 
             local state = presentation and presentation.availabilityState or "purchasable"
             local isUnverified = presentation and presentation.isUnverified or false
@@ -180,8 +197,20 @@ local function BuildVendorStats(vendor, sourceFilter)
             end
 
             if isOwned then
+                -- Owned items always count toward collected/total, even if
+                -- the underlying requirement (e.g. a promotion) is also
+                -- unobtainable for other players — the player already has it.
                 collected = collected + 1
+                total = total + 1
+            elseif state == "unobtainable" then
+                -- HS-158/160 §3/decision 4: unowned unobtainable items
+                -- (promotion-gated, live or expired) are EXCLUDED from total
+                -- so collected/total can reach completion. This must be
+                -- checked before the locked/purchasable split below.
+                unobtainable = unobtainable + 1
             else
+                total = total + 1
+
                 if isUnverified then
                     provisionalUnverified = provisionalUnverified + 1
                 elseif hasVerifiableRequirement then
@@ -210,6 +239,7 @@ local function BuildVendorStats(vendor, sourceFilter)
             purchasable = 0,
             locked = 0,
             unverified = 0,
+            unobtainable = 0,
             blockers = nil,
             total = 0,
         }
@@ -241,6 +271,7 @@ local function BuildVendorStats(vendor, sourceFilter)
         -- Only report unverified when the vendor has at least some verifiable data.
         -- Pure no-data vendors stay optimistic with zero unverified.
         unverified = hasAnyVerifiableRequirements and provisionalUnverified or 0,
+        unobtainable = unobtainable,
         blockers = blockers,
         total = total,
     }
@@ -363,7 +394,7 @@ end
 
 function BadgeCalculation:GetZoneVendorCounts(continentMapID, sourceFilter)
     sourceFilter = NormalizeSourceFilter(sourceFilter)
-    local cacheKey = tostring(continentMapID) .. "|" .. sourceFilter
+    local cacheKey = tostring(continentMapID) .. "|" .. sourceFilter .. "|" .. GetAvailabilityDateStamp()
     if cachedZoneBadges[cacheKey] then return cachedZoneBadges[cacheKey] end
 
     local zoneCounts = {}
@@ -410,6 +441,7 @@ function BadgeCalculation:GetZoneVendorCounts(continentMapID, sourceFilter)
                                 totalItems = 0,
                                 lockedItems = 0,
                                 unverifiedItems = 0,
+                                unobtainableItems = 0,
                             }
                         end
 
@@ -445,6 +477,7 @@ function BadgeCalculation:GetZoneVendorCounts(continentMapID, sourceFilter)
                             zoneCounts[zoneMapID].totalItems = zoneCounts[zoneMapID].totalItems + (stats.total or 0)
                             zoneCounts[zoneMapID].lockedItems = zoneCounts[zoneMapID].lockedItems + (stats.locked or 0)
                             zoneCounts[zoneMapID].unverifiedItems = zoneCounts[zoneMapID].unverifiedItems + (stats.unverified or 0)
+                            zoneCounts[zoneMapID].unobtainableItems = zoneCounts[zoneMapID].unobtainableItems + (stats.unobtainable or 0)
                         end
                     end
                 end
@@ -458,7 +491,8 @@ end
 
 function BadgeCalculation:GetContinentVendorCounts(sourceFilter)
     sourceFilter = NormalizeSourceFilter(sourceFilter)
-    if cachedContinentBadges[sourceFilter] then return cachedContinentBadges[sourceFilter] end
+    local cacheKey = sourceFilter .. "|" .. GetAvailabilityDateStamp()
+    if cachedContinentBadges[cacheKey] then return cachedContinentBadges[cacheKey] end
 
     local continentCounts = {}
     if not HA.VendorData then return continentCounts end
@@ -494,6 +528,7 @@ function BadgeCalculation:GetContinentVendorCounts(sourceFilter)
                                 totalItems = 0,
                                 lockedItems = 0,
                                 unverifiedItems = 0,
+                                unobtainableItems = 0,
                             }
                         end
 
@@ -523,6 +558,7 @@ function BadgeCalculation:GetContinentVendorCounts(sourceFilter)
                             continentCounts[continentMapID].totalItems = continentCounts[continentMapID].totalItems + (stats.total or 0)
                             continentCounts[continentMapID].lockedItems = continentCounts[continentMapID].lockedItems + (stats.locked or 0)
                             continentCounts[continentMapID].unverifiedItems = continentCounts[continentMapID].unverifiedItems + (stats.unverified or 0)
+                            continentCounts[continentMapID].unobtainableItems = continentCounts[continentMapID].unobtainableItems + (stats.unobtainable or 0)
                         end
                     end
                 end
@@ -540,7 +576,7 @@ function BadgeCalculation:GetContinentVendorCounts(sourceFilter)
                     continentName = mapInfo and mapInfo.name or "Unknown",
                     vendorCount = 0, uncollectedCount = 0, unknownCount = 0,
                     oppositeFactionCount = 0, collectedItems = 0, totalItems = 0,
-                    lockedItems = 0, unverifiedItems = 0,
+                    lockedItems = 0, unverifiedItems = 0, unobtainableItems = 0,
                 }
             end
             local dest = continentCounts[destID]
@@ -552,11 +588,12 @@ function BadgeCalculation:GetContinentVendorCounts(sourceFilter)
             dest.totalItems           = dest.totalItems           + src.totalItems
             dest.lockedItems          = dest.lockedItems          + src.lockedItems
             dest.unverifiedItems      = dest.unverifiedItems      + src.unverifiedItems
+            dest.unobtainableItems    = dest.unobtainableItems    + (src.unobtainableItems or 0)
             continentCounts[srcID] = nil
         end
     end
 
-    cachedContinentBadges[sourceFilter] = continentCounts
+    cachedContinentBadges[cacheKey] = continentCounts
     return continentCounts
 end
 
