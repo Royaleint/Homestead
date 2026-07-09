@@ -139,6 +139,21 @@ function PinFrameFactory:CreateVendorPinFrame(vendor, isOppositeFaction)
     local isCustomColor = self:IsCustomPinColor()
 
     -- Housing icon
+    -- HS-158/160 §5: profession-shop vendors get a distinct pin treatment.
+    -- No confirmed compact (32px map-pin-sized) "profession sign" atlas was
+    -- found in the local Blizzard UI source checkout (Blizzard_Professions
+    -- atlases are all large-panel textures, not pin icons) — shipping an
+    -- unverified atlas string risks a silently blank icon. Default: reuse
+    -- the housing-vendor atlas with a gold/amber tint (guaranteed to render).
+    -- CANDIDATE ATLASES for Rawb's Gate 2 visual pass (UNVERIFIED — none
+    -- confirmed to exist; probe in-game first with e.g.
+    -- /run print(C_Texture.GetAtlasInfo("professions-icon-crafting") ~= nil)
+    -- for each candidate before wiring one in):
+    --   "professions-icon-crafting"
+    --   "poi-traveldeliveries-icon"
+    --   "worldquest-icon-profession"
+    local isProfessionShop = vendor and vendor.vendorType == "professionShop"
+
     frame.icon = frame:CreateTexture(nil, "ARTWORK")
     frame.icon:SetPoint("CENTER")
     frame.icon:SetSize(iconSize, iconSize)
@@ -149,6 +164,9 @@ function PinFrameFactory:CreateVendorPinFrame(vendor, isOppositeFaction)
     elseif isCustomColor then
         frame.icon:SetDesaturated(true)
         frame.icon:SetVertexColor(br, bg, bb, PinFrameFactory.DESAT_ALPHA)
+    elseif isProfessionShop then
+        frame.icon:SetDesaturated(true)
+        frame.icon:SetVertexColor(1.0, 0.82, 0.0, 1.0)
     end
 
     -- Faction emblem for opposite faction vendors

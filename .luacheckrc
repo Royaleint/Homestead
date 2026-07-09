@@ -97,6 +97,7 @@ read_globals = {
     "GetCoinTextureString",
     "GetMerchantItemInfo", "GetMerchantItemLink", "GetMerchantNumItems",
     "GetLocale",
+    "GetProfessions", "GetProfessionInfo", -- HS-158/160 professionRank requirements
     "GetRealZoneText",
     "GetSubZoneText",
     "GetScreenWidth", "GetScreenHeight",

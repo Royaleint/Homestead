@@ -41,9 +41,10 @@ local ATLAS_SIZE_OVERRIDE = {
 
 -- Accessibility glow colors: {r, g, b, alpha}
 local GLOW_COLORS = {
-    owned     = { 0.0, 0.8, 0.0, 0.6 },  -- green: you have at least 1
-    available = { 1.0, 0.8, 0.0, 0.6 },  -- yellow: unowned, source reqs met
-    blocked   = { 1.0, 0.15, 0.15, 0.9 }, -- red: unowned, all sources blocked
+    owned        = { 0.0, 0.8, 0.0, 0.6 },  -- green: you have at least 1
+    available    = { 1.0, 0.8, 0.0, 0.6 },  -- yellow: unowned, source reqs met
+    blocked      = { 1.0, 0.15, 0.15, 0.9 }, -- red: unowned, all sources blocked
+    unobtainable = { 0.5, 0.5, 0.5, 0.6 },  -- gray: promotion-gated (HS-158/160), not a normal "blocked" state
 }
 
 -- Throttle: how often (seconds) to refresh overlays
