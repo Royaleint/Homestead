@@ -4,6 +4,9 @@
 
 ## Unreleased
 
+- Fixed the Murder Row Wine Decanter pointing to the wrong vendor. It's sold by
+  Neriv at Saltheril's Haven in Eversong Woods (150 Brimming Arcana) — not by
+  Captain Donald Adams in Orgrimmar, who never carried it.
 - Made Homestead's source, ownership, and availability displays more consistent across tooltips, catalog overlays, map panels, badges, and vendor overlays.
 - Fixed a login error on CurseForge/local builds when the WagoAnalytics fallback
   shim was active.
