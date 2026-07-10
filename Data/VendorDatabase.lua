@@ -286,7 +286,8 @@ VendorDatabase.Vendors = {
         faction = "Horde",
         currency = "Gold",
         expansion = "Classic",
-        items = {245504, 245505, 246692},
+        -- 246692 removed (HS-176): in-game scans confirmed Neriv [242726] sells it; Adams does not.
+        items = {245504, 245505},
     },
 	[50307] = {
         name = "Lord Candren",

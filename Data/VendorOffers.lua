@@ -14698,7 +14698,13 @@ local ManualOverrides = {
 }
 
 -- TOMBSTONES: bare itemID or "npcID:itemID" string key to suppress from all offer output.
-local Tombstones = {}
+local Tombstones = {
+    -- HS-176: Murder Row Wine Decanter was never sold by Captain Donald Adams
+    -- (2026-07-09 in-game scan: item absent from his inventory; Neriv [242726]
+    -- is the verified source and keeps its own GeneratedBase row).
+    -- Pair-specific key so only the wrong pairing is suppressed.
+    ["50304:246692"] = true,
+}
 
 HA.VendorOffers = {
     GeneratedBase   = GeneratedBase,
