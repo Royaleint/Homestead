@@ -14695,6 +14695,19 @@ local ManualOverrides = {
         [266443] = { price = 750000, currencies = {}, isUsable = true }, -- Granite Cobblestone Long Path
         [266444] = { price = 500000, currencies = {}, isUsable = true }, -- Granite Cobblestone Path
     },
+    -- HS-183: prices captured from the 2026-07-10 scans for rows GeneratedBase
+    -- carried at price 0 (never captured). Wilkinson's is the BASE price: his
+    -- sibling item scanned at exactly 0.95x its known base, so the same 5% rep
+    -- discount is divided back out (1662500 / 0.95). Quackenbush's two are the
+    -- raw scanned prices — no sibling baseline to derive a discount from
+    -- (Brawler's Guild vendor; treat as base until a second scan disagrees).
+    [44114] = { -- Wilkinson (Raven Hill, Duskwood)
+        [256905] = { price = 1750000, currencies = {}, isUsable = true }, -- Small Gilnean Table
+    },
+    [68363] = { -- Quackenbush (Bizmo's Brawlpub, Deeprun Tram)
+        [259071] = { price = 40000000, currencies = {}, isUsable = true }, -- Brawler's Guild Punching Bag
+        [263026] = { price = 5000000, currencies = {}, isUsable = true }, -- Brawler's Barricade
+    },
 }
 
 -- TOMBSTONES: bare itemID or "npcID:itemID" string key to suppress from all offer output.
