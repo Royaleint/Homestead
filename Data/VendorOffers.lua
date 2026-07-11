@@ -14704,6 +14704,11 @@ local Tombstones = {
     -- is the verified source and keeps its own GeneratedBase row).
     -- Pair-specific key so only the wrong pairing is suppressed.
     ["50304:246692"] = true,
+    -- HS-182: Small Gilnean Table was never sold by Innkeeper Belm (2026-07-10
+    -- in-game scan: 15 merchant slots, 1 decor item, 256905 absent; the row
+    -- dates to the v1.1.0 crowd-data pass and carried price 0). Wilkinson
+    -- [44114] in Darkshire is the remaining source and keeps his own row.
+    ["1247:256905"] = true,
 }
 
 HA.VendorOffers = {

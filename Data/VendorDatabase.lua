@@ -78,7 +78,7 @@ VendorDatabase.Vendors = {
         faction = "Alliance",
         currency = "Gold",
         expansion = "Classic",
-        items = {256330, 256905},
+        items = {256330},
     },
 	[1465] = {
         name = "Drac Roughcut",
