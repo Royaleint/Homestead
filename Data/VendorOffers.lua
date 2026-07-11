@@ -14708,6 +14708,29 @@ local ManualOverrides = {
         [259071] = { price = 40000000, currencies = {}, isUsable = true }, -- Brawler's Guild Punching Bag
         [263026] = { price = 5000000, currencies = {}, isUsable = true }, -- Brawler's Barricade
     },
+    -- HS-183 batch 2 (store-base policy, ratified by Rawb 2026-07-10): gold prices
+    -- normalized to BASE where a compound rep-discount fingerprint pins the base
+    -- exactly — every row below fit scan = d1 x base and GeneratedBase = d2 x base
+    -- with d in {0.80, 0.95} and a round base. Currency amounts are never
+    -- discounted and are carried through unchanged.
+    [1247] = { -- Innkeeper Belm (Thunderbrew Distillery, Dun Morogh)
+        [256330] = { price = 8000000, currencies = {}, isUsable = true }, -- Kharanos Stone Bed
+    },
+    [85427] = { -- Maaria (Lunarfall Trading Post)
+        [245424] = { price = 5000000, currencies = {{id = 823, amount = 1000}}, isUsable = true }, -- Draenic Chest
+        [251544] = { price = 5000000, currencies = {{id = 823, amount = 1000}}, isUsable = true }, -- Telredor Recliner
+    },
+    [97140] = { -- First Arcanist Thalyssra (Shal'Aran, Suramar)
+        [244536] = { price = 7000000, currencies = {{id = 1220, amount = 1000}}, isUsable = true }, -- NB Fireplace
+        [246850] = { price = 10000000, currencies = {{id = 1220, amount = 2000}}, isUsable = true }, -- Arcan'dor Painting
+        [247844] = { price = 5000000, currencies = {{id = 1220, amount = 750}}, isUsable = true }, -- Suramar Library
+        [247845] = { price = 5000000, currencies = {{id = 1220, amount = 750}}, isUsable = true }, -- Nightborne Bench
+        [247847] = { price = 7000000, currencies = {{id = 1220, amount = 1000}}, isUsable = true }, -- Arcwine Counter
+        [247908] = { price = 300000, currencies = {{id = 1220, amount = 50}}, isUsable = true }, -- Nightborne Lantern
+        [247910] = { price = 3000000, currencies = {{id = 1220, amount = 500}}, isUsable = true }, -- Suramar Sconce
+        [247921] = { price = 3000000, currencies = {{id = 1220, amount = 500}}, isUsable = true }, -- NB Wall Shelf
+        [247924] = { price = 7000000, currencies = {{id = 1220, amount = 1000}}, isUsable = true }, -- Street Light
+    },
 }
 
 -- TOMBSTONES: bare itemID or "npcID:itemID" string key to suppress from all offer output.
