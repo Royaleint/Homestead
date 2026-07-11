@@ -14722,7 +14722,7 @@ local ManualOverrides = {
     },
     [97140] = { -- First Arcanist Thalyssra (Shal'Aran, Suramar)
         [244536] = { price = 7000000, currencies = {{id = 1220, amount = 1000}}, isUsable = true }, -- NB Fireplace
-        [246850] = { price = 10000000, currencies = {{id = 1220, amount = 2000}}, isUsable = true }, -- Arcan'dor Painting
+        [246850] = { price = 10000000, currencies = {{id = 1220, amount = 2000}}, isUsable = true }, -- Arcan'dor Art
         [247844] = { price = 5000000, currencies = {{id = 1220, amount = 750}}, isUsable = true }, -- Suramar Library
         [247845] = { price = 5000000, currencies = {{id = 1220, amount = 750}}, isUsable = true }, -- Nightborne Bench
         [247847] = { price = 7000000, currencies = {{id = 1220, amount = 1000}}, isUsable = true }, -- Arcwine Counter
