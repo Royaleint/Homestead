@@ -428,9 +428,10 @@ VendorIdentity.Vendors = {
     [85932] = {
         name = "Vindicator Nuurem",
         mapID = 622,
-        x = 0.464,
-        y = 0.746,
+        x = 0.466,
+        y = 0.768,
         zone = "Stormshield",
+        subzone = "Town Hall",
         faction = "Alliance",
         expansion = "Warlords of Draenor",
     },
