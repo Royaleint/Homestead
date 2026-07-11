@@ -493,8 +493,13 @@ local function RenderSourceText(tooltip, sourceText, itemID)
             -- Skip "Faction:" lines — our structured requirement rendering
             -- (AddRequirementsToTooltip) shows this with progress info instead.
             if not line:match("^Faction:%s*") then
-                -- Split "Label: value" into gold label + white/completion-colored value
-                local label, value = line:match("^([^:]+:%s*)(.*)")
+                -- Split "Label: value" into gold label + white/completion-colored value.
+                -- The label must be letter-led words only ("Vendor:", "Quest ID:",
+                -- "First-Time Collection Bonus:") — a bare cost line like
+                -- "1200|T...BLP:0|t" also contains a colon (the texture escape's size
+                -- suffix), and splitting there injects color codes inside the escape,
+                -- which un-renders the icon and leaks the raw |T path (HS-146 reopen).
+                local label, value = line:match("^(%a[%a%s%-']*:%s*)(.*)")
                 if label and value and value ~= "" then
                     -- Apply per-block completion color to the first line of each block
                     local valueColor = (i == 1 and blockCompletion and blockCompletion.color) or "|cFFFFFFFF"
