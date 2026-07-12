@@ -249,19 +249,11 @@ function PinFrameFactory:CreateDropPinFrame(record)
     frame:SetSize(baseSize, baseSize)
     frame:EnableMouse(true)
 
-    -- Use the DROP_SOURCE icon constant (texture path; matches the side-panel
-    -- drop badge). Falls back to an atlas if Constants are unavailable.
+    -- Homestead decor-drop art: housing vendor bag with a dungeon skull.
     frame.icon = frame:CreateTexture(nil, "ARTWORK")
     frame.icon:SetPoint("CENTER")
     frame.icon:SetSize(iconSize, iconSize)
-    local dropIcon = HA.Constants and HA.Constants.Icons and HA.Constants.Icons.DROP_SOURCE
-    if type(dropIcon) == "string" then
-        frame.icon:SetTexture(dropIcon)
-    else
-        frame.icon:SetAtlas("poi-rare", false)
-    end
-    -- Tint red-orange so drop pins read as combat/loot, not commerce.
-    frame.icon:SetVertexColor(1.0, 0.4, 0.25, 1.0)
+    frame.icon:SetTexture("Interface\\AddOns\\Homestead\\Textures\\HomesteadDropIcon_32")
 
     frame.record = record
 
