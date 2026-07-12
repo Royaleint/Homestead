@@ -443,13 +443,14 @@ local function CreateItemIcon(parent)
     frame.isHomesteadPanelIcon = true  -- Marker for Tooltips.lua DetectContext()
 
     frame:EnableMouse(true)
-    -- Tooltip on hover: SetItemByID fires TooltipDataProcessor synchronously,
-    -- so Tooltips.lua adds [Homestead] + sources + requirements. We only add
+    -- Tooltip on hover: SetManagedItemTooltip renders the item tooltip from
+    -- structured data without Blizzard's sell-back price line (issue #46) and
+    -- adds [Homestead] + sources + requirements itself. We only add
     -- the preview hint here to avoid duplicating requirement lines.
     frame:SetScript("OnEnter", function(self)
         if self.itemID then
             local tooltip = BeginPanelTooltip(self, "ANCHOR_RIGHT")
-            tooltip:SetItemByID(self.itemID)
+            HA.SetManagedItemTooltip(tooltip, self.itemID)
             tooltip:AddLine(" ")
             tooltip:AddLine(L["Click to preview"] or "Click to preview", 0.5, 0.5, 0.5)
             tooltip:Show()
@@ -1038,7 +1039,7 @@ local function CreateItemResultRow(parent, index)
         if not self.itemID then return end
 
         local tooltip = BeginPanelTooltip(self, "ANCHOR_RIGHT")
-        tooltip:SetItemByID(self.itemID)
+        HA.SetManagedItemTooltip(tooltip, self.itemID)
         tooltip:AddLine(" ")
         if expandedItemID == self.itemID then
             tooltip:AddLine("Click to collapse sources", 0.5, 0.5, 0.5)

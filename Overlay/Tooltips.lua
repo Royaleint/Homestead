@@ -1141,6 +1141,49 @@ local function OnHousingCatalogTooltipCreated(ownerID, entryFrame, tooltip)
 end
 
 -------------------------------------------------------------------------------
+-- Managed-tooltip item rendering (issue #46)
+-------------------------------------------------------------------------------
+
+-- Render an item's tooltip into a Homestead-managed tooltip frame from
+-- structured tooltip data, omitting Blizzard's sell-back "Sell Price" line:
+-- Homestead's own surfaces show purchase price only. Blizzard-owned tooltips
+-- (bags, catalog, merchant) are never stripped — this is only for frames we
+-- create. Appends the [Homestead] block directly because manual AddLine
+-- rendering does not fire the TooltipDataProcessor post-call.
+-- Falls back to SetItemByID (full native tooltip, sell price included, and
+-- the post-call appends the block) if structured data is unavailable.
+function HA.SetManagedItemTooltip(tooltip, itemID)
+    local data = C_TooltipInfo and C_TooltipInfo.GetItemByID
+        and C_TooltipInfo.GetItemByID(itemID)
+    if not (data and data.lines) then
+        tooltip:SetItemByID(itemID)
+        return
+    end
+
+    -- Line rendering mirrors TooltipDataHandlerMixin:AddLineDataText
+    -- (Blizzard_SharedXMLGame/Tooltip/TooltipDataHandler.lua) verbatim, minus
+    -- the SellPrice line type.
+    for _, line in ipairs(data.lines) do
+        if line.type ~= Enum.TooltipDataLineType.SellPrice then
+            local leftText = line.leftText
+            local leftColor = line.leftColor or NORMAL_FONT_COLOR
+            local wrapText = line.wrapText or false
+            local rightText = line.rightText
+            local leftOffset = line.leftOffset
+            if rightText then
+                local rightColor = line.rightColor or NORMAL_FONT_COLOR
+                GameTooltip_AddColoredDoubleLine(tooltip, leftText, rightText, leftColor, rightColor, wrapText, leftOffset)
+            elseif leftText then
+                GameTooltip_AddColoredLine(tooltip, leftText, leftColor, wrapText, leftOffset)
+            end
+        end
+    end
+
+    local _, link = C_Item.GetItemInfo(itemID)
+    AddDecorInfoToTooltip(tooltip, link or ("item:" .. itemID))
+end
+
+-------------------------------------------------------------------------------
 -- Tooltip Hooking (Modern API - TooltipDataProcessor)
 -------------------------------------------------------------------------------
 
