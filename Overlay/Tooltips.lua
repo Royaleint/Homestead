@@ -1103,27 +1103,23 @@ local function OnHousingCatalogTooltipCreated(ownerID, entryFrame, tooltip)
     -- renderedFactions tracks which factions already have progress lines (cross-path dedup).
     local renderedFactions = nil
     if not db or db.showSource ~= false then
-        local hasSource = false
+        -- Priority 1: our structured source DB (HS-197 — Rawb's ruling at the HS-174
+        -- Gate 2: validated Homestead data renders first). Blizzard sourceText carried
+        -- stale attributions that our verified tables correct, and while it took
+        -- priority those corrections never reached this surface.
+        local hasSource, renderedFactionsFromSources = AddSourceInfoToTooltip(tooltip, itemID)
+        renderedFactions = renderedFactionsFromSources
+        if hasSource and HA.DevAddon and HA.Addon.db.profile.debug then
+            HA.Addon:Debug("Catalog tooltip: using Homestead source tables")
+        end
 
-        -- Priority 1: Blizzard sourceText (authoritative, most complete — includes cost icons,
-        -- all vendor/zone/category fields). Rendered with gold labels + white values.
-        -- Always shown when present, regardless of showAllSources toggle — this is Blizzard's
-        -- own catalog data and is intentionally not governed by the user's source filter.
-        if entryInfo.sourceText and entryInfo.sourceText ~= "" then
+        -- Priority 2: Blizzard sourceText, only for items our DB knows nothing about
+        -- (still richer than nothing: cost icons, vendor/zone/category fields).
+        if not hasSource and entryInfo.sourceText and entryInfo.sourceText ~= "" then
             renderedFactions = RenderSourceText(tooltip, entryInfo.sourceText, itemID)
             hasSource = true
             if HA.DevAddon and HA.Addon.db.profile.debug then
-                HA.Addon:Debug("Catalog tooltip: using Blizzard sourceText")
-            end
-        end
-
-        -- Priority 2: Fall back to our structured DB for items with no sourceText
-        if not hasSource then
-            local rf
-            hasSource, rf = AddSourceInfoToTooltip(tooltip, itemID)
-            renderedFactions = renderedFactions or rf
-            if hasSource and HA.DevAddon and HA.Addon.db.profile.debug then
-                HA.Addon:Debug("Catalog tooltip: using VendorDatabase/AchievementSources")
+                HA.Addon:Debug("Catalog tooltip: falling back to Blizzard sourceText")
             end
         end
 
