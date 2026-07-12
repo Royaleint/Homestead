@@ -286,7 +286,7 @@ end
 
 -- Item info event tracking for tooltip refresh (GET_ITEM_INFO_RECEIVED)
 local itemInfoEventFrame = CreateFrame("Frame")
-local activeTooltipData = nil      -- {kind="vendor", pin, vendor} while vendor tooltip is visible
+local activeTooltipData = nil      -- {kind="vendor"|"drop", pin, vendor|record} while a pin tooltip is visible
 local tooltipRebuildPending = false -- Debounce flag for batching rebuilds
 local pinTooltip = nil
 
@@ -309,8 +309,8 @@ local function BeginPinTooltip(owner, anchor)
     return tooltip
 end
 
-local function IsActiveVendorTooltipVisible()
-    if not activeTooltipData or activeTooltipData.kind ~= "vendor" or not pinTooltip then
+local function IsActivePinTooltipVisible()
+    if not activeTooltipData or not pinTooltip then
         return false
     end
 
@@ -327,11 +327,15 @@ itemInfoEventFrame:SetScript("OnEvent", function(self, event, itemID, success)
         tooltipRebuildPending = true
         C_Timer.After(0.05, function()
             tooltipRebuildPending = false
-            if IsActiveVendorTooltipVisible() then
-                VendorMapPins:ShowVendorTooltip(
-                    activeTooltipData.pin,
-                    activeTooltipData.vendor
-                )
+            if IsActivePinTooltipVisible() then
+                if activeTooltipData.kind == "vendor" then
+                    VendorMapPins:ShowVendorTooltip(
+                        activeTooltipData.pin,
+                        activeTooltipData.vendor
+                    )
+                elseif activeTooltipData.kind == "drop" then
+                    VendorMapPins:ShowDropPinTooltip(activeTooltipData.pin, activeTooltipData.record)
+                end
             end
         end)
     end
@@ -547,6 +551,35 @@ end
 -- Tooltips
 -------------------------------------------------------------------------------
 
+local function AddPinTooltipItemLine(tooltip, item, options)
+    local itemID = item and item.itemID
+    local itemName = (item and item.name)
+        or (itemID and C_Item.GetItemInfo(itemID))
+        or "Unknown Item"
+    local availabilityState = nil
+    local SM = HA.SourceManager
+
+    if itemID and SM and SM.GetItemPresentation then
+        local presentation = SM:GetItemPresentation(itemID, options)
+        availabilityState = presentation and presentation.availabilityState
+    elseif itemID and HA.CatalogStore and HA.CatalogStore:IsOwnedFresh(itemID) then
+        availabilityState = "owned"
+    elseif itemID and options and options.npcID
+            and SM and SM.GetVendorItemAvailabilityState then
+        availabilityState = SM:GetVendorItemAvailabilityState(itemID, options.npcID)
+    end
+
+    if availabilityState == "owned" then
+        tooltip:AddLine("  " .. itemName, 0, 1, 0)
+    elseif availabilityState == "locked" then
+        tooltip:AddLine("  " .. itemName, 1, 0.25, 0.25)
+    else
+        tooltip:AddLine("  " .. itemName, 1, 1, 1)
+    end
+
+    return availabilityState
+end
+
 function VendorMapPins:ShowVendorTooltip(pin, vendor)
     if not vendor then return end
 
@@ -613,33 +646,13 @@ function VendorMapPins:ShowVendorTooltip(pin, vendor)
         tooltip:AddLine(" ")
         tooltip:AddLine("Items Sold:", 1, 1, 0)
 
-        local SM = HA.SourceManager
-
         for _, item in ipairs(allItems) do
-            local itemName = item.name or (item.itemID and C_Item.GetItemInfo(item.itemID)) or "Unknown Item"
-            local availabilityState = nil
-
-            if item.itemID and SM and SM.GetItemPresentation then
-                local presentation = SM:GetItemPresentation(item.itemID, {
-                    context = "vendorMapPin",
-                    npcID = vendor.npcID,
-                    sourceFilter = GetActiveSourceFilter(),
-                    isVendorContext = true,
-                })
-                availabilityState = presentation and presentation.availabilityState
-            elseif item.itemID and HA.CatalogStore and HA.CatalogStore:IsOwnedFresh(item.itemID) then
-                availabilityState = "owned"
-            elseif item.itemID and SM and SM.GetVendorItemAvailabilityState then
-                availabilityState = SM:GetVendorItemAvailabilityState(item.itemID, vendor.npcID)
-            end
-
-            if availabilityState == "owned" then
-                tooltip:AddLine("  " .. itemName, 0, 1, 0)
-            elseif availabilityState == "locked" then
-                tooltip:AddLine("  " .. itemName, 1, 0.25, 0.25)
-            else
-                tooltip:AddLine("  " .. itemName, 1, 1, 1)
-            end
+            AddPinTooltipItemLine(tooltip, item, {
+                context = "vendorMapPin",
+                npcID = vendor.npcID,
+                sourceFilter = GetActiveSourceFilter(),
+                isVendorContext = true,
+            })
         end
 
     else
@@ -1489,25 +1502,15 @@ VendorMapPins.pinSourceProviders.drop = { collect = CollectDropPinRecords }
 function VendorMapPins:ShowDropPinTooltip(pin, record)
     if not record then return end
 
-    activeTooltipData = nil
-    itemInfoEventFrame:UnregisterEvent("GET_ITEM_INFO_RECEIVED")
+    activeTooltipData = { kind = "drop", pin = pin, record = record }
+    itemInfoEventFrame:RegisterEvent("GET_ITEM_INFO_RECEIVED")
 
     local tooltip = BeginPinTooltip(pin, "ANCHOR_RIGHT")
-    -- Issue #38: build a plain item-name line rather than tooltip:SetItemByID().
-    -- This pin tooltip is a private GameTooltipTemplate frame, not flagged
-    -- isHomesteadManagedTooltip, so the Tooltips.lua post-call bails on it anyway
-    -- (the source-layering the 9a47c17 commit message promised never happened) --
-    -- and SetItemByID drags the whole TooltipDataProcessor / EmbeddedItemTooltip
-    -- machinery into a hover path that doesn't need it. C_Item.GetItemNameByID is
-    -- the non-deprecated lookup the rest of the addon already uses.
-    local itemName = record.itemID
-        and (C_Item.GetItemNameByID(record.itemID) or ("Item " .. tostring(record.itemID)))
-        or "Item ?"
-    tooltip:AddLine(itemName, 1, 1, 1)
-
     local drop = record.drop
     if drop and drop.mobName then
-        tooltip:AddLine(drop.mobName, 0.9, 0.4, 0.4)
+        tooltip:AddLine(drop.mobName, 1, 1, 1)
+    else
+        tooltip:AddLine("Unknown Drop", 1, 1, 1)
     end
     if drop and drop.zone then
         tooltip:AddLine(drop.zone, 0.7, 0.7, 0.7)
@@ -1516,6 +1519,22 @@ function VendorMapPins:ShowDropPinTooltip(pin, record)
         tooltip:AddLine(" ")
         tooltip:AddLine(drop.notes, 1, 0.82, 0, true)
     end
+
+    if record.itemID then
+        tooltip:AddLine(" ")
+        tooltip:AddLine("Items Dropped:", 1, 1, 0)
+        local availabilityState = AddPinTooltipItemLine(tooltip, { itemID = record.itemID }, {
+            context = "dropMapPin",
+            sourceFilter = "drop",
+            isVendorContext = false,
+        })
+
+        local collected = availabilityState == "owned" and 1 or 0
+        local locked = availabilityState == "locked" and 1 or 0
+        tooltip:AddLine(" ")
+        BC.AddSummaryLine(tooltip, collected, 1, locked, 0)
+    end
+
     tooltip:Show()
 end
 
