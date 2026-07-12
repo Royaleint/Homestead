@@ -554,7 +554,10 @@ local function RenderVendorSourceLines(tooltip, source, parsedTag, _itemID, _com
     if source.data.cost then
         local costStr = FormatCost(source.data.cost)
         if costStr then
-            tooltip:AddLine("  Cost: |cFFFFFFFF" .. costStr .. "|r", COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
+            -- "Vendor Price", not "Cost": Blizzard's native item tooltip can carry a
+            -- "Sell Price" (sell-back) line on the same tooltip; an unqualified "Cost"
+            -- label reads as contradicting it (issue #46).
+            tooltip:AddLine("  Vendor Price: |cFFFFFFFF" .. costStr .. "|r", COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
         end
     end
 end
@@ -681,7 +684,7 @@ local function RenderShopSourceLines(tooltip, source, parsedTag, _itemID, _compl
     tooltip:AddLine("Source: |cFFFFFFFFIn-Game Shop|r" .. parsedTag, COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
     tooltip:AddLine("  Zone: |cFFFFFFFFN/A|r", COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
     if method == "hearthsteel" and data.cost then
-        tooltip:AddLine("  Cost: |cFFFFFFFF" .. data.cost .. " " .. HEARTHSTEEL_ICON .. "|r", COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
+        tooltip:AddLine("  Shop Price: |cFFFFFFFF" .. data.cost .. " " .. HEARTHSTEEL_ICON .. "|r", COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
     end
     if data.name then
         tooltip:AddLine("  Pack: |cFFFFFFFF" .. data.name .. "|r", COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
