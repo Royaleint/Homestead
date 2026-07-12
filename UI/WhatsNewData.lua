@@ -7,6 +7,26 @@
 local _, HA = ...
 
 HA.WhatsNew = {
+    ["2.6.0"] = {
+        title = "Homestead - What's New in v2.6.0!",
+        features = {
+            {
+                icon = "Interface\\Icons\\INV_Misc_Key_03",
+                heading = "See Why Decor Is Locked",
+                body = "Decor gated behind an achievement, reputation, or profession rank now displays as locked with its exact unlock requirement, in the catalog and on vendor views.",
+            },
+            {
+                atlas = "housing-decor-vendor_32",
+                heading = "Base Vendor Prices",
+                body = "Vendor prices now show each vendor's base price, before any reputation discount. Everyone sees the same price.",
+            },
+            {
+                icon = "Interface\\Icons\\INV_Misc_Note_06",
+                heading = "Cleaner Tooltips",
+                body = "Buy prices are clearly labeled Vendor Price, and the confusing sell-back price line no longer appears on Homestead tooltips.",
+            },
+        },
+    },
     ["2.5.3"] = {
         title = "Homestead - What's New in v2.5.3!",
         features = {

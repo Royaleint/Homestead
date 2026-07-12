@@ -2,23 +2,37 @@
 
 ---
 
-## Unreleased
+## Homestead v2.6.0 (07-12-2026)
 
-- Fixed the Murder Row Wine Decanter pointing to the wrong vendor. It's sold by
-  Neriv at Saltheril's Haven in Eversong Woods (150 Brimming Arcana) — not by
-  Captain Donald Adams in Orgrimmar, who never carried it.
-- Made Homestead's source, ownership, and availability displays more consistent across tooltips, catalog overlays, map panels, badges, and vendor overlays.
-- Fixed a login error on CurseForge/local builds when the WagoAnalytics fallback
-  shim was active.
+Locked decor now tells you why it's locked, plus a big round of vendor corrections from fresh in-game verification.
+
+**Locked and Gated Decor**
+
+- Decor you can't buy yet now shows *why*. Items gated behind an achievement, reputation, or profession rank display as locked with their exact unlock requirement, both in the catalog and on vendor views. Over 120 requirement-gated items are covered, from achievement rewards to promotional pieces.
+
+**Bug Fixes**
+
+- Fixed catalog tooltip prices sometimes showing unreadable text instead of a clean cost with its currency icon.
+- Fixed Homestead tooltips showing a "Sell Price" line (what a vendor pays you back), which was easy to confuse with the buy cost. Homestead tooltips now show only what an item costs to buy, clearly labeled **Vendor Price** (or **Shop Price** for shop items).
 - Fixed owned decor occasionally not being recognized as collected after a reload.
-  Certain items were returning incomplete data from one catalog lookup path;
-  Homestead now uses a more reliable fallback automatically.
-- Corrected prices for Granite Cobblestone Path and Granite Cobblestone Long Path
-  on several Midnight neighborhood vendors (Trevor Grenner, Yen Malone, Botanist
-  Boh'an).
-- Filled in more of the latest Founder's Point decor — additional items on Xiao Dan
-  and Trevor Grenner now show their vendor and price, and Luminous Rotshroom now
-  lists where it drops (Rotmire, in Sporefall).
+- Fixed a rare login error on CurseForge builds.
+- Fixed vendor availability sometimes reflecting whether *you* could use an item rather than whether the vendor actually sells it.
+- Made source, ownership, and availability displays more consistent across tooltips, catalog overlays, map panels, badges, and vendor overlays.
+
+**Vendor Database**
+
+**Pricing**
+
+- Prices now show each vendor's **base price**, what the item costs before any reputation discount. Everyone sees the same price.
+
+**Corrections**
+
+- Fixed the Murder Row Wine Decanter pointing to the wrong vendor. It's sold by **Neriv** at Saltheril's Haven in Eversong Woods (150 Brimming Arcana), not by Captain Donald Adams in Orgrimmar.
+- **Innkeeper Belm** (Kharanos) no longer lists the Small Gilnean Table, which he doesn't sell. **Wilkinson** in Raven Hill does, and now shows his price.
+- **Wilkinson** is now correctly placed at Raven Hill, and **Nikova Quackenbush** in the Deeprun Tram. Several of their previously missing prices are now filled in.
+- Five Warlords-era garrison vendors (**Crowler**, **Maaria**, **Nuurem**, **Brakoss**, **Caerel**) were corrected against fresh in-game visits, and Nuurem's Town Hall location was fixed.
+- Corrected prices for Granite Cobblestone Path and Granite Cobblestone Long Path on several Midnight neighborhood vendors, plus a handful of vendor location labels.
+- Filled in more of the latest Founder's Point decor. Additional items on **Xiao Dan** and **Trevor Grenner** now show their vendor and price, and Luminous Rotshroom now lists where it drops (Rotmire, in Sporefall).
 
 ---
 
