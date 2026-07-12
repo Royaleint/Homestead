@@ -46,7 +46,7 @@ read_globals = {
     "GameTooltip", "GameTooltip_Hide",
     "GameTooltip_AddNormalLine", "GameTooltip_SetTitle",
     "GameTooltip_AddColoredLine", "GameTooltip_AddColoredDoubleLine",
-    "NORMAL_FONT_COLOR",
+    "NORMAL_FONT_COLOR", "Item",
     "ItemRefTooltip",
     "MerchantFrame", "MerchantFrameTab1", "MerchantFrameTab2",
     "MerchantNextPageButton", "MerchantPrevPageButton",

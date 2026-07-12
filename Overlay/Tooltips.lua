@@ -1162,7 +1162,8 @@ function HA.SetManagedItemTooltip(tooltip, itemID)
 
     -- Line rendering mirrors TooltipDataHandlerMixin:AddLineDataText
     -- (Blizzard_SharedXMLGame/Tooltip/TooltipDataHandler.lua) verbatim, minus
-    -- the SellPrice line type.
+    -- the SellPrice line type; Separator divider textures mirror
+    -- TooltipDataRules.Separator (TooltipDataRules.lua).
     for _, line in ipairs(data.lines) do
         if line.type ~= Enum.TooltipDataLineType.SellPrice then
             local leftText = line.leftText
@@ -1176,11 +1177,37 @@ function HA.SetManagedItemTooltip(tooltip, itemID)
             elseif leftText then
                 GameTooltip_AddColoredLine(tooltip, leftText, leftColor, wrapText, leftOffset)
             end
+            if line.type == Enum.TooltipDataLineType.Separator then
+                tooltip:AddTexture("Interface\\Common\\UI-TooltipDivider-Transparent", {
+                    width = 200,
+                    height = 10,
+                    margin = { right = 2, top = -2, bottom = -2 },
+                    texCoords = { left = 0, right = 1, top = 0, bottom = 1 },
+                })
+            end
         end
     end
 
     local _, link = C_Item.GetItemInfo(itemID)
     AddDecorInfoToTooltip(tooltip, link or ("item:" .. itemID))
+
+    -- Cold cache: the manual path has no client-side refresh when item data
+    -- streams in, so re-run the owner's OnEnter once it loads (re-entry finds
+    -- the data cached and does not re-register). Never fall back to
+    -- SetItemByID here — that would reintroduce the sell-back line
+    -- intermittently.
+    if C_Item.IsItemDataCachedByID and not C_Item.IsItemDataCachedByID(itemID) then
+        local owner = tooltip:GetOwner()
+        Item:CreateFromItemID(itemID):ContinueOnItemLoad(function()
+            if owner and tooltip:IsShown() and tooltip:GetOwner() == owner
+                    and owner:IsMouseOver() then
+                local onEnter = owner:GetScript("OnEnter")
+                if onEnter then
+                    onEnter(owner)
+                end
+            end
+        end)
+    end
 end
 
 -------------------------------------------------------------------------------
