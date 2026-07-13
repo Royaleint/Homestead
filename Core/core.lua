@@ -75,7 +75,9 @@ local format = string.format
 
 function HousingAddon:OnInitialize()
     -- Initialize SavedVariables database
-    self.db = F.DB:New({ name = "Homestead", sv = "HomesteadDB", defaults = Constants.Defaults, defaultProfile = true })
+    -- name must be the real folder name (Homestead or Homestead_DevBuild): Foundry
+    -- feeds it to C_AddOns.IsAddOnLoaded for the SV-availability check (STU-073).
+    self.db = F.DB:New({ name = addonName, sv = "HomesteadDB", defaults = Constants.Defaults, defaultProfile = true })
 
     -- Clean up removed setting from SavedVariables (requirement scraping removed)
     self.db.global.enableRequirementScraping = nil
