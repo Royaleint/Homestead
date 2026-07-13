@@ -5,7 +5,7 @@
     A complete housing collection, vendor, and progress tracker for WoW
 ]]
 
-local _, HA = ...
+local ADDON_NAME, HA = ...
 
 -- Addon namespace
 HA.Constants = {}
@@ -19,6 +19,11 @@ Constants.RELEASE_DATE = "2026-07-12"   -- ISO YYYY-MM-DD. Bump alongside VERSIO
 Constants.ADDON_NAME = "Homestead"
 Constants.ADDON_SHORT = "HS"
 Constants.WELCOME_SEEN_VERSION_MAX = 4
+
+-- Texture path derived from the folder WoW loaded us from: "Homestead" when
+-- installed from CurseForge, "Homestead_DevBuild" for the dev junction (STU-073).
+-- Never hardcode the addon folder name in a texture path (STU-073 --check greps for it).
+Constants.TEXTURE_ROOT = "Interface\\AddOns\\" .. ADDON_NAME .. "\\Textures\\"
 
 -------------------------------------------------------------------------------
 -- Icon Definitions
@@ -47,7 +52,7 @@ Constants.Icons = {
 
     -- UI icons
     -- Custom icon in Textures folder (user provides icon.png or icon.tga)
-    MINIMAP = "Interface\\AddOns\\Homestead\\Textures\\HomesteadMinimap",
+    MINIMAP = Constants.TEXTURE_ROOT .. "HomesteadMinimap",
 }
 
 -- Atlas-based icons (WoW 12.0+ housing atlases if available)

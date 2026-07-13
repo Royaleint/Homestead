@@ -2207,7 +2207,7 @@ local function CreateOverlayButton()
     local icon = button:CreateTexture(nil, "ARTWORK")
     icon:SetSize(20, 20)
     icon:SetPoint("TOPLEFT", 6, -6)
-    icon:SetTexture("Interface\\AddOns\\Homestead\\Textures\\icon")
+    icon:SetTexture(HA.Constants.TEXTURE_ROOT .. "icon")
     button.Icon = icon
 
     -- Minimap tracking border ring (same as HandyNotes)
@@ -3275,7 +3275,7 @@ local function ReparentMapElements()
             if not savedPortraitTexture then
                 savedPortraitTexture = pc.portrait:GetTexture()
             end
-            pc.portrait:SetTexture("Interface\\AddOns\\Homestead\\Textures\\HomesteadPortrait_64")
+            pc.portrait:SetTexture(HA.Constants.TEXTURE_ROOT .. "HomesteadPortrait_64")
         end
 
     end

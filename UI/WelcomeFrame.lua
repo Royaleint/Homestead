@@ -181,7 +181,7 @@ local function CreateWelcomeFrame()
     local icon = frame:CreateTexture(nil, "OVERLAY")
     icon:SetSize(48, 48)
     icon:SetPoint("RIGHT", title, "LEFT", -10, -2)
-    icon:SetTexture("Interface\\AddOns\\Homestead\\Textures\\icon")
+    icon:SetTexture(HA.Constants.TEXTURE_ROOT .. "icon")
     if not icon:GetTexture() then
         icon:SetTexture("Interface\\ICONS\\INV_Misc_Furniture_Chair_03")
     end
@@ -217,7 +217,7 @@ local function CreateWelcomeFrame()
         8)
 
     local bullet2 = AddFeatureRow(content, bullet1,
-        "Interface\\AddOns\\Homestead\\Textures\\icon",
+        HA.Constants.TEXTURE_ROOT .. "icon",
         "Homestead Panel",
         "Open your world map and click the Homestead icon to reveal the panel showing all vendors in your current zone. Click any vendor to browse their wares, your collection status, and what you can or can't buy. Use |cFF00FF00/hs panel|r for a standalone window.",
         FEATURE_GAP)
@@ -263,7 +263,7 @@ local function CreateWelcomeFrame()
     tipTex:SetSize(TOOLTIP_W, 110)
     tipTex:SetPoint("RIGHT", bullet3, "RIGHT", 0, 0)
     tipTex:SetPoint("TOP", bullet3, "TOP", 0, 0)
-    tipTex:SetTexture("Interface\\AddOns\\Homestead\\Textures\\WelcomeIcon")
+    tipTex:SetTexture(HA.Constants.TEXTURE_ROOT .. "WelcomeIcon")
     tipTex:SetTexCoord(0, 1, 0, 1)
 
     -- =====================================================================
