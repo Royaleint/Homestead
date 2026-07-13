@@ -60,7 +60,7 @@ HA.ProfessionOverlay = M
 -- catalog overlay keeps its glyph). Placed on the LEFT, just before the recipe
 -- name (Gate-2, Rawb 2026-06-05) — anchored to the Label so it tracks the name
 -- and never overlaps it (reads the Label's position, does not mutate it).
-local BADGE_TEXTURE = "Interface\\AddOns\\Homestead\\Textures\\HomesteadProfBadge"
+local BADGE_TEXTURE = HA.Constants.TEXTURE_ROOT .. "HomesteadProfBadge"
 local BADGE_SIZE = 18
 local BADGE_INSET = -2  -- gap between the badge's right edge and the recipe name
 

@@ -253,7 +253,7 @@ function PinFrameFactory:CreateDropPinFrame(record)
     frame.icon = frame:CreateTexture(nil, "ARTWORK")
     frame.icon:SetPoint("CENTER")
     frame.icon:SetSize(iconSize, iconSize)
-    frame.icon:SetTexture("Interface\\AddOns\\Homestead\\Textures\\HomesteadDropIcon_32")
+    frame.icon:SetTexture(HA.Constants.TEXTURE_ROOT .. "HomesteadDropIcon_32")
 
     frame.record = record
 

@@ -73,7 +73,7 @@ HA.WhatsNew = {
         },
     },
     ["2.3.0"] = {
-        heroTexture = "Interface\\AddOns\\Homestead\\Textures\\WhatsNew_v230",
+        heroTexture = HA.Constants.TEXTURE_ROOT .. "WhatsNew_v230",
         heroHeight = 250,
         title = "Homestead - What's New in v2.3!",
         features = {
@@ -98,7 +98,7 @@ HA.WhatsNew = {
                 body = "Catalog items now glow by status: green if you own it, yellow if you can get it now, red if something's blocking you.",
             },
             {
-                icon = "Interface\\AddOns\\Homestead\\Textures\\HomesteadPortrait_64",
+                icon = HA.Constants.TEXTURE_ROOT .. "HomesteadPortrait_64",
                 heading = "Endeavor Dashboard",
                 body = "See how much XP you need for your next Endeavor milestone and how much of the vendor's stock you've collected, right on the progress bar.",
             },
