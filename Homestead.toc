@@ -9,9 +9,9 @@
 ## X-Website: https://github.com/Royaleint/Homestead
 ## X-License: GPL-3.0
 ## X-Wago-ID: aNDMQ86o
-## OptionalDependencies: WagoAnalytics
+## OptionalDependencies: WagoAnalytics, Foundry-1.0_DevBuild
 ## X-Curse-Project-ID: 1450714
-## OptionalDeps: Foundry-1.0
+## OptionalDeps: Foundry-1.0, Foundry-1.0_DevBuild
 
 # Libraries
 embeds.xml
