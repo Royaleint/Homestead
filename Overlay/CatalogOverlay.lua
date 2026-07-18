@@ -54,6 +54,18 @@ local REFRESH_INTERVAL = 0.2
 -- Stores resolved badge + glow so we skip GetSource on repeat evaluations.
 local overlayCache = setmetatable({}, { __mode = "k" })
 
+-- HS-223b: per-frame LAST-APPLIED-TO-THE-FRAME signature: entryFrame →
+-- {itemID, effectiveAtlas or false, effectiveGlowState or false, ownedStyle,
+-- isOwned}. Distinct from overlayCache above, which tracks the raw computed
+-- verdict (itemID/atlas/glowState) to skip re-running GetSource; this tracks
+-- what the frame's Show*/Hide*/ApplyOwnedStyle calls last actually rendered,
+-- INCLUDING the settings-driven effective outcome (showBadges/showGlow/
+-- ownedStyle can change the rendered result independent of the verdict). The
+-- 5Hz OnUpdate driver re-evaluates every visible entry every tick even when
+-- nothing changed; comparing against this signature lets it skip the
+-- Show*/Hide*/SetVertexColor calls entirely when the outcome is identical.
+local appliedState = setmetatable({}, { __mode = "k" })
+
 -- Per-frame badge texture references
 local badgeTextures = setmetatable({}, { __mode = "k" })
 
@@ -294,11 +306,20 @@ local function GetAccessibilityState(itemID, sourceText, presentation)
 end
 
 -- Hide both badge and glow for an entry frame (used by early-return paths).
+-- HS-223b (Argus cycle 1 CRITICAL): must also clear appliedState. A recycled
+-- entry frame passes through here with a nil itemID (or settings disabled)
+-- before rebinding to its next item — if the signature memo survived that,
+-- a frame recycled back to the SAME item with an unchanged verdict would
+-- match the stale signature and skip every Show* call, leaving badge/glow/
+-- owned-style visually missing until the next global invalidation. Clearing
+-- here (the one shared hider all four early-return paths funnel through)
+-- also makes the master overlay toggle self-healing off→on.
 local function HideAllOverlays(entryFrame)
     HideBadge(entryFrame)
     HideGlow(entryFrame)
     HideCheckmark(entryFrame)
     entryFrame:SetAlpha(1.0)
+    appliedState[entryFrame] = nil
 end
 
 -------------------------------------------------------------------------------
@@ -321,6 +342,54 @@ local function ShowBadgeAtlas(entryFrame, atlas)
         BADGE_PADDING - offset, -(BADGE_PADDING - offset))
 
     badge:Show()
+end
+
+-- HS-223b: applies the settings-aware badge/glow/owned-style outcome to an
+-- entry frame, skipping the Show*/Hide*/ApplyOwnedStyle calls entirely when
+-- the outcome is identical to what's already applied (appliedState above).
+-- Shared by both the cache-hit and cache-miss paths in UpdateEntryOverlay so
+-- there is exactly one place that decides "did anything actually change".
+local function ApplyResolvedOverlay(entryFrame, itemID, atlas, glowState, showBadges, showGlow, ownedStyle)
+    local effectiveBadgeAtlas = (showBadges and atlas) or false
+    local isOwned = glowState == "owned"
+    local effectiveGlowState = false
+    if showGlow and glowState and not (isOwned and ownedStyle ~= "default") then
+        effectiveGlowState = glowState
+    end
+
+    local applied = appliedState[entryFrame]
+    if applied
+        and applied[1] == itemID
+        and applied[2] == effectiveBadgeAtlas
+        and applied[3] == effectiveGlowState
+        and applied[4] == ownedStyle
+        and applied[5] == isOwned then
+        return
+    end
+
+    if effectiveBadgeAtlas then
+        ShowBadgeAtlas(entryFrame, effectiveBadgeAtlas)
+    else
+        HideBadge(entryFrame)
+    end
+
+    if effectiveGlowState then
+        ShowGlow(entryFrame, effectiveGlowState)
+    else
+        HideGlow(entryFrame)
+    end
+
+    ApplyOwnedStyle(entryFrame, ownedStyle, isOwned)
+
+    if applied then
+        applied[1] = itemID
+        applied[2] = effectiveBadgeAtlas
+        applied[3] = effectiveGlowState
+        applied[4] = ownedStyle
+        applied[5] = isOwned
+    else
+        appliedState[entryFrame] = { itemID, effectiveBadgeAtlas, effectiveGlowState, ownedStyle, isOwned }
+    end
 end
 
 -- Update source badge and accessibility glow on an entry frame.
@@ -350,27 +419,12 @@ local function UpdateEntryOverlay(entryFrame)
         return HideAllOverlays(entryFrame)
     end
 
-    -- Cache hit: re-apply visual state without calling GetSource.
+    -- Cache hit: re-apply visual state without calling GetSource. (HS-223b:
+    -- ApplyResolvedOverlay itself skips the actual Show*/Hide* calls when
+    -- nothing has changed since the last tick.)
     local cached = overlayCache[entryFrame]
     if cached and cached[1] == itemID then
-        -- Badge
-        if showBadges and cached[2] then
-            ShowBadgeAtlas(entryFrame, cached[2])
-        else
-            HideBadge(entryFrame)
-        end
-        -- Glow: owned glow only shows for "default" style
-        if showGlow and cached[3] then
-            if cached[3] == "owned" and ownedStyle ~= "default" then
-                HideGlow(entryFrame)
-            else
-                ShowGlow(entryFrame, cached[3])
-            end
-        else
-            HideGlow(entryFrame)
-        end
-        -- Owned item style
-        ApplyOwnedStyle(entryFrame, ownedStyle, cached[3] == "owned")
+        ApplyResolvedOverlay(entryFrame, itemID, cached[2], cached[3], showBadges, showGlow, ownedStyle)
         return
     end
 
@@ -386,27 +440,10 @@ local function UpdateEntryOverlay(entryFrame)
         atlas = GetSourceBadgeFromSourceText(sourceText)
     end
 
-    if showBadges and atlas then
-        ShowBadgeAtlas(entryFrame, atlas)
-    else
-        HideBadge(entryFrame)
-    end
-
     -- Glow: determine accessibility state
     local glowState = GetAccessibilityState(itemID, sourceText, presentation)
 
-    if showGlow and glowState then
-        if glowState == "owned" and ownedStyle ~= "default" then
-            HideGlow(entryFrame)
-        else
-            ShowGlow(entryFrame, glowState)
-        end
-    else
-        HideGlow(entryFrame)
-    end
-
-    -- Owned item style
-    ApplyOwnedStyle(entryFrame, ownedStyle, glowState == "owned")
+    ApplyResolvedOverlay(entryFrame, itemID, atlas, glowState, showBadges, showGlow, ownedStyle)
 
     -- Cache both results (reuse existing table to avoid allocation)
     local cache = overlayCache[entryFrame]
@@ -424,9 +461,19 @@ end
 -------------------------------------------------------------------------------
 
 -- Force all entry frames to re-evaluate on next tick.
--- Called when ownership or source data changes.
+-- Called when ownership or source data changes. HS-223b: also wipes
+-- appliedState — belt-and-braces so a real change is never suppressed by a
+-- stale last-applied signature. (In practice appliedState's comparison is
+-- itself value-based and already includes itemID, so a genuine change would
+-- be caught even without this; wiping it here means that guarantee never
+-- depends on that reasoning holding for every future field added to the
+-- signature. When in doubt, repaint.) All three invalidation entry points —
+-- OWNERSHIP_UPDATED, SOURCE_CACHES_INVALIDATED (via RefreshAvailabilityOverlays),
+-- and the "catalogBadges" external refresher — funnel through this one
+-- function, so wiping both caches here covers all of them.
 local function InvalidateAllOverlays()
     wipe(overlayCache)
+    wipe(appliedState)
 end
 
 -- Re-evaluate all currently visible entry frames (after invalidation).

@@ -30,6 +30,13 @@ local activeVendorFrames = {}
 local refreshPending = false
 local renderedState = nil
 local renderedMapID = nil
+-- HS-223a: external consumers (currently MapSidePanel) of the shared 0.1s
+-- map watcher below, keyed by caller-chosen string so multiple registrants
+-- can't clobber each other. Each callback receives (isShown, mapID,
+-- maximized) every tick -- the raw state MapSidePanel's own watch logic
+-- needs, read from this ONE poll instead of running a second independent
+-- 0.1s ticker against the same WorldMapFrame state.
+local mapWatchCallbacks = {}
 local debugStats = {
     refreshCalls = 0,
     renderedPasses = 0,
@@ -477,18 +484,20 @@ local function GetBadgeDisplayFactionKey(badgeData)
     return "none"
 end
 
+-- HS-222: the pool key used to bake vendorCount/uncollectedCount/
+-- oppositeFactionCount straight into the string. Those are live ownership
+-- counts, not stable pin identity — every distinct combination minted its own
+-- permanent bucket in badgeFramePool that never got reused again (the churn
+-- compounds with other addons' shared-canvas refreshes). Style and faction
+-- classification ARE stable per bucket (GetBadgeDisplayFactionKey resolves to
+-- one of a small fixed set of values, and a reused frame's dominantFaction/
+-- emblem needs are invariant for everything sharing this key) — only the raw
+-- counts are dropped. See PinFrameFactory:RefreshBadgePinVisuals for the
+-- count-driven visuals this key no longer disambiguates by pin identity.
 local function GetBadgeFramePoolKey(badgeData)
-    local vendorCount = badgeData and badgeData.vendorCount or 0
-    local uncollectedCount = badgeData and badgeData.uncollectedCount or 0
-    local oppositeCount = badgeData and badgeData.oppositeFactionCount or 0
-    local factionKey = GetBadgeDisplayFactionKey(badgeData)
-
-    return format("%s|v%d|u%d|o%d|f%s",
+    return format("%s|f%s",
         BuildWorldPinStyleKey(),
-        vendorCount,
-        uncollectedCount,
-        oppositeCount,
-        factionKey)
+        GetBadgeDisplayFactionKey(badgeData))
 end
 
 local function GetPortalFramePoolKey(portalData)
@@ -516,6 +525,9 @@ local function AcquireBadgeFrame(entry)
         return PinFrameFactory:CreateBadgePinFrame(entry.badgeData)
     end)
     frame.badgeData = entry.badgeData
+    if PinFrameFactory.RefreshBadgePinVisuals then
+        PinFrameFactory:RefreshBadgePinVisuals(frame, entry.badgeData)
+    end
     return frame
 end
 
@@ -623,6 +635,13 @@ function Provider:EnsureRegistered()
 
     C_Timer.NewTicker(0.1, function()
         local isShown = WorldMapFrame and WorldMapFrame:IsShown()
+        -- HS-223a: mapID/maximized are read here (not just inside the old
+        -- "still open" branch) so they're available below for the shared
+        -- external-callback dispatch on every tick, not only Provider's own
+        -- branches.
+        local mapID = isShown and WorldMapFrame:GetMapID() or nil
+        local maximized = isShown and (WorldMapFrame.isMaximized and true or false) or false
+
         if isShown and not wasShown then
             -- Map just opened — force refresh after secure path completes
             wasShown = true
@@ -648,7 +667,6 @@ function Provider:EnsureRegistered()
             self:RemoveAllData()
         elseif isShown then
             -- Map still open — check for mapID, canvas size, or zoom-scale changes
-            local mapID = WorldMapFrame:GetMapID()
             local container = WorldMapFrame:GetCanvasContainer()
             local canvas = WorldMapFrame.GetCanvas and WorldMapFrame:GetCanvas()
             local canvasWidth = container and container:GetWidth() or 0
@@ -677,7 +695,34 @@ function Provider:EnsureRegistered()
                 RequestDeferredRefresh("watcher_zoom")
             end
         end
+
+        -- HS-223a: feed every registered external consumer (MapSidePanel)
+        -- from this SAME poll instead of each running its own 0.1s ticker
+        -- against the same WorldMapFrame state. pcall per callback (Argus
+        -- cycle 1 WARNING) so one registrant's error can't kill every other
+        -- registrant's tick — matches Overlay:RefreshExternalOverlays'
+        -- externalRefreshers dispatch pattern (Overlay/overlay.lua).
+        for key, cb in pairs(mapWatchCallbacks) do
+            local success, err = pcall(cb, isShown, mapID, maximized)
+            if not success and HA.Addon then
+                HA.Addon:Debug("Error in map watch callback:", key, err)
+            end
+        end
     end)
+end
+
+-- HS-223a: register to be driven by the shared 0.1s map watcher above instead
+-- of starting a second independent ticker. Called every tick with
+-- (isShown, mapID, maximized) -- the exact raw state MapSidePanel's watch
+-- logic was reading from its own separate poll.
+function Provider:RegisterMapWatchCallback(key, callback)
+    if not key or type(callback) ~= "function" then return end
+    mapWatchCallbacks[key] = callback
+end
+
+function Provider:UnregisterMapWatchCallback(key)
+    if not key then return end
+    mapWatchCallbacks[key] = nil
 end
 
 function Provider:SetRenderState(nextRenderState)
