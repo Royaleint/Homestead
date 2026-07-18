@@ -385,13 +385,35 @@ function WhatsNewFrame:Initialize()
     local lastSeen = db.lastSeenVersion or ""
     local suppressed = db.suppressWhatsNewUntil or ""
 
+    -- HS-219: onboarding stacking gate. A long-time user crossing a welcome-
+    -- version bump satisfies both auto-popup conditions at once (same
+    -- strata/level, center-anchored, ~1.5s apart). If Welcome is due to show
+    -- (hasn't been acknowledged for the current WELCOME_SEEN_VERSION_MAX) or
+    -- is already shown, skip WhatsNew's auto-popup for THIS login entirely —
+    -- no queue, no re-timer. lastSeenVersion/suppressWhatsNewUntil are left
+    -- untouched, so this exact same check simply re-runs fresh next login;
+    -- once Welcome is no longer due, WhatsNew auto-pops up normally. Manual
+    -- /whatsnew (WhatsNewFrame:Show) does not go through Initialize, so it is
+    -- unaffected by this gate.
+    local welcomeSVKey = "hasSeenWelcomeV" .. WELCOME_SEEN_VERSION_MAX
+    local welcomeDue = not db[welcomeSVKey]
+    local welcomeShown = HA.WelcomeFrame and HA.WelcomeFrame.IsShown and HA.WelcomeFrame:IsShown()
+    if welcomeDue or welcomeShown then
+        return
+    end
+
     if lastSeen ~= "" and lastSeen ~= currentVersion and suppressed ~= currentVersion then
         if HA.WhatsNew and HA.WhatsNew[currentVersion] then
             C_Timer.After(2, function()
-                -- Re-check after delay in case state changed
+                -- Re-check after delay in case state changed (including the
+                -- onboarding gate above — Welcome's own CheckFirstRun timer
+                -- can still fire in this window).
                 local g = HA.Addon.db and HA.Addon.db.global
+                local stillWelcomeDue = g and not g[welcomeSVKey]
+                local stillWelcomeShown = HA.WelcomeFrame and HA.WelcomeFrame.IsShown and HA.WelcomeFrame:IsShown()
                 if g and g.lastSeenVersion ~= currentVersion
-                    and g.suppressWhatsNewUntil ~= currentVersion then
+                    and g.suppressWhatsNewUntil ~= currentVersion
+                    and not stillWelcomeDue and not stillWelcomeShown then
                     WhatsNewFrame:Show(currentVersion)
                 end
             end)

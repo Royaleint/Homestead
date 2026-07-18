@@ -152,10 +152,3 @@ end
 function MinimapButton:Hide()
     if button then button:Hide() end
 end
-
-function MinimapButton:Refresh()
-    if not button then return end
-    button:SetSize(BUTTON_SIZE, BUTTON_SIZE)
-    if dataObject then button.icon:SetTexture(dataObject.icon) end
-    ApplyPosition()
-end
