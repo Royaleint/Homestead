@@ -345,8 +345,13 @@ function Overlay:RequestUpdate(updateType)
     Events:RequestUpdate(updateType)
 end
 
--- Refresh all active overlays
-function Overlay:RefreshAll()
+-- Refresh all active overlays.
+-- runExternal (default true): whether to also run the externalRefreshers pass
+-- (Baganator/BetterBags/etc). HS-180: the "bags" event fires on every bag
+-- change and each external bag addon already refreshes itself via its own
+-- hook, so the high-frequency bags path passes false to skip the redundant
+-- external pass; other call sites are unaffected by the default.
+function Overlay:RefreshAll(runExternal)
     for overlay in pairs(activeOverlays) do
         if overlay.updateFunc then
             local success, err = pcall(overlay.updateFunc, overlay)
@@ -356,6 +361,13 @@ function Overlay:RefreshAll()
         end
     end
 
+    if runExternal ~= false then
+        self:RefreshExternalOverlays()
+    end
+end
+
+-- Refresh addon-owned external bag UI overlays (Baganator, BetterBags, etc).
+function Overlay:RefreshExternalOverlays()
     for key, refreshFunc in pairs(externalRefreshers) do
         local success, err = pcall(refreshFunc)
         if not success then
@@ -447,12 +459,7 @@ function Overlay:UpdateConfig()
         end
     end
 
-    for key, refreshFunc in pairs(externalRefreshers) do
-        local success, err = pcall(refreshFunc)
-        if not success then
-            HA.Addon:Debug("Error refreshing external overlays:", key, err)
-        end
-    end
+    self:RefreshExternalOverlays()
 end
 
 -- Set icon position for an overlay
@@ -504,7 +511,7 @@ end
 function Overlay:Initialize()
     -- Register for update callbacks
     Events:RegisterCallback("bags", function()
-        Overlay:RefreshAll()
+        Overlay:RefreshAll(false)
     end)
 
     Events:RegisterCallback("merchant", function()
@@ -513,6 +520,21 @@ function Overlay:Initialize()
 
     Events:RegisterCallback("all", function()
         Overlay:RefreshAll()
+    end)
+
+    -- HS-180: the "bags" path above now skips the external-refresher pass
+    -- (Baganator/BetterBags), so nothing else repaints those surfaces when
+    -- the ownership cache catches up mid-session — a consumed item's
+    -- remaining copy could linger as "in bags, unlearned" until the next
+    -- unrelated bag change. Routed through RequestUpdate ("all" runs the
+    -- full RefreshAll, external pass included) rather than calling
+    -- RefreshAll directly: Events:Fire is synchronous, and a refresh can
+    -- itself fire OWNERSHIP_UPDATED (merchant SetIcon → IsOwnedFresh in
+    -- write mode → SetOwned on a newly-discovered item), so a direct call
+    -- recurses inside the outer refresh. RequestUpdate defers to the next
+    -- timer tick and coalesces repeat fires into one repaint.
+    Events:RegisterCallback("OWNERSHIP_UPDATED", function()
+        Events:RequestUpdate("all")
     end)
 
     HA.Addon:Debug("Overlay system initialized")
