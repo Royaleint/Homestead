@@ -223,6 +223,13 @@ function HousingAddon:OnInitialize()
     cmd:Register({ name = "debug geography",
         help = "Audit manual map geography entries.",
         handler = function() self:PrintManualGeographyAuditReport() end })
+    cmd:Register({ name = "debug parsertest",
+        help = "Run SourceTextParser's built-in self-test suite.",
+        handler = function()
+            if HA.SourceTextParser and HA.SourceTextParser.RunTests then
+                HA.SourceTextParser:RunTests()
+            end
+        end })
 
     self.commands = cmd
 
@@ -1031,13 +1038,11 @@ function HousingAddon:GetDecorInfo(itemLink)
     return setmetatable(info, DecorInfoCompatMT)
 end
 
--- Get all decor from a vendor
-function HousingAddon:GetVendorDecor(npcID)
-    if HA.VendorTracer then
-        return HA.VendorTracer:GetVendorDecor(npcID)
-    end
-    return nil
-end
+-- HS-218: HousingAddon:GetVendorDecor removed — it delegated to
+-- HA.VendorTracer:GetVendorDecor, a method that doesn't exist anywhere in
+-- VendorTracer.lua (would have errored if ever called). Zero callers of
+-- this wrapper anywhere in the codebase; removing beats implementing the
+-- dead API it pointed at.
 
 -- Navigate to a vendor
 function HousingAddon:NavigateToVendor(npcID)

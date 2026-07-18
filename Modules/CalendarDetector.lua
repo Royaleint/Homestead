@@ -26,6 +26,7 @@ local calendarReady = false
 local refreshTimer = nil
 local REFRESH_INTERVAL = 14400  -- 4 hours (safety net only)
 local pendingCombatRescan = false  -- scan aborted on combat-secret values; rescan on regen
+local hasOpenedCalendarThisSession = false  -- HS-218: OpenCalendar is a server request; once per session, not per loading screen
 
 -------------------------------------------------------------------------------
 -- Holiday ID Mapping
@@ -63,6 +64,25 @@ local function ScanTodaysHolidays()
 
     local today = C_DateAndTime and C_DateAndTime.GetCurrentCalendarTime and C_DateAndTime.GetCurrentCalendarTime()
     if not today then return nil end
+
+    -- HS-218: GetNumDayEvents/GetDayEvent(0, ...) read whatever month the
+    -- calendar UI is currently VIEWED at (offset 0 = viewed month), which is
+    -- NOT necessarily the real current month — if the player (or another
+    -- addon) paged the in-game calendar to a different month, this scan
+    -- would silently read that month's events instead of today's. Bail out
+    -- and keep prior state rather than risk a false "no holidays" read.
+    -- month/year are plain numbers here (not the calendarType/sequenceType
+    -- string fields HS-121 guards against), so no pcall needed for this read.
+    if C_Calendar.GetMonthInfo then
+        local monthInfo = C_Calendar.GetMonthInfo()
+        if monthInfo and (monthInfo.month ~= today.month or monthInfo.year ~= today.year) then
+            if HA.Addon then
+                HA.Addon:Debug("CalendarDetector: calendar UI is viewing a different month than today — "
+                    .. "skipping scan, keeping prior state")
+            end
+            return nil, "viewed_month_mismatch"
+        end
+    end
 
     local numEvents = C_Calendar.GetNumDayEvents(0, today.monthDay)
     if not numEvents then return nil end
@@ -215,8 +235,13 @@ function CalendarDetector:Initialize()
 
     eventFrame:SetScript("OnEvent", function(_, event)
         if event == "PLAYER_ENTERING_WORLD" then
-            -- Request calendar data (required before GetDayEvent works)
-            if C_Calendar and C_Calendar.OpenCalendar then
+            -- Request calendar data (required before GetDayEvent works).
+            -- HS-218: PLAYER_ENTERING_WORLD fires on every loading screen,
+            -- not just initial login — OpenCalendar is a server request, so
+            -- gate it to once per session (observed live: 4x "no active
+            -- holidays" per login from repeated requests/scans).
+            if not hasOpenedCalendarThisSession and C_Calendar and C_Calendar.OpenCalendar then
+                hasOpenedCalendarThisSession = true
                 C_Calendar.OpenCalendar()
             end
             -- Try an initial scan after a short delay (calendar may need time)

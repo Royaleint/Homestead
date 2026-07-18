@@ -19,85 +19,24 @@ local VendorData = HA.VendorData
 
 -- Local state
 local isInitialized = false
-local currentWaypoint = nil
-local tomtomUID = nil
 
 -------------------------------------------------------------------------------
--- TomTom Integration
+-- TomTom Availability
 -------------------------------------------------------------------------------
 
+-- HS-218: the rest of this module's own TomTom/native waypoint
+-- implementation (SetTomTomWaypoint/ClearTomTomWaypoint/SetNativeWaypoint/
+-- ClearNativeWaypoint + the currentWaypoint/tomtomUID locals) was dead code
+-- — SetWaypoint below always delegates to HA.Waypoints when it's available,
+-- and HA.Waypoints is always loaded (Utils/waypoints.lua is unconditionally
+-- part of the TOC), so the "Fallback" branch that populated those locals
+-- never actually ran. Worse, its ClearNativeWaypoint called
+-- C_SuperTrack.ClearAllSuperTracked() — which cancels the player's own
+-- tracked QUEST too, not just our vendor waypoint. Deleted rather than
+-- repaired; only IsTomTomAvailable survives, still used by Initialize()'s
+-- startup Debug log below.
 local function IsTomTomAvailable()
     return TomTom and TomTom.AddWaypoint and TomTom.RemoveWaypoint
-end
-
-local function ClearTomTomWaypoint()
-    if tomtomUID and IsTomTomAvailable() then
-        TomTom:RemoveWaypoint(tomtomUID)
-        tomtomUID = nil
-    end
-end
-
-local function SetTomTomWaypoint(mapID, x, y, title)
-    ClearTomTomWaypoint()
-
-    if not IsTomTomAvailable() then
-        return nil
-    end
-
-    -- TomTom uses 0-100 coordinates, we store 0-1
-    local tomtomX = x * 100
-    local tomtomY = y * 100
-
-    tomtomUID = TomTom:AddWaypoint(mapID, tomtomX / 100, tomtomY / 100, {
-        title = title or "Decor Vendor",
-        persistent = false,
-        minimap = true,
-        world = true,
-        from = "Homestead",
-    })
-
-    return tomtomUID
-end
-
--------------------------------------------------------------------------------
--- Native Waypoint System (Supertracking)
--------------------------------------------------------------------------------
-
-local function ClearNativeWaypoint()
-    if C_SuperTrack then
-        C_SuperTrack.ClearAllSuperTracked()
-    end
-    currentWaypoint = nil
-end
-
-local function SetNativeWaypoint(mapID, x, y, title)
-    ClearNativeWaypoint()
-
-    -- Create a user waypoint
-    if C_Map and C_Map.SetUserWaypoint then
-        if C_Map and C_Map.CanSetUserWaypointOnMap and not C_Map.CanSetUserWaypointOnMap(mapID) then
-            return false
-        end
-
-        local mapPoint = UiMapPoint.CreateFromCoordinates(mapID, x, y)
-        C_Map.SetUserWaypoint(mapPoint)
-
-        -- Enable supertracking for the waypoint
-        if C_SuperTrack and C_SuperTrack.SetSuperTrackedUserWaypoint then
-            C_SuperTrack.SetSuperTrackedUserWaypoint(true)
-        end
-
-        currentWaypoint = {
-            mapID = mapID,
-            x = x,
-            y = y,
-            title = title,
-        }
-
-        return true
-    end
-
-    return false
 end
 
 -------------------------------------------------------------------------------
@@ -166,56 +105,29 @@ function VendorTracer:NavigateToItemVendor(itemID)
     return self:SetWaypoint(vendor.mapID, x, y, title, vendor)
 end
 
--- Set a waypoint to a location
+-- Set a waypoint to a location. Delegates to the Waypoints utility, which is
+-- always loaded (Utils/waypoints.lua is unconditionally part of the TOC) and
+-- respects the user's TomTom/native preferences itself. HS-218: data.npcID
+-- is threaded through so OnMerchantShow's arrival-check below can confirm
+-- the waypoint we're clearing on arrival is actually the one for THIS
+-- vendor, not just "a" waypoint.
 function VendorTracer:SetWaypoint(mapID, x, y, title, vendorInfo)
     if not mapID or not x or not y then
         HA.Addon:Print("Invalid waypoint coordinates")
         return false
     end
 
-    -- Delegate to Waypoints utility if available (respects user preferences)
-    if HA.Waypoints then
-        return HA.Waypoints:Set(mapID, x, y, {title = title or "Vendor"})
+    if not HA.Waypoints then
+        HA.Addon:Print("Failed to set waypoint")
+        return false
     end
 
-    -- Fallback: Clear existing waypoints
-    self:ClearWaypoint()
-
-    local success = false
-    local usedTomTom = false
-
-    -- Check user preference for TomTom
-    local vendorTracer = HA.Addon and HA.Addon.db and HA.Addon.db.profile.vendorTracer
-    local preferTomTom = vendorTracer and vendorTracer.useTomTom
-
-    -- Try TomTom first if preferred and available
-    if preferTomTom and IsTomTomAvailable() then
-        if SetTomTomWaypoint(mapID, x, y, title) then
-            success = true
-            usedTomTom = true
-        end
-    end
-
-    -- Set native waypoint if preferred
-    local useNative = not vendorTracer or vendorTracer.useNativeWaypoints ~= false
-    if useNative and SetNativeWaypoint(mapID, x, y, title) then
-        success = true
-    end
+    local success = HA.Waypoints:Set(mapID, x, y, {
+        title = title or "Vendor",
+        data = vendorInfo and { npcID = vendorInfo.npcID } or nil,
+    })
 
     if success then
-        -- Get zone name for display
-        local mapInfo = C_Map.GetMapInfo(mapID)
-        local zoneName = mapInfo and mapInfo.name or "Unknown Zone"
-
-        local coordStr = string.format("%.1f, %.1f", x * 100, y * 100)
-        HA.Addon:Print("Waypoint set:", title or "Vendor")
-        HA.Addon:Print("  Location:", zoneName, "(" .. coordStr .. ")")
-
-        if usedTomTom then
-            HA.Addon:Print("  (TomTom waypoint active)")
-        end
-
-        -- Show vendor info if available
         if vendorInfo then
             self:ShowVendorInfo(vendorInfo)
         end
@@ -226,10 +138,13 @@ function VendorTracer:SetWaypoint(mapID, x, y, title, vendorInfo)
     return success
 end
 
--- Clear current waypoint
+-- Clear current waypoint — delegates to the Waypoints utility (see
+-- SetWaypoint above for why the module no longer maintains its own
+-- TomTom/native waypoint state).
 function VendorTracer:ClearWaypoint()
-    ClearNativeWaypoint()
-    ClearTomTomWaypoint()
+    if HA.Waypoints then
+        HA.Waypoints:Clear()
+    end
 end
 
 -------------------------------------------------------------------------------
@@ -314,8 +229,14 @@ function VendorTracer:OnDecorItemClick(itemID, button)
         return false
     end
 
-    -- Check if modifier key is held (for navigation)
-    local navigateModifier = HA.Addon and HA.Addon.db and HA.Addon.db.profile.navigateModifier or "shift"
+    -- Check if modifier key is held (for navigation). HS-218: this read a
+    -- top-level profile.navigateModifier key nothing ever writes — the
+    -- actual setting lives at profile.vendorTracer.navigateModifier
+    -- (Core/constants.lua default, UI/OptionsModel.lua's get/set) — so a
+    -- user-configured ctrl/alt/none never applied; every click silently
+    -- behaved as if "shift" were selected.
+    local vendorTracerSettings = HA.Addon and HA.Addon.db and HA.Addon.db.profile.vendorTracer
+    local navigateModifier = (vendorTracerSettings and vendorTracerSettings.navigateModifier) or "shift"
 
     local shouldNavigate = false
     if navigateModifier == "shift" and IsShiftKeyDown() then
@@ -411,15 +332,17 @@ function VendorTracer:OnMerchantShow()
         return
     end
 
-    -- Clear any waypoint since we've arrived
-    if currentWaypoint and vendor then
-        -- Check if this is the vendor we were navigating to
-        if currentWaypoint.title and currentWaypoint.title:find(vendor.name, 1, true) then
-            self:ClearWaypoint()
-            HA.Addon:Print("Arrived at", vendor.name)
-        end
+    -- HS-218: currentWaypoint (this module's own local) was only ever
+    -- populated by the dead SetNativeWaypoint fallback removed above — this
+    -- check never actually fired in production. Consult the Waypoints
+    -- utility's real current waypoint instead, matched by npcID (threaded
+    -- through via SetWaypoint's data.npcID option) rather than a fragile
+    -- title substring match.
+    local waypoint = HA.Waypoints and HA.Waypoints:GetCurrent()
+    if waypoint and vendor and waypoint.data and waypoint.data.npcID == vendor.npcID then
+        self:ClearWaypoint()
+        HA.Addon:Print("Arrived at", vendor.name)
     end
-
 end
 
 -------------------------------------------------------------------------------
