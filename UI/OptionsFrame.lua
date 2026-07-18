@@ -485,14 +485,25 @@ local function CreateSettingsPanel()
 end
 
 function OptionsFrame:Initialize()
+    -- HS-217: mirrors the gate in UI/Options.lua's RegisterOptions bootstrap —
+    -- kept here too since Open()/Toggle() also call Initialize() directly,
+    -- outside that bootstrap.
+    if HA.__collisionStandDown then
+        return frame
+    end
+
     if not frame then
         frame = CreateShell()
     end
 
     if not OptionsFrame.settingsController then
-        if not F.Settings then return frame end
+        -- RequireModule fails loud if a standalone Foundry without Settings is
+        -- loaded instead of the embed (matches the List/Menu/Lifecycle/DB call
+        -- sites) — the old "if not F.Settings then return frame end" degraded
+        -- silently, and RegisterOptions' debug log still claimed success.
+        local Settings = F:RequireModule("Settings", 1)
         local panel = CreateSettingsPanel()
-        OptionsFrame.settingsController = F.Settings:New({
+        OptionsFrame.settingsController = Settings:New({
             title = HA.L["Homestead"] or "Homestead",
             frame = panel,
         })
@@ -502,6 +513,9 @@ function OptionsFrame:Initialize()
 end
 
 function OptionsFrame:Open(sectionKey)
+    -- HS-217 (Argus cycle 1): in a collision stand-down session Initialize()
+    -- returns with `frame` still nil — Open must no-op cleanly, not index nil.
+    if HA.__collisionStandDown then return end
     self:Initialize()
     RestoreGeometry()
     frame:Show()

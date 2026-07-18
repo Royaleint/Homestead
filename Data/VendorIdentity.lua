@@ -2367,7 +2367,11 @@ function VendorIdentity:GetVendorsByMapID(mapID)
     if not npcIDs then return {} end
     local result = {}
     for _, npcID in ipairs(npcIDs) do
-        local vendor = self.Vendors[npcID]
+        -- HS-217: BuildIndexes indexes StagedAdditions-only vendors into
+        -- ByMapID too, but this lookup was checking self.Vendors alone —
+        -- staged-only vendors indexed fine and then dropped silently here.
+        -- Mirrors GetVendor's fallback exactly.
+        local vendor = self.Vendors[npcID] or (self.StagedAdditions and self.StagedAdditions[npcID])
         if vendor then result[#result + 1] = vendor end
     end
     return result
@@ -2379,7 +2383,8 @@ function VendorIdentity:GetVendorsByExpansion(expansion)
     if not npcIDs then return {} end
     local result = {}
     for _, npcID in ipairs(npcIDs) do
-        local vendor = self.Vendors[npcID]
+        -- HS-217: same StagedAdditions fallback as GetVendorsByMapID above.
+        local vendor = self.Vendors[npcID] or (self.StagedAdditions and self.StagedAdditions[npcID])
         if vendor then result[#result + 1] = vendor end
     end
     return result
