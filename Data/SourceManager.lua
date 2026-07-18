@@ -2059,10 +2059,16 @@ function SourceManager:InvalidateAllSourceCaches()
 end
 
 -- HS-213: last-seen profession fingerprint for the SKILL_LINES_CHANGED gate
--- below. nil until the first SKILL_LINES_CHANGED fire (lazy init — the first
--- fire always invalidates, cold-correctness over cleverness) and stays nil
--- forever if the profession API is unavailable, which makes every
--- subsequent fire also invalidate (fail open, never fail closed).
+-- below. HS-215: seeded EAGERLY at HookCompletionCacheInvalidation install
+-- time (superseding the original lazy-init design) — lazy init meant the
+-- FIRST SKILL_LINES_CHANGED after /reload always invalidated regardless of
+-- fingerprint, which is exactly the cold profession-window-open case this
+-- gate exists to suppress (Gate 2 re-test: no suppression line, slight cold
+-- freeze remained). Eager seeding still fails open automatically: if the
+-- profession API is absent at install time, BuildProfessionFingerprint
+-- returns nil, the seed is nil, and the first (and every subsequent) fire
+-- invalidates exactly as before — nothing about the fail-open behavior
+-- changed, only WHEN the baseline is captured.
 local lastProfessionFingerprint = nil
 
 -- Cheap, WINDOW-INDEPENDENT snapshot of exactly what profession requirement
@@ -2114,6 +2120,14 @@ end
 local function HookCompletionCacheInvalidation()
     if completionInvalidationFrame then return end
 
+    -- HS-215: seed the baseline fingerprint HERE, at install time, rather
+    -- than waiting for the first SKILL_LINES_CHANGED fire — see the
+    -- lastProfessionFingerprint comment above for why lazy init left the
+    -- cold profession-window-open case (the one this gate exists for)
+    -- unprotected. If the profession API isn't available yet, this seeds
+    -- nil, which is exactly the fail-open state the gate already handles.
+    lastProfessionFingerprint = BuildProfessionFingerprint()
+
     completionInvalidationFrame = CreateFrame("Frame")
     completionInvalidationFrame:RegisterEvent("ACHIEVEMENT_EARNED")
     completionInvalidationFrame:RegisterEvent("QUEST_TURNED_IN")
@@ -2122,17 +2136,26 @@ local function HookCompletionCacheInvalidation()
     completionInvalidationFrame:RegisterEvent("UPDATE_FACTION")
     completionInvalidationFrame:RegisterEvent("MAJOR_FACTION_RENOWN_LEVEL_CHANGED")
     completionInvalidationFrame:SetScript("OnEvent", function(_, event)
-        -- HS-213: SKILL_LINES_CHANGED fires spuriously on profession-window
-        -- open (Gate 2 confirmed) — every other registered event stays
-        -- unconditional, only this one is fingerprint-gated.
+        -- HS-213/HS-215: SKILL_LINES_CHANGED fires spuriously on profession-
+        -- window open (Gate 2 confirmed) — every other registered event
+        -- stays unconditional, only this one is fingerprint-gated.
         if event == "SKILL_LINES_CHANGED" then
             local fingerprint = BuildProfessionFingerprint()
-            if lastProfessionFingerprint ~= nil and fingerprint ~= nil
-                    and fingerprint == lastProfessionFingerprint then
-                if HA.Addon then
-                    HA.Addon:Debug("SourceManager: SKILL_LINES_CHANGED fired with no profession "
-                        .. "change detected — suppressing cache invalidation")
-                end
+            local unchanged = lastProfessionFingerprint ~= nil and fingerprint ~= nil
+                and fingerprint == lastProfessionFingerprint
+
+            -- HS-215 discriminator: log every SKILL_LINES_CHANGED arrival
+            -- with its verdict, debug-gated. If a cold profession-window
+            -- open freezes again with NO "arrived" line at all, this event
+            -- isn't firing on that client — the gate is irrelevant to that
+            -- freeze and something else is the cause.
+            if HA.Addon then
+                HA.Addon:Debug("SourceManager: SKILL_LINES_CHANGED arrived — "
+                    .. (unchanged and "suppressed (no profession change detected)"
+                        or "invalidating (profession change detected or no prior baseline)"))
+            end
+
+            if unchanged then
                 return
             end
             lastProfessionFingerprint = fingerprint
