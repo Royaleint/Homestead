@@ -35,7 +35,14 @@ local ci = nil              -- shorthand for db.global.catalogItems (set on Init
 local decorToItemID = {}    -- reverse index: decorID → itemID
 local itemIDToDecor = {}    -- forward index: itemID → decorID (for byRecordID fallback probes)
 local ownedCount = 0        -- cached count of owned items (incremented in SetOwned)
-local batchMode = false     -- true during catalog scan batches
+-- HS-209 H3: nesting depth for BeginBatch/EndBatch, not a boolean. Two
+-- independent callers can hold a batch open at once (CatalogScanner's scan
+-- and ProfessionOverlay's reconcile pass, Overlay/ProfessionOverlay.lua:334-357)
+-- — a plain boolean let the inner EndBatch prematurely clear batchMode and
+-- fire the outer batch's suppressed events early. Suppression is active
+-- whenever batchDepth > 0; the transition fire + flag-clear happens only
+-- when depth returns to zero (outermost EndBatch).
+local batchDepth = 0
 local batchOwnershipChanged = false
 local batchDataChanged = false
 local negativeGeneration = 0  -- bumped on SetOwned/ClearAll to bust negative cache
@@ -117,7 +124,7 @@ function CatalogStore:SetOwned(itemID, name, decorID)
 
     -- Fire event (or defer in batch mode)
     if not wasOwned then
-        if batchMode then
+        if batchDepth > 0 then
             batchOwnershipChanged = true
         elseif HA.Events then
             HA.Events:Fire("OWNERSHIP_UPDATED")
@@ -135,7 +142,7 @@ end
 --   2. Data: clear isOwned/firstSeen/lastSeen in catalogItems; keep name/decorID
 --   3. Counter: decrement ownedCount only if catalogItems had isOwned=true
 --   4. Cache: bump negativeGeneration on effective ownership change
---   5. Event: fire OWNERSHIP_UPDATED on transition only; respect batchMode
+--   5. Event: fire OWNERSHIP_UPDATED on transition only; respect batch depth
 function CatalogStore:SetUnowned(itemID)
     if not itemID then return end
 
@@ -163,7 +170,7 @@ function CatalogStore:SetUnowned(itemID)
 
     -- 5. Event on effective ownership transition
     if wasOwnedInCatalog then
-        if batchMode then
+        if batchDepth > 0 then
             batchOwnershipChanged = true
         elseif HA.Events then
             HA.Events:Fire("OWNERSHIP_UPDATED")
@@ -181,7 +188,7 @@ function CatalogStore:SetSources(itemID, sources, hash)
         lastParsed = time(),
     })
 
-    if batchMode then
+    if batchDepth > 0 then
         batchDataChanged = true
     elseif HA.Events then
         HA.Events:Fire("CATALOG_ITEM_UPDATED")
@@ -196,7 +203,7 @@ function CatalogStore:SetRequirements(itemID, requirements)
         requirements = requirements,
     })
 
-    if batchMode then
+    if batchDepth > 0 then
         batchDataChanged = true
     elseif HA.Events then
         HA.Events:Fire("CATALOG_ITEM_UPDATED")
@@ -209,7 +216,7 @@ function CatalogStore:Save(itemID, fields)
 
     _save(itemID, fields)
 
-    if batchMode then
+    if batchDepth > 0 then
         batchDataChanged = true
     elseif HA.Events then
         HA.Events:Fire("CATALOG_ITEM_UPDATED")
@@ -220,14 +227,39 @@ end
 -- Batch Mode (suppress per-item events during catalog scan)
 -------------------------------------------------------------------------------
 
+-- HS-209 H3: reentrant. Two independent callers can hold a batch open at
+-- once (CatalogScanner's scan, ProfessionOverlay's reconcile pass) — only
+-- the OUTERMOST BeginBatch resets the accumulated-change flags, so a nested
+-- Begin can never clobber an outer batch's already-accumulated
+-- batchOwnershipChanged/batchDataChanged.
 function CatalogStore:BeginBatch()
-    batchMode = true
-    batchOwnershipChanged = false
-    batchDataChanged = false
+    batchDepth = batchDepth + 1
+    if batchDepth == 1 then
+        batchOwnershipChanged = false
+        batchDataChanged = false
+    end
 end
 
+-- HS-209 H3: reentrant counterpart to BeginBatch. Only the outermost
+-- EndBatch (the one that brings batchDepth back to 0) fires the transition
+-- events and clears the flags — an inner EndBatch just decrements and
+-- returns, leaving the outer batch's suppression and accumulated flags
+-- intact. An EndBatch with no matching BeginBatch (depth already 0) is a
+-- caller bug: floor at 0 and warn instead of going negative, which would
+-- require an extra BeginBatch just to return to a suppressing state.
 function CatalogStore:EndBatch()
-    batchMode = false
+    if batchDepth <= 0 then
+        if HA.Addon then
+            HA.Addon:Debug("CatalogStore: EndBatch called with no matching BeginBatch (underflow)")
+        end
+        batchDepth = 0
+        return
+    end
+
+    batchDepth = batchDepth - 1
+    if batchDepth > 0 then
+        return
+    end
 
     if HA.Events then
         if batchOwnershipChanged then
@@ -667,7 +699,25 @@ end
 function CatalogStore:RunMigrations()
     if not HA.Addon or not HA.Addon.db then return end
     local db = HA.Addon.db
-    local version = db.global.schemaVersion or 1
+
+    -- HS-209 M10a: schemaVersion has no type guarantee — a hand-edited WTF or
+    -- a downgrade artifact can leave it as a non-number, and `version < 2`
+    -- below would throw uncaught ("attempt to compare number with <type>"),
+    -- aborting RunMigrations and, with it, the whole OnEnable chain silently.
+    -- Coerce and repair rather than trust the stored value; every migration
+    -- here is idempotent (each guards its own already-applied state), so
+    -- falling back to 1 and re-running is safe even if the corrupt value
+    -- meant "already migrated."
+    local storedVersion = db.global.schemaVersion
+    local version = tonumber(storedVersion)
+    if not version then
+        version = 1
+        if HA.Addon then
+            HA.Addon:Debug("CatalogStore: schemaVersion was not a number ("
+                .. tostring(storedVersion) .. ") — repairing to 1 and re-running migrations")
+        end
+        db.global.schemaVersion = version
+    end
 
     if version < 2 then
         Migration_1_to_2(db)

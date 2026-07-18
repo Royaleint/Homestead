@@ -339,14 +339,14 @@ function CatalogScanner:ScanFullCatalog(callback)
 
             HA.Addon:Debug("Catalog scan complete. Checked:", checkedCount, "Owned:", ownedCount)
 
-            -- Fire event so other modules know ownership data is updated
-            if HA.Events and HA.Events.TriggerEvent then
-				HA.Events:Fire("OWNERSHIP_UPDATED")
-			elseif HA.Events and HA.Events.FireEvent then
-				HA.Events:FireEvent("OWNERSHIP_UPDATED")
-			elseif HA.Events and HA.Events.Fire then
-				HA.Events:Fire("OWNERSHIP_UPDATED")
-			end
+            -- HS-209 M3: removed an unconditional OWNERSHIP_UPDATED fire that
+            -- lived here — it checked HA.Events.TriggerEvent/.FireEvent (methods
+            -- that don't exist on Events), so both `if`/`elseif` conditions were
+            -- always false and it always fell through to the final branch,
+            -- firing on every scan regardless of whether anything actually
+            -- changed, and double-firing on real changes since EndBatch above
+            -- already fires OWNERSHIP_UPDATED conditionally on
+            -- batchOwnershipChanged. EndBatch is the sole owner of this fire.
 
             if callback then
                 callback(ownedCount, checkedCount)

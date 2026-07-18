@@ -363,7 +363,10 @@ end
 -------------------------------------------------------------------------------
 
 local function Initialize()
-    -- Register callbacks
+    -- Register callbacks. Ownership rule (HS-209): this module OWNS the "bags"
+    -- update type — requested from core.lua's OnBagUpdate (BAG_UPDATE_DELAYED)
+    -- and consumed here. Overlay/overlay.lua deliberately registers no "bags"
+    -- callback; cross-surface repaints arrive via "all"/OWNERSHIP_UPDATED.
     Events:RegisterCallback("bags", OnBagUpdate)
 
     -- Hook Blizzard functions
