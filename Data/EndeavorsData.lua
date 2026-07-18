@@ -583,7 +583,12 @@ local function RefreshActiveTheme(reason)
         loggedRawTitle = true
     end
 
-    if IsDebugEnabled() then
+    -- HS-216: log the "active theme" line only when the resolved theme
+    -- actually CHANGED (same `changed` this function already computes to
+    -- decide whether to fire ACTIVE_ENDEAVOR_CHANGED) — unsolicited
+    -- NEIGHBORHOOD_INITIATIVE_UPDATED fires (every consume, no theme change)
+    -- were logging this line every time.
+    if changed and IsDebugEnabled() then
         if activeThemeKnown then
             HA.Addon:Debug("EndeavorsData: active theme:", activeTheme, "(" .. tostring(reason) .. ")")
         else
