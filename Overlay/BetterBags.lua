@@ -195,11 +195,19 @@ local function Initialize()
 
     local waitFrame = CreateFrame("Frame")
     waitFrame:RegisterEvent("ADDON_LOADED")
-    waitFrame:SetScript("OnEvent", function(self, _, addonName)
-        if addonName == "BetterBags" then
-            if HookIntegration() then
-                self:UnregisterAllEvents()
-            end
+    waitFrame:SetScript("OnEvent", function(self)
+        -- HS-211: ADDON_LOADED firing for BetterBags specifically is not a
+        -- readiness guarantee — its AceAddon Events/Constants modules can
+        -- still be unregistered at that exact moment, and BetterBags's own
+        -- ADDON_LOADED never fires again to retry. Gating on
+        -- addonName == "BetterBags" was therefore a one-shot dead end if
+        -- that first attempt failed (the same class of bug already fixed in
+        -- Overlay/Baganator.lua's WaitForBaganator). Reattempt on every
+        -- subsequent ADDON_LOADED instead — HookIntegration self-guards
+        -- (isHooked), so this is a cheap no-op after success and stops the
+        -- moment it succeeds.
+        if HookIntegration() then
+            self:UnregisterAllEvents()
         end
     end)
 end

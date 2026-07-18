@@ -2084,9 +2084,9 @@ local lastProfessionFingerprint = nil
 --
 -- KNOWN GAP: PlayerMeetsSkillLevel's C_TradeSkillUI-derived expansion-tier/
 -- knowledge-point progress is out of scope for this fingerprint by design
--- (see above) — HS-214 (filed separately) covers that class of change via
--- TRAIT_CONFIG_UPDATED filtered to Enum.TraitConfigType.Profession, which is
--- window-independent and fires on knowledge-point commits. Not this diff.
+-- (see above) — closed by HS-214 via a separate TRAIT_CONFIG_UPDATED
+-- invalidation trigger (filtered to Enum.TraitConfigType.Profession) below,
+-- not by extending this fingerprint.
 local function BuildProfessionFingerprint()
     local getProfessions = _G and _G.GetProfessions
     local getProfessionInfo = _G and _G.GetProfessionInfo
@@ -2135,7 +2135,8 @@ local function HookCompletionCacheInvalidation()
     completionInvalidationFrame:RegisterEvent("SKILL_LINES_CHANGED")
     completionInvalidationFrame:RegisterEvent("UPDATE_FACTION")
     completionInvalidationFrame:RegisterEvent("MAJOR_FACTION_RENOWN_LEVEL_CHANGED")
-    completionInvalidationFrame:SetScript("OnEvent", function(_, event)
+    completionInvalidationFrame:RegisterEvent("TRAIT_CONFIG_UPDATED")
+    completionInvalidationFrame:SetScript("OnEvent", function(_, event, ...)
         -- HS-213/HS-215: SKILL_LINES_CHANGED fires spuriously on profession-
         -- window open (Gate 2 confirmed) — every other registered event
         -- stays unconditional, only this one is fingerprint-gated.
@@ -2159,6 +2160,31 @@ local function HookCompletionCacheInvalidation()
                 return
             end
             lastProfessionFingerprint = fingerprint
+        elseif event == "TRAIT_CONFIG_UPDATED" then
+            -- HS-214: closes the knowledge-point coverage gap the
+            -- BuildProfessionFingerprint comment above documents —
+            -- TRAIT_CONFIG_UPDATED is window-independent and fires on
+            -- knowledge-point commits, but it ALSO fires for combat talent
+            -- specs, which we must NOT treat as a reason to wipe every
+            -- requirement/completion cache. Filter to
+            -- Enum.TraitConfigType.Profession (2). pcall-guarded because
+            -- GetConfigInfo's payload shape isn't guaranteed stable across
+            -- API versions; a nil/failed read means we can't confirm this
+            -- is a profession config, so we do NOT invalidate — fail closed
+            -- on the FILTER (skip), which is the safe direction here since
+            -- skipping an invalidation just defers to the next real trigger,
+            -- whereas invalidating on unconfirmed combat-talent noise is
+            -- exactly the wasted-work class HS-213 already fixed once.
+            local configID = ...
+            local CT = _G.C_Traits
+            local isProfessionConfig = false
+            if CT and CT.GetConfigInfo then
+                local ok, configInfo = pcall(CT.GetConfigInfo, configID)
+                isProfessionConfig = ok and configInfo and configInfo.type == Enum.TraitConfigType.Profession
+            end
+            if not isProfessionConfig then
+                return
+            end
         end
 
         SourceManager:InvalidateAllSourceCaches()
