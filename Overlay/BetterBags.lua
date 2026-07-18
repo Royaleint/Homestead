@@ -21,6 +21,12 @@ local eventsModule = nil
 local constantsModule = nil
 local isHooked = false
 
+-- HS-204(d): SetHomestoneState only reads opts.* synchronously within the
+-- call (it copies values into its own per-overlay table) and never retains
+-- this table afterward, so one reused scratch table is safe across the many
+-- OnItemUpdated calls per bag refresh instead of a fresh table per item.
+local homestoneOptionsScratch = {}
+
 -------------------------------------------------------------------------------
 -- Helpers
 -------------------------------------------------------------------------------
@@ -144,10 +150,11 @@ local function OnItemUpdated(_, item, decoration)
     end
 
     local anchor = settings.iconAnchor or OVERLAY_CONFIG.DEFAULT_ANCHOR or "TOPLEFT"
-    Overlay:SetHomestoneState(decoration, status, {
-        size = settings.iconSize or OVERLAY_CONFIG.ICON_SIZE,
-        anchor = anchor,
-    })
+    -- Reuse the scratch table in place; both fields are always overwritten
+    -- below so neither can carry a stale value from a previous item.
+    homestoneOptionsScratch.size = settings.iconSize or OVERLAY_CONFIG.ICON_SIZE
+    homestoneOptionsScratch.anchor = anchor
+    Overlay:SetHomestoneState(decoration, status, homestoneOptionsScratch)
 end
 
 local function OnItemClearing(_, _, decoration)

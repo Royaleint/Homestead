@@ -193,7 +193,11 @@ local function OnMerchantClosed()
 end
 
 local function OnMerchantUpdate()
-    UpdateAllMerchantOverlays()
+    -- HS-204(a): route through the same 0.1s debounce page/tab/scroll clicks
+    -- use. MERCHANT_UPDATE can fire in bursts (e.g. repeated stack-count
+    -- updates); calling UpdateAllMerchantOverlays() directly bypassed that
+    -- coalescing entirely.
+    ScheduleOverlayUpdate()
 end
 
 -------------------------------------------------------------------------------
