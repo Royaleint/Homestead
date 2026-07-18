@@ -723,6 +723,17 @@ function EndeavorsData:Initialize()
     eventFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
     eventFrame:RegisterEvent("NEIGHBORHOOD_INITIATIVE_UPDATED")
     eventFrame:SetScript("OnEvent", function(_, event)
+        -- HS-215: NEIGHBORHOOD_INITIATIVE_UPDATED is the RESPONSE to
+        -- RequestNeighborhoodInitiativeInfo — calling RequestInitiativeInfo
+        -- again here was requesting a new response inside the handler for
+        -- the previous one, an infinite server-paced request loop (confirmed
+        -- live). This event only needs to CONSUME the data that just
+        -- arrived; it never requests.
+        if event == "NEIGHBORHOOD_INITIATIVE_UPDATED" then
+            RefreshActiveTheme(event)
+            return
+        end
+
         RequestInitiativeInfo(event)
         RefreshActiveTheme(event)
 
