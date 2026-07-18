@@ -258,11 +258,16 @@ end
 -- Item Helpers
 -------------------------------------------------------------------------------
 
--- Check if item is owned (same pattern as BadgeCalculation/VendorMapPins)
+-- Check if item is owned (same pattern as BadgeCalculation/VendorMapPins).
+-- HS-200: this is the no-presentation fallback for PopulateItemGrid and
+-- PopulateItemResultRow, both aggregate per-item loops (a vendor's full item
+-- grid, or a full search-result list) — must stay cache-only, matching
+-- SourceManager's "sidePanel" context, or it reintroduces a per-item API
+-- burst on the map side panel.
 local function IsItemOwned(itemID)
     if not itemID then return false end
     if HA.CatalogStore then
-        return HA.CatalogStore:IsOwnedFresh(itemID)
+        return HA.CatalogStore:IsOwned(itemID)
     end
     return false
 end

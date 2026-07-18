@@ -191,9 +191,13 @@ local function BuildVendorStats(vendor, sourceFilter)
             local hasVerifiableRequirement = presentation and presentation.hasVerifiableRequirement or false
             local blockerLabels = presentation and presentation.blockerLabels or nil
 
+            -- HS-200: badge recounts are an aggregate per-vendor-item loop —
+            -- this no-presentation fallback must stay cache-only the same way
+            -- the primary presentation.isOwned path is (SourceManager's
+            -- "badge" context), or it reintroduces the per-item API burst.
             local isOwned = presentation and presentation.isOwned
-            if not presentation and HA.CatalogStore and HA.CatalogStore.IsOwnedFresh then
-                isOwned = HA.CatalogStore:IsOwnedFresh(itemID) == true
+            if not presentation and HA.CatalogStore and HA.CatalogStore.IsOwned then
+                isOwned = HA.CatalogStore:IsOwned(itemID) == true
             end
 
             if isOwned then
