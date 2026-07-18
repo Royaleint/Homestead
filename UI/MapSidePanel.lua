@@ -58,6 +58,13 @@ local topTileFrame = nil   -- Inner decorative top-edge tile
 local topStreaksFrame = nil -- Decorative streaks overlay
 local bgTexture = nil      -- QuestLogBackground fill (anchored below header zone)
 local isInitialized = false
+-- HS-210: debounced content-refresh scheduler shared by every event listener
+-- below that wants a deferred repaint. Mirrors Overlay/Merchant.lua's
+-- ScheduleOverlayUpdate shape, but tracks pending state with an explicit
+-- boolean instead of the C_Timer.After return value — C_Timer.After returns
+-- nothing, so assigning its result to the guard variable would leave it nil
+-- immediately and never actually debounce.
+local pendingContentRefresh = false
 local vendorRows = {}
 local itemResultRows = {}
 local expandedVendorID = nil  -- npcID of currently expanded vendor (nil = none)
@@ -242,8 +249,22 @@ local function ShowItemPreview(itemID)
         previewHooked = true
     end
 
-    -- Get catalog entry info directly from itemID
-    local info = C_HousingCatalog.GetCatalogEntryInfoByItem(itemID, true)
+    -- Get catalog entry info directly from itemID. Guarded like every other
+    -- GetCatalogEntryInfoByItem call site (HS-059: nil for some items) with
+    -- the byRecordID fallback via CatalogStore's decorID reverse index — see
+    -- CatalogStore:IsOwnedFresh's readOnly branch for the reference pattern.
+    local ok, info = pcall(C_HousingCatalog.GetCatalogEntryInfoByItem, itemID, true)
+    if not ok then info = nil end
+
+    if not info and HA.CatalogStore and HA.CatalogStore.GetDecorIDFromItemID
+            and C_HousingCatalog.GetCatalogEntryInfoByRecordID then
+        local decorID = HA.CatalogStore:GetDecorIDFromItemID(itemID)
+        if decorID then
+            local ok2, info2 = pcall(C_HousingCatalog.GetCatalogEntryInfoByRecordID, 1, decorID, true)
+            if ok2 then info = info2 end
+        end
+    end
+
     if not info then
         if HA.Addon then
             HA.Addon:Debug("No catalog info for itemID:", itemID)
@@ -4048,6 +4069,21 @@ function MapSidePanel:ResetIntegrationMode()
     ResetStandaloneCheck()
 end
 
+-- HS-210: debounced scheduler for OWNERSHIP_UPDATED / VENDOR_SCANNED /
+-- ACTIVE_ENDEAVOR_CHANGED / SOURCE_CACHES_INVALIDATED. Without this, a burst
+-- of the same event (e.g. UPDATE_FACTION firing SOURCE_CACHES_INVALIDATED
+-- several times in one frame) schedules N independent 0.1s timers that each
+-- run a full RefreshContent — same defer, just N rebuilds 0.1s later instead
+-- of 0. One pending flag collapses any burst into exactly one refresh.
+local function ScheduleContentRefresh()
+    if pendingContentRefresh then return end
+    pendingContentRefresh = true
+    C_Timer.After(0.1, function()
+        pendingContentRefresh = false
+        MapSidePanel:RefreshContent()
+    end)
+end
+
 -------------------------------------------------------------------------------
 -- Initialization
 -------------------------------------------------------------------------------
@@ -4198,21 +4234,22 @@ function MapSidePanel:Initialize()
 
     -- Listen for data changes
     if HA.Events then
-        HA.Events:RegisterCallback("OWNERSHIP_UPDATED", function()
-            MapSidePanel:RefreshContent()
-        end)
+        -- Deferred like its VENDOR_SCANNED sibling below: VendorMapPins' cache wipe
+        -- on this same event is init-order dependent, so a synchronous repaint here
+        -- can race ahead of it and never repaint after the wipe lands. All four
+        -- listeners below share ScheduleContentRefresh's debounce so a burst of
+        -- any one of them (or a mix) collapses into a single RefreshContent.
+        HA.Events:RegisterCallback("OWNERSHIP_UPDATED", ScheduleContentRefresh)
 
-        HA.Events:RegisterCallback("VENDOR_SCANNED", function()
-            C_Timer.After(0.1, function()
-                MapSidePanel:RefreshContent()
-            end)
-        end)
+        HA.Events:RegisterCallback("VENDOR_SCANNED", ScheduleContentRefresh)
+
+        HA.Events:RegisterCallback("ACTIVE_ENDEAVOR_CHANGED", ScheduleContentRefresh)
 
         -- Source caches invalidated — covers achievement, quest, reputation,
-        -- profession, and holiday changes through SourceManager.
-        HA.Events:RegisterCallback("SOURCE_CACHES_INVALIDATED", function()
-            MapSidePanel:RefreshContent()
-        end)
+        -- profession, and holiday changes through SourceManager. An
+        -- UPDATE_FACTION burst can invalidate several times in one frame;
+        -- ScheduleContentRefresh's debounce collapses that into one rebuild.
+        HA.Events:RegisterCallback("SOURCE_CACHES_INVALIDATED", ScheduleContentRefresh)
     end
 
     -- Initialize SearchProvider
@@ -4220,9 +4257,12 @@ function MapSidePanel:Initialize()
         HA.SearchProvider:Initialize()
     end
 
-    -- Foundry.Menu controllers for context menus and source-filter dropdown
-    if F then
-        menuContextMenu = F.Menu:New({
+    -- Foundry.Menu controllers for context menus and source-filter dropdown.
+    -- RequireModule fails loud if a standalone Foundry without Menu is loaded
+    -- instead of the embed (matches the List/Lifecycle/DB call sites).
+    do
+        local Menu = F:RequireModule("Menu", 1)
+        menuContextMenu = Menu:New({
             name    = "HS.ContextMenu",
             builder = function(owner, rootDescription)
                 rootDescription:CreateTitle("Homestead")
@@ -4295,7 +4335,7 @@ function MapSidePanel:Initialize()
             end,
         })
 
-        menuSourceFilter = F.Menu:New({
+        menuSourceFilter = Menu:New({
             name    = "HS.SourceFilter",
             builder = function(_, rootDescription)
                 AddSourceFilterMenuEntries(rootDescription)

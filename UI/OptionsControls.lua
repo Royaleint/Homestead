@@ -316,26 +316,27 @@ function Controls.CreateDropdown(parent, row, refresh)
         SetDropdownText(dropdown, row)
     end
 
-    if F then
-        local ctrl = F.Menu:New({
-            name    = "HS.Options." .. (row.key or ""),
-            builder = function(_, root)
-                root:CreateTitle(row.label or "")
-                for _, value in ipairs(row.values or {}) do
-                    root:CreateRadio(value.label, function()
-                        return SafeGet(row, nil) == value.key
-                    end, function()
-                        if row.set then
-                            row.set(value.key)
-                        end
-                        SetDropdownText(dropdown, row)
-                        AttachRefresh(refresh)
-                    end)
-                end
-            end,
-        })
-        if ctrl then ctrl:SetupDropdown(dropdown) end
-    end
+    -- RequireModule fails loud if a standalone Foundry without Menu is loaded
+    -- instead of the embed (matches the List/Lifecycle/DB call sites).
+    local Menu = F:RequireModule("Menu", 1)
+    local ctrl = Menu:New({
+        name    = "HS.Options." .. (row.key or ""),
+        builder = function(_, root)
+            root:CreateTitle(row.label or "")
+            for _, value in ipairs(row.values or {}) do
+                root:CreateRadio(value.label, function()
+                    return SafeGet(row, nil) == value.key
+                end, function()
+                    if row.set then
+                        row.set(value.key)
+                    end
+                    SetDropdownText(dropdown, row)
+                    AttachRefresh(refresh)
+                end)
+            end
+        end,
+    })
+    if ctrl then ctrl:SetupDropdown(dropdown) end
 
     Controls.AttachTooltip(frame, row.label, row.tooltip)
     Controls.AttachTooltip(dropdown, row.label, row.tooltip)

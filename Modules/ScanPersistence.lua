@@ -143,7 +143,39 @@ function ScanPersistence:SaveVendorData(scanData)
     -- Determine if this vendor is in any static data source (known decor vendor)
     local isKnownVendor = HA.VendorData and HA.VendorData:HasVendor(scanData.npcID) or false
 
-    if vendorRecord.hasDecor then
+    -- Determine scan confidence BEFORE the save decision below (moved up from
+    -- its old post-save position): "confirmed" only if the scan completed AND
+    -- every item slot returned valid data. "unknown" if the scan completed but
+    -- any C_MerchantFrame.GetItemInfo() call returned nil during
+    -- ProcessScanQueue() — e.g. a laggy partial scan with no retry.
+    local scanConfidence = "unknown"
+    if scanData.scanComplete and not scanData.hadNilSlots then
+        scanConfidence = "confirmed"
+    end
+    vendorRecord.scanConfidence = scanConfidence
+
+    if vendorRecord.hasDecor
+            and existingData and scanConfidence ~= "confirmed"
+            and (existingData.decorCount or 0) > vendorRecord.decorCount then
+        -- An unconfirmed (laggy/partial) scan found fewer items than the
+        -- existing record. Saving would clobber a larger, cleaner record with
+        -- a worse one. Preserve the existing record entirely — do NOT touch
+        -- lastScanned here: that field means "these items were observed at
+        -- this time," and this attempt observed neither the full item set nor
+        -- confirmed data. Re-dating it would tell every recency consumer (UI
+        -- staleness, HS-151 consolidation, scan-timestamp provenance) that the
+        -- unobserved rows were freshly re-verified. Record the attempt
+        -- separately instead.
+        existingData.lastScanAttempt = vendorRecord.lastScanned
+        -- Debug (already debug-gated) rather than DevAddon-gated: a rejected
+        -- scan is evidence loss the user should be able to see with debug on.
+        HA.Addon:Debug(string.format(
+            "Scan protection: %s (NPC %d) unconfirmed scan found %d decor items, "
+            .. "fewer than the existing %d. Preserving existing scan data.",
+            scanData.vendorName or "?", scanData.npcID,
+            vendorRecord.decorCount, existingData.decorCount or 0
+        ))
+    elseif vendorRecord.hasDecor then
         -- Good scan: save new data
         HA.Addon.db.global.scannedVendors[scanData.npcID] = vendorRecord
     elseif isKnownVendor then
@@ -198,15 +230,6 @@ function ScanPersistence:SaveVendorData(scanData)
         HA.Addon.db.global.noDecorVendors = {}
     end
 
-    -- Determine scan confidence: "confirmed" only if scan completed AND all item
-    -- slots returned valid data. "unknown" if scan completed but any
-    -- C_MerchantFrame.GetItemInfo() call returned nil during ProcessScanQueue().
-    local scanConfidence = "unknown"
-    if scanData.scanComplete and not scanData.hadNilSlots then
-        scanConfidence = "confirmed"
-    end
-    vendorRecord.scanConfidence = scanConfidence
-
     if vendorRecord.hasDecor == false and scanConfidence == "confirmed" then
         if isKnownVendor then
             -- Never flag known vendors as no-decor. Clear any stale entry (recovery).
@@ -242,11 +265,21 @@ function ScanPersistence:SaveVendorData(scanData)
     end
 
     -- Persist item-level data to CatalogStore (requirements + decorID)
+    -- hadRequirementDiscovery is tracked as a local, NOT a vendorRecord field —
+    -- vendorRecord is the exact table written to SavedVariables above, and a
+    -- field on it would persist into the save file. It's passed as a second
+    -- argument on the VENDOR_SCANNED fire below instead.
+    local hadRequirementDiscovery = false
     if HA.CatalogStore then
         for _, item in ipairs(vendorRecord.items) do
             if item.itemID then
                 if item.requirements and #item.requirements > 0 then
                     HA.CatalogStore:SetRequirements(item.itemID, item.requirements)
+                    -- Newly discovered requirements can affect availability/lock
+                    -- state for this item on OTHER vendors too, not just this one —
+                    -- VENDOR_SCANNED listeners need this so a per-vendor cache
+                    -- invalidation isn't treated as sufficient.
+                    hadRequirementDiscovery = true
                 end
                 if item.decorID then
                     HA.CatalogStore:Save(item.itemID, { decorID = item.decorID })
@@ -265,9 +298,11 @@ function ScanPersistence:SaveVendorData(scanData)
         HA.VendorData:InvalidateVendorCaches()
     end
 
-    -- Fire callback for other modules
+    -- Fire callback for other modules. The second arg must never be nil —
+    -- Fire packs varargs and unpack truncates at nil holes; the local is
+    -- initialized false and only ever set true, which this contract relies on.
     if HA.Events then
-        HA.Events:Fire("VENDOR_SCANNED", vendorRecord)
+        HA.Events:Fire("VENDOR_SCANNED", vendorRecord, hadRequirementDiscovery)
     end
 end
 

@@ -358,10 +358,15 @@ function SourceManager:IsSourceAvailableNow(itemID, source)
     -- Achievement sources: check whether the achievement is actually completed.
     -- Incomplete achievements mean the item isn't obtainable right now → blocked.
     -- The tooltip still shows the achievement name so the player knows the path.
+    -- HS-210: route through the HS-203 requirementMetCache (same "achievement"
+    -- cache key IsRequirementMet already uses) instead of a live
+    -- GetAchievementInfo call on every per-item availability probe.
     if sourceType == "achievement" then
-        if data.achievementID and GetAchievementInfo then
-            local _, _, _, completed = GetAchievementInfo(data.achievementID)
-            return completed == true
+        if data.achievementID then
+            local met = self:IsRequirementMet({ type = "achievement", id = data.achievementID })
+            if met ~= nil then
+                return met
+            end
         end
         return true  -- No achievementID to check → assume available
     end
@@ -371,20 +376,33 @@ function SourceManager:IsSourceAvailableNow(itemID, source)
     -- Uses C_TradeSkillUI.GetAllProfessionTradeSkillLines + GetProfessionInfoBySkillLineID
     -- to query expansion-specific skill levels (works without trade skill UI open).
     -- Secondary professions and miscellaneous recipes remain available to everyone.
+    -- HS-210: cache the per-source result in the same requirementMetCache table
+    -- (distinct "profSourceAvail:" key namespace, so it can't collide with
+    -- "professionRank:" requirement-cache keys) and share its invalidation
+    -- lifecycle (InvalidateAllSourceCaches wipes the whole table).
     if sourceType == "profession" then
+        local skillLineID = ResolveProfessionSkillLineID(data)
+        local cacheKey = skillLineID and ("profSourceAvail:" .. tostring(skillLineID)
+            .. ":" .. tostring(data.skillTier) .. ":" .. tostring(data.skillLevel))
+        if cacheKey and requirementMetCache[cacheKey] ~= nil then
+            return requirementMetCache[cacheKey]
+        end
+
+        local available = true
         local hasProf = self:PlayerHasProfession(data)
         if hasProf == false then
-            return false
-        end
-        -- Check expansion-tier skill level when we have the required data.
-        -- e.g., skillTier = "Midnight Leatherworking", skillLevel = 50
-        if hasProf == true then
+            available = false
+        elseif hasProf == true then
             local meetsLevel = self:PlayerMeetsSkillLevel(data)
             if meetsLevel == false then
-                return false
+                available = false
             end
         end
-        return true
+
+        if cacheKey then
+            requirementMetCache[cacheKey] = available
+        end
+        return available
     end
 
     -- Drop and unknown types: treat as available unless explicitly blocked.
@@ -1373,11 +1391,26 @@ function SourceManager:GetItemPresentation(itemID, options)
 
     local allSources = self:GetAllSources(itemID) or EMPTY_SOURCES
     local bestSource = nil
-    for _, source in ipairs(allSources) do
-        local available = self:IsSourceAvailableNow(itemID, source)
-        if available ~= false then
-            bestSource = source
-            break
+    -- HS-210 (Argus cycle 1 correction): scoped to exactly the two contexts
+    -- verified to never read bestSource/displaySource/sourceType off the
+    -- returned presentation — badge recounts (UI/BadgeCalculation.lua, only
+    -- reads isOwned/availabilityState/blockerLabels) and vendor map-pin
+    -- tooltips (UI/VendorMapPins.lua AddPinTooltipItemLine, only reads
+    -- availabilityState). The side-panel "sidePanel" context is explicitly
+    -- EXCLUDED: PopulateItemResultRow (UI/MapSidePanel.lua) reads
+    -- presentation.displaySource/sourceBadgeAtlas, and that path is reachable
+    -- with npcID set (a vendor-scoped search result whose preferred source
+    -- doesn't match and whose primary source is unavailable falls through to
+    -- bestSource) — skipping the probe there would silently wrong the badge.
+    -- Standalone callers (tooltips, catalog) were never in scope for the skip.
+    local skipBestSourceProbe = npcID and (context == "badge" or context == "vendorMapPin")
+    if not skipBestSourceProbe then
+        for _, source in ipairs(allSources) do
+            local available = self:IsSourceAvailableNow(itemID, source)
+            if available ~= false then
+                bestSource = source
+                break
+            end
         end
     end
 
@@ -2009,6 +2042,16 @@ function SourceManager:InvalidateAllSourceCaches()
     self:InvalidateCompletionCache()
     self:InvalidateRequirementMetCache()
     factionNameToID = nil
+
+    -- HS-210: invalidate the search index directly, before firing the broadcast
+    -- below. SearchProvider also listens to ACTIVE_HOLIDAYS_CHANGED on its own
+    -- (HA.Events registration order between modules is init-order dependent),
+    -- so a holiday flip could fire SOURCE_CACHES_INVALIDATED — and the UI
+    -- repaints it triggers — before the search index invalidated itself.
+    -- Calling it here removes the ordering dependency entirely.
+    if HA.SearchProvider and HA.SearchProvider.Invalidate then
+        HA.SearchProvider:Invalidate()
+    end
 
     if HA.Events then
         HA.Events:Fire("SOURCE_CACHES_INVALIDATED")

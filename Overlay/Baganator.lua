@@ -259,14 +259,20 @@ local function WaitForBaganator()
 
     waitFrame = CreateFrame("Frame")
     waitFrame:RegisterEvent("ADDON_LOADED")
-    waitFrame:SetScript("OnEvent", function(self, _, addonName)
-        if addonName ~= "Baganator" then
-            return
+    waitFrame:SetScript("OnEvent", function(self)
+        -- ADDON_LOADED fires once per addon and Baganator's own firing is not
+        -- a readiness guarantee — its Corner Widget API can still be
+        -- incomplete at that exact moment, and Baganator's ADDON_LOADED never
+        -- fires again to retry. Baganator's PLAYER_LOGIN/API init timing
+        -- relative to other addons isn't guaranteed either, so instead of
+        -- gating on addonName == "Baganator" (a one-shot dead end),
+        -- reattempt on every subsequent ADDON_LOADED — RegisterWidget
+        -- self-guards (returns true immediately once isRegistered) so this is
+        -- a cheap no-op after success, and stops the moment it succeeds.
+        if RegisterWidget() then
+            self:UnregisterAllEvents()
+            waitFrame = nil
         end
-
-        RegisterWidget()
-        self:UnregisterAllEvents()
-        waitFrame = nil
     end)
 end
 
