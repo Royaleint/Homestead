@@ -30,6 +30,9 @@ local OVERLAY_CONFIG = Constants.Overlay or {
 
 -- Track all created overlays
 local activeOverlays = {}
+
+-- Read-only fallback for nil-opts SetHomestoneState callers (see its comment).
+local EMPTY_OPTS = {}
 local overlayPool = {}
 local overlayCount = 0
 local externalRefreshers = {}
@@ -221,19 +224,30 @@ function Overlay:SetHomestoneState(parent, state, opts)
     end
 
     local settings = GetProfileOverlaySettings()
-    opts = opts or {}
+    -- Shared empty fallback: nil-opts callers (Containers, Merchant) sit on the
+    -- hottest refresh path, and this function only ever reads opts. Never write
+    -- into EMPTY_OPTS.
+    opts = opts or EMPTY_OPTS
 
     local size = opts.size or (settings and settings.iconSize) or OVERLAY_CONFIG.ICON_SIZE
     local anchor = opts.anchor or (settings and settings.iconAnchor) or OVERLAY_CONFIG.DEFAULT_ANCHOR
     local offsetX, offsetY = GetAnchorOffsets(anchor, opts.offsetX, opts.offsetY)
 
     parent.HomestoneState = state
-    parent.HomestoneOptions = {
-        size = size,
-        anchor = anchor,
-        offsetX = opts.offsetX,
-        offsetY = opts.offsetY,
-    }
+
+    -- HS-204(c): reuse the per-overlay options table in place instead of
+    -- allocating a new 4-field table every SetIcon-path call (CatalogOverlay
+    -- pattern). All four fields are always overwritten below, so no field can
+    -- carry a stale value from a previous slot/state.
+    local homestoneOptions = parent.HomestoneOptions
+    if not homestoneOptions then
+        homestoneOptions = {}
+        parent.HomestoneOptions = homestoneOptions
+    end
+    homestoneOptions.size = size
+    homestoneOptions.anchor = anchor
+    homestoneOptions.offsetX = opts.offsetX
+    homestoneOptions.offsetY = opts.offsetY
 
     PositionHomestoneTexture(parent, base, size, anchor, offsetX, offsetY)
     PositionHomestoneGlow(base, glow, size * 1.12)

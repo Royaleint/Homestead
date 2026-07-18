@@ -59,15 +59,18 @@ local function GetNPCIDFromGUID(guid)
     return npcIDText and tonumber(npcIDText) or nil
 end
 
--- Check if an item is a housing decor item using the Housing Catalog API
+-- Check if an item is a housing decor item.
+-- HS-202: delegates to CatalogStore:IsDecorItem, which is cache-first as of
+-- HS-180 (ci record, then the static DecorMapping index, then a session-only
+-- warm-gated negative cache). This tooltip post-call runs on every item
+-- hover in the game; a raw C_HousingCatalog probe here fired uncached every
+-- time.
 local function IsDecorItem(itemLink)
     if not itemLink then return false end
-    if not C_HousingCatalog or not C_HousingCatalog.GetCatalogEntryInfoByItem then
-        return false
+    if HA.CatalogStore and HA.CatalogStore.IsDecorItem then
+        return HA.CatalogStore:IsDecorItem(itemLink)
     end
-
-    local success, info = pcall(C_HousingCatalog.GetCatalogEntryInfoByItem, itemLink, false)
-    return success and info ~= nil
+    return false
 end
 
 -- Check if a decor item is owned (by itemLink)

@@ -21,6 +21,12 @@ local isRegistered = false
 local waitFrame = nil
 local registeredCorner = nil
 
+-- HS-204(c/d): SetHomestoneState only reads opts.* synchronously within the
+-- call (it copies values into its own per-parent-frame table and never
+-- retains this table), so one reused scratch table is safe across the many
+-- UpdateWidget calls per bag refresh instead of a fresh table per item.
+local homestoneOptionsScratch = {}
+
 -------------------------------------------------------------------------------
 -- Helpers
 -------------------------------------------------------------------------------
@@ -194,9 +200,10 @@ local function UpdateWidget(cornerFrame, details)
     -- No anchor override: SetHomestoneState picks up the profile's iconAnchor
     -- and the OFFSET_X/Y constants, so the texture pokes outside Baganator's
     -- corner widget the same way it does on Containers/Merchant/BetterBags.
-    Overlay:SetHomestoneState(cornerFrame, status, {
-        size = iconSize,
-    })
+    -- Reuse the scratch table in place; .size is the only field this call
+    -- site ever sets, so there's nothing else that could go stale.
+    homestoneOptionsScratch.size = iconSize
+    Overlay:SetHomestoneState(cornerFrame, status, homestoneOptionsScratch)
 
     return true
 end
