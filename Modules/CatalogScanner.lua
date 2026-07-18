@@ -436,10 +436,16 @@ local function SetupEventScanning()
             -- Check if a Blizzard housing UI addon loaded
             if loadedAddon and loadedAddon:match("^Blizzard_Housing") then
                 HA.Addon:Debug("Housing addon loaded:", loadedAddon)
-                -- One-time startup scan — direct call, not debounced
-                C_Timer.After(1, function()
-                    CatalogScanner:ScanFullCatalog()
-                end)
+                -- HS-220: routed through RequestScan() instead of a direct,
+                -- separately-timed ScanFullCatalog() call. RequestScan's own
+                -- 1.0s debounce (below) already provides the same "let the
+                -- housing UI settle" delay the old outer C_Timer.After(1,...)
+                -- existed for, so this isn't losing that settle time — it's
+                -- just not ALSO stacking a redundant second delay on top of
+                -- it. This also means a HOUSING_STORAGE_UPDATED arriving
+                -- around the same moment coalesces into the SAME debounced
+                -- scan instead of two separate ones.
+                RequestScan()
             end
         else
             -- HOUSING_STORAGE_UPDATED is the signal that storage/ownership data

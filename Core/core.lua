@@ -89,8 +89,17 @@ function HousingAddon:OnInitialize()
         vt.pinIconSize = 10
     end
 
-    -- Initialize minimap button
-    self:InitializeMinimapButton()
+    -- Initialize minimap button.
+    -- HS-221: HA.__collisionStandDown (set by the generated DevBuildGuard.lua,
+    -- which loads earlier in the TOC, so the flag is already readable here)
+    -- — narrow gate on just this call: a visible minimap button would
+    -- otherwise duplicate if this session's DevBuild collision copy and the
+    -- live copy both create one. Nothing else in OnInitialize is gated by
+    -- this; the OnEnable-level gate elsewhere already stands down the rest
+    -- of the chain for the collision case.
+    if not HA.__collisionStandDown then
+        self:InitializeMinimapButton()
+    end
 
     -- Register slash commands via Foundry.Commands (replaces AceConsole-3.0).
     -- F is the file-scope Foundry bind (guarded at load; see top of file).
