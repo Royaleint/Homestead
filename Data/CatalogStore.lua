@@ -40,6 +40,23 @@ local batchOwnershipChanged = false
 local batchDataChanged = false
 local negativeGeneration = 0  -- bumped on SetOwned/ClearAll to bust negative cache
 
+-- HS-180: session-only "confirmed not decor" cache for CatalogStore:IsDecorItem.
+-- Positive results never need this (a positive is trustworthy at any time);
+-- this only holds itemIDs a live, warm probe has confirmed are NOT decor, so
+-- repeat overlay refreshes for the same non-decor bag/bank slot skip the API
+-- call. Never persisted, and busted on any negativeGeneration bump (see
+-- IsDecorItem) so a snapshot verdict can't outlive the catalog scan that
+-- would revise it.
+local identityNegativeCache = {}
+local identityNegativeCacheGen = -1
+
+-- HS-180: session-only positive-identity memo for the same probe. Covers the
+-- rare decor item that is in the live catalog but absent from both ci and the
+-- static DecorMapping index (new-patch item before the mapping regenerates) —
+-- without this it would re-probe the API on every refresh. A positive identity
+-- is trustworthy at any temperature and never revoked, so no generation bust.
+local identityPositiveCache = {}
+
 -------------------------------------------------------------------------------
 -- Internal: Table Merge (no events, no side effects beyond storage)
 -------------------------------------------------------------------------------
@@ -244,13 +261,77 @@ function CatalogStore:ComputeOwnedFromInfo(info)
 end
 
 -- Check if an item is a housing decor item.
--- Safe runtime probe used by overlays and compatibility APIs.
+-- Cache-first, four gates before any API call:
+--   1. ci[itemID] — this store is canonical per-item state for decor items
+--      only (see module header), so an existing record is already a positive
+--      identification.
+--   2. itemIDToDecor[itemID] — the static DecorMapping index (seeded at
+--      Initialize, ~1710 known decor itemIDs) is a second positive gate; it
+--      also covers the HS-059 byItem-gap items that GetCatalogEntryInfoByItem
+--      can return nil for even when owned.
+--   3. identityPositiveCache[itemID] — session-only positive memo for decor
+--      items found only by live probe (see declaration).
+--   4. identityNegativeCache[itemID] — a session-only "confirmed not decor"
+--      verdict from a prior warm probe (see below).
+-- HS-180: overlay refresh paths (bags/merchant) call this per-slot, per-tick;
+-- non-decor bag/bank items (the majority of a bag) used to miss all caching
+-- and re-fire the API every refresh. Only itemIDs unresolved by any of the
+-- four gates reach the live API probe.
 function CatalogStore:IsDecorItem(itemLink)
     if not itemLink then return false end
+
+    local itemID = C_Item and C_Item.GetItemInfoInstant and C_Item.GetItemInfoInstant(itemLink)
+    if not itemID then
+        if C_HousingCatalog and C_HousingCatalog.GetCatalogEntryInfoByItem then
+            local success, info = pcall(C_HousingCatalog.GetCatalogEntryInfoByItem, itemLink, false)
+            return success and info ~= nil
+        end
+        return false
+    end
+
+    if ci and ci[itemID] then
+        return true
+    end
+
+    if itemIDToDecor[itemID] then
+        return true
+    end
+
+    if identityPositiveCache[itemID] then
+        return true
+    end
+
+    -- A "not decor" verdict is a snapshot, not a permanent fact — bust it on
+    -- any ownership generation change so it gets revalidated as the catalog
+    -- scan progresses, rather than potentially outliving a scan that would
+    -- have reclassified the item.
+    if negativeGeneration ~= identityNegativeCacheGen then
+        wipe(identityNegativeCache)
+        identityNegativeCacheGen = negativeGeneration
+    end
+
+    if identityNegativeCache[itemID] then
+        return false
+    end
+
     if C_HousingCatalog and C_HousingCatalog.GetCatalogEntryInfoByItem then
         local success, info = pcall(C_HousingCatalog.GetCatalogEntryInfoByItem, itemLink, false)
-        return success and info ~= nil
+        if success and info ~= nil then
+            identityPositiveCache[itemID] = true
+            return true
+        end
+
+        -- Negative-caching hazard (HS-060): a nil/cold API result is not
+        -- authoritative on its own — GetCatalogEntryInfoByItem returns nil
+        -- both for genuinely non-decor items AND for cold/unloaded catalog
+        -- data. Only memoize the negative verdict once the catalog is warm
+        -- (CatalogScanner's dataLoaded latch); never off a cold/nil probe.
+        if HA.CatalogScanner and HA.CatalogScanner.IsWarm and HA.CatalogScanner:IsWarm() then
+            identityNegativeCache[itemID] = true
+        end
+        return false
     end
+
     return false
 end
 

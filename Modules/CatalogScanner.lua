@@ -464,6 +464,14 @@ end
 -- Initialization
 -------------------------------------------------------------------------------
 
+-- Whether storage/ownership data has loaded for this session (see the
+-- dataLoaded warm-gate above). Exposed so other modules can gate their own
+-- session-only negative-caching decisions on the same single source of
+-- truth CatalogScanner already tracks, instead of re-deriving warmness.
+function CatalogScanner:IsWarm()
+    return dataLoaded
+end
+
 function CatalogScanner:Initialize()
     if isInitialized then return end
 

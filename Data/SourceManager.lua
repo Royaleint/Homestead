@@ -1262,9 +1262,16 @@ function SourceManager:GetItemPresentation(itemID, options)
     local isVendorContext = options.isVendorContext
     local readOnlyOwnership = options.readOnlyOwnership == true or context == "catalog"
 
+    -- HS-180: inventory-render callers already know the slot holds this item;
+    -- a fresh byItem/byRecordID probe here is what caused the per-slot Housing
+    -- Catalog API bursts. Cache-only IsOwned() is correct and sufficient.
     local catalogStore = HA.CatalogStore
     local isOwned = false
-    if catalogStore and catalogStore.IsOwnedFresh then
+    if context == "inventory" then
+        if catalogStore and catalogStore.IsOwned then
+            isOwned = catalogStore:IsOwned(itemID) == true
+        end
+    elseif catalogStore and catalogStore.IsOwnedFresh then
         isOwned = catalogStore:IsOwnedFresh(itemID, readOnlyOwnership) == true
     end
 
