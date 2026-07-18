@@ -231,6 +231,17 @@ function HousingAddon:OnInitialize()
 end
 
 function HousingAddon:OnEnable()
+    -- HS-217: DevBuild collision poison flag (set by the generated
+    -- DevBuildGuard.lua when it detects the live 'Homestead' addon is also
+    -- enabled). DisableAddOn only takes effect on the NEXT reload, so this
+    -- session's DevBuild copy is still fully loaded and would otherwise run
+    -- its whole module-init chain in parallel with the live copy. One gate
+    -- here stands the whole chain down for the rest of THIS session instead
+    -- of scattering the check through every module Initialize().
+    if HA.__collisionStandDown then
+        return
+    end
+
     -- Guard: the login hook must not run the enable chain unless the addon-loaded
     -- hook (OnInitialize) completed. If OnInitialize errored, or the two lifecycle
     -- hooks were ever mis-ordered, self.db and module state are absent and the
