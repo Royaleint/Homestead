@@ -28,6 +28,11 @@ local OVERLAY_CONFIG = Constants.Overlay or {
     LEVEL_OFFSET = 10,
 }
 
+-- HS-209 H1: guards Initialize() against double registration now that it's
+-- actually wired into core.lua's OnEnable — matches the isInitialized
+-- pattern other modules (e.g. Modules/CatalogScanner.lua) already use.
+local isInitialized = false
+
 -- Track all created overlays
 local activeOverlays = {}
 
@@ -522,31 +527,41 @@ end
 -- Initialization
 -------------------------------------------------------------------------------
 
+-- HS-209 H1/decision: this had zero call sites for a while, so its
+-- RegisterCallback wiring never ran — now wired from core.lua's OnEnable
+-- (guarded above against double registration if OnEnable is ever re-entered).
+-- Ownership rule for what gets registered HERE: per-surface refreshes belong
+-- to the surface modules that already own them (Overlay/Containers.lua owns
+-- "bags", Overlay/Merchant.lua owns "merchant" — both were the wiring that
+-- actually ran in production the whole time H1 was dead). Registering "bags"/
+-- "merchant" here too would run a second, parallel full-pool sweep
+-- (Overlay:RefreshAll walks the SAME activeOverlays that Containers'/
+-- Merchant's own per-surface refresh already walks via their overlay
+-- updateFuncs) — pure duplicate work, traced and confirmed during the H1
+-- rollout. Overlay:Initialize() therefore registers ONLY genuinely
+-- cross-surface triggers: OWNERSHIP_UPDATED (no surface module owns "every
+-- overlay, everywhere" repaint on an ownership change) and "all" (the one
+-- RequestUpdate("all") requester is OWNERSHIP_UPDATED's own handler below,
+-- which has no separate direct-call path — Core/core.lua's one direct
+-- Overlay:RefreshAll() caller, HousingAddon:RefreshAllOverlays(), fires once
+-- on PLAYER_ENTERING_WORLD, an unrelated one-time login trigger, not a
+-- competing path to the same event).
 function Overlay:Initialize()
-    -- Register for update callbacks
-    Events:RegisterCallback("bags", function()
-        Overlay:RefreshAll(false)
-    end)
-
-    Events:RegisterCallback("merchant", function()
-        Overlay:RefreshAll()
-    end)
+    if isInitialized then return end
+    isInitialized = true
 
     Events:RegisterCallback("all", function()
         Overlay:RefreshAll()
     end)
 
-    -- HS-180: the "bags" path above now skips the external-refresher pass
-    -- (Baganator/BetterBags), so nothing else repaints those surfaces when
-    -- the ownership cache catches up mid-session — a consumed item's
-    -- remaining copy could linger as "in bags, unlearned" until the next
-    -- unrelated bag change. Routed through RequestUpdate ("all" runs the
-    -- full RefreshAll, external pass included) rather than calling
-    -- RefreshAll directly: Events:Fire is synchronous, and a refresh can
-    -- itself fire OWNERSHIP_UPDATED (merchant SetIcon → IsOwnedFresh in
-    -- write mode → SetOwned on a newly-discovered item), so a direct call
-    -- recurses inside the outer refresh. RequestUpdate defers to the next
-    -- timer tick and coalesces repeat fires into one repaint.
+    -- Routed through RequestUpdate rather than calling RefreshAll directly:
+    -- Events:Fire is synchronous, and a refresh can itself fire
+    -- OWNERSHIP_UPDATED (e.g. IsOwnedFresh in write mode discovering new
+    -- ownership mid-refresh), so a direct call would recurse inside the
+    -- outer refresh. RequestUpdate defers to the next timer tick and
+    -- coalesces repeat fires into one repaint via the "all" registration
+    -- above — every trigger into RefreshAll here goes through exactly this
+    -- one deferred, coalesced route.
     Events:RegisterCallback("OWNERSHIP_UPDATED", function()
         Events:RequestUpdate("all")
     end)

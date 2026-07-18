@@ -279,6 +279,16 @@ function HousingAddon:OnEnable()
         HA.SourceManager:Initialize()
     end
 
+    -- HS-209 H1: Overlay:Initialize() had zero call sites — its
+    -- Events:RegisterCallback("bags"/"merchant"/"all"/"OWNERSHIP_UPDATED")
+    -- wiring never ran. Wired here, after CatalogStore/SourceManager (which
+    -- its callbacks call into once fired) and before the more UI-specific
+    -- modules below. Overlay:Initialize() guards its own double-registration
+    -- (see Overlay/overlay.lua) if this chain is ever re-entered.
+    if HA.Overlay and HA.Overlay.Initialize then
+        HA.Overlay:Initialize()
+    end
+
     -- Initialize Waypoints utility
     if HA.Waypoints then
         HA.Waypoints:Initialize()

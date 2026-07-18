@@ -42,7 +42,22 @@ assert(cachedOwnershipReads == 2)
 assert(freshOwnershipReads == 0)
 
 local overlaySource = assert(io.open(root .. "/Overlay/overlay.lua", "r")):read("*a")
-assert(overlaySource:find('Events:RegisterCallback%("bags", function%(%)%s+Overlay:RefreshAll%(false%)', 1) ~= nil)
+
+-- HS-209 decision (supersedes the HS-180 cycle-1 assertion this replaces):
+-- per-surface refreshes belong to the surface modules that already own them
+-- (Overlay/Containers.lua owns "bags", Overlay/Merchant.lua owns
+-- "merchant") — those were the wiring that actually ran in production the
+-- whole time Overlay:Initialize() was dead (HS-209 H1). Registering "bags"/
+-- "merchant" here too, now that Initialize() actually runs, would walk the
+-- SAME activeOverlays pool those surface modules already walk via their own
+-- overlay updateFuncs — traced and confirmed as real duplicate per-slot work
+-- during the H1 rollout. Overlay:Initialize() must register ONLY genuinely
+-- cross-surface triggers.
+assert(overlaySource:find('Events:RegisterCallback%("bags"', 1) == nil,
+    'Overlay/overlay.lua must not register its own "bags" callback — Containers.lua owns that surface')
+assert(overlaySource:find('Events:RegisterCallback%("merchant"', 1) == nil,
+    'Overlay/overlay.lua must not register its own "merchant" callback — Merchant.lua owns that surface')
+
 assert(overlaySource:find('function Overlay:RefreshExternalOverlays%(', 1) ~= nil)
 
 -- HS-180 Gate 1 cycle 1 (WARNING): the bags path above skips the external-
