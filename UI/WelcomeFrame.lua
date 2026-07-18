@@ -327,11 +327,7 @@ local function CreateWelcomeFrame()
     local checkBtn = CreateFrame("CheckButton", nil, frame, "UICheckButtonTemplate")
     checkBtn:SetPoint("BOTTOMLEFT", 18, 28)
     checkBtn:SetSize(24, 24)
-    checkBtn:SetScript("OnClick", function(self)
-        if HA.Addon and HA.Addon.db then
-            HA.Addon.db.global[SV_KEY] = self:GetChecked()
-        end
-    end)
+    frame.dontShowCheck = checkBtn
 
     local checkLabel = frame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
     checkLabel:SetPoint("LEFT", checkBtn, "RIGHT", 2, 0)
@@ -367,7 +363,15 @@ function WelcomeFrame:Hide()
     if welcomeFrame then
         welcomeFrame:Hide()
         if HA.Addon and HA.Addon.db then
-            HA.Addon.db.global[SV_KEY] = true
+            -- HS-219: read the checkbox at close time (mirrors WhatsNewFrame's
+            -- OnHide) instead of unconditionally marking it seen. Every close
+            -- path (X button, Escape, "Let's Decorate!") funnels through this
+            -- one Hide(), so this is the single authoritative point. An
+            -- unchecked close must leave SV_KEY unset so CheckFirstRun shows
+            -- the welcome again next login.
+            if welcomeFrame.dontShowCheck and welcomeFrame.dontShowCheck:GetChecked() then
+                HA.Addon.db.global[SV_KEY] = true
+            end
             -- Set lastSeenVersion so WhatsNew doesn't trigger for this version
             HA.Addon.db.global.lastSeenVersion = HA.Constants.VERSION
         end
@@ -383,6 +387,12 @@ function WelcomeFrame:Toggle()
     else
         self:Show()
     end
+end
+
+-- HS-219: lets WhatsNewFrame's onboarding stacking gate ask "is Welcome
+-- already up" without reaching into this module's private welcomeFrame local.
+function WelcomeFrame:IsShown()
+    return welcomeFrame ~= nil and welcomeFrame:IsShown()
 end
 
 function WelcomeFrame:CheckFirstRun()

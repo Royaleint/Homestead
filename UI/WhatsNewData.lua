@@ -73,8 +73,6 @@ HA.WhatsNew = {
         },
     },
     ["2.3.0"] = {
-        heroTexture = HA.Constants.TEXTURE_ROOT .. "WhatsNew_v230",
-        heroHeight = 250,
         title = "Homestead - What's New in v2.3!",
         features = {
             {
