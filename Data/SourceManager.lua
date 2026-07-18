@@ -2058,6 +2058,59 @@ function SourceManager:InvalidateAllSourceCaches()
     end
 end
 
+-- HS-213: last-seen profession fingerprint for the SKILL_LINES_CHANGED gate
+-- below. nil until the first SKILL_LINES_CHANGED fire (lazy init — the first
+-- fire always invalidates, cold-correctness over cleverness) and stays nil
+-- forever if the profession API is unavailable, which makes every
+-- subsequent fire also invalidate (fail open, never fail closed).
+local lastProfessionFingerprint = nil
+
+-- Cheap, WINDOW-INDEPENDENT snapshot of exactly what profession requirement
+-- evaluation reads: GetProfessions() + per-profession GetProfessionInfo's
+-- skillLine (stable, locale-neutral identity — see PlayerHasProfession),
+-- skillLevel, and maxSkillLevel (what EvaluateRequirementMetLive's
+-- professionRank branch and PlayerHasProfession's skillLine match consume).
+-- Deliberately does NOT touch C_TradeSkillUI (PlayerMeetsSkillLevel's
+-- source) — those reads differ while the profession window is open vs
+-- closed, which is the same trap that makes SKILL_LINES_CHANGED noisy to
+-- begin with; including them would make the open/close transition itself
+-- look like a change and defeat the gate entirely.
+--
+-- KNOWN GAP: PlayerMeetsSkillLevel's C_TradeSkillUI-derived expansion-tier/
+-- knowledge-point progress is out of scope for this fingerprint by design
+-- (see above) — HS-214 (filed separately) covers that class of change via
+-- TRAIT_CONFIG_UPDATED filtered to Enum.TraitConfigType.Profession, which is
+-- window-independent and fires on knowledge-point commits. Not this diff.
+local function BuildProfessionFingerprint()
+    local getProfessions = _G and _G.GetProfessions
+    local getProfessionInfo = _G and _G.GetProfessionInfo
+    if not getProfessions or not getProfessionInfo then
+        return nil
+    end
+
+    -- HS-213 cycle 1 fix: GetProfessions() returns FIVE fixed positional
+    -- slots (primary1, primary2, archaeology, fishing, cooking) with nil for
+    -- an empty slot — archaeology is empty on virtually every character, so
+    -- packing the returns into a table and ipairs()-ing it silently dropped
+    -- fishing and cooking (ipairs stops at the first nil hole). Capture all
+    -- five positionally instead so every slot — including a nil one — is
+    -- actually visited.
+    local parts = {}
+    local prof1, prof2, archaeology, fishing, cooking = getProfessions()
+    local slots = { prof1, prof2, archaeology, fishing, cooking }
+    for i = 1, 5 do
+        local profIndex = slots[i]
+        if profIndex then
+            local _, _, skillLevel, maxSkillLevel, _, _, skillLine = getProfessionInfo(profIndex)
+            parts[#parts + 1] = tostring(skillLine) .. ":" .. tostring(skillLevel) .. ":" .. tostring(maxSkillLevel)
+        else
+            parts[#parts + 1] = "none"
+        end
+    end
+
+    return table.concat(parts, "|")
+end
+
 local function HookCompletionCacheInvalidation()
     if completionInvalidationFrame then return end
 
@@ -2068,7 +2121,23 @@ local function HookCompletionCacheInvalidation()
     completionInvalidationFrame:RegisterEvent("SKILL_LINES_CHANGED")
     completionInvalidationFrame:RegisterEvent("UPDATE_FACTION")
     completionInvalidationFrame:RegisterEvent("MAJOR_FACTION_RENOWN_LEVEL_CHANGED")
-    completionInvalidationFrame:SetScript("OnEvent", function()
+    completionInvalidationFrame:SetScript("OnEvent", function(_, event)
+        -- HS-213: SKILL_LINES_CHANGED fires spuriously on profession-window
+        -- open (Gate 2 confirmed) — every other registered event stays
+        -- unconditional, only this one is fingerprint-gated.
+        if event == "SKILL_LINES_CHANGED" then
+            local fingerprint = BuildProfessionFingerprint()
+            if lastProfessionFingerprint ~= nil and fingerprint ~= nil
+                    and fingerprint == lastProfessionFingerprint then
+                if HA.Addon then
+                    HA.Addon:Debug("SourceManager: SKILL_LINES_CHANGED fired with no profession "
+                        .. "change detected — suppressing cache invalidation")
+                end
+                return
+            end
+            lastProfessionFingerprint = fingerprint
+        end
+
         SourceManager:InvalidateAllSourceCaches()
     end)
 
