@@ -628,6 +628,12 @@ function Provider:EnsureRegistered()
             wasShown = true
             watcherStats.opened = watcherStats.opened + 1
             lastMapID = nil
+            -- POI-dodge cache is keyed on mapID and never busts within a map,
+            -- so event POIs that appeared/disappeared while the map was closed
+            -- (Saltheril's Soiree, Abundance, ...) would keep dodging against
+            -- stale positions on re-show. Bust it on every map re-show.
+            cachedPoiMapID = nil
+            cachedPoiPositions = nil
             C_Timer.After(0, function()
                 RequestDeferredRefresh("watcher_opened")
             end)

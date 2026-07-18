@@ -1360,6 +1360,15 @@ local function Initialize()
             lastTooltipOwner = nil
             return
         end
+        -- Guard 6: only re-fire OnEnter for Homestead-owned frames. GameTooltip is
+        -- shared with Blizzard (merchant item buttons, bag slots, AH rows, ...);
+        -- re-invoking a Blizzard-owned frame's OnEnter can reach SetMerchantItem and
+        -- poison the shared money-frame pool (settled: never call SetMerchantItem
+        -- from addon code). Blizzard-owned tooltips simply pick up the new detail
+        -- level on the next natural hover.
+        if not (lastTooltipFrame.isHomesteadManagedTooltip or lastTooltipOwner.isHomesteadPanelIcon) then
+            return
+        end
         -- Re-fire OnEnter to rebuild tooltip with new detail level
         local onEnter = lastTooltipOwner.GetScript and lastTooltipOwner:GetScript("OnEnter")
         if onEnter then

@@ -1830,9 +1830,17 @@ function VendorMapPins:Initialize()
 
     -- Listen for vendor scan events to refresh pins with new data
     if HA.Events then
-        HA.Events:RegisterCallback("VENDOR_SCANNED", function(vendorRecord)
-            -- Invalidate caches for rescanned vendor
-            if vendorRecord and vendorRecord.npcID then
+        HA.Events:RegisterCallback("VENDOR_SCANNED", function(vendorRecord, hadRequirementDiscovery)
+            -- Newly discovered item requirements can change availability/lock
+            -- state for that item wherever else it's sold, not just at this
+            -- vendor — a per-vendor invalidation would leave other vendors'
+            -- cached stats stale. Fall back to the full flush in that case.
+            -- hadRequirementDiscovery arrives as a second Fire argument, not a
+            -- vendorRecord field — vendorRecord is the exact table ScanPersistence
+            -- writes to SavedVariables, and a field on it would persist there.
+            if hadRequirementDiscovery then
+                self:InvalidateAllCaches()
+            elseif vendorRecord and vendorRecord.npcID then
                 BC:InvalidateVendorCache(vendorRecord.npcID)
             end
             self:InvalidateBadgeCache()
@@ -1850,6 +1858,7 @@ function VendorMapPins:Initialize()
             if WorldMapFrame:IsShown() then
                 self:RequestWorldMapRefresh("ownership_updated", 0.1)
             end
+            self:RequestMinimapRefresh("ownership_updated", 0.1)
         end)
 
         -- Source caches invalidated — covers achievement, quest, reputation,
