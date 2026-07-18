@@ -327,6 +327,55 @@ end
 -- Badge Pin Frame (continent/world-level zone summary pins)
 -------------------------------------------------------------------------------
 
+-- HS-222: single source of truth for the count-driven badge visuals (icon
+-- tint, count text/color). Called both by CreateBadgePinFrame below (fresh
+-- frame) and by HomesteadWorldMapProvider.lua's AcquireBadgeFrame after every
+-- pool acquire (reused frame) — the world-map badge pool key deliberately
+-- drops the raw vendor/uncollected/opposite-faction counts (they used to
+-- mint a permanent pool bucket per distinct combination), so two badges
+-- sharing a pool key can still have different counts and therefore a
+-- different isOppositeFactionOnly verdict. A reused frame's PREVIOUS
+-- tint/color must be explicitly reset here, not just re-applied when a
+-- condition matches, or a frame last shown desaturated/red would stay that
+-- way forever once recycled into a bucket that no longer produces that
+-- state. Mirrors RefreshVendorPinCount's role for vendor pins (HS-208).
+function PinFrameFactory:RefreshBadgePinVisuals(frame, badgeData)
+    if not frame or not badgeData then return end
+
+    local isOppositeFactionOnly = badgeData.oppositeFactionCount and badgeData.oppositeFactionCount > 0
+        and badgeData.oppositeFactionCount == badgeData.vendorCount
+
+    local br, bg, bb = self:GetPinColor()
+    local isCustomColor = self:IsCustomPinColor()
+
+    if frame.icon then
+        if isOppositeFactionOnly then
+            frame.icon:SetDesaturated(true)
+            frame.icon:SetVertexColor(0.6, 0.6, 0.6, 0.9)
+        elseif isCustomColor then
+            frame.icon:SetDesaturated(true)
+            frame.icon:SetVertexColor(br, bg, bb, PinFrameFactory.DESAT_ALPHA)
+        else
+            frame.icon:SetDesaturated(false)
+            frame.icon:SetVertexColor(1, 1, 1, 1)
+        end
+    end
+
+    if frame.count then
+        frame.count:SetText(tostring(badgeData.vendorCount or 0))
+        if isOppositeFactionOnly then
+            local factionColor = badgeData.dominantFaction == "Alliance" and {0.2, 0.4, 0.8} or {0.8, 0.2, 0.2}
+            frame.count:SetTextColor(factionColor[1], factionColor[2], factionColor[3])
+        elseif (badgeData.uncollectedCount or 0) == 0 then
+            frame.count:SetTextColor(0.2, 1, 0.2)
+        elseif badgeData.uncollectedCount < badgeData.vendorCount then
+            frame.count:SetTextColor(1, 1, 1)
+        else
+            frame.count:SetTextColor(1, 0.2, 0.2)
+        end
+    end
+end
+
 function PinFrameFactory:CreateBadgePinFrame(badgeData)
     local frame = CreateFrame("Frame", nil, UIParent)
 
@@ -335,26 +384,17 @@ function PinFrameFactory:CreateBadgePinFrame(badgeData)
     frame:SetSize(baseSize, baseSize)
     frame:EnableMouse(true)
 
-    local isOppositeFactionOnly = badgeData.oppositeFactionCount and badgeData.oppositeFactionCount > 0
-        and badgeData.oppositeFactionCount == badgeData.vendorCount
-
-    local br, bg, bb = self:GetPinColor()
-    local isCustomColor = self:IsCustomPinColor()
-
-    -- Housing icon
+    -- Housing icon (tint is count-driven — set by RefreshBadgePinVisuals below)
     frame.icon = frame:CreateTexture(nil, "ARTWORK")
     frame.icon:SetPoint("CENTER")
     frame.icon:SetSize(iconSize, iconSize)
     frame.icon:SetAtlas("housing-decor-vendor_32", false)
-    if isOppositeFactionOnly then
-        frame.icon:SetDesaturated(true)
-        frame.icon:SetVertexColor(0.6, 0.6, 0.6, 0.9)
-    elseif isCustomColor then
-        frame.icon:SetDesaturated(true)
-        frame.icon:SetVertexColor(br, bg, bb, PinFrameFactory.DESAT_ALPHA)
-    end
 
-    -- Faction emblem
+    -- Faction emblem. dominantFaction/oppositeFactionCount>0 resolve to the
+    -- SAME faction classification for every badgeData sharing this frame's
+    -- pool key (GetBadgeFramePoolKey bakes that classification into the key
+    -- itself), so — unlike the icon tint and count text above — this is
+    -- bucket-invariant and does not need a post-acquire refresh.
     if badgeData.dominantFaction or (badgeData.oppositeFactionCount and badgeData.oppositeFactionCount > 0) then
         frame.factionEmblem = frame:CreateTexture(nil, "ARTWORK", nil, 2)
         frame.factionEmblem:SetSize(10, 10)
@@ -375,7 +415,8 @@ function PinFrameFactory:CreateBadgePinFrame(badgeData)
         end
     end
 
-    -- Count text
+    -- Count text (font/anchor are structural/style; text + color are
+    -- count-driven — set by RefreshBadgePinVisuals below)
     local fontSize = GetBadgeCountTextMetrics(baseSize)
     frame.count = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal", 2)
     frame.count:SetPoint("TOP", frame, "BOTTOM", 0, -2)
@@ -387,18 +428,7 @@ function PinFrameFactory:CreateBadgePinFrame(badgeData)
     -- Store badge data
     frame.badgeData = badgeData
 
-    -- Update appearance
-    frame.count:SetText(tostring(badgeData.vendorCount or 0))
-    if isOppositeFactionOnly then
-        local factionColor = badgeData.dominantFaction == "Alliance" and {0.2, 0.4, 0.8} or {0.8, 0.2, 0.2}
-        frame.count:SetTextColor(factionColor[1], factionColor[2], factionColor[3])
-    elseif (badgeData.uncollectedCount or 0) == 0 then
-        frame.count:SetTextColor(0.2, 1, 0.2)
-    elseif badgeData.uncollectedCount < badgeData.vendorCount then
-        frame.count:SetTextColor(1, 1, 1)
-    else
-        frame.count:SetTextColor(1, 0.2, 0.2)
-    end
+    self:RefreshBadgePinVisuals(frame, badgeData)
 
     -- Tooltip/click handlers
     frame:SetScript("OnEnter", function(self) -- luacheck: ignore 432

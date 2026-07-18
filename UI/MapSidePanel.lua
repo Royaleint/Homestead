@@ -4138,11 +4138,15 @@ function MapSidePanel:Initialize()
         mapWatch.overlayCount = CountVisibleOverlayButtons()
     end
 
-    C_Timer.NewTicker(0.1, function()
-        local shown     = WorldMapFrame and WorldMapFrame:IsShown() or false
-        local maximized = shown and (WorldMapFrame.isMaximized and true or false) or false
-        local mapID     = shown and WorldMapFrame:GetMapID() or nil
-
+    -- HS-223a: this used to run its own independent 10Hz ticker polling
+    -- WorldMapFrame:IsShown()/:GetMapID()/isMaximized -- the exact same raw
+    -- state HomesteadWorldMapProvider.lua's own 0.1s watcher already reads
+    -- every tick. Registered as a callback there instead of running a second
+    -- redundant 10Hz poll; trigger semantics below are unchanged, just fed
+    -- from the shared poll's (isShown, mapID, maximized) instead of a private
+    -- one. Do NOT convert this to a WorldMapFrame hook (HS-081): hooks run
+    -- inside Blizzard's secure map-open path and taint execution.
+    local function MapWatchTick(shown, mapID, maximized)
         if shown and not mapWatch.shown then
             -- Map just opened (was: WorldMapFrame OnShow hook). No C_Timer.After(0)
             -- wrapper -- the ticker already runs after the secure path; ShowPanel ->
@@ -4230,7 +4234,16 @@ function MapSidePanel:Initialize()
         mapWatch.shown     = shown
         mapWatch.maximized = maximized
         mapWatch.mapID     = mapID
-    end)
+    end
+
+    local WorldMapProvider = HA.HomesteadWorldMapProvider
+    if WorldMapProvider then
+        WorldMapProvider:RegisterMapWatchCallback("MapSidePanel", MapWatchTick)
+        -- Idempotent (no-op if VendorMapPins:Initialize already started the
+        -- ticker) -- ensures the shared watcher runs even if init order ever
+        -- changes, since MapSidePanel:Initialize() currently runs first.
+        WorldMapProvider:EnsureRegistered()
+    end
 
     -- Listen for data changes
     if HA.Events then
