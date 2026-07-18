@@ -44,6 +44,15 @@ local EMPTY_SOURCES = {}
 local completionCache = {}
 local completionInvalidationFrame = nil
 
+-- HS-203: shared requirement met/unmet cache. Keys are requirement-identity
+-- scoped (type + id/threshold, see BuildRequirementCacheKey below) so every
+-- IsRequirementMet consumer (badge recounts, tooltips, the map side panel,
+-- vendor availability) benefits from one evaluation instead of re-running
+-- live rep/achievement/quest/profession API calls per item, per hover/expand.
+-- Wiped in InvalidateAllSourceCaches alongside completionCache — same
+-- five-trigger-class event fan-out, no new registrations.
+local requirementMetCache = {}
+
 -------------------------------------------------------------------------------
 -- Provider Registry
 -------------------------------------------------------------------------------
@@ -773,9 +782,11 @@ local function GetFactionIDByName(name)
     return nil
 end
 
--- Check if a specific requirement is met by the player.
+-- Live evaluation of a single requirement — unchanged logic, renamed from
+-- the old IsRequirementMet so the cache wrapper below (HS-203) can sit in
+-- front of it without touching any of this branch logic.
 -- Returns: true (met), false (unmet), nil (cannot determine)
-function SourceManager:IsRequirementMet(req)
+function SourceManager:EvaluateRequirementMetLive(req)
     if not req or not req.type then return nil end
 
     if req.type == "reputation" then
@@ -895,6 +906,67 @@ function SourceManager:IsRequirementMet(req)
     end
 
     return nil  -- Unknown requirement type
+end
+
+-- HS-203: requirement identity for the shared met/unmet cache. Narrow by
+-- design — includes exactly the fields that participate in that req type's
+-- met/unmet decision, so two rows with different thresholds (e.g. different
+-- required renown levels for the same faction) never collide on one key.
+-- "promotion" is intentionally excluded: it already has its own day-stamped
+-- cache (promotionExpiredCache / IsPromotionExpired) with its own freshness
+-- rule, and must stay on that layer, not this one. Unknown types and
+-- requirements missing an identity field return nil (never cached).
+local function BuildRequirementCacheKey(req)
+    local reqType = req.type
+
+    if reqType == "reputation" then
+        local factionKey = req.factionID or req.faction
+        local thresholdKey = req.renownLevel or req.standing
+        if factionKey == nil or thresholdKey == nil then return nil end
+        return "reputation:" .. tostring(factionKey) .. ":" .. tostring(thresholdKey)
+    -- "level" is deliberately NOT cached (Argus HS-203 cycle 1): no registered
+    -- invalidation event fires on a pure level-up, so a cached false would
+    -- stick until an unrelated rep/quest/skill event — and UnitLevel("player")
+    -- is a trivial C call, cheaper live than the key build + lookup.
+    elseif reqType == "achievement" then
+        local achievementKey = req.id or req.name
+        if achievementKey == nil then return nil end
+        return "achievement:" .. tostring(achievementKey)
+    elseif reqType == "quest" then
+        if req.id == nil then return nil end
+        return "quest:" .. tostring(req.id)
+    elseif reqType == "professionRank" then
+        if req.profession == nil or req.rank == nil then return nil end
+        return "professionRank:" .. tostring(req.profession) .. ":" .. tostring(req.rank)
+    end
+
+    return nil
+end
+
+-- Check if a specific requirement is met by the player.
+-- HS-203: cache-first wrapper around EvaluateRequirementMetLive. A nil
+-- ("cannot determine") result is never cached — a missing cache entry and a
+-- cached-nil are indistinguishable in Lua, so unresolved requirements simply
+-- re-evaluate next call, which is safe (just not optimized).
+-- Returns: true (met), false (unmet), nil (cannot determine)
+function SourceManager:IsRequirementMet(req)
+    if not req or not req.type then return nil end
+
+    local cacheKey = BuildRequirementCacheKey(req)
+    if cacheKey then
+        local cached = requirementMetCache[cacheKey]
+        if cached ~= nil then
+            return cached
+        end
+    end
+
+    local met = self:EvaluateRequirementMetLive(req)
+
+    if cacheKey then
+        requirementMetCache[cacheKey] = met
+    end
+
+    return met
 end
 
 -- Get detailed reputation progress for a requirement.
@@ -1276,7 +1348,14 @@ function SourceManager:GetItemPresentation(itemID, options)
     -- These contexts iterate every item on a vendor/bag in one pass, so a
     -- fresh byItem/byRecordID probe here is what caused the per-item Housing
     -- Catalog API bursts (HS-180 bags, HS-200 badge/map).
-    local cacheOnlyOwnership = context == "inventory" or context == "badge" or context == "sidePanel"
+    -- HS-203: adds "vendorMapPin" to the cache-only set, superseding HS-200's
+    -- "hover stays fresh" call for this context specifically — the new
+    -- requirement cache above removes most of the per-hover cost, cache-only
+    -- ownership removes the rest, and ownership still self-heals via the
+    -- existing OWNERSHIP_UPDATED repaint (same as every other overlay/panel
+    -- surface).
+    local cacheOnlyOwnership = context == "inventory" or context == "badge"
+        or context == "sidePanel" or context == "vendorMapPin"
     local catalogStore = HA.CatalogStore
     local isOwned = false
     if cacheOnlyOwnership then
@@ -1915,12 +1994,20 @@ function SourceManager:InvalidateCompletionCache()
     completionCache = {}
 end
 
+-- HS-203: wipe the requirement met/unmet cache. Separate accessor mirrors
+-- InvalidateCompletionCache's shape; called from InvalidateAllSourceCaches
+-- below, same as completionCache.
+function SourceManager:InvalidateRequirementMetCache()
+    requirementMetCache = {}
+end
+
 -- Central invalidation entrypoint for source-related caches.
 -- Future source/filter caches should be added here so callers have one API.
 -- Fires SOURCE_CACHES_INVALIDATED so UI modules can repaint without
 -- duplicating WoW event registrations.
 function SourceManager:InvalidateAllSourceCaches()
     self:InvalidateCompletionCache()
+    self:InvalidateRequirementMetCache()
     factionNameToID = nil
 
     if HA.Events then

@@ -562,7 +562,9 @@ local function AddPinTooltipItemLine(tooltip, item, options)
     if itemID and SM and SM.GetItemPresentation then
         local presentation = SM:GetItemPresentation(itemID, options)
         availabilityState = presentation and presentation.availabilityState
-    elseif itemID and HA.CatalogStore and HA.CatalogStore:IsOwnedFresh(itemID) then
+    -- HS-203: no-presentation fallback stays cache-only, matching
+    -- SourceManager's "vendorMapPin" context (the primary path above).
+    elseif itemID and HA.CatalogStore and HA.CatalogStore:IsOwned(itemID) then
         availabilityState = "owned"
     elseif itemID and options and options.npcID
             and SM and SM.GetVendorItemAvailabilityState then
