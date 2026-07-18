@@ -1180,12 +1180,19 @@ local function GetScannedVendorItem(itemID, npcID)
 end
 
 -- Vendor-scoped availability: classifies an item in a specific vendor context.
+-- skipOwnershipProbe: set by GetItemPresentation's aggregate/cache-only
+-- contexts (badge/sidePanel/inventory) when they've already resolved
+-- ownership as false via the cache moments earlier — skips the redundant
+-- fresh probe below rather than re-checking a result already known (HS-200:
+-- this was the second of the "1-2 probes per item" per badge recount).
+-- Standalone callers (tooltips, map pin hover, single-item panel lookups)
+-- omit the arg and keep the duplicate ownership guard, since they call this
+-- directly without a prior ownership check.
 -- Returns: state, isUnverified, hasVerifiableRequirement, blockerLabels
-function SourceManager:GetVendorItemAvailabilityState(itemID, npcID)
+function SourceManager:GetVendorItemAvailabilityState(itemID, npcID, skipOwnershipProbe)
     if not itemID then return "unknown", false, false, nil end
 
-    -- Intentional duplicate ownership guard for standalone callers such as tooltips.
-    if HA.CatalogStore and HA.CatalogStore:IsOwnedFresh(itemID) then
+    if not skipOwnershipProbe and HA.CatalogStore and HA.CatalogStore:IsOwnedFresh(itemID) then
         return "owned", false, false, nil
     end
 
@@ -1262,12 +1269,17 @@ function SourceManager:GetItemPresentation(itemID, options)
     local isVendorContext = options.isVendorContext
     local readOnlyOwnership = options.readOnlyOwnership == true or context == "catalog"
 
-    -- HS-180: inventory-render callers already know the slot holds this item;
-    -- a fresh byItem/byRecordID probe here is what caused the per-slot Housing
-    -- Catalog API bursts. Cache-only IsOwned() is correct and sufficient.
+    -- HS-180/HS-200: aggregate-render contexts (inventory-slot render, vendor
+    -- badge recounts, the map side-panel item grid/search results) already
+    -- know the itemID is a real, listed item — they don't need a fresh probe
+    -- to *discover* ownership, cache-only IsOwned() is correct and sufficient.
+    -- These contexts iterate every item on a vendor/bag in one pass, so a
+    -- fresh byItem/byRecordID probe here is what caused the per-item Housing
+    -- Catalog API bursts (HS-180 bags, HS-200 badge/map).
+    local cacheOnlyOwnership = context == "inventory" or context == "badge" or context == "sidePanel"
     local catalogStore = HA.CatalogStore
     local isOwned = false
-    if context == "inventory" then
+    if cacheOnlyOwnership then
         if catalogStore and catalogStore.IsOwned then
             isOwned = catalogStore:IsOwned(itemID) == true
         end
@@ -1307,8 +1319,13 @@ function SourceManager:GetItemPresentation(itemID, options)
     if isOwned then
         availabilityState = "owned"
     elseif npcID then
+        -- isOwned above is already resolved false for this itemID in EVERY
+        -- context (cache-only in aggregate contexts, IsOwnedFresh otherwise —
+        -- the same probe the guard would repeat), so the internal ownership
+        -- guard is redundant on the presentation path unconditionally. The
+        -- guard stays for standalone 2-arg callers (tooltips, fallbacks).
         availabilityState, isUnverified, hasVerifiableRequirement, blockerLabels =
-            self:GetVendorItemAvailabilityState(itemID, npcID)
+            self:GetVendorItemAvailabilityState(itemID, npcID, true)
     elseif hasPromotionRequirement then
         availabilityState = "unobtainable"
         hasVerifiableRequirement = true
