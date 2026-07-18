@@ -481,6 +481,32 @@ function CatalogScanner:Initialize()
     -- Do an initial scan after a delay
     C_Timer.After(3, function()
         if C_HousingCatalog and C_HousingCatalog.GetCatalogEntryInfoByItem then
+            -- HS-216: don't scan cold. Before HOUSING_STORAGE_UPDATED latches
+            -- dataLoaded (see IsWarm above), every item's count fields read
+            -- stale-0 — the warm-gate on SetUnowned correctly stops that from
+            -- erasing ownership, but the scan itself still burns ~1,600
+            -- Housing API calls in the login window for zero learned data
+            -- (observed live: "Checked: 1624 Owned: 0"). The existing
+            -- HOUSING_STORAGE_UPDATED handler below already calls
+            -- RequestScan() unconditionally the moment it latches warm, and
+            -- RequestScan debounces into CatalogScanner:ScanFullCatalog() —
+            -- a FULL scan, not incremental — so skipping here loses no
+            -- coverage; the real scan still happens once data is warm.
+            --
+            -- Zero-decor accounts (HS-180's known limitation: dataLoaded
+            -- never latches without at least one owned decor item to
+            -- corroborate GetDecorTotalOwnedCount() > 0) now run NO initial
+            -- scan instead of a cold, useless one. This degrades identically
+            -- from the player's perspective: the ownership cache starts and
+            -- stays empty either way (nothing was ever going to be found),
+            -- and every other scan trigger — vendor visits, the
+            -- ADDON_LOADED Blizzard_Housing one-shot below, manual /commands
+            -- — is untouched and still fires normally.
+            if not CatalogScanner:IsWarm() then
+                HA.Addon:Debug("Initial catalog scan skipped — not warm yet; "
+                    .. "HOUSING_STORAGE_UPDATED will trigger the real scan once data loads")
+                return
+            end
             HA.Addon:Debug("Attempting initial catalog scan...")
             CatalogScanner:ScanFullCatalog()
         end
