@@ -78,7 +78,9 @@ C_Timer = {
 }
 
 local WNHA = {
-    Constants = { VERSION = "2.6.0", WELCOME_SEEN_VERSION_MAX = 4, TEXTURE_ROOT = "Interface\\AddOns\\Homestead\\Textures\\" },
+    -- Mock texture root deliberately does NOT name the live addon folder —
+    -- the DevBuild --check rejects hardcoded live paths anywhere in the tree.
+    Constants = { VERSION = "2.6.0", WELCOME_SEEN_VERSION_MAX = 4, TEXTURE_ROOT = "Interface\\MockTextures\\" },
     Addon = { db = { global = {} }, Debug = function() end, RegisterModule = function() end },
     WhatsNew = { ["2.6.0"] = { title = "t", features = {} } },
     WelcomeFrame = { IsShown = function() return false end },
