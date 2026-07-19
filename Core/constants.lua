@@ -532,8 +532,9 @@ Constants.Defaults = {
         npcIDCorrections = {},  -- [vendorName] = { oldID, newID, correctedAt }
         -- Coordinate updates detected when visiting vendors at new locations
         coordsUpdates = {},     -- [vendorName] = { mapID, x, y, updatedAt }
-        -- Runtime parsed source data from CatalogScanner sourceText
-        parsedSources = {},          -- [itemID] = { sources, recordID, lastParsed, sourceHash }
+        -- HS-205: change-detection stamp only — the full parsed payload
+        -- (sources, decorID, raw sourceText) is owned by catalogItems below.
+        parsedSources = {},          -- [itemID] = { sourceHash, lastParsed }
         -- Locale-learned vendor names for cross-reference
         vendorNameByLocale = {},     -- [locale] = { [normalizedName] = {npcID, scanCount, lastSeen} }
         -- Canonical per-item store (CatalogStore)

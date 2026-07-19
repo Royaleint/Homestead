@@ -178,14 +178,23 @@ function CatalogStore:SetUnowned(itemID)
     end
 end
 
--- Store parsed source data for an item
-function CatalogStore:SetSources(itemID, sources, hash)
+-- Store parsed source data for an item. HS-205: catalogItems is the single
+-- owner of parsed-source data (ITEM_SNAPSHOT_CONTRACT.md Open Question #1,
+-- resolved: "persist in catalogItems"). db.global.parsedSources now stores
+-- ONLY the sourceHash/lastParsed stamp SourceTextScanner's change-detection
+-- needs — the full `sources` payload used to be written to BOTH tables on
+-- every parse, roughly doubling the bytes for source data.
+-- rawSourceText is optional and dev-only (Homestead_Dev's /hsdev exportsources
+-- diagnostic) — SourceTextScanner passes it only when HA.DevAddon is loaded,
+-- so it never affects a normal player's SavedVariables size.
+function CatalogStore:SetSources(itemID, sources, hash, rawSourceText)
     if not ci or not itemID then return end
 
     _save(itemID, {
         sources = sources,
         sourceHash = hash,
         lastParsed = time(),
+        rawSourceText = rawSourceText,
     })
 
     if batchDepth > 0 then
@@ -696,6 +705,91 @@ local function Migration_3_to_4(db)
     end
 end
 
+-- Migration 4→5: parsedSources → catalogItems single ownership (HS-205)
+-- Moves the full parsed-source payload (sources/lastParsed/sourceHash, plus
+-- recordID→decorID where still missing, same mapping Migration_1_to_2 already
+-- performs) out of db.global.parsedSources and into catalogItems, then
+-- rewrites parsedSources to the stamp-only shape (sourceHash + lastParsed)
+-- SourceTextScanner's change-detection needs. See CatalogStore:SetSources'
+-- comment and ITEM_SNAPSHOT_CONTRACT.md Open Question #1 for the design
+-- authority (resolved: catalogItems persists parsed source data).
+--
+-- Newer-wins when both sides have data and disagree: verified the CURRENT
+-- write path (SourceTextScanner:ProcessScannedItem) writes both tables
+-- atomically in one call, so real divergence is only possible from
+-- pre-dual-write history — comparing lastParsed timestamps picks the
+-- objectively newer payload rather than assuming a fixed write order.
+--
+-- Idempotent (M10a rule — every migration must survive a re-run untouched):
+-- an entry already rewritten to the stamp-only shape has no .sources field,
+-- so the migrate-in branch below is skipped entirely and the stamp is
+-- rewritten to itself (a no-op value-wise).
+local function Migration_4_to_5(db)
+    local global = db.global
+    local parsedSources = global.parsedSources
+    if parsedSources then
+        for itemID, data in pairs(parsedSources) do
+            -- Idempotence guard: an already-migrated (stamp-only) entry has
+            -- no .sources field — nothing left to move for this item.
+            if data.sources then
+                local record = ci[itemID]
+                local recordHasSources = record and record.sources ~= nil
+
+                local takeParsed = not recordHasSources
+                if recordHasSources and record.sourceHash ~= data.sourceHash then
+                    takeParsed = (data.lastParsed or 0) > (record.lastParsed or 0)
+                end
+
+                if takeParsed then
+                    if not record then
+                        ci[itemID] = {}
+                        record = ci[itemID]
+                    end
+                    record.sources = data.sources
+                    record.sourceHash = data.sourceHash
+                    record.lastParsed = data.lastParsed
+                end
+
+                -- Preserve dev raw sourceText regardless of which side won
+                -- (Argus HS-205 cycle 1): the common dual-write-era state is
+                -- EQUAL hashes, where takeParsed is false — copying raw only
+                -- inside that branch destroyed the whole dev raw corpus in the
+                -- common case while the stamp rewrite below deletes data.raw.
+                -- Idempotence holds: the second run has no data.raw to copy.
+                if data.raw and record and record.rawSourceText == nil then
+                    record.rawSourceText = data.raw
+                end
+
+                -- Map parsedSources recordID to decorID (mirrors Migration_1_to_2;
+                -- harmless to repeat for a record that still lacks one). Route
+                -- through _save so the reverse index updates structurally.
+                if data.recordID and not (ci[itemID] and ci[itemID].decorID) then
+                    _save(itemID, { decorID = data.recordID })
+                end
+            end
+
+            -- Rewrite to the stamp-only shape. Must mirror whichever payload
+            -- actually ended up authoritative in catalogItems (ci[itemID]),
+            -- NOT parsedSources' own original values unconditionally — when
+            -- catalogItems won (it was newer), stamping with parsedSources'
+            -- stale hash would make a future live reparse compare the fresh
+            -- sourceText hash against a hash that was never authoritative,
+            -- triggering a spurious reparse.
+            local finalRecord = ci[itemID]
+            parsedSources[itemID] = {
+                sourceHash = finalRecord and finalRecord.sourceHash or data.sourceHash,
+                lastParsed = finalRecord and finalRecord.lastParsed or data.lastParsed,
+            }
+        end
+    end
+
+    global.schemaVersion = 5
+
+    if HA.Addon then
+        HA.Addon:Debug("CatalogStore: Migration 4→5 complete")
+    end
+end
+
 function CatalogStore:RunMigrations()
     if not HA.Addon or not HA.Addon.db then return end
     local db = HA.Addon.db
@@ -729,6 +823,10 @@ function CatalogStore:RunMigrations()
 
     if version < 4 then
         Migration_3_to_4(db)
+    end
+
+    if version < 5 then
+        Migration_4_to_5(db)
     end
 end
 

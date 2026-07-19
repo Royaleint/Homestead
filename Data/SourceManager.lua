@@ -716,10 +716,14 @@ function SourceManager:GetRequirements(itemID, npcID)
     end
 
     -- Priority 3: Faction/standing from parsed sourceText (no vendor visit needed)
-    if HA.Addon and HA.Addon.db and HA.Addon.db.global.parsedSources then
-        local parsed = HA.Addon.db.global.parsedSources[itemID]
-        if parsed and parsed.sources then
-            for _, source in ipairs(parsed.sources) do
+    -- HS-205: catalogItems is the single owner of parsed sources now
+    -- (CatalogStore:SetSources) — read record.sources directly instead of
+    -- db.global.parsedSources, which stores only a change-detection stamp.
+    -- Same data, same shape; only the storage location moved.
+    if HA.CatalogStore and HA.CatalogStore.Get then
+        local record = HA.CatalogStore:Get(itemID)
+        if record and record.sources then
+            for _, source in ipairs(record.sources) do
                 if source.faction and source.standing then
                     addReq({
                         type = "reputation",
