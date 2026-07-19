@@ -48,15 +48,20 @@ HA.Addon.db.global = {}
 ExtractedWelcomeFrame:Hide()
 assert(HA.Addon.db.global["hasSeenWelcomeV4"] == nil,
     "an unchecked close must NOT set the seen flag — welcome must re-show next login")
-assert(HA.Addon.db.global.lastSeenVersion == "2.6.0",
-    "lastSeenVersion should still update regardless of the checkbox (unrelated to the reshow gate)")
+-- HS-224: closing Welcome must NOT stamp lastSeenVersion — the stamp consumed
+-- What's New for the version (acknowledging Welcome ate the popup entirely
+-- under the stacking gate). WhatsNewFrame stamps it itself when IT shows.
+assert(HA.Addon.db.global.lastSeenVersion == nil,
+    "Welcome close must not stamp lastSeenVersion (HS-224) — What's New owns that field")
 
--- Checked close: SV_KEY must be set.
+-- Checked close: SV_KEY must be set; lastSeenVersion still untouched.
 mockWelcomeFrame.dontShowCheck.GetChecked = function() return true end
 HA.Addon.db.global = {}
 ExtractedWelcomeFrame:Hide()
 assert(HA.Addon.db.global["hasSeenWelcomeV4"] == true,
     "a checked close MUST set the seen flag")
+assert(HA.Addon.db.global.lastSeenVersion == nil,
+    "checked close must not stamp lastSeenVersion either (HS-224)")
 
 print("hs219_w5: Item 1 welcome checkbox gate ok")
 
