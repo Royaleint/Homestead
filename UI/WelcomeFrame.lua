@@ -372,8 +372,14 @@ function WelcomeFrame:Hide()
             if welcomeFrame.dontShowCheck and welcomeFrame.dontShowCheck:GetChecked() then
                 HA.Addon.db.global[SV_KEY] = true
             end
-            -- Set lastSeenVersion so WhatsNew doesn't trigger for this version
-            HA.Addon.db.global.lastSeenVersion = HA.Constants.VERSION
+            -- HS-224 (Gate 2 product decision, 2026-07-19): closing the
+            -- Welcome screen no longer stamps lastSeenVersion. The old stamp
+            -- silently consumed What's New for the version — with the HS-219
+            -- stacking gate, that meant acknowledging Welcome ate the What's
+            -- New popup entirely. Now What's New auto-shows on the next login
+            -- after the Welcome is out of the way, exactly what the gate was
+            -- designed to sequence. (WhatsNewFrame stamps lastSeenVersion
+            -- itself when IT is shown — the field keeps a single owner.)
         end
         if HA.Analytics then
             HA.Analytics:IncrementCounter("WelcomeScreenClosed")
