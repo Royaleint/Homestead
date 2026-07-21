@@ -76,6 +76,7 @@ read_globals = {
     "C_CurrencyInfo",
     "C_DateAndTime",
     "C_DateInfo",
+    "C_EncounterJournal",  -- HS-229: EJ-anchored drop pins
     "C_GossipInfo",
     "C_Housing",
     "C_AreaPoiInfo",
