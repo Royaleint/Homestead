@@ -551,7 +551,7 @@ end
 -- Tooltips
 -------------------------------------------------------------------------------
 
-local function AddPinTooltipItemLine(tooltip, item, options)
+local function AddPinTooltipItemLine(tooltip, item, options, suffix)
     local itemID = item and item.itemID
     local itemName = (item and item.name)
         or (itemID and C_Item.GetItemInfo(itemID))
@@ -571,12 +571,17 @@ local function AddPinTooltipItemLine(tooltip, item, options)
         availabilityState = SM:GetVendorItemAvailabilityState(itemID, options.npcID)
     end
 
+    -- HS-229: entrance-grouped drop pins can carry records from several
+    -- different bosses; callers pass a suffix (e.g. "(Boss Name)") so each
+    -- item line stays attributable when the tooltip header can't name one.
+    local lineText = suffix and ("  " .. itemName .. " " .. suffix) or ("  " .. itemName)
+
     if availabilityState == "owned" then
-        tooltip:AddLine("  " .. itemName, 0, 1, 0)
+        tooltip:AddLine(lineText, 0, 1, 0)
     elseif availabilityState == "locked" then
-        tooltip:AddLine("  " .. itemName, 1, 0.25, 0.25)
+        tooltip:AddLine(lineText, 1, 0.25, 0.25)
     else
-        tooltip:AddLine("  " .. itemName, 1, 1, 1)
+        tooltip:AddLine(lineText, 1, 1, 1)
     end
 
     return availabilityState
@@ -1440,18 +1445,33 @@ end
 VendorMapPins.pinSourceProviders.vendor = { collect = CollectVendorPinRecords }
 
 -------------------------------------------------------------------------------
--- HS-018: Drop pin provider
+-- HS-018/HS-229: Drop pin provider
 --
--- Walks HA.DropSources and emits pins for drop records whose location data
--- passes Decision 7 hygiene:
---   1. Skip records with no mapID (zone-only data).
---   2. Skip records with coords = {0, 0} (explicit placeholder).
---   3. Emit {0.5, 0.5} as approximate-center pins as-is.
---   4. Clamp x/y to [0, 1] defensively; reject NaN.
---   5. No log spam on skipped records.
+-- Walks HA.DropSources and emits pins for drop records. Two placement paths:
+--
+--   EJ-anchored (rows with journalEncounterID/journalInstanceID, HS-229):
+--     a. journalEncounterID resolves via C_EncounterJournal.GetEncountersOnMap
+--        (once per collect) -> boss position on the instance's own map.
+--     b. journalInstanceID resolves via
+--        C_EncounterJournal.GetDungeonEntrancesForMap (once per collect,
+--        only for encounters that didn't already resolve on this map)
+--        -> dungeon entrance position on the outdoor zone map.
+--     Rows sharing a resolved position (same encounter/entrance, different
+--     item/tier) are grouped into ONE pin carrying all of their records.
+--     Rows that resolve nowhere on the viewed map emit nothing (fail-quiet).
+--
+--   Legacy mapID/coords (rows with no journal IDs, e.g. warfront rares):
+--     same Decision 7 hygiene as before —
+--       1. Skip records with no mapID (zone-only data).
+--       2. Skip records with coords = {0, 0} (explicit placeholder).
+--       3. Emit {0.5, 0.5} as approximate-center pins as-is.
+--       4. Clamp x/y to [0, 1] defensively; reject NaN.
+--       5. No log spam on skipped records.
 --
 -- Records carry sourceType = "drop" so PinFrameFactory:CreateSourcePinFrame
--- knows which factory branch to take.
+-- knows which factory branch to take. Every sourcePins entry (both paths)
+-- carries a `records` array (one or more {itemID, drop} pairs) so grouped
+-- EJ pins and single legacy pins share one tooltip code path.
 -------------------------------------------------------------------------------
 
 local function IsFiniteNumber(n)
@@ -1464,34 +1484,36 @@ local function ClampUnit(value)
     return value
 end
 
-local function CollectDropPinRecords(self, mapID, validMapIDs, _filter, renderState)
-    local drops = HA.DropSources
-    if not drops then return end
+-- Small fixed nudge (normalized map units) applied to EJ boss-position pins
+-- only, toward the bottom-right, so Blizzard's own EncounterJournalPinTemplate
+-- skull pin at the exact same coordinate stays visible underneath ours.
+local BOSS_PIN_CORNER_OFFSET = 0.014
 
+local function CollectLegacyDropPinRecords(mapID, validMapIDs, drops, hasJournalID, groups, order)
     for itemID, drop in pairs(drops) do
-        local dropMapID = drop.mapID
-        if dropMapID and validMapIDs[dropMapID] then
-            local coords = drop.coords
-            if coords then
-                local cx, cy = coords.x, coords.y
-                -- Hygiene: reject NaN; skip exact-zero placeholders.
-                if IsFiniteNumber(cx) and IsFiniteNumber(cy)
-                        and not (cx == 0 and cy == 0) then
-                    local clampedX, clampedY = ClampUnit(cx), ClampUnit(cy)
-                    local ok, projectedX, projectedY, reason = MPP:ProjectVendorPinToZoneView(
-                        mapID, dropMapID, clampedX, clampedY)
-                    if ok then
-                        renderState.sourcePins[#renderState.sourcePins + 1] = {
-                            sourceType = "drop",
-                            itemID = itemID,
-                            drop = drop,
-                            mapID = dropMapID,
-                            x = projectedX,
-                            y = projectedY,
-                            reason = reason,
-                        }
-                    else
-                        DebugWorldMapProjectionSkip("drop", dropMapID, mapID, reason)
+        if not hasJournalID[itemID] then
+            local dropMapID = drop.mapID
+            if dropMapID and validMapIDs[dropMapID] then
+                local coords = drop.coords
+                if coords then
+                    local cx, cy = coords.x, coords.y
+                    -- Hygiene: reject NaN; skip exact-zero placeholders.
+                    if IsFiniteNumber(cx) and IsFiniteNumber(cy)
+                            and not (cx == 0 and cy == 0) then
+                        local clampedX, clampedY = ClampUnit(cx), ClampUnit(cy)
+                        local ok, projectedX, projectedY, reason = MPP:ProjectVendorPinToZoneView(
+                            mapID, dropMapID, clampedX, clampedY)
+                        if ok then
+                            local key = "legacy:" .. itemID
+                            groups[key] = {
+                                dropGroupKind = "legacy",
+                                x = projectedX, y = projectedY,
+                                records = { { itemID = itemID, drop = drop } },
+                            }
+                            order[#order + 1] = key
+                        else
+                            DebugWorldMapProjectionSkip("drop", dropMapID, mapID, reason)
+                        end
                     end
                 end
             end
@@ -1499,43 +1521,208 @@ local function CollectDropPinRecords(self, mapID, validMapIDs, _filter, renderSt
     end
 end
 
+-- Builds encounterID -> {x, y} for every encounter placed on the viewed map.
+local function BuildEncounterPositions(mapID)
+    local positions = {}
+    local ok, encounters = pcall(C_EncounterJournal.GetEncountersOnMap, mapID)
+    if ok and encounters then
+        for _, enc in ipairs(encounters) do
+            if enc.encounterID and IsFiniteNumber(enc.mapX) and IsFiniteNumber(enc.mapY) then
+                positions[enc.encounterID] = { x = enc.mapX, y = enc.mapY }
+            end
+        end
+    end
+    return positions
+end
+
+-- Builds journalInstanceID -> {x, y} for every dungeon entrance on the viewed map.
+local function BuildEntrancePositions(mapID)
+    local positions = {}
+    local ok, entrances = pcall(C_EncounterJournal.GetDungeonEntrancesForMap, mapID)
+    if ok and entrances then
+        for _, entrance in ipairs(entrances) do
+            local jid = entrance.journalInstanceID
+            local pos = entrance.position
+            if jid and pos and pos.GetXY then
+                local ex, ey = pos:GetXY()
+                if IsFiniteNumber(ex) and IsFiniteNumber(ey) then
+                    positions[jid] = { x = ex, y = ey }
+                end
+            end
+        end
+    end
+    return positions
+end
+
+local function CollectEjDropPinRecords(mapID, drops, hasJournalID, groups, order)
+    local encounterPositions = BuildEncounterPositions(mapID)
+
+    -- Entrance placement only makes sense on outdoor zone maps — dungeon
+    -- entrances aren't returned for instance/continent/world maps, but the
+    -- cheap structural guard avoids relying on that being an empty-table
+    -- no-op forever. Enum.UIMapType.Zone verified via wow-api MCP.
+    local mapInfo = C_Map.GetMapInfo(mapID)
+    local isZoneMap = mapInfo and mapInfo.mapType == Enum.UIMapType.Zone
+    local entrancePositions = isZoneMap and BuildEntrancePositions(mapID) or nil
+
+    local unresolved = {}  -- {itemID, drop} rows whose own encounter didn't resolve a boss pin
+
+    for itemID, drop in pairs(drops) do
+        if hasJournalID[itemID] then
+            local record = { itemID = itemID, drop = drop }
+            local encPos = drop.journalEncounterID and encounterPositions[drop.journalEncounterID]
+            if encPos then
+                local key = "enc:" .. drop.journalEncounterID
+                local group = groups[key]
+                if not group then
+                    group = {
+                        dropGroupKind = "enc",
+                        x = ClampUnit(encPos.x + BOSS_PIN_CORNER_OFFSET),
+                        y = ClampUnit(encPos.y + BOSS_PIN_CORNER_OFFSET),
+                        records = {},
+                    }
+                    groups[key] = group
+                    order[#order + 1] = key
+                end
+                group.records[#group.records + 1] = record
+            else
+                unresolved[#unresolved + 1] = record
+            end
+        end
+    end
+
+    -- Second pass: dungeon-entrance placement, Zone maps only, for rows
+    -- whose own encounter did not already resolve a boss-position pin.
+    local placed = {}
+    if entrancePositions then
+        for _, record in ipairs(unresolved) do
+            local drop = record.drop
+            local entPos = drop.journalInstanceID and entrancePositions[drop.journalInstanceID]
+            if entPos then
+                placed[record] = true
+                local key = "ent:" .. drop.journalInstanceID
+                local group = groups[key]
+                if not group then
+                    group = {
+                        dropGroupKind = "ent",
+                        x = ClampUnit(entPos.x),
+                        y = ClampUnit(entPos.y),
+                        records = {},
+                    }
+                    groups[key] = group
+                    order[#order + 1] = key
+                end
+                group.records[#group.records + 1] = record
+            end
+        end
+    end
+
+    if IsDebugModeEnabled() then
+        local stillUnresolvedCount = 0
+        for _, record in ipairs(unresolved) do
+            if not placed[record] then
+                stillUnresolvedCount = stillUnresolvedCount + 1
+            end
+        end
+        if stillUnresolvedCount > 0 then
+            HA.Addon:Debug(("VendorMapPins: %d EJ drop row(s) unresolved on mapID %d")
+                :format(stillUnresolvedCount, mapID))
+        end
+    end
+end
+
+local function CollectDropPinRecords(self, mapID, validMapIDs, _filter, renderState)
+    local drops = HA.DropSources
+    if not drops then return end
+
+    local hasJournalID = {}
+    for itemID, drop in pairs(drops) do
+        if drop.journalEncounterID or drop.journalInstanceID then
+            hasJournalID[itemID] = true
+        end
+    end
+
+    local groups, order = {}, {}
+    CollectEjDropPinRecords(mapID, drops, hasJournalID, groups, order)
+    CollectLegacyDropPinRecords(mapID, validMapIDs, drops, hasJournalID, groups, order)
+
+    for _, key in ipairs(order) do
+        local group = groups[key]
+        -- Stable tooltip ordering (SUGGESTION: sort by itemID rather than
+        -- leaving grouped records in pairs()-iteration order).
+        table.sort(group.records, function(a, b) return a.itemID < b.itemID end)
+        renderState.sourcePins[#renderState.sourcePins + 1] = {
+            sourceType = "drop",
+            dropGroupKind = group.dropGroupKind,
+            records = group.records,
+            mapID = mapID,
+            x = group.x,
+            y = group.y,
+        }
+    end
+end
+
 VendorMapPins.pinSourceProviders.drop = { collect = CollectDropPinRecords }
 
 function VendorMapPins:ShowDropPinTooltip(pin, record)
-    if not record then return end
+    if not record or not record.records or #record.records == 0 then return end
 
     activeTooltipData = { kind = "drop", pin = pin, record = record }
     itemInfoEventFrame:RegisterEvent("GET_ITEM_INFO_RECEIVED")
 
     local tooltip = BeginPinTooltip(pin, "ANCHOR_RIGHT")
-    local drop = record.drop
-    if drop and drop.mobName then
-        tooltip:AddLine(drop.mobName, 1, 1, 1)
+    local primaryDrop = record.records[1].drop
+
+    -- An "ent:" (dungeon-entrance) pin can carry records from several
+    -- DIFFERENT bosses sharing one instance entrance (e.g. all Voidspire
+    -- rows on the outdoor zone map), so it gets an instance-level header
+    -- with per-item boss attribution below. "enc:" groups share one
+    -- encounter — records may span tier variants, but the boss is the
+    -- same — and "legacy" groups are single-record, so records[1] is an
+    -- accurate header for both.
+    if record.dropGroupKind == "ent" then
+        tooltip:AddLine(primaryDrop and primaryDrop.zone or "Unknown Instance", 1, 1, 1)
     else
-        tooltip:AddLine("Unknown Drop", 1, 1, 1)
-    end
-    if drop and drop.zone then
-        tooltip:AddLine(drop.zone, 0.7, 0.7, 0.7)
-    end
-    if drop and drop.notes then
-        tooltip:AddLine(" ")
-        tooltip:AddLine(drop.notes, 1, 0.82, 0, true)
+        if primaryDrop and primaryDrop.mobName then
+            tooltip:AddLine(primaryDrop.mobName, 1, 1, 1)
+        else
+            tooltip:AddLine("Unknown Drop", 1, 1, 1)
+        end
+        if primaryDrop and primaryDrop.zone then
+            tooltip:AddLine(primaryDrop.zone, 0.7, 0.7, 0.7)
+        end
+        if primaryDrop and primaryDrop.notes then
+            tooltip:AddLine(" ")
+            tooltip:AddLine(primaryDrop.notes, 1, 0.82, 0, true)
+        end
     end
 
-    if record.itemID then
-        tooltip:AddLine(" ")
-        tooltip:AddLine("Items Dropped:", 1, 1, 0)
-        local availabilityState = AddPinTooltipItemLine(tooltip, { itemID = record.itemID }, {
+    tooltip:AddLine(" ")
+    tooltip:AddLine(#record.records > 1
+        and ("Items Dropped (%d):"):format(#record.records)
+        or "Items Dropped:", 1, 1, 0)
+
+    local collected, locked = 0, 0
+    for _, itemRecord in ipairs(record.records) do
+        -- ent: groups can't rely on the header to name a boss, so each item
+        -- line names its own (mobName may still differ between records that
+        -- share an entrance but not an encounter).
+        local suffix = record.dropGroupKind == "ent" and itemRecord.drop and itemRecord.drop.mobName
+            and ("(%s)"):format(itemRecord.drop.mobName) or nil
+        local availabilityState = AddPinTooltipItemLine(tooltip, { itemID = itemRecord.itemID }, {
             context = "dropMapPin",
             sourceFilter = "drop",
             isVendorContext = false,
-        })
-
-        local collected = availabilityState == "owned" and 1 or 0
-        local locked = availabilityState == "locked" and 1 or 0
-        tooltip:AddLine(" ")
-        BC.AddSummaryLine(tooltip, collected, 1, locked, 0)
+        }, suffix)
+        if availabilityState == "owned" then
+            collected = collected + 1
+        elseif availabilityState == "locked" then
+            locked = locked + 1
+        end
     end
+
+    tooltip:AddLine(" ")
+    BC.AddSummaryLine(tooltip, collected, #record.records, locked, 0)
 
     tooltip:Show()
 end
