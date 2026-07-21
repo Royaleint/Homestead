@@ -305,6 +305,105 @@ local function GetVendorStats(vendor, sourceFilter)
     return BadgeCalculation:GetVendorStats(vendor, sourceFilter)
 end
 
+-------------------------------------------------------------------------------
+-- HS-229: Drop Pin Group Stats
+--
+-- Mirrors BuildVendorStats/GetVendorStats for a grouped drop pin's records
+-- (one or more {itemID, drop} pairs — an EJ entrance pin can group several
+-- different bosses' rows). No source-filter matching is needed the way
+-- vendor stats needs it: every record in a drop pin's group is already
+-- drop-sourced by construction, there's no mixed-source item list to filter.
+-- Same collected/locked/purchasable semantics as BuildVendorStats so the
+-- pin badges read identically, and the SAME per-item presentation call
+-- AddPinTooltipItemLine already uses for drop-pin tooltips (context =
+-- "dropMapPin") — cache-only, HS-203/HS-200's no-live-API-on-hot-path rule.
+-------------------------------------------------------------------------------
+
+local UNKNOWN_DROP_GROUP_STATS = {
+    collected = 0,
+    purchasable = 0,
+    locked = 0,
+    unobtainable = 0,
+    total = 0,
+}
+
+-- Cached per-group stats keyed by the group's sorted itemID list + date stamp.
+local dropGroupStatsCache = {}
+
+local function BuildDropGroupCacheKey(records)
+    local ids = {}
+    for i, itemRecord in ipairs(records) do
+        ids[i] = itemRecord.itemID
+    end
+    -- VendorMapPins.lua sorts group.records by itemID before this is ever
+    -- called, so the join is already stable/order-independent.
+    return table.concat(ids, ",") .. "|" .. GetAvailabilityDateStamp()
+end
+
+local function BuildDropGroupStats(records)
+    local SM = HA.SourceManager
+    local total, collected, purchasable, locked, unobtainable = 0, 0, 0, 0, 0
+
+    for _, itemRecord in ipairs(records) do
+        local itemID = itemRecord.itemID
+        local presentation = nil
+        if SM and SM.GetItemPresentation then
+            presentation = SM:GetItemPresentation(itemID, {
+                context = "dropMapPin",
+                sourceFilter = "drop",
+                isVendorContext = false,
+            })
+        end
+
+        local state = presentation and presentation.availabilityState or "purchasable"
+        -- HS-200: cache-only fallback, matching AddPinTooltipItemLine's own
+        -- no-presentation path — never a live API call on this render path.
+        local isOwned = presentation and presentation.isOwned
+        if not presentation and HA.CatalogStore and HA.CatalogStore.IsOwned then
+            isOwned = HA.CatalogStore:IsOwned(itemID) == true
+        end
+
+        if isOwned then
+            collected = collected + 1
+            total = total + 1
+        elseif state == "unobtainable" then
+            unobtainable = unobtainable + 1
+        else
+            total = total + 1
+            if state == "locked" then
+                locked = locked + 1
+            else
+                purchasable = purchasable + 1
+            end
+        end
+    end
+
+    return {
+        collected = collected,
+        purchasable = purchasable,
+        locked = locked,
+        unobtainable = unobtainable,
+        total = total,
+    }
+end
+
+-- Public drop-group stats accessor with caching, mirroring GetVendorStats.
+function BadgeCalculation:GetDropGroupStats(records)
+    if not records or #records == 0 then
+        return UNKNOWN_DROP_GROUP_STATS
+    end
+
+    local cacheKey = BuildDropGroupCacheKey(records)
+    local cached = dropGroupStatsCache[cacheKey]
+    if cached then
+        return cached
+    end
+
+    local stats = BuildDropGroupStats(records)
+    dropGroupStatsCache[cacheKey] = stats
+    return stats
+end
+
 function BadgeCalculation:VendorHasUncollectedItems(vendor, sourceFilter)
     if not vendor or not vendor.npcID then return nil end
 
@@ -377,6 +476,7 @@ end
 
 function BadgeCalculation:InvalidateAllCaches()
     wipe(vendorStatsCache)
+    wipe(dropGroupStatsCache)
     self:InvalidateBadgeCache()
 end
 

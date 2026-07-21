@@ -378,6 +378,21 @@ local function ApplyAreaPoiDodge(entry, x, y)
            Clamp01(y + (direction[2] * nudgePixels) / height)
 end
 
+-- Pixel offset (not a normalized map-coordinate one — see
+-- MapPinProvider.PlaceNativePin's comment for why) that keeps EJ-anchored
+-- drop pins (boss position and dungeon-entrance groups) a constant screen
+-- distance from Blizzard's own pin at the same coordinate, toward the
+-- bottom-right, at every zoom level.
+local EJ_DROP_PIN_OFFSET_PIXELS = 10
+
+local function GetEjDropPinIconOffset(entry)
+    if entry.sourceType == "drop"
+            and (entry.dropGroupKind == "enc" or entry.dropGroupKind == "ent") then
+        return EJ_DROP_PIN_OFFSET_PIXELS, -EJ_DROP_PIN_OFFSET_PIXELS
+    end
+    return nil, nil
+end
+
 local function CleanupWorldMapFrame(frame)
     frame:Hide()
     if frame.glowAnim and frame.glowAnim.Stop then
@@ -568,6 +583,13 @@ local function AcquireSourceFrame(entry)
             return PinFrameFactory:CreateSourcePinFrame(sourceType, entry)
         end)
         frame.record = entry
+        -- HS-229: a reused frame's badge still reflects whatever record it
+        -- last showed — refresh it for the new one, same as
+        -- AcquireVendorFrame does for vendor pins. Fresh creates are already
+        -- covered inside CreateDropPinFrame itself.
+        if sourceType == "drop" and PinFrameFactory.RefreshDropPinCount then
+            PinFrameFactory:RefreshDropPinCount(frame, entry)
+        end
         return frame
     end
 
@@ -800,7 +822,8 @@ function Provider:RenderEntries(entries, kind)
             entry.kind = kind
             local x, y = entry.x, entry.y
             x, y = ApplyAreaPoiDodge(entry, x, y)
-            local wrapper = MPP.PlaceNativePin(frame, x, y)
+            local iconOffsetX, iconOffsetY = GetEjDropPinIconOffset(entry)
+            local wrapper = MPP.PlaceNativePin(frame, x, y, iconOffsetX, iconOffsetY)
             MaybeLogPlacementProbe(entry, wrapper, kind, index)
             MaybeLogSizeProbe(frame, wrapper, kind, index)
 

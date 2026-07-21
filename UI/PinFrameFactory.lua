@@ -268,6 +268,8 @@ function PinFrameFactory:CreateDropPinFrame(record)
         end
     end)
 
+    self:RefreshDropPinCount(frame, record)
+
     return frame
 end
 
@@ -319,6 +321,51 @@ function PinFrameFactory:RefreshVendorPinCount(frame, vendor)
     local BC = HA.BadgeCalculation
     frame.count:SetText(BC and BC.FormatCountText(stats.collected, stats.total, stats.locked) or "")
     -- Use white as base color; inline escapes handle segment coloring.
+    frame.count:SetTextColor(1, 1, 1)
+    frame.count:Show()
+end
+
+-- HS-229: refreshes the collected/total counter on a drop pin frame, mirroring
+-- RefreshVendorPinCount so the two pin families read identically. `record` is
+-- the sourcePins entry (record.records is the pin's grouped {itemID, drop}
+-- list — one entry for a legacy/enc pin, several for a multi-boss ent pin).
+-- Used both at frame creation and by frame pooling so reused frames always
+-- show current counts.
+function PinFrameFactory:RefreshDropPinCount(frame, record)
+    if not frame then return end
+
+    local showCounts = HA.Addon and HA.Addon.db and HA.Addon.db.profile.vendorTracer.showPinCounts ~= false
+    if not showCounts then
+        if frame.count then
+            frame.count:Hide()
+        end
+        return
+    end
+
+    local BC = HA.BadgeCalculation
+    local stats = BC and record and record.records and BC:GetDropGroupStats(record.records)
+    if not stats or (stats.total or 0) <= 0 then
+        if frame.count then
+            frame.count:Hide()
+        end
+        return
+    end
+
+    local baseSize = frame:GetWidth() or self:GetPinIconSize()
+    local fontSize = GetVendorCountTextMetrics(baseSize)
+
+    if not frame.count then
+        frame.count = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal", 2)
+        frame.count:SetDrawLayer("OVERLAY", 7)
+        frame.count:SetShadowColor(0, 0, 0, 0)
+        frame.count:SetShadowOffset(0, 0)
+    end
+
+    frame.count:ClearAllPoints()
+    frame.count:SetPoint("TOP", frame, "BOTTOM", 0, -2)
+    local fontPath = frame.count:GetFont()
+    frame.count:SetFont(fontPath, fontSize, "OUTLINE")
+    frame.count:SetText(BC.FormatCountText(stats.collected, stats.total, stats.locked))
     frame.count:SetTextColor(1, 1, 1)
     frame.count:Show()
 end

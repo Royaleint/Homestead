@@ -1484,20 +1484,18 @@ local function ClampUnit(value)
     return value
 end
 
--- Fixed nudges (normalized map units) applied to EJ-anchored pins toward
--- the bottom-right, so Blizzard's own pin at the exact same coordinate is
--- fully clear of ours rather than partially overlapped and stealing the
--- hover. Both pins share the Area POI frame level (2023, see
--- MapPinProvider.lua) by design, so positional separation is the fix,
--- never a frame-level change. The two surfaces need different distances
--- (both values in-game verified — don't merge them back into one):
--- - Boss pins (instance maps): 0.03. Pin footprints run ~0.02-0.03
---   canvas units; anything under that left Blizzard's boss pin
---   unhoverable (0.014 failed in-game).
--- - Entrance pins (zone maps): 0.015. Zero overlapped the entrance icon;
---   0.03 on a zone-map canvas read as a detached, unrelated pin.
-local BOSS_PIN_CORNER_OFFSET = 0.03
-local ENTRANCE_PIN_CORNER_OFFSET = 0.015
+-- EJ-anchored pins get NO map-coordinate offset here — this collector
+-- emits the EXACT resolved anchor (x, y) for both boss and entrance
+-- placements. A normalized map-coordinate nudge is a FRACTION of the
+-- current canvas size, which grows as the player zooms in — so a fixed
+-- nudge here reads as correct at one zoom level and drifts off the
+-- Blizzard pin at another (verified in-game; don't reintroduce). The corner
+-- separation now happens at render time, in real screen pixels, in
+-- MapPinProvider.PlaceNativePin (see its comment) — the wrapper there is
+-- pixel-scale-normalized, so a literal pixel offset stays visually constant
+-- across zoom. Both pins still share the Area POI frame level (2023, see
+-- MapPinProvider.lua) by design; positional separation remains the fix,
+-- never a frame-level change.
 
 local function CollectLegacyDropPinRecords(mapID, validMapIDs, drops, hasJournalID, groups, order)
     for itemID, drop in pairs(drops) do
@@ -1587,8 +1585,8 @@ local function CollectEjDropPinRecords(mapID, drops, hasJournalID, groups, order
                 if not group then
                     group = {
                         dropGroupKind = "enc",
-                        x = ClampUnit(encPos.x + BOSS_PIN_CORNER_OFFSET),
-                        y = ClampUnit(encPos.y + BOSS_PIN_CORNER_OFFSET),
+                        x = ClampUnit(encPos.x),
+                        y = ClampUnit(encPos.y),
                         records = {},
                     }
                     groups[key] = group
@@ -1615,8 +1613,8 @@ local function CollectEjDropPinRecords(mapID, drops, hasJournalID, groups, order
                 if not group then
                     group = {
                         dropGroupKind = "ent",
-                        x = ClampUnit(entPos.x + ENTRANCE_PIN_CORNER_OFFSET),
-                        y = ClampUnit(entPos.y + ENTRANCE_PIN_CORNER_OFFSET),
+                        x = ClampUnit(entPos.x),
+                        y = ClampUnit(entPos.y),
                         records = {},
                     }
                     groups[key] = group

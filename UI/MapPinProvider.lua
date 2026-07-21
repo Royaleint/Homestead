@@ -585,7 +585,21 @@ end
 -------------------------------------------------------------------------------
 
 -- Place a plain-frame world-map pin. Attaches the content frame as a child.
-function MapPinProvider.PlaceNativePin(frame, x, y)
+-- Optional iconOffsetX/iconOffsetY (literal pixels, +x = right, +y = up —
+-- standard SetPoint offset convention) shift the content frame off the
+-- wrapper's CENTER without moving the wrapper itself. The wrapper is the
+-- thing anchored to the map's (x, y) — it stays at the
+-- EXACT anchor, always tracking the true world position correctly across
+-- zoom (PositionWrapper already multiplies normalized coords by live canvas
+-- dimensions). The wrapper is also scale-normalized to real screen pixels
+-- (AcquireNativePin's SetScale(uiEffectiveScale / canvasEffectiveScale)), so
+-- a literal pixel offset applied HERE — to the content frame's point,
+-- post-wrapper-positioning — renders as the same constant screen distance
+-- at every zoom level. A normalized map-coordinate offset baked into (x, y)
+-- instead (the original approach) does NOT: it's a fraction of the current
+-- canvas width/height, which grows with zoom, so the on-screen gap grows
+-- with it — that was the boss/entrance-pin zoom-drift bug this fixes.
+function MapPinProvider.PlaceNativePin(frame, x, y, iconOffsetX, iconOffsetY)
     local wrapper = AcquireNativePin()
     if not wrapper then return nil end
 
@@ -595,11 +609,14 @@ function MapPinProvider.PlaceNativePin(frame, x, y)
     local iconScale = frame and frame.GetScale and frame:GetScale() or 1
     wrapper:SetSize(math.max(1, iconW * iconScale), math.max(1, iconH * iconScale))
 
-    -- Attach content frame
+    -- Attach content frame. The content frame is the same frame EnableMouse
+    -- is set on (see PinFrameFactory), so offsetting ITS point — rather than
+    -- e.g. just the icon texture inside a frame that stays centered — keeps
+    -- the hit-rect glued to the visible icon at every offset.
     wrapper.icon = frame
     frame:SetParent(wrapper)
     frame:ClearAllPoints()
-    frame:SetPoint("CENTER", wrapper)
+    frame:SetPoint("CENTER", wrapper, "CENTER", iconOffsetX or 0, iconOffsetY or 0)
     local strata = wrapper:GetFrameStrata()
     if frame.SetFrameStrata then frame:SetFrameStrata(strata) end
     if frame.SetFrameLevel then frame:SetFrameLevel(wrapper:GetFrameLevel() + 1) end
