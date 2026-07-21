@@ -1376,8 +1376,14 @@ function SourceManager:GetItemPresentation(itemID, options)
     -- ownership removes the rest, and ownership still self-heals via the
     -- existing OWNERSHIP_UPDATED repaint (same as every other overlay/panel
     -- surface).
+    -- "dropMapPin" (HS-229 drop-pin tooltips and badge counters) belongs in
+    -- the same set for the same reason: a grouped entrance pin hovers up to
+    -- 9 items per pass and the badge builder walks the whole drop corpus
+    -- after a cache flush — fresh per-item probes here are the HS-200/HS-202
+    -- burst class all over again.
     local cacheOnlyOwnership = context == "inventory" or context == "badge"
         or context == "sidePanel" or context == "vendorMapPin"
+        or context == "dropMapPin"
     local catalogStore = HA.CatalogStore
     local isOwned = false
     if cacheOnlyOwnership then
