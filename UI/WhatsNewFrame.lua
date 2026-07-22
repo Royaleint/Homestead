@@ -339,7 +339,7 @@ local function CreateWhatsNewFrame()
     frame.headerIcon = frame:CreateTexture(nil, "OVERLAY")
     frame.headerIcon:SetSize(36, 36)
     frame.headerIcon:SetPoint("RIGHT", frame.titleText, "LEFT", -8, -1)
-    frame.headerIcon:SetTexture(HA.Constants.TEXTURE_ROOT .. "icon")
+    frame.headerIcon:SetTexture(HA.Constants.TEXTURE_ROOT .. "HomesteadMinimap")
     if not frame.headerIcon:GetTexture() then
         frame.headerIcon:SetTexture("Interface\\ICONS\\INV_Misc_Furniture_Chair_03")
     end

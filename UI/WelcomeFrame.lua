@@ -181,7 +181,7 @@ local function CreateWelcomeFrame()
     local icon = frame:CreateTexture(nil, "OVERLAY")
     icon:SetSize(48, 48)
     icon:SetPoint("RIGHT", title, "LEFT", -10, -2)
-    icon:SetTexture(HA.Constants.TEXTURE_ROOT .. "icon")
+    icon:SetTexture(HA.Constants.TEXTURE_ROOT .. "HomesteadMinimap")
     if not icon:GetTexture() then
         icon:SetTexture("Interface\\ICONS\\INV_Misc_Furniture_Chair_03")
     end
