@@ -13,18 +13,33 @@ local whatsNewFrame = nil
 
 -- Layout constants
 local FRAME_WIDTH = 800
-local FRAME_HEIGHT = 700
+local FRAME_HEIGHT = 700  -- HS-232: floor, not a fixed size — see BuildContent's
+                           -- measure-and-fit sizing. Existing entries that already
+                           -- fit comfortably at 700 render identically; only content
+                           -- that genuinely needs more room grows the frame.
 local PADDING = 25
 local CONTENT_WIDTH = FRAME_WIDTH - (PADDING * 2) - 24
 local FEATURE_GAP = 12
 local ICON_SIZE_PRIMARY = 32
 local ICON_SIZE_ICYMI = 24
 
+-- HS-232: header/footer/ICYMI spacing constants, pulled out of their former
+-- inline literals so BuildContent's height accumulation and its anchor
+-- offsets are provably the SAME numbers, not independently re-derived ones
+-- that could drift out of sync.
+local HEADER_HEIGHT = 68
+local HERO_GAP = 4
+local FOOTER_HEIGHT = 56
+local ICYMI_DIVIDER_GAP = 20
+local ICYMI_LABEL_GAP = 8
+local MAX_HEIGHT_RATIO = 0.85  -- of UIParent's height — never outgrow the screen
+
 -- Upvalue stdlib
 local pairs = pairs
 local ipairs = ipairs
 local tonumber = tonumber
 local math_max = math.max
+local math_min = math.min
 local table_sort = table.sort
 local WELCOME_SEEN_VERSION_MAX = HA.Constants.WELCOME_SEEN_VERSION_MAX or 4
 
@@ -157,16 +172,25 @@ local function BuildContent(frame, version)
         frame.heroTexture:SetHeight(heroHeight)
         frame.heroTexture:SetTexture(currentData.heroTexture)
         frame.heroTexture:Show()
-        contentTop = -68 - heroHeight - 4
+        contentTop = -HEADER_HEIGHT - heroHeight - HERO_GAP
     else
         frame.heroTexture:Hide()
-        contentTop = -68
+        contentTop = -HEADER_HEIGHT
     end
+    local headerComponent = -contentTop  -- magnitude: 68, or 68 + heroHeight + 4
 
     local content = frame.content
     content:ClearAllPoints()
     content:SetPoint("TOPLEFT", PADDING, contentTop)
-    content:SetPoint("BOTTOMRIGHT", -PADDING, 56)
+    content:SetPoint("BOTTOMRIGHT", -PADDING, FOOTER_HEIGHT)
+    -- HS-232 hard backstop: whatever the measure-and-fit sizing below decides,
+    -- nothing parented to `content` (feature rows, ICYMI divider/label/rows —
+    -- everything CreateFeatureRow and the ICYMI block below create) can ever
+    -- render outside content's own rectangle. The rectangle itself is always
+    -- inset from `frame` by fixed offsets, so this also bounds every child to
+    -- inside `frame`. The close button and checkbox are children of `frame`,
+    -- not `content`, so they're unaffected and stay visible/anchored always.
+    content:SetClipsChildren(true)
 
     -- Invisible top anchor for chain
     local topAnchor = content:CreateFontString(nil, "OVERLAY", "GameFontNormal")
@@ -175,37 +199,91 @@ local function BuildContent(frame, version)
     topAnchor:SetHeight(1)
 
     local lastRow = topAnchor
+    -- HS-232: accumulated from each row's REAL rendered height (GetHeight,
+    -- read right after CreateFeatureRow sets it from measured GetStringHeight
+    -- calls) plus the same gap constants used to anchor them — never a
+    -- re-derived estimate, so multi-line bodies of any length are accounted
+    -- for exactly, not approximated.
+    local runningHeight = 1  -- topAnchor's own height
 
-    -- Primary feature list
+    -- Primary feature list (never dropped — ICYMI is the sacrificial section
+    -- when content overflows the max height, see below)
     for _, feature in ipairs(currentData.features) do
         lastRow = CreateFeatureRow(content, lastRow, feature, ICON_SIZE_PRIMARY, 1.0, FEATURE_GAP)
+        runningHeight = runningHeight + FEATURE_GAP + lastRow:GetHeight()
     end
 
-    -- ICYMI section (only when a previous version entry exists)
+    local heightWithoutICYMI = headerComponent + runningHeight + FOOTER_HEIGHT
+
+    -- ICYMI section (only when a previous version entry exists). Built
+    -- provisionally into its own child frame so it can be hidden as one unit
+    -- if it turns out to push the popup over the max height — the degrade
+    -- order is "drop ICYMI first, it's a bonus by design."
     local prevVersion = FindPreviousVersion(version)
+    local icymiSection = nil
+    local icymiHeight = 0
+
     if prevVersion and HA.WhatsNew[prevVersion] then
         local prevData = HA.WhatsNew[prevVersion]
+        icymiSection = CreateFrame("Frame", nil, content)
+        icymiSection:SetPoint("TOPLEFT", content, "TOPLEFT", 0, 0)
+        icymiSection:SetPoint("RIGHT", content, "RIGHT", 0, 0)
 
         -- Horizontal divider
-        local divider = content:CreateTexture(nil, "ARTWORK")
+        local divider = icymiSection:CreateTexture(nil, "ARTWORK")
         divider:SetColorTexture(0.4, 0.4, 0.4, 0.6)
         divider:SetHeight(1)
-        divider:SetPoint("TOPLEFT", lastRow, "BOTTOMLEFT", 0, -20)
-        divider:SetPoint("RIGHT", content, "RIGHT", 0, 0)
+        divider:SetPoint("TOPLEFT", lastRow, "BOTTOMLEFT", 0, -ICYMI_DIVIDER_GAP)
+        divider:SetPoint("RIGHT", icymiSection, "RIGHT", 0, 0)
+        icymiHeight = icymiHeight + ICYMI_DIVIDER_GAP + 1
 
         -- ICYMI label
-        local icymiLabel = content:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-        icymiLabel:SetPoint("TOPLEFT", divider, "BOTTOMLEFT", 0, -8)
+        local icymiLabel = icymiSection:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+        icymiLabel:SetPoint("TOPLEFT", divider, "BOTTOMLEFT", 0, -ICYMI_LABEL_GAP)
         icymiLabel:SetWidth(CONTENT_WIDTH)
         icymiLabel:SetJustifyH("LEFT")
         icymiLabel:SetTextColor(0.53, 0.53, 0.53)
         icymiLabel:SetText("In Case You Missed It  \226\128\148  v" .. prevVersion)
+        icymiHeight = icymiHeight + ICYMI_LABEL_GAP + icymiLabel:GetStringHeight()
 
-        lastRow = icymiLabel
+        local icymiLastRow = icymiLabel
         for _, feature in ipairs(prevData.features) do
-            lastRow = CreateFeatureRow(content, lastRow, feature, ICON_SIZE_ICYMI, 0.9, FEATURE_GAP)
+            icymiLastRow = CreateFeatureRow(icymiSection, icymiLastRow, feature, ICON_SIZE_ICYMI, 0.9, FEATURE_GAP)
+            icymiHeight = icymiHeight + FEATURE_GAP + icymiLastRow:GetHeight()
+        end
+
+        -- icymiSection was only anchored TOPLEFT+RIGHT above (height was
+        -- unknown until the loop above measured it) — give it a real height
+        -- now. Not load-bearing for the clip (content's SetClipsChildren
+        -- bounds every descendant transitively regardless of this frame's
+        -- own size) or for :Hide() (hides children regardless of size), but
+        -- an unsized frame is a footgun for the next person reading this.
+        icymiSection:SetHeight(icymiHeight)
+    end
+
+    -- HS-232: measure-and-fit sizing. Bounded below by the familiar 700px
+    -- look (existing entries that already fit don't change size) and above
+    -- by MAX_HEIGHT_RATIO of the screen (never outgrow it). Degrade order
+    -- when the ICYMI-included height doesn't fit: drop ICYMI (bonus by
+    -- design), not the current version's own features. The hard-backstop
+    -- clip above still applies regardless of which branch below is taken —
+    -- this sizing pass decides the frame's height, the clip guarantees
+    -- nothing can render outside it even if this math is ever wrong.
+    local maxHeight = (UIParent and UIParent.GetHeight and UIParent:GetHeight() or 1080) * MAX_HEIGHT_RATIO
+    local finalHeight = heightWithoutICYMI
+
+    if icymiSection then
+        local heightWithICYMI = heightWithoutICYMI + icymiHeight
+        if heightWithICYMI > maxHeight then
+            icymiSection:Hide()
+        else
+            finalHeight = heightWithICYMI
         end
     end
+
+    finalHeight = math_max(FRAME_HEIGHT, finalHeight)
+    finalHeight = math_min(finalHeight, maxHeight)
+    frame:SetHeight(finalHeight)
 
     -- Checkbox handler
     frame.dontShowCheck:SetChecked(true)
