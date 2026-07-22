@@ -56,6 +56,7 @@ read_globals = {
     "ScrollUtil",
     "TooltipDataProcessor",
     "UIParent", "UISpecialFrames",
+    "Menu",
     "MenuUtil",
     "Mixin",
     "NineSliceUtil",

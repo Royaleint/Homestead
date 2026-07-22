@@ -503,6 +503,19 @@ Constants.Defaults = {
             -- showUnverifiedVendors removed: no vendors use the unverified flag
         },
 
+        -- HS-231: per-source world-map/minimap pin visibility, exposed via
+        -- Blizzard's world map filter dropdown (Homestead section). Absent
+        -- key = shown (default ON) — only an explicit `false` is ever
+        -- written, and toggling a source back ON removes the key rather
+        -- than storing `true`, so SavedVariables only grows for players who
+        -- actually turn something off. Declared as an empty table (not
+        -- pre-populated per source, since the source list is read live from
+        -- VendorMapPins.pinSourceProviders): Foundry.DB's applyDefaults
+        -- still materializes db.profile.mapFilters as a real table for
+        -- every profile via its table-default handling, it just never
+        -- seeds any concrete keys into it.
+        mapFilters = {},
+
         -- Endeavors settings
         endeavors = {
             showMilestoneXP = true,

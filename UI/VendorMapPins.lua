@@ -69,6 +69,49 @@ local function GetActiveSourceFilter()
     return "all"
 end
 
+-------------------------------------------------------------------------------
+-- HS-231: Map Filter Toggles
+--
+-- Per-source PIN visibility, exposed as a "Homestead" section in Blizzard's
+-- world map filter dropdown (Menu.ModifyMenu("MENU_WORLD_MAP_TRACKING", ...),
+-- registered once from Initialize()). Deliberately independent of
+-- MapSidePanel's panelSourceFilter — that filter governs the side panel's own
+-- item/count lists and is untouched by this feature; these toggles govern
+-- which PINS render on the world map and minimap. Persisted in
+-- db.profile.mapFilters[sourceKey] = false (absent or true = shown), matching
+-- Core/constants.lua's Defaults.profile.mapFilters declaration. Declared here
+-- (ahead of RefreshMinimapPins/CollectSourcePins, both of which gate on
+-- IsMapFilterSourceEnabled) since Lua locals must exist before first use.
+-------------------------------------------------------------------------------
+
+local MAP_FILTER_SOURCE_LABELS = {
+    vendor = "Vendor Pins",
+    drop   = "Drop Pins",
+}
+
+-- Sane fallback for a future source type that hasn't earned a display-name
+-- entry above yet: capitalize the registry key ("quest" -> "Quest Pins").
+local function GetMapFilterSourceLabel(sourceKey)
+    return MAP_FILTER_SOURCE_LABELS[sourceKey]
+        or (sourceKey:sub(1, 1):upper() .. sourceKey:sub(2) .. " Pins")
+end
+
+local function IsMapFilterSourceEnabled(sourceKey)
+    local mapFilters = HA.Addon and HA.Addon.db and HA.Addon.db.profile.mapFilters
+    if not mapFilters then return true end
+    return mapFilters[sourceKey] ~= false
+end
+
+local function SetMapFilterSourceEnabled(sourceKey, enabled)
+    local mapFilters = HA.Addon and HA.Addon.db and HA.Addon.db.profile.mapFilters
+    if not mapFilters then return end
+    if enabled then
+        mapFilters[sourceKey] = nil  -- absent = shown; never store the default explicitly
+    else
+        mapFilters[sourceKey] = false
+    end
+end
+
 -- Minimap pins enabled state
 local minimapPinsEnabled = true
 
@@ -944,7 +987,11 @@ end
 
 function VendorMapPins:RefreshMinimapPins()
     if not isInitialized then return end
-    if not minimapPinsEnabled then
+    -- HS-231: the minimap has always only ever shown vendor pins (no
+    -- provider-registry abstraction here, unlike the world map's
+    -- CollectSourcePins), so gating on the "vendor" toggle covers it —
+    -- "vendor toggle hides minimap vendor pins too, one mental model."
+    if not minimapPinsEnabled or not IsMapFilterSourceEnabled("vendor") then
         self:ClearMinimapPins()
         return
     end
@@ -1231,7 +1278,12 @@ function VendorMapPins:CollectSourcePins(mapID, renderState)
     end
 
     for sourceType, provider in pairs(self.pinSourceProviders) do
-        if provider and provider.collect and ProviderMatchesFilter(sourceType, filter) then
+        -- HS-231: cheap early-continue, not a restructure — with every
+        -- source left ON (the default), IsMapFilterSourceEnabled is a single
+        -- table lookup returning true, so the loop's behavior is unchanged
+        -- from before this feature existed.
+        if provider and provider.collect and ProviderMatchesFilter(sourceType, filter)
+                and IsMapFilterSourceEnabled(sourceType) then
             provider.collect(self, mapID, validMapIDs, filter, renderState)
         end
     end
@@ -2015,6 +2067,53 @@ function VendorMapPins:Initialize()
 
     if WorldMapProvider then
         WorldMapProvider:EnsureRegistered()
+    end
+
+    -- HS-231: Homestead section in Blizzard's world map filter dropdown.
+    -- Menu.ModifyMenu registers a callback that Blizzard's menu system
+    -- fires EVERY time the tagged menu opens — it is not a one-shot build,
+    -- so this call itself must happen exactly once per UI session. The
+    -- isInitialized early-return at the top of this function is that
+    -- guard: Initialize() is idempotent, so a stray second call anywhere
+    -- else in the codebase can't re-register and accumulate a duplicate
+    -- Homestead section. Foundry.Menu has no ModifyMenu wrapper — it wraps
+    -- CreateContextMenu/SetupDropdown for menus we own, but ModifyMenu
+    -- extends a Blizzard-owned tagged menu, a different shape entirely;
+    -- Foundry.Menu's own GetNativeHandles() doc even hands the raw Menu
+    -- table back to the consumer for exactly this case. Calling the raw
+    -- global directly is the Blizzard-supported addon path per the API's
+    -- own doc, not a workaround — flagged separately as a Foundry.Menu
+    -- coverage gap worth its own FND ticket.
+    if _G.Menu and _G.Menu.ModifyMenu then
+        _G.Menu.ModifyMenu("MENU_WORLD_MAP_TRACKING", function(_, rootDescription)
+            -- Source list derived live from the provider registry, never
+            -- hardcoded — a future source only needs its collect function
+            -- registered in pinSourceProviders to get a checkbox here.
+            local sourceKeys = {}
+            for sourceType, provider in pairs(self.pinSourceProviders) do
+                if provider and provider.collect then
+                    sourceKeys[#sourceKeys + 1] = sourceType
+                end
+            end
+            if #sourceKeys == 0 then return end
+            table.sort(sourceKeys)
+
+            rootDescription:CreateTitle("Homestead")
+            for _, sourceKey in ipairs(sourceKeys) do
+                rootDescription:CreateCheckbox(GetMapFilterSourceLabel(sourceKey), function()
+                    return IsMapFilterSourceEnabled(sourceKey)
+                end, function()
+                    SetMapFilterSourceEnabled(sourceKey, not IsMapFilterSourceEnabled(sourceKey))
+                    -- Reuse the existing debounced refresh paths — no new
+                    -- events, no per-frame work. The world map is always
+                    -- open here (the player is looking at its own filter
+                    -- dropdown); the minimap refresh call is unconditional
+                    -- like every other cache-invalidation call site above.
+                    self:RequestWorldMapRefresh("map_filter_toggled", 0.1)
+                    self:RequestMinimapRefresh("map_filter_toggled", 0.1)
+                end)
+            end
+        end)
     end
 
     -- World map refresh is driven by the provider's watcher frame
