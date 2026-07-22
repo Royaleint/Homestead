@@ -364,8 +364,14 @@ local function IsActivePinTooltipVisible()
     return pinTooltip:GetOwner() == activeTooltipData.pin
 end
 
-itemInfoEventFrame:SetScript("OnEvent", function(self, event, itemID, success)
-    if not success or not activeTooltipData then return end
+-- HS-235: shared debounced rebuild, factored out of the GET_ITEM_INFO_RECEIVED
+-- handler below so a second arrival signal (Item:ContinueOnItemLoad's own
+-- callback, see RequestItemDataForTooltip) can drive the exact same render
+-- path through the exact same tooltipRebuildPending debounce, instead of
+-- duplicating this logic or assuming GET_ITEM_INFO_RECEIVED also fires for
+-- the modern Item-Mixin load path (unverified — see RequestItemDataForTooltip).
+local function RebuildActivePinTooltip()
+    if not activeTooltipData then return end
     if not tooltipRebuildPending then
         tooltipRebuildPending = true
         C_Timer.After(0.05, function()
@@ -382,7 +388,51 @@ itemInfoEventFrame:SetScript("OnEvent", function(self, event, itemID, success)
             end
         end)
     end
+end
+
+itemInfoEventFrame:SetScript("OnEvent", function(self, event, itemID, success)
+    if not success or not activeTooltipData then return end
+    RebuildActivePinTooltip()
 end)
+
+-- HS-235: item 264500 class — C_Item.DoesItemExistByID true, but the server
+-- never volunteers the data, so GetItemInfo stays nil forever and
+-- GET_ITEM_INFO_RECEIVED never arrives to drive a rebuild; the tooltip line
+-- was stuck on "Unknown Item" across hovers AND sessions. HS-190 precedent
+-- (Overlay/Tooltips.lua's cold-cache re-render on OnTooltipSetItem) is the
+-- idiom reused here verbatim: Item:CreateFromItemID(itemID):ContinueOnItemLoad
+-- rather than a manual C_Item.RequestLoadItemDataByID + GET_ITEM_INFO_RECEIVED
+-- wait — ContinueOnItemLoad both requests the load AND calls back on arrival
+-- (or immediately if already cached), and is the modern API surface Blizzard
+-- uses for this exact class of problem throughout its own UI (Mount Journal,
+-- Encounter Journal, Professions, EventToastManager, etc. — confirmed via
+-- Blizzard UI source search, all following the identical shape).
+--
+-- The rebuild is driven directly from ContinueOnItemLoad's own callback
+-- (through RebuildActivePinTooltip, the SAME debounce GET_ITEM_INFO_RECEIVED
+-- already uses) rather than assumed to also arrive via GET_ITEM_INFO_RECEIVED
+-- — GET_ITEM_INFO_RECEIVED and ITEM_DATA_LOAD_RESULT are distinct events, and
+-- the already-shipped HS-190 precedent in Tooltips.lua does the same thing
+-- (never waits on GET_ITEM_INFO_RECEIVED for its own cold-cache path). This
+-- means no new event registration was needed to close this gap.
+--
+-- Session-scoped guard: requestedItemDataIDs prevents re-requesting on every
+-- hover of an item that's already been asked for once. A server-withheld
+-- item (264500's class) may NEVER arrive — ContinueOnItemLoad's callback
+-- then simply never fires. That's not a leak: nothing is polling or holding
+-- a ticker open waiting for it, the closure just sits inert as part of
+-- Blizzard's own item-load callback registry until the item (if ever) loads,
+-- and the tooltip correctly keeps showing the honest "Unknown Item" fallback
+-- in the meantime.
+local requestedItemDataIDs = {}
+
+local function RequestItemDataForTooltip(itemID)
+    if requestedItemDataIDs[itemID] then return end
+    requestedItemDataIDs[itemID] = true
+    Item:CreateFromItemID(itemID):ContinueOnItemLoad(function()
+        RebuildActivePinTooltip()
+    end)
+end
 
 -- Register/Unregister MERCHANT_CLOSED based on pin feature state.
 local function RegisterMerchantClosedEvent()
@@ -596,9 +646,15 @@ end
 
 local function AddPinTooltipItemLine(tooltip, item, options, suffix)
     local itemID = item and item.itemID
-    local itemName = (item and item.name)
-        or (itemID and C_Item.GetItemInfo(itemID))
-        or "Unknown Item"
+    local resolvedName = (item and item.name) or (itemID and C_Item.GetItemInfo(itemID))
+    -- HS-235: name genuinely unresolved (not just "item has no .name override") —
+    -- request the data once per session so a future hover (this one still
+    -- shows the honest fallback) or the debounced rebuild below can pick it
+    -- up once/if it arrives.
+    if not resolvedName and itemID then
+        RequestItemDataForTooltip(itemID)
+    end
+    local itemName = resolvedName or "Unknown Item"
     local availabilityState = nil
     local SM = HA.SourceManager
 
