@@ -1,7 +1,7 @@
 --[[
     Homestead - DropSources
-    Generated: 2026-07-20 19:44:49
-    Total entries: 54
+    Generated: 2026-07-21 22:36:24
+    Total entries: 53
 
     World drop source data for housing decor items.
     Regenerate with: python Home_Dev/scripts/generate_source_tables.py --table drop
@@ -55,10 +55,9 @@ HA.DropSources = {
     [264494] = {mobName = "Fallen-King Salhadaar", zone = "The Voidspire", journalInstanceID = 1307, journalEncounterID = 2736, notes = "Third boss of The Voidspire."},
     [264497] = {mobName = "Imperator Averzian", zone = "The Voidspire", journalInstanceID = 1307, journalEncounterID = 2733, notes = "Void-themed crystal."},
     [264498] = {mobName = "Vorasius", zone = "The Voidspire", journalInstanceID = 1307, journalEncounterID = 2734, notes = "Egg drop; second boss of The Voidspire."},
-    [264500] = {mobName = "Crown of the Cosmos", zone = "The Voidspire", journalInstanceID = 1307, journalEncounterID = 2738, notes = "Final encounter drop."},
     [264717] = {mobName = "Rak'tul", zone = "Maisara Caverns", journalInstanceID = 1315, journalEncounterID = 2812, notes = "Final boss of Maisara Caverns (beneath Zul'Aman)."},
     [265950] = {mobName = "Chimaerus", zone = "The Dreamrift", journalInstanceID = 1314, journalEncounterID = 2795, notes = "Aureate tier (Heroic kill). Auto-House Chest."},
-    [265951] = {mobName = "Crown of the Cosmos Raid Boss", zone = "The Voidspire (Raid)", journalInstanceID = 1307, journalEncounterID = 2738, notes = "Raid drop from Crown of the Cosmos raid - The Voidspire"},
+    [265951] = {mobName = "Crown of the Cosmos", zone = "The Voidspire", journalInstanceID = 1307, journalEncounterID = 2738, notes = "Raid drop from Crown of the Cosmos raid - The Voidspire"},
     [266886] = {mobName = "Chimaerus", zone = "The Dreamrift", journalInstanceID = 1314, journalEncounterID = 2795, notes = "Gleaming tier (Mythic kill)."},
     [266887] = {mobName = "Crown of the Cosmos", zone = "The Voidspire", mapID = 2215, coords = {x = 0.5, y = 0.5}, journalInstanceID = 1307, journalEncounterID = 2738, notes = "Gleaming."},
     [267007] = {mobName = "Scourgelord Tyrannus", zone = "Pit of Saron", journalInstanceID = 278, journalEncounterID = 610},

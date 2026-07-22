@@ -2,6 +2,72 @@
 
 ---
 
+## Homestead v2.7.0 (07-21-2026)
+
+Boss drops are on the map! Decor that drops in dungeons and raids now shows up right where you need it, plus the biggest round of performance work Homestead has ever shipped.
+
+---
+
+## Drop Locations on the Map
+
+**Boss Pins**
+
+- Decor that drops from a dungeon or raid boss now shows a Homestead drop pin (a decor bag with a skull) right next to that boss on the instance map.
+- On the outdoor zone map, the same drops show at the dungeon entrance, so you know where to head from anywhere.
+- Pins that cover several items (looking at you, Voidspire) group into one pin. Hover it to see every item, each colored by whether you've collected it, with the boss it drops from.
+
+**Collection Counters**
+
+- Drop pins now show the same collected count vendor pins have, so you can see your progress at a glance without opening anything.
+
+**Side Panel**
+
+- Open an instance map and the side panel lists every boss that drops tracked decor, with their items in the same expandable view vendors use.
+- Your source filter is respected: if you've filtered to vendors only, the panel says drops are hidden rather than showing them anyway.
+
+---
+
+## Map Filter Options
+
+- The world map's filter dropdown now has a Homestead section! Toggle each kind of Homestead pin (vendors, drops, and anything we add later) right where the game's own map filters live.
+- Your choices are saved between sessions, and turning vendor pins off clears them from the minimap too.
+
+---
+
+## Performance
+
+- Fixed the freeze when opening the world map for the first time after logging in or reloading.
+- Fixed stutters while flying across zones with bags open.
+- Fixed frame drops while looting, vendoring, and moving items with full bags.
+- Item tooltips no longer cause hitches when hovering items rapidly, even in combat.
+- Opening the housing UI right after logging in no longer causes a long freeze.
+- Opening a profession window no longer causes a brief freeze.
+- Zone changes and map refreshes feel snappier across the board.
+- Fixed a freeze when rapidly switching between map views (zooming out to the world or cosmic map and back).
+- Smaller download, and your saved data file is leaner.
+
+---
+
+## Bug Fixes
+
+- Fixed the What's New popup never appearing for players who had closed the Welcome screen.
+- Fixed welcome popups stacking on top of each other, and the "don't show again" checkbox not being honored.
+- Fixed the merchant overlay occasionally lagging behind when buying or selling quickly.
+- Fixed a conflict that could cause errors in other addons using the same shared library at login.
+- Fixed calendar-based sources showing incorrectly near month boundaries.
+- Fixed waypoints occasionally pointing at the wrong owner after map changes.
+- Fixed some pin tooltip items showing "Unknown Item" until you reloaded. The missing name is now fetched on the spot.
+- The What's New window now sizes itself to its content instead of cutting text off.
+
+---
+
+## Data Corrections
+
+- The Crucible of Storms drop is correctly attributed to the first encounter, not the final boss.
+- Corrected drop information for several items, removed a placeholder location that pointed nowhere, and removed one drop entry for an item that isn't obtainable yet.
+
+---
+
 ## Homestead v2.6.0 (07-12-2026)
 
 Locked decor now tells you why it's locked, plus a big round of vendor corrections from fresh in-game verification.
