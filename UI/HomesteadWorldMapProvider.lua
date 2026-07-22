@@ -30,6 +30,11 @@ local activeVendorFrames = {}
 local refreshPending = false
 local renderedState = nil
 local renderedMapID = nil
+-- HS-234: settle-debounce timer for map-transition-triggered refreshes
+-- (watcher_map_changed, watcher_zoom) — see RequestSettledRefresh below.
+-- Separate from refreshPending above, which stays the same-frame coalesce
+-- for watcher_opened (a single deliberate action, not a spam vector).
+local settleTimer = nil
 -- HS-223a: external consumers (currently MapSidePanel) of the shared 0.1s
 -- map watcher below, keyed by caller-chosen string so multiple registrants
 -- can't clobber each other. Each callback receives (isShown, mapID,
@@ -58,6 +63,12 @@ local watcherStats = {
     resized = 0,
     zoomChanged = 0,
     deferredRefreshes = 0,
+    -- HS-234 cycle 1 SUGGESTION: settled refreshes get their own counter
+    -- rather than sharing deferredRefreshes, so Gate 2 can read how many
+    -- transition-triggered refreshes actually happened post-settle
+    -- (distinct from watcher_opened's same-frame deferredRefreshes) when
+    -- tuning WATCHER_SETTLE_DELAY.
+    settledRefreshes = 0,
 }
 local placementDebugMaps = {
     [2393] = true,
@@ -458,6 +469,51 @@ local function RequestDeferredRefresh(reason)
     end)
 end
 
+-- HS-234: settle-debounce for map-transition refreshes. Each full refresh is
+-- a teardown+rebuild (Provider:RefreshAllData -> RemoveAllData then
+-- RenderEntries for every pin kind) — rapid right-click-through-levels
+-- (World -> Continent -> Zone -> sub-zone) fires a NEW mapID/zoom-scale
+-- change on nearly every 0.1s watcher tick, and RequestDeferredRefresh's
+-- same-frame coalesce only absorbs triggers that land in the SAME tick, not
+-- across several. Each transited level was therefore paying its own full
+-- rebuild (the diagnosed "4 brief spikes"). This cancels-and-restarts a
+-- timer on every call instead, so a rebuild only actually fires once the
+-- transitions stop arriving for a full settleDelay — click-spam through 4
+-- levels builds ONCE, at the resting map. RefreshPins reads the CURRENT
+-- WorldMapFrame:GetMapID() when it fires, not whatever mapID triggered the
+-- call, so the eventual single build is always for the map the player
+-- actually stopped on, not a stale one from mid-spam.
+--
+-- 0.25s chosen over the spec's 0.15s floor: no in-game click-cadence data
+-- to justify tuning down without evidence, and this delay is invisible to
+-- the player (a background pin-render refresh, not something gating any
+-- user action) — the extra ~100ms of margin against real click cadences
+-- costs nothing perceptible for the single-deliberate-transition case,
+-- where it's still well under human-perceptible "did that lag" territory.
+-- Gate 2 can tune this down if 0.15s is shown to settle spam reliably.
+local WATCHER_SETTLE_DELAY = 0.25
+
+local function RequestSettledRefresh(reason)
+    watcherStats.settledRefreshes = watcherStats.settledRefreshes + 1
+    if IsDebugModeEnabled() and reason then
+        HA.Addon:Debug("WorldMapWatcher: " .. reason .. " (settling)")
+    end
+
+    if settleTimer then
+        settleTimer:Cancel()
+    end
+
+    settleTimer = C_Timer.NewTimer(WATCHER_SETTLE_DELAY, function()
+        settleTimer = nil
+        local VMP = HA.VendorMapPins
+        if VMP and VMP.RefreshPins then
+            VMP:RefreshPins(true)
+        elseif isRegistered and Provider and Provider.RefreshAllData then
+            Provider:RefreshAllData()
+        end
+    end)
+end
+
 local function BuildWorldPinStyleKey()
     local size = PinFrameFactory:GetPinIconSize()
     local isCustom = PinFrameFactory:IsCustomPinColor()
@@ -686,6 +742,15 @@ function Provider:EnsureRegistered()
             lastCanvasWidth = nil
             lastCanvasHeight = nil
             lastCanvasEffectiveScale = nil
+            -- HS-234: a pending settle-debounce from a transition made just
+            -- before closing the map would otherwise fire uselessly ~0.25s
+            -- later against a closed map — cancel it now, same discipline
+            -- VendorMapPins:ClearAllPins already applies to its own
+            -- worldMapRefreshTimer.
+            if settleTimer then
+                settleTimer:Cancel()
+                settleTimer = nil
+            end
             self:RemoveAllData()
         elseif isShown then
             -- Map still open — check for mapID, canvas size, or zoom-scale changes
@@ -698,7 +763,7 @@ function Provider:EnsureRegistered()
             if mapID ~= lastMapID then
                 lastMapID = mapID
                 watcherStats.mapChanged = watcherStats.mapChanged + 1
-                RequestDeferredRefresh("watcher_map_changed")
+                RequestSettledRefresh("watcher_map_changed")
             elseif (canvasWidth > 0 and canvasWidth ~= lastCanvasWidth)
                     or (canvasHeight > 0 and canvasHeight ~= lastCanvasHeight) then
                 lastCanvasWidth = canvasWidth
@@ -714,7 +779,7 @@ function Provider:EnsureRegistered()
                 watcherStats.zoomChanged = watcherStats.zoomChanged + 1
                 -- Full refresh on zoom change so POI dodge recalculates
                 -- with the new zoom factor (pins drift back at high zoom).
-                RequestDeferredRefresh("watcher_zoom")
+                RequestSettledRefresh("watcher_zoom")
             end
         end
 
