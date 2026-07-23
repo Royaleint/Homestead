@@ -21,6 +21,10 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      # Required by the release-workflow dispatch step below — without it,
+      # `gh workflow run` gets 403 "Resource not accessible by integration"
+      # (first observed on the v2.7.2 run; tag creation itself succeeded).
+      actions: write
     steps:
       - name: Validate version format
         run: |
