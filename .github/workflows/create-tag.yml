@@ -81,5 +81,14 @@ jobs:
           echo "- **Tag:** \`$TAG\`" >> "$GITHUB_STEP_SUMMARY"
           echo "- **Commit:** \`$SHA\`" >> "$GITHUB_STEP_SUMMARY"
           echo "- **Message:** $MESSAGE" >> "$GITHUB_STEP_SUMMARY"
+
+      # GITHUB_TOKEN tag pushes don't trigger on:push workflows (GitHub's
+      # infinite-loop prevention). Dispatch the release workflow explicitly.
+      - name: Trigger release workflow
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ steps.resolve.outputs.tag }}
+        run: |
+          gh workflow run release.yml --ref "$TAG"
           echo "" >> "$GITHUB_STEP_SUMMARY"
-          echo "The release workflow will fire automatically." >> "$GITHUB_STEP_SUMMARY"
+          echo "Release workflow dispatched for \`$TAG\`." >> "$GITHUB_STEP_SUMMARY"
