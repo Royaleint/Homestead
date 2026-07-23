@@ -965,6 +965,19 @@ local function BuildRequirementCacheKey(req)
     return nil
 end
 
+-- HS-238: verdict baseline for the verify-then-skip invalidation gate.
+-- Maps cacheKey → {req, met}, recording the requirement table and the verdict
+-- from the LAST live evaluation — including met == nil, which never enters
+-- requirementMetCache (a nil→determinate transition must still read as a
+-- change). Deliberately NEVER wiped by invalidation: it records what
+-- consumers last actually saw, which is exactly the baseline a trigger event
+-- must be compared against. Bounded by the number of distinct requirements
+-- ever evaluated (same population requirementMetCache reaches when warm).
+-- The stored req table is safe to re-evaluate later: the cache key encodes
+-- every field the evaluation consumes for that type (BuildRequirementCacheKey
+-- above), so two reqs sharing a key evaluate identically.
+local requirementEvalBaseline = {}
+
 -- Check if a specific requirement is met by the player.
 -- HS-203: cache-first wrapper around EvaluateRequirementMetLive. A nil
 -- ("cannot determine") result is never cached — a missing cache entry and a
@@ -986,6 +999,14 @@ function SourceManager:IsRequirementMet(req)
 
     if cacheKey then
         requirementMetCache[cacheKey] = met
+        -- HS-238: refresh the verify baseline on every live evaluation.
+        local baseline = requirementEvalBaseline[cacheKey]
+        if baseline then
+            baseline.req = req
+            baseline.met = met
+        else
+            requirementEvalBaseline[cacheKey] = { req = req, met = met }
+        end
     end
 
     return met
@@ -2127,6 +2148,59 @@ local function BuildProfessionFingerprint()
     return table.concat(parts, "|")
 end
 
+-- HS-238: verify-then-skip for UPDATE_FACTION. The event is a proxy for
+-- "some reputation-dependent verdict may have flipped" — but the enormous
+-- majority of fires are rep ticks that cross no threshold. Instead of
+-- treating every fire as a change, re-evaluate exactly the reputation
+-- verdicts consumers have actually seen (requirementEvalBaseline) and
+-- invalidate only when one genuinely flipped. Every re-evaluation here is a
+-- call the old unconditional wipe forced consumers to repeat anyway; the
+-- baseline is bounded by the distinct reputation requirements in the data.
+-- Nil-safe on both sides: a formerly-undeterminable verdict becoming
+-- determinate (or vice versa) counts as a change — consumers cached counts
+-- built on the old answer.
+-- Returns: changedCount, checkedCount
+local function CountChangedReputationVerdicts()
+    local changed, checked = 0, 0
+    for _, baseline in pairs(requirementEvalBaseline) do
+        local req = baseline.req
+        if req and req.type == "reputation" then
+            checked = checked + 1
+            local live = SourceManager:EvaluateRequirementMetLive(req)
+            if live ~= baseline.met then
+                changed = changed + 1
+                baseline.met = live
+            end
+        end
+    end
+    return changed, checked
+end
+
+-- HS-238: shared decision point for both UPDATE_FACTION arrival paths
+-- (direct out-of-combat fire, and the deferred combat-exit fire). Resets
+-- factionNameToID unconditionally BEFORE verifying: the map is built once
+-- from C_MajorFactions.GetMajorFactionIDs() and misses never rebuild it, so
+-- skipping the reset could strand a faction unlocked mid-session; the reset
+-- costs one lazy enumeration on next lookup. Only then compare verdicts.
+local function RunFactionVerifyThenInvalidate()
+    factionNameToID = nil
+
+    local changed, checked = CountChangedReputationVerdicts()
+    if changed == 0 then
+        if HA.Addon then
+            HA.Addon:Debug(("SourceManager: UPDATE_FACTION suppressed (0/%d reputation verdicts changed)")
+                :format(checked))
+        end
+        return
+    end
+
+    if HA.Addon then
+        HA.Addon:Debug(("SourceManager: UPDATE_FACTION invalidating (%d/%d reputation verdicts changed)")
+            :format(changed, checked))
+    end
+    SourceManager:InvalidateAllSourceCaches()
+end
+
 local function HookCompletionCacheInvalidation()
     if completionInvalidationFrame then return end
 
@@ -2140,13 +2214,13 @@ local function HookCompletionCacheInvalidation()
 
     -- Combat-deferral state for UPDATE_FACTION. Timewalking dungeons (and
     -- any content with per-kill rep gains) fire UPDATE_FACTION on nearly
-    -- every mob kill. Each fire wipes requirementMetCache + completionCache
-    -- and triggers a full 220-vendor badge pre-warm pass (11 batches at
-    -- 10ms intervals). In sustained combat that cycle restarts every 1-2s,
-    -- saturating the frame budget with cold-cache requirement evaluation.
-    -- Deferring to combat exit is safe: the player can't visit vendors,
-    -- open the housing catalog, or interact with map panels while fighting,
-    -- so stale requirement-met results are invisible until combat ends.
+    -- every mob kill. Deferring to combat exit is safe: the player can't
+    -- visit vendors, open the housing catalog, or interact with map panels
+    -- while fighting, so stale requirement-met results are invisible until
+    -- combat ends. HS-238: the deferred fire now runs the verify pass
+    -- rather than invalidating unconditionally — in rep-per-kill content
+    -- (Timewalking, delves) combat drops after nearly every pull, and an
+    -- unconditional combat-exit wipe just relocated the per-kill freeze.
     local pendingFactionInvalidation = false
 
     local combatDeferralFrame = CreateFrame("Frame")
@@ -2154,16 +2228,19 @@ local function HookCompletionCacheInvalidation()
     combatDeferralFrame:SetScript("OnEvent", function()
         if pendingFactionInvalidation then
             pendingFactionInvalidation = false
-            SourceManager:InvalidateAllSourceCaches()
+            RunFactionVerifyThenInvalidate()
         end
     end)
 
-    -- HS-237: build a set of quest IDs Homestead actually tracks so
-    -- QUEST_TURNED_IN can skip invalidation for irrelevant quests.
-    -- QuestSources entries are the only quest data with numeric IDs;
-    -- PrerequisiteSources quest entries have names only (no ID), so
-    -- they never resolve in the completion checker and can't change
-    -- on quest hand-in. Scanned vendor data follows the same pattern.
+    -- HS-238 (supersedes the HS-237 static-set gate): quest IDs from
+    -- QuestSources feed completionCache "quest:ID" entries via
+    -- ResolveCompletionSource, so they are always relevant. But quest IDs
+    -- can ALSO enter the caches from caller-supplied sourceData and from
+    -- CatalogStore/scanned requirements (raw SavedVariables content), so a
+    -- static set alone cannot prove a quest irrelevant. The gate below
+    -- therefore also probes the caches themselves — provenance-independent:
+    -- if a quest key was never cached anywhere, nothing stale exists and
+    -- the next read evaluates live.
     local trackedQuestIDs = {}
     if HA.QuestSources then
         for _, entry in pairs(HA.QuestSources) do
@@ -2235,10 +2312,39 @@ local function HookCompletionCacheInvalidation()
                 pendingFactionInvalidation = true
                 return
             end
+            -- HS-238: verify-then-skip owns the whole decision (including
+            -- the invalidation call and discriminator logging) — never fall
+            -- through to the unconditional invalidate below.
+            RunFactionVerifyThenInvalidate()
+            return
         elseif event == "QUEST_TURNED_IN" then
             local questID = ...
-            if not trackedQuestIDs[questID] then
-                return
+            -- Fail open on an unexpected payload shape: invalidating is
+            -- current behavior; skipping wrongly is the only dangerous
+            -- direction. Payload verified as (questID, xpReward,
+            -- moneyReward) — stable since 6.0.2.
+            if type(questID) == "number" then
+                local questKey = "quest:" .. questID
+                local relevant = trackedQuestIDs[questID]
+                    or requirementMetCache[questKey] ~= nil
+                    or requirementEvalBaseline[questKey] ~= nil
+                    or completionCache[questKey] ~= nil
+                if not relevant then
+                    if HA.Addon then
+                        HA.Addon:Debug("SourceManager: QUEST_TURNED_IN suppressed (quest "
+                            .. questID .. " not tracked, no cached state)")
+                    end
+                    return
+                end
+                if HA.Addon then
+                    HA.Addon:Debug("SourceManager: QUEST_TURNED_IN invalidating (quest "
+                        .. questID .. " tracked or cached)")
+                end
+            elseif HA.Addon then
+                -- Keep the discriminator log complete: an invalidation from
+                -- this branch must be explainable from a debug capture.
+                HA.Addon:Debug("SourceManager: QUEST_TURNED_IN invalidating (fail-open — non-number payload "
+                    .. tostring(questID) .. ")")
             end
         end
 
