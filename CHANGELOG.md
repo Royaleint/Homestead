@@ -2,6 +2,15 @@
 
 ---
 
+## Homestead v2.7.1 (07-23-2026)
+
+Hotfix for frame drops in Timewalking dungeons and other fast reputation grinds.
+
+- Fixed frame drops in fights where you're gaining reputation on every kill. The addon was redoing work each time reputation ticked; it now waits until combat ends to catch up.
+- Smoothed out some remaining background work on top of the reputation fix.
+
+---
+
 ## Homestead v2.7.0 (07-21-2026)
 
 Boss drops are on the map! Decor that drops in dungeons and raids now shows up right where you need it, plus the biggest round of performance work Homestead has ever shipped.
