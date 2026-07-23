@@ -2,6 +2,16 @@
 
 ---
 
+## Homestead v2.7.2 (07-23-2026)
+
+Follow-up performance fix for the remaining stutter reports: quest hand-ins, world quests, and delves.
+
+- Fixed the addon redoing its availability math on every quest hand-in and reputation tick. It now first checks whether anything that matters actually changed (a reputation threshold crossed, a tracked quest completed) and skips the work entirely otherwise, which is almost always.
+- Background catch-up work now waits until you leave combat, so it can never cause stutter mid-fight.
+- If you still see stutter, `/hs debug` now logs exactly what the addon decides on each of these events. Include that log in a report to help pin down exactly what's triggering it.
+
+---
+
 ## Homestead v2.7.1 (07-23-2026)
 
 Hotfix for frame drops in Timewalking dungeons and other fast reputation grinds.
