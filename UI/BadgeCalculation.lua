@@ -771,6 +771,10 @@ end
 
 local WARMUP_VENDORS_PER_BATCH = 10
 local WARMUP_BATCH_DELAY = 0.02
+-- HS-238: while the player is in combat, batches don't run — they reschedule
+-- at this interval until combat drops. Cheap poll (one timer + one C call
+-- per second) versus cold requirement evaluation landing on combat frames.
+local WARMUP_COMBAT_RETRY_DELAY = 1.0
 
 local warmupInProgress = false
 -- HS-234 cycle 1 CRITICAL fix: a wipe arriving mid-pass must not be
@@ -803,6 +807,16 @@ local function StartPrewarmPass()
     local currentIndex = 1
 
     local function ProcessBatch()
+        -- HS-238: never run a warm-up batch during combat — whatever event
+        -- triggered this pass (a verified reputation flip, a decor drop
+        -- firing OWNERSHIP_UPDATED, a scan), cold requirement evaluation
+        -- must not land on combat frames. Reschedule until combat drops;
+        -- the player can't consume badge stats mid-fight anyway.
+        if _G.InCombatLockdown() then
+            C_Timer.After(WARMUP_COMBAT_RETRY_DELAY, ProcessBatch)
+            return
+        end
+
         local batchEnd = math.min(currentIndex + WARMUP_VENDORS_PER_BATCH - 1, totalVendors)
         -- pcall so a mid-batch error degrades to "this pass aborted" — an
         -- unguarded error would kill the timer chain with warmupInProgress
