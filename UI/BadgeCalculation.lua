@@ -769,8 +769,8 @@ end
 -- same single source of truth instead of re-deriving warmness."
 -------------------------------------------------------------------------------
 
-local WARMUP_VENDORS_PER_BATCH = 20
-local WARMUP_BATCH_DELAY = 0.01
+local WARMUP_VENDORS_PER_BATCH = 10
+local WARMUP_BATCH_DELAY = 0.02
 
 local warmupInProgress = false
 -- HS-234 cycle 1 CRITICAL fix: a wipe arriving mid-pass must not be

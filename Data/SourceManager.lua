@@ -2138,6 +2138,26 @@ local function HookCompletionCacheInvalidation()
     -- nil, which is exactly the fail-open state the gate already handles.
     lastProfessionFingerprint = BuildProfessionFingerprint()
 
+    -- Combat-deferral state for UPDATE_FACTION. Timewalking dungeons (and
+    -- any content with per-kill rep gains) fire UPDATE_FACTION on nearly
+    -- every mob kill. Each fire wipes requirementMetCache + completionCache
+    -- and triggers a full 220-vendor badge pre-warm pass (11 batches at
+    -- 10ms intervals). In sustained combat that cycle restarts every 1-2s,
+    -- saturating the frame budget with cold-cache requirement evaluation.
+    -- Deferring to combat exit is safe: the player can't visit vendors,
+    -- open the housing catalog, or interact with map panels while fighting,
+    -- so stale requirement-met results are invisible until combat ends.
+    local pendingFactionInvalidation = false
+
+    local combatDeferralFrame = CreateFrame("Frame")
+    combatDeferralFrame:RegisterEvent("PLAYER_REGEN_ENABLED")
+    combatDeferralFrame:SetScript("OnEvent", function()
+        if pendingFactionInvalidation then
+            pendingFactionInvalidation = false
+            SourceManager:InvalidateAllSourceCaches()
+        end
+    end)
+
     completionInvalidationFrame = CreateFrame("Frame")
     completionInvalidationFrame:RegisterEvent("ACHIEVEMENT_EARNED")
     completionInvalidationFrame:RegisterEvent("QUEST_TURNED_IN")
@@ -2193,6 +2213,11 @@ local function HookCompletionCacheInvalidation()
                 isProfessionConfig = ok and configInfo and configInfo.type == Enum.TraitConfigType.Profession
             end
             if not isProfessionConfig then
+                return
+            end
+        elseif event == "UPDATE_FACTION" then
+            if _G.InCombatLockdown() then
+                pendingFactionInvalidation = true
                 return
             end
         end
