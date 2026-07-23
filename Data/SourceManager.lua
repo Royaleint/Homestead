@@ -2158,6 +2158,21 @@ local function HookCompletionCacheInvalidation()
         end
     end)
 
+    -- HS-237: build a set of quest IDs Homestead actually tracks so
+    -- QUEST_TURNED_IN can skip invalidation for irrelevant quests.
+    -- QuestSources entries are the only quest data with numeric IDs;
+    -- PrerequisiteSources quest entries have names only (no ID), so
+    -- they never resolve in the completion checker and can't change
+    -- on quest hand-in. Scanned vendor data follows the same pattern.
+    local trackedQuestIDs = {}
+    if HA.QuestSources then
+        for _, entry in pairs(HA.QuestSources) do
+            if entry.questID then
+                trackedQuestIDs[entry.questID] = true
+            end
+        end
+    end
+
     completionInvalidationFrame = CreateFrame("Frame")
     completionInvalidationFrame:RegisterEvent("ACHIEVEMENT_EARNED")
     completionInvalidationFrame:RegisterEvent("QUEST_TURNED_IN")
@@ -2218,6 +2233,11 @@ local function HookCompletionCacheInvalidation()
         elseif event == "UPDATE_FACTION" then
             if _G.InCombatLockdown() then
                 pendingFactionInvalidation = true
+                return
+            end
+        elseif event == "QUEST_TURNED_IN" then
+            local questID = ...
+            if not trackedQuestIDs[questID] then
                 return
             end
         end
