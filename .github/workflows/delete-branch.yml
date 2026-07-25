@@ -1,0 +1,43 @@
+name: Delete Branch
+
+# Companion to create-tag.yml (STU-073): remote/mobile sessions sit behind a
+# git proxy that blocks ref deletions, so branch cleanup needs to happen
+# repo-side. Dispatch with the branch name to delete.
+
+on:
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: 'Branch name to delete (exact match, e.g. v2.7.1)'
+        required: true
+        type: string
+
+jobs:
+  delete-branch:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Validate and delete
+        env:
+          BRANCH: ${{ inputs.branch }}
+        run: |
+          DEFAULT_BRANCH="${{ github.event.repository.default_branch }}"
+          if [ "$BRANCH" = "$DEFAULT_BRANCH" ]; then
+            echo "::error::Refusing to delete the default branch ($DEFAULT_BRANCH)"
+            exit 1
+          fi
+          if ! git ls-remote --exit-code --heads origin "$BRANCH" >/dev/null; then
+            echo "::error::Branch '$BRANCH' does not exist"
+            exit 1
+          fi
+
+          git push origin ":refs/heads/$BRANCH"
+
+          echo "### Branch deleted" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **Branch:** \`$BRANCH\`" >> "$GITHUB_STEP_SUMMARY"
