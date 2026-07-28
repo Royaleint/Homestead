@@ -818,12 +818,18 @@ local function StartPrewarmPass()
         end
 
         local batchEnd = math.min(currentIndex + WARMUP_VENDORS_PER_BATCH - 1, totalVendors)
+        -- HS-239: workload is batchSize, arithmetic on the currentIndex/
+        -- batchEnd this loop already computes — no new scan added to feed
+        -- this call. Measure's callback is pcall itself (not a wrapper
+        -- closure around it), so this stays exactly the original
+        -- `ok = pcall(fn)` shape the comment below describes.
+        local batchSize = batchEnd - currentIndex + 1
         -- pcall so a mid-batch error degrades to "this pass aborted" — an
         -- unguarded error would kill the timer chain with warmupInProgress
         -- stuck true, silently disabling prewarm for the rest of the
         -- session (every future trigger would coalesce into a rerun that
         -- never comes).
-        local ok = pcall(function()
+        local ok = HA.PerformanceTrace:Measure("badge_prewarm", batchSize, pcall, function()
             for i = currentIndex, batchEnd do
                 local vendor = allVendors[i]
                 if vendor and vendor.npcID then

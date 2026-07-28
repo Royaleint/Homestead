@@ -52,6 +52,10 @@ local WiringHA = {
     },
 }
 
+-- HS-239: overlay.lua's "all"/OWNERSHIP_UPDATED callbacks now route through
+-- HA.PerformanceTrace:Measure (a pure pass-through with no backend
+-- registered), so the real facade must be loaded before overlay.lua here too.
+assert(loadfile(root .. "/Core/PerformanceTrace.lua"))("Homestead", WiringHA)
 assert(loadfile(root .. "/Core/events.lua"))("Homestead", WiringHA)
 assert(loadfile(root .. "/Overlay/overlay.lua"))("Homestead", WiringHA)
 

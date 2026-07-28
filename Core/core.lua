@@ -945,7 +945,18 @@ end
 
 function HousingAddon:RefreshAllOverlays()
     if HA.Overlay then
-        HA.Overlay:RefreshAll()
+        -- HS-239: this direct RefreshAll fires on every loading screen via
+        -- PLAYER_ENTERING_WORLD -- a sibling entry into the same repaint the
+        -- Events "all" callback measures. Wrapped so an armed trace can't
+        -- miss a plot zone-in repaint and still render the affirmative
+        -- "nothing was slow" line (Gate 1 warning).
+        if HA.PerformanceTrace then
+            HA.PerformanceTrace:Measure("bag_refresh", "entering-world", function()
+                HA.Overlay:RefreshAll()
+            end)
+        else
+            HA.Overlay:RefreshAll()
+        end
     end
 end
 

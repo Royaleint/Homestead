@@ -550,8 +550,16 @@ function Overlay:Initialize()
     if isInitialized then return end
     isInitialized = true
 
+    -- HS-239: the "all" callback is the only path into Overlay:RefreshAll()
+    -- that OWNERSHIP_UPDATED reaches (confirmed: no other RequestUpdate("all")
+    -- or Fire("all") caller exists anywhere in the addon), so this is where
+    -- the actual bag-overlay repaint work happens. Workload is overlayCount
+    -- (the pool-size local this file already tracks) — no new scan added to
+    -- compute it.
     Events:RegisterCallback("all", function()
-        Overlay:RefreshAll()
+        HA.PerformanceTrace:Measure("bag_refresh", overlayCount, function()
+            Overlay:RefreshAll()
+        end)
     end)
 
     -- Routed through RequestUpdate rather than calling RefreshAll directly:
@@ -562,8 +570,16 @@ function Overlay:Initialize()
     -- coalesces repeat fires into one repaint via the "all" registration
     -- above — every trigger into RefreshAll here goes through exactly this
     -- one deferred, coalesced route.
+    --
+    -- HS-239: measured separately from the "all" callback above (not
+    -- nested — this handler only schedules the deferred repaint via
+    -- RequestUpdate; the actual RefreshAll measurement above runs later, on
+    -- its own timer pump). Workload is the update type it requests, already
+    -- a literal in this line.
     Events:RegisterCallback("OWNERSHIP_UPDATED", function()
-        Events:RequestUpdate("all")
+        HA.PerformanceTrace:Measure("ownership_update", "all", function()
+            Events:RequestUpdate("all")
+        end)
     end)
 
     HA.Addon:Debug("Overlay system initialized")
