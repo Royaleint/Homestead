@@ -924,16 +924,20 @@ function Provider:RefreshAllData()
         return
     end
 
-    self:RemoveAllData()
+    -- HS-239: workload is currentMapID, already computed above for the
+    -- mismatch check — no new scan added to feed this call.
+    HA.PerformanceTrace:Measure("world_map_refresh", currentMapID, function()
+        self:RemoveAllData()
 
-    self:RenderEntries(renderState.vendorPins or {}, "vendor")
-    self:RenderEntries(renderState.sourcePins or {}, "source")
-    self:RenderEntries(renderState.zoneBadges or {}, "badge")
-    self:RenderEntries(renderState.portalBadges or {}, "portal")
-    self:RenderEntries(renderState.continentBadges or {}, "badge")
-    renderedState = renderState
-    renderedMapID = currentMapID
-    debugStats.renderedPasses = debugStats.renderedPasses + 1
-    debugStats.lastRenderedTotal = #activeEntries
-    MaybeLogProviderPerf("render")
+        self:RenderEntries(renderState.vendorPins or {}, "vendor")
+        self:RenderEntries(renderState.sourcePins or {}, "source")
+        self:RenderEntries(renderState.zoneBadges or {}, "badge")
+        self:RenderEntries(renderState.portalBadges or {}, "portal")
+        self:RenderEntries(renderState.continentBadges or {}, "badge")
+        renderedState = renderState
+        renderedMapID = currentMapID
+        debugStats.renderedPasses = debugStats.renderedPasses + 1
+        debugStats.lastRenderedTotal = #activeEntries
+        MaybeLogProviderPerf("render")
+    end)
 end

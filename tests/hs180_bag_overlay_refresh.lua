@@ -67,10 +67,15 @@ assert(overlaySource:find('function Overlay:RefreshExternalOverlays%(', 1) ~= ni
 -- Cycle 2 (CRITICAL): the repaint must be DEFERRED (RequestUpdate), never a
 -- direct RefreshAll — Events:Fire is synchronous and a refresh can itself
 -- fire OWNERSHIP_UPDATED (merchant SetOwned), so a direct call recurses.
+-- HS-239: the handler now wraps its RequestUpdate("all") call through the
+-- PerformanceTrace facade (Measure), so the literal adjacency check below
+-- spans that wrapper with a lazy `.-` instead of requiring the two calls
+-- back-to-back — the underlying contract (defer via RequestUpdate, never a
+-- direct RefreshAll) is unchanged.
 assert(overlaySource:find(
-    'Events:RegisterCallback%("OWNERSHIP_UPDATED", function%(%)%s+Events:RequestUpdate%("all"%)', 1) ~= nil)
+    'Events:RegisterCallback%("OWNERSHIP_UPDATED", function%(%).-Events:RequestUpdate%("all"%)', 1) ~= nil)
 assert(overlaySource:find(
-    'Events:RegisterCallback%("OWNERSHIP_UPDATED", function%(%)%s+Overlay:RefreshAll%(', 1) == nil)
+    'Events:RegisterCallback%("OWNERSHIP_UPDATED", function%(%).-Overlay:RefreshAll%(', 1) == nil)
 
 -------------------------------------------------------------------------------
 -- CatalogStore:IsDecorItem cache-first contract (HS-180 Gate 1 cycle 1 CRITICAL fix)

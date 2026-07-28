@@ -87,7 +87,12 @@ local function RefreshWidgets()
     if not isHooked or not eventsModule or not eventsModule.SendMessage then
         return
     end
-    eventsModule:SendMessage("bags/FullRefreshAll")
+    -- HS-239: one of the two external_bag_refresh call sites (Baganator.lua
+    -- is the other). Workload is "betterbags", the same literal already used
+    -- as this refresher's RegisterExternalRefresher key.
+    HA.PerformanceTrace:Measure("external_bag_refresh", "betterbags", function()
+        eventsModule:SendMessage("bags/FullRefreshAll")
+    end)
 end
 
 -------------------------------------------------------------------------------
