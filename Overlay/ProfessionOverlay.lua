@@ -336,25 +336,33 @@ RepaintVisibleRows = function(reconcileFresh)
         pcall(store.BeginBatch, store)
     end
 
-    for _, frame in ipairs(frames) do
-        local recipeInfo = ResolveFrameRecipeInfo(frame)
-        if recipeInfo then
-            -- Bounded fresh reconcile: only on window open, only for rows that
-            -- resolve to décor, and only the live probe (no per-scroll storm).
-            if reconcileFresh then
-                local itemID = M:ResolveDecorForRecipe(recipeInfo.recipeID)
-                if itemID and store and store.IsOwnedFresh then
-                    store:IsOwnedFresh(itemID)  -- writes ownership through on success
+    -- The reconcile body runs protected so an error in any row can never skip
+    -- EndBatch below — a leaked BeginBatch depth would suppress ownership
+    -- events for the rest of the session (HS-209 Argus suggestion).
+    local ok, bodyErr = pcall(function()
+        for _, frame in ipairs(frames) do
+            local recipeInfo = ResolveFrameRecipeInfo(frame)
+            if recipeInfo then
+                -- Bounded fresh reconcile: only on window open, only for rows that
+                -- resolve to décor, and only the live probe (no per-scroll storm).
+                if reconcileFresh then
+                    local itemID = M:ResolveDecorForRecipe(recipeInfo.recipeID)
+                    if itemID and store and store.IsOwnedFresh then
+                        store:IsOwnedFresh(itemID)  -- writes ownership through on success
+                    end
                 end
+                EvaluateRow(frame, recipeInfo)
+            else
+                EvaluateRow(frame, nil)  -- hide any stale badge on a non-recipe row
             end
-            EvaluateRow(frame, recipeInfo)
-        else
-            EvaluateRow(frame, nil)  -- hide any stale badge on a non-recipe row
         end
-    end
+    end)
 
     if batched then
         pcall(store.EndBatch, store)  -- fires at most one trailing OWNERSHIP_UPDATED
+    end
+    if not ok and HA.Addon then
+        HA.Addon:Debug("ProfessionOverlay reconcile error:", bodyErr)
     end
 
     M.needsRepaint = false

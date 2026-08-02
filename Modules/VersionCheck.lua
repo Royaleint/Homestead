@@ -2,11 +2,12 @@
     Homestead - VersionCheck
     HS-086: peer-broadcast out-of-date notification.
 
-    On login (and on group/raid/instance join) we send a hello over the
-    appropriate channel. Peers reply with their version + release date.
-    If we see a version newer than our own, we print a one-shot notice
-    via DEFAULT_CHAT_FRAME:AddMessage. State is Lua-only (resets on
-    /reload), so once-per-session IS the throttle.
+    On first PLAYER_ENTERING_WORLD each session (HS-217: moved off PLAYER_LOGIN,
+    which never actually fired the hello — see VersionCheck:Initialize) and on
+    group/raid/instance join, we send a hello over the appropriate channel.
+    Peers reply with their version + release date. If we see a version newer
+    than our own, we print a one-shot notice via DEFAULT_CHAT_FRAME:AddMessage.
+    State is Lua-only (resets on /reload), so once-per-session IS the throttle.
 
     Wire protocol (keep the wire locale-neutral and sortable):
         Prefix  : "HmstdVC"
@@ -44,7 +45,11 @@ local PROTOCOL         = 1
 local PROTOCOL_STR     = tostring(PROTOCOL)
 local CMD_HELLO        = "H"
 local CMD_VERSION      = "V"
-local REPLY_DELAY      = 3
+-- HS-217 (Low): a fixed 3s reply delay means every guild member's client
+-- replies at the exact same instant, a synchronized burst that scales with
+-- guild size. Randomized per-reply so replies spread out instead of piling up.
+local REPLY_DELAY_MIN  = 2
+local REPLY_DELAY_MAX  = 5
 local VERSION_RE       = "^%d+%.%d+%.%d+$"
 local DATE_RE          = "^%d%d%d%d%-%d%d%-%d%d$"
 local PREFIX_COLORED   = "|cFF00FF00<Homestead>|r"
@@ -62,10 +67,11 @@ local GROUP_CHANNELS = {
 -- State (Lua-only; resets on /reload)
 -------------------------------------------------------------------------------
 local printedThisSession = false
-local replyScheduled     = {}    -- [channel] = true while a 3s reply is pending
+local replyScheduled     = {}    -- [channel] = true while a reply is pending
 local newestSeenVersion  = nil
 local newestSeenDate     = nil   -- ISO
 local wasInGroup         = false
+local guildHelloSent     = false -- once-per-session; PLAYER_ENTERING_WORLD re-fires every loading screen
 
 -------------------------------------------------------------------------------
 -- Parsing / validation
@@ -170,7 +176,11 @@ local function OnHello(_, channel)
     if not GROUP_CHANNELS[channel] then return end
     if replyScheduled[channel] then return end
     replyScheduled[channel] = true
-    C_Timer.After(REPLY_DELAY, function()
+    -- Suppression is per-channel via replyScheduled, independent of the exact
+    -- delay value — jitter only changes WHEN the single scheduled reply fires,
+    -- not whether one gets scheduled.
+    local delay = REPLY_DELAY_MIN + math.random() * (REPLY_DELAY_MAX - REPLY_DELAY_MIN)
+    C_Timer.After(delay, function()
         replyScheduled[channel] = nil
         SendVersion(channel)
     end)
@@ -264,9 +274,17 @@ end
 -------------------------------------------------------------------------------
 
 function VersionCheck:Initialize()
+    -- HS-217: this module is initialized from core.lua's OnEnable, which is
+    -- itself dispatched off PLAYER_LOGIN (Foundry.Lifecycle's OnLogin hook)
+    -- — so registering a NEW frame for PLAYER_LOGIN here happens WHILE that
+    -- very PLAYER_LOGIN event is already being dispatched. A frame that
+    -- registers for an event during that event's own dispatch does not
+    -- retroactively receive that firing, so the guild hello has never sent
+    -- for any user (only the GROUP_ROSTER_UPDATE path worked). Moved to
+    -- PLAYER_ENTERING_WORLD, which fires afterward — and on every loading
+    -- screen thereafter, hence the guildHelloSent once-per-session flag.
     local frame = CreateFrame("Frame")
     frame:RegisterEvent("PLAYER_ENTERING_WORLD")
-    frame:RegisterEvent("PLAYER_LOGIN")
     frame:RegisterEvent("GROUP_ROSTER_UPDATE")
     frame:RegisterEvent("CHAT_MSG_ADDON")
 
@@ -279,8 +297,14 @@ function VersionCheck:Initialize()
             -- Seed roster transition state so we don't double-send on the
             -- first GROUP_ROSTER_UPDATE after a /reload mid-group.
             wasInGroup = IsInGroup() or IsInRaid()
-        elseif event == "PLAYER_LOGIN" then
-            if IsInGuild and IsInGuild() then
+
+            -- Flag set only INSIDE the guild branch (Argus cycle 1): if
+            -- IsInGuild() reads false on the first PEW (cold-login guild-info
+            -- lag), later loading screens retry instead of silently skipping
+            -- the hello for the whole session. Unguilded players just re-check
+            -- a boolean per loading screen.
+            if not guildHelloSent and IsInGuild and IsInGuild() then
+                guildHelloSent = true
                 SendHello("GUILD")
             end
         elseif event == "GROUP_ROSTER_UPDATE" then

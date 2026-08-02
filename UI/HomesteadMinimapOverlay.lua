@@ -86,6 +86,18 @@ local function GetFramePoolKey(pin)
         pin.elevation or "none")
 end
 
+-- HS-208: identity used by SetPins to diff the new pin set against the
+-- previous one. Deliberately the vendor's npcID PLUS the same pool key
+-- (style/color/opposite-faction/elevation) rather than npcID alone —
+-- isOppositeFaction/elevation can change the frame's actual visual
+-- construction (CreateMinimapPinFrame bakes them in), so a vendor whose
+-- elevation relationship changed across a zone crossing must NOT reuse its
+-- old frame; only an identity+style match is safe to carry over as-is.
+local function GetPinIdentityKey(pin)
+    local npcID = pin.vendor and pin.vendor.npcID
+    return tostring(npcID) .. "|" .. GetFramePoolKey(pin)
+end
+
 local function CleanupMinimapFrame(frame)
     frame:Hide()
     frame:ClearAllPoints()
@@ -173,6 +185,28 @@ local function IsHybridMinimapActive()
         lastHybridMinimapReason = nil
     end
     return active
+end
+
+-- HS-208: RefreshPositions used to treat ANY change in playerX/playerY as
+-- worth a full redraw, so every OnUpdate tick while moving re-ran
+-- RefreshPlacementMetrics + DrawPin for every active pin — a small but
+-- continuous per-frame cost while flying. A sub-pixel world-distance
+-- threshold (derived from the current mapRadius/minimapWidth, so it scales
+-- with zoom instead of being a fixed constant) lets genuinely-imperceptible
+-- movement skip the redraw without any visible lag or jitter: the next
+-- frame that pushes the accumulated movement past the threshold still
+-- redraws from the true, current player position (last* is only updated on
+-- an actual redraw), so nothing ever drifts.
+-- Pure and parameterized (no module upvalues) so it's directly unit-testable.
+local MOVEMENT_SKIP_PIXEL_FRACTION = 0.5
+
+local function IsMovementBelowSubPixelThreshold(dx, dy, radius, pixelSpan, pixelFraction)
+    if not radius or radius <= 0 or not pixelSpan or pixelSpan <= 0 then
+        return false
+    end
+    local worldPerPixel = radius / pixelSpan
+    local threshold = worldPerPixel * (pixelFraction or MOVEMENT_SKIP_PIXEL_FRACTION)
+    return (dx * dx + dy * dy) < (threshold * threshold)
 end
 
 local function RefreshPlacementMetrics(facing)
@@ -266,11 +300,28 @@ function Overlay:RefreshPositions(force)
 
     local zoom = _G.Minimap:GetZoom()
     local minimapScale = _G.Minimap:GetScale()
+
+    -- HS-208: a raw position change no longer forces a redraw on its own —
+    -- only one that exceeds the current sub-pixel threshold does. lastPlayerX/
+    -- lastPlayerY are nil only before the first-ever redraw (Clear() resets
+    -- them, and SetPins always forces the next call), so this never runs
+    -- without an established mapRadius/minimapWidth to derive the threshold
+    -- from — IsMovementBelowSubPixelThreshold's own radius/pixelSpan guard
+    -- covers that case defensively regardless.
+    local positionChanged = playerX ~= lastPlayerX or playerY ~= lastPlayerY
+    if positionChanged and lastPlayerX and lastPlayerY then
+        local pixelSpan = max(minimapWidth or 0, minimapHeight or 0)
+        local dx = playerX - lastPlayerX
+        local dy = playerY - lastPlayerY
+        if IsMovementBelowSubPixelThreshold(dx, dy, mapRadius, pixelSpan) then
+            positionChanged = false
+        end
+    end
+
     if force
             or zoom ~= lastZoom
             or facing ~= lastFacing
-            or playerX ~= lastPlayerX
-            or playerY ~= lastPlayerY
+            or positionChanged
             or minimapScale ~= lastMinimapScale then
         lastZoom = zoom
         lastFacing = facing
@@ -326,21 +377,68 @@ function Overlay:Clear()
     lastMinimapScale = nil
 end
 
+-- HS-208: diffs the new pin set against the previous one instead of
+-- releasing every existing frame to the pool and reacquiring the whole set.
+-- Crossing a zone boundary re-triggers a full VendorMapPins candidate-set
+-- rebuild, but a zone crossing typically leaves most of that set unchanged
+-- (parent/sibling-zone vendors aren't affected by the player's own zone
+-- changing) — releasing and reacquiring those frames anyway, every crossing,
+-- was the likelier source of the reported spikes. Frames are only
+-- released/reacquired for vendors that actually left or entered the set (or
+-- whose rendering identity changed, see GetPinIdentityKey); everything else
+-- keeps its exact frame object.
 function Overlay:SetPins(pinRecords)
-    self:Clear()
-
     if IsHybridMinimapActive() then
+        self:Clear()
         return
     end
 
-    for _, pin in ipairs(pinRecords) do
-        pin.frame = AcquireFrame(pin)
-        activePins[#activePins + 1] = pin
+    local previousPinsByKey = {}
+    for _, oldPin in ipairs(activePins) do
+        local key = GetPinIdentityKey(oldPin)
+        if not previousPinsByKey[key] then
+            previousPinsByKey[key] = oldPin
+        end
     end
+
+    local newActivePins = {}
+    local reusedOldPins = {}
+
+    for _, pin in ipairs(pinRecords) do
+        local previousPin = previousPinsByKey[GetPinIdentityKey(pin)]
+        if previousPin and not reusedOldPins[previousPin] then
+            -- Same vendor identity + same rendering identity: reuse the
+            -- frame object outright. frame.vendor/isOppositeFaction/elevation
+            -- still need refreshing — pin.vendor is a fresh projected table
+            -- every VendorData:GetVendorsInMap call, even when the npcID is
+            -- unchanged, and PinFrameFactory-driven hover/click handlers read
+            -- frame.vendor directly.
+            local frame = previousPin.frame
+            frame.vendor = pin.vendor
+            frame.isOppositeFaction = pin.isOppositeFaction
+            frame.elevation = pin.elevation
+            pin.frame = frame
+            reusedOldPins[previousPin] = true
+        else
+            pin.frame = AcquireFrame(pin)
+        end
+        newActivePins[#newActivePins + 1] = pin
+    end
+
+    -- Release only the frames that didn't survive into the new set.
+    for _, oldPin in ipairs(activePins) do
+        if not reusedOldPins[oldPin] then
+            ReleasePooledFrame(framePool, oldPin.frame)
+        end
+    end
+
+    activePins = newActivePins
 
     if #activePins > 0 then
         self:RefreshPositions(true)
         self:Start()
+    else
+        self:Stop()
     end
 end
 

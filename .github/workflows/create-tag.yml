@@ -1,0 +1,98 @@
+name: Create Release Tag
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to tag (e.g. 2.7.1 — the v prefix is added automatically)'
+        required: true
+        type: string
+      sha:
+        description: 'Commit SHA to tag (defaults to HEAD of the default branch)'
+        required: false
+        type: string
+      message:
+        description: 'Tag annotation message'
+        required: false
+        type: string
+
+jobs:
+  create-tag:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      # Required by the release-workflow dispatch step below — without it,
+      # `gh workflow run` gets 403 "Resource not accessible by integration"
+      # (first observed on the v2.7.2 run; tag creation itself succeeded).
+      actions: write
+    steps:
+      - name: Validate version format
+        run: |
+          VERSION="${{ inputs.version }}"
+          if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[a-z0-9]+)?$ ]]; then
+            echo "::error::Invalid version format: $VERSION (expected X.Y.Z or X.Y.Z-suffix)"
+            exit 1
+          fi
+
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Resolve target commit
+        id: resolve
+        run: |
+          TAG="v${{ inputs.version }}"
+          SHA="${{ inputs.sha }}"
+
+          if [ -z "$SHA" ]; then
+            SHA=$(git rev-parse HEAD)
+            echo "No SHA provided — using HEAD: $SHA"
+          fi
+
+          # Verify the SHA exists in this repo
+          if ! git cat-file -e "$SHA^{commit}" 2>/dev/null; then
+            echo "::error::Commit $SHA not found in repository"
+            exit 1
+          fi
+
+          # Verify the tag doesn't already exist
+          if git rev-parse "refs/tags/$TAG" >/dev/null 2>&1; then
+            echo "::error::Tag $TAG already exists"
+            exit 1
+          fi
+
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "sha=$SHA" >> "$GITHUB_OUTPUT"
+
+      - name: Create annotated tag
+        env:
+          TAG: ${{ steps.resolve.outputs.tag }}
+          SHA: ${{ steps.resolve.outputs.sha }}
+          MESSAGE: ${{ inputs.message }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          if [ -z "$MESSAGE" ]; then
+            MESSAGE="Homestead $TAG"
+          fi
+
+          git tag -a "$TAG" "$SHA" -m "$MESSAGE"
+          git push origin "$TAG"
+
+          echo "### Tag created" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **Tag:** \`$TAG\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **Commit:** \`$SHA\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **Message:** $MESSAGE" >> "$GITHUB_STEP_SUMMARY"
+
+      # GITHUB_TOKEN tag pushes don't trigger on:push workflows (GitHub's
+      # infinite-loop prevention). Dispatch the release workflow explicitly.
+      - name: Trigger release workflow
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ steps.resolve.outputs.tag }}
+        run: |
+          gh workflow run release.yml --ref "$TAG"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "Release workflow dispatched for \`$TAG\`." >> "$GITHUB_STEP_SUMMARY"

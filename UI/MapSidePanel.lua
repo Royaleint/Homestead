@@ -58,10 +58,21 @@ local topTileFrame = nil   -- Inner decorative top-edge tile
 local topStreaksFrame = nil -- Decorative streaks overlay
 local bgTexture = nil      -- QuestLogBackground fill (anchored below header zone)
 local isInitialized = false
+-- HS-210: debounced content-refresh scheduler shared by every event listener
+-- below that wants a deferred repaint. Mirrors Overlay/Merchant.lua's
+-- ScheduleOverlayUpdate shape, but tracks pending state with an explicit
+-- boolean instead of the C_Timer.After return value — C_Timer.After returns
+-- nothing, so assigning its result to the guard variable would leave it nil
+-- immediately and never actually debounce.
+local pendingContentRefresh = false
 local vendorRows = {}
 local itemResultRows = {}
 local expandedVendorID = nil  -- npcID of currently expanded vendor (nil = none)
 local expandedItemID = nil    -- itemID of currently expanded item result row
+
+-- HS-230: instance-map drop-source rows (sibling of vendorRows, same shape).
+local bossRows = {}
+local expandedBossKey = nil   -- journalEncounterID of currently expanded boss row (nil = none)
 local lastRefreshMapID = nil
 local isPoppedOut = false
 local panelSourceFilter = "all"  -- all|vendor|quest|achievement|profession|event|drop
@@ -242,8 +253,22 @@ local function ShowItemPreview(itemID)
         previewHooked = true
     end
 
-    -- Get catalog entry info directly from itemID
-    local info = C_HousingCatalog.GetCatalogEntryInfoByItem(itemID, true)
+    -- Get catalog entry info directly from itemID. Guarded like every other
+    -- GetCatalogEntryInfoByItem call site (HS-059: nil for some items) with
+    -- the byRecordID fallback via CatalogStore's decorID reverse index — see
+    -- CatalogStore:IsOwnedFresh's readOnly branch for the reference pattern.
+    local ok, info = pcall(C_HousingCatalog.GetCatalogEntryInfoByItem, itemID, true)
+    if not ok then info = nil end
+
+    if not info and HA.CatalogStore and HA.CatalogStore.GetDecorIDFromItemID
+            and C_HousingCatalog.GetCatalogEntryInfoByRecordID then
+        local decorID = HA.CatalogStore:GetDecorIDFromItemID(itemID)
+        if decorID then
+            local ok2, info2 = pcall(C_HousingCatalog.GetCatalogEntryInfoByRecordID, 1, decorID, true)
+            if ok2 then info = info2 end
+        end
+    end
+
     if not info then
         if HA.Addon then
             HA.Addon:Debug("No catalog info for itemID:", itemID)
@@ -258,11 +283,16 @@ end
 -- Item Helpers
 -------------------------------------------------------------------------------
 
--- Check if item is owned (same pattern as BadgeCalculation/VendorMapPins)
+-- Check if item is owned (same pattern as BadgeCalculation/VendorMapPins).
+-- HS-200: this is the no-presentation fallback for PopulateItemGrid and
+-- PopulateItemResultRow, both aggregate per-item loops (a vendor's full item
+-- grid, or a full search-result list) — must stay cache-only, matching
+-- SourceManager's "sidePanel" context, or it reintroduces a per-item API
+-- burst on the map side panel.
 local function IsItemOwned(itemID)
     if not itemID then return false end
     if HA.CatalogStore then
-        return HA.CatalogStore:IsOwnedFresh(itemID)
+        return HA.CatalogStore:IsOwned(itemID)
     end
     return false
 end
@@ -656,6 +686,247 @@ local function PopulateItemGrid(row, vendor, sourceFilter, highlightItems)
     grid:Show()
 
     return gridHeight + ITEM_ICON_PAD  -- Extra padding below grid
+end
+
+-------------------------------------------------------------------------------
+-- HS-230: Instance Drop-Source Rows
+--
+-- Sibling of the vendor row/item-grid pair above, for instance maps
+-- (C_EncounterJournal.GetEncountersOnMap(mapID) non-empty): one row per
+-- boss present on the viewed map with Homestead drop items, expandable to
+-- an item grid exactly like a vendor row's. Reuses every shared helper the
+-- vendor path uses that isn't vendor-coupled (AcquireIcon/ReleaseIcon/
+-- CreateItemIcon, BC.FormatCountText, GetPinColor, BeginPanelTooltip);
+-- forks only where vendor-specific fields (npcID, faction, portal,
+-- GetVendorItemIDs/GetPanelItemPresentation's isVendorContext=true) don't
+-- apply to a boss/drop group.
+-------------------------------------------------------------------------------
+
+-- Groups HA.DropSources rows by journalEncounterID against the given
+-- encounter array (from C_EncounterJournal.GetEncountersOnMap), in the
+-- SAME order Blizzard returned them — bosses read in canonical order, not
+-- itemID/table order. Items within a boss are sorted by itemID, matching
+-- the HS-229 pin tooltip's stability convention. No entrance-fallback pass
+-- here (unlike CollectEjDropPinRecords) — the panel only lists bosses
+-- actually present on THIS map, per the spec ("a row per boss... present
+-- on this map").
+local function GetInstanceDropGroups(encounters)
+    local drops = HA.DropSources
+    if not drops or not encounters or #encounters == 0 then
+        return {}
+    end
+
+    local recordsByEncounter = {}
+    for itemID, drop in pairs(drops) do
+        if drop.journalEncounterID then
+            local list = recordsByEncounter[drop.journalEncounterID]
+            if not list then
+                list = {}
+                recordsByEncounter[drop.journalEncounterID] = list
+            end
+            list[#list + 1] = { itemID = itemID, drop = drop }
+        end
+    end
+
+    local groups = {}
+    for _, enc in ipairs(encounters) do
+        local records = enc.encounterID and recordsByEncounter[enc.encounterID]
+        if records then
+            table.sort(records, function(a, b) return a.itemID < b.itemID end)
+            groups[#groups + 1] = {
+                encounterID = enc.encounterID,
+                records = records,
+            }
+        end
+    end
+    return groups
+end
+
+-- HS-229's own dropMapPin presentation context — same context string
+-- AddPinTooltipItemLine (VendorMapPins.lua) and BuildDropGroupStats
+-- (BadgeCalculation.lua) already use, so this is provably the same
+-- cache-backed call, not a new SourceManager surface.
+local function GetDropItemPresentation(itemID)
+    local SM = HA.SourceManager
+    if not SM or not SM.GetItemPresentation then return nil end
+    return SM:GetItemPresentation(itemID, {
+        context = "dropMapPin",
+        sourceFilter = "drop",
+        isVendorContext = false,
+    })
+end
+
+local function CreateBossRow(parent, index)
+    local row = CreateFrame("Button", nil, parent)
+    row:SetHeight(ROW_HEIGHT)
+    row:SetPoint("TOPLEFT", 0, -(index - 1) * ROW_HEIGHT)
+    row:SetPoint("TOPRIGHT", 0, -(index - 1) * ROW_HEIGHT)
+
+    local highlight = row:CreateTexture(nil, "HIGHLIGHT")
+    highlight:SetAllPoints()
+    highlight:SetColorTexture(0.3, 0.3, 0.3, 0.3)
+
+    -- Same decor-drop art as the world-map drop pin (PinFrameFactory:CreateDropPinFrame)
+    -- so the panel row and the pin read as the same feature.
+    local icon = row:CreateTexture(nil, "ARTWORK")
+    icon:SetSize(ICON_SIZE, ICON_SIZE)
+    icon:SetPoint("TOPLEFT", PADDING, -4)
+    icon:SetTexture(HA.Constants.TEXTURE_ROOT .. "HomesteadDropIcon_32")
+    row.icon = icon
+
+    local nameText = row:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    nameText:SetPoint("TOPLEFT", icon, "TOPRIGHT", 6, 0)
+    nameText:SetPoint("RIGHT", row, "RIGHT", -PADDING, 0)
+    nameText:SetJustifyH("LEFT")
+    nameText:SetWordWrap(false)
+    row.nameText = nameText
+
+    local countText = row:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    countText:SetPoint("TOPLEFT", icon, "BOTTOMRIGHT", 6, -2)
+    countText:SetPoint("RIGHT", row, "RIGHT", -PADDING, 0)
+    countText:SetJustifyH("LEFT")
+    row.countText = countText
+
+    local sep = row:CreateTexture(nil, "BACKGROUND")
+    sep:SetHeight(1)
+    sep:SetPoint("BOTTOMLEFT", 4, 0)
+    sep:SetPoint("BOTTOMRIGHT", -4, 0)
+    sep:SetColorTexture(0.3, 0.3, 0.3, 0.4)
+
+    row.dropGroup = nil
+
+    row:RegisterForClicks("AnyUp")
+
+    row:SetScript("OnClick", function(self)
+        if not self.dropGroup then return end
+        if expandedBossKey == self.dropGroup.encounterID then
+            expandedBossKey = nil
+        else
+            expandedBossKey = self.dropGroup.encounterID
+        end
+        MapSidePanel:RefreshContent()
+    end)
+
+    row:SetScript("OnEnter", function(self)
+        if not self.dropGroup then return end
+        local primaryDrop = self.dropGroup.records[1].drop
+        local tooltip = BeginPanelTooltip(self, "ANCHOR_RIGHT")
+        tooltip:AddLine((primaryDrop and primaryDrop.mobName) or "Unknown", 1, 1, 1)
+        if primaryDrop and primaryDrop.zone then
+            tooltip:AddLine(primaryDrop.zone, 0.7, 0.7, 0.7)
+        end
+        if self.total and self.total > 0 then
+            local stats = BC:GetDropGroupStats(self.dropGroup.records)
+            BC.AddSummaryLine(tooltip, stats.collected, stats.total, stats.locked, 0)
+        end
+        tooltip:AddLine(" ")
+        tooltip:AddLine("Click to show items", 0.5, 0.5, 0.5)
+        tooltip:Show()
+    end)
+
+    row:SetScript("OnLeave", function()
+        HidePanelTooltip()
+    end)
+
+    return row
+end
+
+-- Populate the item grid for a boss row. Returns total height of the grid.
+-- Same pooling/layout math as PopulateItemGrid; only the item-list source
+-- (dropGroup.records, already itemID-sorted) and the per-item lookup
+-- (GetDropItemPresentation instead of GetPanelItemPresentation's
+-- npcID/isVendorContext=true path) differ.
+local function PopulateBossItemGrid(row, dropGroup)
+    local records = dropGroup and dropGroup.records
+    if not records or #records == 0 then
+        HideItemGrid(row)
+        return 0
+    end
+
+    if not row.itemGrid then
+        row.itemGrid = CreateFrame("Frame", nil, row)
+        row.itemGrid:SetPoint("TOPLEFT", row, "TOPLEFT", ITEM_GRID_INSET, -ROW_HEIGHT)
+        row.itemGrid:SetPoint("RIGHT", row, "RIGHT", -PADDING, 0)
+        row.itemIcons = {}
+    end
+
+    local grid = row.itemGrid
+    local icons = row.itemIcons
+
+    local scrollWidth = PANEL_WIDTH - 20 - 22
+    local gridWidth = scrollWidth - ITEM_GRID_INSET - PADDING
+    local iconsPerRow = math.floor((gridWidth + ITEM_ICON_PAD) / (ITEM_ICON_SIZE + ITEM_ICON_PAD))
+    if iconsPerRow < 1 then iconsPerRow = 1 end
+
+    while #icons < #records do
+        icons[#icons + 1] = AcquireIcon(grid)
+    end
+
+    for i, itemRecord in ipairs(records) do
+        local itemID = itemRecord.itemID
+        local icon = icons[i]
+        icon.itemID = itemID
+        icon.npcID = nil
+
+        local col = (i - 1) % iconsPerRow
+        local gridRow = math.floor((i - 1) / iconsPerRow)
+        icon:ClearAllPoints()
+        icon:SetPoint("TOPLEFT", grid, "TOPLEFT",
+            col * (ITEM_ICON_SIZE + ITEM_ICON_PAD),
+            -(gridRow * (ITEM_ICON_SIZE + ITEM_ICON_PAD)))
+
+        local itemIcon = C_Item.GetItemIconByID(itemID)
+        if itemIcon then
+            icon.texture:SetTexture(itemIcon)
+        else
+            icon.texture:SetTexture("Interface\\Icons\\INV_Misc_QuestionMark")
+        end
+
+        local presentation = GetDropItemPresentation(itemID)
+        local owned = presentation and presentation.isOwned
+        if not presentation then
+            owned = IsItemOwned(itemID)
+        end
+        -- HS-200: no live SM:GetRequirements(itemID, npcID) call — a drop
+        -- item has no npcID to scope requirements to. presentation's own
+        -- availabilityState/blockerLabels (already computed by the same
+        -- cache-backed GetItemPresentation call above) carry the same
+        -- information GetUnmetRequirements derives for vendor items.
+        local unmetReqs = presentation and presentation.availabilityState == "locked"
+        icon.requirements = unmetReqs and presentation.blockerLabels or nil
+
+        icon.texture:SetDesaturated(false)
+        icon.texture:SetVertexColor(1, 1, 1)
+        icon.lock:Hide()
+        icon.check:Hide()
+        if icon.matchRing then icon.matchRing:Hide() end
+
+        if owned then
+            icon.border:SetColorTexture(0.2, 0.7, 0.2, 1)
+            icon.check:Show()
+        elseif unmetReqs then
+            icon.border:SetColorTexture(0.7, 0.15, 0.15, 1)
+            icon.texture:SetDesaturated(true)
+            icon.texture:SetVertexColor(0.6, 0.4, 0.4)
+            icon.lock:Show()
+        else
+            icon.border:SetColorTexture(0.6, 0.5, 0.2, 1)
+        end
+
+        icon:Show()
+    end
+
+    for i = #icons, #records + 1, -1 do
+        ReleaseIcon(icons[i])
+        icons[i] = nil
+    end
+
+    local numRows = math.ceil(#records / iconsPerRow)
+    local gridHeight = numRows * (ITEM_ICON_SIZE + ITEM_ICON_PAD)
+    grid:SetHeight(gridHeight)
+    grid:Show()
+
+    return gridHeight + ITEM_ICON_PAD
 end
 
 -------------------------------------------------------------------------------
@@ -2511,6 +2782,12 @@ function MapSidePanel:RefreshZoneSummaries(mapID, mapInfo)
         row:Hide()
         HideItemGrid(row)
     end
+    -- HS-230: instance drop-source rows too — same convention as vendorRows above.
+    expandedBossKey = nil
+    for _, row in ipairs(bossRows) do
+        row:Hide()
+        HideItemGrid(row)
+    end
     HideAllSummarySubRows()
 
     headerText:SetText(mapInfo.name or "")
@@ -2631,6 +2908,12 @@ function MapSidePanel:RefreshContinentSummaries(mapID, mapInfo)
     -- Hide vendor rows and item grids
     expandedVendorID = nil
     for _, row in ipairs(vendorRows) do
+        row:Hide()
+        HideItemGrid(row)
+    end
+    -- HS-230: instance drop-source rows too — same convention as vendorRows above.
+    expandedBossKey = nil
+    for _, row in ipairs(bossRows) do
         row:Hide()
         HideItemGrid(row)
     end
@@ -2789,6 +3072,15 @@ function MapSidePanel:RefreshSearchResults()
         row.searchMode = false
         row.searchMatchedItems = nil
     end
+    -- Search mode overlays the panel regardless of what was showing before
+    -- it (zone vendors OR an instance's boss rows) — bossRows need the same
+    -- hide-on-entering-search treatment vendorRows get above.
+    -- expandedBossKey is left set, same as expandedVendorID above: closing
+    -- search mode returns to whatever was expanded before.
+    for _, row in ipairs(bossRows) do
+        row:Hide()
+        HideItemGrid(row)
+    end
     HideAllItemResultRows()
     HideAllSearchHeaderRows()
 
@@ -2926,6 +3218,127 @@ function MapSidePanel:RefreshSearchResults()
 end
 
 -------------------------------------------------------------------------------
+-- HS-230: Instance Drop-Source Listing
+--
+-- Sibling of the zone-level vendor listing inside RefreshContent — same
+-- row-population/expand/collapse/empty-state/summary-line shape, built off
+-- GetInstanceDropGroups instead of GetVendorsForCurrentMap. Called once per
+-- RefreshContent pass when the viewed map is an instance with EJ encounters;
+-- never touches vendorRows.
+-------------------------------------------------------------------------------
+
+function MapSidePanel:RefreshInstanceDropSources(mapID, mapInfo, encounters)
+    currentDisplayLevel = "zone"
+
+    -- Vendor rows aren't part of this display — mirrors how the zone-level
+    -- path above hides bossRows when IT is the active display.
+    expandedVendorID = nil
+    for _, row in ipairs(vendorRows) do
+        row:Hide()
+        HideItemGrid(row)
+    end
+
+    -- Deliberate filter contract: drop groups are entirely drop-sourced by
+    -- construction, so this is an all-or-nothing gate, not a per-item
+    -- filter like the zone path's BC:GetVendorStats(vendor, sourceFilter)
+    -- — a vendor-filtered (etc.) user mapping into an instance sees an
+    -- empty state (with a filter-aware message below), never a partial
+    -- "0 matching items" boss list.
+    local normalizedFilter = NormalizePanelSourceFilter(panelSourceFilter)
+    local groups = (normalizedFilter == "all" or normalizedFilter == "drop")
+        and GetInstanceDropGroups(encounters) or {}
+    local r, g, b = HA.PinFrameFactory:GetPinColor()
+
+    while #bossRows < #groups do
+        local row = CreateBossRow(scrollChild, #bossRows + 1)
+        bossRows[#bossRows + 1] = row
+    end
+
+    local totalCollected, totalItems, totalLocked = 0, 0, 0
+    local yOffset = 0
+
+    for i, group in ipairs(groups) do
+        local row = bossRows[i]
+        local primaryDrop = group.records[1].drop
+
+        row.dropGroup = group
+
+        row.nameText:SetText((primaryDrop and primaryDrop.mobName) or "Unknown")
+        row.nameText:SetTextColor(1, 1, 1)
+
+        row.icon:SetDesaturated(true)
+        row.icon:SetVertexColor(r, g, b)
+
+        local stats = BC:GetDropGroupStats(group.records)
+        row.collected = stats.collected or 0
+        row.total = stats.total or 0
+        row.locked = stats.locked or 0
+
+        if row.total > 0 then
+            row.countText:SetText(FormatPurchasabilityCountText(row.collected, row.total, row.locked))
+            row.countText:SetTextColor(1, 1, 1)
+        else
+            row.countText:SetText("No item data")
+            row.countText:SetTextColor(0.5, 0.5, 0.5)
+        end
+
+        totalCollected = totalCollected + row.collected
+        totalItems = totalItems + row.total
+        totalLocked = totalLocked + row.locked
+
+        local isExpanded = (expandedBossKey == group.encounterID)
+        local rowHeight = ROW_HEIGHT
+        if isExpanded then
+            local gridHeight = PopulateBossItemGrid(row, group)
+            rowHeight = ROW_HEIGHT + gridHeight
+        else
+            HideItemGrid(row)
+        end
+
+        row:ClearAllPoints()
+        row:SetPoint("TOPLEFT", scrollChild, "TOPLEFT", 0, -yOffset)
+        row:SetPoint("TOPRIGHT", scrollChild, "TOPRIGHT", 0, -yOffset)
+        row:SetHeight(rowHeight)
+        row:Show()
+
+        yOffset = yOffset + rowHeight
+    end
+
+    for i = #groups + 1, #bossRows do
+        bossRows[i]:Hide()
+        HideItemGrid(bossRows[i])
+    end
+
+    scrollChild:SetHeight(math.max(1, yOffset))
+
+    if #groups == 0 then
+        -- Honest empty state: a filtered-out view names the filter as the
+        -- reason, never "no drops tracked" when drops exist but are hidden.
+        if normalizedFilter ~= "all" and normalizedFilter ~= "drop" then
+            emptyText:SetText("Drops hidden by source filter")
+        else
+            emptyText:SetText("No drops tracked for this instance")
+        end
+        emptyText:Show()
+    else
+        emptyText:Hide()
+    end
+
+    if totalItems > 0 then
+        summaryText:SetText(string.format("%d boss%s | %s items",
+            #groups, #groups == 1 and "" or "es",
+            FormatPurchasabilityCountText(totalCollected, totalItems, totalLocked)))
+    elseif #groups > 0 then
+        summaryText:SetText(string.format("%d boss%s", #groups, #groups == 1 and "" or "es"))
+    else
+        summaryText:SetText("")
+    end
+
+    UpdateBackBar()
+    UpdateProgressBar(totalCollected, totalItems, totalLocked)
+end
+
+-------------------------------------------------------------------------------
 -- Content Refresh
 -------------------------------------------------------------------------------
 
@@ -2963,6 +3376,10 @@ function MapSidePanel:RefreshContent()
             row:Hide()
             HideItemGrid(row)
         end
+        for _, row in ipairs(bossRows) do
+            row:Hide()
+            HideItemGrid(row)
+        end
         emptyText:SetText("Open the World Map to view vendors")
         emptyText:Show()
         summaryText:SetText("")
@@ -2982,10 +3399,35 @@ function MapSidePanel:RefreshContent()
     -- Update header with zone name
     headerText:SetText(mapInfo.name or "")
 
-    -- Determine map type — three-tier dispatch
+    -- Determine map type — three-tier dispatch (HS-230 adds a fourth: instance)
     local mapType = mapInfo.mapType
     local isContinentLevel = mapType and mapType == Enum.UIMapType.Continent
     local isWorldLevel = mapType and (mapType == Enum.UIMapType.World or mapType == Enum.UIMapType.Cosmic)
+
+    -- HS-230: instance maps (dungeon/raid interiors) with EJ encounters get
+    -- their own drop-source listing instead of the (always-empty, since no
+    -- Homestead vendor lives inside an instance) vendor list. Structurally
+    -- gated on mapType == Dungeon — Zone/Continent/World/Cosmic/Micro/Orphan
+    -- are all distinct Enum.UIMapType values, so this can never fire for
+    -- them regardless of what GetEncountersOnMap returns. Enum member
+    -- verified via wow-api MCP (no separate "Raid" mapType — both use
+    -- Dungeon). The GetEncountersOnMap call itself is cheap (a single C
+    -- function call returning a small array, not a live requirement/
+    -- ownership evaluation) and VendorMapPins makes its own independent
+    -- call from CollectDropPinRecords on a different refresh cadence (pin
+    -- refresh triggers differ from panel refresh triggers) — a shared
+    -- memo would add cross-module coupling for a call this cheap, so this
+    -- is deliberately its own call, not shared.
+    local isInstanceLevel = mapType == Enum.UIMapType.Dungeon
+    local instanceEncounters = nil
+    if isInstanceLevel then
+        local ok, encounters = pcall(C_EncounterJournal.GetEncountersOnMap, mapID)
+        if ok and encounters and #encounters > 0 then
+            instanceEncounters = encounters
+        else
+            isInstanceLevel = false
+        end
+    end
 
     -- Set lastRefreshMapID early so UpdateBackBar() can read it
     lastRefreshMapID = mapID
@@ -2998,12 +3440,26 @@ function MapSidePanel:RefreshContent()
         HideAllSummaryRows()
         self:RefreshZoneSummaries(mapID, mapInfo)
         return
+    elseif isInstanceLevel then
+        HideAllNonVendorContent()
+        expandedSummaryMapID = nil
+        self:RefreshInstanceDropSources(mapID, mapInfo, instanceEncounters)
+        return
     end
 
     -- Zone level: hide all non-vendor content, reset summary expansion
     HideAllNonVendorContent()
     expandedSummaryMapID = nil
     currentDisplayLevel = "zone"
+
+    -- HS-230: instance drop-source rows aren't part of the zone-level pool
+    -- (mirrors how RefreshZoneSummaries/RefreshContinentSummaries hide
+    -- vendorRows when they're not the active display).
+    expandedBossKey = nil
+    for _, row in ipairs(bossRows) do
+        row:Hide()
+        HideItemGrid(row)
+    end
 
     -- Zone level — show individual vendors
     local vendorList = GetVendorsForCurrentMap(mapID)
@@ -4043,6 +4499,21 @@ function MapSidePanel:ResetIntegrationMode()
     ResetStandaloneCheck()
 end
 
+-- HS-210: debounced scheduler for OWNERSHIP_UPDATED / VENDOR_SCANNED /
+-- ACTIVE_ENDEAVOR_CHANGED / SOURCE_CACHES_INVALIDATED. Without this, a burst
+-- of the same event (e.g. UPDATE_FACTION firing SOURCE_CACHES_INVALIDATED
+-- several times in one frame) schedules N independent 0.1s timers that each
+-- run a full RefreshContent — same defer, just N rebuilds 0.1s later instead
+-- of 0. One pending flag collapses any burst into exactly one refresh.
+local function ScheduleContentRefresh()
+    if pendingContentRefresh then return end
+    pendingContentRefresh = true
+    C_Timer.After(0.1, function()
+        pendingContentRefresh = false
+        MapSidePanel:RefreshContent()
+    end)
+end
+
 -------------------------------------------------------------------------------
 -- Initialization
 -------------------------------------------------------------------------------
@@ -4097,11 +4568,15 @@ function MapSidePanel:Initialize()
         mapWatch.overlayCount = CountVisibleOverlayButtons()
     end
 
-    C_Timer.NewTicker(0.1, function()
-        local shown     = WorldMapFrame and WorldMapFrame:IsShown() or false
-        local maximized = shown and (WorldMapFrame.isMaximized and true or false) or false
-        local mapID     = shown and WorldMapFrame:GetMapID() or nil
-
+    -- HS-223a: this used to run its own independent 10Hz ticker polling
+    -- WorldMapFrame:IsShown()/:GetMapID()/isMaximized -- the exact same raw
+    -- state HomesteadWorldMapProvider.lua's own 0.1s watcher already reads
+    -- every tick. Registered as a callback there instead of running a second
+    -- redundant 10Hz poll; trigger semantics below are unchanged, just fed
+    -- from the shared poll's (isShown, mapID, maximized) instead of a private
+    -- one. Do NOT convert this to a WorldMapFrame hook (HS-081): hooks run
+    -- inside Blizzard's secure map-open path and taint execution.
+    local function MapWatchTick(shown, mapID, maximized)
         if shown and not mapWatch.shown then
             -- Map just opened (was: WorldMapFrame OnShow hook). No C_Timer.After(0)
             -- wrapper -- the ticker already runs after the secure path; ShowPanel ->
@@ -4189,25 +4664,35 @@ function MapSidePanel:Initialize()
         mapWatch.shown     = shown
         mapWatch.maximized = maximized
         mapWatch.mapID     = mapID
-    end)
+    end
+
+    local WorldMapProvider = HA.HomesteadWorldMapProvider
+    if WorldMapProvider then
+        WorldMapProvider:RegisterMapWatchCallback("MapSidePanel", MapWatchTick)
+        -- Idempotent (no-op if VendorMapPins:Initialize already started the
+        -- ticker) -- ensures the shared watcher runs even if init order ever
+        -- changes, since MapSidePanel:Initialize() currently runs first.
+        WorldMapProvider:EnsureRegistered()
+    end
 
     -- Listen for data changes
     if HA.Events then
-        HA.Events:RegisterCallback("OWNERSHIP_UPDATED", function()
-            MapSidePanel:RefreshContent()
-        end)
+        -- Deferred like its VENDOR_SCANNED sibling below: VendorMapPins' cache wipe
+        -- on this same event is init-order dependent, so a synchronous repaint here
+        -- can race ahead of it and never repaint after the wipe lands. All four
+        -- listeners below share ScheduleContentRefresh's debounce so a burst of
+        -- any one of them (or a mix) collapses into a single RefreshContent.
+        HA.Events:RegisterCallback("OWNERSHIP_UPDATED", ScheduleContentRefresh)
 
-        HA.Events:RegisterCallback("VENDOR_SCANNED", function()
-            C_Timer.After(0.1, function()
-                MapSidePanel:RefreshContent()
-            end)
-        end)
+        HA.Events:RegisterCallback("VENDOR_SCANNED", ScheduleContentRefresh)
+
+        HA.Events:RegisterCallback("ACTIVE_ENDEAVOR_CHANGED", ScheduleContentRefresh)
 
         -- Source caches invalidated — covers achievement, quest, reputation,
-        -- profession, and holiday changes through SourceManager.
-        HA.Events:RegisterCallback("SOURCE_CACHES_INVALIDATED", function()
-            MapSidePanel:RefreshContent()
-        end)
+        -- profession, and holiday changes through SourceManager. An
+        -- UPDATE_FACTION burst can invalidate several times in one frame;
+        -- ScheduleContentRefresh's debounce collapses that into one rebuild.
+        HA.Events:RegisterCallback("SOURCE_CACHES_INVALIDATED", ScheduleContentRefresh)
     end
 
     -- Initialize SearchProvider
@@ -4215,9 +4700,12 @@ function MapSidePanel:Initialize()
         HA.SearchProvider:Initialize()
     end
 
-    -- Foundry.Menu controllers for context menus and source-filter dropdown
-    if F then
-        menuContextMenu = F.Menu:New({
+    -- Foundry.Menu controllers for context menus and source-filter dropdown.
+    -- RequireModule fails loud if a standalone Foundry without Menu is loaded
+    -- instead of the embed (matches the List/Lifecycle/DB call sites).
+    do
+        local Menu = F:RequireModule("Menu", 1)
+        menuContextMenu = Menu:New({
             name    = "HS.ContextMenu",
             builder = function(owner, rootDescription)
                 rootDescription:CreateTitle("Homestead")
@@ -4290,7 +4778,7 @@ function MapSidePanel:Initialize()
             end,
         })
 
-        menuSourceFilter = F.Menu:New({
+        menuSourceFilter = Menu:New({
             name    = "HS.SourceFilter",
             builder = function(_, rootDescription)
                 AddSourceFilterMenuEntries(rootDescription)

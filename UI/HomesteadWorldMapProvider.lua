@@ -30,6 +30,18 @@ local activeVendorFrames = {}
 local refreshPending = false
 local renderedState = nil
 local renderedMapID = nil
+-- HS-234: settle-debounce timer for map-transition-triggered refreshes
+-- (watcher_map_changed, watcher_zoom) — see RequestSettledRefresh below.
+-- Separate from refreshPending above, which stays the same-frame coalesce
+-- for watcher_opened (a single deliberate action, not a spam vector).
+local settleTimer = nil
+-- HS-223a: external consumers (currently MapSidePanel) of the shared 0.1s
+-- map watcher below, keyed by caller-chosen string so multiple registrants
+-- can't clobber each other. Each callback receives (isShown, mapID,
+-- maximized) every tick -- the raw state MapSidePanel's own watch logic
+-- needs, read from this ONE poll instead of running a second independent
+-- 0.1s ticker against the same WorldMapFrame state.
+local mapWatchCallbacks = {}
 local debugStats = {
     refreshCalls = 0,
     renderedPasses = 0,
@@ -51,6 +63,12 @@ local watcherStats = {
     resized = 0,
     zoomChanged = 0,
     deferredRefreshes = 0,
+    -- HS-234 cycle 1 SUGGESTION: settled refreshes get their own counter
+    -- rather than sharing deferredRefreshes, so Gate 2 can read how many
+    -- transition-triggered refreshes actually happened post-settle
+    -- (distinct from watcher_opened's same-frame deferredRefreshes) when
+    -- tuning WATCHER_SETTLE_DELAY.
+    settledRefreshes = 0,
 }
 local placementDebugMaps = {
     [2393] = true,
@@ -371,6 +389,21 @@ local function ApplyAreaPoiDodge(entry, x, y)
            Clamp01(y + (direction[2] * nudgePixels) / height)
 end
 
+-- Pixel offset (not a normalized map-coordinate one — see
+-- MapPinProvider.PlaceNativePin's comment for why) that keeps EJ-anchored
+-- drop pins (boss position and dungeon-entrance groups) a constant screen
+-- distance from Blizzard's own pin at the same coordinate, toward the
+-- bottom-right, at every zoom level.
+local EJ_DROP_PIN_OFFSET_PIXELS = 10
+
+local function GetEjDropPinIconOffset(entry)
+    if entry.sourceType == "drop"
+            and (entry.dropGroupKind == "enc" or entry.dropGroupKind == "ent") then
+        return EJ_DROP_PIN_OFFSET_PIXELS, -EJ_DROP_PIN_OFFSET_PIXELS
+    end
+    return nil, nil
+end
+
 local function CleanupWorldMapFrame(frame)
     frame:Hide()
     if frame.glowAnim and frame.glowAnim.Stop then
@@ -436,6 +469,51 @@ local function RequestDeferredRefresh(reason)
     end)
 end
 
+-- HS-234: settle-debounce for map-transition refreshes. Each full refresh is
+-- a teardown+rebuild (Provider:RefreshAllData -> RemoveAllData then
+-- RenderEntries for every pin kind) — rapid right-click-through-levels
+-- (World -> Continent -> Zone -> sub-zone) fires a NEW mapID/zoom-scale
+-- change on nearly every 0.1s watcher tick, and RequestDeferredRefresh's
+-- same-frame coalesce only absorbs triggers that land in the SAME tick, not
+-- across several. Each transited level was therefore paying its own full
+-- rebuild (the diagnosed "4 brief spikes"). This cancels-and-restarts a
+-- timer on every call instead, so a rebuild only actually fires once the
+-- transitions stop arriving for a full settleDelay — click-spam through 4
+-- levels builds ONCE, at the resting map. RefreshPins reads the CURRENT
+-- WorldMapFrame:GetMapID() when it fires, not whatever mapID triggered the
+-- call, so the eventual single build is always for the map the player
+-- actually stopped on, not a stale one from mid-spam.
+--
+-- 0.25s chosen over the spec's 0.15s floor: no in-game click-cadence data
+-- to justify tuning down without evidence, and this delay is invisible to
+-- the player (a background pin-render refresh, not something gating any
+-- user action) — the extra ~100ms of margin against real click cadences
+-- costs nothing perceptible for the single-deliberate-transition case,
+-- where it's still well under human-perceptible "did that lag" territory.
+-- Gate 2 can tune this down if 0.15s is shown to settle spam reliably.
+local WATCHER_SETTLE_DELAY = 0.25
+
+local function RequestSettledRefresh(reason)
+    watcherStats.settledRefreshes = watcherStats.settledRefreshes + 1
+    if IsDebugModeEnabled() and reason then
+        HA.Addon:Debug("WorldMapWatcher: " .. reason .. " (settling)")
+    end
+
+    if settleTimer then
+        settleTimer:Cancel()
+    end
+
+    settleTimer = C_Timer.NewTimer(WATCHER_SETTLE_DELAY, function()
+        settleTimer = nil
+        local VMP = HA.VendorMapPins
+        if VMP and VMP.RefreshPins then
+            VMP:RefreshPins(true)
+        elseif isRegistered and Provider and Provider.RefreshAllData then
+            Provider:RefreshAllData()
+        end
+    end)
+end
+
 local function BuildWorldPinStyleKey()
     local size = PinFrameFactory:GetPinIconSize()
     local isCustom = PinFrameFactory:IsCustomPinColor()
@@ -477,18 +555,20 @@ local function GetBadgeDisplayFactionKey(badgeData)
     return "none"
 end
 
+-- HS-222: the pool key used to bake vendorCount/uncollectedCount/
+-- oppositeFactionCount straight into the string. Those are live ownership
+-- counts, not stable pin identity — every distinct combination minted its own
+-- permanent bucket in badgeFramePool that never got reused again (the churn
+-- compounds with other addons' shared-canvas refreshes). Style and faction
+-- classification ARE stable per bucket (GetBadgeDisplayFactionKey resolves to
+-- one of a small fixed set of values, and a reused frame's dominantFaction/
+-- emblem needs are invariant for everything sharing this key) — only the raw
+-- counts are dropped. See PinFrameFactory:RefreshBadgePinVisuals for the
+-- count-driven visuals this key no longer disambiguates by pin identity.
 local function GetBadgeFramePoolKey(badgeData)
-    local vendorCount = badgeData and badgeData.vendorCount or 0
-    local uncollectedCount = badgeData and badgeData.uncollectedCount or 0
-    local oppositeCount = badgeData and badgeData.oppositeFactionCount or 0
-    local factionKey = GetBadgeDisplayFactionKey(badgeData)
-
-    return format("%s|v%d|u%d|o%d|f%s",
+    return format("%s|f%s",
         BuildWorldPinStyleKey(),
-        vendorCount,
-        uncollectedCount,
-        oppositeCount,
-        factionKey)
+        GetBadgeDisplayFactionKey(badgeData))
 end
 
 local function GetPortalFramePoolKey(portalData)
@@ -516,6 +596,9 @@ local function AcquireBadgeFrame(entry)
         return PinFrameFactory:CreateBadgePinFrame(entry.badgeData)
     end)
     frame.badgeData = entry.badgeData
+    if PinFrameFactory.RefreshBadgePinVisuals then
+        PinFrameFactory:RefreshBadgePinVisuals(frame, entry.badgeData)
+    end
     return frame
 end
 
@@ -556,6 +639,13 @@ local function AcquireSourceFrame(entry)
             return PinFrameFactory:CreateSourcePinFrame(sourceType, entry)
         end)
         frame.record = entry
+        -- HS-229: a reused frame's badge still reflects whatever record it
+        -- last showed — refresh it for the new one, same as
+        -- AcquireVendorFrame does for vendor pins. Fresh creates are already
+        -- covered inside CreateDropPinFrame itself.
+        if sourceType == "drop" and PinFrameFactory.RefreshDropPinCount then
+            PinFrameFactory:RefreshDropPinCount(frame, entry)
+        end
         return frame
     end
 
@@ -623,11 +713,24 @@ function Provider:EnsureRegistered()
 
     C_Timer.NewTicker(0.1, function()
         local isShown = WorldMapFrame and WorldMapFrame:IsShown()
+        -- HS-223a: mapID/maximized are read here (not just inside the old
+        -- "still open" branch) so they're available below for the shared
+        -- external-callback dispatch on every tick, not only Provider's own
+        -- branches.
+        local mapID = isShown and WorldMapFrame:GetMapID() or nil
+        local maximized = isShown and (WorldMapFrame.isMaximized and true or false) or false
+
         if isShown and not wasShown then
             -- Map just opened — force refresh after secure path completes
             wasShown = true
             watcherStats.opened = watcherStats.opened + 1
             lastMapID = nil
+            -- POI-dodge cache is keyed on mapID and never busts within a map,
+            -- so event POIs that appeared/disappeared while the map was closed
+            -- (Saltheril's Soiree, Abundance, ...) would keep dodging against
+            -- stale positions on re-show. Bust it on every map re-show.
+            cachedPoiMapID = nil
+            cachedPoiPositions = nil
             C_Timer.After(0, function()
                 RequestDeferredRefresh("watcher_opened")
             end)
@@ -639,10 +742,18 @@ function Provider:EnsureRegistered()
             lastCanvasWidth = nil
             lastCanvasHeight = nil
             lastCanvasEffectiveScale = nil
+            -- HS-234: a pending settle-debounce from a transition made just
+            -- before closing the map would otherwise fire uselessly ~0.25s
+            -- later against a closed map — cancel it now, same discipline
+            -- VendorMapPins:ClearAllPins already applies to its own
+            -- worldMapRefreshTimer.
+            if settleTimer then
+                settleTimer:Cancel()
+                settleTimer = nil
+            end
             self:RemoveAllData()
         elseif isShown then
             -- Map still open — check for mapID, canvas size, or zoom-scale changes
-            local mapID = WorldMapFrame:GetMapID()
             local container = WorldMapFrame:GetCanvasContainer()
             local canvas = WorldMapFrame.GetCanvas and WorldMapFrame:GetCanvas()
             local canvasWidth = container and container:GetWidth() or 0
@@ -652,7 +763,7 @@ function Provider:EnsureRegistered()
             if mapID ~= lastMapID then
                 lastMapID = mapID
                 watcherStats.mapChanged = watcherStats.mapChanged + 1
-                RequestDeferredRefresh("watcher_map_changed")
+                RequestSettledRefresh("watcher_map_changed")
             elseif (canvasWidth > 0 and canvasWidth ~= lastCanvasWidth)
                     or (canvasHeight > 0 and canvasHeight ~= lastCanvasHeight) then
                 lastCanvasWidth = canvasWidth
@@ -668,10 +779,37 @@ function Provider:EnsureRegistered()
                 watcherStats.zoomChanged = watcherStats.zoomChanged + 1
                 -- Full refresh on zoom change so POI dodge recalculates
                 -- with the new zoom factor (pins drift back at high zoom).
-                RequestDeferredRefresh("watcher_zoom")
+                RequestSettledRefresh("watcher_zoom")
+            end
+        end
+
+        -- HS-223a: feed every registered external consumer (MapSidePanel)
+        -- from this SAME poll instead of each running its own 0.1s ticker
+        -- against the same WorldMapFrame state. pcall per callback (Argus
+        -- cycle 1 WARNING) so one registrant's error can't kill every other
+        -- registrant's tick — matches Overlay:RefreshExternalOverlays'
+        -- externalRefreshers dispatch pattern (Overlay/overlay.lua).
+        for key, cb in pairs(mapWatchCallbacks) do
+            local success, err = pcall(cb, isShown, mapID, maximized)
+            if not success and HA.Addon then
+                HA.Addon:Debug("Error in map watch callback:", key, err)
             end
         end
     end)
+end
+
+-- HS-223a: register to be driven by the shared 0.1s map watcher above instead
+-- of starting a second independent ticker. Called every tick with
+-- (isShown, mapID, maximized) -- the exact raw state MapSidePanel's watch
+-- logic was reading from its own separate poll.
+function Provider:RegisterMapWatchCallback(key, callback)
+    if not key or type(callback) ~= "function" then return end
+    mapWatchCallbacks[key] = callback
+end
+
+function Provider:UnregisterMapWatchCallback(key)
+    if not key then return end
+    mapWatchCallbacks[key] = nil
 end
 
 function Provider:SetRenderState(nextRenderState)
@@ -749,7 +887,8 @@ function Provider:RenderEntries(entries, kind)
             entry.kind = kind
             local x, y = entry.x, entry.y
             x, y = ApplyAreaPoiDodge(entry, x, y)
-            local wrapper = MPP.PlaceNativePin(frame, x, y)
+            local iconOffsetX, iconOffsetY = GetEjDropPinIconOffset(entry)
+            local wrapper = MPP.PlaceNativePin(frame, x, y, iconOffsetX, iconOffsetY)
             MaybeLogPlacementProbe(entry, wrapper, kind, index)
             MaybeLogSizeProbe(frame, wrapper, kind, index)
 
@@ -785,16 +924,20 @@ function Provider:RefreshAllData()
         return
     end
 
-    self:RemoveAllData()
+    -- HS-239: workload is currentMapID, already computed above for the
+    -- mismatch check — no new scan added to feed this call.
+    HA.PerformanceTrace:Measure("world_map_refresh", currentMapID, function()
+        self:RemoveAllData()
 
-    self:RenderEntries(renderState.vendorPins or {}, "vendor")
-    self:RenderEntries(renderState.sourcePins or {}, "source")
-    self:RenderEntries(renderState.zoneBadges or {}, "badge")
-    self:RenderEntries(renderState.portalBadges or {}, "portal")
-    self:RenderEntries(renderState.continentBadges or {}, "badge")
-    renderedState = renderState
-    renderedMapID = currentMapID
-    debugStats.renderedPasses = debugStats.renderedPasses + 1
-    debugStats.lastRenderedTotal = #activeEntries
-    MaybeLogProviderPerf("render")
+        self:RenderEntries(renderState.vendorPins or {}, "vendor")
+        self:RenderEntries(renderState.sourcePins or {}, "source")
+        self:RenderEntries(renderState.zoneBadges or {}, "badge")
+        self:RenderEntries(renderState.portalBadges or {}, "portal")
+        self:RenderEntries(renderState.continentBadges or {}, "badge")
+        renderedState = renderState
+        renderedMapID = currentMapID
+        debugStats.renderedPasses = debugStats.renderedPasses + 1
+        debugStats.lastRenderedTotal = #activeEntries
+        MaybeLogProviderPerf("render")
+    end)
 end

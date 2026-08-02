@@ -21,6 +21,12 @@ local isRegistered = false
 local waitFrame = nil
 local registeredCorner = nil
 
+-- HS-204(c/d): SetHomestoneState only reads opts.* synchronously within the
+-- call (it copies values into its own per-parent-frame table and never
+-- retains this table), so one reused scratch table is safe across the many
+-- UpdateWidget calls per bag refresh instead of a fresh table per item.
+local homestoneOptionsScratch = {}
+
 -------------------------------------------------------------------------------
 -- Helpers
 -------------------------------------------------------------------------------
@@ -110,12 +116,17 @@ local function RefreshWidgets()
         return
     end
 
-    if Baganator.Constants and Baganator.Constants.RefreshReason
-            and Baganator.Constants.RefreshReason.ItemWidgets then
-        Baganator.API.RequestItemButtonsRefresh({ Baganator.Constants.RefreshReason.ItemWidgets })
-    else
-        Baganator.API.RequestItemButtonsRefresh()
-    end
+    -- HS-239: one of the two external_bag_refresh call sites (BetterBags.lua
+    -- is the other). Workload is "baganator", the same literal already used
+    -- as this refresher's RegisterExternalRefresher key.
+    HA.PerformanceTrace:Measure("external_bag_refresh", "baganator", function()
+        if Baganator.Constants and Baganator.Constants.RefreshReason
+                and Baganator.Constants.RefreshReason.ItemWidgets then
+            Baganator.API.RequestItemButtonsRefresh({ Baganator.Constants.RefreshReason.ItemWidgets })
+        else
+            Baganator.API.RequestItemButtonsRefresh()
+        end
+    end)
 end
 
 -------------------------------------------------------------------------------
@@ -194,9 +205,10 @@ local function UpdateWidget(cornerFrame, details)
     -- No anchor override: SetHomestoneState picks up the profile's iconAnchor
     -- and the OFFSET_X/Y constants, so the texture pokes outside Baganator's
     -- corner widget the same way it does on Containers/Merchant/BetterBags.
-    Overlay:SetHomestoneState(cornerFrame, status, {
-        size = iconSize,
-    })
+    -- Reuse the scratch table in place; .size is the only field this call
+    -- site ever sets, so there's nothing else that could go stale.
+    homestoneOptionsScratch.size = iconSize
+    Overlay:SetHomestoneState(cornerFrame, status, homestoneOptionsScratch)
 
     return true
 end
@@ -252,14 +264,20 @@ local function WaitForBaganator()
 
     waitFrame = CreateFrame("Frame")
     waitFrame:RegisterEvent("ADDON_LOADED")
-    waitFrame:SetScript("OnEvent", function(self, _, addonName)
-        if addonName ~= "Baganator" then
-            return
+    waitFrame:SetScript("OnEvent", function(self)
+        -- ADDON_LOADED fires once per addon and Baganator's own firing is not
+        -- a readiness guarantee — its Corner Widget API can still be
+        -- incomplete at that exact moment, and Baganator's ADDON_LOADED never
+        -- fires again to retry. Baganator's PLAYER_LOGIN/API init timing
+        -- relative to other addons isn't guaranteed either, so instead of
+        -- gating on addonName == "Baganator" (a one-shot dead end),
+        -- reattempt on every subsequent ADDON_LOADED — RegisterWidget
+        -- self-guards (returns true immediately once isRegistered) so this is
+        -- a cheap no-op after success, and stops the moment it succeeds.
+        if RegisterWidget() then
+            self:UnregisterAllEvents()
+            waitFrame = nil
         end
-
-        RegisterWidget()
-        self:UnregisterAllEvents()
-        waitFrame = nil
     end)
 end
 

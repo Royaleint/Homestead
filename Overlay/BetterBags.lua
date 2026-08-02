@@ -21,6 +21,12 @@ local eventsModule = nil
 local constantsModule = nil
 local isHooked = false
 
+-- HS-204(d): SetHomestoneState only reads opts.* synchronously within the
+-- call (it copies values into its own per-overlay table) and never retains
+-- this table afterward, so one reused scratch table is safe across the many
+-- OnItemUpdated calls per bag refresh instead of a fresh table per item.
+local homestoneOptionsScratch = {}
+
 -------------------------------------------------------------------------------
 -- Helpers
 -------------------------------------------------------------------------------
@@ -81,7 +87,12 @@ local function RefreshWidgets()
     if not isHooked or not eventsModule or not eventsModule.SendMessage then
         return
     end
-    eventsModule:SendMessage("bags/FullRefreshAll")
+    -- HS-239: one of the two external_bag_refresh call sites (Baganator.lua
+    -- is the other). Workload is "betterbags", the same literal already used
+    -- as this refresher's RegisterExternalRefresher key.
+    HA.PerformanceTrace:Measure("external_bag_refresh", "betterbags", function()
+        eventsModule:SendMessage("bags/FullRefreshAll")
+    end)
 end
 
 -------------------------------------------------------------------------------
@@ -144,10 +155,11 @@ local function OnItemUpdated(_, item, decoration)
     end
 
     local anchor = settings.iconAnchor or OVERLAY_CONFIG.DEFAULT_ANCHOR or "TOPLEFT"
-    Overlay:SetHomestoneState(decoration, status, {
-        size = settings.iconSize or OVERLAY_CONFIG.ICON_SIZE,
-        anchor = anchor,
-    })
+    -- Reuse the scratch table in place; both fields are always overwritten
+    -- below so neither can carry a stale value from a previous item.
+    homestoneOptionsScratch.size = settings.iconSize or OVERLAY_CONFIG.ICON_SIZE
+    homestoneOptionsScratch.anchor = anchor
+    Overlay:SetHomestoneState(decoration, status, homestoneOptionsScratch)
 end
 
 local function OnItemClearing(_, _, decoration)
@@ -188,11 +200,19 @@ local function Initialize()
 
     local waitFrame = CreateFrame("Frame")
     waitFrame:RegisterEvent("ADDON_LOADED")
-    waitFrame:SetScript("OnEvent", function(self, _, addonName)
-        if addonName == "BetterBags" then
-            if HookIntegration() then
-                self:UnregisterAllEvents()
-            end
+    waitFrame:SetScript("OnEvent", function(self)
+        -- HS-211: ADDON_LOADED firing for BetterBags specifically is not a
+        -- readiness guarantee — its AceAddon Events/Constants modules can
+        -- still be unregistered at that exact moment, and BetterBags's own
+        -- ADDON_LOADED never fires again to retry. Gating on
+        -- addonName == "BetterBags" was therefore a one-shot dead end if
+        -- that first attempt failed (the same class of bug already fixed in
+        -- Overlay/Baganator.lua's WaitForBaganator). Reattempt on every
+        -- subsequent ADDON_LOADED instead — HookIntegration self-guards
+        -- (isHooked), so this is a cheap no-op after success and stops the
+        -- moment it succeeds.
+        if HookIntegration() then
+            self:UnregisterAllEvents()
         end
     end)
 end

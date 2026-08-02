@@ -44,6 +44,15 @@ local EMPTY_SOURCES = {}
 local completionCache = {}
 local completionInvalidationFrame = nil
 
+-- HS-203: shared requirement met/unmet cache. Keys are requirement-identity
+-- scoped (type + id/threshold, see BuildRequirementCacheKey below) so every
+-- IsRequirementMet consumer (badge recounts, tooltips, the map side panel,
+-- vendor availability) benefits from one evaluation instead of re-running
+-- live rep/achievement/quest/profession API calls per item, per hover/expand.
+-- Wiped in InvalidateAllSourceCaches alongside completionCache — same
+-- five-trigger-class event fan-out, no new registrations.
+local requirementMetCache = {}
+
 -------------------------------------------------------------------------------
 -- Provider Registry
 -------------------------------------------------------------------------------
@@ -349,10 +358,15 @@ function SourceManager:IsSourceAvailableNow(itemID, source)
     -- Achievement sources: check whether the achievement is actually completed.
     -- Incomplete achievements mean the item isn't obtainable right now → blocked.
     -- The tooltip still shows the achievement name so the player knows the path.
+    -- HS-210: route through the HS-203 requirementMetCache (same "achievement"
+    -- cache key IsRequirementMet already uses) instead of a live
+    -- GetAchievementInfo call on every per-item availability probe.
     if sourceType == "achievement" then
-        if data.achievementID and GetAchievementInfo then
-            local _, _, _, completed = GetAchievementInfo(data.achievementID)
-            return completed == true
+        if data.achievementID then
+            local met = self:IsRequirementMet({ type = "achievement", id = data.achievementID })
+            if met ~= nil then
+                return met
+            end
         end
         return true  -- No achievementID to check → assume available
     end
@@ -362,20 +376,33 @@ function SourceManager:IsSourceAvailableNow(itemID, source)
     -- Uses C_TradeSkillUI.GetAllProfessionTradeSkillLines + GetProfessionInfoBySkillLineID
     -- to query expansion-specific skill levels (works without trade skill UI open).
     -- Secondary professions and miscellaneous recipes remain available to everyone.
+    -- HS-210: cache the per-source result in the same requirementMetCache table
+    -- (distinct "profSourceAvail:" key namespace, so it can't collide with
+    -- "professionRank:" requirement-cache keys) and share its invalidation
+    -- lifecycle (InvalidateAllSourceCaches wipes the whole table).
     if sourceType == "profession" then
+        local skillLineID = ResolveProfessionSkillLineID(data)
+        local cacheKey = skillLineID and ("profSourceAvail:" .. tostring(skillLineID)
+            .. ":" .. tostring(data.skillTier) .. ":" .. tostring(data.skillLevel))
+        if cacheKey and requirementMetCache[cacheKey] ~= nil then
+            return requirementMetCache[cacheKey]
+        end
+
+        local available = true
         local hasProf = self:PlayerHasProfession(data)
         if hasProf == false then
-            return false
-        end
-        -- Check expansion-tier skill level when we have the required data.
-        -- e.g., skillTier = "Midnight Leatherworking", skillLevel = 50
-        if hasProf == true then
+            available = false
+        elseif hasProf == true then
             local meetsLevel = self:PlayerMeetsSkillLevel(data)
             if meetsLevel == false then
-                return false
+                available = false
             end
         end
-        return true
+
+        if cacheKey then
+            requirementMetCache[cacheKey] = available
+        end
+        return available
     end
 
     -- Drop and unknown types: treat as available unless explicitly blocked.
@@ -689,10 +716,14 @@ function SourceManager:GetRequirements(itemID, npcID)
     end
 
     -- Priority 3: Faction/standing from parsed sourceText (no vendor visit needed)
-    if HA.Addon and HA.Addon.db and HA.Addon.db.global.parsedSources then
-        local parsed = HA.Addon.db.global.parsedSources[itemID]
-        if parsed and parsed.sources then
-            for _, source in ipairs(parsed.sources) do
+    -- HS-205: catalogItems is the single owner of parsed sources now
+    -- (CatalogStore:SetSources) — read record.sources directly instead of
+    -- db.global.parsedSources, which stores only a change-detection stamp.
+    -- Same data, same shape; only the storage location moved.
+    if HA.CatalogStore and HA.CatalogStore.Get then
+        local record = HA.CatalogStore:Get(itemID)
+        if record and record.sources then
+            for _, source in ipairs(record.sources) do
                 if source.faction and source.standing then
                     addReq({
                         type = "reputation",
@@ -773,9 +804,11 @@ local function GetFactionIDByName(name)
     return nil
 end
 
--- Check if a specific requirement is met by the player.
+-- Live evaluation of a single requirement — unchanged logic, renamed from
+-- the old IsRequirementMet so the cache wrapper below (HS-203) can sit in
+-- front of it without touching any of this branch logic.
 -- Returns: true (met), false (unmet), nil (cannot determine)
-function SourceManager:IsRequirementMet(req)
+function SourceManager:EvaluateRequirementMetLive(req)
     if not req or not req.type then return nil end
 
     if req.type == "reputation" then
@@ -895,6 +928,88 @@ function SourceManager:IsRequirementMet(req)
     end
 
     return nil  -- Unknown requirement type
+end
+
+-- HS-203: requirement identity for the shared met/unmet cache. Narrow by
+-- design — includes exactly the fields that participate in that req type's
+-- met/unmet decision, so two rows with different thresholds (e.g. different
+-- required renown levels for the same faction) never collide on one key.
+-- "promotion" is intentionally excluded: it already has its own day-stamped
+-- cache (promotionExpiredCache / IsPromotionExpired) with its own freshness
+-- rule, and must stay on that layer, not this one. Unknown types and
+-- requirements missing an identity field return nil (never cached).
+local function BuildRequirementCacheKey(req)
+    local reqType = req.type
+
+    if reqType == "reputation" then
+        local factionKey = req.factionID or req.faction
+        local thresholdKey = req.renownLevel or req.standing
+        if factionKey == nil or thresholdKey == nil then return nil end
+        return "reputation:" .. tostring(factionKey) .. ":" .. tostring(thresholdKey)
+    -- "level" is deliberately NOT cached (Argus HS-203 cycle 1): no registered
+    -- invalidation event fires on a pure level-up, so a cached false would
+    -- stick until an unrelated rep/quest/skill event — and UnitLevel("player")
+    -- is a trivial C call, cheaper live than the key build + lookup.
+    elseif reqType == "achievement" then
+        local achievementKey = req.id or req.name
+        if achievementKey == nil then return nil end
+        return "achievement:" .. tostring(achievementKey)
+    elseif reqType == "quest" then
+        if req.id == nil then return nil end
+        return "quest:" .. tostring(req.id)
+    elseif reqType == "professionRank" then
+        if req.profession == nil or req.rank == nil then return nil end
+        return "professionRank:" .. tostring(req.profession) .. ":" .. tostring(req.rank)
+    end
+
+    return nil
+end
+
+-- HS-238: verdict baseline for the verify-then-skip invalidation gate.
+-- Maps cacheKey → {req, met}, recording the requirement table and the verdict
+-- from the LAST live evaluation — including met == nil, which never enters
+-- requirementMetCache (a nil→determinate transition must still read as a
+-- change). Deliberately NEVER wiped by invalidation: it records what
+-- consumers last actually saw, which is exactly the baseline a trigger event
+-- must be compared against. Bounded by the number of distinct requirements
+-- ever evaluated (same population requirementMetCache reaches when warm).
+-- The stored req table is safe to re-evaluate later: the cache key encodes
+-- every field the evaluation consumes for that type (BuildRequirementCacheKey
+-- above), so two reqs sharing a key evaluate identically.
+local requirementEvalBaseline = {}
+
+-- Check if a specific requirement is met by the player.
+-- HS-203: cache-first wrapper around EvaluateRequirementMetLive. A nil
+-- ("cannot determine") result is never cached — a missing cache entry and a
+-- cached-nil are indistinguishable in Lua, so unresolved requirements simply
+-- re-evaluate next call, which is safe (just not optimized).
+-- Returns: true (met), false (unmet), nil (cannot determine)
+function SourceManager:IsRequirementMet(req)
+    if not req or not req.type then return nil end
+
+    local cacheKey = BuildRequirementCacheKey(req)
+    if cacheKey then
+        local cached = requirementMetCache[cacheKey]
+        if cached ~= nil then
+            return cached
+        end
+    end
+
+    local met = self:EvaluateRequirementMetLive(req)
+
+    if cacheKey then
+        requirementMetCache[cacheKey] = met
+        -- HS-238: refresh the verify baseline on every live evaluation.
+        local baseline = requirementEvalBaseline[cacheKey]
+        if baseline then
+            baseline.req = req
+            baseline.met = met
+        else
+            requirementEvalBaseline[cacheKey] = { req = req, met = met }
+        end
+    end
+
+    return met
 end
 
 -- Get detailed reputation progress for a requirement.
@@ -1180,12 +1295,19 @@ local function GetScannedVendorItem(itemID, npcID)
 end
 
 -- Vendor-scoped availability: classifies an item in a specific vendor context.
+-- skipOwnershipProbe: set by GetItemPresentation's aggregate/cache-only
+-- contexts (badge/sidePanel/inventory) when they've already resolved
+-- ownership as false via the cache moments earlier — skips the redundant
+-- fresh probe below rather than re-checking a result already known (HS-200:
+-- this was the second of the "1-2 probes per item" per badge recount).
+-- Standalone callers (tooltips, map pin hover, single-item panel lookups)
+-- omit the arg and keep the duplicate ownership guard, since they call this
+-- directly without a prior ownership check.
 -- Returns: state, isUnverified, hasVerifiableRequirement, blockerLabels
-function SourceManager:GetVendorItemAvailabilityState(itemID, npcID)
+function SourceManager:GetVendorItemAvailabilityState(itemID, npcID, skipOwnershipProbe)
     if not itemID then return "unknown", false, false, nil end
 
-    -- Intentional duplicate ownership guard for standalone callers such as tooltips.
-    if HA.CatalogStore and HA.CatalogStore:IsOwnedFresh(itemID) then
+    if not skipOwnershipProbe and HA.CatalogStore and HA.CatalogStore:IsOwnedFresh(itemID) then
         return "owned", false, false, nil
     end
 
@@ -1262,9 +1384,34 @@ function SourceManager:GetItemPresentation(itemID, options)
     local isVendorContext = options.isVendorContext
     local readOnlyOwnership = options.readOnlyOwnership == true or context == "catalog"
 
+    -- HS-180/HS-200: aggregate-render contexts (inventory-slot render, vendor
+    -- badge recounts, the map side-panel item grid/search results) already
+    -- know the itemID is a real, listed item — they don't need a fresh probe
+    -- to *discover* ownership, cache-only IsOwned() is correct and sufficient.
+    -- These contexts iterate every item on a vendor/bag in one pass, so a
+    -- fresh byItem/byRecordID probe here is what caused the per-item Housing
+    -- Catalog API bursts (HS-180 bags, HS-200 badge/map).
+    -- HS-203: adds "vendorMapPin" to the cache-only set, superseding HS-200's
+    -- "hover stays fresh" call for this context specifically — the new
+    -- requirement cache above removes most of the per-hover cost, cache-only
+    -- ownership removes the rest, and ownership still self-heals via the
+    -- existing OWNERSHIP_UPDATED repaint (same as every other overlay/panel
+    -- surface).
+    -- "dropMapPin" (HS-229 drop-pin tooltips and badge counters) belongs in
+    -- the same set for the same reason: a grouped entrance pin hovers up to
+    -- 9 items per pass and the badge builder walks the whole drop corpus
+    -- after a cache flush — fresh per-item probes here are the HS-200/HS-202
+    -- burst class all over again.
+    local cacheOnlyOwnership = context == "inventory" or context == "badge"
+        or context == "sidePanel" or context == "vendorMapPin"
+        or context == "dropMapPin"
     local catalogStore = HA.CatalogStore
     local isOwned = false
-    if catalogStore and catalogStore.IsOwnedFresh then
+    if cacheOnlyOwnership then
+        if catalogStore and catalogStore.IsOwned then
+            isOwned = catalogStore:IsOwned(itemID) == true
+        end
+    elseif catalogStore and catalogStore.IsOwnedFresh then
         isOwned = catalogStore:IsOwnedFresh(itemID, readOnlyOwnership) == true
     end
 
@@ -1275,11 +1422,26 @@ function SourceManager:GetItemPresentation(itemID, options)
 
     local allSources = self:GetAllSources(itemID) or EMPTY_SOURCES
     local bestSource = nil
-    for _, source in ipairs(allSources) do
-        local available = self:IsSourceAvailableNow(itemID, source)
-        if available ~= false then
-            bestSource = source
-            break
+    -- HS-210 (Argus cycle 1 correction): scoped to exactly the two contexts
+    -- verified to never read bestSource/displaySource/sourceType off the
+    -- returned presentation — badge recounts (UI/BadgeCalculation.lua, only
+    -- reads isOwned/availabilityState/blockerLabels) and vendor map-pin
+    -- tooltips (UI/VendorMapPins.lua AddPinTooltipItemLine, only reads
+    -- availabilityState). The side-panel "sidePanel" context is explicitly
+    -- EXCLUDED: PopulateItemResultRow (UI/MapSidePanel.lua) reads
+    -- presentation.displaySource/sourceBadgeAtlas, and that path is reachable
+    -- with npcID set (a vendor-scoped search result whose preferred source
+    -- doesn't match and whose primary source is unavailable falls through to
+    -- bestSource) — skipping the probe there would silently wrong the badge.
+    -- Standalone callers (tooltips, catalog) were never in scope for the skip.
+    local skipBestSourceProbe = npcID and (context == "badge" or context == "vendorMapPin")
+    if not skipBestSourceProbe then
+        for _, source in ipairs(allSources) do
+            local available = self:IsSourceAvailableNow(itemID, source)
+            if available ~= false then
+                bestSource = source
+                break
+            end
         end
     end
 
@@ -1300,8 +1462,13 @@ function SourceManager:GetItemPresentation(itemID, options)
     if isOwned then
         availabilityState = "owned"
     elseif npcID then
+        -- isOwned above is already resolved false for this itemID in EVERY
+        -- context (cache-only in aggregate contexts, IsOwnedFresh otherwise —
+        -- the same probe the guard would repeat), so the internal ownership
+        -- guard is redundant on the presentation path unconditionally. The
+        -- guard stays for standalone 2-arg callers (tooltips, fallbacks).
         availabilityState, isUnverified, hasVerifiableRequirement, blockerLabels =
-            self:GetVendorItemAvailabilityState(itemID, npcID)
+            self:GetVendorItemAvailabilityState(itemID, npcID, true)
     elseif hasPromotionRequirement then
         availabilityState = "unobtainable"
         hasVerifiableRequirement = true
@@ -1891,21 +2058,197 @@ function SourceManager:InvalidateCompletionCache()
     completionCache = {}
 end
 
+-- HS-203: wipe the requirement met/unmet cache. Separate accessor mirrors
+-- InvalidateCompletionCache's shape; called from InvalidateAllSourceCaches
+-- below, same as completionCache.
+function SourceManager:InvalidateRequirementMetCache()
+    requirementMetCache = {}
+end
+
 -- Central invalidation entrypoint for source-related caches.
 -- Future source/filter caches should be added here so callers have one API.
 -- Fires SOURCE_CACHES_INVALIDATED so UI modules can repaint without
 -- duplicating WoW event registrations.
 function SourceManager:InvalidateAllSourceCaches()
     self:InvalidateCompletionCache()
+    self:InvalidateRequirementMetCache()
     factionNameToID = nil
+
+    -- HS-210: invalidate the search index directly, before firing the broadcast
+    -- below. SearchProvider also listens to ACTIVE_HOLIDAYS_CHANGED on its own
+    -- (HA.Events registration order between modules is init-order dependent),
+    -- so a holiday flip could fire SOURCE_CACHES_INVALIDATED — and the UI
+    -- repaints it triggers — before the search index invalidated itself.
+    -- Calling it here removes the ordering dependency entirely.
+    if HA.SearchProvider and HA.SearchProvider.Invalidate then
+        HA.SearchProvider:Invalidate()
+    end
 
     if HA.Events then
         HA.Events:Fire("SOURCE_CACHES_INVALIDATED")
     end
 end
 
+-- HS-213: last-seen profession fingerprint for the SKILL_LINES_CHANGED gate
+-- below. HS-215: seeded EAGERLY at HookCompletionCacheInvalidation install
+-- time (superseding the original lazy-init design) — lazy init meant the
+-- FIRST SKILL_LINES_CHANGED after /reload always invalidated regardless of
+-- fingerprint, which is exactly the cold profession-window-open case this
+-- gate exists to suppress (Gate 2 re-test: no suppression line, slight cold
+-- freeze remained). Eager seeding still fails open automatically: if the
+-- profession API is absent at install time, BuildProfessionFingerprint
+-- returns nil, the seed is nil, and the first (and every subsequent) fire
+-- invalidates exactly as before — nothing about the fail-open behavior
+-- changed, only WHEN the baseline is captured.
+local lastProfessionFingerprint = nil
+
+-- Cheap, WINDOW-INDEPENDENT snapshot of exactly what profession requirement
+-- evaluation reads: GetProfessions() + per-profession GetProfessionInfo's
+-- skillLine (stable, locale-neutral identity — see PlayerHasProfession),
+-- skillLevel, and maxSkillLevel (what EvaluateRequirementMetLive's
+-- professionRank branch and PlayerHasProfession's skillLine match consume).
+-- Deliberately does NOT touch C_TradeSkillUI (PlayerMeetsSkillLevel's
+-- source) — those reads differ while the profession window is open vs
+-- closed, which is the same trap that makes SKILL_LINES_CHANGED noisy to
+-- begin with; including them would make the open/close transition itself
+-- look like a change and defeat the gate entirely.
+--
+-- KNOWN GAP: PlayerMeetsSkillLevel's C_TradeSkillUI-derived expansion-tier/
+-- knowledge-point progress is out of scope for this fingerprint by design
+-- (see above) — closed by HS-214 via a separate TRAIT_CONFIG_UPDATED
+-- invalidation trigger (filtered to Enum.TraitConfigType.Profession) below,
+-- not by extending this fingerprint.
+local function BuildProfessionFingerprint()
+    local getProfessions = _G and _G.GetProfessions
+    local getProfessionInfo = _G and _G.GetProfessionInfo
+    if not getProfessions or not getProfessionInfo then
+        return nil
+    end
+
+    -- HS-213 cycle 1 fix: GetProfessions() returns FIVE fixed positional
+    -- slots (primary1, primary2, archaeology, fishing, cooking) with nil for
+    -- an empty slot — archaeology is empty on virtually every character, so
+    -- packing the returns into a table and ipairs()-ing it silently dropped
+    -- fishing and cooking (ipairs stops at the first nil hole). Capture all
+    -- five positionally instead so every slot — including a nil one — is
+    -- actually visited.
+    local parts = {}
+    local prof1, prof2, archaeology, fishing, cooking = getProfessions()
+    local slots = { prof1, prof2, archaeology, fishing, cooking }
+    for i = 1, 5 do
+        local profIndex = slots[i]
+        if profIndex then
+            local _, _, skillLevel, maxSkillLevel, _, _, skillLine = getProfessionInfo(profIndex)
+            parts[#parts + 1] = tostring(skillLine) .. ":" .. tostring(skillLevel) .. ":" .. tostring(maxSkillLevel)
+        else
+            parts[#parts + 1] = "none"
+        end
+    end
+
+    return table.concat(parts, "|")
+end
+
+-- HS-238: verify-then-skip for UPDATE_FACTION. The event is a proxy for
+-- "some reputation-dependent verdict may have flipped" — but the enormous
+-- majority of fires are rep ticks that cross no threshold. Instead of
+-- treating every fire as a change, re-evaluate exactly the reputation
+-- verdicts consumers have actually seen (requirementEvalBaseline) and
+-- invalidate only when one genuinely flipped. Every re-evaluation here is a
+-- call the old unconditional wipe forced consumers to repeat anyway; the
+-- baseline is bounded by the distinct reputation requirements in the data.
+-- Nil-safe on both sides: a formerly-undeterminable verdict becoming
+-- determinate (or vice versa) counts as a change — consumers cached counts
+-- built on the old answer.
+-- Returns: changedCount, checkedCount
+local function CountChangedReputationVerdicts()
+    local changed, checked = 0, 0
+    for _, baseline in pairs(requirementEvalBaseline) do
+        local req = baseline.req
+        if req and req.type == "reputation" then
+            checked = checked + 1
+            local live = SourceManager:EvaluateRequirementMetLive(req)
+            if live ~= baseline.met then
+                changed = changed + 1
+                baseline.met = live
+            end
+        end
+    end
+    return changed, checked
+end
+
+-- HS-238: shared decision point for both UPDATE_FACTION arrival paths
+-- (direct out-of-combat fire, and the deferred combat-exit fire). Resets
+-- factionNameToID unconditionally BEFORE verifying: the map is built once
+-- from C_MajorFactions.GetMajorFactionIDs() and misses never rebuild it, so
+-- skipping the reset could strand a faction unlocked mid-session; the reset
+-- costs one lazy enumeration on next lookup. Only then compare verdicts.
+local function RunFactionVerifyThenInvalidate()
+    factionNameToID = nil
+
+    local changed, checked = CountChangedReputationVerdicts()
+    if changed == 0 then
+        if HA.Addon then
+            HA.Addon:Debug(("SourceManager: UPDATE_FACTION suppressed (0/%d reputation verdicts changed)")
+                :format(checked))
+        end
+        return
+    end
+
+    if HA.Addon then
+        HA.Addon:Debug(("SourceManager: UPDATE_FACTION invalidating (%d/%d reputation verdicts changed)")
+            :format(changed, checked))
+    end
+    SourceManager:InvalidateAllSourceCaches()
+end
+
 local function HookCompletionCacheInvalidation()
     if completionInvalidationFrame then return end
+
+    -- HS-215: seed the baseline fingerprint HERE, at install time, rather
+    -- than waiting for the first SKILL_LINES_CHANGED fire — see the
+    -- lastProfessionFingerprint comment above for why lazy init left the
+    -- cold profession-window-open case (the one this gate exists for)
+    -- unprotected. If the profession API isn't available yet, this seeds
+    -- nil, which is exactly the fail-open state the gate already handles.
+    lastProfessionFingerprint = BuildProfessionFingerprint()
+
+    -- Combat-deferral state for UPDATE_FACTION. Timewalking dungeons (and
+    -- any content with per-kill rep gains) fire UPDATE_FACTION on nearly
+    -- every mob kill. Deferring to combat exit is safe: the player can't
+    -- visit vendors, open the housing catalog, or interact with map panels
+    -- while fighting, so stale requirement-met results are invisible until
+    -- combat ends. HS-238: the deferred fire now runs the verify pass
+    -- rather than invalidating unconditionally — in rep-per-kill content
+    -- (Timewalking, delves) combat drops after nearly every pull, and an
+    -- unconditional combat-exit wipe just relocated the per-kill freeze.
+    local pendingFactionInvalidation = false
+
+    local combatDeferralFrame = CreateFrame("Frame")
+    combatDeferralFrame:RegisterEvent("PLAYER_REGEN_ENABLED")
+    combatDeferralFrame:SetScript("OnEvent", function()
+        if pendingFactionInvalidation then
+            pendingFactionInvalidation = false
+            RunFactionVerifyThenInvalidate()
+        end
+    end)
+
+    -- HS-238 (supersedes the HS-237 static-set gate): quest IDs from
+    -- QuestSources feed completionCache "quest:ID" entries via
+    -- ResolveCompletionSource, so they are always relevant. But quest IDs
+    -- can ALSO enter the caches from caller-supplied sourceData and from
+    -- CatalogStore/scanned requirements (raw SavedVariables content), so a
+    -- static set alone cannot prove a quest irrelevant. The gate below
+    -- therefore also probes the caches themselves — provenance-independent:
+    -- if a quest key was never cached anywhere, nothing stale exists and
+    -- the next read evaluates live.
+    local trackedQuestIDs = {}
+    if HA.QuestSources then
+        for _, entry in pairs(HA.QuestSources) do
+            if entry.questID then
+                trackedQuestIDs[entry.questID] = true
+            end
+        end
+    end
 
     completionInvalidationFrame = CreateFrame("Frame")
     completionInvalidationFrame:RegisterEvent("ACHIEVEMENT_EARNED")
@@ -1914,7 +2257,97 @@ local function HookCompletionCacheInvalidation()
     completionInvalidationFrame:RegisterEvent("SKILL_LINES_CHANGED")
     completionInvalidationFrame:RegisterEvent("UPDATE_FACTION")
     completionInvalidationFrame:RegisterEvent("MAJOR_FACTION_RENOWN_LEVEL_CHANGED")
-    completionInvalidationFrame:SetScript("OnEvent", function()
+    completionInvalidationFrame:RegisterEvent("TRAIT_CONFIG_UPDATED")
+    completionInvalidationFrame:SetScript("OnEvent", function(_, event, ...)
+        -- HS-213/HS-215: SKILL_LINES_CHANGED fires spuriously on profession-
+        -- window open (Gate 2 confirmed) — every other registered event
+        -- stays unconditional, only this one is fingerprint-gated.
+        if event == "SKILL_LINES_CHANGED" then
+            local fingerprint = BuildProfessionFingerprint()
+            local unchanged = lastProfessionFingerprint ~= nil and fingerprint ~= nil
+                and fingerprint == lastProfessionFingerprint
+
+            -- HS-215 discriminator: log every SKILL_LINES_CHANGED arrival
+            -- with its verdict, debug-gated. If a cold profession-window
+            -- open freezes again with NO "arrived" line at all, this event
+            -- isn't firing on that client — the gate is irrelevant to that
+            -- freeze and something else is the cause.
+            if HA.Addon then
+                HA.Addon:Debug("SourceManager: SKILL_LINES_CHANGED arrived — "
+                    .. (unchanged and "suppressed (no profession change detected)"
+                        or "invalidating (profession change detected or no prior baseline)"))
+            end
+
+            if unchanged then
+                return
+            end
+            lastProfessionFingerprint = fingerprint
+        elseif event == "TRAIT_CONFIG_UPDATED" then
+            -- HS-214: closes the knowledge-point coverage gap the
+            -- BuildProfessionFingerprint comment above documents —
+            -- TRAIT_CONFIG_UPDATED is window-independent and fires on
+            -- knowledge-point commits, but it ALSO fires for combat talent
+            -- specs, which we must NOT treat as a reason to wipe every
+            -- requirement/completion cache. Filter to
+            -- Enum.TraitConfigType.Profession (2). pcall-guarded because
+            -- GetConfigInfo's payload shape isn't guaranteed stable across
+            -- API versions; a nil/failed read means we can't confirm this
+            -- is a profession config, so we do NOT invalidate — fail closed
+            -- on the FILTER (skip), which is the safe direction here since
+            -- skipping an invalidation just defers to the next real trigger,
+            -- whereas invalidating on unconfirmed combat-talent noise is
+            -- exactly the wasted-work class HS-213 already fixed once.
+            local configID = ...
+            local CT = _G.C_Traits
+            local isProfessionConfig = false
+            if CT and CT.GetConfigInfo then
+                local ok, configInfo = pcall(CT.GetConfigInfo, configID)
+                isProfessionConfig = ok and configInfo and configInfo.type == Enum.TraitConfigType.Profession
+            end
+            if not isProfessionConfig then
+                return
+            end
+        elseif event == "UPDATE_FACTION" then
+            if _G.InCombatLockdown() then
+                pendingFactionInvalidation = true
+                return
+            end
+            -- HS-238: verify-then-skip owns the whole decision (including
+            -- the invalidation call and discriminator logging) — never fall
+            -- through to the unconditional invalidate below.
+            RunFactionVerifyThenInvalidate()
+            return
+        elseif event == "QUEST_TURNED_IN" then
+            local questID = ...
+            -- Fail open on an unexpected payload shape: invalidating is
+            -- current behavior; skipping wrongly is the only dangerous
+            -- direction. Payload verified as (questID, xpReward,
+            -- moneyReward) — stable since 6.0.2.
+            if type(questID) == "number" then
+                local questKey = "quest:" .. questID
+                local relevant = trackedQuestIDs[questID]
+                    or requirementMetCache[questKey] ~= nil
+                    or requirementEvalBaseline[questKey] ~= nil
+                    or completionCache[questKey] ~= nil
+                if not relevant then
+                    if HA.Addon then
+                        HA.Addon:Debug("SourceManager: QUEST_TURNED_IN suppressed (quest "
+                            .. questID .. " not tracked, no cached state)")
+                    end
+                    return
+                end
+                if HA.Addon then
+                    HA.Addon:Debug("SourceManager: QUEST_TURNED_IN invalidating (quest "
+                        .. questID .. " tracked or cached)")
+                end
+            elseif HA.Addon then
+                -- Keep the discriminator log complete: an invalidation from
+                -- this branch must be explainable from a debug capture.
+                HA.Addon:Debug("SourceManager: QUEST_TURNED_IN invalidating (fail-open — non-number payload "
+                    .. tostring(questID) .. ")")
+            end
+        end
+
         SourceManager:InvalidateAllSourceCaches()
     end)
 

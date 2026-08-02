@@ -38,10 +38,14 @@ local function Trim(s)
 end
 
 -- Strip WoW color codes from text, preserving |n separators and |H hyperlinks
--- |cAARRGGBB (10 chars) starts colored text, |r resets
+-- |cAARRGGBB (10 chars) starts colored text, |r resets. |cnNAMED_COLOR: is the
+-- WoW 10.x+ named-color form (Overlay/Tooltips.lua strips it from this same
+-- sourceText data — mirrored here so labels arriving in |cn form don't
+-- silently degrade to "unknown" instead of parsing).
 local function StripColorCodes(text)
     if not text then return nil end
     text = text:gsub("|c%x%x%x%x%x%x%x%x", "")
+    text = text:gsub("|cn[^:]*:", "")
     text = text:gsub("|r", "")
     return text
 end
@@ -70,9 +74,15 @@ local function ParseCostField(costText)
     if not costText then return nil end
 
     -- Check for currency hyperlink first
-    local amount, currencyID = strmatch(costText, "(%d+)%s*|Hcurrency:(%d+)|h")
+    local amount, currencyID = strmatch(costText, "(%d[%d,]*)%s*|Hcurrency:(%d+)|h")
     if currencyID then
         currencyID = tonumber(currencyID)
+        if amount then
+            -- Remove comma separators (e.g., "1,000" -> "1000") — mirrors
+            -- the gold path below exactly (comma-grouped amounts otherwise
+            -- capture only the digits after the last comma: "1,000" -> "000").
+            amount = amount:gsub(",", "")
+        end
         amount = tonumber(amount)
         if currencyID and amount then
             return {currencies = {{id = currencyID, amount = amount}}}
@@ -266,7 +276,7 @@ function SourceTextParser:ParseSourceText(sourceText, locale)
         return nil
     end
 
-    -- Strip color codes before parsing (API wraps labels in |cFFFD200...|r)
+    -- Strip color codes before parsing (API wraps labels in |cFFFFD200...|r)
     sourceText = StripColorCodes(sourceText)
 
     local profile = self:GetLocaleProfile(locale)
@@ -416,7 +426,7 @@ function SourceTextParser:RunTests()
 
     -- Test 7: Color-coded sourceText (real API format)
     do
-        local input = "|cFFFD200Vendor:|r Meridelle Lightspark|n|cFFFD200Zone:|r Dornogal|n|cFFFD200Cost:|r 200|Hcurrency:3056|h|h"
+        local input = "|cFFFFD200Vendor:|r Meridelle Lightspark|n|cFFFFD200Zone:|r Dornogal|n|cFFFFD200Cost:|r 200|Hcurrency:3056|h|h"
         local result = self:ParseSourceText(input, locale)
         check("T7 result not nil", result ~= nil, true)
         if result then
@@ -430,7 +440,7 @@ function SourceTextParser:RunTests()
 
     -- Test 8: Gold cost with texture escape (gold icon)
     do
-        local input = "|cFFFD200Vendor:|r Klasa|n|cFFFD200Zone:|r Founder's Point|n|cFFFD200Cost:|r 10|TInterface\\MoneyFrame\\UI-GoldIcon:0:0:0:0|t"
+        local input = "|cFFFFD200Vendor:|r Klasa|n|cFFFFD200Zone:|r Founder's Point|n|cFFFFD200Cost:|r 10|TInterface\\MoneyFrame\\UI-GoldIcon:0:0:0:0|t"
         local result = self:ParseSourceText(input, locale)
         check("T8 result not nil", result ~= nil, true)
         if result then

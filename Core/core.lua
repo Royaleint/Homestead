@@ -89,8 +89,17 @@ function HousingAddon:OnInitialize()
         vt.pinIconSize = 10
     end
 
-    -- Initialize minimap button
-    self:InitializeMinimapButton()
+    -- Initialize minimap button.
+    -- HS-221: HA.__collisionStandDown (set by the generated DevBuildGuard.lua,
+    -- which loads earlier in the TOC, so the flag is already readable here)
+    -- — narrow gate on just this call: a visible minimap button would
+    -- otherwise duplicate if this session's DevBuild collision copy and the
+    -- live copy both create one. Nothing else in OnInitialize is gated by
+    -- this; the OnEnable-level gate elsewhere already stands down the rest
+    -- of the chain for the collision case.
+    if not HA.__collisionStandDown then
+        self:InitializeMinimapButton()
+    end
 
     -- Register slash commands via Foundry.Commands (replaces AceConsole-3.0).
     -- F is the file-scope Foundry bind (guarded at load; see top of file).
@@ -223,6 +232,13 @@ function HousingAddon:OnInitialize()
     cmd:Register({ name = "debug geography",
         help = "Audit manual map geography entries.",
         handler = function() self:PrintManualGeographyAuditReport() end })
+    cmd:Register({ name = "debug parsertest",
+        help = "Run SourceTextParser's built-in self-test suite.",
+        handler = function()
+            if HA.SourceTextParser and HA.SourceTextParser.RunTests then
+                HA.SourceTextParser:RunTests()
+            end
+        end })
 
     self.commands = cmd
 
@@ -231,6 +247,17 @@ function HousingAddon:OnInitialize()
 end
 
 function HousingAddon:OnEnable()
+    -- HS-217: DevBuild collision poison flag (set by the generated
+    -- DevBuildGuard.lua when it detects the live 'Homestead' addon is also
+    -- enabled). DisableAddOn only takes effect on the NEXT reload, so this
+    -- session's DevBuild copy is still fully loaded and would otherwise run
+    -- its whole module-init chain in parallel with the live copy. One gate
+    -- here stands the whole chain down for the rest of THIS session instead
+    -- of scattering the check through every module Initialize().
+    if HA.__collisionStandDown then
+        return
+    end
+
     -- Guard: the login hook must not run the enable chain unless the addon-loaded
     -- hook (OnInitialize) completed. If OnInitialize errored, or the two lifecycle
     -- hooks were ever mis-ordered, self.db and module state are absent and the
@@ -277,6 +304,16 @@ function HousingAddon:OnEnable()
     -- Initialize SourceManager after source tables/scanners are available
     if HA.SourceManager and HA.SourceManager.Initialize then
         HA.SourceManager:Initialize()
+    end
+
+    -- HS-209 H1: Overlay:Initialize() had zero call sites — its
+    -- Events:RegisterCallback("bags"/"merchant"/"all"/"OWNERSHIP_UPDATED")
+    -- wiring never ran. Wired here, after CatalogStore/SourceManager (which
+    -- its callbacks call into once fired) and before the more UI-specific
+    -- modules below. Overlay:Initialize() guards its own double-registration
+    -- (see Overlay/overlay.lua) if this chain is ever re-entered.
+    if HA.Overlay and HA.Overlay.Initialize then
+        HA.Overlay:Initialize()
     end
 
     -- Initialize Waypoints utility
@@ -908,7 +945,18 @@ end
 
 function HousingAddon:RefreshAllOverlays()
     if HA.Overlay then
-        HA.Overlay:RefreshAll()
+        -- HS-239: this direct RefreshAll fires on every loading screen via
+        -- PLAYER_ENTERING_WORLD -- a sibling entry into the same repaint the
+        -- Events "all" callback measures. Wrapped so an armed trace can't
+        -- miss a plot zone-in repaint and still render the affirmative
+        -- "nothing was slow" line (Gate 1 warning).
+        if HA.PerformanceTrace then
+            HA.PerformanceTrace:Measure("bag_refresh", "entering-world", function()
+                HA.Overlay:RefreshAll()
+            end)
+        else
+            HA.Overlay:RefreshAll()
+        end
     end
 end
 
@@ -1010,13 +1058,11 @@ function HousingAddon:GetDecorInfo(itemLink)
     return setmetatable(info, DecorInfoCompatMT)
 end
 
--- Get all decor from a vendor
-function HousingAddon:GetVendorDecor(npcID)
-    if HA.VendorTracer then
-        return HA.VendorTracer:GetVendorDecor(npcID)
-    end
-    return nil
-end
+-- HS-218: HousingAddon:GetVendorDecor removed — it delegated to
+-- HA.VendorTracer:GetVendorDecor, a method that doesn't exist anywhere in
+-- VendorTracer.lua (would have errored if ever called). Zero callers of
+-- this wrapper anywhere in the codebase; removing beats implementing the
+-- dead API it pointed at.
 
 -- Navigate to a vendor
 function HousingAddon:NavigateToVendor(npcID)

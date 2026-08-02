@@ -339,14 +339,14 @@ function CatalogScanner:ScanFullCatalog(callback)
 
             HA.Addon:Debug("Catalog scan complete. Checked:", checkedCount, "Owned:", ownedCount)
 
-            -- Fire event so other modules know ownership data is updated
-            if HA.Events and HA.Events.TriggerEvent then
-				HA.Events:Fire("OWNERSHIP_UPDATED")
-			elseif HA.Events and HA.Events.FireEvent then
-				HA.Events:FireEvent("OWNERSHIP_UPDATED")
-			elseif HA.Events and HA.Events.Fire then
-				HA.Events:Fire("OWNERSHIP_UPDATED")
-			end
+            -- HS-209 M3: removed an unconditional OWNERSHIP_UPDATED fire that
+            -- lived here — it checked HA.Events.TriggerEvent/.FireEvent (methods
+            -- that don't exist on Events), so both `if`/`elseif` conditions were
+            -- always false and it always fell through to the final branch,
+            -- firing on every scan regardless of whether anything actually
+            -- changed, and double-firing on real changes since EndBatch above
+            -- already fires OWNERSHIP_UPDATED conditionally on
+            -- batchOwnershipChanged. EndBatch is the sole owner of this fire.
 
             if callback then
                 callback(ownedCount, checkedCount)
@@ -436,10 +436,16 @@ local function SetupEventScanning()
             -- Check if a Blizzard housing UI addon loaded
             if loadedAddon and loadedAddon:match("^Blizzard_Housing") then
                 HA.Addon:Debug("Housing addon loaded:", loadedAddon)
-                -- One-time startup scan — direct call, not debounced
-                C_Timer.After(1, function()
-                    CatalogScanner:ScanFullCatalog()
-                end)
+                -- HS-220: routed through RequestScan() instead of a direct,
+                -- separately-timed ScanFullCatalog() call. RequestScan's own
+                -- 1.0s debounce (below) already provides the same "let the
+                -- housing UI settle" delay the old outer C_Timer.After(1,...)
+                -- existed for, so this isn't losing that settle time — it's
+                -- just not ALSO stacking a redundant second delay on top of
+                -- it. This also means a HOUSING_STORAGE_UPDATED arriving
+                -- around the same moment coalesces into the SAME debounced
+                -- scan instead of two separate ones.
+                RequestScan()
             end
         else
             -- HOUSING_STORAGE_UPDATED is the signal that storage/ownership data
@@ -464,6 +470,14 @@ end
 -- Initialization
 -------------------------------------------------------------------------------
 
+-- Whether storage/ownership data has loaded for this session (see the
+-- dataLoaded warm-gate above). Exposed so other modules can gate their own
+-- session-only negative-caching decisions on the same single source of
+-- truth CatalogScanner already tracks, instead of re-deriving warmness.
+function CatalogScanner:IsWarm()
+    return dataLoaded
+end
+
 function CatalogScanner:Initialize()
     if isInitialized then return end
 
@@ -473,6 +487,32 @@ function CatalogScanner:Initialize()
     -- Do an initial scan after a delay
     C_Timer.After(3, function()
         if C_HousingCatalog and C_HousingCatalog.GetCatalogEntryInfoByItem then
+            -- HS-216: don't scan cold. Before HOUSING_STORAGE_UPDATED latches
+            -- dataLoaded (see IsWarm above), every item's count fields read
+            -- stale-0 — the warm-gate on SetUnowned correctly stops that from
+            -- erasing ownership, but the scan itself still burns ~1,600
+            -- Housing API calls in the login window for zero learned data
+            -- (observed live: "Checked: 1624 Owned: 0"). The existing
+            -- HOUSING_STORAGE_UPDATED handler below already calls
+            -- RequestScan() unconditionally the moment it latches warm, and
+            -- RequestScan debounces into CatalogScanner:ScanFullCatalog() —
+            -- a FULL scan, not incremental — so skipping here loses no
+            -- coverage; the real scan still happens once data is warm.
+            --
+            -- Zero-decor accounts (HS-180's known limitation: dataLoaded
+            -- never latches without at least one owned decor item to
+            -- corroborate GetDecorTotalOwnedCount() > 0) now run NO initial
+            -- scan instead of a cold, useless one. This degrades identically
+            -- from the player's perspective: the ownership cache starts and
+            -- stays empty either way (nothing was ever going to be found),
+            -- and every other scan trigger — vendor visits, the
+            -- ADDON_LOADED Blizzard_Housing one-shot below, manual /commands
+            -- — is untouched and still fires normally.
+            if not CatalogScanner:IsWarm() then
+                HA.Addon:Debug("Initial catalog scan skipped — not warm yet; "
+                    .. "HOUSING_STORAGE_UPDATED will trigger the real scan once data loads")
+                return
+            end
             HA.Addon:Debug("Attempting initial catalog scan...")
             CatalogScanner:ScanFullCatalog()
         end

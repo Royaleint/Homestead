@@ -16,6 +16,11 @@ local pairs = pairs
 -------------------------------------------------------------------------------
 
 -- Minimum time between updates for each update type (seconds)
+-- MAINTAINER WARNING: these keys (plus "all") define the closed update-type
+-- namespace — RegisterCallback classifies names against this set to route
+-- between throttled updates and immediate Fire events (see UPDATE_TYPES
+-- below). Never name a Fire event after a key here; adding a key here
+-- reclassifies any existing Fire registration of that name.
 local UPDATE_THROTTLE = {
     bags = 0.2,
     bank = 0.2,
@@ -39,8 +44,31 @@ local pendingUpdates = {}
 -- Is an update currently scheduled?
 local updateScheduled = false
 
--- Registered callbacks for update types
+-- HS-209 (item 6): update types and Fire event names used to share one
+-- updateCallbacks table with two different calling conventions —
+-- ExecuteUpdate invokes callback() (no args), Fire invokes
+-- callback(unpack(args)). Nothing collides today, but nothing PREVENTED it
+-- either: a same-named update type and event would have silently shared one
+-- callback list dispatched by whichever mechanism fired first. RegisterCallback
+-- can't know a caller's intent from the name alone at registration time, but
+-- the update-type namespace IS a fixed, closed set (UPDATE_THROTTLE's keys
+-- plus "all", the broadcast-all-throttled-updates type used by
+-- Overlay/overlay.lua) — every other name is, by construction, a Fire event
+-- name. That's a deterministic, zero-ambiguity classification rule, so
+-- RegisterCallback stays the single public entry point and routes to the
+-- correct table by that rule; ExecuteUpdate only ever reads updateCallbacks,
+-- Fire only ever reads eventCallbacks. A same-named collision is now
+-- structurally impossible instead of merely unobserved.
+local UPDATE_TYPES = {}
+for updateType in pairs(UPDATE_THROTTLE) do
+    UPDATE_TYPES[updateType] = true
+end
+UPDATE_TYPES.all = true
+
+-- Registered callbacks for update types (throttled dispatch, ExecuteUpdate)
 local updateCallbacks = {}
+-- Registered callbacks for custom event names (immediate dispatch, Fire)
+local eventCallbacks = {}
 
 -------------------------------------------------------------------------------
 -- Throttled Update System
@@ -63,13 +91,37 @@ function Events:RequestUpdate(updateType)
 end
 
 -- Process all pending updates
+--
+-- HS-209 M6: a callback invoked from ExecuteUpdate below can itself call
+-- RequestUpdate, which inserts a NEW key into pendingUpdates — doing that
+-- while a `pairs(pendingUpdates)` traversal over the SAME table is still in
+-- flight is undefined behavior in Lua 5.1 (the manual: "the behavior of next
+-- is undefined if... you assign any value to a non-existent field"). Snapshot
+-- the keys pending as of the start of this pass, then iterate the snapshot;
+-- anything requested mid-dispatch lands in pendingUpdates for the NEXT pass
+-- (RequestUpdate's own "schedule if not already scheduled" logic, unchanged,
+-- already guarantees a pass will run to pick it up).
 function Events:ProcessPendingUpdates()
     updateScheduled = false
 
     local currentTime = GetTime()
 
+    local snapshot = {}
+    local snapshotCount = 0
     for updateType, isPending in pairs(pendingUpdates) do
         if isPending then
+            snapshotCount = snapshotCount + 1
+            snapshot[snapshotCount] = updateType
+        end
+    end
+
+    for i = 1, snapshotCount do
+        local updateType = snapshot[i]
+        -- Re-check: still pending as of THIS iteration (always true in
+        -- practice — nothing in this loop can clear another snapshot
+        -- entry's flag — but this keeps the loop body honest about what it
+        -- depends on rather than assuming it).
+        if pendingUpdates[updateType] then
             local throttle = UPDATE_THROTTLE[updateType] or UPDATE_THROTTLE.default
             local lastTime = lastUpdateTime[updateType] or 0
 
@@ -109,22 +161,32 @@ end
 -- Callback Registration
 -------------------------------------------------------------------------------
 
--- Register a callback for an update type
-function Events:RegisterCallback(updateType, callbackFunc)
-    if not updateCallbacks[updateType] then
-        updateCallbacks[updateType] = {}
+-- Register a callback for an update type OR a custom event name — single
+-- public entry point, see the UPDATE_TYPES note above for how storage splits.
+function Events:RegisterCallback(name, callbackFunc)
+    local target = UPDATE_TYPES[name] and updateCallbacks or eventCallbacks
+    if not target[name] then
+        target[name] = {}
     end
-    table.insert(updateCallbacks[updateType], callbackFunc)
+    table.insert(target[name], callbackFunc)
 end
 
--- Unregister all callbacks for an update type
-function Events:UnregisterCallbacks(updateType)
-    updateCallbacks[updateType] = nil
+-- Unregister all callbacks for an update type or event name.
+function Events:UnregisterCallbacks(name)
+    updateCallbacks[name] = nil
+    eventCallbacks[name] = nil
 end
 
 -- Fire an event immediately (bypass throttling for custom events)
 function Events:Fire(eventName, ...)
-    local callbacks = updateCallbacks[eventName]
+    -- Fail loud on the one mistake the closed-set classification permits:
+    -- Firing an update-type name is a no-op (its callbacks live in the
+    -- throttled table) and would otherwise be silent.
+    if UPDATE_TYPES[eventName] and HA.Addon then
+        HA.Addon:Debug("Events:Fire called with update-type name", eventName,
+            "- use RequestUpdate; this Fire is a no-op")
+    end
+    local callbacks = eventCallbacks[eventName]
     if callbacks then
         local args = {...}
         for _, callback in pairs(callbacks) do
@@ -139,36 +201,23 @@ function Events:Fire(eventName, ...)
 end
 
 -------------------------------------------------------------------------------
--- Busy/Loading Detection
--- Prevent updates during loading screens
--------------------------------------------------------------------------------
-
-local isLoading = false
-
-function Events:SetLoading(loading)
-    isLoading = loading
-end
-
-function Events:IsLoading()
-    return isLoading
-end
-
--- Run a function only if not loading
-function Events:RunIfNotBusy(func)
-    if isLoading then
-        -- Schedule for later
-        C_Timer.After(0.5, function()
-            Events:RunIfNotBusy(func)
-        end)
-    else
-        func()
-    end
-end
-
--------------------------------------------------------------------------------
 -- Smart Event Registration
--- Wraps standard event registration with loading awareness
 -------------------------------------------------------------------------------
+--
+-- HS-209 (item 5): this module used to also carry a loading-screen busy gate
+-- (SetLoading/IsLoading/RunIfNotBusy, a LOADING_SCREEN_ENABLED/DISABLED frame
+-- in an Events:Initialize(), self-invoked at file scope) with zero callers —
+-- RunIfNotBusy was never called anywhere, and the LOADING_SCREEN_DISABLED
+-- handler's "process pending updates after loading" was a no-op flush (the
+-- normal RequestUpdate/ProcessPendingUpdates path already runs regardless of
+-- loading state; nothing in this file ever checked isLoading except
+-- RunIfNotBusy and this FireSmartEvent guard below). Deleted rather than
+-- wired in: half-built loading-gate state is worse than none — if load-screen
+-- gating is needed later it should be designed against a real caller, not
+-- resurrected from this dead scaffold. FireSmartEvent's isLoading check is
+-- removed for the same reason (the flag it read no longer exists).
+-- RegisterSmartEvent/FireSmartEvent themselves also have zero current
+-- callers — separate item, left alone (not part of this batch's ask).
 
 local smartEventHandlers = {}
 
@@ -178,8 +227,6 @@ function Events:RegisterSmartEvent(eventName, handler)
 end
 
 function Events:FireSmartEvent(eventName, ...)
-    if isLoading then return end
-
     local handlers = smartEventHandlers[eventName]
     if handlers then
         for _, handler in pairs(handlers) do
@@ -190,27 +237,3 @@ function Events:FireSmartEvent(eventName, ...)
         end
     end
 end
-
--------------------------------------------------------------------------------
--- Initialize
--------------------------------------------------------------------------------
-
-function Events:Initialize()
-    -- Register for loading screen events
-    local frame = CreateFrame("Frame")
-    frame:RegisterEvent("LOADING_SCREEN_ENABLED")
-    frame:RegisterEvent("LOADING_SCREEN_DISABLED")
-    frame:SetScript("OnEvent", function(_, event)
-        if event == "LOADING_SCREEN_ENABLED" then
-            Events:SetLoading(true)
-        elseif event == "LOADING_SCREEN_DISABLED" then
-            Events:SetLoading(false)
-            -- Process any pending updates after loading
-            C_Timer.After(0.5, function()
-                Events:ProcessPendingUpdates()
-            end)
-        end
-    end)
-end
-
-Events:Initialize()

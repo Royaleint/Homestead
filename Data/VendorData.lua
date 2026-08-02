@@ -1145,20 +1145,63 @@ function VendorData:GetVendorWithItems(npcID)
     return self:GetVendor(npcID)
 end
 
+-- HS-204(b): BuildOfferIndexes only needs "does this npcID sell this itemID
+-- at all" for the reverse index — it never needed GetOffers()'s full
+-- ManualOverrides > GeneratedBase > StagedAdditions precedence merge (which
+-- source's offer record wins is irrelevant to itemID membership). The old
+-- version ran that full merge per npcID, then discarded everything but the
+-- itemID keys. It also built a "npcID:itemID" string per item to check
+-- against Tombstones, which currently holds exactly 2 pair-specific entries
+-- (HS-176, HS-182) — so building ~2,000 strings to check a 2-entry table was
+-- pure waste. This still reads the raw tables directly and still applies
+-- both tombstone forms (bare itemID and "npcID:itemID"), so tombstoned
+-- pairs are excluded exactly as before; only npcIDs that actually carry a
+-- pair-specific tombstone pay for the string build.
 function VendorData:BuildOfferIndexes()
     self.OfferByItemID = {}
     if not HA.VendorOffers then return end
+
+    local tombstones = HA.VendorOffers.Tombstones or {}
+
+    local pairTombstoneNPCs = {}
+    for key in pairs(tombstones) do
+        -- Tombstones keys are either a bare itemID (number) or a
+        -- "npcID:itemID" pair-specific string; only strings can match here.
+        local npcIDText = type(key) == "string" and key:match("^(%d+):%d+$")
+        if npcIDText then
+            pairTombstoneNPCs[tonumber(npcIDText)] = true
+        end
+    end
 
     local seenNPCs = {}
     local function addNPC(npcID)
         if seenNPCs[npcID] then return end
         seenNPCs[npcID] = true
-        local offers = self:GetOffers(npcID)
-        if not offers then return end
-        for itemID in pairs(offers) do
-            self.OfferByItemID[itemID] = self.OfferByItemID[itemID] or {}
-            table.insert(self.OfferByItemID[itemID], npcID)
+
+        local itemsSeenForNPC = {}
+        local checkPairTombstone = pairTombstoneNPCs[npcID]
+
+        local function addFromSource(offers)
+            if not offers then return end
+            for itemID in pairs(offers) do
+                if not itemsSeenForNPC[itemID] and not tombstones[itemID] then
+                    -- Truthiness, not == true: a future tombstone written as
+                    -- ["npc:item"] = "reason" must suppress here exactly as it
+                    -- does in GetOffers, or the pair resurrects in this index.
+                    local suppressed = checkPairTombstone
+                        and tombstones[tostring(npcID) .. ":" .. tostring(itemID)]
+                    if not suppressed then
+                        itemsSeenForNPC[itemID] = true
+                        self.OfferByItemID[itemID] = self.OfferByItemID[itemID] or {}
+                        table.insert(self.OfferByItemID[itemID], npcID)
+                    end
+                end
+            end
         end
+
+        addFromSource(HA.VendorOffers.GeneratedBase and HA.VendorOffers.GeneratedBase[npcID])
+        addFromSource(HA.VendorOffers.ManualOverrides and HA.VendorOffers.ManualOverrides[npcID])
+        addFromSource(HA.VendorOffers.StagedAdditions and HA.VendorOffers.StagedAdditions[npcID])
     end
 
     for npcID in pairs(HA.VendorOffers.GeneratedBase or {}) do addNPC(npcID) end

@@ -167,43 +167,53 @@ local function IsLikelyItemButton(frame)
     return false
 end
 
-local function CollectContainerButtons(containerFrame)
-    local buttons = {}
-    local seen = {}
+-- HS-204(e): hoisted to file scope + a reused result table (CatalogOverlay's
+-- ProcessChildren pattern) instead of allocating a fresh {buttons, seen} pair
+-- plus two closures every call. HookContainerFrame (the only caller) reads
+-- the result synchronously within the same call and never retains it, so
+-- reuse is safe; wipe() at the top of each call keeps a previous container's
+-- buttons from leaking into the next.
+local collectedButtons = {}
+local seenButtons = {}
 
-    local function AddButton(button)
-        if not button or seen[button] then
-            return
-        end
-        seen[button] = true
-        table.insert(buttons, button)
+local function AddCollectedButton(button)
+    if not button or seenButtons[button] then
+        return
     end
+    seenButtons[button] = true
+    table.insert(collectedButtons, button)
+end
+
+-- Fallback: traverse children to support frame variants where Items is absent
+local function ProcessContainerChildren(depth, ...)
+    if depth > 4 then return end
+    for i = 1, select("#", ...) do
+        local child = select(i, ...)
+        if IsLikelyItemButton(child) then
+            AddCollectedButton(child)
+        end
+        ProcessContainerChildren(depth + 1, child:GetChildren())
+    end
+end
+
+local function CollectContainerButtons(containerFrame)
+    wipe(collectedButtons)
+    wipe(seenButtons)
 
     local items = containerFrame and containerFrame.Items
     if type(items) == "table" then
         for _, button in pairs(items) do
             if IsLikelyItemButton(button) then
-                AddButton(button)
+                AddCollectedButton(button)
             end
         end
     end
 
-    -- Fallback: traverse children to support frame variants where Items is absent
-    local function ProcessContainerChildren(depth, ...)
-        if depth > 4 then return end
-        for i = 1, select("#", ...) do
-            local child = select(i, ...)
-            if IsLikelyItemButton(child) then
-                AddButton(child)
-            end
-            ProcessContainerChildren(depth + 1, child:GetChildren())
-        end
-    end
     if containerFrame then
         ProcessContainerChildren(1, containerFrame:GetChildren())
     end
 
-    return buttons
+    return collectedButtons
 end
 
 local function UpdateContainerButton(button)
@@ -353,7 +363,10 @@ end
 -------------------------------------------------------------------------------
 
 local function Initialize()
-    -- Register callbacks
+    -- Register callbacks. Ownership rule (HS-209): this module OWNS the "bags"
+    -- update type — requested from core.lua's OnBagUpdate (BAG_UPDATE_DELAYED)
+    -- and consumed here. Overlay/overlay.lua deliberately registers no "bags"
+    -- callback; cross-surface repaints arrive via "all"/OWNERSHIP_UPDATED.
     Events:RegisterCallback("bags", OnBagUpdate)
 
     -- Hook Blizzard functions

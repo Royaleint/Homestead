@@ -35,10 +35,34 @@ local ci = nil              -- shorthand for db.global.catalogItems (set on Init
 local decorToItemID = {}    -- reverse index: decorID → itemID
 local itemIDToDecor = {}    -- forward index: itemID → decorID (for byRecordID fallback probes)
 local ownedCount = 0        -- cached count of owned items (incremented in SetOwned)
-local batchMode = false     -- true during catalog scan batches
+-- HS-209 H3: nesting depth for BeginBatch/EndBatch, not a boolean. Two
+-- independent callers can hold a batch open at once (CatalogScanner's scan
+-- and ProfessionOverlay's reconcile pass, Overlay/ProfessionOverlay.lua:334-357)
+-- — a plain boolean let the inner EndBatch prematurely clear batchMode and
+-- fire the outer batch's suppressed events early. Suppression is active
+-- whenever batchDepth > 0; the transition fire + flag-clear happens only
+-- when depth returns to zero (outermost EndBatch).
+local batchDepth = 0
 local batchOwnershipChanged = false
 local batchDataChanged = false
 local negativeGeneration = 0  -- bumped on SetOwned/ClearAll to bust negative cache
+
+-- HS-180: session-only "confirmed not decor" cache for CatalogStore:IsDecorItem.
+-- Positive results never need this (a positive is trustworthy at any time);
+-- this only holds itemIDs a live, warm probe has confirmed are NOT decor, so
+-- repeat overlay refreshes for the same non-decor bag/bank slot skip the API
+-- call. Never persisted, and busted on any negativeGeneration bump (see
+-- IsDecorItem) so a snapshot verdict can't outlive the catalog scan that
+-- would revise it.
+local identityNegativeCache = {}
+local identityNegativeCacheGen = -1
+
+-- HS-180: session-only positive-identity memo for the same probe. Covers the
+-- rare decor item that is in the live catalog but absent from both ci and the
+-- static DecorMapping index (new-patch item before the mapping regenerates) —
+-- without this it would re-probe the API on every refresh. A positive identity
+-- is trustworthy at any temperature and never revoked, so no generation bust.
+local identityPositiveCache = {}
 
 -------------------------------------------------------------------------------
 -- Internal: Table Merge (no events, no side effects beyond storage)
@@ -100,7 +124,7 @@ function CatalogStore:SetOwned(itemID, name, decorID)
 
     -- Fire event (or defer in batch mode)
     if not wasOwned then
-        if batchMode then
+        if batchDepth > 0 then
             batchOwnershipChanged = true
         elseif HA.Events then
             HA.Events:Fire("OWNERSHIP_UPDATED")
@@ -118,7 +142,7 @@ end
 --   2. Data: clear isOwned/firstSeen/lastSeen in catalogItems; keep name/decorID
 --   3. Counter: decrement ownedCount only if catalogItems had isOwned=true
 --   4. Cache: bump negativeGeneration on effective ownership change
---   5. Event: fire OWNERSHIP_UPDATED on transition only; respect batchMode
+--   5. Event: fire OWNERSHIP_UPDATED on transition only; respect batch depth
 function CatalogStore:SetUnowned(itemID)
     if not itemID then return end
 
@@ -146,7 +170,7 @@ function CatalogStore:SetUnowned(itemID)
 
     -- 5. Event on effective ownership transition
     if wasOwnedInCatalog then
-        if batchMode then
+        if batchDepth > 0 then
             batchOwnershipChanged = true
         elseif HA.Events then
             HA.Events:Fire("OWNERSHIP_UPDATED")
@@ -154,17 +178,26 @@ function CatalogStore:SetUnowned(itemID)
     end
 end
 
--- Store parsed source data for an item
-function CatalogStore:SetSources(itemID, sources, hash)
+-- Store parsed source data for an item. HS-205: catalogItems is the single
+-- owner of parsed-source data (ITEM_SNAPSHOT_CONTRACT.md Open Question #1,
+-- resolved: "persist in catalogItems"). db.global.parsedSources now stores
+-- ONLY the sourceHash/lastParsed stamp SourceTextScanner's change-detection
+-- needs — the full `sources` payload used to be written to BOTH tables on
+-- every parse, roughly doubling the bytes for source data.
+-- rawSourceText is optional and dev-only (Homestead_Dev's /hsdev exportsources
+-- diagnostic) — SourceTextScanner passes it only when HA.DevAddon is loaded,
+-- so it never affects a normal player's SavedVariables size.
+function CatalogStore:SetSources(itemID, sources, hash, rawSourceText)
     if not ci or not itemID then return end
 
     _save(itemID, {
         sources = sources,
         sourceHash = hash,
         lastParsed = time(),
+        rawSourceText = rawSourceText,
     })
 
-    if batchMode then
+    if batchDepth > 0 then
         batchDataChanged = true
     elseif HA.Events then
         HA.Events:Fire("CATALOG_ITEM_UPDATED")
@@ -179,7 +212,7 @@ function CatalogStore:SetRequirements(itemID, requirements)
         requirements = requirements,
     })
 
-    if batchMode then
+    if batchDepth > 0 then
         batchDataChanged = true
     elseif HA.Events then
         HA.Events:Fire("CATALOG_ITEM_UPDATED")
@@ -192,7 +225,7 @@ function CatalogStore:Save(itemID, fields)
 
     _save(itemID, fields)
 
-    if batchMode then
+    if batchDepth > 0 then
         batchDataChanged = true
     elseif HA.Events then
         HA.Events:Fire("CATALOG_ITEM_UPDATED")
@@ -203,14 +236,39 @@ end
 -- Batch Mode (suppress per-item events during catalog scan)
 -------------------------------------------------------------------------------
 
+-- HS-209 H3: reentrant. Two independent callers can hold a batch open at
+-- once (CatalogScanner's scan, ProfessionOverlay's reconcile pass) — only
+-- the OUTERMOST BeginBatch resets the accumulated-change flags, so a nested
+-- Begin can never clobber an outer batch's already-accumulated
+-- batchOwnershipChanged/batchDataChanged.
 function CatalogStore:BeginBatch()
-    batchMode = true
-    batchOwnershipChanged = false
-    batchDataChanged = false
+    batchDepth = batchDepth + 1
+    if batchDepth == 1 then
+        batchOwnershipChanged = false
+        batchDataChanged = false
+    end
 end
 
+-- HS-209 H3: reentrant counterpart to BeginBatch. Only the outermost
+-- EndBatch (the one that brings batchDepth back to 0) fires the transition
+-- events and clears the flags — an inner EndBatch just decrements and
+-- returns, leaving the outer batch's suppression and accumulated flags
+-- intact. An EndBatch with no matching BeginBatch (depth already 0) is a
+-- caller bug: floor at 0 and warn instead of going negative, which would
+-- require an extra BeginBatch just to return to a suppressing state.
 function CatalogStore:EndBatch()
-    batchMode = false
+    if batchDepth <= 0 then
+        if HA.Addon then
+            HA.Addon:Debug("CatalogStore: EndBatch called with no matching BeginBatch (underflow)")
+        end
+        batchDepth = 0
+        return
+    end
+
+    batchDepth = batchDepth - 1
+    if batchDepth > 0 then
+        return
+    end
 
     if HA.Events then
         if batchOwnershipChanged then
@@ -244,13 +302,77 @@ function CatalogStore:ComputeOwnedFromInfo(info)
 end
 
 -- Check if an item is a housing decor item.
--- Safe runtime probe used by overlays and compatibility APIs.
+-- Cache-first, four gates before any API call:
+--   1. ci[itemID] — this store is canonical per-item state for decor items
+--      only (see module header), so an existing record is already a positive
+--      identification.
+--   2. itemIDToDecor[itemID] — the static DecorMapping index (seeded at
+--      Initialize, ~1710 known decor itemIDs) is a second positive gate; it
+--      also covers the HS-059 byItem-gap items that GetCatalogEntryInfoByItem
+--      can return nil for even when owned.
+--   3. identityPositiveCache[itemID] — session-only positive memo for decor
+--      items found only by live probe (see declaration).
+--   4. identityNegativeCache[itemID] — a session-only "confirmed not decor"
+--      verdict from a prior warm probe (see below).
+-- HS-180: overlay refresh paths (bags/merchant) call this per-slot, per-tick;
+-- non-decor bag/bank items (the majority of a bag) used to miss all caching
+-- and re-fire the API every refresh. Only itemIDs unresolved by any of the
+-- four gates reach the live API probe.
 function CatalogStore:IsDecorItem(itemLink)
     if not itemLink then return false end
+
+    local itemID = C_Item and C_Item.GetItemInfoInstant and C_Item.GetItemInfoInstant(itemLink)
+    if not itemID then
+        if C_HousingCatalog and C_HousingCatalog.GetCatalogEntryInfoByItem then
+            local success, info = pcall(C_HousingCatalog.GetCatalogEntryInfoByItem, itemLink, false)
+            return success and info ~= nil
+        end
+        return false
+    end
+
+    if ci and ci[itemID] then
+        return true
+    end
+
+    if itemIDToDecor[itemID] then
+        return true
+    end
+
+    if identityPositiveCache[itemID] then
+        return true
+    end
+
+    -- A "not decor" verdict is a snapshot, not a permanent fact — bust it on
+    -- any ownership generation change so it gets revalidated as the catalog
+    -- scan progresses, rather than potentially outliving a scan that would
+    -- have reclassified the item.
+    if negativeGeneration ~= identityNegativeCacheGen then
+        wipe(identityNegativeCache)
+        identityNegativeCacheGen = negativeGeneration
+    end
+
+    if identityNegativeCache[itemID] then
+        return false
+    end
+
     if C_HousingCatalog and C_HousingCatalog.GetCatalogEntryInfoByItem then
         local success, info = pcall(C_HousingCatalog.GetCatalogEntryInfoByItem, itemLink, false)
-        return success and info ~= nil
+        if success and info ~= nil then
+            identityPositiveCache[itemID] = true
+            return true
+        end
+
+        -- Negative-caching hazard (HS-060): a nil/cold API result is not
+        -- authoritative on its own — GetCatalogEntryInfoByItem returns nil
+        -- both for genuinely non-decor items AND for cold/unloaded catalog
+        -- data. Only memoize the negative verdict once the catalog is warm
+        -- (CatalogScanner's dataLoaded latch); never off a cold/nil probe.
+        if HA.CatalogScanner and HA.CatalogScanner.IsWarm and HA.CatalogScanner:IsWarm() then
+            identityNegativeCache[itemID] = true
+        end
+        return false
     end
+
     return false
 end
 
@@ -583,10 +705,113 @@ local function Migration_3_to_4(db)
     end
 end
 
+-- Migration 4→5: parsedSources → catalogItems single ownership (HS-205)
+-- Moves the full parsed-source payload (sources/lastParsed/sourceHash, plus
+-- recordID→decorID where still missing, same mapping Migration_1_to_2 already
+-- performs) out of db.global.parsedSources and into catalogItems, then
+-- rewrites parsedSources to the stamp-only shape (sourceHash + lastParsed)
+-- SourceTextScanner's change-detection needs. See CatalogStore:SetSources'
+-- comment and ITEM_SNAPSHOT_CONTRACT.md Open Question #1 for the design
+-- authority (resolved: catalogItems persists parsed source data).
+--
+-- Newer-wins when both sides have data and disagree: verified the CURRENT
+-- write path (SourceTextScanner:ProcessScannedItem) writes both tables
+-- atomically in one call, so real divergence is only possible from
+-- pre-dual-write history — comparing lastParsed timestamps picks the
+-- objectively newer payload rather than assuming a fixed write order.
+--
+-- Idempotent (M10a rule — every migration must survive a re-run untouched):
+-- an entry already rewritten to the stamp-only shape has no .sources field,
+-- so the migrate-in branch below is skipped entirely and the stamp is
+-- rewritten to itself (a no-op value-wise).
+local function Migration_4_to_5(db)
+    local global = db.global
+    local parsedSources = global.parsedSources
+    if parsedSources then
+        for itemID, data in pairs(parsedSources) do
+            -- Idempotence guard: an already-migrated (stamp-only) entry has
+            -- no .sources field — nothing left to move for this item.
+            if data.sources then
+                local record = ci[itemID]
+                local recordHasSources = record and record.sources ~= nil
+
+                local takeParsed = not recordHasSources
+                if recordHasSources and record.sourceHash ~= data.sourceHash then
+                    takeParsed = (data.lastParsed or 0) > (record.lastParsed or 0)
+                end
+
+                if takeParsed then
+                    if not record then
+                        ci[itemID] = {}
+                        record = ci[itemID]
+                    end
+                    record.sources = data.sources
+                    record.sourceHash = data.sourceHash
+                    record.lastParsed = data.lastParsed
+                end
+
+                -- Preserve dev raw sourceText regardless of which side won
+                -- (Argus HS-205 cycle 1): the common dual-write-era state is
+                -- EQUAL hashes, where takeParsed is false — copying raw only
+                -- inside that branch destroyed the whole dev raw corpus in the
+                -- common case while the stamp rewrite below deletes data.raw.
+                -- Idempotence holds: the second run has no data.raw to copy.
+                if data.raw and record and record.rawSourceText == nil then
+                    record.rawSourceText = data.raw
+                end
+
+                -- Map parsedSources recordID to decorID (mirrors Migration_1_to_2;
+                -- harmless to repeat for a record that still lacks one). Route
+                -- through _save so the reverse index updates structurally.
+                if data.recordID and not (ci[itemID] and ci[itemID].decorID) then
+                    _save(itemID, { decorID = data.recordID })
+                end
+            end
+
+            -- Rewrite to the stamp-only shape. Must mirror whichever payload
+            -- actually ended up authoritative in catalogItems (ci[itemID]),
+            -- NOT parsedSources' own original values unconditionally — when
+            -- catalogItems won (it was newer), stamping with parsedSources'
+            -- stale hash would make a future live reparse compare the fresh
+            -- sourceText hash against a hash that was never authoritative,
+            -- triggering a spurious reparse.
+            local finalRecord = ci[itemID]
+            parsedSources[itemID] = {
+                sourceHash = finalRecord and finalRecord.sourceHash or data.sourceHash,
+                lastParsed = finalRecord and finalRecord.lastParsed or data.lastParsed,
+            }
+        end
+    end
+
+    global.schemaVersion = 5
+
+    if HA.Addon then
+        HA.Addon:Debug("CatalogStore: Migration 4→5 complete")
+    end
+end
+
 function CatalogStore:RunMigrations()
     if not HA.Addon or not HA.Addon.db then return end
     local db = HA.Addon.db
-    local version = db.global.schemaVersion or 1
+
+    -- HS-209 M10a: schemaVersion has no type guarantee — a hand-edited WTF or
+    -- a downgrade artifact can leave it as a non-number, and `version < 2`
+    -- below would throw uncaught ("attempt to compare number with <type>"),
+    -- aborting RunMigrations and, with it, the whole OnEnable chain silently.
+    -- Coerce and repair rather than trust the stored value; every migration
+    -- here is idempotent (each guards its own already-applied state), so
+    -- falling back to 1 and re-running is safe even if the corrupt value
+    -- meant "already migrated."
+    local storedVersion = db.global.schemaVersion
+    local version = tonumber(storedVersion)
+    if not version then
+        version = 1
+        if HA.Addon then
+            HA.Addon:Debug("CatalogStore: schemaVersion was not a number ("
+                .. tostring(storedVersion) .. ") — repairing to 1 and re-running migrations")
+        end
+        db.global.schemaVersion = version
+    end
 
     if version < 2 then
         Migration_1_to_2(db)
@@ -598,6 +823,10 @@ function CatalogStore:RunMigrations()
 
     if version < 4 then
         Migration_3_to_4(db)
+    end
+
+    if version < 5 then
+        Migration_4_to_5(db)
     end
 end
 

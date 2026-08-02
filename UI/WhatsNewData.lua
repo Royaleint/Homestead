@@ -7,6 +7,31 @@
 local _, HA = ...
 
 HA.WhatsNew = {
+    ["2.7.0"] = {
+        title = "Homestead - What's New in v2.7.0!",
+        heroTexture = HA.Constants.TEXTURE_ROOT .. "WhatsNewDecorDrops",
+        heroHeight = 280,
+        features = {
+            {
+                -- HS-232: our own drop-pin art (same icon the world-map drop
+                -- pin uses — PinFrameFactory:CreateDropPinFrame) instead of a
+                -- generic skull icon, so the card and the feature it's
+                -- describing visually match. TEXTURE_ROOT keeps this safe
+                -- across the CurseForge/DevBuild folder-name split.
+                icon = HA.Constants.TEXTURE_ROOT .. "HomesteadDropIcon_32",
+                heading = "Find Decor Drops on the Map",
+                body = "Decor that drops from dungeon and raid bosses now shows on your map: right on the boss inside the instance, and at the dungeon entrance on the zone map. Pins show your collected count, and the side panel lists every boss and its drops when you're viewing an instance map.",
+            },
+            {
+                -- Atlas existence confirmed in-game via C_Texture.GetAtlasInfo
+                -- (2026-07-22) — art-data atlases can't be verified from
+                -- source greps.
+                atlas = "worldquest-icon-engineering",
+                heading = "Major Performance Work",
+                body = "Fixed freezes when opening the world map after a reload, hovering item tooltips, looting with full bags, and flying across zones. The map, bags, and tooltips should all feel smoother.",
+            },
+        },
+    },
     ["2.6.0"] = {
         title = "Homestead - What's New in v2.6.0!",
         features = {
@@ -73,8 +98,6 @@ HA.WhatsNew = {
         },
     },
     ["2.3.0"] = {
-        heroTexture = HA.Constants.TEXTURE_ROOT .. "WhatsNew_v230",
-        heroHeight = 250,
         title = "Homestead - What's New in v2.3!",
         features = {
             {

@@ -583,7 +583,12 @@ local function RefreshActiveTheme(reason)
         loggedRawTitle = true
     end
 
-    if IsDebugEnabled() then
+    -- HS-216: log the "active theme" line only when the resolved theme
+    -- actually CHANGED (same `changed` this function already computes to
+    -- decide whether to fire ACTIVE_ENDEAVOR_CHANGED) — unsolicited
+    -- NEIGHBORHOOD_INITIATIVE_UPDATED fires (every consume, no theme change)
+    -- were logging this line every time.
+    if changed and IsDebugEnabled() then
         if activeThemeKnown then
             HA.Addon:Debug("EndeavorsData: active theme:", activeTheme, "(" .. tostring(reason) .. ")")
         else
@@ -723,6 +728,17 @@ function EndeavorsData:Initialize()
     eventFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
     eventFrame:RegisterEvent("NEIGHBORHOOD_INITIATIVE_UPDATED")
     eventFrame:SetScript("OnEvent", function(_, event)
+        -- HS-215: NEIGHBORHOOD_INITIATIVE_UPDATED is the RESPONSE to
+        -- RequestNeighborhoodInitiativeInfo — calling RequestInitiativeInfo
+        -- again here was requesting a new response inside the handler for
+        -- the previous one, an infinite server-paced request loop (confirmed
+        -- live). This event only needs to CONSUME the data that just
+        -- arrived; it never requests.
+        if event == "NEIGHBORHOOD_INITIATIVE_UPDATED" then
+            RefreshActiveTheme(event)
+            return
+        end
+
         RequestInitiativeInfo(event)
         RefreshActiveTheme(event)
 

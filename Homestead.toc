@@ -9,9 +9,8 @@
 ## X-Website: https://github.com/Royaleint/Homestead
 ## X-License: GPL-3.0
 ## X-Wago-ID: aNDMQ86o
-## OptionalDependencies: WagoAnalytics
 ## X-Curse-Project-ID: 1450714
-## OptionalDeps: Foundry-1.0
+## OptionalDeps: WagoAnalytics, Foundry-1.0, Foundry-1.0_DevBuild
 
 # Libraries
 embeds.xml
@@ -30,6 +29,7 @@ Locale\ruRU.lua
 
 # Core
 Core\constants.lua
+Core\PerformanceTrace.lua
 Core\core.lua
 Core\events.lua
 

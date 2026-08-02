@@ -180,12 +180,9 @@ local function CheckArrival()
     local dy = playerPos.y - currentWaypoint.y
     local distance = math.sqrt(dx*dx + dy*dy)
 
-    local threshold = defaults.arrivalDistance
-    if HA.Addon and HA.Addon.db and HA.Addon.db.profile.arrivalDistance then
-        threshold = HA.Addon.db.profile.arrivalDistance
-    end
-
-    return distance <= threshold
+    -- defaults.arrivalDistance is the only source: the profile key was never
+    -- written by anything (HS-218 deleted its dead UpdateConfig mirror too).
+    return distance <= defaults.arrivalDistance
 end
 
 local function StartArrivalCheck()
@@ -218,6 +215,51 @@ StopArrivalCheck = function()
     if arrivalCheckTimer then
         arrivalCheckTimer:Cancel()
         arrivalCheckTimer = nil
+    end
+end
+
+-------------------------------------------------------------------------------
+-- External Waypoint Change Detection
+-------------------------------------------------------------------------------
+
+-- HS-218: this module never observed external waypoint changes — if the
+-- player (or another addon) sets, moves, or clears the native waypoint, we'd
+-- keep believing we still own it, and could later call Clear() on arrival
+-- and wipe out whatever the player is now using the pin for.
+local function IsNativeWaypointOurs()
+    if not currentWaypoint then return true end  -- nothing of ours to compare against
+
+    local point = _G.C_Map and _G.C_Map.GetUserWaypoint and _G.C_Map.GetUserWaypoint()
+    if not point or not point.position then
+        return false  -- no native waypoint at all right now; ours is gone
+    end
+    if point.uiMapID ~= currentWaypoint.mapID then
+        return false
+    end
+
+    local dx = point.position.x - currentWaypoint.x
+    local dy = point.position.y - currentWaypoint.y
+    -- Tight tolerance: coordinates round-trip through the native waypoint
+    -- API in the same 0-1 units we set them in, so any real difference here
+    -- is a different point, not float noise.
+    return (dx * dx + dy * dy) <= 0.0001 * 0.0001
+end
+
+local function OnUserWaypointUpdated()
+    if not currentWaypoint then return end
+    if IsNativeWaypointOurs() then return end
+
+    -- The native waypoint no longer matches what we set — drop OUR claim
+    -- only (internal bookkeeping + stop the arrival ticker). Never call
+    -- ClearNativeWaypoint/RemoveTomTomWaypoint here: that would erase
+    -- whatever the player (or another addon) just set, and
+    -- ClearNativeWaypoint also toggles off C_SuperTrack, which would cancel
+    -- the player's own super-tracked waypoint/quest.
+    currentWaypoint = nil
+    StopArrivalCheck()
+
+    if HA.Addon then
+        HA.Addon:Debug("Waypoints: native waypoint changed externally — releasing our claim")
     end
 end
 
@@ -283,6 +325,20 @@ function Waypoints:Set(mapID, x, y, options)
             title = options.title,
             data = options.data,
         }
+
+        -- Self-normalize against the native API's round-trip (Argus, HS-218):
+        -- SetUserWaypoint may quantize coordinates, and USER_WAYPOINT_UPDATED
+        -- fires for our own set — comparing our RAW values against the
+        -- quantized readback could mismatch and silently drop our claim
+        -- milliseconds after every Set. Store what the API actually holds so
+        -- IsNativeWaypointOurs compares like with like; the tolerance then
+        -- only ever absorbs float noise. (Events dispatch after the current
+        -- execution finishes, so this store always lands before the handler.)
+        local livePoint = _G.C_Map and _G.C_Map.GetUserWaypoint and _G.C_Map.GetUserWaypoint()
+        if livePoint and livePoint.position and livePoint.uiMapID == mapID then
+            currentWaypoint.x = livePoint.position.x
+            currentWaypoint.y = livePoint.position.y
+        end
 
         -- Start arrival checking if enabled
         if defaults.autoRemoveOnArrival then
@@ -424,15 +480,10 @@ function Waypoints:UpdateConfig()
         end
     end
 
-    if profile.announceWaypoint ~= nil then
-        defaults.announceWaypoint = profile.announceWaypoint
-    end
-    if profile.autoRemoveOnArrival ~= nil then
-        defaults.autoRemoveOnArrival = profile.autoRemoveOnArrival
-    end
-    if profile.arrivalDistance ~= nil then
-        defaults.arrivalDistance = profile.arrivalDistance
-    end
+    -- HS-218: announceWaypoint/autoRemoveOnArrival/arrivalDistance used to
+    -- read profile.* keys that nothing in the codebase ever writes (no
+    -- options UI, no other caller) — hard-coded to defaults.* in practice.
+    -- Removed rather than wired to new options (not asked for here).
 end
 -------------------------------------------------------------------------------
 -- Initialization
@@ -440,6 +491,12 @@ end
 
 function Waypoints:Initialize()
     self:UpdateConfig()
+
+    -- HS-218: observe external native-waypoint changes (see
+    -- OnUserWaypointUpdated above).
+    local watcherFrame = CreateFrame("Frame")
+    watcherFrame:RegisterEvent("USER_WAYPOINT_UPDATED")
+    watcherFrame:SetScript("OnEvent", OnUserWaypointUpdated)
 
     if HA.Addon then
         HA.Addon:Debug("Waypoints utility initialized")

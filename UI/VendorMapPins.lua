@@ -69,6 +69,49 @@ local function GetActiveSourceFilter()
     return "all"
 end
 
+-------------------------------------------------------------------------------
+-- HS-231: Map Filter Toggles
+--
+-- Per-source PIN visibility, exposed as a "Homestead" section in Blizzard's
+-- world map filter dropdown (Menu.ModifyMenu("MENU_WORLD_MAP_TRACKING", ...),
+-- registered once from Initialize()). Deliberately independent of
+-- MapSidePanel's panelSourceFilter — that filter governs the side panel's own
+-- item/count lists and is untouched by this feature; these toggles govern
+-- which PINS render on the world map and minimap. Persisted in
+-- db.profile.mapFilters[sourceKey] = false (absent or true = shown), matching
+-- Core/constants.lua's Defaults.profile.mapFilters declaration. Declared here
+-- (ahead of RefreshMinimapPins/CollectSourcePins, both of which gate on
+-- IsMapFilterSourceEnabled) since Lua locals must exist before first use.
+-------------------------------------------------------------------------------
+
+local MAP_FILTER_SOURCE_LABELS = {
+    vendor = "Vendor Pins",
+    drop   = "Drop Pins",
+}
+
+-- Sane fallback for a future source type that hasn't earned a display-name
+-- entry above yet: capitalize the registry key ("quest" -> "Quest Pins").
+local function GetMapFilterSourceLabel(sourceKey)
+    return MAP_FILTER_SOURCE_LABELS[sourceKey]
+        or (sourceKey:sub(1, 1):upper() .. sourceKey:sub(2) .. " Pins")
+end
+
+local function IsMapFilterSourceEnabled(sourceKey)
+    local mapFilters = HA.Addon and HA.Addon.db and HA.Addon.db.profile.mapFilters
+    if not mapFilters then return true end
+    return mapFilters[sourceKey] ~= false
+end
+
+local function SetMapFilterSourceEnabled(sourceKey, enabled)
+    local mapFilters = HA.Addon and HA.Addon.db and HA.Addon.db.profile.mapFilters
+    if not mapFilters then return end
+    if enabled then
+        mapFilters[sourceKey] = nil  -- absent = shown; never store the default explicitly
+    else
+        mapFilters[sourceKey] = false
+    end
+end
+
 -- Minimap pins enabled state
 local minimapPinsEnabled = true
 
@@ -321,8 +364,14 @@ local function IsActivePinTooltipVisible()
     return pinTooltip:GetOwner() == activeTooltipData.pin
 end
 
-itemInfoEventFrame:SetScript("OnEvent", function(self, event, itemID, success)
-    if not success or not activeTooltipData then return end
+-- HS-235: shared debounced rebuild, factored out of the GET_ITEM_INFO_RECEIVED
+-- handler below so a second arrival signal (Item:ContinueOnItemLoad's own
+-- callback, see RequestItemDataForTooltip) can drive the exact same render
+-- path through the exact same tooltipRebuildPending debounce, instead of
+-- duplicating this logic or assuming GET_ITEM_INFO_RECEIVED also fires for
+-- the modern Item-Mixin load path (unverified — see RequestItemDataForTooltip).
+local function RebuildActivePinTooltip()
+    if not activeTooltipData then return end
     if not tooltipRebuildPending then
         tooltipRebuildPending = true
         C_Timer.After(0.05, function()
@@ -339,7 +388,51 @@ itemInfoEventFrame:SetScript("OnEvent", function(self, event, itemID, success)
             end
         end)
     end
+end
+
+itemInfoEventFrame:SetScript("OnEvent", function(self, event, itemID, success)
+    if not success or not activeTooltipData then return end
+    RebuildActivePinTooltip()
 end)
+
+-- HS-235: item 264500 class — C_Item.DoesItemExistByID true, but the server
+-- never volunteers the data, so GetItemInfo stays nil forever and
+-- GET_ITEM_INFO_RECEIVED never arrives to drive a rebuild; the tooltip line
+-- was stuck on "Unknown Item" across hovers AND sessions. HS-190 precedent
+-- (Overlay/Tooltips.lua's cold-cache re-render on OnTooltipSetItem) is the
+-- idiom reused here verbatim: Item:CreateFromItemID(itemID):ContinueOnItemLoad
+-- rather than a manual C_Item.RequestLoadItemDataByID + GET_ITEM_INFO_RECEIVED
+-- wait — ContinueOnItemLoad both requests the load AND calls back on arrival
+-- (or immediately if already cached), and is the modern API surface Blizzard
+-- uses for this exact class of problem throughout its own UI (Mount Journal,
+-- Encounter Journal, Professions, EventToastManager, etc. — confirmed via
+-- Blizzard UI source search, all following the identical shape).
+--
+-- The rebuild is driven directly from ContinueOnItemLoad's own callback
+-- (through RebuildActivePinTooltip, the SAME debounce GET_ITEM_INFO_RECEIVED
+-- already uses) rather than assumed to also arrive via GET_ITEM_INFO_RECEIVED
+-- — GET_ITEM_INFO_RECEIVED and ITEM_DATA_LOAD_RESULT are distinct events, and
+-- the already-shipped HS-190 precedent in Tooltips.lua does the same thing
+-- (never waits on GET_ITEM_INFO_RECEIVED for its own cold-cache path). This
+-- means no new event registration was needed to close this gap.
+--
+-- Session-scoped guard: requestedItemDataIDs prevents re-requesting on every
+-- hover of an item that's already been asked for once. A server-withheld
+-- item (264500's class) may NEVER arrive — ContinueOnItemLoad's callback
+-- then simply never fires. That's not a leak: nothing is polling or holding
+-- a ticker open waiting for it, the closure just sits inert as part of
+-- Blizzard's own item-load callback registry until the item (if ever) loads,
+-- and the tooltip correctly keeps showing the honest "Unknown Item" fallback
+-- in the meantime.
+local requestedItemDataIDs = {}
+
+local function RequestItemDataForTooltip(itemID)
+    if requestedItemDataIDs[itemID] then return end
+    requestedItemDataIDs[itemID] = true
+    Item:CreateFromItemID(itemID):ContinueOnItemLoad(function()
+        RebuildActivePinTooltip()
+    end)
+end
 
 -- Register/Unregister MERCHANT_CLOSED based on pin feature state.
 local function RegisterMerchantClosedEvent()
@@ -551,30 +644,43 @@ end
 -- Tooltips
 -------------------------------------------------------------------------------
 
-local function AddPinTooltipItemLine(tooltip, item, options)
+local function AddPinTooltipItemLine(tooltip, item, options, suffix)
     local itemID = item and item.itemID
-    local itemName = (item and item.name)
-        or (itemID and C_Item.GetItemInfo(itemID))
-        or "Unknown Item"
+    local resolvedName = (item and item.name) or (itemID and C_Item.GetItemInfo(itemID))
+    -- HS-235: name genuinely unresolved (not just "item has no .name override") —
+    -- request the data once per session so a future hover (this one still
+    -- shows the honest fallback) or the debounced rebuild below can pick it
+    -- up once/if it arrives.
+    if not resolvedName and itemID then
+        RequestItemDataForTooltip(itemID)
+    end
+    local itemName = resolvedName or "Unknown Item"
     local availabilityState = nil
     local SM = HA.SourceManager
 
     if itemID and SM and SM.GetItemPresentation then
         local presentation = SM:GetItemPresentation(itemID, options)
         availabilityState = presentation and presentation.availabilityState
-    elseif itemID and HA.CatalogStore and HA.CatalogStore:IsOwnedFresh(itemID) then
+    -- HS-203: no-presentation fallback stays cache-only, matching
+    -- SourceManager's "vendorMapPin" context (the primary path above).
+    elseif itemID and HA.CatalogStore and HA.CatalogStore:IsOwned(itemID) then
         availabilityState = "owned"
     elseif itemID and options and options.npcID
             and SM and SM.GetVendorItemAvailabilityState then
         availabilityState = SM:GetVendorItemAvailabilityState(itemID, options.npcID)
     end
 
+    -- HS-229: entrance-grouped drop pins can carry records from several
+    -- different bosses; callers pass a suffix (e.g. "(Boss Name)") so each
+    -- item line stays attributable when the tooltip header can't name one.
+    local lineText = suffix and ("  " .. itemName .. " " .. suffix) or ("  " .. itemName)
+
     if availabilityState == "owned" then
-        tooltip:AddLine("  " .. itemName, 0, 1, 0)
+        tooltip:AddLine(lineText, 0, 1, 0)
     elseif availabilityState == "locked" then
-        tooltip:AddLine("  " .. itemName, 1, 0.25, 0.25)
+        tooltip:AddLine(lineText, 1, 0.25, 0.25)
     else
-        tooltip:AddLine("  " .. itemName, 1, 1, 1)
+        tooltip:AddLine(lineText, 1, 1, 1)
     end
 
     return availabilityState
@@ -937,7 +1043,11 @@ end
 
 function VendorMapPins:RefreshMinimapPins()
     if not isInitialized then return end
-    if not minimapPinsEnabled then
+    -- HS-231: the minimap has always only ever shown vendor pins (no
+    -- provider-registry abstraction here, unlike the world map's
+    -- CollectSourcePins), so gating on the "vendor" toggle covers it —
+    -- "vendor toggle hides minimap vendor pins too, one mental model."
+    if not minimapPinsEnabled or not IsMapFilterSourceEnabled("vendor") then
         self:ClearMinimapPins()
         return
     end
@@ -1224,7 +1334,12 @@ function VendorMapPins:CollectSourcePins(mapID, renderState)
     end
 
     for sourceType, provider in pairs(self.pinSourceProviders) do
-        if provider and provider.collect and ProviderMatchesFilter(sourceType, filter) then
+        -- HS-231: cheap early-continue, not a restructure — with every
+        -- source left ON (the default), IsMapFilterSourceEnabled is a single
+        -- table lookup returning true, so the loop's behavior is unchanged
+        -- from before this feature existed.
+        if provider and provider.collect and ProviderMatchesFilter(sourceType, filter)
+                and IsMapFilterSourceEnabled(sourceType) then
             provider.collect(self, mapID, validMapIDs, filter, renderState)
         end
     end
@@ -1438,18 +1553,33 @@ end
 VendorMapPins.pinSourceProviders.vendor = { collect = CollectVendorPinRecords }
 
 -------------------------------------------------------------------------------
--- HS-018: Drop pin provider
+-- HS-018/HS-229: Drop pin provider
 --
--- Walks HA.DropSources and emits pins for drop records whose location data
--- passes Decision 7 hygiene:
---   1. Skip records with no mapID (zone-only data).
---   2. Skip records with coords = {0, 0} (explicit placeholder).
---   3. Emit {0.5, 0.5} as approximate-center pins as-is.
---   4. Clamp x/y to [0, 1] defensively; reject NaN.
---   5. No log spam on skipped records.
+-- Walks HA.DropSources and emits pins for drop records. Two placement paths:
+--
+--   EJ-anchored (rows with journalEncounterID/journalInstanceID, HS-229):
+--     a. journalEncounterID resolves via C_EncounterJournal.GetEncountersOnMap
+--        (once per collect) -> boss position on the instance's own map.
+--     b. journalInstanceID resolves via
+--        C_EncounterJournal.GetDungeonEntrancesForMap (once per collect,
+--        only for encounters that didn't already resolve on this map)
+--        -> dungeon entrance position on the outdoor zone map.
+--     Rows sharing a resolved position (same encounter/entrance, different
+--     item/tier) are grouped into ONE pin carrying all of their records.
+--     Rows that resolve nowhere on the viewed map emit nothing (fail-quiet).
+--
+--   Legacy mapID/coords (rows with no journal IDs, e.g. warfront rares):
+--     same Decision 7 hygiene as before —
+--       1. Skip records with no mapID (zone-only data).
+--       2. Skip records with coords = {0, 0} (explicit placeholder).
+--       3. Emit {0.5, 0.5} as approximate-center pins as-is.
+--       4. Clamp x/y to [0, 1] defensively; reject NaN.
+--       5. No log spam on skipped records.
 --
 -- Records carry sourceType = "drop" so PinFrameFactory:CreateSourcePinFrame
--- knows which factory branch to take.
+-- knows which factory branch to take. Every sourcePins entry (both paths)
+-- carries a `records` array (one or more {itemID, drop} pairs) so grouped
+-- EJ pins and single legacy pins share one tooltip code path.
 -------------------------------------------------------------------------------
 
 local function IsFiniteNumber(n)
@@ -1462,34 +1592,44 @@ local function ClampUnit(value)
     return value
 end
 
-local function CollectDropPinRecords(self, mapID, validMapIDs, _filter, renderState)
-    local drops = HA.DropSources
-    if not drops then return end
+-- EJ-anchored pins get NO map-coordinate offset here — this collector
+-- emits the EXACT resolved anchor (x, y) for both boss and entrance
+-- placements. A normalized map-coordinate nudge is a FRACTION of the
+-- current canvas size, which grows as the player zooms in — so a fixed
+-- nudge here reads as correct at one zoom level and drifts off the
+-- Blizzard pin at another (verified in-game; don't reintroduce). The corner
+-- separation now happens at render time, in real screen pixels, in
+-- MapPinProvider.PlaceNativePin (see its comment) — the wrapper there is
+-- pixel-scale-normalized, so a literal pixel offset stays visually constant
+-- across zoom. Both pins still share the Area POI frame level (2023, see
+-- MapPinProvider.lua) by design; positional separation remains the fix,
+-- never a frame-level change.
 
+local function CollectLegacyDropPinRecords(mapID, validMapIDs, drops, hasJournalID, groups, order)
     for itemID, drop in pairs(drops) do
-        local dropMapID = drop.mapID
-        if dropMapID and validMapIDs[dropMapID] then
-            local coords = drop.coords
-            if coords then
-                local cx, cy = coords.x, coords.y
-                -- Hygiene: reject NaN; skip exact-zero placeholders.
-                if IsFiniteNumber(cx) and IsFiniteNumber(cy)
-                        and not (cx == 0 and cy == 0) then
-                    local clampedX, clampedY = ClampUnit(cx), ClampUnit(cy)
-                    local ok, projectedX, projectedY, reason = MPP:ProjectVendorPinToZoneView(
-                        mapID, dropMapID, clampedX, clampedY)
-                    if ok then
-                        renderState.sourcePins[#renderState.sourcePins + 1] = {
-                            sourceType = "drop",
-                            itemID = itemID,
-                            drop = drop,
-                            mapID = dropMapID,
-                            x = projectedX,
-                            y = projectedY,
-                            reason = reason,
-                        }
-                    else
-                        DebugWorldMapProjectionSkip("drop", dropMapID, mapID, reason)
+        if not hasJournalID[itemID] then
+            local dropMapID = drop.mapID
+            if dropMapID and validMapIDs[dropMapID] then
+                local coords = drop.coords
+                if coords then
+                    local cx, cy = coords.x, coords.y
+                    -- Hygiene: reject NaN; skip exact-zero placeholders.
+                    if IsFiniteNumber(cx) and IsFiniteNumber(cy)
+                            and not (cx == 0 and cy == 0) then
+                        local clampedX, clampedY = ClampUnit(cx), ClampUnit(cy)
+                        local ok, projectedX, projectedY, reason = MPP:ProjectVendorPinToZoneView(
+                            mapID, dropMapID, clampedX, clampedY)
+                        if ok then
+                            local key = "legacy:" .. itemID
+                            groups[key] = {
+                                dropGroupKind = "legacy",
+                                x = projectedX, y = projectedY,
+                                records = { { itemID = itemID, drop = drop } },
+                            }
+                            order[#order + 1] = key
+                        else
+                            DebugWorldMapProjectionSkip("drop", dropMapID, mapID, reason)
+                        end
                     end
                 end
             end
@@ -1497,43 +1637,208 @@ local function CollectDropPinRecords(self, mapID, validMapIDs, _filter, renderSt
     end
 end
 
+-- Builds encounterID -> {x, y} for every encounter placed on the viewed map.
+local function BuildEncounterPositions(mapID)
+    local positions = {}
+    local ok, encounters = pcall(C_EncounterJournal.GetEncountersOnMap, mapID)
+    if ok and encounters then
+        for _, enc in ipairs(encounters) do
+            if enc.encounterID and IsFiniteNumber(enc.mapX) and IsFiniteNumber(enc.mapY) then
+                positions[enc.encounterID] = { x = enc.mapX, y = enc.mapY }
+            end
+        end
+    end
+    return positions
+end
+
+-- Builds journalInstanceID -> {x, y} for every dungeon entrance on the viewed map.
+local function BuildEntrancePositions(mapID)
+    local positions = {}
+    local ok, entrances = pcall(C_EncounterJournal.GetDungeonEntrancesForMap, mapID)
+    if ok and entrances then
+        for _, entrance in ipairs(entrances) do
+            local jid = entrance.journalInstanceID
+            local pos = entrance.position
+            if jid and pos and pos.GetXY then
+                local ex, ey = pos:GetXY()
+                if IsFiniteNumber(ex) and IsFiniteNumber(ey) then
+                    positions[jid] = { x = ex, y = ey }
+                end
+            end
+        end
+    end
+    return positions
+end
+
+local function CollectEjDropPinRecords(mapID, drops, hasJournalID, groups, order)
+    local encounterPositions = BuildEncounterPositions(mapID)
+
+    -- Entrance placement only makes sense on outdoor zone maps — dungeon
+    -- entrances aren't returned for instance/continent/world maps, but the
+    -- cheap structural guard avoids relying on that being an empty-table
+    -- no-op forever. Enum.UIMapType.Zone verified via wow-api MCP.
+    local mapInfo = C_Map.GetMapInfo(mapID)
+    local isZoneMap = mapInfo and mapInfo.mapType == Enum.UIMapType.Zone
+    local entrancePositions = isZoneMap and BuildEntrancePositions(mapID) or nil
+
+    local unresolved = {}  -- {itemID, drop} rows whose own encounter didn't resolve a boss pin
+
+    for itemID, drop in pairs(drops) do
+        if hasJournalID[itemID] then
+            local record = { itemID = itemID, drop = drop }
+            local encPos = drop.journalEncounterID and encounterPositions[drop.journalEncounterID]
+            if encPos then
+                local key = "enc:" .. drop.journalEncounterID
+                local group = groups[key]
+                if not group then
+                    group = {
+                        dropGroupKind = "enc",
+                        x = ClampUnit(encPos.x),
+                        y = ClampUnit(encPos.y),
+                        records = {},
+                    }
+                    groups[key] = group
+                    order[#order + 1] = key
+                end
+                group.records[#group.records + 1] = record
+            else
+                unresolved[#unresolved + 1] = record
+            end
+        end
+    end
+
+    -- Second pass: dungeon-entrance placement, Zone maps only, for rows
+    -- whose own encounter did not already resolve a boss-position pin.
+    local placed = {}
+    if entrancePositions then
+        for _, record in ipairs(unresolved) do
+            local drop = record.drop
+            local entPos = drop.journalInstanceID and entrancePositions[drop.journalInstanceID]
+            if entPos then
+                placed[record] = true
+                local key = "ent:" .. drop.journalInstanceID
+                local group = groups[key]
+                if not group then
+                    group = {
+                        dropGroupKind = "ent",
+                        x = ClampUnit(entPos.x),
+                        y = ClampUnit(entPos.y),
+                        records = {},
+                    }
+                    groups[key] = group
+                    order[#order + 1] = key
+                end
+                group.records[#group.records + 1] = record
+            end
+        end
+    end
+
+    if IsDebugModeEnabled() then
+        local stillUnresolvedCount = 0
+        for _, record in ipairs(unresolved) do
+            if not placed[record] then
+                stillUnresolvedCount = stillUnresolvedCount + 1
+            end
+        end
+        if stillUnresolvedCount > 0 then
+            HA.Addon:Debug(("VendorMapPins: %d EJ drop row(s) unresolved on mapID %d")
+                :format(stillUnresolvedCount, mapID))
+        end
+    end
+end
+
+local function CollectDropPinRecords(self, mapID, validMapIDs, _filter, renderState)
+    local drops = HA.DropSources
+    if not drops then return end
+
+    local hasJournalID = {}
+    for itemID, drop in pairs(drops) do
+        if drop.journalEncounterID or drop.journalInstanceID then
+            hasJournalID[itemID] = true
+        end
+    end
+
+    local groups, order = {}, {}
+    CollectEjDropPinRecords(mapID, drops, hasJournalID, groups, order)
+    CollectLegacyDropPinRecords(mapID, validMapIDs, drops, hasJournalID, groups, order)
+
+    for _, key in ipairs(order) do
+        local group = groups[key]
+        -- Stable tooltip ordering (SUGGESTION: sort by itemID rather than
+        -- leaving grouped records in pairs()-iteration order).
+        table.sort(group.records, function(a, b) return a.itemID < b.itemID end)
+        renderState.sourcePins[#renderState.sourcePins + 1] = {
+            sourceType = "drop",
+            dropGroupKind = group.dropGroupKind,
+            records = group.records,
+            mapID = mapID,
+            x = group.x,
+            y = group.y,
+        }
+    end
+end
+
 VendorMapPins.pinSourceProviders.drop = { collect = CollectDropPinRecords }
 
 function VendorMapPins:ShowDropPinTooltip(pin, record)
-    if not record then return end
+    if not record or not record.records or #record.records == 0 then return end
 
     activeTooltipData = { kind = "drop", pin = pin, record = record }
     itemInfoEventFrame:RegisterEvent("GET_ITEM_INFO_RECEIVED")
 
     local tooltip = BeginPinTooltip(pin, "ANCHOR_RIGHT")
-    local drop = record.drop
-    if drop and drop.mobName then
-        tooltip:AddLine(drop.mobName, 1, 1, 1)
+    local primaryDrop = record.records[1].drop
+
+    -- An "ent:" (dungeon-entrance) pin can carry records from several
+    -- DIFFERENT bosses sharing one instance entrance (e.g. all Voidspire
+    -- rows on the outdoor zone map), so it gets an instance-level header
+    -- with per-item boss attribution below. "enc:" groups share one
+    -- encounter — records may span tier variants, but the boss is the
+    -- same — and "legacy" groups are single-record, so records[1] is an
+    -- accurate header for both.
+    if record.dropGroupKind == "ent" then
+        tooltip:AddLine(primaryDrop and primaryDrop.zone or "Unknown Instance", 1, 1, 1)
     else
-        tooltip:AddLine("Unknown Drop", 1, 1, 1)
-    end
-    if drop and drop.zone then
-        tooltip:AddLine(drop.zone, 0.7, 0.7, 0.7)
-    end
-    if drop and drop.notes then
-        tooltip:AddLine(" ")
-        tooltip:AddLine(drop.notes, 1, 0.82, 0, true)
+        if primaryDrop and primaryDrop.mobName then
+            tooltip:AddLine(primaryDrop.mobName, 1, 1, 1)
+        else
+            tooltip:AddLine("Unknown Drop", 1, 1, 1)
+        end
+        if primaryDrop and primaryDrop.zone then
+            tooltip:AddLine(primaryDrop.zone, 0.7, 0.7, 0.7)
+        end
+        if primaryDrop and primaryDrop.notes then
+            tooltip:AddLine(" ")
+            tooltip:AddLine(primaryDrop.notes, 1, 0.82, 0, true)
+        end
     end
 
-    if record.itemID then
-        tooltip:AddLine(" ")
-        tooltip:AddLine("Items Dropped:", 1, 1, 0)
-        local availabilityState = AddPinTooltipItemLine(tooltip, { itemID = record.itemID }, {
+    tooltip:AddLine(" ")
+    tooltip:AddLine(#record.records > 1
+        and ("Items Dropped (%d):"):format(#record.records)
+        or "Items Dropped:", 1, 1, 0)
+
+    local collected, locked = 0, 0
+    for _, itemRecord in ipairs(record.records) do
+        -- ent: groups can't rely on the header to name a boss, so each item
+        -- line names its own (mobName may still differ between records that
+        -- share an entrance but not an encounter).
+        local suffix = record.dropGroupKind == "ent" and itemRecord.drop and itemRecord.drop.mobName
+            and ("(%s)"):format(itemRecord.drop.mobName) or nil
+        local availabilityState = AddPinTooltipItemLine(tooltip, { itemID = itemRecord.itemID }, {
             context = "dropMapPin",
             sourceFilter = "drop",
             isVendorContext = false,
-        })
-
-        local collected = availabilityState == "owned" and 1 or 0
-        local locked = availabilityState == "locked" and 1 or 0
-        tooltip:AddLine(" ")
-        BC.AddSummaryLine(tooltip, collected, 1, locked, 0)
+        }, suffix)
+        if availabilityState == "owned" then
+            collected = collected + 1
+        elseif availabilityState == "locked" then
+            locked = locked + 1
+        end
     end
+
+    tooltip:AddLine(" ")
+    BC.AddSummaryLine(tooltip, collected, #record.records, locked, 0)
 
     tooltip:Show()
 end
@@ -1820,6 +2125,53 @@ function VendorMapPins:Initialize()
         WorldMapProvider:EnsureRegistered()
     end
 
+    -- HS-231: Homestead section in Blizzard's world map filter dropdown.
+    -- Menu.ModifyMenu registers a callback that Blizzard's menu system
+    -- fires EVERY time the tagged menu opens — it is not a one-shot build,
+    -- so this call itself must happen exactly once per UI session. The
+    -- isInitialized early-return at the top of this function is that
+    -- guard: Initialize() is idempotent, so a stray second call anywhere
+    -- else in the codebase can't re-register and accumulate a duplicate
+    -- Homestead section. Foundry.Menu has no ModifyMenu wrapper — it wraps
+    -- CreateContextMenu/SetupDropdown for menus we own, but ModifyMenu
+    -- extends a Blizzard-owned tagged menu, a different shape entirely;
+    -- Foundry.Menu's own GetNativeHandles() doc even hands the raw Menu
+    -- table back to the consumer for exactly this case. Calling the raw
+    -- global directly is the Blizzard-supported addon path per the API's
+    -- own doc, not a workaround — flagged separately as a Foundry.Menu
+    -- coverage gap worth its own FND ticket.
+    if _G.Menu and _G.Menu.ModifyMenu then
+        _G.Menu.ModifyMenu("MENU_WORLD_MAP_TRACKING", function(_, rootDescription)
+            -- Source list derived live from the provider registry, never
+            -- hardcoded — a future source only needs its collect function
+            -- registered in pinSourceProviders to get a checkbox here.
+            local sourceKeys = {}
+            for sourceType, provider in pairs(self.pinSourceProviders) do
+                if provider and provider.collect then
+                    sourceKeys[#sourceKeys + 1] = sourceType
+                end
+            end
+            if #sourceKeys == 0 then return end
+            table.sort(sourceKeys)
+
+            rootDescription:CreateTitle("Homestead")
+            for _, sourceKey in ipairs(sourceKeys) do
+                rootDescription:CreateCheckbox(GetMapFilterSourceLabel(sourceKey), function()
+                    return IsMapFilterSourceEnabled(sourceKey)
+                end, function()
+                    SetMapFilterSourceEnabled(sourceKey, not IsMapFilterSourceEnabled(sourceKey))
+                    -- Reuse the existing debounced refresh paths — no new
+                    -- events, no per-frame work. The world map is always
+                    -- open here (the player is looking at its own filter
+                    -- dropdown); the minimap refresh call is unconditional
+                    -- like every other cache-invalidation call site above.
+                    self:RequestWorldMapRefresh("map_filter_toggled", 0.1)
+                    self:RequestMinimapRefresh("map_filter_toggled", 0.1)
+                end)
+            end
+        end)
+    end
+
     -- World map refresh is driven by the provider's watcher frame
     -- (HomesteadWorldMapProvider:EnsureRegistered). Do NOT hook WorldMapFrame
     -- OnShow or SetMapID directly — those run during Blizzard's secure
@@ -1828,9 +2180,17 @@ function VendorMapPins:Initialize()
 
     -- Listen for vendor scan events to refresh pins with new data
     if HA.Events then
-        HA.Events:RegisterCallback("VENDOR_SCANNED", function(vendorRecord)
-            -- Invalidate caches for rescanned vendor
-            if vendorRecord and vendorRecord.npcID then
+        HA.Events:RegisterCallback("VENDOR_SCANNED", function(vendorRecord, hadRequirementDiscovery)
+            -- Newly discovered item requirements can change availability/lock
+            -- state for that item wherever else it's sold, not just at this
+            -- vendor — a per-vendor invalidation would leave other vendors'
+            -- cached stats stale. Fall back to the full flush in that case.
+            -- hadRequirementDiscovery arrives as a second Fire argument, not a
+            -- vendorRecord field — vendorRecord is the exact table ScanPersistence
+            -- writes to SavedVariables, and a field on it would persist there.
+            if hadRequirementDiscovery then
+                self:InvalidateAllCaches()
+            elseif vendorRecord and vendorRecord.npcID then
                 BC:InvalidateVendorCache(vendorRecord.npcID)
             end
             self:InvalidateBadgeCache()
@@ -1848,6 +2208,7 @@ function VendorMapPins:Initialize()
             if WorldMapFrame:IsShown() then
                 self:RequestWorldMapRefresh("ownership_updated", 0.1)
             end
+            self:RequestMinimapRefresh("ownership_updated", 0.1)
         end)
 
         -- Source caches invalidated — covers achievement, quest, reputation,

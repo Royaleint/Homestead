@@ -181,7 +181,7 @@ local function CreateWelcomeFrame()
     local icon = frame:CreateTexture(nil, "OVERLAY")
     icon:SetSize(48, 48)
     icon:SetPoint("RIGHT", title, "LEFT", -10, -2)
-    icon:SetTexture(HA.Constants.TEXTURE_ROOT .. "icon")
+    icon:SetTexture(HA.Constants.TEXTURE_ROOT .. "HomesteadMinimap")
     if not icon:GetTexture() then
         icon:SetTexture("Interface\\ICONS\\INV_Misc_Furniture_Chair_03")
     end
@@ -327,11 +327,7 @@ local function CreateWelcomeFrame()
     local checkBtn = CreateFrame("CheckButton", nil, frame, "UICheckButtonTemplate")
     checkBtn:SetPoint("BOTTOMLEFT", 18, 28)
     checkBtn:SetSize(24, 24)
-    checkBtn:SetScript("OnClick", function(self)
-        if HA.Addon and HA.Addon.db then
-            HA.Addon.db.global[SV_KEY] = self:GetChecked()
-        end
-    end)
+    frame.dontShowCheck = checkBtn
 
     local checkLabel = frame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
     checkLabel:SetPoint("LEFT", checkBtn, "RIGHT", 2, 0)
@@ -367,9 +363,23 @@ function WelcomeFrame:Hide()
     if welcomeFrame then
         welcomeFrame:Hide()
         if HA.Addon and HA.Addon.db then
-            HA.Addon.db.global[SV_KEY] = true
-            -- Set lastSeenVersion so WhatsNew doesn't trigger for this version
-            HA.Addon.db.global.lastSeenVersion = HA.Constants.VERSION
+            -- HS-219: read the checkbox at close time (mirrors WhatsNewFrame's
+            -- OnHide) instead of unconditionally marking it seen. Every close
+            -- path (X button, Escape, "Let's Decorate!") funnels through this
+            -- one Hide(), so this is the single authoritative point. An
+            -- unchecked close must leave SV_KEY unset so CheckFirstRun shows
+            -- the welcome again next login.
+            if welcomeFrame.dontShowCheck and welcomeFrame.dontShowCheck:GetChecked() then
+                HA.Addon.db.global[SV_KEY] = true
+            end
+            -- HS-224 (Gate 2 product decision, 2026-07-19): closing the
+            -- Welcome screen no longer stamps lastSeenVersion. The old stamp
+            -- silently consumed What's New for the version — with the HS-219
+            -- stacking gate, that meant acknowledging Welcome ate the What's
+            -- New popup entirely. Now What's New auto-shows on the next login
+            -- after the Welcome is out of the way, exactly what the gate was
+            -- designed to sequence. (WhatsNewFrame stamps lastSeenVersion
+            -- itself when IT is shown — the field keeps a single owner.)
         end
         if HA.Analytics then
             HA.Analytics:IncrementCounter("WelcomeScreenClosed")
@@ -383,6 +393,12 @@ function WelcomeFrame:Toggle()
     else
         self:Show()
     end
+end
+
+-- HS-219: lets WhatsNewFrame's onboarding stacking gate ask "is Welcome
+-- already up" without reaching into this module's private welcomeFrame local.
+function WelcomeFrame:IsShown()
+    return welcomeFrame ~= nil and welcomeFrame:IsShown()
 end
 
 function WelcomeFrame:CheckFirstRun()
