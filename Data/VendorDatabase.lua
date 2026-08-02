@@ -1237,9 +1237,12 @@ VendorDatabase.Vendors = {
     },
 	-- Dershway the Triggered: removed from game in Patch 11.2.7 (Dec 2025).
 	-- Replaced by original vendor Quackenbush [68363] at the same Brawlpub spot.
+	-- Hidden by `removed`, not `unreleased`: a retired vendor and an unshipped
+	-- one need opposite treatment on a future client, and sharing one flag meant
+	-- HS-245's build-gated reveal would have resurrected this row on 12.1.
 	[151941] = {
         name = "Dershway the Triggered",
-        unreleased = true,
+        removed = true,
         mapID = 84,
         x = 0.700, y = 0.370,
         zone = "Stormwind",

@@ -931,7 +931,7 @@ VendorIdentity.Vendors = {
         subzone = "Bizmo's Brawlpub",
         faction = "Alliance",
         expansion = "Events",
-        unreleased = true,
+        removed = true,
     },
     [152194] = {
         name = "MOTHER",
