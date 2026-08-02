@@ -118,18 +118,52 @@ end
 -- Vendor Visibility Filters
 -------------------------------------------------------------------------------
 
+-- HS-245: the client build that ships the vendors currently flagged
+-- `unreleased`. This serves ONE batch at a time — it is a floor, not a match,
+-- so raising it for a later patch would stop revealing today's rows rather than
+-- adding to them. A second batch targeting a different build needs the per-row
+-- target field in HS-246, not a bump here. When 12.1 ships, clear the data flags.
+local UNRELEASED_CONTENT_INTERFACE = 120100  -- 12.1
+
+-- The build cannot change mid-session, so read it once.
+local CLIENT_INTERFACE = select(4, GetBuildInfo())
+
+-- Whether to show vendors flagged `unreleased` in this session. Both conditions
+-- fail closed, so the rows appear only on a dev build of a client that actually
+-- has the content.
+--
+-- Note on Foundry: F.IS_DEV_BUILD does NOT work here. The generated DevBuild TOC
+-- sets a real `## Version: dev`, and Foundry's test is for a nil or unsubstituted
+-- version token, so it reads a DevBuild as a release. HA.__isDevBuild comes from
+-- the generated DevBuildGuard.lua, which exists only in a dev checkout.
+--
+-- The flag is nil in a packaged release at load. It is not tamper-proof —
+-- `_G.Homestead` is public, so anything in-process can set it — but the build
+-- gate keeps the reveal inert until the content has shipped anyway.
+function VendorFilter.ShouldRevealUnreleasedVendors()
+    if not HA.__isDevBuild then return false end
+    return type(CLIENT_INTERFACE) == "number"
+        and CLIENT_INTERFACE >= UNRELEASED_CONTENT_INTERFACE
+end
 
 -- Check if a vendor should be hidden from all pin displays
--- Returns true if vendor should be hidden (unreleased or scanned with no decor)
+-- Returns true if vendor should be hidden (removed, unreleased, or scanned with no decor)
 function VendorFilter.ShouldHideVendor(vendor)
     if not vendor then return true end
+
+    -- Retired vendors are hidden on every build, forever. This is deliberately
+    -- checked before the event-vendor branch: a removed vendor may still carry
+    -- expansion = "Events" (Dershway [151941] does), and must not escape through it.
+    if vendor.removed then return true end
 
     -- Event vendors: only hidden when setting is off (bypass unreleased/noDecor checks)
     if vendor._isEventVendor then
         return not VendorFilter.ShouldShowEventVendors()
     end
 
-    if vendor.unreleased then return true end
+    if vendor.unreleased and not VendorFilter.ShouldRevealUnreleasedVendors() then
+        return true
+    end
 
     local npcID = vendor.npcID
     if not npcID then return false end
