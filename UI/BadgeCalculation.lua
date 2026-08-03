@@ -146,9 +146,24 @@ local UNKNOWN_VENDOR_STATS = {
     locked = 0,
     unverified = 0,
     unobtainable = 0,
+    excluded = 0,
     blockers = nil,
     total = 0,
 }
+
+-- HS-249: is this item's ownership knowable at all? Every housing subclass
+-- except Decor resolves to no catalog entry, so its ownership reads as a hard
+-- false that says nothing about the player. Mirrors the isOwned resolution
+-- below, including the cache-only no-presentation fallback.
+local function IsOwnershipExcluded(itemID, presentation)
+    if presentation then
+        return presentation.isOwnershipExcluded == true
+    end
+    if HA.CatalogStore and HA.CatalogStore.IsOwnershipUnknowable then
+        return HA.CatalogStore:IsOwnershipUnknowable(itemID) == true
+    end
+    return false
+end
 
 local function BuildVendorStats(vendor, sourceFilter)
     -- Keep a defensive guard here because badge hot paths read stats directly.
@@ -170,6 +185,7 @@ local function BuildVendorStats(vendor, sourceFilter)
     local hasMatchingItems = false
     local total, collected, purchasable, locked = 0, 0, 0, 0
     local unobtainable = 0
+    local excluded = 0
     local provisionalUnverified = 0
     local hasAnyVerifiableRequirements = false
     local lockedBlockerCounts = {}
@@ -190,7 +206,15 @@ local function BuildVendorStats(vendor, sourceFilter)
         local matchesSourceFilter = presentation and presentation.matchesSourceFilter
             or (not presentation and ItemMatchesSourceFilter(itemID, sourceFilter))
 
-        if matchesSourceFilter then
+        -- HS-249: tested ahead of everything else in the branch, unlike the
+        -- `unobtainable` divert below — that one comes after isOwned because
+        -- ownership is knowable and wins, whereas here it is unknowable and
+        -- consulting it is the thing being ruled out. hasMatchingItems stays
+        -- false too: a housing-only vendor that claimed matching items would
+        -- read "known, empty, all collected" instead of unknown.
+        if matchesSourceFilter and IsOwnershipExcluded(itemID, presentation) then
+            excluded = excluded + 1
+        elseif matchesSourceFilter then
             hasMatchingItems = true
 
             local state = presentation and presentation.availabilityState or "purchasable"
@@ -243,14 +267,19 @@ local function BuildVendorStats(vendor, sourceFilter)
     end
 
     -- No matching items under this filter is a known empty result, not unknown.
+    -- HS-249: unless the only things this vendor sells under the filter are
+    -- items whose ownership we cannot compute — that is genuinely unknown, and
+    -- reporting `false` here would render it as "you own everything on this
+    -- vendor". With no excluded items this is the pre-HS-249 value exactly.
     if not hasMatchingItems then
         return {
-            hasUncollectedState = false,
+            hasUncollectedState = excluded > 0 and "unknown" or false,
             collected = 0,
             purchasable = 0,
             locked = 0,
             unverified = 0,
             unobtainable = 0,
+            excluded = excluded,
             blockers = nil,
             total = 0,
         }
@@ -283,6 +312,7 @@ local function BuildVendorStats(vendor, sourceFilter)
         -- Pure no-data vendors stay optimistic with zero unverified.
         unverified = hasAnyVerifiableRequirements and provisionalUnverified or 0,
         unobtainable = unobtainable,
+        excluded = excluded,
         blockers = blockers,
         total = total,
     }
@@ -331,6 +361,7 @@ local UNKNOWN_DROP_GROUP_STATS = {
     purchasable = 0,
     locked = 0,
     unobtainable = 0,
+    excluded = 0,
     total = 0,
 }
 
@@ -350,6 +381,7 @@ end
 local function BuildDropGroupStats(records)
     local SM = HA.SourceManager
     local total, collected, purchasable, locked, unobtainable = 0, 0, 0, 0, 0
+    local excluded = 0
 
     for _, itemRecord in ipairs(records) do
         local itemID = itemRecord.itemID
@@ -370,7 +402,11 @@ local function BuildDropGroupStats(records)
             isOwned = HA.CatalogStore:IsOwned(itemID) == true
         end
 
-        if isOwned then
+        -- HS-249: same ordering as BuildVendorStats — the exclusion is tested
+        -- before ownership, not after it like `unobtainable`.
+        if IsOwnershipExcluded(itemID, presentation) then
+            excluded = excluded + 1
+        elseif isOwned then
             collected = collected + 1
             total = total + 1
         elseif state == "unobtainable" then
@@ -390,6 +426,7 @@ local function BuildDropGroupStats(records)
         purchasable = purchasable,
         locked = locked,
         unobtainable = unobtainable,
+        excluded = excluded,
         total = total,
     }
 end
@@ -562,6 +599,7 @@ function BadgeCalculation:GetZoneVendorCounts(continentMapID, sourceFilter)
                                 lockedItems = 0,
                                 unverifiedItems = 0,
                                 unobtainableItems = 0,
+                                excludedItems = 0,
                             }
                         end
 
@@ -598,6 +636,11 @@ function BadgeCalculation:GetZoneVendorCounts(continentMapID, sourceFilter)
                             zoneCounts[zoneMapID].lockedItems = zoneCounts[zoneMapID].lockedItems + (stats.locked or 0)
                             zoneCounts[zoneMapID].unverifiedItems = zoneCounts[zoneMapID].unverifiedItems + (stats.unverified or 0)
                             zoneCounts[zoneMapID].unobtainableItems = zoneCounts[zoneMapID].unobtainableItems + (stats.unobtainable or 0)
+                            -- HS-249: tracked alongside the other exclusions,
+                            -- deliberately outside collectedItems/totalItems —
+                            -- a zone badge that summed these into its fraction
+                            -- would re-introduce the defect one level up.
+                            zoneCounts[zoneMapID].excludedItems = zoneCounts[zoneMapID].excludedItems + (stats.excluded or 0)
                         end
                     end
                 end
@@ -649,6 +692,7 @@ function BadgeCalculation:GetContinentVendorCounts(sourceFilter)
                                 lockedItems = 0,
                                 unverifiedItems = 0,
                                 unobtainableItems = 0,
+                                excludedItems = 0,
                             }
                         end
 
@@ -679,6 +723,7 @@ function BadgeCalculation:GetContinentVendorCounts(sourceFilter)
                             continentCounts[continentMapID].lockedItems = continentCounts[continentMapID].lockedItems + (stats.locked or 0)
                             continentCounts[continentMapID].unverifiedItems = continentCounts[continentMapID].unverifiedItems + (stats.unverified or 0)
                             continentCounts[continentMapID].unobtainableItems = continentCounts[continentMapID].unobtainableItems + (stats.unobtainable or 0)
+                            continentCounts[continentMapID].excludedItems = continentCounts[continentMapID].excludedItems + (stats.excluded or 0)
                         end
                     end
                 end
@@ -697,6 +742,7 @@ function BadgeCalculation:GetContinentVendorCounts(sourceFilter)
                     vendorCount = 0, uncollectedCount = 0, unknownCount = 0,
                     oppositeFactionCount = 0, collectedItems = 0, totalItems = 0,
                     lockedItems = 0, unverifiedItems = 0, unobtainableItems = 0,
+                    excludedItems = 0,
                 }
             end
             local dest = continentCounts[destID]
@@ -709,6 +755,7 @@ function BadgeCalculation:GetContinentVendorCounts(sourceFilter)
             dest.lockedItems          = dest.lockedItems          + src.lockedItems
             dest.unverifiedItems      = dest.unverifiedItems      + src.unverifiedItems
             dest.unobtainableItems    = dest.unobtainableItems    + (src.unobtainableItems or 0)
+            dest.excludedItems        = dest.excludedItems        + (src.excludedItems or 0)
             continentCounts[srcID] = nil
         end
     end

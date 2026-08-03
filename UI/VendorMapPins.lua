@@ -1818,7 +1818,13 @@ function VendorMapPins:ShowDropPinTooltip(pin, record)
         and ("Items Dropped (%d):"):format(#record.records)
         or "Items Dropped:", 1, 1, 0)
 
-    local collected, locked = 0, 0
+    -- HS-249: this loop derives its own counts rather than reading
+    -- BadgeCalculation, so it needs its own exclusion guard. The denominator
+    -- is the record count, so an item whose ownership we cannot resolve would
+    -- otherwise inflate it and read as "0/1 collected" on a room plan.
+    -- The item still gets its tooltip line; only the summary count changes.
+    local CS = HA.CatalogStore
+    local collected, locked, excluded = 0, 0, 0
     for _, itemRecord in ipairs(record.records) do
         -- ent: groups can't rely on the header to name a boss, so each item
         -- line names its own (mobName may still differ between records that
@@ -1830,7 +1836,9 @@ function VendorMapPins:ShowDropPinTooltip(pin, record)
             sourceFilter = "drop",
             isVendorContext = false,
         }, suffix)
-        if availabilityState == "owned" then
+        if CS and CS.IsOwnershipUnknowable and CS:IsOwnershipUnknowable(itemRecord.itemID) then
+            excluded = excluded + 1
+        elseif availabilityState == "owned" then
             collected = collected + 1
         elseif availabilityState == "locked" then
             locked = locked + 1
@@ -1838,7 +1846,7 @@ function VendorMapPins:ShowDropPinTooltip(pin, record)
     end
 
     tooltip:AddLine(" ")
-    BC.AddSummaryLine(tooltip, collected, #record.records, locked, 0)
+    BC.AddSummaryLine(tooltip, collected, #record.records - excluded, locked, 0)
 
     tooltip:Show()
 end
