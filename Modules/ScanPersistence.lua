@@ -74,6 +74,11 @@ function ScanPersistence:SaveVendorData(scanData)
         lastScanHadDecor = decorCount > 0, -- Last observed scan result, even if old items are preserved
         housingCount = housingCount,    -- All housing items, any subclass
         hasHousing = housingCount > 0,  -- Flag to identify if vendor sells any housing item
+        -- HS-250: the housing-wide counterpart to lastScanHadDecor. The export's
+        -- delist test needs "did this scan find anything at all", and on a vendor
+        -- selling only room plans or dyes the decor flag answers false to that
+        -- question while being perfectly correct about its own.
+        lastScanHadHousing = housingCount > 0,
         items = {},                     -- Enhanced item data
     }
 
@@ -241,6 +246,7 @@ function ScanPersistence:SaveVendorData(scanData)
         if existingData then
             existingData.lastScanned = vendorRecord.lastScanned
             existingData.lastScanHadDecor = false
+            existingData.lastScanHadHousing = false
             if vendorRecord.coords and vendorRecord.coords.x ~= 0.5 and vendorRecord.coords.y ~= 0.5 then
                 existingData.coords = vendorRecord.coords
             end
@@ -262,6 +268,7 @@ function ScanPersistence:SaveVendorData(scanData)
         -- through to the delete branch below just because hasHousing is nil.
         existingData.lastScanned = vendorRecord.lastScanned
         existingData.lastScanHadDecor = false
+        existingData.lastScanHadHousing = false
         if HA.DevAddon then
             HA.Addon:Debug(string.format(
                 "Scan protection: %s (NPC %d) previously had housing items but new scan found 0. "

@@ -241,7 +241,22 @@ local function IsDelistCandidate(vendor, npcID)
         return false
     end
 
-    if vendor.lastScanHadDecor == false then
+    -- HS-250: ask whether the last scan found any HOUSING item, not whether it
+    -- found decor. A vendor selling only room plans, dyes or customizations
+    -- scans successfully and captures items, but lastScanHadDecor is false for
+    -- it — correctly, since it sells no decor. Reading that as "this vendor had
+    -- nothing" emitted a delist row and suppressed every item row below, so the
+    -- stock we had just captured never reached the pipeline while the pipeline
+    -- was told to consider retiring the vendor.
+    --
+    -- Records saved before lastScanHadHousing existed fall back to the decor
+    -- flag, which on those records IS the housing answer: decor was the only
+    -- subclass the pre-HS-249 capture gate could see.
+    local hadHousing = vendor.lastScanHadHousing
+    if hadHousing == nil then
+        hadHousing = vendor.lastScanHadDecor
+    end
+    if hadHousing == false then
         return true
     end
 
