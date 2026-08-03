@@ -74,10 +74,7 @@ function ScanPersistence:SaveVendorData(scanData)
         lastScanHadDecor = decorCount > 0, -- Last observed scan result, even if old items are preserved
         housingCount = housingCount,    -- All housing items, any subclass
         hasHousing = housingCount > 0,  -- Flag to identify if vendor sells any housing item
-        -- HS-250: the housing-wide counterpart to lastScanHadDecor. The export's
-        -- delist test needs "did this scan find anything at all", and on a vendor
-        -- selling only room plans or dyes the decor flag answers false to that
-        -- question while being perfectly correct about its own.
+        -- HS-250: housing-wide counterpart to lastScanHadDecor; see IsDelistCandidate.
         lastScanHadHousing = housingCount > 0,
         items = {},                     -- Enhanced item data
     }

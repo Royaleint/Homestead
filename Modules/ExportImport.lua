@@ -301,7 +301,7 @@ function ExportImport:ExportScannedVendors(fullExport, exportAll)
     end
     table.insert(output, "# V: npcID\tname\tmapID\tx\ty\tfaction\ttimestamp\titemCount\tdecorCount\tzone\tsubZone\trealZone\tparentMapID\tcontinentMapID\texpansion\tcurrency\tmapChain\tscanConfidence\n")
     table.insert(output, "# I: npcID\titemID\tname\tprice\tcostData\tisUsable\tisPurchasable\tspellID\trequirements\tdecorID\tmerchantSlot\thasExtendedCost\n")
-    table.insert(output, "# D: npcID\tname\tmapID\tx\ty\tzone\ttimestamp (vendor in DB but scanned with 0 decor)\n")
+    table.insert(output, "# D: npcID\tname\tmapID\tx\ty\tzone\ttimestamp (vendor in DB but scanned with 0 housing items)\n")
 
     -- Collect and sort npcIDs for deterministic output
     local sortedNPCs = {}
@@ -324,7 +324,9 @@ function ExportImport:ExportScannedVendors(fullExport, exportAll)
 
         -- Handle vendors with no decor items
         if shouldProcess and IsDelistCandidate(vendor, npcID) then
-            -- Vendor is in our DB but scanned with 0 decor — flag for review
+            -- Vendor is in our DB but scanned with 0 housing items — flag for
+            -- review. HS-250: housing-wide, not decor-only; a vendor selling
+            -- only room plans or dyes is stock, not an empty vendor.
             shouldProcess = false
             skipReason = "delist"
         elseif shouldProcess and #items == 0 then
@@ -458,7 +460,7 @@ function ExportImport:ExportScannedVendors(fullExport, exportAll)
         skipMsg = " (" .. table.concat(parts, ", ") .. " skipped)"
     end
     if delistedCount > 0 then
-        skipMsg = skipMsg .. string.format(" [%d flagged for delist - in DB but 0 decor]", delistedCount)
+        skipMsg = skipMsg .. string.format(" [%d flagged for delist - in DB but 0 housing items]", delistedCount)
     end
 
     if exportAll then
