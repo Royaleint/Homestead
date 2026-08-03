@@ -1,4 +1,4 @@
--- luacheck: globals assert loadfile print io time os loadstring C_Timer MapSidePanel
+-- luacheck: globals assert loadfile print io time os loadstring C_Timer MapSidePanel Enum
 
 local root = (... or "."):gsub("\\\\", "/"):gsub("/+$", "")
 
@@ -13,6 +13,20 @@ time = function()
     fakeClock = fakeClock + 1
     return fakeClock
 end
+
+-- HS-249: ScanPersistence now separates decor from the wider housing item
+-- class, so it reads the subclass enum. WoW provides `Enum` as a bare global;
+-- this harness stubs only the members ScanPersistence actually indexes.
+Enum = {
+    ItemHousingSubclass = {
+        Decor = 0,
+        Dye = 1,
+        Room = 2,
+        RoomCustomization = 3,
+        ExteriorCustomization = 4,
+        ServiceItem = 5,
+    },
+}
 
 -------------------------------------------------------------------------------
 -- HS-210 (M10b): an unconfirmed (laggy/partial) scan must not clobber a
@@ -50,6 +64,7 @@ local function MakeDecorItems(count)
             itemID = 4000 + i,
             name = "Test Decor " .. i,
             decorID = 5000 + i,
+            subclassID = Enum.ItemHousingSubclass.Decor,
             price = 100,
             merchantSlot = i,
         }
@@ -64,7 +79,7 @@ ScanHA.ScanPersistence:SaveVendorData({
     mapID = 1,
     coords = { x = 0.5, y = 0.5 },
     faction = "Neutral",
-    decorItems = MakeDecorItems(3),
+    housingItems = MakeDecorItems(3),
     scanComplete = true,
     hadNilSlots = false,
 })
@@ -84,7 +99,7 @@ ScanHA.ScanPersistence:SaveVendorData({
     mapID = 1,
     coords = { x = 0.5, y = 0.5 },
     faction = "Neutral",
-    decorItems = MakeDecorItems(1),
+    housingItems = MakeDecorItems(1),
     scanComplete = true,
     hadNilSlots = true, -- unconfirmed
 })
@@ -111,7 +126,7 @@ ScanHA.ScanPersistence:SaveVendorData({
     mapID = 1,
     coords = { x = 0.5, y = 0.5 },
     faction = "Neutral",
-    decorItems = MakeDecorItems(1),
+    housingItems = MakeDecorItems(1),
     scanComplete = true,
     hadNilSlots = false, -- confirmed
 })

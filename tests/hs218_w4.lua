@@ -1,4 +1,4 @@
--- luacheck: globals assert loadfile print io IsShiftKeyDown IsControlKeyDown IsAltKeyDown C_HousingCatalog C_Item
+-- luacheck: globals assert loadfile print io IsShiftKeyDown IsControlKeyDown IsAltKeyDown C_HousingCatalog C_Item Enum
 
 local root = (... or "."):gsub("\\\\", "/"):gsub("/+$", "")
 
@@ -186,15 +186,25 @@ C_HousingCatalog = {
         return { entryID = { recordID = 1 }, name = "Test Decor", isOwned = true, quantityOwned = 3 }
     end,
 }
+Enum = {
+    ItemClass = { Housing = 20 },
+    ItemHousingSubclass = { Decor = 0 },
+}
 C_Item = {
-    GetItemInfoInstant = function() return 99999 end,
+    -- GetItemInfoInstant returns itemID, itemType, itemSubType, itemEquipLoc,
+    -- icon, classID, subClassID. HS-249's gate reads the 6th/7th returns, so
+    -- the mock must supply all seven or the gate tests as permanently false.
+    GetItemInfoInstant = function()
+        return 99999, "Housing", "Decor", "", 134400, Enum.ItemClass.Housing, Enum.ItemHousingSubclass.Decor
+    end,
 }
 
 local ClassifierHA = {}
 assert(loadfile(root .. "/Modules/DecorClassifier.lua"))("Homestead", ClassifierHA)
 
-local isDecor, decorInfo = ClassifierHA.DecorClassifier.CheckIfDecorItem("item:99999")
-assert(isDecor == true)
+local isHousing, subclassID, decorInfo = ClassifierHA.DecorClassifier.ClassifyHousingItem("item:99999")
+assert(isHousing == true)
+assert(subclassID == Enum.ItemHousingSubclass.Decor)
 assert(decorInfo.isOwned == nil, "isOwned must not be present on the returned table (never a real field)")
 assert(decorInfo.quantityOwned == nil, "quantityOwned must not be present on the returned table (never a real field)")
 assert(decorInfo.name == "Test Decor")

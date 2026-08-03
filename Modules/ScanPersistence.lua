@@ -31,9 +31,20 @@ function ScanPersistence:SaveVendorData(scanData)
 
     local existingData = HA.Addon.db.global.scannedVendors[scanData.npcID]
 
-    -- Build vendor record with enhanced data
-    local decorCount = scanData.decorItems and #scanData.decorItems or 0
+    -- Build vendor record with enhanced data. decorCount/hasDecor keep
+    -- counting subclass 0 (Decor) only — decorCount is a consumed wire
+    -- format (V row col 9, export_review.py, consolidate-scanned-vendors.mjs,
+    -- and archived scans). housingCount/hasHousing cover every housing
+    -- subclass captured by the gate in DecorClassifier.
+    local housingCount = scanData.housingItems and #scanData.housingItems or 0
     local itemCount = scanData.allItems and #scanData.allItems or scanData.totalItems or 0
+
+    local decorCount = 0
+    for _, item in ipairs(scanData.housingItems or {}) do
+        if item.subclassID == Enum.ItemHousingSubclass.Decor then
+            decorCount = decorCount + 1
+        end
+    end
 
     local vendorRecord = {
         npcID = scanData.npcID,
@@ -48,18 +59,21 @@ function ScanPersistence:SaveVendorData(scanData)
         mapChain = scanData.mapChain,
         continentMapID = scanData.continentMapID,
         lastScanned = time(),
-        itemCount = itemCount,      -- Total items at vendor
-        decorCount = decorCount,    -- Housing decor items
-        hasDecor = decorCount > 0,  -- Flag to identify if vendor sells housing decor
+        itemCount = itemCount,          -- Total items at vendor
+        decorCount = decorCount,        -- Housing decor items (subclass 0 only)
+        hasDecor = decorCount > 0,      -- Flag to identify if vendor sells housing decor
         lastScanHadDecor = decorCount > 0, -- Last observed scan result, even if old items are preserved
-        items = {},                 -- Enhanced item data
+        housingCount = housingCount,    -- All housing items, any subclass
+        hasHousing = housingCount > 0,  -- Flag to identify if vendor sells any housing item
+        items = {},                     -- Enhanced item data
     }
 
-    -- Add decor items with full enhanced data
-    for _, item in ipairs(scanData.decorItems or {}) do
+    -- Add housing items (all subclasses) with full enhanced data
+    for _, item in ipairs(scanData.housingItems or {}) do
         local itemRecord = {
             itemID = item.itemID,
             name = item.name,
+            subclassID = item.subclassID,
             decorID = item.decorID,
             price = item.price,
             stackCount = item.stackCount,
@@ -67,7 +81,6 @@ function ScanPersistence:SaveVendorData(scanData)
             isUsable = item.isUsable,
             spellID = item.spellID,
             requirements = item.requirements,
-            isDecor = true,
             merchantSlot = item.merchantSlot,
             hasExtendedCost = item.hasExtendedCost,
         }
@@ -137,8 +150,16 @@ function ScanPersistence:SaveVendorData(scanData)
     end
 
     -- Recalculate counts based on final data
-    vendorRecord.decorCount = #vendorRecord.items
+    local finalDecorCount = 0
+    for _, item in ipairs(vendorRecord.items) do
+        if item.subclassID == Enum.ItemHousingSubclass.Decor then
+            finalDecorCount = finalDecorCount + 1
+        end
+    end
+    vendorRecord.decorCount = finalDecorCount
     vendorRecord.hasDecor = vendorRecord.decorCount > 0
+    vendorRecord.housingCount = #vendorRecord.items
+    vendorRecord.hasHousing = vendorRecord.housingCount > 0
 
     -- Determine if this vendor is in any static data source (known decor vendor)
     local isKnownVendor = HA.VendorData and HA.VendorData:HasVendor(scanData.npcID) or false
@@ -154,9 +175,9 @@ function ScanPersistence:SaveVendorData(scanData)
     end
     vendorRecord.scanConfidence = scanConfidence
 
-    if vendorRecord.hasDecor
+    if vendorRecord.hasHousing
             and existingData and scanConfidence ~= "confirmed"
-            and (existingData.decorCount or 0) > vendorRecord.decorCount then
+            and (existingData.housingCount or 0) > vendorRecord.housingCount then
         -- An unconfirmed (laggy/partial) scan found fewer items than the
         -- existing record. Saving would clobber a larger, cleaner record with
         -- a worse one. Preserve the existing record entirely — do NOT touch
@@ -170,17 +191,18 @@ function ScanPersistence:SaveVendorData(scanData)
         -- Debug (already debug-gated) rather than DevAddon-gated: a rejected
         -- scan is evidence loss the user should be able to see with debug on.
         HA.Addon:Debug(string.format(
-            "Scan protection: %s (NPC %d) unconfirmed scan found %d decor items, "
+            "Scan protection: %s (NPC %d) unconfirmed scan found %d housing items, "
             .. "fewer than the existing %d. Preserving existing scan data.",
             scanData.vendorName or "?", scanData.npcID,
-            vendorRecord.decorCount, existingData.decorCount or 0
+            vendorRecord.housingCount, existingData.housingCount or 0
         ))
-    elseif vendorRecord.hasDecor then
+    elseif vendorRecord.hasHousing then
         -- Good scan: save new data
         HA.Addon.db.global.scannedVendors[scanData.npcID] = vendorRecord
     elseif isKnownVendor then
-        -- Known decor vendor scanned with 0 decor = API failure, not truth.
-        -- Preserve existing scan data; record the latest scan result separately.
+        -- Known housing vendor scanned with 0 housing items = API failure,
+        -- not truth. Preserve existing scan data; record the latest scan
+        -- result separately.
         if existingData then
             existingData.lastScanned = vendorRecord.lastScanned
             existingData.lastScanHadDecor = false
@@ -192,24 +214,28 @@ function ScanPersistence:SaveVendorData(scanData)
         end
         if HA.DevAddon then
             HA.Addon:Debug(string.format(
-                "Scan protection: %s (NPC %d) is a known vendor but scan found 0 decor. "
+                "Scan protection: %s (NPC %d) is a known vendor but scan found 0 housing items. "
                 .. "Preserving existing scan data.",
                 scanData.vendorName or "?", scanData.npcID
             ))
         end
-    elseif existingData and existingData.hasDecor then
-        -- Previously scanned with decor, now 0. Suspicious — preserve old data.
+    elseif existingData and (existingData.hasHousing or existingData.hasDecor) then
+        -- Previously scanned with housing items, now 0. Suspicious — preserve
+        -- old data. The hasDecor fallback covers records saved before this
+        -- field existed: hasDecor=true on an old record still means it had
+        -- housing items (decor is a housing subclass), so it must not fall
+        -- through to the delete branch below just because hasHousing is nil.
         existingData.lastScanned = vendorRecord.lastScanned
         existingData.lastScanHadDecor = false
         if HA.DevAddon then
             HA.Addon:Debug(string.format(
-                "Scan protection: %s (NPC %d) previously had %d decor items but new scan found 0. "
+                "Scan protection: %s (NPC %d) previously had housing items but new scan found 0. "
                 .. "Preserving previous scan data.",
-                scanData.vendorName or "?", scanData.npcID, existingData.decorCount or 0
+                scanData.vendorName or "?", scanData.npcID
             ))
         end
     else
-        -- Unknown vendor, no prior good data, 0 decor: don't persist
+        -- Unknown vendor, no prior good data, 0 housing items: don't persist
         HA.Addon.db.global.scannedVendors[scanData.npcID] = nil
         -- Deletion path fires no VENDOR_SCANNED, so rebuild the reverse
         -- index directly to drop stale (itemID -> npcID) entries pointing
@@ -222,7 +248,8 @@ function ScanPersistence:SaveVendorData(scanData)
     if HA.DevAddon then
         HA.Addon:Debug("Saved vendor data for " .. scanData.vendorName ..
             " - " .. vendorRecord.decorCount .. "/" .. vendorRecord.itemCount ..
-            " decor items, faction: " .. vendorRecord.faction)
+            " decor items (" .. vendorRecord.housingCount .. " housing items total), faction: "
+            .. vendorRecord.faction)
     end
 
     -- Maintain persistent no-decor tracking (survives ClearScannedData)
@@ -230,7 +257,7 @@ function ScanPersistence:SaveVendorData(scanData)
         HA.Addon.db.global.noDecorVendors = {}
     end
 
-    if vendorRecord.hasDecor == false and scanConfidence == "confirmed" then
+    if vendorRecord.hasHousing == false and scanConfidence == "confirmed" then
         if isKnownVendor then
             -- Never flag known vendors as no-decor. Clear any stale entry (recovery).
             HA.Addon.db.global.noDecorVendors[scanData.npcID] = nil
@@ -259,8 +286,8 @@ function ScanPersistence:SaveVendorData(scanData)
                 ))
             end
         end
-    elseif vendorRecord.hasDecor == true then
-        -- Re-scan found decor: unhide vendor
+    elseif vendorRecord.hasHousing == true then
+        -- Re-scan found housing items: unhide vendor
         HA.Addon.db.global.noDecorVendors[scanData.npcID] = nil
     end
 
@@ -272,7 +299,13 @@ function ScanPersistence:SaveVendorData(scanData)
     local hadRequirementDiscovery = false
     if HA.CatalogStore then
         for _, item in ipairs(vendorRecord.items) do
-            if item.itemID then
+            -- Containment: never create a catalogItems record for a non-decor
+            -- housing item. CatalogStore:IsDecorItem gate 1 keys off catalog
+            -- membership — giving a room plan an entry would switch on bag/
+            -- merchant/tooltip ownership overlays we cannot compute for it
+            -- yet (Phase 2), printing "Not Owned" on an item whose ownership
+            -- is genuinely unknown.
+            if item.itemID and item.subclassID == Enum.ItemHousingSubclass.Decor then
                 if item.requirements and #item.requirements > 0 then
                     HA.CatalogStore:SetRequirements(item.itemID, item.requirements)
                     -- Newly discovered requirements can affect availability/lock
