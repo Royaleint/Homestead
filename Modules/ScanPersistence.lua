@@ -154,6 +154,32 @@ function ScanPersistence:SaveVendorData(scanData)
         vendorRecord.expansion = vendorRecord.expansion or existingData.expansion
         vendorRecord.currency = vendorRecord.currency or existingData.currency
 
+        -- HS-249: decorID is now produced by an enrichment step rather than by
+        -- the capture test itself, so a cold housing catalog yields genuine
+        -- decor items carrying no decorID. Before this ticket such an item
+        -- failed capture outright and the preserve branches below kept the old
+        -- record intact; now it IS captured, the housing counts match, and a
+        -- good row would be overwritten by one that had silently lost its
+        -- decorID. Carry a known decorID forward per item.
+        --
+        -- This is not a merge of the item lists — an item absent from the
+        -- current scan stays absent. Only a field the scan could not resolve
+        -- is refilled, in the same spirit as the metadata preservation above.
+        local knownDecorIDs = nil
+        for _, item in ipairs(existingData.items or {}) do
+            if item.itemID and item.decorID then
+                knownDecorIDs = knownDecorIDs or {}
+                knownDecorIDs[item.itemID] = item.decorID
+            end
+        end
+        if knownDecorIDs then
+            for _, item in ipairs(vendorRecord.items) do
+                if item.itemID and not item.decorID then
+                    item.decorID = knownDecorIDs[item.itemID]
+                end
+            end
+        end
+
         -- DON'T merge item lists - use the current scan as authoritative
         -- The current scan is the source of truth for what the vendor sells NOW
     end

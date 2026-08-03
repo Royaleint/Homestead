@@ -207,6 +207,63 @@ assert(afterLegacyPartial.lastScanAttempt ~= nil,
 print("hs210_guards: HS-249 legacy-record partial-scan protection ok")
 
 -------------------------------------------------------------------------------
+-- HS-249 (Argus cycle 1): a cold housing catalog must not strip decorIDs off
+-- a good record. decorID now comes from an enrichment step rather than from
+-- the capture test, so a decor item scanned while the catalog is cold is still
+-- captured but carries no decorID. The housing counts then match, the
+-- partial-scan guard above does not fire, and the good rows would be replaced
+-- by rows that lost their decorID — a decor-side regression, which is exactly
+-- the invariant this phase must not break.
+-------------------------------------------------------------------------------
+
+ScanHA.Addon.db.global.scannedVendors[8003] = {
+    npcID = 8003,
+    vendorName = "Cold Catalog Vendor",
+    mapID = 1,
+    coords = { x = 0.5, y = 0.5 },
+    faction = "Neutral",
+    items = {
+        { itemID = 4001, name = "Decor 1", decorID = 5001, subclassID = 0 },
+        { itemID = 4002, name = "Decor 2", decorID = 5002, subclassID = 0 },
+    },
+    decorCount = 2,
+    hasDecor = true,
+    housingCount = 2,
+    hasHousing = true,
+    itemCount = 2,
+    lastScanned = 600,
+    scanConfidence = "confirmed",
+}
+
+-- Same two items, confirmed scan, but the catalog was cold so neither resolved
+-- a decorID. Counts are equal, so nothing upstream rejects this scan.
+ScanHA.ScanPersistence:SaveVendorData({
+    npcID = 8003,
+    vendorName = "Cold Catalog Vendor",
+    mapID = 1,
+    coords = { x = 0.5, y = 0.5 },
+    faction = "Neutral",
+    housingItems = {
+        { itemID = 4001, name = "Decor 1", decorID = nil, subclassID = 0, merchantSlot = 1 },
+        { itemID = 4002, name = "Decor 2", decorID = nil, subclassID = 0, merchantSlot = 2 },
+    },
+    scanComplete = true,
+    hadNilSlots = false,
+})
+
+local afterColdScan = ScanHA.Addon.db.global.scannedVendors[8003]
+assert(afterColdScan ~= nil, "the cold-catalog rescan must still persist")
+assert(#afterColdScan.items == 2, "expected both items after the rescan")
+for _, item in ipairs(afterColdScan.items) do
+    assert(item.decorID ~= nil,
+        "a cold-catalog rescan must not strip the decorID off a known decor item")
+end
+assert(afterColdScan.items[1].decorID == 5001 and afterColdScan.items[2].decorID == 5002,
+    "the preserved decorIDs must match the ones already on record")
+
+print("hs210_guards: HS-249 cold-catalog decorID preservation ok")
+
+-------------------------------------------------------------------------------
 -- HS-210 (M9): the preview click's GetCatalogEntryInfoByItem call is now
 -- pcall-guarded and falls through to a byRecordID probe (via CatalogStore's
 -- decorID reverse index) when byItem fails or returns nil, mirroring
