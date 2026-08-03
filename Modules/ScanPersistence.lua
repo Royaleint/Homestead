@@ -31,10 +31,19 @@ function ScanPersistence:SaveVendorData(scanData)
 
     local existingData = HA.Addon.db.global.scannedVendors[scanData.npcID]
 
+    -- HS-249: records written before the housing gate carry no housingCount.
+    -- On those, decorCount IS the housing count — decor was the only subclass
+    -- the old gate could capture. Falling back to 0 instead would make the
+    -- partial-scan guard below never fire for any pre-existing record, so the
+    -- first laggy rescan after updating would destroy it.
+    local existingHousingCount = existingData
+        and (existingData.housingCount or existingData.decorCount or 0)
+        or 0
+
     -- Build vendor record with enhanced data. decorCount/hasDecor keep
-    -- counting subclass 0 (Decor) only — decorCount is a consumed wire
-    -- format (V row col 9, export_review.py, consolidate-scanned-vendors.mjs,
-    -- and archived scans). housingCount/hasHousing cover every housing
+    -- counting subclass 0 (Decor) only — decorCount is a consumed wire format
+    -- read by downstream tooling and by every archived scan on disk, so its
+    -- meaning must not change. housingCount/hasHousing cover every housing
     -- subclass captured by the gate in DecorClassifier.
     local housingCount = scanData.housingItems and #scanData.housingItems or 0
     local itemCount = scanData.allItems and #scanData.allItems or scanData.totalItems or 0
@@ -177,7 +186,7 @@ function ScanPersistence:SaveVendorData(scanData)
 
     if vendorRecord.hasHousing
             and existingData and scanConfidence ~= "confirmed"
-            and (existingData.housingCount or 0) > vendorRecord.housingCount then
+            and existingHousingCount > vendorRecord.housingCount then
         -- An unconfirmed (laggy/partial) scan found fewer items than the
         -- existing record. Saving would clobber a larger, cleaner record with
         -- a worse one. Preserve the existing record entirely — do NOT touch
@@ -194,7 +203,7 @@ function ScanPersistence:SaveVendorData(scanData)
             "Scan protection: %s (NPC %d) unconfirmed scan found %d housing items, "
             .. "fewer than the existing %d. Preserving existing scan data.",
             scanData.vendorName or "?", scanData.npcID,
-            vendorRecord.housingCount, existingData.housingCount or 0
+            vendorRecord.housingCount, existingHousingCount
         ))
     elseif vendorRecord.hasHousing then
         -- Good scan: save new data

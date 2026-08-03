@@ -139,6 +139,74 @@ assert(#afterConfirmedScan.items == 1,
 print("hs210_guards: M10b partial-scan-does-not-clobber ok")
 
 -------------------------------------------------------------------------------
+-- HS-249 (Argus cycle 1 CRITICAL): the same protection must hold for records
+-- written BEFORE the housing gate existed. Those carry decorCount/hasDecor and
+-- no housingCount, so a guard reading `existingData.housingCount or 0` degrades
+-- to `0 > n` — never true — and the first laggy rescan after an update destroys
+-- a record it was supposed to defend. That is every existing user's saved data,
+-- not an edge case.
+--
+-- The fixture below is seeded DIRECTLY into the DB in the legacy shape rather
+-- than through SaveVendorData, which is the whole point: every other fixture in
+-- this file builds its baseline with current code, so `housingCount` is always
+-- present and the legacy path is never exercised. That gap is what let the bug
+-- through Gate 1 cycle 1.
+-------------------------------------------------------------------------------
+
+local function MakeLegacyItems(count)
+    local items = {}
+    for i = 1, count do
+        items[i] = {
+            itemID = 4000 + i,
+            name = "Legacy Decor " .. i,
+            decorID = 5000 + i,
+            -- No subclassID: pre-HS-249 records predate the field entirely.
+            price = 100,
+            merchantSlot = i,
+        }
+    end
+    return items
+end
+
+ScanHA.Addon.db.global.scannedVendors[8002] = {
+    npcID = 8002,
+    vendorName = "Legacy Vendor",
+    mapID = 1,
+    coords = { x = 0.5, y = 0.5 },
+    faction = "Neutral",
+    items = MakeLegacyItems(10),
+    decorCount = 10,
+    hasDecor = true,
+    itemCount = 10,
+    lastScanned = 500,
+    scanConfidence = "confirmed",
+    -- housingCount / hasHousing deliberately absent — the legacy shape.
+}
+
+ScanHA.ScanPersistence:SaveVendorData({
+    npcID = 8002,
+    vendorName = "Legacy Vendor",
+    mapID = 1,
+    coords = { x = 0.5, y = 0.5 },
+    faction = "Neutral",
+    housingItems = MakeDecorItems(2), -- laggy scan saw 2 of the 10
+    scanComplete = true,
+    hadNilSlots = true,               -- unconfirmed
+})
+
+local afterLegacyPartial = ScanHA.Addon.db.global.scannedVendors[8002]
+assert(afterLegacyPartial ~= nil,
+    "a pre-HS-249 record must survive an unconfirmed partial rescan")
+assert(#afterLegacyPartial.items == 10,
+    "an unconfirmed scan finding 2 items must not clobber a legacy 10-item record")
+assert(afterLegacyPartial.lastScanned == 500,
+    "a rejected scan must not re-date a legacy record's lastScanned")
+assert(afterLegacyPartial.lastScanAttempt ~= nil,
+    "the rejected attempt must still be recorded on the legacy record")
+
+print("hs210_guards: HS-249 legacy-record partial-scan protection ok")
+
+-------------------------------------------------------------------------------
 -- HS-210 (M9): the preview click's GetCatalogEntryInfoByItem call is now
 -- pcall-guarded and falls through to a byRecordID probe (via CatalogStore's
 -- decorID reverse index) when byItem fails or returns nil, mirroring
