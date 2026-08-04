@@ -1374,7 +1374,11 @@ function VendorMapPins:RefreshPins(force)
 
     WorldMapProvider:EnsureRegistered()
 
-    local renderState = self:BuildWorldMapRenderState(mapID)
+    -- HS-239: workload is mapID, already read from WorldMapFrame above for the
+    -- dirty check -- no new scan added to feed this call. Peer of
+    -- world_map_refresh, which measures this same open path's render half.
+    local renderState = HA.PerformanceTrace:Measure("world_map_build", mapID,
+        self.BuildWorldMapRenderState, self, mapID)
     WorldMapProvider:SetRenderState(renderState)
     WorldMapProvider:Refresh()
     lastRenderedWorldMapID = mapID

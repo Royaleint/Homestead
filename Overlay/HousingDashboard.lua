@@ -66,7 +66,7 @@ local function HideOverlayTexts()
     if ownershipText then ownershipText:Hide() end
 end
 
-local function UpdateMilestoneDisplay()
+local function UpdateMilestoneDisplayImpl()
     if not HA.Addon or not HA.Addon.db then return end
     if not HA.Addon.db.profile.endeavors or not HA.Addon.db.profile.endeavors.showMilestoneXP then
         HideOverlayTexts()
@@ -135,6 +135,15 @@ local function UpdateMilestoneDisplay()
     else
         if ownershipText then ownershipText:Hide() end
     end
+end
+
+-- HS-239 boundary: the whole dashboard overlay update pass -- every caller
+-- below routes through here. Workload is the literal "update"; the active theme
+-- is only resolved deep inside the body, so naming it here would mean an extra
+-- lookup added purely to feed this call. The body goes in by reference rather
+-- than through a closure, so an update allocates nothing.
+local function UpdateMilestoneDisplay()
+    return HA.PerformanceTrace:Measure("dashboard_overlay_update", "update", UpdateMilestoneDisplayImpl)
 end
 
 -------------------------------------------------------------------------------
