@@ -601,6 +601,11 @@ function VendorMapPins:GetVendorStats(vendor, sourceFilter)
     return BC:GetVendorStats(vendor, sourceFilter)
 end
 
+-- HS-271 item 2: cache-only peek delegation, mirroring GetVendorStats above.
+function VendorMapPins:PeekVendorStats(vendor, sourceFilter)
+    return BC:PeekVendorStats(vendor, sourceFilter)
+end
+
 function VendorMapPins:InvalidateBadgeCache()
     BC:InvalidateBadgeCache()
     lastRenderedWorldMapID = nil

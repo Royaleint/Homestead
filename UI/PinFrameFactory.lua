@@ -274,8 +274,12 @@ function PinFrameFactory:CreateDropPinFrame(record)
 end
 
 -- Refreshes vendor count text on an existing vendor pin frame.
--- Used by frame pooling so reused frames always show current collection counts.
-function PinFrameFactory:RefreshVendorPinCount(frame, vendor)
+-- Used by frame pooling so reused frames always show current collection
+-- counts. `reason` (optional, defaults to "cold_pin_render") is only used to
+-- label a self-heal BadgeCalculation:RequestPrewarm call on a double cache
+-- miss — the HS_VENDOR_STATS_WARMED listener below passes "fill_double_miss"
+-- so the two call sites are distinguishable in a report.
+function PinFrameFactory:RefreshVendorPinCount(frame, vendor, reason)
     if not frame then return end
 
     local showCounts = HA.Addon and HA.Addon.db and HA.Addon.db.profile.vendorTracer.showPinCounts ~= false
@@ -283,21 +287,76 @@ function PinFrameFactory:RefreshVendorPinCount(frame, vendor)
         if frame.count then
             frame.count:Hide()
         end
+        -- HS-271 item 2: reset on every acquire path (this function runs on
+        -- every AcquireVendorFrame call) so a recycled frame never carries a
+        -- stale pending flag from whatever it last showed.
+        frame.hsStatsPending = false
         return
     end
 
-    local stats
-    if vendor and HA.VendorMapPins and HA.VendorMapPins.GetVendorStats then
-        -- HS-018: respect the active source filter so pin counts match the
-        -- side-panel filter. Defensive fallback to "all" if MapSidePanel isn't
-        -- loaded yet (early init order).
-        local sourceFilter = "all"
-        if HA.MapSidePanel and HA.MapSidePanel.GetSourceFilter then
-            sourceFilter = HA.MapSidePanel:GetSourceFilter() or "all"
-        end
-        stats = HA.VendorMapPins:GetVendorStats(vendor, sourceFilter)
+    -- HS-018: respect the active source filter so pin counts match the
+    -- side-panel filter. Defensive fallback to "all" if MapSidePanel isn't
+    -- loaded yet (early init order).
+    local sourceFilter = "all"
+    if HA.MapSidePanel and HA.MapSidePanel.GetSourceFilter then
+        sourceFilter = HA.MapSidePanel:GetSourceFilter() or "all"
     end
-    if not stats or (stats.total or 0) <= 0 then
+
+    -- Whether this frame was ALREADY a double miss before this call — used
+    -- below to skip repainting an unchanged "..." placeholder.
+    local wasPending = frame.hsStatsPending
+
+    -- HS-271 Gate 1 cycle 1 CRITICAL fix: two-tier peek. The prewarm only
+    -- ever warms "all"-filter cache keys (BadgeCalculation's vendor-stats
+    -- batch always calls GetVendorStats(vendor, "all")), but a render can be
+    -- under any active filter — peeking ONLY the active filter's key against
+    -- an "all"-only-warmed cache meant a non-"all" filter's placeholder
+    -- never healed (permanent divergence, not just a slow fill). Gate 1
+    -- cycle 2 correction: an "all" hit does NOT mean per-item presentations
+    -- are cached — GetItemPresentation/GetAllSources are not memoized, so
+    -- BuildVendorStats still allocates fresh presentation tables per item
+    -- synchronously here. What "all" being warm buys is the requirement-met
+    -- and ownership caches underneath (the genuinely expensive part, per
+    -- HS-200) — still far cheaper than a fully cold compute, but not free;
+    -- its real cost under a non-"all" filter is unmeasured until Capture I.
+    local stats
+    if vendor and HA.VendorMapPins and HA.VendorMapPins.PeekVendorStats then
+        stats = HA.VendorMapPins:PeekVendorStats(vendor, sourceFilter)
+        if not stats and sourceFilter ~= "all"
+                and HA.VendorMapPins:PeekVendorStats(vendor, "all")
+                and HA.VendorMapPins.GetVendorStats then
+            stats = HA.VendorMapPins:GetVendorStats(vendor, sourceFilter)
+        end
+    end
+
+    if stats then
+        frame.hsStatsPending = false
+    else
+        -- Double miss: neither the active filter nor "all" is warm yet.
+        frame.hsStatsPending = true
+        -- Self-heal instead of waiting on whatever unrelated trigger last
+        -- fired the prewarm — covers the prewarm-never-ran case and
+        -- server-midnight cache-key rollover. RequestPrewarm's own 1s
+        -- debounce (BadgeCalculation.lua) makes this safe to call from
+        -- every double-miss acquire-path render.
+        -- NOT called when reason == "fill_double_miss" (the
+        -- HS_VENDOR_STATS_WARMED listener below): that event only fires
+        -- mid-pass, so this call could only ever schedule a redundant
+        -- rerun, never start a healing pass (Gate 1 cycle 2).
+        if reason ~= "fill_double_miss" and HA.BadgeCalculation and HA.BadgeCalculation.RequestPrewarm then
+            HA.BadgeCalculation:RequestPrewarm(reason or "cold_pin_render")
+        end
+        if wasPending and frame.count and frame.count:IsShown() then
+            -- Still a double miss and the frame already shows the "..."
+            -- placeholder from last time — nothing changed, skip repainting
+            -- identical text. Main call site: the HS_VENDOR_STATS_WARMED
+            -- listener re-firing for frames later in the pass than whatever
+            -- batch just warmed.
+            return
+        end
+    end
+
+    if stats and (stats.total or 0) <= 0 then
         if frame.count then
             frame.count:Hide()
         end
@@ -318,8 +377,16 @@ function PinFrameFactory:RefreshVendorPinCount(frame, vendor)
     frame.count:SetPoint("TOP", frame, "BOTTOM", 0, -2)
     local fontPath = frame.count:GetFont()
     frame.count:SetFont(fontPath, fontSize, "OUTLINE")
-    local BC = HA.BadgeCalculation
-    frame.count:SetText(BC and BC.FormatCountText(stats.collected, stats.total, stats.locked) or "")
+
+    if stats then
+        local BC = HA.BadgeCalculation
+        frame.count:SetText(BC and BC.FormatCountText(stats.collected, stats.total, stats.locked) or "")
+    else
+        -- Placeholder: no color coding until the real stats land. This
+        -- frame stays flagged hsStatsPending until the warmed-event
+        -- listener below re-runs this call with a cache hit.
+        frame.count:SetText("...")
+    end
     -- Use white as base color; inline escapes handle segment coloring.
     frame.count:SetTextColor(1, 1, 1)
     frame.count:Show()
@@ -679,4 +746,33 @@ function PinFrameFactory:CreateMinimapPinFrame(vendor, isOppositeFaction, elevat
     end)
 
     return frame
+end
+
+-------------------------------------------------------------------------------
+-- HS-271 item 2: Deferred Count Fill
+--
+-- BadgeCalculation's HS-234 prewarm fires HS_VENDOR_STATS_WARMED once per
+-- completed vendor-stats batch (not once per whole pass) -- this listener
+-- re-runs RefreshVendorPinCount on every currently-rendered vendor pin still
+-- flagged hsStatsPending, so a cold pin's "..." placeholder flips to its
+-- real count as soon as that vendor's batch lands, not only when the entire
+-- pass finishes. GetActiveVendorFrames() always mirrors whatever vendor pins
+-- are currently rendered (wiped in RemoveAllData, repopulated in
+-- RenderEntries) -- no per-pin subscription needed, and nothing to
+-- unregister later (HA.Events:UnregisterCallbacks has no per-callback form).
+-------------------------------------------------------------------------------
+
+if HA.Events then
+    HA.Events:RegisterCallback("HS_VENDOR_STATS_WARMED", function()
+        local Provider = HA.HomesteadWorldMapProvider
+        if not Provider or not Provider.GetActiveVendorFrames then
+            return
+        end
+
+        for _, frame in ipairs(Provider:GetActiveVendorFrames()) do
+            if frame.hsStatsPending then
+                PinFrameFactory:RefreshVendorPinCount(frame, frame.vendor, "fill_double_miss")
+            end
+        end
+    end)
 end
