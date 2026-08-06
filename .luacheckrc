@@ -54,6 +54,7 @@ read_globals = {
     "Settings",
     "ShoppingTooltip1", "ShoppingTooltip2",
     "ScrollUtil",
+    "ScrollBoxListViewMixin",
     "TooltipDataProcessor",
     "UIParent", "UISpecialFrames",
     "Menu",
