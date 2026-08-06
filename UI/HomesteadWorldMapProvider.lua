@@ -941,3 +941,149 @@ function Provider:RefreshAllData()
         MaybeLogProviderPerf("render")
     end)
 end
+
+-------------------------------------------------------------------------------
+-- HS-271 item 1: Pool Floor Pre-Build
+--
+-- Cold first pin-frame acquire on a dense map pays CreateFrame for every
+-- distinct pool bucket the render touches (PinFrameFactory:Create*Frame),
+-- landing inside the world_map_refresh render pass diagnosed at 558-651ms
+-- (HS-270 captures A/D). Pre-building a floor of frames into each pool at
+-- login moves that CreateFrame cost off the render path for the common
+-- case: the default style/faction/source-type bucket every kind resolves
+-- to before any player style customization.
+--
+-- Floor sizes are density-derived (HS-271 Gate 0): 16 vendor (Razorwind
+-- Shores, the densest zone), 10 badge (continent zone-badge view), 6 source
+-- (drop pins -- the only populated non-vendor source type today). Only the
+-- DEFAULT bucket is pre-built -- a mid-session pin-style change before first
+-- open still pays its own CreateFrame cost for that combination (accepted
+-- scope boundary, Plan Gate 1 item 1: the floor is a floor, not a guarantee
+-- for every style combination).
+--
+-- No portal floor (Gate 1 cycle 1: removed entirely, not sized to 0 as a
+-- count — GetPortalFramePoolKey's synthetic empty portalData never matches
+-- a REAL portal acquire's key (class-keyed off vendor.class), and portal
+-- pins don't appear on the freeze-class dense maps this item targets — a
+-- floor that can never be drawn from is dead weight, not a floor.
+--
+-- Frames are pushed straight into the pool via ReleasePooledFrame (never
+-- rendered) -- this reuses the SAME pool-key functions and CreateFrame
+-- factories the render path already calls, just run ahead of any
+-- player-triggered map open.
+-------------------------------------------------------------------------------
+
+local POOL_FLOOR_COUNTS = {
+    vendor = 16,
+    badge = 10,
+    source = 6,
+}
+local POOL_FLOOR_KIND_ORDER = { "vendor", "badge", "source" }
+
+-- Small per-tick batch: this runs once at login, off the render path, but
+-- still shouldn't land 32 CreateFrame calls on one frame during the busy
+-- login/loading-screen window.
+local POOL_FLOOR_BATCH_SIZE = 4
+local POOL_FLOOR_BATCH_DELAY = 0.05
+-- HS-238: same combat-retry idiom as HS-234's ProcessBatch -- this pre-build
+-- has no urgency, so it costs nothing to defer it off combat frames.
+local POOL_FLOOR_COMBAT_RETRY_DELAY = 1.0
+
+local function BuildPoolFloorQueue()
+    local queue = {}
+    for _, kind in ipairs(POOL_FLOOR_KIND_ORDER) do
+        for _ = 1, POOL_FLOOR_COUNTS[kind] do
+            queue[#queue + 1] = kind
+        end
+    end
+    return queue
+end
+
+-- Default-bucket synthetic job for one kind: pool key derived from the
+-- player's CURRENT live pin-style settings (Get*FramePoolKey functions read
+-- PinFrameFactory's style getters directly), with neutral/empty source data
+-- so every Get*FramePoolKey resolves to its default/neutral/"none" bucket --
+-- the same bucket a fresh pin resolves to before any per-vendor/per-badge
+-- customization.
+local function BuildPoolFloorJob(kind)
+    if kind == "vendor" then
+        local vendor, isOppositeFaction = {}, false
+        local poolKey = GetVendorFramePoolKey({ vendor = vendor, isOppositeFaction = isOppositeFaction })
+        return poolKey, vendorFramePool, function()
+            return PinFrameFactory:CreateVendorPinFrame(vendor, isOppositeFaction)
+        end
+    elseif kind == "badge" then
+        local badgeData = {}
+        local poolKey = GetBadgeFramePoolKey(badgeData)
+        return poolKey, badgeFramePool, function()
+            return PinFrameFactory:CreateBadgePinFrame(badgeData)
+        end
+    elseif kind == "source" then
+        local record = { sourceType = "drop" }
+        local poolKey = GetSourceFramePoolKey(record)
+        return poolKey, sourceFramePool, function()
+            return PinFrameFactory:CreateSourcePinFrame(record.sourceType, record)
+        end
+    end
+end
+
+function Provider:PrewarmPoolFloor()
+    local queue = BuildPoolFloorQueue()
+    local index = 1
+
+    local function ProcessBatch()
+        if _G.InCombatLockdown() then
+            C_Timer.After(POOL_FLOOR_COMBAT_RETRY_DELAY, ProcessBatch)
+            return
+        end
+
+        local batchEnd = math.min(index + POOL_FLOOR_BATCH_SIZE - 1, #queue)
+        for i = index, batchEnd do
+            local kind = queue[i]
+            local poolKey, pool, createFunc = BuildPoolFloorJob(kind)
+            local frame = createFunc()
+            if kind == "vendor" then
+                -- HS-271 Gate 1 cycle 1 nit: CreateVendorPinFrame's own
+                -- RefreshVendorPinCount call (for the synthetic {} vendor
+                -- above) is a double miss by construction (no npcID) and
+                -- sets hsStatsPending=true — harmless (RequestPrewarm is
+                -- debounced) but leaves the pooled frame flagged pending for
+                -- a vendor that was never real. Reset explicitly so a later
+                -- real AcquireVendorFrame always starts this flag from a
+                -- known-false baseline, never a leftover from pool-floor's
+                -- own synthetic creation.
+                frame.hsStatsPending = false
+            end
+            frame.__hsPoolKey = poolKey
+            ReleasePooledFrame(pool, frame)
+        end
+        index = batchEnd + 1
+
+        if index <= #queue then
+            C_Timer.After(POOL_FLOOR_BATCH_DELAY, ProcessBatch)
+        end
+    end
+
+    C_Timer.After(POOL_FLOOR_BATCH_DELAY, ProcessBatch)
+end
+
+-- Login trigger: same self-terminating polling idiom as BadgeCalculation.lua's
+-- login warmup ticker (HS-234) -- bounded so a session where OnInitialize
+-- somehow never completes doesn't poll forever. Polls addon-init completion
+-- (HA.Addon._initialized, set at the end of Core/core.lua's OnInitialize)
+-- rather than IsWarm(): frame creation needs no catalog data, only
+-- PinFrameFactory's style-key readers (HA.Addon.db).
+local POOL_FLOOR_LOGIN_POLL_INTERVAL = 0.5
+local POOL_FLOOR_LOGIN_MAX_POLLS = 40
+local poolFloorLoginPolls = 0
+local poolFloorLoginTicker = nil
+
+poolFloorLoginTicker = C_Timer.NewTicker(POOL_FLOOR_LOGIN_POLL_INTERVAL, function()
+    poolFloorLoginPolls = poolFloorLoginPolls + 1
+    if HA.Addon and HA.Addon._initialized then
+        poolFloorLoginTicker:Cancel()
+        Provider:PrewarmPoolFloor()
+    elseif poolFloorLoginPolls >= POOL_FLOOR_LOGIN_MAX_POLLS then
+        poolFloorLoginTicker:Cancel()
+    end
+end)
