@@ -306,6 +306,20 @@ function BadgeCalculation:GetVendorStats(vendor, sourceFilter)
     return stats
 end
 
+-- HS-271 item 2: cache-only peek, same cache-key derivation as GetVendorStats
+-- above but NEVER computes on a miss. Cold-pin count text uses this so a
+-- pin's frame-acquire never pays BuildVendorStats' per-item
+-- GetItemPresentation loop -- the exact cost the background prewarm pass
+-- already exists to move off the render path.
+function BadgeCalculation:PeekVendorStats(vendor, sourceFilter)
+    if not vendor or not vendor.npcID then
+        return nil
+    end
+
+    local cacheKey = BuildVendorFilterCacheKey(vendor, sourceFilter)
+    return vendorStatsCache[cacheKey]
+end
+
 -- Local alias for internal callers (aggregate builders) that need
 -- the same caching without going through the colon-method dispatch.
 local function GetVendorStats(vendor, sourceFilter)
@@ -769,7 +783,14 @@ end
 -- same single source of truth instead of re-deriving warmness."
 -------------------------------------------------------------------------------
 
-local WARMUP_VENDORS_PER_BATCH = 10
+-- HS-271 item 3c: time-boxed, not count-boxed. A fixed vendor-per-batch
+-- count (the old WARMUP_VENDORS_PER_BATCH = 10) spiked to 228.91ms on its
+-- own (HS-270 capture E) because some vendors cost far more than others
+-- (per-item GetItemPresentation loops of very different sizes) -- a FIXED
+-- COUNT has no relationship to how long that count actually takes. Checked
+-- via GetTimePreciseSec() (never debugprofilestop -- absent from this repo)
+-- inside the batch loop below.
+local WARMUP_BATCH_TIME_MS = 4
 local WARMUP_BATCH_DELAY = 0.02
 -- HS-238: while the player is in combat, batches don't run — they reschedule
 -- at this interval until combat drops. Cheap poll (one timer + one C call
@@ -793,6 +814,40 @@ local warmupPendingRerun = false
 -- (BadgeCalculation:InvalidateAllCaches, defined further up the file, calls
 -- it) — assigned below, after StartPrewarmPass exists for it to reference.
 
+-- HS-271 item 3a: partitions the vendor list current-zone-first /
+-- current-continent-next / everything else last, so the pass warms whatever
+-- the player can actually open first. One VF.GetBestVendorCoordinates +
+-- GetContinentForZone per vendor -- the same per-vendor cost
+-- GetZoneVendorCounts/GetContinentVendorCounts already pay, just run once
+-- here to establish order instead of the arbitrary VendorData table order.
+-- Called from inside the first ProcessBatch tick only (see below) — never
+-- from StartPrewarmPass's own caller frame (orchestrator review flag 2).
+local function BuildZoneFirstVendorOrder(allVendors)
+    local playerMapID = C_Map.GetBestMapForUnit("player")
+    local playerContinent = playerMapID and BadgeCalculation.GetContinentForZone(playerMapID)
+
+    local zoneFirst, continentFirst, rest = {}, {}, {}
+    for _, vendor in ipairs(allVendors) do
+        local _, zoneMapID = VF.GetBestVendorCoordinates(vendor)
+        if playerMapID and zoneMapID == playerMapID then
+            zoneFirst[#zoneFirst + 1] = vendor
+        elseif playerContinent and zoneMapID
+                and BadgeCalculation.GetContinentForZone(zoneMapID) == playerContinent then
+            continentFirst[#continentFirst + 1] = vendor
+        else
+            rest[#rest + 1] = vendor
+        end
+    end
+
+    local ordered = {}
+    for _, list in ipairs({ zoneFirst, continentFirst, rest }) do
+        for _, vendor in ipairs(list) do
+            ordered[#ordered + 1] = vendor
+        end
+    end
+    return ordered
+end
+
 local function StartPrewarmPass()
     if not HA.CatalogScanner or not HA.CatalogScanner.IsWarm or not HA.CatalogScanner:IsWarm() then
         return
@@ -805,6 +860,17 @@ local function StartPrewarmPass()
 
     warmupInProgress = true
     local currentIndex = 1
+    -- Built lazily on the FIRST batch tick below (orchestrator review flag 2).
+    local orderedVendors = nil
+
+    -- HS-271 item 3b: after the vendor-stats loop below finishes, the SAME
+    -- pass (never ahead of it — HS-216/HS-234) warms the badge-aggregate
+    -- caches the vendor loop never touches. GetZoneVendorCounts/
+    -- GetContinentVendorCounts are what the zoom-sweep capture (HS-270
+    -- capture C) found cold at up to 188.64ms.
+    local continentList = nil
+    local continentIndex = 1
+    local continentTotalsWarmed = false
 
     local function ProcessBatch()
         -- HS-238: never run a warm-up batch during combat — whatever event
@@ -817,51 +883,127 @@ local function StartPrewarmPass()
             return
         end
 
-        local batchEnd = math.min(currentIndex + WARMUP_VENDORS_PER_BATCH - 1, totalVendors)
-        -- HS-239: workload is batchSize, arithmetic on the currentIndex/
-        -- batchEnd this loop already computes — no new scan added to feed
-        -- this call. Measure's callback is pcall itself (not a wrapper
-        -- closure around it), so this stays exactly the original
-        -- `ok = pcall(fn)` shape the comment below describes.
-        local batchSize = batchEnd - currentIndex + 1
-        -- pcall so a mid-batch error degrades to "this pass aborted" — an
-        -- unguarded error would kill the timer chain with warmupInProgress
-        -- stuck true, silently disabling prewarm for the rest of the
-        -- session (every future trigger would coalesce into a rerun that
-        -- never comes).
-        local ok = HA.PerformanceTrace:Measure("badge_prewarm", batchSize, pcall, function()
-            for i = currentIndex, batchEnd do
-                local vendor = allVendors[i]
-                if vendor and vendor.npcID then
-                    -- "all": GetVendorStats' internal per-item presentation loop
-                    -- runs unconditionally regardless of sourceFilter (filtering
-                    -- only affects downstream aggregation, not which items get a
-                    -- presentation lookup) — warming "all" already populates the
-                    -- expensive per-item requirement-eval cache for every
-                    -- source-filter value, not just "all" itself. One pass
-                    -- covers every filter a badge consumer might later request.
-                    BadgeCalculation:GetVendorStats(vendor, "all")
+        if currentIndex <= totalVendors then
+            -- HS-239: batchStartIndex (not a vendor count) is the Measure
+            -- workload — under time-boxing, how many vendors this tick will
+            -- process isn't knowable before the loop runs (that's the whole
+            -- point of time-boxing over count-boxing), but the starting
+            -- position already known here costs nothing extra to report.
+            -- Measure's callback is pcall itself (not a wrapper closure
+            -- around it), so this stays the original `ok = pcall(fn)` shape.
+            local batchStartIndex = currentIndex
+            -- pcall so a mid-batch error degrades to "this pass aborted" — an
+            -- unguarded error would kill the timer chain with warmupInProgress
+            -- stuck true, silently disabling prewarm for the rest of the
+            -- session (every future trigger would coalesce into a rerun that
+            -- never comes).
+            local ok = HA.PerformanceTrace:Measure("badge_prewarm", batchStartIndex, pcall, function()
+                if not orderedVendors then
+                    -- HS-271 Gate 1 cycle 1: moved inside this Measure/pcall
+                    -- boundary (previously unmeasured and unguarded) so a
+                    -- slow or erroring partition shows up in the SAME
+                    -- badge_prewarm record class and degrades the pass the
+                    -- same way a bad vendor batch does, instead of running
+                    -- outside pcall's protection. NOT split across ticks:
+                    -- doing so would mean carrying zoneFirst/continentFirst/
+                    -- rest accumulators plus their own cursor alongside the
+                    -- vendor-loop's currentIndex across ticks — a second
+                    -- parallel state machine for a step that runs exactly
+                    -- ONCE per pass and costs one VF.GetBestVendorCoordinates
+                    -- + GetContinentForZone call per vendor, the same
+                    -- per-vendor cost the aggregate builders below already
+                    -- pay unmeasured. Kept whole; still inside the boundary
+                    -- so it is measured and pcall-protected either way.
+                    orderedVendors = BuildZoneFirstVendorOrder(allVendors)
                 end
+
+                local budgetStart = _G.GetTimePreciseSec()
+                while currentIndex <= totalVendors do
+                    local vendor = orderedVendors[currentIndex]
+                    if vendor and vendor.npcID then
+                        -- "all": GetVendorStats' internal per-item presentation loop
+                        -- runs unconditionally regardless of sourceFilter (filtering
+                        -- only affects downstream aggregation, not which items get a
+                        -- presentation lookup) — warming "all" already populates the
+                        -- expensive per-item requirement-eval cache for every
+                        -- source-filter value, not just "all" itself. One pass
+                        -- covers every filter a badge consumer might later request.
+                        BadgeCalculation:GetVendorStats(vendor, "all")
+                    end
+                    currentIndex = currentIndex + 1
+                    if (_G.GetTimePreciseSec() - budgetStart) * 1000 >= WARMUP_BATCH_TIME_MS then
+                        break
+                    end
+                end
+            end)
+            if not ok then
+                warmupInProgress = false
+                warmupPendingRerun = false
+                return
             end
-        end)
-        if not ok then
-            warmupInProgress = false
-            warmupPendingRerun = false
+            -- HS-271 item 2: batch-level fire (not per-vendor, not once per
+            -- whole pass) — PinFrameFactory's listener walks currently
+            -- rendered vendor pins and re-runs RefreshVendorPinCount on
+            -- whichever are still flagged hsStatsPending.
+            if HA.Events then
+                HA.Events:Fire("HS_VENDOR_STATS_WARMED")
+            end
+            C_Timer.After(WARMUP_BATCH_DELAY, ProcessBatch)
             return
         end
-        currentIndex = batchEnd + 1
-        if currentIndex <= totalVendors then
-            C_Timer.After(WARMUP_BATCH_DELAY, ProcessBatch)
-        else
-            warmupInProgress = false
-            if warmupPendingRerun then
-                -- A wipe landed while this pass was running — rerun a FULL
-                -- fresh pass (not a resume) so nothing processed before
-                -- that wipe is left stale-cached, and nothing after it is
-                -- left missing.
-                warmupPendingRerun = false
-                StartPrewarmPass()
+
+        -- Vendor-stats loop is done. Orchestrator review flag 1: each
+        -- aggregate call below is an ATOMIC batch unit — the time-box is
+        -- BETWEEN calls (one call per tick), never inside one.
+        if not continentList then
+            continentList = {}
+            for continentMapID in pairs(Constants.ContinentNames) do
+                if not MPP.excludedContinents[continentMapID] then
+                    continentList[#continentList + 1] = continentMapID
+                end
             end
+        end
+
+        if not continentTotalsWarmed then
+            continentTotalsWarmed = true
+            local ok = HA.PerformanceTrace:Measure("badge_prewarm", "continent_totals", pcall, function()
+                BadgeCalculation:GetContinentVendorCounts("all")
+            end)
+            if not ok then
+                warmupInProgress = false
+                warmupPendingRerun = false
+                return
+            end
+            C_Timer.After(WARMUP_BATCH_DELAY, ProcessBatch)
+            return
+        end
+
+        if continentIndex <= #continentList then
+            local continentMapID = continentList[continentIndex]
+            continentIndex = continentIndex + 1
+            local ok = HA.PerformanceTrace:Measure("badge_prewarm", continentMapID, pcall, function()
+                BadgeCalculation:GetZoneVendorCounts(continentMapID, "all")
+            end)
+            if not ok then
+                warmupInProgress = false
+                warmupPendingRerun = false
+                return
+            end
+            if continentIndex <= #continentList then
+                C_Timer.After(WARMUP_BATCH_DELAY, ProcessBatch)
+                return
+            end
+        end
+
+        warmupInProgress = false
+        if warmupPendingRerun then
+            -- A wipe landed while this pass was running — rerun a FULL
+            -- fresh pass (not a resume) so nothing processed before
+            -- that wipe is left stale-cached, and nothing after it is
+            -- left missing. Full pass includes re-partitioning vendors and
+            -- re-warming aggregates, same as the first run.
+            warmupPendingRerun = false
+            StartPrewarmPass()
         end
     end
 
@@ -899,6 +1041,15 @@ RequestVendorStatsPrewarm = function(_reason)
         warmupTriggerTimer = nil
         TryStartPrewarmPass()
     end)
+end
+
+-- HS-271 Gate 1 cycle 1: public self-heal entry point for the deferred-fill
+-- path (PinFrameFactory:RefreshVendorPinCount, on a double cache miss) —
+-- thin wrapper over the same debounced trigger every other caller already
+-- uses, nothing else. Safe to call from a render-path double miss because
+-- RequestVendorStatsPrewarm's own 1s debounce (above) absorbs repeats.
+function BadgeCalculation:RequestPrewarm(reason)
+    RequestVendorStatsPrewarm(reason)
 end
 
 -- Login trigger: poll HA.CatalogScanner:IsWarm() (a cheap boolean read, not

@@ -362,10 +362,26 @@ local worldMapSource = ReadFile(root .. "/UI/HomesteadWorldMapProvider.lua")
 assert(worldMapSource:find('HA%.PerformanceTrace:Measure%("world_map_refresh", currentMapID,') ~= nil,
     "HomesteadWorldMapProvider.lua RefreshAllData must wrap its render pass via the facade with the existing currentMapID workload")
 
--- badge_prewarm: ProcessBatch's pcall'd loop, workload is the already-computed
--- batch size (arithmetic on existing currentIndex/batchEnd, not a new scan).
+-- badge_prewarm: ProcessBatch's pcall'd loop, workload is batchStartIndex --
+-- HS-271 replaced count-boxed batches (a fixed WARMUP_VENDORS_PER_BATCH) with
+-- time-boxed ones (WARMUP_BATCH_TIME_MS via GetTimePreciseSec), so how many
+-- vendors a batch will process is no longer knowable before the loop runs;
+-- Measure's workload argument must be known before the callback executes, so
+-- the already-known value carried here is the batch's starting cursor
+-- position (currentIndex at batch start), not a post-hoc processed count.
 local badgeSource = ReadFile(root .. "/UI/BadgeCalculation.lua")
-assert(badgeSource:find('HA%.PerformanceTrace:Measure%("badge_prewarm", batchSize, pcall,') ~= nil,
-    "BadgeCalculation.lua ProcessBatch must wrap its pcall'd batch via the facade with the existing batchSize workload")
+assert(badgeSource:find('HA%.PerformanceTrace:Measure%("badge_prewarm", batchStartIndex, pcall,') ~= nil,
+    "BadgeCalculation.lua ProcessBatch must wrap its pcall'd batch via the facade with the existing batchStartIndex workload")
+
+-- badge_prewarm (HS-271 item 3b, Gate 1 cycle 1): the aggregate-warming phase
+-- appended after the vendor-stats loop is TWO more badge_prewarm call sites,
+-- one atomic call per tick each (orchestrator review flag 1) — a fixed
+-- "continent_totals" label for the single GetContinentVendorCounts("all")
+-- call, and continentMapID (already known, the list this loop already built)
+-- for the per-continent GetZoneVendorCounts call.
+assert(badgeSource:find('HA%.PerformanceTrace:Measure%("badge_prewarm", "continent_totals", pcall,') ~= nil,
+    "BadgeCalculation.lua ProcessBatch must wrap GetContinentVendorCounts(\"all\") via the facade with the \"continent_totals\" workload")
+assert(badgeSource:find('HA%.PerformanceTrace:Measure%("badge_prewarm", continentMapID, pcall,') ~= nil,
+    "BadgeCalculation.lua ProcessBatch must wrap its per-continent GetZoneVendorCounts call via the facade with the existing continentMapID workload")
 
 print("hs239_performance_trace.lua: Task 2 ok")
