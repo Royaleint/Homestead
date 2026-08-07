@@ -2187,11 +2187,14 @@ function VendorMapPins:Initialize()
         end)
     end
 
-    -- World map refresh is driven by the provider's watcher frame
-    -- (HomesteadWorldMapProvider:EnsureRegistered). Do NOT hook WorldMapFrame
-    -- OnShow or SetMapID directly — those run during Blizzard's secure
-    -- map-open path and taint the execution context, causing
-    -- SetPassThroughButtons() errors in combat.
+    -- HS-275: world map refresh is driven by the pin-less data provider
+    -- HomesteadWorldMapProvider:EnsureRegistered() registers with
+    -- WorldMapFrame:AddDataProvider. Do NOT hook WorldMapFrame OnShow or
+    -- SetMapID directly, and do NOT use MapCanvasPinMixin/AcquirePin for
+    -- these pins — those run/enter Blizzard's secure map-open path and
+    -- managed pin lifecycle, tainting the execution context and causing
+    -- SetPassThroughButtons() errors in combat (HS-081). The data provider
+    -- is the sanctioned path for map-state notifications.
 
     -- Listen for vendor scan events to refresh pins with new data
     if HA.Events then
