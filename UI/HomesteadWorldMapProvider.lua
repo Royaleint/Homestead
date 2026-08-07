@@ -2,10 +2,13 @@
     Homestead - World Map Provider
     Self-managed world-map renderer using plain canvas-child frames.
 
-    Does NOT use AddDataProvider or MapCanvasPinMixin — those enter Blizzard's
-    managed pin lifecycle which calls protected SetPassThroughButtons in combat.
-    Instead, a lightweight watcher frame detects map state changes and triggers
-    refresh/reposition after Blizzard's secure path completes.
+    HS-275: registers a PIN-LESS data provider (WorldMapFrame:AddDataProvider)
+    purely to receive Blizzard's map-state notifications (OnShow/OnHide/
+    OnMapChanged/OnCanvasSizeChanged/OnCanvasScaleChanged). Still does NOT use
+    MapCanvasPinMixin or enter Blizzard's managed pin lifecycle or pin-frame
+    pooling — that lifecycle calls protected SetPassThroughButtons in combat
+    and is the taint vector HS-081 hit. Vendor/badge/portal/source pins keep
+    the existing plain-frame path (MPP.PlaceNativePin) untouched.
 ]]
 
 local _, HA = ...
@@ -35,12 +38,14 @@ local renderedMapID = nil
 -- Separate from refreshPending above, which stays the same-frame coalesce
 -- for watcher_opened (a single deliberate action, not a spam vector).
 local settleTimer = nil
--- HS-223a: external consumers (currently MapSidePanel) of the shared 0.1s
--- map watcher below, keyed by caller-chosen string so multiple registrants
+-- HS-223a: external consumers (currently MapSidePanel) of the shared map
+-- watch dispatch below, keyed by caller-chosen string so multiple registrants
 -- can't clobber each other. Each callback receives (isShown, mapID,
--- maximized) every tick -- the raw state MapSidePanel's own watch logic
--- needs, read from this ONE poll instead of running a second independent
--- 0.1s ticker against the same WorldMapFrame state.
+-- maximized) on every dispatch -- the raw state MapSidePanel's own watch
+-- logic needs, read from this ONE dispatch instead of running an independent
+-- watcher against the same WorldMapFrame state. HS-275: dispatch is now
+-- driven by DispatchMapWatch() (on-change, push-driven) instead of a 0.1s
+-- poll -- see DispatchMapWatch below.
 local mapWatchCallbacks = {}
 local debugStats = {
     refreshCalls = 0,
@@ -514,6 +519,126 @@ local function RequestSettledRefresh(reason)
     end)
 end
 
+-- HS-275: identity kept so a future RemoveDataProvider call has a stable
+-- reference to match on (CLAIM-PINS-0011 -- MapCanvasMixin:RemoveDataProvider
+-- clears its dataProviders table by instance identity).
+local mapDataProvider = nil
+
+local mapWatchPending = false
+
+local function DispatchMapWatch()
+    if mapWatchPending then return end
+    mapWatchPending = true
+    C_Timer.After(0, function()
+        mapWatchPending = false
+        local isShown = WorldMapFrame and WorldMapFrame:IsShown() or false
+        local mapID = isShown and WorldMapFrame:GetMapID() or nil
+        local maximized = isShown and (WorldMapFrame.isMaximized and true or false) or false
+        for key, cb in pairs(mapWatchCallbacks) do
+            local success, err = pcall(cb, isShown, mapID, maximized)
+            if not success and HA.Addon then
+                HA.Addon:Debug("Error in map watch callback:", key, err)
+            end
+        end
+    end)
+end
+
+-- HS-275: handlers dispatched by Blizzard's MapCanvasMixin data-provider
+-- protocol (WorldMapFrame:CallMethodOnDataProviders / CallMethodOnPinsAnd
+-- DataProviders), armored by secureexecuterange on every dispatch. Mixed
+-- onto a CreateFromMixins(MapCanvasDataProviderMixin) delegate in
+-- EnsureRegistered -- not onto Provider itself, so a missing method name
+-- from a future Blizzard dispatch can't raise mid-loop inside Provider's
+-- own render path, and so RefreshAllData here can mean "kick the deferred
+-- refresh" without colliding with Provider:RefreshAllData's real
+-- synchronous teardown-and-rebuild.
+local mapDataProviderMethods = {}
+
+function mapDataProviderMethods:OnShow()
+    watcherStats.opened = watcherStats.opened + 1
+    -- POI-dodge cache is keyed on mapID and never busts within a map,
+    -- so event POIs that appeared/disappeared while the map was closed
+    -- (Saltheril's Soiree, Abundance, ...) would keep dodging against
+    -- stale positions on re-show. Bust it on every map re-show.
+    cachedPoiMapID = nil
+    cachedPoiPositions = nil
+    C_Timer.After(0, function()
+        RequestDeferredRefresh("watcher_opened")
+    end)
+    DispatchMapWatch()
+end
+
+function mapDataProviderMethods:OnHide()
+    watcherStats.closed = watcherStats.closed + 1
+    -- HS-234: a pending settle-debounce from a transition made just
+    -- before closing the map would otherwise fire uselessly ~0.25s
+    -- later against a closed map — cancel it now, same discipline
+    -- VendorMapPins:ClearAllPins already applies to its own
+    -- worldMapRefreshTimer.
+    if settleTimer then
+        settleTimer:Cancel()
+        settleTimer = nil
+    end
+    Provider:RemoveAllData()
+    DispatchMapWatch()
+end
+
+function mapDataProviderMethods:OnMapChanged()
+    watcherStats.mapChanged = watcherStats.mapChanged + 1
+    RequestSettledRefresh("watcher_map_changed")
+    DispatchMapWatch()
+end
+
+function mapDataProviderMethods:OnCanvasSizeChanged()
+    watcherStats.resized = watcherStats.resized + 1
+    if IsDebugModeEnabled() then
+        HA.Addon:Debug("WorldMapWatcher: watcher_resize")
+    end
+    MPP.RepositionWorldMapPins()
+    DispatchMapWatch()
+end
+
+function mapDataProviderMethods:OnCanvasScaleChanged()
+    watcherStats.zoomChanged = watcherStats.zoomChanged + 1
+    -- Full refresh on zoom change so POI dodge recalculates
+    -- with the new zoom factor (pins drift back at high zoom).
+    RequestSettledRefresh("watcher_zoom")
+    DispatchMapWatch()
+end
+
+function mapDataProviderMethods:RefreshAllData()
+    -- MapCanvasMixin:RefreshAllDataProviders (Blizzard_MapCanvas.lua) closes
+    -- over a free `fromOnShow` that never resolves to the caller's argument
+    -- -- providers always receive nil here. Do not read it.
+    RequestDeferredRefresh("provider_refresh_all")
+    DispatchMapWatch()
+end
+
+function mapDataProviderMethods:RemoveAllData()
+    -- Required by MapCanvasMixin:RemoveDataProvider, which calls this
+    -- before clearing the provider table key by instance identity. The
+    -- inherited MapCanvasDataProviderMixin stub is a no-op and would strand
+    -- rendered pins on a future unregister.
+    Provider:RemoveAllData()
+    DispatchMapWatch()
+end
+
+-- HS-275: canvas *effective* scale also moves when UIParent scale changes
+-- (uiScale CVar, resolution change), and no MapCanvasMixin callback fires
+-- for that -- it isn't a canvas-size or canvas-scale event, it's a
+-- UIParent-wide rescale. Own event frame, same idiom as
+-- HomesteadMinimapOverlay.lua's cvarFrame -- these are WoW engine events,
+-- not provider dispatch, so they go through CreateFrame+RegisterEvent, not
+-- MapCanvasDataProviderMixin:RegisterEvent.
+local scaleEventFrame = CreateFrame("Frame")
+scaleEventFrame:RegisterEvent("UI_SCALE_CHANGED")
+scaleEventFrame:RegisterEvent("DISPLAY_SIZE_CHANGED")
+scaleEventFrame:SetScript("OnEvent", function()
+    if isRegistered and WorldMapFrame and WorldMapFrame:IsShown() then
+        RequestSettledRefresh("ui_scale_changed")
+    end
+end)
+
 local function BuildWorldPinStyleKey()
     local size = PinFrameFactory:GetPinIconSize()
     local isCustom = PinFrameFactory:IsCustomPinColor()
@@ -698,110 +823,41 @@ function Provider:EnsureRegistered()
         return
     end
 
+    -- HS-275: fail-loud, not a silent return and not a Debug line. Duck-typed
+    -- dispatch means a Blizzard rename of this callback produces no error at
+    -- all otherwise — just pins that quietly stop repositioning. Blizzard_
+    -- MapCanvas is LoadOnDemand, so MapCanvasDataProviderMixin can be nil at
+    -- Homestead file-scope load; the WorldMapFrame guard just above is the
+    -- proof the addon is loaded by the time we get here.
+    if MapCanvasDataProviderMixin == nil
+            or MapCanvasDataProviderMixin.OnCanvasScaleChanged == nil then
+        error("Homestead: MapCanvasDataProviderMixin.OnCanvasScaleChanged is missing. "
+            .. "The world-map pin refresh mechanism has detached -- Blizzard renamed or "
+            .. "removed the canvas data-provider callback this addon depends on.")
+    end
+
     self.mapCanvas = WorldMapFrame:GetCanvasContainer()
     isRegistered = true
 
-    local lastMapID = nil
-    local lastCanvasWidth = nil
-    local lastCanvasHeight = nil
-    local lastCanvasEffectiveScale = nil
-    -- Passive polling watcher — no WorldMapFrame hooks at all.
-    -- HookScript and hooksecurefunc on WorldMapFrame run during Blizzard's
-    -- secure map-open path, tainting the execution context. A ticker that
-    -- polls map state is the only taint-safe detection mechanism.
-    local wasShown = false
-
-    C_Timer.NewTicker(0.1, function()
-        local isShown = WorldMapFrame and WorldMapFrame:IsShown()
-        -- HS-223a: mapID/maximized are read here (not just inside the old
-        -- "still open" branch) so they're available below for the shared
-        -- external-callback dispatch on every tick, not only Provider's own
-        -- branches.
-        local mapID = isShown and WorldMapFrame:GetMapID() or nil
-        local maximized = isShown and (WorldMapFrame.isMaximized and true or false) or false
-
-        if isShown and not wasShown then
-            -- Map just opened — force refresh after secure path completes
-            wasShown = true
-            watcherStats.opened = watcherStats.opened + 1
-            lastMapID = nil
-            -- POI-dodge cache is keyed on mapID and never busts within a map,
-            -- so event POIs that appeared/disappeared while the map was closed
-            -- (Saltheril's Soiree, Abundance, ...) would keep dodging against
-            -- stale positions on re-show. Bust it on every map re-show.
-            cachedPoiMapID = nil
-            cachedPoiPositions = nil
-            C_Timer.After(0, function()
-                RequestDeferredRefresh("watcher_opened")
-            end)
-        elseif not isShown and wasShown then
-            -- Map just closed — cleanup
-            wasShown = false
-            watcherStats.closed = watcherStats.closed + 1
-            lastMapID = nil
-            lastCanvasWidth = nil
-            lastCanvasHeight = nil
-            lastCanvasEffectiveScale = nil
-            -- HS-234: a pending settle-debounce from a transition made just
-            -- before closing the map would otherwise fire uselessly ~0.25s
-            -- later against a closed map — cancel it now, same discipline
-            -- VendorMapPins:ClearAllPins already applies to its own
-            -- worldMapRefreshTimer.
-            if settleTimer then
-                settleTimer:Cancel()
-                settleTimer = nil
-            end
-            self:RemoveAllData()
-        elseif isShown then
-            -- Map still open — check for mapID, canvas size, or zoom-scale changes
-            local container = WorldMapFrame:GetCanvasContainer()
-            local canvas = WorldMapFrame.GetCanvas and WorldMapFrame:GetCanvas()
-            local canvasWidth = container and container:GetWidth() or 0
-            local canvasHeight = container and container:GetHeight() or 0
-            local canvasEffectiveScale = canvas and canvas:GetEffectiveScale() or 0
-
-            if mapID ~= lastMapID then
-                lastMapID = mapID
-                watcherStats.mapChanged = watcherStats.mapChanged + 1
-                RequestSettledRefresh("watcher_map_changed")
-            elseif (canvasWidth > 0 and canvasWidth ~= lastCanvasWidth)
-                    or (canvasHeight > 0 and canvasHeight ~= lastCanvasHeight) then
-                lastCanvasWidth = canvasWidth
-                lastCanvasHeight = canvasHeight
-                lastCanvasEffectiveScale = canvasEffectiveScale
-                watcherStats.resized = watcherStats.resized + 1
-                if IsDebugModeEnabled() then
-                    HA.Addon:Debug("WorldMapWatcher: watcher_resize")
-                end
-                MPP.RepositionWorldMapPins()
-            elseif canvasEffectiveScale > 0 and (not lastCanvasEffectiveScale or math.abs(canvasEffectiveScale - lastCanvasEffectiveScale) > 0.0001) then
-                lastCanvasEffectiveScale = canvasEffectiveScale
-                watcherStats.zoomChanged = watcherStats.zoomChanged + 1
-                -- Full refresh on zoom change so POI dodge recalculates
-                -- with the new zoom factor (pins drift back at high zoom).
-                RequestSettledRefresh("watcher_zoom")
-            end
-        end
-
-        -- HS-223a: feed every registered external consumer (MapSidePanel)
-        -- from this SAME poll instead of each running its own 0.1s ticker
-        -- against the same WorldMapFrame state. pcall per callback (Argus
-        -- cycle 1 WARNING) so one registrant's error can't kill every other
-        -- registrant's tick — matches Overlay:RefreshExternalOverlays'
-        -- externalRefreshers dispatch pattern (Overlay/overlay.lua).
-        for key, cb in pairs(mapWatchCallbacks) do
-            local success, err = pcall(cb, isShown, mapID, maximized)
-            if not success and HA.Addon then
-                HA.Addon:Debug("Error in map watch callback:", key, err)
-            end
-        end
-    end)
+    -- HS-275: every read of WorldMapFrame.dataProviders inside Blizzard's
+    -- dispatch (Blizzard_MapCanvas.lua: AddDataProvider, RemoveDataProvider,
+    -- CallMethodOnDataProviders, CallMethodOnPinsAndDataProviders) goes
+    -- through secureexecuterange -- Blizzard's own containment primitive for
+    -- addon-writable registries. That is what replaces the old polling
+    -- ticker as the taint-safe detection mechanism. No WorldMapFrame
+    -- HookScript/hooksecurefunc is used here or anywhere else -- those still
+    -- run inside Blizzard's secure map-open path and remain forbidden
+    -- (HS-081).
+    mapDataProvider = CreateFromMixins(MapCanvasDataProviderMixin)
+    Mixin(mapDataProvider, mapDataProviderMethods)
+    WorldMapFrame:AddDataProvider(mapDataProvider)
 end
 
--- HS-223a: register to be driven by the shared 0.1s map watcher above instead
--- of starting a second independent ticker. Called every tick with
+-- HS-223a: register to be driven by DispatchMapWatch above instead of
+-- starting a second independent watcher. Called on-change with
 -- (isShown, mapID, maximized) -- the exact raw state MapSidePanel's watch
--- logic was reading from its own separate poll.
+-- logic was reading from its own separate poll. HS-275: dispatch is now
+-- push-driven off the map data provider's callbacks instead of a 10Hz poll.
 function Provider:RegisterMapWatchCallback(key, callback)
     if not key or type(callback) ~= "function" then return end
     mapWatchCallbacks[key] = callback
