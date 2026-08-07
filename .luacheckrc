@@ -117,6 +117,7 @@ read_globals = {
     "IsAltKeyDown", "IsControlKeyDown", "IsShiftKeyDown",
     "IsIndoors",
     "IsInGroup", "IsInRaid", "IsInInstance", "IsInGuild",
+    "Lerp", "Saturate", -- Blizzard_SharedXMLBase/MathUtil.lua (HS-274 zoom-growth curve)
     "OpenAllBags",
     "SOUNDKIT",
     "ToggleAllBags", "ToggleBag", "ToggleWorldMap",

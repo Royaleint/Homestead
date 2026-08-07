@@ -22,6 +22,8 @@ local FPU = HA.FramePoolUtils
 
 local ipairs = ipairs
 local format = string.format
+local Lerp = Lerp
+local Saturate = Saturate
 
 local BoolToKey = FPU.BoolToKey
 local AcquirePooledFrame = FPU.AcquirePooledFrame
@@ -449,6 +451,25 @@ local function GetEntryDisplayScale(kind, mapType)
     return 1
 end
 
+-- HS-274: pins hold GetEntryDisplayScale's base size at min zoom and grow
+-- toward PIN_ZOOM_GROWTH_MAX as the canvas zooms in, matching Blizzard's own
+-- pin growth feel (MapCanvasPinMixin:ApplyCurrentScale's Lerp shape) instead
+-- of a flat size. Both constants are a Gate-2-tunable design choice, not a
+-- mechanism -- safe to retune without re-review.
+local PIN_ZOOM_GROWTH_MAX = 1.5
+local PIN_ZOOM_SCALE_FACTOR = 1.0
+
+local function GetEntryZoomedScale(kind, mapType)
+    local base = GetEntryDisplayScale(kind, mapType)
+
+    if not WorldMapFrame or not WorldMapFrame:HasZoomLevels() then
+        return base
+    end
+
+    local zoomPct = WorldMapFrame:GetCanvasZoomPercent()
+    return base * Lerp(1.0, PIN_ZOOM_GROWTH_MAX, Saturate(PIN_ZOOM_SCALE_FACTOR * zoomPct))
+end
+
 local function RequestDeferredRefresh(reason)
     if refreshPending then
         return
@@ -600,6 +621,21 @@ end
 
 function mapDataProviderMethods:OnCanvasScaleChanged()
     watcherStats.zoomChanged = watcherStats.zoomChanged + 1
+
+    -- HS-274: per-tick, in-place rescale so pins track zoom continuously
+    -- instead of only snapping to the right size once the settled refresh
+    -- below lands. RepositionWorldMapPins refreshes the wrapper counter-scale
+    -- (uiScale/canvasScale) that holds pins at their intended screen size;
+    -- the loop then re-applies each pin's own zoomed content scale on top.
+    -- renderState can be nil between map close and the next open -- nothing
+    -- to rescale yet, so skip rather than walk a stale activeEntries.
+    if renderState then
+        MPP.RepositionWorldMapPins()
+        for _, active in ipairs(activeEntries) do
+            active.frame:SetScale(GetEntryZoomedScale(active.kind, renderState.mapType))
+        end
+    end
+
     -- Full refresh on zoom change so POI dodge recalculates
     -- with the new zoom factor (pins drift back at high zoom).
     RequestSettledRefresh("watcher_zoom")
@@ -938,7 +974,7 @@ function Provider:RenderEntries(entries, kind)
             if frame.SetIgnoreParentScale then
                 frame:SetIgnoreParentScale(false)
             end
-            frame:SetScale(GetEntryDisplayScale(kind, viewMapType))
+            frame:SetScale(GetEntryZoomedScale(kind, viewMapType))
 
             entry.kind = kind
             local x, y = entry.x, entry.y
