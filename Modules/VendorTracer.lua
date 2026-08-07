@@ -185,6 +185,7 @@ function VendorTracer:GetMissingItemVendors()
 
     local result = {}
     local allVendors = VendorData:GetAllVendors()
+    local CS = HA.CatalogStore
 
     for _, vendor in ipairs(allVendors) do
         local missingItems = {}
@@ -193,11 +194,22 @@ function VendorTracer:GetMissingItemVendors()
         for _, item in ipairs(vendorItems) do
             local itemID = HA.VendorData:GetItemID(item)
             if itemID then
-                -- Check if player owns this item
-                local isOwned = HA.CatalogStore and HA.CatalogStore:IsOwnedFresh(itemID)
+                -- HS-249: this derives its own ownership rather than reading
+                -- BadgeCalculation, so it needs its own exclusion guard.
+                -- Housing items outside the Decor subclass resolve to no
+                -- catalog entry, so IsOwnedFresh answers a hard false for them
+                -- and every room plan on the vendor would be reported as
+                -- missing. Leave them out until Phase 2 can resolve ownership.
+                local ownershipExcluded = CS and CS.IsOwnershipUnknowable
+                    and CS:IsOwnershipUnknowable(itemID)
 
-                if not isOwned then
-                    table.insert(missingItems, {itemID = itemID})
+                if not ownershipExcluded then
+                    -- Check if player owns this item
+                    local isOwned = CS and CS:IsOwnedFresh(itemID)
+
+                    if not isOwned then
+                        table.insert(missingItems, {itemID = itemID})
+                    end
                 end
             end
         end

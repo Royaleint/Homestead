@@ -297,6 +297,21 @@ local function IsItemOwned(itemID)
     return false
 end
 
+-- HS-249: is this item's ownership knowable at all? Housing items outside the
+-- Decor subclass resolve to no catalog entry, so IsItemOwned answers a hard
+-- false that says nothing about the player. The grids must render those in a
+-- neutral state rather than the gold "available to purchase" border, which
+-- would be telling the player to buy a room they may already own.
+local function IsOwnershipExcluded(itemID, presentation)
+    if presentation then
+        return presentation.isOwnershipExcluded == true
+    end
+    if itemID and HA.CatalogStore and HA.CatalogStore.IsOwnershipUnknowable then
+        return HA.CatalogStore:IsOwnershipUnknowable(itemID) == true
+    end
+    return false
+end
+
 local function NormalizePanelSourceFilter(sourceFilter)
     local SM = HA.SourceManager
     if SM and SM.NormalizeSourceFilter then
@@ -637,7 +652,14 @@ local function PopulateItemGrid(row, vendor, sourceFilter, highlightItems)
         icon.lock:Hide()
         icon.check:Hide()
 
-        if owned then
+        if IsOwnershipExcluded(itemID, presentation) then
+            -- HS-249: ownership not yet knowable — neutral grey border, no
+            -- check and no lock tint. Tested first: neither the owned nor the
+            -- available branch may claim an item we cannot resolve. The
+            -- requirement tooltip is unaffected (icon.requirements is set
+            -- above, outside this branch).
+            icon.border:SetColorTexture(0.45, 0.45, 0.45, 1)
+        elseif owned then
             -- Owned: green border + checkmark
             icon.border:SetColorTexture(0.2, 0.7, 0.2, 1)
             icon.check:Show()
@@ -901,7 +923,10 @@ local function PopulateBossItemGrid(row, dropGroup)
         icon.check:Hide()
         if icon.matchRing then icon.matchRing:Hide() end
 
-        if owned then
+        -- HS-249: same neutral state as the vendor grid, same reason.
+        if IsOwnershipExcluded(itemID, presentation) then
+            icon.border:SetColorTexture(0.45, 0.45, 0.45, 1)
+        elseif owned then
             icon.border:SetColorTexture(0.2, 0.7, 0.2, 1)
             icon.check:Show()
         elseif unmetReqs then
@@ -1345,7 +1370,11 @@ local function PopulateItemResultRow(row, result, sourceFilter)
         owned = IsItemOwned(itemID)
     end
 
-    if owned then
+    -- HS-249: same neutral state as the item grids, same reason.
+    if IsOwnershipExcluded(itemID, presentation) then
+        row.iconBorder:SetColorTexture(0.45, 0.45, 0.45, 1)
+        row.nameText:SetTextColor(1, 1, 1)
+    elseif owned then
         row.iconBorder:SetColorTexture(0.2, 0.7, 0.2, 1)
         row.nameText:SetTextColor(0.7, 1, 0.7)
     else
