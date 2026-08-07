@@ -299,7 +299,11 @@ function ExportImport:ExportScannedVendors(fullExport, exportAll)
     if clientVersion and clientBuild then
         table.insert(output, "# clientBuild: " .. clientVersion .. "." .. clientBuild .. "\n")
     end
-    table.insert(output, "# V: npcID\tname\tmapID\tx\ty\tfaction\ttimestamp\titemCount\tdecorCount\tzone\tsubZone\trealZone\tparentMapID\tcontinentMapID\texpansion\tcurrency\tmapChain\tscanConfidence\n")
+    -- HS-251 Stage C: housingCount appended at the END of the row. This is
+    -- positional TSV and other columns are indexed by position downstream, so
+    -- a mid-row insert would break every existing consumer; append-only is
+    -- the only safe way to extend it.
+    table.insert(output, "# V: npcID\tname\tmapID\tx\ty\tfaction\ttimestamp\titemCount\tdecorCount\tzone\tsubZone\trealZone\tparentMapID\tcontinentMapID\texpansion\tcurrency\tmapChain\tscanConfidence\thousingCount\n")
     table.insert(output, "# I: npcID\titemID\tname\tprice\tcostData\tisUsable\tisPurchasable\tspellID\trequirements\tdecorID\tmerchantSlot\thasExtendedCost\n")
     table.insert(output, "# D: npcID\tname\tmapID\tx\ty\tzone\ttimestamp (vendor in DB but scanned with 0 housing items)\n")
 
@@ -362,8 +366,8 @@ function ExportImport:ExportScannedVendors(fullExport, exportAll)
             hasReportData = true
             vendorCount = vendorCount + 1
 
-            -- VENDOR line: V npcID name mapID x y faction timestamp itemCount decorCount zone subZone realZone parentMapID continentMapID expansion currency mapChain scanConfidence
-            local vendorLine = string.format("V\t%d\t%s\t%d\t%.4f\t%.4f\t%s\t%d\t%d\t%d\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
+            -- VENDOR line: V npcID name mapID x y faction timestamp itemCount decorCount zone subZone realZone parentMapID continentMapID expansion currency mapChain scanConfidence housingCount
+            local vendorLine = string.format("V\t%d\t%s\t%d\t%.4f\t%.4f\t%s\t%d\t%d\t%d\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%d\n",
                 vendor.npcID or npcID,
                 SanitizeExportField(vendor.name or "Unknown"),
                 vendor.mapID or 0,
@@ -381,7 +385,14 @@ function ExportImport:ExportScannedVendors(fullExport, exportAll)
                 SanitizeExportField(vendor.expansion or ""),
                 SanitizeExportField(vendor.currency or ""),
                 (vendor.mapChain and #vendor.mapChain > 0) and table.concat(vendor.mapChain, ";") or "",
-                tostring(vendor.scanConfidence or "unknown")
+                tostring(vendor.scanConfidence or "unknown"),
+                -- HS-251 Stage C: a housing-only (non-decor) vendor's total stock was
+                -- invisible to anything reading only V-rows, since this column used
+                -- to be decorCount's job alone. Same fallback idiom decorCount already
+                -- uses: pre-housing-gate records have no housingCount, and decorCount
+                -- IS the housing count on those (decor was the only subclass the old
+                -- gate could see); #items is the last resort for a record with neither.
+                vendor.housingCount or vendor.decorCount or #items
             )
             table.insert(output, vendorLine)
 
