@@ -207,8 +207,8 @@ assert(afterLegacyPartial.lastScanAttempt ~= nil,
 print("hs210_guards: HS-249 legacy-record partial-scan protection ok")
 
 -------------------------------------------------------------------------------
--- HS-251 Stage C (Gate 1 cycle 2 Blocking Critical): the guard above only
--- ever compared the AGGREGATE housingCount. A laggy rescan that loses items
+-- HS-251 Stage C: the guard above only ever compared the AGGREGATE
+-- housingCount. A laggy rescan that loses items
 -- from one subclass while gaining items in another can have the same total
 -- and slip straight past that check, silently corrupting decorCount even
 -- though nothing about the vendor changed. subclassCounts + the per-subclass

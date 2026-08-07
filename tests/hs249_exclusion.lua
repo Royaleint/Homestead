@@ -12,12 +12,12 @@ local root = (... or "."):gsub("\\\\", "/"):gsub("/+$", "")
 -- the predicate directly, not the six call sites.
 -------------------------------------------------------------------------------
 
--- C_Item.GetItemInfoInstant returns classID 6th, subClassID 7th (see
--- CLAIM-STUDIO-0009, confirmed against Blizzard_APIDocumentationGenerated/
--- ItemDocumentation.lua and MerchantFrame.lua's identical destructuring
--- pattern). It is documented MayReturnNothing: an unresolvable item returns
--- ZERO values, not a row of nils — the mock below returns nothing for any
--- itemID not in the fixture table to exercise that trap honestly.
+-- C_Item.GetItemInfoInstant returns classID 6th, subClassID 7th, confirmed
+-- against Blizzard_APIDocumentationGenerated/ItemDocumentation.lua and
+-- MerchantFrame.lua's identical destructuring pattern. It is documented
+-- MayReturnNothing: an unresolvable item returns ZERO values, not a row of
+-- nils — the mock below returns nothing for any itemID not in the fixture
+-- table to exercise that trap honestly.
 Enum = {
     ItemClass = { Housing = 20 },
     ItemHousingSubclass = {
@@ -47,8 +47,9 @@ assert(loadfile(root .. "/Data/CatalogStore.lua"))("Homestead", StoreHA)
 assert(StoreHA.CatalogStore:IsOwnershipUnknowable(9001) == false,
     "Decor items must never be ownership-excluded — their ownership is knowable via the catalog")
 
--- Every non-Decor housing subclass must be excluded. Looped (not just Room)
--- so a future subclass constant added to the enum is automatically covered.
+-- Every non-Decor housing subclass must be excluded. Looped over both
+-- fixtures (not just Room) rather than asserting once, though a genuinely
+-- new subclass added later still needs its own fixture entry here.
 for _, name in ipairs({ "Dye", "Room" }) do
     local itemID = name == "Dye" and 9002 or 9003
     assert(StoreHA.CatalogStore:IsOwnershipUnknowable(itemID) == true,

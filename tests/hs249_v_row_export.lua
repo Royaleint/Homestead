@@ -88,6 +88,9 @@ end
 -- Columns (1-indexed, field 1 is the "V" tag itself):
 -- 1 V, 2 npcID, 3 name, 4 mapID, 5 x, 6 y, 7 faction, 8 timestamp,
 -- 9 itemCount, 10 decorCount, ... 19 scanConfidence, 20 housingCount (new)
+assert(#v1Fields == 20,
+    "expected exactly 20 fields (append-only: one new trailing column, nothing inserted mid-row), got "
+    .. #v1Fields)
 assert(v1Fields[10] == "3", "decorCount column must be unchanged (3), got " .. tostring(v1Fields[10]))
 assert(v1Fields[#v1Fields] == "5",
     "housingCount must be the final column and equal 5, got " .. tostring(v1Fields[#v1Fields]))

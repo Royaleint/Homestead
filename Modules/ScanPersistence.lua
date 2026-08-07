@@ -57,14 +57,30 @@ function ScanPersistence:SaveVendorData(scanData)
         and (existingData.housingCount or existingData.decorCount or 0)
         or 0
 
-    -- HS-251 Stage C: records written before subclassCounts existed can only
-    -- contain Decor — the old gate never captured any other subclass — so
-    -- attribute the whole legacy housing count to Decor. This mirrors the
-    -- existingHousingCount fallback immediately above and lets the
-    -- per-subclass guard below protect legacy records too.
+    -- HS-251 Stage C: a record with no subclassCounts is one of two shapes,
+    -- and they need different fallbacks. Pre-housing-gate records (written
+    -- before 6e5d82f) carry items with no subclassID at all — decor was the
+    -- only subclass the old gate could ever see, so attribute the whole
+    -- legacy housing count to Decor. But records written by 6e5d82f onward
+    -- DO carry per-item subclassID (they just predate the subclassCounts
+    -- summary field itself) — for those, deriving the tally from the items
+    -- is exact, not a guess, and using the Decor-only fallback on THIS shape
+    -- both hides real subclass loss (same aggregate, different mix — the
+    -- exact bug this guard exists to catch) and permanently blocks a
+    -- non-decor vendor's legitimate unconfirmed rescans, since it never
+    -- self-heals (subclassCounts is only written when a save lands).
     local existingSubclassCounts = existingData and existingData.subclassCounts
     if existingData and not existingSubclassCounts then
-        existingSubclassCounts = { [Enum.ItemHousingSubclass.Decor] = existingHousingCount }
+        local derivedFromItems, anySubclassID = {}, false
+        for _, item in ipairs(existingData.items or {}) do
+            if item.subclassID ~= nil then
+                anySubclassID = true
+                derivedFromItems[item.subclassID] = (derivedFromItems[item.subclassID] or 0) + 1
+            end
+        end
+        existingSubclassCounts = anySubclassID
+            and derivedFromItems
+            or { [Enum.ItemHousingSubclass.Decor] = existingHousingCount }
     end
 
     -- Build vendor record with enhanced data. decorCount/hasDecor keep
@@ -75,14 +91,8 @@ function ScanPersistence:SaveVendorData(scanData)
     local housingCount = scanData.housingItems and #scanData.housingItems or 0
     local itemCount = scanData.allItems and #scanData.allItems or scanData.totalItems or 0
 
-    -- subclassCounts is sparse and keyed by subclassID (0-5) — pairs only,
-    -- never ipairs, since key 0 (Decor) is valid and ipairs would skip it.
     local decorCount = 0
-    local subclassCounts = {}
     for _, item in ipairs(scanData.housingItems or {}) do
-        if item.subclassID ~= nil then
-            subclassCounts[item.subclassID] = (subclassCounts[item.subclassID] or 0) + 1
-        end
         if item.subclassID == Enum.ItemHousingSubclass.Decor then
             decorCount = decorCount + 1
         end
@@ -107,7 +117,10 @@ function ScanPersistence:SaveVendorData(scanData)
         lastScanHadDecor = decorCount > 0, -- Last observed scan result, even if old items are preserved
         housingCount = housingCount,    -- All housing items, any subclass
         hasHousing = housingCount > 0,  -- Flag to identify if vendor sells any housing item
-        subclassCounts = subclassCounts, -- Sparse per-subclass tally; pairs-only, see SubclassCountsRegressed
+        -- subclassCounts is NOT set here — it's derived once from the final
+        -- vendorRecord.items below (after decorID enrichment / merge logic),
+        -- the same way decorCount/housingCount already are. Setting it here
+        -- too would just be overwritten there, unread in between.
         -- HS-250: housing-wide counterpart to lastScanHadDecor; see IsDelistCandidate.
         lastScanHadHousing = housingCount > 0,
         items = {},                     -- Enhanced item data
@@ -255,10 +268,13 @@ function ScanPersistence:SaveVendorData(scanData)
         -- existing record — either in aggregate or, HS-251 Stage C, within a
         -- single subclass while the total happened to match (e.g. 3 fewer
         -- decor, 3 more room plans: same housingCount, real data loss). The
-        -- aggregate check alone missed that case; the per-subclass check
-        -- subsumes it and is kept alongside it as cheap defense against a
-        -- hand-edited or otherwise inconsistent record. Saving would clobber
-        -- a larger, cleaner record with a worse one. Preserve the existing
+        -- aggregate check alone missed that case. The two checks are NOT
+        -- redundant, and both stay: the per-subclass tally only counts items
+        -- with a resolved subclassID, so a scan that loses an item whose
+        -- subclass never resolved moves housingCount without moving any
+        -- subclass count — only the aggregate check catches that one.
+        -- Saving would clobber a larger, cleaner record with a worse one.
+        -- Preserve the existing
         -- record entirely — do NOT touch lastScanned here: that field means
         -- "these items were observed at this time," and this attempt
         -- observed neither the full item set nor confirmed data. Re-dating it
