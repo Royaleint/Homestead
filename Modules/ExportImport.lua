@@ -241,7 +241,22 @@ local function IsDelistCandidate(vendor, npcID)
         return false
     end
 
-    if vendor.lastScanHadDecor == false then
+    -- HS-250: ask whether the last scan found any HOUSING item, not whether it
+    -- found decor. A vendor selling only room plans, dyes or customizations
+    -- scans successfully and captures items, but lastScanHadDecor is false for
+    -- it — correctly, since it sells no decor. Reading that as "this vendor had
+    -- nothing" emitted a delist row and suppressed every item row below, so the
+    -- stock we had just captured never reached the pipeline while the pipeline
+    -- was told to consider retiring the vendor.
+    --
+    -- Records saved before lastScanHadHousing existed fall back to the decor
+    -- flag, which on those records IS the housing answer: decor was the only
+    -- subclass the pre-HS-249 capture gate could see.
+    local hadHousing = vendor.lastScanHadHousing
+    if hadHousing == nil then
+        hadHousing = vendor.lastScanHadDecor
+    end
+    if hadHousing == false then
         return true
     end
 
@@ -284,9 +299,13 @@ function ExportImport:ExportScannedVendors(fullExport, exportAll)
     if clientVersion and clientBuild then
         table.insert(output, "# clientBuild: " .. clientVersion .. "." .. clientBuild .. "\n")
     end
-    table.insert(output, "# V: npcID\tname\tmapID\tx\ty\tfaction\ttimestamp\titemCount\tdecorCount\tzone\tsubZone\trealZone\tparentMapID\tcontinentMapID\texpansion\tcurrency\tmapChain\tscanConfidence\n")
+    -- HS-251 Stage C: housingCount appended at the END of the row. This is
+    -- positional TSV and other columns are indexed by position downstream, so
+    -- a mid-row insert would break every existing consumer; append-only is
+    -- the only safe way to extend it.
+    table.insert(output, "# V: npcID\tname\tmapID\tx\ty\tfaction\ttimestamp\titemCount\tdecorCount\tzone\tsubZone\trealZone\tparentMapID\tcontinentMapID\texpansion\tcurrency\tmapChain\tscanConfidence\thousingCount\n")
     table.insert(output, "# I: npcID\titemID\tname\tprice\tcostData\tisUsable\tisPurchasable\tspellID\trequirements\tdecorID\tmerchantSlot\thasExtendedCost\n")
-    table.insert(output, "# D: npcID\tname\tmapID\tx\ty\tzone\ttimestamp (vendor in DB but scanned with 0 decor)\n")
+    table.insert(output, "# D: npcID\tname\tmapID\tx\ty\tzone\ttimestamp (vendor in DB but scanned with 0 housing items)\n")
 
     -- Collect and sort npcIDs for deterministic output
     local sortedNPCs = {}
@@ -309,7 +328,9 @@ function ExportImport:ExportScannedVendors(fullExport, exportAll)
 
         -- Handle vendors with no decor items
         if shouldProcess and IsDelistCandidate(vendor, npcID) then
-            -- Vendor is in our DB but scanned with 0 decor — flag for review
+            -- Vendor is in our DB but scanned with 0 housing items — flag for
+            -- review. HS-250: housing-wide, not decor-only; a vendor selling
+            -- only room plans or dyes is stock, not an empty vendor.
             shouldProcess = false
             skipReason = "delist"
         elseif shouldProcess and #items == 0 then
@@ -345,8 +366,8 @@ function ExportImport:ExportScannedVendors(fullExport, exportAll)
             hasReportData = true
             vendorCount = vendorCount + 1
 
-            -- VENDOR line: V npcID name mapID x y faction timestamp itemCount decorCount zone subZone realZone parentMapID continentMapID expansion currency mapChain scanConfidence
-            local vendorLine = string.format("V\t%d\t%s\t%d\t%.4f\t%.4f\t%s\t%d\t%d\t%d\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
+            -- VENDOR line: V npcID name mapID x y faction timestamp itemCount decorCount zone subZone realZone parentMapID continentMapID expansion currency mapChain scanConfidence housingCount
+            local vendorLine = string.format("V\t%d\t%s\t%d\t%.4f\t%.4f\t%s\t%d\t%d\t%d\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%d\n",
                 vendor.npcID or npcID,
                 SanitizeExportField(vendor.name or "Unknown"),
                 vendor.mapID or 0,
@@ -364,7 +385,14 @@ function ExportImport:ExportScannedVendors(fullExport, exportAll)
                 SanitizeExportField(vendor.expansion or ""),
                 SanitizeExportField(vendor.currency or ""),
                 (vendor.mapChain and #vendor.mapChain > 0) and table.concat(vendor.mapChain, ";") or "",
-                tostring(vendor.scanConfidence or "unknown")
+                tostring(vendor.scanConfidence or "unknown"),
+                -- HS-251 Stage C: a housing-only (non-decor) vendor's total stock was
+                -- invisible to anything reading only V-rows, since this column used
+                -- to be decorCount's job alone. Same fallback idiom decorCount already
+                -- uses: pre-housing-gate records have no housingCount, and decorCount
+                -- IS the housing count on those (decor was the only subclass the old
+                -- gate could see); #items is the last resort for a record with neither.
+                vendor.housingCount or vendor.decorCount or #items
             )
             table.insert(output, vendorLine)
 
@@ -443,7 +471,7 @@ function ExportImport:ExportScannedVendors(fullExport, exportAll)
         skipMsg = " (" .. table.concat(parts, ", ") .. " skipped)"
     end
     if delistedCount > 0 then
-        skipMsg = skipMsg .. string.format(" [%d flagged for delist - in DB but 0 decor]", delistedCount)
+        skipMsg = skipMsg .. string.format(" [%d flagged for delist - in DB but 0 housing items]", delistedCount)
     end
 
     if exportAll then

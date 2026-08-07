@@ -17,9 +17,9 @@ local _, HA = ...
 local VendorScanner = {}
 HA.VendorScanner = VendorScanner
 
--- Classification module (decor detection)
+-- Classification module (housing item detection)
 local DC = HA.DecorClassifier
-local CheckIfDecorItem = DC.CheckIfDecorItem
+local ClassifyHousingItem = DC.ClassifyHousingItem
 
 -- Persistence module (data storage, retrieval, clearing, export)
 local SP = HA.ScanPersistence
@@ -327,7 +327,7 @@ function VendorScanner:StartScan(npcID)
         expansion = expansion,
         currentIndex = 1,
         totalItems = numItems,
-        decorItems = {},
+        housingItems = {},
         allItems = {},  -- Track all items for itemCount
     }
 
@@ -437,28 +437,30 @@ function VendorScanner:ProcessScanQueue()
                 end
             end
 
-            -- Check if this is a housing decor item
-            local isDecor, decorInfo = CheckIfDecorItem(itemLink)
+            -- Classify item: any housing subclass, or not housing at all.
+            -- decorInfo is only ever populated for subclass 0 (Decor) — see
+            -- DecorClassifier.
+            local isHousing, subclassID, decorInfo = ClassifyHousingItem(itemLink)
 
             -- Track all items for itemCount
             table.insert(scanQueue.allItems, {
                 itemID = itemID or C_Item.GetItemInfoInstant(itemLink),
                 name = name,
-                isDecor = isDecor,
             })
 
-            -- Store decor items with full data
-            if isDecor then
+            -- Store housing items (all subclasses) with full data
+            if isHousing then
                 -- Extract decorID (recordID) from catalog entryID if available
                 local decorID = nil
                 if decorInfo and decorInfo.entryID and type(decorInfo.entryID) == "table" then
                     decorID = decorInfo.entryID.recordID
                 end
 
-                table.insert(scanQueue.decorItems, {
+                table.insert(scanQueue.housingItems, {
                     itemLink = itemLink,
                     itemID = itemID or (decorInfo and decorInfo.itemID) or C_Item.GetItemInfoInstant(itemLink),
                     name = name or (decorInfo and decorInfo.name) or "Unknown",
+                    subclassID = subclassID,
                     decorID = decorID,
                     price = price,
                     stackCount = stackCount,
@@ -478,13 +480,13 @@ function VendorScanner:ProcessScanQueue()
 
     -- Check if scan is complete
     if scanQueue.currentIndex > scanQueue.totalItems then
-        local decorCount = #scanQueue.decorItems
+        local housingCount = #scanQueue.housingItems
         local itemCount = #scanQueue.allItems
         if HA.Addon then
-            HA.Addon:Debug("Scan complete: " .. itemCount .. " total items, " .. decorCount .. " decor items")
-            -- Show debug message when decor items are found
-            if decorCount > 0 then
-                HA.Addon:Debug("Scanned vendor: " .. (scanQueue.vendorName or "Unknown") .. " - " .. decorCount .. "/" .. itemCount .. " decor item(s)")
+            HA.Addon:Debug("Scan complete: " .. itemCount .. " total items, " .. housingCount .. " housing items")
+            -- Show debug message when housing items are found
+            if housingCount > 0 then
+                HA.Addon:Debug("Scanned vendor: " .. (scanQueue.vendorName or "Unknown") .. " - " .. housingCount .. "/" .. itemCount .. " housing item(s)")
             end
         end
         scanQueue.scanComplete = true
@@ -492,7 +494,7 @@ function VendorScanner:ProcessScanQueue()
     end
 end
 
--- Note: CheckIfDecorItem is now in DecorClassifier.lua
+-- Note: ClassifyHousingItem is now in DecorClassifier.lua
 -- (imported as local upvalue above).
 
 -------------------------------------------------------------------------------

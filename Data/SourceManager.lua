@@ -1415,6 +1415,18 @@ function SourceManager:GetItemPresentation(itemID, options)
         isOwned = catalogStore:IsOwnedFresh(itemID, readOnlyOwnership) == true
     end
 
+    -- HS-249: resolved alongside ownership because it is the answer to the
+    -- same question — whether isOwned means anything for this item. Every
+    -- housing subclass except Decor resolves to no catalog entry, so IsOwned
+    -- returns its hard `false` for reasons that have nothing to do with the
+    -- player. Counting surfaces must leave these items out entirely rather
+    -- than read that false as "not owned"; isOwned itself is left untouched
+    -- so the display paths that already nil-check it are unaffected.
+    local isOwnershipExcluded = false
+    if catalogStore and catalogStore.IsOwnershipUnknowable then
+        isOwnershipExcluded = catalogStore:IsOwnershipUnknowable(itemID) == true
+    end
+
     local availabilityState = "unknown"
     local isUnverified = false
     local hasVerifiableRequirement = false
@@ -1554,6 +1566,7 @@ function SourceManager:GetItemPresentation(itemID, options)
         context = context,
         isOwned = isOwned,
         ownershipState = isOwned and "owned" or "unowned",
+        isOwnershipExcluded = isOwnershipExcluded,
         availabilityState = availabilityState,
         isUnverified = isUnverified,
         hasVerifiableRequirement = hasVerifiableRequirement,
