@@ -868,6 +868,31 @@ function CatalogStore:Initialize()
     end
 end
 
+-- HS-273 R3 (predicate corrected at Gate 1 closure): whether the persistent
+-- cache holds an OWNERSHIP SIGNAL worth computing badge stats from. Record
+-- presence is not that signal: a cold full scan writes name-only records for
+-- every item ("Checked: 1624 Owned: 0", HS-216), and the /hs clear-ownership
+-- command empties isOwned on every record while leaving the records in
+-- place — under a mere next(ci) check both states let a prewarm confidently
+-- cache "0 owned" everywhere for a player who owns plenty. ownedCount > 0 is
+-- the O(1) truth the counters already maintain. The escape hatch admits the
+-- one other state where a zero is CONFIRMED true rather than unknown:
+-- storage answered this session AND the live total was zero (a genuine
+-- zero-decor player — HasStorageResponded true, IsWarm false, since IsWarm's
+-- latch needs total > 0). A decor owner mid-first-scan is the opposite shape
+-- (IsWarm true, ownedCount still 0) and stays gated to the honest "..."
+-- until the scan records ownership. Not "IsWarm or" — that polarity is
+-- unreachable for the zero-decor player and opens exactly the wrong window
+-- (Argus Gate 1 closure finding).
+function CatalogStore:HasPersistedData()
+    if ci == nil then return false end
+    if ownedCount > 0 then return true end
+    local scanner = HA.CatalogScanner
+    return scanner ~= nil
+        and scanner.HasStorageResponded ~= nil and scanner:HasStorageResponded() == true
+        and scanner.IsWarm ~= nil and not scanner:IsWarm()
+end
+
 -------------------------------------------------------------------------------
 -- Module Registration
 -------------------------------------------------------------------------------

@@ -298,6 +298,22 @@ function ScanPersistence:SaveVendorData(scanData)
         HA.VendorData:InvalidateVendorCaches()
     end
 
+    -- HS-273 R2: a decor-bearing vendor scan discovers new sources for items
+    -- (a vendor selling an item nothing else pointed to yet), which
+    -- SourceManager's GetAllSources memoization would otherwise cache stale
+    -- forever -- the rep/quest/achievement/holiday trigger set behind
+    -- InvalidateAllSourceCaches never covers vendor-scan discovery. Uses the
+    -- NARROW memo-only wipe (InvalidateSourcesMemo), not the full
+    -- InvalidateAllSourceCaches -- the full version's SearchProvider wipe +
+    -- SOURCE_CACHES_INVALIDATED broadcast would restart the badge prewarm
+    -- pass on every vendor scan, which is exactly the over-invalidation
+    -- HS-238 already fixed once. Skipped entirely for a decor-less vendor
+    -- (vendorRecord.hasDecor, computed above from scanData.decorItems) --
+    -- nothing was discovered for the memo to be stale about.
+    if vendorRecord.hasDecor and HA.SourceManager and HA.SourceManager.InvalidateSourcesMemo then
+        HA.SourceManager:InvalidateSourcesMemo()
+    end
+
     -- Fire callback for other modules. The second arg must never be nil —
     -- Fire packs varargs and unpack truncates at nil holes; the local is
     -- initialized false and only ever set true, which this contract relies on.
@@ -377,6 +393,17 @@ local function RefreshMapPins()
             HA.VendorMapPins:RefreshPins()
         end
         HA.VendorMapPins:RefreshMinimapPins()
+    end
+
+    -- HS-273 R2 (Sage: /hs clearscans ghost-sources Critical): all three
+    -- clear-data entry points below route through here, so wiping the
+    -- GetAllSources memo here covers ClearScannedData/ClearNoDecorData/
+    -- ClearAllData in one place. Without this, GetAllSources would keep
+    -- returning sources for vendors the player just told the addon to
+    -- forget -- ghost sources surviving a data clear. Narrow wipe (memo
+    -- only), same accessor the vendor-scan site above uses.
+    if HA.SourceManager and HA.SourceManager.InvalidateSourcesMemo then
+        HA.SourceManager:InvalidateSourcesMemo()
     end
 end
 
