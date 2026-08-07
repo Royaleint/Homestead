@@ -210,3 +210,51 @@ assert(decorInfo.quantityOwned == nil, "quantityOwned must not be present on the
 assert(decorInfo.name == "Test Decor")
 
 print("hs218_w4: item 7 DecorClassifier ok")
+
+-------------------------------------------------------------------------------
+-- HS-251 Stage C: the only existing DecorClassifier test above covers the
+-- Decor path. Nothing proved the actual behavior HS-249 ships — that the
+-- other five housing subclasses are CAPTURED (isHousing == true) without
+-- catalog enrichment (decorInfo == nil), since only Decor resolves through
+-- C_HousingCatalog. Enum.ItemHousingSubclass.Room (2) and .Dye (1) are the
+-- two subclass values independently confirmed in a second file
+-- (tests/hs250_delist_gate.lua), so this reuses them rather than trusting
+-- only this file's own enum stub.
+-------------------------------------------------------------------------------
+
+Enum.ItemHousingSubclass.Room = 2
+Enum.ItemHousingSubclass.Dye = 1
+
+local catalogCallCount = 0
+C_HousingCatalog.GetCatalogEntryInfoByItem = function()
+    catalogCallCount = catalogCallCount + 1
+    return { entryID = { recordID = 1 }, name = "Should not be called for a non-decor item" }
+end
+
+for _, case in ipairs({
+    { name = "Room", subclassID = Enum.ItemHousingSubclass.Room },
+    { name = "Dye", subclassID = Enum.ItemHousingSubclass.Dye },
+}) do
+    C_Item.GetItemInfoInstant = function()
+        return 99998, "Housing", case.name, "", 134400, Enum.ItemClass.Housing, case.subclassID
+    end
+
+    local isHousing2, subclassID2, decorInfo2 = ClassifierHA.DecorClassifier.ClassifyHousingItem("item:99998")
+    assert(isHousing2 == true, case.name .. " must be captured — classID == Housing is the whole gate")
+    assert(subclassID2 == case.subclassID, case.name .. " subclassID must pass through unchanged")
+    assert(decorInfo2 == nil,
+        case.name .. " must NOT be catalog-enriched — only Decor resolves a housing catalog entry")
+end
+
+assert(catalogCallCount == 0,
+    "GetCatalogEntryInfoByItem must never be called for a non-Decor subclass — it would waste a lookup " ..
+    "that can only ever return nil for these items")
+
+-- Negative: a non-Housing item must not be captured at all.
+C_Item.GetItemInfoInstant = function()
+    return 1234, "Weapon", "Sword", "", 134400, 2, 3 -- Enum.ItemClass.Weapon-shaped, not Housing
+end
+local isHousingNeg = ClassifierHA.DecorClassifier.ClassifyHousingItem("item:1234")
+assert(isHousingNeg == false, "a non-Housing item must never be classified as a housing item")
+
+print("hs218_w4: HS-251 non-decor subclasses captured without catalog enrichment ok")
