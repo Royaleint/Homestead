@@ -17,6 +17,23 @@ HA.ScanPersistence = ScanPersistence
 -- Data Storage
 -------------------------------------------------------------------------------
 
+-- HS-251 Stage C: the aggregate housingCount guard (existingHousingCount vs
+-- vendorRecord.housingCount below) misses a rescan that loses items from one
+-- subclass while gaining items in another — same total, real data loss. This
+-- generalizes it per subclass. subclassCounts is sparse (only subclasses
+-- actually present get a key), so only the EXISTING record's keys are worth
+-- walking: a subclass appearing for the first time in the new scan is growth,
+-- never loss, and needs no comparison.
+local function SubclassCountsRegressed(existingCounts, newCounts)
+    if not existingCounts then return false end
+    for subclassID, count in pairs(existingCounts) do
+        if count > ((newCounts and newCounts[subclassID]) or 0) then
+            return true
+        end
+    end
+    return false
+end
+
 function ScanPersistence:SaveVendorData(scanData)
     -- Ensure SavedVariables structure exists
     if not HA.Addon.db or not HA.Addon.db.global then
@@ -40,6 +57,16 @@ function ScanPersistence:SaveVendorData(scanData)
         and (existingData.housingCount or existingData.decorCount or 0)
         or 0
 
+    -- HS-251 Stage C: records written before subclassCounts existed can only
+    -- contain Decor — the old gate never captured any other subclass — so
+    -- attribute the whole legacy housing count to Decor. This mirrors the
+    -- existingHousingCount fallback immediately above and lets the
+    -- per-subclass guard below protect legacy records too.
+    local existingSubclassCounts = existingData and existingData.subclassCounts
+    if existingData and not existingSubclassCounts then
+        existingSubclassCounts = { [Enum.ItemHousingSubclass.Decor] = existingHousingCount }
+    end
+
     -- Build vendor record with enhanced data. decorCount/hasDecor keep
     -- counting subclass 0 (Decor) only — decorCount is a consumed wire format
     -- read by downstream tooling and by every archived scan on disk, so its
@@ -48,8 +75,14 @@ function ScanPersistence:SaveVendorData(scanData)
     local housingCount = scanData.housingItems and #scanData.housingItems or 0
     local itemCount = scanData.allItems and #scanData.allItems or scanData.totalItems or 0
 
+    -- subclassCounts is sparse and keyed by subclassID (0-5) — pairs only,
+    -- never ipairs, since key 0 (Decor) is valid and ipairs would skip it.
     local decorCount = 0
+    local subclassCounts = {}
     for _, item in ipairs(scanData.housingItems or {}) do
+        if item.subclassID ~= nil then
+            subclassCounts[item.subclassID] = (subclassCounts[item.subclassID] or 0) + 1
+        end
         if item.subclassID == Enum.ItemHousingSubclass.Decor then
             decorCount = decorCount + 1
         end
@@ -74,6 +107,7 @@ function ScanPersistence:SaveVendorData(scanData)
         lastScanHadDecor = decorCount > 0, -- Last observed scan result, even if old items are preserved
         housingCount = housingCount,    -- All housing items, any subclass
         hasHousing = housingCount > 0,  -- Flag to identify if vendor sells any housing item
+        subclassCounts = subclassCounts, -- Sparse per-subclass tally; pairs-only, see SubclassCountsRegressed
         -- HS-250: housing-wide counterpart to lastScanHadDecor; see IsDelistCandidate.
         lastScanHadHousing = housingCount > 0,
         items = {},                     -- Enhanced item data
@@ -187,13 +221,14 @@ function ScanPersistence:SaveVendorData(scanData)
     end
 
     -- Recalculate counts based on final data
-    local finalDecorCount = 0
+    local finalSubclassCounts = {}
     for _, item in ipairs(vendorRecord.items) do
-        if item.subclassID == Enum.ItemHousingSubclass.Decor then
-            finalDecorCount = finalDecorCount + 1
+        if item.subclassID ~= nil then
+            finalSubclassCounts[item.subclassID] = (finalSubclassCounts[item.subclassID] or 0) + 1
         end
     end
-    vendorRecord.decorCount = finalDecorCount
+    vendorRecord.subclassCounts = finalSubclassCounts
+    vendorRecord.decorCount = finalSubclassCounts[Enum.ItemHousingSubclass.Decor] or 0
     vendorRecord.hasDecor = vendorRecord.decorCount > 0
     vendorRecord.housingCount = #vendorRecord.items
     vendorRecord.hasHousing = vendorRecord.housingCount > 0
@@ -214,16 +249,22 @@ function ScanPersistence:SaveVendorData(scanData)
 
     if vendorRecord.hasHousing
             and existingData and scanConfidence ~= "confirmed"
-            and existingHousingCount > vendorRecord.housingCount then
+            and (existingHousingCount > vendorRecord.housingCount
+                or SubclassCountsRegressed(existingSubclassCounts, vendorRecord.subclassCounts)) then
         -- An unconfirmed (laggy/partial) scan found fewer items than the
-        -- existing record. Saving would clobber a larger, cleaner record with
-        -- a worse one. Preserve the existing record entirely — do NOT touch
-        -- lastScanned here: that field means "these items were observed at
-        -- this time," and this attempt observed neither the full item set nor
-        -- confirmed data. Re-dating it would tell every recency consumer (UI
-        -- staleness, HS-151 consolidation, scan-timestamp provenance) that the
-        -- unobserved rows were freshly re-verified. Record the attempt
-        -- separately instead.
+        -- existing record — either in aggregate or, HS-251 Stage C, within a
+        -- single subclass while the total happened to match (e.g. 3 fewer
+        -- decor, 3 more room plans: same housingCount, real data loss). The
+        -- aggregate check alone missed that case; the per-subclass check
+        -- subsumes it and is kept alongside it as cheap defense against a
+        -- hand-edited or otherwise inconsistent record. Saving would clobber
+        -- a larger, cleaner record with a worse one. Preserve the existing
+        -- record entirely — do NOT touch lastScanned here: that field means
+        -- "these items were observed at this time," and this attempt
+        -- observed neither the full item set nor confirmed data. Re-dating it
+        -- would tell every recency consumer (UI staleness, HS-151
+        -- consolidation, scan-timestamp provenance) that the unobserved rows
+        -- were freshly re-verified. Record the attempt separately instead.
         existingData.lastScanAttempt = vendorRecord.lastScanned
         -- Debug (already debug-gated) rather than DevAddon-gated: a rejected
         -- scan is evidence loss the user should be able to see with debug on.
