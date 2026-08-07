@@ -53,6 +53,29 @@ local completionInvalidationFrame = nil
 -- five-trigger-class event fan-out, no new registrations.
 local requirementMetCache = {}
 
+-- HS-273: GetAllSources memoization. Keyed on itemID ONLY -- unlike
+-- requirementMetCache/completionCache, this result is context-free (it's the
+-- raw provider fan-out for an item, not a completion/requirement judgment
+-- that varies by who's asking), so itemID is a fully sufficient key. All 6
+-- call sites repo-wide (SourceManager.lua:422/1423/2501, MapSidePanel.lua,
+-- Tooltips.lua x2) were verified read-only over the returned array -- caching
+-- and sharing the same table object across every caller is safe. Wiped in
+-- InvalidateAllSourceCaches (rep/quest/achievement/holiday triggers), the
+-- narrower InvalidateSourcesMemo (R2 -- decor-bearing vendor scans and
+-- the /hs clear* paths), and RefreshMapPins.
+--
+-- HS-273 R7 (Sage W4, deferred with rationale): useParsedSources's parsed
+-- sources are read inside GetAllSources below but written by a SEPARATE path
+-- -- CatalogStore:SetSources (SourceTextScanner's parse pipeline), which
+-- fires CATALOG_ITEM_UPDATED, not any of the invalidation call sites above.
+-- A fresh parse for an already-cached itemID can therefore lag behind this
+-- memo until the next unrelated invalidation. Deferred: useParsedSources
+-- defaults false (Core/constants.lua:449), SetSources fires rarely (dev/
+-- source-text discovery, not routine play), and wiring CATALOG_ITEM_UPDATED
+-- into this memo is a small, independently reviewable follow-up, not a
+-- change this ticket's scope covers.
+local allSourcesCache = {}
+
 -------------------------------------------------------------------------------
 -- Provider Registry
 -------------------------------------------------------------------------------
@@ -438,6 +461,10 @@ end
 -- Returns: array of {type = "...", data = {...}}
 function SourceManager:GetAllSources(itemID)
     if not itemID then return {} end
+    local cached = allSourcesCache[itemID]
+    if cached then
+        return cached
+    end
     EnsureProvidersRegistered()
 
     local sources = {}
@@ -475,6 +502,7 @@ function SourceManager:GetAllSources(itemID)
         end
     end
 
+    allSourcesCache[itemID] = sources
     return sources
 end
 
@@ -2065,6 +2093,22 @@ function SourceManager:InvalidateRequirementMetCache()
     requirementMetCache = {}
 end
 
+-- HS-273 R2 (Gate 1 cycle 1: Argus C2 + Sage C2): narrow, broadcast-free
+-- wipe of ONLY the GetAllSources memo (named to be unconfusable with the
+-- broad InvalidateAllSourceCaches below, per Sage Gate 1 cycle 2) -- no
+-- completion/requirement/faction
+-- wipes, no SearchProvider:Invalidate, no SOURCE_CACHES_INVALIDATED fire.
+-- InvalidateAllSourceCaches below is a global rep/quest/achievement/holiday
+-- invalidation with a full-UI-repaint broadcast attached; calling it per
+-- vendor scan (the original HS-273 draft) cost a global cache wipe + full
+-- prewarm restart on every first-visit merchant, reversing HS-238's own
+-- discipline against exactly that kind of over-invalidation. Vendor-scan
+-- source discovery only ever ADDS to allSourcesCache's stale entries, so
+-- wiping that one table is sufficient and cheap.
+function SourceManager:InvalidateSourcesMemo()
+    allSourcesCache = {}
+end
+
 -- Central invalidation entrypoint for source-related caches.
 -- Future source/filter caches should be added here so callers have one API.
 -- Fires SOURCE_CACHES_INVALIDATED so UI modules can repaint without
@@ -2072,6 +2116,10 @@ end
 function SourceManager:InvalidateAllSourceCaches()
     self:InvalidateCompletionCache()
     self:InvalidateRequirementMetCache()
+    -- Compose the narrow accessor rather than inlining its wipe: one cache,
+    -- one wipe site (Argus cycle-2 SF3) — if the memo accessor ever grows a
+    -- generation counter or debug hook, the broad path must not skip it.
+    self:InvalidateSourcesMemo()
     factionNameToID = nil
 
     -- HS-210: invalidate the search index directly, before firing the broadcast
