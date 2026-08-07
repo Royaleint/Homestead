@@ -777,10 +777,18 @@ end
 -- HS-216 lesson applies here, and matters MORE than it did for CatalogScanner:
 -- warming with cold ownership/requirement data wouldn't just waste API calls
 -- like a cold scan does, it would CACHE wrong (understated) collected/locked
--- counts that then persist until the next invalidation. So this gates on
--- HA.CatalogScanner:IsWarm() — the exact single source of truth that module
--- already exposes "so other modules can gate their own... decisions on the
--- same single source of truth instead of re-deriving warmness."
+-- counts that then persist until the next invalidation. But that lesson is
+-- about the SCANNER's own live C_HousingCatalog reads going out cold — badge
+-- computation itself is cache-only (HS-200/HS-203: GetItemPresentation's
+-- badge context sets cacheOnlyOwnership/skipBestSourceProbe, zero live calls).
+-- So this gates on HA.CatalogStore:HasPersistedData() (HS-273 R3) instead of
+-- HA.CatalogScanner:IsWarm() — HasPersistedData is true as soon as the
+-- persistent ownership cache is bound AND non-empty, which is all a
+-- cache-only computation needs; IsWarm additionally promises a live scan
+-- happened THIS session, which this pass was blocking on for no reason a
+-- cold player could ever satisfy (HS-271 regression: never warm behind an
+-- unlatchable gate). A fresh install (bound but empty) still fails this
+-- gate on purpose — honest "..." beats a confident wrong 0/N.
 -------------------------------------------------------------------------------
 
 -- HS-271 item 3c: time-boxed, not count-boxed. A fixed vendor-per-batch
@@ -849,7 +857,7 @@ local function BuildZoneFirstVendorOrder(allVendors)
 end
 
 local function StartPrewarmPass()
-    if not HA.CatalogScanner or not HA.CatalogScanner.IsWarm or not HA.CatalogScanner:IsWarm() then
+    if not HA.CatalogStore or not HA.CatalogStore.HasPersistedData or not HA.CatalogStore:HasPersistedData() then
         return
     end
 
@@ -1052,19 +1060,19 @@ function BadgeCalculation:RequestPrewarm(reason)
     RequestVendorStatsPrewarm(reason)
 end
 
--- Login trigger: poll HA.CatalogScanner:IsWarm() (a cheap boolean read, not
--- a new event registration) once a second until it flips true, request the
--- pre-warm pass (through the same debounced entry point as every other
--- trigger), then cancel — self-terminating, no leaked ticker. Bounded at 60
--- polls (~60s) so a session where housing data genuinely never warms
--- doesn't poll forever.
+-- Login trigger: poll HA.CatalogStore:HasPersistedData() (HS-273 R3 — a
+-- cheap boolean read, not a new event registration) once a second until it
+-- flips true, request the pre-warm pass (through the same debounced entry
+-- point as every other trigger), then cancel — self-terminating, no leaked
+-- ticker. Bounded at 60 polls (~60s) so a session where the persistent cache
+-- genuinely never has anything in it doesn't poll forever.
 local loginWarmupTicker = nil
 local loginWarmupPolls = 0
 local LOGIN_WARMUP_MAX_POLLS = 60
 
 loginWarmupTicker = C_Timer.NewTicker(1, function()
     loginWarmupPolls = loginWarmupPolls + 1
-    if HA.CatalogScanner and HA.CatalogScanner.IsWarm and HA.CatalogScanner:IsWarm() then
+    if HA.CatalogStore and HA.CatalogStore.HasPersistedData and HA.CatalogStore:HasPersistedData() then
         loginWarmupTicker:Cancel()
         RequestVendorStatsPrewarm("login")
     elseif loginWarmupPolls >= LOGIN_WARMUP_MAX_POLLS then
@@ -1079,5 +1087,16 @@ end)
 if HA.Events then
     HA.Events:RegisterCallback("SOURCE_CACHES_INVALIDATED", function()
         BadgeCalculation:InvalidateAllCaches()
+    end)
+
+    -- HS-273 R7: listens for CatalogScanner's two true-warm one-shots
+    -- (Gate 0 finding 2 — no existing chain reliably re-fires on that exact
+    -- edge). This FILLS the gap on the cold->warm transition specifically;
+    -- it does not replace SOURCE_CACHES_INVALIDATED above as the source of
+    -- ongoing freshness — later ownership changes still flow through that
+    -- chain's own OWNERSHIP_UPDATED-driven invalidation, same as before
+    -- HS-273. Runs the same debounced trigger every other caller uses.
+    HA.Events:RegisterCallback("HS_CATALOG_TRUE_WARM", function()
+        RequestVendorStatsPrewarm("true_warm_latch")
     end)
 end

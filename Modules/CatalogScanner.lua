@@ -37,6 +37,12 @@ local scanRequestedDuringActive = false
 -- gate (counts are only > 0 warm, so it never false-positives cold).
 local dataLoaded = false
 
+-- HS-273 R1: SEPARATE, weaker one-shot -- true as soon as storage data exists
+-- at all (GetDecorMaxOwnedCount > 0), which is NOT the same claim as dataLoaded
+-- above (per-item counts are live and safe to erase against). This is a
+-- PREWARM SIGNAL only; it must never gate SetUnowned. See SetupEventScanning.
+local storageResponded = false
+
 -- Batching settings to prevent frame hitches
 local ITEMS_PER_BATCH = 20
 local BATCH_DELAY = 0.01 -- seconds between batches
@@ -448,17 +454,55 @@ local function SetupEventScanning()
                 RequestScan()
             end
         else
-            -- HOUSING_STORAGE_UPDATED is the signal that storage/ownership data
-            -- has loaded for this session. Latch the warm-gate so SetUnowned may
-            -- run — count fields are now authoritative, not stale-0. Corroborate
-            -- with GetDecorTotalOwnedCount() > 0 before latching: a bare event
-            -- can fire while counts are still stale-0, which would let SetUnowned
-            -- wrongly clear ownership. A 0-decor character never latches, but
-            -- SetUnowned is moot there anyway. (Plan design #2.)
-            if event == "HOUSING_STORAGE_UPDATED"
-                and (C_HousingCatalog.GetDecorTotalOwnedCount and C_HousingCatalog.GetDecorTotalOwnedCount() or 0) > 0 then
-                dataLoaded = true
+            if event == "HOUSING_STORAGE_UPDATED" then
+                -- HS-273 R1: captured before the latch below runs, so the edge-fire
+                -- guard just below can tell whether THIS call is dataLoaded's own
+                -- false->true transition (this SITE fires at most once per session).
+                -- EVENT CONTRACT (Argus cycle-2 SF2): across BOTH fire sites in this
+                -- handler, HS_CATALOG_TRUE_WARM fires at least once and at most
+                -- twice per session — a decor-owning player's first fully-loaded
+                -- storage event trips both edges in one dispatch. Listeners must be
+                -- idempotent/debounced (the sole current listener is a 1s
+                -- cancel-and-restart debounce).
+                local dataLoadedBefore = dataLoaded
+
+                -- HOUSING_STORAGE_UPDATED is the signal that storage/ownership data
+                -- has loaded for this session. Latch the warm-gate so SetUnowned may
+                -- run — count fields are now authoritative, not stale-0. Corroborate
+                -- with GetDecorTotalOwnedCount() > 0 before latching: a bare event
+                -- can fire while counts are still stale-0, which would let SetUnowned
+                -- wrongly clear ownership. A 0-decor character never latches, but
+                -- SetUnowned is moot there anyway. (Plan design #2.)
+                if (C_HousingCatalog.GetDecorTotalOwnedCount and C_HousingCatalog.GetDecorTotalOwnedCount() or 0) > 0 then
+                    dataLoaded = true
+                end
+
+                -- HS-273 R1: dataLoaded's own false->true edge is a true-warm signal
+                -- in its own right, on top of storageResponded below — keeps the
+                -- re-warm-on-true-warm requirement (Gate 0 finding 2) covered even
+                -- for a session where dataLoaded latches without storageResponded
+                -- ever firing (e.g. GetDecorMaxOwnedCount unavailable this build).
+                if dataLoaded and not dataLoadedBefore and HA.Events then
+                    HA.Events:Fire("HS_CATALOG_TRUE_WARM")
+                end
+
+                -- HS-273 R1: storageResponded is a SEPARATE, weaker one-shot — proves
+                -- storage data exists (Blizzard's own guard,
+                -- Blizzard_HouseEditorStorageFrame.lua:9-14: GetDecorMaxOwnedCount is a
+                -- static cap, non-zero the instant storage loads, ownership-independent)
+                -- but NOT that per-item counts are live, so this is a PREWARM SIGNAL
+                -- only — it must never gate SetUnowned's erase authorization, which
+                -- stays on dataLoaded above exactly as pre-HS-273. Zero-decor players
+                -- (whose dataLoaded never latches, Amendment A) still get this fire.
+                if not storageResponded
+                        and (C_HousingCatalog.GetDecorMaxOwnedCount and C_HousingCatalog.GetDecorMaxOwnedCount() or 0) > 0 then
+                    storageResponded = true
+                    if HA.Events then
+                        HA.Events:Fire("HS_CATALOG_TRUE_WARM")
+                    end
+                end
             end
+
             -- All housing events coalesce into a single debounced scan
             HA.Addon:Debug(event, "fired — requesting scan")
             RequestScan()
@@ -478,6 +522,15 @@ function CatalogScanner:IsWarm()
     return dataLoaded
 end
 
+-- HS-273 (Gate 1 closure): whether storage answered AT ALL this session —
+-- the weak half of R1's two-flag split, exposed for consumers that need to
+-- distinguish "storage answered and the live total is zero" (a zero-decor
+-- player's CONFIRMED-true zero) from "storage never answered" (unknown).
+-- Never an erase authorization — that stays on IsWarm/dataLoaded above.
+function CatalogScanner:HasStorageResponded()
+    return storageResponded
+end
+
 function CatalogScanner:Initialize()
     if isInitialized then return end
 
@@ -487,27 +540,14 @@ function CatalogScanner:Initialize()
     -- Do an initial scan after a delay
     C_Timer.After(3, function()
         if C_HousingCatalog and C_HousingCatalog.GetCatalogEntryInfoByItem then
-            -- HS-216: don't scan cold. Before HOUSING_STORAGE_UPDATED latches
-            -- dataLoaded (see IsWarm above), every item's count fields read
-            -- stale-0 — the warm-gate on SetUnowned correctly stops that from
-            -- erasing ownership, but the scan itself still burns ~1,600
-            -- Housing API calls in the login window for zero learned data
-            -- (observed live: "Checked: 1624 Owned: 0"). The existing
-            -- HOUSING_STORAGE_UPDATED handler below already calls
-            -- RequestScan() unconditionally the moment it latches warm, and
-            -- RequestScan debounces into CatalogScanner:ScanFullCatalog() —
-            -- a FULL scan, not incremental — so skipping here loses no
-            -- coverage; the real scan still happens once data is warm.
-            --
-            -- Zero-decor accounts (HS-180's known limitation: dataLoaded
-            -- never latches without at least one owned decor item to
-            -- corroborate GetDecorTotalOwnedCount() > 0) now run NO initial
-            -- scan instead of a cold, useless one. This degrades identically
-            -- from the player's perspective: the ownership cache starts and
-            -- stays empty either way (nothing was ever going to be found),
-            -- and every other scan trigger — vendor visits, the
-            -- ADDON_LOADED Blizzard_Housing one-shot below, manual /commands
-            -- — is untouched and still fires normally.
+            -- HS-216: don't scan cold — before dataLoaded latches, count fields
+            -- read stale-0, so this would burn ~1,600 API calls for zero learned
+            -- data (observed live: "Checked: 1624 Owned: 0"); the existing
+            -- HOUSING_STORAGE_UPDATED handler below already re-requests a full
+            -- scan the moment it latches, so skipping here loses no coverage.
+            -- Zero-decor accounts (HS-180) never latch dataLoaded and so never
+            -- get an initial scan either, but that's a no-op regardless — the
+            -- cache stays empty because nothing was ever going to be found.
             if not CatalogScanner:IsWarm() then
                 HA.Addon:Debug("Initial catalog scan skipped — not warm yet; "
                     .. "HOUSING_STORAGE_UPDATED will trigger the real scan once data loads")
