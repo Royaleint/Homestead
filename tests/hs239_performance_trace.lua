@@ -13,7 +13,16 @@
 -- ever changes, but it is the only way to unit-test the backend from here.
 
 local root = (... or "."):gsub("\\\\", "/"):gsub("/+$", "")
-local devRoot = root .. "/../../Home_Dev/Homestead_Dev"
+-- Home_Dev is NESTED in the main checkout (root/Home_Dev) but a SIBLING of
+-- the repo root from a worktree (root/../../Home_Dev, since worktrees live
+-- at <repo>/.worktrees/<branch>). Probe the nested layout first, fall back
+-- to the worktree layout - previously this was worktree-only and the test
+-- could never pass from the main checkout.
+local devRoot = root .. "/Home_Dev/Homestead_Dev"
+do
+    local probe = io.open(devRoot .. "/PerformanceTrace.lua", "r")
+    if probe then probe:close() else devRoot = root .. "/../../Home_Dev/Homestead_Dev" end
+end
 
 -------------------------------------------------------------------------------
 -- Task 1(a): the facade must exist. This is the required RED result before
