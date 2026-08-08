@@ -118,7 +118,7 @@ read_globals = {
     "IsIndoors",
     "IsInGroup", "IsInRaid", "IsInInstance", "IsInGuild",
     "Lerp", "Saturate", -- Blizzard_SharedXMLBase/MathUtil.lua (HS-274 zoom-growth curve)
-    "OpenAllBags",
+    "OpenAllBags", "OpenBag",
     "SOUNDKIT",
     "ToggleAllBags", "ToggleBag", "ToggleWorldMap",
     "UnitFactionGroup", "UnitGUID", "UnitLevel", "UnitName",

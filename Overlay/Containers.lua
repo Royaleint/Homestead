@@ -228,6 +228,18 @@ local function UpdateContainerButton(button)
 
     if not overlay then return end
 
+    -- HS-283: the single choke point every update path funnels through
+    -- (HookContainerFrame's already-hooked branch, the hook-time immediate
+    -- paint above via Overlay:AddToFrame, and UpdateAllContainerOverlays) --
+    -- skip the context/item-link/catalog-probe work for a currently-invisible
+    -- button. The overlay is still created/attached above regardless of
+    -- visibility, so this button's own OnShow hook (below, in
+    -- HookContainerFrame) repaints it correctly once it becomes visible
+    -- again -- this skip is a deferral, not a staleness risk.
+    if not button:IsVisible() then
+        return
+    end
+
     if not IsContextEnabled(button) then
         Overlay:ClearIcon(overlay)
         return
@@ -347,10 +359,48 @@ end
 -- Event Handlers
 -------------------------------------------------------------------------------
 
+-- HS-283: true if any bag container frame is currently shown. Checks exactly
+-- the same frame universe HookAllContainers() hooks from (combined bags +
+-- every frame in ContainerFrameContainer.ContainerFrames, which also covers
+-- bank/reagent bank/warband bank tabs -- confirmed via Blizzard UI source,
+-- ContainerFrame_IsBankTab is checked alongside ContainerFrame_IsHeldBag
+-- throughout the same file that owns ContainerFrameContainer.ContainerFrames)
+-- -- mirrors Blizzard's own hide-skips-work discipline without needing to
+-- hook per-frame OnHide/OnShow ourselves.
+local function IsAnyContainerFrameVisible()
+    local combinedBags = ContainerFrameCombinedBags
+    if combinedBags and combinedBags:IsShown() then
+        return true
+    end
+
+    local frameContainer = ContainerFrameContainer
+    if frameContainer and frameContainer.ContainerFrames then
+        for _, bagFrame in ipairs(frameContainer.ContainerFrames) do
+            if bagFrame:IsShown() then
+                return true
+            end
+        end
+    end
+
+    return false
+end
+
 local function OnBagUpdate()
+    -- HS-283: skip the traversal entirely when nothing is open -- the
+    -- per-loot-event cost this event previously paid unconditionally.
+    if not IsAnyContainerFrameVisible() then
+        return
+    end
+
     -- Frames can be rebuilt dynamically; re-scan hook targets then refresh.
+    -- HS-283: no separate UpdateAllContainerOverlays() call here anymore --
+    -- HookAllContainers()'s own traversal (HookContainerFrame's else-branch,
+    -- for already-hooked buttons) already updates every currently-collected
+    -- button on this pass; a second full pass over containerButtons was a
+    -- pure duplicate for this call site. OnBankOpened() and the
+    -- ToggleBag/OpenAllBags/ToggleAllBags hooksecurefunc sites are
+    -- deliberately left untouched -- see the plan's Gate 0 notes.
     HookAllContainers()
-    UpdateAllContainerOverlays()
 end
 
 local function OnBankOpened()
@@ -384,6 +434,18 @@ local function Initialize()
 
     if ToggleAllBags then
         hooksecurefunc("ToggleAllBags", function()
+            C_Timer.After(0.1, HookAllContainers)
+        end)
+    end
+
+    -- HS-283 Gate 1 finding: ToggleBackpack (combined-bags mode) and
+    -- OpenAllBagsMatchingContext (the item-upgrade/keystone/soulbinds
+    -- auto-open) both bypass the three hooks above, routing through OpenBag
+    -- directly (ContainerFrame.lua:272) -- without this hook, a bag opened
+    -- only via one of those paths would show no overlays until the next
+    -- bag-content change while open. Same shape as the other three.
+    if OpenBag then
+        hooksecurefunc("OpenBag", function()
             C_Timer.After(0.1, HookAllContainers)
         end)
     end
