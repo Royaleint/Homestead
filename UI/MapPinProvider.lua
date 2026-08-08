@@ -568,9 +568,20 @@ function MapPinProvider.RepositionWorldMapPins()
     end
     for _, wrapper in ipairs(nativePins) do
         if wrapper.__hsNormX and wrapper.__hsNormY then
-            wrapper:SetParent(canvas)
-            if wrapper.SetIgnoreParentScale then
+            -- HS-274 follow-up: this now runs on every canvas-scale tick during
+            -- a zoom (previously only on rare resize/maximize), so the parent
+            -- and ignore-parent-scale calls -- one-time setup from Acquire that
+            -- never actually changes mid-gesture -- were re-issued dozens of
+            -- times per second per pin, generating enough garbage to visibly
+            -- bloat AddOn memory until the next GC pass. Guard them; SetScale
+            -- and the anchor still need every tick, since those genuinely track
+            -- the live zoom.
+            if wrapper:GetParent() ~= canvas then
+                wrapper:SetParent(canvas)
+            end
+            if wrapper.SetIgnoreParentScale and not wrapper.__hsIgnoreParentScaleSet then
                 wrapper:SetIgnoreParentScale(false)
+                wrapper.__hsIgnoreParentScaleSet = true
             end
             wrapper:SetScale(newScale)
             wrapper:ClearAllPoints()
