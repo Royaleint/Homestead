@@ -727,13 +727,11 @@ function SourceManager:GetRequirements(itemID, npcID)
     end
 
     -- Priority 1: Vendor-specific requirements from scanned data
-    if npcID and HA.Addon and HA.Addon.db and HA.Addon.db.global.scannedVendors then
-        local scannedVendor = HA.Addon.db.global.scannedVendors[npcID]
-        if scannedVendor and scannedVendor.items then
-            for _, item in ipairs(scannedVendor.items) do
-                if HA.VendorData:GetItemID(item) == itemID then
-                    addReqs(item.requirements)
-                end
+    if npcID and HA.VendorData and HA.VendorData.GetScannedVendorItems then
+        local items = HA.VendorData:GetScannedVendorItems(npcID, itemID)
+        if items then
+            for _, item in ipairs(items) do
+                addReqs(item.requirements)
             end
         end
     end
@@ -1303,23 +1301,9 @@ end
 
 local function GetScannedVendorItem(itemID, npcID)
     if not itemID or not npcID then return nil end
-    if not HA.Addon or not HA.Addon.db or not HA.Addon.db.global.scannedVendors then
-        return nil
-    end
-
-    local scannedVendor = HA.Addon.db.global.scannedVendors[npcID]
-    if not scannedVendor or not scannedVendor.items then return nil end
-
-    for _, item in ipairs(scannedVendor.items) do
-        local scannedItemID = HA.VendorData and HA.VendorData.GetItemID
-            and HA.VendorData:GetItemID(item)
-            or item.itemID
-        if scannedItemID == itemID then
-            return item
-        end
-    end
-
-    return nil
+    if not HA.VendorData or not HA.VendorData.GetScannedVendorItems then return nil end
+    local items = HA.VendorData:GetScannedVendorItems(npcID, itemID)
+    return items and items[1] or nil
 end
 
 -- Vendor-scoped availability: classifies an item in a specific vendor context.

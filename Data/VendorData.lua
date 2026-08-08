@@ -899,9 +899,19 @@ end
 -- Scanned Vendor Index
 -------------------------------------------------------------------------------
 
--- Build reverse index from scanned vendor data: itemID -> {npcID, ...}
+-- Build reverse indexes from scanned vendor data:
+--   ScannedByItemID:   itemID -> {npcID, ...}
+--   ScannedItemsByNPC: npcID -> {itemID -> {item, ...}}  (ordered, original scan-array order)
+-- ScannedItemsByNPC's lists hold LIVE references into db.global.scannedVendors
+-- item tables, not copies -- this is not a copy-on-read cache. In particular,
+-- GetRequirements' requirement-normalizer (SourceManager.lua's
+-- normalizeAndValidateRequirement) already rewrites unknown-type requirements'
+-- .type/.faction/.standing fields in place through this same reference,
+-- writing back into SavedVariables (pre-existing behavior, unchanged by
+-- HS-280) -- callers must not assume nothing writes back through it.
 function VendorData:BuildScannedIndex()
     self.ScannedByItemID = {}
+    self.ScannedItemsByNPC = {}
 
     local db = HA.Addon and HA.Addon.db
     if not db or not db.global or not db.global.scannedVendors then
@@ -912,14 +922,21 @@ function VendorData:BuildScannedIndex()
     for npcID, vendorRecord in pairs(db.global.scannedVendors) do
         local items = vendorRecord.items
         if items then
+            local byItem = {}
+            self.ScannedItemsByNPC[npcID] = byItem
             for _, item in ipairs(items) do
-                local itemID = item.itemID
+                local itemID = self:GetItemID(item)
                 if itemID then
                     if not self.ScannedByItemID[itemID] then
                         self.ScannedByItemID[itemID] = {}
                         itemCount = itemCount + 1
                     end
                     table.insert(self.ScannedByItemID[itemID], npcID)
+
+                    if not byItem[itemID] then
+                        byItem[itemID] = {}
+                    end
+                    table.insert(byItem[itemID], item)
                 end
             end
         end
@@ -928,6 +945,20 @@ function VendorData:BuildScannedIndex()
     if HA.Addon then
         HA.Addon:Debug("VendorData scanned index built:", itemCount, "unique items")
     end
+end
+
+-- Get all scanned items for (npcID, itemID), in original scan-array order.
+-- May return more than one entry -- the same itemID can occupy more than one
+-- merchant slot on one vendor (HS-280: why GetRequirements' merge-all
+-- contract needs a list, not a single record). Returns nil if none scanned.
+--
+-- Init-order invariant: returns nil for everything until VendorData:Initialize()
+-- has run BuildScannedIndex() (see core.lua's init sequence). Do not add a
+-- lazy build-on-nil fallback here -- that would be a new invalidation-adjacent
+-- trigger, defeating this design's "zero new invalidation triggers" guarantee.
+function VendorData:GetScannedVendorItems(npcID, itemID)
+    local byItem = self.ScannedItemsByNPC and self.ScannedItemsByNPC[npcID]
+    return byItem and byItem[itemID]
 end
 
 -- Rebuild the full scanned-index from authoritative SavedVariables.

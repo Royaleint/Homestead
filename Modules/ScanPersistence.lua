@@ -333,9 +333,14 @@ function ScanPersistence:SaveVendorData(scanData)
     else
         -- Unknown vendor, no prior good data, 0 housing items: don't persist
         HA.Addon.db.global.scannedVendors[scanData.npcID] = nil
-        -- Deletion path fires no VENDOR_SCANNED, so rebuild the reverse
-        -- index directly to drop stale (itemID -> npcID) entries pointing
-        -- at the removed record.
+        -- NOTE: VENDOR_SCANNED actually fires unconditionally near the end of this
+        -- function (see the Fire() call below) regardless of which branch above ran
+        -- -- this delete branch is no exception. This direct call is therefore
+        -- redundant with both that event's OnVendorScanned handler and the
+        -- unconditional InvalidateVendorCaches() call a few lines down (both also
+        -- rebuild this index). Kept anyway as an explicit, cheap, idempotent rebuild
+        -- at the point of deletion; removing it is a separate cleanup, not bundled
+        -- into HS-280's scope.
         if HA.VendorData and HA.VendorData.BuildScannedIndex then
             HA.VendorData:BuildScannedIndex()
         end
@@ -423,6 +428,9 @@ function ScanPersistence:SaveVendorData(scanData)
     end
 
     -- Invalidate cached vendor data (new scan data may affect results)
+    -- Ordering is load-bearing: this rebuild must run BEFORE the VENDOR_SCANNED
+    -- fire below, so any listener observes a freshly-rebuilt index, never a
+    -- stale one between save and rebuild (HS-280).
     if HA.VendorData and HA.VendorData.InvalidateVendorCaches then
         HA.VendorData:InvalidateVendorCaches()
     end
