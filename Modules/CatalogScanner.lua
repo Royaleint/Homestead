@@ -50,14 +50,15 @@ local storageResponded = false
 -- PLAYER_ENTERING_WORLD deferred action (PEW fires every loading screen per
 -- HS-218, not just initial login -- see SetupLoginForceLoad). pendingSearcher
 -- holds the searcher object as GC insurance against the C++-side RunSearch()
--- side effect being collected before it completes; cleared once
--- storageResponded latches (TryLatchWarmFromCounts), which naturally covers
--- both the warm-skip path (never set) and the cold path (RunSearch()
--- triggered the real HOUSING_STORAGE_UPDATED).
+-- side effect being collected before it completes; cleared once EITHER warm
+-- flag latches (TryLatchWarmFromCounts), which covers the warm-skip path
+-- (never set), the cold path (RunSearch() triggered the real
+-- HOUSING_STORAGE_UPDATED), and a build where only dataLoaded ever latches.
 local loginForceLoadAttempted = false
 local loginForceLoadPendingCombat = false
 local LOGIN_FORCE_LOAD_DELAY = 5 -- seconds; settle past loading-screen noise. Gate-2-tunable.
-local pendingSearcher = nil
+-- Write-only by design: its only job is to hold a reference, never to be read.
+local pendingSearcher = nil -- luacheck: ignore 231
 
 -- Batching settings to prevent frame hitches
 local ITEMS_PER_BATCH = 20
@@ -438,15 +439,11 @@ end
 -- HOUSING_STORAGE_UPDATED-only handler (HS-273) -- conditions and fire sites
 -- are pinned byte-identical by tests/hs273_cold_prewarm_and_memo.lua; do not
 -- paraphrase.
--- Returns true if either one-shot edge flipped THIS call. The
--- HOUSING_STORAGE_UPDATED handler below ignores the return value (it
--- unconditionally requests a scan regardless of whether an edge flipped).
--- The login-force-load path also ignores it for its warm pre-check --
--- storageResponded's CURRENT value already reflects state a prior call may
--- have latched, whereas the return value only reports THIS call's edge.
+-- Returns nothing on purpose: callers must decide on the CURRENT value of
+-- dataLoaded/storageResponded, never on whether an edge flipped THIS call.
+-- (Argus cycle 1: a this-call-edge decision on the login path created a
+-- searcher against storage that was already warm, and dangled pendingSearcher.)
 local function TryLatchWarmFromCounts()
-    local latchedThisCall = false
-
     -- HS-273 R1: captured before the latch below runs, so the edge-fire
     -- guard just below can tell whether THIS call is dataLoaded's own
     -- false->true transition (this SITE fires at most once per session).
@@ -476,7 +473,6 @@ local function TryLatchWarmFromCounts()
     -- ever firing (e.g. GetDecorMaxOwnedCount unavailable this build).
     if dataLoaded and not dataLoadedBefore and HA.Events then
         HA.Events:Fire("HS_CATALOG_TRUE_WARM")
-        latchedThisCall = true
     end
 
     -- HS-273 R1: storageResponded is a SEPARATE, weaker one-shot — proves
@@ -493,18 +489,21 @@ local function TryLatchWarmFromCounts()
         if HA.Events then
             HA.Events:Fire("HS_CATALOG_TRUE_WARM")
         end
-        latchedThisCall = true
-
-        -- HS-276: storage has now answered -- release the GC-insurance hold
-        -- (if any) on a pending login-force-load searcher object. No-op on
-        -- the warm-reload short-circuit path, where pendingSearcher was
-        -- never set.
-        if pendingSearcher ~= nil then
-            pendingSearcher = nil
-        end
     end
 
-    return latchedThisCall
+    -- HS-276: storage has now answered -- release the GC-insurance hold (if
+    -- any) on a pending login-force-load searcher object. Gated on EITHER
+    -- flag, mirroring RunLoginStorageForceLoad's warm pre-check: a searcher
+    -- is only ever held when that pre-check found both flags cold, so any
+    -- latch at all proves the HOUSING_STORAGE_UPDATED the hold was insuring
+    -- against has dispatched. Gating on storageResponded alone stranded the
+    -- hold for the whole session on a build where GetDecorMaxOwnedCount is
+    -- unavailable and only dataLoaded can latch (Argus cycle 3).
+    -- Written on current state rather than a latch edge -- assigning nil
+    -- over nil is a no-op, so no edge tracking is needed.
+    if storageResponded or dataLoaded then
+        pendingSearcher = nil
+    end
 end
 
 local function SetupEventScanning()
@@ -549,9 +548,8 @@ local function SetupEventScanning()
                 -- HS-276: latch logic moved into the shared TryLatchWarmFromCounts()
                 -- (see above) so the login-force-load path can call the same
                 -- corroborate-and-latch logic before deciding whether to create a
-                -- searcher. Return value unused here — this handler already
-                -- unconditionally requests a scan below regardless of whether an
-                -- edge flipped, exactly as before the extraction.
+                -- searcher. This handler still unconditionally requests a scan
+                -- below, exactly as before the extraction.
                 TryLatchWarmFromCounts()
             end
 
@@ -576,6 +574,15 @@ local function RunLoginStorageForceLoad()
         return
     end
 
+    -- Unlike the HOUSING_STORAGE_UPDATED handler, this path runs off an
+    -- unconditional login timer, so the namespace's existence is not implied
+    -- by an event having fired -- guard it before anything below dereferences
+    -- it (TryLatchWarmFromCounts reads C_HousingCatalog directly).
+    if not C_HousingCatalog then
+        HA.Addon:Debug("Login storage force-load skipped: C_HousingCatalog unavailable")
+        return
+    end
+
     -- Pre-check short-circuit: if storage is already warm (e.g. C++ state
     -- survived a /reload, OR the live HOUSING_STORAGE_UPDATED handler already
     -- latched storageResponded while this timer was still pending), latch
@@ -584,22 +591,25 @@ local function RunLoginStorageForceLoad()
     -- event path (approved design decision).
     --
     -- Call TryLatchWarmFromCounts() for its corroborate-and-latch side
-    -- effects (it's a no-op re-check if storageResponded already latched
-    -- earlier), then read storageResponded's CURRENT value directly rather
-    -- than trusting the call's return value -- the return only reports
-    -- whether an edge flipped on THIS call, which misses the case where
-    -- storage was already warm coming in. Deciding on the current value
-    -- instead of the this-call edge is what guarantees a searcher is never
-    -- created once storage is already warm, so pendingSearcher never gets
-    -- set on this path and can't dangle.
+    -- effects (it's a no-op re-check if the flags already latched earlier),
+    -- then read the flags' CURRENT values directly -- deciding on current
+    -- state rather than on this call's latch edge is what guarantees a
+    -- searcher is never created once storage is already warm, so
+    -- pendingSearcher never gets set on this path and can't dangle.
+    --
+    -- BOTH flags count as warm, not just storageResponded: they latch off
+    -- independent sentinels, and on a build where GetDecorMaxOwnedCount is
+    -- unavailable only dataLoaded latches -- reading storageResponded alone
+    -- would fall through and create a searcher against warm storage, which
+    -- is the dangle above by another route.
     TryLatchWarmFromCounts()
-    if storageResponded then
+    if storageResponded or dataLoaded then
         HA.Addon:Debug("Login storage force-load: already warm, requesting parity rescan")
         RequestScan()
         return
     end
 
-    if not C_HousingCatalog or type(C_HousingCatalog.CreateCatalogSearcher) ~= "function" then
+    if type(C_HousingCatalog.CreateCatalogSearcher) ~= "function" then
         HA.Addon:Debug("Login storage force-load skipped: CreateCatalogSearcher unavailable")
         return
     end
@@ -620,7 +630,7 @@ local function RunLoginStorageForceLoad()
     end
 
     -- GC insurance against the C++-side effect being collected before it
-    -- completes. Cleared inside TryLatchWarmFromCounts once storageResponded
+    -- completes. Cleared inside TryLatchWarmFromCounts once either flag
     -- latches (the HOUSING_STORAGE_UPDATED this RunSearch() call triggers) --
     -- no separate timeout timer needed.
     pendingSearcher = searcher
