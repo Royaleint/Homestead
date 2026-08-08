@@ -952,6 +952,11 @@ function VendorData:Initialize()
 
     self:BuildOfferIndexes()
 
+    -- HS-281: per-npcID memo for GetVendorItems. GetOffers' four input tables
+    -- are static after load with no runtime writers, so this needs no
+    -- invalidation hook -- see GetVendorItems for the full rationale.
+    self.VendorItemsMemo = {}
+
     -- Build reverse lookup for vendor names
     self:BuildNameIndex()
 
@@ -1077,9 +1082,31 @@ function VendorData:OfferToLegacyItem(itemID, offer)
     return { itemID, cost = cost }
 end
 
+-- HS-281: memoized per npcID (VendorItemsMemo, built in Initialize()). The
+-- lazy `or {}` below covers standalone/partial-mock test harnesses that load
+-- this file without calling Initialize(). GetOffers' four input tables
+-- (GeneratedBase, ManualOverrides, StagedAdditions, Tombstones) are static
+-- after addon load with no runtime writers, so this never needs an
+-- invalidation hook.
 function VendorData:GetVendorItems(npcID)
+    -- Lua can read a table with a nil key but not write one -- a nil npcID
+    -- used to fall through GetOffers to a plain `return {}`; preserve that
+    -- tolerance rather than letting the memo write turn it into a hard
+    -- error (Sage Gate 1: existing ProjectVendorWithItems call sites already
+    -- guard on `if vendor.npcID then`, treating an unstamped record as
+    -- possible). Same reasoning for a not-yet-loaded HA.VendorOffers: don't
+    -- memoize "offers table unavailable" as if it were "vendor has none".
+    if npcID == nil or not HA.VendorOffers then return {} end
+
+    self.VendorItemsMemo = self.VendorItemsMemo or {}
+    local cached = self.VendorItemsMemo[npcID]
+    if cached then return cached end
+
     local offers = self:GetOffers(npcID)
-    if not offers then return {} end
+    if not offers then
+        self.VendorItemsMemo[npcID] = {}
+        return self.VendorItemsMemo[npcID]
+    end
 
     local ordered = {}
     for itemID, offer in pairs(offers) do
@@ -1100,6 +1127,7 @@ function VendorData:GetVendorItems(npcID)
     for _, row in ipairs(ordered) do
         items[#items + 1] = self:OfferToLegacyItem(row.itemID, row.offer)
     end
+    self.VendorItemsMemo[npcID] = items
     return items
 end
 
