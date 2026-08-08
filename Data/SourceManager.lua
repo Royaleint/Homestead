@@ -2122,6 +2122,16 @@ function SourceManager:InvalidateSourcesMemo()
     allSourcesCache = {}
 end
 
+-- HS-279: dev-only diagnostic accessor for allSourcesCache's live population,
+-- feeding /hs debug memallsources. Read-only snapshot, never mutates the memo.
+function SourceManager:GetSourcesMemoEntryCount()
+    local count = 0
+    for _ in pairs(allSourcesCache) do
+        count = count + 1
+    end
+    return count
+end
+
 -- Central invalidation entrypoint for source-related caches.
 -- Future source/filter caches should be added here so callers have one API.
 -- Fires SOURCE_CACHES_INVALIDATED so UI modules can repaint without

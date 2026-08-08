@@ -158,29 +158,49 @@ local HA = {
 assert(loadfile(root .. "/Data/SourceManager.lua"))("Homestead", HA)
 HA.SourceManager:Initialize()
 
+-- HS-279: GetSourcesMemoEntryCount is a read-only diagnostic accessor feeding
+-- /hs debug memallsources -- must never mutate the memo, and must track its
+-- population accurately across hits/misses/invalidation.
+assert(HA.SourceManager:GetSourcesMemoEntryCount() == 0,
+    "entry count must start at 0 before any GetAllSources call")
+
 -- Hit: two calls for the same itemID must return the identical table object
 -- (not just equal contents) -- callers that store the reference and expect
 -- later writes elsewhere to be invisible depend on this.
 local first = HA.SourceManager:GetAllSources(12345)
+assert(HA.SourceManager:GetSourcesMemoEntryCount() == 1,
+    "entry count must be 1 after the first GetAllSources call populates the memo")
 local second = HA.SourceManager:GetAllSources(12345)
 assert(first == second, "GetAllSources must return the SAME cached table on a hit")
 assert(#first == 1 and first[1].type == "quest", "sanity: the quest provider result must be present")
+assert(HA.SourceManager:GetSourcesMemoEntryCount() == 1,
+    "a cache hit must not change the entry count (read-only, no re-insert)")
 
 -- The nil-itemID guard stays outside the cache (no crash, no caching of {}).
 assert(#HA.SourceManager:GetAllSources(nil) == 0, "GetAllSources(nil) must return an empty table")
+assert(HA.SourceManager:GetSourcesMemoEntryCount() == 1,
+    "a nil itemID must never add an entry to the memo")
 
 -- Narrow invalidation (InvalidateSourcesMemo) must clear the memo:
 -- a subsequent call recomputes, returning a NEW table object.
 HA.SourceManager:InvalidateSourcesMemo()
+assert(HA.SourceManager:GetSourcesMemoEntryCount() == 0,
+    "InvalidateSourcesMemo must reset the entry count to 0")
 local third = HA.SourceManager:GetAllSources(12345)
 assert(third ~= first, "InvalidateSourcesMemo must force recomputation (new table object)")
 assert(third[1].type == "quest", "recomputed result must still be correct")
+assert(HA.SourceManager:GetSourcesMemoEntryCount() == 1,
+    "entry count must reflect the recomputed entry after invalidation")
 
 -- Full invalidation (InvalidateAllSourceCaches) must ALSO clear the memo.
 local fourth = HA.SourceManager:GetAllSources(12345)
 assert(fourth == third, "unchanged cache between calls must still hit")
 HA.SourceManager:InvalidateAllSourceCaches()
+assert(HA.SourceManager:GetSourcesMemoEntryCount() == 0,
+    "InvalidateAllSourceCaches must also reset the entry count to 0")
 local fifth = HA.SourceManager:GetAllSources(12345)
 assert(fifth ~= fourth, "InvalidateAllSourceCaches must also force recomputation (new table object)")
+assert(HA.SourceManager:GetSourcesMemoEntryCount() == 1,
+    "entry count must reflect the recomputed entry after full invalidation")
 
 print("hs273_cold_prewarm_and_memo: ok")
