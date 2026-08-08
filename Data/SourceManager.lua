@@ -53,6 +53,17 @@ local completionInvalidationFrame = nil
 -- five-trigger-class event fan-out, no new registrations.
 local requirementMetCache = {}
 
+-- HS-283: verdict baseline for the "profSourceAvail:" cache entries below —
+-- the profession-source-availability judgment (PlayerHasProfession +
+-- PlayerMeetsSkillLevel, the latter reading C_TradeSkillUI, a different data
+-- source than professionRank's GetProfessionInfo-based fingerprint/eval).
+-- Not part of requirementEvalBaseline (below) because these entries never go
+-- through IsRequirementMet — same shape and same "never wiped by
+-- invalidation" discipline, mirrored deliberately so TRAIT_CONFIG_UPDATED/
+-- NEW_RECIPE_LEARNED/SKILL_LINES_CHANGED's verify-then-skip gate can check
+-- both data classes it protects, not just the professionRank one.
+local professionAvailBaseline = {}
+
 -- HS-273: GetAllSources memoization. Keyed on itemID ONLY -- unlike
 -- requirementMetCache/completionCache, this result is context-free (it's the
 -- raw provider fan-out for an item, not a completion/requirement judgment
@@ -424,6 +435,17 @@ function SourceManager:IsSourceAvailableNow(itemID, source)
 
         if cacheKey then
             requirementMetCache[cacheKey] = available
+            -- HS-283: refresh the verify-then-skip baseline on every live
+            -- evaluation, same discipline as IsRequirementMet/
+            -- requirementEvalBaseline below — never touched on the cache-hit
+            -- return above, only when this branch actually re-evaluated.
+            local baseline = professionAvailBaseline[cacheKey]
+            if baseline then
+                baseline.data = data
+                baseline.available = available
+            else
+                professionAvailBaseline[cacheKey] = { data = data, available = available }
+            end
         end
         return available
     end
@@ -932,8 +954,17 @@ function SourceManager:EvaluateRequirementMetLive(req)
     elseif req.type == "professionRank" then
         if not req.profession or not req.rank then return nil end
         if GetProfessions and GetProfessionInfo then
-            local profIndices = { GetProfessions() }
-            for _, profIndex in ipairs(profIndices) do
+            -- HS-283: GetProfessions() returns FIVE fixed positional slots (primary1,
+            -- primary2, archaeology, fishing, cooking) with nil for an empty slot —
+            -- archaeology is empty on virtually every character, so packing the
+            -- returns into a table and ipairs()-ing it silently dropped fishing and
+            -- cooking (ipairs stops at the first nil hole). Same bug class HS-213
+            -- already fixed in BuildProfessionFingerprint (below) — visit all five
+            -- slots positionally instead.
+            local prof1, prof2, archaeology, fishing, cooking = GetProfessions()
+            local slots = { prof1, prof2, archaeology, fishing, cooking }
+            for i = 1, 5 do
+                local profIndex = slots[i]
                 if profIndex then
                     local name, _, skillLevel = GetProfessionInfo(profIndex)
                     if name == req.profession then
@@ -2203,28 +2234,67 @@ local function BuildProfessionFingerprint()
     return table.concat(parts, "|")
 end
 
--- HS-238: verify-then-skip for UPDATE_FACTION. The event is a proxy for
--- "some reputation-dependent verdict may have flipped" — but the enormous
--- majority of fires are rep ticks that cross no threshold. Instead of
--- treating every fire as a change, re-evaluate exactly the reputation
--- verdicts consumers have actually seen (requirementEvalBaseline) and
--- invalidate only when one genuinely flipped. Every re-evaluation here is a
--- call the old unconditional wipe forced consumers to repeat anyway; the
--- baseline is bounded by the distinct reputation requirements in the data.
--- Nil-safe on both sides: a formerly-undeterminable verdict becoming
--- determinate (or vice versa) counts as a change — consumers cached counts
--- built on the old answer.
+-- HS-238: verify-then-skip for UPDATE_FACTION, generalized by HS-283 to also
+-- cover professionRank (used by TRAIT_CONFIG_UPDATED/NEW_RECIPE_LEARNED/
+-- SKILL_LINES_CHANGED's changed-fingerprint path below). The event is a proxy
+-- for "some requirement verdict may have flipped" — but the enormous majority
+-- of fires cross no threshold. Instead of treating every fire as a change,
+-- re-evaluate exactly the requirement verdicts consumers have actually seen
+-- (requirementEvalBaseline) and invalidate only when one genuinely flipped.
+-- Every re-evaluation here is a call the old unconditional wipe forced
+-- consumers to repeat anyway; the baseline is bounded by the distinct
+-- requirements in the data. Nil-safe on both sides: a formerly-undeterminable
+-- verdict becoming determinate (or vice versa) counts as a change — consumers
+-- cached counts built on the old answer.
+-- HS-283 note: this widens UPDATE_FACTION's own re-verify scope — a rep-tick
+-- fire now also re-checks any professionRank baselines that exist, not just
+-- reputation ones (they share this table). Bounded cost (few entries, ≤6
+-- cheap C calls each) and fail-open (worst case one extra invalidate, never
+-- a missed one) — accepted, not a behavior-preserving rename.
 -- Returns: changedCount, checkedCount
-local function CountChangedReputationVerdicts()
+local function CountChangedRequirementVerdicts()
     local changed, checked = 0, 0
     for _, baseline in pairs(requirementEvalBaseline) do
         local req = baseline.req
-        if req and req.type == "reputation" then
+        if req and (req.type == "reputation" or req.type == "professionRank") then
             checked = checked + 1
             local live = SourceManager:EvaluateRequirementMetLive(req)
             if live ~= baseline.met then
                 changed = changed + 1
                 baseline.met = live
+            end
+        end
+    end
+    return changed, checked
+end
+
+-- HS-283: verify-then-skip for the "profSourceAvail:" cache (professionAvailBaseline
+-- above) -- the C_TradeSkillUI-derived expansion-tier skill data professionRank's
+-- fingerprint deliberately excludes (BuildProfessionFingerprint's KNOWN GAP comment,
+-- above). Re-runs exactly the PlayerHasProfession/PlayerMeetsSkillLevel judgment
+-- IsSourceAvailableNow already made, against the same stored sourceData, and
+-- compares to the last-seen availability. Mirrors CountChangedRequirementVerdicts'
+-- shape and discipline on a different cache/baseline pair.
+-- Returns: changedCount, checkedCount
+local function CountChangedProfessionAvailability()
+    local changed, checked = 0, 0
+    for _, baseline in pairs(professionAvailBaseline) do
+        local data = baseline.data
+        if data then
+            checked = checked + 1
+            local available = true
+            local hasProf = SourceManager:PlayerHasProfession(data)
+            if hasProf == false then
+                available = false
+            elseif hasProf == true then
+                local meetsLevel = SourceManager:PlayerMeetsSkillLevel(data)
+                if meetsLevel == false then
+                    available = false
+                end
+            end
+            if available ~= baseline.available then
+                changed = changed + 1
+                baseline.available = available
             end
         end
     end
@@ -2240,18 +2310,58 @@ end
 local function RunFactionVerifyThenInvalidate()
     factionNameToID = nil
 
-    local changed, checked = CountChangedReputationVerdicts()
+    local changed, checked = CountChangedRequirementVerdicts()
     if changed == 0 then
         if HA.Addon then
-            HA.Addon:Debug(("SourceManager: UPDATE_FACTION suppressed (0/%d reputation verdicts changed)")
+            -- HS-283: this counts reputation AND professionRank baselines now
+            -- (CountChangedRequirementVerdicts was generalized) — say
+            -- "requirement", not "reputation", so a Gate 2 capture doesn't
+            -- read a professionRank flip as a reputation one.
+            HA.Addon:Debug(("SourceManager: UPDATE_FACTION suppressed (0/%d requirement verdicts changed)")
                 :format(checked))
         end
         return
     end
 
     if HA.Addon then
-        HA.Addon:Debug(("SourceManager: UPDATE_FACTION invalidating (%d/%d reputation verdicts changed)")
+        HA.Addon:Debug(("SourceManager: UPDATE_FACTION invalidating (%d/%d requirement verdicts changed)")
             :format(changed, checked))
+    end
+    SourceManager:InvalidateAllSourceCaches()
+end
+
+-- HS-283: combined verify-then-skip gate for TRAIT_CONFIG_UPDATED,
+-- NEW_RECIPE_LEARNED, and SKILL_LINES_CHANGED's changed-fingerprint path.
+-- Sums both count functions above (professionRank requirement verdicts +
+-- profession-source availability verdicts) so a wipe+broadcast only fires
+-- when something in either data class actually flipped. Debug-logs
+-- C_TradeSkillUI.IsTradeSkillReady() alongside the verdict counts — the
+-- profSourceAvail baseline is captured window-closed (during the prewarm
+-- pass) while these events can fire window-open, so a false-positive
+-- "changed" read recurs once per window-state transition bracketing a
+-- gated event (not just once per session) — opening the window flips the
+-- baseline to open-state values, closing it and the next gated event flips
+-- it back. Still strictly no worse than the old unconditional-invalidate
+-- behavior, and self-correcting each time; this log line is what lets
+-- Gate 2 tell that class apart from a real change.
+local function RunProfessionVerifyThenInvalidate()
+    local reqChanged, reqChecked = CountChangedRequirementVerdicts()
+    local availChanged, availChecked = CountChangedProfessionAvailability()
+    local changed = reqChanged + availChanged
+    local tradeSkillUI = _G and _G.C_TradeSkillUI
+    local windowReady = tradeSkillUI and tradeSkillUI.IsTradeSkillReady and tradeSkillUI.IsTradeSkillReady()
+
+    if changed == 0 then
+        if HA.Addon then
+            HA.Addon:Debug(("SourceManager: profession invalidation suppressed (0/%d requirement, 0/%d availability verdicts changed; trade skill window ready=%s)")
+                :format(reqChecked, availChecked, tostring(windowReady)))
+        end
+        return
+    end
+
+    if HA.Addon then
+        HA.Addon:Debug(("SourceManager: profession invalidation (%d/%d requirement, %d/%d availability verdicts changed; trade skill window ready=%s)")
+            :format(reqChanged, reqChecked, availChanged, availChecked, tostring(windowReady)))
     end
     SourceManager:InvalidateAllSourceCaches()
 end
@@ -2328,15 +2438,45 @@ local function HookCompletionCacheInvalidation()
             -- isn't firing on that client — the gate is irrelevant to that
             -- freeze and something else is the cause.
             if HA.Addon then
+                -- HS-283: "changed" no longer means "invalidating" — it now
+                -- means "handing off to the verify-then-skip gate below",
+                -- which logs its own suppressed/invalidating verdict
+                -- immediately after. Say so, not "invalidating", so a Gate 2
+                -- capture doesn't read two contradictory adjacent lines.
                 HA.Addon:Debug("SourceManager: SKILL_LINES_CHANGED arrived — "
                     .. (unchanged and "suppressed (no profession change detected)"
-                        or "invalidating (profession change detected or no prior baseline)"))
+                        or "fingerprint changed — verifying"))
             end
 
             if unchanged then
                 return
             end
+            -- HS-283: the fingerprint baseline must track the new state
+            -- regardless of what happens next (same discipline
+            -- requirementEvalBaseline already follows) — update it before
+            -- deciding whether to invalidate, not as a side effect of
+            -- invalidating.
             lastProfessionFingerprint = fingerprint
+
+            if fingerprint == nil then
+                -- HS-215's fail-open guarantee, preserved: a nil fingerprint
+                -- means the profession API itself is unavailable, not that
+                -- nothing changed — there's no reliable signal to gate on,
+                -- so invalidate directly rather than route through
+                -- verify-then-skip below (which would find nothing baselined
+                -- and silently suppress forever, quietly reversing the
+                -- documented fail-open contract this event has always had).
+                SourceManager:InvalidateAllSourceCaches()
+                return
+            end
+
+            -- A genuinely changed fingerprint (the common gathering-skill-up
+            -- case) no longer falls through to an unconditional wipe; it's
+            -- re-verified the same way a rep tick already is under HS-238,
+            -- and only invalidates if a professionRank requirement or
+            -- profession-source availability verdict actually flipped.
+            RunProfessionVerifyThenInvalidate()
+            return
         elseif event == "TRAIT_CONFIG_UPDATED" then
             -- HS-214: closes the knowledge-point coverage gap the
             -- BuildProfessionFingerprint comment above documents —
@@ -2362,6 +2502,20 @@ local function HookCompletionCacheInvalidation()
             if not isProfessionConfig then
                 return
             end
+            -- HS-283: was an unconditional invalidate below this filter —
+            -- now verify-then-skip, same as SKILL_LINES_CHANGED's changed
+            -- path above. The filter above already rejects non-profession
+            -- trait configs (combat talent specs); this only decides whether
+            -- a confirmed profession-config commit actually flipped a
+            -- cached verdict.
+            RunProfessionVerifyThenInvalidate()
+            return
+        elseif event == "NEW_RECIPE_LEARNED" then
+            -- HS-283: was unconditional (no gate at all) — route through the
+            -- same combined verify-then-skip gate. No type filter needed,
+            -- this event is already profession-specific.
+            RunProfessionVerifyThenInvalidate()
+            return
         elseif event == "UPDATE_FACTION" then
             if _G.InCombatLockdown() then
                 pendingFactionInvalidation = true
