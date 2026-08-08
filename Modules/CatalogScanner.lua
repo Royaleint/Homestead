@@ -8,7 +8,7 @@
     - CreateCatalogSearcher's own results are unusable from addon code (its Set*
       filter methods are tainted); but calling it + RunSearch() DOES force-load
       housing storage as a side effect (used below by the login-force-load path
-      to warm data at login with no housing UI ever opened) -- see wiki KF.
+      to warm data at login with no housing UI ever opened).
 
     Ownership is derived from Blizzard's GetEntryTotalOwned contract
     (totalNumStored + remainingRedeemable + totalNumPlaced > 0) via
@@ -438,9 +438,12 @@ end
 -- HOUSING_STORAGE_UPDATED-only handler (HS-273) -- conditions and fire sites
 -- are pinned byte-identical by tests/hs273_cold_prewarm_and_memo.lua; do not
 -- paraphrase.
--- Returns true if either one-shot edge flipped THIS call -- the
--- login-force-load path uses that to decide whether to also request a full
--- rescan for parity with the live HOUSING_STORAGE_UPDATED event path.
+-- Returns true if either one-shot edge flipped THIS call. The
+-- HOUSING_STORAGE_UPDATED handler below ignores the return value (it
+-- unconditionally requests a scan regardless of whether an edge flipped).
+-- The login-force-load path also ignores it for its warm pre-check --
+-- storageResponded's CURRENT value already reflects state a prior call may
+-- have latched, whereas the return value only reports THIS call's edge.
 local function TryLatchWarmFromCounts()
     local latchedThisCall = false
 
@@ -574,10 +577,23 @@ local function RunLoginStorageForceLoad()
     end
 
     -- Pre-check short-circuit: if storage is already warm (e.g. C++ state
-    -- survived a /reload), latch directly and skip the searcher entirely --
-    -- but still request the normal rescan, for full parity with the live
-    -- HOUSING_STORAGE_UPDATED event path (approved design decision).
-    if TryLatchWarmFromCounts() then
+    -- survived a /reload, OR the live HOUSING_STORAGE_UPDATED handler already
+    -- latched storageResponded while this timer was still pending), latch
+    -- directly and skip the searcher entirely -- but still request the
+    -- normal rescan, for full parity with the live HOUSING_STORAGE_UPDATED
+    -- event path (approved design decision).
+    --
+    -- Call TryLatchWarmFromCounts() for its corroborate-and-latch side
+    -- effects (it's a no-op re-check if storageResponded already latched
+    -- earlier), then read storageResponded's CURRENT value directly rather
+    -- than trusting the call's return value -- the return only reports
+    -- whether an edge flipped on THIS call, which misses the case where
+    -- storage was already warm coming in. Deciding on the current value
+    -- instead of the this-call edge is what guarantees a searcher is never
+    -- created once storage is already warm, so pendingSearcher never gets
+    -- set on this path and can't dangle.
+    TryLatchWarmFromCounts()
+    if storageResponded then
         HA.Addon:Debug("Login storage force-load: already warm, requesting parity rescan")
         RequestScan()
         return
