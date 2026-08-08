@@ -1,4 +1,4 @@
--- luacheck: globals assert loadfile print io C_Traits Enum CreateFrame time LibStub C_AddOns C_Timer
+-- luacheck: globals assert loadfile print io C_Traits Enum CreateFrame time LibStub C_AddOns C_Timer GetProfessions GetProfessionInfo
 
 local root = (... or "."):gsub("\\\\", "/"):gsub("/+$", "")
 
@@ -6,6 +6,14 @@ local root = (... or "."):gsub("\\\\", "/"):gsub("/+$", "")
 -- HS-214: TRAIT_CONFIG_UPDATED invalidation trigger, filtered to
 -- Enum.TraitConfigType.Profession. Loads the REAL Data/SourceManager.lua,
 -- captures the real event frame's OnEvent handler, and fires it directly.
+--
+-- HS-283: past the type filter, a profession-type config update no longer
+-- invalidates unconditionally — it routes through the same professionRank/
+-- profession-availability verify-then-skip gate SKILL_LINES_CHANGED's
+-- changed-fingerprint path and NEW_RECIPE_LEARNED use. A minimal profession
+-- stub + a seeded professionRank baseline below let the "must invalidate"
+-- case demonstrate a real flip, same pattern as
+-- tests/hs213_skill_lines_gate.lua and tests/hs283_profession_invalidation_gates.lua.
 -------------------------------------------------------------------------------
 
 local capturedFrame = nil
@@ -20,6 +28,13 @@ CreateFrame = function()
 end
 
 Enum = { TraitConfigType = { Invalid = 0, Combat = 1, Profession = 2, Generic = 3 } }
+
+local blacksmithingSkillLevel = 50
+GetProfessions = function() return 1, nil, nil, nil, nil end
+GetProfessionInfo = function(profIndex)
+    if profIndex ~= 1 then return nil end
+    return "Blacksmithing", "icon", blacksmithingSkillLevel, 100, 0, 0, 164
+end
 
 -- Mutable per-configID response the mocked C_Traits API reports.
 local configResponses = {
@@ -62,9 +77,16 @@ end
 -- setup; reset the counter to isolate TRAIT_CONFIG_UPDATED behavior.
 invalidateCalls = 0
 
--- Profession-type config: must invalidate.
+-- HS-283: seed a professionRank baseline unmet at the current skill level,
+-- then bump the skill so the first "must invalidate" fire below also flips
+-- a consumer-visible verdict — otherwise the new verify-then-skip gate would
+-- correctly (and silently) suppress an event with nothing baselined.
+assert(HA214.SourceManager:IsRequirementMet({ type = "professionRank", profession = "Blacksmithing", rank = 51 }) == false)
+blacksmithingSkillLevel = 51
+
+-- Profession-type config that also flips a seeded verdict: must invalidate.
 capturedFrame.handler(capturedFrame, "TRAIT_CONFIG_UPDATED", 100)
-assert(invalidateCalls == 1, "a profession-type trait config update must invalidate")
+assert(invalidateCalls == 1, "a profession-type trait config update that flips a verdict must invalidate")
 
 -- Combat-type config: must NOT invalidate (this is the noise the filter exists to exclude).
 capturedFrame.handler(capturedFrame, "TRAIT_CONFIG_UPDATED", 200)

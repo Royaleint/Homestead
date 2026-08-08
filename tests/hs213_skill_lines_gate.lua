@@ -25,9 +25,20 @@ local root = (... or "."):gsub("\\\\", "/"):gsub("/+$", "")
 -- HookCompletionCacheInvalidation install time (Initialize()), not lazily
 -- on the first fire — so a first fire with an UNCHANGED profession state is
 -- now suppressed (this used to always invalidate under lazy init, which was
--- the cold-open gap Gate 2 re-test caught). A first fire with a CHANGED
--- state (relative to the install-time seed) still invalidates, and a nil
--- profession API at install time still fails open.
+-- the cold-open gap Gate 2 re-test caught). A nil profession API at install
+-- time still fails open (HS-283 preserved this explicitly — see below).
+--
+-- HS-283: a CHANGED fingerprint no longer invalidates unconditionally — it
+-- now routes through the same professionRank/profession-availability
+-- verify-then-skip gate TRAIT_CONFIG_UPDATED and NEW_RECIPE_LEARNED use, so
+-- a skill-up that flips no cached verdict is suppressed too. This file
+-- keeps testing that each profession-slot shape correctly registers as
+-- "fingerprint changed" (its actual job); each fire below seeds a matching
+-- professionRank baseline first so "changed" and "a consumer-visible verdict
+-- flipped" coincide, keeping the original invalidateCalls() assertions
+-- meaningful under the new gate. The verify-then-skip gate's own
+-- correctness (including the profession-availability half the fingerprint
+-- can't see) is covered by tests/hs283_profession_invalidation_gates.lua.
 -------------------------------------------------------------------------------
 
 local function MakeProfessionStubs(initialState)
@@ -134,11 +145,23 @@ assert(invalidateCalls() == 0, "same-fingerprint SKILL_LINES_CHANGED must be sup
 assert(HA.SourceManager:IsRequirementMet({ type = "quest", id = 500 }) == true)
 assert(questCheckCalls == 1, "the planted cache entry must survive a same-fingerprint (suppressed) fire")
 
--- Fire 3: genuine rank change on the PRIMARY profession (slot 1) — must
--- invalidate, and the planted cache entry must NOT survive.
+-- HS-283: seed a professionRank baseline per profession this part changes,
+-- each unmet at the CURRENT skill level, so the fingerprint-changing fires
+-- below also flip a consumer-visible verdict — keeping "fingerprint changed"
+-- and "must invalidate" the same event under the new verify-then-skip gate.
+-- Leatherworking doesn't exist yet at seed time (primary2 is nil) — its
+-- requirement evaluates to met == nil, and nil -> determinate counts as a
+-- flip once it appears (Fire 6), same as HS-238's reputation baseline.
+assert(HA.SourceManager:IsRequirementMet({ type = "professionRank", profession = "Blacksmithing", rank = 52 }) == false)
+assert(HA.SourceManager:IsRequirementMet({ type = "professionRank", profession = "Cooking", rank = 2 }) == false)
+assert(HA.SourceManager:IsRequirementMet({ type = "professionRank", profession = "Leatherworking", rank = 1 }) == nil)
+
+-- Fire 3: genuine rank change on the PRIMARY profession (slot 1), which also
+-- flips the seeded Blacksmithing baseline — must invalidate, and the planted
+-- cache entry must NOT survive.
 professionState.primary1.skillLevel = 55
 capturedFrame.handler(capturedFrame, "SKILL_LINES_CHANGED")
-assert(invalidateCalls() == 1, "a real primary-profession skillLevel change must invalidate")
+assert(invalidateCalls() == 1, "a real primary-profession skillLevel change that flips a verdict must invalidate")
 assert(HA.SourceManager:IsRequirementMet({ type = "quest", id = 500 }) == true)
 assert(questCheckCalls == 2, "the planted cache entry must NOT survive a real profession change")
 
@@ -146,34 +169,42 @@ assert(questCheckCalls == 2, "the planted cache entry must NOT survive a real pr
 capturedFrame.handler(capturedFrame, "SKILL_LINES_CHANGED")
 assert(invalidateCalls() == 1, "unchanged snapshot after a real change must still be suppressed")
 
--- Fire 5: a SECONDARY profession's (slot 5, cooking) skillLevel change —
--- must invalidate. This is exactly the class of change the cycle-1
--- ipairs()-stops-at-the-first-nil-hole bug silently dropped, since
--- archaeology (slot 3) sits empty between the primary professions and
--- fishing/cooking.
+-- Fire 5: a SECONDARY profession's (slot 5, cooking) skillLevel change,
+-- which also flips the seeded Cooking baseline — must invalidate. This is
+-- exactly the class of change the cycle-1 ipairs()-stops-at-the-first-
+-- nil-hole bug silently dropped, since archaeology (slot 3) sits empty
+-- between the primary professions and fishing/cooking.
 professionState.cooking.skillLevel = 25
 capturedFrame.handler(capturedFrame, "SKILL_LINES_CHANGED")
-assert(invalidateCalls() == 2, "a secondary-profession (slot 5, cooking) skillLevel change must invalidate")
+assert(invalidateCalls() == 2, "a secondary-profession (slot 5, cooking) change that flips a verdict must invalidate")
 
--- Fire 6: a second primary profession appearing (slot 2) changes the
--- fingerprint shape — must invalidate.
+-- Fire 6: a second primary profession appearing (slot 2), which flips the
+-- seeded Leatherworking baseline from nil (undeterminable) to true — must
+-- invalidate.
 professionState.primary2 = { name = "Leatherworking", skillLevel = 25, maxSkillLevel = 100, skillLine = 165 }
 capturedFrame.handler(capturedFrame, "SKILL_LINES_CHANGED")
-assert(invalidateCalls() == 3, "a profession-set change must invalidate")
+assert(invalidateCalls() == 3, "a profession-set change that flips a verdict must invalidate")
 
--- Other registered events stay unconditional — never gated, regardless of
--- the profession fingerprint's state.
+-- ACHIEVEMENT_EARNED stays unconditional — HS-283 only gated
+-- SKILL_LINES_CHANGED's changed-fingerprint path, TRAIT_CONFIG_UPDATED, and
+-- NEW_RECIPE_LEARNED.
 capturedFrame.handler(capturedFrame, "ACHIEVEMENT_EARNED")
 assert(invalidateCalls() == 4, "ACHIEVEMENT_EARNED must remain unconditional")
+
+-- NEW_RECIPE_LEARNED is now gated too (HS-283) — with every seeded baseline
+-- already re-verified as current (the ACHIEVEMENT_EARNED wipe above doesn't
+-- touch requirementEvalBaseline, which is deliberately never cleared by
+-- invalidation), nothing has flipped since the last check — must suppress.
 capturedFrame.handler(capturedFrame, "NEW_RECIPE_LEARNED")
-assert(invalidateCalls() == 5, "NEW_RECIPE_LEARNED must remain unconditional")
+assert(invalidateCalls() == 4, "NEW_RECIPE_LEARNED with no flipped verdict must now suppress (HS-283)")
 
 print("hs213_skill_lines_gate: part 1 (eager seed, unchanged-state suppression) ok")
 
 -------------------------------------------------------------------------------
 -- Part 2: profession state CHANGES between the eager seed (Initialize()) and
--- the first SKILL_LINES_CHANGED fire — must still invalidate. Fresh instance
--- so its own seed is captured independently of part 1.
+-- the first SKILL_LINES_CHANGED fire, AND that change flips a verdict a
+-- consumer has seen — must still invalidate. Fresh instance so its own seed
+-- is captured independently of part 1.
 -------------------------------------------------------------------------------
 
 local professionState2, getProfessions2, getProfessionInfo2 = MakeProfessionStubs({
@@ -186,15 +217,21 @@ local professionState2, getProfessions2, getProfessionInfo2 = MakeProfessionStub
 GetProfessions = getProfessions2
 GetProfessionInfo = getProfessionInfo2
 
-local _, capturedFrame2, invalidateCalls2 = LoadSourceManager()
+local HA2, capturedFrame2, invalidateCalls2 = LoadSourceManager()
+
+-- HS-283: seed a baseline at the current (post-eager-seed) skill level, same
+-- reasoning as Part 1 — otherwise a changed fingerprint with nothing
+-- baselined would correctly suppress under the new gate, and this part
+-- would no longer be testing what it claims to.
+assert(HA2.SourceManager:IsRequirementMet({ type = "professionRank", profession = "Tailoring", rank = 21 }) == false)
 
 -- Profession state changes AFTER the eager seed was captured, BEFORE the
 -- first event fire (e.g. player trained a rank between login and the first
--- SKILL_LINES_CHANGED the addon observes).
+-- SKILL_LINES_CHANGED the addon observes) — flipping the seeded baseline.
 professionState2.primary1.skillLevel = 21
 capturedFrame2.handler(capturedFrame2, "SKILL_LINES_CHANGED")
 assert(invalidateCalls2() == 1,
-    "a first fire with a state CHANGED from the eager-seeded baseline must still invalidate")
+    "a first fire with a state CHANGED from the eager-seeded baseline, flipping a verdict, must still invalidate")
 
 print("hs213_skill_lines_gate: part 2 (changed-state first fire) ok")
 
