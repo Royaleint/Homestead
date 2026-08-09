@@ -254,7 +254,17 @@ local function RequestScan()
 end
 
 -- Perform a full scan of all known items (batched for performance)
-function CatalogScanner:ScanFullCatalog(callback)
+-- opts.skipErasure (HS-276 Gate 2 fix): suppresses SetUnowned for this pass
+-- only. Reused by the login warm-reload short-circuit, where dataLoaded can
+-- latch true off GetDecorTotalOwnedCount/GetDecorMaxOwnedCount going nonzero
+-- before the per-item GetCatalogEntryInfoByItem catalog has actually caught
+-- up -- unlike the real HOUSING_STORAGE_UPDATED event (Blizzard's own
+-- completion signal), those aggregate counters are not proof this specific
+-- scan's per-item reads are trustworthy. Same "don't erase on a read we
+-- don't trust yet" principle as the dataLoaded gate itself, one layer
+-- deeper. SetOwned is unaffected -- a false SetOwned isn't a failure mode
+-- this codebase has ever observed, only stale-0 false negatives are.
+function CatalogScanner:ScanFullCatalog(callback, opts)
     if isScanning then
         HA.Addon:Debug("Catalog scan already in progress")
         return
@@ -273,6 +283,7 @@ function CatalogScanner:ScanFullCatalog(callback)
 
     isScanning = true
     lastScanTime = currentTime
+    local skipErasure = opts and opts.skipErasure
 
     -- Begin batch mode on CatalogStore to suppress per-item events
     if HA.CatalogStore then
@@ -326,7 +337,9 @@ function CatalogScanner:ScanFullCatalog(callback)
                             -- Warm-gate: only erase ownership once storage data is
                             -- loaded. Cold reads are stale-0 and would wrongly clear
                             -- owned items; the persistent cache serves them instead.
-                            if dataLoaded and HA.CatalogStore:IsOwned(result.itemID) then
+                            -- skipErasure (HS-276): a second, narrower version of the
+                            -- same doubt -- see ScanFullCatalog's header comment.
+                            if dataLoaded and not skipErasure and HA.CatalogStore:IsOwned(result.itemID) then
                                 HA.CatalogStore:SetUnowned(result.itemID)
                             end
                             -- Minimal fields for unowned items
@@ -602,10 +615,19 @@ local function RunLoginStorageForceLoad()
     -- unavailable only dataLoaded latches -- reading storageResponded alone
     -- would fall through and create a searcher against warm storage, which
     -- is the dangle above by another route.
+    -- HS-276 Gate 2 fix: skipErasure=true. Unlike the debounced RequestScan()
+    -- path (fed by the real HOUSING_STORAGE_UPDATED event, which IS proof
+    -- per-item data is ready), this pass runs off the aggregate counters
+    -- above going nonzero -- observed in Gate 2 testing to precede
+    -- GetCatalogEntryInfoByItem catching up on a /reload, which wiped real
+    -- ownership via the erasure branch below before this fix. Called
+    -- directly rather than through RequestScan() since a login-time,
+    -- one-shot pass has no debounce-coalescing need. See ScanFullCatalog's
+    -- header comment for the full reasoning.
     TryLatchWarmFromCounts()
     if storageResponded or dataLoaded then
-        HA.Addon:Debug("Login storage force-load: already warm, requesting parity rescan")
-        RequestScan()
+        HA.Addon:Debug("Login storage force-load: already warm, requesting parity rescan (erasure-safe)")
+        CatalogScanner:ScanFullCatalog(nil, { skipErasure = true })
         return
     end
 

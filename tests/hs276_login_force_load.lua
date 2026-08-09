@@ -1,4 +1,4 @@
--- luacheck: globals assert loadfile print collectgarbage CreateFrame C_Timer C_HousingCatalog InCombatLockdown
+-- luacheck: globals assert loadfile print collectgarbage CreateFrame C_Timer C_HousingCatalog InCombatLockdown GetTime time
 
 local root = (... or "."):gsub("\\\\", "/"):gsub("/+$", "")
 
@@ -50,6 +50,16 @@ local function newHarness(counts, catalogAvailable)
 
     InCombatLockdown = function() return h.inCombat end
 
+    -- HS-276 Gate 2 fix: ScanFullCatalog's cooldown check needs GetTime.
+    -- Advances well past SCAN_COOLDOWN (5s) on every call so a single
+    -- scenario's one force-load pass never self-blocks on cooldown.
+    local timeCounter = 0
+    GetTime = function()
+        timeCounter = timeCounter + 10
+        return timeCounter
+    end
+    time = function() return 0 end
+
     if catalogAvailable == false then
         C_HousingCatalog = nil
     else
@@ -78,6 +88,11 @@ local function newHarness(counts, catalogAvailable)
             end,
         },
     }
+
+    -- Exposed so a scenario can inject CatalogStore/ProfessionSources AFTER
+    -- load -- CatalogScanner.lua reads HA.<field> dynamically at call time,
+    -- not as a load-time local, so a post-load mutation is visible to it.
+    h.HA = HA
 
     assert(loadfile(root .. "/Modules/CatalogScanner.lua"))("Homestead", HA)
     h.scanner = HA.CatalogScanner
@@ -297,3 +312,44 @@ assert(h.searchersCreated == 1,
     "a later PLAYER_REGEN_ENABLED must not re-run it -- the pending-combat flag is one-shot")
 
 print("hs276_login_force_load: H combat deferral and resume ok")
+
+-------------------------------------------------------------------------------
+-- Scenario I (HS-276 Gate 2 fix, found in real testing 2026-08-09): the
+-- warm-reload short-circuit's parity rescan must NOT erase real ownership
+-- when per-item catalog data lags the aggregate counters. dataLoaded can
+-- latch true off GetDecorTotalOwnedCount/GetDecorMaxOwnedCount going nonzero
+-- before GetCatalogEntryInfoByItem has caught up -- a live /reload test hit
+-- exactly this and wiped real ownership, because the pre-fix code trusted
+-- this pass to erase the same as the corroborated live HOUSING_STORAGE_UPDATED
+-- path. This scenario reproduces that: item 12345 is already owned in the
+-- store, but the stubbed per-item API reads stale-0 for it on this pass.
+-------------------------------------------------------------------------------
+
+h = newHarness({ total = 5, max = 100 })
+h.HA.ProfessionSources = { [12345] = true }
+
+local ownedItems = { [12345] = true }
+local setOwnedCalls, setUnownedCalls = 0, 0
+h.HA.CatalogStore = {
+    BeginBatch = function() end,
+    EndBatch = function() end,
+    ComputeOwnedFromInfo = function() return false end, -- per-item data still stale-0
+    IsOwned = function(_, itemID) return ownedItems[itemID] == true end,
+    SetOwned = function(_, itemID) setOwnedCalls = setOwnedCalls + 1; ownedItems[itemID] = true end,
+    SetUnowned = function(_, itemID) setUnownedCalls = setUnownedCalls + 1; ownedItems[itemID] = false end,
+    Save = function() end,
+}
+C_HousingCatalog.GetCatalogEntryInfoByItem = function()
+    return { totalNumStored = 0, totalNumPlaced = 0, remainingRedeemable = 0 }
+end
+
+h:mark()
+h:fire("PLAYER_ENTERING_WORLD")
+h:timerSinceMark()()
+
+assert(setUnownedCalls == 0,
+    "the warm-reload parity rescan must not erase ownership from a per-item read it can't yet trust, got "
+        .. setUnownedCalls .. " SetUnowned call(s)")
+assert(ownedItems[12345] == true, "item 12345 must still read owned after the parity rescan")
+
+print("hs276_login_force_load: I warm-reload parity rescan does not erase ok")
