@@ -22,6 +22,13 @@ end
 --   gate, the ScanPersistence/RefreshMapPins memo call sites).
 -- Part 2: functional exercise of the GetAllSources memo (hit returns the
 --   SAME table, both the narrow and full invalidations clear it).
+--
+-- Part 1's pins below are source-text only, so they prove the latch CODE
+-- exists, not that the HOUSING_STORAGE_UPDATED handler still calls it (HS-276
+-- extracted that body into TryLatchWarmFromCounts, and these pins stayed green
+-- through a mutation that deleted the call). That reachability proof lives in
+-- tests/hs276_login_force_load.lua, scenario A -- keep it in step with any
+-- further restructuring of the latch.
 -------------------------------------------------------------------------------
 
 local function readFile(path)
