@@ -1,4 +1,4 @@
--- luacheck: globals assert loadfile print collectgarbage CreateFrame C_Timer C_HousingCatalog InCombatLockdown GetTime time
+-- luacheck: globals assert loadfile print collectgarbage CreateFrame C_Timer C_HousingCatalog InCombatLockdown
 
 local root = (... or "."):gsub("\\\\", "/"):gsub("/+$", "")
 
@@ -9,12 +9,19 @@ local root = (... or "."):gsub("\\\\", "/"):gsub("/+$", "")
 --
 -- These are deliberately not source-text pins. Both reviews found mutations
 -- that left the whole suite green because nothing exercised these paths --
--- deleting the latch call from the HOUSING_STORAGE_UPDATED handler, deciding
--- the warm pre-check on the latch call's return value instead of the flags,
+-- deleting the latch call from the HOUSING_STORAGE_UPDATED handler,
 -- unwiring SetupLoginForceLoad from Initialize (cycle 2, W1/W3/W4), and
 -- deleting the login re-entry guard or the whole combat-deferral block
 -- (cycle 3, W6/W7). Each scenario below is written to FAIL under exactly one
 -- of them.
+--
+-- Gate 2 redesign (2026-08-09): the original design had a "warm pre-check"
+-- that skipped the searcher when storage already looked warm by the
+-- aggregate counters -- live testing proved that false twice (see
+-- RunLoginStorageForceLoad's own comment in CatalogScanner.lua for the full
+-- history) and it was removed. Scenarios C and D below now pin the opposite
+-- invariant: the searcher is created every time, and the login path never
+-- itself latches dataLoaded/storageResponded.
 -------------------------------------------------------------------------------
 
 -- Builds a fresh module instance (all of CatalogScanner's latch state is
@@ -49,16 +56,6 @@ local function newHarness(counts, catalogAvailable)
     }
 
     InCombatLockdown = function() return h.inCombat end
-
-    -- HS-276 Gate 2 fix: ScanFullCatalog's cooldown check needs GetTime.
-    -- Advances well past SCAN_COOLDOWN (5s) on every call so a single
-    -- scenario's one force-load pass never self-blocks on cooldown.
-    local timeCounter = 0
-    GetTime = function()
-        timeCounter = timeCounter + 10
-        return timeCounter
-    end
-    time = function() return 0 end
 
     if catalogAvailable == false then
         C_HousingCatalog = nil
@@ -168,56 +165,64 @@ h:timerSinceMark() -- asserts internally that PEW scheduled the force-load
 print("hs276_login_force_load: B Initialize wiring ok")
 
 -------------------------------------------------------------------------------
--- Scenario C (W4): the warm pre-check must read storageResponded's CURRENT
--- value, not the latch call's this-call edge. Deciding on the edge creates a
--- searcher against already-warm storage and dangles pendingSearcher -- the
--- cycle-1 REJECT.
+-- Scenario C (HS-276 Gate 2 redesign, 2026-08-09): the login force-load must
+-- create a searcher EVERY time, even when storage already looks warm by the
+-- aggregate counters. A pre-check short-circuit here (skip the searcher when
+-- GetDecorTotalOwnedCount/GetDecorMaxOwnedCount already read nonzero) was the
+-- root cause of two live REJECTs: those counters can read nonzero while
+-- per-item data (GetCatalogEntryInfoByItem) is still stale, and
+-- HOUSING_STORAGE_UPDATED was confirmed live to never fire on its own to
+-- correct it. Forcing the searcher unconditionally is what makes the real,
+-- trustworthy event fire.
 -------------------------------------------------------------------------------
 
-local counts = { total = 0, max = 0 }
+local counts = { total = 5, max = 100 }
 h = newHarness(counts)
 
 h:mark()
 h:fire("PLAYER_ENTERING_WORLD")
 local runForceLoad = h:timerSinceMark()
 
--- Storage warms up (and latches) while the login timer is still pending, so
--- by the time it runs, the latch call flips no edge of its own.
-counts.total, counts.max = 5, 100
+-- Storage already looks warm by the aggregate counters before the login
+-- timer even fires -- e.g. C++ engine state survived a /reload.
 h:fire("HOUSING_STORAGE_UPDATED")
 assert(h.scanner:HasStorageResponded() == true, "sanity: the event must have latched storageResponded")
 
 runForceLoad()
-assert(h.searchersCreated == 0,
-    "no searcher may be created once storage is already warm (pre-check must read the flag, not the call's edge)")
+assert(h.searchersCreated == 1,
+    "the login force-load must create a searcher even when storage already looks warm -- "
+        .. "a pre-check short-circuit here caused two live data-loss REJECTs (2026-08-09)")
 
-print("hs276_login_force_load: C warm pre-check reads current state ok")
+print("hs276_login_force_load: C searcher created unconditionally, even when already warm ok")
 
 -------------------------------------------------------------------------------
--- Scenario D (W1): the pre-check must accept EITHER latch. On a build where
--- GetDecorMaxOwnedCount is unavailable, only dataLoaded latches -- reading
--- storageResponded alone falls through and recreates scenario C's dangle
--- under a different precondition.
+-- Scenario D (HS-276 Gate 2 redesign, 2026-08-09): the login force-load must
+-- never itself latch dataLoaded/storageResponded -- only the real
+-- HOUSING_STORAGE_UPDATED handler may. This is the invariant decision C's
+-- removal depends on: erasure-authorization must never come from anything
+-- but a genuine engine signal. A regression that re-adds any
+-- TryLatchWarmFromCounts() call to the login path would defeat this even if
+-- it still created a searcher every time.
 -------------------------------------------------------------------------------
 
-counts = { total = 0 } -- no max = GetDecorMaxOwnedCount absent this build
-h = newHarness(counts)
+h = newHarness({ total = 5, max = 100 })
 
 h:mark()
 h:fire("PLAYER_ENTERING_WORLD")
 runForceLoad = h:timerSinceMark()
 
-counts.total = 5
-h:fire("HOUSING_STORAGE_UPDATED")
-assert(h.scanner:IsWarm() == true, "sanity: dataLoaded must latch off the owned total alone")
-assert(h.scanner:HasStorageResponded() == false,
-    "sanity: storageResponded must stay false with GetDecorMaxOwnedCount absent")
+assert(h.scanner:IsWarm() == false, "sanity: must start cold")
+assert(h.scanner:HasStorageResponded() == false, "sanity: must start unanswered")
 
 runForceLoad()
-assert(h.searchersCreated == 0,
-    "a dataLoaded-only latch is still warm -- no searcher may be created")
 
-print("hs276_login_force_load: D dataLoaded-only warm pre-check ok")
+assert(h.scanner:IsWarm() == false,
+    "the login force-load must not itself latch dataLoaded -- only the real HOUSING_STORAGE_UPDATED "
+        .. "handler may (this is what keeps erasure-authorization trustworthy)")
+assert(h.scanner:HasStorageResponded() == false,
+    "the login force-load must not itself latch storageResponded either")
+
+print("hs276_login_force_load: D login force-load never self-latches warm state ok")
 
 -------------------------------------------------------------------------------
 -- Scenario E (W2): the login path runs off an unconditional timer, so it
@@ -312,44 +317,3 @@ assert(h.searchersCreated == 1,
     "a later PLAYER_REGEN_ENABLED must not re-run it -- the pending-combat flag is one-shot")
 
 print("hs276_login_force_load: H combat deferral and resume ok")
-
--------------------------------------------------------------------------------
--- Scenario I (HS-276 Gate 2 fix, found in real testing 2026-08-09): the
--- warm-reload short-circuit's parity rescan must NOT erase real ownership
--- when per-item catalog data lags the aggregate counters. dataLoaded can
--- latch true off GetDecorTotalOwnedCount/GetDecorMaxOwnedCount going nonzero
--- before GetCatalogEntryInfoByItem has caught up -- a live /reload test hit
--- exactly this and wiped real ownership, because the pre-fix code trusted
--- this pass to erase the same as the corroborated live HOUSING_STORAGE_UPDATED
--- path. This scenario reproduces that: item 12345 is already owned in the
--- store, but the stubbed per-item API reads stale-0 for it on this pass.
--------------------------------------------------------------------------------
-
-h = newHarness({ total = 5, max = 100 })
-h.HA.ProfessionSources = { [12345] = true }
-
-local ownedItems = { [12345] = true }
-local setOwnedCalls, setUnownedCalls = 0, 0
-h.HA.CatalogStore = {
-    BeginBatch = function() end,
-    EndBatch = function() end,
-    ComputeOwnedFromInfo = function() return false end, -- per-item data still stale-0
-    IsOwned = function(_, itemID) return ownedItems[itemID] == true end,
-    SetOwned = function(_, itemID) setOwnedCalls = setOwnedCalls + 1; ownedItems[itemID] = true end,
-    SetUnowned = function(_, itemID) setUnownedCalls = setUnownedCalls + 1; ownedItems[itemID] = false end,
-    Save = function() end,
-}
-C_HousingCatalog.GetCatalogEntryInfoByItem = function()
-    return { totalNumStored = 0, totalNumPlaced = 0, remainingRedeemable = 0 }
-end
-
-h:mark()
-h:fire("PLAYER_ENTERING_WORLD")
-h:timerSinceMark()()
-
-assert(setUnownedCalls == 0,
-    "the warm-reload parity rescan must not erase ownership from a per-item read it can't yet trust, got "
-        .. setUnownedCalls .. " SetUnowned call(s)")
-assert(ownedItems[12345] == true, "item 12345 must still read owned after the parity rescan")
-
-print("hs276_login_force_load: I warm-reload parity rescan does not erase ok")
