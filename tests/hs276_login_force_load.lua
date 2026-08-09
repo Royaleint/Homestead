@@ -1,4 +1,4 @@
--- luacheck: globals assert loadfile print collectgarbage CreateFrame C_Timer C_HousingCatalog InCombatLockdown
+-- luacheck: globals assert loadfile print collectgarbage CreateFrame C_Timer C_HousingCatalog InCombatLockdown GetTime time
 
 local root = (... or "."):gsub("\\\\", "/"):gsub("/+$", "")
 
@@ -216,6 +216,7 @@ assert(h.scanner:HasStorageResponded() == false, "sanity: must start unanswered"
 
 runForceLoad()
 
+assert(h.searchersCreated == 1, "sanity: the force-load must actually have run, not been a no-op")
 assert(h.scanner:IsWarm() == false,
     "the login force-load must not itself latch dataLoaded -- only the real HOUSING_STORAGE_UPDATED "
         .. "handler may (this is what keeps erasure-authorization trustworthy)")
@@ -317,3 +318,66 @@ assert(h.searchersCreated == 1,
     "a later PLAYER_REGEN_ENABLED must not re-run it -- the pending-combat flag is one-shot")
 
 print("hs276_login_force_load: H combat deferral and resume ok")
+
+-------------------------------------------------------------------------------
+-- Scenario I (Argus Gate 2 cycle 2 WARNING): the erase gate itself (dataLoaded
+-- and ...IsOwned... then SetUnowned, ScanFullCatalog's per-item loop) must
+-- stay functionally pinned. Cycle 1's scenario I (deleted, tested the
+-- superseded skipErasure mechanism) was the ONLY test in the repo that ever
+-- reached a SetUnowned call -- deleting it left this gate, the exact thing
+-- this whole ticket's REJECT history is about, unexercised. Proves both
+-- halves: a cold read must not erase (item stays owned even though the
+-- per-item read says it isn't); the SAME item must erase once the real event
+-- genuinely latches dataLoaded. Half 2 is required -- without it the gate
+-- could be a constant false and half 1 would still pass.
+--
+-- Calls CatalogScanner:ScanFullCatalog() directly, bypassing RequestScan's
+-- debounce, to isolate the erase gate from timer plumbing already covered by
+-- other scenarios. That means it needs GetTime/time stubbed locally -- no
+-- scenario drives ScanFullCatalog through the login path anymore (Gate 2
+-- redesign removed that call site), so the harness no longer stubs them
+-- globally.
+-------------------------------------------------------------------------------
+
+h = newHarness({ total = 5, max = 100 })
+h.HA.ProfessionSources = { [12345] = true }
+
+local timeCounter = 0
+GetTime = function() timeCounter = timeCounter + 10 return timeCounter end
+time = function() return 0 end
+
+local ownedItems = { [12345] = true }
+local setUnownedCalls = 0
+h.HA.CatalogStore = {
+    BeginBatch = function() end,
+    EndBatch = function() end,
+    ComputeOwnedFromInfo = function() return false end, -- per-item data still stale-0
+    IsOwned = function(_, itemID) return ownedItems[itemID] == true end,
+    SetOwned = function(_, itemID) ownedItems[itemID] = true end,
+    SetUnowned = function(_, itemID) setUnownedCalls = setUnownedCalls + 1; ownedItems[itemID] = false end,
+    Save = function() end,
+}
+C_HousingCatalog.GetCatalogEntryInfoByItem = function()
+    return { totalNumStored = 0, totalNumPlaced = 0, remainingRedeemable = 0 }
+end
+
+-- Half 1: cold. Store says item 12345 is owned; the per-item read says it
+-- isn't. Must NOT erase.
+assert(h.scanner:IsWarm() == false, "sanity: must start cold")
+h.scanner:ScanFullCatalog()
+assert(setUnownedCalls == 0,
+    "a cold scan must not erase ownership from a per-item read it can't yet trust, got "
+        .. setUnownedCalls .. " SetUnowned call(s)")
+assert(ownedItems[12345] == true, "item 12345 must still read owned after the cold scan")
+
+-- Half 2: the real event latches dataLoaded. The SAME stale-0 read must now
+-- erase.
+h:fire("HOUSING_STORAGE_UPDATED")
+assert(h.scanner:IsWarm() == true, "sanity: the event must have latched dataLoaded")
+h.scanner:ScanFullCatalog()
+assert(setUnownedCalls == 1,
+    "once dataLoaded is genuinely latched, the same stale-0 read must erase, got "
+        .. setUnownedCalls .. " SetUnowned call(s)")
+assert(ownedItems[12345] == false, "item 12345 must now read unowned")
+
+print("hs276_login_force_load: I erase gate functionally pinned (cold skips, warm erases) ok")

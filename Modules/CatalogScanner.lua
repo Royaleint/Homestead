@@ -51,9 +51,9 @@ local storageResponded = false
 -- HS-218, not just initial login -- see SetupLoginForceLoad). pendingSearcher
 -- holds the searcher object as GC insurance against the C++-side RunSearch()
 -- side effect being collected before it completes; cleared once EITHER warm
--- flag latches (TryLatchWarmFromCounts), which covers the warm-skip path
--- (never set), the cold path (RunSearch() triggered the real
--- HOUSING_STORAGE_UPDATED), and a build where only dataLoaded ever latches.
+-- flag latches (TryLatchWarmFromCounts), which covers the normal case (the
+-- searcher's own RunSearch() forces the real HOUSING_STORAGE_UPDATED that
+-- releases it) and a build where only dataLoaded ever latches.
 local loginForceLoadAttempted = false
 local loginForceLoadPendingCombat = false
 local LOGIN_FORCE_LOAD_DELAY = 5 -- seconds; settle past loading-screen noise. Gate-2-tunable.
@@ -433,12 +433,14 @@ end
 -- Event-Based Scanning
 -------------------------------------------------------------------------------
 
--- Shared warm-latch check, called from the HOUSING_STORAGE_UPDATED handler
--- below AND from the login-force-load path (HS-276, see SetupLoginForceLoad
--- further down this file). Body is copied VERBATIM from the original
--- HOUSING_STORAGE_UPDATED-only handler (HS-273) -- conditions and fire sites
--- are pinned byte-identical by tests/hs273_cold_prewarm_and_memo.lua; do not
--- paraphrase.
+-- Shared warm-latch check. Sole caller is the HOUSING_STORAGE_UPDATED handler
+-- below (HS-276 Gate 2, cycle 2: an earlier draft also called this from the
+-- login-force-load path off a speculative pre-check; that path was removed
+-- entirely -- see RunLoginStorageForceLoad's own comment -- so this is once
+-- again the single latch site it was under HS-273). Body is copied VERBATIM
+-- from the original HOUSING_STORAGE_UPDATED-only handler (HS-273) --
+-- conditions and fire sites are pinned byte-identical by
+-- tests/hs273_cold_prewarm_and_memo.lua; do not paraphrase.
 -- Returns nothing on purpose: callers must decide on the CURRENT value of
 -- dataLoaded/storageResponded, never on whether an edge flipped THIS call.
 -- (Argus cycle 1: a this-call-edge decision on the login path created a
@@ -492,15 +494,16 @@ local function TryLatchWarmFromCounts()
     end
 
     -- HS-276: storage has now answered -- release the GC-insurance hold (if
-    -- any) on a pending login-force-load searcher object. Gated on EITHER
-    -- flag, mirroring RunLoginStorageForceLoad's warm pre-check: a searcher
-    -- is only ever held when that pre-check found both flags cold, so any
-    -- latch at all proves the HOUSING_STORAGE_UPDATED the hold was insuring
-    -- against has dispatched. Gating on storageResponded alone stranded the
-    -- hold for the whole session on a build where GetDecorMaxOwnedCount is
-    -- unavailable and only dataLoaded can latch (Argus cycle 3).
-    -- Written on current state rather than a latch edge -- assigning nil
-    -- over nil is a no-op, so no edge tracking is needed.
+    -- any) on a pending login-force-load searcher object. A searcher is held
+    -- on EVERY login (Gate 2, cycle 2: the pre-check that used to skip it was
+    -- removed), so this function's own latch here is exactly what proves the
+    -- HOUSING_STORAGE_UPDATED that searcher's RunSearch() forced has now
+    -- dispatched -- this IS that event's handler. Gated on EITHER flag:
+    -- gating on storageResponded alone stranded the hold for the whole
+    -- session on a build where GetDecorMaxOwnedCount is unavailable and only
+    -- dataLoaded can latch (Argus cycle 3, pre-dates this redesign but still
+    -- applies). Written on current state rather than a latch edge --
+    -- assigning nil over nil is a no-op, so no edge tracking is needed.
     if storageResponded or dataLoaded then
         pendingSearcher = nil
     end
@@ -545,11 +548,10 @@ local function SetupEventScanning()
             end
         else
             if event == "HOUSING_STORAGE_UPDATED" then
-                -- HS-276: latch logic moved into the shared TryLatchWarmFromCounts()
-                -- (see above) so the login-force-load path can call the same
-                -- corroborate-and-latch logic before deciding whether to create a
-                -- searcher. This handler still unconditionally requests a scan
-                -- below, exactly as before the extraction.
+                -- HS-276: latch logic lives in the shared TryLatchWarmFromCounts()
+                -- (see above) -- this is its sole caller (Gate 2, cycle 2). This
+                -- handler still unconditionally requests a scan below, exactly as
+                -- before the extraction.
                 TryLatchWarmFromCounts()
             end
 
