@@ -852,6 +852,32 @@ local function GetFactionIDByName(name)
     return nil
 end
 
+-- HS-283: locale-neutral identity resolution for an achievement-type
+-- requirement. req.id when present (the availability path always populates
+-- it); otherwise resolve the name through HA.AchievementSources. Both sides
+-- of that name comparison are Homestead's own English data
+-- (PrerequisiteSources' req.name vs AchievementSources' achievementName), so
+-- it is locale-neutral by construction — a live GetAchievementInfo name is
+-- locale-translated and must NEVER enter this resolution (Argus Gate 1
+-- cycle 3: an earlier draft compared one against our English data, which
+-- silently missed every name-only requirement on non-English clients). Same
+-- prefer-the-locale-neutral-identity discipline as
+-- ResolveProfessionSkillLineID / PlayerHasProfession above. A name absent
+-- from AchievementSources resolves nil — such a requirement also evaluates
+-- nil live (see the achievement branch below), so its verdict can never
+-- flip and callers may safely skip it.
+local function ResolveAchievementID(req)
+    if req.id then return req.id end
+    if req.name and HA.AchievementSources then
+        for _, src in pairs(HA.AchievementSources) do
+            if src.achievementName == req.name then
+                return src.achievementID
+            end
+        end
+    end
+    return nil
+end
+
 -- Live evaluation of a single requirement — unchanged logic, renamed from
 -- the old IsRequirementMet so the cache wrapper below (HS-203) can sit in
 -- front of it without touching any of this branch logic.
@@ -929,16 +955,7 @@ function SourceManager:EvaluateRequirementMetLive(req)
         return nil
 
     elseif req.type == "achievement" then
-        local achID = req.id
-        -- If no ID but we have a name, try to find the ID from AchievementSources
-        if not achID and req.name and HA.AchievementSources then
-            for _, src in pairs(HA.AchievementSources) do
-                if src.achievementName == req.name then
-                    achID = src.achievementID
-                    break
-                end
-            end
-        end
+        local achID = ResolveAchievementID(req)
         if achID and GetAchievementInfo then
             local _, _, _, completed = GetAchievementInfo(achID)
             return completed
@@ -1999,6 +2016,10 @@ function SourceManager:GetCompletionStatus(itemID, sourceType, sourceData)
         if wasEarnedByMe then
             result = { color = "|cFF00FF00", suffix = " (This Character)", met = true }
         elseif completed then
+            -- HS-283: " (Account)" is load-bearing, not just display text --
+            -- the ACHIEVEMENT_EARNED handler's completionCache staleness
+            -- check compares against this exact string to detect an
+            -- Account -> This Character promotion. Reword both together.
             result = { color = "|cFF66FF66", suffix = " (Account)", met = true }
         else
             result = { color = "|cFFFF0000", suffix = " (Incomplete)", met = false }
@@ -2251,6 +2272,18 @@ end
 -- reputation ones (they share this table). Bounded cost (few entries, ≤6
 -- cheap C calls each) and fail-open (worst case one extra invalidate, never
 -- a missed one) — accepted, not a behavior-preserving rename.
+-- HS-283 (second pass, MAJOR_FACTION_RENOWN_LEVEL_CHANGED): renown is already
+-- type="reputation" (parseRawRequirementText / structured PrerequisiteSources
+-- entries both produce that type), so it needed no separate branch or type
+-- here — it reuses this counter as-is via RunFactionVerifyThenInvalidate.
+-- Deliberately does NOT include "achievement": ACHIEVEMENT_EARNED tells us
+-- exactly which single achievement changed, so its own event-handler branch
+-- runs a scoped scan re-evaluating ONLY the baselines that resolve to that
+-- achievement, instead of widening this shared counter — Argus Gate 1
+-- cycle 1 caught an earlier draft that added achievement here, which charged
+-- a full achievement-corpus re-evaluation (158 GetAchievementInfo calls,
+-- measured) to EVERY UPDATE_FACTION/profession fire for zero information,
+-- since none of those events can ever flip an achievement verdict.
 -- Returns: changedCount, checkedCount
 local function CountChangedRequirementVerdicts()
     local changed, checked = 0, 0
@@ -2307,25 +2340,36 @@ end
 -- from C_MajorFactions.GetMajorFactionIDs() and misses never rebuild it, so
 -- skipping the reset could strand a faction unlocked mid-session; the reset
 -- costs one lazy enumeration on next lookup. Only then compare verdicts.
-local function RunFactionVerifyThenInvalidate()
+-- HS-283: also the shared decision point for MAJOR_FACTION_RENOWN_LEVEL_CHANGED
+-- (renown requirements are already type="reputation", so no separate path
+-- was needed). ACHIEVEMENT_EARNED does NOT use this — it re-evaluates only
+-- the baselines resolving to its own achievement (see its event-handler
+-- branch), since widening this counter's type filter to achievements was
+-- tried and rejected (Argus Gate 1 cycle 1:
+-- see CountChangedRequirementVerdicts' comment above). eventName defaults to
+-- "UPDATE_FACTION" so the original call site's debug text is unchanged;
+-- other callers pass their own event name so a Gate 2 capture attributes the
+-- suppress/invalidate line correctly.
+local function RunFactionVerifyThenInvalidate(eventName)
+    eventName = eventName or "UPDATE_FACTION"
     factionNameToID = nil
 
     local changed, checked = CountChangedRequirementVerdicts()
     if changed == 0 then
         if HA.Addon then
-            -- HS-283: this counts reputation AND professionRank baselines now
+            -- HS-283: this counts reputation AND professionRank baselines
             -- (CountChangedRequirementVerdicts was generalized) — say
             -- "requirement", not "reputation", so a Gate 2 capture doesn't
-            -- read a professionRank flip as a reputation one.
-            HA.Addon:Debug(("SourceManager: UPDATE_FACTION suppressed (0/%d requirement verdicts changed)")
-                :format(checked))
+            -- misread a professionRank flip as a reputation one.
+            HA.Addon:Debug(("SourceManager: %s suppressed (0/%d requirement verdicts changed)")
+                :format(eventName, checked))
         end
         return
     end
 
     if HA.Addon then
-        HA.Addon:Debug(("SourceManager: UPDATE_FACTION invalidating (%d/%d requirement verdicts changed)")
-            :format(changed, checked))
+        HA.Addon:Debug(("SourceManager: %s invalidating (%d/%d requirement verdicts changed)")
+            :format(eventName, changed, checked))
     end
     SourceManager:InvalidateAllSourceCaches()
 end
@@ -2525,6 +2569,125 @@ local function HookCompletionCacheInvalidation()
             -- the invalidation call and discriminator logging) — never fall
             -- through to the unconditional invalidate below.
             RunFactionVerifyThenInvalidate()
+            return
+        elseif event == "ACHIEVEMENT_EARNED" then
+            -- HS-283: was unconditional (no gate at all). Payload is
+            -- (achievementID, alreadyEarned). Two leaks to close, both
+            -- scoped to THIS achievement (Argus Gate 1 cycle 1: an earlier
+            -- draft widened the shared CountChangedRequirementVerdicts
+            -- counter to cover achievements, which charged a full
+            -- achievement-corpus re-evaluation to EVERY UPDATE_FACTION/
+            -- profession fire for zero information -- achievement work must
+            -- only ever run from THIS branch):
+            --
+            -- 1. GetCompletionStatus caches achievement completion into
+            --    completionCache["achievement:"..id] (ALWAYS numeric-id-
+            --    keyed -- its cache key is built from resolvedData.achievementID
+            --    directly, never a name) via a direct GetAchievementInfo
+            --    call that never touches IsRequirementMet, so that entry has
+            --    no requirementEvalBaseline counterpart. Stale means either
+            --    met == false (was incomplete), or the cached suffix is
+            --    " (Account)" (earned by another character) -- earning it on
+            --    THIS character always promotes that to " (This Character)",
+            --    a label change the met boolean alone can't distinguish
+            --    (Argus Gate 1 cycle 1 Warning). The suffix is the addon's
+            --    own generated string, never a Blizzard one -- no locale
+            --    concern in that comparison.
+            --
+            -- 2. requirementEvalBaseline entries: the availability path
+            --    (line ~398) baselines with req.id populated; Data/
+            --    PrerequisiteSources.lua's achievement requirements
+            --    (consumed via Tooltips.lua's prerequisite display) are
+            --    100% NAME-ONLY (Argus Gate 1 cycle 2 CRITICAL: an id-only
+            --    lookup silently missed all 109 of them). Which baseline
+            --    belongs to the earned achievement is decided by
+            --    ResolveAchievementID -- the SAME locale-neutral resolution
+            --    EvaluateRequirementMetLive performs (id direct, or name
+            --    resolved through the addon's own AchievementSources data).
+            --    A cycle-3 draft instead built a lookup key from
+            --    GetAchievementInfo's returned NAME -- but that return is
+            --    locale-translated while req.name is Homestead's hardcoded
+            --    English, so on any non-English client the keys never
+            --    matched and every name-only requirement went stale again.
+            --    No live API name may ever enter a comparison here.
+            --
+            -- Cost: one pass over requirementEvalBaseline with a cheap type
+            -- check per entry; only achievement-type entries do real work
+            -- (a resolve -- O(AchievementSources) for name-only entries --
+            -- plus, on an ID match, one live re-eval). Accepted because
+            -- ACHIEVEMENT_EARNED fires a handful of times per session and
+            -- this scan is unreachable from UPDATE_FACTION/profession
+            -- events. Name-only entries missing from AchievementSources
+            -- resolve nil and are skipped -- exact, not lossy: they also
+            -- evaluate nil live, so their verdict can never flip.
+            local achievementID = ...
+            if type(achievementID) ~= "number" then
+                if HA.Addon then
+                    HA.Addon:Debug("SourceManager: ACHIEVEMENT_EARNED invalidating (fail-open — non-number payload "
+                        .. tostring(achievementID) .. ")")
+                end
+                SourceManager:InvalidateAllSourceCaches()
+                return
+            end
+
+            local idKey = "achievement:" .. achievementID
+            local cachedCompletion = completionCache[idKey]
+            if cachedCompletion and (cachedCompletion.met == false or cachedCompletion.suffix == " (Account)") then
+                if HA.Addon then
+                    HA.Addon:Debug("SourceManager: ACHIEVEMENT_EARNED invalidating (achievement "
+                        .. achievementID .. " completion cache was stale)")
+                end
+                SourceManager:InvalidateAllSourceCaches()
+                return
+            end
+
+            local anyBaselineChecked, anyBaselineFlipped = false, false
+
+            for _, baseline in pairs(requirementEvalBaseline) do
+                local req = baseline.req
+                if req and req.type == "achievement"
+                    and ResolveAchievementID(req) == achievementID then
+                    anyBaselineChecked = true
+                    local live = SourceManager:EvaluateRequirementMetLive(req)
+                    if live ~= baseline.met then anyBaselineFlipped = true end
+                    -- Write-back on every match, flip or not: without it the
+                    -- baseline stays stale and every later fire for this
+                    -- achievement re-invalidates (Argus Gate 1 cycle 2
+                    -- Warning, pinned by the third-fire suppress tests).
+                    baseline.met = live
+                end
+            end
+
+            if anyBaselineFlipped then
+                if HA.Addon then
+                    HA.Addon:Debug("SourceManager: ACHIEVEMENT_EARNED invalidating (achievement "
+                        .. achievementID .. " requirement verdict changed)")
+                end
+                SourceManager:InvalidateAllSourceCaches()
+                return
+            end
+
+            if anyBaselineChecked then
+                if HA.Addon then
+                    HA.Addon:Debug("SourceManager: ACHIEVEMENT_EARNED suppressed (achievement "
+                        .. achievementID .. " requirement verdict unchanged)")
+                end
+                return
+            end
+
+            if HA.Addon then
+                HA.Addon:Debug("SourceManager: ACHIEVEMENT_EARNED suppressed (achievement "
+                    .. achievementID .. " not tracked, no cached state)")
+            end
+            return
+        elseif event == "MAJOR_FACTION_RENOWN_LEVEL_CHANGED" then
+            -- HS-283: was unconditional (no gate at all). Renown requirements
+            -- are already normalized to type="reputation" (parseRawRequirementText
+            -- and the hardcoded PrerequisiteSources form both produce that
+            -- type), so every renown-derived cache entry has a baseline
+            -- counterpart by construction -- no completionCache probe needed
+            -- here the way ACHIEVEMENT_EARNED above needs one.
+            RunFactionVerifyThenInvalidate("MAJOR_FACTION_RENOWN_LEVEL_CHANGED")
             return
         elseif event == "QUEST_TURNED_IN" then
             local questID = ...
