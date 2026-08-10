@@ -546,6 +546,15 @@ local function SetupEventScanning()
                 -- scan instead of two separate ones.
                 RequestScan()
             end
+        elseif event == "HOUSING_DECOR_PLACE_SUCCESS" or event == "HOUSING_DECOR_REMOVED" then
+            -- HS-283: placement/removal only moves an item between
+            -- totalNumStored/remainingRedeemable/totalNumPlaced -- the sum
+            -- ComputeOwnedFromInfo checks for ownership never changes, and a
+            -- scan writes nothing else that placement/removal could affect
+            -- (isOwned, decorID, name, sourceText are all static per catalog
+            -- entry). A full ~220-vendor rescan on every decor placed/removed
+            -- during a decorating session is a wasted pass; skip it.
+            HA.Addon:Debug(event, "fired — ownership-neutral, skipping scan")
         else
             if event == "HOUSING_STORAGE_UPDATED" then
                 -- HS-276: latch logic lives in the shared TryLatchWarmFromCounts()
@@ -555,7 +564,10 @@ local function SetupEventScanning()
                 TryLatchWarmFromCounts()
             end
 
-            -- All housing events coalesce into a single debounced scan
+            -- HOUSING_STORAGE_UPDATED / NEW_HOUSING_ITEM_ACQUIRED coalesce
+            -- into a single debounced scan -- these can carry real ownership
+            -- changes (storage load, purchase/loot), unlike the
+            -- placement/removal pair above.
             HA.Addon:Debug(event, "fired — requesting scan")
             RequestScan()
         end
