@@ -899,9 +899,19 @@ end
 -- Scanned Vendor Index
 -------------------------------------------------------------------------------
 
--- Build reverse index from scanned vendor data: itemID -> {npcID, ...}
+-- Build reverse indexes from scanned vendor data:
+--   ScannedByItemID:   itemID -> {npcID, ...}
+--   ScannedItemsByNPC: npcID -> {itemID -> {item, ...}}  (ordered, original scan-array order)
+-- ScannedItemsByNPC's lists hold LIVE references into db.global.scannedVendors
+-- item tables, not copies -- this is not a copy-on-read cache. In particular,
+-- GetRequirements' requirement-normalizer (SourceManager.lua's
+-- normalizeAndValidateRequirement) already rewrites unknown-type requirements'
+-- .type/.faction/.standing fields in place through this same reference,
+-- writing back into SavedVariables (pre-existing behavior, unchanged by
+-- HS-280) -- callers must not assume nothing writes back through it.
 function VendorData:BuildScannedIndex()
     self.ScannedByItemID = {}
+    self.ScannedItemsByNPC = {}
 
     local db = HA.Addon and HA.Addon.db
     if not db or not db.global or not db.global.scannedVendors then
@@ -912,14 +922,21 @@ function VendorData:BuildScannedIndex()
     for npcID, vendorRecord in pairs(db.global.scannedVendors) do
         local items = vendorRecord.items
         if items then
+            local byItem = {}
+            self.ScannedItemsByNPC[npcID] = byItem
             for _, item in ipairs(items) do
-                local itemID = item.itemID
+                local itemID = self:GetItemID(item)
                 if itemID then
                     if not self.ScannedByItemID[itemID] then
                         self.ScannedByItemID[itemID] = {}
                         itemCount = itemCount + 1
                     end
                     table.insert(self.ScannedByItemID[itemID], npcID)
+
+                    if not byItem[itemID] then
+                        byItem[itemID] = {}
+                    end
+                    table.insert(byItem[itemID], item)
                 end
             end
         end
@@ -928,6 +945,20 @@ function VendorData:BuildScannedIndex()
     if HA.Addon then
         HA.Addon:Debug("VendorData scanned index built:", itemCount, "unique items")
     end
+end
+
+-- Get all scanned items for (npcID, itemID), in original scan-array order.
+-- May return more than one entry -- the same itemID can occupy more than one
+-- merchant slot on one vendor (HS-280: why GetRequirements' merge-all
+-- contract needs a list, not a single record). Returns nil if none scanned.
+--
+-- Init-order invariant: returns nil for everything until VendorData:Initialize()
+-- has run BuildScannedIndex() (see core.lua's init sequence). Do not add a
+-- lazy build-on-nil fallback here -- that would be a new invalidation-adjacent
+-- trigger, defeating this design's "zero new invalidation triggers" guarantee.
+function VendorData:GetScannedVendorItems(npcID, itemID)
+    local byItem = self.ScannedItemsByNPC and self.ScannedItemsByNPC[npcID]
+    return byItem and byItem[itemID]
 end
 
 -- Rebuild the full scanned-index from authoritative SavedVariables.
@@ -951,6 +982,11 @@ function VendorData:Initialize()
     end
 
     self:BuildOfferIndexes()
+
+    -- HS-281: per-npcID memo for GetVendorItems. GetOffers' four input tables
+    -- are static after load with no runtime writers, so this needs no
+    -- invalidation hook -- see GetVendorItems for the full rationale.
+    self.VendorItemsMemo = {}
 
     -- Build reverse lookup for vendor names
     self:BuildNameIndex()
@@ -1077,9 +1113,31 @@ function VendorData:OfferToLegacyItem(itemID, offer)
     return { itemID, cost = cost }
 end
 
+-- HS-281: memoized per npcID (VendorItemsMemo, built in Initialize()). The
+-- lazy `or {}` below covers standalone/partial-mock test harnesses that load
+-- this file without calling Initialize(). GetOffers' four input tables
+-- (GeneratedBase, ManualOverrides, StagedAdditions, Tombstones) are static
+-- after addon load with no runtime writers, so this never needs an
+-- invalidation hook.
 function VendorData:GetVendorItems(npcID)
+    -- Lua can read a table with a nil key but not write one -- a nil npcID
+    -- used to fall through GetOffers to a plain `return {}`; preserve that
+    -- tolerance rather than letting the memo write turn it into a hard
+    -- error (Sage Gate 1: existing ProjectVendorWithItems call sites already
+    -- guard on `if vendor.npcID then`, treating an unstamped record as
+    -- possible). Same reasoning for a not-yet-loaded HA.VendorOffers: don't
+    -- memoize "offers table unavailable" as if it were "vendor has none".
+    if npcID == nil or not HA.VendorOffers then return {} end
+
+    self.VendorItemsMemo = self.VendorItemsMemo or {}
+    local cached = self.VendorItemsMemo[npcID]
+    if cached then return cached end
+
     local offers = self:GetOffers(npcID)
-    if not offers then return {} end
+    if not offers then
+        self.VendorItemsMemo[npcID] = {}
+        return self.VendorItemsMemo[npcID]
+    end
 
     local ordered = {}
     for itemID, offer in pairs(offers) do
@@ -1100,6 +1158,7 @@ function VendorData:GetVendorItems(npcID)
     for _, row in ipairs(ordered) do
         items[#items + 1] = self:OfferToLegacyItem(row.itemID, row.offer)
     end
+    self.VendorItemsMemo[npcID] = items
     return items
 end
 

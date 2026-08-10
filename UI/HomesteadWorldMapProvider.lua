@@ -2,10 +2,13 @@
     Homestead - World Map Provider
     Self-managed world-map renderer using plain canvas-child frames.
 
-    Does NOT use AddDataProvider or MapCanvasPinMixin — those enter Blizzard's
-    managed pin lifecycle which calls protected SetPassThroughButtons in combat.
-    Instead, a lightweight watcher frame detects map state changes and triggers
-    refresh/reposition after Blizzard's secure path completes.
+    HS-275: registers a PIN-LESS data provider (WorldMapFrame:AddDataProvider)
+    purely to receive Blizzard's map-state notifications (OnShow/OnHide/
+    OnMapChanged/OnCanvasSizeChanged/OnCanvasScaleChanged). Still does NOT use
+    MapCanvasPinMixin or enter Blizzard's managed pin lifecycle or pin-frame
+    pooling — that lifecycle calls protected SetPassThroughButtons in combat
+    and is the taint vector HS-081 hit. Vendor/badge/portal/source pins keep
+    the existing plain-frame path (MPP.PlaceNativePin) untouched.
 ]]
 
 local _, HA = ...
@@ -19,6 +22,8 @@ local FPU = HA.FramePoolUtils
 
 local ipairs = ipairs
 local format = string.format
+local Lerp = Lerp
+local Saturate = Saturate
 
 local BoolToKey = FPU.BoolToKey
 local AcquirePooledFrame = FPU.AcquirePooledFrame
@@ -35,12 +40,14 @@ local renderedMapID = nil
 -- Separate from refreshPending above, which stays the same-frame coalesce
 -- for watcher_opened (a single deliberate action, not a spam vector).
 local settleTimer = nil
--- HS-223a: external consumers (currently MapSidePanel) of the shared 0.1s
--- map watcher below, keyed by caller-chosen string so multiple registrants
+-- HS-223a: external consumers (currently MapSidePanel) of the shared map
+-- watch dispatch below, keyed by caller-chosen string so multiple registrants
 -- can't clobber each other. Each callback receives (isShown, mapID,
--- maximized) every tick -- the raw state MapSidePanel's own watch logic
--- needs, read from this ONE poll instead of running a second independent
--- 0.1s ticker against the same WorldMapFrame state.
+-- maximized) on every dispatch -- the raw state MapSidePanel's own watch
+-- logic needs, read from this ONE dispatch instead of running an independent
+-- watcher against the same WorldMapFrame state. HS-275: dispatch is now
+-- driven by DispatchMapWatch() (on-change, push-driven) instead of a 0.1s
+-- poll -- see DispatchMapWatch below.
 local mapWatchCallbacks = {}
 local debugStats = {
     refreshCalls = 0,
@@ -444,6 +451,25 @@ local function GetEntryDisplayScale(kind, mapType)
     return 1
 end
 
+-- HS-274: pins hold GetEntryDisplayScale's base size at min zoom and grow
+-- toward PIN_ZOOM_GROWTH_MAX as the canvas zooms in, matching Blizzard's own
+-- pin growth feel (MapCanvasPinMixin:ApplyCurrentScale's Lerp shape) instead
+-- of a flat size. Both constants are a Gate-2-tunable design choice, not a
+-- mechanism -- safe to retune without re-review.
+local PIN_ZOOM_GROWTH_MAX = 1.5
+local PIN_ZOOM_SCALE_FACTOR = 1.0
+
+local function GetEntryZoomedScale(kind, mapType)
+    local base = GetEntryDisplayScale(kind, mapType)
+
+    if not WorldMapFrame or not WorldMapFrame:HasZoomLevels() then
+        return base
+    end
+
+    local zoomPct = WorldMapFrame:GetCanvasZoomPercent()
+    return base * Lerp(1.0, PIN_ZOOM_GROWTH_MAX, Saturate(PIN_ZOOM_SCALE_FACTOR * zoomPct))
+end
+
 local function RequestDeferredRefresh(reason)
     if refreshPending then
         return
@@ -513,6 +539,141 @@ local function RequestSettledRefresh(reason)
         end
     end)
 end
+
+-- HS-275: identity kept so a future RemoveDataProvider call has a stable
+-- reference to match on (CLAIM-PINS-0011 -- MapCanvasMixin:RemoveDataProvider
+-- clears its dataProviders table by instance identity).
+local mapDataProvider = nil
+
+local mapWatchPending = false
+
+local function DispatchMapWatch()
+    if mapWatchPending then return end
+    mapWatchPending = true
+    C_Timer.After(0, function()
+        mapWatchPending = false
+        local isShown = WorldMapFrame and WorldMapFrame:IsShown() or false
+        local mapID = isShown and WorldMapFrame:GetMapID() or nil
+        local maximized = isShown and (WorldMapFrame.isMaximized and true or false) or false
+        for key, cb in pairs(mapWatchCallbacks) do
+            local success, err = pcall(cb, isShown, mapID, maximized)
+            if not success and HA.Addon then
+                HA.Addon:Debug("Error in map watch callback:", key, err)
+            end
+        end
+    end)
+end
+
+-- HS-275: handlers dispatched by Blizzard's MapCanvasMixin data-provider
+-- protocol (WorldMapFrame:CallMethodOnDataProviders / CallMethodOnPinsAnd
+-- DataProviders), armored by secureexecuterange on every dispatch. Mixed
+-- onto a CreateFromMixins(MapCanvasDataProviderMixin) delegate in
+-- EnsureRegistered -- not onto Provider itself, so a missing method name
+-- from a future Blizzard dispatch can't raise mid-loop inside Provider's
+-- own render path, and so RefreshAllData here can mean "kick the deferred
+-- refresh" without colliding with Provider:RefreshAllData's real
+-- synchronous teardown-and-rebuild.
+local mapDataProviderMethods = {}
+
+function mapDataProviderMethods:OnShow()
+    watcherStats.opened = watcherStats.opened + 1
+    -- POI-dodge cache is keyed on mapID and never busts within a map,
+    -- so event POIs that appeared/disappeared while the map was closed
+    -- (Saltheril's Soiree, Abundance, ...) would keep dodging against
+    -- stale positions on re-show. Bust it on every map re-show.
+    cachedPoiMapID = nil
+    cachedPoiPositions = nil
+    C_Timer.After(0, function()
+        RequestDeferredRefresh("watcher_opened")
+    end)
+    DispatchMapWatch()
+end
+
+function mapDataProviderMethods:OnHide()
+    watcherStats.closed = watcherStats.closed + 1
+    -- HS-234: a pending settle-debounce from a transition made just
+    -- before closing the map would otherwise fire uselessly ~0.25s
+    -- later against a closed map — cancel it now, same discipline
+    -- VendorMapPins:ClearAllPins already applies to its own
+    -- worldMapRefreshTimer.
+    if settleTimer then
+        settleTimer:Cancel()
+        settleTimer = nil
+    end
+    Provider:RemoveAllData()
+    DispatchMapWatch()
+end
+
+function mapDataProviderMethods:OnMapChanged()
+    watcherStats.mapChanged = watcherStats.mapChanged + 1
+    RequestSettledRefresh("watcher_map_changed")
+    DispatchMapWatch()
+end
+
+function mapDataProviderMethods:OnCanvasSizeChanged()
+    watcherStats.resized = watcherStats.resized + 1
+    if IsDebugModeEnabled() then
+        HA.Addon:Debug("WorldMapWatcher: watcher_resize")
+    end
+    MPP.RepositionWorldMapPins()
+    DispatchMapWatch()
+end
+
+function mapDataProviderMethods:OnCanvasScaleChanged()
+    watcherStats.zoomChanged = watcherStats.zoomChanged + 1
+
+    -- HS-274: per-tick, in-place rescale so pins track zoom continuously
+    -- instead of only snapping to the right size once the settled refresh
+    -- below lands. RepositionWorldMapPins refreshes the wrapper counter-scale
+    -- (uiScale/canvasScale) that holds pins at their intended screen size;
+    -- the loop then re-applies each pin's own zoomed content scale on top.
+    -- renderState can be nil between map close and the next open -- nothing
+    -- to rescale yet, so skip rather than walk a stale activeEntries.
+    if renderState then
+        MPP.RepositionWorldMapPins()
+        for _, active in ipairs(activeEntries) do
+            active.frame:SetScale(GetEntryZoomedScale(active.kind, renderState.mapType))
+        end
+    end
+
+    -- Full refresh on zoom change so POI dodge recalculates
+    -- with the new zoom factor (pins drift back at high zoom).
+    RequestSettledRefresh("watcher_zoom")
+    DispatchMapWatch()
+end
+
+function mapDataProviderMethods:RefreshAllData()
+    -- MapCanvasMixin:RefreshAllDataProviders (Blizzard_MapCanvas.lua) closes
+    -- over a free `fromOnShow` that never resolves to the caller's argument
+    -- -- providers always receive nil here. Do not read it.
+    RequestDeferredRefresh("provider_refresh_all")
+    DispatchMapWatch()
+end
+
+function mapDataProviderMethods:RemoveAllData()
+    -- Required by MapCanvasMixin:RemoveDataProvider, which calls this
+    -- before clearing the provider table key by instance identity. The
+    -- inherited MapCanvasDataProviderMixin stub is a no-op and would strand
+    -- rendered pins on a future unregister.
+    Provider:RemoveAllData()
+    DispatchMapWatch()
+end
+
+-- HS-275: canvas *effective* scale also moves when UIParent scale changes
+-- (uiScale CVar, resolution change), and no MapCanvasMixin callback fires
+-- for that -- it isn't a canvas-size or canvas-scale event, it's a
+-- UIParent-wide rescale. Own event frame, same idiom as
+-- HomesteadMinimapOverlay.lua's cvarFrame -- these are WoW engine events,
+-- not provider dispatch, so they go through CreateFrame+RegisterEvent, not
+-- MapCanvasDataProviderMixin:RegisterEvent.
+local scaleEventFrame = CreateFrame("Frame")
+scaleEventFrame:RegisterEvent("UI_SCALE_CHANGED")
+scaleEventFrame:RegisterEvent("DISPLAY_SIZE_CHANGED")
+scaleEventFrame:SetScript("OnEvent", function()
+    if isRegistered and WorldMapFrame and WorldMapFrame:IsShown() then
+        RequestSettledRefresh("ui_scale_changed")
+    end
+end)
 
 local function BuildWorldPinStyleKey()
     local size = PinFrameFactory:GetPinIconSize()
@@ -698,110 +859,41 @@ function Provider:EnsureRegistered()
         return
     end
 
+    -- HS-275: fail-loud, not a silent return and not a Debug line. Duck-typed
+    -- dispatch means a Blizzard rename of this callback produces no error at
+    -- all otherwise — just pins that quietly stop repositioning. Blizzard_
+    -- MapCanvas is LoadOnDemand, so MapCanvasDataProviderMixin can be nil at
+    -- Homestead file-scope load; the WorldMapFrame guard just above is the
+    -- proof the addon is loaded by the time we get here.
+    if MapCanvasDataProviderMixin == nil
+            or MapCanvasDataProviderMixin.OnCanvasScaleChanged == nil then
+        error("Homestead: MapCanvasDataProviderMixin.OnCanvasScaleChanged is missing. "
+            .. "The world-map pin refresh mechanism has detached -- Blizzard renamed or "
+            .. "removed the canvas data-provider callback this addon depends on.")
+    end
+
     self.mapCanvas = WorldMapFrame:GetCanvasContainer()
     isRegistered = true
 
-    local lastMapID = nil
-    local lastCanvasWidth = nil
-    local lastCanvasHeight = nil
-    local lastCanvasEffectiveScale = nil
-    -- Passive polling watcher — no WorldMapFrame hooks at all.
-    -- HookScript and hooksecurefunc on WorldMapFrame run during Blizzard's
-    -- secure map-open path, tainting the execution context. A ticker that
-    -- polls map state is the only taint-safe detection mechanism.
-    local wasShown = false
-
-    C_Timer.NewTicker(0.1, function()
-        local isShown = WorldMapFrame and WorldMapFrame:IsShown()
-        -- HS-223a: mapID/maximized are read here (not just inside the old
-        -- "still open" branch) so they're available below for the shared
-        -- external-callback dispatch on every tick, not only Provider's own
-        -- branches.
-        local mapID = isShown and WorldMapFrame:GetMapID() or nil
-        local maximized = isShown and (WorldMapFrame.isMaximized and true or false) or false
-
-        if isShown and not wasShown then
-            -- Map just opened — force refresh after secure path completes
-            wasShown = true
-            watcherStats.opened = watcherStats.opened + 1
-            lastMapID = nil
-            -- POI-dodge cache is keyed on mapID and never busts within a map,
-            -- so event POIs that appeared/disappeared while the map was closed
-            -- (Saltheril's Soiree, Abundance, ...) would keep dodging against
-            -- stale positions on re-show. Bust it on every map re-show.
-            cachedPoiMapID = nil
-            cachedPoiPositions = nil
-            C_Timer.After(0, function()
-                RequestDeferredRefresh("watcher_opened")
-            end)
-        elseif not isShown and wasShown then
-            -- Map just closed — cleanup
-            wasShown = false
-            watcherStats.closed = watcherStats.closed + 1
-            lastMapID = nil
-            lastCanvasWidth = nil
-            lastCanvasHeight = nil
-            lastCanvasEffectiveScale = nil
-            -- HS-234: a pending settle-debounce from a transition made just
-            -- before closing the map would otherwise fire uselessly ~0.25s
-            -- later against a closed map — cancel it now, same discipline
-            -- VendorMapPins:ClearAllPins already applies to its own
-            -- worldMapRefreshTimer.
-            if settleTimer then
-                settleTimer:Cancel()
-                settleTimer = nil
-            end
-            self:RemoveAllData()
-        elseif isShown then
-            -- Map still open — check for mapID, canvas size, or zoom-scale changes
-            local container = WorldMapFrame:GetCanvasContainer()
-            local canvas = WorldMapFrame.GetCanvas and WorldMapFrame:GetCanvas()
-            local canvasWidth = container and container:GetWidth() or 0
-            local canvasHeight = container and container:GetHeight() or 0
-            local canvasEffectiveScale = canvas and canvas:GetEffectiveScale() or 0
-
-            if mapID ~= lastMapID then
-                lastMapID = mapID
-                watcherStats.mapChanged = watcherStats.mapChanged + 1
-                RequestSettledRefresh("watcher_map_changed")
-            elseif (canvasWidth > 0 and canvasWidth ~= lastCanvasWidth)
-                    or (canvasHeight > 0 and canvasHeight ~= lastCanvasHeight) then
-                lastCanvasWidth = canvasWidth
-                lastCanvasHeight = canvasHeight
-                lastCanvasEffectiveScale = canvasEffectiveScale
-                watcherStats.resized = watcherStats.resized + 1
-                if IsDebugModeEnabled() then
-                    HA.Addon:Debug("WorldMapWatcher: watcher_resize")
-                end
-                MPP.RepositionWorldMapPins()
-            elseif canvasEffectiveScale > 0 and (not lastCanvasEffectiveScale or math.abs(canvasEffectiveScale - lastCanvasEffectiveScale) > 0.0001) then
-                lastCanvasEffectiveScale = canvasEffectiveScale
-                watcherStats.zoomChanged = watcherStats.zoomChanged + 1
-                -- Full refresh on zoom change so POI dodge recalculates
-                -- with the new zoom factor (pins drift back at high zoom).
-                RequestSettledRefresh("watcher_zoom")
-            end
-        end
-
-        -- HS-223a: feed every registered external consumer (MapSidePanel)
-        -- from this SAME poll instead of each running its own 0.1s ticker
-        -- against the same WorldMapFrame state. pcall per callback (Argus
-        -- cycle 1 WARNING) so one registrant's error can't kill every other
-        -- registrant's tick — matches Overlay:RefreshExternalOverlays'
-        -- externalRefreshers dispatch pattern (Overlay/overlay.lua).
-        for key, cb in pairs(mapWatchCallbacks) do
-            local success, err = pcall(cb, isShown, mapID, maximized)
-            if not success and HA.Addon then
-                HA.Addon:Debug("Error in map watch callback:", key, err)
-            end
-        end
-    end)
+    -- HS-275: every read of WorldMapFrame.dataProviders inside Blizzard's
+    -- dispatch (Blizzard_MapCanvas.lua: AddDataProvider, RemoveDataProvider,
+    -- CallMethodOnDataProviders, CallMethodOnPinsAndDataProviders) goes
+    -- through secureexecuterange -- Blizzard's own containment primitive for
+    -- addon-writable registries. That is what replaces the old polling
+    -- ticker as the taint-safe detection mechanism. No WorldMapFrame
+    -- HookScript/hooksecurefunc is used here or anywhere else -- those still
+    -- run inside Blizzard's secure map-open path and remain forbidden
+    -- (HS-081).
+    mapDataProvider = CreateFromMixins(MapCanvasDataProviderMixin)
+    Mixin(mapDataProvider, mapDataProviderMethods)
+    WorldMapFrame:AddDataProvider(mapDataProvider)
 end
 
--- HS-223a: register to be driven by the shared 0.1s map watcher above instead
--- of starting a second independent ticker. Called every tick with
+-- HS-223a: register to be driven by DispatchMapWatch above instead of
+-- starting a second independent watcher. Called on-change with
 -- (isShown, mapID, maximized) -- the exact raw state MapSidePanel's watch
--- logic was reading from its own separate poll.
+-- logic was reading from its own separate poll. HS-275: dispatch is now
+-- push-driven off the map data provider's callbacks instead of a 10Hz poll.
 function Provider:RegisterMapWatchCallback(key, callback)
     if not key or type(callback) ~= "function" then return end
     mapWatchCallbacks[key] = callback
@@ -882,7 +974,7 @@ function Provider:RenderEntries(entries, kind)
             if frame.SetIgnoreParentScale then
                 frame:SetIgnoreParentScale(false)
             end
-            frame:SetScale(GetEntryDisplayScale(kind, viewMapType))
+            frame:SetScale(GetEntryZoomedScale(kind, viewMapType))
 
             entry.kind = kind
             local x, y = entry.x, entry.y
@@ -941,3 +1033,149 @@ function Provider:RefreshAllData()
         MaybeLogProviderPerf("render")
     end)
 end
+
+-------------------------------------------------------------------------------
+-- HS-271 item 1: Pool Floor Pre-Build
+--
+-- Cold first pin-frame acquire on a dense map pays CreateFrame for every
+-- distinct pool bucket the render touches (PinFrameFactory:Create*Frame),
+-- landing inside the world_map_refresh render pass diagnosed at 558-651ms
+-- (HS-270 captures A/D). Pre-building a floor of frames into each pool at
+-- login moves that CreateFrame cost off the render path for the common
+-- case: the default style/faction/source-type bucket every kind resolves
+-- to before any player style customization.
+--
+-- Floor sizes are density-derived (HS-271 Gate 0): 16 vendor (Razorwind
+-- Shores, the densest zone), 10 badge (continent zone-badge view), 6 source
+-- (drop pins -- the only populated non-vendor source type today). Only the
+-- DEFAULT bucket is pre-built -- a mid-session pin-style change before first
+-- open still pays its own CreateFrame cost for that combination (accepted
+-- scope boundary, Plan Gate 1 item 1: the floor is a floor, not a guarantee
+-- for every style combination).
+--
+-- No portal floor (Gate 1 cycle 1: removed entirely, not sized to 0 as a
+-- count — GetPortalFramePoolKey's synthetic empty portalData never matches
+-- a REAL portal acquire's key (class-keyed off vendor.class), and portal
+-- pins don't appear on the freeze-class dense maps this item targets — a
+-- floor that can never be drawn from is dead weight, not a floor.
+--
+-- Frames are pushed straight into the pool via ReleasePooledFrame (never
+-- rendered) -- this reuses the SAME pool-key functions and CreateFrame
+-- factories the render path already calls, just run ahead of any
+-- player-triggered map open.
+-------------------------------------------------------------------------------
+
+local POOL_FLOOR_COUNTS = {
+    vendor = 16,
+    badge = 10,
+    source = 6,
+}
+local POOL_FLOOR_KIND_ORDER = { "vendor", "badge", "source" }
+
+-- Small per-tick batch: this runs once at login, off the render path, but
+-- still shouldn't land 32 CreateFrame calls on one frame during the busy
+-- login/loading-screen window.
+local POOL_FLOOR_BATCH_SIZE = 4
+local POOL_FLOOR_BATCH_DELAY = 0.05
+-- HS-238: same combat-retry idiom as HS-234's ProcessBatch -- this pre-build
+-- has no urgency, so it costs nothing to defer it off combat frames.
+local POOL_FLOOR_COMBAT_RETRY_DELAY = 1.0
+
+local function BuildPoolFloorQueue()
+    local queue = {}
+    for _, kind in ipairs(POOL_FLOOR_KIND_ORDER) do
+        for _ = 1, POOL_FLOOR_COUNTS[kind] do
+            queue[#queue + 1] = kind
+        end
+    end
+    return queue
+end
+
+-- Default-bucket synthetic job for one kind: pool key derived from the
+-- player's CURRENT live pin-style settings (Get*FramePoolKey functions read
+-- PinFrameFactory's style getters directly), with neutral/empty source data
+-- so every Get*FramePoolKey resolves to its default/neutral/"none" bucket --
+-- the same bucket a fresh pin resolves to before any per-vendor/per-badge
+-- customization.
+local function BuildPoolFloorJob(kind)
+    if kind == "vendor" then
+        local vendor, isOppositeFaction = {}, false
+        local poolKey = GetVendorFramePoolKey({ vendor = vendor, isOppositeFaction = isOppositeFaction })
+        return poolKey, vendorFramePool, function()
+            return PinFrameFactory:CreateVendorPinFrame(vendor, isOppositeFaction)
+        end
+    elseif kind == "badge" then
+        local badgeData = {}
+        local poolKey = GetBadgeFramePoolKey(badgeData)
+        return poolKey, badgeFramePool, function()
+            return PinFrameFactory:CreateBadgePinFrame(badgeData)
+        end
+    elseif kind == "source" then
+        local record = { sourceType = "drop" }
+        local poolKey = GetSourceFramePoolKey(record)
+        return poolKey, sourceFramePool, function()
+            return PinFrameFactory:CreateSourcePinFrame(record.sourceType, record)
+        end
+    end
+end
+
+function Provider:PrewarmPoolFloor()
+    local queue = BuildPoolFloorQueue()
+    local index = 1
+
+    local function ProcessBatch()
+        if _G.InCombatLockdown() then
+            C_Timer.After(POOL_FLOOR_COMBAT_RETRY_DELAY, ProcessBatch)
+            return
+        end
+
+        local batchEnd = math.min(index + POOL_FLOOR_BATCH_SIZE - 1, #queue)
+        for i = index, batchEnd do
+            local kind = queue[i]
+            local poolKey, pool, createFunc = BuildPoolFloorJob(kind)
+            local frame = createFunc()
+            if kind == "vendor" then
+                -- HS-271 Gate 1 cycle 1 nit: CreateVendorPinFrame's own
+                -- RefreshVendorPinCount call (for the synthetic {} vendor
+                -- above) is a double miss by construction (no npcID) and
+                -- sets hsStatsPending=true — harmless (RequestPrewarm is
+                -- debounced) but leaves the pooled frame flagged pending for
+                -- a vendor that was never real. Reset explicitly so a later
+                -- real AcquireVendorFrame always starts this flag from a
+                -- known-false baseline, never a leftover from pool-floor's
+                -- own synthetic creation.
+                frame.hsStatsPending = false
+            end
+            frame.__hsPoolKey = poolKey
+            ReleasePooledFrame(pool, frame)
+        end
+        index = batchEnd + 1
+
+        if index <= #queue then
+            C_Timer.After(POOL_FLOOR_BATCH_DELAY, ProcessBatch)
+        end
+    end
+
+    C_Timer.After(POOL_FLOOR_BATCH_DELAY, ProcessBatch)
+end
+
+-- Login trigger: same self-terminating polling idiom as BadgeCalculation.lua's
+-- login warmup ticker (HS-234) -- bounded so a session where OnInitialize
+-- somehow never completes doesn't poll forever. Polls addon-init completion
+-- (HA.Addon._initialized, set at the end of Core/core.lua's OnInitialize)
+-- rather than IsWarm(): frame creation needs no catalog data, only
+-- PinFrameFactory's style-key readers (HA.Addon.db).
+local POOL_FLOOR_LOGIN_POLL_INTERVAL = 0.5
+local POOL_FLOOR_LOGIN_MAX_POLLS = 40
+local poolFloorLoginPolls = 0
+local poolFloorLoginTicker = nil
+
+poolFloorLoginTicker = C_Timer.NewTicker(POOL_FLOOR_LOGIN_POLL_INTERVAL, function()
+    poolFloorLoginPolls = poolFloorLoginPolls + 1
+    if HA.Addon and HA.Addon._initialized then
+        poolFloorLoginTicker:Cancel()
+        Provider:PrewarmPoolFloor()
+    elseif poolFloorLoginPolls >= POOL_FLOOR_LOGIN_MAX_POLLS then
+        poolFloorLoginTicker:Cancel()
+    end
+end)

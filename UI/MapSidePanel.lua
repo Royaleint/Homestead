@@ -297,6 +297,21 @@ local function IsItemOwned(itemID)
     return false
 end
 
+-- HS-249: is this item's ownership knowable at all? Housing items outside the
+-- Decor subclass resolve to no catalog entry, so IsItemOwned answers a hard
+-- false that says nothing about the player. The grids must render those in a
+-- neutral state rather than the gold "available to purchase" border, which
+-- would be telling the player to buy a room they may already own.
+local function IsOwnershipExcluded(itemID, presentation)
+    if presentation then
+        return presentation.isOwnershipExcluded == true
+    end
+    if itemID and HA.CatalogStore and HA.CatalogStore.IsOwnershipUnknowable then
+        return HA.CatalogStore:IsOwnershipUnknowable(itemID) == true
+    end
+    return false
+end
+
 local function NormalizePanelSourceFilter(sourceFilter)
     local SM = HA.SourceManager
     if SM and SM.NormalizeSourceFilter then
@@ -637,7 +652,14 @@ local function PopulateItemGrid(row, vendor, sourceFilter, highlightItems)
         icon.lock:Hide()
         icon.check:Hide()
 
-        if owned then
+        if IsOwnershipExcluded(itemID, presentation) then
+            -- HS-249: ownership not yet knowable — neutral grey border, no
+            -- check and no lock tint. Tested first: neither the owned nor the
+            -- available branch may claim an item we cannot resolve. The
+            -- requirement tooltip is unaffected (icon.requirements is set
+            -- above, outside this branch).
+            icon.border:SetColorTexture(0.45, 0.45, 0.45, 1)
+        elseif owned then
             -- Owned: green border + checkmark
             icon.border:SetColorTexture(0.2, 0.7, 0.2, 1)
             icon.check:Show()
@@ -901,7 +923,10 @@ local function PopulateBossItemGrid(row, dropGroup)
         icon.check:Hide()
         if icon.matchRing then icon.matchRing:Hide() end
 
-        if owned then
+        -- HS-249: same neutral state as the vendor grid, same reason.
+        if IsOwnershipExcluded(itemID, presentation) then
+            icon.border:SetColorTexture(0.45, 0.45, 0.45, 1)
+        elseif owned then
             icon.border:SetColorTexture(0.2, 0.7, 0.2, 1)
             icon.check:Show()
         elseif unmetReqs then
@@ -1345,7 +1370,11 @@ local function PopulateItemResultRow(row, result, sourceFilter)
         owned = IsItemOwned(itemID)
     end
 
-    if owned then
+    -- HS-249: same neutral state as the item grids, same reason.
+    if IsOwnershipExcluded(itemID, presentation) then
+        row.iconBorder:SetColorTexture(0.45, 0.45, 0.45, 1)
+        row.nameText:SetTextColor(1, 1, 1)
+    elseif owned then
         row.iconBorder:SetColorTexture(0.2, 0.7, 0.2, 1)
         row.nameText:SetTextColor(0.7, 1, 0.7)
     else
@@ -4541,21 +4570,22 @@ function MapSidePanel:Initialize()
     CreatePanel()
     CreateOverlayButton()
 
-    -- HS-081: passive WorldMapFrame state poll. Replaces 6 hooksecurefunc/HookScript
-    -- callbacks (SetMapID, OnShow, OnHide, HandleUserActionMaximizeSelf,
+    -- HS-081: passive WorldMapFrame state detection. Replaces 6 hooksecurefunc/
+    -- HookScript callbacks (SetMapID, OnShow, OnHide, HandleUserActionMaximizeSelf,
     -- HandleUserActionMinimizeSelf, and the RefreshOverlayFrames hook in
     -- CreateOverlayButton) that fired inside Blizzard's secure ToggleWorldMap ->
     -- ShowUIPanel(WorldMapFrame) -> Show()/SetMapID() path; the posthook bodies left
     -- that context tainted, blocking the protected SetPassThroughButtons continuation
     -- (QuestDataProvider -> MapCanvasPinMixin:CheckMouseButtonPassthrough), surfacing
-    -- as [ADDON_ACTION_BLOCKED] tainted by 'Homestead'. The ticker reacts AFTER the
-    -- secure path has returned, so the reaction is never in a tainted context -- the
-    -- same pattern as UI/HomesteadWorldMapProvider.lua (which has zero WorldMapFrame
-    -- hooks). Behavior is unchanged: the in-combat docked-panel deferral via
-    -- pendingDockedAction / PLAYER_REGEN_ENABLED is preserved verbatim, and mapWatch is
-    -- seeded from the current WorldMapFrame state so /reload with the map already open
-    -- is a no-op -- matching the old behavior, where the OnShow hook was installed after
-    -- the map was already shown and therefore never fired.
+    -- as [ADDON_ACTION_BLOCKED] tainted by 'Homestead'. HS-275: the provider now feeds
+    -- this from DispatchMapWatch's C_Timer.After(0) deferral (HomesteadWorldMapProvider.lua),
+    -- which reacts one frame AFTER the secure path has returned, so the reaction is
+    -- never in a tainted context -- the same pattern as that file (which has zero
+    -- WorldMapFrame hooks). Behavior is unchanged: the in-combat docked-panel deferral
+    -- via pendingDockedAction / PLAYER_REGEN_ENABLED is preserved verbatim, and mapWatch
+    -- is seeded from the current WorldMapFrame state so /reload with the map already
+    -- open is a no-op -- matching the old behavior, where the OnShow hook was installed
+    -- after the map was already shown and therefore never fired.
     local mapWatch = {
         shown        = WorldMapFrame and WorldMapFrame:IsShown() or false,
         maximized    = false,
@@ -4570,17 +4600,22 @@ function MapSidePanel:Initialize()
 
     -- HS-223a: this used to run its own independent 10Hz ticker polling
     -- WorldMapFrame:IsShown()/:GetMapID()/isMaximized -- the exact same raw
-    -- state HomesteadWorldMapProvider.lua's own 0.1s watcher already reads
-    -- every tick. Registered as a callback there instead of running a second
-    -- redundant 10Hz poll; trigger semantics below are unchanged, just fed
-    -- from the shared poll's (isShown, mapID, maximized) instead of a private
-    -- one. Do NOT convert this to a WorldMapFrame hook (HS-081): hooks run
-    -- inside Blizzard's secure map-open path and taint execution.
+    -- state HomesteadWorldMapProvider.lua reads. Registered as a callback
+    -- there instead of running a second redundant poll; trigger semantics
+    -- below are unchanged, just fed from the shared dispatch's (isShown,
+    -- mapID, maximized) instead of a private one. HS-275: the provider side
+    -- is now push-driven off Blizzard's map-canvas data-provider dispatch
+    -- rather than a 10Hz ticker, so this callback fires on-change instead of
+    -- 10 times a second -- every branch here is edge-triggered against
+    -- mapWatch, so cadence doesn't change what fires. Do NOT convert this to
+    -- a WorldMapFrame hook (HS-081): hooks run inside Blizzard's secure
+    -- map-open path and taint execution.
     local function MapWatchTick(shown, mapID, maximized)
         if shown and not mapWatch.shown then
             -- Map just opened (was: WorldMapFrame OnShow hook). No C_Timer.After(0)
-            -- wrapper -- the ticker already runs after the secure path; ShowPanel ->
-            -- ApplyDockedIntegration keeps its own one-frame border/inset defer.
+            -- wrapper needed here -- DispatchMapWatch's own After(0) deferral already
+            -- runs this after the secure path; ShowPanel -> ApplyDockedIntegration
+            -- keeps its own one-frame border/inset defer.
             if not isPoppedOut and not maximized
                     and HA.Addon and HA.Addon.db
                     and HA.Addon.db.profile.vendorTracer.showMapSidePanel then
@@ -4669,9 +4704,10 @@ function MapSidePanel:Initialize()
     local WorldMapProvider = HA.HomesteadWorldMapProvider
     if WorldMapProvider then
         WorldMapProvider:RegisterMapWatchCallback("MapSidePanel", MapWatchTick)
-        -- Idempotent (no-op if VendorMapPins:Initialize already started the
-        -- ticker) -- ensures the shared watcher runs even if init order ever
-        -- changes, since MapSidePanel:Initialize() currently runs first.
+        -- Idempotent (no-op if VendorMapPins:Initialize already registered
+        -- the data provider) -- ensures registration happens even if init
+        -- order ever changes, since MapSidePanel:Initialize() currently runs
+        -- first.
         WorldMapProvider:EnsureRegistered()
     end
 

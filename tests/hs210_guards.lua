@@ -1,4 +1,4 @@
--- luacheck: globals assert loadfile print io time os loadstring C_Timer MapSidePanel
+-- luacheck: globals assert loadfile print io time os loadstring C_Timer MapSidePanel Enum
 
 local root = (... or "."):gsub("\\\\", "/"):gsub("/+$", "")
 
@@ -13,6 +13,20 @@ time = function()
     fakeClock = fakeClock + 1
     return fakeClock
 end
+
+-- HS-249: ScanPersistence now separates decor from the wider housing item
+-- class, so it reads the subclass enum. WoW provides `Enum` as a bare global;
+-- this harness stubs only the members ScanPersistence actually indexes.
+Enum = {
+    ItemHousingSubclass = {
+        Decor = 0,
+        Dye = 1,
+        Room = 2,
+        RoomCustomization = 3,
+        ExteriorCustomization = 4,
+        ServiceItem = 5,
+    },
+}
 
 -------------------------------------------------------------------------------
 -- HS-210 (M10b): an unconfirmed (laggy/partial) scan must not clobber a
@@ -50,6 +64,7 @@ local function MakeDecorItems(count)
             itemID = 4000 + i,
             name = "Test Decor " .. i,
             decorID = 5000 + i,
+            subclassID = Enum.ItemHousingSubclass.Decor,
             price = 100,
             merchantSlot = i,
         }
@@ -64,7 +79,7 @@ ScanHA.ScanPersistence:SaveVendorData({
     mapID = 1,
     coords = { x = 0.5, y = 0.5 },
     faction = "Neutral",
-    decorItems = MakeDecorItems(3),
+    housingItems = MakeDecorItems(3),
     scanComplete = true,
     hadNilSlots = false,
 })
@@ -84,7 +99,7 @@ ScanHA.ScanPersistence:SaveVendorData({
     mapID = 1,
     coords = { x = 0.5, y = 0.5 },
     faction = "Neutral",
-    decorItems = MakeDecorItems(1),
+    housingItems = MakeDecorItems(1),
     scanComplete = true,
     hadNilSlots = true, -- unconfirmed
 })
@@ -111,7 +126,7 @@ ScanHA.ScanPersistence:SaveVendorData({
     mapID = 1,
     coords = { x = 0.5, y = 0.5 },
     faction = "Neutral",
-    decorItems = MakeDecorItems(1),
+    housingItems = MakeDecorItems(1),
     scanComplete = true,
     hadNilSlots = false, -- confirmed
 })
@@ -122,6 +137,365 @@ assert(#afterConfirmedScan.items == 1,
     "a confirmed scan with fewer items must replace the existing record")
 
 print("hs210_guards: M10b partial-scan-does-not-clobber ok")
+
+-------------------------------------------------------------------------------
+-- HS-249 (Argus cycle 1 CRITICAL): the same protection must hold for records
+-- written BEFORE the housing gate existed. Those carry decorCount/hasDecor and
+-- no housingCount, so a guard reading `existingData.housingCount or 0` degrades
+-- to `0 > n` — never true — and the first laggy rescan after an update destroys
+-- a record it was supposed to defend. That is every existing user's saved data,
+-- not an edge case.
+--
+-- The fixture below is seeded DIRECTLY into the DB in the legacy shape rather
+-- than through SaveVendorData, which is the whole point: every other fixture in
+-- this file builds its baseline with current code, so `housingCount` is always
+-- present and the legacy path is never exercised. That gap is what let the bug
+-- through Gate 1 cycle 1.
+-------------------------------------------------------------------------------
+
+local function MakeLegacyItems(count)
+    local items = {}
+    for i = 1, count do
+        items[i] = {
+            itemID = 4000 + i,
+            name = "Legacy Decor " .. i,
+            decorID = 5000 + i,
+            -- No subclassID: pre-HS-249 records predate the field entirely.
+            price = 100,
+            merchantSlot = i,
+        }
+    end
+    return items
+end
+
+ScanHA.Addon.db.global.scannedVendors[8002] = {
+    npcID = 8002,
+    vendorName = "Legacy Vendor",
+    mapID = 1,
+    coords = { x = 0.5, y = 0.5 },
+    faction = "Neutral",
+    items = MakeLegacyItems(10),
+    decorCount = 10,
+    hasDecor = true,
+    itemCount = 10,
+    lastScanned = 500,
+    scanConfidence = "confirmed",
+    -- housingCount / hasHousing deliberately absent — the legacy shape.
+}
+
+ScanHA.ScanPersistence:SaveVendorData({
+    npcID = 8002,
+    vendorName = "Legacy Vendor",
+    mapID = 1,
+    coords = { x = 0.5, y = 0.5 },
+    faction = "Neutral",
+    housingItems = MakeDecorItems(2), -- laggy scan saw 2 of the 10
+    scanComplete = true,
+    hadNilSlots = true,               -- unconfirmed
+})
+
+local afterLegacyPartial = ScanHA.Addon.db.global.scannedVendors[8002]
+assert(afterLegacyPartial ~= nil,
+    "a pre-HS-249 record must survive an unconfirmed partial rescan")
+assert(#afterLegacyPartial.items == 10,
+    "an unconfirmed scan finding 2 items must not clobber a legacy 10-item record")
+assert(afterLegacyPartial.lastScanned == 500,
+    "a rejected scan must not re-date a legacy record's lastScanned")
+assert(afterLegacyPartial.lastScanAttempt ~= nil,
+    "the rejected attempt must still be recorded on the legacy record")
+
+print("hs210_guards: HS-249 legacy-record partial-scan protection ok")
+
+-------------------------------------------------------------------------------
+-- HS-251 Stage C: the guard above only ever compared the AGGREGATE
+-- housingCount. A laggy rescan that loses items
+-- from one subclass while gaining items in another can have the same total
+-- and slip straight past that check, silently corrupting decorCount even
+-- though nothing about the vendor changed. subclassCounts + the per-subclass
+-- comparison in SubclassCountsRegressed close that gap.
+-------------------------------------------------------------------------------
+
+local function MakeMixedItems(decorCount, roomCount)
+    local items = {}
+    for i = 1, decorCount do
+        items[#items + 1] = {
+            itemID = 6000 + i,
+            name = "Mixed Decor " .. i,
+            decorID = 7000 + i,
+            subclassID = Enum.ItemHousingSubclass.Decor,
+            price = 100,
+            merchantSlot = #items + 1,
+        }
+    end
+    for i = 1, roomCount do
+        items[#items + 1] = {
+            itemID = 6100 + i,
+            name = "Mixed Room Plan " .. i,
+            subclassID = Enum.ItemHousingSubclass.Room,
+            price = 50,
+            merchantSlot = #items + 1,
+        }
+    end
+    return items
+end
+
+-- Case 1 (the must-fail-without-fix case): existing record has 5 Decor, 0
+-- Room = 5 housing total, modern shape with subclassCounts. An unconfirmed
+-- rescan finds 3 Decor + 2 Room = 5 housing total — same aggregate, but 2
+-- decor rows were lost and 2 room-plan rows scanned fine in their place.
+-- Against aggregate-only comparison this passes (5 > 5 is false) and the
+-- record gets silently corrupted; the per-subclass check must catch it.
+ScanHA.Addon.db.global.scannedVendors[8004] = {
+    npcID = 8004,
+    vendorName = "Mixed Vendor",
+    mapID = 1,
+    coords = { x = 0.5, y = 0.5 },
+    faction = "Neutral",
+    items = MakeMixedItems(5, 0),
+    decorCount = 5,
+    hasDecor = true,
+    housingCount = 5,
+    hasHousing = true,
+    subclassCounts = { [Enum.ItemHousingSubclass.Decor] = 5 },
+    itemCount = 5,
+    lastScanned = 700,
+    scanConfidence = "confirmed",
+}
+
+ScanHA.ScanPersistence:SaveVendorData({
+    npcID = 8004,
+    vendorName = "Mixed Vendor",
+    mapID = 1,
+    coords = { x = 0.5, y = 0.5 },
+    faction = "Neutral",
+    housingItems = MakeMixedItems(3, 2),
+    scanComplete = true,
+    hadNilSlots = true, -- unconfirmed
+})
+
+local afterMixedPartial = ScanHA.Addon.db.global.scannedVendors[8004]
+assert(afterMixedPartial ~= nil, "the mixed-subclass record must survive an unconfirmed rescan")
+assert(afterMixedPartial.decorCount == 5,
+    "same-total-different-mix must be caught: decorCount must stay 5, not drop to 3")
+assert(afterMixedPartial.subclassCounts[Enum.ItemHousingSubclass.Decor] == 5,
+    "subclassCounts must be unchanged when the guard fires")
+assert(afterMixedPartial.subclassCounts[Enum.ItemHousingSubclass.Room] == nil,
+    "no Room key should appear on a preserved record that never had one")
+assert(afterMixedPartial.lastScanned == 700,
+    "a rejected same-total-different-mix scan must not re-date the preserved record")
+assert(afterMixedPartial.lastScanAttempt ~= nil,
+    "the rejected attempt must still be recorded on lastScanAttempt")
+
+print("hs210_guards: HS-251 per-subclass guard catches same-total-different-mix ok")
+
+-- Case 2: legacy shape (only decorCount — pre-housing-gate). Same
+-- same-total-different-mix rescan. Exercises the full fallback chain:
+-- decorCount -> existingHousingCount -> synthesized {[Decor]=N}.
+ScanHA.Addon.db.global.scannedVendors[8005] = {
+    npcID = 8005,
+    vendorName = "Pre-Gate Vendor",
+    mapID = 1,
+    coords = { x = 0.5, y = 0.5 },
+    faction = "Neutral",
+    items = MakeMixedItems(5, 0),
+    decorCount = 5,
+    hasDecor = true,
+    itemCount = 5,
+    lastScanned = 800,
+    scanConfidence = "confirmed",
+    -- housingCount / subclassCounts deliberately absent — the oldest shape.
+}
+
+ScanHA.ScanPersistence:SaveVendorData({
+    npcID = 8005,
+    vendorName = "Pre-Gate Vendor",
+    mapID = 1,
+    coords = { x = 0.5, y = 0.5 },
+    faction = "Neutral",
+    housingItems = MakeMixedItems(3, 2),
+    scanComplete = true,
+    hadNilSlots = true,
+})
+
+local afterPreGatePartial = ScanHA.Addon.db.global.scannedVendors[8005]
+assert(afterPreGatePartial.decorCount == 5,
+    "pre-housing-gate legacy shape must still be protected via the synthesized subclassCounts fallback")
+
+print("hs210_guards: HS-251 per-subclass guard protects pre-housing-gate legacy shape ok")
+
+-- Case 3: aggregate-era shape (decorCount + housingCount, no subclassCounts).
+-- Distinct from case 2: exercises housingCount-present-but-no-breakdown.
+ScanHA.Addon.db.global.scannedVendors[8006] = {
+    npcID = 8006,
+    vendorName = "Aggregate-Era Vendor",
+    mapID = 1,
+    coords = { x = 0.5, y = 0.5 },
+    faction = "Neutral",
+    items = MakeMixedItems(5, 0),
+    decorCount = 5,
+    hasDecor = true,
+    housingCount = 5,
+    hasHousing = true,
+    itemCount = 5,
+    lastScanned = 900,
+    scanConfidence = "confirmed",
+    -- subclassCounts deliberately absent.
+}
+
+ScanHA.ScanPersistence:SaveVendorData({
+    npcID = 8006,
+    vendorName = "Aggregate-Era Vendor",
+    mapID = 1,
+    coords = { x = 0.5, y = 0.5 },
+    faction = "Neutral",
+    housingItems = MakeMixedItems(3, 2),
+    scanComplete = true,
+    hadNilSlots = true,
+})
+
+local afterAggregateEraPartial = ScanHA.Addon.db.global.scannedVendors[8006]
+assert(afterAggregateEraPartial.decorCount == 5,
+    "aggregate-era shape (housingCount present, no subclassCounts) must still be protected")
+
+print("hs210_guards: HS-251 per-subclass guard protects aggregate-era legacy shape ok")
+
+-- Case 4: a CONFIRMED scan with the same same-total-different-mix must still
+-- replace — it's real data, not a lag artifact. Proves the fix doesn't
+-- over-block, and that a legacy/modern record self-heals with full
+-- subclassCounts on the first confirmed scan.
+ScanHA.Addon.db.global.scannedVendors[8007] = {
+    npcID = 8007,
+    vendorName = "Self-Heal Vendor",
+    mapID = 1,
+    coords = { x = 0.5, y = 0.5 },
+    faction = "Neutral",
+    items = MakeMixedItems(5, 0),
+    decorCount = 5,
+    hasDecor = true,
+    housingCount = 5,
+    hasHousing = true,
+    subclassCounts = { [Enum.ItemHousingSubclass.Decor] = 5 },
+    itemCount = 5,
+    lastScanned = 1000,
+    scanConfidence = "confirmed",
+}
+
+ScanHA.ScanPersistence:SaveVendorData({
+    npcID = 8007,
+    vendorName = "Self-Heal Vendor",
+    mapID = 1,
+    coords = { x = 0.5, y = 0.5 },
+    faction = "Neutral",
+    housingItems = MakeMixedItems(3, 2),
+    scanComplete = true,
+    hadNilSlots = false, -- confirmed
+})
+
+local afterConfirmedMix = ScanHA.Addon.db.global.scannedVendors[8007]
+assert(afterConfirmedMix.decorCount == 3, "a confirmed same-total-different-mix scan must replace the record")
+assert(afterConfirmedMix.housingCount == 5)
+assert(afterConfirmedMix.subclassCounts[Enum.ItemHousingSubclass.Decor] == 3
+    and afterConfirmedMix.subclassCounts[Enum.ItemHousingSubclass.Room] == 2,
+    "a confirmed scan must write the full per-subclass breakdown")
+
+print("hs210_guards: HS-251 confirmed same-total-different-mix scan self-heals ok")
+
+-- Case 5: unconfirmed GROWTH must be accepted, not treated as a regression —
+-- a subclass appearing for the first time is not data loss. Pins the
+-- sparse-iteration semantics in SubclassCountsRegressed (only existing keys
+-- are compared).
+ScanHA.Addon.db.global.scannedVendors[8008] = {
+    npcID = 8008,
+    vendorName = "Growth Vendor",
+    mapID = 1,
+    coords = { x = 0.5, y = 0.5 },
+    faction = "Neutral",
+    items = MakeMixedItems(5, 0),
+    decorCount = 5,
+    hasDecor = true,
+    housingCount = 5,
+    hasHousing = true,
+    subclassCounts = { [Enum.ItemHousingSubclass.Decor] = 5 },
+    itemCount = 5,
+    lastScanned = 1100,
+    scanConfidence = "confirmed",
+}
+
+ScanHA.ScanPersistence:SaveVendorData({
+    npcID = 8008,
+    vendorName = "Growth Vendor",
+    mapID = 1,
+    coords = { x = 0.5, y = 0.5 },
+    faction = "Neutral",
+    housingItems = MakeMixedItems(5, 1), -- same 5 decor, PLUS a new room plan
+    scanComplete = true,
+    hadNilSlots = true, -- unconfirmed
+})
+
+local afterGrowth = ScanHA.Addon.db.global.scannedVendors[8008]
+assert(afterGrowth.decorCount == 5 and afterGrowth.housingCount == 6,
+    "an unconfirmed scan that only ADDS a new subclass must be accepted, not rejected as a regression")
+assert(afterGrowth.subclassCounts[Enum.ItemHousingSubclass.Decor] == 5
+    and afterGrowth.subclassCounts[Enum.ItemHousingSubclass.Room] == 1)
+
+print("hs210_guards: HS-251 unconfirmed growth in a new subclass is accepted ok")
+
+-------------------------------------------------------------------------------
+-- HS-249 (Argus cycle 1): a cold housing catalog must not strip decorIDs off
+-- a good record. decorID now comes from an enrichment step rather than from
+-- the capture test, so a decor item scanned while the catalog is cold is still
+-- captured but carries no decorID. The housing counts then match, the
+-- partial-scan guard above does not fire, and the good rows would be replaced
+-- by rows that lost their decorID — a decor-side regression, which is exactly
+-- the invariant this phase must not break.
+-------------------------------------------------------------------------------
+
+ScanHA.Addon.db.global.scannedVendors[8003] = {
+    npcID = 8003,
+    vendorName = "Cold Catalog Vendor",
+    mapID = 1,
+    coords = { x = 0.5, y = 0.5 },
+    faction = "Neutral",
+    items = {
+        { itemID = 4001, name = "Decor 1", decorID = 5001, subclassID = 0 },
+        { itemID = 4002, name = "Decor 2", decorID = 5002, subclassID = 0 },
+    },
+    decorCount = 2,
+    hasDecor = true,
+    housingCount = 2,
+    hasHousing = true,
+    itemCount = 2,
+    lastScanned = 600,
+    scanConfidence = "confirmed",
+}
+
+-- Same two items, confirmed scan, but the catalog was cold so neither resolved
+-- a decorID. Counts are equal, so nothing upstream rejects this scan.
+ScanHA.ScanPersistence:SaveVendorData({
+    npcID = 8003,
+    vendorName = "Cold Catalog Vendor",
+    mapID = 1,
+    coords = { x = 0.5, y = 0.5 },
+    faction = "Neutral",
+    housingItems = {
+        { itemID = 4001, name = "Decor 1", decorID = nil, subclassID = 0, merchantSlot = 1 },
+        { itemID = 4002, name = "Decor 2", decorID = nil, subclassID = 0, merchantSlot = 2 },
+    },
+    scanComplete = true,
+    hadNilSlots = false,
+})
+
+local afterColdScan = ScanHA.Addon.db.global.scannedVendors[8003]
+assert(afterColdScan ~= nil, "the cold-catalog rescan must still persist")
+assert(#afterColdScan.items == 2, "expected both items after the rescan")
+for _, item in ipairs(afterColdScan.items) do
+    assert(item.decorID ~= nil,
+        "a cold-catalog rescan must not strip the decorID off a known decor item")
+end
+assert(afterColdScan.items[1].decorID == 5001 and afterColdScan.items[2].decorID == 5002,
+    "the preserved decorIDs must match the ones already on record")
+
+print("hs210_guards: HS-249 cold-catalog decorID preservation ok")
 
 -------------------------------------------------------------------------------
 -- HS-210 (M9): the preview click's GetCatalogEntryInfoByItem call is now

@@ -64,6 +64,17 @@ local identityNegativeCacheGen = -1
 -- is trustworthy at any temperature and never revoked, so no generation bust.
 local identityPositiveCache = {}
 
+-- HS-249: session memo for GetHousingSubclass. An item's class/subclass is a
+-- fixed property of the item record, so unlike the identity caches above this
+-- one needs no generation bust — a resolved verdict is never revised.
+-- One table rather than the positive/negative pair used above, because both
+-- verdicts are equally permanent and there is no negative to expire: values
+-- are the subclass number, or false for "resolved, not a housing item".
+-- An unresolved probe (GetItemInfoInstant's documented MayReturnNothing) is
+-- deliberately NOT memoized, so a malformed itemID re-probes instead of
+-- freezing a non-answer for the session.
+local housingSubclassCache = {}
+
 -------------------------------------------------------------------------------
 -- Internal: Table Merge (no events, no side effects beyond storage)
 -------------------------------------------------------------------------------
@@ -374,6 +385,65 @@ function CatalogStore:IsDecorItem(itemLink)
     end
 
     return false
+end
+
+-- HS-249: which housing subclass an item belongs to, or nil if it is not a
+-- housing-class item at all. Reads classID/subClassID as the 6th and 7th
+-- returns of C_Item.GetItemInfoInstant — the same call Blizzard's own
+-- MerchantFrame.lua uses to classify a merchant row. It is synchronous and
+-- needs no server query, so it is safe on render paths, but it is documented
+-- MayReturnNothing: a malformed itemID yields no values at all, which lands
+-- here as a nil classID. That is treated as "unknown, not housing" (nil), and
+-- is not memoized.
+--
+-- Memoized because the badge recount loops call this per item per recount —
+-- the same hot path HS-234's prewarm exists to defend.
+function CatalogStore:GetHousingSubclass(itemID)
+    if not itemID then return nil end
+
+    local cached = housingSubclassCache[itemID]
+    if cached ~= nil then
+        return cached or nil
+    end
+
+    if not (C_Item and C_Item.GetItemInfoInstant) then return nil end
+
+    local _, _, _, _, _, classID, subClassID = C_Item.GetItemInfoInstant(itemID)
+    if classID == nil then
+        return nil
+    end
+
+    if classID ~= Enum.ItemClass.Housing or subClassID == nil then
+        housingSubclassCache[itemID] = false
+        return nil
+    end
+
+    housingSubclassCache[itemID] = subClassID
+    return subClassID
+end
+
+-- HS-249: true when this item is a housing item whose ownership Homestead
+-- cannot yet resolve. Only ItemHousingSubclass.Decor maps to a housing catalog
+-- entry, so every other housing subclass (Dye, Room, RoomCustomization,
+-- ExteriorCustomization, ServiceItem) falls through IsOwned's hard `false` and
+-- would be counted as "not owned" — a badge telling the player to buy a room
+-- they already own. Such items must be left out of ownership-derived counts
+-- entirely rather than defaulted to unowned.
+--
+-- Everything else — decor, and any non-housing item — answers false, so the
+-- existing counts are unchanged. Phase 2 resolves itemID → recordID for the
+-- other subclasses and this predicate goes away with it.
+function CatalogStore:IsOwnershipUnknowable(itemID)
+    local subclassID = self:GetHousingSubclass(itemID)
+    if subclassID == nil then return false end
+
+    -- Guarded, unlike the bare Enum reads elsewhere: a nil here would make
+    -- every decor item compare unequal and exclude the entire catalog, and it
+    -- would do so silently rather than erroring.
+    local decorSubclassID = Enum.ItemHousingSubclass and Enum.ItemHousingSubclass.Decor
+    if decorSubclassID == nil then return false end
+
+    return subclassID ~= decorSubclassID
 end
 
 -- Raw record access (no allocation, direct table reference)
@@ -866,6 +936,31 @@ function CatalogStore:Initialize()
             ownedCount, "owned,", indexSize, "decorID mappings (" .. staticCount .. " static),",
             "schema v" .. (HA.Addon.db.global.schemaVersion or 1))
     end
+end
+
+-- HS-273 R3 (predicate corrected at Gate 1 closure): whether the persistent
+-- cache holds an OWNERSHIP SIGNAL worth computing badge stats from. Record
+-- presence is not that signal: a cold full scan writes name-only records for
+-- every item ("Checked: 1624 Owned: 0", HS-216), and the /hs clear-ownership
+-- command empties isOwned on every record while leaving the records in
+-- place — under a mere next(ci) check both states let a prewarm confidently
+-- cache "0 owned" everywhere for a player who owns plenty. ownedCount > 0 is
+-- the O(1) truth the counters already maintain. The escape hatch admits the
+-- one other state where a zero is CONFIRMED true rather than unknown:
+-- storage answered this session AND the live total was zero (a genuine
+-- zero-decor player — HasStorageResponded true, IsWarm false, since IsWarm's
+-- latch needs total > 0). A decor owner mid-first-scan is the opposite shape
+-- (IsWarm true, ownedCount still 0) and stays gated to the honest "..."
+-- until the scan records ownership. Not "IsWarm or" — that polarity is
+-- unreachable for the zero-decor player and opens exactly the wrong window
+-- (Argus Gate 1 closure finding).
+function CatalogStore:HasPersistedData()
+    if ci == nil then return false end
+    if ownedCount > 0 then return true end
+    local scanner = HA.CatalogScanner
+    return scanner ~= nil
+        and scanner.HasStorageResponded ~= nil and scanner:HasStorageResponded() == true
+        and scanner.IsWarm ~= nil and not scanner:IsWarm()
 end
 
 -------------------------------------------------------------------------------

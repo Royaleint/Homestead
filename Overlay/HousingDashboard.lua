@@ -66,7 +66,7 @@ local function HideOverlayTexts()
     if ownershipText then ownershipText:Hide() end
 end
 
-local function UpdateMilestoneDisplay()
+local function UpdateMilestoneDisplayImpl()
     if not HA.Addon or not HA.Addon.db then return end
     if not HA.Addon.db.profile.endeavors or not HA.Addon.db.profile.endeavors.showMilestoneXP then
         HideOverlayTexts()
@@ -114,27 +114,49 @@ local function UpdateMilestoneDisplay()
     local vendor = vendorNPC and HA.EndeavorsData.Vendors[vendorNPC]
     if vendor and HA.VendorData and HA.VendorData.GetItemsForVendor then
         local vendorItems = HA.VendorData:GetItemsForVendor(vendor)
-        local total = #vendorItems
+        -- HS-249: this line derives its own counts rather than reading
+        -- BadgeCalculation, so it needs its own exclusion guard. Housing items
+        -- outside the Decor subclass have no resolvable ownership yet, and
+        -- would otherwise sit permanently in the denominator as unowned.
+        -- total is counted rather than taken from #vendorItems for that
+        -- reason; with nothing excluded the two are the same number.
+        local total = 0
         local owned = 0
+        local CS = HA.CatalogStore
         for _, item in ipairs(vendorItems) do
             local itemID = HA.VendorData:GetItemID(item)
-            local isOwned = false
-            if itemID and HA.SourceManager and HA.SourceManager.GetItemPresentation then
-                local presentation = HA.SourceManager:GetItemPresentation(itemID, {
-                    context = "housingDashboard",
-                    readOnlyOwnership = true,
-                })
-                isOwned = presentation and presentation.isOwned == true
-            elseif itemID and HA.CatalogStore then
-                isOwned = HA.CatalogStore:IsOwnedFresh(itemID, true) == true
+            local ownershipExcluded = itemID and CS and CS.IsOwnershipUnknowable
+                and CS:IsOwnershipUnknowable(itemID)
+            if not ownershipExcluded then
+                total = total + 1
+
+                local isOwned = false
+                if itemID and HA.SourceManager and HA.SourceManager.GetItemPresentation then
+                    local presentation = HA.SourceManager:GetItemPresentation(itemID, {
+                        context = "housingDashboard",
+                        readOnlyOwnership = true,
+                    })
+                    isOwned = presentation and presentation.isOwned == true
+                elseif itemID and CS then
+                    isOwned = CS:IsOwnedFresh(itemID, true) == true
+                end
+                if isOwned then owned = owned + 1 end
             end
-            if isOwned then owned = owned + 1 end
         end
         ownershipText:SetFormattedText("%s: %d / %d items owned", vendor.name, owned, total)
         ownershipText:Show()
     else
         if ownershipText then ownershipText:Hide() end
     end
+end
+
+-- HS-239 boundary: the whole dashboard overlay update pass -- every caller
+-- below routes through here. Workload is the literal "update"; the active theme
+-- is only resolved deep inside the body, so naming it here would mean an extra
+-- lookup added purely to feed this call. The body goes in by reference rather
+-- than through a closure, so an update allocates nothing.
+local function UpdateMilestoneDisplay()
+    return HA.PerformanceTrace:Measure("dashboard_overlay_update", "update", UpdateMilestoneDisplayImpl)
 end
 
 -------------------------------------------------------------------------------

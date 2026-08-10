@@ -239,6 +239,9 @@ function HousingAddon:OnInitialize()
                 HA.SourceTextParser:RunTests()
             end
         end })
+    cmd:Register({ name = "debug memallsources", args = "[full]",
+        help = "Report allSourcesCache size/memory (HS-279). 'full' forces a full-corpus warm to isolate its cost.",
+        handler = function(rest) self:DebugMemAllSourcesReport(rest == "full") end })
 
     self.commands = cmd
 
@@ -614,6 +617,141 @@ function HousingAddon:ClearOwnershipCache()
     else
         self:Print("CatalogStore unavailable — cannot clear ownership cache.")
     end
+end
+
+-- HS-279: dev diagnostic for allSourcesCache's memory footprint. Snapshot-only
+-- by default (safe, non-destructive); 'full' additionally forces a
+-- full-corpus warm bracketed by _G.collectgarbage("collect") +
+-- GetAddOnMemoryUsage so the isolated cost of a fully-populated cache is
+-- measurable, not guessed -- this feeds HS-279's eviction threshold, it
+-- doesn't implement one itself.
+-- addonName (the file-scope TOC vararg) is used instead of a literal
+-- "Homestead" so this reads correctly under Homestead_DevBuild, the target
+-- this diagnostic is actually run against. (VendorMapPins.lua:218's
+-- WorldMapPerf debug log hardcodes "Homestead" instead -- a separate,
+-- pre-existing quirk, out of scope here.)
+function HousingAddon:DebugMemAllSourcesReport(full)
+    if not (_G.UpdateAddOnMemoryUsage and _G.GetAddOnMemoryUsage) then
+        self:Print("Memory API unavailable on this client.")
+        return
+    end
+    if not HA.SourceManager or not HA.SourceManager.GetSourcesMemoEntryCount then
+        self:Print("SourceManager unavailable.")
+        return
+    end
+
+    local output = {}
+    table.insert(output, "=== Homestead allSourcesCache Diagnostics (HS-279) ===")
+    table.insert(output, "")
+
+    _G.collectgarbage("collect")
+    _G.UpdateAddOnMemoryUsage()
+    local organicCount = HA.SourceManager:GetSourcesMemoEntryCount()
+    local organicKB = _G.GetAddOnMemoryUsage(addonName) or 0
+    table.insert(output, format("Current (organic) state: %d entries, %.1f KB total addon memory.",
+        organicCount, organicKB))
+
+    if not full then
+        table.insert(output, "")
+        table.insert(output, "Run '/hs debug memallsources full' to force a full-corpus warm and")
+        table.insert(output, "isolate this cache's own memory cost. Slower (walks every vendor's")
+        table.insert(output, "full item list and forces two full GC passes -- a deliberate one-time")
+        table.insert(output, "cost for a dev diagnostic, not something to run casually mid-play) and")
+        table.insert(output, "briefly wipes/rebuilds the cache -- safe, it's a pure memo.")
+        self:ShowCopyableText(table.concat(output, "\n"))
+        return
+    end
+
+    if not HA.VendorData or not HA.VendorData.GetAllVendors or not HA.VendorData.GetMergedItemSet then
+        table.insert(output, "")
+        table.insert(output, "VendorData unavailable -- cannot enumerate the item corpus for a full warm.")
+        self:ShowCopyableText(table.concat(output, "\n"))
+        return
+    end
+
+    -- Enumerate every distinct itemID GetAllSources' registered providers can
+    -- be asked about (Data/SourceManager.lua RegisterDefaultProviders) --
+    -- vendor items, plus the six static per-itemID source tables the other
+    -- providers read directly (quest/achievement/profession/event/drop/shop).
+    -- Argus HS-279 review: a vendor-only corpus understates the memo's true
+    -- organic ceiling, since tooltips/badges query GetAllSources for these
+    -- non-vendor items too -- the eviction threshold this diagnostic feeds
+    -- needs the real ceiling, not a partial one.
+    local seen = {}
+    local corpus = {}
+    local function addToCorpus(itemID)
+        if itemID and not seen[itemID] then
+            seen[itemID] = true
+            corpus[#corpus + 1] = itemID
+        end
+    end
+
+    local allVendors = HA.VendorData:GetAllVendors()
+    for _, vendor in ipairs(allVendors) do
+        local _, orderedItemIDs = HA.VendorData:GetMergedItemSet(vendor, true)
+        for _, itemID in ipairs(orderedItemIDs or {}) do
+            addToCorpus(itemID)
+        end
+    end
+
+    local staticSourceTables = {
+        HA.QuestSources, HA.AchievementSources, HA.ProfessionSources,
+        HA.EventSources, HA.DropSources, HA.ShopSources,
+    }
+    for _, sourceTable in ipairs(staticSourceTables) do
+        if sourceTable then
+            for itemID in pairs(sourceTable) do
+                addToCorpus(itemID)
+            end
+        end
+    end
+
+    -- Not included: parsed sourceText discovery (HA.SourceTextScanner),
+    -- which is opt-in (useParsedSources, default false) and has no static
+    -- table to enumerate -- HS-273 R7 already documents this as a deferred
+    -- edge, not something this diagnostic can cheaply close. The reported
+    -- ceiling below is real but not exhaustive when that setting is on.
+
+    -- Isolate the cache's own cost: wipe, measure a clean baseline, force a
+    -- full warm, measure again. The delta is this cache's memory alone, not
+    -- the addon's whole baseline (which includes everything else Homestead
+    -- holds — SavedVariables tables, other caches, UI frames, etc).
+    HA.SourceManager:InvalidateSourcesMemo()
+    _G.collectgarbage("collect")
+    _G.UpdateAddOnMemoryUsage()
+    local emptyKB = _G.GetAddOnMemoryUsage(addonName) or 0
+
+    for _, itemID in ipairs(corpus) do
+        HA.SourceManager:GetAllSources(itemID)
+    end
+
+    _G.collectgarbage("collect")
+    _G.UpdateAddOnMemoryUsage()
+    local fullCount = HA.SourceManager:GetSourcesMemoEntryCount()
+    local fullKB = _G.GetAddOnMemoryUsage(addonName) or 0
+    local isolatedKB = fullKB - emptyKB
+    local perEntryBytes = fullCount > 0 and (isolatedKB * 1024 / fullCount) or 0
+
+    table.insert(output, "")
+    table.insert(output, "Corpus size (distinct itemIDs: vendors + quest/achievement/")
+    table.insert(output, format("profession/event/drop/shop sources): %d", #corpus))
+    table.insert(output, format("Fully-warmed cache: %d entries.", fullCount))
+    table.insert(output, format("Empty-cache baseline: %.1f KB total addon memory.", emptyKB))
+    table.insert(output, format("Fully-warmed: %.1f KB total addon memory.", fullKB))
+    table.insert(output, format("Isolated cache cost: %.1f KB (%.0f bytes/entry average).",
+        isolatedKB, perEntryBytes))
+    table.insert(output, "")
+    table.insert(output, "Note: excludes parsed sourceText discovery (off by default via")
+    table.insert(output, "useParsedSources) -- the real ceiling is higher than this if that")
+    table.insert(output, "setting is enabled. Also: the organic ceiling is bounded by catalog")
+    table.insert(output, "size, not this corpus size -- a decor item with no known source still")
+    table.insert(output, "caches an empty entry when hovered, so real max entries can run slightly")
+    table.insert(output, "above this number (Sage HS-279 review).")
+    table.insert(output, "")
+    table.insert(output, "Cache has been left fully warmed (safe -- it's a pure memo, identical")
+    table.insert(output, "to normal play state after enough vendors have been visited).")
+
+    self:ShowCopyableText(table.concat(output, "\n"))
 end
 
 -- Show scanned vendor data

@@ -19,9 +19,17 @@
     15 frames in a fixed pool, recycled/virtualized on scroll.
 
     Hooking strategy: Blizzard's catalog scroll does NOT fire OnShow on
-    entry frames — it repositions them and swaps .entryInfo directly.
-    We use a throttled OnUpdate on the dashboard to re-evaluate overlays
-    at 5Hz. The overlayCache makes cache hits (same itemID) near-free.
+    entry frames — it repositions them and swaps .entryInfo directly. We
+    drive overlay updates off ScrollBoxListViewMixin.Event.OnInitializedFrame,
+    registered on every ScrollBox view discovered under the dashboard
+    (scrollBoxFrame:GetView():RegisterCallback(...)). Blizzard fires this
+    exactly when a pooled entry frame is (re)bound to elementData, which
+    covers both scroll-driven recycling and initial per-tab population —
+    verified in-game 2026-08-06 (0 fires idle, proportional counts on
+    partial scrolls, 1742 on a full fast scroll, exactly 15 on initial
+    catalog open, no BugSack taint). This replaced a throttled 5Hz OnUpdate
+    poll that walked the tree every tick. The overlayCache makes cache hits
+    (same itemID) near-free.
 ]]
 
 local _, HA = ...
@@ -47,9 +55,6 @@ local GLOW_COLORS = {
     unobtainable = { 0.5, 0.5, 0.5, 0.6 },  -- gray: promotion-gated (HS-158/160), not a normal "blocked" state
 }
 
--- Throttle: how often (seconds) to refresh overlays
-local REFRESH_INTERVAL = 0.2
-
 -- Per-frame result cache: entryFrame → {itemID, atlas or false, glowState or false}
 -- Stores resolved badge + glow so we skip GetSource on repeat evaluations.
 local overlayCache = setmetatable({}, { __mode = "k" })
@@ -61,9 +66,10 @@ local overlayCache = setmetatable({}, { __mode = "k" })
 -- what the frame's Show*/Hide*/ApplyOwnedStyle calls last actually rendered,
 -- INCLUDING the settings-driven effective outcome (showBadges/showGlow/
 -- ownedStyle can change the rendered result independent of the verdict). The
--- 5Hz OnUpdate driver re-evaluates every visible entry every tick even when
--- nothing changed; comparing against this signature lets it skip the
--- Show*/Hide*/SetVertexColor calls entirely when the outcome is identical.
+-- settings-driven repaint path (RefreshVisibleOverlays) re-evaluates every
+-- visible entry on every invalidation even when nothing changed; comparing
+-- against this signature lets it skip the Show*/Hide*/SetVertexColor calls
+-- entirely when the outcome is identical.
 local appliedState = setmetatable({}, { __mode = "k" })
 
 -- Per-frame badge texture references
@@ -75,27 +81,58 @@ local glowTextures = setmetatable({}, { __mode = "k" })
 -- Per-frame checkmark texture references
 local checkmarkTextures = setmetatable({}, { __mode = "k" })
 
--- Set of discovered entry frames (hooked for OnShow as bonus, but OnUpdate
--- is the primary driver). Keyed by frame reference.
+-- Set of catalog entry Button frames whose ScrollBox view has fired
+-- OnInitializedFrame for them at least once. The settings-driven repaint
+-- path (RefreshVisibleOverlays, wired to Overlay:RefreshAll) re-evaluates
+-- every frame in this set without re-walking the frame tree.
 local hookedFrames = setmetatable({}, { __mode = "k" })
 
--- OnUpdate elapsed accumulator
-local timeSinceRefresh = 0
 local dashboardVisible = false
+
+-- Forward declaration for UpdateEntryOverlay (referenced by the ScrollBox
+-- OnInitializedFrame handler below; defined later in Badge Display).
+local UpdateEntryOverlay
 
 -------------------------------------------------------------------------------
 -- Frame Discovery
 -------------------------------------------------------------------------------
 
--- Recursively search for entry Button frames with .entryInfo.
--- Hoisted to file scope to avoid closure allocation per tick.
+-- Owner token for ScrollBox callback registrations. CallbackRegistryMixin
+-- keys registrations by (event, func, owner); identity is all that matters
+-- here, there is no per-owner state to carry.
+local ScrollBoxCallbackOwner = {}
+
+-- Set of ScrollBox view objects (scrollBoxFrame:GetView()) we've already
+-- registered OnInitializedFrame on. Guards against double registration if
+-- the dashboard is shown more than once in a session.
+local registeredViews = setmetatable({}, { __mode = "k" })
+
+-- Fired by Blizzard's ScrollBoxListViewMixin whenever a pooled entry frame
+-- is (re)bound to elementData -- covers scroll-driven recycling AND initial
+-- per-tab population in one event. See the file header for the in-game
+-- verification that grounds this as the poll replacement.
+local function OnScrollBoxFrameInitialized(_owner, frame, _elementData)
+    if not frame then return end
+    hookedFrames[frame] = true
+    UpdateEntryOverlay(frame)
+end
+
+-- Recursively search for ScrollBox-like widgets (anything exposing
+-- :GetView()) and register the OnInitializedFrame callback on each view
+-- exactly once. Registers generically across every discovered ScrollBox
+-- (decor/room/bundle tabs, or whatever else Blizzard shows under the
+-- dashboard) rather than hardcoding to the decor grid.
 local function ProcessChildren(depth, ...)
     if depth > 6 then return end
     for i = 1, select("#", ...) do
         local child = select(i, ...)
-        if child.entryInfo and child:GetObjectType() == "Button"
-            and not hookedFrames[child] then
-            hookedFrames[child] = true
+        if type(child.GetView) == "function" then
+            local ok, view = pcall(child.GetView, child)
+            if ok and view and not registeredViews[view] then
+                registeredViews[view] = true
+                view:RegisterCallback(ScrollBoxListViewMixin.Event.OnInitializedFrame,
+                    OnScrollBoxFrameInitialized, ScrollBoxCallbackOwner)
+            end
         end
         ProcessChildren(depth + 1, child:GetChildren())
     end
@@ -105,9 +142,10 @@ local function SearchChildren(frame, depth)
     ProcessChildren(depth, frame:GetChildren())
 end
 
--- Scan for entry Button frames with .entryInfo and hook any we haven't seen.
--- Called periodically while the dashboard is shown.
-local function DiscoverEntryFrames()
+-- Scan for ScrollBox views under the dashboard and register any we haven't
+-- seen yet. Idempotent -- safe to call every time the dashboard is shown,
+-- which covers Blizzard lazily creating tab content between shows.
+local function DiscoverScrollBoxes()
     local dashboard = _G["HousingDashboardFrame"]
     if not dashboard then return end
     SearchChildren(dashboard, 1)
@@ -393,8 +431,9 @@ local function ApplyResolvedOverlay(entryFrame, itemID, atlas, glowState, showBa
 end
 
 -- Update source badge and accessibility glow on an entry frame.
--- Called from OnUpdate tick — must be fast on cache hit.
-local function UpdateEntryOverlay(entryFrame)
+-- Called from the ScrollBox OnInitializedFrame handler and from the
+-- settings-driven repaint path — must be fast on cache hit.
+UpdateEntryOverlay = function(entryFrame)
     local entryInfo = entryFrame.entryInfo
     if not entryInfo then return HideAllOverlays(entryFrame) end
 
@@ -460,7 +499,7 @@ end
 -- Cache Invalidation
 -------------------------------------------------------------------------------
 
--- Force all entry frames to re-evaluate on next tick.
+-- Force all entry frames to re-evaluate on next repaint.
 -- Called when ownership or source data changes. HS-223b: also wipes
 -- appliedState — belt-and-braces so a real change is never suppressed by a
 -- stale last-applied signature. (In practice appliedState's comparison is
@@ -476,46 +515,31 @@ local function InvalidateAllOverlays()
     wipe(appliedState)
 end
 
--- Re-evaluate all currently visible entry frames (after invalidation).
--- Skips work when the dashboard is not visible — OnUpdate will pick up
--- changes naturally when the player reopens the catalog.
-local function RefreshVisibleOverlays()
-    InvalidateAllOverlays()
-    if not dashboardVisible then return end
+-- Re-apply overlay state to every entry frame we've seen, skipping hidden
+-- ones. Shared by the invalidation path below (which wipes the caches
+-- first) and the dashboard OnShow catch-up pass (which doesn't need to —
+-- InvalidateAllOverlays already ran when the underlying change happened,
+-- even if the catalog was closed at the time; a frame that was never
+-- rebound by the ScrollBox while closed otherwise never repaints).
+local function RepaintKnownFrames()
     for entryFrame in pairs(hookedFrames) do
         if entryFrame:IsShown() then
             UpdateEntryOverlay(entryFrame)
         end
     end
+end
+
+-- Re-evaluate all currently visible entry frames (after invalidation).
+-- Skips the repaint pass when the dashboard is not visible — OnShow's
+-- RepaintKnownFrames call covers catching up once the player reopens it.
+local function RefreshVisibleOverlays()
+    InvalidateAllOverlays()
+    if not dashboardVisible then return end
+    RepaintKnownFrames()
 end
 
 local function RefreshAvailabilityOverlays()
     RefreshVisibleOverlays()
-end
-
--------------------------------------------------------------------------------
--- OnUpdate Driver
--------------------------------------------------------------------------------
-
--- Throttled update: discover frames and refresh overlays.
--- Runs at ~5Hz while the dashboard is shown.
--- Discovery runs every tick because Blizzard lazily creates/recycles
--- entry frames on scroll — limiting it to the first N ticks misses frames.
--- The tree walk is cheap (~15 Button children) and skips already-hooked frames.
-local function OnDashboardUpdate(_, elapsed)
-    timeSinceRefresh = timeSinceRefresh + elapsed
-    if timeSinceRefresh < REFRESH_INTERVAL then return end
-    timeSinceRefresh = 0
-
-    -- Discover any new entry frames (handles scroll-created frames)
-    DiscoverEntryFrames()
-
-    -- Refresh visible overlays (badges + glow)
-    for entryFrame in pairs(hookedFrames) do
-        if entryFrame:IsShown() then
-            UpdateEntryOverlay(entryFrame)
-        end
-    end
 end
 
 -------------------------------------------------------------------------------
@@ -526,18 +550,26 @@ local function OnHousingDashboardLoaded()
     local dashboard = _G["HousingDashboardFrame"]
     if not dashboard then return end
 
-    -- Track visibility to skip event-driven refreshes when catalog is closed
+    -- Track visibility so the settings-driven repaint path (RefreshVisible-
+    -- Overlays) skips work while the catalog is closed, and rescan for
+    -- ScrollBox views on every open — idempotent (registeredViews dedups),
+    -- covers Blizzard lazily creating tab content between shows.
     dashboard:HookScript("OnShow", function()
-        timeSinceRefresh = 0
         dashboardVisible = true
+        DiscoverScrollBoxes()
+        RepaintKnownFrames()
     end)
     dashboard:HookScript("OnHide", function()
         dashboardVisible = false
     end)
 
-    -- OnUpdate drives all overlay refreshes — fires every render frame,
-    -- throttled internally to REFRESH_INTERVAL.
-    dashboard:HookScript("OnUpdate", OnDashboardUpdate)
+    -- Guard the case where Blizzard_HousingDashboard finishes loading while
+    -- the dashboard is already shown (OnShow would otherwise never fire).
+    if dashboard:IsShown() then
+        dashboardVisible = true
+        DiscoverScrollBoxes()
+        RepaintKnownFrames()
+    end
 end
 
 -------------------------------------------------------------------------------

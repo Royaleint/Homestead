@@ -57,6 +57,12 @@ end
 -- hasUncollectedState stores true / false / "unknown".
 local vendorStatsCache = {}
 
+-- HS-278: bumped on every vendorStatsCache wipe/invalidation so the sliced
+-- prewarm item loop (below) can detect a mid-vendor invalidation and discard
+-- its in-progress accumulator instead of blending pre/post-invalidation item
+-- state into one cached result.
+local vendorStatsCacheGeneration = 0
+
 -- Cached badge counts (invalidated on ownership/scan/settings changes)
 -- Keyed by "continentMapID|sourceFilter" for zone badges, sourceFilter for continent badges.
 local cachedZoneBadges = {}
@@ -146,111 +152,137 @@ local UNKNOWN_VENDOR_STATS = {
     locked = 0,
     unverified = 0,
     unobtainable = 0,
+    excluded = 0,
     blockers = nil,
     total = 0,
 }
 
-local function BuildVendorStats(vendor, sourceFilter)
-    -- Keep a defensive guard here because badge hot paths read stats directly.
-    if not vendor or not vendor.npcID then
-        return UNKNOWN_VENDOR_STATS
+-- HS-249: is this item's ownership knowable at all? Every housing subclass
+-- except Decor resolves to no catalog entry, so its ownership reads as a hard
+-- false that says nothing about the player. Mirrors the isOwned resolution
+-- below, including the cache-only no-presentation fallback.
+local function IsOwnershipExcluded(itemID, presentation)
+    if presentation then
+        return presentation.isOwnershipExcluded == true
     end
-
-    -- Merge static + scanned items from shared VendorData helper.
-    -- Returned map is key-only: {[itemID] = true}. Values are intentionally unused.
-    local items = HA.VendorData and HA.VendorData.GetMergedItemSet
-        and HA.VendorData:GetMergedItemSet(vendor)
-        or {}
-
-    -- If we have no item data at all, status is "unknown" and counts are zero.
-    if next(items) == nil then
-        return UNKNOWN_VENDOR_STATS
+    if HA.CatalogStore and HA.CatalogStore.IsOwnershipUnknowable then
+        return HA.CatalogStore:IsOwnershipUnknowable(itemID) == true
     end
+    return false
+end
 
-    local hasMatchingItems = false
-    local total, collected, purchasable, locked = 0, 0, 0, 0
-    local unobtainable = 0
-    local provisionalUnverified = 0
-    local hasAnyVerifiableRequirements = false
-    local lockedBlockerCounts = {}
+-- HS-278: per-vendor accumulator state, extracted out of BuildVendorStats so
+-- the prewarm pass's item loop (below) can resume it across ticks instead of
+-- running one vendor's whole item list in a single unbreakable call.
+local function NewVendorStatsAccum()
+    return {
+        hasMatchingItems = false,
+        total = 0,
+        collected = 0,
+        purchasable = 0,
+        locked = 0,
+        unobtainable = 0,
+        excluded = 0,
+        provisionalUnverified = 0,
+        hasAnyVerifiableRequirements = false,
+        lockedBlockerCounts = {},
+    }
+end
 
+-- One item's worth of BuildVendorStats' loop body, mutating accum fields
+-- instead of closure locals so it can be called once per tick when sliced.
+local function AccumulateVendorItem(accum, itemID, vendor, sourceFilter)
     local SM = HA.SourceManager
+    local presentation = nil
+    if SM and SM.GetItemPresentation then
+        presentation = SM:GetItemPresentation(itemID, {
+            context = "badge",
+            npcID = vendor.npcID,
+            sourceFilter = sourceFilter,
+            isVendorContext = true,
+        })
+    end
 
-    for itemID in pairs(items) do
-        local presentation = nil
-        if SM and SM.GetItemPresentation then
-            presentation = SM:GetItemPresentation(itemID, {
-                context = "badge",
-                npcID = vendor.npcID,
-                sourceFilter = sourceFilter,
-                isVendorContext = true,
-            })
+    local matchesSourceFilter = presentation and presentation.matchesSourceFilter
+        or (not presentation and ItemMatchesSourceFilter(itemID, sourceFilter))
+
+    -- HS-249: tested ahead of everything else in the branch, unlike the
+    -- `unobtainable` divert below — that one comes after isOwned because
+    -- ownership is knowable and wins, whereas here it is unknowable and
+    -- consulting it is the thing being ruled out. hasMatchingItems stays
+    -- false too: a housing-only vendor that claimed matching items would
+    -- read "known, empty, all collected" instead of unknown.
+    if matchesSourceFilter and IsOwnershipExcluded(itemID, presentation) then
+        accum.excluded = accum.excluded + 1
+    elseif matchesSourceFilter then
+        accum.hasMatchingItems = true
+
+        local state = presentation and presentation.availabilityState or "purchasable"
+        local isUnverified = presentation and presentation.isUnverified or false
+        local hasVerifiableRequirement = presentation and presentation.hasVerifiableRequirement or false
+        local blockerLabels = presentation and presentation.blockerLabels or nil
+
+        -- HS-200: badge recounts are an aggregate per-vendor-item loop —
+        -- this no-presentation fallback must stay cache-only the same way
+        -- the primary presentation.isOwned path is (SourceManager's
+        -- "badge" context), or it reintroduces the per-item API burst.
+        local isOwned = presentation and presentation.isOwned
+        if not presentation and HA.CatalogStore and HA.CatalogStore.IsOwned then
+            isOwned = HA.CatalogStore:IsOwned(itemID) == true
         end
 
-        local matchesSourceFilter = presentation and presentation.matchesSourceFilter
-            or (not presentation and ItemMatchesSourceFilter(itemID, sourceFilter))
+        if isOwned then
+            -- Owned items always count toward collected/total, even if
+            -- the underlying requirement (e.g. a promotion) is also
+            -- unobtainable for other players — the player already has it.
+            accum.collected = accum.collected + 1
+            accum.total = accum.total + 1
+        elseif state == "unobtainable" then
+            -- HS-158/160 §3/decision 4: unowned unobtainable items
+            -- (promotion-gated, live or expired) are EXCLUDED from total
+            -- so collected/total can reach completion. This must be
+            -- checked before the locked/purchasable split below.
+            accum.unobtainable = accum.unobtainable + 1
+        else
+            accum.total = accum.total + 1
 
-        if matchesSourceFilter then
-            hasMatchingItems = true
-
-            local state = presentation and presentation.availabilityState or "purchasable"
-            local isUnverified = presentation and presentation.isUnverified or false
-            local hasVerifiableRequirement = presentation and presentation.hasVerifiableRequirement or false
-            local blockerLabels = presentation and presentation.blockerLabels or nil
-
-            -- HS-200: badge recounts are an aggregate per-vendor-item loop —
-            -- this no-presentation fallback must stay cache-only the same way
-            -- the primary presentation.isOwned path is (SourceManager's
-            -- "badge" context), or it reintroduces the per-item API burst.
-            local isOwned = presentation and presentation.isOwned
-            if not presentation and HA.CatalogStore and HA.CatalogStore.IsOwned then
-                isOwned = HA.CatalogStore:IsOwned(itemID) == true
+            if isUnverified then
+                accum.provisionalUnverified = accum.provisionalUnverified + 1
+            elseif hasVerifiableRequirement then
+                accum.hasAnyVerifiableRequirements = true
             end
 
-            if isOwned then
-                -- Owned items always count toward collected/total, even if
-                -- the underlying requirement (e.g. a promotion) is also
-                -- unobtainable for other players — the player already has it.
-                collected = collected + 1
-                total = total + 1
-            elseif state == "unobtainable" then
-                -- HS-158/160 §3/decision 4: unowned unobtainable items
-                -- (promotion-gated, live or expired) are EXCLUDED from total
-                -- so collected/total can reach completion. This must be
-                -- checked before the locked/purchasable split below.
-                unobtainable = unobtainable + 1
-            else
-                total = total + 1
-
-                if isUnverified then
-                    provisionalUnverified = provisionalUnverified + 1
-                elseif hasVerifiableRequirement then
-                    hasAnyVerifiableRequirements = true
-                end
-
-                if state == "locked" then
-                    locked = locked + 1
-                    if blockerLabels then
-                        for _, blockerLabel in ipairs(blockerLabels) do
-                            lockedBlockerCounts[blockerLabel] = (lockedBlockerCounts[blockerLabel] or 0) + 1
-                        end
+            if state == "locked" then
+                accum.locked = accum.locked + 1
+                if blockerLabels then
+                    for _, blockerLabel in ipairs(blockerLabels) do
+                        accum.lockedBlockerCounts[blockerLabel] = (accum.lockedBlockerCounts[blockerLabel] or 0) + 1
                     end
-                else
-                    purchasable = purchasable + 1
                 end
+            else
+                accum.purchasable = accum.purchasable + 1
             end
         end
     end
+end
 
+-- Trailing logic from BuildVendorStats: the "no matching items" early-exit
+-- shape and the blocker-sort + final table build.
+local function FinalizeVendorStatsAccum(accum)
     -- No matching items under this filter is a known empty result, not unknown.
-    if not hasMatchingItems then
+    -- HS-249: unless the only things this vendor sells under the filter are
+    -- items whose ownership we cannot compute — that is genuinely unknown, and
+    -- reporting `false` here would render it as "you own everything on this
+    -- vendor". With no excluded items this is the pre-HS-249 value exactly.
+    if not accum.hasMatchingItems then
         return {
-            hasUncollectedState = false,
+            hasUncollectedState = accum.excluded > 0 and "unknown" or false,
             collected = 0,
             purchasable = 0,
             locked = 0,
             unverified = 0,
             unobtainable = 0,
+            excluded = accum.excluded,
             blockers = nil,
             total = 0,
         }
@@ -258,9 +290,9 @@ local function BuildVendorStats(vendor, sourceFilter)
 
     -- Sort blockers by count descending, then alphabetically for stability.
     local blockers = nil
-    if next(lockedBlockerCounts) ~= nil then
+    if next(accum.lockedBlockerCounts) ~= nil then
         blockers = {}
-        for label, count in pairs(lockedBlockerCounts) do
+        for label, count in pairs(accum.lockedBlockerCounts) do
             blockers[#blockers + 1] = {
                 label = label,
                 count = count,
@@ -275,17 +307,46 @@ local function BuildVendorStats(vendor, sourceFilter)
     end
 
     return {
-        hasUncollectedState = (purchasable + locked) > 0,
-        collected = collected,
-        purchasable = purchasable,
-        locked = locked,
+        hasUncollectedState = (accum.purchasable + accum.locked) > 0,
+        collected = accum.collected,
+        purchasable = accum.purchasable,
+        locked = accum.locked,
         -- Only report unverified when the vendor has at least some verifiable data.
         -- Pure no-data vendors stay optimistic with zero unverified.
-        unverified = hasAnyVerifiableRequirements and provisionalUnverified or 0,
-        unobtainable = unobtainable,
+        unverified = accum.hasAnyVerifiableRequirements and accum.provisionalUnverified or 0,
+        unobtainable = accum.unobtainable,
+        excluded = accum.excluded,
         blockers = blockers,
-        total = total,
+        total = accum.total,
     }
+end
+
+local function BuildVendorStats(vendor, sourceFilter)
+    -- Keep a defensive guard here because badge hot paths read stats directly.
+    if not vendor or not vendor.npcID then
+        return UNKNOWN_VENDOR_STATS
+    end
+
+    -- Merge static + scanned items from shared VendorData helper, using its
+    -- stable ordered array so this loop and the sliced prewarm loop below
+    -- see the exact same iteration order.
+    local orderedItemIDs
+    if HA.VendorData and HA.VendorData.GetMergedItemSet then
+        local _, ids = HA.VendorData:GetMergedItemSet(vendor, true)
+        orderedItemIDs = ids
+    end
+
+    -- If we have no item data at all, status is "unknown" and counts are zero.
+    if not orderedItemIDs or #orderedItemIDs == 0 then
+        return UNKNOWN_VENDOR_STATS
+    end
+
+    local accum = NewVendorStatsAccum()
+    for _, itemID in ipairs(orderedItemIDs) do
+        AccumulateVendorItem(accum, itemID, vendor, sourceFilter)
+    end
+
+    return FinalizeVendorStatsAccum(accum)
 end
 
 -- Public vendor stats accessor with caching. All UI consumers should use
@@ -304,6 +365,20 @@ function BadgeCalculation:GetVendorStats(vendor, sourceFilter)
     local stats = BuildVendorStats(vendor, sourceFilter)
     vendorStatsCache[cacheKey] = stats
     return stats
+end
+
+-- HS-271 item 2: cache-only peek, same cache-key derivation as GetVendorStats
+-- above but NEVER computes on a miss. Cold-pin count text uses this so a
+-- pin's frame-acquire never pays BuildVendorStats' per-item
+-- GetItemPresentation loop -- the exact cost the background prewarm pass
+-- already exists to move off the render path.
+function BadgeCalculation:PeekVendorStats(vendor, sourceFilter)
+    if not vendor or not vendor.npcID then
+        return nil
+    end
+
+    local cacheKey = BuildVendorFilterCacheKey(vendor, sourceFilter)
+    return vendorStatsCache[cacheKey]
 end
 
 -- Local alias for internal callers (aggregate builders) that need
@@ -331,6 +406,7 @@ local UNKNOWN_DROP_GROUP_STATS = {
     purchasable = 0,
     locked = 0,
     unobtainable = 0,
+    excluded = 0,
     total = 0,
 }
 
@@ -350,6 +426,7 @@ end
 local function BuildDropGroupStats(records)
     local SM = HA.SourceManager
     local total, collected, purchasable, locked, unobtainable = 0, 0, 0, 0, 0
+    local excluded = 0
 
     for _, itemRecord in ipairs(records) do
         local itemID = itemRecord.itemID
@@ -370,7 +447,11 @@ local function BuildDropGroupStats(records)
             isOwned = HA.CatalogStore:IsOwned(itemID) == true
         end
 
-        if isOwned then
+        -- HS-249: same ordering as BuildVendorStats — the exclusion is tested
+        -- before ownership, not after it like `unobtainable`.
+        if IsOwnershipExcluded(itemID, presentation) then
+            excluded = excluded + 1
+        elseif isOwned then
             collected = collected + 1
             total = total + 1
         elseif state == "unobtainable" then
@@ -390,6 +471,7 @@ local function BuildDropGroupStats(records)
         purchasable = purchasable,
         locked = locked,
         unobtainable = unobtainable,
+        excluded = excluded,
         total = total,
     }
 end
@@ -481,7 +563,15 @@ function BadgeCalculation:InvalidateBadgeCache()
     wipe(cachedContinentBadges)
 end
 
+-- HS-278 accepted tradeoff: an ownership-update invalidation storm arriving
+-- faster than one large vendor's total slice time will restart that vendor's
+-- prewarm accumulator repeatedly for as long as the storm lasts. Each
+-- restart is correct (the cache really was invalidated), live callers still
+-- get synchronous fresh data throughout, and the slice completes once the
+-- storm settles. This is a liveness delay, not a correctness bug, and is
+-- intentionally not solved further.
 function BadgeCalculation:InvalidateAllCaches()
+    vendorStatsCacheGeneration = vendorStatsCacheGeneration + 1
     wipe(vendorStatsCache)
     wipe(dropGroupStatsCache)
     self:InvalidateBadgeCache()
@@ -499,6 +589,7 @@ end
 -- Invalidate all cached vendor stats entries for a specific NPC ID.
 function BadgeCalculation:InvalidateVendorCache(npcID)
     if npcID then
+        vendorStatsCacheGeneration = vendorStatsCacheGeneration + 1
         local prefix = tostring(npcID) .. "|"
         for key in pairs(vendorStatsCache) do
             if type(key) == "string" and key:sub(1, #prefix) == prefix then
@@ -562,6 +653,7 @@ function BadgeCalculation:GetZoneVendorCounts(continentMapID, sourceFilter)
                                 lockedItems = 0,
                                 unverifiedItems = 0,
                                 unobtainableItems = 0,
+                                excludedItems = 0,
                             }
                         end
 
@@ -598,6 +690,11 @@ function BadgeCalculation:GetZoneVendorCounts(continentMapID, sourceFilter)
                             zoneCounts[zoneMapID].lockedItems = zoneCounts[zoneMapID].lockedItems + (stats.locked or 0)
                             zoneCounts[zoneMapID].unverifiedItems = zoneCounts[zoneMapID].unverifiedItems + (stats.unverified or 0)
                             zoneCounts[zoneMapID].unobtainableItems = zoneCounts[zoneMapID].unobtainableItems + (stats.unobtainable or 0)
+                            -- HS-249: tracked alongside the other exclusions,
+                            -- deliberately outside collectedItems/totalItems —
+                            -- a zone badge that summed these into its fraction
+                            -- would re-introduce the defect one level up.
+                            zoneCounts[zoneMapID].excludedItems = zoneCounts[zoneMapID].excludedItems + (stats.excluded or 0)
                         end
                     end
                 end
@@ -649,6 +746,7 @@ function BadgeCalculation:GetContinentVendorCounts(sourceFilter)
                                 lockedItems = 0,
                                 unverifiedItems = 0,
                                 unobtainableItems = 0,
+                                excludedItems = 0,
                             }
                         end
 
@@ -679,6 +777,7 @@ function BadgeCalculation:GetContinentVendorCounts(sourceFilter)
                             continentCounts[continentMapID].lockedItems = continentCounts[continentMapID].lockedItems + (stats.locked or 0)
                             continentCounts[continentMapID].unverifiedItems = continentCounts[continentMapID].unverifiedItems + (stats.unverified or 0)
                             continentCounts[continentMapID].unobtainableItems = continentCounts[continentMapID].unobtainableItems + (stats.unobtainable or 0)
+                            continentCounts[continentMapID].excludedItems = continentCounts[continentMapID].excludedItems + (stats.excluded or 0)
                         end
                     end
                 end
@@ -697,6 +796,7 @@ function BadgeCalculation:GetContinentVendorCounts(sourceFilter)
                     vendorCount = 0, uncollectedCount = 0, unknownCount = 0,
                     oppositeFactionCount = 0, collectedItems = 0, totalItems = 0,
                     lockedItems = 0, unverifiedItems = 0, unobtainableItems = 0,
+                    excludedItems = 0,
                 }
             end
             local dest = continentCounts[destID]
@@ -709,6 +809,7 @@ function BadgeCalculation:GetContinentVendorCounts(sourceFilter)
             dest.lockedItems          = dest.lockedItems          + src.lockedItems
             dest.unverifiedItems      = dest.unverifiedItems      + src.unverifiedItems
             dest.unobtainableItems    = dest.unobtainableItems    + (src.unobtainableItems or 0)
+            dest.excludedItems        = dest.excludedItems        + (src.excludedItems or 0)
             continentCounts[srcID] = nil
         end
     end
@@ -763,13 +864,28 @@ end
 -- HS-216 lesson applies here, and matters MORE than it did for CatalogScanner:
 -- warming with cold ownership/requirement data wouldn't just waste API calls
 -- like a cold scan does, it would CACHE wrong (understated) collected/locked
--- counts that then persist until the next invalidation. So this gates on
--- HA.CatalogScanner:IsWarm() — the exact single source of truth that module
--- already exposes "so other modules can gate their own... decisions on the
--- same single source of truth instead of re-deriving warmness."
+-- counts that then persist until the next invalidation. But that lesson is
+-- about the SCANNER's own live C_HousingCatalog reads going out cold — badge
+-- computation itself is cache-only (HS-200/HS-203: GetItemPresentation's
+-- badge context sets cacheOnlyOwnership/skipBestSourceProbe, zero live calls).
+-- So this gates on HA.CatalogStore:HasPersistedData() (HS-273 R3) instead of
+-- HA.CatalogScanner:IsWarm() — HasPersistedData is true as soon as the
+-- persistent ownership cache is bound AND non-empty, which is all a
+-- cache-only computation needs; IsWarm additionally promises a live scan
+-- happened THIS session, which this pass was blocking on for no reason a
+-- cold player could ever satisfy (HS-271 regression: never warm behind an
+-- unlatchable gate). A fresh install (bound but empty) still fails this
+-- gate on purpose — honest "..." beats a confident wrong 0/N.
 -------------------------------------------------------------------------------
 
-local WARMUP_VENDORS_PER_BATCH = 10
+-- HS-271 item 3c: time-boxed, not count-boxed. A fixed vendor-per-batch
+-- count (the old WARMUP_VENDORS_PER_BATCH = 10) spiked to 228.91ms on its
+-- own (HS-270 capture E) because some vendors cost far more than others
+-- (per-item GetItemPresentation loops of very different sizes) -- a FIXED
+-- COUNT has no relationship to how long that count actually takes. Checked
+-- via GetTimePreciseSec() (never debugprofilestop -- absent from this repo)
+-- inside the batch loop below.
+local WARMUP_BATCH_TIME_MS = 4
 local WARMUP_BATCH_DELAY = 0.02
 -- HS-238: while the player is in combat, batches don't run — they reschedule
 -- at this interval until combat drops. Cheap poll (one timer + one C call
@@ -793,8 +909,42 @@ local warmupPendingRerun = false
 -- (BadgeCalculation:InvalidateAllCaches, defined further up the file, calls
 -- it) — assigned below, after StartPrewarmPass exists for it to reference.
 
+-- HS-271 item 3a: partitions the vendor list current-zone-first /
+-- current-continent-next / everything else last, so the pass warms whatever
+-- the player can actually open first. One VF.GetBestVendorCoordinates +
+-- GetContinentForZone per vendor -- the same per-vendor cost
+-- GetZoneVendorCounts/GetContinentVendorCounts already pay, just run once
+-- here to establish order instead of the arbitrary VendorData table order.
+-- Called from inside the first ProcessBatch tick only (see below) — never
+-- from StartPrewarmPass's own caller frame (orchestrator review flag 2).
+local function BuildZoneFirstVendorOrder(allVendors)
+    local playerMapID = C_Map.GetBestMapForUnit("player")
+    local playerContinent = playerMapID and BadgeCalculation.GetContinentForZone(playerMapID)
+
+    local zoneFirst, continentFirst, rest = {}, {}, {}
+    for _, vendor in ipairs(allVendors) do
+        local _, zoneMapID = VF.GetBestVendorCoordinates(vendor)
+        if playerMapID and zoneMapID == playerMapID then
+            zoneFirst[#zoneFirst + 1] = vendor
+        elseif playerContinent and zoneMapID
+                and BadgeCalculation.GetContinentForZone(zoneMapID) == playerContinent then
+            continentFirst[#continentFirst + 1] = vendor
+        else
+            rest[#rest + 1] = vendor
+        end
+    end
+
+    local ordered = {}
+    for _, list in ipairs({ zoneFirst, continentFirst, rest }) do
+        for _, vendor in ipairs(list) do
+            ordered[#ordered + 1] = vendor
+        end
+    end
+    return ordered
+end
+
 local function StartPrewarmPass()
-    if not HA.CatalogScanner or not HA.CatalogScanner.IsWarm or not HA.CatalogScanner:IsWarm() then
+    if not HA.CatalogStore or not HA.CatalogStore.HasPersistedData or not HA.CatalogStore:HasPersistedData() then
         return
     end
 
@@ -805,6 +955,24 @@ local function StartPrewarmPass()
 
     warmupInProgress = true
     local currentIndex = 1
+    -- Built lazily on the FIRST batch tick below (orchestrator review flag 2).
+    local orderedVendors = nil
+
+    -- HS-278: resumable per-vendor item slice state, so a single vendor's
+    -- item list can be interrupted mid-vendor by the same time-box that
+    -- already interrupts the loop between vendors. All nil when not
+    -- currently mid-vendor.
+    local itemCursor, itemAccum, itemOrderedIDs = nil, nil, nil
+    local itemVendorNpcID, itemVendorKey, itemGeneration = nil, nil, nil
+
+    -- HS-271 item 3b: after the vendor-stats loop below finishes, the SAME
+    -- pass (never ahead of it — HS-216/HS-234) warms the badge-aggregate
+    -- caches the vendor loop never touches. GetZoneVendorCounts/
+    -- GetContinentVendorCounts are what the zoom-sweep capture (HS-270
+    -- capture C) found cold at up to 188.64ms.
+    local continentList = nil
+    local continentIndex = 1
+    local continentTotalsWarmed = false
 
     local function ProcessBatch()
         -- HS-238: never run a warm-up batch during combat — whatever event
@@ -817,51 +985,177 @@ local function StartPrewarmPass()
             return
         end
 
-        local batchEnd = math.min(currentIndex + WARMUP_VENDORS_PER_BATCH - 1, totalVendors)
-        -- HS-239: workload is batchSize, arithmetic on the currentIndex/
-        -- batchEnd this loop already computes — no new scan added to feed
-        -- this call. Measure's callback is pcall itself (not a wrapper
-        -- closure around it), so this stays exactly the original
-        -- `ok = pcall(fn)` shape the comment below describes.
-        local batchSize = batchEnd - currentIndex + 1
-        -- pcall so a mid-batch error degrades to "this pass aborted" — an
-        -- unguarded error would kill the timer chain with warmupInProgress
-        -- stuck true, silently disabling prewarm for the rest of the
-        -- session (every future trigger would coalesce into a rerun that
-        -- never comes).
-        local ok = HA.PerformanceTrace:Measure("badge_prewarm", batchSize, pcall, function()
-            for i = currentIndex, batchEnd do
-                local vendor = allVendors[i]
-                if vendor and vendor.npcID then
-                    -- "all": GetVendorStats' internal per-item presentation loop
-                    -- runs unconditionally regardless of sourceFilter (filtering
-                    -- only affects downstream aggregation, not which items get a
-                    -- presentation lookup) — warming "all" already populates the
-                    -- expensive per-item requirement-eval cache for every
-                    -- source-filter value, not just "all" itself. One pass
-                    -- covers every filter a badge consumer might later request.
-                    BadgeCalculation:GetVendorStats(vendor, "all")
+        if currentIndex <= totalVendors then
+            -- HS-239: batchStartIndex (not a vendor count) is the Measure
+            -- workload — under time-boxing, how many vendors this tick will
+            -- process isn't knowable before the loop runs (that's the whole
+            -- point of time-boxing over count-boxing), but the starting
+            -- position already known here costs nothing extra to report.
+            -- Measure's callback is pcall itself (not a wrapper closure
+            -- around it), so this stays the original `ok = pcall(fn)` shape.
+            local batchStartIndex = currentIndex
+            -- pcall so a mid-batch error degrades to "this pass aborted" — an
+            -- unguarded error would kill the timer chain with warmupInProgress
+            -- stuck true, silently disabling prewarm for the rest of the
+            -- session (every future trigger would coalesce into a rerun that
+            -- never comes).
+            local ok = HA.PerformanceTrace:Measure("badge_prewarm", batchStartIndex, pcall, function()
+                if not orderedVendors then
+                    -- HS-271 Gate 1 cycle 1: moved inside this Measure/pcall
+                    -- boundary (previously unmeasured and unguarded) so a
+                    -- slow or erroring partition shows up in the SAME
+                    -- badge_prewarm record class and degrades the pass the
+                    -- same way a bad vendor batch does, instead of running
+                    -- outside pcall's protection. NOT split across ticks:
+                    -- doing so would mean carrying zoneFirst/continentFirst/
+                    -- rest accumulators plus their own cursor alongside the
+                    -- vendor-loop's currentIndex across ticks — a second
+                    -- parallel state machine for a step that runs exactly
+                    -- ONCE per pass and costs one VF.GetBestVendorCoordinates
+                    -- + GetContinentForZone call per vendor, the same
+                    -- per-vendor cost the aggregate builders below already
+                    -- pay unmeasured. Kept whole; still inside the boundary
+                    -- so it is measured and pcall-protected either way.
+                    orderedVendors = BuildZoneFirstVendorOrder(allVendors)
                 end
+
+                -- HS-278: "all" — GetVendorStats'/BuildVendorStats' internal
+                -- per-item presentation loop runs unconditionally regardless
+                -- of sourceFilter (filtering only affects downstream
+                -- aggregation, not which items get a presentation lookup) —
+                -- warming "all" already populates the expensive per-item
+                -- requirement-eval cache for every source-filter value, not
+                -- just "all" itself. One pass covers every filter a badge
+                -- consumer might later request.
+                local budgetStart = _G.GetTimePreciseSec()
+                while currentIndex <= totalVendors do
+                    local vendor = orderedVendors[currentIndex]
+                    local vendorNpcID = vendor and vendor.npcID
+
+                    if itemVendorNpcID ~= vendorNpcID then
+                        -- Moved to a different vendor slot than whatever slice state (if
+                        -- any) was tracking -- rebuild the cache key once for it instead
+                        -- of on every item (BuildVendorFilterCacheKey is a string concat +
+                        -- a date-stamp lookup; npcID doesn't change while mid-vendor, so
+                        -- paying that cost per-item was wasted work in the first draft).
+                        -- This also self-cleans stale slice state left over from a vendor
+                        -- a live caller warmed out from under the slicer (see below).
+                        itemVendorNpcID = vendorNpcID
+                        itemVendorKey = vendorNpcID and BuildVendorFilterCacheKey(vendor, "all")
+                        itemCursor, itemAccum, itemOrderedIDs = nil, nil, nil
+                    end
+
+                    if not itemVendorKey or vendorStatsCache[itemVendorKey] then
+                        -- Invalid vendor, or already warmed (by a live caller, or a prior
+                        -- resumed slice) -- nothing to do, advance.
+                        currentIndex = currentIndex + 1
+                    else
+                        if not itemCursor or itemGeneration ~= vendorStatsCacheGeneration then
+                            -- (Re)start this vendor's item slice fresh. Also catches
+                            -- mid-slice invalidation: a generation mismatch discards
+                            -- whatever was accumulated and restarts from item 1, so a
+                            -- partial never blends pre/post-invalidation item state.
+                            local orderedItemIDs
+                            if HA.VendorData and HA.VendorData.GetMergedItemSet then
+                                local _, ids = HA.VendorData:GetMergedItemSet(vendor, true)
+                                orderedItemIDs = ids
+                            end
+                            itemOrderedIDs = orderedItemIDs or {}
+                            itemAccum = NewVendorStatsAccum()
+                            itemCursor = 1
+                            itemGeneration = vendorStatsCacheGeneration
+                        end
+
+                        if #itemOrderedIDs == 0 then
+                            vendorStatsCache[itemVendorKey] = UNKNOWN_VENDOR_STATS
+                            currentIndex = currentIndex + 1
+                        else
+                            AccumulateVendorItem(itemAccum, itemOrderedIDs[itemCursor], vendor, "all")
+                            itemCursor = itemCursor + 1
+                            if itemCursor > #itemOrderedIDs then
+                                -- Finished every item for this vendor -- finalize, cache, advance.
+                                vendorStatsCache[itemVendorKey] = FinalizeVendorStatsAccum(itemAccum)
+                                currentIndex = currentIndex + 1
+                            end
+                            -- else: still mid-vendor -- currentIndex stays put, itemCursor
+                            -- carries forward; the while loop's own re-entry picks up this
+                            -- same vendor next iteration and re-checks the generation
+                            -- guard above.
+                        end
+                    end
+                    if (_G.GetTimePreciseSec() - budgetStart) * 1000 >= WARMUP_BATCH_TIME_MS then
+                        break
+                    end
+                end
+            end)
+            if not ok then
+                warmupInProgress = false
+                warmupPendingRerun = false
+                return
             end
-        end)
-        if not ok then
-            warmupInProgress = false
-            warmupPendingRerun = false
+            -- HS-271 item 2: batch-level fire (not per-vendor, not once per
+            -- whole pass) — PinFrameFactory's listener walks currently
+            -- rendered vendor pins and re-runs RefreshVendorPinCount on
+            -- whichever are still flagged hsStatsPending.
+            if HA.Events then
+                HA.Events:Fire("HS_VENDOR_STATS_WARMED")
+            end
+            C_Timer.After(WARMUP_BATCH_DELAY, ProcessBatch)
             return
         end
-        currentIndex = batchEnd + 1
-        if currentIndex <= totalVendors then
-            C_Timer.After(WARMUP_BATCH_DELAY, ProcessBatch)
-        else
-            warmupInProgress = false
-            if warmupPendingRerun then
-                -- A wipe landed while this pass was running — rerun a FULL
-                -- fresh pass (not a resume) so nothing processed before
-                -- that wipe is left stale-cached, and nothing after it is
-                -- left missing.
-                warmupPendingRerun = false
-                StartPrewarmPass()
+
+        -- Vendor-stats loop is done. Orchestrator review flag 1: each
+        -- aggregate call below is an ATOMIC batch unit — the time-box is
+        -- BETWEEN calls (one call per tick), never inside one.
+        if not continentList then
+            continentList = {}
+            for continentMapID in pairs(Constants.ContinentNames) do
+                if not MPP.excludedContinents[continentMapID] then
+                    continentList[#continentList + 1] = continentMapID
+                end
             end
+        end
+
+        if not continentTotalsWarmed then
+            continentTotalsWarmed = true
+            local ok = HA.PerformanceTrace:Measure("badge_prewarm", "continent_totals", pcall, function()
+                BadgeCalculation:GetContinentVendorCounts("all")
+            end)
+            if not ok then
+                warmupInProgress = false
+                warmupPendingRerun = false
+                return
+            end
+            C_Timer.After(WARMUP_BATCH_DELAY, ProcessBatch)
+            return
+        end
+
+        if continentIndex <= #continentList then
+            local continentMapID = continentList[continentIndex]
+            continentIndex = continentIndex + 1
+            local ok = HA.PerformanceTrace:Measure("badge_prewarm", continentMapID, pcall, function()
+                BadgeCalculation:GetZoneVendorCounts(continentMapID, "all")
+            end)
+            if not ok then
+                warmupInProgress = false
+                warmupPendingRerun = false
+                return
+            end
+            if continentIndex <= #continentList then
+                C_Timer.After(WARMUP_BATCH_DELAY, ProcessBatch)
+                return
+            end
+        end
+
+        warmupInProgress = false
+        if warmupPendingRerun then
+            -- A wipe landed while this pass was running — rerun a FULL
+            -- fresh pass (not a resume) so nothing processed before
+            -- that wipe is left stale-cached, and nothing after it is
+            -- left missing. Full pass includes re-partitioning vendors and
+            -- re-warming aggregates, same as the first run.
+            warmupPendingRerun = false
+            StartPrewarmPass()
         end
     end
 
@@ -901,19 +1195,28 @@ RequestVendorStatsPrewarm = function(_reason)
     end)
 end
 
--- Login trigger: poll HA.CatalogScanner:IsWarm() (a cheap boolean read, not
--- a new event registration) once a second until it flips true, request the
--- pre-warm pass (through the same debounced entry point as every other
--- trigger), then cancel — self-terminating, no leaked ticker. Bounded at 60
--- polls (~60s) so a session where housing data genuinely never warms
--- doesn't poll forever.
+-- HS-271 Gate 1 cycle 1: public self-heal entry point for the deferred-fill
+-- path (PinFrameFactory:RefreshVendorPinCount, on a double cache miss) —
+-- thin wrapper over the same debounced trigger every other caller already
+-- uses, nothing else. Safe to call from a render-path double miss because
+-- RequestVendorStatsPrewarm's own 1s debounce (above) absorbs repeats.
+function BadgeCalculation:RequestPrewarm(reason)
+    RequestVendorStatsPrewarm(reason)
+end
+
+-- Login trigger: poll HA.CatalogStore:HasPersistedData() (HS-273 R3 — a
+-- cheap boolean read, not a new event registration) once a second until it
+-- flips true, request the pre-warm pass (through the same debounced entry
+-- point as every other trigger), then cancel — self-terminating, no leaked
+-- ticker. Bounded at 60 polls (~60s) so a session where the persistent cache
+-- genuinely never has anything in it doesn't poll forever.
 local loginWarmupTicker = nil
 local loginWarmupPolls = 0
 local LOGIN_WARMUP_MAX_POLLS = 60
 
 loginWarmupTicker = C_Timer.NewTicker(1, function()
     loginWarmupPolls = loginWarmupPolls + 1
-    if HA.CatalogScanner and HA.CatalogScanner.IsWarm and HA.CatalogScanner:IsWarm() then
+    if HA.CatalogStore and HA.CatalogStore.HasPersistedData and HA.CatalogStore:HasPersistedData() then
         loginWarmupTicker:Cancel()
         RequestVendorStatsPrewarm("login")
     elseif loginWarmupPolls >= LOGIN_WARMUP_MAX_POLLS then
@@ -928,5 +1231,16 @@ end)
 if HA.Events then
     HA.Events:RegisterCallback("SOURCE_CACHES_INVALIDATED", function()
         BadgeCalculation:InvalidateAllCaches()
+    end)
+
+    -- HS-273 R7: listens for CatalogScanner's two true-warm one-shots
+    -- (Gate 0 finding 2 — no existing chain reliably re-fires on that exact
+    -- edge). This FILLS the gap on the cold->warm transition specifically;
+    -- it does not replace SOURCE_CACHES_INVALIDATED above as the source of
+    -- ongoing freshness — later ownership changes still flow through that
+    -- chain's own OWNERSHIP_UPDATED-driven invalidation, same as before
+    -- HS-273. Runs the same debounced trigger every other caller uses.
+    HA.Events:RegisterCallback("HS_CATALOG_TRUE_WARM", function()
+        RequestVendorStatsPrewarm("true_warm_latch")
     end)
 end
