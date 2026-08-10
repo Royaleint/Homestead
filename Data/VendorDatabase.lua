@@ -3260,9 +3260,12 @@ VendorDatabase.Vendors = {
         },
     },
 
-    -- The Coiled Isle (new 12.1 zone; mapID/coords unknown until PTR scan)
+    -- The Coiled Isle (new 12.1 zone; mapID 2512, coords provided directly by the owner,
+    -- not yet addon-scan-confirmed)
     [268228] = {
         name = "Jan'sari the Watchful",
+        mapID = 2512,
+        x = 0.588, y = 0.46,
         unreleased = true,
         zone = "The Coiled Isle",
         expansion = "Midnight",
@@ -3275,6 +3278,8 @@ VendorDatabase.Vendors = {
     },
     [270399] = {
         name = "Firetender Zab'ni",
+        mapID = 2512,
+        x = 0.586, y = 0.459,
         unreleased = true,
         zone = "The Coiled Isle",
         expansion = "Midnight",
@@ -3286,6 +3291,8 @@ VendorDatabase.Vendors = {
     },
     [257598] = {
         name = "Second Mate Sluggs",
+        mapID = 2512,
+        x = 0.516, y = 0.498,
         unreleased = true,
         zone = "The Coiled Isle",
         expansion = "Midnight",
@@ -3295,9 +3302,10 @@ VendorDatabase.Vendors = {
         },
     },
 
-    -- Vaults of Atal'Utek (12.1 dungeon; mapID/coords unknown until PTR scan)
+    -- Vaults of Atal'Utek (12.1 dungeon; mapID 2509, coords still unknown until PTR scan)
     [262880] = {
         name = "Er'inye",
+        mapID = 2509,
         unreleased = true,
         zone = "Vaults of Atal'Utek",
         expansion = "Midnight",
@@ -3305,6 +3313,21 @@ VendorDatabase.Vendors = {
         items = {
             {266169}, {267378}, {269637}, {271358}, {271604}, {271850},
             {272362}, {275578}, {275628}, {279917}, {279919}, {279922},
+        },
+    },
+    -- Coords provided directly by the owner, not yet addon-scan-confirmed. Confirmed a
+    -- distinct vendor from Er'inye (different name/title, disjoint item-ID range) via the
+    -- 2026-08-10 external crawl refresh, not an alias of the entry above.
+    [272751] = {
+        name = "Skull of Er'inye",
+        mapID = 2509,
+        x = 0.51, y = 0.624,
+        unreleased = true,
+        zone = "Vaults of Atal'Utek",
+        expansion = "Midnight",
+        currency = "Gold",
+        items = {
+            {281573}, {281577}, {281620},
         },
     },
 
