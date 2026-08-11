@@ -23,6 +23,18 @@ local root = (... or "."):gsub("\\\\", "/"):gsub("/+$", "")
 -- Scenario C: a vendor with an empty item list (the UNKNOWN_VENDOR_STATS
 --   branch, not the FinalizeVendorStatsAccum branch) must also count as a
 --   completion and fire.
+-- Scenario D (Argus cycle 1 CRITICAL, repro-derived): a pass that completes
+--   ZERO vendors itself must still fire once, on the tick that ends the
+--   vendor loop. The pending pin's own self-heal requests this exact pass;
+--   inside the 1s debounce, a live caller (a side-panel query, any
+--   GetVendorStats call) warms the same vendor under the same cache key the
+--   pass would have warmed, so by the time the pass runs, every vendor it
+--   touches is an already-warmed skip -- completedThisTick never rises above
+--   0. HS_VENDOR_STATS_WARMED is the pending pin's only non-render wake-up:
+--   a pass that never fires here leaves that pin's "..." placeholder stuck
+--   forever, since nothing else re-checks it. Pre-fix (unconditional fire)
+--   this healed by accident; the completedThisTick-only gate reintroduced
+--   the starvation, which is why the end-of-loop fire must be unconditional.
 -------------------------------------------------------------------------------
 
 CreateFrame = function()
@@ -292,6 +304,83 @@ do
         "the UNKNOWN_VENDOR_STATS branch must count as a completion and fire, got " .. h.fireCount .. " fires")
 
     print("prewarm_fire_gate: scenario C (empty-item vendor completion fires) ok")
+end
+
+-------------------------------------------------------------------------------
+-- Scenario D (Argus cycle 1 CRITICAL): a pass that completes ZERO vendors
+-- itself -- because a live caller warmed the only vendor first, inside the
+-- debounce window -- must still fire once, on the tick that ends the vendor
+-- loop. This is the pending pin's own self-heal pass; if it never fires, the
+-- pin that requested it has no wake-up left.
+-------------------------------------------------------------------------------
+
+do
+    local h = NewStubHA()
+
+    h.stub.SourceManager = {
+        GetItemPresentation = function(_, itemID)
+            return {
+                matchesSourceFilter = true, isOwnershipExcluded = false,
+                isOwned = false, availabilityState = "purchasable",
+            }
+        end,
+    }
+
+    local vendor = { npcID = 94500 }
+    h.stub.VendorData = NewVendorDataStub({ [vendor.npcID] = { 94501 } }, { vendor })
+
+    GetTimePreciseSec = function() return 0 end
+
+    local capturedTriggerCb, capturedAfterCb
+    C_Timer = {
+        NewTicker = function() return { Cancel = function() end } end,
+        NewTimer = function(_, cb) capturedTriggerCb = cb return { Cancel = function() end } end,
+        After = function(_, cb) capturedAfterCb = cb end,
+    }
+
+    assert(loadfile(root .. "/UI/BadgeCalculation.lua"))("Homestead", h.stub)
+    local BadgeCalc = assert(h.stub.BadgeCalculation, "BadgeCalculation did not load")
+
+    -- Pin renders cold -> hsStatsPending=true -> RequestPrewarm (the self-heal).
+    BadgeCalc:RequestPrewarm("cold_pin_render")
+    assert(capturedTriggerCb, "RequestPrewarm must schedule a debounce timer")
+
+    -- Inside the 1s debounce window, a live caller (e.g. a side-panel zone
+    -- query) warms the same vendor under the same "all" cache key the
+    -- requested pass would otherwise have warmed.
+    local live = BadgeCalc:GetVendorStats(vendor, "all")
+    assert(live, "live caller must warm the vendor")
+    assert(BadgeCalc:PeekVendorStats(vendor, "all") ~= nil, "sanity: vendor now warm before the pass runs")
+
+    -- Debounce elapses; the requested pass runs to completion. Every vendor
+    -- it touches is already cached, so completedThisTick never rises above 0
+    -- for the whole loop -- this pass completes zero vendors itself. Ticks
+    -- past the vendor loop (continent/zone aggregate warming) are a separate
+    -- phase this fire is never part of, so the pass legitimately runs more
+    -- than one tick total -- only tick 1 (the sole vendor-loop tick here,
+    -- and also the tick that ends it) is what this scenario pins.
+    capturedTriggerCb()
+    local fireCountsByTick = {}
+    local ticks = 0
+    while capturedAfterCb and ticks < 50 do
+        local before = h.fireCount
+        local cb = capturedAfterCb
+        capturedAfterCb = nil
+        cb()
+        ticks = ticks + 1
+        fireCountsByTick[ticks] = h.fireCount - before
+    end
+    assert(ticks < 50, "pass did not terminate")
+
+    assert(fireCountsByTick[1] == 1,
+        "tick 1 is the vendor loop's only tick AND the tick that ends it (the vendor was already warm, " ..
+        "so completedThisTick stayed 0) -- it must still fire unconditionally as the end-of-loop fire, " ..
+        "otherwise the pin that requested this exact pass has no wake-up left, got " ..
+        tostring(fireCountsByTick[1]) .. " fires")
+    assert(h.fireCount >= 1,
+        "a pass that completes zero vendors itself must still fire at least once, got " .. h.fireCount)
+
+    print("prewarm_fire_gate: scenario D (zero-completion pass still fires at loop end) ok")
 end
 
 print("prewarm_fire_gate: ok")

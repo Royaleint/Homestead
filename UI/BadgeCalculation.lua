@@ -1113,11 +1113,26 @@ local function StartPrewarmPass()
             -- rendered vendor pins and re-runs RefreshVendorPinCount on
             -- whichever are still flagged hsStatsPending.
             --
-            -- Perf: only when this tick actually finished at least one
-            -- vendor. A tick that made zero new-completion progress has
-            -- nothing new for the listener to find -- every pin it would
-            -- re-check is exactly as pending as it was on the last fire.
-            if HA.Events and completedThisTick > 0 then
+            -- Perf: mid-loop ticks only fire when they actually finished at
+            -- least one vendor -- a tick that made zero new-completion
+            -- progress has nothing new for the listener to find.
+            --
+            -- Argus cycle 1 CRITICAL: the tick that ENDS the vendor loop
+            -- (currentIndex crosses past the last vendor) must fire
+            -- unconditionally, even if it completed nothing itself. A pass
+            -- can end on pure skips -- e.g. the pending pin's own self-heal
+            -- requests this exact pass, and inside the debounce window a
+            -- live caller (a side-panel query, any GetVendorStats call)
+            -- warms that same vendor first; every vendor this pass then
+            -- touches is already cached, so completedThisTick stays 0 for
+            -- the whole loop. HS_VENDOR_STATS_WARMED is the pending pin's
+            -- only non-render wake-up, so a pass that never fires leaves its
+            -- own "..." placeholder stuck forever. By loop end every
+            -- vendor a live caller warmed mid-pass is warm in the cache, so
+            -- the end-of-loop fire still heals every such pin -- this costs
+            -- exactly one extra fire per pass, not one per tick.
+            local vendorLoopEnded = currentIndex > totalVendors
+            if HA.Events and (completedThisTick > 0 or vendorLoopEnded) then
                 HA.Events:Fire("HS_VENDOR_STATS_WARMED")
             end
             C_Timer.After(WARMUP_BATCH_DELAY, ProcessBatch)
