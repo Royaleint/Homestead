@@ -1,4 +1,4 @@
--- luacheck: globals assert loadfile print pairs ipairs select setmetatable type
+-- luacheck: globals assert loadfile loadstring print pairs ipairs select setmetatable type io
 -- luacheck: globals wipe C_AddOns C_HousingCatalog GetLocale ScrollBoxListViewMixin
 -- luacheck: globals HousingDashboardFrame
 
@@ -247,3 +247,46 @@ assert(presentationCalls == 6 and apiCalls == 6 and parseCalls == 6,
         .. presentationCalls .. " api=" .. apiCalls .. " parse=" .. parseCalls .. ")")
 
 print("hs_catalog_overlay_item_cache: VENDOR_SCANNED invalidates ok")
+
+-------------------------------------------------------------------------------
+-- 5. The /hs clear* data-clear path must invalidate too (Argus cycle 2).
+--
+-- ScanPersistence's RefreshMapPins is the chokepoint all three clear
+-- functions route through. It wiped the source memo through the
+-- broadcast-free accessor, so clearing scan data left this cache serving
+-- badges for vendors the player had just told the addon to forget.
+--
+-- Loads the REAL RefreshMapPins out of ScanPersistence.lua (same extraction
+-- technique as hs222_223_batch) against a SourceManager stub that models the
+-- two accessors honestly: the narrow one wipes silently, the broad one
+-- announces. Which one RefreshMapPins reaches for is therefore what decides
+-- this leg -- it cannot pass on the silent accessor.
+-------------------------------------------------------------------------------
+
+local scanPersistSource = assert(io.open(root .. "/Modules/ScanPersistence.lua", "r")):read("*a")
+local refreshMapPinsText = scanPersistSource:match("(local function RefreshMapPins%(%).-\nend)")
+assert(refreshMapPinsText, "could not extract RefreshMapPins from ScanPersistence.lua")
+
+-- HA.VendorData/HA.VendorMapPins left nil: RefreshMapPins guards both, so the
+-- stub only needs the accessors under test. WorldMapFrame is likewise nil.
+local RefreshMapPinsHA = {
+    SourceManager = {
+        InvalidateSourcesMemo = function() end,
+        InvalidateAllSourceCaches = function()
+            eventCallbacks["SOURCE_CACHES_INVALIDATED"]()
+        end,
+    },
+}
+
+local refreshChunk = "local _, HA = ...\n" .. refreshMapPinsText
+    .. "\nreturn RefreshMapPins"
+local RefreshMapPins = assert(loadstring(refreshChunk, "RefreshMapPins-extract"))(
+    "Homestead", RefreshMapPinsHA)
+
+RefreshMapPins()
+assert(presentationCalls == 8 and apiCalls == 8 and parseCalls == 8,
+    "a data clear must force the next evaluation to re-resolve -- RefreshMapPins has to use the "
+        .. "announcing accessor, not the silent one (got presentation=" .. presentationCalls
+        .. " api=" .. apiCalls .. " parse=" .. parseCalls .. ")")
+
+print("hs_catalog_overlay_item_cache: /hs clear* path invalidates ok")

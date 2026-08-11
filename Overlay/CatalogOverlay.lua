@@ -623,14 +623,25 @@ end
 -- profession/holiday invalidation and fires SOURCE_CACHES_INVALIDATED.
 -- CatalogOverlay only repaints — no duplicate WoW event registrations.
 --
--- VENDOR_SCANNED is here because a merchant scan is the one source-discovery
--- path those two events do NOT cover: scanning a vendor that sells an item
--- nothing else pointed to wipes SourceManager's source memo through
--- InvalidateSourcesMemo, which is deliberately broadcast-free (a full
--- InvalidateAllSourceCaches would restart the badge prewarm on every vendor
--- visit — the HS-238 over-invalidation). Without this line the itemVerdictCache
--- keeps serving the pre-scan verdict — no badge, no glow — until some
--- unrelated invalidation happens to come along.
+-- The invariant these subscriptions exist to hold: itemVerdictCache outlives
+-- frame rebinding, so any code that changes what an item's sources ARE has to
+-- reach InvalidateAllOverlays through one of the announcements below, or the
+-- catalog serves the old verdict until something unrelated clears it. Code
+-- that wipes a source cache without announcing it therefore bypasses this
+-- file silently. Two such paths are known, and both are covered:
+--
+--   * A merchant scan discovering a new source wipes SourceManager's memo
+--     through InvalidateSourcesMemo, which is deliberately broadcast-free (the
+--     broadcasting version would restart the badge prewarm on every vendor
+--     visit — the HS-238 over-invalidation). It announces VENDOR_SCANNED
+--     instead, which is why that is wired below.
+--   * The /hs clear* commands wipe the memo through ScanPersistence's
+--     RefreshMapPins. That one now uses the broadcasting variant, so it
+--     arrives as SOURCE_CACHES_INVALIDATED and needs no separate wiring here.
+--
+-- "Known" is doing real work in that sentence: a third such path would be
+-- invisible from this file, so it is worth grepping the memo accessors when
+-- badges go stale for no apparent reason.
 --
 -- Deliberately NOT gated on the scan having found decor (vendorRecord.hasDecor)
 -- or requirements: those are ScanPersistence's own signals for wiping its own

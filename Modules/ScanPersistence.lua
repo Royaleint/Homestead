@@ -533,14 +533,25 @@ local function RefreshMapPins()
     end
 
     -- HS-273 R2 (Sage: /hs clearscans ghost-sources Critical): all three
-    -- clear-data entry points below route through here, so wiping the
+    -- clear-data entry points below route through here, so invalidating the
     -- GetAllSources memo here covers ClearScannedData/ClearNoDecorData/
     -- ClearAllData in one place. Without this, GetAllSources would keep
     -- returning sources for vendors the player just told the addon to
-    -- forget -- ghost sources surviving a data clear. Narrow wipe (memo
-    -- only), same accessor the vendor-scan site above uses.
-    if HA.SourceManager and HA.SourceManager.InvalidateSourcesMemo then
-        HA.SourceManager:InvalidateSourcesMemo()
+    -- forget -- ghost sources surviving a data clear.
+    --
+    -- BROAD wipe here, unlike the deliberately narrow one at the vendor-scan
+    -- site above, and the difference is frequency. R2 kept that site narrow
+    -- because the broadcasting version restarts the badge prewarm, and paying
+    -- that on every first-visit merchant is the HS-238 over-invalidation.
+    -- These three functions run only from the /hs clear* commands, where a
+    -- full repaint is both affordable and what "forget my scan data" ought to
+    -- mean. The narrow wipe also announced nothing, so caches downstream that
+    -- key off source data -- CatalogOverlay's per-item verdicts, the search
+    -- index -- kept serving the cleared vendors until something unrelated
+    -- invalidated them. InvalidateAllSourceCaches composes the narrow wipe,
+    -- so nothing R2 relied on is lost.
+    if HA.SourceManager and HA.SourceManager.InvalidateAllSourceCaches then
+        HA.SourceManager:InvalidateAllSourceCaches()
     end
 end
 

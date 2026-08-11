@@ -133,14 +133,26 @@ local scanPersistSource = readFile(root .. "/Modules/ScanPersistence.lua")
 -- SaveVendorData: narrow call, gated on hasDecor.
 assert(scanPersistSource:find("vendorRecord%.hasDecor and HA%.SourceManager and HA%.SourceManager%.InvalidateSourcesMemo") ~= nil,
     "SaveVendorData must call the narrow InvalidateSourcesMemo, gated on vendorRecord.hasDecor")
-assert(scanPersistSource:find("HA%.SourceManager:InvalidateAllSourceCaches") == nil,
-    "ScanPersistence must not call the full, broadcasting InvalidateAllSourceCaches")
 
--- RefreshMapPins: same narrow call, unconditional (covers all three clear paths).
+-- R2's original blanket ban ("ScanPersistence must not call the full,
+-- broadcasting InvalidateAllSourceCaches") is now scoped to the site the
+-- HS-238 discipline is actually about. What R2 protects against is paying a
+-- prewarm restart on the PER-SCAN path, which runs on every first-visit
+-- merchant. The clear paths run only from /hs clear* and must announce
+-- themselves, or downstream source-derived caches keep serving vendors the
+-- player just cleared (Argus cycle 2: CatalogOverlay's per-item verdicts).
+-- Pinned positively at both sites rather than banned globally, so this is a
+-- narrower guard than the ban it replaces, not a weaker one.
 local refreshMapPinsBody = scanPersistSource:match("local function RefreshMapPins%(%)(.-)\nend")
 assert(refreshMapPinsBody, "RefreshMapPins body not found")
-assert(refreshMapPinsBody:find("HA%.SourceManager%.InvalidateSourcesMemo") ~= nil,
-    "RefreshMapPins must also wipe the GetAllSources memo (ClearScannedData/ClearNoDecorData/ClearAllData all route through it)")
+assert(refreshMapPinsBody:find("HA%.SourceManager:InvalidateAllSourceCaches") ~= nil,
+    "RefreshMapPins must use the BROADCASTING InvalidateAllSourceCaches (it composes the memo "
+        .. "wipe R2 needs, and the clear paths must announce themselves to source-derived caches)")
+
+local _, broadCallCount = scanPersistSource:gsub("HA%.SourceManager:InvalidateAllSourceCaches", "")
+assert(broadCallCount == 1,
+    "the broadcasting InvalidateAllSourceCaches must appear EXACTLY once in ScanPersistence -- "
+        .. "the per-scan path must never acquire it (HS-238 over-invalidation), got " .. broadCallCount)
 
 -------------------------------------------------------------------------------
 -- Part 2: functional exercise of the GetAllSources memo
