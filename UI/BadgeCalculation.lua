@@ -954,6 +954,11 @@ local function StartPrewarmPass()
     if totalVendors == 0 then return end
 
     warmupInProgress = true
+    -- The generation this pass' warmed vendors belong to (see the aggregate
+    -- gate below). Read once here, never updated mid-pass: a pass that no
+    -- longer matches the live generation is a pass whose work has been wiped
+    -- out from under it, and it restarts rather than catching up.
+    local passGeneration = vendorStatsCacheGeneration
     local currentIndex = 1
     -- Built lazily on the FIRST batch tick below (orchestrator review flag 2).
     local orderedVendors = nil
@@ -1107,48 +1112,67 @@ local function StartPrewarmPass()
         -- Vendor-stats loop is done. Orchestrator review flag 1: each
         -- aggregate call below is an ATOMIC batch unit — the time-box is
         -- BETWEEN calls (one call per tick), never inside one.
-        if not continentList then
-            continentList = {}
-            for continentMapID in pairs(Constants.ContinentNames) do
-                if not MPP.excludedContinents[continentMapID] then
-                    continentList[#continentList + 1] = continentMapID
+
+        -- ...which is exactly why they must not run against a cache that was
+        -- wiped mid-pass. The vendor loop above never revisits vendors behind
+        -- its cursor, so after a wipe every vendor it already warmed is cold
+        -- again — and an aggregate re-walks ALL of them inside one atomic,
+        -- un-timeboxed call, recomputing that whole cold prefix in a single
+        -- frame. Skip the remaining aggregate ticks instead and let the rerun
+        -- below redo the pass from a consistent cache. Re-evaluated on every
+        -- post-loop tick (ProcessBatch re-enters here per tick), so this
+        -- guards EACH aggregate tick, not just the first.
+        local staleMidPass = warmupPendingRerun or vendorStatsCacheGeneration ~= passGeneration
+
+        if not staleMidPass then
+            if not continentList then
+                continentList = {}
+                for continentMapID in pairs(Constants.ContinentNames) do
+                    if not MPP.excludedContinents[continentMapID] then
+                        continentList[#continentList + 1] = continentMapID
+                    end
+                end
+            end
+
+            if not continentTotalsWarmed then
+                continentTotalsWarmed = true
+                local ok = HA.PerformanceTrace:Measure("badge_prewarm", "continent_totals", pcall, function()
+                    BadgeCalculation:GetContinentVendorCounts("all")
+                end)
+                if not ok then
+                    warmupInProgress = false
+                    warmupPendingRerun = false
+                    return
+                end
+                C_Timer.After(WARMUP_BATCH_DELAY, ProcessBatch)
+                return
+            end
+
+            if continentIndex <= #continentList then
+                local continentMapID = continentList[continentIndex]
+                continentIndex = continentIndex + 1
+                local ok = HA.PerformanceTrace:Measure("badge_prewarm", continentMapID, pcall, function()
+                    BadgeCalculation:GetZoneVendorCounts(continentMapID, "all")
+                end)
+                if not ok then
+                    warmupInProgress = false
+                    warmupPendingRerun = false
+                    return
+                end
+                if continentIndex <= #continentList then
+                    C_Timer.After(WARMUP_BATCH_DELAY, ProcessBatch)
+                    return
                 end
             end
         end
 
-        if not continentTotalsWarmed then
-            continentTotalsWarmed = true
-            local ok = HA.PerformanceTrace:Measure("badge_prewarm", "continent_totals", pcall, function()
-                BadgeCalculation:GetContinentVendorCounts("all")
-            end)
-            if not ok then
-                warmupInProgress = false
-                warmupPendingRerun = false
-                return
-            end
-            C_Timer.After(WARMUP_BATCH_DELAY, ProcessBatch)
-            return
-        end
-
-        if continentIndex <= #continentList then
-            local continentMapID = continentList[continentIndex]
-            continentIndex = continentIndex + 1
-            local ok = HA.PerformanceTrace:Measure("badge_prewarm", continentMapID, pcall, function()
-                BadgeCalculation:GetZoneVendorCounts(continentMapID, "all")
-            end)
-            if not ok then
-                warmupInProgress = false
-                warmupPendingRerun = false
-                return
-            end
-            if continentIndex <= #continentList then
-                C_Timer.After(WARMUP_BATCH_DELAY, ProcessBatch)
-                return
-            end
-        end
-
         warmupInProgress = false
-        if warmupPendingRerun then
+        -- staleMidPass reruns even when warmupPendingRerun is still false:
+        -- the generation moves the instant a wipe lands, but the flag is only
+        -- set a debounce interval later (and InvalidateVendorCache bumps the
+        -- generation without requesting a prewarm at all). Without this the
+        -- skipped aggregates would simply never be warmed by this pass.
+        if staleMidPass or warmupPendingRerun then
             -- A wipe landed while this pass was running — rerun a FULL
             -- fresh pass (not a resume) so nothing processed before
             -- that wipe is left stale-cached, and nothing after it is

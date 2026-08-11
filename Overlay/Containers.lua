@@ -314,6 +314,25 @@ local function HookAllContainers()
     end
 end
 
+-- One bag open can hooksecurefunc-trigger several of the Blizzard functions
+-- below on the same frame (see the Initialize() comment). This flag coalesces
+-- their independent 0.1s timers into a single HookAllContainers pass: the
+-- first call in a burst schedules the timer and sets the flag, every other
+-- call in the same burst is a no-op, and the timer clears the flag on fire so
+-- the next burst schedules its own pass.
+local hookAllPending = false
+
+local function ScheduleHookAllContainers()
+    if hookAllPending then
+        return
+    end
+    hookAllPending = true
+    C_Timer.After(0.1, function()
+        hookAllPending = false
+        HookAllContainers()
+    end)
+end
+
 -------------------------------------------------------------------------------
 -- Bank Frame Hooking
 -------------------------------------------------------------------------------
@@ -419,23 +438,23 @@ local function Initialize()
     -- callback; cross-surface repaints arrive via "all"/OWNERSHIP_UPDATED.
     Events:RegisterCallback("bags", OnBagUpdate)
 
-    -- Hook Blizzard functions
+    -- Hook Blizzard functions. A single bag open can route through several of
+    -- these at once -- e.g. pressing B fires ToggleAllBags -> OpenBackpack()
+    -- plus an OpenBag(i) loop, so ToggleAllBags and OpenBag both fire on the
+    -- same press -- and hooksecurefunc fires even when Blizzard's own body
+    -- no-ops. Without coalescing, each hook scheduled its own independent
+    -- 0.1s timer, and 3-6 identical HookAllContainers passes landed on the
+    -- same frame. hookAllPending gates all of them down to one pass per burst.
     if ToggleBag then
-        hooksecurefunc("ToggleBag", function()
-            C_Timer.After(0.1, HookAllContainers)
-        end)
+        hooksecurefunc("ToggleBag", ScheduleHookAllContainers)
     end
 
     if OpenAllBags then
-        hooksecurefunc("OpenAllBags", function()
-            C_Timer.After(0.1, HookAllContainers)
-        end)
+        hooksecurefunc("OpenAllBags", ScheduleHookAllContainers)
     end
 
     if ToggleAllBags then
-        hooksecurefunc("ToggleAllBags", function()
-            C_Timer.After(0.1, HookAllContainers)
-        end)
+        hooksecurefunc("ToggleAllBags", ScheduleHookAllContainers)
     end
 
     -- HS-283 Gate 1 finding: ToggleBackpack (combined-bags mode) and
@@ -445,9 +464,7 @@ local function Initialize()
     -- only via one of those paths would show no overlays until the next
     -- bag-content change while open. Same shape as the other three.
     if OpenBag then
-        hooksecurefunc("OpenBag", function()
-            C_Timer.After(0.1, HookAllContainers)
-        end)
+        hooksecurefunc("OpenBag", ScheduleHookAllContainers)
     end
 
     -- Register for bank events
