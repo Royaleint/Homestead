@@ -1772,6 +1772,8 @@ VendorDatabase.Vendors = {
         items = {
             {246779, cost = {currencies = {{id = 2803, amount = 500}}}},
             {250770, cost = {currencies = {{id = 2803, amount = 500}}}},
+            {275853, cost = {currencies = {{id = 2803, amount = 500}}}},
+            {275857, cost = {currencies = {{id = 2803, amount = 500}}}},
         },
     },
 	[242724] = {
@@ -2294,7 +2296,7 @@ VendorDatabase.Vendors = {
         currency = "Gold",
         expansion = "The War Within",
         scanConfirmed = "2026-06-27",
-        items = {{235994, cost = {gold = 1000000}}, {241617, cost = {gold = 500000}}, {241618, cost = {gold = 100000}}, {241620, cost = {gold = 1000000}}, {241621, cost = {gold = 250000}}, {241622, cost = {gold = 750000}}, {243242, cost = {gold = 500000}}, {243243, cost = {gold = 750000}}, {243495, cost = {gold = 1000000}}, {244781, cost = {gold = 500000}}, {245575, cost = {gold = 1000000}}, {245576, cost = {gold = 500000}}, {245578, cost = {gold = 1000000}}, {245579, cost = {gold = 750000}}, {245581, cost = {gold = 500000}}, {245582, cost = {gold = 750000}}, {245583, cost = {gold = 1000000}}, {245649, cost = {gold = 1000000}}, {246249, cost = {gold = 500000}}, {246250, cost = {gold = 1250000}}, {246251, cost = {gold = 750000}}, {246252, cost = {gold = 500000}}, {246253, cost = {gold = 1000000}}, {246254, cost = {gold = 500000}}, {246255, cost = {gold = 1250000}}, {246256, cost = {gold = 750000}}, {246257, cost = {gold = 500000}}, {246258, cost = {gold = 1000000}}, {246431, cost = {gold = 500000}}, {246691, cost = {gold = 500000}}, {246711, cost = {gold = 100000}}, {246961, cost = {gold = 100000}}, {247501, cost = {gold = 750000}}, {248760, cost = {gold = 500000}}, {249558, cost = {gold = 1000000}}, {251981, cost = {gold = 500000}}, {251982, cost = {gold = 750000}}, {253180, cost = {gold = 1000000}}, {253181, cost = {gold = 500000}}, {253441, cost = {gold = 1000000}}, {253479, cost = {gold = 500000}}, {253490, cost = {gold = 750000}}, {253493, cost = {gold = 1000000}}, {255650, cost = {gold = 250000}}, {257690, cost = {gold = 1000000}}, {264169, cost = {gold = 250000}}, {264352, cost = {gold = 1250000}}, {264353, cost = {gold = 1250000}}, {265653, cost = {gold = 750000}}, {265654, cost = {gold = 750000}}, {267075, cost = {gold = 750000}}},
+        items = {{235994, cost = {gold = 1000000}}, {241617, cost = {gold = 500000}}, {241618, cost = {gold = 100000}}, {241620, cost = {gold = 1000000}}, {241621, cost = {gold = 250000}}, {241622, cost = {gold = 750000}}, {243242, cost = {gold = 500000}}, {243243, cost = {gold = 750000}}, {243337, cost = {gold = 500000}}, {243338, cost = {gold = 500000}}, {243495, cost = {gold = 1000000}}, {244781, cost = {gold = 500000}}, {245575, cost = {gold = 1000000}}, {245576, cost = {gold = 500000}}, {245578, cost = {gold = 1000000}}, {245579, cost = {gold = 750000}}, {245581, cost = {gold = 500000}}, {245582, cost = {gold = 750000}}, {245583, cost = {gold = 1000000}}, {245649, cost = {gold = 1000000}}, {246249, cost = {gold = 500000}}, {246250, cost = {gold = 1250000}}, {246251, cost = {gold = 750000}}, {246252, cost = {gold = 500000}}, {246253, cost = {gold = 1000000}}, {246254, cost = {gold = 500000}}, {246255, cost = {gold = 1250000}}, {246256, cost = {gold = 750000}}, {246257, cost = {gold = 500000}}, {246258, cost = {gold = 1000000}}, {246431, cost = {gold = 500000}}, {246691, cost = {gold = 500000}}, {246711, cost = {gold = 100000}}, {246961, cost = {gold = 100000}}, {247501, cost = {gold = 750000}}, {248760, cost = {gold = 500000}}, {249558, cost = {gold = 1000000}}, {251981, cost = {gold = 500000}}, {251982, cost = {gold = 750000}}, {253180, cost = {gold = 1000000}}, {253181, cost = {gold = 500000}}, {253441, cost = {gold = 1000000}}, {253479, cost = {gold = 500000}}, {253490, cost = {gold = 750000}}, {253493, cost = {gold = 1000000}}, {255650, cost = {gold = 250000}}, {257690, cost = {gold = 1000000}}, {264169, cost = {gold = 250000}}, {264352, cost = {gold = 1250000}}, {264353, cost = {gold = 1250000}}, {265653, cost = {gold = 750000}}, {265654, cost = {gold = 750000}}, {267075, cost = {gold = 750000}}},
     },
 	[255218] = {
         name = "Argan Hammerfist",
@@ -2386,7 +2388,7 @@ VendorDatabase.Vendors = {
         currency = "Gold",
         expansion = "The War Within",
         scanConfirmed = "2026-07-07",
-        items = {{235994, cost = {gold = 1000000}}, {241617, cost = {gold = 500000}}, {241618, cost = {gold = 100000}}, {241620, cost = {gold = 1000000}}, {241621, cost = {gold = 250000}}, {241622, cost = {gold = 750000}}, {243242, cost = {gold = 500000}}, {243243, cost = {gold = 750000}}, {243495, cost = {gold = 1000000}}, {244781, cost = {gold = 500000}}, {245575, cost = {gold = 1000000}}, {245576, cost = {gold = 500000}}, {245578, cost = {gold = 1000000}}, {245579, cost = {gold = 750000}}, {245581, cost = {gold = 500000}}, {245582, cost = {gold = 750000}}, {245583, cost = {gold = 1000000}}, {245649, cost = {gold = 1000000}}, {246249, cost = {gold = 500000}}, {246250, cost = {gold = 1250000}}, {246251, cost = {gold = 750000}}, {246252, cost = {gold = 500000}}, {246253, cost = {gold = 1000000}}, {246254, cost = {gold = 500000}}, {246255, cost = {gold = 1250000}}, {246256, cost = {gold = 750000}}, {246257, cost = {gold = 500000}}, {246258, cost = {gold = 1000000}}, {246431, cost = {gold = 500000}}, {246691, cost = {gold = 500000}}, {246711, cost = {gold = 100000}}, {246961, cost = {gold = 100000}}, {247501, cost = {gold = 750000}}, {248760, cost = {gold = 500000}}, {249558, cost = {gold = 1000000}}, {251981, cost = {gold = 500000}}, {251982, cost = {gold = 750000}}, {253180, cost = {gold = 1000000}}, {253181, cost = {gold = 500000}}, {253441, cost = {gold = 1000000}}, {253479, cost = {gold = 500000}}, {253490, cost = {gold = 750000}}, {253493, cost = {gold = 1000000}}, {255650, cost = {gold = 250000}}, {257690, cost = {gold = 1000000}}, {264169, cost = {gold = 250000}}, {264352, cost = {gold = 1250000}}, {264353, cost = {gold = 1250000}}, {265653, cost = {gold = 750000}}, {265654, cost = {gold = 750000}}, {267075, cost = {gold = 750000}}},
+        items = {{235994, cost = {gold = 1000000}}, {241617, cost = {gold = 500000}}, {241618, cost = {gold = 100000}}, {241620, cost = {gold = 1000000}}, {241621, cost = {gold = 250000}}, {241622, cost = {gold = 750000}}, {243242, cost = {gold = 500000}}, {243243, cost = {gold = 750000}}, {243337, cost = {gold = 500000}}, {243338, cost = {gold = 500000}}, {243495, cost = {gold = 1000000}}, {244781, cost = {gold = 500000}}, {245575, cost = {gold = 1000000}}, {245576, cost = {gold = 500000}}, {245578, cost = {gold = 1000000}}, {245579, cost = {gold = 750000}}, {245581, cost = {gold = 500000}}, {245582, cost = {gold = 750000}}, {245583, cost = {gold = 1000000}}, {245649, cost = {gold = 1000000}}, {246249, cost = {gold = 500000}}, {246250, cost = {gold = 1250000}}, {246251, cost = {gold = 750000}}, {246252, cost = {gold = 500000}}, {246253, cost = {gold = 1000000}}, {246254, cost = {gold = 500000}}, {246255, cost = {gold = 1250000}}, {246256, cost = {gold = 750000}}, {246257, cost = {gold = 500000}}, {246258, cost = {gold = 1000000}}, {246431, cost = {gold = 500000}}, {246691, cost = {gold = 500000}}, {246711, cost = {gold = 100000}}, {246961, cost = {gold = 100000}}, {247501, cost = {gold = 750000}}, {248760, cost = {gold = 500000}}, {249558, cost = {gold = 1000000}}, {251981, cost = {gold = 500000}}, {251982, cost = {gold = 750000}}, {253180, cost = {gold = 1000000}}, {253181, cost = {gold = 500000}}, {253441, cost = {gold = 1000000}}, {253479, cost = {gold = 500000}}, {253490, cost = {gold = 750000}}, {253493, cost = {gold = 1000000}}, {255650, cost = {gold = 250000}}, {257690, cost = {gold = 1000000}}, {264169, cost = {gold = 250000}}, {264352, cost = {gold = 1250000}}, {264353, cost = {gold = 1250000}}, {265653, cost = {gold = 750000}}, {265654, cost = {gold = 750000}}, {267075, cost = {gold = 750000}}},
     },
 	[255299] = {
         name = "Lefton Farrer",
@@ -2893,14 +2895,22 @@ VendorDatabase.Vendors = {
         expansion = "Midnight",
         scanConfirmed = "2026-06-25",
         scanCoverage = "full",
+        -- 263994/263995/263996/264008/264170/264175 repriced 250->500 Voidlight
+        -- Marl: consistent 500 in both scan files used for this vendor (2026-08-02
+        -- build 68914, channel-ptr-2026-07-13), stale since scanConfirmed 2026-06-25.
+        -- 264007 has no scan coverage either way; left at 250, unconfirmed.
         items = {
-            {263994, cost = {currencies = {{id = 3316, amount = 250}}}},
-            {263995, cost = {currencies = {{id = 3316, amount = 250}}}},
-            {263996, cost = {currencies = {{id = 3316, amount = 250}}}},
+            {263994, cost = {currencies = {{id = 3316, amount = 500}}}},
+            {263995, cost = {currencies = {{id = 3316, amount = 500}}}},
+            {263996, cost = {currencies = {{id = 3316, amount = 500}}}},
             {264007, cost = {currencies = {{id = 3316, amount = 250}}}},
-            {264008, cost = {currencies = {{id = 3316, amount = 250}}}},
-            {264170, cost = {currencies = {{id = 3316, amount = 250}}}},
-            {264175, cost = {currencies = {{id = 3316, amount = 250}}}},
+            {264008, cost = {currencies = {{id = 3316, amount = 500}}}},
+            {264170, cost = {currencies = {{id = 3316, amount = 500}}}},
+            {264175, cost = {currencies = {{id = 3316, amount = 500}}}},
+            {265033, cost = {currencies = {{id = 3316, amount = 250}}}},
+            {265386, cost = {currencies = {{id = 3316, amount = 250}}}},
+            {267207, cost = {currencies = {{id = 3316, amount = 250}}}},
+            {272360, cost = {currencies = {{id = 3316, amount = 250}}}},
         },
     },
 	[251091] = {
@@ -3128,6 +3138,10 @@ VendorDatabase.Vendors = {
             {271162, cost = {currencies = {{id = 3393, amount = 120}}}},
             {272441, cost = {currencies = {{id = 3393, amount = 10}}}},
             {272442, cost = {currencies = {{id = 3393, amount = 20}}}},
+            {272443, cost = {currencies = {{id = 3393, amount = 20}}}},
+            {272444, cost = {currencies = {{id = 3393, amount = 10}}}},
+            {272445, cost = {currencies = {{id = 3393, amount = 10}}}},
+            {272446, cost = {currencies = {{id = 3393, amount = 10}}}},
         },
     },
     [265581] = {
@@ -3157,30 +3171,14 @@ VendorDatabase.Vendors = {
     -- =========================================================================
 
     -- Razorwind Shores additions
-    [260485] = {
-        name = "Griftah",
-        unreleased = true,
-        mapID = 2351,
-        x = 0.5427, y = 0.5605,
-        zone = "Razorwind Shores",
-        expansion = "Midnight",
-        currency = "Community Coupons",
-        items = {},
-    },
-    [265551] = {
-        name = "Roshai Lightstep",
-        unreleased = true,
-        mapID = 2351,
-        x = 0.5420, y = 0.5597,
-        zone = "Razorwind Shores",
-        expansion = "Midnight",
-        currency = "Gold",
-        items = {
-            {276626}, {276650}, {276652}, {276654}, {276656},
-            {276658}, {276661}, {276663}, {276665}, {276667},
-            {276669}, {276671}, {276673}, {276675}, {276677},
-        },
-    },
+    -- 263880/276246 added from real in-game PTR scan (2026-08-09, build
+    -- 12.1.0.69189, scanConfidence: confirmed); not yet in the datamine's
+    -- HouseDecor set as of this build, so the release matrix carries no row
+    -- for them -- see HS-250 tracker note. 263880 ("Cherished Pet's Rug") is
+    -- confirmed as the 8th of an 8-item "Pet Bed" set (all 50 Gold, mirrored
+    -- with Perry Winkles) by Blizzard's own 12.1 housing post
+    -- (worldofwarcraft.blizzard.com/en-gb/news/24295382, 2026-08-11). 276246
+    -- is a separate, non-Pet-Bed item, still unconfirmed for Perry Winkles.
     [267794] = {
         name = "Agratha",
         unreleased = true,
@@ -3191,34 +3189,8 @@ VendorDatabase.Vendors = {
         currency = "Gold",
         items = {
             {277121}, {277138}, {277142}, {277144}, {277149}, {277160}, {277163},
-        },
-    },
-    [268106] = {
-        name = "Taifa",
-        unreleased = true,
-        mapID = 2351,
-        x = 0.5487, y = 0.5730,
-        zone = "Razorwind Shores",
-        expansion = "Midnight",
-        currency = "Gold",
-        items = {
-            {280215}, {280221}, {280223}, {280225}, {280227},
-            {280230}, {280232}, {280234}, {280236}, {280238},
-            {280240}, {280242}, {280244},
-        },
-    },
-    [271173] = {
-        name = "Timicky",
-        unreleased = true,
-        mapID = 2351,
-        x = 0.5489, y = 0.5728,
-        zone = "Razorwind Shores",
-        expansion = "Midnight",
-        currency = "Gold",
-        items = {
-            {280246}, {280249}, {280251}, {280253}, {280255},
-            {280257}, {280259}, {280261}, {280263}, {280265},
-            {280267}, {280269}, {280271}, {280273}, {280275},
+            {263880, cost = {gold = 500000}},
+            {276246, cost = {currencies = {{id = 3363, amount = 10}}}},
         },
     },
     [271366] = {
@@ -3231,6 +3203,38 @@ VendorDatabase.Vendors = {
         currency = "Gold",
         items = {
             {280335},
+        },
+    },
+    -- Coords from real in-game PTR scan (2026-08-09, build 12.1.0.69189,
+    -- scanConfidence: confirmed), not the crawl or owner-report.
+    [257303] = {
+        name = "\"Den\" Nightshade",
+        unreleased = true,
+        mapID = 2351,
+        x = 0.3946, y = 0.7022,
+        zone = "Razorwind Shores",
+        expansion = "Midnight",
+        currency = "Community Coupons",
+        items = {
+            {280625}, {280627}, {280629}, {280631}, {280633}, {280635},
+            {280637}, {280639}, {280642}, {280644}, {280646}, {280650},
+            {280652}, {280654}, {282347},
+        },
+    },
+    -- Coords from real in-game PTR scan (2026-08-09, build 12.1.0.69189,
+    -- scanConfidence: confirmed). Sells the same 12 items as Devin
+    -- Slatesmith (Founder's Point) -- likely a mirror pair.
+    [257257] = {
+        name = "Merki",
+        unreleased = true,
+        mapID = 2351,
+        x = 0.5407, y = 0.5876,
+        zone = "Razorwind Shores",
+        expansion = "Midnight",
+        currency = "Gold",
+        items = {
+            {280142}, {280144}, {280146}, {280148}, {280150}, {280152},
+            {280154}, {280156}, {280158}, {280160}, {280162}, {280164},
         },
     },
 
@@ -3257,6 +3261,43 @@ VendorDatabase.Vendors = {
         items = {
             {280142}, {280144}, {280146}, {280148}, {280150}, {280152},
             {280154}, {280156}, {280158}, {280160}, {280162}, {280164},
+        },
+    },
+    -- Coords from real in-game PTR scan (2026-08-02, build 12.1.0.68914,
+    -- scanConfidence: confirmed), not the crawl. Sells the same 15 items as
+    -- "Den" Nightshade (Razorwind Shores) -- confirms a mirror pair.
+    [257321] = {
+        name = "Fel'orei Moonstrider",
+        unreleased = true,
+        mapID = 2352,
+        x = 0.5196, y = 0.3854,
+        zone = "Founder's Point",
+        expansion = "Midnight",
+        currency = "Community Coupons",
+        items = {
+            {280625}, {280627}, {280629}, {280631}, {280633}, {280635},
+            {280637}, {280639}, {280642}, {280644}, {280646}, {280650},
+            {280652}, {280654}, {282347},
+        },
+    },
+    -- Coords from real in-game PTR scan (2026-08-02, also seen June/July,
+    -- scanConfidence: confirmed). Sells the same 8-item "Pet Bed" set as
+    -- Agratha (Razorwind Shores) -- confirmed by Blizzard's own 12.1 housing
+    -- post (worldofwarcraft.blizzard.com/en-gb/news/24295382, 2026-08-11):
+    -- all 8 are 50 Gold, sold by both Perry Winkles and Agratha. Agratha's
+    -- 276246 (Community Coupons) is a separate, non-Pet-Bed item and is not
+    -- confirmed for Perry Winkles.
+    [267795] = {
+        name = "Perry Winkles",
+        unreleased = true,
+        mapID = 2352,
+        x = 0.5383, y = 0.4166,
+        zone = "Founder's Point",
+        expansion = "Midnight",
+        currency = "Gold",
+        items = {
+            {277121}, {277138}, {277142}, {277144}, {277149}, {277160}, {277163},
+            {263880},
         },
     },
 

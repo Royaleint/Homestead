@@ -12,7 +12,8 @@
     - 4-tier milestone progression gates item availability
     - Dedicated API: C_NeighborhoodInitiative
 
-    6 vendors, 78 items total.
+    10 vendors, 140 items total (4 unreleased -- Midnight 12.1 PTR only,
+    see the "unreleased" flag on each).
 ]]
 
 local _, HA = ...
@@ -61,10 +62,9 @@ local culturalKeywordToTheme = {
     ["loamm"] = "Niffen",
     ["smell sensation"] = "Niffen",
     ["olfactory"] = "Niffen",
-    -- Future themes (planned)
-    ["sporeggar"] = "Sporeggar",
-    ["kobold"] = "Kobold",
     ["you take candle"] = "Kobold",
+    -- Future themes (planned; not yet confirmed to exist)
+    ["sporeggar"] = "Sporeggar",
     ["deeperholm"] = "Earthen",
     ["therazane"] = "Earthen",
     ["holm sweet holm"] = "Earthen",
@@ -79,9 +79,10 @@ local initiativeTitleToTheme = {
     ["Reaching Beyond the Possible"] = "Dracthyr",
     ["Consortium Consternation"] = "K'areshi",
     ["Smell Sensation"] = "Niffen",
-    -- Future planned titles
-    ["With Regards to Sporeggar"] = "Sporeggar",
     ["You Take Candle"] = "Kobold",
+    -- Future planned titles (Amani/Maruuk/Tortollan quest titles not yet observed;
+    -- ResolveThemeFromText falls back to matching the Endeavors key names directly)
+    ["With Regards to Sporeggar"] = "Sporeggar",
     ["Deeperholm"] = "Earthen",
     ["Holm Sweet Holm"] = "Earthen",
 }
@@ -104,6 +105,11 @@ EndeavorsData.Endeavors = {
     ["Mechagnome"] = { vendorNPC = 248525 },
     ["K'areshi"]   = { vendorNPC = 252605 },
     ["Niffen"]     = { vendorNPC = 257897 },
+    -- Midnight 12.1 (PTR only; see "unreleased" flag on each vendor entry)
+    ["Amani"]      = { vendorNPC = 260485 },
+    ["Maruuk"]     = { vendorNPC = 265551 },
+    ["Tortollan"]  = { vendorNPC = 268106 },
+    ["Kobold"]     = { vendorNPC = 271173 },
 }
 
 -------------------------------------------------------------------------------
@@ -302,6 +308,159 @@ EndeavorsData.Vendors = {
             {253600, cost = {currencies = {{id = 3363, amount = 5}}}},
             {253601, cost = {currencies = {{id = 3363, amount = 5}}}},
             {254235, cost = {currencies = {{id = 3363, amount = 5}}}},
+        },
+    },
+
+    -- =========================================================================
+    -- Midnight 12.1 -- Unreleased. Coords/currency below are PTR-only. Griftah
+    -- has confirmed altMapID/altX/altY (real PTR scans placed him in both
+    -- neighborhoods); the other 3 do not yet -- their alternate-neighborhood
+    -- rotation has not been observed on PTR. Costs verified against the
+    -- release matrix (staging/decor-patch-inputs/hs250-release-matrix-*.csv)
+    -- and, for Griftah, a real in-game PTR scan (2026-08-09, build
+    -- 12.1.0.69189, scanConfidence: confirmed). Remove unreleased = true once
+    -- patch goes live.
+    -- =========================================================================
+
+    -- Amani theme
+    -- Real in-game PTR scans place him in BOTH neighborhoods depending on
+    -- build/date -- normal alt-neighborhood rotation, not conflicting data:
+    -- Founder's Point (2026-07-13 build 68914, 2026-08-02 build 68914) vs.
+    -- Razorwind Shores (2026-08-09 build 69189, newest -- used as primary).
+    [260485] = {
+        name = "Griftah",
+        mapID = 2351,
+        x = 0.5421, y = 0.5596,
+        zone = "Razorwind Shores",
+        altMapID = 2352,
+        altX = 0.5307, altY = 0.3806,
+        altZone = "Founder's Point",
+        faction = "Neutral",
+        currency = "Community Coupons",
+        expansion = "Midnight",
+        endeavor = true,
+        unreleased = true,
+        scanConfirmed = "2026-08-09",
+        notes = "Neighborhood Endeavor vendor (Amani theme)",
+        items = {
+            {255649, cost = {currencies = {{id = 3363, amount = 15}}}},
+            {263317, cost = {currencies = {{id = 3363, amount = 10}}}},
+            {263708, cost = {currencies = {{id = 3363, amount = 15}}}},
+            {274505, cost = {currencies = {{id = 3363, amount = 30}}}},
+            {274518, cost = {currencies = {{id = 3363, amount = 20}}}},
+            {274521, cost = {currencies = {{id = 3363, amount = 15}}}},
+            {274523, cost = {currencies = {{id = 3363, amount = 15}}}},
+            {274525, cost = {currencies = {{id = 3363, amount = 10}}}},
+            {274527, cost = {currencies = {{id = 3363, amount = 2}}}},
+            {274529, cost = {currencies = {{id = 3363, amount = 15}}}},
+            {274531, cost = {currencies = {{id = 3363, amount = 10}}}},
+            {274533, cost = {currencies = {{id = 3363, amount = 15}}}},
+            {274535, cost = {currencies = {{id = 3363, amount = 30}}}},
+            {274537, cost = {currencies = {{id = 3363, amount = 30}}}},
+            {274539, cost = {currencies = {{id = 3363, amount = 30}}}},
+            -- "Bag of Totally Legitimate Amani Goods": 1 Griftah's Token of
+            -- Appreciation (Blizzard's own 12.1 endeavor post, 2026-08-10).
+            -- Task-completion reward currency, distinct from Community
+            -- Coupons -- no numeric currency ID published; do not model as
+            -- currency 3363. Left bare pending confirmation.
+            {269029},
+        },
+    },
+
+    -- Maruuk (Ohn'ahran centaur) theme
+    [265551] = {
+        name = "Roshai Lightstep",
+        mapID = 2351,
+        x = 0.5420, y = 0.5597,
+        zone = "Razorwind Shores",
+        faction = "Neutral",
+        currency = "Community Coupons",
+        expansion = "Midnight",
+        endeavor = true,
+        unreleased = true,
+        notes = "Neighborhood Endeavor vendor (Maruuk/Ohn'ahran centaur theme)",
+        items = {
+            {276626, cost = {currencies = {{id = 3363, amount = 10}}}},
+            {276650, cost = {currencies = {{id = 3363, amount = 10}}}},
+            {276652, cost = {currencies = {{id = 3363, amount = 10}}}},
+            {276654, cost = {currencies = {{id = 3363, amount = 5}}}},
+            {276656, cost = {currencies = {{id = 3363, amount = 10}}}},
+            {276658, cost = {currencies = {{id = 3363, amount = 10}}}},
+            {276661, cost = {currencies = {{id = 3363, amount = 15}}}},
+            {276663, cost = {currencies = {{id = 3363, amount = 10}}}},
+            {276665, cost = {currencies = {{id = 3363, amount = 10}}}},
+            {276667, cost = {currencies = {{id = 3363, amount = 10}}}},
+            {276669, cost = {currencies = {{id = 3363, amount = 5}}}},
+            {276671, cost = {currencies = {{id = 3363, amount = 5}}}},
+            {276673, cost = {currencies = {{id = 3363, amount = 5}}}},
+            {276675, cost = {currencies = {{id = 3363, amount = 5}}}},
+            {276677, cost = {currencies = {{id = 3363, amount = 10}}}},
+        },
+    },
+
+    -- Tortollan theme
+    [268106] = {
+        name = "Taifa",
+        mapID = 2351,
+        x = 0.5487, y = 0.5730,
+        zone = "Razorwind Shores",
+        faction = "Neutral",
+        currency = "Community Coupons",
+        expansion = "Midnight",
+        endeavor = true,
+        unreleased = true,
+        notes = "Neighborhood Endeavor vendor (Tortollan theme)",
+        items = {
+            {280215, cost = {currencies = {{id = 3363, amount = 20}}}},
+            {280221, cost = {currencies = {{id = 3363, amount = 10}}}},
+            {280223, cost = {currencies = {{id = 3363, amount = 25}}}},
+            {280225, cost = {currencies = {{id = 3363, amount = 25}}}},
+            {280227, cost = {currencies = {{id = 3363, amount = 25}}}},
+            {280230, cost = {currencies = {{id = 3363, amount = 20}}}},
+            {280232, cost = {currencies = {{id = 3363, amount = 15}}}},
+            {280234, cost = {currencies = {{id = 3363, amount = 15}}}},
+            {280236, cost = {currencies = {{id = 3363, amount = 30}}}},
+            {280238, cost = {currencies = {{id = 3363, amount = 10}}}},
+            {280240, cost = {currencies = {{id = 3363, amount = 20}}}},
+            {280242, cost = {currencies = {{id = 3363, amount = 15}}}},
+            {280244, cost = {currencies = {{id = 3363, amount = 5}}}},
+            {280873, cost = {currencies = {{id = 3363, amount = 5}}}}, -- Protected Tortollan Scroll Case
+            -- Beguiling Memories of the Sea: CSV-attributed (external_resolved,
+            -- add_or_complete_vendor_offer), no published price -- left bare
+            -- pending confirmation, same as Griftah's 269029.
+            {280846},
+        },
+    },
+
+    -- Kobold theme
+    [271173] = {
+        name = "Timicky",
+        mapID = 2351,
+        x = 0.5489, y = 0.5728,
+        zone = "Razorwind Shores",
+        faction = "Neutral",
+        currency = "Community Coupons",
+        expansion = "Midnight",
+        endeavor = true,
+        unreleased = true,
+        notes = "Neighborhood Endeavor vendor (Kobold theme)",
+        items = {
+            {280246, cost = {currencies = {{id = 3363, amount = 30}}}},
+            {280249, cost = {currencies = {{id = 3363, amount = 10}}}},
+            {280251, cost = {currencies = {{id = 3363, amount = 10}}}},
+            {280253, cost = {currencies = {{id = 3363, amount = 20}}}},
+            {280255, cost = {currencies = {{id = 3363, amount = 10}}}},
+            {280257, cost = {currencies = {{id = 3363, amount = 15}}}},
+            {280259, cost = {currencies = {{id = 3363, amount = 20}}}},
+            {280261, cost = {currencies = {{id = 3363, amount = 25}}}},
+            {280263, cost = {currencies = {{id = 3363, amount = 20}}}},
+            {280265, cost = {currencies = {{id = 3363, amount = 25}}}},
+            {280267, cost = {currencies = {{id = 3363, amount = 30}}}},
+            {280269, cost = {currencies = {{id = 3363, amount = 10}}}},
+            {280271, cost = {currencies = {{id = 3363, amount = 10}}}},
+            {280273, cost = {currencies = {{id = 3363, amount = 10}}}},
+            {280275, cost = {currencies = {{id = 3363, amount = 10}}}},
+            {280513, cost = {currencies = {{id = 3363, amount = 20}}}}, -- Color-Curious Candle
         },
     },
 }
