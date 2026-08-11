@@ -38,8 +38,17 @@
     (badge atlas + glow state, resolved through the catalog API, SourceManager
     and the sourceText parser), so a frame rebinding to an already-seen item
     costs one table lookup instead of a full re-resolve. Both are wiped
-    together in InvalidateAllOverlays, the single funnel every ownership/
-    source invalidation already runs through.
+    together in InvalidateAllOverlays, which every invalidation this file
+    subscribes to routes through.
+
+    "Subscribes to" is the load-bearing part: a cache keyed by item outlives
+    frame rebinding, so it is exactly as fresh as its wiring and no fresher,
+    where the old recompute-per-bind behaviour self-healed from anything.
+    Vendor-scan source discovery is the case that proves it — a merchant scan
+    wipes SourceManager's source memo directly (ScanPersistence's
+    InvalidateSourcesMemo) and deliberately broadcasts nothing, so it reaches
+    this file only through VENDOR_SCANNED. All four subscriptions are wired
+    together at the bottom of this file.
 ]]
 
 local _, HA = ...
@@ -534,10 +543,10 @@ end
 -- itself value-based and already includes itemID, so a genuine change would
 -- be caught even without this; wiping it here means that guarantee never
 -- depends on that reasoning holding for every future field added to the
--- signature. When in doubt, repaint.) All three invalidation entry points —
+-- signature. When in doubt, repaint.) All four invalidation entry points —
 -- OWNERSHIP_UPDATED, SOURCE_CACHES_INVALIDATED (via RefreshAvailabilityOverlays),
--- and the "catalogBadges" external refresher — funnel through this one
--- function, so wiping the caches here covers all of them.
+-- VENDOR_SCANNED, and the "catalogBadges" external refresher — funnel through
+-- this one function, so wiping the caches here covers all of them.
 --
 -- itemVerdictCache MUST be wiped alongside the others: it outlives frame
 -- rebinding by design, so anything it holds past an ownership or source
@@ -613,10 +622,33 @@ end
 -- SourceManager owns the single WoW event frame for achievement/quest/reputation/
 -- profession/holiday invalidation and fires SOURCE_CACHES_INVALIDATED.
 -- CatalogOverlay only repaints — no duplicate WoW event registrations.
+--
+-- VENDOR_SCANNED is here because a merchant scan is the one source-discovery
+-- path those two events do NOT cover: scanning a vendor that sells an item
+-- nothing else pointed to wipes SourceManager's source memo through
+-- InvalidateSourcesMemo, which is deliberately broadcast-free (a full
+-- InvalidateAllSourceCaches would restart the badge prewarm on every vendor
+-- visit — the HS-238 over-invalidation). Without this line the itemVerdictCache
+-- keeps serving the pre-scan verdict — no badge, no glow — until some
+-- unrelated invalidation happens to come along.
+--
+-- Deliberately NOT gated on the scan having found decor (vendorRecord.hasDecor)
+-- or requirements: those are ScanPersistence's own signals for wiping its own
+-- memo, and gating on them would couple this file's correctness to that
+-- module's internals to save three table wipes on a path where the catalog is
+-- almost always closed (RefreshVisibleOverlays skips the repaint entirely
+-- then). Getting such a gate wrong reintroduces precisely the staleness above.
 if HA.Events then
     HA.Events:RegisterCallback("OWNERSHIP_UPDATED", RefreshVisibleOverlays)
     HA.Events:RegisterCallback("SOURCE_CACHES_INVALIDATED", RefreshAvailabilityOverlays)
+    HA.Events:RegisterCallback("VENDOR_SCANNED", RefreshVisibleOverlays)
 end
+
+-- Not wired, and not an oversight: CatalogStore:SetSources (the sourceText
+-- parse pipeline) fires CATALOG_ITEM_UPDATED rather than any of the above, so
+-- a fresh parse can lag this cache. That lag is pre-existing and deferred with
+-- rationale in SourceManager.lua's allSourcesCache note (HS-273 R7) — the memo
+-- there has the same gap — and useParsedSources defaults false.
 
 -- Register external refresher so Overlay:RefreshAll() also updates catalog overlays
 if HA.Overlay then

@@ -222,3 +222,28 @@ assert(presentationCalls == 4 and apiCalls == 4 and parseCalls == 4,
     "a bind of an item never evaluated before must still resolve (the cache must be per-item)")
 
 print("hs_catalog_overlay_item_cache: per-item keying ok")
+
+-------------------------------------------------------------------------------
+-- 4. Vendor-scan source discovery must invalidate too (Argus cycle 1 CRITICAL).
+--
+-- A merchant scan wipes SourceManager's source memo through the deliberately
+-- broadcast-free InvalidateSourcesMemo, so it fires VENDOR_SCANNED and nothing
+-- else. Unsubscribed, an item cached as "no known source" before the scan
+-- keeps that verdict -- no badge, no glow -- until some unrelated invalidation
+-- happens along, where the pre-cache recompute-per-bind behaviour self-healed.
+--
+-- Three frames are known by now, bound to two DISTINCT items (777 and 501), so
+-- the repaint resolves exactly twice regardless of pairs() order: the first
+-- frame per item computes, the rest hit the refilled cache.
+-------------------------------------------------------------------------------
+
+assert(eventCallbacks["VENDOR_SCANNED"],
+    "CatalogOverlay must subscribe VENDOR_SCANNED -- vendor-scan source discovery "
+        .. "reaches no other invalidation path this file listens to")
+
+eventCallbacks["VENDOR_SCANNED"]({ hasDecor = true }, false)
+assert(presentationCalls == 6 and apiCalls == 6 and parseCalls == 6,
+    "VENDOR_SCANNED must force the next evaluation to re-resolve (got presentation="
+        .. presentationCalls .. " api=" .. apiCalls .. " parse=" .. parseCalls .. ")")
+
+print("hs_catalog_overlay_item_cache: VENDOR_SCANNED invalidates ok")
