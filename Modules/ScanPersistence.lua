@@ -331,19 +331,11 @@ function ScanPersistence:SaveVendorData(scanData)
             ))
         end
     else
-        -- Unknown vendor, no prior good data, 0 housing items: don't persist
+        -- Unknown vendor, no prior good data, 0 housing items: don't persist.
+        -- No direct BuildScannedIndex() call needed here -- the unconditional
+        -- InvalidateVendorCaches() call a few lines down runs regardless of
+        -- which branch above ran, and rebuilds this index as part of that.
         HA.Addon.db.global.scannedVendors[scanData.npcID] = nil
-        -- NOTE: VENDOR_SCANNED actually fires unconditionally near the end of this
-        -- function (see the Fire() call below) regardless of which branch above ran
-        -- -- this delete branch is no exception. This direct call is therefore
-        -- redundant with both that event's OnVendorScanned handler and the
-        -- unconditional InvalidateVendorCaches() call a few lines down (both also
-        -- rebuild this index). Kept anyway as an explicit, cheap, idempotent rebuild
-        -- at the point of deletion; removing it is a separate cleanup, not bundled
-        -- into HS-280's scope.
-        if HA.VendorData and HA.VendorData.BuildScannedIndex then
-            HA.VendorData:BuildScannedIndex()
-        end
     end
 
     if HA.DevAddon then

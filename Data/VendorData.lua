@@ -961,13 +961,6 @@ function VendorData:GetScannedVendorItems(npcID, itemID)
     return byItem and byItem[itemID]
 end
 
--- Rebuild the full scanned-index from authoritative SavedVariables.
--- Cheap (~1ms for ~200 vendors) and structurally prevents stale
--- (itemID -> npcID) leakage when a vendor's item set changes between scans.
-function VendorData:OnVendorScanned(_)
-    self:BuildScannedIndex()
-end
-
 -------------------------------------------------------------------------------
 -- Initialization
 -------------------------------------------------------------------------------
@@ -994,12 +987,11 @@ function VendorData:Initialize()
     -- Build scanned vendor item index
     self:BuildScannedIndex()
 
-    -- Listen for new vendor scans to update index
-    if HA.Events then
-        HA.Events:RegisterCallback("VENDOR_SCANNED", function(vendorRecord)
-            VendorData:OnVendorScanned(vendorRecord)
-        end)
-    end
+    -- No VENDOR_SCANNED listener here: ScanPersistence:SaveVendorData already
+    -- calls InvalidateVendorCaches() (which rebuilds this index) before firing
+    -- VENDOR_SCANNED, so a second rebuild off that event would just redo the
+    -- same work (perf cleanup, see ScanPersistence.lua's InvalidateVendorCaches
+    -- call comment for the ordering guarantee).
 
     if HA.Addon then
         local nameCount = 0
