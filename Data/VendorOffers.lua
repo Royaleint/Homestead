@@ -38,12 +38,6 @@ local GeneratedBase = {
       isUsable = true,
       displayOrder = 1,
     },
-    [256905] = {
-      price = 0,
-      currencies = {},
-      isUsable = true,
-      displayOrder = 2,
-    },
   },
   [1465] = {
     [246422] = {
@@ -321,12 +315,6 @@ local GeneratedBase = {
       currencies = {},
       isUsable = true,
       displayOrder = 2,
-    },
-    [246692] = {
-      price = 0,
-      currencies = {},
-      isUsable = true,
-      displayOrder = 3,
     },
   },
   [50307] = {
@@ -3510,6 +3498,18 @@ local GeneratedBase = {
       hasExtendedCost = true,
       displayOrder = 2,
     },
+    [275853] = {
+      price = 0,
+      currencies = {{id = 2803, amount = 500}},
+      isUsable = true,
+      displayOrder = 3,
+    },
+    [275857] = {
+      price = 0,
+      currencies = {{id = 2803, amount = 500}},
+      isUsable = true,
+      displayOrder = 4,
+    },
   },
   [242399] = {
     [263994] = {
@@ -3574,6 +3574,30 @@ local GeneratedBase = {
       merchantSlot = 6,
       hasExtendedCost = true,
       displayOrder = 7,
+    },
+    [265033] = {
+      price = 0,
+      currencies = {{id = 3316, amount = 250}},
+      isUsable = true,
+      displayOrder = 8,
+    },
+    [265386] = {
+      price = 0,
+      currencies = {{id = 3316, amount = 250}},
+      isUsable = true,
+      displayOrder = 9,
+    },
+    [267207] = {
+      price = 0,
+      currencies = {{id = 3316, amount = 250}},
+      isUsable = true,
+      displayOrder = 10,
+    },
+    [272360] = {
+      price = 0,
+      currencies = {{id = 3316, amount = 250}},
+      isUsable = true,
+      displayOrder = 11,
     },
   },
   [242723] = {
@@ -7417,6 +7441,18 @@ local GeneratedBase = {
       hasExtendedCost = false,
       displayOrder = 8,
     },
+    [243337] = {
+      price = 500000,
+      currencies = {},
+      isUsable = true,
+      displayOrder = 9,
+    },
+    [243338] = {
+      price = 500000,
+      currencies = {},
+      isUsable = true,
+      displayOrder = 10,
+    },
     [243495] = {
       price = 1000000,
       currencies = {},
@@ -10640,6 +10676,18 @@ local GeneratedBase = {
       isUsable = true,
       displayOrder = 8,
     },
+    [243337] = {
+      price = 500000,
+      currencies = {},
+      isUsable = true,
+      displayOrder = 9,
+    },
+    [243338] = {
+      price = 500000,
+      currencies = {},
+      isUsable = true,
+      displayOrder = 10,
+    },
     [243495] = {
       price = 1000000,
       currencies = {},
@@ -12506,6 +12554,68 @@ local GeneratedBase = {
       displayOrder = 4,
     },
   },
+  [256784] = {
+    [274464] = {
+      price = 10,
+      currencies = {},
+      isUsable = true,
+      displayOrder = 1,
+    },
+    [274468] = {
+      price = 10,
+      currencies = {},
+      isUsable = true,
+      displayOrder = 2,
+    },
+    [274469] = {
+      price = 10,
+      currencies = {},
+      isUsable = true,
+      displayOrder = 3,
+    },
+    [274470] = {
+      price = 10,
+      currencies = {},
+      isUsable = true,
+      displayOrder = 4,
+    },
+    [274471] = {
+      price = 10,
+      currencies = {},
+      isUsable = true,
+      displayOrder = 5,
+    },
+    [274472] = {
+      price = 10,
+      currencies = {},
+      isUsable = true,
+      displayOrder = 6,
+    },
+    [274473] = {
+      price = 10,
+      currencies = {},
+      isUsable = true,
+      displayOrder = 7,
+    },
+    [274474] = {
+      price = 10,
+      currencies = {},
+      isUsable = true,
+      displayOrder = 8,
+    },
+    [274475] = {
+      price = 10,
+      currencies = {},
+      isUsable = true,
+      displayOrder = 9,
+    },
+    [281540] = {
+      price = 1,
+      currencies = {},
+      isUsable = true,
+      displayOrder = 10,
+    },
+  },
   [256826] = {
     [258222] = {
       price = 1000000,
@@ -12747,6 +12857,382 @@ local GeneratedBase = {
       currencies = {{id = 823, amount = 600}},
       isUsable = true,
       displayOrder = 1,
+    },
+  },
+  [257257] = {
+    [280142] = {
+      price = 250000,
+      currencies = {},
+      isUsable = true,
+      displayOrder = 1,
+    },
+    [280144] = {
+      price = 1000000,
+      currencies = {},
+      isUsable = true,
+      displayOrder = 2,
+    },
+    [280146] = {
+      price = 250000,
+      currencies = {},
+      isUsable = true,
+      displayOrder = 3,
+    },
+    [280148] = {
+      price = 1000000,
+      currencies = {},
+      isUsable = true,
+      displayOrder = 4,
+    },
+    [280150] = {
+      price = 500000,
+      currencies = {},
+      isUsable = true,
+      displayOrder = 5,
+    },
+    [280152] = {
+      price = 250000,
+      currencies = {},
+      isUsable = true,
+      displayOrder = 6,
+    },
+    [280154] = {
+      price = 250000,
+      currencies = {},
+      isUsable = true,
+      displayOrder = 7,
+    },
+    [280156] = {
+      price = 500000,
+      currencies = {},
+      isUsable = true,
+      displayOrder = 8,
+    },
+    [280158] = {
+      price = 250000,
+      currencies = {},
+      isUsable = true,
+      displayOrder = 9,
+    },
+    [280160] = {
+      price = 1000000,
+      currencies = {},
+      isUsable = true,
+      displayOrder = 10,
+    },
+    [280162] = {
+      price = 750000,
+      currencies = {},
+      isUsable = true,
+      displayOrder = 11,
+    },
+    [280164] = {
+      price = 750000,
+      currencies = {},
+      isUsable = true,
+      displayOrder = 12,
+    },
+  },
+  [257295] = {
+    [272997] = {
+      price = 0,
+      currencies = {{id = 3363, amount = 50}},
+      isUsable = true,
+      displayOrder = 1,
+    },
+    [274665] = {
+      price = 0,
+      currencies = {{id = 3363, amount = 50}},
+      isUsable = true,
+      displayOrder = 2,
+    },
+    [274666] = {
+      price = 0,
+      currencies = {{id = 3363, amount = 50}},
+      isUsable = true,
+      displayOrder = 3,
+    },
+    [274667] = {
+      price = 0,
+      currencies = {{id = 3363, amount = 50}},
+      isUsable = true,
+      displayOrder = 4,
+    },
+    [274668] = {
+      price = 0,
+      currencies = {{id = 3363, amount = 50}},
+      isUsable = true,
+      displayOrder = 5,
+    },
+    [274669] = {
+      price = 0,
+      currencies = {{id = 3363, amount = 50}},
+      isUsable = true,
+      displayOrder = 6,
+    },
+    [274670] = {
+      price = 0,
+      currencies = {{id = 3363, amount = 50}},
+      isUsable = true,
+      displayOrder = 7,
+    },
+    [274671] = {
+      price = 0,
+      currencies = {{id = 3363, amount = 50}},
+      isUsable = true,
+      displayOrder = 8,
+    },
+    [276243] = {
+      price = 0,
+      currencies = {{id = 3363, amount = 75}},
+      isUsable = true,
+      displayOrder = 9,
+    },
+    [276244] = {
+      price = 0,
+      currencies = {{id = 3363, amount = 75}},
+      isUsable = true,
+      displayOrder = 10,
+    },
+    [282340] = {
+      price = 0,
+      currencies = {{id = 3363, amount = 200}},
+      isUsable = true,
+      displayOrder = 11,
+    },
+    [282343] = {
+      price = 0,
+      currencies = {{id = 3363, amount = 200}},
+      isUsable = true,
+      displayOrder = 12,
+    },
+  },
+  [257297] = {
+    [274661] = {
+      price = 0,
+      currencies = {{id = 3363, amount = 50}},
+      isUsable = true,
+      displayOrder = 1,
+    },
+    [274662] = {
+      price = 0,
+      currencies = {{id = 3363, amount = 50}},
+      isUsable = true,
+      displayOrder = 2,
+    },
+    [274664] = {
+      price = 0,
+      currencies = {{id = 3363, amount = 50}},
+      isUsable = true,
+      displayOrder = 3,
+    },
+    [274673] = {
+      price = 0,
+      currencies = {{id = 3363, amount = 50}},
+      isUsable = true,
+      displayOrder = 4,
+    },
+    [274674] = {
+      price = 0,
+      currencies = {{id = 3363, amount = 50}},
+      isUsable = true,
+      displayOrder = 5,
+    },
+    [274675] = {
+      price = 0,
+      currencies = {{id = 3363, amount = 50}},
+      isUsable = true,
+      displayOrder = 6,
+    },
+    [274676] = {
+      price = 0,
+      currencies = {{id = 3363, amount = 50}},
+      isUsable = true,
+      displayOrder = 7,
+    },
+  },
+  [257303] = {
+    [280625] = {
+      price = 0,
+      currencies = {{id = 3363, amount = 10}},
+      isUsable = true,
+      displayOrder = 1,
+    },
+    [280627] = {
+      price = 0,
+      currencies = {{id = 3363, amount = 10}},
+      isUsable = true,
+      displayOrder = 2,
+    },
+    [280629] = {
+      price = 0,
+      currencies = {{id = 3363, amount = 20}},
+      isUsable = true,
+      displayOrder = 3,
+    },
+    [280631] = {
+      price = 0,
+      currencies = {{id = 3363, amount = 20}},
+      isUsable = true,
+      displayOrder = 4,
+    },
+    [280633] = {
+      price = 0,
+      currencies = {{id = 3363, amount = 10}},
+      isUsable = true,
+      displayOrder = 5,
+    },
+    [280635] = {
+      price = 0,
+      currencies = {{id = 3363, amount = 20}},
+      isUsable = true,
+      displayOrder = 6,
+    },
+    [280637] = {
+      price = 0,
+      currencies = {{id = 3363, amount = 30}},
+      isUsable = true,
+      displayOrder = 7,
+    },
+    [280639] = {
+      price = 0,
+      currencies = {{id = 3363, amount = 10}},
+      isUsable = true,
+      displayOrder = 8,
+    },
+    [280642] = {
+      price = 0,
+      currencies = {{id = 3363, amount = 10}},
+      isUsable = true,
+      displayOrder = 9,
+    },
+    [280644] = {
+      price = 0,
+      currencies = {{id = 3363, amount = 20}},
+      isUsable = true,
+      displayOrder = 10,
+    },
+    [280646] = {
+      price = 0,
+      currencies = {{id = 3363, amount = 10}},
+      isUsable = true,
+      displayOrder = 11,
+    },
+    [280650] = {
+      price = 0,
+      currencies = {{id = 3363, amount = 30}},
+      isUsable = true,
+      displayOrder = 12,
+    },
+    [280652] = {
+      price = 0,
+      currencies = {{id = 3363, amount = 30}},
+      isUsable = true,
+      displayOrder = 13,
+    },
+    [280654] = {
+      price = 0,
+      currencies = {{id = 3363, amount = 20}},
+      isUsable = true,
+      displayOrder = 14,
+    },
+    [282347] = {
+      price = 0,
+      currencies = {{id = 3363, amount = 20}},
+      isUsable = true,
+      displayOrder = 15,
+    },
+  },
+  [257321] = {
+    [280625] = {
+      price = 0,
+      currencies = {{id = 3363, amount = 10}},
+      isUsable = true,
+      displayOrder = 1,
+    },
+    [280627] = {
+      price = 0,
+      currencies = {{id = 3363, amount = 10}},
+      isUsable = true,
+      displayOrder = 2,
+    },
+    [280629] = {
+      price = 0,
+      currencies = {{id = 3363, amount = 20}},
+      isUsable = true,
+      displayOrder = 3,
+    },
+    [280631] = {
+      price = 0,
+      currencies = {{id = 3363, amount = 20}},
+      isUsable = true,
+      displayOrder = 4,
+    },
+    [280633] = {
+      price = 0,
+      currencies = {{id = 3363, amount = 10}},
+      isUsable = true,
+      displayOrder = 5,
+    },
+    [280635] = {
+      price = 0,
+      currencies = {{id = 3363, amount = 20}},
+      isUsable = true,
+      displayOrder = 6,
+    },
+    [280637] = {
+      price = 0,
+      currencies = {{id = 3363, amount = 30}},
+      isUsable = true,
+      displayOrder = 7,
+    },
+    [280639] = {
+      price = 0,
+      currencies = {{id = 3363, amount = 10}},
+      isUsable = true,
+      displayOrder = 8,
+    },
+    [280642] = {
+      price = 0,
+      currencies = {{id = 3363, amount = 10}},
+      isUsable = true,
+      displayOrder = 9,
+    },
+    [280644] = {
+      price = 0,
+      currencies = {{id = 3363, amount = 20}},
+      isUsable = true,
+      displayOrder = 10,
+    },
+    [280646] = {
+      price = 0,
+      currencies = {{id = 3363, amount = 10}},
+      isUsable = true,
+      displayOrder = 11,
+    },
+    [280650] = {
+      price = 0,
+      currencies = {{id = 3363, amount = 30}},
+      isUsable = true,
+      displayOrder = 12,
+    },
+    [280652] = {
+      price = 0,
+      currencies = {{id = 3363, amount = 30}},
+      isUsable = true,
+      displayOrder = 13,
+    },
+    [280654] = {
+      price = 0,
+      currencies = {{id = 3363, amount = 20}},
+      isUsable = true,
+      displayOrder = 14,
+    },
+    [282347] = {
+      price = 0,
+      currencies = {{id = 3363, amount = 20}},
+      isUsable = true,
+      displayOrder = 15,
     },
   },
   [257332] = {
@@ -13006,6 +13492,24 @@ local GeneratedBase = {
     },
   },
   [258181] = {
+    [250868] = {
+      price = 0,
+      currencies = {{id = 3392, amount = 350}},
+      isUsable = true,
+      displayOrder = 1,
+    },
+    [250870] = {
+      price = 0,
+      currencies = {{id = 3392, amount = 200}},
+      isUsable = true,
+      displayOrder = 2,
+    },
+    [253449] = {
+      price = 0,
+      currencies = {{id = 3392, amount = 200}},
+      isUsable = true,
+      displayOrder = 3,
+    },
     [265681] = {
       price = 0,
       currencies = {{id = 3392, amount = 1200}},
@@ -13293,6 +13797,72 @@ local GeneratedBase = {
       merchantSlot = 13,
       hasExtendedCost = true,
       displayOrder = 32,
+    },
+    [278123] = {
+      price = 0,
+      currencies = {{id = 3392, amount = 100}},
+      isUsable = true,
+      displayOrder = 36,
+    },
+    [278126] = {
+      price = 0,
+      currencies = {{id = 3392, amount = 100}},
+      isUsable = true,
+      displayOrder = 37,
+    },
+    [278130] = {
+      price = 0,
+      currencies = {{id = 3392, amount = 100}},
+      isUsable = true,
+      displayOrder = 38,
+    },
+    [278134] = {
+      price = 0,
+      currencies = {{id = 3392, amount = 100}},
+      isUsable = true,
+      displayOrder = 39,
+    },
+    [278145] = {
+      price = 0,
+      currencies = {{id = 3392, amount = 200}},
+      isUsable = true,
+      displayOrder = 40,
+    },
+    [278148] = {
+      price = 0,
+      currencies = {{id = 3392, amount = 100}},
+      isUsable = true,
+      displayOrder = 41,
+    },
+    [278151] = {
+      price = 0,
+      currencies = {{id = 3392, amount = 350}},
+      isUsable = true,
+      displayOrder = 42,
+    },
+    [278369] = {
+      price = 0,
+      currencies = {{id = 3392, amount = 600}},
+      isUsable = true,
+      displayOrder = 43,
+    },
+    [278372] = {
+      price = 0,
+      currencies = {{id = 3392, amount = 600}},
+      isUsable = true,
+      displayOrder = 44,
+    },
+    [278376] = {
+      price = 0,
+      currencies = {{id = 3392, amount = 600}},
+      isUsable = true,
+      displayOrder = 45,
+    },
+    [278380] = {
+      price = 0,
+      currencies = {{id = 3392, amount = 400}},
+      isUsable = true,
+      displayOrder = 46,
     },
   },
   [258328] = {
@@ -14268,6 +14838,18 @@ local GeneratedBase = {
     },
   },
   [267794] = {
+    [263880] = {
+      price = 500000,
+      currencies = {},
+      isUsable = true,
+      displayOrder = 8,
+    },
+    [276246] = {
+      price = 0,
+      currencies = {{id = 3363, amount = 10}},
+      isUsable = true,
+      displayOrder = 9,
+    },
     [277121] = {
       price = 0,
       currencies = {},
@@ -14306,6 +14888,62 @@ local GeneratedBase = {
     },
     [277163] = {
       price = 0,
+      currencies = {},
+      isUsable = true,
+      displayOrder = 7,
+    },
+  },
+  [267795] = {
+    [263880] = {
+      price = 500000,
+      currencies = {},
+      isUsable = true,
+      displayOrder = 8,
+    },
+    [276246] = {
+      price = 0,
+      currencies = {{id = 3363, amount = 10}},
+      isUsable = true,
+      displayOrder = 9,
+    },
+    [277121] = {
+      price = 500000,
+      currencies = {},
+      isUsable = true,
+      displayOrder = 1,
+    },
+    [277138] = {
+      price = 500000,
+      currencies = {},
+      isUsable = true,
+      displayOrder = 2,
+    },
+    [277142] = {
+      price = 500000,
+      currencies = {},
+      isUsable = true,
+      displayOrder = 3,
+    },
+    [277144] = {
+      price = 500000,
+      currencies = {},
+      isUsable = true,
+      displayOrder = 4,
+    },
+    [277149] = {
+      price = 500000,
+      currencies = {},
+      isUsable = true,
+      displayOrder = 5,
+    },
+    [277160] = {
+      price = 500000,
+      currencies = {},
+      isUsable = true,
+      displayOrder = 6,
+    },
+    [277163] = {
+      price = 500000,
       currencies = {},
       isUsable = true,
       displayOrder = 7,
@@ -14392,6 +15030,30 @@ local GeneratedBase = {
     },
   },
   [268228] = {
+    [249765] = {
+      price = 0,
+      currencies = {{id = 3316, amount = 150}},
+      isUsable = true,
+      displayOrder = 1,
+    },
+    [263316] = {
+      price = 0,
+      currencies = {{id = 3316, amount = 150}},
+      isUsable = true,
+      displayOrder = 2,
+    },
+    [264271] = {
+      price = 0,
+      currencies = {{id = 3316, amount = 250}},
+      isUsable = true,
+      displayOrder = 3,
+    },
+    [264331] = {
+      price = 0,
+      currencies = {{id = 3316, amount = 150}},
+      isUsable = true,
+      displayOrder = 4,
+    },
     [267377] = {
       price = 0,
       currencies = {},
@@ -14460,6 +15122,30 @@ local GeneratedBase = {
     },
   },
   [270399] = {
+    [244345] = {
+      price = 0,
+      currencies = {{id = 3316, amount = 150}},
+      isUsable = true,
+      displayOrder = 1,
+    },
+    [248962] = {
+      price = 0,
+      currencies = {{id = 3316, amount = 150}},
+      isUsable = true,
+      displayOrder = 2,
+    },
+    [263873] = {
+      price = 0,
+      currencies = {{id = 3316, amount = 500}},
+      isUsable = true,
+      displayOrder = 3,
+    },
+    [271175] = {
+      price = 0,
+      currencies = {{id = 3316, amount = 150}},
+      isUsable = true,
+      displayOrder = 4,
+    },
     [271176] = {
       price = 0,
       currencies = {},
@@ -14507,6 +15193,18 @@ local GeneratedBase = {
       currencies = {},
       isUsable = true,
       displayOrder = 8,
+    },
+    [281580] = {
+      price = 0,
+      currencies = {{id = 3316, amount = 250}},
+      isUsable = true,
+      displayOrder = 13,
+    },
+    [281582] = {
+      price = 0,
+      currencies = {{id = 3316, amount = 150}},
+      isUsable = true,
+      displayOrder = 14,
     },
   },
   [271165] = {
@@ -14683,6 +15381,26 @@ local GeneratedBase = {
       displayOrder = 1,
     },
   },
+  [272751] = {
+    [281573] = {
+      price = 0,
+      currencies = {},
+      isUsable = true,
+      displayOrder = 1,
+    },
+    [281577] = {
+      price = 0,
+      currencies = {},
+      isUsable = true,
+      displayOrder = 2,
+    },
+    [281620] = {
+      price = 0,
+      currencies = {},
+      isUsable = true,
+      displayOrder = 3,
+    },
+  },
 }
 
 -- MANUAL: safe to edit. Same schema as GeneratedBase. Values here win over GeneratedBase.
@@ -14730,6 +15448,101 @@ local ManualOverrides = {
         [247910] = { price = 3000000, currencies = {{id = 1220, amount = 500}}, isUsable = true }, -- Suramar Sconce
         [247921] = { price = 3000000, currencies = {{id = 1220, amount = 500}}, isUsable = true }, -- NB Wall Shelf
         [247924] = { price = 7000000, currencies = {{id = 1220, amount = 1000}}, isUsable = true }, -- Street Light
+    },
+    -- HS-250 (2026-08-11): scan-confirmed cost corrections for rows GeneratedBase
+    -- carried stale. The generator preserves pre-existing GeneratedBase rows
+    -- verbatim by design, so VendorDatabase.lua-side cost corrections never reach
+    -- rows that already exist -- these overrides carry the corrected values from
+    -- real PTR scans (2026-08-11, build 12.1.0.69214). Telemancer Astrandis is the
+    -- same defect caught by runtime-file audit: values from the scan-confirmed
+    -- 250 -> 500 Voidlight Marl correction already in VendorDatabase.lua.
+    [257332] = { -- Devin Slatesmith
+        [280142] = { price = 250000, currencies = {}, isUsable = true, isPurchasable = true, merchantSlot = 7, hasExtendedCost = false, displayOrder = 1 }, -- Small Wooden Floor Tile (was 0/none)
+        [280144] = { price = 1000000, currencies = {}, isUsable = true, isPurchasable = true, merchantSlot = 2, hasExtendedCost = false, displayOrder = 2 }, -- Large Wooden Floor Tile (was 0/none)
+        [280146] = { price = 250000, currencies = {}, isUsable = true, isPurchasable = true, merchantSlot = 6, hasExtendedCost = false, displayOrder = 3 }, -- Small Triangular Wooden Tile (was 0/none)
+        [280148] = { price = 1000000, currencies = {}, isUsable = true, isPurchasable = true, merchantSlot = 1, hasExtendedCost = false, displayOrder = 4 }, -- Large Triangular Wooden Tile (was 0/none)
+        [280150] = { price = 500000, currencies = {}, isUsable = true, isPurchasable = true, merchantSlot = 10, hasExtendedCost = false, displayOrder = 5 }, -- Tall Round Wooden Column (was 0/none)
+        [280152] = { price = 250000, currencies = {}, isUsable = true, isPurchasable = true, merchantSlot = 4, hasExtendedCost = false, displayOrder = 6 }, -- Short Round Wooden Column (was 0/none)
+        [280154] = { price = 250000, currencies = {}, isUsable = true, isPurchasable = true, merchantSlot = 5, hasExtendedCost = false, displayOrder = 7 }, -- Short Square Wooden Column (was 0/none)
+        [280156] = { price = 500000, currencies = {}, isUsable = true, isPurchasable = true, merchantSlot = 11, hasExtendedCost = false, displayOrder = 8 }, -- Tall Square Wooden Column (was 0/none)
+        [280158] = { price = 250000, currencies = {}, isUsable = true, isPurchasable = true, merchantSlot = 8, hasExtendedCost = false, displayOrder = 9 }, -- Small Wooden Wall Tile (was 0/none)
+        [280160] = { price = 1000000, currencies = {}, isUsable = true, isPurchasable = true, merchantSlot = 3, hasExtendedCost = false, displayOrder = 10 }, -- Large Wooden Wall Tile (was 0/none)
+        [280162] = { price = 750000, currencies = {}, isUsable = true, isPurchasable = true, merchantSlot = 12, hasExtendedCost = false, displayOrder = 11 }, -- Wide Wooden Staircase (was 0/none)
+        [280164] = { price = 750000, currencies = {}, isUsable = true, isPurchasable = true, merchantSlot = 9, hasExtendedCost = false, displayOrder = 12 }, -- Spiral Wooden Stairs (was 0/none)
+    },
+    [258181] = { -- Construct Ali'a
+        [265681] = { price = 0, currencies = {{id = 3392, amount = 600}}, isUsable = true, isPurchasable = false, merchantSlot = 18, hasExtendedCost = true, displayOrder = 1 }, -- Preyseeker's Magister Effigy (was 0/c3392:1200)
+        [265682] = { price = 0, currencies = {{id = 3392, amount = 600}}, isUsable = true, isPurchasable = false, merchantSlot = 26, hasExtendedCost = true, displayOrder = 2 }, -- Preyseeker's Tinker Effigy (was 0/c3392:1200)
+        [265683] = { price = 0, currencies = {{id = 3392, amount = 600}}, isUsable = true, isPurchasable = false, merchantSlot = 12, hasExtendedCost = true, displayOrder = 3 }, -- Preyseeker's Ethereal Effigy (was 0/c3392:1200)
+        [265684] = { price = 0, currencies = {{id = 3392, amount = 600}}, isUsable = true, isPurchasable = false, merchantSlot = 6, hasExtendedCost = true, displayOrder = 4 }, -- Preyseeker's Breaker Effigy (was 0/c3392:1200)
+        [265685] = { price = 0, currencies = {{id = 3392, amount = 600}}, isUsable = true, isPurchasable = false, merchantSlot = 4, hasExtendedCost = true, displayOrder = 5 }, -- Preyseeker's Amani Effigy (was 0/c3392:1200)
+        [265686] = { price = 0, currencies = {{id = 3392, amount = 600}}, isUsable = true, isPurchasable = false, merchantSlot = 22, hasExtendedCost = true, displayOrder = 6 }, -- Preyseeker's Rutaani Effigy (was 0/c3392:1200)
+        [265687] = { price = 0, currencies = {{id = 3392, amount = 600}}, isUsable = true, isPurchasable = false, merchantSlot = 30, hasExtendedCost = true, displayOrder = 7 }, -- Preyseeker's Vindicator Effigy (was 0/c3392:1200)
+        [265688] = { price = 0, currencies = {{id = 3392, amount = 600}}, isUsable = true, isPurchasable = false, merchantSlot = 8, hasExtendedCost = true, displayOrder = 8 }, -- Preyseeker's Consul Effigy (was 0/c3392:1200)
+        [265689] = { price = 0, currencies = {{id = 3392, amount = 600}}, isUsable = true, isPurchasable = false, merchantSlot = 10, hasExtendedCost = true, displayOrder = 9 }, -- Preyseeker's Executor Effigy (was 0/c3392:1200)
+        [265690] = { price = 0, currencies = {{id = 3392, amount = 600}}, isUsable = true, isPurchasable = false, merchantSlot = 16, hasExtendedCost = true, displayOrder = 10 }, -- Preyseeker's Knight-Errant Effigy (was 0/c3392:1200)
+        [265691] = { price = 0, currencies = {{id = 3392, amount = 600}}, isUsable = true, isPurchasable = false, merchantSlot = 32, hasExtendedCost = true, displayOrder = 11 }, -- Preyseeker's Wretched Effigy (was 0/c3392:1200)
+        [265692] = { price = 0, currencies = {{id = 3392, amount = 600}}, isUsable = true, isPurchasable = false, merchantSlot = 24, hasExtendedCost = true, displayOrder = 12 }, -- Preyseeker's Thornspeaker Effigy (was 0/c3392:1200)
+        [265694] = { price = 0, currencies = {{id = 3392, amount = 600}}, isUsable = true, isPurchasable = false, merchantSlot = 28, hasExtendedCost = true, displayOrder = 13 }, -- Preyseeker's Twilight Effigy (was 0/c3392:1200)
+        [265696] = { price = 0, currencies = {{id = 3392, amount = 400}}, isUsable = true, isPurchasable = false, merchantSlot = 17, hasExtendedCost = true, displayOrder = 14 }, -- Preyseeker's Magister Bust (was 0/c3392:800)
+        [265697] = { price = 0, currencies = {{id = 3392, amount = 400}}, isUsable = true, isPurchasable = false, merchantSlot = 25, hasExtendedCost = true, displayOrder = 15 }, -- Preyseeker's Tinker Bust (was 0/c3392:800)
+        [265698] = { price = 0, currencies = {{id = 3392, amount = 400}}, isUsable = true, isPurchasable = true, merchantSlot = 11, hasExtendedCost = true, displayOrder = 16 }, -- Preyseeker's Ethereal Bust (was 0/c3392:800)
+        [265699] = { price = 0, currencies = {{id = 3392, amount = 400}}, isUsable = true, isPurchasable = true, merchantSlot = 5, hasExtendedCost = true, displayOrder = 17 }, -- Preyseeker's Breaker Bust (was 0/c3392:800)
+        [265700] = { price = 0, currencies = {{id = 3392, amount = 400}}, isUsable = true, isPurchasable = false, merchantSlot = 3, hasExtendedCost = true, displayOrder = 18 }, -- Preyseeker's Amani Bust (was 0/c3392:800)
+        [265701] = { price = 0, currencies = {{id = 3392, amount = 400}}, isUsable = true, isPurchasable = false, merchantSlot = 21, hasExtendedCost = true, displayOrder = 19 }, -- Preyseeker's Rutaani Bust (was 0/c3392:800)
+        [265702] = { price = 0, currencies = {{id = 3392, amount = 400}}, isUsable = true, isPurchasable = false, merchantSlot = 29, hasExtendedCost = true, displayOrder = 20 }, -- Preyseeker's Vindicator Bust (was 0/c3392:800)
+        [265703] = { price = 0, currencies = {{id = 3392, amount = 400}}, isUsable = true, isPurchasable = false, merchantSlot = 7, hasExtendedCost = true, displayOrder = 21 }, -- Preyseeker's Consul Bust (was 0/c3392:800)
+        [265704] = { price = 0, currencies = {{id = 3392, amount = 400}}, isUsable = true, isPurchasable = false, merchantSlot = 9, hasExtendedCost = true, displayOrder = 22 }, -- Preyseeker's Executor Bust (was 0/c3392:800)
+        [265705] = { price = 0, currencies = {{id = 3392, amount = 400}}, isUsable = true, isPurchasable = false, merchantSlot = 15, hasExtendedCost = true, displayOrder = 23 }, -- Preyseeker's Knight-Errant Bust (was 0/c3392:800)
+        [265706] = { price = 0, currencies = {{id = 3392, amount = 400}}, isUsable = true, isPurchasable = false, merchantSlot = 31, hasExtendedCost = true, displayOrder = 24 }, -- Preyseeker's Wretched Bust (was 0/c3392:800)
+        [265707] = { price = 0, currencies = {{id = 3392, amount = 400}}, isUsable = true, isPurchasable = false, merchantSlot = 23, hasExtendedCost = true, displayOrder = 25 }, -- Preyseeker's Thornspeaker Bust (was 0/c3392:800)
+        [265708] = { price = 0, currencies = {{id = 3392, amount = 400}}, isUsable = true, isPurchasable = false, merchantSlot = 27, hasExtendedCost = true, displayOrder = 26 }, -- Preyseeker's Twilight Bust (was 0/c3392:800)
+        [265794] = { price = 0, currencies = {{id = 3392, amount = 400}}, isUsable = true, isPurchasable = true, merchantSlot = 1, hasExtendedCost = true, displayOrder = 27 }, -- Preyseeker's Plinth (was 0/c3392:800)
+        [265795] = { price = 0, currencies = {{id = 3392, amount = 600}}, isUsable = true, isPurchasable = true, merchantSlot = 2, hasExtendedCost = true, displayOrder = 28 }, -- Preyseeker's Ornate Plinth (was 0/c3392:1200)
+        [265796] = { price = 0, currencies = {{id = 3392, amount = 600}}, isUsable = true, isPurchasable = false, merchantSlot = 20, hasExtendedCost = true, displayOrder = 29 }, -- Preyseeker's Ren'dorei Effigy (was 0/c3392:1200)
+        [265797] = { price = 0, currencies = {{id = 3392, amount = 600}}, isUsable = true, isPurchasable = false, merchantSlot = 14, hasExtendedCost = true, displayOrder = 30 }, -- Preyseeker's Farstrider Effigy (was 0/c3392:1200)
+        [265798] = { price = 0, currencies = {{id = 3392, amount = 400}}, isUsable = true, isPurchasable = false, merchantSlot = 19, hasExtendedCost = true, displayOrder = 31 }, -- Preyseeker's Ren'dorei Bust (was 0/c3392:800)
+        [265799] = { price = 0, currencies = {{id = 3392, amount = 400}}, isUsable = true, isPurchasable = false, merchantSlot = 13, hasExtendedCost = true, displayOrder = 32 }, -- Preyseeker's Farstrider Bust (was 0/c3392:800)
+    },
+    [267794] = { -- Agratha
+        [277121] = { price = 500000, currencies = {}, isUsable = true, isPurchasable = true, merchantSlot = 3, hasExtendedCost = false, displayOrder = 1 }, -- Cozy Bird Nest (was 0/none)
+        [277138] = { price = 500000, currencies = {}, isUsable = true, isPurchasable = true, merchantSlot = 8, hasExtendedCost = false, displayOrder = 2 }, -- Silvermoon Dragonhawk Incubator (was 0/none)
+        [277142] = { price = 500000, currencies = {}, isUsable = true, isPurchasable = true, merchantSlot = 9, hasExtendedCost = false, displayOrder = 3 }, -- Westfall Pet Cage (was 0/none)
+        [277144] = { price = 500000, currencies = {}, isUsable = true, isPurchasable = true, merchantSlot = 5, hasExtendedCost = false, displayOrder = 4 }, -- Crossroads Pet Cage (was 0/none)
+        [277149] = { price = 500000, currencies = {}, isUsable = true, isPurchasable = true, merchantSlot = 6, hasExtendedCost = false, displayOrder = 5 }, -- Crude Pet Cage (was 0/none)
+        [277160] = { price = 500000, currencies = {}, isUsable = true, isPurchasable = true, merchantSlot = 4, hasExtendedCost = false, displayOrder = 6 }, -- Cozy Lightbloom Lilypad (was 0/none)
+        [277163] = { price = 500000, currencies = {}, isUsable = true, isPurchasable = true, merchantSlot = 7, hasExtendedCost = false, displayOrder = 7 }, -- Loyal Companion's Plinth (was 0/none)
+    },
+    [268228] = { -- Jan'sari the Watchful
+        [267377] = { price = 0, currencies = {{id = 3316, amount = 250}}, isUsable = true, isPurchasable = false, merchantSlot = 43, hasExtendedCost = true, displayOrder = 1 }, -- Ula'tek Ritual Monolith (was 0/none)
+        [269778] = { price = 0, currencies = {{id = 3316, amount = 150}}, isUsable = true, isPurchasable = false, merchantSlot = 26, hasExtendedCost = true, displayOrder = 2 }, -- Stitched Blisterfang Bag (was 0/none)
+        [269779] = { price = 0, currencies = {{id = 3316, amount = 150}}, isUsable = true, isPurchasable = false, merchantSlot = 27, hasExtendedCost = true, displayOrder = 3 }, -- Fanged Scaleskin Pouch (was 0/none)
+        [271177] = { price = 0, currencies = {{id = 3316, amount = 250}}, isUsable = true, isPurchasable = false, merchantSlot = 42, hasExtendedCost = true, displayOrder = 4 }, -- Opened Serpentine Reliquary (was 0/none)
+        [276457] = { price = 0, currencies = {{id = 3316, amount = 150}}, isUsable = true, isPurchasable = false, merchantSlot = 35, hasExtendedCost = true, displayOrder = 5 }, -- Amani Worship Candle (was 0/none)
+        [276459] = { price = 0, currencies = {{id = 3316, amount = 150}}, isUsable = true, isPurchasable = false, merchantSlot = 36, hasExtendedCost = true, displayOrder = 6 }, -- Amani Ritual Candles (was 0/none)
+        [277271] = { price = 0, currencies = {{id = 3316, amount = 150}}, isUsable = true, isPurchasable = false, merchantSlot = 30, hasExtendedCost = true, displayOrder = 7 }, -- Wrapped Scaleskin Urn (was 0/none)
+        [277273] = { price = 0, currencies = {{id = 3316, amount = 150}}, isUsable = true, isPurchasable = false, merchantSlot = 31, hasExtendedCost = true, displayOrder = 8 }, -- Cracked Vilescar Urn (was 0/none)
+        [277275] = { price = 0, currencies = {{id = 3316, amount = 150}}, isUsable = true, isPurchasable = false, merchantSlot = 32, hasExtendedCost = true, displayOrder = 9 }, -- Charmed Blisterfang Urn (was 0/none)
+        [277280] = { price = 0, currencies = {{id = 3316, amount = 250}}, isUsable = true, isPurchasable = false, merchantSlot = 28, hasExtendedCost = true, displayOrder = 10 }, -- Vilescar Weapon Rack (was 0/none)
+        [277323] = { price = 0, currencies = {{id = 3316, amount = 250}}, isUsable = true, isPurchasable = false, merchantSlot = 41, hasExtendedCost = true, displayOrder = 11 }, -- Sealed Serpentine Reliquary (was 0/none)
+    },
+    [270399] = { -- Firetender Zab'ni
+        [271176] = { price = 0, currencies = {{id = 3316, amount = 150}}, isUsable = true, isPurchasable = false, merchantSlot = 7, hasExtendedCost = true, displayOrder = 1 }, -- Feathered Ula'tek Talisman (was 0/none)
+        [271609] = { price = 0, currencies = {{id = 3316, amount = 150}}, isUsable = true, isPurchasable = false, merchantSlot = 9, hasExtendedCost = true, displayOrder = 2 }, -- Destroyed Clutch of Ula'tek (was 0/none)
+        [271851] = { price = 0, currencies = {{id = 3316, amount = 250}}, isUsable = true, isPurchasable = false, merchantSlot = 2, hasExtendedCost = true, displayOrder = 3 }, -- Oozing Vilescar Barricade (was 0/none)
+        [279285] = { price = 0, currencies = {{id = 3316, amount = 150}}, isUsable = true, isPurchasable = false, merchantSlot = 4, hasExtendedCost = true, displayOrder = 4 }, -- Lost Tortollan Scroll (was 0/none)
+        [279292] = { price = 0, currencies = {{id = 3316, amount = 250}}, isUsable = true, isPurchasable = false, merchantSlot = 6, hasExtendedCost = true, displayOrder = 5 }, -- Zul'Aman Pine Tree (was 0/none)
+        [279452] = { price = 0, currencies = {{id = 3316, amount = 500}}, isUsable = true, isPurchasable = false, merchantSlot = 3, hasExtendedCost = true, displayOrder = 6 }, -- "Summoning of Ula'tek" Mural (was 0/none)
+        [279508] = { price = 0, currencies = {{id = 3316, amount = 500}}, isUsable = true, isPurchasable = false, merchantSlot = 5, hasExtendedCost = true, displayOrder = 7 }, -- "The Hunger Awakens" Mural (was 0/none)
+        [280218] = { price = 0, currencies = {{id = 3316, amount = 150}}, isUsable = true, isPurchasable = false, merchantSlot = 8, hasExtendedCost = true, displayOrder = 8 }, -- Tortollan Scholar Satchel (was 0/none)
+    },
+    [242399] = { -- Telemancer Astrandis (264007 deliberately absent: no scan coverage, stays at GeneratedBase 250)
+        [263994] = { price = 0, currencies = {{id = 3316, amount = 500}}, isUsable = true, isPurchasable = true, merchantSlot = 5, hasExtendedCost = true, displayOrder = 1 }, -- (was c3316:250)
+        [263995] = { price = 0, currencies = {{id = 3316, amount = 500}}, isUsable = true, isPurchasable = false, merchantSlot = 10, hasExtendedCost = true, displayOrder = 2 }, -- (was c3316:250)
+        [263996] = { price = 0, currencies = {{id = 3316, amount = 500}}, isUsable = true, isPurchasable = true, merchantSlot = 4, hasExtendedCost = true, displayOrder = 3 }, -- (was c3316:250)
+        [264008] = { price = 0, currencies = {{id = 3316, amount = 500}}, isUsable = true, isPurchasable = false, merchantSlot = 8, hasExtendedCost = true, displayOrder = 5 }, -- (was c3316:250)
+        [264170] = { price = 0, currencies = {{id = 3316, amount = 500}}, isUsable = true, isPurchasable = true, merchantSlot = 7, hasExtendedCost = true, displayOrder = 6 }, -- (was c3316:250)
+        [264175] = { price = 0, currencies = {{id = 3316, amount = 500}}, isUsable = true, isPurchasable = true, merchantSlot = 6, hasExtendedCost = true, displayOrder = 7 }, -- (was c3316:250)
     },
 }
 
