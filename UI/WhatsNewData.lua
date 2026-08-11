@@ -7,25 +7,35 @@
 local _, HA = ...
 
 HA.WhatsNew = {
-    ["2.7.0"] = {
-        title = "Homestead - What's New in v2.7.0!",
-        heroTexture = HA.Constants.TEXTURE_ROOT .. "WhatsNewDecorDrops",
-        heroHeight = 280,
+    ["2.8.0"] = {
+        title = "Homestead - What's New in v2.8.0!",
         features = {
             {
-                -- HS-232: our own drop-pin art (same icon the world-map drop
-                -- pin uses — PinFrameFactory:CreateDropPinFrame) instead of a
-                -- generic skull icon, so the card and the feature it's
-                -- describing visually match. TEXTURE_ROOT keeps this safe
-                -- across the CurseForge/DevBuild folder-name split.
+                atlas = "housing-decor-vendor_32",
+                heading = "Ready for Patch 12.1",
+                body = "The new 12.1 housing vendors are covered: the Razorwind Shores and Founder's Point lineups, The Coiled Isle, and the Vaults of Atal'Utek dungeon vendor with prices in the new Corrosive Coin currency, plus the four new Neighborhood Endeavor theme vendors.",
+            },
+            {
+                icon = "Interface\\Icons\\INV_Misc_Bag_27",
+                heading = "More Than Decor",
+                body = "Homestead now recognizes everything housing vendors sell: room plans, dyes, room and exterior customizations, and service items. Collection badges still count decor only, so the new categories never show up as items you're missing.",
+            },
+            {
+                atlas = "worldquest-icon-engineering",
+                heading = "Another Big Performance Pass",
+                body = "Fixed the lag after looting and gathering, freezes when opening the world map or visiting vendors, and stutter from background catch-up work. Login checks now wait until you leave combat.",
+            },
+        },
+    },
+    ["2.7.0"] = {
+        title = "Homestead - What's New in v2.7.0!",
+        features = {
+            {
                 icon = HA.Constants.TEXTURE_ROOT .. "HomesteadDropIcon_32",
                 heading = "Find Decor Drops on the Map",
                 body = "Decor that drops from dungeon and raid bosses now shows on your map: right on the boss inside the instance, and at the dungeon entrance on the zone map. Pins show your collected count, and the side panel lists every boss and its drops when you're viewing an instance map.",
             },
             {
-                -- Atlas existence confirmed in-game via C_Texture.GetAtlasInfo
-                -- (2026-07-22) — art-data atlases can't be verified from
-                -- source greps.
                 atlas = "worldquest-icon-engineering",
                 heading = "Major Performance Work",
                 body = "Fixed freezes when opening the world map after a reload, hovering item tooltips, looting with full bags, and flying across zones. The map, bags, and tooltips should all feel smoother.",

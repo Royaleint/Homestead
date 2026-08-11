@@ -2,6 +2,47 @@
 
 ---
 
+## Homestead v2.8.0 (08-11-2026)
+
+Updated for Patch 12.1 with the new housing vendors covered, support for every kind of housing merchandise (not just decor), and a major performance pass across the whole addon.
+
+---
+
+## Patch 12.1
+
+- Updated for Patch 12.1.
+- Added the new 12.1 housing vendors: the Razorwind Shores and Founder's Point lineups, The Coiled Isle, and the Vaults of Atal'Utek dungeon vendor, with prices in the new Corrosive Coin currency.
+- Added the four new Neighborhood Endeavor theme vendors: Amani, Maruuk Centaur, Tortollan, and Kobold themes.
+- Continent collection counts on the world map now include the new 12.1 zones.
+
+---
+
+## All Housing Merchandise
+
+- Homestead now recognizes everything housing vendors sell, not just decor. Room plans, dyes, room and exterior customizations, and service items are picked up by vendor scans, and shown alongside the rest of a vendor's stock in the side panel.
+- Map pins still count decor only. The new categories are left out for now but will be implemented later with hiding fully collected vendor pins.
+
+---
+
+## Performance
+
+- Fixed long freezes that could hit when buying decor, gaining reputation, or opening a profession window. thanks Tachioma, Cyburbacon and Cathtail from CF!
+- Fixed the remaining freeze when opening the world map for the first time after logging in or reloading.
+- Fixed hitches while visiting vendors, most noticeable in the housing neighborhoods.
+- Fixed sustained lag after looting, herbing, mining, or fishing. Profession, achievement, and reputation events now check whether anything that matters actually changed, and skip the work otherwise. Thanks Protuhj!
+- Opening your bags is snappier.
+- Scrolling the housing catalog is smoother.
+
+---
+
+## Bug Fixes
+
+- Fixed catalog badges not updating immediately after scanning a vendor, and ghost badges and stale search results sticking around after clearing scan data.
+- Fixed owned-decor counts sometimes reading slightly out of date after login until you opened the housing UI.
+- Fixed several items that were attributed to the wrong vendor. They now show under the vendor that actually sells them.
+
+---
+
 ## Homestead v2.7.2 (07-23-2026)
 
 Follow-up performance fix for the remaining stutter reports: quest hand-ins, world quests, and delves.
