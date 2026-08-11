@@ -3193,8 +3193,13 @@ VendorDatabase.Vendors = {
     },
 
     -- =========================================================================
-    -- Midnight 12.1 — Unreleased. Costs/coords unconfirmed; rescan on PTR.
-    -- Remove unreleased = true once patch goes live.
+    -- Midnight 12.1 vendors. Promoted visible for the 12.1 release (HS-310,
+    -- 2026-08-11): every vendor confirmed by the 2026-08-11 PTR scan sweep
+    -- (build 12.1.0.69214) plus one crawl-validated entry had its
+    -- `unreleased = true` flag removed. Five rows keep the flag — identity,
+    -- location, or catalog still unvalidated (no scan, no crawl row) — and
+    -- stay hidden until validated through a scan or crawl data, per owner
+    -- directive. Do not clear a flag here without one of those two proofs.
     -- =========================================================================
 
     -- Razorwind Shores additions
@@ -3208,7 +3213,6 @@ VendorDatabase.Vendors = {
     -- is a separate, non-Pet-Bed item, still unconfirmed for Perry Winkles.
     [267794] = {
         name = "Agratha",
-        unreleased = true,
         mapID = 2351,
         x = 0.5362, y = 0.5448,
         zone = "Razorwind Shores",
@@ -3243,7 +3247,6 @@ VendorDatabase.Vendors = {
     -- scanConfidence: confirmed), not the crawl or owner-report.
     [257303] = {
         name = "\"Den\" Nightshade",
-        unreleased = true,
         mapID = 2351,
         x = 0.3947, y = 0.7023,
         zone = "Razorwind Shores",
@@ -3273,7 +3276,6 @@ VendorDatabase.Vendors = {
     -- Slatesmith (Founder's Point) -- likely a mirror pair.
     [257257] = {
         name = "Merki",
-        unreleased = true,
         mapID = 2351,
         x = 0.5407, y = 0.5876,
         zone = "Razorwind Shores",
@@ -3303,7 +3305,6 @@ VendorDatabase.Vendors = {
     -- confirmed to that standard since he isn't Community-Coupon priced.
     [256784] = {
         name = "Dyezertauren",
-        unreleased = true,
         mapID = 2351,
         x = 0.5365, y = 0.5804,
         zone = "Razorwind Shores",
@@ -3332,7 +3333,6 @@ VendorDatabase.Vendors = {
     -- same-day standalone re-scan with identical contents.
     [257295] = {
         name = "\"Fen\" Rucket",
-        unreleased = true,
         mapID = 2351,
         x = 0.3941, y = 0.7070,
         zone = "Razorwind Shores",
@@ -3364,7 +3364,6 @@ VendorDatabase.Vendors = {
     -- 12.1.0.69214, scanConfidence: confirmed).
     [257297] = {
         name = "\"Fen\" Rucket",
-        unreleased = true,
         mapID = 2352,
         x = 0.6165, y = 0.7952,
         zone = "Founder's Point",
@@ -3384,7 +3383,6 @@ VendorDatabase.Vendors = {
     },
     [257332] = {
         name = "Devin Slatesmith",
-        unreleased = true,
         mapID = 2352,
         x = 0.5200, y = 0.3840,
         zone = "Founder's Point",
@@ -3423,7 +3421,6 @@ VendorDatabase.Vendors = {
     -- mirror pair.
     [257321] = {
         name = "Fel'orei Moonstrider",
-        unreleased = true,
         mapID = 2352,
         x = 0.5195, y = 0.3855,
         zone = "Founder's Point",
@@ -3457,7 +3454,6 @@ VendorDatabase.Vendors = {
     -- confirmed for Perry Winkles.
     [267795] = {
         name = "Perry Winkles",
-        unreleased = true,
         mapID = 2352,
         x = 0.5383, y = 0.4166,
         zone = "Founder's Point",
@@ -3485,7 +3481,6 @@ VendorDatabase.Vendors = {
         name = "Jan'sari the Watchful",
         mapID = 2512,
         x = 0.588, y = 0.46,
-        unreleased = true,
         zone = "The Coiled Isle",
         expansion = "Midnight",
         currency = "Voidlight Marl",
@@ -3514,7 +3509,6 @@ VendorDatabase.Vendors = {
         name = "Firetender Zab'ni",
         mapID = 2512,
         x = 0.586, y = 0.459,
-        unreleased = true,
         zone = "The Coiled Isle",
         expansion = "Midnight",
         currency = "Voidlight Marl",
@@ -3565,11 +3559,14 @@ VendorDatabase.Vendors = {
     -- Coords provided directly by the owner, not yet addon-scan-confirmed. Confirmed a
     -- distinct vendor from Er'inye (different name/title, disjoint item-ID range) via the
     -- 2026-08-10 external crawl refresh, not an alias of the entry above.
+    -- Promoted visible on crawl validation (HS-310, 2026-08-11). Items carry no
+    -- costs yet — the UI renders no price line for a cost-less offer (FormatCost
+    -- returns nil), so nothing misleading shows; real costs come from the first
+    -- live scan.
     [272751] = {
         name = "Skull of Er'inye",
         mapID = 2509,
         x = 0.51, y = 0.624,
-        unreleased = true,
         zone = "Vaults of Atal'Utek",
         expansion = "Midnight",
         currency = "Gold",
