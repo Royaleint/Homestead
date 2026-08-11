@@ -2059,7 +2059,6 @@ VendorIdentity.Vendors = {
         y = 0.5804,
         zone = "Razorwind Shores",
         expansion = "Midnight",
-        unreleased = true,
         scanConfirmed = "2026-08-11",
     },
     [256826] = {
@@ -2100,7 +2099,6 @@ VendorIdentity.Vendors = {
         y = 0.5876,
         zone = "Razorwind Shores",
         expansion = "Midnight",
-        unreleased = true,
         scanConfirmed = "2026-08-11",
     },
     [257295] = {
@@ -2111,7 +2109,6 @@ VendorIdentity.Vendors = {
         zone = "Razorwind Shores",
         subzone = "The Hull",
         expansion = "Midnight",
-        unreleased = true,
         scanConfirmed = "2026-08-11",
     },
     [257297] = {
@@ -2122,7 +2119,6 @@ VendorIdentity.Vendors = {
         zone = "Founder's Point",
         subzone = "Breakwater Bight",
         expansion = "Midnight",
-        unreleased = true,
         scanConfirmed = "2026-08-11",
     },
     [257303] = {
@@ -2132,7 +2128,6 @@ VendorIdentity.Vendors = {
         y = 0.7023,
         zone = "Razorwind Shores",
         expansion = "Midnight",
-        unreleased = true,
         scanConfirmed = "2026-08-11",
     },
     [257321] = {
@@ -2142,7 +2137,6 @@ VendorIdentity.Vendors = {
         y = 0.3855,
         zone = "Founder's Point",
         expansion = "Midnight",
-        unreleased = true,
         scanConfirmed = "2026-08-11",
     },
     [257332] = {
@@ -2152,7 +2146,6 @@ VendorIdentity.Vendors = {
         y = 0.384,
         zone = "Founder's Point",
         expansion = "Midnight",
-        unreleased = true,
         scanConfirmed = "2026-08-11",
     },
     [257598] = {
@@ -2304,7 +2297,6 @@ VendorIdentity.Vendors = {
         y = 0.5448,
         zone = "Razorwind Shores",
         expansion = "Midnight",
-        unreleased = true,
         scanConfirmed = "2026-08-11",
     },
     [267795] = {
@@ -2314,7 +2306,6 @@ VendorIdentity.Vendors = {
         y = 0.4166,
         zone = "Founder's Point",
         expansion = "Midnight",
-        unreleased = true,
         scanConfirmed = "2026-08-11",
     },
     [268228] = {
@@ -2324,7 +2315,6 @@ VendorIdentity.Vendors = {
         y = 0.46,
         zone = "The Coiled Isle",
         expansion = "Midnight",
-        unreleased = true,
         scanConfirmed = "2026-08-11",
     },
     [270399] = {
@@ -2334,7 +2324,6 @@ VendorIdentity.Vendors = {
         y = 0.459,
         zone = "The Coiled Isle",
         expansion = "Midnight",
-        unreleased = true,
         scanConfirmed = "2026-08-11",
     },
     [271165] = {
@@ -2359,7 +2348,6 @@ VendorIdentity.Vendors = {
         y = 0.624,
         zone = "Vaults of Atal'Utek",
         expansion = "Midnight",
-        unreleased = true,
     },
 }
 

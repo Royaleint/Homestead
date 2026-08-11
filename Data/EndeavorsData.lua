@@ -12,8 +12,8 @@
     - 4-tier milestone progression gates item availability
     - Dedicated API: C_NeighborhoodInitiative
 
-    10 vendors, 140 items total (4 unreleased -- Midnight 12.1 PTR only,
-    see the "unreleased" flag on each).
+    10 vendors, 140 items total. The four Midnight 12.1 theme vendors were
+    promoted visible for the 12.1 release (HS-310, 2026-08-11).
 ]]
 
 local _, HA = ...
@@ -105,7 +105,7 @@ EndeavorsData.Endeavors = {
     ["Mechagnome"] = { vendorNPC = 248525 },
     ["K'areshi"]   = { vendorNPC = 252605 },
     ["Niffen"]     = { vendorNPC = 257897 },
-    -- Midnight 12.1 (PTR only; see "unreleased" flag on each vendor entry)
+    -- Midnight 12.1 themes (promoted visible for the 12.1 release, HS-310)
     ["Amani"]      = { vendorNPC = 260485 },
     ["Maruuk"]     = { vendorNPC = 265551 },
     ["Tortollan"]  = { vendorNPC = 268106 },
@@ -312,14 +312,15 @@ EndeavorsData.Vendors = {
     },
 
     -- =========================================================================
-    -- Midnight 12.1 -- Unreleased. Coords/currency below are PTR-only. Griftah
-    -- has confirmed altMapID/altX/altY (real PTR scans placed him in both
-    -- neighborhoods); the other 3 do not yet -- their alternate-neighborhood
-    -- rotation has not been observed on PTR. Costs verified against the
+    -- Midnight 12.1 endeavor vendors. Promoted visible for the 12.1 release
+    -- (HS-310, 2026-08-11): `unreleased = true` removed from all four per the
+    -- validation this block already recorded -- costs verified against the
     -- release matrix (staging/decor-patch-inputs/hs250-release-matrix-*.csv)
     -- and, for Griftah, a real in-game PTR scan (2026-08-09, build
-    -- 12.1.0.69189, scanConfidence: confirmed). Remove unreleased = true once
-    -- patch goes live.
+    -- 12.1.0.69189, scanConfidence: confirmed). Griftah has confirmed
+    -- altMapID/altX/altY (real PTR scans placed him in both neighborhoods);
+    -- the other 3 do not yet -- their alternate-neighborhood rotation has not
+    -- been observed. First live sightings should confirm coords (Gate 2).
     -- =========================================================================
 
     -- Amani theme
@@ -339,7 +340,6 @@ EndeavorsData.Vendors = {
         currency = "Community Coupons",
         expansion = "Midnight",
         endeavor = true,
-        unreleased = true,
         scanConfirmed = "2026-08-09",
         notes = "Neighborhood Endeavor vendor (Amani theme)",
         items = {
@@ -377,7 +377,6 @@ EndeavorsData.Vendors = {
         currency = "Community Coupons",
         expansion = "Midnight",
         endeavor = true,
-        unreleased = true,
         notes = "Neighborhood Endeavor vendor (Maruuk/Ohn'ahran centaur theme)",
         items = {
             {276626, cost = {currencies = {{id = 3363, amount = 10}}}},
@@ -408,7 +407,6 @@ EndeavorsData.Vendors = {
         currency = "Community Coupons",
         expansion = "Midnight",
         endeavor = true,
-        unreleased = true,
         notes = "Neighborhood Endeavor vendor (Tortollan theme)",
         items = {
             {280215, cost = {currencies = {{id = 3363, amount = 20}}}},
@@ -442,7 +440,6 @@ EndeavorsData.Vendors = {
         currency = "Community Coupons",
         expansion = "Midnight",
         endeavor = true,
-        unreleased = true,
         notes = "Neighborhood Endeavor vendor (Kobold theme)",
         items = {
             {280246, cost = {currencies = {{id = 3363, amount = 30}}}},
