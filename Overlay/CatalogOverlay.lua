@@ -28,8 +28,18 @@
     verified in-game 2026-08-06 (0 fires idle, proportional counts on
     partial scrolls, 1742 on a full fast scroll, exactly 15 on initial
     catalog open, no BugSack taint). This replaced a throttled 5Hz OnUpdate
-    poll that walked the tree every tick. The overlayCache makes cache hits
-    (same itemID) near-free.
+    poll that walked the tree every tick.
+
+    Caching is two-level, because the poll's tick rate was also an implicit
+    cap on evaluations and OnInitializedFrame has none — a fast full scroll
+    fires it 1742 times. overlayCache is keyed by entry FRAME, so it misses on
+    every pooled-frame rebind, which is exactly what scrolling does. Behind it,
+    itemVerdictCache is keyed by itemID and holds the expensive verdict
+    (badge atlas + glow state, resolved through the catalog API, SourceManager
+    and the sourceText parser), so a frame rebinding to an already-seen item
+    costs one table lookup instead of a full re-resolve. Both are wiped
+    together in InvalidateAllOverlays, the single funnel every ownership/
+    source invalidation already runs through.
 ]]
 
 local _, HA = ...
@@ -58,6 +68,17 @@ local GLOW_COLORS = {
 -- Per-frame result cache: entryFrame → {itemID, atlas or false, glowState or false}
 -- Stores resolved badge + glow so we skip GetSource on repeat evaluations.
 local overlayCache = setmetatable({}, { __mode = "k" })
+
+-- Per-ITEM verdict cache: itemID → {atlas or false, glowState or false}.
+-- Sits behind overlayCache, which is frame-keyed and therefore misses every
+-- time the ScrollBox rebinds a pooled frame to a different item — the common
+-- case while scrolling. This one survives rebinding, so the expensive
+-- resolve (GetCatalogEntryInfoByItem, SourceManager:GetItemPresentation,
+-- SourceTextParser:ParseSourceText) runs once per item per invalidation
+-- cycle instead of once per bind. Not weak-keyed: itemIDs are numbers, and
+-- the catalog is ~1,600 items, so the whole table is bounded and small;
+-- InvalidateAllOverlays wipes it.
+local itemVerdictCache = {}
 
 -- HS-223b: per-frame LAST-APPLIED-TO-THE-FRAME signature: entryFrame →
 -- {itemID, effectiveAtlas or false, effectiveGlowState or false, ownedStyle,
@@ -467,31 +488,38 @@ UpdateEntryOverlay = function(entryFrame)
         return
     end
 
-    -- Cache miss: full evaluation
+    -- Frame-cache miss: the frame is bound to an item it wasn't showing
+    -- before. Resolve the item's verdict, itself memoized by itemID so a
+    -- rebind to an already-seen item costs a lookup, not a re-resolve.
+    local verdict = itemVerdictCache[itemID]
+    if not verdict then
+        -- Resolve sourceText once (frame entryInfo → API fallback) for badge + glow
+        local sourceText = ResolveSourceText(entryInfo, itemID)
 
-    -- Resolve sourceText once (frame entryInfo → API fallback) for badge + glow
-    local sourceText = ResolveSourceText(entryInfo, itemID)
+        -- Badge: look up source atlas (static data first, then sourceText)
+        local presentation = GetCatalogPresentation(itemID)
+        local atlas = GetSourceBadgeAtlas(itemID, presentation)
+        if not atlas then
+            atlas = GetSourceBadgeFromSourceText(sourceText)
+        end
 
-    -- Badge: look up source atlas (static data first, then sourceText)
-    local presentation = GetCatalogPresentation(itemID)
-    local atlas = GetSourceBadgeAtlas(itemID, presentation)
-    if not atlas then
-        atlas = GetSourceBadgeFromSourceText(sourceText)
+        -- Glow: determine accessibility state
+        local glowState = GetAccessibilityState(itemID, sourceText, presentation)
+
+        verdict = {atlas or false, glowState or false}
+        itemVerdictCache[itemID] = verdict
     end
 
-    -- Glow: determine accessibility state
-    local glowState = GetAccessibilityState(itemID, sourceText, presentation)
-
-    ApplyResolvedOverlay(entryFrame, itemID, atlas, glowState, showBadges, showGlow, ownedStyle)
+    ApplyResolvedOverlay(entryFrame, itemID, verdict[1], verdict[2], showBadges, showGlow, ownedStyle)
 
     -- Cache both results (reuse existing table to avoid allocation)
     local cache = overlayCache[entryFrame]
     if cache then
         cache[1] = itemID
-        cache[2] = atlas or false
-        cache[3] = glowState or false
+        cache[2] = verdict[1]
+        cache[3] = verdict[2]
     else
-        overlayCache[entryFrame] = {itemID, atlas or false, glowState or false}
+        overlayCache[entryFrame] = {itemID, verdict[1], verdict[2]}
     end
 end
 
@@ -509,10 +537,15 @@ end
 -- signature. When in doubt, repaint.) All three invalidation entry points —
 -- OWNERSHIP_UPDATED, SOURCE_CACHES_INVALIDATED (via RefreshAvailabilityOverlays),
 -- and the "catalogBadges" external refresher — funnel through this one
--- function, so wiping both caches here covers all of them.
+-- function, so wiping the caches here covers all of them.
+--
+-- itemVerdictCache MUST be wiped alongside the others: it outlives frame
+-- rebinding by design, so anything it holds past an ownership or source
+-- change is a permanently stale badge/glow, not a one-frame flicker.
 local function InvalidateAllOverlays()
     wipe(overlayCache)
     wipe(appliedState)
+    wipe(itemVerdictCache)
 end
 
 -- Re-apply overlay state to every entry frame we've seen, skipping hidden
