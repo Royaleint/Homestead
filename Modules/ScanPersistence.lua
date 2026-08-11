@@ -423,6 +423,16 @@ function ScanPersistence:SaveVendorData(scanData)
     -- Ordering is load-bearing: this rebuild must run BEFORE the VENDOR_SCANNED
     -- fire below, so any listener observes a freshly-rebuilt index, never a
     -- stale one between save and rebuild (HS-280).
+    --
+    -- Perf cleanup: this is now the ONLY place that rebuilds the scanned-items
+    -- index. VendorData used to also rebuild it on its own VENDOR_SCANNED
+    -- listener, but that was always redundant with this call (it fires
+    -- immediately after this one every time) and has been removed. If a
+    -- future call site fires VENDOR_SCANNED without going through
+    -- InvalidateVendorCaches() first, the index will NOT be rebuilt
+    -- automatically -- route any new scan-save path through here (or call
+    -- VendorData:BuildScannedIndex() directly) rather than assuming the event
+    -- itself triggers a rebuild.
     if HA.VendorData and HA.VendorData.InvalidateVendorCaches then
         HA.VendorData:InvalidateVendorCaches()
     end
