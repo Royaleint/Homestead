@@ -999,6 +999,14 @@ local function StartPrewarmPass()
             -- Measure's callback is pcall itself (not a wrapper closure
             -- around it), so this stays the original `ok = pcall(fn)` shape.
             local batchStartIndex = currentIndex
+            -- Perf: how many vendors THIS tick actually finished (finalized
+            -- into vendorStatsCache, or marked UNKNOWN_VENDOR_STATS) -- not
+            -- how many the loop merely stepped past (already-warm skips) or
+            -- accumulated an item into mid-vendor. Gates the fire below so a
+            -- tick that made zero new-completion progress (e.g. a mid-vendor
+            -- time-box break, or a run of already-warmed skips) doesn't make
+            -- PinFrameFactory's listener walk every rendered pin for nothing.
+            local completedThisTick = 0
             -- pcall so a mid-batch error degrades to "this pass aborted" — an
             -- unguarded error would kill the timer chain with warmupInProgress
             -- stuck true, silently disabling prewarm for the rest of the
@@ -1074,6 +1082,7 @@ local function StartPrewarmPass()
                         if #itemOrderedIDs == 0 then
                             vendorStatsCache[itemVendorKey] = UNKNOWN_VENDOR_STATS
                             currentIndex = currentIndex + 1
+                            completedThisTick = completedThisTick + 1
                         else
                             AccumulateVendorItem(itemAccum, itemOrderedIDs[itemCursor], vendor, "all")
                             itemCursor = itemCursor + 1
@@ -1081,6 +1090,7 @@ local function StartPrewarmPass()
                                 -- Finished every item for this vendor -- finalize, cache, advance.
                                 vendorStatsCache[itemVendorKey] = FinalizeVendorStatsAccum(itemAccum)
                                 currentIndex = currentIndex + 1
+                                completedThisTick = completedThisTick + 1
                             end
                             -- else: still mid-vendor -- currentIndex stays put, itemCursor
                             -- carries forward; the while loop's own re-entry picks up this
@@ -1102,7 +1112,12 @@ local function StartPrewarmPass()
             -- whole pass) — PinFrameFactory's listener walks currently
             -- rendered vendor pins and re-runs RefreshVendorPinCount on
             -- whichever are still flagged hsStatsPending.
-            if HA.Events then
+            --
+            -- Perf: only when this tick actually finished at least one
+            -- vendor. A tick that made zero new-completion progress has
+            -- nothing new for the listener to find -- every pin it would
+            -- re-check is exactly as pending as it was on the last fire.
+            if HA.Events and completedThisTick > 0 then
                 HA.Events:Fire("HS_VENDOR_STATS_WARMED")
             end
             C_Timer.After(WARMUP_BATCH_DELAY, ProcessBatch)
