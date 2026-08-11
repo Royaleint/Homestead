@@ -3543,35 +3543,55 @@ VendorDatabase.Vendors = {
         },
     },
 
-    -- Vaults of Atal'Utek (12.1 dungeon; mapID 2509, coords still unknown until PTR scan)
+    -- Vaults of Atal'Utek (12.1 dungeon). HS-287 correction (2026-08-11): Blizzard's
+    -- own catalog sourceText knows NO vendor named plain "Er'inye" (zero rows in the
+    -- 12.1 datamine) — the 12 items formerly listed here were the crawl's
+    -- name-similarity misattribution and every one of them carries sourceText reading
+    -- "Vendor: Skull of Er'inye". Moved to [272751] below with their sourceText
+    -- costs. This entry stays hidden with no items; likely not a vendor at all
+    -- (probably the dungeon figure the Skull is "of"). Re-add data only on direct
+    -- evidence this npcID sells something.
     [262880] = {
         name = "Er'inye",
         mapID = 2509,
         unreleased = true,
         zone = "Vaults of Atal'Utek",
         expansion = "Midnight",
-        currency = "Gold",
-        items = {
-            {266169}, {267378}, {269637}, {271358}, {271604}, {271850},
-            {272362}, {275578}, {275628}, {279917}, {279919}, {279922},
-        },
+        currency = "Corrosive Coin",
+        items = {},
     },
-    -- Coords provided directly by the owner, not yet addon-scan-confirmed. Confirmed a
-    -- distinct vendor from Er'inye (different name/title, disjoint item-ID range) via the
-    -- 2026-08-10 external crawl refresh, not an alias of the entry above.
-    -- Promoted visible on crawl validation (HS-310, 2026-08-11). Items carry no
-    -- costs yet — the UI renders no price line for a cost-less offer (FormatCost
-    -- returns nil), so nothing misleading shows; real costs come from the first
-    -- live scan.
+    -- Coords provided directly by the owner. Identity, location, item list, and
+    -- pricing settled via the 2026-08-10 external crawl session (HS-287): sells for
+    -- Corrosive Coin (currencyID 3448, "spirits of the Amani... deal exclusively in
+    -- this phantasmal token"). The 12 costed items below carry Blizzard's catalog
+    -- sourceText prices from the 12.1 datamine ("Vendor: Skull of Er'inye ... Cost:
+    -- N|Hcurrency:3448"); the 3 bare items are crawl-known with no published price.
+    -- First live scan corroborates (sourceText is not price-truth — see
+    -- CLAIM-PIPELINE-0085 — but it is the best pre-scan evidence and beats bare rows).
+    -- Promoted visible under HS-310 (2026-08-11).
     [272751] = {
         name = "Skull of Er'inye",
         mapID = 2509,
         x = 0.51, y = 0.624,
         zone = "Vaults of Atal'Utek",
         expansion = "Midnight",
-        currency = "Gold",
+        currency = "Corrosive Coin",
         items = {
-            {281573}, {281577}, {281620},
+            {266169, cost = {currencies = {{id = 3448, amount = 750}}}}, -- Soulcoiler Canopy
+            {267378, cost = {currencies = {{id = 3448, amount = 500}}}}, -- Venom Scholar's Focus
+            {269637, cost = {currencies = {{id = 3448, amount = 750}}}}, -- Serpent-Caller Spike
+            {271358, cost = {currencies = {{id = 3448, amount = 750}}}}, -- Clutch of Ula'tek
+            {271604, cost = {currencies = {{id = 3448, amount = 500}}}}, -- Egg of Ula'tek
+            {271850, cost = {currencies = {{id = 3448, amount = 500}}}}, -- Venomous Tendril
+            {272362, cost = {currencies = {{id = 3448, amount = 750}}}}, -- Venombound Ropes
+            {275578, cost = {currencies = {{id = 3448, amount = 500}}}}, -- Soulcoiler Sconce
+            {275628, cost = {currencies = {{id = 3448, amount = 750}}}}, -- Cauldron of Ula'tek
+            {279917, cost = {currencies = {{id = 3448, amount = 1500}}}}, -- Soulcoiler Skull
+            {279919, cost = {currencies = {{id = 3448, amount = 1500}}}}, -- Soulcoiler Jaw
+            {279922, cost = {currencies = {{id = 3448, amount = 2500}}}}, -- Altar of Corrosion
+            {281573}, -- Venomous Thread (crawl-known, no published price)
+            {281577}, -- Venomous Globule (crawl-known, no published price)
+            {281620}, -- Corrosive Cache (crawl-known, no published price)
         },
     },
 
