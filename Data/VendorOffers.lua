@@ -14505,80 +14505,6 @@ local GeneratedBase = {
       displayOrder = 2,
     },
   },
-  [262880] = {
-    [266169] = {
-      price = 0,
-      currencies = {},
-      isUsable = true,
-      displayOrder = 1,
-    },
-    [267378] = {
-      price = 0,
-      currencies = {},
-      isUsable = true,
-      displayOrder = 2,
-    },
-    [269637] = {
-      price = 0,
-      currencies = {},
-      isUsable = true,
-      displayOrder = 3,
-    },
-    [271358] = {
-      price = 0,
-      currencies = {},
-      isUsable = true,
-      displayOrder = 4,
-    },
-    [271604] = {
-      price = 0,
-      currencies = {},
-      isUsable = true,
-      displayOrder = 5,
-    },
-    [271850] = {
-      price = 0,
-      currencies = {},
-      isUsable = true,
-      displayOrder = 6,
-    },
-    [272362] = {
-      price = 0,
-      currencies = {},
-      isUsable = true,
-      displayOrder = 7,
-    },
-    [275578] = {
-      price = 0,
-      currencies = {},
-      isUsable = true,
-      displayOrder = 8,
-    },
-    [275628] = {
-      price = 0,
-      currencies = {},
-      isUsable = true,
-      displayOrder = 9,
-    },
-    [279917] = {
-      price = 0,
-      currencies = {},
-      isUsable = true,
-      displayOrder = 10,
-    },
-    [279919] = {
-      price = 0,
-      currencies = {},
-      isUsable = true,
-      displayOrder = 11,
-    },
-    [279922] = {
-      price = 0,
-      currencies = {},
-      isUsable = true,
-      displayOrder = 12,
-    },
-  },
   [264056] = {
     [268457] = {
       price = 0,
@@ -15382,6 +15308,78 @@ local GeneratedBase = {
     },
   },
   [272751] = {
+    [266169] = {
+      price = 0,
+      currencies = {{id = 3448, amount = 750}},
+      isUsable = true,
+      displayOrder = 1,
+    },
+    [267378] = {
+      price = 0,
+      currencies = {{id = 3448, amount = 500}},
+      isUsable = true,
+      displayOrder = 2,
+    },
+    [269637] = {
+      price = 0,
+      currencies = {{id = 3448, amount = 750}},
+      isUsable = true,
+      displayOrder = 3,
+    },
+    [271358] = {
+      price = 0,
+      currencies = {{id = 3448, amount = 750}},
+      isUsable = true,
+      displayOrder = 4,
+    },
+    [271604] = {
+      price = 0,
+      currencies = {{id = 3448, amount = 500}},
+      isUsable = true,
+      displayOrder = 5,
+    },
+    [271850] = {
+      price = 0,
+      currencies = {{id = 3448, amount = 500}},
+      isUsable = true,
+      displayOrder = 6,
+    },
+    [272362] = {
+      price = 0,
+      currencies = {{id = 3448, amount = 750}},
+      isUsable = true,
+      displayOrder = 7,
+    },
+    [275578] = {
+      price = 0,
+      currencies = {{id = 3448, amount = 500}},
+      isUsable = true,
+      displayOrder = 8,
+    },
+    [275628] = {
+      price = 0,
+      currencies = {{id = 3448, amount = 750}},
+      isUsable = true,
+      displayOrder = 9,
+    },
+    [279917] = {
+      price = 0,
+      currencies = {{id = 3448, amount = 1500}},
+      isUsable = true,
+      displayOrder = 10,
+    },
+    [279919] = {
+      price = 0,
+      currencies = {{id = 3448, amount = 1500}},
+      isUsable = true,
+      displayOrder = 11,
+    },
+    [279922] = {
+      price = 0,
+      currencies = {{id = 3448, amount = 2500}},
+      isUsable = true,
+      displayOrder = 12,
+    },
     [281573] = {
       price = 0,
       currencies = {},
@@ -15558,6 +15556,22 @@ local Tombstones = {
     -- dates to the v1.1.0 crowd-data pass and carried price 0). Wilkinson
     -- [44114] in Darkshire is the remaining source and keeps his own row.
     ["1247:256905"] = true,
+    -- HS-287: these 12 items were crawl-misattributed to Er'inye [262880] by
+    -- name-similarity; Blizzard's 12.1 catalog sourceText attributes every one
+    -- to "Skull of Er'inye" [272751], which keeps the costed rows. Blizzard's
+    -- sourceText has zero rows naming plain "Er'inye" as a vendor.
+    ["262880:266169"] = true,
+    ["262880:267378"] = true,
+    ["262880:269637"] = true,
+    ["262880:271358"] = true,
+    ["262880:271604"] = true,
+    ["262880:271850"] = true,
+    ["262880:272362"] = true,
+    ["262880:275578"] = true,
+    ["262880:275628"] = true,
+    ["262880:279917"] = true,
+    ["262880:279919"] = true,
+    ["262880:279922"] = true,
 }
 
 HA.VendorOffers = {
