@@ -665,6 +665,16 @@ local function ResolveThemeFromInitiativeInfo(info)
 
     -- Step 6: Vendor name fallback handled inside ResolveThemeFromText (not persisted)
 
+    -- HS-313: a neighborhood with NO active endeavour returns a LOADED payload
+    -- with initiativeID 0, empty title, and progressRequired 0 (live-probed
+    -- 2026-08-11). That exact shape means "definitively none active" — a
+    -- known state, not unknown. Anything else falls through to unknown below.
+    if (tonumber(info.initiativeID) or 0) == 0
+            and (info.title == nil or info.title == "")
+            and (tonumber(info.progressRequired) or 0) == 0 then
+        return nil, true, info.title
+    end
+
     return nil, false, info.title
 end
 
@@ -745,8 +755,13 @@ local function RefreshActiveTheme(reason)
     -- NEIGHBORHOOD_INITIATIVE_UPDATED fires (every consume, no theme change)
     -- were logging this line every time.
     if changed and IsDebugEnabled() then
-        if activeThemeKnown then
+        if activeThemeKnown and activeTheme then
             HA.Addon:Debug("EndeavorsData: active theme:", activeTheme, "(" .. tostring(reason) .. ")")
+        elseif activeThemeKnown then
+            -- HS-313: known-but-none state (no endeavour active). activeTheme
+            -- is nil here; passing it to Debug's varargs would leave a hole
+            -- in the {...} array Print builds, so log it explicitly instead.
+            HA.Addon:Debug("EndeavorsData: active theme: none", "(" .. tostring(reason) .. ")")
         else
             HA.Addon:Debug("EndeavorsData: active theme unknown", "(" .. tostring(reason) .. ")")
         end
