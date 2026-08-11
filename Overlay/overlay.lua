@@ -557,9 +557,7 @@ function Overlay:Initialize()
     -- (the pool-size local this file already tracks) — no new scan added to
     -- compute it.
     Events:RegisterCallback("all", function()
-        HA.PerformanceTrace:Measure("bag_refresh", overlayCount, function()
-            Overlay:RefreshAll()
-        end)
+        HA.PerformanceTrace:Measure("bag_refresh", overlayCount, Overlay.RefreshAll, Overlay)
     end)
 
     -- Routed through RequestUpdate rather than calling RefreshAll directly:
@@ -577,9 +575,7 @@ function Overlay:Initialize()
     -- its own timer pump). Workload is the update type it requests, already
     -- a literal in this line.
     Events:RegisterCallback("OWNERSHIP_UPDATED", function()
-        HA.PerformanceTrace:Measure("ownership_update", "all", function()
-            Events:RequestUpdate("all")
-        end)
+        HA.PerformanceTrace:Measure("ownership_update", "all", Events.RequestUpdate, Events, "all")
     end)
 
     HA.Addon:Debug("Overlay system initialized")

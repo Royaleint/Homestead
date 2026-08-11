@@ -67,13 +67,17 @@ assert(overlaySource:find('function Overlay:RefreshExternalOverlays%(', 1) ~= ni
 -- Cycle 2 (CRITICAL): the repaint must be DEFERRED (RequestUpdate), never a
 -- direct RefreshAll — Events:Fire is synchronous and a refresh can itself
 -- fire OWNERSHIP_UPDATED (merchant SetOwned), so a direct call recurses.
--- HS-239: the handler now wraps its RequestUpdate("all") call through the
+-- HS-239: the handler wraps its RequestUpdate("all") call through the
 -- PerformanceTrace facade (Measure), so the literal adjacency check below
 -- spans that wrapper with a lazy `.-` instead of requiring the two calls
 -- back-to-back — the underlying contract (defer via RequestUpdate, never a
 -- direct RefreshAll) is unchanged.
+-- Perf cleanup: Measure is now called with a named function reference
+-- (Events.RequestUpdate, Events, "all") instead of a wrapping closure that
+-- calls Events:RequestUpdate("all") -- same contract, mechanical call-shape
+-- change per Measure's varargs facade.
 assert(overlaySource:find(
-    'Events:RegisterCallback%("OWNERSHIP_UPDATED", function%(%).-Events:RequestUpdate%("all"%)', 1) ~= nil)
+    'Events:RegisterCallback%("OWNERSHIP_UPDATED", function%(%).-Events%.RequestUpdate, Events, "all"', 1) ~= nil)
 assert(overlaySource:find(
     'Events:RegisterCallback%("OWNERSHIP_UPDATED", function%(%).-Overlay:RefreshAll%(', 1) == nil)
 

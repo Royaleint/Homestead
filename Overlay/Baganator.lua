@@ -110,6 +110,15 @@ local function IsContextEnabled(profile, details)
     return settings.showOnBags
 end
 
+local function RequestBaganatorRefresh()
+    if Baganator.Constants and Baganator.Constants.RefreshReason
+            and Baganator.Constants.RefreshReason.ItemWidgets then
+        Baganator.API.RequestItemButtonsRefresh({ Baganator.Constants.RefreshReason.ItemWidgets })
+    else
+        Baganator.API.RequestItemButtonsRefresh()
+    end
+end
+
 local function RefreshWidgets()
     if not isRegistered then return end
     if not Baganator or not Baganator.API or not Baganator.API.RequestItemButtonsRefresh then
@@ -119,14 +128,7 @@ local function RefreshWidgets()
     -- HS-239: one of the two external_bag_refresh call sites (BetterBags.lua
     -- is the other). Workload is "baganator", the same literal already used
     -- as this refresher's RegisterExternalRefresher key.
-    HA.PerformanceTrace:Measure("external_bag_refresh", "baganator", function()
-        if Baganator.Constants and Baganator.Constants.RefreshReason
-                and Baganator.Constants.RefreshReason.ItemWidgets then
-            Baganator.API.RequestItemButtonsRefresh({ Baganator.Constants.RefreshReason.ItemWidgets })
-        else
-            Baganator.API.RequestItemButtonsRefresh()
-        end
-    end)
+    HA.PerformanceTrace:Measure("external_bag_refresh", "baganator", RequestBaganatorRefresh)
 end
 
 -------------------------------------------------------------------------------
