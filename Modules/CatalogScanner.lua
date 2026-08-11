@@ -56,6 +56,13 @@ local storageResponded = false
 -- releases it) and a build where only dataLoaded ever latches.
 local loginForceLoadAttempted = false
 local loginForceLoadPendingCombat = false
+-- True from the moment the login force-load's RunSearch() is issued until the
+-- HOUSING_STORAGE_UPDATED it forces arrives — the only way that handler can
+-- tell a login-synthesized event from a genuine one. Set solely on the
+-- RunSearch-success path (every earlier return leaves it false, so a search
+-- that never ran can never mark an event as forced) and consumed
+-- unconditionally by the next HOUSING_STORAGE_UPDATED, so it cannot latch on.
+local loginForcedStorageEventPending = false
 local LOGIN_FORCE_LOAD_DELAY = 5 -- seconds; settle past loading-screen noise. Gate-2-tunable.
 -- Write-only by design: its only job is to hold a reference, never to be read.
 local pendingSearcher = nil -- luacheck: ignore 231
@@ -63,6 +70,7 @@ local pendingSearcher = nil -- luacheck: ignore 231
 -- Batching settings to prevent frame hitches
 local ITEMS_PER_BATCH = 20
 local BATCH_DELAY = 0.01 -- seconds between batches
+local SCAN_COMBAT_RETRY_DELAY = 1.0 -- seconds between combat re-checks at a batch boundary
 
 -------------------------------------------------------------------------------
 -- Ownership Detection
@@ -302,6 +310,23 @@ function CatalogScanner:ScanFullCatalog(callback)
 
     -- Process items in batches to prevent frame hitches
     local function ProcessBatch()
+        -- A login or /reload forces a full ~1,600-item pass (see
+        -- RunLoginStorageForceLoad), which is ~85 batches of catalog probes and
+        -- store writes; landing those on combat frames because the player
+        -- reloaded mid-fight is exactly the hitch the batching exists to avoid.
+        -- Pause at the batch boundary and re-check until combat drops, matching
+        -- UI/BadgeCalculation.lua's warm-up ProcessBatch. Resumes rather than
+        -- restarts: currentIndex is untouched, so each item is still probed
+        -- once, and a scan that straddles the pause keeps the invalidation
+        -- semantics it already had — anything that fires a housing event
+        -- meanwhile coalesces into scanRequestedDuringActive and rescans on
+        -- completion (below), which is how a mid-scan change has always been
+        -- corrected.
+        if _G.InCombatLockdown() then
+            C_Timer.After(SCAN_COMBAT_RETRY_DELAY, ProcessBatch)
+            return
+        end
+
         local batchEnd = math.min(currentIndex + ITEMS_PER_BATCH - 1, totalItems)
 
         for i = currentIndex, batchEnd do
@@ -559,9 +584,35 @@ local function SetupEventScanning()
             if event == "HOUSING_STORAGE_UPDATED" then
                 -- HS-276: latch logic lives in the shared TryLatchWarmFromCounts()
                 -- (see above) -- this is its sole caller (Gate 2, cycle 2). This
-                -- handler still unconditionally requests a scan below, exactly as
-                -- before the extraction.
+                -- handler still requests a scan below, subject only to the
+                -- zero-decor gate immediately after.
                 TryLatchWarmFromCounts()
+
+                -- Consumed unconditionally, and after the latch above: the flag
+                -- must never outlive the one event it describes, or a later
+                -- genuine event inherits the skip.
+                local loginForced = loginForcedStorageEventPending
+                loginForcedStorageEventPending = false
+
+                -- The login force-load synthesizes this event on every login
+                -- whether or not the account has anything to find. FORBIDS:
+                -- the ~1,600-probe rescan behind that forced event when the
+                -- API reports zero decor owned — every probe reads unowned and
+                -- dataLoaded cannot latch off a zero total, so the pass can
+                -- neither learn nor erase any ownership. (It would still
+                -- refresh cached names/sourceText; the housing UI's own
+                -- ADDON_LOADED scan and any genuine storage event both still
+                -- do that.) MUST NEVER BLOCK: a real storage change. It cannot
+                -- — a genuine event with no force-load in flight is not gated
+                -- at all, and the first decor an account ever acquires makes
+                -- the total nonzero, so its event scans like any other. Requires the accessor to exist AND answer 0;
+                -- a missing accessor is no information, and no information
+                -- scans.
+                if loginForced and C_HousingCatalog.GetDecorTotalOwnedCount
+                        and C_HousingCatalog.GetDecorTotalOwnedCount() == 0 then
+                    HA.Addon:Debug(event, "fired — login-forced with zero decor owned, skipping scan")
+                    return
+                end
             end
 
             -- HOUSING_STORAGE_UPDATED / NEW_HOUSING_ITEM_ACQUIRED coalesce
@@ -644,6 +695,11 @@ local function RunLoginStorageForceLoad()
     -- latches (the HOUSING_STORAGE_UPDATED this RunSearch() call triggers) --
     -- no separate timeout timer needed.
     pendingSearcher = searcher
+
+    -- The search is away; the HOUSING_STORAGE_UPDATED it forces is this
+    -- session's login-synthesized one. Set last, so none of the failure exits
+    -- above can attribute a genuine event to a search that never ran.
+    loginForcedStorageEventPending = true
 end
 
 -- Registers a SEPARATE frame from SetupEventScanning's -- that frame's
