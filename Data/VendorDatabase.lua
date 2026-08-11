@@ -3196,10 +3196,19 @@ VendorDatabase.Vendors = {
     -- Midnight 12.1 vendors. Promoted visible for the 12.1 release (HS-310,
     -- 2026-08-11): every vendor confirmed by the 2026-08-11 PTR scan sweep
     -- (build 12.1.0.69214) plus one crawl-validated entry had its
-    -- `unreleased = true` flag removed. Five rows keep the flag — identity,
-    -- location, or catalog still unvalidated (no scan, no crawl row) — and
-    -- stay hidden until validated through a scan or crawl data, per owner
-    -- directive. Do not clear a flag here without one of those two proofs.
+    -- `unreleased = true` flag removed. Four rows keep the flag, each for a
+    -- computed, per-source reason (2026-08-11 evidence audit — crawl checked by
+    -- npcID AND name via parsed JSON, datamine TSV by vendor name):
+    --   Carver Sprocket 271165 — identity crawl-validated (all 12 items attributed
+    --     directly to his npcID); held ONLY for missing coordinates.
+    --   Unknown Vendor 271366 — item/zone/coords all crawl-corroborated (the
+    --     crawl's coord matches this row exactly); held ONLY because the NPC's
+    --     name is unknown everywhere (the crawl calls him Unknown Vendor too).
+    --   Er'inye 262880 — likely not a vendor at all; see its comment.
+    --   Cursed Keepsake 262726 — identity/zone/costs validated; held ONLY for
+    --     missing coordinates; see its comment.
+    -- Hold reasons must come from computed evidence, never memory or grep — two
+    -- misses in one day (Sluggs, then Carver) came from exactly that shortcut.
     -- =========================================================================
 
     -- Razorwind Shores additions
@@ -3404,10 +3413,17 @@ VendorDatabase.Vendors = {
             {280164, cost = {gold = 750000}},
         },
     },
+    -- Identity crawl-validated (2026-08-11 evidence audit): the external crawl
+    -- attributes all twelve items below DIRECTLY to npcID 271165 under his real
+    -- name — same evidence class that promoted Second Mate Sluggs. The crawl
+    -- carries no zone/coords for him and the datamine has no vendor rows (so no
+    -- costs either). Held hidden for ONE reason: no coordinates from any source.
+    -- Without x/y nothing renders even if promoted; no approximate centroid per
+    -- studio rule. First sighting: real coords, clear the flag, scan for costs.
     [271165] = {
         name = "Carver Sprocket",
         unreleased = true,
-        zone = "Founder's Point",  -- same items as Devin Slatesmith; confirm location from PTR
+        zone = "Founder's Point",  -- unconfirmed; same items as Devin Slatesmith suggested it, crawl carries no zone
         expansion = "Midnight",
         currency = "Gold",
         items = {
@@ -3530,11 +3546,16 @@ VendorDatabase.Vendors = {
             {281582, cost = {currencies = {{id = 3316, amount = 150}}}},
         },
     },
+    -- Promoted visible (HS-245/HS-310 follow-up, 2026-08-11): validated by the
+    -- external crawl's DIRECT npcID attribution (all six items -> npc_id 257598,
+    -- named, The Coiled Isle — not a name-similarity join), corroborated by the
+    -- 12.1 datamine's parsedSources naming him as these items' vendor in the same
+    -- zone. No published costs anywhere — bare rows render no price line; first
+    -- live scan supplies them. Coords owner-supplied.
     [257598] = {
         name = "Second Mate Sluggs",
         mapID = 2512,
         x = 0.516, y = 0.498,
-        unreleased = true,
         zone = "The Coiled Isle",
         expansion = "Midnight",
         currency = "Gold",
@@ -3596,13 +3617,26 @@ VendorDatabase.Vendors = {
     },
 
     -- Location unknown (12.1); confirm from PTR scan
+    -- Identity, zone, and costs validated 2026-08-11 by BOTH chains: the external
+    -- crawl attributes both items directly to npcID 262726 under his real name
+    -- (no zone/coords), and the 12.1 datamine's parsedSources names him as a
+    -- Razorwind Shores vendor selling both "Purified" items at 100g each (each
+    -- also carries a quest source). Held hidden for ONE reason
+    -- only — no coordinates from any source. Without x/y a promoted vendor renders
+    -- no pin and no side-panel row anyway; do not add an approximate centroid
+    -- (studio rule). Offer rows stay price-0 seeds until this vendor has coords
+    -- and goes live (no rendering impact while hidden). First sighting: record
+    -- real coords, clear the flag, and reconcile the offer costs.
     [262726] = {
         name = "Cursed Keepsake",
         unreleased = true,
+        mapID = 2351,
+        zone = "Razorwind Shores",
         expansion = "Midnight",
         currency = "Gold",
         items = {
-            {278696}, {278701},
+            {278696, cost = {gold = 1000000}}, -- Purified Dracthyr Stein (also quest-sourced)
+            {278701, cost = {gold = 1000000}}, -- Purified Goblin Cup (also quest-sourced)
         },
     },
 }
