@@ -2155,7 +2155,6 @@ VendorIdentity.Vendors = {
         y = 0.498,
         zone = "The Coiled Isle",
         expansion = "Midnight",
-        unreleased = true,
     },
     [257632] = {
         name = "Chel the Chip",
@@ -2258,6 +2257,8 @@ VendorIdentity.Vendors = {
     },
     [262726] = {
         name = "Cursed Keepsake",
+        mapID = 2351,
+        zone = "Razorwind Shores",
         expansion = "Midnight",
         unreleased = true,
     },
