@@ -292,7 +292,7 @@ function ExportImport:ExportScannedVendors(fullExport, exportAll)
     local exportedUniqueItems = {}
 
     table.insert(output, EXPORT_PREFIX .. "\n")
-    table.insert(output, "# exportFormatVersion: 2\n")
+    table.insert(output, "# exportFormatVersion: 3\n")
     -- Client build stamps every export so the data pipeline reads the live
     -- build from scans instead of external checkouts that lag hotfix builds.
     local clientVersion, clientBuild = GetBuildInfo()
@@ -304,7 +304,9 @@ function ExportImport:ExportScannedVendors(fullExport, exportAll)
     -- a mid-row insert would break every existing consumer; append-only is
     -- the only safe way to extend it.
     table.insert(output, "# V: npcID\tname\tmapID\tx\ty\tfaction\ttimestamp\titemCount\tdecorCount\tzone\tsubZone\trealZone\tparentMapID\tcontinentMapID\texpansion\tcurrency\tmapChain\tscanConfidence\thousingCount\n")
-    table.insert(output, "# I: npcID\titemID\tname\tprice\tcostData\tisUsable\tisPurchasable\tspellID\trequirements\tdecorID\tmerchantSlot\thasExtendedCost\n")
+    -- v3 appends subclassID so existing positional TSV column indexes remain
+    -- unchanged.
+    table.insert(output, "# I: npcID\titemID\tname\tprice\tcostData\tisUsable\tisPurchasable\tspellID\trequirements\tdecorID\tmerchantSlot\thasExtendedCost\tsubclassID\n")
     table.insert(output, "# D: npcID\tname\tmapID\tx\ty\tzone\ttimestamp (vendor in DB but scanned with 0 housing items)\n")
 
     -- Collect and sort npcIDs for deterministic output
@@ -418,8 +420,8 @@ function ExportImport:ExportScannedVendors(fullExport, exportAll)
                     local price = item.price or 0
                     local costData = FormatCostData(item.currencies, item.itemCosts)
 
-                    -- Format: I npcID itemID name price costData isUsable isPurchasable spellID requirements decorID merchantSlot hasExtendedCost
-                    local itemLine = string.format("I\t%d\t%d\t%s\t%d\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
+                    -- Format: I npcID itemID name price costData isUsable isPurchasable spellID requirements decorID merchantSlot hasExtendedCost subclassID
+                    local itemLine = string.format("I\t%d\t%d\t%s\t%d\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
                         vendor.npcID or npcID,
                         itemID,
                         SanitizeExportField(itemName),
@@ -431,7 +433,8 @@ function ExportImport:ExportScannedVendors(fullExport, exportAll)
                         FormatRequirements(item.requirements),
                         item.decorID and tostring(item.decorID) or "",
                         tostring(item.merchantSlot or ""),
-                        item.hasExtendedCost == nil and "" or tostring(item.hasExtendedCost)
+                        item.hasExtendedCost == nil and "" or tostring(item.hasExtendedCost),
+                        item.subclassID and tostring(item.subclassID) or ""
                     )
                     table.insert(output, itemLine)
                 end
