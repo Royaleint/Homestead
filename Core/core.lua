@@ -1089,9 +1089,7 @@ function HousingAddon:RefreshAllOverlays()
         -- miss a plot zone-in repaint and still render the affirmative
         -- "nothing was slow" line (Gate 1 warning).
         if HA.PerformanceTrace then
-            HA.PerformanceTrace:Measure("bag_refresh", "entering-world", function()
-                HA.Overlay:RefreshAll()
-            end)
+            HA.PerformanceTrace:Measure("bag_refresh", "entering-world", HA.Overlay.RefreshAll, HA.Overlay)
         else
             HA.Overlay:RefreshAll()
         end

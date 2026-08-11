@@ -459,15 +459,22 @@ end
 local PIN_ZOOM_GROWTH_MAX = 1.5
 local PIN_ZOOM_SCALE_FACTOR = 1.0
 
-local function GetEntryZoomedScale(kind, mapType)
-    local base = GetEntryDisplayScale(kind, mapType)
-
+-- Perf: split out so a caller rescaling many pins in the same tick (the
+-- OnCanvasScaleChanged loop below) can query WorldMapFrame once and pass the
+-- result to GetEntryZoomedScale for every pin, instead of paying
+-- HasZoomLevels()/GetCanvasZoomPercent() again per pin.
+local function GetZoomScaleMultiplier()
     if not WorldMapFrame or not WorldMapFrame:HasZoomLevels() then
-        return base
+        return 1.0
     end
 
     local zoomPct = WorldMapFrame:GetCanvasZoomPercent()
-    return base * Lerp(1.0, PIN_ZOOM_GROWTH_MAX, Saturate(PIN_ZOOM_SCALE_FACTOR * zoomPct))
+    return Lerp(1.0, PIN_ZOOM_GROWTH_MAX, Saturate(PIN_ZOOM_SCALE_FACTOR * zoomPct))
+end
+
+local function GetEntryZoomedScale(kind, mapType, zoomScaleMultiplier)
+    local base = GetEntryDisplayScale(kind, mapType)
+    return base * (zoomScaleMultiplier or GetZoomScaleMultiplier())
 end
 
 local function RequestDeferredRefresh(reason)
@@ -519,6 +526,19 @@ end
 -- Gate 2 can tune this down if 0.15s is shown to settle spam reliably.
 local WATCHER_SETTLE_DELAY = 0.25
 
+-- Perf: hoisted out of RequestSettledRefresh so re-scheduling (Cancel +
+-- NewTimer on every zoom tick, dozens/sec while zooming) reuses this one
+-- function value instead of allocating a fresh closure per tick.
+local function OnSettleTimerFire()
+    settleTimer = nil
+    local VMP = HA.VendorMapPins
+    if VMP and VMP.RefreshPins then
+        VMP:RefreshPins(true)
+    elseif isRegistered and Provider and Provider.RefreshAllData then
+        Provider:RefreshAllData()
+    end
+end
+
 local function RequestSettledRefresh(reason)
     watcherStats.settledRefreshes = watcherStats.settledRefreshes + 1
     if IsDebugModeEnabled() and reason then
@@ -529,15 +549,7 @@ local function RequestSettledRefresh(reason)
         settleTimer:Cancel()
     end
 
-    settleTimer = C_Timer.NewTimer(WATCHER_SETTLE_DELAY, function()
-        settleTimer = nil
-        local VMP = HA.VendorMapPins
-        if VMP and VMP.RefreshPins then
-            VMP:RefreshPins(true)
-        elseif isRegistered and Provider and Provider.RefreshAllData then
-            Provider:RefreshAllData()
-        end
-    end)
+    settleTimer = C_Timer.NewTimer(WATCHER_SETTLE_DELAY, OnSettleTimerFire)
 end
 
 -- HS-275: identity kept so a future RemoveDataProvider call has a stable
@@ -631,8 +643,12 @@ function mapDataProviderMethods:OnCanvasScaleChanged()
     -- to rescale yet, so skip rather than walk a stale activeEntries.
     if renderState then
         MPP.RepositionWorldMapPins()
+        -- Perf: query WorldMapFrame's zoom state once per tick instead of
+        -- once per pin -- GetEntryZoomedScale would otherwise re-derive the
+        -- same HasZoomLevels()/GetCanvasZoomPercent() result for every entry.
+        local zoomScaleMultiplier = GetZoomScaleMultiplier()
         for _, active in ipairs(activeEntries) do
-            active.frame:SetScale(GetEntryZoomedScale(active.kind, renderState.mapType))
+            active.frame:SetScale(GetEntryZoomedScale(active.kind, renderState.mapType, zoomScaleMultiplier))
         end
     end
 
