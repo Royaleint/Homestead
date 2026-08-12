@@ -278,6 +278,22 @@ OptionsModel.sections = {
                 end,
             },
             {
+                key = "hideCompletedVendorPins",
+                type = "checkbox",
+                label = L["Hide fully-collected vendor pins"],
+                tooltip = L["desc_hide_completed_vendor_pins"],
+                get = function()
+                    local vendorTracer = GetVendorTracer()
+                    return vendorTracer and vendorTracer.hideCompletedVendorPins
+                end,
+                set = function(value)
+                    local vendorTracer = GetVendorTracer()
+                    if not vendorTracer then return end
+                    vendorTracer.hideCompletedVendorPins = value
+                    RefreshPinsAndBadges()
+                end,
+            },
+            {
                 key = "pinAppearanceHeader",
                 type = "header",
                 label = L["Pin Appearance"],
