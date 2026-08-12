@@ -46,6 +46,7 @@ local highlightOriginalFrameLevel = nil
 -- Pin color/size helpers delegated to PinFrameFactory (loaded before this file)
 -- Vendor filter/coord helpers resolved in Initialize() to avoid load-order fragility.
 local ShouldHideVendor
+local ShouldHideCompletedVendorPin
 local GetBestVendorCoordinates
 local ShouldShowOppositeFaction
 local CanAccessVendor
@@ -1154,7 +1155,10 @@ function VendorMapPins:RefreshMinimapPins()
 
                     -- Use npcID for deduplication (vendor tables may be different objects)
                     if vendor.npcID and not addedVendors[vendor.npcID] then
+                        -- HS-022: minimap has no source filter; pass nil and let
+                        -- the completion check default to "all" internally.
                         local shouldSkipVendor = ShouldHideVendor(vendor)
+                            or ShouldHideCompletedVendorPin(vendor, nil)
 
                         -- Skip static/scanned map mismatches to avoid misplaced minimap pins.
                         -- Bypass for endeavor vendors: scan data may be stale from a previous
@@ -1406,7 +1410,7 @@ end
 -- EmitPortalBadges (called from CollectSourcePins under vendor/all filters).
 -------------------------------------------------------------------------------
 
-local function CollectVendorPinRecords(self, mapID, validMapIDs, _filter, renderState)
+local function CollectVendorPinRecords(self, mapID, validMapIDs, filter, renderState)
     local showOpposite = ShouldShowOppositeFaction()
     local addedVendors = {}  -- Track by npcID to avoid duplicates
     local shouldLogSilvermoonDebug = IsDebugModeEnabled() and IsSilvermoonClusterDebugMap(mapID)
@@ -1434,6 +1438,18 @@ local function CollectVendorPinRecords(self, mapID, validMapIDs, _filter, render
         -- Skip unreleased or no-decor vendors
         if ShouldHideVendor(vendor) then
             -- Mark as processed to avoid re-checking in scanned vendors loop
+            addedVendors[vendor.npcID] = true
+            return
+        end
+
+        -- HS-022: hide fully-collected vendor pins when the opt-in setting is
+        -- on. Single chokepoint for both the static loop and the scanned
+        -- fallback loop below, since both funnel through ProcessVendor.
+        -- Cheap-check-first: ShouldHideVendor above is a plain field/table
+        -- lookup, ShouldHideCompletedVendorPin can compute vendor stats on a
+        -- cache miss, so it runs second, matching the minimap and
+        -- EmitPortalBadges chokepoints.
+        if ShouldHideCompletedVendorPin(vendor, filter) then
             addedVendors[vendor.npcID] = true
             return
         end
@@ -1869,11 +1885,13 @@ end
 function VendorMapPins:EmitPortalBadges(mapID, renderState)
     -- Portal badge pass: draw entrance markers for Order Hall vendors
     -- accessible via this map. Gated to vendor/all filters by CollectSourcePins.
+    local sourceFilter = GetActiveSourceFilter()
     local allVendors = HA.VendorData:GetAllVendors()
     for _, vendor in ipairs(allVendors) do
         local portal = vendor.portal
         if portal and portal.mapID == mapID then
-            if not ShouldHideVendor(vendor) then
+            -- HS-022: a hidden vendor must not leave an orphaned portal badge.
+            if not ShouldHideVendor(vendor) and not ShouldHideCompletedVendorPin(vendor, sourceFilter) then
                 renderState.portalBadges[#renderState.portalBadges + 1] = {
                     portalData = { vendor = vendor },
                     mapID = portal.mapID,
@@ -2126,6 +2144,7 @@ function VendorMapPins:Initialize()
     -- Resolve VendorFilter functions now that all modules are loaded
     local VendorFilter = HA.VendorFilter
     ShouldHideVendor = VendorFilter.ShouldHideVendor
+    ShouldHideCompletedVendorPin = VendorFilter.ShouldHideCompletedVendorPin
     GetBestVendorCoordinates = VendorFilter.GetBestVendorCoordinates
     ShouldShowOppositeFaction = VendorFilter.ShouldShowOppositeFaction
     CanAccessVendor = VendorFilter.CanAccessVendor

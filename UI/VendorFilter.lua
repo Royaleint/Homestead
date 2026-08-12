@@ -238,7 +238,34 @@ function VendorFilter.ShouldShowEventVendors()
     return true  -- Default to showing
 end
 
+-- Get the setting for hiding fully-collected vendor pins (HS-022)
+function VendorFilter.ShouldHideCompletedVendorPins()
+    if HA.Addon and HA.Addon.db and HA.Addon.db.profile.vendorTracer then
+        return HA.Addon.db.profile.vendorTracer.hideCompletedVendorPins == true
+    end
+    return false  -- Default to showing
+end
+
 -- Check if a vendor is an event vendor
 function VendorFilter.IsEventVendor(vendor)
     return vendor and vendor._isEventVendor == true
+end
+
+-------------------------------------------------------------------------------
+-- Map Pin Completion Gate (HS-022)
+-------------------------------------------------------------------------------
+
+-- Map-pin-only completion gate: true only when the setting is on AND the
+-- vendor is confirmed fully collected. Unknown/nil completion always shows
+-- (same fail-direction discipline as the HS-313 endeavour gate) so a vendor
+-- never disappears because its collection state couldn't be determined.
+--
+-- Deliberately separate from ShouldHideVendor: that gate is reused by
+-- non-map callers (VendorTracer, ExportImport) which must not inherit
+-- completion-hiding.
+function VendorFilter.ShouldHideCompletedVendorPin(vendor, sourceFilter)
+    if not VendorFilter.ShouldHideCompletedVendorPins() then return false end
+    local BC = HA.BadgeCalculation
+    if not BC then return false end
+    return BC:VendorHasUncollectedItems(vendor, sourceFilter) == false
 end

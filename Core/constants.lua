@@ -503,6 +503,7 @@ Constants.Defaults = {
             sidePanelHeight = nil,                     -- Saved detached height for /reload restore
             showEventVendors = true,                   -- Show seasonal event vendor pins when events are active
             -- showUnverifiedVendors removed: no vendors use the unverified flag
+            hideCompletedVendorPins = false,            -- HS-022: hide map/minimap pins for fully-collected vendors
         },
 
         -- HS-231: per-source world-map/minimap pin visibility, exposed via
