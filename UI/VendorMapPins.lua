@@ -1435,17 +1435,21 @@ local function CollectVendorPinRecords(self, mapID, validMapIDs, filter, renderS
             return
         end
 
-        -- HS-022: hide fully-collected vendor pins when the opt-in setting is
-        -- on. Single chokepoint for both the static loop and the scanned
-        -- fallback loop below, since both funnel through ProcessVendor.
-        if ShouldHideCompletedVendorPin(vendor, filter) then
+        -- Skip unreleased or no-decor vendors
+        if ShouldHideVendor(vendor) then
+            -- Mark as processed to avoid re-checking in scanned vendors loop
             addedVendors[vendor.npcID] = true
             return
         end
 
-        -- Skip unreleased or no-decor vendors
-        if ShouldHideVendor(vendor) then
-            -- Mark as processed to avoid re-checking in scanned vendors loop
+        -- HS-022: hide fully-collected vendor pins when the opt-in setting is
+        -- on. Single chokepoint for both the static loop and the scanned
+        -- fallback loop below, since both funnel through ProcessVendor.
+        -- Cheap-check-first: ShouldHideVendor above is a plain field/table
+        -- lookup, ShouldHideCompletedVendorPin can compute vendor stats on a
+        -- cache miss, so it runs second, matching the minimap and
+        -- EmitPortalBadges chokepoints.
+        if ShouldHideCompletedVendorPin(vendor, filter) then
             addedVendors[vendor.npcID] = true
             return
         end

@@ -291,6 +291,7 @@ OptionsModel.sections = {
                     if not vendorTracer then return end
                     vendorTracer.hideCompletedVendorPins = value
                     RefreshPinsAndBadges()
+                    RequestMinimapRefresh("option_hideCompletedVendorPins")
                 end,
             },
             {
