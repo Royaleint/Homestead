@@ -113,6 +113,22 @@ local function SetMapFilterSourceEnabled(sourceKey, enabled)
     end
 end
 
+-- HS-317: "Fully-collected vendors" entry in the same Homestead menu
+-- section, SHOW-semantics matching Blizzard's filter idiom (checked =
+-- shown). Reads/writes the HS-022 vendorTracer.hideCompletedVendorPins
+-- flag the options panel row (OptionsModel.lua) already owns, inverted —
+-- checked here means the flag is NOT set.
+local function IsCompletedVendorPinsShown()
+    local vendorTracer = HA.Addon and HA.Addon.db and HA.Addon.db.profile.vendorTracer
+    return not (vendorTracer and vendorTracer.hideCompletedVendorPins)
+end
+
+local function SetCompletedVendorPinsShown(shown)
+    local vendorTracer = HA.Addon and HA.Addon.db and HA.Addon.db.profile.vendorTracer
+    if not vendorTracer then return end
+    vendorTracer.hideCompletedVendorPins = not shown
+end
+
 -- Minimap pins enabled state
 local minimapPinsEnabled = true
 
@@ -2211,6 +2227,31 @@ function VendorMapPins:Initialize()
                     self:RequestMinimapRefresh("map_filter_toggled", 0.1)
                 end)
             end
+
+            -- HS-317: parity with the options panel row's effect set
+            -- (OptionsModel.lua's hideCompletedVendorPins set: invalidate
+            -- + repaint), not just the debounced repaint pair the
+            -- neighboring source toggles use. Badge counts don't yet read
+            -- this setting -- HS-022 v1 deferred badge suppression -- so
+            -- the invalidate call is not currently load-bearing; it
+            -- becomes load-bearing once badge suppression lands.
+            local completedCheckbox = rootDescription:CreateCheckbox(HA.L["Fully-collected vendors"], IsCompletedVendorPinsShown, function()
+                SetCompletedVendorPinsShown(not IsCompletedVendorPinsShown())
+                self:InvalidateBadgeCache()
+                self:RequestWorldMapRefresh("map_filter_completed_toggled", 0.1)
+                self:RequestMinimapRefresh("map_filter_completed_toggled", 0.1)
+            end)
+            completedCheckbox:SetOnEnter(function(button)
+                GameTooltip:ClearAllPoints()
+                GameTooltip:SetPoint("RIGHT", button, "LEFT", -3, 0)
+                GameTooltip:SetOwner(button, "ANCHOR_PRESERVE")
+                GameTooltip_SetTitle(GameTooltip, HA.L["Fully-collected vendors"])
+                GameTooltip_AddNormalLine(GameTooltip, HA.L["desc_map_filter_completed_vendors"])
+                GameTooltip:Show()
+            end)
+            completedCheckbox:SetOnLeave(function(button)
+                GameTooltip:Hide()
+            end)
         end)
     end
 
