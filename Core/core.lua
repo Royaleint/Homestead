@@ -1004,9 +1004,6 @@ function HousingAddon:RegisterEvents()
     -- live MERCHANT_SHOW handler is VendorTracer's own controller. Not registering
     -- it here preserves that behavior exactly.
 
-    -- Note: Housing-specific events will be registered when those features are implemented
-    -- These events may not exist in current WoW API - will be verified on PTR
-    -- self:RegisterEvent("HOUSING_CATALOG_UPDATED", "OnHousingCatalogUpdated")
 end
 
 -------------------------------------------------------------------------------
