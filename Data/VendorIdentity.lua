@@ -878,7 +878,7 @@ VendorIdentity.Vendors = {
         x = 0.432,
         y = 0.742,
         zone = "Searing Gorge",
-        subzone = "Blackrock Depths — The Grim Guzzler",
+        subzone = "The Grim Guzzler, Blackrock Depths",
         faction = "Neutral",
         expansion = "Classic",
     },
