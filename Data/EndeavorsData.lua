@@ -315,7 +315,7 @@ EndeavorsData.Vendors = {
     -- Midnight 12.1 endeavor vendors. Promoted visible for the 12.1 release
     -- (HS-310, 2026-08-11): `unreleased = true` removed from all four per the
     -- validation this block already recorded -- costs verified against the
-    -- release matrix (staging/decor-patch-inputs/hs250-release-matrix-*.csv)
+    -- release matrix (HS-311 patch-discovery, PTR build 12.1.0.69189)
     -- and, for Griftah, a real in-game PTR scan (2026-08-09, build
     -- 12.1.0.69189, scanConfidence: confirmed). Griftah has confirmed
     -- altMapID/altX/altY (real PTR scans placed him in both neighborhoods);
