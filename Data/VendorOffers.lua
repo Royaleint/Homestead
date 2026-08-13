@@ -3999,14 +3999,6 @@ local GeneratedBase = {
       displayOrder = 4,
     },
   },
-  [248854] = {
-    [262453] = {
-      price = 0,
-      currencies = {{id = 3363, amount = 30}},
-      isUsable = true,
-      displayOrder = 999999,
-    },
-  },
   [249196] = {
     [245284] = {
       price = 0,

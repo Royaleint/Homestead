@@ -59,6 +59,8 @@ VendorDatabase.Aliases = {
     [127151] = 125346, -- Toraan the Revered phased/interior-map variant (mapID 831) → canonical 125346 (mapID 830)
     [135447] = 106902, -- Ransa Greyfeather variant (scanner-detected, unverified — possible endeavor/faction NPC)
     [88223]  = 78564,  -- Sergeant Crowler garrison-building variant → canonical Lunarfall ID
+    [248854] = 253596, -- The Last Architect alternate ID; correction row confirmed in two live
+                        -- captures (builds 12.0.7.68887 and 12.0.7.68974, 2026-06-17): 248854 → 253596
 }
 
 -- Note: Aliases are resolved at both scan time (VendorScanner) and query time
