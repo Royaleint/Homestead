@@ -26,6 +26,16 @@ local projectionRectCache = {}
 local parentMapCache = {}
 local childMapIDsCache = {}
 
+-- HS-282: read-only debug accessor for the /hs debug membudget walker.
+-- Read-only references, never mutated by the caller.
+function MapPinProvider.GetDebugCacheTables()
+    return {
+        projectionRectCache = projectionRectCache,
+        parentMapCache = parentMapCache,
+        childMapIDsCache = childMapIDsCache,
+    }
+end
+
 -------------------------------------------------------------------------------
 -- Zone-Continent Reverse Index
 -------------------------------------------------------------------------------

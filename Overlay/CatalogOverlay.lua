@@ -89,6 +89,17 @@ local overlayCache = setmetatable({}, { __mode = "k" })
 -- InvalidateAllOverlays wipes it.
 local itemVerdictCache = {}
 
+-- HS-282: read-only debug accessor for the /hs debug membudget walker. This
+-- file has no module table of its own (top-level hook-installing script) --
+-- HA.CatalogOverlay exists purely to carry this diagnostic accessor,
+-- nothing else attaches to it. overlayCache above is intentionally NOT
+-- exposed: it's frame-keyed (weak-keyed, `__mode = "k"`), and a memory
+-- walker has no meaningful way to size or interpret frame-object keys.
+HA.CatalogOverlay = HA.CatalogOverlay or {}
+function HA.CatalogOverlay.GetDebugCacheTables()
+    return { itemVerdictCache = itemVerdictCache }
+end
+
 -- HS-223b: per-frame LAST-APPLIED-TO-THE-FRAME signature: entryFrame →
 -- {itemID, effectiveAtlas or false, effectiveGlowState or false, ownedStyle,
 -- isOwned}. Distinct from overlayCache above, which tracks the raw computed

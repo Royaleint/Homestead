@@ -750,13 +750,15 @@ function HousingAddon:DebugMemAllSourcesReport(full)
         return
     end
 
-    -- Memory API and SourceManager were already confirmed present above, so
-    -- the only failure reason reachable here is VendorData unavailability --
-    -- same message the pre-refactor inline check printed.
+    -- Argus Gate 1 finding #8: print the helper's OWN returned reason rather
+    -- than a message hardcoded here, so this can't silently drift from
+    -- MeasureAllSourcesCacheIsolatedKB's actual failure text if that ever
+    -- changes.
     local ok, isolatedKB, fullCount, corpusSize, emptyKB, fullKB = self:MeasureAllSourcesCacheIsolatedKB()
     if not ok then
+        local reason = isolatedKB
         table.insert(output, "")
-        table.insert(output, "VendorData unavailable -- cannot enumerate the item corpus for a full warm.")
+        table.insert(output, reason .. ".")
         self:ShowCopyableText(table.concat(output, "\n"))
         return
     end
@@ -807,12 +809,15 @@ function HousingAddon:DebugMemBudgetReport(full)
     end
 
     local output = {}
-    local total = 0
+    local accounted = 0
     table.insert(output, "=== Homestead Memory Budget Breakdown (HS-282) ===")
+    table.insert(output, full
+        and "Mode: full (additionally forces a one-time allSourcesCache corpus warm -- other lines are still organic snapshots)"
+        or "Mode: default (fully non-destructive -- run '/hs debug membudget full' to also isolate allSourcesCache)")
     table.insert(output, "")
 
     local function reportKB(name, kb, technique)
-        total = total + kb
+        accounted = accounted + kb
         table.insert(output, format("%s: %.1f KB (%s)", name, kb, technique))
     end
 
@@ -847,12 +852,28 @@ function HousingAddon:DebugMemBudgetReport(full)
         reportSkip("SourceManager.requirementMetCache", "SourceManager unavailable")
     end
 
-    -- BadgeCalculation vendor/drop-group stats + badge count caches.
+    -- HS-281 vendor-items memo (Data/VendorData.lua:1108-1153), lazily built
+    -- on first VendorData:GetVendorItems call per npcID.
+    if HA.VendorData then
+        local memo = HA.VendorData.VendorItemsMemo
+        if memo then
+            reportKB("VendorData.VendorItemsMemo", ME.EstimateTableSizeKB(memo), "est")
+        else
+            reportSkip("VendorData.VendorItemsMemo", "not yet built (open a vendor's window at least once, then re-run)")
+        end
+    else
+        reportSkip("VendorData.VendorItemsMemo", "VendorData unavailable")
+    end
+
+    -- BadgeCalculation vendor/drop-group stats + badge count caches. Badge
+    -- caches are two separate root tables measured as one line via
+    -- EstimateTablesSizeKB so a structure shared between them (unlikely but
+    -- not assumed) is charged once, not twice (Argus Gate 1 finding #5).
     if HA.BadgeCalculation and HA.BadgeCalculation.GetDebugCacheTables then
         local caches = HA.BadgeCalculation:GetDebugCacheTables()
         reportKB("BadgeCalculation.vendorStatsCache", ME.EstimateTableSizeKB(caches.vendorStatsCache), "est")
         reportKB("BadgeCalculation.dropGroupStatsCache", ME.EstimateTableSizeKB(caches.dropGroupStatsCache), "est")
-        local badgeKB = ME.EstimateTableSizeKB(caches.cachedZoneBadges) + ME.EstimateTableSizeKB(caches.cachedContinentBadges)
+        local badgeKB = ME.EstimateTablesSizeKB({ caches.cachedZoneBadges, caches.cachedContinentBadges })
         reportKB("BadgeCalculation.badgeCaches", badgeKB, "est")
     else
         reportSkip("BadgeCalculation.vendorStatsCache", "BadgeCalculation unavailable")
@@ -874,15 +895,37 @@ function HousingAddon:DebugMemBudgetReport(full)
     end
 
     -- CatalogStore's in-memory identity/subclass caches (persisted
-    -- SavedVariables tables are reported separately below).
+    -- SavedVariables tables are reported separately below). Three root
+    -- tables measured as one line via EstimateTablesSizeKB, same
+    -- shared-seen reasoning as badgeCaches above.
     if HA.CatalogStore and HA.CatalogStore.GetDebugCacheTables then
         local caches = HA.CatalogStore:GetDebugCacheTables()
-        local identityKB = ME.EstimateTableSizeKB(caches.identityNegativeCache)
-            + ME.EstimateTableSizeKB(caches.identityPositiveCache)
-            + ME.EstimateTableSizeKB(caches.housingSubclassCache)
+        local identityKB = ME.EstimateTablesSizeKB({
+            caches.identityNegativeCache, caches.identityPositiveCache, caches.housingSubclassCache,
+        })
         reportKB("CatalogStore.identityCaches", identityKB, "est")
     else
         reportSkip("CatalogStore.identityCaches", "CatalogStore unavailable")
+    end
+
+    -- CatalogOverlay's per-item verdict cache (Overlay/CatalogOverlay.lua:90).
+    if HA.CatalogOverlay and HA.CatalogOverlay.GetDebugCacheTables then
+        local caches = HA.CatalogOverlay.GetDebugCacheTables()
+        reportKB("CatalogOverlay.itemVerdictCache", ME.EstimateTableSizeKB(caches.itemVerdictCache), "est")
+    else
+        reportSkip("CatalogOverlay.itemVerdictCache", "CatalogOverlay unavailable")
+    end
+
+    -- MapPinProvider's three coordinate/geometry caches (UI/MapPinProvider.lua
+    -- :25-27), measured as one line via EstimateTablesSizeKB.
+    if HA.MapPinProvider and HA.MapPinProvider.GetDebugCacheTables then
+        local caches = HA.MapPinProvider.GetDebugCacheTables()
+        local mapCachesKB = ME.EstimateTablesSizeKB({
+            caches.projectionRectCache, caches.parentMapCache, caches.childMapIDsCache,
+        })
+        reportKB("MapPinProvider.mapCaches", mapCachesKB, "est")
+    else
+        reportSkip("MapPinProvider.mapCaches", "MapPinProvider unavailable")
     end
 
     -- Static Data/ tables (sub-items B/D) -- every pure-data file the .toc
@@ -890,6 +933,11 @@ function HousingAddon:DebugMemBudgetReport(full)
     -- and is deliberately not listed. VendorStagedAdditions.lua attaches its
     -- tables onto HA.VendorOffers/HA.VendorIdentity at load time, so it's
     -- already included in those two walks, not a separate line.
+    -- NOTE (Argus Gate 1 finding #1/#6): static:AchievementSources
+    -- understates that file's true cost -- its achievementToItems reverse
+    -- index is built at load time but reachable only via closure upvalue,
+    -- invisible to this walker. See Core/MemoryEstimator.lua error source
+    -- #6 and tests/hs282_memory_estimator.lua's calibration section.
     local staticTables = {
         { "static:VendorIdentity", HA.VendorIdentity },
         { "static:VendorOffers", HA.VendorOffers },
@@ -914,25 +962,59 @@ function HousingAddon:DebugMemBudgetReport(full)
     end
 
     -- SavedVariables subtrees (sub-item E + the other large db.global tables
-    -- HS-282's session context calls out).
+    -- HS-282's session context calls out). Each field is checked for nil
+    -- individually (Argus Gate 1 finding #7): self.db.global can exist
+    -- while a specific subtree is still nil (e.g. parsedSources before the
+    -- first scan), and that must read as "not measurable: not initialized",
+    -- not a silent, misleading 0.0 KB.
+    local function reportSVField(name, value)
+        if value == nil then
+            reportSkip(name, "not initialized")
+        else
+            reportKB(name, ME.EstimateTableSizeKB(value), "est")
+        end
+    end
+
     if self.db and self.db.global then
-        reportKB("sv:parsedSources", ME.EstimateTableSizeKB(self.db.global.parsedSources), "est")
-        reportKB("sv:scannedVendors", ME.EstimateTableSizeKB(self.db.global.scannedVendors), "est")
-        reportKB("sv:catalogItems", ME.EstimateTableSizeKB(self.db.global.catalogItems), "est")
+        reportSVField("sv:parsedSources", self.db.global.parsedSources)
+        reportSVField("sv:scannedVendors", self.db.global.scannedVendors)
+        reportSVField("sv:catalogItems", self.db.global.catalogItems)
     else
         reportSkip("sv:parsedSources", "SavedVariables not initialized")
         reportSkip("sv:scannedVendors", "SavedVariables not initialized")
         reportSkip("sv:catalogItems", "SavedVariables not initialized")
     end
 
-    table.insert(output, format("total: %.1f KB", total))
+    table.insert(output, format("accounted (sum of lines above): %.1f KB", accounted))
+
+    -- Reconciliation (Argus Gate 1 finding #4): compare the sum of every
+    -- measured line against the addon's real, live memory footprint, so
+    -- this reads as a budget with a residual, not just a list of numbers.
+    -- "unaccounted" is expected to be nonzero -- it covers UI frames, Ace3
+    -- library overhead (sub-item C), event-frame state, and anything this
+    -- report doesn't have a line for yet, not just estimator error.
+    if _G.UpdateAddOnMemoryUsage and _G.GetAddOnMemoryUsage then
+        _G.collectgarbage("collect")
+        _G.UpdateAddOnMemoryUsage()
+        local liveTotalKB = _G.GetAddOnMemoryUsage(addonName) or 0
+        table.insert(output, format("addon total (live, GetAddOnMemoryUsage): %.1f KB", liveTotalKB))
+        table.insert(output, format("unaccounted: %.1f KB", liveTotalKB - accounted))
+    else
+        table.insert(output, "addon total (live): not measurable: memory API unavailable on this client")
+    end
+
     table.insert(output, "")
-    table.insert(output, "Technique key: (wiped) = isolated via GetAddOnMemoryUsage wipe-delta")
-    table.insert(output, "(exact for that line); (est) = MemoryEstimator table walker (approximate --")
-    table.insert(output, "see Core/MemoryEstimator.lua's header for known error sources, including")
-    table.insert(output, "that strings shared BETWEEN (est) lines are double-counted, inflating the")
-    table.insert(output, "total above the addon's true combined footprint). 'not measurable' lines")
-    table.insert(output, "are excluded from the total.")
+    table.insert(output, "Technique key: (wiped) = isolated via GetAddOnMemoryUsage wipe-delta (exact")
+    table.insert(output, "for that line). (est) = MemoryEstimator table walker (approximate -- see")
+    table.insert(output, "Core/MemoryEstimator.lua's header for its full error-source list and")
+    table.insert(output, "tests/hs282_memory_estimator.lua for its calibrated accuracy band per file")
+    table.insert(output, "size range). Two DISTINCT (est) error sources can each push the accounted")
+    table.insert(output, "sum in either direction, and neither is assumed to dominate: strings shared")
+    table.insert(output, "BETWEEN two separately-measured (est) lines are double-counted (inflates the")
+    table.insert(output, "sum), while the per-table/per-entry constants themselves can over- or")
+    table.insert(output, "under-estimate a given file depending on its size and shape (see the")
+    table.insert(output, "calibration test's documented per-file ratios). 'not measurable' lines are")
+    table.insert(output, "excluded from the accounted sum.")
 
     self:ShowCopyableText(table.concat(output, "\n"))
 end
