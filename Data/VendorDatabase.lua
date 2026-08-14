@@ -2464,7 +2464,24 @@ VendorDatabase.Vendors = {
         expansion = "Midnight",
         notes = "Profession achievement vendor — items require specific profession achievements.",
         items = {
-            {264003, cost = {gold = 500000000}},
+            -- HS-326 (2026-08-13): was 500000000 (50,000g), a 10,000x
+            -- data-entry error present since the vendor's original
+            -- 2026-03-07 commit. Corrected for THIS item only — the
+            -- client's own catalog sourceText names Irodalmin as the
+            -- vendor and states 5g, and a second Blizzard-lineage path
+            -- (ItemSparse.BuyPrice, CLAIM-PIPELINE-0086 — not
+            -- epistemically independent, that claim says so itself)
+            -- agrees on 50,000 copper.
+            {264003, cost = {gold = 50000}},
+            -- 264004 deliberately left at the original (still wrong)
+            -- price: its vendor attribution to Irodalmin is itself
+            -- disputed (sourceText names no vendor; DB2 puts it under a
+            -- different npc, 243555, itemCount 1 on Irodalmin's own DB2
+            -- record; vendor_external_candidates.csv separately names npc
+            -- 243555 "Lelorian" and already carries a standing conflict
+            -- row for exactly this item). Fixing the price here would
+            -- harden an unresolved attribution dispute in Irodalmin's
+            -- favor. See HS-327.
             {264004, cost = {gold = 500000000}},
         },
     },

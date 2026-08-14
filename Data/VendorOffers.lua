@@ -15428,6 +15428,25 @@ local ManualOverrides = {
         [245424] = { price = 5000000, currencies = {{id = 823, amount = 1000}}, isUsable = true }, -- Draenic Chest
         [251544] = { price = 5000000, currencies = {{id = 823, amount = 1000}}, isUsable = true }, -- Telredor Recliner
     },
+    -- HS-326 (2026-08-13): GeneratedBase carries the original 500000000
+    -- (50,000g) entry-error price. Corrected here for 264003 only — a
+    -- second Blizzard-lineage path (ItemSparse.BuyPrice, CLAIM-PIPELINE-0086;
+    -- not epistemically independent, that claim says so itself) plus the
+    -- client's own catalog sourceText agree on both the price (50,000
+    -- copper) and the vendor (Irodalmin) for this item specifically.
+    -- 264004 is deliberately NOT touched here (Sage Gate 1, cycle 1
+    -- REJECT): its own sourceText names no vendor, the DB2 export puts it
+    -- under a different npc (243555, itemCount 1 on Irodalmin's own
+    -- record) that vendor_external_candidates.csv separately names
+    -- "Lelorian" (DB2 carries npcIDs and items but no NPC names). That same
+    -- candidates file already carries a standing conflict_vendor row for
+    -- exactly this item —
+    -- writing a ManualOverrides row (highest precedence) would have
+    -- silently resolved an already-recorded, unresolved vendor dispute in
+    -- Irodalmin's favor. Tracked separately: HS-327.
+    [256026] = { -- Irodalmin (Silvermoon City, profession achievement vendor)
+        [264003] = { price = 50000, currencies = {}, isUsable = true, displayOrder = 1 }, -- Midnight Herbalist's Shop Sign
+    },
     [97140] = { -- First Arcanist Thalyssra (Shal'Aran, Suramar)
         [244536] = { price = 7000000, currencies = {{id = 1220, amount = 1000}}, isUsable = true }, -- NB Fireplace
         [246850] = { price = 10000000, currencies = {{id = 1220, amount = 2000}}, isUsable = true }, -- Arcan'dor Art
