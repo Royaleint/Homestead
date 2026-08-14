@@ -1,4 +1,4 @@
--- luacheck: globals assert loadfile print collectgarbage string arg io os
+-- luacheck: globals assert loadfile print collectgarbage string arg io
 
 local root = (... or "."):gsub("\\\\", "/"):gsub("/+$", "")
 
@@ -144,8 +144,7 @@ print("hs282_memory_estimator: ok")
 
 if not (arg and arg[-1] and arg[0]) then
     print("hs282_memory_estimator_calibration: skipped (arg[-1]/arg[0] unavailable -- not run via the lua CLI)")
-    os.exit(0)
-end
+else
 
 -- Windows-native backslash paths from arg[-1]/arg[0] don't survive being
 -- embedded in an io.popen command string on this platform (confirmed
@@ -157,7 +156,33 @@ local function toForwardSlash(path)
 end
 
 local interpreter = toForwardSlash(arg[-1])
-local workerScript = toForwardSlash(arg[0]):gsub("hs282_memory_estimator%.lua$", "hs282_calibrate_one.lua")
+
+-- Argus Gate 1 (re-review) blocker #1: the worker path used to come from
+-- gsub-SUBSTITUTING this file's own name in arg[0] for the worker's name.
+-- If that pattern ever failed to match -- different case on a
+-- case-insensitive NTFS mount, this file copied/renamed elsewhere, run
+-- through a wrapper that mangles arg[0] -- the substitution silently
+-- no-ops, workerScript ends up EQUAL to arg[0], and the popen call below
+-- spawns THIS SAME TEST FILE as its own "worker": that recurses into
+-- another copy of this whole calibration section, which spawns another,
+-- forever. Confirmed experimentally (Argus): thousands of processes before
+-- being killed, with the parent just hanging -- no error, nothing printed.
+-- Fixed by deriving the worker path from this file's DIRECTORY plus a
+-- fixed, hardcoded basename (no pattern substitution on the filename at
+-- all), then asserting -- before ever calling popen -- that the derived
+-- path is both different from arg[0] and ends in the expected worker
+-- filename. A resolution that fails either check aborts loudly instead of
+-- silently proceeding into a self-spawn.
+local selfPath = toForwardSlash(arg[0])
+local selfDir = selfPath:match("^(.*/)") or ""
+local workerScript = selfDir .. "hs282_calibrate_one.lua"
+assert(workerScript ~= selfPath,
+    "calibration worker path resolved to this test's own file (" .. selfPath
+    .. ") -- refusing to spawn it as a subprocess, that would self-recurse")
+assert(workerScript:match("/hs282_calibrate_one%.lua$") or workerScript == "hs282_calibrate_one.lua",
+    "calibration worker path does not end in hs282_calibrate_one.lua: " .. workerScript)
+assert(io.open(workerScript, "r"),
+    "calibration worker script not found at " .. workerScript .. " -- expected as a sibling of this test file")
 
 local function measureIsolated(fileBaseName)
     -- The outer quote pair is required on Windows: cmd.exe strips a single
@@ -169,10 +194,15 @@ local function measureIsolated(fileBaseName)
     local cmd = string.format('""%s" "%s" "%s" %s"', interpreter, workerScript, root, fileBaseName)
     local proc = assert(io.popen(cmd, "r"))
     local resultLine = proc:read("*l")
-    local ok, _, exitType, exitCode = proc:close()
+    -- proc:close()'s exit-type/exit-code return values are a Lua 5.2+
+    -- addition; under this Lua 5.1 build it returns a single boolean (which
+    -- IS reliable) and nothing else -- confirmed empirically. Only check
+    -- what 5.1 actually gives us; don't reference exit-code values that can
+    -- never be anything but nil here.
+    local closedOk = proc:close()
     assert(resultLine, "calibration worker produced no output for " .. fileBaseName
-        .. " (exit " .. tostring(exitType) .. " " .. tostring(exitCode) .. ")")
-    assert(ok ~= false, "calibration worker failed for " .. fileBaseName)
+        .. " (worker: " .. workerScript .. ")")
+    assert(closedOk ~= false, "calibration worker process reported failure for " .. fileBaseName)
 
     local actualKB, estKB = resultLine:match("^(%S+)%s+(%S+)$")
     assert(actualKB and estKB, "could not parse calibration worker output for "
@@ -193,7 +223,10 @@ end
 
 -- Strictly gated: these seven land inside [0.85, 1.15] reliably (verified
 -- during this ticket's calibration work) and represent the normal case the
--- 0.85-1.15 tolerance band targets.
+-- 0.85-1.15 tolerance band targets. EndeavorsData shares AchievementSources'
+-- closure-upvalue gap (see the comment below) but still fits this band --
+-- it stays here rather than in the wide-band group below; the gap is
+-- documentation-scope for this file, not a calibration-band problem.
 local STRICT_MIN, STRICT_MAX = 0.85, 1.15
 for _, fileBaseName in ipairs({
     "VendorIdentity", "ProfessionSources", "PrerequisiteSources",
@@ -212,24 +245,38 @@ end
 -- three constants are a single flat linear fit (see its header); a wide
 -- grid search during this ticket's calibration work found NO single
 -- (header, array, hash) triple that lands all nine of these files inside
--- [0.85, 1.15] simultaneously -- the best joint fit gets seven, and pushes
--- these two to roughly 1.18 and 1.21 respectively, both over-estimates
--- (the safe direction: it doesn't cause this pair to be UNDER-ranked
--- against another subsystem).
+-- [0.85, 1.15] simultaneously -- the best joint fit gets seven. Both known
+-- exceptions have measured as OVER-estimates in this ticket's runs, but
+-- that is not simply "safe": an over-estimate on VendorOffers specifically
+-- -- already the single largest line by a wide margin -- inflates the
+-- report's "accounted" sum and understates its "unaccounted" residual by
+-- the same amount, and makes VendorOffers look relatively even MORE
+-- dominant next to every other subsystem than it truly is. ShopSources is
+-- small enough (~11-13KB) that its measured ratio also has real run-to-run
+-- jitter from ordinary GC/allocator noise, not just model error -- this
+-- band is wide partly to absorb that noise, not only the model's bias, so
+-- don't read a specific ratio value here (e.g. 1.03 one run, 1.18 the next)
+-- as a fixed, precise estimator property the way the strict-band files'
+-- ratios can be read.
 checkBand("VendorOffers", 0.85, 1.30)
 checkBand("ShopSources", 0.85, 1.30)
 
--- AchievementSources.lua builds a reverse index (achievementToItems) as a
--- plain local captured only via closure upvalue in the module's API
--- functions -- never assigned as a field on HA.AchievementSources or
--- HA.AchievementSourcesModule -- so it is structurally invisible to a
--- table walker (MemoryEstimator error source #6). The file is
--- pipeline-generated ("DO NOT EDIT" in its own header), so this can't be
--- fixed by exposing the index as a field. This is a genuine, understood
--- gap, not tuned away with looser constants that would then misrepresent
--- every other file -- the wide band below still catches a total collapse
--- (e.g. the estimator returning ~0) without asserting a tolerance the
--- underlying data structure doesn't support.
+-- Data reachable ONLY through a closure upvalue -- never assigned onto any
+-- table this walker can reach -- is structurally invisible to it
+-- (MemoryEstimator error source #6). Confirmed in at least two Data/ files:
+-- AchievementSources.lua builds a reverse index (achievementToItems, ~a
+-- third of the file's real footprint) this way, and EndeavorsData.lua:39
+-- (lowerVendorNameToNpcID) follows the identical shape. AchievementSources
+-- is pipeline-generated ("DO NOT EDIT" in its own header), so this can't be
+-- fixed by exposing the index as a field there. core.lua's
+-- DebugMemBudgetReport marks both known-affected lines with an "est*"
+-- technique suffix directly in its printed output (not just in this
+-- comment), so a reader of the live report -- not just this test's source
+-- -- can see which numbers understate reality. This wide band still catches
+-- a total collapse (e.g. the estimator returning ~0) without asserting a
+-- tolerance the underlying data structure doesn't support.
 checkBand("AchievementSources", 0.5, 1.0)
 
 print("hs282_memory_estimator_calibration: ok")
+
+end

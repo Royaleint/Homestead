@@ -812,8 +812,8 @@ function HousingAddon:DebugMemBudgetReport(full)
     local accounted = 0
     table.insert(output, "=== Homestead Memory Budget Breakdown (HS-282) ===")
     table.insert(output, full
-        and "Mode: full (additionally forces a one-time allSourcesCache corpus warm -- other lines are still organic snapshots)"
-        or "Mode: default (fully non-destructive -- run '/hs debug membudget full' to also isolate allSourcesCache)")
+        and "Mode: full (additionally forces a one-time allSourcesCache corpus warm -- other lines are still organic snapshots; also runs the client-wide GC pause described below)"
+        or "Mode: default (non-destructive to addon state -- run '/hs debug membudget full' to also isolate allSourcesCache; still runs one client-wide collectgarbage(\"collect\") for the live-total reconciliation below)")
     table.insert(output, "")
 
     local function reportKB(name, kb, technique)
@@ -933,11 +933,22 @@ function HousingAddon:DebugMemBudgetReport(full)
     -- and is deliberately not listed. VendorStagedAdditions.lua attaches its
     -- tables onto HA.VendorOffers/HA.VendorIdentity at load time, so it's
     -- already included in those two walks, not a separate line.
-    -- NOTE (Argus Gate 1 finding #1/#6): static:AchievementSources
-    -- understates that file's true cost -- its achievementToItems reverse
-    -- index is built at load time but reachable only via closure upvalue,
-    -- invisible to this walker. See Core/MemoryEstimator.lua error source
-    -- #6 and tests/hs282_memory_estimator.lua's calibration section.
+    --
+    -- Argus Gate 1 (re-review) blocker #2: the ordering inversion that made
+    -- the original calibration finding Critical -- AchievementSources is
+    -- really the bigger subsystem, but its walker estimate can print BELOW
+    -- DecorMapping's -- was still only explained in source comments, invisible
+    -- to whoever reads the live /hs debug membudget output. UPVALUE_GAP_LINES
+    -- below marks every subsystem KNOWN to have this gap (Core/MemoryEstimator
+    -- .lua error source #6: data reachable only through a closure upvalue,
+    -- never a table field, is invisible to this walker) with an "est*"
+    -- technique suffix directly in the printed line, and the footer spells
+    -- out what the asterisk means and names the affected lines.
+    local UPVALUE_GAP_LINES = {
+        ["static:AchievementSources"] = true,
+        ["static:EndeavorsData"] = true,
+    }
+
     local staticTables = {
         { "static:VendorIdentity", HA.VendorIdentity },
         { "static:VendorOffers", HA.VendorOffers },
@@ -955,7 +966,7 @@ function HousingAddon:DebugMemBudgetReport(full)
     for _, entry in ipairs(staticTables) do
         local name, tbl = entry[1], entry[2]
         if tbl then
-            reportKB(name, ME.EstimateTableSizeKB(tbl), "est")
+            reportKB(name, ME.EstimateTableSizeKB(tbl), UPVALUE_GAP_LINES[name] and "est*" or "est")
         else
             reportSkip(name, "table not loaded")
         end
@@ -1012,9 +1023,20 @@ function HousingAddon:DebugMemBudgetReport(full)
     table.insert(output, "sum in either direction, and neither is assumed to dominate: strings shared")
     table.insert(output, "BETWEEN two separately-measured (est) lines are double-counted (inflates the")
     table.insert(output, "sum), while the per-table/per-entry constants themselves can over- or")
-    table.insert(output, "under-estimate a given file depending on its size and shape (see the")
-    table.insert(output, "calibration test's documented per-file ratios). 'not measurable' lines are")
-    table.insert(output, "excluded from the accounted sum.")
+    table.insert(output, "under-estimate a given file depending on its size and shape -- an")
+    table.insert(output, "over-estimate on the LARGEST line (VendorOffers) is not simply \"safe\": it")
+    table.insert(output, "inflates accounted and understates unaccounted by the same amount, and")
+    table.insert(output, "makes that one subsystem look relatively even bigger next to every other")
+    table.insert(output, "line than it truly is (see the calibration test's documented per-file")
+    table.insert(output, "ratios for which lines this affects and by how much).")
+    table.insert(output, "(est*) = same as (est), but this subsystem ALSO holds data reachable only")
+    table.insert(output, "through a closure upvalue -- never a table field -- which is structurally")
+    table.insert(output, "invisible to the walker, so the true size is LARGER than shown (not just")
+    table.insert(output, "imprecise the way a plain (est) line is). Known affected lines:")
+    table.insert(output, "static:AchievementSources (~1/3 of its real footprint is the hidden")
+    table.insert(output, "achievementToItems index) and static:EndeavorsData (lowerVendorNameToNpcID,")
+    table.insert(output, "same pattern, smaller share). See Core/MemoryEstimator.lua error source #6.")
+    table.insert(output, "'not measurable' lines are excluded from the accounted sum.")
 
     self:ShowCopyableText(table.concat(output, "\n"))
 end

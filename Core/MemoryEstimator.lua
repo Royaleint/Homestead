@@ -78,17 +78,24 @@
          for the referenced object -- this walker estimates data, not code.
       6. Data reachable ONLY through a function's closure upvalue -- not
          stored as a field on any table this walker can reach -- is
-         completely invisible to it. Concrete example: Data/AchievementSources
-         .lua builds a reverse index (achievementToItems, ~a third of the
-         file's real footprint) as a plain `local`, captured by the module's
-         API functions as an upvalue but never assigned onto HA.AchievementSources
-         or HA.AchievementSourcesModule as a field -- this walker has no way
-         to see it, so core.lua's "static:AchievementSources" line
-         understates that file's true cost. The file is pipeline-generated
-         ("DO NOT EDIT" in its own header), so exposing the index as a field
-         isn't a fix this ticket can make; the calibration test documents
-         this specific case rather than silently absorbing it into the
-         tolerance band.
+         completely invisible to it. This is not a single-file quirk --
+         confirmed in at least two Data/ files so far:
+           - Data/AchievementSources.lua builds a reverse index
+             (achievementToItems, ~a third of the file's real footprint) as
+             a plain `local`, captured by the module's API functions as an
+             upvalue but never assigned onto HA.AchievementSources or
+             HA.AchievementSourcesModule as a field.
+           - Data/EndeavorsData.lua:39 (lowerVendorNameToNpcID) follows the
+             identical shape -- a vendor-name reverse-lookup local, built
+             after the Vendors table loads, never exposed as a field.
+         core.lua's DebugMemBudgetReport marks any subsystem line known to
+         have this gap with an "est*" technique suffix directly in its
+         output (not just in this comment or the calibration test), since a
+         reader of the live report has no way to see a source comment. The
+         AchievementSources file is pipeline-generated ("DO NOT EDIT" in its
+         own header), so exposing the index as a field isn't a fix this
+         ticket can make; the calibration test documents both known cases
+         rather than silently absorbing them into the tolerance band.
       7. The three constants above are a single flat linear fit across a
          calibration corpus spanning roughly 11KB to 1.06MB of real Data/
          files -- at the extremes of that range (a single very large table,
