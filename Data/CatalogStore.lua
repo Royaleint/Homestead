@@ -601,6 +601,19 @@ function CatalogStore:GetGeneration()
     return negativeGeneration
 end
 
+-- HS-282: dev-only debug accessor exposing this module's runtime caches to
+-- the /hs debug membudget walker. Read-only references, never mutated by
+-- the caller. Persisted SavedVariables tables (catalogItems etc.) are read
+-- directly from self.db.global by the caller -- this covers only the
+-- in-memory-only caches layered on top of them.
+function CatalogStore:GetDebugCacheTables()
+    return {
+        identityNegativeCache = identityNegativeCache,
+        identityPositiveCache = identityPositiveCache,
+        housingSubclassCache = housingSubclassCache,
+    }
+end
+
 -------------------------------------------------------------------------------
 -- Maintenance
 -------------------------------------------------------------------------------

@@ -71,6 +71,14 @@ function SearchProvider:GetRevision()
     return indexRevision
 end
 
+-- HS-282: dev-only debug accessor for the /hs debug membudget walker.
+-- Returns nil if the index hasn't been built yet (lazy -- first search or
+-- side-panel open) so the caller can report "not measurable" instead of a
+-- misleading 0 KB for an index that just hasn't warmed.
+function SearchProvider:GetDebugIndex()
+    return searchIndex
+end
+
 -------------------------------------------------------------------------------
 -- Pre-Warm (batched fire-and-forget GetItemInfo)
 -------------------------------------------------------------------------------

@@ -599,6 +599,20 @@ function BadgeCalculation:InvalidateVendorCache(npcID)
     end
 end
 
+-- HS-282: dev-only debug accessor exposing this module's caches to the
+-- /hs debug membudget walker. Read-only references, never mutated by the
+-- caller. cachedZoneBadges/cachedContinentBadges are reported together as
+-- "badge caches" by the caller -- kept as separate table references here
+-- so InvalidateBadgeCache's existing wipe-both shape isn't disturbed.
+function BadgeCalculation:GetDebugCacheTables()
+    return {
+        vendorStatsCache = vendorStatsCache,
+        dropGroupStatsCache = dropGroupStatsCache,
+        cachedZoneBadges = cachedZoneBadges,
+        cachedContinentBadges = cachedContinentBadges,
+    }
+end
+
 -------------------------------------------------------------------------------
 -- Badge Count Computation
 -------------------------------------------------------------------------------

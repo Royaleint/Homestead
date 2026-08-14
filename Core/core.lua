@@ -242,6 +242,9 @@ function HousingAddon:OnInitialize()
     cmd:Register({ name = "debug memallsources", args = "[full]",
         help = "Report allSourcesCache size/memory (HS-279). 'full' forces a full-corpus warm to isolate its cost.",
         handler = function(rest) self:DebugMemAllSourcesReport(rest == "full") end })
+    cmd:Register({ name = "debug membudget", args = "[full]",
+        help = "Per-subsystem memory budget breakdown (HS-282). 'full' additionally isolates allSourcesCache via a forced full-corpus warm.",
+        handler = function(rest) self:DebugMemBudgetReport(rest == "full") end })
 
     self.commands = cmd
 
@@ -619,54 +622,26 @@ function HousingAddon:ClearOwnershipCache()
     end
 end
 
--- HS-279: dev diagnostic for allSourcesCache's memory footprint. Snapshot-only
--- by default (safe, non-destructive); 'full' additionally forces a
--- full-corpus warm bracketed by _G.collectgarbage("collect") +
--- GetAddOnMemoryUsage so the isolated cost of a fully-populated cache is
--- measurable, not guessed -- this feeds HS-279's eviction threshold, it
--- doesn't implement one itself.
--- addonName (the file-scope TOC vararg) is used instead of a literal
--- "Homestead" so this reads correctly under Homestead_DevBuild, the target
--- this diagnostic is actually run against. (VendorMapPins.lua:218's
--- WorldMapPerf debug log hardcodes "Homestead" instead -- a separate,
--- pre-existing quirk, out of scope here.)
-function HousingAddon:DebugMemAllSourcesReport(full)
+-- HS-279: isolates allSourcesCache's own memory cost via a forced full-corpus
+-- warm bracketed by _G.collectgarbage("collect") + GetAddOnMemoryUsage.
+-- Extracted from DebugMemAllSourcesReport (below) so HS-282's membudget
+-- report can reuse the exact same measurement instead of duplicating it --
+-- allSourcesCache is the one subsystem in that report with a proven,
+-- session-safe forced-rebuild path; everything else there is walker-
+-- estimated (Core/MemoryEstimator.lua) precisely because it lacks one.
+-- Returns true, isolatedKB, fullCount, corpusSize, emptyKB, fullKB on
+-- success, or false, reason on a missing prerequisite. Leaves the cache
+-- fully warmed on success (safe -- it's a pure memo, identical to normal
+-- play state after enough vendors have been visited).
+function HousingAddon:MeasureAllSourcesCacheIsolatedKB()
     if not (_G.UpdateAddOnMemoryUsage and _G.GetAddOnMemoryUsage) then
-        self:Print("Memory API unavailable on this client.")
-        return
+        return false, "memory API unavailable on this client"
     end
     if not HA.SourceManager or not HA.SourceManager.GetSourcesMemoEntryCount then
-        self:Print("SourceManager unavailable.")
-        return
+        return false, "SourceManager unavailable"
     end
-
-    local output = {}
-    table.insert(output, "=== Homestead allSourcesCache Diagnostics (HS-279) ===")
-    table.insert(output, "")
-
-    _G.collectgarbage("collect")
-    _G.UpdateAddOnMemoryUsage()
-    local organicCount = HA.SourceManager:GetSourcesMemoEntryCount()
-    local organicKB = _G.GetAddOnMemoryUsage(addonName) or 0
-    table.insert(output, format("Current (organic) state: %d entries, %.1f KB total addon memory.",
-        organicCount, organicKB))
-
-    if not full then
-        table.insert(output, "")
-        table.insert(output, "Run '/hs debug memallsources full' to force a full-corpus warm and")
-        table.insert(output, "isolate this cache's own memory cost. Slower (walks every vendor's")
-        table.insert(output, "full item list and forces two full GC passes -- a deliberate one-time")
-        table.insert(output, "cost for a dev diagnostic, not something to run casually mid-play) and")
-        table.insert(output, "briefly wipes/rebuilds the cache -- safe, it's a pure memo.")
-        self:ShowCopyableText(table.concat(output, "\n"))
-        return
-    end
-
     if not HA.VendorData or not HA.VendorData.GetAllVendors or not HA.VendorData.GetMergedItemSet then
-        table.insert(output, "")
-        table.insert(output, "VendorData unavailable -- cannot enumerate the item corpus for a full warm.")
-        self:ShowCopyableText(table.concat(output, "\n"))
-        return
+        return false, "VendorData unavailable -- cannot enumerate the item corpus for a full warm"
     end
 
     -- Enumerate every distinct itemID GetAllSources' registered providers can
@@ -729,12 +704,68 @@ function HousingAddon:DebugMemAllSourcesReport(full)
     _G.UpdateAddOnMemoryUsage()
     local fullCount = HA.SourceManager:GetSourcesMemoEntryCount()
     local fullKB = _G.GetAddOnMemoryUsage(addonName) or 0
-    local isolatedKB = fullKB - emptyKB
+
+    return true, fullKB - emptyKB, fullCount, #corpus, emptyKB, fullKB
+end
+
+-- HS-279: dev diagnostic for allSourcesCache's memory footprint. Snapshot-only
+-- by default (safe, non-destructive); 'full' additionally forces a
+-- full-corpus warm (MeasureAllSourcesCacheIsolatedKB above) so the isolated
+-- cost of a fully-populated cache is measurable, not guessed -- this feeds
+-- HS-279's eviction threshold, it doesn't implement one itself.
+-- addonName (the file-scope TOC vararg) is used instead of a literal
+-- "Homestead" so this reads correctly under Homestead_DevBuild, the target
+-- this diagnostic is actually run against. (VendorMapPins.lua:218's
+-- WorldMapPerf debug log hardcodes "Homestead" instead -- a separate,
+-- pre-existing quirk, out of scope here.)
+function HousingAddon:DebugMemAllSourcesReport(full)
+    if not (_G.UpdateAddOnMemoryUsage and _G.GetAddOnMemoryUsage) then
+        self:Print("Memory API unavailable on this client.")
+        return
+    end
+    if not HA.SourceManager or not HA.SourceManager.GetSourcesMemoEntryCount then
+        self:Print("SourceManager unavailable.")
+        return
+    end
+
+    local output = {}
+    table.insert(output, "=== Homestead allSourcesCache Diagnostics (HS-279) ===")
+    table.insert(output, "")
+
+    _G.collectgarbage("collect")
+    _G.UpdateAddOnMemoryUsage()
+    local organicCount = HA.SourceManager:GetSourcesMemoEntryCount()
+    local organicKB = _G.GetAddOnMemoryUsage(addonName) or 0
+    table.insert(output, format("Current (organic) state: %d entries, %.1f KB total addon memory.",
+        organicCount, organicKB))
+
+    if not full then
+        table.insert(output, "")
+        table.insert(output, "Run '/hs debug memallsources full' to force a full-corpus warm and")
+        table.insert(output, "isolate this cache's own memory cost. Slower (walks every vendor's")
+        table.insert(output, "full item list and forces two full GC passes -- a deliberate one-time")
+        table.insert(output, "cost for a dev diagnostic, not something to run casually mid-play) and")
+        table.insert(output, "briefly wipes/rebuilds the cache -- safe, it's a pure memo.")
+        self:ShowCopyableText(table.concat(output, "\n"))
+        return
+    end
+
+    -- Memory API and SourceManager were already confirmed present above, so
+    -- the only failure reason reachable here is VendorData unavailability --
+    -- same message the pre-refactor inline check printed.
+    local ok, isolatedKB, fullCount, corpusSize, emptyKB, fullKB = self:MeasureAllSourcesCacheIsolatedKB()
+    if not ok then
+        table.insert(output, "")
+        table.insert(output, "VendorData unavailable -- cannot enumerate the item corpus for a full warm.")
+        self:ShowCopyableText(table.concat(output, "\n"))
+        return
+    end
+
     local perEntryBytes = fullCount > 0 and (isolatedKB * 1024 / fullCount) or 0
 
     table.insert(output, "")
     table.insert(output, "Corpus size (distinct itemIDs: vendors + quest/achievement/")
-    table.insert(output, format("profession/event/drop/shop sources): %d", #corpus))
+    table.insert(output, format("profession/event/drop/shop sources): %d", corpusSize))
     table.insert(output, format("Fully-warmed cache: %d entries.", fullCount))
     table.insert(output, format("Empty-cache baseline: %.1f KB total addon memory.", emptyKB))
     table.insert(output, format("Fully-warmed: %.1f KB total addon memory.", fullKB))
@@ -750,6 +781,158 @@ function HousingAddon:DebugMemAllSourcesReport(full)
     table.insert(output, "")
     table.insert(output, "Cache has been left fully warmed (safe -- it's a pure memo, identical")
     table.insert(output, "to normal play state after enough vendors have been visited).")
+
+    self:ShowCopyableText(table.concat(output, "\n"))
+end
+
+-- HS-282: umbrella per-subsystem memory-budget breakdown, extending the
+-- memallsources diagnostic pattern (HS-279) above across every subsystem the
+-- master ticket's sub-items (A/B/D/E) need prioritized numbers for. Default
+-- mode is fully non-destructive: every subsystem is walker-estimated
+-- (Core/MemoryEstimator.lua) from its CURRENT organic state via a narrow
+-- read-only debug accessor added to each owning module (mirrors
+-- SourceManager:GetSourcesMemoEntryCount's existing pattern). 'full'
+-- additionally reuses MeasureAllSourcesCacheIsolatedKB for allSourcesCache
+-- ONLY -- the one subsystem with an existing, session-safe forced full-corpus
+-- rebuild path. Every other subsystem stays walker-estimated even in 'full'
+-- mode: none of them expose a synchronous "rebuild everything now" call
+-- (badge/search/identity caches all repopulate lazily off the next player
+-- action), so wiping one mid-session would leave it silently empty with no
+-- guaranteed re-warm -- not safe to force from a diagnostic command.
+function HousingAddon:DebugMemBudgetReport(full)
+    local ME = HA.MemoryEstimator
+    if not ME then
+        self:Print("MemoryEstimator unavailable.")
+        return
+    end
+
+    local output = {}
+    local total = 0
+    table.insert(output, "=== Homestead Memory Budget Breakdown (HS-282) ===")
+    table.insert(output, "")
+
+    local function reportKB(name, kb, technique)
+        total = total + kb
+        table.insert(output, format("%s: %.1f KB (%s)", name, kb, technique))
+    end
+
+    local function reportSkip(name, reason)
+        table.insert(output, format("%s: not measurable: %s", name, reason))
+    end
+
+    -- SourceManager.allSourcesCache (sub-item A) -- reuses memallsources'
+    -- proven wipe-delta measurement rather than the walker, per the ticket's
+    -- "reuse, don't duplicate" direction. Only available in 'full' mode: the
+    -- measurement forces a full-corpus warm, the same one-time cost
+    -- memallsources full already documents.
+    if full then
+        local ok, kbOrReason = self:MeasureAllSourcesCacheIsolatedKB()
+        if ok then
+            reportKB("SourceManager.allSourcesCache", kbOrReason, "wiped")
+        else
+            reportSkip("SourceManager.allSourcesCache", kbOrReason)
+        end
+    else
+        reportSkip("SourceManager.allSourcesCache",
+            "run '/hs debug membudget full' (reuses memallsources' isolated wipe-delta measurement)")
+    end
+
+    -- SourceManager's other memoization caches.
+    if HA.SourceManager and HA.SourceManager.GetDebugCacheTables then
+        local caches = HA.SourceManager:GetDebugCacheTables()
+        reportKB("SourceManager.completionCache", ME.EstimateTableSizeKB(caches.completionCache), "est")
+        reportKB("SourceManager.requirementMetCache", ME.EstimateTableSizeKB(caches.requirementMetCache), "est")
+    else
+        reportSkip("SourceManager.completionCache", "SourceManager unavailable")
+        reportSkip("SourceManager.requirementMetCache", "SourceManager unavailable")
+    end
+
+    -- BadgeCalculation vendor/drop-group stats + badge count caches.
+    if HA.BadgeCalculation and HA.BadgeCalculation.GetDebugCacheTables then
+        local caches = HA.BadgeCalculation:GetDebugCacheTables()
+        reportKB("BadgeCalculation.vendorStatsCache", ME.EstimateTableSizeKB(caches.vendorStatsCache), "est")
+        reportKB("BadgeCalculation.dropGroupStatsCache", ME.EstimateTableSizeKB(caches.dropGroupStatsCache), "est")
+        local badgeKB = ME.EstimateTableSizeKB(caches.cachedZoneBadges) + ME.EstimateTableSizeKB(caches.cachedContinentBadges)
+        reportKB("BadgeCalculation.badgeCaches", badgeKB, "est")
+    else
+        reportSkip("BadgeCalculation.vendorStatsCache", "BadgeCalculation unavailable")
+        reportSkip("BadgeCalculation.dropGroupStatsCache", "BadgeCalculation unavailable")
+        reportSkip("BadgeCalculation.badgeCaches", "BadgeCalculation unavailable")
+    end
+
+    -- SearchProvider's built index (nil until the player's first search or
+    -- side-panel open).
+    if HA.SearchProvider and HA.SearchProvider.GetDebugIndex then
+        local index = HA.SearchProvider:GetDebugIndex()
+        if index then
+            reportKB("SearchProvider.index", ME.EstimateTableSizeKB(index), "est")
+        else
+            reportSkip("SearchProvider.index", "index not yet built (open the map side panel or search once, then re-run)")
+        end
+    else
+        reportSkip("SearchProvider.index", "SearchProvider unavailable")
+    end
+
+    -- CatalogStore's in-memory identity/subclass caches (persisted
+    -- SavedVariables tables are reported separately below).
+    if HA.CatalogStore and HA.CatalogStore.GetDebugCacheTables then
+        local caches = HA.CatalogStore:GetDebugCacheTables()
+        local identityKB = ME.EstimateTableSizeKB(caches.identityNegativeCache)
+            + ME.EstimateTableSizeKB(caches.identityPositiveCache)
+            + ME.EstimateTableSizeKB(caches.housingSubclassCache)
+        reportKB("CatalogStore.identityCaches", identityKB, "est")
+    else
+        reportSkip("CatalogStore.identityCaches", "CatalogStore unavailable")
+    end
+
+    -- Static Data/ tables (sub-items B/D) -- every pure-data file the .toc
+    -- loads. VendorDatabase.lua is NOT in the .toc (HS-242 corrected premise)
+    -- and is deliberately not listed. VendorStagedAdditions.lua attaches its
+    -- tables onto HA.VendorOffers/HA.VendorIdentity at load time, so it's
+    -- already included in those two walks, not a separate line.
+    local staticTables = {
+        { "static:VendorIdentity", HA.VendorIdentity },
+        { "static:VendorOffers", HA.VendorOffers },
+        { "static:EndeavorsData", HA.EndeavorsData },
+        { "static:DecorMapping", HA.DecorMapping },
+        { "static:AchievementSources", HA.AchievementSources },
+        { "static:QuestSources", HA.QuestSources },
+        { "static:ProfessionSources", HA.ProfessionSources },
+        { "static:EventSources", HA.EventSources },
+        { "static:DropSources", HA.DropSources },
+        { "static:ShopSources", HA.ShopSources },
+        { "static:PrerequisiteSources", HA.PrerequisiteSources },
+        { "static:SourceTextLocaleProfiles", HA.SourceTextLocaleProfiles },
+    }
+    for _, entry in ipairs(staticTables) do
+        local name, tbl = entry[1], entry[2]
+        if tbl then
+            reportKB(name, ME.EstimateTableSizeKB(tbl), "est")
+        else
+            reportSkip(name, "table not loaded")
+        end
+    end
+
+    -- SavedVariables subtrees (sub-item E + the other large db.global tables
+    -- HS-282's session context calls out).
+    if self.db and self.db.global then
+        reportKB("sv:parsedSources", ME.EstimateTableSizeKB(self.db.global.parsedSources), "est")
+        reportKB("sv:scannedVendors", ME.EstimateTableSizeKB(self.db.global.scannedVendors), "est")
+        reportKB("sv:catalogItems", ME.EstimateTableSizeKB(self.db.global.catalogItems), "est")
+    else
+        reportSkip("sv:parsedSources", "SavedVariables not initialized")
+        reportSkip("sv:scannedVendors", "SavedVariables not initialized")
+        reportSkip("sv:catalogItems", "SavedVariables not initialized")
+    end
+
+    table.insert(output, format("total: %.1f KB", total))
+    table.insert(output, "")
+    table.insert(output, "Technique key: (wiped) = isolated via GetAddOnMemoryUsage wipe-delta")
+    table.insert(output, "(exact for that line); (est) = MemoryEstimator table walker (approximate --")
+    table.insert(output, "see Core/MemoryEstimator.lua's header for known error sources, including")
+    table.insert(output, "that strings shared BETWEEN (est) lines are double-counted, inflating the")
+    table.insert(output, "total above the addon's true combined footprint). 'not measurable' lines")
+    table.insert(output, "are excluded from the total.")
 
     self:ShowCopyableText(table.concat(output, "\n"))
 end

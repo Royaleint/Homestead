@@ -2168,6 +2168,18 @@ function SourceManager:GetSourcesMemoEntryCount()
     return count
 end
 
+-- HS-282: dev-only debug accessor exposing this module's other memoization
+-- caches (allSourcesCache already has GetSourcesMemoEntryCount above, and
+-- feeds /hs debug memallsources' wipe-delta measurement directly -- it isn't
+-- repeated here) to the /hs debug membudget walker. Read-only references,
+-- never mutated by the caller.
+function SourceManager:GetDebugCacheTables()
+    return {
+        completionCache = completionCache,
+        requirementMetCache = requirementMetCache,
+    }
+end
+
 -- Central invalidation entrypoint for source-related caches.
 -- Future source/filter caches should be added here so callers have one API.
 -- Fires SOURCE_CACHES_INVALIDATED so UI modules can repaint without
