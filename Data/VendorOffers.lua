@@ -15553,6 +15553,125 @@ local ManualOverrides = {
         [264170] = { price = 0, currencies = {{id = 3316, amount = 500}}, isUsable = true, isPurchasable = true, merchantSlot = 7, hasExtendedCost = true, displayOrder = 6 }, -- (was c3316:250)
         [264175] = { price = 0, currencies = {{id = 3316, amount = 500}}, isUsable = true, isPurchasable = true, merchantSlot = 6, hasExtendedCost = true, displayOrder = 7 }, -- (was c3316:250)
     },
+    -- HS-341 (2026-08-15): 12.1 rebalanced TWW-era CURRENCY prices downward. These 40
+    -- rows are corrected from two live 12.1.0.69299 scans, 12 vendors in total
+    -- (Home_Dev/scan-data/2026-08-15-live-12.1-tww-dornogal-tazavesh.txt and
+    -- ...-ringing-deeps.txt; field counts proven, rows GENERATED from those files by
+    -- script rather than hand-typed).
+    -- Measured, not assumed. Batch 1: 42 scanned rows, 31 differ, 11 identical. Batch 2:
+    -- 9 scanned rows, 9 differ. Every difference is a DROP.
+    --   CHANGED: currency 2815 (Resonance Crystals), 1792 (Honor), 3056 (Kej, at Thripps
+    --     below), and one ITEM-cost row -- Cendvin's Cinder Honeypot, i225557 75 -> 30.
+    --   UNCHANGED: every gold price in the scans, and currencies 1220 (Order Resources)
+    --     and 2003 (Dragon Isles Supplies).
+    -- Read those two statements at their real strength. Gold-vs-currency is proven WITHIN
+    -- a vendor: Auditor Balwurz's four currency rows dropped while his gold row
+    -- (Earthen Storage Crate, 200000) held, same vendor, same scan. But 1220 and 2003
+    -- appear at exactly ONE vendor across 3 rows in these scans, and no vendor carries
+    -- both a changed and an unchanged currency -- so "older currencies did not move" is a
+    -- 3-row single-vendor observation, NOT an established partition. Do not treat it as
+    -- settled. (An earlier revision of this comment claimed item-costs were unchanged as a
+    -- class; the Cendvin row refutes that, and it was missed because the generator's cost
+    -- regex only matched c-prefix components -- silence read as "unchanged". Sage caught
+    -- it; the comparator is now cost-kind-complete.)
+    -- Ratios vary 1.5x to 4x with no formula (1000->250, 2000->500, 750->500, 2500->1250),
+    -- so NOTHING can be inferred for an unscanned item -- every affected row needs a scan.
+    -- Gabbun's four rows are BOTH things at once. Stored as 10g with no currency at all
+    -- (a placeholder signature -- the same 100000 on four different items), which was
+    -- already wrong before 12.1. AND repriced by 12.1: a live capture from 2026-07-13,
+    -- four weeks pre-patch, has them costed in Resonance Crystals at 350/200/1000/750
+    -- against today's 200/150/400/350. So they are a type defect AND four more 2815
+    -- drops, and they carry the best before/after evidence in this batch. One of them,
+    -- Kobold Candle Trio at 200 -> 150, is a 1.33x move -- below the 1.5x-4x band quoted
+    -- above, which was measured DB-vs-scan and misses it.
+    -- The seed and GeneratedBase agree at the old values, so no comparison BETWEEN OUR
+    -- OWN TABLES -- including the cost-drift report -- can see any of this. But dated live
+    -- captures we already hold can: Home_Dev/scan-data/channel-live-2026-07-13.txt supplies
+    -- a pre-patch baseline for 33 of these rows and agrees with the post-patch scans on
+    -- exactly the 11 that did not move. An offline check against that file would have
+    -- flagged most of this without logging in. See HS-343.
+    [219217] = { -- Velerd (2)
+        [247750] = { price = 0, currencies = {{id = 1792, amount = 1250}}, isUsable = true, isPurchasable = false, merchantSlot = 2, hasExtendedCost = true, displayOrder = 1 }, -- Deephaul Crystal (was g=0 c1792:2500)
+        [253170] = { price = 0, currencies = {{id = 1792, amount = 350}}, isUsable = true, isPurchasable = false, merchantSlot = 1, hasExtendedCost = true, displayOrder = 2 }, -- Earthen Contender's Target (was g=0 c1792:750)
+    },
+    [219318] = { -- Jorid (1)
+        [246867] = { price = 0, currencies = {{id = 2815, amount = 500}}, isUsable = true, isPurchasable = false, merchantSlot = 1, hasExtendedCost = true, displayOrder = 1 }, -- Tome of Earthen Directives (was g=0 c2815:750)
+    },
+    [223728] = { -- Auditor Balwurz (4)
+        [245295] = { price = 0, currencies = {{id = 2815, amount = 250}}, isUsable = true, isPurchasable = true, merchantSlot = 13, hasExtendedCost = true, displayOrder = 1 }, -- Literature of Dornogal (was g=0 c2815:1000)
+        [245296] = { price = 0, currencies = {{id = 2815, amount = 250}}, isUsable = true, isPurchasable = true, merchantSlot = 15, hasExtendedCost = true, displayOrder = 2 }, -- Literature of Taelloch (was g=0 c2815:1000)
+        [245297] = { price = 0, currencies = {{id = 2815, amount = 250}}, isUsable = true, isPurchasable = true, merchantSlot = 14, hasExtendedCost = true, displayOrder = 3 }, -- Literature of Gundargaz (was g=0 c2815:1000)
+        [245561] = { price = 0, currencies = {{id = 2815, amount = 200}}, isUsable = true, isPurchasable = true, merchantSlot = 6, hasExtendedCost = true, displayOrder = 4 }, -- Ornate Ochre Window (was g=0 c2815:650)
+    },
+    [226205] = { -- Cendvin (1)
+        [246707] = { price = 0, currencies = {}, itemCosts = {{itemID = 225557, amount = 30}}, isUsable = true, isPurchasable = true, merchantSlot = 1, hasExtendedCost = true, displayOrder = 1 }, -- Decorative Cinder Honeypot (was g=0 i225557:75)
+    },
+    [235252] = { -- Om'sirik (12)
+        [247751] = { price = 0, currencies = {{id = 2815, amount = 500}}, isUsable = true, isPurchasable = false, merchantSlot = 33, hasExtendedCost = true, displayOrder = 1 }, -- Deactivated K'areshi Warp Cannon (was g=0 c2815:2000)
+        [258306] = { price = 0, currencies = {{id = 2815, amount = 400}}, isUsable = true, isPurchasable = false, merchantSlot = 32, hasExtendedCost = true, displayOrder = 2 }, -- K'areshi Warp Platform (was g=0 c2815:1000)
+        [258320] = { price = 0, currencies = {{id = 2815, amount = 400}}, isUsable = true, isPurchasable = false, merchantSlot = 31, hasExtendedCost = true, displayOrder = 3 }, -- K'areshi Protectorate Portal (was g=0 c2815:1000)
+        [258666] = { price = 0, currencies = {{id = 2815, amount = 350}}, isUsable = true, isPurchasable = false, merchantSlot = 17, hasExtendedCost = true, displayOrder = 4 }, -- Ethereal Pipe Segment (was g=0 c2815:800)
+        [258667] = { price = 0, currencies = {{id = 2815, amount = 350}}, isUsable = true, isPurchasable = false, merchantSlot = 20, hasExtendedCost = true, displayOrder = 5 }, -- Angled Ethereal Pipe Segment (was g=0 c2815:800)
+        [258668] = { price = 0, currencies = {{id = 2815, amount = 350}}, isUsable = true, isPurchasable = false, merchantSlot = 18, hasExtendedCost = true, displayOrder = 6 }, -- Long Ethereal Pipe Segment (was g=0 c2815:800)
+        [258669] = { price = 0, currencies = {{id = 2815, amount = 350}}, isUsable = true, isPurchasable = false, merchantSlot = 23, hasExtendedCost = true, displayOrder = 7 }, -- Corner Ethereal Pipe Segment (was g=0 c2815:800)
+        [258766] = { price = 0, currencies = {{id = 2815, amount = 350}}, isUsable = true, isPurchasable = false, merchantSlot = 21, hasExtendedCost = true, displayOrder = 8 }, -- Exposed Corner Ethereal Pipe Segment (was g=0 c2815:800)
+        [258767] = { price = 0, currencies = {{id = 2815, amount = 350}}, isUsable = true, isPurchasable = false, merchantSlot = 16, hasExtendedCost = true, displayOrder = 9 }, -- Exposed Long Ethereal Pipe Segment (was g=0 c2815:800)
+        [258835] = { price = 0, currencies = {{id = 2815, amount = 350}}, isUsable = true, isPurchasable = false, merchantSlot = 24, hasExtendedCost = true, displayOrder = 10 }, -- Exposed Intersecting Ethereal Pipe Segment (was g=0 c2815:800)
+        [258836] = { price = 0, currencies = {{id = 2815, amount = 350}}, isUsable = true, isPurchasable = false, merchantSlot = 22, hasExtendedCost = true, displayOrder = 11 }, -- Reinforced Corner Ethereal Pipe Segment (was g=0 c2815:800)
+        [258885] = { price = 0, currencies = {{id = 2815, amount = 350}}, isUsable = true, isPurchasable = false, merchantSlot = 19, hasExtendedCost = true, displayOrder = 12 }, -- Exposed Angled Ethereal Pipe Segment (was g=0 c2815:800)
+    },
+    [235314] = { -- Ta'sam (1)
+        [260582] = { price = 0, currencies = {{id = 2815, amount = 250}}, isUsable = true, isPurchasable = false, merchantSlot = 5, hasExtendedCost = true, displayOrder = 1 }, -- Cartel Collector's Cage (was g=0 c2815:500)
+    },
+    [252901] = { -- Cinnabar (3)
+        [253021] = { price = 0, currencies = {{id = 2815, amount = 250}}, isUsable = true, isPurchasable = true, merchantSlot = 2, hasExtendedCost = true, displayOrder = 1 }, -- Freywold Bench (was g=0 c2815:400)
+        [253035] = { price = 0, currencies = {{id = 2815, amount = 150}}, isUsable = true, isPurchasable = true, merchantSlot = 1, hasExtendedCost = true, displayOrder = 2 }, -- Freywold Seat (was g=0 c2815:300)
+        [253166] = { price = 0, currencies = {{id = 2815, amount = 400}}, isUsable = true, isPurchasable = true, merchantSlot = 3, hasExtendedCost = true, displayOrder = 3 }, -- Freywold Fountain (was g=0 c2815:1100)
+    },
+    [252910] = { -- Garnett (7)
+        [252756] = { price = 0, currencies = {{id = 2815, amount = 350}}, isUsable = true, isPurchasable = true, merchantSlot = 4, hasExtendedCost = true, displayOrder = 1 }, -- Stonelight Countertop (was g=0 c2815:800)
+        [252757] = { price = 0, currencies = {{id = 2815, amount = 350}}, isUsable = true, isPurchasable = false, merchantSlot = 6, hasExtendedCost = true, displayOrder = 2 }, -- Boulder Springs Recliner (was g=0 c2815:900)
+        [253023] = { price = 0, currencies = {{id = 2815, amount = 350}}, isUsable = true, isPurchasable = false, merchantSlot = 5, hasExtendedCost = true, displayOrder = 3 }, -- Rambleshire Resting Platform (was g=0 c2815:800)
+        [253034] = { price = 0, currencies = {{id = 2815, amount = 250}}, isUsable = true, isPurchasable = true, merchantSlot = 1, hasExtendedCost = true, displayOrder = 4 }, -- Fallside Lantern (was g=0 c2815:450)
+        [253037] = { price = 0, currencies = {{id = 2815, amount = 350}}, isUsable = true, isPurchasable = false, merchantSlot = 3, hasExtendedCost = true, displayOrder = 5 }, -- Dornogal Brazier (was g=0 c2815:600)
+        [253038] = { price = 0, currencies = {{id = 2815, amount = 250}}, isUsable = true, isPurchasable = true, merchantSlot = 2, hasExtendedCost = true, displayOrder = 6 }, -- Dornogal Hanging Lantern (was g=0 c2815:500)
+        [253163] = { price = 0, currencies = {{id = 2815, amount = 350}}, isUsable = true, isPurchasable = true, merchantSlot = 7, hasExtendedCost = true, displayOrder = 7 }, -- Fallside Storage Tent (was g=0 c2815:900)
+    },
+    [221390] = { -- Waxmonger Squick (1)
+        [253162] = { price = 0, currencies = {{id = 2815, amount = 250}}, isUsable = true, isPurchasable = true, merchantSlot = 10, hasExtendedCost = true, displayOrder = 1 }, -- Earthen Chain Wall Shelf (was g=0 c2815:600)
+    },
+    [252887] = { -- Chert (4)
+        [253020] = { price = 0, currencies = {{id = 2815, amount = 250}}, isUsable = true, isPurchasable = true, merchantSlot = 1, hasExtendedCost = true, displayOrder = 1 }, -- Earthen Etched Throne (was g=0 c2815:500)
+        [253040] = { price = 0, currencies = {{id = 2815, amount = 300}}, isUsable = true, isPurchasable = true, merchantSlot = 3, hasExtendedCost = true, displayOrder = 2 }, -- Coreway Sentinel Lamppost (was g=0 c2815:650)
+        [253162] = { price = 0, currencies = {{id = 2815, amount = 250}}, isUsable = true, isPurchasable = true, merchantSlot = 2, hasExtendedCost = true, displayOrder = 3 }, -- Earthen Chain Wall Shelf (was g=0 c2815:600)
+        [253172] = { price = 0, currencies = {{id = 2815, amount = 350}}, isUsable = true, isPurchasable = true, merchantSlot = 4, hasExtendedCost = true, displayOrder = 4 }, -- Gundargaz Grand Keg (was g=0 c2815:850)
+    },
+    [256783] = { -- Gabbun (4)
+        [258262] = { price = 0, currencies = {{id = 2815, amount = 200}}, isUsable = true, isPurchasable = true, merchantSlot = 2, hasExtendedCost = true, displayOrder = 1 }, -- Kobold Digger's Chair (was g=100000)
+        [258264] = { price = 0, currencies = {{id = 2815, amount = 150}}, isUsable = true, isPurchasable = true, merchantSlot = 1, hasExtendedCost = true, displayOrder = 2 }, -- Kobold Candle Trio (was g=100000)
+        [258265] = { price = 0, currencies = {{id = 2815, amount = 400}}, isUsable = true, isPurchasable = true, merchantSlot = 4, hasExtendedCost = true, displayOrder = 3 }, -- Kobold Wagon (was g=100000)
+        [258267] = { price = 0, currencies = {{id = 2815, amount = 350}}, isUsable = true, isPurchasable = true, merchantSlot = 3, hasExtendedCost = true, displayOrder = 4 }, -- Candle-Festooned Wooden Awning (was g=100000)
+    },
+    -- HS-250 (2026-08-14): Thripps' Kej price dropped in 12.1 -- 1500 to 500.
+    -- CONFIRMED BY RAWB against the live merchant window (2026-08-14), which is the
+    -- authority here and outranks the offline corpus. Worth recording why the corpus
+    -- disagreed, because it will disagree again: a February 2026 live scan of this
+    -- same npc/item, the crawl catalog in three files, `vendor_external_candidates`,
+    -- and the seed ALL say 1500. Every one of them predates 12.1. They are not four
+    -- independent confirmations of a current price, they are four snapshots of the
+    -- same stale moment. This override was written, REJECTED at Gate 1 on the
+    -- reasoning that 1500 -> 500 looks exactly like a dropped leading digit, and then
+    -- restored on the owner's in-game reading.
+    -- No discount question: reputation and racial discounts are GOLD-only (HS-252),
+    -- so a currency amount is charged and base alike.
+    -- WHY THIS CLASS IS INVISIBLE: seed and GeneratedBase AGREE at 1500. No
+    -- cross-file validator and no cost-drift report can see it -- consistent sources,
+    -- both stale. Only a live rescan finds it. Thripps is The War Within content and
+    -- the first older-expansion vendor rescanned since 12.1; the same repricing may
+    -- reach other TWW-era currencies. Confirmed 2026-08-15: it did. See HS-341.
+    [218202] = { -- Thripps (City of Threads, Lower City Armaments)
+        [246866] = { price = 0, currencies = {{id = 3056, amount = 500}}, isUsable = true, isPurchasable = false, merchantSlot = 1, hasExtendedCost = true, displayOrder = 1 }, -- Kaheti Scribe's Records (was c3056:1500)
+    },
     -- HS-250 (2026-08-14): NO override for The Last Architect [253596] item 262453,
     -- deliberately. A live 12.1.0.69299 scan shows that vendor listing the item in
     -- TWO merchant slots, one per payment method -- slot 1 at 30 Community Coupons,
