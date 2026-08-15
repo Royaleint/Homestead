@@ -1224,6 +1224,17 @@ local function StartPrewarmPass()
             -- re-warming aggregates, same as the first run.
             warmupPendingRerun = false
             StartPrewarmPass()
+        else
+            -- HS-282: a clean, nothing-pending pass end is the one reliable
+            -- point where every vendor's source/vendor-item lookups have run
+            -- -- flush the two eviction-capped memos here so a session that
+            -- never organically hits the 512/64 caps still gets relief.
+            if HA.SourceManager and HA.SourceManager.InvalidateSourcesMemo then
+                HA.SourceManager:InvalidateSourcesMemo()
+            end
+            if HA.VendorData and HA.VendorData.InvalidateVendorItemsMemo then
+                HA.VendorData:InvalidateVendorItemsMemo()
+            end
         end
     end
 
