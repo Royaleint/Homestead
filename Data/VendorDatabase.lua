@@ -2144,13 +2144,43 @@ VendorDatabase.Vendors = {
         expansion = "Legion",
         items = {{245701, cost = {currencies = {{id = 1220, amount = 175}}}}},
     },
+	-- Faction and currency corrected 2026-08-14 (HS-250).
+	-- FACTION: was "Horde". The proof is CO-LOCATION, not any one scan's faction
+	-- field. This npcID has been scanned in BOTH neighborhood hubs -- Razorwind
+	-- Shores (2351) and, on 2026-08-14 at build 12.1.0.69299, Founder's Point
+	-- (2352, 0.5272/0.3755) -- and its coordinates in each hub cluster tightly with
+	-- Griftah [260485] and Pascal-K1N6 [248525], the known both-hub vendors. A
+	-- vendor standing in the Alliance hub cannot be Horde-only.
+	-- Do NOT cite a scan's faction field as authority here (Sage, Gate 1,
+	-- 2026-08-14): prior scans of this same npcID recorded "Alliance"
+	-- (2026-02-23, 2026-03-06), Pascal-K1N6 scans as "Alliance" too, and
+	-- Modules/VendorScanner.lua reads `UnitFactionGroup("npc") or "Neutral"`, so a
+	-- nil reading silently becomes "Neutral". That field is never authority.
+	-- CURRENCY: was "Kej". The item's own cost row is currencyID 3363, labelled
+	-- Community Coupons at Data/EndeavorsData.lua and across every endeavor row;
+	-- Kej is a different currency. Seed hygiene only -- this field reaches no
+	-- runtime file, so nothing in game changes.
+	-- COORDINATES deliberately unchanged: the schema holds one location, scanned
+	-- coords win at runtime (UI/VendorFilter.lua GetBestVendorCoordinates), and
+	-- picking a "true" hub for a both-hub vendor is not a data call -- the real gap
+	-- is that dual-neighborhood rendering does not exist at all, filed as HS-339.
+	-- COST BELOW IS AN EITHER/OR, NOT A SUM -- read before "fixing" it. The live
+	-- scan shows item 262453 in TWO merchant slots: 30 Community Coupons, or 500g.
+	-- This row is the only place in the tree stating both on one cost object, and
+	-- the schema has no way to say "or" (HS-340). VendorOffers.lua deliberately
+	-- ships the coupon-only row: carrying both would render "500g + 30 Community
+	-- Coupons" through VendorData.FormatCost, which is false, and that override was
+	-- written once and REJECTED at Gate 1. The offers generator's cost-drift report
+	-- will list this pair as "seed knows a payment option the shipped row lacks" --
+	-- that report is correct about the values and WRONG about the remedy here. Do
+	-- not add the override back; fix the schema instead.
 	[253596] = {
         name = "The Last Architect",
         mapID = 2351,
         x = 0.538, y = 0.574,
         zone = "Razorwind Shores",
-        faction = "Horde",
-        currency = "Kej",
+        faction = "Neutral",
+        currency = "Community Coupons",
         altCurrency = "Gold",
         expansion = "The War Within",
         items = {{262453, cost = {gold = 5000000, currencies = {{id = 3363, amount = 30}}}}},

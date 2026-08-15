@@ -15553,6 +15553,23 @@ local ManualOverrides = {
         [264170] = { price = 0, currencies = {{id = 3316, amount = 500}}, isUsable = true, isPurchasable = true, merchantSlot = 7, hasExtendedCost = true, displayOrder = 6 }, -- (was c3316:250)
         [264175] = { price = 0, currencies = {{id = 3316, amount = 500}}, isUsable = true, isPurchasable = true, merchantSlot = 6, hasExtendedCost = true, displayOrder = 7 }, -- (was c3316:250)
     },
+    -- HS-250 (2026-08-14): NO override for The Last Architect [253596] item 262453,
+    -- deliberately. A live 12.1.0.69299 scan shows that vendor listing the item in
+    -- TWO merchant slots, one per payment method -- slot 1 at 30 Community Coupons,
+    -- slot 2 at 500g, an EITHER/OR. An override carrying both costs on one row was
+    -- written here and REJECTED at Gate 1 (Sage, 2026-08-14): VendorData.FormatCost
+    -- joins cost components with " + " (Data/VendorData.lua, table.concat), so the
+    -- tooltip would have read "Vendor Price: 500g + 30 Community Coupons" and
+    -- overstated the cost to exactly the gold-holding player the fix was meant to
+    -- help. Incomplete beat false, so GeneratedBase's coupon-only row stands until
+    -- the schema can express alternative costs -- see HS-340. Of the 85 both-cost
+    -- (npcID, itemID) pairs in this file, 81 are positively proven SINGLE-slot
+    -- combined costs by a scan row carrying price and currency together on one
+    -- line, where the " + " reading is correct; the other four have no scan
+    -- coverage on disk (216284:256429, 253086:256169, 255101:257598,
+    -- 88126:253527) and are unproven either way. Do not use any of them as
+    -- precedent for an either/or: 253596:262453 is the only item ever recorded in
+    -- two slots with different payment methods, across every export on disk.
 }
 
 -- TOMBSTONES: bare itemID or "npcID:itemID" string key to suppress from all offer output.

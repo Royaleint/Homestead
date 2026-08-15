@@ -1762,7 +1762,7 @@ VendorIdentity.Vendors = {
         x = 0.538,
         y = 0.574,
         zone = "Razorwind Shores",
-        faction = "Horde",
+        faction = "Neutral",
         expansion = "The War Within",
     },
     [254603] = {
