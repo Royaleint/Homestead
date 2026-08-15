@@ -30,7 +30,6 @@ Locale\ruRU.lua
 # Core
 Core\constants.lua
 Core\PerformanceTrace.lua
-Core\MemoryEstimator.lua
 Core\core.lua
 Core\events.lua
 

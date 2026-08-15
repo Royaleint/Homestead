@@ -26,6 +26,11 @@ ignore:
   # the STU-064 TOC-vs-zip check expects exactly one TOC in the packaged zip)
   - Homestead_DevBuild.toc
   - DevBuildGuard.lua
+  # HS-282: dev-only memory diagnostics -- tracked in git (so the DevBuild can
+  # load them) but never listed in Homestead.toc; ignored here too so players
+  # never download the dead weight.
+  - Core/MemoryEstimator.lua
+  - Core/DevMemoryDiagnostics.lua
 
 # CF-only upload metadata: the packager sends this as a CurseForge relation
 # when a CF project id is active. Wago's upload API has no dependency field,
