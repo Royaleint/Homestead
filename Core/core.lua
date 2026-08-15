@@ -630,9 +630,11 @@ end
 -- session-safe forced-rebuild path; everything else there is walker-
 -- estimated (Core/MemoryEstimator.lua) precisely because it lacks one.
 -- Returns true, isolatedKB, fullCount, corpusSize, emptyKB, fullKB on
--- success, or false, reason on a missing prerequisite. Leaves the cache
--- fully warmed on success (safe -- it's a pure memo, identical to normal
--- play state after enough vendors have been visited).
+-- success, or false, reason on a missing prerequisite. HS-282: the forced
+-- warm now cycles SourceManager's SOURCES_MEMO_MAX_ENTRIES (512) eviction
+-- cap, so it leaves the cache cap-full on success (safe -- it's a pure memo,
+-- identical to normal play state once that cap has been reached), not
+-- fully warmed with the whole corpus resident.
 function HousingAddon:MeasureAllSourcesCacheIsolatedKB()
     if not (_G.UpdateAddOnMemoryUsage and _G.GetAddOnMemoryUsage) then
         return false, "memory API unavailable on this client"
@@ -711,8 +713,9 @@ end
 -- HS-279: dev diagnostic for allSourcesCache's memory footprint. Snapshot-only
 -- by default (safe, non-destructive); 'full' additionally forces a
 -- full-corpus warm (MeasureAllSourcesCacheIsolatedKB above) so the isolated
--- cost of a fully-populated cache is measurable, not guessed -- this feeds
--- HS-279's eviction threshold, it doesn't implement one itself.
+-- cost of a cap-full cache (HS-282: SOURCES_MEMO_MAX_ENTRIES, 512 entries) is
+-- measurable, not guessed -- this fed HS-279's original eviction-threshold
+-- work and HS-282's own cap sizing.
 -- addonName (the file-scope TOC vararg) is used instead of a literal
 -- "Homestead" so this reads correctly under Homestead_DevBuild, the target
 -- this diagnostic is actually run against. (VendorMapPins.lua:218's
@@ -768,7 +771,9 @@ function HousingAddon:DebugMemAllSourcesReport(full)
     table.insert(output, "")
     table.insert(output, "Corpus size (distinct itemIDs: vendors + quest/achievement/")
     table.insert(output, format("profession/event/drop/shop sources): %d", corpusSize))
-    table.insert(output, format("Fully-warmed cache: %d entries.", fullCount))
+    table.insert(output, format(
+        "Cap-full cache: %d entries (HS-282 SOURCES_MEMO_MAX_ENTRIES = 512 -- <= 512 against the "
+            .. "larger corpusSize above is expected, not a bug).", fullCount))
     table.insert(output, format("Empty-cache baseline: %.1f KB total addon memory.", emptyKB))
     table.insert(output, format("Fully-warmed: %.1f KB total addon memory.", fullKB))
     table.insert(output, format("Isolated cache cost: %.1f KB (%.0f bytes/entry average).",
@@ -781,8 +786,8 @@ function HousingAddon:DebugMemAllSourcesReport(full)
     table.insert(output, "caches an empty entry when hovered, so real max entries can run slightly")
     table.insert(output, "above this number (Sage HS-279 review).")
     table.insert(output, "")
-    table.insert(output, "Cache has been left fully warmed (safe -- it's a pure memo, identical")
-    table.insert(output, "to normal play state after enough vendors have been visited).")
+    table.insert(output, "Cache has been left cap-full (safe -- it's a pure memo, identical to")
+    table.insert(output, "normal play state once the 512-entry eviction cap has been reached).")
 
     self:ShowCopyableText(table.concat(output, "\n"))
 end

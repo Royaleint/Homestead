@@ -87,6 +87,19 @@ local professionAvailBaseline = {}
 -- change this ticket's scope covers.
 local allSourcesCache = {}
 
+-- HS-282: eviction cap for allSourcesCache. Left unbounded, a long play
+-- session (or the forced full-corpus warm in MeasureAllSourcesCacheIsolatedKB
+-- below) grows this memo without bound -- HS-279 measured its per-entry cost.
+-- sourcesMemoCount tracks population without re-walking the table on every
+-- insert (insert only ever happens on a miss, so counter == population
+-- exactly); GetSourcesMemoEntryCount below stays an independent O(n)
+-- cross-check, not derived from this counter. HS-282 Step 0 calibration:
+-- the largest single vendor's merged item set in the static vendor DB is 84
+-- items, far below this cap, so a single coherent prewarm pass over one
+-- vendor never thrashes it.
+local SOURCES_MEMO_MAX_ENTRIES = 512
+local sourcesMemoCount = 0
+
 -------------------------------------------------------------------------------
 -- Provider Registry
 -------------------------------------------------------------------------------
@@ -524,7 +537,15 @@ function SourceManager:GetAllSources(itemID)
         end
     end
 
+    -- HS-282: wholesale wipe-then-insert on cap overflow -- the entry the
+    -- live caller below is about to receive survives the wipe, since
+    -- InvalidateSourcesMemo resets the counter too and this insert lands as
+    -- entry 1 of the new generation.
+    if sourcesMemoCount >= SOURCES_MEMO_MAX_ENTRIES then
+        self:InvalidateSourcesMemo()
+    end
     allSourcesCache[itemID] = sources
+    sourcesMemoCount = sourcesMemoCount + 1
     return sources
 end
 
@@ -2156,6 +2177,7 @@ end
 -- wiping that one table is sufficient and cheap.
 function SourceManager:InvalidateSourcesMemo()
     allSourcesCache = {}
+    sourcesMemoCount = 0
 end
 
 -- HS-279: dev-only diagnostic accessor for allSourcesCache's live population,

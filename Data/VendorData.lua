@@ -979,7 +979,11 @@ function VendorData:Initialize()
     -- HS-281: per-npcID memo for GetVendorItems. GetOffers' four input tables
     -- are static after load with no runtime writers, so this needs no
     -- invalidation hook -- see GetVendorItems for the full rationale.
+    -- HS-282: VendorItemsMemoCount tracks population for the insert-site
+    -- eviction cap (InsertVendorItemsMemo below) -- reset here alongside the
+    -- memo itself.
     self.VendorItemsMemo = {}
+    self.VendorItemsMemoCount = 0
 
     -- Build reverse lookup for vendor names
     self:BuildNameIndex()
@@ -1109,8 +1113,42 @@ end
 -- lazy `or {}` below covers standalone/partial-mock test harnesses that load
 -- this file without calling Initialize(). GetOffers' four input tables
 -- (GeneratedBase, ManualOverrides, StagedAdditions, Tombstones) are static
--- after addon load with no runtime writers, so this never needs an
--- invalidation hook.
+-- after addon load with no runtime writers -- no *correctness* invalidation
+-- is needed; the wipes exist purely for memory (HS-282's eviction cap and
+-- BadgeCalculation's end-of-pass flush, below).
+-- HS-282: eviction cap for VendorItemsMemo. Unlike SourceManager's
+-- allSourcesCache (Cache A), which is capped by distinct ITEM count, this
+-- cache's unit is VENDORS: GetAllVendors() walks a static working set of
+-- ~225 vendors on every pass, and a live session adds scanned-vendor npcIDs
+-- on top of that. A cap below the working set produces permanent zero
+-- cross-walk reuse -- measured: 225/225/225 GetOffers rebuilds per pass at
+-- cap 64, vs 0/0/0 at cap 256+. At 512 this cap is a safety valve against
+-- unbounded growth, not the primary memory-relief mechanism -- that's
+-- BadgeCalculation's end-of-prewarm-pass flush (below), which carries H's
+-- actual memory relief. Counter lives on self (not a module-level local) so
+-- it stays in step with the lazy `or {}` fallback below for standalone test
+-- harnesses. Both insert sites in GetVendorItems (the empty-offers path and
+-- the built-items path) route through the one helper below so the cap can't
+-- be satisfied at one site and skipped at the other.
+local VENDOR_ITEMS_MEMO_MAX_ENTRIES = 512
+
+local function InsertVendorItemsMemo(self, npcID, value)
+    if self.VendorItemsMemoCount >= VENDOR_ITEMS_MEMO_MAX_ENTRIES then
+        self:InvalidateVendorItemsMemo()
+    end
+    self.VendorItemsMemo[npcID] = value
+    self.VendorItemsMemoCount = self.VendorItemsMemoCount + 1
+    return value
+end
+
+-- HS-282: narrow wipe of VendorItemsMemo alone, mirroring
+-- SourceManager:InvalidateSourcesMemo -- used by the cap above and by
+-- BadgeCalculation's end-of-prewarm-pass flush.
+function VendorData:InvalidateVendorItemsMemo()
+    self.VendorItemsMemo = {}
+    self.VendorItemsMemoCount = 0
+end
+
 function VendorData:GetVendorItems(npcID)
     -- Lua can read a table with a nil key but not write one -- a nil npcID
     -- used to fall through GetOffers to a plain `return {}`; preserve that
@@ -1122,13 +1160,13 @@ function VendorData:GetVendorItems(npcID)
     if npcID == nil or not HA.VendorOffers then return {} end
 
     self.VendorItemsMemo = self.VendorItemsMemo or {}
+    self.VendorItemsMemoCount = self.VendorItemsMemoCount or 0
     local cached = self.VendorItemsMemo[npcID]
     if cached then return cached end
 
     local offers = self:GetOffers(npcID)
     if not offers then
-        self.VendorItemsMemo[npcID] = {}
-        return self.VendorItemsMemo[npcID]
+        return InsertVendorItemsMemo(self, npcID, {})
     end
 
     local ordered = {}
@@ -1150,8 +1188,7 @@ function VendorData:GetVendorItems(npcID)
     for _, row in ipairs(ordered) do
         items[#items + 1] = self:OfferToLegacyItem(row.itemID, row.offer)
     end
-    self.VendorItemsMemo[npcID] = items
-    return items
+    return InsertVendorItemsMemo(self, npcID, items)
 end
 
 function VendorData:GetItemsForVendor(vendorOrNPC)
