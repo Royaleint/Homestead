@@ -2,6 +2,43 @@
 
 ---
 
+## Homestead v2.9.0 (08-15-2026)
+
+A world map filter for hiding vendors you've fully collected, an endeavor pin fix, a batch of vendor price corrections following patch 12.1's currency rebalance, and a memory optimization pass.
+
+---
+
+## World Map Filters
+
+**Hide Fully-Collected Vendors**
+
+- Vendors whose housing decor you've fully collected can now be hidden from the map. Pins stay visible until you turn it on: uncheck **Fully-collected vendors** in the world map's filter menu, or tick **Hide fully-collected vendor pins** in the Homestead options panel. Minimap pins follow the same setting.
+
+---
+
+## Bug Fixes
+
+- Fixed Neighborhood Endeavor vendor pins staying visible even when no endeavor was active.
+
+---
+
+## Performance
+
+- Homestead uses noticeably less memory during a long play session.
+
+---
+
+## Vendor Database
+
+**Corrections**
+
+- **Irodalmin**: the Herbalist shop sign was priced at 50,000g instead of 5g. Fixed.
+- **The Last Architect**: was stored as a Horde vendor. He isn't faction-restricted, so Alliance players are no longer warned the vendor is off-limits.
+- Corrected around 40 vendor prices that patch 12.1 lowered across several currencies. Stored prices for those hadn't caught up.
+- Fixed a subzone name that displayed with a stray dash.
+
+---
+
 ## Homestead v2.8.0 (08-11-2026)
 
 Updated for Patch 12.1 with the new housing vendors covered, support for every kind of housing merchandise (not just decor), and a major performance pass across the whole addon.

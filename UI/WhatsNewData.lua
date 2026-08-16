@@ -7,6 +7,31 @@
 local _, HA = ...
 
 HA.WhatsNew = {
+    ["2.9.0"] = {
+        title = "Homestead - What's New in v2.9.0!",
+        features = {
+            {
+                atlas = "housing-decor-vendor_32",
+                heading = "Hide Fully-Collected Vendors",
+                body = "Vendors whose decor you've already collected can now be hidden from the map, from the world map's own filter menu or the Homestead options panel. Pins stay visible until you turn it on.",
+            },
+            {
+                icon = "Interface\\Icons\\INV_Misc_Coin_01",
+                heading = "Vendor Prices Caught Up",
+                body = "Patch 12.1 lowered the cost of a lot of decor across several currencies, and our stored prices hadn't caught up. Around 40 vendor prices are corrected this update, plus a couple of long-standing data mistakes.",
+            },
+            {
+                atlas = "worldquest-icon-engineering",
+                heading = "Lower Memory Use",
+                body = "Homestead uses noticeably less memory during a long play session.",
+            },
+            {
+                icon = "Interface\\Icons\\INV_Misc_Map_01",
+                heading = "Endeavor Vendor Pins Fixed",
+                body = "Neighborhood Endeavor vendor pins no longer stay on the map after the endeavor ends.",
+            },
+        },
+    },
     ["2.8.0"] = {
         title = "Homestead - What's New in v2.8.0!",
         features = {
