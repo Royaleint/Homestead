@@ -91,6 +91,7 @@ read_globals = {
     "C_QuestLog",
     "C_Reputation",
     "C_SuperTrack",
+    "C_TaxiMap",  -- HS-347: flight point dodge candidates
     "C_Timer",
     "C_TooltipInfo",
     "C_TradeSkillUI",
@@ -101,6 +102,7 @@ read_globals = {
     "GetAchievementCriteriaInfo", "GetAchievementInfo",
     "GetItemCount", "GetItemInfo", "GetItemInfoInstant",
     "GetCoinTextureString",
+    "GetCVarBool",  -- HS-347: dungeon/delve entrance map-legend filter check
     "GetMerchantItemInfo", "GetMerchantItemLink", "GetMerchantNumItems",
     "GetLocale",
     "GetProfessions", "GetProfessionInfo", -- HS-158/160 professionRank requirements
