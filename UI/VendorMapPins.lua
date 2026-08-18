@@ -28,14 +28,11 @@ local MinimapOverlay = HA.HomesteadMinimapOverlay
 
 -- Upvalued Lua stdlib
 local pairs, ipairs = pairs, ipairs
-local tinsert = table.insert
 local format = string.format
-local unpack = unpack
 
 -- State
 local isInitialized = false
 local pinsEnabled = true
-local PIN_TOOLTIP_NAME = "HomesteadVendorMapPinsTooltip"
 
 local highlightedPinFrame = nil
 local highlightOverlay = nil
@@ -68,6 +65,12 @@ local function GetActiveSourceFilter()
         return panel:GetSourceFilter() or "all"
     end
     return "all"
+end
+
+-- HS-301: cross-file accessor for VendorPinTooltips.lua, which needs the
+-- active source filter but has no other reason to depend on MapSidePanel.
+function VendorMapPins:GetActiveSourceFilter()
+    return GetActiveSourceFilter()
 end
 
 -------------------------------------------------------------------------------
@@ -344,113 +347,6 @@ local function StopMinimapWarmup()
     end
 end
 
--- Item info event tracking for tooltip refresh (GET_ITEM_INFO_RECEIVED)
-local itemInfoEventFrame = CreateFrame("Frame")
-local activeTooltipData = nil      -- {kind="vendor"|"drop", pin, vendor|record} while a pin tooltip is visible
-local tooltipRebuildPending = false -- Debounce flag for batching rebuilds
-local pinTooltip = nil
-
-local function GetPinTooltip()
-    if pinTooltip then
-        return pinTooltip
-    end
-
-    local tooltip = CreateFrame("GameTooltip", PIN_TOOLTIP_NAME, UIParent, "GameTooltipTemplate")
-    tooltip:SetFrameStrata("TOOLTIP")
-    tooltip:SetClampedToScreen(true)
-    pinTooltip = tooltip
-    return tooltip
-end
-
-local function BeginPinTooltip(owner, anchor)
-    local tooltip = GetPinTooltip()
-    tooltip:SetOwner(owner, anchor or "ANCHOR_RIGHT")
-    tooltip:ClearLines()
-    return tooltip
-end
-
-local function IsActivePinTooltipVisible()
-    if not activeTooltipData or not pinTooltip then
-        return false
-    end
-
-    if not pinTooltip:IsShown() then
-        return false
-    end
-
-    return pinTooltip:GetOwner() == activeTooltipData.pin
-end
-
--- HS-235: shared debounced rebuild, factored out of the GET_ITEM_INFO_RECEIVED
--- handler below so a second arrival signal (Item:ContinueOnItemLoad's own
--- callback, see RequestItemDataForTooltip) can drive the exact same render
--- path through the exact same tooltipRebuildPending debounce, instead of
--- duplicating this logic or assuming GET_ITEM_INFO_RECEIVED also fires for
--- the modern Item-Mixin load path (unverified — see RequestItemDataForTooltip).
-local function RebuildActivePinTooltip()
-    if not activeTooltipData then return end
-    if not tooltipRebuildPending then
-        tooltipRebuildPending = true
-        C_Timer.After(0.05, function()
-            tooltipRebuildPending = false
-            if IsActivePinTooltipVisible() then
-                if activeTooltipData.kind == "vendor" then
-                    VendorMapPins:ShowVendorTooltip(
-                        activeTooltipData.pin,
-                        activeTooltipData.vendor
-                    )
-                elseif activeTooltipData.kind == "drop" then
-                    VendorMapPins:ShowDropPinTooltip(activeTooltipData.pin, activeTooltipData.record)
-                end
-            end
-        end)
-    end
-end
-
-itemInfoEventFrame:SetScript("OnEvent", function(self, event, itemID, success)
-    if not success or not activeTooltipData then return end
-    RebuildActivePinTooltip()
-end)
-
--- HS-235: item 264500 class — C_Item.DoesItemExistByID true, but the server
--- never volunteers the data, so GetItemInfo stays nil forever and
--- GET_ITEM_INFO_RECEIVED never arrives to drive a rebuild; the tooltip line
--- was stuck on "Unknown Item" across hovers AND sessions. HS-190 precedent
--- (Overlay/Tooltips.lua's cold-cache re-render on OnTooltipSetItem) is the
--- idiom reused here verbatim: Item:CreateFromItemID(itemID):ContinueOnItemLoad
--- rather than a manual C_Item.RequestLoadItemDataByID + GET_ITEM_INFO_RECEIVED
--- wait — ContinueOnItemLoad both requests the load AND calls back on arrival
--- (or immediately if already cached), and is the modern API surface Blizzard
--- uses for this exact class of problem throughout its own UI (Mount Journal,
--- Encounter Journal, Professions, EventToastManager, etc. — confirmed via
--- Blizzard UI source search, all following the identical shape).
---
--- The rebuild is driven directly from ContinueOnItemLoad's own callback
--- (through RebuildActivePinTooltip, the SAME debounce GET_ITEM_INFO_RECEIVED
--- already uses) rather than assumed to also arrive via GET_ITEM_INFO_RECEIVED
--- — GET_ITEM_INFO_RECEIVED and ITEM_DATA_LOAD_RESULT are distinct events, and
--- the already-shipped HS-190 precedent in Tooltips.lua does the same thing
--- (never waits on GET_ITEM_INFO_RECEIVED for its own cold-cache path). This
--- means no new event registration was needed to close this gap.
---
--- Session-scoped guard: requestedItemDataIDs prevents re-requesting on every
--- hover of an item that's already been asked for once. A server-withheld
--- item (264500's class) may NEVER arrive — ContinueOnItemLoad's callback
--- then simply never fires. That's not a leak: nothing is polling or holding
--- a ticker open waiting for it, the closure just sits inert as part of
--- Blizzard's own item-load callback registry until the item (if ever) loads,
--- and the tooltip correctly keeps showing the honest "Unknown Item" fallback
--- in the meantime.
-local requestedItemDataIDs = {}
-
-local function RequestItemDataForTooltip(itemID)
-    if requestedItemDataIDs[itemID] then return end
-    requestedItemDataIDs[itemID] = true
-    Item:CreateFromItemID(itemID):ContinueOnItemLoad(function()
-        RebuildActivePinTooltip()
-    end)
-end
-
 -- Register/Unregister MERCHANT_CLOSED based on pin feature state.
 local function RegisterMerchantClosedEvent()
     if not merchantEventFrame then
@@ -577,17 +473,14 @@ function VendorMapPins:RefreshAllPinColors()
     self:RefreshMinimapPins()
 end
 
--- Called by PinFrameFactory OnLeave scripts to clear tooltip tracking state
+-- Called by PinFrameFactory OnLeave scripts to clear tooltip tracking state.
+-- Implementation lives in VendorPinTooltips.lua (HS-301 cut #1).
 function VendorMapPins:OnPinLeave()
-    activeTooltipData = nil
-    itemInfoEventFrame:UnregisterEvent("GET_ITEM_INFO_RECEIVED")
-    if pinTooltip then
-        pinTooltip:Hide()
-    end
+    HA.VendorPinTooltips:OnPinLeave()
 end
 
 function VendorMapPins:HidePinTooltip()
-    self:OnPinLeave()
+    HA.VendorPinTooltips:HidePinTooltip()
 end
 
 -------------------------------------------------------------------------------
@@ -663,250 +556,23 @@ function VendorMapPins:SetWaypointToVendor(vendor)
 end
 
 -------------------------------------------------------------------------------
--- Tooltips
+-- Tooltips (implementation in VendorPinTooltips.lua, HS-301 cut #1)
 -------------------------------------------------------------------------------
 
-local function AddPinTooltipItemLine(tooltip, item, options, suffix)
-    local itemID = item and item.itemID
-    local resolvedName = (item and item.name) or (itemID and C_Item.GetItemInfo(itemID))
-    -- HS-235: name genuinely unresolved (not just "item has no .name override") —
-    -- request the data once per session so a future hover (this one still
-    -- shows the honest fallback) or the debounced rebuild below can pick it
-    -- up once/if it arrives.
-    if not resolvedName and itemID then
-        RequestItemDataForTooltip(itemID)
-    end
-    local itemName = resolvedName or "Unknown Item"
-    local availabilityState = nil
-    local SM = HA.SourceManager
-
-    if itemID and SM and SM.GetItemPresentation then
-        local presentation = SM:GetItemPresentation(itemID, options)
-        availabilityState = presentation and presentation.availabilityState
-    -- HS-203: no-presentation fallback stays cache-only, matching
-    -- SourceManager's "vendorMapPin" context (the primary path above).
-    elseif itemID and HA.CatalogStore and HA.CatalogStore:IsOwned(itemID) then
-        availabilityState = "owned"
-    elseif itemID and options and options.npcID
-            and SM and SM.GetVendorItemAvailabilityState then
-        availabilityState = SM:GetVendorItemAvailabilityState(itemID, options.npcID)
-    end
-
-    -- HS-229: entrance-grouped drop pins can carry records from several
-    -- different bosses; callers pass a suffix (e.g. "(Boss Name)") so each
-    -- item line stays attributable when the tooltip header can't name one.
-    local lineText = suffix and ("  " .. itemName .. " " .. suffix) or ("  " .. itemName)
-
-    if availabilityState == "owned" then
-        tooltip:AddLine(lineText, 0, 1, 0)
-    elseif availabilityState == "locked" then
-        tooltip:AddLine(lineText, 1, 0.25, 0.25)
-    else
-        tooltip:AddLine(lineText, 1, 1, 1)
-    end
-
-    return availabilityState
-end
-
 function VendorMapPins:ShowVendorTooltip(pin, vendor)
-    if not vendor then return end
-
-    -- Track active tooltip for GET_ITEM_INFO_RECEIVED refresh
-    activeTooltipData = { kind = "vendor", pin = pin, vendor = vendor }
-    itemInfoEventFrame:RegisterEvent("GET_ITEM_INFO_RECEIVED")
-
-    local isOpposite = self:IsOppositeFaction(vendor)
-
-    local tooltip = BeginPinTooltip(pin, "ANCHOR_RIGHT")
-    tooltip:AddLine(vendor.name, 1, 1, 1)
-
-    if vendor.subzone then
-        tooltip:AddLine(vendor.subzone .. " (" .. vendor.zone .. ")", 0.7, 0.7, 0.7)
-    elseif vendor.zone then
-        tooltip:AddLine(vendor.zone, 0.7, 0.7, 0.7)
-    end
-
-    if vendor.faction and vendor.faction ~= "Neutral" then
-        local factionColor = vendor.faction == "Alliance" and {0, 0.44, 0.87} or {0.77, 0.12, 0.23}
-        tooltip:AddLine(vendor.faction, unpack(factionColor))
-    end
-
-    -- Warning for opposite faction vendors
-    if isOpposite then
-        tooltip:AddLine(" ")
-        tooltip:AddLine("Cannot access - opposite faction vendor", 0.8, 0.3, 0.3)
-    end
-
-    if vendor.notes then
-        tooltip:AddLine(" ")
-        tooltip:AddLine(vendor.notes, 1, 0.82, 0, true)
-    end
-
-    -- Gather items from both static and scanned data
-    local allItems = {}
-    local itemsSeen = {}
-
-    -- Add static items from the unified vendor access layer.
-    local vendorItems = HA.VendorData and HA.VendorData.GetItemsForVendor and HA.VendorData:GetItemsForVendor(vendor) or {}
-    for _, item in ipairs(vendorItems) do
-        local itemID = HA.VendorData:GetItemID(item)
-        if itemID and not itemsSeen[itemID] then
-            itemsSeen[itemID] = true
-            tinsert(allItems, {itemID = itemID})
-        end
-    end
-
-    -- Add scanned items (new format: items = {...}, old format: decor = {...})
-    if vendor.npcID and HA.Addon and HA.Addon.db and HA.Addon.db.global.scannedVendors then
-        local scannedData = HA.Addon.db.global.scannedVendors[vendor.npcID]
-        local scannedItems = scannedData and (scannedData.items)
-        if scannedItems then
-            for _, item in ipairs(scannedItems) do
-                if item.itemID and not itemsSeen[item.itemID] then
-                    itemsSeen[item.itemID] = true
-                    tinsert(allItems, item)
-                end
-            end
-        end
-    end
-
-    if #allItems > 0 then
-        tooltip:AddLine(" ")
-        tooltip:AddLine("Items Sold:", 1, 1, 0)
-
-        for _, item in ipairs(allItems) do
-            AddPinTooltipItemLine(tooltip, item, {
-                context = "vendorMapPin",
-                npcID = vendor.npcID,
-                sourceFilter = GetActiveSourceFilter(),
-                isVendorContext = true,
-            })
-        end
-
-    else
-        -- No item data available
-        tooltip:AddLine(" ")
-        tooltip:AddLine("Item data unknown - visit vendor to scan", 1, 0.82, 0)
-    end
-
-    -- Purchasability summary (only when we have item data)
-    local stats = self:GetVendorStats(vendor, GetActiveSourceFilter())
-    if stats.total > 0 then
-        tooltip:AddLine(" ")
-        BC.AddSummaryLine(tooltip, stats.collected, stats.total, stats.locked, stats.unverified)
-
-        if isOpposite and not self:CanAccessVendor(vendor) then
-            tooltip:AddLine("Cannot buy on this character - opposite faction vendor", 1.0, 0.5, 0.5)
-            tooltip:AddLine("Locked counts above only reflect requirement gates.", 0.9, 0.7, 0.7)
-        end
-
-        local blockers = stats.blockers or {}
-        for i = 1, math.min(3, #blockers) do
-            local blocker = blockers[i]
-            tooltip:AddLine(string.format("Locked by: %s (%d)", blocker.label, blocker.count), 1.0, 0.82, 0)
-        end
-
-        if #blockers > 3 then
-            tooltip:AddLine(string.format("Locked by: +%d more blocker types", #blockers - 3), 0.8, 0.8, 0.8)
-        end
-    end
-
-    tooltip:AddLine(" ")
-    if isOpposite then
-        tooltip:AddLine("Left-click to set waypoint (for alts)", 0.5, 0.5, 0.5)
-    else
-        tooltip:AddLine("Left-click to set waypoint", 0.5, 0.5, 0.5)
-    end
-    tooltip:Show()
+    return HA.VendorPinTooltips:ShowVendorTooltip(pin, vendor)
 end
 
 function VendorMapPins:ShowZoneBadgeTooltip(pin, zoneInfo)
-    if not zoneInfo then return end
-
-    activeTooltipData = nil
-    itemInfoEventFrame:UnregisterEvent("GET_ITEM_INFO_RECEIVED")
-
-    local tooltip = BeginPinTooltip(pin, "ANCHOR_RIGHT")
-    tooltip:AddLine(zoneInfo.zoneName, 1, 1, 1)
-
-    -- Show note (class hall info, access method, etc.)
-    if zoneInfo.note then
-        tooltip:AddLine(zoneInfo.note, 0.7, 0.7, 1.0, true)
-    end
-
-    tooltip:AddLine(format("Decor Vendors: %d", zoneInfo.vendorCount), 1, 0.82, 0)
-
-    -- Show faction breakdown if there are opposite faction vendors
-    if zoneInfo.oppositeFactionCount and zoneInfo.oppositeFactionCount > 0 then
-        local accessibleCount = zoneInfo.vendorCount - zoneInfo.oppositeFactionCount
-        local playerFaction = UnitFactionGroup("player")
-        local oppositeFaction = playerFaction == "Alliance" and "Horde" or "Alliance"
-
-        if accessibleCount > 0 then
-            tooltip:AddLine(format("  %s: %d", playerFaction, accessibleCount), 0.7, 0.7, 0.7)
-        end
-
-        local factionColor = oppositeFaction == "Alliance" and {0.2, 0.4, 0.8} or {0.8, 0.2, 0.2}
-        tooltip:AddLine(format("  %s: %d", oppositeFaction, zoneInfo.oppositeFactionCount),
-            factionColor[1], factionColor[2], factionColor[3])
-    end
-
-    -- Collection summary
-    BC.AddSummaryLine(tooltip, zoneInfo.collectedItems, zoneInfo.totalItems, zoneInfo.lockedItems, zoneInfo.unverifiedItems)
-
-    if zoneInfo.unknownCount and zoneInfo.unknownCount > 0 then
-        tooltip:AddLine(format("Unknown status: %d vendor(s) (visit to scan)", zoneInfo.unknownCount), 1, 0.82, 0)
-    end
-
-    local knownVendors = zoneInfo.vendorCount - (zoneInfo.unknownCount or 0)
-    local allCollected = (zoneInfo.uncollectedCount or 0) == 0 and knownVendors > 0
-    if allCollected and (zoneInfo.unknownCount or 0) == 0 then
-        tooltip:AddLine("All items collected!", 0.5, 0.5, 0.5)
-    end
-
-    tooltip:AddLine(" ")
-    tooltip:AddLine("Left-click to view zone map", 0.5, 0.5, 0.5)
-    tooltip:Show()
+    return HA.VendorPinTooltips:ShowZoneBadgeTooltip(pin, zoneInfo)
 end
 
 function VendorMapPins:ShowPortalTooltip(pin, vendor)
-    if not vendor then return end
-
-    activeTooltipData = nil
-    itemInfoEventFrame:UnregisterEvent("GET_ITEM_INFO_RECEIVED")
-
-    local tooltip = BeginPinTooltip(pin, "ANCHOR_RIGHT")
-    tooltip:AddLine(vendor.name, 1, 1, 1)
-    tooltip:AddLine("Order Hall Portal", 0.7, 0.5, 1.0)
-    if vendor.notes then
-        tooltip:AddLine(vendor.notes, 1, 0.82, 0, true)
-    end
-    tooltip:AddLine("Click to view vendor location", 0.5, 0.5, 0.5)
-    tooltip:Show()
+    return HA.VendorPinTooltips:ShowPortalTooltip(pin, vendor)
 end
 
 function VendorMapPins:ShowMinimapTooltip(pin, vendor, isOppositeFaction, elevation)
-    if not vendor then return end
-
-    activeTooltipData = nil
-    itemInfoEventFrame:UnregisterEvent("GET_ITEM_INFO_RECEIVED")
-
-    local tooltip = BeginPinTooltip(pin, "ANCHOR_LEFT")
-    tooltip:AddLine(vendor.name, 1, 1, 1)
-    if vendor.subzone and vendor.subzone ~= "" then
-        tooltip:AddLine(vendor.subzone, 0.7, 0.7, 0.7)
-    elseif vendor.zone then
-        tooltip:AddLine(vendor.zone, 0.7, 0.7, 0.7)
-    end
-    if isOppositeFaction then
-        tooltip:AddLine("Opposite faction", 0.8, 0.3, 0.3)
-    end
-    if elevation == "above" then
-        tooltip:AddLine("|A:Rotating-MinimapGuideArrow:0:0|a Above you", 0.6, 0.8, 1.0)
-    elseif elevation == "below" then
-        tooltip:AddLine("v Below you", 0.6, 0.8, 1.0)
-    end
-    tooltip:Show()
+    return HA.VendorPinTooltips:ShowMinimapTooltip(pin, vendor, isOppositeFaction, elevation)
 end
 
 -------------------------------------------------------------------------------
@@ -1827,75 +1493,9 @@ end
 
 VendorMapPins.pinSourceProviders.drop = { collect = CollectDropPinRecords }
 
+-- Implementation in VendorPinTooltips.lua (HS-301 cut #1).
 function VendorMapPins:ShowDropPinTooltip(pin, record)
-    if not record or not record.records or #record.records == 0 then return end
-
-    activeTooltipData = { kind = "drop", pin = pin, record = record }
-    itemInfoEventFrame:RegisterEvent("GET_ITEM_INFO_RECEIVED")
-
-    local tooltip = BeginPinTooltip(pin, "ANCHOR_RIGHT")
-    local primaryDrop = record.records[1].drop
-
-    -- An "ent:" (dungeon-entrance) pin can carry records from several
-    -- DIFFERENT bosses sharing one instance entrance (e.g. all Voidspire
-    -- rows on the outdoor zone map), so it gets an instance-level header
-    -- with per-item boss attribution below. "enc:" groups share one
-    -- encounter — records may span tier variants, but the boss is the
-    -- same — and "legacy" groups are single-record, so records[1] is an
-    -- accurate header for both.
-    if record.dropGroupKind == "ent" then
-        tooltip:AddLine(primaryDrop and primaryDrop.zone or "Unknown Instance", 1, 1, 1)
-    else
-        if primaryDrop and primaryDrop.mobName then
-            tooltip:AddLine(primaryDrop.mobName, 1, 1, 1)
-        else
-            tooltip:AddLine("Unknown Drop", 1, 1, 1)
-        end
-        if primaryDrop and primaryDrop.zone then
-            tooltip:AddLine(primaryDrop.zone, 0.7, 0.7, 0.7)
-        end
-        if primaryDrop and primaryDrop.notes then
-            tooltip:AddLine(" ")
-            tooltip:AddLine(primaryDrop.notes, 1, 0.82, 0, true)
-        end
-    end
-
-    tooltip:AddLine(" ")
-    tooltip:AddLine(#record.records > 1
-        and ("Items Dropped (%d):"):format(#record.records)
-        or "Items Dropped:", 1, 1, 0)
-
-    -- HS-249: this loop derives its own counts rather than reading
-    -- BadgeCalculation, so it needs its own exclusion guard. The denominator
-    -- is the record count, so an item whose ownership we cannot resolve would
-    -- otherwise inflate it and read as "0/1 collected" on a room plan.
-    -- The item still gets its tooltip line; only the summary count changes.
-    local CS = HA.CatalogStore
-    local collected, locked, excluded = 0, 0, 0
-    for _, itemRecord in ipairs(record.records) do
-        -- ent: groups can't rely on the header to name a boss, so each item
-        -- line names its own (mobName may still differ between records that
-        -- share an entrance but not an encounter).
-        local suffix = record.dropGroupKind == "ent" and itemRecord.drop and itemRecord.drop.mobName
-            and ("(%s)"):format(itemRecord.drop.mobName) or nil
-        local availabilityState = AddPinTooltipItemLine(tooltip, { itemID = itemRecord.itemID }, {
-            context = "dropMapPin",
-            sourceFilter = "drop",
-            isVendorContext = false,
-        }, suffix)
-        if CS and CS.IsOwnershipUnknowable and CS:IsOwnershipUnknowable(itemRecord.itemID) then
-            excluded = excluded + 1
-        elseif availabilityState == "owned" then
-            collected = collected + 1
-        elseif availabilityState == "locked" then
-            locked = locked + 1
-        end
-    end
-
-    tooltip:AddLine(" ")
-    BC.AddSummaryLine(tooltip, collected, #record.records - excluded, locked, 0)
-
-    tooltip:Show()
+    return HA.VendorPinTooltips:ShowDropPinTooltip(pin, record)
 end
 
 function VendorMapPins:EmitPortalBadges(mapID, renderState)
