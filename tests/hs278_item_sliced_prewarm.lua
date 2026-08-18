@@ -134,7 +134,7 @@ end
 local function assertStatsEqual(a, b, label)
     for _, field in ipairs({
         "hasUncollectedState", "collected", "purchasable", "locked",
-        "unverified", "unobtainable", "excluded", "total",
+        "unverified", "unobtainable", "excluded", "total", "vendorOnly",
     }) do
         assert(a[field] == b[field],
             label .. ": field '" .. field .. "' mismatch (" .. tostring(a[field]) .. " vs " .. tostring(b[field]) .. ")")
@@ -154,13 +154,18 @@ end
 -- Part 1: parity
 -------------------------------------------------------------------------------
 
--- Extract the three accumulator helpers plus the one local they call
--- (IsOwnershipExcluded) straight from source -- the same extract-and-load
--- technique tests/hs210_guards.lua and tests/hs208_minimap_pin_spikes.lua use
--- for logic embedded in local functions. ItemMatchesSourceFilter is only
--- reached via AccumulateVendorItem's `not presentation and ...` fallback,
--- which short-circuits away entirely when every fixture below supplies a
--- presentation -- no need to extract it too.
+-- Extract the three accumulator helpers plus the locals they call
+-- (IsOwnershipExcluded, IsItemVendorOnly) straight from source -- the same
+-- extract-and-load technique tests/hs210_guards.lua and
+-- tests/hs208_minimap_pin_spikes.lua use for logic embedded in local
+-- functions. ItemMatchesSourceFilter is only reached via AccumulateVendorItem's
+-- `not presentation and ...` fallback, which short-circuits away entirely
+-- when every fixture below supplies a presentation -- no need to extract it
+-- too. IsItemVendorOnly (HS-074) is guarded against a SourceManager stub
+-- that only implements GetItemPresentation (this fixture's HA1.SourceManager
+-- below) -- it must be extracted here in the SAME chunk as AccumulateVendorItem,
+-- above it textually, so the closure sees it as a local upvalue and not an
+-- undefined global.
 local function extract(pattern, label)
     local text = badgeSource:match(pattern)
     assert(text, "could not extract " .. label .. " from BadgeCalculation.lua")
@@ -169,6 +174,8 @@ end
 
 local isOwnershipExcludedSrc = extract(
     "(local function IsOwnershipExcluded%(itemID, presentation%).-\nend)", "IsOwnershipExcluded")
+local isItemVendorOnlySrc = extract(
+    "(local function IsItemVendorOnly%(itemID, sources%).-\nend)", "IsItemVendorOnly")
 local newVendorStatsAccumSrc = extract(
     "(local function NewVendorStatsAccum%(%).-\nend)", "NewVendorStatsAccum")
 local accumulateVendorItemSrc = extract(
@@ -178,6 +185,7 @@ local finalizeVendorStatsAccumSrc = extract(
 
 local extractChunk = table.concat({
     isOwnershipExcludedSrc,
+    isItemVendorOnlySrc,
     newVendorStatsAccumSrc,
     accumulateVendorItemSrc,
     finalizeVendorStatsAccumSrc,

@@ -602,6 +602,50 @@ function VendorMapPins:IsOppositeFaction(vendor)
     return IsOppositeFaction(vendor)
 end
 
+-- HS-074 test: atlas-based inline glyphs for non-vendor source types.
+-- Atlas rendering tends to be sharper at small inline sizes than item-icon
+-- texture paths (which can look pixelated when scaled down from 64x64). Atlas
+-- names mirror Constants.SourceBadgeAtlas (the catalog overlay's pick).
+-- Filter implicit: vendor/event/shop are not in this table, so they render no glyph
+-- (the current tooltip context IS a vendor — its own type would be redundant).
+local SOURCE_TOOLTIP_ICONS = {
+    profession  = "|A:UI-HUD-MicroMenu-Professions-Mouseover:24:24|a",
+    drop        = "|A:Crosshair_lootall_64:24:24|a",
+    quest       = "|A:QuestNormal:24:24|a",
+    achievement = "|A:UI-Achievement-Shield-NoPoints:24:24|a",
+}
+
+-- HS-074 test: concatenated icon string for an item's non-vendor source types.
+-- Returns empty string when item is vendor-only or has no source data.
+-- Optional `sources` lets a caller that already fetched GetAllSources (e.g.
+-- AddPinTooltipItemLine's presentation.allSources) pass them in and skip the
+-- second lookup; GetAllSources is memoized regardless (HS-273/281/282).
+-- Argus: src.type runs through NormalizeSourceType, matching every other
+-- source.type consumer (SourceManager.lua's own display-source resolution).
+local function BuildItemSourceIconText(itemID, sources)
+    local SM = HA.SourceManager
+    if not itemID or not SM then return "" end
+    if not sources and SM.GetAllSources then
+        sources = SM:GetAllSources(itemID)
+    end
+    if not sources or #sources == 0 then return "" end
+
+    local seen = {}
+    local parts = {}
+    for _, src in ipairs(sources) do
+        local normalizedType = SM.NormalizeSourceType and SM:NormalizeSourceType(src.type) or src.type
+        local glyph = normalizedType and SOURCE_TOOLTIP_ICONS[normalizedType]
+        if glyph and not seen[normalizedType] then
+            seen[normalizedType] = true
+            parts[#parts + 1] = glyph
+        end
+    end
+    if #parts == 0 then return "" end
+    -- Two spaces between name and first icon (single space looked attached to text);
+    -- one space between adjacent icons when multiple types apply.
+    return "  " .. table.concat(parts, " ")
+end
+
 -------------------------------------------------------------------------------
 -- Badge/Collection Delegates (forwarded to BadgeCalculation)
 -------------------------------------------------------------------------------
@@ -678,11 +722,13 @@ local function AddPinTooltipItemLine(tooltip, item, options, suffix)
     end
     local itemName = resolvedName or "Unknown Item"
     local availabilityState = nil
+    local allSources = nil
     local SM = HA.SourceManager
 
     if itemID and SM and SM.GetItemPresentation then
         local presentation = SM:GetItemPresentation(itemID, options)
         availabilityState = presentation and presentation.availabilityState
+        allSources = presentation and presentation.allSources
     -- HS-203: no-presentation fallback stays cache-only, matching
     -- SourceManager's "vendorMapPin" context (the primary path above).
     elseif itemID and HA.CatalogStore and HA.CatalogStore:IsOwned(itemID) then
@@ -697,12 +743,23 @@ local function AddPinTooltipItemLine(tooltip, item, options, suffix)
     -- item line stays attributable when the tooltip header can't name one.
     local lineText = suffix and ("  " .. itemName .. " " .. suffix) or ("  " .. itemName)
 
+    local lr, lg, lb = 1, 1, 1  -- default: white (available/unknown)
     if availabilityState == "owned" then
-        tooltip:AddLine(lineText, 0, 1, 0)
+        lr, lg, lb = 0, 1, 0
     elseif availabilityState == "locked" then
-        tooltip:AddLine(lineText, 1, 0.25, 0.25)
+        lr, lg, lb = 1, 0.25, 0.25
+    end
+
+    -- HS-074: vendor-pin tooltips additionally show alternative-source glyphs
+    -- trailing the name and the vendor's cost in a right-aligned column.
+    -- Drop-pin tooltips (isVendorContext false/absent) keep the plain
+    -- single-line rendering unchanged.
+    if options and options.isVendorContext then
+        local sourceIcons = BuildItemSourceIconText(itemID, allSources)
+        local costText = HA.VendorData and HA.VendorData:FormatCost(item and item.cost) or "?"
+        tooltip:AddDoubleLine(lineText .. sourceIcons, costText, lr, lg, lb, 1, 0.82, 0)
     else
-        tooltip:AddLine(lineText, 1, 1, 1)
+        tooltip:AddLine(lineText, lr, lg, lb)
     end
 
     return availabilityState
@@ -752,7 +809,10 @@ function VendorMapPins:ShowVendorTooltip(pin, vendor)
         local itemID = HA.VendorData:GetItemID(item)
         if itemID and not itemsSeen[itemID] then
             itemsSeen[itemID] = true
-            tinsert(allItems, {itemID = itemID})
+            -- HS-074 test: preserve cost on the wrapped record so the right column
+            -- can format it. Previously stripped, which is why the cost column
+            -- rendered "?" even for vendors that had data populated.
+            tinsert(allItems, {itemID = itemID, cost = HA.VendorData:GetItemCost(item)})
         end
     end
 
@@ -794,6 +854,17 @@ function VendorMapPins:ShowVendorTooltip(pin, vendor)
     if stats.total > 0 then
         tooltip:AddLine(" ")
         BC.AddSummaryLine(tooltip, stats.collected, stats.total, stats.locked, stats.unverified)
+
+        -- HS-074 test: count of items at this vendor with no non-vendor source
+        -- type. Read from stats.vendorOnly (BadgeCalculation) rather than
+        -- re-walking allItems here — that keeps this number counting the exact
+        -- same population as the collected/total/locked figures above it
+        -- (source filter, HS-249 exclusion, merged static+scanned set) instead
+        -- of a second, differently-filtered pass. Wording is a stand-in;
+        -- refine during design review.
+        if stats.vendorOnly and stats.vendorOnly > 0 then
+            tooltip:AddLine(string.format("Vendor-only: %d", stats.vendorOnly), 0.85, 0.85, 0.85)
+        end
 
         if isOpposite and not self:CanAccessVendor(vendor) then
             tooltip:AddLine("Cannot buy on this character - opposite faction vendor", 1.0, 0.5, 0.5)

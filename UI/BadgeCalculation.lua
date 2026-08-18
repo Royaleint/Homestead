@@ -155,6 +155,7 @@ local UNKNOWN_VENDOR_STATS = {
     excluded = 0,
     blockers = nil,
     total = 0,
+    vendorOnly = 0,
 }
 
 -- HS-249: is this item's ownership knowable at all? Every housing subclass
@@ -171,6 +172,32 @@ local function IsOwnershipExcluded(itemID, presentation)
     return false
 end
 
+-- HS-074: true when the item has no source types other than vendor-like
+-- (vendor/event/shop). Approximation of "this vendor-NPC is the only path."
+-- Moved here from VendorMapPins.lua (Argus review) so BuildVendorStats' item
+-- loop can produce the "Vendor-only" count from the same population as
+-- collected/total/locked, instead of a second differently-filtered pass over
+-- the tooltip's hand-rolled item list. Optional `sources` lets a caller that
+-- already has GetAllSources' result (e.g. AccumulateVendorItem's
+-- presentation.allSources) pass them in and skip the second lookup;
+-- GetAllSources is memoized regardless (HS-273/281/282). src.type runs
+-- through NormalizeSourceType, matching every other source.type consumer.
+local function IsItemVendorOnly(itemID, sources)
+    local SM = HA.SourceManager
+    if not itemID or not SM then return false end
+    if not sources and SM.GetAllSources then
+        sources = SM:GetAllSources(itemID)
+    end
+    if not sources or #sources == 0 then return true end
+    for _, src in ipairs(sources) do
+        local normalizedType = SM.NormalizeSourceType and SM:NormalizeSourceType(src.type) or src.type
+        if normalizedType ~= "vendor" and normalizedType ~= "event" and normalizedType ~= "shop" then
+            return false
+        end
+    end
+    return true
+end
+
 -- HS-278: per-vendor accumulator state, extracted out of BuildVendorStats so
 -- the prewarm pass's item loop (below) can resume it across ticks instead of
 -- running one vendor's whole item list in a single unbreakable call.
@@ -183,6 +210,7 @@ local function NewVendorStatsAccum()
         locked = 0,
         unobtainable = 0,
         excluded = 0,
+        vendorOnly = 0,
         provisionalUnverified = 0,
         hasAnyVerifiableRequirements = false,
         lockedBlockerCounts = {},
@@ -221,6 +249,10 @@ local function AccumulateVendorItem(accum, itemID, vendor, sourceFilter)
         local isUnverified = presentation and presentation.isUnverified or false
         local hasVerifiableRequirement = presentation and presentation.hasVerifiableRequirement or false
         local blockerLabels = presentation and presentation.blockerLabels or nil
+        -- HS-074: same population as total (owned + locked/purchasable below,
+        -- not the unobtainable branch) so the tooltip's "Vendor-only: N" line
+        -- never contradicts the collected/total numbers next to it.
+        local isVendorOnlyItem = IsItemVendorOnly(itemID, presentation and presentation.allSources)
 
         -- HS-200: badge recounts are an aggregate per-vendor-item loop —
         -- this no-presentation fallback must stay cache-only the same way
@@ -237,6 +269,9 @@ local function AccumulateVendorItem(accum, itemID, vendor, sourceFilter)
             -- unobtainable for other players — the player already has it.
             accum.collected = accum.collected + 1
             accum.total = accum.total + 1
+            if isVendorOnlyItem then
+                accum.vendorOnly = accum.vendorOnly + 1
+            end
         elseif state == "unobtainable" then
             -- HS-158/160 §3/decision 4: unowned unobtainable items
             -- (promotion-gated, live or expired) are EXCLUDED from total
@@ -245,6 +280,9 @@ local function AccumulateVendorItem(accum, itemID, vendor, sourceFilter)
             accum.unobtainable = accum.unobtainable + 1
         else
             accum.total = accum.total + 1
+            if isVendorOnlyItem then
+                accum.vendorOnly = accum.vendorOnly + 1
+            end
 
             if isUnverified then
                 accum.provisionalUnverified = accum.provisionalUnverified + 1
@@ -285,6 +323,7 @@ local function FinalizeVendorStatsAccum(accum)
             excluded = accum.excluded,
             blockers = nil,
             total = 0,
+            vendorOnly = 0,
         }
     end
 
@@ -318,6 +357,7 @@ local function FinalizeVendorStatsAccum(accum)
         excluded = accum.excluded,
         blockers = blockers,
         total = accum.total,
+        vendorOnly = accum.vendorOnly,
     }
 end
 
