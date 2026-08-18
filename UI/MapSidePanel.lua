@@ -765,7 +765,7 @@ local function GetInstanceDropGroups(encounters)
 end
 
 -- HS-229's own dropMapPin presentation context — same context string
--- AddPinTooltipItemLine (VendorMapPins.lua) and BuildDropGroupStats
+-- AddPinTooltipItemLine (VendorPinTooltips.lua) and BuildDropGroupStats
 -- (BadgeCalculation.lua) already use, so this is provably the same
 -- cache-backed call, not a new SourceManager surface.
 local function GetDropItemPresentation(itemID)
