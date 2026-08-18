@@ -299,6 +299,39 @@ local function GetEntryDodgeSeed(entry)
     return 1
 end
 
+-- Pixel offset (not a normalized map-coordinate one — see
+-- MapPinProvider.PlaceNativePin's comment for why) that keeps EJ-anchored
+-- drop pins (boss position and dungeon-entrance groups) a constant screen
+-- distance from Blizzard's own pin at the same coordinate, toward the
+-- bottom-right, at every zoom level.
+local EJ_DROP_PIN_OFFSET_PIXELS = 10
+
+-- HS-348: shared predicate for "this entry is an EJ-anchored drop pin" —
+-- used to apply the fixed EJ_DROP_PIN_OFFSET_PIXELS offset
+-- (GetEjDropPinIconOffset below) and, in ApplyAreaPoiDodge, to skip the POI
+-- dodge entirely for these entries (Rawb ruling 2026-08-18: the fixed offset
+-- owns placement alone, see ApplyAreaPoiDodge).
+local function IsEjAnchoredDropPin(entry)
+    return entry.sourceType == "drop"
+        and (entry.dropGroupKind == "enc" or entry.dropGroupKind == "ent")
+end
+
+-- Argus fail-soft hardening (HS-347/348 review, 2026-08-18): mirrors
+-- VendorMapPins.lua's IsFiniteNumber (used by its own BuildEntrancePositions/
+-- BuildEncounterPositions) -- a NaN coordinate from any dodge candidate
+-- source would otherwise silently invert the `closestDist > collisionThreshold`
+-- guard in ApplyAreaPoiDodge (NaN comparisons are false both ways), making
+-- EVERY pin on the map dodge.
+local function IsFiniteNumber(n)
+    return type(n) == "number" and n == n  -- NaN != NaN
+end
+
+local function InsertPoiCandidate(target, x, y)
+    if IsFiniteNumber(x) and IsFiniteNumber(y) then
+        target[#target + 1] = { x = x, y = y }
+    end
+end
+
 local function GetPoiPositionsForMap(mapID)
     if cachedPoiMapID == mapID and cachedPoiPositions then
         return cachedPoiPositions
@@ -309,29 +342,108 @@ local function GetPoiPositionsForMap(mapID)
     -- Query BOTH regular POIs and event POIs — they use separate APIs.
     -- Regular: C_AreaPoiInfo.GetAreaPOIForMap (quest hubs, portals, etc.)
     -- Events: C_AreaPoiInfo.GetEventsForMap (Saltheril's Soiree, Abundance, etc.)
-    -- Both are data API calls — taint-safe.
-    local poiIDs = C_AreaPoiInfo and C_AreaPoiInfo.GetAreaPOIForMap and C_AreaPoiInfo.GetAreaPOIForMap(mapID)
-    if poiIDs then
+    -- Both are data API calls — taint-safe. The list queries are
+    -- pcall-protected (Argus review) so a throwing list API degrades to zero
+    -- candidates from that source instead of aborting the render pass; the
+    -- per-item detail/guard calls below (GetAreaPOIInfo) are not wrapped.
+    -- ok==false below means either the API is absent (C_AreaPoiInfo and
+    -- ...Fn evaluated to nil, so pcall(nil, mapID) fails) or the call threw
+    -- — both degrade to no candidates from this source.
+    local okPoi, poiIDs = pcall(C_AreaPoiInfo and C_AreaPoiInfo.GetAreaPOIForMap, mapID)
+    if okPoi and poiIDs then
         for _, poiID in ipairs(poiIDs) do
             local info = C_AreaPoiInfo.GetAreaPOIInfo(mapID, poiID)
             if info and info.position then
-                cachedPoiPositions[#cachedPoiPositions + 1] = {
-                    x = info.position.x,
-                    y = info.position.y,
-                }
+                InsertPoiCandidate(cachedPoiPositions, info.position.x, info.position.y)
             end
         end
     end
 
-    local eventIDs = C_AreaPoiInfo and C_AreaPoiInfo.GetEventsForMap and C_AreaPoiInfo.GetEventsForMap(mapID)
-    if eventIDs then
+    -- Same absent-or-threw idiom as the pcall above.
+    local okEvent, eventIDs = pcall(C_AreaPoiInfo and C_AreaPoiInfo.GetEventsForMap, mapID)
+    if okEvent and eventIDs then
         for _, eventID in ipairs(eventIDs) do
             local info = C_AreaPoiInfo.GetAreaPOIInfo(mapID, eventID)
             if info and info.position then
-                cachedPoiPositions[#cachedPoiPositions + 1] = {
-                    x = info.position.x,
-                    y = info.position.y,
-                }
+                InsertPoiCandidate(cachedPoiPositions, info.position.x, info.position.y)
+            end
+        end
+    end
+
+    -- HS-347: extend the dodge candidate pool with the three POI classes
+    -- HS-319 found it blind to. Same availability-guard discipline as the
+    -- two queries above -- all three are taint-safe data API calls -- plus
+    -- the same pcall-wrapping as those two.
+    --
+    -- Accuracy bound: Flight Points are Blizzard's own nudge TARGETS in the
+    -- general case (FlightPointDataProvider.lua:71, SetNudgeTargetFactor(0.015))
+    -- and Dungeon Entrances are nudge SOURCES
+    -- (DungeonEntranceDataProvider.lua:47-48, SetNudgeSourceRadius(1) +
+    -- SetNudgeSourceMagnitude(2, 2)) -- Blizzard's own nudge system can
+    -- already be displacing their rendered position from these raw data
+    -- coordinates before this dodge ever runs, so the dodge is approximate
+    -- for those two classes. Area POI / Event POI / Delve Entrance carry no
+    -- nudge settings at all (grep for "nudge" across AreaPOIDataProvider.lua
+    -- and SharedMapPoiTemplates.lua returns zero matches), so raw data
+    -- position == rendered position for those three.
+    if C_EncounterJournal and C_EncounterJournal.GetDungeonEntrancesForMap
+            and GetCVarBool("showDungeonEntrancesOnMap") then
+        local ok, dungeonEntrances = pcall(C_EncounterJournal.GetDungeonEntrancesForMap, mapID)
+        if ok and dungeonEntrances then
+            for _, entranceInfo in ipairs(dungeonEntrances) do
+                -- VendorMapPins.lua's BuildEntrancePositions reads this same
+                -- API's position via :GetXY() rather than .x/.y field access
+                -- -- matching that proven precedent here.
+                local pos = entranceInfo.position
+                if pos and pos.GetXY then
+                    local ex, ey = pos:GetXY()
+                    InsertPoiCandidate(cachedPoiPositions, ex, ey)
+                end
+            end
+        end
+    end
+
+    if C_TaxiMap and C_TaxiMap.GetTaxiNodesForMap and C_TaxiMap.ShouldMapShowTaxiNodes
+            and C_TaxiMap.ShouldMapShowTaxiNodes(mapID) then
+        local ok, taxiNodes = pcall(C_TaxiMap.GetTaxiNodesForMap, mapID)
+        if ok and taxiNodes then
+            -- Mirrors FlightPointDataProviderMixin:ShouldShowTaxiNode
+            -- (FlightPointDataProvider.lua:46-56) -- a faction-locked node
+            -- only renders for that faction's own player. MapTaxiNodeInfo's
+            -- faction field is non-nilable (TaxiMapDocumentation.lua:122);
+            -- the neutral case is Enum.FlightPathFaction.Neutral (0), which
+            -- always renders -- it isn't a nil-faction special case.
+            local factionGroup = UnitFactionGroup("player")
+            for _, taxiNodeInfo in ipairs(taxiNodes) do
+                local showsForFaction
+                if taxiNodeInfo.faction == Enum.FlightPathFaction.Horde then
+                    showsForFaction = factionGroup == "Horde"
+                elseif taxiNodeInfo.faction == Enum.FlightPathFaction.Alliance then
+                    showsForFaction = factionGroup == "Alliance"
+                else
+                    showsForFaction = true
+                end
+                -- Same :GetXY() precedent as dungeon entrances above --
+                -- taxiNodeInfo.position is the same BaseMapPoiPinMixin-family
+                -- Vector2 shape (both pin mixins read poiInfo.position via
+                -- :GetXY() in SharedMapPoiTemplates.lua:80).
+                local pos = taxiNodeInfo.position
+                if showsForFaction and pos and pos.GetXY then
+                    local tx, ty = pos:GetXY()
+                    InsertPoiCandidate(cachedPoiPositions, tx, ty)
+                end
+            end
+        end
+    end
+
+    if C_AreaPoiInfo and C_AreaPoiInfo.GetDelvesForMap and GetCVarBool("showDelveEntrancesOnMap") then
+        local ok, delveIDs = pcall(C_AreaPoiInfo.GetDelvesForMap, mapID)
+        if ok and delveIDs then
+            for _, delveID in ipairs(delveIDs) do
+                local info = C_AreaPoiInfo.GetAreaPOIInfo(mapID, delveID)
+                if info and info.position then
+                    InsertPoiCandidate(cachedPoiPositions, info.position.x, info.position.y)
+                end
             end
         end
     end
@@ -344,6 +456,14 @@ local function ApplyAreaPoiDodge(entry, x, y)
         return x, y
     end
     if not entry then
+        return x, y
+    end
+
+    -- HS-348 (Rawb ruling 2026-08-18): an EJ-anchored drop pin is placed by
+    -- the fixed EJ_DROP_PIN_OFFSET_PIXELS offset alone (GetEjDropPinIconOffset
+    -- below) -- letting the POI dodge also fire stacked a random-direction
+    -- nudge on top of that deliberate, Gate-2-cleared offset.
+    if IsEjAnchoredDropPin(entry) then
         return x, y
     end
 
@@ -396,16 +516,8 @@ local function ApplyAreaPoiDodge(entry, x, y)
            Clamp01(y + (direction[2] * nudgePixels) / height)
 end
 
--- Pixel offset (not a normalized map-coordinate one — see
--- MapPinProvider.PlaceNativePin's comment for why) that keeps EJ-anchored
--- drop pins (boss position and dungeon-entrance groups) a constant screen
--- distance from Blizzard's own pin at the same coordinate, toward the
--- bottom-right, at every zoom level.
-local EJ_DROP_PIN_OFFSET_PIXELS = 10
-
 local function GetEjDropPinIconOffset(entry)
-    if entry.sourceType == "drop"
-            and (entry.dropGroupKind == "enc" or entry.dropGroupKind == "ent") then
+    if IsEjAnchoredDropPin(entry) then
         return EJ_DROP_PIN_OFFSET_PIXELS, -EJ_DROP_PIN_OFFSET_PIXELS
     end
     return nil, nil
