@@ -104,11 +104,13 @@ end
 -- Yellow=requirements, red=unmet, green=met
 -- dedupSet: optional table of source types already rendered (e.g. {achievement=true})
 --   requirements whose type is in dedupSet are skipped (already shown as source lines).
---   Reputation requirements are NEVER skipped (always additive info).
+--   Reputation requirements are NEVER skipped by dedupSet (always additive info).
 -- reputationOnly: if true, only render reputation requirements (merchant compact mode)
+-- excludeReputation: if true, skip reputation requirements entirely (dashboard tooltip,
+--   where AddReputationProgressToTooltip already covers reputation/renown separately)
 -- Returns: set of faction names that had reputation progress rendered (for cross-path dedup),
 --   or nil if no reputation progress was rendered.
-local function AddRequirementsToTooltip(tooltip, itemID, npcID, dedupSet, reputationOnly)
+local function AddRequirementsToTooltip(tooltip, itemID, npcID, dedupSet, reputationOnly, excludeReputation)
     if not HA.SourceManager or not HA.SourceManager.GetRequirements then return nil end
 
     -- Check if requirements display is enabled
@@ -127,7 +129,9 @@ local function AddRequirementsToTooltip(tooltip, itemID, npcID, dedupSet, reputa
         -- Dedup checks both broad type keys ("quest") from merchant/sourceText contexts and
         -- specific name keys ("quest:QuestName") from rendered source objects.
         local isDuped = false
-        if dedupSet and req.type ~= "reputation" then
+        if req.type == "reputation" then
+            isDuped = excludeReputation or false
+        elseif dedupSet then
             isDuped = dedupSet[req.type]
                 or (req.name and dedupSet[req.type .. ":" .. req.name])
         end
@@ -1085,7 +1089,42 @@ local function OnHousingCatalogTooltipCreated(ownerID, entryFrame, tooltip)
         if HA.DevAddon and HA.Addon.db.profile.debug then
             HA.Addon:Debug("Catalog tooltip: no itemID found in entryInfo")
         end
-        return
+
+        -- Room entries (and any other non-Decor entry type) share this same
+        -- TooltipCreated event and never carry an itemID by design. recordID is
+        -- namespaced per entry type (decorID for Decor, roomID for Room —
+        -- GetCatalogEntryInfoByRecordID takes entryType alongside recordID), so
+        -- this gate MUST run before the decorID-keyed CatalogStore fallback below:
+        -- an unlucky roomID could otherwise collide with an unrelated DecorMapping
+        -- key and render that item's full source/requirements block on a room
+        -- tooltip. Return silently, exactly as before this feature existed.
+        if entryInfo.entryType ~= Enum.HousingCatalogEntryType.Decor then
+            return
+        end
+
+        -- Fall back to CatalogStore's decorID->itemID index. entryInfo.recordID IS
+        -- the decorID on a Decor entry's HousingCatalogEntryInfo (Blizzard's own
+        -- mixin and Homestead's VendorScanner.lua both read it that way); this
+        -- catches entries whose itemID/entryID came back empty above but whose
+        -- decorID has a known DecorMapping entry. Only reached for Decor entries —
+        -- the gate above already excluded Room, so recordID here is always a decorID.
+        if entryInfo.recordID and HA.CatalogStore and HA.CatalogStore.GetItemIDFromDecorID then
+            itemID = HA.CatalogStore:GetItemIDFromDecorID(entryInfo.recordID)
+        end
+
+        if type(itemID) ~= "number" then
+            -- No itemID means no source/requirements to query, so the anomaly line
+            -- is the only Homestead detail this entry could ever show — gated by the
+            -- same showSource toggle as the normal source block below, so disabling
+            -- source display also suppresses this block.
+            if not db or db.showSource ~= false then
+                tooltip:AddLine(" ")
+                tooltip:AddLine("|cFFFFD700[Homestead]|r")
+                tooltip:AddLine("Not yet mapped by Homestead", COLOR_GRAY.r, COLOR_GRAY.g, COLOR_GRAY.b)
+                tooltip:Show()
+            end
+            return
+        end
     end
 
     if HA.DevAddon and HA.Addon.db.profile.debug then
@@ -1126,9 +1165,17 @@ local function OnHousingCatalogTooltipCreated(ownerID, entryFrame, tooltip)
             end
         end
 
-        -- Priority 3: Show unknown if both failed
+        -- Priority 3: no known source. AddSourceInfoToTooltip (Priority 1) and
+        -- RenderSourceText (Priority 2) each already render non-reputation
+        -- requirements internally when they find a source (see AddRequirementsToTooltip
+        -- calls above); this item found none, but SourceManager:GetRequirements is a
+        -- separate lookup from GetAllSources, so it can still carry a prerequisite
+        -- (level, quest, etc.) even with no discoverable acquisition source. Reputation
+        -- is excluded here — AddReputationProgressToTooltip below already covers
+        -- reputation/renown progress for every item on this surface.
         if not hasSource then
             tooltip:AddLine("Source: Unknown", COLOR_GRAY.r, COLOR_GRAY.g, COLOR_GRAY.b)
+            AddRequirementsToTooltip(tooltip, itemID, nil, nil, false, true)
         end
     end
 
