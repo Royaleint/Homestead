@@ -96,6 +96,7 @@ UI\MapPinProvider.lua
 UI\HomesteadWorldMapProvider.lua
 UI\HomesteadMinimapOverlay.lua
 UI\MinimapButton.lua
+UI\MinimapPinCollect.lua
 UI\BadgeCalculation.lua
 UI\BadgeEmission.lua
 UI\SearchProvider.lua
