@@ -640,6 +640,22 @@ OptionsModel.sections = {
                     end
                 end,
             },
+            {
+                key = "showVendorPinItemDetails",
+                type = "checkbox",
+                label = L["Vendor pin item details"],
+                tooltip = L["desc_vendor_pin_item_details"],
+                get = function()
+                    local vendorTracer = GetVendorTracer()
+                    return vendorTracer and vendorTracer.showVendorPinItemDetails
+                end,
+                set = function(value)
+                    local vendorTracer = GetVendorTracer()
+                    if vendorTracer then
+                        vendorTracer.showVendorPinItemDetails = value
+                    end
+                end,
+            },
         },
     },
     {

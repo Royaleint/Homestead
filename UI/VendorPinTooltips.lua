@@ -159,10 +159,10 @@ end
 -- Filter implicit: vendor/event/shop are not in this table, so they render no glyph
 -- (the current tooltip context IS a vendor — its own type would be redundant).
 local SOURCE_TOOLTIP_ICONS = {
-    profession  = "|A:UI-HUD-MicroMenu-Professions-Mouseover:24:24|a",
-    drop        = "|A:Crosshair_lootall_64:24:24|a",
-    quest       = "|A:QuestNormal:24:24|a",
-    achievement = "|A:UI-Achievement-Shield-NoPoints:24:24|a",
+    profession  = "|A:UI-HUD-MicroMenu-Professions-Mouseover:16:16|a",
+    drop        = "|A:Crosshair_lootall_64:16:16|a",
+    quest       = "|A:QuestNormal:16:16|a",
+    achievement = "|A:UI-Achievement-Shield-NoPoints:16:16|a",
 }
 
 -- HS-074 test: concatenated icon string for an item's non-vendor source types.
@@ -251,8 +251,26 @@ local function AddPinTooltipItemLine(tooltip, item, options, suffix)
     return availabilityState
 end
 
+-- HS-074B: "Vendor pin item details" toggle (default ON) gates the whole
+-- HS-074/HS-074B pin-tooltip enrichment as a unit -- source icons, cost
+-- column, and the vendor-only summary line. Read fresh per tooltip build
+-- (cheap -- tooltip content already rebuilds per hover), not cached at load.
+-- profile.vendorTracer.showVendorPinItemDetails has a registered
+-- Constants.Defaults entry, which Foundry.DB backfills into every profile at
+-- materialization time (Libs/Foundry-1.0/Modules/DB.lua's applyDefaults) --
+-- so this plain read is ON for existing profiles too, matching the sibling
+-- vendorTracer.showVendorDetails idiom (VendorTracer.lua:159), not a
+-- defensive ~= false check.
+local function IsVendorPinItemDetailsEnabled()
+    local vendorTracer = HA.Addon and HA.Addon.db and HA.Addon.db.profile and HA.Addon.db.profile.vendorTracer
+    if not vendorTracer then return true end
+    return vendorTracer.showVendorPinItemDetails
+end
+
 function VendorPinTooltips:ShowVendorTooltip(pin, vendor)
     if not vendor then return end
+
+    local itemDetailsEnabled = IsVendorPinItemDetailsEnabled()
 
     -- Track active tooltip for GET_ITEM_INFO_RECEIVED refresh
     activeTooltipData = { kind = "vendor", pin = pin, vendor = vendor }
@@ -335,7 +353,7 @@ function VendorPinTooltips:ShowVendorTooltip(pin, vendor)
                 context = "vendorMapPin",
                 npcID = vendor.npcID,
                 sourceFilter = HA.VendorMapPins:GetActiveSourceFilter(),
-                isVendorContext = true,
+                isVendorContext = itemDetailsEnabled,
             })
         end
 
@@ -358,7 +376,7 @@ function VendorPinTooltips:ShowVendorTooltip(pin, vendor)
         -- (source filter, HS-249 exclusion, merged static+scanned set) instead
         -- of a second, differently-filtered pass. Wording is a stand-in;
         -- refine during design review.
-        if stats.vendorOnly and stats.vendorOnly > 0 then
+        if itemDetailsEnabled and stats.vendorOnly and stats.vendorOnly > 0 then
             tooltip:AddLine(string.format("Vendor-only: %d", stats.vendorOnly), 0.85, 0.85, 0.85)
         end
 

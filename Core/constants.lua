@@ -487,6 +487,7 @@ Constants.Defaults = {
             useNativeWaypoints = true,
             autoWaypoint = false,
             showVendorDetails = true,
+            showVendorPinItemDetails = true,  -- HS-074B: gates the HS-074/HS-074B pin-tooltip enrichment (icons, cost column, vendor-only count) as a unit
             navigateModifier = "shift",  -- shift, ctrl, alt, or none
             showOppositeFaction = true,  -- Show vendors for opposite faction with faction emblem
             pinColorPreset = "default",              -- Color preset key or "custom"

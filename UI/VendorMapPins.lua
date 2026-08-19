@@ -130,6 +130,21 @@ local function SetCompletedVendorPinsShown(shown)
     vendorTracer.hideCompletedVendorPins = not shown
 end
 
+-- HS-074B: "Vendor pin item details" entry in the same Homestead menu
+-- section, mirroring the options panel row (OptionsModel.lua) that owns
+-- vendorTracer.showVendorPinItemDetails. Same two-surface pattern as
+-- IsCompletedVendorPinsShown/SetCompletedVendorPinsShown above.
+local function IsVendorPinItemDetailsShown()
+    local vendorTracer = HA.Addon and HA.Addon.db and HA.Addon.db.profile.vendorTracer
+    return not vendorTracer or vendorTracer.showVendorPinItemDetails
+end
+
+local function SetVendorPinItemDetailsShown(shown)
+    local vendorTracer = HA.Addon and HA.Addon.db and HA.Addon.db.profile.vendorTracer
+    if not vendorTracer then return end
+    vendorTracer.showVendorPinItemDetails = shown
+end
+
 -- Minimap pins enabled state
 local minimapPinsEnabled = true
 
@@ -1427,6 +1442,25 @@ function VendorMapPins:Initialize()
                 GameTooltip:Show()
             end)
             completedCheckbox:SetOnLeave(function(button)
+                GameTooltip:Hide()
+            end)
+
+            -- HS-074B: parity with the options panel row. No refresh calls --
+            -- unlike the completed-vendor filter above, this doesn't change
+            -- which pins are shown, only what their tooltips render, and
+            -- tooltip content is already rebuilt fresh on every hover.
+            local itemDetailsCheckbox = rootDescription:CreateCheckbox(HA.L["Vendor pin item details"], IsVendorPinItemDetailsShown, function()
+                SetVendorPinItemDetailsShown(not IsVendorPinItemDetailsShown())
+            end)
+            itemDetailsCheckbox:SetOnEnter(function(button)
+                GameTooltip:ClearAllPoints()
+                GameTooltip:SetPoint("RIGHT", button, "LEFT", -3, 0)
+                GameTooltip:SetOwner(button, "ANCHOR_PRESERVE")
+                GameTooltip_SetTitle(GameTooltip, HA.L["Vendor pin item details"])
+                GameTooltip_AddNormalLine(GameTooltip, HA.L["desc_vendor_pin_item_details"])
+                GameTooltip:Show()
+            end)
+            itemDetailsCheckbox:SetOnLeave(function(button)
                 GameTooltip:Hide()
             end)
         end)
