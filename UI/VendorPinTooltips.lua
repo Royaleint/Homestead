@@ -310,7 +310,17 @@ function VendorPinTooltips:ShowVendorTooltip(pin, vendor)
             for _, item in ipairs(scannedItems) do
                 if item.itemID and not itemsSeen[item.itemID] then
                     itemsSeen[item.itemID] = true
-                    tinsert(allItems, item)
+                    -- HS-074B: scanned items carry the legacy {price, currencies}
+                    -- shape instead of the static gather's {cost} field above --
+                    -- normalize once here so the cost column renders the same way
+                    -- for both sources. The wrapper table below is fresh (not a
+                    -- mutated reference into scannedData.items), but
+                    -- NormalizeScannedCost's already-normalized passthrough branch
+                    -- returns scannedItem.cost BY REFERENCE, so wrapper.cost can
+                    -- still alias a live SavedVariables sub-table. Nothing writes
+                    -- through it today -- don't assume that stays true.
+                    local cost = HA.VendorData and HA.VendorData:NormalizeScannedCost(item)
+                    tinsert(allItems, {itemID = item.itemID, name = item.name, cost = cost})
                 end
             end
         end

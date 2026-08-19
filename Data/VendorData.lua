@@ -230,6 +230,21 @@ function VendorData:NormalizeScannedCost(scannedItem)
         hasCost = true
     end
 
+    -- Convert item-based currency costs (Spare Parts, Polished Pet Charms, etc.),
+    -- matching GetItemCost's offer.itemCosts -> cost.items build above so
+    -- FormatCost renders scanned and static item-currency costs identically.
+    if scannedItem.itemCosts and #scannedItem.itemCosts > 0 then
+        cost.items = {}
+        for _, itemCost in ipairs(scannedItem.itemCosts) do
+            table.insert(cost.items, {
+                id = itemCost.id or itemCost.itemID,
+                amount = itemCost.amount,
+                name = itemCost.name,
+            })
+        end
+        hasCost = true
+    end
+
     return hasCost and cost or nil
 end
 
