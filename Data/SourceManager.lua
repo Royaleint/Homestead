@@ -1519,7 +1519,7 @@ function SourceManager:GetItemPresentation(itemID, options)
     -- verified to never read bestSource/displaySource/sourceType off the
     -- returned presentation — badge recounts (UI/BadgeCalculation.lua, only
     -- reads isOwned/availabilityState/blockerLabels) and vendor map-pin
-    -- tooltips (UI/VendorMapPins.lua AddPinTooltipItemLine, only reads
+    -- tooltips (UI/VendorPinTooltips.lua AddPinTooltipItemLine, only reads
     -- availabilityState). The side-panel "sidePanel" context is explicitly
     -- EXCLUDED: PopulateItemResultRow (UI/MapSidePanel.lua) reads
     -- presentation.displaySource/sourceBadgeAtlas, and that path is reachable

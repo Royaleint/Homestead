@@ -474,11 +474,24 @@ end
 
 local nativePins = {}          -- active wrapper frames
 local nativePinPool = {}       -- recycled wrapper frames
--- Blizzard's map pin frame levels (MEDIUM strata):
---   Canvas base:    3
---   Area POI:       2023
---   Event POI:      2737
--- Homestead shares the Area POI level so neither dominates the other.
+-- Blizzard's map pin frame levels (MEDIUM strata). Per HS-319
+-- (Home_Dev/reference/MAP_LAYERING_STUDY.md, verified against Blizzard
+-- source):
+--   Area POI:    2023
+--   Map Link:    2025
+--   Encounter:   2026
+-- Wrapper below = 2023 (bare positioning container, no textures); the
+-- visible content frame is reparented onto it at wrapper+1 = 2024 (see
+-- PlaceNativePin) — 2024 is the only level that matters visually. 2024 is
+-- one level ABOVE Area POI (deterministic win over that dense class) and
+-- exactly TIES Gossip (2024); sibling order vs Gossip at that tie is
+-- creation-order dependent/unspecified. Quests, world quests, vignettes,
+-- and waypoints already sit at 2025+, so they still outrank Homestead.
+-- Intentional placement (HS-319 ruling) — do not change the level to chase
+-- the old "parity with Area POI" language this replaced.
+--
+-- Constants below Vignette are patch-stable; PIN_FRAME_LEVEL_ACTIVE_QUEST
+-- and above are runtime-sized (C_QuestLog.GetMaxNumQuests()) and vary.
 local HOMESTEAD_WORLD_PIN_STRATA = "MEDIUM"
 local HOMESTEAD_WORLD_PIN_FRAME_LEVEL = 2023
 

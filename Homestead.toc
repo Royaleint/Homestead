@@ -99,6 +99,7 @@ UI\MinimapButton.lua
 UI\BadgeCalculation.lua
 UI\SearchProvider.lua
 UI\MapSidePanel.lua
+UI\VendorPinTooltips.lua
 UI\VendorMapPins.lua
 UI\Options.lua
 
