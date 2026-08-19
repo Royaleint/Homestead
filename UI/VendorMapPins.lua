@@ -941,21 +941,10 @@ local function DebugWorldMapProjectionSkip(kind, sourceMapID, viewMapID, reason)
     ))
 end
 
-local function BuildBadgeData(mapID, zoneName, zoneData)
-    return {
-        mapID = mapID,
-        zoneName = zoneName,
-        vendorCount = zoneData.vendorCount,
-        uncollectedCount = zoneData.uncollectedCount,
-        unknownCount = zoneData.unknownCount,
-        oppositeFactionCount = zoneData.oppositeFactionCount,
-        dominantFaction = zoneData.dominantFaction,
-        note = MPP.zoneNotes[mapID],
-        collectedItems = zoneData.collectedItems,
-        totalItems = zoneData.totalItems,
-        lockedItems = zoneData.lockedItems,
-        unverifiedItems = zoneData.unverifiedItems,
-    }
+-- HS-301: cross-file accessor for BadgeEmission.lua, which needs debug-gated
+-- projection-skip logging but has no other reason to depend on HA.DevAddon.
+function VendorMapPins:DebugWorldMapProjectionSkip(kind, sourceMapID, viewMapID, reason)
+    return DebugWorldMapProjectionSkip(kind, sourceMapID, viewMapID, reason)
 end
 
 function VendorMapPins:BuildWorldMapRenderState(mapID)
@@ -1498,192 +1487,21 @@ function VendorMapPins:ShowDropPinTooltip(pin, record)
     return HA.VendorPinTooltips:ShowDropPinTooltip(pin, record)
 end
 
+-- Implementation in BadgeEmission.lua (HS-301 cut #2).
 function VendorMapPins:EmitPortalBadges(mapID, renderState)
-    -- Portal badge pass: draw entrance markers for Order Hall vendors
-    -- accessible via this map. Gated to vendor/all filters by CollectSourcePins.
-    local sourceFilter = GetActiveSourceFilter()
-    local allVendors = HA.VendorData:GetAllVendors()
-    for _, vendor in ipairs(allVendors) do
-        local portal = vendor.portal
-        if portal and portal.mapID == mapID then
-            -- HS-022: a hidden vendor must not leave an orphaned portal badge.
-            if not ShouldHideVendor(vendor) and not ShouldHideCompletedVendorPin(vendor, sourceFilter) then
-                renderState.portalBadges[#renderState.portalBadges + 1] = {
-                    portalData = { vendor = vendor },
-                    mapID = portal.mapID,
-                    x = portal.x,
-                    y = portal.y,
-                    reason = "same_map",
-                }
-            end
-        end
-    end
+    return HA.BadgeEmission:EmitPortalBadges(mapID, renderState)
 end
 
 function VendorMapPins:ShowZoneBadges(continentMapID, renderState)
-    local sourceFilter = GetActiveSourceFilter()
-    local zoneCounts = self:GetZoneVendorCounts(continentMapID, sourceFilter)
-
-    for zoneMapID, zoneData in pairs(zoneCounts) do
-        if zoneData.vendorCount > 0 then
-            local ok, x, y, reason = MPP:ProjectZoneBadgeToContinentView(continentMapID, zoneMapID)
-            if ok then
-                renderState.zoneBadges[#renderState.zoneBadges + 1] = {
-                    badgeData = BuildBadgeData(zoneMapID, zoneData.zoneName, zoneData),
-                    mapID = zoneMapID,
-                    x = x,
-                    y = y,
-                    reason = reason,
-                }
-            else
-                DebugWorldMapProjectionSkip("zone_badge", zoneMapID, continentMapID, reason)
-            end
-        end
-    end
-
-    -- Show individual zone badges for continents that merge into this one
-    -- (e.g. Argus zones shown on the Broken Isles continent map)
-    for srcContinentID, destContinentID in pairs(MPP.continentMergesInto) do
-        if destContinentID == continentMapID then
-            local mergedZones = self:GetZoneVendorCounts(srcContinentID, sourceFilter)
-            for zoneMapID, zoneData in pairs(mergedZones) do
-                if zoneData.vendorCount > 0 then
-                    local ok, x, y, reason = MPP:ProjectZoneBadgeToContinentView(continentMapID, zoneMapID)
-                    if ok then
-                        renderState.zoneBadges[#renderState.zoneBadges + 1] = {
-                            badgeData = BuildBadgeData(zoneMapID, zoneData.zoneName, zoneData),
-                            mapID = zoneMapID,
-                            x = x,
-                            y = y,
-                            reason = reason,
-                        }
-                    else
-                        DebugWorldMapProjectionSkip("merged_zone_badge", zoneMapID, continentMapID, reason)
-                    end
-                end
-            end
-        end
-    end
-
-    -- Show designated child-continent zone badges on this continent map.
-    -- Example: Midnight/Quel'Thalas zones on Eastern Kingdoms.
-    for srcContinentID, destContinentID in pairs(MPP.continentZoneBadgesOnParent or {}) do
-        if destContinentID == continentMapID then
-            local excludedBySource = MPP.continentZoneBadgeExclusionsOnParent
-                and MPP.continentZoneBadgeExclusionsOnParent[srcContinentID]
-            local excludedForDest = excludedBySource and excludedBySource[continentMapID]
-            local sourceZones = self:GetZoneVendorCounts(srcContinentID, sourceFilter)
-            for zoneMapID, zoneData in pairs(sourceZones) do
-                local isExcluded = excludedForDest and excludedForDest[zoneMapID]
-                if zoneData.vendorCount > 0 and not isExcluded then
-                    local ok, x, y, reason = MPP:ProjectZoneBadgeToContinentView(continentMapID, zoneMapID)
-                    if ok then
-                        renderState.zoneBadges[#renderState.zoneBadges + 1] = {
-                            badgeData = BuildBadgeData(zoneMapID, zoneData.zoneName, zoneData),
-                            mapID = zoneMapID,
-                            x = x,
-                            y = y,
-                            reason = reason,
-                        }
-                    else
-                        DebugWorldMapProjectionSkip("overlay_zone_badge", zoneMapID, continentMapID, reason)
-                    end
-                end
-            end
-        end
-    end
-
+    return HA.BadgeEmission:ShowZoneBadges(continentMapID, renderState)
 end
-function VendorMapPins:ShowZoneBadgesOnWorldMap(renderState)
-    local sourceFilter = GetActiveSourceFilter()
-    local continentCounts = self:GetContinentVendorCounts(sourceFilter)
 
-    for continentMapID, continentData in pairs(continentCounts) do
-        if continentData.vendorCount > 0 then
-            local projectedContinent = MPP.offWorldContinentPositions[continentMapID]
-            if projectedContinent then
-                local badgeData = {
-                    mapID = continentMapID,
-                    zoneName = continentData.continentName,
-                    vendorCount = continentData.vendorCount,
-                    uncollectedCount = continentData.uncollectedCount,
-                    unknownCount = continentData.unknownCount,
-                    oppositeFactionCount = continentData.oppositeFactionCount,
-                    collectedItems = continentData.collectedItems,
-                    totalItems = continentData.totalItems,
-                    lockedItems = continentData.lockedItems,
-                    unverifiedItems = continentData.unverifiedItems,
-                }
-                renderState.continentBadges[#renderState.continentBadges + 1] = {
-                    badgeData = badgeData,
-                    mapID = continentMapID,
-                    x = projectedContinent.x,
-                    y = projectedContinent.y,
-                    reason = "manual_continent_position",
-                }
-            elseif not MPP.excludedContinents[continentMapID] then
-                local zoneCounts = self:GetZoneVendorCounts(continentMapID, sourceFilter)
-                for zoneMapID, zoneData in pairs(zoneCounts) do
-                    if zoneData.vendorCount > 0 then
-                        local ok, x, y, reason = MPP:ProjectZoneBadgeToWorldView(zoneMapID)
-                        if ok then
-                            renderState.zoneBadges[#renderState.zoneBadges + 1] = {
-                                badgeData = BuildBadgeData(zoneMapID, zoneData.zoneName, zoneData),
-                                mapID = zoneMapID,
-                                x = x,
-                                y = y,
-                                reason = reason,
-                            }
-                        else
-                            DebugWorldMapProjectionSkip("world_zone_badge", zoneMapID, 947, reason)
-                        end
-                    end
-                end
-            end
-        end
-    end
+function VendorMapPins:ShowZoneBadgesOnWorldMap(renderState)
+    return HA.BadgeEmission:ShowZoneBadgesOnWorldMap(renderState)
 end
 
 function VendorMapPins:ShowContinentBadges(renderState)
-    -- Toggle: zone-level badges spread across continents vs single continent totals
-    if HA.Addon and HA.Addon.db and HA.Addon.db.profile.vendorTracer.worldMapZoneBadges then
-        self:ShowZoneBadgesOnWorldMap(renderState)
-        return
-    end
-
-    local continentCounts = self:GetContinentVendorCounts(GetActiveSourceFilter())
-
-    for continentMapID, continentData in pairs(continentCounts) do
-        if continentData.vendorCount > 0 then
-            if not MPP.excludedContinents[continentMapID] then
-                local badgeData = {
-                    mapID = continentMapID,
-                    zoneName = continentData.continentName,
-                    vendorCount = continentData.vendorCount,
-                    uncollectedCount = continentData.uncollectedCount,
-                    unknownCount = continentData.unknownCount,
-                    oppositeFactionCount = continentData.oppositeFactionCount,
-                    collectedItems = continentData.collectedItems,
-                    totalItems = continentData.totalItems,
-                    lockedItems = continentData.lockedItems,
-                    unverifiedItems = continentData.unverifiedItems,
-                }
-
-                local ok, x, y, reason = MPP:ProjectContinentBadgeToWorldView(continentMapID)
-                if ok then
-                    renderState.continentBadges[#renderState.continentBadges + 1] = {
-                        badgeData = badgeData,
-                        mapID = continentMapID,
-                        x = x,
-                        y = y,
-                        reason = reason,
-                    }
-                else
-                    DebugWorldMapProjectionSkip("continent_badge", continentMapID, 947, reason)
-                end
-            end
-        end
-    end
+    return HA.BadgeEmission:ShowContinentBadges(renderState)
 end
 
 -------------------------------------------------------------------------------
