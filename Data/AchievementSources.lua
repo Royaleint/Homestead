@@ -1,7 +1,7 @@
 --[[
     Homestead - AchievementSources
-    Generated: 2026-06-12 23:37:36
-    Total entries: 263
+    Generated: 2026-08-18 22:24:20
+    Total entries: 309
 
     Achievement source data for housing decor items.
     Regenerate with: python Home_Dev/scripts/generate_source_tables.py --table achievement
@@ -15,9 +15,22 @@ local AchievementSources = {}
 
 local sourceData = {
     -- Midnight
+    [244656] = {achievementID = 62185, achievementName = "Ever Painting", category = "Midnight"},
     [251325] = {achievementID = 62289, achievementName = "Zul'Aman: The Highest Peaks", category = "Midnight"},
     [251909] = {achievementID = 62186, achievementName = "The Party Must Go On", category = "Midnight"},
+    [254773] = {achievementID = 62288, achievementName = "Eversong Woods: The Highest Peaks", category = "Midnight"},
     [255573] = {achievementID = 62122, achievementName = "Tallest Tree in the Forest", category = "Midnight"},
+    [256925] = {achievementID = 62289, achievementName = "Zul'Aman: The Highest Peaks", category = "Midnight"},
+    [257367] = {achievementID = 61507, achievementName = "A Bloody Song", category = "Midnight"},
+    [264259] = {achievementID = 61574, achievementName = "Legends Never Die", category = "Midnight"},
+    [264266] = {achievementID = 61264, achievementName = "Leaf None Behind", category = "Midnight"},
+    [264335] = {achievementID = 62122, achievementName = "Tallest Tree in the Forest", category = "Midnight"},
+    [264493] = {achievementID = 62130, achievementName = "The Ultimate Predator", category = "Midnight"},
+    [264656] = {achievementID = 62291, achievementName = "Voidstorm: The Highest Peaks", category = "Midnight"},
+    [265792] = {achievementID = 62290, achievementName = "Harandar: The Highest Peaks", category = "Midnight"},
+
+    -- Void Assaults
+    [276083] = {achievementID = 63325, achievementName = "Omnium Folio Studies", category = "Void Assaults"},
 
     -- War Within
     [245324] = {achievementID = 40894, achievementName = "Sojourner of Undermine", category = "War Within"},
@@ -215,6 +228,38 @@ local sourceData = {
     [258858] = {achievementID = 42187, achievementName = "Lorewalking: Ethereal Wisdom", category = "Lorewalking"},
     [258859] = {achievementID = 42188, achievementName = "Lorewalking: Blade's Bane", category = "Lorewalking"},
     [258860] = {achievementID = 42189, achievementName = "Lorewalking: The Lich King", category = "Lorewalking"},
+    [271971] = {achievementID = 61442, achievementName = "Lorewalking: The Loa", category = "Lorewalking"},
+
+    -- Prey
+    [265681] = {achievementID = 62167, achievementName = "Prey: Mad Magisters (Nightmare)", category = "Prey"},
+    [265682] = {achievementID = 62168, achievementName = "Prey: Insane Inventors (Nightmare)", category = "Prey"},
+    [265683] = {achievementID = 62173, achievementName = "Prey: Ethereal Assassins (Nightmare)", category = "Prey"},
+    [265685] = {achievementID = 62175, achievementName = "Prey: Sadistic Shamans (Nightmare)", category = "Prey"},
+    [265686] = {achievementID = 62177, achievementName = "Prey: Bloody Green Thumbs (Nightmare)", category = "Prey"},
+    [265687] = {achievementID = 62178, achievementName = "Prey: Blinded By The Light (Nightmare)", category = "Prey"},
+    [265688] = {achievementID = 62179, achievementName = "Prey: Outsmarting the Schemers (Nightmare)", category = "Prey"},
+    [265689] = {achievementID = 62180, achievementName = "Prey: Dominating the Void (Nightmare)", category = "Prey"},
+    [265690] = {achievementID = 62181, achievementName = "Prey: Chasing Death (Nightmare)", category = "Prey"},
+    [265691] = {achievementID = 62182, achievementName = "Prey: No Rest for the Wretched (Nightmare)", category = "Prey"},
+    [265692] = {achievementID = 62183, achievementName = "Prey: A Thorn in the Side (Nightmare)", category = "Prey"},
+    [265694] = {achievementID = 62184, achievementName = "Prey: Breaking the Blade (Nightmare)", category = "Prey"},
+    [265696] = {achievementID = 62144, achievementName = "Prey: Mad Magisters (Hard)", category = "Prey"},
+    [265697] = {achievementID = 62153, achievementName = "Prey: Insane Inventors (Hard)", category = "Prey"},
+    [265698] = {achievementID = 62155, achievementName = "Prey: Ethereal Assassins (Hard)", category = "Prey"},
+    [265699] = {achievementID = 62156, achievementName = "Prey: Anger Management (Hard)", category = "Prey"},
+    [265700] = {achievementID = 62157, achievementName = "Prey: Sadistic Shamans (Hard)", category = "Prey"},
+    [265701] = {achievementID = 62159, achievementName = "Prey: Bloody Green Thumbs (Hard)", category = "Prey"},
+    [265702] = {achievementID = 62160, achievementName = "Prey: Blinded By The Light (Hard)", category = "Prey"},
+    [265703] = {achievementID = 62161, achievementName = "Prey: Outsmarting the Schemers (Hard)", category = "Prey"},
+    [265704] = {achievementID = 62162, achievementName = "Prey: Dominating the Void (Hard)", category = "Prey"},
+    [265705] = {achievementID = 62163, achievementName = "Prey: Chasing Death (Hard)", category = "Prey"},
+    [265706] = {achievementID = 62164, achievementName = "Prey: No Rest for the Wretched (Hard)", category = "Prey"},
+    [265707] = {achievementID = 62165, achievementName = "Prey: A Thorn in the Side (Hard)", category = "Prey"},
+    [265708] = {achievementID = 62166, achievementName = "Prey: Breaking the Blade (Hard)", category = "Prey"},
+    [265796] = {achievementID = 62169, achievementName = "Prey: A Different Kind of Void (Nightmare)", category = "Prey"},
+    [265797] = {achievementID = 62176, achievementName = "Prey: The Fallen Farstriders (Nightmare)", category = "Prey"},
+    [265798] = {achievementID = 62154, achievementName = "Prey: A Different Kind of Void (Hard)", category = "Prey"},
+    [265799] = {achievementID = 62158, achievementName = "Prey: The Fallen Farstriders (Hard)", category = "Prey"},
 
     -- Professions
     [241191] = {achievementID = 12733, achievementName = "Professional Zandalari Master", category = "Professions"},
@@ -300,7 +345,6 @@ local sourceData = {
     [243890] = {achievementID = 40612, achievementName = "Sprinting in the Ravine", category = "Deephaul Ravine"},
     [247750] = {achievementID = 40612, achievementName = "Sprinting in the Ravine", category = "Deephaul Ravine"},
     [249200] = {achievementID = 40210, achievementName = "Deephaul Ravine Victory", category = "Deephaul Ravine"},
-    [253170] = {achievementID = 40210, achievementName = "Deephaul Ravine Victory", category = "Deephaul Ravine"},
 
     -- Eye of the Storm
     [243899] = {achievementID = 212, achievementName = "Storm Capper", category = "Eye of the Storm"},
@@ -315,6 +359,12 @@ local sourceData = {
     [247744] = {achievementID = 231, achievementName = "Wrecking Ball", category = "Player vs. Player"},
     [247745] = {achievementID = 229, achievementName = "The Grim Reaper", category = "Player vs. Player"},
     [247756] = {achievementID = 1157, achievementName = "Duel-icious", category = "Player vs. Player"},
+    [247763] = {achievementID = 61683, achievementName = "Entering Battle", category = "Player vs. Player"},
+    [247765] = {achievementID = 61687, achievementName = "Champion in Battle", category = "Player vs. Player"},
+    [247766] = {achievementID = 61688, achievementName = "Master in Battle", category = "Player vs. Player"},
+    [247768] = {achievementID = 61684, achievementName = "Progressing in Battle", category = "Player vs. Player"},
+    [247769] = {achievementID = 61685, achievementName = "Proficient in Battle", category = "Player vs. Player"},
+    [247770] = {achievementID = 61686, achievementName = "Expert in Battle", category = "Player vs. Player"},
     [267354] = {achievementID = 61683, achievementName = "Entering Battle", category = "Player vs. Player"},
     [267355] = {achievementID = 61684, achievementName = "Progressing in Battle", category = "Player vs. Player"},
     [267356] = {achievementID = 61685, achievementName = "Proficient in Battle", category = "Player vs. Player"},
@@ -355,6 +405,7 @@ local CATEGORY_EXPANSION = {
     ["Prey"]             = "The War Within",
     -- Midnight
     ["Midnight"]         = "Midnight",
+    ["Void Assaults"]    = "Midnight",
     -- Dragonflight
     ["Dragonflight"]     = "Dragonflight",
     ["Dragon Isles"]     = "Dragonflight",
