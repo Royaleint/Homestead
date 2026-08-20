@@ -145,7 +145,10 @@ local ScanHA = {
         BuildScannedIndex = function() end,
         InvalidateVendorCaches = function() end,
     },
-    CatalogStore = { SetRequirements = function() end, Save = function() end },
+    CatalogStore = {
+        SetRequirements = function() end, Save = function() end,
+        BeginBatch = function() end, EndBatch = function() end,
+    },
     Events = { Fire = function() end },
     DevAddon = true,
 }

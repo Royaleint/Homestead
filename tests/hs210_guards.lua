@@ -35,6 +35,14 @@ Enum = {
 -- decor items than the existing record is rejected unless it's confirmed.
 -------------------------------------------------------------------------------
 
+-- HS-092 pin: count BeginBatch/EndBatch/Save calls directly rather than
+-- reimplementing CatalogStore's real event-firing semantics in this mock.
+-- Asserting BeginBatch/EndBatch each fire exactly once per SaveVendorData
+-- call (never 0 — the wrap removed; never N — the wrap moved inside the
+-- loop by mistake) pins the same invariant a fire-count assertion would,
+-- without coupling this test to CatalogStore's internal batching contract.
+local batchCallCounts = { BeginBatch = 0, EndBatch = 0, Save = 0 }
+
 local ScanHA = {
     Addon = {
         db = { global = {} },
@@ -47,7 +55,9 @@ local ScanHA = {
     },
     CatalogStore = {
         SetRequirements = function() end,
-        Save = function() end,
+        Save = function() batchCallCounts.Save = batchCallCounts.Save + 1 end,
+        BeginBatch = function() batchCallCounts.BeginBatch = batchCallCounts.BeginBatch + 1 end,
+        EndBatch = function() batchCallCounts.EndBatch = batchCallCounts.EndBatch + 1 end,
     },
     Events = {
         Fire = function() end,
@@ -83,6 +93,17 @@ ScanHA.ScanPersistence:SaveVendorData({
     scanComplete = true,
     hadNilSlots = false,
 })
+
+-- HS-092: the per-item CatalogStore writes (3 decor items, each with a
+-- decorID, so Save fires 3 times) must be bracketed by exactly one
+-- BeginBatch/EndBatch pair — not zero (the wrap removed) and not 3 (the
+-- wrap moved inside the loop). This is what pins the fix: a mutation that
+-- removes or misplaces the wrap flips these counts and fails here.
+assert(batchCallCounts.Save == 3, "expected 3 CatalogStore:Save calls for 3 decorID-bearing items")
+assert(batchCallCounts.BeginBatch == 1,
+    "expected exactly one BeginBatch for the whole vendor scan, not one per item or zero")
+assert(batchCallCounts.EndBatch == 1,
+    "expected exactly one EndBatch for the whole vendor scan, not one per item or zero")
 
 local stored = ScanHA.Addon.db.global.scannedVendors[8001]
 assert(stored ~= nil, "expected the first (confirmed) scan to persist")

@@ -391,6 +391,11 @@ function ScanPersistence:SaveVendorData(scanData)
     -- argument on the VENDOR_SCANNED fire below instead.
     local hadRequirementDiscovery = false
     if HA.CatalogStore then
+        -- HS-092: a vendor with several requirement-bearing decor items was
+        -- firing CATALOG_ITEM_UPDATED once per item on every ordinary vendor
+        -- scan instead of once per scan. BeginBatch/EndBatch suppresses the
+        -- per-item fires the same way CatalogScanner's own ProcessBatch does.
+        HA.CatalogStore:BeginBatch()
         for _, item in ipairs(vendorRecord.items) do
             -- Containment: never create a catalogItems record for a non-decor
             -- housing item. CatalogStore:IsDecorItem gate 1 keys off catalog
@@ -412,6 +417,7 @@ function ScanPersistence:SaveVendorData(scanData)
                 end
             end
         end
+        HA.CatalogStore:EndBatch()
     end
 
     -- Track vendor scan
