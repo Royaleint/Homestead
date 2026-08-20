@@ -31,6 +31,10 @@ ignore:
   # never download the dead weight.
   - Core/MemoryEstimator.lua
   - Core/DevMemoryDiagnostics.lua
+  # HS-351/HS-284: the test suite (plain Lua harnesses invoked outside the
+  # TOC, never loaded in-game) was shipping to every player who downloaded a
+  # release zip -- no ignore entry existed for it at all.
+  - tests
 
 # CF-only upload metadata: the packager sends this as a CurseForge relation
 # when a CF project id is active. Wago's upload API has no dependency field,
