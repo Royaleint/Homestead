@@ -63,7 +63,7 @@ local loginForceLoadPendingCombat = false
 -- that never ran can never mark an event as forced) and consumed
 -- unconditionally by the next HOUSING_STORAGE_UPDATED, so it cannot latch on.
 local loginForcedStorageEventPending = false
-local LOGIN_FORCE_LOAD_DELAY = 5 -- seconds; settle past loading-screen noise. Gate-2-tunable.
+local LOGIN_FORCE_LOAD_DELAY = 5 -- seconds; settle past loading-screen noise. Tunable after live testing.
 -- Write-only by design: its only job is to hold a reference, never to be read.
 local pendingSearcher = nil -- luacheck: ignore 231
 
@@ -417,7 +417,7 @@ end
 -------------------------------------------------------------------------------
 
 -- Shared warm-latch check. Sole caller is the HOUSING_STORAGE_UPDATED handler
--- below (HS-276 Gate 2, cycle 2: an earlier draft also called this from the
+-- below (HS-276: an earlier draft also called this from the
 -- login-force-load path off a speculative pre-check; that path was removed
 -- entirely -- see RunLoginStorageForceLoad's own comment -- so this is once
 -- again the single latch site it was under HS-273). Body is copied VERBATIM
@@ -453,7 +453,7 @@ local function TryLatchWarmFromCounts()
 
     -- HS-273 R1: dataLoaded's own false->true edge is a true-warm signal
     -- in its own right, on top of storageResponded below — keeps the
-    -- re-warm-on-true-warm requirement (Gate 0 finding 2) covered even
+    -- re-warm-on-true-warm requirement covered even
     -- for a session where dataLoaded latches without storageResponded
     -- ever firing (e.g. GetDecorMaxOwnedCount unavailable this build).
     if dataLoaded and not dataLoadedBefore and HA.Events then
@@ -478,7 +478,7 @@ local function TryLatchWarmFromCounts()
 
     -- HS-276: storage has now answered -- release the GC-insurance hold (if
     -- any) on a pending login-force-load searcher object. A searcher is held
-    -- on EVERY login (Gate 2, cycle 2: the pre-check that used to skip it was
+    -- on EVERY login (an earlier pre-check that used to skip it was
     -- removed), so this function's own latch here is exactly what proves the
     -- HOUSING_STORAGE_UPDATED that searcher's RunSearch() forced has now
     -- dispatched -- this IS that event's handler. Gated on EITHER flag:
@@ -541,7 +541,7 @@ local function SetupEventScanning()
         else
             if event == "HOUSING_STORAGE_UPDATED" then
                 -- HS-276: latch logic lives in the shared TryLatchWarmFromCounts()
-                -- (see above) -- this is its sole caller (Gate 2, cycle 2). This
+                -- (see above) -- this is its sole caller. This
                 -- handler still requests a scan below, subject only to the
                 -- zero-decor gate immediately after.
                 TryLatchWarmFromCounts()
@@ -585,8 +585,8 @@ end
 
 -- HS-276: one-shot login force-load. Runs the actual force-load attempt --
 -- unconditionally calls CreateCatalogSearcher():RunSearch() to force housing
--- storage to load with no housing UI ever opened (HS-273 Gate 2 searcher
--- probe finding), whether or not storage already looks warm (Gate 2, see
+-- storage to load with no housing UI ever opened (HS-273 searcher-probe
+-- finding), whether or not storage already looks warm (see
 -- below for why no pre-check short-circuits this). Reschedules itself past
 -- combat rather than firing into it, matching the established project
 -- convention (UI/BadgeCalculation.lua's ProcessBatch combat-retry).
@@ -604,10 +604,10 @@ local function RunLoginStorageForceLoad()
         return
     end
 
-    -- No pre-check short-circuit (HS-276 Gate 2, second finding): an earlier
+    -- No pre-check short-circuit (HS-276, second finding): an earlier
     -- draft skipped the searcher here whenever GetDecorTotalOwnedCount/
     -- GetDecorMaxOwnedCount already read nonzero, treating that as proof
-    -- storage was fully warm. Gate 2 testing proved that's false -- those
+    -- storage was fully warm. Live testing proved that's false -- those
     -- aggregate counters can read nonzero while GetCatalogEntryInfoByItem is
     -- still stale-0 (a warm /reload reproduced this: Owned read 995 right
     -- after a cold login, then 0 on the very next reload), and confirmed
@@ -697,7 +697,7 @@ function CatalogScanner:IsWarm()
     return dataLoaded
 end
 
--- HS-273 (Gate 1 closure): whether storage answered AT ALL this session —
+-- HS-273 (closure note): whether storage answered AT ALL this session —
 -- the weak half of R1's two-flag split, exposed for consumers that need to
 -- distinguish "storage answered and the live total is zero" (a zero-decor
 -- player's CONFIRMED-true zero) from "storage never answered" (unknown).

@@ -320,7 +320,7 @@ EndeavorsData.Vendors = {
     -- 12.1.0.69189, scanConfidence: confirmed). Griftah has confirmed
     -- altMapID/altX/altY (real PTR scans placed him in both neighborhoods);
     -- the other 3 do not yet -- their alternate-neighborhood rotation has not
-    -- been observed. First live sightings should confirm coords (Gate 2).
+    -- been observed. First live sightings should confirm coords (not yet verified in-game).
     -- =========================================================================
 
     -- Amani theme

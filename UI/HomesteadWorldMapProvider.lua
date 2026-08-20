@@ -70,8 +70,8 @@ local watcherStats = {
     resized = 0,
     zoomChanged = 0,
     deferredRefreshes = 0,
-    -- HS-234 cycle 1 SUGGESTION: settled refreshes get their own counter
-    -- rather than sharing deferredRefreshes, so Gate 2 can read how many
+    -- HS-234 (SUGGESTION): settled refreshes get their own counter
+    -- rather than sharing deferredRefreshes, so live testing can read how many
     -- transition-triggered refreshes actually happened post-settle
     -- (distinct from watcher_opened's same-frame deferredRefreshes) when
     -- tuning WATCHER_SETTLE_DELAY.
@@ -309,7 +309,7 @@ local EJ_DROP_PIN_OFFSET_PIXELS = 10
 -- HS-348: shared predicate for "this entry is an EJ-anchored drop pin" —
 -- used to apply the fixed EJ_DROP_PIN_OFFSET_PIXELS offset
 -- (GetEjDropPinIconOffset below) and, in ApplyAreaPoiDodge, to skip the POI
--- dodge entirely for these entries (Rawb ruling 2026-08-18: the fixed offset
+-- dodge entirely for these entries (ruling 2026-08-18: the fixed offset
 -- owns placement alone, see ApplyAreaPoiDodge).
 local function IsEjAnchoredDropPin(entry)
     return entry.sourceType == "drop"
@@ -459,10 +459,10 @@ local function ApplyAreaPoiDodge(entry, x, y)
         return x, y
     end
 
-    -- HS-348 (Rawb ruling 2026-08-18): an EJ-anchored drop pin is placed by
+    -- HS-348 (ruling 2026-08-18): an EJ-anchored drop pin is placed by
     -- the fixed EJ_DROP_PIN_OFFSET_PIXELS offset alone (GetEjDropPinIconOffset
     -- below) -- letting the POI dodge also fire stacked a random-direction
-    -- nudge on top of that deliberate, Gate-2-cleared offset.
+    -- nudge on top of that deliberate, tested-and-cleared offset.
     if IsEjAnchoredDropPin(entry) then
         return x, y
     end
@@ -566,7 +566,7 @@ end
 -- HS-274: pins hold GetEntryDisplayScale's base size at min zoom and grow
 -- toward PIN_ZOOM_GROWTH_MAX as the canvas zooms in, matching Blizzard's own
 -- pin growth feel (MapCanvasPinMixin:ApplyCurrentScale's Lerp shape) instead
--- of a flat size. Both constants are a Gate-2-tunable design choice, not a
+-- of a flat size. Both constants are a tunable design choice, not a
 -- mechanism -- safe to retune without re-review.
 local PIN_ZOOM_GROWTH_MAX = 1.5
 local PIN_ZOOM_SCALE_FACTOR = 1.0
@@ -635,7 +635,7 @@ end
 -- user action) — the extra ~100ms of margin against real click cadences
 -- costs nothing perceptible for the single-deliberate-transition case,
 -- where it's still well under human-perceptible "did that lag" territory.
--- Gate 2 can tune this down if 0.15s is shown to settle spam reliably.
+-- Live testing can tune this down if 0.15s is shown to settle spam reliably.
 local WATCHER_SETTLE_DELAY = 0.25
 
 -- Perf: hoisted out of RequestSettledRefresh so re-scheduling (Cancel +
@@ -1173,19 +1173,19 @@ end
 -- case: the default style/faction/source-type bucket every kind resolves
 -- to before any player style customization.
 --
--- Floor sizes are density-derived (HS-271 Gate 0): 16 vendor (Razorwind
+-- Floor sizes are density-derived (HS-271): 16 vendor (Razorwind
 -- Shores, the densest zone), 10 badge (continent zone-badge view), 6 source
 -- (drop pins -- the only populated non-vendor source type today). Only the
 -- DEFAULT bucket is pre-built -- a mid-session pin-style change before first
 -- open still pays its own CreateFrame cost for that combination (accepted
--- scope boundary, Plan Gate 1 item 1: the floor is a floor, not a guarantee
+-- scope boundary, noted in planning: the floor is a floor, not a guarantee
 -- for every style combination).
 --
--- No portal floor (Gate 1 cycle 1: removed entirely, not sized to 0 as a
+-- No portal floor (removed entirely, not sized to 0 as a
 -- count — GetPortalFramePoolKey's synthetic empty portalData never matches
 -- a REAL portal acquire's key (class-keyed off vendor.class), and portal
 -- pins don't appear on the freeze-class dense maps this item targets — a
--- floor that can never be drawn from is dead weight, not a floor.
+-- floor that can never be drawn from is dead weight, not a floor).
 --
 -- Frames are pushed straight into the pool via ReleasePooledFrame (never
 -- rendered) -- this reuses the SAME pool-key functions and CreateFrame
@@ -1263,7 +1263,7 @@ function Provider:PrewarmPoolFloor()
             local poolKey, pool, createFunc = BuildPoolFloorJob(kind)
             local frame = createFunc()
             if kind == "vendor" then
-                -- HS-271 Gate 1 cycle 1 nit: CreateVendorPinFrame's own
+                -- HS-271 (nit): CreateVendorPinFrame's own
                 -- RefreshVendorPinCount call (for the synthetic {} vendor
                 -- above) is a double miss by construction (no npcID) and
                 -- sets hsStatsPending=true — harmless (RequestPrewarm is

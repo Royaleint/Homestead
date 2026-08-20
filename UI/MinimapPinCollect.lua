@@ -97,7 +97,7 @@ function MinimapPinCollect:RefreshMinimapPins()
 
     -- HS-271 item 4: workload is playerMapID, already read/validated above --
     -- no new scan added to feed this call. Minimap-refresh cost was
-    -- previously unmeasured (HS-270 Gate 3 Q1 open item); this is its peer
+    -- previously unmeasured (HS-270, open item); this is its peer
     -- boundary to world_map_refresh/world_map_build for the movement capture.
     HA.PerformanceTrace:Measure("minimap_refresh", playerMapID, function()
         local showElevationArrows = HA.Addon.db.profile.vendorTracer.showElevationArrows ~= false

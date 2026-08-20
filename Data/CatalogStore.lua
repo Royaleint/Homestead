@@ -951,7 +951,7 @@ function CatalogStore:Initialize()
     end
 end
 
--- HS-273 R3 (predicate corrected at Gate 1 closure): whether the persistent
+-- HS-273 R3 (predicate corrected in review): whether the persistent
 -- cache holds an OWNERSHIP SIGNAL worth computing badge stats from. Record
 -- presence is not that signal: a cold full scan writes name-only records for
 -- every item ("Checked: 1624 Owned: 0", HS-216), and the /hs clear-ownership

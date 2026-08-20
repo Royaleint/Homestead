@@ -2170,7 +2170,7 @@ VendorDatabase.Vendors = {
 	-- the schema has no way to say "or" (HS-340). VendorOffers.lua deliberately
 	-- ships the coupon-only row: carrying both would render "500g + 30 Community
 	-- Coupons" through VendorData.FormatCost, which is false, and that override was
-	-- written once and REJECTED at Gate 1. The offers generator's cost-drift report
+	-- written once and rejected in review. The offers generator's cost-drift report
 	-- will list this pair as "seed knows a payment option the shipped row lacks" --
 	-- that report is correct about the values and WRONG about the remedy here. Do
 	-- not add the override back; fix the schema instead.
@@ -2353,7 +2353,7 @@ VendorDatabase.Vendors = {
         scanConfirmed = "2026-06-27",
         items = {{245327, cost = {gold = 500000}}, {245328, cost = {gold = 250000}}, {245329, cost = {gold = 250000}}, {245369, cost = {gold = 250000}}, {245371, cost = {gold = 750000}}, {245658, cost = {gold = 100000}}, {245659, cost = {gold = 100000}}, {245660, cost = {gold = 100000}}, {245661, cost = {gold = 100000}}, {248337, cost = {gold = 500000}}, {248338, cost = {gold = 500000}}, {248339, cost = {gold = 500000}}, {248635, cost = {gold = 250000}}, {248639, cost = {gold = 250000}}, {248640, cost = {gold = 250000}}, {248641, cost = {gold = 250000}}, {248642, cost = {gold = 500000}}, {248643, cost = {gold = 1250000}}, {248644, cost = {gold = 250000}}, {248645, cost = {gold = 250000}}, {248646, cost = {gold = 500000}}, {248647, cost = {gold = 100000}}, {248648, cost = {gold = 500000}}, {248649, cost = {gold = 1250000}}, {248802, cost = {gold = 100000}}, {248803, cost = {gold = 250000}}, {248811, cost = {gold = 100000}}, {255644, cost = {gold = 1500000}}, {255646, cost = {gold = 1500000}}, {258658, cost = {gold = 1500000}}, {258659, cost = {gold = 1500000}}, {266239, cost = {gold = 1500000}}, {266240, cost = {gold = 1500000}}, {266241, cost = {gold = 1500000}}, {266242, cost = {gold = 1500000}}, {266243, cost = {gold = 1500000}}, {266244, cost = {gold = 750000}}, {266245, cost = {gold = 750000}}, {266443, cost = {gold = 750000}}, {266444, cost = {gold = 500000}}, {245298, cost = {gold = 250000}}, {245299, cost = {gold = 250000}}, {245300, cost = {gold = 250000}}},
     },
-	-- 244778 flagged for Rawb: absent from 3 independent real PTR scans
+	-- 244778 flagged for owner decision: absent from 3 independent real PTR scans
 	-- (2026-08-09 build 69189, 2026-08-11 build 69214 x2) across both
 	-- "High Tides" Ren entries (this one and 255325, her Razorwind Shores
 	-- counterpart, same item at the same price). Left in place pending a
@@ -2459,7 +2459,7 @@ VendorDatabase.Vendors = {
         scanConfirmed = "2026-07-07",
         items = {{245327, cost = {gold = 500000}}, {245328, cost = {gold = 250000}}, {245329, cost = {gold = 250000}}, {245369, cost = {gold = 250000}}, {245371, cost = {gold = 750000}}, {245658, cost = {gold = 100000}}, {245659, cost = {gold = 100000}}, {245660, cost = {gold = 100000}}, {245661, cost = {gold = 100000}}, {248635, cost = {gold = 250000}}, {248639, cost = {gold = 250000}}, {248640, cost = {gold = 250000}}, {248641, cost = {gold = 250000}}, {248642, cost = {gold = 500000}}, {248643, cost = {gold = 1250000}}, {248644, cost = {gold = 250000}}, {248645, cost = {gold = 250000}}, {248646, cost = {gold = 500000}}, {248647, cost = {gold = 100000}}, {248648, cost = {gold = 500000}}, {248649, cost = {gold = 1250000}}, {248802, cost = {gold = 100000}}, {248803, cost = {gold = 250000}}, {248811, cost = {gold = 100000}}, {255644, cost = {gold = 1500000}}, {255646, cost = {gold = 1500000}}, {258658, cost = {gold = 1500000}}, {258659, cost = {gold = 1500000}}, {266239, cost = {gold = 1500000}}, {266240, cost = {gold = 1500000}}, {266241, cost = {gold = 1500000}}, {266242, cost = {gold = 1500000}}, {266243, cost = {gold = 1500000}}, {245298, cost = {gold = 250000}}, {245299, cost = {gold = 250000}}, {245300, cost = {gold = 250000}}},
     },
-	-- 244778 flagged for Rawb: absent from 3 independent real PTR scans
+	-- 244778 flagged for owner decision: absent from 3 independent real PTR scans
 	-- (2026-08-09 build 69189, 2026-08-11 build 69214 x2) -- see 255222
 	-- (her Founder's Point counterpart, same item at the same price).
 	[255325] = {

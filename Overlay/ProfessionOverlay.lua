@@ -8,7 +8,7 @@
     Blizzard's own Professions frame (Apple method).
 
     Smart filter (HS-075, absorbed; HS-024 Rev-2 "can craft" = learned +
-    craftable-now per Rawb) — a row badges iff:
+    craftable-now) — a row badges iff:
       1. recipeID resolves to a known décor item (ResolveDecorForRecipe), AND
       2. the player can craft it now — read from the row's own recipeInfo
          (node:GetData().recipeInfo), ZERO extra C calls:
@@ -24,7 +24,7 @@
          (cache-only on the hot path — IsOwnedFresh is reserved for the
           bounded window-open reconcile, never the per-Init path).
 
-    Hook strategy (Gate 0, in-game verified 2026-06-05 via /hsdev recipespike):
+    Hook strategy (in-game verified 2026-06-05 via /hsdev recipespike):
     post-hook hooksecurefunc(ProfessionsRecipeListRecipeMixin, "Init", handler).
     Fires per recipe row per recycle. recipeInfo via node:GetData().recipeInfo
     (Init path) — Blizzard_ProfessionsRecipeList.lua:237-241 reads learned from
@@ -56,9 +56,9 @@ HA.ProfessionOverlay = M
 -- Badge: a dedicated, tightly-cropped Homestead house texture
 -- (Textures/HomesteadProfBadge) — the mockup house art with the minimap-button
 -- padding removed so the house fills the badge. Chosen over the catalog's
--- profession source-type glyph for recognizability (Gate-2, Rawb 2026-06-05; the
+-- profession source-type glyph for recognizability (design decision, 2026-06-05; the
 -- catalog overlay keeps its glyph). Placed on the LEFT, just before the recipe
--- name (Gate-2, Rawb 2026-06-05) — anchored to the Label so it tracks the name
+-- name (design decision, 2026-06-05) — anchored to the Label so it tracks the name
 -- and never overlaps it (reads the Label's position, does not mutate it).
 local BADGE_TEXTURE = HA.Constants.TEXTURE_ROOT .. "HomesteadProfBadge"
 local BADGE_SIZE = 18
@@ -145,7 +145,7 @@ function M:ShouldBadgeRecipe(recipeInfo)
         return false
     end
 
-    -- Can craft now? "can craft" = learned + craftable-now (Rawb, HS-024 Rev-2).
+    -- Can craft now? "can craft" = learned + craftable-now (HS-024 Rev-2).
     -- Both flags live on the row's recipeInfo already in hand (no C call). An
     -- unlearned recipe (Blizzard still renders it as an Init-firing row) or one
     -- not currently craftable (missing reagents / wrong context) does not badge.

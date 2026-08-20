@@ -418,7 +418,7 @@ local function OnBagUpdate()
     -- button on this pass; a second full pass over containerButtons was a
     -- pure duplicate for this call site. OnBankOpened() and the
     -- ToggleBag/OpenAllBags/ToggleAllBags hooksecurefunc sites are
-    -- deliberately left untouched -- see the plan's Gate 0 notes.
+    -- deliberately left untouched -- see the plan's design notes.
     HookAllContainers()
 end
 
@@ -457,7 +457,7 @@ local function Initialize()
         hooksecurefunc("ToggleAllBags", ScheduleHookAllContainers)
     end
 
-    -- HS-283 Gate 1 finding: ToggleBackpack (combined-bags mode) and
+    -- HS-283 (review finding): ToggleBackpack (combined-bags mode) and
     -- OpenAllBagsMatchingContext (the item-upgrade/keystone/soulbinds
     -- auto-open) both bypass the three hooks above, routing through OpenBag
     -- directly (ContainerFrame.lua:272) -- without this hook, a bag opened

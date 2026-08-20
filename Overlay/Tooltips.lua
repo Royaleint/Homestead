@@ -1145,8 +1145,8 @@ local function OnHousingCatalogTooltipCreated(ownerID, entryFrame, tooltip)
     -- renderedFactions tracks which factions already have progress lines (cross-path dedup).
     local renderedFactions = nil
     if not db or db.showSource ~= false then
-        -- Priority 1: our structured source DB (HS-197 — Rawb's ruling at the HS-174
-        -- Gate 2: validated Homestead data renders first). Blizzard sourceText carried
+        -- Priority 1: our structured source DB (HS-197 — ruling made during
+        -- HS-174's live verification: validated Homestead data renders first). Blizzard sourceText carried
         -- stale attributions that our verified tables correct, and while it took
         -- priority those corrections never reached this surface.
         local hasSource, renderedFactionsFromSources = AddSourceInfoToTooltip(tooltip, itemID)

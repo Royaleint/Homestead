@@ -10,7 +10,7 @@ HA.MinimapButton = MinimapButton
 local DEFAULT_ANGLE = 225   -- LibDBIcon default (LibDBIcon-1.0.lua:157)
 local EDGE_RADIUS   = 5     -- LibDBIcon lib.radius default (LibDBIcon-1.0.lua:19)
 local BUTTON_SIZE   = 50    -- frame is square; pin art is 43x63 of 64 (67% w x 98% h), so
-                            -- visible pin ~= 34x49 px. Settled at Gate 2 against neighbor buttons.
+                            -- visible pin ~= 34x49 px. Settled via live testing against neighbor buttons.
 
 -- Which quadrants are rounded for each minimap shape. Quadrant index:
 --   q = 1 (+x,-y)  +1 if x<0 (-> 2)  +2 if y>0 (-> 3/4)

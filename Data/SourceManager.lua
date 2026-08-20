@@ -2235,7 +2235,7 @@ end
 -- time (superseding the original lazy-init design) — lazy init meant the
 -- FIRST SKILL_LINES_CHANGED after /reload always invalidated regardless of
 -- fingerprint, which is exactly the cold profession-window-open case this
--- gate exists to suppress (Gate 2 re-test: no suppression line, slight cold
+-- gate exists to suppress (live re-test: no suppression line, slight cold
 -- freeze remained). Eager seeding still fails open automatically: if the
 -- profession API is absent at install time, BuildProfessionFingerprint
 -- returns nil, the seed is nil, and the first (and every subsequent) fire
@@ -2266,7 +2266,7 @@ local function BuildProfessionFingerprint()
         return nil
     end
 
-    -- HS-213 cycle 1 fix: GetProfessions() returns FIVE fixed positional
+    -- HS-213: GetProfessions() returns FIVE fixed positional
     -- slots (primary1, primary2, archaeology, fishing, cooking) with nil for
     -- an empty slot — archaeology is empty on virtually every character, so
     -- packing the returns into a table and ipairs()-ing it silently dropped
@@ -2382,7 +2382,7 @@ end
 -- tried and rejected (see CountChangedRequirementVerdicts' comment above).
 -- eventName defaults to
 -- "UPDATE_FACTION" so the original call site's debug text is unchanged;
--- other callers pass their own event name so a Gate 2 capture attributes the
+-- other callers pass their own event name so a manual-testing capture attributes the
 -- suppress/invalidate line correctly.
 local function RunFactionVerifyThenInvalidate(eventName)
     eventName = eventName or "UPDATE_FACTION"
@@ -2393,7 +2393,7 @@ local function RunFactionVerifyThenInvalidate(eventName)
         if HA.Addon then
             -- HS-283: this counts reputation AND professionRank baselines
             -- (CountChangedRequirementVerdicts was generalized) — say
-            -- "requirement", not "reputation", so a Gate 2 capture doesn't
+            -- "requirement", not "reputation", so a manual-testing capture doesn't
             -- misread a professionRank flip as a reputation one.
             HA.Addon:Debug(("SourceManager: %s suppressed (0/%d requirement verdicts changed)")
                 :format(eventName, checked))
@@ -2421,7 +2421,7 @@ end
 -- baseline to open-state values, closing it and the next gated event flips
 -- it back. Still strictly no worse than the old unconditional-invalidate
 -- behavior, and self-correcting each time; this log line is what lets
--- Gate 2 tell that class apart from a real change.
+-- manual testing tell that class apart from a real change.
 local function RunProfessionVerifyThenInvalidate()
     local reqChanged, reqChecked = CountChangedRequirementVerdicts()
     local availChanged, availChecked = CountChangedProfessionAvailability()
@@ -2503,7 +2503,7 @@ local function HookCompletionCacheInvalidation()
     completionInvalidationFrame:RegisterEvent("TRAIT_CONFIG_UPDATED")
     completionInvalidationFrame:SetScript("OnEvent", function(_, event, ...)
         -- HS-213/HS-215: SKILL_LINES_CHANGED fires spuriously on profession-
-        -- window open (Gate 2 confirmed) — every other registered event
+        -- window open (confirmed via live testing) — every other registered event
         -- stays unconditional, only this one is fingerprint-gated.
         if event == "SKILL_LINES_CHANGED" then
             local fingerprint = BuildProfessionFingerprint()
@@ -2519,7 +2519,7 @@ local function HookCompletionCacheInvalidation()
                 -- HS-283: "changed" no longer means "invalidating" — it now
                 -- means "handing off to the verify-then-skip gate below",
                 -- which logs its own suppressed/invalidating verdict
-                -- immediately after. Say so, not "invalidating", so a Gate 2
+                -- immediately after. Say so, not "invalidating", so a manual-testing
                 -- capture doesn't read two contradictory adjacent lines.
                 HA.Addon:Debug("SourceManager: SKILL_LINES_CHANGED arrived — "
                     .. (unchanged and "suppressed (no profession change detected)"
@@ -2638,7 +2638,7 @@ local function HookCompletionCacheInvalidation()
             --    ResolveAchievementID -- the SAME locale-neutral resolution
             --    EvaluateRequirementMetLive performs (id direct, or name
             --    resolved through the addon's own AchievementSources data).
-            --    A cycle-3 draft instead built a lookup key from
+            --    An earlier draft instead built a lookup key from
             --    GetAchievementInfo's returned NAME -- but that return is
             --    locale-translated while req.name is Homestead's hardcoded
             --    English, so on any non-English client the keys never

@@ -615,7 +615,7 @@ function BadgeCalculation:InvalidateAllCaches()
     wipe(vendorStatsCache)
     wipe(dropGroupStatsCache)
     self:InvalidateBadgeCache()
-    -- HS-234 cycle 1 ADOPTED WARNING: this is the chokepoint every wipe path
+    -- HS-234 (ADOPTED WARNING): this is the chokepoint every wipe path
     -- routes through (OWNERSHIP_UPDATED, VendorMapPins direct calls,
     -- MapSidePanel, OptionsModel, SOURCE_CACHES_INVALIDATED) — re-warming
     -- here covers all of them uniformly instead of one special-cased event
@@ -947,7 +947,7 @@ local WARMUP_BATCH_DELAY = 0.02
 local WARMUP_COMBAT_RETRY_DELAY = 1.0
 
 local warmupInProgress = false
--- HS-234 cycle 1 CRITICAL fix: a wipe arriving mid-pass must not be
+-- HS-234 (CRITICAL fix): a wipe arriving mid-pass must not be
 -- silently dropped by the reentrancy guard — that left vendors already
 -- wiped-but-not-yet-reprocessed permanently missing from vendorStatsCache
 -- until the NEXT invalidation, so a future World/Continent open paid
@@ -1068,7 +1068,7 @@ local function StartPrewarmPass()
             -- never comes).
             local ok = HA.PerformanceTrace:Measure("badge_prewarm", batchStartIndex, pcall, function()
                 if not orderedVendors then
-                    -- HS-271 Gate 1 cycle 1: moved inside this Measure/pcall
+                    -- HS-271: moved inside this Measure/pcall
                     -- boundary (previously unmeasured and unguarded) so a
                     -- slow or erroring partition shows up in the SAME
                     -- badge_prewarm record class and degrades the pass the
@@ -1278,7 +1278,7 @@ local function StartPrewarmPass()
         end
     end
 
-    -- HS-234 cycle 1 CRITICAL fix: batch 1 must not run synchronously in
+    -- HS-234 (CRITICAL fix): batch 1 must not run synchronously in
     -- the caller's frame either (it was — ~45ms of cold requirement evals
     -- injected directly into the SOURCE_CACHES_INVALIDATED dispatch frame
     -- and the login ticker's tick). Defer it exactly like batches 2+ so
@@ -1296,7 +1296,7 @@ local function TryStartPrewarmPass()
     StartPrewarmPass()
 end
 
--- HS-234 cycle 1 CRITICAL fix: trigger-level cancel-and-restart debounce,
+-- HS-234 (CRITICAL fix): trigger-level cancel-and-restart debounce,
 -- same discipline as HomesteadWorldMapProvider's RequestSettledRefresh —
 -- a burst of calls (rapid rep ticks each invalidating, multiple wipe paths
 -- firing close together) now schedules exactly ONE prewarm attempt after
@@ -1314,7 +1314,7 @@ RequestVendorStatsPrewarm = function(_reason)
     end)
 end
 
--- HS-271 Gate 1 cycle 1: public self-heal entry point for the deferred-fill
+-- HS-271: public self-heal entry point for the deferred-fill
 -- path (PinFrameFactory:RefreshVendorPinCount, on a double cache miss) —
 -- thin wrapper over the same debounced trigger every other caller already
 -- uses, nothing else. Safe to call from a render-path double miss because
@@ -1353,7 +1353,7 @@ if HA.Events then
     end)
 
     -- HS-273 R7: listens for CatalogScanner's two true-warm one-shots
-    -- (Gate 0 finding 2 — no existing chain reliably re-fires on that exact
+    -- (no existing chain reliably re-fires on that exact
     -- edge). This FILLS the gap on the cold->warm transition specifically;
     -- it does not replace SOURCE_CACHES_INVALIDATED above as the source of
     -- ongoing freshness — later ownership changes still flow through that

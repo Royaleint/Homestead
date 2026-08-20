@@ -15416,7 +15416,7 @@ local ManualOverrides = {
         [259071] = { price = 40000000, currencies = {}, isUsable = true }, -- Brawler's Guild Punching Bag
         [263026] = { price = 5000000, currencies = {}, isUsable = true }, -- Brawler's Barricade
     },
-    -- HS-183 batch 2 (store-base policy, ratified by Rawb 2026-07-10): gold prices
+    -- HS-183 batch 2 (store-base policy, ratified 2026-07-10): gold prices
     -- normalized to BASE where a compound rep-discount fingerprint pins the base
     -- exactly — every row below fit scan = d1 x base and GeneratedBase = d2 x base
     -- with d in {0.80, 0.95} and a round base. Currency amounts are never
@@ -15659,7 +15659,7 @@ local ManualOverrides = {
     -- same npc/item, the crawl catalog in three files, `vendor_external_candidates`,
     -- and the seed ALL say 1500. Every one of them predates 12.1. They are not four
     -- independent confirmations of a current price, they are four snapshots of the
-    -- same stale moment. This override was written, REJECTED at Gate 1 on the
+    -- same stale moment. This override was written, rejected in review on the
     -- reasoning that 1500 -> 500 looks exactly like a dropped leading digit, and then
     -- restored on the owner's in-game reading.
     -- No discount question: reputation and racial discounts are GOLD-only (HS-252),

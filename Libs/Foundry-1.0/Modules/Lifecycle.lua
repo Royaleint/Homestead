@@ -38,7 +38,7 @@ local byAddonName = {}        -- addonName -> controller  (PENDING ADDON_LOADED 
 local ownedNames = {}         -- addonName -> controller  (PERSISTENT: lives until Destroy; backs re-register rejection)
 local loginControllers = {}   -- controller -> true  (set: who wants login/logout phases)
 local loginFired = false      -- central "PLAYER_LOGIN already fired" flag
-local postLogout = {}          -- array of private post-logout callbacks (Cycle-3 DB strip seam)
+local postLogout = {}          -- array of private post-logout callbacks (DB strip seam)
 
 -- Surface a captured hook error through F:RaiseDevError. The captured value may
 -- be ANY Lua value -- INCLUDING a falsy one (a hook that called error(nil),
@@ -127,7 +127,7 @@ local function ensureDispatcher()
     dispatcher = frame
 end
 
--- Private post-logout-fan-out registration seam (Cycle-3 deliverable; spec §6.4,
+-- Private post-logout-fan-out registration seam (spec §6.4,
 -- plan R2). Internal surface only -- the dot-call underscore name keeps it off
 -- the public controller API, so Lifecycle.API_VERSION stays 1 (the _TestFire
 -- precedent). Foundry.DB registers its logout strip here exactly once, at its

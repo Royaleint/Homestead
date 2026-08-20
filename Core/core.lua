@@ -624,7 +624,7 @@ end
 -- DebugMemBudgetReport (and the /hs debug memallsources / membudget commands
 -- that drove them) moved to Core/DevMemoryDiagnostics.lua, a dev-only file
 -- never listed in Homestead.toc -- memory diagnostics are dev tooling, not a
--- player-facing feature (Rawb's ruling, 2026-08-14).
+-- player-facing feature (owner ruling, 2026-08-14).
 
 -- Show scanned vendor data
 function HousingAddon:ShowScannedVendors()
@@ -956,7 +956,7 @@ function HousingAddon:RefreshAllOverlays()
         -- PLAYER_ENTERING_WORLD -- a sibling entry into the same repaint the
         -- Events "all" callback measures. Wrapped so an armed trace can't
         -- miss a plot zone-in repaint and still render the affirmative
-        -- "nothing was slow" line (Gate 1 warning).
+        -- "nothing was slow" line (review warning).
         if HA.PerformanceTrace then
             HA.PerformanceTrace:Measure("bag_refresh", "entering-world", HA.Overlay.RefreshAll, HA.Overlay)
         else
