@@ -877,8 +877,10 @@ OptionsModel.sections = {
                     local vendorTracer = GetVendorTracer()
                     if not vendorTracer then return end
                     vendorTracer.minimapIconSize = value
-                    -- Size is part of the minimap pin-pool style key; FlushPools
-                    -- via RefreshAllPinColors avoids orphaning the old-size bucket.
+                    -- Size is a mutate-in-place style property (HS-358), not part
+                    -- of the minimap pin-pool key; RefreshAllPinColors drives a
+                    -- fresh AcquireFrame per pin, which restyles every frame it
+                    -- hands back, pool hit or not.
                     RefreshAllPinColors()
                 end,
             },

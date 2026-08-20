@@ -432,11 +432,10 @@ function VendorMapPins:RefreshAllPinColors()
         self:ClearAllPins()
     end
 
-    if MinimapOverlay and MinimapOverlay.FlushPools then
-        MinimapOverlay:FlushPools()
-    else
-        self:ClearMinimapPins()
-    end
+    -- HS-358: minimap pins no longer need a pool flush here — the narrowed
+    -- pool key is stable across style changes, and RefreshMinimapPins below
+    -- drives a fresh AcquireFrame per pin (which restyles pool hits too).
+    self:ClearMinimapPins()
 
     self:RefreshPins(true)
     self:RefreshMinimapPins()

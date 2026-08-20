@@ -679,48 +679,23 @@ end
 function PinFrameFactory:CreateMinimapPinFrame(vendor, isOppositeFaction, elevation)
     local frame = CreateFrame("Frame", nil, UIParent)
 
-    local mmSize = self:GetMinimapIconSize()
-    frame:SetSize(mmSize, mmSize)
     frame:EnableMouse(true)
-
     frame:SetFrameStrata("BACKGROUND")
     frame:SetFrameLevel(1)
-
-    local br, bg, bb = self:GetPinColor()
-    local isCustomColor = self:IsCustomPinColor()
 
     -- Housing icon
     frame.icon = frame:CreateTexture(nil, "ARTWORK")
     frame.icon:SetPoint("CENTER")
-    frame.icon:SetSize(mmSize, mmSize)
     frame.icon:SetAtlas("housing-decor-vendor_32", false)
-    if isOppositeFaction then
-        frame.icon:SetDesaturated(true)
-        frame.icon:SetVertexColor(0.6, 0.6, 0.6, 0.9)
-    elseif isCustomColor then
-        frame.icon:SetDesaturated(true)
-        frame.icon:SetVertexColor(br, bg, bb, PinFrameFactory.DESAT_ALPHA)
-    end
 
-    -- Elevation arrow for cross-floor vendors
+    -- Elevation arrow shell for cross-floor vendors. Size, anchor/texcoord
+    -- (direction), and tint are all style, applied by ApplyMinimapPinStyle
+    -- whenever the frame is handed out for use.
     if elevation then
         frame.elevation = elevation
-        local arrowDim = math.max(math.floor(mmSize * 1.75), 20)
         local arrow = frame:CreateTexture(nil, "OVERLAY")
-        arrow:SetSize(arrowDim, arrowDim)
         arrow:SetAtlas("Rotating-MinimapGuideArrow")
         arrow:SetDesaturated(true)
-        if isCustomColor then
-            arrow:SetVertexColor(br, bg, bb, 1.0)
-        else
-            arrow:SetVertexColor(1, 0.82, 0, 1.0)
-        end
-        if elevation == "above" then
-            arrow:SetPoint("CENTER", frame, "TOP", 0, 3)
-        else
-            arrow:SetTexCoord(0, 1, 1, 0)
-            arrow:SetPoint("CENTER", frame, "BOTTOM", 0, -3)
-        end
         frame.elevationArrow = arrow
     end
 
@@ -746,6 +721,49 @@ function PinFrameFactory:CreateMinimapPinFrame(vendor, isOppositeFaction, elevat
     end)
 
     return frame
+end
+
+-- Mutate-in-place restyle: size, icon tint, and (if the frame has an
+-- elevation arrow shell) arrow size/anchor/texcoord/tint. Called every time
+-- a minimap pin frame is handed out for use — fresh construct or pool hit —
+-- so a reused frame never carries stale style from before a settings change
+-- (HS-358; see HomesteadMinimapOverlay.lua's AcquireFrame).
+function PinFrameFactory:ApplyMinimapPinStyle(frame, isOppositeFaction, elevationDirection)
+    local mmSize = self:GetMinimapIconSize()
+    frame:SetSize(mmSize, mmSize)
+    frame.icon:SetSize(mmSize, mmSize)
+
+    local br, bg, bb = self:GetPinColor()
+    local isCustomColor = self:IsCustomPinColor()
+
+    if isOppositeFaction then
+        frame.icon:SetDesaturated(true)
+        frame.icon:SetVertexColor(0.6, 0.6, 0.6, 0.9)
+    elseif isCustomColor then
+        frame.icon:SetDesaturated(true)
+        frame.icon:SetVertexColor(br, bg, bb, PinFrameFactory.DESAT_ALPHA)
+    else
+        frame.icon:SetDesaturated(false)
+        frame.icon:SetVertexColor(1, 1, 1, 1)
+    end
+
+    local arrow = frame.elevationArrow
+    if arrow then
+        local arrowDim = math.max(math.floor(mmSize * 1.75), 20)
+        arrow:SetSize(arrowDim, arrowDim)
+        if isCustomColor then
+            arrow:SetVertexColor(br, bg, bb, 1.0)
+        else
+            arrow:SetVertexColor(1, 0.82, 0, 1.0)
+        end
+        if elevationDirection == "above" then
+            arrow:SetTexCoord(0, 1, 0, 1)
+            arrow:SetPoint("CENTER", frame, "TOP", 0, 3)
+        else
+            arrow:SetTexCoord(0, 1, 1, 0)
+            arrow:SetPoint("CENTER", frame, "BOTTOM", 0, -3)
+        end
+    end
 end
 
 -------------------------------------------------------------------------------

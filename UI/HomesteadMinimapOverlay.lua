@@ -72,27 +72,21 @@ local minimapShapes = {
     ["TRICORNER-BOTTOMRIGHT"] = { false, true,  true,  true },
 }
 
-local function BuildMinimapPinStyleKey()
-    local size = PinFrameFactory:GetMinimapIconSize()
-    local isCustom = PinFrameFactory:IsCustomPinColor()
-    local r, g, b = PinFrameFactory:GetPinColor()
-    return format("ms%d|c%s|%.3f|%.3f|%.3f", size, BoolToKey(isCustom), r, g, b)
-end
-
+-- HS-358: narrowed to the two properties CreateMinimapPinFrame genuinely
+-- bakes into construction (opposite-faction texture state, elevation-arrow
+-- existence). Size/color/arrow-direction are style, applied in place by
+-- ApplyMinimapPinStyle every time a frame is handed out — see AcquireFrame.
 local function GetFramePoolKey(pin)
-    return format("%s|o%s|e%s",
-        BuildMinimapPinStyleKey(),
-        BoolToKey(pin.isOppositeFaction),
-        pin.elevation or "none")
+    return format("o%s|e%s", BoolToKey(pin.isOppositeFaction), BoolToKey(pin.elevation ~= nil))
 end
 
 -- HS-208: identity used by SetPins to diff the new pin set against the
 -- previous one. Deliberately the vendor's npcID PLUS the same pool key
--- (style/color/opposite-faction/elevation) rather than npcID alone —
--- isOppositeFaction/elevation can change the frame's actual visual
--- construction (CreateMinimapPinFrame bakes them in), so a vendor whose
--- elevation relationship changed across a zone crossing must NOT reuse its
--- old frame; only an identity+style match is safe to carry over as-is.
+-- (opposite-faction/elevation) rather than npcID alone — isOppositeFaction/
+-- elevation can change the frame's actual visual construction
+-- (CreateMinimapPinFrame bakes them in), so a vendor whose elevation
+-- relationship changed across a zone crossing must NOT reuse its old frame;
+-- only an identity+style match is safe to carry over as-is.
 local function GetPinIdentityKey(pin)
     local npcID = pin.vendor and pin.vendor.npcID
     return tostring(npcID) .. "|" .. GetFramePoolKey(pin)
@@ -109,10 +103,6 @@ end
 
 local function ReleasePooledFrame(poolByKey, frame)
     FPU.ReleasePooledFrame(poolByKey, frame, CleanupMinimapFrame)
-end
-
-local function FlushPoolBuckets(poolByKey)
-    FPU.FlushPoolBuckets(poolByKey, CleanupMinimapFrame)
 end
 
 local function AcquireFrame(pin)
@@ -132,6 +122,11 @@ local function AcquireFrame(pin)
     frame:SetFrameStrata(minimap:GetFrameStrata())
     frame:SetFrameLevel(minimap:GetFrameLevel() + 10)
     frame:SetAlpha(1)
+    -- The actual repaint mechanism (HS-358): a pool hit may be carrying
+    -- stale size/color/direction from before a style change, so every
+    -- acquire restyles regardless of whether the frame was just built or
+    -- pulled from the pool.
+    PinFrameFactory:ApplyMinimapPinStyle(frame, pin.isOppositeFaction, pin.elevation)
     return frame
 end
 
@@ -417,6 +412,11 @@ function Overlay:SetPins(pinRecords)
             frame.vendor = pin.vendor
             frame.isOppositeFaction = pin.isOppositeFaction
             frame.elevation = pin.elevation
+            -- Defense-in-depth (HS-358): this branch is confirmed unreachable
+            -- in production today (MinimapPinCollect.lua always clears
+            -- activePins before calling SetPins) — inert until HS-364 makes
+            -- it reachable, correct either way.
+            PinFrameFactory:ApplyMinimapPinStyle(frame, pin.isOppositeFaction, pin.elevation)
             pin.frame = frame
             reusedOldPins[previousPin] = true
         else
@@ -444,9 +444,4 @@ end
 
 function Overlay:GetActiveFrames()
     return activePins
-end
-
-function Overlay:FlushPools()
-    self:Clear()
-    FlushPoolBuckets(framePool)
 end
