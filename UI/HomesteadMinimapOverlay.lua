@@ -72,21 +72,28 @@ local minimapShapes = {
     ["TRICORNER-BOTTOMRIGHT"] = { false, true,  true,  true },
 }
 
--- HS-358: narrowed to the two properties CreateMinimapPinFrame genuinely
--- bakes into construction (opposite-faction texture state, elevation-arrow
--- existence). Size/color/arrow-direction are style, applied in place by
--- ApplyMinimapPinStyle every time a frame is handed out — see AcquireFrame.
+-- HS-358: elevation-arrow existence is the one property CreateMinimapPinFrame
+-- genuinely bakes into construction (a whole extra texture object exists only
+-- when elevation is set). isOppositeFaction no longer changes construction at
+-- all -- ApplyMinimapPinStyle now sets its texture state on every acquire --
+-- but the axis stays in the key anyway; it's a cheap, already-bounded boolean
+-- and removing it would buy nothing. Size/color/arrow-direction are style,
+-- applied in place by ApplyMinimapPinStyle every time a frame is handed out
+-- -- see AcquireFrame.
 local function GetFramePoolKey(pin)
     return format("o%s|e%s", BoolToKey(pin.isOppositeFaction), BoolToKey(pin.elevation ~= nil))
 end
 
 -- HS-208: identity used by SetPins to diff the new pin set against the
 -- previous one. Deliberately the vendor's npcID PLUS the same pool key
--- (opposite-faction/elevation) rather than npcID alone — isOppositeFaction/
--- elevation can change the frame's actual visual construction
--- (CreateMinimapPinFrame bakes them in), so a vendor whose elevation
--- relationship changed across a zone crossing must NOT reuse its old frame;
--- only an identity+style match is safe to carry over as-is.
+-- (opposite-faction/elevation-existence) rather than npcID alone --
+-- elevation-arrow existence changes the frame's actual visual construction
+-- (CreateMinimapPinFrame bakes it in), so a vendor gaining or losing its
+-- elevation arrow across a zone crossing must NOT reuse its old frame.
+-- Elevation *direction* (above/below) is style, not identity, as of HS-358 --
+-- a vendor whose direction flips keeps its frame and gets restyled in place
+-- by ApplyMinimapPinStyle; only an identity+style match is required to carry
+-- a frame over as-is.
 local function GetPinIdentityKey(pin)
     local npcID = pin.vendor and pin.vendor.npcID
     return tostring(npcID) .. "|" .. GetFramePoolKey(pin)

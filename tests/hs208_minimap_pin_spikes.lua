@@ -152,9 +152,12 @@ assert(framesAfterSecond[1] == framesAfterFirst[1], "vendor A's frame object mus
 assert(framesAfterSecond[3] == framesAfterFirst[3], "vendor C's frame object must be reused, not reallocated")
 assert(framesAfterSecond[4] ~= nil)
 
--- A vendor whose elevation relationship changed (same npcID, different
--- style-affecting field) must NOT reuse its old frame — CreateMinimapPinFrame
--- bakes elevation into the frame's visual construction.
+-- A vendor whose elevation arrow EXISTENCE changed (same npcID, nil to
+-- "above") must NOT reuse its old frame — CreateMinimapPinFrame bakes
+-- elevation-arrow existence into the frame's visual construction. (A later
+-- direction-only change, e.g. "above" to "below" on an already-elevated
+-- vendor, is a different case — see the HS-358 block below, where the frame
+-- IS reused and restyled in place.)
 Overlay:SetPins({ MakePin(1, false, "above") })
 assert(frameCreateCalls == 5, "an elevation change on the same vendor must allocate a fresh frame, not reuse the old one")
 
@@ -165,8 +168,9 @@ print("hs208_minimap_pin_spikes: SetPins diffing ok")
 --
 -- MinimapPinCollect.lua unconditionally calls Overlay:Clear() before every
 -- real SetPins call, so SetPins's own identity-diff reuse branch never fires
--- in production (Plan Gate 0) -- the actual repaint mechanism is AcquireFrame
--- reacquiring a frame from its own pool bucket after a Clear(). This test
+-- in production (confirmed in the plan) -- the actual repaint mechanism is
+-- AcquireFrame reacquiring a frame from its own pool bucket after a Clear().
+-- This test
 -- mirrors that real Clear()-then-SetPins shape rather than calling SetPins
 -- twice back to back (which doesn't discriminate: GetFramePoolKey is
 -- recomputed live for both old and new pins, so both sides shift together
