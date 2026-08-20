@@ -170,7 +170,7 @@ local SOURCE_TOOLTIP_ICONS = {
 -- Optional `sources` lets a caller that already fetched GetAllSources (e.g.
 -- AddPinTooltipItemLine's presentation.allSources) pass them in and skip the
 -- second lookup; GetAllSources is memoized regardless (HS-273/281/282).
--- Argus: src.type runs through NormalizeSourceType, matching every other
+-- src.type runs through NormalizeSourceType, matching every other
 -- source.type consumer (SourceManager.lua's own display-source resolution).
 local function BuildItemSourceIconText(itemID, sources)
     local SM = HA.SourceManager

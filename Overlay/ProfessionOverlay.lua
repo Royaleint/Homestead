@@ -338,7 +338,7 @@ RepaintVisibleRows = function(reconcileFresh)
 
     -- The reconcile body runs protected so an error in any row can never skip
     -- EndBatch below — a leaked BeginBatch depth would suppress ownership
-    -- events for the rest of the session (HS-209 Argus suggestion).
+    -- events for the rest of the session (HS-209, review suggestion).
     local ok, bodyErr = pcall(function()
         for _, frame in ipairs(frames) do
             local recipeInfo = ResolveFrameRecipeInfo(frame)

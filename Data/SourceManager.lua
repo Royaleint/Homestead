@@ -75,7 +75,7 @@ local professionAvailBaseline = {}
 -- narrower InvalidateSourcesMemo (R2 -- decor-bearing vendor scans and
 -- the /hs clear* paths), and RefreshMapPins.
 --
--- HS-273 R7 (Sage W4, deferred with rationale): useParsedSources's parsed
+-- HS-273 R7 (deferred with rationale): useParsedSources's parsed
 -- sources are read inside GetAllSources below but written by a SEPARATE path
 -- -- CatalogStore:SetSources (SourceTextScanner's parse pipeline), which
 -- fires CATALOG_ITEM_UPDATED, not any of the invalidation call sites above.
@@ -879,8 +879,8 @@ end
 -- of that name comparison are Homestead's own English data
 -- (PrerequisiteSources' req.name vs AchievementSources' achievementName), so
 -- it is locale-neutral by construction — a live GetAchievementInfo name is
--- locale-translated and must NEVER enter this resolution (Argus Gate 1
--- cycle 3: an earlier draft compared one against our English data, which
+-- locale-translated and must NEVER enter this resolution (an earlier draft
+-- compared one against our English data, which
 -- silently missed every name-only requirement on non-English clients). Same
 -- prefer-the-locale-neutral-identity discipline as
 -- ResolveProfessionSkillLineID / PlayerHasProfession above. A name absent
@@ -1041,7 +1041,7 @@ local function BuildRequirementCacheKey(req)
         local thresholdKey = req.renownLevel or req.standing
         if factionKey == nil or thresholdKey == nil then return nil end
         return "reputation:" .. tostring(factionKey) .. ":" .. tostring(thresholdKey)
-    -- "level" is deliberately NOT cached (Argus HS-203 cycle 1): no registered
+    -- "level" is deliberately NOT cached (HS-203): no registered
     -- invalidation event fires on a pure level-up, so a cached false would
     -- stick until an unrelated rep/quest/skill event — and UnitLevel("player")
     -- is a trivial C call, cheaper live than the key build + lookup.
@@ -1246,8 +1246,8 @@ end
 -- Memoized server-date stamp. This is called from BadgeCalculation's cache-key
 -- construction on EVERY GetVendorStats call (including cache hits), so it must
 -- not allocate on every call — a fresh calendar table + string.format per call
--- would land an unconditional allocation in the hottest stats path (Argus Gate 1,
--- HS-158/160 Phase B review). Recompute is throttled off GetTime() (a cheap
+-- would land an unconditional allocation in the hottest stats path
+-- (HS-158/160 Phase B review). Recompute is throttled off GetTime() (a cheap
 -- monotonic read), NOT off the calendar API itself (that would be circular).
 -- A stamp lagging an actual midnight rollover by up to ~60s is fine — the
 -- day-stamped caches simply roll on the next recompute after that; no timers.
@@ -1515,7 +1515,7 @@ function SourceManager:GetItemPresentation(itemID, options)
 
     local allSources = self:GetAllSources(itemID) or EMPTY_SOURCES
     local bestSource = nil
-    -- HS-210 (Argus cycle 1 correction): scoped to exactly the two contexts
+    -- HS-210 (correction): scoped to exactly the two contexts
     -- verified to never read bestSource/displaySource/sourceType off the
     -- returned presentation — badge recounts (UI/BadgeCalculation.lua, only
     -- reads isOwned/availabilityState/blockerLabels) and vendor map-pin
@@ -2163,9 +2163,9 @@ function SourceManager:InvalidateRequirementMetCache()
     requirementMetCache = {}
 end
 
--- HS-273 R2 (Gate 1 cycle 1: Argus C2 + Sage C2): narrow, broadcast-free
+-- HS-273 R2 (review note): narrow, broadcast-free
 -- wipe of ONLY the GetAllSources memo (named to be unconfusable with the
--- broad InvalidateAllSourceCaches below, per Sage Gate 1 cycle 2) -- no
+-- broad InvalidateAllSourceCaches below, per review feedback) -- no
 -- completion/requirement/faction
 -- wipes, no SearchProvider:Invalidate, no SOURCE_CACHES_INVALIDATED fire.
 -- InvalidateAllSourceCaches below is a global rep/quest/achievement/holiday
@@ -2210,7 +2210,7 @@ function SourceManager:InvalidateAllSourceCaches()
     self:InvalidateCompletionCache()
     self:InvalidateRequirementMetCache()
     -- Compose the narrow accessor rather than inlining its wipe: one cache,
-    -- one wipe site (Argus cycle-2 SF3) — if the memo accessor ever grows a
+    -- one wipe site (review note) — if the memo accessor ever grows a
     -- generation counter or debug hook, the broad path must not skip it.
     self:InvalidateSourcesMemo()
     factionNameToID = nil
@@ -2313,8 +2313,8 @@ end
 -- Deliberately does NOT include "achievement": ACHIEVEMENT_EARNED tells us
 -- exactly which single achievement changed, so its own event-handler branch
 -- runs a scoped scan re-evaluating ONLY the baselines that resolve to that
--- achievement, instead of widening this shared counter — Argus Gate 1
--- cycle 1 caught an earlier draft that added achievement here, which charged
+-- achievement, instead of widening this shared counter — review caught
+-- an earlier draft that added achievement here, which charged
 -- a full achievement-corpus re-evaluation (158 GetAchievementInfo calls,
 -- measured) to EVERY UPDATE_FACTION/profession fire for zero information,
 -- since none of those events can ever flip an achievement verdict.
@@ -2379,8 +2379,8 @@ end
 -- was needed). ACHIEVEMENT_EARNED does NOT use this — it re-evaluates only
 -- the baselines resolving to its own achievement (see its event-handler
 -- branch), since widening this counter's type filter to achievements was
--- tried and rejected (Argus Gate 1 cycle 1:
--- see CountChangedRequirementVerdicts' comment above). eventName defaults to
+-- tried and rejected (see CountChangedRequirementVerdicts' comment above).
+-- eventName defaults to
 -- "UPDATE_FACTION" so the original call site's debug text is unchanged;
 -- other callers pass their own event name so a Gate 2 capture attributes the
 -- suppress/invalidate line correctly.
@@ -2607,7 +2607,7 @@ local function HookCompletionCacheInvalidation()
         elseif event == "ACHIEVEMENT_EARNED" then
             -- HS-283: was unconditional (no gate at all). Payload is
             -- (achievementID, alreadyEarned). Two leaks to close, both
-            -- scoped to THIS achievement (Argus Gate 1 cycle 1: an earlier
+            -- scoped to THIS achievement (an earlier
             -- draft widened the shared CountChangedRequirementVerdicts
             -- counter to cover achievements, which charged a full
             -- achievement-corpus re-evaluation to EVERY UPDATE_FACTION/
@@ -2624,7 +2624,7 @@ local function HookCompletionCacheInvalidation()
             --    " (Account)" (earned by another character) -- earning it on
             --    THIS character always promotes that to " (This Character)",
             --    a label change the met boolean alone can't distinguish
-            --    (Argus Gate 1 cycle 1 Warning). The suffix is the addon's
+            --    (caught in review). The suffix is the addon's
             --    own generated string, never a Blizzard one -- no locale
             --    concern in that comparison.
             --
@@ -2632,7 +2632,7 @@ local function HookCompletionCacheInvalidation()
             --    (line ~398) baselines with req.id populated; Data/
             --    PrerequisiteSources.lua's achievement requirements
             --    (consumed via Tooltips.lua's prerequisite display) are
-            --    100% NAME-ONLY (Argus Gate 1 cycle 2 CRITICAL: an id-only
+            --    100% NAME-ONLY (CRITICAL: an id-only
             --    lookup silently missed all 109 of them). Which baseline
             --    belongs to the earned achievement is decided by
             --    ResolveAchievementID -- the SAME locale-neutral resolution
@@ -2686,8 +2686,8 @@ local function HookCompletionCacheInvalidation()
                     if live ~= baseline.met then anyBaselineFlipped = true end
                     -- Write-back on every match, flip or not: without it the
                     -- baseline stays stale and every later fire for this
-                    -- achievement re-invalidates (Argus Gate 1 cycle 2
-                    -- Warning, pinned by the third-fire suppress tests).
+                    -- achievement re-invalidates (pinned by the third-fire
+                    -- suppress tests).
                     baseline.met = live
                 end
             end

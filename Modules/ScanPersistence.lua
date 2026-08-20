@@ -540,7 +540,7 @@ local function RefreshMapPins()
         HA.VendorMapPins:RefreshMinimapPins()
     end
 
-    -- HS-273 R2 (Sage: /hs clearscans ghost-sources Critical): all three
+    -- HS-273 R2 (/hs clearscans ghost-sources, critical): all three
     -- clear-data entry points below route through here, so invalidating the
     -- GetAllSources memo here covers ClearScannedData/ClearNoDecorData/
     -- ClearAllData in one place. Without this, GetAllSources would keep

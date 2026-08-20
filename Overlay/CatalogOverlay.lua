@@ -385,7 +385,7 @@ local function GetAccessibilityState(itemID, sourceText, presentation)
 end
 
 -- Hide both badge and glow for an entry frame (used by early-return paths).
--- HS-223b (Argus cycle 1 CRITICAL): must also clear appliedState. A recycled
+-- HS-223b (CRITICAL): must also clear appliedState. A recycled
 -- entry frame passes through here with a nil itemID (or settings disabled)
 -- before rebinding to its next item — if the signature memo survived that,
 -- a frame recycled back to the SAME item with an unchanged verdict would

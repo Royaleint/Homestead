@@ -15434,8 +15434,8 @@ local ManualOverrides = {
     -- not epistemically independent, that claim says so itself) plus the
     -- client's own catalog sourceText agree on both the price (50,000
     -- copper) and the vendor (Irodalmin) for this item specifically.
-    -- 264004 is deliberately NOT touched here (Sage Gate 1, cycle 1
-    -- REJECT): its own sourceText names no vendor, the DB2 export puts it
+    -- 264004 is deliberately NOT touched here (rejected in review):
+    -- its own sourceText names no vendor, the DB2 export puts it
     -- under a different npc (243555, itemCount 1 on Irodalmin's own
     -- record) that vendor_external_candidates.csv separately names
     -- "Lelorian" (DB2 carries npcIDs and items but no NPC names). That same
@@ -15572,8 +15572,8 @@ local ManualOverrides = {
     -- 3-row single-vendor observation, NOT an established partition. Do not treat it as
     -- settled. (An earlier revision of this comment claimed item-costs were unchanged as a
     -- class; the Cendvin row refutes that, and it was missed because the generator's cost
-    -- regex only matched c-prefix components -- silence read as "unchanged". Sage caught
-    -- it; the comparator is now cost-kind-complete.)
+    -- regex only matched c-prefix components -- silence read as "unchanged". Caught in
+    -- review; the comparator is now cost-kind-complete.)
     -- Ratios vary 1.5x to 4x with no formula (1000->250, 2000->500, 750->500, 2500->1250),
     -- so NOTHING can be inferred for an unscanned item -- every affected row needs a scan.
     -- Gabbun's four rows are BOTH things at once. Stored as 10g with no currency at all
@@ -15676,7 +15676,7 @@ local ManualOverrides = {
     -- deliberately. A live 12.1.0.69299 scan shows that vendor listing the item in
     -- TWO merchant slots, one per payment method -- slot 1 at 30 Community Coupons,
     -- slot 2 at 500g, an EITHER/OR. An override carrying both costs on one row was
-    -- written here and REJECTED at Gate 1 (Sage, 2026-08-14): VendorData.FormatCost
+    -- written here and rejected in review (2026-08-14): VendorData.FormatCost
     -- joins cost components with " + " (Data/VendorData.lua, table.concat), so the
     -- tooltip would have read "Vendor Price: 500g + 30 Community Coupons" and
     -- overstated the cost to exactly the gold-holding player the fix was meant to

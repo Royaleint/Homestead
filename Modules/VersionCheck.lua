@@ -298,7 +298,7 @@ function VersionCheck:Initialize()
             -- first GROUP_ROSTER_UPDATE after a /reload mid-group.
             wasInGroup = IsInGroup() or IsInRaid()
 
-            -- Flag set only INSIDE the guild branch (Argus cycle 1): if
+            -- Flag set only INSIDE the guild branch: if
             -- IsInGuild() reads false on the first PEW (cold-login guild-info
             -- lag), later loading screens retry instead of silently skipping
             -- the hello for the whole session. Unguilded players just re-check

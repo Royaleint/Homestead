@@ -834,7 +834,7 @@ local function Migration_4_to_5(db)
                 end
 
                 -- Preserve dev raw sourceText regardless of which side won
-                -- (Argus HS-205 cycle 1): the common dual-write-era state is
+                -- (HS-205): the common dual-write-era state is
                 -- EQUAL hashes, where takeParsed is false — copying raw only
                 -- inside that branch destroyed the whole dev raw corpus in the
                 -- common case while the stamp rewrite below deletes data.raw.
@@ -966,7 +966,7 @@ end
 -- (IsWarm true, ownedCount still 0) and stays gated to the honest "..."
 -- until the scan records ownership. Not "IsWarm or" — that polarity is
 -- unreachable for the zero-decor player and opens exactly the wrong window
--- (Argus Gate 1 closure finding).
+-- (caught in review).
 function CatalogStore:HasPersistedData()
     if ci == nil then return false end
     if ownedCount > 0 then return true end

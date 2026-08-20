@@ -1168,7 +1168,7 @@ function VendorData:GetVendorItems(npcID)
     -- Lua can read a table with a nil key but not write one -- a nil npcID
     -- used to fall through GetOffers to a plain `return {}`; preserve that
     -- tolerance rather than letting the memo write turn it into a hard
-    -- error (Sage Gate 1: existing ProjectVendorWithItems call sites already
+    -- error (existing ProjectVendorWithItems call sites already
     -- guard on `if vendor.npcID then`, treating an unstamped record as
     -- possible). Same reasoning for a not-yet-loaded HA.VendorOffers: don't
     -- memoize "offers table unavailable" as if it were "vendor has none".

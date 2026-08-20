@@ -174,7 +174,7 @@ end
 
 -- HS-074: true when the item has no source types other than vendor-like
 -- (vendor/event/shop). Approximation of "this vendor-NPC is the only path."
--- Moved here from VendorMapPins.lua (Argus review) so BuildVendorStats' item
+-- Moved here from VendorMapPins.lua (code review) so BuildVendorStats' item
 -- loop can produce the "Vendor-only" count from the same population as
 -- collected/total/locked, instead of a second differently-filtered pass over
 -- the tooltip's hand-rolled item list. Optional `sources` lets a caller that
@@ -953,8 +953,8 @@ local warmupInProgress = false
 -- until the NEXT invalidation, so a future World/Continent open paid
 -- roughly half the freeze again, silently. This flag makes the guard
 -- COALESCE the dropped request into "run one more full pass when the
--- current one finishes" instead of discarding it. Argus verified writes
--- are never stale (GetVendorStats recomputes live at call time) — this
+-- current one finishes" instead of discarding it. Writes are never stale
+-- (GetVendorStats recomputes live at call time) — this
 -- fixes coverage, not staleness; the rerun keeps it that way by always
 -- being a full pass, never a partial resume from a stale index.
 local warmupPendingRerun = false
@@ -1171,7 +1171,7 @@ local function StartPrewarmPass()
             -- least one vendor -- a tick that made zero new-completion
             -- progress has nothing new for the listener to find.
             --
-            -- Argus cycle 1 CRITICAL: the tick that ENDS the vendor loop
+            -- CRITICAL: the tick that ENDS the vendor loop
             -- (currentIndex crosses past the last vendor) must fire
             -- unconditionally, even if it completed nothing itself. A pass
             -- can end on pure skips -- e.g. the pending pin's own self-heal

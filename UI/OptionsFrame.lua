@@ -513,7 +513,7 @@ function OptionsFrame:Initialize()
 end
 
 function OptionsFrame:Open(sectionKey)
-    -- HS-217 (Argus cycle 1): in a collision stand-down session Initialize()
+    -- HS-217: in a collision stand-down session Initialize()
     -- returns with `frame` still nil — Open must no-op cleanly, not index nil.
     if HA.__collisionStandDown then return end
     self:Initialize()

@@ -316,7 +316,7 @@ local function IsEjAnchoredDropPin(entry)
         and (entry.dropGroupKind == "enc" or entry.dropGroupKind == "ent")
 end
 
--- Argus fail-soft hardening (HS-347/348 review, 2026-08-18): mirrors
+-- Fail-soft hardening (HS-347/348 review, 2026-08-18): mirrors
 -- VendorMapPins.lua's IsFiniteNumber (used by its own BuildEntrancePositions/
 -- BuildEncounterPositions) -- a NaN coordinate from any dodge candidate
 -- source would otherwise silently invert the `closestDist > collisionThreshold`
@@ -343,7 +343,7 @@ local function GetPoiPositionsForMap(mapID)
     -- Regular: C_AreaPoiInfo.GetAreaPOIForMap (quest hubs, portals, etc.)
     -- Events: C_AreaPoiInfo.GetEventsForMap (Saltheril's Soiree, Abundance, etc.)
     -- Both are data API calls — taint-safe. The list queries are
-    -- pcall-protected (Argus review) so a throwing list API degrades to zero
+    -- pcall-protected (per review) so a throwing list API degrades to zero
     -- candidates from that source instead of aborting the render pass; the
     -- per-item detail/guard calls below (GetAreaPOIInfo) are not wrapped.
     -- ok==false below means either the API is absent (C_AreaPoiInfo and

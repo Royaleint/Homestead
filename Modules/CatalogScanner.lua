@@ -426,13 +426,13 @@ end
 -- tests/hs273_cold_prewarm_and_memo.lua; do not paraphrase.
 -- Returns nothing on purpose: callers must decide on the CURRENT value of
 -- dataLoaded/storageResponded, never on whether an edge flipped THIS call.
--- (Argus cycle 1: a this-call-edge decision on the login path created a
+-- (a this-call-edge decision on the login path created a
 -- searcher against storage that was already warm, and dangled pendingSearcher.)
 local function TryLatchWarmFromCounts()
     -- HS-273 R1: captured before the latch below runs, so the edge-fire
     -- guard just below can tell whether THIS call is dataLoaded's own
     -- false->true transition (this SITE fires at most once per session).
-    -- EVENT CONTRACT (Argus cycle-2 SF2): across BOTH fire sites in this
+    -- EVENT CONTRACT: across BOTH fire sites in this
     -- handler, HS_CATALOG_TRUE_WARM fires at least once and at most
     -- twice per session — a decor-owning player's first fully-loaded
     -- storage event trips both edges in one dispatch. Listeners must be
@@ -484,7 +484,7 @@ local function TryLatchWarmFromCounts()
     -- dispatched -- this IS that event's handler. Gated on EITHER flag:
     -- gating on storageResponded alone stranded the hold for the whole
     -- session on a build where GetDecorMaxOwnedCount is unavailable and only
-    -- dataLoaded can latch (Argus cycle 3, pre-dates this redesign but still
+    -- dataLoaded can latch (pre-dates this redesign but still
     -- applies). Written on current state rather than a latch edge --
     -- assigning nil over nil is a no-op, so no edge tracking is needed.
     if storageResponded or dataLoaded then

@@ -326,7 +326,7 @@ function Waypoints:Set(mapID, x, y, options)
             data = options.data,
         }
 
-        -- Self-normalize against the native API's round-trip (Argus, HS-218):
+        -- Self-normalize against the native API's round-trip (HS-218):
         -- SetUserWaypoint may quantize coordinates, and USER_WAYPOINT_UPDATED
         -- fires for our own set — comparing our RAW values against the
         -- quantized readback could mismatch and silently drop our claim

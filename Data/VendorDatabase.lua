@@ -2151,7 +2151,7 @@ VendorDatabase.Vendors = {
 	-- (2352, 0.5272/0.3755) -- and its coordinates in each hub cluster tightly with
 	-- Griftah [260485] and Pascal-K1N6 [248525], the known both-hub vendors. A
 	-- vendor standing in the Alliance hub cannot be Horde-only.
-	-- Do NOT cite a scan's faction field as authority here (Sage, Gate 1,
+	-- Do NOT cite a scan's faction field as authority here (review finding,
 	-- 2026-08-14): prior scans of this same npcID recorded "Alliance"
 	-- (2026-02-23, 2026-03-06), Pascal-K1N6 scans as "Alliance" too, and
 	-- Modules/VendorScanner.lua reads `UnitFactionGroup("npc") or "Neutral"`, so a
