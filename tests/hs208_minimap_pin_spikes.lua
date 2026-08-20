@@ -95,13 +95,20 @@ C_Minimap = { GetViewRadius = function() return 400 end }
 UnitPosition = function() return 0, 0 end
 GetMinimapShape = nil
 
+local mockIconSize = 14
+
 local HA = {
     PinFrameFactory = {
         CreateMinimapPinFrame = function()
             frameCreateCalls = frameCreateCalls + 1
             return NewMockFrame()
         end,
-        GetMinimapIconSize = function() return 14 end,
+        -- HS-358: records the size it was applied with, so a test can assert
+        -- a pool-hit frame actually got restyled, not just reused stale.
+        ApplyMinimapPinStyle = function(self, frame)
+            frame.__appliedSize = self:GetMinimapIconSize()
+        end,
+        GetMinimapIconSize = function() return mockIconSize end,
         IsCustomPinColor = function() return false end,
         GetPinColor = function() return 1, 1, 1 end,
     },
@@ -145,10 +152,48 @@ assert(framesAfterSecond[1] == framesAfterFirst[1], "vendor A's frame object mus
 assert(framesAfterSecond[3] == framesAfterFirst[3], "vendor C's frame object must be reused, not reallocated")
 assert(framesAfterSecond[4] ~= nil)
 
--- A vendor whose elevation relationship changed (same npcID, different
--- style-affecting field) must NOT reuse its old frame — CreateMinimapPinFrame
--- bakes elevation into the frame's visual construction.
+-- A vendor whose elevation arrow EXISTENCE changed (same npcID, nil to
+-- "above") must NOT reuse its old frame — CreateMinimapPinFrame bakes
+-- elevation-arrow existence into the frame's visual construction. (A later
+-- direction-only change, e.g. "above" to "below" on an already-elevated
+-- vendor, is a different case — see the HS-358 block below, where the frame
+-- IS reused and restyled in place.)
 Overlay:SetPins({ MakePin(1, false, "above") })
 assert(frameCreateCalls == 5, "an elevation change on the same vendor must allocate a fresh frame, not reuse the old one")
 
 print("hs208_minimap_pin_spikes: SetPins diffing ok")
+
+-------------------------------------------------------------------------------
+-- HS-358: AcquireFrame's pool-hit path must restyle, not just reuse
+--
+-- MinimapPinCollect.lua unconditionally calls Overlay:Clear() before every
+-- real SetPins call, so SetPins's own identity-diff reuse branch never fires
+-- in production (confirmed in the plan) -- the actual repaint mechanism is
+-- AcquireFrame reacquiring a frame from its own pool bucket after a Clear().
+-- This test
+-- mirrors that real Clear()-then-SetPins shape rather than calling SetPins
+-- twice back to back (which doesn't discriminate: GetFramePoolKey is
+-- recomputed live for both old and new pins, so both sides shift together
+-- even on unfixed code). A single pin avoids LIFO ambiguity between two
+-- frames sharing one bucket.
+-------------------------------------------------------------------------------
+
+Overlay:SetPins({ MakePin(5) })
+local createsBeforeStyleChange = frameCreateCalls
+local frameBeforeStyleChange = Overlay:GetActiveFrames()[1].frame
+
+Overlay:Clear()
+
+mockIconSize = 20 -- simulate a minimapIconSize style change
+
+Overlay:SetPins({ MakePin(5) })
+assert(frameCreateCalls == createsBeforeStyleChange,
+    "a same-shape style-only change must be a pool hit, not a fresh construct")
+
+local frameAfterStyleChange = Overlay:GetActiveFrames()[1].frame
+assert(frameAfterStyleChange == frameBeforeStyleChange,
+    "the pool-hit frame must be the exact same object released by Clear()")
+assert(frameAfterStyleChange.__appliedSize == 20,
+    "AcquireFrame must restyle a pool-hit frame with the new size, not leave it stale")
+
+print("hs208_minimap_pin_spikes: pool-hit restyle ok")
