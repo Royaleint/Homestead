@@ -258,6 +258,7 @@ OptionsModel.sections = {
                     if not vendorTracer then return end
                     vendorTracer.showOppositeFaction = value
                     RefreshPinsAndBadges()
+                    RequestMinimapRefresh("option_showOppositeFaction")
                 end,
             },
             {
