@@ -697,7 +697,17 @@ end
 
 -- Implementation in MinimapPinCollect.lua (HS-301 cut #3).
 function VendorMapPins:RefreshMinimapPins()
-    return HA.MinimapPinCollect:RefreshMinimapPins()
+    local result = HA.MinimapPinCollect:RefreshMinimapPins()
+    -- HS-368: this wrapper is the single choke point every round-minimap
+    -- content-refresh reason funnels through (zone change, ownership/scan,
+    -- option toggle, style change) -- poke the HybridMinimap provider here
+    -- too, unconditionally, so it stays fed even while
+    -- MinimapPinCollect:RefreshMinimapPins's own suppression early-return
+    -- (hybrid-active among its reasons) skips the round-minimap pipeline.
+    if HA.HybridMinimapProvider then
+        HA.HybridMinimapProvider:RequestRefresh("vendor_minimap_refresh")
+    end
+    return result
 end
 
 local function DebugWorldMapProjectionSkip(kind, sourceMapID, viewMapID, reason)
@@ -1323,6 +1333,13 @@ function VendorMapPins:DisableMinimapPins()
     minimapPinsEnabled = false
     StopMinimapWarmup()
     self:ClearMinimapPins()
+    -- HS-368: DisableMinimapPins clears directly and never routes through
+    -- RefreshMinimapPins (see that function's own poke above), so it needs
+    -- its own explicit clear -- otherwise already-rendered HybridMinimap
+    -- pins would linger after the player turns minimap pins off.
+    if HA.HybridMinimapProvider then
+        HA.HybridMinimapProvider:Clear()
+    end
     if isInitialized then
         RefreshRuntimeSubscriptions()
     end

@@ -95,6 +95,7 @@ UI\OptionsFrame.lua
 UI\MapPinProvider.lua
 UI\HomesteadWorldMapProvider.lua
 UI\HomesteadMinimapOverlay.lua
+UI\HybridMinimapProvider.lua
 UI\MinimapButton.lua
 UI\MinimapPinCollect.lua
 UI\BadgeCalculation.lua

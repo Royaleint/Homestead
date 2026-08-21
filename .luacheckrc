@@ -41,6 +41,7 @@ read_globals = {
     "CreateScrollBoxListLinearView",
     "CreateFramePool", "CreateUnsecuredRegionPoolInstance",
     "EventRegistry",
+    "EventUtil", -- HS-368: EventUtil.ContinueOnAddOnLoaded (Blizzard_SharedXML/EventUtil.lua)
     "GameFontHighlight", "GameFontHighlightSmall",
     "GameFontNormal", "GameFontNormalLarge", "GameFontNormalHuge2", "GameFontNormalSmall",
     "GameTooltip", "GameTooltip_Hide",
