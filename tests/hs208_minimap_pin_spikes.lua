@@ -1,5 +1,5 @@
 -- luacheck: globals assert loadfile print io loadstring CreateFrame UnitPosition
--- luacheck: globals GetCVar C_Minimap Minimap GetMinimapShape
+-- luacheck: globals GetCVar C_Minimap Minimap GetMinimapShape C_Housing
 
 local root = (... or "."):gsub("\\\\", "/"):gsub("/+$", "")
 
@@ -94,6 +94,7 @@ Minimap = NewMockFrame()
 C_Minimap = { GetViewRadius = function() return 400 end }
 UnitPosition = function() return 0, 0 end
 GetMinimapShape = nil
+C_Housing = { IsInsideHouse = function() return false end }
 
 local mockIconSize = 14
 
@@ -197,3 +198,24 @@ assert(frameAfterStyleChange.__appliedSize == 20,
     "AcquireFrame must restyle a pool-hit frame with the new size, not leave it stale")
 
 print("hs208_minimap_pin_spikes: pool-hit restyle ok")
+
+-------------------------------------------------------------------------------
+-- HS-362: pins must stay hidden while C_Housing.IsInsideHouse() is true
+--
+-- Argus's Gate 1 review of HS-362 found this composed hide condition had
+-- zero regression coverage -- proved by mutation: deleting the indoor branch
+-- entirely left every existing assertion in this file green. This closes
+-- that gap directly rather than relying on the elevation/style assertions
+-- above to incidentally exercise it (they don't -- C_Housing is never
+-- touched by anything before this block).
+-------------------------------------------------------------------------------
+
+C_Housing.IsInsideHouse = function() return true end
+
+Overlay:SetPins({ MakePin(6) })
+assert(#Overlay:GetActiveFrames() == 0,
+    "SetPins must not place any pins while C_Housing.IsInsideHouse() is true")
+
+C_Housing.IsInsideHouse = function() return false end
+
+print("hs208_minimap_pin_spikes: indoor-housing pin suppression ok")

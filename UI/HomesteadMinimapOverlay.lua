@@ -41,7 +41,7 @@ local mapRadius
 local mapSin
 local mapCos
 local minimapShape
-local lastHybridMinimapReason
+local lastHideReason
 
 -- HS-090 Phase H: cache the rotateMinimap cvar instead of calling GetCVar
 -- every OnUpdate tick. Refresh on CVAR_UPDATE so live toggles of "Rotate
@@ -162,7 +162,7 @@ function Overlay:GetHybridMinimapState()
         or false
     local reason
     if frameShown then
-        reason = "frame_shown"
+        reason = "hybrid_frame_shown"
     elseif shouldUse then
         reason = "api_should_use_frame_hidden"
     else
@@ -198,13 +198,13 @@ end
 
 local function ShouldHideMinimapPins()
     local hide, reason = Overlay:ShouldHideMinimapPins()
-    if hide and reason ~= lastHybridMinimapReason then
-        lastHybridMinimapReason = reason
+    if hide and reason ~= lastHideReason then
+        lastHideReason = reason
         if HA.Addon and HA.Addon.db and HA.Addon.db.profile.debug then
             HA.Addon:Debug("Homestead minimap pins hidden (" .. reason .. ")")
         end
     elseif not hide then
-        lastHybridMinimapReason = nil
+        lastHideReason = nil
     end
     return hide
 end
