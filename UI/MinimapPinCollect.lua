@@ -121,12 +121,21 @@ function MinimapPinCollect:RefreshMinimapPins()
         mapsToCheck[#mapsToCheck + 1] = playerMapID
         mapsToCheckSet[playerMapID] = true
 
-        -- Add parent map (covers subzone → zone case, e.g., cave → main zone)
-        local mapInfo = C_Map.GetMapInfo(playerMapID)
-        if mapInfo and mapInfo.parentMapID and mapInfo.parentMapID > 0 then
-            if not mapsToCheckSet[mapInfo.parentMapID] then
-                mapsToCheck[#mapsToCheck + 1] = mapInfo.parentMapID
-                mapsToCheckSet[mapInfo.parentMapID] = true
+        -- Add parent map (covers subzone → zone case, e.g., cave → main zone) --
+        -- but only outdoors. HS-362: indoors, the parent zone's vendors aren't
+        -- actually nearby in any visible sense (an NPC building's parent map is
+        -- the outdoor zone around it), so this must not run inside a building --
+        -- the same reasoning ShouldIncludeSiblingZones above already applies to
+        -- the broader continent-wide sibling-zone case. Unlike that gate, this
+        -- one is unconditional -- it doesn't check crossZoneMode, matching this
+        -- block's existing behavior of always running outdoors regardless of mode.
+        if not IsIndoors() then
+            local mapInfo = C_Map.GetMapInfo(playerMapID)
+            if mapInfo and mapInfo.parentMapID and mapInfo.parentMapID > 0 then
+                if not mapsToCheckSet[mapInfo.parentMapID] then
+                    mapsToCheck[#mapsToCheck + 1] = mapInfo.parentMapID
+                    mapsToCheckSet[mapInfo.parentMapID] = true
+                end
             end
         end
 
