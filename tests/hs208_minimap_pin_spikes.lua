@@ -1,5 +1,5 @@
 -- luacheck: globals assert loadfile print io loadstring CreateFrame UnitPosition
--- luacheck: globals GetCVar C_Minimap Minimap GetMinimapShape C_Housing
+-- luacheck: globals GetCVar C_Minimap Minimap GetMinimapShape C_Housing IsIndoors
 
 local root = (... or "."):gsub("\\\\", "/"):gsub("/+$", "")
 
@@ -95,6 +95,7 @@ C_Minimap = { GetViewRadius = function() return 400 end }
 UnitPosition = function() return 0, 0 end
 GetMinimapShape = nil
 C_Housing = { IsInsideHouse = function() return false end }
+IsIndoors = function() return false end
 
 local mockIconSize = 14
 
@@ -219,3 +220,24 @@ assert(#Overlay:GetActiveFrames() == 0,
 C_Housing.IsInsideHouse = function() return false end
 
 print("hs208_minimap_pin_spikes: indoor-housing pin suppression ok")
+
+-------------------------------------------------------------------------------
+-- HS-362 (second finding): pins must stay hidden while the generic IsIndoors()
+-- flag is true, independent of C_Housing.IsInsideHouse() -- an ordinary
+-- building (not a player house) still needs pins suppressed, since its
+-- vendors-outside-the-walls case has no distinct map ID for a collect-time
+-- fix to key off. This must be re-checked live (via RefreshPositions/SetPins,
+-- not a one-shot collect-time filter) since walking into a same-map-ID
+-- building never triggers a new collect at all -- see the code comment on
+-- IsInsideBuilding() in HomesteadMinimapOverlay.lua for why.
+-------------------------------------------------------------------------------
+
+IsIndoors = function() return true end
+
+Overlay:SetPins({ MakePin(7) })
+assert(#Overlay:GetActiveFrames() == 0,
+    "SetPins must not place any pins while IsIndoors() is true")
+
+IsIndoors = function() return false end
+
+print("hs208_minimap_pin_spikes: indoor-building pin suppression ok")

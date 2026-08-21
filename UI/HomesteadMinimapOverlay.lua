@@ -181,6 +181,18 @@ local function IsInsideHouse()
     return housingAPI and housingAPI.IsInsideHouse and housingAPI.IsInsideHouse() or false
 end
 
+-- HS-362 (second finding): pin position math is pure world-XY distance, so
+-- it can't tell "vendor visible outdoors nearby" from "vendor on the other
+-- side of a wall" when a building shares its zone's mapID -- which ordinary
+-- buildings (unlike player houses) usually do. A collect-time filter can't
+-- fix this either: the zone-change refresh trigger (VendorMapPins.lua's
+-- RegisterZoneChangeEvents) only fires on a mapID change, so walking into a
+-- same-mapID building never re-collects at all. This has to be re-checked
+-- live, the same place the house/hybrid checks already are.
+local function IsInsideBuilding()
+    return _G.IsIndoors and _G.IsIndoors() or false
+end
+
 -- Single source of truth for "should minimap pins stay hidden right now" --
 -- consumed both internally (RefreshPositions/SetPins below) and externally
 -- (MinimapPinCollect's pre-collection skip), so a future third hide
@@ -192,6 +204,9 @@ function Overlay:ShouldHideMinimapPins()
     end
     if IsInsideHouse() then
         return true, "inside_house"
+    end
+    if IsInsideBuilding() then
+        return true, "indoors"
     end
     return false, "inactive"
 end
