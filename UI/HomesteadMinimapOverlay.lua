@@ -181,22 +181,9 @@ local function IsInsideHouse()
     return housingAPI and housingAPI.IsInsideHouse and housingAPI.IsInsideHouse() or false
 end
 
--- HS-362 (cycle 2/3): an ordinary building (not a player house) has no
--- distinct map ID, so a collect-time filter can never react to its
--- entry/exit -- this MUST be re-checked live, every RefreshPositions/SetPins
--- pass, not decided once at collect time. The generic IsIndoors() flag is
--- broader than IsInsideHouse() (any WMO interior, not just player housing),
--- a known accepted tradeoff for this ticket -- see Home_Tracker.md HS-362
--- for the open, live-client-only risk that some vendors' own coordinates may
--- sit inside a WMO (e.g. City of Threads) and would have their own pin
--- suppressed by proximity.
-local function IsInsideBuilding()
-    return _G.IsIndoors and _G.IsIndoors() or false
-end
-
 -- Single source of truth for "should minimap pins stay hidden right now" --
 -- consumed both internally (RefreshPositions/SetPins below) and externally
--- (MinimapPinCollect's pre-collection skip), so a future fourth hide
+-- (MinimapPinCollect's pre-collection skip), so a future third hide
 -- condition only needs adding here once.
 function Overlay:ShouldHideMinimapPins()
     local hybridActive, hybridReason = self:GetHybridMinimapState()
@@ -205,9 +192,6 @@ function Overlay:ShouldHideMinimapPins()
     end
     if IsInsideHouse() then
         return true, "inside_house"
-    end
-    if IsInsideBuilding() then
-        return true, "indoors"
     end
     return false, "inactive"
 end
@@ -426,15 +410,8 @@ end
 -- whose rendering identity changed, see GetPinIdentityKey); everything else
 -- keeps its exact frame object.
 function Overlay:SetPins(pinRecords)
-    -- HS-362 (cycle 3): don't destroy existing pin state on a hidden call --
-    -- RefreshPositions's own per-frame hide check already suppresses display
-    -- without releasing frames; clearing here would reintroduce the same
-    -- one-way-door defect this cycle fixed in MinimapPinCollect.lua's caller
-    -- (nothing left to restore once unhidden, since a same-mapID exit never
-    -- re-triggers a collect). This path is unreached in production today
-    -- (MinimapPinCollect.lua always hide-checks before calling SetPins), but
-    -- kept correct defensively for HS-364, which will make it reachable.
     if ShouldHideMinimapPins() then
+        self:Clear()
         return
     end
 

@@ -1,5 +1,5 @@
 -- luacheck: globals assert loadfile print io loadstring CreateFrame UnitPosition
--- luacheck: globals GetCVar C_Minimap Minimap GetMinimapShape C_Housing IsIndoors
+-- luacheck: globals GetCVar C_Minimap Minimap GetMinimapShape C_Housing
 
 local root = (... or "."):gsub("\\\\", "/"):gsub("/+$", "")
 
@@ -66,9 +66,8 @@ local function NewMockFrame()
     function frame:SetFrameStrata() end
     function frame:SetFrameLevel() end
     function frame:SetAlpha() end
-    frame.__shown = false
-    function frame:Show() self.__shown = true end
-    function frame:Hide() self.__shown = false end
+    function frame:Show() end
+    function frame:Hide() end
     function frame:ClearAllPoints() end
     function frame:SetPoint() end
     function frame:RegisterEvent() end
@@ -96,7 +95,6 @@ C_Minimap = { GetViewRadius = function() return 400 end }
 UnitPosition = function() return 0, 0 end
 GetMinimapShape = nil
 C_Housing = { IsInsideHouse = function() return false end }
-IsIndoors = function() return false end
 
 local mockIconSize = 14
 
@@ -209,14 +207,9 @@ print("hs208_minimap_pin_spikes: pool-hit restyle ok")
 -- entirely left every existing assertion in this file green. This closes
 -- that gap directly rather than relying on the elevation/style assertions
 -- above to incidentally exercise it (they don't -- C_Housing is never
--- touched by anything before this block). Explicitly cleared to a known
--- empty baseline first (HS-362 cycle 3 changed SetPins to leave leftover
--- pins from the prior block untouched while hidden, rather than wiping them
--- -- see the "hidden-refresh no longer destroys pin state" block below for
--- that behavior's own coverage).
+-- touched by anything before this block).
 -------------------------------------------------------------------------------
 
-Overlay:Clear()
 C_Housing.IsInsideHouse = function() return true end
 
 Overlay:SetPins({ MakePin(6) })
@@ -226,87 +219,3 @@ assert(#Overlay:GetActiveFrames() == 0,
 C_Housing.IsInsideHouse = function() return false end
 
 print("hs208_minimap_pin_spikes: indoor-housing pin suppression ok")
-
--------------------------------------------------------------------------------
--- HS-362 (second finding): pins must stay hidden while the generic IsIndoors()
--- flag is true, independent of C_Housing.IsInsideHouse() -- an ordinary
--- building (not a player house) still needs pins suppressed, since its
--- vendors-outside-the-walls case has no distinct map ID for a collect-time
--- fix to key off. This must be re-checked live (via RefreshPositions/SetPins,
--- not a one-shot collect-time filter) since walking into a same-map-ID
--- building never triggers a new collect at all -- see the code comment on
--- IsInsideBuilding() in HomesteadMinimapOverlay.lua for why.
--------------------------------------------------------------------------------
-
-IsIndoors = function() return true end
-
-Overlay:SetPins({ MakePin(7) })
-assert(#Overlay:GetActiveFrames() == 0,
-    "SetPins must not place any pins while IsIndoors() is true")
-
-IsIndoors = function() return false end
-
-print("hs208_minimap_pin_spikes: indoor-building pin suppression ok")
-
--------------------------------------------------------------------------------
--- HS-362 (cycle 3): a refresh landing WHILE hidden must not destroy pin
--- state. Argus's Gate 1 review of the previous fix (af7156b) found
--- ShouldHideMinimapPins()'s live re-check was itself correct, but the
--- caller (MinimapPinCollect.lua) unconditionally cleared activePins BEFORE
--- checking hide -- so any refresh trigger landing while already indoors
--- wiped pin state permanently. Nothing ever restored it: a same-mapID exit
--- never re-triggers a collect, and Clear() also stops the OnUpdate driver
--- RefreshPositions relies on. This reproduces the failure at the Overlay
--- level, where both the bug and the fix live: SetPins must leave activePins
--- untouched while hidden, and the existing per-frame RefreshPositions check
--- must resume showing the SAME frames -- no recreate -- the instant hidden
--- goes false again. Mirrors Argus's differential probe (Case A: already
--- active, walk in and out, recovers; Case B: a refresh lands while indoors,
--- never recovers) at the mechanism this cycle actually touched.
--------------------------------------------------------------------------------
-
-Overlay:SetPins({ MakePin(8), MakePin(9) })
-assert(#Overlay:GetActiveFrames() == 2, "expected 2 active pins before the hide cycle")
-local createsBeforeHideCycle = frameCreateCalls
-local framesBeforeHide = {}
-for _, pin in ipairs(Overlay:GetActiveFrames()) do
-    framesBeforeHide[pin.vendor.npcID] = pin.frame
-    assert(pin.frame.__shown == true, "pins must be shown before the hide cycle starts")
-end
-
--- Simulate a refresh LANDING while indoors -- the exact cycle-2 regression.
--- (MinimapPinCollect.lua's own fix is the ClearMinimapPins/hide-check
--- reorder, which this file's stub environment can't reach directly since it
--- doesn't load VendorData/MapPinProvider/VendorFilter -- SetPins is the
--- shared surface where both the bug and the fix actually live, per Argus's
--- review.)
-C_Housing.IsInsideHouse = function() return true end
-
-Overlay:SetPins({ MakePin(8), MakePin(9) })
-assert(#Overlay:GetActiveFrames() == 2,
-    "a SetPins call while hidden must not destroy already-active pin state")
-for _, pin in ipairs(Overlay:GetActiveFrames()) do
-    assert(pin.frame == framesBeforeHide[pin.vendor.npcID],
-        "pins surviving a hidden SetPins call must keep their exact frame objects")
-end
-assert(frameCreateCalls == createsBeforeHideCycle,
-    "a hidden SetPins call must not allocate any new frames")
-
-Overlay:RefreshPositions(true)
-for _, pin in ipairs(Overlay:GetActiveFrames()) do
-    assert(pin.frame.__shown == false, "pins must be visually hidden while indoors")
-end
-
--- Un-hide: the SAME per-frame check that hid them must resume showing them,
--- reusing the exact same frames -- this is the recovery edge the previous
--- fix never had.
-C_Housing.IsInsideHouse = function() return false end
-Overlay:RefreshPositions(true)
-
-assert(frameCreateCalls == createsBeforeHideCycle,
-    "recovering from hidden must reuse the surviving frames, not recreate them")
-for _, pin in ipairs(Overlay:GetActiveFrames()) do
-    assert(pin.frame.__shown == true, "pins must resume showing once no longer hidden, with no new collect")
-end
-
-print("hs208_minimap_pin_spikes: hidden-refresh no longer destroys pin state ok")
