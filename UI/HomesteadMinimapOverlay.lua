@@ -171,22 +171,42 @@ function Overlay:GetHybridMinimapState()
     return frameShown == true, reason, shouldUse == true, frameShown == true
 end
 
-function Overlay:IsHybridMinimapActive()
-    local active, reason = self:GetHybridMinimapState()
-    return active, reason
+-- HS-362: Blizzard swaps in an opaque static overlay across the whole
+-- minimap whenever the player is inside a house (Minimap.lua's
+-- UpdateStaticOverlayTexture, gated on C_Housing.IsInsideHouse()) --
+-- independent of HybridMinimap state, so it needs its own check rather than
+-- folding into GetHybridMinimapState's hybrid-specific reason reporting.
+local function IsInsideHouse()
+    local housingAPI = _G.C_Housing
+    return housingAPI and housingAPI.IsInsideHouse and housingAPI.IsInsideHouse() or false
 end
 
-local function IsHybridMinimapActive()
-    local active, reason = Overlay:IsHybridMinimapActive()
-    if active and reason ~= lastHybridMinimapReason then
+-- Single source of truth for "should minimap pins stay hidden right now" --
+-- consumed both internally (RefreshPositions/SetPins below) and externally
+-- (MinimapPinCollect's pre-collection skip), so a future third hide
+-- condition only needs adding here once.
+function Overlay:ShouldHideMinimapPins()
+    local hybridActive, hybridReason = self:GetHybridMinimapState()
+    if hybridActive then
+        return true, hybridReason
+    end
+    if IsInsideHouse() then
+        return true, "inside_house"
+    end
+    return false, "inactive"
+end
+
+local function ShouldHideMinimapPins()
+    local hide, reason = Overlay:ShouldHideMinimapPins()
+    if hide and reason ~= lastHybridMinimapReason then
         lastHybridMinimapReason = reason
         if HA.Addon and HA.Addon.db and HA.Addon.db.profile.debug then
-            HA.Addon:Debug("HybridMinimap active; Homestead minimap pins hidden (" .. reason .. ")")
+            HA.Addon:Debug("Homestead minimap pins hidden (" .. reason .. ")")
         end
-    elseif not active then
+    elseif not hide then
         lastHybridMinimapReason = nil
     end
-    return active
+    return hide
 end
 
 -- HS-208: RefreshPositions used to treat ANY change in playerX/playerY as
@@ -282,7 +302,7 @@ function Overlay:RefreshPositions(force)
         return
     end
 
-    if IsHybridMinimapActive() then
+    if ShouldHideMinimapPins() then
         for _, pin in ipairs(activePins) do
             pin.frame:Hide()
         end
@@ -390,7 +410,7 @@ end
 -- whose rendering identity changed, see GetPinIdentityKey); everything else
 -- keeps its exact frame object.
 function Overlay:SetPins(pinRecords)
-    if IsHybridMinimapActive() then
+    if ShouldHideMinimapPins() then
         self:Clear()
         return
     end

@@ -82,9 +82,9 @@ function MinimapPinCollect:RefreshMinimapPins()
 
     HA.VendorMapPins:ClearMinimapPins()
 
-    if MinimapOverlay and MinimapOverlay.IsHybridMinimapActive then
-        local hybridActive = MinimapOverlay:IsHybridMinimapActive()
-        if hybridActive then
+    if MinimapOverlay and MinimapOverlay.ShouldHideMinimapPins then
+        local shouldHide = MinimapOverlay:ShouldHideMinimapPins()
+        if shouldHide then
             return
         end
     end
