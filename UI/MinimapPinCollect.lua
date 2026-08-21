@@ -80,14 +80,24 @@ function MinimapPinCollect:RefreshMinimapPins()
         return
     end
 
-    HA.VendorMapPins:ClearMinimapPins()
-
+    -- HS-362 (cycle 3): hide check runs BEFORE ClearMinimapPins, not after.
+    -- Every earlier attempt cleared unconditionally first, so any refresh
+    -- trigger landing while already indoors (login, merchant close, vendor
+    -- scan, etc.) permanently wiped activePins -- and since a same-mapID
+    -- building exit never re-triggers a collect, nothing ever rebuilt them.
+    -- Leaving activePins untouched here lets Overlay:RefreshPositions's own
+    -- per-frame hide check (already correct -- Hide() without releasing)
+    -- do the suppression, and the same per-frame check resumes drawing the
+    -- surviving pins the instant ShouldHideMinimapPins() goes false again --
+    -- no rebuild, no new trigger required.
     if MinimapOverlay and MinimapOverlay.ShouldHideMinimapPins then
         local shouldHide = MinimapOverlay:ShouldHideMinimapPins()
         if shouldHide then
             return
         end
     end
+
+    HA.VendorMapPins:ClearMinimapPins()
 
     if not HA.VendorData then return end
 
