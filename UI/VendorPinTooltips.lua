@@ -307,34 +307,22 @@ function VendorPinTooltips:ShowVendorTooltip(pin, vendor)
     local allItems = {}
     local itemsSeen = {}
 
-    -- Scanned items for this vendor, keyed by itemID -> normalized cost.
-    -- Built once (before the static loop) so a static row with no cost data
-    -- can be backfilled from the vendor's real scanned price instead of
-    -- rendering "?" forever, and so the scanned loop below doesn't have to
-    -- re-normalize per item. First non-nil cost per itemID wins -- a costless
-    -- record (an unfinished scan of that merchant slot) never overwrites a
-    -- real price seen elsewhere for the same item.
-    -- Gated on itemDetailsEnabled: AddPinTooltipItemLine only reads item.cost
-    -- when isVendorContext is true (below), so with the toggle off this
-    -- normalization pass (up to one call per scanned item) is pure waste.
-    local scannedCostByItemID = {}
     local scannedItems
-    if vendor.npcID and HA.Addon and HA.Addon.db and HA.Addon.db.global.scannedVendors then
-        local scannedData = HA.Addon.db.global.scannedVendors[vendor.npcID]
-        scannedItems = scannedData and (scannedData.items)
-        if scannedItems and itemDetailsEnabled then
-            for _, item in ipairs(scannedItems) do
-                if item.itemID and scannedCostByItemID[item.itemID] == nil then
-                    -- HS-074B: scanned items carry the legacy {price, currencies}
-                    -- shape instead of the static gather's {cost} field below --
-                    -- normalize once here so the cost column renders the same way
-                    -- for both sources. NormalizeScannedCost's already-normalized
-                    -- passthrough branch returns scannedItem.cost BY REFERENCE, so
-                    -- a mapped cost can still alias a live SavedVariables
-                    -- sub-table. Nothing writes through it today -- don't assume
-                    -- that stays true.
+    local scannedLastScanned
+    if HA.VendorData and HA.VendorData.GetScannedVendorRecord then
+        local scannedData = HA.VendorData:GetScannedVendorRecord(vendor)
+        scannedItems = scannedData and scannedData.items
+        scannedLastScanned = scannedData and scannedData.lastScanned
+    end
+    local scannedCostByItemID = {}
+    local scannedCostKnownByItemID = {}
+    if scannedItems and itemDetailsEnabled then
+        for _, item in ipairs(scannedItems) do
+            if item.itemID then
+                scannedCostKnownByItemID[item.itemID] = true
+            end
+            if item.itemID and scannedCostByItemID[item.itemID] == nil then
                     scannedCostByItemID[item.itemID] = HA.VendorData and HA.VendorData:NormalizeScannedCost(item)
-                end
             end
         end
     end
@@ -348,15 +336,16 @@ function VendorPinTooltips:ShowVendorTooltip(pin, vendor)
             -- HS-074 test: preserve cost on the wrapped record so the right column
             -- can format it. Previously stripped, which is why the cost column
             -- rendered "?" even for vendors that had data populated.
-            -- HS-074B: curated static cost stays authoritative when present;
-            -- a costless static row (offer captured no price) backfills from
-            -- the vendor's scanned price so a real scan result isn't shadowed
-            -- by a permanent "?".
             local cost = HA.VendorData:GetItemCost(item)
             if cost == nil then
                 cost = scannedCostByItemID[itemID]
             end
             tinsert(allItems, {itemID = itemID, cost = cost})
+            if itemDetailsEnabled and HA.SourceManager and HA.SourceManager.GetVendorItemCost then
+                allItems[#allItems].cost = HA.SourceManager:GetVendorItemCost(
+                    itemID, vendor, scannedCostByItemID[itemID],
+                    true, cost, true, scannedLastScanned)
+            end
         end
     end
 
@@ -365,7 +354,13 @@ function VendorPinTooltips:ShowVendorTooltip(pin, vendor)
         for _, item in ipairs(scannedItems) do
             if item.itemID and not itemsSeen[item.itemID] then
                 itemsSeen[item.itemID] = true
-                tinsert(allItems, {itemID = item.itemID, name = item.name, cost = scannedCostByItemID[item.itemID]})
+                local cost = scannedCostByItemID[item.itemID]
+                if itemDetailsEnabled and HA.SourceManager and HA.SourceManager.GetVendorItemCost then
+                    cost = HA.SourceManager:GetVendorItemCost(
+                        item.itemID, vendor, scannedCostByItemID[item.itemID],
+                        scannedCostKnownByItemID[item.itemID] == true, nil, true, scannedLastScanned)
+                end
+                tinsert(allItems, {itemID = item.itemID, name = item.name, cost = cost})
             end
         end
     end
