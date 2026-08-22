@@ -114,7 +114,7 @@ Expected: FAIL with the resolver absent or the expected precedence not implement
 ```lua
 function VendorData:ResolveVendorItemCost(vendor, itemID, sourceText)
     -- returns normalizedCost, provenance
-    -- provenance: "scanned", "sourceText-discount", "static", or nil
+    -- provenance: "scanned", "sourceText-discount", "sourceText", "static", or nil
 end
 ```
 
@@ -122,7 +122,7 @@ The method will:
 
 1. Read the corrected scanned record and normalize the matching scanned row.
 2. Return the scanned cost when `lastScanned` is present and no older than 60 days.
-3. Return `sourceText.cost` only when `sourceText.lastParsed > scanned.lastScanned`, the scan is older than 60 days, the source-text cost is lower than the scanned gold cost, and both values are comparable gold costs.
+3. Return `sourceText.cost` as the second source when no scanned cost exists; when a scanned gold-only cost exists, use source text to replace it only when `sourceText.lastParsed > scanned.lastScanned`, the scan is older than 60 days, the source-text cost is lower, and both values are comparable gold costs.
 4. Otherwise return the scanned cost when one exists.
 5. Return static cost from the vendor’s item row or projected offer.
 6. Return `nil, nil` when no cost exists.
@@ -152,7 +152,7 @@ Expected: PASS for corrected IDs, fresh scan precedence, 60-day stale boundary, 
 - Modify: `UI/VendorPinTooltips.lua:310-375`
 - Test: `tests/hs355_vendor_cost_resolution.lua`
 
-- [ ] **Step 1: Remove the pin tooltip’s direct `scannedVendors[vendor.npcID]` cost map.** Keep the existing item gathering/deduplication behavior, but obtain each row’s cost from `VendorData:ResolveVendorItemCost` (with the same parsed vendor-cost input used by `SourceManager`).
+- [ ] **Step 1: Replace the pin tooltip’s direct `scannedVendors[vendor.npcID]` lookup with the corrected-record scan-cost map.** Build that normalized map and known-item set once per tooltip, then pass each row’s precomputed scan state and static cost into `VendorData:ResolveVendorItemCost` through `SourceManager`, so the shared decision is used without rescanning the vendor or static list for every row.
 
 - [ ] **Step 2: Preserve the item-details toggle behavior.** Do not normalize or resolve costs when `itemDetailsEnabled` is false, because the renderer does not read `item.cost` in that mode.
 

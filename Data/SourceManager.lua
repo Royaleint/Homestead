@@ -565,22 +565,39 @@ function SourceManager:GetPlacedCountForItem(itemID)
     return GetPlacedCount(itemID)
 end
 
+local function GetParsedVendorCost(itemID, vendor)
+    if not itemID or not vendor or not HA.SourceTextScanner then return nil end
+    local parsed = HA.SourceTextScanner:GetParsedSource(itemID)
+    if not parsed or not parsed.sources or not parsed.lastParsed then return nil end
+
+    for _, source in ipairs(parsed.sources) do
+        if source.sourceType == "vendor" and source.cost
+                and source.name == vendor.name then
+            return {
+                cost = source.cost,
+                lastParsed = parsed.lastParsed,
+            }
+        end
+    end
+    return nil
+end
+
+function SourceManager:GetVendorItemCost(
+        itemID, vendor, scannedCost, scannedCostKnown, staticCost, staticCostKnown, scannedAt)
+    if not HA.VendorData or not HA.VendorData.ResolveVendorItemCost then
+        return nil, nil
+    end
+    return HA.VendorData:ResolveVendorItemCost(
+        vendor, itemID, GetParsedVendorCost(itemID, vendor), scannedCost,
+        scannedCostKnown, staticCost, staticCostKnown, scannedAt)
+end
+
 local function BuildVendorSourceData(itemID, vendor)
     if not itemID or not vendor then return nil end
 
     local cost = nil
-    if HA.VendorData then
-        local vendorItems = HA.VendorData.GetItemsForVendor and HA.VendorData:GetItemsForVendor(vendor) or {}
-        for _, item in ipairs(vendorItems) do
-            local vendorItemID = HA.VendorData:GetItemID(item) or item.itemID
-            if vendorItemID == itemID then
-                cost = HA.VendorData:GetItemCost(item)
-                if not cost and vendor._isScanned then
-                    cost = HA.VendorData:NormalizeScannedCost(item)
-                end
-                break
-            end
-        end
+    if HA.SourceManager.GetVendorItemCost then
+        cost = HA.SourceManager:GetVendorItemCost(itemID, vendor)
     end
 
     return {

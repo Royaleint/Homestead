@@ -248,6 +248,103 @@ function VendorData:NormalizeScannedCost(scannedItem)
     return hasCost and cost or nil
 end
 
+local VENDOR_COST_STALE_SECONDS = 60 * 24 * 60 * 60
+
+function VendorData:GetScannedVendorRecord(vendor)
+    local db = HA.Addon and HA.Addon.db
+    local scannedVendors = db and db.global and db.global.scannedVendors
+    if not scannedVendors or not vendor then return nil end
+
+    local record = vendor.npcID and scannedVendors[vendor.npcID]
+    if not record and vendor.name and HA.VendorScanner then
+        local correctedID = HA.VendorScanner:GetCorrectedNPCID(vendor.name)
+        if correctedID then
+            record = scannedVendors[correctedID]
+        end
+    end
+    return record
+end
+
+local function GetScannedItemAndCost(record, itemID)
+    if not record or not record.items or not itemID then return nil, nil end
+
+    local matchingItem
+    for _, item in ipairs(record.items) do
+        if item.itemID == itemID then
+            matchingItem = matchingItem or item
+            local cost = VendorData:NormalizeScannedCost(item)
+            if cost then
+                return item, cost
+            end
+        end
+    end
+    return matchingItem, nil
+end
+
+local function HasOnlyGoldCost(cost)
+    return cost and cost.gold and not cost.currencies and not cost.items
+end
+
+-- Resolve a vendor item's display cost for every UI surface.
+-- sourceText is optional {cost = normalizedCost, lastParsed = timestamp}.
+-- Returns normalized cost and provenance: scanned, sourceText-discount, sourceText,
+-- static, or nil.
+function VendorData:ResolveVendorItemCost(
+        vendor, itemID, sourceText, scannedCostOverride, scannedCostKnown,
+        staticCostOverride, staticCostKnown, scannedAtOverride)
+    if not vendor or not itemID then return nil, nil end
+
+    local scannedVendor
+    if not scannedCostKnown then
+        scannedVendor = self:GetScannedVendorRecord(vendor)
+    end
+    local scannedCost = scannedCostOverride
+    if not scannedCostKnown then
+        _, scannedCost = GetScannedItemAndCost(scannedVendor, itemID)
+    end
+    local scannedAt = scannedAtOverride or (scannedVendor and scannedVendor.lastScanned)
+    local sourceCost = sourceText and sourceText.cost
+    local sourceAt = sourceText and sourceText.lastParsed
+    local now = time()
+
+    if HasOnlyGoldCost(scannedCost) and HasOnlyGoldCost(sourceCost)
+            and scannedAt and sourceAt and sourceAt > scannedAt
+            and now - scannedAt > VENDOR_COST_STALE_SECONDS
+            and sourceCost.gold < scannedCost.gold then
+        return sourceCost, "sourceText-discount"
+    end
+
+    if scannedCost then
+        return scannedCost, "scanned"
+    end
+
+    if sourceCost then
+        return sourceCost, "sourceText"
+    end
+
+    if staticCostKnown then
+        if staticCostOverride then
+            return staticCostOverride, "static"
+        end
+        return nil, nil
+    end
+
+    local staticItems = vendor.items
+    if (not staticItems or #staticItems == 0) and vendor.npcID then
+        staticItems = self:GetVendorItems(vendor.npcID)
+    end
+    for _, item in ipairs(staticItems or {}) do
+        if self:GetItemID(item) == itemID then
+            local staticCost = self:GetItemCost(item)
+            if staticCost then
+                return staticCost, "static"
+            end
+        end
+    end
+
+    return nil, nil
+end
+
 -------------------------------------------------------------------------------
 -- Shared Item Merge Helpers
 -------------------------------------------------------------------------------
