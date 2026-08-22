@@ -164,6 +164,13 @@ local minimapWarmupTimer = nil
 
 -- Dedup guards for minimap and world map refreshes
 local lastMinimapMapID = nil
+
+-- HS-367: set by MinimapPinCollect.lua's hide-check drop site -- a refresh
+-- WAS requested and reached RefreshMinimapPins, but landed while pins were
+-- suppressed, so nothing was rebuilt. Consumed by the reconciliation
+-- backstop's ticker the moment ShouldHideMinimapPins() next reports false --
+-- no refresh request may be silently dropped.
+local minimapRefreshPending = false
 local lastRenderedWorldMapID = nil
 local worldMapDirty = true
 local worldMapDebugStats = {
@@ -347,11 +354,30 @@ end
 local function RegisterZoneChangeEvents()
     if not zoneEventFrame then
         zoneEventFrame = CreateFrame("Frame")
-        zoneEventFrame:SetScript("OnEvent", function()
-            -- Skip refresh if player hasn't actually changed zones.
+        zoneEventFrame:SetScript("OnEvent", function(_, event)
             local currentMapID = C_Map.GetBestMapForUnit("player")
-            if currentMapID == lastMinimapMapID then return end
-            lastMinimapMapID = currentMapID
+            local mapChanged = currentMapID ~= lastMinimapMapID
+            if mapChanged then
+                lastMinimapMapID = currentMapID
+            end
+
+            -- ZONE_CHANGED_INDOORS is a first-class trigger, unconditioned
+            -- on the mapID gate below -- an ordinary building's entry/exit
+            -- shares its parent zone's mapID, so the gate alone would
+            -- swallow the transition this event exists to report. Every
+            -- other registered event still needs a real mapID change.
+            -- Repeated firings within a short span (e.g. crossing several
+            -- WMO chunk boundaries in a dense area) are already coalesced
+            -- by RequestMinimapRefresh's own debounce timer below, rather
+            -- than deduped here against a second piece of tracked state --
+            -- an event-count dedup was tried and reverted: it can only stay
+            -- correct if this event fires symmetrically on both building
+            -- entry and exit, which is unconfirmed and cheap to verify
+            -- in-game rather than guess. Getting it wrong would silently
+            -- reintroduce the same defect class this fix exists to close.
+            if not mapChanged and event ~= "ZONE_CHANGED_INDOORS" then
+                return
+            end
 
             VendorMapPins:RequestMinimapRefresh("zone_changed", MINIMAP_REFRESH_ZONE_DELAY)
         end)
@@ -362,6 +388,9 @@ local function RegisterZoneChangeEvents()
         zoneEventFrame:RegisterEvent("ZONE_CHANGED_INDOORS")
         zoneEventFrame:RegisterEvent("ZONE_CHANGED_NEW_AREA")
         zoneEventFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
+        -- NEW_WMO_CHUNK deliberately left gated by mapChanged: its
+        -- entry/exit symmetry with ZONE_CHANGED_INDOORS is unconfirmed from
+        -- source, and cheap to verify in-game rather than guess.
         zoneEventFrame:RegisterEvent("NEW_WMO_CHUNK")
     end
 end
@@ -393,8 +422,14 @@ local function RefreshRuntimeSubscriptions()
 
     if minimapPinsEnabled then
         RegisterZoneChangeEvents()
+        if MinimapOverlay and MinimapOverlay.StartReconciliationBackstop then
+            MinimapOverlay:StartReconciliationBackstop()
+        end
     else
         UnregisterZoneChangeEvents()
+        if MinimapOverlay and MinimapOverlay.StopReconciliationBackstop then
+            MinimapOverlay:StopReconciliationBackstop()
+        end
     end
 end
 
@@ -435,8 +470,10 @@ function VendorMapPins:RefreshAllPinColors()
     -- HS-358: minimap pins no longer need a pool flush here — the narrowed
     -- pool key is stable across style changes, and RefreshMinimapPins below
     -- drives a fresh AcquireFrame per pin (which restyles pool hits too).
-    self:ClearMinimapPins()
-
+    -- HS-367: no longer calls ClearMinimapPins directly either -- that was
+    -- an unguarded destructive clear reachable while pins were suppressed
+    -- (e.g. changing pin color/size while indoors). RefreshMinimapPins is
+    -- the guarded choke point: it hide-checks before clearing anything.
     self:RefreshPins(true)
     self:RefreshMinimapPins()
 end
@@ -604,9 +641,41 @@ end
 function VendorMapPins:ClearMinimapPins()
     self:OnPinLeave()
     MPP.ClearMinimapPins("HomesteadMinimapVendors")
+
+    -- Defense-in-depth (HS-367): a still-enabled, still-vendor-filtered
+    -- caller invoking this while pins are merely suppressed (hybrid/house/
+    -- indoors) must not release frames or stop the update driver -- the
+    -- same one-way-door defect class this ticket exists to close, now
+    -- guarded here too rather than relying solely on every caller getting
+    -- the ordering right. Today's real callers (the disabled-feature path
+    -- and DisableMinimapPins) are already genuinely destructive by the time
+    -- they reach here, so this never actually triggers for them; kept
+    -- correct for any future caller regardless.
+    if MinimapOverlay
+            and self:IsMinimapPinsEnabled()
+            and IsMapFilterSourceEnabled("vendor")
+            and MinimapOverlay.ShouldHideMinimapPins
+            and MinimapOverlay:ShouldHideMinimapPins() then
+        return
+    end
+
     if MinimapOverlay then
         MinimapOverlay:Clear()
     end
+end
+
+-- HS-367: set by MinimapPinCollect.lua's hide-check drop site; consumed by
+-- the reconciliation backstop's ticker in HomesteadMinimapOverlay.lua.
+function VendorMapPins:MarkMinimapRefreshPending()
+    minimapRefreshPending = true
+end
+
+function VendorMapPins:ConsumePendingMinimapRefresh()
+    if not minimapRefreshPending then
+        return false
+    end
+    minimapRefreshPending = false
+    return true
 end
 
 function VendorMapPins:RequestWorldMapRefresh(reason, delay, forceImmediate)

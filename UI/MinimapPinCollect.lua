@@ -80,14 +80,27 @@ function MinimapPinCollect:RefreshMinimapPins()
         return
     end
 
-    HA.VendorMapPins:ClearMinimapPins()
-
+    -- HS-367: hide check runs BEFORE ClearMinimapPins, not after. Every
+    -- earlier HS-362 attempt cleared unconditionally first, so any refresh
+    -- trigger landing while already suppressed (indoors, in a player house,
+    -- or HybridMinimap active) permanently wiped activePins — and since a
+    -- same-mapID building exit never re-triggers a fresh collect, nothing
+    -- ever rebuilt them. Leaving pin state untouched here lets
+    -- Overlay:RefreshPositions's own per-frame hide check (Hide() without
+    -- releasing) do the suppression. This IS the drop site (not
+    -- RequestMinimapRefresh, which never drops anything itself) — the
+    -- pending flag is set here, so the reconciliation backstop replays this
+    -- exact refresh the moment suppression lifts instead of silently
+    -- losing it.
     if MinimapOverlay and MinimapOverlay.ShouldHideMinimapPins then
         local shouldHide = MinimapOverlay:ShouldHideMinimapPins()
         if shouldHide then
+            HA.VendorMapPins:MarkMinimapRefreshPending()
             return
         end
     end
+
+    HA.VendorMapPins:ClearMinimapPins()
 
     if not HA.VendorData then return end
 

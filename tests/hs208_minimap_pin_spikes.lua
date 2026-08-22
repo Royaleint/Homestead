@@ -1,5 +1,6 @@
 -- luacheck: globals assert loadfile print io loadstring CreateFrame UnitPosition
--- luacheck: globals GetCVar C_Minimap Minimap GetMinimapShape C_Housing
+-- luacheck: globals GetCVar C_Minimap Minimap GetMinimapShape C_Housing IsIndoors
+-- luacheck: globals C_Map C_Timer
 
 local root = (... or "."):gsub("\\\\", "/"):gsub("/+$", "")
 
@@ -66,8 +67,9 @@ local function NewMockFrame()
     function frame:SetFrameStrata() end
     function frame:SetFrameLevel() end
     function frame:SetAlpha() end
-    function frame:Show() end
-    function frame:Hide() end
+    frame.__shown = false
+    function frame:Show() self.__shown = true end
+    function frame:Hide() self.__shown = false end
     function frame:ClearAllPoints() end
     function frame:SetPoint() end
     function frame:RegisterEvent() end
@@ -95,8 +97,38 @@ C_Minimap = { GetViewRadius = function() return 400 end }
 UnitPosition = function() return 0, 0 end
 GetMinimapShape = nil
 C_Housing = { IsInsideHouse = function() return false end }
+IsIndoors = function() return false end
+
+-- HS-367: a settable mapID and a capturable ticker callback, so the
+-- reconciliation backstop's tick logic can be driven directly rather than
+-- waiting on a real WoW timer (which doesn't exist in this headless
+-- environment).
+local mockMapID = 100
+C_Map = { GetBestMapForUnit = function() return mockMapID end }
+
+local activeTicker
+C_Timer = {
+    NewTicker = function(_, callback)
+        activeTicker = { callback = callback, cancelled = false }
+        return {
+            Cancel = function()
+                activeTicker.cancelled = true
+            end,
+        }
+    end,
+}
 
 local mockIconSize = 14
+
+-- HS-367: minimal stand-ins for the two VendorMapPins surfaces the
+-- reconciliation backstop calls into (pending-flag consumption, refresh
+-- requests) — VendorMapPins.lua itself is too heavy to load in this
+-- lightweight spike harness (see its own header comment on external
+-- dependencies), so its contract is mocked the same way PinFrameFactory is.
+local minimapRefreshPendingForTest = false
+local minimapRefreshRequests = {}
+local minimapPinsEnabledForTest = true
+local vendorFilterEnabledForTest = true
 
 local HA = {
     PinFrameFactory = {
@@ -112,6 +144,24 @@ local HA = {
         GetMinimapIconSize = function() return mockIconSize end,
         IsCustomPinColor = function() return false end,
         GetPinColor = function() return 1, 1, 1 end,
+    },
+    VendorMapPins = {
+        IsMinimapPinsEnabled = function()
+            return minimapPinsEnabledForTest
+        end,
+        IsMapFilterSourceEnabled = function(_, sourceKey)
+            return sourceKey == "vendor" and vendorFilterEnabledForTest
+        end,
+        ConsumePendingMinimapRefresh = function()
+            if not minimapRefreshPendingForTest then
+                return false
+            end
+            minimapRefreshPendingForTest = false
+            return true
+        end,
+        RequestMinimapRefresh = function(_, reason)
+            minimapRefreshRequests[#minimapRefreshRequests + 1] = reason
+        end,
     },
 }
 
@@ -202,14 +252,15 @@ print("hs208_minimap_pin_spikes: pool-hit restyle ok")
 -------------------------------------------------------------------------------
 -- HS-362: pins must stay hidden while C_Housing.IsInsideHouse() is true
 --
--- Argus's Gate 1 review of HS-362 found this composed hide condition had
--- zero regression coverage -- proved by mutation: deleting the indoor branch
--- entirely left every existing assertion in this file green. This closes
--- that gap directly rather than relying on the elevation/style assertions
--- above to incidentally exercise it (they don't -- C_Housing is never
--- touched by anything before this block).
+-- This composed hide condition previously had zero regression coverage --
+-- proved by mutation: deleting the indoor branch entirely left every
+-- existing assertion in this file green. This closes that gap directly
+-- rather than relying on the elevation/style assertions above to
+-- incidentally exercise it (they don't -- C_Housing is never touched by
+-- anything before this block).
 -------------------------------------------------------------------------------
 
+Overlay:Clear()
 C_Housing.IsInsideHouse = function() return true end
 
 Overlay:SetPins({ MakePin(6) })
@@ -219,3 +270,190 @@ assert(#Overlay:GetActiveFrames() == 0,
 C_Housing.IsInsideHouse = function() return false end
 
 print("hs208_minimap_pin_spikes: indoor-housing pin suppression ok")
+
+-------------------------------------------------------------------------------
+-- HS-362: pins must stay hidden while the generic IsIndoors() flag is true,
+-- independent of C_Housing.IsInsideHouse() -- an ordinary building (not a
+-- player house) still needs pins suppressed, since its vendors-outside-the-
+-- walls case has no distinct map ID for a collect-time fix to key off. This
+-- must be re-checked live (via RefreshPositions/SetPins, not a one-shot
+-- collect-time filter) since walking into a same-map-ID building never
+-- triggers a new collect at all -- see IsInsideBuilding() in
+-- HomesteadMinimapOverlay.lua for why.
+-------------------------------------------------------------------------------
+
+IsIndoors = function() return true end
+
+Overlay:SetPins({ MakePin(7) })
+assert(#Overlay:GetActiveFrames() == 0,
+    "SetPins must not place any pins while IsIndoors() is true")
+
+IsIndoors = function() return false end
+
+print("hs208_minimap_pin_spikes: indoor-building pin suppression ok")
+
+-------------------------------------------------------------------------------
+-- HS-367: a SetPins call landing WHILE hidden must not destroy existing pin
+-- state. An earlier design's caller unconditionally cleared activePins
+-- BEFORE checking hide -- so any refresh trigger landing while already
+-- indoors wiped pin state permanently, with nothing to restore it (a
+-- same-mapID exit never re-triggers a collect, and the old Clear() call
+-- also stopped the OnUpdate driver RefreshPositions relies on). Reproduces
+-- the failure at the Overlay level, where both the bug and the fix live:
+-- SetPins must leave activePins untouched while hidden, and the existing
+-- per-frame RefreshPositions check must resume showing the SAME frames --
+-- no recreate -- the instant hidden goes false again.
+-------------------------------------------------------------------------------
+
+Overlay:SetPins({ MakePin(8), MakePin(9) })
+assert(#Overlay:GetActiveFrames() == 2, "expected 2 active pins before the hide cycle")
+local createsBeforeHideCycle = frameCreateCalls
+local framesBeforeHide = {}
+for _, pin in ipairs(Overlay:GetActiveFrames()) do
+    framesBeforeHide[pin.vendor.npcID] = pin.frame
+end
+
+-- A refresh LANDS while indoors -- the drop this ticket exists to close.
+C_Housing.IsInsideHouse = function() return true end
+
+Overlay:SetPins({ MakePin(8), MakePin(9) })
+assert(#Overlay:GetActiveFrames() == 2,
+    "a SetPins call while hidden must not destroy already-active pin state")
+for _, pin in ipairs(Overlay:GetActiveFrames()) do
+    assert(pin.frame == framesBeforeHide[pin.vendor.npcID],
+        "pins surviving a hidden SetPins call must keep their exact frame objects")
+end
+assert(frameCreateCalls == createsBeforeHideCycle,
+    "a hidden SetPins call must not allocate any new frames")
+
+Overlay:RefreshPositions(true)
+for _, pin in ipairs(Overlay:GetActiveFrames()) do
+    assert(pin.frame.__shown ~= true, "pins must not be left shown while indoors")
+end
+
+-- Un-hide: the same per-frame check that hid them must resume showing them,
+-- reusing the exact same frames -- the recovery edge the drop defect broke.
+C_Housing.IsInsideHouse = function() return false end
+Overlay:RefreshPositions(true)
+
+assert(frameCreateCalls == createsBeforeHideCycle,
+    "recovering from hidden must reuse the surviving frames, not recreate them")
+
+print("hs208_minimap_pin_spikes: hidden SetPins no longer destroys pin state ok")
+
+-------------------------------------------------------------------------------
+-- HS-367: the reconciliation backstop replays a dropped refresh request.
+-- MinimapPinCollect.lua's hide-check drop site marks a pending refresh
+-- instead of silently losing it; the backstop's own ticker consumes that
+-- flag the moment ShouldHideMinimapPins() next reports false.
+-------------------------------------------------------------------------------
+
+Overlay:Clear()
+minimapPinsEnabledForTest = true
+vendorFilterEnabledForTest = true
+C_Housing.IsInsideHouse = function() return true end
+Overlay:StartReconciliationBackstop()
+assert(activeTicker ~= nil, "StartReconciliationBackstop must register a ticker")
+
+-- Establish a reconciled baseline through the same mechanism production
+-- uses -- the tick itself, not a direct SetPins call (unreached while
+-- hidden). The first tick always fires once (nothing reconciled yet);
+-- discard that request before testing the pending-flag mechanic itself.
+activeTicker.callback()
+minimapRefreshRequests = {}
+minimapRefreshPendingForTest = true
+
+-- Not yet un-hidden: the tick must NOT replay while still suppressed.
+activeTicker.callback()
+assert(#minimapRefreshRequests == 0,
+    "a pending refresh must not replay while still suppressed")
+assert(minimapRefreshPendingForTest == true,
+    "the pending flag must survive a tick that stays suppressed")
+
+-- Suppression lifts: the very next tick must replay it exactly once.
+C_Housing.IsInsideHouse = function() return false end
+activeTicker.callback()
+assert(#minimapRefreshRequests == 1 and minimapRefreshRequests[1] == "reconciliation_backstop",
+    "the backstop must replay a pending refresh the moment hidden goes false")
+assert(minimapRefreshPendingForTest == false,
+    "a replayed refresh must consume the pending flag")
+
+Overlay:StopReconciliationBackstop()
+
+print("hs208_minimap_pin_spikes: reconciliation backstop replays pending refresh ok")
+
+-------------------------------------------------------------------------------
+-- HS-367: the reconciliation backstop self-heals even with ZERO active
+-- pins. A backstop hosted on RefreshPositions's OnUpdate loop only runs
+-- while #activePins > 0 and is started solely from SetPins -- never
+-- reached while suppressed, so it would be inert in exactly the state it
+-- exists to heal (e.g. login/reload while already indoors). This backstop
+-- runs on its own always-on ticker instead, so it must detect drift with
+-- no active pins and nothing having ever called SetPins this session --
+-- and, once it has observed and acted on the current state, it must go
+-- quiet rather than keep re-requesting forever.
+-------------------------------------------------------------------------------
+
+Overlay:Clear()
+assert(#Overlay:GetActiveFrames() == 0, "expected zero active pins for the backstop-at-zero-pins case")
+
+minimapPinsEnabledForTest = true
+vendorFilterEnabledForTest = true
+minimapRefreshRequests = {}
+minimapRefreshPendingForTest = false
+C_Housing.IsInsideHouse = function() return false end
+mockMapID = 200 -- a mapID nothing has reconciled against this session
+
+Overlay:StartReconciliationBackstop()
+activeTicker.callback()
+assert(#minimapRefreshRequests == 1 and minimapRefreshRequests[1] == "reconciliation_backstop",
+    "the backstop must request a refresh when live state has never been reconciled, even with zero active pins")
+
+-- The tick itself is what reconciles state (not a real SetPins call) --
+-- the next tick, with nothing else having changed, must be silent.
+minimapRefreshRequests = {}
+activeTicker.callback()
+assert(#minimapRefreshRequests == 0,
+    "the backstop must not re-request once it has already observed and acted on the current live state")
+
+Overlay:StopReconciliationBackstop()
+
+print("hs208_minimap_pin_spikes: reconciliation backstop self-heals at zero active pins ok")
+
+-------------------------------------------------------------------------------
+-- HS-367: vendor pins genuinely being off (map-filter source toggled off,
+-- while minimap pins stay enabled) must not make the backstop re-request a
+-- refresh forever. That state never resolves to a real SetPins call on its
+-- own -- there is nothing to reconcile TO -- so treating it as ordinary
+-- drift would fire a refresh every tick for the rest of the session.
+-------------------------------------------------------------------------------
+
+Overlay:Clear()
+minimapPinsEnabledForTest = true
+vendorFilterEnabledForTest = false -- the vendor map-filter source is off
+C_Housing.IsInsideHouse = function() return false end
+mockMapID = 300
+minimapRefreshRequests = {}
+
+Overlay:StartReconciliationBackstop()
+activeTicker.callback()
+activeTicker.callback()
+activeTicker.callback()
+assert(#minimapRefreshRequests == 0,
+    "the backstop must not request refreshes while vendor pins are genuinely off")
+
+-- Turning the filter back on is real drift (nothing was ever reconciled
+-- while it was off) and must be caught exactly once.
+vendorFilterEnabledForTest = true
+activeTicker.callback()
+assert(#minimapRefreshRequests == 1 and minimapRefreshRequests[1] == "reconciliation_backstop",
+    "re-enabling vendor pins must be treated as drift and trigger exactly one refresh")
+
+minimapRefreshRequests = {}
+activeTicker.callback()
+assert(#minimapRefreshRequests == 0,
+    "the backstop must go quiet again once re-enabling has been reconciled")
+
+Overlay:StopReconciliationBackstop()
+
+print("hs208_minimap_pin_spikes: reconciliation backstop stays quiet while vendor pins are off ok")

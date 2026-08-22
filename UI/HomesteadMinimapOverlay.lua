@@ -43,6 +43,22 @@ local mapCos
 local minimapShape
 local lastHideReason
 
+-- HS-367: the state the currently-active pin set was last built/reconciled
+-- against. Compared by the reconciliation backstop's own ticker against the
+-- live state on every tick; a mismatch (or these still nil, meaning SetPins
+-- has never run this session) means something changed that no other trigger
+-- caught, and a single replay refresh is requested.
+local lastReconciledMapID
+local lastReconciledHidden
+local reconciliationTicker
+
+-- HS-366 (filed, Backlog): the reconciliation ticker deliberately runs on
+-- C_Timer.NewTicker, not OnUpdate -- a few seconds is more than fast enough
+-- for a safety net (every other trigger this ticket adds/fixes handles the
+-- normal case immediately) while staying nowhere near HS-366's per-frame
+-- polling-cost concern.
+local RECONCILIATION_INTERVAL_SECONDS = 3
+
 -- HS-090 Phase H: cache the rotateMinimap cvar instead of calling GetCVar
 -- every OnUpdate tick. Refresh on CVAR_UPDATE so live toggles of "Rotate
 -- Minimap" in the Blizzard Interface options work without /reload.
@@ -181,9 +197,20 @@ local function IsInsideHouse()
     return housingAPI and housingAPI.IsInsideHouse and housingAPI.IsInsideHouse() or false
 end
 
+-- HS-362/HS-367: an ordinary building (not a player house) has no distinct
+-- map ID, so a collect-time filter can never react to its entry/exit --
+-- this MUST be re-checked live, every RefreshPositions/SetPins pass, not
+-- decided once at collect time. The generic IsIndoors() flag is broader
+-- than IsInsideHouse() (any WMO interior, not just player housing) -- a
+-- known, accepted tradeoff: a vendor whose own coordinates sit inside a WMO
+-- could have its pin suppressed by proximity.
+local function IsInsideBuilding()
+    return _G.IsIndoors and _G.IsIndoors() or false
+end
+
 -- Single source of truth for "should minimap pins stay hidden right now" --
 -- consumed both internally (RefreshPositions/SetPins below) and externally
--- (MinimapPinCollect's pre-collection skip), so a future third hide
+-- (MinimapPinCollect's pre-collection skip), so a future fourth hide
 -- condition only needs adding here once.
 function Overlay:ShouldHideMinimapPins()
     local hybridActive, hybridReason = self:GetHybridMinimapState()
@@ -192,6 +219,9 @@ function Overlay:ShouldHideMinimapPins()
     end
     if IsInsideHouse() then
         return true, "inside_house"
+    end
+    if IsInsideBuilding() then
+        return true, "indoors"
     end
     return false, "inactive"
 end
@@ -397,6 +427,95 @@ function Overlay:Clear()
     lastPlayerX = nil
     lastPlayerY = nil
     lastMinimapScale = nil
+    lastReconciledMapID = nil
+    lastReconciledHidden = nil
+end
+
+-- HS-367: runs on its own always-on driver (a plain C_Timer.NewTicker, not
+-- the OnUpdate loop RefreshPositions uses -- that loop only exists while
+-- #activePins > 0 and is started solely from SetPins, which is never
+-- reached while suppressed, so a backstop hosted there is inert in exactly
+-- the states it exists to heal, e.g. login/reload while already indoors).
+-- Two independent things can go stale here, checked every tick:
+--   1. A refresh WAS requested and reached RefreshMinimapPins, but landed
+--      while suppressed, so MinimapPinCollect.lua marked it pending instead
+--      of dropping it. Replayed the moment we're no longer hidden.
+--   2. The (mapID, hidden) state the active pin set was last built/left
+--      against has drifted from the live state with no request at all --
+--      e.g. a zone-change event that didn't fire, or fired but got
+--      mis-gated.
+-- Vendor pins genuinely being off (feature disabled, or the map-filter
+-- source toggled off) is treated as "nothing to reconcile" rather than
+-- drift: that state never resolves to a real SetPins call on its own, so
+-- comparing against it would request a refresh every tick forever. The key
+-- is reset instead, so re-enabling starts from a clean "never reconciled"
+-- state that the very next tick correctly treats as drift.
+local function ReconciliationTick()
+    local vmp = HA.VendorMapPins
+    local vendorPinsWanted = vmp
+        and vmp.IsMinimapPinsEnabled
+        and vmp:IsMinimapPinsEnabled()
+        and vmp.IsMapFilterSourceEnabled
+        and vmp:IsMapFilterSourceEnabled("vendor")
+
+    if not vendorPinsWanted then
+        lastReconciledMapID = nil
+        lastReconciledHidden = nil
+        return
+    end
+
+    local mapAPI = _G.C_Map
+    local currentMapID = mapAPI and mapAPI.GetBestMapForUnit and mapAPI.GetBestMapForUnit("player") or nil
+    local hidden = ShouldHideMinimapPins()
+
+    -- Consumed here, before the refresh below is actually requested, not
+    -- after it succeeds -- if RequestMinimapRefresh ever grows a path that
+    -- drops the request downstream instead of fulfilling or re-marking it,
+    -- a consumed-but-unfulfilled flag would have no replay path. Every
+    -- early return between here and a real rebuild is currently either
+    -- dead code or self-healing (drift catches it independently); keep
+    -- that true, or move the consume to after success.
+    local pendingReplay = (not hidden)
+        and vmp.ConsumePendingMinimapRefresh
+        and vmp:ConsumePendingMinimapRefresh()
+        or false
+
+    local drifted = currentMapID ~= lastReconciledMapID or hidden ~= lastReconciledHidden
+
+    if pendingReplay or drifted then
+        if vmp.RequestMinimapRefresh then
+            vmp:RequestMinimapRefresh("reconciliation_backstop", 0, true)
+        end
+    end
+
+    -- Always record what was just observed, whether or not a refresh fired.
+    -- SetPins (below) only ever wrote this on the subset of calls that reach
+    -- a real pin rebuild -- a suppressed state never does, so without this
+    -- write here the key stays stale forever while suppressed and drifted
+    -- would be true on every single tick for as long as suppression lasts.
+    lastReconciledMapID = currentMapID
+    lastReconciledHidden = hidden
+end
+
+function Overlay:StartReconciliationBackstop()
+    if reconciliationTicker then
+        return
+    end
+    local timerAPI = _G.C_Timer
+    if not (timerAPI and timerAPI.NewTicker) then
+        return
+    end
+    reconciliationTicker = timerAPI.NewTicker(RECONCILIATION_INTERVAL_SECONDS, ReconciliationTick)
+end
+
+function Overlay:StopReconciliationBackstop()
+    if not reconciliationTicker then
+        return
+    end
+    reconciliationTicker:Cancel()
+    reconciliationTicker = nil
+    lastReconciledMapID = nil
+    lastReconciledHidden = nil
 end
 
 -- HS-208: diffs the new pin set against the previous one instead of
@@ -410,8 +529,25 @@ end
 -- whose rendering identity changed, see GetPinIdentityKey); everything else
 -- keeps its exact frame object.
 function Overlay:SetPins(pinRecords)
-    if ShouldHideMinimapPins() then
-        self:Clear()
+    -- Redundant fast-path write, not the authoritative one: the
+    -- reconciliation ticker (ReconciliationTick, above) writes these same
+    -- two fields unconditionally on every tick regardless of what SetPins
+    -- does, so it is what actually keeps them correct. This write just lets
+    -- a real, successful SetPins call settle the record immediately instead
+    -- of waiting up to one tick interval. The two can never disagree (same
+    -- live reads), so there is nothing to reconcile between them.
+    local mapAPI = _G.C_Map
+    lastReconciledMapID = mapAPI and mapAPI.GetBestMapForUnit and mapAPI.GetBestMapForUnit("player") or nil
+    local hidden = ShouldHideMinimapPins()
+    lastReconciledHidden = hidden
+
+    -- Don't destroy existing pin state on a hidden call -- RefreshPositions's
+    -- own per-frame hide check already suppresses display without releasing
+    -- frames, so nothing here needs to. This path is unreached in production
+    -- today (MinimapPinCollect.lua always hide-checks before calling
+    -- SetPins), kept correct defensively for HS-364, which will make it
+    -- reachable.
+    if hidden then
         return
     end
 
