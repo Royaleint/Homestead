@@ -7,6 +7,15 @@
     MANUAL table: safe to edit. Same schema as GeneratedBase. Values here win over GeneratedBase.
     TOMBSTONES: bare itemID or "npcID:itemID" string key to suppress from all offer output.
 
+    RUNTIME SOURCE OF TRUTH for what a vendor sells and what it costs. This file and
+    VendorIdentity.lua are what the addon actually reads. Data/VendorDatabase.lua is a
+    build-time seed: it is not listed in any .toc and never loads, so editing a cost
+    there changes nothing a player sees -- the generator only copies a seed cost into a
+    row that has NO cost at all, and never over one that already has one. If a shipped
+    price is wrong, fix it here (ManualOverrides wins at runtime) or blank the generated
+    row first and regenerate. Blaming VendorDatabase for a wrong shipped price is the
+    mistake HS-370 started from.
+
     A COSTLESS ROW (price = 0 with no currencies) means the cost is UNKNOWN, not that the
     item is free -- the schema cannot tell those apart, which is how 170 rows once shipped
     with a blank cost column and nothing detected it (HS-370). Do not read one as a claim

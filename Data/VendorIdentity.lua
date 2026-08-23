@@ -1,4 +1,9 @@
 --[[
+    RUNTIME SOURCE OF TRUTH for who a vendor is and where they are. This file
+    and VendorOffers.lua are what the addon actually reads; Data/VendorDatabase.lua
+    is a build-time seed that is not in any .toc and never loads. Fix identity
+    problems here, not there (HS-370).
+
     Homestead - VendorIdentity
     Generated vendor identity, location, lifecycle, and alias data.
 
