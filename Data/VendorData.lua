@@ -3,9 +3,15 @@
     Unified vendor data access layer
 
     This module provides:
-    - Unified access to static (VendorDatabase) and scanned vendor data
+    - Unified access to the static vendor tables and scanned vendor data
     - Query functions for finding vendors by item, location, or name
-    - Merging of scanned vendor data with static database
+    - Merging of scanned vendor data with the static tables
+
+    The static authority at runtime is VendorIdentity (who a vendor is and
+    where) plus VendorOffers (what they sell and what it costs), with
+    EndeavorsData and EventSources alongside them. Data/VendorDatabase.lua is
+    a build-time seed for the generators: it is in neither .toc and never
+    loads, so nothing here may read it.
 ]]
 
 local _, HA = ...
@@ -16,7 +22,7 @@ HA.VendorData = VendorData
 -------------------------------------------------------------------------------
 -- Vendor Name to NPC ID Mapping
 -- Maps official vendor names (as they appear in C_HousingCatalog source data)
--- to their NPC IDs in VendorDatabase. Some vendors have multiple NPC IDs
+-- to their NPC IDs in VendorIdentity. Some vendors have multiple NPC IDs
 -- due to appearing in multiple locations.
 -------------------------------------------------------------------------------
 
@@ -422,14 +428,10 @@ end
 
 -- Resolve an alias NPC ID to its canonical ID.
 -- Returns the canonical ID if an alias exists, nil otherwise.
--- Checks VendorIdentity, VendorDatabase, and EndeavorsData aliases.
+-- Checks VendorIdentity and EndeavorsData aliases.
 function VendorData:ResolveAlias(npcID)
     if HA.VendorIdentity and HA.VendorIdentity.Aliases then
         local id = HA.VendorIdentity.Aliases[npcID]
-        if id then return id end
-    end
-    if HA.VendorDatabase and HA.VendorDatabase.Aliases then
-        local id = HA.VendorDatabase.Aliases[npcID]
         if id then return id end
     end
     if HA.EndeavorsData and HA.EndeavorsData.Aliases then
@@ -460,10 +462,6 @@ function VendorData:GetVendor(npcID)
         local vendor = HA.EndeavorsData.Vendors[npcID]
         if vendor then return vendor end
     end
-    if HA.VendorDatabase then
-        local vendor = HA.VendorDatabase:GetVendor(npcID)
-        if vendor then return vendor end
-    end
     -- Resolve alias and retry (cycle guard: canonicalID must differ)
     local canonicalID = self:ResolveAlias(npcID)
     if canonicalID and canonicalID ~= npcID then
@@ -479,9 +477,6 @@ function VendorData:HasVendor(npcID)
     end
     if HA.EndeavorsData and HA.EndeavorsData.Vendors then
         if HA.EndeavorsData.Vendors[npcID] then return true end
-    end
-    if HA.VendorDatabase and HA.VendorDatabase:HasVendor(npcID) then
-        return true
     end
     -- Resolve alias and retry (cycle guard: canonicalID must differ)
     local canonicalID = self:ResolveAlias(npcID)
@@ -515,16 +510,6 @@ function VendorData:GetVendorsInMap(mapID)
         local identityVendors = HA.VendorIdentity:GetVendorsByMapID(mapID)
         if identityVendors then
             for _, vendor in ipairs(identityVendors) do
-                result[#result + 1] = ProjectVendorWithItems(self, vendor)
-                if vendor.npcID then
-                    addedNPCs[vendor.npcID] = true
-                end
-            end
-        end
-    elseif HA.VendorDatabase then
-        local dbVendors = HA.VendorDatabase:GetVendorsByMapID(mapID)
-        if dbVendors then
-            for _, vendor in ipairs(dbVendors) do
                 result[#result + 1] = ProjectVendorWithItems(self, vendor)
                 if vendor.npcID then
                     addedNPCs[vendor.npcID] = true
@@ -576,7 +561,6 @@ function VendorData:GetVendorsForFaction(faction)
 
     -- Static identity vendors
     local staticVendors = HA.VendorIdentity and HA.VendorIdentity.Vendors
-            or (HA.VendorDatabase and HA.VendorDatabase.Vendors)
     if staticVendors then
         for _, vendor in pairs(staticVendors) do
             local vendorFaction = vendor.faction or "Neutral"
@@ -613,17 +597,6 @@ function VendorData:GetVendorsForItem(itemID)
             if vendor then
                 table.insert(result, vendor)
                 seenNPCs[npcID] = true
-            end
-        end
-    elseif HA.VendorDatabase then
-        -- Phase-3 fallback while legacy VendorDatabase still loads.
-        if HA.VendorDatabase.ByItemID and HA.VendorDatabase.ByItemID[itemID] then
-            for _, npcID in ipairs(HA.VendorDatabase.ByItemID[itemID]) do
-                local vendor = self:GetVendor(npcID)
-                if vendor then
-                    table.insert(result, vendor)
-                    seenNPCs[npcID] = true
-                end
             end
         end
     end
@@ -746,7 +719,6 @@ function VendorData:SearchVendors(searchText)
 
     -- Search static identity data
     local staticVendors = HA.VendorIdentity and HA.VendorIdentity.Vendors
-            or (HA.VendorDatabase and HA.VendorDatabase.Vendors)
     if staticVendors then
         for npcID, vendor in pairs(staticVendors) do
             local matched = false
@@ -818,7 +790,6 @@ function VendorData:GetAllVendors()
 
     -- Static identity vendors
     local staticVendors = HA.VendorIdentity and HA.VendorIdentity:GetAllVendors()
-            or (HA.VendorDatabase and HA.VendorDatabase:GetAllVendors())
     if staticVendors then
         for _, vendor in ipairs(staticVendors) do
             result[#result + 1] = ProjectVendorWithItems(self, vendor)
@@ -858,8 +829,6 @@ function VendorData:GetVendorCount()
     local count = 0
     if HA.VendorIdentity then
         count = count + HA.VendorIdentity:GetVendorCount()
-    elseif HA.VendorDatabase then
-        count = count + HA.VendorDatabase:GetVendorCount()
     end
     if HA.EndeavorsData then
         count = count + (HA.EndeavorsData.VendorCount or 0)
@@ -871,7 +840,6 @@ end
 function VendorData:GetVendorsByExpansion(expansion)
     local result = {}
     local staticVendors = HA.VendorIdentity and HA.VendorIdentity:GetVendorsByExpansion(expansion)
-            or (HA.VendorDatabase and HA.VendorDatabase:GetVendorsByExpansion(expansion))
     if staticVendors then
         for _, vendor in ipairs(staticVendors) do
             result[#result + 1] = ProjectVendorWithItems(self, vendor)
@@ -889,7 +857,7 @@ end
 
 -------------------------------------------------------------------------------
 -- Vendor Name Lookup Functions
--- For cross-referencing DecorSources data with VendorDatabase
+-- For cross-referencing DecorSources data with the static vendor tables
 -------------------------------------------------------------------------------
 
 -- Get NPC IDs for a vendor name (from VendorNameToNPC mapping)
@@ -907,7 +875,7 @@ function VendorData:HasVendorName(vendorName)
     return self.VendorNameToNPC[vendorName] ~= nil
 end
 
--- Get all vendors from VendorDatabase that match a DecorSources vendor name
+-- Get all vendors matching a DecorSources vendor name
 function VendorData:GetVendorsByDecorSourceName(vendorName)
     local npcIDs = self:GetNPCsForVendorName(vendorName)
     if not npcIDs then return {} end
@@ -940,7 +908,6 @@ function VendorData:BuildNameIndex()
     -- Auto-populate VendorNameToNPC from static identity data for any vendors
     -- not already in the manual table (preserves manual multi-NPC entries)
     local staticVendors = HA.VendorIdentity and HA.VendorIdentity.Vendors
-            or (HA.VendorDatabase and HA.VendorDatabase.Vendors)
     if staticVendors then
         -- Add any vendor from the static authority not already covered
         for npcID, vendor in pairs(staticVendors) do
@@ -1078,12 +1045,9 @@ end
 -------------------------------------------------------------------------------
 
 function VendorData:Initialize()
-    -- Build indexes in static vendor authorities.
+    -- Build indexes in the static vendor authority.
     if HA.VendorIdentity and HA.VendorIdentity.BuildIndexes then
         HA.VendorIdentity:BuildIndexes()
-    end
-    if HA.VendorDatabase and HA.VendorDatabase.BuildIndexes then
-        HA.VendorDatabase:BuildIndexes()
     end
 
     self:BuildOfferIndexes()
@@ -1167,7 +1131,7 @@ function VendorData:GetOffers(npcID)
     return next(result) and result or nil
 end
 
--- Convert a VendorOffers row into the legacy VendorDatabase item shape.
+-- Convert a VendorOffers row into the legacy item shape older consumers expect.
 function VendorData:OfferToLegacyItem(itemID, offer)
     local _ = self
     if not offer then return itemID end
