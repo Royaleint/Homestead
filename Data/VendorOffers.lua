@@ -7,6 +7,20 @@
     MANUAL table: safe to edit. Same schema as GeneratedBase. Values here win over GeneratedBase.
     TOMBSTONES: bare itemID or "npcID:itemID" string key to suppress from all offer output.
 
+    A COSTLESS ROW (price = 0 with no currencies) means the cost is UNKNOWN, not that the
+    item is free -- the schema cannot tell those apart, which is how 170 rows once shipped
+    with a blank cost column and nothing detected it (HS-370). Do not read one as a claim
+    about price. Every costless row is classified on demand, against scans, the other
+    shipped vendor tables and the build captures, by:
+        node Home_Dev/scripts/validate-offer-costs.mjs --repo .
+    That command is the live answer to "why is this blank?"; a list here would go stale.
+    As of 2026-08-23 every costless row left belongs to a vendor that is not released yet.
+    No row IN THIS FILE is costless on a live vendor, and none is costless because it is
+    free -- the one row that looked free turned out to be a 10g row a scan had captured with
+    an empty cost field, which is precisely the ambiguity described above. Scoped to this file
+    deliberately: EndeavorsData and EventSources carry bare item IDs of their own, which also
+    render a blank cost, and the command above counts only this file.
+
     Schema per entry:
         [npcID] = {
             [itemID] = {
@@ -57,7 +71,7 @@ local GeneratedBase = {
   },
   [2483] = {
     [248808] = {
-      price = 0,
+      price = 4500000,
       currencies = {},
       isUsable = true,
       displayOrder = 1,
@@ -96,13 +110,13 @@ local GeneratedBase = {
   },
   [16528] = {
     [256049] = {
-      price = 0,
+      price = 50000000,
       currencies = {},
       isUsable = true,
       displayOrder = 1,
     },
     [257419] = {
-      price = 0,
+      price = 50000000,
       currencies = {},
       isUsable = true,
       displayOrder = 2,
@@ -165,7 +179,7 @@ local GeneratedBase = {
   },
   [45417] = {
     [248796] = {
-      price = 0,
+      price = 30000000,
       currencies = {},
       isUsable = true,
       displayOrder = 1,
@@ -393,13 +407,13 @@ local GeneratedBase = {
   },
   [58414] = {
     [247730] = {
-      price = 0,
+      price = 10000000,
       currencies = {},
       isUsable = true,
       displayOrder = 1,
     },
     [247732] = {
-      price = 0,
+      price = 5000000,
       currencies = {},
       isUsable = true,
       displayOrder = 2,
@@ -407,31 +421,31 @@ local GeneratedBase = {
   },
   [58706] = {
     [245508] = {
-      price = 0,
+      price = 10000000,
       currencies = {},
       isUsable = true,
       displayOrder = 1,
     },
     [247670] = {
-      price = 0,
+      price = 10000000,
       currencies = {},
       isUsable = true,
       displayOrder = 2,
     },
     [247734] = {
-      price = 0,
+      price = 8000000,
       currencies = {},
       isUsable = true,
       displayOrder = 3,
     },
     [247737] = {
-      price = 0,
+      price = 3000000,
       currencies = {},
       isUsable = true,
       displayOrder = 4,
     },
     [248663] = {
-      price = 0,
+      price = 3000000,
       currencies = {},
       isUsable = true,
       displayOrder = 5,
@@ -439,7 +453,7 @@ local GeneratedBase = {
   },
   [59698] = {
     [264349] = {
-      price = 0,
+      price = 10000000,
       currencies = {},
       isUsable = true,
       displayOrder = 1,
@@ -447,13 +461,13 @@ local GeneratedBase = {
   },
   [62032] = {
     [247729] = {
-      price = 0,
+      price = 3000000,
       currencies = {},
       isUsable = true,
       displayOrder = 1,
     },
     [264362] = {
-      price = 0,
+      price = 5000000,
       currencies = {},
       isUsable = true,
       displayOrder = 2,
@@ -493,13 +507,13 @@ local GeneratedBase = {
   },
   [64032] = {
     [247729] = {
-      price = 0,
+      price = 3000000,
       currencies = {},
       isUsable = true,
       displayOrder = 1,
     },
     [264362] = {
-      price = 0,
+      price = 5000000,
       currencies = {},
       isUsable = true,
       displayOrder = 2,
@@ -545,7 +559,7 @@ local GeneratedBase = {
   },
   [68363] = {
     [255840] = {
-      price = 0,
+      price = 80000000,
       currencies = {},
       isUsable = true,
       displayOrder = 1,
@@ -565,19 +579,19 @@ local GeneratedBase = {
   },
   [68364] = {
     [255840] = {
-      price = 0,
+      price = 80000000,
       currencies = {},
       isUsable = true,
       displayOrder = 1,
     },
     [259071] = {
-      price = 0,
+      price = 40000000,
       currencies = {},
       isUsable = true,
       displayOrder = 2,
     },
     [263026] = {
-      price = 0,
+      price = 5000000,
       currencies = {},
       isUsable = true,
       displayOrder = 3,
@@ -695,18 +709,6 @@ local GeneratedBase = {
     },
   },
   [81133] = {
-    [245442] = {
-      price = 0,
-      currencies = {},
-      isUsable = true,
-      displayOrder = 1,
-    },
-    [251544] = {
-      price = 0,
-      currencies = {},
-      isUsable = true,
-      displayOrder = 2,
-    },
     [257349] = {
       price = 2000000,
       currencies = {{id = 824, amount = 300}},
@@ -875,71 +877,11 @@ local GeneratedBase = {
     },
   },
   [86698] = {
-    [244321] = {
-      price = 0,
-      currencies = {},
-      isUsable = true,
-      displayOrder = 1,
-    },
-    [244322] = {
-      price = 0,
-      currencies = {},
-      isUsable = true,
-      displayOrder = 2,
-    },
     [244533] = {
       price = 500000,
       currencies = {},
       isUsable = true,
       displayOrder = 3,
-    },
-    [244653] = {
-      price = 0,
-      currencies = {},
-      isUsable = true,
-      displayOrder = 4,
-    },
-    [245423] = {
-      price = 0,
-      currencies = {},
-      isUsable = true,
-      displayOrder = 5,
-    },
-    [245431] = {
-      price = 0,
-      currencies = {},
-      isUsable = true,
-      displayOrder = 6,
-    },
-    [245434] = {
-      price = 0,
-      currencies = {},
-      isUsable = true,
-      displayOrder = 7,
-    },
-    [245435] = {
-      price = 0,
-      currencies = {},
-      isUsable = true,
-      displayOrder = 8,
-    },
-    [245436] = {
-      price = 0,
-      currencies = {},
-      isUsable = true,
-      displayOrder = 9,
-    },
-    [245444] = {
-      price = 0,
-      currencies = {},
-      isUsable = true,
-      displayOrder = 10,
-    },
-    [245445] = {
-      price = 0,
-      currencies = {},
-      isUsable = true,
-      displayOrder = 11,
     },
     [251545] = {
       price = 1000000,
@@ -1116,8 +1058,8 @@ local GeneratedBase = {
   },
   [88220] = {
     [239162] = {
-      price = 0,
-      currencies = {},
+      price = 500000,
+      currencies = {{id = 824, amount = 100}},
       isUsable = true,
       displayOrder = 1,
     },
@@ -1177,13 +1119,13 @@ local GeneratedBase = {
   [93971] = {
     [247912] = {
       price = 0,
-      currencies = {},
+      currencies = {{id = 1155, amount = 250}},
       isUsable = true,
       displayOrder = 1,
     },
     [247919] = {
       price = 0,
-      currencies = {},
+      currencies = {{id = 1155, amount = 150}},
       isUsable = true,
       displayOrder = 2,
     },
@@ -1971,12 +1913,6 @@ local GeneratedBase = {
       isUsable = true,
       displayOrder = 1,
     },
-    [248941] = {
-      price = 0,
-      currencies = {},
-      isUsable = true,
-      displayOrder = 2,
-    },
     [248943] = {
       price = 0,
       currencies = {{id = 1220, amount = 1000}},
@@ -2168,16 +2104,10 @@ local GeneratedBase = {
   },
   [144129] = {
     [245291] = {
-      price = 0,
+      price = 25000000,
       currencies = {},
       isUsable = true,
       displayOrder = 1,
-    },
-    [246779] = {
-      price = 0,
-      currencies = {},
-      isUsable = true,
-      displayOrder = 2,
     },
   },
   [145695] = {
@@ -2404,7 +2334,7 @@ local GeneratedBase = {
   [174710] = {
     [245501] = {
       price = 0,
-      currencies = {},
+      currencies = {{id = 1813, amount = 300}},
       isUsable = true,
       displayOrder = 1,
     },
@@ -2534,24 +2464,6 @@ local GeneratedBase = {
     },
   },
   [196637] = {
-    [246091] = {
-      price = 0,
-      currencies = {},
-      isUsable = true,
-      displayOrder = 1,
-    },
-    [246863] = {
-      price = 0,
-      currencies = {},
-      isUsable = true,
-      displayOrder = 2,
-    },
-    [248759] = {
-      price = 0,
-      currencies = {},
-      isUsable = true,
-      displayOrder = 3,
-    },
     [249545] = {
       price = 2500000,
       currencies = {},
@@ -2592,39 +2504,20 @@ local GeneratedBase = {
     },
   },
   [209192] = {
-    [248105] = {
-      price = 0,
-      currencies = {},
-      isUsable = true,
-      displayOrder = 1,
-    },
     [248117] = {
       price = 0,
-      currencies = {},
+      currencies = {{id = 2657, amount = 4000}},
       isUsable = true,
       displayOrder = 2,
-    },
-  },
-  [209220] = {
-    [248652] = {
-      price = 0,
-      currencies = {},
-      isUsable = true,
-      displayOrder = 1,
     },
   },
   [210608] = {
     [255673] = {
       price = 0,
       currencies = {},
+      itemCosts = {{itemID = 207026, amount = 500}},
       isUsable = true,
       displayOrder = 1,
-    },
-    [257352] = {
-      price = 0,
-      currencies = {},
-      isUsable = true,
-      displayOrder = 2,
     },
   },
   [211065] = {
@@ -2668,13 +2561,13 @@ local GeneratedBase = {
   [216284] = {
     [246091] = {
       price = 0,
-      currencies = {},
+      currencies = {{id = 2003, amount = 300}},
       isUsable = true,
       displayOrder = 1,
     },
     [248759] = {
       price = 0,
-      currencies = {},
+      currencies = {{id = 2003, amount = 150}},
       isUsable = true,
       displayOrder = 2,
     },
@@ -2688,7 +2581,7 @@ local GeneratedBase = {
   [216285] = {
     [245625] = {
       price = 0,
-      currencies = {},
+      currencies = {{id = 2003, amount = 250}},
       isUsable = true,
       displayOrder = 1,
     },
@@ -2700,31 +2593,31 @@ local GeneratedBase = {
     },
     [245704] = {
       price = 0,
-      currencies = {},
+      currencies = {{id = 2003, amount = 150}},
       isUsable = true,
       displayOrder = 3,
     },
     [246089] = {
       price = 0,
-      currencies = {},
+      currencies = {{id = 2003, amount = 250}},
       isUsable = true,
       displayOrder = 4,
     },
     [246100] = {
       price = 0,
-      currencies = {},
+      currencies = {{id = 2003, amount = 300}},
       isUsable = true,
       displayOrder = 5,
     },
     [248401] = {
       price = 0,
-      currencies = {},
+      currencies = {{id = 2003, amount = 300}},
       isUsable = true,
       displayOrder = 6,
     },
     [251022] = {
       price = 0,
-      currencies = {},
+      currencies = {{id = 2003, amount = 150}},
       isUsable = true,
       displayOrder = 7,
     },
@@ -2732,7 +2625,7 @@ local GeneratedBase = {
   [216286] = {
     [257352] = {
       price = 0,
-      currencies = {},
+      currencies = {{id = 2003, amount = 300}},
       isUsable = true,
       displayOrder = 1,
     },
@@ -2911,12 +2804,6 @@ local GeneratedBase = {
       currencies = {{id = 2815, amount = 450}},
       isUsable = true,
       displayOrder = 2,
-    },
-    [258265] = {
-      price = 0,
-      currencies = {},
-      isUsable = true,
-      displayOrder = 3,
     },
   },
   [231407] = {
@@ -3291,12 +3178,6 @@ local GeneratedBase = {
       currencies = {},
       isUsable = true,
       displayOrder = 5,
-    },
-    [264005] = {
-      price = 0,
-      currencies = {},
-      isUsable = true,
-      displayOrder = 6,
     },
   },
   [240838] = {
@@ -4539,7 +4420,7 @@ local GeneratedBase = {
       displayOrder = 7,
     },
     [248934] = {
-      price = 0,
+      price = 15000000,
       currencies = {},
       isUsable = true,
       displayOrder = 8,
@@ -4566,43 +4447,43 @@ local GeneratedBase = {
   [252313] = {
     [245984] = {
       price = 0,
-      currencies = {},
+      currencies = {{id = 1560, amount = 200}},
       isUsable = true,
       displayOrder = 1,
     },
     [252394] = {
       price = 0,
-      currencies = {},
+      currencies = {{id = 1560, amount = 550}},
       isUsable = true,
       displayOrder = 2,
     },
     [252395] = {
       price = 0,
-      currencies = {},
+      currencies = {{id = 1560, amount = 200}},
       isUsable = true,
       displayOrder = 3,
     },
     [252396] = {
       price = 0,
-      currencies = {},
+      currencies = {{id = 1560, amount = 125}},
       isUsable = true,
       displayOrder = 4,
     },
     [252398] = {
       price = 0,
-      currencies = {},
+      currencies = {{id = 1560, amount = 150}},
       isUsable = true,
       displayOrder = 5,
     },
     [252652] = {
       price = 0,
-      currencies = {},
+      currencies = {{id = 1560, amount = 250}},
       isUsable = true,
       displayOrder = 6,
     },
     [252655] = {
       price = 0,
-      currencies = {},
+      currencies = {{id = 1560, amount = 150}},
       isUsable = true,
       displayOrder = 7,
     },
@@ -4969,7 +4850,7 @@ local GeneratedBase = {
       displayOrder = 11,
     },
     [269316] = {
-      price = 0,
+      price = 100000,
       currencies = {},
       isUsable = true,
       displayOrder = 12,
@@ -5930,7 +5811,7 @@ local GeneratedBase = {
   [255101] = {
     [257393] = {
       price = 0,
-      currencies = {},
+      currencies = {{id = 1155, amount = 50}},
       isUsable = true,
       displayOrder = 1,
     },
@@ -13229,73 +13110,73 @@ local GeneratedBase = {
   },
   [257332] = {
     [280142] = {
-      price = 0,
+      price = 250000,
       currencies = {},
       isUsable = true,
       displayOrder = 1,
     },
     [280144] = {
-      price = 0,
+      price = 1000000,
       currencies = {},
       isUsable = true,
       displayOrder = 2,
     },
     [280146] = {
-      price = 0,
+      price = 250000,
       currencies = {},
       isUsable = true,
       displayOrder = 3,
     },
     [280148] = {
-      price = 0,
+      price = 1000000,
       currencies = {},
       isUsable = true,
       displayOrder = 4,
     },
     [280150] = {
-      price = 0,
+      price = 500000,
       currencies = {},
       isUsable = true,
       displayOrder = 5,
     },
     [280152] = {
-      price = 0,
+      price = 250000,
       currencies = {},
       isUsable = true,
       displayOrder = 6,
     },
     [280154] = {
-      price = 0,
+      price = 250000,
       currencies = {},
       isUsable = true,
       displayOrder = 7,
     },
     [280156] = {
-      price = 0,
+      price = 500000,
       currencies = {},
       isUsable = true,
       displayOrder = 8,
     },
     [280158] = {
-      price = 0,
+      price = 250000,
       currencies = {},
       isUsable = true,
       displayOrder = 9,
     },
     [280160] = {
-      price = 0,
+      price = 1000000,
       currencies = {},
       isUsable = true,
       displayOrder = 10,
     },
     [280162] = {
-      price = 0,
+      price = 750000,
       currencies = {},
       isUsable = true,
       displayOrder = 11,
     },
     [280164] = {
-      price = 0,
+      price = 750000,
       currencies = {},
       isUsable = true,
       displayOrder = 12,
@@ -13304,37 +13185,37 @@ local GeneratedBase = {
   [257598] = {
     [277921] = {
       price = 0,
-      currencies = {},
+      currencies = {{id = 3316, amount = 500}},
       isUsable = true,
       displayOrder = 1,
     },
     [277923] = {
       price = 0,
-      currencies = {},
+      currencies = {{id = 3316, amount = 150}},
       isUsable = true,
       displayOrder = 2,
     },
     [277925] = {
       price = 0,
-      currencies = {},
+      currencies = {{id = 3316, amount = 250}},
       isUsable = true,
       displayOrder = 3,
     },
     [277927] = {
       price = 0,
-      currencies = {},
+      currencies = {{id = 3316, amount = 250}},
       isUsable = true,
       displayOrder = 4,
     },
     [277929] = {
       price = 0,
-      currencies = {},
+      currencies = {{id = 3316, amount = 500}},
       isUsable = true,
       displayOrder = 5,
     },
     [277931] = {
       price = 0,
-      currencies = {},
+      currencies = {{id = 3316, amount = 250}},
       isUsable = true,
       displayOrder = 6,
     },
@@ -14485,13 +14366,13 @@ local GeneratedBase = {
   },
   [262726] = {
     [278696] = {
-      price = 0,
+      price = 1000000,
       currencies = {},
       isUsable = true,
       displayOrder = 1,
     },
     [278701] = {
-      price = 0,
+      price = 1000000,
       currencies = {},
       isUsable = true,
       displayOrder = 2,
@@ -14607,98 +14488,6 @@ local GeneratedBase = {
       displayOrder = 999999,
     },
   },
-  [265551] = {
-    [276626] = {
-      price = 0,
-      currencies = {},
-      isUsable = true,
-      displayOrder = 1,
-    },
-    [276650] = {
-      price = 0,
-      currencies = {},
-      isUsable = true,
-      displayOrder = 2,
-    },
-    [276652] = {
-      price = 0,
-      currencies = {},
-      isUsable = true,
-      displayOrder = 3,
-    },
-    [276654] = {
-      price = 0,
-      currencies = {},
-      isUsable = true,
-      displayOrder = 4,
-    },
-    [276656] = {
-      price = 0,
-      currencies = {},
-      isUsable = true,
-      displayOrder = 5,
-    },
-    [276658] = {
-      price = 0,
-      currencies = {},
-      isUsable = true,
-      displayOrder = 6,
-    },
-    [276661] = {
-      price = 0,
-      currencies = {},
-      isUsable = true,
-      displayOrder = 7,
-    },
-    [276663] = {
-      price = 0,
-      currencies = {},
-      isUsable = true,
-      displayOrder = 8,
-    },
-    [276665] = {
-      price = 0,
-      currencies = {},
-      isUsable = true,
-      displayOrder = 9,
-    },
-    [276667] = {
-      price = 0,
-      currencies = {},
-      isUsable = true,
-      displayOrder = 10,
-    },
-    [276669] = {
-      price = 0,
-      currencies = {},
-      isUsable = true,
-      displayOrder = 11,
-    },
-    [276671] = {
-      price = 0,
-      currencies = {},
-      isUsable = true,
-      displayOrder = 12,
-    },
-    [276673] = {
-      price = 0,
-      currencies = {},
-      isUsable = true,
-      displayOrder = 13,
-    },
-    [276675] = {
-      price = 0,
-      currencies = {},
-      isUsable = true,
-      displayOrder = 14,
-    },
-    [276677] = {
-      price = 0,
-      currencies = {},
-      isUsable = true,
-      displayOrder = 15,
-    },
-  },
   [265581] = {
     [267211] = {
       price = 0,
@@ -14769,43 +14558,43 @@ local GeneratedBase = {
       displayOrder = 9,
     },
     [277121] = {
-      price = 0,
+      price = 500000,
       currencies = {},
       isUsable = true,
       displayOrder = 1,
     },
     [277138] = {
-      price = 0,
+      price = 500000,
       currencies = {},
       isUsable = true,
       displayOrder = 2,
     },
     [277142] = {
-      price = 0,
+      price = 500000,
       currencies = {},
       isUsable = true,
       displayOrder = 3,
     },
     [277144] = {
-      price = 0,
+      price = 500000,
       currencies = {},
       isUsable = true,
       displayOrder = 4,
     },
     [277149] = {
-      price = 0,
+      price = 500000,
       currencies = {},
       isUsable = true,
       displayOrder = 5,
     },
     [277160] = {
-      price = 0,
+      price = 500000,
       currencies = {},
       isUsable = true,
       displayOrder = 6,
     },
     [277163] = {
-      price = 0,
+      price = 500000,
       currencies = {},
       isUsable = true,
       displayOrder = 7,
@@ -14867,86 +14656,6 @@ local GeneratedBase = {
       displayOrder = 7,
     },
   },
-  [268106] = {
-    [280215] = {
-      price = 0,
-      currencies = {},
-      isUsable = true,
-      displayOrder = 1,
-    },
-    [280221] = {
-      price = 0,
-      currencies = {},
-      isUsable = true,
-      displayOrder = 2,
-    },
-    [280223] = {
-      price = 0,
-      currencies = {},
-      isUsable = true,
-      displayOrder = 3,
-    },
-    [280225] = {
-      price = 0,
-      currencies = {},
-      isUsable = true,
-      displayOrder = 4,
-    },
-    [280227] = {
-      price = 0,
-      currencies = {},
-      isUsable = true,
-      displayOrder = 5,
-    },
-    [280230] = {
-      price = 0,
-      currencies = {},
-      isUsable = true,
-      displayOrder = 6,
-    },
-    [280232] = {
-      price = 0,
-      currencies = {},
-      isUsable = true,
-      displayOrder = 7,
-    },
-    [280234] = {
-      price = 0,
-      currencies = {},
-      isUsable = true,
-      displayOrder = 8,
-    },
-    [280236] = {
-      price = 0,
-      currencies = {},
-      isUsable = true,
-      displayOrder = 9,
-    },
-    [280238] = {
-      price = 0,
-      currencies = {},
-      isUsable = true,
-      displayOrder = 10,
-    },
-    [280240] = {
-      price = 0,
-      currencies = {},
-      isUsable = true,
-      displayOrder = 11,
-    },
-    [280242] = {
-      price = 0,
-      currencies = {},
-      isUsable = true,
-      displayOrder = 12,
-    },
-    [280244] = {
-      price = 0,
-      currencies = {},
-      isUsable = true,
-      displayOrder = 13,
-    },
-  },
   [268228] = {
     [249765] = {
       price = 0,
@@ -14974,69 +14683,69 @@ local GeneratedBase = {
     },
     [267377] = {
       price = 0,
-      currencies = {},
-      isUsable = true,
-      displayOrder = 1,
-    },
-    [269778] = {
-      price = 0,
-      currencies = {},
-      isUsable = true,
-      displayOrder = 2,
-    },
-    [269779] = {
-      price = 0,
-      currencies = {},
-      isUsable = true,
-      displayOrder = 3,
-    },
-    [271177] = {
-      price = 0,
-      currencies = {},
-      isUsable = true,
-      displayOrder = 4,
-    },
-    [276457] = {
-      price = 0,
-      currencies = {},
+      currencies = {{id = 3316, amount = 250}},
       isUsable = true,
       displayOrder = 5,
     },
-    [276459] = {
+    [269778] = {
       price = 0,
-      currencies = {},
+      currencies = {{id = 3316, amount = 150}},
       isUsable = true,
       displayOrder = 6,
     },
-    [277271] = {
+    [269779] = {
       price = 0,
-      currencies = {},
+      currencies = {{id = 3316, amount = 150}},
       isUsable = true,
       displayOrder = 7,
     },
-    [277273] = {
+    [271177] = {
       price = 0,
-      currencies = {},
+      currencies = {{id = 3316, amount = 250}},
       isUsable = true,
       displayOrder = 8,
     },
-    [277275] = {
+    [276457] = {
       price = 0,
-      currencies = {},
+      currencies = {{id = 3316, amount = 150}},
       isUsable = true,
       displayOrder = 9,
     },
-    [277280] = {
+    [276459] = {
       price = 0,
-      currencies = {},
+      currencies = {{id = 3316, amount = 150}},
       isUsable = true,
       displayOrder = 10,
     },
-    [277323] = {
+    [277271] = {
       price = 0,
-      currencies = {},
+      currencies = {{id = 3316, amount = 150}},
       isUsable = true,
       displayOrder = 11,
+    },
+    [277273] = {
+      price = 0,
+      currencies = {{id = 3316, amount = 150}},
+      isUsable = true,
+      displayOrder = 12,
+    },
+    [277275] = {
+      price = 0,
+      currencies = {{id = 3316, amount = 150}},
+      isUsable = true,
+      displayOrder = 13,
+    },
+    [277280] = {
+      price = 0,
+      currencies = {{id = 3316, amount = 250}},
+      isUsable = true,
+      displayOrder = 14,
+    },
+    [277323] = {
+      price = 0,
+      currencies = {{id = 3316, amount = 250}},
+      isUsable = true,
+      displayOrder = 15,
     },
   },
   [270399] = {
@@ -15066,51 +14775,51 @@ local GeneratedBase = {
     },
     [271176] = {
       price = 0,
-      currencies = {},
-      isUsable = true,
-      displayOrder = 1,
-    },
-    [271609] = {
-      price = 0,
-      currencies = {},
-      isUsable = true,
-      displayOrder = 2,
-    },
-    [271851] = {
-      price = 0,
-      currencies = {},
-      isUsable = true,
-      displayOrder = 3,
-    },
-    [279285] = {
-      price = 0,
-      currencies = {},
-      isUsable = true,
-      displayOrder = 4,
-    },
-    [279292] = {
-      price = 0,
-      currencies = {},
+      currencies = {{id = 3316, amount = 150}},
       isUsable = true,
       displayOrder = 5,
     },
-    [279452] = {
+    [271609] = {
       price = 0,
-      currencies = {},
+      currencies = {{id = 3316, amount = 150}},
       isUsable = true,
       displayOrder = 6,
     },
-    [279508] = {
+    [271851] = {
       price = 0,
-      currencies = {},
+      currencies = {{id = 3316, amount = 250}},
       isUsable = true,
       displayOrder = 7,
     },
-    [280218] = {
+    [279285] = {
       price = 0,
-      currencies = {},
+      currencies = {{id = 3316, amount = 150}},
       isUsable = true,
       displayOrder = 8,
+    },
+    [279292] = {
+      price = 0,
+      currencies = {{id = 3316, amount = 250}},
+      isUsable = true,
+      displayOrder = 9,
+    },
+    [279452] = {
+      price = 0,
+      currencies = {{id = 3316, amount = 500}},
+      isUsable = true,
+      displayOrder = 10,
+    },
+    [279508] = {
+      price = 0,
+      currencies = {{id = 3316, amount = 500}},
+      isUsable = true,
+      displayOrder = 11,
+    },
+    [280218] = {
+      price = 0,
+      currencies = {{id = 3316, amount = 150}},
+      isUsable = true,
+      displayOrder = 12,
     },
     [281580] = {
       price = 0,
@@ -15199,98 +14908,6 @@ local GeneratedBase = {
       displayOrder = 12,
     },
   },
-  [271173] = {
-    [280246] = {
-      price = 0,
-      currencies = {},
-      isUsable = true,
-      displayOrder = 1,
-    },
-    [280249] = {
-      price = 0,
-      currencies = {},
-      isUsable = true,
-      displayOrder = 2,
-    },
-    [280251] = {
-      price = 0,
-      currencies = {},
-      isUsable = true,
-      displayOrder = 3,
-    },
-    [280253] = {
-      price = 0,
-      currencies = {},
-      isUsable = true,
-      displayOrder = 4,
-    },
-    [280255] = {
-      price = 0,
-      currencies = {},
-      isUsable = true,
-      displayOrder = 5,
-    },
-    [280257] = {
-      price = 0,
-      currencies = {},
-      isUsable = true,
-      displayOrder = 6,
-    },
-    [280259] = {
-      price = 0,
-      currencies = {},
-      isUsable = true,
-      displayOrder = 7,
-    },
-    [280261] = {
-      price = 0,
-      currencies = {},
-      isUsable = true,
-      displayOrder = 8,
-    },
-    [280263] = {
-      price = 0,
-      currencies = {},
-      isUsable = true,
-      displayOrder = 9,
-    },
-    [280265] = {
-      price = 0,
-      currencies = {},
-      isUsable = true,
-      displayOrder = 10,
-    },
-    [280267] = {
-      price = 0,
-      currencies = {},
-      isUsable = true,
-      displayOrder = 11,
-    },
-    [280269] = {
-      price = 0,
-      currencies = {},
-      isUsable = true,
-      displayOrder = 12,
-    },
-    [280271] = {
-      price = 0,
-      currencies = {},
-      isUsable = true,
-      displayOrder = 13,
-    },
-    [280273] = {
-      price = 0,
-      currencies = {},
-      isUsable = true,
-      displayOrder = 14,
-    },
-    [280275] = {
-      price = 0,
-      currencies = {},
-      isUsable = true,
-      displayOrder = 15,
-    },
-  },
   [271366] = {
     [280335] = {
       price = 0,
@@ -15374,21 +14991,21 @@ local GeneratedBase = {
     },
     [281573] = {
       price = 0,
-      currencies = {},
+      currencies = {{id = 3448, amount = 500}},
       isUsable = true,
-      displayOrder = 1,
+      displayOrder = 13,
     },
     [281577] = {
       price = 0,
-      currencies = {},
+      currencies = {{id = 3448, amount = 500}},
       isUsable = true,
-      displayOrder = 2,
+      displayOrder = 14,
     },
     [281620] = {
       price = 0,
-      currencies = {},
+      currencies = {{id = 3448, amount = 1500}},
       isUsable = true,
-      displayOrder = 3,
+      displayOrder = 15,
     },
   },
 }
@@ -15399,6 +15016,19 @@ local GeneratedBase = {
 -- swap and needs this correction. Trevor 255221's override was pruned 2026-06-27 once the
 -- refresh corrected its GeneratedBase (HS-110).
 local ManualOverrides = {
+    -- HS-370 (Sage Gate 1 C4): Valdrakken Sconce was tombstoned off Provisioner Aristta,
+    -- whose listing was wrong, but nothing was added to its real home -- which left Ironus
+    -- Coldsteel with items = {} while keeping his VendorIdentity row, so he pinned on the
+    -- Thaldraszus map selling nothing, and the item lost its only buy path. The 12.1 catalog
+    -- source text names him directly: "Vendor: Ironus Coldsteel Zone: Thaldraszus
+    -- Cost: 150|Hcurrency:2003" (150 Dragon Isles Supplies).
+    -- This is an override rather than a seed-generated row because the generator only
+    -- creates rows from seed-only entries under --seed-current-db, which the normal write
+    -- path does not pass. GetOffers reads ManualOverrides first and unconditionally, so this
+    -- renders with no GeneratedBase row beneath it.
+    [209220] = { -- Ironus Coldsteel (1)
+        [248105] = { price = 0, currencies = {{id = 2003, amount = 150}}, isUsable = true, displayOrder = 1 }, -- Valdrakken Sconce
+    },
     [255301] = { -- Botanist Boh'an (Razorwind Shores)
         [266443] = { price = 750000, currencies = {}, isUsable = true }, -- Granite Cobblestone Long Path
         [266444] = { price = 500000, currencies = {}, isUsable = true }, -- Granite Cobblestone Path
@@ -15689,10 +15319,125 @@ local ManualOverrides = {
     -- 88126:253527) and are unproven either way. Do not use any of them as
     -- precedent for an either/or: 253596:262453 is the only item ever recorded in
     -- two slots with different payment methods, across every export on disk.
+    -- HS-370 (2026-08-22): 35 rows that shipped with no cost at all -- price = 0 and no
+    -- currency -- on four vendors whose live scans have carried real gold prices since
+    -- July. Each of these items is a bare item ID in the build seed, so offer generation
+    -- had no cost to emit and wrote a zero-cost row; nothing downstream compares a
+    -- zero-cost row against a scan, so the gap stayed invisible. Players saw the cost
+    -- column as "?" while anyone who had scanned the vendor themselves saw the right
+    -- price from their own saved scan data, which is why it read as a display problem.
+    -- Costs come from Home_Dev/scan-data/channel-live-2026-07-13.txt (per-vendor scan
+    -- dates 2026-07-09..07-11, confirmed), generated from that file by script rather
+    -- than hand-typed.
+    -- Gold only, deliberately: 12.1 rebalanced currency prices downward (HS-341) but
+    -- left every scanned gold price unchanged, so a pre-12.1 gold observation is still
+    -- current and a pre-12.1 currency observation is not. The 20 currency-costed rows
+    -- in this same class are held for a live 12.1 rescan.
+    -- displayOrder is carried from each generated row so item order does not move.
+    -- Adams' two prices are the catalog BASE, not what the 2026-07-13 scan showed. That
+    -- scan read 1425000 / 950000 -- exactly 95% of 1500000 / 1000000 -- because the
+    -- scanning character was rep-discounted at this vendor. Taking a per-vendor ratio of
+    -- every gold row in that scan against the catalog puts Adams in a cluster of vendors
+    -- sitting at exactly 0.95 while most others sit at 1.00, so the discount is real and
+    -- vendor-specific. (The cluster is larger than an earlier draft of this comment claimed,
+    -- and the non-discounted vendors are not uniformly 1.00 -- a few rows differ for
+    -- unrelated reasons. The per-vendor ratio is the signal; the exact membership is
+    -- HS-371's to enumerate.) This is the same rule HS-183 applied to Wilkinson.
+    -- isPurchasable is omitted on Adams' two rows: the scan observed false, but that field
+    -- is character-relative (it reflects whether the scanning character could afford the
+    -- item that moment), and an absent field means unknown while a false would read as a
+    -- lock signal. The other rows scanned true and keep it.
+    [50304] = { -- Captain Donald Adams (2)
+        [245504] = { price = 1500000, currencies = {}, isUsable = true, merchantSlot = 1, hasExtendedCost = false, displayOrder = 1 }, -- Lordaeron Fence
+        [245505] = { price = 1000000, currencies = {}, isUsable = true, merchantSlot = 2, hasExtendedCost = false, displayOrder = 2 }, -- Lordaeron Fencepost
+    },
+    [115805] = { -- Hoddruc Bladebender (1)
+        [256331] = { price = 4500000, currencies = {}, isUsable = true, isPurchasable = true, merchantSlot = 1, hasExtendedCost = false, displayOrder = 1 }, -- Shadowforge Lamppost
+    },
+    [261231] = { -- Tuuran (16)
+        [259055] = { price = 10000000, currencies = {}, isUsable = true, isPurchasable = true, merchantSlot = 3, hasExtendedCost = false, displayOrder = 2 }, -- Hatred's Wolfpelt Rug
+        [259056] = { price = 10000000, currencies = {}, isUsable = true, isPurchasable = true, merchantSlot = 5, hasExtendedCost = false, displayOrder = 3 }, -- Prime Evil's Chest
+        [259057] = { price = 10000000, currencies = {}, isUsable = true, isPurchasable = true, merchantSlot = 20, hasExtendedCost = false, displayOrder = 4 }, -- Sanctuary's Chess Match
+        [259058] = { price = 10000000, currencies = {}, isUsable = true, isPurchasable = true, merchantSlot = 19, hasExtendedCost = false, displayOrder = 5 }, -- Sanctuary's Chess Board
+        [259059] = { price = 2500000, currencies = {}, isUsable = true, isPurchasable = true, merchantSlot = 7, hasExtendedCost = false, displayOrder = 6 }, -- Sanctuary Chess Dark Bishop
+        [259060] = { price = 2500000, currencies = {}, isUsable = true, isPurchasable = true, merchantSlot = 12, hasExtendedCost = false, displayOrder = 7 }, -- Sanctuary Chess Dark Rook
+        [259061] = { price = 2500000, currencies = {}, isUsable = true, isPurchasable = true, merchantSlot = 11, hasExtendedCost = false, displayOrder = 8 }, -- Sanctuary Chess Dark Queen
+        [259062] = { price = 2500000, currencies = {}, isUsable = true, isPurchasable = true, merchantSlot = 10, hasExtendedCost = false, displayOrder = 9 }, -- Sanctuary Chess Dark Pawn
+        [259063] = { price = 2500000, currencies = {}, isUsable = true, isPurchasable = true, merchantSlot = 9, hasExtendedCost = false, displayOrder = 10 }, -- Sanctuary Chess Dark Knight
+        [259064] = { price = 2500000, currencies = {}, isUsable = true, isPurchasable = true, merchantSlot = 8, hasExtendedCost = false, displayOrder = 11 }, -- Sanctuary Chess Dark King
+        [259065] = { price = 2500000, currencies = {}, isUsable = true, isPurchasable = true, merchantSlot = 13, hasExtendedCost = false, displayOrder = 12 }, -- Sanctuary Chess Light Bishop
+        [259066] = { price = 2500000, currencies = {}, isUsable = true, isPurchasable = true, merchantSlot = 18, hasExtendedCost = false, displayOrder = 13 }, -- Sanctuary Chess Light Rook
+        [259067] = { price = 2500000, currencies = {}, isUsable = true, isPurchasable = true, merchantSlot = 17, hasExtendedCost = false, displayOrder = 14 }, -- Sanctuary Chess Light Queen
+        [259068] = { price = 2500000, currencies = {}, isUsable = true, isPurchasable = true, merchantSlot = 16, hasExtendedCost = false, displayOrder = 15 }, -- Sanctuary Chess Light Pawn
+        [259069] = { price = 2500000, currencies = {}, isUsable = true, isPurchasable = true, merchantSlot = 15, hasExtendedCost = false, displayOrder = 16 }, -- Sanctuary Chess Light Knight
+        [259070] = { price = 2500000, currencies = {}, isUsable = true, isPurchasable = true, merchantSlot = 14, hasExtendedCost = false, displayOrder = 17 }, -- Sanctuary Chess Light King
+    },
+    [261262] = { -- Gabbi (16)
+        [259055] = { price = 10000000, currencies = {}, isUsable = true, isPurchasable = true, merchantSlot = 3, hasExtendedCost = false, displayOrder = 2 }, -- Hatred's Wolfpelt Rug
+        [259056] = { price = 10000000, currencies = {}, isUsable = true, isPurchasable = true, merchantSlot = 5, hasExtendedCost = false, displayOrder = 3 }, -- Prime Evil's Chest
+        [259057] = { price = 10000000, currencies = {}, isUsable = true, isPurchasable = true, merchantSlot = 20, hasExtendedCost = false, displayOrder = 4 }, -- Sanctuary's Chess Match
+        [259058] = { price = 10000000, currencies = {}, isUsable = true, isPurchasable = true, merchantSlot = 19, hasExtendedCost = false, displayOrder = 5 }, -- Sanctuary's Chess Board
+        [259059] = { price = 2500000, currencies = {}, isUsable = true, isPurchasable = true, merchantSlot = 7, hasExtendedCost = false, displayOrder = 6 }, -- Sanctuary Chess Dark Bishop
+        [259060] = { price = 2500000, currencies = {}, isUsable = true, isPurchasable = true, merchantSlot = 12, hasExtendedCost = false, displayOrder = 7 }, -- Sanctuary Chess Dark Rook
+        [259061] = { price = 2500000, currencies = {}, isUsable = true, isPurchasable = true, merchantSlot = 11, hasExtendedCost = false, displayOrder = 8 }, -- Sanctuary Chess Dark Queen
+        [259062] = { price = 2500000, currencies = {}, isUsable = true, isPurchasable = true, merchantSlot = 10, hasExtendedCost = false, displayOrder = 9 }, -- Sanctuary Chess Dark Pawn
+        [259063] = { price = 2500000, currencies = {}, isUsable = true, isPurchasable = true, merchantSlot = 9, hasExtendedCost = false, displayOrder = 10 }, -- Sanctuary Chess Dark Knight
+        [259064] = { price = 2500000, currencies = {}, isUsable = true, isPurchasable = true, merchantSlot = 8, hasExtendedCost = false, displayOrder = 11 }, -- Sanctuary Chess Dark King
+        [259065] = { price = 2500000, currencies = {}, isUsable = true, isPurchasable = true, merchantSlot = 13, hasExtendedCost = false, displayOrder = 12 }, -- Sanctuary Chess Light Bishop
+        [259066] = { price = 2500000, currencies = {}, isUsable = true, isPurchasable = true, merchantSlot = 18, hasExtendedCost = false, displayOrder = 13 }, -- Sanctuary Chess Light Rook
+        [259067] = { price = 2500000, currencies = {}, isUsable = true, isPurchasable = true, merchantSlot = 17, hasExtendedCost = false, displayOrder = 14 }, -- Sanctuary Chess Light Queen
+        [259068] = { price = 2500000, currencies = {}, isUsable = true, isPurchasable = true, merchantSlot = 16, hasExtendedCost = false, displayOrder = 15 }, -- Sanctuary Chess Light Pawn
+        [259069] = { price = 2500000, currencies = {}, isUsable = true, isPurchasable = true, merchantSlot = 15, hasExtendedCost = false, displayOrder = 16 }, -- Sanctuary Chess Light Knight
+        [259070] = { price = 2500000, currencies = {}, isUsable = true, isPurchasable = true, merchantSlot = 14, hasExtendedCost = false, displayOrder = 17 }, -- Sanctuary Chess Light King
+    },
 }
 
 -- TOMBSTONES: bare itemID or "npcID:itemID" string key to suppress from all offer output.
 local Tombstones = {
+    -- HS-370 (Sage Gate 1): Draenor Cookpot was the one row kept from Brakoss while nine
+    -- siblings were removed, and the same evidence refutes it. Rawb's 2026-08-23 capture
+    -- (client 12.1.0.69404) shows Shadow-Sage Brakoss selling exactly three items and this
+    -- is not one of them; the 12.1 catalog gives Kil'rip in Frostfire Ridge, who already
+    -- carries it at the identical 500g + 1000 Apexis Crystal. Nothing is lost by removing it.
+    ["86698:245431"] = true,
+    -- HS-370 (2026-08-23): pair tombstones for rows that were never this vendor's to sell.
+    -- Each was a blank-cost row; checking why turned up not a missing price but a wrong
+    -- attribution -- the item is sold by someone else, by nobody, or no longer exists.
+    -- Vendor listings were confirmed item by item before each key was added.
+    ["86698:244321"] = true, -- sold by Tai'tasi / Ribchewer / Elder Surehide, not Brakoss
+    ["86698:244322"] = true, -- sold by Tai'tasi / Ribchewer / Elder Surehide, not Brakoss
+    ["86698:244653"] = true, -- sold by Sergeant Grimjaw, not Brakoss
+    ["86698:245423"] = true, -- sold by Vindicator Nuurem, not Brakoss
+    ["86698:245444"] = true, -- sold by Tai'tasi / Ribchewer / Elder Surehide, not Brakoss
+    ["86698:245445"] = true, -- sold by Tai'tasi / Ribchewer / Elder Surehide, not Brakoss
+    -- HS-370: these three have NO vendor in any source we hold. Catalog and crawl agree they
+    -- are drops or a profession recipe (Skulloc in Iron Docks, Warlord Zaela in Upper
+    -- Blackrock Spire, Draenor Blacksmithing), each with an empty vendor list. Removing the
+    -- vendor pairing leaves them with no source of any kind in the addon, which is correct
+    -- but is a deliberate outcome rather than a side effect.
+    ["86698:245434"] = true, -- Orgrimmar Sconce: no vendor sells it in any source
+    ["86698:245435"] = true, -- Horde Battle Emblem: no vendor sells it in any source
+    ["86698:245436"] = true, -- Blackrock Weapon Rack: no vendor sells it in any source
+    ["196637:246091"] = true, -- sold by Mythrin'dir; Tethalash's real 5-item list confirmed against two independent references
+    ["196637:246863"] = true, -- sold by Lifecaller Tzadrak; not on Tethalash's confirmed list
+    ["196637:248759"] = true, -- sold by Mythrin'dir; not on Tethalash's confirmed list
+    ["81133:245442"] = true, -- sold by Moz'def / Grun'lek, not Kallaes
+    ["81133:251544"] = true, -- sold by Maaria, not Kallaes
+    ["144129:246779"] = true, -- sold by Naleidea Rivergleam, not Plugger Spazzring
+    ["209220:248652"] = true, -- sold by Unatos / Silvrath, not Ironus Coldsteel
+    ["210608:257352"] = true, -- sold by Moon Priestess Lasara, not Celestine
+    ["231406:258265"] = true, -- sold by Gabbun, not Rocco Razzboom
+    ["209192:248105"] = true, -- sold by Ironus Coldsteel, not Provisioner Aristta
+    -- HS-370: Lonomia does not sell 264005 -- the catalog and the crawl attribute it to three
+    -- other NPCs, none of which the addon carries a vendor row for. So removing this pairing
+    -- leaves the item with NO vendor path at all; only its AchievementSources entry remains.
+    -- That is deliberate (a wrong vendor is worse than none) but it is not "covered
+    -- elsewhere", and an earlier version of this comment read as though it were.
+    ["240465:264005"] = true,
+    ["112434:248941"] = true, -- [DNT] developer placeholder, never a real item:
+    -- the item name is "[DNT] Dreadscar Battle Planning Map - do not use - new asset" and it
+    -- has no 12.1 catalog row. An earlier note here said it no longer exists in the game,
+    -- which our own crawl refutes -- it is still listed. Suppressed for what it is.
     -- HS-176: Murder Row Wine Decanter was never sold by Captain Donald Adams
     -- (2026-07-09 in-game scan: item absent from his inventory; Neriv [242726]
     -- is the verified source and keeps its own GeneratedBase row).
