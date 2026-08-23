@@ -113,7 +113,7 @@ VendorDatabase.Vendors = {
         faction = "Neutral",
         currency = "Gold",
         expansion = "Classic",
-        items = {248808},
+        items = {{248808, cost = {gold = 4500000}}},
     },
 	[3178] = {
         name = "Stuart Fleming",
@@ -157,7 +157,7 @@ VendorDatabase.Vendors = {
         faction = "Horde",
         currency = "Gold",
         expansion = "The Burning Crusade",
-        items = {256049, 257419},
+        items = {{256049, cost = {gold = 50000000}}, {257419, cost = {gold = 50000000}}},
     },
 	[23995] = {
         name = "Axle",
@@ -253,7 +253,7 @@ VendorDatabase.Vendors = {
         faction = "Neutral",
         currency = "Gold",
         expansion = "Classic",
-        items = {248796},
+        items = {{248796, cost = {gold = 30000000}}},
     },
 	[49386] = {
         name = "Craw MacGraw",
@@ -353,7 +353,7 @@ VendorDatabase.Vendors = {
         faction = "Neutral",
         currency = "Gold",
         expansion = "Mists of Pandaria",
-        items = {247730, 247732},
+        items = {{247730, cost = {gold = 10000000}}, {247732, cost = {gold = 5000000}}},
     },
 	[58706] = {
         name = "Gina Mudclaw",
@@ -365,7 +365,7 @@ VendorDatabase.Vendors = {
         currency = "Gold",
         expansion = "Mists of Pandaria",
         notes = "Items require Tillers friendship rep: Cooking Table (Tina Mudclaw), Pantry (Ella), Well (Farmer Fung), Brew Keg (Jogu the Drunk). Doghouse has no rep req.",
-        items = {245508, 247670, 247734, 247737, 248663},
+        items = {{245508, cost = {gold = 10000000}}, {247670, cost = {gold = 10000000}}, {247734, cost = {gold = 8000000}}, {247737, cost = {gold = 3000000}}, {248663, cost = {gold = 3000000}}},
     },
 	[59698] = {
         name = "Brother Furtrim",
@@ -376,7 +376,7 @@ VendorDatabase.Vendors = {
         faction = "Neutral",
         currency = "Gold",
         expansion = "Mists of Pandaria",
-        items = {264349},
+        items = {{264349, cost = {gold = 10000000}}},
     },
 	[62032] = {
         name = "Sage Lotusbloom",
@@ -386,7 +386,7 @@ VendorDatabase.Vendors = {
         faction = "Horde",
         currency = "Gold",
         expansion = "Mists of Pandaria",
-        items = {247729, 264362},
+        items = {{247729, cost = {gold = 3000000}}, {264362, cost = {gold = 5000000}}},
     },
 	[62088] = {
         name = "Lali the Assistant",
@@ -422,7 +422,7 @@ VendorDatabase.Vendors = {
         expansion = "Events",
         scanConfirmed = "2026-02-25",
         scanCoverage = "full",
-        items = {255840, 259071, 263026},
+        items = {{255840, cost = {gold = 80000000}}, 259071, 263026},
     },
 	[68364] = {
         name = "Paul North",
@@ -432,7 +432,7 @@ VendorDatabase.Vendors = {
         faction = "Horde",
         currency = "Gold",
         expansion = "Events",
-        items = {255840, 259071, 263026},
+        items = {{255840, cost = {gold = 80000000}}, {259071, cost = {gold = 40000000}}, {263026, cost = {gold = 5000000}}},
     },
 	[76872] = {
         name = "Supplymaster Eri",
@@ -452,7 +452,7 @@ VendorDatabase.Vendors = {
         faction = "Alliance",
         currency = "Gold",
         expansion = "Mists of Pandaria",
-        items = {247729, 264362},
+        items = {{247729, cost = {gold = 3000000}}, {264362, cost = {gold = 5000000}}},
     },
 	[78564] = {
         name = "Sergeant Crowler",
@@ -498,7 +498,7 @@ VendorDatabase.Vendors = {
         currency = "Gold",
         altCurrency = "Garrison Resources",
         expansion = "Warlords of Draenor",
-        items = {245442, 251544, 257349},
+        items = {257349},
     },
 	[85427] = {
         name = "Maaria",
@@ -576,7 +576,7 @@ VendorDatabase.Vendors = {
         faction = "Alliance",
         currency = "Apexis Crystal",
         expansion = "Warlords of Draenor",
-        items = {244321, 244322, {244533, cost = {gold = 500000}}, 244653, 245423, 245431, 245434, 245435, 245436, 245444, 245445, {251545, cost = {gold = 1000000}}},
+        items = {{244533, cost = {gold = 500000}}, {251545, cost = {gold = 1000000}}},
     },
 	[86776] = {
         name = "Ribchewer",
@@ -708,7 +708,7 @@ VendorDatabase.Vendors = {
         currency = "Garrison Resources",
         altCurrency = "Gold",
         expansion = "Warlords of Draenor",
-        items = {239162},
+        items = {{239162, cost = {gold = 500000, currencies = {{id = 824, amount = 100}}}}},
     },
 	[89939] = {
         name = "Berazus",
@@ -748,7 +748,7 @@ VendorDatabase.Vendors = {
         faction = "Neutral",
         currency = "Ancient Mana",
         expansion = "Legion",
-        items = {247912, 247919},
+        items = {{247912, cost = {currencies = {{id = 1155, amount = 250}}}}, {247919, cost = {currencies = {{id = 1155, amount = 150}}}}},
     },
 	[97140] = {
         name = "First Arcanist Thalyssra",
@@ -1066,7 +1066,7 @@ VendorDatabase.Vendors = {
         notes = "Warlock only — enter via portal in the Dalaran Underbelly.",
         portal = { mapID = 628, x = 0.273, y = 0.438 },
         badgeMapID = 628,
-        items = {248940, 248941, 248943, 248959, 248960, {249004, cost = {currencies = {{id = 1220, amount = 500}}}}, 256907, 264242},
+        items = {248940, 248943, 248959, 248960, {249004, cost = {currencies = {{id = 1220, amount = 500}}}}, 256907, 264242},
     },
 	[112440] = {
         name = "Jackson Watkins",
@@ -1173,7 +1173,7 @@ VendorDatabase.Vendors = {
         faction = "Neutral",
         currency = "Gold",
         expansion = "Classic",
-        items = {245291, 246779},
+        items = {{245291, cost = {gold = 25000000}}},
     },
 	[145695] = {
         name = "\"Bad Luck\" Symmes",
@@ -1284,7 +1284,7 @@ VendorDatabase.Vendors = {
         faction = "Neutral",
         currency = "Reservoir Anima",
         expansion = "Shadowlands",
-        items = {245501},
+        items = {{245501, cost = {currencies = {{id = 1813, amount = 300}}}}},
     },
 	[188265] = {
         name = "Rae'ana",
@@ -1350,7 +1350,7 @@ VendorDatabase.Vendors = {
         expansion = "Dragonflight",
         scanConfirmed = "2026-03-08",
         scanCoverage = "partial",
-        items = {246091, 246863, 248759, 249545, {249547, cost = {gold = 2500000}}, {249548, cost = {gold = 2500000}}, {249549, cost = {gold = 3000000, currencies = {{id = 2003, amount = 200}}}}, {249824, cost = {gold = 2500000}}},
+        items = {249545, {249547, cost = {gold = 2500000}}, {249548, cost = {gold = 2500000}}, {249549, cost = {gold = 3000000, currencies = {{id = 2003, amount = 200}}}}, {249824, cost = {gold = 2500000}}},
     },
 	[199605] = {
         name = "Evantkis",
@@ -1374,7 +1374,7 @@ VendorDatabase.Vendors = {
         faction = "Neutral",
         currency = "Mysterious Fragment",
         expansion = "Dragonflight",
-        items = {248105, 248117},
+        items = {{248117, cost = {currencies = {{id = 2657, amount = 4000}}}}},
     },
 	[209220] = {
         name = "Ironus Coldsteel",
@@ -1385,7 +1385,15 @@ VendorDatabase.Vendors = {
         faction = "Neutral",
         currency = "Dragon Isles Supplies",
         expansion = "Dragonflight",
-        items = {248652},
+        items = {
+            -- HS-370: Valdrakken Sconce was tombstoned off Provisioner Aristta, whose
+            -- listing was wrong. This is its confirmed home: the 12.1 catalog source text
+            -- reads "Vendor: Ironus Coldsteel Zone: Thaldraszus Cost: 150|Hcurrency:2003".
+            -- Without this row he keeps a VendorIdentity entry and a map pin while selling
+            -- nothing, and the item loses its only buy path. The shipped row is a
+            -- ManualOverride in VendorOffers.lua -- correct a price in BOTH places.
+            {248105, cost = {currencies = {{id = 2003, amount = 150}}}},
+        },
     },
 	[210608] = {
         name = "Celestine of the Harvest",
@@ -1397,7 +1405,7 @@ VendorDatabase.Vendors = {
         currency = "Dreamsurge Coalescence",
         expansion = "Events",
         notes = "Location is not static, she moves with the dreamsurge event",
-        items = {255673, 257352},
+        items = {{255673, cost = {items = {{id = 207026, amount = 500}}}}},
     },
 	[211065] = {
         name = "Marie Allen",
@@ -1430,7 +1438,7 @@ VendorDatabase.Vendors = {
         faction = "Neutral",
         currency = "Dragon Isles Supplies",
         expansion = "Dragonflight",
-        items = {246091, 248759, {256429, cost = {gold = 100000, currencies = {{id = 2003, amount = 200}}}}},
+        items = {{246091, cost = {currencies = {{id = 2003, amount = 300}}}}, {248759, cost = {currencies = {{id = 2003, amount = 150}}}}, {256429, cost = {gold = 100000, currencies = {{id = 2003, amount = 200}}}}},
     },
 	[216285] = {
         name = "Ellandrieth",
@@ -1441,7 +1449,7 @@ VendorDatabase.Vendors = {
         faction = "Neutral",
         currency = "Dragon Isles Supplies",
         expansion = "Dragonflight",
-        items = {245625, {245655, cost = {currencies = {{id = 2003, amount = 10}}}}, 245704, 246089, 246100, 248401, 251022},
+        items = {{245625, cost = {currencies = {{id = 2003, amount = 250}}}}, {245655, cost = {currencies = {{id = 2003, amount = 10}}}}, {245704, cost = {currencies = {{id = 2003, amount = 150}}}}, {246089, cost = {currencies = {{id = 2003, amount = 250}}}}, {246100, cost = {currencies = {{id = 2003, amount = 300}}}}, {248401, cost = {currencies = {{id = 2003, amount = 300}}}}, {251022, cost = {currencies = {{id = 2003, amount = 150}}}}},
     },
 	[216286] = {
         name = "Moon Priestess Lasara",
@@ -1452,7 +1460,7 @@ VendorDatabase.Vendors = {
         faction = "Neutral",
         currency = "Dragon Isles Supplies",
         expansion = "Dragonflight",
-        items = {257352},
+        items = {{257352, cost = {currencies = {{id = 2003, amount = 300}}}}},
     },
 	[216888] = {
         name = "Samantha Buckley",
@@ -1597,7 +1605,7 @@ VendorDatabase.Vendors = {
         faction = "Neutral",
         currency = "Resonance Crystals",
         expansion = "The War Within",
-        items = {{245313, cost = {currencies = {{id = 2815, amount = 450}}}}, {255674, cost = {currencies = {{id = 2815, amount = 450}}}}, 258265},
+        items = {{245313, cost = {currencies = {{id = 2815, amount = 450}}}}, {255674, cost = {currencies = {{id = 2815, amount = 450}}}}},
     },
 	[231407] = {
         name = "Shredz the Scrapper",
@@ -1715,8 +1723,7 @@ VendorDatabase.Vendors = {
             {245401, cost = {gold = 100000}},
             {245402, cost = {gold = 100000}},
             {245403, cost = {gold = 100000}},
-            {245404, cost = {gold = 100000}},
-            264005,
+            {245404, cost = {gold = 100000}}
         },
     },
 	[240838] = {
@@ -1904,7 +1911,7 @@ VendorDatabase.Vendors = {
         expansion = "The War Within",
         scanConfirmed = "2026-02-25",
         scanCoverage = "full",
-        items = {{245259, cost = {gold = 500000}}, {245655, cost = {currencies = {{id = 2003, amount = 10}}}}, {246487, cost = {gold = 750000}}, {246601, cost = {items = {{id = 166846, amount = 10}}}}, {247908, cost = {gold = 300000, currencies = {{id = 1220, amount = 50}}}}, {247915, cost = {gold = 1000000}}, {248116, cost = {gold = 750000}}, 248934, {253168, cost = {gold = 200000}}, {253173, cost = {gold = 200000}}, {256168, cost = {currencies = {{id = 2003, amount = 10}}}}},
+        items = {{245259, cost = {gold = 500000}}, {245655, cost = {currencies = {{id = 2003, amount = 10}}}}, {246487, cost = {gold = 750000}}, {246601, cost = {items = {{id = 166846, amount = 10}}}}, {247908, cost = {gold = 300000, currencies = {{id = 1220, amount = 50}}}}, {247915, cost = {gold = 1000000}}, {248116, cost = {gold = 750000}}, {248934, cost = {gold = 15000000}}, {253168, cost = {gold = 200000}}, {253173, cost = {gold = 200000}}, {256168, cost = {currencies = {{id = 2003, amount = 10}}}}},
     },
 	[252313] = {
         name = "Caspian",
@@ -1915,7 +1922,7 @@ VendorDatabase.Vendors = {
         faction = "Alliance",
         currency = "War Resources",
         expansion = "Battle for Azeroth",
-        items = {245984, 252394, 252395, 252396, 252398, 252652, 252655},
+        items = {{245984, cost = {currencies = {{id = 1560, amount = 200}}}}, {252394, cost = {currencies = {{id = 1560, amount = 550}}}}, {252395, cost = {currencies = {{id = 1560, amount = 200}}}}, {252396, cost = {currencies = {{id = 1560, amount = 125}}}}, {252398, cost = {currencies = {{id = 1560, amount = 150}}}}, {252652, cost = {currencies = {{id = 1560, amount = 250}}}}, {252655, cost = {currencies = {{id = 1560, amount = 150}}}}},
     },
 	[252316] = {
         name = "Delphine",
@@ -2008,7 +2015,12 @@ VendorDatabase.Vendors = {
             {253544, cost = {currencies = {{id = 3316, amount = 150}}}},
             {253598, cost = {currencies = {{id = 3316, amount = 500}}}},
             {253700, cost = {currencies = {{id = 3316, amount = 250}}}},
-            269316,
+            -- HS-370: 269316 was blank because the 2026-07-06 scan captured it with an
+            -- empty cost field, which this schema cannot tell apart from "free". Rawb's
+            -- 2026-08-23 capture (client 12.1.0.69404) lists it at 100000 copper, so it is
+            -- 10g and never was free. Gold, not Voidlight Marl, is why it looked odd next
+            -- to its currency-priced siblings.
+            {269316, cost = {gold = 100000}},
         },
     },
 	[252887] = {
@@ -2258,7 +2270,7 @@ VendorDatabase.Vendors = {
         faction = "Neutral",
         currency = "Ancient Mana",
         expansion = "Legion",
-        items = {257393, {257598, cost = {gold = 100000, currencies = {{id = 1155, amount = 125}}}}},
+        items = {{257393, cost = {currencies = {{id = 1155, amount = 50}}}}, {257598, cost = {gold = 100000, currencies = {{id = 1155, amount = 125}}}}},
     },
 	[255114] = {
         name = "Maku",
@@ -3297,6 +3309,11 @@ VendorDatabase.Vendors = {
         zone = "Razorwind Shores",
         expansion = "Midnight",
         currency = "Gold",
+        -- HS-370: costs deliberately absent while unreleased. this vendor is gated off
+        -- the map, so no player sees a blank cost. Note the reason is NOT that the items
+        -- are unpriced -- several are priced by the build captures and by our own overrides
+        -- on other vendors. What is unconfirmed is that THIS vendor sells them. Fill from
+        -- the first live scan after release, which is what settles the pairing.
         items = {
             {280335},
         },
@@ -3475,6 +3492,11 @@ VendorDatabase.Vendors = {
         zone = "Founder's Point",  -- unconfirmed; same items as Devin Slatesmith suggested it, crawl carries no zone
         expansion = "Midnight",
         currency = "Gold",
+        -- HS-370: costs deliberately absent while unreleased. Carver Sprocket is gated off
+        -- the map, so no player sees a blank cost. Note the reason is NOT that the items
+        -- are unpriced -- several are priced by the build captures and by our own overrides
+        -- on other vendors. What is unconfirmed is that THIS vendor sells them. Fill from
+        -- the first live scan after release, which is what settles the pairing.
         items = {
             {280142}, {280144}, {280146}, {280148}, {280150}, {280152},
             {280154}, {280156}, {280158}, {280160}, {280162}, {280164},
@@ -3609,7 +3631,7 @@ VendorDatabase.Vendors = {
         expansion = "Midnight",
         currency = "Gold",
         items = {
-            {277921}, {277923}, {277925}, {277927}, {277929}, {277931},
+            {277921, cost = {currencies = {{id = 3316, amount = 500}}}}, {277923, cost = {currencies = {{id = 3316, amount = 150}}}}, {277925, cost = {currencies = {{id = 3316, amount = 250}}}}, {277927, cost = {currencies = {{id = 3316, amount = 250}}}}, {277929, cost = {currencies = {{id = 3316, amount = 500}}}}, {277931, cost = {currencies = {{id = 3316, amount = 250}}}},
         },
     },
 
@@ -3659,9 +3681,9 @@ VendorDatabase.Vendors = {
             {279917, cost = {currencies = {{id = 3448, amount = 1500}}}}, -- Soulcoiler Skull
             {279919, cost = {currencies = {{id = 3448, amount = 1500}}}}, -- Soulcoiler Jaw
             {279922, cost = {currencies = {{id = 3448, amount = 2500}}}}, -- Altar of Corrosion
-            {281573}, -- Venomous Thread (crawl-known, no published price)
-            {281577}, -- Venomous Globule (crawl-known, no published price)
-            {281620}, -- Corrosive Cache (crawl-known, no published price)
+            {281573, cost = {currencies = {{id = 3448, amount = 500}}}}, -- Venomous Thread (confirmed by the 2026-08-23 live capture)
+            {281577, cost = {currencies = {{id = 3448, amount = 500}}}}, -- Venomous Globule (confirmed by the 2026-08-23 live capture)
+            {281620, cost = {currencies = {{id = 3448, amount = 1500}}}}, -- Corrosive Cache (confirmed by the 2026-08-23 live capture)
         },
     },
 
