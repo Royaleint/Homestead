@@ -500,8 +500,16 @@ end
 -------------------------------------------------------------------------------
 -- Database Verification & Correction
 -- Detects when a scanned vendor's live NPC ID differs from the one stored in
--- VendorDatabase (phased zones, instances, beta builds). Detected corrections
--- persist to SavedVariables (db.global.npcIDCorrections) and surface via /hs corrections.
+-- VendorIdentity (phased zones, instances, beta builds). Detected corrections
+-- persist to SavedVariables (db.global.npcIDCorrections); ScanPersistence looks
+-- them up and Data/VendorData.lua applies them at query time via
+-- VendorScanner:GetCorrectedNPCID. The dev addon displays them.
+--
+-- HS-374 removed the player-facing /hs corrections command, which printed
+-- data-entry instructions for a file that no longer loads. Be precise about what
+-- that cost: the persisted table above survives untouched, but the command also
+-- ran a live name-vs-ID mismatch pass that was computed on demand, stored
+-- nowhere, and has no successor anywhere. That diagnostic is gone, not moved.
 -------------------------------------------------------------------------------
 
 -- Check if the scanned vendor matches a database entry by name and update NPC ID/coords if mismatched

@@ -16,7 +16,8 @@
     (before storage data loads), so SetUnowned is warm-gated on dataLoaded —
     the scanner never erases ownership from a cold read.
 
-    Strategy: Scan all known item IDs from VendorDatabase and scannedVendors,
+    Strategy: Scan all known item IDs from the static vendor tables (via the
+    VendorData facade) and scannedVendors,
     using the same API that tooltips use (GetCatalogEntryInfoByItem).
 ]]
 
