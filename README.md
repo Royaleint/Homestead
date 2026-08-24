@@ -34,7 +34,6 @@ A World of Warcraft housing addon for collectors who want answers, not interface
 | `/hs vendors` | List scanned vendor data |
 | `/hs panel` | Toggle the detached vendor panel |
 | `/hs refreshmap` | Refresh all map pins |
-| `/hs corrections` | Show detected NPC ID corrections |
 | `/hs export` | Export scanned vendor data for sharing |
 | `/hs welcome` | Reopen the welcome screen |
 | `/hs whatsnew` | Reopen the latest What's New screen |

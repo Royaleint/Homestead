@@ -35,6 +35,10 @@ ignore:
   # TOC, never loaded in-game) was shipping to every player who downloaded a
   # release zip -- no ignore entry existed for it at all.
   - tests
+  # HS-374: the retired vendor seed (194 KB) is in neither TOC and has not
+  # loaded in-game since the cutover, but was still in every release zip. It
+  # stays in the repo because both vendor generators read it at build time.
+  - Data/VendorDatabase.lua
 
 # CF-only upload metadata: the packager sends this as a CurseForge relation
 # when a CF project id is active. Wago's upload API has no dependency field,
