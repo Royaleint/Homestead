@@ -1,6 +1,6 @@
 # Homestead
 
-> **Current version:** v2.9.0 | TOC: 120100 | WoW Retail 12.1.0+
+> **Current version:** v2.10.0 | TOC: 120100 | WoW Retail 12.1.0+
 
 A World of Warcraft housing addon for collectors who want answers, not interfaces. Open your map and see exactly where to find the decor you're missing — no massive windows, no menus, no setup.
 

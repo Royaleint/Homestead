@@ -2,6 +2,62 @@
 
 ---
 
+## Homestead v2.10.0 (08-24-2026)
+
+Vendor price fixes, item details on vendor pin tooltips, unlock requirements on the house dashboard, and minimap fixes.
+
+---
+
+## Vendor Costs
+
+**More Accurate Prices**
+
+- Vendor prices now prioritize prices seen in your game over catalog data.
+- 135 items that previously showed no price now show one.
+
+**Corrections**
+
+- Restored Ironus Coldsteel's Valdrakken Sconce.
+- Fixed two of Captain Donald Adams' items showing a reputation-discounted price instead of the base price.
+- Removed 22 items from vendors that do not sell them.
+
+---
+
+## Vendor Pin Tooltips
+
+**Item Details**
+
+- Hovering an item on a vendor's pin now shows its price.
+- Icons now show other ways to get an item: profession, drop, quest, or achievement.
+- Tooltips now show how many items that vendor is your only source for.
+- Added a **Vendor pin item details** option to turn this off, in the Homestead options and the world map filter menu. Enabled by default.
+
+---
+
+## House Dashboard
+
+**Unlock Requirements**
+
+- Hovering a decor item now shows what you need to unlock it: a quest, achievement, profession, or level requirement.
+- Items Homestead has not mapped yet are labeled as such.
+
+---
+
+## Bug Fixes
+
+- Fixed minimap pins drawing over the game's indoor housing overlay.
+- Fixed minimap pins not updating when entering or leaving a building.
+- Fixed the **Show opposite faction vendors** option not updating the minimap immediately.
+- Removed an outdated slash command.
+
+---
+
+## Map Pins
+
+- Map pins now avoid dungeon entrances, flight points, and delve entrances.
+
+---
+
 ## Homestead v2.9.0 (08-15-2026)
 
 A world map filter for hiding vendors you've fully collected, an endeavor pin fix, a batch of vendor price corrections following patch 12.1's currency rebalance, and a memory optimization pass.

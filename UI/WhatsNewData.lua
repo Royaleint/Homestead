@@ -7,6 +7,31 @@
 local _, HA = ...
 
 HA.WhatsNew = {
+    ["2.10.0"] = {
+        title = "Homestead - What's New in v2.10.0!",
+        features = {
+            {
+                icon = "Interface\\Icons\\INV_Misc_Coin_01",
+                heading = "More Accurate Vendor Prices",
+                body = "Vendor prices now prioritize prices seen in your game. 135 items that previously showed no price now show one.",
+            },
+            {
+                atlas = "housing-decor-vendor_32",
+                heading = "Vendor Tooltip Details",
+                body = "Vendor tooltips now show an item's price and icons for other ways to get it: profession, drop, quest, or achievement. A new Vendor pin item details option turns this off.",
+            },
+            {
+                icon = "Interface\\Icons\\INV_Misc_Key_03",
+                heading = "House Dashboard Unlock Requirements",
+                body = "Hovering a decor item on your house dashboard now shows what you need to unlock it: a quest, achievement, profession, or level.",
+            },
+            {
+                icon = "Interface\\Icons\\INV_Misc_Map_01",
+                heading = "Minimap Pins Fixed",
+                body = "Minimap pins no longer draw over the game's indoor housing overlay, and they now update when you enter or leave a building.",
+            },
+        },
+    },
     ["2.9.0"] = {
         title = "Homestead - What's New in v2.9.0!",
         features = {
