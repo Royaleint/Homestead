@@ -448,6 +448,22 @@ function HousingAddon:DebugMemBudgetReport(full)
     self:ShowCopyableText(table.concat(output, "\n"))
 end
 
+-- HS-300: dev-gated restore for the keys the v6 migration dropped. Thin
+-- wrapper around CatalogStore:RestoreV5Backup() -- that function holds the
+-- actual restore logic so it can be exercised without loading this dev-only
+-- file. This layer is just the player-facing print.
+function HousingAddon:DebugRestoreV5Backup()
+    local ok, restoredCountOrReason, savedAt, addonVersion = HA.CatalogStore:RestoreV5Backup()
+    if not ok then
+        print("|cff00ccff[Homestead]|r No v5 backup found (" .. tostring(restoredCountOrReason) .. ").")
+        return
+    end
+
+    local savedAtText = savedAt and date("%Y-%m-%d %H:%M", savedAt) or tostring(savedAt)
+    print(format("|cff00ccff[Homestead]|r restored %d keys from backup taken %s by %s -- /reload to re-run migrations.",
+        restoredCountOrReason, savedAtText, tostring(addonVersion)))
+end
+
 -- Command registration (see file header): waits for PLAYER_LOGIN, by which
 -- point core.lua's OnInitialize (ADDON_LOADED-triggered) has always already
 -- run, so self.commands is guaranteed to exist. This is the ONLY hook this
@@ -462,4 +478,7 @@ devDiagFrame:SetScript("OnEvent", function()
     HousingAddon.commands:Register({ name = "debug membudget", args = "[full]",
         help = "Per-subsystem memory budget breakdown (HS-282). 'full' additionally isolates allSourcesCache via a forced full-corpus warm.",
         handler = function(rest) HousingAddon:DebugMemBudgetReport(rest == "full") end })
+    HousingAddon.commands:Register({ name = "debug restorev5", args = "",
+        help = "HS-300: restore the keys the v6 migration dropped from db.global.__v5Backup, stamp schemaVersion 5, then /reload.",
+        handler = function() HousingAddon:DebugRestoreV5Backup() end })
 end)

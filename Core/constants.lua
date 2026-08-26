@@ -536,9 +536,6 @@ Constants.Defaults = {
         },
     },
     global = {
-        -- Cross-character data
-        vendorVisited = {},
-        dyeRecipesKnown = {},
         -- Scanned vendor data from VendorScanner
         scannedVendors = {},  -- [npcID] = { npcID, name, mapID, coords, decor, ... }
         -- Persistent no-decor vendor tracking (survives ClearScannedData)

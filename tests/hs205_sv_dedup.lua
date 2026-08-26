@@ -32,6 +32,7 @@ local HA = {
         Debug = function() end,
         RegisterModule = function() end,
     },
+    Constants = { VERSION = "test" },
     Events = { Fire = function() end },
     DecorMapping = {},
     SourceTextParser = {
@@ -47,7 +48,7 @@ local HA = {
 
 assert(loadfile(root .. "/Data/CatalogStore.lua"))("Homestead", HA)
 HA.CatalogStore:Initialize()
-assert(HA.Addon.db.global.schemaVersion == 5, "expected a fresh db to land on schemaVersion 5")
+assert(HA.Addon.db.global.schemaVersion == 6, "expected a fresh db to land on schemaVersion 6")
 
 assert(loadfile(root .. "/Modules/SourceTextScanner.lua"))("Homestead", HA)
 
@@ -112,6 +113,7 @@ print("hs205_sv_dedup: Part 1b GetParsedSource reader end-to-end ok")
 local function FreshCatalogStoreHA()
     local freshHA = {
         Addon = { db = { global = {} }, Debug = function() end, RegisterModule = function() end },
+        Constants = { VERSION = "test" },
         Events = { Fire = function() end },
         DecorMapping = {},
     }
@@ -135,7 +137,7 @@ MigHA.Addon.db.global.parsedSources = {
 }
 MigHA.CatalogStore:Initialize()
 
-assert(MigHA.Addon.db.global.schemaVersion == 5)
+assert(MigHA.Addon.db.global.schemaVersion == 6, "expected Initialize() to run the full chain through the current version")
 local migratedRecord = MigHA.CatalogStore:Get(100)
 assert(migratedRecord ~= nil, "expected the migration to create a catalogItems record")
 assert(migratedRecord.sources[1].name == "Old Vendor")
@@ -151,7 +153,7 @@ assert(migratedStamp.recordID == nil)
 assert(migratedStamp.raw == nil)
 
 -- Idempotence: re-run migrations on the SAME db. Nothing should change —
--- schemaVersion < 5 is now false, so Migration_4_to_5 shouldn't even fire,
+-- schemaVersion < 6 is now false, so no migration should even fire,
 -- but call RunMigrations directly to prove it either way.
 MigHA.CatalogStore:RunMigrations()
 local migratedRecordAgain = MigHA.CatalogStore:Get(100)
