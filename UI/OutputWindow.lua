@@ -17,6 +17,53 @@ local outputList = nil
 local editBox = nil
 local titleText = nil
 
+local VALID_POINTS = {
+    CENTER = true, TOP = true, BOTTOM = true, LEFT = true, RIGHT = true,
+    TOPLEFT = true, TOPRIGHT = true, BOTTOMLEFT = true, BOTTOMRIGHT = true,
+}
+
+local function GetProfile()
+    return HA.Addon and HA.Addon.db and HA.Addon.db.profile
+end
+
+local function SaveGeometry(frame)
+    local profile = GetProfile()
+    if not profile then return end
+
+    local point, _, relativePoint, x, y = frame:GetPoint()
+    profile.outputWindow = {
+        point = point, relativePoint = relativePoint, x = x, y = y,
+        width = frame:GetWidth(), height = frame:GetHeight(),
+    }
+end
+
+local function ClampDimension(value, default, minimum, maximum)
+    value = tonumber(value)
+    if not value or value ~= value then value = default end
+    return math.max(minimum, math.min(maximum, value))
+end
+
+local function IsFiniteNumber(value)
+    return type(value) == "number" and value == value and value > -math.huge and value < math.huge
+end
+
+local function RestoreGeometry(frame)
+    local profile = GetProfile()
+    local geometry = profile and profile.outputWindow
+    if type(geometry) ~= "table" then geometry = {} end
+
+    frame:SetSize(ClampDimension(geometry.width, 600, 400, 800), ClampDimension(geometry.height, 400, 300, 600))
+    frame:ClearAllPoints()
+    if type(geometry.point) == "string" and VALID_POINTS[geometry.point]
+        and type(geometry.relativePoint) == "string" and VALID_POINTS[geometry.relativePoint]
+        and IsFiniteNumber(geometry.x) and IsFiniteNumber(geometry.y) then
+        local restored = pcall(frame.SetPoint, frame, geometry.point, UIParent, geometry.relativePoint, geometry.x, geometry.y)
+        if restored then return end
+        frame:ClearAllPoints()
+    end
+    frame:SetPoint("CENTER", UIParent, "CENTER", 0, 0)
+end
+
 local function GetOutputHeight(text)
     local numLines = 1
     for _ in (text or ""):gmatch("\n") do
@@ -69,7 +116,10 @@ local function CreateOutputWindow()
     frame.TitleContainer:EnableMouse(true)
     frame.TitleContainer:RegisterForDrag("LeftButton")
     frame.TitleContainer:SetScript("OnDragStart", function() frame:StartMoving() end)
-    frame.TitleContainer:SetScript("OnDragStop", function() frame:StopMovingOrSizing() end)
+    frame.TitleContainer:SetScript("OnDragStop", function()
+        frame:StopMovingOrSizing()
+        SaveGeometry(frame)
+    end)
 
     -- Close button
     local closeBtn = CreateFrame("Button", nil, frame, "UIPanelCloseButtonDefaultAnchors")
@@ -165,10 +215,12 @@ local function CreateOutputWindow()
     end)
     resizeGrip:SetScript("OnMouseUp", function(self, button)
         frame:StopMovingOrSizing()
+        SaveGeometry(frame)
     end)
 
     -- ESC key handling
     frame:SetScript("OnHide", function()
+        SaveGeometry(frame)
         if editBox then
             editBox:SetText("")
             editBox:ClearFocus()
@@ -203,6 +255,8 @@ function OutputWindow:Show(title, text)
 
     -- Reset scroll position (the list's native ScrollBox, so ScrollToBegin, not SetVerticalScroll)
     scrollFrame:ScrollToBegin(ScrollBoxConstants.NoScrollInterpolation)
+
+    RestoreGeometry(outputFrame)
 
     -- Show frame
     outputFrame:Show()
