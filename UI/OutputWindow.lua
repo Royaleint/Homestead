@@ -42,7 +42,7 @@ local function CreateOutputWindow()
     if outputFrame then return outputFrame end
 
     -- Main frame
-    local frame = CreateFrame("Frame", "HomesteadOutputWindow", UIParent, "BackdropTemplate")
+    local frame = CreateFrame("Frame", "HomesteadOutputWindow", UIParent, "DefaultPanelTemplate")
     frame:SetSize(600, 400)
     frame:SetPoint("CENTER")
     frame:SetFrameStrata("DIALOG")
@@ -54,37 +54,16 @@ local function CreateOutputWindow()
     frame:SetClampedToScreen(true)
     frame:Hide()
 
-    -- Backdrop
-    frame:SetBackdrop({
-        bgFile = "Interface\\DialogFrame\\UI-DialogBox-Background-Dark",
-        edgeFile = "Interface\\DialogFrame\\UI-DialogBox-Border",
-        tile = true, tileSize = 32, edgeSize = 32,
-        insets = { left = 11, right = 12, top = 12, bottom = 11 }
-    })
-    frame:SetBackdropColor(0.1, 0.1, 0.1, 0.95)
-
-    -- Title bar (draggable area)
-    local titleBar = CreateFrame("Frame", nil, frame, "BackdropTemplate")
-    titleBar:SetHeight(32)
-    titleBar:SetPoint("TOPLEFT", 12, -12)
-    titleBar:SetPoint("TOPRIGHT", -12, -12)
-    titleBar:SetBackdrop({
-        bgFile = "Interface\\DialogFrame\\UI-DialogBox-Header",
-        edgeFile = nil,
-    })
-    titleBar:EnableMouse(true)
-    titleBar:RegisterForDrag("LeftButton")
-    titleBar:SetScript("OnDragStart", function() frame:StartMoving() end)
-    titleBar:SetScript("OnDragStop", function() frame:StopMovingOrSizing() end)
-
-    -- Title text
-    titleText = frame:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
-    titleText:SetPoint("TOP", titleBar, "TOP", 0, -8)
+    -- Native panel title and title-container drag target.
+    titleText = frame.TitleContainer.TitleText
     titleText:SetText(L["Output"] or "Output")
+    frame.TitleContainer:EnableMouse(true)
+    frame.TitleContainer:RegisterForDrag("LeftButton")
+    frame.TitleContainer:SetScript("OnDragStart", function() frame:StartMoving() end)
+    frame.TitleContainer:SetScript("OnDragStop", function() frame:StopMovingOrSizing() end)
 
     -- Close button
-    local closeBtn = CreateFrame("Button", nil, frame, "UIPanelCloseButton")
-    closeBtn:SetPoint("TOPRIGHT", -8, -8)
+    local closeBtn = CreateFrame("Button", nil, frame, "UIPanelCloseButtonDefaultAnchors")
     closeBtn:SetScript("OnClick", function()
         frame:Hide()
     end)

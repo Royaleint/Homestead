@@ -13,6 +13,13 @@ assert(export:find('CreateFrame%("Frame", "HomesteadExportDialog", UIParent, "De
 assert(not export:find("SetBackdrop"), "export dialog must not retain hand-rolled backdrop setup")
 assert(export:find("f.TitleContainer.TitleText:SetText"), "export dialog must use the native title")
 
+local output = read("UI/OutputWindow.lua")
+assert(output:find('CreateFrame%("Frame", "HomesteadOutputWindow", UIParent, "DefaultPanelTemplate"%)'),
+    "output window must use DefaultPanelTemplate")
+assert(output:find("titleText = frame.TitleContainer.TitleText"),
+    "output window must use the native title")
+assert(not output:find("frame:SetBackdrop"), "output window must not retain hand-rolled outer chrome")
+
 local options = read("UI/OptionsFrame.lua")
 assert(options:find('CreateFrame%("Button", nil, parent, "PanelTabButtonTemplate"%)'),
     "options navigation must use PanelTabButtonTemplate")
