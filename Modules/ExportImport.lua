@@ -39,19 +39,11 @@ local exportDialogFrame = nil
 local function CreateExportDialog()
     if exportDialogFrame then return exportDialogFrame end
 
-    local f = CreateFrame("Frame", "HomesteadExportDialog", UIParent, "BackdropTemplate")
+    local f = CreateFrame("Frame", "HomesteadExportDialog", UIParent, "DefaultPanelTemplate")
     f:SetSize(280, 130)
     f:SetPoint("CENTER")
     f:SetFrameStrata("DIALOG")
     EnableSafeEscapeClose(f)
-    f:SetBackdrop({
-        bgFile = "Interface/Tooltips/UI-Tooltip-Background",
-        edgeFile = "Interface/Tooltips/UI-Tooltip-Border",
-        edgeSize = 16,
-        insets = {left = 4, right = 4, top = 4, bottom = 4},
-    })
-    f:SetBackdropColor(0, 0, 0, 0.95)
-    f:SetBackdropBorderColor(0.6, 0.6, 0.6, 1)
     f:EnableMouse(true)
     f:SetMovable(true)
     f:RegisterForDrag("LeftButton")
@@ -59,13 +51,11 @@ local function CreateExportDialog()
     f:SetScript("OnDragStop", f.StopMovingOrSizing)
 
     -- Title
-    local title = f:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
-    title:SetPoint("TOP", 0, -15)
-    title:SetText(L["Export Vendor Data"] or "Export Vendor Data")
+    f.TitleContainer.TitleText:SetText(L["Export Vendor Data"] or "Export Vendor Data")
 
     -- Description
     local desc = f:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-    desc:SetPoint("TOP", title, "BOTTOM", 0, -8)
+    desc:SetPoint("TOP", f.TitleContainer, "BOTTOM", 0, -8)
     desc:SetWidth(250)
     desc:SetText(L["Choose export option:"] or "Choose export option:")
 

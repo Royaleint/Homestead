@@ -16,6 +16,7 @@
 local _, HA = ...
 
 local F = _G.Foundry_1_0
+local FPU = HA.FramePoolUtils
 
 local MapSidePanel = {}
 HA.MapSidePanel = MapSidePanel
@@ -91,7 +92,7 @@ local currentDisplayLevel = "zone"  -- "zone" | "continent" | "world"
 local backBar = nil  -- Back navigation bar (visible at zone/continent level)
 local expandedSummaryMapID = nil  -- mapID of expanded summary row (nil = none)
 local summarySubRows = {}         -- reusable sub-row frame pool
-local iconPool = {}               -- reusable item icon frame pool
+local iconPool = { default = {} } -- reusable item icon frame pool
 
 -- Search state
 local searchEditBox = nil
@@ -527,19 +528,17 @@ local function ResetIcon(icon)
 end
 
 local function AcquireIcon(parent)
-    local icon = table.remove(iconPool)
-    if not icon then
-        icon = CreateItemIcon(parent)
-    else
-        icon:SetParent(parent)
-    end
+    local icon = FPU.AcquirePooledFrame(iconPool, "default", function()
+        return CreateItemIcon(parent)
+    end)
+    icon:SetParent(parent)
     icon:Show()
     return icon
 end
 
 local function ReleaseIcon(icon)
     ResetIcon(icon)
-    table.insert(iconPool, icon)
+    FPU.ReleasePooledFrame(iconPool, icon)
 end
 
 -- Shared count text formatter (green collected / white total / red locked).
@@ -2079,84 +2078,40 @@ local function CreatePanel()
     summaryText:SetTextColor(0.6, 0.6, 0.6)
 
     -- Search bar (above summary line at bottom)
-    searchBar = CreateFrame("Frame", nil, panel, "BackdropTemplate")
+    searchBar = CreateFrame("Frame", nil, panel)
     searchBar:SetHeight(22)
     searchBar:SetPoint("BOTTOMLEFT", panel, "BOTTOMLEFT", BORDER_LEFT, BORDER_BOTTOM + 16)
     searchBar:SetPoint("BOTTOMRIGHT", panel, "BOTTOMRIGHT", -BORDER_RIGHT, BORDER_BOTTOM + 16)
-    searchBar:SetBackdrop({
-        bgFile = "Interface\\Buttons\\WHITE8x8",
-        edgeFile = "Interface\\Buttons\\WHITE8x8",
-        edgeSize = 1,
-        insets = { left = 1, right = 1, top = 1, bottom = 1 },
-    })
-    searchBar:SetBackdropColor(0.1, 0.1, 0.1, 0.8)
-    searchBar:SetBackdropBorderColor(0.4, 0.4, 0.4, 0.8)
-
-    local searchIcon = searchBar:CreateTexture(nil, "ARTWORK")
-    searchIcon:SetSize(12, 12)
-    searchIcon:SetPoint("LEFT", searchBar, "LEFT", 4, 0)
-    searchIcon:SetAtlas("common-search-magnifyingglass", false)
-    searchIcon:SetVertexColor(0.7, 0.7, 0.7)
-
-    searchEditBox = CreateFrame("EditBox", nil, searchBar)
+    searchEditBox = CreateFrame("EditBox", nil, searchBar, "SearchBoxTemplate")
     searchEditBox:SetFontObject(GameFontHighlightSmall)
-    searchEditBox:SetPoint("LEFT", searchIcon, "RIGHT", 4, 0)
-    searchEditBox:SetPoint("RIGHT", searchBar, "RIGHT", -16, 0)
-    searchEditBox:SetHeight(16)
-    searchEditBox:SetAutoFocus(false)
+    searchEditBox:SetPoint("TOPLEFT", searchBar, "TOPLEFT", 0, 0)
+    searchEditBox:SetPoint("BOTTOMRIGHT", searchBar, "BOTTOMRIGHT", 0, 0)
     searchEditBox:SetMaxLetters(50)
 
-    local placeholder = searchBar:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
-    placeholder:SetPoint("LEFT", searchEditBox, "LEFT", 2, 0)
-    placeholder:SetText("Search items, vendors...")
-    placeholder:SetTextColor(0.5, 0.5, 0.5)
-
-    local clearBtn = CreateFrame("Button", nil, searchBar)
-    clearBtn:SetSize(10, 10)
-    clearBtn:SetPoint("RIGHT", searchBar, "RIGHT", -2, 0)
-    clearBtn:SetNormalTexture("Interface\\Buttons\\UI-StopButton")
-    clearBtn:GetNormalTexture():SetVertexColor(0.6, 0.6, 0.6)
-    clearBtn:Hide()
-    clearBtn:SetScript("OnClick", function()
+    searchEditBox.Instructions:SetText("Search items, vendors...")
+    searchEditBox.clearButton:HookScript("OnClick", function()
         ClearSearch(true)
         searchEditBox:ClearFocus()
     end)
 
-    local function UpdateSearchUI()
-        local text = searchEditBox:GetText()
-        local hasText = text and text ~= ""
-        placeholder:SetShown(not hasText and not searchEditBox:HasFocus())
-        clearBtn:SetShown(hasText)
-    end
-
-    searchEditBox:SetScript("OnTextChanged", function()
+    searchEditBox:HookScript("OnTextChanged", function()
         if suppressTextChanged then return end
-        UpdateSearchUI()
         if searchDebounceTimer then searchDebounceTimer:Cancel() end
         searchDebounceTimer = C_Timer.NewTimer(0.3, ExecuteSearch)
     end)
 
-    searchEditBox:SetScript("OnEditFocusGained", function()
-        placeholder:Hide()
-        searchBar:SetBackdropBorderColor(0.6, 0.6, 0.6, 1)
-        searchIcon:SetVertexColor(1, 0.82, 0)
+    searchEditBox:HookScript("OnEditFocusGained", function()
         if HA.SearchProvider then
             HA.SearchProvider:PreWarm()
         end
     end)
 
-    searchEditBox:SetScript("OnEditFocusLost", function()
-        UpdateSearchUI()
-        searchBar:SetBackdropBorderColor(0.4, 0.4, 0.4, 0.8)
-        searchIcon:SetVertexColor(0.7, 0.7, 0.7)
-    end)
-
-    searchEditBox:SetScript("OnEscapePressed", function(self)
+    searchEditBox:HookScript("OnEscapePressed", function(self)
         ClearSearch(true)
         self:ClearFocus()
     end)
 
-    searchEditBox:SetScript("OnEnterPressed", function(self)
+    searchEditBox:HookScript("OnEnterPressed", function(self)
         self:ClearFocus()
     end)
 
