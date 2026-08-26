@@ -79,9 +79,6 @@ function HousingAddon:OnInitialize()
     -- feeds it to C_AddOns.IsAddOnLoaded for the SV-availability check (STU-073).
     self.db = F.DB:New({ name = addonName, sv = "HomesteadDB", defaults = Constants.Defaults, defaultProfile = true })
 
-    -- Clean up removed setting from SavedVariables (requirement scraping removed)
-    self.db.global.enableRequirementScraping = nil
-
     -- One-time migration: pin size default was too large for native pin system.
     -- Old default was 20, runtime clamped to 18. Reset users at either value to 10.
     local vt = self.db.profile.vendorTracer

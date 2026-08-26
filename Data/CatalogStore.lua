@@ -20,6 +20,12 @@
 
 local _, HA = ...
 
+-- HS-300: existing idiom for reaching Foundry from a Homestead module
+-- (core.lua:14, UI/MapSidePanel.lua:18, UI/OptionsFrame.lua:11). F is never
+-- nil here: Core/core.lua:14-17 errors at load if Foundry is absent, and
+-- core.lua (Homestead.toc:33) loads before this file (Homestead.toc:43).
+local F = _G.Foundry_1_0
+
 local CatalogStore = {}
 HA.CatalogStore = CatalogStore
 
@@ -693,6 +699,40 @@ end
 -- Migrations (sequential, schema-versioned)
 -------------------------------------------------------------------------------
 
+-- HS-300: recursive deep copy. Needed for the v5→v6 backup (a reference alias
+-- would still point at the tables the migration is about to nil out) and for
+-- the dev restore command's copy-back. No deep-copy helper exists elsewhere
+-- in the addon or in Foundry.
+local function deepCopy(value)
+    if type(value) ~= "table" then return value end
+    local out = {}
+    for k, v in pairs(value) do out[k] = deepCopy(v) end
+    return out
+end
+
+-- HS-300: the five keys the v6 migration destroys. Kept as one file-local
+-- list so the migration, the backup writer, and the restore command all
+-- agree on exactly what "the v5→v6 drop" means.
+local V6_DROPPED_KEYS = { "vendorVisited", "dyeRecipesKnown", "discoveredAliases",
+                          "decorIDValidation", "enableRequirementScraping" }
+
+-- HS-300: snapshot ONLY the keys v6 destroys, once, before ANY migration runs.
+-- Lives in RunMigrations (not in Migration_5_to_6) because the corrupt-stamp
+-- repair replays the chain from 1 and a snapshot taken inside 5→6 would then
+-- capture data already rewritten by 1→5. Only-if-absent so a replay never
+-- overwrites a good backup with post-migration state. Undeclared on purpose:
+-- Foundry's logout strip only walks declared defaults (DB.lua:196-213), so an
+-- undeclared key survives logout; declaring it would get it stripped.
+local function WriteV5Backup(global, fromVersion)
+    if global.__v5Backup ~= nil then return end
+    local keys = {}
+    for _, k in ipairs(V6_DROPPED_KEYS) do
+        if global[k] ~= nil then keys[k] = deepCopy(global[k]) end
+    end
+    global.__v5Backup = { keys = keys, fromVersion = fromVersion,
+                          savedAt = time(), addonVersion = HA.Constants.VERSION }
+end
+
 -- Migration 1→2: Backfill from parsedSources
 local function Migration_1_to_2(db)
     local global = db.global
@@ -873,6 +913,32 @@ local function Migration_4_to_5(db)
     end
 end
 
+-- Migration 5→6: drop five dead/orphaned db.global keys (HS-300) —
+-- vendorVisited, dyeRecipesKnown (declared, zero references repo-wide),
+-- discoveredAliases (reader-only orphan, its writer is retired in this
+-- ticket), decorIDValidation (write-only dev report, no reader), and
+-- enableRequirementScraping (already nil'd every load at core.lua:83,
+-- folded into the schema here). Does NOT touch catalogItems — the `ci`
+-- upvalue is bound to it before RunMigrations runs, and a table swap here
+-- would strand every later read against the old table.
+--
+-- Idempotent (nil of nil is a no-op): a second run finds every key already
+-- nil and simply re-stamps schemaVersion to 6. The pre-migration values (if
+-- any existed) were already captured by WriteV5Backup at the top of
+-- RunMigrations, before this or any earlier migration ran.
+local function Migration_5_to_6(db)
+    local global = db.global
+    for _, k in ipairs(V6_DROPPED_KEYS) do
+        global[k] = nil
+    end
+
+    global.schemaVersion = 6
+
+    if HA.Addon then
+        HA.Addon:Debug("CatalogStore: Migration 5→6 complete")
+    end
+end
+
 function CatalogStore:RunMigrations()
     if not HA.Addon or not HA.Addon.db then return end
     local db = HA.Addon.db
@@ -896,6 +962,22 @@ function CatalogStore:RunMigrations()
         db.global.schemaVersion = version
     end
 
+    -- HS-300 no-downgrade guard. A newer stamp means a newer client wrote this
+    -- file; running nothing and stamping nothing keeps the file byte-intact for
+    -- the client that owns it. Fail loud (precedent core.lua:267). HS-344 will
+    -- replace this with Foundry.DB's schema seam. On a DevBuild F:RaiseDevError
+    -- throws instead of returning (Foundry.lua:51-58), so this `return` is only
+    -- reached on release builds; a dev build fails loud out of Initialize by
+    -- design, same precedent as core.lua:264.
+    if version > 6 then
+        F:RaiseDevError("CatalogStore: SavedVariables schemaVersion " .. version
+            .. " is newer than this build supports (6); migrations skipped.")
+        return
+    end
+    if version < 6 then
+        WriteV5Backup(db.global, version)
+    end
+
     if version < 2 then
         Migration_1_to_2(db)
     end
@@ -910,6 +992,10 @@ function CatalogStore:RunMigrations()
 
     if version < 5 then
         Migration_4_to_5(db)
+    end
+
+    if version < 6 then
+        Migration_5_to_6(db)
     end
 end
 
@@ -974,6 +1060,31 @@ function CatalogStore:HasPersistedData()
     return scanner ~= nil
         and scanner.HasStorageResponded ~= nil and scanner:HasStorageResponded() == true
         and scanner.IsWarm ~= nil and not scanner:IsWarm()
+end
+
+-- HS-300: dev-only restore for __v5Backup. Deep-copies each backed-up key
+-- back into db.global and resets schemaVersion to 5 so the next Initialize()
+-- re-runs Migration_5_to_6. Returns true, restoredCount, savedAt,
+-- addonVersion on success, or false, reason if no backup exists. A plain
+-- CatalogStore method (not gated in this file) so DevMemoryDiagnostics' dev-
+-- only slash command can call it and so tests can exercise the restore path
+-- without loading that dev-only file. Leaves the backup in place — a second
+-- restore must still work.
+function CatalogStore:RestoreV5Backup()
+    if not HA.Addon or not HA.Addon.db then return false, "no db" end
+
+    local global = HA.Addon.db.global
+    local backup = global.__v5Backup
+    if not backup then return false, "no backup" end
+
+    local restoredCount = 0
+    for k, v in pairs(backup.keys) do
+        global[k] = deepCopy(v)
+        restoredCount = restoredCount + 1
+    end
+    global.schemaVersion = 5
+
+    return true, restoredCount, backup.savedAt, backup.addonVersion
 end
 
 -------------------------------------------------------------------------------

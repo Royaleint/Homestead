@@ -3853,18 +3853,14 @@ function VendorDatabase:GetVendorCount()
     return count
 end
 
+-- HS-300: discoveredAliases (and its only writer, /hsdev clearaliases) are
+-- retired with the v6 migration — this now reports the static count only.
 function VendorDatabase:GetAliasCount()
     local staticCount = 0
     for _ in pairs(self.Aliases) do
         staticCount = staticCount + 1
     end
-    local discoveredCount = 0
-    if HomesteadDB and HomesteadDB.global and HomesteadDB.global.discoveredAliases then
-        for _ in pairs(HomesteadDB.global.discoveredAliases) do
-            discoveredCount = discoveredCount + 1
-        end
-    end
-    return staticCount, discoveredCount
+    return staticCount
 end
 
 return VendorDatabase
