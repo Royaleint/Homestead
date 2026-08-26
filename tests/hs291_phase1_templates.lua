@@ -19,6 +19,12 @@ assert(output:find('CreateFrame%("Frame", "HomesteadOutputWindow", UIParent, "De
 assert(output:find("titleText = frame.TitleContainer.TitleText"),
     "output window must use the native title")
 assert(not output:find("frame:SetBackdrop"), "output window must not retain hand-rolled outer chrome")
+assert(output:find("outputList = List:New"),
+    "output window must use the shared ScrollBox list controller")
+assert(output:find('elementType = "Frame"'),
+    "output window list must use Blizzard frame rows")
+assert(not output:find('CreateFrame%("ScrollFrame"'),
+    "output window must not retain the legacy ScrollFrame")
 
 local options = read("UI/OptionsFrame.lua")
 assert(options:find('CreateFrame%("Button", nil, parent, "PanelTabButtonTemplate"%)'),
