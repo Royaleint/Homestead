@@ -1,7 +1,11 @@
 --[[
     Homestead - AchievementSources
     Generated: 2026-08-18 22:24:20
-    Total entries: 309
+    Total entries: 305
+    Hand-corrected under HS-405 (2026-09-01): four refuted entries removed to
+    mirror the overrides file. Do NOT regenerate without reading HS-392's
+    crossref disposition §5 first — the current export vintage lost rows and
+    a regen would silently drop five still-valid entries.
 
     Achievement source data for housing decor items.
     Regenerate with: python Home_Dev/scripts/generate_source_tables.py --table achievement
@@ -120,7 +124,6 @@ local sourceData = {
     [245128] = {achievementID = 42282, achievementName = "The Battlelord's Campaign", category = "Legion Class Hall"},
     [245429] = {achievementID = 42274, achievementName = "The Archmage's Campaign", category = "Legion Class Hall"},
     [245527] = {achievementID = 42271, achievementName = "The Slayer's Campaign", category = "Legion Class Hall"},
-    [245534] = {achievementID = 42281, achievementName = "The Netherlord's Campaign", category = "Legion Class Hall"},
     [245878] = {achievementID = 60964, achievementName = "Legendary Research of the Dreamgrove", category = "Legion Class Hall"},
     [245882] = {achievementID = 42270, achievementName = "The Deathlord's Campaign", category = "Legion Class Hall"},
     [245888] = {achievementID = 42287, achievementName = "Hidden Potential of the Deathlord", category = "Legion Class Hall"},
@@ -184,7 +187,6 @@ local sourceData = {
     [251013] = {achievementID = 60983, achievementName = "Raise an Army for the Dreamgrove", category = "Legion Class Hall"},
     [251014] = {achievementID = 60990, achievementName = "Raise an Army for the Maelstrom", category = "Legion Class Hall"},
     [251275] = {achievementID = 60966, achievementName = "Legendary Research of the Tirisgarde", category = "Legion Class Hall"},
-    [251493] = {achievementID = 42280, achievementName = "The Farseer's Campaign", category = "Legion Class Hall"},
     [251636] = {achievementID = 60988, achievementName = "Raise an Army for the Netherlight Temple", category = "Legion Class Hall"},
     [254358] = {achievementID = 42272, achievementName = "The Archdruid's Campaign", category = "Legion Class Hall"},
     [254461] = {achievementID = 42279, achievementName = "The Shadowblade's Campaign", category = "Legion Class Hall"},
@@ -224,7 +226,6 @@ local sourceData = {
     [257351] = {achievementID = 42189, achievementName = "Lorewalking: The Lich King", category = "Lorewalking"},
     [257354] = {achievementID = 42187, achievementName = "Lorewalking: Ethereal Wisdom", category = "Lorewalking"},
     [257355] = {achievementID = 42188, achievementName = "Lorewalking: Blade's Bane", category = "Lorewalking"},
-    [257400] = {achievementID = 61467, achievementName = "Lorewalking: The Elves of Quel'Thalas", category = "Lorewalking"},
     [258858] = {achievementID = 42187, achievementName = "Lorewalking: Ethereal Wisdom", category = "Lorewalking"},
     [258859] = {achievementID = 42188, achievementName = "Lorewalking: Blade's Bane", category = "Lorewalking"},
     [258860] = {achievementID = 42189, achievementName = "Lorewalking: The Lich King", category = "Lorewalking"},
@@ -366,7 +367,6 @@ local sourceData = {
     [247769] = {achievementID = 61685, achievementName = "Proficient in Battle", category = "Player vs. Player"},
     [247770] = {achievementID = 61686, achievementName = "Expert in Battle", category = "Player vs. Player"},
     [267354] = {achievementID = 61683, achievementName = "Entering Battle", category = "Player vs. Player"},
-    [267355] = {achievementID = 61684, achievementName = "Progressing in Battle", category = "Player vs. Player"},
     [267356] = {achievementID = 61685, achievementName = "Proficient in Battle", category = "Player vs. Player"},
     [267357] = {achievementID = 61686, achievementName = "Expert in Battle", category = "Player vs. Player"},
     [267358] = {achievementID = 61687, achievementName = "Champion in Battle", category = "Player vs. Player"},
