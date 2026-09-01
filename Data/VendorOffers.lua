@@ -15399,6 +15399,53 @@ local ManualOverrides = {
         [259069] = { price = 2500000, currencies = {}, isUsable = true, isPurchasable = true, merchantSlot = 15, hasExtendedCost = false, displayOrder = 16 }, -- Sanctuary Chess Light Knight
         [259070] = { price = 2500000, currencies = {}, isUsable = true, isPurchasable = true, merchantSlot = 14, hasExtendedCost = false, displayOrder = 17 }, -- Sanctuary Chess Light King
     },
+    -- HS-387 (2026-08-30 export corroborated by Sage, HS-388 review): the Disguised Decor
+    -- Duel Vendor (Silvermoon City, Falconwing Square) no longer sells any of these 12
+    -- items for currency 3393 -- the 2026-08-30 in-game export shows currency 3393 zero
+    -- times where the 2026-08-10 export had it 12 times, and the same 12 items now read
+    -- one clean currency-3316 row each in the export, at 200-750. GeneratedBase still ships
+    -- all 12 at the old 3393 prices (10-120). A structural lua load+walk of GeneratedBase,
+    -- ManualOverrides, and Tombstones confirms these are the entire currency-3393 family
+    -- (229 vendors / 2066 GeneratedBase rows scanned; 12 hits, all this vendor; 0 in
+    -- ManualOverrides' 30 vendors / 171 rows; 0 tombstoned) — no other vendor, row, or
+    -- existing override references 3393, and this vendor carries no prior override.
+    --
+    -- Corroboration beyond the ingested catalog-text export: a direct merchant-inventory
+    -- scan of this vendor, export_archive/2026-08-23-exportall.tsv (clientBuild
+    -- 12.1.0.69404), matches all 12 amounts and the 3316 currency exactly, and that same
+    -- scan's vendor row shows the vendor's own `currency` field changed from
+    -- "Illusionary Coin" (every scan through 2026-08-02 PTR) to "Voidlight Marl" -- a
+    -- positive, vendor-specific assertion of the rollover, not an absence. A competing,
+    -- older reading also exists on disk: `vendor_external_candidates.csv` carries a
+    -- `cost_delta` row for all 12 items agreeing on currency 3316 but disagreeing on
+    -- amount for 11 of 12; its content is dated 2026-06-29 (62 days stale, pre-rollover),
+    -- so newest-wins resolves to the export/scan values used here. That crawl reading is
+    -- not an independent competing measurement, either: the previously-ingested
+    -- 2026-08-10 export (commit fed16d4) carried BOTH currencies per item during the
+    -- transition, and its 3316 amounts match the crawl's disputed numbers exactly on all
+    -- 12 items -- the crawl is the same pre-live tuning pass Blizzard revised upward
+    -- before release, not a second independent reading. Membership at this vendor was
+    -- stable across every vintage checked; only prices moved.
+    --
+    -- Two of the twelve carry a corrected merchantSlot rather than the GeneratedBase
+    -- value: the 2026-08-23 scan shows Small Decorative Dornogal Opal (272444) and
+    -- Decorative Dornogal Opal (272445) swapped slots (11<->10) between 2026-08-02 and
+    -- 2026-08-23; three earlier scan vintages agree with the old values, confirming real
+    -- movement, not a parsing artifact. See each row's trailing comment below.
+    [264056] = { -- Disguised Decor Duel Vendor (Silvermoon City, Falconwing Square)
+        [268457] = { price = 0, currencies = {{id = 3316, amount = 400}}, isUsable = true, isPurchasable = true, merchantSlot = 5, hasExtendedCost = true, displayOrder = 1 }, -- Sin'dorei Tiffin-Style Lamp
+        [269613] = { price = 0, currencies = {{id = 3316, amount = 350}}, isUsable = true, isPurchasable = true, merchantSlot = 3, hasExtendedCost = true, displayOrder = 2 }, -- Sin'dorei Covered Cookpot
+        [269614] = { price = 0, currencies = {{id = 3316, amount = 250}}, isUsable = true, isPurchasable = true, merchantSlot = 2, hasExtendedCost = true, displayOrder = 3 }, -- Sin'dorei Open Cookpot
+        [269636] = { price = 0, currencies = {{id = 3316, amount = 250}}, isUsable = true, isPurchasable = true, merchantSlot = 1, hasExtendedCost = true, displayOrder = 4 }, -- Sin'dorei Cookpot Lid
+        [269641] = { price = 0, currencies = {{id = 3316, amount = 400}}, isUsable = true, isPurchasable = true, merchantSlot = 6, hasExtendedCost = true, displayOrder = 5 }, -- Sin'dorei Display Case
+        [271162] = { price = 0, currencies = {{id = 3316, amount = 750}}, isUsable = true, isPurchasable = true, merchantSlot = 4, hasExtendedCost = true, displayOrder = 6 }, -- Sin'dorei Garden Swing
+        [272441] = { price = 0, currencies = {{id = 3316, amount = 200}}, isUsable = true, isPurchasable = true, merchantSlot = 8, hasExtendedCost = true, displayOrder = 7 }, -- Small Lumber Pile
+        [272442] = { price = 0, currencies = {{id = 3316, amount = 300}}, isUsable = true, isPurchasable = true, merchantSlot = 7, hasExtendedCost = true, displayOrder = 8 }, -- Empty Wooden Toolbox
+        [272443] = { price = 0, currencies = {{id = 3316, amount = 300}}, isUsable = true, isPurchasable = true, merchantSlot = 9, hasExtendedCost = true, displayOrder = 999999 }, -- Suramar Arcfruit Bowl
+        [272444] = { price = 0, currencies = {{id = 3316, amount = 200}}, isUsable = true, isPurchasable = true, merchantSlot = 10, hasExtendedCost = true, displayOrder = 999999 }, -- Small Decorative Dornogal Opal (merchantSlot corrected 11->10 per 2026-08-23 scan)
+        [272445] = { price = 0, currencies = {{id = 3316, amount = 200}}, isUsable = true, isPurchasable = true, merchantSlot = 11, hasExtendedCost = true, displayOrder = 999999 }, -- Decorative Dornogal Opal (merchantSlot corrected 10->11 per 2026-08-23 scan)
+        [272446] = { price = 0, currencies = {{id = 3316, amount = 200}}, isUsable = true, isPurchasable = true, merchantSlot = 12, hasExtendedCost = true, displayOrder = 999999 }, -- Large Decorative Dornogal Opal
+    },
 }
 
 -- TOMBSTONES: bare itemID or "npcID:itemID" string key to suppress from all offer output.
