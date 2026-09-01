@@ -615,7 +615,7 @@ function VendorScanner:VerifyAndUpdateDatabaseEntry(npcID, vendorName)
 end
 
 -- Note: GetCorrectedNPCID, ExportNPCIDCorrections, SaveVendorData,
--- GetScannedVendors, GetScannedVendor, Clear*, and ExportScannedData
+-- GetScannedVendors, GetScannedVendor, and Clear*
 -- are now in ScanPersistence.lua (imported as SP above).
 
 -- Delegation wrappers for external callers
@@ -647,10 +647,6 @@ end
 function VendorScanner:ClearAllData()
     SP:ClearAllData()
     scannedVendorsThisSession = {}
-end
-
-function VendorScanner:ExportScannedData()
-    return SP:ExportScannedData()
 end
 
 -------------------------------------------------------------------------------
