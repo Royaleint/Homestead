@@ -488,8 +488,8 @@ local function BuildMemFloorReport(self, ME, deep)
     local output = {}
     table.insert(output, "=== Homestead Memory Floor Sweep (HS-282 sub-item I) ===")
     table.insert(output, deep
-        and "Mode: deep (also walks widget tables -- runs one client-wide collectgarbage(\"collect\") for the live-total reconciliation below, exactly like membudget)"
-        or "Mode: default (widget tables are counted, not walked -- run '/hs debug memfloor deep' to also walk them; still runs one client-wide collectgarbage(\"collect\") for the live-total reconciliation below, exactly like membudget)")
+        and "Mode: deep (also walks widget tables -- runs one client-wide collectgarbage(\"collect\") for the live-total reconciliation below, exactly like membudget; the live total is read BEFORE the sweep so the walker's own bookkeeping is excluded from it)"
+        or "Mode: default (widget tables are counted, not walked -- run '/hs debug memfloor deep' to also walk them; still runs one client-wide collectgarbage(\"collect\") for the live-total reconciliation below, exactly like membudget; the live total is read BEFORE the sweep so the walker's own bookkeeping is excluded from it)")
     table.insert(output, "")
 
     -- Foundry-1.0 bootstrap gate (Libs/Foundry-1.0/Foundry.lua:100-128): the
@@ -502,6 +502,32 @@ local function BuildMemFloorReport(self, ME, deep)
         and "Foundry-1.0: this build's embedded copy is serving (walked below as lib:Foundry-1.0)."
         or "Foundry-1.0: a standalone copy is serving; this build's embed loaded nothing (skipped below).")
     table.insert(output, "")
+
+    -- The live total is read BEFORE the sweep allocates anything. The
+    -- sweep's bookkeeping (one visited set deduping every table AND string
+    -- it meets, plus the report strings) is billed to this addon and
+    -- measured ~3.8 MB in Gate 2 captures -- reading the total after the
+    -- walk inflated it and both remainder lines by exactly that much.
+    -- Reconciliation semantics are otherwise membudget's (DebugMemBudgetReport
+    -- above): one client-wide collectgarbage("collect") right before the
+    -- read, in every mode; 'deep' adds no extra GC. nil = API unavailable.
+    local addonTotalKB = nil
+    if _G.UpdateAddOnMemoryUsage and _G.GetAddOnMemoryUsage then
+        _G.collectgarbage("collect")
+        _G.UpdateAddOnMemoryUsage()
+        addonTotalKB = _G.GetAddOnMemoryUsage(addonName) or 0
+    end
+
+    -- GetTimePreciseSec brackets everything the command itself does -- the
+    -- context allocation, the ~20k-global foreign-root seed, and the walk --
+    -- and excludes ONLY the GC pass above (design §5). Starting the bracket
+    -- any later would omit part of the command's own work from the printed
+    -- cost, the same self-accounting defect class Gate 2 caught in the
+    -- live-total read. (Not debugprofilestop: any addon's
+    -- debugprofilestart() call between our two reads would reset it and
+    -- falsify the cost; GetTimePreciseSec is monotonic and matches this
+    -- repo's convention.)
+    local sweepStartSec = _G.GetTimePreciseSec()
 
     local ctx = ME.NewSweepContext({ walkWidgets = deep })
     ME.SeedForeignRoots(ctx, foundryEmbedded)
@@ -541,13 +567,6 @@ local function BuildMemFloorReport(self, ME, deep)
         sharedTotal = sharedTotal + kb
         table.insert(output, FormatSweepLine(name, kb, tables, functions, widgets, true))
     end
-
-    -- GetTimePreciseSec brackets ONLY the table walk below -- the final
-    -- reconciliation GC pass further down is excluded on purpose (design §5).
-    -- (Not debugprofilestop: any addon's debugprofilestart() call between our
-    -- two reads would reset it and falsify the cost; GetTimePreciseSec is
-    -- monotonic and matches this repo's convention.)
-    local sweepStartSec = _G.GetTimePreciseSec()
 
     table.insert(output, "-- Owned --")
     -- Root order is load-bearing (design §1a/§2): first-owner-wins
@@ -604,14 +623,9 @@ local function BuildMemFloorReport(self, ME, deep)
     table.insert(output, format("shared total: %.1f KB", sharedTotal))
     table.insert(output, "")
 
-    -- Reconciliation: exactly membudget's GC behavior (DebugMemBudgetReport
-    -- above) -- one collectgarbage("collect") right before the live read, in
-    -- every mode. 'deep' adds no extra GC.
-    local addonTotalKB = 0
-    if _G.UpdateAddOnMemoryUsage and _G.GetAddOnMemoryUsage then
-        _G.collectgarbage("collect")
-        _G.UpdateAddOnMemoryUsage()
-        addonTotalKB = _G.GetAddOnMemoryUsage(addonName) or 0
+    -- addonTotalKB was captured before the sweep (see above); only the
+    -- rendering happens here so the report order (design §6) is unchanged.
+    if addonTotalKB ~= nil then
         table.insert(output, format("addon total (live, GetAddOnMemoryUsage): %.1f KB", addonTotalKB))
 
         local containedKB = ownedTotal + sharedTotal
@@ -626,9 +640,9 @@ local function BuildMemFloorReport(self, ME, deep)
     table.insert(output, "")
 
     table.insert(output, format("remainder (shared libs billed to Homestead):  total - owned - shared = %.1f KB",
-        addonTotalKB - ownedTotal - sharedTotal))
+        (addonTotalKB or 0) - ownedTotal - sharedTotal))
     table.insert(output, format("remainder (shared libs billed elsewhere):     total - owned          = %.1f KB",
-        addonTotalKB - ownedTotal))
+        (addonTotalKB or 0) - ownedTotal))
     table.insert(output, "")
     table.insert(output, "Remainder composition (none of it measurable from Lua): compiled function bytecode for every file")
     table.insert(output, "in the TOC, closure objects and their upvalue arrays, data reachable only through a closure upvalue")
