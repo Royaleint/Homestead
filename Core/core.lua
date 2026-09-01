@@ -56,10 +56,13 @@ local Lifecycle = F:RequireModule("Lifecycle", 1)
 -- BSP-060 guard precedent — RequireModule raises in BOTH builds).
 F:RequireModule("DB", 1)
 local lifecycle = Lifecycle:New(Homestead, addonName)
--- Subscription ORDER is load-bearing for the load-on-demand catch-up path: if
--- Homestead were ever loaded on demand AFTER login, both hooks catch up
--- synchronously here in registration order, so OnAddonLoaded must precede OnLogin
--- or OnEnable would run before OnInitialize had built self.db.
+-- Registration order does NOT protect OnInitialize-before-OnEnable on a
+-- load-on-demand path: Foundry's addon-loaded catch-up gates on the second
+-- return of IsAddOnLoaded, which is false while our own files are still
+-- loading, while the login catch-up fires synchronously whenever IsLoggedIn()
+-- is already true (Lifecycle.lua:139-151, 255-267). Homestead is not
+-- LoadOnDemand, so it always loads before PLAYER_LOGIN and the order below is
+-- correct; if it ever became LoD, OnEnable would run before OnInitialize.
 lifecycle:OnAddonLoaded(function() Homestead:OnInitialize() end)
 lifecycle:OnLogin(function() Homestead:OnEnable() end)
 

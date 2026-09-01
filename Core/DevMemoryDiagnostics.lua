@@ -492,7 +492,7 @@ local function BuildMemFloorReport(self, ME, deep)
         or "Mode: default (widget tables are counted, not walked -- run '/hs debug memfloor deep' to also walk them; still runs one client-wide collectgarbage(\"collect\") for the live-total reconciliation below, exactly like membudget; the live total is read BEFORE the sweep so the walker's own bookkeeping is excluded from it)")
     table.insert(output, "")
 
-    -- Foundry-1.0 bootstrap gate (Libs/Foundry-1.0/Foundry.lua:100-128): the
+    -- Foundry-1.0 bootstrap gate (Libs/Foundry-1.0/Foundry.lua:92-119): the
     -- first copy to load wins the runtime symbol and serves everyone; when a
     -- standalone Foundry-1.0/Foundry-1.0_DevBuild install wins instead of
     -- this DevBuild's embed, its bytes belong to that addon, not to us.

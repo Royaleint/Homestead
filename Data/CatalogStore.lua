@@ -721,7 +721,7 @@ local V6_DROPPED_KEYS = { "vendorVisited", "dyeRecipesKnown", "discoveredAliases
 -- repair replays the chain from 1 and a snapshot taken inside 5→6 would then
 -- capture data already rewritten by 1→5. Only-if-absent so a replay never
 -- overwrites a good backup with post-migration state. Undeclared on purpose:
--- Foundry's logout strip only walks declared defaults (DB.lua:196-213), so an
+-- Foundry's logout strip only walks declared defaults (DB.lua:255-272), so an
 -- undeclared key survives logout; declaring it would get it stripped.
 local function WriteV5Backup(global, fromVersion)
     if global.__v5Backup ~= nil then return end
@@ -966,7 +966,7 @@ function CatalogStore:RunMigrations()
     -- file; running nothing and stamping nothing keeps the file byte-intact for
     -- the client that owns it. Fail loud (precedent core.lua:267). HS-344 will
     -- replace this with Foundry.DB's schema seam. On a DevBuild F:RaiseDevError
-    -- throws instead of returning (Foundry.lua:51-58), so this `return` is only
+    -- throws instead of returning (Foundry.lua:44-51), so this `return` is only
     -- reached on release builds; a dev build fails loud out of Initialize by
     -- design, same precedent as core.lua:264.
     if version > 6 then
