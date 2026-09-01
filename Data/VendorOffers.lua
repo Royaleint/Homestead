@@ -885,20 +885,6 @@ local GeneratedBase = {
       displayOrder = 3,
     },
   },
-  [86698] = {
-    [244533] = {
-      price = 500000,
-      currencies = {},
-      isUsable = true,
-      displayOrder = 3,
-    },
-    [251545] = {
-      price = 1000000,
-      currencies = {},
-      isUsable = true,
-      displayOrder = 12,
-    },
-  },
   [86776] = {
     [244321] = {
       price = 0,
@@ -15474,6 +15460,14 @@ local Tombstones = {
     ["86698:245434"] = true, -- Orgrimmar Sconce: no vendor sells it in any source
     ["86698:245435"] = true, -- Horde Battle Emblem: no vendor sells it in any source
     ["86698:245436"] = true, -- Blackrock Weapon Rack: no vendor sells it in any source
+    -- HS-371 (2026-09-01): 86698 itself is folded into 85946 via VendorDatabase.Aliases
+    -- (86698 appears in zero captures across seven months of merchant-window scans; 85946
+    -- returns the same three items every time). These are the two rows 86698 had left after
+    -- HS-370; both are Midnight-zone items the 12.1 catalog and crawl attribute to four other
+    -- vendors, not to Brakoss under either ID, so they are tombstoned rather than folded into
+    -- 85946's real offer list. Analyst rec HS353-341-371 (2026-09-01).
+    ["86698:244533"] = true,
+    ["86698:251545"] = true,
     ["196637:246091"] = true, -- sold by Mythrin'dir; Tethalash's real 5-item list confirmed against two independent references
     ["196637:246863"] = true, -- sold by Lifecaller Tzadrak; not on Tethalash's confirmed list
     ["196637:248759"] = true, -- sold by Mythrin'dir; not on Tethalash's confirmed list
