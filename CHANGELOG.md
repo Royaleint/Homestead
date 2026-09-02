@@ -2,6 +2,47 @@
 
 ---
 
+## Homestead v2.10.1 (09-01-2026)
+
+A vendor pin fix, a batch of vendor database corrections, and a bundled library update.
+
+---
+
+## Bug Fixes
+
+- Fixed two overlapping Shadow-Sage Brakoss pins in Stormshield Town Hall, one of them showing the wrong items.
+
+---
+
+## Library
+
+- Updated the bundled Foundry library to its current release.
+
+---
+
+## Vendor Database
+
+**Corrections**
+
+- Removed four achievements incorrectly listed as sources for decor items they don't actually award.
+
+**New and Updated Vendors**
+
+- **Disguised Decor Duel Vendor** (Silvermoon City): all 12 items now show their correct price in Voidlight Marl, following a recent in-game change.
+
+**Location Fixes**
+
+- Corrected which continent five vendor zones belong to, so their vendors are grouped and counted correctly.
+
+---
+
+## Performance
+
+- Homestead uses less memory while the map side panel is closed.
+- A small diagnostic tool was added for developers investigating memory usage.
+
+---
+
 ## Homestead v2.10.0 (08-24-2026)
 
 Vendor price fixes, item details on vendor pin tooltips, unlock requirements on the house dashboard, and minimap fixes.
