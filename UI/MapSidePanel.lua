@@ -2353,6 +2353,19 @@ local function CreatePanel()
 
     resizeHandle:Hide()
 
+    -- HS-282 sub-item G: evict the SearchProvider index whenever this panel
+    -- hides, on ANY path (Hide/Toggle/CloseDetached, or the map closing/
+    -- maximizing out from under a docked panel via MapWatchTick) -- every one
+    -- of those paths ends by calling panel:Hide(), so OnHide is the single
+    -- point they all converge on. Reclaims ~2.2 MB in the non-searching
+    -- steady state; BuildIndex() lazily rebuilds (~20ms worst case) on the
+    -- next Search, a trade Rawb accepted against the reclaim.
+    panel:HookScript("OnHide", function()
+        if HA.SearchProvider and HA.SearchProvider.Invalidate then
+            HA.SearchProvider:Invalidate()
+        end
+    end)
+
     panel:Hide()
     panelFrame = panel
 end

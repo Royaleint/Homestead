@@ -448,6 +448,268 @@ function HousingAddon:DebugMemBudgetReport(full)
     self:ShowCopyableText(table.concat(output, "\n"))
 end
 
+-- HS-300: dev-gated restore for the keys the v6 migration dropped. Thin
+-- wrapper around CatalogStore:RestoreV5Backup() -- that function holds the
+-- actual restore logic so it can be exercised without loading this dev-only
+-- file. This layer is just the player-facing print.
+function HousingAddon:DebugRestoreV5Backup()
+    local ok, restoredCountOrReason, savedAt, addonVersion = HA.CatalogStore:RestoreV5Backup()
+    if not ok then
+        print("|cff00ccff[Homestead]|r No v5 backup found (" .. tostring(restoredCountOrReason) .. ").")
+        return
+    end
+
+    local savedAtText = savedAt and date("%Y-%m-%d %H:%M", savedAt) or tostring(savedAt)
+    print(format("|cff00ccff[Homestead]|r restored %d keys from backup taken %s by %s -- /reload to re-run migrations.",
+        restoredCountOrReason, savedAtText, tostring(addonVersion)))
+end
+
+-- HS-282 sub-item I: itemizes /hs debug membudget's "unaccounted" remainder by
+-- walking the addon's ENTIRE reachable table graph from a fixed, ordered list
+-- of owned/shared roots (Core/MemoryEstimator.lua's sweep engine), instead of
+-- membudget's curated per-subsystem list above. Building the line for one
+-- root: nil roots (e.g. sv:HomesteadDB before first save) read as "not
+-- measurable: not initialized" rather than a misleading 0.0 KB, mirroring
+-- DebugMemBudgetReport's reportSVField above.
+local function FormatSweepLine(name, kb, tables, functions, widgets, shared)
+    local descriptor = format("%d tables, %d fn, %d widgets", tables, functions, widgets)
+    if tables > 0 and functions > 0.25 * tables then
+        descriptor = descriptor .. ", fn-heavy"
+    end
+    return format("%s: %.1f KB (sweep; %s)%s", name, kb, descriptor, shared and " (shared)" or "")
+end
+
+-- Builds the full report as an array of lines (not yet concatenated), so
+-- DebugMemFloorReport can wrap the whole build in one pcall (design §5
+-- reentrancy: an error here must clear the running flag, not wedge the
+-- command). Returns the output array on success; errors propagate to the
+-- caller's pcall.
+local function BuildMemFloorReport(self, ME, deep)
+    local output = {}
+    table.insert(output, "=== Homestead Memory Floor Sweep (HS-282 sub-item I) ===")
+    table.insert(output, deep
+        and "Mode: deep (also walks widget tables -- runs one client-wide collectgarbage(\"collect\") for the live-total reconciliation below, exactly like membudget; the live total is read BEFORE the sweep so the walker's own bookkeeping is excluded from it)"
+        or "Mode: default (widget tables are counted, not walked -- run '/hs debug memfloor deep' to also walk them; still runs one client-wide collectgarbage(\"collect\") for the live-total reconciliation below, exactly like membudget; the live total is read BEFORE the sweep so the walker's own bookkeeping is excluded from it)")
+    table.insert(output, "")
+
+    -- Foundry-1.0 bootstrap gate (Libs/Foundry-1.0/Foundry.lua:92-119): the
+    -- first copy to load wins the runtime symbol and serves everyone; when a
+    -- standalone Foundry-1.0/Foundry-1.0_DevBuild install wins instead of
+    -- this DevBuild's embed, its bytes belong to that addon, not to us.
+    local foundryEmbedded = not C_AddOns.IsAddOnLoaded("Foundry-1.0")
+        and not C_AddOns.IsAddOnLoaded("Foundry-1.0_DevBuild")
+    table.insert(output, foundryEmbedded
+        and "Foundry-1.0: this build's embedded copy is serving (walked below as lib:Foundry-1.0)."
+        or "Foundry-1.0: a standalone copy is serving; this build's embed loaded nothing (skipped below).")
+    table.insert(output, "")
+
+    -- The live total is read BEFORE the sweep allocates anything. The
+    -- sweep's bookkeeping (one visited set deduping every table AND string
+    -- it meets, plus the report strings) is billed to this addon and
+    -- measured ~3.8 MB in Gate 2 captures -- reading the total after the
+    -- walk inflated it and both remainder lines by exactly that much.
+    -- Reconciliation semantics are otherwise membudget's (DebugMemBudgetReport
+    -- above): one client-wide collectgarbage("collect") right before the
+    -- read, in every mode; 'deep' adds no extra GC. nil = API unavailable.
+    local addonTotalKB = nil
+    if _G.UpdateAddOnMemoryUsage and _G.GetAddOnMemoryUsage then
+        _G.collectgarbage("collect")
+        _G.UpdateAddOnMemoryUsage()
+        addonTotalKB = _G.GetAddOnMemoryUsage(addonName) or 0
+    end
+
+    -- GetTimePreciseSec brackets everything the command itself does -- the
+    -- context allocation, the ~20k-global foreign-root seed, and the walk --
+    -- and excludes ONLY the GC pass above (design §5). Starting the bracket
+    -- any later would omit part of the command's own work from the printed
+    -- cost, the same self-accounting defect class Gate 2 caught in the
+    -- live-total read. (Not debugprofilestop: any addon's
+    -- debugprofilestart() call between our two reads would reset it and
+    -- falsify the cost; GetTimePreciseSec is monotonic and matches this
+    -- repo's convention.)
+    local sweepStartSec = _G.GetTimePreciseSec()
+
+    local ctx = ME.NewSweepContext({ walkWidgets = deep })
+    ME.SeedForeignRoots(ctx, foundryEmbedded)
+
+    local ownedTotal, sharedTotal, ownerLines = 0, 0, 0
+    local aborted = false
+
+    local function sweepOwned(name, root)
+        if aborted then return end
+        if root == nil then
+            table.insert(output, format("%s: not measurable: not initialized", name))
+            return
+        end
+        local bytes, tables, functions, widgets = ME.SweepRoot(ctx, root)
+        if ctx.aborted then
+            aborted = true
+            return
+        end
+        local kb = bytes / 1024
+        ownedTotal = ownedTotal + kb
+        ownerLines = ownerLines + 1
+        table.insert(output, FormatSweepLine(name, kb, tables, functions, widgets, false))
+    end
+
+    local function sweepShared(name, root, skipMessage)
+        if aborted then return end
+        if root == nil then
+            table.insert(output, skipMessage or format("%s: skipped (unavailable)", name))
+            return
+        end
+        local bytes, tables, functions, widgets = ME.SweepRoot(ctx, root)
+        if ctx.aborted then
+            aborted = true
+            return
+        end
+        local kb = bytes / 1024
+        sharedTotal = sharedTotal + kb
+        table.insert(output, FormatSweepLine(name, kb, tables, functions, widgets, true))
+    end
+
+    table.insert(output, "-- Owned --")
+    -- Root order is load-bearing (design §1a/§2): first-owner-wins
+    -- attribution means each later root's KB is only what's new at that
+    -- point, so this order can never be replaced with pairs() order.
+    sweepOwned("sv:HomesteadDB", _G.HomesteadDB)
+    sweepOwned("addon:db", self.db)
+    sweepOwned("addon:core", self)
+
+    local haKeys = {}
+    for k in pairs(HA) do
+        if k ~= "Addon" then
+            haKeys[#haKeys + 1] = k
+        end
+    end
+    table.sort(haKeys)
+
+    local nonTableCount = 0
+    for _, k in ipairs(haKeys) do
+        if aborted then
+            break
+        end
+        local v = HA[k]
+        if type(v) == "table" then
+            sweepOwned(k, v)
+        else
+            nonTableCount = nonTableCount + 1
+        end
+    end
+    if not aborted then
+        table.insert(output, format("HA (non-table keys): %d", nonTableCount))
+    end
+
+    if not aborted then
+        table.insert(output, format("owned total: %.1f KB", ownedTotal))
+        table.insert(output, "")
+
+        table.insert(output, "-- Shared (never folded into owned total) --")
+        sweepShared("lib:Foundry-1.0", foundryEmbedded and _G.Foundry_1_0 or nil,
+            not foundryEmbedded
+                and "lib:Foundry-1.0: skipped (standalone Foundry-1.0 is loaded; its bytes are billed to that addon)"
+                or nil)
+        sweepShared("lib:LibStub", _G.LibStub)
+    end
+
+    if aborted then
+        table.insert(output, "")
+        table.insert(output, format("SWEEP ABORTED at the %d-node cap -- the ownership boundary leaked; these numbers are not usable.", ctx.nodeCap))
+        return output
+    end
+
+    local sweepCostMs = (_G.GetTimePreciseSec() - sweepStartSec) * 1000
+
+    table.insert(output, format("shared total: %.1f KB", sharedTotal))
+    table.insert(output, "")
+
+    -- addonTotalKB was captured before the sweep (see above); only the
+    -- rendering happens here so the report order (design §6) is unchanged.
+    if addonTotalKB ~= nil then
+        table.insert(output, format("addon total (live, GetAddOnMemoryUsage): %.1f KB", addonTotalKB))
+
+        local containedKB = ownedTotal + sharedTotal
+        if containedKB <= addonTotalKB then
+            table.insert(output, "CONTAINMENT: ok")
+        else
+            table.insert(output, format("CONTAINMENT: VIOLATED by %.1f KB", containedKB - addonTotalKB))
+        end
+    else
+        table.insert(output, "addon total (live): not measurable: memory API unavailable on this client")
+    end
+    table.insert(output, "")
+
+    table.insert(output, format("remainder (shared libs billed to Homestead):  total - owned - shared = %.1f KB",
+        (addonTotalKB or 0) - ownedTotal - sharedTotal))
+    table.insert(output, format("remainder (shared libs billed elsewhere):     total - owned          = %.1f KB",
+        (addonTotalKB or 0) - ownedTotal))
+    table.insert(output, "")
+    table.insert(output, "Remainder composition (none of it measurable from Lua): compiled function bytecode for every file")
+    table.insert(output, "in the TOC, closure objects and their upvalue arrays, data reachable only through a closure upvalue")
+    table.insert(output, "(MemoryEstimator error source #6), widget Lua-field storage not walked in this mode, Lua VM")
+    table.insert(output, "internals (string-intern table, GC bookkeeping), and this walker's own estimation error. The")
+    table.insert(output, "closure share arrives by subtraction and is not separable from the rest.")
+    table.insert(output, "")
+
+    table.insert(output, format("functions counted across the sweep: %d", ctx.functions))
+    table.insert(output, format("owner lines: %d", ownerLines))
+    table.insert(output, format("sweep cost: %.1f ms (GetTimePreciseSec bracket, excludes the GC pass)", sweepCostMs))
+    table.insert(output, "")
+
+    table.insert(output, "Technique key: (sweep) = full-reachability walk sharing one visited set, same byte")
+    table.insert(output, "model and same documented error sources as membudget's (est) (see")
+    table.insert(output, "Core/MemoryEstimator.lua). Strings dedup across ALL lines in this report (not just")
+    table.insert(output, "within one line's own walk), so membudget's error source #2 (cross-line string")
+    table.insert(output, "double-counting) does not apply here. Attribution is first-owner-wins by the fixed")
+    table.insert(output, "owned-root order printed above, never pairs() order (nondeterministic between runs,")
+    table.insert(output, "which would make two captures non-comparable) -- an earlier owner absorbs every")
+    table.insert(output, "structure it shares with a later one, so a later owner's KB reads as \"bytes it owns")
+    table.insert(output, "exclusively, given everything earlier in this list,\" never an independent total.")
+    table.insert(output, "This is a relative-magnitude ranking, not an accurate byte count: the three")
+    table.insert(output, "constants were jointly fit against pure-data Data/ files (integer/string keys, few")
+    table.insert(output, "function values); a module table's function values are each charged")
+    table.insert(output, "HASH_ENTRY_BYTES + OTHER_VALUE_BYTES, and that OTHER_VALUE_BYTES figure is an")
+    table.insert(output, "UNCALIBRATED placeholder (error source #5), never fitted against real function-heavy")
+    table.insert(output, "tables. No per-owner KB may be quoted as an accurate size, only as a rank.")
+    table.insert(output, "fn is a COUNT of distinct function objects reached, never a size -- a Lua function")
+    table.insert(output, "object and its upvalue array cannot be sized from Lua code. widgets is a count of")
+    table.insert(output, "distinct widget tables reached (rawget(t, 0) ~= nil, or a GetObjectType method); by")
+    table.insert(output, "default charged HEADER_BYTES only and not descended into (see design §1d) --")
+    table.insert(output, "'deep' mode walks them too. (shared) marks a line whose bytes are never folded into")
+    table.insert(output, "the owned total -- which addon a shared library's bytes are truly billed to depends")
+    table.insert(output, "on load order and isn't knowable from Lua. fn-heavy marks a line where functions")
+    table.insert(output, "exceed 25% of its table count -- those lines carry the largest unquantified error")
+    table.insert(output, "above, since a function-heavy table's real size is systematically understated here.")
+
+    return output
+end
+
+-- Entry point for '/hs debug memfloor [deep]'. Reentrancy guard lives on
+-- MemoryEstimator itself (ME._sweepRunning) since the sweep engine is the
+-- shared resource being protected; wrapping the build in pcall means a Lua
+-- error mid-sweep clears the flag and re-raises instead of wedging the
+-- command for the rest of the session (design §5).
+function HousingAddon:DebugMemFloorReport(deep)
+    local ME = HA.MemoryEstimator
+    if not ME then
+        self:Print("MemoryEstimator unavailable.")
+        return
+    end
+    if ME._sweepRunning then
+        self:Print("A memory floor sweep is already running.")
+        return
+    end
+
+    ME._sweepRunning = true
+    local ok, outputOrErr = pcall(BuildMemFloorReport, self, ME, deep)
+    ME._sweepRunning = false
+    if not ok then
+        error(outputOrErr, 0)
+    end
+
+    self:ShowCopyableText(table.concat(outputOrErr, "\n"))
+end
+
 -- Command registration (see file header): waits for PLAYER_LOGIN, by which
 -- point core.lua's OnInitialize (ADDON_LOADED-triggered) has always already
 -- run, so self.commands is guaranteed to exist. This is the ONLY hook this
@@ -462,4 +724,10 @@ devDiagFrame:SetScript("OnEvent", function()
     HousingAddon.commands:Register({ name = "debug membudget", args = "[full]",
         help = "Per-subsystem memory budget breakdown (HS-282). 'full' additionally isolates allSourcesCache via a forced full-corpus warm.",
         handler = function(rest) HousingAddon:DebugMemBudgetReport(rest == "full") end })
+    HousingAddon.commands:Register({ name = "debug restorev5", args = "",
+        help = "HS-300: restore the keys the v6 migration dropped from db.global.__v5Backup, stamp schemaVersion 5, then /reload.",
+        handler = function() HousingAddon:DebugRestoreV5Backup() end })
+    HousingAddon.commands:Register({ name = "debug memfloor", args = "[deep]",
+        help = "Full-reachability per-owner memory sweep (HS-282 sub-item I). 'deep' also walks widget tables.",
+        handler = function(rest) HousingAddon:DebugMemFloorReport(rest == "deep") end })
 end)

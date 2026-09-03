@@ -170,6 +170,7 @@ local CatalogHA = {
         RegisterModule = function() end,
         Debug = function() end,
     },
+    Constants = { VERSION = "test" },
     Events = {
         Fire = function(_, eventName)
             if eventName == "OWNERSHIP_UPDATED" then
@@ -230,6 +231,7 @@ local CorruptSchemaHA = {
         RegisterModule = function() end,
         Debug = function() end,
     },
+    Constants = { VERSION = "test" },
 }
 
 assert(loadfile(root .. "/Data/CatalogStore.lua"))("Homestead", CorruptSchemaHA)
@@ -240,9 +242,9 @@ end)
 assert(initOk, "Initialize() must not throw on a non-number schemaVersion: " .. tostring(initErr))
 
 -- Repaired to a real number and migrations ran to completion (idempotent
--- migrations still advance schemaVersion to the current version — 5 as of
--- HS-205's parsedSources/catalogItems dedup migration).
+-- migrations still advance schemaVersion to the current version — 6 as of
+-- HS-300's v5→v6 dead-key drop).
 assert(type(CorruptSchemaHA.Addon.db.global.schemaVersion) == "number")
-assert(CorruptSchemaHA.Addon.db.global.schemaVersion == 5)
+assert(CorruptSchemaHA.Addon.db.global.schemaVersion == 6)
 
 print("hs209_wiring_batch: M10a schemaVersion guard ok")

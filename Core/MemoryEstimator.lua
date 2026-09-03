@@ -223,3 +223,205 @@ end
 function MemoryEstimator.EstimateTablesSizeKB(tables)
     return MemoryEstimator.EstimateTablesSizeBytes(tables) / 1024
 end
+
+-------------------------------------------------------------------------------
+-- HS-282 sub-item I: full-reachability ownership sweep (/hs debug memfloor,
+-- Core/DevMemoryDiagnostics.lua). Itemizes membudget's "unaccounted" remainder
+-- by walking the addon's ENTIRE reachable table graph from a fixed, ordered
+-- list of owned/shared roots, instead of the curated per-subsystem list above.
+--
+-- This is a SIBLING walker, not a mode of EstimateTableBytes: that function is
+-- pinned byte-identical by tests/hs282_memory_estimator.lua's calibration (see
+-- its header) and must stay comparable across existing membudget captures.
+-- SweepTableBytes below duplicates the same #t array/hash classification and
+-- reuses the same five constants so the byte model itself cannot drift
+-- between the two call sites; everything sweep-only (multi-root sharing via
+-- one `ctx.seen`, per-owner table/function/widget counts, the widget
+-- boundary, the node cap) lives only here.
+--
+-- Accuracy: a relative-magnitude ranking instrument, not an accurate byte
+-- count -- see the technique key DebugMemFloorReport prints for the full
+-- disclaim (a module table's function values are charged an uncalibrated
+-- placeholder, error source #5 above).
+-------------------------------------------------------------------------------
+
+local rawget = rawget
+
+-- 1,000,000 distinct tables = 76 MB at HEADER_BYTES alone. Reaching this means
+-- the ownership boundary (the foreign-root pre-seed) leaked into Blizzard's or
+-- another addon's table graph -- a bug, not a result worth reporting.
+local SWEEP_NODE_CAP = 1000000
+
+-- A WoW widget carries its C-side object at table key 0 (rawget so a mixin's
+-- __index chain can never intercept this check); GetObjectType is the
+-- fallback for the rare widget shape that doesn't. The fallback is a plain
+-- index, so it is taken ONLY when the table's __index cannot execute code:
+-- a function-valued __index anywhere in the walked graph (CallbackHandler's
+-- events registry materializes a new entry on ANY missing-key read; Foundry's
+-- db controller refuses deny-listed keys) would otherwise mutate live state
+-- or raise mid-sweep. A __metatable field shadows getmetatable (LDB's domt
+-- returns the string "access denied"), so any metatable we cannot inspect is
+-- treated the same as a function __index: don't probe. Widget mixin chains
+-- use plain table __index, so real widgets still reach the fallback; the only
+-- shape given up is a widget that BOTH lacks key 0 AND locks its metatable.
+-- No method is ever called on the table.
+local function IsWidget(t)
+    if rawget(t, 0) ~= nil then
+        return true
+    end
+    local mt = getmetatable(t)
+    if mt ~= nil and (type(mt) ~= "table" or type(rawget(mt, "__index")) == "function") then
+        return false
+    end
+    return t.GetObjectType ~= nil
+end
+
+local SweepTableBytes
+local SweepHeapRefBytes
+
+-- Same contract as EstimateHeapRefBytes, plus: functions are tallied (deduped
+-- via ctx.fnSeen) as a COUNT, never a size -- a Lua function object and its
+-- upvalue array cannot be sized from Lua, so no byte figure is derived from
+-- one. The byte charge for a function reference stays OTHER_VALUE_BYTES,
+-- undeduped, matching EstimateHeapRefBytes's existing (uncalibrated, error
+-- source #5) treatment -- this walker does not change the byte model.
+SweepHeapRefBytes = function(v, ctx)
+    local vt = type(v)
+    if vt == "table" then
+        return SweepTableBytes(v, ctx)
+    elseif vt == "string" then
+        if ctx.seen[v] then
+            return 0
+        end
+        ctx.seen[v] = true
+        return STRING_HEADER_BYTES + #v
+    elseif vt == "number" or vt == "boolean" or vt == "nil" then
+        return 0
+    elseif vt == "function" then
+        if not ctx.fnSeen[v] then
+            ctx.fnSeen[v] = true
+            ctx.functions = ctx.functions + 1
+        end
+        return OTHER_VALUE_BYTES
+    else
+        -- userdata/thread: same flat placeholder as EstimateHeapRefBytes.
+        return OTHER_VALUE_BYTES
+    end
+end
+
+-- Full-reachability walk over ONE shared `ctx.seen` (see NewSweepContext):
+-- first-owner-wins attribution falls straight out of that shared set -- once
+-- a root has claimed a table, every later root's walk sees it in `seen` and
+-- contributes 0 for it, so each owner's byte count is only what's new at that
+-- point in the fixed root order the caller walks in (design §2).
+SweepTableBytes = function(t, ctx)
+    if ctx.aborted then
+        return 0
+    end
+    if ctx.seen[t] then
+        return 0
+    end
+    ctx.seen[t] = true
+
+    ctx.nodes = ctx.nodes + 1
+    if ctx.nodes > ctx.nodeCap then
+        ctx.aborted = true
+        return 0
+    end
+    ctx.tables = ctx.tables + 1
+
+    if IsWidget(t) then
+        ctx.widgets = ctx.widgets + 1
+        if not ctx.walkWidgets then
+            -- Default: counted, not walked. A widget's field graph is where a
+            -- table walker silently attributes Blizzard's bytes to us (hooked
+            -- bag/merchant buttons, template regions, canvas children) --
+            -- their Lua-side storage lands in the remainder and is named
+            -- there instead (design §1d).
+            return HEADER_BYTES
+        end
+    end
+
+    local bytes = HEADER_BYTES
+    local n = #t
+
+    for k, v in pairs(t) do
+        if type(k) == "number" and k >= 1 and k <= n and k == math_floor(k) then
+            bytes = bytes + ARRAY_SLOT_BYTES
+            bytes = bytes + SweepHeapRefBytes(v, ctx)
+        else
+            bytes = bytes + HASH_ENTRY_BYTES
+            bytes = bytes + SweepHeapRefBytes(k, ctx)
+            bytes = bytes + SweepHeapRefBytes(v, ctx)
+        end
+        if ctx.aborted then
+            break
+        end
+    end
+
+    return bytes
+end
+
+-- Fresh sweep state for one full /hs debug memfloor run. opts.walkWidgets
+-- (default false) selects 'deep' mode (design §1d); opts.nodeCap (default
+-- SWEEP_NODE_CAP) is overridable for tests only.
+function MemoryEstimator.NewSweepContext(opts)
+    opts = opts or {}
+    return {
+        seen = {},
+        fnSeen = {},
+        nodes = 0,
+        nodeCap = opts.nodeCap or SWEEP_NODE_CAP,
+        walkWidgets = opts.walkWidgets or false,
+        aborted = false,
+        tables = 0,
+        functions = 0,
+        widgets = 0,
+    }
+end
+
+-- Boundary rule (design §1c): pre-seed `ctx.seen` with every table that is a
+-- direct value of a global, except ours (any string global key starting with
+-- "Homestead" -- the same prefix .luacheckrc's globals allowlist confirms
+-- every Homestead-created global carries). A table in `seen` contributes 0
+-- and is never descended into, so this one _G pass blocks _G itself, every
+-- Blizzard namespace/frame, every other addon's namespace, SlashCmdList, and
+-- the Lua standard libraries with no hand-maintained blocklist to rot.
+--
+-- foundryEmbedded is supplied by the caller (DevMemoryDiagnostics.lua, which
+-- already needs the C_AddOns.IsAddOnLoaded check for its own Foundry-1.0
+-- provenance line) rather than decided here -- this file has no reason to
+-- know about addon-loaded detection. LibStub is always unseeded: its
+-- registry (LibDataBroker-1.1, CallbackHandler-1.0, WagoAnalytics) is a
+-- shared root regardless of which copy of Foundry is serving.
+function MemoryEstimator.SeedForeignRoots(ctx, foundryEmbedded)
+    for k, v in pairs(_G) do
+        if type(v) == "table" and not (type(k) == "string" and k:sub(1, 9) == "Homestead") then
+            ctx.seen[v] = true
+        end
+    end
+    -- t[nil] = nil RAISES in Lua 5.1 ("table index is nil"), so a missing
+    -- library must be skipped here, not just handled by the caller's
+    -- "skipped (unavailable)" branch downstream.
+    if _G.LibStub ~= nil then
+        ctx.seen[_G.LibStub] = nil
+    end
+    if foundryEmbedded and _G.Foundry_1_0 ~= nil then
+        ctx.seen[_G.Foundry_1_0] = nil
+    end
+end
+
+-- Walks one root, returning the bytes/tables/functions/widgets NEW at this
+-- point in the sweep (deltas for this root only -- see SweepTableBytes for
+-- the first-owner-wins mechanics that make this meaningful). Non-table root
+-- returns zeros, the same nil-tolerant contract as EstimateTableSizeBytes, so
+-- callers can pass a possibly-nil root (e.g. sv:HomesteadDB before first
+-- save) without a separate type check.
+function MemoryEstimator.SweepRoot(ctx, root)
+    if type(root) ~= "table" then
+        return 0, 0, 0, 0
+    end
+    local tablesBefore, functionsBefore, widgetsBefore = ctx.tables, ctx.functions, ctx.widgets
+    local bytes = SweepTableBytes(root, ctx)
+    return bytes, ctx.tables - tablesBefore, ctx.functions - functionsBefore, ctx.widgets - widgetsBefore
+end

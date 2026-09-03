@@ -4,6 +4,19 @@ manual-changelog:
   filename: RELEASE_NOTES.html
   markup-type: html
 
+# BigWigsMods/packager does not support "!" negation in this list (confirmed
+# by reading release.sh's yaml_listitem()/parse_ignore(): a leading "!" is
+# never stripped or interpreted, so "!README.md" only matches a file
+# literally named that). Do not reach for a "*.md" + "!exceptions" idiom here
+# — it silently strips every .md file, README and CHANGELOG included, with
+# no CI signal (STU-134 finding; every release zip has shipped without them).
+# This list is deny-by-default for everything else, but for markdown
+# specifically it is effectively allow-by-default: only the files below are
+# named, so a new root .md file (a CONTRIBUTING.md, a NOTES.md) ships to
+# players unless it is added here explicitly. The same applies to markdown
+# inside `externals:` checkouts: the packager filters fetched libraries with
+# this same list, so a README or CHANGELOG an upstream library adds ships
+# until it is named here (the Libs/ entries below).
 ignore:
   - .git
   - .gitignore
@@ -17,9 +30,9 @@ ignore:
   - output
   - "*.py"
   - "*.pyc"
-  - "*.md"
-  - "!README.md"
-  - "!CHANGELOG.md"
+  - docs
+  - Textures/README.md
+  - Libs/WagoAnalytics/README.md
   - RELEASE_NOTES.html
   - HousingAddon.toc
   # STU-073 dev-build files (generated, gitignored; listed here as belt-and-braces —
@@ -35,9 +48,12 @@ ignore:
   # TOC, never loaded in-game) was shipping to every player who downloaded a
   # release zip -- no ignore entry existed for it at all.
   - tests
-  # HS-374: the retired vendor seed (194 KB) is in neither TOC and has not
-  # loaded in-game since the cutover, but was still in every release zip. It
-  # stays in the repo because both vendor generators read it at build time.
+  # HS-374 / HS-385: the vendor seed (194 KB) is in neither TOC and has not
+  # loaded in-game since the cutover, but used to ship in every release zip.
+  # As of HS-385 it no longer lives in the addon at all -- it moved to
+  # Home_Dev/VendorDatabase.lua (ignored above), where the vendor generators
+  # and the promotion pipeline read it at build time. The entry stays so a
+  # copy dropped back into Data/ is stripped from the zip and can never ship.
   - Data/VendorDatabase.lua
 
 # CF-only upload metadata: the packager sends this as a CurseForge relation
