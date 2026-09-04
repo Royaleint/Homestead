@@ -53,6 +53,7 @@ read_globals = {
     "InterfaceOptions_AddCategory",
     "Settings",
     "ShoppingTooltip1", "ShoppingTooltip2",
+    "ScrollBoxConstants",
     "ScrollUtil",
     "ScrollBoxListViewMixin",
     "TooltipDataProcessor",

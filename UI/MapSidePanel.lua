@@ -41,15 +41,28 @@ local ITEM_RESULT_ICON_SIZE = 20
 local ITEM_RESULT_BADGE_SIZE = 14
 local ITEM_RESULT_LINE_HEIGHT = 18
 local ITEM_GRID_INSET = 24  -- Left indent for item grid (aligns under name text)
+
+-- Icons per grid row. Derived only from constants above, so it is one itself:
+-- content width is PANEL_WIDTH - 20 (borders) - 22 (scrollbar) = 218.
+local ICONS_PER_ROW = math.floor(
+    ((PANEL_WIDTH - 20 - 22) - ITEM_GRID_INSET - PADDING + ITEM_ICON_PAD)
+    / (ITEM_ICON_SIZE + ITEM_ICON_PAD))
+if ICONS_PER_ROW < 1 then ICONS_PER_ROW = 1 end
+
 local PROGRESS_BAR_HEIGHT = 14
 local SEARCH_OPTIONS = { includeItemResults = true }
 local PANEL_TOOLTIP_NAME = "HomesteadMapSidePanelTooltip"
 
+-- Shared row colours. Read-only: a renderer applies one, never mutates it.
+local COLOR_WHITE = { 1, 1, 1 }
+local COLOR_DIM   = { 0.5, 0.5, 0.5 }
+local COLOR_GOLD  = { 1, 0.82, 0 }
+
 -- State
 local panelFrame = nil
 local overlayButton = nil
-local scrollFrame = nil
-local scrollChild = nil
+local contentList = nil
+local listScrollBox = nil
 local headerFrame = nil  -- Title + zone name header region
 local headerText = nil
 local sourceFilterBar = nil
@@ -66,13 +79,11 @@ local isInitialized = false
 -- nothing, so assigning its result to the guard variable would leave it nil
 -- immediately and never actually debounce.
 local pendingContentRefresh = false
-local vendorRows = {}
-local itemResultRows = {}
+-- One free-list bucket per record kind, acquired and released through FramePoolUtils.
+-- Replaces the six per-kind row pools the manual scroll layout used.
+local rowPool = { vendor = {}, summary = {}, subrow = {}, boss = {}, item = {}, header = {} }
 local expandedVendorID = nil  -- npcID of currently expanded vendor (nil = none)
 local expandedItemID = nil    -- itemID of currently expanded item result row
-
--- HS-230: instance-map drop-source rows (sibling of vendorRows, same shape).
-local bossRows = {}
 local expandedBossKey = nil   -- journalEncounterID of currently expanded boss row (nil = none)
 local lastRefreshMapID = nil
 local isPoppedOut = false
@@ -87,11 +98,9 @@ local progressBarPurchasableFill = nil
 local progressBarText = nil
 local scrollContainer = nil  -- Scroll area container (re-anchored by progress bar)
 
-local summaryRows = {}
 local currentDisplayLevel = "zone"  -- "zone" | "continent" | "world"
 local backBar = nil  -- Back navigation bar (visible at zone/continent level)
 local expandedSummaryMapID = nil  -- mapID of expanded summary row (nil = none)
-local summarySubRows = {}         -- reusable sub-row frame pool
 local iconPool = { default = {} } -- reusable item icon frame pool
 
 -- Search state
@@ -102,10 +111,6 @@ local searchResults = nil            -- Array from SearchProvider or nil
 local searchDebounceTimer = nil      -- C_Timer.NewTimer handle (cancelable)
 local searchResultsRevision = nil    -- Tracks which index revision results came from
 local suppressTextChanged = false    -- Prevents debounce on programmatic SetText
-
--- HS-019: search-result section header pool (one header row per active source
--- section: Vendors / Profession / Quest / Achievement / Event / Drop).
-local searchHeaderRows = {}
 
 local SOURCE_FILTER_LABELS = {
     all = L["All"] or "All",
@@ -286,8 +291,9 @@ end
 
 -- Check if item is owned (same pattern as BadgeCalculation/VendorMapPins).
 -- HS-200: this is the no-presentation fallback for PopulateItemGrid and
--- PopulateItemResultRow, both aggregate per-item loops (a vendor's full item
--- grid, or a full search-result list) — must stay cache-only, matching
+-- RenderItemRow. PopulateItemGrid is still an aggregate per-item loop over a
+-- vendor's full item grid; the item path now runs once per realized row rather
+-- than over the full result list. It must stay cache-only, matching
 -- SourceManager's "sidePanel" context, or it reintroduces a per-item API
 -- burst on the map side panel.
 local function IsItemOwned(itemID)
@@ -570,6 +576,11 @@ local function GetUnmetRequirements(itemID, npcID, presentation)
     return nil, reqs
 end
 
+local function ComputeItemGridHeight(itemCount)
+    if itemCount == 0 then return 0 end
+    return math.ceil(itemCount / ICONS_PER_ROW) * (ITEM_ICON_SIZE + ITEM_ICON_PAD) + ITEM_ICON_PAD
+end
+
 local function HideItemGrid(row)
     if row.itemGrid then
         -- Release all icons back to the pool
@@ -584,8 +595,8 @@ local function HideItemGrid(row)
 end
 
 -- Populate the item grid for a vendor row. Returns total height of the grid.
-local function PopulateItemGrid(row, vendor, sourceFilter, highlightItems)
-    local itemIDs = GetVendorItemIDs(vendor, sourceFilter)
+local function PopulateItemGrid(row, vendor, sourceFilter, highlightItems, itemIDs)
+    itemIDs = itemIDs or GetVendorItemIDs(vendor, sourceFilter)
     if #itemIDs == 0 then
         HideItemGrid(row)
         return 0
@@ -602,13 +613,6 @@ local function PopulateItemGrid(row, vendor, sourceFilter, highlightItems)
     local grid = row.itemGrid
     local icons = row.itemIcons
 
-    -- Calculate how many icons fit per row using actual available width
-    -- scrollChild width = PANEL_WIDTH - 20 (borders) - 22 (scrollbar) = 218
-    local scrollWidth = PANEL_WIDTH - 20 - 22
-    local gridWidth = scrollWidth - ITEM_GRID_INSET - PADDING
-    local iconsPerRow = math.floor((gridWidth + ITEM_ICON_PAD) / (ITEM_ICON_SIZE + ITEM_ICON_PAD))
-    if iconsPerRow < 1 then iconsPerRow = 1 end
-
     local npcID = vendor.npcID
 
     -- Ensure enough icon frames (acquire from pool)
@@ -623,8 +627,8 @@ local function PopulateItemGrid(row, vendor, sourceFilter, highlightItems)
         icon.npcID = npcID
 
         -- Position in grid
-        local col = (i - 1) % iconsPerRow
-        local gridRow = math.floor((i - 1) / iconsPerRow)
+        local col = (i - 1) % ICONS_PER_ROW
+        local gridRow = math.floor((i - 1) / ICONS_PER_ROW)
         icon:ClearAllPoints()
         icon:SetPoint("TOPLEFT", grid, "TOPLEFT",
             col * (ITEM_ICON_SIZE + ITEM_ICON_PAD),
@@ -701,12 +705,11 @@ local function PopulateItemGrid(row, vendor, sourceFilter, highlightItems)
     end
 
     -- Calculate grid height
-    local numRows = math.ceil(#itemIDs / iconsPerRow)
-    local gridHeight = numRows * (ITEM_ICON_SIZE + ITEM_ICON_PAD)
-    grid:SetHeight(gridHeight)
+    local gridHeight = ComputeItemGridHeight(#itemIDs)
+    grid:SetHeight(gridHeight - ITEM_ICON_PAD)
     grid:Show()
 
-    return gridHeight + ITEM_ICON_PAD  -- Extra padding below grid
+    return gridHeight
 end
 
 -------------------------------------------------------------------------------
@@ -777,11 +780,9 @@ local function GetDropItemPresentation(itemID)
     })
 end
 
-local function CreateBossRow(parent, index)
+local function CreateBossRow(parent)
     local row = CreateFrame("Button", nil, parent)
     row:SetHeight(ROW_HEIGHT)
-    row:SetPoint("TOPLEFT", 0, -(index - 1) * ROW_HEIGHT)
-    row:SetPoint("TOPRIGHT", 0, -(index - 1) * ROW_HEIGHT)
 
     local highlight = row:CreateTexture(nil, "HIGHLIGHT")
     highlight:SetAllPoints()
@@ -874,11 +875,6 @@ local function PopulateBossItemGrid(row, dropGroup)
     local grid = row.itemGrid
     local icons = row.itemIcons
 
-    local scrollWidth = PANEL_WIDTH - 20 - 22
-    local gridWidth = scrollWidth - ITEM_GRID_INSET - PADDING
-    local iconsPerRow = math.floor((gridWidth + ITEM_ICON_PAD) / (ITEM_ICON_SIZE + ITEM_ICON_PAD))
-    if iconsPerRow < 1 then iconsPerRow = 1 end
-
     while #icons < #records do
         icons[#icons + 1] = AcquireIcon(grid)
     end
@@ -889,8 +885,8 @@ local function PopulateBossItemGrid(row, dropGroup)
         icon.itemID = itemID
         icon.npcID = nil
 
-        local col = (i - 1) % iconsPerRow
-        local gridRow = math.floor((i - 1) / iconsPerRow)
+        local col = (i - 1) % ICONS_PER_ROW
+        local gridRow = math.floor((i - 1) / ICONS_PER_ROW)
         icon:ClearAllPoints()
         icon:SetPoint("TOPLEFT", grid, "TOPLEFT",
             col * (ITEM_ICON_SIZE + ITEM_ICON_PAD),
@@ -945,12 +941,11 @@ local function PopulateBossItemGrid(row, dropGroup)
         icons[i] = nil
     end
 
-    local numRows = math.ceil(#records / iconsPerRow)
-    local gridHeight = numRows * (ITEM_ICON_SIZE + ITEM_ICON_PAD)
-    grid:SetHeight(gridHeight)
+    local gridHeight = ComputeItemGridHeight(#records)
+    grid:SetHeight(gridHeight - ITEM_ICON_PAD)
     grid:Show()
 
-    return gridHeight + ITEM_ICON_PAD
+    return gridHeight
 end
 
 -------------------------------------------------------------------------------
@@ -1143,6 +1138,10 @@ local function CreateItemResultSourceLine(parent)
     return line
 end
 
+local function ComputeItemSourceListHeight(sourceCount)
+    return math.max(1, sourceCount) * ITEM_RESULT_LINE_HEIGHT + 4
+end
+
 local function HideItemSourceList(row)
     if row and row.sourcesFrame then
         row.sourcesFrame:Hide()
@@ -1213,7 +1212,7 @@ local function PopulateItemSourceList(row, itemID, sourceFilter)
         sourceLines[i]:Hide()
     end
 
-    local totalHeight = renderedCount * ITEM_RESULT_LINE_HEIGHT + 4
+    local totalHeight = ComputeItemSourceListHeight(renderedCount)
     sourcesFrame:SetHeight(totalHeight)
     sourcesFrame:Show()
     return totalHeight
@@ -1225,11 +1224,9 @@ end
 -- RefreshSearchResults.
 local SEARCH_HEADER_HEIGHT = 22
 
-local function CreateSearchHeaderRow(parent, index)
+local function CreateSearchHeaderRow(parent)
     local row = CreateFrame("Frame", nil, parent)
     row:SetHeight(SEARCH_HEADER_HEIGHT)
-    row:SetPoint("TOPLEFT", 0, -(index - 1) * SEARCH_HEADER_HEIGHT)
-    row:SetPoint("TOPRIGHT", 0, -(index - 1) * SEARCH_HEADER_HEIGHT)
 
     local text = row:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
     text:SetPoint("CENTER", row, "CENTER", 0, 0)
@@ -1254,24 +1251,9 @@ local function CreateSearchHeaderRow(parent, index)
     return row
 end
 
-local function HideAllSearchHeaderRows()
-    for _, row in ipairs(searchHeaderRows) do
-        row:Hide()
-    end
-end
-
-local function HideAllItemResultRows()
-    for _, row in ipairs(itemResultRows) do
-        row:Hide()
-        HideItemSourceList(row)
-    end
-end
-
-local function CreateItemResultRow(parent, index)
+local function CreateItemResultRow(parent)
     local row = CreateFrame("Button", nil, parent)
     row:SetHeight(ROW_HEIGHT)
-    row:SetPoint("TOPLEFT", 0, -(index - 1) * ROW_HEIGHT)
-    row:SetPoint("TOPRIGHT", 0, -(index - 1) * ROW_HEIGHT)
 
     local highlight = row:CreateTexture(nil, "HIGHLIGHT")
     highlight:SetAllPoints()
@@ -1349,8 +1331,9 @@ local function CreateItemResultRow(parent, index)
     return row
 end
 
-local function PopulateItemResultRow(row, result, sourceFilter)
-    if not row or not result then return false end
+local function RenderItemRow(row, rec)
+    local result = rec.result
+    local sourceFilter = panelSourceFilter
 
     local itemID = result.itemID
     local itemName = result.itemName or C_Item.GetItemNameByID(itemID) or ("Item " .. tostring(itemID))
@@ -1397,16 +1380,11 @@ local function PopulateItemResultRow(row, result, sourceFilter)
         row.sourceText:SetTextColor(0.5, 0.5, 0.5)
     end
 
-    local isExpanded = (expandedItemID == itemID)
-    if isExpanded then
-        local detailHeight = PopulateItemSourceList(row, itemID, sourceFilter)
-        row:SetHeight(ROW_HEIGHT + detailHeight)
+    if rec.isExpanded then
+        PopulateItemSourceList(row, itemID, sourceFilter)
     else
         HideItemSourceList(row)
-        row:SetHeight(ROW_HEIGHT)
     end
-
-    return isExpanded
 end
 
 -------------------------------------------------------------------------------
@@ -1441,8 +1419,6 @@ local function ClearSearch(refreshNow)
         searchEditBox:SetText("")
         suppressTextChanged = false
     end
-    HideAllItemResultRows()
-    HideAllSearchHeaderRows()
     if refreshNow then
         MapSidePanel:RefreshContent()
     end
@@ -1452,11 +1428,9 @@ end
 -- Row Creation
 -------------------------------------------------------------------------------
 
-local function CreateVendorRow(parent, index)
+local function CreateVendorRow(parent)
     local row = CreateFrame("Button", nil, parent)
     row:SetHeight(ROW_HEIGHT)
-    row:SetPoint("TOPLEFT", 0, -(index - 1) * ROW_HEIGHT)
-    row:SetPoint("TOPRIGHT", 0, -(index - 1) * ROW_HEIGHT)
 
     -- Highlight on hover
     local highlight = row:CreateTexture(nil, "HIGHLIGHT")
@@ -1581,11 +1555,9 @@ end
 -- Summary Row Creation (continent/world level)
 -------------------------------------------------------------------------------
 
-local function CreateSummaryRow(parent, index)
+local function CreateSummaryRow(parent)
     local row = CreateFrame("Button", nil, parent)
     row:SetHeight(ROW_HEIGHT)
-    row:SetPoint("TOPLEFT", 0, -(index - 1) * ROW_HEIGHT)
-    row:SetPoint("TOPRIGHT", 0, -(index - 1) * ROW_HEIGHT)
 
     -- Highlight on hover
     local highlight = row:CreateTexture(nil, "HIGHLIGHT")
@@ -1699,23 +1671,10 @@ local function CreateSummaryRow(parent, index)
     return row
 end
 
-local function HideAllSummaryRows()
-    for _, row in ipairs(summaryRows) do
-        row:Hide()
-    end
-end
-
-local function HideAllSummarySubRows()
-    for _, row in ipairs(summarySubRows) do
-        row:Hide()
-    end
-end
-
--- Unified cleanup helper: hides all non-vendor content (summary rows, sub-rows,
--- back bar). Called in every early-return and level-switch path.
+-- Unified cleanup helper: hides the back bar and clears the map pin highlight.
+-- Called in every early-return and level-switch path. It no longer touches the
+-- list itself; rows are cleared by replacing the list's data provider.
 local function HideAllNonVendorContent()
-    HideAllSummaryRows()
-    HideAllSummarySubRows()
     if backBar then backBar:Hide() end
     if HA.VendorMapPins then HA.VendorMapPins:ClearHighlight() end
 end
@@ -1814,19 +1773,174 @@ local function CreateSummarySubRow(parent)
     return row
 end
 
--- Get or create a sub-row from the pool
-local function GetSummarySubRow(index)
-    if not summarySubRows[index] then
-        summarySubRows[index] = CreateSummarySubRow(scrollChild)
-    end
-    return summarySubRows[index]
+local CREATORS = {
+    vendor = CreateVendorRow,
+    summary = CreateSummaryRow,
+    subrow = CreateSummarySubRow,
+    boss = CreateBossRow,
+    item = CreateItemResultRow,
+    header = CreateSearchHeaderRow,
+}
+
+-- The pool invokes createFunc() with no arguments, so a fresh row is built
+-- parentless; RenderListElement's SetParent gives it its container, on the
+-- first render and on every reuse alike.
+local function AcquireRowContent(kind)
+    return FPU.AcquirePooledFrame(rowPool, kind, CREATORS[kind])
 end
 
--- Populate zone expansion: show vendor sub-rows for a zone at continent level.
+local function RenderVendorRow(row, rec)
+    local r, g, b = HA.PinFrameFactory:GetPinColor()
+    local vendor = rec.vendor
+
+    row.vendor = vendor
+    row.searchMode = rec.searchMode
+    row.searchMatchedItems = rec.matchedItems
+
+    row.nameText:SetText(GetVendorDisplayName(vendor))
+    row.nameText:SetTextColor(rec.nameColor[1], rec.nameColor[2], rec.nameColor[3])
+
+    -- Set icon color
+    row.icon:SetDesaturated(true)
+    row.icon:SetVertexColor(r, g, b)
+
+    row.collected = rec.collected
+    row.total = rec.total
+    row.locked = rec.locked
+
+    row.countText:SetText(rec.countText)
+    row.countText:SetTextColor(rec.countColor[1], rec.countColor[2], rec.countColor[3])
+
+    if rec.isExpanded then
+        PopulateItemGrid(row, vendor, panelSourceFilter, rec.matchedItems, rec.itemIDs)
+    else
+        HideItemGrid(row)
+    end
+end
+
+local function RenderSummaryRow(row, rec)
+    row.targetMapID = rec.targetMapID
+    row.vendorCount = rec.vendorCount
+    row.collectedItems = rec.collectedItems
+    row.totalItems = rec.totalItems
+    row.lockedItems = rec.lockedItems
+    row.unverifiedItems = rec.unverifiedItems
+
+    row.nameText:SetText(rec.name)
+    row.nameText:SetTextColor(rec.nameColor[1], rec.nameColor[2], rec.nameColor[3])
+
+    -- Arrow icon: down if expanded, forward if collapsed
+    row.arrow:SetAtlas(rec.isExpanded and "common-icon-downarrow" or "common-icon-forwardarrow")
+
+    row.summaryLine:SetText(rec.summaryLineText)
+    if rec.summaryLineColor then
+        row.summaryLine:SetTextColor(rec.summaryLineColor[1], rec.summaryLineColor[2], rec.summaryLineColor[3])
+    end
+end
+
+local function RenderSubRow(row, rec)
+    local r, g, b = HA.PinFrameFactory:GetPinColor()
+
+    row.vendor = rec.vendor
+    row.targetMapID = rec.targetMapID
+    row.tooltipText = rec.tooltipText
+    row.tooltipSub = rec.tooltipSub
+    row.isOrderHall = rec.isOrderHall
+
+    row.nameText:SetText(rec.name)
+    row.nameText:SetTextColor(0.9, 0.9, 0.9)
+
+    row.countText:SetText(rec.countText)
+    if rec.countColor then
+        row.countText:SetTextColor(rec.countColor[1], rec.countColor[2], rec.countColor[3])
+    end
+
+    if rec.iconMode == "vendor" then
+        -- Pin color for icon
+        row.icon:SetVertexColor(r, g, b)
+    else
+        -- Zone icon
+        row.icon:SetAtlas("poi-door")
+        row.icon:SetVertexColor(0.7, 0.7, 0.7)
+    end
+end
+
+local function RenderBossRow(row, rec)
+    local r, g, b = HA.PinFrameFactory:GetPinColor()
+
+    row.dropGroup = rec.dropGroup
+
+    row.nameText:SetText(rec.name)
+    row.nameText:SetTextColor(1, 1, 1)
+
+    row.icon:SetDesaturated(true)
+    row.icon:SetVertexColor(r, g, b)
+
+    row.collected = rec.collected
+    row.total = rec.total
+    row.locked = rec.locked
+
+    row.countText:SetText(rec.countText)
+    row.countText:SetTextColor(rec.countColor[1], rec.countColor[2], rec.countColor[3])
+
+    if rec.isExpanded then
+        PopulateBossItemGrid(row, rec.dropGroup)
+    else
+        HideItemGrid(row)
+    end
+end
+
+local function RenderHeaderRow(row, rec)
+    row.text:SetText(rec.label)
+end
+
+local RENDERERS = {
+    vendor = RenderVendorRow,
+    summary = RenderSummaryRow,
+    subrow = RenderSubRow,
+    boss = RenderBossRow,
+    item = RenderItemRow,
+    header = RenderHeaderRow,
+}
+
+-- ScrollBox element initializer. Render before Show: a frame shown under a
+-- stationary cursor fires OnEnter on the next update, and the resetter has
+-- just cleared every field those handlers read.
+local function RenderListElement(container, rec)
+    local content = AcquireRowContent(rec.kind)
+    content:SetParent(container)
+    content:ClearAllPoints()
+    content:SetAllPoints(container)
+    container.content = content
+    RENDERERS[rec.kind](content, rec)
+    content:Show()
+end
+
+local function ResetListElement(container)
+    local content = container.content
+    if not content then return end
+    HideItemGrid(content)
+    HideItemSourceList(content)
+    content.vendor, content.dropGroup, content.result, content.itemID = nil, nil, nil, nil
+    content.targetMapID, content.tooltipText, content.tooltipSub, content.isOrderHall = nil, nil, nil, nil
+    content.searchMode, content.searchMatchedItems = false, nil
+    content.collected, content.total, content.locked = nil, nil, nil
+    content.vendorCount, content.totalItems = 0, 0
+    content.collectedItems, content.lockedItems, content.unverifiedItems = nil, nil, nil
+    content:Hide()
+    content:ClearAllPoints()
+    FPU.ReleasePooledFrame(rowPool, content)
+    container.content = nil
+end
+
+local function SetListRows(rows)
+    listScrollBox:SetDataProvider(CreateDataProvider(rows), ScrollBoxConstants.RetainScrollPosition)
+end
+
+-- Build zone expansion: append vendor sub-row records for a zone at continent level.
 -- Uses same data source as badge calculation (GetAllVendors + VendorFilter).
--- Returns total height consumed.
-local function PopulateZoneExpansion(zoneMapID, yOffsetStart, subRowIndex)
-    if not VendorData or not BC then return 0, subRowIndex end
+local function BuildZoneExpansionRows(zoneMapID, rows)
+    if not VendorData or not BC then return end
 
     local VF = HA.VendorFilter
     local allVendors = VendorData:GetAllVendors()
@@ -1860,50 +1974,40 @@ local function PopulateZoneExpansion(zoneMapID, yOffsetStart, subRowIndex)
         return (a.name or "") < (b.name or "")
     end)
 
-    local totalHeight = 0
     for _, vendor in ipairs(zoneVendors) do
-        local subRow = GetSummarySubRow(subRowIndex)
-        subRow.vendor = vendor
         -- Use vendor's actual mapID for navigation (important for merged sibling zones)
         local _, vendorMapID = VendorFilter.GetBestVendorCoordinates(vendor)
-        subRow.targetMapID = vendorMapID or zoneMapID
-        subRow.tooltipText = vendor.name or "Unknown"
-        subRow.isOrderHall = vendor.mapID and ORDER_HALL_MAPS[vendor.mapID] or false
-
-        subRow.nameText:SetText(GetVendorDisplayName(vendor))
-        subRow.nameText:SetTextColor(0.9, 0.9, 0.9)
 
         -- Collection counts using same filter as panel
         local stats = BC:GetVendorStats(vendor, panelSourceFilter)
+        local countText, countColor, tooltipSub
         if (stats.total or 0) > 0 then
-            subRow.countText:SetText(FormatPurchasabilityCountText(stats.collected, stats.total, stats.locked))
-            subRow.countText:SetTextColor(1, 1, 1)
-            subRow.tooltipSub = string.format("Collected: %d/%d", stats.collected or 0, stats.total or 0)
+            countText = FormatPurchasabilityCountText(stats.collected, stats.total, stats.locked)
+            countColor = COLOR_WHITE
+            tooltipSub = string.format("Collected: %d/%d", stats.collected or 0, stats.total or 0)
         else
-            subRow.countText:SetText("")
-            subRow.tooltipSub = nil
+            countText = ""
         end
 
-        -- Pin color for icon
-        local r, g, b = HA.PinFrameFactory:GetPinColor()
-        subRow.icon:SetVertexColor(r, g, b)
-
-        subRow:ClearAllPoints()
-        subRow:SetPoint("TOPLEFT", scrollChild, "TOPLEFT", 0, -yOffsetStart - totalHeight)
-        subRow:SetPoint("TOPRIGHT", scrollChild, "TOPRIGHT", 0, -yOffsetStart - totalHeight)
-        subRow:Show()
-
-        totalHeight = totalHeight + SUB_ROW_HEIGHT
-        subRowIndex = subRowIndex + 1
+        rows[#rows + 1] = {
+            kind = "subrow",
+            height = SUB_ROW_HEIGHT,
+            iconMode = "vendor",
+            vendor = vendor,
+            targetMapID = vendorMapID or zoneMapID,
+            tooltipText = vendor.name or "Unknown",
+            tooltipSub = tooltipSub,
+            isOrderHall = vendor.mapID and ORDER_HALL_MAPS[vendor.mapID] or false,
+            name = GetVendorDisplayName(vendor),
+            countText = countText,
+            countColor = countColor,
+        }
     end
-
-    return totalHeight, subRowIndex
 end
 
--- Populate continent expansion: show zone sub-rows for a continent at world level.
--- Returns total height consumed.
-local function PopulateContinentExpansion(continentMapID, yOffsetStart, subRowIndex)
-    if not BC then return 0, subRowIndex end
+-- Build continent expansion: append zone sub-row records for a continent at world level.
+local function BuildContinentExpansionRows(continentMapID, rows)
+    if not BC then return end
 
     local zoneCounts = BC:GetZoneVendorCounts(continentMapID, panelSourceFilter)
 
@@ -1916,48 +2020,39 @@ local function PopulateContinentExpansion(continentMapID, yOffsetStart, subRowIn
         return (a.data.zoneName or "") < (b.data.zoneName or "")
     end)
 
-    local totalHeight = 0
     for _, entry in ipairs(zoneList) do
         local data = entry.data
         local dataVendorCount = data.vendorCount or 0
         local dataCollected = data.collectedItems or 0
         local dataTotal = data.totalItems or 0
-        local subRow = GetSummarySubRow(subRowIndex)
-        subRow.vendor = nil
-        subRow.targetMapID = entry.mapID
-        subRow.tooltipText = data.zoneName or "Unknown"
-        subRow.isOrderHall = false
-
-        subRow.nameText:SetText(data.zoneName or "Unknown")
-        subRow.nameText:SetTextColor(0.9, 0.9, 0.9)
 
         -- Zone collection counts
         local dataLocked = data.lockedItems or 0
+        local countText, countColor, tooltipSub
         if dataTotal > 0 then
-            subRow.countText:SetText(FormatPurchasabilityCountText(dataCollected, dataTotal, dataLocked))
-            subRow.countText:SetTextColor(1, 1, 1)
-            subRow.tooltipSub = string.format("%d vendors | %d/%d collected",
+            countText = FormatPurchasabilityCountText(dataCollected, dataTotal, dataLocked)
+            countColor = COLOR_WHITE
+            tooltipSub = string.format("%d vendors | %d/%d collected",
                 dataVendorCount, dataCollected, dataTotal)
         else
-            subRow.countText:SetText(string.format("%d vendors", dataVendorCount))
-            subRow.countText:SetTextColor(0.5, 0.5, 0.5)
-            subRow.tooltipSub = string.format("%d vendors", dataVendorCount)
+            countText = string.format("%d vendors", dataVendorCount)
+            countColor = COLOR_DIM
+            tooltipSub = string.format("%d vendors", dataVendorCount)
         end
 
-        -- Zone icon
-        subRow.icon:SetAtlas("poi-door")
-        subRow.icon:SetVertexColor(0.7, 0.7, 0.7)
-
-        subRow:ClearAllPoints()
-        subRow:SetPoint("TOPLEFT", scrollChild, "TOPLEFT", 0, -yOffsetStart - totalHeight)
-        subRow:SetPoint("TOPRIGHT", scrollChild, "TOPRIGHT", 0, -yOffsetStart - totalHeight)
-        subRow:Show()
-
-        totalHeight = totalHeight + SUB_ROW_HEIGHT
-        subRowIndex = subRowIndex + 1
+        rows[#rows + 1] = {
+            kind = "subrow",
+            height = SUB_ROW_HEIGHT,
+            iconMode = "zone",
+            targetMapID = entry.mapID,
+            tooltipText = data.zoneName or "Unknown",
+            tooltipSub = tooltipSub,
+            isOrderHall = false,
+            name = data.zoneName or "Unknown",
+            countText = countText,
+            countColor = countColor,
+        }
     end
-
-    return totalHeight, subRowIndex
 end
 
 -------------------------------------------------------------------------------
@@ -2225,21 +2320,31 @@ local function CreatePanel()
     end)
     progressBar:SetScript("OnLeave", HidePanelTooltip)
 
-    -- Scroll frame for vendor list
+    -- List area for the vendor list
     scrollContainer = CreateFrame("Frame", nil, panel)
     scrollContainer:SetPoint("TOPLEFT", sourceFilterBar, "BOTTOMLEFT", 0, -4)
     scrollContainer:SetPoint("BOTTOMRIGHT", searchBar, "TOPRIGHT", 0, -2)
 
-    scrollFrame = CreateFrame("ScrollFrame", nil, scrollContainer, "UIPanelScrollFrameTemplate")
-    scrollFrame:SetPoint("TOPLEFT", 0, 0)
-    scrollFrame:SetPoint("BOTTOMRIGHT", -22, 0)
+    local List = F:RequireModule("List", 1)
+    contentList = List:New({
+        name             = "HomesteadMapSidePanelList",
+        parent           = scrollContainer,
+        elementType      = "Frame",
+        extentCalculator = function(_, rec) return rec.height end,
+        initializer      = RenderListElement,
+        resetter         = ResetListElement,
+    })
 
-    scrollChild = CreateFrame("Frame", nil, scrollFrame)
-    -- Use a computed width (panel is hidden during creation, so GetWidth() returns 0)
-    local scrollWidth = PANEL_WIDTH - BORDER_LEFT - BORDER_RIGHT - 22  -- 22 = scrollbar
-    scrollChild:SetWidth(scrollWidth)
-    scrollChild:SetHeight(1)  -- Will be resized dynamically
-    scrollFrame:SetScrollChild(scrollChild)
+    -- Re-anchor through the native handles: List:New's default fill anchors do
+    -- not reserve the 22px scrollbar gutter this layout has always kept.
+    local handles = contentList:GetNativeHandles()
+    listScrollBox = handles.scrollBox
+    listScrollBox:ClearAllPoints()
+    listScrollBox:SetPoint("TOPLEFT", scrollContainer, "TOPLEFT", 0, 0)
+    listScrollBox:SetPoint("BOTTOMRIGHT", scrollContainer, "BOTTOMRIGHT", -22, 0)
+    handles.scrollBar:ClearAllPoints()
+    handles.scrollBar:SetPoint("TOPLEFT", listScrollBox, "TOPRIGHT", 4, 0)
+    handles.scrollBar:SetPoint("BOTTOMLEFT", listScrollBox, "BOTTOMRIGHT", 4, 0)
 
     -- Empty state text
     emptyText = panel:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
@@ -2773,19 +2878,11 @@ end
 function MapSidePanel:RefreshZoneSummaries(mapID, mapInfo)
     currentDisplayLevel = "continent"
 
-    -- Hide vendor rows and item grids
+    -- Vendor expansion is not part of this display. The rows themselves are
+    -- cleared when this function publishes its own records below.
     expandedVendorID = nil
-    for _, row in ipairs(vendorRows) do
-        row:Hide()
-        HideItemGrid(row)
-    end
-    -- HS-230: instance drop-source rows too — same convention as vendorRows above.
+    -- HS-230: instance drop-source expansion too, same convention as above.
     expandedBossKey = nil
-    for _, row in ipairs(bossRows) do
-        row:Hide()
-        HideItemGrid(row)
-    end
-    HideAllSummarySubRows()
 
     headerText:SetText(mapInfo.name or "")
 
@@ -2806,68 +2903,57 @@ function MapSidePanel:RefreshZoneSummaries(mapID, mapInfo)
         emptyText:SetText("No vendors on this continent")
         emptyText:Show()
         summaryText:SetText("")
-        scrollChild:SetHeight(1)
+        SetListRows({})
         UpdateBackBar()
         HideProgressBar()
         return
     end
 
-    -- Ensure enough summary rows
-    while #summaryRows < #zoneList do
-        summaryRows[#summaryRows + 1] = CreateSummaryRow(scrollChild, #summaryRows + 1)
-    end
-
     local totalCollected, totalItems, totalLocked = 0, 0, 0
     local zoneCount = 0
-    local yOffset = 0
-    local subRowIndex = 1  -- shared pool index across all expansions
+    local rows = {}
 
-    for i, entry in ipairs(zoneList) do
-        local row = summaryRows[i]
+    for _, entry in ipairs(zoneList) do
         local data = entry.data
         local dataVendorCount = data.vendorCount or 0
         local dataCollected = data.collectedItems or 0
         local dataTotal = data.totalItems or 0
         local dataLocked = data.lockedItems or 0
 
-        row.targetMapID = entry.mapID
-        row.vendorCount = dataVendorCount
-        row.collectedItems = dataCollected
-        row.totalItems = dataTotal
-        row.lockedItems = dataLocked
-        row.unverifiedItems = data.unverifiedItems or 0
-
-        row.nameText:SetText(data.zoneName or "Unknown")
-        row.nameText:SetTextColor(1, 1, 1)
-
-        -- Arrow icon: down if expanded, forward if collapsed
         local isExpanded = (expandedSummaryMapID == entry.mapID)
-        row.arrow:SetAtlas(isExpanded and "common-icon-downarrow" or "common-icon-forwardarrow")
 
         -- Summary line: "N vendors | owned/total[/locked]" with inline colors
+        local summaryLineText, summaryLineColor
         if dataTotal > 0 then
-            row.summaryLine:SetText(string.format("%d vendors | %s",
-                dataVendorCount, FormatPurchasabilityCountText(dataCollected, dataTotal, dataLocked)))
-            row.summaryLine:SetTextColor(1, 1, 1)
+            summaryLineText = string.format("%d vendors | %s",
+                dataVendorCount, FormatPurchasabilityCountText(dataCollected, dataTotal, dataLocked))
+            summaryLineColor = COLOR_WHITE
         elseif dataVendorCount > 0 then
-            row.summaryLine:SetText(string.format("%d vendors (no item data)", dataVendorCount))
-            row.summaryLine:SetTextColor(0.5, 0.5, 0.5)
+            summaryLineText = string.format("%d vendors (no item data)", dataVendorCount)
+            summaryLineColor = COLOR_DIM
         else
-            row.summaryLine:SetText("")
+            summaryLineText = ""
         end
 
-        row:ClearAllPoints()
-        row:SetPoint("TOPLEFT", scrollChild, "TOPLEFT", 0, -yOffset)
-        row:SetPoint("TOPRIGHT", scrollChild, "TOPRIGHT", 0, -yOffset)
-        row:Show()
+        rows[#rows + 1] = {
+            kind = "summary",
+            height = ROW_HEIGHT,
+            targetMapID = entry.mapID,
+            vendorCount = dataVendorCount,
+            collectedItems = dataCollected,
+            totalItems = dataTotal,
+            lockedItems = dataLocked,
+            unverifiedItems = data.unverifiedItems or 0,
+            name = data.zoneName or "Unknown",
+            nameColor = COLOR_WHITE,
+            summaryLineText = summaryLineText,
+            summaryLineColor = summaryLineColor,
+            isExpanded = isExpanded,
+        }
 
-        yOffset = yOffset + ROW_HEIGHT
-
-        -- If expanded, populate vendor sub-rows below this zone row
+        -- If expanded, append vendor sub-rows below this zone row
         if isExpanded then
-            local expansionHeight
-            expansionHeight, subRowIndex = PopulateZoneExpansion(entry.mapID, yOffset, subRowIndex)
-            yOffset = yOffset + expansionHeight
+            BuildZoneExpansionRows(entry.mapID, rows)
         end
 
         totalCollected = totalCollected + dataCollected
@@ -2876,15 +2962,7 @@ function MapSidePanel:RefreshZoneSummaries(mapID, mapInfo)
         zoneCount = zoneCount + 1
     end
 
-    -- Hide excess summary rows and sub-rows
-    for i = #zoneList + 1, #summaryRows do
-        summaryRows[i]:Hide()
-    end
-    for i = subRowIndex, #summarySubRows do
-        summarySubRows[i]:Hide()
-    end
-
-    scrollChild:SetHeight(math.max(1, yOffset))
+    SetListRows(rows)
     emptyText:Hide()
 
     -- Summary line
@@ -2902,19 +2980,11 @@ end
 function MapSidePanel:RefreshContinentSummaries(mapID, mapInfo)
     currentDisplayLevel = "world"
 
-    -- Hide vendor rows and item grids
+    -- Vendor expansion is not part of this display. The rows themselves are
+    -- cleared when this function publishes its own records below.
     expandedVendorID = nil
-    for _, row in ipairs(vendorRows) do
-        row:Hide()
-        HideItemGrid(row)
-    end
-    -- HS-230: instance drop-source rows too — same convention as vendorRows above.
+    -- HS-230: instance drop-source expansion too, same convention as above.
     expandedBossKey = nil
-    for _, row in ipairs(bossRows) do
-        row:Hide()
-        HideItemGrid(row)
-    end
-    HideAllSummarySubRows()
 
     headerText:SetText(mapInfo.name or "")
 
@@ -2940,69 +3010,58 @@ function MapSidePanel:RefreshContinentSummaries(mapID, mapInfo)
         emptyText:SetText("No vendor data available")
         emptyText:Show()
         summaryText:SetText("")
-        scrollChild:SetHeight(1)
+        SetListRows({})
         UpdateBackBar()
         HideProgressBar()
         return
     end
 
-    -- Ensure enough summary rows
-    while #summaryRows < #continentList do
-        summaryRows[#summaryRows + 1] = CreateSummaryRow(scrollChild, #summaryRows + 1)
-    end
-
     local totalCollected, totalItems, totalLocked = 0, 0, 0
     local contCount = 0
-    local yOffset = 0
-    local subRowIndex = 1
+    local rows = {}
 
-    for i, entry in ipairs(continentList) do
-        local row = summaryRows[i]
+    for _, entry in ipairs(continentList) do
         local data = entry.data
         local dataVendorCount = data.vendorCount or 0
         local dataCollected = data.collectedItems or 0
         local dataTotal = data.totalItems or 0
         local dataLocked = data.lockedItems or 0
 
-        row.targetMapID = entry.mapID
-        row.vendorCount = dataVendorCount
-        row.collectedItems = dataCollected
-        row.totalItems = dataTotal
-        row.lockedItems = dataLocked
-        row.unverifiedItems = data.unverifiedItems or 0
-
-        -- Gold color for continent names
-        row.nameText:SetText(data.continentName or "Unknown")
-        row.nameText:SetTextColor(1, 0.82, 0)
-
-        -- Arrow icon: down if expanded, forward if collapsed
         local isExpanded = (expandedSummaryMapID == entry.mapID)
-        row.arrow:SetAtlas(isExpanded and "common-icon-downarrow" or "common-icon-forwardarrow")
 
         -- Summary line: "N vendors | owned/total[/locked]" with inline colors
+        local summaryLineText, summaryLineColor
         if dataTotal > 0 then
-            row.summaryLine:SetText(string.format("%d vendors | %s",
-                dataVendorCount, FormatPurchasabilityCountText(dataCollected, dataTotal, dataLocked)))
-            row.summaryLine:SetTextColor(1, 1, 1)
+            summaryLineText = string.format("%d vendors | %s",
+                dataVendorCount, FormatPurchasabilityCountText(dataCollected, dataTotal, dataLocked))
+            summaryLineColor = COLOR_WHITE
         elseif dataVendorCount > 0 then
-            row.summaryLine:SetText(string.format("%d vendors (no item data)", dataVendorCount))
-            row.summaryLine:SetTextColor(0.5, 0.5, 0.5)
+            summaryLineText = string.format("%d vendors (no item data)", dataVendorCount)
+            summaryLineColor = COLOR_DIM
         else
-            row.summaryLine:SetText("")
+            summaryLineText = ""
         end
 
-        row:ClearAllPoints()
-        row:SetPoint("TOPLEFT", scrollChild, "TOPLEFT", 0, -yOffset)
-        row:SetPoint("TOPRIGHT", scrollChild, "TOPRIGHT", 0, -yOffset)
-        row:Show()
+        rows[#rows + 1] = {
+            kind = "summary",
+            height = ROW_HEIGHT,
+            targetMapID = entry.mapID,
+            vendorCount = dataVendorCount,
+            collectedItems = dataCollected,
+            totalItems = dataTotal,
+            lockedItems = dataLocked,
+            unverifiedItems = data.unverifiedItems or 0,
+            -- Gold color for continent names
+            name = data.continentName or "Unknown",
+            nameColor = COLOR_GOLD,
+            summaryLineText = summaryLineText,
+            summaryLineColor = summaryLineColor,
+            isExpanded = isExpanded,
+        }
 
-        yOffset = yOffset + ROW_HEIGHT
-
-        -- If expanded, populate zone sub-rows below this continent row
+        -- If expanded, append zone sub-rows below this continent row
         if isExpanded then
-            local expansionHeight
-            expansionHeight, subRowIndex = PopulateContinentExpansion(entry.mapID, yOffset, subRowIndex)
-            yOffset = yOffset + expansionHeight
+            BuildContinentExpansionRows(entry.mapID, rows)
         end
 
         totalCollected = totalCollected + dataCollected
@@ -3011,15 +3070,7 @@ function MapSidePanel:RefreshContinentSummaries(mapID, mapInfo)
         contCount = contCount + 1
     end
 
-    -- Hide excess summary rows and sub-rows
-    for i = #continentList + 1, #summaryRows do
-        summaryRows[i]:Hide()
-    end
-    for i = subRowIndex, #summarySubRows do
-        summarySubRows[i]:Hide()
-    end
-
-    scrollChild:SetHeight(math.max(1, yOffset))
+    SetListRows(rows)
     emptyText:Hide()
 
     -- Summary line
@@ -3062,145 +3113,101 @@ function MapSidePanel:RefreshSearchResults()
     expandedSummaryMapID = nil
     HideProgressBar()
 
-    -- Reset all vendor rows: hide, clear grids, clear search mode
-    for _, row in ipairs(vendorRows) do
-        row:Hide()
-        HideItemGrid(row)
-        row.searchMode = false
-        row.searchMatchedItems = nil
-    end
-    -- Search mode overlays the panel regardless of what was showing before
-    -- it (zone vendors OR an instance's boss rows) — bossRows need the same
-    -- hide-on-entering-search treatment vendorRows get above.
-    -- expandedBossKey is left set, same as expandedVendorID above: closing
-    -- search mode returns to whatever was expanded before.
-    for _, row in ipairs(bossRows) do
-        row:Hide()
-        HideItemGrid(row)
-    end
-    HideAllItemResultRows()
-    HideAllSearchHeaderRows()
+    -- Search mode deliberately leaves expandedVendorID and expandedBossKey set:
+    -- closing search returns to whatever was expanded before it.
 
     if not searchResults or #searchResults == 0 then
         emptyText:SetText("No results found")
         emptyText:Show()
         summaryText:SetText("")
         headerText:SetText("Search Results")
-        scrollChild:SetHeight(1)
+        SetListRows({})
         return
     end
 
     emptyText:Hide()
     headerText:SetText("Search Results")
 
-    local yOffset = 0
+    local rows = {}
     local vendorCount = 0
     local itemCount = 0
-    local headerCount = 0
     local lastSection = nil
-    local r, g, b = HA.PinFrameFactory:GetPinColor()
 
     local function EmitHeader(sectionKey)
         if sectionKey == lastSection then return end
         lastSection = sectionKey
-        headerCount = headerCount + 1
-        local header = searchHeaderRows[headerCount]
-        if not header then
-            header = CreateSearchHeaderRow(scrollChild, headerCount)
-            searchHeaderRows[headerCount] = header
-        end
-        header.text:SetText(SEARCH_SECTION_LABELS[sectionKey] or sectionKey)
-        header:ClearAllPoints()
-        header:SetPoint("TOPLEFT", scrollChild, "TOPLEFT", 0, -yOffset)
-        header:SetPoint("TOPRIGHT", scrollChild, "TOPRIGHT", 0, -yOffset)
-        header:Show()
-        yOffset = yOffset + SEARCH_HEADER_HEIGHT
+        rows[#rows + 1] = {
+            kind = "header",
+            height = SEARCH_HEADER_HEIGHT,
+            label = SEARCH_SECTION_LABELS[sectionKey] or sectionKey,
+        }
     end
 
     for _, result in ipairs(searchResults) do
         if result.resultType == "item" then
             EmitHeader(result.sourceType or "drop")
             itemCount = itemCount + 1
-            local row = itemResultRows[itemCount]
-            if not row then
-                row = CreateItemResultRow(scrollChild, itemCount)
-                itemResultRows[itemCount] = row
+
+            local itemID = result.itemID
+            local isExpanded = (expandedItemID == itemID)
+            local sourceCount
+            if isExpanded then
+                sourceCount = #GetDisplaySourcesForItem(itemID, panelSourceFilter)
             end
 
-            local isExpanded = PopulateItemResultRow(row, result, panelSourceFilter)
-            row:ClearAllPoints()
-            row:SetPoint("TOPLEFT", scrollChild, "TOPLEFT", 0, -yOffset)
-            row:SetPoint("TOPRIGHT", scrollChild, "TOPRIGHT", 0, -yOffset)
-            row:Show()
-
-            yOffset = yOffset + (isExpanded and row:GetHeight() or ROW_HEIGHT)
+            rows[#rows + 1] = {
+                kind = "item",
+                height = ROW_HEIGHT + (isExpanded and ComputeItemSourceListHeight(sourceCount) or 0),
+                result = result,
+                itemID = itemID,
+                isExpanded = isExpanded,
+                sourceCount = sourceCount,
+            }
         else
             EmitHeader("vendor")
             vendorCount = vendorCount + 1
             local vendor = result.vendor
-            local row = vendorRows[vendorCount]
-            if not row then
-                row = CreateVendorRow(scrollChild, vendorCount)
-                vendorRows[vendorCount] = row
-            end
-
-            row.vendor = vendor
-            row.searchMode = true
-            row.searchMatchedItems = result.matchedItems
-
-            row.nameText:SetText(GetVendorDisplayName(vendor))
-            row.nameText:SetTextColor(1, 1, 1)
 
             -- Collection stats (uses panelSourceFilter for display only)
             local stats = BC:GetVendorStats(vendor, panelSourceFilter)
-            row.collected = stats.collected or 0
-            row.total = stats.total or 0
-            row.locked = stats.locked or 0
-            if result.matchType == "item" then
-                row.countText:SetText(string.format("%d match%s | %s",
-                    result.matchCount, result.matchCount == 1 and "" or "es",
-                    FormatPurchasabilityCountText(row.collected, row.total, row.locked)))
-            else
-                row.countText:SetText(FormatPurchasabilityCountText(row.collected, row.total, row.locked))
-            end
-            row.countText:SetTextColor(1, 1, 1)
+            local collected = stats.collected or 0
+            local total = stats.total or 0
+            local locked = stats.locked or 0
 
-            row.icon:SetDesaturated(true)
-            row.icon:SetVertexColor(r, g, b)
+            local countText
+            if result.matchType == "item" then
+                countText = string.format("%d match%s | %s",
+                    result.matchCount, result.matchCount == 1 and "" or "es",
+                    FormatPurchasabilityCountText(collected, total, locked))
+            else
+                countText = FormatPurchasabilityCountText(collected, total, locked)
+            end
 
             local isExpanded = (expandedVendorID == vendor.npcID)
+            local itemIDs
             if isExpanded then
-                local gridHeight = PopulateItemGrid(row, vendor, panelSourceFilter, result.matchedItems)
-                row:SetHeight(ROW_HEIGHT + gridHeight)
-            else
-                HideItemGrid(row)
-                row:SetHeight(ROW_HEIGHT)
+                itemIDs = GetVendorItemIDs(vendor, panelSourceFilter)
             end
 
-            row:ClearAllPoints()
-            row:SetPoint("TOPLEFT", scrollChild, "TOPLEFT", 0, -yOffset)
-            row:SetPoint("TOPRIGHT", scrollChild, "TOPRIGHT", 0, -yOffset)
-            row:Show()
-
-            yOffset = yOffset + (isExpanded and row:GetHeight() or ROW_HEIGHT)
+            rows[#rows + 1] = {
+                kind = "vendor",
+                height = ROW_HEIGHT + (isExpanded and ComputeItemGridHeight(#itemIDs) or 0),
+                vendor = vendor,
+                searchMode = true,
+                matchedItems = result.matchedItems,
+                collected = collected,
+                total = total,
+                locked = locked,
+                countText = countText,
+                countColor = COLOR_WHITE,
+                nameColor = COLOR_WHITE,
+                isExpanded = isExpanded,
+                itemIDs = itemIDs,
+            }
         end
     end
 
-    -- Hide excess rows
-    for i = vendorCount + 1, #vendorRows do
-        vendorRows[i]:Hide()
-        HideItemGrid(vendorRows[i])
-        vendorRows[i].searchMode = false
-    end
-    for i = itemCount + 1, #itemResultRows do
-        itemResultRows[i]:Hide()
-        HideItemSourceList(itemResultRows[i])
-    end
-    for i = headerCount + 1, #searchHeaderRows do
-        searchHeaderRows[i]:Hide()
-    end
-
-    scrollChild:SetHeight(math.max(1, yOffset))
+    SetListRows(rows)
     if vendorCount > 0 and itemCount > 0 then
         summaryText:SetText(string.format("%d vendor%s, %d item%s found",
             vendorCount, vendorCount == 1 and "" or "s",
@@ -3221,19 +3228,15 @@ end
 -- row-population/expand/collapse/empty-state/summary-line shape, built off
 -- GetInstanceDropGroups instead of GetVendorsForCurrentMap. Called once per
 -- RefreshContent pass when the viewed map is an instance with EJ encounters;
--- never touches vendorRows.
+-- never lists vendors.
 -------------------------------------------------------------------------------
 
 function MapSidePanel:RefreshInstanceDropSources(mapID, mapInfo, encounters)
     currentDisplayLevel = "zone"
 
-    -- Vendor rows aren't part of this display — mirrors how the zone-level
-    -- path above hides bossRows when IT is the active display.
+    -- Vendor expansion is not part of this display, mirroring how the zone-level
+    -- path above resets boss expansion when it is the active display.
     expandedVendorID = nil
-    for _, row in ipairs(vendorRows) do
-        row:Hide()
-        HideItemGrid(row)
-    end
 
     -- Deliberate filter contract: drop groups are entirely drop-sourced by
     -- construction, so this is an all-or-nothing gate, not a per-item
@@ -3244,69 +3247,47 @@ function MapSidePanel:RefreshInstanceDropSources(mapID, mapInfo, encounters)
     local normalizedFilter = NormalizePanelSourceFilter(panelSourceFilter)
     local groups = (normalizedFilter == "all" or normalizedFilter == "drop")
         and GetInstanceDropGroups(encounters) or {}
-    local r, g, b = HA.PinFrameFactory:GetPinColor()
-
-    while #bossRows < #groups do
-        local row = CreateBossRow(scrollChild, #bossRows + 1)
-        bossRows[#bossRows + 1] = row
-    end
 
     local totalCollected, totalItems, totalLocked = 0, 0, 0
-    local yOffset = 0
+    local rows = {}
 
-    for i, group in ipairs(groups) do
-        local row = bossRows[i]
-        local primaryDrop = group.records[1].drop
-
-        row.dropGroup = group
-
-        row.nameText:SetText((primaryDrop and primaryDrop.mobName) or "Unknown")
-        row.nameText:SetTextColor(1, 1, 1)
-
-        row.icon:SetDesaturated(true)
-        row.icon:SetVertexColor(r, g, b)
-
+    for _, group in ipairs(groups) do
         local stats = BC:GetDropGroupStats(group.records)
-        row.collected = stats.collected or 0
-        row.total = stats.total or 0
-        row.locked = stats.locked or 0
+        local collected = stats.collected or 0
+        local total = stats.total or 0
+        local locked = stats.locked or 0
 
-        if row.total > 0 then
-            row.countText:SetText(FormatPurchasabilityCountText(row.collected, row.total, row.locked))
-            row.countText:SetTextColor(1, 1, 1)
+        local countText, countColor
+        if total > 0 then
+            countText = FormatPurchasabilityCountText(collected, total, locked)
+            countColor = COLOR_WHITE
         else
-            row.countText:SetText("No item data")
-            row.countText:SetTextColor(0.5, 0.5, 0.5)
+            countText = "No item data"
+            countColor = COLOR_DIM
         end
-
-        totalCollected = totalCollected + row.collected
-        totalItems = totalItems + row.total
-        totalLocked = totalLocked + row.locked
 
         local isExpanded = (expandedBossKey == group.encounterID)
-        local rowHeight = ROW_HEIGHT
-        if isExpanded then
-            local gridHeight = PopulateBossItemGrid(row, group)
-            rowHeight = ROW_HEIGHT + gridHeight
-        else
-            HideItemGrid(row)
-        end
 
-        row:ClearAllPoints()
-        row:SetPoint("TOPLEFT", scrollChild, "TOPLEFT", 0, -yOffset)
-        row:SetPoint("TOPRIGHT", scrollChild, "TOPRIGHT", 0, -yOffset)
-        row:SetHeight(rowHeight)
-        row:Show()
+        local rec = {
+            kind = "boss",
+            height = ROW_HEIGHT + (isExpanded and ComputeItemGridHeight(#group.records) or 0),
+            dropGroup = group,
+            name = (group.records[1].drop and group.records[1].drop.mobName) or "Unknown",
+            collected = collected,
+            total = total,
+            locked = locked,
+            countText = countText,
+            countColor = countColor,
+            isExpanded = isExpanded,
+        }
+        rows[#rows + 1] = rec
 
-        yOffset = yOffset + rowHeight
+        totalCollected = totalCollected + rec.collected
+        totalItems = totalItems + rec.total
+        totalLocked = totalLocked + rec.locked
     end
 
-    for i = #groups + 1, #bossRows do
-        bossRows[i]:Hide()
-        HideItemGrid(bossRows[i])
-    end
-
-    scrollChild:SetHeight(math.max(1, yOffset))
+    SetListRows(rows)
 
     if #groups == 0 then
         -- Honest empty state: a filtered-out view names the filter as the
@@ -3350,7 +3331,6 @@ function MapSidePanel:RefreshContent()
     end
 
     expandedItemID = nil
-    HideAllItemResultRows()
 
     -- MapID resolution: map frame → last viewed → player zone
     -- When detached, panel keeps its own navigation state
@@ -3369,29 +3349,16 @@ function MapSidePanel:RefreshContent()
         HideAllNonVendorContent()
         expandedSummaryMapID = nil
         currentDisplayLevel = "zone"
-        for _, row in ipairs(vendorRows) do
-            row:Hide()
-            HideItemGrid(row)
-        end
-        for _, row in ipairs(bossRows) do
-            row:Hide()
-            HideItemGrid(row)
-        end
         emptyText:SetText("Open the World Map to view vendors")
         emptyText:Show()
         summaryText:SetText("")
-        scrollChild:SetHeight(1)
+        SetListRows({})
         HideProgressBar()
         return
     end
 
     local mapInfo = C_Map.GetMapInfo(mapID)
-    if not mapInfo then HideAllNonVendorContent() expandedSummaryMapID = nil HideProgressBar() currentDisplayLevel = "zone" return end
-
-    -- Ensure scrollChild has a valid width (may be 0 if panel was hidden during creation)
-    if scrollChild and scrollChild:GetWidth() < 1 then
-        scrollChild:SetWidth(PANEL_WIDTH - 20 - 22)  -- 20 = border insets, 22 = scrollbar
-    end
+    if not mapInfo then HideAllNonVendorContent() SetListRows({}) expandedSummaryMapID = nil HideProgressBar() currentDisplayLevel = "zone" return end
 
     -- Update header with zone name
     headerText:SetText(mapInfo.name or "")
@@ -3430,11 +3397,9 @@ function MapSidePanel:RefreshContent()
     lastRefreshMapID = mapID
 
     if isWorldLevel then
-        HideAllSummaryRows()
         self:RefreshContinentSummaries(mapID, mapInfo)
         return
     elseif isContinentLevel then
-        HideAllSummaryRows()
         self:RefreshZoneSummaries(mapID, mapInfo)
         return
     elseif isInstanceLevel then
@@ -3449,99 +3414,72 @@ function MapSidePanel:RefreshContent()
     expandedSummaryMapID = nil
     currentDisplayLevel = "zone"
 
-    -- HS-230: instance drop-source rows aren't part of the zone-level pool
-    -- (mirrors how RefreshZoneSummaries/RefreshContinentSummaries hide
-    -- vendorRows when they're not the active display).
+    -- HS-230: instance drop-source expansion is not part of the zone-level display,
+    -- mirroring how the summary paths reset vendor expansion when they are active.
     expandedBossKey = nil
-    for _, row in ipairs(bossRows) do
-        row:Hide()
-        HideItemGrid(row)
-    end
 
     -- Zone level — show individual vendors
     local vendorList = GetVendorsForCurrentMap(mapID)
     local sourceFilter = panelSourceFilter
 
-    -- Get pin color for icons
-    local r, g, b = HA.PinFrameFactory:GetPinColor()
-
-    -- Ensure we have enough rows
-    while #vendorRows < #vendorList do
-        local row = CreateVendorRow(scrollChild, #vendorRows + 1)
-        vendorRows[#vendorRows + 1] = row
-    end
-
     local totalCollected, totalItems, totalLocked = 0, 0, 0
-    local yOffset = 0  -- Tracks cumulative Y position (variable row heights)
+    local rows = {}
 
-    for i, entry in ipairs(vendorList) do
-        local row = vendorRows[i]
+    for _, entry in ipairs(vendorList) do
         local vendor = entry.vendor
 
-        row.vendor = vendor
-        row.searchMode = false
-        row.searchMatchedItems = nil
-
         -- Set name with color coding
-        local nameColor = entry.isOpposite and {0.5, 0.5, 0.5} or {1, 1, 1}
-        row.nameText:SetText(GetVendorDisplayName(vendor))
-        row.nameText:SetTextColor(nameColor[1], nameColor[2], nameColor[3])
-
-        -- Set icon color
-        row.icon:SetDesaturated(true)
-        row.icon:SetVertexColor(r, g, b)
+        local nameColor = entry.isOpposite and COLOR_DIM or COLOR_WHITE
 
         -- Get collection stats (includes purchasable/locked breakdown)
         local stats = BC:GetVendorStats(vendor, sourceFilter)
-        row.collected = stats.collected or 0
-        row.total = stats.total or 0
-        row.locked = stats.locked or 0
+        local collected = stats.collected or 0
+        local total = stats.total or 0
+        local locked = stats.locked or 0
 
-        if row.total > 0 then
-            row.countText:SetText(FormatPurchasabilityCountText(row.collected, row.total, row.locked))
+        local countText, countColor
+        if total > 0 then
+            countText = FormatPurchasabilityCountText(collected, total, locked)
             -- White base color — inline escapes handle segment coloring
-            row.countText:SetTextColor(1, 1, 1)
+            countColor = COLOR_WHITE
         else
             if sourceFilter ~= "all" then
-                row.countText:SetText("No matching items")
+                countText = "No matching items"
             else
-                row.countText:SetText("No item data")
+                countText = "No item data"
             end
-            row.countText:SetTextColor(0.5, 0.5, 0.5)
+            countColor = COLOR_DIM
         end
-
-        totalCollected = totalCollected + row.collected
-        totalItems = totalItems + row.total
-        totalLocked = totalLocked + row.locked
 
         -- Check if this vendor is expanded (item grid visible)
         local isExpanded = (expandedVendorID == vendor.npcID)
-        local rowHeight = ROW_HEIGHT
+        local itemIDs
         if isExpanded then
-            local gridHeight = PopulateItemGrid(row, vendor, sourceFilter)
-            rowHeight = ROW_HEIGHT + gridHeight
-        else
-            HideItemGrid(row)
+            itemIDs = GetVendorItemIDs(vendor, sourceFilter)
         end
 
-        -- Position row with variable height
-        row:ClearAllPoints()
-        row:SetPoint("TOPLEFT", scrollChild, "TOPLEFT", 0, -yOffset)
-        row:SetPoint("TOPRIGHT", scrollChild, "TOPRIGHT", 0, -yOffset)
-        row:SetHeight(rowHeight)
-        row:Show()
+        local rec = {
+            kind = "vendor",
+            height = ROW_HEIGHT + (isExpanded and ComputeItemGridHeight(#itemIDs) or 0),
+            vendor = vendor,
+            searchMode = false,
+            nameColor = nameColor,
+            collected = collected,
+            total = total,
+            locked = locked,
+            countText = countText,
+            countColor = countColor,
+            isExpanded = isExpanded,
+            itemIDs = itemIDs,
+        }
+        rows[#rows + 1] = rec
 
-        yOffset = yOffset + rowHeight
+        totalCollected = totalCollected + rec.collected
+        totalItems = totalItems + rec.total
+        totalLocked = totalLocked + rec.locked
     end
 
-    -- Hide excess rows
-    for i = #vendorList + 1, #vendorRows do
-        vendorRows[i]:Hide()
-        HideItemGrid(vendorRows[i])
-    end
-
-    -- Update scroll height (variable total)
-    scrollChild:SetHeight(math.max(1, yOffset))
+    SetListRows(rows)
 
     -- Empty state
     if #vendorList == 0 then
