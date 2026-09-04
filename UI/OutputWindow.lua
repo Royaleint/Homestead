@@ -106,6 +106,8 @@ local function CreateOutputWindow()
             rowFrame.editBox:SetText(row.text or "")
             rowFrame.editBox:SetCursorPosition(0)
             rowFrame.editBox:ClearFocus()
+            -- Paired with the resetter's Hide: a recycled row's edit box comes back hidden.
+            rowFrame.editBox:Show()
             editBox = rowFrame.editBox
         end,
         resetter = function(rowFrame)
