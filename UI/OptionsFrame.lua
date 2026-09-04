@@ -3,6 +3,8 @@
     Frame host and ScrollBox shell for the native Blizzard options UI.
 ]]
 
+-- luacheck: globals PanelTemplates_SelectTab PanelTemplates_DeselectTab
+
 local addonName, HA = ...
 
 -- Foundry-1.0 is a hard dependency, guaranteed present before Homestead loads.
@@ -244,11 +246,10 @@ local function ApplyNavButtonState(button, isActive)
 
     button.isActive = isActive and true or false
 
-    if button.selectedTexture then
-        button.selectedTexture:SetShown(button.isActive)
-    end
-    if button.leftAccent then
-        button.leftAccent:SetShown(button.isActive)
+    if button.isActive then
+        PanelTemplates_SelectTab(button)
+    else
+        PanelTemplates_DeselectTab(button)
     end
     if button.text then
         local color = button.isActive and NAV_SELECTED_COLOR or NAV_NORMAL_COLOR
@@ -265,55 +266,21 @@ local function UpdateNavButtons()
 end
 
 local function CreateNavButton(parent, section, index)
-    local button = CreateFrame("Button", nil, parent)
+    local button = CreateFrame("Button", nil, parent, "PanelTabButtonTemplate")
     button:SetSize(NAV_WIDTH, NAV_BUTTON_HEIGHT)
     button:SetPoint("TOPLEFT", parent, "TOPLEFT", 0, -((index - 1) * (NAV_BUTTON_HEIGHT + NAV_BUTTON_SPACING)))
     button.sectionKey = section.key
 
-    button.backgroundTexture = button:CreateTexture(nil, "BACKGROUND")
-    button.backgroundTexture:SetAllPoints(button)
-    button.backgroundTexture:SetColorTexture(0.02, 0.02, 0.02, 0.46)
-
-    button.selectedTexture = button:CreateTexture(nil, "BORDER")
-    button.selectedTexture:SetAllPoints(button)
-    button.selectedTexture:SetColorTexture(0.33, 0.28, 0.09, 0.42)
-    button.selectedTexture:Hide()
-
-    button.leftAccent = button:CreateTexture(nil, "ARTWORK")
-    button.leftAccent:SetPoint("TOPLEFT", button, "TOPLEFT", 0, -3)
-    button.leftAccent:SetPoint("BOTTOMLEFT", button, "BOTTOMLEFT", 0, 3)
-    button.leftAccent:SetWidth(2)
-    button.leftAccent:SetColorTexture(1.0, 0.82, 0.0, 0.82)
-    button.leftAccent:Hide()
-
-    button.hoverTexture = button:CreateTexture(nil, "HIGHLIGHT")
-    button.hoverTexture:SetAllPoints(button)
-    button.hoverTexture:SetColorTexture(1.0, 0.82, 0.0, 0.12)
-
-    local topLine = button:CreateTexture(nil, "ARTWORK")
-    topLine:SetPoint("TOPLEFT", button, "TOPLEFT", 0, 0)
-    topLine:SetPoint("TOPRIGHT", button, "TOPRIGHT", 0, 0)
-    topLine:SetHeight(1)
-    topLine:SetColorTexture(0.75, 0.66, 0.46, 0.18)
-
-    local bottomLine = button:CreateTexture(nil, "ARTWORK")
-    bottomLine:SetPoint("BOTTOMLEFT", button, "BOTTOMLEFT", 0, 0)
-    bottomLine:SetPoint("BOTTOMRIGHT", button, "BOTTOMRIGHT", 0, 0)
-    bottomLine:SetHeight(1)
-    bottomLine:SetColorTexture(0, 0, 0, 0.6)
-
-    button.text = button:CreateFontString(nil, "ARTWORK", "GameFontNormal")
-    button.text:SetPoint("LEFT", button, "LEFT", 14, 0)
-    button.text:SetPoint("RIGHT", button, "RIGHT", -8, 0)
+    button.text = button.Text
     button.text:SetJustifyH("LEFT")
     button.text:SetText(section.label or section.key or "")
 
-    button:SetScript("OnEnter", function(self)
+    button:HookScript("OnEnter", function(self)
         if self.text then
             self.text:SetTextColor(NAV_HOVER_COLOR.r, NAV_HOVER_COLOR.g, NAV_HOVER_COLOR.b)
         end
     end)
-    button:SetScript("OnLeave", function(self)
+    button:HookScript("OnLeave", function(self)
         ApplyNavButtonState(self, self.isActive)
     end)
     button:SetScript("OnClick", function(self)
@@ -391,6 +358,9 @@ local function CreateShell()
     nav:SetPoint("TOPLEFT", content, "TOPLEFT", 0, -8)
     nav:SetPoint("BOTTOMLEFT", content, "BOTTOMLEFT", 0, 8)
     nav:SetWidth(NAV_WIDTH)
+    nav.tabPadding = 0
+    nav.minTabWidth = NAV_WIDTH
+    nav.maxTabWidth = NAV_WIDTH
     ownerFrame.nav = nav
 
     local navInset = CreateFrame("Frame", nil, content, "InsetFrameTemplate")
