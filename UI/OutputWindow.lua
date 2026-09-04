@@ -199,8 +199,8 @@ function OutputWindow:Show(title, text)
         editBox:ClearFocus()
     end
 
-    -- Reset scroll position
-    scrollFrame:SetVerticalScroll(0)
+    -- Reset scroll position (the list's native ScrollBox, so ScrollToBegin, not SetVerticalScroll)
+    scrollFrame:ScrollToBegin(ScrollBoxConstants.NoScrollInterpolation)
 
     -- Show frame
     outputFrame:Show()
