@@ -75,7 +75,7 @@ function SourceTextScanner:ProcessScannedItem(result)
     }
 
     if HA.CatalogStore then
-        HA.CatalogStore:SetSources(result.itemID, parsed.sources, hash,
+        HA.CatalogStore:SetSources(result.itemID, parsed.sources,
             HA.DevAddon and result.sourceText or nil)
     end
 end
@@ -84,10 +84,9 @@ end
 -- Public Queries
 -------------------------------------------------------------------------------
 
--- HS-205: returns the full parsed-source shape callers expect
--- ({sources, lastParsed, sourceHash, raw}), read from catalogItems (the
--- single owner) instead of the now-stamp-only parsedSources table. recordID
--- is intentionally NOT reconstructed here — nothing reads it live (only a
+-- HS-205: returns the full parsed-source shape callers expect. Payload is
+-- read from catalogItems while lastParsed/sourceHash come from parsedSources.
+-- recordID is intentionally NOT reconstructed here — nothing reads it live (only a
 -- historical one-time migration ever did; decorID on the catalogItems record
 -- is the modern, independently-maintained equivalent, set by CatalogScanner).
 function SourceTextScanner:GetParsedSource(itemID)
@@ -106,8 +105,8 @@ function SourceTextScanner:GetParsedSource(itemID)
 
     return {
         sources = record.sources,
-        lastParsed = record.lastParsed or stamp.lastParsed,
-        sourceHash = record.sourceHash or stamp.sourceHash,
+        lastParsed = stamp.lastParsed,
+        sourceHash = stamp.sourceHash,
         raw = record.rawSourceText,
     }
 end

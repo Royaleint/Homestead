@@ -204,13 +204,11 @@ end
 -- rawSourceText is optional and dev-only (Homestead_Dev's /hsdev exportsources
 -- diagnostic) — SourceTextScanner passes it only when HA.DevAddon is loaded,
 -- so it never affects a normal player's SavedVariables size.
-function CatalogStore:SetSources(itemID, sources, hash, rawSourceText)
+function CatalogStore:SetSources(itemID, sources, rawSourceText)
     if not ci or not itemID then return end
 
     _save(itemID, {
         sources = sources,
-        sourceHash = hash,
-        lastParsed = time(),
         rawSourceText = rawSourceText,
     })
 
@@ -699,10 +697,10 @@ end
 -- Migrations (sequential, schema-versioned)
 -------------------------------------------------------------------------------
 
--- HS-300: recursive deep copy. Needed for the v5→v6 backup (a reference alias
--- would still point at the tables the migration is about to nil out) and for
--- the dev restore command's copy-back. No deep-copy helper exists elsewhere
--- in the addon or in Foundry.
+-- HS-300: recursive deep copy for the temporary legacy-chain backup. A v5 or
+-- corrupt stored version needs this snapshot before v6 removes its keys; v7
+-- deletes the backup at the end of that migration chain. No recovery surface
+-- remains after migration.
 local function deepCopy(value)
     if type(value) ~= "table" then return value end
     local out = {}
@@ -710,9 +708,8 @@ local function deepCopy(value)
     return out
 end
 
--- HS-300: the five keys the v6 migration destroys. Kept as one file-local
--- list so the migration, the backup writer, and the restore command all
--- agree on exactly what "the v5→v6 drop" means.
+-- HS-300: the five keys the v6 migration destroys. The legacy-chain snapshot
+-- and v6 migration share this list; v7 removes the snapshot after the chain.
 local V6_DROPPED_KEYS = { "vendorVisited", "dyeRecipesKnown", "discoveredAliases",
                           "decorIDValidation", "enableRequirementScraping" }
 
@@ -770,7 +767,6 @@ local function Migration_1_to_2(db)
                     end
                     local record = ci[item.itemID]
                     record.name = record.name or item.name
-                    record.lastScanned = record.lastScanned or time()
                 end
             end
         end
@@ -939,6 +935,26 @@ local function Migration_5_to_6(db)
     end
 end
 
+-- Migration 6→7: drop per-record scan and source stamps that are either
+-- obsolete or now owned by scannedVendors and parsedSources respectively.
+-- Keep catalogItems in place because `ci` is already bound to that table.
+local V7_DROPPED_RECORD_KEYS = { "lastScanned", "sourceHash", "lastParsed" }
+
+local function Migration_6_to_7(db)
+    local global = db.global
+    for _, record in pairs(global.catalogItems or {}) do
+        for _, k in ipairs(V7_DROPPED_RECORD_KEYS) do
+            record[k] = nil
+        end
+    end
+    global.__v5Backup = nil
+    global.schemaVersion = 7
+
+    if HA.Addon then
+        HA.Addon:Debug("CatalogStore: Migration 6→7 complete")
+    end
+end
+
 function CatalogStore:RunMigrations()
     if not HA.Addon or not HA.Addon.db then return end
     local db = HA.Addon.db
@@ -969,9 +985,9 @@ function CatalogStore:RunMigrations()
     -- throws instead of returning (Foundry.lua:44-51), so this `return` is only
     -- reached on release builds; a dev build fails loud out of Initialize by
     -- design, same precedent as core.lua:264.
-    if version > 6 then
+    if version > 7 then
         F:RaiseDevError("CatalogStore: SavedVariables schemaVersion " .. version
-            .. " is newer than this build supports (6); migrations skipped.")
+            .. " is newer than this build supports (7); migrations skipped.")
         return
     end
     if version < 6 then
@@ -996,6 +1012,10 @@ function CatalogStore:RunMigrations()
 
     if version < 6 then
         Migration_5_to_6(db)
+    end
+
+    if version < 7 then
+        Migration_6_to_7(db)
     end
 end
 
@@ -1060,31 +1080,6 @@ function CatalogStore:HasPersistedData()
     return scanner ~= nil
         and scanner.HasStorageResponded ~= nil and scanner:HasStorageResponded() == true
         and scanner.IsWarm ~= nil and not scanner:IsWarm()
-end
-
--- HS-300: dev-only restore for __v5Backup. Deep-copies each backed-up key
--- back into db.global and resets schemaVersion to 5 so the next Initialize()
--- re-runs Migration_5_to_6. Returns true, restoredCount, savedAt,
--- addonVersion on success, or false, reason if no backup exists. A plain
--- CatalogStore method (not gated in this file) so DevMemoryDiagnostics' dev-
--- only slash command can call it and so tests can exercise the restore path
--- without loading that dev-only file. Leaves the backup in place — a second
--- restore must still work.
-function CatalogStore:RestoreV5Backup()
-    if not HA.Addon or not HA.Addon.db then return false, "no db" end
-
-    local global = HA.Addon.db.global
-    local backup = global.__v5Backup
-    if not backup then return false, "no backup" end
-
-    local restoredCount = 0
-    for k, v in pairs(backup.keys) do
-        global[k] = deepCopy(v)
-        restoredCount = restoredCount + 1
-    end
-    global.schemaVersion = 5
-
-    return true, restoredCount, backup.savedAt, backup.addonVersion
 end
 
 -------------------------------------------------------------------------------
