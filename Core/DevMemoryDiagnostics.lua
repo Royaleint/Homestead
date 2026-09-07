@@ -448,22 +448,6 @@ function HousingAddon:DebugMemBudgetReport(full)
     self:ShowCopyableText(table.concat(output, "\n"))
 end
 
--- HS-300: dev-gated restore for the keys the v6 migration dropped. Thin
--- wrapper around CatalogStore:RestoreV5Backup() -- that function holds the
--- actual restore logic so it can be exercised without loading this dev-only
--- file. This layer is just the player-facing print.
-function HousingAddon:DebugRestoreV5Backup()
-    local ok, restoredCountOrReason, savedAt, addonVersion = HA.CatalogStore:RestoreV5Backup()
-    if not ok then
-        print("|cff00ccff[Homestead]|r No v5 backup found (" .. tostring(restoredCountOrReason) .. ").")
-        return
-    end
-
-    local savedAtText = savedAt and date("%Y-%m-%d %H:%M", savedAt) or tostring(savedAt)
-    print(format("|cff00ccff[Homestead]|r restored %d keys from backup taken %s by %s -- /reload to re-run migrations.",
-        restoredCountOrReason, savedAtText, tostring(addonVersion)))
-end
-
 -- HS-282 sub-item I: itemizes /hs debug membudget's "unaccounted" remainder by
 -- walking the addon's ENTIRE reachable table graph from a fixed, ordered list
 -- of owned/shared roots (Core/MemoryEstimator.lua's sweep engine), instead of
@@ -724,9 +708,6 @@ devDiagFrame:SetScript("OnEvent", function()
     HousingAddon.commands:Register({ name = "debug membudget", args = "[full]",
         help = "Per-subsystem memory budget breakdown (HS-282). 'full' additionally isolates allSourcesCache via a forced full-corpus warm.",
         handler = function(rest) HousingAddon:DebugMemBudgetReport(rest == "full") end })
-    HousingAddon.commands:Register({ name = "debug restorev5", args = "",
-        help = "HS-300: restore the keys the v6 migration dropped from db.global.__v5Backup, stamp schemaVersion 5, then /reload.",
-        handler = function() HousingAddon:DebugRestoreV5Backup() end })
     HousingAddon.commands:Register({ name = "debug memfloor", args = "[deep]",
         help = "Full-reachability per-owner memory sweep (HS-282 sub-item I). 'deep' also walks widget tables.",
         handler = function(rest) HousingAddon:DebugMemFloorReport(rest == "deep") end })

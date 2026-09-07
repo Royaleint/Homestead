@@ -345,9 +345,6 @@ function CatalogScanner:ScanFullCatalog(callback)
                         if result.isOwned then
                             -- Full path for owned items
                             HA.CatalogStore:SetOwned(result.itemID, result.name or itemData.name, result.recordID)
-                            HA.CatalogStore:Save(result.itemID, {
-                                lastScanned = time(),
-                            })
                         else
                             -- Warm-gate: only erase ownership once storage data is
                             -- loaded. Cold reads are stale-0 and would wrongly clear
@@ -359,7 +356,6 @@ function CatalogScanner:ScanFullCatalog(callback)
                             HA.CatalogStore:Save(result.itemID, {
                                 decorID = result.recordID,
                                 name = result.name or itemData.name,
-                                lastScanned = time(),
                             })
                         end
                     end
