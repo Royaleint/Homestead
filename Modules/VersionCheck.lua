@@ -28,6 +28,8 @@
       VersionCheck:HandleSlash(args)   /hs version | /hs version on|off
 ]]
 
+-- luacheck: globals LE_PARTY_CATEGORY_HOME LE_PARTY_CATEGORY_INSTANCE
+
 local _, HA = ...
 
 local VersionCheck = {}
@@ -72,6 +74,7 @@ local newestSeenVersion  = nil
 local newestSeenDate     = nil   -- ISO
 local wasInGroup         = false
 local guildHelloSent     = false -- once-per-session; PLAYER_ENTERING_WORLD re-fires every loading screen
+local eventFrame         = nil
 
 -------------------------------------------------------------------------------
 -- Parsing / validation
@@ -90,7 +93,15 @@ local function IsValidVersion(s)
 end
 
 local function IsValidDate(s)
-    return type(s) == "string" and strmatch(s, DATE_RE) ~= nil
+    if type(s) ~= "string" or strmatch(s, DATE_RE) == nil then return false end
+    local year, month, day = strmatch(s, "^(%d%d%d%d)%-(%d%d)%-(%d%d)$")
+    year, month, day = tonumber(year), tonumber(month), tonumber(day)
+    if year == 0 or month < 1 or month > 12 or day < 1 then return false end
+    local daysInMonth = { 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31 }
+    if month == 2 and (year % 4 == 0 and (year % 100 ~= 0 or year % 400 == 0)) then
+        daysInMonth[2] = 29
+    end
+    return day <= daysInMonth[month]
 end
 
 -- Compare "M.N.P" strings. Returns -1 / 0 / 1.
@@ -131,6 +142,19 @@ local function SendVersion(channel)
     if not C or not C.VERSION or not C.RELEASE_DATE then return end
     local payload = format("%d\t%s\t%s\t%s", PROTOCOL, CMD_VERSION, C.VERSION, C.RELEASE_DATE)
     C_ChatInfo.SendAddonMessage(PREFIX, payload, channel)
+end
+
+local function CanSendReply(channel)
+    if channel == "GUILD" then
+        return IsInGuild and IsInGuild()
+    elseif channel == "PARTY" then
+        return IsInGroup and IsInGroup(LE_PARTY_CATEGORY_HOME)
+    elseif channel == "RAID" then
+        return IsInRaid and IsInRaid(LE_PARTY_CATEGORY_HOME)
+    elseif channel == "INSTANCE_CHAT" then
+        return IsInGroup and IsInGroup(LE_PARTY_CATEGORY_INSTANCE)
+    end
+    return false
 end
 
 -------------------------------------------------------------------------------
@@ -182,7 +206,9 @@ local function OnHello(_, channel)
     local delay = REPLY_DELAY_MIN + math.random() * (REPLY_DELAY_MAX - REPLY_DELAY_MIN)
     C_Timer.After(delay, function()
         replyScheduled[channel] = nil
-        SendVersion(channel)
+        if CanSendReply(channel) then
+            SendVersion(channel)
+        end
     end)
 end
 
@@ -283,7 +309,9 @@ function VersionCheck:Initialize()
     -- for any user (only the GROUP_ROSTER_UPDATE path worked). Moved to
     -- PLAYER_ENTERING_WORLD, which fires afterward — and on every loading
     -- screen thereafter, hence the guildHelloSent once-per-session flag.
-    local frame = CreateFrame("Frame")
+    if eventFrame then return end
+    eventFrame = CreateFrame("Frame")
+    local frame = eventFrame
     frame:RegisterEvent("PLAYER_ENTERING_WORLD")
     frame:RegisterEvent("GROUP_ROSTER_UPDATE")
     frame:RegisterEvent("CHAT_MSG_ADDON")
