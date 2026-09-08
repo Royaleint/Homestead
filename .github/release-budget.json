@@ -1,0 +1,9 @@
+{
+  "schemaVersion": 1,
+  "sourceRelease": "v2.10.1",
+  "maximums": {
+    "compressedBytes": 688875,
+    "uncompressedBytes": 2709374,
+    "fileCount": 105
+  }
+}
