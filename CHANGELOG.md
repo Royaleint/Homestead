@@ -2,6 +2,36 @@
 
 ---
 
+## Homestead v2.10.2 (09-08-2026)
+
+A window that remembers where you left it, a smoother map side panel, and a Russian localization update.
+
+---
+
+## Interface
+
+- Freshened up the look of the options panel tabs, the export window, and the map search box to match the in game style.
+
+---
+
+## Bug Fixes
+
+- Fixed the export/results window not always reopening in the same spot and size that you left it.
+
+---
+
+## Performance
+
+- Browsing the map side panel's vendor list feels smoother, especially with a long search or in a busy zone.
+
+---
+
+## Localization
+
+- Russian (ruRU) translations are now complete. Thanks Hubbotu on GitHub!
+
+---
+
 ## Homestead v2.10.1 (09-01-2026)
 
 A vendor pin fix, a batch of vendor database corrections, and a bundled library update.

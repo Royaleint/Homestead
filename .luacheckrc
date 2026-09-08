@@ -139,4 +139,15 @@ ignore = {"21[23]"}  -- Ace3 callback patterns
 -- Vendored third-party libraries are linted in their own repos, not here. The
 -- Foundry-1.0 embed (HS-120) is the one tracked lib in Libs/; exclude the whole
 -- Libs/ tree so `luacheck .` covers only Homestead's own files.
-exclude_files = {"Libs/"}
+--
+-- luacheck doesn't honor .gitignore or skip dot-directories, so every other
+-- gitignored tree that can hold a dev-only, non-shipped .lua fragment needs
+-- an explicit exclude too, or the next dropped file re-breaks the lint gate.
+exclude_files = {
+    "Libs/",
+    ".worktrees/",
+    "Home_Dev/plans/",
+    "Home_Dev/reports/",
+    "Home_Dev/scan-data/",
+    "Home_Dev/tools/patch-discovery/output/",
+}
