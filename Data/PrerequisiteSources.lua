@@ -156,6 +156,7 @@ HA.PrerequisiteSources = {
     [245620] = {{type = "quest", name = "Ready to Go"}},
     [245624] = {{type = "quest", name = "Cry For The Moon"}},
     [245649] = {{type = "quest", name = "Decor Treasure Hunt"}},
+    [245655] = {{type = "quest", name = "Dreamy Inspiration"}},
     [245662] = {{type = "quest", name = "Decor Treasure Hunt"}},
     [245680] = {{type = "quest", name = "Decor Treasure Hunt"}},
     [245698] = {{type = "quest", name = "The Nightmare Lord"}},
