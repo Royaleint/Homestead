@@ -3174,13 +3174,26 @@ function MapSidePanel:RefreshSearchResults()
             local total = stats.total or 0
             local locked = stats.locked or 0
 
-            local countText
-            if result.matchType == "item" then
-                countText = string.format("%d match%s | %s",
-                    result.matchCount, result.matchCount == 1 and "" or "es",
-                    FormatPurchasabilityCountText(collected, total, locked))
+            local countText, countColor
+            if total > 0 then
+                countColor = COLOR_WHITE
+                if result.matchType == "item" then
+                    countText = string.format("%d match%s | %s",
+                        result.matchCount, result.matchCount == 1 and "" or "es",
+                        FormatPurchasabilityCountText(collected, total, locked))
+                else
+                    countText = FormatPurchasabilityCountText(collected, total, locked)
+                end
             else
-                countText = FormatPurchasabilityCountText(collected, total, locked)
+                countColor = COLOR_DIM
+                local dataLabel = (panelSourceFilter ~= "all") and "No matching items" or "No item data"
+                if result.matchType == "item" then
+                    countText = string.format("%d match%s | %s",
+                        result.matchCount, result.matchCount == 1 and "" or "es",
+                        dataLabel)
+                else
+                    countText = dataLabel
+                end
             end
 
             local isExpanded = (expandedVendorID == vendor.npcID)
@@ -3199,7 +3212,7 @@ function MapSidePanel:RefreshSearchResults()
                 total = total,
                 locked = locked,
                 countText = countText,
-                countColor = COLOR_WHITE,
+                countColor = countColor,
                 nameColor = COLOR_WHITE,
                 isExpanded = isExpanded,
                 itemIDs = itemIDs,
