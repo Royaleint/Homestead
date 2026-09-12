@@ -20,12 +20,19 @@ local _, HA = ...
 local SourceTextParser = {}
 HA.SourceTextParser = SourceTextParser
 
+-- Bump whenever a parsing-logic change should force already-stored items to
+-- re-parse even though their sourceText hash is unchanged (see
+-- SourceTextScanner:ProcessScannedItem's parserVersion check). First value —
+-- not a bump from a prior version, since no such gate existed before.
+SourceTextParser.VERSION = 1
+
 local strmatch = string.match
 local strfind = string.find
 local strsub = string.sub
 local strgmatch = string.gmatch
 local tonumber = tonumber
 local table_insert = table.insert
+local table_sort = table.sort
 
 -------------------------------------------------------------------------------
 -- Local Helpers
@@ -35,6 +42,15 @@ local table_insert = table.insert
 local function Trim(s)
     if not s then return nil end
     return strmatch(s, "^%s*(.-)%s*$")
+end
+
+-- Escape Lua pattern magic characters so a literal profile prefix can be
+-- concatenated into a pattern (SplitEmbeddedFields below) without being
+-- misread as a pattern fragment. enUS/enGB's prefixes have no magic
+-- characters today, but the file header promises a new locale needs only a
+-- new Profiles entry — this keeps that promise true for one that does.
+local function EscapePattern(s)
+    return (s:gsub("([%^%$%(%)%%%.%[%]%*%+%-%?])", "%%%1"))
 end
 
 -- Strip WoW color codes from text, preserving |n separators and |H hyperlinks
@@ -162,6 +178,45 @@ local function ParseStructuralBlock(block)
     return source
 end
 
+-- Split a single line further on embedded field-prefixes (Zone:, Faction:,
+-- Cost:, Category:). Some catalog entries pack every field onto one line
+-- with plain spaces instead of |n separators (e.g. decorID 714); without
+-- this, everything past the source-type prefix collapses into `name`.
+-- %f[%a] anchors each prefix to a word start so it can't false-match inside
+-- a longer word (a vendor named "...Costanza" won't split on "Cost:" since
+-- there's no colon there anyway, but this guards the general case).
+local function SplitEmbeddedFields(line, profile)
+    if not profile or not profile.fields then return {line} end
+
+    local cuts = {}
+    for prefix in pairs(profile.fields) do
+        local pattern = "%f[%a]" .. EscapePattern(prefix)
+        local searchFrom = 1
+        while true do
+            local s, e = strfind(line, pattern, searchFrom)
+            if not s then break end
+            if s > 1 then
+                table_insert(cuts, s)
+            end
+            searchFrom = e + 1
+        end
+    end
+
+    if #cuts == 0 then return {line} end
+    table_sort(cuts)
+
+    local segments = {}
+    local segStart = 1
+    for _, cutPos in ipairs(cuts) do
+        if cutPos > segStart then
+            table_insert(segments, Trim(strsub(line, segStart, cutPos - 1)))
+            segStart = cutPos
+        end
+    end
+    table_insert(segments, Trim(strsub(line, segStart)))
+    return segments
+end
+
 -- Parse a typed source block (Tier 2 — enUS/enGB)
 -- Maps known prefixes to semantic fields
 local function ParseSourceBlock(block, profile)
@@ -171,7 +226,9 @@ local function ParseSourceBlock(block, profile)
 
     local source = {}
 
-    -- Split block into lines on |n
+    -- Split block into lines on |n, then further split each line on any
+    -- embedded field prefixes (see SplitEmbeddedFields) so space-separated
+    -- shapes don't collapse into the name.
     local lines = {}
     local lineStart = 1
     local blockLen = #block
@@ -187,7 +244,11 @@ local function ParseSourceBlock(block, profile)
         end
         line = Trim(line)
         if line and line ~= "" then
-            table_insert(lines, line)
+            for _, segment in ipairs(SplitEmbeddedFields(line, profile)) do
+                if segment ~= "" then
+                    table_insert(lines, segment)
+                end
+            end
         end
     end
 
@@ -451,15 +512,123 @@ function SourceTextParser:RunTests()
         end
     end
 
-    -- Test 9: Unknown prefix
+    -- Test 9: Unknown prefix (still unmodeled after HS-241 — proves the
+    -- "not matched" branch, and the class-wide invariant below, still cover
+    -- whatever the next unrecognized prefix turns out to be)
     do
-        local input = "Treasure: Hidden Chest|nZone: Duskwood"
+        local input = "Mystery: Hidden Chest|nZone: Duskwood"
         local result = self:ParseSourceText(input, locale)
         check("T9 result not nil", result ~= nil, true)
         if result then
             local s = result.sources[1]
             check("T9 sourceType", s.sourceType, "unknown")
-            check("T9 name contains input", strfind(s.name, "Treasure: Hidden Chest", 1, true) ~= nil, true)
+            check("T9 name contains input", strfind(s.name, "Mystery: Hidden Chest", 1, true) ~= nil, true)
+        end
+    end
+
+    -- Test 10: HS-241 class 1 — Treasure prefix (items 243106, 245282,
+    -- 246416, 251912, 262616, 263211)
+    do
+        local input = "Treasure: Gift of the Phoenix|nZone: Eversong Woods"
+        local result = self:ParseSourceText(input, locale)
+        check("T10 result not nil", result ~= nil, true)
+        if result then
+            local s = result.sources[1]
+            check("T10 sourceType", s.sourceType, "treasure")
+            check("T10 name", s.name, "Gift of the Phoenix")
+            check("T10 zone", s.zone, "Eversong Woods")
+        end
+    end
+
+    -- Test 11: HS-241 class 2 — "Vendors:" plural, multi-vendor name plus
+    -- zone/faction/cost all riding the same block (item 251494)
+    do
+        local input = "Vendors: Selfira Ambergrove, Sylvia Hartshorn|nZone: Val'sharah|nFaction: Dreamweavers - Friendly|nCost: 200|Hcurrency:1220|h|h"
+        local result = self:ParseSourceText(input, locale)
+        check("T11 result not nil", result ~= nil, true)
+        if result then
+            local s = result.sources[1]
+            check("T11 sourceType", s.sourceType, "vendor")
+            check("T11 name", s.name, "Selfira Ambergrove, Sylvia Hartshorn")
+            check("T11 zone", s.zone, "Val'sharah")
+            check("T11 faction", s.faction, "Dreamweavers")
+            check("T11 standing", s.standing, "Friendly")
+            check("T11 currency id", s.cost and s.cost.currencies and s.cost.currencies[1].id, 1220)
+            check("T11 currency amount", s.cost and s.cost.currencies and s.cost.currencies[1].amount, 200)
+        end
+    end
+
+    -- Test 12: HS-241 class 3 (discriminating) — space-separated fields with
+    -- no |n at all (decorID 714 / item 245284). Pre-fix, the line-split at
+    -- the top of ParseSourceBlock yields one line and everything past
+    -- "Vendor: " — including "Zone: Silvermoon City  Cost: ..." — lands in
+    -- name, so this fails on the old parser rather than passing vacuously.
+    do
+        local input = "Vendor: Dethelin  Zone: Silvermoon City  Cost: 3000|Hcurrency:2815|h|h"
+        local result = self:ParseSourceText(input, locale)
+        check("T12 result not nil", result ~= nil, true)
+        if result then
+            local s = result.sources[1]
+            check("T12 sourceType", s.sourceType, "vendor")
+            check("T12 name", s.name, "Dethelin")
+            check("T12 zone", s.zone, "Silvermoon City")
+            check("T12 currency id", s.cost and s.cost.currencies and s.cost.currencies[1].id, 2815)
+            check("T12 currency amount", s.cost and s.cost.currencies and s.cost.currencies[1].amount, 3000)
+        end
+    end
+
+    -- Class-wide invariant (HS-241): once a source is successfully typed
+    -- (sourceType ~= "unknown"), its name must never contain a field label,
+    -- whatever the input shape looked like. This is the actual spec — fixing
+    -- the three shapes above without asserting this property leaves the next
+    -- unknown prefix to fail the same silent way. "unknown" sources are
+    -- exempt by design: dumping the whole raw block into name IS the
+    -- intentional "parse failed, here's the evidence" signal (Test 9), not a
+    -- successful-but-corrupted parse.
+    -- Checked over every source produced by every test above, not just the
+    -- rows that motivated the fix.
+    do
+        local FIELD_LABELS = {"Zone", "Cost", "Faction", "Standing", "Category"}
+        -- A name that lost every character to a bad split (e.g. an embedded
+        -- field label at position 1) satisfies "contains no field label"
+        -- vacuously — reject empty names too so that failure mode is loud
+        -- instead of silently passing.
+        local function nameIsValid(name)
+            if not name or name == "" then return false end
+            for _, label in ipairs(FIELD_LABELS) do
+                if strfind(name, "%f[%a]" .. label .. ":") then
+                    return false
+                end
+            end
+            return true
+        end
+
+        local allTypedNames = {}
+        for _, input in ipairs({
+            "Vendor: Captain Lancy Revshon|nZone: Stormwind City|nFaction: Stormwind - Honored|nCost: 100",
+            "Quest: Axis of Awful|nZone: Loch Modan|n|nVendor: Drac Roughcut|nZone: Loch Modan|nCost: 300",
+            "Vendor: Arcanist Peroleth|nZone: Zuldazar|nCost: 200|Hcurrency:1560|h|h",
+            "Profession: Khaz Algar Cooking (80)",
+            "Drop: Shade of Xavius|nZone: Darkheart Thicket",
+            "|cFFFFD200Vendor:|r Meridelle Lightspark|n|cFFFFD200Zone:|r Dornogal|n|cFFFFD200Cost:|r 200|Hcurrency:3056|h|h",
+            "|cFFFFD200Vendor:|r Klasa|n|cFFFFD200Zone:|r Founder's Point|n|cFFFFD200Cost:|r 10|TInterface\\MoneyFrame\\UI-GoldIcon:0:0:0:0|t",
+            "Mystery: Hidden Chest|nZone: Duskwood",
+            "Treasure: Gift of the Phoenix|nZone: Eversong Woods",
+            "Vendors: Selfira Ambergrove, Sylvia Hartshorn|nZone: Val'sharah|nFaction: Dreamweavers - Friendly|nCost: 200|Hcurrency:1220|h|h",
+            "Vendor: Dethelin  Zone: Silvermoon City  Cost: 3000|Hcurrency:2815|h|h",
+        }) do
+            local result = self:ParseSourceText(input, locale)
+            if result then
+                for _, s in ipairs(result.sources) do
+                    if s.name and s.sourceType ~= "unknown" then
+                        allTypedNames[#allTypedNames + 1] = s.name
+                    end
+                end
+            end
+        end
+
+        for _, name in ipairs(allTypedNames) do
+            check("class-wide: name is non-empty with no field label [" .. name .. "]", nameIsValid(name), true)
         end
     end
 
