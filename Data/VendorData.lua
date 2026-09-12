@@ -291,6 +291,27 @@ local function HasOnlyGoldCost(cost)
     return cost and cost.gold and not cost.currencies and not cost.items
 end
 
+-- HS-383: scanned {cost, scannedAt} for one vendor/item pair, exposed so
+-- callers can decide whether a source-text lookup is worth doing (see
+-- CanSkipSourceTextLookup below) without duplicating GetScannedItemAndCost.
+function VendorData:GetScannedItemCost(vendor, itemID)
+    local record = self:GetScannedVendorRecord(vendor)
+    local _, cost = GetScannedItemAndCost(record, itemID)
+    return cost, record and record.lastScanned
+end
+
+-- HS-383: true when the given scanned cost/time already determines
+-- ResolveVendorItemCost's outcome regardless of any source-text cost --
+-- i.e. a source-text lookup for this item would be pure waste. Mirrors the
+-- exact gold-only + staleness gate the sourceText-discount branch below
+-- requires, so the two can never drift apart.
+function VendorData:CanSkipSourceTextLookup(scannedCost, scannedAt)
+    if not scannedCost then return false end
+    if not HasOnlyGoldCost(scannedCost) then return true end
+    if not scannedAt then return true end
+    return (time() - scannedAt) <= VENDOR_COST_STALE_SECONDS
+end
+
 -- Resolve a vendor item's display cost for every UI surface.
 -- sourceText is optional {cost = normalizedCost, lastParsed = timestamp}.
 -- Returns normalized cost and provenance: scanned, sourceText-discount, sourceText,
