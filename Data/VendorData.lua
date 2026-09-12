@@ -168,6 +168,8 @@ function VendorData:FormatCost(cost)
                         parts[#parts + 1] = currency.amount .. " |T" .. info.iconFileID .. ":0:0|t"
                     elseif info and info.name then
                         parts[#parts + 1] = currency.amount .. " " .. info.name
+                    elseif currency.name then
+                        parts[#parts + 1] = currency.amount .. " " .. currency.name
                     else
                         parts[#parts + 1] = currency.amount .. " Currency " .. currency.id
                     end
@@ -188,6 +190,8 @@ function VendorData:FormatCost(cost)
                     parts[#parts + 1] = itemCost.amount .. " |T" .. iconID .. ":0:0|t"
                 elseif itemName then
                     parts[#parts + 1] = itemCost.amount .. " " .. itemName
+                elseif itemCost.name then
+                    parts[#parts + 1] = itemCost.amount .. " " .. itemCost.name
                 else
                     parts[#parts + 1] = itemCost.amount .. " Item " .. itemCost.id
                 end
