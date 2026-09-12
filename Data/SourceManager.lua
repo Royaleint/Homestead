@@ -64,6 +64,24 @@ local requirementMetCache = {}
 -- both data classes it protects, not just the professionRank one.
 local professionAvailBaseline = {}
 
+-- HS-306: whether real C_TradeSkillUI profession data has loaded THIS
+-- SESSION. Verified live (Leatherworking, skillLineID 165, 2026-09-12):
+-- before the trade skill window is opened even once, GetProfessionInfoBySkillLineID
+-- returns a HOLLOW record (skillLevel=0, sourceCounter=0, maxSkillLevel=0) for
+-- a profession the character has genuinely trained (skill 173, tier cap 75) —
+-- not the untrained-tier zero CLAIM-PROF-0005 documents (a real, meaningful
+-- zero), an entirely unloaded one. After the window opens once, the same
+-- call returns real data, and keeps returning it even after the window
+-- closes again. C_TradeSkillUI.IsTradeSkillReady() tracks the window's own
+-- open/closed UI state, NOT whether this data has loaded — it read false in
+-- both the pre-load AND the post-load-window-closed live tests, so it
+-- cannot tell those two states apart (this is why gating on IsTradeSkillReady()
+-- was rejected in review: PlayerMeetsSkillLevel's callers below need "has
+-- this loaded yet," which only TRADE_SKILL_SHOW answers). Flips true at most
+-- once per session and never resets — see the TRADE_SKILL_SHOW handler in
+-- HookCompletionCacheInvalidation, further down this file.
+local professionDataLoaded = false
+
 -- HS-273: GetAllSources memoization. Keyed on itemID ONLY -- unlike
 -- requirementMetCache/completionCache, this result is context-free (it's the
 -- raw provider fan-out for an item, not a completion/requirement judgment
@@ -329,7 +347,14 @@ function SourceManager:PlayerHasProfession(sourceData)
 end
 
 -- Check whether the player meets the expansion-tier skill level for a recipe.
--- Uses C_TradeSkillUI to query expansion-specific skill levels (works without UI open).
+-- Uses C_TradeSkillUI to query expansion-specific skill levels.
+-- HS-306: NOT window-independent, despite earlier belief -- verified live
+-- (Leatherworking, skillLineID 165, 2026-09-12) that these reads come back
+-- hollow (skillLevel=0) until the trade skill window has been opened at
+-- least once THIS SESSION (TRADE_SKILL_SHOW), and stay real after it closes
+-- again. Callers gate on professionDataLoaded (Data/SourceManager.lua, near
+-- professionAvailBaseline) precisely because this function cannot self-report
+-- which state it's in.
 -- Returns true if met, false if not, nil if can't determine.
 function SourceManager:PlayerMeetsSkillLevel(sourceData)
     if type(sourceData) ~= "table" then return nil end
@@ -421,7 +446,11 @@ function SourceManager:IsSourceAvailableNow(itemID, source)
     -- Profession sources: check whether the player has the required profession
     -- AND meets the expansion-tier skill level requirement.
     -- Uses C_TradeSkillUI.GetAllProfessionTradeSkillLines + GetProfessionInfoBySkillLineID
-    -- to query expansion-specific skill levels (works without trade skill UI open).
+    -- to query expansion-specific skill levels.
+    -- HS-306: NOT available before the trade skill window has opened once
+    -- this session (see PlayerMeetsSkillLevel's comment above) -- the
+    -- professionDataLoaded gate below on the baseline write exists because
+    -- of this, not despite it.
     -- Secondary professions and miscellaneous recipes remain available to everyone.
     -- HS-210: cache the per-source result in the same requirementMetCache table
     -- (distinct "profSourceAvail:" key namespace, so it can't collide with
@@ -448,16 +477,28 @@ function SourceManager:IsSourceAvailableNow(itemID, source)
 
         if cacheKey then
             requirementMetCache[cacheKey] = available
+
             -- HS-283: refresh the verify-then-skip baseline on every live
             -- evaluation, same discipline as IsRequirementMet/
             -- requirementEvalBaseline below — never touched on the cache-hit
             -- return above, only when this branch actually re-evaluated.
-            local baseline = professionAvailBaseline[cacheKey]
-            if baseline then
-                baseline.data = data
-                baseline.available = available
-            else
-                professionAvailBaseline[cacheKey] = { data = data, available = available }
+            -- HS-306: but only while professionDataLoaded is true (see its
+            -- declaration above) — before that, PlayerMeetsSkillLevel's
+            -- C_TradeSkillUI read is hollow and `available` here is not a
+            -- trustworthy verdict to anchor a baseline on. Leaving the
+            -- baseline unwritten pre-load means CountChangedProfessionAvailability
+            -- below simply has nothing to compare yet; the TRADE_SKILL_SHOW
+            -- handler's one-time InvalidateAllSourceCaches (also below) is
+            -- what corrects requirementMetCache's own hollow-derived entry
+            -- once real data arrives.
+            if professionDataLoaded then
+                local baseline = professionAvailBaseline[cacheKey]
+                if baseline then
+                    baseline.data = data
+                    baseline.available = available
+                else
+                    professionAvailBaseline[cacheKey] = { data = data, available = available }
+                end
             end
         end
         return available
@@ -2445,8 +2486,17 @@ end
 -- IsSourceAvailableNow already made, against the same stored sourceData, and
 -- compares to the last-seen availability. Mirrors CountChangedRequirementVerdicts'
 -- shape and discipline on a different cache/baseline pair.
+-- HS-306: short-circuits before professionDataLoaded flips true. Every
+-- baseline entry is now only ever written post-load (IsSourceAvailableNow's
+-- capture side carries the matching guard), so this is belt-and-suspenders
+-- rather than the load-bearing part of the fix — pre-load the table is
+-- simply empty — but it documents the invariant and skips the (empty) walk.
 -- Returns: changedCount, checkedCount
 local function CountChangedProfessionAvailability()
+    if not professionDataLoaded then
+        return 0, 0
+    end
+
     local changed, checked = 0, 0
     for _, baseline in pairs(professionAvailBaseline) do
         local data = baseline.data
@@ -2518,34 +2568,38 @@ end
 -- NEW_RECIPE_LEARNED, and SKILL_LINES_CHANGED's changed-fingerprint path.
 -- Sums both count functions above (professionRank requirement verdicts +
 -- profession-source availability verdicts) so a wipe+broadcast only fires
--- when something in either data class actually flipped. Debug-logs
--- C_TradeSkillUI.IsTradeSkillReady() alongside the verdict counts — the
--- profSourceAvail baseline is captured window-closed (during the prewarm
--- pass) while these events can fire window-open, so a false-positive
--- "changed" read recurs once per window-state transition bracketing a
--- gated event (not just once per session) — opening the window flips the
--- baseline to open-state values, closing it and the next gated event flips
--- it back. Still strictly no worse than the old unconditional-invalidate
--- behavior, and self-correcting each time; this log line is what lets
--- manual testing tell that class apart from a real change.
+-- when something in either data class actually flipped.
+-- HS-306: the profession-availability half used to re-verify regardless of
+-- whether C_TradeSkillUI's data had ever loaded this session — a baseline
+-- seeded from a pre-load hollow read, compared against a post-load real
+-- read (or vice versa), looked like a flipped verdict on every load
+-- transition and forced a spurious InvalidateAllSourceCaches. Both
+-- CountChangedProfessionAvailability and IsSourceAvailableNow's baseline
+-- capture now gate on professionDataLoaded (declared above,
+-- TRADE_SKILL_SHOW-driven) instead of window-open state, so the hollow/real
+-- boundary can no longer register as a change here; the TRADE_SKILL_SHOW
+-- handler below does its own one-time invalidate to correct anything cached
+-- from before the load. Debug-logs both professionDataLoaded and the
+-- window's current open/closed state so manual testing can tell all three
+-- states (never loaded, loaded-window-open, loaded-window-closed) apart.
 local function RunProfessionVerifyThenInvalidate()
     local reqChanged, reqChecked = CountChangedRequirementVerdicts()
     local availChanged, availChecked = CountChangedProfessionAvailability()
     local changed = reqChanged + availChanged
     local tradeSkillUI = _G and _G.C_TradeSkillUI
-    local windowReady = tradeSkillUI and tradeSkillUI.IsTradeSkillReady and tradeSkillUI.IsTradeSkillReady()
+    local windowOpen = tradeSkillUI and tradeSkillUI.IsTradeSkillReady and tradeSkillUI.IsTradeSkillReady()
 
     if changed == 0 then
         if HA.Addon then
-            HA.Addon:Debug(("SourceManager: profession invalidation suppressed (0/%d requirement, 0/%d availability verdicts changed; trade skill window ready=%s)")
-                :format(reqChecked, availChecked, tostring(windowReady)))
+            HA.Addon:Debug(("SourceManager: profession invalidation suppressed (0/%d requirement, 0/%d availability verdicts changed; profession data loaded=%s, trade skill window open=%s)")
+                :format(reqChecked, availChecked, tostring(professionDataLoaded), tostring(windowOpen)))
         end
         return
     end
 
     if HA.Addon then
-        HA.Addon:Debug(("SourceManager: profession invalidation (%d/%d requirement, %d/%d availability verdicts changed; trade skill window ready=%s)")
-            :format(reqChanged, reqChecked, availChanged, availChecked, tostring(windowReady)))
+        HA.Addon:Debug(("SourceManager: profession invalidation (%d/%d requirement, %d/%d availability verdicts changed; profession data loaded=%s, trade skill window open=%s)")
+            :format(reqChanged, reqChecked, availChanged, availChecked, tostring(professionDataLoaded), tostring(windowOpen)))
     end
     SourceManager:InvalidateAllSourceCaches()
 end
@@ -2578,6 +2632,34 @@ local function HookCompletionCacheInvalidation()
         if pendingFactionInvalidation then
             pendingFactionInvalidation = false
             RunFactionVerifyThenInvalidate()
+        end
+    end)
+
+    -- HS-306: one-time per-session flip of professionDataLoaded (declared
+    -- above). TRADE_SKILL_SHOW is the trade skill/profession window's
+    -- SynchronousEvent open notification (confirmed still live on Mainline
+    -- via Blizzard_ProfessionsBook) — the only reliable signal that
+    -- C_TradeSkillUI's profession data has actually loaded, since
+    -- IsTradeSkillReady() can't distinguish never-loaded from
+    -- loaded-then-closed (see professionDataLoaded's comment). No-ops on
+    -- every fire after the first.
+    local tradeSkillLoadFrame = CreateFrame("Frame")
+    tradeSkillLoadFrame:RegisterEvent("TRADE_SKILL_SHOW")
+    tradeSkillLoadFrame:SetScript("OnEvent", function()
+        if professionDataLoaded then return end
+        professionDataLoaded = true
+
+        -- Critical (HS-306 cycle-1 review): any profSourceAvail
+        -- requirementMetCache entry or badge computed before this point was
+        -- derived from the pre-load hollow read and may be wrong. Nothing
+        -- else re-verifies it on its own now that the verify-gate baseline
+        -- capture/compare is gated shut pre-load (above) -- this one-time
+        -- full wipe, run exactly once per session at the load transition,
+        -- is what corrects it and repaints anything that cached the wrong
+        -- answer.
+        SourceManager:InvalidateAllSourceCaches()
+        if HA.Addon then
+            HA.Addon:Debug("SourceManager: profession data loaded this session, invalidating stale profession-derived caches")
         end
     end)
 
