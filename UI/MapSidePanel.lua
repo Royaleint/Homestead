@@ -121,6 +121,7 @@ local SOURCE_FILTER_LABELS = {
     event = L["Event"] or "Event",
     shop = L["Shop"] or "Shop",
     drop = L["Drop"] or "Drop",
+    treasure = L["Treasure"] or "Treasure",
 }
 
 local DISPLAY_LEVEL_TITLES = {

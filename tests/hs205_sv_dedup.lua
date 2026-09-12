@@ -116,3 +116,47 @@ assert(equalRecord.rawSourceText == "the dev raw corpus", "equal-hash migration 
 EqualHA.CatalogStore:Initialize()
 assert(equalRecord.rawSourceText == "the dev raw corpus")
 print("hs205_sv_dedup: historical winner stamps and raw preservation ok")
+
+-- HS-241: a parser version bump must force a re-parse even when sourceHash
+-- is unchanged, so a parsing-logic fix reaches players who already scanned
+-- the affected item and stored a stamp under an older (or no) parserVersion.
+local versionParseCalls = 0
+local VersionHA = {
+    Addon = {
+        db = { global = { parsedSources = {}, catalogItems = {} } },
+        Debug = function() end,
+        RegisterModule = function() end,
+    },
+    Constants = { VERSION = "test" },
+    Events = { Fire = function() end },
+    DecorMapping = {},
+    SourceTextParser = {
+        VERSION = 2,
+        ParseSourceText = function(_, sourceText)
+            versionParseCalls = versionParseCalls + 1
+            return { sources = { { sourceType = "treasure", name = sourceText } } }
+        end,
+    },
+}
+assert(loadfile(root .. "/Data/CatalogStore.lua"))("Homestead", VersionHA)
+VersionHA.CatalogStore:Initialize()
+assert(loadfile(root .. "/Modules/SourceTextScanner.lua"))("Homestead", VersionHA)
+
+local staleSourceText = "Treasure: Gift of the Phoenix|nZone: Eversong Woods"
+VersionHA.SourceTextScanner:ProcessScannedItem({ itemID = 900, sourceText = staleSourceText, recordID = 1 })
+assert(versionParseCalls == 1, "first scan always parses")
+local staleStamp = VersionHA.Addon.db.global.parsedSources[900]
+assert(staleStamp.parserVersion == 2, "stamp must record the parser version it was parsed with")
+
+-- Simulate a stamp written before this gate existed (or under an older
+-- parserVersion): same sourceHash, no parserVersion. Hash-only
+-- change-detection would skip this; the version gate must not.
+staleStamp.parserVersion = nil
+VersionHA.SourceTextScanner:ProcessScannedItem({ itemID = 900, sourceText = staleSourceText, recordID = 1 })
+assert(versionParseCalls == 2, "stale/missing parserVersion must force a reparse even when sourceHash is unchanged")
+assert(VersionHA.Addon.db.global.parsedSources[900].parserVersion == 2, "reparse must stamp the current parserVersion")
+
+-- Once stamped at the current version, an unchanged sourceText skips again.
+VersionHA.SourceTextScanner:ProcessScannedItem({ itemID = 900, sourceText = staleSourceText, recordID = 1 })
+assert(versionParseCalls == 2, "current parserVersion + unchanged hash must still skip")
+print("hs205_sv_dedup: parser version gate forces reparse of stale stamps ok")

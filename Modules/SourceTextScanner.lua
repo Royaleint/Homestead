@@ -51,27 +51,35 @@ function SourceTextScanner:ProcessScannedItem(result)
     if not HA.Addon or not HA.Addon.db then return end
     local parsedSources = HA.Addon.db.global.parsedSources
 
+    -- Parse the sourceText (lazy-init locale if Initialize() hasn't run yet)
+    if not HA.SourceTextParser then return end
+    local parserVersion = HA.SourceTextParser.VERSION
+
     -- Compute hash for change detection
     local hash = djb2(result.sourceText)
 
-    -- Skip if unchanged (hash matches existing entry)
+    -- Skip only if both the sourceText is unchanged AND it was parsed by the
+    -- current parser version. A stored entry with no/old parserVersion (from
+    -- before this gate existed, or a version bump) forces a re-parse even
+    -- though sourceHash still matches — otherwise a parser bugfix (e.g.
+    -- HS-241) never reaches players who already scanned the affected items.
     local existing = parsedSources[result.itemID]
-    if existing and existing.sourceHash == hash then
+    if existing and existing.sourceHash == hash and existing.parserVersion == parserVersion then
         return
     end
 
-    -- Parse the sourceText (lazy-init locale if Initialize() hasn't run yet)
-    if not HA.SourceTextParser then return end
     local locale = self.locale or GetLocale()
     local parsed = HA.SourceTextParser:ParseSourceText(result.sourceText, locale)
     if not parsed then return end
 
-    -- Stamp only: sourceHash + lastParsed is everything change-detection
-    -- above needs on the next parse. The full parsed payload is owned by
-    -- catalogItems (CatalogStore:SetSources below) — see file header.
+    -- Stamp only: sourceHash + lastParsed + parserVersion is everything
+    -- change-detection above needs on the next parse. The full parsed
+    -- payload is owned by catalogItems (CatalogStore:SetSources below) —
+    -- see file header.
     parsedSources[result.itemID] = {
         lastParsed = time(),
         sourceHash = hash,
+        parserVersion = parserVersion,
     }
 
     if HA.CatalogStore then

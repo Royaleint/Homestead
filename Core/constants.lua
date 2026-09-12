@@ -45,6 +45,7 @@ Constants.Icons = {
     DROP_SOURCE = "Interface\\ICONS\\INV_Misc_Bone_Skull_01",
     QUEST_REWARD = "Interface\\GossipFrame\\AvailableQuestIcon",
     REPUTATION = "Interface\\ICONS\\Achievement_Reputation_01",
+    TREASURE_SOURCE = "Interface\\ICONS\\INV_Misc_Treasurechest01",
 
     -- Special status icons
     HAS_DYE_SLOTS = "Interface\\ICONS\\INV_Inscription_Pigment_Bug01",
@@ -72,6 +73,7 @@ Constants.SourceBadgeAtlas = {
     drop        = "Crosshair_lootall_64",
     shop        = "hearthsteel-icon-32x32",
     hearthsteel = "hearthsteel-icon-32x32",
+    treasure    = "BonusLoot-Chest",
 }
 
 -------------------------------------------------------------------------------
