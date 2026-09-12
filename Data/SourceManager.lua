@@ -1699,6 +1699,7 @@ local CANONICAL_SOURCE_TYPES = {
     event = true,
     shop = true,
     drop = true,
+    treasure = true,
 }
 local SOURCE_TYPE_ALIASES = {
     craft = "profession", -- Legacy constant alias
@@ -1712,6 +1713,7 @@ local SOURCE_TYPE_ICONS = {
     event = HA.Constants.Icons.PURCHASABLE,
     shop = HA.Constants.Icons.PURCHASABLE,
     reputation = HA.Constants.Icons.REPUTATION,
+    treasure = HA.Constants.Icons.TREASURE_SOURCE,
 }
 
 local function ForEachItemID(itemIDs, callback)
