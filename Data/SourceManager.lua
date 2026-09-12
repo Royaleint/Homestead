@@ -875,15 +875,57 @@ local FRIENDSHIP_RANK_ORDER = {
 }
 SourceManager.FRIENDSHIP_RANK_ORDER = FRIENDSHIP_RANK_ORDER
 
--- Lazy-built cache: faction name → factionID (populated on first use)
+-- HS-411: static factionID table for ordinary (Hated->Exalted) reputation
+-- factions that PrerequisiteSources' reputation requirements name but do not
+-- carry a factionID for. These IDs are Blizzard-permanent, so there is
+-- nothing here to invalidate or rebuild.
+--
+-- Deliberately excludes any faction whose ID isn't confirmed: a wrong ID
+-- here would misattribute a DIFFERENT faction's standing rather than fail
+-- closed, so an unconfirmed name is left OUT on purpose and resolves
+-- through the miss-log below instead of silently.
+local LEGACY_FACTION_NAME_TO_ID = {
+    ["Ironforge"] = 47,
+    ["Stormwind"] = 72,
+    ["Gilneas"] = 1134,
+    ["Wildhammer Clan"] = 1174,
+    ["Highmountain Tribe"] = 1828,
+    ["Arakkoa Outcasts"] = 1515,
+    ["Order of the Cloud Serpent"] = 1271,
+    ["Proudmoore Admiralty"] = 2160,
+    ["Zandalari Empire"] = 2103,
+    ["Talanji's Expedition"] = 2156,
+    ["The Honorbound"] = 2157,
+    ["Steamwheedle Cartel"] = 169,
+    ["Bilgewater Cartel"] = 1133,
+    ["Council of Exarchs"] = 1731,
+    ["Storm's Wake"] = 2162,
+    ["The Nightfallen"] = 1859,
+    ["Dreamweavers"] = 1883,
+    ["Tranquillien"] = 922,
+    ["Laughing Skull Orcs"] = 1708,
+    ["The Lorewalkers"] = 1345,
+    ["Rustbolt Resistance"] = 2391,
+}
+
+-- Lazy-built cache: faction name → factionID, for Mainline's renown-tracked
+-- major factions only (populated on first use). A couple of major-faction
+-- PrerequisiteSources entries have no factionID of their own either, so
+-- this cache is still the only resolution path for those. Unlike
+-- LEGACY_FACTION_NAME_TO_ID above, this table's keys come from a live,
+-- locale-translated API call, which is the same pattern HS-283's comment
+-- (below) forbids for new code — pre-existing, not introduced by HS-411.
 local factionNameToID = nil
+
+-- HS-411: names already logged as an unresolved miss this session, so a
+-- requirement re-evaluated every UPDATE_FACTION (baseline verify-then-skip,
+-- see RunFactionVerifyThenInvalidate below) logs once instead of per fire.
+local loggedFactionMisses = {}
 
 -- Build faction name→ID cache from Mainline major factions.
 local function GetFactionIDByName(name)
     if not name then return nil end
 
-    -- Build cache on first call. Homestead is Retail-only, so do not enumerate
-    -- legacy reputation-panel APIs that are unavailable on Mainline.
     if not factionNameToID then
         factionNameToID = {}
         if C_MajorFactions and C_MajorFactions.GetMajorFactionIDs then
@@ -900,7 +942,10 @@ local function GetFactionIDByName(name)
     -- from in-place mutation of scanned requirement text).
     local cleaned = name:gsub("%.$", "")
 
-    local id = factionNameToID[cleaned]
+    -- HS-411: static table checked first — its keys are locale-neutral,
+    -- unlike factionNameToID's (see that table's comment above), so it
+    -- resolves deterministically regardless of client language.
+    local id = LEGACY_FACTION_NAME_TO_ID[cleaned] or factionNameToID[cleaned]
     if id then return id end
 
     -- Fallback: strip " of <Location>" suffix and retry.
@@ -908,8 +953,19 @@ local function GetFactionIDByName(name)
     -- (e.g., "Blood Knights of Silvermoon" → API name "Blood Knights").
     local baseName = cleaned:match("^(.+) of .+$")
     if baseName then
-        id = factionNameToID[baseName]
+        id = LEGACY_FACTION_NAME_TO_ID[baseName] or factionNameToID[baseName]
         if id then return id end
+    end
+
+    -- HS-411: make an unresolved name observable instead of a silent nil —
+    -- a miss here means every reputation-gated item for this faction renders
+    -- as locked regardless of the player's actual standing. One-shot per
+    -- name: this runs on the same UPDATE_FACTION-driven re-evaluation path
+    -- as every other reputation requirement (CountChangedRequirementVerdicts
+    -- below), so an unresolvable name would otherwise log every fire.
+    if HA.Addon and not loggedFactionMisses[cleaned] then
+        loggedFactionMisses[cleaned] = true
+        HA.Addon:Debug(("SourceManager: faction cache miss for %q"):format(cleaned))
     end
 
     return nil
@@ -960,7 +1016,10 @@ function SourceManager:EvaluateRequirementMetLive(req)
         end
 
         if req.faction and req.standing then
-            local factionID = GetFactionIDByName(req.faction)
+            -- HS-411: prefer the pre-resolved ID when the data has one (same
+            -- precedent as BuildRequirementCacheKey's req.factionID or
+            -- req.faction below) rather than re-deriving it from the name.
+            local factionID = req.factionID or GetFactionIDByName(req.faction)
             if not factionID then return nil end
 
             -- Check for renown-style standing (e.g., "Renown 12")
@@ -1156,7 +1215,9 @@ function SourceManager:GetRequirementProgress(req)
     if not req or req.type ~= "reputation" then return nil end
     if not req.faction or not req.standing then return nil end
 
-    local factionID = GetFactionIDByName(req.faction)
+    -- HS-411: prefer the pre-resolved ID, same precedent as
+    -- EvaluateRequirementMetLive's reputation branch above.
+    local factionID = req.factionID or GetFactionIDByName(req.faction)
     if not factionID then return nil end
 
     -- Renown-style standing (e.g., "Renown 12")
@@ -2416,6 +2477,9 @@ end
 -- from C_MajorFactions.GetMajorFactionIDs() and misses never rebuild it, so
 -- skipping the reset could strand a faction unlocked mid-session; the reset
 -- costs one lazy enumeration on next lookup. Only then compare verdicts.
+-- HS-411: this does NOT touch LEGACY_FACTION_NAME_TO_ID — that table is
+-- static (Blizzard-permanent IDs, not a live API scrape), so it has nothing
+-- to go stale and is deliberately never wiped here.
 -- HS-283: also the shared decision point for MAJOR_FACTION_RENOWN_LEVEL_CHANGED
 -- (renown requirements are already type="reputation", so no separate path
 -- was needed). ACHIEVEMENT_EARNED does NOT use this — it re-evaluates only
