@@ -565,9 +565,12 @@ function SourceManager:GetPlacedCountForItem(itemID)
     return GetPlacedCount(itemID)
 end
 
-local function GetParsedVendorCost(itemID, vendor)
+-- parsedSource, when given, is a pre-fetched HA.SourceTextScanner:GetParsedSource(itemID)
+-- result (HS-383: the same table for every vendor of one item, so a caller
+-- looping vendors can fetch it once instead of once per vendor).
+local function GetParsedVendorCost(itemID, vendor, parsedSource)
     if not itemID or not vendor or not HA.SourceTextScanner then return nil end
-    local parsed = HA.SourceTextScanner:GetParsedSource(itemID)
+    local parsed = parsedSource or HA.SourceTextScanner:GetParsedSource(itemID)
     if not parsed or not parsed.sources or not parsed.lastParsed then return nil end
 
     for _, source in ipairs(parsed.sources) do
@@ -582,22 +585,41 @@ local function GetParsedVendorCost(itemID, vendor)
     return nil
 end
 
+-- parsedSource: optional pre-fetched parsed-source table (see GetParsedVendorCost).
 function SourceManager:GetVendorItemCost(
-        itemID, vendor, scannedCost, scannedCostKnown, staticCost, staticCostKnown, scannedAt)
+        itemID, vendor, scannedCost, scannedCostKnown, staticCost, staticCostKnown, scannedAt, parsedSource)
     if not HA.VendorData or not HA.VendorData.ResolveVendorItemCost then
         return nil, nil
     end
+
+    if not scannedCostKnown then
+        scannedCost, scannedAt = HA.VendorData:GetScannedItemCost(vendor, itemID)
+        scannedCostKnown = true
+    end
+
+    -- HS-383: the source-text lookup only ever changes the outcome when a
+    -- stale, gold-only scanned cost might lose to a cheaper newer source-text
+    -- price (ResolveVendorItemCost's sourceText-discount branch) or when there
+    -- is no scanned cost at all. Skip it whenever a scanned cost already wins.
+    local sourceText = nil
+    if not HA.VendorData:CanSkipSourceTextLookup(scannedCost, scannedAt) then
+        sourceText = GetParsedVendorCost(itemID, vendor, parsedSource)
+    end
+
     return HA.VendorData:ResolveVendorItemCost(
-        vendor, itemID, GetParsedVendorCost(itemID, vendor), scannedCost,
+        vendor, itemID, sourceText, scannedCost,
         scannedCostKnown, staticCost, staticCostKnown, scannedAt)
 end
 
-local function BuildVendorSourceData(itemID, vendor)
+-- parsedSource: optional pre-fetched parsed-source table, threaded through to
+-- GetVendorItemCost (see GetVendorSources, which hoists this per item).
+local function BuildVendorSourceData(itemID, vendor, parsedSource)
     if not itemID or not vendor then return nil end
 
     local cost = nil
     if HA.SourceManager.GetVendorItemCost then
-        cost = HA.SourceManager:GetVendorItemCost(itemID, vendor)
+        cost = HA.SourceManager:GetVendorItemCost(
+            itemID, vendor, nil, nil, nil, nil, nil, parsedSource)
     end
 
     return {
@@ -636,9 +658,12 @@ function SourceManager:GetVendorSources(itemID)
         return EMPTY_SOURCES
     end
 
+    -- HS-383: fetch once for the item instead of once per vendor in the loop below.
+    local parsedSource = HA.SourceTextScanner and HA.SourceTextScanner:GetParsedSource(itemID)
+
     local sources = {}
     for _, vendor in ipairs(vendors) do
-        local vendorData = BuildVendorSourceData(itemID, vendor)
+        local vendorData = BuildVendorSourceData(itemID, vendor, parsedSource)
         if vendorData then
             sources[#sources + 1] = { type = "vendor", data = vendorData }
         end
