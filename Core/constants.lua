@@ -73,7 +73,7 @@ Constants.SourceBadgeAtlas = {
     drop        = "Crosshair_lootall_64",
     shop        = "hearthsteel-icon-32x32",
     hearthsteel = "hearthsteel-icon-32x32",
-    treasure    = "BonusLoot-Chest",
+    treasure    = "VignetteLoot",
 }
 
 -------------------------------------------------------------------------------
