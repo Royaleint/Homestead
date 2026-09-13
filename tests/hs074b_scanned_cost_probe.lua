@@ -1,4 +1,4 @@
--- luacheck: globals assert loadfile loadstring print io table
+-- luacheck: globals assert loadfile loadstring print io table C_CurrencyInfo
 
 local root = (... or "."):gsub("\\\\", "/"):gsub("/+$", "")
 
@@ -195,13 +195,15 @@ assert(renderCost(byID[203].cost) == "?", "no-price scanned item still renders '
 
 -- Mixed record must render BOTH the gold and the item-token components, not
 -- just the gold (this is the exact understatement Argus flagged: "800g"
--- instead of "800g + 5 Item 168327 + 5 Item 168832"). No C_CurrencyInfo/
--- C_Item in this env, so both fall to FormatCost's plain-text fallback paths.
+-- instead of "800g + 5 Trader's Tender + 5 Radiant Fragment"). No
+-- C_CurrencyInfo/C_Item in this env, so both fall to FormatCost's plain-text
+-- fallback paths -- which now prefer the carried name over the raw itemID
+-- (HS-352).
 local mixedText = renderCost(byID[300].cost)
-assert(mixedText == "800g + 5 Item 168327 + 5 Item 168832",
+assert(mixedText == "800g + 5 Trader's Tender + 5 Radiant Fragment",
     "mixed-cost item must render both money and item-token components, got: " .. tostring(mixedText))
 
-assert(renderCost(byID[301].cost) == "3 Item 168327",
+assert(renderCost(byID[301].cost) == "3 Trader's Tender",
     "itemCosts-only item must render (not '?')")
 
 -- Gate 2 feedback #2 backfill cases.
@@ -376,8 +378,9 @@ assert(toggleOffByID[500].cost == nil, "toggle off must skip scanned-cost normal
 -- cost.items conversion on a scratch copy of the source text -- never mutate
 -- the real file from inside a test. The mixed-cost case must regress to
 -- gold-only (the exact silent understatement Argus's REJECT flagged: "800g"
--- instead of "800g + 5 Item 168327 + 5 Item 168832"); the itemCosts-only case
--- must regress all the way to nil (no other cost source to fall back on).
+-- instead of "800g + 5 Trader's Tender + 5 Radiant Fragment"); the
+-- itemCosts-only case must regress all the way to nil (no other cost source
+-- to fall back on).
 -------------------------------------------------------------------------------
 
 local vendorDataSource = assert(io.open(root .. "/Data/VendorData.lua", "r")):read("*a")
@@ -429,5 +432,91 @@ assert(mutantCost.items == nil,
 local itemOnlyRecord = { itemCosts = { { itemID = 168327, amount = 3, name = "Trader's Tender" } } }
 assert(realNormalize(nil, itemOnlyRecord) ~= nil, "sanity: real must normalize an itemCosts-only record")
 assert(mutantNormalize(nil, itemOnlyRecord) == nil, "mutant must fabricate no cost for an itemCosts-only record")
+
+-------------------------------------------------------------------------------
+-- 4. Argus Gate 1 warning (HS-352 test-coverage gap): the currency.name
+-- fallback added inside the INNER "if currency.id and C_CurrencyInfo and
+-- C_CurrencyInfo.GetCurrencyInfo then" block (Data/VendorData.lua ~line 171)
+-- was never reached by any fixture above -- this harness runs under plain
+-- lua5.1 with no C_CurrencyInfo global at all, so every currency render
+-- above fell straight through to the OUTER, pre-existing "elseif
+-- currency.name then" branch (same output, different code path -- deleting
+-- the inner branch alone would not fail any assertion above). Stub
+-- C_CurrencyInfo.GetCurrencyInfo to return nil for one currency ID so the
+-- inner branch actually executes and reaches the new carried-name fallback
+-- specifically (not the icon or resolved-name branches, and not the outer
+-- fallback).
+-------------------------------------------------------------------------------
+
+-- Argus follow-up: a naive global C_CurrencyInfo stub covering the WHOLE
+-- file would retroactively move byID[202]'s already-asserted "50 Trader's
+-- Tender" (line ~192, real currencyID 1220) off the OUTER branch and onto
+-- this new INNER branch -- same string, so no assertion would fail, but the
+-- outer branch would silently lose its only coverage. Guarding against that:
+-- the stub below is scoped to this section only (set right before use, unset
+-- right after) and uses a DISTINCT, unresolvable currency ID so it can never
+-- overlap with byID[202]'s real one; byID[202]'s own assertion already ran
+-- to completion in Section 1, long before this section sets the stub, so it
+-- was never at risk. The explicit pairing check below (4c) additionally
+-- proves the two branches stay independently covered even under mutation.
+
+local UNRESOLVABLE_CURRENCY_ID = 999999
+local unresolvableCurrencyCost = {
+    currencies = { { id = UNRESOLVABLE_CURRENCY_ID, amount = 7, name = "Stubbed Carried Currency" } },
+}
+-- byID[202]'s real, already-normalized cost -- reused verbatim (not
+-- reconstructed) so the pairing check below pins the exact object Section 1
+-- already asserted renders "50 Trader's Tender" via the outer branch.
+local outerBranchCost = { currencies = { byID[202].cost.currencies[1] } }
+
+-- 4a. Confirm the inner branch executes and reaches the carried name when
+-- C_CurrencyInfo is present but GetCurrencyInfo can't resolve the currency.
+C_CurrencyInfo = { GetCurrencyInfo = function() return nil end }
+
+local innerBranchHA = freshHA()
+local innerBranchRender = innerBranchHA.VendorData:FormatCost(unresolvableCurrencyCost)
+assert(innerBranchRender == "7 Stubbed Carried Currency",
+    "inner currency.id branch (C_CurrencyInfo present, GetCurrencyInfo returns nil) must fall through "
+        .. "to the carried currency.name, got: " .. tostring(innerBranchRender))
+
+C_CurrencyInfo = nil
+
+-- 4b. Mutant kill: delete ONLY the new inner "elseif currency.name" branch
+-- (the outer duplicate at the bottom of the if/elseif chain is left
+-- untouched) on a scratch copy of VendorData.lua's source text -- never
+-- mutate the real file.
+local currencyMutantSource, mutationCount4 = vendorDataSource:gsub(
+    "(                    elseif info and info%.name then\n"
+        .. "                        parts%[#parts %+ 1%] = currency%.amount %.%. \" \" %.%. info%.name\n)"
+        .. "                    elseif currency%.name then\n"
+        .. "                        parts%[#parts %+ 1%] = currency%.amount %.%. \" \" %.%. currency%.name\n"
+        .. "                    else",
+    "%1                    else",
+    1)
+assert(mutationCount4 == 1, "currency-branch mutant substitution did not match -- update the probe's pattern")
+assert(currencyMutantSource ~= vendorDataSource, "currency-branch mutant produced identical text -- no-op")
+
+local currencyMutantHA = { Addon = { RegisterModule = function() end } }
+assert(loadstring(currencyMutantSource, "VendorData-currency-mutant"))("Homestead", currencyMutantHA)
+currencyMutantHA.VendorData.GetItemsForVendor = function(_, vendor) return vendor.items or {} end
+
+-- 4c. Pairing check: with NO C_CurrencyInfo stub (matching the outer
+-- branch's real runtime condition), deleting the inner branch must NOT
+-- disturb byID[202]'s outer-branch case -- proving the two branches are
+-- independently covered rather than one masking the other.
+local outerUnderMutant = currencyMutantHA.VendorData:FormatCost(outerBranchCost)
+assert(outerUnderMutant == "50 Trader's Tender",
+    "deleting the inner currency.name branch must not affect the outer, pre-existing branch, got: "
+        .. tostring(outerUnderMutant))
+
+-- 4d. The mutant MUST regress the inner-branch case (C_CurrencyInfo present,
+-- unresolvable) to the raw-ID fallback.
+C_CurrencyInfo = { GetCurrencyInfo = function() return nil end }
+local currencyMutantRender = currencyMutantHA.VendorData:FormatCost(unresolvableCurrencyCost)
+assert(currencyMutantRender == "7 Currency " .. UNRESOLVABLE_CURRENCY_ID,
+    "mutant (inner currency.name branch deleted) must regress to the raw-ID fallback, got: "
+        .. tostring(currencyMutantRender))
+
+C_CurrencyInfo = nil
 
 print("hs074b_scanned_cost_probe: ok")

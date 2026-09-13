@@ -64,6 +64,24 @@ local requirementMetCache = {}
 -- both data classes it protects, not just the professionRank one.
 local professionAvailBaseline = {}
 
+-- HS-306: whether real C_TradeSkillUI profession data has loaded THIS
+-- SESSION. Verified live (Leatherworking, skillLineID 165, 2026-09-12):
+-- before the trade skill window is opened even once, GetProfessionInfoBySkillLineID
+-- returns a HOLLOW record (skillLevel=0, sourceCounter=0, maxSkillLevel=0) for
+-- a profession the character has genuinely trained (skill 173, tier cap 75) —
+-- not the untrained-tier zero CLAIM-PROF-0005 documents (a real, meaningful
+-- zero), an entirely unloaded one. After the window opens once, the same
+-- call returns real data, and keeps returning it even after the window
+-- closes again. C_TradeSkillUI.IsTradeSkillReady() tracks the window's own
+-- open/closed UI state, NOT whether this data has loaded — it read false in
+-- both the pre-load AND the post-load-window-closed live tests, so it
+-- cannot tell those two states apart (this is why gating on IsTradeSkillReady()
+-- was rejected in review: PlayerMeetsSkillLevel's callers below need "has
+-- this loaded yet," which only TRADE_SKILL_SHOW answers). Flips true at most
+-- once per session and never resets — see the TRADE_SKILL_SHOW handler in
+-- HookCompletionCacheInvalidation, further down this file.
+local professionDataLoaded = false
+
 -- HS-273: GetAllSources memoization. Keyed on itemID ONLY -- unlike
 -- requirementMetCache/completionCache, this result is context-free (it's the
 -- raw provider fan-out for an item, not a completion/requirement judgment
@@ -329,7 +347,14 @@ function SourceManager:PlayerHasProfession(sourceData)
 end
 
 -- Check whether the player meets the expansion-tier skill level for a recipe.
--- Uses C_TradeSkillUI to query expansion-specific skill levels (works without UI open).
+-- Uses C_TradeSkillUI to query expansion-specific skill levels.
+-- HS-306: NOT window-independent, despite earlier belief -- verified live
+-- (Leatherworking, skillLineID 165, 2026-09-12) that these reads come back
+-- hollow (skillLevel=0) until the trade skill window has been opened at
+-- least once THIS SESSION (TRADE_SKILL_SHOW), and stay real after it closes
+-- again. Callers gate on professionDataLoaded (Data/SourceManager.lua, near
+-- professionAvailBaseline) precisely because this function cannot self-report
+-- which state it's in.
 -- Returns true if met, false if not, nil if can't determine.
 function SourceManager:PlayerMeetsSkillLevel(sourceData)
     if type(sourceData) ~= "table" then return nil end
@@ -421,7 +446,11 @@ function SourceManager:IsSourceAvailableNow(itemID, source)
     -- Profession sources: check whether the player has the required profession
     -- AND meets the expansion-tier skill level requirement.
     -- Uses C_TradeSkillUI.GetAllProfessionTradeSkillLines + GetProfessionInfoBySkillLineID
-    -- to query expansion-specific skill levels (works without trade skill UI open).
+    -- to query expansion-specific skill levels.
+    -- HS-306: NOT available before the trade skill window has opened once
+    -- this session (see PlayerMeetsSkillLevel's comment above) -- the
+    -- professionDataLoaded gate below on the baseline write exists because
+    -- of this, not despite it.
     -- Secondary professions and miscellaneous recipes remain available to everyone.
     -- HS-210: cache the per-source result in the same requirementMetCache table
     -- (distinct "profSourceAvail:" key namespace, so it can't collide with
@@ -448,16 +477,28 @@ function SourceManager:IsSourceAvailableNow(itemID, source)
 
         if cacheKey then
             requirementMetCache[cacheKey] = available
+
             -- HS-283: refresh the verify-then-skip baseline on every live
             -- evaluation, same discipline as IsRequirementMet/
             -- requirementEvalBaseline below — never touched on the cache-hit
             -- return above, only when this branch actually re-evaluated.
-            local baseline = professionAvailBaseline[cacheKey]
-            if baseline then
-                baseline.data = data
-                baseline.available = available
-            else
-                professionAvailBaseline[cacheKey] = { data = data, available = available }
+            -- HS-306: but only while professionDataLoaded is true (see its
+            -- declaration above) — before that, PlayerMeetsSkillLevel's
+            -- C_TradeSkillUI read is hollow and `available` here is not a
+            -- trustworthy verdict to anchor a baseline on. Leaving the
+            -- baseline unwritten pre-load means CountChangedProfessionAvailability
+            -- below simply has nothing to compare yet; the TRADE_SKILL_SHOW
+            -- handler's one-time InvalidateAllSourceCaches (also below) is
+            -- what corrects requirementMetCache's own hollow-derived entry
+            -- once real data arrives.
+            if professionDataLoaded then
+                local baseline = professionAvailBaseline[cacheKey]
+                if baseline then
+                    baseline.data = data
+                    baseline.available = available
+                else
+                    professionAvailBaseline[cacheKey] = { data = data, available = available }
+                end
             end
         end
         return available
@@ -565,9 +606,12 @@ function SourceManager:GetPlacedCountForItem(itemID)
     return GetPlacedCount(itemID)
 end
 
-local function GetParsedVendorCost(itemID, vendor)
+-- parsedSource, when given, is a pre-fetched HA.SourceTextScanner:GetParsedSource(itemID)
+-- result (HS-383: the same table for every vendor of one item, so a caller
+-- looping vendors can fetch it once instead of once per vendor).
+local function GetParsedVendorCost(itemID, vendor, parsedSource)
     if not itemID or not vendor or not HA.SourceTextScanner then return nil end
-    local parsed = HA.SourceTextScanner:GetParsedSource(itemID)
+    local parsed = parsedSource or HA.SourceTextScanner:GetParsedSource(itemID)
     if not parsed or not parsed.sources or not parsed.lastParsed then return nil end
 
     for _, source in ipairs(parsed.sources) do
@@ -582,22 +626,41 @@ local function GetParsedVendorCost(itemID, vendor)
     return nil
 end
 
+-- parsedSource: optional pre-fetched parsed-source table (see GetParsedVendorCost).
 function SourceManager:GetVendorItemCost(
-        itemID, vendor, scannedCost, scannedCostKnown, staticCost, staticCostKnown, scannedAt)
+        itemID, vendor, scannedCost, scannedCostKnown, staticCost, staticCostKnown, scannedAt, parsedSource)
     if not HA.VendorData or not HA.VendorData.ResolveVendorItemCost then
         return nil, nil
     end
+
+    if not scannedCostKnown then
+        scannedCost, scannedAt = HA.VendorData:GetScannedItemCost(vendor, itemID)
+        scannedCostKnown = true
+    end
+
+    -- HS-383: the source-text lookup only ever changes the outcome when a
+    -- stale, gold-only scanned cost might lose to a cheaper newer source-text
+    -- price (ResolveVendorItemCost's sourceText-discount branch) or when there
+    -- is no scanned cost at all. Skip it whenever a scanned cost already wins.
+    local sourceText = nil
+    if not HA.VendorData:CanSkipSourceTextLookup(scannedCost, scannedAt) then
+        sourceText = GetParsedVendorCost(itemID, vendor, parsedSource)
+    end
+
     return HA.VendorData:ResolveVendorItemCost(
-        vendor, itemID, GetParsedVendorCost(itemID, vendor), scannedCost,
+        vendor, itemID, sourceText, scannedCost,
         scannedCostKnown, staticCost, staticCostKnown, scannedAt)
 end
 
-local function BuildVendorSourceData(itemID, vendor)
+-- parsedSource: optional pre-fetched parsed-source table, threaded through to
+-- GetVendorItemCost (see GetVendorSources, which hoists this per item).
+local function BuildVendorSourceData(itemID, vendor, parsedSource)
     if not itemID or not vendor then return nil end
 
     local cost = nil
     if HA.SourceManager.GetVendorItemCost then
-        cost = HA.SourceManager:GetVendorItemCost(itemID, vendor)
+        cost = HA.SourceManager:GetVendorItemCost(
+            itemID, vendor, nil, nil, nil, nil, nil, parsedSource)
     end
 
     return {
@@ -636,9 +699,12 @@ function SourceManager:GetVendorSources(itemID)
         return EMPTY_SOURCES
     end
 
+    -- HS-383: fetch once for the item instead of once per vendor in the loop below.
+    local parsedSource = HA.SourceTextScanner and HA.SourceTextScanner:GetParsedSource(itemID)
+
     local sources = {}
     for _, vendor in ipairs(vendors) do
-        local vendorData = BuildVendorSourceData(itemID, vendor)
+        local vendorData = BuildVendorSourceData(itemID, vendor, parsedSource)
         if vendorData then
             sources[#sources + 1] = { type = "vendor", data = vendorData }
         end
@@ -850,15 +916,57 @@ local FRIENDSHIP_RANK_ORDER = {
 }
 SourceManager.FRIENDSHIP_RANK_ORDER = FRIENDSHIP_RANK_ORDER
 
--- Lazy-built cache: faction name → factionID (populated on first use)
+-- HS-411: static factionID table for ordinary (Hated->Exalted) reputation
+-- factions that PrerequisiteSources' reputation requirements name but do not
+-- carry a factionID for. These IDs are Blizzard-permanent, so there is
+-- nothing here to invalidate or rebuild.
+--
+-- Deliberately excludes any faction whose ID isn't confirmed: a wrong ID
+-- here would misattribute a DIFFERENT faction's standing rather than fail
+-- closed, so an unconfirmed name is left OUT on purpose and resolves
+-- through the miss-log below instead of silently.
+local LEGACY_FACTION_NAME_TO_ID = {
+    ["Ironforge"] = 47,
+    ["Stormwind"] = 72,
+    ["Gilneas"] = 1134,
+    ["Wildhammer Clan"] = 1174,
+    ["Highmountain Tribe"] = 1828,
+    ["Arakkoa Outcasts"] = 1515,
+    ["Order of the Cloud Serpent"] = 1271,
+    ["Proudmoore Admiralty"] = 2160,
+    ["Zandalari Empire"] = 2103,
+    ["Talanji's Expedition"] = 2156,
+    ["The Honorbound"] = 2157,
+    ["Steamwheedle Cartel"] = 2677,
+    ["Bilgewater Cartel"] = 1133,
+    ["Council of Exarchs"] = 1731,
+    ["Storm's Wake"] = 2162,
+    ["The Nightfallen"] = 1859,
+    ["Dreamweavers"] = 1883,
+    ["Tranquillien"] = 922,
+    ["Laughing Skull Orcs"] = 1708,
+    ["The Lorewalkers"] = 1345,
+    ["Rustbolt Resistance"] = 2391,
+}
+
+-- Lazy-built cache: faction name → factionID, for Mainline's renown-tracked
+-- major factions only (populated on first use). A couple of major-faction
+-- PrerequisiteSources entries have no factionID of their own either, so
+-- this cache is still the only resolution path for those. Unlike
+-- LEGACY_FACTION_NAME_TO_ID above, this table's keys come from a live,
+-- locale-translated API call, which is the same pattern HS-283's comment
+-- (below) forbids for new code — pre-existing, not introduced by HS-411.
 local factionNameToID = nil
+
+-- HS-411: names already logged as an unresolved miss this session, so a
+-- requirement re-evaluated every UPDATE_FACTION (baseline verify-then-skip,
+-- see RunFactionVerifyThenInvalidate below) logs once instead of per fire.
+local loggedFactionMisses = {}
 
 -- Build faction name→ID cache from Mainline major factions.
 local function GetFactionIDByName(name)
     if not name then return nil end
 
-    -- Build cache on first call. Homestead is Retail-only, so do not enumerate
-    -- legacy reputation-panel APIs that are unavailable on Mainline.
     if not factionNameToID then
         factionNameToID = {}
         if C_MajorFactions and C_MajorFactions.GetMajorFactionIDs then
@@ -875,7 +983,10 @@ local function GetFactionIDByName(name)
     -- from in-place mutation of scanned requirement text).
     local cleaned = name:gsub("%.$", "")
 
-    local id = factionNameToID[cleaned]
+    -- HS-411: static table checked first — its keys are locale-neutral,
+    -- unlike factionNameToID's (see that table's comment above), so it
+    -- resolves deterministically regardless of client language.
+    local id = LEGACY_FACTION_NAME_TO_ID[cleaned] or factionNameToID[cleaned]
     if id then return id end
 
     -- Fallback: strip " of <Location>" suffix and retry.
@@ -883,8 +994,19 @@ local function GetFactionIDByName(name)
     -- (e.g., "Blood Knights of Silvermoon" → API name "Blood Knights").
     local baseName = cleaned:match("^(.+) of .+$")
     if baseName then
-        id = factionNameToID[baseName]
+        id = LEGACY_FACTION_NAME_TO_ID[baseName] or factionNameToID[baseName]
         if id then return id end
+    end
+
+    -- HS-411: make an unresolved name observable instead of a silent nil —
+    -- a miss here means every reputation-gated item for this faction renders
+    -- as locked regardless of the player's actual standing. One-shot per
+    -- name: this runs on the same UPDATE_FACTION-driven re-evaluation path
+    -- as every other reputation requirement (CountChangedRequirementVerdicts
+    -- below), so an unresolvable name would otherwise log every fire.
+    if HA.Addon and not loggedFactionMisses[cleaned] then
+        loggedFactionMisses[cleaned] = true
+        HA.Addon:Debug(("SourceManager: faction cache miss for %q"):format(cleaned))
     end
 
     return nil
@@ -935,7 +1057,10 @@ function SourceManager:EvaluateRequirementMetLive(req)
         end
 
         if req.faction and req.standing then
-            local factionID = GetFactionIDByName(req.faction)
+            -- HS-411: prefer the pre-resolved ID when the data has one (same
+            -- precedent as BuildRequirementCacheKey's req.factionID or
+            -- req.faction below) rather than re-deriving it from the name.
+            local factionID = req.factionID or GetFactionIDByName(req.faction)
             if not factionID then return nil end
 
             -- Check for renown-style standing (e.g., "Renown 12")
@@ -1131,7 +1256,9 @@ function SourceManager:GetRequirementProgress(req)
     if not req or req.type ~= "reputation" then return nil end
     if not req.faction or not req.standing then return nil end
 
-    local factionID = GetFactionIDByName(req.faction)
+    -- HS-411: prefer the pre-resolved ID, same precedent as
+    -- EvaluateRequirementMetLive's reputation branch above.
+    local factionID = req.factionID or GetFactionIDByName(req.faction)
     if not factionID then return nil end
 
     -- Renown-style standing (e.g., "Renown 12")
@@ -2361,8 +2488,17 @@ end
 -- IsSourceAvailableNow already made, against the same stored sourceData, and
 -- compares to the last-seen availability. Mirrors CountChangedRequirementVerdicts'
 -- shape and discipline on a different cache/baseline pair.
+-- HS-306: short-circuits before professionDataLoaded flips true. Every
+-- baseline entry is now only ever written post-load (IsSourceAvailableNow's
+-- capture side carries the matching guard), so this is belt-and-suspenders
+-- rather than the load-bearing part of the fix — pre-load the table is
+-- simply empty — but it documents the invariant and skips the (empty) walk.
 -- Returns: changedCount, checkedCount
 local function CountChangedProfessionAvailability()
+    if not professionDataLoaded then
+        return 0, 0
+    end
+
     local changed, checked = 0, 0
     for _, baseline in pairs(professionAvailBaseline) do
         local data = baseline.data
@@ -2393,6 +2529,9 @@ end
 -- from C_MajorFactions.GetMajorFactionIDs() and misses never rebuild it, so
 -- skipping the reset could strand a faction unlocked mid-session; the reset
 -- costs one lazy enumeration on next lookup. Only then compare verdicts.
+-- HS-411: this does NOT touch LEGACY_FACTION_NAME_TO_ID — that table is
+-- static (Blizzard-permanent IDs, not a live API scrape), so it has nothing
+-- to go stale and is deliberately never wiped here.
 -- HS-283: also the shared decision point for MAJOR_FACTION_RENOWN_LEVEL_CHANGED
 -- (renown requirements are already type="reputation", so no separate path
 -- was needed). ACHIEVEMENT_EARNED does NOT use this — it re-evaluates only
@@ -2431,34 +2570,38 @@ end
 -- NEW_RECIPE_LEARNED, and SKILL_LINES_CHANGED's changed-fingerprint path.
 -- Sums both count functions above (professionRank requirement verdicts +
 -- profession-source availability verdicts) so a wipe+broadcast only fires
--- when something in either data class actually flipped. Debug-logs
--- C_TradeSkillUI.IsTradeSkillReady() alongside the verdict counts — the
--- profSourceAvail baseline is captured window-closed (during the prewarm
--- pass) while these events can fire window-open, so a false-positive
--- "changed" read recurs once per window-state transition bracketing a
--- gated event (not just once per session) — opening the window flips the
--- baseline to open-state values, closing it and the next gated event flips
--- it back. Still strictly no worse than the old unconditional-invalidate
--- behavior, and self-correcting each time; this log line is what lets
--- manual testing tell that class apart from a real change.
+-- when something in either data class actually flipped.
+-- HS-306: the profession-availability half used to re-verify regardless of
+-- whether C_TradeSkillUI's data had ever loaded this session — a baseline
+-- seeded from a pre-load hollow read, compared against a post-load real
+-- read (or vice versa), looked like a flipped verdict on every load
+-- transition and forced a spurious InvalidateAllSourceCaches. Both
+-- CountChangedProfessionAvailability and IsSourceAvailableNow's baseline
+-- capture now gate on professionDataLoaded (declared above,
+-- TRADE_SKILL_SHOW-driven) instead of window-open state, so the hollow/real
+-- boundary can no longer register as a change here; the TRADE_SKILL_SHOW
+-- handler below does its own one-time invalidate to correct anything cached
+-- from before the load. Debug-logs both professionDataLoaded and the
+-- window's current open/closed state so manual testing can tell all three
+-- states (never loaded, loaded-window-open, loaded-window-closed) apart.
 local function RunProfessionVerifyThenInvalidate()
     local reqChanged, reqChecked = CountChangedRequirementVerdicts()
     local availChanged, availChecked = CountChangedProfessionAvailability()
     local changed = reqChanged + availChanged
     local tradeSkillUI = _G and _G.C_TradeSkillUI
-    local windowReady = tradeSkillUI and tradeSkillUI.IsTradeSkillReady and tradeSkillUI.IsTradeSkillReady()
+    local windowOpen = tradeSkillUI and tradeSkillUI.IsTradeSkillReady and tradeSkillUI.IsTradeSkillReady()
 
     if changed == 0 then
         if HA.Addon then
-            HA.Addon:Debug(("SourceManager: profession invalidation suppressed (0/%d requirement, 0/%d availability verdicts changed; trade skill window ready=%s)")
-                :format(reqChecked, availChecked, tostring(windowReady)))
+            HA.Addon:Debug(("SourceManager: profession invalidation suppressed (0/%d requirement, 0/%d availability verdicts changed; profession data loaded=%s, trade skill window open=%s)")
+                :format(reqChecked, availChecked, tostring(professionDataLoaded), tostring(windowOpen)))
         end
         return
     end
 
     if HA.Addon then
-        HA.Addon:Debug(("SourceManager: profession invalidation (%d/%d requirement, %d/%d availability verdicts changed; trade skill window ready=%s)")
-            :format(reqChanged, reqChecked, availChanged, availChecked, tostring(windowReady)))
+        HA.Addon:Debug(("SourceManager: profession invalidation (%d/%d requirement, %d/%d availability verdicts changed; profession data loaded=%s, trade skill window open=%s)")
+            :format(reqChanged, reqChecked, availChanged, availChecked, tostring(professionDataLoaded), tostring(windowOpen)))
     end
     SourceManager:InvalidateAllSourceCaches()
 end
@@ -2491,6 +2634,34 @@ local function HookCompletionCacheInvalidation()
         if pendingFactionInvalidation then
             pendingFactionInvalidation = false
             RunFactionVerifyThenInvalidate()
+        end
+    end)
+
+    -- HS-306: one-time per-session flip of professionDataLoaded (declared
+    -- above). TRADE_SKILL_SHOW is the trade skill/profession window's
+    -- SynchronousEvent open notification (confirmed still live on Mainline
+    -- via Blizzard_ProfessionsBook) — the only reliable signal that
+    -- C_TradeSkillUI's profession data has actually loaded, since
+    -- IsTradeSkillReady() can't distinguish never-loaded from
+    -- loaded-then-closed (see professionDataLoaded's comment). No-ops on
+    -- every fire after the first.
+    local tradeSkillLoadFrame = CreateFrame("Frame")
+    tradeSkillLoadFrame:RegisterEvent("TRADE_SKILL_SHOW")
+    tradeSkillLoadFrame:SetScript("OnEvent", function()
+        if professionDataLoaded then return end
+        professionDataLoaded = true
+
+        -- Critical (HS-306 cycle-1 review): any profSourceAvail
+        -- requirementMetCache entry or badge computed before this point was
+        -- derived from the pre-load hollow read and may be wrong. Nothing
+        -- else re-verifies it on its own now that the verify-gate baseline
+        -- capture/compare is gated shut pre-load (above) -- this one-time
+        -- full wipe, run exactly once per session at the load transition,
+        -- is what corrects it and repaints anything that cached the wrong
+        -- answer.
+        SourceManager:InvalidateAllSourceCaches()
+        if HA.Addon then
+            HA.Addon:Debug("SourceManager: profession data loaded this session, invalidating stale profession-derived caches")
         end
     end)
 

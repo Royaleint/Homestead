@@ -257,7 +257,17 @@ local function RequestScan()
             -- Scan in progress — flag for rescan when it finishes
             scanRequestedDuringActive = true
         else
-            CatalogScanner:ScanFullCatalog()
+            local started, cooldownRemaining = CatalogScanner:ScanFullCatalog()
+            if not started and cooldownRemaining then
+                -- HS-305: ScanFullCatalog was blocked by SCAN_COOLDOWN (the
+                -- completion-rescan case: a prior scan started <5s ago).
+                -- Re-arm through RequestScan's own debounce once the
+                -- remaining cooldown has elapsed instead of dropping the
+                -- request silently — matches ProcessBatch's own
+                -- retry-until-clear idiom below (combat lockdown), just
+                -- gated on cooldown instead of combat.
+                C_Timer.After(cooldownRemaining, RequestScan)
+            end
         end
     end)
 end
@@ -272,7 +282,10 @@ function CatalogScanner:ScanFullCatalog(callback)
     local currentTime = GetTime()
     if currentTime - lastScanTime < SCAN_COOLDOWN then
         HA.Addon:Debug("Catalog scan on cooldown")
-        return
+        -- HS-305: report how long until the cooldown clears so callers (see
+        -- RequestScan) can reschedule instead of treating this as a silent
+        -- drop of the request.
+        return false, SCAN_COOLDOWN - (currentTime - lastScanTime)
     end
 
     if not C_HousingCatalog then
@@ -407,6 +420,10 @@ function CatalogScanner:ScanFullCatalog(callback)
 
     -- Start the first batch
     ProcessBatch()
+    -- HS-305: symmetric with the cooldown guard's explicit `false` above --
+    -- a caller can now tell "scan started" from "blocked" without inspecting
+    -- isScanning itself.
+    return true
 end
 
 -------------------------------------------------------------------------------
