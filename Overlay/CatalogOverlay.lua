@@ -6,7 +6,11 @@
 
     Badge shows the primary source type (vendor > quest > achievement >
     profession > event > drop > hearthsteel) using SourceManager priority
-    order, with a sourceText fallback for items not in static data.
+    order, with a sourceText fallback for items not in static data. One
+    exception: an unowned item with a treasure sourceText shows the treasure
+    badge ahead of its static badge, since treasure is otherwise never the
+    strongest source on record for an item Blizzard also resolves statically;
+    once owned, the static badge takes over again.
 
     Glow shows accessibility state:
     - Green: owned (at least 1 copy)
@@ -231,29 +235,66 @@ local function GetSourceBadgeAtlas(itemID, presentation)
     return presentation.primarySourceBadgeAtlas or presentation.sourceBadgeAtlas
 end
 
+-- Parse sourceText into its list of source blocks via the shared parser.
+-- Both GetSourceBadgeFromSourceText and SourceTextHasTreasureSource need the
+-- full parsed array, so this runs the (non-trivial) parse once per resolve
+-- and the two callers share the result -- ParseSourceText only ever runs
+-- once per cache miss (hs_catalog_overlay_item_cache.lua pins that call count).
+local function ParseSourceTextBlocks(sourceText)
+    if not sourceText or sourceText == "" then return nil end
+    if not HA.SourceTextParser or not HA.SourceTextParser.ParseSourceText then
+        return nil
+    end
+
+    local locale = GetLocale and GetLocale() or "enUS"
+    local parsed = HA.SourceTextParser:ParseSourceText(sourceText, locale)
+    return parsed and parsed.sources
+end
+
 -- Fallback: resolve sourceText through the shared parser so catalog badges stay
--- aligned with the addon's source taxonomy and locale profiles.
-local function GetSourceBadgeFromSourceText(sourceText)
+-- aligned with the addon's source taxonomy and locale profiles. First parsed
+-- block wins -- this contract is relied on by its only caller below for the
+-- ordinary no-static-badge fallback and is unchanged by the HS-241 gate fix.
+local function GetSourceBadgeFromSourceText(sourceText, parsedSources)
     if not sourceText or sourceText == "" then return nil end
 
     if sourceText:find("Hearthsteel") or sourceText:find("Battle.net Shop") or sourceText:find("In%-Game Shop") then
         return SourceBadgeAtlas.shop
     end
 
-    if not HA.SourceTextParser or not HA.SourceTextParser.ParseSourceText
-        or not HA.SourceManager or not HA.SourceManager.NormalizeSourceType then
+    if not HA.SourceManager or not HA.SourceManager.NormalizeSourceType then
         return nil
     end
 
-    local locale = GetLocale and GetLocale() or "enUS"
-    local parsed = HA.SourceTextParser:ParseSourceText(sourceText, locale)
-    local firstSource = parsed and parsed.sources and parsed.sources[1]
+    local firstSource = parsedSources and parsedSources[1]
     if not firstSource or not firstSource.sourceType then
         return nil
     end
 
     local normalizedType = HA.SourceManager:NormalizeSourceType(firstSource.sourceType)
     return normalizedType and SourceBadgeAtlas[normalizedType]
+end
+
+-- Ownership-gate helper: does ANY parsed source block resolve to a treasure
+-- source, regardless of position? Block order in sourceText isn't guaranteed
+-- to put treasure first, and isn't even stable per item across captures, so
+-- the gate decision needs its own full scan rather than reusing
+-- GetSourceBadgeFromSourceText's result -- that function's first-block-wins
+-- contract stays as-is for its own caller (the ordinary no-static-badge
+-- fallback). Compares normalized sourceType directly instead of atlas
+-- strings, since Constants.SourceBadgeAtlas isn't one-to-one (shop and
+-- hearthsteel already share one atlas).
+local function SourceTextHasTreasureSource(parsedSources)
+    if not parsedSources or not HA.SourceManager or not HA.SourceManager.NormalizeSourceType then
+        return false
+    end
+
+    for _, source in ipairs(parsedSources) do
+        if source.sourceType and HA.SourceManager:NormalizeSourceType(source.sourceType) == "treasure" then
+            return true
+        end
+    end
+    return false
 end
 
 -- Create or retrieve the badge texture for an entry frame.
@@ -516,11 +557,28 @@ UpdateEntryOverlay = function(entryFrame)
         -- Resolve sourceText once (frame entryInfo → API fallback) for badge + glow
         local sourceText = ResolveSourceText(entryInfo, itemID)
 
-        -- Badge: look up source atlas (static data first, then sourceText)
+        -- Badge: look up source atlas (static data first, then sourceText).
+        -- HS-241 Gate 2 finding: every item with a treasure sourceText also
+        -- carries a vendor/profession source Blizzard's catalog API resolves
+        -- statically, so the treasure fallback never won under plain
+        -- static-first priority. Ownership-gate it instead: while the item is
+        -- unowned, ANY treasure block in the parsed sourceText takes priority
+        -- over the static badge, whatever position it parsed at -- block
+        -- order isn't uniform across items or even stable per item across
+        -- captures. Once owned, the static badge wins as before. This is
+        -- scoped to treasure specifically -- any other fallback atlas still
+        -- only applies when the static lookup comes back empty.
         local presentation = GetCatalogPresentation(itemID)
-        local atlas = GetSourceBadgeAtlas(itemID, presentation)
-        if not atlas then
-            atlas = GetSourceBadgeFromSourceText(sourceText)
+        local staticAtlas = GetSourceBadgeAtlas(itemID, presentation)
+        local parsedSources = ParseSourceTextBlocks(sourceText)
+        local fallbackAtlas = GetSourceBadgeFromSourceText(sourceText, parsedSources)
+        local isOwned = presentation and presentation.catalogGlowState == "owned"
+
+        local atlas
+        if not isOwned and SourceTextHasTreasureSource(parsedSources) then
+            atlas = SourceBadgeAtlas.treasure
+        else
+            atlas = staticAtlas or fallbackAtlas
         end
 
         -- Glow: determine accessibility state
