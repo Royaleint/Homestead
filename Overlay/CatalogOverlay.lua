@@ -68,7 +68,6 @@ local BADGE_PADDING = 2
 local ATLAS_SIZE_OVERRIDE = {
     [SourceBadgeAtlas.profession] = 30,
     [SourceBadgeAtlas.drop] = 30,
-    [SourceBadgeAtlas.treasure] = 20,
 }
 
 -- Accessibility glow colors: {r, g, b, alpha}

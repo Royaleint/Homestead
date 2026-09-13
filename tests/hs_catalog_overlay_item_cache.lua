@@ -115,14 +115,13 @@ local eventCallbacks = {}
 
 local HA = {
     Constants = {
-        -- profession/drop/treasure are read at file scope for ATLAS_SIZE_OVERRIDE,
+        -- profession/drop are read at file scope for ATLAS_SIZE_OVERRIDE,
         -- so they must be present even though this test badges a vendor item.
         SourceBadgeAtlas = {
             vendor = "atlas-vendor",
             shop = "atlas-shop",
             profession = "atlas-profession",
             drop = "atlas-drop",
-            treasure = "atlas-treasure",
         },
     },
     Addon = { db = { profile = {} } },
