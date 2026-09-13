@@ -194,3 +194,55 @@ assert(badgeTexture2.atlas == Atlas.vendor,
     "a fresh frame bound to the now-owned item must resolve the vendor badge, not treasure")
 
 print("hs241_treasure_ownership_priority: post-flip re-bind is consistent ok")
+
+-------------------------------------------------------------------------------
+-- 4. Round-2 Gate 1 fix: the block-1 stub above can't catch an
+--    ownership-gate that only checks the FIRST parsed block, because it
+--    always hands back {sourceType="treasure"} regardless of the input
+--    string. This case drives item 246416's real, vendor-first sourceText
+--    (Home_Dev/scripts/exports raw_block, with the export's flattened
+--    field/block separators restored to |n/|n|n) through the REAL
+--    Data/SourceTextParser.lua, loading a second CatalogOverlay.lua instance
+--    so this pins the actual fix: an unowned item whose treasure block is
+--    NOT first must still show the treasure badge over the static one.
+-------------------------------------------------------------------------------
+
+local REAL_VENDOR_FIRST_TREASURE_SOURCE_TEXT =
+    "Vendor: Maku|nZone: Harandar|nCost: 150|Hcurrency:3316|n|n"
+    .. "Treasure: Reliquary's Lost Paint Supplies|nZone: Harandar"
+
+C_HousingCatalog.GetCatalogEntryInfoByItem = function()
+    return { sourceText = REAL_VENDOR_FIRST_TREASURE_SOURCE_TEXT }
+end
+
+local HA2 = {
+    Constants = { SourceBadgeAtlas = Atlas },
+    Addon = { db = { profile = {} } },
+    Events = { RegisterCallback = function() end },
+    Overlay = { RegisterExternalRefresher = function() end },
+    SourceManager = {
+        GetItemPresentation = function()
+            return { primarySourceBadgeAtlas = Atlas.vendor, catalogGlowState = "available" }
+        end,
+        NormalizeSourceType = function(_, sourceType) return sourceType end,
+    },
+}
+assert(loadfile(root .. "/Data/SourceTextLocaleProfiles.lua"))("Homestead", HA2)
+assert(loadfile(root .. "/Data/SourceTextParser.lua"))("Homestead", HA2)
+assert(loadfile(root .. "/Overlay/CatalogOverlay.lua"))("Homestead", HA2)
+
+-- Loading CatalogOverlay.lua again re-registers the shared view's
+-- OnInitializedFrame callback, overwriting capturedBindHandler/Owner with
+-- this second module instance's handler (module 1's tests above have
+-- already run and don't need it anymore).
+assert(capturedBindHandler, "second CatalogOverlay load did not register an OnInitializedFrame handler")
+
+local frame3 = NewEntryFrame()
+Bind(frame3, 9002)
+local badgeTexture3 = frame3.createdTextures[1]
+assert(badgeTexture3, "badge texture was never created for the vendor-first real sourceText case")
+assert(badgeTexture3.atlas == Atlas.treasure,
+    "unowned item 246416 (real, vendor-first sourceText parsed by the real SourceTextParser) must show "
+        .. "the treasure badge over the static vendor badge (got " .. tostring(badgeTexture3.atlas) .. ")")
+
+print("hs241_treasure_ownership_priority: real vendor-first sourceText still resolves treasure via full-scan gate ok")
