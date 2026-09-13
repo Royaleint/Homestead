@@ -6,7 +6,11 @@
 
     Badge shows the primary source type (vendor > quest > achievement >
     profession > event > drop > hearthsteel) using SourceManager priority
-    order, with a sourceText fallback for items not in static data.
+    order, with a sourceText fallback for items not in static data. One
+    exception: an unowned item with a treasure sourceText shows the treasure
+    badge ahead of its static badge, since treasure is otherwise never the
+    strongest source on record for an item Blizzard also resolves statically;
+    once owned, the static badge takes over again.
 
     Glow shows accessibility state:
     - Green: owned (at least 1 copy)
@@ -516,11 +520,25 @@ UpdateEntryOverlay = function(entryFrame)
         -- Resolve sourceText once (frame entryInfo → API fallback) for badge + glow
         local sourceText = ResolveSourceText(entryInfo, itemID)
 
-        -- Badge: look up source atlas (static data first, then sourceText)
+        -- Badge: look up source atlas (static data first, then sourceText).
+        -- HS-241 Gate 2 finding: every item with a treasure sourceText also
+        -- carries a vendor/profession source Blizzard's catalog API resolves
+        -- statically, so the treasure fallback never won under plain
+        -- static-first priority. Ownership-gate it instead: while the item is
+        -- unowned, a treasure-sourceType fallback takes priority over the
+        -- static badge; once owned, the static badge wins as before. This is
+        -- scoped to treasure specifically — any other fallback atlas still
+        -- only applies when the static lookup comes back empty.
         local presentation = GetCatalogPresentation(itemID)
-        local atlas = GetSourceBadgeAtlas(itemID, presentation)
-        if not atlas then
-            atlas = GetSourceBadgeFromSourceText(sourceText)
+        local staticAtlas = GetSourceBadgeAtlas(itemID, presentation)
+        local fallbackAtlas = GetSourceBadgeFromSourceText(sourceText)
+        local isOwned = presentation and presentation.catalogGlowState == "owned"
+
+        local atlas
+        if fallbackAtlas == SourceBadgeAtlas.treasure and not isOwned then
+            atlas = fallbackAtlas
+        else
+            atlas = staticAtlas or fallbackAtlas
         end
 
         -- Glow: determine accessibility state
