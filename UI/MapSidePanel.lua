@@ -565,24 +565,25 @@ local function FormatOwnershipExcludedInventoryText(stats)
         return nil
     end
 
+    -- Singular label only -- plurals are formed mechanically at :613
+    -- (label .. "s"), so every subclass here must have a regular plural.
     local subclassLabels = {
-        [Enum.ItemHousingSubclass.Room] = { "room plan", "room plans" },
-        [Enum.ItemHousingSubclass.Dye] = { "dye", "dyes" },
-        [Enum.ItemHousingSubclass.RoomCustomization] = { "customization", "customizations" },
-        [Enum.ItemHousingSubclass.ExteriorCustomization] = { "customization", "customizations" },
-        [Enum.ItemHousingSubclass.ServiceItem] = { "service item", "service items" },
+        [Enum.ItemHousingSubclass.Room] = "room plan",
+        [Enum.ItemHousingSubclass.Dye] = "dye",
+        [Enum.ItemHousingSubclass.RoomCustomization] = "customization",
+        [Enum.ItemHousingSubclass.ExteriorCustomization] = "customization",
+        [Enum.ItemHousingSubclass.ServiceItem] = "service item",
     }
 
-    -- Room/ExteriorCustomization share the "customization(s)" label pair
-    -- above, so keying by the singular label merges them automatically.
+    -- Room/ExteriorCustomization share the "customization" label above, so
+    -- keying by that label merges them automatically.
     local byLabel = {}
     local remainder = stats.excluded
     local excludedBySubclass = stats.excludedBySubclass
     if excludedBySubclass then
         for subclassID, count in pairs(excludedBySubclass) do
-            local labels = subclassLabels[subclassID]
-            if labels and count > 0 then
-                local singular = labels[1]
+            local singular = subclassLabels[subclassID]
+            if singular then
                 byLabel[singular] = (byLabel[singular] or 0) + count
                 remainder = remainder - count
             end
