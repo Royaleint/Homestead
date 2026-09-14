@@ -553,6 +553,71 @@ local function FormatPurchasabilityCountText(collected, total, locked)
     return BC.FormatCountText(collected, total, locked)
 end
 
+-- HS-338: a vendor whose every filter-matching item is ownership-excluded
+-- (total == 0, excluded > 0) has real stock — just nothing this addon can
+-- track ownership for. Names that stock by housing subclass instead of
+-- falling through to "No item data", which reads as an absence it isn't.
+-- Pure/self-contained (no upvalues but the global Enum) so it can be
+-- extracted and unit-tested standalone. Returns nil when there is nothing
+-- excluded to report, so callers can fall through to the existing guard.
+local function FormatOwnershipExcludedInventoryText(stats)
+    if not stats or (stats.excluded or 0) == 0 then
+        return nil
+    end
+
+    -- Singular label only -- plurals are formed mechanically at :613
+    -- (label .. "s"), so every subclass here must have a regular plural.
+    local subclassLabels = {
+        [Enum.ItemHousingSubclass.Room] = "room plan",
+        [Enum.ItemHousingSubclass.Dye] = "dye",
+        [Enum.ItemHousingSubclass.RoomCustomization] = "customization",
+        [Enum.ItemHousingSubclass.ExteriorCustomization] = "customization",
+        [Enum.ItemHousingSubclass.ServiceItem] = "service item",
+    }
+
+    -- Room/ExteriorCustomization share the "customization" label above, so
+    -- keying by that label merges them automatically.
+    local byLabel = {}
+    local remainder = stats.excluded
+    local excludedBySubclass = stats.excludedBySubclass
+    if excludedBySubclass then
+        for subclassID, count in pairs(excludedBySubclass) do
+            local singular = subclassLabels[subclassID]
+            if singular then
+                byLabel[singular] = (byLabel[singular] or 0) + count
+                remainder = remainder - count
+            end
+        end
+    end
+
+    -- Resolved subclasses sort by count desc then label; the unresolved
+    -- remainder ("housing item(s)") is a catch-all bucket, not a named
+    -- class, so it always trails last regardless of its count.
+    local parts = {}
+    for label, count in pairs(byLabel) do
+        parts[#parts + 1] = { label = label, count = count }
+    end
+
+    table.sort(parts, function(a, b)
+        if a.count ~= b.count then
+            return a.count > b.count
+        end
+        return a.label < b.label
+    end)
+
+    if remainder > 0 then
+        parts[#parts + 1] = { label = "housing item", count = remainder }
+    end
+
+    local segments = {}
+    for _, part in ipairs(parts) do
+        local label = part.count == 1 and part.label or (part.label .. "s")
+        segments[#segments + 1] = string.format("%d %s", part.count, label)
+    end
+
+    return table.concat(segments, ", ")
+end
+
 -- Check if an item has unmet requirements the player hasn't satisfied
 local function GetUnmetRequirements(itemID, npcID, presentation)
     local SM = HA.SourceManager
@@ -1459,6 +1524,7 @@ local function CreateVendorRow(parent)
     countText:SetPoint("TOPLEFT", icon, "BOTTOMRIGHT", 6, -2)
     countText:SetPoint("RIGHT", row, "RIGHT", -PADDING, 0)
     countText:SetJustifyH("LEFT")
+    countText:SetWordWrap(false)
     row.countText = countText
 
     -- Separator line
@@ -3175,26 +3241,29 @@ function MapSidePanel:RefreshSearchResults()
             local total = stats.total or 0
             local locked = stats.locked or 0
 
-            local countText, countColor
+            -- HS-338: a plans-only vendor (total == 0, excluded > 0) has real
+            -- stock the addon can't track ownership for — name it instead of
+            -- falling through to the dim "No item data" guard below.
+            local excludedText = total == 0 and FormatOwnershipExcludedInventoryText(stats) or nil
+
+            local countText, countColor, infoText
             if total > 0 then
                 countColor = COLOR_WHITE
-                if result.matchType == "item" then
-                    countText = string.format("%d match%s | %s",
-                        result.matchCount, result.matchCount == 1 and "" or "es",
-                        FormatPurchasabilityCountText(collected, total, locked))
-                else
-                    countText = FormatPurchasabilityCountText(collected, total, locked)
-                end
+                infoText = FormatPurchasabilityCountText(collected, total, locked)
+            elseif excludedText then
+                countColor = COLOR_WHITE
+                infoText = excludedText
             else
                 countColor = COLOR_DIM
-                local dataLabel = (panelSourceFilter ~= "all") and "No matching items" or "No item data"
-                if result.matchType == "item" then
-                    countText = string.format("%d match%s | %s",
-                        result.matchCount, result.matchCount == 1 and "" or "es",
-                        dataLabel)
-                else
-                    countText = dataLabel
-                end
+                infoText = (panelSourceFilter ~= "all") and "No matching items" or "No item data"
+            end
+
+            if result.matchType == "item" then
+                countText = string.format("%d match%s | %s",
+                    result.matchCount, result.matchCount == 1 and "" or "es",
+                    infoText)
+            else
+                countText = infoText
             end
 
             local isExpanded = (expandedVendorID == vendor.npcID)
@@ -3451,10 +3520,18 @@ function MapSidePanel:RefreshContent()
         local total = stats.total or 0
         local locked = stats.locked or 0
 
+        -- HS-338: a plans-only vendor (total == 0, excluded > 0) has real
+        -- stock the addon can't track ownership for — name it instead of
+        -- falling through to the dim "No item data" guard below.
+        local excludedText = total == 0 and FormatOwnershipExcludedInventoryText(stats) or nil
+
         local countText, countColor
         if total > 0 then
             countText = FormatPurchasabilityCountText(collected, total, locked)
             -- White base color — inline escapes handle segment coloring
+            countColor = COLOR_WHITE
+        elseif excludedText then
+            countText = excludedText
             countColor = COLOR_WHITE
         else
             if sourceFilter ~= "all" then
