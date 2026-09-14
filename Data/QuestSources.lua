@@ -1,7 +1,10 @@
 --[[
     Homestead - QuestSources
     Generated: 2026-08-18 21:27:58
-    Total entries: 277
+    Total entries: 276
+    Hand-corrected under HS-392 (2026-09-13): one refuted entry removed to
+    mirror the overrides file. See Home_Dev/.claude/reports/
+    hs392-quest-source-evidence.md for the held-back 250704 row.
 
     Quest source data for housing decor items.
     Regenerate with: python Home_Dev/scripts/generate_source_tables.py --table quest
@@ -175,7 +178,6 @@ HA.QuestSources = {
     [248810] = {questID = 35176, questName = "Keeping it Together"},
     [248938] = {questID = 60, questName = "Kobold Candles"},
     [249549] = {questID = 72515, questName = "Augmenting a Dragon"},
-    [250703] = {questID = 75456, questName = "News From Beneath"},
     [250704] = {questID = 74332, questName = "Luttrok"},
     [250912] = {questID = 76597, questName = "On New Wings"},
     [250920] = {questID = 93102, questName = "Decor Treasure Hunt"},
