@@ -61,7 +61,7 @@ assert(source:find('F:RequireModule("List", 1)', 1, true),
 local setRowsBody = extract("(local function SetListRows%(rows%).-\nend)", "SetListRows")
 local collapsed = (setRowsBody:gsub("%s+", " "))
 assert(collapsed == "local function SetListRows(rows) "
-    .. "listScrollBox:SetDataProvider(CreateDataProvider(rows), ScrollBoxConstants.RetainScrollPosition) end",
+    .. "State.listScrollBox:SetDataProvider(CreateDataProvider(rows), ScrollBoxConstants.RetainScrollPosition) end",
     "SetListRows must contain exactly one statement: the retained SetDataProvider call")
 assert(not source:find("ScrollToBegin", 1, true),
     "ScrollToBegin must not appear anywhere in UI/MapSidePanel.lua")
@@ -71,8 +71,8 @@ assert(not source:find("dataProvider:Flush", 1, true),
 -- SetListRows writes through the cached module local, and GetNativeHandles is
 -- called exactly once (in CreatePanel). Zero occurrences would leave
 -- listScrollBox nil; two or more mean the per-refresh handles allocation is back.
-assert(source:find("listScrollBox:SetDataProvider", 1, true),
-    "SetListRows must write through the cached listScrollBox")
+assert(source:find("State.listScrollBox:SetDataProvider", 1, true),
+    "SetListRows must write through the cached State.listScrollBox")
 assert(select(2, source:gsub("GetNativeHandles", "")) == 1,
     "GetNativeHandles must occur exactly once in the file, in CreatePanel")
 
@@ -92,8 +92,8 @@ end
 -- can be deleted with every other assert, mutation and luacheck still green,
 -- while each ScrollBox recycle leaks a fresh hidden frame.
 local resetBody = extract("(local function ResetListElement%(container%).-\nend)", "ResetListElement")
-assert(resetBody:find("FPU.ReleasePooledFrame(rowPool, content)", 1, true),
-    "ResetListElement must release the content frame with FPU.ReleasePooledFrame(rowPool, content)")
+assert(resetBody:find("FPU.ReleasePooledFrame(State.rowPool, content)", 1, true),
+    "ResetListElement must release the content frame with FPU.ReleasePooledFrame(State.rowPool, content)")
 
 -- Lua 5.1 fills a table constructor at once, so a RENDERERS table declared
 -- above the render functions would hold six nils.
@@ -132,7 +132,7 @@ end
 -- The plan's one deliberate parity deviation, pinned as a whole line so it can
 -- be neither dropped nor silently widened.
 local MAP_INFO_NIL_LINE = [[
-    if not mapInfo then HideAllNonVendorContent() SetListRows({}) expandedSummaryMapID = nil HideProgressBar() currentDisplayLevel = "zone" return end]]
+    if not mapInfo then HideAllNonVendorContent() SetListRows({}) State.expandedSummaryMapID = nil HideProgressBar() State.currentDisplayLevel = "zone" return end]]
 assert(source:find(MAP_INFO_NIL_LINE, 1, true),
     "the mapInfo-nil early return must clear the list with SetListRows({})")
 
@@ -152,29 +152,29 @@ print("hs291_mapsidepanel_list: string gates ok")
 
 local GUARDS = {
     { "G1 (preview map-shift reapply, line 214)", [[
-            if panelFrame and panelFrame:IsShown() and not isPoppedOut then
+            if State.panelFrame and State.panelFrame:IsShown() and not State.isPoppedOut then
                 if InCombatLockdown() then
-                    pendingDockedAction = "apply"]] },
+                    State.pendingDockedAction = "apply"]] },
     { "G2 (ShowPanel, apply docked integration)", [[
     -- Defer all docked map mutations until combat ends
     if InCombatLockdown() then
-        pendingDockedAction = "apply"]] },
+        State.pendingDockedAction = "apply"]] },
     { "G3 (HidePanel, defer map restoration)", [[
     -- Defer map restoration until combat ends
     if InCombatLockdown() then
-        pendingDockedAction = "remove"]] },
+        State.pendingDockedAction = "remove"]] },
     { "G4 (close detached, restore all map modifications)", [[
     -- 2. Restore all map modifications
     if InCombatLockdown() then
-        pendingDockedAction = "remove"]] },
+        State.pendingDockedAction = "remove"]] },
     { "G5 (map closed, defer restoration)", [[
                 if InCombatLockdown() then
                     -- Closing during combat; defer restoration. Cancel any pending]] },
     { "G6 (map maximized, external reposition)", [[
                     if InCombatLockdown() then
-                        mapShifted = false
-                        savedMapPoint = nil
-                        pendingDockedAction = "clear"]] },
+                        State.mapShifted = false
+                        State.savedMapPoint = nil
+                        State.pendingDockedAction = "clear"]] },
 }
 
 for _, guard in ipairs(GUARDS) do
@@ -210,17 +210,20 @@ print("hs291_mapsidepanel_list: renderer bodies ok")
 -- The constants are extracted rather than hard-coded: a test that pinned 24 for
 -- ITEM_GRID_INSET would keep passing after someone changed it in the module,
 -- which is the drift this gate exists to catch.
-local chunkParts = {}
+-- The constants now live in the Layout table (HS-445), so the extracted chunk
+-- needs its own Layout table for the declarations to assign into and for the
+-- two height functions below to read from.
+local chunkParts = { "local Layout = {}" }
 for _, name in ipairs({ "PANEL_WIDTH", "PADDING", "ITEM_ICON_SIZE", "ITEM_ICON_PAD",
                         "ITEM_GRID_INSET", "ITEM_RESULT_LINE_HEIGHT" }) do
-    assert(select(2, source:gsub("\nlocal " .. name .. " = ", "")) == 1,
+    assert(select(2, source:gsub("\nLayout%." .. name .. " = ", "")) == 1,
         "expected exactly one module-scope declaration of " .. name)
     chunkParts[#chunkParts + 1] =
-        extract("\n(local " .. name .. " = [^\n]*)", name .. " declaration")
+        extract("\n(Layout%." .. name .. " = [^\n]*)", name .. " declaration")
 end
 
 chunkParts[#chunkParts + 1] = extract(
-    "\n(local ICONS_PER_ROW = math%.floor%(.-\nif ICONS_PER_ROW < 1 then ICONS_PER_ROW = 1 end)",
+    "\n(Layout%.ICONS_PER_ROW = math%.floor%(.-\nif Layout%.ICONS_PER_ROW < 1 then Layout%.ICONS_PER_ROW = 1 end)",
     "the ICONS_PER_ROW declaration and its clamp")
 chunkParts[#chunkParts + 1] = extract(
     "\n(local function ComputeItemGridHeight%(itemCount%).-\nend)", "ComputeItemGridHeight")
@@ -228,7 +231,7 @@ chunkParts[#chunkParts + 1] = extract(
     "\n(local function ComputeItemSourceListHeight%(sourceCount%).-\nend)",
     "ComputeItemSourceListHeight")
 chunkParts[#chunkParts + 1] =
-    "return ICONS_PER_ROW, ComputeItemGridHeight, ComputeItemSourceListHeight"
+    "return Layout.ICONS_PER_ROW, ComputeItemGridHeight, ComputeItemSourceListHeight"
 
 local ICONS_PER_ROW, ComputeItemGridHeight, ComputeItemSourceListHeight =
     assert(loadstring(table.concat(chunkParts, "\n"), "height-helpers-extract"))()

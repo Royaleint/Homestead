@@ -35,11 +35,11 @@ assert(not options:find("button.selectedTexture ="),
     "options navigation must not recreate the removed selected texture")
 
 local sidePanel = read("UI/MapSidePanel.lua")
-assert(sidePanel:find('CreateFrame%("EditBox", nil, searchBar, "SearchBoxTemplate"%)'),
+assert(sidePanel:find('CreateFrame%("EditBox", nil, State%.searchBar, "SearchBoxTemplate"%)'),
     "map side-panel search must use SearchBoxTemplate")
-assert(sidePanel:find("FPU.AcquirePooledFrame%(iconPool, \"default\""),
+assert(sidePanel:find("FPU.AcquirePooledFrame%(State%.iconPool, \"default\""),
     "map side-panel icons must use the shared frame-pool helper")
-assert(sidePanel:find("FPU.ReleasePooledFrame%(iconPool, icon%)"),
+assert(sidePanel:find("FPU.ReleasePooledFrame%(State%.iconPool, icon%)"),
     "map side-panel icons must release through the shared frame-pool helper")
 assert(not sidePanel:find("local placeholder = searchBar:CreateFontString"),
     "map side-panel search must not retain a hand-rolled placeholder")

@@ -588,7 +588,7 @@ MapSidePanel = {
     end,
 }
 
-local schedulerChunk = "local pendingContentRefresh = false\n"
+local schedulerChunk = "local State = { pendingContentRefresh = false }\n"
     .. schedulerText
     .. "\nreturn ScheduleContentRefresh"
 local ScheduleContentRefresh = assert(loadstring(schedulerChunk, "ScheduleContentRefresh-extract"))()
