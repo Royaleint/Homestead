@@ -41,7 +41,7 @@ assert(sidePanel:find("FPU.AcquirePooledFrame%(State%.iconPool, \"default\""),
     "map side-panel icons must use the shared frame-pool helper")
 assert(sidePanel:find("FPU.ReleasePooledFrame%(State%.iconPool, icon%)"),
     "map side-panel icons must release through the shared frame-pool helper")
-assert(not sidePanel:find("local placeholder = searchBar:CreateFontString"),
+assert(not sidePanel:find("local placeholder = State.searchBar:CreateFontString"),
     "map side-panel search must not retain a hand-rolled placeholder")
 
 print("hs291_phase1_templates: ok")
