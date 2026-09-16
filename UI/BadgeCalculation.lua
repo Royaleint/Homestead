@@ -214,7 +214,6 @@ local function NewVendorStatsAccum()
         provisionalUnverified = 0,
         hasAnyVerifiableRequirements = false,
         lockedBlockerCounts = {},
-        excludedBySubclass = {},
     }
 end
 
@@ -243,11 +242,6 @@ local function AccumulateVendorItem(accum, itemID, vendor, sourceFilter)
     -- read "known, empty, all collected" instead of unknown.
     if matchesSourceFilter and IsOwnershipExcluded(itemID, presentation) then
         accum.excluded = accum.excluded + 1
-        local CS = HA.CatalogStore
-        local subclassID = CS and CS.GetHousingSubclass and CS:GetHousingSubclass(itemID)
-        if subclassID then
-            accum.excludedBySubclass[subclassID] = (accum.excludedBySubclass[subclassID] or 0) + 1
-        end
     elseif matchesSourceFilter then
         accum.hasMatchingItems = true
 
@@ -330,7 +324,6 @@ local function FinalizeVendorStatsAccum(accum)
             blockers = nil,
             total = 0,
             vendorOnly = 0,
-            excludedBySubclass = accum.excludedBySubclass,
         }
     end
 
@@ -365,7 +358,6 @@ local function FinalizeVendorStatsAccum(accum)
         blockers = blockers,
         total = accum.total,
         vendorOnly = accum.vendorOnly,
-        excludedBySubclass = accum.excludedBySubclass,
     }
 end
 
