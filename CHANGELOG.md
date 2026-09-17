@@ -2,6 +2,48 @@
 
 ---
 
+## Homestead v2.10.3 (09-16-2026)
+
+Vendor pins on more minimaps, a treasure badge in the housing catalog, and a batch of fixes for tooltips, vendor costs, and locked reputation items.
+
+---
+
+## Minimap
+
+**Vendor Pins on the Alternate Minimap**
+
+- Vendor pins now show on the alternate minimap the game switches to in some zones, not just the standard one.
+
+---
+
+## Housing Catalog
+
+**Treasure Badge**
+
+- Decor you haven't collected yet that comes from a treasure now shows a treasure badge in the housing catalog.
+
+---
+
+## Bug Fixes
+
+- Fixed items requiring a non-major faction's reputation always showing as locked, even when you had the required standing.
+- Fixed vendor costs sometimes showing a raw currency or item ID instead of its name.
+- Fixed tooltips occasionally showing an empty "[Homestead]" header with nothing underneath it.
+- Fixed the map side panel's search results not dimming properly when a filter excluded every matching item from a vendor.
+- Fixed an item you just collected occasionally staying uncollected until something else refreshed it.
+- Fixed decor from your professions sometimes keeping a wrong "can you make this" state even after you opened a profession window.
+
+---
+
+## Vendor Database
+
+**Corrections**
+
+- Removed a quest incorrectly listed as a source for **War Creche Teaching Crystal**. Its vendor source is unchanged.
+- **Filigree Moon Lamp** now shows the quest you need to complete to unlock it.
+
+---
+
 ## Homestead v2.10.2 (09-08-2026)
 
 A window that remembers where you left it, a smoother map side panel, and a Russian localization update.
