@@ -151,4 +151,9 @@ exclude_files = {
     "Home_Dev/reports/",
     "Home_Dev/scan-data/",
     "Home_Dev/tools/patch-discovery/output/",
+    "Home_Dev/scripts/att_cache/",
+    "Home_Dev/Homestead_Dev/",
+    "Home_Dev/.claude/reports/",
+    "Home_Dev/scripts/templates/",
+    "Home_Dev/scripts/verify-handynotes-export.lua",
 }
