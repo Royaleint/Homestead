@@ -242,9 +242,9 @@ end)
 assert(initOk, "Initialize() must not throw on a non-number schemaVersion: " .. tostring(initErr))
 
 -- Repaired to a real number and migrations ran to completion (idempotent
--- migrations still advance schemaVersion to the current version — 6 as of
--- HS-300's v5→v6 dead-key drop).
+-- migrations still advance schemaVersion to the current version — 7 as of
+-- HS-300's v6→v7 per-record stamp drop).
 assert(type(CorruptSchemaHA.Addon.db.global.schemaVersion) == "number")
-assert(CorruptSchemaHA.Addon.db.global.schemaVersion == 6)
+assert(CorruptSchemaHA.Addon.db.global.schemaVersion == 7)
 
 print("hs209_wiring_batch: M10a schemaVersion guard ok")
