@@ -40,6 +40,7 @@ Data\VendorStagedAdditions.lua
 Data\VendorData.lua
 Data\EndeavorsData.lua
 Data\DecorMapping.lua
+Data\RoomMapping.lua
 Data\CatalogStore.lua
 
 # Source Data (non-vendor acquisition)
