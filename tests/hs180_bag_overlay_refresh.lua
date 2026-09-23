@@ -1,4 +1,4 @@
--- luacheck: globals assert loadfile print io tonumber C_Item C_HousingCatalog wipe
+-- luacheck: globals assert loadfile print io tonumber C_Item C_HousingCatalog wipe time
 
 local root = (... or "."):gsub("\\\\", "/"):gsub("/+$", "")
 
@@ -85,6 +85,11 @@ assert(overlaySource:find(
 -- CatalogStore:IsDecorItem cache-first contract (HS-180 Gate 1 cycle 1 CRITICAL fix)
 -------------------------------------------------------------------------------
 
+-- WoW-provided global; CatalogStore:Initialize()'s migration chain
+-- (WriteV5Backup) stamps a savedAt time, same as hs209_wiring_batch.lua stubs
+-- it for the same call.
+time = function() return 1000 end
+
 local catalogProbeCalls = 0
 
 -- Mocks: a non-decor item (99999) with no ci record and no static
@@ -112,6 +117,7 @@ local CatalogHA = {
         RegisterModule = function() end,
         Debug = function() end,
     },
+    Constants = { VERSION = "test" },
     -- Warm session: a nil probe result is authoritative and may be
     -- session-negative-cached (see the HS-060 cold/nil hazard in CatalogStore).
     CatalogScanner = {
