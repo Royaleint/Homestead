@@ -318,9 +318,9 @@ end
 
 -- Check if an item is a housing decor item.
 -- Cache-first, four gates before any API call:
---   1. ci[itemID] — this store is canonical per-item state for decor items
---      only (see module header), so an existing record is already a positive
---      identification.
+--   1. ci[itemID] — a record is positive identification for decor only when
+--      the item's housing subclass is Decor or unresolved. ci also holds
+--      room-plan records (HS-451), which are never decor.
 --   2. itemIDToDecor[itemID] — the static DecorMapping index (seeded at
 --      Initialize, ~1710 known decor itemIDs) is a second positive gate; it
 --      also covers the HS-059 byItem-gap items that GetCatalogEntryInfoByItem
@@ -346,7 +346,13 @@ function CatalogStore:IsDecorItem(itemLink)
     end
 
     if ci and ci[itemID] then
-        return true
+        -- HS-451: ci also holds room-plan records. A record identifies decor
+        -- only for the Decor housing subclass; any other housing subclass is
+        -- never decor. nil (not a housing item, or unresolved) keeps the
+        -- existing positive answer.
+        local subclassID = self:GetHousingSubclass(itemID)
+        local decorSubclassID = Enum.ItemHousingSubclass and Enum.ItemHousingSubclass.Decor
+        return subclassID == nil or decorSubclassID == nil or subclassID == decorSubclassID
     end
 
     if itemIDToDecor[itemID] then

@@ -397,12 +397,11 @@ function ScanPersistence:SaveVendorData(scanData)
         -- per-item fires the same way CatalogScanner's own ProcessBatch does.
         HA.CatalogStore:BeginBatch()
         for _, item in ipairs(vendorRecord.items) do
-            -- Containment: never create a catalogItems record for a non-decor
-            -- housing item. CatalogStore:IsDecorItem gate 1 keys off catalog
-            -- membership — giving a room plan an entry would switch on bag/
-            -- merchant/tooltip ownership overlays we cannot compute for it
-            -- yet (Phase 2), printing "Not Owned" on an item whose ownership
-            -- is genuinely unknown.
+            -- Containment: this path writes catalogItems records for
+            -- Decor-subclass items only. Room-plan records come from the
+            -- catalog scanner (HS-451), and IsDecorItem never treats a
+            -- non-Decor housing record as decor, so bag/merchant/tooltip
+            -- overlays stay off for them.
             if item.itemID and item.subclassID == Enum.ItemHousingSubclass.Decor then
                 if item.requirements and #item.requirements > 0 then
                     HA.CatalogStore:SetRequirements(item.itemID, item.requirements)
