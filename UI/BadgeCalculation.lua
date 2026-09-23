@@ -158,10 +158,12 @@ local UNKNOWN_VENDOR_STATS = {
     vendorOnly = 0,
 }
 
--- HS-249: is this item's ownership knowable at all? Every housing subclass
--- except Decor resolves to no catalog entry, so its ownership reads as a hard
--- false that says nothing about the player. Mirrors the isOwned resolution
--- below, including the cache-only no-presentation fallback.
+-- HS-249/HS-451: is this item's ownership knowable at all? Decor resolves by
+-- itemID, and a Room plan resolves when it is in the curated RoomMapping;
+-- everything else (Dye, RoomCustomization, ExteriorCustomization,
+-- ServiceItem, and any unmapped Room plan) reads as a hard false that says
+-- nothing about the player. Mirrors the isOwned resolution below, including
+-- the cache-only no-presentation fallback.
 local function IsOwnershipExcluded(itemID, presentation)
     if presentation then
         return presentation.isOwnershipExcluded == true

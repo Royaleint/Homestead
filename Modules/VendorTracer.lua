@@ -194,12 +194,15 @@ function VendorTracer:GetMissingItemVendors()
         for _, item in ipairs(vendorItems) do
             local itemID = HA.VendorData:GetItemID(item)
             if itemID then
-                -- HS-249: this derives its own ownership rather than reading
-                -- BadgeCalculation, so it needs its own exclusion guard.
-                -- Housing items outside the Decor subclass resolve to no
-                -- catalog entry, so IsOwnedFresh answers a hard false for them
-                -- and every room plan on the vendor would be reported as
-                -- missing. Leave them out until Phase 2 can resolve ownership.
+                -- HS-249/HS-451: this derives its own ownership rather than
+                -- reading BadgeCalculation, so it needs its own exclusion
+                -- guard. Decor resolves by itemID, and a mapped Room plan
+                -- resolves through the curated RoomMapping; every other
+                -- non-Decor housing subclass (Dye, RoomCustomization,
+                -- ExteriorCustomization, ServiceItem, unmapped Room plans)
+                -- still resolves to no catalog entry, so IsOwnedFresh
+                -- answers a hard false for them and would be reported as
+                -- missing. Leave those out.
                 local ownershipExcluded = CS and CS.IsOwnershipUnknowable
                     and CS:IsOwnershipUnknowable(itemID)
 
