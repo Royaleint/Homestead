@@ -1,7 +1,7 @@
 --[[
     Homestead - QuestSources
-    Generated: 2026-08-18 21:27:58
-    Total entries: 276
+    Generated: 2026-09-23 10:35:37
+    Total entries: 279
     Hand-corrected under HS-392 (2026-09-13): one refuted entry removed to
     mirror the overrides file. See Home_Dev/.claude/reports/
     hs392-quest-source-evidence.md for the held-back 250704 row.
@@ -27,6 +27,7 @@ HA.QuestSources = {
     [236678] = {questID = 92967, questName = "Decor Treasure Hunt"},
     [239075] = {questID = 92986, questName = "Decor Treasure Hunt"},
     [239606] = {questID = 46931, questName = "Speaker of the Horde"},
+    [241043] = {questID = 38201, questName = "Missive: Assault on Shattrath Harbor"},
     [241617] = {questID = 93143, questName = "Decor Treasure Hunt"},
     [241618] = {questID = 93000, questName = "Decor Treasure Hunt"},
     [241620] = {questID = 93150, questName = "Decor Treasure Hunt"},
@@ -182,9 +183,11 @@ HA.QuestSources = {
     [250912] = {questID = 76597, questName = "On New Wings"},
     [250920] = {questID = 93102, questName = "Decor Treasure Hunt"},
     [251022] = {questID = 78864, questName = "The Returning"},
+    [251329] = {questID = 38197, questName = "Missive: Assault on Socrethar's Rise"},
     [251330] = {questID = 34792, questName = "The Traitor's True Name"},
     [251477] = {questID = 36169, questName = "The Trial of Champions"},
     [251480] = {questID = 44004, questName = "Bringer of the Light"},
+    [251547] = {questID = 36685, questName = "Assault on the Heart of Shattrath"},
     [251548] = {questID = 34792, questName = "The Traitor's True Name"},
     [251654] = {questID = 33256, questName = "The Defense of Karabor"},
     [251914] = {questID = 88941, questName = "For Quel'Thalas"},
