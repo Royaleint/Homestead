@@ -242,6 +242,25 @@ local function ScanItem(itemID)
         end
     end
 
+    -- HS-451: Room plans resolve only by recordID with entryType 2.
+    if catalogStore and catalogStore.GetRoomIDFromItemID and catalogStore.ProbeByRoomID then
+        local roomID = catalogStore:GetRoomIDFromItemID(itemID)
+        if roomID then
+            local info = catalogStore:ProbeByRoomID(roomID)
+            if info then
+                local result = BuildScanResult(itemID, info)
+                -- With the deprecation shim loaded, info.entryID.recordID is the
+                -- ROOM recordID, and ProcessBatch writes result.recordID as
+                -- decorID. A room result must carry no recordID.
+                result.recordID = nil
+                -- Room catalog text is not parsed into sources/requirements
+                -- (HS-451 scope is ownership only).
+                result.sourceText = nil
+                return result
+            end
+        end
+    end
+
     return byItemResult
 end
 

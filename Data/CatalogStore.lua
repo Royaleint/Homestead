@@ -40,6 +40,11 @@ local pcall = pcall
 local ci = nil              -- shorthand for db.global.catalogItems (set on Initialize)
 local decorToItemID = {}    -- reverse index: decorID → itemID
 local itemIDToDecor = {}    -- forward index: itemID → decorID (for byRecordID fallback probes)
+local roomToItemID = {}     -- reverse index: roomRecordID -> itemID (static RoomMapping only)
+local itemIDToRoom = {}     -- forward index: itemID -> roomRecordID
+-- Enum.HousingCatalogEntryType.Room. A literal, like the existing `1` at the
+-- decor call sites: the Enum table is not read at file scope.
+local ENTRY_TYPE_ROOM = 2
 local ownedCount = 0        -- cached count of owned items (incremented in SetOwned)
 -- HS-209 H3: nesting depth for BeginBatch/EndBatch, not a boolean. Two
 -- independent callers can hold a batch open at once (CatalogScanner's scan
@@ -160,8 +165,16 @@ end
 --   3. Counter: decrement ownedCount only if catalogItems had isOwned=true
 --   4. Cache: bump negativeGeneration on effective ownership change
 --   5. Event: fire OWNERSHIP_UPDATED on transition only; respect batch depth
+--
+-- No-op for mapped room plans (HS-451).
 function CatalogStore:SetUnowned(itemID)
     if not itemID then return end
+
+    -- HS-451: room-plan ownership only moves unowned -> owned. The erase warm
+    -- gate is proven for decor counts only, a stale-0 Room read would erase a
+    -- real room, and no API reports "not owned" as a positive signal.
+    -- /hs clear-ownership (ClearAll) remains the manual reset.
+    if itemIDToRoom[itemID] then return end
 
     -- 1. Detect current ownership state (catalogItems is counter authority)
     local wasOwnedInCatalog = false
@@ -432,17 +445,16 @@ function CatalogStore:GetHousingSubclass(itemID)
     return subClassID
 end
 
--- HS-249: true when this item is a housing item whose ownership Homestead
--- cannot yet resolve. Only ItemHousingSubclass.Decor maps to a housing catalog
--- entry, so every other housing subclass (Dye, Room, RoomCustomization,
--- ExteriorCustomization, ServiceItem) falls through IsOwned's hard `false` and
--- would be counted as "not owned" — a badge telling the player to buy a room
--- they already own. Such items must be left out of ownership-derived counts
--- entirely rather than defaulted to unowned.
+-- HS-249/HS-451: true when this item is a housing item whose ownership
+-- Homestead cannot read from a live API. Decor resolves by itemID. A Room
+-- plan resolves only when it is in the curated RoomMapping, through
+-- GetCatalogEntryInfoByRecordID(2, roomRecordID). Everything else stays
+-- unknowable: Dye (a consumable, not a collectible), RoomCustomization,
+-- ExteriorCustomization, ServiceItem, and any unmapped Room plan. Such items
+-- are left out of ownership-derived counts rather than defaulted to "not
+-- owned". This predicate is permanent; it does not retire as rooms resolve.
 --
--- Everything else — decor, and any non-housing item — answers false, so the
--- existing counts are unchanged. Phase 2 resolves itemID → recordID for the
--- other subclasses and this predicate goes away with it.
+-- Everything else (decor, and any non-housing item) answers false.
 function CatalogStore:IsOwnershipUnknowable(itemID)
     local subclassID = self:GetHousingSubclass(itemID)
     if subclassID == nil then return false end
@@ -453,7 +465,8 @@ function CatalogStore:IsOwnershipUnknowable(itemID)
     local decorSubclassID = Enum.ItemHousingSubclass and Enum.ItemHousingSubclass.Decor
     if decorSubclassID == nil then return false end
 
-    return subclassID ~= decorSubclassID
+    if subclassID == decorSubclassID then return false end
+    return itemIDToRoom[itemID] == nil
 end
 
 -- Raw record access (no allocation, direct table reference)
@@ -534,6 +547,25 @@ function CatalogStore:IsOwnedFresh(itemID, readOnly)
         end
     end
 
+    -- HS-451 stage 5: Room byRecordID via the static room index.
+    local roomID = itemIDToRoom[itemID]
+    if roomID then
+        if not readOnly then
+            local info = self:ProbeByRoomID(roomID)
+            if self:ComputeOwnedFromInfo(info) then
+                return true
+            end
+        else
+            local CHC = _G.C_HousingCatalog
+            if CHC and CHC.GetCatalogEntryInfoByRecordID then
+                local ok, info = pcall(CHC.GetCatalogEntryInfoByRecordID, ENTRY_TYPE_ROOM, roomID)
+                if ok and self:ComputeOwnedFromInfo(info) then
+                    return true
+                end
+            end
+        end
+    end
+
     return false
 end
 
@@ -560,6 +592,13 @@ function CatalogStore:GetDecorIDFromItemID(itemID)
         end
     end
     return itemIDToDecor[itemID]
+end
+
+-- HS-451: itemID -> roomRecordID from the static RoomMapping index. No runtime
+-- overlay exists: GetCatalogEntryInfoByItem never resolves a room plan.
+function CatalogStore:GetRoomIDFromItemID(itemID)
+    if not itemID then return nil end
+    return itemIDToRoom[itemID]
 end
 
 -- Get item-level requirements
@@ -675,6 +714,19 @@ function CatalogStore:BuildDecorIndex()
     end
 end
 
+-- HS-451: rebuild roomRecordID <-> itemID indexes from the static RoomMapping.
+function CatalogStore:BuildRoomIndex()
+    roomToItemID = {}
+    itemIDToRoom = {}
+    local staticMapping = HA.RoomMapping
+    if staticMapping then
+        for roomID, itemID in pairs(staticMapping) do
+            roomToItemID[roomID] = itemID
+            itemIDToRoom[itemID] = roomID
+        end
+    end
+end
+
 -- Probe ownership by decorID using the safe GetCatalogEntryInfoByRecordID API.
 -- Use for edge cases where we have a decorID but need ownership confirmation.
 -- Returns: info table from API, or nil
@@ -696,6 +748,25 @@ function CatalogStore:ProbeByDecorID(decorID)
         return info
     end
 
+    return nil
+end
+
+-- HS-451: Room twin of ProbeByDecorID (entryType 2). Writes only on a positive
+-- read, and never a decorID: a room recordID must never enter the decor
+-- indexes, where it would collide with an unrelated real decorID (see
+-- Overlay/Tooltips.lua's entryType gate). Never erases (see SetUnowned).
+function CatalogStore:ProbeByRoomID(roomID)
+    if not roomID then return nil end
+    local CHC = _G.C_HousingCatalog
+    if not CHC or not CHC.GetCatalogEntryInfoByRecordID then return nil end
+    local ok, info = pcall(CHC.GetCatalogEntryInfoByRecordID, ENTRY_TYPE_ROOM, roomID)
+    if ok and info then
+        local itemID = roomToItemID[roomID]
+        if itemID and self:ComputeOwnedFromInfo(info) then
+            self:SetOwned(itemID, info.name, nil)
+        end
+        return info
+    end
     return nil
 end
 
@@ -1035,6 +1106,7 @@ function CatalogStore:Initialize()
 
     -- Build reverse index (seeds from DecorMapping + runtime data)
     self:BuildDecorIndex()
+    self:BuildRoomIndex()
 
     -- Initialize owned count from full table scan (one-time at startup)
     ownedCount = 0
@@ -1056,9 +1128,13 @@ function CatalogStore:Initialize()
     local indexSize = 0
     for _ in pairs(decorToItemID) do indexSize = indexSize + 1 end
 
+    local roomIndexSize = 0
+    for _ in pairs(itemIDToRoom) do roomIndexSize = roomIndexSize + 1 end
+
     if HA.Addon then
         HA.Addon:Debug("CatalogStore: Initialized with", totalItems, "items,",
             ownedCount, "owned,", indexSize, "decorID mappings (" .. staticCount .. " static),",
+            roomIndexSize, "room mappings,",
             "schema v" .. (HA.Addon.db.global.schemaVersion or 1))
     end
 end
