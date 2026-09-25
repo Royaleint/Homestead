@@ -15432,6 +15432,34 @@ local ManualOverrides = {
         [272445] = { price = 0, currencies = {{id = 3316, amount = 200}}, isUsable = true, isPurchasable = true, merchantSlot = 11, hasExtendedCost = true, displayOrder = 999999 }, -- Decorative Dornogal Opal (merchantSlot corrected 10->11 per 2026-08-23 scan)
         [272446] = { price = 0, currencies = {{id = 3316, amount = 200}}, isUsable = true, isPurchasable = true, merchantSlot = 12, hasExtendedCost = true, displayOrder = 999999 }, -- Large Decorative Dornogal Opal
     },
+    -- Live merchant capture, client 12.1.0.69404, 2026-08-23; currency only, gold
+    -- untouched (HS-341, HS-371).
+    [85932] = { -- Vindicator Nuurem (Stormshield)
+        [245423] = { price = 0, currencies = {{id = 824, amount = 150}}, isUsable = true, displayOrder = 1 }, -- Spherical Draenic Topiary (was g=0 c824:250)
+        [251476] = { price = 0, currencies = {{id = 824, amount = 350}}, isUsable = true, displayOrder = 2 }, -- Embroidered Embaari Tent (was g=0 c824:1000)
+        [251479] = { price = 0, currencies = {{id = 824, amount = 350}}, isUsable = true, displayOrder = 3 }, -- Shadowmoon Greenhouse (was g=0 c824:1500)
+        [251481] = { price = 0, currencies = {{id = 824, amount = 250}}, isUsable = true, displayOrder = 4 }, -- Elodor Armory Rack (was g=0 c824:500)
+        [251483] = { price = 0, currencies = {{id = 824, amount = 150}}, isUsable = true, displayOrder = 5 }, -- Draenethyst Lantern (was g=0 c824:250)
+        [251484] = { price = 0, currencies = {{id = 824, amount = 350}}, isUsable = true, displayOrder = 6 }, -- "Dawning Hope" Mosaic (was g=0 c824:1000)
+        [251493] = { price = 0, currencies = {{id = 824, amount = 250}}, isUsable = true, displayOrder = 7 }, -- Small Karabor Fountain (was g=0 c824:500)
+        [251551] = { price = 0, currencies = {{id = 824, amount = 350}}, isUsable = true, displayOrder = 8 }, -- Grand Draenethyst Lamp (was g=0 c824:1500)
+    },
+    [85946] = { -- Shadow-Sage Brakoss (Stormshield)
+        [258743] = { price = 3200000, currencies = {{id = 823, amount = 350}}, isUsable = true, displayOrder = 1 }, -- Arakkoan Alchemy Tools (was g=3200000 c823:800)
+        [258746] = { price = 6000000, currencies = {{id = 823, amount = 450}}, isUsable = true, displayOrder = 2 }, -- High Arakkoan Alchemist's Shelf (was g=6000000 c823:1500)
+        [258747] = { price = 2800000, currencies = {{id = 823, amount = 300}}, isUsable = true, displayOrder = 3 }, -- High Arakkoan Shelf (was g=2800000 c823:700)
+    },
+    [85950] = { -- Trader Caerel (Stormshield)
+        [245425] = { price = 3000000, currencies = {{id = 823, amount = 250}}, isUsable = true, displayOrder = 1 }, -- Hanging Draenethyst Light (was g=3000000 c823:500)
+        [251330] = { price = 1000000, currencies = {{id = 823, amount = 150}}, isUsable = true, displayOrder = 2 }, -- Draenic Fencepost (was g=1000000 c823:300)
+        [251477] = { price = 5000000, currencies = {{id = 824, amount = 400}}, isUsable = true, displayOrder = 3 }, -- Draenic Wooden Table (was g=5000000 c824:1000)
+        [251478] = { price = 5000000, currencies = {{id = 823, amount = 350}}, isUsable = true, displayOrder = 4 }, -- Square Draenic Table (was g=5000000 c823:1000)
+        [251548] = { price = 3000000, currencies = {{id = 823, amount = 250}}, isUsable = true, displayOrder = 5 }, -- Draenic Fence (was g=3000000 c823:500)
+        [251549] = { price = 0, currencies = {{id = 824, amount = 500}}, isUsable = true, displayOrder = 6 }, -- Emblem of the Naaru's Blessing (was g=0 c824:2000)
+        [251640] = { price = 5000000, currencies = {{id = 823, amount = 350}}, isUsable = true, displayOrder = 7 }, -- Draenic Forge (was g=5000000 c823:1000)
+        [251653] = { price = 5000000, currencies = {{id = 824, amount = 400}}, isUsable = true, displayOrder = 8 }, -- Draenethyst Lamppost (was g=5000000 c824:1000)
+        [251654] = { price = 8000000, currencies = {{id = 823, amount = 500}}, isUsable = true, displayOrder = 9 }, -- Large Karabor Fountain (was g=8000000 c823:2000)
+    },
 }
 
 -- TOMBSTONES: bare itemID or "npcID:itemID" string key to suppress from all offer output.
