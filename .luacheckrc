@@ -92,6 +92,7 @@ read_globals = {
     "C_MajorFactions",
     "C_QuestLog",
     "C_Reputation",
+    "C_SpellBook",
     "C_SuperTrack",
     "C_TaxiMap",  -- HS-347: flight point dodge candidates
     "C_Timer",

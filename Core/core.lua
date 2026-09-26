@@ -282,6 +282,11 @@ function HousingAddon:OnEnable()
         HA.CatalogScanner:Initialize()
     end
 
+    -- Reverse reagent index for the reagent tooltip line
+    if HA.ReagentIndex then
+        HA.ReagentIndex:Initialize()
+    end
+
     -- Initialize VendorScanner for automatic vendor discovery
     if HA.VendorScanner then
         HA.VendorScanner:Initialize()
