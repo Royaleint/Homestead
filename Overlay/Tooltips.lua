@@ -894,7 +894,9 @@ local function CreateHeaderGate(tooltip)
     return gate
 end
 
-local function AddDecorInfoToTooltip(tooltip, itemLink)
+-- gate: optional header gate from the caller, shared with the reagent line
+-- so both render under one [Homestead] header.
+local function AddDecorInfoToTooltip(tooltip, itemLink, gate)
     if not itemLink then return end
 
     -- Check if tooltip additions are enabled
@@ -930,7 +932,7 @@ local function AddDecorInfoToTooltip(tooltip, itemLink)
     -- Gate the [Homestead] separator+header behind the first content line
     -- below so a fully-suppressed tooltip (source off, no reputation lines,
     -- etc.) never leaves a dangling header with nothing under it (HS-349).
-    local gatedTooltip = CreateHeaderGate(tooltip)
+    local gatedTooltip = gate or CreateHeaderGate(tooltip)
 
     -- Resolve vendor NPC scope for availability classification
     local vendorNpcID = nil
@@ -1280,6 +1282,23 @@ function HA.SetManagedItemTooltip(tooltip, itemID)
 end
 
 -------------------------------------------------------------------------------
+-- Reagent line: learned, unowned decor recipes that use this item
+-------------------------------------------------------------------------------
+
+local function GetReagentUsageCount(itemLink)
+    local db = HA.Addon and HA.Addon.db and HA.Addon.db.profile.tooltip
+    if db and not db.enabled then return 0 end
+    if not HA.ReagentIndex then return 0 end
+    return HA.ReagentIndex:GetMissingDecorCount(GetItemIDFromLink(itemLink))
+end
+
+local function AddReagentUsageLine(gate, count)
+    local key = (count == 1) and "Used in %d known recipe for decor you haven't collected"
+        or "Used in %d known recipes for decor you haven't collected"
+    gate:AddLine(string.format(HA.L[key], count), COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
+end
+
+-------------------------------------------------------------------------------
 -- Tooltip Hooking (Modern API - TooltipDataProcessor)
 -------------------------------------------------------------------------------
 
@@ -1297,7 +1316,15 @@ local function OnTooltipSetItem(tooltip, data)
     end
 
     if itemLink then
-        AddDecorInfoToTooltip(tooltip, itemLink)
+        -- A reagent line needs a header even on a non-decor item, so the
+        -- gate is created here and shared; otherwise the decor block makes
+        -- its own (HS-349).
+        local reagentCount = GetReagentUsageCount(itemLink)
+        local gate = (reagentCount > 0) and CreateHeaderGate(tooltip) or nil
+        AddDecorInfoToTooltip(tooltip, itemLink, gate)
+        if reagentCount > 0 then
+            AddReagentUsageLine(gate, reagentCount)
+        end
     end
 end
 
