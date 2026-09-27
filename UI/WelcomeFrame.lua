@@ -12,7 +12,7 @@ local welcomeFrame = nil
 
 -- Layout constants
 local FRAME_WIDTH = 700
-local FRAME_HEIGHT = 727
+local FRAME_HEIGHT = 752
 local PADDING = 25
 local CONTENT_WIDTH = FRAME_WIDTH - (PADDING * 2) - 24  -- account for border insets
 local SECTION_GAP = 14
@@ -67,7 +67,18 @@ local function AddParagraph(parent, anchor, text, gap)
     return fs
 end
 
-local function AddFeatureRow(parent, anchor, iconPath, heading, body, gap)
+-- iconDef is a texture path string, or a table { atlas = "..." } for an
+-- atlas-backed icon (e.g. the map-pin atlases, which have no texture-file
+-- equivalent).
+local function ApplyRowIcon(icon, iconDef)
+    if type(iconDef) == "table" and iconDef.atlas then
+        icon:SetAtlas(iconDef.atlas, false)
+    else
+        icon:SetTexture(iconDef)
+    end
+end
+
+local function AddFeatureRow(parent, anchor, iconDef, heading, body, gap)
     local row = CreateFrame("Frame", nil, parent)
     row:SetPoint("TOPLEFT", anchor, "BOTTOMLEFT", 0, -(gap or FEATURE_GAP))
     row:SetPoint("RIGHT", parent, "RIGHT", 0, 0)
@@ -75,7 +86,7 @@ local function AddFeatureRow(parent, anchor, iconPath, heading, body, gap)
     local icon = row:CreateTexture(nil, "ARTWORK")
     icon:SetSize(FEATURE_ICON_SIZE, FEATURE_ICON_SIZE)
     icon:SetPoint("TOPLEFT", 0, 0)
-    icon:SetTexture(iconPath)
+    ApplyRowIcon(icon, iconDef)
 
     local textLeft = FEATURE_ICON_SIZE + 10
     local textWidth = CONTENT_WIDTH - textLeft
@@ -188,7 +199,7 @@ local function CreateWelcomeFrame()
 
     local tagline = frame:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
     tagline:SetPoint("TOP", title, "BOTTOM", -15, -12)
-    tagline:SetText("|cFFFFD100Every decor vendor on your map \226\128\148 see what you own before you buy.|r")
+    tagline:SetText("|cFFFFD100Every decor vendor on your map, so you know what you own before you buy.|r")
 
     -- =========================================================================
     -- Content area
@@ -211,18 +222,18 @@ local function CreateWelcomeFrame()
     local sec1Header = AddHeader(content, topAnchor, "What Homestead Does", 2)
 
     local bullet1 = AddFeatureRow(content, sec1Header,
-        "Interface\\Icons\\INV_Misc_Map_01",
+        { atlas = "housing-decor-vendor_32" },
         "Map Pins",
         "Every decor vendor pinned on your world map and minimap, with badges showing how many items you still need per zone.",
         8)
 
     local bullet2 = AddFeatureRow(content, bullet1,
-        HA.Constants.TEXTURE_ROOT .. "icon",
-        "Homestead Panel",
-        "Open your world map and click the Homestead icon to reveal the panel showing all vendors in your current zone. Click any vendor to browse their wares, your collection status, and what you can or can't buy. Use |cFF00FF00/hs panel|r for a standalone window.",
+        HA.Constants.Icons.MINIMAP,
+        "Map Side Panel",
+        "Click the Homestead button on the world map to open the side panel listing that zone's vendors, then click any vendor to browse their wares and collection status. Pop it out as a standalone window with |cFF00FF00/hs panel|r or by right-clicking the minimap button.",
         FEATURE_GAP)
 
-    -- Bullet 3: Tooltips Expanded — custom layout to accommodate right-floated mock tooltip
+    -- Bullet 3: Tooltips Expanded. Custom layout to accommodate right-floated mock tooltip.
     local TOOLTIP_W = 185
     local TOOLTIP_GAP = 10  -- gap between text column and tooltip mock
     local b3TextLeft = FEATURE_ICON_SIZE + 10
@@ -235,7 +246,7 @@ local function CreateWelcomeFrame()
     local b3Icon = bullet3:CreateTexture(nil, "ARTWORK")
     b3Icon:SetSize(FEATURE_ICON_SIZE, FEATURE_ICON_SIZE)
     b3Icon:SetPoint("TOPLEFT", 0, 0)
-    b3Icon:SetTexture("Interface\\Icons\\INV_Inscription_ScrollOfWisdom_01")
+    b3Icon:SetTexture("Interface\\FriendsFrame\\InformationIcon")
 
     local b3Heading = bullet3:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
     b3Heading:SetPoint("TOPLEFT", b3TextLeft, 0)
@@ -250,7 +261,7 @@ local function CreateWelcomeFrame()
     b3Body:SetWidth(b3TextWidth)
     b3Body:SetJustifyH("LEFT")
     b3Body:SetSpacing(2)
-    b3Body:SetText("Every item in the Housing Catalog gets enriched tooltips showing where it comes from and exactly what it costs \226\128\148 vendor, quest, achievement, profession, or drop \226\128\148 so you never have to leave the game or dig through another addon panel to look something up.")
+    b3Body:SetText("Every item in the Housing Catalog gets enriched tooltips showing where it comes from and exactly what it costs, whether that's a vendor, quest, achievement, profession, or drop, so you never have to leave the game or dig through another addon panel to look something up.")
 
     local b3HeadingH = b3Heading:GetStringHeight()
     local b3BodyH = b3Body:GetStringHeight()
@@ -275,13 +286,14 @@ local function CreateWelcomeFrame()
     local cmd1 = AddCommand(content, sec2Header, "/hs", "Open options & settings", 6)
     local cmd2 = AddCommand(content, cmd1, "/hs exportall", "Export everything you've scanned")
     local cmd3 = AddCommand(content, cmd2, "/hs help", "Show all commands")
+    local cmd4 = AddCommand(content, cmd3, "Right-click minimap button", "Open the standalone vendor panel")
 
     -- =====================================================================
     -- SECTION 3: Found a Problem?
     -- =====================================================================
 
     local sec3Header = content:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
-    sec3Header:SetPoint("TOP", cmd3, "BOTTOM", 0, -(SECTION_GAP + 10))
+    sec3Header:SetPoint("TOP", cmd4, "BOTTOM", 0, -(SECTION_GAP + 10))
     sec3Header:SetWidth(CONTENT_WIDTH)
     sec3Header:SetJustifyH("CENTER")
     sec3Header:SetText("|cFFFFD100Found a Problem?|r")
@@ -352,12 +364,12 @@ function WelcomeFrame:Hide()
             end
             -- HS-224 (product decision, 2026-07-19): closing the
             -- Welcome screen no longer stamps lastSeenVersion. The old stamp
-            -- silently consumed What's New for the version — with the HS-219
+            -- silently consumed What's New for the version. With the HS-219
             -- stacking gate, that meant acknowledging Welcome ate the What's
             -- New popup entirely. Now What's New auto-shows on the next login
             -- after the Welcome is out of the way, exactly what the gate was
             -- designed to sequence. (WhatsNewFrame stamps lastSeenVersion
-            -- itself when IT is shown — the field keeps a single owner.)
+            -- itself when IT is shown; the field keeps a single owner.)
         end
         if HA.Analytics then
             HA.Analytics:IncrementCounter("WelcomeScreenClosed")
