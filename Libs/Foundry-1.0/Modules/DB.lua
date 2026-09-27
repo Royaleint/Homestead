@@ -24,30 +24,42 @@ if F:HasModule("DB") then return end
 -- redundant copy of THE SAME core, but not this cross-version graft: TOC load
 -- order is Foundry -> Commands -> Events -> Lifecycle -> DB -> List, so a
 -- consumer embedding a NEWER Foundry when an OLDER standalone already won
--- _G.Foundry_1_0 runs this newer DB.lua against the OLD core, which has no DB
--- module and no post-logout seam. Grafting would defer the failure to a
--- cryptic "_RegisterPostLogout (a nil value)" deep in :New.
+-- _G.Foundry_1_0 runs this newer DB.lua against the OLD core, which is missing
+-- one or both of the two seams this DB.lua needs from Lifecycle: the
+-- post-logout strip registration, and (added alongside the addon-loaded
+-- identity hold) the shared player-identity check. Grafting would defer the
+-- failure to a cryptic nil-value error deep in :New instead.
 --
--- Feature-detect the exact seam DB needs (the function itself, not an
+-- Feature-detect the exact seams DB needs (the functions themselves, not an
 -- API_VERSION number, so the check can't drift and tolerates a core with no
--- Lifecycle at all) and stand down if absent: a clear load-time error plus an
--- absent F.DB beats a cryptic deep crash mid-session. Provably inert on the
+-- Lifecycle at all) and stand down if either is absent: a clear load-time
+-- error plus an absent F.DB beats a cryptic deep crash mid-session. Provably
+-- inert on the
 -- normal load, since Lifecycle always loads before DB.
 if type(F.Lifecycle) ~= "table"
-    or type(F.Lifecycle._RegisterPostLogout) ~= "function" then
+    or type(F.Lifecycle._RegisterPostLogout) ~= "function"
+    or type(F.Lifecycle._PlayerIdentity) ~= "function" then
     F:RaiseDevError("DB requires Lifecycle's post-logout seam "
-        .. "(F.Lifecycle._RegisterPostLogout), which the Foundry core serving this "
-        .. "session does not provide. This embedded Foundry is " .. tostring(F.VERSION)
-        .. " (API_VERSION " .. tostring(F.API_VERSION) .. "), but an older standalone "
-        .. "Foundry addon won the runtime and is serving everyone. Update the standalone "
-        .. "Foundry addon to at least this version. DB is unavailable this session.")
+        .. "(F.Lifecycle._RegisterPostLogout) and its player-identity check "
+        .. "(F.Lifecycle._PlayerIdentity), which the Foundry core serving this "
+        .. "session does not provide. The Foundry core serving this session reports "
+        .. "version " .. tostring(F.VERSION) .. " (API_VERSION " .. tostring(F.API_VERSION)
+        .. "), from " .. tostring(F.SOURCE) .. ". This has two possible causes: either "
+        .. "an older standalone Foundry addon won the runtime and is serving everyone "
+        .. "(update that addon to a newer version), or Foundry's files loaded in the "
+        .. "wrong order and Lifecycle has not run yet (load through Foundry-1.0.xml, "
+        .. "or list Lifecycle ahead of DB by hand). DB is unavailable this session.")
     return
 end
 if type(F.Events) ~= "table" or type(F.Events.New) ~= "function" then
     F:RaiseDevError("DB requires Foundry.Events, which the Foundry core serving this "
-        .. "session does not provide. This embedded Foundry is " .. tostring(F.VERSION)
-        .. " but an older standalone Foundry addon won the runtime. Update the "
-        .. "standalone Foundry addon to at least this version. DB is unavailable this session.")
+        .. "session does not provide. The Foundry core serving this session reports "
+        .. "version " .. tostring(F.VERSION) .. ", from " .. tostring(F.SOURCE)
+        .. ". This has two possible causes: either an older standalone Foundry addon "
+        .. "won the runtime and is serving everyone (update that addon to a newer "
+        .. "version), or Foundry's files loaded in the wrong order and Events has "
+        .. "not run yet (load through Foundry-1.0.xml, or list Events ahead of DB "
+        .. "by hand). DB is unavailable this session.")
     return
 end
 
@@ -640,22 +652,80 @@ local function validateDefaults(defaults)
     return nil
 end
 
--- Resolve the running character's identity. Returns (charKey, errMessage): a nil
--- charKey with a message means the identity gate refused (computed lazily, never
--- at file load). nil / "" / "Unknown" all refuse before any mutation, so a junk
--- key ("nil - Realm", "Name - ", "Unknown - Realm") is never computed.
+-- Resolve the running character's identity. Returns (charKey, legacyKey,
+-- firstName), or (nil, errMessage) on the identity gate's own refusal --
+-- computed lazily, never at file load; on failure the second return holds
+-- the error message. Shares its check with Foundry.Lifecycle's addon-loaded
+-- identity hold (F.Lifecycle._PlayerIdentity), so "what counts as resolved"
+-- has one definition: nil / "" / the literal "Unknown" / the client's own
+-- localized placeholder for an unresolved unit name, or an unsettled
+-- regional surname, all refuse before any mutation, so a junk key is never
+-- computed. On a client with region-wide unique names, charKey is the full
+-- name and legacyKey is the "First - Realm" key that character used before
+-- this build, present only when a string surname resolved; every other
+-- client's charKey IS its legacyKey ("Name - Realm"), so legacyKey is nil
+-- there.
+--
+-- A cheap defense: a core new enough to have _PlayerIdentity but too old to
+-- return the full-name key (return 3) refuses here rather than building a
+-- junk key from a non-string value.
 local function resolveCharKey()
-    local name = UnitName("player")
-    local realm = GetRealmName()
-    if type(name) ~= "string" or name == "" or name == "Unknown" then
-        return nil, "DB:New: player identity is not available yet (UnitName "
-            .. "returned '" .. tostring(name) .. "'); construction refused"
+    local name, realmOrMsg, keyOrReason, legacyKey = F.Lifecycle._PlayerIdentity()
+    if not name then
+        return nil, "DB:New: " .. realmOrMsg .. "; construction refused"
     end
-    if type(realm) ~= "string" or realm == "" or realm == "Unknown" then
-        return nil, "DB:New: realm identity is not available yet (GetRealmName "
-            .. "returned '" .. tostring(realm) .. "'); construction refused"
+    if type(keyOrReason) ~= "string" then
+        return nil, "DB:New: the Foundry core serving this session predates the "
+            .. "full-name character key; construction refused"
     end
-    return name .. " - " .. realm, nil
+    return keyOrReason, legacyKey, name
+end
+
+-- Read-only pre-mutation check: may this construction move data saved under
+-- `legacyKey` onto the new `charKey`? Called after the
+-- step-8 malformed checks and before step 9's profile resolution. Never
+-- writes and never raises -- an ineligible move is skipped, not refused.
+-- `first` is the character's first name alone (resolveCharKey's third
+-- return), used only for the claimant scan below.
+local function planLegacyMove(existing, charKey, legacyKey, first)
+    if legacyKey == nil then return false end          -- no legacy key to move
+    if type(existing) ~= "table" then return false end  -- fresh SV: nothing to move
+
+    local pk = type(existing.profileKeys) == "table" and existing.profileKeys or nil
+    local ch = type(existing.char) == "table" and existing.char or nil
+
+    local legacyProfileKey = pk and pk[legacyKey] or nil
+    if legacyProfileKey == nil and not (ch and type(ch[legacyKey]) == "table") then
+        return false   -- neither section holds the legacy key
+    end
+    if legacyProfileKey ~= nil and type(legacyProfileKey) ~= "string" then
+        return false   -- malformed profileKeys[legacyKey]: skip the move, never refuse
+    end
+
+    if (pk and pk[charKey] ~= nil) or (ch and ch[charKey] ~= nil) then
+        return false   -- charKey must be absent from both sections
+    end
+
+    -- No other claimant in either section: a string key k claims first's
+    -- data when k ~= charKey, k contains no " - " (legacy-shaped keys never
+    -- count), and k == first or k starts with "first ". A bare "first" counts,
+    -- accepted as an exception to the invariant that this move is always
+    -- unambiguous; a "" surname's key "first " counts for every other
+    -- same-first-name character.
+    local prefix = first .. " "
+    local function hasClaimant(section)
+        if not section then return false end
+        for k in pairs(section) do
+            if type(k) == "string" and k ~= charKey and not k:find(" - ", 1, true)
+                and (k == first or k:sub(1, #prefix) == prefix) then
+                return true
+            end
+        end
+        return false
+    end
+    if hasClaimant(pk) or hasClaimant(ch) then return false end
+
+    return true
 end
 
 -- Read the raw stored schema stamp (pre-defaults, the single read the seam ever
@@ -798,11 +868,15 @@ function DB:New(config)
             .. "available. Construct DB inside the addon-loaded window")
     end
 
-    -- 7. Identity gate (nil / "" / "Unknown" all refuse before any mutation).
-    local charKey, identityErr = resolveCharKey()
+    -- 7. Identity gate, shared with Lifecycle's addon-loaded hold (nil / "" /
+    -- "Unknown" / the client's localized placeholder / an unsettled regional
+    -- surname all refuse before any mutation). On failure, the second return
+    -- holds the refusal message instead (resolveCharKey's dual-purpose slot).
+    local charKey, legacyKeyOrErr, first = resolveCharKey()
     if not charKey then
-        refuse(identityErr)
+        refuse(legacyKeyOrErr)
     end
+    local legacyKey = legacyKeyOrErr
 
     -- 8. Read the existing SV global (RAW -- may be nil for a fresh save). The
     -- downgrade check below reads the stamp RAW, pre-defaults. Malformed
@@ -855,12 +929,20 @@ function DB:New(config)
         end
     end
 
+    -- Read-only: may this construction move data from the pre-full-name-key
+    -- legacy key onto the new full-name key? Decided before any mutation;
+    -- step 9 and the apply below both consume the answer.
+    local movePlanned = planLegacyMove(existing, charKey, legacyKey, first)
+
     -- 9. profileKey resolution (raw, pre-mutation): saved profileKeys[charKey]
     -- first, else "Default" (the normalized defaultProfile = true). Saved keys
-    -- remain arbitrary strings and resolve exactly as AceDB resolved them.
+    -- remain arbitrary strings and resolve exactly as AceDB resolved them. A
+    -- planned move resolves from profileKeys[legacyKey] instead: planLegacyMove's
+    -- charKey-absent check already guarantees profileKeys[charKey] is absent.
     local profileKey = "Default"
     if not freshSV and type(existing.profileKeys) == "table" then
-        local saved = existing.profileKeys[charKey]
+        local lookupKey = movePlanned and legacyKey or charKey
+        local saved = existing.profileKeys[lookupKey]
         if type(saved) == "string" and saved ~= "" then
             profileKey = saved
         end
@@ -889,6 +971,19 @@ function DB:New(config)
         _G[config.sv] = {}
     end
     local sv = _G[config.sv]
+
+    -- The one-time legacy-key move: the first mutation after VALIDATION
+    -- COMPLETE, strictly before the profileKeys write-back below, so that
+    -- write-back is the only profileKeys entry this character gets.
+    if movePlanned then
+        if type(sv.char) == "table" and sv.char[legacyKey] ~= nil then
+            sv.char[charKey] = sv.char[legacyKey]
+            sv.char[legacyKey] = nil
+        end
+        if type(sv.profileKeys) == "table" then
+            sv.profileKeys[legacyKey] = nil
+        end
+    end
 
     -- profileKeys write-back: record the resolved mapping. Constructing a db is
     -- never read-only; both consumers' files carry profileKeys.
