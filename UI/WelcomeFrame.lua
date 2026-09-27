@@ -12,7 +12,7 @@ local welcomeFrame = nil
 
 -- Layout constants
 local FRAME_WIDTH = 700
-local FRAME_HEIGHT = 720
+local FRAME_HEIGHT = 727
 local PADDING = 25
 local CONTENT_WIDTH = FRAME_WIDTH - (PADDING * 2) - 24  -- account for border insets
 local SECTION_GAP = 14
@@ -287,7 +287,7 @@ local function CreateWelcomeFrame()
     sec3Header:SetText("|cFFFFD100Found a Problem?|r")
 
     local sec3Body = AddParagraph(content, sec3Header,
-        "Found a bug or a vendor with the wrong info? Let us know on GitHub below.",
+        "Report bugs or wrong vendor info on GitHub using the link below.",
         14)
 
     local issueLabel = AddSmallText(content, sec3Body,
