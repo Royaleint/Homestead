@@ -1,7 +1,7 @@
 -- Foundry-1.0 bootstrap.
 --
 -- The single entry point that establishes the Foundry namespace. It creates
--- _G.Foundry_1_0, derives IS_DEV_BUILD and VERSION from the v1.0.105
+-- _G.Foundry_1_0, derives IS_DEV_BUILD and VERSION from the v1.0.106
 -- packaging token, sets API_VERSION, provides the shared fail-loud helper, and
 -- establishes module registration and access. It registers no events, touches
 -- no SavedVariables, and depends on none of the modules.
