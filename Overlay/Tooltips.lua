@@ -1295,7 +1295,7 @@ end
 local function AddReagentUsageLine(gate, count)
     local key = (count == 1) and "Used in %d known recipe for decor you haven't collected"
         or "Used in %d known recipes for decor you haven't collected"
-    gate:AddLine(string.format(HA.L[key], count), COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
+    gate:AddLine(string.format(HA.L[key], count), COLOR_WHITE.r, COLOR_WHITE.g, COLOR_WHITE.b)
 end
 
 -------------------------------------------------------------------------------
