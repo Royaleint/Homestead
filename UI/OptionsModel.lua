@@ -440,22 +440,6 @@ OptionsModel.sections = {
                 end,
             },
             {
-                key = "showOnAuctionHouse",
-                type = "checkbox",
-                label = L["Show on auction house"],
-                tooltip = L["desc_show_on_auction_house"],
-                get = function()
-                    local overlay = GetOverlay()
-                    return overlay and overlay.showOnAuctionHouse
-                end,
-                set = function(value)
-                    local overlay = GetOverlay()
-                    if not overlay then return end
-                    overlay.showOnAuctionHouse = value
-                    CallOverlay("RefreshAll")
-                end,
-            },
-            {
                 key = "merchantHeader",
                 type = "header",
                 label = L["Merchant"],
