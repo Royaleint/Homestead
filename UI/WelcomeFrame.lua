@@ -12,7 +12,7 @@ local welcomeFrame = nil
 
 -- Layout constants
 local FRAME_WIDTH = 700
-local FRAME_HEIGHT = 810
+local FRAME_HEIGHT = 720
 local PADDING = 25
 local CONTENT_WIDTH = FRAME_WIDTH - (PADDING * 2) - 24  -- account for border insets
 local SECTION_GAP = 14
@@ -277,43 +277,21 @@ local function CreateWelcomeFrame()
     local cmd3 = AddCommand(content, cmd2, "/hs help", "Show all commands")
 
     -- =====================================================================
-    -- SECTION 3: Contribute to the Community
+    -- SECTION 3: Found a Problem?
     -- =====================================================================
 
-    -- Centered header with community icons flanking the text
     local sec3Header = content:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
     sec3Header:SetPoint("TOP", cmd3, "BOTTOM", 0, -(SECTION_GAP + 10))
     sec3Header:SetWidth(CONTENT_WIDTH)
     sec3Header:SetJustifyH("CENTER")
-    sec3Header:SetText("|cFFFFD100Contribute to the Community|r")
-
-    -- Icons flanking the header: anchor to the frame center with a fixed
-    -- pixel offset so they sit just outside the rendered text (~220px wide,
-    -- so half = ~110px). Add icon size (24) + small gap (8) = 142px from center.
-    local SEC3_ICON_OFFSET = 142
-    local sec3IconLeft = content:CreateTexture(nil, "ARTWORK")
-    sec3IconLeft:SetSize(24, 24)
-    sec3IconLeft:SetPoint("CENTER", sec3Header, "CENTER", -SEC3_ICON_OFFSET, 0)
-    sec3IconLeft:SetTexture("Interface\\Icons\\Achievement_GuildPerk_EverybodysFriend")
-
-    local sec3IconRight = content:CreateTexture(nil, "ARTWORK")
-    sec3IconRight:SetSize(24, 24)
-    sec3IconRight:SetPoint("CENTER", sec3Header, "CENTER", SEC3_ICON_OFFSET, 0)
-    sec3IconRight:SetTexture("Interface\\Icons\\Achievement_GuildPerk_EverybodysFriend")
+    sec3Header:SetText("|cFFFFD100Found a Problem?|r")
 
     local sec3Body = AddParagraph(content, sec3Header,
-        "When you visit vendors, Homestead saves info on those that carry housing items. Use " ..
-        "|cFF00FF00/hs exportall|r to export what you've collected and share it via the form below. " ..
-        "Every submission helps the community.",
+        "Found a bug or a vendor with the wrong info? Let us know on GitHub below.",
         14)
 
-    local formLabel = AddSmallText(content, sec3Body,
-        "|cFFFFD100Submit vendor data (Google Form):|r", 18, 1)
-    local formBox = AddURLBox(content, formLabel,
-        "https://forms.gle/QkYBVnGZfVWYhFudA", 2)
-
-    local issueLabel = AddSmallText(content, formBox,
-        "|cFFFF4444Report issues (GitHub):|r", 10)
+    local issueLabel = AddSmallText(content, sec3Body,
+        "|cFFFF4444Report issues (GitHub):|r", 14)
     local ghBox = AddURLBox(content, issueLabel,
         "https://github.com/Royaleint/Homestead/issues", 2)
 
