@@ -15170,10 +15170,11 @@ local ManualOverrides = {
         [279508] = { price = 0, currencies = {{id = 3316, amount = 500}}, isUsable = true, isPurchasable = false, merchantSlot = 5, hasExtendedCost = true, displayOrder = 7 }, -- "The Hunger Awakens" Mural (was 0/none)
         [280218] = { price = 0, currencies = {{id = 3316, amount = 150}}, isUsable = true, isPurchasable = false, merchantSlot = 8, hasExtendedCost = true, displayOrder = 8 }, -- Tortollan Scholar Satchel (was 0/none)
     },
-    [242399] = { -- Telemancer Astrandis (264007 deliberately absent: no scan coverage, stays at GeneratedBase 250)
+    [242399] = { -- Telemancer Astrandis (264007 added from the 2026-09-27 live 12.1.0.69933 capture, HS-459)
         [263994] = { price = 0, currencies = {{id = 3316, amount = 500}}, isUsable = true, isPurchasable = true, merchantSlot = 5, hasExtendedCost = true, displayOrder = 1 }, -- (was c3316:250)
         [263995] = { price = 0, currencies = {{id = 3316, amount = 500}}, isUsable = true, isPurchasable = false, merchantSlot = 10, hasExtendedCost = true, displayOrder = 2 }, -- (was c3316:250)
         [263996] = { price = 0, currencies = {{id = 3316, amount = 500}}, isUsable = true, isPurchasable = true, merchantSlot = 4, hasExtendedCost = true, displayOrder = 3 }, -- (was c3316:250)
+        [264007] = { price = 0, currencies = {{id = 3316, amount = 500}}, isUsable = true, isPurchasable = false, merchantSlot = 9, hasExtendedCost = true, displayOrder = 4 }, -- Corewarden's Spoils (was c3316:250)
         [264008] = { price = 0, currencies = {{id = 3316, amount = 500}}, isUsable = true, isPurchasable = false, merchantSlot = 8, hasExtendedCost = true, displayOrder = 5 }, -- (was c3316:250)
         [264170] = { price = 0, currencies = {{id = 3316, amount = 500}}, isUsable = true, isPurchasable = true, merchantSlot = 7, hasExtendedCost = true, displayOrder = 6 }, -- (was c3316:250)
         [264175] = { price = 0, currencies = {{id = 3316, amount = 500}}, isUsable = true, isPurchasable = true, merchantSlot = 6, hasExtendedCost = true, displayOrder = 7 }, -- (was c3316:250)
@@ -15459,6 +15460,59 @@ local ManualOverrides = {
         [251640] = { price = 5000000, currencies = {{id = 823, amount = 350}}, isUsable = true, displayOrder = 7 }, -- Draenic Forge (was g=5000000 c823:1000)
         [251653] = { price = 5000000, currencies = {{id = 824, amount = 400}}, isUsable = true, displayOrder = 8 }, -- Draenethyst Lamppost (was g=5000000 c824:1000)
         [251654] = { price = 8000000, currencies = {{id = 823, amount = 500}}, isUsable = true, displayOrder = 9 }, -- Large Karabor Fountain (was g=8000000 c823:2000)
+    },
+    -- HS-459: live merchant capture, client 12.1.0.69933, 2026-09-27. Undermine
+    -- Resonance Crystal (2815) prices all read lower than shipped, the same 12.1
+    -- currency rebalance as HS-341.
+    -- Counterfeit Dark Heart of Galakrond (267265) read unchanged at 15000 and has no row.
+    [251911] = { -- Stacks Topskimmer (Undermine)
+        [243312] = { price = 0, currencies = {{id = 2815, amount = 350}}, isUsable = true, displayOrder = 1 }, -- Undermine Rectangular Table (was g=0 c2815:700)
+        [243321] = { price = 0, currencies = {{id = 2815, amount = 350}}, isUsable = true, displayOrder = 2 }, -- Cartel Head's Schmancy Desk (was g=0 c2815:800)
+        [245303] = { price = 0, currencies = {{id = 2815, amount = 350}}, isUsable = true, displayOrder = 3 }, -- Rocket-Unpowered Rocket (was g=0 c2815:800)
+        [245306] = { price = 0, currencies = {{id = 2815, amount = 350}}, isUsable = true, displayOrder = 4 }, -- Cozy Four-Pipe Bed (was g=0 c2815:900)
+        [245308] = { price = 0, currencies = {{id = 2815, amount = 350}}, isUsable = true, displayOrder = 5 }, -- "Elegant" Lawn Flamingo (was g=0 c2815:750)
+        [245310] = { price = 0, currencies = {{id = 2815, amount = 350}}, isUsable = true, displayOrder = 6 }, -- Reinforced Goblin Umbrella (was g=0 c2815:800)
+        [245314] = { price = 0, currencies = {{id = 2815, amount = 350}}, isUsable = true, displayOrder = 7 }, -- Undermine Round Table (was g=0 c2815:650)
+        [245318] = { price = 0, currencies = {{id = 2815, amount = 250}}, isUsable = true, displayOrder = 8 }, -- Undermine Fence (was g=0 c2815:450)
+        [245319] = { price = 0, currencies = {{id = 2815, amount = 200}}, isUsable = true, displayOrder = 9 }, -- Undermine Fencepost (was g=0 c2815:350)
+        [245324] = { price = 0, currencies = {{id = 2815, amount = 450}}, isUsable = true, displayOrder = 10 }, -- Rocket-Powered Fountain (was g=0 c2815:1500)
+        [245325] = { price = 0, currencies = {{id = 2815, amount = 400}}, isUsable = true, displayOrder = 11 }, -- Undermine Market Stall (was g=0 c2815:1000)
+        [260700] = { price = 0, currencies = {{id = 2815, amount = 150}}, isUsable = true, displayOrder = 12 }, -- Gob-chanical Trash Heap (was g=0 c2815:300)
+    },
+    [231409] = { -- Smaks Topskimmer (Undermine)
+        [243312] = { price = 0, currencies = {{id = 2815, amount = 350}}, isUsable = true, displayOrder = 1 }, -- Undermine Rectangular Table (was g=0 c2815:700)
+        [245314] = { price = 0, currencies = {{id = 2815, amount = 350}}, isUsable = true, displayOrder = 2 }, -- Undermine Round Table (was g=0 c2815:650)
+        [245318] = { price = 0, currencies = {{id = 2815, amount = 250}}, isUsable = true, displayOrder = 3 }, -- Undermine Fence (was g=0 c2815:450)
+        [245319] = { price = 0, currencies = {{id = 2815, amount = 200}}, isUsable = true, displayOrder = 4 }, -- Undermine Fencepost (was g=0 c2815:350)
+    },
+    [231396] = { -- Sitch Lowdown (Undermine)
+        [245307] = { price = 0, currencies = {{id = 2815, amount = 350}}, isUsable = false, displayOrder = 1 }, -- Undermine Bookcase (was g=0 c2815:800)
+        [256327] = { price = 0, currencies = {{id = 2815, amount = 250}}, isUsable = true, displayOrder = 2 }, -- Open Rust-Plated Storage Crate (was g=0 c2815:450)
+    },
+    [239333] = { -- Street Food Vendor (Undermine)
+        [256328] = { price = 0, currencies = {{id = 2815, amount = 200}}, isUsable = true, displayOrder = 1 }, -- Leftover Undermine Takeout (was g=0 c2815:350)
+    },
+    -- HS-459: the same capture read this row at 950000, a 5% reputation discount on a
+    -- 1000000 base. Its 17 siblings are stored at the 20% tier (0.80 x base), so it is
+    -- stored on that basis too; the stored 2400000 was out of line with all of them.
+    [49877] = { -- Captain Lancy Revshon (Stormwind)
+        [248336] = { price = 800000, currencies = {}, isUsable = false, displayOrder = 2 }, -- Stormwind Wooden Table (was g=2400000)
+    },
+    -- HS-459: offers the same capture shows that shipped data did not carry.
+    [252873] = { -- Morta Gage (Arcantina)
+        [278038] = { price = 0, currencies = {{id = 3316, amount = 150}}, isUsable = true, displayOrder = 999999 }, -- Arathor Toy Sword (new row)
+        [278044] = { price = 0, currencies = {{id = 3316, amount = 150}}, isUsable = true, displayOrder = 999999 }, -- Kobold's Hanging Kandles (new row)
+        [278694] = { price = 0, currencies = {{id = 3316, amount = 250}}, isUsable = true, displayOrder = 999999 }, -- Stormstout Hanging Lantern (new row)
+    },
+    [256828] = { -- Dennia Silvertongue (Silvermoon City)
+        [274731] = { price = 50000000, currencies = {}, isUsable = true, displayOrder = 999999 }, -- Prized Orb of Azeroth (new row)
+        [274734] = { price = 50000000, currencies = {}, isUsable = true, displayOrder = 999999 }, -- Framed Horde Pride (new row)
+        [274736] = { price = 50000000, currencies = {}, isUsable = true, displayOrder = 999999 }, -- Framed Alliance Pride (new row)
+    },
+    [272751] = { -- Skull of Er'inye (Vaults of Atal'Utek)
+        [253455] = { price = 0, currencies = {{id = 3448, amount = 500}}, isUsable = true, displayOrder = 999999 }, -- Unearthed Amani Sarcophagus Lid (new row)
+        [253473] = { price = 0, currencies = {{id = 3448, amount = 750}}, isUsable = true, displayOrder = 999999 }, -- Unearthed Amani Sarcophagus Base (new row)
+        [280764] = { price = 0, currencies = {{id = 3448, amount = 750}}, isUsable = true, displayOrder = 999999 }, -- Venomous Defender's Barricade (new row)
     },
 }
 
