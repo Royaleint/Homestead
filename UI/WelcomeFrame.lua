@@ -68,8 +68,7 @@ local function AddParagraph(parent, anchor, text, gap)
 end
 
 -- iconDef is a texture path string, or a table { atlas = "..." } for an
--- atlas-backed icon (e.g. the map-pin atlases, which have no texture-file
--- equivalent).
+-- atlas-backed icon.
 local function ApplyRowIcon(icon, iconDef)
     if type(iconDef) == "table" and iconDef.atlas then
         icon:SetAtlas(iconDef.atlas, false)
@@ -199,7 +198,7 @@ local function CreateWelcomeFrame()
 
     local tagline = frame:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
     tagline:SetPoint("TOP", title, "BOTTOM", -15, -12)
-    tagline:SetText("|cFFFFD100Every decor vendor on your map, so you know what you own before you buy.|r")
+    tagline:SetText("|cFFFFD100Find every decor vendor on your map and see what you own before you buy.|r")
 
     -- =========================================================================
     -- Content area
@@ -230,7 +229,7 @@ local function CreateWelcomeFrame()
     local bullet2 = AddFeatureRow(content, bullet1,
         HA.Constants.Icons.MINIMAP,
         "Map Side Panel",
-        "Click the Homestead button on the world map to open the side panel listing that zone's vendors, then click any vendor to browse their wares and collection status. Pop it out as a standalone window with |cFF00FF00/hs panel|r or by right-clicking the minimap button.",
+        "Click the Homestead button on the world map to open the side panel listing that zone's vendors, then click any vendor to browse their wares and see what you still need. Pop it out as a standalone window with |cFF00FF00/hs panel|r or by right-clicking the minimap button.",
         FEATURE_GAP)
 
     -- Bullet 3: Tooltips Expanded. Custom layout to accommodate right-floated mock tooltip.
@@ -261,7 +260,7 @@ local function CreateWelcomeFrame()
     b3Body:SetWidth(b3TextWidth)
     b3Body:SetJustifyH("LEFT")
     b3Body:SetSpacing(2)
-    b3Body:SetText("Every item in the Housing Catalog gets enriched tooltips showing where it comes from and exactly what it costs, whether that's a vendor, quest, achievement, profession, or drop, so you never have to leave the game or dig through another addon panel to look something up.")
+    b3Body:SetText("Every item in the Housing Catalog gets tooltips showing where it comes from (vendor, quest, achievement, profession, or drop), what it costs, and what you need to unlock it, so you never have to leave the game to look something up.")
 
     local b3HeadingH = b3Heading:GetStringHeight()
     local b3BodyH = b3Body:GetStringHeight()

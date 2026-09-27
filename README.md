@@ -32,7 +32,7 @@ Click the Homestead button on the world map to open a panel listing every decor 
 **Tooltips and icons**
 
 - Decor tooltips show where an item comes from, what it costs, and what you need to unlock it.
-- Decor in your bags, bank, and at merchants gets a small housing icon: green if you've collected it, red if you haven't. Works with the default bags, Baganator, and BetterBags.
+- Decor in your bags, bank, and at merchants gets a small housing icon: green if you've collected it, yellow in your bags if you haven't learned it yet, and red at merchants if you don't own it. Works with the default bags, Baganator, and BetterBags.
 - The Housing Catalog marks every item with its source type. A colored glow shows at a glance whether you own it, can get it now, or it's locked. Owned items can be highlighted, dimmed, checkmarked, or left alone.
 - Uncollected decor that comes from a treasure shows a treasure badge in the catalog.
 - In your profession window, recipes you know and can craft right now get a Homestead badge if you haven't collected that decor yet.
