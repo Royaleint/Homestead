@@ -48,6 +48,8 @@ L["Source:"] = "Source:"
 L["Vendor:"] = "Vendor:"
 L["Location:"] = "Location:"
 L["Click to set waypoint"] = "Click to set waypoint"
+L["Used in %d known recipe for decor you haven't collected"] = "Used in %d known recipe for decor you haven't collected"
+L["Used in %d known recipes for decor you haven't collected"] = "Used in %d known recipes for decor you haven't collected"
 
 -------------------------------------------------------------------------------
 -- UI Labels
