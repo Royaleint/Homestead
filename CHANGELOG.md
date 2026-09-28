@@ -2,6 +2,44 @@
 
 ---
 
+## Homestead v2.11.0 (09-27-2026)
+
+A new tooltip line for crafting reagents, a round of vendor price corrections for patch 12.1, and a cleaner Welcome screen and options panel.
+
+---
+
+## Tooltips
+
+**Reagent Recipe Usage**
+
+- Hovering a crafting reagent now shows how many known housing decor recipes you haven't collected yet use it, so you know what to hang onto before you sell it.
+
+---
+
+## Interface
+
+- Cleaned up the Welcome screen: fixed a few wrong icons, tightened the wording, and simplified the feedback section to point straight to GitHub for bugs and vendor corrections.
+- Removed outdated text about sharing scanned vendor data elsewhere. Scanning and exporting still work the same; only the old submission wording is gone.
+- Removed the "Show on auction house" option. It never did anything.
+
+---
+
+## Vendor Database
+
+**Corrections**
+
+- Corrected 41 vendor prices for patch 12.1, mostly at Draenor and Undermine vendors.
+
+**New and Updated Vendors**
+
+- Added 9 vendor offers that were missing, at vendors in Arcantina, Silvermoon City, and the Vaults of Atal'Utek.
+
+**Location Fixes**
+
+- Added sources for 5 decor items that had none: three from quests, and two from drops, including one from Ziekket in The Blinding Vale.
+
+---
+
 ## Homestead v2.10.3 (09-16-2026)
 
 Vendor pins on more minimaps, a treasure badge in the housing catalog, and a batch of fixes for tooltips, vendor costs, and locked reputation items.

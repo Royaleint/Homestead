@@ -7,6 +7,21 @@
 local _, HA = ...
 
 HA.WhatsNew = {
+    ["2.11.0"] = {
+        title = "Homestead - What's New in v2.11.0!",
+        features = {
+            {
+                icon = "Interface\\Icons\\INV_Misc_Note_06",
+                heading = "Reagent Recipe Usage",
+                body = "Hovering a crafting reagent now shows how many known housing decor recipes you haven't collected use it, so you know what to hang onto.",
+            },
+            {
+                icon = "Interface\\Icons\\INV_Misc_Coin_01",
+                heading = "More Vendor Prices Corrected",
+                body = "41 vendor prices are now corrected for patch 12.1, and 9 offers that were missing before are now tracked.",
+            },
+        },
+    },
     ["2.10.0"] = {
         title = "Homestead - What's New in v2.10.0!",
         features = {
