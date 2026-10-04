@@ -12,6 +12,12 @@ if GetLocale() ~= "ruRU" then return end
 local L = HA.L
 
 -------------------------------------------------------------------------------
+-- Tooltip
+-------------------------------------------------------------------------------
+L["Used in %d known recipe for decor you haven't collected"] = "Используется в %d известном рецепте для ещё не полученного декора"
+L["Used in %d known recipes for decor you haven't collected"] = "Используется в %d известных рецептах для ещё не полученного декора"
+
+-------------------------------------------------------------------------------
 -- UI Labels
 -------------------------------------------------------------------------------
 
@@ -19,6 +25,7 @@ local L = HA.L
 -- Options
 -------------------------------------------------------------------------------
 L["Homestead"] = "Homestead" -- human-translated
+L["Homestead Options"] = "Настройки Homestead"
 L["Overlays"] = "Оверлеи" -- human-translated
 L["Tooltips"] = "Подсказки" -- human-translated
 L["Export"] = "Экспорт" -- human-translated
@@ -255,6 +262,7 @@ L["Achievement"] = "Достижение" -- human-translated
 L["Profession"] = "Профессия" -- human-translated
 L["Event"] = "Праздник" -- human-translated
 L["Drop"] = "Добыча" -- human-translated
+L["Treasure"] = "Сокровище"
 
 -- Minimap cross-zone mode
 L["Auto (recommended)"] = "Авто (рекомендуется)" -- human-translated
