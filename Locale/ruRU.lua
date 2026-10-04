@@ -93,6 +93,7 @@ L["Choose export option:"] = "Выберите вариант экспорта:"
 -------------------------------------------------------------------------------
 -- Map Side Panel
 -------------------------------------------------------------------------------
+L["All"] = "Все" -- human-translated
 L["Vendors"] = "Торговцы" -- human-translated
 L["Zone Collection Progress"] = "Прогресс коллекции зоны" -- human-translated
 L["Continent Collection Progress"] = "Прогресс коллекции континента" -- human-translated
@@ -146,6 +147,7 @@ L["Show milestone progress on dashboard"] = "Показывать прогрес
 L["Export New Scans"] = "Экспортировать новые сканы" -- human-translated
 L["Export All"] = "Экспортировать всё" -- human-translated
 L["Inventory"] = "Сумки" -- human-translated
+L["Merchant"] = "Торговец" -- human-translated
 L["Housing Catalog"] = "Каталог мебели" -- human-translated
 
 -------------------------------------------------------------------------------

@@ -107,7 +107,7 @@ L["Export All"] = "Export All"
 -------------------------------------------------------------------------------
 -- Map Side Panel
 -------------------------------------------------------------------------------
-L["All"] = ALL or "All"
+L["All"] = "All"
 L["Vendor"] = "Vendor"
 L["Vendors"] = "Vendors"
 L["Quest"] = "Quest" -- untranslated
@@ -166,7 +166,7 @@ L["Waypoints"] = "Waypoints"
 L["Endeavors"] = HOUSING_DASHBOARD_ENDEAVOR or "Endeavors"
 L["Show milestone progress on dashboard"] = "Show milestone progress on dashboard"
 L["Inventory"] = "Inventory"
-L["Merchant"] = MERCHANT or "Merchant"
+L["Merchant"] = "Merchant"
 L["Housing Catalog"] = "Housing Catalog"
 
 -------------------------------------------------------------------------------
