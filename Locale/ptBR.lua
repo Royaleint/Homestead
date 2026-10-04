@@ -11,77 +11,9 @@ if GetLocale() ~= "ptBR" then return end
 local L = HA.L
 
 -------------------------------------------------------------------------------
--- Collection Status
--------------------------------------------------------------------------------
-L["Collected"] = "Coletado"
-L["Collected (Placed)"] = "Coletado (Posicionado)"
-L["Not Collected"] = "Não coletado"
-L["Unknown"] = "Desconhecido"
-
--------------------------------------------------------------------------------
--- Source Descriptions
--------------------------------------------------------------------------------
-L["Available from vendor"] = "Disponível no vendedor"
-L["Can be crafted"] = "Pode ser fabricado"
-L["Achievement reward"] = "Recompensa de conquista"
-L["World drop"] = "Saque no mundo"
-L["Quest reward"] = "Recompensa de missão"
-L["Reputation reward"] = "Recompensa de reputação"
-L["Event reward"] = "Recompensa de evento"
-L["Promotional item"] = "Item promocional"
-
--------------------------------------------------------------------------------
--- Decor Properties
--------------------------------------------------------------------------------
-L["Can be dyed"] = "Pode ser tingido"
-L["Colorable"] = "Tingível"
-L["Warbound"] = "Vinculado à tropa"
-L["Indoor only"] = "Apenas interior"
-L["Outdoor only"] = "Apenas exterior"
-L["Quantity owned: %d"] = "Quantidade possuída: %d"
-L["Currently placed: %d"] = "Atualmente posicionados: %d"
-
--------------------------------------------------------------------------------
--- Tooltip
--------------------------------------------------------------------------------
-L["[Housing Addon]"] = "|cFF00FF00[Homestead]|r"
-L["Source:"] = "Fonte:"
-L["Vendor:"] = "Vendedor:"
-L["Location:"] = "Localização:"
-L["Click to set waypoint"] = "Clique para definir ponto de rota"
-
--------------------------------------------------------------------------------
 -- UI Labels
 -------------------------------------------------------------------------------
-L["Housing Addon"] = "Homestead"
-L["Decor Browser"] = "Explorador de decoração"
-L["Vendor Tracer"] = "Buscador de vendedores"
-L["Color Tracker"] = "Rastreador de tintas"
-L["Export Data"] = "Exportar dados"
-L["Options"] = "Opções"
-L["Search"] = "Procurar"
-L["Filter"] = "Filtrar"
 L["Close"] = "Fechar"
-
--------------------------------------------------------------------------------
--- Vendor Tracer
--------------------------------------------------------------------------------
-L["Set Waypoint"] = "Definir ponto de rota"
-L["Show on Map"] = "Mostrar no mapa"
-L["Vendor sells %d decor items"] = "O vendedor oferece %d itens de decoração"
-L["You own %d/%d items"] = "Você possui %d/%d itens"
-L["Missing items:"] = "Itens faltando:"
-L["No vendors found"] = "Nenhum vendedor encontrado"
-
--------------------------------------------------------------------------------
--- Color/Dye Tracker
--------------------------------------------------------------------------------
-L["Dye Collection"] = "Coleção de tintas"
-L["Owned Dyes"] = "Tintas possuídas"
-L["Known Recipes"] = "Receitas conhecidas"
-L["Dye Slots"] = "Espaços de tinta"
-L["Apply Dye"] = "Aplicar tinta"
-L["Preview"] = "Prévia"
 
 -------------------------------------------------------------------------------
 -- Options
@@ -96,17 +28,13 @@ L["Enable overlays"] = "Ativar sobreposições"
 L["Show on bags"] = "Mostrar nas bolsas"
 L["Show on bank"] = "Mostrar no banco"
 L["Show on merchant"] = "Mostrar no vendedor"
-L["Show on auction house"] = "Mostrar na casa de leilões"
 L["Show on housing catalog"] = "Mostrar no catálogo de moradia"
 L["Icon size"] = "Tamanho do ícone"
 L["Icon position"] = "Posição do ícone"
 L["Show opposite faction vendors"] = "Mostrar vendedores da facção oposta"
-L["Show unverified vendors"] = "Mostrar vendedores não verificados"
 
 L["Enable tooltip additions"] = "Ativar informações adicionais"
 L["Show source information"] = "Mostrar informações de fonte"
-L["Show quantity owned"] = "Mostrar quantidade possuída"
-L["Show dye slot information"] = "Mostrar informações de espaços de tinta"
 L["Show vendor details in tooltips"] = "Mostrar detalhes do vendedor nas dicas"
 
 L["Show map pins"] = "Mostrar marcadores no mapa"
@@ -129,12 +57,6 @@ L["Right-Click: Detach/close vendor panel"] = "|cFFFFFFFFClique direito:|r Separ
 -- Slash Commands
 -------------------------------------------------------------------------------
 L["Homestead Commands:"] = "Comandos do Homestead:"
-L["/hs - Open options panel"] = "/hs — Abrir opções"
-L["/hs scan - Scan catalog"] = "/hs scan — Escanear catálogo"
-L["/hs vendor [search] - Search vendors"] = "/hs vendor [busca] — Buscar vendedores de decoração"
-L["/hs export - Show export dialog"] = "/hs export — Mostrar diálogo de exportação"
-L["/hs debug - Toggle debug mode"] = "/hs debug — Alternar modo de depuração"
-L["/hs help - Show this help"] = "/hs help — Mostrar esta ajuda"
 
 -------------------------------------------------------------------------------
 -- Slash Command Feedback
@@ -155,7 +77,6 @@ L["Debug mode: %s"] = "Modo de depuração: %s"
 L["ON"] = "ATIVADO"
 L["OFF"] = "DESATIVADO"
 L["Unknown command: %s"] = "Comando desconhecido: %s"
-L["Not yet implemented"] = "Ainda não implementado"
 
 -------------------------------------------------------------------------------
 -- Export Dialog
@@ -188,12 +109,3 @@ L["Output"] = "Resultado"
 L["Select All"] = "Selecionar tudo"
 L["All text selected. Press Ctrl+C to copy to clipboard."] = "Texto selecionado. Pressione Ctrl+C para copiar."
 
--------------------------------------------------------------------------------
--- Statistics
--------------------------------------------------------------------------------
-L["Statistics"] = "Estatísticas"
-L["Total Decor:"] = "Decoração total:"
-L["Collected:"] = "Coletado:"
-L["Placed:"] = "Posicionado:"
-L["Remaining:"] = "Restante:"
-L["Collection Progress: %d%%"] = "Progresso da coleção: %d%%"
