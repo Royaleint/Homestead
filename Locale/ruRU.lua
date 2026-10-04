@@ -1,6 +1,7 @@
 --[[
     Homestead - Locale: Russian (RU)
     Translator ZamestoTV
+    Machine-translated where not marked human-translated.
 ]]
 
 local _, HA = ...
@@ -13,178 +14,171 @@ local L = HA.L
 -------------------------------------------------------------------------------
 -- UI Labels
 -------------------------------------------------------------------------------
-L["Close"] = "Закрыть"
 
 -------------------------------------------------------------------------------
 -- Options
 -------------------------------------------------------------------------------
-L["Homestead"] = "Homestead"
-L["General"] = "Общий"
-L["Overlays"] = "Оверлеи"
-L["Tooltips"] = "Подсказки"
-L["Export"] = "Экспорт"
+L["Homestead"] = "Homestead" -- human-translated
+L["Overlays"] = "Оверлеи" -- human-translated
+L["Tooltips"] = "Подсказки" -- human-translated
+L["Export"] = "Экспорт" -- human-translated
 
-L["Show minimap button"] = "Показывать кнопку у миникарты"
-L["Enable overlays"] = "Включить оверлеи"
-L["Show on bags"] = "Показывать в сумках"
-L["Show on bank"] = "Показывать в банке"
-L["Show on merchant"] = "Показывать у торговцев"
-L["Show on housing catalog"] = "Показывать в каталоге жилья"
-L["Icon size"] = "Размер иконки"
-L["Icon position"] = "Положение иконки"
+L["Show minimap button"] = "Показывать кнопку у миникарты" -- human-translated
+L["Enable overlays"] = "Включить оверлеи" -- human-translated
+L["Show on bags"] = "Показывать в сумках" -- human-translated
+L["Show on bank"] = "Показывать в банке" -- human-translated
+L["Show on merchant"] = "Показывать у торговцев" -- human-translated
+L["Show on housing catalog"] = "Показывать в каталоге жилья" -- human-translated
+L["Icon size"] = "Размер иконки" -- human-translated
+L["Icon position"] = "Положение иконки" -- human-translated
 
-L["Enable tooltip additions"] = "Включить добавление подсказок"
-L["Show source information"] = "Показывать источник"
+L["Enable tooltip additions"] = "Включить добавление подсказок" -- human-translated
+L["Show source information"] = "Показывать источник" -- human-translated
 
-L["Show map pins"] = "Показывать метки на карте"
-L["Show minimap pins"] = "Показывать метки на миникарте"
-L["Use TomTom for waypoints"] = "Использовать TomTom для путевых точек"
+L["Show map pins"] = "Показывать метки на карте" -- human-translated
+L["Show minimap pins"] = "Показывать метки на миникарте" -- human-translated
+L["Use TomTom for waypoints"] = "Использовать TomTom для путевых точек" -- human-translated
 
 -------------------------------------------------------------------------------
 -- Minimap Tooltip
 -------------------------------------------------------------------------------
-L["Collection: %d / %d (%d%%)"] = "Коллекция: %d / %d (%d%%)"
-L["Vendors nearby: %d"] = "Торговцев рядом: %d"
-L["Vendors scanned: %d"] = "Просканировано торговцев: %d"
-L["Left-Click: Toggle options"] = "|cFFFFFFFFЛКМ:|r Открыть настройки"
-L["Right-Click: Detach/close vendor panel"] = "|cFFFFFFFFПКМ:|r Открепить/закрыть панель торговцев"
+L["Collection: %d / %d (%d%%)"] = "Коллекция: %d / %d (%d%%)" -- human-translated
+L["Vendors nearby: %d"] = "Торговцев рядом: %d" -- human-translated
+L["Vendors scanned: %d"] = "Просканировано торговцев: %d" -- human-translated
+L["Left-Click: Toggle options"] = "|cFFFFFFFFЛКМ:|r Открыть настройки" -- human-translated
+L["Right-Click: Detach/close vendor panel"] = "|cFFFFFFFFПКМ:|r Открепить/закрыть панель торговцев" -- human-translated
 
 -------------------------------------------------------------------------------
 -- Slash Commands
 -------------------------------------------------------------------------------
-L["Homestead Commands:"] = "Команды Homestead:"
+L["Homestead Commands:"] = "Команды Homestead:" -- human-translated
 
 -------------------------------------------------------------------------------
 -- Slash Command Feedback
 -------------------------------------------------------------------------------
-L["Map pins refreshed."] = "Метки на карте обновлены."
-L["No active waypoint."] = "Нет активной путевой точки."
-L["Waypoint cleared."] = "Путевая точка удалена."
-L["Vendor database contains %d vendors."] = "База данных содержит %d торговцев."
-L["Use /hs vendor <name or zone> to search."] = "Используйте /hs vendor <имя или зона> для поиска."
-L["No vendors found matching: %s"] = "Торговцы не найдены по запросу: %s"
-L["Found %d vendor(s) matching: %s"] = "Найдено %d торговец(ов) по запросу: %s"
-L["... and %d more."] = "... и ещё %d."
+L["Map pins refreshed."] = "Метки на карте обновлены." -- human-translated
+L["No active waypoint."] = "Нет активной путевой точки." -- human-translated
+L["Waypoint cleared."] = "Путевая точка удалена." -- human-translated
+L["Vendor database contains %d vendors."] = "База данных содержит %d торговцев." -- human-translated
+L["Use /hs vendor <name or zone> to search."] = "Используйте /hs vendor <имя или зона> для поиска." -- human-translated
+L["No vendors found matching: %s"] = "Торговцы не найдены по запросу: %s" -- human-translated
+L["Found %d vendor(s) matching: %s"] = "Найдено %d торговец(ов) по запросу: %s" -- human-translated
+L["... and %d more."] = "... и ещё %d." -- human-translated
 
 -------------------------------------------------------------------------------
 -- Messages
 -------------------------------------------------------------------------------
-L["Debug mode: %s"] = "Режим отладки: %s"
-L["ON"] = "ВКЛ"
-L["OFF"] = "ВЫКЛ"
-L["Unknown command: %s"] = "Неизвестная команда: %s"
-L["Type /hs help for a list of commands."] = "Введите /hs help для вывода списка команд."
+L["Debug mode: %s"] = "Режим отладки: %s" -- human-translated
+L["ON"] = "ВКЛ" -- human-translated
+L["OFF"] = "ВЫКЛ" -- human-translated
+L["Unknown command: %s"] = "Неизвестная команда: %s" -- human-translated
+L["Type /hs help for a list of commands."] = "Введите /hs help для вывода списка команд." -- human-translated
 
 -------------------------------------------------------------------------------
 -- Version Check
 -------------------------------------------------------------------------------
-L["Your Homestead version is out-of-date."] = "Ваша версия Homestead устарела."
-L["Version %s (%s) can be downloaded at CurseForge, Wago, or GitHub Releases."] = "Версию %s (%s) можно загрузить на CurseForge, Wago или GitHub Releases."
-L["Homestead version: %s (%s)"] = "Версия Homestead: %s (%s)"
-L["Newest version seen this session: %s (%s)"] = "Новейшая версия, замеченная в этой сессии: %s (%s)"
-L["No newer version seen this session."] = "Более новых версий в этой сессии не обнаружено."
-L["Version-check notifications: %s"] = "Уведомления о проверке версии: %s"
+L["Your Homestead version is out-of-date."] = "Ваша версия Homestead устарела." -- human-translated
+L["Version %s (%s) can be downloaded at CurseForge, Wago, or GitHub Releases."] = "Версию %s (%s) можно загрузить на CurseForge, Wago или GitHub Releases." -- human-translated
+L["Homestead version: %s (%s)"] = "Версия Homestead: %s (%s)" -- human-translated
+L["Newest version seen this session: %s (%s)"] = "Новейшая версия, замеченная в этой сессии: %s (%s)" -- human-translated
+L["No newer version seen this session."] = "Более новых версий в этой сессии не обнаружено." -- human-translated
+L["Version-check notifications: %s"] = "Уведомления о проверке версии: %s" -- human-translated
 
 -------------------------------------------------------------------------------
 -- Export Dialog
 -------------------------------------------------------------------------------
-L["Export Vendor Data"] = "Экспорт данных торговцев"
-L["Choose export option:"] = "Выберите вариант экспорта:"
+L["Export Vendor Data"] = "Экспорт данных торговцев" -- human-translated
+L["Choose export option:"] = "Выберите вариант экспорта:" -- human-translated
 
 -------------------------------------------------------------------------------
 -- Map Side Panel
 -------------------------------------------------------------------------------
-L["All"] = "Все"
-L["Vendors"] = "Торговцы"
-L["Zone Collection Progress"] = "Прогресс коллекции зоны"
-L["Continent Collection Progress"] = "Прогресс коллекции континента"
-L["Global Collection Progress"] = "Общий прогресс коллекции"
-L["Order Hall"] = "Оплот класса"
-L["Click to preview"] = "Нажмите для предпросмотра"
+L["Vendors"] = "Торговцы" -- human-translated
+L["Zone Collection Progress"] = "Прогресс коллекции зоны" -- human-translated
+L["Continent Collection Progress"] = "Прогресс коллекции континента" -- human-translated
+L["Global Collection Progress"] = "Общий прогресс коллекции" -- human-translated
+L["Order Hall"] = "Оплот класса" -- human-translated
+L["Click to preview"] = "Нажмите для предпросмотра" -- human-translated
 
 -------------------------------------------------------------------------------
 -- Output Window
 -------------------------------------------------------------------------------
-L["Output"] = "Вывод"
-L["Select All"] = "Выбрать всё"
-L["All text selected. Press Ctrl+C to copy to clipboard."] = "Текст выделен. Нажмите Ctrl+C для копирования."
+L["Output"] = "Вывод" -- human-translated
+L["Select All"] = "Выбрать всё" -- human-translated
+L["All text selected. Press Ctrl+C to copy to clipboard."] = "Текст выделен. Нажмите Ctrl+C для копирования." -- human-translated
 
 -------------------------------------------------------------------------------
 -- Options - Names
 -------------------------------------------------------------------------------
-L["Show opposite faction vendors"] = "Показывать торговцев противоположной фракции"
-L["Show vendor details in tooltips"] = "Показывать подробности о торговце в подсказках"
-L["Vendor pin item details"] = "Подробности о предметах в метке торговца"
-L["Use native waypoints"] = "Использовать стандартные точки маршрута"
-L["Auto-create waypoint on click"] = "Автоматически создавать точку маршрута при нажатии"
-L["Navigate modifier key"] = "Клавиша-модификатор навигации"
+L["Show opposite faction vendors"] = "Показывать торговцев противоположной фракции" -- human-translated
+L["Show vendor details in tooltips"] = "Показывать подробности о торговце в подсказках" -- human-translated
+L["Vendor pin item details"] = "Подробности о предметах в метке торговца" -- human-translated
+L["Use native waypoints"] = "Использовать стандартные точки маршрута" -- human-translated
+L["Auto-create waypoint on click"] = "Автоматически создавать точку маршрута при нажатии" -- human-translated
+L["Navigate modifier key"] = "Клавиша-модификатор навигации" -- human-translated
 
-L["Auto-scan vendors"] = "Автоматическое сканирование торговцев"
-L["Vendor Visibility"] = "Отображение торговцев"
-L["Show event vendors"] = "Показывать праздничных торговцев"
-L["Hide fully-collected vendor pins"] = "Скрывать метки собранных торговцев"
-L["Fully-collected vendors"] = "Торговцы с собранными коллекциями"
-L["desc_map_filter_completed_vendors"] = "Снимите галочку, чтобы скрыть метки торговцев, у которых вы полностью собрали предметы декора."
-L["Pin Appearance"] = "Внешний вид меток"
-L["Pin color"] = "Цвет метки"
-L["Custom color"] = "Свой цвет"
-L["Show accessibility glow"] = "Показывать подсветку доступности"
-L["Owned item style"] = "Стиль полученных предметов"
-L["Show ownership status"] = "Показывать статус получения"
-L["Show requirements"] = "Показывать требования"
-L["Show all sources"] = "Показывать все источники"
-L["Map Pins"] = "Метки на карте"
-L["World Map"] = "Карта мира"
-L["Show vendor panel on world map"] = "Показывать панель торговцев на карте мира"
-L["Vendor panel source filter"] = "Фильтр источников на панели торговцев"
-L["Integrate with map frame border"] = "Встроить в рамку окна карты"
-L["Zone badges on world map"] = "Значки зон на карте мира"
-L["World map pin size"] = "Размер меток на карте мира"
-L["Show collection counts"] = "Показывать количество в коллекции"
-L["Minimap"] = "Миникарта"
-L["Show elevation arrows"] = "Показывать стрелки высоты"
-L["Minimap nearby-zone pins"] = "Метки соседних зон на миникарте"
-L["Minimap pin size"] = "Размер меток на миникарте"
-L["Waypoints"] = "Точки маршрута"
-L["Endeavors"] = "Предприятия"
-L["Show milestone progress on dashboard"] = "Показывать прогресс этапов на панели"
-L["Export New Scans"] = "Экспортировать новые сканы"
-L["Export All"] = "Экспортировать всё"
-L["Inventory"] = "Сумки"
-L["Merchant"] = "Торговец"
-L["Housing Catalog"] = "Каталог мебели"
+L["Auto-scan vendors"] = "Автоматическое сканирование торговцев" -- human-translated
+L["Vendor Visibility"] = "Отображение торговцев" -- human-translated
+L["Show event vendors"] = "Показывать праздничных торговцев" -- human-translated
+L["Hide fully-collected vendor pins"] = "Скрывать метки собранных торговцев" -- human-translated
+L["Fully-collected vendors"] = "Торговцы с собранными коллекциями" -- human-translated
+L["desc_map_filter_completed_vendors"] = "Снимите галочку, чтобы скрыть метки торговцев, у которых вы полностью собрали предметы декора." -- human-translated
+L["Pin Appearance"] = "Внешний вид меток" -- human-translated
+L["Pin color"] = "Цвет метки" -- human-translated
+L["Custom color"] = "Свой цвет" -- human-translated
+L["Show accessibility glow"] = "Показывать подсветку доступности" -- human-translated
+L["Owned item style"] = "Стиль полученных предметов" -- human-translated
+L["Show ownership status"] = "Показывать статус получения" -- human-translated
+L["Show requirements"] = "Показывать требования" -- human-translated
+L["Show all sources"] = "Показывать все источники" -- human-translated
+L["Map Pins"] = "Метки на карте" -- human-translated
+L["Show vendor panel on world map"] = "Показывать панель торговцев на карте мира" -- human-translated
+L["Vendor panel source filter"] = "Фильтр источников на панели торговцев" -- human-translated
+L["Integrate with map frame border"] = "Встроить в рамку окна карты" -- human-translated
+L["Zone badges on world map"] = "Значки зон на карте мира" -- human-translated
+L["World map pin size"] = "Размер меток на карте мира" -- human-translated
+L["Show collection counts"] = "Показывать количество в коллекции" -- human-translated
+L["Show elevation arrows"] = "Показывать стрелки высоты" -- human-translated
+L["Minimap nearby-zone pins"] = "Метки соседних зон на миникарте" -- human-translated
+L["Minimap pin size"] = "Размер меток на миникарте" -- human-translated
+L["Waypoints"] = "Точки маршрута" -- human-translated
+L["Show milestone progress on dashboard"] = "Показывать прогресс этапов на панели" -- human-translated
+L["Export New Scans"] = "Экспортировать новые сканы" -- human-translated
+L["Export All"] = "Экспортировать всё" -- human-translated
+L["Inventory"] = "Сумки" -- human-translated
+L["Housing Catalog"] = "Каталог мебели" -- human-translated
 
 -------------------------------------------------------------------------------
 -- Options - Descriptions
 -------------------------------------------------------------------------------
-L["desc_minimap_button"] = "Показать или скрыть кнопку у миникарты"
-L["desc_auto_scan_vendors"] = "Автоматически сканировать ассортимент торговцев на наличие данных о предметах мебели при их посещении. Отключение функции может немного повысить производительность при открытии окон торговцев."
-L["desc_options_general"] = "Базовое поведение аддона, доступ к миникарте, сканирование торговцев и внешний вид меток на карте."
-L["desc_options_overlays"] = "Индикаторы коллекции, отображаемые в сумках, в банке, у торговцев и в каталоге мебели."
-L["desc_options_tooltips"] = "Дополнительные сведения о получении, источниках, требованиях и торговцах в подсказках к предметам и меткам на карте."
-L["desc_options_world_map"] = "Метки торговцев на карте мира, значки зон, поведение боковой панели и отображение меток на карте."
-L["desc_options_minimap"] = "Метки ближайших торговцев, стрелки высоты и поведение точек маршрута на миникарте."
-L["desc_options_endeavors"] = "Прогресс предприятия на стандартной панели обители от Blizzard."
-L["desc_options_export"] = "Экспорт отсканированных данных о торговцах для проверки или резервного копирования."
-L["desc_vendor_visibility_section"] = "Выберите, какие группы торговцев будут отображаться на картах и учитываться в общем количестве коллекции."
-L["desc_pin_appearance_section"] = "Настройка цвета и предварительного просмотра для меток торговцев Homestead."
-L["desc_overlay_inventory_section"] = "Показывать индикаторы коллекции на ячейках предметов за пределами каталога мебели."
-L["desc_overlay_merchant_section"] = "Отмечать полученную мебель при просмотре товаров у торговца."
-L["desc_overlay_catalog_section"] = "Управление индикаторами, подсветкой и стилем полученных предметов в каталоге мебели."
-L["desc_tooltip_map_pins_section"] = "Выберите, насколько подробная информация о торговце будет отображаться в подсказках к меткам на карте."
-L["desc_minimap_waypoints_section"] = "Настройка поведения TomTom и стандартных точек маршрута при нажатии на карту и торговцев."
-L["desc_opposite_faction"] = "Показывать торговцев противоположной фракции с эмблемой их фракции. Полезно для коллекционеров, чтобы видеть всех доступных торговцев."
-L["desc_event_vendors"] = "Показывать метки сезонных праздничных торговцев на карте, когда их событие активно (например, Лунный фестиваль)."
-L["desc_hide_completed_vendor_pins"] = "Скрывать метки на карте и миникарте для торговцев, у которых вы полностью собрали предметы декора для дома. Это не влияет на список на панели торговцев."
-L["desc_pin_color"] = "Выберите цвет для меток на карте и миникарте."
-L["desc_custom_color"] = "Выбрать свой базовый цвет для меток на карте"
-L["desc_enable_overlays"] = "Добавляет небольшие иконки и подсветку к предметам мебели по всей игре, чтобы вы могли с первого взгляда определить, какие из них уже собраны. Отключение этой опции скроет все оверлеи Homestead."
-L["desc_icon_size"] = "Управляет размером иконок коллекции в ячейках предметов."
-L["desc_icon_position"] = "В каком углу ячейки предмета будет располагаться иконка коллекции."
-L["desc_show_on_bags"] = "Добавляет значок |A:homestone-minimap-icon:16:16|a к предметам мебели в ваших сумках. Цвет значка показывает, собран ли предмет. Работает со стандартными сумками, Baganator и BetterBags."
-L["desc_show_on_bank"] = "Отмечать предметы мебели в банке, чтобы вы могли видеть, какие из них уже собраны."
-L["desc_show_on_merchant"] = "Добавляет значок |A:homestone-minimap-icon:16:16|a к предметам мебели у торговцев. Цвет значка показывает, собран ли предмет."
-L["desc_show_on_housing_catalog"] = "Отмечать предметы в каталоге мебели иконками коллекции, показывающими, откуда получен каждый предмет.\n\n"
+L["desc_minimap_button"] = "Показать или скрыть кнопку у миникарты" -- human-translated
+L["desc_auto_scan_vendors"] = "Автоматически сканировать ассортимент торговцев на наличие данных о предметах мебели при их посещении. Отключение функции может немного повысить производительность при открытии окон торговцев." -- human-translated
+L["desc_options_general"] = "Базовое поведение аддона, доступ к миникарте, сканирование торговцев и внешний вид меток на карте." -- human-translated
+L["desc_options_overlays"] = "Индикаторы коллекции, отображаемые в сумках, в банке, у торговцев и в каталоге мебели." -- human-translated
+L["desc_options_tooltips"] = "Дополнительные сведения о получении, источниках, требованиях и торговцах в подсказках к предметам и меткам на карте." -- human-translated
+L["desc_options_world_map"] = "Метки торговцев на карте мира, значки зон, поведение боковой панели и отображение меток на карте." -- human-translated
+L["desc_options_minimap"] = "Метки ближайших торговцев, стрелки высоты и поведение точек маршрута на миникарте." -- human-translated
+L["desc_options_endeavors"] = "Прогресс предприятия на стандартной панели обители от Blizzard." -- human-translated
+L["desc_options_export"] = "Экспорт отсканированных данных о торговцах для проверки или резервного копирования." -- human-translated
+L["desc_vendor_visibility_section"] = "Выберите, какие группы торговцев будут отображаться на картах и учитываться в общем количестве коллекции." -- human-translated
+L["desc_pin_appearance_section"] = "Настройка цвета и предварительного просмотра для меток торговцев Homestead." -- human-translated
+L["desc_overlay_inventory_section"] = "Показывать индикаторы коллекции на ячейках предметов за пределами каталога мебели." -- human-translated
+L["desc_overlay_merchant_section"] = "Отмечать полученную мебель при просмотре товаров у торговца." -- human-translated
+L["desc_overlay_catalog_section"] = "Управление индикаторами, подсветкой и стилем полученных предметов в каталоге мебели." -- human-translated
+L["desc_tooltip_map_pins_section"] = "Выберите, насколько подробная информация о торговце будет отображаться в подсказках к меткам на карте." -- human-translated
+L["desc_minimap_waypoints_section"] = "Настройка поведения TomTom и стандартных точек маршрута при нажатии на карту и торговцев." -- human-translated
+L["desc_opposite_faction"] = "Показывать торговцев противоположной фракции с эмблемой их фракции. Полезно для коллекционеров, чтобы видеть всех доступных торговцев." -- human-translated
+L["desc_event_vendors"] = "Показывать метки сезонных праздничных торговцев на карте, когда их событие активно (например, Лунный фестиваль)." -- human-translated
+L["desc_hide_completed_vendor_pins"] = "Скрывать метки на карте и миникарте для торговцев, у которых вы полностью собрали предметы декора для дома. Это не влияет на список на панели торговцев." -- human-translated
+L["desc_pin_color"] = "Выберите цвет для меток на карте и миникарте." -- human-translated
+L["desc_custom_color"] = "Выбрать свой базовый цвет для меток на карте" -- human-translated
+L["desc_enable_overlays"] = "Добавляет небольшие иконки и подсветку к предметам мебели по всей игре, чтобы вы могли с первого взгляда определить, какие из них уже собраны. Отключение этой опции скроет все оверлеи Homestead." -- human-translated
+L["desc_icon_size"] = "Управляет размером иконок коллекции в ячейках предметов." -- human-translated
+L["desc_icon_position"] = "В каком углу ячейки предмета будет располагаться иконка коллекции." -- human-translated
+L["desc_show_on_bags"] = "Добавляет значок |A:homestone-minimap-icon:16:16|a к предметам мебели в ваших сумках. Цвет значка показывает, собран ли предмет. Работает со стандартными сумками, Baganator и BetterBags." -- human-translated
+L["desc_show_on_bank"] = "Отмечать предметы мебели в банке, чтобы вы могли видеть, какие из них уже собраны." -- human-translated
+L["desc_show_on_merchant"] = "Добавляет значок |A:homestone-minimap-icon:16:16|a к предметам мебели у торговцев. Цвет значка показывает, собран ли предмет." -- human-translated
+L["desc_show_on_housing_catalog"] = "Отмечать предметы в каталоге мебели иконками коллекции, показывающими, откуда получен каждый предмет.\n\n" -- human-translated
     .. "|A:auctionhouse-icon-coin-gold:16:16|a Торговец\n"
     .. "|A:QuestNormal:16:16|a Задание\n"
     .. "|A:UI-Achievement-Shield-NoPoints:16:16|a Достижение\n"
@@ -192,86 +186,82 @@ L["desc_show_on_housing_catalog"] = "Отмечать предметы в кат
     .. "|A:UI-HUD-Calendar-1-Up:16:16|a Праздник\n"
     .. "|A:Crosshair_lootall_64:16:16|a Добыча\n"
     .. "|A:hearthsteel-icon-32x32:16:16|a Магазин Battle.net"
-L["desc_accessibility_glow"] = "Добавить цветную подсветку рамок для предметов в каталоге мебели: зеленую для полученных, желтую для доступных и красную для предметов, заблокированных требованиями, которые вы еще не выполнили."
-L["desc_owned_item_style"] = "Выберите, как собранные предметы выглядят в каталоге мебели. Зеленая подсветка показывает стандартное свечение, «Затемнение» делает их полупрозрачными, а «Галочка» добавляет небольшую зеленую галочку. Выберите «Нет», чтобы оставить их без изменений."
-L["desc_enable_tooltips"] = "Добавлять информацию Homestead в подсказки к предметам при наведении на мебель. Отключение этой опции уберет все дополнения в подсказках."
-L["desc_show_ownership"] = "Добавить строку в подсказки, показывающую, собран ли уже этот предмет мебели."
-L["desc_show_source"] = "Показывать способ получения предмета мебели - торговцы, задания, достижения, профессии, праздники и добыча."
-L["desc_show_requirements"] = "Отображать требования для покупки, такие как репутация, выполнение заданий или достижения, необходимые для приобретения предмета."
-L["desc_show_all_sources"] = "Показывать все известные способы получения предмета, а не только самый лучший. Полезно, если предмет можно приобрести у нескольких торговцев, получить за разные задания или из других источников."
-L["desc_vendor_details"] = "Показывать весь ассортимент торговца и ваш прогресс коллекции при наведении на его метку на карте. Отключите для более простой подсказки, содержащей только имя торговца."
-L["desc_vendor_pin_item_details"] = "Показывать значки альтернативных источников, стоимость у торговца и количество предметов, доступных только у этого торговца, во всплывающих подсказках меток на карте. Отключите для упрощенного вида только с названиями предметов."
-L["desc_show_map_pins"] = "Показывать местоположение торговцев на карте мира"
-L["desc_show_map_side_panel"] = "Показывать боковую панель на карте мира со списком торговцев и прогрессом коллекции для текущей зоны"
-L["desc_source_filter"] = "Фильтровать количество предметов на боковой панели и развернутые сетки по источнику получения. Отображение торговцев на карте при этом не меняется."
-L["desc_integrate_map_border"] = "Объединить верхнюю рамку панели с рамкой карты мира для бесшовного вида. Отключите, если используете сторонний интерфейс (ElvUI, GW2 и т.д.), который вызывает конфликт."
-L["desc_zone_badges"] = "Показывать количество торговцев для каждой отдельной зоны на материках карты мира вместо одного общего количества для всего континента."
-L["desc_world_pin_size"] = "Настроить размер меток торговцев на карте мира. По умолчанию (20) соответствует стандартным значкам Blizzard для интересных мест."
-L["desc_show_pin_counts"] = "Отображать количество собранных/всего предметов прямо на метках торговцев (например, 3/12). Отключите, чтобы уменьшить загромождение карты."
-L["desc_show_minimap_pins"] = "Показывать местоположение торговцев на миникарте со стрелками высоты"
-L["desc_elevation_arrows"] = "Показывать стрелки направления на метках миникарты, когда торговец находится выше или ниже вас"
-L["desc_cross_zone_mode"] = "Управление метками соседних зон на миникарте. Режим «Авто» уменьшает количество лишних меток в густонаселенных городских зонах для более плавного перемещения."
-L["desc_minimap_pin_size"] = "Настроить размер меток торговцев на миникарте. Увеличьте, если метки плохо видно, или уменьшите, чтобы разгрузить миникарту."
-L["desc_waypoint_info"] = "TomTom отображает стрелку направления на экране и требует наличия установленного аддона TomTom. Стандартная система добавляет метку назначения на карту мира. Обе системы могут работать одновременно."
-L["desc_use_tomtom"] = "Использовать аддон TomTom для стрелок маршрута (если установлен)"
-L["desc_use_native_waypoints"] = "Использовать встроенную систему точек маршрута WoW с меткой на карте"
-L["desc_auto_waypoint"] = "Автоматически создавать точку маршрута при нажатии на торговца в списке или на карте"
-L["desc_navigate_modifier"] = "Удерживайте эту клавишу при нажатии, чтобы создать точку маршрута (если автоматическое создание отключено)"
-L["desc_milestone_xp"] = "Отображать прогресс опыта до следующего этапа на вкладке «Предприятия» стандартной панели обители от Blizzard. Отключите, если используете для этого другой аддон (например, Endeavor Simple Progress Tracker)."
-L["desc_export"] = "Экспорт отсканированных данных о торговцах для резервного копирования."
-L["desc_export_new"] = "Экспортирует торговцев, отсканированных с момента вашего последнего экспорта. Включает цену, валюту, фракцию и информацию о каталоге."
-L["desc_export_all"] = "Экспортирует всех отсканированных торговцев в обход фильтра по времени."
+L["desc_accessibility_glow"] = "Добавить цветную подсветку рамок для предметов в каталоге мебели: зеленую для полученных, желтую для доступных и красную для предметов, заблокированных требованиями, которые вы еще не выполнили." -- human-translated
+L["desc_owned_item_style"] = "Выберите, как собранные предметы выглядят в каталоге мебели. Зеленая подсветка показывает стандартное свечение, «Затемнение» делает их полупрозрачными, а «Галочка» добавляет небольшую зеленую галочку. Выберите «Нет», чтобы оставить их без изменений." -- human-translated
+L["desc_enable_tooltips"] = "Добавлять информацию Homestead в подсказки к предметам при наведении на мебель. Отключение этой опции уберет все дополнения в подсказках." -- human-translated
+L["desc_show_ownership"] = "Добавить строку в подсказки, показывающую, собран ли уже этот предмет мебели." -- human-translated
+L["desc_show_source"] = "Показывать способ получения предмета мебели - торговцы, задания, достижения, профессии, праздники и добыча." -- human-translated
+L["desc_show_requirements"] = "Отображать требования для покупки, такие как репутация, выполнение заданий или достижения, необходимые для приобретения предмета." -- human-translated
+L["desc_show_all_sources"] = "Показывать все известные способы получения предмета, а не только самый лучший. Полезно, если предмет можно приобрести у нескольких торговцев, получить за разные задания или из других источников." -- human-translated
+L["desc_vendor_details"] = "Показывать весь ассортимент торговца и ваш прогресс коллекции при наведении на его метку на карте. Отключите для более простой подсказки, содержащей только имя торговца." -- human-translated
+L["desc_vendor_pin_item_details"] = "Показывать значки альтернативных источников, стоимость у торговца и количество предметов, доступных только у этого торговца, во всплывающих подсказках меток на карте. Отключите для упрощенного вида только с названиями предметов." -- human-translated
+L["desc_show_map_pins"] = "Показывать местоположение торговцев на карте мира" -- human-translated
+L["desc_show_map_side_panel"] = "Показывать боковую панель на карте мира со списком торговцев и прогрессом коллекции для текущей зоны" -- human-translated
+L["desc_source_filter"] = "Фильтровать количество предметов на боковой панели и развернутые сетки по источнику получения. Отображение торговцев на карте при этом не меняется." -- human-translated
+L["desc_integrate_map_border"] = "Объединить верхнюю рамку панели с рамкой карты мира для бесшовного вида. Отключите, если используете сторонний интерфейс (ElvUI, GW2 и т.д.), который вызывает конфликт." -- human-translated
+L["desc_zone_badges"] = "Показывать количество торговцев для каждой отдельной зоны на материках карты мира вместо одного общего количества для всего континента." -- human-translated
+L["desc_world_pin_size"] = "Настроить размер меток торговцев на карте мира. По умолчанию (20) соответствует стандартным значкам Blizzard для интересных мест." -- human-translated
+L["desc_show_pin_counts"] = "Отображать количество собранных/всего предметов прямо на метках торговцев (например, 3/12). Отключите, чтобы уменьшить загромождение карты." -- human-translated
+L["desc_show_minimap_pins"] = "Показывать местоположение торговцев на миникарте со стрелками высоты" -- human-translated
+L["desc_elevation_arrows"] = "Показывать стрелки направления на метках миникарты, когда торговец находится выше или ниже вас" -- human-translated
+L["desc_cross_zone_mode"] = "Управление метками соседних зон на миникарте. Режим «Авто» уменьшает количество лишних меток в густонаселенных городских зонах для более плавного перемещения." -- human-translated
+L["desc_minimap_pin_size"] = "Настроить размер меток торговцев на миникарте. Увеличьте, если метки плохо видно, или уменьшите, чтобы разгрузить миникарту." -- human-translated
+L["desc_waypoint_info"] = "TomTom отображает стрелку направления на экране и требует наличия установленного аддона TomTom. Стандартная система добавляет метку назначения на карту мира. Обе системы могут работать одновременно." -- human-translated
+L["desc_use_tomtom"] = "Использовать аддон TomTom для стрелок маршрута (если установлен)" -- human-translated
+L["desc_use_native_waypoints"] = "Использовать встроенную систему точек маршрута WoW с меткой на карте" -- human-translated
+L["desc_auto_waypoint"] = "Автоматически создавать точку маршрута при нажатии на торговца в списке или на карте" -- human-translated
+L["desc_navigate_modifier"] = "Удерживайте эту клавишу при нажатии, чтобы создать точку маршрута (если автоматическое создание отключено)" -- human-translated
+L["desc_milestone_xp"] = "Отображать прогресс опыта до следующего этапа на вкладке «Предприятия» стандартной панели обители от Blizzard. Отключите, если используете для этого другой аддон (например, Endeavor Simple Progress Tracker)." -- human-translated
+L["desc_export"] = "Экспорт отсканированных данных о торговцах для резервного копирования." -- human-translated
+L["desc_export_new"] = "Экспортирует торговцев, отсканированных с момента вашего последнего экспорта. Включает цену, валюту, фракцию и информацию о каталоге." -- human-translated
+L["desc_export_all"] = "Экспортирует всех отсканированных торговцев в обход фильтра по времени." -- human-translated
 
 -------------------------------------------------------------------------------
 -- Options - Select Values
 -------------------------------------------------------------------------------
 -- Pin colors
-L["Default (Gold)"] = "По умолчанию (золотой)"
-L["Bright Green"] = "Ярко-зеленый"
-L["Ice Blue"] = "Ледяной синий"
-L["Light Blue"] = "Голубой"
-L["Purple"] = "Пурпурный"
-L["Pink"] = "Розовый"
-L["Red"] = "Красный"
-L["Cyan"] = "Бирюзовый"
-L["White"] = "Белый"
-L["Yellow"] = "Желтый"
-L["Custom..."] = "Свой..."
+L["Default (Gold)"] = "По умолчанию (золотой)" -- human-translated
+L["Bright Green"] = "Ярко-зеленый" -- human-translated
+L["Ice Blue"] = "Ледяной синий" -- human-translated
+L["Light Blue"] = "Голубой" -- human-translated
+L["Purple"] = "Пурпурный" -- human-translated
+L["Pink"] = "Розовый" -- human-translated
+L["Red"] = "Красный" -- human-translated
+L["Cyan"] = "Бирюзовый" -- human-translated
+L["White"] = "Белый" -- human-translated
+L["Yellow"] = "Желтый" -- human-translated
+L["Custom..."] = "Свой..." -- human-translated
 
 -- Icon anchor positions
-L["Top Left"] = "Сверху слева"
-L["Top Right"] = "Сверху справа"
-L["Bottom Left"] = "Снизу слева"
-L["Bottom Right"] = "Снизу справа"
-L["Center"] = "По центру"
+L["Top Left"] = "Сверху слева" -- human-translated
+L["Top Right"] = "Сверху справа" -- human-translated
+L["Bottom Left"] = "Снизу слева" -- human-translated
+L["Bottom Right"] = "Снизу справа" -- human-translated
+L["Center"] = "По центру" -- human-translated
 
 -- Owned item styles
-L["Green highlight (default)"] = "Зеленая подсветка (по умолчанию)"
-L["None"] = "Нет"
-L["Dimmed"] = "Затемнение"
-L["Checkmark"] = "Галочка"
+L["Green highlight (default)"] = "Зеленая подсветка (по умолчанию)" -- human-translated
+L["None"] = "Нет" -- human-translated
+L["Dimmed"] = "Затемнение" -- human-translated
+L["Checkmark"] = "Галочка" -- human-translated
 
 -- Source filter
-L["All sources"] = "Все источники"
-L["Vendor"] = "Торговец"
-L["Quest"] = "Задание"
-L["Achievement"] = "Достижение"
-L["Profession"] = "Профессия"
-L["Event"] = "Праздник"
-L["Shop"] = "Магазин"
-L["Drop"] = "Добыча"
+L["All sources"] = "Все источники" -- human-translated
+L["Vendor"] = "Торговец" -- human-translated
+L["Quest"] = "Задание" -- human-translated
+L["Achievement"] = "Достижение" -- human-translated
+L["Profession"] = "Профессия" -- human-translated
+L["Event"] = "Праздник" -- human-translated
+L["Drop"] = "Добыча" -- human-translated
 
 -- Minimap cross-zone mode
-L["Auto (recommended)"] = "Авто (рекомендуется)"
-L["Current zone only"] = "Только текущая зона"
-L["Always show nearby zones"] = "Всегда показывать соседние зоны"
+L["Auto (recommended)"] = "Авто (рекомендуется)" -- human-translated
+L["Current zone only"] = "Только текущая зона" -- human-translated
+L["Always show nearby zones"] = "Всегда показывать соседние зоны" -- human-translated
 
 -- Navigate modifier
-L["Shift"] = "Shift"
-L["Control"] = "Control"
-L["Alt"] = "Alt"
-L["None (always)"] = "Нет (всегда)"
+L["None (always)"] = "Нет (всегда)" -- human-translated
 
 -- Misc
-L["Approximate map appearance"] = "Примерный вид карты"
-L["ExportImport not available."] = "Экспорт/Импорт недоступен."
+L["Approximate map appearance"] = "Примерный вид карты" -- human-translated
+L["ExportImport not available."] = "Экспорт/Импорт недоступен." -- human-translated

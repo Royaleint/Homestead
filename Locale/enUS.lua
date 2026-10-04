@@ -18,16 +18,16 @@ L["Used in %d known recipes for decor you haven't collected"] = "Used in %d know
 -------------------------------------------------------------------------------
 -- UI Labels
 -------------------------------------------------------------------------------
-L["Close"] = "Close"
+L["Close"] = CLOSE or "Close"
 
 -------------------------------------------------------------------------------
 -- Options
 -------------------------------------------------------------------------------
-L["Homestead"] = "Homestead"
+L["Homestead"] = "Homestead" -- untranslated
 L["Homestead Options"] = "Homestead Options"
-L["General"] = "General"
+L["General"] = GENERAL or "General"
 L["Overlays"] = "Overlays"
-L["Tooltips"] = "Tooltips"
+L["Tooltips"] = "Tooltips" -- untranslated
 L["Export"] = "Export"
 
 L["Show minimap button"] = "Show minimap button"
@@ -107,15 +107,15 @@ L["Export All"] = "Export All"
 -------------------------------------------------------------------------------
 -- Map Side Panel
 -------------------------------------------------------------------------------
-L["All"] = "All"
+L["All"] = ALL or "All"
 L["Vendor"] = "Vendor"
 L["Vendors"] = "Vendors"
-L["Quest"] = "Quest"
+L["Quest"] = "Quest" -- untranslated
 L["Achievement"] = "Achievement"
 L["Profession"] = "Profession"
 L["Event"] = "Event"
 L["Drop"] = "Drop"
-L["Shop"] = "Shop"
+L["Shop"] = BLIZZARD_STORE or "Shop"
 L["Treasure"] = "Treasure"
 L["Zone Collection Progress"] = "Zone Collection Progress"
 L["Continent Collection Progress"] = "Continent Collection Progress"
@@ -151,22 +151,22 @@ L["Show ownership status"] = "Show ownership status"
 L["Show requirements"] = "Show requirements"
 L["Show all sources"] = "Show all sources"
 L["Map Pins"] = "Map Pins"
-L["World Map"] = "World Map"
+L["World Map"] = WORLDMAP_BUTTON or "World Map"
 L["Show vendor panel on world map"] = "Show vendor panel on world map"
 L["Vendor panel source filter"] = "Vendor panel source filter"
 L["Integrate with map frame border"] = "Integrate with map frame border"
 L["Zone badges on world map"] = "Zone badges on world map"
 L["World map pin size"] = "World map pin size"
 L["Show collection counts"] = "Show collection counts"
-L["Minimap"] = "Minimap"
+L["Minimap"] = MINIMAP_LABEL or "Minimap"
 L["Show elevation arrows"] = "Show elevation arrows"
 L["Minimap nearby-zone pins"] = "Minimap nearby-zone pins"
 L["Minimap pin size"] = "Minimap pin size"
 L["Waypoints"] = "Waypoints"
-L["Endeavors"] = "Endeavors"
+L["Endeavors"] = HOUSING_DASHBOARD_ENDEAVOR or "Endeavors"
 L["Show milestone progress on dashboard"] = "Show milestone progress on dashboard"
 L["Inventory"] = "Inventory"
-L["Merchant"] = "Merchant"
+L["Merchant"] = MERCHANT or "Merchant"
 L["Housing Catalog"] = "Housing Catalog"
 
 -------------------------------------------------------------------------------
@@ -275,9 +275,9 @@ L["Current zone only"] = "Current zone only"
 L["Always show nearby zones"] = "Always show nearby zones"
 
 -- Navigate modifier
-L["Shift"] = "Shift"
-L["Control"] = "Control"
-L["Alt"] = "Alt"
+L["Shift"] = SHIFT_KEY_TEXT or "SHIFT"
+L["Control"] = CTRL_KEY_TEXT or "CTRL"
+L["Alt"] = ALT_KEY_TEXT or "ALT"
 L["None (always)"] = "None (always)"
 
 -- Misc
