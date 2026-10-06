@@ -142,6 +142,10 @@ jobs:
         if: steps.guard.outputs.publish == 'true'
         run: node .github/scripts/check-toc-vs-zip.mjs .release
 
+      - name: Check — release package stays within budget
+        if: steps.guard.outputs.publish == 'true'
+        run: node .github/scripts/check-release-budget.mjs .release .github/release-budget.json
+
       - name: Package and Release — CurseForge + GitHub
         if: steps.guard.outputs.publish == 'true' && !contains(github.ref_name, '-wago')
         uses: BigWigsMods/packager@v2

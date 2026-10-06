@@ -381,3 +381,167 @@ assert(setUnownedCalls == 1,
 assert(ownedItems[12345] == false, "item 12345 must now read unowned")
 
 print("hs276_login_force_load: I erase gate functionally pinned (cold skips, warm erases) ok")
+
+-------------------------------------------------------------------------------
+-- Scenario J (Corner A): ScanFullCatalog's batch loop must PAUSE in combat and
+-- RESUME where it stopped. RunLoginStorageForceLoad already defers itself past
+-- combat, but the ~85 batches of probes and store writes its forced event
+-- triggers had no combat gate at all -- a mid-fight /reload landed every one of
+-- them on combat frames a few seconds later. Straddling the pause must not
+-- restart the pass either, so every item is asserted probed exactly once.
+--
+-- Drives ScanFullCatalog directly (as scenario I does, and needs I's local
+-- GetTime/time stubs for the same reason), and counts probes rather than
+-- batches: ITEMS_PER_BATCH is an internal tunable, so the scenario only relies
+-- on 60 items taking more than one batch.
+-------------------------------------------------------------------------------
+
+h = newHarness({ total = 5, max = 100 })
+
+timeCounter = 0
+GetTime = function() timeCounter = timeCounter + 10 return timeCounter end
+time = function() return 0 end
+
+local SCAN_ITEM_COUNT = 60
+local probeCounts = {}
+local probeTotal = 0
+local scanItems = {}
+for itemID = 90001, 90000 + SCAN_ITEM_COUNT do scanItems[itemID] = true end
+h.HA.ProfessionSources = scanItems
+h.HA.CatalogStore = {
+    BeginBatch = function() end,
+    EndBatch = function() end,
+    ComputeOwnedFromInfo = function() return false end,
+    IsOwned = function() return false end,
+    SetOwned = function() end,
+    SetUnowned = function() end,
+    Save = function() end,
+}
+C_HousingCatalog.GetCatalogEntryInfoByItem = function(itemLink)
+    probeCounts[itemLink] = (probeCounts[itemLink] or 0) + 1
+    probeTotal = probeTotal + 1
+    return { totalNumStored = 0, totalNumPlaced = 0, remainingRedeemable = 0 }
+end
+
+h:mark()
+local nextTimer = h.timerMark
+local function runNextTimer(what)
+    nextTimer = nextTimer + 1
+    assert(h.timers[nextTimer], "expected a timer to have been scheduled for " .. what)
+    h.timers[nextTimer].fn()
+end
+
+h.scanner:ScanFullCatalog()
+local afterFirstBatch = probeTotal
+assert(afterFirstBatch > 0 and afterFirstBatch < SCAN_ITEM_COUNT,
+    "sanity: the scan must batch rather than probe all " .. SCAN_ITEM_COUNT .. " items in one pass, got "
+        .. afterFirstBatch)
+
+h.inCombat = true
+runNextTimer("the next batch")
+assert(probeTotal == afterFirstBatch,
+    "a batch boundary reached in combat must probe nothing -- a mid-fight /reload would otherwise land "
+        .. "the whole forced rescan on combat frames; got " .. (probeTotal - afterFirstBatch) .. " probe(s)")
+assert(h.timers[nextTimer + 1] ~= nil,
+    "the paused batch must reschedule itself -- pausing without a retry abandons the scan, it does not defer it")
+
+h.inCombat = false
+while h.timers[nextTimer + 1] do
+    runNextTimer("a resumed batch")
+end
+
+assert(probeTotal == SCAN_ITEM_COUNT,
+    "the scan must resume after combat and finish every item, got " .. probeTotal .. " of " .. SCAN_ITEM_COUNT)
+for itemID in pairs(scanItems) do
+    local link = "item:" .. itemID
+    assert(probeCounts[link] == 1,
+        "item " .. itemID .. " must be probed exactly once across the pause -- the loop resumes from where "
+            .. "it stopped, it does not restart; got " .. (probeCounts[link] or 0))
+end
+
+print("hs276_login_force_load: J scan batches pause in combat and resume in place ok")
+
+-------------------------------------------------------------------------------
+-- Scenario K (Corner B): the login force-load's synthesized
+-- HOUSING_STORAGE_UPDATED must not trigger the full ~1,600-probe rescan on an
+-- account that owns zero decor -- there is nothing there to find, and before
+-- HS-276 those accounts ran no login scan at all. The gate is scoped to that
+-- one forced event: K2/K3/K4 pin the invariant it must never break, which is a
+-- GENUINE storage change on the very same zero-decor account -- gate that and
+-- HS-276's staleness bug comes back on precisely the accounts this targets.
+--
+-- The observable is a scheduled timer, not a call to the file-local
+-- RequestScan wrapper: RequestScan debounces through C_Timer.NewTimer, and the
+-- harness records every timer, so "did a scan get requested" is exactly "did a
+-- new timer appear" (same reasoning as tests/hs283_catalog_scan_relevance.lua).
+--
+-- A zero-decor account is modelled as total = 0 with a live storage cap
+-- (max = 1000): the cap is static and non-zero the instant storage loads,
+-- ownership-independent (see TryLatchWarmFromCounts). max = 0 would model
+-- "storage never answered", which is a different scenario.
+-------------------------------------------------------------------------------
+
+counts = { total = 0, max = 1000 }
+h = newHarness(counts)
+
+h:mark()
+h:fire("PLAYER_ENTERING_WORLD")
+runForceLoad = h:timerSinceMark()
+runForceLoad()
+assert(h.searchersCreated == 1, "sanity: the force-load must still create its searcher on a zero-decor account")
+
+-- K1: the forced event itself.
+h:mark()
+h:fire("HOUSING_STORAGE_UPDATED")
+assert(#h.timers == h.timerMark,
+    "the login-forced storage event must not request a rescan when the account owns zero decor; got "
+        .. (#h.timers - h.timerMark) .. " timer(s) scheduled")
+assert(h.scanner:HasStorageResponded() == true,
+    "the skip must sit AFTER the latch -- storageResponded (and the searcher release it drives) must "
+        .. "still happen on a zero-decor account")
+
+-- K2: the flag is one-shot. A SECOND event is not the forced one, so it scans
+-- even though the account still owns zero decor.
+h:mark()
+h:fire("HOUSING_STORAGE_UPDATED")
+assert(#h.timers > h.timerMark,
+    "only the login-forced event may be skipped -- a later genuine storage event must still scan, or the "
+        .. "flag has latched on and every future event inherits the skip")
+
+-- K3: first-ever acquisition on that same account. This is the exact staleness
+-- class HS-276 shipped to fix, on the exact account type the gate targets.
+counts.total = 1
+h:mark()
+h:fire("HOUSING_STORAGE_UPDATED")
+assert(#h.timers > h.timerMark,
+    "a zero-decor account acquiring its first decor item must still scan")
+
+-- K4: the gate is scoped to the forced path, not to the handler. A genuine
+-- event on a zero-decor account with no force-load in flight scans.
+h = newHarness({ total = 0, max = 1000 })
+h:mark()
+h:fire("HOUSING_STORAGE_UPDATED")
+assert(#h.timers > h.timerMark,
+    "a genuine storage event with no login force-load in flight must scan even at zero decor -- the gate "
+        .. "belongs on the forced login path, not on the HOUSING_STORAGE_UPDATED handler")
+
+print("hs276_login_force_load: K forced zero-decor rescan gated, genuine events untouched ok")
+
+-- K5: no decor count to read is not the same as a count of zero. Writing the
+-- gate with TryLatchWarmFromCounts's `... and ...() or 0` idiom would collapse
+-- the two: that idiom fails safe there (no latch, no erasure) and dangerous
+-- here (skip the session's only scan on an account whose count we could not
+-- read). A build without the accessor must scan.
+h = newHarness({ total = 0, max = 1000 })
+C_HousingCatalog.GetDecorTotalOwnedCount = nil
+
+h:mark()
+h:fire("PLAYER_ENTERING_WORLD")
+h:timerSinceMark()()
+h:mark()
+h:fire("HOUSING_STORAGE_UPDATED")
+assert(#h.timers > h.timerMark,
+    "a missing GetDecorTotalOwnedCount is no information about the account, not a zero -- the forced "
+        .. "event must still scan")
+
+print("hs276_login_force_load: K5 missing decor-count accessor scans rather than skips ok")

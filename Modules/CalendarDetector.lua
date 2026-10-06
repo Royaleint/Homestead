@@ -59,7 +59,7 @@ local function ScanTodaysHolidays()
         return nil
     end
 
-    -- Seasonal vendor path is enabled after Gate 2 verification of the downstream UI.
+    -- Seasonal vendor path is enabled after live verification of the downstream UI.
     if not CalendarDetector.enableSeasonalDetection then return nil end
 
     local today = C_DateAndTime and C_DateAndTime.GetCurrentCalendarTime and C_DateAndTime.GetCurrentCalendarTime()

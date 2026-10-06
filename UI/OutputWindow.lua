@@ -13,8 +13,64 @@ local L = HA.L or {}
 -- Frame reference
 local outputFrame = nil
 local scrollFrame = nil
+local outputList = nil
 local editBox = nil
 local titleText = nil
+
+local VALID_POINTS = {
+    CENTER = true, TOP = true, BOTTOM = true, LEFT = true, RIGHT = true,
+    TOPLEFT = true, TOPRIGHT = true, BOTTOMLEFT = true, BOTTOMRIGHT = true,
+}
+
+local function GetProfile()
+    return HA.Addon and HA.Addon.db and HA.Addon.db.profile
+end
+
+local function SaveGeometry(frame)
+    local profile = GetProfile()
+    if not profile then return end
+
+    local point, _, relativePoint, x, y = frame:GetPoint()
+    profile.outputWindow = {
+        point = point, relativePoint = relativePoint, x = x, y = y,
+        width = frame:GetWidth(), height = frame:GetHeight(),
+    }
+end
+
+local function ClampDimension(value, default, minimum, maximum)
+    value = tonumber(value)
+    if not value or value ~= value then value = default end
+    return math.max(minimum, math.min(maximum, value))
+end
+
+local function IsFiniteNumber(value)
+    return type(value) == "number" and value == value and value > -math.huge and value < math.huge
+end
+
+local function RestoreGeometry(frame)
+    local profile = GetProfile()
+    local geometry = profile and profile.outputWindow
+    if type(geometry) ~= "table" then geometry = {} end
+
+    frame:SetSize(ClampDimension(geometry.width, 600, 400, 800), ClampDimension(geometry.height, 400, 300, 600))
+    frame:ClearAllPoints()
+    if type(geometry.point) == "string" and VALID_POINTS[geometry.point]
+        and type(geometry.relativePoint) == "string" and VALID_POINTS[geometry.relativePoint]
+        and IsFiniteNumber(geometry.x) and IsFiniteNumber(geometry.y) then
+        local restored = pcall(frame.SetPoint, frame, geometry.point, UIParent, geometry.relativePoint, geometry.x, geometry.y)
+        if restored then return end
+        frame:ClearAllPoints()
+    end
+    frame:SetPoint("CENTER", UIParent, "CENTER", 0, 0)
+end
+
+local function GetOutputHeight(text)
+    local numLines = 1
+    for _ in (text or ""):gmatch("\n") do
+        numLines = numLines + 1
+    end
+    return math.max(1, numLines * 16)
+end
 
 local function EnableSafeEscapeClose(frame)
     if not frame then return end
@@ -42,7 +98,7 @@ local function CreateOutputWindow()
     if outputFrame then return outputFrame end
 
     -- Main frame
-    local frame = CreateFrame("Frame", "HomesteadOutputWindow", UIParent, "BackdropTemplate")
+    local frame = CreateFrame("Frame", "HomesteadOutputWindow", UIParent, "DefaultPanelTemplate")
     frame:SetSize(600, 400)
     frame:SetPoint("CENTER")
     frame:SetFrameStrata("DIALOG")
@@ -54,83 +110,68 @@ local function CreateOutputWindow()
     frame:SetClampedToScreen(true)
     frame:Hide()
 
-    -- Backdrop
-    frame:SetBackdrop({
-        bgFile = "Interface\\DialogFrame\\UI-DialogBox-Background-Dark",
-        edgeFile = "Interface\\DialogFrame\\UI-DialogBox-Border",
-        tile = true, tileSize = 32, edgeSize = 32,
-        insets = { left = 11, right = 12, top = 12, bottom = 11 }
-    })
-    frame:SetBackdropColor(0.1, 0.1, 0.1, 0.95)
-
-    -- Title bar (draggable area)
-    local titleBar = CreateFrame("Frame", nil, frame, "BackdropTemplate")
-    titleBar:SetHeight(32)
-    titleBar:SetPoint("TOPLEFT", 12, -12)
-    titleBar:SetPoint("TOPRIGHT", -12, -12)
-    titleBar:SetBackdrop({
-        bgFile = "Interface\\DialogFrame\\UI-DialogBox-Header",
-        edgeFile = nil,
-    })
-    titleBar:EnableMouse(true)
-    titleBar:RegisterForDrag("LeftButton")
-    titleBar:SetScript("OnDragStart", function() frame:StartMoving() end)
-    titleBar:SetScript("OnDragStop", function() frame:StopMovingOrSizing() end)
-
-    -- Title text
-    titleText = frame:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
-    titleText:SetPoint("TOP", titleBar, "TOP", 0, -8)
+    -- Native panel title and title-container drag target.
+    titleText = frame.TitleContainer.TitleText
     titleText:SetText(L["Output"] or "Output")
+    frame.TitleContainer:EnableMouse(true)
+    frame.TitleContainer:RegisterForDrag("LeftButton")
+    frame.TitleContainer:SetScript("OnDragStart", function() frame:StartMoving() end)
+    frame.TitleContainer:SetScript("OnDragStop", function()
+        frame:StopMovingOrSizing()
+        SaveGeometry(frame)
+    end)
 
     -- Close button
-    local closeBtn = CreateFrame("Button", nil, frame, "UIPanelCloseButton")
-    closeBtn:SetPoint("TOPRIGHT", -8, -8)
+    local closeBtn = CreateFrame("Button", nil, frame, "UIPanelCloseButtonDefaultAnchors")
     closeBtn:SetScript("OnClick", function()
         frame:Hide()
     end)
 
     -- Scroll frame container
-    local scrollContainer = CreateFrame("Frame", nil, frame, "BackdropTemplate")
+    local scrollContainer = CreateFrame("Frame", nil, frame, "InsetFrameTemplate")
     scrollContainer:SetPoint("TOPLEFT", 16, -50)
     scrollContainer:SetPoint("BOTTOMRIGHT", -16, 50)
-    scrollContainer:SetBackdrop({
-        bgFile = "Interface\\Buttons\\WHITE8x8",
-        edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
-        tile = true, tileSize = 8, edgeSize = 12,
-        insets = { left = 2, right = 2, top = 2, bottom = 2 }
+    local foundry = _G.Foundry_1_0
+    local List = foundry:RequireModule("List", 1)
+    outputList = List:New({
+        name = "HomesteadOutputList",
+        parent = scrollContainer,
+        elementType = "Frame",
+        extentCalculator = function(_, row)
+            return row.height
+        end,
+        initializer = function(rowFrame, row)
+            if not rowFrame.editBox then
+                rowFrame.editBox = CreateFrame("EditBox", nil, rowFrame)
+                rowFrame.editBox:SetMultiLine(true)
+                rowFrame.editBox:SetFontObject(ChatFontNormal)
+                rowFrame.editBox:SetAutoFocus(false)
+                rowFrame.editBox:EnableMouse(true)
+                rowFrame.editBox:SetScript("OnEscapePressed", function(self)
+                    self:ClearFocus()
+                    frame:Hide()
+                end)
+            end
+            rowFrame.editBox:SetAllPoints(rowFrame)
+            rowFrame.editBox:SetText(row.text or "")
+            rowFrame.editBox:SetCursorPosition(0)
+            rowFrame.editBox:ClearFocus()
+            -- Paired with the resetter's Hide: a recycled row's edit box comes back hidden.
+            rowFrame.editBox:Show()
+            editBox = rowFrame.editBox
+        end,
+        resetter = function(rowFrame)
+            if rowFrame.editBox then
+                rowFrame.editBox:Hide()
+                rowFrame.editBox:SetText("")
+            end
+        end,
     })
-    scrollContainer:SetBackdropColor(0.05, 0.05, 0.05, 0.9)
-    scrollContainer:SetBackdropBorderColor(0.3, 0.3, 0.3, 1)
-
-    -- Scroll frame
-    scrollFrame = CreateFrame("ScrollFrame", nil, scrollContainer, "UIPanelScrollFrameTemplate")
-    scrollFrame:SetPoint("TOPLEFT", 6, -6)
-    scrollFrame:SetPoint("BOTTOMRIGHT", -28, 6)
-
-    -- Edit box (multi-line, read-only)
-    editBox = CreateFrame("EditBox", nil, scrollFrame)
-    editBox:SetMultiLine(true)
-    editBox:SetFontObject(ChatFontNormal)
-    editBox:SetWidth(scrollFrame:GetWidth() - 10)
-    editBox:SetAutoFocus(false)
-    editBox:EnableMouse(true)
-    editBox:SetScript("OnEscapePressed", function(self)
-        self:ClearFocus()
-        frame:Hide()
-    end)
-    editBox:SetScript("OnTextChanged", function(self)
-        -- Auto-adjust height based on content
-        local _, fontHeight = self:GetFont()
-        fontHeight = fontHeight or 14
-        local text = self:GetText()
-        local numLines = 1
-        for _ in text:gmatch("\n") do
-            numLines = numLines + 1
-        end
-        self:SetHeight(math.max(scrollFrame:GetHeight(), numLines * (fontHeight + 2)))
-    end)
-
-    scrollFrame:SetScrollChild(editBox)
+    local handles = outputList:GetNativeHandles()
+    scrollFrame = handles.scrollBox
+    scrollFrame:ClearAllPoints()
+    scrollFrame:SetPoint("TOPLEFT", scrollContainer, "TOPLEFT", 6, -6)
+    scrollFrame:SetPoint("BOTTOMRIGHT", scrollContainer, "BOTTOMRIGHT", -28, 6)
 
     -- Button container
     local buttonContainer = CreateFrame("Frame", nil, frame)
@@ -144,8 +185,10 @@ local function CreateOutputWindow()
     copyBtn:SetPoint("LEFT", 8, 0)
     copyBtn:SetText(L["Select All"] or "Select All")
     copyBtn:SetScript("OnClick", function()
-        editBox:SetFocus()
-        editBox:HighlightText()
+        if editBox then
+            editBox:SetFocus()
+            editBox:HighlightText()
+        end
         HA.Addon:Print(L["All text selected. Press Ctrl+C to copy to clipboard."] or "All text selected. Press Ctrl+C to copy to clipboard.")
     end)
 
@@ -172,14 +215,16 @@ local function CreateOutputWindow()
     end)
     resizeGrip:SetScript("OnMouseUp", function(self, button)
         frame:StopMovingOrSizing()
-        -- Update editbox width on resize
-        editBox:SetWidth(scrollFrame:GetWidth() - 10)
+        SaveGeometry(frame)
     end)
 
     -- ESC key handling
     frame:SetScript("OnHide", function()
-        editBox:SetText("")
-        editBox:ClearFocus()
+        SaveGeometry(frame)
+        if editBox then
+            editBox:SetText("")
+            editBox:ClearFocus()
+        end
     end)
 
     -- Close on Escape without touching UISpecialFrames.
@@ -202,12 +247,16 @@ function OutputWindow:Show(title, text)
     titleText:SetText(title or "Output")
 
     -- Set text (read-only)
-    editBox:SetText(text or "")
-    editBox:SetCursorPosition(0)
-    editBox:ClearFocus()
+    outputList:SetData({{ text = text or "", height = GetOutputHeight(text) }})
+    if editBox then
+        editBox:SetCursorPosition(0)
+        editBox:ClearFocus()
+    end
 
-    -- Reset scroll position
-    scrollFrame:SetVerticalScroll(0)
+    -- Reset scroll position (the list's native ScrollBox, so ScrollToBegin, not SetVerticalScroll)
+    scrollFrame:ScrollToBegin(ScrollBoxConstants.NoScrollInterpolation)
+
+    RestoreGeometry(outputFrame)
 
     -- Show frame
     outputFrame:Show()

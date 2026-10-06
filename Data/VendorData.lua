@@ -3,9 +3,15 @@
     Unified vendor data access layer
 
     This module provides:
-    - Unified access to static (VendorDatabase) and scanned vendor data
+    - Unified access to the static vendor tables and scanned vendor data
     - Query functions for finding vendors by item, location, or name
-    - Merging of scanned vendor data with static database
+    - Merging of scanned vendor data with the static tables
+
+    The static authority at runtime is VendorIdentity (who a vendor is and
+    where) plus VendorOffers (what they sell and what it costs), with
+    EndeavorsData and EventSources alongside them. Data/VendorDatabase.lua is
+    a build-time seed for the generators: it is in neither .toc and never
+    loads, so nothing here may read it.
 ]]
 
 local _, HA = ...
@@ -16,7 +22,7 @@ HA.VendorData = VendorData
 -------------------------------------------------------------------------------
 -- Vendor Name to NPC ID Mapping
 -- Maps official vendor names (as they appear in C_HousingCatalog source data)
--- to their NPC IDs in VendorDatabase. Some vendors have multiple NPC IDs
+-- to their NPC IDs in VendorIdentity. Some vendors have multiple NPC IDs
 -- due to appearing in multiple locations.
 -------------------------------------------------------------------------------
 
@@ -162,6 +168,8 @@ function VendorData:FormatCost(cost)
                         parts[#parts + 1] = currency.amount .. " |T" .. info.iconFileID .. ":0:0|t"
                     elseif info and info.name then
                         parts[#parts + 1] = currency.amount .. " " .. info.name
+                    elseif currency.name then
+                        parts[#parts + 1] = currency.amount .. " " .. currency.name
                     else
                         parts[#parts + 1] = currency.amount .. " Currency " .. currency.id
                     end
@@ -182,6 +190,8 @@ function VendorData:FormatCost(cost)
                     parts[#parts + 1] = itemCost.amount .. " |T" .. iconID .. ":0:0|t"
                 elseif itemName then
                     parts[#parts + 1] = itemCost.amount .. " " .. itemName
+                elseif itemCost.name then
+                    parts[#parts + 1] = itemCost.amount .. " " .. itemCost.name
                 else
                     parts[#parts + 1] = itemCost.amount .. " Item " .. itemCost.id
                 end
@@ -230,7 +240,140 @@ function VendorData:NormalizeScannedCost(scannedItem)
         hasCost = true
     end
 
+    -- Convert item-based currency costs (Spare Parts, Polished Pet Charms, etc.),
+    -- matching GetItemCost's offer.itemCosts -> cost.items build above so
+    -- FormatCost renders scanned and static item-currency costs identically.
+    if scannedItem.itemCosts and #scannedItem.itemCosts > 0 then
+        cost.items = {}
+        for _, itemCost in ipairs(scannedItem.itemCosts) do
+            table.insert(cost.items, {
+                id = itemCost.id or itemCost.itemID,
+                amount = itemCost.amount,
+                name = itemCost.name,
+            })
+        end
+        hasCost = true
+    end
+
     return hasCost and cost or nil
+end
+
+local VENDOR_COST_STALE_SECONDS = 60 * 24 * 60 * 60
+
+function VendorData:GetScannedVendorRecord(vendor)
+    local db = HA.Addon and HA.Addon.db
+    local scannedVendors = db and db.global and db.global.scannedVendors
+    if not scannedVendors or not vendor then return nil end
+
+    local record = vendor.npcID and scannedVendors[vendor.npcID]
+    if not record and vendor.name and HA.VendorScanner then
+        local correctedID = HA.VendorScanner:GetCorrectedNPCID(vendor.name)
+        if correctedID then
+            record = scannedVendors[correctedID]
+        end
+    end
+    return record
+end
+
+local function GetScannedItemAndCost(record, itemID)
+    if not record or not record.items or not itemID then return nil, nil end
+
+    local matchingItem
+    for _, item in ipairs(record.items) do
+        if item.itemID == itemID then
+            matchingItem = matchingItem or item
+            local cost = VendorData:NormalizeScannedCost(item)
+            if cost then
+                return item, cost
+            end
+        end
+    end
+    return matchingItem, nil
+end
+
+local function HasOnlyGoldCost(cost)
+    return cost and cost.gold and not cost.currencies and not cost.items
+end
+
+-- HS-383: scanned {cost, scannedAt} for one vendor/item pair, exposed so
+-- callers can decide whether a source-text lookup is worth doing (see
+-- CanSkipSourceTextLookup below) without duplicating GetScannedItemAndCost.
+function VendorData:GetScannedItemCost(vendor, itemID)
+    local record = self:GetScannedVendorRecord(vendor)
+    local _, cost = GetScannedItemAndCost(record, itemID)
+    return cost, record and record.lastScanned
+end
+
+-- HS-383: true when the given scanned cost/time already determines
+-- ResolveVendorItemCost's outcome regardless of any source-text cost --
+-- i.e. a source-text lookup for this item would be pure waste. Mirrors the
+-- exact gold-only + staleness gate the sourceText-discount branch below
+-- requires, so the two can never drift apart.
+function VendorData:CanSkipSourceTextLookup(scannedCost, scannedAt)
+    if not scannedCost then return false end
+    if not HasOnlyGoldCost(scannedCost) then return true end
+    if not scannedAt then return true end
+    return (time() - scannedAt) <= VENDOR_COST_STALE_SECONDS
+end
+
+-- Resolve a vendor item's display cost for every UI surface.
+-- sourceText is optional {cost = normalizedCost, lastParsed = timestamp}.
+-- Returns normalized cost and provenance: scanned, sourceText-discount, sourceText,
+-- static, or nil.
+function VendorData:ResolveVendorItemCost(
+        vendor, itemID, sourceText, scannedCostOverride, scannedCostKnown,
+        staticCostOverride, staticCostKnown, scannedAtOverride)
+    if not vendor or not itemID then return nil, nil end
+
+    local scannedVendor
+    if not scannedCostKnown then
+        scannedVendor = self:GetScannedVendorRecord(vendor)
+    end
+    local scannedCost = scannedCostOverride
+    if not scannedCostKnown then
+        _, scannedCost = GetScannedItemAndCost(scannedVendor, itemID)
+    end
+    local scannedAt = scannedAtOverride or (scannedVendor and scannedVendor.lastScanned)
+    local sourceCost = sourceText and sourceText.cost
+    local sourceAt = sourceText and sourceText.lastParsed
+    local now = time()
+
+    if HasOnlyGoldCost(scannedCost) and HasOnlyGoldCost(sourceCost)
+            and scannedAt and sourceAt and sourceAt > scannedAt
+            and now - scannedAt > VENDOR_COST_STALE_SECONDS
+            and sourceCost.gold < scannedCost.gold then
+        return sourceCost, "sourceText-discount"
+    end
+
+    if scannedCost then
+        return scannedCost, "scanned"
+    end
+
+    if sourceCost then
+        return sourceCost, "sourceText"
+    end
+
+    if staticCostKnown then
+        if staticCostOverride then
+            return staticCostOverride, "static"
+        end
+        return nil, nil
+    end
+
+    local staticItems = vendor.items
+    if (not staticItems or #staticItems == 0) and vendor.npcID then
+        staticItems = self:GetVendorItems(vendor.npcID)
+    end
+    for _, item in ipairs(staticItems or {}) do
+        if self:GetItemID(item) == itemID then
+            local staticCost = self:GetItemCost(item)
+            if staticCost then
+                return staticCost, "static"
+            end
+        end
+    end
+
+    return nil, nil
 end
 
 -------------------------------------------------------------------------------
@@ -310,14 +453,10 @@ end
 
 -- Resolve an alias NPC ID to its canonical ID.
 -- Returns the canonical ID if an alias exists, nil otherwise.
--- Checks VendorIdentity, VendorDatabase, and EndeavorsData aliases.
+-- Checks VendorIdentity and EndeavorsData aliases.
 function VendorData:ResolveAlias(npcID)
     if HA.VendorIdentity and HA.VendorIdentity.Aliases then
         local id = HA.VendorIdentity.Aliases[npcID]
-        if id then return id end
-    end
-    if HA.VendorDatabase and HA.VendorDatabase.Aliases then
-        local id = HA.VendorDatabase.Aliases[npcID]
         if id then return id end
     end
     if HA.EndeavorsData and HA.EndeavorsData.Aliases then
@@ -348,10 +487,6 @@ function VendorData:GetVendor(npcID)
         local vendor = HA.EndeavorsData.Vendors[npcID]
         if vendor then return vendor end
     end
-    if HA.VendorDatabase then
-        local vendor = HA.VendorDatabase:GetVendor(npcID)
-        if vendor then return vendor end
-    end
     -- Resolve alias and retry (cycle guard: canonicalID must differ)
     local canonicalID = self:ResolveAlias(npcID)
     if canonicalID and canonicalID ~= npcID then
@@ -367,9 +502,6 @@ function VendorData:HasVendor(npcID)
     end
     if HA.EndeavorsData and HA.EndeavorsData.Vendors then
         if HA.EndeavorsData.Vendors[npcID] then return true end
-    end
-    if HA.VendorDatabase and HA.VendorDatabase:HasVendor(npcID) then
-        return true
     end
     -- Resolve alias and retry (cycle guard: canonicalID must differ)
     local canonicalID = self:ResolveAlias(npcID)
@@ -403,16 +535,6 @@ function VendorData:GetVendorsInMap(mapID)
         local identityVendors = HA.VendorIdentity:GetVendorsByMapID(mapID)
         if identityVendors then
             for _, vendor in ipairs(identityVendors) do
-                result[#result + 1] = ProjectVendorWithItems(self, vendor)
-                if vendor.npcID then
-                    addedNPCs[vendor.npcID] = true
-                end
-            end
-        end
-    elseif HA.VendorDatabase then
-        local dbVendors = HA.VendorDatabase:GetVendorsByMapID(mapID)
-        if dbVendors then
-            for _, vendor in ipairs(dbVendors) do
                 result[#result + 1] = ProjectVendorWithItems(self, vendor)
                 if vendor.npcID then
                     addedNPCs[vendor.npcID] = true
@@ -464,7 +586,6 @@ function VendorData:GetVendorsForFaction(faction)
 
     -- Static identity vendors
     local staticVendors = HA.VendorIdentity and HA.VendorIdentity.Vendors
-            or (HA.VendorDatabase and HA.VendorDatabase.Vendors)
     if staticVendors then
         for _, vendor in pairs(staticVendors) do
             local vendorFaction = vendor.faction or "Neutral"
@@ -501,17 +622,6 @@ function VendorData:GetVendorsForItem(itemID)
             if vendor then
                 table.insert(result, vendor)
                 seenNPCs[npcID] = true
-            end
-        end
-    elseif HA.VendorDatabase then
-        -- Phase-3 fallback while legacy VendorDatabase still loads.
-        if HA.VendorDatabase.ByItemID and HA.VendorDatabase.ByItemID[itemID] then
-            for _, npcID in ipairs(HA.VendorDatabase.ByItemID[itemID]) do
-                local vendor = self:GetVendor(npcID)
-                if vendor then
-                    table.insert(result, vendor)
-                    seenNPCs[npcID] = true
-                end
             end
         end
     end
@@ -634,7 +744,6 @@ function VendorData:SearchVendors(searchText)
 
     -- Search static identity data
     local staticVendors = HA.VendorIdentity and HA.VendorIdentity.Vendors
-            or (HA.VendorDatabase and HA.VendorDatabase.Vendors)
     if staticVendors then
         for npcID, vendor in pairs(staticVendors) do
             local matched = false
@@ -706,7 +815,6 @@ function VendorData:GetAllVendors()
 
     -- Static identity vendors
     local staticVendors = HA.VendorIdentity and HA.VendorIdentity:GetAllVendors()
-            or (HA.VendorDatabase and HA.VendorDatabase:GetAllVendors())
     if staticVendors then
         for _, vendor in ipairs(staticVendors) do
             result[#result + 1] = ProjectVendorWithItems(self, vendor)
@@ -746,8 +854,6 @@ function VendorData:GetVendorCount()
     local count = 0
     if HA.VendorIdentity then
         count = count + HA.VendorIdentity:GetVendorCount()
-    elseif HA.VendorDatabase then
-        count = count + HA.VendorDatabase:GetVendorCount()
     end
     if HA.EndeavorsData then
         count = count + (HA.EndeavorsData.VendorCount or 0)
@@ -759,7 +865,6 @@ end
 function VendorData:GetVendorsByExpansion(expansion)
     local result = {}
     local staticVendors = HA.VendorIdentity and HA.VendorIdentity:GetVendorsByExpansion(expansion)
-            or (HA.VendorDatabase and HA.VendorDatabase:GetVendorsByExpansion(expansion))
     if staticVendors then
         for _, vendor in ipairs(staticVendors) do
             result[#result + 1] = ProjectVendorWithItems(self, vendor)
@@ -777,7 +882,7 @@ end
 
 -------------------------------------------------------------------------------
 -- Vendor Name Lookup Functions
--- For cross-referencing DecorSources data with VendorDatabase
+-- For cross-referencing DecorSources data with the static vendor tables
 -------------------------------------------------------------------------------
 
 -- Get NPC IDs for a vendor name (from VendorNameToNPC mapping)
@@ -795,7 +900,7 @@ function VendorData:HasVendorName(vendorName)
     return self.VendorNameToNPC[vendorName] ~= nil
 end
 
--- Get all vendors from VendorDatabase that match a DecorSources vendor name
+-- Get all vendors matching a DecorSources vendor name
 function VendorData:GetVendorsByDecorSourceName(vendorName)
     local npcIDs = self:GetNPCsForVendorName(vendorName)
     if not npcIDs then return {} end
@@ -828,7 +933,6 @@ function VendorData:BuildNameIndex()
     -- Auto-populate VendorNameToNPC from static identity data for any vendors
     -- not already in the manual table (preserves manual multi-NPC entries)
     local staticVendors = HA.VendorIdentity and HA.VendorIdentity.Vendors
-            or (HA.VendorDatabase and HA.VendorDatabase.Vendors)
     if staticVendors then
         -- Add any vendor from the static authority not already covered
         for npcID, vendor in pairs(staticVendors) do
@@ -961,24 +1065,14 @@ function VendorData:GetScannedVendorItems(npcID, itemID)
     return byItem and byItem[itemID]
 end
 
--- Rebuild the full scanned-index from authoritative SavedVariables.
--- Cheap (~1ms for ~200 vendors) and structurally prevents stale
--- (itemID -> npcID) leakage when a vendor's item set changes between scans.
-function VendorData:OnVendorScanned(_)
-    self:BuildScannedIndex()
-end
-
 -------------------------------------------------------------------------------
 -- Initialization
 -------------------------------------------------------------------------------
 
 function VendorData:Initialize()
-    -- Build indexes in static vendor authorities.
+    -- Build indexes in the static vendor authority.
     if HA.VendorIdentity and HA.VendorIdentity.BuildIndexes then
         HA.VendorIdentity:BuildIndexes()
-    end
-    if HA.VendorDatabase and HA.VendorDatabase.BuildIndexes then
-        HA.VendorDatabase:BuildIndexes()
     end
 
     self:BuildOfferIndexes()
@@ -986,7 +1080,11 @@ function VendorData:Initialize()
     -- HS-281: per-npcID memo for GetVendorItems. GetOffers' four input tables
     -- are static after load with no runtime writers, so this needs no
     -- invalidation hook -- see GetVendorItems for the full rationale.
+    -- HS-282: VendorItemsMemoCount tracks population for the insert-site
+    -- eviction cap (InsertVendorItemsMemo below) -- reset here alongside the
+    -- memo itself.
     self.VendorItemsMemo = {}
+    self.VendorItemsMemoCount = 0
 
     -- Build reverse lookup for vendor names
     self:BuildNameIndex()
@@ -994,12 +1092,11 @@ function VendorData:Initialize()
     -- Build scanned vendor item index
     self:BuildScannedIndex()
 
-    -- Listen for new vendor scans to update index
-    if HA.Events then
-        HA.Events:RegisterCallback("VENDOR_SCANNED", function(vendorRecord)
-            VendorData:OnVendorScanned(vendorRecord)
-        end)
-    end
+    -- No VENDOR_SCANNED listener here: ScanPersistence:SaveVendorData already
+    -- calls InvalidateVendorCaches() (which rebuilds this index) before firing
+    -- VENDOR_SCANNED, so a second rebuild off that event would just redo the
+    -- same work (perf cleanup, see ScanPersistence.lua's InvalidateVendorCaches
+    -- call comment for the ordering guarantee).
 
     if HA.Addon then
         local nameCount = 0
@@ -1059,7 +1156,7 @@ function VendorData:GetOffers(npcID)
     return next(result) and result or nil
 end
 
--- Convert a VendorOffers row into the legacy VendorDatabase item shape.
+-- Convert a VendorOffers row into the legacy item shape older consumers expect.
 function VendorData:OfferToLegacyItem(itemID, offer)
     local _ = self
     if not offer then return itemID end
@@ -1117,26 +1214,60 @@ end
 -- lazy `or {}` below covers standalone/partial-mock test harnesses that load
 -- this file without calling Initialize(). GetOffers' four input tables
 -- (GeneratedBase, ManualOverrides, StagedAdditions, Tombstones) are static
--- after addon load with no runtime writers, so this never needs an
--- invalidation hook.
+-- after addon load with no runtime writers -- no *correctness* invalidation
+-- is needed; the wipes exist purely for memory (HS-282's eviction cap and
+-- BadgeCalculation's end-of-pass flush, below).
+-- HS-282: eviction cap for VendorItemsMemo. Unlike SourceManager's
+-- allSourcesCache (Cache A), which is capped by distinct ITEM count, this
+-- cache's unit is VENDORS: GetAllVendors() walks a static working set of
+-- ~225 vendors on every pass, and a live session adds scanned-vendor npcIDs
+-- on top of that. A cap below the working set produces permanent zero
+-- cross-walk reuse -- measured: 225/225/225 GetOffers rebuilds per pass at
+-- cap 64, vs 0/0/0 at cap 256+. At 512 this cap is a safety valve against
+-- unbounded growth, not the primary memory-relief mechanism -- that's
+-- BadgeCalculation's end-of-prewarm-pass flush (below), which carries H's
+-- actual memory relief. Counter lives on self (not a module-level local) so
+-- it stays in step with the lazy `or {}` fallback below for standalone test
+-- harnesses. Both insert sites in GetVendorItems (the empty-offers path and
+-- the built-items path) route through the one helper below so the cap can't
+-- be satisfied at one site and skipped at the other.
+local VENDOR_ITEMS_MEMO_MAX_ENTRIES = 512
+
+local function InsertVendorItemsMemo(self, npcID, value)
+    if self.VendorItemsMemoCount >= VENDOR_ITEMS_MEMO_MAX_ENTRIES then
+        self:InvalidateVendorItemsMemo()
+    end
+    self.VendorItemsMemo[npcID] = value
+    self.VendorItemsMemoCount = self.VendorItemsMemoCount + 1
+    return value
+end
+
+-- HS-282: narrow wipe of VendorItemsMemo alone, mirroring
+-- SourceManager:InvalidateSourcesMemo -- used by the cap above and by
+-- BadgeCalculation's end-of-prewarm-pass flush.
+function VendorData:InvalidateVendorItemsMemo()
+    self.VendorItemsMemo = {}
+    self.VendorItemsMemoCount = 0
+end
+
 function VendorData:GetVendorItems(npcID)
     -- Lua can read a table with a nil key but not write one -- a nil npcID
     -- used to fall through GetOffers to a plain `return {}`; preserve that
     -- tolerance rather than letting the memo write turn it into a hard
-    -- error (Sage Gate 1: existing ProjectVendorWithItems call sites already
+    -- error (existing ProjectVendorWithItems call sites already
     -- guard on `if vendor.npcID then`, treating an unstamped record as
     -- possible). Same reasoning for a not-yet-loaded HA.VendorOffers: don't
     -- memoize "offers table unavailable" as if it were "vendor has none".
     if npcID == nil or not HA.VendorOffers then return {} end
 
     self.VendorItemsMemo = self.VendorItemsMemo or {}
+    self.VendorItemsMemoCount = self.VendorItemsMemoCount or 0
     local cached = self.VendorItemsMemo[npcID]
     if cached then return cached end
 
     local offers = self:GetOffers(npcID)
     if not offers then
-        self.VendorItemsMemo[npcID] = {}
-        return self.VendorItemsMemo[npcID]
+        return InsertVendorItemsMemo(self, npcID, {})
     end
 
     local ordered = {}
@@ -1158,8 +1289,7 @@ function VendorData:GetVendorItems(npcID)
     for _, row in ipairs(ordered) do
         items[#items + 1] = self:OfferToLegacyItem(row.itemID, row.offer)
     end
-    self.VendorItemsMemo[npcID] = items
-    return items
+    return InsertVendorItemsMemo(self, npcID, items)
 end
 
 function VendorData:GetItemsForVendor(vendorOrNPC)

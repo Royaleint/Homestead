@@ -16,6 +16,7 @@
 local _, HA = ...
 
 local F = _G.Foundry_1_0
+local FPU = HA.FramePoolUtils
 
 local MapSidePanel = {}
 HA.MapSidePanel = MapSidePanel
@@ -28,83 +29,91 @@ local VendorData
 local VendorFilter
 local BC  -- BadgeCalculation
 
+local Layout = {}
+local State = {}
+
 -- Constants
-local PANEL_WIDTH = 260
-local ROW_HEIGHT = 36
-local HEADER_HEIGHT = 36
-local PADDING = 8
-local ICON_SIZE = 14
-local ITEM_ICON_SIZE = 28
-local ITEM_ICON_PAD = 3
-local ITEM_RESULT_ICON_SIZE = 20
-local ITEM_RESULT_BADGE_SIZE = 14
-local ITEM_RESULT_LINE_HEIGHT = 18
-local ITEM_GRID_INSET = 24  -- Left indent for item grid (aligns under name text)
-local PROGRESS_BAR_HEIGHT = 14
+Layout.PANEL_WIDTH = 260
+Layout.ROW_HEIGHT = 36
+Layout.HEADER_HEIGHT = 36
+Layout.PADDING = 8
+Layout.ICON_SIZE = 14
+Layout.ITEM_ICON_SIZE = 28
+Layout.ITEM_ICON_PAD = 3
+Layout.ITEM_RESULT_ICON_SIZE = 20
+Layout.ITEM_RESULT_BADGE_SIZE = 14
+Layout.ITEM_RESULT_LINE_HEIGHT = 18
+Layout.ITEM_GRID_INSET = 24  -- Left indent for item grid (aligns under name text)
+
+-- Icons per grid row. Derived only from constants above, so it is one itself:
+-- content width is Layout.PANEL_WIDTH - 20 (borders) - 22 (scrollbar) = 218.
+Layout.ICONS_PER_ROW = math.floor(
+    ((Layout.PANEL_WIDTH - 20 - 22) - Layout.ITEM_GRID_INSET - Layout.PADDING + Layout.ITEM_ICON_PAD)
+    / (Layout.ITEM_ICON_SIZE + Layout.ITEM_ICON_PAD))
+if Layout.ICONS_PER_ROW < 1 then Layout.ICONS_PER_ROW = 1 end
+
+Layout.PROGRESS_BAR_HEIGHT = 14
 local SEARCH_OPTIONS = { includeItemResults = true }
-local PANEL_TOOLTIP_NAME = "HomesteadMapSidePanelTooltip"
+Layout.PANEL_TOOLTIP_NAME = "HomesteadMapSidePanelTooltip"
+
+-- Shared row colours. Read-only: a renderer applies one, never mutates it.
+Layout.COLOR_WHITE = { 1, 1, 1 }
+Layout.COLOR_DIM   = { 0.5, 0.5, 0.5 }
+Layout.COLOR_GOLD  = { 1, 0.82, 0 }
 
 -- State
-local panelFrame = nil
-local overlayButton = nil
-local scrollFrame = nil
-local scrollChild = nil
-local headerFrame = nil  -- Title + zone name header region
-local headerText = nil
-local sourceFilterBar = nil
-local summaryText = nil
-local emptyText = nil
-local topTileFrame = nil   -- Inner decorative top-edge tile
-local topStreaksFrame = nil -- Decorative streaks overlay
-local bgTexture = nil      -- QuestLogBackground fill (anchored below header zone)
-local isInitialized = false
+State.panelFrame = nil
+State.overlayButton = nil
+State.contentList = nil
+State.listScrollBox = nil
+State.headerFrame = nil  -- Title + zone name header region
+State.headerText = nil
+State.sourceFilterBar = nil
+State.summaryText = nil
+State.emptyText = nil
+State.topTileFrame = nil   -- Inner decorative top-edge tile
+State.topStreaksFrame = nil -- Decorative streaks overlay
+State.bgTexture = nil      -- QuestLogBackground fill (anchored below header zone)
+State.isInitialized = false
 -- HS-210: debounced content-refresh scheduler shared by every event listener
 -- below that wants a deferred repaint. Mirrors Overlay/Merchant.lua's
 -- ScheduleOverlayUpdate shape, but tracks pending state with an explicit
 -- boolean instead of the C_Timer.After return value — C_Timer.After returns
 -- nothing, so assigning its result to the guard variable would leave it nil
 -- immediately and never actually debounce.
-local pendingContentRefresh = false
-local vendorRows = {}
-local itemResultRows = {}
-local expandedVendorID = nil  -- npcID of currently expanded vendor (nil = none)
-local expandedItemID = nil    -- itemID of currently expanded item result row
+State.pendingContentRefresh = false
+-- One free-list bucket per record kind, acquired and released through FramePoolUtils.
+-- Replaces the six per-kind row pools the manual scroll layout used.
+State.rowPool = { vendor = {}, summary = {}, subrow = {}, boss = {}, item = {}, header = {} }
+State.expandedVendorID = nil  -- npcID of currently expanded vendor (nil = none)
+State.expandedItemID = nil    -- itemID of currently expanded item result row
+State.expandedBossKey = nil   -- journalEncounterID of currently expanded boss row (nil = none)
+State.lastRefreshMapID = nil
+State.isPoppedOut = false
+State.panelSourceFilter = "all"  -- all|vendor|quest|achievement|profession|event|drop
+State.sourceFilterDropdown = nil
+State.menuContextMenu = nil   -- Foundry.Menu controller, set in MapSidePanel:Initialize()
+State.menuSourceFilter = nil  -- Foundry.Menu controller, set in MapSidePanel:Initialize()
+State.progressBar = nil
+State.progressBarBg = nil
+State.progressBarLockedFill = nil
+State.progressBarPurchasableFill = nil
+State.progressBarText = nil
+State.scrollContainer = nil  -- Scroll area container (re-anchored by progress bar)
 
--- HS-230: instance-map drop-source rows (sibling of vendorRows, same shape).
-local bossRows = {}
-local expandedBossKey = nil   -- journalEncounterID of currently expanded boss row (nil = none)
-local lastRefreshMapID = nil
-local isPoppedOut = false
-local panelSourceFilter = "all"  -- all|vendor|quest|achievement|profession|event|drop
-local sourceFilterDropdown = nil
-local menuContextMenu   -- Foundry.Menu controller, set in MapSidePanel:Initialize()
-local menuSourceFilter  -- Foundry.Menu controller, set in MapSidePanel:Initialize()
-local progressBar = nil
-local progressBarBg = nil
-local progressBarLockedFill = nil
-local progressBarPurchasableFill = nil
-local progressBarText = nil
-local scrollContainer = nil  -- Scroll area container (re-anchored by progress bar)
-
-local summaryRows = {}
-local currentDisplayLevel = "zone"  -- "zone" | "continent" | "world"
-local backBar = nil  -- Back navigation bar (visible at zone/continent level)
-local expandedSummaryMapID = nil  -- mapID of expanded summary row (nil = none)
-local summarySubRows = {}         -- reusable sub-row frame pool
-local iconPool = {}               -- reusable item icon frame pool
+State.currentDisplayLevel = "zone"  -- "zone" | "continent" | "world"
+State.backBar = nil  -- Back navigation bar (visible at zone/continent level)
+State.expandedSummaryMapID = nil  -- mapID of expanded summary row (nil = none)
+State.iconPool = { default = {} } -- reusable item icon frame pool
 
 -- Search state
-local searchEditBox = nil
-local searchBar = nil
-local searchText = ""
-local searchResults = nil            -- Array from SearchProvider or nil
-local searchDebounceTimer = nil      -- C_Timer.NewTimer handle (cancelable)
-local searchResultsRevision = nil    -- Tracks which index revision results came from
-local suppressTextChanged = false    -- Prevents debounce on programmatic SetText
-
--- HS-019: search-result section header pool (one header row per active source
--- section: Vendors / Profession / Quest / Achievement / Event / Drop).
-local searchHeaderRows = {}
+State.searchEditBox = nil
+State.searchBar = nil
+State.searchText = ""
+State.searchResults = nil            -- Array from SearchProvider or nil
+State.searchDebounceTimer = nil      -- C_Timer.NewTimer handle (cancelable)
+State.searchResultsRevision = nil    -- Tracks which index revision results came from
+State.suppressTextChanged = false    -- Prevents debounce on programmatic SetText
 
 local SOURCE_FILTER_LABELS = {
     all = L["All"] or "All",
@@ -115,6 +124,7 @@ local SOURCE_FILTER_LABELS = {
     event = L["Event"] or "Event",
     shop = L["Shop"] or "Shop",
     drop = L["Drop"] or "Drop",
+    treasure = L["Treasure"] or "Treasure",
 }
 
 local DISPLAY_LEVEL_TITLES = {
@@ -140,30 +150,28 @@ local function GetVendorDisplayName(vendor)
 end
 
 -- Map shift state (declared early so preview hooks can reference them)
-local mapShifted = false
-local savedMapPoint = nil  -- {point, relativeTo, relativePoint, xOfs, yOfs}
-local ShiftMapRight  -- forward declaration; body defined in Map Position Shifting section
-local SaveDetachedPosition  -- forward declaration; body defined in Pop-Out section
+State.mapShifted = false
+State.savedMapPoint = nil  -- {point, relativeTo, relativePoint, xOfs, yOfs}
 
 -- Pop-out UI elements (created in CreatePanel, shown/hidden based on state)
-local resizeHandle = nil   -- Bottom-edge grip for height resize (detached mode)
-local popOutButton = nil   -- Arrow button to detach (docked mode)
-local closeButton = nil    -- X button (detached mode)
-local reattachButton = nil -- Dock-back button (detached mode)
-local pendingDockedAction = nil  -- "apply" | "remove" | "clear" | nil
-local panelTooltip = nil
+State.resizeHandle = nil   -- Bottom-edge grip for height resize (detached mode)
+State.popOutButton = nil   -- Arrow button to detach (docked mode)
+State.closeButton = nil    -- X button (detached mode)
+State.reattachButton = nil -- Dock-back button (detached mode)
+State.pendingDockedAction = nil  -- "apply" | "remove" | "clear" | nil
+State.panelTooltip = nil
 
 local function GetPanelTooltip()
-    if panelTooltip then
-        return panelTooltip
+    if State.panelTooltip then
+        return State.panelTooltip
     end
 
-    local tooltip = CreateFrame("GameTooltip", PANEL_TOOLTIP_NAME, UIParent, "GameTooltipTemplate")
+    local tooltip = CreateFrame("GameTooltip", Layout.PANEL_TOOLTIP_NAME, UIParent, "GameTooltipTemplate")
     tooltip:SetFrameStrata("TOOLTIP")
     tooltip:SetClampedToScreen(true)
     tooltip.isHomesteadManagedTooltip = true
     tooltip.isHomesteadPanelTooltip = true
-    panelTooltip = tooltip
+    State.panelTooltip = tooltip
     return tooltip
 end
 
@@ -175,8 +183,8 @@ local function BeginPanelTooltip(owner, anchor)
 end
 
 local function HidePanelTooltip()
-    if panelTooltip then
-        panelTooltip:Hide()
+    if State.panelTooltip then
+        State.panelTooltip:Hide()
     end
 end
 
@@ -184,8 +192,8 @@ end
 -- 3D Item Preview (uses Blizzard's HousingModelPreviewFrame)
 -------------------------------------------------------------------------------
 
-local previewHooked = false  -- true after we hook the preview frame's OnShow
-local previewDragHandle = nil  -- overlay frame for dragging (ModelScene eats drag events)
+State.previewHooked = false  -- true after we hook the preview frame's OnShow
+State.previewDragHandle = nil  -- overlay frame for dragging (ModelScene eats drag events)
 
 local function ShowItemPreview(itemID)
     if not itemID then return end
@@ -204,18 +212,18 @@ local function ShowItemPreview(itemID)
     if not HousingModelPreviewFrame then return end
 
     -- Hook once after the Blizzard addon is loaded
-    if not previewHooked then
+    if not State.previewHooked then
         local pf = HousingModelPreviewFrame
 
         -- Re-apply our map shift if Blizzard's preview resets WorldMapFrame
         local function ReapplyMapShift()
-            if panelFrame and panelFrame:IsShown() and not isPoppedOut then
+            if State.panelFrame and State.panelFrame:IsShown() and not State.isPoppedOut then
                 if InCombatLockdown() then
-                    pendingDockedAction = "apply"
+                    State.pendingDockedAction = "apply"
                     return
                 end
-                mapShifted = false
-                ShiftMapRight()
+                State.mapShifted = false
+                State.ShiftMapRight()
             end
         end
 
@@ -236,21 +244,21 @@ local function ShowItemPreview(itemID)
         -- The ModelScene child captures drag for model rotation, so the
         -- parent frame's OnDragStart never fires. This overlay sits above
         -- the title bar region only and forwards drag to move the window.
-        previewDragHandle = CreateFrame("Frame", nil, pf)
-        previewDragHandle:SetHeight(30)
-        previewDragHandle:SetPoint("TOPLEFT", pf, "TOPLEFT", 0, 0)
-        previewDragHandle:SetPoint("TOPRIGHT", pf, "TOPRIGHT", -30, 0)  -- avoid close button
-        previewDragHandle:SetFrameLevel(pf:GetFrameLevel() + 100)
-        previewDragHandle:EnableMouse(true)
-        previewDragHandle:RegisterForDrag("LeftButton")
-        previewDragHandle:SetScript("OnDragStart", function()
+        State.previewDragHandle = CreateFrame("Frame", nil, pf)
+        State.previewDragHandle:SetHeight(30)
+        State.previewDragHandle:SetPoint("TOPLEFT", pf, "TOPLEFT", 0, 0)
+        State.previewDragHandle:SetPoint("TOPRIGHT", pf, "TOPRIGHT", -30, 0)  -- avoid close button
+        State.previewDragHandle:SetFrameLevel(pf:GetFrameLevel() + 100)
+        State.previewDragHandle:EnableMouse(true)
+        State.previewDragHandle:RegisterForDrag("LeftButton")
+        State.previewDragHandle:SetScript("OnDragStart", function()
             pf:StartMoving()
         end)
-        previewDragHandle:SetScript("OnDragStop", function()
+        State.previewDragHandle:SetScript("OnDragStop", function()
             pf:StopMovingOrSizing()
         end)
 
-        previewHooked = true
+        State.previewHooked = true
     end
 
     -- Get catalog entry info directly from itemID. Guarded like every other
@@ -285,8 +293,9 @@ end
 
 -- Check if item is owned (same pattern as BadgeCalculation/VendorMapPins).
 -- HS-200: this is the no-presentation fallback for PopulateItemGrid and
--- PopulateItemResultRow, both aggregate per-item loops (a vendor's full item
--- grid, or a full search-result list) — must stay cache-only, matching
+-- RenderItemRow. PopulateItemGrid is still an aggregate per-item loop over a
+-- vendor's full item grid; the item path now runs once per realized row rather
+-- than over the full result list. It must stay cache-only, matching
 -- SourceManager's "sidePanel" context, or it reintroduces a per-item API
 -- burst on the map side panel.
 local function IsItemOwned(itemID)
@@ -336,14 +345,14 @@ local function GetSourceFilterLabel(sourceFilter)
 end
 
 local function UpdateSourceFilterDropdownText()
-    if not sourceFilterDropdown then return end
+    if not State.sourceFilterDropdown then return end
 
-    local normalized = NormalizePanelSourceFilter(panelSourceFilter)
+    local normalized = NormalizePanelSourceFilter(State.panelSourceFilter)
 
-    if sourceFilterDropdown.SetDefaultText then
-        sourceFilterDropdown:SetDefaultText(GetSourceFilterLabel(normalized))
-    elseif sourceFilterDropdown.SetText then
-        sourceFilterDropdown:SetText(GetSourceFilterLabel(normalized))
+    if State.sourceFilterDropdown.SetDefaultText then
+        State.sourceFilterDropdown:SetDefaultText(GetSourceFilterLabel(normalized))
+    elseif State.sourceFilterDropdown.SetText then
+        State.sourceFilterDropdown:SetText(GetSourceFilterLabel(normalized))
     end
 end
 
@@ -362,7 +371,7 @@ local function AddSourceFilterMenuEntries(rootDescription)
     end
 
     rootDescription:CreateRadio(SOURCE_FILTER_LABELS.all, function()
-        return NormalizePanelSourceFilter(panelSourceFilter) == "all"
+        return NormalizePanelSourceFilter(State.panelSourceFilter) == "all"
     end, function()
         MapSidePanel:SetSourceFilter("all")
     end)
@@ -372,7 +381,7 @@ local function AddSourceFilterMenuEntries(rootDescription)
             local menuToken = token
             local menuLabel = SOURCE_FILTER_LABELS[menuToken] or menuToken
             rootDescription:CreateRadio(menuLabel, function()
-                return NormalizePanelSourceFilter(panelSourceFilter) == menuToken
+                return NormalizePanelSourceFilter(State.panelSourceFilter) == menuToken
             end, function()
                 MapSidePanel:SetSourceFilter(menuToken)
             end)
@@ -381,8 +390,8 @@ local function AddSourceFilterMenuEntries(rootDescription)
 end
 
 local function OpenSourceFilterDropdown()
-    if not sourceFilterDropdown or not menuSourceFilter then return end
-    menuSourceFilter:CreateContextMenu(sourceFilterDropdown)
+    if not State.sourceFilterDropdown or not State.menuSourceFilter then return end
+    State.menuSourceFilter:CreateContextMenu(State.sourceFilterDropdown)
 end
 
 local function ItemMatchesPanelSourceFilter(itemID, sourceFilter)
@@ -442,7 +451,7 @@ end
 
 local function CreateItemIcon(parent)
     local frame = CreateFrame("Frame", nil, parent)
-    frame:SetSize(ITEM_ICON_SIZE, ITEM_ICON_SIZE)
+    frame:SetSize(Layout.ITEM_ICON_SIZE, Layout.ITEM_ICON_SIZE)
 
     -- Item icon texture
     local tex = frame:CreateTexture(nil, "ARTWORK")
@@ -527,19 +536,17 @@ local function ResetIcon(icon)
 end
 
 local function AcquireIcon(parent)
-    local icon = table.remove(iconPool)
-    if not icon then
-        icon = CreateItemIcon(parent)
-    else
-        icon:SetParent(parent)
-    end
+    local icon = FPU.AcquirePooledFrame(State.iconPool, "default", function()
+        return CreateItemIcon(parent)
+    end)
+    icon:SetParent(parent)
     icon:Show()
     return icon
 end
 
 local function ReleaseIcon(icon)
     ResetIcon(icon)
-    table.insert(iconPool, icon)
+    FPU.ReleasePooledFrame(State.iconPool, icon)
 end
 
 -- Shared count text formatter (green collected / white total / red locked).
@@ -571,6 +578,11 @@ local function GetUnmetRequirements(itemID, npcID, presentation)
     return nil, reqs
 end
 
+local function ComputeItemGridHeight(itemCount)
+    if itemCount == 0 then return 0 end
+    return math.ceil(itemCount / Layout.ICONS_PER_ROW) * (Layout.ITEM_ICON_SIZE + Layout.ITEM_ICON_PAD) + Layout.ITEM_ICON_PAD
+end
+
 local function HideItemGrid(row)
     if row.itemGrid then
         -- Release all icons back to the pool
@@ -585,8 +597,8 @@ local function HideItemGrid(row)
 end
 
 -- Populate the item grid for a vendor row. Returns total height of the grid.
-local function PopulateItemGrid(row, vendor, sourceFilter, highlightItems)
-    local itemIDs = GetVendorItemIDs(vendor, sourceFilter)
+local function PopulateItemGrid(row, vendor, sourceFilter, highlightItems, itemIDs)
+    itemIDs = itemIDs or GetVendorItemIDs(vendor, sourceFilter)
     if #itemIDs == 0 then
         HideItemGrid(row)
         return 0
@@ -595,20 +607,13 @@ local function PopulateItemGrid(row, vendor, sourceFilter, highlightItems)
     -- Create grid container if not yet created
     if not row.itemGrid then
         row.itemGrid = CreateFrame("Frame", nil, row)
-        row.itemGrid:SetPoint("TOPLEFT", row, "TOPLEFT", ITEM_GRID_INSET, -ROW_HEIGHT)
-        row.itemGrid:SetPoint("RIGHT", row, "RIGHT", -PADDING, 0)
+        row.itemGrid:SetPoint("TOPLEFT", row, "TOPLEFT", Layout.ITEM_GRID_INSET, -Layout.ROW_HEIGHT)
+        row.itemGrid:SetPoint("RIGHT", row, "RIGHT", -Layout.PADDING, 0)
         row.itemIcons = {}
     end
 
     local grid = row.itemGrid
     local icons = row.itemIcons
-
-    -- Calculate how many icons fit per row using actual available width
-    -- scrollChild width = PANEL_WIDTH - 20 (borders) - 22 (scrollbar) = 218
-    local scrollWidth = PANEL_WIDTH - 20 - 22
-    local gridWidth = scrollWidth - ITEM_GRID_INSET - PADDING
-    local iconsPerRow = math.floor((gridWidth + ITEM_ICON_PAD) / (ITEM_ICON_SIZE + ITEM_ICON_PAD))
-    if iconsPerRow < 1 then iconsPerRow = 1 end
 
     local npcID = vendor.npcID
 
@@ -624,12 +629,12 @@ local function PopulateItemGrid(row, vendor, sourceFilter, highlightItems)
         icon.npcID = npcID
 
         -- Position in grid
-        local col = (i - 1) % iconsPerRow
-        local gridRow = math.floor((i - 1) / iconsPerRow)
+        local col = (i - 1) % Layout.ICONS_PER_ROW
+        local gridRow = math.floor((i - 1) / Layout.ICONS_PER_ROW)
         icon:ClearAllPoints()
         icon:SetPoint("TOPLEFT", grid, "TOPLEFT",
-            col * (ITEM_ICON_SIZE + ITEM_ICON_PAD),
-            -(gridRow * (ITEM_ICON_SIZE + ITEM_ICON_PAD)))
+            col * (Layout.ITEM_ICON_SIZE + Layout.ITEM_ICON_PAD),
+            -(gridRow * (Layout.ITEM_ICON_SIZE + Layout.ITEM_ICON_PAD)))
 
         -- Set icon texture (async via C_Item)
         local itemIcon = C_Item.GetItemIconByID(itemID)
@@ -702,12 +707,11 @@ local function PopulateItemGrid(row, vendor, sourceFilter, highlightItems)
     end
 
     -- Calculate grid height
-    local numRows = math.ceil(#itemIDs / iconsPerRow)
-    local gridHeight = numRows * (ITEM_ICON_SIZE + ITEM_ICON_PAD)
-    grid:SetHeight(gridHeight)
+    local gridHeight = ComputeItemGridHeight(#itemIDs)
+    grid:SetHeight(gridHeight - Layout.ITEM_ICON_PAD)
     grid:Show()
 
-    return gridHeight + ITEM_ICON_PAD  -- Extra padding below grid
+    return gridHeight
 end
 
 -------------------------------------------------------------------------------
@@ -765,7 +769,7 @@ local function GetInstanceDropGroups(encounters)
 end
 
 -- HS-229's own dropMapPin presentation context — same context string
--- AddPinTooltipItemLine (VendorMapPins.lua) and BuildDropGroupStats
+-- AddPinTooltipItemLine (VendorPinTooltips.lua) and BuildDropGroupStats
 -- (BadgeCalculation.lua) already use, so this is provably the same
 -- cache-backed call, not a new SourceManager surface.
 local function GetDropItemPresentation(itemID)
@@ -778,11 +782,9 @@ local function GetDropItemPresentation(itemID)
     })
 end
 
-local function CreateBossRow(parent, index)
+local function CreateBossRow(parent)
     local row = CreateFrame("Button", nil, parent)
-    row:SetHeight(ROW_HEIGHT)
-    row:SetPoint("TOPLEFT", 0, -(index - 1) * ROW_HEIGHT)
-    row:SetPoint("TOPRIGHT", 0, -(index - 1) * ROW_HEIGHT)
+    row:SetHeight(Layout.ROW_HEIGHT)
 
     local highlight = row:CreateTexture(nil, "HIGHLIGHT")
     highlight:SetAllPoints()
@@ -791,21 +793,21 @@ local function CreateBossRow(parent, index)
     -- Same decor-drop art as the world-map drop pin (PinFrameFactory:CreateDropPinFrame)
     -- so the panel row and the pin read as the same feature.
     local icon = row:CreateTexture(nil, "ARTWORK")
-    icon:SetSize(ICON_SIZE, ICON_SIZE)
-    icon:SetPoint("TOPLEFT", PADDING, -4)
+    icon:SetSize(Layout.ICON_SIZE, Layout.ICON_SIZE)
+    icon:SetPoint("TOPLEFT", Layout.PADDING, -4)
     icon:SetTexture(HA.Constants.TEXTURE_ROOT .. "HomesteadDropIcon_32")
     row.icon = icon
 
     local nameText = row:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
     nameText:SetPoint("TOPLEFT", icon, "TOPRIGHT", 6, 0)
-    nameText:SetPoint("RIGHT", row, "RIGHT", -PADDING, 0)
+    nameText:SetPoint("RIGHT", row, "RIGHT", -Layout.PADDING, 0)
     nameText:SetJustifyH("LEFT")
     nameText:SetWordWrap(false)
     row.nameText = nameText
 
     local countText = row:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
     countText:SetPoint("TOPLEFT", icon, "BOTTOMRIGHT", 6, -2)
-    countText:SetPoint("RIGHT", row, "RIGHT", -PADDING, 0)
+    countText:SetPoint("RIGHT", row, "RIGHT", -Layout.PADDING, 0)
     countText:SetJustifyH("LEFT")
     row.countText = countText
 
@@ -821,10 +823,10 @@ local function CreateBossRow(parent, index)
 
     row:SetScript("OnClick", function(self)
         if not self.dropGroup then return end
-        if expandedBossKey == self.dropGroup.encounterID then
-            expandedBossKey = nil
+        if State.expandedBossKey == self.dropGroup.encounterID then
+            State.expandedBossKey = nil
         else
-            expandedBossKey = self.dropGroup.encounterID
+            State.expandedBossKey = self.dropGroup.encounterID
         end
         MapSidePanel:RefreshContent()
     end)
@@ -867,18 +869,13 @@ local function PopulateBossItemGrid(row, dropGroup)
 
     if not row.itemGrid then
         row.itemGrid = CreateFrame("Frame", nil, row)
-        row.itemGrid:SetPoint("TOPLEFT", row, "TOPLEFT", ITEM_GRID_INSET, -ROW_HEIGHT)
-        row.itemGrid:SetPoint("RIGHT", row, "RIGHT", -PADDING, 0)
+        row.itemGrid:SetPoint("TOPLEFT", row, "TOPLEFT", Layout.ITEM_GRID_INSET, -Layout.ROW_HEIGHT)
+        row.itemGrid:SetPoint("RIGHT", row, "RIGHT", -Layout.PADDING, 0)
         row.itemIcons = {}
     end
 
     local grid = row.itemGrid
     local icons = row.itemIcons
-
-    local scrollWidth = PANEL_WIDTH - 20 - 22
-    local gridWidth = scrollWidth - ITEM_GRID_INSET - PADDING
-    local iconsPerRow = math.floor((gridWidth + ITEM_ICON_PAD) / (ITEM_ICON_SIZE + ITEM_ICON_PAD))
-    if iconsPerRow < 1 then iconsPerRow = 1 end
 
     while #icons < #records do
         icons[#icons + 1] = AcquireIcon(grid)
@@ -890,12 +887,12 @@ local function PopulateBossItemGrid(row, dropGroup)
         icon.itemID = itemID
         icon.npcID = nil
 
-        local col = (i - 1) % iconsPerRow
-        local gridRow = math.floor((i - 1) / iconsPerRow)
+        local col = (i - 1) % Layout.ICONS_PER_ROW
+        local gridRow = math.floor((i - 1) / Layout.ICONS_PER_ROW)
         icon:ClearAllPoints()
         icon:SetPoint("TOPLEFT", grid, "TOPLEFT",
-            col * (ITEM_ICON_SIZE + ITEM_ICON_PAD),
-            -(gridRow * (ITEM_ICON_SIZE + ITEM_ICON_PAD)))
+            col * (Layout.ITEM_ICON_SIZE + Layout.ITEM_ICON_PAD),
+            -(gridRow * (Layout.ITEM_ICON_SIZE + Layout.ITEM_ICON_PAD)))
 
         local itemIcon = C_Item.GetItemIconByID(itemID)
         if itemIcon then
@@ -946,12 +943,11 @@ local function PopulateBossItemGrid(row, dropGroup)
         icons[i] = nil
     end
 
-    local numRows = math.ceil(#records / iconsPerRow)
-    local gridHeight = numRows * (ITEM_ICON_SIZE + ITEM_ICON_PAD)
-    grid:SetHeight(gridHeight)
+    local gridHeight = ComputeItemGridHeight(#records)
+    grid:SetHeight(gridHeight - Layout.ITEM_ICON_PAD)
     grid:Show()
 
-    return gridHeight + ITEM_ICON_PAD
+    return gridHeight
 end
 
 -------------------------------------------------------------------------------
@@ -1127,10 +1123,10 @@ end
 
 local function CreateItemResultSourceLine(parent)
     local line = CreateFrame("Frame", nil, parent)
-    line:SetHeight(ITEM_RESULT_LINE_HEIGHT)
+    line:SetHeight(Layout.ITEM_RESULT_LINE_HEIGHT)
 
     local badge = line:CreateTexture(nil, "ARTWORK")
-    badge:SetSize(ITEM_RESULT_BADGE_SIZE, ITEM_RESULT_BADGE_SIZE)
+    badge:SetSize(Layout.ITEM_RESULT_BADGE_SIZE, Layout.ITEM_RESULT_BADGE_SIZE)
     badge:SetPoint("LEFT", line, "LEFT", 0, 0)
     line.badge = badge
 
@@ -1142,6 +1138,10 @@ local function CreateItemResultSourceLine(parent)
     line.text = text
 
     return line
+end
+
+local function ComputeItemSourceListHeight(sourceCount)
+    return math.max(1, sourceCount) * Layout.ITEM_RESULT_LINE_HEIGHT + 4
 end
 
 local function HideItemSourceList(row)
@@ -1161,8 +1161,8 @@ local function PopulateItemSourceList(row, itemID, sourceFilter)
 
     if not row.sourcesFrame then
         row.sourcesFrame = CreateFrame("Frame", nil, row)
-        row.sourcesFrame:SetPoint("TOPLEFT", row, "TOPLEFT", PADDING + ITEM_RESULT_ICON_SIZE + 8, -ROW_HEIGHT - 2)
-        row.sourcesFrame:SetPoint("TOPRIGHT", row, "TOPRIGHT", -PADDING, -ROW_HEIGHT - 2)
+        row.sourcesFrame:SetPoint("TOPLEFT", row, "TOPLEFT", Layout.PADDING + Layout.ITEM_RESULT_ICON_SIZE + 8, -Layout.ROW_HEIGHT - 2)
+        row.sourcesFrame:SetPoint("TOPRIGHT", row, "TOPRIGHT", -Layout.PADDING, -Layout.ROW_HEIGHT - 2)
         row.sourceLines = {}
     end
 
@@ -1199,8 +1199,8 @@ local function PopulateItemSourceList(row, itemID, sourceFilter)
         for i, source in ipairs(displaySources) do
             local line = sourceLines[i]
             line:ClearAllPoints()
-            line:SetPoint("TOPLEFT", sourcesFrame, "TOPLEFT", 0, -((i - 1) * ITEM_RESULT_LINE_HEIGHT))
-            line:SetPoint("TOPRIGHT", sourcesFrame, "TOPRIGHT", 0, -((i - 1) * ITEM_RESULT_LINE_HEIGHT))
+            line:SetPoint("TOPLEFT", sourcesFrame, "TOPLEFT", 0, -((i - 1) * Layout.ITEM_RESULT_LINE_HEIGHT))
+            line:SetPoint("TOPRIGHT", sourcesFrame, "TOPRIGHT", 0, -((i - 1) * Layout.ITEM_RESULT_LINE_HEIGHT))
             ApplySourceBadge(line.badge, source.type)
             line.text:SetText(FormatSourceSummary(source))
             line.text:SetTextColor(0.8, 0.8, 0.8)
@@ -1214,7 +1214,7 @@ local function PopulateItemSourceList(row, itemID, sourceFilter)
         sourceLines[i]:Hide()
     end
 
-    local totalHeight = renderedCount * ITEM_RESULT_LINE_HEIGHT + 4
+    local totalHeight = ComputeItemSourceListHeight(renderedCount)
     sourcesFrame:SetHeight(totalHeight)
     sourcesFrame:Show()
     return totalHeight
@@ -1224,13 +1224,11 @@ end
 -- the section by source type (Vendors / Profession / Quest / Achievement /
 -- Event / Drop). One per active section; emitted on type transitions in
 -- RefreshSearchResults.
-local SEARCH_HEADER_HEIGHT = 22
+Layout.SEARCH_HEADER_HEIGHT = 22
 
-local function CreateSearchHeaderRow(parent, index)
+local function CreateSearchHeaderRow(parent)
     local row = CreateFrame("Frame", nil, parent)
-    row:SetHeight(SEARCH_HEADER_HEIGHT)
-    row:SetPoint("TOPLEFT", 0, -(index - 1) * SEARCH_HEADER_HEIGHT)
-    row:SetPoint("TOPRIGHT", 0, -(index - 1) * SEARCH_HEADER_HEIGHT)
+    row:SetHeight(Layout.SEARCH_HEADER_HEIGHT)
 
     local text = row:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
     text:SetPoint("CENTER", row, "CENTER", 0, 0)
@@ -1242,69 +1240,54 @@ local function CreateSearchHeaderRow(parent, index)
     -- different section labels (different lengths) are set.
     local leftLine = row:CreateTexture(nil, "ARTWORK")
     leftLine:SetHeight(1)
-    leftLine:SetPoint("LEFT", row, "LEFT", PADDING, 0)
+    leftLine:SetPoint("LEFT", row, "LEFT", Layout.PADDING, 0)
     leftLine:SetPoint("RIGHT", text, "LEFT", -6, 0)
     leftLine:SetColorTexture(1, 0.82, 0, 0.4)
 
     local rightLine = row:CreateTexture(nil, "ARTWORK")
     rightLine:SetHeight(1)
     rightLine:SetPoint("LEFT", text, "RIGHT", 6, 0)
-    rightLine:SetPoint("RIGHT", row, "RIGHT", -PADDING, 0)
+    rightLine:SetPoint("RIGHT", row, "RIGHT", -Layout.PADDING, 0)
     rightLine:SetColorTexture(1, 0.82, 0, 0.4)
 
     return row
 end
 
-local function HideAllSearchHeaderRows()
-    for _, row in ipairs(searchHeaderRows) do
-        row:Hide()
-    end
-end
-
-local function HideAllItemResultRows()
-    for _, row in ipairs(itemResultRows) do
-        row:Hide()
-        HideItemSourceList(row)
-    end
-end
-
-local function CreateItemResultRow(parent, index)
+local function CreateItemResultRow(parent)
     local row = CreateFrame("Button", nil, parent)
-    row:SetHeight(ROW_HEIGHT)
-    row:SetPoint("TOPLEFT", 0, -(index - 1) * ROW_HEIGHT)
-    row:SetPoint("TOPRIGHT", 0, -(index - 1) * ROW_HEIGHT)
+    row:SetHeight(Layout.ROW_HEIGHT)
 
     local highlight = row:CreateTexture(nil, "HIGHLIGHT")
     highlight:SetAllPoints()
     highlight:SetColorTexture(0.3, 0.3, 0.3, 0.3)
 
     local iconBorder = row:CreateTexture(nil, "BACKGROUND")
-    iconBorder:SetSize(ITEM_RESULT_ICON_SIZE + 2, ITEM_RESULT_ICON_SIZE + 2)
-    iconBorder:SetPoint("TOPLEFT", row, "TOPLEFT", PADDING, -7)
+    iconBorder:SetSize(Layout.ITEM_RESULT_ICON_SIZE + 2, Layout.ITEM_RESULT_ICON_SIZE + 2)
+    iconBorder:SetPoint("TOPLEFT", row, "TOPLEFT", Layout.PADDING, -7)
     iconBorder:SetColorTexture(0.25, 0.25, 0.25, 1)
     row.iconBorder = iconBorder
 
     local icon = row:CreateTexture(nil, "ARTWORK")
-    icon:SetSize(ITEM_RESULT_ICON_SIZE, ITEM_RESULT_ICON_SIZE)
-    icon:SetPoint("TOPLEFT", row, "TOPLEFT", PADDING + 1, -8)
+    icon:SetSize(Layout.ITEM_RESULT_ICON_SIZE, Layout.ITEM_RESULT_ICON_SIZE)
+    icon:SetPoint("TOPLEFT", row, "TOPLEFT", Layout.PADDING + 1, -8)
     icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
     row.icon = icon
 
     local nameText = row:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
     nameText:SetPoint("TOPLEFT", icon, "TOPRIGHT", 8, 0)
-    nameText:SetPoint("TOPRIGHT", row, "TOPRIGHT", -PADDING, 0)
+    nameText:SetPoint("TOPRIGHT", row, "TOPRIGHT", -Layout.PADDING, 0)
     nameText:SetJustifyH("LEFT")
     nameText:SetWordWrap(false)
     row.nameText = nameText
 
     local sourceBadge = row:CreateTexture(nil, "ARTWORK")
-    sourceBadge:SetSize(ITEM_RESULT_BADGE_SIZE, ITEM_RESULT_BADGE_SIZE)
-    sourceBadge:SetPoint("TOPLEFT", row, "TOPLEFT", PADDING + ITEM_RESULT_ICON_SIZE + 8, -20)
+    sourceBadge:SetSize(Layout.ITEM_RESULT_BADGE_SIZE, Layout.ITEM_RESULT_BADGE_SIZE)
+    sourceBadge:SetPoint("TOPLEFT", row, "TOPLEFT", Layout.PADDING + Layout.ITEM_RESULT_ICON_SIZE + 8, -20)
     row.sourceBadge = sourceBadge
 
     local sourceText = row:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
     sourceText:SetPoint("LEFT", sourceBadge, "RIGHT", 6, 0)
-    sourceText:SetPoint("RIGHT", row, "RIGHT", -PADDING, 0)
+    sourceText:SetPoint("RIGHT", row, "RIGHT", -Layout.PADDING, 0)
     sourceText:SetJustifyH("LEFT")
     sourceText:SetWordWrap(false)
     row.sourceText = sourceText
@@ -1323,10 +1306,10 @@ local function CreateItemResultRow(parent, index)
     row:SetScript("OnClick", function(self)
         if not self.itemID then return end
 
-        if expandedItemID == self.itemID then
-            expandedItemID = nil
+        if State.expandedItemID == self.itemID then
+            State.expandedItemID = nil
         else
-            expandedItemID = self.itemID
+            State.expandedItemID = self.itemID
         end
         MapSidePanel:RefreshContent()
     end)
@@ -1337,7 +1320,7 @@ local function CreateItemResultRow(parent, index)
         local tooltip = BeginPanelTooltip(self, "ANCHOR_RIGHT")
         HA.SetManagedItemTooltip(tooltip, self.itemID)
         tooltip:AddLine(" ")
-        if expandedItemID == self.itemID then
+        if State.expandedItemID == self.itemID then
             tooltip:AddLine("Click to collapse sources", 0.5, 0.5, 0.5)
         else
             tooltip:AddLine("Click to show all sources", 0.5, 0.5, 0.5)
@@ -1350,8 +1333,9 @@ local function CreateItemResultRow(parent, index)
     return row
 end
 
-local function PopulateItemResultRow(row, result, sourceFilter)
-    if not row or not result then return false end
+local function RenderItemRow(row, rec)
+    local result = rec.result
+    local sourceFilter = State.panelSourceFilter
 
     local itemID = result.itemID
     local itemName = result.itemName or C_Item.GetItemNameByID(itemID) or ("Item " .. tostring(itemID))
@@ -1398,16 +1382,11 @@ local function PopulateItemResultRow(row, result, sourceFilter)
         row.sourceText:SetTextColor(0.5, 0.5, 0.5)
     end
 
-    local isExpanded = (expandedItemID == itemID)
-    if isExpanded then
-        local detailHeight = PopulateItemSourceList(row, itemID, sourceFilter)
-        row:SetHeight(ROW_HEIGHT + detailHeight)
+    if rec.isExpanded then
+        PopulateItemSourceList(row, itemID, sourceFilter)
     else
         HideItemSourceList(row)
-        row:SetHeight(ROW_HEIGHT)
     end
-
-    return isExpanded
 end
 
 -------------------------------------------------------------------------------
@@ -1415,35 +1394,33 @@ end
 -------------------------------------------------------------------------------
 
 local function ExecuteSearch()
-    searchDebounceTimer = nil
+    State.searchDebounceTimer = nil
     local SP = HA.SearchProvider
     if not SP then return end
-    local query = searchEditBox and searchEditBox:GetText() or ""
+    local query = State.searchEditBox and State.searchEditBox:GetText() or ""
     query = query:match("^%s*(.-)%s*$") or ""  -- trim
-    searchText = query
+    State.searchText = query
     if query == "" then
-        searchResults = nil
-        searchResultsRevision = nil
+        State.searchResults = nil
+        State.searchResultsRevision = nil
     else
-        searchResults = SP:Search(query, SEARCH_OPTIONS)
-        searchResultsRevision = SP:GetRevision()
+        State.searchResults = SP:Search(query, SEARCH_OPTIONS)
+        State.searchResultsRevision = SP:GetRevision()
     end
     MapSidePanel:RefreshContent()
 end
 
 local function ClearSearch(refreshNow)
-    searchText = ""
-    searchResults = nil
-    searchResultsRevision = nil
-    expandedItemID = nil
-    if searchDebounceTimer then searchDebounceTimer:Cancel(); searchDebounceTimer = nil end
-    if searchEditBox then
-        suppressTextChanged = true
-        searchEditBox:SetText("")
-        suppressTextChanged = false
+    State.searchText = ""
+    State.searchResults = nil
+    State.searchResultsRevision = nil
+    State.expandedItemID = nil
+    if State.searchDebounceTimer then State.searchDebounceTimer:Cancel(); State.searchDebounceTimer = nil end
+    if State.searchEditBox then
+        State.suppressTextChanged = true
+        State.searchEditBox:SetText("")
+        State.suppressTextChanged = false
     end
-    HideAllItemResultRows()
-    HideAllSearchHeaderRows()
     if refreshNow then
         MapSidePanel:RefreshContent()
     end
@@ -1453,11 +1430,9 @@ end
 -- Row Creation
 -------------------------------------------------------------------------------
 
-local function CreateVendorRow(parent, index)
+local function CreateVendorRow(parent)
     local row = CreateFrame("Button", nil, parent)
-    row:SetHeight(ROW_HEIGHT)
-    row:SetPoint("TOPLEFT", 0, -(index - 1) * ROW_HEIGHT)
-    row:SetPoint("TOPRIGHT", 0, -(index - 1) * ROW_HEIGHT)
+    row:SetHeight(Layout.ROW_HEIGHT)
 
     -- Highlight on hover
     local highlight = row:CreateTexture(nil, "HIGHLIGHT")
@@ -1466,8 +1441,8 @@ local function CreateVendorRow(parent, index)
 
     -- Pin color indicator (small circle)
     local icon = row:CreateTexture(nil, "ARTWORK")
-    icon:SetSize(ICON_SIZE, ICON_SIZE)
-    icon:SetPoint("TOPLEFT", PADDING, -4)
+    icon:SetSize(Layout.ICON_SIZE, Layout.ICON_SIZE)
+    icon:SetPoint("TOPLEFT", Layout.PADDING, -4)
     icon:SetAtlas("poi-door")
     icon:SetDesaturated(true)
     row.icon = icon
@@ -1475,7 +1450,7 @@ local function CreateVendorRow(parent, index)
     -- Vendor name
     local nameText = row:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
     nameText:SetPoint("TOPLEFT", icon, "TOPRIGHT", 6, 0)
-    nameText:SetPoint("RIGHT", row, "RIGHT", -PADDING, 0)
+    nameText:SetPoint("RIGHT", row, "RIGHT", -Layout.PADDING, 0)
     nameText:SetJustifyH("LEFT")
     nameText:SetWordWrap(false)
     row.nameText = nameText
@@ -1483,7 +1458,7 @@ local function CreateVendorRow(parent, index)
     -- Collection count
     local countText = row:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
     countText:SetPoint("TOPLEFT", icon, "BOTTOMRIGHT", 6, -2)
-    countText:SetPoint("RIGHT", row, "RIGHT", -PADDING, 0)
+    countText:SetPoint("RIGHT", row, "RIGHT", -Layout.PADDING, 0)
     countText:SetJustifyH("LEFT")
     row.countText = countText
 
@@ -1503,10 +1478,10 @@ local function CreateVendorRow(parent, index)
         if not self.vendor then return end
 
         local npcID = self.vendor.npcID
-        if expandedVendorID == npcID then
-            expandedVendorID = nil
+        if State.expandedVendorID == npcID then
+            State.expandedVendorID = nil
         else
-            expandedVendorID = npcID
+            State.expandedVendorID = npcID
             -- Search mode: also navigate the world map to this vendor's zone.
             if self.searchMode then
                 local VF = HA.VendorFilter
@@ -1545,7 +1520,7 @@ local function CreateVendorRow(parent, index)
             tooltip:AddLine("Cannot access - opposite faction vendor", 0.8, 0.3, 0.3)
         end
         if self.total and self.total > 0 then
-            local stats = BC:GetVendorStats(self.vendor, panelSourceFilter)
+            local stats = BC:GetVendorStats(self.vendor, State.panelSourceFilter)
             BC.AddSummaryLine(tooltip, stats.collected, stats.total, stats.locked, stats.unverified)
         end
         tooltip:AddLine(" ")
@@ -1553,7 +1528,7 @@ local function CreateVendorRow(parent, index)
             if self.vendor.expansion then
                 tooltip:AddLine(self.vendor.expansion, 0.5, 0.5, 0.5)
             end
-            if expandedVendorID == self.vendor.npcID then
+            if State.expandedVendorID == self.vendor.npcID then
                 tooltip:AddLine("Click to collapse items", 0.5, 0.5, 0.5)
             else
                 tooltip:AddLine("Click to show items and go to vendor", 0.5, 0.5, 0.5)
@@ -1582,11 +1557,9 @@ end
 -- Summary Row Creation (continent/world level)
 -------------------------------------------------------------------------------
 
-local function CreateSummaryRow(parent, index)
+local function CreateSummaryRow(parent)
     local row = CreateFrame("Button", nil, parent)
-    row:SetHeight(ROW_HEIGHT)
-    row:SetPoint("TOPLEFT", 0, -(index - 1) * ROW_HEIGHT)
-    row:SetPoint("TOPRIGHT", 0, -(index - 1) * ROW_HEIGHT)
+    row:SetHeight(Layout.ROW_HEIGHT)
 
     -- Highlight on hover
     local highlight = row:CreateTexture(nil, "HIGHLIGHT")
@@ -1596,7 +1569,7 @@ local function CreateSummaryRow(parent, index)
     -- Expand/collapse arrow icon (toggles between forward and down)
     local arrow = row:CreateTexture(nil, "ARTWORK")
     arrow:SetSize(12, 12)
-    arrow:SetPoint("TOPLEFT", PADDING, -4)
+    arrow:SetPoint("TOPLEFT", Layout.PADDING, -4)
     arrow:SetAtlas("common-icon-forwardarrow")
     row.arrow = arrow
 
@@ -1618,7 +1591,7 @@ local function CreateSummaryRow(parent, index)
     end)
     navButton:SetScript("OnEnter", function(self)
         local tooltip = BeginPanelTooltip(self, "ANCHOR_RIGHT")
-        local level = currentDisplayLevel
+        local level = State.currentDisplayLevel
         if level == "world" then
             tooltip:SetText("Navigate to continent")
         else
@@ -1667,15 +1640,15 @@ local function CreateSummaryRow(parent, index)
                 WorldMapFrame:SetMapID(self.targetMapID)
             else
                 -- Detached mode: navigate via internal state
-                lastRefreshMapID = self.targetMapID
+                State.lastRefreshMapID = self.targetMapID
                 MapSidePanel:RefreshContent()
             end
         else
             -- Left-click: toggle expand/collapse
-            if expandedSummaryMapID == self.targetMapID then
-                expandedSummaryMapID = nil
+            if State.expandedSummaryMapID == self.targetMapID then
+                State.expandedSummaryMapID = nil
             else
-                expandedSummaryMapID = self.targetMapID
+                State.expandedSummaryMapID = self.targetMapID
             end
             MapSidePanel:RefreshContent()
         end
@@ -1700,24 +1673,11 @@ local function CreateSummaryRow(parent, index)
     return row
 end
 
-local function HideAllSummaryRows()
-    for _, row in ipairs(summaryRows) do
-        row:Hide()
-    end
-end
-
-local function HideAllSummarySubRows()
-    for _, row in ipairs(summarySubRows) do
-        row:Hide()
-    end
-end
-
--- Unified cleanup helper: hides all non-vendor content (summary rows, sub-rows,
--- back bar). Called in every early-return and level-switch path.
+-- Unified cleanup helper: hides the back bar and clears the map pin highlight.
+-- Called in every early-return and level-switch path. It no longer touches the
+-- list itself; rows are cleared by replacing the list's data provider.
 local function HideAllNonVendorContent()
-    HideAllSummaryRows()
-    HideAllSummarySubRows()
-    if backBar then backBar:Hide() end
+    if State.backBar then State.backBar:Hide() end
     if HA.VendorMapPins then HA.VendorMapPins:ClearHighlight() end
 end
 
@@ -1725,12 +1685,12 @@ end
 -- Summary Sub-Row Creation (expandable children of summary rows)
 -------------------------------------------------------------------------------
 
-local SUB_ROW_HEIGHT = 24
-local SUB_ROW_INDENT = 20
+Layout.SUB_ROW_HEIGHT = 24
+Layout.SUB_ROW_INDENT = 20
 
 local function CreateSummarySubRow(parent)
     local row = CreateFrame("Button", nil, parent)
-    row:SetHeight(SUB_ROW_HEIGHT)
+    row:SetHeight(Layout.SUB_ROW_HEIGHT)
     row:RegisterForClicks("AnyUp")
 
     -- Subtle dark background for visual nesting
@@ -1746,7 +1706,7 @@ local function CreateSummarySubRow(parent)
     -- Small icon
     local icon = row:CreateTexture(nil, "ARTWORK")
     icon:SetSize(12, 12)
-    icon:SetPoint("LEFT", SUB_ROW_INDENT, 0)
+    icon:SetPoint("LEFT", Layout.SUB_ROW_INDENT, 0)
     icon:SetAtlas("poi-door")
     icon:SetDesaturated(true)
     row.icon = icon
@@ -1760,7 +1720,7 @@ local function CreateSummarySubRow(parent)
 
     -- Count text (right side)
     local countText = row:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-    countText:SetPoint("RIGHT", row, "RIGHT", -PADDING, 0)
+    countText:SetPoint("RIGHT", row, "RIGHT", -Layout.PADDING, 0)
     countText:SetJustifyH("RIGHT")
     row.countText = countText
 
@@ -1770,7 +1730,7 @@ local function CreateSummarySubRow(parent)
     -- Separator
     local sep = row:CreateTexture(nil, "BACKGROUND", nil, 1)
     sep:SetHeight(1)
-    sep:SetPoint("BOTTOMLEFT", SUB_ROW_INDENT, 0)
+    sep:SetPoint("BOTTOMLEFT", Layout.SUB_ROW_INDENT, 0)
     sep:SetPoint("BOTTOMRIGHT", -4, 0)
     sep:SetColorTexture(0.25, 0.25, 0.25, 0.3)
 
@@ -1779,15 +1739,15 @@ local function CreateSummarySubRow(parent)
 
     row:SetScript("OnClick", function(self)
         if not self.targetMapID then return end
-        -- Pre-set expandedVendorID so the item grid opens at zone level
+        -- Pre-set State.expandedVendorID so the item grid opens at zone level
         if self.vendor and self.vendor.npcID then
-            expandedVendorID = self.vendor.npcID
+            State.expandedVendorID = self.vendor.npcID
         end
         if WorldMapFrame:IsShown() then
             WorldMapFrame:SetMapID(self.targetMapID)
         else
             -- Detached mode: navigate via internal state
-            lastRefreshMapID = self.targetMapID
+            State.lastRefreshMapID = self.targetMapID
             MapSidePanel:RefreshContent()
         end
     end)
@@ -1815,19 +1775,174 @@ local function CreateSummarySubRow(parent)
     return row
 end
 
--- Get or create a sub-row from the pool
-local function GetSummarySubRow(index)
-    if not summarySubRows[index] then
-        summarySubRows[index] = CreateSummarySubRow(scrollChild)
-    end
-    return summarySubRows[index]
+local CREATORS = {
+    vendor = CreateVendorRow,
+    summary = CreateSummaryRow,
+    subrow = CreateSummarySubRow,
+    boss = CreateBossRow,
+    item = CreateItemResultRow,
+    header = CreateSearchHeaderRow,
+}
+
+-- The pool invokes createFunc() with no arguments, so a fresh row is built
+-- parentless; RenderListElement's SetParent gives it its container, on the
+-- first render and on every reuse alike.
+local function AcquireRowContent(kind)
+    return FPU.AcquirePooledFrame(State.rowPool, kind, CREATORS[kind])
 end
 
--- Populate zone expansion: show vendor sub-rows for a zone at continent level.
+local function RenderVendorRow(row, rec)
+    local r, g, b = HA.PinFrameFactory:GetPinColor()
+    local vendor = rec.vendor
+
+    row.vendor = vendor
+    row.searchMode = rec.searchMode
+    row.searchMatchedItems = rec.matchedItems
+
+    row.nameText:SetText(GetVendorDisplayName(vendor))
+    row.nameText:SetTextColor(rec.nameColor[1], rec.nameColor[2], rec.nameColor[3])
+
+    -- Set icon color
+    row.icon:SetDesaturated(true)
+    row.icon:SetVertexColor(r, g, b)
+
+    row.collected = rec.collected
+    row.total = rec.total
+    row.locked = rec.locked
+
+    row.countText:SetText(rec.countText)
+    row.countText:SetTextColor(rec.countColor[1], rec.countColor[2], rec.countColor[3])
+
+    if rec.isExpanded then
+        PopulateItemGrid(row, vendor, State.panelSourceFilter, rec.matchedItems, rec.itemIDs)
+    else
+        HideItemGrid(row)
+    end
+end
+
+local function RenderSummaryRow(row, rec)
+    row.targetMapID = rec.targetMapID
+    row.vendorCount = rec.vendorCount
+    row.collectedItems = rec.collectedItems
+    row.totalItems = rec.totalItems
+    row.lockedItems = rec.lockedItems
+    row.unverifiedItems = rec.unverifiedItems
+
+    row.nameText:SetText(rec.name)
+    row.nameText:SetTextColor(rec.nameColor[1], rec.nameColor[2], rec.nameColor[3])
+
+    -- Arrow icon: down if expanded, forward if collapsed
+    row.arrow:SetAtlas(rec.isExpanded and "common-icon-downarrow" or "common-icon-forwardarrow")
+
+    row.summaryLine:SetText(rec.summaryLineText)
+    if rec.summaryLineColor then
+        row.summaryLine:SetTextColor(rec.summaryLineColor[1], rec.summaryLineColor[2], rec.summaryLineColor[3])
+    end
+end
+
+local function RenderSubRow(row, rec)
+    local r, g, b = HA.PinFrameFactory:GetPinColor()
+
+    row.vendor = rec.vendor
+    row.targetMapID = rec.targetMapID
+    row.tooltipText = rec.tooltipText
+    row.tooltipSub = rec.tooltipSub
+    row.isOrderHall = rec.isOrderHall
+
+    row.nameText:SetText(rec.name)
+    row.nameText:SetTextColor(0.9, 0.9, 0.9)
+
+    row.countText:SetText(rec.countText)
+    if rec.countColor then
+        row.countText:SetTextColor(rec.countColor[1], rec.countColor[2], rec.countColor[3])
+    end
+
+    if rec.iconMode == "vendor" then
+        -- Pin color for icon
+        row.icon:SetVertexColor(r, g, b)
+    else
+        -- Zone icon
+        row.icon:SetAtlas("poi-door")
+        row.icon:SetVertexColor(0.7, 0.7, 0.7)
+    end
+end
+
+local function RenderBossRow(row, rec)
+    local r, g, b = HA.PinFrameFactory:GetPinColor()
+
+    row.dropGroup = rec.dropGroup
+
+    row.nameText:SetText(rec.name)
+    row.nameText:SetTextColor(1, 1, 1)
+
+    row.icon:SetDesaturated(true)
+    row.icon:SetVertexColor(r, g, b)
+
+    row.collected = rec.collected
+    row.total = rec.total
+    row.locked = rec.locked
+
+    row.countText:SetText(rec.countText)
+    row.countText:SetTextColor(rec.countColor[1], rec.countColor[2], rec.countColor[3])
+
+    if rec.isExpanded then
+        PopulateBossItemGrid(row, rec.dropGroup)
+    else
+        HideItemGrid(row)
+    end
+end
+
+local function RenderHeaderRow(row, rec)
+    row.text:SetText(rec.label)
+end
+
+local RENDERERS = {
+    vendor = RenderVendorRow,
+    summary = RenderSummaryRow,
+    subrow = RenderSubRow,
+    boss = RenderBossRow,
+    item = RenderItemRow,
+    header = RenderHeaderRow,
+}
+
+-- ScrollBox element initializer. Render before Show: a frame shown under a
+-- stationary cursor fires OnEnter on the next update, and the resetter has
+-- just cleared every field those handlers read.
+local function RenderListElement(container, rec)
+    local content = AcquireRowContent(rec.kind)
+    content:SetParent(container)
+    content:ClearAllPoints()
+    content:SetAllPoints(container)
+    container.content = content
+    RENDERERS[rec.kind](content, rec)
+    content:Show()
+end
+
+local function ResetListElement(container)
+    local content = container.content
+    if not content then return end
+    HideItemGrid(content)
+    HideItemSourceList(content)
+    content.vendor, content.dropGroup, content.result, content.itemID = nil, nil, nil, nil
+    content.targetMapID, content.tooltipText, content.tooltipSub, content.isOrderHall = nil, nil, nil, nil
+    content.searchMode, content.searchMatchedItems = false, nil
+    content.collected, content.total, content.locked = nil, nil, nil
+    content.vendorCount, content.totalItems = 0, 0
+    content.collectedItems, content.lockedItems, content.unverifiedItems = nil, nil, nil
+    content:Hide()
+    content:ClearAllPoints()
+    FPU.ReleasePooledFrame(State.rowPool, content)
+    container.content = nil
+end
+
+local function SetListRows(rows)
+    State.listScrollBox:SetDataProvider(CreateDataProvider(rows), ScrollBoxConstants.RetainScrollPosition)
+end
+
+-- Build zone expansion: append vendor sub-row records for a zone at continent level.
 -- Uses same data source as badge calculation (GetAllVendors + VendorFilter).
--- Returns total height consumed.
-local function PopulateZoneExpansion(zoneMapID, yOffsetStart, subRowIndex)
-    if not VendorData or not BC then return 0, subRowIndex end
+local function BuildZoneExpansionRows(zoneMapID, rows)
+    if not VendorData or not BC then return end
 
     local VF = HA.VendorFilter
     local allVendors = VendorData:GetAllVendors()
@@ -1861,52 +1976,42 @@ local function PopulateZoneExpansion(zoneMapID, yOffsetStart, subRowIndex)
         return (a.name or "") < (b.name or "")
     end)
 
-    local totalHeight = 0
     for _, vendor in ipairs(zoneVendors) do
-        local subRow = GetSummarySubRow(subRowIndex)
-        subRow.vendor = vendor
         -- Use vendor's actual mapID for navigation (important for merged sibling zones)
         local _, vendorMapID = VendorFilter.GetBestVendorCoordinates(vendor)
-        subRow.targetMapID = vendorMapID or zoneMapID
-        subRow.tooltipText = vendor.name or "Unknown"
-        subRow.isOrderHall = vendor.mapID and ORDER_HALL_MAPS[vendor.mapID] or false
-
-        subRow.nameText:SetText(GetVendorDisplayName(vendor))
-        subRow.nameText:SetTextColor(0.9, 0.9, 0.9)
 
         -- Collection counts using same filter as panel
-        local stats = BC:GetVendorStats(vendor, panelSourceFilter)
+        local stats = BC:GetVendorStats(vendor, State.panelSourceFilter)
+        local countText, countColor, tooltipSub
         if (stats.total or 0) > 0 then
-            subRow.countText:SetText(FormatPurchasabilityCountText(stats.collected, stats.total, stats.locked))
-            subRow.countText:SetTextColor(1, 1, 1)
-            subRow.tooltipSub = string.format("Collected: %d/%d", stats.collected or 0, stats.total or 0)
+            countText = FormatPurchasabilityCountText(stats.collected, stats.total, stats.locked)
+            countColor = Layout.COLOR_WHITE
+            tooltipSub = string.format("Collected: %d/%d", stats.collected or 0, stats.total or 0)
         else
-            subRow.countText:SetText("")
-            subRow.tooltipSub = nil
+            countText = ""
         end
 
-        -- Pin color for icon
-        local r, g, b = HA.PinFrameFactory:GetPinColor()
-        subRow.icon:SetVertexColor(r, g, b)
-
-        subRow:ClearAllPoints()
-        subRow:SetPoint("TOPLEFT", scrollChild, "TOPLEFT", 0, -yOffsetStart - totalHeight)
-        subRow:SetPoint("TOPRIGHT", scrollChild, "TOPRIGHT", 0, -yOffsetStart - totalHeight)
-        subRow:Show()
-
-        totalHeight = totalHeight + SUB_ROW_HEIGHT
-        subRowIndex = subRowIndex + 1
+        rows[#rows + 1] = {
+            kind = "subrow",
+            height = Layout.SUB_ROW_HEIGHT,
+            iconMode = "vendor",
+            vendor = vendor,
+            targetMapID = vendorMapID or zoneMapID,
+            tooltipText = vendor.name or "Unknown",
+            tooltipSub = tooltipSub,
+            isOrderHall = vendor.mapID and ORDER_HALL_MAPS[vendor.mapID] or false,
+            name = GetVendorDisplayName(vendor),
+            countText = countText,
+            countColor = countColor,
+        }
     end
-
-    return totalHeight, subRowIndex
 end
 
--- Populate continent expansion: show zone sub-rows for a continent at world level.
--- Returns total height consumed.
-local function PopulateContinentExpansion(continentMapID, yOffsetStart, subRowIndex)
-    if not BC then return 0, subRowIndex end
+-- Build continent expansion: append zone sub-row records for a continent at world level.
+local function BuildContinentExpansionRows(continentMapID, rows)
+    if not BC then return end
 
-    local zoneCounts = BC:GetZoneVendorCounts(continentMapID, panelSourceFilter)
+    local zoneCounts = BC:GetZoneVendorCounts(continentMapID, State.panelSourceFilter)
 
     -- Build sorted zone list
     local zoneList = {}
@@ -1917,48 +2022,39 @@ local function PopulateContinentExpansion(continentMapID, yOffsetStart, subRowIn
         return (a.data.zoneName or "") < (b.data.zoneName or "")
     end)
 
-    local totalHeight = 0
     for _, entry in ipairs(zoneList) do
         local data = entry.data
         local dataVendorCount = data.vendorCount or 0
         local dataCollected = data.collectedItems or 0
         local dataTotal = data.totalItems or 0
-        local subRow = GetSummarySubRow(subRowIndex)
-        subRow.vendor = nil
-        subRow.targetMapID = entry.mapID
-        subRow.tooltipText = data.zoneName or "Unknown"
-        subRow.isOrderHall = false
-
-        subRow.nameText:SetText(data.zoneName or "Unknown")
-        subRow.nameText:SetTextColor(0.9, 0.9, 0.9)
 
         -- Zone collection counts
         local dataLocked = data.lockedItems or 0
+        local countText, countColor, tooltipSub
         if dataTotal > 0 then
-            subRow.countText:SetText(FormatPurchasabilityCountText(dataCollected, dataTotal, dataLocked))
-            subRow.countText:SetTextColor(1, 1, 1)
-            subRow.tooltipSub = string.format("%d vendors | %d/%d collected",
+            countText = FormatPurchasabilityCountText(dataCollected, dataTotal, dataLocked)
+            countColor = Layout.COLOR_WHITE
+            tooltipSub = string.format("%d vendors | %d/%d collected",
                 dataVendorCount, dataCollected, dataTotal)
         else
-            subRow.countText:SetText(string.format("%d vendors", dataVendorCount))
-            subRow.countText:SetTextColor(0.5, 0.5, 0.5)
-            subRow.tooltipSub = string.format("%d vendors", dataVendorCount)
+            countText = string.format("%d vendors", dataVendorCount)
+            countColor = Layout.COLOR_DIM
+            tooltipSub = string.format("%d vendors", dataVendorCount)
         end
 
-        -- Zone icon
-        subRow.icon:SetAtlas("poi-door")
-        subRow.icon:SetVertexColor(0.7, 0.7, 0.7)
-
-        subRow:ClearAllPoints()
-        subRow:SetPoint("TOPLEFT", scrollChild, "TOPLEFT", 0, -yOffsetStart - totalHeight)
-        subRow:SetPoint("TOPRIGHT", scrollChild, "TOPRIGHT", 0, -yOffsetStart - totalHeight)
-        subRow:Show()
-
-        totalHeight = totalHeight + SUB_ROW_HEIGHT
-        subRowIndex = subRowIndex + 1
+        rows[#rows + 1] = {
+            kind = "subrow",
+            height = Layout.SUB_ROW_HEIGHT,
+            iconMode = "zone",
+            targetMapID = entry.mapID,
+            tooltipText = data.zoneName or "Unknown",
+            tooltipSub = tooltipSub,
+            isOrderHall = false,
+            name = data.zoneName or "Unknown",
+            countText = countText,
+            countColor = countColor,
+        }
     end
-
-    return totalHeight, subRowIndex
 end
 
 -------------------------------------------------------------------------------
@@ -1966,16 +2062,16 @@ end
 -------------------------------------------------------------------------------
 
 local function CreatePanel()
-    if panelFrame then return end
+    if State.panelFrame then return end
 
     -- Main panel frame, parented to UIParent with cross-parent anchoring to
     -- the map canvas. Sits flush against the left edge of the canvas.
-    -- When shown, the map shifts right to make room (see ShiftMapRight).
+    -- When shown, the map shifts right to make room (see State.ShiftMapRight).
     -- Styled using Blizzard's NineSlice border system to match the map frame.
     -- Anonymous to avoid tainting UIParentPanelManager's CloseWindows() iteration.
     local canvas = WorldMapFrame.ScrollContainer
     local panel = CreateFrame("Frame", nil, UIParent)
-    panel:SetWidth(PANEL_WIDTH)
+    panel:SetWidth(Layout.PANEL_WIDTH)
     panel:SetPoint("TOPRIGHT", canvas, "TOPLEFT", 0, 0)
     panel:SetPoint("BOTTOMRIGHT", canvas, "BOTTOMLEFT", 0, 0)
     panel:SetFrameStrata("HIGH")
@@ -2008,29 +2104,29 @@ local function CreatePanel()
 
     -- 2. INNER TOP BORDER: Decorative top-edge tile inside the border
     --    Created before background so bg can anchor to it.
-    topTileFrame = panel:CreateTexture(nil, "ARTWORK")
-    topTileFrame:SetAtlas("_UI-Frame-InnerTopTile", false)
-    topTileFrame:SetHorizTile(true)
-    topTileFrame:SetHeight(10)
-    topTileFrame:SetPoint("TOPLEFT", panel, "TOPLEFT", 6, -18)
-    topTileFrame:SetPoint("TOPRIGHT", panel, "TOPRIGHT", -6, -18)
+    State.topTileFrame = panel:CreateTexture(nil, "ARTWORK")
+    State.topTileFrame:SetAtlas("_UI-Frame-InnerTopTile", false)
+    State.topTileFrame:SetHorizTile(true)
+    State.topTileFrame:SetHeight(10)
+    State.topTileFrame:SetPoint("TOPLEFT", panel, "TOPLEFT", 6, -18)
+    State.topTileFrame:SetPoint("TOPRIGHT", panel, "TOPRIGHT", -6, -18)
 
     -- 3. BACKGROUND FILL: Blizzard's quest log background atlas.
     --    Fills full panel by default (standalone/detached). In integrated mode,
     --    ApplyContentInset adjusts the top anchor below the header zone so the
     --    dark background doesn't bleed into the map's border area.
-    bgTexture = panel:CreateTexture(nil, "BACKGROUND", nil, -8)
-    bgTexture:SetAtlas("QuestLogBackground", false)
-    bgTexture:SetPoint("TOPLEFT", panel, "TOPLEFT", 0, 0)
-    bgTexture:SetPoint("BOTTOMRIGHT", panel, "BOTTOMRIGHT", 0, 0)
+    State.bgTexture = panel:CreateTexture(nil, "BACKGROUND", nil, -8)
+    State.bgTexture:SetAtlas("QuestLogBackground", false)
+    State.bgTexture:SetPoint("TOPLEFT", panel, "TOPLEFT", 0, 0)
+    State.bgTexture:SetPoint("BOTTOMRIGHT", panel, "BOTTOMRIGHT", 0, 0)
 
     -- Decorative streaks overlay on the inner top border
-    topStreaksFrame = panel:CreateTexture(nil, "ARTWORK", nil, 1)
-    topStreaksFrame:SetAtlas("_UI-Frame-TopTileStreaks", false)
-    topStreaksFrame:SetHorizTile(true)
-    topStreaksFrame:SetHeight(10)
-    topStreaksFrame:SetPoint("TOPLEFT", topTileFrame, "TOPLEFT", 0, 0)
-    topStreaksFrame:SetPoint("TOPRIGHT", topTileFrame, "TOPRIGHT", 0, 0)
+    State.topStreaksFrame = panel:CreateTexture(nil, "ARTWORK", nil, 1)
+    State.topStreaksFrame:SetAtlas("_UI-Frame-TopTileStreaks", false)
+    State.topStreaksFrame:SetHorizTile(true)
+    State.topStreaksFrame:SetHeight(10)
+    State.topStreaksFrame:SetPoint("TOPLEFT", State.topTileFrame, "TOPLEFT", 0, 0)
+    State.topStreaksFrame:SetPoint("TOPRIGHT", State.topTileFrame, "TOPRIGHT", 0, 0)
 
     -- Content insets (inside NineSlice border)
     local BORDER_LEFT = 10
@@ -2039,225 +2135,181 @@ local function CreatePanel()
     local BORDER_BOTTOM = 10
 
     -- Title header (centered horizontally)
-    headerFrame = CreateFrame("Frame", nil, panel)
-    headerFrame:SetHeight(HEADER_HEIGHT)
-    headerFrame:SetPoint("TOPLEFT", BORDER_LEFT, -BORDER_TOP)
-    headerFrame:SetPoint("TOPRIGHT", -BORDER_RIGHT, -BORDER_TOP)
+    State.headerFrame = CreateFrame("Frame", nil, panel)
+    State.headerFrame:SetHeight(Layout.HEADER_HEIGHT)
+    State.headerFrame:SetPoint("TOPLEFT", BORDER_LEFT, -BORDER_TOP)
+    State.headerFrame:SetPoint("TOPRIGHT", -BORDER_RIGHT, -BORDER_TOP)
 
     -- Homestead label (centered, below inner top border tile)
-    local titleLabel = headerFrame:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
-    titleLabel:SetPoint("TOP", headerFrame, "TOP", 0, -4)
+    local titleLabel = State.headerFrame:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+    titleLabel:SetPoint("TOP", State.headerFrame, "TOP", 0, -4)
     titleLabel:SetText("Homestead")
 
     -- Zone/map name (centered below title)
-    headerText = headerFrame:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-    headerText:SetPoint("TOP", titleLabel, "BOTTOM", 0, -3)
-    headerText:SetJustifyH("CENTER")
-    headerText:SetWordWrap(false)
-    headerText:SetTextColor(0.7, 0.7, 0.7)
-    headerText:SetText("")
+    State.headerText = State.headerFrame:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    State.headerText:SetPoint("TOP", titleLabel, "BOTTOM", 0, -3)
+    State.headerText:SetJustifyH("CENTER")
+    State.headerText:SetWordWrap(false)
+    State.headerText:SetTextColor(0.7, 0.7, 0.7)
+    State.headerText:SetText("")
 
     -- Header separator line
-    local headerSep = headerFrame:CreateTexture(nil, "ARTWORK")
+    local headerSep = State.headerFrame:CreateTexture(nil, "ARTWORK")
     headerSep:SetHeight(1)
-    headerSep:SetPoint("BOTTOMLEFT", headerFrame, "BOTTOMLEFT", 0, 0)
-    headerSep:SetPoint("BOTTOMRIGHT", headerFrame, "BOTTOMRIGHT", 0, 0)
+    headerSep:SetPoint("BOTTOMLEFT", State.headerFrame, "BOTTOMLEFT", 0, 0)
+    headerSep:SetPoint("BOTTOMRIGHT", State.headerFrame, "BOTTOMRIGHT", 0, 0)
     headerSep:SetColorTexture(0.4, 0.4, 0.4, 0.5)
 
-    -- Source filter row below the title header. Kept outside headerFrame so
+    -- Source filter row below the title header. Kept outside State.headerFrame so
     -- the native dropdown cannot overlap the centered Homestead title.
-    sourceFilterBar = CreateFrame("Frame", nil, panel)
-    sourceFilterBar:SetHeight(24)
-    sourceFilterBar:SetPoint("TOPLEFT", headerFrame, "BOTTOMLEFT", 0, -1)
-    sourceFilterBar:SetPoint("TOPRIGHT", headerFrame, "BOTTOMRIGHT", 0, -1)
+    State.sourceFilterBar = CreateFrame("Frame", nil, panel)
+    State.sourceFilterBar:SetHeight(24)
+    State.sourceFilterBar:SetPoint("TOPLEFT", State.headerFrame, "BOTTOMLEFT", 0, -1)
+    State.sourceFilterBar:SetPoint("TOPRIGHT", State.headerFrame, "BOTTOMRIGHT", 0, -1)
 
     -- Summary line (centered at bottom)
-    summaryText = panel:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-    summaryText:SetPoint("BOTTOMLEFT", panel, "BOTTOMLEFT", BORDER_LEFT, BORDER_BOTTOM)
-    summaryText:SetPoint("BOTTOMRIGHT", panel, "BOTTOMRIGHT", -BORDER_RIGHT, BORDER_BOTTOM)
-    summaryText:SetJustifyH("CENTER")
-    summaryText:SetTextColor(0.6, 0.6, 0.6)
+    State.summaryText = panel:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    State.summaryText:SetPoint("BOTTOMLEFT", panel, "BOTTOMLEFT", BORDER_LEFT, BORDER_BOTTOM)
+    State.summaryText:SetPoint("BOTTOMRIGHT", panel, "BOTTOMRIGHT", -BORDER_RIGHT, BORDER_BOTTOM)
+    State.summaryText:SetJustifyH("CENTER")
+    State.summaryText:SetTextColor(0.6, 0.6, 0.6)
 
     -- Search bar (above summary line at bottom)
-    searchBar = CreateFrame("Frame", nil, panel, "BackdropTemplate")
-    searchBar:SetHeight(22)
-    searchBar:SetPoint("BOTTOMLEFT", panel, "BOTTOMLEFT", BORDER_LEFT, BORDER_BOTTOM + 16)
-    searchBar:SetPoint("BOTTOMRIGHT", panel, "BOTTOMRIGHT", -BORDER_RIGHT, BORDER_BOTTOM + 16)
-    searchBar:SetBackdrop({
-        bgFile = "Interface\\Buttons\\WHITE8x8",
-        edgeFile = "Interface\\Buttons\\WHITE8x8",
-        edgeSize = 1,
-        insets = { left = 1, right = 1, top = 1, bottom = 1 },
-    })
-    searchBar:SetBackdropColor(0.1, 0.1, 0.1, 0.8)
-    searchBar:SetBackdropBorderColor(0.4, 0.4, 0.4, 0.8)
+    State.searchBar = CreateFrame("Frame", nil, panel)
+    State.searchBar:SetHeight(22)
+    State.searchBar:SetPoint("BOTTOMLEFT", panel, "BOTTOMLEFT", BORDER_LEFT, BORDER_BOTTOM + 16)
+    State.searchBar:SetPoint("BOTTOMRIGHT", panel, "BOTTOMRIGHT", -BORDER_RIGHT, BORDER_BOTTOM + 16)
+    State.searchEditBox = CreateFrame("EditBox", nil, State.searchBar, "SearchBoxTemplate")
+    State.searchEditBox:SetFontObject(GameFontHighlightSmall)
+    State.searchEditBox:SetPoint("TOPLEFT", State.searchBar, "TOPLEFT", 0, 0)
+    State.searchEditBox:SetPoint("BOTTOMRIGHT", State.searchBar, "BOTTOMRIGHT", 0, 0)
+    State.searchEditBox:SetMaxLetters(50)
 
-    local searchIcon = searchBar:CreateTexture(nil, "ARTWORK")
-    searchIcon:SetSize(12, 12)
-    searchIcon:SetPoint("LEFT", searchBar, "LEFT", 4, 0)
-    searchIcon:SetAtlas("common-search-magnifyingglass", false)
-    searchIcon:SetVertexColor(0.7, 0.7, 0.7)
-
-    searchEditBox = CreateFrame("EditBox", nil, searchBar)
-    searchEditBox:SetFontObject(GameFontHighlightSmall)
-    searchEditBox:SetPoint("LEFT", searchIcon, "RIGHT", 4, 0)
-    searchEditBox:SetPoint("RIGHT", searchBar, "RIGHT", -16, 0)
-    searchEditBox:SetHeight(16)
-    searchEditBox:SetAutoFocus(false)
-    searchEditBox:SetMaxLetters(50)
-
-    local placeholder = searchBar:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
-    placeholder:SetPoint("LEFT", searchEditBox, "LEFT", 2, 0)
-    placeholder:SetText("Search items, vendors...")
-    placeholder:SetTextColor(0.5, 0.5, 0.5)
-
-    local clearBtn = CreateFrame("Button", nil, searchBar)
-    clearBtn:SetSize(10, 10)
-    clearBtn:SetPoint("RIGHT", searchBar, "RIGHT", -2, 0)
-    clearBtn:SetNormalTexture("Interface\\Buttons\\UI-StopButton")
-    clearBtn:GetNormalTexture():SetVertexColor(0.6, 0.6, 0.6)
-    clearBtn:Hide()
-    clearBtn:SetScript("OnClick", function()
+    State.searchEditBox.Instructions:SetText("Search items, vendors...")
+    State.searchEditBox.clearButton:HookScript("OnClick", function()
         ClearSearch(true)
-        searchEditBox:ClearFocus()
+        State.searchEditBox:ClearFocus()
     end)
 
-    local function UpdateSearchUI()
-        local text = searchEditBox:GetText()
-        local hasText = text and text ~= ""
-        placeholder:SetShown(not hasText and not searchEditBox:HasFocus())
-        clearBtn:SetShown(hasText)
-    end
-
-    searchEditBox:SetScript("OnTextChanged", function()
-        if suppressTextChanged then return end
-        UpdateSearchUI()
-        if searchDebounceTimer then searchDebounceTimer:Cancel() end
-        searchDebounceTimer = C_Timer.NewTimer(0.3, ExecuteSearch)
+    State.searchEditBox:HookScript("OnTextChanged", function()
+        if State.suppressTextChanged then return end
+        if State.searchDebounceTimer then State.searchDebounceTimer:Cancel() end
+        State.searchDebounceTimer = C_Timer.NewTimer(0.3, ExecuteSearch)
     end)
 
-    searchEditBox:SetScript("OnEditFocusGained", function()
-        placeholder:Hide()
-        searchBar:SetBackdropBorderColor(0.6, 0.6, 0.6, 1)
-        searchIcon:SetVertexColor(1, 0.82, 0)
+    State.searchEditBox:HookScript("OnEditFocusGained", function()
         if HA.SearchProvider then
             HA.SearchProvider:PreWarm()
         end
     end)
 
-    searchEditBox:SetScript("OnEditFocusLost", function()
-        UpdateSearchUI()
-        searchBar:SetBackdropBorderColor(0.4, 0.4, 0.4, 0.8)
-        searchIcon:SetVertexColor(0.7, 0.7, 0.7)
-    end)
-
-    searchEditBox:SetScript("OnEscapePressed", function(self)
+    State.searchEditBox:HookScript("OnEscapePressed", function(self)
         ClearSearch(true)
         self:ClearFocus()
     end)
 
-    searchEditBox:SetScript("OnEnterPressed", function(self)
+    State.searchEditBox:HookScript("OnEnterPressed", function(self)
         self:ClearFocus()
     end)
 
     -- Back navigation bar (between header and progress bar / scroll area)
-    backBar = CreateFrame("Button", nil, panel)
-    backBar:SetHeight(20)
-    backBar:SetPoint("TOPLEFT", sourceFilterBar, "BOTTOMLEFT", 0, 0)
-    backBar:SetPoint("TOPRIGHT", sourceFilterBar, "BOTTOMRIGHT", 0, 0)
+    State.backBar = CreateFrame("Button", nil, panel)
+    State.backBar:SetHeight(20)
+    State.backBar:SetPoint("TOPLEFT", State.sourceFilterBar, "BOTTOMLEFT", 0, 0)
+    State.backBar:SetPoint("TOPRIGHT", State.sourceFilterBar, "BOTTOMRIGHT", 0, 0)
 
-    local backArrow = backBar:CreateTexture(nil, "ARTWORK")
+    local backArrow = State.backBar:CreateTexture(nil, "ARTWORK")
     backArrow:SetSize(12, 12)
     backArrow:SetPoint("LEFT", 8, 0)
     backArrow:SetAtlas("common-icon-backarrow")
-    backBar.arrow = backArrow
+    State.backBar.arrow = backArrow
 
-    local backText = backBar:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    local backText = State.backBar:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
     backText:SetPoint("LEFT", backArrow, "RIGHT", 4, 0)
-    backText:SetPoint("RIGHT", backBar, "RIGHT", -8, 0)
+    backText:SetPoint("RIGHT", State.backBar, "RIGHT", -8, 0)
     backText:SetJustifyH("LEFT")
     backText:SetTextColor(0.5, 0.7, 1.0)
-    backBar.text = backText
+    State.backBar.text = backText
 
-    local backHighlight = backBar:CreateTexture(nil, "HIGHLIGHT")
+    local backHighlight = State.backBar:CreateTexture(nil, "HIGHLIGHT")
     backHighlight:SetAllPoints()
     backHighlight:SetColorTexture(0.3, 0.3, 0.3, 0.3)
 
-    local backSep = backBar:CreateTexture(nil, "BACKGROUND")
+    local backSep = State.backBar:CreateTexture(nil, "BACKGROUND")
     backSep:SetHeight(1)
     backSep:SetPoint("BOTTOMLEFT", 4, 0)
     backSep:SetPoint("BOTTOMRIGHT", -4, 0)
     backSep:SetColorTexture(0.3, 0.3, 0.3, 0.4)
 
-    backBar:SetScript("OnClick", function()
+    State.backBar:SetScript("OnClick", function()
         MapSidePanel:NavigateBack()
     end)
-    backBar:SetScript("OnEnter", function(self)
+    State.backBar:SetScript("OnEnter", function(self)
         local tooltip = BeginPanelTooltip(self, "ANCHOR_BOTTOM")
         tooltip:SetText("Go back")
         tooltip:Show()
     end)
-    backBar:SetScript("OnLeave", HidePanelTooltip)
-    backBar:Hide()
+    State.backBar:SetScript("OnLeave", HidePanelTooltip)
+    State.backBar:Hide()
 
     -- Progress bar (between header and scroll area, shown at zone level)
-    progressBar = CreateFrame("StatusBar", nil, panel)
-    progressBar:SetHeight(PROGRESS_BAR_HEIGHT)
-    progressBar:SetPoint("TOPLEFT", sourceFilterBar, "BOTTOMLEFT", 0, -3)
-    progressBar:SetPoint("TOPRIGHT", sourceFilterBar, "BOTTOMRIGHT", 0, -3)
-    progressBar:SetStatusBarTexture("Interface\\TargetingFrame\\UI-StatusBar")
-    progressBar:SetStatusBarColor(0.2, 0.6, 0.8)
-    progressBar:Hide()
+    State.progressBar = CreateFrame("StatusBar", nil, panel)
+    State.progressBar:SetHeight(Layout.PROGRESS_BAR_HEIGHT)
+    State.progressBar:SetPoint("TOPLEFT", State.sourceFilterBar, "BOTTOMLEFT", 0, -3)
+    State.progressBar:SetPoint("TOPRIGHT", State.sourceFilterBar, "BOTTOMRIGHT", 0, -3)
+    State.progressBar:SetStatusBarTexture("Interface\\TargetingFrame\\UI-StatusBar")
+    State.progressBar:SetStatusBarColor(0.2, 0.6, 0.8)
+    State.progressBar:Hide()
 
     -- Dark background behind fill
-    progressBarBg = progressBar:CreateTexture(nil, "BACKGROUND")
-    progressBarBg:SetAllPoints()
-    progressBarBg:SetColorTexture(0.1, 0.1, 0.1, 0.8)
+    State.progressBarBg = State.progressBar:CreateTexture(nil, "BACKGROUND")
+    State.progressBarBg:SetAllPoints()
+    State.progressBarBg:SetColorTexture(0.1, 0.1, 0.1, 0.8)
 
     -- Full-width purchasable fill (muted gold, sits behind the blue collected fill)
     -- The blue StatusBar fill covers collected items from the left; the red locked
     -- fill covers locked items from the right; this middle layer fills the rest
     -- so the purchasable segment has a visible color instead of just dark background.
-    progressBarPurchasableFill = progressBar:CreateTexture(nil, "ARTWORK", nil, -1)
-    progressBarPurchasableFill:SetAllPoints()
-    progressBarPurchasableFill:SetTexture("Interface\\TargetingFrame\\UI-StatusBar")
-    progressBarPurchasableFill:SetVertexColor(0.9, 0.7, 0.0, 0.8)
+    State.progressBarPurchasableFill = State.progressBar:CreateTexture(nil, "ARTWORK", nil, -1)
+    State.progressBarPurchasableFill:SetAllPoints()
+    State.progressBarPurchasableFill:SetTexture("Interface\\TargetingFrame\\UI-StatusBar")
+    State.progressBarPurchasableFill:SetVertexColor(0.9, 0.7, 0.0, 0.8)
 
     -- Right-anchored locked fill (nested StatusBar so it renders with the same
     -- gradient stripes as the blue fill, not a flat texture)
-    progressBarLockedFill = CreateFrame("StatusBar", nil, progressBar)
-    progressBarLockedFill:SetPoint("TOPRIGHT", progressBar, "TOPRIGHT", 0, 0)
-    progressBarLockedFill:SetPoint("BOTTOMRIGHT", progressBar, "BOTTOMRIGHT", 0, 0)
-    progressBarLockedFill:SetWidth(0)
-    progressBarLockedFill:SetStatusBarTexture("Interface\\TargetingFrame\\UI-StatusBar")
-    progressBarLockedFill:SetStatusBarColor(0.80, 0.20, 0.20, 0.95)
-    progressBarLockedFill:SetMinMaxValues(0, 1)
-    progressBarLockedFill:SetValue(1)
-    progressBarLockedFill:Hide()
+    State.progressBarLockedFill = CreateFrame("StatusBar", nil, State.progressBar)
+    State.progressBarLockedFill:SetPoint("TOPRIGHT", State.progressBar, "TOPRIGHT", 0, 0)
+    State.progressBarLockedFill:SetPoint("BOTTOMRIGHT", State.progressBar, "BOTTOMRIGHT", 0, 0)
+    State.progressBarLockedFill:SetWidth(0)
+    State.progressBarLockedFill:SetStatusBarTexture("Interface\\TargetingFrame\\UI-StatusBar")
+    State.progressBarLockedFill:SetStatusBarColor(0.80, 0.20, 0.20, 0.95)
+    State.progressBarLockedFill:SetMinMaxValues(0, 1)
+    State.progressBarLockedFill:SetValue(1)
+    State.progressBarLockedFill:Hide()
 
     -- Diagonal stripe overlay on locked segment (blocked/disabled visual cue)
-    progressBarLockedFill.hashOverlay = progressBar:CreateTexture(nil, "ARTWORK", nil, 2)
-    progressBarLockedFill.hashOverlay:SetAllPoints(progressBarLockedFill)
-    progressBarLockedFill.hashOverlay:SetTexture("Interface\\PaperDollInfoFrame\\UI-GearManager-LeaveItem-Transparent")
-    progressBarLockedFill.hashOverlay:SetAlpha(0.4)
-    progressBarLockedFill.hashOverlay:Hide()
+    State.progressBarLockedFill.hashOverlay = State.progressBar:CreateTexture(nil, "ARTWORK", nil, 2)
+    State.progressBarLockedFill.hashOverlay:SetAllPoints(State.progressBarLockedFill)
+    State.progressBarLockedFill.hashOverlay:SetTexture("Interface\\PaperDollInfoFrame\\UI-GearManager-LeaveItem-Transparent")
+    State.progressBarLockedFill.hashOverlay:SetAlpha(0.4)
+    State.progressBarLockedFill.hashOverlay:Hide()
 
     -- Ensure locked fill doesn't cover the text — lower its frame level
-    progressBarLockedFill:SetFrameLevel(progressBar:GetFrameLevel() + 1)
+    State.progressBarLockedFill:SetFrameLevel(State.progressBar:GetFrameLevel() + 1)
 
     -- Centered count text on its own frame above both fills — must not be
-    -- a child of progressBarLockedFill or it hides when locked == 0
-    local textOverlay = CreateFrame("Frame", nil, progressBar)
+    -- a child of State.progressBarLockedFill or it hides when locked == 0
+    local textOverlay = CreateFrame("Frame", nil, State.progressBar)
     textOverlay:SetAllPoints()
-    textOverlay:SetFrameLevel(progressBarLockedFill:GetFrameLevel() + 1)
-    progressBarText = textOverlay:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-    progressBarText:SetPoint("CENTER", progressBar, "CENTER")
+    textOverlay:SetFrameLevel(State.progressBarLockedFill:GetFrameLevel() + 1)
+    State.progressBarText = textOverlay:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    State.progressBarText:SetPoint("CENTER", State.progressBar, "CENTER")
 
     -- Tooltip on hover
-    progressBar:EnableMouse(true)
-    progressBar:SetScript("OnEnter", function(self)
+    State.progressBar:EnableMouse(true)
+    State.progressBar:SetScript("OnEnter", function(self)
         local tooltip = BeginPanelTooltip(self, "ANCHOR_BOTTOM")
-        tooltip:AddLine(DISPLAY_LEVEL_TITLES[currentDisplayLevel] or "Collection Progress", 1, 1, 1)
+        tooltip:AddLine(DISPLAY_LEVEL_TITLES[State.currentDisplayLevel] or "Collection Progress", 1, 1, 1)
         local _, max = self:GetMinMaxValues()
         local val = self:GetValue()
         if max > 0 then
@@ -2268,138 +2320,161 @@ local function CreatePanel()
         end
         tooltip:Show()
     end)
-    progressBar:SetScript("OnLeave", HidePanelTooltip)
+    State.progressBar:SetScript("OnLeave", HidePanelTooltip)
 
-    -- Scroll frame for vendor list
-    scrollContainer = CreateFrame("Frame", nil, panel)
-    scrollContainer:SetPoint("TOPLEFT", sourceFilterBar, "BOTTOMLEFT", 0, -4)
-    scrollContainer:SetPoint("BOTTOMRIGHT", searchBar, "TOPRIGHT", 0, -2)
+    -- List area for the vendor list
+    State.scrollContainer = CreateFrame("Frame", nil, panel)
+    State.scrollContainer:SetPoint("TOPLEFT", State.sourceFilterBar, "BOTTOMLEFT", 0, -4)
+    State.scrollContainer:SetPoint("BOTTOMRIGHT", State.searchBar, "TOPRIGHT", 0, -2)
 
-    scrollFrame = CreateFrame("ScrollFrame", nil, scrollContainer, "UIPanelScrollFrameTemplate")
-    scrollFrame:SetPoint("TOPLEFT", 0, 0)
-    scrollFrame:SetPoint("BOTTOMRIGHT", -22, 0)
+    local List = F:RequireModule("List", 1)
+    State.contentList = List:New({
+        name             = "HomesteadMapSidePanelList",
+        parent           = State.scrollContainer,
+        elementType      = "Frame",
+        extentCalculator = function(_, rec) return rec.height end,
+        initializer      = RenderListElement,
+        resetter         = ResetListElement,
+    })
 
-    scrollChild = CreateFrame("Frame", nil, scrollFrame)
-    -- Use a computed width (panel is hidden during creation, so GetWidth() returns 0)
-    local scrollWidth = PANEL_WIDTH - BORDER_LEFT - BORDER_RIGHT - 22  -- 22 = scrollbar
-    scrollChild:SetWidth(scrollWidth)
-    scrollChild:SetHeight(1)  -- Will be resized dynamically
-    scrollFrame:SetScrollChild(scrollChild)
+    -- Re-anchor through the native handles: List:New's default fill anchors do
+    -- not reserve the 22px scrollbar gutter this layout has always kept.
+    local handles = State.contentList:GetNativeHandles()
+    State.listScrollBox = handles.scrollBox
+    State.listScrollBox:ClearAllPoints()
+    State.listScrollBox:SetPoint("TOPLEFT", State.scrollContainer, "TOPLEFT", 0, 0)
+    State.listScrollBox:SetPoint("BOTTOMRIGHT", State.scrollContainer, "BOTTOMRIGHT", -22, 0)
+    handles.scrollBar:ClearAllPoints()
+    handles.scrollBar:SetPoint("TOPLEFT", State.listScrollBox, "TOPRIGHT", 4, 0)
+    handles.scrollBar:SetPoint("BOTTOMLEFT", State.listScrollBox, "BOTTOMRIGHT", 4, 0)
 
     -- Empty state text
-    emptyText = panel:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
-    emptyText:SetPoint("CENTER", scrollContainer, "CENTER", 0, 0)
-    emptyText:SetText("No vendors in this zone")
-    emptyText:Hide()
+    State.emptyText = panel:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+    State.emptyText:SetPoint("CENTER", State.scrollContainer, "CENTER", 0, 0)
+    State.emptyText:SetText("No vendors in this zone")
+    State.emptyText:Hide()
 
     -- Pop-out button (docked mode): arrow icon in header area next to title
-    popOutButton = CreateFrame("Button", nil, headerFrame)
-    popOutButton:SetSize(16, 16)
-    popOutButton:SetPoint("RIGHT", headerFrame, "RIGHT", -2, -2)
+    State.popOutButton = CreateFrame("Button", nil, State.headerFrame)
+    State.popOutButton:SetSize(16, 16)
+    State.popOutButton:SetPoint("RIGHT", State.headerFrame, "RIGHT", -2, -2)
 
-    popOutButton:SetNormalAtlas("RedButton-Expand")
-    popOutButton:SetPushedAtlas("RedButton-Expand-Pressed")
-    popOutButton:SetHighlightAtlas("RedButton-Highlight")
+    State.popOutButton:SetNormalAtlas("RedButton-Expand")
+    State.popOutButton:SetPushedAtlas("RedButton-Expand-Pressed")
+    State.popOutButton:SetHighlightAtlas("RedButton-Highlight")
 
-    popOutButton:SetScript("OnClick", function()
+    State.popOutButton:SetScript("OnClick", function()
         MapSidePanel:PopOut()
     end)
-    popOutButton:SetScript("OnEnter", function(self)
+    State.popOutButton:SetScript("OnEnter", function(self)
         local tooltip = BeginPanelTooltip(self, "ANCHOR_RIGHT")
         tooltip:SetText("Detach panel")
         tooltip:Show()
     end)
-    popOutButton:SetScript("OnLeave", HidePanelTooltip)
+    State.popOutButton:SetScript("OnLeave", HidePanelTooltip)
 
     -- Source filter control: native dropdown below the title header.
-    sourceFilterDropdown = CreateFrame("DropdownButton", nil, sourceFilterBar, "WowStyle1DropdownTemplate")
-    sourceFilterDropdown:SetPoint("LEFT", sourceFilterBar, "LEFT", -4, 0)
-    sourceFilterDropdown:SetSize(104, 22)
+    State.sourceFilterDropdown = CreateFrame("DropdownButton", nil, State.sourceFilterBar, "WowStyle1DropdownTemplate")
+    State.sourceFilterDropdown:SetPoint("LEFT", State.sourceFilterBar, "LEFT", -4, 0)
+    State.sourceFilterDropdown:SetSize(104, 22)
     UpdateSourceFilterDropdownText()
 
-    sourceFilterDropdown:SetScript("OnClick", OpenSourceFilterDropdown)
-    sourceFilterDropdown:SetScript("OnEnter", function(self)
+    State.sourceFilterDropdown:SetScript("OnClick", OpenSourceFilterDropdown)
+    State.sourceFilterDropdown:SetScript("OnEnter", function(self)
         local tooltip = BeginPanelTooltip(self, "ANCHOR_RIGHT")
         tooltip:SetText("Item Source Filter")
-        tooltip:AddLine("Current: " .. GetSourceFilterLabel(panelSourceFilter), 1, 1, 1)
+        tooltip:AddLine("Current: " .. GetSourceFilterLabel(State.panelSourceFilter), 1, 1, 1)
         tooltip:Show()
     end)
-    sourceFilterDropdown:SetScript("OnLeave", HidePanelTooltip)
+    State.sourceFilterDropdown:SetScript("OnLeave", HidePanelTooltip)
 
     -- Close button (detached mode): standard X at top-right
-    closeButton = CreateFrame("Button", nil, panel, "UIPanelCloseButton")
-    closeButton:SetPoint("TOPRIGHT", -2, -2)
-    closeButton:SetScript("OnClick", function()
+    State.closeButton = CreateFrame("Button", nil, panel, "UIPanelCloseButton")
+    State.closeButton:SetPoint("TOPRIGHT", -2, -2)
+    State.closeButton:SetScript("OnClick", function()
         -- Full reset: hide panel, clear pop-out state
         MapSidePanel:CloseDetached()
     end)
-    closeButton:Hide()
+    State.closeButton:Hide()
 
     -- Re-attach button (detached mode): small icon next to close button
-    reattachButton = CreateFrame("Button", nil, panel)
-    reattachButton:SetSize(16, 16)
-    reattachButton:SetPoint("RIGHT", closeButton, "LEFT", 2, 0)
+    State.reattachButton = CreateFrame("Button", nil, panel)
+    State.reattachButton:SetSize(16, 16)
+    State.reattachButton:SetPoint("RIGHT", State.closeButton, "LEFT", 2, 0)
 
-    reattachButton:SetNormalAtlas("RedButton-Condense")
-    reattachButton:SetPushedAtlas("RedButton-Condense-Pressed")
-    reattachButton:SetHighlightAtlas("RedButton-Highlight")
+    State.reattachButton:SetNormalAtlas("RedButton-Condense")
+    State.reattachButton:SetPushedAtlas("RedButton-Condense-Pressed")
+    State.reattachButton:SetHighlightAtlas("RedButton-Highlight")
 
-    reattachButton:SetScript("OnClick", function()
+    State.reattachButton:SetScript("OnClick", function()
         MapSidePanel:DockPanel()
     end)
-    reattachButton:SetScript("OnEnter", function(self)
+    State.reattachButton:SetScript("OnEnter", function(self)
         local tooltip = BeginPanelTooltip(self, "ANCHOR_RIGHT")
         tooltip:SetText("Attach to World Map")
         tooltip:Show()
     end)
-    reattachButton:SetScript("OnLeave", HidePanelTooltip)
-    reattachButton:Hide()
+    State.reattachButton:SetScript("OnLeave", HidePanelTooltip)
+    State.reattachButton:Hide()
 
     -- Resize handle (detached mode): thin grip bar at the bottom edge for
     -- height-only resizing. Hidden when docked.
-    resizeHandle = CreateFrame("Frame", nil, panel)
-    resizeHandle:SetHeight(8)
-    resizeHandle:SetPoint("BOTTOMLEFT", panel, "BOTTOMLEFT", 4, 0)
-    resizeHandle:SetPoint("BOTTOMRIGHT", panel, "BOTTOMRIGHT", -4, 0)
-    resizeHandle:EnableMouse(true)
-    resizeHandle:SetScript("OnMouseDown", function()
-        panelFrame:StartSizing("BOTTOM")
+    State.resizeHandle = CreateFrame("Frame", nil, panel)
+    State.resizeHandle:SetHeight(8)
+    State.resizeHandle:SetPoint("BOTTOMLEFT", panel, "BOTTOMLEFT", 4, 0)
+    State.resizeHandle:SetPoint("BOTTOMRIGHT", panel, "BOTTOMRIGHT", -4, 0)
+    State.resizeHandle:EnableMouse(true)
+    State.resizeHandle:SetScript("OnMouseDown", function()
+        State.panelFrame:StartSizing("BOTTOM")
     end)
-    resizeHandle:SetScript("OnMouseUp", function()
-        panelFrame:StopMovingOrSizing()
-        SaveDetachedPosition()
+    State.resizeHandle:SetScript("OnMouseUp", function()
+        State.panelFrame:StopMovingOrSizing()
+        State.SaveDetachedPosition()
     end)
-    resizeHandle:SetScript("OnEnter", function(self)
+    State.resizeHandle:SetScript("OnEnter", function(self)
         -- Visual feedback: WoW doesn't support custom cursors, so highlight the grip
         self.highlight:Show()
     end)
-    resizeHandle:SetScript("OnLeave", function(self)
+    State.resizeHandle:SetScript("OnLeave", function(self)
         self.highlight:Hide()
     end)
 
     -- Grip line visual (subtle horizontal lines)
-    local grip = resizeHandle:CreateTexture(nil, "ARTWORK")
+    local grip = State.resizeHandle:CreateTexture(nil, "ARTWORK")
     grip:SetHeight(2)
     grip:SetPoint("LEFT", 8, 0)
     grip:SetPoint("RIGHT", -8, 0)
     grip:SetColorTexture(0.6, 0.6, 0.6, 0.4)
-    local grip2 = resizeHandle:CreateTexture(nil, "ARTWORK")
+    local grip2 = State.resizeHandle:CreateTexture(nil, "ARTWORK")
     grip2:SetHeight(2)
     grip2:SetPoint("LEFT", 8, -3)
     grip2:SetPoint("RIGHT", -8, -3)
     grip2:SetColorTexture(0.6, 0.6, 0.6, 0.4)
 
     -- Hover highlight
-    local hl = resizeHandle:CreateTexture(nil, "HIGHLIGHT")
+    local hl = State.resizeHandle:CreateTexture(nil, "HIGHLIGHT")
     hl:SetAllPoints()
     hl:SetColorTexture(1, 1, 1, 0.1)
     hl:Hide()
-    resizeHandle.highlight = hl
+    State.resizeHandle.highlight = hl
 
-    resizeHandle:Hide()
+    State.resizeHandle:Hide()
+
+    -- HS-282 sub-item G: evict the SearchProvider index whenever this panel
+    -- hides, on ANY path (Hide/Toggle/CloseDetached, or the map closing/
+    -- maximizing out from under a docked panel via MapWatchTick) -- every one
+    -- of those paths ends by calling panel:Hide(), so OnHide is the single
+    -- point they all converge on. Reclaims ~2.2 MB in the non-searching
+    -- steady state; BuildIndex() lazily rebuilds (~20ms worst case) on the
+    -- next Search, a trade Rawb accepted against the reclaim.
+    panel:HookScript("OnHide", function()
+        if HA.SearchProvider and HA.SearchProvider.Invalidate then
+            HA.SearchProvider:Invalidate()
+        end
+    end)
 
     panel:Hide()
-    panelFrame = panel
+    State.panelFrame = panel
 end
 
 -------------------------------------------------------------------------------
@@ -2443,13 +2518,13 @@ local function CountVisibleOverlayButtons()
 end
 
 local function PositionOverlayButton()
-    if not overlayButton then return end
+    if not State.overlayButton then return end
     local container = WorldMapFrame:GetCanvasContainer()
     if not container then return end
-    overlayButton:ClearAllPoints()
+    State.overlayButton:ClearAllPoints()
     local visibleCount = CountVisibleOverlayButtons()
     local yOffset = -(2 + visibleCount * 32)
-    overlayButton:SetPoint("TOPRIGHT", container, "TOPRIGHT", -4, yOffset)
+    State.overlayButton:SetPoint("TOPRIGHT", container, "TOPRIGHT", -4, yOffset)
 end
 
 -- Right-click context menu: quick-access settings for map pins.
@@ -2484,13 +2559,13 @@ local PIN_SIZE_LABELS = {
 local PIN_SIZE_ORDER = { 8, 10, 12, 14, 16, 18 }
 
 local function ShowContextMenu(owner)
-    if menuContextMenu then
-        menuContextMenu:CreateContextMenu(owner)
+    if State.menuContextMenu then
+        State.menuContextMenu:CreateContextMenu(owner)
     end
 end
 
 local function CreateOverlayButton()
-    if overlayButton then return end
+    if State.overlayButton then return end
 
     local button = CreateFrame("Button", nil, WorldMapFrame)
     button:SetSize(32, 32)
@@ -2532,9 +2607,9 @@ local function CreateOverlayButton()
     button:SetScript("OnClick", function(self, mouseButton)
         if mouseButton == "RightButton" then
             ShowContextMenu(self)
-        elseif isPoppedOut and panelFrame and panelFrame:IsShown() then
+        elseif State.isPoppedOut and State.panelFrame and State.panelFrame:IsShown() then
             -- Popped out + visible: raise to front instead of toggling
-            panelFrame:Raise()
+            State.panelFrame:Raise()
         else
             MapSidePanel:Toggle()
         end
@@ -2544,7 +2619,7 @@ local function CreateOverlayButton()
     button:SetScript("OnEnter", function(self)
         local tooltip = BeginPanelTooltip(self, "ANCHOR_RIGHT")
         GameTooltip_SetTitle(tooltip, "Homestead")
-        if isPoppedOut and panelFrame and panelFrame:IsShown() then
+        if State.isPoppedOut and State.panelFrame and State.panelFrame:IsShown() then
             GameTooltip_AddNormalLine(tooltip, "Left-click: Show vendor panel")
         else
             GameTooltip_AddNormalLine(tooltip, "Left-click: Toggle vendor panel")
@@ -2564,7 +2639,7 @@ local function CreateOverlayButton()
         self.Icon:SetPoint("TOPLEFT", 6, -6)
     end)
 
-    overlayButton = button
+    State.overlayButton = button
 end
 
 -------------------------------------------------------------------------------
@@ -2648,101 +2723,101 @@ local function GetVendorsForCurrentMap(mapID)
 end
 
 -- Returns the frame that content (progress bar / scroll area) should anchor below.
--- When backBar is visible, content sits below it; otherwise below the source
+-- When State.backBar is visible, content sits below it; otherwise below the source
 -- filter row that follows the title header.
 local function GetContentTopAnchor()
-    if backBar and backBar:IsShown() then return backBar end
-    return sourceFilterBar or headerFrame
+    if State.backBar and State.backBar:IsShown() then return State.backBar end
+    return State.sourceFilterBar or State.headerFrame
 end
 
 local function UpdateBackBar()
-    if not backBar then return end
-    if not lastRefreshMapID then
-        backBar:Hide()
+    if not State.backBar then return end
+    if not State.lastRefreshMapID then
+        State.backBar:Hide()
         return
     end
-    local mapInfo = C_Map.GetMapInfo(lastRefreshMapID)
+    local mapInfo = C_Map.GetMapInfo(State.lastRefreshMapID)
     if not mapInfo or not mapInfo.parentMapID or mapInfo.parentMapID <= 0 then
-        backBar:Hide()
+        State.backBar:Hide()
         return
     end
     -- World level: no back bar (already at top)
-    if currentDisplayLevel == "world" then
-        backBar:Hide()
+    if State.currentDisplayLevel == "world" then
+        State.backBar:Hide()
         return
     end
     local parentInfo = C_Map.GetMapInfo(mapInfo.parentMapID)
     local parentName = parentInfo and parentInfo.name or "Back"
-    backBar.text:SetText("< " .. parentName)
-    backBar:Show()
+    State.backBar.text:SetText("< " .. parentName)
+    State.backBar:Show()
 end
 
 function MapSidePanel:NavigateBack()
-    if not lastRefreshMapID then return end
-    local mapInfo = C_Map.GetMapInfo(lastRefreshMapID)
+    if not State.lastRefreshMapID then return end
+    local mapInfo = C_Map.GetMapInfo(State.lastRefreshMapID)
     if not mapInfo or not mapInfo.parentMapID or mapInfo.parentMapID <= 0 then return end
     if WorldMapFrame:IsShown() then
         WorldMapFrame:SetMapID(mapInfo.parentMapID)
     else
         -- Detached mode: map not open, navigate via internal state
-        lastRefreshMapID = mapInfo.parentMapID
+        State.lastRefreshMapID = mapInfo.parentMapID
         self:RefreshContent()
     end
 end
 
 local function HideProgressBar()
-    if not progressBar then return end
-    progressBar:Hide()
-    if progressBarLockedFill then
-        progressBarLockedFill:Hide()
-        progressBarLockedFill:SetWidth(0)
-        if progressBarLockedFill.hashOverlay then
-            progressBarLockedFill.hashOverlay:Hide()
+    if not State.progressBar then return end
+    State.progressBar:Hide()
+    if State.progressBarLockedFill then
+        State.progressBarLockedFill:Hide()
+        State.progressBarLockedFill:SetWidth(0)
+        if State.progressBarLockedFill.hashOverlay then
+            State.progressBarLockedFill.hashOverlay:Hide()
         end
     end
-    progressBar.lockedValue = nil
-    progressBar.purchasableValue = nil
-    progressBar.pendingLockedRatio = nil
-    progressBar.needsLockedFillLayout = false
+    State.progressBar.lockedValue = nil
+    State.progressBar.purchasableValue = nil
+    State.progressBar.pendingLockedRatio = nil
+    State.progressBar.needsLockedFillLayout = false
     -- Re-anchor scroll area below back bar or header (skip hidden progress bar)
     local anchor = GetContentTopAnchor()
-    if scrollContainer then
-        scrollContainer:SetPoint("TOPLEFT", anchor, "BOTTOMLEFT", 0, -4)
+    if State.scrollContainer then
+        State.scrollContainer:SetPoint("TOPLEFT", anchor, "BOTTOMLEFT", 0, -4)
     end
 end
 
 local function UpdateProgressBar(collected, total, locked)
-    if not progressBar then return end
+    if not State.progressBar then return end
     locked = locked or 0
     if total > 0 then
         -- Anchor progress bar below back bar or header
         local anchor = GetContentTopAnchor()
-        progressBar:ClearAllPoints()
-        progressBar:SetPoint("TOPLEFT", anchor, "BOTTOMLEFT", 0, -3)
-        progressBar:SetPoint("TOPRIGHT", anchor, "BOTTOMRIGHT", 0, -3)
+        State.progressBar:ClearAllPoints()
+        State.progressBar:SetPoint("TOPLEFT", anchor, "BOTTOMLEFT", 0, -3)
+        State.progressBar:SetPoint("TOPRIGHT", anchor, "BOTTOMRIGHT", 0, -3)
 
-        progressBar:SetMinMaxValues(0, total)
+        State.progressBar:SetMinMaxValues(0, total)
 
         -- Green fill for collected items
-        progressBar:SetStatusBarColor(0.0, 0.7, 0.0)
+        State.progressBar:SetStatusBarColor(0.0, 0.7, 0.0)
         local pct = collected / total
         local pctDisplay = math.floor(pct * 100)
-        progressBarText:SetText(string.format("%d/%d (%d%%)", collected, total, pctDisplay))
+        State.progressBarText:SetText(string.format("%d/%d (%d%%)", collected, total, pctDisplay))
 
         -- Store locked metadata for tooltip and OnUpdate layout
-        progressBar.lockedValue = locked
-        progressBar.purchasableValue = math.max(0, total - collected - locked)
-        progressBar.pendingLockedRatio = locked / total
-        progressBar.needsLockedFillLayout = true
+        State.progressBar.lockedValue = locked
+        State.progressBar.purchasableValue = math.max(0, total - collected - locked)
+        State.progressBar.pendingLockedRatio = locked / total
+        State.progressBar.needsLockedFillLayout = true
 
-        progressBar:Show()
+        State.progressBar:Show()
 
         -- Smooth fill: animate bar value toward target over ~0.4s.
         -- Also sizes the locked fill texture once layout width is available.
-        progressBar.targetValue = collected
-        if not progressBar.filling then
-            progressBar.filling = true
-            progressBar:SetScript("OnUpdate", function(self, elapsed)
+        State.progressBar.targetValue = collected
+        if not State.progressBar.filling then
+            State.progressBar.filling = true
+            State.progressBar:SetScript("OnUpdate", function(self, elapsed)
                 local current = self:GetValue()
                 local target = self.targetValue
                 local _, max = self:GetMinMaxValues()
@@ -2761,22 +2836,22 @@ local function UpdateProgressBar(collected, total, locked)
                 end
 
                 -- Deferred locked-fill sizing (needs valid GetWidth after layout pass)
-                if self.needsLockedFillLayout and progressBarLockedFill then
+                if self.needsLockedFillLayout and State.progressBarLockedFill then
                     local barWidth = self:GetWidth()
                     if barWidth and barWidth > 0 then
                         local lockedRatio = self.pendingLockedRatio or 0
                         local lockedWidth = math.floor(barWidth * lockedRatio + 0.5)
                         if lockedWidth > 0 then
-                            progressBarLockedFill:SetWidth(lockedWidth)
-                            progressBarLockedFill:Show()
-                            if progressBarLockedFill.hashOverlay then
-                                progressBarLockedFill.hashOverlay:Show()
+                            State.progressBarLockedFill:SetWidth(lockedWidth)
+                            State.progressBarLockedFill:Show()
+                            if State.progressBarLockedFill.hashOverlay then
+                                State.progressBarLockedFill.hashOverlay:Show()
                             end
                         else
-                            progressBarLockedFill:SetWidth(0)
-                            progressBarLockedFill:Hide()
-                            if progressBarLockedFill.hashOverlay then
-                                progressBarLockedFill.hashOverlay:Hide()
+                            State.progressBarLockedFill:SetWidth(0)
+                            State.progressBarLockedFill:Hide()
+                            if State.progressBarLockedFill.hashOverlay then
+                                State.progressBarLockedFill.hashOverlay:Hide()
                             end
                         end
                         self.needsLockedFillLayout = false
@@ -2790,8 +2865,8 @@ local function UpdateProgressBar(collected, total, locked)
         end
 
         -- Anchor scroll area below bar
-        if scrollContainer then
-            scrollContainer:SetPoint("TOPLEFT", progressBar, "BOTTOMLEFT", 0, -2)
+        if State.scrollContainer then
+            State.scrollContainer:SetPoint("TOPLEFT", State.progressBar, "BOTTOMLEFT", 0, -2)
         end
     else
         HideProgressBar()
@@ -2803,27 +2878,19 @@ end
 -------------------------------------------------------------------------------
 
 function MapSidePanel:RefreshZoneSummaries(mapID, mapInfo)
-    currentDisplayLevel = "continent"
+    State.currentDisplayLevel = "continent"
 
-    -- Hide vendor rows and item grids
-    expandedVendorID = nil
-    for _, row in ipairs(vendorRows) do
-        row:Hide()
-        HideItemGrid(row)
-    end
-    -- HS-230: instance drop-source rows too — same convention as vendorRows above.
-    expandedBossKey = nil
-    for _, row in ipairs(bossRows) do
-        row:Hide()
-        HideItemGrid(row)
-    end
-    HideAllSummarySubRows()
+    -- Vendor expansion is not part of this display. The rows themselves are
+    -- cleared when this function publishes its own records below.
+    State.expandedVendorID = nil
+    -- HS-230: instance drop-source expansion too, same convention as above.
+    State.expandedBossKey = nil
 
-    headerText:SetText(mapInfo.name or "")
+    State.headerText:SetText(mapInfo.name or "")
 
     -- HS-018: honor the panel's source filter at continent view so per-zone
     -- summary rows reflect the active filter (was previously unfiltered).
-    local zoneCounts = BC:GetZoneVendorCounts(mapID, panelSourceFilter)
+    local zoneCounts = BC:GetZoneVendorCounts(mapID, State.panelSourceFilter)
 
     -- Build sorted zone list
     local zoneList = {}
@@ -2835,71 +2902,60 @@ function MapSidePanel:RefreshZoneSummaries(mapID, mapInfo)
     end)
 
     if #zoneList == 0 then
-        emptyText:SetText("No vendors on this continent")
-        emptyText:Show()
-        summaryText:SetText("")
-        scrollChild:SetHeight(1)
+        State.emptyText:SetText("No vendors on this continent")
+        State.emptyText:Show()
+        State.summaryText:SetText("")
+        SetListRows({})
         UpdateBackBar()
         HideProgressBar()
         return
     end
 
-    -- Ensure enough summary rows
-    while #summaryRows < #zoneList do
-        summaryRows[#summaryRows + 1] = CreateSummaryRow(scrollChild, #summaryRows + 1)
-    end
-
     local totalCollected, totalItems, totalLocked = 0, 0, 0
     local zoneCount = 0
-    local yOffset = 0
-    local subRowIndex = 1  -- shared pool index across all expansions
+    local rows = {}
 
-    for i, entry in ipairs(zoneList) do
-        local row = summaryRows[i]
+    for _, entry in ipairs(zoneList) do
         local data = entry.data
         local dataVendorCount = data.vendorCount or 0
         local dataCollected = data.collectedItems or 0
         local dataTotal = data.totalItems or 0
         local dataLocked = data.lockedItems or 0
 
-        row.targetMapID = entry.mapID
-        row.vendorCount = dataVendorCount
-        row.collectedItems = dataCollected
-        row.totalItems = dataTotal
-        row.lockedItems = dataLocked
-        row.unverifiedItems = data.unverifiedItems or 0
-
-        row.nameText:SetText(data.zoneName or "Unknown")
-        row.nameText:SetTextColor(1, 1, 1)
-
-        -- Arrow icon: down if expanded, forward if collapsed
-        local isExpanded = (expandedSummaryMapID == entry.mapID)
-        row.arrow:SetAtlas(isExpanded and "common-icon-downarrow" or "common-icon-forwardarrow")
+        local isExpanded = (State.expandedSummaryMapID == entry.mapID)
 
         -- Summary line: "N vendors | owned/total[/locked]" with inline colors
+        local summaryLineText, summaryLineColor
         if dataTotal > 0 then
-            row.summaryLine:SetText(string.format("%d vendors | %s",
-                dataVendorCount, FormatPurchasabilityCountText(dataCollected, dataTotal, dataLocked)))
-            row.summaryLine:SetTextColor(1, 1, 1)
+            summaryLineText = string.format("%d vendors | %s",
+                dataVendorCount, FormatPurchasabilityCountText(dataCollected, dataTotal, dataLocked))
+            summaryLineColor = Layout.COLOR_WHITE
         elseif dataVendorCount > 0 then
-            row.summaryLine:SetText(string.format("%d vendors (no item data)", dataVendorCount))
-            row.summaryLine:SetTextColor(0.5, 0.5, 0.5)
+            summaryLineText = string.format("%d vendors (no item data)", dataVendorCount)
+            summaryLineColor = Layout.COLOR_DIM
         else
-            row.summaryLine:SetText("")
+            summaryLineText = ""
         end
 
-        row:ClearAllPoints()
-        row:SetPoint("TOPLEFT", scrollChild, "TOPLEFT", 0, -yOffset)
-        row:SetPoint("TOPRIGHT", scrollChild, "TOPRIGHT", 0, -yOffset)
-        row:Show()
+        rows[#rows + 1] = {
+            kind = "summary",
+            height = Layout.ROW_HEIGHT,
+            targetMapID = entry.mapID,
+            vendorCount = dataVendorCount,
+            collectedItems = dataCollected,
+            totalItems = dataTotal,
+            lockedItems = dataLocked,
+            unverifiedItems = data.unverifiedItems or 0,
+            name = data.zoneName or "Unknown",
+            nameColor = Layout.COLOR_WHITE,
+            summaryLineText = summaryLineText,
+            summaryLineColor = summaryLineColor,
+            isExpanded = isExpanded,
+        }
 
-        yOffset = yOffset + ROW_HEIGHT
-
-        -- If expanded, populate vendor sub-rows below this zone row
+        -- If expanded, append vendor sub-rows below this zone row
         if isExpanded then
-            local expansionHeight
-            expansionHeight, subRowIndex = PopulateZoneExpansion(entry.mapID, yOffset, subRowIndex)
-            yOffset = yOffset + expansionHeight
+            BuildZoneExpansionRows(entry.mapID, rows)
         end
 
         totalCollected = totalCollected + dataCollected
@@ -2908,23 +2964,15 @@ function MapSidePanel:RefreshZoneSummaries(mapID, mapInfo)
         zoneCount = zoneCount + 1
     end
 
-    -- Hide excess summary rows and sub-rows
-    for i = #zoneList + 1, #summaryRows do
-        summaryRows[i]:Hide()
-    end
-    for i = subRowIndex, #summarySubRows do
-        summarySubRows[i]:Hide()
-    end
-
-    scrollChild:SetHeight(math.max(1, yOffset))
-    emptyText:Hide()
+    SetListRows(rows)
+    State.emptyText:Hide()
 
     -- Summary line
     if totalItems > 0 then
-        summaryText:SetText(string.format("%d zones | %s items",
+        State.summaryText:SetText(string.format("%d zones | %s items",
             zoneCount, FormatPurchasabilityCountText(totalCollected, totalItems, totalLocked)))
     else
-        summaryText:SetText(string.format("%d zones", zoneCount))
+        State.summaryText:SetText(string.format("%d zones", zoneCount))
     end
 
     UpdateBackBar()
@@ -2932,25 +2980,17 @@ function MapSidePanel:RefreshZoneSummaries(mapID, mapInfo)
 end
 
 function MapSidePanel:RefreshContinentSummaries(mapID, mapInfo)
-    currentDisplayLevel = "world"
+    State.currentDisplayLevel = "world"
 
-    -- Hide vendor rows and item grids
-    expandedVendorID = nil
-    for _, row in ipairs(vendorRows) do
-        row:Hide()
-        HideItemGrid(row)
-    end
-    -- HS-230: instance drop-source rows too — same convention as vendorRows above.
-    expandedBossKey = nil
-    for _, row in ipairs(bossRows) do
-        row:Hide()
-        HideItemGrid(row)
-    end
-    HideAllSummarySubRows()
+    -- Vendor expansion is not part of this display. The rows themselves are
+    -- cleared when this function publishes its own records below.
+    State.expandedVendorID = nil
+    -- HS-230: instance drop-source expansion too, same convention as above.
+    State.expandedBossKey = nil
 
-    headerText:SetText(mapInfo.name or "")
+    State.headerText:SetText(mapInfo.name or "")
 
-    local continentCounts = BC:GetContinentVendorCounts(panelSourceFilter)
+    local continentCounts = BC:GetContinentVendorCounts(State.panelSourceFilter)
 
     -- Build sorted continent list, filtered to children of the current map view.
     -- On Azeroth (947) this excludes Draenor continents; on Draenor it excludes Azeroth.
@@ -2969,72 +3009,61 @@ function MapSidePanel:RefreshContinentSummaries(mapID, mapInfo)
     end)
 
     if #continentList == 0 then
-        emptyText:SetText("No vendor data available")
-        emptyText:Show()
-        summaryText:SetText("")
-        scrollChild:SetHeight(1)
+        State.emptyText:SetText("No vendor data available")
+        State.emptyText:Show()
+        State.summaryText:SetText("")
+        SetListRows({})
         UpdateBackBar()
         HideProgressBar()
         return
     end
 
-    -- Ensure enough summary rows
-    while #summaryRows < #continentList do
-        summaryRows[#summaryRows + 1] = CreateSummaryRow(scrollChild, #summaryRows + 1)
-    end
-
     local totalCollected, totalItems, totalLocked = 0, 0, 0
     local contCount = 0
-    local yOffset = 0
-    local subRowIndex = 1
+    local rows = {}
 
-    for i, entry in ipairs(continentList) do
-        local row = summaryRows[i]
+    for _, entry in ipairs(continentList) do
         local data = entry.data
         local dataVendorCount = data.vendorCount or 0
         local dataCollected = data.collectedItems or 0
         local dataTotal = data.totalItems or 0
         local dataLocked = data.lockedItems or 0
 
-        row.targetMapID = entry.mapID
-        row.vendorCount = dataVendorCount
-        row.collectedItems = dataCollected
-        row.totalItems = dataTotal
-        row.lockedItems = dataLocked
-        row.unverifiedItems = data.unverifiedItems or 0
-
-        -- Gold color for continent names
-        row.nameText:SetText(data.continentName or "Unknown")
-        row.nameText:SetTextColor(1, 0.82, 0)
-
-        -- Arrow icon: down if expanded, forward if collapsed
-        local isExpanded = (expandedSummaryMapID == entry.mapID)
-        row.arrow:SetAtlas(isExpanded and "common-icon-downarrow" or "common-icon-forwardarrow")
+        local isExpanded = (State.expandedSummaryMapID == entry.mapID)
 
         -- Summary line: "N vendors | owned/total[/locked]" with inline colors
+        local summaryLineText, summaryLineColor
         if dataTotal > 0 then
-            row.summaryLine:SetText(string.format("%d vendors | %s",
-                dataVendorCount, FormatPurchasabilityCountText(dataCollected, dataTotal, dataLocked)))
-            row.summaryLine:SetTextColor(1, 1, 1)
+            summaryLineText = string.format("%d vendors | %s",
+                dataVendorCount, FormatPurchasabilityCountText(dataCollected, dataTotal, dataLocked))
+            summaryLineColor = Layout.COLOR_WHITE
         elseif dataVendorCount > 0 then
-            row.summaryLine:SetText(string.format("%d vendors (no item data)", dataVendorCount))
-            row.summaryLine:SetTextColor(0.5, 0.5, 0.5)
+            summaryLineText = string.format("%d vendors (no item data)", dataVendorCount)
+            summaryLineColor = Layout.COLOR_DIM
         else
-            row.summaryLine:SetText("")
+            summaryLineText = ""
         end
 
-        row:ClearAllPoints()
-        row:SetPoint("TOPLEFT", scrollChild, "TOPLEFT", 0, -yOffset)
-        row:SetPoint("TOPRIGHT", scrollChild, "TOPRIGHT", 0, -yOffset)
-        row:Show()
+        rows[#rows + 1] = {
+            kind = "summary",
+            height = Layout.ROW_HEIGHT,
+            targetMapID = entry.mapID,
+            vendorCount = dataVendorCount,
+            collectedItems = dataCollected,
+            totalItems = dataTotal,
+            lockedItems = dataLocked,
+            unverifiedItems = data.unverifiedItems or 0,
+            -- Gold color for continent names
+            name = data.continentName or "Unknown",
+            nameColor = Layout.COLOR_GOLD,
+            summaryLineText = summaryLineText,
+            summaryLineColor = summaryLineColor,
+            isExpanded = isExpanded,
+        }
 
-        yOffset = yOffset + ROW_HEIGHT
-
-        -- If expanded, populate zone sub-rows below this continent row
+        -- If expanded, append zone sub-rows below this continent row
         if isExpanded then
-            local expansionHeight
-            expansionHeight, subRowIndex = PopulateContinentExpansion(entry.mapID, yOffset, subRowIndex)
-            yOffset = yOffset + expansionHeight
+            BuildContinentExpansionRows(entry.mapID, rows)
         end
 
         totalCollected = totalCollected + dataCollected
@@ -3043,23 +3072,15 @@ function MapSidePanel:RefreshContinentSummaries(mapID, mapInfo)
         contCount = contCount + 1
     end
 
-    -- Hide excess summary rows and sub-rows
-    for i = #continentList + 1, #summaryRows do
-        summaryRows[i]:Hide()
-    end
-    for i = subRowIndex, #summarySubRows do
-        summarySubRows[i]:Hide()
-    end
-
-    scrollChild:SetHeight(math.max(1, yOffset))
-    emptyText:Hide()
+    SetListRows(rows)
+    State.emptyText:Hide()
 
     -- Summary line
     if totalItems > 0 then
-        summaryText:SetText(string.format("%d continents | %s items",
+        State.summaryText:SetText(string.format("%d continents | %s items",
             contCount, FormatPurchasabilityCountText(totalCollected, totalItems, totalLocked)))
     else
-        summaryText:SetText(string.format("%d continents", contCount))
+        State.summaryText:SetText(string.format("%d continents", contCount))
     end
 
     UpdateBackBar()
@@ -3085,163 +3106,132 @@ local SEARCH_SECTION_LABELS = {
 function MapSidePanel:RefreshSearchResults()
     -- Self-healing: re-query if index was invalidated since last results
     local SP = HA.SearchProvider
-    if SP and searchResultsRevision ~= SP:GetRevision() then
-        searchResults = SP:Search(searchText, SEARCH_OPTIONS)
-        searchResultsRevision = SP:GetRevision()
+    if SP and State.searchResultsRevision ~= SP:GetRevision() then
+        State.searchResults = SP:Search(State.searchText, SEARCH_OPTIONS)
+        State.searchResultsRevision = SP:GetRevision()
     end
 
     HideAllNonVendorContent()
-    expandedSummaryMapID = nil
+    State.expandedSummaryMapID = nil
     HideProgressBar()
 
-    -- Reset all vendor rows: hide, clear grids, clear search mode
-    for _, row in ipairs(vendorRows) do
-        row:Hide()
-        HideItemGrid(row)
-        row.searchMode = false
-        row.searchMatchedItems = nil
-    end
-    -- Search mode overlays the panel regardless of what was showing before
-    -- it (zone vendors OR an instance's boss rows) — bossRows need the same
-    -- hide-on-entering-search treatment vendorRows get above.
-    -- expandedBossKey is left set, same as expandedVendorID above: closing
-    -- search mode returns to whatever was expanded before.
-    for _, row in ipairs(bossRows) do
-        row:Hide()
-        HideItemGrid(row)
-    end
-    HideAllItemResultRows()
-    HideAllSearchHeaderRows()
+    -- Search mode deliberately leaves State.expandedVendorID and State.expandedBossKey set:
+    -- closing search returns to whatever was expanded before it.
 
-    if not searchResults or #searchResults == 0 then
-        emptyText:SetText("No results found")
-        emptyText:Show()
-        summaryText:SetText("")
-        headerText:SetText("Search Results")
-        scrollChild:SetHeight(1)
+    if not State.searchResults or #State.searchResults == 0 then
+        State.emptyText:SetText("No results found")
+        State.emptyText:Show()
+        State.summaryText:SetText("")
+        State.headerText:SetText("Search Results")
+        SetListRows({})
         return
     end
 
-    emptyText:Hide()
-    headerText:SetText("Search Results")
+    State.emptyText:Hide()
+    State.headerText:SetText("Search Results")
 
-    local yOffset = 0
+    local rows = {}
     local vendorCount = 0
     local itemCount = 0
-    local headerCount = 0
     local lastSection = nil
-    local r, g, b = HA.PinFrameFactory:GetPinColor()
 
     local function EmitHeader(sectionKey)
         if sectionKey == lastSection then return end
         lastSection = sectionKey
-        headerCount = headerCount + 1
-        local header = searchHeaderRows[headerCount]
-        if not header then
-            header = CreateSearchHeaderRow(scrollChild, headerCount)
-            searchHeaderRows[headerCount] = header
-        end
-        header.text:SetText(SEARCH_SECTION_LABELS[sectionKey] or sectionKey)
-        header:ClearAllPoints()
-        header:SetPoint("TOPLEFT", scrollChild, "TOPLEFT", 0, -yOffset)
-        header:SetPoint("TOPRIGHT", scrollChild, "TOPRIGHT", 0, -yOffset)
-        header:Show()
-        yOffset = yOffset + SEARCH_HEADER_HEIGHT
+        rows[#rows + 1] = {
+            kind = "header",
+            height = Layout.SEARCH_HEADER_HEIGHT,
+            label = SEARCH_SECTION_LABELS[sectionKey] or sectionKey,
+        }
     end
 
-    for _, result in ipairs(searchResults) do
+    for _, result in ipairs(State.searchResults) do
         if result.resultType == "item" then
             EmitHeader(result.sourceType or "drop")
             itemCount = itemCount + 1
-            local row = itemResultRows[itemCount]
-            if not row then
-                row = CreateItemResultRow(scrollChild, itemCount)
-                itemResultRows[itemCount] = row
+
+            local itemID = result.itemID
+            local isExpanded = (State.expandedItemID == itemID)
+            local sourceCount
+            if isExpanded then
+                sourceCount = #GetDisplaySourcesForItem(itemID, State.panelSourceFilter)
             end
 
-            local isExpanded = PopulateItemResultRow(row, result, panelSourceFilter)
-            row:ClearAllPoints()
-            row:SetPoint("TOPLEFT", scrollChild, "TOPLEFT", 0, -yOffset)
-            row:SetPoint("TOPRIGHT", scrollChild, "TOPRIGHT", 0, -yOffset)
-            row:Show()
-
-            yOffset = yOffset + (isExpanded and row:GetHeight() or ROW_HEIGHT)
+            rows[#rows + 1] = {
+                kind = "item",
+                height = Layout.ROW_HEIGHT + (isExpanded and ComputeItemSourceListHeight(sourceCount) or 0),
+                result = result,
+                itemID = itemID,
+                isExpanded = isExpanded,
+                sourceCount = sourceCount,
+            }
         else
             EmitHeader("vendor")
             vendorCount = vendorCount + 1
             local vendor = result.vendor
-            local row = vendorRows[vendorCount]
-            if not row then
-                row = CreateVendorRow(scrollChild, vendorCount)
-                vendorRows[vendorCount] = row
-            end
 
-            row.vendor = vendor
-            row.searchMode = true
-            row.searchMatchedItems = result.matchedItems
+            -- Collection stats (uses State.panelSourceFilter for display only)
+            local stats = BC:GetVendorStats(vendor, State.panelSourceFilter)
+            local collected = stats.collected or 0
+            local total = stats.total or 0
+            local locked = stats.locked or 0
 
-            row.nameText:SetText(GetVendorDisplayName(vendor))
-            row.nameText:SetTextColor(1, 1, 1)
-
-            -- Collection stats (uses panelSourceFilter for display only)
-            local stats = BC:GetVendorStats(vendor, panelSourceFilter)
-            row.collected = stats.collected or 0
-            row.total = stats.total or 0
-            row.locked = stats.locked or 0
-            if result.matchType == "item" then
-                row.countText:SetText(string.format("%d match%s | %s",
-                    result.matchCount, result.matchCount == 1 and "" or "es",
-                    FormatPurchasabilityCountText(row.collected, row.total, row.locked)))
+            local countText, countColor
+            if total > 0 then
+                countColor = Layout.COLOR_WHITE
+                if result.matchType == "item" then
+                    countText = string.format("%d match%s | %s",
+                        result.matchCount, result.matchCount == 1 and "" or "es",
+                        FormatPurchasabilityCountText(collected, total, locked))
+                else
+                    countText = FormatPurchasabilityCountText(collected, total, locked)
+                end
             else
-                row.countText:SetText(FormatPurchasabilityCountText(row.collected, row.total, row.locked))
+                countColor = Layout.COLOR_DIM
+                local dataLabel = (State.panelSourceFilter ~= "all") and "No matching items" or "No item data"
+                if result.matchType == "item" then
+                    countText = string.format("%d match%s | %s",
+                        result.matchCount, result.matchCount == 1 and "" or "es",
+                        dataLabel)
+                else
+                    countText = dataLabel
+                end
             end
-            row.countText:SetTextColor(1, 1, 1)
 
-            row.icon:SetDesaturated(true)
-            row.icon:SetVertexColor(r, g, b)
-
-            local isExpanded = (expandedVendorID == vendor.npcID)
+            local isExpanded = (State.expandedVendorID == vendor.npcID)
+            local itemIDs
             if isExpanded then
-                local gridHeight = PopulateItemGrid(row, vendor, panelSourceFilter, result.matchedItems)
-                row:SetHeight(ROW_HEIGHT + gridHeight)
-            else
-                HideItemGrid(row)
-                row:SetHeight(ROW_HEIGHT)
+                itemIDs = GetVendorItemIDs(vendor, State.panelSourceFilter)
             end
 
-            row:ClearAllPoints()
-            row:SetPoint("TOPLEFT", scrollChild, "TOPLEFT", 0, -yOffset)
-            row:SetPoint("TOPRIGHT", scrollChild, "TOPRIGHT", 0, -yOffset)
-            row:Show()
-
-            yOffset = yOffset + (isExpanded and row:GetHeight() or ROW_HEIGHT)
+            rows[#rows + 1] = {
+                kind = "vendor",
+                height = Layout.ROW_HEIGHT + (isExpanded and ComputeItemGridHeight(#itemIDs) or 0),
+                vendor = vendor,
+                searchMode = true,
+                matchedItems = result.matchedItems,
+                collected = collected,
+                total = total,
+                locked = locked,
+                countText = countText,
+                countColor = countColor,
+                nameColor = Layout.COLOR_WHITE,
+                isExpanded = isExpanded,
+                itemIDs = itemIDs,
+            }
         end
     end
 
-    -- Hide excess rows
-    for i = vendorCount + 1, #vendorRows do
-        vendorRows[i]:Hide()
-        HideItemGrid(vendorRows[i])
-        vendorRows[i].searchMode = false
-    end
-    for i = itemCount + 1, #itemResultRows do
-        itemResultRows[i]:Hide()
-        HideItemSourceList(itemResultRows[i])
-    end
-    for i = headerCount + 1, #searchHeaderRows do
-        searchHeaderRows[i]:Hide()
-    end
-
-    scrollChild:SetHeight(math.max(1, yOffset))
+    SetListRows(rows)
     if vendorCount > 0 and itemCount > 0 then
-        summaryText:SetText(string.format("%d vendor%s, %d item%s found",
+        State.summaryText:SetText(string.format("%d vendor%s, %d item%s found",
             vendorCount, vendorCount == 1 and "" or "s",
             itemCount, itemCount == 1 and "" or "s"))
     elseif vendorCount > 0 then
-        summaryText:SetText(string.format("%d vendor%s found",
+        State.summaryText:SetText(string.format("%d vendor%s found",
             vendorCount, vendorCount == 1 and "" or "s"))
     else
-        summaryText:SetText(string.format("%d item%s found",
+        State.summaryText:SetText(string.format("%d item%s found",
             itemCount, itemCount == 1 and "" or "s"))
     end
 end
@@ -3253,19 +3243,15 @@ end
 -- row-population/expand/collapse/empty-state/summary-line shape, built off
 -- GetInstanceDropGroups instead of GetVendorsForCurrentMap. Called once per
 -- RefreshContent pass when the viewed map is an instance with EJ encounters;
--- never touches vendorRows.
+-- never lists vendors.
 -------------------------------------------------------------------------------
 
 function MapSidePanel:RefreshInstanceDropSources(mapID, mapInfo, encounters)
-    currentDisplayLevel = "zone"
+    State.currentDisplayLevel = "zone"
 
-    -- Vendor rows aren't part of this display — mirrors how the zone-level
-    -- path above hides bossRows when IT is the active display.
-    expandedVendorID = nil
-    for _, row in ipairs(vendorRows) do
-        row:Hide()
-        HideItemGrid(row)
-    end
+    -- Vendor expansion is not part of this display, mirroring how the zone-level
+    -- path above resets boss expansion when it is the active display.
+    State.expandedVendorID = nil
 
     -- Deliberate filter contract: drop groups are entirely drop-sourced by
     -- construction, so this is an all-or-nothing gate, not a per-item
@@ -3273,94 +3259,72 @@ function MapSidePanel:RefreshInstanceDropSources(mapID, mapInfo, encounters)
     -- — a vendor-filtered (etc.) user mapping into an instance sees an
     -- empty state (with a filter-aware message below), never a partial
     -- "0 matching items" boss list.
-    local normalizedFilter = NormalizePanelSourceFilter(panelSourceFilter)
+    local normalizedFilter = NormalizePanelSourceFilter(State.panelSourceFilter)
     local groups = (normalizedFilter == "all" or normalizedFilter == "drop")
         and GetInstanceDropGroups(encounters) or {}
-    local r, g, b = HA.PinFrameFactory:GetPinColor()
-
-    while #bossRows < #groups do
-        local row = CreateBossRow(scrollChild, #bossRows + 1)
-        bossRows[#bossRows + 1] = row
-    end
 
     local totalCollected, totalItems, totalLocked = 0, 0, 0
-    local yOffset = 0
+    local rows = {}
 
-    for i, group in ipairs(groups) do
-        local row = bossRows[i]
-        local primaryDrop = group.records[1].drop
-
-        row.dropGroup = group
-
-        row.nameText:SetText((primaryDrop and primaryDrop.mobName) or "Unknown")
-        row.nameText:SetTextColor(1, 1, 1)
-
-        row.icon:SetDesaturated(true)
-        row.icon:SetVertexColor(r, g, b)
-
+    for _, group in ipairs(groups) do
         local stats = BC:GetDropGroupStats(group.records)
-        row.collected = stats.collected or 0
-        row.total = stats.total or 0
-        row.locked = stats.locked or 0
+        local collected = stats.collected or 0
+        local total = stats.total or 0
+        local locked = stats.locked or 0
 
-        if row.total > 0 then
-            row.countText:SetText(FormatPurchasabilityCountText(row.collected, row.total, row.locked))
-            row.countText:SetTextColor(1, 1, 1)
+        local countText, countColor
+        if total > 0 then
+            countText = FormatPurchasabilityCountText(collected, total, locked)
+            countColor = Layout.COLOR_WHITE
         else
-            row.countText:SetText("No item data")
-            row.countText:SetTextColor(0.5, 0.5, 0.5)
+            countText = "No item data"
+            countColor = Layout.COLOR_DIM
         end
 
-        totalCollected = totalCollected + row.collected
-        totalItems = totalItems + row.total
-        totalLocked = totalLocked + row.locked
+        local isExpanded = (State.expandedBossKey == group.encounterID)
 
-        local isExpanded = (expandedBossKey == group.encounterID)
-        local rowHeight = ROW_HEIGHT
-        if isExpanded then
-            local gridHeight = PopulateBossItemGrid(row, group)
-            rowHeight = ROW_HEIGHT + gridHeight
-        else
-            HideItemGrid(row)
-        end
+        local rec = {
+            kind = "boss",
+            height = Layout.ROW_HEIGHT + (isExpanded and ComputeItemGridHeight(#group.records) or 0),
+            dropGroup = group,
+            name = (group.records[1].drop and group.records[1].drop.mobName) or "Unknown",
+            collected = collected,
+            total = total,
+            locked = locked,
+            countText = countText,
+            countColor = countColor,
+            isExpanded = isExpanded,
+        }
+        rows[#rows + 1] = rec
 
-        row:ClearAllPoints()
-        row:SetPoint("TOPLEFT", scrollChild, "TOPLEFT", 0, -yOffset)
-        row:SetPoint("TOPRIGHT", scrollChild, "TOPRIGHT", 0, -yOffset)
-        row:SetHeight(rowHeight)
-        row:Show()
-
-        yOffset = yOffset + rowHeight
+        totalCollected = totalCollected + rec.collected
+        totalItems = totalItems + rec.total
+        totalLocked = totalLocked + rec.locked
     end
 
-    for i = #groups + 1, #bossRows do
-        bossRows[i]:Hide()
-        HideItemGrid(bossRows[i])
-    end
-
-    scrollChild:SetHeight(math.max(1, yOffset))
+    SetListRows(rows)
 
     if #groups == 0 then
         -- Honest empty state: a filtered-out view names the filter as the
         -- reason, never "no drops tracked" when drops exist but are hidden.
         if normalizedFilter ~= "all" and normalizedFilter ~= "drop" then
-            emptyText:SetText("Drops hidden by source filter")
+            State.emptyText:SetText("Drops hidden by source filter")
         else
-            emptyText:SetText("No drops tracked for this instance")
+            State.emptyText:SetText("No drops tracked for this instance")
         end
-        emptyText:Show()
+        State.emptyText:Show()
     else
-        emptyText:Hide()
+        State.emptyText:Hide()
     end
 
     if totalItems > 0 then
-        summaryText:SetText(string.format("%d boss%s | %s items",
+        State.summaryText:SetText(string.format("%d boss%s | %s items",
             #groups, #groups == 1 and "" or "es",
             FormatPurchasabilityCountText(totalCollected, totalItems, totalLocked)))
     elseif #groups > 0 then
-        summaryText:SetText(string.format("%d boss%s", #groups, #groups == 1 and "" or "es"))
+        State.summaryText:SetText(string.format("%d boss%s", #groups, #groups == 1 and "" or "es"))
     else
-        summaryText:SetText("")
+        State.summaryText:SetText("")
     end
 
     UpdateBackBar()
@@ -3372,26 +3336,25 @@ end
 -------------------------------------------------------------------------------
 
 function MapSidePanel:RefreshContent()
-    if not panelFrame or not panelFrame:IsShown() then HideAllNonVendorContent() expandedSummaryMapID = nil HideProgressBar() currentDisplayLevel = "zone" return end
-    if not VendorData or not BC then HideAllNonVendorContent() expandedSummaryMapID = nil HideProgressBar() currentDisplayLevel = "zone" return end
+    if not State.panelFrame or not State.panelFrame:IsShown() then HideAllNonVendorContent() State.expandedSummaryMapID = nil HideProgressBar() State.currentDisplayLevel = "zone" return end
+    if not VendorData or not BC then HideAllNonVendorContent() State.expandedSummaryMapID = nil HideProgressBar() State.currentDisplayLevel = "zone" return end
 
     -- Search mode overrides normal display
-    if searchText ~= "" and searchResults then
+    if State.searchText ~= "" and State.searchResults then
         self:RefreshSearchResults()
         return
     end
 
-    expandedItemID = nil
-    HideAllItemResultRows()
+    State.expandedItemID = nil
 
     -- MapID resolution: map frame → last viewed → player zone
     -- When detached, panel keeps its own navigation state
     local mapID
-    if not isPoppedOut and WorldMapFrame:IsShown() then
+    if not State.isPoppedOut and WorldMapFrame:IsShown() then
         mapID = WorldMapFrame:GetMapID()
     end
     if not mapID then
-        mapID = lastRefreshMapID
+        mapID = State.lastRefreshMapID
     end
     if not mapID then
         mapID = C_Map.GetBestMapForUnit("player")
@@ -3399,34 +3362,21 @@ function MapSidePanel:RefreshContent()
     if not mapID then
         -- No map data available (loading screen, instance)
         HideAllNonVendorContent()
-        expandedSummaryMapID = nil
-        currentDisplayLevel = "zone"
-        for _, row in ipairs(vendorRows) do
-            row:Hide()
-            HideItemGrid(row)
-        end
-        for _, row in ipairs(bossRows) do
-            row:Hide()
-            HideItemGrid(row)
-        end
-        emptyText:SetText("Open the World Map to view vendors")
-        emptyText:Show()
-        summaryText:SetText("")
-        scrollChild:SetHeight(1)
+        State.expandedSummaryMapID = nil
+        State.currentDisplayLevel = "zone"
+        State.emptyText:SetText("Open the World Map to view vendors")
+        State.emptyText:Show()
+        State.summaryText:SetText("")
+        SetListRows({})
         HideProgressBar()
         return
     end
 
     local mapInfo = C_Map.GetMapInfo(mapID)
-    if not mapInfo then HideAllNonVendorContent() expandedSummaryMapID = nil HideProgressBar() currentDisplayLevel = "zone" return end
-
-    -- Ensure scrollChild has a valid width (may be 0 if panel was hidden during creation)
-    if scrollChild and scrollChild:GetWidth() < 1 then
-        scrollChild:SetWidth(PANEL_WIDTH - 20 - 22)  -- 20 = border insets, 22 = scrollbar
-    end
+    if not mapInfo then HideAllNonVendorContent() SetListRows({}) State.expandedSummaryMapID = nil HideProgressBar() State.currentDisplayLevel = "zone" return end
 
     -- Update header with zone name
-    headerText:SetText(mapInfo.name or "")
+    State.headerText:SetText(mapInfo.name or "")
 
     -- Determine map type — three-tier dispatch (HS-230 adds a fourth: instance)
     local mapType = mapInfo.mapType
@@ -3458,139 +3408,110 @@ function MapSidePanel:RefreshContent()
         end
     end
 
-    -- Set lastRefreshMapID early so UpdateBackBar() can read it
-    lastRefreshMapID = mapID
+    -- Set State.lastRefreshMapID early so UpdateBackBar() can read it
+    State.lastRefreshMapID = mapID
 
     if isWorldLevel then
-        HideAllSummaryRows()
         self:RefreshContinentSummaries(mapID, mapInfo)
         return
     elseif isContinentLevel then
-        HideAllSummaryRows()
         self:RefreshZoneSummaries(mapID, mapInfo)
         return
     elseif isInstanceLevel then
         HideAllNonVendorContent()
-        expandedSummaryMapID = nil
+        State.expandedSummaryMapID = nil
         self:RefreshInstanceDropSources(mapID, mapInfo, instanceEncounters)
         return
     end
 
     -- Zone level: hide all non-vendor content, reset summary expansion
     HideAllNonVendorContent()
-    expandedSummaryMapID = nil
-    currentDisplayLevel = "zone"
+    State.expandedSummaryMapID = nil
+    State.currentDisplayLevel = "zone"
 
-    -- HS-230: instance drop-source rows aren't part of the zone-level pool
-    -- (mirrors how RefreshZoneSummaries/RefreshContinentSummaries hide
-    -- vendorRows when they're not the active display).
-    expandedBossKey = nil
-    for _, row in ipairs(bossRows) do
-        row:Hide()
-        HideItemGrid(row)
-    end
+    -- HS-230: instance drop-source expansion is not part of the zone-level display,
+    -- mirroring how the summary paths reset vendor expansion when they are active.
+    State.expandedBossKey = nil
 
     -- Zone level — show individual vendors
     local vendorList = GetVendorsForCurrentMap(mapID)
-    local sourceFilter = panelSourceFilter
-
-    -- Get pin color for icons
-    local r, g, b = HA.PinFrameFactory:GetPinColor()
-
-    -- Ensure we have enough rows
-    while #vendorRows < #vendorList do
-        local row = CreateVendorRow(scrollChild, #vendorRows + 1)
-        vendorRows[#vendorRows + 1] = row
-    end
+    local sourceFilter = State.panelSourceFilter
 
     local totalCollected, totalItems, totalLocked = 0, 0, 0
-    local yOffset = 0  -- Tracks cumulative Y position (variable row heights)
+    local rows = {}
 
-    for i, entry in ipairs(vendorList) do
-        local row = vendorRows[i]
+    for _, entry in ipairs(vendorList) do
         local vendor = entry.vendor
 
-        row.vendor = vendor
-        row.searchMode = false
-        row.searchMatchedItems = nil
-
         -- Set name with color coding
-        local nameColor = entry.isOpposite and {0.5, 0.5, 0.5} or {1, 1, 1}
-        row.nameText:SetText(GetVendorDisplayName(vendor))
-        row.nameText:SetTextColor(nameColor[1], nameColor[2], nameColor[3])
-
-        -- Set icon color
-        row.icon:SetDesaturated(true)
-        row.icon:SetVertexColor(r, g, b)
+        local nameColor = entry.isOpposite and Layout.COLOR_DIM or Layout.COLOR_WHITE
 
         -- Get collection stats (includes purchasable/locked breakdown)
         local stats = BC:GetVendorStats(vendor, sourceFilter)
-        row.collected = stats.collected or 0
-        row.total = stats.total or 0
-        row.locked = stats.locked or 0
+        local collected = stats.collected or 0
+        local total = stats.total or 0
+        local locked = stats.locked or 0
 
-        if row.total > 0 then
-            row.countText:SetText(FormatPurchasabilityCountText(row.collected, row.total, row.locked))
+        local countText, countColor
+        if total > 0 then
+            countText = FormatPurchasabilityCountText(collected, total, locked)
             -- White base color — inline escapes handle segment coloring
-            row.countText:SetTextColor(1, 1, 1)
+            countColor = Layout.COLOR_WHITE
         else
             if sourceFilter ~= "all" then
-                row.countText:SetText("No matching items")
+                countText = "No matching items"
             else
-                row.countText:SetText("No item data")
+                countText = "No item data"
             end
-            row.countText:SetTextColor(0.5, 0.5, 0.5)
+            countColor = Layout.COLOR_DIM
         end
-
-        totalCollected = totalCollected + row.collected
-        totalItems = totalItems + row.total
-        totalLocked = totalLocked + row.locked
 
         -- Check if this vendor is expanded (item grid visible)
-        local isExpanded = (expandedVendorID == vendor.npcID)
-        local rowHeight = ROW_HEIGHT
+        local isExpanded = (State.expandedVendorID == vendor.npcID)
+        local itemIDs
         if isExpanded then
-            local gridHeight = PopulateItemGrid(row, vendor, sourceFilter)
-            rowHeight = ROW_HEIGHT + gridHeight
-        else
-            HideItemGrid(row)
+            itemIDs = GetVendorItemIDs(vendor, sourceFilter)
         end
 
-        -- Position row with variable height
-        row:ClearAllPoints()
-        row:SetPoint("TOPLEFT", scrollChild, "TOPLEFT", 0, -yOffset)
-        row:SetPoint("TOPRIGHT", scrollChild, "TOPRIGHT", 0, -yOffset)
-        row:SetHeight(rowHeight)
-        row:Show()
+        local rec = {
+            kind = "vendor",
+            height = Layout.ROW_HEIGHT + (isExpanded and ComputeItemGridHeight(#itemIDs) or 0),
+            vendor = vendor,
+            searchMode = false,
+            nameColor = nameColor,
+            collected = collected,
+            total = total,
+            locked = locked,
+            countText = countText,
+            countColor = countColor,
+            isExpanded = isExpanded,
+            itemIDs = itemIDs,
+        }
+        rows[#rows + 1] = rec
 
-        yOffset = yOffset + rowHeight
+        totalCollected = totalCollected + rec.collected
+        totalItems = totalItems + rec.total
+        totalLocked = totalLocked + rec.locked
     end
 
-    -- Hide excess rows
-    for i = #vendorList + 1, #vendorRows do
-        vendorRows[i]:Hide()
-        HideItemGrid(vendorRows[i])
-    end
-
-    -- Update scroll height (variable total)
-    scrollChild:SetHeight(math.max(1, yOffset))
+    SetListRows(rows)
 
     -- Empty state
     if #vendorList == 0 then
-        emptyText:SetText("No vendors in this zone")
-        emptyText:Show()
+        State.emptyText:SetText("No vendors in this zone")
+        State.emptyText:Show()
     else
-        emptyText:Hide()
+        State.emptyText:Hide()
     end
 
     -- Summary line
     if totalItems > 0 then
-        summaryText:SetText(string.format("%d vendors | %s items",
+        State.summaryText:SetText(string.format("%d vendors | %s items",
             #vendorList, FormatPurchasabilityCountText(totalCollected, totalItems, totalLocked)))
     elseif #vendorList > 0 then
-        summaryText:SetText(string.format("%d vendors", #vendorList))
+        State.summaryText:SetText(string.format("%d vendors", #vendorList))
     else
-        summaryText:SetText("")
+        State.summaryText:SetText("")
     end
 
     -- Back bar + progress bar
@@ -3605,40 +3526,40 @@ end
 -- own complete border and never touches map frame elements.
 -------------------------------------------------------------------------------
 
-local useStandaloneMode = nil  -- nil = not yet checked, true/false after check
+State.useStandaloneMode = nil  -- nil = not yet checked, true/false after check
 
 local function ShouldUseStandaloneMode()
     -- Cache after first check
-    if useStandaloneMode ~= nil then return useStandaloneMode end
+    if State.useStandaloneMode ~= nil then return State.useStandaloneMode end
 
     -- User setting overrides detection
     if HA.Addon and HA.Addon.db then
         if HA.Addon.db.profile.vendorTracer.integrateMapBorder == false then
-            useStandaloneMode = true
+            State.useStandaloneMode = true
             return true
         end
     end
 
     -- Detect custom UIs that replace WorldMapFrame
     if _G.ElvUI or _G.GW2_UI or _G.Tukui then
-        useStandaloneMode = true
+        State.useStandaloneMode = true
         return true
     end
 
     -- Verify expected Blizzard frame structure exists
     local bf = WorldMapFrame.BorderFrame
     if not bf or not bf.NineSlice or not bf.NineSlice.TopEdge then
-        useStandaloneMode = true
+        State.useStandaloneMode = true
         return true
     end
 
-    useStandaloneMode = false
+    State.useStandaloneMode = false
     return false
 end
 
 -- Call when the setting changes to re-evaluate
 local function ResetStandaloneCheck()
-    useStandaloneMode = nil
+    State.useStandaloneMode = nil
 end
 
 -------------------------------------------------------------------------------
@@ -3649,33 +3570,33 @@ end
 -------------------------------------------------------------------------------
 
 -- Saved anchor data for the map's NineSlice top edge (left anchor only)
-local savedMapTopEdge = nil  -- {point, relativeTo, relativePoint, xOfs, yOfs}
+State.savedMapTopEdge = nil  -- {point, relativeTo, relativePoint, xOfs, yOfs}
 
-ShiftMapRight = function()
-    if mapShifted then return end
+State.ShiftMapRight = function()
+    if State.mapShifted then return end
     local point, relativeTo, relativePoint, xOfs, yOfs = WorldMapFrame:GetPoint(1)
     if point then
-        savedMapPoint = { point, relativeTo, relativePoint, xOfs or 0, yOfs or 0 }
+        State.savedMapPoint = { point, relativeTo, relativePoint, xOfs or 0, yOfs or 0 }
         WorldMapFrame:SetPoint(point, relativeTo, relativePoint,
-            (xOfs or 0) + PANEL_WIDTH, yOfs or 0)
-        mapShifted = true
+            (xOfs or 0) + Layout.PANEL_WIDTH, yOfs or 0)
+        State.mapShifted = true
     end
 end
 
 local function RestoreMapPosition()
-    if not mapShifted or not savedMapPoint then return end
-    WorldMapFrame:SetPoint(savedMapPoint[1], savedMapPoint[2], savedMapPoint[3],
-        savedMapPoint[4], savedMapPoint[5])
-    mapShifted = false
+    if not State.mapShifted or not State.savedMapPoint then return end
+    WorldMapFrame:SetPoint(State.savedMapPoint[1], State.savedMapPoint[2], State.savedMapPoint[3],
+        State.savedMapPoint[4], State.savedMapPoint[5])
+    State.mapShifted = false
 end
 
 -------------------------------------------------------------------------------
 -- Map Element Repositioning (integrated mode)
 --
--- The old approach (ShiftElementLeft by PANEL_WIDTH) failed because elements
+-- The old approach (ShiftElementLeft by Layout.PANEL_WIDTH) failed because elements
 -- moved outside their parent's clipping rect. New approach:
 --
--- Portrait + Info button: temporarily reparented to panelFrame so they
+-- Portrait + Info button: temporarily reparented to State.panelFrame so they
 -- render within the panel's bounds at its top-left corner.
 --
 -- Nav bar: left anchor extended to the panel via cross-parent anchoring,
@@ -3685,11 +3606,11 @@ end
 -------------------------------------------------------------------------------
 
 -- Saved state per element: { parent, level, strata, anchors = {{p,r,rp,x,y}, ...} }
-local savedPortraitState = nil
-local savedPortraitTexture = nil  -- original portrait texture/ID, restored on close
-local savedTutorialState = nil
-local savedNavBarState = nil
-local savedClipStates = {}  -- { [frame] = originalClipBool }
+State.savedPortraitState = nil
+State.savedPortraitTexture = nil  -- original portrait texture/ID, restored on close
+State.savedTutorialState = nil
+State.savedNavBarState = nil
+State.savedClipStates = {}  -- { [frame] = originalClipBool }
 
 local function SaveFrameState(frame)
     if not frame then return nil end
@@ -3719,24 +3640,24 @@ end
 
 local function DisableClipping(frame)
     if not frame or not frame.SetClipsChildren then return end
-    if savedClipStates[frame] == nil then
-        savedClipStates[frame] = frame:DoesClipChildren()
+    if State.savedClipStates[frame] == nil then
+        State.savedClipStates[frame] = frame:DoesClipChildren()
     end
     frame:SetClipsChildren(false)
 end
 
 local function RestoreClipping()
-    for frame, wasClipping in pairs(savedClipStates) do
+    for frame, wasClipping in pairs(State.savedClipStates) do
         if frame and frame.SetClipsChildren then
             frame:SetClipsChildren(wasClipping)
         end
     end
-    wipe(savedClipStates)
+    wipe(State.savedClipStates)
 end
 
 local function ReparentMapElements()
-    if savedPortraitState then return end  -- already done
-    if not panelFrame then return end
+    if State.savedPortraitState then return end  -- already done
+    if not State.panelFrame then return end
 
     local wm = WorldMapFrame
     local bf = wm.BorderFrame
@@ -3747,18 +3668,18 @@ local function ReparentMapElements()
     --    frame on top that isn't subject to the mask.
     local pc = wm.PortraitContainer or (bf and bf.PortraitContainer)
     if pc then
-        savedPortraitState = SaveFrameState(pc)
-        pc:SetParent(panelFrame)
+        State.savedPortraitState = SaveFrameState(pc)
+        pc:SetParent(State.panelFrame)
         -- Must be above NineSlice (502) AND background.
-        pc:SetFrameLevel(panelFrame:GetFrameLevel() + 10)  -- 510
+        pc:SetFrameLevel(State.panelFrame:GetFrameLevel() + 10)  -- 510
         pc:ClearAllPoints()
-        pc:SetPoint("CENTER", panelFrame, "TOPLEFT", 3, -1)
+        pc:SetPoint("CENTER", State.panelFrame, "TOPLEFT", 3, -1)
         pc:Show()
 
         -- Swap portrait texture to Homestead icon
         if pc.portrait then
-            if not savedPortraitTexture then
-                savedPortraitTexture = pc.portrait:GetTexture()
+            if not State.savedPortraitTexture then
+                State.savedPortraitTexture = pc.portrait:GetTexture()
             end
             pc.portrait:SetTexture(HA.Constants.TEXTURE_ROOT .. "HomesteadPortrait_64")
         end
@@ -3770,22 +3691,22 @@ local function ReparentMapElements()
     --    so it sits between the portrait circle and the "World" breadcrumb.
     local tutorial = bf and bf.Tutorial
     if tutorial and pc then
-        savedTutorialState = SaveFrameState(tutorial)
-        tutorial:SetParent(panelFrame)
-        tutorial:SetFrameLevel(panelFrame:GetFrameLevel() + 11)
+        State.savedTutorialState = SaveFrameState(tutorial)
+        tutorial:SetParent(State.panelFrame)
+        tutorial:SetFrameLevel(State.panelFrame:GetFrameLevel() + 11)
         tutorial:ClearAllPoints()
         -- Absolute position on panel, to the right of the ~40px portrait circle
-        tutorial:SetPoint("TOPLEFT", panelFrame, "TOPLEFT", 52, 23)
+        tutorial:SetPoint("TOPLEFT", State.panelFrame, "TOPLEFT", 52, 23)
         tutorial:Show()
     end
 
-    -- 3. Nav bar → reparent to panelFrame so it shares the same rendering
+    -- 3. Nav bar → reparent to State.panelFrame so it shares the same rendering
     --    subtree. Without this, the nav bar (in WorldMapFrame's tree) renders
     --    behind the panel (on UIParent) regardless of frame level or strata.
     --    Walk the parent chain first to disable clipping, then reparent.
     local navBar = wm.NavBar
-    if navBar and not savedNavBarState then
-        savedNavBarState = SaveFrameState(navBar)
+    if navBar and not State.savedNavBarState then
+        State.savedNavBarState = SaveFrameState(navBar)
 
         -- Walk the parent chain from nav bar upward, disabling clipping
         -- (must happen before reparent while the chain is still intact)
@@ -3801,7 +3722,7 @@ local function ReparentMapElements()
 
         -- Find original Y offset from TOPLEFT anchor
         local origY = 0
-        for _, a in ipairs(savedNavBarState.anchors) do
+        for _, a in ipairs(State.savedNavBarState.anchors) do
             if a[1] == "TOPLEFT" then
                 origY = a[5] or 0
                 break
@@ -3809,24 +3730,24 @@ local function ReparentMapElements()
         end
 
         -- Reparent to panel, then set anchors and level
-        navBar:SetParent(panelFrame)
+        navBar:SetParent(State.panelFrame)
         navBar:SetFrameStrata("HIGH")
-        navBar:SetFrameLevel(panelFrame:GetFrameLevel() + 15)  -- 515
+        navBar:SetFrameLevel(State.panelFrame:GetFrameLevel() + 15)  -- 515
 
         -- Proxy SetMapID/GetMapID: Blizzard's NavBar GoToMap calls
-        -- self:GetParent():SetMapID(mapID), which now hits panelFrame.
-        if not panelFrame.SetMapID then
-            panelFrame.SetMapID = function(_, mapID)
+        -- self:GetParent():SetMapID(mapID), which now hits State.panelFrame.
+        if not State.panelFrame.SetMapID then
+            State.panelFrame.SetMapID = function(_, mapID)
                 WorldMapFrame:SetMapID(mapID)
             end
-            panelFrame.GetMapID = function()
+            State.panelFrame.GetMapID = function()
                 return WorldMapFrame:GetMapID()
             end
         end
 
         -- Replace the left anchor: start at the panel's left edge, past
         -- the portrait (~64px). Keep the original Y offset and right anchor.
-        navBar:SetPoint("TOPLEFT", panelFrame, "TOPLEFT", 64, origY)
+        navBar:SetPoint("TOPLEFT", State.panelFrame, "TOPLEFT", 64, origY)
     end
 end
 
@@ -3836,26 +3757,26 @@ local function RestoreMapElements()
 
     -- Portrait
     local pc = wm.PortraitContainer or (bf and bf.PortraitContainer)
-    if pc and savedPortraitState then
+    if pc and State.savedPortraitState then
         -- Restore original portrait texture before reparenting back
-        if pc.portrait and savedPortraitTexture then
-            pc.portrait:SetTexture(savedPortraitTexture)
+        if pc.portrait and State.savedPortraitTexture then
+            pc.portrait:SetTexture(State.savedPortraitTexture)
         end
-        RestoreFrameState(pc, savedPortraitState)
-        savedPortraitState = nil
+        RestoreFrameState(pc, State.savedPortraitState)
+        State.savedPortraitState = nil
     end
     -- Tutorial
     local tutorial = bf and bf.Tutorial
-    if tutorial and savedTutorialState then
-        RestoreFrameState(tutorial, savedTutorialState)
-        savedTutorialState = nil
+    if tutorial and State.savedTutorialState then
+        RestoreFrameState(tutorial, State.savedTutorialState)
+        State.savedTutorialState = nil
     end
 
     -- Nav bar (full restore — parent, strata, level, all anchors)
     local navBar = wm.NavBar
-    if navBar and savedNavBarState then
-        RestoreFrameState(navBar, savedNavBarState)
-        savedNavBarState = nil
+    if navBar and State.savedNavBarState then
+        RestoreFrameState(navBar, State.savedNavBarState)
+        State.savedNavBarState = nil
     end
 
     -- Clipping
@@ -3868,18 +3789,18 @@ end
 -- Only the interior elements move; the panel frame stays at the top.
 -------------------------------------------------------------------------------
 
-local contentInsetApplied = false
-local DEFAULT_TOP_TILE_OFFSET = 18   -- Default tile Y (standalone mode)
-local DEFAULT_HEADER_TOP = 22        -- Default BORDER_TOP for header
+State.contentInsetApplied = false
+Layout.DEFAULT_TOP_TILE_OFFSET = 18   -- Default tile Y (standalone mode)
+Layout.DEFAULT_HEADER_TOP = 22        -- Default BORDER_TOP for header
 
 -- Measure the lowest bottom edge of the header zone elements (portrait,
 -- nav bar) relative to the panel's top, then re-anchor tiles + header below.
 -- Must run after a layout pass (deferred) for accurate GetBottom/GetTop.
 local function ApplyContentInset()
-    if contentInsetApplied then return end
-    if not panelFrame or not headerFrame then return end
+    if State.contentInsetApplied then return end
+    if not State.panelFrame or not State.headerFrame then return end
 
-    local panelTop = panelFrame:GetTop()
+    local panelTop = State.panelFrame:GetTop()
     if not panelTop then return end
 
     -- Find the lowest bottom edge among header zone elements
@@ -3910,42 +3831,42 @@ local function ApplyContentInset()
     local insetY = lowestBottom - panelTop - 5  -- 5px padding
 
     -- Move decorative tiles
-    if topTileFrame then
-        topTileFrame:ClearAllPoints()
-        topTileFrame:SetPoint("TOPLEFT", panelFrame, "TOPLEFT", 6, insetY)
-        topTileFrame:SetPoint("TOPRIGHT", panelFrame, "TOPRIGHT", -6, insetY)
+    if State.topTileFrame then
+        State.topTileFrame:ClearAllPoints()
+        State.topTileFrame:SetPoint("TOPLEFT", State.panelFrame, "TOPLEFT", 6, insetY)
+        State.topTileFrame:SetPoint("TOPRIGHT", State.panelFrame, "TOPRIGHT", -6, insetY)
     end
 
     -- Move header below the tiles
     local headerY = insetY - 10  -- 10 = tile height
-    headerFrame:ClearAllPoints()
-    headerFrame:SetPoint("TOPLEFT", panelFrame, "TOPLEFT", 10, headerY)
-    headerFrame:SetPoint("TOPRIGHT", panelFrame, "TOPRIGHT", -10, headerY)
+    State.headerFrame:ClearAllPoints()
+    State.headerFrame:SetPoint("TOPLEFT", State.panelFrame, "TOPLEFT", 10, headerY)
+    State.headerFrame:SetPoint("TOPRIGHT", State.panelFrame, "TOPRIGHT", -10, headerY)
 
-    contentInsetApplied = true
+    State.contentInsetApplied = true
 end
 
 local function RestoreContentInset()
-    if not contentInsetApplied then return end
+    if not State.contentInsetApplied then return end
 
-    if topTileFrame then
-        topTileFrame:ClearAllPoints()
-        topTileFrame:SetPoint("TOPLEFT", panelFrame, "TOPLEFT", 6, -DEFAULT_TOP_TILE_OFFSET)
-        topTileFrame:SetPoint("TOPRIGHT", panelFrame, "TOPRIGHT", -6, -DEFAULT_TOP_TILE_OFFSET)
+    if State.topTileFrame then
+        State.topTileFrame:ClearAllPoints()
+        State.topTileFrame:SetPoint("TOPLEFT", State.panelFrame, "TOPLEFT", 6, -Layout.DEFAULT_TOP_TILE_OFFSET)
+        State.topTileFrame:SetPoint("TOPRIGHT", State.panelFrame, "TOPRIGHT", -6, -Layout.DEFAULT_TOP_TILE_OFFSET)
     end
 
-    if headerFrame then
-        headerFrame:ClearAllPoints()
-        headerFrame:SetPoint("TOPLEFT", panelFrame, "TOPLEFT", 10, -DEFAULT_HEADER_TOP)
-        headerFrame:SetPoint("TOPRIGHT", panelFrame, "TOPRIGHT", -10, -DEFAULT_HEADER_TOP)
+    if State.headerFrame then
+        State.headerFrame:ClearAllPoints()
+        State.headerFrame:SetPoint("TOPLEFT", State.panelFrame, "TOPLEFT", 10, -Layout.DEFAULT_HEADER_TOP)
+        State.headerFrame:SetPoint("TOPRIGHT", State.panelFrame, "TOPRIGHT", -10, -Layout.DEFAULT_HEADER_TOP)
     end
 
-    contentInsetApplied = false
+    State.contentInsetApplied = false
 end
 
 -------------------------------------------------------------------------------
 -- Portrait: swapped to HomesteadPortrait_64 when panel opens, restored on close.
--- The portrait container is reparented to panelFrame (see ReparentMapElements)
+-- The portrait container is reparented to State.panelFrame (see ReparentMapElements)
 -- so the entire unit (icon + mask + ring) moves together.
 
 -------------------------------------------------------------------------------
@@ -3957,12 +3878,12 @@ end
 -- All Blizzard frame access is nil-guarded for safety.
 -------------------------------------------------------------------------------
 
-local borderUnified = false
-local savedMapTopLeftCornerShown = nil
+State.borderUnified = false
+State.savedMapTopLeftCornerShown = nil
 
 local function UnifyTopBorder()
-    if borderUnified then return end
-    if not panelFrame then return end
+    if State.borderUnified then return end
+    if not State.panelFrame then return end
     if ShouldUseStandaloneMode() then return end
 
     local bf = WorldMapFrame.BorderFrame
@@ -3973,7 +3894,7 @@ local function UnifyTopBorder()
     local canvas = WorldMapFrame.ScrollContainer
     local mapTopEdge = mapNS.TopEdge
     local mapTopLeft = mapNS.TopLeftCorner
-    local panelNS = panelFrame.NineSlice
+    local panelNS = State.panelFrame.NineSlice
 
     if not mapTopEdge or not panelNS or not canvas then return end
 
@@ -3981,14 +3902,14 @@ local function UnifyTopBorder()
     local borderTop = bf.GetTop and bf:GetTop()
     local canvasTop = canvas.GetTop and canvas:GetTop()
     if borderTop and canvasTop and (borderTop - canvasTop) > 0 then
-        panelFrame:SetPoint("TOPRIGHT", canvas, "TOPLEFT", 0, borderTop - canvasTop)
+        State.panelFrame:SetPoint("TOPRIGHT", canvas, "TOPLEFT", 0, borderTop - canvasTop)
     end
 
     -- 2. Save map TopEdge's original left anchor for restore
-    if not savedMapTopEdge then
+    if not State.savedMapTopEdge then
         local ok, p, r, rp, x, y = pcall(mapTopEdge.GetPoint, mapTopEdge, 1)
         if ok and p then
-            savedMapTopEdge = { p, r, rp, x, y }
+            State.savedMapTopEdge = { p, r, rp, x, y }
         end
     end
 
@@ -3996,7 +3917,7 @@ local function UnifyTopBorder()
     --    corner piece with border geometry). The portrait container's own built-in
     --    gold ring (region 3, texture 136430) handles the circular border.
     if mapTopLeft then
-        savedMapTopLeftCornerShown = mapTopLeft:IsShown()
+        State.savedMapTopLeftCornerShown = mapTopLeft:IsShown()
         mapTopLeft:Hide()
     end
 
@@ -4013,45 +3934,45 @@ local function UnifyTopBorder()
     --    The panel extends (borderTop - canvasTop) above the canvas; offset
     --    the bg top upward by 20px from the canvas level to meet the border's
     --    inner bottom edge.
-    if bgTexture and borderTop and canvasTop then
+    if State.bgTexture and borderTop and canvasTop then
         local borderHeight = borderTop - canvasTop
         local bgOffset = borderHeight - 45  -- 45px up from canvas to border bottom
         if bgOffset > 0 then
-            bgTexture:SetPoint("TOPLEFT", panelFrame, "TOPLEFT", 0, -bgOffset)
+            State.bgTexture:SetPoint("TOPLEFT", State.panelFrame, "TOPLEFT", 0, -bgOffset)
         end
     end
 
-    borderUnified = true
+    State.borderUnified = true
 end
 
 local function RestoreTopBorder()
-    if not borderUnified then return end
+    if not State.borderUnified then return end
 
     local bf = WorldMapFrame.BorderFrame
     local mapNS = bf and bf.NineSlice
     local canvas = WorldMapFrame.ScrollContainer
     local mapTopEdge = mapNS and mapNS.TopEdge
     local mapTopLeft = mapNS and mapNS.TopLeftCorner
-    local panelNS = panelFrame and panelFrame.NineSlice
+    local panelNS = State.panelFrame and State.panelFrame.NineSlice
 
     -- Restore map TopEdge original anchor
-    if mapTopEdge and savedMapTopEdge then
+    if mapTopEdge and State.savedMapTopEdge then
         pcall(mapTopEdge.SetPoint, mapTopEdge,
-            savedMapTopEdge[1], savedMapTopEdge[2],
-            savedMapTopEdge[3], savedMapTopEdge[4], savedMapTopEdge[5])
+            State.savedMapTopEdge[1], State.savedMapTopEdge[2],
+            State.savedMapTopEdge[3], State.savedMapTopEdge[4], State.savedMapTopEdge[5])
     end
-    savedMapTopEdge = nil  -- Re-capture fresh on next UnifyTopBorder
+    State.savedMapTopEdge = nil  -- Re-capture fresh on next UnifyTopBorder
 
     -- Restore background to fill full panel (no border zone offset)
-    if bgTexture then
-        bgTexture:SetPoint("TOPLEFT", panelFrame, "TOPLEFT", 0, 0)
+    if State.bgTexture then
+        State.bgTexture:SetPoint("TOPLEFT", State.panelFrame, "TOPLEFT", 0, 0)
     end
 
     -- Restore map TopLeftCorner (portrait ring) visibility
-    if mapTopLeft and savedMapTopLeftCornerShown then
+    if mapTopLeft and State.savedMapTopLeftCornerShown then
         mapTopLeft:Show()
     end
-    savedMapTopLeftCornerShown = nil
+    State.savedMapTopLeftCornerShown = nil
 
     -- Restore panel top border pieces
     if panelNS then
@@ -4061,30 +3982,30 @@ local function RestoreTopBorder()
 
     -- Restore panel anchor (back to canvas top, no Y extension)
     if canvas then
-        panelFrame:SetPoint("TOPRIGHT", canvas, "TOPLEFT", 0, 0)
+        State.panelFrame:SetPoint("TOPRIGHT", canvas, "TOPLEFT", 0, 0)
     end
 
-    borderUnified = false
+    State.borderUnified = false
 end
 
 -------------------------------------------------------------------------------
 -- Toggle / Visibility
 -------------------------------------------------------------------------------
 
-local panelShowGeneration = 0  -- Incremented each Show, guards deferred callbacks
+State.panelShowGeneration = 0  -- Incremented each Show, guards deferred callbacks
 
 local function ApplyDockedIntegration()
-    ShiftMapRight()
+    State.ShiftMapRight()
 
     if not ShouldUseStandaloneMode() then
         ReparentMapElements()
         -- Defer border + content inset by one frame for accurate layout values.
         -- Guard with generation counter so a quick close cancels this.
-        panelShowGeneration = panelShowGeneration + 1
-        local gen = panelShowGeneration
+        State.panelShowGeneration = State.panelShowGeneration + 1
+        local gen = State.panelShowGeneration
         C_Timer.After(0, function()
-            if gen ~= panelShowGeneration then return end
-            if not panelFrame or not panelFrame:IsShown() then return end
+            if gen ~= State.panelShowGeneration then return end
+            if not State.panelFrame or not State.panelFrame:IsShown() then return end
             UnifyTopBorder()
             ApplyContentInset()
         end)
@@ -4098,8 +4019,8 @@ local function RemoveDockedIntegration(restoreMapPosition)
     if restoreMapPosition then
         RestoreMapPosition()
     else
-        mapShifted = false
-        savedMapPoint = nil
+        State.mapShifted = false
+        State.savedMapPoint = nil
     end
 end
 
@@ -4112,15 +4033,15 @@ end
 -- PLAYER_REGEN_ENABLED when combat ends.
 -------------------------------------------------------------------------------
 
-local combatFrame = CreateFrame("Frame")
-combatFrame:RegisterEvent("PLAYER_REGEN_ENABLED")
-combatFrame:SetScript("OnEvent", function()
-    if not pendingDockedAction then return end
-    local action = pendingDockedAction
-    pendingDockedAction = nil
+State.combatFrame = CreateFrame("Frame")
+State.combatFrame:RegisterEvent("PLAYER_REGEN_ENABLED")
+State.combatFrame:SetScript("OnEvent", function()
+    if not State.pendingDockedAction then return end
+    local action = State.pendingDockedAction
+    State.pendingDockedAction = nil
     if action == "apply" then
         -- Panel was shown during combat; apply map integration now
-        if panelFrame and panelFrame:IsShown() and not isPoppedOut
+        if State.panelFrame and State.panelFrame:IsShown() and not State.isPoppedOut
                 and not WorldMapFrame.isMaximized
                 and WorldMapFrame:IsShown() then
             ApplyDockedIntegration()
@@ -4135,22 +4056,22 @@ combatFrame:SetScript("OnEvent", function()
 end)
 
 local function ShowPanel()
-    if not panelFrame then return end
+    if not State.panelFrame then return end
 
     -- When popped out, skip all map integration (panel is independent)
-    if isPoppedOut then
-        panelFrame:Show()
+    if State.isPoppedOut then
+        State.panelFrame:Show()
         return
     end
 
     -- Don't show docked panel when map is maximized (fills the screen)
     if WorldMapFrame.isMaximized then return end
 
-    panelFrame:Show()
+    State.panelFrame:Show()
 
     -- Defer all docked map mutations until combat ends
     if InCombatLockdown() then
-        pendingDockedAction = "apply"
+        State.pendingDockedAction = "apply"
         return
     end
 
@@ -4158,26 +4079,26 @@ local function ShowPanel()
 end
 
 local function HidePanel()
-    if not panelFrame then return end
+    if not State.panelFrame then return end
     -- Bump generation to cancel any pending deferred Show callbacks
-    panelShowGeneration = panelShowGeneration + 1
+    State.panelShowGeneration = State.panelShowGeneration + 1
 
     -- Explicit cleanup of expandable content
     HideAllNonVendorContent()
     ClearSearch(false)
-    if searchEditBox then searchEditBox:ClearFocus() end
+    if State.searchEditBox then State.searchEditBox:ClearFocus() end
 
-    if isPoppedOut then
+    if State.isPoppedOut then
         -- When popped out, just hide the frame — no map restoration needed
-        panelFrame:Hide()
+        State.panelFrame:Hide()
         return
     end
 
-    panelFrame:Hide()
+    State.panelFrame:Hide()
 
     -- Defer map restoration until combat ends
     if InCombatLockdown() then
-        pendingDockedAction = "remove"
+        State.pendingDockedAction = "remove"
         return
     end
 
@@ -4186,46 +4107,47 @@ end
 
 -- Update button visibility based on pop-out state
 local function UpdatePopOutButtons()
-    if not popOutButton then return end
-    if isPoppedOut then
-        popOutButton:Hide()
-        closeButton:Show()
-        reattachButton:Show()
+    if not State.popOutButton then return end
+    if State.isPoppedOut then
+        State.popOutButton:Hide()
+        State.closeButton:Show()
+        State.reattachButton:Show()
     else
-        popOutButton:Show()
-        closeButton:Hide()
-        reattachButton:Hide()
+        State.popOutButton:Show()
+        State.closeButton:Hide()
+        State.reattachButton:Hide()
     end
 end
 
 -- Re-set frame levels after reparent (SetParent can reset child levels)
 local function RestoreFrameLevels()
-    if not panelFrame then return end
-    panelFrame:SetFrameStrata("HIGH")
-    panelFrame:SetFrameLevel(500)
-    if panelFrame.NineSlice then
-        panelFrame.NineSlice:SetFrameLevel(502)
+    if not State.panelFrame then return end
+    State.panelFrame:SetFrameStrata("HIGH")
+    State.panelFrame:SetFrameLevel(500)
+    if State.panelFrame.NineSlice then
+        State.panelFrame.NineSlice:SetFrameLevel(502)
     end
 end
 
 -- Ensure NineSlice border is visually complete (re-show pieces hidden by UnifyTopBorder)
 local function EnsureCompleteBorder()
-    if not panelFrame or not panelFrame.NineSlice then return end
-    local ns = panelFrame.NineSlice
+    if not State.panelFrame or not State.panelFrame.NineSlice then return end
+    local ns = State.panelFrame.NineSlice
     if ns.TopEdge then ns.TopEdge:Show() end
     if ns.TopRightCorner then ns.TopRightCorner:Show() end
 end
 
--- Save detached position to profile (forward-declared at file scope)
-SaveDetachedPosition = function()
-    if not panelFrame or not HA.Addon or not HA.Addon.db then return end
-    local point, _, _, x, y = panelFrame:GetPoint(1)
+-- Save detached position to profile. Called from the resize/drag handlers
+-- above and from DockPanel()/CloseDetached() below.
+State.SaveDetachedPosition = function()
+    if not State.panelFrame or not HA.Addon or not HA.Addon.db then return end
+    local point, _, _, x, y = State.panelFrame:GetPoint(1)
     if point then
         HA.Addon.db.profile.vendorTracer.sidePanelPosition = {
             point = point, x = x or 0, y = y or 0,
         }
     end
-    HA.Addon.db.profile.vendorTracer.sidePanelHeight = panelFrame:GetHeight()
+    HA.Addon.db.profile.vendorTracer.sidePanelHeight = State.panelFrame:GetHeight()
 end
 
 -- Check if a saved position is on-screen; returns true if valid
@@ -4239,8 +4161,8 @@ local function IsPositionOnScreen(pos)
 end
 
 function MapSidePanel:PopOut()
-    if not panelFrame then return end
-    if isPoppedOut then return end
+    if not State.panelFrame then return end
+    if State.isPoppedOut then return end
 
     -- 1. Determine detached height: prefer saved user preference (from previous
     --    resize), then half the canvas height, then a compact screen fraction.
@@ -4252,7 +4174,7 @@ function MapSidePanel:PopOut()
     if savedHeight and savedHeight > 1 then
         h = savedHeight
     else
-        local canvasH = panelFrame:GetHeight()
+        local canvasH = State.panelFrame:GetHeight()
         if canvasH > 1 then
             h = canvasH * 0.5
         else
@@ -4262,7 +4184,7 @@ function MapSidePanel:PopOut()
 
     -- 2. Restore all map modifications
     if InCombatLockdown() then
-        pendingDockedAction = "remove"
+        State.pendingDockedAction = "remove"
     else
         RemoveDockedIntegration(true)
     end
@@ -4273,52 +4195,52 @@ function MapSidePanel:PopOut()
     RestoreFrameLevels()
 
     -- 5-6. Clear anchors, set size, restore position
-    panelFrame:ClearAllPoints()
-    panelFrame:SetWidth(PANEL_WIDTH)
-    panelFrame:SetHeight(h)
+    State.panelFrame:ClearAllPoints()
+    State.panelFrame:SetWidth(Layout.PANEL_WIDTH)
+    State.panelFrame:SetHeight(h)
 
     local saved = db and db.profile.vendorTracer.sidePanelPosition
     if saved and IsPositionOnScreen(saved) then
-        panelFrame:SetPoint(saved.point, UIParent, saved.point, saved.x, saved.y)
+        State.panelFrame:SetPoint(saved.point, UIParent, saved.point, saved.x, saved.y)
     else
-        panelFrame:SetPoint("CENTER", UIParent, "CENTER", 0, 0)
+        State.panelFrame:SetPoint("CENTER", UIParent, "CENTER", 0, 0)
     end
 
-    -- 7. Make movable via panelFrame drag (not headerFrame — header starts 22px
+    -- 7. Make movable via State.panelFrame drag (not State.headerFrame — header starts 22px
     --    below the top, so the NineSlice border wouldn't be draggable).
-    --    Child frames (buttons, scroll) capture their own clicks; panelFrame drag
+    --    Child frames (buttons, scroll) capture their own clicks; State.panelFrame drag
     --    only activates from "empty" areas like the border and header text.
-    panelFrame:SetMovable(true)
-    panelFrame:SetClampedToScreen(true)
-    panelFrame:RegisterForDrag("LeftButton")
-    panelFrame:SetScript("OnDragStart", panelFrame.StartMoving)
-    panelFrame:SetScript("OnDragStop", function(self) -- luacheck: ignore 432
+    State.panelFrame:SetMovable(true)
+    State.panelFrame:SetClampedToScreen(true)
+    State.panelFrame:RegisterForDrag("LeftButton")
+    State.panelFrame:SetScript("OnDragStart", State.panelFrame.StartMoving)
+    State.panelFrame:SetScript("OnDragStop", function(self) -- luacheck: ignore 432
         self:StopMovingOrSizing()
-        SaveDetachedPosition()
+        State.SaveDetachedPosition()
     end)
 
     -- 8. Enable height resizing
-    panelFrame:SetResizable(true)
-    panelFrame:SetResizeBounds(PANEL_WIDTH, 200, PANEL_WIDTH, UIParent:GetHeight() * 0.9)
-    if resizeHandle then resizeHandle:Show() end
+    State.panelFrame:SetResizable(true)
+    State.panelFrame:SetResizeBounds(Layout.PANEL_WIDTH, 200, Layout.PANEL_WIDTH, UIParent:GetHeight() * 0.9)
+    if State.resizeHandle then State.resizeHandle:Show() end
 
     -- 9. Ensure complete border
     EnsureCompleteBorder()
 
     -- 8b. Raise reattach button above NineSlice (only needed when detached;
     --     setting at creation time breaks the unified top border in docked mode)
-    if reattachButton then
-        reattachButton:SetFrameLevel(panelFrame:GetFrameLevel() + 5)
+    if State.reattachButton then
+        State.reattachButton:SetFrameLevel(State.panelFrame:GetFrameLevel() + 5)
     end
 
     -- 9. Update buttons
-    isPoppedOut = true  -- Set before UpdatePopOutButtons so it reads correctly
+    State.isPoppedOut = true  -- Set before UpdatePopOutButtons so it reads correctly
     UpdatePopOutButtons()
 
     -- 10. (Removed: UISpecialFrames registration caused combat taint via CloseWindows())
 
     -- 11. Cancel pending deferred callbacks
-    panelShowGeneration = panelShowGeneration + 1
+    State.panelShowGeneration = State.panelShowGeneration + 1
 
     -- 12. Save to profile
     if db then
@@ -4326,32 +4248,32 @@ function MapSidePanel:PopOut()
         db.profile.vendorTracer.sidePanelHeight = h
     end
 
-    panelFrame:Show()
+    State.panelFrame:Show()
     self:RefreshContent()
 end
 
 function MapSidePanel:DockPanel()
-    if not panelFrame then return end
-    if not isPoppedOut then return end
+    if not State.panelFrame then return end
+    if not State.isPoppedOut then return end
 
     -- 1. Save position and height
-    SaveDetachedPosition()
+    State.SaveDetachedPosition()
 
     -- 2. Panel stays parented to UIParent; just reconfigure for docked mode
 
     -- 3. Clear drag and resize handlers
-    panelFrame:SetMovable(false)
-    panelFrame:SetResizable(false)
-    panelFrame:SetScript("OnDragStart", nil)
-    panelFrame:SetScript("OnDragStop", nil)
-    if resizeHandle then resizeHandle:Hide() end
+    State.panelFrame:SetMovable(false)
+    State.panelFrame:SetResizable(false)
+    State.panelFrame:SetScript("OnDragStart", nil)
+    State.panelFrame:SetScript("OnDragStop", nil)
+    if State.resizeHandle then State.resizeHandle:Hide() end
 
     -- 4. Restore original anchors (flush left of canvas, height from top+bottom anchors)
     local canvas = WorldMapFrame.ScrollContainer
-    panelFrame:ClearAllPoints()
-    panelFrame:SetWidth(PANEL_WIDTH)
-    panelFrame:SetPoint("TOPRIGHT", canvas, "TOPLEFT", 0, 0)
-    panelFrame:SetPoint("BOTTOMRIGHT", canvas, "BOTTOMLEFT", 0, 0)
+    State.panelFrame:ClearAllPoints()
+    State.panelFrame:SetWidth(Layout.PANEL_WIDTH)
+    State.panelFrame:SetPoint("TOPRIGHT", canvas, "TOPLEFT", 0, 0)
+    State.panelFrame:SetPoint("BOTTOMRIGHT", canvas, "BOTTOMLEFT", 0, 0)
 
     -- 5. Re-set strata/levels
     RestoreFrameLevels()
@@ -4359,7 +4281,7 @@ function MapSidePanel:DockPanel()
     -- and touching frame levels during dock disrupts NineSlice rendering.
 
     -- 6. Update buttons
-    isPoppedOut = false
+    State.isPoppedOut = false
     UpdatePopOutButtons()
 
     -- 7. Pre-hide panel's top NineSlice pieces before integrated mode re-applies.
@@ -4367,7 +4289,7 @@ function MapSidePanel:DockPanel()
     --    hide them again via the deferred callback, but pre-hiding avoids a
     --    one-frame flash where both the panel's top border and map border overlap.
     if not ShouldUseStandaloneMode() then
-        local ns = panelFrame.NineSlice
+        local ns = State.panelFrame.NineSlice
         if ns then
             if ns.TopEdge then ns.TopEdge:Hide() end
             if ns.TopRightCorner then ns.TopRightCorner:Hide() end
@@ -4379,7 +4301,7 @@ function MapSidePanel:DockPanel()
         ShowPanel()
         self:RefreshContent()
     else
-        panelFrame:Hide()
+        State.panelFrame:Hide()
     end
 
     -- 9. Save to profile
@@ -4389,29 +4311,29 @@ function MapSidePanel:DockPanel()
 end
 
 function MapSidePanel:CloseDetached()
-    if not panelFrame then return end
+    if not State.panelFrame then return end
 
     -- Save position while frame is still visible and anchored
-    SaveDetachedPosition()
+    State.SaveDetachedPosition()
 
     -- Full reset: hide panel, clear both pop-out and panel-shown state
     HidePanel()
-    isPoppedOut = false
+    State.isPoppedOut = false
     UpdatePopOutButtons()
 
     -- Panel stays on UIParent; just reconfigure for docked mode next time
-    panelFrame:SetMovable(false)
-    panelFrame:SetResizable(false)
-    panelFrame:SetScript("OnDragStart", nil)
-    panelFrame:SetScript("OnDragStop", nil)
-    if resizeHandle then resizeHandle:Hide() end
+    State.panelFrame:SetMovable(false)
+    State.panelFrame:SetResizable(false)
+    State.panelFrame:SetScript("OnDragStart", nil)
+    State.panelFrame:SetScript("OnDragStop", nil)
+    if State.resizeHandle then State.resizeHandle:Hide() end
 
     -- Restore original anchors
     local canvas = WorldMapFrame.ScrollContainer
-    panelFrame:ClearAllPoints()
-    panelFrame:SetWidth(PANEL_WIDTH)
-    panelFrame:SetPoint("TOPRIGHT", canvas, "TOPLEFT", 0, 0)
-    panelFrame:SetPoint("BOTTOMRIGHT", canvas, "BOTTOMLEFT", 0, 0)
+    State.panelFrame:ClearAllPoints()
+    State.panelFrame:SetWidth(Layout.PANEL_WIDTH)
+    State.panelFrame:SetPoint("TOPRIGHT", canvas, "TOPLEFT", 0, 0)
+    State.panelFrame:SetPoint("BOTTOMRIGHT", canvas, "BOTTOMLEFT", 0, 0)
 
     RestoreFrameLevels()
 
@@ -4422,15 +4344,15 @@ function MapSidePanel:CloseDetached()
 end
 
 function MapSidePanel:Toggle()
-    if not panelFrame then return end
+    if not State.panelFrame then return end
 
-    if isPoppedOut then
-        if panelFrame:IsShown() then
+    if State.isPoppedOut then
+        if State.panelFrame:IsShown() then
             -- Popped out + visible: full reset
             self:CloseDetached()
         else
             -- Popped out + hidden (shouldn't normally happen): open docked
-            isPoppedOut = false
+            State.isPoppedOut = false
             UpdatePopOutButtons()
             ShowPanel()
             if HA.Addon and HA.Addon.db then
@@ -4442,7 +4364,7 @@ function MapSidePanel:Toggle()
         return
     end
 
-    if panelFrame:IsShown() then
+    if State.panelFrame:IsShown() then
         HidePanel()
         if HA.Addon and HA.Addon.db then
             HA.Addon.db.profile.vendorTracer.showMapSidePanel = false
@@ -4457,38 +4379,38 @@ function MapSidePanel:Toggle()
 end
 
 function MapSidePanel:Show()
-    if panelFrame then
+    if State.panelFrame then
         ShowPanel()
         self:RefreshContent()
     end
 end
 
 function MapSidePanel:Hide()
-    if panelFrame then
+    if State.panelFrame then
         HidePanel()
     end
 end
 
 function MapSidePanel:IsShown()
-    return panelFrame and panelFrame:IsShown()
+    return State.panelFrame and State.panelFrame:IsShown()
 end
 
 function MapSidePanel:IsPoppedOut()
-    return isPoppedOut
+    return State.isPoppedOut
 end
 
 function MapSidePanel:GetSourceFilter()
-    return panelSourceFilter
+    return State.panelSourceFilter
 end
 
 function MapSidePanel:SetSourceFilter(sourceFilter)
     local normalized = NormalizePanelSourceFilter(sourceFilter)
-    if panelSourceFilter == normalized then
+    if State.panelSourceFilter == normalized then
         UpdateSourceFilterDropdownText()
         return
     end
 
-    panelSourceFilter = normalized
+    State.panelSourceFilter = normalized
 
     if HA.Addon and HA.Addon.db and HA.Addon.db.profile and HA.Addon.db.profile.vendorTracer then
         HA.Addon.db.profile.vendorTracer.mapSidePanelSourceFilter = normalized
@@ -4516,8 +4438,8 @@ end
 
 -- Slash command toggle: pop out if docked/hidden, close if already popped out
 function MapSidePanel:ToggleDetached()
-    if not panelFrame then return end
-    if isPoppedOut then
+    if not State.panelFrame then return end
+    if State.isPoppedOut then
         self:CloseDetached()
     else
         self:PopOut()
@@ -4535,10 +4457,10 @@ end
 -- run a full RefreshContent — same defer, just N rebuilds 0.1s later instead
 -- of 0. One pending flag collapses any burst into exactly one refresh.
 local function ScheduleContentRefresh()
-    if pendingContentRefresh then return end
-    pendingContentRefresh = true
+    if State.pendingContentRefresh then return end
+    State.pendingContentRefresh = true
     C_Timer.After(0.1, function()
-        pendingContentRefresh = false
+        State.pendingContentRefresh = false
         MapSidePanel:RefreshContent()
     end)
 end
@@ -4548,7 +4470,7 @@ end
 -------------------------------------------------------------------------------
 
 function MapSidePanel:Initialize()
-    if isInitialized then return end
+    if State.isInitialized then return end
 
     -- Set module references
     VendorData = HA.VendorData
@@ -4556,7 +4478,7 @@ function MapSidePanel:Initialize()
     BC = HA.BadgeCalculation
 
     if HA.Addon and HA.Addon.db and HA.Addon.db.profile and HA.Addon.db.profile.vendorTracer then
-        panelSourceFilter = NormalizePanelSourceFilter(HA.Addon.db.profile.vendorTracer.mapSidePanelSourceFilter)
+        State.panelSourceFilter = NormalizePanelSourceFilter(HA.Addon.db.profile.vendorTracer.mapSidePanelSourceFilter)
     end
 
     if not VendorData or not VendorFilter or not BC then
@@ -4582,7 +4504,7 @@ function MapSidePanel:Initialize()
     -- which reacts one frame AFTER the secure path has returned, so the reaction is
     -- never in a tainted context -- the same pattern as that file (which has zero
     -- WorldMapFrame hooks). Behavior is unchanged: the in-combat docked-panel deferral
-    -- via pendingDockedAction / PLAYER_REGEN_ENABLED is preserved verbatim, and mapWatch
+    -- via State.pendingDockedAction / PLAYER_REGEN_ENABLED is preserved verbatim, and mapWatch
     -- is seeded from the current WorldMapFrame state so /reload with the map already
     -- open is a no-op -- matching the old behavior, where the OnShow hook was installed
     -- after the map was already shown and therefore never fired.
@@ -4616,7 +4538,7 @@ function MapSidePanel:Initialize()
             -- wrapper needed here -- DispatchMapWatch's own After(0) deferral already
             -- runs this after the secure path; ShowPanel -> ApplyDockedIntegration
             -- keeps its own one-frame border/inset defer.
-            if not isPoppedOut and not maximized
+            if not State.isPoppedOut and not maximized
                     and HA.Addon and HA.Addon.db
                     and HA.Addon.db.profile.vendorTracer.showMapSidePanel then
                 ShowPanel()
@@ -4628,24 +4550,24 @@ function MapSidePanel:Initialize()
 
         elseif not shown and mapWatch.shown then
             -- Map just closed (was: WorldMapFrame OnHide hook).
-            if not isPoppedOut then
+            if not State.isPoppedOut then
                 -- HS-019: clear any active search when the docked panel closes with
                 -- the map. Popped-out panels keep their search state (early return above).
                 ClearSearch(false)
                 -- Bump generation to cancel any pending deferred Show callbacks.
-                panelShowGeneration = panelShowGeneration + 1
-                if panelFrame then panelFrame:Hide() end
+                State.panelShowGeneration = State.panelShowGeneration + 1
+                if State.panelFrame then State.panelFrame:Hide() end
 
                 if InCombatLockdown() then
                     -- Closing during combat; defer restoration. Cancel any pending
                     -- "apply" -- the map is gone, nothing to integrate.
-                    pendingDockedAction = "remove"
+                    State.pendingDockedAction = "remove"
                 else
                     RestoreContentInset()
                     RestoreTopBorder()
                     RestoreMapElements()
                     RestoreMapPosition()
-                    mapShifted = false
+                    State.mapShifted = false
                 end
             end
 
@@ -4654,14 +4576,14 @@ function MapSidePanel:Initialize()
                 -- Map maximized (was: HandleUserActionMaximizeSelf hook). Blizzard has
                 -- already repositioned the map, so clear our shift state without
                 -- restoring (the saved point is stale).
-                if not isPoppedOut and panelFrame and panelFrame:IsShown() then
-                    panelShowGeneration = panelShowGeneration + 1
-                    panelFrame:Hide()
+                if not State.isPoppedOut and State.panelFrame and State.panelFrame:IsShown() then
+                    State.panelShowGeneration = State.panelShowGeneration + 1
+                    State.panelFrame:Hide()
 
                     if InCombatLockdown() then
-                        mapShifted = false
-                        savedMapPoint = nil
-                        pendingDockedAction = "clear"
+                        State.mapShifted = false
+                        State.savedMapPoint = nil
+                        State.pendingDockedAction = "clear"
                     else
                         RemoveDockedIntegration(false)
                     end
@@ -4669,17 +4591,17 @@ function MapSidePanel:Initialize()
 
             elseif not maximized and mapWatch.maximized then
                 -- Map minimized (was: HandleUserActionMinimizeSelf hook).
-                if not isPoppedOut and panelFrame
+                if not State.isPoppedOut and State.panelFrame
                         and HA.Addon and HA.Addon.db
                         and HA.Addon.db.profile.vendorTracer.showMapSidePanel then
                     ShowPanel()
                     MapSidePanel:RefreshContent()
                 end
 
-            elseif mapID and mapID ~= mapWatch.mapID and mapID ~= lastRefreshMapID then
+            elseif mapID and mapID ~= mapWatch.mapID and mapID ~= State.lastRefreshMapID then
                 -- Blizzard-driven zone change (was: SetMapID hook). Self-driven nav
                 -- (vendor/summary-row clicks, back button) already calls RefreshContent
-                -- synchronously and sets lastRefreshMapID, so this fires only for
+                -- synchronously and sets State.lastRefreshMapID, so this fires only for
                 -- map-canvas / NavBar navigation.
                 MapSidePanel:RefreshContent()
                 PositionOverlayButton()  -- a zone change rebuilds overlayFrames
@@ -4741,7 +4663,7 @@ function MapSidePanel:Initialize()
     -- instead of the embed (matches the List/Lifecycle/DB call sites).
     do
         local Menu = F:RequireModule("Menu", 1)
-        menuContextMenu = Menu:New({
+        State.menuContextMenu = Menu:New({
             name    = "HS.ContextMenu",
             builder = function(owner, rootDescription)
                 rootDescription:CreateTitle("Homestead")
@@ -4789,12 +4711,12 @@ function MapSidePanel:Initialize()
                 end
 
                 -- Detach / Attach panel toggle (only when panel is visible or popped out)
-                if panelFrame and (panelFrame:IsShown() or isPoppedOut) then
+                if State.panelFrame and (State.panelFrame:IsShown() or State.isPoppedOut) then
                     rootDescription:CreateCheckbox(
-                        isPoppedOut and "Attach to Map" or "Detach Panel",
-                        function() return isPoppedOut end,
+                        State.isPoppedOut and "Attach to Map" or "Detach Panel",
+                        function() return State.isPoppedOut end,
                         function()
-                            if isPoppedOut then
+                            if State.isPoppedOut then
                                 MapSidePanel:DockPanel()
                             else
                                 MapSidePanel:PopOut()
@@ -4814,7 +4736,7 @@ function MapSidePanel:Initialize()
             end,
         })
 
-        menuSourceFilter = Menu:New({
+        State.menuSourceFilter = Menu:New({
             name    = "HS.SourceFilter",
             builder = function(_, rootDescription)
                 AddSourceFilterMenuEntries(rootDescription)
@@ -4822,7 +4744,7 @@ function MapSidePanel:Initialize()
         })
     end
 
-    isInitialized = true
+    State.isInitialized = true
 
     -- /reload restoration: if panel was popped out last session, restore it
     if HA.Addon and HA.Addon.db then

@@ -221,7 +221,11 @@ do
 end
 
 -------------------------------------------------------------------------------
--- 5. Invalidation trigger points.
+-- 5. Invalidation trigger points. (perf cleanup: VendorData no longer
+-- registers its own VENDOR_SCANNED listener -- InvalidateVendorCaches(),
+-- called by ScanPersistence right before firing that event, is the only
+-- rebuild trigger. This pins that InvalidateVendorCaches still rebuilds the
+-- index exactly once per call, with no second rebuild layered on top.)
 -------------------------------------------------------------------------------
 
 do
@@ -242,19 +246,25 @@ do
     HA.VendorData:BuildScannedIndex()
     assert(HA.VendorData:GetScannedVendorItems(NPC, ITEM_OLD), "sanity: initial item must be indexed")
 
-    -- OnVendorScanned must rebuild the index off a mutated scannedVendors table.
-    HA.Addon.db.global.scannedVendors[NPC] = { items = { { itemID = ITEM_NEW, requirements = {} } } }
-    HA.VendorData:OnVendorScanned()
-    assert(HA.VendorData:GetScannedVendorItems(NPC, ITEM_NEW), "OnVendorScanned must rebuild the index")
-    assert(not HA.VendorData:GetScannedVendorItems(NPC, ITEM_OLD),
-        "OnVendorScanned's rebuild must drop the stale entry")
+    -- Count rebuilds triggered by one InvalidateVendorCaches() call.
+    local rebuildCount = 0
+    local realBuildScannedIndex = HA.VendorData.BuildScannedIndex
+    HA.VendorData.BuildScannedIndex = function(self)
+        rebuildCount = rebuildCount + 1
+        return realBuildScannedIndex(self)
+    end
 
-    -- InvalidateVendorCaches must also rebuild it.
-    HA.Addon.db.global.scannedVendors[NPC] = { items = { { itemID = ITEM_OLD, requirements = {} } } }
+    HA.Addon.db.global.scannedVendors[NPC] = { items = { { itemID = ITEM_NEW, requirements = {} } } }
     HA.VendorData:InvalidateVendorCaches()
-    assert(HA.VendorData:GetScannedVendorItems(NPC, ITEM_OLD), "InvalidateVendorCaches must rebuild the index")
-    assert(not HA.VendorData:GetScannedVendorItems(NPC, ITEM_NEW),
+    assert(HA.VendorData:GetScannedVendorItems(NPC, ITEM_NEW), "InvalidateVendorCaches must rebuild the index")
+    assert(not HA.VendorData:GetScannedVendorItems(NPC, ITEM_OLD),
         "InvalidateVendorCaches's rebuild must drop the stale entry")
+    assert(rebuildCount == 1, "InvalidateVendorCaches must trigger exactly one rebuild, got " .. rebuildCount)
+
+    -- VendorData must not register its own VENDOR_SCANNED listener anymore --
+    -- that would be a second rebuild per save, on top of the one above.
+    assert(HA.VendorData.OnVendorScanned == nil,
+        "VendorData:OnVendorScanned must be removed -- InvalidateVendorCaches is the sole rebuild trigger")
 
     print("hs280_vendor_requirements_index: functional invalidation trigger points ok")
 end
@@ -342,11 +352,16 @@ end
 do
     local scanPersistSource = readFile(root .. "/Modules/ScanPersistence.lua")
 
+    -- Perf cleanup: the delete branch's own direct BuildScannedIndex() call
+    -- was removed -- the unconditional InvalidateVendorCaches() call that
+    -- runs a few lines below EVERY branch (including this one) already
+    -- covers it. Pin that the redundant direct call stays gone.
     local deletePos = scanPersistSource:find("scannedVendors%[scanData%.npcID%] = nil")
     assert(deletePos, "delete branch not found")
     local buildPosAfterDelete = scanPersistSource:find("BuildScannedIndex%(%)", deletePos)
-    assert(buildPosAfterDelete and (buildPosAfterDelete - deletePos) < 1000,
-        "delete branch must still call BuildScannedIndex() nearby")
+    assert(not buildPosAfterDelete or (buildPosAfterDelete - deletePos) > 1000,
+        "delete branch must not have its own direct BuildScannedIndex() call -- " ..
+        "InvalidateVendorCaches() a few lines down already covers it")
 
     local refreshMapPinsBody = scanPersistSource:match("local function RefreshMapPins%(%)(.-)\nend")
     assert(refreshMapPinsBody, "RefreshMapPins body not found")

@@ -2,9 +2,18 @@
 
 local root = (... or "."):gsub("\\\\", "/"):gsub("/+$", "")
 
--- Export format v3 appends subclassID to each positional TSV item row. Existing
--- column indexes remain unchanged, while legacy items without subclassID emit
--- an empty trailing field.
+-------------------------------------------------------------------------------
+-- HS-285: the I-row (per-item line) never carried subclassID, even though
+-- HS-249 taught the scanner and persistence layer to capture it for every
+-- non-decor housing item (room plans, dyes, customizations, service items).
+-- The offline pipeline (ingest-vendor-scan.mjs) was already built to read a
+-- trailing subclassID column behind exportFormatVersion 3, but nothing ever
+-- wrote it — every export silently resolved every item to decor. subclassID
+-- is appended at the END of the row (append-only: it's positional TSV and
+-- other columns are indexed by position downstream, so a mid-row insert
+-- would break every existing consumer), same rule HS-251 Stage C established
+-- for the V-row's housingCount.
+-------------------------------------------------------------------------------
 
 GetBuildInfo = function() return "12.1.0", 68914 end
 local fakeClock = 3000
@@ -37,7 +46,7 @@ local ExportHA = {
 assert(loadfile(root .. "/Modules/ExportImport.lua"))("Homestead", ExportHA)
 
 -- Vendor 1: one item with subclassID set (a room plan), one legacy item with
--- no subclassID at all (legacy persisted shape).
+-- no subclassID at all (pre-HS-249 persisted shape).
 ExportHA.Addon.db.global.scannedVendors[7101] = {
     npcID = 7101,
     name = "Subclass Test Vendor",
@@ -57,7 +66,7 @@ ExportHA.Addon.db.global.scannedVendors[7101] = {
             name = "Legacy Item No Subclass",
             price = 20,
             merchantSlot = 2,
-            -- subclassID deliberately absent from this legacy record.
+            -- subclassID deliberately absent — pre-HS-249 persisted record.
         },
     },
     itemCount = 2,
@@ -118,4 +127,4 @@ assert(item2Fields[#item2Fields] == "",
     "a legacy item with no subclassID must export an empty trailing field, got "
     .. "'" .. tostring(item2Fields[#item2Fields]) .. "'")
 
-print("i_row_subclass_export: v3 subclassID column ok")
+print("hs249_i_row_subclass_export: HS-285 I-row subclassID column ok")

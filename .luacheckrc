@@ -41,6 +41,7 @@ read_globals = {
     "CreateScrollBoxListLinearView",
     "CreateFramePool", "CreateUnsecuredRegionPoolInstance",
     "EventRegistry",
+    "EventUtil", -- HS-368: EventUtil.ContinueOnAddOnLoaded (Blizzard_SharedXML/EventUtil.lua)
     "GameFontHighlight", "GameFontHighlightSmall",
     "GameFontNormal", "GameFontNormalLarge", "GameFontNormalHuge2", "GameFontNormalSmall",
     "GameTooltip", "GameTooltip_Hide",
@@ -53,6 +54,7 @@ read_globals = {
     "InterfaceOptions_AddCategory",
     "Settings",
     "ShoppingTooltip1", "ShoppingTooltip2",
+    "ScrollBoxConstants",
     "ScrollUtil",
     "ScrollBoxListViewMixin",
     "TooltipDataProcessor",
@@ -90,7 +92,9 @@ read_globals = {
     "C_MajorFactions",
     "C_QuestLog",
     "C_Reputation",
+    "C_SpellBook",
     "C_SuperTrack",
+    "C_TaxiMap",  -- HS-347: flight point dodge candidates
     "C_Timer",
     "C_TooltipInfo",
     "C_TradeSkillUI",
@@ -101,6 +105,7 @@ read_globals = {
     "GetAchievementCriteriaInfo", "GetAchievementInfo",
     "GetItemCount", "GetItemInfo", "GetItemInfoInstant",
     "GetCoinTextureString",
+    "GetCVarBool",  -- HS-347: dungeon/delve entrance map-legend filter check
     "GetMerchantItemInfo", "GetMerchantItemLink", "GetMerchantNumItems",
     "GetLocale",
     "GetProfessions", "GetProfessionInfo", -- HS-158/160 professionRank requirements
@@ -136,4 +141,20 @@ ignore = {"21[23]"}  -- Ace3 callback patterns
 -- Vendored third-party libraries are linted in their own repos, not here. The
 -- Foundry-1.0 embed (HS-120) is the one tracked lib in Libs/; exclude the whole
 -- Libs/ tree so `luacheck .` covers only Homestead's own files.
-exclude_files = {"Libs/"}
+--
+-- luacheck doesn't honor .gitignore or skip dot-directories, so every other
+-- gitignored tree that can hold a dev-only, non-shipped .lua fragment needs
+-- an explicit exclude too, or the next dropped file re-breaks the lint gate.
+exclude_files = {
+    "Libs/",
+    ".worktrees/",
+    "Home_Dev/plans/",
+    "Home_Dev/reports/",
+    "Home_Dev/scan-data/",
+    "Home_Dev/tools/patch-discovery/output/",
+    "Home_Dev/scripts/att_cache/",
+    "Home_Dev/Homestead_Dev/",
+    "Home_Dev/.claude/reports/",
+    "Home_Dev/scripts/templates/",
+    "Home_Dev/scripts/verify-handynotes-export.lua",
+}

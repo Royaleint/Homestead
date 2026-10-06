@@ -16,7 +16,8 @@
     (before storage data loads), so SetUnowned is warm-gated on dataLoaded —
     the scanner never erases ownership from a cold read.
 
-    Strategy: Scan all known item IDs from VendorDatabase and scannedVendors,
+    Strategy: Scan all known item IDs from the static vendor tables (via the
+    VendorData facade) and scannedVendors,
     using the same API that tooltips use (GetCatalogEntryInfoByItem).
 ]]
 
@@ -56,13 +57,21 @@ local storageResponded = false
 -- releases it) and a build where only dataLoaded ever latches.
 local loginForceLoadAttempted = false
 local loginForceLoadPendingCombat = false
-local LOGIN_FORCE_LOAD_DELAY = 5 -- seconds; settle past loading-screen noise. Gate-2-tunable.
+-- True from the moment the login force-load's RunSearch() is issued until the
+-- HOUSING_STORAGE_UPDATED it forces arrives — the only way that handler can
+-- tell a login-synthesized event from a genuine one. Set solely on the
+-- RunSearch-success path (every earlier return leaves it false, so a search
+-- that never ran can never mark an event as forced) and consumed
+-- unconditionally by the next HOUSING_STORAGE_UPDATED, so it cannot latch on.
+local loginForcedStorageEventPending = false
+local LOGIN_FORCE_LOAD_DELAY = 5 -- seconds; settle past loading-screen noise. Tunable after live testing.
 -- Write-only by design: its only job is to hold a reference, never to be read.
 local pendingSearcher = nil -- luacheck: ignore 231
 
 -- Batching settings to prevent frame hitches
 local ITEMS_PER_BATCH = 20
 local BATCH_DELAY = 0.01 -- seconds between batches
+local SCAN_COMBAT_RETRY_DELAY = 1.0 -- seconds between combat re-checks at a batch boundary
 
 -------------------------------------------------------------------------------
 -- Ownership Detection
@@ -248,7 +257,17 @@ local function RequestScan()
             -- Scan in progress — flag for rescan when it finishes
             scanRequestedDuringActive = true
         else
-            CatalogScanner:ScanFullCatalog()
+            local started, cooldownRemaining = CatalogScanner:ScanFullCatalog()
+            if not started and cooldownRemaining then
+                -- HS-305: ScanFullCatalog was blocked by SCAN_COOLDOWN (the
+                -- completion-rescan case: a prior scan started <5s ago).
+                -- Re-arm through RequestScan's own debounce once the
+                -- remaining cooldown has elapsed instead of dropping the
+                -- request silently — matches ProcessBatch's own
+                -- retry-until-clear idiom below (combat lockdown), just
+                -- gated on cooldown instead of combat.
+                C_Timer.After(cooldownRemaining, RequestScan)
+            end
         end
     end)
 end
@@ -263,7 +282,10 @@ function CatalogScanner:ScanFullCatalog(callback)
     local currentTime = GetTime()
     if currentTime - lastScanTime < SCAN_COOLDOWN then
         HA.Addon:Debug("Catalog scan on cooldown")
-        return
+        -- HS-305: report how long until the cooldown clears so callers (see
+        -- RequestScan) can reschedule instead of treating this as a silent
+        -- drop of the request.
+        return false, SCAN_COOLDOWN - (currentTime - lastScanTime)
     end
 
     if not C_HousingCatalog then
@@ -302,6 +324,23 @@ function CatalogScanner:ScanFullCatalog(callback)
 
     -- Process items in batches to prevent frame hitches
     local function ProcessBatch()
+        -- A login or /reload forces a full ~1,600-item pass (see
+        -- RunLoginStorageForceLoad), which is ~85 batches of catalog probes and
+        -- store writes; landing those on combat frames because the player
+        -- reloaded mid-fight is exactly the hitch the batching exists to avoid.
+        -- Pause at the batch boundary and re-check until combat drops, matching
+        -- UI/BadgeCalculation.lua's warm-up ProcessBatch. Resumes rather than
+        -- restarts: currentIndex is untouched, so each item is still probed
+        -- once, and a scan that straddles the pause keeps the invalidation
+        -- semantics it already had — anything that fires a housing event
+        -- meanwhile coalesces into scanRequestedDuringActive and rescans on
+        -- completion (below), which is how a mid-scan change has always been
+        -- corrected.
+        if _G.InCombatLockdown() then
+            C_Timer.After(SCAN_COMBAT_RETRY_DELAY, ProcessBatch)
+            return
+        end
+
         local batchEnd = math.min(currentIndex + ITEMS_PER_BATCH - 1, totalItems)
 
         for i = currentIndex, batchEnd do
@@ -319,9 +358,6 @@ function CatalogScanner:ScanFullCatalog(callback)
                         if result.isOwned then
                             -- Full path for owned items
                             HA.CatalogStore:SetOwned(result.itemID, result.name or itemData.name, result.recordID)
-                            HA.CatalogStore:Save(result.itemID, {
-                                lastScanned = time(),
-                            })
                         else
                             -- Warm-gate: only erase ownership once storage data is
                             -- loaded. Cold reads are stale-0 and would wrongly clear
@@ -333,7 +369,6 @@ function CatalogScanner:ScanFullCatalog(callback)
                             HA.CatalogStore:Save(result.itemID, {
                                 decorID = result.recordID,
                                 name = result.name or itemData.name,
-                                lastScanned = time(),
                             })
                         end
                     end
@@ -385,48 +420,10 @@ function CatalogScanner:ScanFullCatalog(callback)
 
     -- Start the first batch
     ProcessBatch()
-end
-
--- Synchronous scan (for debugging - may cause frame hitch with large databases)
-function CatalogScanner:ScanFullCatalogSync()
-    if not C_HousingCatalog then
-        return 0, 0
-    end
-
-    local itemList = CollectAllKnownItemIDs()
-    local ownedCount = 0
-    local checkedCount = 0
-
-    for _, itemData in ipairs(itemList) do
-        if itemData.itemID then
-            local result = ScanItem(itemData.itemID)
-            if result then
-                checkedCount = checkedCount + 1
-                if result.isOwned then
-                    if HA.CatalogStore then
-                        HA.CatalogStore:SetOwned(result.itemID, result.name or itemData.name, result.recordID)
-                        HA.CatalogStore:Save(result.itemID, {
-                            lastScanned = time(),
-                        })
-                    end
-                    ownedCount = ownedCount + 1
-                elseif HA.CatalogStore then
-                    -- Warm-gate: only erase ownership once storage data is loaded
-                    -- (see ProcessBatch above and the dataLoaded comment).
-                    if dataLoaded and HA.CatalogStore:IsOwned(result.itemID) then
-                        HA.CatalogStore:SetUnowned(result.itemID)
-                    end
-                    HA.CatalogStore:Save(result.itemID, {
-                        decorID = result.recordID,
-                        name = result.name or itemData.name,
-                        lastScanned = time(),
-                    })
-                end
-            end
-        end
-    end
-
-    return ownedCount, checkedCount
+    -- HS-305: symmetric with the cooldown guard's explicit `false` above --
+    -- a caller can now tell "scan started" from "blocked" without inspecting
+    -- isScanning itself.
+    return true
 end
 
 -------------------------------------------------------------------------------
@@ -434,7 +431,7 @@ end
 -------------------------------------------------------------------------------
 
 -- Shared warm-latch check. Sole caller is the HOUSING_STORAGE_UPDATED handler
--- below (HS-276 Gate 2, cycle 2: an earlier draft also called this from the
+-- below (HS-276: an earlier draft also called this from the
 -- login-force-load path off a speculative pre-check; that path was removed
 -- entirely -- see RunLoginStorageForceLoad's own comment -- so this is once
 -- again the single latch site it was under HS-273). Body is copied VERBATIM
@@ -443,13 +440,13 @@ end
 -- tests/hs273_cold_prewarm_and_memo.lua; do not paraphrase.
 -- Returns nothing on purpose: callers must decide on the CURRENT value of
 -- dataLoaded/storageResponded, never on whether an edge flipped THIS call.
--- (Argus cycle 1: a this-call-edge decision on the login path created a
+-- (a this-call-edge decision on the login path created a
 -- searcher against storage that was already warm, and dangled pendingSearcher.)
 local function TryLatchWarmFromCounts()
     -- HS-273 R1: captured before the latch below runs, so the edge-fire
     -- guard just below can tell whether THIS call is dataLoaded's own
     -- false->true transition (this SITE fires at most once per session).
-    -- EVENT CONTRACT (Argus cycle-2 SF2): across BOTH fire sites in this
+    -- EVENT CONTRACT: across BOTH fire sites in this
     -- handler, HS_CATALOG_TRUE_WARM fires at least once and at most
     -- twice per session — a decor-owning player's first fully-loaded
     -- storage event trips both edges in one dispatch. Listeners must be
@@ -470,7 +467,7 @@ local function TryLatchWarmFromCounts()
 
     -- HS-273 R1: dataLoaded's own false->true edge is a true-warm signal
     -- in its own right, on top of storageResponded below — keeps the
-    -- re-warm-on-true-warm requirement (Gate 0 finding 2) covered even
+    -- re-warm-on-true-warm requirement covered even
     -- for a session where dataLoaded latches without storageResponded
     -- ever firing (e.g. GetDecorMaxOwnedCount unavailable this build).
     if dataLoaded and not dataLoadedBefore and HA.Events then
@@ -495,13 +492,13 @@ local function TryLatchWarmFromCounts()
 
     -- HS-276: storage has now answered -- release the GC-insurance hold (if
     -- any) on a pending login-force-load searcher object. A searcher is held
-    -- on EVERY login (Gate 2, cycle 2: the pre-check that used to skip it was
+    -- on EVERY login (an earlier pre-check that used to skip it was
     -- removed), so this function's own latch here is exactly what proves the
     -- HOUSING_STORAGE_UPDATED that searcher's RunSearch() forced has now
     -- dispatched -- this IS that event's handler. Gated on EITHER flag:
     -- gating on storageResponded alone stranded the hold for the whole
     -- session on a build where GetDecorMaxOwnedCount is unavailable and only
-    -- dataLoaded can latch (Argus cycle 3, pre-dates this redesign but still
+    -- dataLoaded can latch (pre-dates this redesign but still
     -- applies). Written on current state rather than a latch edge --
     -- assigning nil over nil is a no-op, so no edge tracking is needed.
     if storageResponded or dataLoaded then
@@ -546,16 +543,54 @@ local function SetupEventScanning()
                 -- scan instead of two separate ones.
                 RequestScan()
             end
+        elseif event == "HOUSING_DECOR_PLACE_SUCCESS" or event == "HOUSING_DECOR_REMOVED" then
+            -- HS-283: placement/removal only moves an item between
+            -- totalNumStored/remainingRedeemable/totalNumPlaced -- the sum
+            -- ComputeOwnedFromInfo checks for ownership never changes, and a
+            -- scan writes nothing else that placement/removal could affect
+            -- (isOwned, decorID, name, sourceText are all static per catalog
+            -- entry). A full ~220-vendor rescan on every decor placed/removed
+            -- during a decorating session is a wasted pass; skip it.
+            HA.Addon:Debug(event, "fired — ownership-neutral, skipping scan")
         else
             if event == "HOUSING_STORAGE_UPDATED" then
                 -- HS-276: latch logic lives in the shared TryLatchWarmFromCounts()
-                -- (see above) -- this is its sole caller (Gate 2, cycle 2). This
-                -- handler still unconditionally requests a scan below, exactly as
-                -- before the extraction.
+                -- (see above) -- this is its sole caller. This
+                -- handler still requests a scan below, subject only to the
+                -- zero-decor gate immediately after.
                 TryLatchWarmFromCounts()
+
+                -- Consumed unconditionally, and after the latch above: the flag
+                -- must never outlive the one event it describes, or a later
+                -- genuine event inherits the skip.
+                local loginForced = loginForcedStorageEventPending
+                loginForcedStorageEventPending = false
+
+                -- The login force-load synthesizes this event on every login
+                -- whether or not the account has anything to find. FORBIDS:
+                -- the ~1,600-probe rescan behind that forced event when the
+                -- API reports zero decor owned — every probe reads unowned and
+                -- dataLoaded cannot latch off a zero total, so the pass can
+                -- neither learn nor erase any ownership. (It would still
+                -- refresh cached names/sourceText; the housing UI's own
+                -- ADDON_LOADED scan and any genuine storage event both still
+                -- do that.) MUST NEVER BLOCK: a real storage change. It cannot
+                -- — a genuine event with no force-load in flight is not gated
+                -- at all, and the first decor an account ever acquires makes
+                -- the total nonzero, so its event scans like any other. Requires the accessor to exist AND answer 0;
+                -- a missing accessor is no information, and no information
+                -- scans.
+                if loginForced and C_HousingCatalog.GetDecorTotalOwnedCount
+                        and C_HousingCatalog.GetDecorTotalOwnedCount() == 0 then
+                    HA.Addon:Debug(event, "fired — login-forced with zero decor owned, skipping scan")
+                    return
+                end
             end
 
-            -- All housing events coalesce into a single debounced scan
+            -- HOUSING_STORAGE_UPDATED / NEW_HOUSING_ITEM_ACQUIRED coalesce
+            -- into a single debounced scan -- these can carry real ownership
+            -- changes (storage load, purchase/loot), unlike the
+            -- placement/removal pair above.
             HA.Addon:Debug(event, "fired — requesting scan")
             RequestScan()
         end
@@ -564,8 +599,8 @@ end
 
 -- HS-276: one-shot login force-load. Runs the actual force-load attempt --
 -- unconditionally calls CreateCatalogSearcher():RunSearch() to force housing
--- storage to load with no housing UI ever opened (HS-273 Gate 2 searcher
--- probe finding), whether or not storage already looks warm (Gate 2, see
+-- storage to load with no housing UI ever opened (HS-273 searcher-probe
+-- finding), whether or not storage already looks warm (see
 -- below for why no pre-check short-circuits this). Reschedules itself past
 -- combat rather than firing into it, matching the established project
 -- convention (UI/BadgeCalculation.lua's ProcessBatch combat-retry).
@@ -583,10 +618,10 @@ local function RunLoginStorageForceLoad()
         return
     end
 
-    -- No pre-check short-circuit (HS-276 Gate 2, second finding): an earlier
+    -- No pre-check short-circuit (HS-276, second finding): an earlier
     -- draft skipped the searcher here whenever GetDecorTotalOwnedCount/
     -- GetDecorMaxOwnedCount already read nonzero, treating that as proof
-    -- storage was fully warm. Gate 2 testing proved that's false -- those
+    -- storage was fully warm. Live testing proved that's false -- those
     -- aggregate counters can read nonzero while GetCatalogEntryInfoByItem is
     -- still stale-0 (a warm /reload reproduced this: Owned read 995 right
     -- after a cold login, then 0 on the very next reload), and confirmed
@@ -632,6 +667,11 @@ local function RunLoginStorageForceLoad()
     -- latches (the HOUSING_STORAGE_UPDATED this RunSearch() call triggers) --
     -- no separate timeout timer needed.
     pendingSearcher = searcher
+
+    -- The search is away; the HOUSING_STORAGE_UPDATED it forces is this
+    -- session's login-synthesized one. Set last, so none of the failure exits
+    -- above can attribute a genuine event to a search that never ran.
+    loginForcedStorageEventPending = true
 end
 
 -- Registers a SEPARATE frame from SetupEventScanning's -- that frame's
@@ -671,7 +711,7 @@ function CatalogScanner:IsWarm()
     return dataLoaded
 end
 
--- HS-273 (Gate 1 closure): whether storage answered AT ALL this session —
+-- HS-273 (closure note): whether storage answered AT ALL this session —
 -- the weak half of R1's two-flag split, exposed for consumers that need to
 -- distinguish "storage answered and the live total is zero" (a zero-decor
 -- player's CONFIRMED-true zero) from "storage never answered" (unknown).

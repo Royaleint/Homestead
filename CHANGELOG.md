@@ -2,6 +2,291 @@
 
 ---
 
+## Homestead v2.11.0 (09-27-2026)
+
+A new tooltip line for crafting reagents, a round of vendor price corrections for patch 12.1, and a cleaner Welcome screen and options panel.
+
+---
+
+## Tooltips
+
+**Reagent Recipe Usage**
+
+- Hovering a crafting reagent now shows how many known housing decor recipes you haven't collected yet use it, so you know what to hang onto before you sell it.
+
+---
+
+## Interface
+
+- Cleaned up the Welcome screen: fixed a few wrong icons, tightened the wording, and simplified the feedback section to point straight to GitHub for bugs and vendor corrections.
+- Removed outdated text about sharing scanned vendor data elsewhere. Scanning and exporting still work the same; only the old submission wording is gone.
+- Removed the "Show on auction house" option. It never did anything.
+
+---
+
+## Vendor Database
+
+**Corrections**
+
+- Corrected 41 vendor prices for patch 12.1, mostly at Draenor and Undermine vendors.
+
+**New and Updated Vendors**
+
+- Added 9 vendor offers that were missing, at vendors in Arcantina, Silvermoon City, and the Vaults of Atal'Utek.
+
+**Location Fixes**
+
+- Added sources for 5 decor items that had none: three from quests, and two from drops, including one from Ziekket in The Blinding Vale.
+
+---
+
+## Homestead v2.10.3 (09-16-2026)
+
+Vendor pins on more minimaps, a treasure badge in the housing catalog, and a batch of fixes for tooltips, vendor costs, and locked reputation items.
+
+---
+
+## Minimap
+
+**Vendor Pins on the Alternate Minimap**
+
+- Vendor pins now show on the alternate minimap the game switches to in some zones, not just the standard one.
+
+---
+
+## Housing Catalog
+
+**Treasure Badge**
+
+- Decor you haven't collected yet that comes from a treasure now shows a treasure badge in the housing catalog.
+
+---
+
+## Bug Fixes
+
+- Fixed items requiring a non-major faction's reputation always showing as locked, even when you had the required standing.
+- Fixed vendor costs sometimes showing a raw currency or item ID instead of its name.
+- Fixed tooltips occasionally showing an empty "[Homestead]" header with nothing underneath it.
+- Fixed the map side panel's search results not dimming properly when a filter excluded every matching item from a vendor.
+- Fixed an item you just collected occasionally staying uncollected until something else refreshed it.
+- Fixed decor from your professions sometimes keeping a wrong "can you make this" state even after you opened a profession window.
+
+---
+
+## Vendor Database
+
+**Corrections**
+
+- Removed a quest incorrectly listed as a source for **War Creche Teaching Crystal**. Its vendor source is unchanged.
+- **Filigree Moon Lamp** now shows the quest you need to complete to unlock it.
+
+---
+
+## Homestead v2.10.2 (09-08-2026)
+
+A window that remembers where you left it, a smoother map side panel, and a Russian localization update.
+
+---
+
+## Interface
+
+- Freshened up the look of the options panel tabs, the export window, and the map search box to match the in game style.
+
+---
+
+## Bug Fixes
+
+- Fixed the export/results window not always reopening in the same spot and size that you left it.
+
+---
+
+## Performance
+
+- Browsing the map side panel's vendor list feels smoother, especially with a long search or in a busy zone.
+
+---
+
+## Localization
+
+- Russian (ruRU) translations are now complete. Thanks Hubbotu on GitHub!
+
+---
+
+## Homestead v2.10.1 (09-01-2026)
+
+A vendor pin fix, a batch of vendor database corrections, and a bundled library update.
+
+---
+
+## Bug Fixes
+
+- Fixed two overlapping Shadow-Sage Brakoss pins in Stormshield Town Hall, one of them showing the wrong items.
+
+---
+
+## Library
+
+- Updated the bundled Foundry library to its current release.
+
+---
+
+## Vendor Database
+
+**Corrections**
+
+- Removed four achievements incorrectly listed as sources for decor items they don't actually award.
+
+**New and Updated Vendors**
+
+- **Disguised Decor Duel Vendor** (Silvermoon City): all 12 items now show their correct price in Voidlight Marl, following a recent in-game change.
+
+**Location Fixes**
+
+- Corrected which continent five vendor zones belong to, so their vendors are grouped and counted correctly.
+
+---
+
+## Performance
+
+- Homestead uses less memory while the map side panel is closed.
+- A small diagnostic tool was added for developers investigating memory usage.
+
+---
+
+## Homestead v2.10.0 (08-24-2026)
+
+Vendor price fixes, item details on vendor pin tooltips, unlock requirements on the house dashboard, and minimap fixes.
+
+---
+
+## Vendor Costs
+
+**More Accurate Prices**
+
+- Vendor prices now prioritize prices seen in your game over catalog data.
+- 135 items that previously showed no price now show one.
+
+**Corrections**
+
+- Restored Ironus Coldsteel's Valdrakken Sconce.
+- Fixed two of Captain Donald Adams' items showing a reputation-discounted price instead of the base price.
+- Removed 22 items from vendors that do not sell them.
+
+---
+
+## Vendor Pin Tooltips
+
+**Item Details**
+
+- Hovering an item on a vendor's pin now shows its price.
+- Icons now show other ways to get an item: profession, drop, quest, or achievement.
+- Tooltips now show how many items that vendor is your only source for.
+- Added a **Vendor pin item details** option to turn this off, in the Homestead options and the world map filter menu. Enabled by default.
+
+---
+
+## House Dashboard
+
+**Unlock Requirements**
+
+- Hovering a decor item now shows what you need to unlock it: a quest, achievement, profession, or level requirement.
+- Items Homestead has not mapped yet are labeled as such.
+
+---
+
+## Bug Fixes
+
+- Fixed minimap pins drawing over the game's indoor housing overlay.
+- Fixed minimap pins not updating when entering or leaving a building.
+- Fixed the **Show opposite faction vendors** option not updating the minimap immediately.
+- Removed an outdated slash command.
+
+---
+
+## Map Pins
+
+- Map pins now avoid dungeon entrances, flight points, and delve entrances.
+
+---
+
+## Homestead v2.9.0 (08-15-2026)
+
+A world map filter for hiding vendors you've fully collected, an endeavor pin fix, a batch of vendor price corrections following patch 12.1's currency rebalance, and a memory optimization pass.
+
+---
+
+## World Map Filters
+
+**Hide Fully-Collected Vendors**
+
+- Vendors whose housing decor you've fully collected can now be hidden from the map. Pins stay visible until you turn it on: uncheck **Fully-collected vendors** in the world map's filter menu, or tick **Hide fully-collected vendor pins** in the Homestead options panel. Minimap pins follow the same setting.
+
+---
+
+## Bug Fixes
+
+- Fixed Neighborhood Endeavor vendor pins staying visible even when no endeavor was active.
+
+---
+
+## Performance
+
+- Homestead uses noticeably less memory during a long play session.
+
+---
+
+## Vendor Database
+
+**Corrections**
+
+- **Irodalmin**: the Herbalist shop sign was priced at 50,000g instead of 5g. Fixed.
+- **The Last Architect**: was stored as a Horde vendor. He isn't faction-restricted, so Alliance players are no longer warned the vendor is off-limits.
+- Corrected around 40 vendor prices that patch 12.1 lowered across several currencies. Stored prices for those hadn't caught up.
+- Fixed a subzone name that displayed with a stray dash.
+
+---
+
+## Homestead v2.8.0 (08-11-2026)
+
+Updated for Patch 12.1 with the new housing vendors covered, support for every kind of housing merchandise (not just decor), and a major performance pass across the whole addon.
+
+---
+
+## Patch 12.1
+
+- Updated for Patch 12.1.
+- Added the new 12.1 housing vendors: the Razorwind Shores and Founder's Point lineups, The Coiled Isle, and the Vaults of Atal'Utek dungeon vendor, with prices in the new Corrosive Coin currency.
+- Added the four new Neighborhood Endeavor theme vendors: Amani, Maruuk Centaur, Tortollan, and Kobold themes.
+- Continent collection counts on the world map now include the new 12.1 zones.
+
+---
+
+## All Housing Merchandise
+
+- Homestead now recognizes everything housing vendors sell, not just decor. Room plans, dyes, room and exterior customizations, and service items are picked up by vendor scans, and shown alongside the rest of a vendor's stock in the side panel.
+- Map pins still count decor only. The new categories are left out for now but will be implemented later with hiding fully collected vendor pins.
+
+---
+
+## Performance
+
+- Fixed long freezes that could hit when buying decor, gaining reputation, or opening a profession window. thanks Tachioma, Cyburbacon and Cathtail from CF!
+- Fixed the remaining freeze when opening the world map for the first time after logging in or reloading.
+- Fixed hitches while visiting vendors, most noticeable in the housing neighborhoods.
+- Fixed sustained lag after looting, herbing, mining, or fishing. Profession, achievement, and reputation events now check whether anything that matters actually changed, and skip the work otherwise. Thanks Protuhj!
+- Opening your bags is snappier.
+- Scrolling the housing catalog is smoother.
+
+---
+
+## Bug Fixes
+
+- Fixed catalog badges not updating immediately after scanning a vendor, and ghost badges and stale search results sticking around after clearing scan data.
+- Fixed owned-decor counts sometimes reading slightly out of date after login until you opened the housing UI.
+- Fixed several items that were attributed to the wrong vendor. They now show under the vendor that actually sells them.
+
+---
+
 ## Homestead v2.7.2 (07-23-2026)
 
 Follow-up performance fix for the remaining stutter reports: quest hand-ins, world quests, and delves.

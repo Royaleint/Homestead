@@ -1,70 +1,109 @@
 # Homestead
 
-> **Current version:** v2.7.2 | TOC: 120007 | WoW Retail 12.0.7+
+A World of Warcraft housing addon for collectors who want answers, not interfaces.
 
-A World of Warcraft housing addon for collectors who want answers, not interfaces. Open your map and see exactly where to find the decor you're missing — no massive windows, no menus, no setup.
+I wanted one simple thing: open the map and see where to get the decor I'm missing. No giant windows, no setup. Homestead puts that information on the map, the minimap, and the tooltips you already use.
 
-## Features
+Built for Retail (Midnight).
 
-- **Map Pins** — Housing decor vendors pinned to your world map and minimap with full inventory tooltips on hover.
-- **Pin Colors** — Customize your pins with 10 color presets or a full RGB picker. Unverified vendors stay orange so you can spot them at a glance.
-- **Decor Availability** — Vendor pins, zone summaries, and the side panel break down each vendor's stock into three states: collected, available now, and locked behind reputation, quests, or profession requirements.
-- **Color-Coded Progress** — Collection progress bars fill in three colors: green for what you own, gold for what you can buy right now, and red for what's locked.
-- **Requirements on Hover** — Hover a vendor pin and see exactly what's blocking each locked item — the rep, quest, or profession you still need.
-- **Bag and Merchant Icons** — A housing-themed icon overlays decor items in your bags, bank, and at merchants — green when collected, red when not. Works with Blizzard's default UI, Baganator, and BetterBags.
-- **Ownership Tracking** — Items tracked globally, so ownership is accurate regardless of source — vendor purchase, quest reward, achievement unlock, or profession craft.
-- **Auto-Scanning** — Visit a vendor and Homestead automatically records what they sell, including prices and item requirements. Toggle this off in Options if you prefer.
-- **Multi-Source Database** — Vendors, quest rewards, achievement unlocks, profession recipes, and world drops tracked across all expansions from Classic through Midnight.
-- **Faction Filtering** — Opposite-faction vendors hidden by default. Toggle visibility in Options.
-- **Community Data Sharing** — Export your scanned vendor data and submit it to help fill gaps in the database. [Submit your export here](https://forms.gle/hap2Mn1GKhweu1vp9)
+## What It Does
+
+**On the map**
+
+- Decor vendors are pinned on your world map and minimap, including the alternate minimap some zones switch to.
+- Each vendor pin shows how many of their items you've collected (like "3/12"). Hover it to see every item they sell, colored by whether you own it, can buy it now, or it's still locked.
+- Decor that drops from a dungeon or raid boss gets its own pin next to that boss on the instance map, and at the dungeon entrance on the zone map.
+- Zone and continent badges show your progress across a whole region.
+- Holiday vendors show up while their event is running. Legion Order Hall vendors also get a pin at the Dalaran portal so you can find the way in.
+- The world map's filter menu has a Homestead section for turning each kind of pin on or off, and for hiding vendors you've fully collected.
+- Click a vendor pin to set a waypoint. Works with the game's own waypoints and with TomTom if you have it.
+- Opposite-faction vendors are shown with their faction emblem so you know before you travel. You can hide them in options.
+
+**The vendor panel**
+
+Click the Homestead button on the world map to open a panel listing every decor vendor in the zone you're looking at. Click a vendor to browse their stock, see what you still need, and preview any item in 3D.
+
+- Search for any decor item and see all of its sources: vendors, quests, achievements, professions, drops, and events.
+- Filter by source type.
+- A progress bar shows what you own (green), what you can buy right now (gold), and what's locked (red).
+- Locked items tell you exactly what's blocking them: the reputation, quest, achievement, or profession level you still need.
+- Use `/hs panel` or right-click the minimap button to pop the panel out into its own window that stays open without the map.
+
+**Tooltips and icons**
+
+- Decor tooltips show where an item comes from, what it costs, and what you need to unlock it.
+- Decor in your bags, bank, and at merchants gets a small housing icon: green if you've collected it, yellow in your bags if you haven't learned it yet, and red at merchants if you don't own it. Works with the default bags, Baganator, and BetterBags.
+- The Housing Catalog marks every item with its source type. A colored glow shows at a glance whether you own it, can get it now, or it's locked. Owned items can be highlighted, dimmed, checkmarked, or left alone.
+- Uncollected decor that comes from a treasure shows a treasure badge in the catalog.
+- In your profession window, recipes you know and can craft right now get a Homestead badge if you haven't collected that decor yet.
+- The Endeavors tab of the Housing Dashboard shows how much XP you need for the next milestone, and how much of the current Endeavor vendor's stock you've collected.
+
+**Your collection**
+
+Homestead reads ownership from the game's own housing catalog, so an item counts as collected no matter where you got it: a vendor, a quest, an achievement, a drop, or a craft. If two vendors sell the same item, buying it from either one marks it owned on both.
+
+The database covers vendors from Classic through Midnight, plus quest rewards, achievements, profession recipes, drops, treasures, holiday events, and in-game shop items.
+
+## Vendor Scanning
+
+When you open a vendor that sells housing items, Homestead records what they sell, including prices and requirements. Your map pins and tooltips then show that vendor's current stock and prices.
+
+Don't want it? Turn off **Auto-scan vendors** in the General tab of the options.
 
 ## Installation
 
-1. Download from [CurseForge](https://www.curseforge.com/wow/addons/homestead-wow) or [Wago](https://addons.wago.io/addons/homestead)
-2. Or extract manually to `World of Warcraft/_retail_/Interface/AddOns/Homestead`
-3. Enable in your addon list and `/reload`
+1. Install from [CurseForge](https://www.curseforge.com/wow/addons/homestead-wow) or [Wago](https://addons.wago.io/addons/homestead).
+2. Or download a release and extract it to `World of Warcraft/_retail_/Interface/AddOns/Homestead`.
+3. Enable it in your addon list and `/reload`.
 
 ## Commands
 
-| Command | Description |
+`/hs` and `/homestead` both work.
+
+| Command | What it does |
 |---------|-------------|
-| `/hs` | Open options panel |
-| `/hs scan` | Refresh your ownership cache |
-| `/hs vendor [name]` | Search for a decor vendor by name |
-| `/hs vendors` | List scanned vendor data |
+| `/hs` | Open the options panel |
+| `/hs help` | List every command |
 | `/hs panel` | Toggle the detached vendor panel |
-| `/hs refreshmap` | Refresh all map pins |
-| `/hs corrections` | Show detected NPC ID corrections |
-| `/hs export` | Export scanned vendor data for sharing |
+| `/hs vendor [name]` | Search for a decor vendor by name or zone |
+| `/hs waypoint` | Clear the current map waypoint (also `/hs wp`) |
+| `/hs scan` | Rescan the housing catalog for items you own |
+| `/hs refreshmap` | Refresh the world map pins |
+| `/hs export` | Open the export window for your scanned vendor data |
+| `/hs exportall` | Export all your scanned vendor data as text |
+| `/hs clearscans` | Clear your scanned vendor data |
 | `/hs welcome` | Reopen the welcome screen |
-| `/hs whatsnew` | Reopen the latest What's New screen |
-| `/hs debug` | Toggle debug mode (useful for bug reports) |
+| `/hs whatsnew` | Reopen the What's New screen |
+| `/hs version` | Show your version. Add `on` or `off` to toggle update notices |
+| `/hs debug` | Toggle debug mode (handy for bug reports) |
 
-## How It Works
+## Options
 
-Homestead tracks your housing decor collection across your entire account. When you acquire a decor item from any source like buying from a vendor, completing a quest, or earning an achievement it's recorded and reflected everywhere. If two vendors sell the same item, buying from either one marks it as owned on both.
+Type `/hs` or left-click the minimap button. Settings are split into General, Overlays, Tooltips, World Map, Minimap, Endeavors, and Export tabs.
 
-Visit any decor vendor and Homestead will automatically scan their inventory, recording items, prices, and requirements. This data shows up in map pin tooltips so you always know what a vendor sells before you travel there. This helps us keep the database up-to-date! Not interested in this? Disable vendor scanning in /hs config
+A few worth knowing about:
 
-## Known Limitations
+- **Pin color**: 10 presets or a custom color picker.
+- **Pin size**: separate sliders for world map and minimap pins.
+- **Show opposite faction vendors**: on by default.
+- **Hide fully-collected vendor pins**: off by default.
+- **Owned item style**: how collected items look in the Housing Catalog.
 
-- **First Login** — Some ownership data may not appear until you open the Housing Catalog UI once per session. After that, everything stays accurate.
-- **Data Gaps** — A small number of vendors may have incomplete item lists while we gather scan data. These are marked "unverified" on the map.
+## Translations
 
-## Contributing
+Homestead ships with German, French, Spanish (Spain and Mexico), Brazilian Portuguese, Korean, Simplified Chinese, and Russian. Russian is a complete community translation. The others are machine-translated, and anything untranslated shows in English. Corrections are welcome on GitHub.
 
-Community-scanned vendor data is welcome! Use `/hs export` and submit via [GitHub Issues](https://github.com/Royaleint/Homestead/issues).
+## Reporting Bugs
 
-When reporting bugs, include the vendor name, zone, what you expected vs. what the addon showed, and your character's faction.
+Found a bug or a wrong vendor? Open a [GitHub issue](https://github.com/Royaleint/Homestead/issues) with the vendor name, zone, your faction, and what you expected versus what Homestead showed. If it's an error or a performance problem, turn on `/hs debug` first and include what it prints.
 
 ## Acknowledgments
-
-Vendor and item data verified against [WoW Housing Hub](https://housing.wowdb.com) — an invaluable community resource for housing decor tracking.
 
 Special thanks to Azro, author of [HomeDecor](https://www.curseforge.com/wow/addons/homedecor), for being open to sharing ideas and suggestions for improvements.
 
 ### Libraries
 
+- [Foundry](https://github.com/Royaleint/Foundry)
 - [CallbackHandler](https://www.wowace.com/projects/callbackhandler)
 - [LibDataBroker](https://www.wowace.com/projects/libdatabroker-1-1)
 - [LibStub](https://www.wowace.com/projects/libstub)

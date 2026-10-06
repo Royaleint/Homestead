@@ -101,4 +101,22 @@ end
 assert(providerSource:find("local mapDataProvider = nil", 1, true) ~= nil,
     "expected mapDataProvider to be declared as a file-scope local")
 
+-- 11. Perf cleanup: zoom-tick allocation churn. RequestSettledRefresh's timer
+-- callback must be a named, hoisted function reused across NewTimer calls
+-- (not a fresh inline closure allocated on every zoom tick), and the
+-- per-pin rescale loop in OnCanvasScaleChanged must query the zoom
+-- multiplier once per tick rather than once per pin.
+assert(providerSource:find("C_Timer.NewTimer(WATCHER_SETTLE_DELAY, OnSettleTimerFire)", 1, true) ~= nil,
+    "expected RequestSettledRefresh to pass the hoisted OnSettleTimerFire function to NewTimer, "
+    .. "not an inline closure")
+
+local scaleChangedBody = providerSource:match(
+    "function mapDataProviderMethods:OnCanvasScaleChanged%(%)(.-)\nend")
+assert(scaleChangedBody, "OnCanvasScaleChanged body not found")
+assert(scaleChangedBody:find("GetZoomScaleMultiplier()", 1, true) ~= nil,
+    "expected OnCanvasScaleChanged to call GetZoomScaleMultiplier() once per tick")
+assert(scaleChangedBody:find("GetEntryZoomedScale(active.kind, renderState.mapType, zoomScaleMultiplier)", 1, true) ~= nil,
+    "expected the per-pin loop to pass the once-per-tick zoomScaleMultiplier into GetEntryZoomedScale, "
+    .. "not let it re-derive WorldMapFrame's zoom state per pin")
+
 print("hs275_map_data_provider: HS-275 pin-less map data provider structural pins ok")

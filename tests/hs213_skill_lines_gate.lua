@@ -185,11 +185,13 @@ professionState.primary2 = { name = "Leatherworking", skillLevel = 25, maxSkillL
 capturedFrame.handler(capturedFrame, "SKILL_LINES_CHANGED")
 assert(invalidateCalls() == 3, "a profession-set change that flips a verdict must invalidate")
 
--- ACHIEVEMENT_EARNED stays unconditional — HS-283 only gated
--- SKILL_LINES_CHANGED's changed-fingerprint path, TRAIT_CONFIG_UPDATED, and
--- NEW_RECIPE_LEARNED.
+-- HS-283 (second pass) gated ACHIEVEMENT_EARNED too, but a fire with no
+-- payload (as below) is a non-number achievementID, which fails open and
+-- still invalidates — see tests/hs238_invalidation_gates.lua for coverage
+-- of the gated (real achievementID, cache-probe, and verify-then-skip)
+-- cases this file doesn't exercise.
 capturedFrame.handler(capturedFrame, "ACHIEVEMENT_EARNED")
-assert(invalidateCalls() == 4, "ACHIEVEMENT_EARNED must remain unconditional")
+assert(invalidateCalls() == 4, "ACHIEVEMENT_EARNED with a non-number payload must fail open and invalidate")
 
 -- NEW_RECIPE_LEARNED is now gated too (HS-283) — with every seeded baseline
 -- already re-verified as current (the ACHIEVEMENT_EARNED wipe above doesn't

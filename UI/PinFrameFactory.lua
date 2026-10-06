@@ -145,7 +145,7 @@ function PinFrameFactory:CreateVendorPinFrame(vendor, isOppositeFaction)
     -- atlases are all large-panel textures, not pin icons) — shipping an
     -- unverified atlas string risks a silently blank icon. Default: reuse
     -- the housing-vendor atlas with a gold/amber tint (guaranteed to render).
-    -- CANDIDATE ATLASES for Rawb's Gate 2 visual pass (UNVERIFIED — none
+    -- CANDIDATE ATLASES for the live-testing visual pass (UNVERIFIED — none
     -- confirmed to exist; probe in-game first with e.g.
     -- /run print(C_Texture.GetAtlasInfo("professions-icon-crafting") ~= nil)
     -- for each candidate before wiring one in):
@@ -306,13 +306,13 @@ function PinFrameFactory:RefreshVendorPinCount(frame, vendor, reason)
     -- below to skip repainting an unchanged "..." placeholder.
     local wasPending = frame.hsStatsPending
 
-    -- HS-271 Gate 1 cycle 1 CRITICAL fix: two-tier peek. The prewarm only
+    -- HS-271 (CRITICAL fix): two-tier peek. The prewarm only
     -- ever warms "all"-filter cache keys (BadgeCalculation's vendor-stats
     -- batch always calls GetVendorStats(vendor, "all")), but a render can be
     -- under any active filter — peeking ONLY the active filter's key against
     -- an "all"-only-warmed cache meant a non-"all" filter's placeholder
-    -- never healed (permanent divergence, not just a slow fill). Gate 1
-    -- cycle 2 correction: an "all" hit does NOT mean per-item presentations
+    -- never healed (permanent divergence, not just a slow fill). A later
+    -- correction: an "all" hit does NOT mean per-item presentations
     -- are cached — GetItemPresentation/GetAllSources are not memoized, so
     -- BuildVendorStats still allocates fresh presentation tables per item
     -- synchronously here. What "all" being warm buys is the requirement-met
@@ -342,7 +342,7 @@ function PinFrameFactory:RefreshVendorPinCount(frame, vendor, reason)
         -- NOT called when reason == "fill_double_miss" (the
         -- HS_VENDOR_STATS_WARMED listener below): that event only fires
         -- mid-pass, so this call could only ever schedule a redundant
-        -- rerun, never start a healing pass (Gate 1 cycle 2).
+        -- rerun, never start a healing pass (per review).
         if reason ~= "fill_double_miss" and HA.BadgeCalculation and HA.BadgeCalculation.RequestPrewarm then
             HA.BadgeCalculation:RequestPrewarm(reason or "cold_pin_render")
         end
@@ -679,48 +679,23 @@ end
 function PinFrameFactory:CreateMinimapPinFrame(vendor, isOppositeFaction, elevation)
     local frame = CreateFrame("Frame", nil, UIParent)
 
-    local mmSize = self:GetMinimapIconSize()
-    frame:SetSize(mmSize, mmSize)
     frame:EnableMouse(true)
-
     frame:SetFrameStrata("BACKGROUND")
     frame:SetFrameLevel(1)
-
-    local br, bg, bb = self:GetPinColor()
-    local isCustomColor = self:IsCustomPinColor()
 
     -- Housing icon
     frame.icon = frame:CreateTexture(nil, "ARTWORK")
     frame.icon:SetPoint("CENTER")
-    frame.icon:SetSize(mmSize, mmSize)
     frame.icon:SetAtlas("housing-decor-vendor_32", false)
-    if isOppositeFaction then
-        frame.icon:SetDesaturated(true)
-        frame.icon:SetVertexColor(0.6, 0.6, 0.6, 0.9)
-    elseif isCustomColor then
-        frame.icon:SetDesaturated(true)
-        frame.icon:SetVertexColor(br, bg, bb, PinFrameFactory.DESAT_ALPHA)
-    end
 
-    -- Elevation arrow for cross-floor vendors
+    -- Elevation arrow shell for cross-floor vendors. Size, anchor/texcoord
+    -- (direction), and tint are all style, applied by ApplyMinimapPinStyle
+    -- whenever the frame is handed out for use.
     if elevation then
         frame.elevation = elevation
-        local arrowDim = math.max(math.floor(mmSize * 1.75), 20)
         local arrow = frame:CreateTexture(nil, "OVERLAY")
-        arrow:SetSize(arrowDim, arrowDim)
         arrow:SetAtlas("Rotating-MinimapGuideArrow")
         arrow:SetDesaturated(true)
-        if isCustomColor then
-            arrow:SetVertexColor(br, bg, bb, 1.0)
-        else
-            arrow:SetVertexColor(1, 0.82, 0, 1.0)
-        end
-        if elevation == "above" then
-            arrow:SetPoint("CENTER", frame, "TOP", 0, 3)
-        else
-            arrow:SetTexCoord(0, 1, 1, 0)
-            arrow:SetPoint("CENTER", frame, "BOTTOM", 0, -3)
-        end
         frame.elevationArrow = arrow
     end
 
@@ -746,6 +721,49 @@ function PinFrameFactory:CreateMinimapPinFrame(vendor, isOppositeFaction, elevat
     end)
 
     return frame
+end
+
+-- Mutate-in-place restyle: size, icon tint, and (if the frame has an
+-- elevation arrow shell) arrow size/anchor/texcoord/tint. Called every time
+-- a minimap pin frame is handed out for use — fresh construct or pool hit —
+-- so a reused frame never carries stale style from before a settings change
+-- (HS-358; see HomesteadMinimapOverlay.lua's AcquireFrame).
+function PinFrameFactory:ApplyMinimapPinStyle(frame, isOppositeFaction, elevationDirection)
+    local mmSize = self:GetMinimapIconSize()
+    frame:SetSize(mmSize, mmSize)
+    frame.icon:SetSize(mmSize, mmSize)
+
+    local br, bg, bb = self:GetPinColor()
+    local isCustomColor = self:IsCustomPinColor()
+
+    if isOppositeFaction then
+        frame.icon:SetDesaturated(true)
+        frame.icon:SetVertexColor(0.6, 0.6, 0.6, 0.9)
+    elseif isCustomColor then
+        frame.icon:SetDesaturated(true)
+        frame.icon:SetVertexColor(br, bg, bb, PinFrameFactory.DESAT_ALPHA)
+    else
+        frame.icon:SetDesaturated(false)
+        frame.icon:SetVertexColor(1, 1, 1, 1)
+    end
+
+    local arrow = frame.elevationArrow
+    if arrow then
+        local arrowDim = math.max(math.floor(mmSize * 1.75), 20)
+        arrow:SetSize(arrowDim, arrowDim)
+        if isCustomColor then
+            arrow:SetVertexColor(br, bg, bb, 1.0)
+        else
+            arrow:SetVertexColor(1, 0.82, 0, 1.0)
+        end
+        if elevationDirection == "above" then
+            arrow:SetTexCoord(0, 1, 0, 1)
+            arrow:SetPoint("CENTER", frame, "TOP", 0, 3)
+        else
+            arrow:SetTexCoord(0, 1, 1, 0)
+            arrow:SetPoint("CENTER", frame, "BOTTOM", 0, -3)
+        end
+    end
 end
 
 -------------------------------------------------------------------------------

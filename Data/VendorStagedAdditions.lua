@@ -9,7 +9,7 @@
     Loads after VendorIdentity.lua and VendorOffers.lua (see TOC); the
     tables attach to those modules and the identity indexes are rebuilt
     so staged vendors appear on map pins. Every row carries
-    unverified = true until in-game verification (Gate 2 / live scan).
+    unverified = true until in-game verification (live scan).
 
     First promotion: HS-153, 2026-07-07 (77 offers, 1 vendor identity).
 ]]

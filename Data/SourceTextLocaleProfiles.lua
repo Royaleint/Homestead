@@ -21,12 +21,14 @@ SourceTextLocaleProfiles.Profiles = {
         -- Source type prefixes (first line of each block)
         sourceTypes = {
             ["Vendor:"] = "vendor",
+            ["Vendors:"] = "vendor",
             ["Quest:"] = "quest",
             ["Achievement:"] = "achievement",
             ["Profession:"] = "profession",
             ["Drop:"] = "drop",
             ["Event:"] = "event",
             ["Holiday:"] = "event",
+            ["Treasure:"] = "treasure",
         },
         -- Field prefixes (subsequent lines within a block)
         fields = {

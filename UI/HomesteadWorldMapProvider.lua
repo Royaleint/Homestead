@@ -70,8 +70,8 @@ local watcherStats = {
     resized = 0,
     zoomChanged = 0,
     deferredRefreshes = 0,
-    -- HS-234 cycle 1 SUGGESTION: settled refreshes get their own counter
-    -- rather than sharing deferredRefreshes, so Gate 2 can read how many
+    -- HS-234 (SUGGESTION): settled refreshes get their own counter
+    -- rather than sharing deferredRefreshes, so live testing can read how many
     -- transition-triggered refreshes actually happened post-settle
     -- (distinct from watcher_opened's same-frame deferredRefreshes) when
     -- tuning WATCHER_SETTLE_DELAY.
@@ -299,6 +299,39 @@ local function GetEntryDodgeSeed(entry)
     return 1
 end
 
+-- Pixel offset (not a normalized map-coordinate one — see
+-- MapPinProvider.PlaceNativePin's comment for why) that keeps EJ-anchored
+-- drop pins (boss position and dungeon-entrance groups) a constant screen
+-- distance from Blizzard's own pin at the same coordinate, toward the
+-- bottom-right, at every zoom level.
+local EJ_DROP_PIN_OFFSET_PIXELS = 10
+
+-- HS-348: shared predicate for "this entry is an EJ-anchored drop pin" —
+-- used to apply the fixed EJ_DROP_PIN_OFFSET_PIXELS offset
+-- (GetEjDropPinIconOffset below) and, in ApplyAreaPoiDodge, to skip the POI
+-- dodge entirely for these entries (ruling 2026-08-18: the fixed offset
+-- owns placement alone, see ApplyAreaPoiDodge).
+local function IsEjAnchoredDropPin(entry)
+    return entry.sourceType == "drop"
+        and (entry.dropGroupKind == "enc" or entry.dropGroupKind == "ent")
+end
+
+-- Fail-soft hardening (HS-347/348 review, 2026-08-18): mirrors
+-- VendorMapPins.lua's IsFiniteNumber (used by its own BuildEntrancePositions/
+-- BuildEncounterPositions) -- a NaN coordinate from any dodge candidate
+-- source would otherwise silently invert the `closestDist > collisionThreshold`
+-- guard in ApplyAreaPoiDodge (NaN comparisons are false both ways), making
+-- EVERY pin on the map dodge.
+local function IsFiniteNumber(n)
+    return type(n) == "number" and n == n  -- NaN != NaN
+end
+
+local function InsertPoiCandidate(target, x, y)
+    if IsFiniteNumber(x) and IsFiniteNumber(y) then
+        target[#target + 1] = { x = x, y = y }
+    end
+end
+
 local function GetPoiPositionsForMap(mapID)
     if cachedPoiMapID == mapID and cachedPoiPositions then
         return cachedPoiPositions
@@ -309,29 +342,108 @@ local function GetPoiPositionsForMap(mapID)
     -- Query BOTH regular POIs and event POIs — they use separate APIs.
     -- Regular: C_AreaPoiInfo.GetAreaPOIForMap (quest hubs, portals, etc.)
     -- Events: C_AreaPoiInfo.GetEventsForMap (Saltheril's Soiree, Abundance, etc.)
-    -- Both are data API calls — taint-safe.
-    local poiIDs = C_AreaPoiInfo and C_AreaPoiInfo.GetAreaPOIForMap and C_AreaPoiInfo.GetAreaPOIForMap(mapID)
-    if poiIDs then
+    -- Both are data API calls — taint-safe. The list queries are
+    -- pcall-protected (per review) so a throwing list API degrades to zero
+    -- candidates from that source instead of aborting the render pass; the
+    -- per-item detail/guard calls below (GetAreaPOIInfo) are not wrapped.
+    -- ok==false below means either the API is absent (C_AreaPoiInfo and
+    -- ...Fn evaluated to nil, so pcall(nil, mapID) fails) or the call threw
+    -- — both degrade to no candidates from this source.
+    local okPoi, poiIDs = pcall(C_AreaPoiInfo and C_AreaPoiInfo.GetAreaPOIForMap, mapID)
+    if okPoi and poiIDs then
         for _, poiID in ipairs(poiIDs) do
             local info = C_AreaPoiInfo.GetAreaPOIInfo(mapID, poiID)
             if info and info.position then
-                cachedPoiPositions[#cachedPoiPositions + 1] = {
-                    x = info.position.x,
-                    y = info.position.y,
-                }
+                InsertPoiCandidate(cachedPoiPositions, info.position.x, info.position.y)
             end
         end
     end
 
-    local eventIDs = C_AreaPoiInfo and C_AreaPoiInfo.GetEventsForMap and C_AreaPoiInfo.GetEventsForMap(mapID)
-    if eventIDs then
+    -- Same absent-or-threw idiom as the pcall above.
+    local okEvent, eventIDs = pcall(C_AreaPoiInfo and C_AreaPoiInfo.GetEventsForMap, mapID)
+    if okEvent and eventIDs then
         for _, eventID in ipairs(eventIDs) do
             local info = C_AreaPoiInfo.GetAreaPOIInfo(mapID, eventID)
             if info and info.position then
-                cachedPoiPositions[#cachedPoiPositions + 1] = {
-                    x = info.position.x,
-                    y = info.position.y,
-                }
+                InsertPoiCandidate(cachedPoiPositions, info.position.x, info.position.y)
+            end
+        end
+    end
+
+    -- HS-347: extend the dodge candidate pool with the three POI classes
+    -- HS-319 found it blind to. Same availability-guard discipline as the
+    -- two queries above -- all three are taint-safe data API calls -- plus
+    -- the same pcall-wrapping as those two.
+    --
+    -- Accuracy bound: Flight Points are Blizzard's own nudge TARGETS in the
+    -- general case (FlightPointDataProvider.lua:71, SetNudgeTargetFactor(0.015))
+    -- and Dungeon Entrances are nudge SOURCES
+    -- (DungeonEntranceDataProvider.lua:47-48, SetNudgeSourceRadius(1) +
+    -- SetNudgeSourceMagnitude(2, 2)) -- Blizzard's own nudge system can
+    -- already be displacing their rendered position from these raw data
+    -- coordinates before this dodge ever runs, so the dodge is approximate
+    -- for those two classes. Area POI / Event POI / Delve Entrance carry no
+    -- nudge settings at all (grep for "nudge" across AreaPOIDataProvider.lua
+    -- and SharedMapPoiTemplates.lua returns zero matches), so raw data
+    -- position == rendered position for those three.
+    if C_EncounterJournal and C_EncounterJournal.GetDungeonEntrancesForMap
+            and GetCVarBool("showDungeonEntrancesOnMap") then
+        local ok, dungeonEntrances = pcall(C_EncounterJournal.GetDungeonEntrancesForMap, mapID)
+        if ok and dungeonEntrances then
+            for _, entranceInfo in ipairs(dungeonEntrances) do
+                -- VendorMapPins.lua's BuildEntrancePositions reads this same
+                -- API's position via :GetXY() rather than .x/.y field access
+                -- -- matching that proven precedent here.
+                local pos = entranceInfo.position
+                if pos and pos.GetXY then
+                    local ex, ey = pos:GetXY()
+                    InsertPoiCandidate(cachedPoiPositions, ex, ey)
+                end
+            end
+        end
+    end
+
+    if C_TaxiMap and C_TaxiMap.GetTaxiNodesForMap and C_TaxiMap.ShouldMapShowTaxiNodes
+            and C_TaxiMap.ShouldMapShowTaxiNodes(mapID) then
+        local ok, taxiNodes = pcall(C_TaxiMap.GetTaxiNodesForMap, mapID)
+        if ok and taxiNodes then
+            -- Mirrors FlightPointDataProviderMixin:ShouldShowTaxiNode
+            -- (FlightPointDataProvider.lua:46-56) -- a faction-locked node
+            -- only renders for that faction's own player. MapTaxiNodeInfo's
+            -- faction field is non-nilable (TaxiMapDocumentation.lua:122);
+            -- the neutral case is Enum.FlightPathFaction.Neutral (0), which
+            -- always renders -- it isn't a nil-faction special case.
+            local factionGroup = UnitFactionGroup("player")
+            for _, taxiNodeInfo in ipairs(taxiNodes) do
+                local showsForFaction
+                if taxiNodeInfo.faction == Enum.FlightPathFaction.Horde then
+                    showsForFaction = factionGroup == "Horde"
+                elseif taxiNodeInfo.faction == Enum.FlightPathFaction.Alliance then
+                    showsForFaction = factionGroup == "Alliance"
+                else
+                    showsForFaction = true
+                end
+                -- Same :GetXY() precedent as dungeon entrances above --
+                -- taxiNodeInfo.position is the same BaseMapPoiPinMixin-family
+                -- Vector2 shape (both pin mixins read poiInfo.position via
+                -- :GetXY() in SharedMapPoiTemplates.lua:80).
+                local pos = taxiNodeInfo.position
+                if showsForFaction and pos and pos.GetXY then
+                    local tx, ty = pos:GetXY()
+                    InsertPoiCandidate(cachedPoiPositions, tx, ty)
+                end
+            end
+        end
+    end
+
+    if C_AreaPoiInfo and C_AreaPoiInfo.GetDelvesForMap and GetCVarBool("showDelveEntrancesOnMap") then
+        local ok, delveIDs = pcall(C_AreaPoiInfo.GetDelvesForMap, mapID)
+        if ok and delveIDs then
+            for _, delveID in ipairs(delveIDs) do
+                local info = C_AreaPoiInfo.GetAreaPOIInfo(mapID, delveID)
+                if info and info.position then
+                    InsertPoiCandidate(cachedPoiPositions, info.position.x, info.position.y)
+                end
             end
         end
     end
@@ -344,6 +456,14 @@ local function ApplyAreaPoiDodge(entry, x, y)
         return x, y
     end
     if not entry then
+        return x, y
+    end
+
+    -- HS-348 (ruling 2026-08-18): an EJ-anchored drop pin is placed by
+    -- the fixed EJ_DROP_PIN_OFFSET_PIXELS offset alone (GetEjDropPinIconOffset
+    -- below) -- letting the POI dodge also fire stacked a random-direction
+    -- nudge on top of that deliberate, tested-and-cleared offset.
+    if IsEjAnchoredDropPin(entry) then
         return x, y
     end
 
@@ -396,16 +516,8 @@ local function ApplyAreaPoiDodge(entry, x, y)
            Clamp01(y + (direction[2] * nudgePixels) / height)
 end
 
--- Pixel offset (not a normalized map-coordinate one — see
--- MapPinProvider.PlaceNativePin's comment for why) that keeps EJ-anchored
--- drop pins (boss position and dungeon-entrance groups) a constant screen
--- distance from Blizzard's own pin at the same coordinate, toward the
--- bottom-right, at every zoom level.
-local EJ_DROP_PIN_OFFSET_PIXELS = 10
-
 local function GetEjDropPinIconOffset(entry)
-    if entry.sourceType == "drop"
-            and (entry.dropGroupKind == "enc" or entry.dropGroupKind == "ent") then
+    if IsEjAnchoredDropPin(entry) then
         return EJ_DROP_PIN_OFFSET_PIXELS, -EJ_DROP_PIN_OFFSET_PIXELS
     end
     return nil, nil
@@ -454,20 +566,27 @@ end
 -- HS-274: pins hold GetEntryDisplayScale's base size at min zoom and grow
 -- toward PIN_ZOOM_GROWTH_MAX as the canvas zooms in, matching Blizzard's own
 -- pin growth feel (MapCanvasPinMixin:ApplyCurrentScale's Lerp shape) instead
--- of a flat size. Both constants are a Gate-2-tunable design choice, not a
+-- of a flat size. Both constants are a tunable design choice, not a
 -- mechanism -- safe to retune without re-review.
 local PIN_ZOOM_GROWTH_MAX = 1.5
 local PIN_ZOOM_SCALE_FACTOR = 1.0
 
-local function GetEntryZoomedScale(kind, mapType)
-    local base = GetEntryDisplayScale(kind, mapType)
-
+-- Perf: split out so a caller rescaling many pins in the same tick (the
+-- OnCanvasScaleChanged loop below) can query WorldMapFrame once and pass the
+-- result to GetEntryZoomedScale for every pin, instead of paying
+-- HasZoomLevels()/GetCanvasZoomPercent() again per pin.
+local function GetZoomScaleMultiplier()
     if not WorldMapFrame or not WorldMapFrame:HasZoomLevels() then
-        return base
+        return 1.0
     end
 
     local zoomPct = WorldMapFrame:GetCanvasZoomPercent()
-    return base * Lerp(1.0, PIN_ZOOM_GROWTH_MAX, Saturate(PIN_ZOOM_SCALE_FACTOR * zoomPct))
+    return Lerp(1.0, PIN_ZOOM_GROWTH_MAX, Saturate(PIN_ZOOM_SCALE_FACTOR * zoomPct))
+end
+
+local function GetEntryZoomedScale(kind, mapType, zoomScaleMultiplier)
+    local base = GetEntryDisplayScale(kind, mapType)
+    return base * (zoomScaleMultiplier or GetZoomScaleMultiplier())
 end
 
 local function RequestDeferredRefresh(reason)
@@ -516,8 +635,21 @@ end
 -- user action) — the extra ~100ms of margin against real click cadences
 -- costs nothing perceptible for the single-deliberate-transition case,
 -- where it's still well under human-perceptible "did that lag" territory.
--- Gate 2 can tune this down if 0.15s is shown to settle spam reliably.
+-- Live testing can tune this down if 0.15s is shown to settle spam reliably.
 local WATCHER_SETTLE_DELAY = 0.25
+
+-- Perf: hoisted out of RequestSettledRefresh so re-scheduling (Cancel +
+-- NewTimer on every zoom tick, dozens/sec while zooming) reuses this one
+-- function value instead of allocating a fresh closure per tick.
+local function OnSettleTimerFire()
+    settleTimer = nil
+    local VMP = HA.VendorMapPins
+    if VMP and VMP.RefreshPins then
+        VMP:RefreshPins(true)
+    elseif isRegistered and Provider and Provider.RefreshAllData then
+        Provider:RefreshAllData()
+    end
+end
 
 local function RequestSettledRefresh(reason)
     watcherStats.settledRefreshes = watcherStats.settledRefreshes + 1
@@ -529,15 +661,7 @@ local function RequestSettledRefresh(reason)
         settleTimer:Cancel()
     end
 
-    settleTimer = C_Timer.NewTimer(WATCHER_SETTLE_DELAY, function()
-        settleTimer = nil
-        local VMP = HA.VendorMapPins
-        if VMP and VMP.RefreshPins then
-            VMP:RefreshPins(true)
-        elseif isRegistered and Provider and Provider.RefreshAllData then
-            Provider:RefreshAllData()
-        end
-    end)
+    settleTimer = C_Timer.NewTimer(WATCHER_SETTLE_DELAY, OnSettleTimerFire)
 end
 
 -- HS-275: identity kept so a future RemoveDataProvider call has a stable
@@ -631,8 +755,12 @@ function mapDataProviderMethods:OnCanvasScaleChanged()
     -- to rescale yet, so skip rather than walk a stale activeEntries.
     if renderState then
         MPP.RepositionWorldMapPins()
+        -- Perf: query WorldMapFrame's zoom state once per tick instead of
+        -- once per pin -- GetEntryZoomedScale would otherwise re-derive the
+        -- same HasZoomLevels()/GetCanvasZoomPercent() result for every entry.
+        local zoomScaleMultiplier = GetZoomScaleMultiplier()
         for _, active in ipairs(activeEntries) do
-            active.frame:SetScale(GetEntryZoomedScale(active.kind, renderState.mapType))
+            active.frame:SetScale(GetEntryZoomedScale(active.kind, renderState.mapType, zoomScaleMultiplier))
         end
     end
 
@@ -1045,19 +1173,19 @@ end
 -- case: the default style/faction/source-type bucket every kind resolves
 -- to before any player style customization.
 --
--- Floor sizes are density-derived (HS-271 Gate 0): 16 vendor (Razorwind
+-- Floor sizes are density-derived (HS-271): 16 vendor (Razorwind
 -- Shores, the densest zone), 10 badge (continent zone-badge view), 6 source
 -- (drop pins -- the only populated non-vendor source type today). Only the
 -- DEFAULT bucket is pre-built -- a mid-session pin-style change before first
 -- open still pays its own CreateFrame cost for that combination (accepted
--- scope boundary, Plan Gate 1 item 1: the floor is a floor, not a guarantee
+-- scope boundary, noted in planning: the floor is a floor, not a guarantee
 -- for every style combination).
 --
--- No portal floor (Gate 1 cycle 1: removed entirely, not sized to 0 as a
+-- No portal floor (removed entirely, not sized to 0 as a
 -- count — GetPortalFramePoolKey's synthetic empty portalData never matches
 -- a REAL portal acquire's key (class-keyed off vendor.class), and portal
 -- pins don't appear on the freeze-class dense maps this item targets — a
--- floor that can never be drawn from is dead weight, not a floor.
+-- floor that can never be drawn from is dead weight, not a floor).
 --
 -- Frames are pushed straight into the pool via ReleasePooledFrame (never
 -- rendered) -- this reuses the SAME pool-key functions and CreateFrame
@@ -1135,7 +1263,7 @@ function Provider:PrewarmPoolFloor()
             local poolKey, pool, createFunc = BuildPoolFloorJob(kind)
             local frame = createFunc()
             if kind == "vendor" then
-                -- HS-271 Gate 1 cycle 1 nit: CreateVendorPinFrame's own
+                -- HS-271 (nit): CreateVendorPinFrame's own
                 -- RefreshVendorPinCount call (for the synthetic {} vendor
                 -- above) is a double miss by construction (no npcID) and
                 -- sets hsStatsPending=true — harmless (RequestPrewarm is

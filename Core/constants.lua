@@ -14,8 +14,8 @@ local Constants = HA.Constants
 -------------------------------------------------------------------------------
 -- Version Info
 -------------------------------------------------------------------------------
-Constants.VERSION = "2.7.2"
-Constants.RELEASE_DATE = "2026-07-23"   -- ISO YYYY-MM-DD. Bump alongside VERSION.
+Constants.VERSION = "2.11.0"
+Constants.RELEASE_DATE = "2026-09-27"   -- ISO YYYY-MM-DD. Bump alongside VERSION.
 Constants.ADDON_NAME = "Homestead"
 Constants.ADDON_SHORT = "HS"
 Constants.WELCOME_SEEN_VERSION_MAX = 4
@@ -45,6 +45,7 @@ Constants.Icons = {
     DROP_SOURCE = "Interface\\ICONS\\INV_Misc_Bone_Skull_01",
     QUEST_REWARD = "Interface\\GossipFrame\\AvailableQuestIcon",
     REPUTATION = "Interface\\ICONS\\Achievement_Reputation_01",
+    TREASURE_SOURCE = "Interface\\ICONS\\INV_Misc_Treasurechest01",
 
     -- Special status icons
     HAS_DYE_SLOTS = "Interface\\ICONS\\INV_Inscription_Pigment_Bug01",
@@ -72,6 +73,7 @@ Constants.SourceBadgeAtlas = {
     drop        = "Crosshair_lootall_64",
     shop        = "hearthsteel-icon-32x32",
     hearthsteel = "hearthsteel-icon-32x32",
+    treasure    = "VignetteLoot",
 }
 
 -------------------------------------------------------------------------------
@@ -188,15 +190,18 @@ Constants.ZoneToContinentMap = {
     [27] = 13,
     [32] = 13,
     [36] = 13,
+    [47] = 13,     -- Duskwood (HS-393; scan V-row chain 47;13)
     [48] = 13,
     [50] = 13,     -- Northern Stranglethorn
     [56] = 13,
     [57] = 13,
+    [62] = 12,     -- Darkshore (HS-393)
     [69] = 12,
     [70] = 12,
     [71] = 12,     -- Tanaris
     [77] = 12,     -- Felwood
     [80] = 12,     -- Moonglade (Lunar Festival vendor)
+    [81] = 12,     -- Silithus (HS-393; Chamber of Heart interior is 1473 below)
     [84] = 13,
     [85] = 12,
     [87] = 13,
@@ -328,7 +333,11 @@ Constants.ZoneToContinentMap = {
     [2437] = 2537, -- Zul'Aman (Midnight)
     [2444] = 2537, -- Slayer's Rise (Midnight)
     [2472] = 2274, -- Tazavesh
+    [2509] = 2537, -- Vaults of Atal'Utek (12.1 dungeon; UiMap parent 2512 per DB2)
+    [2512] = 2537, -- The Coiled Isle (12.1; continentMapID 2537 per client scan V-rows)
+    [2541] = 2537, -- Arcantina (HS-393; V-row chain 2541;2537)
     [2576] = 2537, -- The Den / Harandar sub-zone (Midnight)
+    [2599] = 2537, -- Umbral Base Camp (HS-393; V-row chain 2599;2405;2537, parent Founder's Point)
     [2694] = 2537, -- Harandar (Midnight)
     [15958] = 2537, -- Voidstorm (Midnight)
 }
@@ -485,6 +494,7 @@ Constants.Defaults = {
             useNativeWaypoints = true,
             autoWaypoint = false,
             showVendorDetails = true,
+            showVendorPinItemDetails = true,  -- HS-074B: gates the HS-074/HS-074B pin-tooltip enrichment (icons, cost column, vendor-only count) as a unit
             navigateModifier = "shift",  -- shift, ctrl, alt, or none
             showOppositeFaction = true,  -- Show vendors for opposite faction with faction emblem
             pinColorPreset = "default",              -- Color preset key or "custom"
@@ -501,6 +511,7 @@ Constants.Defaults = {
             sidePanelHeight = nil,                     -- Saved detached height for /reload restore
             showEventVendors = true,                   -- Show seasonal event vendor pins when events are active
             -- showUnverifiedVendors removed: no vendors use the unverified flag
+            hideCompletedVendorPins = false,            -- HS-022: hide map/minimap pins for fully-collected vendors
         },
 
         -- HS-231: per-source world-map/minimap pin visibility, exposed via
@@ -532,9 +543,6 @@ Constants.Defaults = {
         },
     },
     global = {
-        -- Cross-character data
-        vendorVisited = {},
-        dyeRecipesKnown = {},
         -- Scanned vendor data from VendorScanner
         scannedVendors = {},  -- [npcID] = { npcID, name, mapID, coords, decor, ... }
         -- Persistent no-decor vendor tracking (survives ClearScannedData)

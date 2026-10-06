@@ -99,17 +99,30 @@ local HA = {
 assert(loadfile(root .. "/Data/SourceManager.lua"))("Homestead", HA)
 HA.SourceManager:Initialize()
 
-local invalidationFrame
+local invalidationFrame, tradeSkillShowFrame
 for _, frame in ipairs(createdFrames) do
     if frame.events["SKILL_LINES_CHANGED"] then invalidationFrame = frame end
+    if frame.events["TRADE_SKILL_SHOW"] then tradeSkillShowFrame = frame end
 end
 assert(invalidationFrame, "invalidation frame not created")
 assert(invalidationFrame.events["TRAIT_CONFIG_UPDATED"], "TRAIT_CONFIG_UPDATED not registered")
 assert(invalidationFrame.events["NEW_RECIPE_LEARNED"], "NEW_RECIPE_LEARNED not registered")
+assert(tradeSkillShowFrame, "TRADE_SKILL_SHOW frame not created")
 
 local function send(event, ...)
     invalidationFrame.scripts.OnEvent(invalidationFrame, event, ...)
 end
+
+-- HS-306: this test's whole premise is a trade skill window that's ready
+-- throughout (tradeSkillWindowReady = true above) -- under the corrected
+-- model that alone no longer means C_TradeSkillUI's data has loaded; only a
+-- TRADE_SKILL_SHOW fire does. Simulate the window having been opened once
+-- already so the profession-availability baseline this file's assertions
+-- (7)/(9) depend on can actually get captured. The load fire itself
+-- triggers one legitimate invalidate (real HS-306 behavior); reset the
+-- counter afterward since that transition isn't what this file is testing.
+tradeSkillShowFrame.scripts.OnEvent(tradeSkillShowFrame)
+invalidationFires = 0
 
 -------------------------------------------------------------------------------
 -- (1) professionRank ipairs nil-hole fix: Fishing sits at slot 4, past the

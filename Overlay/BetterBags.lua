@@ -90,9 +90,8 @@ local function RefreshWidgets()
     -- HS-239: one of the two external_bag_refresh call sites (Baganator.lua
     -- is the other). Workload is "betterbags", the same literal already used
     -- as this refresher's RegisterExternalRefresher key.
-    HA.PerformanceTrace:Measure("external_bag_refresh", "betterbags", function()
-        eventsModule:SendMessage("bags/FullRefreshAll")
-    end)
+    HA.PerformanceTrace:Measure("external_bag_refresh", "betterbags",
+        eventsModule.SendMessage, eventsModule, "bags/FullRefreshAll")
 end
 
 -------------------------------------------------------------------------------

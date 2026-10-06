@@ -46,6 +46,7 @@ Data\CatalogStore.lua
 Data\AchievementSources.lua
 Data\QuestSources.lua
 Data\ProfessionSources.lua
+Data\ReagentIndex.lua
 Data\EventSources.lua
 Data\DropSources.lua
 Data\ShopSources.lua
@@ -95,10 +96,14 @@ UI\OptionsFrame.lua
 UI\MapPinProvider.lua
 UI\HomesteadWorldMapProvider.lua
 UI\HomesteadMinimapOverlay.lua
+UI\HybridMinimapProvider.lua
 UI\MinimapButton.lua
+UI\MinimapPinCollect.lua
 UI\BadgeCalculation.lua
+UI\BadgeEmission.lua
 UI\SearchProvider.lua
 UI\MapSidePanel.lua
+UI\VendorPinTooltips.lua
 UI\VendorMapPins.lua
 UI\Options.lua
 

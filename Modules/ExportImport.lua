@@ -39,19 +39,11 @@ local exportDialogFrame = nil
 local function CreateExportDialog()
     if exportDialogFrame then return exportDialogFrame end
 
-    local f = CreateFrame("Frame", "HomesteadExportDialog", UIParent, "BackdropTemplate")
+    local f = CreateFrame("Frame", "HomesteadExportDialog", UIParent, "DefaultPanelTemplate")
     f:SetSize(280, 130)
     f:SetPoint("CENTER")
     f:SetFrameStrata("DIALOG")
     EnableSafeEscapeClose(f)
-    f:SetBackdrop({
-        bgFile = "Interface/Tooltips/UI-Tooltip-Background",
-        edgeFile = "Interface/Tooltips/UI-Tooltip-Border",
-        edgeSize = 16,
-        insets = {left = 4, right = 4, top = 4, bottom = 4},
-    })
-    f:SetBackdropColor(0, 0, 0, 0.95)
-    f:SetBackdropBorderColor(0.6, 0.6, 0.6, 1)
     f:EnableMouse(true)
     f:SetMovable(true)
     f:RegisterForDrag("LeftButton")
@@ -59,13 +51,11 @@ local function CreateExportDialog()
     f:SetScript("OnDragStop", f.StopMovingOrSizing)
 
     -- Title
-    local title = f:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
-    title:SetPoint("TOP", 0, -15)
-    title:SetText(L["Export Vendor Data"] or "Export Vendor Data")
+    f.TitleContainer.TitleText:SetText(L["Export Vendor Data"] or "Export Vendor Data")
 
     -- Description
     local desc = f:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-    desc:SetPoint("TOP", title, "BOTTOM", 0, -8)
+    desc:SetPoint("TOP", f.TitleContainer, "BOTTOM", 0, -8)
     desc:SetWidth(250)
     desc:SetText(L["Choose export option:"] or "Choose export option:")
 
@@ -241,14 +231,17 @@ local function IsDelistCandidate(vendor, npcID)
         return false
     end
 
-    -- Ask whether the last scan found any housing item, not only decor. A
-    -- vendor selling room plans, dyes, or customizations has valid stock even
-    -- when lastScanHadDecor is false. Treating that as an empty vendor would
-    -- suppress its item rows and incorrectly mark it for removal.
+    -- HS-250: ask whether the last scan found any HOUSING item, not whether it
+    -- found decor. A vendor selling only room plans, dyes or customizations
+    -- scans successfully and captures items, but lastScanHadDecor is false for
+    -- it — correctly, since it sells no decor. Reading that as "this vendor had
+    -- nothing" emitted a delist row and suppressed every item row below, so the
+    -- stock we had just captured never reached the pipeline while the pipeline
+    -- was told to consider retiring the vendor.
     --
     -- Records saved before lastScanHadHousing existed fall back to the decor
     -- flag, which on those records IS the housing answer: decor was the only
-    -- subclass those records could represent.
+    -- subclass the pre-HS-249 capture gate could see.
     local hadHousing = vendor.lastScanHadHousing
     if hadHousing == nil then
         hadHousing = vendor.lastScanHadDecor
@@ -290,16 +283,21 @@ function ExportImport:ExportScannedVendors(fullExport, exportAll)
 
     table.insert(output, EXPORT_PREFIX .. "\n")
     table.insert(output, "# exportFormatVersion: 3\n")
-    -- Stamp the client build so each export records the version that produced it.
+    -- Client build stamps every export so the data pipeline reads the live
+    -- build from scans instead of external checkouts that lag hotfix builds.
     local clientVersion, clientBuild = GetBuildInfo()
     if clientVersion and clientBuild then
         table.insert(output, "# clientBuild: " .. clientVersion .. "." .. clientBuild .. "\n")
     end
-    -- Append housingCount so existing positional TSV column indexes remain
-    -- unchanged.
+    -- HS-251 Stage C: housingCount appended at the END of the row. This is
+    -- positional TSV and other columns are indexed by position downstream, so
+    -- a mid-row insert would break every existing consumer; append-only is
+    -- the only safe way to extend it.
     table.insert(output, "# V: npcID\tname\tmapID\tx\ty\tfaction\ttimestamp\titemCount\tdecorCount\tzone\tsubZone\trealZone\tparentMapID\tcontinentMapID\texpansion\tcurrency\tmapChain\tscanConfidence\thousingCount\n")
-    -- v3 appends subclassID so existing positional TSV column indexes remain
-    -- unchanged.
+    -- HS-285: subclassID appended at the END of the row, same append-only
+    -- rule HS-251 Stage C established for the V-row's housingCount — this is
+    -- positional TSV and other columns are indexed by position downstream, so
+    -- a mid-row insert would break every existing consumer.
     table.insert(output, "# I: npcID\titemID\tname\tprice\tcostData\tisUsable\tisPurchasable\tspellID\trequirements\tdecorID\tmerchantSlot\thasExtendedCost\tsubclassID\n")
     table.insert(output, "# D: npcID\tname\tmapID\tx\ty\tzone\ttimestamp (vendor in DB but scanned with 0 housing items)\n")
 
@@ -325,7 +323,7 @@ function ExportImport:ExportScannedVendors(fullExport, exportAll)
         -- Handle vendors with no decor items
         if shouldProcess and IsDelistCandidate(vendor, npcID) then
             -- Vendor is in our DB but scanned with 0 housing items — flag for
-            -- review. This is housing-wide, not decor-only; a vendor selling
+            -- review. HS-250: housing-wide, not decor-only; a vendor selling
             -- only room plans or dyes is stock, not an empty vendor.
             shouldProcess = false
             skipReason = "delist"
@@ -382,9 +380,12 @@ function ExportImport:ExportScannedVendors(fullExport, exportAll)
                 SanitizeExportField(vendor.currency or ""),
                 (vendor.mapChain and #vendor.mapChain > 0) and table.concat(vendor.mapChain, ";") or "",
                 tostring(vendor.scanConfidence or "unknown"),
-                -- Legacy records without housingCount use decorCount because decor
-                -- was their only represented housing subclass; #items is the final
-                -- fallback for records with neither count.
+                -- HS-251 Stage C: a housing-only (non-decor) vendor's total stock was
+                -- invisible to anything reading only V-rows, since this column used
+                -- to be decorCount's job alone. Same fallback idiom decorCount already
+                -- uses: pre-housing-gate records have no housingCount, and decorCount
+                -- IS the housing count on those (decor was the only subclass the old
+                -- gate could see); #items is the last resort for a record with neither.
                 vendor.housingCount or vendor.decorCount or #items
             )
             table.insert(output, vendorLine)

@@ -20,6 +20,12 @@
 
 local _, HA = ...
 
+-- HS-300: existing idiom for reaching Foundry from a Homestead module
+-- (core.lua:14, UI/MapSidePanel.lua:18, UI/OptionsFrame.lua:11). F is never
+-- nil here: Core/core.lua:14-17 errors at load if Foundry is absent, and
+-- core.lua (Homestead.toc:33) loads before this file (Homestead.toc:43).
+local F = _G.Foundry_1_0
+
 local CatalogStore = {}
 HA.CatalogStore = CatalogStore
 
@@ -198,13 +204,11 @@ end
 -- rawSourceText is optional and dev-only (Homestead_Dev's /hsdev exportsources
 -- diagnostic) — SourceTextScanner passes it only when HA.DevAddon is loaded,
 -- so it never affects a normal player's SavedVariables size.
-function CatalogStore:SetSources(itemID, sources, hash, rawSourceText)
+function CatalogStore:SetSources(itemID, sources, rawSourceText)
     if not ci or not itemID then return end
 
     _save(itemID, {
         sources = sources,
-        sourceHash = hash,
-        lastParsed = time(),
         rawSourceText = rawSourceText,
     })
 
@@ -601,6 +605,19 @@ function CatalogStore:GetGeneration()
     return negativeGeneration
 end
 
+-- HS-282: dev-only debug accessor exposing this module's runtime caches to
+-- the /hs debug membudget walker. Read-only references, never mutated by
+-- the caller. Persisted SavedVariables tables (catalogItems etc.) are read
+-- directly from self.db.global by the caller -- this covers only the
+-- in-memory-only caches layered on top of them.
+function CatalogStore:GetDebugCacheTables()
+    return {
+        identityNegativeCache = identityNegativeCache,
+        identityPositiveCache = identityPositiveCache,
+        housingSubclassCache = housingSubclassCache,
+    }
+end
+
 -------------------------------------------------------------------------------
 -- Maintenance
 -------------------------------------------------------------------------------
@@ -680,6 +697,39 @@ end
 -- Migrations (sequential, schema-versioned)
 -------------------------------------------------------------------------------
 
+-- HS-300: recursive deep copy for the temporary legacy-chain backup. A v5 or
+-- corrupt stored version needs this snapshot before v6 removes its keys; v7
+-- deletes the backup at the end of that migration chain. No recovery surface
+-- remains after migration.
+local function deepCopy(value)
+    if type(value) ~= "table" then return value end
+    local out = {}
+    for k, v in pairs(value) do out[k] = deepCopy(v) end
+    return out
+end
+
+-- HS-300: the five keys the v6 migration destroys. The legacy-chain snapshot
+-- and v6 migration share this list; v7 removes the snapshot after the chain.
+local V6_DROPPED_KEYS = { "vendorVisited", "dyeRecipesKnown", "discoveredAliases",
+                          "decorIDValidation", "enableRequirementScraping" }
+
+-- HS-300: snapshot ONLY the keys v6 destroys, once, before ANY migration runs.
+-- Lives in RunMigrations (not in Migration_5_to_6) because the corrupt-stamp
+-- repair replays the chain from 1 and a snapshot taken inside 5→6 would then
+-- capture data already rewritten by 1→5. Only-if-absent so a replay never
+-- overwrites a good backup with post-migration state. Undeclared on purpose:
+-- Foundry's logout strip only walks declared defaults (DB.lua:255-272), so an
+-- undeclared key survives logout; declaring it would get it stripped.
+local function WriteV5Backup(global, fromVersion)
+    if global.__v5Backup ~= nil then return end
+    local keys = {}
+    for _, k in ipairs(V6_DROPPED_KEYS) do
+        if global[k] ~= nil then keys[k] = deepCopy(global[k]) end
+    end
+    global.__v5Backup = { keys = keys, fromVersion = fromVersion,
+                          savedAt = time(), addonVersion = HA.Constants.VERSION }
+end
+
 -- Migration 1→2: Backfill from parsedSources
 local function Migration_1_to_2(db)
     local global = db.global
@@ -717,7 +767,6 @@ local function Migration_1_to_2(db)
                     end
                     local record = ci[item.itemID]
                     record.name = record.name or item.name
-                    record.lastScanned = record.lastScanned or time()
                 end
             end
         end
@@ -821,7 +870,7 @@ local function Migration_4_to_5(db)
                 end
 
                 -- Preserve dev raw sourceText regardless of which side won
-                -- (Argus HS-205 cycle 1): the common dual-write-era state is
+                -- (HS-205): the common dual-write-era state is
                 -- EQUAL hashes, where takeParsed is false — copying raw only
                 -- inside that branch destroyed the whole dev raw corpus in the
                 -- common case while the stamp rewrite below deletes data.raw.
@@ -860,6 +909,52 @@ local function Migration_4_to_5(db)
     end
 end
 
+-- Migration 5→6: drop five dead/orphaned db.global keys (HS-300) —
+-- vendorVisited, dyeRecipesKnown (declared, zero references repo-wide),
+-- discoveredAliases (reader-only orphan, its writer is retired in this
+-- ticket), decorIDValidation (write-only dev report, no reader), and
+-- enableRequirementScraping (already nil'd every load at core.lua:83,
+-- folded into the schema here). Does NOT touch catalogItems — the `ci`
+-- upvalue is bound to it before RunMigrations runs, and a table swap here
+-- would strand every later read against the old table.
+--
+-- Idempotent (nil of nil is a no-op): a second run finds every key already
+-- nil and simply re-stamps schemaVersion to 6. The pre-migration values (if
+-- any existed) were already captured by WriteV5Backup at the top of
+-- RunMigrations, before this or any earlier migration ran.
+local function Migration_5_to_6(db)
+    local global = db.global
+    for _, k in ipairs(V6_DROPPED_KEYS) do
+        global[k] = nil
+    end
+
+    global.schemaVersion = 6
+
+    if HA.Addon then
+        HA.Addon:Debug("CatalogStore: Migration 5→6 complete")
+    end
+end
+
+-- Migration 6→7: drop per-record scan and source stamps that are either
+-- obsolete or now owned by scannedVendors and parsedSources respectively.
+-- Keep catalogItems in place because `ci` is already bound to that table.
+local V7_DROPPED_RECORD_KEYS = { "lastScanned", "sourceHash", "lastParsed" }
+
+local function Migration_6_to_7(db)
+    local global = db.global
+    for _, record in pairs(global.catalogItems or {}) do
+        for _, k in ipairs(V7_DROPPED_RECORD_KEYS) do
+            record[k] = nil
+        end
+    end
+    global.__v5Backup = nil
+    global.schemaVersion = 7
+
+    if HA.Addon then
+        HA.Addon:Debug("CatalogStore: Migration 6→7 complete")
+    end
+end
+
 function CatalogStore:RunMigrations()
     if not HA.Addon or not HA.Addon.db then return end
     local db = HA.Addon.db
@@ -883,6 +978,22 @@ function CatalogStore:RunMigrations()
         db.global.schemaVersion = version
     end
 
+    -- HS-300 no-downgrade guard. A newer stamp means a newer client wrote this
+    -- file; running nothing and stamping nothing keeps the file byte-intact for
+    -- the client that owns it. Fail loud (precedent core.lua:267). HS-344 will
+    -- replace this with Foundry.DB's schema seam. On a DevBuild F:RaiseDevError
+    -- throws instead of returning (Foundry.lua:44-51), so this `return` is only
+    -- reached on release builds; a dev build fails loud out of Initialize by
+    -- design, same precedent as core.lua:264.
+    if version > 7 then
+        F:RaiseDevError("CatalogStore: SavedVariables schemaVersion " .. version
+            .. " is newer than this build supports (7); migrations skipped.")
+        return
+    end
+    if version < 6 then
+        WriteV5Backup(db.global, version)
+    end
+
     if version < 2 then
         Migration_1_to_2(db)
     end
@@ -897,6 +1008,14 @@ function CatalogStore:RunMigrations()
 
     if version < 5 then
         Migration_4_to_5(db)
+    end
+
+    if version < 6 then
+        Migration_5_to_6(db)
+    end
+
+    if version < 7 then
+        Migration_6_to_7(db)
     end
 end
 
@@ -938,7 +1057,7 @@ function CatalogStore:Initialize()
     end
 end
 
--- HS-273 R3 (predicate corrected at Gate 1 closure): whether the persistent
+-- HS-273 R3 (predicate corrected in review): whether the persistent
 -- cache holds an OWNERSHIP SIGNAL worth computing badge stats from. Record
 -- presence is not that signal: a cold full scan writes name-only records for
 -- every item ("Checked: 1624 Owned: 0", HS-216), and the /hs clear-ownership
@@ -953,7 +1072,7 @@ end
 -- (IsWarm true, ownedCount still 0) and stays gated to the honest "..."
 -- until the scan records ownership. Not "IsWarm or" — that polarity is
 -- unreachable for the zero-decor player and opens exactly the wrong window
--- (Argus Gate 1 closure finding).
+-- (caught in review).
 function CatalogStore:HasPersistedData()
     if ci == nil then return false end
     if ownedCount > 0 then return true end

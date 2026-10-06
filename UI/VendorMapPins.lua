@@ -21,21 +21,17 @@ local VendorMapPins = {}
 HA.VendorMapPins = VendorMapPins
 
 -- Local references
-local Constants = HA.Constants
 local MPP = HA.MapPinProvider
 local WorldMapProvider = HA.HomesteadWorldMapProvider
 local MinimapOverlay = HA.HomesteadMinimapOverlay
 
 -- Upvalued Lua stdlib
 local pairs, ipairs = pairs, ipairs
-local tinsert = table.insert
 local format = string.format
-local unpack = unpack
 
 -- State
 local isInitialized = false
 local pinsEnabled = true
-local PIN_TOOLTIP_NAME = "HomesteadVendorMapPinsTooltip"
 
 local highlightedPinFrame = nil
 local highlightOverlay = nil
@@ -46,6 +42,7 @@ local highlightOriginalFrameLevel = nil
 -- Pin color/size helpers delegated to PinFrameFactory (loaded before this file)
 -- Vendor filter/coord helpers resolved in Initialize() to avoid load-order fragility.
 local ShouldHideVendor
+local ShouldHideCompletedVendorPin
 local GetBestVendorCoordinates
 local ShouldShowOppositeFaction
 local CanAccessVendor
@@ -54,7 +51,6 @@ local GetVendorXY
 
 -- Badge/collection helpers delegated to BadgeCalculation (loaded before this file)
 local BC = HA.BadgeCalculation
-local GetContinentForZone = MPP.GetContinentForZone
 
 -- HS-018: read the active side-panel source filter, with a defensive fallback
 -- to "all" if MapSidePanel isn't loaded yet (e.g. early init before panel module
@@ -67,6 +63,12 @@ local function GetActiveSourceFilter()
         return panel:GetSourceFilter() or "all"
     end
     return "all"
+end
+
+-- HS-301: cross-file accessor for VendorPinTooltips.lua, which needs the
+-- active source filter but has no other reason to depend on MapSidePanel.
+function VendorMapPins:GetActiveSourceFilter()
+    return GetActiveSourceFilter()
 end
 
 -------------------------------------------------------------------------------
@@ -112,6 +114,37 @@ local function SetMapFilterSourceEnabled(sourceKey, enabled)
     end
 end
 
+-- HS-317: "Fully-collected vendors" entry in the same Homestead menu
+-- section, SHOW-semantics matching Blizzard's filter idiom (checked =
+-- shown). Reads/writes the HS-022 vendorTracer.hideCompletedVendorPins
+-- flag the options panel row (OptionsModel.lua) already owns, inverted —
+-- checked here means the flag is NOT set.
+local function IsCompletedVendorPinsShown()
+    local vendorTracer = HA.Addon and HA.Addon.db and HA.Addon.db.profile.vendorTracer
+    return not (vendorTracer and vendorTracer.hideCompletedVendorPins)
+end
+
+local function SetCompletedVendorPinsShown(shown)
+    local vendorTracer = HA.Addon and HA.Addon.db and HA.Addon.db.profile.vendorTracer
+    if not vendorTracer then return end
+    vendorTracer.hideCompletedVendorPins = not shown
+end
+
+-- HS-074B: "Vendor pin item details" entry in the same Homestead menu
+-- section, mirroring the options panel row (OptionsModel.lua) that owns
+-- vendorTracer.showVendorPinItemDetails. Same two-surface pattern as
+-- IsCompletedVendorPinsShown/SetCompletedVendorPinsShown above.
+local function IsVendorPinItemDetailsShown()
+    local vendorTracer = HA.Addon and HA.Addon.db and HA.Addon.db.profile.vendorTracer
+    return not vendorTracer or vendorTracer.showVendorPinItemDetails
+end
+
+local function SetVendorPinItemDetailsShown(shown)
+    local vendorTracer = HA.Addon and HA.Addon.db and HA.Addon.db.profile.vendorTracer
+    if not vendorTracer then return end
+    vendorTracer.showVendorPinItemDetails = shown
+end
+
 -- Minimap pins enabled state
 local minimapPinsEnabled = true
 
@@ -122,16 +155,6 @@ local WORLDMAP_REFRESH_DEFAULT_DELAY = 0.02
 local MINIMAP_REFRESH_DEFAULT_DELAY = 0.15
 local MINIMAP_REFRESH_ZONE_DELAY = 0.35
 local MINIMAP_WARMUP_DELAY = 0.9
-local MINIMAP_WARMUP_PIN_CAP = 28
-
--- Pin caps reduce work in dense hubs while preserving nearby visibility.
-local MINIMAP_PIN_CAPS = {
-    off = 80,
-    auto = 60,
-    on = 120,
-}
-
-
 
 -- Runtime event handles (registered conditionally by feature state)
 local merchantEventFrame = nil
@@ -141,6 +164,13 @@ local minimapWarmupTimer = nil
 
 -- Dedup guards for minimap and world map refreshes
 local lastMinimapMapID = nil
+
+-- HS-367: set by MinimapPinCollect.lua's hide-check drop site -- a refresh
+-- WAS requested and reached RefreshMinimapPins, but landed while pins were
+-- suppressed, so nothing was rebuilt. Consumed by the reconciliation
+-- backstop's ticker the moment ShouldHideMinimapPins() next reports false --
+-- no refresh request may be silently dropped.
+local minimapRefreshPending = false
 local lastRenderedWorldMapID = nil
 local worldMapDirty = true
 local worldMapDebugStats = {
@@ -267,40 +297,6 @@ local function IsSilvermoonClusterDebugMap(mapID)
     return mapID == 2393 or mapID == 2395
 end
 
-local function GetMinimapCrossZoneMode()
-    local profile = HA.Addon and HA.Addon.db and HA.Addon.db.profile
-    local tracer = profile and profile.vendorTracer
-    local mode = tracer and tracer.minimapCrossZoneMode
-    if mode == "off" or mode == "on" or mode == "auto" then
-        return mode
-    end
-    return "auto"
-end
-
-local function GetMinimapPinCap(mode)
-    return MINIMAP_PIN_CAPS[mode] or MINIMAP_PIN_CAPS.auto
-end
-
-local function ShouldIncludeSiblingZones(playerMapID, mode)
-    if mode == "off" then
-        return false
-    end
-    if mode == "on" then
-        return true
-    end
-    if IsIndoors() then
-        return false
-    end
-    if not HA.VendorData then
-        return false
-    end
-
-    -- Auto mode disables cross-zone pins in dense maps to avoid hitching.
-    local vendorsInZone = HA.VendorData:GetVendorsInMap(playerMapID)
-    local vendorCount = vendorsInZone and #vendorsInZone or 0
-    return vendorCount < 16
-end
-
 local function StartMinimapWarmup(reason)
     minimapWarmupActive = true
 
@@ -325,113 +321,6 @@ local function StopMinimapWarmup()
         minimapWarmupTimer:Cancel()
         minimapWarmupTimer = nil
     end
-end
-
--- Item info event tracking for tooltip refresh (GET_ITEM_INFO_RECEIVED)
-local itemInfoEventFrame = CreateFrame("Frame")
-local activeTooltipData = nil      -- {kind="vendor"|"drop", pin, vendor|record} while a pin tooltip is visible
-local tooltipRebuildPending = false -- Debounce flag for batching rebuilds
-local pinTooltip = nil
-
-local function GetPinTooltip()
-    if pinTooltip then
-        return pinTooltip
-    end
-
-    local tooltip = CreateFrame("GameTooltip", PIN_TOOLTIP_NAME, UIParent, "GameTooltipTemplate")
-    tooltip:SetFrameStrata("TOOLTIP")
-    tooltip:SetClampedToScreen(true)
-    pinTooltip = tooltip
-    return tooltip
-end
-
-local function BeginPinTooltip(owner, anchor)
-    local tooltip = GetPinTooltip()
-    tooltip:SetOwner(owner, anchor or "ANCHOR_RIGHT")
-    tooltip:ClearLines()
-    return tooltip
-end
-
-local function IsActivePinTooltipVisible()
-    if not activeTooltipData or not pinTooltip then
-        return false
-    end
-
-    if not pinTooltip:IsShown() then
-        return false
-    end
-
-    return pinTooltip:GetOwner() == activeTooltipData.pin
-end
-
--- HS-235: shared debounced rebuild, factored out of the GET_ITEM_INFO_RECEIVED
--- handler below so a second arrival signal (Item:ContinueOnItemLoad's own
--- callback, see RequestItemDataForTooltip) can drive the exact same render
--- path through the exact same tooltipRebuildPending debounce, instead of
--- duplicating this logic or assuming GET_ITEM_INFO_RECEIVED also fires for
--- the modern Item-Mixin load path (unverified — see RequestItemDataForTooltip).
-local function RebuildActivePinTooltip()
-    if not activeTooltipData then return end
-    if not tooltipRebuildPending then
-        tooltipRebuildPending = true
-        C_Timer.After(0.05, function()
-            tooltipRebuildPending = false
-            if IsActivePinTooltipVisible() then
-                if activeTooltipData.kind == "vendor" then
-                    VendorMapPins:ShowVendorTooltip(
-                        activeTooltipData.pin,
-                        activeTooltipData.vendor
-                    )
-                elseif activeTooltipData.kind == "drop" then
-                    VendorMapPins:ShowDropPinTooltip(activeTooltipData.pin, activeTooltipData.record)
-                end
-            end
-        end)
-    end
-end
-
-itemInfoEventFrame:SetScript("OnEvent", function(self, event, itemID, success)
-    if not success or not activeTooltipData then return end
-    RebuildActivePinTooltip()
-end)
-
--- HS-235: item 264500 class — C_Item.DoesItemExistByID true, but the server
--- never volunteers the data, so GetItemInfo stays nil forever and
--- GET_ITEM_INFO_RECEIVED never arrives to drive a rebuild; the tooltip line
--- was stuck on "Unknown Item" across hovers AND sessions. HS-190 precedent
--- (Overlay/Tooltips.lua's cold-cache re-render on OnTooltipSetItem) is the
--- idiom reused here verbatim: Item:CreateFromItemID(itemID):ContinueOnItemLoad
--- rather than a manual C_Item.RequestLoadItemDataByID + GET_ITEM_INFO_RECEIVED
--- wait — ContinueOnItemLoad both requests the load AND calls back on arrival
--- (or immediately if already cached), and is the modern API surface Blizzard
--- uses for this exact class of problem throughout its own UI (Mount Journal,
--- Encounter Journal, Professions, EventToastManager, etc. — confirmed via
--- Blizzard UI source search, all following the identical shape).
---
--- The rebuild is driven directly from ContinueOnItemLoad's own callback
--- (through RebuildActivePinTooltip, the SAME debounce GET_ITEM_INFO_RECEIVED
--- already uses) rather than assumed to also arrive via GET_ITEM_INFO_RECEIVED
--- — GET_ITEM_INFO_RECEIVED and ITEM_DATA_LOAD_RESULT are distinct events, and
--- the already-shipped HS-190 precedent in Tooltips.lua does the same thing
--- (never waits on GET_ITEM_INFO_RECEIVED for its own cold-cache path). This
--- means no new event registration was needed to close this gap.
---
--- Session-scoped guard: requestedItemDataIDs prevents re-requesting on every
--- hover of an item that's already been asked for once. A server-withheld
--- item (264500's class) may NEVER arrive — ContinueOnItemLoad's callback
--- then simply never fires. That's not a leak: nothing is polling or holding
--- a ticker open waiting for it, the closure just sits inert as part of
--- Blizzard's own item-load callback registry until the item (if ever) loads,
--- and the tooltip correctly keeps showing the honest "Unknown Item" fallback
--- in the meantime.
-local requestedItemDataIDs = {}
-
-local function RequestItemDataForTooltip(itemID)
-    if requestedItemDataIDs[itemID] then return end
-    requestedItemDataIDs[itemID] = true
-    Item:CreateFromItemID(itemID):ContinueOnItemLoad(function()
-        RebuildActivePinTooltip()
-    end)
 end
 
 -- Register/Unregister MERCHANT_CLOSED based on pin feature state.
@@ -465,11 +354,30 @@ end
 local function RegisterZoneChangeEvents()
     if not zoneEventFrame then
         zoneEventFrame = CreateFrame("Frame")
-        zoneEventFrame:SetScript("OnEvent", function()
-            -- Skip refresh if player hasn't actually changed zones.
+        zoneEventFrame:SetScript("OnEvent", function(_, event)
             local currentMapID = C_Map.GetBestMapForUnit("player")
-            if currentMapID == lastMinimapMapID then return end
-            lastMinimapMapID = currentMapID
+            local mapChanged = currentMapID ~= lastMinimapMapID
+            if mapChanged then
+                lastMinimapMapID = currentMapID
+            end
+
+            -- ZONE_CHANGED_INDOORS is a first-class trigger, unconditioned
+            -- on the mapID gate below -- an ordinary building's entry/exit
+            -- shares its parent zone's mapID, so the gate alone would
+            -- swallow the transition this event exists to report. Every
+            -- other registered event still needs a real mapID change.
+            -- Repeated firings within a short span (e.g. crossing several
+            -- WMO chunk boundaries in a dense area) are already coalesced
+            -- by RequestMinimapRefresh's own debounce timer below, rather
+            -- than deduped here against a second piece of tracked state --
+            -- an event-count dedup was tried and reverted: it can only stay
+            -- correct if this event fires symmetrically on both building
+            -- entry and exit, which is unconfirmed and cheap to verify
+            -- in-game rather than guess. Getting it wrong would silently
+            -- reintroduce the same defect class this fix exists to close.
+            if not mapChanged and event ~= "ZONE_CHANGED_INDOORS" then
+                return
+            end
 
             VendorMapPins:RequestMinimapRefresh("zone_changed", MINIMAP_REFRESH_ZONE_DELAY)
         end)
@@ -480,6 +388,9 @@ local function RegisterZoneChangeEvents()
         zoneEventFrame:RegisterEvent("ZONE_CHANGED_INDOORS")
         zoneEventFrame:RegisterEvent("ZONE_CHANGED_NEW_AREA")
         zoneEventFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
+        -- NEW_WMO_CHUNK deliberately left gated by mapChanged: its
+        -- entry/exit symmetry with ZONE_CHANGED_INDOORS is unconfirmed from
+        -- source, and cheap to verify in-game rather than guess.
         zoneEventFrame:RegisterEvent("NEW_WMO_CHUNK")
     end
 end
@@ -511,8 +422,14 @@ local function RefreshRuntimeSubscriptions()
 
     if minimapPinsEnabled then
         RegisterZoneChangeEvents()
+        if MinimapOverlay and MinimapOverlay.StartReconciliationBackstop then
+            MinimapOverlay:StartReconciliationBackstop()
+        end
     else
         UnregisterZoneChangeEvents()
+        if MinimapOverlay and MinimapOverlay.StopReconciliationBackstop then
+            MinimapOverlay:StopReconciliationBackstop()
+        end
     end
 end
 
@@ -550,27 +467,25 @@ function VendorMapPins:RefreshAllPinColors()
         self:ClearAllPins()
     end
 
-    if MinimapOverlay and MinimapOverlay.FlushPools then
-        MinimapOverlay:FlushPools()
-    else
-        self:ClearMinimapPins()
-    end
-
+    -- HS-358: minimap pins no longer need a pool flush here — the narrowed
+    -- pool key is stable across style changes, and RefreshMinimapPins below
+    -- drives a fresh AcquireFrame per pin (which restyles pool hits too).
+    -- HS-367: no longer calls ClearMinimapPins directly either -- that was
+    -- an unguarded destructive clear reachable while pins were suppressed
+    -- (e.g. changing pin color/size while indoors). RefreshMinimapPins is
+    -- the guarded choke point: it hide-checks before clearing anything.
     self:RefreshPins(true)
     self:RefreshMinimapPins()
 end
 
--- Called by PinFrameFactory OnLeave scripts to clear tooltip tracking state
+-- Called by PinFrameFactory OnLeave scripts to clear tooltip tracking state.
+-- Implementation lives in VendorPinTooltips.lua (HS-301 cut #1).
 function VendorMapPins:OnPinLeave()
-    activeTooltipData = nil
-    itemInfoEventFrame:UnregisterEvent("GET_ITEM_INFO_RECEIVED")
-    if pinTooltip then
-        pinTooltip:Hide()
-    end
+    HA.VendorPinTooltips:OnPinLeave()
 end
 
 function VendorMapPins:HidePinTooltip()
-    self:OnPinLeave()
+    HA.VendorPinTooltips:HidePinTooltip()
 end
 
 -------------------------------------------------------------------------------
@@ -588,14 +503,6 @@ end
 -------------------------------------------------------------------------------
 -- Badge/Collection Delegates (forwarded to BadgeCalculation)
 -------------------------------------------------------------------------------
-
-function VendorMapPins:VendorHasUncollectedItems(vendor)
-    return BC:VendorHasUncollectedItems(vendor)
-end
-
-function VendorMapPins:GetVendorCollectionCounts(vendor)
-    return BC:GetVendorCollectionCounts(vendor)
-end
 
 function VendorMapPins:GetVendorStats(vendor, sourceFilter)
     return BC:GetVendorStats(vendor, sourceFilter)
@@ -628,14 +535,6 @@ function VendorMapPins:GetContinentVendorCounts(sourceFilter)
     return BC:GetContinentVendorCounts(sourceFilter or GetActiveSourceFilter())
 end
 
-function VendorMapPins:GetContinentCenterOnWorldMap(continentMapID)
-    return MPP:GetContinentCenterOnWorldMap(continentMapID)
-end
-
-function VendorMapPins:GetZoneCenterOnMap(zoneMapID, parentMapID)
-    return MPP:GetZoneCenterOnMap(zoneMapID, parentMapID)
-end
-
 function VendorMapPins:SetWaypointToVendor(vendor)
     if not vendor then return end
     if HA.Waypoints then
@@ -646,250 +545,23 @@ function VendorMapPins:SetWaypointToVendor(vendor)
 end
 
 -------------------------------------------------------------------------------
--- Tooltips
+-- Tooltips (implementation in VendorPinTooltips.lua, HS-301 cut #1)
 -------------------------------------------------------------------------------
 
-local function AddPinTooltipItemLine(tooltip, item, options, suffix)
-    local itemID = item and item.itemID
-    local resolvedName = (item and item.name) or (itemID and C_Item.GetItemInfo(itemID))
-    -- HS-235: name genuinely unresolved (not just "item has no .name override") —
-    -- request the data once per session so a future hover (this one still
-    -- shows the honest fallback) or the debounced rebuild below can pick it
-    -- up once/if it arrives.
-    if not resolvedName and itemID then
-        RequestItemDataForTooltip(itemID)
-    end
-    local itemName = resolvedName or "Unknown Item"
-    local availabilityState = nil
-    local SM = HA.SourceManager
-
-    if itemID and SM and SM.GetItemPresentation then
-        local presentation = SM:GetItemPresentation(itemID, options)
-        availabilityState = presentation and presentation.availabilityState
-    -- HS-203: no-presentation fallback stays cache-only, matching
-    -- SourceManager's "vendorMapPin" context (the primary path above).
-    elseif itemID and HA.CatalogStore and HA.CatalogStore:IsOwned(itemID) then
-        availabilityState = "owned"
-    elseif itemID and options and options.npcID
-            and SM and SM.GetVendorItemAvailabilityState then
-        availabilityState = SM:GetVendorItemAvailabilityState(itemID, options.npcID)
-    end
-
-    -- HS-229: entrance-grouped drop pins can carry records from several
-    -- different bosses; callers pass a suffix (e.g. "(Boss Name)") so each
-    -- item line stays attributable when the tooltip header can't name one.
-    local lineText = suffix and ("  " .. itemName .. " " .. suffix) or ("  " .. itemName)
-
-    if availabilityState == "owned" then
-        tooltip:AddLine(lineText, 0, 1, 0)
-    elseif availabilityState == "locked" then
-        tooltip:AddLine(lineText, 1, 0.25, 0.25)
-    else
-        tooltip:AddLine(lineText, 1, 1, 1)
-    end
-
-    return availabilityState
-end
-
 function VendorMapPins:ShowVendorTooltip(pin, vendor)
-    if not vendor then return end
-
-    -- Track active tooltip for GET_ITEM_INFO_RECEIVED refresh
-    activeTooltipData = { kind = "vendor", pin = pin, vendor = vendor }
-    itemInfoEventFrame:RegisterEvent("GET_ITEM_INFO_RECEIVED")
-
-    local isOpposite = self:IsOppositeFaction(vendor)
-
-    local tooltip = BeginPinTooltip(pin, "ANCHOR_RIGHT")
-    tooltip:AddLine(vendor.name, 1, 1, 1)
-
-    if vendor.subzone then
-        tooltip:AddLine(vendor.subzone .. " (" .. vendor.zone .. ")", 0.7, 0.7, 0.7)
-    elseif vendor.zone then
-        tooltip:AddLine(vendor.zone, 0.7, 0.7, 0.7)
-    end
-
-    if vendor.faction and vendor.faction ~= "Neutral" then
-        local factionColor = vendor.faction == "Alliance" and {0, 0.44, 0.87} or {0.77, 0.12, 0.23}
-        tooltip:AddLine(vendor.faction, unpack(factionColor))
-    end
-
-    -- Warning for opposite faction vendors
-    if isOpposite then
-        tooltip:AddLine(" ")
-        tooltip:AddLine("Cannot access - opposite faction vendor", 0.8, 0.3, 0.3)
-    end
-
-    if vendor.notes then
-        tooltip:AddLine(" ")
-        tooltip:AddLine(vendor.notes, 1, 0.82, 0, true)
-    end
-
-    -- Gather items from both static and scanned data
-    local allItems = {}
-    local itemsSeen = {}
-
-    -- Add static items from the unified vendor access layer.
-    local vendorItems = HA.VendorData and HA.VendorData.GetItemsForVendor and HA.VendorData:GetItemsForVendor(vendor) or {}
-    for _, item in ipairs(vendorItems) do
-        local itemID = HA.VendorData:GetItemID(item)
-        if itemID and not itemsSeen[itemID] then
-            itemsSeen[itemID] = true
-            tinsert(allItems, {itemID = itemID})
-        end
-    end
-
-    -- Add scanned items (new format: items = {...}, old format: decor = {...})
-    if vendor.npcID and HA.Addon and HA.Addon.db and HA.Addon.db.global.scannedVendors then
-        local scannedData = HA.Addon.db.global.scannedVendors[vendor.npcID]
-        local scannedItems = scannedData and (scannedData.items)
-        if scannedItems then
-            for _, item in ipairs(scannedItems) do
-                if item.itemID and not itemsSeen[item.itemID] then
-                    itemsSeen[item.itemID] = true
-                    tinsert(allItems, item)
-                end
-            end
-        end
-    end
-
-    if #allItems > 0 then
-        tooltip:AddLine(" ")
-        tooltip:AddLine("Items Sold:", 1, 1, 0)
-
-        for _, item in ipairs(allItems) do
-            AddPinTooltipItemLine(tooltip, item, {
-                context = "vendorMapPin",
-                npcID = vendor.npcID,
-                sourceFilter = GetActiveSourceFilter(),
-                isVendorContext = true,
-            })
-        end
-
-    else
-        -- No item data available
-        tooltip:AddLine(" ")
-        tooltip:AddLine("Item data unknown - visit vendor to scan", 1, 0.82, 0)
-    end
-
-    -- Purchasability summary (only when we have item data)
-    local stats = self:GetVendorStats(vendor, GetActiveSourceFilter())
-    if stats.total > 0 then
-        tooltip:AddLine(" ")
-        BC.AddSummaryLine(tooltip, stats.collected, stats.total, stats.locked, stats.unverified)
-
-        if isOpposite and not self:CanAccessVendor(vendor) then
-            tooltip:AddLine("Cannot buy on this character - opposite faction vendor", 1.0, 0.5, 0.5)
-            tooltip:AddLine("Locked counts above only reflect requirement gates.", 0.9, 0.7, 0.7)
-        end
-
-        local blockers = stats.blockers or {}
-        for i = 1, math.min(3, #blockers) do
-            local blocker = blockers[i]
-            tooltip:AddLine(string.format("Locked by: %s (%d)", blocker.label, blocker.count), 1.0, 0.82, 0)
-        end
-
-        if #blockers > 3 then
-            tooltip:AddLine(string.format("Locked by: +%d more blocker types", #blockers - 3), 0.8, 0.8, 0.8)
-        end
-    end
-
-    tooltip:AddLine(" ")
-    if isOpposite then
-        tooltip:AddLine("Left-click to set waypoint (for alts)", 0.5, 0.5, 0.5)
-    else
-        tooltip:AddLine("Left-click to set waypoint", 0.5, 0.5, 0.5)
-    end
-    tooltip:Show()
+    return HA.VendorPinTooltips:ShowVendorTooltip(pin, vendor)
 end
 
 function VendorMapPins:ShowZoneBadgeTooltip(pin, zoneInfo)
-    if not zoneInfo then return end
-
-    activeTooltipData = nil
-    itemInfoEventFrame:UnregisterEvent("GET_ITEM_INFO_RECEIVED")
-
-    local tooltip = BeginPinTooltip(pin, "ANCHOR_RIGHT")
-    tooltip:AddLine(zoneInfo.zoneName, 1, 1, 1)
-
-    -- Show note (class hall info, access method, etc.)
-    if zoneInfo.note then
-        tooltip:AddLine(zoneInfo.note, 0.7, 0.7, 1.0, true)
-    end
-
-    tooltip:AddLine(format("Decor Vendors: %d", zoneInfo.vendorCount), 1, 0.82, 0)
-
-    -- Show faction breakdown if there are opposite faction vendors
-    if zoneInfo.oppositeFactionCount and zoneInfo.oppositeFactionCount > 0 then
-        local accessibleCount = zoneInfo.vendorCount - zoneInfo.oppositeFactionCount
-        local playerFaction = UnitFactionGroup("player")
-        local oppositeFaction = playerFaction == "Alliance" and "Horde" or "Alliance"
-
-        if accessibleCount > 0 then
-            tooltip:AddLine(format("  %s: %d", playerFaction, accessibleCount), 0.7, 0.7, 0.7)
-        end
-
-        local factionColor = oppositeFaction == "Alliance" and {0.2, 0.4, 0.8} or {0.8, 0.2, 0.2}
-        tooltip:AddLine(format("  %s: %d", oppositeFaction, zoneInfo.oppositeFactionCount),
-            factionColor[1], factionColor[2], factionColor[3])
-    end
-
-    -- Collection summary
-    BC.AddSummaryLine(tooltip, zoneInfo.collectedItems, zoneInfo.totalItems, zoneInfo.lockedItems, zoneInfo.unverifiedItems)
-
-    if zoneInfo.unknownCount and zoneInfo.unknownCount > 0 then
-        tooltip:AddLine(format("Unknown status: %d vendor(s) (visit to scan)", zoneInfo.unknownCount), 1, 0.82, 0)
-    end
-
-    local knownVendors = zoneInfo.vendorCount - (zoneInfo.unknownCount or 0)
-    local allCollected = (zoneInfo.uncollectedCount or 0) == 0 and knownVendors > 0
-    if allCollected and (zoneInfo.unknownCount or 0) == 0 then
-        tooltip:AddLine("All items collected!", 0.5, 0.5, 0.5)
-    end
-
-    tooltip:AddLine(" ")
-    tooltip:AddLine("Left-click to view zone map", 0.5, 0.5, 0.5)
-    tooltip:Show()
+    return HA.VendorPinTooltips:ShowZoneBadgeTooltip(pin, zoneInfo)
 end
 
 function VendorMapPins:ShowPortalTooltip(pin, vendor)
-    if not vendor then return end
-
-    activeTooltipData = nil
-    itemInfoEventFrame:UnregisterEvent("GET_ITEM_INFO_RECEIVED")
-
-    local tooltip = BeginPinTooltip(pin, "ANCHOR_RIGHT")
-    tooltip:AddLine(vendor.name, 1, 1, 1)
-    tooltip:AddLine("Order Hall Portal", 0.7, 0.5, 1.0)
-    if vendor.notes then
-        tooltip:AddLine(vendor.notes, 1, 0.82, 0, true)
-    end
-    tooltip:AddLine("Click to view vendor location", 0.5, 0.5, 0.5)
-    tooltip:Show()
+    return HA.VendorPinTooltips:ShowPortalTooltip(pin, vendor)
 end
 
 function VendorMapPins:ShowMinimapTooltip(pin, vendor, isOppositeFaction, elevation)
-    if not vendor then return end
-
-    activeTooltipData = nil
-    itemInfoEventFrame:UnregisterEvent("GET_ITEM_INFO_RECEIVED")
-
-    local tooltip = BeginPinTooltip(pin, "ANCHOR_LEFT")
-    tooltip:AddLine(vendor.name, 1, 1, 1)
-    if vendor.subzone and vendor.subzone ~= "" then
-        tooltip:AddLine(vendor.subzone, 0.7, 0.7, 0.7)
-    elseif vendor.zone then
-        tooltip:AddLine(vendor.zone, 0.7, 0.7, 0.7)
-    end
-    if isOppositeFaction then
-        tooltip:AddLine("Opposite faction", 0.8, 0.3, 0.3)
-    end
-    if elevation == "above" then
-        tooltip:AddLine("|A:Rotating-MinimapGuideArrow:0:0|a Above you", 0.6, 0.8, 1.0)
-    elseif elevation == "below" then
-        tooltip:AddLine("v Below you", 0.6, 0.8, 1.0)
-    end
-    tooltip:Show()
+    return HA.VendorPinTooltips:ShowMinimapTooltip(pin, vendor, isOppositeFaction, elevation)
 end
 
 -------------------------------------------------------------------------------
@@ -969,9 +641,41 @@ end
 function VendorMapPins:ClearMinimapPins()
     self:OnPinLeave()
     MPP.ClearMinimapPins("HomesteadMinimapVendors")
+
+    -- Defense-in-depth (HS-367): a still-enabled, still-vendor-filtered
+    -- caller invoking this while pins are merely suppressed (hybrid/house/
+    -- indoors) must not release frames or stop the update driver -- the
+    -- same one-way-door defect class this ticket exists to close, now
+    -- guarded here too rather than relying solely on every caller getting
+    -- the ordering right. Today's real callers (the disabled-feature path
+    -- and DisableMinimapPins) are already genuinely destructive by the time
+    -- they reach here, so this never actually triggers for them; kept
+    -- correct for any future caller regardless.
+    if MinimapOverlay
+            and self:IsMinimapPinsEnabled()
+            and IsMapFilterSourceEnabled("vendor")
+            and MinimapOverlay.ShouldHideMinimapPins
+            and MinimapOverlay:ShouldHideMinimapPins() then
+        return
+    end
+
     if MinimapOverlay then
         MinimapOverlay:Clear()
     end
+end
+
+-- HS-367: set by MinimapPinCollect.lua's hide-check drop site; consumed by
+-- the reconciliation backstop's ticker in HomesteadMinimapOverlay.lua.
+function VendorMapPins:MarkMinimapRefreshPending()
+    minimapRefreshPending = true
+end
+
+function VendorMapPins:ConsumePendingMinimapRefresh()
+    if not minimapRefreshPending then
+        return false
+    end
+    minimapRefreshPending = false
+    return true
 end
 
 function VendorMapPins:RequestWorldMapRefresh(reason, delay, forceImmediate)
@@ -1046,199 +750,33 @@ function VendorMapPins:RequestMinimapRefresh(reason, delay, forceImmediate)
     end
 end
 
+-- HS-301: cross-file accessors for MinimapPinCollect.lua, which needs these
+-- gates but has no other reason to depend on VendorMapPins's private state.
+function VendorMapPins:IsInitialized()
+    return isInitialized
+end
+
+function VendorMapPins:IsMapFilterSourceEnabled(sourceKey)
+    return IsMapFilterSourceEnabled(sourceKey)
+end
+
+function VendorMapPins:IsMinimapWarmupActive()
+    return minimapWarmupActive
+end
+
+-- Implementation in MinimapPinCollect.lua (HS-301 cut #3).
 function VendorMapPins:RefreshMinimapPins()
-    if not isInitialized then return end
-    -- HS-231: the minimap has always only ever shown vendor pins (no
-    -- provider-registry abstraction here, unlike the world map's
-    -- CollectSourcePins), so gating on the "vendor" toggle covers it —
-    -- "vendor toggle hides minimap vendor pins too, one mental model."
-    if not minimapPinsEnabled or not IsMapFilterSourceEnabled("vendor") then
-        self:ClearMinimapPins()
-        return
+    local result = HA.MinimapPinCollect:RefreshMinimapPins()
+    -- HS-368: this wrapper is the single choke point every round-minimap
+    -- content-refresh reason funnels through (zone change, ownership/scan,
+    -- option toggle, style change) -- poke the HybridMinimap provider here
+    -- too, unconditionally, so it stays fed even while
+    -- MinimapPinCollect:RefreshMinimapPins's own suppression early-return
+    -- (hybrid-active among its reasons) skips the round-minimap pipeline.
+    if HA.HybridMinimapProvider then
+        HA.HybridMinimapProvider:RequestRefresh("vendor_minimap_refresh")
     end
-
-    self:ClearMinimapPins()
-
-    if MinimapOverlay and MinimapOverlay.IsHybridMinimapActive then
-        local hybridActive = MinimapOverlay:IsHybridMinimapActive()
-        if hybridActive then
-            return
-        end
-    end
-
-    if not HA.VendorData then return end
-
-    -- Get the player's current zone
-    local playerMapID = C_Map.GetBestMapForUnit("player")
-    if not playerMapID then return end
-
-    -- HS-271 item 4: workload is playerMapID, already read/validated above --
-    -- no new scan added to feed this call. Minimap-refresh cost was
-    -- previously unmeasured (HS-270 Gate 3 Q1 open item); this is its peer
-    -- boundary to world_map_refresh/world_map_build for the movement capture.
-    HA.PerformanceTrace:Measure("minimap_refresh", playerMapID, function()
-        local showElevationArrows = HA.Addon.db.profile.vendorTracer.showElevationArrows ~= false
-        local crossZoneMode = GetMinimapCrossZoneMode()
-        local pinCap = GetMinimapPinCap(crossZoneMode)
-        local includeSiblingZones = ShouldIncludeSiblingZones(playerMapID, crossZoneMode)
-        local isWarmupRefresh = minimapWarmupActive
-        if isWarmupRefresh then
-            includeSiblingZones = false
-            if pinCap > MINIMAP_WARMUP_PIN_CAP then
-                pinCap = MINIMAP_WARMUP_PIN_CAP
-            end
-        end
-
-        -- Collect mapIDs to check: current zone + parent zones + sibling zones in same continent
-        -- This enables HandyNotes-style "nearby vendor" pins
-        local mapsToCheck = {}
-        local mapsToCheckSet = {}  -- For deduplication
-
-        -- Always include current map
-        mapsToCheck[#mapsToCheck + 1] = playerMapID
-        mapsToCheckSet[playerMapID] = true
-
-        -- Add parent map (covers subzone → zone case, e.g., cave → main zone)
-        local mapInfo = C_Map.GetMapInfo(playerMapID)
-        if mapInfo and mapInfo.parentMapID and mapInfo.parentMapID > 0 then
-            if not mapsToCheckSet[mapInfo.parentMapID] then
-                mapsToCheck[#mapsToCheck + 1] = mapInfo.parentMapID
-                mapsToCheckSet[mapInfo.parentMapID] = true
-            end
-        end
-
-        -- Always include explicit vertical siblings even when generic cross-zone
-        -- discovery is disabled; elevation-pair behavior should not depend on the
-        -- broader sibling-zone policy.
-        local verticalSiblings = Constants.VerticalSiblings[playerMapID]
-        if verticalSiblings then
-            for siblingMapID in pairs(verticalSiblings) do
-                if not mapsToCheckSet[siblingMapID] then
-                    mapsToCheck[#mapsToCheck + 1] = siblingMapID
-                    mapsToCheckSet[siblingMapID] = true
-                end
-            end
-        end
-
-        local continentID = GetContinentForZone(playerMapID)
-        if includeSiblingZones then
-            if continentID and not MPP.minimapExcludedContinents[continentID] then
-                local siblingZones = MPP.continentToZones[continentID]
-                if siblingZones then
-                    for _, zoneMapID in ipairs(siblingZones) do
-                        if not mapsToCheckSet[zoneMapID] then
-                            mapsToCheck[#mapsToCheck + 1] = zoneMapID
-                            mapsToCheckSet[zoneMapID] = true
-                        end
-                    end
-                end
-            end
-        end
-
-        local showOpposite = ShouldShowOppositeFaction()
-        local addedVendors = {}  -- Prevent duplicate pins for same vendor
-        local pendingPins = {}   -- Collected pins for overlay placement
-        local addedCount = 0
-        local capReached = false
-
-        for _, mapID in ipairs(mapsToCheck) do
-            if capReached then break end
-
-            local vendors = HA.VendorData:GetVendorsInMap(mapID)
-            if vendors then
-                for _, vendor in ipairs(vendors) do
-                    if addedCount >= pinCap then
-                        capReached = true
-                        break
-                    end
-
-                    -- Use npcID for deduplication (vendor tables may be different objects)
-                    if vendor.npcID and not addedVendors[vendor.npcID] then
-                        local shouldSkipVendor = ShouldHideVendor(vendor)
-
-                        -- Skip static/scanned map mismatches to avoid misplaced minimap pins.
-                        -- Bypass for endeavor vendors: scan data may be stale from a previous
-                        -- neighborhood rotation. GetBestVendorCoordinates handles the fallback.
-                        if not shouldSkipVendor and not vendor.endeavor
-                                and HA.Addon and HA.Addon.db
-                                and HA.Addon.db.global.scannedVendors then
-                            local scannedData = HA.Addon.db.global.scannedVendors[vendor.npcID]
-                            if scannedData and scannedData.mapID and not mapsToCheckSet[scannedData.mapID] then
-                                shouldSkipVendor = true
-                            end
-                        end
-
-                        if shouldSkipVendor then
-                            addedVendors[vendor.npcID] = true
-                        else
-                            -- Get best coordinates (scanned preferred over static)
-                            local coords, vendorMapID = GetBestVendorCoordinates(vendor)
-
-                            -- Only show pins for vendors with valid coordinates
-                            if coords and vendorMapID then
-                                local canAccess = self:CanAccessVendor(vendor)
-                                local isOpposite = self:IsOppositeFaction(vendor)
-                                local isPortalOnlyMinimapVendor = vendor.portal and playerMapID ~= vendor.mapID
-
-                                -- Show vendor only when allowed by faction-access rules.
-                                if not isPortalOnlyMinimapVendor
-                                        and (canAccess or (isOpposite and showOpposite)) then
-                                    local elevation = Constants.GetElevationDirection(playerMapID, vendorMapID)
-                                    local relationship
-                                    if playerMapID == vendorMapID then
-                                        relationship = "same_map"
-                                    elseif elevation then
-                                        relationship = "vertical_sibling"
-                                    else
-                                        relationship = "parent_child"
-                                    end
-
-                                    local worldX, worldY, instanceID = MPP.GetNativeWorldCoordinates(
-                                        vendorMapID,
-                                        coords.x,
-                                        coords.y
-                                    )
-
-                                    if worldX and worldY then
-                                        addedVendors[vendor.npcID] = true
-                                        addedCount = addedCount + 1
-                                        pendingPins[#pendingPins + 1] = {
-                                            vendor = vendor,
-                                            mapID = vendorMapID,
-                                            instanceID = instanceID,
-                                            worldX = worldX,
-                                            worldY = worldY,
-                                            relationship = relationship,
-                                            floatOnEdge = elevation and true or false,
-                                            elevation = showElevationArrows and elevation or nil,
-                                            isOppositeFaction = isOpposite,
-                                        }
-                                    end
-                                end
-                            end
-                        end
-                    end
-                end
-            end
-        end
-
-        if MinimapOverlay then
-            MinimapOverlay:SetPins(pendingPins)
-        end
-
-        -- Debug output (verbose, dev only)
-        if HA.DevAddon and HA.Addon.db.profile.debug then
-            HA.Addon:Debug("RefreshMinimapPins: playerMapID=" .. playerMapID ..
-                ", continentID=" .. (continentID or "nil") ..
-                ", crossZone=" .. crossZoneMode ..
-                ", warmup=" .. (isWarmupRefresh and "yes" or "no") ..
-                ", includeSiblings=" .. (includeSiblingZones and "yes" or "no") ..
-                ", mapsChecked=" .. #mapsToCheck ..
-                ", vendorsAdded=" .. addedCount ..
-                ", pinCap=" .. pinCap ..
-                ", capReached=" .. (capReached and "yes" or "no"))
-        end
-    end)
+    return result
 end
 
 local function DebugWorldMapProjectionSkip(kind, sourceMapID, viewMapID, reason)
@@ -1255,21 +793,10 @@ local function DebugWorldMapProjectionSkip(kind, sourceMapID, viewMapID, reason)
     ))
 end
 
-local function BuildBadgeData(mapID, zoneName, zoneData)
-    return {
-        mapID = mapID,
-        zoneName = zoneName,
-        vendorCount = zoneData.vendorCount,
-        uncollectedCount = zoneData.uncollectedCount,
-        unknownCount = zoneData.unknownCount,
-        oppositeFactionCount = zoneData.oppositeFactionCount,
-        dominantFaction = zoneData.dominantFaction,
-        note = MPP.zoneNotes[mapID],
-        collectedItems = zoneData.collectedItems,
-        totalItems = zoneData.totalItems,
-        lockedItems = zoneData.lockedItems,
-        unverifiedItems = zoneData.unverifiedItems,
-    }
+-- HS-301: cross-file accessor for BadgeEmission.lua, which needs debug-gated
+-- projection-skip logging but has no other reason to depend on HA.DevAddon.
+function VendorMapPins:DebugWorldMapProjectionSkip(kind, sourceMapID, viewMapID, reason)
+    return DebugWorldMapProjectionSkip(kind, sourceMapID, viewMapID, reason)
 end
 
 function VendorMapPins:BuildWorldMapRenderState(mapID)
@@ -1406,7 +933,7 @@ end
 -- EmitPortalBadges (called from CollectSourcePins under vendor/all filters).
 -------------------------------------------------------------------------------
 
-local function CollectVendorPinRecords(self, mapID, validMapIDs, _filter, renderState)
+local function CollectVendorPinRecords(self, mapID, validMapIDs, filter, renderState)
     local showOpposite = ShouldShowOppositeFaction()
     local addedVendors = {}  -- Track by npcID to avoid duplicates
     local shouldLogSilvermoonDebug = IsDebugModeEnabled() and IsSilvermoonClusterDebugMap(mapID)
@@ -1434,6 +961,18 @@ local function CollectVendorPinRecords(self, mapID, validMapIDs, _filter, render
         -- Skip unreleased or no-decor vendors
         if ShouldHideVendor(vendor) then
             -- Mark as processed to avoid re-checking in scanned vendors loop
+            addedVendors[vendor.npcID] = true
+            return
+        end
+
+        -- HS-022: hide fully-collected vendor pins when the opt-in setting is
+        -- on. Single chokepoint for both the static loop and the scanned
+        -- fallback loop below, since both funnel through ProcessVendor.
+        -- Cheap-check-first: ShouldHideVendor above is a plain field/table
+        -- lookup, ShouldHideCompletedVendorPin can compute vendor stats on a
+        -- cache miss, so it runs second, matching the minimap and
+        -- EmitPortalBadges chokepoints.
+        if ShouldHideCompletedVendorPin(vendor, filter) then
             addedVendors[vendor.npcID] = true
             return
         end
@@ -1795,261 +1334,26 @@ end
 
 VendorMapPins.pinSourceProviders.drop = { collect = CollectDropPinRecords }
 
+-- Implementation in VendorPinTooltips.lua (HS-301 cut #1).
 function VendorMapPins:ShowDropPinTooltip(pin, record)
-    if not record or not record.records or #record.records == 0 then return end
-
-    activeTooltipData = { kind = "drop", pin = pin, record = record }
-    itemInfoEventFrame:RegisterEvent("GET_ITEM_INFO_RECEIVED")
-
-    local tooltip = BeginPinTooltip(pin, "ANCHOR_RIGHT")
-    local primaryDrop = record.records[1].drop
-
-    -- An "ent:" (dungeon-entrance) pin can carry records from several
-    -- DIFFERENT bosses sharing one instance entrance (e.g. all Voidspire
-    -- rows on the outdoor zone map), so it gets an instance-level header
-    -- with per-item boss attribution below. "enc:" groups share one
-    -- encounter — records may span tier variants, but the boss is the
-    -- same — and "legacy" groups are single-record, so records[1] is an
-    -- accurate header for both.
-    if record.dropGroupKind == "ent" then
-        tooltip:AddLine(primaryDrop and primaryDrop.zone or "Unknown Instance", 1, 1, 1)
-    else
-        if primaryDrop and primaryDrop.mobName then
-            tooltip:AddLine(primaryDrop.mobName, 1, 1, 1)
-        else
-            tooltip:AddLine("Unknown Drop", 1, 1, 1)
-        end
-        if primaryDrop and primaryDrop.zone then
-            tooltip:AddLine(primaryDrop.zone, 0.7, 0.7, 0.7)
-        end
-        if primaryDrop and primaryDrop.notes then
-            tooltip:AddLine(" ")
-            tooltip:AddLine(primaryDrop.notes, 1, 0.82, 0, true)
-        end
-    end
-
-    tooltip:AddLine(" ")
-    tooltip:AddLine(#record.records > 1
-        and ("Items Dropped (%d):"):format(#record.records)
-        or "Items Dropped:", 1, 1, 0)
-
-    -- HS-249: this loop derives its own counts rather than reading
-    -- BadgeCalculation, so it needs its own exclusion guard. The denominator
-    -- is the record count, so an item whose ownership we cannot resolve would
-    -- otherwise inflate it and read as "0/1 collected" on a room plan.
-    -- The item still gets its tooltip line; only the summary count changes.
-    local CS = HA.CatalogStore
-    local collected, locked, excluded = 0, 0, 0
-    for _, itemRecord in ipairs(record.records) do
-        -- ent: groups can't rely on the header to name a boss, so each item
-        -- line names its own (mobName may still differ between records that
-        -- share an entrance but not an encounter).
-        local suffix = record.dropGroupKind == "ent" and itemRecord.drop and itemRecord.drop.mobName
-            and ("(%s)"):format(itemRecord.drop.mobName) or nil
-        local availabilityState = AddPinTooltipItemLine(tooltip, { itemID = itemRecord.itemID }, {
-            context = "dropMapPin",
-            sourceFilter = "drop",
-            isVendorContext = false,
-        }, suffix)
-        if CS and CS.IsOwnershipUnknowable and CS:IsOwnershipUnknowable(itemRecord.itemID) then
-            excluded = excluded + 1
-        elseif availabilityState == "owned" then
-            collected = collected + 1
-        elseif availabilityState == "locked" then
-            locked = locked + 1
-        end
-    end
-
-    tooltip:AddLine(" ")
-    BC.AddSummaryLine(tooltip, collected, #record.records - excluded, locked, 0)
-
-    tooltip:Show()
+    return HA.VendorPinTooltips:ShowDropPinTooltip(pin, record)
 end
 
+-- Implementation in BadgeEmission.lua (HS-301 cut #2).
 function VendorMapPins:EmitPortalBadges(mapID, renderState)
-    -- Portal badge pass: draw entrance markers for Order Hall vendors
-    -- accessible via this map. Gated to vendor/all filters by CollectSourcePins.
-    local allVendors = HA.VendorData:GetAllVendors()
-    for _, vendor in ipairs(allVendors) do
-        local portal = vendor.portal
-        if portal and portal.mapID == mapID then
-            if not ShouldHideVendor(vendor) then
-                renderState.portalBadges[#renderState.portalBadges + 1] = {
-                    portalData = { vendor = vendor },
-                    mapID = portal.mapID,
-                    x = portal.x,
-                    y = portal.y,
-                    reason = "same_map",
-                }
-            end
-        end
-    end
+    return HA.BadgeEmission:EmitPortalBadges(mapID, renderState)
 end
 
 function VendorMapPins:ShowZoneBadges(continentMapID, renderState)
-    local sourceFilter = GetActiveSourceFilter()
-    local zoneCounts = self:GetZoneVendorCounts(continentMapID, sourceFilter)
-
-    for zoneMapID, zoneData in pairs(zoneCounts) do
-        if zoneData.vendorCount > 0 then
-            local ok, x, y, reason = MPP:ProjectZoneBadgeToContinentView(continentMapID, zoneMapID)
-            if ok then
-                renderState.zoneBadges[#renderState.zoneBadges + 1] = {
-                    badgeData = BuildBadgeData(zoneMapID, zoneData.zoneName, zoneData),
-                    mapID = zoneMapID,
-                    x = x,
-                    y = y,
-                    reason = reason,
-                }
-            else
-                DebugWorldMapProjectionSkip("zone_badge", zoneMapID, continentMapID, reason)
-            end
-        end
-    end
-
-    -- Show individual zone badges for continents that merge into this one
-    -- (e.g. Argus zones shown on the Broken Isles continent map)
-    for srcContinentID, destContinentID in pairs(MPP.continentMergesInto) do
-        if destContinentID == continentMapID then
-            local mergedZones = self:GetZoneVendorCounts(srcContinentID, sourceFilter)
-            for zoneMapID, zoneData in pairs(mergedZones) do
-                if zoneData.vendorCount > 0 then
-                    local ok, x, y, reason = MPP:ProjectZoneBadgeToContinentView(continentMapID, zoneMapID)
-                    if ok then
-                        renderState.zoneBadges[#renderState.zoneBadges + 1] = {
-                            badgeData = BuildBadgeData(zoneMapID, zoneData.zoneName, zoneData),
-                            mapID = zoneMapID,
-                            x = x,
-                            y = y,
-                            reason = reason,
-                        }
-                    else
-                        DebugWorldMapProjectionSkip("merged_zone_badge", zoneMapID, continentMapID, reason)
-                    end
-                end
-            end
-        end
-    end
-
-    -- Show designated child-continent zone badges on this continent map.
-    -- Example: Midnight/Quel'Thalas zones on Eastern Kingdoms.
-    for srcContinentID, destContinentID in pairs(MPP.continentZoneBadgesOnParent or {}) do
-        if destContinentID == continentMapID then
-            local excludedBySource = MPP.continentZoneBadgeExclusionsOnParent
-                and MPP.continentZoneBadgeExclusionsOnParent[srcContinentID]
-            local excludedForDest = excludedBySource and excludedBySource[continentMapID]
-            local sourceZones = self:GetZoneVendorCounts(srcContinentID, sourceFilter)
-            for zoneMapID, zoneData in pairs(sourceZones) do
-                local isExcluded = excludedForDest and excludedForDest[zoneMapID]
-                if zoneData.vendorCount > 0 and not isExcluded then
-                    local ok, x, y, reason = MPP:ProjectZoneBadgeToContinentView(continentMapID, zoneMapID)
-                    if ok then
-                        renderState.zoneBadges[#renderState.zoneBadges + 1] = {
-                            badgeData = BuildBadgeData(zoneMapID, zoneData.zoneName, zoneData),
-                            mapID = zoneMapID,
-                            x = x,
-                            y = y,
-                            reason = reason,
-                        }
-                    else
-                        DebugWorldMapProjectionSkip("overlay_zone_badge", zoneMapID, continentMapID, reason)
-                    end
-                end
-            end
-        end
-    end
-
+    return HA.BadgeEmission:ShowZoneBadges(continentMapID, renderState)
 end
-function VendorMapPins:ShowZoneBadgesOnWorldMap(renderState)
-    local sourceFilter = GetActiveSourceFilter()
-    local continentCounts = self:GetContinentVendorCounts(sourceFilter)
 
-    for continentMapID, continentData in pairs(continentCounts) do
-        if continentData.vendorCount > 0 then
-            local projectedContinent = MPP.offWorldContinentPositions[continentMapID]
-            if projectedContinent then
-                local badgeData = {
-                    mapID = continentMapID,
-                    zoneName = continentData.continentName,
-                    vendorCount = continentData.vendorCount,
-                    uncollectedCount = continentData.uncollectedCount,
-                    unknownCount = continentData.unknownCount,
-                    oppositeFactionCount = continentData.oppositeFactionCount,
-                    collectedItems = continentData.collectedItems,
-                    totalItems = continentData.totalItems,
-                    lockedItems = continentData.lockedItems,
-                    unverifiedItems = continentData.unverifiedItems,
-                }
-                renderState.continentBadges[#renderState.continentBadges + 1] = {
-                    badgeData = badgeData,
-                    mapID = continentMapID,
-                    x = projectedContinent.x,
-                    y = projectedContinent.y,
-                    reason = "manual_continent_position",
-                }
-            elseif not MPP.excludedContinents[continentMapID] then
-                local zoneCounts = self:GetZoneVendorCounts(continentMapID, sourceFilter)
-                for zoneMapID, zoneData in pairs(zoneCounts) do
-                    if zoneData.vendorCount > 0 then
-                        local ok, x, y, reason = MPP:ProjectZoneBadgeToWorldView(zoneMapID)
-                        if ok then
-                            renderState.zoneBadges[#renderState.zoneBadges + 1] = {
-                                badgeData = BuildBadgeData(zoneMapID, zoneData.zoneName, zoneData),
-                                mapID = zoneMapID,
-                                x = x,
-                                y = y,
-                                reason = reason,
-                            }
-                        else
-                            DebugWorldMapProjectionSkip("world_zone_badge", zoneMapID, 947, reason)
-                        end
-                    end
-                end
-            end
-        end
-    end
+function VendorMapPins:ShowZoneBadgesOnWorldMap(renderState)
+    return HA.BadgeEmission:ShowZoneBadgesOnWorldMap(renderState)
 end
 
 function VendorMapPins:ShowContinentBadges(renderState)
-    -- Toggle: zone-level badges spread across continents vs single continent totals
-    if HA.Addon and HA.Addon.db and HA.Addon.db.profile.vendorTracer.worldMapZoneBadges then
-        self:ShowZoneBadgesOnWorldMap(renderState)
-        return
-    end
-
-    local continentCounts = self:GetContinentVendorCounts(GetActiveSourceFilter())
-
-    for continentMapID, continentData in pairs(continentCounts) do
-        if continentData.vendorCount > 0 then
-            if not MPP.excludedContinents[continentMapID] then
-                local badgeData = {
-                    mapID = continentMapID,
-                    zoneName = continentData.continentName,
-                    vendorCount = continentData.vendorCount,
-                    uncollectedCount = continentData.uncollectedCount,
-                    unknownCount = continentData.unknownCount,
-                    oppositeFactionCount = continentData.oppositeFactionCount,
-                    collectedItems = continentData.collectedItems,
-                    totalItems = continentData.totalItems,
-                    lockedItems = continentData.lockedItems,
-                    unverifiedItems = continentData.unverifiedItems,
-                }
-
-                local ok, x, y, reason = MPP:ProjectContinentBadgeToWorldView(continentMapID)
-                if ok then
-                    renderState.continentBadges[#renderState.continentBadges + 1] = {
-                        badgeData = badgeData,
-                        mapID = continentMapID,
-                        x = x,
-                        y = y,
-                        reason = reason,
-                    }
-                else
-                    DebugWorldMapProjectionSkip("continent_badge", continentMapID, 947, reason)
-                end
-            end
-        end
-    end
+    return HA.BadgeEmission:ShowContinentBadges(renderState)
 end
 
 -------------------------------------------------------------------------------
@@ -2098,6 +1402,13 @@ function VendorMapPins:DisableMinimapPins()
     minimapPinsEnabled = false
     StopMinimapWarmup()
     self:ClearMinimapPins()
+    -- HS-368: DisableMinimapPins clears directly and never routes through
+    -- RefreshMinimapPins (see that function's own poke above), so it needs
+    -- its own explicit clear -- otherwise already-rendered HybridMinimap
+    -- pins would linger after the player turns minimap pins off.
+    if HA.HybridMinimapProvider then
+        HA.HybridMinimapProvider:Clear()
+    end
     if isInitialized then
         RefreshRuntimeSubscriptions()
     end
@@ -2126,6 +1437,7 @@ function VendorMapPins:Initialize()
     -- Resolve VendorFilter functions now that all modules are loaded
     local VendorFilter = HA.VendorFilter
     ShouldHideVendor = VendorFilter.ShouldHideVendor
+    ShouldHideCompletedVendorPin = VendorFilter.ShouldHideCompletedVendorPin
     GetBestVendorCoordinates = VendorFilter.GetBestVendorCoordinates
     ShouldShowOppositeFaction = VendorFilter.ShouldShowOppositeFaction
     CanAccessVendor = VendorFilter.CanAccessVendor
@@ -2192,6 +1504,50 @@ function VendorMapPins:Initialize()
                     self:RequestMinimapRefresh("map_filter_toggled", 0.1)
                 end)
             end
+
+            -- HS-317: parity with the options panel row's effect set
+            -- (OptionsModel.lua's hideCompletedVendorPins set: invalidate
+            -- + repaint), not just the debounced repaint pair the
+            -- neighboring source toggles use. Badge counts don't yet read
+            -- this setting -- HS-022 v1 deferred badge suppression -- so
+            -- the invalidate call is not currently load-bearing; it
+            -- becomes load-bearing once badge suppression lands.
+            local completedCheckbox = rootDescription:CreateCheckbox(HA.L["Fully-collected vendors"], IsCompletedVendorPinsShown, function()
+                SetCompletedVendorPinsShown(not IsCompletedVendorPinsShown())
+                self:InvalidateBadgeCache()
+                self:RequestWorldMapRefresh("map_filter_completed_toggled", 0.1)
+                self:RequestMinimapRefresh("map_filter_completed_toggled", 0.1)
+            end)
+            completedCheckbox:SetOnEnter(function(button)
+                GameTooltip:ClearAllPoints()
+                GameTooltip:SetPoint("RIGHT", button, "LEFT", -3, 0)
+                GameTooltip:SetOwner(button, "ANCHOR_PRESERVE")
+                GameTooltip_SetTitle(GameTooltip, HA.L["Fully-collected vendors"])
+                GameTooltip_AddNormalLine(GameTooltip, HA.L["desc_map_filter_completed_vendors"])
+                GameTooltip:Show()
+            end)
+            completedCheckbox:SetOnLeave(function(button)
+                GameTooltip:Hide()
+            end)
+
+            -- HS-074B: parity with the options panel row. No refresh calls --
+            -- unlike the completed-vendor filter above, this doesn't change
+            -- which pins are shown, only what their tooltips render, and
+            -- tooltip content is already rebuilt fresh on every hover.
+            local itemDetailsCheckbox = rootDescription:CreateCheckbox(HA.L["Vendor pin item details"], IsVendorPinItemDetailsShown, function()
+                SetVendorPinItemDetailsShown(not IsVendorPinItemDetailsShown())
+            end)
+            itemDetailsCheckbox:SetOnEnter(function(button)
+                GameTooltip:ClearAllPoints()
+                GameTooltip:SetPoint("RIGHT", button, "LEFT", -3, 0)
+                GameTooltip:SetOwner(button, "ANCHOR_PRESERVE")
+                GameTooltip_SetTitle(GameTooltip, HA.L["Vendor pin item details"])
+                GameTooltip_AddNormalLine(GameTooltip, HA.L["desc_vendor_pin_item_details"])
+                GameTooltip:Show()
+            end)
+            itemDetailsCheckbox:SetOnLeave(function(button)
+                GameTooltip:Hide()
+            end)
         end)
     end
 

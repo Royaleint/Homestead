@@ -104,11 +104,13 @@ end
 -- Yellow=requirements, red=unmet, green=met
 -- dedupSet: optional table of source types already rendered (e.g. {achievement=true})
 --   requirements whose type is in dedupSet are skipped (already shown as source lines).
---   Reputation requirements are NEVER skipped (always additive info).
+--   Reputation requirements are NEVER skipped by dedupSet (always additive info).
 -- reputationOnly: if true, only render reputation requirements (merchant compact mode)
+-- excludeReputation: if true, skip reputation requirements entirely (dashboard tooltip,
+--   where AddReputationProgressToTooltip already covers reputation/renown separately)
 -- Returns: set of faction names that had reputation progress rendered (for cross-path dedup),
 --   or nil if no reputation progress was rendered.
-local function AddRequirementsToTooltip(tooltip, itemID, npcID, dedupSet, reputationOnly)
+local function AddRequirementsToTooltip(tooltip, itemID, npcID, dedupSet, reputationOnly, excludeReputation)
     if not HA.SourceManager or not HA.SourceManager.GetRequirements then return nil end
 
     -- Check if requirements display is enabled
@@ -127,7 +129,9 @@ local function AddRequirementsToTooltip(tooltip, itemID, npcID, dedupSet, reputa
         -- Dedup checks both broad type keys ("quest") from merchant/sourceText contexts and
         -- specific name keys ("quest:QuestName") from rendered source objects.
         local isDuped = false
-        if dedupSet and req.type ~= "reputation" then
+        if req.type == "reputation" then
+            isDuped = excludeReputation or false
+        elseif dedupSet then
             isDuped = dedupSet[req.type]
                 or (req.name and dedupSet[req.type .. ":" .. req.name])
         end
@@ -865,7 +869,34 @@ end
 -- Standard Item Tooltip Enhancement (bags, merchants, etc.)
 -------------------------------------------------------------------------------
 
-local function AddDecorInfoToTooltip(tooltip, itemLink)
+-- Wraps a tooltip so the blank-separator + "[Homestead]" header is inserted
+-- lazily, right before the first real content line, instead of unconditionally
+-- up front. Every content path below (status, source, requirements,
+-- reputation progress, shift hint) only ever calls :AddLine, so intercepting
+-- that one method is enough to gate content added directly by the caller or
+-- deep inside a delegated helper (AddSourceInfoToTooltip's renderer dispatch,
+-- AddRequirementsToTooltip, AddReputationProgressToTooltip) alike, without
+-- changing any of those helpers. A tooltip that ends up with nothing gated
+-- behind it never shows the header at all (HS-349).
+local function CreateHeaderGate(tooltip)
+    local headerShown = false
+    local gate = {}
+    -- AddLine is a direct field (one closure per gate, not per call) since
+    -- every content path funneled through this gate hits it repeatedly.
+    function gate.AddLine(_, ...)
+        if not headerShown then
+            headerShown = true
+            tooltip:AddLine(" ")
+            tooltip:AddLine("|cFFFFD700[Homestead]|r")
+        end
+        return tooltip:AddLine(...)
+    end
+    return gate
+end
+
+-- gate: optional header gate from the caller, shared with the reagent line
+-- so both render under one [Homestead] header.
+local function AddDecorInfoToTooltip(tooltip, itemLink, gate)
     if not itemLink then return end
 
     -- Check if tooltip additions are enabled
@@ -898,11 +929,10 @@ local function AddDecorInfoToTooltip(tooltip, itemLink)
         end
     end
 
-    -- Add blank line separator
-    tooltip:AddLine(" ")
-
-    -- Add header
-    tooltip:AddLine("|cFFFFD700[Homestead]|r")
+    -- Gate the [Homestead] separator+header behind the first content line
+    -- below so a fully-suppressed tooltip (source off, no reputation lines,
+    -- etc.) never leaves a dangling header with nothing under it (HS-349).
+    local gatedTooltip = gate or CreateHeaderGate(tooltip)
 
     -- Resolve vendor NPC scope for availability classification
     local vendorNpcID = nil
@@ -932,19 +962,19 @@ local function AddDecorInfoToTooltip(tooltip, itemLink)
 
     if not db or db.showOwned ~= false then
         if availabilityState == "owned" or isOwned == true then
-            tooltip:AddLine("Status: Owned", COLOR_GREEN.r, COLOR_GREEN.g, COLOR_GREEN.b)
+            gatedTooltip:AddLine("Status: Owned", COLOR_GREEN.r, COLOR_GREEN.g, COLOR_GREEN.b)
         elseif vendorNpcID and availabilityState == "purchasable" then
-            tooltip:AddLine("Status: Available", COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
+            gatedTooltip:AddLine("Status: Available", COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
         elseif vendorNpcID and availabilityState == "locked" then
-            tooltip:AddLine("Status: Locked", COLOR_RED.r, COLOR_RED.g, COLOR_RED.b)
+            gatedTooltip:AddLine("Status: Locked", COLOR_RED.r, COLOR_RED.g, COLOR_RED.b)
         elseif availabilityState == "available" then
-            tooltip:AddLine("Status: Available Now", COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
+            gatedTooltip:AddLine("Status: Available Now", COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
         elseif availabilityState == "blocked" then
-            tooltip:AddLine("Status: Blocked", COLOR_RED.r, COLOR_RED.g, COLOR_RED.b)
+            gatedTooltip:AddLine("Status: Blocked", COLOR_RED.r, COLOR_RED.g, COLOR_RED.b)
         elseif isOwned == false then
-            tooltip:AddLine("Status: Not Owned", COLOR_RED.r, COLOR_RED.g, COLOR_RED.b)
+            gatedTooltip:AddLine("Status: Not Owned", COLOR_RED.r, COLOR_RED.g, COLOR_RED.b)
         else
-            tooltip:AddLine("Status: Unknown", COLOR_GRAY.r, COLOR_GRAY.g, COLOR_GRAY.b)
+            gatedTooltip:AddLine("Status: Unknown", COLOR_GRAY.r, COLOR_GRAY.g, COLOR_GRAY.b)
         end
     end
 
@@ -956,7 +986,7 @@ local function AddDecorInfoToTooltip(tooltip, itemLink)
                 and HA.VendorFilter.IsOppositeFaction(scopedVendor)
                 and HA.VendorFilter.CanAccessVendor
                 and not HA.VendorFilter.CanAccessVendor(scopedVendor) then
-            tooltip:AddLine("Vendor access: Opposite-faction vendor on this character", 1.0, 0.5, 0.5)
+            gatedTooltip:AddLine("Vendor access: Opposite-faction vendor on this character", 1.0, 0.5, 0.5)
         end
     end
 
@@ -974,33 +1004,33 @@ local function AddDecorInfoToTooltip(tooltip, itemLink)
             if not detailed then
                 -- Merchant compact: only show reputation requirements (our value-add).
                 -- Blizzard already shows cost, vendor name, basic requirements.
-                renderedFactions = AddRequirementsToTooltip(tooltip, itemID, cachedMerchantNpcID, nil, true)
+                renderedFactions = AddRequirementsToTooltip(gatedTooltip, itemID, cachedMerchantNpcID, nil, true)
             else
                 -- Merchant detailed: show supplemental sources + all requirements.
                 -- No "Source: Unknown" fallback — the vendor IS the source.
                 local hasSupplemental
                 hasSupplemental, renderedFactions = AddSourceInfoToTooltip(
-                    tooltip, itemID, context, detailed, presentation)
+                    gatedTooltip, itemID, context, detailed, presentation)
                 -- If no supplemental sources rendered, AddSourceInfoToTooltip skipped
                 -- requirements internally — show them here with merchant npcID scope.
                 -- Suppress achievement/quest/unknown requirements (Blizzard shows these).
                 if not hasSupplemental then
                     local merchantDedupSet = { achievement = true, quest = true, unknown = true }
-                    renderedFactions = AddRequirementsToTooltip(tooltip, itemID, cachedMerchantNpcID, merchantDedupSet)
+                    renderedFactions = AddRequirementsToTooltip(gatedTooltip, itemID, cachedMerchantNpcID, merchantDedupSet)
                 end
             end
         else
             local hasSource
             hasSource, renderedFactions = AddSourceInfoToTooltip(
-                tooltip, itemID, context, detailed, presentation)
+                gatedTooltip, itemID, context, detailed, presentation)
             if not hasSource then
-                tooltip:AddLine("Source: Unknown", COLOR_GRAY.r, COLOR_GRAY.g, COLOR_GRAY.b)
+                gatedTooltip:AddLine("Source: Unknown", COLOR_GRAY.r, COLOR_GRAY.g, COLOR_GRAY.b)
             end
         end
     end
 
     -- Add reputation/renown progress from Blizzard's native requirement lines
-    AddReputationProgressToTooltip(tooltip, itemReqs, renderedFactions)
+    AddReputationProgressToTooltip(gatedTooltip, itemReqs, renderedFactions)
 
     -- Show Shift hint in compact mode when detailed would reveal more content
     if not detailed and context ~= "panel" then
@@ -1033,7 +1063,7 @@ local function AddDecorInfoToTooltip(tooltip, itemLink)
             end
         end
         if showHint then
-            tooltip:AddLine("Hold Shift for details", COLOR_GRAY.r, COLOR_GRAY.g, COLOR_GRAY.b)
+            gatedTooltip:AddLine("Hold Shift for details", COLOR_GRAY.r, COLOR_GRAY.g, COLOR_GRAY.b)
         end
     end
 end
@@ -1085,18 +1115,52 @@ local function OnHousingCatalogTooltipCreated(ownerID, entryFrame, tooltip)
         if HA.DevAddon and HA.Addon.db.profile.debug then
             HA.Addon:Debug("Catalog tooltip: no itemID found in entryInfo")
         end
-        return
+
+        -- Room entries (and any other non-Decor entry type) share this same
+        -- TooltipCreated event and never carry an itemID by design. recordID is
+        -- namespaced per entry type (decorID for Decor, roomID for Room —
+        -- GetCatalogEntryInfoByRecordID takes entryType alongside recordID), so
+        -- this gate MUST run before the decorID-keyed CatalogStore fallback below:
+        -- an unlucky roomID could otherwise collide with an unrelated DecorMapping
+        -- key and render that item's full source/requirements block on a room
+        -- tooltip. Return silently, exactly as before this feature existed.
+        if entryInfo.entryType ~= Enum.HousingCatalogEntryType.Decor then
+            return
+        end
+
+        -- Fall back to CatalogStore's decorID->itemID index. entryInfo.recordID IS
+        -- the decorID on a Decor entry's HousingCatalogEntryInfo (Blizzard's own
+        -- mixin and Homestead's VendorScanner.lua both read it that way); this
+        -- catches entries whose itemID/entryID came back empty above but whose
+        -- decorID has a known DecorMapping entry. Only reached for Decor entries —
+        -- the gate above already excluded Room, so recordID here is always a decorID.
+        if entryInfo.recordID and HA.CatalogStore and HA.CatalogStore.GetItemIDFromDecorID then
+            itemID = HA.CatalogStore:GetItemIDFromDecorID(entryInfo.recordID)
+        end
+
+        if type(itemID) ~= "number" then
+            -- No itemID means no source/requirements to query, so the anomaly line
+            -- is the only Homestead detail this entry could ever show — gated by the
+            -- same showSource toggle as the normal source block below, so disabling
+            -- source display also suppresses this block.
+            if not db or db.showSource ~= false then
+                tooltip:AddLine(" ")
+                tooltip:AddLine("|cFFFFD700[Homestead]|r")
+                tooltip:AddLine("Not yet mapped by Homestead", COLOR_GRAY.r, COLOR_GRAY.g, COLOR_GRAY.b)
+                tooltip:Show()
+            end
+            return
+        end
     end
 
     if HA.DevAddon and HA.Addon.db.profile.debug then
         HA.Addon:Debug("Catalog tooltip: processing itemID", itemID)
     end
 
-    -- Add blank line separator
-    tooltip:AddLine(" ")
-
-    -- Add header
-    tooltip:AddLine("|cFFFFD700[Homestead]|r")
+    -- Gate the [Homestead] separator+header behind the first content line
+    -- below so a fully-suppressed tooltip (source off, no reputation lines,
+    -- etc.) never leaves a dangling header with nothing under it (HS-349).
+    local gatedTooltip = CreateHeaderGate(tooltip)
 
     -- Query item's reputation/renown requirements from Blizzard's tooltip data
     local itemReqs = GetItemReputationRequirements(itemID)
@@ -1106,11 +1170,11 @@ local function OnHousingCatalogTooltipCreated(ownerID, entryFrame, tooltip)
     -- renderedFactions tracks which factions already have progress lines (cross-path dedup).
     local renderedFactions = nil
     if not db or db.showSource ~= false then
-        -- Priority 1: our structured source DB (HS-197 — Rawb's ruling at the HS-174
-        -- Gate 2: validated Homestead data renders first). Blizzard sourceText carried
+        -- Priority 1: our structured source DB (HS-197 — ruling made during
+        -- HS-174's live verification: validated Homestead data renders first). Blizzard sourceText carried
         -- stale attributions that our verified tables correct, and while it took
         -- priority those corrections never reached this surface.
-        local hasSource, renderedFactionsFromSources = AddSourceInfoToTooltip(tooltip, itemID)
+        local hasSource, renderedFactionsFromSources = AddSourceInfoToTooltip(gatedTooltip, itemID)
         renderedFactions = renderedFactionsFromSources
         if hasSource and HA.DevAddon and HA.Addon.db.profile.debug then
             HA.Addon:Debug("Catalog tooltip: using Homestead source tables")
@@ -1119,21 +1183,29 @@ local function OnHousingCatalogTooltipCreated(ownerID, entryFrame, tooltip)
         -- Priority 2: Blizzard sourceText, only for items our DB knows nothing about
         -- (still richer than nothing: cost icons, vendor/zone/category fields).
         if not hasSource and entryInfo.sourceText and entryInfo.sourceText ~= "" then
-            renderedFactions = RenderSourceText(tooltip, entryInfo.sourceText, itemID)
+            renderedFactions = RenderSourceText(gatedTooltip, entryInfo.sourceText, itemID)
             hasSource = true
             if HA.DevAddon and HA.Addon.db.profile.debug then
                 HA.Addon:Debug("Catalog tooltip: falling back to Blizzard sourceText")
             end
         end
 
-        -- Priority 3: Show unknown if both failed
+        -- Priority 3: no known source. AddSourceInfoToTooltip (Priority 1) and
+        -- RenderSourceText (Priority 2) each already render non-reputation
+        -- requirements internally when they find a source (see AddRequirementsToTooltip
+        -- calls above); this item found none, but SourceManager:GetRequirements is a
+        -- separate lookup from GetAllSources, so it can still carry a prerequisite
+        -- (level, quest, etc.) even with no discoverable acquisition source. Reputation
+        -- is excluded here — AddReputationProgressToTooltip below already covers
+        -- reputation/renown progress for every item on this surface.
         if not hasSource then
-            tooltip:AddLine("Source: Unknown", COLOR_GRAY.r, COLOR_GRAY.g, COLOR_GRAY.b)
+            gatedTooltip:AddLine("Source: Unknown", COLOR_GRAY.r, COLOR_GRAY.g, COLOR_GRAY.b)
+            AddRequirementsToTooltip(gatedTooltip, itemID, nil, nil, false, true)
         end
     end
 
     -- Add reputation/renown progress from Blizzard's native requirement lines
-    AddReputationProgressToTooltip(tooltip, itemReqs, renderedFactions)
+    AddReputationProgressToTooltip(gatedTooltip, itemReqs, renderedFactions)
 
     -- Refresh tooltip to show new lines
     tooltip:Show()
@@ -1210,6 +1282,23 @@ function HA.SetManagedItemTooltip(tooltip, itemID)
 end
 
 -------------------------------------------------------------------------------
+-- Reagent line: learned, unowned decor recipes that use this item
+-------------------------------------------------------------------------------
+
+local function GetReagentUsageCount(itemLink)
+    local db = HA.Addon and HA.Addon.db and HA.Addon.db.profile.tooltip
+    if db and not db.enabled then return 0 end
+    if not HA.ReagentIndex then return 0 end
+    return HA.ReagentIndex:GetMissingDecorCount(GetItemIDFromLink(itemLink))
+end
+
+local function AddReagentUsageLine(gate, count)
+    local key = (count == 1) and "Used in %d known recipe for decor you haven't collected"
+        or "Used in %d known recipes for decor you haven't collected"
+    gate:AddLine(string.format(HA.L[key], count), COLOR_WHITE.r, COLOR_WHITE.g, COLOR_WHITE.b)
+end
+
+-------------------------------------------------------------------------------
 -- Tooltip Hooking (Modern API - TooltipDataProcessor)
 -------------------------------------------------------------------------------
 
@@ -1227,7 +1316,15 @@ local function OnTooltipSetItem(tooltip, data)
     end
 
     if itemLink then
-        AddDecorInfoToTooltip(tooltip, itemLink)
+        -- A reagent line needs a header even on a non-decor item, so the
+        -- gate is created here and shared; otherwise the decor block makes
+        -- its own (HS-349).
+        local reagentCount = GetReagentUsageCount(itemLink)
+        local gate = (reagentCount > 0) and CreateHeaderGate(tooltip) or nil
+        AddDecorInfoToTooltip(tooltip, itemLink, gate)
+        if reagentCount > 0 then
+            AddReagentUsageLine(gate, reagentCount)
+        end
     end
 end
 

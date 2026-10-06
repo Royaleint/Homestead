@@ -331,19 +331,11 @@ function ScanPersistence:SaveVendorData(scanData)
             ))
         end
     else
-        -- Unknown vendor, no prior good data, 0 housing items: don't persist
+        -- Unknown vendor, no prior good data, 0 housing items: don't persist.
+        -- No direct BuildScannedIndex() call needed here -- the unconditional
+        -- InvalidateVendorCaches() call a few lines down runs regardless of
+        -- which branch above ran, and rebuilds this index as part of that.
         HA.Addon.db.global.scannedVendors[scanData.npcID] = nil
-        -- NOTE: VENDOR_SCANNED actually fires unconditionally near the end of this
-        -- function (see the Fire() call below) regardless of which branch above ran
-        -- -- this delete branch is no exception. This direct call is therefore
-        -- redundant with both that event's OnVendorScanned handler and the
-        -- unconditional InvalidateVendorCaches() call a few lines down (both also
-        -- rebuild this index). Kept anyway as an explicit, cheap, idempotent rebuild
-        -- at the point of deletion; removing it is a separate cleanup, not bundled
-        -- into HS-280's scope.
-        if HA.VendorData and HA.VendorData.BuildScannedIndex then
-            HA.VendorData:BuildScannedIndex()
-        end
     end
 
     if HA.DevAddon then
@@ -399,6 +391,11 @@ function ScanPersistence:SaveVendorData(scanData)
     -- argument on the VENDOR_SCANNED fire below instead.
     local hadRequirementDiscovery = false
     if HA.CatalogStore then
+        -- HS-092: a vendor with several requirement-bearing decor items was
+        -- firing CATALOG_ITEM_UPDATED once per item on every ordinary vendor
+        -- scan instead of once per scan. BeginBatch/EndBatch suppresses the
+        -- per-item fires the same way CatalogScanner's own ProcessBatch does.
+        HA.CatalogStore:BeginBatch()
         for _, item in ipairs(vendorRecord.items) do
             -- Containment: never create a catalogItems record for a non-decor
             -- housing item. CatalogStore:IsDecorItem gate 1 keys off catalog
@@ -420,6 +417,7 @@ function ScanPersistence:SaveVendorData(scanData)
                 end
             end
         end
+        HA.CatalogStore:EndBatch()
     end
 
     -- Track vendor scan
@@ -431,6 +429,16 @@ function ScanPersistence:SaveVendorData(scanData)
     -- Ordering is load-bearing: this rebuild must run BEFORE the VENDOR_SCANNED
     -- fire below, so any listener observes a freshly-rebuilt index, never a
     -- stale one between save and rebuild (HS-280).
+    --
+    -- Perf cleanup: this is now the ONLY place that rebuilds the scanned-items
+    -- index. VendorData used to also rebuild it on its own VENDOR_SCANNED
+    -- listener, but that was always redundant with this call (it fires
+    -- immediately after this one every time) and has been removed. If a
+    -- future call site fires VENDOR_SCANNED without going through
+    -- InvalidateVendorCaches() first, the index will NOT be rebuilt
+    -- automatically -- route any new scan-save path through here (or call
+    -- VendorData:BuildScannedIndex() directly) rather than assuming the event
+    -- itself triggers a rebuild.
     if HA.VendorData and HA.VendorData.InvalidateVendorCaches then
         HA.VendorData:InvalidateVendorCaches()
     end
@@ -532,15 +540,26 @@ local function RefreshMapPins()
         HA.VendorMapPins:RefreshMinimapPins()
     end
 
-    -- HS-273 R2 (Sage: /hs clearscans ghost-sources Critical): all three
-    -- clear-data entry points below route through here, so wiping the
+    -- HS-273 R2 (/hs clearscans ghost-sources, critical): all three
+    -- clear-data entry points below route through here, so invalidating the
     -- GetAllSources memo here covers ClearScannedData/ClearNoDecorData/
     -- ClearAllData in one place. Without this, GetAllSources would keep
     -- returning sources for vendors the player just told the addon to
-    -- forget -- ghost sources surviving a data clear. Narrow wipe (memo
-    -- only), same accessor the vendor-scan site above uses.
-    if HA.SourceManager and HA.SourceManager.InvalidateSourcesMemo then
-        HA.SourceManager:InvalidateSourcesMemo()
+    -- forget -- ghost sources surviving a data clear.
+    --
+    -- BROAD wipe here, unlike the deliberately narrow one at the vendor-scan
+    -- site above, and the difference is frequency. R2 kept that site narrow
+    -- because the broadcasting version restarts the badge prewarm, and paying
+    -- that on every first-visit merchant is the HS-238 over-invalidation.
+    -- These three functions run only from the /hs clear* commands, where a
+    -- full repaint is both affordable and what "forget my scan data" ought to
+    -- mean. The narrow wipe also announced nothing, so caches downstream that
+    -- key off source data -- CatalogOverlay's per-item verdicts, the search
+    -- index -- kept serving the cleared vendors until something unrelated
+    -- invalidated them. InvalidateAllSourceCaches composes the narrow wipe,
+    -- so nothing R2 relied on is lost.
+    if HA.SourceManager and HA.SourceManager.InvalidateAllSourceCaches then
+        HA.SourceManager:InvalidateAllSourceCaches()
     end
 end
 
@@ -585,53 +604,4 @@ function ScanPersistence:ClearAllData()
     RefreshMapPins()
 
     HA.Addon:Print("Cleared ALL vendor data including no-decor flags.")
-end
-
--------------------------------------------------------------------------------
--- Export
--------------------------------------------------------------------------------
-
--- DEPRECATED: legacy debug renderer, not the canonical export path.
--- Canonical export = ExportImport:ExportScannedVendors() (format version 2).
--- Output is stripped (itemID + name only; no cost data, no currencies).
--- Candidate for removal after HS-135 (T2-5 VendorDatabase migration) is confirmed complete.
-function ScanPersistence:ExportScannedData()
-    local vendors = self:GetScannedVendors()
-    local export = {
-        version = 1,
-        timestamp = time(),
-        vendors = {},
-    }
-
-    for npcID, data in pairs(vendors) do
-        table.insert(export.vendors, {
-            npcID = data.npcID,
-            name = data.name,
-            mapID = data.mapID,
-            coords = data.coords,
-            items = data.items,
-        })
-    end
-
-    -- Convert to Lua table format string
-    local output = "-- Homestead Vendor Scanner Export\n"
-    output = output .. "-- Generated: " .. date("%Y-%m-%d %H:%M:%S") .. "\n"
-    output = output .. "-- Vendors: " .. #export.vendors .. "\n\n"
-
-    for _, vendor in ipairs(export.vendors) do
-        output = output .. "-- " .. vendor.name .. " (NPC ID: " .. vendor.npcID .. ")\n"
-        output = output .. "{\n"
-        output = output .. "    npcID = " .. vendor.npcID .. ",\n"
-        output = output .. "    name = \"" .. (vendor.name or "") .. "\",\n"
-        output = output .. "    mapID = " .. (vendor.mapID or 0) .. ",\n"
-        output = output .. "    coords = { x = " .. string.format("%.3f", vendor.coords.x) .. ", y = " .. string.format("%.3f", vendor.coords.y) .. " },\n"
-        output = output .. "    items = {\n"
-        for _, item in ipairs(vendor.items or {}) do
-            output = output .. "        { itemID = " .. (item.itemID or 0) .. ", name = \"" .. (item.name or "") .. "\" },\n"
-        end
-        output = output .. "    },\n"
-        output = output .. "},\n\n"
-    end
-
-    return output
 end

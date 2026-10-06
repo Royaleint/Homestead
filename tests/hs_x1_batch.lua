@@ -105,9 +105,13 @@ end)
 assert(ok, "a throwing GetConfigInfo must not propagate an error out of the event handler")
 assert(invalidateCalls == 1, "a failed GetConfigInfo read must NOT invalidate")
 
--- Other registered events remain unconditional, unaffected by this filter.
+-- Other registered events are unaffected by the TRAIT_CONFIG_UPDATED filter
+-- above. HS-283 (second pass) gated ACHIEVEMENT_EARNED itself, but a fire
+-- with no payload (as below) is a non-number achievementID, which fails
+-- open and still invalidates — see tests/hs238_invalidation_gates.lua for
+-- coverage of the gated (real achievementID) cases.
 capturedFrame.handler(capturedFrame, "ACHIEVEMENT_EARNED")
-assert(invalidateCalls == 2, "ACHIEVEMENT_EARNED must remain unconditional")
+assert(invalidateCalls == 2, "ACHIEVEMENT_EARNED with a non-number payload must fail open and invalidate")
 
 print("hs_x1_batch: HS-214 TRAIT_CONFIG_UPDATED filter ok")
 

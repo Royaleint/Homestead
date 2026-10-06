@@ -155,6 +155,7 @@ local UNKNOWN_VENDOR_STATS = {
     excluded = 0,
     blockers = nil,
     total = 0,
+    vendorOnly = 0,
 }
 
 -- HS-249: is this item's ownership knowable at all? Every housing subclass
@@ -171,6 +172,32 @@ local function IsOwnershipExcluded(itemID, presentation)
     return false
 end
 
+-- HS-074: true when the item has no source types other than vendor-like
+-- (vendor/event/shop). Approximation of "this vendor-NPC is the only path."
+-- Moved here from VendorMapPins.lua (code review) so BuildVendorStats' item
+-- loop can produce the "Vendor-only" count from the same population as
+-- collected/total/locked, instead of a second differently-filtered pass over
+-- the tooltip's hand-rolled item list. Optional `sources` lets a caller that
+-- already has GetAllSources' result (e.g. AccumulateVendorItem's
+-- presentation.allSources) pass them in and skip the second lookup;
+-- GetAllSources is memoized regardless (HS-273/281/282). src.type runs
+-- through NormalizeSourceType, matching every other source.type consumer.
+local function IsItemVendorOnly(itemID, sources)
+    local SM = HA.SourceManager
+    if not itemID or not SM then return false end
+    if not sources and SM.GetAllSources then
+        sources = SM:GetAllSources(itemID)
+    end
+    if not sources or #sources == 0 then return true end
+    for _, src in ipairs(sources) do
+        local normalizedType = SM.NormalizeSourceType and SM:NormalizeSourceType(src.type) or src.type
+        if normalizedType ~= "vendor" and normalizedType ~= "event" and normalizedType ~= "shop" then
+            return false
+        end
+    end
+    return true
+end
+
 -- HS-278: per-vendor accumulator state, extracted out of BuildVendorStats so
 -- the prewarm pass's item loop (below) can resume it across ticks instead of
 -- running one vendor's whole item list in a single unbreakable call.
@@ -183,6 +210,7 @@ local function NewVendorStatsAccum()
         locked = 0,
         unobtainable = 0,
         excluded = 0,
+        vendorOnly = 0,
         provisionalUnverified = 0,
         hasAnyVerifiableRequirements = false,
         lockedBlockerCounts = {},
@@ -221,6 +249,10 @@ local function AccumulateVendorItem(accum, itemID, vendor, sourceFilter)
         local isUnverified = presentation and presentation.isUnverified or false
         local hasVerifiableRequirement = presentation and presentation.hasVerifiableRequirement or false
         local blockerLabels = presentation and presentation.blockerLabels or nil
+        -- HS-074: same population as total (owned + locked/purchasable below,
+        -- not the unobtainable branch) so the tooltip's "Vendor-only: N" line
+        -- never contradicts the collected/total numbers next to it.
+        local isVendorOnlyItem = IsItemVendorOnly(itemID, presentation and presentation.allSources)
 
         -- HS-200: badge recounts are an aggregate per-vendor-item loop —
         -- this no-presentation fallback must stay cache-only the same way
@@ -237,6 +269,9 @@ local function AccumulateVendorItem(accum, itemID, vendor, sourceFilter)
             -- unobtainable for other players — the player already has it.
             accum.collected = accum.collected + 1
             accum.total = accum.total + 1
+            if isVendorOnlyItem then
+                accum.vendorOnly = accum.vendorOnly + 1
+            end
         elseif state == "unobtainable" then
             -- HS-158/160 §3/decision 4: unowned unobtainable items
             -- (promotion-gated, live or expired) are EXCLUDED from total
@@ -245,6 +280,9 @@ local function AccumulateVendorItem(accum, itemID, vendor, sourceFilter)
             accum.unobtainable = accum.unobtainable + 1
         else
             accum.total = accum.total + 1
+            if isVendorOnlyItem then
+                accum.vendorOnly = accum.vendorOnly + 1
+            end
 
             if isUnverified then
                 accum.provisionalUnverified = accum.provisionalUnverified + 1
@@ -285,6 +323,7 @@ local function FinalizeVendorStatsAccum(accum)
             excluded = accum.excluded,
             blockers = nil,
             total = 0,
+            vendorOnly = 0,
         }
     end
 
@@ -318,6 +357,7 @@ local function FinalizeVendorStatsAccum(accum)
         excluded = accum.excluded,
         blockers = blockers,
         total = accum.total,
+        vendorOnly = accum.vendorOnly,
     }
 end
 
@@ -575,7 +615,7 @@ function BadgeCalculation:InvalidateAllCaches()
     wipe(vendorStatsCache)
     wipe(dropGroupStatsCache)
     self:InvalidateBadgeCache()
-    -- HS-234 cycle 1 ADOPTED WARNING: this is the chokepoint every wipe path
+    -- HS-234 (ADOPTED WARNING): this is the chokepoint every wipe path
     -- routes through (OWNERSHIP_UPDATED, VendorMapPins direct calls,
     -- MapSidePanel, OptionsModel, SOURCE_CACHES_INVALIDATED) — re-warming
     -- here covers all of them uniformly instead of one special-cased event
@@ -597,6 +637,20 @@ function BadgeCalculation:InvalidateVendorCache(npcID)
             end
         end
     end
+end
+
+-- HS-282: dev-only debug accessor exposing this module's caches to the
+-- /hs debug membudget walker. Read-only references, never mutated by the
+-- caller. cachedZoneBadges/cachedContinentBadges are reported together as
+-- "badge caches" by the caller -- kept as separate table references here
+-- so InvalidateBadgeCache's existing wipe-both shape isn't disturbed.
+function BadgeCalculation:GetDebugCacheTables()
+    return {
+        vendorStatsCache = vendorStatsCache,
+        dropGroupStatsCache = dropGroupStatsCache,
+        cachedZoneBadges = cachedZoneBadges,
+        cachedContinentBadges = cachedContinentBadges,
+    }
 end
 
 -------------------------------------------------------------------------------
@@ -893,14 +947,14 @@ local WARMUP_BATCH_DELAY = 0.02
 local WARMUP_COMBAT_RETRY_DELAY = 1.0
 
 local warmupInProgress = false
--- HS-234 cycle 1 CRITICAL fix: a wipe arriving mid-pass must not be
+-- HS-234 (CRITICAL fix): a wipe arriving mid-pass must not be
 -- silently dropped by the reentrancy guard — that left vendors already
 -- wiped-but-not-yet-reprocessed permanently missing from vendorStatsCache
 -- until the NEXT invalidation, so a future World/Continent open paid
 -- roughly half the freeze again, silently. This flag makes the guard
 -- COALESCE the dropped request into "run one more full pass when the
--- current one finishes" instead of discarding it. Argus verified writes
--- are never stale (GetVendorStats recomputes live at call time) — this
+-- current one finishes" instead of discarding it. Writes are never stale
+-- (GetVendorStats recomputes live at call time) — this
 -- fixes coverage, not staleness; the rerun keeps it that way by always
 -- being a full pass, never a partial resume from a stale index.
 local warmupPendingRerun = false
@@ -954,6 +1008,11 @@ local function StartPrewarmPass()
     if totalVendors == 0 then return end
 
     warmupInProgress = true
+    -- The generation this pass' warmed vendors belong to (see the aggregate
+    -- gate below). Read once here, never updated mid-pass: a pass that no
+    -- longer matches the live generation is a pass whose work has been wiped
+    -- out from under it, and it restarts rather than catching up.
+    local passGeneration = vendorStatsCacheGeneration
     local currentIndex = 1
     -- Built lazily on the FIRST batch tick below (orchestrator review flag 2).
     local orderedVendors = nil
@@ -994,6 +1053,14 @@ local function StartPrewarmPass()
             -- Measure's callback is pcall itself (not a wrapper closure
             -- around it), so this stays the original `ok = pcall(fn)` shape.
             local batchStartIndex = currentIndex
+            -- Perf: how many vendors THIS tick actually finished (finalized
+            -- into vendorStatsCache, or marked UNKNOWN_VENDOR_STATS) -- not
+            -- how many the loop merely stepped past (already-warm skips) or
+            -- accumulated an item into mid-vendor. Gates the fire below so a
+            -- tick that made zero new-completion progress (e.g. a mid-vendor
+            -- time-box break, or a run of already-warmed skips) doesn't make
+            -- PinFrameFactory's listener walk every rendered pin for nothing.
+            local completedThisTick = 0
             -- pcall so a mid-batch error degrades to "this pass aborted" — an
             -- unguarded error would kill the timer chain with warmupInProgress
             -- stuck true, silently disabling prewarm for the rest of the
@@ -1001,7 +1068,7 @@ local function StartPrewarmPass()
             -- never comes).
             local ok = HA.PerformanceTrace:Measure("badge_prewarm", batchStartIndex, pcall, function()
                 if not orderedVendors then
-                    -- HS-271 Gate 1 cycle 1: moved inside this Measure/pcall
+                    -- HS-271: moved inside this Measure/pcall
                     -- boundary (previously unmeasured and unguarded) so a
                     -- slow or erroring partition shows up in the SAME
                     -- badge_prewarm record class and degrades the pass the
@@ -1069,6 +1136,7 @@ local function StartPrewarmPass()
                         if #itemOrderedIDs == 0 then
                             vendorStatsCache[itemVendorKey] = UNKNOWN_VENDOR_STATS
                             currentIndex = currentIndex + 1
+                            completedThisTick = completedThisTick + 1
                         else
                             AccumulateVendorItem(itemAccum, itemOrderedIDs[itemCursor], vendor, "all")
                             itemCursor = itemCursor + 1
@@ -1076,6 +1144,7 @@ local function StartPrewarmPass()
                                 -- Finished every item for this vendor -- finalize, cache, advance.
                                 vendorStatsCache[itemVendorKey] = FinalizeVendorStatsAccum(itemAccum)
                                 currentIndex = currentIndex + 1
+                                completedThisTick = completedThisTick + 1
                             end
                             -- else: still mid-vendor -- currentIndex stays put, itemCursor
                             -- carries forward; the while loop's own re-entry picks up this
@@ -1097,7 +1166,27 @@ local function StartPrewarmPass()
             -- whole pass) — PinFrameFactory's listener walks currently
             -- rendered vendor pins and re-runs RefreshVendorPinCount on
             -- whichever are still flagged hsStatsPending.
-            if HA.Events then
+            --
+            -- Perf: mid-loop ticks only fire when they actually finished at
+            -- least one vendor -- a tick that made zero new-completion
+            -- progress has nothing new for the listener to find.
+            --
+            -- CRITICAL: the tick that ENDS the vendor loop
+            -- (currentIndex crosses past the last vendor) must fire
+            -- unconditionally, even if it completed nothing itself. A pass
+            -- can end on pure skips -- e.g. the pending pin's own self-heal
+            -- requests this exact pass, and inside the debounce window a
+            -- live caller (a side-panel query, any GetVendorStats call)
+            -- warms that same vendor first; every vendor this pass then
+            -- touches is already cached, so completedThisTick stays 0 for
+            -- the whole loop. HS_VENDOR_STATS_WARMED is the pending pin's
+            -- only non-render wake-up, so a pass that never fires leaves its
+            -- own "..." placeholder stuck forever. By loop end every
+            -- vendor a live caller warmed mid-pass is warm in the cache, so
+            -- the end-of-loop fire still heals every such pin -- this costs
+            -- exactly one extra fire per pass, not one per tick.
+            local vendorLoopEnded = currentIndex > totalVendors
+            if HA.Events and (completedThisTick > 0 or vendorLoopEnded) then
                 HA.Events:Fire("HS_VENDOR_STATS_WARMED")
             end
             C_Timer.After(WARMUP_BATCH_DELAY, ProcessBatch)
@@ -1107,48 +1196,67 @@ local function StartPrewarmPass()
         -- Vendor-stats loop is done. Orchestrator review flag 1: each
         -- aggregate call below is an ATOMIC batch unit — the time-box is
         -- BETWEEN calls (one call per tick), never inside one.
-        if not continentList then
-            continentList = {}
-            for continentMapID in pairs(Constants.ContinentNames) do
-                if not MPP.excludedContinents[continentMapID] then
-                    continentList[#continentList + 1] = continentMapID
+
+        -- ...which is exactly why they must not run against a cache that was
+        -- wiped mid-pass. The vendor loop above never revisits vendors behind
+        -- its cursor, so after a wipe every vendor it already warmed is cold
+        -- again — and an aggregate re-walks ALL of them inside one atomic,
+        -- un-timeboxed call, recomputing that whole cold prefix in a single
+        -- frame. Skip the remaining aggregate ticks instead and let the rerun
+        -- below redo the pass from a consistent cache. Re-evaluated on every
+        -- post-loop tick (ProcessBatch re-enters here per tick), so this
+        -- guards EACH aggregate tick, not just the first.
+        local staleMidPass = warmupPendingRerun or vendorStatsCacheGeneration ~= passGeneration
+
+        if not staleMidPass then
+            if not continentList then
+                continentList = {}
+                for continentMapID in pairs(Constants.ContinentNames) do
+                    if not MPP.excludedContinents[continentMapID] then
+                        continentList[#continentList + 1] = continentMapID
+                    end
+                end
+            end
+
+            if not continentTotalsWarmed then
+                continentTotalsWarmed = true
+                local ok = HA.PerformanceTrace:Measure("badge_prewarm", "continent_totals", pcall, function()
+                    BadgeCalculation:GetContinentVendorCounts("all")
+                end)
+                if not ok then
+                    warmupInProgress = false
+                    warmupPendingRerun = false
+                    return
+                end
+                C_Timer.After(WARMUP_BATCH_DELAY, ProcessBatch)
+                return
+            end
+
+            if continentIndex <= #continentList then
+                local continentMapID = continentList[continentIndex]
+                continentIndex = continentIndex + 1
+                local ok = HA.PerformanceTrace:Measure("badge_prewarm", continentMapID, pcall, function()
+                    BadgeCalculation:GetZoneVendorCounts(continentMapID, "all")
+                end)
+                if not ok then
+                    warmupInProgress = false
+                    warmupPendingRerun = false
+                    return
+                end
+                if continentIndex <= #continentList then
+                    C_Timer.After(WARMUP_BATCH_DELAY, ProcessBatch)
+                    return
                 end
             end
         end
 
-        if not continentTotalsWarmed then
-            continentTotalsWarmed = true
-            local ok = HA.PerformanceTrace:Measure("badge_prewarm", "continent_totals", pcall, function()
-                BadgeCalculation:GetContinentVendorCounts("all")
-            end)
-            if not ok then
-                warmupInProgress = false
-                warmupPendingRerun = false
-                return
-            end
-            C_Timer.After(WARMUP_BATCH_DELAY, ProcessBatch)
-            return
-        end
-
-        if continentIndex <= #continentList then
-            local continentMapID = continentList[continentIndex]
-            continentIndex = continentIndex + 1
-            local ok = HA.PerformanceTrace:Measure("badge_prewarm", continentMapID, pcall, function()
-                BadgeCalculation:GetZoneVendorCounts(continentMapID, "all")
-            end)
-            if not ok then
-                warmupInProgress = false
-                warmupPendingRerun = false
-                return
-            end
-            if continentIndex <= #continentList then
-                C_Timer.After(WARMUP_BATCH_DELAY, ProcessBatch)
-                return
-            end
-        end
-
         warmupInProgress = false
-        if warmupPendingRerun then
+        -- staleMidPass reruns even when warmupPendingRerun is still false:
+        -- the generation moves the instant a wipe lands, but the flag is only
+        -- set a debounce interval later (and InvalidateVendorCache bumps the
+        -- generation without requesting a prewarm at all). Without this the
+        -- skipped aggregates would simply never be warmed by this pass.
+        if staleMidPass or warmupPendingRerun then
             -- A wipe landed while this pass was running — rerun a FULL
             -- fresh pass (not a resume) so nothing processed before
             -- that wipe is left stale-cached, and nothing after it is
@@ -1156,10 +1264,21 @@ local function StartPrewarmPass()
             -- re-warming aggregates, same as the first run.
             warmupPendingRerun = false
             StartPrewarmPass()
+        else
+            -- HS-282: a clean, nothing-pending pass end is the one reliable
+            -- point where every vendor's source/vendor-item lookups have run
+            -- -- flush the two eviction-capped memos here so a session that
+            -- never organically hits the 512/64 caps still gets relief.
+            if HA.SourceManager and HA.SourceManager.InvalidateSourcesMemo then
+                HA.SourceManager:InvalidateSourcesMemo()
+            end
+            if HA.VendorData and HA.VendorData.InvalidateVendorItemsMemo then
+                HA.VendorData:InvalidateVendorItemsMemo()
+            end
         end
     end
 
-    -- HS-234 cycle 1 CRITICAL fix: batch 1 must not run synchronously in
+    -- HS-234 (CRITICAL fix): batch 1 must not run synchronously in
     -- the caller's frame either (it was — ~45ms of cold requirement evals
     -- injected directly into the SOURCE_CACHES_INVALIDATED dispatch frame
     -- and the login ticker's tick). Defer it exactly like batches 2+ so
@@ -1177,7 +1296,7 @@ local function TryStartPrewarmPass()
     StartPrewarmPass()
 end
 
--- HS-234 cycle 1 CRITICAL fix: trigger-level cancel-and-restart debounce,
+-- HS-234 (CRITICAL fix): trigger-level cancel-and-restart debounce,
 -- same discipline as HomesteadWorldMapProvider's RequestSettledRefresh —
 -- a burst of calls (rapid rep ticks each invalidating, multiple wipe paths
 -- firing close together) now schedules exactly ONE prewarm attempt after
@@ -1195,7 +1314,7 @@ RequestVendorStatsPrewarm = function(_reason)
     end)
 end
 
--- HS-271 Gate 1 cycle 1: public self-heal entry point for the deferred-fill
+-- HS-271: public self-heal entry point for the deferred-fill
 -- path (PinFrameFactory:RefreshVendorPinCount, on a double cache miss) —
 -- thin wrapper over the same debounced trigger every other caller already
 -- uses, nothing else. Safe to call from a render-path double miss because
@@ -1234,7 +1353,7 @@ if HA.Events then
     end)
 
     -- HS-273 R7: listens for CatalogScanner's two true-warm one-shots
-    -- (Gate 0 finding 2 — no existing chain reliably re-fires on that exact
+    -- (no existing chain reliably re-fires on that exact
     -- edge). This FILLS the gap on the cold->warm transition specifically;
     -- it does not replace SOURCE_CACHES_INVALIDATED above as the source of
     -- ongoing freshness — later ownership changes still flow through that

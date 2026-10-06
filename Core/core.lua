@@ -56,10 +56,13 @@ local Lifecycle = F:RequireModule("Lifecycle", 1)
 -- BSP-060 guard precedent — RequireModule raises in BOTH builds).
 F:RequireModule("DB", 1)
 local lifecycle = Lifecycle:New(Homestead, addonName)
--- Subscription ORDER is load-bearing for the load-on-demand catch-up path: if
--- Homestead were ever loaded on demand AFTER login, both hooks catch up
--- synchronously here in registration order, so OnAddonLoaded must precede OnLogin
--- or OnEnable would run before OnInitialize had built self.db.
+-- Registration order does NOT protect OnInitialize-before-OnEnable on a
+-- load-on-demand path: Foundry's addon-loaded catch-up gates on the second
+-- return of IsAddOnLoaded, which is false while our own files are still
+-- loading, while the login catch-up fires synchronously whenever IsLoggedIn()
+-- is already true (Lifecycle.lua:139-151, 255-267). Homestead is not
+-- LoadOnDemand, so it always loads before PLAYER_LOGIN and the order below is
+-- correct; if it ever became LoD, OnEnable would run before OnInitialize.
 lifecycle:OnAddonLoaded(function() Homestead:OnInitialize() end)
 lifecycle:OnLogin(function() Homestead:OnEnable() end)
 
@@ -78,9 +81,6 @@ function HousingAddon:OnInitialize()
     -- name must be the real folder name (Homestead or Homestead_DevBuild): Foundry
     -- feeds it to C_AddOns.IsAddOnLoaded for the SV-availability check (STU-073).
     self.db = F.DB:New({ name = addonName, sv = "HomesteadDB", defaults = Constants.Defaults, defaultProfile = true })
-
-    -- Clean up removed setting from SavedVariables (requirement scraping removed)
-    self.db.global.enableRequirementScraping = nil
 
     -- One-time migration: pin size default was too large for native pin system.
     -- Old default was 20, runtime clamped to 18. Reset users at either value to 10.
@@ -147,9 +147,6 @@ function HousingAddon:OnInitialize()
     cmd:Register({ name = "refreshmap",
         help = "Refresh world map pins.",
         handler = function() self:RefreshMapPins() end })
-    cmd:Register({ name = "corrections", aliases = { "npcfixes" },
-        help = "Show detected NPC ID corrections.",
-        handler = function() self:ShowNPCIDCorrections() end })
     cmd:Register({ name = "export",
         help = "Show the export dialog.",
         handler = function()
@@ -239,9 +236,10 @@ function HousingAddon:OnInitialize()
                 HA.SourceTextParser:RunTests()
             end
         end })
-    cmd:Register({ name = "debug memallsources", args = "[full]",
-        help = "Report allSourcesCache size/memory (HS-279). 'full' forces a full-corpus warm to isolate its cost.",
-        handler = function(rest) self:DebugMemAllSourcesReport(rest == "full") end })
+    -- HS-282: /hs debug memallsources and /hs debug membudget are dev-only
+    -- diagnostics; they register themselves from Core/DevMemoryDiagnostics.lua
+    -- (a file this shipped module never references) once self.commands below
+    -- exists and PLAYER_LOGIN has fired. Never registered here.
 
     self.commands = cmd
 
@@ -282,6 +280,11 @@ function HousingAddon:OnEnable()
     -- Initialize CatalogScanner for bulk ownership scanning
     if HA.CatalogScanner then
         HA.CatalogScanner:Initialize()
+    end
+
+    -- Reverse reagent index for the reagent tooltip line
+    if HA.ReagentIndex then
+        HA.ReagentIndex:Initialize()
     end
 
     -- Initialize VendorScanner for automatic vendor discovery
@@ -619,140 +622,11 @@ function HousingAddon:ClearOwnershipCache()
     end
 end
 
--- HS-279: dev diagnostic for allSourcesCache's memory footprint. Snapshot-only
--- by default (safe, non-destructive); 'full' additionally forces a
--- full-corpus warm bracketed by _G.collectgarbage("collect") +
--- GetAddOnMemoryUsage so the isolated cost of a fully-populated cache is
--- measurable, not guessed -- this feeds HS-279's eviction threshold, it
--- doesn't implement one itself.
--- addonName (the file-scope TOC vararg) is used instead of a literal
--- "Homestead" so this reads correctly under Homestead_DevBuild, the target
--- this diagnostic is actually run against. (VendorMapPins.lua:218's
--- WorldMapPerf debug log hardcodes "Homestead" instead -- a separate,
--- pre-existing quirk, out of scope here.)
-function HousingAddon:DebugMemAllSourcesReport(full)
-    if not (_G.UpdateAddOnMemoryUsage and _G.GetAddOnMemoryUsage) then
-        self:Print("Memory API unavailable on this client.")
-        return
-    end
-    if not HA.SourceManager or not HA.SourceManager.GetSourcesMemoEntryCount then
-        self:Print("SourceManager unavailable.")
-        return
-    end
-
-    local output = {}
-    table.insert(output, "=== Homestead allSourcesCache Diagnostics (HS-279) ===")
-    table.insert(output, "")
-
-    _G.collectgarbage("collect")
-    _G.UpdateAddOnMemoryUsage()
-    local organicCount = HA.SourceManager:GetSourcesMemoEntryCount()
-    local organicKB = _G.GetAddOnMemoryUsage(addonName) or 0
-    table.insert(output, format("Current (organic) state: %d entries, %.1f KB total addon memory.",
-        organicCount, organicKB))
-
-    if not full then
-        table.insert(output, "")
-        table.insert(output, "Run '/hs debug memallsources full' to force a full-corpus warm and")
-        table.insert(output, "isolate this cache's own memory cost. Slower (walks every vendor's")
-        table.insert(output, "full item list and forces two full GC passes -- a deliberate one-time")
-        table.insert(output, "cost for a dev diagnostic, not something to run casually mid-play) and")
-        table.insert(output, "briefly wipes/rebuilds the cache -- safe, it's a pure memo.")
-        self:ShowCopyableText(table.concat(output, "\n"))
-        return
-    end
-
-    if not HA.VendorData or not HA.VendorData.GetAllVendors or not HA.VendorData.GetMergedItemSet then
-        table.insert(output, "")
-        table.insert(output, "VendorData unavailable -- cannot enumerate the item corpus for a full warm.")
-        self:ShowCopyableText(table.concat(output, "\n"))
-        return
-    end
-
-    -- Enumerate every distinct itemID GetAllSources' registered providers can
-    -- be asked about (Data/SourceManager.lua RegisterDefaultProviders) --
-    -- vendor items, plus the six static per-itemID source tables the other
-    -- providers read directly (quest/achievement/profession/event/drop/shop).
-    -- Argus HS-279 review: a vendor-only corpus understates the memo's true
-    -- organic ceiling, since tooltips/badges query GetAllSources for these
-    -- non-vendor items too -- the eviction threshold this diagnostic feeds
-    -- needs the real ceiling, not a partial one.
-    local seen = {}
-    local corpus = {}
-    local function addToCorpus(itemID)
-        if itemID and not seen[itemID] then
-            seen[itemID] = true
-            corpus[#corpus + 1] = itemID
-        end
-    end
-
-    local allVendors = HA.VendorData:GetAllVendors()
-    for _, vendor in ipairs(allVendors) do
-        local _, orderedItemIDs = HA.VendorData:GetMergedItemSet(vendor, true)
-        for _, itemID in ipairs(orderedItemIDs or {}) do
-            addToCorpus(itemID)
-        end
-    end
-
-    local staticSourceTables = {
-        HA.QuestSources, HA.AchievementSources, HA.ProfessionSources,
-        HA.EventSources, HA.DropSources, HA.ShopSources,
-    }
-    for _, sourceTable in ipairs(staticSourceTables) do
-        if sourceTable then
-            for itemID in pairs(sourceTable) do
-                addToCorpus(itemID)
-            end
-        end
-    end
-
-    -- Not included: parsed sourceText discovery (HA.SourceTextScanner),
-    -- which is opt-in (useParsedSources, default false) and has no static
-    -- table to enumerate -- HS-273 R7 already documents this as a deferred
-    -- edge, not something this diagnostic can cheaply close. The reported
-    -- ceiling below is real but not exhaustive when that setting is on.
-
-    -- Isolate the cache's own cost: wipe, measure a clean baseline, force a
-    -- full warm, measure again. The delta is this cache's memory alone, not
-    -- the addon's whole baseline (which includes everything else Homestead
-    -- holds — SavedVariables tables, other caches, UI frames, etc).
-    HA.SourceManager:InvalidateSourcesMemo()
-    _G.collectgarbage("collect")
-    _G.UpdateAddOnMemoryUsage()
-    local emptyKB = _G.GetAddOnMemoryUsage(addonName) or 0
-
-    for _, itemID in ipairs(corpus) do
-        HA.SourceManager:GetAllSources(itemID)
-    end
-
-    _G.collectgarbage("collect")
-    _G.UpdateAddOnMemoryUsage()
-    local fullCount = HA.SourceManager:GetSourcesMemoEntryCount()
-    local fullKB = _G.GetAddOnMemoryUsage(addonName) or 0
-    local isolatedKB = fullKB - emptyKB
-    local perEntryBytes = fullCount > 0 and (isolatedKB * 1024 / fullCount) or 0
-
-    table.insert(output, "")
-    table.insert(output, "Corpus size (distinct itemIDs: vendors + quest/achievement/")
-    table.insert(output, format("profession/event/drop/shop sources): %d", #corpus))
-    table.insert(output, format("Fully-warmed cache: %d entries.", fullCount))
-    table.insert(output, format("Empty-cache baseline: %.1f KB total addon memory.", emptyKB))
-    table.insert(output, format("Fully-warmed: %.1f KB total addon memory.", fullKB))
-    table.insert(output, format("Isolated cache cost: %.1f KB (%.0f bytes/entry average).",
-        isolatedKB, perEntryBytes))
-    table.insert(output, "")
-    table.insert(output, "Note: excludes parsed sourceText discovery (off by default via")
-    table.insert(output, "useParsedSources) -- the real ceiling is higher than this if that")
-    table.insert(output, "setting is enabled. Also: the organic ceiling is bounded by catalog")
-    table.insert(output, "size, not this corpus size -- a decor item with no known source still")
-    table.insert(output, "caches an empty entry when hovered, so real max entries can run slightly")
-    table.insert(output, "above this number (Sage HS-279 review).")
-    table.insert(output, "")
-    table.insert(output, "Cache has been left fully warmed (safe -- it's a pure memo, identical")
-    table.insert(output, "to normal play state after enough vendors have been visited).")
-
-    self:ShowCopyableText(table.concat(output, "\n"))
-end
+-- HS-282: MeasureAllSourcesCacheIsolatedKB, DebugMemAllSourcesReport, and
+-- DebugMemBudgetReport (and the /hs debug memallsources / membudget commands
+-- that drove them) moved to Core/DevMemoryDiagnostics.lua, a dev-only file
+-- never listed in Homestead.toc -- memory diagnostics are dev tooling, not a
+-- player-facing feature (owner ruling, 2026-08-14).
 
 -- Show scanned vendor data
 function HousingAddon:ShowScannedVendors()
@@ -784,132 +658,6 @@ function HousingAddon:ShowScannedVendors()
         self:Print("Visit vendors to automatically scan their decor items.")
     else
         self:Print(string.format("Total: %d vendors scanned, %d decor items found.", count, totalItems))
-    end
-end
-
--- Show NPC ID corrections that were detected during vendor scans
-function HousingAddon:ShowNPCIDCorrections()
-    if not self.db or not self.db.global then
-        self:Print("SavedVariables not initialized.")
-        return
-    end
-
-    local output = {}
-    local hasContent = false
-
-    -- Section 1: Confirmed NPC ID Corrections (detected during scans)
-    local corrections = self.db.global.npcIDCorrections
-    if corrections and next(corrections) then
-        hasContent = true
-        table.insert(output, "=== Confirmed NPC ID Corrections ===")
-        table.insert(output, "")
-        table.insert(output, "These corrections were detected when visiting vendors.")
-        table.insert(output, "The database NPC ID did not match the actual in-game ID.")
-        table.insert(output, "")
-
-        local count = 0
-        for vendorName, correction in pairs(corrections) do
-            count = count + 1
-            local correctedDate = correction.correctedAt and date("%Y-%m-%d", correction.correctedAt) or "unknown"
-            table.insert(output, string.format("  %s", vendorName))
-            table.insert(output, string.format("    Old NPC ID: %d -> New NPC ID: %d (found %s)",
-                correction.oldID, correction.newID, correctedDate))
-            table.insert(output, string.format("    Action: npcID = %d,", correction.newID))
-            table.insert(output, "")
-        end
-        table.insert(output, string.format("Total: %d confirmed correction(s).", count))
-        table.insert(output, "")
-    end
-
-    -- Section 2: Possible NPC ID Mismatches (name match, ID mismatch)
-    local scannedVendors = self.db.global.scannedVendors
-    if scannedVendors and HA.VendorData then
-        -- Build lookup of static vendor names -> npcID
-        local staticNameToNPC = {}
-        local allVendors = HA.VendorData:GetAllVendors()
-        for _, vendor in ipairs(allVendors) do
-            if vendor.name then
-                -- Normalize name for comparison (lowercase, trim whitespace)
-                local normalizedName = vendor.name:lower():gsub("^%s+", ""):gsub("%s+$", "")
-                staticNameToNPC[normalizedName] = {
-                    npcID = vendor.npcID,
-                    name = vendor.name,
-                    mapID = vendor.mapID,
-                    zone = vendor.zone,
-                }
-            end
-        end
-
-        -- Check each scanned vendor for name matches with different NPC IDs
-        local mismatches = {}
-        for scannedNpcID, scannedData in pairs(scannedVendors) do
-            if scannedData.name then
-                local normalizedScannedName = scannedData.name:lower():gsub("^%s+", ""):gsub("%s+$", "")
-                local staticEntry = staticNameToNPC[normalizedScannedName]
-
-                -- If name matches but NPC ID differs, it's a potential mismatch
-                if staticEntry and staticEntry.npcID ~= scannedNpcID then
-                    -- Check if the scanned NPC ID exists in static DB
-                    local scannedInStatic = HA.VendorData:GetVendor(scannedNpcID)
-
-                    table.insert(mismatches, {
-                        scannedName = scannedData.name,
-                        scannedNpcID = scannedNpcID,
-                        scannedHasDecor = scannedData.hasDecor,
-                        scannedMapID = scannedData.mapID,
-                        staticName = staticEntry.name,
-                        staticNpcID = staticEntry.npcID,
-                        staticZone = staticEntry.zone,
-                        scannedExistsInStatic = scannedInStatic ~= nil,
-                    })
-                end
-            end
-        end
-
-        if #mismatches > 0 then
-            hasContent = true
-            if #output > 0 then
-                table.insert(output, "")
-            end
-            table.insert(output, "=== Possible NPC ID Mismatches ===")
-            table.insert(output, "")
-            table.insert(output, "Scanned vendor names match static DB names but NPC IDs differ.")
-            table.insert(output, "This may indicate data entry errors in VendorDatabase.lua.")
-            table.insert(output, "")
-
-            for _, mismatch in ipairs(mismatches) do
-                table.insert(output, string.format("  %s", mismatch.scannedName))
-                table.insert(output, string.format("    Scanned: NPC %d (hasDecor: %s, mapID: %s)",
-                    mismatch.scannedNpcID,
-                    tostring(mismatch.scannedHasDecor),
-                    tostring(mismatch.scannedMapID)))
-                table.insert(output, string.format("    Static:  NPC %d (%s)",
-                    mismatch.staticNpcID,
-                    mismatch.staticZone or "unknown zone"))
-
-                if mismatch.scannedExistsInStatic then
-                    table.insert(output, "    Note: Scanned NPC ID also exists in static DB (different vendor?)")
-                else
-                    table.insert(output, string.format("    Action: Update static DB to use NPC %d", mismatch.scannedNpcID))
-                end
-                table.insert(output, "")
-            end
-            table.insert(output, string.format("Total: %d possible mismatch(es).", #mismatches))
-        end
-    end
-
-    if not hasContent then
-        self:Print("No NPC ID corrections or mismatches found.")
-        self:Print("Visit vendors to automatically detect issues.")
-        return
-    end
-
-    -- Show in output window
-    if HA.OutputWindow then
-        HA.OutputWindow:Show("NPC ID Corrections", table.concat(output, "\n"))
-    else
-        -- Fallback to old method
-        self:ShowCopyableText(table.concat(output, "\n"))
     end
 end
 
@@ -1004,9 +752,6 @@ function HousingAddon:RegisterEvents()
     -- live MERCHANT_SHOW handler is VendorTracer's own controller. Not registering
     -- it here preserves that behavior exactly.
 
-    -- Note: Housing-specific events will be registered when those features are implemented
-    -- These events may not exist in current WoW API - will be verified on PTR
-    -- self:RegisterEvent("HOUSING_CATALOG_UPDATED", "OnHousingCatalogUpdated")
 end
 
 -------------------------------------------------------------------------------
@@ -1087,11 +832,9 @@ function HousingAddon:RefreshAllOverlays()
         -- PLAYER_ENTERING_WORLD -- a sibling entry into the same repaint the
         -- Events "all" callback measures. Wrapped so an armed trace can't
         -- miss a plot zone-in repaint and still render the affirmative
-        -- "nothing was slow" line (Gate 1 warning).
+        -- "nothing was slow" line (review warning).
         if HA.PerformanceTrace then
-            HA.PerformanceTrace:Measure("bag_refresh", "entering-world", function()
-                HA.Overlay:RefreshAll()
-            end)
+            HA.PerformanceTrace:Measure("bag_refresh", "entering-world", HA.Overlay.RefreshAll, HA.Overlay)
         else
             HA.Overlay:RefreshAll()
         end

@@ -258,6 +258,7 @@ OptionsModel.sections = {
                     if not vendorTracer then return end
                     vendorTracer.showOppositeFaction = value
                     RefreshPinsAndBadges()
+                    RequestMinimapRefresh("option_showOppositeFaction")
                 end,
             },
             {
@@ -275,6 +276,23 @@ OptionsModel.sections = {
                     vendorTracer.showEventVendors = value
                     RefreshPinsAndBadges()
                     RequestMinimapRefresh("option_showEventVendors")
+                end,
+            },
+            {
+                key = "hideCompletedVendorPins",
+                type = "checkbox",
+                label = L["Hide fully-collected vendor pins"],
+                tooltip = L["desc_hide_completed_vendor_pins"],
+                get = function()
+                    local vendorTracer = GetVendorTracer()
+                    return vendorTracer and vendorTracer.hideCompletedVendorPins
+                end,
+                set = function(value)
+                    local vendorTracer = GetVendorTracer()
+                    if not vendorTracer then return end
+                    vendorTracer.hideCompletedVendorPins = value
+                    RefreshPinsAndBadges()
+                    RequestMinimapRefresh("option_hideCompletedVendorPins")
                 end,
             },
             {
@@ -418,22 +436,6 @@ OptionsModel.sections = {
                     local overlay = GetOverlay()
                     if not overlay then return end
                     overlay.showOnBank = value
-                    CallOverlay("RefreshAll")
-                end,
-            },
-            {
-                key = "showOnAuctionHouse",
-                type = "checkbox",
-                label = L["Show on auction house"],
-                tooltip = L["desc_show_on_auction_house"],
-                get = function()
-                    local overlay = GetOverlay()
-                    return overlay and overlay.showOnAuctionHouse
-                end,
-                set = function(value)
-                    local overlay = GetOverlay()
-                    if not overlay then return end
-                    overlay.showOnAuctionHouse = value
                     CallOverlay("RefreshAll")
                 end,
             },
@@ -620,6 +622,22 @@ OptionsModel.sections = {
                     local vendorTracer = GetVendorTracer()
                     if vendorTracer then
                         vendorTracer.showVendorDetails = value
+                    end
+                end,
+            },
+            {
+                key = "showVendorPinItemDetails",
+                type = "checkbox",
+                label = L["Vendor pin item details"],
+                tooltip = L["desc_vendor_pin_item_details"],
+                get = function()
+                    local vendorTracer = GetVendorTracer()
+                    return vendorTracer and vendorTracer.showVendorPinItemDetails
+                end,
+                set = function(value)
+                    local vendorTracer = GetVendorTracer()
+                    if vendorTracer then
+                        vendorTracer.showVendorPinItemDetails = value
                     end
                 end,
             },
@@ -843,8 +861,10 @@ OptionsModel.sections = {
                     local vendorTracer = GetVendorTracer()
                     if not vendorTracer then return end
                     vendorTracer.minimapIconSize = value
-                    -- Size is part of the minimap pin-pool style key; FlushPools
-                    -- via RefreshAllPinColors avoids orphaning the old-size bucket.
+                    -- Size is a mutate-in-place style property (HS-358), not part
+                    -- of the minimap pin-pool key; RefreshAllPinColors drives a
+                    -- fresh AcquireFrame per pin, which restyles every frame it
+                    -- hands back, pool hit or not.
                     RefreshAllPinColors()
                 end,
             },
