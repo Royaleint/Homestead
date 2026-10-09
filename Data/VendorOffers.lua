@@ -15557,8 +15557,13 @@ local ManualOverrides = {
         [251014] = { price = 0, currencies = {{id = 1220, amount = 350}}, displayOrder = 5, isUsable = true }, -- (was c1220:1500)
     },
     [112323] = { -- Amurra Thistledew (The Dreamgrove)
+        [245550] = { price = 0, currencies = {{id = 1220, amount = 150}}, displayOrder = 1, isUsable = true }, -- (was c1220:500)
+        [246216] = { price = 0, currencies = {{id = 1220, amount = 150}}, displayOrder = 2, isUsable = true }, -- (was c1220:500)
+        [250111] = { price = 0, currencies = {{id = 1220, amount = 400}}, displayOrder = 3, isUsable = true }, -- (was c1220:2000)
+        [250133] = { price = 0, currencies = {{id = 1220, amount = 250}}, displayOrder = 4, isUsable = true }, -- (was c1220:1000)
         [250134] = { price = 0, currencies = {{id = 1220, amount = 500}}, displayOrder = 5, isUsable = true }, -- (was c1220:2500)
         [251013] = { price = 0, currencies = {{id = 1220, amount = 350}}, displayOrder = 6, isUsable = true }, -- (was c1220:1500)
+        [260581] = { price = 0, currencies = {{id = 1220, amount = 350}}, displayOrder = 7, isUsable = true }, -- (was c1220:1200)
     },
     [112338] = { -- Caydori Brightstar (The Wandering Isle)
         [248942] = { price = 0, currencies = {{id = 1220, amount = 350}}, displayOrder = 3, isUsable = true }, -- (was c1220:1500)
