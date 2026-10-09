@@ -15514,6 +15514,97 @@ local ManualOverrides = {
         [253473] = { price = 0, currencies = {{id = 3448, amount = 750}}, isUsable = true, displayOrder = 999999 }, -- Unearthed Amani Sarcophagus Base (new row)
         [280764] = { price = 0, currencies = {{id = 3448, amount = 750}}, isUsable = true, displayOrder = 999999 }, -- Venomous Defender's Barricade (new row)
     },
+    -- HS-475: Order Resources, Veiled Argunite, War Resources, Honor and Elemental Overflow
+    -- costs corrected to the live 12.1.0 values (Gate 2 walk, 2026-10-08).
+    [93550] = { -- Quartermaster Ozorg (Broken Shore)
+        [250112] = { price = 0, currencies = {{id = 1220, amount = 350}}, displayOrder = 1, isUsable = true }, -- (was c1220:1500)
+        [250123] = { price = 0, currencies = {{id = 1220, amount = 500}}, displayOrder = 5, isUsable = true }, -- (was c1220:2500)
+    },
+    [100196] = { -- Eadric the Pure (Light's Hope Chapel)
+        [250230] = { price = 0, currencies = {{id = 1220, amount = 500}}, displayOrder = 1, isUsable = true }, -- (was c1220:2500)
+        [250236] = { price = 0, currencies = {{id = 1220, amount = 350}}, displayOrder = 7, isUsable = true }, -- (was c1220:1500)
+    },
+    [103693] = { -- Outfitter Reynolds (Trueshot Lodge)
+        [250125] = { price = 0, currencies = {{id = 1220, amount = 500}}, displayOrder = 4, isUsable = true }, -- (was c1220:2500)
+        [250126] = { price = 0, currencies = {{id = 1220, amount = 350}}, displayOrder = 5, isUsable = true }, -- (was c1220:1500)
+    },
+    [105333] = { -- Val'zuun (Dalaran)
+        [250402] = { price = 0, currencies = {{id = 1220, amount = 4000}, {id = 1508, amount = 50}}, displayOrder = 2, isUsable = false }, -- (was c1220:12000,c1508:50)
+        [250403] = { price = 0, currencies = {{id = 1220, amount = 6000}, {id = 1508, amount = 50}}, displayOrder = 3, isUsable = false }, -- (was c1220:18000,c1508:50)
+        [250404] = { price = 0, currencies = {{id = 1220, amount = 1000}, {id = 1508, amount = 50}}, displayOrder = 4, isUsable = false }, -- (was c1220:3000,c1508:50)
+        [250405] = { price = 0, currencies = {{id = 1220, amount = 1000}, {id = 1508, amount = 50}}, displayOrder = 5, isUsable = false }, -- (was c1220:3000,c1508:50)
+        [250406] = { price = 0, currencies = {{id = 1220, amount = 6000}, {id = 1508, amount = 50}}, displayOrder = 6, isUsable = false }, -- (was c1220:18000,c1508:50)
+        [250407] = { price = 0, currencies = {{id = 1220, amount = 1000}, {id = 1508, amount = 50}}, displayOrder = 7, isUsable = false }, -- (was c1220:3000,c1508:50)
+        [250622] = { price = 0, currencies = {{id = 1220, amount = 1000}, {id = 1508, amount = 50}}, displayOrder = 8, isUsable = false }, -- (was c1220:3000,c1508:50)
+        [250690] = { price = 0, currencies = {{id = 1220, amount = 1000}, {id = 1508, amount = 50}}, displayOrder = 10, isUsable = false }, -- (was c1220:3000,c1508:50)
+        [250693] = { price = 0, currencies = {{id = 1220, amount = 6000}, {id = 1508, amount = 50}}, displayOrder = 11, isUsable = false }, -- (was c1220:18000,c1508:50)
+        [251778] = { price = 0, currencies = {{id = 1220, amount = 6000}, {id = 1508, amount = 50}}, displayOrder = 12, isUsable = false }, -- (was c1220:18000,c1508:50)
+        [251779] = { price = 0, currencies = {{id = 1220, amount = 6000}, {id = 1508, amount = 50}}, displayOrder = 13, isUsable = false }, -- (was c1220:18000,c1508:50)
+        [252753] = { price = 0, currencies = {{id = 1220, amount = 1000}, {id = 1508, amount = 50}}, displayOrder = 14, isUsable = false }, -- (was c1220:3000,c1508:50)
+        [256677] = { price = 0, currencies = {{id = 1220, amount = 1000}, {id = 1508, amount = 50}}, displayOrder = 15, isUsable = false }, -- (was c1220:3000,c1508:50)
+        [256678] = { price = 0, currencies = {{id = 1220, amount = 500}, {id = 1508, amount = 50}}, displayOrder = 16, isUsable = false }, -- (was c1220:1500,c1508:50)
+        [258299] = { price = 0, currencies = {{id = 1220, amount = 4000}, {id = 1508, amount = 50}}, displayOrder = 17, isUsable = false }, -- (was c1220:12000,c1508:50)
+    },
+    [105986] = { -- Kelsey Steelspark (Dalaran)
+        [250786] = { price = 0, currencies = {{id = 1220, amount = 350}}, displayOrder = 4, isUsable = true }, -- (was c1220:1500)
+        [250787] = { price = 0, currencies = {{id = 1220, amount = 500}}, displayOrder = 5, isUsable = true }, -- (was c1220:2500)
+    },
+    [109306] = { -- Myria Glenbrook (Val'sharah)
+        [245258] = { price = 0, currencies = {{id = 1220, amount = 250}}, displayOrder = 1, isUsable = false }, -- (was c1220:800)
+    },
+    [112318] = { -- Flamesmith Lanying (The Maelstrom)
+        [250914] = { price = 0, currencies = {{id = 1220, amount = 500}}, displayOrder = 1, isUsable = true }, -- (was c1220:2500)
+        [251014] = { price = 0, currencies = {{id = 1220, amount = 350}}, displayOrder = 5, isUsable = true }, -- (was c1220:1500)
+    },
+    [112323] = { -- Amurra Thistledew (The Dreamgrove)
+        [250134] = { price = 0, currencies = {{id = 1220, amount = 500}}, displayOrder = 5, isUsable = true }, -- (was c1220:2500)
+        [251013] = { price = 0, currencies = {{id = 1220, amount = 350}}, displayOrder = 6, isUsable = true }, -- (was c1220:1500)
+    },
+    [112338] = { -- Caydori Brightstar (The Wandering Isle)
+        [248942] = { price = 0, currencies = {{id = 1220, amount = 350}}, displayOrder = 3, isUsable = true }, -- (was c1220:1500)
+        [262619] = { price = 0, currencies = {{id = 1220, amount = 500}}, displayOrder = 6, isUsable = true }, -- (was c1220:2500)
+    },
+    [112392] = { -- Quartermaster Durnolf (Skyhold)
+        [249458] = { price = 0, currencies = {{id = 1220, amount = 500}}, displayOrder = 1, isUsable = true }, -- (was c1220:2500)
+        [249461] = { price = 0, currencies = {{id = 1220, amount = 350}}, displayOrder = 3, isUsable = true }, -- (was c1220:1500)
+    },
+    [112401] = { -- Meridelle Lightspark (Netherlight Temple)
+        [250790] = { price = 0, currencies = {{id = 1220, amount = 500}}, displayOrder = 5, isUsable = true }, -- (was c1220:2500)
+        [251636] = { price = 0, currencies = {{id = 1220, amount = 350}}, displayOrder = 8, isUsable = true }, -- (was c1220:1500)
+    },
+    [112407] = { -- Falara Nightsong (Mardum, the Shattered Abyss)
+        [249457] = { price = 0, currencies = {{id = 1220, amount = 500}}, displayOrder = 1, isUsable = true }, -- (was c1220:2500)
+        [249518] = { price = 0, currencies = {{id = 1220, amount = 350}}, displayOrder = 5, isUsable = true }, -- (was c1220:1500)
+    },
+    [112434] = { -- Gigi Gigavoid (Dreadscar Rift)
+        [248940] = { price = 0, currencies = {{id = 1220, amount = 500}}, displayOrder = 1, isUsable = true }, -- (was c1220:2500)
+        [264242] = { price = 0, currencies = {{id = 1220, amount = 350}}, displayOrder = 8, isUsable = true }, -- (was c1220:1500)
+    },
+    [112440] = { -- Jackson Watkins (Hall of the Guardian)
+        [250131] = { price = 0, currencies = {{id = 1220, amount = 350}}, displayOrder = 3, isUsable = true }, -- (was c1220:1500)
+        [250306] = { price = 0, currencies = {{id = 1220, amount = 500}}, displayOrder = 6, isUsable = true }, -- (was c1220:2500)
+    },
+    [240852] = { -- Lars Bronsmaelt (Hallowfall)
+        [245293] = { price = 0, currencies = {{id = 2815, amount = 400}}, displayOrder = 1, isUsable = true }, -- (was c2815:1200)
+    },
+    [252326] = { -- T'lama (Dazar'alor)
+        [245522] = { price = 0, currencies = {{id = 1560, amount = 400}}, displayOrder = 17, isUsable = true }, -- (was c1560:1200)
+    },
+    [253086] = { -- Jolinth (Forbidden Reach)
+        [248656] = { price = 0, currencies = {{id = 2118, amount = 500}}, displayOrder = 1, isUsable = true }, -- (was c2118:1500)
+    },
+    [253387] = { -- Selfira Ambergrove (Val'sharah)
+        [245703] = { price = 0, currencies = {{id = 1220, amount = 250}}, displayOrder = 8, isUsable = true }, -- (was c1220:750)
+    },
+    [254603] = { -- Riica (Stormwind)
+        [247746] = { price = 0, currencies = {{id = 1792, amount = 400}}, displayOrder = 6, isUsable = true }, -- (was c1792:800)
+        [247758] = { price = 0, currencies = {{id = 1792, amount = 600}}, displayOrder = 10, isUsable = true }, -- (was c1792:1200)
+    },
+    [254606] = { -- Joruh (Orgrimmar)
+        [247727] = { price = 0, currencies = {{id = 1792, amount = 1500}}, displayOrder = 13, isUsable = false }, -- (was c1792:5000)
+        [247747] = { price = 0, currencies = {{id = 1792, amount = 400}}, displayOrder = 6, isUsable = false }, -- (was c1792:800)
+        [247760] = { price = 0, currencies = {{id = 1792, amount = 600}}, displayOrder = 10, isUsable = false }, -- (was c1792:1200)
+    },
 }
 
 -- TOMBSTONES: bare itemID or "npcID:itemID" string key to suppress from all offer output.
