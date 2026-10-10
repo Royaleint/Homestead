@@ -17309,17 +17309,33 @@ local ManualOverrides = {
     -- costs corrected to the live 12.1.0 values (Gate 2 walk, 2026-10-08).
     [93550] = { -- Quartermaster Ozorg (Broken Shore)
         [250112] = { price = 0, currencies = {{id = 1220, amount = 350}}, displayOrder = 1, isUsable = true, costBuild = "12.1.0.69933" }, -- (was c1220:1500)
+        [250113] = { price = 0, currencies = {{id = 1220, amount = 150}}, costBuild = "12.1.0.69933", displayOrder = 2, isUsable = true },
+        [250114] = { price = 0, currencies = {{id = 1220, amount = 150}}, costBuild = "12.1.0.69933", displayOrder = 3, isUsable = true },
+        [250115] = { price = 0, currencies = {{id = 1220, amount = 350}}, costBuild = "12.1.0.69933", displayOrder = 4, isUsable = true },
         [250123] = { price = 0, currencies = {{id = 1220, amount = 500}}, displayOrder = 5, isUsable = true, costBuild = "12.1.0.69933" }, -- (was c1220:2500)
+        [250124] = { price = 0, currencies = {{id = 1220, amount = 250}}, costBuild = "12.1.0.69933", displayOrder = 6, isUsable = true },
+        [260584] = { price = 0, currencies = {{id = 1220, amount = 400}}, costBuild = "12.1.0.69933", displayOrder = 7, isUsable = true },
     },
     [100196] = { -- Eadric the Pure (Light's Hope Chapel)
         [250230] = { price = 0, currencies = {{id = 1220, amount = 500}}, displayOrder = 1, isUsable = true, costBuild = "12.1.0.69933" }, -- (was c1220:2500)
+        [250231] = { price = 0, currencies = {{id = 1220, amount = 150}}, costBuild = "12.1.0.69933", displayOrder = 2, isUsable = true },
+        [250232] = { price = 0, currencies = {{id = 1220, amount = 150}}, costBuild = "12.1.0.69933", displayOrder = 3, isUsable = true },
+        [250233] = { price = 0, currencies = {{id = 1220, amount = 400}}, costBuild = "12.1.0.69933", displayOrder = 4, isUsable = true },
+        [250234] = { price = 0, currencies = {{id = 1220, amount = 350}}, costBuild = "12.1.0.69933", displayOrder = 5, isUsable = true },
+        [250235] = { price = 0, currencies = {{id = 1220, amount = 250}}, costBuild = "12.1.0.69933", displayOrder = 6, isUsable = true },
         [250236] = { price = 0, currencies = {{id = 1220, amount = 350}}, displayOrder = 7, isUsable = true, costBuild = "12.1.0.69933" }, -- (was c1220:1500)
     },
     [103693] = { -- Outfitter Reynolds (Trueshot Lodge)
+        [245549] = { price = 0, currencies = {{id = 1220, amount = 150}}, costBuild = "12.1.0.69933", displayOrder = 1, isUsable = true },
+        [248011] = { price = 0, currencies = {{id = 1220, amount = 350}}, costBuild = "12.1.0.69933", displayOrder = 2, isUsable = true },
+        [250110] = { price = 0, currencies = {{id = 1220, amount = 150}}, costBuild = "12.1.0.69933", displayOrder = 3, isUsable = true },
         [250125] = { price = 0, currencies = {{id = 1220, amount = 500}}, displayOrder = 4, isUsable = true, costBuild = "12.1.0.69933" }, -- (was c1220:2500)
         [250126] = { price = 0, currencies = {{id = 1220, amount = 350}}, displayOrder = 5, isUsable = true, costBuild = "12.1.0.69933" }, -- (was c1220:1500)
+        [250127] = { price = 0, currencies = {{id = 1220, amount = 400}}, costBuild = "12.1.0.69933", displayOrder = 6, isUsable = true },
+        [250128] = { price = 0, currencies = {{id = 1220, amount = 250}}, costBuild = "12.1.0.69933", displayOrder = 7, isUsable = true },
     },
     [105333] = { -- Val'zuun (Dalaran)
+        [250307] = { price = 0, currencies = {{id = 1220, amount = 2000}, {id = 1508, amount = 50}}, costBuild = "12.1.0.69933", displayOrder = 1, isUsable = false },
         [250402] = { price = 0, currencies = {{id = 1508, amount = 50}, {id = 1220, amount = 4000}}, displayOrder = 2, isUsable = false, costBuild = "12.1.0.69933" }, -- (was c1220:12000,c1508:50)
         [250403] = { price = 0, currencies = {{id = 1508, amount = 50}, {id = 1220, amount = 6000}}, displayOrder = 3, isUsable = false, costBuild = "12.1.0.69933" }, -- (was c1220:18000,c1508:50)
         [250404] = { price = 0, currencies = {{id = 1508, amount = 50}, {id = 1220, amount = 1000}}, displayOrder = 4, isUsable = false, costBuild = "12.1.0.69933" }, -- (was c1220:3000,c1508:50)
@@ -17327,6 +17343,7 @@ local ManualOverrides = {
         [250406] = { price = 0, currencies = {{id = 1508, amount = 50}, {id = 1220, amount = 6000}}, displayOrder = 6, isUsable = false, costBuild = "12.1.0.69933" }, -- (was c1220:18000,c1508:50)
         [250407] = { price = 0, currencies = {{id = 1508, amount = 50}, {id = 1220, amount = 1000}}, displayOrder = 7, isUsable = false, costBuild = "12.1.0.69933" }, -- (was c1220:3000,c1508:50)
         [250622] = { price = 0, currencies = {{id = 1508, amount = 50}, {id = 1220, amount = 1000}}, displayOrder = 8, isUsable = false, costBuild = "12.1.0.69933" }, -- (was c1220:3000,c1508:50)
+        [250689] = { price = 0, currencies = {{id = 1220, amount = 2000}, {id = 1508, amount = 50}}, costBuild = "12.1.0.69933", displayOrder = 9, isUsable = false },
         [250690] = { price = 0, currencies = {{id = 1508, amount = 50}, {id = 1220, amount = 1000}}, displayOrder = 10, isUsable = false, costBuild = "12.1.0.69933" }, -- (was c1220:3000,c1508:50)
         [250693] = { price = 0, currencies = {{id = 1508, amount = 50}, {id = 1220, amount = 6000}}, displayOrder = 11, isUsable = false, costBuild = "12.1.0.69933" }, -- (was c1220:18000,c1508:50)
         [251778] = { price = 0, currencies = {{id = 1508, amount = 50}, {id = 1220, amount = 6000}}, displayOrder = 12, isUsable = false, costBuild = "12.1.0.69933" }, -- (was c1220:18000,c1508:50)
@@ -17337,15 +17354,25 @@ local ManualOverrides = {
         [258299] = { price = 0, currencies = {{id = 1508, amount = 50}, {id = 1220, amount = 4000}}, displayOrder = 17, isUsable = false, costBuild = "12.1.0.69933" }, -- (was c1220:12000,c1508:50)
     },
     [105986] = { -- Kelsey Steelspark (Dalaran)
+        [250783] = { price = 0, currencies = {{id = 1220, amount = 150}}, costBuild = "12.1.0.69933", displayOrder = 1, isUsable = true },
+        [250784] = { price = 0, currencies = {{id = 1220, amount = 150}}, costBuild = "12.1.0.69933", displayOrder = 2, isUsable = true },
+        [250785] = { price = 0, currencies = {{id = 1220, amount = 250}}, costBuild = "12.1.0.69933", displayOrder = 3, isUsable = true },
         [250786] = { price = 0, currencies = {{id = 1220, amount = 350}}, displayOrder = 4, isUsable = true, costBuild = "12.1.0.69933" }, -- (was c1220:1500)
         [250787] = { price = 0, currencies = {{id = 1220, amount = 500}}, displayOrder = 5, isUsable = true, costBuild = "12.1.0.69933" }, -- (was c1220:2500)
+        [250788] = { price = 0, currencies = {{id = 1220, amount = 400}}, costBuild = "12.1.0.69933", displayOrder = 6, isUsable = true },
+        [260776] = { price = 0, currencies = {{id = 1220, amount = 350}}, costBuild = "12.1.0.69933", displayOrder = 7, isUsable = true },
     },
     [109306] = { -- Myria Glenbrook (Val'sharah)
         [245258] = { price = 0, currencies = {{id = 1220, amount = 250}}, displayOrder = 1, isUsable = false, costBuild = "12.1.0.69933" }, -- (was c1220:800)
     },
     [112318] = { -- Flamesmith Lanying (The Maelstrom)
         [250914] = { price = 0, currencies = {{id = 1220, amount = 500}}, displayOrder = 1, isUsable = true, costBuild = "12.1.0.69933" }, -- (was c1220:2500)
+        [250915] = { price = 0, currencies = {{id = 1220, amount = 400}}, costBuild = "12.1.0.69933", displayOrder = 2, isUsable = true },
+        [250916] = { price = 0, currencies = {{id = 1220, amount = 150}}, costBuild = "12.1.0.69933", displayOrder = 3, isUsable = true },
+        [250918] = { price = 0, currencies = {{id = 1220, amount = 250}}, costBuild = "12.1.0.69933", displayOrder = 4, isUsable = true },
         [251014] = { price = 0, currencies = {{id = 1220, amount = 350}}, displayOrder = 5, isUsable = true, costBuild = "12.1.0.69933" }, -- (was c1220:1500)
+        [251015] = { price = 0, currencies = {{id = 1220, amount = 150}}, costBuild = "12.1.0.69933", displayOrder = 6, isUsable = true },
+        [257403] = { price = 0, currencies = {{id = 1220, amount = 350}}, costBuild = "12.1.0.69933", displayOrder = 7, isUsable = true },
     },
     [112323] = { -- Amurra Thistledew (The Dreamgrove)
         [245550] = { price = 0, currencies = {{id = 1220, amount = 150}}, displayOrder = 1, isUsable = true, costBuild = "12.1.0.69299" }, -- (was c1220:500)
@@ -17357,49 +17384,131 @@ local ManualOverrides = {
         [260581] = { price = 0, currencies = {{id = 1220, amount = 350}}, displayOrder = 7, isUsable = true, costBuild = "12.1.0.69299" }, -- (was c1220:1200)
     },
     [112338] = { -- Caydori Brightstar (The Wandering Isle)
+        [248935] = { price = 0, currencies = {{id = 1220, amount = 150}}, costBuild = "12.1.0.69933", displayOrder = 1, isUsable = true },
+        [248936] = { price = 0, currencies = {{id = 1220, amount = 150}}, costBuild = "12.1.0.69933", displayOrder = 2, isUsable = true },
         [248942] = { price = 0, currencies = {{id = 1220, amount = 350}}, displayOrder = 3, isUsable = true, costBuild = "12.1.0.69933" }, -- (was c1220:1500)
+        [248958] = { price = 0, currencies = {{id = 1220, amount = 350}}, costBuild = "12.1.0.69933", displayOrder = 4, isUsable = true },
+        [256679] = { price = 0, currencies = {{id = 1220, amount = 400}}, costBuild = "12.1.0.69933", displayOrder = 5, isUsable = true },
         [262619] = { price = 0, currencies = {{id = 1220, amount = 500}}, displayOrder = 6, isUsable = true, costBuild = "12.1.0.69933" }, -- (was c1220:2500)
+        [267372] = { price = 0, currencies = {{id = 1220, amount = 250}}, costBuild = "12.1.0.69933", displayOrder = 7, isUsable = true },
     },
     [112392] = { -- Quartermaster Durnolf (Skyhold)
         [249458] = { price = 0, currencies = {{id = 1220, amount = 500}}, displayOrder = 1, isUsable = true, costBuild = "12.1.0.69933" }, -- (was c1220:2500)
+        [249460] = { price = 0, currencies = {{id = 1220, amount = 150}}, costBuild = "12.1.0.69933", displayOrder = 2, isUsable = true },
         [249461] = { price = 0, currencies = {{id = 1220, amount = 350}}, displayOrder = 3, isUsable = true, costBuild = "12.1.0.69933" }, -- (was c1220:1500)
+        [249464] = { price = 0, currencies = {{id = 1220, amount = 250}}, costBuild = "12.1.0.69933", displayOrder = 4, isUsable = true },
+        [249466] = { price = 0, currencies = {{id = 1220, amount = 350}}, costBuild = "12.1.0.69933", displayOrder = 5, isUsable = true },
+        [249551] = { price = 0, currencies = {{id = 1220, amount = 150}}, costBuild = "12.1.0.69933", displayOrder = 6, isUsable = true },
+        [257396] = { price = 0, currencies = {{id = 1220, amount = 400}}, costBuild = "12.1.0.69933", displayOrder = 7, isUsable = true },
     },
     [112401] = { -- Meridelle Lightspark (Netherlight Temple)
+        [250302] = { price = 0, currencies = {{id = 1220, amount = 150}}, costBuild = "12.1.0.69933", displayOrder = 1, isUsable = true },
+        [250303] = { price = 0, currencies = {{id = 1220, amount = 150}}, costBuild = "12.1.0.69933", displayOrder = 2, isUsable = true },
+        [250304] = { price = 0, currencies = {{id = 1220, amount = 150}}, costBuild = "12.1.0.69933", displayOrder = 3, isUsable = true },
+        [250789] = { price = 0, currencies = {{id = 1220, amount = 250}}, costBuild = "12.1.0.69933", displayOrder = 4, isUsable = true },
         [250790] = { price = 0, currencies = {{id = 1220, amount = 500}}, displayOrder = 5, isUsable = true, costBuild = "12.1.0.69933" }, -- (was c1220:2500)
+        [250791] = { price = 0, currencies = {{id = 1220, amount = 400}}, costBuild = "12.1.0.69933", displayOrder = 6, isUsable = true },
+        [250792] = { price = 0, currencies = {{id = 1220, amount = 350}}, costBuild = "12.1.0.69933", displayOrder = 7, isUsable = true },
         [251636] = { price = 0, currencies = {{id = 1220, amount = 350}}, displayOrder = 8, isUsable = true, costBuild = "12.1.0.69933" }, -- (was c1220:1500)
     },
     [112407] = { -- Falara Nightsong (Mardum, the Shattered Abyss)
         [249457] = { price = 0, currencies = {{id = 1220, amount = 500}}, displayOrder = 1, isUsable = true, costBuild = "12.1.0.69933" }, -- (was c1220:2500)
+        [249459] = { price = 0, currencies = {{id = 1220, amount = 350}}, costBuild = "12.1.0.69933", displayOrder = 2, isUsable = true },
+        [249462] = { price = 0, currencies = {{id = 1220, amount = 250}}, costBuild = "12.1.0.69933", displayOrder = 3, isUsable = true },
+        [249463] = { price = 0, currencies = {{id = 1220, amount = 150}}, costBuild = "12.1.0.69933", displayOrder = 4, isUsable = true },
         [249518] = { price = 0, currencies = {{id = 1220, amount = 350}}, displayOrder = 5, isUsable = true, costBuild = "12.1.0.69933" }, -- (was c1220:1500)
+        [249690] = { price = 0, currencies = {{id = 1220, amount = 400}}, costBuild = "12.1.0.69933", displayOrder = 6, isUsable = true },
+        [256675] = { price = 0, currencies = {{id = 1220, amount = 150}}, costBuild = "12.1.0.69933", displayOrder = 7, isUsable = true },
     },
     [112434] = { -- Gigi Gigavoid (Dreadscar Rift)
         [248940] = { price = 0, currencies = {{id = 1220, amount = 500}}, displayOrder = 1, isUsable = true, costBuild = "12.1.0.69933" }, -- (was c1220:2500)
+        [248943] = { price = 0, currencies = {{id = 1220, amount = 250}}, costBuild = "12.1.0.69933", displayOrder = 3, isUsable = true },
+        [248959] = { price = 0, currencies = {{id = 1220, amount = 150}}, costBuild = "12.1.0.69933", displayOrder = 4, isUsable = true },
+        [248960] = { price = 0, currencies = {{id = 1220, amount = 350}}, costBuild = "12.1.0.69933", displayOrder = 5, isUsable = true },
+        [249004] = { price = 0, currencies = {{id = 1220, amount = 150}}, costBuild = "12.1.0.69933", displayOrder = 6, isUsable = true },
+        [256907] = { price = 0, currencies = {{id = 1220, amount = 400}}, costBuild = "12.1.0.69933", displayOrder = 7, isUsable = true },
         [264242] = { price = 0, currencies = {{id = 1220, amount = 350}}, displayOrder = 8, isUsable = true, costBuild = "12.1.0.69933" }, -- (was c1220:1500)
     },
     [112440] = { -- Jackson Watkins (Hall of the Guardian)
+        [245429] = { price = 0, currencies = {{id = 1220, amount = 350}}, costBuild = "12.1.0.69933", displayOrder = 1, isUsable = true },
+        [250130] = { price = 0, currencies = {{id = 1220, amount = 150}}, costBuild = "12.1.0.69933", displayOrder = 2, isUsable = true },
         [250131] = { price = 0, currencies = {{id = 1220, amount = 350}}, displayOrder = 3, isUsable = true, costBuild = "12.1.0.69933" }, -- (was c1220:1500)
+        [250132] = { price = 0, currencies = {{id = 1220, amount = 150}}, costBuild = "12.1.0.69933", displayOrder = 4, isUsable = true },
+        [250239] = { price = 0, currencies = {{id = 1220, amount = 250}}, costBuild = "12.1.0.69933", displayOrder = 5, isUsable = true },
         [250306] = { price = 0, currencies = {{id = 1220, amount = 500}}, displayOrder = 6, isUsable = true, costBuild = "12.1.0.69933" }, -- (was c1220:2500)
+        [256674] = { price = 0, currencies = {{id = 1220, amount = 400}}, costBuild = "12.1.0.69933", displayOrder = 7, isUsable = true },
     },
     [240852] = { -- Lars Bronsmaelt (Hallowfall)
         [245293] = { price = 0, currencies = {{id = 2815, amount = 400}}, displayOrder = 1, isUsable = true, costBuild = "12.1.0.69933" }, -- (was c2815:1200)
     },
     [252326] = { -- T'lama (Dazar'alor)
+        [245485] = { price = 0, currencies = {{id = 1560, amount = 300}}, costBuild = "12.1.0.69933", displayOrder = 7, isUsable = true },
         [245522] = { price = 0, currencies = {{id = 1560, amount = 400}}, displayOrder = 17, isUsable = true, costBuild = "12.1.0.69933" }, -- (was c1560:1200)
     },
     [253086] = { -- Jolinth (Forbidden Reach)
         [248656] = { price = 0, currencies = {{id = 2118, amount = 500}}, displayOrder = 1, isUsable = true, costBuild = "12.1.0.69933" }, -- (was c2118:1500)
     },
     [253387] = { -- Selfira Ambergrove (Val'sharah)
+        [238860] = { price = 0, currencies = {{id = 1220, amount = 300}}, costBuild = "12.1.0.69933", displayOrder = 2, isUsable = true },
+        [245700] = { price = 0, currencies = {{id = 1220, amount = 150}}, costBuild = "12.1.0.69933", displayOrder = 6, isUsable = true },
         [245703] = { price = 0, currencies = {{id = 1220, amount = 250}}, displayOrder = 8, isUsable = true, costBuild = "12.1.0.69933" }, -- (was c1220:750)
+        [245739] = { price = 0, currencies = {{id = 1220, amount = 200}}, costBuild = "12.1.0.69933", displayOrder = 9, isUsable = true },
     },
     [254603] = { -- Riica (Stormwind)
+        [247740] = { price = 0, currencies = {{id = 1792, amount = 1000}}, costBuild = "12.1.0.69933", displayOrder = 11, isUsable = true },
+        [247741] = { price = 0, currencies = {{id = 1792, amount = 500}}, costBuild = "12.1.0.69933", displayOrder = 9, isUsable = true },
+        [247744] = { price = 0, currencies = {{id = 1792, amount = 500}}, costBuild = "12.1.0.69933", displayOrder = 7, isUsable = true },
         [247746] = { price = 0, currencies = {{id = 1792, amount = 400}}, displayOrder = 6, isUsable = true, costBuild = "12.1.0.69933" }, -- (was c1792:800)
+        [247750] = { price = 0, currencies = {{id = 1792, amount = 1250}}, costBuild = "12.1.0.69933", displayOrder = 12, isUsable = true },
+        [247756] = { price = 0, currencies = {{id = 1792, amount = 500}}, costBuild = "12.1.0.69933", displayOrder = 8, isUsable = true },
         [247758] = { price = 0, currencies = {{id = 1792, amount = 600}}, displayOrder = 10, isUsable = true, costBuild = "12.1.0.69933" }, -- (was c1792:1200)
+        [247761] = { price = 0, currencies = {{id = 1792, amount = 200}}, costBuild = "12.1.0.69933", displayOrder = 2, isUsable = true },
+        [247762] = { price = 0, currencies = {{id = 1792, amount = 150}}, costBuild = "12.1.0.69933", displayOrder = 1, isUsable = true },
+        [247763] = { price = 0, currencies = {}, itemCosts = {{itemID = 137642, amount = 2}}, costBuild = "12.1.0.69933", displayOrder = 14, isUsable = true },
+        [247765] = { price = 0, currencies = {}, itemCosts = {{itemID = 137642, amount = 2}}, costBuild = "12.1.0.69933", displayOrder = 15, isUsable = true },
+        [247766] = { price = 0, currencies = {}, itemCosts = {{itemID = 137642, amount = 2}}, costBuild = "12.1.0.69933", displayOrder = 16, isUsable = true },
+        [247768] = { price = 0, currencies = {}, itemCosts = {{itemID = 137642, amount = 2}}, costBuild = "12.1.0.69933", displayOrder = 17, isUsable = true },
+        [247769] = { price = 0, currencies = {}, itemCosts = {{itemID = 137642, amount = 2}}, costBuild = "12.1.0.69933", displayOrder = 18, isUsable = true },
+        [247770] = { price = 0, currencies = {}, itemCosts = {{itemID = 137642, amount = 1}}, costBuild = "12.1.0.69933", displayOrder = 13, isUsable = true },
     },
     [254606] = { -- Joruh (Orgrimmar)
         [247727] = { price = 0, currencies = {{id = 1792, amount = 1500}}, displayOrder = 13, isUsable = false, costBuild = "12.1.0.69933" }, -- (was c1792:5000)
+        [247740] = { price = 0, currencies = {{id = 1792, amount = 1000}}, costBuild = "12.1.0.69933", displayOrder = 11, isUsable = false },
+        [247741] = { price = 0, currencies = {{id = 1792, amount = 500}}, costBuild = "12.1.0.69933", displayOrder = 9, isUsable = false },
+        [247745] = { price = 0, currencies = {{id = 1792, amount = 500}}, costBuild = "12.1.0.69933", displayOrder = 7, isUsable = false },
         [247747] = { price = 0, currencies = {{id = 1792, amount = 400}}, displayOrder = 6, isUsable = false, costBuild = "12.1.0.69933" }, -- (was c1792:800)
+        [247750] = { price = 0, currencies = {{id = 1792, amount = 1250}}, costBuild = "12.1.0.69933", displayOrder = 12, isUsable = false },
+        [247756] = { price = 0, currencies = {{id = 1792, amount = 500}}, costBuild = "12.1.0.69933", displayOrder = 8, isUsable = false },
         [247760] = { price = 0, currencies = {{id = 1792, amount = 600}}, displayOrder = 10, isUsable = false, costBuild = "12.1.0.69933" }, -- (was c1792:1200)
+        [247761] = { price = 0, currencies = {{id = 1792, amount = 200}}, costBuild = "12.1.0.69933", displayOrder = 2, isUsable = false },
+        [247762] = { price = 0, currencies = {{id = 1792, amount = 150}}, costBuild = "12.1.0.69933", displayOrder = 1, isUsable = false },
+        [247763] = { price = 0, currencies = {}, itemCosts = {{itemID = 137642, amount = 2}}, costBuild = "12.1.0.69933", displayOrder = 15, isUsable = false },
+        [247765] = { price = 0, currencies = {}, itemCosts = {{itemID = 137642, amount = 2}}, costBuild = "12.1.0.69933", displayOrder = 16, isUsable = false },
+        [247766] = { price = 0, currencies = {}, itemCosts = {{itemID = 137642, amount = 2}}, costBuild = "12.1.0.69933", displayOrder = 17, isUsable = false },
+        [247768] = { price = 0, currencies = {}, itemCosts = {{itemID = 137642, amount = 2}}, costBuild = "12.1.0.69933", displayOrder = 18, isUsable = false },
+        [247769] = { price = 0, currencies = {}, itemCosts = {{itemID = 137642, amount = 2}}, costBuild = "12.1.0.69933", displayOrder = 19, isUsable = false },
+        [247770] = { price = 0, currencies = {}, itemCosts = {{itemID = 137642, amount = 1}}, costBuild = "12.1.0.69933", displayOrder = 14, isUsable = false },
+    },
+    [112634] = {
+        [238863] = { price = 0, currencies = {{id = 1220, amount = 150}}, costBuild = "12.1.0.69933", displayOrder = 1, isUsable = true },
+    },
+    [252313] = {
+        [252652] = { price = 0, currencies = {{id = 1560, amount = 150}}, costBuild = "12.1.0.69933", displayOrder = 6, isUsable = true },
+    },
+    [252316] = {
+        [252392] = { price = 0, currencies = {{id = 1560, amount = 150}}, costBuild = "12.1.0.69933", displayOrder = 1, isUsable = true },
+        [252405] = { price = 0, currencies = {{id = 1560, amount = 150}}, costBuild = "12.1.0.69933", displayOrder = 2, isUsable = true },
+    },
+    [252345] = {
+        [252386] = { price = 0, currencies = {{id = 1560, amount = 200}}, costBuild = "12.1.0.69933", displayOrder = 2, isUsable = true },
+        [252406] = { price = 0, currencies = {{id = 1560, amount = 200}}, costBuild = "12.1.0.69933", displayOrder = 5, isUsable = true },
+    },
+    [252498] = {
+        [245615] = { price = 0, currencies = {{id = 1220, amount = 200}}, costBuild = "12.1.0.69933", displayOrder = 1, isUsable = true },
+        [245616] = { price = 0, currencies = {{id = 1220, amount = 300}}, costBuild = "12.1.0.69933", displayOrder = 2, isUsable = true },
+    },
+    [252969] = {
+        [247843] = { price = 0, currencies = {{id = 1220, amount = 400}}, costBuild = "12.1.0.69933", displayOrder = 4, isUsable = false },
     },
 }
 
