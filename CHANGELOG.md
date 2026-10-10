@@ -21,7 +21,7 @@ Italian and Traditional Chinese are now supported, every language is fully trans
 
 **Corrections**
 
-- Corrected 49 vendor prices paid in currencies such as Order Resources, Veiled Argunite, War Resources, Honor, and Elemental Overflow, which still showed the older, higher amounts.
+- Corrected numerous vendor prices paid in currencies such as Order Resources, Veiled Argunite, War Resources, Honor, and Elemental Overflow, which still showed the older, higher amounts.
 - **Amurra Thistledew**: Corrected five Order Resources prices in the Dreamgrove.
 
 **Location Fixes**
