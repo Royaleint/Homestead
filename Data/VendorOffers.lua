@@ -17335,7 +17335,7 @@ local ManualOverrides = {
         [250128] = { price = 0, currencies = {{id = 1220, amount = 250}}, costBuild = "12.1.0.69933", displayOrder = 7, isUsable = true },
     },
     [105333] = { -- Val'zuun (Dalaran)
-        [250307] = { price = 0, currencies = {{id = 1220, amount = 2000}, {id = 1508, amount = 50}}, costBuild = "12.1.0.69933", displayOrder = 1, isUsable = false },
+        [250307] = { price = 0, currencies = {{id = 1508, amount = 50}, {id = 1220, amount = 2000}}, costBuild = "12.1.0.69933", displayOrder = 1, isUsable = false },
         [250402] = { price = 0, currencies = {{id = 1508, amount = 50}, {id = 1220, amount = 4000}}, displayOrder = 2, isUsable = false, costBuild = "12.1.0.69933" }, -- (was c1220:12000,c1508:50)
         [250403] = { price = 0, currencies = {{id = 1508, amount = 50}, {id = 1220, amount = 6000}}, displayOrder = 3, isUsable = false, costBuild = "12.1.0.69933" }, -- (was c1220:18000,c1508:50)
         [250404] = { price = 0, currencies = {{id = 1508, amount = 50}, {id = 1220, amount = 1000}}, displayOrder = 4, isUsable = false, costBuild = "12.1.0.69933" }, -- (was c1220:3000,c1508:50)
@@ -17343,7 +17343,7 @@ local ManualOverrides = {
         [250406] = { price = 0, currencies = {{id = 1508, amount = 50}, {id = 1220, amount = 6000}}, displayOrder = 6, isUsable = false, costBuild = "12.1.0.69933" }, -- (was c1220:18000,c1508:50)
         [250407] = { price = 0, currencies = {{id = 1508, amount = 50}, {id = 1220, amount = 1000}}, displayOrder = 7, isUsable = false, costBuild = "12.1.0.69933" }, -- (was c1220:3000,c1508:50)
         [250622] = { price = 0, currencies = {{id = 1508, amount = 50}, {id = 1220, amount = 1000}}, displayOrder = 8, isUsable = false, costBuild = "12.1.0.69933" }, -- (was c1220:3000,c1508:50)
-        [250689] = { price = 0, currencies = {{id = 1220, amount = 2000}, {id = 1508, amount = 50}}, costBuild = "12.1.0.69933", displayOrder = 9, isUsable = false },
+        [250689] = { price = 0, currencies = {{id = 1508, amount = 50}, {id = 1220, amount = 2000}}, costBuild = "12.1.0.69933", displayOrder = 9, isUsable = false },
         [250690] = { price = 0, currencies = {{id = 1508, amount = 50}, {id = 1220, amount = 1000}}, displayOrder = 10, isUsable = false, costBuild = "12.1.0.69933" }, -- (was c1220:3000,c1508:50)
         [250693] = { price = 0, currencies = {{id = 1508, amount = 50}, {id = 1220, amount = 6000}}, displayOrder = 11, isUsable = false, costBuild = "12.1.0.69933" }, -- (was c1220:18000,c1508:50)
         [251778] = { price = 0, currencies = {{id = 1508, amount = 50}, {id = 1220, amount = 6000}}, displayOrder = 12, isUsable = false, costBuild = "12.1.0.69933" }, -- (was c1220:18000,c1508:50)
