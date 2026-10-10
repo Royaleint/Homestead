@@ -638,12 +638,20 @@ function SourceManager:GetVendorItemCost(
         scannedCostKnown = true
     end
 
+    -- HS-485: a shipped cost outranks source text, so fetch it before deciding
+    -- on the source-text lookup. A scanned cost outranks both; skip the fetch
+    -- when one exists.
+    if not staticCostKnown and not scannedCost then
+        staticCost = HA.VendorData:GetStaticItemCost(vendor, itemID)
+        staticCostKnown = true
+    end
+
     -- HS-383: the source-text lookup only ever changes the outcome when a
     -- stale, gold-only scanned cost might lose to a cheaper newer source-text
     -- price (ResolveVendorItemCost's sourceText-discount branch) or when there
-    -- is no scanned cost at all. Skip it whenever a scanned cost already wins.
+    -- is neither a scanned nor a shipped cost. Skip it whenever one already wins.
     local sourceText = nil
-    if not HA.VendorData:CanSkipSourceTextLookup(scannedCost, scannedAt) then
+    if not HA.VendorData:CanSkipSourceTextLookup(scannedCost, scannedAt, staticCost) then
         sourceText = GetParsedVendorCost(itemID, vendor, parsedSource)
     end
 
