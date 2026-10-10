@@ -26,6 +26,8 @@ Locale\esMX.lua
 Locale\ptBR.lua
 Locale\koKR.lua
 Locale\ruRU.lua
+Locale\itIT.lua
+Locale\zhTW.lua
 
 # Core
 Core\constants.lua
