@@ -985,6 +985,7 @@ VendorIdentity.Vendors = {
         subzone = "Chamber of Heart",
         faction = "Neutral",
         expansion = "Battle for Azeroth",
+        scanConfirmed = "2026-10-10",
     },
     [162804] = {
         name = "Ve'nari",
@@ -1284,6 +1285,7 @@ VendorIdentity.Vendors = {
         areaID = 15461,
         faction = "Neutral",
         expansion = "The War Within",
+        scanConfirmed = "2026-10-10",
     },
     [231406] = {
         name = "Rocco Razzboom",
@@ -1306,6 +1308,7 @@ VendorIdentity.Vendors = {
         areaID = 15351,
         faction = "Neutral",
         expansion = "The War Within",
+        scanConfirmed = "2026-10-10",
     },
     [231408] = {
         name = "Lab Assistant Laszly",
@@ -1317,6 +1320,7 @@ VendorIdentity.Vendors = {
         areaID = 15350,
         faction = "Neutral",
         expansion = "The War Within",
+        scanConfirmed = "2026-10-10",
     },
     [231409] = {
         name = "Smaks Topskimmer",
@@ -1514,6 +1518,7 @@ VendorIdentity.Vendors = {
         subzone = "Hull'n'Home",
         faction = "Alliance",
         expansion = "Battle for Azeroth",
+        scanConfirmed = "2026-10-10",
     },
     [248328] = {
         name = "Void Researcher Anomander",

@@ -24,12 +24,12 @@
         node Home_Dev/scripts/validate-offer-costs.mjs --repo .
     That command is the live answer to "why is this blank?"; a list here would go stale.
     As of 2026-08-23 every costless row left belongs to a vendor that is not released yet.
-    As of 2026-10-10 thirteen offers at five live vendors (MOTHER, Boatswain Hardee, Shredz
-    the Scrapper, Lab Assistant Laszly, Janey Forrest) are deliberately costless in
-    ManualOverrides until each vendor is scanned: their earlier 10 gold was a bulk-entered
-    default never seen at the vendor. Such an override must be removed in the same change
-    that brings in the scanned price.
-    Apart from those, no row IN THIS FILE is costless on a live vendor, and none is costless because it is
+    Thirteen offers at five live vendors (MOTHER, Boatswain Hardee, Shredz the Scrapper, Lab
+    Assistant Laszly, Janey Forrest) once had a bulk-entered 10 gold default that was never
+    seen at the vendor. Each now carries the price seen at the vendor on 2026-10-10 as a
+    ManualOverrides row; the override must stay, because the generated row beneath still
+    holds the old default.
+    No row IN THIS FILE is costless on a live vendor, and none is costless because it is
     free -- the one row that looked free turned out to be a 10g row a scan had captured with
     an empty cost field, which is precisely the ambiguity described above. Scoped to this file
     deliberately: EndeavorsData and EventSources carry bare item IDs of their own, which also
@@ -17311,7 +17311,7 @@ local ManualOverrides = {
         [280764] = { price = 0, currencies = {{id = 3448, amount = 750}}, isUsable = true, displayOrder = 999999, costBuild = "12.1.0.69299" }, -- Venomous Defender's Barricade (new row)
     },
     -- HS-475: Order Resources, Veiled Argunite, War Resources, Honor and Elemental Overflow
-    -- costs corrected to the live 12.1.0 values (Gate 2 walk, 2026-10-08).
+    -- costs corrected to the live 12.1.0 values (checked in game, 2026-10-08).
     [93550] = { -- Quartermaster Ozorg (Broken Shore)
         [250112] = { price = 0, currencies = {{id = 1220, amount = 350}}, displayOrder = 1, isUsable = true, costBuild = "12.1.0.69933" }, -- (was c1220:1500)
         [250113] = { price = 0, currencies = {{id = 1220, amount = 150}}, costBuild = "12.1.0.69933", displayOrder = 2, isUsable = true },
@@ -17534,34 +17534,31 @@ local ManualOverrides = {
     [254944] = {
         [278691] = { price = 0, currencies = {{id = 3316, amount = 250}}, costBuild = "12.1.0.69299", isUsable = true },
     },
-    -- HS-478: these 13 rows carried a flat 10g each, entered in bulk for vendors that were never
-    -- scanned. 10g is a placeholder, not an observed price, and the game's catalog text gives
-    -- these items a currency price instead. A costless row means "cost unknown" (see the header),
-    -- so the placeholder is cleared here and the catalog text keeps showing until each vendor is
-    -- scanned. The currency price is deliberately not written: no scan stands behind it. The rows
-    -- carry no costBuild, since there is no cost to date.
+    -- HS-478: these 13 rows carried a flat 10g default that was never seen at the vendor. Each
+    -- now carries the price seen there on 2026-10-10. Keep the overrides: the generated rows
+    -- beneath still hold the old default.
     [152194] = { -- MOTHER
-        [247667] = { price = 0, currencies = {}, isUsable = true, displayOrder = 1 },
-        [247668] = { price = 0, currencies = {}, isUsable = true, displayOrder = 2 },
+        [247667] = { price = 0, currencies = {{id = 1803, amount = 10000}}, isUsable = true, displayOrder = 1, costBuild = "12.1.0.69299" },
+        [247668] = { price = 0, currencies = {{id = 1803, amount = 10000}}, isUsable = true, displayOrder = 2, costBuild = "12.1.0.69299" },
     },
     [231405] = { -- Boatswain Hardee
-        [248758] = { price = 0, currencies = {}, isUsable = true, displayOrder = 1 },
-        [255642] = { price = 0, currencies = {}, isUsable = true, displayOrder = 2 },
+        [248758] = { price = 0, currencies = {{id = 2815, amount = 350}}, isUsable = true, displayOrder = 1, costBuild = "12.1.0.69299" },
+        [255642] = { price = 0, currencies = {{id = 2815, amount = 250}}, isUsable = true, displayOrder = 2, costBuild = "12.1.0.69299" },
     },
     [231407] = { -- Shredz the Scrapper
-        [245311] = { price = 0, currencies = {}, isUsable = true, displayOrder = 1 },
-        [255647] = { price = 0, currencies = {}, isUsable = true, displayOrder = 2 },
+        [245311] = { price = 0, currencies = {{id = 2815, amount = 250}}, isUsable = true, displayOrder = 1, costBuild = "12.1.0.69299" },
+        [255647] = { price = 0, currencies = {{id = 2815, amount = 300}}, isUsable = true, displayOrder = 2, costBuild = "12.1.0.69299" },
     },
     [231408] = { -- Lab Assistant Laszly
-        [245321] = { price = 0, currencies = {}, isUsable = true, displayOrder = 1 },
-        [255641] = { price = 0, currencies = {}, isUsable = true, displayOrder = 2 },
+        [245321] = { price = 0, currencies = {{id = 2815, amount = 250}}, isUsable = true, displayOrder = 1, costBuild = "12.1.0.69299" },
+        [255641] = { price = 0, currencies = {{id = 2815, amount = 250}}, isUsable = true, displayOrder = 2, costBuild = "12.1.0.69299" },
     },
     [246721] = { -- Janey Forrest
-        [252390] = { price = 0, currencies = {}, isUsable = true, displayOrder = 1 },
-        [252391] = { price = 0, currencies = {}, isUsable = true, displayOrder = 2 },
-        [252393] = { price = 0, currencies = {}, isUsable = true, displayOrder = 3 },
-        [252404] = { price = 0, currencies = {}, isUsable = true, displayOrder = 4 },
-        [258765] = { price = 0, currencies = {}, isUsable = true, displayOrder = 5 },
+        [252390] = { price = 0, currencies = {{id = 1560, amount = 200}}, isUsable = true, displayOrder = 1, costBuild = "12.1.0.69299" },
+        [252391] = { price = 0, currencies = {{id = 1560, amount = 250}}, isUsable = true, displayOrder = 2, costBuild = "12.1.0.69299" },
+        [252393] = { price = 0, currencies = {{id = 1560, amount = 200}}, isUsable = true, displayOrder = 3, costBuild = "12.1.0.69299" },
+        [252404] = { price = 0, currencies = {{id = 1560, amount = 150}}, isUsable = true, displayOrder = 4, costBuild = "12.1.0.69299" },
+        [258765] = { price = 0, currencies = {{id = 1560, amount = 150}}, isUsable = true, displayOrder = 5, costBuild = "12.1.0.69299" },
     },
 }
 
