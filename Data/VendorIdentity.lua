@@ -415,6 +415,7 @@ VendorIdentity.Vendors = {
         zone = "Lunarfall (Alliance Garrison)",
         faction = "Alliance",
         expansion = "Warlords of Draenor",
+        scanConfirmed = "2026-10-10",
     },
     [79774] = {
         name = "Sergeant Grimjaw",
@@ -1672,7 +1673,7 @@ VendorIdentity.Vendors = {
         areaID = 9598,
         faction = "Horde",
         expansion = "Battle for Azeroth",
-        scanConfirmed = "2026-03-15",
+        scanConfirmed = "2026-10-10",
     },
     [252345] = {
         name = "Pearl Barlow",
@@ -1872,7 +1873,7 @@ VendorIdentity.Vendors = {
         areaID = 5149,
         faction = "Alliance",
         expansion = "Classic",
-        scanConfirmed = "2026-02-25",
+        scanConfirmed = "2026-10-10",
     },
     [254606] = {
         name = "Joruh",
@@ -1895,7 +1896,7 @@ VendorIdentity.Vendors = {
         areaID = 16183,
         faction = "Neutral",
         expansion = "Midnight",
-        scanConfirmed = "2026-03-22",
+        scanConfirmed = "2026-10-10",
     },
     [255101] = {
         name = "Mynde",

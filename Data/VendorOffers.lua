@@ -17442,8 +17442,19 @@ local ManualOverrides = {
         [245293] = { price = 0, currencies = {{id = 2815, amount = 400}}, displayOrder = 1, isUsable = true, costBuild = "12.1.0.69933" }, -- (was c2815:1200)
     },
     [252326] = { -- T'lama (Dazar'alor)
+        [243130] = { price = 0, currencies = {{id = 1560, amount = 150}}, costBuild = "12.1.0.69299", displayOrder = 2, isUsable = true },
+        [244325] = { price = 0, currencies = {{id = 1560, amount = 200}}, costBuild = "12.1.0.69299", displayOrder = 3, isUsable = true },
+        [245417] = { price = 0, currencies = {{id = 1560, amount = 200}}, costBuild = "12.1.0.69299", displayOrder = 6, isUsable = true },
         [245485] = { price = 0, currencies = {{id = 1560, amount = 300}}, costBuild = "12.1.0.69933", displayOrder = 7, isUsable = true },
+        [245487] = { price = 0, currencies = {{id = 1560, amount = 200}}, costBuild = "12.1.0.69299", displayOrder = 9, isUsable = true },
+        [245490] = { price = 0, currencies = {{id = 1560, amount = 200}}, costBuild = "12.1.0.69299", displayOrder = 11, isUsable = true },
+        [245491] = { price = 0, currencies = {{id = 1560, amount = 200}}, costBuild = "12.1.0.69299", displayOrder = 12, isUsable = true },
+        [245493] = { price = 0, currencies = {{id = 1560, amount = 150}}, costBuild = "12.1.0.69299", displayOrder = 13, isUsable = true },
+        [245494] = { price = 0, currencies = {{id = 1560, amount = 150}}, costBuild = "12.1.0.69299", displayOrder = 14, isUsable = true },
+        [245497] = { price = 0, currencies = {{id = 1560, amount = 200}}, costBuild = "12.1.0.69299", displayOrder = 15, isUsable = true },
         [245522] = { price = 0, currencies = {{id = 1560, amount = 400}}, displayOrder = 17, isUsable = true, costBuild = "12.1.0.69933" }, -- (was c1560:1200)
+        [256919] = { price = 0, currencies = {{id = 1560, amount = 150}}, costBuild = "12.1.0.69299", displayOrder = 18, isUsable = true },
+        [257399] = { price = 0, currencies = {{id = 1560, amount = 150}}, costBuild = "12.1.0.69299", displayOrder = 19, isUsable = true },
     },
     [253086] = { -- Jolinth (Forbidden Reach)
         [248656] = { price = 0, currencies = {{id = 2118, amount = 500}}, displayOrder = 1, isUsable = true, costBuild = "12.1.0.69933" }, -- (was c2118:1500)
@@ -17470,6 +17481,8 @@ local ManualOverrides = {
         [247768] = { price = 0, currencies = {}, itemCosts = {{itemID = 137642, amount = 2}}, costBuild = "12.1.0.69933", displayOrder = 17, isUsable = true },
         [247769] = { price = 0, currencies = {}, itemCosts = {{itemID = 137642, amount = 2}}, costBuild = "12.1.0.69933", displayOrder = 18, isUsable = true },
         [247770] = { price = 0, currencies = {}, itemCosts = {{itemID = 137642, amount = 1}}, costBuild = "12.1.0.69933", displayOrder = 13, isUsable = true },
+        [253170] = { price = 0, currencies = {{id = 1792, amount = 350}}, costBuild = "12.1.0.69299", displayOrder = 5, isUsable = true },
+        [256896] = { price = 0, currencies = {{id = 1792, amount = 250}}, costBuild = "12.1.0.69299", displayOrder = 3, isUsable = true },
     },
     [254606] = { -- Joruh (Orgrimmar)
         [247727] = { price = 0, currencies = {{id = 1792, amount = 1500}}, displayOrder = 13, isUsable = false, costBuild = "12.1.0.69933" }, -- (was c1792:5000)
@@ -17509,6 +17522,12 @@ local ManualOverrides = {
     },
     [252969] = {
         [247843] = { price = 0, currencies = {{id = 1220, amount = 400}}, costBuild = "12.1.0.69933", displayOrder = 4, isUsable = false },
+    },
+    [78564] = {
+        [248800] = { price = 0, currencies = {{id = 824, amount = 300}}, costBuild = "12.1.0.69299", displayOrder = 7, isUsable = true },
+    },
+    [254944] = {
+        [278691] = { price = 0, currencies = {{id = 3316, amount = 250}}, costBuild = "12.1.0.69299", isUsable = true },
     },
 }
 

@@ -1,7 +1,7 @@
 --[[
     Homestead - DecorMapping
     Generated: 2026-06-27 10:33:50
-    Total entries: 1710
+    Total entries: 1711
 
     Static decorID → itemID mapping from Blizzard web API.
     Used by CatalogStore to seed the bidirectional index at startup.
@@ -1723,4 +1723,5 @@ HA.DecorMapping = {
     [22182] = 273142,    -- Runic Parchment
     [22183] = 273157,    -- Void Flame Candle
     [22388] = 273147,    -- Void Inkwell
+    [26203] = 278691,    -- Twilight Brazier
 }
