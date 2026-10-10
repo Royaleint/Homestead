@@ -24,7 +24,12 @@
         node Home_Dev/scripts/validate-offer-costs.mjs --repo .
     That command is the live answer to "why is this blank?"; a list here would go stale.
     As of 2026-08-23 every costless row left belongs to a vendor that is not released yet.
-    No row IN THIS FILE is costless on a live vendor, and none is costless because it is
+    As of 2026-10-10 thirteen offers at five live vendors (MOTHER, Boatswain Hardee, Shredz
+    the Scrapper, Lab Assistant Laszly, Janey Forrest) are deliberately costless in
+    ManualOverrides until each vendor is scanned: their earlier 10 gold was a bulk-entered
+    default never seen at the vendor. Such an override must be removed in the same change
+    that brings in the scanned price.
+    Apart from those, no row IN THIS FILE is costless on a live vendor, and none is costless because it is
     free -- the one row that looked free turned out to be a 10g row a scan had captured with
     an empty cost field, which is precisely the ambiguity described above. Scoped to this file
     deliberately: EndeavorsData and EventSources carry bare item IDs of their own, which also
@@ -17528,6 +17533,35 @@ local ManualOverrides = {
     },
     [254944] = {
         [278691] = { price = 0, currencies = {{id = 3316, amount = 250}}, costBuild = "12.1.0.69299", isUsable = true },
+    },
+    -- HS-478: these 13 rows carried a flat 10g each, entered in bulk for vendors that were never
+    -- scanned. 10g is a placeholder, not an observed price, and the game's catalog text gives
+    -- these items a currency price instead. A costless row means "cost unknown" (see the header),
+    -- so the placeholder is cleared here and the catalog text keeps showing until each vendor is
+    -- scanned. The currency price is deliberately not written: no scan stands behind it. The rows
+    -- carry no costBuild, since there is no cost to date.
+    [152194] = { -- MOTHER
+        [247667] = { price = 0, currencies = {}, isUsable = true, displayOrder = 1 },
+        [247668] = { price = 0, currencies = {}, isUsable = true, displayOrder = 2 },
+    },
+    [231405] = { -- Boatswain Hardee
+        [248758] = { price = 0, currencies = {}, isUsable = true, displayOrder = 1 },
+        [255642] = { price = 0, currencies = {}, isUsable = true, displayOrder = 2 },
+    },
+    [231407] = { -- Shredz the Scrapper
+        [245311] = { price = 0, currencies = {}, isUsable = true, displayOrder = 1 },
+        [255647] = { price = 0, currencies = {}, isUsable = true, displayOrder = 2 },
+    },
+    [231408] = { -- Lab Assistant Laszly
+        [245321] = { price = 0, currencies = {}, isUsable = true, displayOrder = 1 },
+        [255641] = { price = 0, currencies = {}, isUsable = true, displayOrder = 2 },
+    },
+    [246721] = { -- Janey Forrest
+        [252390] = { price = 0, currencies = {}, isUsable = true, displayOrder = 1 },
+        [252391] = { price = 0, currencies = {}, isUsable = true, displayOrder = 2 },
+        [252393] = { price = 0, currencies = {}, isUsable = true, displayOrder = 3 },
+        [252404] = { price = 0, currencies = {}, isUsable = true, displayOrder = 4 },
+        [258765] = { price = 0, currencies = {}, isUsable = true, displayOrder = 5 },
     },
 }
 
