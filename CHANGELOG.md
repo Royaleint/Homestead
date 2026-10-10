@@ -2,6 +2,34 @@
 
 ---
 
+## Homestead v2.12.0 (10-09-2026)
+
+Italian and Traditional Chinese are now supported, every language is fully translated, and more vendor prices and locations are corrected.
+
+---
+
+## Languages
+
+- Added Italian and Traditional Chinese.
+- Every supported language is now fully translated, so you no longer see a mix of your language and English.
+- Shared labels such as General, World Map, Minimap, Endeavors, Shop, Close, and the Shift, Ctrl and Alt key names now use the game's own words, so they match your client.
+- Russian decor and housing catalog terms now use the game's own Russian words.
+
+---
+
+## Vendor Database
+
+**Corrections**
+
+- Corrected 49 vendor prices paid in currencies such as Order Resources, Veiled Argunite, War Resources, Honor, and Elemental Overflow, which still showed the older, higher amounts.
+- **Amurra Thistledew**: Corrected five Order Resources prices in the Dreamgrove.
+
+**Location Fixes**
+
+- Moved four vendors to their live positions: Jackson Watkins, Morta Gage, Irodalmin and Samantha Buckley.
+
+---
+
 ## Homestead v2.11.0 (09-27-2026)
 
 A new tooltip line for crafting reagents, a round of vendor price corrections for patch 12.1, and a cleaner Welcome screen and options panel.
