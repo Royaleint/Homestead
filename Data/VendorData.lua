@@ -304,22 +304,46 @@ function VendorData:GetScannedItemCost(vendor, itemID)
     return cost, record and record.lastScanned
 end
 
+-- HS-485: shipped cost for one vendor/item pair, or nil when no shipped row
+-- carries a price. Exposed like GetScannedItemCost so a caller can fetch it
+-- once for both CanSkipSourceTextLookup and ResolveVendorItemCost.
+function VendorData:GetStaticItemCost(vendor, itemID)
+    if not vendor or not itemID then return nil end
+    local staticItems = vendor.items
+    if (not staticItems or #staticItems == 0) and vendor.npcID then
+        staticItems = self:GetVendorItems(vendor.npcID)
+    end
+    for _, item in ipairs(staticItems or {}) do
+        if self:GetItemID(item) == itemID then
+            local staticCost = self:GetItemCost(item)
+            if staticCost then
+                return staticCost
+            end
+        end
+    end
+    return nil
+end
+
 -- HS-383: true when the given scanned cost/time already determines
 -- ResolveVendorItemCost's outcome regardless of any source-text cost --
 -- i.e. a source-text lookup for this item would be pure waste. Mirrors the
 -- exact gold-only + staleness gate the sourceText-discount branch below
--- requires, so the two can never drift apart.
-function VendorData:CanSkipSourceTextLookup(scannedCost, scannedAt)
-    if not scannedCost then return false end
+-- requires, so the two can never drift apart. With no scanned cost, a shipped
+-- cost (staticCost) outranks source text and decides the outcome instead.
+function VendorData:CanSkipSourceTextLookup(scannedCost, scannedAt, staticCost)
+    if not scannedCost then return staticCost ~= nil end
     if not HasOnlyGoldCost(scannedCost) then return true end
     if not scannedAt then return true end
     return (time() - scannedAt) <= VENDOR_COST_STALE_SECONDS
 end
 
 -- Resolve a vendor item's display cost for every UI surface.
+-- Order: scanned, shipped (static), then catalog source text; a stale gold-only
+-- scan can lose to a cheaper newer source-text price (sourceText-discount).
 -- sourceText is optional {cost = normalizedCost, lastParsed = timestamp}.
--- Returns normalized cost and provenance: scanned, sourceText-discount, sourceText,
--- static, or nil.
+-- staticCostKnown with a nil staticCostOverride means "no shipped price".
+-- Returns normalized cost and provenance: scanned, sourceText-discount, static,
+-- sourceText, or nil.
 function VendorData:ResolveVendorItemCost(
         vendor, itemID, sourceText, scannedCostOverride, scannedCostKnown,
         staticCostOverride, staticCostKnown, scannedAtOverride)
@@ -349,28 +373,16 @@ function VendorData:ResolveVendorItemCost(
         return scannedCost, "scanned"
     end
 
+    local staticCost = staticCostOverride
+    if not staticCostKnown then
+        staticCost = self:GetStaticItemCost(vendor, itemID)
+    end
+    if staticCost then
+        return staticCost, "static"
+    end
+
     if sourceCost then
         return sourceCost, "sourceText"
-    end
-
-    if staticCostKnown then
-        if staticCostOverride then
-            return staticCostOverride, "static"
-        end
-        return nil, nil
-    end
-
-    local staticItems = vendor.items
-    if (not staticItems or #staticItems == 0) and vendor.npcID then
-        staticItems = self:GetVendorItems(vendor.npcID)
-    end
-    for _, item in ipairs(staticItems or {}) do
-        if self:GetItemID(item) == itemID then
-            local staticCost = self:GetItemCost(item)
-            if staticCost then
-                return staticCost, "static"
-            end
-        end
     end
 
     return nil, nil

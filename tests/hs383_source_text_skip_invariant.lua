@@ -6,6 +6,8 @@
 -- circuited at its first `not scannedCost` check under test -- a logic
 -- inversion on any other line would still ship green. This exercises every
 -- `true`-returning exit directly against the resolver's real behavior.
+-- HS-485: a shipped cost outranks source text, so the matrix also varies
+-- whether a shipped cost exists.
 
 local root = (... or "."):gsub("\\\\", "/"):gsub("/+$", "")
 local NOW = 2000000000
@@ -69,34 +71,41 @@ local STALENESS_STATES = {
     { name = "nil-scannedAt", scannedAt = nil },
 }
 
+local STATIC_STATES = {
+    { name = "no-static", cost = nil },
+    { name = "static", cost = { gold = 777 } },
+}
+
 local caseCount = 0
 
 for _, shape in ipairs(SCANNED_SHAPES) do
     for _, state in ipairs(STALENESS_STATES) do
-        caseCount = caseCount + 1
+        for _, static in ipairs(STATIC_STATES) do
+            caseCount = caseCount + 1
 
-        local scannedCost = shape.cost
-        local scannedAt = state.scannedAt
-        local sourceText = { cost = shape.sourceCost, lastParsed = NOW }
+            local scannedCost = shape.cost
+            local scannedAt = state.scannedAt
+            local sourceText = { cost = shape.sourceCost, lastParsed = NOW }
 
-        local skip = HA.VendorData:CanSkipSourceTextLookup(scannedCost, scannedAt)
+            local skip = HA.VendorData:CanSkipSourceTextLookup(scannedCost, scannedAt, static.cost)
 
-        local costWith, provWith = HA.VendorData:ResolveVendorItemCost(
-            vendor, ITEM, sourceText, scannedCost, true, nil, true, scannedAt)
-        local costWithout, provWithout = HA.VendorData:ResolveVendorItemCost(
-            vendor, ITEM, nil, scannedCost, true, nil, true, scannedAt)
+            local costWith, provWith = HA.VendorData:ResolveVendorItemCost(
+                vendor, ITEM, sourceText, scannedCost, true, static.cost, true, scannedAt)
+            local costWithout, provWithout = HA.VendorData:ResolveVendorItemCost(
+                vendor, ITEM, nil, scannedCost, true, static.cost, true, scannedAt)
 
-        local outcomesEqual = provWith == provWithout and CostsEqual(costWith, costWithout)
+            local outcomesEqual = provWith == provWithout and CostsEqual(costWith, costWithout)
 
-        assert(skip == outcomesEqual, string.format(
-            "%s/%s: CanSkipSourceTextLookup=%s but outcomes-equal=%s "
-                .. "(with=%s/%s, without=%s/%s)",
-            shape.name, state.name, tostring(skip), tostring(outcomesEqual),
-            tostring(provWith), tostring(costWith and costWith.gold),
-            tostring(provWithout), tostring(costWithout and costWithout.gold)))
+            assert(skip == outcomesEqual, string.format(
+                "%s/%s/%s: CanSkipSourceTextLookup=%s but outcomes-equal=%s "
+                    .. "(with=%s/%s, without=%s/%s)",
+                shape.name, state.name, static.name, tostring(skip), tostring(outcomesEqual),
+                tostring(provWith), tostring(costWith and costWith.gold),
+                tostring(provWithout), tostring(costWithout and costWithout.gold)))
+        end
     end
 end
 
-assert(caseCount == 12, "expected 12 matrix cases, got " .. caseCount)
+assert(caseCount == 24, "expected 24 matrix cases, got " .. caseCount)
 
 print("hs383_source_text_skip_invariant: ok (" .. caseCount .. " cases)")

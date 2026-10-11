@@ -14,8 +14,8 @@ local Constants = HA.Constants
 -------------------------------------------------------------------------------
 -- Version Info
 -------------------------------------------------------------------------------
-Constants.VERSION = "2.11.0"
-Constants.RELEASE_DATE = "2026-09-27"   -- ISO YYYY-MM-DD. Bump alongside VERSION.
+Constants.VERSION = "2.12.0"
+Constants.RELEASE_DATE = "2026-10-09"   -- ISO YYYY-MM-DD. Bump alongside VERSION.
 Constants.ADDON_NAME = "Homestead"
 Constants.ADDON_SHORT = "HS"
 Constants.WELCOME_SEEN_VERSION_MAX = 4
