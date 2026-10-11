@@ -166,5 +166,6 @@ files["Locale/enUS.lua"] = {
     read_globals = {
         "GENERAL", "CLOSE", "MINIMAP_LABEL", "BLIZZARD_STORE", "WORLDMAP_BUTTON",
         "SHIFT_KEY_TEXT", "ALT_KEY_TEXT", "CTRL_KEY_TEXT", "HOUSING_DASHBOARD_ENDEAVOR",
+        "BROWSE_NO_RESULTS",
     },
 }

@@ -52,6 +52,8 @@ local interactiveSearchBox = nil
 local interactiveHover = nil
 local syncingScrollBar = false
 local interactiveThumbHeld = false
+local interactiveSearchTimer = nil
+local suppressSearchChanged = false
 
 -- Idempotent; runs from every close path and from the frame's own OnHide.
 local function ResetInteractiveState()
@@ -62,9 +64,15 @@ local function ResetInteractiveState()
         activeTooltipData = nil
         itemInfoEventFrame:UnregisterEvent("GET_ITEM_INFO_RECEIVED")
     end
+    if interactiveSearchTimer then
+        interactiveSearchTimer:Cancel()
+        interactiveSearchTimer = nil
+    end
     if interactiveSearchBox then
         interactiveSearchBox:ClearFocus()
+        suppressSearchChanged = true
         interactiveSearchBox:SetText("")
+        suppressSearchChanged = false
     end
     -- Last: ends a thumb or arrow hold that a forced close interrupted.
     if interactiveScrollBar and interactiveScrollBar.UnregisterUpdate then
@@ -113,7 +121,17 @@ local function BeginPinTooltip(owner, anchor)
 end
 
 local function IsActivePinTooltipVisible()
-    if not activeTooltipData or not pinTooltip then
+    if not activeTooltipData then
+        return false
+    end
+
+    -- Before the pinTooltip test: it is nil until a plain tooltip has been shown.
+    if interactiveHover then
+        return interactiveTooltip ~= nil and interactiveTooltip:IsShown()
+            and interactiveHover.pin == activeTooltipData.pin
+    end
+
+    if not pinTooltip then
         return false
     end
 
@@ -140,7 +158,8 @@ local function RebuildActivePinTooltip()
                 if activeTooltipData.kind == "vendor" then
                     VendorPinTooltips:ShowVendorTooltip(
                         activeTooltipData.pin,
-                        activeTooltipData.vendor
+                        activeTooltipData.vendor,
+                        true
                     )
                 elseif activeTooltipData.kind == "drop" then
                     VendorPinTooltips:ShowDropPinTooltip(activeTooltipData.pin, activeTooltipData.record)
@@ -427,6 +446,9 @@ local function AddInteractiveLines(hover, list, first, last)
     frame:ClearLines()
     AddVendorHeaderLines(frame, hover.vendor, hover.isOpposite)
     AddVendorWareLines(frame, hover.vendor, list, first, last, hover.itemDetailsEnabled)
+    if #list == 0 then
+        frame:AddLine(HA.L["No items found"], 0.7, 0.7, 0.7)
+    end
     AddVendorFooterLines(frame, hover.vendor, hover.isOpposite, hover.itemDetailsEnabled)
 end
 
@@ -519,6 +541,49 @@ local function OnInteractiveMouseWheel(_, delta)
     end
 end
 
+-- Search text is built when the wares are gathered, following FormatCost's guards
+-- for what the cost column shows; a keystroke then only scans cached strings.
+local function BuildWareSearchText(hover)
+    for _, ware in ipairs(hover.wares) do
+        local parts = {}
+        local name = ware.name or (ware.itemID and C_Item.GetItemNameByID(ware.itemID))
+        if name then parts[#parts + 1] = name end
+        local cost = hover.itemDetailsEnabled and ware.cost or nil
+        if cost and cost.currencies then
+            for _, currency in ipairs(cost.currencies) do
+                if currency.amount then
+                    local info = currency.id and C_CurrencyInfo.GetCurrencyInfo(currency.id)
+                    local currencyName = (info and info.name) or currency.name
+                    if currencyName then parts[#parts + 1] = currencyName end
+                end
+            end
+        end
+        if cost and cost.items then
+            for _, itemCost in ipairs(cost.items) do
+                if itemCost.amount and itemCost.id then
+                    local reagentName = C_Item.GetItemNameByID(itemCost.id) or itemCost.name
+                    if reagentName then parts[#parts + 1] = reagentName end
+                end
+            end
+        end
+        ware.searchText = table.concat(parts, "\n"):lower()
+    end
+end
+
+local function ApplyInteractiveSearch(hover)
+    if hover.query == "" then
+        hover.matches = hover.wares
+        return
+    end
+    local matches = {}
+    for _, ware in ipairs(hover.wares) do
+        if ware.searchText:find(hover.query, 1, true) then
+            matches[#matches + 1] = ware
+        end
+    end
+    hover.matches = matches
+end
+
 local function EnsureInteractiveTooltip()
     if interactiveTooltip then
         return interactiveTooltip
@@ -555,6 +620,24 @@ local function EnsureInteractiveTooltip()
         if hover.pin:IsMouseOver() then return end
         CloseInteractiveTooltip()
     end)
+    box:HookScript("OnTextChanged", function(self)
+        if suppressSearchChanged then return end
+        if interactiveSearchTimer then
+            interactiveSearchTimer:Cancel()
+            interactiveSearchTimer = nil
+        end
+        local hover = interactiveHover
+        if not hover then return end
+        interactiveSearchTimer = C_Timer.NewTimer(0.3, function()
+            interactiveSearchTimer = nil
+            if interactiveHover ~= hover or not frame:IsShown() then return end
+            hover.query = (self:GetText():match("^%s*(.-)%s*$") or ""):lower()
+            ApplyInteractiveSearch(hover)
+            hover.offset = 0
+            RenderInteractiveWindow(hover)
+        end)
+    end)
+    box:HookScript("OnEscapePressed", function() CloseInteractiveTooltip() end)
 
     -- The bar's children take the cursor off the tooltip frame; each leave re-checks.
     -- A drag that strays off the thumb must not close the tooltip, so the held flag defers to the release.
@@ -584,8 +667,21 @@ local function EnsureInteractiveTooltip()
     return frame
 end
 
-local function ShowInteractiveVendorTooltip(pin, vendor, allItems, itemDetailsEnabled, isOpposite)
+local function ShowInteractiveVendorTooltip(pin, vendor, allItems, itemDetailsEnabled, isOpposite, isRebuild)
     local frame = EnsureInteractiveTooltip()
+    local current = interactiveHover
+    -- Late names: update rows in place and keep offset, query, focus and placement.
+    if isRebuild and current and current.pin == pin and current.vendor == vendor and frame:IsShown() then
+        current.active = activeTooltipData
+        current.wares = allItems
+        current.itemDetailsEnabled = itemDetailsEnabled
+        current.isOpposite = isOpposite
+        BuildWareSearchText(current)
+        ApplyInteractiveSearch(current)
+        MeasureInteractiveWidth(current)
+        RenderInteractiveWindow(current)
+        return
+    end
     if pinTooltip then pinTooltip:Hide() end
     CloseInteractiveTooltip()
     frame:SetOwner(pin, "ANCHOR_NONE")
@@ -599,6 +695,7 @@ local function ShowInteractiveVendorTooltip(pin, vendor, allItems, itemDetailsEn
     }
     -- Before the first Show: the OnShow guard hides a frame with no hover.
     interactiveHover = hover
+    BuildWareSearchText(hover)
     MeasureInteractiveWidth(hover)
     RenderInteractiveWindow(hover)
     -- A zero first width is never stored; retry once, never from scroll or search.
@@ -611,7 +708,7 @@ local function ShowInteractiveVendorTooltip(pin, vendor, allItems, itemDetailsEn
     end
 end
 
-function VendorPinTooltips:ShowVendorTooltip(pin, vendor)
+function VendorPinTooltips:ShowVendorTooltip(pin, vendor, isRebuild)
     if not vendor then return end
 
     local itemDetailsEnabled = IsVendorPinItemDetailsEnabled()
@@ -685,7 +782,7 @@ function VendorPinTooltips:ShowVendorTooltip(pin, vendor)
     end
 
     if #allItems > LONG_WARES_THRESHOLD then
-        ShowInteractiveVendorTooltip(pin, vendor, allItems, itemDetailsEnabled, isOpposite)
+        ShowInteractiveVendorTooltip(pin, vendor, allItems, itemDetailsEnabled, isOpposite, isRebuild)
         return
     end
 

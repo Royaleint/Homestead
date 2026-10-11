@@ -730,6 +730,10 @@ end
 
 function mapDataProviderMethods:OnMapChanged()
     watcherStats.mapChanged = watcherStats.mapChanged + 1
+    local VMP = HA.VendorMapPins
+    if VMP and VMP.CloseInteractivePinTooltip then
+        VMP:CloseInteractivePinTooltip()
+    end
     RequestSettledRefresh("watcher_map_changed")
     DispatchMapWatch()
 end
