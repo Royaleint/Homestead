@@ -48,12 +48,11 @@ local interactiveScrollBar = nil
 local interactiveSearchBox = nil
 -- nil when closed, else one table per hover: pin, vendor, active (this hover's
 -- activeTooltipData), wares, matches, query, offset (0-based), itemDetailsEnabled,
--- isOpposite, measuredWidth, anchored.
+-- isOpposite, measuredWidth, anchored, itemIDs (wares and reagent costs, built per gather).
 local interactiveHover = nil
 local syncingScrollBar = false
 local interactiveThumbHeld = false
 local interactiveSearchTimer = nil
-local suppressSearchChanged = false
 
 -- Idempotent; runs from every close path and from the frame's own OnHide.
 local function ResetInteractiveState()
@@ -70,9 +69,7 @@ local function ResetInteractiveState()
     end
     if interactiveSearchBox then
         interactiveSearchBox:ClearFocus()
-        suppressSearchChanged = true
         interactiveSearchBox:SetText("")
-        suppressSearchChanged = false
     end
     -- Last: ends a thumb or arrow hold that a forced close interrupted.
     if interactiveScrollBar and interactiveScrollBar.UnregisterUpdate then
@@ -171,6 +168,11 @@ end
 
 itemInfoEventFrame:SetScript("OnEvent", function(self, event, itemID, success)
     if not success or not activeTooltipData then return end
+    -- An open long tooltip only cares about its own wares and reagent costs.
+    local hover = interactiveHover
+    if hover and hover.active == activeTooltipData and itemID and hover.itemIDs and not hover.itemIDs[itemID] then
+        return
+    end
     RebuildActivePinTooltip()
 end)
 
@@ -226,7 +228,7 @@ function VendorPinTooltips:OnPinLeave()
     end
 end
 
--- Unconditional close, for callers that tear the pins down rather than leave one.
+-- Unconditional close: pin teardown, and the badge, portal and minimap pin leave handlers.
 function VendorPinTooltips:HidePinTooltip()
     CloseInteractiveTooltip()
     self:OnPinLeave()
@@ -472,9 +474,7 @@ local function SyncInteractiveScrollBar(hover)
     if maximum == 0 then
         bar:Hide()
         interactiveThumbHeld = false
-        if interactiveScrollBar and interactiveScrollBar.UnregisterUpdate then
-            interactiveScrollBar:UnregisterUpdate()
-        end
+        bar:UnregisterUpdate()
         return
     end
     bar:Show()
@@ -544,8 +544,11 @@ end
 -- Search text is built when the wares are gathered, following FormatCost's guards
 -- for what the cost column shows; a keystroke then only scans cached strings.
 local function BuildWareSearchText(hover)
+    local itemIDs = {}
+    hover.itemIDs = itemIDs
     for _, ware in ipairs(hover.wares) do
         local parts = {}
+        if ware.itemID then itemIDs[ware.itemID] = true end
         local name = ware.name or (ware.itemID and C_Item.GetItemNameByID(ware.itemID))
         if name then parts[#parts + 1] = name end
         local cost = hover.itemDetailsEnabled and ware.cost or nil
@@ -560,6 +563,7 @@ local function BuildWareSearchText(hover)
         end
         if cost and cost.items then
             for _, itemCost in ipairs(cost.items) do
+                if itemCost.id then itemIDs[itemCost.id] = true end
                 if itemCost.amount and itemCost.id then
                     local reagentName = C_Item.GetItemNameByID(itemCost.id) or itemCost.name
                     if reagentName then parts[#parts + 1] = reagentName end
@@ -621,7 +625,6 @@ local function EnsureInteractiveTooltip()
         CloseInteractiveTooltip()
     end)
     box:HookScript("OnTextChanged", function(self)
-        if suppressSearchChanged then return end
         if interactiveSearchTimer then
             interactiveSearchTimer:Cancel()
             interactiveSearchTimer = nil

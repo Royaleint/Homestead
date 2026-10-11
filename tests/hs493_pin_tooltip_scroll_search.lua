@@ -449,7 +449,7 @@ local function OpenLong(count)
 end
 
 -------------------------------------------------------------------------------
--- Case 1: I1. The plain path makes the same calls as the base file.
+-- Plain path: same calls as the base file.
 -------------------------------------------------------------------------------
 
 local GOLDEN = {}
@@ -726,7 +726,7 @@ do
 end
 
 -------------------------------------------------------------------------------
--- Case 2: window and offset
+-- Window and offset
 -------------------------------------------------------------------------------
 
 local function LargestStaticVendorCount()
@@ -827,7 +827,7 @@ do
 end
 
 -------------------------------------------------------------------------------
--- Case 3: search
+-- Search
 -------------------------------------------------------------------------------
 
 local function SearchFixture(details)
@@ -903,7 +903,7 @@ do
 end
 
 -------------------------------------------------------------------------------
--- Case 4: I4 call counts
+-- Call counts for scrolling and searching
 -------------------------------------------------------------------------------
 
 local function ResetCalls()
@@ -947,7 +947,7 @@ do
 end
 
 -------------------------------------------------------------------------------
--- Case 5: I3 and leave handling
+-- Close, focus and leave handling
 -------------------------------------------------------------------------------
 
 local function AssertClosed(t, label)
@@ -1090,7 +1090,7 @@ do
     FireTimers()
     AssertClosed(t, "leave after a forced close mid-drag")
 
-    -- Note 3: a held thumb whose bar is hidden by a narrowing search.
+    -- A held thumb whose bar is hidden by a narrowing search.
     t = OpenLong(20)
     Fire(t.bar.thumb, "OnMouseDown")
     local holdsBefore = t.bar.unregisterUpdates
@@ -1111,7 +1111,7 @@ do
 end
 
 -------------------------------------------------------------------------------
--- Case 6: R6, R11, R12
+-- Stable placement, late names and fresh opens
 -------------------------------------------------------------------------------
 
 do
@@ -1171,7 +1171,7 @@ do
     Rebuild(function() world.loadCallbacks[10009]() end)
     Check(table.concat(RowNames(frame), "|"):find("Second Late Name", 1, true), "the load callback shows the new name")
 
-    -- R12: a second pin enter is a fresh open.
+    -- A second pin enter is a fresh open.
     module:ShowVendorTooltip(pin, vendor)
     ExpectNames(frame, (function()
         local names = {}
@@ -1198,7 +1198,7 @@ do
 end
 
 -------------------------------------------------------------------------------
--- Case 7: R7 anchoring in screen pixels
+-- Anchoring in screen pixels
 -------------------------------------------------------------------------------
 
 do
@@ -1231,6 +1231,43 @@ do
     -- Unequal scales: ignoring them would flip and hang down the other way.
     point, relative = Anchor({ right = 3000, top = 400, scale = 0.5 }, { width = 320, height = 300, scale = 1 })
     Equal(point .. ">" .. relative, "BOTTOMLEFT>BOTTOMRIGHT", "scaled pin: room to the right, none below")
+end
+
+-------------------------------------------------------------------------------
+-- Item arrivals that cannot affect the open tooltip
+-------------------------------------------------------------------------------
+
+do
+    local t = SearchFixture(true)
+    local function Arrive(itemID)
+        world.eventFrame.scripts.OnEvent(world.eventFrame, "GET_ITEM_INFO_RECEIVED", itemID, true)
+    end
+
+    local gathers = world.calls.GetItemsForVendor
+    Arrive(424242)
+    Equal(PendingTimers(), 0, "an unrelated arrival must not queue a rebuild")
+    FireTimers()
+    Equal(world.calls.GetItemsForVendor, gathers, "an unrelated arrival must not gather")
+
+    Arrive(10003)
+    Equal(PendingTimers(), 1, "a ware arrival queues a rebuild")
+    FireTimers()
+    Equal(world.calls.GetItemsForVendor, gathers + 1, "a ware arrival rebuilds")
+
+    Arrive(555)
+    Equal(PendingTimers(), 1, "a reagent cost arrival queues a rebuild")
+    FireTimers()
+    Equal(world.calls.GetItemsForVendor, gathers + 2, "a reagent cost arrival rebuilds")
+
+    Arrive(nil)
+    Equal(PendingTimers(), 1, "an arrival with no item id queues a rebuild")
+    FireTimers()
+    Check(t.frame.shown, "the tooltip survives the rebuilds")
+
+    local module = LoadModule()
+    module:ShowVendorTooltip(NewPin("pinS"), MakeVendor(5))
+    Arrive(424242)
+    Equal(PendingTimers(), 1, "an unrelated arrival still rebuilds the short tooltip")
 end
 
 print("hs493_pin_tooltip_scroll_search: ok")
