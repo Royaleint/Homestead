@@ -17297,6 +17297,7 @@ local ManualOverrides = {
     -- stored on that basis too; the stored 2400000 was out of line with all of them.
     [49877] = { -- Captain Lancy Revshon (Stormwind)
         [248336] = { price = 800000, currencies = {}, isUsable = false, displayOrder = 2 }, -- Stormwind Wooden Table (was g=2400000)
+        [284223] = { price = 2500000, currencies = {}, isUsable = true },
     },
     -- HS-459: offers the same capture shows that shipped data did not carry.
     [252873] = { -- Morta Gage (Arcantina)
@@ -17574,7 +17575,21 @@ local ManualOverrides = {
         [284355] = { price = 0, currencies = {{id = 2803, amount = 150}}, isUsable = true },
         [284362] = { price = 0, currencies = {{id = 2803, amount = 1000}}, isUsable = true },
     },
+    [112716] = {
+        [284264] = { price = 7500000, currencies = {}, isUsable = true },
+    },
+    [127120] = {
+        [282111] = { price = 10000000, currencies = {{id = 1220, amount = 500}}, isUsable = true },
+        [282122] = { price = 10000000, currencies = {{id = 1220, amount = 500}}, isUsable = true },
+        [282128] = { price = 5000000, currencies = {{id = 1220, amount = 250}}, isUsable = true },
+        [282130] = { price = 3000000, currencies = {{id = 1220, amount = 200}}, isUsable = true },
+        [282134] = { price = 7000000, currencies = {{id = 1220, amount = 300}}, isUsable = true },
+        [282142] = { price = 5000000, currencies = {{id = 1220, amount = 250}}, isUsable = true },
+        [282146] = { price = 7000000, currencies = {{id = 1220, amount = 300}}, isUsable = true },
+        [282156] = { price = 3000000, currencies = {{id = 1220, amount = 200}}, isUsable = true },
+    },
     [127518] = {
+        [281682] = { price = 7000000, currencies = {{id = 1220, amount = 300}}, isUsable = true },
         [282024] = { price = 0, currencies = {{id = 1220, amount = 200}}, isUsable = true },
         [282113] = { price = 0, currencies = {{id = 1220, amount = 200}}, isUsable = true },
         [282115] = { price = 0, currencies = {{id = 1220, amount = 200}}, isUsable = true },
@@ -17586,6 +17601,7 @@ local ManualOverrides = {
         [282150] = { price = 0, currencies = {{id = 1220, amount = 150}}, isUsable = true },
         [282152] = { price = 0, currencies = {{id = 1220, amount = 150}}, isUsable = true },
         [282154] = { price = 0, currencies = {{id = 1220, amount = 150}}, isUsable = true },
+        [282162] = { price = 10000000, currencies = {{id = 1220, amount = 500}}, isUsable = true },
     },
     [135804] = {
         [283277] = { price = 0, currencies = {{id = 1560, amount = 400}}, isUsable = true },
@@ -17655,6 +17671,23 @@ local ManualOverrides = {
         [275873] = { price = 0, currencies = {{id = 3316, amount = 250}}, isUsable = true },
         [275879] = { price = 0, currencies = {{id = 3316, amount = 250}}, isUsable = true },
         [280050] = { price = 0, currencies = {{id = 3316, amount = 1000}}, isUsable = true },
+    },
+    [274250] = {
+        [283220] = { price = 2000000, currencies = {{id = 824, amount = 200}}, isUsable = true },
+        [283222] = { price = 2000000, currencies = {{id = 824, amount = 200}}, isUsable = true },
+        [283224] = { price = 2000000, currencies = {{id = 824, amount = 200}}, isUsable = true },
+        [283226] = { price = 2000000, currencies = {{id = 824, amount = 200}}, isUsable = true },
+        [283228] = { price = 4000000, currencies = {{id = 824, amount = 400}}, isUsable = true },
+        [283230] = { price = 4000000, currencies = {{id = 824, amount = 400}}, isUsable = true },
+        [283232] = { price = 2000000, currencies = {{id = 824, amount = 200}}, isUsable = true },
+        [283234] = { price = 2000000, currencies = {{id = 824, amount = 200}}, isUsable = true },
+        [283236] = { price = 2000000, currencies = {{id = 824, amount = 200}}, isUsable = true },
+        [283238] = { price = 2000000, currencies = {{id = 824, amount = 200}}, isUsable = true },
+        [283240] = { price = 2000000, currencies = {{id = 824, amount = 200}}, isUsable = true },
+        [283242] = { price = 2000000, currencies = {{id = 824, amount = 200}}, isUsable = true },
+        [283244] = { price = 4000000, currencies = {{id = 824, amount = 400}}, isUsable = true },
+        [283246] = { price = 4000000, currencies = {{id = 824, amount = 400}}, isUsable = true },
+        [283248] = { price = 4000000, currencies = {{id = 824, amount = 400}}, isUsable = true },
     },
     [274668] = {
         [284460] = { price = 0, currencies = {{id = 1813, amount = 200}}, isUsable = true },
