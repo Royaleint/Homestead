@@ -77,7 +77,7 @@ function FRAME_METHODS:EnableMouseWheel() end
 function FRAME_METHODS:SetOwner(owner) self.owner = owner end
 function FRAME_METHODS:GetOwner() return self.owner end
 function FRAME_METHODS:ClearLines() self.lines = {} end
-function FRAME_METHODS:AddLine(text) self.lines[#self.lines + 1] = { left = text } end
+function FRAME_METHODS:AddLine(text, _, _, _, wrap) self.lines[#self.lines + 1] = { left = text, wrap = wrap } end
 function FRAME_METHODS:AddDoubleLine(left, right) self.lines[#self.lines + 1] = { left = left, right = right } end
 function FRAME_METHODS:ClearAllPoints() self.points = {} end
 function FRAME_METHODS:SetPoint(...) self.points[#self.points + 1] = { ... } end
@@ -1207,10 +1207,13 @@ end
 do
     local MARGINS, BAR_COLUMN = 20, 24
 
+    -- A wrapped line folds to the width the other lines set; it never sets one.
     local function Content(frame)
         local widest = 0
         for _, line in ipairs(frame.lines) do
-            widest = math.max(widest, 20 * (#(line.left or "") + #(line.right or "")))
+            if not line.wrap then
+                widest = math.max(widest, 20 * (#(line.left or "") + #(line.right or "")))
+            end
         end
         return widest
     end
@@ -1244,10 +1247,83 @@ do
         Equal(t.frame:GetWidth(), expected, label .. ": scrolling to the widest row keeps the width")
         Search(t.box, "ware 1")
         Check(#RowNames(t.frame) <= 15 and not t.bar.shown, label .. ": the search must hide the bar")
+        Equal(t.frame.padding[1], BAR_COLUMN, label .. ": the bar column stays reserved when the bar hides")
         Equal(t.frame:GetWidth(), expected, label .. ": the width holds when the bar hides")
         Search(t.box, "")
         Equal(t.frame:GetWidth(), expected, label .. ": clearing the search keeps the width")
     end
+
+    -- Footer text longer than every ware row wraps on the long tooltip and leaves the width to the rows.
+    local longBlocker = "Achievement: a requirement name far longer than any ware row on this list"
+    local footerProps = {
+        opposite = true,
+        stats = {
+            total = 20, collected = 0, locked = 5, unverified = 0, vendorOnly = 2,
+            blockers = {
+                { label = longBlocker, count = 2 }, { label = "Quest", count = 1 },
+                { label = "Renown", count = 1 }, { label = "Reputation", count = 1 },
+            },
+        },
+    }
+    local footerLines = {
+        "Vendor-only: 2",
+        "Cannot buy on this character - opposite faction vendor",
+        "Locked counts above only reflect requirement gates.",
+        "Locked by: " .. longBlocker .. " (2)",
+        "Locked by: Quest (1)",
+        "Locked by: Renown (1)",
+        "Locked by: +1 more blocker types",
+        "Left-click to set waypoint (for alts)",
+    }
+
+    local function ExpectFooterWrap(frame, wrapped, label)
+        for _, text in ipairs(footerLines) do
+            local found
+            for _, line in ipairs(frame.lines) do
+                if line.left == text then found = line end
+            end
+            Check(found, label .. ": footer line present: " .. text)
+            Equal(found.wrap == true, wrapped, label .. ": wrap on footer line: " .. text)
+        end
+    end
+
+    for label, model in pairs(models) do
+        local module, HA = LoadModule()
+        local vendor = MakeVendor(20, footerProps)
+        local t = OpenVendor(module, HA, vendor)
+        module:HidePinTooltip()
+        -- The measuring read is the one taken under the 240 floor.
+        local footerMeasured = false
+        t.frame.widthModel = function(frame)
+            if frame.minWidth == 240 and CountLines(frame, footerLines[4]) > 0 then footerMeasured = true end
+            return model(frame)
+        end
+        module:ShowVendorTooltip(t.pin, vendor)
+        Check(not footerMeasured, label .. ": the measuring pass must hold no footer line")
+
+        -- The header's faction warning is the widest line above the footer here.
+        local widestKept = 20 * #"Cannot access - opposite faction vendor"
+        Check(20 * #footerLines[4] > widestKept, label .. ": the blocker line must be wider than the header and every ware row")
+        local expected = widestKept + MARGINS + BAR_COLUMN
+        ExpectFooterWrap(t.frame, true, label)
+        Equal(t.frame:GetWidth(), expected, label .. ": a long footer line leaves the width to the ware rows")
+        Wheel(t.frame, -5)
+        Equal(t.frame:GetWidth(), expected, label .. ": scrolling keeps the ware-row width")
+        Search(t.box, "ware 1")
+        ExpectFooterWrap(t.frame, true, label .. ", searched")
+        Equal(t.frame:GetWidth(), expected, label .. ": a bar-hiding search keeps the ware-row width")
+        Search(t.box, "")
+        Equal(t.frame:GetWidth(), expected, label .. ": clearing keeps the ware-row width")
+        world.names[10003] = "Ware 3"
+        world.eventFrame.scripts.OnEvent(world.eventFrame, "GET_ITEM_INFO_RECEIVED", 10003, true)
+        FireTimers()
+        Equal(t.frame:GetWidth(), expected, label .. ": an item arrival keeps the ware-row width")
+    end
+
+    -- The same footer on a short vendor: no line asks to wrap.
+    local module = LoadModule()
+    module:ShowVendorTooltip(NewPin("pinW"), MakeVendor(15, footerProps))
+    ExpectFooterWrap(FindFrame(PLAIN_NAME), false, "plain tooltip")
 end
 
 -------------------------------------------------------------------------------

@@ -397,7 +397,17 @@ local function AddVendorWareLines(tooltip, vendor, wares, first, last, itemDetai
     end
 end
 
-local function AddVendorFooterLines(tooltip, vendor, isOpposite, itemDetailsEnabled)
+-- The long wares tooltip takes its width from the ware rows and wraps footer
+-- text to fit; the plain tooltip passes no wrap argument at all.
+local function AddFooterLine(tooltip, wrap, text, r, g, b)
+    if wrap then
+        tooltip:AddLine(text, r, g, b, true)
+    else
+        tooltip:AddLine(text, r, g, b)
+    end
+end
+
+local function AddVendorFooterLines(tooltip, vendor, isOpposite, itemDetailsEnabled, wrap)
     -- Purchasability summary (only when we have item data)
     local stats = HA.VendorMapPins:GetVendorStats(vendor, HA.VendorMapPins:GetActiveSourceFilter())
     if stats.total > 0 then
@@ -412,30 +422,30 @@ local function AddVendorFooterLines(tooltip, vendor, isOpposite, itemDetailsEnab
         -- of a second, differently-filtered pass. Wording is a stand-in;
         -- refine during design review.
         if itemDetailsEnabled and stats.vendorOnly and stats.vendorOnly > 0 then
-            tooltip:AddLine(string.format("Vendor-only: %d", stats.vendorOnly), 0.85, 0.85, 0.85)
+            AddFooterLine(tooltip, wrap, string.format("Vendor-only: %d", stats.vendorOnly), 0.85, 0.85, 0.85)
         end
 
         if isOpposite and not HA.VendorMapPins:CanAccessVendor(vendor) then
-            tooltip:AddLine("Cannot buy on this character - opposite faction vendor", 1.0, 0.5, 0.5)
-            tooltip:AddLine("Locked counts above only reflect requirement gates.", 0.9, 0.7, 0.7)
+            AddFooterLine(tooltip, wrap, "Cannot buy on this character - opposite faction vendor", 1.0, 0.5, 0.5)
+            AddFooterLine(tooltip, wrap, "Locked counts above only reflect requirement gates.", 0.9, 0.7, 0.7)
         end
 
         local blockers = stats.blockers or {}
         for i = 1, math.min(3, #blockers) do
             local blocker = blockers[i]
-            tooltip:AddLine(string.format("Locked by: %s (%d)", blocker.label, blocker.count), 1.0, 0.82, 0)
+            AddFooterLine(tooltip, wrap, string.format("Locked by: %s (%d)", blocker.label, blocker.count), 1.0, 0.82, 0)
         end
 
         if #blockers > 3 then
-            tooltip:AddLine(string.format("Locked by: +%d more blocker types", #blockers - 3), 0.8, 0.8, 0.8)
+            AddFooterLine(tooltip, wrap, string.format("Locked by: +%d more blocker types", #blockers - 3), 0.8, 0.8, 0.8)
         end
     end
 
     tooltip:AddLine(" ")
     if isOpposite then
-        tooltip:AddLine("Left-click to set waypoint (for alts)", 0.5, 0.5, 0.5)
+        AddFooterLine(tooltip, wrap, "Left-click to set waypoint (for alts)", 0.5, 0.5, 0.5)
     else
-        tooltip:AddLine("Left-click to set waypoint", 0.5, 0.5, 0.5)
+        AddFooterLine(tooltip, wrap, "Left-click to set waypoint", 0.5, 0.5, 0.5)
     end
 end
 
@@ -443,15 +453,17 @@ local function ScrollMaximum(hover)
     return math.max(0, #hover.matches - MAX_VISIBLE_WARE_ROWS)
 end
 
-local function AddInteractiveLines(hover, list, first, last)
+-- The measuring pass stops before the footer, so no footer line can set the width.
+local function AddInteractiveLines(hover, list, first, last, measuring)
     local frame = interactiveTooltip
     frame:ClearLines()
     AddVendorHeaderLines(frame, hover.vendor, hover.isOpposite)
     AddVendorWareLines(frame, hover.vendor, list, first, last, hover.itemDetailsEnabled)
+    if measuring then return end
     if #list == 0 then
         frame:AddLine(HA.L["No items found"], 0.7, 0.7, 0.7)
     end
-    AddVendorFooterLines(frame, hover.vendor, hover.isOpposite, hover.itemDetailsEnabled)
+    AddVendorFooterLines(frame, hover.vendor, hover.isOpposite, hover.itemDetailsEnabled, true)
 end
 
 -- Open and rebuild only: the width is frozen from the full list so scrolling
@@ -459,7 +471,7 @@ end
 -- list's own width plus the bar column, and nothing else.
 local function MeasureInteractiveWidth(hover)
     local frame = interactiveTooltip
-    AddInteractiveLines(hover, hover.wares, 1, #hover.wares)
+    AddInteractiveLines(hover, hover.wares, 1, #hover.wares, true)
     frame:SetMinimumWidth(INTERACTIVE_MIN_WIDTH)
     frame:SetPadding(0, INTERACTIVE_BOTTOM_PADDING)
     frame:Show()
