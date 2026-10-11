@@ -84,7 +84,10 @@ function FRAME_METHODS:SetPoint(...) self.points[#self.points + 1] = { ... } end
 function FRAME_METHODS:SetMinimumWidth(width) self.minWidth = width end
 function FRAME_METHODS:SetPadding(right, bottom) self.padding = { right, bottom } end
 function FRAME_METHODS:SetHeight() end
-function FRAME_METHODS:GetWidth() return self.width end
+function FRAME_METHODS:GetWidth()
+    if self.widthModel then return self.widthModel(self) end
+    return self.width
+end
 function FRAME_METHODS:GetHeight() return self.height end
 function FRAME_METHODS:GetRight() return self.right end
 function FRAME_METHODS:GetTop() return self.top end
@@ -1195,6 +1198,56 @@ do
     FireTimers()
     Equal(PendingTimers(), 0, "the retry fires once")
     Equal(frame.counts.SetPoint, 6, "the retry places the frame")
+end
+
+-------------------------------------------------------------------------------
+-- Width: the full list's own width plus one bar column, the same in every state
+-------------------------------------------------------------------------------
+
+do
+    local MARGINS, BAR_COLUMN = 20, 24
+
+    local function Content(frame)
+        local widest = 0
+        for _, line in ipairs(frame.lines) do
+            widest = math.max(widest, 20 * (#(line.left or "") + #(line.right or "")))
+        end
+        return widest
+    end
+
+    -- The two ways a client could count a minimum width: over the text alone,
+    -- or over the whole frame with its margins and padding.
+    local models = {
+        ["minimum counts text only"] = function(frame)
+            return math.max(Content(frame), frame.minWidth or 0) + MARGINS + frame.padding[1]
+        end,
+        ["minimum counts the whole frame"] = function(frame)
+            return math.max(Content(frame) + MARGINS + frame.padding[1], frame.minWidth or 0)
+        end,
+    }
+
+    for label, model in pairs(models) do
+        local module, HA = LoadModule()
+        local vendor = MakeVendor(20)
+        world.names[10020] = "Ware 20 with the longest name on the list"
+        -- The frame exists after the first open; give it a width model, then open again.
+        local t = OpenVendor(module, HA, vendor)
+        module:HidePinTooltip()
+        t.frame.widthModel = model
+        module:ShowVendorTooltip(t.pin, vendor)
+
+        local widestRow = 20 * (#"  Ware 20 with the longest name on the list" + #"cost 20")
+        local expected = widestRow + MARGINS + BAR_COLUMN
+        Check(Content(t.frame) < widestRow, label .. ": the first window must not hold the widest row")
+        Equal(t.frame:GetWidth(), expected, label .. ": open is the full list's width plus the bar column")
+        Wheel(t.frame, -5)
+        Equal(t.frame:GetWidth(), expected, label .. ": scrolling to the widest row keeps the width")
+        Search(t.box, "ware 1")
+        Check(#RowNames(t.frame) <= 15 and not t.bar.shown, label .. ": the search must hide the bar")
+        Equal(t.frame:GetWidth(), expected, label .. ": the width holds when the bar hides")
+        Search(t.box, "")
+        Equal(t.frame:GetWidth(), expected, label .. ": clearing the search keeps the width")
+    end
 end
 
 -------------------------------------------------------------------------------

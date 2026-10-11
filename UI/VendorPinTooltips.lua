@@ -455,17 +455,23 @@ local function AddInteractiveLines(hover, list, first, last)
 end
 
 -- Open and rebuild only: the width is frozen from the full list so scrolling
--- never resizes the tooltip under the cursor.
+-- never resizes the tooltip under the cursor. The frozen width is the full
+-- list's own width plus the bar column, and nothing else.
 local function MeasureInteractiveWidth(hover)
     local frame = interactiveTooltip
     AddInteractiveLines(hover, hover.wares, 1, #hover.wares)
     frame:SetMinimumWidth(INTERACTIVE_MIN_WIDTH)
-    frame:SetPadding(INTERACTIVE_RIGHT_PADDING, INTERACTIVE_BOTTOM_PADDING)
+    frame:SetPadding(0, INTERACTIVE_BOTTOM_PADDING)
     frame:Show()
     local width = frame:GetWidth()
-    if width and width > 0 then
-        hover.measuredWidth = math.max(INTERACTIVE_MIN_WIDTH, width)
-    end
+    if not width or width <= 0 then return end
+    -- Whether a minimum width counts the padding and the frame's own margins
+    -- is the client's call: set the target, read back any overshoot, take it off.
+    local target = width + INTERACTIVE_RIGHT_PADDING
+    frame:SetMinimumWidth(target)
+    frame:SetPadding(INTERACTIVE_RIGHT_PADDING, INTERACTIVE_BOTTOM_PADDING)
+    frame:Show()
+    hover.measuredWidth = target - math.max(0, frame:GetWidth() - target)
 end
 
 local function SyncInteractiveScrollBar(hover)
@@ -512,9 +518,9 @@ local function RenderInteractiveWindow(hover)
     hover.offset = math.max(0, math.min(hover.offset, ScrollMaximum(hover)))
     local last = math.min(#hover.matches, hover.offset + MAX_VISIBLE_WARE_ROWS)
     AddInteractiveLines(hover, hover.matches, hover.offset + 1, last)
-    local scrollable = #hover.matches > MAX_VISIBLE_WARE_ROWS
     frame:SetMinimumWidth(hover.measuredWidth or INTERACTIVE_MIN_WIDTH)
-    frame:SetPadding(scrollable and INTERACTIVE_RIGHT_PADDING or 0, INTERACTIVE_BOTTOM_PADDING)
+    -- The bar column stays reserved when the bar hides, so a search never moves the right edge.
+    frame:SetPadding(INTERACTIVE_RIGHT_PADDING, INTERACTIVE_BOTTOM_PADDING)
     frame:Show()
     -- Placed once per hover, once the height is real; a zero height reads as room below.
     if not hover.anchored and hover.measuredWidth and frame:GetHeight() > 0 then
