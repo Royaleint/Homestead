@@ -16967,6 +16967,7 @@ local ManualOverrides = {
         [280218] = { price = 0, currencies = {{id = 3316, amount = 150}}, isUsable = true, isPurchasable = false, merchantSlot = 8, hasExtendedCost = true, displayOrder = 8 }, -- Tortollan Scholar Satchel (was 0/none)
     },
     [242399] = { -- Telemancer Astrandis (264007 added from the 2026-09-27 live 12.1.0.69933 capture, HS-459)
+        [244349] = { price = 0, currencies = {{id = 3316, amount = 150}}, isUsable = true },
         [263994] = { price = 0, currencies = {{id = 3316, amount = 500}}, isUsable = true, isPurchasable = true, merchantSlot = 5, hasExtendedCost = true, displayOrder = 1 }, -- (was c3316:250)
         [263995] = { price = 0, currencies = {{id = 3316, amount = 500}}, isUsable = true, isPurchasable = false, merchantSlot = 10, hasExtendedCost = true, displayOrder = 2 }, -- (was c3316:250)
         [263996] = { price = 0, currencies = {{id = 3316, amount = 500}}, isUsable = true, isPurchasable = true, merchantSlot = 4, hasExtendedCost = true, displayOrder = 3 }, -- (was c3316:250)
@@ -16974,6 +16975,8 @@ local ManualOverrides = {
         [264008] = { price = 0, currencies = {{id = 3316, amount = 500}}, isUsable = true, isPurchasable = false, merchantSlot = 8, hasExtendedCost = true, displayOrder = 5 }, -- (was c3316:250)
         [264170] = { price = 0, currencies = {{id = 3316, amount = 500}}, isUsable = true, isPurchasable = true, merchantSlot = 7, hasExtendedCost = true, displayOrder = 6 }, -- (was c3316:250)
         [264175] = { price = 0, currencies = {{id = 3316, amount = 500}}, isUsable = true, isPurchasable = true, merchantSlot = 6, hasExtendedCost = true, displayOrder = 7 }, -- (was c3316:250)
+        [264486] = { price = 0, currencies = {{id = 3316, amount = 300}}, isUsable = true },
+        [284357] = { price = 0, currencies = {{id = 3316, amount = 600}}, isUsable = true },
     },
     -- HS-341 (2026-08-15): 12.1 rebalanced TWW-era CURRENCY prices downward. These 40
     -- rows are corrected from two live 12.1.0.69299 scans, 12 vendors in total
@@ -17240,6 +17243,7 @@ local ManualOverrides = {
         [251484] = { price = 0, currencies = {{id = 824, amount = 350}}, isUsable = true, displayOrder = 6, costBuild = "12.1.0.69299" }, -- "Dawning Hope" Mosaic (was g=0 c824:1000)
         [251493] = { price = 0, currencies = {{id = 824, amount = 250}}, isUsable = true, displayOrder = 7, costBuild = "12.1.0.69299" }, -- Small Karabor Fountain (was g=0 c824:500)
         [251551] = { price = 0, currencies = {{id = 824, amount = 350}}, isUsable = true, displayOrder = 8, costBuild = "12.1.0.69299" }, -- Grand Draenethyst Lamp (was g=0 c824:1500)
+        [285179] = { price = 0, currencies = {{id = 824, amount = 350}}, isUsable = true },
     },
     [85946] = { -- Shadow-Sage Brakoss (Stormshield)
         [258743] = { price = 3200000, currencies = {{id = 823, amount = 350}}, isUsable = true, displayOrder = 1, costBuild = "12.1.0.69299" }, -- Arakkoan Alchemy Tools (was g=3200000 c823:800)
@@ -17559,6 +17563,16 @@ local ManualOverrides = {
         [252393] = { price = 0, currencies = {{id = 1560, amount = 200}}, isUsable = true, displayOrder = 3, costBuild = "12.1.0.69299" },
         [252404] = { price = 0, currencies = {{id = 1560, amount = 150}}, isUsable = true, displayOrder = 4, costBuild = "12.1.0.69299" },
         [258765] = { price = 0, currencies = {{id = 1560, amount = 150}}, isUsable = true, displayOrder = 5, costBuild = "12.1.0.69299" },
+    },
+    [242398] = {
+        [244346] = { price = 0, currencies = {{id = 2803, amount = 150}}, isUsable = true },
+        [244348] = { price = 0, currencies = {{id = 2803, amount = 150}}, isUsable = true },
+        [252043] = { price = 0, currencies = {{id = 2803, amount = 150}}, isUsable = true },
+        [264485] = { price = 0, currencies = {{id = 2803, amount = 500}}, isUsable = true },
+        [264719] = { price = 0, currencies = {{id = 2803, amount = 150}}, isUsable = true },
+        [284353] = { price = 0, currencies = {{id = 2803, amount = 500}}, isUsable = true },
+        [284355] = { price = 0, currencies = {{id = 2803, amount = 150}}, isUsable = true },
+        [284362] = { price = 0, currencies = {{id = 2803, amount = 1000}}, isUsable = true },
     },
 }
 
