@@ -1,10 +1,11 @@
 --[[
     Homestead - QuestSources
     Generated: 2026-09-23 10:35:37
-    Total entries: 279
+    Total entries: 281
     Hand-corrected under HS-392 (2026-09-13): one refuted entry removed to
     mirror the overrides file. See Home_Dev/.claude/reports/
     hs392-quest-source-evidence.md for the held-back 250704 row.
+    Rows for patch 12.1.5 added by hand to mirror the overrides file (HS-480).
 
     Quest source data for housing decor items.
     Regenerate with: python Home_Dev/scripts/generate_source_tables.py --table quest
@@ -288,10 +289,12 @@ HA.QuestSources = {
     [264657] = {questID = 86530, questName = "First, The Shells"},
     [264659] = {questID = 86512, questName = "The Harvest"},
     [264660] = {questID = 88706, questName = "Nothing Stands Forever"},
+    [264718] = {questID = 95203, questName = "The Ties That Bind"},
     [265106] = {questID = 90867, questName = "From Darkness, Light"},
     [265631] = {questID = 90867, questName = "From Darkness, Light"},
     [266130] = {questID = 84912, questName = "The Show Must Go On"},
     [266259] = {questID = 86851, questName = "The Foundation of Aln"},
     [267082] = {questID = 86516, questName = "All Become Prey"},
     [267209] = {questID = 86541, questName = "Just In Case..."},
+    [279067] = {questID = 95200, questName = "An Offering for Halazzi"},
 }

@@ -17297,7 +17297,7 @@ local ManualOverrides = {
     -- stored on that basis too; the stored 2400000 was out of line with all of them.
     [49877] = { -- Captain Lancy Revshon (Stormwind)
         [248336] = { price = 800000, currencies = {}, isUsable = false, displayOrder = 2 }, -- Stormwind Wooden Table (was g=2400000)
-        [284223] = { price = 2500000, currencies = {}, isUsable = true },
+        [284223] = { price = 2000000, currencies = {}, isUsable = true },
     },
     -- HS-459: offers the same capture shows that shipped data did not carry.
     [252873] = { -- Morta Gage (Arcantina)

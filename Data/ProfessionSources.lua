@@ -1,7 +1,8 @@
 --[[
     Homestead - ProfessionSources
     Generated: 2026-06-12 23:37:36
-    Total entries: 308
+    Total entries: 330
+    Rows for patch 12.1.5 added by hand to mirror the overrides file (HS-480).
 
     Profession recipe source data for housing decor items.
     Regenerate with: python Home_Dev/scripts/generate_source_tables.py --table profession
@@ -316,8 +317,30 @@ HA.ProfessionSources = {
     [264713] = {profession = "Tailoring", recipeName = "Heart of the Forest Banner", spellID = 1272575, skillTier = "Shadowlands Tailoring", skillLevel = 80},
     [264899] = {profession = "Alchemy", recipeName = "Arakkoan Alchemist's Concoction", spellID = 1273070, skillTier = "Outland Alchemy", skillLevel = 60},
     [264900] = {profession = "Alchemy", recipeName = "Arakkoan Alchemist's Bottle", spellID = 1273064, skillTier = "Outland Alchemy", skillLevel = 60},
+    [265331] = {profession = "Enchanting", recipeName = "Draenei Holo-Junction", spellID = 1313520, skillTier = "Outland Enchanting", skillLevel = 60},
     [265791] = {profession = "Leatherworking", recipeName = "Haranir Canopy Bed", spellID = 1246939, skillTier = "Midnight Leatherworking", skillLevel = 50},
     [268038] = {profession = "Enchanting", recipeName = "Endless Codex of Blooming Light", spellID = 1281342, skillTier = "Midnight Enchanting", skillLevel = 50},
     [268039] = {profession = "Enchanting", recipeName = "Endless Codex of Nature's Grace", spellID = 1281348, skillTier = "Midnight Enchanting", skillLevel = 50},
     [268041] = {profession = "Enchanting", recipeName = "Endless Codex of the Voidtouched", spellID = 1281349, skillTier = "Midnight Enchanting", skillLevel = 50},
+    [282124] = {profession = "Blacksmithing", recipeName = "Gleaming Lightforge", spellID = 1313521, skillTier = "Legion Blacksmithing", skillLevel = 85},
+    [282126] = {profession = "Jewelcrafting", recipeName = "Hanging Argunite Lamp", spellID = 1313526, skillTier = "Legion Jewelcrafting", skillLevel = 85},
+    [282132] = {profession = "Inscription", recipeName = "Eredath Artisan's Workbench", spellID = 1313522, skillTier = "Legion Inscription", skillLevel = 85},
+    [282140] = {profession = "Enchanting", recipeName = "Shimmering Lightforged Canister", spellID = 1313525, skillTier = "Legion Enchanting", skillLevel = 85},
+    [282144] = {profession = "Engineering", recipeName = "Lightforged Recall Beacon", spellID = 1313527, skillTier = "Legion Engineering", skillLevel = 85},
+    [282158] = {profession = "Tailoring", recipeName = "Decorative Lightweave Bolt", spellID = 1313524, skillTier = "Legion Tailoring", skillLevel = 85},
+    [282184] = {profession = "Tailoring", recipeName = "Spidery Witch Hat", spellID = 1315440, skillTier = "Midnight Tailoring", skillLevel = 50},
+    [282190] = {profession = "Inscription", recipeName = "Apple Bobbing Bucket", spellID = 1315433, skillTier = "Midnight Inscription", skillLevel = 50},
+    [283260] = {profession = "Blacksmithing", recipeName = "Anima-Powered Anvil", spellID = 1315292, skillTier = "Shadowlands Blacksmithing", skillLevel = 85},
+    [283291] = {profession = "Engineering", recipeName = "Nomad's Campfire Grill", spellID = 1315426, skillTier = "Battle for Azeroth Engineering", skillLevel = 140},
+    [283299] = {profession = "Tailoring", recipeName = "Round Nomad's Cushion", spellID = 1315445, skillTier = "Battle for Azeroth Tailoring", skillLevel = 140},
+    [283301] = {profession = "Inscription", recipeName = "Fae Moonbough Scroll", spellID = 1315335, skillTier = "Shadowlands Inscription", skillLevel = 80},
+    [283303] = {profession = "Blacksmithing", recipeName = "Nomad's Steel Forge", spellID = 1315468, skillTier = "Battle for Azeroth Blacksmithing", skillLevel = 140},
+    [283321] = {profession = "Inscription", recipeName = "Closed Vulpera Scroll", spellID = 1315465, skillTier = "Battle for Azeroth Inscription", skillLevel = 140},
+    [284238] = {profession = "Tailoring", recipeName = "Beloved Murloc Plushie", spellID = 1315766, skillTier = "Draenor Tailoring"},
+    [284240] = {profession = "Leatherworking", recipeName = "Beloved Ottuk Plushie", spellID = 1315719, skillTier = "Dragon Isles Leatherworking", skillLevel = 50},
+    [284242] = {profession = "Leatherworking", recipeName = "Beloved Ottuuuuuuk Plushie", spellID = 1315728, skillTier = "Dragon Isles Leatherworking", skillLevel = 50},
+    [284244] = {profession = "Tailoring", recipeName = "Lillistrasza's Lucky Duck Plushie", spellID = 1315691, skillTier = "Dragon Isles Tailoring", skillLevel = 50},
+    [284246] = {profession = "Tailoring", recipeName = "Beloved Plush Doll", spellID = 1315757, skillTier = "Classic Tailoring", skillLevel = 150},
+    [284504] = {profession = "Inscription", recipeName = "Levitating Lich Library", spellID = 1316306, skillTier = "Shadowlands Inscription", skillLevel = 80},
+    [284552] = {profession = "Alchemy", recipeName = "Venthyr Alchemy Rack", spellID = 1316323, skillTier = "Shadowlands Alchemy", skillLevel = 140},
 }

@@ -1,6 +1,7 @@
 --[[
     Homestead - PrerequisiteSources
     Prerequisite source data for housing decor items.
+    Rows for patch 12.1.5 added by hand to mirror the overrides file (HS-480).
 ]]
 
 local _, HA = ...
@@ -90,6 +91,7 @@ HA.PrerequisiteSources = {
     [245417] = {{type = "quest", name = "Clearing the Fog"}},
     [245422] = {{type = "quest", name = "A Non-Prophet Organization"}},
     [245423] = {{type = "reputation", faction = "Council of Exarchs", standing = "Friendly"}},
+    [245424] = {{type = "reputation", faction = "Sha'tari Defense", standing = "Friendly"}},
     [245425] = {{type = "quest", name = "The Dark Heart of Oshu'gun"}},
     [245426] = {{type = "achievement", name = "Kings Under the Mountain"}},
     [245427] = {{type = "quest", name = "Dark Iron Dwarves"}},
@@ -336,6 +338,7 @@ HA.PrerequisiteSources = {
     [251483] = {{type = "reputation", faction = "Council of Exarchs", standing = "Friendly"}},
     [251484] = {{type = "reputation", faction = "Council of Exarchs", standing = "Revered"}},
     [251493] = {{type = "reputation", faction = "Council of Exarchs", standing = "Honored"}},
+    [251544] = {{type = "reputation", faction = "Sha'tari Defense", standing = "Friendly"}},
     [251548] = {{type = "quest", name = "The Traitor's True Name"}},
     [251551] = {{type = "reputation", faction = "Council of Exarchs", standing = "Exalted"}},
     [251640] = {{type = "quest", name = "The Battle for Shattrath"}},
