@@ -1,7 +1,7 @@
 --[[
     Homestead - Event Sources
     Created: 2026-02-17
-    Total entries: 16
+    Total entries: 39
 
     Maps itemID to seasonal/holiday event vendor source information.
     These items are only purchasable during their respective holiday events.
@@ -21,6 +21,7 @@ local _, HA = ...
 local EventDefinitions = {
     ["Lunar Festival"] = {},
     ["Noblegarden"] = {},
+    ["Hallow's End"] = {},
 }
 
 -------------------------------------------------------------------------------
@@ -49,6 +50,31 @@ HA.EventSources = {
     [250794] = {event = "Noblegarden", vendorName = "Noblegarden Merchant", zone = "Starting Zones", currency = "Noblegarden Chocolate", currencyItemID = 44791},
     [250795] = {event = "Noblegarden", vendorName = "Noblegarden Merchant", zone = "Starting Zones", currency = "Noblegarden Chocolate", currencyItemID = 44791},
     [250796] = {event = "Noblegarden", vendorName = "Noblegarden Merchant", zone = "Starting Zones", currency = "Noblegarden Chocolate", currencyItemID = 44791},
+
+    -- Hallow's End — Vendor: Hallow's End Vendor (generic; no pins)
+    [282051] = {event = "Hallow's End", vendorName = "Hallow's End Vendor", zone = "Founder's Point / Razorwind Shores"},
+    [282072] = {event = "Hallow's End", vendorName = "Hallow's End Vendor", zone = "Founder's Point / Razorwind Shores"},
+    [282075] = {event = "Hallow's End", vendorName = "Hallow's End Vendor", zone = "Founder's Point / Razorwind Shores"},
+    [282077] = {event = "Hallow's End", vendorName = "Hallow's End Vendor", zone = "Founder's Point / Razorwind Shores"},
+    [282081] = {event = "Hallow's End", vendorName = "Hallow's End Vendor", zone = "Founder's Point / Razorwind Shores"},
+    [282083] = {event = "Hallow's End", vendorName = "Hallow's End Vendor", zone = "Founder's Point / Razorwind Shores"},
+    [282086] = {event = "Hallow's End", vendorName = "Hallow's End Vendor", zone = "Founder's Point / Razorwind Shores"},
+    [282090] = {event = "Hallow's End", vendorName = "Hallow's End Vendor", zone = "Founder's Point / Razorwind Shores"},
+    [282092] = {event = "Hallow's End", vendorName = "Hallow's End Vendor", zone = "Founder's Point / Razorwind Shores"},
+    [282095] = {event = "Hallow's End", vendorName = "Hallow's End Vendor", zone = "Founder's Point / Razorwind Shores"},
+    [282098] = {event = "Hallow's End", vendorName = "Hallow's End Vendor", zone = "Founder's Point / Razorwind Shores"},
+    [282100] = {event = "Hallow's End", vendorName = "Hallow's End Vendor", zone = "Founder's Point / Razorwind Shores"},
+    [282192] = {event = "Hallow's End", vendorName = "Hallow's End Vendor", zone = "Founder's Point / Razorwind Shores"},
+    [282194] = {event = "Hallow's End", vendorName = "Hallow's End Vendor", zone = "Founder's Point / Razorwind Shores"},
+    [282196] = {event = "Hallow's End", vendorName = "Hallow's End Vendor", zone = "Founder's Point / Razorwind Shores"},
+    [282198] = {event = "Hallow's End", vendorName = "Hallow's End Vendor", zone = "Founder's Point / Razorwind Shores"},
+    [282200] = {event = "Hallow's End", vendorName = "Hallow's End Vendor", zone = "Founder's Point / Razorwind Shores"},
+    [282202] = {event = "Hallow's End", vendorName = "Hallow's End Vendor", zone = "Founder's Point / Razorwind Shores"},
+    [282204] = {event = "Hallow's End", vendorName = "Hallow's End Vendor", zone = "Founder's Point / Razorwind Shores"},
+    [282206] = {event = "Hallow's End", vendorName = "Hallow's End Vendor", zone = "Founder's Point / Razorwind Shores"},
+    [282208] = {event = "Hallow's End", vendorName = "Hallow's End Vendor", zone = "Founder's Point / Razorwind Shores"},
+    [282213] = {event = "Hallow's End", vendorName = "Hallow's End Vendor", zone = "Founder's Point / Razorwind Shores"},
+    [282289] = {event = "Hallow's End", vendorName = "Hallow's End Vendor", zone = "Founder's Point / Razorwind Shores"},
 }
 
 -- Attach event definitions for CalendarDetector cross-reference
