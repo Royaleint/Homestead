@@ -2404,7 +2404,7 @@ VendorIdentity.Vendors = {
         areaID = 16088,
         faction = "Neutral",
         expansion = "Midnight",
-        scanConfirmed = "2026-04-22",
+        scanConfirmed = "2026-09-01",
     },
     [265581] = {
         name = "Zuronar",
