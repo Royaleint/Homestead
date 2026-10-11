@@ -112,7 +112,7 @@ local pinSource = assert(io.open(root .. "/UI/VendorPinTooltips.lua", "r")):read
 assert(pinSource:find("GetVendorItemCost", 1, true) ~= nil,
     "pin tooltip must call the shared vendor-cost resolver")
 local gatherBody = pinSource:match(
-    "%-%- Gather items from both static and scanned data\n(.-)\n    if #allItems > 0 then")
+    "%-%- Gather items from both static and scanned data\n(.-)\n    if #allItems > LONG_WARES_THRESHOLD then")
 assert(gatherBody, "pin gather block must remain extractable")
 local gatherItems = assert(loadstring(
     "local function Gather(vendor, HA, tinsert, itemDetailsEnabled)\n"

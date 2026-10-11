@@ -34,6 +34,64 @@ local activeTooltipData = nil      -- {kind="vendor"|"drop", pin, vendor|record}
 local tooltipRebuildPending = false -- Debounce flag for batching rebuilds
 local pinTooltip = nil
 
+-- Interactive tooltip for long wares lists: a second GameTooltip with a scroll
+-- bar and search box. pinTooltip stays untouched so short vendors render as before.
+local LONG_WARES_THRESHOLD = 15
+local MAX_VISIBLE_WARE_ROWS = 15
+local INTERACTIVE_TOOLTIP_NAME = "HomesteadVendorMapPinsWaresTooltip"
+local INTERACTIVE_RIGHT_PADDING = 24
+local INTERACTIVE_BAR_INSET = 10
+local INTERACTIVE_BOTTOM_PADDING = 26
+local INTERACTIVE_MIN_WIDTH = 240
+local interactiveTooltip = nil
+local interactiveScrollBar = nil
+local interactiveSearchBox = nil
+-- nil when closed, else one table per hover: pin, vendor, active (this hover's
+-- activeTooltipData), wares, matches, query, offset (0-based), itemDetailsEnabled,
+-- isOpposite, measuredWidth, anchored.
+local interactiveHover = nil
+local syncingScrollBar = false
+local interactiveThumbHeld = false
+
+-- Idempotent; runs from every close path and from the frame's own OnHide.
+local function ResetInteractiveState()
+    local hover = interactiveHover
+    interactiveHover = nil -- first: the focus-lost hook must see no hover
+    interactiveThumbHeld = false
+    if hover and activeTooltipData == hover.active then
+        activeTooltipData = nil
+        itemInfoEventFrame:UnregisterEvent("GET_ITEM_INFO_RECEIVED")
+    end
+    if interactiveSearchBox then
+        interactiveSearchBox:ClearFocus()
+        interactiveSearchBox:SetText("")
+    end
+    -- Last: ends a thumb or arrow hold that a forced close interrupted.
+    if interactiveScrollBar and interactiveScrollBar.UnregisterUpdate then
+        interactiveScrollBar:UnregisterUpdate()
+    end
+end
+
+local function CloseInteractiveTooltip()
+    if not interactiveTooltip then return end
+    ResetInteractiveState()
+    if interactiveTooltip:IsShown() then interactiveTooltip:Hide() end
+end
+
+-- Zero-delay so the cursor has settled on its next frame (pin to tooltip crossing).
+local function ScheduleInteractiveLeaveCheck()
+    local hover = interactiveHover
+    if not hover then return end
+    C_Timer.After(0, function()
+        if interactiveHover ~= hover then return end
+        if interactiveThumbHeld then return end -- a drag strays off the thumb; the release re-checks
+        if interactiveSearchBox:HasFocus() then return end
+        if interactiveTooltip:IsMouseOver() then return end
+        if hover.pin:IsMouseOver() then return end
+        CloseInteractiveTooltip()
+    end)
+end
+
 local function GetPinTooltip()
     if pinTooltip then
         return pinTooltip
@@ -47,6 +105,7 @@ local function GetPinTooltip()
 end
 
 local function BeginPinTooltip(owner, anchor)
+    CloseInteractiveTooltip()
     local tooltip = GetPinTooltip()
     tooltip:SetOwner(owner, anchor or "ANCHOR_RIGHT")
     tooltip:ClearLines()
@@ -137,6 +196,10 @@ end
 
 -- Called by PinFrameFactory OnLeave scripts to clear tooltip tracking state
 function VendorPinTooltips:OnPinLeave()
+    if interactiveHover then
+        ScheduleInteractiveLeaveCheck()
+        return
+    end
     activeTooltipData = nil
     itemInfoEventFrame:UnregisterEvent("GET_ITEM_INFO_RECEIVED")
     if pinTooltip then
@@ -144,8 +207,14 @@ function VendorPinTooltips:OnPinLeave()
     end
 end
 
+-- Unconditional close, for callers that tear the pins down rather than leave one.
 function VendorPinTooltips:HidePinTooltip()
+    CloseInteractiveTooltip()
     self:OnPinLeave()
+end
+
+function VendorPinTooltips:CloseInteractiveTooltip()
+    CloseInteractiveTooltip()
 end
 
 -------------------------------------------------------------------------------
@@ -267,18 +336,7 @@ local function IsVendorPinItemDetailsEnabled()
     return vendorTracer.showVendorPinItemDetails
 end
 
-function VendorPinTooltips:ShowVendorTooltip(pin, vendor)
-    if not vendor then return end
-
-    local itemDetailsEnabled = IsVendorPinItemDetailsEnabled()
-
-    -- Track active tooltip for GET_ITEM_INFO_RECEIVED refresh
-    activeTooltipData = { kind = "vendor", pin = pin, vendor = vendor }
-    itemInfoEventFrame:RegisterEvent("GET_ITEM_INFO_RECEIVED")
-
-    local isOpposite = HA.VendorMapPins:IsOppositeFaction(vendor)
-
-    local tooltip = BeginPinTooltip(pin, "ANCHOR_RIGHT")
+local function AddVendorHeaderLines(tooltip, vendor, isOpposite)
     tooltip:AddLine(vendor.name, 1, 1, 1)
 
     if vendor.subzone then
@@ -302,6 +360,267 @@ function VendorPinTooltips:ShowVendorTooltip(pin, vendor)
         tooltip:AddLine(" ")
         tooltip:AddLine(vendor.notes, 1, 0.82, 0, true)
     end
+end
+
+local function AddVendorWareLines(tooltip, vendor, wares, first, last, itemDetailsEnabled)
+    tooltip:AddLine(" ")
+    tooltip:AddLine("Items Sold:", 1, 1, 0)
+
+    for index = first, last do
+        AddPinTooltipItemLine(tooltip, wares[index], {
+            context = "vendorMapPin",
+            npcID = vendor.npcID,
+            sourceFilter = HA.VendorMapPins:GetActiveSourceFilter(),
+            isVendorContext = itemDetailsEnabled,
+        })
+    end
+end
+
+local function AddVendorFooterLines(tooltip, vendor, isOpposite, itemDetailsEnabled)
+    -- Purchasability summary (only when we have item data)
+    local stats = HA.VendorMapPins:GetVendorStats(vendor, HA.VendorMapPins:GetActiveSourceFilter())
+    if stats.total > 0 then
+        tooltip:AddLine(" ")
+        BC.AddSummaryLine(tooltip, stats.collected, stats.total, stats.locked, stats.unverified)
+
+        -- HS-074 test: count of items at this vendor with no non-vendor source
+        -- type. Read from stats.vendorOnly (BadgeCalculation) rather than
+        -- re-walking allItems here — that keeps this number counting the exact
+        -- same population as the collected/total/locked figures above it
+        -- (source filter, HS-249 exclusion, merged static+scanned set) instead
+        -- of a second, differently-filtered pass. Wording is a stand-in;
+        -- refine during design review.
+        if itemDetailsEnabled and stats.vendorOnly and stats.vendorOnly > 0 then
+            tooltip:AddLine(string.format("Vendor-only: %d", stats.vendorOnly), 0.85, 0.85, 0.85)
+        end
+
+        if isOpposite and not HA.VendorMapPins:CanAccessVendor(vendor) then
+            tooltip:AddLine("Cannot buy on this character - opposite faction vendor", 1.0, 0.5, 0.5)
+            tooltip:AddLine("Locked counts above only reflect requirement gates.", 0.9, 0.7, 0.7)
+        end
+
+        local blockers = stats.blockers or {}
+        for i = 1, math.min(3, #blockers) do
+            local blocker = blockers[i]
+            tooltip:AddLine(string.format("Locked by: %s (%d)", blocker.label, blocker.count), 1.0, 0.82, 0)
+        end
+
+        if #blockers > 3 then
+            tooltip:AddLine(string.format("Locked by: +%d more blocker types", #blockers - 3), 0.8, 0.8, 0.8)
+        end
+    end
+
+    tooltip:AddLine(" ")
+    if isOpposite then
+        tooltip:AddLine("Left-click to set waypoint (for alts)", 0.5, 0.5, 0.5)
+    else
+        tooltip:AddLine("Left-click to set waypoint", 0.5, 0.5, 0.5)
+    end
+end
+
+local function ScrollMaximum(hover)
+    return math.max(0, #hover.matches - MAX_VISIBLE_WARE_ROWS)
+end
+
+local function AddInteractiveLines(hover, list, first, last)
+    local frame = interactiveTooltip
+    frame:ClearLines()
+    AddVendorHeaderLines(frame, hover.vendor, hover.isOpposite)
+    AddVendorWareLines(frame, hover.vendor, list, first, last, hover.itemDetailsEnabled)
+    AddVendorFooterLines(frame, hover.vendor, hover.isOpposite, hover.itemDetailsEnabled)
+end
+
+-- Open and rebuild only: the width is frozen from the full list so scrolling
+-- never resizes the tooltip under the cursor.
+local function MeasureInteractiveWidth(hover)
+    local frame = interactiveTooltip
+    AddInteractiveLines(hover, hover.wares, 1, #hover.wares)
+    frame:SetMinimumWidth(INTERACTIVE_MIN_WIDTH)
+    frame:SetPadding(INTERACTIVE_RIGHT_PADDING, INTERACTIVE_BOTTOM_PADDING)
+    frame:Show()
+    local width = frame:GetWidth()
+    if width and width > 0 then
+        hover.measuredWidth = math.max(INTERACTIVE_MIN_WIDTH, width)
+    end
+end
+
+local function SyncInteractiveScrollBar(hover)
+    local bar = interactiveScrollBar
+    local maximum = ScrollMaximum(hover)
+    if maximum == 0 then
+        bar:Hide()
+        interactiveThumbHeld = false
+        if interactiveScrollBar and interactiveScrollBar.UnregisterUpdate then
+            interactiveScrollBar:UnregisterUpdate()
+        end
+        return
+    end
+    bar:Show()
+    -- SetScrollPercentage re-fires the bar's OnScroll; the callback ignores it.
+    syncingScrollBar = true
+    bar:SetVisibleExtentPercentage(MAX_VISIBLE_WARE_ROWS / #hover.matches)
+    bar:SetPanExtentPercentage(1 / maximum)
+    bar:SetScrollPercentage(hover.offset / maximum, ScrollBoxConstants.NoScrollInterpolation)
+    syncingScrollBar = false
+end
+
+-- Edge to edge against the pin, both axes tested in screen pixels: pins sit
+-- under a scaled map canvas, so their coordinates are not UIParent units.
+local function AnchorInteractiveTooltip(hover)
+    local frame, pin = interactiveTooltip, hover.pin
+    local right, top = pin:GetRight(), pin:GetTop()
+    if not right or not top then return false end
+    local pinScale, frameScale = pin:GetEffectiveScale(), frame:GetEffectiveScale()
+    local screenRight = UIParent:GetWidth() * UIParent:GetEffectiveScale()
+    local flip = (screenRight - right * pinScale) < frame:GetWidth() * frameScale
+    local hangsDown = top * pinScale >= frame:GetHeight() * frameScale
+    frame:ClearAllPoints()
+    if hangsDown then
+        frame:SetPoint(flip and "TOPRIGHT" or "TOPLEFT", pin, flip and "TOPLEFT" or "TOPRIGHT", 0, 0)
+    else
+        frame:SetPoint(flip and "BOTTOMRIGHT" or "BOTTOMLEFT", pin, flip and "BOTTOMLEFT" or "BOTTOMRIGHT", 0, 0)
+    end
+    return true
+end
+
+-- At most MAX_VISIBLE_WARE_ROWS rows. GameTooltip_OnHide clears padding, so
+-- it is re-applied on every render.
+local function RenderInteractiveWindow(hover)
+    local frame = interactiveTooltip
+    hover.offset = math.max(0, math.min(hover.offset, ScrollMaximum(hover)))
+    local last = math.min(#hover.matches, hover.offset + MAX_VISIBLE_WARE_ROWS)
+    AddInteractiveLines(hover, hover.matches, hover.offset + 1, last)
+    local scrollable = #hover.matches > MAX_VISIBLE_WARE_ROWS
+    frame:SetMinimumWidth(hover.measuredWidth or INTERACTIVE_MIN_WIDTH)
+    frame:SetPadding(scrollable and INTERACTIVE_RIGHT_PADDING or 0, INTERACTIVE_BOTTOM_PADDING)
+    frame:Show()
+    -- Placed once per hover, once the height is real; a zero height reads as room below.
+    if not hover.anchored and hover.measuredWidth and frame:GetHeight() > 0 then
+        hover.anchored = AnchorInteractiveTooltip(hover)
+    end
+    SyncInteractiveScrollBar(hover)
+end
+
+-- A thumb drag fires every frame; offsets are whole rows, so most calls resolve
+-- to the offset already shown.
+local function SetInteractiveScrollOffset(offset)
+    local hover = interactiveHover
+    if not hover then return end
+    offset = math.max(0, math.min(offset, ScrollMaximum(hover)))
+    if offset == hover.offset then return end
+    hover.offset = offset
+    RenderInteractiveWindow(hover)
+end
+
+local function OnInteractiveMouseWheel(_, delta)
+    local hover = interactiveHover
+    if hover then
+        SetInteractiveScrollOffset(hover.offset - delta)
+    end
+end
+
+local function EnsureInteractiveTooltip()
+    if interactiveTooltip then
+        return interactiveTooltip
+    end
+
+    local frame = CreateFrame("GameTooltip", INTERACTIVE_TOOLTIP_NAME, UIParent, "GameTooltipTemplate")
+    frame:SetFrameStrata("TOOLTIP")
+    frame:SetClampedToScreen(true)
+    frame:EnableMouse(true)
+    frame:EnableMouseWheel(true)
+
+    local bar = CreateFrame("EventFrame", nil, frame, "MinimalScrollBar")
+    bar:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -INTERACTIVE_BAR_INSET, -8)
+    bar:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -INTERACTIVE_BAR_INSET, INTERACTIVE_BOTTOM_PADDING + 4)
+    bar:Init(1, 1)
+    bar:RegisterCallback(BaseScrollBoxEvents.OnScroll, function(_, percentage)
+        local hover = interactiveHover
+        if syncingScrollBar or not hover then return end
+        SetInteractiveScrollOffset(math.floor(percentage * ScrollMaximum(hover) + 0.5))
+    end, frame)
+    bar:SetScript("OnMouseWheel", OnInteractiveMouseWheel)
+
+    local box = CreateFrame("EditBox", nil, frame, "SearchBoxTemplate")
+    box:SetAutoFocus(false)
+    box:SetMaxLetters(50)
+    box:SetPoint("BOTTOMLEFT", frame, "BOTTOMLEFT", 12, 6)
+    box:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -12, 6)
+    box:SetHeight(20)
+    -- Focus was holding the tooltip open; when it ends, close unless the cursor is on it or its pin.
+    box:HookScript("OnEditFocusLost", function()
+        local hover = interactiveHover
+        if not hover or not frame:IsShown() then return end
+        if frame:IsMouseOver() then return end
+        if hover.pin:IsMouseOver() then return end
+        CloseInteractiveTooltip()
+    end)
+
+    -- The bar's children take the cursor off the tooltip frame; each leave re-checks.
+    -- A drag that strays off the thumb must not close the tooltip, so the held flag defers to the release.
+    local thumb = bar:GetThumb()
+    thumb:HookScript("OnMouseDown", function() interactiveThumbHeld = true end)
+    thumb:HookScript("OnMouseUp", function()
+        interactiveThumbHeld = false
+        ScheduleInteractiveLeaveCheck()
+    end)
+    bar:GetTrack():SetScript("OnLeave", ScheduleInteractiveLeaveCheck)
+    for _, child in ipairs({ thumb, bar:GetBackStepper(), bar:GetForwardStepper(), box, box.clearButton }) do
+        child:HookScript("OnLeave", ScheduleInteractiveLeaveCheck)
+    end
+
+    frame:SetScript("OnMouseWheel", OnInteractiveMouseWheel)
+    frame:SetScript("OnLeave", ScheduleInteractiveLeaveCheck)
+    -- HookScript: SetScript would replace the template's GameTooltip_OnHide.
+    frame:HookScript("OnHide", ResetInteractiveState)
+    -- A frame re-shown by its parent after an implicit hide has no hover and must not linger.
+    frame:SetScript("OnShow", function(self)
+        if not interactiveHover then self:Hide() end
+    end)
+
+    interactiveTooltip = frame
+    interactiveScrollBar = bar
+    interactiveSearchBox = box
+    return frame
+end
+
+local function ShowInteractiveVendorTooltip(pin, vendor, allItems, itemDetailsEnabled, isOpposite)
+    local frame = EnsureInteractiveTooltip()
+    if pinTooltip then pinTooltip:Hide() end
+    CloseInteractiveTooltip()
+    frame:SetOwner(pin, "ANCHOR_NONE")
+    frame:ClearAllPoints()
+    -- Provisional; placed for good after the first render.
+    frame:SetPoint("TOPLEFT", pin, "TOPRIGHT", 0, 0)
+    local hover = {
+        pin = pin, vendor = vendor, active = activeTooltipData,
+        wares = allItems, matches = allItems, query = "", offset = 0,
+        itemDetailsEnabled = itemDetailsEnabled, isOpposite = isOpposite, anchored = false,
+    }
+    -- Before the first Show: the OnShow guard hides a frame with no hover.
+    interactiveHover = hover
+    MeasureInteractiveWidth(hover)
+    RenderInteractiveWindow(hover)
+    -- A zero first width is never stored; retry once, never from scroll or search.
+    if not hover.measuredWidth then
+        C_Timer.After(0, function()
+            if interactiveHover ~= hover or hover.measuredWidth then return end
+            MeasureInteractiveWidth(hover)
+            RenderInteractiveWindow(hover)
+        end)
+    end
+end
+
+function VendorPinTooltips:ShowVendorTooltip(pin, vendor)
+    if not vendor then return end
+
+    local itemDetailsEnabled = IsVendorPinItemDetailsEnabled()
+
+    -- Track active tooltip for GET_ITEM_INFO_RECEIVED refresh
+    activeTooltipData = { kind = "vendor", pin = pin, vendor = vendor }
+    itemInfoEventFrame:RegisterEvent("GET_ITEM_INFO_RECEIVED")
+
+    local isOpposite = HA.VendorMapPins:IsOppositeFaction(vendor)
 
     -- Gather items from both static and scanned data
     local allItems = {}
@@ -365,64 +684,21 @@ function VendorPinTooltips:ShowVendorTooltip(pin, vendor)
         end
     end
 
+    if #allItems > LONG_WARES_THRESHOLD then
+        ShowInteractiveVendorTooltip(pin, vendor, allItems, itemDetailsEnabled, isOpposite)
+        return
+    end
+
+    local tooltip = BeginPinTooltip(pin, "ANCHOR_RIGHT")
+    AddVendorHeaderLines(tooltip, vendor, isOpposite)
     if #allItems > 0 then
-        tooltip:AddLine(" ")
-        tooltip:AddLine("Items Sold:", 1, 1, 0)
-
-        for _, item in ipairs(allItems) do
-            AddPinTooltipItemLine(tooltip, item, {
-                context = "vendorMapPin",
-                npcID = vendor.npcID,
-                sourceFilter = HA.VendorMapPins:GetActiveSourceFilter(),
-                isVendorContext = itemDetailsEnabled,
-            })
-        end
-
+        AddVendorWareLines(tooltip, vendor, allItems, 1, #allItems, itemDetailsEnabled)
     else
         -- No item data available
         tooltip:AddLine(" ")
         tooltip:AddLine("Item data unknown - visit vendor to scan", 1, 0.82, 0)
     end
-
-    -- Purchasability summary (only when we have item data)
-    local stats = HA.VendorMapPins:GetVendorStats(vendor, HA.VendorMapPins:GetActiveSourceFilter())
-    if stats.total > 0 then
-        tooltip:AddLine(" ")
-        BC.AddSummaryLine(tooltip, stats.collected, stats.total, stats.locked, stats.unverified)
-
-        -- HS-074 test: count of items at this vendor with no non-vendor source
-        -- type. Read from stats.vendorOnly (BadgeCalculation) rather than
-        -- re-walking allItems here — that keeps this number counting the exact
-        -- same population as the collected/total/locked figures above it
-        -- (source filter, HS-249 exclusion, merged static+scanned set) instead
-        -- of a second, differently-filtered pass. Wording is a stand-in;
-        -- refine during design review.
-        if itemDetailsEnabled and stats.vendorOnly and stats.vendorOnly > 0 then
-            tooltip:AddLine(string.format("Vendor-only: %d", stats.vendorOnly), 0.85, 0.85, 0.85)
-        end
-
-        if isOpposite and not HA.VendorMapPins:CanAccessVendor(vendor) then
-            tooltip:AddLine("Cannot buy on this character - opposite faction vendor", 1.0, 0.5, 0.5)
-            tooltip:AddLine("Locked counts above only reflect requirement gates.", 0.9, 0.7, 0.7)
-        end
-
-        local blockers = stats.blockers or {}
-        for i = 1, math.min(3, #blockers) do
-            local blocker = blockers[i]
-            tooltip:AddLine(string.format("Locked by: %s (%d)", blocker.label, blocker.count), 1.0, 0.82, 0)
-        end
-
-        if #blockers > 3 then
-            tooltip:AddLine(string.format("Locked by: +%d more blocker types", #blockers - 3), 0.8, 0.8, 0.8)
-        end
-    end
-
-    tooltip:AddLine(" ")
-    if isOpposite then
-        tooltip:AddLine("Left-click to set waypoint (for alts)", 0.5, 0.5, 0.5)
-    else
-        tooltip:AddLine("Left-click to set waypoint", 0.5, 0.5, 0.5)
-    end
+    AddVendorFooterLines(tooltip, vendor, isOpposite, itemDetailsEnabled)
     tooltip:Show()
 end
 

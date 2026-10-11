@@ -7,6 +7,7 @@ globals = {
     "HomesteadMinimapButton",
     "HomesteadMapSidePanelTooltip",
     "HomesteadVendorMapPinsTooltip",
+    "HomesteadVendorMapPinsWaresTooltip",
     "SlashCmdList",
     "SLASH_HOMESTEAD1", "SLASH_HOMESTEAD2",
     -- SavedVariables (created by WoW, read/written by addon)
@@ -55,6 +56,7 @@ read_globals = {
     "Settings",
     "ShoppingTooltip1", "ShoppingTooltip2",
     "ScrollBoxConstants",
+    "BaseScrollBoxEvents",
     "ScrollUtil",
     "ScrollBoxListViewMixin",
     "TooltipDataProcessor",
