@@ -34,7 +34,7 @@ Enum = { UIMapType = { Cosmic = 0, World = 1, Continent = 2, Zone = 3, Dungeon =
 local MAPS = {
     [13] = { "Eastern Kingdoms", 947, CONTINENT },
     [619] = { "Broken Isles", 947, CONTINENT },
-    [905] = { "Argus", 946, CONTINENT },
+    [905] = { "Argus", 619, CONTINENT },
     [830] = { "Krokuun", 905 },
     [709] = { "Suramar", 619 },
     [17] = { "Blasted Lands", 13 },

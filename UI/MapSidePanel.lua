@@ -1603,7 +1603,7 @@ local function CreateSummaryRow(parent)
     navButton:SetScript("OnEnter", function(self)
         local tooltip = BeginPanelTooltip(self, "ANCHOR_RIGHT")
         local level = State.currentDisplayLevel
-        if level == "world" then
+        if level == "world" or row.isContinent then
             tooltip:SetText("Navigate to continent")
         else
             tooltip:SetText("Navigate to zone")
@@ -1778,7 +1778,7 @@ local function CreateSummarySubRow(parent)
         if self.vendor then
             tooltip:AddLine("Click to view items", 0.5, 0.5, 0.5)
         else
-            tooltip:AddLine("Click to view zone", 0.5, 0.5, 0.5)
+            tooltip:AddLine(self.isContinent and "Click to view continent" or "Click to view zone", 0.5, 0.5, 0.5)
         end
         tooltip:Show()
     end)
@@ -1834,6 +1834,7 @@ end
 
 local function RenderSummaryRow(row, rec)
     row.targetMapID = rec.targetMapID
+    row.isContinent = rec.isContinent
     row.vendorCount = rec.vendorCount
     row.collectedItems = rec.collectedItems
     row.totalItems = rec.totalItems
@@ -1857,6 +1858,7 @@ local function RenderSubRow(row, rec)
 
     row.vendor = rec.vendor
     row.targetMapID = rec.targetMapID
+    row.isContinent = rec.isContinent
     row.tooltipText = rec.tooltipText
     row.tooltipSub = rec.tooltipSub
     row.isOrderHall = rec.isOrderHall
@@ -1937,6 +1939,7 @@ local function ResetListElement(container)
     HideItemSourceList(content)
     content.vendor, content.dropGroup, content.result, content.itemID = nil, nil, nil, nil
     content.targetMapID, content.tooltipText, content.tooltipSub, content.isOrderHall = nil, nil, nil, nil
+    content.isContinent = nil
     content.searchMode, content.searchMatchedItems = false, nil
     content.collected, content.total, content.locked = nil, nil, nil
     content.vendorCount, content.totalItems = 0, 0
@@ -2053,6 +2056,7 @@ local function AppendZoneSubRows(zoneCounts, rows, skipEmpty)
             tooltipText = data.zoneName or "Unknown",
             tooltipSub = tooltipSub,
             isOrderHall = false,
+            isContinent = data.isContinent,
             name = data.zoneName or "Unknown",
             countText = countText,
             countColor = countColor,
@@ -2926,8 +2930,8 @@ function MapSidePanel:RefreshZoneSummaries(mapID, mapInfo)
 
     -- HS-018: honor the panel's source filter at continent view so per-zone
     -- summary rows reflect the active filter (was previously unfiltered).
-    -- A continent that rolls into this one is a single row carrying its total,
-    -- so the list adds up to this continent's world-map total.
+    -- A continent that rolls into this one is a single row carrying the sum of
+    -- its own zone list.
     local zoneCounts = BC:GetContinentZoneListCounts(mapID, State.panelSourceFilter)
 
     -- Build sorted zone list
@@ -2985,7 +2989,9 @@ function MapSidePanel:RefreshZoneSummaries(mapID, mapInfo)
             lockedItems = dataLocked,
             unverifiedItems = data.unverifiedItems or 0,
             name = data.zoneName or "Unknown",
-            nameColor = Layout.COLOR_WHITE,
+            -- Gold for a rolled-in continent's row, as on the world list
+            nameColor = data.isContinent and Layout.COLOR_GOLD or Layout.COLOR_WHITE,
+            isContinent = data.isContinent,
             summaryLineText = summaryLineText,
             summaryLineColor = summaryLineColor,
             isExpanded = isExpanded,
