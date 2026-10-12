@@ -1603,7 +1603,7 @@ local function CreateSummaryRow(parent)
     navButton:SetScript("OnEnter", function(self)
         local tooltip = BeginPanelTooltip(self, "ANCHOR_RIGHT")
         local level = State.currentDisplayLevel
-        if level == "world" then
+        if level == "world" or row.isContinent then
             tooltip:SetText("Navigate to continent")
         else
             tooltip:SetText("Navigate to zone")
@@ -1778,7 +1778,7 @@ local function CreateSummarySubRow(parent)
         if self.vendor then
             tooltip:AddLine("Click to view items", 0.5, 0.5, 0.5)
         else
-            tooltip:AddLine("Click to view zone", 0.5, 0.5, 0.5)
+            tooltip:AddLine(self.isContinent and "Click to view continent" or "Click to view zone", 0.5, 0.5, 0.5)
         end
         tooltip:Show()
     end)
@@ -1834,6 +1834,7 @@ end
 
 local function RenderSummaryRow(row, rec)
     row.targetMapID = rec.targetMapID
+    row.isContinent = rec.isContinent
     row.vendorCount = rec.vendorCount
     row.collectedItems = rec.collectedItems
     row.totalItems = rec.totalItems
@@ -1857,6 +1858,7 @@ local function RenderSubRow(row, rec)
 
     row.vendor = rec.vendor
     row.targetMapID = rec.targetMapID
+    row.isContinent = rec.isContinent
     row.tooltipText = rec.tooltipText
     row.tooltipSub = rec.tooltipSub
     row.isOrderHall = rec.isOrderHall
@@ -1937,6 +1939,7 @@ local function ResetListElement(container)
     HideItemSourceList(content)
     content.vendor, content.dropGroup, content.result, content.itemID = nil, nil, nil, nil
     content.targetMapID, content.tooltipText, content.tooltipSub, content.isOrderHall = nil, nil, nil, nil
+    content.isContinent = nil
     content.searchMode, content.searchMatchedItems = false, nil
     content.collected, content.total, content.locked = nil, nil, nil
     content.vendorCount, content.totalItems = 0, 0
@@ -1960,21 +1963,13 @@ local function BuildZoneExpansionRows(zoneMapID, rows)
     local allVendors = VendorData:GetAllVendors()
     local showOpposite = VF.ShouldShowOppositeFaction()
 
-    -- Build set of maps to include (canonical + siblings for merged zones)
-    local targetMaps = {[zoneMapID] = true}
-    local Constants = HA.Constants
-    if Constants and Constants.VerticalSiblings and Constants.VerticalSiblings[zoneMapID] then
-        for sibID, _ in pairs(Constants.VerticalSiblings[zoneMapID]) do
-            targetMaps[sibID] = true
-        end
-    end
-
-    -- Gather vendors in this zone using same logic as badge calculation
+    -- Gather vendors in this zone under the badge count's own key: sibling
+    -- merge and sub-zone roll-up (HS-497) both happen inside GetVendorBadgeZone.
     local zoneVendors = {}
     for _, vendor in ipairs(allVendors) do
         if not VF.ShouldHideVendor(vendor) then
-            local coords, vendorMapID = VF.GetBestVendorCoordinates(vendor)
-            if coords and targetMaps[vendorMapID] then
+            local coords, badgeZoneMapID = BC.GetVendorBadgeZone(vendor)
+            if coords and badgeZoneMapID == zoneMapID then
                 local canAccess = VF.CanAccessVendor(vendor)
                 local isOpposite = VF.IsOppositeFaction(vendor)
                 if canAccess or (isOpposite and showOpposite) then
@@ -2019,16 +2014,15 @@ local function BuildZoneExpansionRows(zoneMapID, rows)
     end
 end
 
--- Build continent expansion: append zone sub-row records for a continent at world level.
-local function BuildContinentExpansionRows(continentMapID, rows)
-    if not BC then return end
-
-    local zoneCounts = BC:GetZoneVendorCounts(continentMapID, State.panelSourceFilter)
-
+-- Append a zone sub-row record per entry of a zone-count table, sorted by name.
+-- skipEmpty drops entries with no counted vendor.
+local function AppendZoneSubRows(zoneCounts, rows, skipEmpty)
     -- Build sorted zone list
     local zoneList = {}
     for zoneMapID, data in pairs(zoneCounts) do
-        zoneList[#zoneList + 1] = { mapID = zoneMapID, data = data }
+        if not skipEmpty or (data.vendorCount or 0) > 0 then
+            zoneList[#zoneList + 1] = { mapID = zoneMapID, data = data }
+        end
     end
     table.sort(zoneList, function(a, b)
         return (a.data.zoneName or "") < (b.data.zoneName or "")
@@ -2062,11 +2056,30 @@ local function BuildContinentExpansionRows(continentMapID, rows)
             tooltipText = data.zoneName or "Unknown",
             tooltipSub = tooltipSub,
             isOrderHall = false,
+            isContinent = data.isContinent,
             name = data.zoneName or "Unknown",
             countText = countText,
             countColor = countColor,
         }
     end
+end
+
+-- Build continent expansion: append zone sub-row records for a continent at world level,
+-- with one row for each continent that rolls into it.
+local function BuildContinentExpansionRows(continentMapID, rows)
+    if not BC then return end
+
+    AppendZoneSubRows(BC:GetContinentZoneListCounts(continentMapID, State.panelSourceFilter), rows)
+end
+
+-- Zone view: zone sub-rows for the child maps whose vendors the map shows as
+-- a badge rather than pins. Returns the number of rows appended.
+local function AppendChildMapRows(viewMapID, rows)
+    if not BC then return 0 end
+
+    local before = #rows
+    AppendZoneSubRows(BC:GetChildMapVendorCounts(viewMapID, State.panelSourceFilter), rows, true)
+    return #rows - before
 end
 
 -------------------------------------------------------------------------------
@@ -2917,7 +2930,9 @@ function MapSidePanel:RefreshZoneSummaries(mapID, mapInfo)
 
     -- HS-018: honor the panel's source filter at continent view so per-zone
     -- summary rows reflect the active filter (was previously unfiltered).
-    local zoneCounts = BC:GetZoneVendorCounts(mapID, State.panelSourceFilter)
+    -- A continent that rolls into this one is a single row carrying the sum of
+    -- its own zone list.
+    local zoneCounts = BC:GetContinentZoneListCounts(mapID, State.panelSourceFilter)
 
     -- Build sorted zone list
     local zoneList = {}
@@ -2974,15 +2989,22 @@ function MapSidePanel:RefreshZoneSummaries(mapID, mapInfo)
             lockedItems = dataLocked,
             unverifiedItems = data.unverifiedItems or 0,
             name = data.zoneName or "Unknown",
-            nameColor = Layout.COLOR_WHITE,
+            -- Gold for a rolled-in continent's row, as on the world list
+            nameColor = data.isContinent and Layout.COLOR_GOLD or Layout.COLOR_WHITE,
+            isContinent = data.isContinent,
             summaryLineText = summaryLineText,
             summaryLineColor = summaryLineColor,
             isExpanded = isExpanded,
         }
 
-        -- If expanded, append vendor sub-rows below this zone row
+        -- If expanded, append sub-rows below this row: the zones of a rolled-in
+        -- continent, or the vendors of a zone
         if isExpanded then
-            BuildZoneExpansionRows(entry.mapID, rows)
+            if data.isContinent then
+                BuildContinentExpansionRows(entry.mapID, rows)
+            else
+                BuildZoneExpansionRows(entry.mapID, rows)
+            end
         end
 
         totalCollected = totalCollected + dataCollected
@@ -3521,10 +3543,11 @@ function MapSidePanel:RefreshContent()
         totalLocked = totalLocked + rec.locked
     end
 
+    local childRowCount = AppendChildMapRows(mapID, rows)
     SetListRows(rows)
 
     -- Empty state
-    if #vendorList == 0 then
+    if #vendorList == 0 and childRowCount == 0 then
         State.emptyText:SetText("No vendors in this zone")
         State.emptyText:Show()
     else

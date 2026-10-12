@@ -327,9 +327,9 @@ Constants.ZoneToContinentMap = {
     [2352] = 2274, -- Housing instance
     [2393] = 2537, -- Murder Row (Midnight Silvermoon)
     [2395] = 2537, -- Midnight Silvermoon (zone parent)
-    [2405] = 2537, -- Founder's Point (Midnight)
+    [2405] = 2537, -- Voidstorm (Midnight)
     [2406] = 2274, -- Liberation of Undermine (dungeon)
-    [2413] = 2537, -- Harandar sub-zone (Midnight)
+    [2413] = 2537, -- Harandar (Midnight)
     [2437] = 2537, -- Zul'Aman (Midnight)
     [2444] = 2537, -- Slayer's Rise (Midnight)
     [2472] = 2274, -- Tazavesh
@@ -390,6 +390,15 @@ Constants.VerticalSiblings = {
     -- Dalaran / Underbelly
     [627] = { [628] = "below" },
     [628] = { [627] = "above" },
+}
+
+-- HS-497: zones that keep their own badge on the continent map instead of
+-- rolling up to the zone below the continent. Key: vendor map, value: the
+-- badge key it counts under. Undermine's zone and its dungeon map both hang off
+-- The Ringing Deeps in the client, but read as a place of their own.
+Constants.ContinentBadgeOverrides = {
+    [2346] = 2346, -- Undermine
+    [2406] = 2346, -- Liberation of Undermine (dungeon map) counts as Undermine
 }
 
 function Constants.GetElevationDirection(playerMapID, vendorMapID)

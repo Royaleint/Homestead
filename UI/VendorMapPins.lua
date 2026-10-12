@@ -827,6 +827,11 @@ function VendorMapPins:BuildWorldMapRenderState(mapID)
         self:ShowZoneBadges(mapID, renderState)
     else
         self:CollectSourcePins(mapID, renderState)
+        -- Only a zone map badges its undrawn child maps; cosmic, dungeon, micro
+        -- and orphan views have no child-map badges.
+        if mapInfo.mapType == Enum.UIMapType.Zone then
+            self:ShowChildMapBadges(mapID, renderState)
+        end
     end
 
     return renderState
@@ -1350,6 +1355,10 @@ end
 
 function VendorMapPins:ShowZoneBadges(continentMapID, renderState)
     return HA.BadgeEmission:ShowZoneBadges(continentMapID, renderState)
+end
+
+function VendorMapPins:ShowChildMapBadges(viewMapID, renderState)
+    return HA.BadgeEmission:ShowChildMapBadges(viewMapID, renderState)
 end
 
 function VendorMapPins:ShowZoneBadgesOnWorldMap(renderState)

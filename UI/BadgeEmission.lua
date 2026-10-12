@@ -10,8 +10,8 @@
 
     External callers should use the VendorMapPins delegation wrappers
     (EmitPortalBadges, ShowZoneBadges, ShowZoneBadgesOnWorldMap,
-    ShowContinentBadges) — HA.VendorMapPins is the frozen public surface;
-    this module is an implementation detail behind it.
+    ShowContinentBadges, ShowChildMapBadges) — HA.VendorMapPins is the frozen
+    public surface; this module is an implementation detail behind it.
 ]]
 
 local _, HA = ...
@@ -138,6 +138,33 @@ function BadgeEmission:ShowZoneBadges(continentMapID, renderState)
     end
 
 end
+
+-- Zone-style badges on a zone view for child maps whose vendors the
+-- view does not draw as pins (e.g. Tazavesh on K'aresh). Follows the vendor
+-- pin provider's source gates so a badge never shows where its pins would not.
+function BadgeEmission:ShowChildMapBadges(viewMapID, renderState)
+    local sourceFilter = HA.VendorMapPins:GetActiveSourceFilter()
+    if sourceFilter ~= "all" and sourceFilter ~= "vendor" then return end
+    if not HA.VendorMapPins:IsMapFilterSourceEnabled("vendor") then return end
+
+    for childMapID, childData in pairs(BC:GetChildMapVendorCounts(viewMapID, sourceFilter)) do
+        if childData.vendorCount > 0 then
+            local ok, x, y, reason = MPP:ProjectZoneBadgeToContinentView(viewMapID, childMapID)
+            if ok then
+                renderState.zoneBadges[#renderState.zoneBadges + 1] = {
+                    badgeData = BuildBadgeData(childMapID, childData.zoneName, childData),
+                    mapID = childMapID,
+                    x = x,
+                    y = y,
+                    reason = reason,
+                }
+            else
+                HA.VendorMapPins:DebugWorldMapProjectionSkip("child_map_badge", childMapID, viewMapID, reason)
+            end
+        end
+    end
+end
+
 function BadgeEmission:ShowZoneBadgesOnWorldMap(renderState)
     local sourceFilter = HA.VendorMapPins:GetActiveSourceFilter()
     local continentCounts = BC:GetContinentVendorCounts(sourceFilter)
@@ -166,7 +193,20 @@ function BadgeEmission:ShowZoneBadgesOnWorldMap(renderState)
                     reason = "manual_continent_position",
                 }
             elseif not MPP.excludedContinents[continentMapID] then
-                local zoneCounts = BC:GetZoneVendorCounts(continentMapID, sourceFilter)
+                -- Continents listed in continentZoneBadgesOnParent have no key of
+                -- their own, so their zones are drawn with their destination
+                -- continent's (Quel'Thalas with Eastern Kingdoms).
+                local zoneCounts = {}
+                for zoneMapID, zoneData in pairs(BC:GetZoneVendorCounts(continentMapID, sourceFilter)) do
+                    zoneCounts[zoneMapID] = zoneData
+                end
+                for srcContinentID, destContinentID in pairs(MPP.continentZoneBadgesOnParent) do
+                    if destContinentID == continentMapID then
+                        for zoneMapID, zoneData in pairs(BC:GetZoneVendorCounts(srcContinentID, sourceFilter)) do
+                            zoneCounts[zoneMapID] = zoneData
+                        end
+                    end
+                end
                 for zoneMapID, zoneData in pairs(zoneCounts) do
                     if zoneData.vendorCount > 0 then
                         local ok, x, y, reason = MPP:ProjectZoneBadgeToWorldView(zoneMapID)
