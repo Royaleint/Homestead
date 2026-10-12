@@ -392,6 +392,15 @@ Constants.VerticalSiblings = {
     [628] = { [627] = "above" },
 }
 
+-- HS-497: zones that keep their own badge on the continent map instead of
+-- rolling up to the zone below the continent. Key: vendor map, value: the
+-- badge key it counts under. Undermine's zone and its dungeon map both hang off
+-- The Ringing Deeps in the client, but read as a place of their own.
+Constants.ContinentBadgeOverrides = {
+    [2346] = 2346, -- Undermine
+    [2406] = 2346, -- Liberation of Undermine (dungeon map) counts as Undermine
+}
+
 function Constants.GetElevationDirection(playerMapID, vendorMapID)
     local siblings = Constants.VerticalSiblings[playerMapID]
     return siblings and siblings[vendorMapID]

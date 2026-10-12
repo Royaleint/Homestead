@@ -1,4 +1,4 @@
--- luacheck: globals assert loadfile print C_Timer C_Map CreateFrame InCombatLockdown GetTimePreciseSec
+-- luacheck: globals assert loadfile print C_Timer C_Map CreateFrame InCombatLockdown GetTimePreciseSec wipe rawequal
 
 local root = (... or "."):gsub("\\\\", "/"):gsub("/+$", "")
 
@@ -8,7 +8,7 @@ local root = (... or "."):gsub("\\\\", "/"):gsub("/+$", "")
 -- so a continent map shows one badge per zone. Loads the REAL Constants
 -- (ZoneToContinentMap, VerticalSiblings), the REAL MapPinProvider (for
 -- GetParentMapID and the continent index) and the REAL BadgeCalculation, with
--- C_Map.GetMapInfo serving the parent chains below.
+-- C_Map.GetMapInfo and GetMapChildrenInfo serving the parent chains below.
 -------------------------------------------------------------------------------
 
 CreateFrame = function()
@@ -18,6 +18,7 @@ CreateFrame = function()
     return frame
 end
 InCombatLockdown = function() return false end
+wipe = function(t) for k in pairs(t) do t[k] = nil end return t end
 GetTimePreciseSec = function() return 0 end
 C_Timer = {
     NewTicker = function() return { Cancel = function() end } end,
@@ -25,28 +26,36 @@ C_Timer = {
     After = function() end,
 }
 
--- mapID -> { name, parent }. parent 0 / nil = no parent. Parents of the real
--- maps match the client; 9001-9005 are synthetic edge cases.
+-- mapID -> { name, parent, mapType }. parent 0 / nil = no parent; mapType
+-- defaults to Zone. Parents of the real maps match the client; 9001-9005 are
+-- synthetic edge cases.
+local CONTINENT, ZONE, DUNGEON = 2, 3, 4
 local MAPS = {
-    [2537] = { "Quel'Thalas", 13 },
+    [2537] = { "Quel'Thalas", 13, CONTINENT },
     [2405] = { "Voidstorm", 2537 },
     [2444] = { "Slayer's Rise", 2405 },
     [2599] = { "Umbral Base Camp", 2405 },
     [2413] = { "Harandar", 2537 },
     [2576] = { "The Den", 2413 },
     [2512] = { "The Coiled Isle", 2537 },
-    [2509] = { "Vaults of Atal'Utek", 2512 },
+    [2509] = { "Vaults of Atal'Utek", 2512, DUNGEON },
     -- Vertical siblings
     [627] = { "Dalaran", 619 },
-    [628] = { "Dalaran Underbelly", 627 },
+    [628] = { "Dalaran Underbelly", 619 },
+    [2274] = { "Khaz Algar", 946, CONTINENT },
     [2255] = { "Azj-Kahet", 2274 },
     [2213] = { "City of Threads", 2255 },
     [2216] = { "City of Threads - Lower", 2255 },
     -- Tazavesh: the ancestor under the continent (K'aresh) is not in ZoneToContinentMap
     [2371] = { "K'aresh", 2274 },
     [2472] = { "Tazavesh", 2371 },
-    -- Top-level zone: parent is the continent already
-    [2395] = { "Silvermoon", 2537 },
+    -- Undermine: zone and dungeon map both hang off The Ringing Deeps
+    [2214] = { "The Ringing Deeps", 2274 },
+    [2346] = { "Undermine", 2214 },
+    [2406] = { "Liberation of Undermine", 2214, DUNGEON },
+    -- Silvermoon City sits on Eversong Woods, which is directly under the continent
+    [2395] = { "Eversong Woods", 2537 },
+    [2393] = { "Silvermoon City", 2395 },
     -- Chain never reaches the continent (ends at a map with no parent)
     [9001] = { "Orphan Annex", 9002 },
     [9002] = { "Orphan Hall", 0 },
@@ -64,7 +73,18 @@ C_Map = {
         getMapInfoCalls = getMapInfoCalls + 1
         local row = MAPS[mapID]
         if not row then return nil end
-        return { name = row[1], parentMapID = row[2] }
+        return { name = row[1], parentMapID = row[2], mapType = row[3] or ZONE }
+    end,
+    -- The real helper reads childInfo.mapID and childInfo.mapType.
+    GetMapChildrenInfo = function(mapID)
+        local children = {}
+        for childID, row in pairs(MAPS) do
+            if row[2] == mapID then
+                children[#children + 1] = { mapID = childID, name = row[1], mapType = row[3] or ZONE }
+            end
+        end
+        table.sort(children, function(a, b) return a.mapID < b.mapID end)
+        return children
     end,
 }
 
@@ -140,7 +160,7 @@ do
     -- K'aresh is not in ZoneToContinentMap, so Tazavesh keeps its own key
     -- rather than a key that would resolve to no continent.
     assert(BC.GetBadgeZoneMapID(2472) == 2472, "Tazavesh must keep its own key")
-    for _, mapID in ipairs({ 2444, 2599, 2576, 2509, 2405, 628, 2213, 2216, 2472, 9001, 9004 }) do
+    for mapID in pairs(HA.Constants.ZoneToContinentMap) do
         local key = BC.GetBadgeZoneMapID(mapID)
         assert(BC.GetContinentForZone(key) == BC.GetContinentForZone(BC.GetCanonicalZoneMapID(mapID)),
             "badge key " .. key .. " for map " .. mapID .. " must resolve to the input's continent")
@@ -220,7 +240,8 @@ do
         for _, entry in pairs(BC:GetZoneVendorCounts(continent, "all")) do
             sum = sum + entry.vendorCount
         end
-        assert(sum == expected, "continent " .. continent .. " zone counts sum to " .. sum .. ", expected " .. expected)
+        assert(sum == expected, "continent " .. continent .. ": zone keys hold " .. sum
+            .. " vendors, expected " .. expected .. " (a vendor vanished from or was double-counted in the keys)")
     end
 
     -- Continent totals are unaffected by the roll-up.
@@ -228,6 +249,161 @@ do
     assert(totals[2537].vendorCount == 8, "continent total counts every vendor once, got " .. totals[2537].vendorCount)
 
     print("hs497_subzone_badge_rollup: GetZoneVendorCounts one badge per zone ok")
+end
+
+-------------------------------------------------------------------------------
+-- Undermine keeps its own continent badge; zone views badge undrawn child maps
+-------------------------------------------------------------------------------
+
+local function LoadEmission(HA)
+    HA.VendorMapPins = {
+        filter = "all",
+        vendorEnabled = true,
+        skips = {},
+        GetActiveSourceFilter = function(self) return self.filter end,
+        IsMapFilterSourceEnabled = function(self) return self.vendorEnabled end,
+        DebugWorldMapProjectionSkip = function(self, kind, source, view, reason)
+            self.skips[#self.skips + 1] = kind .. ":" .. source .. ":" .. view .. ":" .. tostring(reason)
+        end,
+    }
+    assert(loadfile(root .. "/UI/BadgeEmission.lua"))("Homestead", HA)
+    return HA.BadgeEmission
+end
+
+do
+    local HA = NewHA()
+    local mapByNpc = {
+        [21] = 2346, [22] = 2406, [23] = 2214,   -- Undermine, its dungeon map, The Ringing Deeps
+        [24] = 2472, [25] = 2472, [26] = 2371,   -- Tazavesh x2, K'aresh
+        [27] = 2444, [28] = 2599, [29] = 2405,   -- Slayer's Rise, Umbral Base Camp, Voidstorm
+        [30] = 2393, [31] = 2395,                -- Silvermoon City, Eversong Woods
+        [32] = 2509, [33] = 2512,                -- Vaults (dungeon child), The Coiled Isle
+        [34] = 2213, [35] = 2216,                -- City of Threads and its lower half
+    }
+    local vendors = {}
+    for npcID = 21, 35 do vendors[#vendors + 1] = { npcID = npcID } end
+    local BC = LoadBadgeCalculation(HA, vendors, mapByNpc)
+    local MPP = HA.MapPinProvider
+
+    -- Override table: both Undermine maps count under 2346.
+    assert(HA.Constants.ContinentBadgeOverrides[2346] == 2346 and HA.Constants.ContinentBadgeOverrides[2406] == 2346)
+    assert(HA.Constants.ZoneToContinentMap[2346] == 2274 and HA.Constants.ZoneToContinentMap[2406] == 2274,
+        "both Undermine maps must be in ZoneToContinentMap under Khaz Algar")
+    assert(BC.GetBadgeZoneMapID(2346) == 2346, "Undermine keeps its own key")
+    assert(BC.GetBadgeZoneMapID(2406) == 2346, "the Undermine dungeon map counts under Undermine")
+    assert(BC.GetBadgeZoneMapID(2214) == 2214, "The Ringing Deeps is its own key")
+
+    local kd = BC:GetZoneVendorCounts(2274, "all")
+    assert(kd[2346] and kd[2346].vendorCount == 2, "Undermine key holds both Undermine maps' vendors")
+    assert(kd[2214] and kd[2214].vendorCount == 1, "The Ringing Deeps no longer absorbs Undermine")
+    assert(kd[2406] == nil, "the dungeon map keeps no key of its own")
+
+    -- K'aresh: Tazavesh is the same type as its parent, so it is badged.
+    local kr = BC:GetChildMapVendorCounts(2371, "all")
+    local keys = 0
+    for _ in pairs(kr) do keys = keys + 1 end
+    assert(keys == 1 and kr[2472] and kr[2472].vendorCount == 2,
+        "K'aresh view: one child badge for Tazavesh with 2 vendors")
+    assert(kr[2472].zoneName == "Tazavesh" and kr[2472].totalItems == 2)
+
+    -- Voidstorm: both Zone-type children are badged; the Voidstorm vendor is a pin.
+    local vs = BC:GetChildMapVendorCounts(2405, "all")
+    assert(vs[2444] and vs[2444].vendorCount == 1 and vs[2599] and vs[2599].vendorCount == 1,
+        "Voidstorm view: badges for Slayer's Rise and Umbral Base Camp")
+    assert(vs[2405] == nil, "the viewed map's own vendor is never badged")
+
+    -- Same-type parent/child pairs from the ticket.
+    assert(BC:GetChildMapVendorCounts(2395, "all")[2393].vendorCount == 1, "Silvermoon City on Eversong Woods")
+    assert(BC:GetChildMapVendorCounts(2214, "all")[2346].vendorCount == 1,
+        "Undermine on The Ringing Deeps counts its zone vendor only")
+    assert(BC:GetChildMapVendorCounts(2214, "all")[2406] == nil,
+        "the dungeon map is drawn as pins on The Ringing Deeps, so it gets no badge")
+
+    -- Children all drawn as pins: nothing to badge.
+    assert(next(BC:GetChildMapVendorCounts(2512, "all")) == nil, "dungeon child is pinned, no badge")
+    assert(next(BC:GetChildMapVendorCounts(2509, "all")) == nil, "a map without children has no badges")
+
+    -- Vertical siblings merge under one child badge; deeper vendors count under
+    -- the direct child that leads to them.
+    local ak = BC:GetChildMapVendorCounts(2255, "all")
+    assert(ak[2213] and ak[2213].vendorCount == 2 and ak[2216] == nil,
+        "City of Threads and its lower half share one child badge")
+    local akd = BC:GetChildMapVendorCounts(2274, "all")
+    assert(akd[2255] and akd[2255].vendorCount == 2, "both City of Threads halves count under their direct child Azj-Kahet")
+
+    -- No vendor is both pinned and badged: on every view the pinned vendors and
+    -- the badged vendors partition the vendors that sit below the view.
+    for _, view in ipairs({ 2371, 2405, 2395, 2214, 2512, 2255 }) do
+        local pinned = { [view] = true }
+        for _, childID in ipairs(MPP:GetMoreSpecificChildMapIDs(view)) do pinned[childID] = true end
+        local badgedExpected = 0
+        for _, vendor in ipairs(vendors) do
+            local mapID = mapByNpc[vendor.npcID]
+            local below = false
+            local current = mapID
+            for _ = 1, 6 do
+                local parent = MPP:GetParentMapID(current)
+                if not parent then break end
+                if parent == view then below = true break end
+                current = parent
+            end
+            if below and not pinned[mapID] then badgedExpected = badgedExpected + 1 end
+        end
+        local badged = 0
+        for _, entry in pairs(BC:GetChildMapVendorCounts(view, "all")) do badged = badged + entry.vendorCount end
+        assert(badged == badgedExpected, "view " .. view .. " badges " .. badged .. " vendors, expected " .. badgedExpected)
+    end
+
+    -- Cache: the second build is a hit (same table, no vendor walk); invalidation drops it.
+    local walks = 0
+    local realGetAll = HA.VendorData.GetAllVendors
+    HA.VendorData.GetAllVendors = function(...) walks = walks + 1 return realGetAll(...) end
+    local first = BC:GetChildMapVendorCounts(2371, "all")
+    local second = BC:GetChildMapVendorCounts(2371, "all")
+    assert(rawequal(first, second), "second build must be answered from the cache")
+    assert(walks == 0, "a cached view must not walk the vendor list, walked " .. walks)
+    BC:InvalidateBadgeCache()
+    local third = BC:GetChildMapVendorCounts(2371, "all")
+    assert(not rawequal(first, third) and walks == 1, "InvalidateBadgeCache must drop the child-map cache")
+    BC:InvalidateAllCaches()
+    BC:GetChildMapVendorCounts(2371, "all")
+    assert(walks == 2, "InvalidateAllCaches must drop the child-map cache")
+    HA.VendorData.GetAllVendors = realGetAll
+    assert(BC:GetDebugCacheTables().cachedChildMapBadges, "debug accessor exposes the child-map cache")
+
+    -- Emission: a K'aresh view yields one Tazavesh zone badge in the existing shape.
+    C_Map.GetMapRectOnMap = function() return 0.4, 0.6, 0.4, 0.6 end
+    local Emission = LoadEmission(HA)
+    local state = { zoneBadges = {} }
+    Emission:ShowChildMapBadges(2371, state)
+    assert(#state.zoneBadges == 1, "one badge expected, got " .. #state.zoneBadges)
+    local badge = state.zoneBadges[1]
+    assert(badge.mapID == 2472 and badge.badgeData.mapID == 2472 and badge.badgeData.vendorCount == 2
+        and badge.badgeData.zoneName == "Tazavesh", "badge carries the child map and its counts")
+    assert(math.abs(badge.x - 0.5) < 1e-9 and math.abs(badge.y - 0.5) < 1e-9)
+
+    -- Source gates follow the vendor pins.
+    HA.VendorMapPins.filter = "drop"
+    state = { zoneBadges = {} }
+    Emission:ShowChildMapBadges(2371, state)
+    assert(#state.zoneBadges == 0, "no badges under a non-vendor source filter")
+    HA.VendorMapPins.filter = "all"
+    HA.VendorMapPins.vendorEnabled = false
+    Emission:ShowChildMapBadges(2371, state)
+    assert(#state.zoneBadges == 0, "no badges when the vendor source is off")
+
+    -- A failed projection skips the badge and logs through the skip hook.
+    C_Map.GetMapRectOnMap = function() return nil end
+    local HA2 = NewHA()
+    HA2.MapPinProvider.manualZoneCenters = {}
+    LoadBadgeCalculation(HA2, vendors, mapByNpc)
+    local Emission2 = LoadEmission(HA2)
+    state = { zoneBadges = {} }
+    Emission2:ShowChildMapBadges(2371, state)
+    assert(#state.zoneBadges == 0 and #HA2.VendorMapPins.skips == 1
+        and HA2.VendorMapPins.skips[1]:find("^child_map_badge:2472:2371:"), "projection failure is skipped and logged")
+
+    print("hs497_subzone_badge_rollup: Undermine override and child-map badges ok")
 end
 
 -------------------------------------------------------------------------------

@@ -1352,6 +1352,10 @@ function VendorMapPins:ShowZoneBadges(continentMapID, renderState)
     return HA.BadgeEmission:ShowZoneBadges(continentMapID, renderState)
 end
 
+function VendorMapPins:ShowChildMapBadges(viewMapID, renderState)
+    return HA.BadgeEmission:ShowChildMapBadges(viewMapID, renderState)
+end
+
 function VendorMapPins:ShowZoneBadgesOnWorldMap(renderState)
     return HA.BadgeEmission:ShowZoneBadgesOnWorldMap(renderState)
 end

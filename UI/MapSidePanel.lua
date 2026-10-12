@@ -2011,16 +2011,15 @@ local function BuildZoneExpansionRows(zoneMapID, rows)
     end
 end
 
--- Build continent expansion: append zone sub-row records for a continent at world level.
-local function BuildContinentExpansionRows(continentMapID, rows)
-    if not BC then return end
-
-    local zoneCounts = BC:GetZoneVendorCounts(continentMapID, State.panelSourceFilter)
-
+-- Append a zone sub-row record per entry of a zone-count table, sorted by name.
+-- skipEmpty drops entries with no counted vendor.
+local function AppendZoneSubRows(zoneCounts, rows, skipEmpty)
     -- Build sorted zone list
     local zoneList = {}
     for zoneMapID, data in pairs(zoneCounts) do
-        zoneList[#zoneList + 1] = { mapID = zoneMapID, data = data }
+        if not skipEmpty or (data.vendorCount or 0) > 0 then
+            zoneList[#zoneList + 1] = { mapID = zoneMapID, data = data }
+        end
     end
     table.sort(zoneList, function(a, b)
         return (a.data.zoneName or "") < (b.data.zoneName or "")
@@ -2059,6 +2058,23 @@ local function BuildContinentExpansionRows(continentMapID, rows)
             countColor = countColor,
         }
     end
+end
+
+-- Build continent expansion: append zone sub-row records for a continent at world level.
+local function BuildContinentExpansionRows(continentMapID, rows)
+    if not BC then return end
+
+    AppendZoneSubRows(BC:GetZoneVendorCounts(continentMapID, State.panelSourceFilter), rows)
+end
+
+-- Zone view: zone sub-rows for the child maps whose vendors the map shows as
+-- a badge rather than pins. Returns the number of rows appended.
+local function AppendChildMapRows(viewMapID, rows)
+    if not BC then return 0 end
+
+    local before = #rows
+    AppendZoneSubRows(BC:GetChildMapVendorCounts(viewMapID, State.panelSourceFilter), rows, true)
+    return #rows - before
 end
 
 -------------------------------------------------------------------------------
@@ -3513,10 +3529,11 @@ function MapSidePanel:RefreshContent()
         totalLocked = totalLocked + rec.locked
     end
 
+    local childRowCount = AppendChildMapRows(mapID, rows)
     SetListRows(rows)
 
     -- Empty state
-    if #vendorList == 0 then
+    if #vendorList == 0 and childRowCount == 0 then
         State.emptyText:SetText("No vendors in this zone")
         State.emptyText:Show()
     else

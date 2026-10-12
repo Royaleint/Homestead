@@ -138,6 +138,33 @@ function BadgeEmission:ShowZoneBadges(continentMapID, renderState)
     end
 
 end
+
+-- Zone-style badges on a non-continent view for child maps whose vendors the
+-- view does not draw as pins (e.g. Tazavesh on K'aresh). Follows the vendor
+-- pin provider's source gates so a badge never shows where its pins would not.
+function BadgeEmission:ShowChildMapBadges(viewMapID, renderState)
+    local sourceFilter = HA.VendorMapPins:GetActiveSourceFilter()
+    if sourceFilter ~= "all" and sourceFilter ~= "vendor" then return end
+    if not HA.VendorMapPins:IsMapFilterSourceEnabled("vendor") then return end
+
+    for childMapID, childData in pairs(BC:GetChildMapVendorCounts(viewMapID, sourceFilter)) do
+        if childData.vendorCount > 0 then
+            local ok, x, y, reason = MPP:ProjectZoneBadgeToContinentView(viewMapID, childMapID)
+            if ok then
+                renderState.zoneBadges[#renderState.zoneBadges + 1] = {
+                    badgeData = BuildBadgeData(childMapID, childData.zoneName, childData),
+                    mapID = childMapID,
+                    x = x,
+                    y = y,
+                    reason = reason,
+                }
+            else
+                HA.VendorMapPins:DebugWorldMapProjectionSkip("child_map_badge", childMapID, viewMapID, reason)
+            end
+        end
+    end
+end
+
 function BadgeEmission:ShowZoneBadgesOnWorldMap(renderState)
     local sourceFilter = HA.VendorMapPins:GetActiveSourceFilter()
     local continentCounts = BC:GetContinentVendorCounts(sourceFilter)
