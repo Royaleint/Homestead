@@ -38,7 +38,7 @@ local MAPS = {
     [2512] = { "The Coiled Isle", 2537, ZONE },
     [2537] = { "Quel'Thalas", 13, CONTINENT },
     [627] = { "Dalaran", 619, DUNGEON },
-    [628] = { "Dalaran Underbelly", 627, DUNGEON },
+    [628] = { "Dalaran Underbelly", 619, DUNGEON },
     [2576] = { "The Den", 2413, MICRO },
     [9001] = { "Orphan", 0, ORPHAN },
 }

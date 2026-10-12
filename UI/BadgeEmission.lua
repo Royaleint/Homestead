@@ -139,7 +139,7 @@ function BadgeEmission:ShowZoneBadges(continentMapID, renderState)
 
 end
 
--- Zone-style badges on a non-continent view for child maps whose vendors the
+-- Zone-style badges on a zone view for child maps whose vendors the
 -- view does not draw as pins (e.g. Tazavesh on K'aresh). Follows the vendor
 -- pin provider's source gates so a badge never shows where its pins would not.
 function BadgeEmission:ShowChildMapBadges(viewMapID, renderState)
@@ -193,7 +193,19 @@ function BadgeEmission:ShowZoneBadgesOnWorldMap(renderState)
                     reason = "manual_continent_position",
                 }
             elseif not MPP.excludedContinents[continentMapID] then
-                local zoneCounts = BC:GetZoneVendorCounts(continentMapID, sourceFilter)
+                -- A continent whose totals roll into this one has no key of its
+                -- own, so its zones are drawn here (Quel'Thalas with Eastern Kingdoms).
+                local zoneCounts = {}
+                for zoneMapID, zoneData in pairs(BC:GetZoneVendorCounts(continentMapID, sourceFilter)) do
+                    zoneCounts[zoneMapID] = zoneData
+                end
+                for srcContinentID, destContinentID in pairs(MPP.continentZoneBadgesOnParent) do
+                    if destContinentID == continentMapID then
+                        for zoneMapID, zoneData in pairs(BC:GetZoneVendorCounts(srcContinentID, sourceFilter)) do
+                            zoneCounts[zoneMapID] = zoneData
+                        end
+                    end
+                end
                 for zoneMapID, zoneData in pairs(zoneCounts) do
                     if zoneData.vendorCount > 0 then
                         local ok, x, y, reason = MPP:ProjectZoneBadgeToWorldView(zoneMapID)

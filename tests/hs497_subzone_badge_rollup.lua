@@ -32,6 +32,8 @@ C_Timer = {
 local WORLD, CONTINENT, ZONE, DUNGEON, MICRO = 1, 2, 3, 4, 5
 Enum = { UIMapType = { Cosmic = 0, World = 1, Continent = 2, Zone = 3, Dungeon = 4, Micro = 5, Orphan = 6 } }
 local MAPS = {
+    [13] = { "Eastern Kingdoms", 947, CONTINENT },
+    [17] = { "Blasted Lands", 13 },
     [2537] = { "Quel'Thalas", 13, CONTINENT },
     [2405] = { "Voidstorm", 2537 },
     [2444] = { "Slayer's Rise", 2405 },
@@ -246,9 +248,10 @@ do
             .. " vendors, expected " .. expected .. " (a vendor vanished from or was double-counted in the keys)")
     end
 
-    -- Continent totals are unaffected by the roll-up.
+    -- Continent totals are unaffected by the roll-up: Quel'Thalas counts every
+    -- vendor once, under Eastern Kingdoms.
     local totals = BC:GetContinentVendorCounts("all")
-    assert(totals[2537].vendorCount == 8, "continent total counts every vendor once, got " .. totals[2537].vendorCount)
+    assert(totals[13].vendorCount == 8, "continent total counts every vendor once, got " .. totals[13].vendorCount)
 
     print("hs497_subzone_badge_rollup: GetZoneVendorCounts one badge per zone ok")
 end
@@ -321,7 +324,6 @@ do
     assert(BC:GetChildMapVendorCounts(2214, "all")[2406] == nil,
         "the dungeon map is drawn as pins on The Ringing Deeps, so it gets no badge")
 
-    -- Children all drawn as pins: nothing to badge.
     -- Vaults of Atal'Utek is a Zone map, the same type as its parent, so it is not
     -- drawn as pins on The Coiled Isle and is badged there.
     local ci = BC:GetChildMapVendorCounts(2512, "all")
@@ -427,6 +429,89 @@ do
         assert(excluded[zoneMapID], "zone " .. zoneMapID .. " must stay off the Eastern Kingdoms map")
     end
     print("hs497_subzone_badge_rollup: Eastern Kingdoms exclusions cover the rolled-up zones ok")
+end
+
+-------------------------------------------------------------------------------
+-- Quel'Thalas rolls into Eastern Kingdoms on the Azeroth world map
+-------------------------------------------------------------------------------
+
+do
+    local HA = NewHA()
+    C_Map.GetMapRectOnMap = function() return 0.4, 0.6, 0.4, 0.6 end
+    -- 17 (Blasted Lands) sits directly under Eastern Kingdoms (13).
+    local mapByNpc = {
+        [1] = 17, [2] = 17, [3] = 17,                 -- Eastern Kingdoms: 3
+        [4] = 2395, [5] = 2393,                       -- Eversong Woods, Silvermoon City
+        [6] = 2405, [7] = 2444,                       -- Voidstorm and its sub-zone (excluded from the overlay)
+        [8] = 2413,                                   -- Harandar (excluded from the overlay)
+        [9] = 2512,                                   -- The Coiled Isle
+    }
+    local vendors = {}
+    for npcID = 1, 9 do vendors[#vendors + 1] = { npcID = npcID } end
+    local BC = LoadBadgeCalculation(HA, vendors, mapByNpc)
+    local MPP = HA.MapPinProvider
+    local Emission = LoadEmission(HA)
+
+    local function Count(t)
+        local n = 0
+        for _ in pairs(t) do n = n + 1 end
+        return n
+    end
+
+    -- Totals: one Eastern Kingdoms entry carrying both, excluded zones included.
+    local totals = BC:GetContinentVendorCounts("all")
+    assert(totals[2537] == nil, "Quel'Thalas has no continent entry of its own")
+    assert(totals[13] and totals[13].vendorCount == 9, "Eastern Kingdoms carries both, got "
+        .. tostring(totals[13] and totals[13].vendorCount))
+    assert(totals[13].totalItems == 9, "item totals are combined too")
+    assert(Count(totals) == 1, "no other continent entries")
+
+    -- Zone counts per continent are untouched by the roll-up.
+    assert(Count(BC:GetZoneVendorCounts(13, "all")) == 1 and BC:GetZoneVendorCounts(13, "all")[17].vendorCount == 3)
+    assert(BC:GetZoneVendorCounts(2537, "all")[2395].vendorCount == 2)
+
+    -- Side panel expansion reaches every zone behind the combined total.
+    local rolled = BC:GetRolledUpZoneVendorCounts(13, "all")
+    assert(rolled[17] and rolled[2395] and rolled[2405] and rolled[2413] and rolled[2512],
+        "expanding Eastern Kingdoms lists the Quel'Thalas zones too")
+    assert(Count(rolled) == 5)
+    assert(Count(BC:GetRolledUpZoneVendorCounts(2537, "all")) == 4, "Quel'Thalas alone is unchanged")
+
+    -- World map, continent totals: a single Eastern Kingdoms badge, none for 2537.
+    local state = { continentBadges = {}, zoneBadges = {} }
+    Emission:ShowContinentBadges(state)
+    assert(#state.continentBadges == 1 and state.continentBadges[1].mapID == 13
+        and state.continentBadges[1].badgeData.vendorCount == 9, "one combined Eastern Kingdoms badge")
+
+    -- World map, zone badges mode: the Quel'Thalas zones are still drawn.
+    HA.Addon = { db = { profile = { vendorTracer = { worldMapZoneBadges = true } } } }
+    state = { continentBadges = {}, zoneBadges = {} }
+    Emission:ShowContinentBadges(state)
+    local drawn = {}
+    for _, badge in ipairs(state.zoneBadges) do drawn[badge.mapID] = (drawn[badge.mapID] or 0) + 1 end
+    assert(#state.continentBadges == 0, "zone mode draws no continent badge")
+    for _, zoneMapID in ipairs({ 17, 2395, 2405, 2413, 2512 }) do
+        assert(drawn[zoneMapID] == 1, "zone " .. zoneMapID .. " drawn once on the world map, got " .. tostring(drawn[zoneMapID]))
+    end
+    assert(#state.zoneBadges == 5)
+    HA.Addon = nil
+
+    -- Eastern Kingdoms continent map: today's zones, exclusions honoured, no duplicates.
+    state = { zoneBadges = {} }
+    Emission:ShowZoneBadges(13, state)
+    drawn = {}
+    for _, badge in ipairs(state.zoneBadges) do drawn[badge.mapID] = (drawn[badge.mapID] or 0) + 1 end
+    assert(drawn[17] == 1 and drawn[2395] == 1 and drawn[2512] == 1, "own and allowed overlay zones drawn once")
+    assert(drawn[2405] == nil and drawn[2413] == nil, "excluded zones stay off the Eastern Kingdoms map")
+    assert(#state.zoneBadges == 3)
+
+    -- Quel'Thalas continent map: its own zones, nothing added or removed.
+    state = { zoneBadges = {} }
+    Emission:ShowZoneBadges(2537, state)
+    assert(#state.zoneBadges == 4, "Quel'Thalas map keeps all its zone badges, got " .. #state.zoneBadges)
+    assert(MPP.continentZoneBadgesOnParent[2537] == 13)
+
+    print("hs497_subzone_badge_rollup: Quel'Thalas rolls into Eastern Kingdoms ok")
 end
 
 print("hs497_subzone_badge_rollup: ok")

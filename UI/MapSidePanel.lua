@@ -2060,11 +2060,12 @@ local function AppendZoneSubRows(zoneCounts, rows, skipEmpty)
     end
 end
 
--- Build continent expansion: append zone sub-row records for a continent at world level.
+-- Build continent expansion: append zone sub-row records for a continent at world level,
+-- including the zones of continents whose totals roll into it.
 local function BuildContinentExpansionRows(continentMapID, rows)
     if not BC then return end
 
-    AppendZoneSubRows(BC:GetZoneVendorCounts(continentMapID, State.panelSourceFilter), rows)
+    AppendZoneSubRows(BC:GetRolledUpZoneVendorCounts(continentMapID, State.panelSourceFilter), rows)
 end
 
 -- Zone view: zone sub-rows for the child maps whose vendors the map shows as

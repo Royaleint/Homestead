@@ -893,6 +893,35 @@ function BadgeCalculation:GetChildMapVendorCounts(viewMapID, sourceFilter)
     return childCounts
 end
 
+-- Adds the source continent's totals to the destination's and removes the
+-- source key, so the world map carries one badge for both.
+local function RollContinentCountsInto(continentCounts, srcID, destID)
+    local src = continentCounts[srcID]
+    if not src then return end
+    if not continentCounts[destID] then
+        local mapInfo = C_Map.GetMapInfo(destID)
+        continentCounts[destID] = {
+            continentName = mapInfo and mapInfo.name or "Unknown",
+            vendorCount = 0, uncollectedCount = 0, unknownCount = 0,
+            oppositeFactionCount = 0, collectedItems = 0, totalItems = 0,
+            lockedItems = 0, unverifiedItems = 0, unobtainableItems = 0,
+            excludedItems = 0,
+        }
+    end
+    local dest = continentCounts[destID]
+    dest.vendorCount          = dest.vendorCount          + src.vendorCount
+    dest.uncollectedCount     = dest.uncollectedCount     + src.uncollectedCount
+    dest.unknownCount         = dest.unknownCount         + src.unknownCount
+    dest.oppositeFactionCount = dest.oppositeFactionCount + src.oppositeFactionCount
+    dest.collectedItems       = dest.collectedItems       + src.collectedItems
+    dest.totalItems           = dest.totalItems           + src.totalItems
+    dest.lockedItems          = dest.lockedItems          + src.lockedItems
+    dest.unverifiedItems      = dest.unverifiedItems      + src.unverifiedItems
+    dest.unobtainableItems    = dest.unobtainableItems    + (src.unobtainableItems or 0)
+    dest.excludedItems        = dest.excludedItems        + (src.excludedItems or 0)
+    continentCounts[srcID] = nil
+end
+
 function BadgeCalculation:GetContinentVendorCounts(sourceFilter)
     sourceFilter = NormalizeSourceFilter(sourceFilter)
     local cacheKey = sourceFilter .. "|" .. GetAvailabilityDateStamp()
@@ -972,37 +1001,37 @@ function BadgeCalculation:GetContinentVendorCounts(sourceFilter)
         end
     end
 
-    -- Roll child continent counts into their parent (e.g. Argus → Broken Isles)
+    -- Roll child continent counts into their parent: Argus into Broken Isles,
+    -- Quel'Thalas into Eastern Kingdoms.
     for srcID, destID in pairs(BadgeCalculation.continentMergesInto) do
-        local src = continentCounts[srcID]
-        if src then
-            if not continentCounts[destID] then
-                local mapInfo = C_Map.GetMapInfo(destID)
-                continentCounts[destID] = {
-                    continentName = mapInfo and mapInfo.name or "Unknown",
-                    vendorCount = 0, uncollectedCount = 0, unknownCount = 0,
-                    oppositeFactionCount = 0, collectedItems = 0, totalItems = 0,
-                    lockedItems = 0, unverifiedItems = 0, unobtainableItems = 0,
-                    excludedItems = 0,
-                }
-            end
-            local dest = continentCounts[destID]
-            dest.vendorCount          = dest.vendorCount          + src.vendorCount
-            dest.uncollectedCount     = dest.uncollectedCount     + src.uncollectedCount
-            dest.unknownCount         = dest.unknownCount         + src.unknownCount
-            dest.oppositeFactionCount = dest.oppositeFactionCount + src.oppositeFactionCount
-            dest.collectedItems       = dest.collectedItems       + src.collectedItems
-            dest.totalItems           = dest.totalItems           + src.totalItems
-            dest.lockedItems          = dest.lockedItems          + src.lockedItems
-            dest.unverifiedItems      = dest.unverifiedItems      + src.unverifiedItems
-            dest.unobtainableItems    = dest.unobtainableItems    + (src.unobtainableItems or 0)
-            dest.excludedItems        = dest.excludedItems        + (src.excludedItems or 0)
-            continentCounts[srcID] = nil
-        end
+        RollContinentCountsInto(continentCounts, srcID, destID)
+    end
+    for srcID, destID in pairs(BadgeCalculation.continentZoneBadgesOnParent) do
+        RollContinentCountsInto(continentCounts, srcID, destID)
     end
 
     cachedContinentBadges[cacheKey] = continentCounts
     return continentCounts
+end
+
+-- Zone counts for a continent plus the zones of every continent rolled into
+-- it, for lists that must reach all zones behind one continent total. Zone
+-- keys are unique across continents, so the tables never collide.
+function BadgeCalculation:GetRolledUpZoneVendorCounts(continentMapID, sourceFilter)
+    local merged = {}
+    for zoneMapID, zoneData in pairs(self:GetZoneVendorCounts(continentMapID, sourceFilter)) do
+        merged[zoneMapID] = zoneData
+    end
+    for _, rollups in ipairs({ self.continentMergesInto, self.continentZoneBadgesOnParent }) do
+        for srcID, destID in pairs(rollups) do
+            if destID == continentMapID then
+                for zoneMapID, zoneData in pairs(self:GetZoneVendorCounts(srcID, sourceFilter)) do
+                    merged[zoneMapID] = zoneData
+                end
+            end
+        end
+    end
+    return merged
 end
 
 -------------------------------------------------------------------------------

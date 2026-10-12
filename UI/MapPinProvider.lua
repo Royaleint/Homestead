@@ -73,8 +73,8 @@ MapPinProvider.continentMergesInto = {
     [905] = 619,   -- Argus → Broken Isles
 }
 
--- Continents whose zone badges should also be shown on another continent map.
--- This is a display-only overlay on continent views; it does not merge totals.
+-- Continents whose totals roll into another continent on the world map, and whose
+-- zone badges are also drawn on that continent's own map (minus the exclusions below).
 MapPinProvider.continentZoneBadgesOnParent = {
     [2537] = 13,   -- Midnight/Quel'Thalas zones on Eastern Kingdoms continent map
 }
