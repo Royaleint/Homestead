@@ -474,6 +474,10 @@ local function MeasureInteractiveWidth(hover)
     frame:SetMinimumWidth(INTERACTIVE_MIN_WIDTH)
     frame:SetPadding(0, INTERACTIVE_BOTTOM_PADDING)
     AddInteractiveLines(hover, hover.wares, 1, #hover.wares, true)
+    -- Sized on both sides of the lines: wrapped lines need the width as they go
+    -- in, and a minimum set on an empty tooltip is not known to hold.
+    frame:SetMinimumWidth(INTERACTIVE_MIN_WIDTH)
+    frame:SetPadding(0, INTERACTIVE_BOTTOM_PADDING)
     frame:Show()
     local width = frame:GetWidth()
     if not width or width <= 0 then return end
@@ -534,6 +538,8 @@ local function RenderInteractiveWindow(hover)
     -- The bar column stays reserved when the bar hides, so a search never moves the right edge.
     frame:SetPadding(INTERACTIVE_RIGHT_PADDING, INTERACTIVE_BOTTOM_PADDING)
     AddInteractiveLines(hover, hover.matches, hover.offset + 1, last)
+    frame:SetMinimumWidth(hover.measuredWidth or INTERACTIVE_MIN_WIDTH)
+    frame:SetPadding(INTERACTIVE_RIGHT_PADDING, INTERACTIVE_BOTTOM_PADDING)
     frame:Show()
     -- Placed once per hover, once the height is real; a zero height reads as room below.
     if not hover.anchored and hover.measuredWidth and frame:GetHeight() > 0 then

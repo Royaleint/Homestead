@@ -76,17 +76,20 @@ function FRAME_METHODS:EnableMouse() end
 function FRAME_METHODS:EnableMouseWheel() end
 function FRAME_METHODS:SetOwner(owner) self.owner = owner end
 function FRAME_METHODS:GetOwner() return self.owner end
--- sizedSinceClear: which of minimum width and padding were set after the last
--- clear; firstLineSized: its value when the first line went in.
+-- sizedSinceClear and sizedSinceLine: which of minimum width and padding were
+-- set after the last clear and after the last added line. firstLineSized: the
+-- former when the first line went in. showLog: both, and the values, at each Show.
 local function NoteFirstLine(frame)
     if #frame.lines == 0 then
         local sized = frame.sizedSinceClear or {}
         frame.firstLineSized = { minimum = sized.minimum, padding = sized.padding }
     end
+    frame.sizedSinceLine = {}
 end
 function FRAME_METHODS:ClearLines()
     self.lines = {}
     self.sizedSinceClear = {}
+    self.sizedSinceLine = {}
 end
 function FRAME_METHODS:AddLine(text, _, _, _, wrap)
     NoteFirstLine(self)
@@ -101,10 +104,12 @@ function FRAME_METHODS:SetPoint(...) self.points[#self.points + 1] = { ... } end
 function FRAME_METHODS:SetMinimumWidth(width)
     self.minWidth = width
     if self.sizedSinceClear then self.sizedSinceClear.minimum = true end
+    if self.sizedSinceLine then self.sizedSinceLine.minimum = true end
 end
 function FRAME_METHODS:SetPadding(right, bottom)
     self.padding = { right, bottom }
     if self.sizedSinceClear then self.sizedSinceClear.padding = true end
+    if self.sizedSinceLine then self.sizedSinceLine.padding = true end
 end
 function FRAME_METHODS:SetHeight() end
 function FRAME_METHODS:GetWidth()
@@ -125,6 +130,13 @@ function FRAME_METHODS:HookScript(name, fn)
 end
 function FRAME_METHODS:IsShown() return self.shown end
 function FRAME_METHODS:Show()
+    if self.showLog then
+        local first, last = self.firstLineSized or {}, self.sizedSinceLine or {}
+        self.showLog[#self.showLog + 1] = {
+            sizedFirst = first.minimum and first.padding, sizedLast = last.minimum and last.padding,
+            minWidth = self.minWidth, rightPadding = self.padding and self.padding[1],
+        }
+    end
     if self.shown then return end
     self.shown = true
     Fire(self, "OnShow")
@@ -1260,6 +1272,7 @@ do
         local t = OpenVendor(module, HA, vendor)
         module:HidePinTooltip()
         t.frame.widthModel = model
+        t.frame.showLog = {}
         module:ShowVendorTooltip(t.pin, vendor)
 
         local function ExpectSizedFirst(step)
@@ -1267,6 +1280,20 @@ do
             Check(sized.minimum and sized.padding,
                 label .. ": " .. step .. " sets minimum width and padding after the clear and before the first line")
         end
+        -- Sizing sits on both sides of the lines: before the first and between the last and Show.
+        local function ExpectSizedBothSides(show, step)
+            Check(show.sizedFirst, label .. ": " .. step .. " sizes before the first line")
+            Check(show.sizedLast, label .. ": " .. step .. " sizes after the last line and before Show")
+        end
+
+        -- An open is three Shows: the measuring read, its read-back, and the render.
+        local shows = t.frame.showLog
+        Equal(#shows, 3, label .. ": Shows per open")
+        ExpectSizedBothSides(shows[1], "the measuring read")
+        Equal(shows[1].minWidth, 240, label .. ": the measuring read is taken under the floor")
+        Equal(shows[1].rightPadding, 0, label .. ": the measuring read is taken with no bar column")
+        ExpectSizedBothSides(shows[3], "the opening render")
+        Equal(shows[3].rightPadding, BAR_COLUMN, label .. ": the opening render reserves the bar column")
 
         local widestRow = 20 * (#"  Ware 20 with the longest name on the list" + #"cost 20")
         local expected = widestRow + MARGINS + BAR_COLUMN
@@ -1276,6 +1303,8 @@ do
         Wheel(t.frame, -5)
         Equal(t.frame:GetWidth(), expected, label .. ": scrolling to the widest row keeps the width")
         ExpectSizedFirst("a scroll step")
+        Equal(#shows, 4, label .. ": one Show per scroll step")
+        ExpectSizedBothSides(shows[4], "a scroll render")
         Search(t.box, "ware 1")
         ExpectSizedFirst("a search")
         Check(#RowNames(t.frame) <= 15 and not t.bar.shown, label .. ": the search must hide the bar")
