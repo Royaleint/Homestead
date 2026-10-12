@@ -2061,11 +2061,11 @@ local function AppendZoneSubRows(zoneCounts, rows, skipEmpty)
 end
 
 -- Build continent expansion: append zone sub-row records for a continent at world level,
--- including the zones of continents whose totals roll into it.
+-- with one row for each continent that rolls into it.
 local function BuildContinentExpansionRows(continentMapID, rows)
     if not BC then return end
 
-    AppendZoneSubRows(BC:GetRolledUpZoneVendorCounts(continentMapID, State.panelSourceFilter), rows)
+    AppendZoneSubRows(BC:GetContinentZoneListCounts(continentMapID, State.panelSourceFilter), rows)
 end
 
 -- Zone view: zone sub-rows for the child maps whose vendors the map shows as
@@ -2926,9 +2926,9 @@ function MapSidePanel:RefreshZoneSummaries(mapID, mapInfo)
 
     -- HS-018: honor the panel's source filter at continent view so per-zone
     -- summary rows reflect the active filter (was previously unfiltered).
-    -- Includes the zones of continents whose totals roll into this one, so the
-    -- list adds up to the continent's world-map total.
-    local zoneCounts = BC:GetRolledUpZoneVendorCounts(mapID, State.panelSourceFilter)
+    -- A continent that rolls into this one is a single row carrying its total,
+    -- so the list adds up to this continent's world-map total.
+    local zoneCounts = BC:GetContinentZoneListCounts(mapID, State.panelSourceFilter)
 
     -- Build sorted zone list
     local zoneList = {}
@@ -2991,9 +2991,14 @@ function MapSidePanel:RefreshZoneSummaries(mapID, mapInfo)
             isExpanded = isExpanded,
         }
 
-        -- If expanded, append vendor sub-rows below this zone row
+        -- If expanded, append sub-rows below this row: the zones of a rolled-in
+        -- continent, or the vendors of a zone
         if isExpanded then
-            BuildZoneExpansionRows(entry.mapID, rows)
+            if data.isContinent then
+                BuildContinentExpansionRows(entry.mapID, rows)
+            else
+                BuildZoneExpansionRows(entry.mapID, rows)
+            end
         end
 
         totalCollected = totalCollected + dataCollected

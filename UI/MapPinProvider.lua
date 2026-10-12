@@ -68,6 +68,7 @@ MapPinProvider.excludedContinents = {
 }
 
 -- Continents whose vendor counts and zone badges roll into a parent continent.
+-- A continent must not be both a source and a destination in these roll-up tables: the totals fold assumes no chains.
 -- Argus is accessed via Dalaran (Broken Isles) — logically part of BI on the world map.
 MapPinProvider.continentMergesInto = {
     [905] = 619,   -- Argus → Broken Isles

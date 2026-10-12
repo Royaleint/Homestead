@@ -193,8 +193,9 @@ function BadgeEmission:ShowZoneBadgesOnWorldMap(renderState)
                     reason = "manual_continent_position",
                 }
             elseif not MPP.excludedContinents[continentMapID] then
-                -- A continent whose totals roll into this one has no key of its
-                -- own, so its zones are drawn here (Quel'Thalas with Eastern Kingdoms).
+                -- Continents listed in continentZoneBadgesOnParent have no key of
+                -- their own, so their zones are drawn with their destination
+                -- continent's (Quel'Thalas with Eastern Kingdoms).
                 local zoneCounts = {}
                 for zoneMapID, zoneData in pairs(BC:GetZoneVendorCounts(continentMapID, sourceFilter)) do
                     zoneCounts[zoneMapID] = zoneData

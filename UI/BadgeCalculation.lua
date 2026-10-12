@@ -1014,24 +1014,47 @@ function BadgeCalculation:GetContinentVendorCounts(sourceFilter)
     return continentCounts
 end
 
--- Zone counts for a continent plus the zones of every continent rolled into
--- it, for lists that must reach all zones behind one continent total. Zone
--- keys are unique across continents, so the tables never collide.
-function BadgeCalculation:GetRolledUpZoneVendorCounts(continentMapID, sourceFilter)
-    local merged = {}
-    for zoneMapID, zoneData in pairs(self:GetZoneVendorCounts(continentMapID, sourceFilter)) do
-        merged[zoneMapID] = zoneData
+local ZONE_LIST_SUM_FIELDS = {
+    "vendorCount", "uncollectedCount", "unknownCount", "oppositeFactionCount",
+    "collectedItems", "totalItems", "lockedItems", "unverifiedItems",
+    "unobtainableItems", "excludedItems",
+}
+
+-- One zone-list entry for a whole continent: the sum of its zone entries, in
+-- the same shape, so it totals what that continent's own panel shows.
+local function SumContinentZoneCounts(continentMapID, zoneCounts)
+    local mapInfo = C_Map.GetMapInfo(continentMapID)
+    local entry = { zoneName = mapInfo and mapInfo.name or "Unknown", isContinent = true }
+    for _, field in ipairs(ZONE_LIST_SUM_FIELDS) do
+        entry[field] = 0
     end
-    for _, rollups in ipairs({ self.continentMergesInto, self.continentZoneBadgesOnParent }) do
-        for srcID, destID in pairs(rollups) do
-            if destID == continentMapID then
-                for zoneMapID, zoneData in pairs(self:GetZoneVendorCounts(srcID, sourceFilter)) do
-                    merged[zoneMapID] = zoneData
-                end
+    for _, zoneData in pairs(zoneCounts) do
+        for _, field in ipairs(ZONE_LIST_SUM_FIELDS) do
+            entry[field] = entry[field] + (zoneData[field] or 0)
+        end
+    end
+    return entry
+end
+
+-- Side-panel list for a continent: its own zones plus one entry, keyed by the
+-- continent's map ID, for each continent whose zone badges roll onto it
+-- (Quel'Thalas under Eastern Kingdoms). A rolled-in continent with no vendors
+-- under the filter has no entry. Argus (continentMergesInto) is deliberately
+-- not listed: its map has not been confirmed to open as a continent view.
+function BadgeCalculation:GetContinentZoneListCounts(continentMapID, sourceFilter)
+    local list = {}
+    for zoneMapID, zoneData in pairs(self:GetZoneVendorCounts(continentMapID, sourceFilter)) do
+        list[zoneMapID] = zoneData
+    end
+    for srcID, destID in pairs(self.continentZoneBadgesOnParent) do
+        if destID == continentMapID then
+            local entry = SumContinentZoneCounts(srcID, self:GetZoneVendorCounts(srcID, sourceFilter))
+            if entry.vendorCount > 0 then
+                list[srcID] = entry
             end
         end
     end
-    return merged
+    return list
 end
 
 -------------------------------------------------------------------------------

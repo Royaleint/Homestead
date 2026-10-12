@@ -1,4 +1,4 @@
--- luacheck: globals assert loadfile print C_Timer C_Map Enum CreateFrame InCombatLockdown GetTimePreciseSec wipe rawequal
+-- luacheck: globals assert loadfile print C_Timer C_Map Enum CreateFrame InCombatLockdown GetTimePreciseSec wipe rawequal io loadstring setfenv
 
 local root = (... or "."):gsub("\\\\", "/"):gsub("/+$", "")
 
@@ -33,6 +33,10 @@ local WORLD, CONTINENT, ZONE, DUNGEON, MICRO = 1, 2, 3, 4, 5
 Enum = { UIMapType = { Cosmic = 0, World = 1, Continent = 2, Zone = 3, Dungeon = 4, Micro = 5, Orphan = 6 } }
 local MAPS = {
     [13] = { "Eastern Kingdoms", 947, CONTINENT },
+    [619] = { "Broken Isles", 947, CONTINENT },
+    [905] = { "Argus", 946, CONTINENT },
+    [830] = { "Krokuun", 905 },
+    [709] = { "Suramar", 619 },
     [17] = { "Blasted Lands", 13 },
     [2537] = { "Quel'Thalas", 13, CONTINENT },
     [2405] = { "Voidstorm", 2537 },
@@ -470,12 +474,18 @@ do
     assert(Count(BC:GetZoneVendorCounts(13, "all")) == 1 and BC:GetZoneVendorCounts(13, "all")[17].vendorCount == 3)
     assert(BC:GetZoneVendorCounts(2537, "all")[2395].vendorCount == 2)
 
-    -- Side panel expansion reaches every zone behind the combined total.
-    local rolled = BC:GetRolledUpZoneVendorCounts(13, "all")
-    assert(rolled[17] and rolled[2395] and rolled[2405] and rolled[2413] and rolled[2512],
-        "expanding Eastern Kingdoms lists the Quel'Thalas zones too")
-    assert(Count(rolled) == 5)
-    assert(Count(BC:GetRolledUpZoneVendorCounts(2537, "all")) == 4, "Quel'Thalas alone is unchanged")
+    -- Side panel list: own zones plus one Quel'Thalas entry, never its zones.
+    local list = BC:GetContinentZoneListCounts(13, "all")
+    assert(Count(list) == 2 and list[17] and list[2537], "Eastern Kingdoms lists Blasted Lands and Quel'Thalas")
+    assert(list[2395] == nil and list[2405] == nil and list[2413] == nil and list[2512] == nil,
+        "Quel'Thalas zones are not flattened into Eastern Kingdoms")
+    assert(list[2537].zoneName == "Quel'Thalas" and list[2537].vendorCount == 6
+        and list[2537].totalItems == 6 and list[2537].isContinent, "the entry carries the continent aggregate")
+    local own = BC:GetZoneVendorCounts(2537, "all")
+    local ownVendors = 0
+    for _, zoneData in pairs(own) do ownVendors = ownVendors + zoneData.vendorCount end
+    assert(list[2537].vendorCount == ownVendors, "entry equals the sum of the continent's own zone list")
+    assert(Count(BC:GetContinentZoneListCounts(2537, "all")) == 4, "Quel'Thalas alone lists its own zones")
 
     -- World map, continent totals: a single Eastern Kingdoms badge, none for 2537.
     local state = { continentBadges = {}, zoneBadges = {} }
@@ -512,6 +522,123 @@ do
     assert(MPP.continentZoneBadgesOnParent[2537] == 13)
 
     print("hs497_subzone_badge_rollup: Quel'Thalas rolls into Eastern Kingdoms ok")
+end
+
+-------------------------------------------------------------------------------
+-- The continent totals fold: Argus into Broken Isles, and a destination with
+-- no vendors of its own
+-------------------------------------------------------------------------------
+
+do
+    local HA = NewHA()
+    local mapByNpc = { [1] = 709, [2] = 830 }
+    local BC = LoadBadgeCalculation(HA, { { npcID = 1 }, { npcID = 2 } }, mapByNpc)
+    local totals = BC:GetContinentVendorCounts("all")
+    assert(totals[905] == nil and totals[619] and totals[619].vendorCount == 2,
+        "Argus vendor folds into Broken Isles, got " .. tostring(totals[619] and totals[619].vendorCount))
+    assert(BC:GetContinentZoneListCounts(619, "all")[905] == nil, "Argus is not listed under Broken Isles")
+
+    HA = NewHA()
+    BC = LoadBadgeCalculation(HA, { { npcID = 1 }, { npcID = 2 } }, { [1] = 2395, [2] = 2405 })
+    totals = BC:GetContinentVendorCounts("all")
+    assert(totals[2537] == nil and totals[13] and totals[13].vendorCount == 2 and totals[13].totalItems == 2,
+        "a destination with no vendors of its own takes the source's totals")
+    local list = BC:GetContinentZoneListCounts(13, "all")
+    assert(list[2537] and list[2537].vendorCount == 2 and list[17] == nil,
+        "the list holds only the Quel'Thalas entry")
+
+    -- No vendors under the filter in the rolled-in continent: no entry.
+    HA = NewHA()
+    BC = LoadBadgeCalculation(HA, { { npcID = 1 } }, { [1] = 17 })
+    assert(BC:GetContinentZoneListCounts(13, "all")[2537] == nil, "an empty rolled-in continent has no entry")
+
+    print("hs497_subzone_badge_rollup: continent fold and empty-entry cases ok")
+end
+
+-------------------------------------------------------------------------------
+-- The real side-panel code paths: the continent view list and the continent
+-- expansion sub-rows. UI/MapSidePanel.lua cannot be loaded whole, so the three
+-- functions are cut out of the source text and run against the real
+-- BadgeCalculation with stubs for the panel's frames.
+-------------------------------------------------------------------------------
+
+do
+    local file = assert(io.open(root .. "/UI/MapSidePanel.lua", "rb"))
+    local source = file:read("*a"):gsub("\r\n", "\n")
+    file:close()
+    local function cut(pattern)
+        local text = source:match(pattern)
+        assert(text, "could not extract " .. pattern)
+        return text
+    end
+    local chunkText = cut("(local function AppendZoneSubRows%(.-\nend\n)") .. "\n"
+        .. cut("(local function BuildContinentExpansionRows%(.-\nend\n)") .. "\n"
+        .. cut("(function MapSidePanel:RefreshZoneSummaries%(.-\nend\n)")
+
+    local function Run(HA, expandedMapID)
+        local BC = HA.BadgeCalculation
+        local rows, summary = nil, nil
+        local text = { SetText = function() end, Show = function() end, Hide = function() end }
+        local env = {
+            BC = BC,
+            State = {
+                panelSourceFilter = "all", expandedSummaryMapID = expandedMapID,
+                headerText = text, emptyText = text,
+                summaryText = { SetText = function(_, value) summary = value end },
+            },
+            Layout = {
+                ROW_HEIGHT = 40, SUB_ROW_HEIGHT = 24,
+                COLOR_WHITE = { 1, 1, 1 }, COLOR_DIM = { 0.5, 0.5, 0.5 },
+            },
+            MapSidePanel = {},
+            FormatPurchasabilityCountText = function(collected, total) return collected .. "/" .. total end,
+            SetListRows = function(value) rows = value end,
+            UpdateBackBar = function() end,
+            HideProgressBar = function() end,
+            UpdateProgressBar = function() end,
+            BuildZoneExpansionRows = function(zoneMapID, out)
+                out[#out + 1] = { kind = "subrow", iconMode = "vendor", targetMapID = zoneMapID }
+            end,
+            string = string, table = table, ipairs = ipairs, pairs = pairs,
+        }
+        local chunk = assert(loadstring(chunkText .. "\nreturn BuildContinentExpansionRows"))
+        setfenv(chunk, env)
+        local buildContinentExpansionRows = chunk()
+        env.MapSidePanel:RefreshZoneSummaries(13, { name = "Eastern Kingdoms" })
+        local expansion = {}
+        buildContinentExpansionRows(13, expansion)
+        return rows, summary, expansion
+    end
+
+    local HA = NewHA()
+    local mapByNpc = { [1] = 17, [2] = 17, [3] = 2395, [4] = 2405, [5] = 2512 }
+    local vendors = {}
+    for npcID = 1, 5 do vendors[npcID] = { npcID = npcID } end
+    LoadBadgeCalculation(HA, vendors, mapByNpc)
+
+    local rows, summary, expansion = Run(HA, nil)
+    assert(#rows == 2, "continent view: Blasted Lands and Quel'Thalas, got " .. #rows)
+    assert(rows[1].name == "Blasted Lands" and rows[1].targetMapID == 17 and rows[1].vendorCount == 2)
+    assert(rows[2].name == "Quel'Thalas" and rows[2].targetMapID == 2537 and rows[2].vendorCount == 3
+        and rows[2].collectedItems == 0 and rows[2].totalItems == 3 and rows[2].kind == "summary",
+        "continent view: one Quel'Thalas row carrying the aggregate")
+    assert(rows[2].summaryLineText == "3 vendors | 0/3", "row text, got " .. tostring(rows[2].summaryLineText))
+    assert(summary == "2 zones | 0/5 items", "footer still totals the listed rows, got " .. tostring(summary))
+
+    assert(#expansion == 2 and expansion[1].name == "Blasted Lands" and expansion[2].name == "Quel'Thalas"
+        and expansion[2].targetMapID == 2537 and expansion[2].iconMode == "zone"
+        and expansion[2].countText == "0/3", "expansion: one Quel'Thalas sub-row targeting 2537")
+
+    -- Expanding the Quel'Thalas row lists its zones, not a vendor expansion.
+    rows = Run(HA, 2537)
+    local names = {}
+    for _, row in ipairs(rows) do names[#names + 1] = row.name or ("<" .. row.iconMode .. ">") end
+    assert(#rows == 5 and rows[3].name == "Eversong Woods" and rows[4].name == "The Coiled Isle"
+        and rows[5].name == "Voidstorm", "expanded Quel'Thalas lists its zones: " .. table.concat(names, ", "))
+    rows = Run(HA, 17)
+    assert(#rows == 3 and rows[2].iconMode == "vendor", "an expanded zone still expands to its vendors")
+
+    print("hs497_subzone_badge_rollup: side panel lists one Quel'Thalas row ok")
 end
 
 print("hs497_subzone_badge_rollup: ok")
