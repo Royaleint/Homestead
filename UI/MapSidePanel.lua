@@ -2926,7 +2926,9 @@ function MapSidePanel:RefreshZoneSummaries(mapID, mapInfo)
 
     -- HS-018: honor the panel's source filter at continent view so per-zone
     -- summary rows reflect the active filter (was previously unfiltered).
-    local zoneCounts = BC:GetZoneVendorCounts(mapID, State.panelSourceFilter)
+    -- Includes the zones of continents whose totals roll into this one, so the
+    -- list adds up to the continent's world-map total.
+    local zoneCounts = BC:GetRolledUpZoneVendorCounts(mapID, State.panelSourceFilter)
 
     -- Build sorted zone list
     local zoneList = {}
