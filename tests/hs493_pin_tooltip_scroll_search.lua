@@ -76,13 +76,36 @@ function FRAME_METHODS:EnableMouse() end
 function FRAME_METHODS:EnableMouseWheel() end
 function FRAME_METHODS:SetOwner(owner) self.owner = owner end
 function FRAME_METHODS:GetOwner() return self.owner end
-function FRAME_METHODS:ClearLines() self.lines = {} end
-function FRAME_METHODS:AddLine(text, _, _, _, wrap) self.lines[#self.lines + 1] = { left = text, wrap = wrap } end
-function FRAME_METHODS:AddDoubleLine(left, right) self.lines[#self.lines + 1] = { left = left, right = right } end
+-- sizedSinceClear: which of minimum width and padding were set after the last
+-- clear; firstLineSized: its value when the first line went in.
+local function NoteFirstLine(frame)
+    if #frame.lines == 0 then
+        local sized = frame.sizedSinceClear or {}
+        frame.firstLineSized = { minimum = sized.minimum, padding = sized.padding }
+    end
+end
+function FRAME_METHODS:ClearLines()
+    self.lines = {}
+    self.sizedSinceClear = {}
+end
+function FRAME_METHODS:AddLine(text, _, _, _, wrap)
+    NoteFirstLine(self)
+    self.lines[#self.lines + 1] = { left = text, wrap = wrap }
+end
+function FRAME_METHODS:AddDoubleLine(left, right)
+    NoteFirstLine(self)
+    self.lines[#self.lines + 1] = { left = left, right = right }
+end
 function FRAME_METHODS:ClearAllPoints() self.points = {} end
 function FRAME_METHODS:SetPoint(...) self.points[#self.points + 1] = { ... } end
-function FRAME_METHODS:SetMinimumWidth(width) self.minWidth = width end
-function FRAME_METHODS:SetPadding(right, bottom) self.padding = { right, bottom } end
+function FRAME_METHODS:SetMinimumWidth(width)
+    self.minWidth = width
+    if self.sizedSinceClear then self.sizedSinceClear.minimum = true end
+end
+function FRAME_METHODS:SetPadding(right, bottom)
+    self.padding = { right, bottom }
+    if self.sizedSinceClear then self.sizedSinceClear.padding = true end
+end
 function FRAME_METHODS:SetHeight() end
 function FRAME_METHODS:GetWidth()
     if self.widthModel then return self.widthModel(self) end
@@ -1239,13 +1262,22 @@ do
         t.frame.widthModel = model
         module:ShowVendorTooltip(t.pin, vendor)
 
+        local function ExpectSizedFirst(step)
+            local sized = t.frame.firstLineSized or {}
+            Check(sized.minimum and sized.padding,
+                label .. ": " .. step .. " sets minimum width and padding after the clear and before the first line")
+        end
+
         local widestRow = 20 * (#"  Ware 20 with the longest name on the list" + #"cost 20")
         local expected = widestRow + MARGINS + BAR_COLUMN
         Check(Content(t.frame) < widestRow, label .. ": the first window must not hold the widest row")
         Equal(t.frame:GetWidth(), expected, label .. ": open is the full list's width plus the bar column")
+        ExpectSizedFirst("open")
         Wheel(t.frame, -5)
         Equal(t.frame:GetWidth(), expected, label .. ": scrolling to the widest row keeps the width")
+        ExpectSizedFirst("a scroll step")
         Search(t.box, "ware 1")
+        ExpectSizedFirst("a search")
         Check(#RowNames(t.frame) <= 15 and not t.bar.shown, label .. ": the search must hide the bar")
         Equal(t.frame.padding[1], BAR_COLUMN, label .. ": the bar column stays reserved when the bar hides")
         Equal(t.frame:GetWidth(), expected, label .. ": the width holds when the bar hides")
@@ -1289,6 +1321,8 @@ do
 
     for label, model in pairs(models) do
         local module, HA = LoadModule()
+        local noResults = "A no-results line translated into something far longer than any ware row or header line"
+        HA.L["No items found"] = noResults
         local vendor = MakeVendor(20, footerProps)
         local t = OpenVendor(module, HA, vendor)
         module:HidePinTooltip()
@@ -1312,6 +1346,15 @@ do
         Search(t.box, "ware 1")
         ExpectFooterWrap(t.frame, true, label .. ", searched")
         Equal(t.frame:GetWidth(), expected, label .. ": a bar-hiding search keeps the ware-row width")
+        Search(t.box, "zzzz")
+        Equal(#RowNames(t.frame), 0, label .. ": the search must match nothing")
+        for _, line in ipairs(t.frame.lines) do
+            if line.left == noResults then
+                Equal(line.wrap, true, label .. ": the no-results line wraps")
+            end
+        end
+        Equal(CountLines(t.frame, noResults), 1, label .. ": one no-results line")
+        Equal(t.frame:GetWidth(), expected, label .. ": an empty search keeps the ware-row width")
         Search(t.box, "")
         Equal(t.frame:GetWidth(), expected, label .. ": clearing keeps the ware-row width")
         world.names[10003] = "Ware 3"
