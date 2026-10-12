@@ -132,7 +132,7 @@ MapPinProvider.manualZoneCenters = {
     [726] = { [619] = { x = 0.42, y = 0.45 } },  -- The Maelstrom (Shaman)
 
     -- Undermine is its own instance, so it has no rect on Khaz Algar (2274)
-    [2346] = { [2274] = { x = 0.82, y = 0.73 } },  -- Undermine (on its map art, approximate)
+    [2346] = { [2274] = { x = 0.81, y = 0.78 } },  -- Undermine (just above its name on the map art)
 }
 
 -- Notes shown in zone badge tooltips for special locations (class halls, etc.)
