@@ -35,7 +35,7 @@ local tooltipRebuildPending = false -- Debounce flag for batching rebuilds
 local pinTooltip = nil
 
 -- Interactive tooltip for long wares lists: a second GameTooltip with a scroll
--- bar and search box. pinTooltip stays untouched so short vendors render as before.
+-- bar and search box. Short vendors stay on pinTooltip.
 local LONG_WARES_THRESHOLD = 15
 local MAX_VISIBLE_WARE_ROWS = 15
 local INTERACTIVE_TOOLTIP_NAME = "HomesteadVendorMapPinsWaresTooltip"
@@ -398,7 +398,7 @@ local function AddVendorWareLines(tooltip, vendor, wares, first, last, itemDetai
 end
 
 -- The long wares tooltip takes its width from the ware rows and wraps footer
--- text to fit; the plain tooltip passes no wrap argument at all.
+-- text to fit. The plain tooltip's AddLine calls carry no wrap argument.
 local function AddFooterLine(tooltip, wrap, text, r, g, b)
     if wrap then
         tooltip:AddLine(text, r, g, b, true)
@@ -466,9 +466,8 @@ local function AddInteractiveLines(hover, list, first, last, measuring)
     AddVendorFooterLines(frame, hover.vendor, hover.isOpposite, hover.itemDetailsEnabled, true)
 end
 
--- Open and rebuild only: the width is frozen from the full list so scrolling
--- never resizes the tooltip under the cursor. The frozen width is the full
--- list's own width plus the bar column, and nothing else.
+-- Open and rebuild only: the width is frozen from the header and every ware,
+-- plus the bar column, so scrolling never resizes the tooltip under the cursor.
 local function MeasureInteractiveWidth(hover)
     local frame = interactiveTooltip
     frame:ClearLines()
