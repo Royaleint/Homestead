@@ -2,6 +2,50 @@
 
 ---
 
+## Homestead v2.13.0 (10-12-2026)
+
+Vendor pins with long wares lists now open a scrolling tooltip with a search box, the vendor panel stays beside the maximized world map, and more vendor prices are corrected.
+
+---
+
+## Vendor Pin Tooltips
+
+**Long Wares Tooltip**
+
+- Hovering a vendor pin that sells more than 15 wares now opens a scrolling tooltip that shows 15 wares at a time, instead of one tall list that ran off the screen. Scroll with the mouse wheel or the scroll bar.
+- Type in the search box along the bottom to narrow the list as you type. It matches ware names, plus the currency and reagent names in the price column.
+- Move your cursor from the pin onto the tooltip to scroll and search. It closes when your cursor leaves both, or when you press Escape in the search box.
+- Vendors with 15 wares or fewer show the same tooltip as before.
+
+---
+
+## World Map Vendor Panel
+
+**Beside the Maximized Map**
+
+- The vendor panel now stays visible when you maximize the world map. It moves into the blank strip on the left, narrower than usual, so it shows fewer item tiles per row, and returns to its docked spot when you minimize the map.
+- If your screen has no room beside the maximized map, the panel sits on the left screen edge over the map, below the floor selector.
+- Drag the panel off the strip to detach it. It becomes the normal detached panel where you drop it, and Homestead remembers that spot. A panel you already detached is left alone.
+- The resize grip on the bottom edge of a detached panel is easier to see, with brighter lines and a corner grabber.
+
+---
+
+## Bug Fixes
+
+- Fixed vendors you have not visited yet showing an older price when Homestead already had the corrected one.
+- Fixed the breadcrumb bar at the top of the world map shifting to the right when you maximize the map with the vendor panel docked.
+
+---
+
+## Vendor Database
+
+**Corrections**
+
+- Corrected 111 decor prices across 23 vendors that still showed older amounts.
+- Thirteen decor items sold by **MOTHER**, **Boatswain Hardee**, **Shredz the Scrapper**, **Lab Assistant Laszly** and **Janey Forrest** no longer show a 10 gold price. They now show the currency price each vendor charges.
+
+---
+
 ## Homestead v2.12.0 (10-09-2026)
 
 Italian and Traditional Chinese are now supported, every language is fully translated, and more vendor prices and locations are corrected.

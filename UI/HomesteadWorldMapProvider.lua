@@ -730,6 +730,10 @@ end
 
 function mapDataProviderMethods:OnMapChanged()
     watcherStats.mapChanged = watcherStats.mapChanged + 1
+    local VMP = HA.VendorMapPins
+    if VMP and VMP.CloseInteractivePinTooltip then
+        VMP:CloseInteractivePinTooltip()
+    end
     RequestSettledRefresh("watcher_map_changed")
     DispatchMapWatch()
 end
@@ -1059,6 +1063,11 @@ function Provider:Refresh()
 end
 
 function Provider:RemoveAllData()
+    local VMP = HA.VendorMapPins
+    if VMP and VMP.CloseInteractivePinTooltip then
+        VMP:CloseInteractivePinTooltip()
+    end
+
     MPP.ClearWorldMapPins("HomesteadVendors")
 
     for i = #activeEntries, 1, -1 do

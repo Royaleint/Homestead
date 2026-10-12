@@ -223,8 +223,10 @@ for _, name in ipairs({ "PANEL_WIDTH", "PADDING", "ITEM_ICON_SIZE", "ITEM_ICON_P
 end
 
 chunkParts[#chunkParts + 1] = extract(
-    "\n(Layout%.ICONS_PER_ROW = math%.floor%(.-\nif Layout%.ICONS_PER_ROW < 1 then Layout%.ICONS_PER_ROW = 1 end)",
-    "the ICONS_PER_ROW declaration and its clamp")
+    "\n(local function IconsPerRowForWidth%(panelWidth%).-\nend)", "IconsPerRowForWidth")
+chunkParts[#chunkParts + 1] = extract(
+    "\n(Layout%.ICONS_PER_ROW = IconsPerRowForWidth%(Layout%.PANEL_WIDTH%))",
+    "the ICONS_PER_ROW declaration")
 chunkParts[#chunkParts + 1] = extract(
     "\n(local function ComputeItemGridHeight%(itemCount%).-\nend)", "ComputeItemGridHeight")
 chunkParts[#chunkParts + 1] = extract(
@@ -237,7 +239,8 @@ local ICONS_PER_ROW, ComputeItemGridHeight, ComputeItemSourceListHeight =
     assert(loadstring(table.concat(chunkParts, "\n"), "height-helpers-extract"))()
 
 -- Asserted before any height, because both icon-positioning loops read this
--- same constant and this is the single gate that covers the column count.
+-- same field and this is the single gate that covers the column count at the
+-- panel's own 260 width.
 assert(ICONS_PER_ROW == 6, "ICONS_PER_ROW must be 6, got " .. tostring(ICONS_PER_ROW))
 
 for _, case in ipairs({ { 0, 0 }, { 1, 34 }, { 6, 34 }, { 7, 65 } }) do

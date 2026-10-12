@@ -111,9 +111,10 @@ do
 
     -- Exactly one hide-path convergence point: a single HookScript("OnHide", ...)
     -- registration on the panel frame. (Per the HS-282 sub-item G design, this
-    -- is deliberate -- every Hide()/Toggle()/CloseDetached()/map-closed/
-    -- map-maximized path ends by calling panel:Hide(), so OnHide is the one
-    -- point they all converge on; adding a second call site would defeat that.)
+    -- is deliberate -- every Hide()/Toggle()/CloseDetached()/map-closed path,
+    -- and the maximize path in combat (out of combat the panel stays visible
+    -- beside the maximized map), ends by calling panel:Hide(), so OnHide is the
+    -- one point they all converge on; adding a second call site would defeat that.)
     local _, hookCount = mapSidePanelSource:gsub('panel:HookScript%("OnHide",', "")
     assert(hookCount == 1,
         "expected exactly one panel:HookScript(\"OnHide\", ...) registration, got " .. hookCount)
