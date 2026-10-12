@@ -44,13 +44,19 @@ Layout.ITEM_RESULT_ICON_SIZE = 20
 Layout.ITEM_RESULT_BADGE_SIZE = 14
 Layout.ITEM_RESULT_LINE_HEIGHT = 18
 Layout.ITEM_GRID_INSET = 24  -- Left indent for item grid (aligns under name text)
+Layout.AUTO_DETACH_MIN_WIDTH = 133  -- Narrowest auto-detached panel: two tiles per row
 
--- Icons per grid row. Derived only from constants above, so it is one itself:
--- content width is Layout.PANEL_WIDTH - 20 (borders) - 22 (scrollbar) = 218.
-Layout.ICONS_PER_ROW = math.floor(
-    ((Layout.PANEL_WIDTH - 20 - 22) - Layout.ITEM_GRID_INSET - Layout.PADDING + Layout.ITEM_ICON_PAD)
-    / (Layout.ITEM_ICON_SIZE + Layout.ITEM_ICON_PAD))
-if Layout.ICONS_PER_ROW < 1 then Layout.ICONS_PER_ROW = 1 end
+-- Tiles per grid row for a panel of the given width: content width is
+-- panelWidth - 20 (borders) - 22 (scrollbar).
+local function IconsPerRowForWidth(panelWidth)
+    local n = math.floor(
+        ((panelWidth - 20 - 22) - Layout.ITEM_GRID_INSET - Layout.PADDING + Layout.ITEM_ICON_PAD)
+        / (Layout.ITEM_ICON_SIZE + Layout.ITEM_ICON_PAD))
+    if n < 1 then n = 1 end
+    return n
+end
+-- Not a constant: SetPanelWidth keeps it in step with the panel's current width.
+Layout.ICONS_PER_ROW = IconsPerRowForWidth(Layout.PANEL_WIDTH)
 
 Layout.PROGRESS_BAR_HEIGHT = 14
 local SEARCH_OPTIONS = { includeItemResults = true }
@@ -159,6 +165,8 @@ State.popOutButton = nil   -- Arrow button to detach (docked mode)
 State.closeButton = nil    -- X button (detached mode)
 State.reattachButton = nil -- Dock-back button (detached mode)
 State.pendingDockedAction = nil  -- "apply" | "remove" | "clear" | nil
+State.isAutoDetached = false  -- Floating beside the maximized map (runtime only, never saved)
+State.autoPlacement = {}      -- Last applied mode, width, height, topOffset
 State.panelTooltip = nil
 
 local function GetPanelTooltip()
@@ -217,6 +225,7 @@ local function ShowItemPreview(itemID)
 
         -- Re-apply our map shift if Blizzard's preview resets WorldMapFrame
         local function ReapplyMapShift()
+            if State.isAutoDetached then return end
             if State.panelFrame and State.panelFrame:IsShown() and not State.isPoppedOut then
                 if InCombatLockdown() then
                     State.pendingDockedAction = "apply"
@@ -809,6 +818,7 @@ local function CreateBossRow(parent)
     countText:SetPoint("TOPLEFT", icon, "BOTTOMRIGHT", 6, -2)
     countText:SetPoint("RIGHT", row, "RIGHT", -Layout.PADDING, 0)
     countText:SetJustifyH("LEFT")
+    countText:SetWordWrap(false)
     row.countText = countText
 
     local sep = row:CreateTexture(nil, "BACKGROUND")
@@ -1460,6 +1470,7 @@ local function CreateVendorRow(parent)
     countText:SetPoint("TOPLEFT", icon, "BOTTOMRIGHT", 6, -2)
     countText:SetPoint("RIGHT", row, "RIGHT", -Layout.PADDING, 0)
     countText:SetJustifyH("LEFT")
+    countText:SetWordWrap(false)
     row.countText = countText
 
     -- Separator line
@@ -1615,6 +1626,7 @@ local function CreateSummaryRow(parent)
     summaryLine:SetPoint("TOPLEFT", arrow, "BOTTOMRIGHT", 6, -2)
     summaryLine:SetPoint("RIGHT", navButton, "LEFT", -2, 0)
     summaryLine:SetJustifyH("LEFT")
+    summaryLine:SetWordWrap(false)
     row.summaryLine = summaryLine
 
     -- Separator line
@@ -2150,6 +2162,7 @@ local function CreatePanel()
     State.headerText:SetPoint("TOP", titleLabel, "BOTTOM", 0, -3)
     State.headerText:SetJustifyH("CENTER")
     State.headerText:SetWordWrap(false)
+    State.headerText:SetWidth(Layout.PANEL_WIDTH - 56)
     State.headerText:SetTextColor(0.7, 0.7, 0.7)
     State.headerText:SetText("")
 
@@ -2172,6 +2185,7 @@ local function CreatePanel()
     State.summaryText:SetPoint("BOTTOMLEFT", panel, "BOTTOMLEFT", BORDER_LEFT, BORDER_BOTTOM)
     State.summaryText:SetPoint("BOTTOMRIGHT", panel, "BOTTOMRIGHT", -BORDER_RIGHT, BORDER_BOTTOM)
     State.summaryText:SetJustifyH("CENTER")
+    State.summaryText:SetWordWrap(false)
     State.summaryText:SetTextColor(0.6, 0.6, 0.6)
 
     -- Search bar (above summary line at bottom)
@@ -2228,6 +2242,7 @@ local function CreatePanel()
     backText:SetPoint("LEFT", backArrow, "RIGHT", 4, 0)
     backText:SetPoint("RIGHT", State.backBar, "RIGHT", -8, 0)
     backText:SetJustifyH("LEFT")
+    backText:SetWordWrap(false)
     backText:SetTextColor(0.5, 0.7, 1.0)
     State.backBar.text = backText
 
@@ -2350,7 +2365,9 @@ local function CreatePanel()
 
     -- Empty state text
     State.emptyText = panel:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
-    State.emptyText:SetPoint("CENTER", State.scrollContainer, "CENTER", 0, 0)
+    State.emptyText:SetPoint("LEFT", State.scrollContainer, "LEFT", 8, 0)
+    State.emptyText:SetPoint("RIGHT", State.scrollContainer, "RIGHT", -8, 0)
+    State.emptyText:SetJustifyH("CENTER")
     State.emptyText:SetText("No vendors in this zone")
     State.emptyText:Hide()
 
@@ -2392,8 +2409,12 @@ local function CreatePanel()
     State.closeButton = CreateFrame("Button", nil, panel, "UIPanelCloseButton")
     State.closeButton:SetPoint("TOPRIGHT", -2, -2)
     State.closeButton:SetScript("OnClick", function()
-        -- Full reset: hide panel, clear pop-out state
-        MapSidePanel:CloseDetached()
+        -- Detached: full reset (hide panel, clear pop-out state). Auto-detached: hide only.
+        if State.isPoppedOut then
+            MapSidePanel:CloseDetached()
+        else
+            MapSidePanel:Toggle()
+        end
     end)
     State.closeButton:Hide()
 
@@ -2444,12 +2465,18 @@ local function CreatePanel()
     grip:SetHeight(2)
     grip:SetPoint("LEFT", 8, 0)
     grip:SetPoint("RIGHT", -8, 0)
-    grip:SetColorTexture(0.6, 0.6, 0.6, 0.4)
+    grip:SetColorTexture(0.8, 0.8, 0.8, 0.8)
     local grip2 = State.resizeHandle:CreateTexture(nil, "ARTWORK")
     grip2:SetHeight(2)
     grip2:SetPoint("LEFT", 8, -3)
     grip2:SetPoint("RIGHT", -8, -3)
-    grip2:SetColorTexture(0.6, 0.6, 0.6, 0.4)
+    grip2:SetColorTexture(0.8, 0.8, 0.8, 0.8)
+
+    -- The game's standard size-grabber at the right end
+    local gripArt = State.resizeHandle:CreateTexture(nil, "OVERLAY")
+    gripArt:SetSize(16, 16)
+    gripArt:SetPoint("BOTTOMRIGHT", State.resizeHandle, "BOTTOMRIGHT", 0, 0)
+    gripArt:SetTexture("Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Up")
 
     -- Hover highlight
     local hl = State.resizeHandle:CreateTexture(nil, "HIGHLIGHT")
@@ -2461,8 +2488,8 @@ local function CreatePanel()
     State.resizeHandle:Hide()
 
     -- HS-282 sub-item G: evict the SearchProvider index whenever this panel
-    -- hides, on ANY path (Hide/Toggle/CloseDetached, or the map closing/
-    -- maximizing out from under a docked panel via MapWatchTick) -- every one
+    -- hides, on ANY path (Hide/Toggle/CloseDetached, or the map closing, or
+    -- maximizing in combat, out from under a panel via MapWatchTick) -- every one
     -- of those paths ends by calling panel:Hide(), so OnHide is the single
     -- point they all converge on. Reclaims ~2.2 MB in the non-searching
     -- steady state; BuildIndex() lazily rebuilds (~20ms worst case) on the
@@ -3775,6 +3802,17 @@ local function RestoreMapElements()
     -- Nav bar (full restore — parent, strata, level, all anchors)
     local navBar = wm.NavBar
     if navBar and State.savedNavBarState then
+        -- Blizzard re-anchors the nav bar when the map is maximized or minimized.
+        -- If no point is on the panel any more, it has done so since we docked it:
+        -- keep those points and restore only parent, strata and level around them.
+        local live = SaveFrameState(navBar).anchors
+        local onPanel = false
+        for _, a in ipairs(live) do
+            if a[2] == State.panelFrame then onPanel = true end
+        end
+        if not onPanel and #live > 0 then
+            State.savedNavBarState.anchors = live
+        end
         RestoreFrameState(navBar, State.savedNavBarState)
         State.savedNavBarState = nil
     end
@@ -3988,6 +4026,24 @@ local function RestoreTopBorder()
     State.borderUnified = false
 end
 
+-- Placement beside the maximized map, in screen (UIParent) units.
+-- Returns mode, width, height, topOffset, maxHeight.
+local function ComputeAutoDetachPlacement(screenLeft, screenTop, mapLeft, mapTop, mapBottom, overlapTop)
+    local minWidth = Layout.AUTO_DETACH_MIN_WIDTH
+    if screenLeft and mapLeft and mapTop and mapBottom then
+        local margin = mapLeft - screenLeft
+        if margin >= minWidth then
+            local mapHeight = mapTop - mapBottom
+            return "beside", math.min(Layout.PANEL_WIDTH, math.floor(margin)), mapHeight, 0,
+                math.max(200, mapHeight)
+        end
+    end
+    local top = overlapTop or mapTop or screenTop or 0
+    local bottom = mapBottom or 0
+    return "overlap", minWidth, top - bottom, (screenTop or top) - top,
+        math.max(200, (mapTop or screenTop or top) - bottom)
+end
+
 -------------------------------------------------------------------------------
 -- Toggle / Visibility
 -------------------------------------------------------------------------------
@@ -4047,11 +4103,20 @@ State.combatFrame:SetScript("OnEvent", function()
             ApplyDockedIntegration()
         end
     elseif action == "remove" then
-        -- Panel was hidden during combat; restore map now
-        RemoveDockedIntegration(true)
+        -- Panel was hidden during combat; restore map now. A map maximized since
+        -- then was repositioned by Blizzard, so its saved point is stale.
+        RemoveDockedIntegration(not WorldMapFrame.isMaximized)
     elseif action == "clear" then
         -- Blizzard already repositioned the map; only clear our integrated state.
         RemoveDockedIntegration(false)
+    end
+
+    -- A panel that a maximize hid in combat comes back beside the maximized map
+    if not State.isPoppedOut and State.panelFrame and not State.panelFrame:IsShown()
+            and WorldMapFrame:IsShown() and WorldMapFrame.isMaximized
+            and HA.Addon and HA.Addon.db
+            and HA.Addon.db.profile.vendorTracer.showMapSidePanel then
+        MapSidePanel:Show()
     end
 end)
 
@@ -4064,9 +4129,14 @@ local function ShowPanel()
         return
     end
 
-    -- Don't show docked panel when map is maximized (fills the screen)
-    if WorldMapFrame.isMaximized then return end
+    -- Maximized map: the panel floats in the margin beside it. A closed map keeps
+    -- isMaximized set, and nothing shows without the map.
+    if WorldMapFrame.isMaximized then
+        if WorldMapFrame:IsShown() then State.EnterAutoDetached() end
+        return
+    end
 
+    State.ExitAutoDetached()
     State.panelFrame:Show()
 
     -- Defer all docked map mutations until combat ends
@@ -4096,6 +4166,12 @@ local function HidePanel()
 
     State.panelFrame:Hide()
 
+    if State.isAutoDetached then
+        -- Nothing on the map was changed; only the panel needs resetting
+        State.ExitAutoDetached()
+        return
+    end
+
     -- Defer map restoration until combat ends
     if InCombatLockdown() then
         State.pendingDockedAction = "remove"
@@ -4114,7 +4190,7 @@ local function UpdatePopOutButtons()
         State.reattachButton:Show()
     else
         State.popOutButton:Show()
-        State.closeButton:Hide()
+        State.closeButton:SetShown(State.isAutoDetached)
         State.reattachButton:Hide()
     end
 end
@@ -4137,10 +4213,156 @@ local function EnsureCompleteBorder()
     if ns.TopRightCorner then ns.TopRightCorner:Show() end
 end
 
+-- Sets the panel's width and the tiles per row that fit it. 260 everywhere except
+-- the auto-detached panel, which narrows to the strip beside the maximized map.
+local function SetPanelWidth(width)
+    State.panelFrame:SetWidth(width)
+    Layout.ICONS_PER_ROW = IconsPerRowForWidth(width)
+    if State.headerText then State.headerText:SetWidth(width - 56) end
+end
+
+-- The grip sits on the bottom border; raise it above the border art whenever it shows
+local function ShowResizeHandle()
+    if not State.resizeHandle then return end
+    State.resizeHandle:SetFrameLevel(State.panelFrame:GetFrameLevel() + 5)
+    State.resizeHandle:Show()
+end
+
+-- Bottom edge of Blizzard's floor selector in screen units, only while it is shown.
+-- It is the overlay frame that carries the floor menu; nil when absent or unreadable.
+local function GetFloorSelectorBottom(ui)
+    if not ui or not WorldMapFrame.overlayFrames then return nil end
+    for _, frame in ipairs(WorldMapFrame.overlayFrames) do
+        if frame.RefreshMenu and frame:IsShown() then
+            local bottom, scale = frame:GetBottom(), frame:GetEffectiveScale()
+            if bottom and scale then return bottom * (scale / ui) end
+        end
+    end
+    return nil
+end
+
+State.PlaceAutoDetached = function(force)
+    local panel = State.panelFrame
+    if not panel or not State.isAutoDetached then return false end
+
+    -- Every edge goes to screen (UIParent) units; a nil read stays nil.
+    local ui = UIParent:GetEffectiveScale()
+    if not ui or ui <= 0 then ui = nil end
+    local mapScale = WorldMapFrame:GetEffectiveScale()
+    local ratio = ui and mapScale and (mapScale / ui) or nil
+    local mapLeft, mapTop, mapBottom = WorldMapFrame:GetLeft(), WorldMapFrame:GetTop(), WorldMapFrame:GetBottom()
+    mapLeft = mapLeft and ratio and (mapLeft * ratio) or nil
+    mapTop = mapTop and ratio and (mapTop * ratio) or nil
+    mapBottom = mapBottom and ratio and (mapBottom * ratio) or nil
+
+    -- Overlap fallback top: below the floor selector, else the top of the map canvas
+    -- (just below the title bar and the breadcrumb row)
+    local canvasTop
+    local container = WorldMapFrame:GetCanvasContainer()
+    local containerTop = container and container:GetTop()
+    local containerScale = container and container:GetEffectiveScale()
+    if ui and containerTop and containerScale then
+        canvasTop = containerTop * (containerScale / ui)
+    end
+
+    local mode, width, height, topOffset, maxHeight = ComputeAutoDetachPlacement(
+        UIParent:GetLeft(), UIParent:GetTop(), mapLeft, mapTop, mapBottom,
+        GetFloorSelectorBottom(ui) or canvasTop)
+
+    local last = State.autoPlacement
+    if not force and last.mode == mode and last.width == width
+            and last.height == height and last.topOffset == topOffset then
+        return false
+    end
+    local widthChanged = last.width ~= width
+    last.mode, last.width, last.height, last.topOffset = mode, width, height, topOffset
+
+    panel:StopMovingOrSizing()
+    -- Bounds before size: a detach earlier in the session leaves other bounds behind
+    panel:SetResizeBounds(width, 200, width, maxHeight)
+    panel:ClearAllPoints()
+    SetPanelWidth(width)
+    panel:SetHeight(height)
+    if mode == "overlap" then
+        panel:SetPoint("TOPLEFT", UIParent, "TOPLEFT", 0, -topOffset)
+    else
+        panel:SetPoint("TOPRIGHT", WorldMapFrame, "TOPLEFT", 0, 0)
+    end
+    return widthChanged
+end
+
+State.EnterAutoDetached = function()
+    local panel = State.panelFrame
+    if not panel or State.isPoppedOut then return end
+    if State.isAutoDetached then
+        panel:Show()
+        return
+    end
+    -- Map pieces still ride on the panel until a restore deferred in combat has run.
+    -- Moving it now would take them along; the combat-end handler shows it.
+    if State.savedPortraitState or State.savedTutorialState or State.savedNavBarState
+            or State.borderUnified or State.contentInsetApplied then
+        if panel:IsShown() then panel:Hide() end
+        return
+    end
+
+    State.panelShowGeneration = State.panelShowGeneration + 1
+    State.isAutoDetached = true
+    RestoreFrameLevels()
+    panel:SetMovable(true)
+    panel:RegisterForDrag("LeftButton")
+    panel:SetScript("OnDragStart", panel.StartMoving)
+    panel:SetScript("OnDragStop", State.DetachAfterDrag)
+    panel:SetResizable(true)
+    ShowResizeHandle()
+    EnsureCompleteBorder()
+    UpdatePopOutButtons()
+    State.PlaceAutoDetached(true)
+    panel:Show()
+end
+
+State.ExitAutoDetached = function()
+    if not State.isAutoDetached then return end
+    local panel = State.panelFrame
+    panel:StopMovingOrSizing()
+    State.isAutoDetached = false
+    panel:SetMovable(false)
+    panel:SetResizable(false)
+    panel:SetScript("OnDragStart", nil)
+    panel:SetScript("OnDragStop", nil)
+    if State.resizeHandle then State.resizeHandle:Hide() end
+    local canvas = WorldMapFrame.ScrollContainer
+    panel:ClearAllPoints()
+    -- Bounds first: they were set to the narrow width, and a width outside them may be clamped
+    panel:SetResizeBounds(Layout.PANEL_WIDTH, 200, Layout.PANEL_WIDTH, UIParent:GetHeight() * 0.9)
+    SetPanelWidth(Layout.PANEL_WIDTH)
+    panel:SetPoint("TOPRIGHT", canvas, "TOPLEFT", 0, 0)
+    panel:SetPoint("BOTTOMRIGHT", canvas, "BOTTOMLEFT", 0, 0)
+    RestoreFrameLevels()
+    UpdatePopOutButtons()
+end
+
+-- A drag of the auto-detached panel is the player's own detach: it becomes the
+-- normal detached panel where it was dropped, and that spot is saved.
+State.DetachAfterDrag = function()
+    local panel = State.panelFrame
+    panel:StopMovingOrSizing()
+    if not State.isAutoDetached then return end
+    local left, top = panel:GetLeft(), panel:GetTop()
+    local uiLeft, uiTop = UIParent:GetLeft(), UIParent:GetTop()
+    MapSidePanel:PopOut()
+    if left and top and uiLeft and uiTop then
+        panel:ClearAllPoints()
+        panel:SetPoint("TOPLEFT", UIParent, "TOPLEFT", left - uiLeft, top - uiTop)
+        State.SaveDetachedPosition()
+    end
+end
+
 -- Save detached position to profile. Called from the resize/drag handlers
 -- above and from DockPanel()/CloseDetached() below.
 State.SaveDetachedPosition = function()
     if not State.panelFrame or not HA.Addon or not HA.Addon.db then return end
+    if not State.isPoppedOut then return end
     local point, _, _, x, y = State.panelFrame:GetPoint(1)
     if point then
         HA.Addon.db.profile.vendorTracer.sidePanelPosition = {
@@ -4163,6 +4385,7 @@ end
 function MapSidePanel:PopOut()
     if not State.panelFrame then return end
     if State.isPoppedOut then return end
+    State.ExitAutoDetached()
 
     -- 1. Determine detached height: prefer saved user preference (from previous
     --    resize), then half the canvas height, then a compact screen fraction.
@@ -4196,6 +4419,8 @@ function MapSidePanel:PopOut()
 
     -- 5-6. Clear anchors, set size, restore position
     State.panelFrame:ClearAllPoints()
+    -- Bounds before size: an earlier narrower panel may have left a width bound behind
+    State.panelFrame:SetResizeBounds(Layout.PANEL_WIDTH, 200, Layout.PANEL_WIDTH, UIParent:GetHeight() * 0.9)
     State.panelFrame:SetWidth(Layout.PANEL_WIDTH)
     State.panelFrame:SetHeight(h)
 
@@ -4221,8 +4446,7 @@ function MapSidePanel:PopOut()
 
     -- 8. Enable height resizing
     State.panelFrame:SetResizable(true)
-    State.panelFrame:SetResizeBounds(Layout.PANEL_WIDTH, 200, Layout.PANEL_WIDTH, UIParent:GetHeight() * 0.9)
-    if State.resizeHandle then State.resizeHandle:Show() end
+    ShowResizeHandle()
 
     -- 9. Ensure complete border
     EnsureCompleteBorder()
@@ -4538,7 +4762,7 @@ function MapSidePanel:Initialize()
             -- wrapper needed here -- DispatchMapWatch's own After(0) deferral already
             -- runs this after the secure path; ShowPanel -> ApplyDockedIntegration
             -- keeps its own one-frame border/inset defer.
-            if not State.isPoppedOut and not maximized
+            if not State.isPoppedOut
                     and HA.Addon and HA.Addon.db
                     and HA.Addon.db.profile.vendorTracer.showMapSidePanel then
                 ShowPanel()
@@ -4557,6 +4781,7 @@ function MapSidePanel:Initialize()
                 -- Bump generation to cancel any pending deferred Show callbacks.
                 State.panelShowGeneration = State.panelShowGeneration + 1
                 if State.panelFrame then State.panelFrame:Hide() end
+                State.ExitAutoDetached()
 
                 if InCombatLockdown() then
                     -- Closing during combat; defer restoration. Cancel any pending
@@ -4573,30 +4798,37 @@ function MapSidePanel:Initialize()
 
         elseif shown then
             if maximized and not mapWatch.maximized then
-                -- Map maximized (was: HandleUserActionMaximizeSelf hook). Blizzard has
-                -- already repositioned the map, so clear our shift state without
-                -- restoring (the saved point is stale).
+                -- Map maximized. Blizzard has already repositioned the map, so clear our
+                -- shift state without restoring (the saved point is stale). The panel
+                -- moves beside the map; in combat it hides until the map can be restored.
                 if not State.isPoppedOut and State.panelFrame and State.panelFrame:IsShown() then
                     State.panelShowGeneration = State.panelShowGeneration + 1
-                    State.panelFrame:Hide()
 
                     if InCombatLockdown() then
                         State.mapShifted = false
                         State.savedMapPoint = nil
                         State.pendingDockedAction = "clear"
+                        State.panelFrame:Hide()
                     else
                         RemoveDockedIntegration(false)
+                        ShowPanel()
+                        MapSidePanel:RefreshContent()
                     end
                 end
+                PositionOverlayButton()
+                mapWatch.overlayCount = CountVisibleOverlayButtons()
 
             elseif not maximized and mapWatch.maximized then
-                -- Map minimized (was: HandleUserActionMinimizeSelf hook).
+                -- Map minimized. An auto-detached panel docks whatever the setting says.
                 if not State.isPoppedOut and State.panelFrame
-                        and HA.Addon and HA.Addon.db
-                        and HA.Addon.db.profile.vendorTracer.showMapSidePanel then
+                        and (State.isAutoDetached
+                            or (HA.Addon and HA.Addon.db
+                                and HA.Addon.db.profile.vendorTracer.showMapSidePanel)) then
                     ShowPanel()
                     MapSidePanel:RefreshContent()
                 end
+                PositionOverlayButton()
+                mapWatch.overlayCount = CountVisibleOverlayButtons()
 
             elseif mapID and mapID ~= mapWatch.mapID and mapID ~= State.lastRefreshMapID then
                 -- Blizzard-driven zone change (was: SetMapID hook). Self-driven nav
@@ -4616,6 +4848,7 @@ function MapSidePanel:Initialize()
                     PositionOverlayButton()
                 end
             end
+            if State.isAutoDetached and State.PlaceAutoDetached() then MapSidePanel:RefreshContent() end
         end
 
         mapWatch.shown     = shown
