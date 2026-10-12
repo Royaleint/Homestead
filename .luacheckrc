@@ -7,6 +7,7 @@ globals = {
     "HomesteadMinimapButton",
     "HomesteadMapSidePanelTooltip",
     "HomesteadVendorMapPinsTooltip",
+    "HomesteadVendorMapPinsWaresTooltip",
     "SlashCmdList",
     "SLASH_HOMESTEAD1", "SLASH_HOMESTEAD2",
     -- SavedVariables (created by WoW, read/written by addon)
@@ -55,6 +56,7 @@ read_globals = {
     "Settings",
     "ShoppingTooltip1", "ShoppingTooltip2",
     "ScrollBoxConstants",
+    "BaseScrollBoxEvents",
     "ScrollUtil",
     "ScrollBoxListViewMixin",
     "TooltipDataProcessor",
@@ -164,5 +166,6 @@ files["Locale/enUS.lua"] = {
     read_globals = {
         "GENERAL", "CLOSE", "MINIMAP_LABEL", "BLIZZARD_STORE", "WORLDMAP_BUTTON",
         "SHIFT_KEY_TEXT", "ALT_KEY_TEXT", "CTRL_KEY_TEXT", "HOUSING_DASHBOARD_ENDEAVOR",
+        "BROWSE_NO_RESULTS",
     },
 }

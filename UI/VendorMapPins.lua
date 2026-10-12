@@ -488,6 +488,10 @@ function VendorMapPins:HidePinTooltip()
     HA.VendorPinTooltips:HidePinTooltip()
 end
 
+function VendorMapPins:CloseInteractivePinTooltip()
+    HA.VendorPinTooltips:CloseInteractiveTooltip()
+end
+
 -------------------------------------------------------------------------------
 -- Filter/Faction Delegates (forwarded to VendorFilter)
 -------------------------------------------------------------------------------
@@ -623,7 +627,7 @@ end
 
 function VendorMapPins:ClearAllPins()
     self:ClearHighlight()
-    self:OnPinLeave()
+    self:HidePinTooltip()
     lastRenderedWorldMapID = nil
     worldMapDirty = true
     if worldMapRefreshTimer then
@@ -639,7 +643,7 @@ function VendorMapPins:ClearAllPins()
 end
 
 function VendorMapPins:ClearMinimapPins()
-    self:OnPinLeave()
+    self:HidePinTooltip()
     MPP.ClearMinimapPins("HomesteadMinimapVendors")
 
     -- Defense-in-depth (HS-367): a still-enabled, still-vendor-filtered

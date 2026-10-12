@@ -31,7 +31,7 @@ local root = (... or "."):gsub("\\\\", "/"):gsub("/+$", "")
 
 local function extractGatherFn(sourceText)
     local body = sourceText:match(
-        "%-%- Gather items from both static and scanned data\n(.-)\n    end\n\n    if #allItems > 0 then")
+        "%-%- Gather items from both static and scanned data\n(.-)\n    end\n\n    if #allItems > LONG_WARES_THRESHOLD then")
     assert(body ~= nil, "could not locate the allItems gather block in VendorPinTooltips.lua")
 
     local chunk = "local function GatherAllItems(vendor, HA, tinsert, itemDetailsEnabled)\n"

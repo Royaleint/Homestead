@@ -122,6 +122,7 @@ L["Continent Collection Progress"] = "Continent Collection Progress"
 L["Global Collection Progress"] = "Global Collection Progress"
 L["Order Hall"] = "Order Hall"
 L["Click to preview"] = "Click to preview"
+L["No items found"] = BROWSE_NO_RESULTS or "No items found"
 
 -------------------------------------------------------------------------------
 -- Output Window
