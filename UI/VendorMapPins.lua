@@ -827,6 +827,7 @@ function VendorMapPins:BuildWorldMapRenderState(mapID)
         self:ShowZoneBadges(mapID, renderState)
     else
         self:CollectSourcePins(mapID, renderState)
+        self:ShowChildMapBadges(mapID, renderState)
     end
 
     return renderState
