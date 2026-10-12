@@ -10,8 +10,8 @@
 
     External callers should use the VendorMapPins delegation wrappers
     (EmitPortalBadges, ShowZoneBadges, ShowZoneBadgesOnWorldMap,
-    ShowContinentBadges) — HA.VendorMapPins is the frozen public surface;
-    this module is an implementation detail behind it.
+    ShowContinentBadges, ShowChildMapBadges) — HA.VendorMapPins is the frozen
+    public surface; this module is an implementation detail behind it.
 ]]
 
 local _, HA = ...

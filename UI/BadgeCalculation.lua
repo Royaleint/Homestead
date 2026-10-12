@@ -858,6 +858,11 @@ function BadgeCalculation:GetChildMapVendorCounts(viewMapID, sourceFilter)
     local childCounts = {}
     if not HA.VendorData then return childCounts end
 
+    -- Only a zone map has child maps to badge; any other view type gets none,
+    -- which also keeps a cosmic view from walking every vendor.
+    local viewInfo = C_Map.GetMapInfo(viewMapID)
+    if not (viewInfo and viewInfo.mapType == Enum.UIMapType.Zone) then return childCounts end
+
     local pinned = { [viewMapID] = true }
     for _, childMapID in ipairs(MPP:GetMoreSpecificChildMapIDs(viewMapID)) do
         pinned[childMapID] = true

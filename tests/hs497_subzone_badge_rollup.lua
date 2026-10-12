@@ -1,4 +1,4 @@
--- luacheck: globals assert loadfile print C_Timer C_Map CreateFrame InCombatLockdown GetTimePreciseSec wipe rawequal
+-- luacheck: globals assert loadfile print C_Timer C_Map Enum CreateFrame InCombatLockdown GetTimePreciseSec wipe rawequal
 
 local root = (... or "."):gsub("\\\\", "/"):gsub("/+$", "")
 
@@ -27,22 +27,24 @@ C_Timer = {
 }
 
 -- mapID -> { name, parent, mapType }. parent 0 / nil = no parent; mapType
--- defaults to Zone. Parents of the real maps match the client; 9001-9005 are
--- synthetic edge cases.
-local CONTINENT, ZONE, DUNGEON = 2, 3, 4
+-- defaults to Zone. Parents and map types of the real maps match the game
+-- client; 9001-9005 are synthetic edge cases.
+local WORLD, CONTINENT, ZONE, DUNGEON, MICRO = 1, 2, 3, 4, 5
+Enum = { UIMapType = { Cosmic = 0, World = 1, Continent = 2, Zone = 3, Dungeon = 4, Micro = 5, Orphan = 6 } }
 local MAPS = {
     [2537] = { "Quel'Thalas", 13, CONTINENT },
     [2405] = { "Voidstorm", 2537 },
     [2444] = { "Slayer's Rise", 2405 },
     [2599] = { "Umbral Base Camp", 2405 },
     [2413] = { "Harandar", 2537 },
-    [2576] = { "The Den", 2413 },
+    [2576] = { "The Den", 2413, MICRO },
     [2512] = { "The Coiled Isle", 2537 },
-    [2509] = { "Vaults of Atal'Utek", 2512, DUNGEON },
+    [2509] = { "Vaults of Atal'Utek", 2512 },
     -- Vertical siblings
-    [627] = { "Dalaran", 619 },
-    [628] = { "Dalaran Underbelly", 619 },
-    [2274] = { "Khaz Algar", 946, CONTINENT },
+    [627] = { "Dalaran", 619, DUNGEON },
+    [628] = { "Dalaran Underbelly", 619, DUNGEON },
+    [947] = { "Azeroth", 946, WORLD },
+    [2274] = { "Khaz Algar", 947, CONTINENT },
     [2255] = { "Azj-Kahet", 2274 },
     [2213] = { "City of Threads", 2255 },
     [2216] = { "City of Threads - Lower", 2255 },
@@ -277,7 +279,7 @@ do
         [24] = 2472, [25] = 2472, [26] = 2371,   -- Tazavesh x2, K'aresh
         [27] = 2444, [28] = 2599, [29] = 2405,   -- Slayer's Rise, Umbral Base Camp, Voidstorm
         [30] = 2393, [31] = 2395,                -- Silvermoon City, Eversong Woods
-        [32] = 2509, [33] = 2512,                -- Vaults (dungeon child), The Coiled Isle
+        [32] = 2509, [33] = 2512,                -- Vaults (zone child), The Coiled Isle
         [34] = 2213, [35] = 2216,                -- City of Threads and its lower half
     }
     local vendors = {}
@@ -320,20 +322,28 @@ do
         "the dungeon map is drawn as pins on The Ringing Deeps, so it gets no badge")
 
     -- Children all drawn as pins: nothing to badge.
-    assert(next(BC:GetChildMapVendorCounts(2512, "all")) == nil, "dungeon child is pinned, no badge")
+    -- Vaults of Atal'Utek is a Zone map, the same type as its parent, so it is not
+    -- drawn as pins on The Coiled Isle and is badged there.
+    local ci = BC:GetChildMapVendorCounts(2512, "all")
+    assert(ci[2509] and ci[2509].vendorCount == 1 and ci[2512] == nil,
+        "The Coiled Isle view: one badge for Vaults of Atal'Utek, its own vendor is a pin")
     assert(next(BC:GetChildMapVendorCounts(2509, "all")) == nil, "a map without children has no badges")
+    -- The Den is a Micro map, drawn as pins on Harandar, so it gets no badge.
+    assert(next(BC:GetChildMapVendorCounts(2413, "all")) == nil, "micro child is pinned, no badge")
+    -- Only a zone view badges child maps.
+    assert(next(BC:GetChildMapVendorCounts(2274, "all")) == nil, "a continent view gets no child badges")
+    assert(next(BC:GetChildMapVendorCounts(2537, "all")) == nil, "a continent view gets no child badges")
+    assert(next(BC:GetChildMapVendorCounts(946, "all")) == nil, "an unknown or cosmic map gets no child badges")
 
     -- Vertical siblings merge under one child badge; deeper vendors count under
     -- the direct child that leads to them.
     local ak = BC:GetChildMapVendorCounts(2255, "all")
     assert(ak[2213] and ak[2213].vendorCount == 2 and ak[2216] == nil,
         "City of Threads and its lower half share one child badge")
-    local akd = BC:GetChildMapVendorCounts(2274, "all")
-    assert(akd[2255] and akd[2255].vendorCount == 2, "both City of Threads halves count under their direct child Azj-Kahet")
 
     -- No vendor is both pinned and badged: on every view the pinned vendors and
     -- the badged vendors partition the vendors that sit below the view.
-    for _, view in ipairs({ 2371, 2405, 2395, 2214, 2512, 2255 }) do
+    for _, view in ipairs({ 2371, 2405, 2395, 2214, 2512, 2255, 2413 }) do
         local pinned = { [view] = true }
         for _, childID in ipairs(MPP:GetMoreSpecificChildMapIDs(view)) do pinned[childID] = true end
         local badgedExpected = 0
