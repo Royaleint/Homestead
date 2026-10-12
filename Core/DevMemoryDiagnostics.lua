@@ -694,6 +694,63 @@ function HousingAddon:DebugMemFloorReport(deep)
     self:ShowCopyableText(table.concat(outputOrErr, "\n"))
 end
 
+-- HS-497: '/hs debug zonerollup'. Lists every vendor map ID whose badge key
+-- differs from its own ID once the sub-zone roll-up and sibling merge apply,
+-- plus every map the chain walk left alone although it is not directly under
+-- its continent. Parent chains are only known to the live client.
+function HousingAddon:DebugZoneRollupReport()
+    local BC, VF, MPP = HA.BadgeCalculation, HA.VendorFilter, HA.MapPinProvider
+    if not (BC and VF and MPP and HA.VendorData) then
+        self:Print("BadgeCalculation or VendorData unavailable.")
+        return
+    end
+
+    local function MapName(mapID)
+        local info = C_Map.GetMapInfo(mapID)
+        return info and info.name or "?"
+    end
+
+    local vendorsPerMap = {}
+    for _, vendor in ipairs(HA.VendorData:GetAllVendors()) do
+        local coords, mapID = VF.GetBestVendorCoordinates(vendor)
+        mapID = vendor.badgeMapID or mapID
+        if coords and mapID then
+            vendorsPerMap[mapID] = (vendorsPerMap[mapID] or 0) + 1
+        end
+    end
+
+    local changed, unchanged = {}, {}
+    for mapID, count in pairs(vendorsPerMap) do
+        local continent = MPP.GetContinentForZone(mapID)
+        if continent then
+            local rolled = BC.GetBadgeZoneMapID(mapID)
+            if rolled ~= mapID then
+                changed[#changed + 1] = { mapID = mapID, rolled = rolled, count = count }
+            elseif MPP:GetParentMapID(mapID) ~= continent then
+                unchanged[#unchanged + 1] = { mapID = mapID, parent = MPP:GetParentMapID(mapID), count = count }
+            end
+        end
+    end
+    table.sort(changed, function(a, b) return a.mapID < b.mapID end)
+    table.sort(unchanged, function(a, b) return a.mapID < b.mapID end)
+
+    local output = { "Zone roll-up: vendor maps whose badge key changes (map -> badge key)" }
+    for _, row in ipairs(changed) do
+        output[#output + 1] = format("%d %s -> %d %s  (%d vendors)",
+            row.mapID, MapName(row.mapID), row.rolled, MapName(row.rolled), row.count)
+    end
+    output[#output + 1] = format("%d changed.", #changed)
+    output[#output + 1] = ""
+    output[#output + 1] = "Not directly under their continent but left unchanged (chain unresolved, or already the zone):"
+    for _, row in ipairs(unchanged) do
+        output[#output + 1] = format("%d %s  parent %s  (%d vendors)",
+            row.mapID, MapName(row.mapID), tostring(row.parent), row.count)
+    end
+    output[#output + 1] = format("%d unchanged.", #unchanged)
+
+    self:ShowCopyableText(table.concat(output, "\n"))
+end
+
 -- Command registration (see file header): waits for PLAYER_LOGIN, by which
 -- point core.lua's OnInitialize (ADDON_LOADED-triggered) has always already
 -- run, so self.commands is guaranteed to exist. This is the ONLY hook this
@@ -711,4 +768,7 @@ devDiagFrame:SetScript("OnEvent", function()
     HousingAddon.commands:Register({ name = "debug memfloor", args = "[deep]",
         help = "Full-reachability per-owner memory sweep (HS-282 sub-item I). 'deep' also walks widget tables.",
         handler = function(rest) HousingAddon:DebugMemFloorReport(rest == "deep") end })
+    HousingAddon.commands:Register({ name = "debug zonerollup",
+        help = "List vendor maps whose zone badge key changes under the sub-zone roll-up (HS-497).",
+        handler = function() HousingAddon:DebugZoneRollupReport() end })
 end)

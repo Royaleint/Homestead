@@ -49,6 +49,52 @@ function BadgeCalculation.GetCanonicalZoneMapID(zoneMapID)
     return zoneMapID
 end
 
+-- HS-497: a vendor recorded on a sub-zone or dungeon map is counted under the
+-- zone map that sits directly below its continent, so a continent map shows one
+-- badge per zone. The sibling merge runs first so both halves of a pair take the
+-- same path up; the continent is read from the merged ID, as the counting loops
+-- always did. A chain that never reaches the continent within the bound (or has
+-- no parent data) leaves the ID as it was.
+local ZONE_ROLLUP_MAX_DEPTH = 6
+local zoneRollupCache = {}
+
+function BadgeCalculation.GetBadgeZoneMapID(mapID)
+    local cached = zoneRollupCache[mapID]
+    if cached then return cached end
+
+    local rolled = BadgeCalculation.GetCanonicalZoneMapID(mapID)
+    local continent = BadgeCalculation.GetContinentForZone(rolled)
+    if continent then
+        local current = rolled
+        for _ = 1, ZONE_ROLLUP_MAX_DEPTH do
+            local parent = MPP:GetParentMapID(current)
+            if not parent then break end
+            if parent == continent then
+                rolled = current
+                break
+            end
+            current = parent
+        end
+    end
+
+    zoneRollupCache[mapID] = rolled
+    return rolled
+end
+
+-- Best coordinates plus the zone map this vendor is counted under: the scanned
+-- map when present, the badgeMapID override (e.g. a Dalaran portal vendor's
+-- accessible map) when set, rolled up per GetBadgeZoneMapID.
+function BadgeCalculation.GetVendorBadgeZone(vendor)
+    local coords, mapID = VF.GetBestVendorCoordinates(vendor)
+    if vendor.badgeMapID then
+        mapID = vendor.badgeMapID
+    end
+    if coords and mapID then
+        mapID = BadgeCalculation.GetBadgeZoneMapID(mapID)
+    end
+    return coords, mapID
+end
+
 -------------------------------------------------------------------------------
 -- Caches
 -------------------------------------------------------------------------------
@@ -671,20 +717,12 @@ function BadgeCalculation:GetZoneVendorCounts(continentMapID, sourceFilter)
     for _, vendor in ipairs(allVendors) do
         if ShouldIncludeVendorInBadgeCounts(vendor)
                 and not VF.ShouldHideVendor(vendor) then
-            -- Get best coordinates (scanned preferred over static)
-            local coords, zoneMapID = VF.GetBestVendorCoordinates(vendor)
-
-            -- Badge zone override: count vendor under its accessible map (e.g. Dalaran portal)
-            -- rather than its inaccessible instance zone. Decoupled from vendor.portal so this
-            -- works independently if the portal pin feature is absent or reverted.
-            if vendor.badgeMapID then
-                zoneMapID = vendor.badgeMapID
-            end
+            -- Scanned coordinates preferred over static; badgeMapID and the
+            -- sub-zone roll-up are applied inside GetVendorBadgeZone.
+            local coords, zoneMapID = BadgeCalculation.GetVendorBadgeZone(vendor)
 
             -- Only count vendors with valid coordinates
             if coords and zoneMapID then
-                -- Merge vertically-stacked sibling zones into one summary row.
-                zoneMapID = BadgeCalculation.GetCanonicalZoneMapID(zoneMapID)
                 local continent = BadgeCalculation.GetContinentForZone(zoneMapID)
 
                 if continent == continentMapID then

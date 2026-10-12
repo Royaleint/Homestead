@@ -1960,21 +1960,13 @@ local function BuildZoneExpansionRows(zoneMapID, rows)
     local allVendors = VendorData:GetAllVendors()
     local showOpposite = VF.ShouldShowOppositeFaction()
 
-    -- Build set of maps to include (canonical + siblings for merged zones)
-    local targetMaps = {[zoneMapID] = true}
-    local Constants = HA.Constants
-    if Constants and Constants.VerticalSiblings and Constants.VerticalSiblings[zoneMapID] then
-        for sibID, _ in pairs(Constants.VerticalSiblings[zoneMapID]) do
-            targetMaps[sibID] = true
-        end
-    end
-
-    -- Gather vendors in this zone using same logic as badge calculation
+    -- Gather vendors in this zone under the badge count's own key: sibling
+    -- merge and sub-zone roll-up (HS-497) both happen inside GetVendorBadgeZone.
     local zoneVendors = {}
     for _, vendor in ipairs(allVendors) do
         if not VF.ShouldHideVendor(vendor) then
-            local coords, vendorMapID = VF.GetBestVendorCoordinates(vendor)
-            if coords and targetMaps[vendorMapID] then
+            local coords, badgeZoneMapID = BC.GetVendorBadgeZone(vendor)
+            if coords and badgeZoneMapID == zoneMapID then
                 local canAccess = VF.CanAccessVendor(vendor)
                 local isOpposite = VF.IsOppositeFaction(vendor)
                 if canAccess or (isOpposite and showOpposite) then

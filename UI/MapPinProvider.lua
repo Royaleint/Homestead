@@ -90,7 +90,8 @@ MapPinProvider.continentZoneBadgeExclusionsOnParent = {
             [2444] = true,   -- Slayer's Rise (Voidstorm sub-zone)
             [2694] = true,   -- Harandar
             [2576] = true,   -- The Den (Harandar sub-zone)
-            [2413] = true,   -- Harandar sub-zone
+            [2413] = true,   -- Harandar
+            [2599] = true,   -- Umbral Base Camp (Voidstorm sub-zone; matters only if its chain is unresolved)
         },
     },
 }
