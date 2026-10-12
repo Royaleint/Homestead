@@ -51,10 +51,10 @@ end
 
 -- HS-497: a vendor recorded on a sub-zone or dungeon map is counted under the
 -- zone map that sits directly below its continent, so a continent map shows one
--- badge per zone. The sibling merge runs first so both halves of a pair take the
--- same path up; the continent is read from the merged ID, as the counting loops
--- always did. A chain that never reaches the continent within the bound (or has
--- no parent data) leaves the ID as it was.
+-- badge per zone. The returned key always resolves, via GetContinentForZone, to
+-- the same continent as the sibling-merged input; any other result (no parent
+-- data, a chain that never reaches the continent within the bound, or an
+-- ancestor missing from the continent table) returns the merged input.
 local ZONE_ROLLUP_MAX_DEPTH = 6
 local zoneRollupCache = {}
 
@@ -62,10 +62,11 @@ function BadgeCalculation.GetBadgeZoneMapID(mapID)
     local cached = zoneRollupCache[mapID]
     if cached then return cached end
 
-    local rolled = BadgeCalculation.GetCanonicalZoneMapID(mapID)
-    local continent = BadgeCalculation.GetContinentForZone(rolled)
+    local merged = BadgeCalculation.GetCanonicalZoneMapID(mapID)
+    local rolled = merged
+    local continent = BadgeCalculation.GetContinentForZone(merged)
     if continent then
-        local current = rolled
+        local current = merged
         for _ = 1, ZONE_ROLLUP_MAX_DEPTH do
             local parent = MPP:GetParentMapID(current)
             if not parent then break end
@@ -74,6 +75,9 @@ function BadgeCalculation.GetBadgeZoneMapID(mapID)
                 break
             end
             current = parent
+        end
+        if BadgeCalculation.GetContinentForZone(rolled) ~= continent then
+            rolled = merged
         end
     end
 
@@ -696,6 +700,7 @@ function BadgeCalculation:GetDebugCacheTables()
         dropGroupStatsCache = dropGroupStatsCache,
         cachedZoneBadges = cachedZoneBadges,
         cachedContinentBadges = cachedContinentBadges,
+        zoneRollupCache = zoneRollupCache,
     }
 end
 

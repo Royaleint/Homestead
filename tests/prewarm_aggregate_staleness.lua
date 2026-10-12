@@ -62,7 +62,7 @@ local TEST_ZONE = 1001
 -------------------------------------------------------------------------------
 
 local function NewHarness()
-    local h = { processed = 0, traces = {} }
+    local h = { processed = 0, traces = {}, errors = {} }
 
     local vendors = { { npcID = 70001 }, { npcID = 70002 } }
     local itemsByNpc = { [70001] = {}, [70002] = {} }
@@ -88,6 +88,7 @@ local function NewHarness()
             GetContinentForZone = function(zoneMapID)
                 return zoneMapID == TEST_ZONE and TEST_CONTINENT or nil
             end,
+            GetParentMapID = function() return nil end,
         },
         VendorFilter = {
             GetBestVendorCoordinates = function() return { x = 0.5, y = 0.5 }, TEST_ZONE end,
@@ -103,7 +104,8 @@ local function NewHarness()
         PerformanceTrace = {
             Measure = function(_, label, tag, pcallFn, fn)
                 local before = h.processed
-                local ok = pcallFn(fn)
+                local ok, err = pcallFn(fn)
+                if not ok then h.errors[#h.errors + 1] = tostring(err) end
                 h.traces[#h.traces + 1] = { label = label, tag = tag, cost = h.processed - before }
                 return ok
             end,
@@ -316,5 +318,9 @@ assert(C.processed == processedBeforeC,
     (C.processed - processedBeforeC))
 
 print("prewarm_aggregate_staleness: scenario C (each tick, not just the first) ok")
+
+assert(#A.errors == 0 and #B.errors == 0 and #C.errors == 0,
+    "no prewarm tick may error inside its pcall, got: " ..
+    tostring(A.errors[1] or B.errors[1] or C.errors[1]))
 
 print("prewarm_aggregate_staleness: ok")

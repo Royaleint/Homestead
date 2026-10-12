@@ -10,6 +10,10 @@
     .mjs appends it (after Core/MemoryEstimator.lua, its dependency) to the
     generated Homestead_DevBuild.toc so both still load under the DevBuild.
 
+    /hs debug zonerollup (HS-497) lists, per continent, the vendor maps whose
+    zone badge key changes under the sub-zone roll-up, and the maps the roll-up
+    leaves alone because their chain ends outside the continent table.
+
     Command registration: self.commands (Foundry.Commands, set up in
     Core/core.lua) is only assigned inside OnInitialize, which core.lua's
     Lifecycle adoption fires off ADDON_LOADED -- before this file's own
@@ -280,7 +284,9 @@ function HousingAddon:DebugMemBudgetReport(full)
         local caches = HA.BadgeCalculation:GetDebugCacheTables()
         reportKB("BadgeCalculation.vendorStatsCache", ME.EstimateTableSizeKB(caches.vendorStatsCache), "est")
         reportKB("BadgeCalculation.dropGroupStatsCache", ME.EstimateTableSizeKB(caches.dropGroupStatsCache), "est")
-        local badgeKB = ME.EstimateTablesSizeKB({ caches.cachedZoneBadges, caches.cachedContinentBadges })
+        local badgeKB = ME.EstimateTablesSizeKB({
+            caches.cachedZoneBadges, caches.cachedContinentBadges, caches.zoneRollupCache,
+        })
         reportKB("BadgeCalculation.badgeCaches", badgeKB, "est")
     else
         reportSkip("BadgeCalculation.vendorStatsCache", "BadgeCalculation unavailable")
@@ -694,10 +700,12 @@ function HousingAddon:DebugMemFloorReport(deep)
     self:ShowCopyableText(table.concat(outputOrErr, "\n"))
 end
 
--- HS-497: '/hs debug zonerollup'. Lists every vendor map ID whose badge key
--- differs from its own ID once the sub-zone roll-up and sibling merge apply,
--- plus every map the chain walk left alone although it is not directly under
--- its continent. Parent chains are only known to the live client.
+-- HS-497: '/hs debug zonerollup'. Per continent, lists every vendor map whose
+-- badge key differs from its own ID once the sub-zone roll-up and sibling merge
+-- apply. Maps left unchanged are listed separately when they sit below a zone
+-- the roll-up cannot use: the ancestor under the continent is missing from
+-- ZoneToContinentMap (the vendor keeps its own key), or the chain never reaches
+-- the continent. Parent chains are only known to the live client.
 function HousingAddon:DebugZoneRollupReport()
     local BC, VF, MPP = HA.BadgeCalculation, HA.VendorFilter, HA.MapPinProvider
     if not (BC and VF and MPP and HA.VendorData) then
@@ -719,34 +727,79 @@ function HousingAddon:DebugZoneRollupReport()
         end
     end
 
-    local changed, unchanged = {}, {}
+    -- Ancestor of mapID directly under the continent, or nil if the chain
+    -- does not reach it within the same bound the roll-up uses.
+    local function ChainTop(mapID, continent)
+        local current = mapID
+        for _ = 1, 6 do
+            local parent = MPP:GetParentMapID(current)
+            if not parent then return nil end
+            if parent == continent then return current end
+            current = parent
+        end
+        return nil
+    end
+
+    local byContinent = {}
+    local function Bucket(continent)
+        local bucket = byContinent[continent]
+        if not bucket then
+            bucket = { changed = {}, unresolved = {} }
+            byContinent[continent] = bucket
+        end
+        return bucket
+    end
+
     for mapID, count in pairs(vendorsPerMap) do
         local continent = MPP.GetContinentForZone(mapID)
         if continent then
             local rolled = BC.GetBadgeZoneMapID(mapID)
             if rolled ~= mapID then
-                changed[#changed + 1] = { mapID = mapID, rolled = rolled, count = count }
-            elseif MPP:GetParentMapID(mapID) ~= continent then
-                unchanged[#unchanged + 1] = { mapID = mapID, parent = MPP:GetParentMapID(mapID), count = count }
+                local list = Bucket(continent).changed
+                list[#list + 1] = { mapID = mapID, rolled = rolled, count = count }
+            else
+                local merged = BC.GetCanonicalZoneMapID(mapID)
+                if MPP:GetParentMapID(merged) ~= continent then
+                    local top = ChainTop(merged, continent)
+                    if not top or MPP.GetContinentForZone(top) ~= continent then
+                        local list = Bucket(continent).unresolved
+                        list[#list + 1] = { mapID = mapID, top = top, count = count }
+                    end
+                end
             end
         end
     end
-    table.sort(changed, function(a, b) return a.mapID < b.mapID end)
-    table.sort(unchanged, function(a, b) return a.mapID < b.mapID end)
 
-    local output = { "Zone roll-up: vendor maps whose badge key changes (map -> badge key)" }
-    for _, row in ipairs(changed) do
-        output[#output + 1] = format("%d %s -> %d %s  (%d vendors)",
-            row.mapID, MapName(row.mapID), row.rolled, MapName(row.rolled), row.count)
+    local continents = {}
+    for continent in pairs(byContinent) do continents[#continents + 1] = continent end
+    table.sort(continents)
+
+    local function ByMapID(a, b) return a.mapID < b.mapID end
+    local output = { "Zone roll-up by continent (map -> badge key)" }
+    local changedTotal, unresolvedTotal = 0, 0
+    for _, continent in ipairs(continents) do
+        local bucket = byContinent[continent]
+        table.sort(bucket.changed, ByMapID)
+        table.sort(bucket.unresolved, ByMapID)
+        output[#output + 1] = ""
+        output[#output + 1] = format("%d %s", continent, MapName(continent))
+        for _, row in ipairs(bucket.changed) do
+            output[#output + 1] = format("  %d %s -> %d %s  (%d vendors)",
+                row.mapID, MapName(row.mapID), row.rolled, MapName(row.rolled), row.count)
+        end
+        changedTotal = changedTotal + #bucket.changed
+        for _, row in ipairs(bucket.unresolved) do
+            output[#output + 1] = format("  UNCHANGED %d %s  top ancestor %s  (%d vendors)",
+                row.mapID, MapName(row.mapID),
+                row.top and (row.top .. " " .. MapName(row.top) .. " is not in ZoneToContinentMap")
+                    or "not reached (chain unresolved)",
+                row.count)
+        end
+        unresolvedTotal = unresolvedTotal + #bucket.unresolved
     end
-    output[#output + 1] = format("%d changed.", #changed)
     output[#output + 1] = ""
-    output[#output + 1] = "Not directly under their continent but left unchanged (chain unresolved, or already the zone):"
-    for _, row in ipairs(unchanged) do
-        output[#output + 1] = format("%d %s  parent %s  (%d vendors)",
-            row.mapID, MapName(row.mapID), tostring(row.parent), row.count)
-    end
-    output[#output + 1] = format("%d unchanged.", #unchanged)
+    output[#output + 1] = format("%d changed, %d left unchanged below an unusable ancestor.",
+        changedTotal, unresolvedTotal)
 
     self:ShowCopyableText(table.concat(output, "\n"))
 end
@@ -769,6 +822,6 @@ devDiagFrame:SetScript("OnEvent", function()
         help = "Full-reachability per-owner memory sweep (HS-282 sub-item I). 'deep' also walks widget tables.",
         handler = function(rest) HousingAddon:DebugMemFloorReport(rest == "deep") end })
     HousingAddon.commands:Register({ name = "debug zonerollup",
-        help = "List vendor maps whose zone badge key changes under the sub-zone roll-up (HS-497).",
+        help = "List vendor maps by continent whose zone badge key changes under the sub-zone roll-up, and those left unchanged (HS-497).",
         handler = function() HousingAddon:DebugZoneRollupReport() end })
 end)
