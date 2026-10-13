@@ -6,7 +6,8 @@
     for housing decor items, then stores the data for community sharing.
 
     The scanner is designed to be lightweight and non-intrusive:
-    - Only scans once per vendor per session
+    - Scans each vendor once per session, unless a scan finished with empty
+      merchant slots, in which case the next visit scans it again
     - Uses throttling to prevent lag
     - Stores data in SavedVariables for persistence
 ]]
@@ -349,6 +350,10 @@ function VendorScanner:StopScan()
         if scanQueue.scanComplete then
             -- Full scan finished — save as authoritative data
             SP:SaveVendorData(scanQueue)
+            -- Empty slots mean the record is unconfirmed: unlock so reopening rescans
+            if scanQueue.hadNilSlots then
+                scannedVendorsThisSession[scanQueue.npcID] = nil
+            end
         else
             -- Merchant closed before scan finished — discard partial data
             -- Clear session lock so vendor can be re-scanned this session
@@ -373,6 +378,7 @@ function VendorScanner:ProcessScanQueue()
         if not itemLink then
             -- Merchant slot exists but item data hasn't loaded (slow connection, server lag)
             scanQueue.hadNilSlots = true
+            scanQueue.nilSlotCount = (scanQueue.nilSlotCount or 0) + 1
         end
         if itemLink then
             local itemID = _G.GetMerchantItemID and _G.GetMerchantItemID(i)
@@ -391,6 +397,7 @@ function VendorScanner:ProcessScanQueue()
             else
                 -- C_MerchantFrame.GetItemInfo returned nil for this slot
                 scanQueue.hadNilSlots = true
+                scanQueue.nilSlotCount = (scanQueue.nilSlotCount or 0) + 1
             end
 
             -- Extract all cost components (items and currencies) if extendedCost is true
@@ -483,7 +490,13 @@ function VendorScanner:ProcessScanQueue()
         local housingCount = #scanQueue.housingItems
         local itemCount = #scanQueue.allItems
         if HA.Addon then
-            HA.Addon:Debug("Scan complete: " .. itemCount .. " total items, " .. housingCount .. " housing items")
+            local nilSlotCount = scanQueue.nilSlotCount or 0
+            local msg = "Scan complete: " .. itemCount .. "/" .. scanQueue.totalItems
+                .. " slots recorded, " .. housingCount .. " housing items"
+            if nilSlotCount > 0 then
+                msg = msg .. ", " .. nilSlotCount .. " slot(s) returned no data; will rescan on reopen"
+            end
+            HA.Addon:Debug(msg)
             -- Show debug message when housing items are found
             if housingCount > 0 then
                 HA.Addon:Debug("Scanned vendor: " .. (scanQueue.vendorName or "Unknown") .. " - " .. housingCount .. "/" .. itemCount .. " housing item(s)")

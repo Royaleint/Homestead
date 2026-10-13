@@ -111,7 +111,8 @@ function ScanPersistence:SaveVendorData(scanData)
         mapChain = scanData.mapChain,
         continentMapID = scanData.continentMapID,
         lastScanned = time(),
-        itemCount = itemCount,          -- Total items at vendor
+        itemCount = itemCount,          -- Slots that returned an item link
+        slotCount = scanData.totalItems, -- Merchant slots the scan walked (capped at 200)
         decorCount = decorCount,        -- Housing decor items (subclass 0 only)
         hasDecor = decorCount > 0,      -- Flag to identify if vendor sells housing decor
         lastScanHadDecor = decorCount > 0, -- Last observed scan result, even if old items are preserved
@@ -252,8 +253,8 @@ function ScanPersistence:SaveVendorData(scanData)
     -- Determine scan confidence BEFORE the save decision below (moved up from
     -- its old post-save position): "confirmed" only if the scan completed AND
     -- every item slot returned valid data. "unknown" if the scan completed but
-    -- any C_MerchantFrame.GetItemInfo() call returned nil during
-    -- ProcessScanQueue() — e.g. a laggy partial scan with no retry.
+    -- any slot returned no link or C_MerchantFrame.GetItemInfo() returned nil
+    -- during ProcessScanQueue() — e.g. a laggy partial scan with no retry.
     local scanConfidence = "unknown"
     if scanData.scanComplete and not scanData.hadNilSlots then
         scanConfidence = "confirmed"
