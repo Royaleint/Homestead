@@ -283,6 +283,13 @@ function ScanPersistence:SaveVendorData(scanData)
         -- consolidation, scan-timestamp provenance) that the unobserved rows
         -- were freshly re-verified. Record the attempt separately instead.
         existingData.lastScanAttempt = vendorRecord.lastScanned
+        -- What this scan did see still counts: a housing item is on the
+        -- vendor, so a stale "had nothing" mark from an earlier zero scan is
+        -- wrong. Raise the marks only, never lower them.
+        existingData.lastScanHadHousing = true
+        if vendorRecord.hasDecor then
+            existingData.lastScanHadDecor = true
+        end
         -- Debug (already debug-gated) rather than DevAddon-gated: a rejected
         -- scan is evidence loss the user should be able to see with debug on.
         HA.Addon:Debug(string.format(
@@ -295,13 +302,18 @@ function ScanPersistence:SaveVendorData(scanData)
         -- Good scan: save new data
         HA.Addon.db.global.scannedVendors[scanData.npcID] = vendorRecord
     elseif isKnownVendor then
-        -- Known housing vendor scanned with 0 housing items = API failure,
-        -- not truth. Preserve existing scan data; record the latest scan
-        -- result separately.
+        -- Known housing vendor scanned with 0 housing items. The stored
+        -- items are kept either way. Only a confirmed scan (every slot read)
+        -- may say "had nothing" and re-date the record; an unconfirmed one
+        -- just logs the attempt.
         if existingData then
-            existingData.lastScanned = vendorRecord.lastScanned
-            existingData.lastScanHadDecor = false
-            existingData.lastScanHadHousing = false
+            if scanConfidence == "confirmed" then
+                existingData.lastScanned = vendorRecord.lastScanned
+                existingData.lastScanHadDecor = false
+                existingData.lastScanHadHousing = false
+            else
+                existingData.lastScanAttempt = vendorRecord.lastScanned
+            end
             if vendorRecord.coords and vendorRecord.coords.x ~= 0.5 and vendorRecord.coords.y ~= 0.5 then
                 existingData.coords = vendorRecord.coords
             end
@@ -321,9 +333,15 @@ function ScanPersistence:SaveVendorData(scanData)
         -- field existed: hasDecor=true on an old record still means it had
         -- housing items (decor is a housing subclass), so it must not fall
         -- through to the delete branch below just because hasHousing is nil.
-        existingData.lastScanned = vendorRecord.lastScanned
-        existingData.lastScanHadDecor = false
-        existingData.lastScanHadHousing = false
+        -- As above, only a confirmed scan may mark the vendor empty or
+        -- re-date it.
+        if scanConfidence == "confirmed" then
+            existingData.lastScanned = vendorRecord.lastScanned
+            existingData.lastScanHadDecor = false
+            existingData.lastScanHadHousing = false
+        else
+            existingData.lastScanAttempt = vendorRecord.lastScanned
+        end
         if HA.DevAddon then
             HA.Addon:Debug(string.format(
                 "Scan protection: %s (NPC %d) previously had housing items but new scan found 0. "

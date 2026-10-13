@@ -7,7 +7,8 @@
 
     The scanner is designed to be lightweight and non-intrusive:
     - Scans each vendor once per session, unless a scan finished with empty
-      merchant slots, in which case the next visit scans it again
+      merchant slots (up to 3 times per session), in which case the next visit
+      scans it again
     - Uses throttling to prevent lag
     - Stores data in SavedVariables for persistence
 ]]
@@ -31,6 +32,7 @@ local SP = HA.ScanPersistence
 
 -- Scanner state
 local scannedVendorsThisSession = {}
+local emptySlotScansThisSession = {}  -- npcID -> completed scans that had empty slots
 local scanQueue = {}
 local isScanning = false
 local scanFrame = nil
@@ -41,6 +43,7 @@ local pendingScanRetries = 0      -- Retry counter for data loading
 local SCAN_BATCH_SIZE = 5      -- Items to scan per frame
 local SCAN_DELAY = 0.01        -- Seconds between batches (10ms)
 local MAX_ITEMS_TO_SCAN = 200  -- Safety limit
+local MAX_EMPTY_SLOT_SCANS_PER_SESSION = 3  -- Scans that may end with empty slots, per vendor, before rescans stop
 
 -- Geography lookups from canonical constants.
 -- Note: EK (13) and Kalimdor (12) default to "Classic" but may contain
@@ -236,6 +239,12 @@ function VendorScanner:TryStartScan(npcID, source)
 end
 
 function VendorScanner:OnMerchantClosed()
+    -- Closed before the scan started: the open set the session lock but no
+    -- scan ran, so release it and let the next open try again
+    if pendingScanNpcID then
+        scannedVendorsThisSession[pendingScanNpcID] = nil
+    end
+
     -- Clear pending scan
     pendingScanNpcID = nil
     pendingScanRetries = 0
@@ -350,8 +359,9 @@ function VendorScanner:StopScan()
         if scanQueue.scanComplete then
             -- Full scan finished — save as authoritative data
             SP:SaveVendorData(scanQueue)
-            -- Empty slots mean the record is unconfirmed: unlock so reopening rescans
-            if scanQueue.hadNilSlots then
+            -- Empty slots mean the record is unconfirmed: unlock so reopening
+            -- rescans, until the per-session rescan cap is reached
+            if scanQueue.hadNilSlots and not scanQueue.rescanStopped then
                 scannedVendorsThisSession[scanQueue.npcID] = nil
             end
         else
@@ -489,12 +499,18 @@ function VendorScanner:ProcessScanQueue()
     if scanQueue.currentIndex > scanQueue.totalItems then
         local housingCount = #scanQueue.housingItems
         local itemCount = #scanQueue.allItems
+        if scanQueue.hadNilSlots then
+            local count = (emptySlotScansThisSession[scanQueue.npcID] or 0) + 1
+            emptySlotScansThisSession[scanQueue.npcID] = count
+            scanQueue.rescanStopped = count >= MAX_EMPTY_SLOT_SCANS_PER_SESSION
+        end
         if HA.Addon then
             local nilSlotCount = scanQueue.nilSlotCount or 0
             local msg = "Scan complete: " .. itemCount .. "/" .. scanQueue.totalItems
                 .. " slots recorded, " .. housingCount .. " housing items"
             if nilSlotCount > 0 then
-                msg = msg .. ", " .. nilSlotCount .. " slot(s) returned no data; will rescan on reopen"
+                msg = msg .. ", " .. nilSlotCount .. " slot(s) returned no data"
+                    .. (scanQueue.rescanStopped and "; rescanning stopped for this session" or "; will rescan on reopen")
             end
             HA.Addon:Debug(msg)
             -- Show debug message when housing items are found
@@ -651,6 +667,7 @@ end
 function VendorScanner:ClearScannedData()
     SP:ClearScannedData()
     scannedVendorsThisSession = {}
+    emptySlotScansThisSession = {}
 end
 
 function VendorScanner:ClearNoDecorData()
@@ -660,6 +677,7 @@ end
 function VendorScanner:ClearAllData()
     SP:ClearAllData()
     scannedVendorsThisSession = {}
+    emptySlotScansThisSession = {}
 end
 
 -------------------------------------------------------------------------------
