@@ -2,6 +2,33 @@
 
 ---
 
+## Homestead v2.14.0 (10-13-2026)
+
+Homestead is updated for patch 12.1.5 with new vendors and decor sources, and the continent map now shows one badge per zone.
+
+---
+
+## World Map
+
+**Zone Badges on the Continent Map**
+
+- The continent map now shows one badge per zone. Vendors in a zone's sub-zones, such as a city inside a zone, are counted under that zone instead of getting a badge of their own.
+- Quel'Thalas is now counted under Eastern Kingdoms on the Azeroth map, so Eastern Kingdoms shows one badge for both. In the side panel, Quel'Thalas appears as a single continent row inside the Eastern Kingdoms list, and opening it lists its zones.
+- Undermine keeps its own badge on the Khaz Algar map instead of being counted under The Ringing Deeps.
+- Zone maps now show a badge for sub-zones whose vendors are not drawn as pins, and the side panel lists them under the zone.
+
+---
+
+## Vendor Database
+
+**Patch 12.1.5**
+
+- Added the new decor sold by vendors in the Shadowlands, Draenor, Argus, Dalaran, Drustvar, Vol'dun, Stormwind and Silvermoon City, including the vendors added in patch 12.1.5.
+- Updated source information for many other decor items, including decor from Hallow's End, crafting, achievements, boss drops and quests.
+- Corrected prices and other incorrect information across Homestead.
+
+---
+
 ## Homestead v2.13.0 (10-12-2026)
 
 Vendor pins with long wares lists now open a scrolling tooltip with a search box, the vendor panel stays beside the maximized world map, and more vendor prices are corrected.
