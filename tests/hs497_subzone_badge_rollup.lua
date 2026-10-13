@@ -64,6 +64,12 @@ local MAPS = {
     -- Silvermoon City sits on Eversong Woods, which is directly under the continent
     [2395] = { "Eversong Woods", 2537 },
     [2393] = { "Silvermoon City", 2395 },
+    -- Shadowlands: a covenant hall is a Dungeon map hanging off its zone
+    [1550] = { "The Shadowlands", 946, CONTINENT },
+    [1565] = { "Ardenweald", 1550 },
+    [1701] = { "Heart of the Forest", 1565, DUNGEON },
+    [1525] = { "Revendreth", 1550 },
+    [1699] = { "Sinfall", 1525, DUNGEON },
     -- Chain never reaches the continent (ends at a map with no parent)
     [9001] = { "Orphan Annex", 9002 },
     [9002] = { "Orphan Hall", 0 },
@@ -258,6 +264,47 @@ do
     assert(totals[13].vendorCount == 8, "continent total counts every vendor once, got " .. totals[13].vendorCount)
 
     print("hs497_subzone_badge_rollup: GetZoneVendorCounts one badge per zone ok")
+end
+
+-------------------------------------------------------------------------------
+-- A covenant hall counts under its zone: the hall map needs its own
+-- ZoneToContinentMap entry, or its vendors are in no zone badge and no total
+-------------------------------------------------------------------------------
+
+do
+    local HA = NewHA()
+    -- Heart of the Forest x2, Sinfall, Revendreth
+    local mapByNpc = { [41] = 1701, [42] = 1701, [43] = 1699, [44] = 1525 }
+    local vendors = {}
+    for npcID = 41, 44 do vendors[#vendors + 1] = { npcID = npcID } end
+    local BC = LoadBadgeCalculation(HA, vendors, mapByNpc)
+
+    assert(BC.GetContinentForZone(1701) == 1550, "Heart of the Forest must be mapped to the Shadowlands")
+    assert(BC.GetBadgeZoneMapID(1701) == 1565, "Heart of the Forest must roll up to Ardenweald")
+    assert(BC.GetBadgeZoneMapID(1699) == 1525, "Sinfall must roll up to Revendreth")
+
+    local sl = BC:GetZoneVendorCounts(1550, "all")
+    assert(sl[1565] and sl[1565].vendorCount == 2 and sl[1565].zoneName == "Ardenweald",
+        "Ardenweald badge must count both Heart of the Forest vendors, got " .. tostring(sl[1565] and sl[1565].vendorCount))
+    assert(sl[1525] and sl[1525].vendorCount == 2, "Revendreth: zone + Sinfall")
+    assert(sl[1701] == nil and sl[1699] == nil, "no hall key may survive")
+
+    local totals = BC:GetContinentVendorCounts("all")
+    assert(totals[1550] and totals[1550].vendorCount == 4,
+        "the Shadowlands total counts the hall vendors, got " .. tostring(totals[1550] and totals[1550].vendorCount))
+
+    -- A Dungeon child is drawn as pins on its zone view, so it gets no badge there.
+    assert(next(BC:GetChildMapVendorCounts(1565, "all")) == nil, "hall vendors are pins on Ardenweald, not a badge")
+
+    -- Every shipped vendor map has a continent; one without is dropped from every
+    -- zone badge and continent total.
+    assert(loadfile(root .. "/Data/VendorIdentity.lua"))("Homestead", HA)
+    for npcID, vendor in pairs(HA.VendorIdentity.Vendors) do
+        assert(not vendor.mapID or HA.Constants.ZoneToContinentMap[vendor.mapID],
+            "vendor " .. npcID .. " is on map " .. tostring(vendor.mapID) .. ", which has no ZoneToContinentMap entry")
+    end
+
+    print("hs497_subzone_badge_rollup: covenant hall vendors count under their zone ok")
 end
 
 -------------------------------------------------------------------------------

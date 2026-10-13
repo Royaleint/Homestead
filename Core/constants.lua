@@ -303,6 +303,7 @@ Constants.ZoneToContinentMap = {
     [1565] = 1550,
     [1670] = 1550,
     [1699] = 1550,
+    [1701] = 1550, -- Heart of the Forest (Night Fae covenant hall; client parent is Ardenweald 1565)
     [1961] = 1550, -- Korthia
     [2022] = 1978,
     [2023] = 1978,
