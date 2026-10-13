@@ -68,13 +68,14 @@ MapPinProvider.excludedContinents = {
 }
 
 -- Continents whose vendor counts and zone badges roll into a parent continent.
+-- A continent must not be both a source and a destination in these roll-up tables: the totals fold assumes no chains.
 -- Argus is accessed via Dalaran (Broken Isles) — logically part of BI on the world map.
 MapPinProvider.continentMergesInto = {
     [905] = 619,   -- Argus → Broken Isles
 }
 
--- Continents whose zone badges should also be shown on another continent map.
--- This is a display-only overlay on continent views; it does not merge totals.
+-- Continents whose totals roll into another continent on the world map, and whose
+-- zone badges are also drawn on that continent's own map (minus the exclusions below).
 MapPinProvider.continentZoneBadgesOnParent = {
     [2537] = 13,   -- Midnight/Quel'Thalas zones on Eastern Kingdoms continent map
 }
@@ -90,7 +91,8 @@ MapPinProvider.continentZoneBadgeExclusionsOnParent = {
             [2444] = true,   -- Slayer's Rise (Voidstorm sub-zone)
             [2694] = true,   -- Harandar
             [2576] = true,   -- The Den (Harandar sub-zone)
-            [2413] = true,   -- Harandar sub-zone
+            [2413] = true,   -- Harandar
+            [2599] = true,   -- Umbral Base Camp (Voidstorm sub-zone; matters only if its chain is unresolved)
         },
     },
 }
@@ -129,6 +131,9 @@ MapPinProvider.manualZoneCenters = {
     [717] = { [619] = { x = 0.44, y = 0.52 } },  -- Dreadscar Rift (Warlock)
     [720] = { [619] = { x = 0.54, y = 0.45 } },  -- The Fel Hammer (Demon Hunter)
     [726] = { [619] = { x = 0.42, y = 0.45 } },  -- The Maelstrom (Shaman)
+
+    -- Undermine is its own instance, so it has no rect on Khaz Algar (2274)
+    [2346] = { [2274] = { x = 0.81, y = 0.78 } },  -- Undermine (just above its name on the map art)
 }
 
 -- Notes shown in zone badge tooltips for special locations (class halls, etc.)

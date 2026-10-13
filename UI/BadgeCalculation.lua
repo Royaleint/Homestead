@@ -49,6 +49,64 @@ function BadgeCalculation.GetCanonicalZoneMapID(zoneMapID)
     return zoneMapID
 end
 
+-- HS-497: a vendor recorded on a sub-zone or dungeon map is counted under the
+-- zone map that sits directly below its continent, so a continent map shows one
+-- badge per zone. The returned key always resolves, via GetContinentForZone, to
+-- the same continent as the sibling-merged input; any other result (no parent
+-- data, a chain that never reaches the continent within the bound, or an
+-- ancestor missing from the continent table) returns the merged input.
+-- Constants.ContinentBadgeOverrides names the zones that keep their own badge
+-- and are looked up before the walk, under the same continent check.
+local ZONE_ROLLUP_MAX_DEPTH = 6
+BadgeCalculation.ZONE_ROLLUP_MAX_DEPTH = ZONE_ROLLUP_MAX_DEPTH
+local zoneRollupCache = {}
+
+function BadgeCalculation.GetBadgeZoneMapID(mapID)
+    local cached = zoneRollupCache[mapID]
+    if cached then return cached end
+
+    local merged = BadgeCalculation.GetCanonicalZoneMapID(mapID)
+    local rolled = merged
+    local continent = BadgeCalculation.GetContinentForZone(merged)
+    if continent then
+        local override = Constants.ContinentBadgeOverrides and Constants.ContinentBadgeOverrides[merged]
+        if override then
+            rolled = override
+        else
+            local current = merged
+            for _ = 1, ZONE_ROLLUP_MAX_DEPTH do
+                local parent = MPP:GetParentMapID(current)
+                if not parent then break end
+                if parent == continent then
+                    rolled = current
+                    break
+                end
+                current = parent
+            end
+        end
+        if BadgeCalculation.GetContinentForZone(rolled) ~= continent then
+            rolled = merged
+        end
+    end
+
+    zoneRollupCache[mapID] = rolled
+    return rolled
+end
+
+-- Best coordinates plus the zone map this vendor is counted under: the scanned
+-- map when present, the badgeMapID override (e.g. a Dalaran portal vendor's
+-- accessible map) when set, rolled up per GetBadgeZoneMapID.
+function BadgeCalculation.GetVendorBadgeZone(vendor)
+    local coords, mapID = VF.GetBestVendorCoordinates(vendor)
+    if vendor.badgeMapID then
+        mapID = vendor.badgeMapID
+    end
+    if coords and mapID then
+        mapID = BadgeCalculation.GetBadgeZoneMapID(mapID)
+    end
+    return coords, mapID
+end
+
 -------------------------------------------------------------------------------
 -- Caches
 -------------------------------------------------------------------------------
@@ -67,6 +125,8 @@ local vendorStatsCacheGeneration = 0
 -- Keyed by "continentMapID|sourceFilter" for zone badges, sourceFilter for continent badges.
 local cachedZoneBadges = {}
 local cachedContinentBadges = {}
+-- Keyed by "viewMapID|sourceFilter|dateStamp": child-map badges for a zone view.
+local cachedChildMapBadges = {}
 
 -- HS-234: forward-declared here (ahead of InvalidateAllCaches below, which
 -- calls it) — the real function body is assigned much further down, after
@@ -601,6 +661,7 @@ end
 function BadgeCalculation:InvalidateBadgeCache()
     wipe(cachedZoneBadges)
     wipe(cachedContinentBadges)
+    wipe(cachedChildMapBadges)
 end
 
 -- HS-278 accepted tradeoff: an ownership-update invalidation storm arriving
@@ -641,21 +702,87 @@ end
 
 -- HS-282: dev-only debug accessor exposing this module's caches to the
 -- /hs debug membudget walker. Read-only references, never mutated by the
--- caller. cachedZoneBadges/cachedContinentBadges are reported together as
--- "badge caches" by the caller -- kept as separate table references here
--- so InvalidateBadgeCache's existing wipe-both shape isn't disturbed.
+-- caller. The badge-count tables are reported together as "badge caches" by
+-- the caller -- kept as separate table references here so
+-- InvalidateBadgeCache's per-table wipes aren't disturbed.
 function BadgeCalculation:GetDebugCacheTables()
     return {
         vendorStatsCache = vendorStatsCache,
         dropGroupStatsCache = dropGroupStatsCache,
         cachedZoneBadges = cachedZoneBadges,
         cachedContinentBadges = cachedContinentBadges,
+        cachedChildMapBadges = cachedChildMapBadges,
+        zoneRollupCache = zoneRollupCache,
     }
 end
 
 -------------------------------------------------------------------------------
 -- Badge Count Computation
 -------------------------------------------------------------------------------
+
+-- Adds one countable vendor to zoneCounts[zoneMapID], creating the entry on
+-- first use. Shared by the continent zone badges and the child-map badges.
+local function AddVendorToZoneCounts(zoneCounts, zoneMapID, vendor, sourceFilter, isOpposite)
+    local entry = zoneCounts[zoneMapID]
+    if not entry then
+        local mapInfo = C_Map.GetMapInfo(zoneMapID)
+        entry = {
+            zoneName = mapInfo and mapInfo.name or "Unknown",
+            vendorCount = 0,
+            uncollectedCount = 0,
+            unknownCount = 0,
+            oppositeFactionCount = 0,
+            dominantFaction = nil,  -- Will be set to "Alliance", "Horde", or nil (mixed/neutral)
+            collectedItems = 0,
+            totalItems = 0,
+            lockedItems = 0,
+            unverifiedItems = 0,
+            unobtainableItems = 0,
+            excludedItems = 0,
+        }
+        zoneCounts[zoneMapID] = entry
+    end
+
+    -- Direct stats lookup is intentional in this hot path.
+    -- Vendor validity is already gated by the caller.
+    local stats = GetVendorStats(vendor, sourceFilter)
+
+    -- HS-018: gate vendor-context counters on the vendor actually
+    -- contributing at least one item that passes the filter. Prevents
+    -- "N vendors / 0 items" degenerate badges under non-vendor filters.
+    -- For filter == "all" or "vendor" every accessible vendor contributes
+    -- >= 1 item, so this is a no-op vs. prior behavior.
+    if (stats.total or 0) > 0 then
+        entry.vendorCount = entry.vendorCount + 1
+
+        if isOpposite then
+            entry.oppositeFactionCount = entry.oppositeFactionCount + 1
+            -- Track the opposite faction for this zone
+            if vendor.faction then
+                entry.dominantFaction = vendor.faction
+            end
+        end
+
+        local hasUncollectedState = stats.hasUncollectedState
+        if hasUncollectedState == true then
+            entry.uncollectedCount = entry.uncollectedCount + 1
+        elseif hasUncollectedState == "unknown" then
+            entry.unknownCount = entry.unknownCount + 1
+        end
+        -- false means all collected, don't increment uncollected/unknown.
+
+        entry.collectedItems = entry.collectedItems + (stats.collected or 0)
+        entry.totalItems = entry.totalItems + (stats.total or 0)
+        entry.lockedItems = entry.lockedItems + (stats.locked or 0)
+        entry.unverifiedItems = entry.unverifiedItems + (stats.unverified or 0)
+        entry.unobtainableItems = entry.unobtainableItems + (stats.unobtainable or 0)
+        -- HS-249: tracked alongside the other exclusions,
+        -- deliberately outside collectedItems/totalItems —
+        -- a zone badge that summed these into its fraction
+        -- would re-introduce the defect one level up.
+        entry.excludedItems = entry.excludedItems + (stats.excluded or 0)
+    end
+end
 
 function BadgeCalculation:GetZoneVendorCounts(continentMapID, sourceFilter)
     sourceFilter = NormalizeSourceFilter(sourceFilter)
@@ -671,20 +798,12 @@ function BadgeCalculation:GetZoneVendorCounts(continentMapID, sourceFilter)
     for _, vendor in ipairs(allVendors) do
         if ShouldIncludeVendorInBadgeCounts(vendor)
                 and not VF.ShouldHideVendor(vendor) then
-            -- Get best coordinates (scanned preferred over static)
-            local coords, zoneMapID = VF.GetBestVendorCoordinates(vendor)
-
-            -- Badge zone override: count vendor under its accessible map (e.g. Dalaran portal)
-            -- rather than its inaccessible instance zone. Decoupled from vendor.portal so this
-            -- works independently if the portal pin feature is absent or reverted.
-            if vendor.badgeMapID then
-                zoneMapID = vendor.badgeMapID
-            end
+            -- Scanned coordinates preferred over static; badgeMapID and the
+            -- sub-zone roll-up are applied inside GetVendorBadgeZone.
+            local coords, zoneMapID = BadgeCalculation.GetVendorBadgeZone(vendor)
 
             -- Only count vendors with valid coordinates
             if coords and zoneMapID then
-                -- Merge vertically-stacked sibling zones into one summary row.
-                zoneMapID = BadgeCalculation.GetCanonicalZoneMapID(zoneMapID)
                 local continent = BadgeCalculation.GetContinentForZone(zoneMapID)
 
                 if continent == continentMapID then
@@ -693,63 +812,7 @@ function BadgeCalculation:GetZoneVendorCounts(continentMapID, sourceFilter)
 
                     -- Include vendor if accessible OR if opposite faction and setting enabled
                     if canAccess or (isOpposite and showOpposite) then
-                        if not zoneCounts[zoneMapID] then
-                            local mapInfo = C_Map.GetMapInfo(zoneMapID)
-                            zoneCounts[zoneMapID] = {
-                                zoneName = mapInfo and mapInfo.name or "Unknown",
-                                vendorCount = 0,
-                                uncollectedCount = 0,
-                                unknownCount = 0,
-                                oppositeFactionCount = 0,
-                                dominantFaction = nil,  -- Will be set to "Alliance", "Horde", or nil (mixed/neutral)
-                                collectedItems = 0,
-                                totalItems = 0,
-                                lockedItems = 0,
-                                unverifiedItems = 0,
-                                unobtainableItems = 0,
-                                excludedItems = 0,
-                            }
-                        end
-
-                        -- Direct stats lookup is intentional in this hot path.
-                        -- Vendor validity is already gated above in this loop.
-                        local stats = GetVendorStats(vendor, sourceFilter)
-
-                        -- HS-018: gate vendor-context counters on the vendor actually
-                        -- contributing at least one item that passes the filter. Prevents
-                        -- "N vendors / 0 items" degenerate badges under non-vendor filters.
-                        -- For filter == "all" or "vendor" every accessible vendor contributes
-                        -- >= 1 item, so this is a no-op vs. prior behavior.
-                        if (stats.total or 0) > 0 then
-                            zoneCounts[zoneMapID].vendorCount = zoneCounts[zoneMapID].vendorCount + 1
-
-                            if isOpposite then
-                                zoneCounts[zoneMapID].oppositeFactionCount = zoneCounts[zoneMapID].oppositeFactionCount + 1
-                                -- Track the opposite faction for this zone
-                                if vendor.faction then
-                                    zoneCounts[zoneMapID].dominantFaction = vendor.faction
-                                end
-                            end
-
-                            local hasUncollectedState = stats.hasUncollectedState
-                            if hasUncollectedState == true then
-                                zoneCounts[zoneMapID].uncollectedCount = zoneCounts[zoneMapID].uncollectedCount + 1
-                            elseif hasUncollectedState == "unknown" then
-                                zoneCounts[zoneMapID].unknownCount = zoneCounts[zoneMapID].unknownCount + 1
-                            end
-                            -- false means all collected, don't increment uncollected/unknown.
-
-                            zoneCounts[zoneMapID].collectedItems = zoneCounts[zoneMapID].collectedItems + (stats.collected or 0)
-                            zoneCounts[zoneMapID].totalItems = zoneCounts[zoneMapID].totalItems + (stats.total or 0)
-                            zoneCounts[zoneMapID].lockedItems = zoneCounts[zoneMapID].lockedItems + (stats.locked or 0)
-                            zoneCounts[zoneMapID].unverifiedItems = zoneCounts[zoneMapID].unverifiedItems + (stats.unverified or 0)
-                            zoneCounts[zoneMapID].unobtainableItems = zoneCounts[zoneMapID].unobtainableItems + (stats.unobtainable or 0)
-                            -- HS-249: tracked alongside the other exclusions,
-                            -- deliberately outside collectedItems/totalItems —
-                            -- a zone badge that summed these into its fraction
-                            -- would re-introduce the defect one level up.
-                            zoneCounts[zoneMapID].excludedItems = zoneCounts[zoneMapID].excludedItems + (stats.excluded or 0)
-                        end
+                        AddVendorToZoneCounts(zoneCounts, zoneMapID, vendor, sourceFilter, isOpposite)
                     end
                 end
             end
@@ -758,6 +821,105 @@ function BadgeCalculation:GetZoneVendorCounts(continentMapID, sourceFilter)
 
     cachedZoneBadges[cacheKey] = zoneCounts
     return zoneCounts
+end
+
+-- Direct child of viewMapID on mapID's parent chain (mapID itself when it is a
+-- direct child), merged with its vertical sibling when that sibling is also a
+-- direct child. Nil when the chain does not pass through viewMapID within
+-- ZONE_ROLLUP_MAX_DEPTH.
+local function GetDirectChildOf(viewMapID, mapID)
+    local current = mapID
+    for _ = 1, ZONE_ROLLUP_MAX_DEPTH do
+        local parent = MPP:GetParentMapID(current)
+        if not parent then return nil end
+        if parent == viewMapID then
+            local canonical = BadgeCalculation.GetCanonicalZoneMapID(current)
+            if canonical ~= current and MPP:GetParentMapID(canonical) == viewMapID then
+                return canonical
+            end
+            return current
+        end
+        current = parent
+    end
+    return nil
+end
+
+-- Counts, per child map of viewMapID, the countable vendors a zone view does
+-- not draw as pins: those on a map outside the pin set (the viewed map plus its
+-- more-specific children), grouped under the direct child of the viewed map
+-- that leads to them. Same inclusion rules and entry shape as
+-- GetZoneVendorCounts. Cached per view; wiped with the other badge caches.
+function BadgeCalculation:GetChildMapVendorCounts(viewMapID, sourceFilter)
+    sourceFilter = NormalizeSourceFilter(sourceFilter)
+    local cacheKey = tostring(viewMapID) .. "|" .. sourceFilter .. "|" .. GetAvailabilityDateStamp()
+    local cached = cachedChildMapBadges[cacheKey]
+    if cached then return cached end
+
+    local childCounts = {}
+    if not HA.VendorData then return childCounts end
+
+    -- Only a zone map has child maps to badge; any other view type gets none,
+    -- which also keeps a cosmic view from walking every vendor.
+    local viewInfo = C_Map.GetMapInfo(viewMapID)
+    if not (viewInfo and viewInfo.mapType == Enum.UIMapType.Zone) then return childCounts end
+
+    local pinned = { [viewMapID] = true }
+    for _, childMapID in ipairs(MPP:GetMoreSpecificChildMapIDs(viewMapID)) do
+        pinned[childMapID] = true
+    end
+
+    local showOpposite = VF.ShouldShowOppositeFaction()
+
+    for _, vendor in ipairs(HA.VendorData:GetAllVendors()) do
+        if ShouldIncludeVendorInBadgeCounts(vendor)
+                and not VF.ShouldHideVendor(vendor) then
+            local coords, mapID = VF.GetBestVendorCoordinates(vendor)
+            -- The pin collector draws a vendor whose coordinate map or static
+            -- map is in the pin set.
+            if coords and mapID and not pinned[mapID] and not pinned[vendor.mapID] then
+                local childMapID = GetDirectChildOf(viewMapID, vendor.badgeMapID or mapID)
+                if childMapID then
+                    local canAccess = VF.CanAccessVendor(vendor)
+                    local isOpposite = VF.IsOppositeFaction(vendor)
+                    if canAccess or (isOpposite and showOpposite) then
+                        AddVendorToZoneCounts(childCounts, childMapID, vendor, sourceFilter, isOpposite)
+                    end
+                end
+            end
+        end
+    end
+
+    cachedChildMapBadges[cacheKey] = childCounts
+    return childCounts
+end
+
+-- Adds the source continent's totals to the destination's and removes the
+-- source key, so the world map carries one badge for both.
+local function RollContinentCountsInto(continentCounts, srcID, destID)
+    local src = continentCounts[srcID]
+    if not src then return end
+    if not continentCounts[destID] then
+        local mapInfo = C_Map.GetMapInfo(destID)
+        continentCounts[destID] = {
+            continentName = mapInfo and mapInfo.name or "Unknown",
+            vendorCount = 0, uncollectedCount = 0, unknownCount = 0,
+            oppositeFactionCount = 0, collectedItems = 0, totalItems = 0,
+            lockedItems = 0, unverifiedItems = 0, unobtainableItems = 0,
+            excludedItems = 0,
+        }
+    end
+    local dest = continentCounts[destID]
+    dest.vendorCount          = dest.vendorCount          + src.vendorCount
+    dest.uncollectedCount     = dest.uncollectedCount     + src.uncollectedCount
+    dest.unknownCount         = dest.unknownCount         + src.unknownCount
+    dest.oppositeFactionCount = dest.oppositeFactionCount + src.oppositeFactionCount
+    dest.collectedItems       = dest.collectedItems       + src.collectedItems
+    dest.totalItems           = dest.totalItems           + src.totalItems
+    dest.lockedItems          = dest.lockedItems          + src.lockedItems
+    dest.unverifiedItems      = dest.unverifiedItems      + src.unverifiedItems
+    dest.unobtainableItems    = dest.unobtainableItems    + (src.unobtainableItems or 0)
+    dest.excludedItems        = dest.excludedItems        + (src.excludedItems or 0)
+    continentCounts[srcID] = nil
 end
 
 function BadgeCalculation:GetContinentVendorCounts(sourceFilter)
@@ -839,37 +1001,60 @@ function BadgeCalculation:GetContinentVendorCounts(sourceFilter)
         end
     end
 
-    -- Roll child continent counts into their parent (e.g. Argus → Broken Isles)
+    -- Roll child continent counts into their parent: Argus into Broken Isles,
+    -- Quel'Thalas into Eastern Kingdoms.
     for srcID, destID in pairs(BadgeCalculation.continentMergesInto) do
-        local src = continentCounts[srcID]
-        if src then
-            if not continentCounts[destID] then
-                local mapInfo = C_Map.GetMapInfo(destID)
-                continentCounts[destID] = {
-                    continentName = mapInfo and mapInfo.name or "Unknown",
-                    vendorCount = 0, uncollectedCount = 0, unknownCount = 0,
-                    oppositeFactionCount = 0, collectedItems = 0, totalItems = 0,
-                    lockedItems = 0, unverifiedItems = 0, unobtainableItems = 0,
-                    excludedItems = 0,
-                }
-            end
-            local dest = continentCounts[destID]
-            dest.vendorCount          = dest.vendorCount          + src.vendorCount
-            dest.uncollectedCount     = dest.uncollectedCount     + src.uncollectedCount
-            dest.unknownCount         = dest.unknownCount         + src.unknownCount
-            dest.oppositeFactionCount = dest.oppositeFactionCount + src.oppositeFactionCount
-            dest.collectedItems       = dest.collectedItems       + src.collectedItems
-            dest.totalItems           = dest.totalItems           + src.totalItems
-            dest.lockedItems          = dest.lockedItems          + src.lockedItems
-            dest.unverifiedItems      = dest.unverifiedItems      + src.unverifiedItems
-            dest.unobtainableItems    = dest.unobtainableItems    + (src.unobtainableItems or 0)
-            dest.excludedItems        = dest.excludedItems        + (src.excludedItems or 0)
-            continentCounts[srcID] = nil
-        end
+        RollContinentCountsInto(continentCounts, srcID, destID)
+    end
+    for srcID, destID in pairs(BadgeCalculation.continentZoneBadgesOnParent) do
+        RollContinentCountsInto(continentCounts, srcID, destID)
     end
 
     cachedContinentBadges[cacheKey] = continentCounts
     return continentCounts
+end
+
+local ZONE_LIST_SUM_FIELDS = {
+    "vendorCount", "uncollectedCount", "unknownCount", "oppositeFactionCount",
+    "collectedItems", "totalItems", "lockedItems", "unverifiedItems",
+    "unobtainableItems", "excludedItems",
+}
+
+-- One zone-list entry for a whole continent: the sum of its zone entries, in
+-- the same shape, so it totals what that continent's own panel shows.
+local function SumContinentZoneCounts(continentMapID, zoneCounts)
+    local mapInfo = C_Map.GetMapInfo(continentMapID)
+    local entry = { zoneName = mapInfo and mapInfo.name or "Unknown", isContinent = true }
+    for _, field in ipairs(ZONE_LIST_SUM_FIELDS) do
+        entry[field] = 0
+    end
+    for _, zoneData in pairs(zoneCounts) do
+        for _, field in ipairs(ZONE_LIST_SUM_FIELDS) do
+            entry[field] = entry[field] + (zoneData[field] or 0)
+        end
+    end
+    return entry
+end
+
+-- Side-panel list for a continent: its own zones plus one entry, keyed by the
+-- continent's map ID, for each continent whose zone badges roll onto it
+-- (Quel'Thalas under Eastern Kingdoms). A rolled-in continent with no vendors
+-- under the filter has no entry. Argus (continentMergesInto) is deliberately
+-- not listed: its map has not been confirmed to open as a continent view.
+function BadgeCalculation:GetContinentZoneListCounts(continentMapID, sourceFilter)
+    local list = {}
+    for zoneMapID, zoneData in pairs(self:GetZoneVendorCounts(continentMapID, sourceFilter)) do
+        list[zoneMapID] = zoneData
+    end
+    for srcID, destID in pairs(self.continentZoneBadgesOnParent) do
+        if destID == continentMapID then
+            local entry = SumContinentZoneCounts(srcID, self:GetZoneVendorCounts(srcID, sourceFilter))
+            if entry.vendorCount > 0 then
+                list[srcID] = entry
+            end
+        end
+    end
+    return list
 end
 
 -------------------------------------------------------------------------------
