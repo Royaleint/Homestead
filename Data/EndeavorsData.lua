@@ -12,7 +12,7 @@
     - 4-tier milestone progression gates item availability
     - Dedicated API: C_NeighborhoodInitiative
 
-    10 vendors, 140 items total. The four Midnight 12.1 theme vendors were
+    12 vendors, 144 items total. The four Midnight 12.1 theme vendors were
     promoted visible for the 12.1 release (HS-310, 2026-08-11).
 ]]
 
@@ -98,8 +98,10 @@ local initiativeIDToTheme = {
 -- Endeavor Theme Metadata (for future C_NeighborhoodInitiative integration)
 -------------------------------------------------------------------------------
 
+-- vendorNPC is the theme's main vendor. extraVendorNPCs lists further vendors
+-- that are active only while the same theme is.
 EndeavorsData.Endeavors = {
-    ["Grummle"]    = { vendorNPC = 249684 },
+    ["Grummle"]    = { vendorNPC = 249684, extraVendorNPCs = { 263258 } },
     ["Blood Elf"]  = { vendorNPC = 256202 },
     ["Dracthyr"]   = { vendorNPC = 250820 },
     ["Mechagnome"] = { vendorNPC = 248525 },
@@ -108,7 +110,7 @@ EndeavorsData.Endeavors = {
     -- Midnight 12.1 themes (promoted visible for the 12.1 release, HS-310)
     ["Amani"]      = { vendorNPC = 260485 },
     ["Maruuk"]     = { vendorNPC = 265551 },
-    ["Tortollan"]  = { vendorNPC = 268106 },
+    ["Tortollan"]  = { vendorNPC = 268106, extraVendorNPCs = { 257168 } },
     ["Kobold"]     = { vendorNPC = 271173 },
 }
 
@@ -222,6 +224,25 @@ EndeavorsData.Vendors = {
             {252039, cost = {currencies = {{id = 3363, amount = 5}}}},
             {252040, cost = {currencies = {{id = 3363, amount = 5}}}},
             {252041, cost = {currencies = {{id = 3363, amount = 15}}}},
+        },
+    },
+
+    -- Grummle theme, second vendor. Positions and prices not yet confirmed in game.
+    [263258] = {
+        name = "Cousin Shortkaf",
+        mapID = 2351,
+        x = 0.5515, y = 0.6194,
+        zone = "Razorwind Shores",
+        altMapID = 2352,
+        altX = 0.5512, altY = 0.4363,
+        altZone = "Founder's Point",
+        faction = "Neutral",
+        currency = "Community Coupons",
+        expansion = "The War Within",
+        endeavor = true,
+        notes = "Neighborhood Endeavor vendor (Grummle theme)",
+        items = {
+            {248404, cost = {currencies = {{id = 3363, amount = 10}}}}, -- Stack of Kafa Mugs
         },
     },
 
@@ -432,6 +453,27 @@ EndeavorsData.Vendors = {
         },
     },
 
+    -- Tortollan theme, second vendor. Positions and prices not yet confirmed in game.
+    [257168] = {
+        name = "Throska",
+        mapID = 2351,
+        x = 0.3908, y = 0.7409,
+        zone = "Razorwind Shores",
+        altMapID = 2352,
+        altX = 0.6216, altY = 0.8222,
+        altZone = "Founder's Point",
+        faction = "Neutral",
+        currency = "Community Coupons",
+        expansion = "Midnight",
+        endeavor = true,
+        notes = "Neighborhood Endeavor vendor (Tortollan theme)",
+        items = {
+            {247776, cost = {currencies = {{id = 3363, amount = 5}}}}, -- Glowing Zangarshroom Cup
+            {279455, cost = {currencies = {{id = 3363, amount = 5}}}}, -- K'areshi Tea Cup
+            {279458, cost = {currencies = {{id = 3363, amount = 5}}}}, -- Draenei Rock Goblet
+        },
+    },
+
     -- Kobold theme
     [271173] = {
         name = "Timicky",
@@ -477,6 +519,12 @@ for themeName, themeData in pairs(EndeavorsData.Endeavors) do
     local vendorNPC = themeData and themeData.vendorNPC
     if vendorNPC then
         EndeavorsData.NPCToTheme[vendorNPC] = themeName
+    end
+    local extraVendorNPCs = themeData and themeData.extraVendorNPCs
+    if extraVendorNPCs then
+        for _, extraNPC in ipairs(extraVendorNPCs) do
+            EndeavorsData.NPCToTheme[extraNPC] = themeName
+        end
     end
 end
 
