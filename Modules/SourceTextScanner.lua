@@ -2,8 +2,7 @@
     Homestead - SourceTextScanner
     Processes sourceText from CatalogScanner and stores parsed results
 
-    Data collection module for the player addon. Cross-reference reporting
-    lives in Homestead_Dev/ValidationReport.lua (dev addon only).
+    Data collection module for the player addon.
 
     Flow: CatalogScanner:ProcessBatch() → SourceTextScanner:ProcessScannedItem()
           → SourceTextParser:ParseSourceText() → CatalogStore:SetSources()
