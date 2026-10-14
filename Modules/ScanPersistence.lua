@@ -252,9 +252,9 @@ function ScanPersistence:SaveVendorData(scanData)
 
     -- Determine scan confidence BEFORE the save decision below (moved up from
     -- its old post-save position): "confirmed" only if the scan completed AND
-    -- every item slot returned valid data. "unknown" if the scan completed but
-    -- any slot returned no link or C_MerchantFrame.GetItemInfo() returned nil
-    -- during ProcessScanQueue() — e.g. a laggy partial scan with no retry.
+    -- every slot had its link and item info by the end of the scan, re-reads
+    -- included. "unknown" if any slot was still missing either at that point,
+    -- or the scan ended early during its re-reads or on a slot total change.
     local scanConfidence = "unknown"
     if scanData.scanComplete and not scanData.hadNilSlots then
         scanConfidence = "confirmed"
