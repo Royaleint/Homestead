@@ -8,6 +8,7 @@ local root = (... or "."):gsub("\\", "/"):gsub("/+$", "")
 -- Loads the REAL Data/VendorIdentity.lua, Data/VendorOffers.lua,
 -- Data/VendorData.lua and Data/EndeavorsData.lua.
 -- Also: Holly Twinklebright at Founder's Point with 12 priced items, and the Founder's Point positions of Taifa and Roshai Lightstep.
+-- Also: the 12 Hallow's End items Jolli and Holly sell have no Data/EventSources.lua row, so no "Not Active" source line; the other 11 rows stay.
 
 local payload = nil
 local HA = {
@@ -205,5 +206,15 @@ for _, v in ipairs(ALT) do
         assert(ED:IsVendorActive(fp) == s.want,
             s.label .. ": " .. v.name .. "'s Founder's Point entry expected " .. tostring(s.want))
     end
+end
+assert(loadfile(root .. "/Data/EventSources.lua"))("Homestead", HA)
+local REMOVED = { 282051, 282072, 282075, 282077, 282081, 282083, 282086, 282090, 282092, 282095, 282098, 282100 }
+local KEPT = { 282192, 282194, 282196, 282198, 282200, 282202, 282204, 282206, 282208, 282213, 282289 }
+for _, id in ipairs(REMOVED) do
+    assert(HA.EventSources[id] == nil, "item " .. id .. " is sold by Jolli or Holly and must have no EventSources row")
+end
+for _, id in ipairs(KEPT) do
+    local row = HA.EventSources[id]
+    assert(row and row.event == "Hallow's End", "item " .. id .. " must keep its Hallow's End EventSources row")
 end
 print("hs503_jolli_timicky: ok")

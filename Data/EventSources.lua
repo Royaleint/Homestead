@@ -1,7 +1,7 @@
 --[[
     Homestead - Event Sources
     Created: 2026-02-17
-    Total entries: 39
+    Total entries: 27
 
     Maps itemID to seasonal/holiday event vendor source information.
     These items are only purchasable during their respective holiday events.
@@ -52,18 +52,6 @@ HA.EventSources = {
     [250796] = {event = "Noblegarden", vendorName = "Noblegarden Merchant", zone = "Starting Zones", currency = "Noblegarden Chocolate", currencyItemID = 44791},
 
     -- Hallow's End — Vendor: Hallow's End Vendor (generic; no pins)
-    [282051] = {event = "Hallow's End", vendorName = "Hallow's End Vendor", zone = "Founder's Point / Razorwind Shores"},
-    [282072] = {event = "Hallow's End", vendorName = "Hallow's End Vendor", zone = "Founder's Point / Razorwind Shores"},
-    [282075] = {event = "Hallow's End", vendorName = "Hallow's End Vendor", zone = "Founder's Point / Razorwind Shores"},
-    [282077] = {event = "Hallow's End", vendorName = "Hallow's End Vendor", zone = "Founder's Point / Razorwind Shores"},
-    [282081] = {event = "Hallow's End", vendorName = "Hallow's End Vendor", zone = "Founder's Point / Razorwind Shores"},
-    [282083] = {event = "Hallow's End", vendorName = "Hallow's End Vendor", zone = "Founder's Point / Razorwind Shores"},
-    [282086] = {event = "Hallow's End", vendorName = "Hallow's End Vendor", zone = "Founder's Point / Razorwind Shores"},
-    [282090] = {event = "Hallow's End", vendorName = "Hallow's End Vendor", zone = "Founder's Point / Razorwind Shores"},
-    [282092] = {event = "Hallow's End", vendorName = "Hallow's End Vendor", zone = "Founder's Point / Razorwind Shores"},
-    [282095] = {event = "Hallow's End", vendorName = "Hallow's End Vendor", zone = "Founder's Point / Razorwind Shores"},
-    [282098] = {event = "Hallow's End", vendorName = "Hallow's End Vendor", zone = "Founder's Point / Razorwind Shores"},
-    [282100] = {event = "Hallow's End", vendorName = "Hallow's End Vendor", zone = "Founder's Point / Razorwind Shores"},
     [282192] = {event = "Hallow's End", vendorName = "Hallow's End Vendor", zone = "Founder's Point / Razorwind Shores"},
     [282194] = {event = "Hallow's End", vendorName = "Hallow's End Vendor", zone = "Founder's Point / Razorwind Shores"},
     [282196] = {event = "Hallow's End", vendorName = "Hallow's End Vendor", zone = "Founder's Point / Razorwind Shores"},
