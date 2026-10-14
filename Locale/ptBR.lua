@@ -263,3 +263,5 @@ L["None (always)"] = "Nenhuma (sempre)"
 -- Misc
 L["Approximate map appearance"] = "Aparência aproximada no mapa"
 L["ExportImport not available."] = "ExportImport não está disponível."
+L["Catalog scan is on cooldown. Try again in %d seconds."] = "A varredura do catálogo está em recarga. Tente novamente em %d segundos."
+L["A catalog scan is already in progress."] = "Uma varredura do catálogo já está em andamento."

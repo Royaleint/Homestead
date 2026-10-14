@@ -263,3 +263,5 @@ L["None (always)"] = "없음 (항상)"
 -- Misc
 L["Approximate map appearance"] = "지도에서의 대략적인 모양"
 L["ExportImport not available."] = "ExportImport를 사용할 수 없습니다."
+L["Catalog scan is on cooldown. Try again in %d seconds."] = "분류 목록 스캔은 재사용 대기 중입니다. %d초 후에 다시 시도하십시오."
+L["A catalog scan is already in progress."] = "분류 목록 스캔이 이미 진행 중입니다."

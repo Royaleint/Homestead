@@ -263,3 +263,5 @@ L["None (always)"] = "无（始终）"
 -- Misc
 L["Approximate map appearance"] = "地图上的大致外观"
 L["ExportImport not available."] = "ExportImport不可用。"
+L["Catalog scan is on cooldown. Try again in %d seconds."] = "装饰类别扫描正在冷却中。请在%d秒后重试。"
+L["A catalog scan is already in progress."] = "装饰类别扫描已在进行中。"

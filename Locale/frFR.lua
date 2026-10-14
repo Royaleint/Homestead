@@ -263,3 +263,5 @@ L["None (always)"] = "Aucune (toujours)"
 -- Misc
 L["Approximate map appearance"] = "Aperçu approximatif sur la carte"
 L["ExportImport not available."] = "ExportImport n’est pas disponible."
+L["Catalog scan is on cooldown. Try again in %d seconds."] = "L’analyse du catalogue est en recharge. Réessayez dans %d secondes."
+L["A catalog scan is already in progress."] = "Une analyse du catalogue est déjà en cours."
