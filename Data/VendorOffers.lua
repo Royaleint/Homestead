@@ -17722,6 +17722,21 @@ local ManualOverrides = {
         [282098] = { price = 1000000, currencies = {}, isUsable = true }, -- Elaborate Heartsbane Doom Catcher
         [282100] = { price = 1000000, currencies = {}, isUsable = true }, -- Heartsbane Doom Catcher
     },
+    -- Rotha, Razorwind Shores: prices seen at the vendor on 2026-10-13. "Fen" Rucket
+    -- in Founder's Point sells the same five room plans.
+    [254687] = { -- Rotha (Razorwind Shores)
+        [274661] = { price = 0, currencies = {{id = 3363, amount = 50}}, isUsable = true }, -- Silvermoon Display Room Plans
+        [274673] = { price = 0, currencies = {{id = 3363, amount = 50}}, isUsable = true }, -- Orgrimmar Council Room Plans
+        [274674] = { price = 0, currencies = {{id = 3363, amount = 50}}, isUsable = true }, -- Orgrimmar Theater Plans
+        [274675] = { price = 0, currencies = {{id = 3363, amount = 50}}, isUsable = true }, -- Orgrimmar Stone Pit Room Plans
+        [274676] = { price = 0, currencies = {{id = 3363, amount = 50}}, isUsable = true }, -- Orgrimmar Display Room Plans
+    },
+    -- Unquestionably Griftah, Razorwind Shores: prices seen at the vendor on 2026-10-13.
+    [267870] = { -- Unquestionably Griftah (Razorwind Shores)
+        [244344] = { price = 0, currencies = {{id = 3363, amount = 10}}, isUsable = true }, -- Griftah's Mystical Polter-Urn
+        [263875] = { price = 0, currencies = {{id = 3363, amount = 10}}, isUsable = true }, -- Griftah's Resizing Hex-Skull
+        [276312] = { price = 0, currencies = {{id = 3363, amount = 10}}, isUsable = true }, -- Griftah's Torch of Rotation
+    },
     [274062] = {
         [282661] = { price = 0, currencies = {{id = 1813, amount = 200}}, isUsable = true },
         [282663] = { price = 0, currencies = {{id = 1813, amount = 200}}, isUsable = true },
