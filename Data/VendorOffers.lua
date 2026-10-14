@@ -16701,7 +16701,7 @@ local GeneratedBase = {
   },
   [271366] = {
     [280335] = {
-      price = 0,
+      price = 1000000,
       currencies = {},
       isUsable = true,
       displayOrder = 1,
@@ -17687,6 +17687,40 @@ local ManualOverrides = {
         [275873] = { price = 0, currencies = {{id = 3316, amount = 350}}, isUsable = true },
         [275879] = { price = 0, currencies = {{id = 3316, amount = 350}}, isUsable = true },
         [280050] = { price = 0, currencies = {{id = 3316, amount = 1500}}, isUsable = true },
+    },
+    -- Jolli Maxiboom, Razorwind Shores: prices seen at the vendor on 2026-10-13.
+    -- Her Brewfest Crate (280335) is priced in the generated table above.
+    [271366] = { -- Jolli Maxiboom (Razorwind Shores)
+        [248101] = { price = 1000000, currencies = {}, isUsable = true }, -- Traditional Brewfest Stein
+        [282051] = { price = 1000000, currencies = {}, isUsable = true }, -- Simple Hallow's End Candle
+        [282072] = { price = 1000000, currencies = {}, isUsable = true }, -- Enchanted Hallow's End Candle
+        [282075] = { price = 1000000, currencies = {}, isUsable = true }, -- Heartsbane Candle
+        [282077] = { price = 5000000, currencies = {}, isUsable = true }, -- Spooky Scarecrow
+        [282081] = { price = 5000000, currencies = {}, isUsable = true }, -- Candlelit Smiling Jack-o'-Lantern
+        [282083] = { price = 5000000, currencies = {}, isUsable = true }, -- Unlit Smiling Jack-o'-Lantern
+        [282086] = { price = 2500000, currencies = {}, isUsable = true }, -- Buckled Witch Hat
+        [282090] = { price = 1000000, currencies = {}, isUsable = true }, -- Eternally Powered Glowskull
+        [282092] = { price = 5000000, currencies = {}, isUsable = true }, -- Heartsbane Ritual Markings
+        [282095] = { price = 5000000, currencies = {}, isUsable = true }, -- Ominous Heartsbane Banner
+        [282098] = { price = 1000000, currencies = {}, isUsable = true }, -- Elaborate Heartsbane Doom Catcher
+        [282100] = { price = 1000000, currencies = {}, isUsable = true }, -- Heartsbane Doom Catcher
+    },
+    -- Holly Twinklebright, Founder's Point: the same twelve Hallow's End items as
+    -- Jolli Maxiboom, at the prices seen at Jolli Maxiboom on 2026-10-13. Not yet
+    -- checked at this vendor.
+    [271604] = { -- Holly Twinklebright (Founder's Point)
+        [282051] = { price = 1000000, currencies = {}, isUsable = true }, -- Simple Hallow's End Candle
+        [282072] = { price = 1000000, currencies = {}, isUsable = true }, -- Enchanted Hallow's End Candle
+        [282075] = { price = 1000000, currencies = {}, isUsable = true }, -- Heartsbane Candle
+        [282077] = { price = 5000000, currencies = {}, isUsable = true }, -- Spooky Scarecrow
+        [282081] = { price = 5000000, currencies = {}, isUsable = true }, -- Candlelit Smiling Jack-o'-Lantern
+        [282083] = { price = 5000000, currencies = {}, isUsable = true }, -- Unlit Smiling Jack-o'-Lantern
+        [282086] = { price = 2500000, currencies = {}, isUsable = true }, -- Buckled Witch Hat
+        [282090] = { price = 1000000, currencies = {}, isUsable = true }, -- Eternally Powered Glowskull
+        [282092] = { price = 5000000, currencies = {}, isUsable = true }, -- Heartsbane Ritual Markings
+        [282095] = { price = 5000000, currencies = {}, isUsable = true }, -- Ominous Heartsbane Banner
+        [282098] = { price = 1000000, currencies = {}, isUsable = true }, -- Elaborate Heartsbane Doom Catcher
+        [282100] = { price = 1000000, currencies = {}, isUsable = true }, -- Heartsbane Doom Catcher
     },
     [274062] = {
         [282661] = { price = 0, currencies = {{id = 1813, amount = 200}}, isUsable = true },
