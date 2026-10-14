@@ -178,7 +178,7 @@ function VendorScanner:OnMerchantShow()
         end
     end
 
-    -- Verify NPC ID matches database entry (and correct if mismatched)
+    -- Match the shipped vendor by name; a differing NPC ID is recorded as a correction
     local verification = self:VerifyAndUpdateDatabaseEntry(npcID, vendorName)
     if verification and verification.corrected and HA.DevAddon then
         HA.Addon:Debug("Corrected NPC ID for", vendorName, "from", verification.oldID, "to", verification.newID)
@@ -746,7 +746,9 @@ end
 -- nowhere, and has no successor anywhere. That diagnostic is gone, not moved.
 -------------------------------------------------------------------------------
 
--- Check if the scanned vendor matches a database entry by name and update NPC ID/coords if mismatched
+-- Find the shipped vendor with this name and record a differing NPC ID or
+-- missing coords in saved data. Never writes to the vendor table: some
+-- VendorData callers hand out shipped rows by reference.
 function VendorScanner:VerifyAndUpdateDatabaseEntry(npcID, vendorName)
     if not HA.VendorData or not HA.VendorData.GetAllVendors then return nil end
 
@@ -786,10 +788,6 @@ function VendorScanner:VerifyAndUpdateDatabaseEntry(npcID, vendorName)
                     correctedAt = time(),
                 }
 
-                -- Stamp the corrected ID on this session's projected copy only;
-                -- the durable record is npcIDCorrections above.
-                vendor.npcID = npcID
-
                 result.oldID = oldID
                 result.newID = npcID
                 result.corrected = true
@@ -823,11 +821,6 @@ function VendorScanner:VerifyAndUpdateDatabaseEntry(npcID, vendorName)
                         y = currentCoords.y,
                         updatedAt = time(),
                     }
-
-                    -- Update in memory (use new format)
-                    vendor.x = currentCoords.x
-                    vendor.y = currentCoords.y
-                    vendor.mapID = mapID
 
                     if HA.DevAddon then
                         HA.Addon:Debug(string.format(

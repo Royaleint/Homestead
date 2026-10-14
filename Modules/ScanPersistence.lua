@@ -177,11 +177,15 @@ function ScanPersistence:SaveVendorData(scanData)
     vendorRecord.currency = primaryCurrency
     vendorRecord.expansion = scanData.expansion
 
+    -- This scan's own position. StartScan stores 0.5/0.5 when the client gave
+    -- none, so either coordinate at exactly 0.5 means no position.
+    local scanHasPosition = scanData.coords and scanData.coords.x and scanData.coords.y
+        and scanData.coords.x ~= 0.5 and scanData.coords.y ~= 0.5
+
     -- Merge with existing data if present (keep more complete record)
     if existingData then
         -- Use newer coords if available
-        if scanData.coords and scanData.coords.x and scanData.coords.y
-            and scanData.coords.x ~= 0.5 and scanData.coords.y ~= 0.5 then
+        if scanHasPosition then
             vendorRecord.coords = scanData.coords
         elseif existingData.coords then
             vendorRecord.coords = existingData.coords
@@ -314,8 +318,16 @@ function ScanPersistence:SaveVendorData(scanData)
             else
                 existingData.lastScanAttempt = vendorRecord.lastScanned
             end
-            if vendorRecord.coords and vendorRecord.coords.x ~= 0.5 and vendorRecord.coords.y ~= 0.5 then
-                existingData.coords = vendorRecord.coords
+            -- Coords and map move together, and only on this scan's own
+            -- position; the other location fields take the values merged above.
+            if scanHasPosition then
+                existingData.coords = scanData.coords
+                existingData.mapID = scanData.mapID
+                existingData.realZone = vendorRecord.realZone
+                existingData.parentMapID = vendorRecord.parentMapID
+                existingData.mapChain = vendorRecord.mapChain
+                existingData.continentMapID = vendorRecord.continentMapID
+                existingData.expansion = vendorRecord.expansion
             end
             existingData.zone = vendorRecord.zone or existingData.zone
             existingData.subZone = vendorRecord.subZone or existingData.subZone
