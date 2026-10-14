@@ -771,6 +771,69 @@ do
     end
 end
 
+-- T6d. A scan that ends short in its re-read phase with no housing rows, at a
+-- known vendor with a saved record, moves the record's map and coords together
+-- when the scan has its own position, and changes nothing else about what was
+-- observed. Every other case here stubs the map to nil, so this one gives it a
+-- map and a position.
+do
+    local mapA, mapB = 1000, 2351
+    local function PositionedVendor(npcID, finish)
+        ResetCounters()
+        knownVendors[npcID] = true
+        SeedFiveItemRecord(npcID)
+        local seeded = Rec(npcID)
+        seeded.mapID, seeded.coords = mapA, { x = 0.4, y = 0.6 }
+        seeded.lastScanned = 500
+        local seededItems, seededCount, seededHousing = seeded.items, #seeded.items, seeded.housingCount
+        local seededConfidence = seeded.scanConfidence
+        Eq(seededConfidence, "confirmed", "T6d seed is confirmed")
+
+        local savedMap = C_Map
+        C_Map = {
+            GetBestMapForUnit = function() return mapB end,
+            GetPlayerMapPosition = function() return { x = 0.25, y = 0.75 } end,
+            GetMapInfo = function(id)
+                if id == mapB then return { name = "Map B", parentMapID = 2274, mapType = 3 } end
+                if id == 2274 then return { name = "Continent", parentMapID = 0, mapType = Enum.UIMapType.Continent } end
+                return nil
+            end,
+        }
+        slots = {}
+        for i = 1, 5 do slots[i] = { id = nil, info = {} } end
+        local started = Open(npcID)
+        C_Map = savedMap
+        assert(started, "T6d scan must start")
+        Walk(5)
+        Tick(0.25)
+        assert(scanFrame.shown, "T6d scan is waiting to re-read")
+        Eq(saveCount, 0, "T6d no save before the end")
+        finish()
+
+        Eq(saveCount, 1, "T6d exactly one save")
+        local record = Rec(npcID)
+        assert(record == seeded, "T6d the stored record is the seeded table")
+        Eq(record.mapID, mapB, "T6d mapID is this scan's")
+        Eq(record.coords.x, 0.25, "T6d coords.x is this scan's")
+        Eq(record.coords.y, 0.75, "T6d coords.y is this scan's")
+        Eq(record.parentMapID, 2274, "T6d parentMapID is this scan's")
+        Eq(record.continentMapID, 2274, "T6d continentMapID is this scan's")
+        Eq(table.concat(record.mapChain, ","), mapB .. ",2274", "T6d mapChain is this scan's")
+        Eq(record.lastScanned, 500, "T6d lastScanned is not re-dated")
+        assert(record.lastScanAttempt ~= nil and record.lastScanAttempt ~= 500, "T6d the attempt is recorded")
+        assert(record.items == seededItems and #record.items == seededCount, "T6d items unchanged")
+        Eq(record.itemCount, seeded.itemCount, "T6d itemCount unchanged")
+        Eq(record.housingCount, seededHousing, "T6d housingCount unchanged")
+        Eq(record.scanConfidence, seededConfidence, "T6d scanConfidence unchanged")
+        Eq(#Notices(), 1, "T6d the notice is printed once")
+        Eq(#chat, 1, "T6d exactly one chat line")
+    end
+
+    PositionedVendor(4271, function() Close() end)
+    PositionedVendor(4272, function() Show(4273) end)
+    Close()
+end
+
 -- T7. A new merchant opening ends a scan that is waiting to re-read, before the
 -- setting and lock checks.
 do
