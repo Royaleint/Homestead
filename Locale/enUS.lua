@@ -284,5 +284,5 @@ L["None (always)"] = "None (always)"
 -- Misc
 L["Approximate map appearance"] = "Approximate map appearance"
 L["ExportImport not available."] = "ExportImport not available."
-L["Catalog scan is on cooldown. Try again in %d seconds."] = "Catalog scan is on cooldown. Try again in %d seconds."
+L["Catalog scan is on cooldown. Try again in a few seconds."] = "Catalog scan is on cooldown. Try again in a few seconds."
 L["A catalog scan is already in progress."] = "A catalog scan is already in progress."

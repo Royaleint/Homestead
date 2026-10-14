@@ -783,7 +783,7 @@ function CatalogScanner:ManualScan()
     end)
     if started == false then
         if cooldownRemaining then
-            HA.Addon:Print(string.format(L["Catalog scan is on cooldown. Try again in %d seconds."] or "Catalog scan is on cooldown. Try again in %d seconds.", math.ceil(cooldownRemaining)))
+            HA.Addon:Print(L["Catalog scan is on cooldown. Try again in a few seconds."] or "Catalog scan is on cooldown. Try again in a few seconds.")
         else
             HA.Addon:Print(L["A catalog scan is already in progress."] or "A catalog scan is already in progress.")
         end

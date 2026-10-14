@@ -92,8 +92,8 @@ local function contains(list, text)
     return false
 end
 
--- (1) Cooldown: the scan started at t=100, so a manual request at t=101.5 has
--- 3.5s remaining, shown rounded up as 4.
+-- (1) Cooldown: the scan started at t=100, so a manual request at t=101.5 is
+-- still inside the cooldown; the message carries no number.
 do
     local h = newHarness()
     h.scanner:ScanFullCatalog()
@@ -105,16 +105,18 @@ do
     local timersBefore = #h.timers
     h.scanner:ManualScan()
     assert(#h.prints == 1, "cooldown: exactly one message expected, got " .. #h.prints)
-    assert(h.prints[1] == "Catalog scan is on cooldown. Try again in 4 seconds.",
+    assert(h.prints[1] == "Catalog scan is on cooldown. Try again in a few seconds.",
         "cooldown: wrong message: " .. tostring(h.prints[1]))
+    assert(not h.prints[1]:find("%d"), "cooldown: message must not contain a digit")
     assert(h.scanStarts == 1, "cooldown: no second scan may start")
     assert(#h.timers == timersBefore, "cooldown: nothing may be queued")
 
     -- Cooldown unchanged: it still clears 5s after scan #1's start (t=105).
     h.timeNow = 104.9
     h.scanner:ManualScan()
-    assert(h.prints[2] == "Catalog scan is on cooldown. Try again in 1 seconds.",
-        "cooldown: sub-second remainder must round up to 1, got " .. tostring(h.prints[2]))
+    assert(h.prints[2] == "Catalog scan is on cooldown. Try again in a few seconds.",
+        "cooldown: sub-second remainder must show the same message, got " .. tostring(h.prints[2]))
+    assert(not h.prints[2]:find("%d"), "cooldown: message must not contain a digit")
     h.timeNow = 105.0
     h.scanner:ManualScan()
     assert(h.scanStarts == 2, "cooldown must clear at the original 5s mark")
