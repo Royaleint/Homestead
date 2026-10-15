@@ -551,6 +551,13 @@ local function RenderVendorSourceLines(tooltip, source, parsedTag, _itemID, _com
     tooltip:AddLine("Source: |cFFFFFFFF" .. vendorName .. "|r" .. parsedTag, COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
     tooltip:AddLine("  Location: |cFFFFFFFF" .. locationText .. "|r", COLOR_WHITE.r, COLOR_WHITE.g, COLOR_WHITE.b)
 
+    if source.data.altZone then
+        local altLocationText = source.data.altSubzone
+            and (source.data.altSubzone .. " (" .. source.data.altZone .. ")")
+            or source.data.altZone
+        tooltip:AddLine("  Location: |cFFFFFFFF" .. altLocationText .. "|r", COLOR_WHITE.r, COLOR_WHITE.g, COLOR_WHITE.b)
+    end
+
     -- Show faction if not neutral
     if source.data.faction and source.data.faction ~= "Neutral" then
         local factionColor = source.data.faction == "Alliance" and "|cFF0078FF" or "|cFFFF0000"

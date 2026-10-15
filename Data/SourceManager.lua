@@ -566,6 +566,9 @@ function SourceManager:GetAllSources(itemID)
                 for _, existing in ipairs(sources) do
                     local key = (existing.type or "") .. "|" .. (existing.data and existing.data.name or "") .. "|" .. (existing.data and existing.data.zone or "")
                     seen[key] = true
+                    if existing.data and existing.data.altZone then
+                        seen[(existing.type or "") .. "|" .. (existing.data.name or "") .. "|" .. existing.data.altZone] = true
+                    end
                 end
                 for _, s in ipairs(parsed.sources) do
                     local key = (s.sourceType or "") .. "|" .. (s.name or "") .. "|" .. (s.zone or "")
@@ -671,6 +674,12 @@ local function BuildVendorSourceData(itemID, vendor, parsedSource)
             itemID, vendor, nil, nil, nil, nil, nil, parsedSource)
     end
 
+    local altMapID, altZone, altSubzone
+    if HA.VendorData and HA.VendorData.GetOtherPosition then
+        local otherMapID, _, _, otherZone, otherSubzone = HA.VendorData:GetOtherPosition(vendor)
+        altMapID, altZone, altSubzone = otherMapID, otherZone, otherSubzone
+    end
+
     return {
         vendor = vendor,
         npcID = vendor.npcID,
@@ -679,6 +688,9 @@ local function BuildVendorSourceData(itemID, vendor, parsedSource)
         zone = vendor.zone,
         subzone = vendor.subzone,
         mapID = vendor.mapID,
+        altMapID = altMapID,
+        altZone = altZone,
+        altSubzone = altSubzone,
         faction = vendor.faction,
         coords = vendor.coords or (vendor.x and vendor.y and {x = vendor.x, y = vendor.y}),
         cost = cost,

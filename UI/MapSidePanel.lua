@@ -1008,6 +1008,11 @@ end
 local function GetSourceLocationText(data)
     if type(data) ~= "table" then return nil end
 
+    -- The summary line does not wrap, so two positions show zone names only.
+    if data.altZone and data.zone then
+        return data.zone .. " / " .. data.altZone
+    end
+
     if data.subzone and data.zone then
         return data.subzone .. ", " .. data.zone
     end
