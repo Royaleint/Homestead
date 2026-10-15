@@ -2613,6 +2613,7 @@ VendorIdentity.Vendors = {
         y = 0.3278,
         zone = "Founder's Point",
         expansion = "Midnight",
+        scanConfirmed = "2026-10-14",
     },
     [272751] = {
         name = "Skull of Er'inye",
