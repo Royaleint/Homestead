@@ -1999,6 +1999,16 @@ VendorIdentity.Vendors = {
         faction = "Horde",
         expansion = "Classic",
     },
+    [254687] = {
+        name = "Rotha",
+        mapID = 2351,
+        x = 0.5353,
+        y = 0.566,
+        zone = "Razorwind Shores",
+        subzone = "The Common",
+        expansion = "Midnight",
+        scanConfirmed = "2026-10-14",
+    },
     [254944] = {
         name = "Tajaka Sawtusk",
         mapID = 2437,
@@ -2554,6 +2564,15 @@ VendorIdentity.Vendors = {
         expansion = "Midnight",
         scanConfirmed = "2026-08-11",
     },
+    [267870] = {
+        name = "Unquestionably Griftah",
+        mapID = 2351,
+        x = 0.402,
+        y = 0.7292,
+        zone = "Razorwind Shores",
+        expansion = "Midnight",
+        scanConfirmed = "2026-10-14",
+    },
     [268228] = {
         name = "Jan'sari the Watchful",
         mapID = 2512,
@@ -2594,6 +2613,7 @@ VendorIdentity.Vendors = {
         y = 0.3278,
         zone = "Founder's Point",
         expansion = "Midnight",
+        scanConfirmed = "2026-10-14",
     },
     [272751] = {
         name = "Skull of Er'inye",
