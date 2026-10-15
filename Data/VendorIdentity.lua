@@ -2182,12 +2182,12 @@ VendorIdentity.Vendors = {
     [255319] = {
         name = "\"Yen\" Malone",
         mapID = 2351,
-        x = 0.403,
-        y = 0.73,
+        x = 0.3962,
+        y = 0.7311,
         zone = "Razorwind Shores",
         faction = "Horde",
         expansion = "The War Within",
-        scanConfirmed = "2026-07-07",
+        scanConfirmed = "2026-10-15",
     },
     [255325] = {
         name = "\"High Tides\" Ren",
