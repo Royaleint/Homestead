@@ -536,6 +536,39 @@ local function ShouldIncludeEndeavorVendorForDisplay(vendor)
     return true
 end
 
+-- Whether an endeavor vendor's second position also reaches the item tooltip,
+-- the source summary and the closest-vendor waypoint. Map pins show both either way.
+local ALT_POSITION_FOR_ENDEAVOR_VENDORS = true
+
+-- The vendor's other position as mapID, x, y, zone, subzone, or nil. A primary
+-- row answers with its alt fields; the alt copy answers with the primary's.
+function VendorData:GetOtherPosition(vendor)
+    if not vendor or not vendor.altMapID then return nil end
+    if vendor.endeavor and not ALT_POSITION_FOR_ENDEAVOR_VENDORS then return nil end
+    if vendor.mapID ~= vendor.altMapID then
+        return vendor.altMapID, vendor.altX, vendor.altY, vendor.altZone or vendor.zone, vendor.altSubzone
+    end
+    local primary = vendor.endeavor
+        and HA.EndeavorsData and HA.EndeavorsData.Vendors and HA.EndeavorsData.Vendors[vendor.npcID]
+        or HA.VendorIdentity and HA.VendorIdentity:GetVendor(vendor.npcID)
+    if primary then
+        return primary.mapID, primary.x, primary.y, primary.zone, primary.subzone
+    end
+    return nil
+end
+
+-- The entry GetVendorsInMap returns for the vendor's second position.
+local function GetSecondPositionCopy(self, vendor)
+    if vendor.endeavor then
+        local atAlt = HA.EndeavorsData.ByMapID[vendor.altMapID]
+        for _, entry in ipairs(atAlt or {}) do
+            if entry.npcID == vendor.npcID then return entry end
+        end
+        return nil
+    end
+    return ProjectVendorWithItems(self, HA.VendorIdentity:GetAltCopy(vendor.npcID))
+end
+
 -- Get all vendors in a specific map/zone
 -- Includes active event vendors from EventSources
 function VendorData:GetVendorsInMap(mapID)
@@ -724,6 +757,7 @@ function VendorData:GetClosestVendorForItem(itemID)
     end
 
     local closestVendor = nil
+    local closestIsSecondPosition = false
     local closestDistance = math.huge
 
     for _, vendor in ipairs(vendorList) do
@@ -736,8 +770,26 @@ function VendorData:GetClosestVendorForItem(itemID)
             if distance < closestDistance then
                 closestDistance = distance
                 closestVendor = vendor
+                closestIsSecondPosition = false
             end
         end
+
+        local otherMapID, otherX, otherY = self:GetOtherPosition(vendor)
+        if otherMapID == playerMapID and otherX and otherY then
+            local dx = otherX - playerPos.x
+            local dy = otherY - playerPos.y
+            local distance = math.sqrt(dx*dx + dy*dy)
+
+            if distance < closestDistance then
+                closestDistance = distance
+                closestVendor = vendor
+                closestIsSecondPosition = true
+            end
+        end
+    end
+
+    if closestIsSecondPosition then
+        return GetSecondPositionCopy(self, closestVendor) or closestVendor
     end
 
     -- If no vendor on same map, just return first one

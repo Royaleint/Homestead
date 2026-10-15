@@ -2571,7 +2571,12 @@ VendorIdentity.Vendors = {
         y = 0.7292,
         zone = "Razorwind Shores",
         expansion = "Midnight",
-        scanConfirmed = "2026-10-14",
+        scanConfirmed = "2026-10-15",
+        altMapID = 2352,
+        altX = 0.6249,
+        altY = 0.7922,
+        altZone = "Founder's Point",
+        altSubzone = "Breakwater Bight",
     },
     [268228] = {
         name = "Jan'sari the Watchful",
@@ -2748,6 +2753,8 @@ VendorIdentity.ContinentNames = (HA.Constants and HA.Constants.ContinentNames) o
 function VendorIdentity:BuildIndexes()
     self.ByMapID = {}
     self.ByExpansion = {}
+    self.AltByMapID = {}
+    self.AltCopies = {}
     local function indexVendor(npcID, vendor)
         vendor.npcID = npcID
         if vendor.mapID then
@@ -2757,6 +2764,19 @@ function VendorIdentity:BuildIndexes()
         if vendor.expansion then
             self.ByExpansion[vendor.expansion] = self.ByExpansion[vendor.expansion] or {}
             table.insert(self.ByExpansion[vendor.expansion], npcID)
+        end
+        -- A second position gets its own copy and its own map index: ByMapID
+        -- stores npcIDs that resolve through self.Vendors, which would return the
+        -- primary row for the alt map.
+        if vendor.altMapID then
+            local copy = {}
+            for key, value in pairs(vendor) do copy[key] = value end
+            copy.mapID, copy.x, copy.y = vendor.altMapID, vendor.altX, vendor.altY
+            copy.zone, copy.subzone = vendor.altZone, vendor.altSubzone
+            copy.areaID, copy.portal, copy.badgeMapID = nil, nil, nil
+            self.AltCopies[npcID] = copy
+            self.AltByMapID[copy.mapID] = self.AltByMapID[copy.mapID] or {}
+            table.insert(self.AltByMapID[copy.mapID], copy)
         end
     end
     for npcID, vendor in pairs(self.Vendors) do
@@ -2803,9 +2823,8 @@ end
 function VendorIdentity:GetVendorsByMapID(mapID)
     if not self.ByMapID then self:BuildIndexes() end
     local npcIDs = self.ByMapID and self.ByMapID[mapID]
-    if not npcIDs then return {} end
     local result = {}
-    for _, npcID in ipairs(npcIDs) do
+    for _, npcID in ipairs(npcIDs or {}) do
         -- HS-217: BuildIndexes indexes StagedAdditions-only vendors into
         -- ByMapID too, but this lookup was checking self.Vendors alone —
         -- staged-only vendors indexed fine and then dropped silently here.
@@ -2813,7 +2832,15 @@ function VendorIdentity:GetVendorsByMapID(mapID)
         local vendor = self.Vendors[npcID] or (self.StagedAdditions and self.StagedAdditions[npcID])
         if vendor then result[#result + 1] = vendor end
     end
+    for _, copy in ipairs(self.AltByMapID[mapID] or {}) do
+        result[#result + 1] = copy
+    end
     return result
+end
+
+function VendorIdentity:GetAltCopy(npcID)
+    if not self.AltCopies then self:BuildIndexes() end
+    return self.AltCopies[npcID]
 end
 
 function VendorIdentity:GetVendorsByExpansion(expansion)

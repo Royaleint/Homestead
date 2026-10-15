@@ -76,8 +76,9 @@ function VendorFilter.GetBestVendorCoordinates(vendor)
 
             -- Use scanned coords if they're valid and mapID matches.
             -- For endeavor vendors, skip scan data from a different mapID — it may
-            -- be stale from a previous neighborhood rotation.
-            local scanMapMismatch = vendor.endeavor and scannedMapID ~= vendor.mapID
+            -- be stale from a previous neighborhood rotation. Vendors with a second
+            -- position stand in two maps, so a scan on one never moves the other.
+            local scanMapMismatch = (vendor.endeavor or vendor.altMapID) and scannedMapID ~= vendor.mapID
             if VendorFilter.AreValidCoordinates(scannedX, scannedY) and scannedMapID
                     and not scanMapMismatch then
                 -- Debug output
