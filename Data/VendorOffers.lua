@@ -17705,10 +17705,11 @@ local ManualOverrides = {
         [282098] = { price = 1000000, currencies = {}, isUsable = true }, -- Elaborate Heartsbane Doom Catcher
         [282100] = { price = 1000000, currencies = {}, isUsable = true }, -- Heartsbane Doom Catcher
     },
-    -- Holly Twinklebright, Founder's Point: the same twelve Hallow's End items as
-    -- Jolli Maxiboom, at the prices seen at Jolli Maxiboom on 2026-10-13. Not yet
-    -- checked at this vendor.
+    -- Holly Twinklebright, Founder's Point: prices seen at the vendor on 2026-10-14.
+    -- She sells the same Brewfest and Hallow's End items as Jolli Maxiboom.
     [271604] = { -- Holly Twinklebright (Founder's Point)
+        [248101] = { price = 1000000, currencies = {}, isUsable = true }, -- Traditional Brewfest Stein
+        [280335] = { price = 1000000, currencies = {}, isUsable = true }, -- Brewfest Crate
         [282051] = { price = 1000000, currencies = {}, isUsable = true }, -- Simple Hallow's End Candle
         [282072] = { price = 1000000, currencies = {}, isUsable = true }, -- Enchanted Hallow's End Candle
         [282075] = { price = 1000000, currencies = {}, isUsable = true }, -- Heartsbane Candle

@@ -7,7 +7,7 @@ local root = (... or "."):gsub("\\", "/"):gsub("/+$", "")
 -- and hidden with the Kobold endeavor exactly as the Razorwind Shores one is.
 -- Loads the REAL Data/VendorIdentity.lua, Data/VendorOffers.lua,
 -- Data/VendorData.lua and Data/EndeavorsData.lua.
--- Also: Holly Twinklebright at Founder's Point with 12 priced items, and the Founder's Point positions of Taifa and Roshai Lightstep.
+-- Also: Holly Twinklebright at Founder's Point with 14 priced items (the same set and prices as Jolli), and the Founder's Point positions of Taifa and Roshai Lightstep.
 -- Also: the 12 Hallow's End items Jolli and Holly sell have no Data/EventSources.lua row, so no "Not Active" source line; the other 11 rows stay.
 
 local payload = nil
@@ -139,7 +139,8 @@ payload = { isLoaded = true, initiativeID = 9999, title = "Some Unrecognized Fut
 Expect("unrecognised", true)
 
 -- 5. Holly Twinklebright: named, placed in Founder's Point, visible, and
---    selling exactly the twelve Hallow's End items at their gold prices.
+--    selling exactly Jolli's fourteen items at their gold prices, the Brewfest
+--    Stein and Crate among them.
 local HOLLY = 271604
 local holly = HA.VendorIdentity:GetVendor(HOLLY)
 assert(holly, "NPC " .. HOLLY .. " must have a vendor row")
@@ -157,7 +158,7 @@ assert(hollyOffers, "Holly Twinklebright must have offers")
 local hollyCount = 0
 for itemID, offer in pairs(hollyOffers) do
     hollyCount = hollyCount + 1
-    assert(PRICES[itemID] and itemID ~= 248101 and itemID ~= 280335,
+    assert(PRICES[itemID],
         "Holly Twinklebright lists unexpected item " .. tostring(itemID))
     assert(offer.price == PRICES[itemID],
         "Holly Twinklebright's item " .. itemID .. " must cost " .. PRICES[itemID]
@@ -165,7 +166,10 @@ for itemID, offer in pairs(hollyOffers) do
     assert(#(offer.currencies or {}) == 0 and offer.itemCosts == nil and offer.namedCosts == nil,
         "Holly Twinklebright's item " .. itemID .. " must be priced in gold only")
 end
-assert(hollyCount == 12, "Holly Twinklebright must list 12 items, got " .. hollyCount)
+for itemID in pairs(PRICES) do
+    assert(hollyOffers[itemID], "Holly Twinklebright must sell item " .. itemID)
+end
+assert(hollyCount == 14, "Holly Twinklebright must list 14 items, got " .. hollyCount)
 
 -- 6. Taifa and Roshai Lightstep each have a Founder's Point entry at its own
 --    position that belongs to the same endeavor as the Razorwind Shores entry
