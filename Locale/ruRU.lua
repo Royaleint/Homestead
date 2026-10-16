@@ -1,6 +1,7 @@
 --[[
     Homestead - Locale: Russian (RU)
     Translator ZamestoTV
+    License: GPL-3.0 (see LICENSE-GPL-3.0); modified by Royaleint.
     Machine-translated where not marked human-translated.
 ]]
 

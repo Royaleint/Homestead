@@ -111,4 +111,4 @@ Special thanks to Azro, author of [HomeDecor](https://www.curseforge.com/wow/add
 
 ## License
 
-[GPL-3.0](LICENSE)
+All rights reserved. See [LICENSE](LICENSE) for the exceptions: the bundled libraries keep their own licenses, and the Russian translation stays under GPL-3.0.
