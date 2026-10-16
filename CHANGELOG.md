@@ -2,6 +2,29 @@
 
 ---
 
+## Homestead v2.14.1 (10-16-2026)
+
+Updated more vendors for both faction neighborhoods.
+
+---
+
+## Vendor Database
+
+**New and Updated Vendors**
+
+- Added Rotha in The Common, Razorwind Shores.
+- Added Unquestionably Griftah in both Razorwind Shores and Breakwater Bight (Founder's Point).
+- Added Jolli Maxiboom (Razorwind Shores) and Holly Twinklebright (Founder's Point).
+- Fixed issues with Timicky, Taifa, and Roshai Lightstep in Founder's Point too.
+- Buy Tortollan and Grummle endeavor items from Throska and Cousin Shortkaf as well when available.
+
+**Tooltips and Map**
+
+- Hover an item to see every location of vendors who stand in both neighborhoods. The waypoint takes you to the nearer one.
+- Hover Unquestionably Griftah's pin in Razorwind Shores again. "Yen" Malone's pin no longer covers it.
+
+---
+
 ## Homestead v2.14.0 (10-13-2026)
 
 Homestead is updated for patch 12.1.5 with new vendors and decor sources, and the continent map now shows one badge per zone.
