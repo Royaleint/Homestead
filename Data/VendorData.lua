@@ -1,4 +1,3 @@
--- review-gate: code
 --[[
     Homestead - VendorData
     Unified vendor data access layer
