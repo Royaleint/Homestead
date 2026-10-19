@@ -7,12 +7,15 @@
 --
 -- The backend lives outside this repository, so the caller supplies its
 -- directory:  lua tests/hs239_performance_trace.lua <repoRoot> <backendDir>
--- where <backendDir> contains PerformanceTrace.lua.
+-- where <backendDir> contains PerformanceTrace.lua. With no <backendDir> the
+-- backend section is skipped and the checks on public code still run; a
+-- <backendDir> that does not contain PerformanceTrace.lua fails loudly.
 
-local root = (... or "."):gsub("\\\\", "/"):gsub("/+$", "")
+local root = (... or "."):gsub("\\", "/"):gsub("/+$", "")
 local backendDir = select(2, ...)
-assert(backendDir, "usage: lua tests/hs239_performance_trace.lua <repoRoot> <backendDir>")
-backendDir = backendDir:gsub("\\\\", "/"):gsub("/+$", "")
+if backendDir then
+    backendDir = backendDir:gsub("\\", "/"):gsub("/+$", "")
+end
 
 -------------------------------------------------------------------------------
 -- The facade must exist. This is the required RED result before
@@ -44,6 +47,8 @@ assert(second == "preserved", "Measure must preserve subsequent callback returns
 
 -- No profiler API exists in this bare harness at all; if pass-through ever
 -- tried to touch it, this would already have errored above.
+
+if backendDir then
 
 -------------------------------------------------------------------------------
 -- Backend behaviors, loaded from the caller-supplied backend directory.
@@ -254,8 +259,7 @@ assert(snapshot.records[#snapshot.records].workload == 200,
     "ring eviction must drop the oldest record, keeping the newest (workload 200)")
 
 -------------------------------------------------------------------------------
--- Observation-coverage contract: the snapshot
--- must record WHEN it was observing, so Sentry can refuse the affirmative
+-- Observation-coverage contract: the snapshot must record WHEN it was observing, so Sentry can refuse the affirmative
 -- "nothing was slow" claim for windows nobody was watching.
 -------------------------------------------------------------------------------
 
@@ -309,6 +313,9 @@ assert(snapshot.records[#snapshot.records].synthetic == false,
     "a plain re-arm must clear synthetic capture mode")
 
 print("hs239_performance_trace.lua: backend ok")
+else
+    print("hs239_performance_trace.lua: backend section skipped, no backend directory given")
+end
 
 -------------------------------------------------------------------------------
 -- Candidate-boundary wiring. Loading Overlay/overlay.lua,
@@ -372,7 +379,7 @@ local badgeSource = ReadFile(root .. "/UI/BadgeCalculation.lua")
 assert(badgeSource:find('HA%.PerformanceTrace:Measure%("badge_prewarm", batchStartIndex, pcall,') ~= nil,
     "BadgeCalculation.lua ProcessBatch must wrap its pcall'd batch via the facade with the existing batchStartIndex workload")
 
--- badge_prewarm the aggregate-warming phase
+-- badge_prewarm: the aggregate-warming phase
 -- appended after the vendor-stats loop is TWO more badge_prewarm call sites,
 -- one atomic call per tick each — a fixed
 -- "continent_totals" label for the single GetContinentVendorCounts("all")
