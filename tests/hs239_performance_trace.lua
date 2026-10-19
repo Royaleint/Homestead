@@ -1,37 +1,30 @@
 -- luacheck: globals assert loadfile print io select unpack C_AddOnProfiler GetTimePreciseSec InCombatLockdown C_Timer
 --
--- HS-239: public performance-trace facade (Core/PerformanceTrace.lua) must
--- always run its callback and preserve every return value. The DevBuild
--- backend (Home_Dev/Homestead_Dev/PerformanceTrace.lua) registers with the
--- facade via SetBackend and adds bounded, outside-combat MeasureCall
--- observation on top of that pass-through.
+-- Public performance-trace facade (Core/PerformanceTrace.lua) must always run
+-- its callback and preserve every return value. The development-build
+-- backend registers with the facade via SetBackend and adds bounded,
+-- outside-combat MeasureCall observation on top of that pass-through.
 --
--- Home_Dev is a SEPARATE private git repo, co-located on disk one level up
--- from every Homestead worktree (see HS-239 session handoff). There is no
--- established cross-repo test convention yet; this test reaches it with a
--- relative path from the worktree root. Fragile if worktree nesting depth
--- ever changes, but it is the only way to unit-test the backend from here.
+-- The backend lives outside this repository, so the caller supplies its
+-- directory:  lua tests/hs239_performance_trace.lua <repoRoot> <backendDir>
+-- where <backendDir> contains PerformanceTrace.lua. With no <backendDir> the
+-- backend section is skipped and the checks on public code still run; a
+-- <backendDir> that does not contain PerformanceTrace.lua fails loudly.
 
-local root = (... or "."):gsub("\\\\", "/"):gsub("/+$", "")
--- Home_Dev is NESTED in the main checkout (root/Home_Dev) but a SIBLING of
--- the repo root from a worktree (root/../../Home_Dev, since worktrees live
--- at <repo>/.worktrees/<branch>). Probe the nested layout first, fall back
--- to the worktree layout - previously this was worktree-only and the test
--- could never pass from the main checkout.
-local devRoot = root .. "/Home_Dev/Homestead_Dev"
-do
-    local probe = io.open(devRoot .. "/PerformanceTrace.lua", "r")
-    if probe then probe:close() else devRoot = root .. "/../../Home_Dev/Homestead_Dev" end
+local root = (... or "."):gsub("\\", "/"):gsub("/+$", "")
+local backendDir = select(2, ...)
+if backendDir then
+    backendDir = backendDir:gsub("\\", "/"):gsub("/+$", "")
 end
 
 -------------------------------------------------------------------------------
--- Task 1(a): the facade must exist. This is the required RED result before
+-- The facade must exist. This is the required RED result before
 -- Core/PerformanceTrace.lua is written -- a missing-feature assertion, not a
 -- nil-harness crash.
 -------------------------------------------------------------------------------
 
 local facadeChunk = loadfile(root .. "/Core/PerformanceTrace.lua")
-assert(facadeChunk, "Core/PerformanceTrace.lua is missing (HS-239 facade not yet implemented)")
+assert(facadeChunk, "Core/PerformanceTrace.lua is missing (facade not yet implemented)")
 
 local HA = {}
 facadeChunk("Homestead", HA)
@@ -41,7 +34,7 @@ assert(type(HA.PerformanceTrace.Measure) == "function", "PerformanceTrace:Measur
 assert(type(HA.PerformanceTrace.SetBackend) == "function", "PerformanceTrace:SetBackend must exist")
 
 -------------------------------------------------------------------------------
--- Task 1(b): pass-through contract with NO backend registered (player build).
+-- Pass-through contract with NO backend registered (player build).
 -- Measure must call the callback directly and preserve every return value.
 -------------------------------------------------------------------------------
 
@@ -55,12 +48,14 @@ assert(second == "preserved", "Measure must preserve subsequent callback returns
 -- No profiler API exists in this bare harness at all; if pass-through ever
 -- tried to touch it, this would already have errored above.
 
+if backendDir then
+
 -------------------------------------------------------------------------------
--- Task 1(c): DevBuild backend behaviors, loaded from the sibling Home_Dev repo.
+-- Backend behaviors, loaded from the caller-supplied backend directory.
 -------------------------------------------------------------------------------
 
-local backendChunk = loadfile(devRoot .. "/PerformanceTrace.lua")
-assert(backendChunk, "Home_Dev/Homestead_Dev/PerformanceTrace.lua is missing (HS-239 backend not yet implemented)")
+local backendChunk = loadfile(backendDir .. "/PerformanceTrace.lua")
+assert(backendChunk, "PerformanceTrace.lua is missing from the backend directory")
 
 -- Stub profiler surface. MeasureCall is a controllable stub: each test phase
 -- below sets `nextResults`/`nextRawReturns` before invoking the traced call.
@@ -83,10 +78,10 @@ GetTimePreciseSec = function() return preciseTime end
 local inCombat = false
 InCombatLockdown = function() return inCombat end
 
-local HA_Dev = {}
-backendChunk("Homestead_DevBuild", HA_Dev)
+local Backend = {}
+backendChunk("HomesteadBackend", Backend)
 
-assert(HA_Dev.PerformanceTrace, "HA_Dev.PerformanceTrace backend must exist")
+assert(Backend.PerformanceTrace, "Backend.PerformanceTrace backend must exist")
 
 -- The session marker must be captured at backend LOAD, not at first Arm --
 -- a Sentry read before anyone has armed the trace must not see a nil
@@ -95,7 +90,7 @@ assert(HA_Dev.PerformanceTrace, "HA_Dev.PerformanceTrace backend must exist")
 assert(_G.HomesteadPerfSnapshot.sessionMarker == preciseTime,
     "sessionMarker must be captured at backend load, before any Arm() call")
 
-HA.PerformanceTrace:SetBackend(HA_Dev.PerformanceTrace)
+HA.PerformanceTrace:SetBackend(Backend.PerformanceTrace)
 
 -------------------------------------------------------------------------------
 -- Disarmed by default: MeasureCall must never be touched, callback still runs.
@@ -104,13 +99,13 @@ HA.PerformanceTrace:SetBackend(HA_Dev.PerformanceTrace)
 nextResults = "ERROR_IF_CALLED"
 local dOk = HA.PerformanceTrace:Measure("bag_refresh", 1, function() return "disarmed-ok" end)
 assert(dOk == "disarmed-ok", "callback must run while disarmed")
-assert(measureCallCount == 0, "MeasureCall must not run while the DevBuild trace is disarmed")
+assert(measureCallCount == 0, "MeasureCall must not run while the backend trace is disarmed")
 
 -------------------------------------------------------------------------------
 -- Arm the trace. 60-second cap: requesting more than 60s clamps to 60.
 -------------------------------------------------------------------------------
 
-local armedSeconds = HA_Dev.PerformanceTrace:Arm(120)
+local armedSeconds = Backend.PerformanceTrace:Arm(120)
 assert(armedSeconds == 60, "Arm(120) must clamp to the 60-second cap, got " .. tostring(armedSeconds))
 
 -- Discriminate the clamp from the return value alone: prove the CLAMPED
@@ -118,11 +113,11 @@ assert(armedSeconds == 60, "Arm(120) must clamp to the 60-second cap, got " .. t
 -- the trace must already read disarmed; if Arm had silently armed for the
 -- raw 120s while only returning 60, IsArmed() would still be true here.
 preciseTime = preciseTime + 61
-assert(not HA_Dev.PerformanceTrace:IsArmed(),
+assert(not Backend.PerformanceTrace:IsArmed(),
     "Arm(120) must actually arm for the clamped 60s, not the raw requested 120s")
 preciseTime = preciseTime - 61
 
-local shortArm = HA_Dev.PerformanceTrace:Arm(10)
+local shortArm = Backend.PerformanceTrace:Arm(10)
 assert(shortArm == 10, "Arm(10) must honor an explicit sub-cap duration")
 
 -------------------------------------------------------------------------------
@@ -232,10 +227,10 @@ C_AddOnProfiler = savedProfiler
 -- either (lazy expiry check inside IsArmed/Observe).
 -------------------------------------------------------------------------------
 
-HA_Dev.PerformanceTrace:Arm(10)
-assert(HA_Dev.PerformanceTrace:IsArmed(), "Arm(10) must read as armed immediately")
+Backend.PerformanceTrace:Arm(10)
+assert(Backend.PerformanceTrace:IsArmed(), "Arm(10) must read as armed immediately")
 preciseTime = preciseTime + 11
-assert(not HA_Dev.PerformanceTrace:IsArmed(), "the trace must auto-disarm once its granted window elapses")
+assert(not Backend.PerformanceTrace:IsArmed(), "the trace must auto-disarm once its granted window elapses")
 
 local callCountBeforeExpiry = measureCallCount
 nextResults = "ERROR_IF_CALLED"
@@ -243,8 +238,8 @@ local eOk = HA.PerformanceTrace:Measure("bag_refresh", 1, function() return "exp
 assert(eOk == "expired-ok", "callback must still run once the arm window has expired")
 assert(measureCallCount == callCountBeforeExpiry, "MeasureCall must not run once the arm window has expired")
 
--- Re-arm for the remaining Task 1 assertions below.
-HA_Dev.PerformanceTrace:Arm(60)
+-- Re-arm for the remaining assertions below.
+Backend.PerformanceTrace:Arm(60)
 
 -------------------------------------------------------------------------------
 -- Bounded ring: push past the ring's fixed size and confirm it never grows
@@ -259,13 +254,12 @@ end
 assert(#snapshot.records <= 64, "the slow-call ring must stay fixed-size, got " .. #snapshot.records)
 assert(#snapshot.records >= ringSizeBefore, "the ring must not shrink below what it already held")
 -- Eviction order: the NEWEST record must survive a full wrap -- size alone
--- can't tell oldest-evicted from newest-dropped (Gate 1 nit).
+-- can't tell oldest-evicted from newest-dropped.
 assert(snapshot.records[#snapshot.records].workload == 200,
     "ring eviction must drop the oldest record, keeping the newest (workload 200)")
 
 -------------------------------------------------------------------------------
--- Observation-coverage contract (SNT-039 cycle-2 blocker fix): the snapshot
--- must record WHEN it was observing, so Sentry can refuse the affirmative
+-- Observation-coverage contract: the snapshot must record WHEN it was observing, so Sentry can refuse the affirmative
 -- "nothing was slow" claim for windows nobody was watching.
 -------------------------------------------------------------------------------
 
@@ -273,9 +267,9 @@ assert(type(snapshot.armedWindows) == "table", "snapshot must expose armedWindow
 assert(type(snapshot.combatSkips) == "table", "snapshot must expose combatSkips")
 
 local windowCountBefore = #snapshot.armedWindows
-HA_Dev.PerformanceTrace:Disarm()
+Backend.PerformanceTrace:Disarm()
 preciseTime = preciseTime + 100
-HA_Dev.PerformanceTrace:Arm(30)
+Backend.PerformanceTrace:Arm(30)
 local w = snapshot.armedWindows[#snapshot.armedWindows]
 assert(#snapshot.armedWindows == windowCountBefore + 1,
     "a fresh Arm after disarm must append a new observation window")
@@ -284,7 +278,7 @@ assert(w.armedAt == preciseTime and w.armedUntil == preciseTime + 30,
 
 -- Re-arming while still armed EXTENDS the current window, not a new entry.
 preciseTime = preciseTime + 5
-HA_Dev.PerformanceTrace:Arm(30)
+Backend.PerformanceTrace:Arm(30)
 assert(#snapshot.armedWindows == windowCountBefore + 1,
     "re-arming while armed must extend, not append")
 assert(snapshot.armedWindows[#snapshot.armedWindows].armedUntil == preciseTime + 30,
@@ -292,12 +286,12 @@ assert(snapshot.armedWindows[#snapshot.armedWindows].armedUntil == preciseTime +
 
 -- Early disarm truncates the recorded window to the actual disarm moment.
 preciseTime = preciseTime + 2
-HA_Dev.PerformanceTrace:Disarm()
+Backend.PerformanceTrace:Disarm()
 assert(snapshot.armedWindows[#snapshot.armedWindows].armedUntil == preciseTime,
     "Disarm must truncate the recorded window to the disarm time")
 
 -- A combat-suppressed observation while armed records a skip timestamp.
-HA_Dev.PerformanceTrace:Arm(30)
+Backend.PerformanceTrace:Arm(30)
 inCombat = true
 local skipsBefore = #snapshot.combatSkips
 HA.PerformanceTrace:Measure("bag_refresh", 1, function() end)
@@ -307,25 +301,28 @@ assert(#snapshot.combatSkips == skipsBefore + 1
 inCombat = false
 
 -- Synthetic capture mode: Arm(seconds, true) flags records synthetic.
-HA_Dev.PerformanceTrace:Arm(30, true)
+Backend.PerformanceTrace:Arm(30, true)
 nextResults = { elapsedMilliseconds = 999 }
 HA.PerformanceTrace:Measure("bag_refresh", 42, function() end)
 assert(snapshot.records[#snapshot.records].synthetic == true,
     "records captured under Arm(n, true) must carry synthetic = true")
-HA_Dev.PerformanceTrace:Arm(30)
+Backend.PerformanceTrace:Arm(30)
 nextResults = { elapsedMilliseconds = 999 }
 HA.PerformanceTrace:Measure("bag_refresh", 43, function() end)
 assert(snapshot.records[#snapshot.records].synthetic == false,
     "a plain re-arm must clear synthetic capture mode")
 
-print("hs239_performance_trace.lua: Task 1 ok")
+print("hs239_performance_trace.lua: backend ok")
+else
+    print("hs239_performance_trace.lua: backend section skipped, no backend directory given")
+end
 
 -------------------------------------------------------------------------------
--- Task 2: candidate-boundary wiring. Loading Overlay/overlay.lua,
+-- Candidate-boundary wiring. Loading Overlay/overlay.lua,
 -- Overlay/BetterBags.lua, and Overlay/Baganator.lua under plain Lua 5.1 would
 -- mean stubbing CreateFrame/C_Timer.After/ADDON_LOADED wait-frames across
--- three modules just to reach the call sites -- hs180_bag_overlay_refresh.lua
--- and hs238_invalidation_gates.lua already establish this repo's idiom for
+-- three modules just to reach the call sites -- the existing bag overlay refresh
+-- and invalidation gate tests already establish this repo's idiom for
 -- exactly this situation: read the file as text and assert the wiring by
 -- pattern, reserving real loadfile execution for logic that needs a live
 -- callback chain. Each assertion below checks BOTH that the named boundary
@@ -372,7 +369,7 @@ assert(worldMapSource:find('HA%.PerformanceTrace:Measure%("world_map_refresh", c
     "HomesteadWorldMapProvider.lua RefreshAllData must wrap its render pass via the facade with the existing currentMapID workload")
 
 -- badge_prewarm: ProcessBatch's pcall'd loop, workload is batchStartIndex --
--- HS-271 replaced count-boxed batches (a fixed WARMUP_VENDORS_PER_BATCH) with
+-- A later change replaced count-boxed batches (a fixed WARMUP_VENDORS_PER_BATCH) with
 -- time-boxed ones (WARMUP_BATCH_TIME_MS via GetTimePreciseSec), so how many
 -- vendors a batch will process is no longer knowable before the loop runs;
 -- Measure's workload argument must be known before the callback executes, so
@@ -382,9 +379,9 @@ local badgeSource = ReadFile(root .. "/UI/BadgeCalculation.lua")
 assert(badgeSource:find('HA%.PerformanceTrace:Measure%("badge_prewarm", batchStartIndex, pcall,') ~= nil,
     "BadgeCalculation.lua ProcessBatch must wrap its pcall'd batch via the facade with the existing batchStartIndex workload")
 
--- badge_prewarm (HS-271 item 3b, Gate 1 cycle 1): the aggregate-warming phase
+-- badge_prewarm: the aggregate-warming phase
 -- appended after the vendor-stats loop is TWO more badge_prewarm call sites,
--- one atomic call per tick each (orchestrator review flag 1) — a fixed
+-- one atomic call per tick each — a fixed
 -- "continent_totals" label for the single GetContinentVendorCounts("all")
 -- call, and continentMapID (already known, the list this loop already built)
 -- for the per-continent GetZoneVendorCounts call.
@@ -393,4 +390,4 @@ assert(badgeSource:find('HA%.PerformanceTrace:Measure%("badge_prewarm", "contine
 assert(badgeSource:find('HA%.PerformanceTrace:Measure%("badge_prewarm", continentMapID, pcall,') ~= nil,
     "BadgeCalculation.lua ProcessBatch must wrap its per-continent GetZoneVendorCounts call via the facade with the existing continentMapID workload")
 
-print("hs239_performance_trace.lua: Task 2 ok")
+print("hs239_performance_trace.lua: wiring ok")
