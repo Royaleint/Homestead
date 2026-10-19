@@ -1,3 +1,4 @@
+-- review-gate: code
 --[[
     Homestead - CatalogStore
     Canonical per-item state store for housing decor items

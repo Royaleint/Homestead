@@ -1,3 +1,4 @@
+-- review-gate: code
 --[[
     Homestead - SourceManager
     Unified source lookup for housing decor items
