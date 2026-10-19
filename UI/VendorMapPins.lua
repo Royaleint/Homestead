@@ -1,3 +1,4 @@
+-- review-gate: code
 --[[
     Homestead - VendorMapPins
     World and minimap integration for housing decor vendor locations

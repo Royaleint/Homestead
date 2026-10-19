@@ -1,3 +1,4 @@
+-- review-gate: code
 --[[
     Homestead - VendorPinTooltips
     Pin tooltips: vendor, zone/continent badge, portal, minimap, and drop pins
