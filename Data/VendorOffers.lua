@@ -17708,6 +17708,86 @@ local ManualOverrides = {
         [263875] = { price = 0, currencies = {{id = 3363, amount = 10}}, isUsable = true }, -- Griftah's Resizing Hex-Skull
         [276312] = { price = 0, currencies = {{id = 3363, amount = 10}}, isUsable = true }, -- Griftah's Torch of Rotation
     },
+    -- Hallow's End vendors (shown only while Hallow's End runs): prices seen at the vendors on 2026-10-19.
+    -- Item 33226 is Tricky Treats. Jack showed every gold price 5% lower (likely a reputation discount);
+    -- his rows carry the base price. Echo's Candlelit Shrieking Jack-o'-Lantern cost was not captured
+    -- by the scan; it costs 20 Tricky Treats, as at the other three.
+    [273402] = { -- Echo (Tirisfal Glades)
+        [282081] = { price = 5000000, currencies = {}, isUsable = true }, -- Candlelit Smiling Jack-o'-Lantern
+        [282083] = { price = 5000000, currencies = {}, isUsable = true }, -- Unlit Smiling Jack-o'-Lantern
+        [282086] = { price = 2500000, currencies = {}, isUsable = true }, -- Buckled Witch Hat
+        [282090] = { price = 1000000, currencies = {}, isUsable = true }, -- Eternally Powered Glowskull
+        [282072] = { price = 1000000, currencies = {}, isUsable = true }, -- Enchanted Hallow's End Candle
+        [282051] = { price = 1000000, currencies = {}, isUsable = true }, -- Simple Hallow's End Candle
+        [282077] = { price = 5000000, currencies = {}, isUsable = true }, -- Spooky Scarecrow
+        [282095] = { price = 5000000, currencies = {}, isUsable = true }, -- Ominous Heartsbane Banner
+        [282075] = { price = 1000000, currencies = {}, isUsable = true }, -- Heartsbane Candle
+        [282092] = { price = 5000000, currencies = {}, isUsable = true }, -- Heartsbane Ritual Markings
+        [282100] = { price = 1000000, currencies = {}, isUsable = true }, -- Heartsbane Doom Catcher
+        [282098] = { price = 1000000, currencies = {}, isUsable = true }, -- Elaborate Heartsbane Doom Catcher
+        [282192] = { price = 0, currencies = {}, itemCosts = {{itemID = 33226, amount = 20}}, isUsable = true }, -- Candlelit Shrieking Jack-o'-Lantern
+        [282194] = { price = 0, currencies = {}, itemCosts = {{itemID = 33226, amount = 20}}, isUsable = true }, -- Candlelit Ogre Jack-o'-Lantern
+        [282196] = { price = 0, currencies = {}, itemCosts = {{itemID = 33226, amount = 20}}, isUsable = true }, -- Filled Candy Bucket
+        [282198] = { price = 0, currencies = {}, itemCosts = {{itemID = 33226, amount = 20}}, isUsable = true }, -- Unlit Shrieking Jack-o'-Lantern
+        [282200] = { price = 0, currencies = {}, itemCosts = {{itemID = 33226, amount = 20}}, isUsable = true }, -- Unlit Ogre Jack-o'-Lantern
+        [282202] = { price = 0, currencies = {}, itemCosts = {{itemID = 33226, amount = 15}}, isUsable = true }, -- Elaborate Heartsbane Ritual Markings
+        [282204] = { price = 0, currencies = {}, itemCosts = {{itemID = 33226, amount = 25}}, isUsable = true }, -- Ominous Heartsbane Shrine
+        [282206] = { price = 0, currencies = {}, itemCosts = {{itemID = 33226, amount = 15}}, isUsable = true }, -- Heartsbane Stone Circle
+        [282208] = { price = 0, currencies = {}, itemCosts = {{itemID = 33226, amount = 25}}, isUsable = true }, -- Heartsbane Banner
+        [282213] = { price = 0, currencies = {}, itemCosts = {{itemID = 33226, amount = 25}}, isUsable = true }, -- Looming Heartsbane Effigy
+        [282289] = { price = 0, currencies = {}, itemCosts = {{itemID = 33226, amount = 20}}, isUsable = true }, -- Horrific Head of the Horseman
+    },
+    [273403] = { -- Jack (Elwynn Forest)
+        [282081] = { price = 5000000, currencies = {}, isUsable = true }, -- Candlelit Smiling Jack-o'-Lantern
+        [282083] = { price = 5000000, currencies = {}, isUsable = true }, -- Unlit Smiling Jack-o'-Lantern
+        [282086] = { price = 2500000, currencies = {}, isUsable = true }, -- Buckled Witch Hat
+        [282090] = { price = 1000000, currencies = {}, isUsable = true }, -- Eternally Powered Glowskull
+        [282072] = { price = 1000000, currencies = {}, isUsable = true }, -- Enchanted Hallow's End Candle
+        [282051] = { price = 1000000, currencies = {}, isUsable = true }, -- Simple Hallow's End Candle
+        [282077] = { price = 5000000, currencies = {}, isUsable = true }, -- Spooky Scarecrow
+        [282095] = { price = 5000000, currencies = {}, isUsable = true }, -- Ominous Heartsbane Banner
+        [282075] = { price = 1000000, currencies = {}, isUsable = true }, -- Heartsbane Candle
+        [282092] = { price = 5000000, currencies = {}, isUsable = true }, -- Heartsbane Ritual Markings
+        [282100] = { price = 1000000, currencies = {}, isUsable = true }, -- Heartsbane Doom Catcher
+        [282098] = { price = 1000000, currencies = {}, isUsable = true }, -- Elaborate Heartsbane Doom Catcher
+        [282192] = { price = 0, currencies = {}, itemCosts = {{itemID = 33226, amount = 20}}, isUsable = true }, -- Candlelit Shrieking Jack-o'-Lantern
+        [282194] = { price = 0, currencies = {}, itemCosts = {{itemID = 33226, amount = 20}}, isUsable = true }, -- Candlelit Ogre Jack-o'-Lantern
+        [282196] = { price = 0, currencies = {}, itemCosts = {{itemID = 33226, amount = 20}}, isUsable = true }, -- Filled Candy Bucket
+        [282198] = { price = 0, currencies = {}, itemCosts = {{itemID = 33226, amount = 20}}, isUsable = true }, -- Unlit Shrieking Jack-o'-Lantern
+        [282200] = { price = 0, currencies = {}, itemCosts = {{itemID = 33226, amount = 20}}, isUsable = true }, -- Unlit Ogre Jack-o'-Lantern
+        [282202] = { price = 0, currencies = {}, itemCosts = {{itemID = 33226, amount = 15}}, isUsable = true }, -- Elaborate Heartsbane Ritual Markings
+        [282204] = { price = 0, currencies = {}, itemCosts = {{itemID = 33226, amount = 25}}, isUsable = true }, -- Ominous Heartsbane Shrine
+        [282206] = { price = 0, currencies = {}, itemCosts = {{itemID = 33226, amount = 15}}, isUsable = true }, -- Heartsbane Stone Circle
+        [282208] = { price = 0, currencies = {}, itemCosts = {{itemID = 33226, amount = 25}}, isUsable = true }, -- Heartsbane Banner
+        [282213] = { price = 0, currencies = {}, itemCosts = {{itemID = 33226, amount = 25}}, isUsable = true }, -- Looming Heartsbane Effigy
+        [282289] = { price = 0, currencies = {}, itemCosts = {{itemID = 33226, amount = 20}}, isUsable = true }, -- Horrific Head of the Horseman
+    },
+    [273472] = { -- Cordula Wolfgang (Founder's Point)
+        [282192] = { price = 0, currencies = {}, itemCosts = {{itemID = 33226, amount = 20}}, isUsable = true }, -- Candlelit Shrieking Jack-o'-Lantern
+        [282194] = { price = 0, currencies = {}, itemCosts = {{itemID = 33226, amount = 20}}, isUsable = true }, -- Candlelit Ogre Jack-o'-Lantern
+        [282196] = { price = 0, currencies = {}, itemCosts = {{itemID = 33226, amount = 20}}, isUsable = true }, -- Filled Candy Bucket
+        [282198] = { price = 0, currencies = {}, itemCosts = {{itemID = 33226, amount = 20}}, isUsable = true }, -- Unlit Shrieking Jack-o'-Lantern
+        [282200] = { price = 0, currencies = {}, itemCosts = {{itemID = 33226, amount = 20}}, isUsable = true }, -- Unlit Ogre Jack-o'-Lantern
+        [282202] = { price = 0, currencies = {}, itemCosts = {{itemID = 33226, amount = 15}}, isUsable = true }, -- Elaborate Heartsbane Ritual Markings
+        [282204] = { price = 0, currencies = {}, itemCosts = {{itemID = 33226, amount = 25}}, isUsable = true }, -- Ominous Heartsbane Shrine
+        [282206] = { price = 0, currencies = {}, itemCosts = {{itemID = 33226, amount = 15}}, isUsable = true }, -- Heartsbane Stone Circle
+        [282208] = { price = 0, currencies = {}, itemCosts = {{itemID = 33226, amount = 25}}, isUsable = true }, -- Heartsbane Banner
+        [282213] = { price = 0, currencies = {}, itemCosts = {{itemID = 33226, amount = 25}}, isUsable = true }, -- Looming Heartsbane Effigy
+        [282289] = { price = 0, currencies = {}, itemCosts = {{itemID = 33226, amount = 20}}, isUsable = true }, -- Horrific Head of the Horseman
+    },
+    [273470] = { -- Spew Gutsout (Razorwind Shores)
+        [282192] = { price = 0, currencies = {}, itemCosts = {{itemID = 33226, amount = 20}}, isUsable = true }, -- Candlelit Shrieking Jack-o'-Lantern
+        [282194] = { price = 0, currencies = {}, itemCosts = {{itemID = 33226, amount = 20}}, isUsable = true }, -- Candlelit Ogre Jack-o'-Lantern
+        [282196] = { price = 0, currencies = {}, itemCosts = {{itemID = 33226, amount = 20}}, isUsable = true }, -- Filled Candy Bucket
+        [282198] = { price = 0, currencies = {}, itemCosts = {{itemID = 33226, amount = 20}}, isUsable = true }, -- Unlit Shrieking Jack-o'-Lantern
+        [282200] = { price = 0, currencies = {}, itemCosts = {{itemID = 33226, amount = 20}}, isUsable = true }, -- Unlit Ogre Jack-o'-Lantern
+        [282202] = { price = 0, currencies = {}, itemCosts = {{itemID = 33226, amount = 15}}, isUsable = true }, -- Elaborate Heartsbane Ritual Markings
+        [282204] = { price = 0, currencies = {}, itemCosts = {{itemID = 33226, amount = 25}}, isUsable = true }, -- Ominous Heartsbane Shrine
+        [282206] = { price = 0, currencies = {}, itemCosts = {{itemID = 33226, amount = 15}}, isUsable = true }, -- Heartsbane Stone Circle
+        [282208] = { price = 0, currencies = {}, itemCosts = {{itemID = 33226, amount = 25}}, isUsable = true }, -- Heartsbane Banner
+        [282213] = { price = 0, currencies = {}, itemCosts = {{itemID = 33226, amount = 25}}, isUsable = true }, -- Looming Heartsbane Effigy
+        [282289] = { price = 0, currencies = {}, itemCosts = {{itemID = 33226, amount = 20}}, isUsable = true }, -- Horrific Head of the Horseman
+    },
     [274062] = {
         [282661] = { price = 0, currencies = {{id = 1813, amount = 200}}, isUsable = true },
         [282663] = { price = 0, currencies = {{id = 1813, amount = 200}}, isUsable = true },

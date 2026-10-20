@@ -246,6 +246,10 @@ function Validation:ValidateVendorOffers()
         if scannedVendors and (scannedVendors[canonicalID] or scannedVendors[npcID]) then
             return true
         end
+        local eventVendors = HA.EventSources and HA.EventSources.EventVendors
+        if eventVendors and (eventVendors[canonicalID] or eventVendors[npcID]) then
+            return true
+        end
         return false
     end
 
@@ -261,7 +265,7 @@ function Validation:ValidateVendorOffers()
                     "%s offers: npcID key '%s' is not a number", source, tostring(npcID)))
             elseif not hasKnownVendor(npcID) then
                 table.insert(warnings, string.format(
-                    "%s offers: npcID %d has no identity, endeavor, or scanned record",
+                    "%s offers: npcID %d has no identity, endeavor, holiday, or scanned record",
                     source, npcID))
             end
             if type(offers) == "table" then
