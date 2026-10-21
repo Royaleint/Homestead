@@ -30,23 +30,23 @@ local hasOpenedCalendarThisSession = false  -- HS-218: OpenCalendar is a server 
 
 -------------------------------------------------------------------------------
 -- Holiday ID Mapping
--- Maps our internal event names to C_Calendar eventID values.
+-- Maps C_Calendar eventID values to our internal event names.
 -- These are stable IDs from WoW's DB/Holidays table (locale-independent).
--- eventID is returned as a string by GetDayEvent() in retail 10.0.7+.
+-- GetDayEvent() may return eventID as a number or a string, so lookups use tostring().
 -------------------------------------------------------------------------------
 
 local holidayIDToEvent = {
-    ["7"]  = "Lunar Festival",
-    ["9"]  = "Noblegarden",
-    ["24"] = "Brewfest",
-    ["8"]  = "Love is in the Air",
-    ["1"]  = "Midsummer Fire Festival",
-    ["2"]  = "Feast of Winter Veil",
+    ["327"] = "Lunar Festival",
+    ["181"] = "Noblegarden",
+    ["372"] = "Brewfest",
+    ["423"] = "Love is in the Air",
+    ["341"] = "Midsummer Fire Festival",
+    ["141"] = "Feast of Winter Veil",
     ["12"] = "Hallow's End",
-    ["26"] = "Pilgrim's Bounty",
-    ["10"] = "Children's Week",
-    ["50"] = "Pirates' Day",
-    ["51"] = "Day of the Dead",
+    ["404"] = "Pilgrim's Bounty",
+    ["201"] = "Children's Week",
+    ["398"] = "Pirates' Day",
+    ["409"] = "Day of the Dead",
 }
 
 
