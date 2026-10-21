@@ -246,6 +246,8 @@ function MinimapPinCollect:RefreshMinimapPins()
                                         pendingPins[#pendingPins + 1] = {
                                             vendor = vendor,
                                             mapID = vendorMapID,
+                                            mapX = coords.x,
+                                            mapY = coords.y,
                                             instanceID = instanceID,
                                             worldX = worldX,
                                             worldY = worldY,
@@ -262,6 +264,9 @@ function MinimapPinCollect:RefreshMinimapPins()
                 end
             end
         end
+
+        -- HS-536: display-only offset for pins that would cover each other.
+        MPP.AssignOverlapNudge(pendingPins, "mapX", "mapY", "mapID")
 
         if MinimapOverlay then
             MinimapOverlay:SetPins(pendingPins)

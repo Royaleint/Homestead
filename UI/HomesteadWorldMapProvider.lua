@@ -467,6 +467,14 @@ local function ApplyAreaPoiDodge(entry, x, y)
         return x, y
     end
 
+    -- HS-536: an overlap-nudged vendor pin is placed by its pixel nudge
+    -- alone. The dodge picks a direction per vendor, so two nudged
+    -- neighbors would dodge apart or together and undo the spacing the
+    -- nudge just set.
+    if entry.nudgeX then
+        return x, y
+    end
+
     local poiPositions = GetPoiPositionsForMap(renderState.mapID)
     if #poiPositions == 0 then
         return x, y
@@ -1117,6 +1125,10 @@ function Provider:RenderEntries(entries, kind)
             local x, y = entry.x, entry.y
             x, y = ApplyAreaPoiDodge(entry, x, y)
             local iconOffsetX, iconOffsetY = GetEjDropPinIconOffset(entry)
+            if entry.nudgeX then
+                iconOffsetX = (iconOffsetX or 0) + entry.nudgeX
+                iconOffsetY = (iconOffsetY or 0) + entry.nudgeY
+            end
             local wrapper = MPP.PlaceNativePin(frame, x, y, iconOffsetX, iconOffsetY)
             MaybeLogPlacementProbe(entry, wrapper, kind, index)
             MaybeLogSizeProbe(frame, wrapper, kind, index)

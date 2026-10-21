@@ -394,6 +394,7 @@ local minimapHA = {
         GetContinentForZone = function() return nil end,
         minimapExcludedContinents = {},
         continentToZones = {},
+        AssignOverlapNudge = function() end,
         GetNativeWorldCoordinates = function(mapID_, px, py)
             return py * 1000, px * 1000, 1, mapID_
         end,

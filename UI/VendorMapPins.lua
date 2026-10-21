@@ -1100,6 +1100,9 @@ local function CollectVendorPinRecords(self, mapID, validMapIDs, filter, renderS
         end
     end
 
+    -- HS-536: display-only offset for pins that would cover each other.
+    MPP.AssignOverlapNudge(renderState.vendorPins, "x", "y")
+
     if shouldLogSilvermoonDebug then
         local renderedVendorPins = #renderState.vendorPins - startVendorPinCount
         HA.Addon:Debug(format(
