@@ -9,6 +9,7 @@ local root = (... or "."):gsub("\\\\", "/"):gsub("/+$", "")
 local ParserHA = {}
 assert(loadfile(root .. "/Data/SourceTextLocaleProfiles.lua"))("Homestead", ParserHA)
 assert(loadfile(root .. "/Data/SourceTextParser.lua"))("Homestead", ParserHA)
+assert(loadfile(root .. "/Data/SourceTextParserTests.lua"))("Homestead", ParserHA)
 
 -- Item 3: the built-in self-test suite (with its 7-digit color-code fixture
 -- typo fixed to the real 8-digit form) must fully pass.

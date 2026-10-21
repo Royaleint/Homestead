@@ -3,6 +3,11 @@
     Validates database integrity and catches data problems early
 
     Usage: /hs validate
+
+    Dev-only (HS-537): never listed in Homestead.toc and excluded from the
+    packaged zip (.pkgmeta); the DevBuild TOC loads it. It registers its own
+    slash commands at PLAYER_LOGIN, after core.lua's OnInitialize has created
+    HousingAddon.commands (see Core/DevMemoryDiagnostics.lua).
 ]]
 
 local _, HA = ...
@@ -573,3 +578,14 @@ end
 if HA.Addon then
     HA.Addon:RegisterModule("Validation", Validation)
 end
+
+local validationFrame = CreateFrame("Frame")
+validationFrame:RegisterEvent("PLAYER_LOGIN")
+validationFrame:SetScript("OnEvent", function()
+    HA.Addon.commands:Register({ name = "validate",
+        help = "Validate the vendor database.",
+        handler = function() Validation:RunFullValidation() end })
+    HA.Addon.commands:Register({ name = "validate details",
+        help = "Show validation details.",
+        handler = function() Validation:ShowDetails() end })
+end)

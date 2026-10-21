@@ -69,7 +69,6 @@ Modules\DecorClassifier.lua
 Modules\ScanPersistence.lua
 Modules\VendorScanner.lua
 Modules/ExportImport.lua
-Modules/Validation.lua
 Modules\VersionCheck.lua
 
 # Overlay System

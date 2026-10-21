@@ -614,17 +614,13 @@ function VendorScanner:VerifyAndUpdateDatabaseEntry(npcID, vendorName)
     return nil
 end
 
--- Note: GetCorrectedNPCID, ExportNPCIDCorrections, SaveVendorData,
+-- Note: GetCorrectedNPCID, SaveVendorData,
 -- GetScannedVendors, GetScannedVendor, and Clear*
 -- are now in ScanPersistence.lua (imported as SP above).
 
 -- Delegation wrappers for external callers
 function VendorScanner:GetCorrectedNPCID(vendorName)
     return SP:GetCorrectedNPCID(vendorName)
-end
-
-function VendorScanner:ExportNPCIDCorrections()
-    return SP:ExportNPCIDCorrections()
 end
 
 function VendorScanner:GetScannedVendors()
