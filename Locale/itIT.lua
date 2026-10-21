@@ -23,7 +23,6 @@ L["Homestead"] = "Homestead"
 L["Homestead Options"] = "Opzioni di Homestead"
 L["Overlays"] = "Indicatori"
 L["Tooltips"] = "Descrizioni"
-L["Export"] = "Esportazione"
 
 L["Show minimap button"] = "Mostra pulsante sulla minimappa"
 L["Enable overlays"] = "Attiva indicatori"
@@ -94,10 +93,6 @@ L["Version-check notifications: %s"] = "Notifiche di controllo versione: %s"
 -------------------------------------------------------------------------------
 -- Export Dialog
 -------------------------------------------------------------------------------
-L["Export Vendor Data"] = "Esporta dati dei mercanti"
-L["Choose export option:"] = "Scegli un'opzione di esportazione:"
-L["Export New Scans"] = "Esporta nuove scansioni"
-L["Export All"] = "Esporta tutto"
 
 -------------------------------------------------------------------------------
 -- Map Side Panel
@@ -170,7 +165,6 @@ L["desc_options_tooltips"] = "Dettagli aggiuntivi su possesso, origine, requisit
 L["desc_options_world_map"] = "Segnalini dei mercanti sulla mappa, contrassegni delle zone, comportamento del pannello laterale e visualizzazione dei segnalini."
 L["desc_options_minimap"] = "Segnalini dei mercanti vicini, frecce di altitudine e comportamento delle tappe sulla minimappa."
 L["desc_options_endeavors"] = "Progresso delle Iniziative degli alloggi mostrato nel Pannello dell'Alloggio di Blizzard."
-L["desc_options_export"] = "Esportazione dei dati dei mercanti scansionati per revisione o backup."
 L["desc_vendor_visibility_section"] = "Scegli quali gruppi di mercanti compaiono sulle mappe e nei totali della raccolta."
 L["desc_pin_appearance_section"] = "Regola il colore e l'anteprima dei segnalini dei mercanti di Homestead."
 L["desc_overlay_inventory_section"] = "Mostra gli indicatori di raccolta sugli spazi degli oggetti al di fuori del Catalogo degli Alloggi."
@@ -216,9 +210,6 @@ L["desc_use_native_waypoints"] = "Usa il sistema di tappe integrato di WoW con u
 L["desc_auto_waypoint"] = "Crea automaticamente una tappa quando clicchi su un mercante nell'elenco o sulla mappa"
 L["desc_navigate_modifier"] = "Tieni premuto questo tasto mentre clicchi per creare una tappa (se la tappa automatica è disattivata)"
 L["desc_milestone_xp"] = "Mostra il progresso in PE verso il prossimo traguardo nella scheda Iniziative del Pannello dell'Alloggio di Blizzard. Disattiva l'opzione se usi un altro addon per questo (es. Endeavor Simple Progress Tracker)."
-L["desc_export"] = "Esporta i dati dei mercanti scansionati per backup."
-L["desc_export_new"] = "Esporta i mercanti scansionati dall'ultima esportazione. Include prezzo, valute, fazione e informazioni del catalogo."
-L["desc_export_all"] = "Esporta tutti i mercanti scansionati, ignorando il filtro per data."
 
 -------------------------------------------------------------------------------
 -- Options - Select Values
@@ -262,4 +253,3 @@ L["None (always)"] = "Nessuno (sempre)"
 
 -- Misc
 L["Approximate map appearance"] = "Aspetto approssimativo sulla mappa"
-L["ExportImport not available."] = "ExportImport non disponibile."

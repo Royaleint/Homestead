@@ -23,7 +23,6 @@ L["Homestead"] = "Homestead"
 L["Homestead Options"] = "Opciones de Homestead"
 L["Overlays"] = "Indicadores"
 L["Tooltips"] = "Descripciones emergentes"
-L["Export"] = "Exportar"
 
 L["Show minimap button"] = "Mostrar botón del minimapa"
 L["Enable overlays"] = "Activar indicadores"
@@ -94,10 +93,6 @@ L["Version-check notifications: %s"] = "Avisos de comprobación de versión: %s"
 -------------------------------------------------------------------------------
 -- Export Dialog
 -------------------------------------------------------------------------------
-L["Export Vendor Data"] = "Exportar datos de vendedores"
-L["Choose export option:"] = "Elige una opción de exportación:"
-L["Export New Scans"] = "Exportar escaneos nuevos"
-L["Export All"] = "Exportar todo"
 
 -------------------------------------------------------------------------------
 -- Map Side Panel
@@ -170,7 +165,6 @@ L["desc_options_tooltips"] = "Detalles adicionales de posesión, procedencia, re
 L["desc_options_world_map"] = "Marcadores de vendedores en el mapa del mundo, insignias de zona, comportamiento del panel lateral y visualización de marcadores."
 L["desc_options_minimap"] = "Marcadores de vendedores cercanos, flechas de altura y comportamiento de los puntos de ruta en el minimapa."
 L["desc_options_endeavors"] = "Progreso de los Retos de viviendas en el Panel de viviendas de Blizzard."
-L["desc_options_export"] = "Exportación de los datos de vendedores escaneados para revisión o copia de seguridad."
 L["desc_vendor_visibility_section"] = "Elige qué grupos de vendedores aparecen en los mapas y en los totales de colección."
 L["desc_pin_appearance_section"] = "Ajusta el color y la vista previa de los marcadores de vendedores de Homestead."
 L["desc_overlay_inventory_section"] = "Muestra indicadores de colección en las casillas de objetos fuera del Catálogo de viviendas."
@@ -216,9 +210,6 @@ L["desc_use_native_waypoints"] = "Usa el sistema de puntos de ruta integrado de 
 L["desc_auto_waypoint"] = "Crea automáticamente un punto de ruta al hacer clic en un vendedor de la lista o del mapa"
 L["desc_navigate_modifier"] = "Mantén presionada esta tecla al hacer clic para crear un punto de ruta (si el punto de ruta automático está desactivado)"
 L["desc_milestone_xp"] = "Muestra el progreso de PE hacia el siguiente hito en la pestaña Retos del Panel de viviendas de Blizzard. Desactívalo si usas otro addon para esto (p. ej., Endeavor Simple Progress Tracker)."
-L["desc_export"] = "Exporta los datos de vendedores escaneados como copia de seguridad."
-L["desc_export_new"] = "Exporta los vendedores escaneados desde tu última exportación. Incluye precio, monedas, facción e información del catálogo."
-L["desc_export_all"] = "Exporta todos los vendedores escaneados, sin aplicar el filtro de fecha."
 
 -------------------------------------------------------------------------------
 -- Options - Select Values
@@ -262,4 +253,3 @@ L["None (always)"] = "Ninguno (siempre)"
 
 -- Misc
 L["Approximate map appearance"] = "Apariencia aproximada en el mapa"
-L["ExportImport not available."] = "ExportImport no está disponible."

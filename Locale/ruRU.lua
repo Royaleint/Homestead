@@ -29,7 +29,6 @@ L["Homestead"] = "Homestead" -- human-translated
 L["Homestead Options"] = "Настройки Homestead"
 L["Overlays"] = "Оверлеи" -- human-translated
 L["Tooltips"] = "Подсказки" -- human-translated
-L["Export"] = "Экспорт" -- human-translated
 
 L["Show minimap button"] = "Показывать кнопку у миникарты" -- human-translated
 L["Enable overlays"] = "Включить оверлеи" -- human-translated
@@ -95,8 +94,6 @@ L["Version-check notifications: %s"] = "Уведомления о проверк
 -------------------------------------------------------------------------------
 -- Export Dialog
 -------------------------------------------------------------------------------
-L["Export Vendor Data"] = "Экспорт данных торговцев" -- human-translated
-L["Choose export option:"] = "Выберите вариант экспорта:" -- human-translated
 
 -------------------------------------------------------------------------------
 -- Map Side Panel
@@ -152,8 +149,6 @@ L["Minimap nearby-zone pins"] = "Метки соседних зон на мин�
 L["Minimap pin size"] = "Размер меток на миникарте" -- human-translated
 L["Waypoints"] = "Точки маршрута" -- human-translated
 L["Show milestone progress on dashboard"] = "Показывать прогресс этапов на панели" -- human-translated
-L["Export New Scans"] = "Экспортировать новые сканы" -- human-translated
-L["Export All"] = "Экспортировать всё" -- human-translated
 L["Inventory"] = "Предметы" -- human-translated
 L["Merchant"] = "Торговец" -- human-translated
 L["Housing Catalog"] = "Каталог декора" -- human-translated
@@ -169,7 +164,6 @@ L["desc_options_tooltips"] = "Дополнительные сведения о �
 L["desc_options_world_map"] = "Метки торговцев на карте мира, значки зон, поведение боковой панели и отображение меток на карте." -- human-translated
 L["desc_options_minimap"] = "Метки ближайших торговцев, стрелки высоты и поведение точек маршрута на миникарте." -- human-translated
 L["desc_options_endeavors"] = "Прогресс предприятия на стандартной панели жилья от Blizzard." -- human-translated
-L["desc_options_export"] = "Экспорт отсканированных данных о торговцах для проверки или резервного копирования." -- human-translated
 L["desc_vendor_visibility_section"] = "Выберите, какие группы торговцев будут отображаться на картах и учитываться в общем количестве коллекции." -- human-translated
 L["desc_pin_appearance_section"] = "Настройка цвета и предварительного просмотра для меток торговцев Homestead." -- human-translated
 L["desc_overlay_inventory_section"] = "Показывать индикаторы коллекции на ячейках предметов за пределами каталога декора." -- human-translated
@@ -222,9 +216,6 @@ L["desc_use_native_waypoints"] = "Использовать встроенную 
 L["desc_auto_waypoint"] = "Автоматически создавать точку маршрута при нажатии на торговца в списке или на карте" -- human-translated
 L["desc_navigate_modifier"] = "Удерживайте эту клавишу при нажатии, чтобы создать точку маршрута (если автоматическое создание отключено)" -- human-translated
 L["desc_milestone_xp"] = "Отображать прогресс опыта до следующего этапа на вкладке «Предприятия» стандартной панели жилья от Blizzard. Отключите, если используете для этого другой аддон (например, Endeavor Simple Progress Tracker)." -- human-translated
-L["desc_export"] = "Экспорт отсканированных данных о торговцах для резервного копирования." -- human-translated
-L["desc_export_new"] = "Экспортирует торговцев, отсканированных с момента вашего последнего экспорта. Включает цену, валюту, фракцию и информацию о каталоге." -- human-translated
-L["desc_export_all"] = "Экспортирует всех отсканированных торговцев в обход фильтра по времени." -- human-translated
 
 -------------------------------------------------------------------------------
 -- Options - Select Values
@@ -275,4 +266,3 @@ L["None (always)"] = "Нет (всегда)" -- human-translated
 
 -- Misc
 L["Approximate map appearance"] = "Примерный вид карты" -- human-translated
-L["ExportImport not available."] = "Экспорт/Импорт недоступен." -- human-translated

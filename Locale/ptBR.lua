@@ -23,7 +23,6 @@ L["Homestead"] = "Homestead"
 L["Homestead Options"] = "Opções do Homestead"
 L["Overlays"] = "Sobreposições"
 L["Tooltips"] = "Dicas de Interface"
-L["Export"] = "Exportar"
 
 L["Show minimap button"] = "Mostrar botão no minimapa"
 L["Enable overlays"] = "Ativar sobreposições"
@@ -94,10 +93,6 @@ L["Version-check notifications: %s"] = "Avisos de verificação de versão: %s"
 -------------------------------------------------------------------------------
 -- Export Dialog
 -------------------------------------------------------------------------------
-L["Export Vendor Data"] = "Exportar dados de comerciantes"
-L["Choose export option:"] = "Escolha uma opção de exportação:"
-L["Export New Scans"] = "Exportar novas varreduras"
-L["Export All"] = "Exportar tudo"
 
 -------------------------------------------------------------------------------
 -- Map Side Panel
@@ -170,7 +165,6 @@ L["desc_options_tooltips"] = "Detalhes extras de posse, origem, requisitos e com
 L["desc_options_world_map"] = "Marcadores de comerciantes no mapa-múndi, emblemas de zona, comportamento do painel lateral e exibição dos marcadores do mapa."
 L["desc_options_minimap"] = "Marcadores de comerciantes próximos, setas de elevação e comportamento dos pontos de rota no minimapa."
 L["desc_options_endeavors"] = "Progresso das Empreitadas de moradia exibido no Painel de moradia da Blizzard."
-L["desc_options_export"] = "Exportação dos dados de comerciantes escaneados para revisão ou backup."
 L["desc_vendor_visibility_section"] = "Escolha quais grupos de comerciantes aparecem nos mapas e nos totais da coleção."
 L["desc_pin_appearance_section"] = "Ajuste a cor e a prévia dos marcadores de comerciantes do Homestead."
 L["desc_overlay_inventory_section"] = "Mostra marcadores de coleção nos espaços de itens fora do Catálogo de Moradia."
@@ -216,9 +210,6 @@ L["desc_use_native_waypoints"] = "Usa o sistema de pontos de rota nativo do WoW 
 L["desc_auto_waypoint"] = "Cria um ponto de rota automaticamente ao clicar em um comerciante na lista ou no mapa"
 L["desc_navigate_modifier"] = "Segure esta tecla ao clicar para criar um ponto de rota (se o ponto de rota automático estiver desativado)"
 L["desc_milestone_xp"] = "Exibe o progresso de EXP do próximo marco na aba Empreitadas do Painel de moradia da Blizzard. Desative se você usa outro addon para isso (ex.: Endeavor Simple Progress Tracker)."
-L["desc_export"] = "Exporta os dados de comerciantes escaneados para backup."
-L["desc_export_new"] = "Exporta os comerciantes escaneados desde sua última exportação. Inclui preço, moedas, facção e informações do catálogo."
-L["desc_export_all"] = "Exporta todos os comerciantes escaneados, ignorando o filtro de data e hora."
 
 -------------------------------------------------------------------------------
 -- Options - Select Values
@@ -262,4 +253,3 @@ L["None (always)"] = "Nenhuma (sempre)"
 
 -- Misc
 L["Approximate map appearance"] = "Aparência aproximada no mapa"
-L["ExportImport not available."] = "ExportImport não está disponível."

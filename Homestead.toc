@@ -68,7 +68,6 @@ Modules\VendorTracer.lua
 Modules\DecorClassifier.lua
 Modules\ScanPersistence.lua
 Modules\VendorScanner.lua
-Modules/ExportImport.lua
 Modules\VersionCheck.lua
 
 # Overlay System
@@ -87,7 +86,6 @@ Overlay\HousingDashboard.lua
 UI\WelcomeFrame.lua
 UI\WhatsNewData.lua
 UI\WhatsNewFrame.lua
-UI\OutputWindow.lua
 UI\VendorFilter.lua
 UI\FramePoolUtils.lua
 UI\PinFrameFactory.lua

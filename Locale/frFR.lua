@@ -23,7 +23,6 @@ L["Homestead"] = "Homestead"
 L["Homestead Options"] = "Options de Homestead"
 L["Overlays"] = "Marqueurs"
 L["Tooltips"] = "Encadrés d’aide"
-L["Export"] = "Exportation"
 
 L["Show minimap button"] = "Afficher le bouton de la minicarte"
 L["Enable overlays"] = "Activer les marqueurs"
@@ -94,10 +93,6 @@ L["Version-check notifications: %s"] = "Notifications de vérification de versio
 -------------------------------------------------------------------------------
 -- Export Dialog
 -------------------------------------------------------------------------------
-L["Export Vendor Data"] = "Exporter les données des vendeurs"
-L["Choose export option:"] = "Choisissez une option d’exportation :"
-L["Export New Scans"] = "Exporter les nouvelles analyses"
-L["Export All"] = "Tout exporter"
 
 -------------------------------------------------------------------------------
 -- Map Side Panel
@@ -170,7 +165,6 @@ L["desc_options_tooltips"] = "Détails supplémentaires sur la possession, les s
 L["desc_options_world_map"] = "Repères des vendeurs sur la carte du monde, badges de zone, comportement du panneau latéral et affichage des repères."
 L["desc_options_minimap"] = "Repères des vendeurs à proximité, flèches d’altitude et comportement des points de passage sur la minicarte."
 L["desc_options_endeavors"] = "Progression des initiatives de logis affichée dans le tableau de bord des logis de Blizzard."
-L["desc_options_export"] = "Exportation des données des vendeurs analysés, pour vérification ou sauvegarde."
 L["desc_vendor_visibility_section"] = "Choisissez quels groupes de vendeurs apparaissent sur les cartes et dans les totaux de collection."
 L["desc_pin_appearance_section"] = "Réglez la couleur et l’aperçu des repères de vendeurs de Homestead."
 L["desc_overlay_inventory_section"] = "Affiche les marqueurs de collection sur les emplacements d’objets hors du catalogue des logis."
@@ -216,9 +210,6 @@ L["desc_use_native_waypoints"] = "Utilise le système de points de passage inté
 L["desc_auto_waypoint"] = "Crée automatiquement un point de passage lorsque vous cliquez sur un vendeur dans la liste ou sur la carte"
 L["desc_navigate_modifier"] = "Maintenez cette touche en cliquant pour créer un point de passage (si la création automatique est désactivée)"
 L["desc_milestone_xp"] = "Affiche la progression en EXP du prochain palier dans l’onglet Initiatives du tableau de bord des logis de Blizzard. Désactivez si vous utilisez un autre addon pour cela (par ex. Endeavor Simple Progress Tracker)."
-L["desc_export"] = "Exporte les données des vendeurs analysés pour sauvegarde."
-L["desc_export_new"] = "Exporte les vendeurs analysés depuis votre dernière exportation. Inclut le prix, les monnaies, la faction et les infos du catalogue."
-L["desc_export_all"] = "Exporte tous les vendeurs analysés, sans tenir compte du filtre d’horodatage."
 
 -------------------------------------------------------------------------------
 -- Options - Select Values
@@ -262,4 +253,3 @@ L["None (always)"] = "Aucune (toujours)"
 
 -- Misc
 L["Approximate map appearance"] = "Aperçu approximatif sur la carte"
-L["ExportImport not available."] = "ExportImport n’est pas disponible."

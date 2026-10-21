@@ -147,32 +147,11 @@ function HousingAddon:OnInitialize()
     cmd:Register({ name = "refreshmap",
         help = "Refresh world map pins.",
         handler = function() self:RefreshMapPins() end })
-    cmd:Register({ name = "export",
-        help = "Show the export dialog.",
-        handler = function()
-            if HA.ExportImport then
-                HA.ExportImport:ShowExportDialog()
-            end
-        end })
-    cmd:Register({ name = "export full",
-        help = "Export all scanned vendors.",
-        handler = function()
-            if HA.ExportImport then
-                HA.ExportImport:ExportScannedVendors(true, false)
-            end
-        end })
-    cmd:Register({ name = "exportall",
-        help = "Export ALL, bypassing the timestamp filter.",
-        handler = function()
-            if HA.ExportImport then
-                HA.ExportImport:ExportScannedVendors(true, true)
-            end
-        end })
     cmd:Register({ name = "clearscans",
         help = "Clear all scanned vendor data.",
         handler = function()
-            if HA.ExportImport then
-                HA.ExportImport:ClearScannedData()
+            if HA.VendorScanner then
+                HA.VendorScanner:ClearScannedData()
             end
         end })
     cmd:Register({ name = "welcome",
@@ -204,7 +183,7 @@ function HousingAddon:OnInitialize()
                 self.db.profile.debug and (L["ON"] or "ON") or (L["OFF"] or "OFF")))
         end })
     -- HS-282/HS-537: the dev-only commands (memory diagnostics, geography,
-    -- vertical, parsertest, validate) register themselves from DevBuild-only
+    -- vertical, parsertest, validate, export) register themselves from DevBuild-only
     -- files this shipped module never references, once self.commands below
     -- exists and PLAYER_LOGIN has fired. Never registered here.
 

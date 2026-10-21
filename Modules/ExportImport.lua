@@ -1,6 +1,12 @@
 --[[
     Homestead - Export Module
-    Allows users to export scanned vendor data for community sharing
+    Exports scanned vendor data as text
+
+    Dev-only (HS-537): never listed in Homestead.toc and excluded from the
+    packaged zip (.pkgmeta); the DevBuild TOC loads it. It registers its own
+    slash commands at PLAYER_LOGIN, after core.lua's OnInitialize has created
+    HousingAddon.commands (see Core/DevMemoryDiagnostics.lua). /hs clearscans
+    stays in core.lua because players still clear their own scan data.
 ]]
 
 local _, HA = ...
@@ -510,18 +516,27 @@ function ExportImport:ClearScannedData()
 end
 
 -------------------------------------------------------------------------------
--- Slash Command Integration
--------------------------------------------------------------------------------
-
--- These get registered in core.lua:
--- /hs export - shows export dialog
--- /hs exportall - exports all scanned data (bypasses timestamp filter)
--- /hs clearscans - clears all scanned vendor data
-
--------------------------------------------------------------------------------
 -- Module Registration
 -------------------------------------------------------------------------------
 
 if HA.Addon then
     HA.Addon:RegisterModule("ExportImport", ExportImport)
+end
+
+-- Skipped when loaded without the game client (the offline test harness).
+if CreateFrame then
+    local exportFrame = CreateFrame("Frame")
+    exportFrame:RegisterEvent("PLAYER_LOGIN")
+    exportFrame:SetScript("OnEvent", function()
+        local cmd = HA.Addon.commands
+        cmd:Register({ name = "export",
+            help = "Show the export dialog.",
+            handler = function() ExportImport:ShowExportDialog() end })
+        cmd:Register({ name = "export full",
+            help = "Export all scanned vendors.",
+            handler = function() ExportImport:ExportScannedVendors(true, false) end })
+        cmd:Register({ name = "exportall",
+            help = "Export ALL, bypassing the timestamp filter.",
+            handler = function() ExportImport:ExportScannedVendors(true, true) end })
+    end)
 end

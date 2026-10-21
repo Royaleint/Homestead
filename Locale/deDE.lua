@@ -23,7 +23,6 @@ L["Homestead"] = "Homestead"
 L["Homestead Options"] = "Homestead-Optionen"
 L["Overlays"] = "Einblendungen"
 L["Tooltips"] = "Tooltips"
-L["Export"] = "Exportieren"
 
 L["Show minimap button"] = "Minikartenknopf anzeigen"
 L["Enable overlays"] = "Einblendungen aktivieren"
@@ -94,10 +93,6 @@ L["Version-check notifications: %s"] = "Benachrichtigungen zur Versionsprüfung:
 -------------------------------------------------------------------------------
 -- Export Dialog
 -------------------------------------------------------------------------------
-L["Export Vendor Data"] = "Händlerdaten exportieren"
-L["Choose export option:"] = "Exportoption wählen:"
-L["Export New Scans"] = "Neue Scans exportieren"
-L["Export All"] = "Alle exportieren"
 
 -------------------------------------------------------------------------------
 -- Map Side Panel
@@ -170,7 +165,6 @@ L["desc_options_tooltips"] = "Zusätzliche Angaben zu Besitz, Herkunft, Vorausse
 L["desc_options_world_map"] = "Händlermarkierungen auf der Weltkarte, Zonenabzeichen, Verhalten der Seitenleiste und Anzeige der Kartenmarkierungen."
 L["desc_options_minimap"] = "Händlermarkierungen in der Nähe, Höhenpfeile und Wegpunktverhalten auf der Minikarte."
 L["desc_options_endeavors"] = "Fortschritt der Behausungsunterfangen in Blizzards Behausungsübersicht."
-L["desc_options_export"] = "Export gescannter Händlerdaten zur Überprüfung oder Sicherung."
 L["desc_vendor_visibility_section"] = "Wählt, welche Händlergruppen auf Karten und in den Sammlungssummen erscheinen."
 L["desc_pin_appearance_section"] = "Farbe und Vorschau der Homestead-Händlermarkierungen anpassen."
 L["desc_overlay_inventory_section"] = "Sammlungsmarkierungen auf Gegenstandsplätzen außerhalb des Behausungskatalogs anzeigen."
@@ -216,9 +210,6 @@ L["desc_use_native_waypoints"] = "Das in WoW integrierte Wegpunktsystem mit Kart
 L["desc_auto_waypoint"] = "Beim Klick auf einen Händler in der Liste oder auf der Karte automatisch einen Wegpunkt setzen"
 L["desc_navigate_modifier"] = "Haltet diese Taste beim Klicken gedrückt, um einen Wegpunkt zu setzen (wenn der automatische Wegpunkt aus ist)"
 L["desc_milestone_xp"] = "Zeigt den EP-Fortschritt zum nächsten Meilenstein im Reiter „Unterfangen“ von Blizzards Behausungsübersicht an. Deaktivieren, wenn Ihr dafür ein anderes Addon nutzt (z. B. Endeavor Simple Progress Tracker)."
-L["desc_export"] = "Gescannte Händlerdaten zur Sicherung exportieren."
-L["desc_export_new"] = "Exportiert Händler, die seit Eurem letzten Export gescannt wurden. Enthält Preis, Währungen, Fraktion und Kataloginfos."
-L["desc_export_all"] = "Exportiert alle gescannten Händler und umgeht dabei den Zeitstempelfilter."
 
 -------------------------------------------------------------------------------
 -- Options - Select Values
@@ -262,4 +253,3 @@ L["None (always)"] = "Keine (immer)"
 
 -- Misc
 L["Approximate map appearance"] = "Ungefähres Aussehen auf der Karte"
-L["ExportImport not available."] = "ExportImport nicht verfügbar."

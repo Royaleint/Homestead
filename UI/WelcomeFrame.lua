@@ -283,16 +283,15 @@ local function CreateWelcomeFrame()
     local sec2Header = AddHeader(content, bullet3, "Key Commands", SECTION_GAP)
 
     local cmd1 = AddCommand(content, sec2Header, "/hs", "Open options & settings", 6)
-    local cmd2 = AddCommand(content, cmd1, "/hs exportall", "Export everything you've scanned")
-    local cmd3 = AddCommand(content, cmd2, "/hs help", "Show all commands")
-    local cmd4 = AddCommand(content, cmd3, "Right-click minimap button", "Open the standalone vendor panel")
+    local cmd2 = AddCommand(content, cmd1, "/hs help", "Show all commands")
+    local cmd3 = AddCommand(content, cmd2, "Right-click minimap button", "Open the standalone vendor panel")
 
     -- =====================================================================
     -- SECTION 3: Found a Problem?
     -- =====================================================================
 
     local sec3Header = content:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
-    sec3Header:SetPoint("TOP", cmd4, "BOTTOM", 0, -(SECTION_GAP + 10))
+    sec3Header:SetPoint("TOP", cmd3, "BOTTOM", 0, -(SECTION_GAP + 10))
     sec3Header:SetWidth(CONTENT_WIDTH)
     sec3Header:SetJustifyH("CENTER")
     sec3Header:SetText("|cFFFFD100Found a Problem?|r")

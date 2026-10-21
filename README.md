@@ -69,8 +69,6 @@ Don't want it? Turn off **Auto-scan vendors** in the General tab of the options.
 | `/hs waypoint` | Clear the current map waypoint (also `/hs wp`) |
 | `/hs scan` | Rescan the housing catalog for items you own |
 | `/hs refreshmap` | Refresh the world map pins |
-| `/hs export` | Open the export window for your scanned vendor data |
-| `/hs exportall` | Export all your scanned vendor data as text |
 | `/hs clearscans` | Clear your scanned vendor data |
 | `/hs welcome` | Reopen the welcome screen |
 | `/hs whatsnew` | Reopen the What's New screen |
@@ -79,7 +77,7 @@ Don't want it? Turn off **Auto-scan vendors** in the General tab of the options.
 
 ## Options
 
-Type `/hs` or left-click the minimap button. Settings are split into General, Overlays, Tooltips, World Map, Minimap, Endeavors, and Export tabs.
+Type `/hs` or left-click the minimap button. Settings are split into General, Overlays, Tooltips, World Map, Minimap, and Endeavors tabs.
 
 A few worth knowing about:
 
