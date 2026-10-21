@@ -96,10 +96,6 @@ L["No newer version seen this session."] = "No newer version seen this session."
 L["Version-check notifications: %s"] = "Version-check notifications: %s"
 
 -------------------------------------------------------------------------------
--- Export Dialog
--------------------------------------------------------------------------------
-
--------------------------------------------------------------------------------
 -- Map Side Panel
 -------------------------------------------------------------------------------
 L["All"] = "All"
@@ -118,13 +114,6 @@ L["Global Collection Progress"] = "Global Collection Progress"
 L["Order Hall"] = "Order Hall"
 L["Click to preview"] = "Click to preview"
 L["No items found"] = BROWSE_NO_RESULTS or "No items found"
-
--------------------------------------------------------------------------------
--- Output Window
--------------------------------------------------------------------------------
-L["Output"] = "Output"
-L["Select All"] = "Select All"
-L["All text selected. Press Ctrl+C to copy to clipboard."] = "All text selected. Press Ctrl+C to copy to clipboard."
 
 -------------------------------------------------------------------------------
 -- Options - Names

@@ -1,11 +1,11 @@
 --[[
     Homestead - ScanPersistence
-    Vendor scan data storage, retrieval, clearing, and export
+    Vendor scan data storage, retrieval, and clearing
 
     Extracted from VendorScanner.lua to reduce file size.
     Manages all SavedVariables reads/writes for scanned vendor data.
 
-    Reusable by VendorScanner, ExportImport, Options, etc.
+    Reusable by VendorScanner, Options, etc.
 ]]
 
 local _, HA = ...

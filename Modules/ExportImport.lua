@@ -524,7 +524,7 @@ if HA.Addon then
 end
 
 -- Skipped when loaded without the game client (the offline test harness).
-if CreateFrame then
+if HA.Addon and CreateFrame then
     local exportFrame = CreateFrame("Frame")
     exportFrame:RegisterEvent("PLAYER_LOGIN")
     exportFrame:SetScript("OnEvent", function()

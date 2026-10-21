@@ -151,19 +151,21 @@ function HousingAddon:PrintManualGeographyAuditReport()
     end
 end
 
-local devGeoFrame = CreateFrame("Frame")
-devGeoFrame:RegisterEvent("PLAYER_LOGIN")
-devGeoFrame:SetScript("OnEvent", function()
-    HousingAddon.commands:Register({ name = "debug vertical",
-        help = "Print vertical-sibling info.",
-        handler = function()
-            local lines = Constants.GetVerticalSiblingsInfo()
-            HousingAddon:Print("VerticalSiblings (" .. #lines .. " pairs):")
-            for _, line in ipairs(lines) do
-                HousingAddon:Print("  " .. line)
-            end
-        end })
-    HousingAddon.commands:Register({ name = "debug geography",
-        help = "Audit manual map geography entries.",
-        handler = function() HousingAddon:PrintManualGeographyAuditReport() end })
-end)
+if HA.Addon and CreateFrame then
+    local devGeoFrame = CreateFrame("Frame")
+    devGeoFrame:RegisterEvent("PLAYER_LOGIN")
+    devGeoFrame:SetScript("OnEvent", function()
+        HousingAddon.commands:Register({ name = "debug vertical",
+            help = "Print vertical-sibling info.",
+            handler = function()
+                local lines = Constants.GetVerticalSiblingsInfo()
+                HousingAddon:Print("VerticalSiblings (" .. #lines .. " pairs):")
+                for _, line in ipairs(lines) do
+                    HousingAddon:Print("  " .. line)
+                end
+            end })
+        HousingAddon.commands:Register({ name = "debug geography",
+            help = "Audit manual map geography entries.",
+            handler = function() HousingAddon:PrintManualGeographyAuditReport() end })
+    end)
+end

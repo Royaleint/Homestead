@@ -21,7 +21,7 @@ HA.VendorScanner = VendorScanner
 local DC = HA.DecorClassifier
 local ClassifyHousingItem = DC.ClassifyHousingItem
 
--- Persistence module (data storage, retrieval, clearing, export)
+-- Persistence module (data storage, retrieval, clearing)
 local SP = HA.ScanPersistence
 
 -- Note: Some merchant APIs may be nil at load time, accessed via _G at runtime

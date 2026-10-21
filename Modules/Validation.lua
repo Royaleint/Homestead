@@ -579,13 +579,15 @@ if HA.Addon then
     HA.Addon:RegisterModule("Validation", Validation)
 end
 
-local validationFrame = CreateFrame("Frame")
-validationFrame:RegisterEvent("PLAYER_LOGIN")
-validationFrame:SetScript("OnEvent", function()
-    HA.Addon.commands:Register({ name = "validate",
-        help = "Validate the vendor database.",
-        handler = function() Validation:RunFullValidation() end })
-    HA.Addon.commands:Register({ name = "validate details",
-        help = "Show validation details.",
-        handler = function() Validation:ShowDetails() end })
-end)
+if HA.Addon and CreateFrame then
+    local validationFrame = CreateFrame("Frame")
+    validationFrame:RegisterEvent("PLAYER_LOGIN")
+    validationFrame:SetScript("OnEvent", function()
+        HA.Addon.commands:Register({ name = "validate",
+            help = "Validate the vendor database.",
+            handler = function() Validation:RunFullValidation() end })
+        HA.Addon.commands:Register({ name = "validate details",
+            help = "Show validation details.",
+            handler = function() Validation:ShowDetails() end })
+    end)
+end

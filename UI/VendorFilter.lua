@@ -6,7 +6,7 @@
     Stateless utility functions for vendor visibility, faction checks,
     coordinate resolution, and settings queries.
 
-    Reusable by VendorMapPins, VendorTracer, ExportImport, etc.
+    Reusable by VendorMapPins, VendorTracer, etc.
 ]]
 
 local _, HA = ...
@@ -262,7 +262,7 @@ end
 -- never disappears because its collection state couldn't be determined.
 --
 -- Deliberately separate from ShouldHideVendor: that gate is reused by
--- non-map callers (VendorTracer, ExportImport) which must not inherit
+-- non-map callers (VendorTracer) which must not inherit
 -- completion-hiding.
 function VendorFilter.ShouldHideCompletedVendorPin(vendor, sourceFilter)
     if not VendorFilter.ShouldHideCompletedVendorPins() then return false end

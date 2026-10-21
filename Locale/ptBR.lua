@@ -91,10 +91,6 @@ L["No newer version seen this session."] = "Nenhuma versão mais recente vista n
 L["Version-check notifications: %s"] = "Avisos de verificação de versão: %s"
 
 -------------------------------------------------------------------------------
--- Export Dialog
--------------------------------------------------------------------------------
-
--------------------------------------------------------------------------------
 -- Map Side Panel
 -------------------------------------------------------------------------------
 L["All"] = "Todos"
@@ -111,13 +107,6 @@ L["Continent Collection Progress"] = "Progresso da coleção no continente"
 L["Global Collection Progress"] = "Progresso global da coleção"
 L["Order Hall"] = "Salão de Classe"
 L["Click to preview"] = "Clique para ver a prévia"
-
--------------------------------------------------------------------------------
--- Output Window
--------------------------------------------------------------------------------
-L["Output"] = "Saída"
-L["Select All"] = "Selecionar todos"
-L["All text selected. Press Ctrl+C to copy to clipboard."] = "Todo o texto foi selecionado. Pressione Ctrl+C para copiar para a área de transferência."
 
 -------------------------------------------------------------------------------
 -- Options - Names
