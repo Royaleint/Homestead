@@ -48,6 +48,7 @@ Data\CatalogStore.lua
 # Source Data (non-vendor acquisition)
 Data\AchievementSources.lua
 Data\QuestSources.lua
+Data\TreasureHuntSpots.lua
 Data\ProfessionSources.lua
 Data\ReagentIndex.lua
 Data\EventSources.lua
