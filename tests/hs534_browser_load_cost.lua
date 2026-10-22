@@ -21,7 +21,7 @@ for line in readFile("Homestead.toc"):gmatch("[^\r\n]+") do
     local entry = line:match("^%s*(UI\\Browser\\[%w_\\]+%.lua)%s*$")
     if entry then files[#files + 1] = (entry:gsub("\\", "/")) end
 end
-assert(#files >= 8, "the TOC lists too few UI/Browser Lua files")
+assert(#files >= 7, "the TOC lists too few UI/Browser Lua files")
 assert(files[#files] == "UI/Browser/Browser.lua", "Browser.lua must load last")
 
 local counts = { CreateFrame = 0, RegisterEvent = 0, RegisterCallback = 0, C_Timer = 0 }
@@ -93,43 +93,28 @@ end
 
 local B = HA.DecorBrowser
 assert(B and B.Window and B.Data and B.Widgets, "the browser modules did not load")
-for _, fn in ipairs({ "Toggle", "Open", "Close", "RegisterPage", "Go", "Back", "RequestRefresh",
-        "Tooltip", "HideTooltip", "ShowItemTooltip", "ShowLinkTooltip", "ValidateLastPage" }) do
+for _, fn in ipairs({ "Toggle", "Open", "Close", "RequestRefresh",
+        "Tooltip", "HideTooltip", "ShowItemTooltip", "ShowLinkTooltip" }) do
     assert(type(B[fn]) == "function", "B." .. fn .. " is missing")
 end
 assert(B.Window.frame == nil, "the window exists before the first open")
 
--- Pages load before Browser.lua and still reach its router.
--- Browser.lua loads last, so a stub registered there would replace the real Overview.
-local PAGES = {
-    overview = { topLevel = true, searchable = false, fns = { "Build", "Show", "Shown" } },
-    shops = { topLevel = true, searchable = true, fns = { "Build", "Show", "Hide" } },
-    shop = { topLevel = false, searchable = true, fns = { "Build", "Show", "Hide" } },
-    item = { topLevel = false, searchable = false, fns = { "Build", "Show", "Hide" } },
-    sources = { topLevel = true, searchable = true, fns = { "Build", "Show", "SetCombatGated" } },
-}
-for key, want in pairs(PAGES) do
-    local page = B.pages[key]
-    assert(page, "the " .. key .. " page did not register")
-    for _, fn in ipairs(want.fns) do
-        assert(type(page[fn]) == "function", key .. "." .. fn .. " is missing")
-    end
-    assert(page.topLevel == want.topLevel and page.searchable == want.searchable,
-        key .. " has the wrong page flags")
+-- The item detail loads before Browser.lua.
+for _, fn in ipairs({ "Build", "Show", "Hide", "SetCombatGated", "ReportText" }) do
+    assert(type(B.Item and B.Item[fn]) == "function", "Item." .. fn .. " is missing")
 end
-assert(type(B.pages.item.SetCombatGated) == "function", "the item page has no combat gate")
-assert(type(B.pages.overview.RelativeDate) == "function", "the registered overview is not the real page")
 
--- TOC order: the pages in the agreed order, all before Browser.lua.
+-- TOC order: each file loads after the ones it reads, and Browser.lua last.
 local order = {}
 for _, path in ipairs(files) do order[#order + 1] = path:match("([%w_]+)%.lua$") end
 local pos = {}
 for i, name in ipairs(order) do pos[name] = i end
-local ORDER = { "Overview", "Shops", "Shop", "Item", "Sources", "Browser" }
+local ORDER = { "Style", "Visuals", "Adapter", "Widgets", "Window", "Item", "Browser" }
 for i, name in ipairs(ORDER) do
     assert(pos[name], name .. ".lua is not in the TOC")
     assert(i == 1 or pos[name] > pos[ORDER[i - 1]], name .. ".lua is out of order in the TOC")
 end
+assert(#order == #ORDER, "the TOC lists a UI/Browser Lua file this test does not know")
 
 -- The counters must see what they claim to: the stubs count when called.
 stubs.CreateFrame():RegisterEvent("X")

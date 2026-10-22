@@ -23,7 +23,7 @@ for line in readFile("Homestead.toc"):gmatch("[^\r\n]+") do
     if entry then assert(loadfile(root .. "/" .. entry:gsub("\\", "/")))("Homestead", HA) end
 end
 
-local item = HA.DecorBrowser.pages.item
+local item = HA.DecorBrowser.Item
 assert(item and type(item.ReportText) == "function", "the item page has no report builder")
 
 local function has(text, needle)

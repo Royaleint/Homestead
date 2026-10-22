@@ -175,9 +175,6 @@ L["Housing Catalog"] = "Housing Catalog"
 -------------------------------------------------------------------------------
 L["desc_minimap_button"] = "Show or hide the minimap button"
 L["desc_auto_scan_vendors"] = "Automatically scan merchant inventory for housing decor data when visiting vendors. Disabling may slightly improve performance when opening merchants."
-L["Animations"] = "Animations" -- untranslated
-L["desc_browser_animations"] = "Play the Decor Browser's motion effects: header shimmer, glows, flashes and progress bar easing."
-L["desc_browser_model3d"] = "Show a 3D model of the decor on Decor Browser item pages. The checkbox on each item page changes the same setting."
 L["desc_options_general"] = "Core addon behavior, minimap access, vendor scanning, and map pin appearance."
 L["desc_options_overlays"] = "Collection markers shown on bags, the bank, merchants, and the Housing Catalog."
 L["desc_options_tooltips"] = "Extra ownership, source, requirement, and vendor details added to item and map-pin tooltips."
@@ -291,24 +288,10 @@ L["ExportImport not available."] = "ExportImport not available."
 -------------------------------------------------------------------------------
 -- Decor Browser: data adapter
 -------------------------------------------------------------------------------
-L["Midnight"] = EXPANSION_NAME11 or "Midnight"
-L["The War Within"] = EXPANSION_NAME10 or "The War Within"
-L["Dragonflight"] = EXPANSION_NAME9 or "Dragonflight"
-L["Shadowlands"] = EXPANSION_NAME8 or "Shadowlands"
-L["Battle for Azeroth"] = EXPANSION_NAME7 or "Battle for Azeroth"
-L["Legion"] = EXPANSION_NAME6 or "Legion"
-L["Warlords of Draenor"] = EXPANSION_NAME5 or "Warlords of Draenor"
-L["Mists of Pandaria"] = EXPANSION_NAME4 or "Mists of Pandaria"
-L["Cataclysm"] = EXPANSION_NAME3 or "Cataclysm"
-L["Wrath of the Lich King"] = EXPANSION_NAME2 or "Wrath of the Lich King"
-L["The Burning Crusade"] = EXPANSION_NAME1 or "The Burning Crusade"
-L["Classic"] = EXPANSION_NAME0 or "Classic"
-L["Other Vendors"] = "Other Vendors"
 L["Alliance"] = FACTION_ALLIANCE or "Alliance"
 L["Horde"] = FACTION_HORDE or "Horde"
 L["Gold"] = "Gold" -- untranslated
 L["Unknown"] = "Unknown"
-L["Other"] = "Other"
 L["Required"] = "Required"
 L["Unknown faction"] = "Unknown faction"
 L["Other requirement"] = "Other requirement"
@@ -343,13 +326,6 @@ L["Owned"] = "Owned"
 L["Unlocked to buy"] = "Unlocked to buy"
 L["Locked"] = "Locked"
 L["Set waypoint"] = "Set waypoint"
-L["New decor collected"] = "New decor collected"
-L["first seen"] = "first seen"
-L["Wrath"] = "Wrath" -- untranslated
-L["Warlords"] = "Warlords" -- untranslated
-L["Burning Crusade"] = "Burning Crusade" -- untranslated
-L["BfA"] = "BfA" -- untranslated
-L["Pandaria"] = "Pandaria" -- untranslated
 L["%s / %s  ·  %d%%"] = "%s / %s  ·  %d%%" -- untranslated
 L["0 / 0"] = "0 / 0" -- untranslated
 L["? / %s"] = "? / %s" -- untranslated
@@ -357,17 +333,7 @@ L["? / %s"] = "? / %s" -- untranslated
 -------------------------------------------------------------------------------
 -- Decor Browser: window and navigation
 -------------------------------------------------------------------------------
-L["Overview"] = "Overview"
-L["Near You"] = "Near You"
-L["Achievements"] = "Achievements"
-L["Quests"] = "Quests" -- untranslated
-L["Professions"] = "Professions"
-L["Drops"] = "Drops"
-L["Events"] = "Events"
-L["Back"] = "Back"
-L["Hide owned"] = "Hide owned"
 L["Open a list to search"] = "Open a list to search"
-L["%s of %s decor collected"] = "%s of %s decor collected"
 L["The Decor Browser opens once Homestead has finished loading."] = "The Decor Browser opens once Homestead has finished loading."
 L["Collection"] = "Collection" -- untranslated
 L["Placed"] = "Placed"
@@ -381,22 +347,12 @@ L["Price"] = "Price"
 -- Decor Browser: shop and item pages
 -------------------------------------------------------------------------------
 L[", "] = ", " -- untranslated
-L["; "] = "; " -- untranslated
 L["Clear filters"] = "Clear filters"
 L["Search: %s"] = "Search: %s"
 L["Nothing matches %s."] = "Nothing matches %s."
 L["Seasonal: %s"] = "Seasonal: %s"
 L["Rotates with the %s Endeavor"] = "Rotates with the %s Endeavor"
 L["Rotates with neighborhood Endeavors"] = "Rotates with neighborhood Endeavors"
-L["No model shown"] = "No model shown"
-L["Location not recorded"] = "Location not recorded"
-L["Map preview unavailable"] = "Map preview unavailable"
-L["Vendor not found"] = "Vendor not found"
-L["Currency"] = "Currency"
-L["Requires"] = "Requires"
-L["Wares"] = "Wares"
-L["%d items"] = "%d items"
-L["No decor listed"] = "No decor listed"
 L["You own this."] = "You own this."
 L["You can buy it now. Not collected yet."] = "You can buy it now. Not collected yet."
 L["Not available to you yet."] = "Not available to you yet."
@@ -412,12 +368,8 @@ L["Not listed"] = "Not listed"
 L["Not sold by a vendor"] = "Not sold by a vendor"
 L["+%d more vendors"] = "+%d more vendors"
 L["+%d more sources"] = "+%d more sources"
-L["None of these wares count toward your collection."] = "None of these wares count toward your collection."
 L["Also available from"] = "Also available from"
 L["No other sources on record."] = "No other sources on record."
-L["Show 3D preview"] = "Show 3D preview"
-L["3D preview is off."] = "3D preview is off."
-L["Preview unavailable for this item."] = "Preview unavailable for this item."
 L["Not available in combat"] = "Not available in combat"
 L["Report a data error"] = "Report a data error"
 L["Item: %s (%d)"] = "Item: %s (%d)" -- untranslated
@@ -428,21 +380,6 @@ L["map %d at %.1f, %.1f"] = "map %d at %.1f, %.1f"
 L["Vendor %d: %s, %s, %s"] = "Vendor %d: %s, %s, %s"
 L["Client: %s (%s)"] = "Client: %s (%s)" -- untranslated
 L["Homestead: %s"] = "Homestead: %s" -- untranslated
-
--------------------------------------------------------------------------------
--- Decor Browser: overview, shop lists and source lists
--------------------------------------------------------------------------------
-L["Recently acquired"] = "Recently acquired"
-L["Collection progress"] = "Collection progress"
-L["Decor collected"] = "Decor collected"
-L["Nothing acquired yet."] = "Nothing acquired yet."
-L["today"] = "today"
-L["yesterday"] = "yesterday"
-L["%d days ago"] = "%d days ago"
-L["%d of %d owned"] = "%d of %d owned"
-L["No vendors found on your current map."] = "No vendors found on your current map."
-L["No vendors to show."] = "No vendors to show."
-L["Nothing to list here."] = "Nothing to list here."
 
 -------------------------------------------------------------------------------
 -- Decor Browser: entry points
@@ -473,8 +410,18 @@ L["Don't show this again"] = "Don't show this again"
 L["Let's Decorate!"] = "Let's Decorate!"
 
 -------------------------------------------------------------------------------
+-- Decor Browser: source and vendor labels
+-------------------------------------------------------------------------------
+L["Achievements"] = "Achievements"
+L["Quests"] = "Quests" -- untranslated
+L["Professions"] = "Professions"
+L["Drops"] = "Drops"
+L["Events"] = "Events"
+L["Other"] = "Other"
+L["Location not recorded"] = "Location not recorded"
+L["Requires"] = "Requires"
+
+-------------------------------------------------------------------------------
 -- Decor Browser: holiday vendors
 -------------------------------------------------------------------------------
-L["Active"] = "Active"
-L["Not Active"] = "Not Active"
 L["The Decor Browser is not available yet."] = "The Decor Browser is not available yet."

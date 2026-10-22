@@ -4,12 +4,6 @@ local _, HA = ...
 local B = {}
 HA.DecorBrowser = B
 
-B.pages = {}
-
-function B.RegisterPage(key, page)
-    B.pages[key] = page
-end
-
 -- profile.browser, the only saved table the browser writes; nil until the database has one.
 function B.Saved()
     local profile = HA.Addon and HA.Addon.db and HA.Addon.db.profile
@@ -21,7 +15,6 @@ local S = {}
 B.Style = S
 
 local L = HA.L
-local ART = HA.Constants.TEXTURE_ROOT .. "Browser\\"
 
 S.font = {
     title = "Fancy24Font",
@@ -50,10 +43,10 @@ function S.Muted(text)
     return S.Colored(S.color.muted, text)
 end
 
-S.space = { xs = 4, s = 8, m = 12, l = 16, xl = 24, xxl = 32, edgeFade = 24 }
+S.space = { xs = 4, s = 8, m = 12, l = 16, xl = 24, xxl = 32 }
 local SP = S.space
 
-S.window = { width = 930, height = 620 }
+S.window = { width = 860, height = 580 }
 
 S.layout = {
     -- content rect {left, top, right, bottom}
@@ -61,13 +54,10 @@ S.layout = {
     headerBand = 34, insetTop = 58,
     insetLeft = 4, insetRight = 6, insetBottom = 6,
     titleLeft = 68, panePad = SP.xs,
-    catWidth = 200, columnGap = SP.xs,
     wellPad = 6,
-    toolbarHeight = 36, pagePad = SP.m, scrollBarGap = 14,
-    navTopNudge = 6,
-    navRowHeight = 28, navSubHeight = 24, navSubIndent = 16, navGap = 2,
+    pagePad = SP.m, scrollBarGap = 14,
     headerHeight = 28,
-    toastHeight = 72, listRowHeight = 56, vendorRowHeight = 56, rowGap = SP.xs,
+    listRowHeight = 56, rowGap = SP.xs,
     iconRim = 42,
 }
 
@@ -81,13 +71,7 @@ S.tex = {
 }
 
 S.art = {
-    sheenStrip = ART .. "sheen_strip.png",
     portrait = HA.Constants.TEXTURE_ROOT .. "HomesteadPortrait_64",
-    toastPlate = ART .. "toast_plate.png",
-    toastTrim = ART .. "toast_trim.png",
-    toastShadow = ART .. "toast_shadow.png",
-    toastRays = ART .. "toast_rays.png",
-    toastRing = ART .. "toast_ring.png",
 }
 
 S.atlas = {
@@ -101,11 +85,6 @@ S.atlas = {
     expand = "common-icon-plus",
     collapse = "common-icon-minus",
     divider = "Options_HorizontalDivider",
-    backArrow = "common-icon-backarrow",
-    wareSlot = "house-chest-list-item-default",
-    wareSlotFallback = "bags-item-slot64",
-    newGlowFallback = "bags-glow-white",
-    changeFlash = "bags-glow-flash",
     vendorPin = "housing-decor-vendor_32",
 }
 
@@ -118,21 +97,14 @@ S.coord = {
 S.material = {
     shadow = { 0, 0, 0 },
     stone = { 0.11, 0.10, 0.09 },
-    lamp = { 1.00, 0.86, 0.60 },
     gilt = { 1.00, 0.82, 0.00 },
 }
-local M = S.material
 
--- Housing dashboard art behind both panes, under neutral scrims; without the atlas the panes go opaque.
+-- Housing dashboard art behind the pane, under a neutral scrim; without the atlas the pane goes opaque.
 S.backdrop = {
     atlas = "housing-dashboard-bg-welcome",
     scrim = { 0.04, 0.045, 0.05 },
-    navAlpha = 0.45,
     pageAlpha = 0.60,
-    toastAlpha = 0.74,
-    divider = { 1, 1, 1, 0.14 },
-    edgeAlpha = 0.70,
-    edgeLength = 16,
 }
 
 S.filigree = {
@@ -156,7 +128,6 @@ S.filigree = {
 S.color = {
     card = { 0.19, 0.17, 0.15, 1 },
     hoverRow = { 1, 1, 1, 0.10 },
-    wareHover = { 1, 1, 1, 0.18 },
     iconPlateTop = { 0.80, 0.69, 0.50, 1 },
     iconPlateBottom = { 0.56, 0.46, 0.32, 1 },
     owned = { 0.2, 0.7, 0.2, 1 },
@@ -176,63 +147,11 @@ S.color = {
     disabled = { 0.50, 0.50, 0.50 },
 }
 
-S.progress = {
-    { upTo = 0.25, color = { 0.59, 0.31, 0.21 } },
-    { upTo = 0.50, color = { 0.87, 0.59, 0.19 } },
-    { upTo = 0.75, color = { 0.96, 0.82, 0.14 } },
-    { upTo = 1.00, color = { 0.67, 0.81, 0.30 } },
-    complete = { 0.28, 0.82, 0.37 },
-}
-
-S.bar = {
-    track = 6, trackWide = 8, textGap = SP.xs, rowGap = SP.m,
-    trackColor = { 1, 1, 1, 0.07 }, edgeColor = { 1, 1, 1, 0.10 },
-    sheenTop = 0.22,
-}
-
 S.chrome = { linePad = SP.s, shadowHeight = SP.m, wellShadowHeight = SP.l, wellShade = 0.55 }
-
-S.mapCard = { zoom = 2.2, pin = 22, captionHeight = 30, captionShade = 0.85, emptyIcon = 40 }
 
 S.lockBadge = {
     row = { size = 18, point = { "BOTTOMRIGHT", 3, -3 } },
-    tile = { size = 16, point = { "TOPRIGHT", 3, 3 } },
 }
-
-S.wareCell = {
-    size = 56, gap = SP.s,
-    inset = SP.xs, shade = SP.l, shadeAlpha = 0.7,
-    check = { size = 16, point = { "TOPRIGHT", 3, 3 } },
-    count = { point = { "BOTTOMRIGHT", -SP.xs, SP.xs } },
-}
-
--- A glow reads as new when the item is among the newTop latest acquisitions, first seen within newWindowDays.
-S.itemFx = {
-    newWindowDays = 7, newTop = 3,
-    pulseLow = 0.35, pulseSeconds = 1.1,
-    flashSeconds = 0.6, flashSpill = SP.xs,
-}
-
--- The plate art is drawn for 352 x 88; the card is 72 tall.
-S.toast = {
-    width = 380, height = 72, gap = SP.s, shadowPad = 12,
-    iconCenter = 48, ring = 52, seat = 44, icon = 36,
-    textLeft = 88, dividerLeft = 84, rightPad = 24, rightColumn = 80,
-    labelY = -14, dividerY = -25, nameY = -30, sourceY = -50, countY = -30, captionY = -50,
-    rim = { 0.62, 0.46, 0.16 }, rimLit = { 1.00, 0.88, 0.52 },
-    raysAlpha = 0.30, raysSize = { 256, 128 },
-    kicker = L["New decor collected"], caption = L["first seen"],
-}
-
-S.expansionShort = {
-    ["Wrath of the Lich King"] = L["Wrath"],
-    ["Warlords of Draenor"] = L["Warlords"],
-    ["The Burning Crusade"] = L["Burning Crusade"],
-    ["Battle for Azeroth"] = L["BfA"],
-    ["Mists of Pandaria"] = L["Pandaria"],
-}
-
-S.relativeDateDays = 14
 
 S.stateLabel = {
     owned = L["Owned"],
@@ -242,10 +161,6 @@ S.stateLabel = {
 }
 
 S.model = {
-    defaultSceneID = 1317,
-    actorTag = "decor",
-    vendorW = 220, vendorH = 250,
-    mapW = 220, mapH = 250,
     itemW = 268, itemH = 250,
     thumb = 44,
 }
@@ -253,11 +168,4 @@ S.model = {
 S.plate = {
     windowTitle = L["Homestead"],
     title = L["Decor Browser"],
-    edge = SP.xs,
-    sheenLayers = {
-        { tone = M.lamp, alpha = 0.22, uSpan = 1.2, slope = 1.3, flip = false,
-          template = "HomesteadDecorBrowserSheenA" },
-        { tone = M.gilt, alpha = 0.14, uSpan = 0.8, slope = 1.0, flip = true,
-          template = "HomesteadDecorBrowserSheenB" },
-    },
 }

@@ -8,28 +8,6 @@ local L = HA.L
 local D = {}
 B.Data = D
 
-local EXPANSION_ORDER = {
-    "Midnight", "The War Within", "Dragonflight", "Shadowlands", "Battle for Azeroth",
-    "Legion", "Warlords of Draenor", "Mists of Pandaria", "Cataclysm",
-    "Wrath of the Lich King", "The Burning Crusade", "Classic",
-}
-
-local EXPANSION_LABELS = {
-    ["Midnight"] = L["Midnight"],
-    ["The War Within"] = L["The War Within"],
-    ["Dragonflight"] = L["Dragonflight"],
-    ["Shadowlands"] = L["Shadowlands"],
-    ["Battle for Azeroth"] = L["Battle for Azeroth"],
-    ["Legion"] = L["Legion"],
-    ["Warlords of Draenor"] = L["Warlords of Draenor"],
-    ["Mists of Pandaria"] = L["Mists of Pandaria"],
-    ["Cataclysm"] = L["Cataclysm"],
-    ["Wrath of the Lich King"] = L["Wrath of the Lich King"],
-    ["The Burning Crusade"] = L["The Burning Crusade"],
-    ["Classic"] = L["Classic"],
-    ["Events"] = L["Other Vendors"],
-}
-
 local FACTION_LABELS = {
     ["Alliance"] = L["Alliance"],
     ["Horde"] = L["Horde"],
@@ -41,24 +19,19 @@ local SOURCE_TYPE_LABELS = {
     ["treasure"] = L["Treasure"],
 }
 
--- Recently Acquired: a firstSeen is baseline within this many seconds of the earliest, or when at least
--- BASELINE_CROWD owned records (itself included) fall within this many seconds either side of it.
-local BASELINE_WINDOW = 30
-local BASELINE_CROWD = 50
-
 local cache = {}
 -- Per requested item: true while loading, then "loaded" or "failed".
 local nameLoads = {}
 
 local memoVersion = 0
 
--- Drops the progress and recently-acquired results; the static expansion list stays.
+-- Drops the progress result.
 function D.InvalidateMemos()
-    cache.progress, cache.recent, cache.newSet = nil, nil, nil
+    cache.progress = nil
     memoVersion = memoVersion + 1
 end
 
--- Changes with every InvalidateMemos, so pages can drop their own memos too.
+-- Changes with every InvalidateMemos, so callers can drop their own memos too.
 function D.MemoVersion()
     return memoVersion
 end
@@ -67,7 +40,7 @@ function D.IsReady()
     return (HA.VendorData and HA.VendorIdentity and HA.CatalogStore and HA.SourceManager) and true or false
 end
 
-function D.OwnershipKnown()
+local function HasOwnershipData()
     return (HA.CatalogStore and HA.CatalogStore:HasPersistedData()) and true or false
 end
 
@@ -77,15 +50,6 @@ end
 
 function D.IsExcluded(itemID)
     return (HA.CatalogStore and HA.CatalogStore:IsOwnershipUnknowable(itemID)) and true or false
-end
-
--- Hide owned removes nothing while ownership is unknown, nor a vendor with no knowable wares.
-function D.HidesOwnedItem(itemID)
-    return D.OwnershipKnown() and D.IsOwned(itemID)
-end
-
-function D.HidesOwnedVendor(owned, total)
-    return D.OwnershipKnown() and total ~= nil and owned ~= nil and total > 0 and owned == total
 end
 
 function D.ItemName(itemID)
@@ -154,53 +118,10 @@ function D.IsOppositeFaction(vendor)
     return HA.VendorFilter.IsOppositeFaction(vendor)
 end
 
--- English data keys: known expansions newest first, then any other key, "Events" last.
-function D.Expansions()
-    if cache.expansions then return cache.expansions end
-    local seen = {}
-    for _, vendor in ipairs(HA.VendorIdentity:GetAllVendors()) do
-        if vendor.expansion then seen[vendor.expansion] = true end
-    end
-    local ED = HA.EndeavorsData
-    if ED and ED.Vendors then
-        for _, vendor in pairs(ED.Vendors) do
-            if vendor.expansion then seen[vendor.expansion] = true end
-        end
-    end
-    local list = {}
-    for _, exp in ipairs(EXPANSION_ORDER) do
-        if seen[exp] then
-            list[#list + 1] = exp
-            seen[exp] = nil
-        end
-    end
-    local other = {}
-    for exp in pairs(seen) do
-        if exp ~= "Events" then other[#other + 1] = exp end
-    end
-    table.sort(other)
-    for _, exp in ipairs(other) do list[#list + 1] = exp end
-    if seen["Events"] then list[#list + 1] = "Events" end
-    cache.expansions = list
-    return list
-end
-
-function D.ExpansionLabel(expansion)
-    return EXPANSION_LABELS[expansion] or expansion
-end
-
 -- The label for the faction that makes this vendor opposite; nil when none resolves.
 function D.VendorFactionLabel(vendor)
     local faction = HA.VendorFilter.GetEffectiveFaction(vendor)
     return faction and (FACTION_LABELS[faction] or faction) or nil
-end
-
-function D.VendorsByExpansion(expansion)
-    local out = {}
-    for _, vendor in ipairs(HA.VendorData:GetVendorsByExpansion(expansion)) do
-        if D.IsListedVendor(vendor) then out[#out + 1] = vendor end
-    end
-    return out
 end
 
 -- An out-of-season holiday vendor still resolves here (GetVendor gives nil); vendor lists never use it.
@@ -251,7 +172,7 @@ end
 -- for the background fill unless noPrewarm (a fill-triggered refresh must not ask again).
 function D.VendorCounts(vendor, noPrewarm)
     local BC = HA.BadgeCalculation
-    if not (BC and vendor and vendor.npcID) or not D.OwnershipKnown() then return nil end
+    if not (BC and vendor and vendor.npcID) or not HasOwnershipData() then return nil end
     local stats = BC:PeekVendorStats(vendor, "all")
     if not stats then
         if D.HolidayActive(vendor) ~= nil then WarmHoliday(vendor)
@@ -388,7 +309,7 @@ function D.ItemStatus(itemID, npcID, fresh)
         out.excluded = true
         return out
     end
-    if not D.OwnershipKnown() then return out end
+    if not HasOwnershipData() then return out end
     local pres = HA.SourceManager:GetItemPresentation(itemID, {
         context = "browser",
         npcID = npcID,
@@ -542,7 +463,7 @@ end
 
 -- Collection totals over the shipped decor list, inclusive per source kind; nil while data is not loaded.
 function D.Progress()
-    local known = D.OwnershipKnown()
+    local known = HasOwnershipData()
     local cached = cache.progress
     if cached and cached.known == known then return cached end
     local map = HA.DecorMapping
@@ -575,108 +496,6 @@ function D.Progress()
     return r
 end
 
--- Rows: { kind = "row", itemID, name, line2, achievementID, questID, wp, wpFromVendor }; Events adds vendor rows first.
-function D.SourceList(kind, search, hideOwned)
-    local rows = {}
-    local function gather(tbl, build)
-        for itemID, d in pairs(tbl or {}) do
-            if type(itemID) == "number" then
-                local row = build(itemID, d)
-                row.kind = "row"
-                row.itemID = itemID
-                rows[#rows + 1] = row
-            end
-        end
-    end
-
-    if kind == "achievements" then
-        gather(HA.AchievementSources, function(_, d)
-            return {
-                group = d.category or L["Other"], sortName = d.achievementName,
-                achievementID = d.achievementID,
-                line2 = GetAchievementLink(d.achievementID) or d.achievementName,
-            }
-        end)
-    elseif kind == "quests" then
-        gather(HA.QuestSources, function(_, d)
-            return {
-                sortName = d.questName, questID = d.questID, wpFromVendor = true,
-                line2 = GetQuestLink(d.questID) or d.questName,
-            }
-        end)
-    elseif kind == "professions" then
-        gather(HA.ProfessionSources, function(_, d)
-            local line = L["%s - %s"]:format(d.profession, d.recipeName)
-            if d.skillLevel then line = L["%s (%s)"]:format(line, d.skillLevel) end
-            return { group = d.profession, sortName = d.recipeName, line2 = line }
-        end)
-    elseif kind == "drops" then
-        gather(HA.DropSources, function(_, d)
-            local row = { sortName = d.mobName, line2 = L["%s - %s"]:format(d.mobName, d.zone or L["Unknown"]) }
-            -- A journal-anchored drop's mapID is an area ID, not a uiMapID: no waypoint.
-            if d.mapID and d.coords and not (d.journalEncounterID or d.journalInstanceID) then
-                row.wp = { mapID = d.mapID, x = d.coords.x, y = d.coords.y, title = d.mobName }
-            end
-            return row
-        end)
-    elseif kind == "events" then
-        gather(HA.EventSources, function(_, d)
-            local row = {
-                group = d.event, sortName = (d.vendorName or "") .. " " .. d.event,
-                line2 = L["%s - %s"]:format(d.vendorName or L["Unknown"], d.zone or L["Unknown"]),
-            }
-            if d.mapID and d.x and d.y then
-                row.wp = { mapID = d.mapID, x = d.x, y = d.y, title = d.vendorName }
-            end
-            return row
-        end)
-    end
-
-    local q = search and search ~= "" and search:lower() or nil
-    local filtered = {}
-    for _, row in ipairs(rows) do
-        row.name = D.ItemName(row.itemID)
-        local keep = not (hideOwned and D.HidesOwnedItem(row.itemID))
-        if keep and q then
-            local hay = ((row.name or "") .. " " .. (row.sortName or "")):lower()
-            keep = hay:find(q, 1, true) ~= nil
-        end
-        if keep then filtered[#filtered + 1] = row end
-    end
-    if kind == "events" then
-        for _, vendor in ipairs(D.HolidayVendors()) do
-            local hay = ((vendor.name or "") .. " " .. (vendor.zone or "") .. " " .. vendor.event):lower()
-            local keep = q == nil or hay:find(q, 1, true) ~= nil
-            if keep and hideOwned then keep = not D.HidesOwnedVendor(D.VendorCounts(vendor, true)) end
-            if keep then
-                filtered[#filtered + 1] = {
-                    kind = "vendor", vendor = vendor, active = D.HolidayActive(vendor),
-                    group = vendor.event, sortName = vendor.name,
-                }
-            end
-        end
-    end
-    table.sort(filtered, function(a, b)
-        local ga, gb = a.group or "", b.group or ""
-        if ga ~= gb then return ga < gb end
-        local va, vb = a.kind == "vendor", b.kind == "vendor"
-        if va ~= vb then return va end
-        local na, nb = a.sortName or "", b.sortName or ""
-        if na ~= nb then return na < nb end
-        return (a.itemID or a.vendor.npcID) < (b.itemID or b.vendor.npcID)
-    end)
-
-    local out, last = {}, nil
-    for _, row in ipairs(filtered) do
-        if row.group and row.group ~= last then
-            last = row.group
-            out[#out + 1] = { kind = "header", text = row.group }
-        end
-        out[#out + 1] = row
-    end
-    return out
-end
-
 function D.SourceLine(itemID, sources)
     local src = (sources or D.ItemSources(itemID))[1]
     if not src then return L["Source unknown"] end
@@ -703,73 +522,13 @@ function D.SourceLine(itemID, sources)
     return L["%s: %s"]:format(SOURCE_TYPE_LABELS[t] or L["Other source"], name)
 end
 
--- Owned, non-baseline decor, newest first: { itemID, acquired (CatalogStore's firstSeen) }.
-local function RecentList()
-    if cache.recent then return cache.recent end
-    local store, map = HA.CatalogStore, HA.DecorMapping
-    if not (store and map and D.OwnershipKnown()) then return {} end
-
-    local recs, seen = {}, {}
-    for _, itemID in pairs(map) do
-        if type(itemID) == "number" and not seen[itemID] then
-            seen[itemID] = true
-            local rec = store:Get(itemID)
-            local t = rec and rec.isOwned and rec.firstSeen
-            if type(t) == "number" then recs[#recs + 1] = { itemID = itemID, acquired = t } end
-        end
-    end
-    table.sort(recs, function(a, b)
-        if a.acquired ~= b.acquired then return a.acquired < b.acquired end
-        return a.itemID < b.itemID
-    end)
-
-    local list = {}
-    local n = #recs
-    local t0 = n > 0 and recs[1].acquired
-    local lo, hi = 1, 1
-    for i = 1, n do
-        local t = recs[i].acquired
-        while recs[lo].acquired < t - BASELINE_WINDOW do lo = lo + 1 end
-        if hi < i then hi = i end
-        while hi < n and recs[hi + 1].acquired <= t + BASELINE_WINDOW do hi = hi + 1 end
-        if t - t0 > BASELINE_WINDOW and hi - lo + 1 < BASELINE_CROWD then
-            list[#list + 1] = recs[i]
-        end
-    end
-    for i = 1, math.floor(#list / 2) do
-        list[i], list[#list + 1 - i] = list[#list + 1 - i], list[i]
-    end
-    cache.recent = list
-    return list
-end
-
-function D.RecentlyAcquired(count)
-    local list = RecentList()
-    local out = {}
-    for i = 1, math.min(count, #list) do out[i] = list[i] end
-    return out
-end
-
-function D.IsNew(itemID)
-    if not cache.newSet then
-        local fx = B.Style.itemFx
-        local cutoff = time() - fx.newWindowDays * 86400
-        local set = {}
-        for _, r in ipairs(D.RecentlyAcquired(fx.newTop)) do
-            if r.acquired >= cutoff then set[r.itemID] = true end
-        end
-        cache.newSet = set
-    end
-    return cache.newSet[itemID] == true
-end
-
--- Quality and owned copies (placed + stored) for an icon's glow and number; copies is nil until known, and at 0.
+-- Quality and owned copies (placed + stored) for an icon; copies is nil until known, and at 0.
 function D.IconData(itemID, wantCopies, catalogMemo)
     local quality, copies
     if wantCopies then
         local info = D.CatalogInfo(itemID, catalogMemo)
         quality = info and info.quality
-        if info and D.OwnershipKnown() then
+        if info and HasOwnershipData() then
             local n = (info.totalNumPlaced or 0) + (info.totalNumStored or 0)
             if n > 0 then copies = n end
         end
@@ -787,7 +546,7 @@ function D.TooltipData(itemID, npcID, catalogMemo)
         quality = info and info.quality or C_Item.GetItemQualityByID(itemID),
         state = st.state,
     }
-    if info and D.OwnershipKnown() then
+    if info and HasOwnershipData() then
         out.counts = {
             placed = info.totalNumPlaced or 0,
             stored = info.totalNumStored or 0,

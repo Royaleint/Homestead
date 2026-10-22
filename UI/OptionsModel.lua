@@ -44,11 +44,6 @@ local function GetVendorScanning()
     return profile and profile.vendorScanning
 end
 
-local function GetBrowser()
-    local profile = GetProfile()
-    return profile and profile.browser
-end
-
 local function GetMinimap()
     local profile = GetProfile()
     return profile and profile.minimap
@@ -63,25 +58,6 @@ end
 
 local function CallAddon(methodName, ...)
     return CallMethod(GetAddon(), methodName, ...)
-end
-
-local function BrowserCheckbox(rowKey, key, label, tooltip)
-    return {
-        key = rowKey,
-        type = "checkbox",
-        label = label,
-        tooltip = tooltip,
-        get = function()
-            local browser = GetBrowser()
-            return not (browser and browser[key] == false)
-        end,
-        set = function(value)
-            local browser = GetBrowser()
-            if not browser then return end
-            browser[key] = value and true or false
-            CallMethod(HA.DecorBrowser, "OnSettingChanged", key)
-        end,
-    }
 end
 
 local function CallVendorMapPins(methodName, ...)
@@ -262,13 +238,6 @@ OptionsModel.sections = {
                     end
                 end,
             },
-            {
-                key = "browserHeader",
-                type = "header",
-                label = L["Decor Browser"],
-            },
-            BrowserCheckbox("browserAnimations", "animations", L["Animations"], L["desc_browser_animations"]),
-            BrowserCheckbox("browserModel3D", "model3D", L["Show 3D preview"], L["desc_browser_model3d"]),
             {
                 key = "vendorVisibilityHeader",
                 type = "header",

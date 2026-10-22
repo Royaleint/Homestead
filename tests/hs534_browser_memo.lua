@@ -1,11 +1,11 @@
--- luacheck: globals assert loadfile print io wipe C_Timer
+-- luacheck: globals assert loadfile print io wipe C_Timer InCombatLockdown
 
 local root = (... or "."):gsub("\\\\", "/"):gsub("/+$", "")
 
 -------------------------------------------------------------------------------
--- The catalog memo lasts one page show. Refreshes for arriving item names, the
--- vendor-count fill, search or Hide owned keep it; a refresh after new data
--- (the shared memos invalidated) and every page show empty it.
+-- The catalog memo lasts one show. Refreshes for arriving item names, the
+-- vendor-count fill or a search keep it; a refresh after new data (the shared
+-- memos invalidated) and every open empty it.
 -------------------------------------------------------------------------------
 
 local function readFile(path)
@@ -20,8 +20,13 @@ function wipe(t)
     return t
 end
 C_Timer = { After = function(_, fn) fn() end }
+InCombatLockdown = function() return false end
 
-local HA = { Constants = { TEXTURE_ROOT = "Textures/" } }
+local HA = {
+    Constants = { TEXTURE_ROOT = "Textures/" },
+    Addon = { _enabled = true },
+    Events = { RegisterCallback = function() end },
+}
 assert(loadfile(root .. "/Locale/enUS.lua"))("Homestead", HA)
 for line in readFile("Homestead.toc"):gmatch("[^\r\n]+") do
     local entry = line:match("^%s*(UI\\Browser\\[%w_]+%.lua)%s*$")
@@ -29,36 +34,31 @@ for line in readFile("Homestead.toc"):gmatch("[^\r\n]+") do
 end
 
 local B = HA.DecorBrowser
-HA.PerformanceTrace = { Measure = function(_, _, _, fn, ...) return fn(...) end }
+local measured = {}
+HA.PerformanceTrace = { Measure = function(_, operation, _, fn, ...)
+    measured[#measured + 1] = operation
+    return fn(...)
+end }
+B.Data.IsReady = function() return true end
 
-local function stubFrame()
-    local shown = false
-    return {
-        Show = function() shown = true end,
-        Hide = function() shown = false end,
-        IsShown = function() return shown end,
-    }
-end
 local Win = B.Window
-Win.frame = stubFrame()
-Win.frame:Show()
-for _, name in ipairs({ "ResetSearch", "SelectNav", "UpdateCrumbs", "UpdateProgress", "SetHideOwnedChecked" }) do
+local shown = false
+Win.frame = {
+    Show = function() shown = true end,
+    Hide = function() shown = false end,
+    IsShown = function() return shown end,
+}
+for _, name in ipairs({ "ResetSearch", "Clamp" }) do
     Win[name] = function() end
 end
-
-local shows = 0
-local function fakePage()
-    return { usesCounts = true, Build = stubFrame, Show = function() shows = shows + 1 end }
-end
-B.RegisterPage("memoA", fakePage())
-B.RegisterPage("memoB", fakePage())
 
 local memo = B.State.catalogMemo
 local function seed() memo[1] = "info" end
 local function kept(why) assert(memo[1] == "info", "the catalog memo was emptied by " .. why) end
 local function emptied(why) assert(memo[1] == nil, "the catalog memo survived " .. why) end
 
-B.Go({ page = "memoA" })
+B:Open()
+assert(shown, "the browser did not open")
 seed()
 
 B.RequestRefresh()
@@ -67,8 +67,6 @@ B.RequestRefresh(true)
 kept("a vendor-count refresh")
 B.SetSearch("bench")
 kept("a search refresh")
-B.SetHideOwned(true)
-kept("a Hide owned refresh")
 
 B.RequestRefresh(false, true)
 emptied("a refresh after new data")
@@ -76,11 +74,15 @@ seed()
 B.RequestRefresh()
 kept("the item-name refresh after an invalidation")
 
-B.Go({ page = "memoB" })
-emptied("a page show")
+B:Close()
+B:Open()
+emptied("an open")
 seed()
-B.Go({ page = "memoB" })
-emptied("showing the same page again")
+B:Close()
+B:Open()
+emptied("opening again")
 
-assert(shows == 9, "expected every route and refresh to render its page, got " .. shows)
+local want = "browser_reopen,browser_refresh,browser_refresh,browser_refresh,browser_refresh,"
+    .. "browser_reopen,browser_reopen"
+assert(table.concat(measured, ",") == want, "unexpected renders: " .. table.concat(measured, ","))
 print("hs534_browser_memo: ok")

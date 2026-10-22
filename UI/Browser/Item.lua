@@ -1,11 +1,10 @@
--- One decor item: 3D preview, ownership, price, requirements, sources, and a data-error report.
+-- One decor item: ownership, price, requirements, sources, and a data-error report.
 local _, HA = ...
 
 local B = HA.DecorBrowser
 local L = HA.L
 local S = B.Style
 local W = B.Widgets
-local LO = S.layout
 local K = S.color
 
 local LABEL_W = 120
@@ -24,7 +23,7 @@ local REQ_TAG = {
     unknown = { L["Unknown: %s"], K.stateText.unknown },
 }
 
-local Page = { topLevel = false, searchable = false }
+local Page = {}
 local memo
 
 -- Data-error report text. r = { itemID, name, recordID, build, buildNumber, version,
@@ -45,12 +44,6 @@ function Page.ReportText(r)
     lines[#lines + 1] = L["Client: %s (%s)"]:format(r.build or "?", r.buildNumber or "?")
     lines[#lines + 1] = L["Homestead: %s"]:format(r.version or "?")
     return table.concat(lines, "\n")
-end
-
-local function Model3D()
-    if B.State.model3D ~= nil then return B.State.model3D end
-    local s = B.Saved()
-    return not (s and s.model3D == false)
 end
 
 local function FactLabel(parent, labelText, prevValue, firstAnchor, firstX, firstY)
@@ -116,10 +109,6 @@ local function NewTextButton(parent)
     return b
 end
 
-local function OpenAchievement(b)
-    W.OpenAchievement(b.achievementID)
-end
-
 local function Report()
     if InCombatLockdown() then return end
     local D, itemID = B.Data, Page.itemID
@@ -158,30 +147,11 @@ function Page.Build(host)
     box:SetSize(S.model.itemW, S.model.itemH)
     box:SetPoint("TOPLEFT", 0, -36)
     W.WoodCorners(box)
-    local scene = CreateFrame("ModelScene", nil, box, "PanningModelSceneMixinTemplate")
-    scene:SetPoint("TOPLEFT", LO.wellPad, -LO.wellPad)
-    scene:SetPoint("BOTTOMRIGHT", -LO.wellPad, LO.wellPad)
-    Page.scene = scene
     local icon = box:CreateTexture(nil, "ARTWORK")
     icon:SetSize(S.model.thumb * 1.5, S.model.thumb * 1.5)
-    icon:SetPoint("CENTER", 0, 20)
+    icon:SetPoint("CENTER")
     W.Coord(icon, S.coord.icon)
-    Page.fallbackIcon = icon
-    local fallbackText = S.Text(box, "body", "OVERLAY")
-    fallbackText:SetPoint("TOP", icon, "BOTTOM", 0, -10)
-    fallbackText:SetWidth(S.model.itemW - 30)
-    Page.fallbackText = fallbackText
-
-    local toggle = CreateFrame("CheckButton", nil, f, "UICheckButtonTemplate")
-    toggle:SetSize(24, 24)
-    toggle:SetPoint("TOPLEFT", box, "BOTTOMLEFT", 0, -4)
-    toggle.Text:SetText(L["Show 3D preview"])
-    toggle:SetScript("OnClick", function(self)
-        B.State.model3D = self:GetChecked() and true or false
-        B.Save("model3D", B.State.model3D)
-        Page.RenderModel()
-    end)
-    Page.toggle = toggle
+    Page.icon = icon
 
     local _, status = Fact(f, L["Status"], nil, box, S.model.itemW + 22, 0)
     Page.status = status
@@ -243,50 +213,6 @@ function Page.Build(host)
     return f
 end
 
-local function Placeholder(text)
-    Page.scene:ClearScene()
-    Page.scene:Hide()
-    Page.fallbackIcon:SetTexture(B.Data.ItemIcon(Page.itemID))
-    Page.fallbackIcon:Show()
-    Page.fallbackText:SetText(text)
-end
-
--- The catalog entry behind the preview. Misses are not memoised, so late data fills in on refresh.
-local function ModelInfo()
-    return B.Data.CatalogInfo(Page.itemID, B.State.catalogMemo)
-end
-
-local function ModelKey(on, info)
-    return Page.itemID .. ":" .. tostring(on) .. ":" .. tostring(info ~= nil and info.asset ~= nil)
-end
-
-function Page.RenderModel(info)
-    local on = Model3D()
-    info = info or ModelInfo()
-    Page.modelKey = ModelKey(on, info)
-    if not on then return Placeholder(L["3D preview is off."]) end
-    if not (info and info.asset) then return Placeholder(L["Preview unavailable for this item."]) end
-    local consts = _G.Constants and _G.Constants.HousingCatalogConsts
-    local default = consts and consts.HOUSING_CATALOG_DECOR_MODELSCENEID_DEFAULT or S.model.defaultSceneID
-    local own = info.uiModelSceneID
-    local scene = Page.scene
-    for _, sceneID in ipairs((own and own ~= default) and { own, default } or { default }) do
-        scene:ClearScene()
-        scene:TransitionToModelSceneID(sceneID, CAMERA_TRANSITION_TYPE_IMMEDIATE,
-            CAMERA_MODIFICATION_TYPE_DISCARD, true)
-        local actor = scene:GetActorByTag(S.model.actorTag)
-        if actor then
-            actor:SetPreferModelCollisionBounds(true)
-            actor:SetModelByFileID(info.asset)
-            Page.fallbackIcon:Hide()
-            Page.fallbackText:SetText("")
-            scene:Show()
-            return
-        end
-    end
-    Placeholder(L["Preview unavailable for this item."])
-end
-
 local function ItemMemo(itemID, npcID)
     local D = B.Data
     if memo and memo.itemID == itemID and memo.npcID == npcID and memo.version == D.MemoVersion() then
@@ -329,7 +255,6 @@ local function ShowSold(m)
         if e then
             local v = e.vendor
             b.text:SetText(SoldLine(v))
-            b.onClick = function() B.Go({ page = "shop", npcID = v.npcID }) end
             local mapID, x, y = B.Data.VendorLocation(v)
             row.wp.wp = mapID and { mapID = mapID, x = x, y = y, title = v.name,
                 data = { type = "vendor", npcID = v.npcID } } or nil
@@ -353,12 +278,10 @@ end
 local function ShowOthers(m)
     for i, b in ipairs(Page.otherRows) do
         local src = m.others[i]
-        b.onClick, b.tooltipLink, b.achievementID = nil, nil, nil
+        b.tooltipLink = nil
         if src then
             b.text:SetText(B.Data.SourceLine(Page.itemID, { src }))
             if src.type == "achievement" and src.achievementID then
-                b.achievementID = src.achievementID
-                b.onClick = OpenAchievement
                 b.tooltipLink = GetAchievementLink(src.achievementID)
             elseif src.type == "quest" and src.questID then
                 b.tooltipLink = GetQuestLink(src.questID) or ("quest:" .. src.questID)
@@ -373,7 +296,7 @@ local function ShowOthers(m)
     Page.noOther:SetShown(#m.others == 0)
 end
 
-function Page.Show(route, isRefresh)
+function Page.Show(route)
     local D = B.Data
     local itemID, npcID = route.itemID, route.npcID
     Page.itemID, Page.npcID = itemID, npcID
@@ -381,10 +304,7 @@ function Page.Show(route, isRefresh)
 
     Page.header.text:SetText(D.ItemName(itemID) or L["Item %d"]:format(itemID))
     Page.header.right:SetText(L["Item %d"]:format(itemID))
-    Page.toggle:SetChecked(Model3D())
-    local on = Model3D()
-    local info = ModelInfo()
-    if not isRefresh or Page.modelKey ~= ModelKey(on, info) then Page.RenderModel(info) end
+    Page.icon:SetTexture(D.ItemIcon(itemID))
 
     local st = D.ItemStatus(itemID, npcID, true)
     local atlas = STATE_ATLAS[st.state]
@@ -418,18 +338,12 @@ function Page.Show(route, isRefresh)
 end
 
 function Page.Hide()
-    Page.scene:ClearScene()
-    Page.modelKey = nil
     memo = nil
 end
 
 function Page.SetCombatGated(gated)
     Page.report:SetEnabled(not gated)
     RestColor(Page.report)
-    for _, b in ipairs(Page.otherRows) do
-        b:SetEnabled(not (gated and b.achievementID))
-        RestColor(b)
-    end
 end
 
-B.RegisterPage("item", Page)
+B.Item = Page

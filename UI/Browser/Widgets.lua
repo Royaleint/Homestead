@@ -14,7 +14,6 @@ local W = {}
 B.Widgets = W
 
 local panes = {}
-local pulsing = {}
 
 local function Coord(tex, c)
     tex:SetTexCoord(c[1], c[2], c[3], c[4])
@@ -27,15 +26,14 @@ end
 
 local function PaintPane(pane, opaque)
     local sc, bd = S.backdrop.scrim, S.backdrop
-    local a = opaque and 1 or (pane.role == "nav" and bd.navAlpha or bd.pageAlpha)
+    local a = opaque and 1 or bd.pageAlpha
     pane.fill:SetColorTexture(sc[1], sc[2], sc[3], a)
 end
 
-function W.Pane(parent, role)
+function W.Pane(parent)
     local pane = CreateFrame("Frame", nil, parent)
     pane.fill = pane:CreateTexture(nil, "BACKGROUND", nil, -1)
     pane.fill:SetAllPoints()
-    pane.role = role
     panes[#panes + 1] = pane
     PaintPane(pane)
     return pane
@@ -84,82 +82,6 @@ function W.NewSectionHeader(parent)
     return f
 end
 
-function W.NewBar(parent, wide, onClick)
-    local bs = S.bar
-    local trackH = wide and bs.trackWide or bs.track
-    local bar = CreateFrame("Frame", nil, parent)
-    bar.count = S.Text(bar, wide and "numberLarge" or "number", "OVERLAY")
-    bar.count:SetPoint("TOPRIGHT")
-    bar.count:SetJustifyH("RIGHT")
-    bar.count:SetTextColor(K.muted[1], K.muted[2], K.muted[3])
-    bar.label = S.Text(bar, wide and "bodyLarge" or "body", "OVERLAY")
-    bar.label:SetPoint("TOPLEFT")
-    bar.label:SetPoint("RIGHT", bar.count, "LEFT", -S.space.s, 0)
-    bar.label:SetJustifyH("LEFT")
-    bar.label:SetWordWrap(false)
-    bar:SetHeight((wide and 20 or 16) + bs.textGap + trackH)
-
-    local fill = CreateFrame("StatusBar", nil, bar)
-    fill:SetPoint("BOTTOMLEFT")
-    fill:SetPoint("BOTTOMRIGHT")
-    fill:SetHeight(trackH)
-    fill:SetStatusBarTexture(T.plainWhite)
-    fill:SetMinMaxValues(0, 1)
-    fill:SetValue(0)
-    fill:GetStatusBarTexture():SetDrawLayer("BORDER")
-    local back = fill:CreateTexture(nil, "BACKGROUND")
-    back:SetAllPoints()
-    back:SetColorTexture(unpack(bs.trackColor))
-    Vis.Chrome.Hairline(fill, bs.edgeColor, bs.edgeColor[4], "BORDER")
-    local gloss = fill:CreateTexture(nil, "ARTWORK")
-    gloss:SetPoint("TOPLEFT", fill:GetStatusBarTexture(), "TOPLEFT")
-    gloss:SetPoint("TOPRIGHT", fill:GetStatusBarTexture(), "TOPRIGHT")
-    gloss:SetPoint("BOTTOM", fill, "CENTER")
-    gloss:SetColorTexture(1, 1, 1, 1)
-    gloss:SetGradient("VERTICAL", CreateColor(1, 1, 1, 0), CreateColor(1, 1, 1, bs.sheenTop))
-    bar.fill = fill
-
-    local hl = bar:CreateTexture(nil, "BACKGROUND")
-    hl:SetPoint("TOPLEFT", -S.space.xs, S.space.xs)
-    hl:SetPoint("BOTTOMRIGHT", S.space.xs, -S.space.xs)
-    hl:SetColorTexture(unpack(K.hoverRow))
-    hl:Hide()
-    if onClick then
-        bar:EnableMouse(true)
-        bar:SetScript("OnEnter", function() hl:Show() end)
-        bar:SetScript("OnLeave", function() hl:Hide() end)
-        bar:SetScript("OnMouseUp", function(_, button)
-            if button == "LeftButton" then onClick() end
-        end)
-    end
-
-    function bar:SetProgress(label, owned, total)
-        local ratio = 0
-        self.label:SetText(label)
-        if owned and total and total > 0 then
-            ratio = owned / total
-            self.count:SetText(L["%s / %s  ·  %d%%"]:format(BreakUpLargeNumbers(owned),
-                BreakUpLargeNumbers(total), math.floor(ratio * 100)))
-        elseif total == 0 then
-            self.count:SetText(L["0 / 0"])
-        else
-            self.count:SetText(L["? / %s"]:format(total and BreakUpLargeNumbers(total) or "?"))
-        end
-        self.target = ratio
-        local c = Vis.Bar.Color(ratio)
-        fill:SetStatusBarColor(c[1], c[2], c[3])
-        Vis.Bar.Set(fill, ratio, self:IsVisible())
-    end
-
-    function bar:Replay()
-        if not self.target then return end
-        fill:SetValue(0)
-        fill:SetToTargetValue()
-        Vis.Bar.Set(fill, self.target, self:IsVisible())
-    end
-    return bar
-end
-
 function W.WaypointButton(parent)
     local b = CreateFrame("Button", nil, parent)
     b:SetSize(26, 26)
@@ -187,10 +109,9 @@ function W.WaypointButton(parent)
     return b
 end
 
--- Icon treatment on a Vis.Desaturate unit: plate and icon grey with it; border, glow and flash keep colour.
+-- Icon treatment on a Vis.Desaturate unit: plate and icon grey with it; the border keeps colour.
 function W.BuildItemIcon(unit)
     local art, over = unit.art, unit.over
-    local fx = S.itemFx
 
     local plate = art:CreateTexture(nil, "ARTWORK", nil, -1)
     plate:SetAllPoints()
@@ -204,74 +125,13 @@ function W.BuildItemIcon(unit)
     unit.border = over:CreateTexture(nil, "OVERLAY", nil, 1)
     unit.border:SetTexture(T.iconBorder)
     unit.border:SetAllPoints(art)
-
-    unit.glow = over:CreateTexture(nil, "OVERLAY", nil, 2)
-    unit.glow:SetBlendMode("ADD")
-    unit.glow:SetAllPoints(art)
-    unit.glow:Hide()
-    unit.pulse = unit.glow:CreateAnimationGroup()
-    unit.pulse:SetLooping("BOUNCE")
-    local breathe = unit.pulse:CreateAnimation("Alpha")
-    breathe:SetFromAlpha(1)
-    breathe:SetToAlpha(fx.pulseLow)
-    breathe:SetDuration(fx.pulseSeconds)
-    breathe:SetSmoothing("IN_OUT")
-    pulsing[#pulsing + 1] = unit
-
-    unit.flash = over:CreateTexture(nil, "OVERLAY", nil, 3)
-    unit.flash:SetAtlas(S.atlas.changeFlash)
-    unit.flash:SetBlendMode("ADD")
-    unit.flash:SetPoint("TOPLEFT", art, "TOPLEFT", -fx.flashSpill, fx.flashSpill)
-    unit.flash:SetPoint("BOTTOMRIGHT", art, "BOTTOMRIGHT", fx.flashSpill, -fx.flashSpill)
-    unit.flash:SetAlpha(0)
-    unit.flashGroup = unit.flash:CreateAnimationGroup()
-    unit.flashGroup:SetToFinalAlpha(true)
-    local fade = unit.flashGroup:CreateAnimation("Alpha")
-    fade:SetFromAlpha(1)
-    fade:SetToAlpha(0)
-    fade:SetDuration(fx.flashSeconds)
-    fade:SetSmoothing("OUT")
     return unit
 end
 
-local function UpdatePulse(unit)
-    if unit.glow:IsShown() and Vis.AnimationsOn() then
-        if not unit.pulse:IsPlaying() then unit.pulse:Play() end
-    else
-        unit.pulse:Stop()
-    end
-end
-
-function W.ResetItemIcon(unit)
-    unit.pulse:Stop()
-    unit.flashGroup:Stop()
-    unit.flash:SetAlpha(0)
-    unit.glow:Hide()
-end
-
-function W.RefreshPulses()
-    for _, unit in ipairs(pulsing) do UpdatePulse(unit) end
-end
-
-function W.StopAll()
-    for _, unit in ipairs(pulsing) do W.ResetItemIcon(unit) end
-end
-
--- d = { texture or atlas, color, quality, isNew }. Sets every field, so a recycled icon keeps nothing.
+-- d = { texture or atlas, color }. Sets every field, so a recycled icon keeps nothing.
 function W.SetItemIcon(unit, d)
-    unit.flashGroup:Stop()
-    unit.flash:SetAlpha(0)
     if d.atlas then unit.icon:SetAtlas(d.atlas) else unit.icon:SetTexture(d.texture) end
     unit.border:SetVertexColor(d.color[1], d.color[2], d.color[3], d.color[4] or 1)
-    local atlas = d.quality and NEW_ITEM_ATLAS_BY_QUALITY[d.quality] or S.atlas.newGlowFallback
-    unit.glow:SetAtlas(atlas)
-    unit.glow:SetShown(d.isNew and true or false)
-    UpdatePulse(unit)
-end
-
-function W.FlashItemIcon(unit)
-    unit.flashGroup:Stop()
-    if Vis.AnimationsOn() then unit.flashGroup:Play() end
 end
 
 local STATE_RIM = {
@@ -369,7 +229,6 @@ function W.NewRow(parent, height, variant)
     end
 
     function row:Reset()
-        W.ResetItemIcon(grey)
         linkBtn:Hide()
         if self:IsMouseOver() then B.HideTooltip() end
     end
@@ -386,12 +245,7 @@ function W.NewRow(parent, height, variant)
         local st = d.state
         local c = STATE_RIM[st] or K.neutral
         stripe:SetColorTexture(c[1], c[2], c[3], 1)
-        local quality
-        if d.itemID then quality = B.Data.IconData(d.itemID, false) end
-        W.SetItemIcon(grey, {
-            texture = d.icon or T.placeholderIcon, atlas = d.atlas, color = c, quality = quality,
-            isNew = d.itemID ~= nil and B.Data.IsNew(d.itemID),
-        })
+        W.SetItemIcon(grey, { texture = d.icon or T.placeholderIcon, atlas = d.atlas, color = c })
         Vis.Desaturate.Set(grey, st == "locked" or st == "unknown", st == "locked")
         name:SetText(d.name or "")
         line:SetText(d.line2 or "")
@@ -506,10 +360,8 @@ function W.NewList(parent, opts)
         ScrollUtil.AddManagedScrollBarVisibilityBehavior(box, bar)
     end
     list.box, list.bar = box, bar
-    list.fade = Vis.EdgeFade.Attach(box)
     function list:SetData(tbl, keepPosition)
         box:SetDataProvider(CreateDataProvider(tbl), keepPosition)
-        self.fade.Refresh()
     end
     function list:SetShown(shown)
         box:SetShown(shown)
@@ -519,48 +371,7 @@ function W.NewList(parent, opts)
     return list
 end
 
--- Grid of fixed-size cells; the stride follows the box width. opts = { cell, gap, build = fn(cell) once
--- per pooled frame, init = fn(cell, data) per swap }; a cell may define Reset.
-function W.NewGrid(parent, opts)
-    local list = {}
-    local cell, gap = opts.cell, opts.gap
-    local box, bar = ScrollParts(parent)
-    local view = CreateScrollBoxListGridView(1, gap, gap, 0, 0, gap, gap)
-    view:SetElementInitializer("Button", function(frame, d)
-        if not frame.built then
-            frame.built = true
-            opts.build(frame)
-        end
-        opts.init(frame, d)
-    end)
-    view:SetElementResetter(ResetPooled)
-    view:SetElementSize(cell, cell)
-    ScrollUtil.InitScrollBoxListWithScrollBar(box, bar, view)
-    ScrollUtil.AddManagedScrollBarVisibilityBehavior(box, bar)
-    list.box, list.bar, list.view = box, bar, view
-    list.fade = Vis.EdgeFade.Attach(box)
-
-    local function restride(width)
-        local w = width or box:GetWidth()
-        if not w or w < cell then return false end
-        local n = math.max(1, math.floor((w + gap) / (cell + gap)))
-        if n == view:GetStride() then return false end
-        view:SetStride(n)
-        return true
-    end
-    box:RegisterCallback(BaseScrollBoxEvents.OnSizeChanged, function()
-        if restride() then box:FullUpdate() end
-    end, list)
-
-    function list:SetData(tbl, keepPosition, boxWidth)
-        restride(boxWidth)
-        box:SetDataProvider(CreateDataProvider(tbl), keepPosition)
-        self.fade.Refresh()
-    end
-    return list
-end
-
--- Empty-list line near the top of parent: names an active search or Hide owned with a clear control, else emptyText.
+-- Empty-list line near the top of parent: names an active search with a clear control, else emptyText.
 function W.NewEmptyState(parent, emptyText)
     local f = CreateFrame("Frame", nil, parent)
     f:SetPoint("TOPLEFT", S.space.l, -30)
@@ -584,7 +395,6 @@ function W.NewEmptyState(parent, emptyText)
         local active = {}
         if not noData then
             if st.search ~= "" then active[#active + 1] = L["Search: %s"]:format(st.search) end
-            if st.hideOwned then active[#active + 1] = L["Hide owned"] end
         end
         clear:SetShown(#active > 0)
         if #active > 0 then
@@ -652,10 +462,4 @@ function W.InitListHeader(f, d)
     f.d = d
     f.text:SetText(d.text)
     f.icon:SetAtlas(d.collapsed and S.atlas.expand or S.atlas.collapse)
-end
-
--- The achievement journal is Blizzard's: never opened from addon code in combat.
-function W.OpenAchievement(id)
-    if InCombatLockdown() then return end
-    ShowAchievementFrameForAchievement(id)
 end

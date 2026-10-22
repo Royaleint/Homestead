@@ -116,11 +116,7 @@ UI\Browser\Visuals.lua
 UI\Browser\Adapter.lua
 UI\Browser\Widgets.lua
 UI\Browser\Window.lua
-UI\Browser\Overview.lua
-UI\Browser\Shops.lua
-UI\Browser\Shop.lua
 UI\Browser\Item.lua
-UI\Browser\Sources.lua
 UI\Browser\Browser.lua
 UI\Options.lua
 

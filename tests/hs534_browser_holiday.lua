@@ -2,7 +2,7 @@
 local root = (... or "."):gsub("\\", "/"):gsub("/+$", "")
 
 -------------------------------------------------------------------------------
--- The Events page and shop page against the real holiday gate: the real Data files,
+-- The holiday vendor reads against the real holiday gate: the real Data files,
 -- VendorFilter and the browser Adapter, with only the calendar and price source stubbed.
 -------------------------------------------------------------------------------
 
@@ -45,9 +45,7 @@ local ECHO, VALADAR = 273402, 15864
 
 local function tags()
     local out = {}
-    for _, r in ipairs(D.SourceList("events", "", false)) do
-        if r.kind == "vendor" then out[r.vendor.npcID] = r.active end
-    end
+    for _, v in ipairs(D.HolidayVendors()) do out[v.npcID] = D.HolidayActive(v) end
     return out
 end
 
@@ -59,15 +57,9 @@ for state, want in pairs({ running = true, off = false, unknown = false }) do
     assert(t[ECHO] == want and t[VALADAR] == want, state .. ": Echo/Valadar tag should be " .. tostring(want))
     assert(D.HolidayActive(D.HolidayVendor(ECHO)) == want)
     assert(D.IsListedVendor(D.HolidayVendor(ECHO)) == want, state .. ": other surfaces list it only in season")
-    local expansion = D.HolidayVendor(ECHO).expansion
-    if expansion then
-        local listed = false
-        for _, v in ipairs(D.VendorsByExpansion(expansion)) do listed = listed or v.npcID == ECHO end
-        assert(listed == want, state .. ": Vendors by expansion")
-    end
 end
 
--- Shop page reads: the same record, items and prices in and out of season.
+-- Vendor reads: the same record, items and prices in and out of season.
 calendar = { ["Hallow's End"] = true }
 local active = D.Vendor(ECHO)
 assert(active and #active.items > 0, "the real Echo record has wares")
@@ -148,12 +140,6 @@ do
 
     local owned, total = D.VendorCounts(echo, false)
     assert(owned == 3 and total == 3, "counts are there after the deferred steps")
-    local found = false
-    for _, row in ipairs(D.SourceList("events", "", false)) do found = found or (row.kind == "vendor" and row.vendor.npcID == ECHO) end
-    assert(found, "without Hide owned the vendor is listed")
-    for _, row in ipairs(D.SourceList("events", "", true)) do
-        assert(not (row.kind == "vendor" and row.vendor.npcID == ECHO), "Hide owned removes it")
-    end
     assert(prewarms == 0)
     assert(D.VendorCounts({ npcID = 1 }, false) == nil and prewarms == 1, "a vendor the fill covers still asks for it")
 end

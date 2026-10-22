@@ -547,11 +547,10 @@ Constants.Defaults = {
             enabled = true,  -- Auto-scan merchants for housing decor data
         },
 
-        -- Decor Browser. position, size and lastPage are absent until the player sets them.
+        -- Decor Browser. position is absent until the player moves the window.
         browser = {
-            hideOwned = false,
-            animations = true,
-            model3D = true,
+            hideNA = false,
+            tipSeen = false,
         },
 
         -- Version-check notifications (HS-086)

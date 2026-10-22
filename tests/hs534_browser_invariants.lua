@@ -21,7 +21,7 @@ for line in readFile("Homestead.toc"):gmatch("[^\r\n]+") do
     local entry = line:match("^%s*(UI\\Browser\\[%w_\\]+%.[lx][um][al])%s*$")
     if entry then files[#files + 1] = entry:gsub("\\", "/") end
 end
-assert(#files >= 9, "the TOC lists too few UI/Browser files")
+assert(#files >= 8, "the TOC lists too few UI/Browser files")
 
 local function stripComments(text, path)
     if path:match("%.xml$") then return (text:gsub("<!%-%-.-%-%->", "")) end
@@ -40,10 +40,28 @@ end
 local bannedPlain = {
     "SetOwned", "SetUnowned", "ProbeByDecorID",
     "GetItemAvailabilityState", "GetItemStatusIcon", "GetItemStatusColor",
-    "UISpecialFrames", "hooksecurefunc", "WorldMapFrame", "QuestMapFrame_",
+    "UISpecialFrames", "UIPanelWindows", "ShowUIPanel", "hooksecurefunc", "WorldMapFrame", "QuestMapFrame_",
     "SetItemRef", "ItemRefTooltip", "HousingModelPreviewFrame", "UnregisterCallbacks",
     '"HIGH"', "AddOns\\\\Homestead", "AddOns/Homestead",
+    "CreateCatalogSearcher", "C_Map.OpenWorldMap", "TabGlowAnimation",
+    "ShowAchievementFrameForAchievement", "C_Item.GetItemQualityColor",
+    "RightButton", "OnDoubleClick", "IsShiftKeyDown", "IsControlKeyDown", "IsAltKeyDown", "IsModifiedClick",
 }
+
+-- Lua patterns that must not match: a catalog searcher is never configured from the browser.
+local bannedPatterns = {
+    { "%f[%w_][%w_]*[Ss]earcher%s*[:%.]%s*Set%w*", "a catalog searcher setter" },
+}
+
+-- Animation loops: every SetLooping argument and every XML looping attribute must be NONE.
+local function checkLooping(path, text)
+    for arg in text:gmatch("SetLooping%s*%(%s*([^)]-)%s*%)") do
+        if arg:gsub("[\"']", ""):upper() ~= "NONE" then fail(path, "SetLooping other than NONE: " .. arg) end
+    end
+    for value in text:gmatch("looping%s*=%s*[\"']([^\"']*)[\"']") do
+        if value:upper() ~= "NONE" then fail(path, "looping other than NONE: " .. value) end
+    end
+end
 
 -- Whole words that must not appear (GameTooltipTemplate and GameTooltip_Add*Line are fine).
 local bannedWords = { "GameTooltip" }
@@ -85,16 +103,24 @@ end
 assert(allowOwnTooltip('CreateFrame("GameTooltip", nil, UIParent)'):find("%f[%w_]GameTooltip%f[^%w_]"),
     "the tooltip allowance must not cover other tooltips")
 
-local presentationCalls = 0
-for _, path in ipairs(files) do
-    local text = sources[path]
+local function checkBans(path, text)
     for _, needle in ipairs(bannedPlain) do
         if text:find(needle, 1, true) then fail(path, "banned: " .. needle) end
+    end
+    for _, ban in ipairs(bannedPatterns) do
+        if text:find(ban[1]) then fail(path, "banned: " .. ban[2]) end
     end
     local wordText = allowOwnTooltip(text)
     for _, word in ipairs(bannedWords) do
         if wordText:find("%f[%w_]" .. word .. "%f[^%w_]") then fail(path, "banned word: " .. word) end
     end
+    checkLooping(path, text)
+end
+
+local presentationCalls = 0
+for _, path in ipairs(files) do
+    local text = sources[path]
+    checkBans(path, text)
 
     for _, rule in ipairs(callRules) do
         local calls = scanCalls(path, text, rule)
@@ -108,51 +134,6 @@ for _, path in ipairs(files) do
     end
 end
 assert(presentationCalls >= 1, "the adapter makes no presentation read; the scan is vacuous")
-
--- The shop's map card stays display-only: its click switch is off, and the world map is
--- opened nowhere else.
-do
-    local shop = sources["UI/Browser/Shop.lua"]
-    assert(shop, "the shop page is not in the TOC")
-    assert(shop:find("local MAP_CARD_CLICK = false", 1, true), "the map card click switch must be off")
-    for _, path in ipairs(files) do
-        if sources[path]:find("OpenWorldMap", 1, true) then
-            assert(path == "UI/Browser/Shop.lua", path .. ": opens the world map outside the map card")
-            assert(sources[path]:find("if MAP_CARD_CLICK then", 1, true), "the world map open is not behind the switch")
-        end
-    end
-end
-
--- Blizzard's achievement journal opens from one place: the shared helper in Widgets.lua, directly
--- after its combat check. The pages that use it go through that helper.
-do
-    local calls, tokens = 0, 0
-    for _, path in ipairs(files) do
-        local text = sources[path]
-        local n = 0
-        for _ in text:gmatch("ShowAchievementFrameForAchievement%s*%(") do n = n + 1 end
-        for _ in text:gmatch("%f[%w_]ShowAchievementFrameForAchievement%f[^%w_]") do tokens = tokens + 1 end
-        if n > 0 then
-            assert(path == "UI/Browser/Widgets.lua", path .. ": opens the achievement journal outside the helper")
-            assert(text:find("function W%.OpenAchievement%(%w+%)%s+if InCombatLockdown%(%) then return end%s+"
-                .. "ShowAchievementFrameForAchievement%("),
-                "the achievement journal opens without a combat check")
-        end
-        calls = calls + n
-    end
-    assert(calls == 1, "expected one achievement journal call site, found " .. calls)
-    assert(tokens == calls, "ShowAchievementFrameForAchievement is used other than as a direct call")
-    for _, path in ipairs({ "UI/Browser/Item.lua", "UI/Browser/Sources.lua" }) do
-        assert(sources[path]:find("W.OpenAchievement(", 1, true), path .. " does not use the shared opener")
-    end
-end
-
--- Quest hyperlinks show on the browser's own tooltip only: the quest log and map are never opened.
-do
-    local text = sources["UI/Browser/Sources.lua"]
-    assert(text:find('GetQuestLink(d.questID) or ("quest:" .. d.questID)', 1, true),
-        "quest rows lack the quest: fallback link")
-end
 
 -- The scan must catch what it claims to: run the same rules against known-bad text.
 do
@@ -175,6 +156,44 @@ do
     local good = 'SM:GetItemPresentation(itemID, { context = "browser" }) CS:IsOwnedFresh(itemID, true)'
     for _, rule in ipairs(callRules) do
         assert(pcall(scanCalls, "probe", good, rule), "the call rules rejected an allowed call")
+    end
+
+    local badText = {
+        "hooksecurefunc(\"Foo\", f)",
+        "tinsert(UISpecialFrames, name)",
+        "UIPanelWindows[name] = {}",
+        "ShowUIPanel(frame)",
+        "searcher:SetSearchText(text)",
+        "catalog_searcher:SetSearchText(text)",
+        "local s = C_HousingCatalog.CreateCatalogSearcher()",
+        "C_Map.OpenWorldMap(id)",
+        "frame.TabGlowAnimation:Play()",
+        "ShowAchievementFrameForAchievement(id)",
+        "local r, g, b = C_Item.GetItemQualityColor(q)",
+        "group:SetLooping(\"REPEAT\")",
+        "group:SetLooping('bounce')",
+        "<AnimationGroup name=\"A\" looping=\"REPEAT\"/>",
+        "b:RegisterForClicks(\"RightButtonUp\")",
+        "b:SetScript(\"OnDoubleClick\", f)",
+        "if IsShiftKeyDown() then end",
+        "if IsControlKeyDown() then end",
+        "if IsAltKeyDown() then end",
+        "if IsModifiedClick(\"CHATLINK\") then end",
+        "local tip = CreateFrame(\"GameTooltip\", nil, UIParent)",
+    }
+    for _, snippet in ipairs(badText) do
+        assert(not pcall(checkBans, "probe", snippet), "the bans missed: " .. snippet)
+    end
+    local goodText = {
+        "group:SetLooping(\"NONE\")",
+        "group:SetLooping('none')",
+        "<AnimationGroup name=\"A\" looping=\"NONE\"/>",
+        "CreateFrame(\"GameTooltip\", \"HomesteadBrowserTooltip\", UIParent, \"GameTooltipTemplate\")",
+        "b:RegisterForClicks(\"LeftButtonUp\")",
+        "local search = CreateFrame(\"EditBox\", nil, band, \"SearchBoxTemplate\")",
+    }
+    for _, snippet in ipairs(goodText) do
+        assert(pcall(checkBans, "probe", snippet), "the bans rejected allowed text: " .. snippet)
     end
 end
 

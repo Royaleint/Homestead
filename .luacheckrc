@@ -52,7 +52,7 @@ read_globals = {
     "GameTooltip", "GameTooltip_Hide",
     "GameTooltip_AddNormalLine", "GameTooltip_SetTitle",
     "GameTooltip_AddColoredLine", "GameTooltip_AddColoredDoubleLine",
-    "NORMAL_FONT_COLOR", "NEW_ITEM_ATLAS_BY_QUALITY", "Item",
+    "NORMAL_FONT_COLOR", "Item",
     "ItemRefTooltip",
     "MerchantFrame", "MerchantFrameTab1", "MerchantFrameTab2",
     "MerchantNextPageButton", "MerchantPrevPageButton",
@@ -93,6 +93,7 @@ read_globals = {
     "C_Housing",
     "C_AreaPoiInfo",
     "C_HousingCatalog",
+    "C_ColorOverrides",
     "C_Item",
     "C_Map",
     "C_MerchantFrame",
@@ -111,8 +112,6 @@ read_globals = {
 
     -- WoW API (functions)
     "GetAchievementCriteriaInfo", "GetAchievementInfo", "GetAchievementLink", "GetQuestLink",
-    "ShowAchievementFrameForAchievement", "CreateTexturePool",
-    "CAMERA_TRANSITION_TYPE_IMMEDIATE", "CAMERA_MODIFICATION_TYPE_DISCARD",
     "GetItemCount", "GetItemInfo", "GetItemInfoInstant",
     "GetCoinTextureString", "BreakUpLargeNumbers",
     "GetCVarBool",  -- HS-347: dungeon/delve entrance map-legend filter check
@@ -173,6 +172,5 @@ files["Locale/enUS.lua"] = {
         "GENERAL", "CLOSE", "MINIMAP_LABEL", "BLIZZARD_STORE", "WORLDMAP_BUTTON",
         "SHIFT_KEY_TEXT", "ALT_KEY_TEXT", "CTRL_KEY_TEXT", "HOUSING_DASHBOARD_ENDEAVOR",
         "BROWSE_NO_RESULTS", "FACTION_ALLIANCE", "FACTION_HORDE",
-        "EXPANSION_NAME0", "EXPANSION_NAME1", "EXPANSION_NAME2", "EXPANSION_NAME3", "EXPANSION_NAME4", "EXPANSION_NAME5", "EXPANSION_NAME6", "EXPANSION_NAME7", "EXPANSION_NAME8", "EXPANSION_NAME9", "EXPANSION_NAME10", "EXPANSION_NAME11",
     },
 }

@@ -3,15 +3,13 @@
 local root = (... or "."):gsub("\\\\", "/"):gsub("/+$", "")
 
 -------------------------------------------------------------------------------
--- Decor browser data adapter (UI/Browser/Adapter.lua): Recently Acquired,
--- the vendor-list predicate, hide-owned rules, item status, vendor counts,
--- the catalog memo, progress and Near You. The real Style, VendorFilter, enUS
--- and Adapter files run against stubbed Homestead modules and WoW globals.
+-- Decor browser data adapter (UI/Browser/Adapter.lua): the vendor-list
+-- predicate, item status, vendor counts, the catalog memo, progress, the
+-- faction label and Near You. The real Style, VendorFilter, enUS and Adapter
+-- files run against stubbed Homestead modules and WoW globals.
 -------------------------------------------------------------------------------
 
-local NOW = 1800000000
 local T0 = 1700000000
-rawset(_G, "time", function() return NOW end)
 rawset(_G, "GetBuildInfo", function() return "12.0.1", "1", "1", 120001 end)
 
 local function newEnv()
@@ -43,112 +41,6 @@ end
 local function addOwned(HA, store, itemID, firstSeen)
     store.records[itemID] = { isOwned = true, firstSeen = firstSeen }
     HA.DecorMapping[itemID + 500000] = itemID
-end
-
-local function ids(list)
-    local t = {}
-    for i, r in ipairs(list) do t[i] = r.itemID end
-    return table.concat(t, ",")
-end
-
--------------------------------------------------------------------------------
--- Recently Acquired (fixtures for the baseline rule)
--------------------------------------------------------------------------------
-
-do
-    -- First scan only: every record lands within seconds of the earliest.
-    local HA, store, D = newEnv()
-    for i = 1, 100 do addOwned(HA, store, i, T0 + (i % 6)) end
-    assert(#D.RecentlyAcquired(3) == 0, "first scan alone must show nothing")
-
-    -- First scan plus three later purchases.
-    for i = 1, 3 do addOwned(HA, store, 200 + i, T0 + 3600 * i) end
-    D.InvalidateMemos()
-    assert(ids(D.RecentlyAcquired(3)) == "203,202,201", ids(D.RecentlyAcquired(3)))
-    assert(ids(D.RecentlyAcquired(2)) == "203,202")
-    assert(ids(D.RecentlyAcquired(10)) == "203,202,201", "never more than exist")
-end
-
-do
-    -- Clear-cache re-stamp: the next scan stamps every record at one time.
-    local HA, store, D = newEnv()
-    for i = 1, 103 do addOwned(HA, store, i, T0 + 86400 + (i % 4)) end
-    assert(#D.RecentlyAcquired(3) == 0, "a re-stamp must read as baseline")
-end
-
-do
-    -- Partial first scan, then a bulk rescan well after it.
-    local HA, store, D = newEnv()
-    for i = 1, 10 do addOwned(HA, store, i, T0) end
-    for i = 1, 60 do addOwned(HA, store, 100 + i, T0 + 600 + (i % 10)) end
-    assert(#D.RecentlyAcquired(3) == 0, "a bulk rescan must read as baseline")
-    addOwned(HA, store, 900, T0 + 5000)
-    addOwned(HA, store, 901, T0 + 5100)
-    D.InvalidateMemos()
-    assert(ids(D.RecentlyAcquired(5)) == "901,900", ids(D.RecentlyAcquired(5)))
-end
-
-do
-    -- No owned records, and records that are not owned.
-    local HA, store, D = newEnv()
-    assert(#D.RecentlyAcquired(3) == 0)
-    store.records[5] = { isOwned = false, firstSeen = T0 + 9999 }
-    HA.DecorMapping[500005] = 5
-    D.InvalidateMemos()
-    assert(#D.RecentlyAcquired(3) == 0, "unowned records never qualify")
-
-    -- Ownership not yet known: empty, and not remembered once it is.
-    addOwned(HA, store, 1, T0)
-    addOwned(HA, store, 2, T0 + 5000)
-    store.known = false
-    D.InvalidateMemos()
-    assert(#D.RecentlyAcquired(3) == 0)
-    store.known = true
-    assert(ids(D.RecentlyAcquired(3)) == "2", "knowing ownership later must not read a stale empty set")
-end
-
-do
-    -- K edge: 49 records in a crowd stay, 50 are baseline.
-    for _, case in ipairs({ { 49, 49 }, { 50, 0 } }) do
-        local HA, store, D = newEnv()
-        for i = 1, 10 do addOwned(HA, store, i, T0 + (i % 3)) end
-        for i = 1, case[1] do addOwned(HA, store, 100 + i, T0 + 1000 + (i % 20)) end
-        HA.DecorMapping[900001] = 101 -- a second decor record for the same item must not count twice
-        assert(#D.RecentlyAcquired(100) == case[2],
-            "crowd of " .. case[1] .. " expected " .. case[2] .. ", got " .. #D.RecentlyAcquired(100))
-    end
-
-    -- W edge: exactly W after the earliest is baseline, one second later is not.
-    local HA, store, D = newEnv()
-    addOwned(HA, store, 1, T0)
-    addOwned(HA, store, 2, T0 + 30)
-    addOwned(HA, store, 3, T0 + 31)
-    assert(ids(D.RecentlyAcquired(5)) == "3", ids(D.RecentlyAcquired(5)))
-
-    -- Ties on firstSeen fall to the higher itemID first.
-    addOwned(HA, store, 10, T0 + 4000)
-    addOwned(HA, store, 11, T0 + 4000)
-    D.InvalidateMemos()
-    assert(ids(D.RecentlyAcquired(5)) == "11,10,3", ids(D.RecentlyAcquired(5)))
-end
-
-do
-    -- Memo: one walk until invalidated; IsNew reads the same set.
-    local HA, store, D = newEnv()
-    addOwned(HA, store, 1, T0)
-    addOwned(HA, store, 2, NOW - 3600)
-    addOwned(HA, store, 3, NOW - 8 * 86400)
-    D.RecentlyAcquired(3)
-    local calls = store.getCalls
-    D.RecentlyAcquired(3)
-    assert(D.IsNew(2) == true, "within the new window")
-    assert(D.IsNew(3) == false, "outside the new window")
-    assert(D.IsNew(1) == false, "baseline is never new")
-    assert(store.getCalls == calls, "memoised reads must not walk again")
-    addOwned(HA, store, 4, NOW - 60)
-    D.InvalidateMemos()
-    assert(D.IsNew(4) == true)
-    assert(store.getCalls > calls, "invalidation must force a new walk")
 end
 
 -------------------------------------------------------------------------------
@@ -200,65 +92,31 @@ do
     assert(D.IsListedVendor({ npcID = 8 }) == true)
     assert(activeCalls == before, "only Endeavor vendors consult the Endeavor state")
 
-    -- VendorsByExpansion applies the same predicate.
-    HA.VendorData.GetVendorsByExpansion = function()
-        return { { npcID = 20 }, { npcID = 21, removed = true }, { npcID = 8, endeavor = true }, { npcID = 22 } }
-    end
-    local listed = D.VendorsByExpansion("Midnight")
-    assert(#listed == 2 and listed[1].npcID == 20 and listed[2].npcID == 22)
+
 end
 
 -------------------------------------------------------------------------------
--- Expansion list
+-- Faction label and the vendor requirement line: the effective faction, never nil in a format
 -------------------------------------------------------------------------------
 
 do
     local HA, _, D = newEnv()
-    HA.VendorIdentity = { GetAllVendors = function()
-        return {
-            { npcID = 1, expansion = "Classic" }, { npcID = 2, expansion = "Midnight" },
-            { npcID = 3, expansion = "Events" }, { npcID = 4, expansion = "Zeta" },
-            { npcID = 5, expansion = "Alpha" }, { npcID = 6 },
-        }
-    end }
-    HA.EndeavorsData = { Vendors = { [7] = { npcID = 7, expansion = "The War Within" } } }
-    local list = D.Expansions()
-    assert(table.concat(list, "|") == "Midnight|The War Within|Classic|Alpha|Zeta|Events", table.concat(list, "|"))
-    assert(D.Expansions() == list, "memoised for the session")
-    assert(D.ExpansionLabel("Events") == "Other Vendors")
-    assert(D.ExpansionLabel("Midnight") == "Midnight")
-    assert(D.ExpansionLabel("Alpha") == "Alpha", "unknown keys display as themselves")
-end
+    local allianceMap, hordeMap = 1, 2
+    HA.Constants.ZoneToFactionMap[allianceMap] = "Alliance"
+    HA.Constants.ZoneToFactionMap[hordeMap] = "Horde"
+    local nilInHorde = { npcID = 1, mapID = hordeMap }
+    local neutralInHorde = { npcID = 2, mapID = hordeMap, faction = "Neutral" }
+    assert(D.VendorFactionLabel(nilInHorde) == "Horde", "a vendor with no faction labels its map's faction")
+    assert(D.VendorFactionLabel(neutralInHorde) == "Horde", "a Neutral vendor must not label as Neutral")
+    assert(D.VendorFactionLabel({ npcID = 9 }) == nil, "no faction and no map gives no label")
 
--------------------------------------------------------------------------------
--- Hide owned, and the owned == total > 0 rule
--------------------------------------------------------------------------------
-
-do
-    local HA, store, D = newEnv()
-    addOwned(HA, store, 1, T0)
-    assert(D.HidesOwnedItem(1) == true)
-    assert(D.HidesOwnedItem(2) == false)
-    assert(D.HidesOwnedVendor(3, 3) == true)
-    assert(D.HidesOwnedVendor(0, 0) == false, "no knowable wares is never hidden")
-    assert(D.HidesOwnedVendor(3, 4) == false)
-    assert(D.HidesOwnedVendor(nil, nil) == false, "a cold count cache never hides a vendor")
-    assert(D.HidesOwnedVendor(3, nil) == false)
-
-    store.known = false
-    assert(D.HidesOwnedItem(1) == false, "unknown ownership removes nothing")
-    assert(D.HidesOwnedVendor(3, 3) == false, "unknown ownership removes no vendor")
-
-    -- Source rows follow the same rule.
-    HA.DropSources = { [1] = { mobName = "Alpha" }, [2] = { mobName = "Beta" } }
-    rawset(_G, "C_Item", { GetItemNameByID = function(id) return "Item" .. id end })
-    local shownUnknown = D.SourceList("drops", "", true)
-    assert(#shownUnknown == 2, "unknown ownership keeps owned rows")
-    store.known = true
-    local rows = D.SourceList("drops", "", true)
-    assert(#rows == 1 and rows[1].itemID == 2, "known ownership removes the owned row")
-    local searched = D.SourceList("drops", "ALPHA", false)
-    assert(#searched == 1, "search is case-insensitive over names")
+    assert(D.VendorRequirements({ npcID = 3, mapID = allianceMap, faction = "Horde" }, {})[1] == "Horde")
+    assert(D.VendorRequirements(neutralInHorde, {})[1] == "Horde", "a Neutral vendor in a Horde map lists Horde")
+    assert(D.VendorRequirements({ npcID = 7, mapID = allianceMap, faction = "Neutral" }, {})[1] == "Alliance")
+    local nilInAlliance = D.VendorRequirements({ npcID = 4, mapID = allianceMap }, {})
+    assert(#nilInAlliance == 1 and nilInAlliance[1] == "Alliance", "a vendor with no faction in an Alliance map lists exactly Alliance")
+    assert(#D.VendorRequirements({ npcID = 5, faction = "Neutral" }, {}) == 0, "no faction map lists no faction")
+    assert(#D.VendorRequirements({ npcID = 8 }, {}) == 0, "no faction and no map lists no faction")
 end
 
 -------------------------------------------------------------------------------
@@ -401,24 +259,17 @@ do
     assert(line({ type = "vendor", name = "V", zone = "Z" }) == "Vendor: V, Z")
     assert(D.SourceLine(1, {}) == "Source unknown")
 
-    -- A journal-anchored drop carries an area ID in mapID: no waypoint, no map data.
+    -- A journal-anchored drop carries an area ID in mapID: no map data.
     HA.DropSources = {
         [1] = { mobName = "Rare", zone = "Z", mapID = 14, coords = { x = 0.4, y = 0.5 } },
         [2] = { mobName = "Boss", zone = "Y", mapID = 7673, coords = { x = 0.4, y = 0.5 }, journalEncounterID = 9 },
         [3] = { mobName = "Dungeon", zone = "W", mapID = 7673, coords = { x = 0.4, y = 0.5 }, journalInstanceID = 8 },
     }
-    rawset(_G, "C_Item", { GetItemNameByID = function(id) return "Item" .. id end })
-    local rows = D.SourceList("drops", "", false)
-    local byItem = {}
-    for _, r in ipairs(rows) do byItem[r.itemID or 0] = r end
-    assert(byItem[1].wp and byItem[1].wp.mapID == 14, "a plain drop keeps its waypoint")
-    assert(byItem[2].wp == nil and byItem[3].wp == nil, "journal drops get no waypoint")
-
     HA.SourceManager = { GetAllSources = function(_, itemID)
         return { { type = "drop", data = HA.DropSources[itemID] } }
     end }
     local plain, boss = D.ItemSources(1)[1], D.ItemSources(2)[1]
-    assert(plain.mapID == 14 and plain.x == 0.4)
+    assert(plain.mapID == 14 and plain.x == 0.4, "a plain drop keeps its map data")
     assert(boss.mapID == nil and boss.x == nil and boss.y == nil, "journal drop source has no map data")
 end
 
@@ -474,12 +325,11 @@ do
 end
 
 -------------------------------------------------------------------------------
--- Holiday vendors: listed on Events in or out of season, hidden everywhere else
+-- Holiday vendors: always available to the holiday list with a season tag, unlisted elsewhere out of season
 -------------------------------------------------------------------------------
 
 do
     local HA, _, D = newEnv()
-    rawset(_G, "C_Item", { GetItemNameByID = function(id) return "Item" .. id end })
     local running = { ["Lunar Festival"] = true }
     HA.EventSources = {
         [900] = { event = "Lunar Festival", vendorName = "Valadar", zone = "Moonglade" },
@@ -496,33 +346,20 @@ do
         return v ~= nil and not running[v.event]
     end
     function VD.GetVendorItems() return { 900 } end
-    function VD.GetVendorsByExpansion()
-        return { { npcID = 1, name = "Plain" }, HA.EventSources.EventVendors[15864], HA.EventSources.EventVendors[273402] }
-    end
 
-    local function layout(search, hide)
-        local rows = D.SourceList("events", search or "", hide or false)
+    local function holiday()
         local t = {}
-        for _, r in ipairs(rows) do
-            t[#t + 1] = r.kind == "header" and ("[" .. r.text .. "]")
-                or r.kind == "vendor" and (r.vendor.name .. (r.active and ":Active" or ":Not Active"))
-                or ("item" .. r.itemID)
-        end
+        for _, v in ipairs(D.HolidayVendors()) do t[#t + 1] = v.name .. (D.HolidayActive(v) and ":Active" or ":Not Active") end
+        table.sort(t)
         return table.concat(t, ",")
     end
-    assert(layout() == "[Hallow's End],Echo:Not Active,Jack:Not Active,item901,[Lunar Festival],Valadar:Active,item900",
-        "vendors sort ahead of their holiday's items, each tagged by season: " .. layout())
+    assert(holiday() == "Echo:Not Active,Jack:Not Active,Valadar:Active",
+        "every holiday vendor is available, each tagged by season: " .. holiday())
     running["Hallow's End"] = true
-    assert(layout():find("Echo:Active,Jack:Active", 1, true), "the tag follows the holiday state on the next build")
+    assert(holiday() == "Echo:Active,Jack:Active,Valadar:Active", "the tag follows the holiday state: " .. holiday())
     running["Hallow's End"] = false
-    assert(layout("jack") == "[Hallow's End],Jack:Not Active", "search filters the holiday vendors: " .. layout("jack"))
-
-    assert(D.SourceList("drops", "", false) ~= nil and not layout():find("drops"), "other sources never gain vendor rows")
 
     -- Every other surface still drops the out-of-season ones.
-    local names = {}
-    for _, v in ipairs(D.VendorsByExpansion("Midnight")) do names[#names + 1] = v.name end
-    assert(table.concat(names, ",") == "Plain,Valadar", "Vendors lists only vendors in season: " .. table.concat(names, ","))
     assert(D.IsListedVendor(HA.EventSources.EventVendors[273402]) == false, "Near You and the lists share this predicate")
     assert(D.IsListedVendor(HA.EventSources.EventVendors[15864]) == true)
 
@@ -536,7 +373,7 @@ do
 
     -- The pin setting still hides event vendors.
     HA.Addon.db.profile.vendorTracer.showEventVendors = false
-    assert(layout() == "[Hallow's End],item901,[Lunar Festival],item900", "event vendors off: " .. layout())
+    assert(holiday() == "", "event vendors off: " .. holiday())
 end
 
 -------------------------------------------------------------------------------
