@@ -68,6 +68,7 @@ local SOURCE_TABLES = {
 }
 local SOURCE_KEYS = { "vendors", "achievements", "quests", "professions", "drops", "events", "shop" }
 CG.SOURCE_KEYS = SOURCE_KEYS
+CG.SOURCE_TABLES = SOURCE_TABLES
 
 local function GoldOnly(cost)
     return cost ~= nil and (cost.gold or 0) > 0 and not (cost.currencies and cost.currencies[1])

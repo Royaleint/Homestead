@@ -293,42 +293,6 @@ function D.Price(itemID, vendor)
     return HA.VendorData:FormatCost(cost)
 end
 
--- state: owned | unlocked | locked | unknown. Owned and unknown come from OwnState. fresh also asks the
--- catalog directly (no write), so the open item page sees a purchase made since the last scan.
-function D.ItemStatus(itemID, npcID, fresh)
-    local out = { state = "unknown" }
-    if D.IsExcluded(itemID) then
-        out.excluded = true
-        return out
-    end
-    local own = D.OwnState(itemID, D.CatalogInfo(itemID, B.State and B.State.catalogMemo))
-    if own ~= "notOwned" then
-        if own == "owned" then out.state = "owned" end
-        return out
-    end
-    local pres = HA.SourceManager:GetItemPresentation(itemID, {
-        context = "browser",
-        npcID = npcID,
-        isVendorContext = npcID ~= nil,
-    })
-    if not pres then return out end
-    out.labels = pres.blockerLabels
-    out.excluded = pres.isOwnershipExcluded
-    local a = pres.availabilityState
-    if pres.isOwnershipExcluded then
-        out.state = "unknown"
-    elseif a == "purchasable" or a == "available" then
-        out.state = "unlocked"
-    elseif a == "locked" or a == "blocked" or a == "unobtainable" then
-        out.state = "locked"
-    end
-    if fresh and (out.state == "unlocked" or out.state == "locked")
-            and HA.CatalogStore:IsOwnedFresh(itemID, true) then
-        out.state = "owned"
-    end
-    return out
-end
-
 function D.RecordID(itemID, info)
     local entry = info and info.entryID
     if type(entry) == "table" and entry.recordID then return entry.recordID end
@@ -506,11 +470,9 @@ end
 -- before storage loads they read 0 for owned items.
 function D.TooltipData(itemID, npcID, catalogMemo)
     local info = D.CatalogInfo(itemID, catalogMemo)
-    local st = D.ItemStatus(itemID, npcID)
     local out = {
         name = D.ItemName(itemID) or (info and info.name) or L["Item %d"]:format(itemID),
         quality = info and info.quality or C_Item.GetItemQualityByID(itemID),
-        state = st.state,
     }
     if info and D.CollectionState() == "ready" then
         out.counts = {

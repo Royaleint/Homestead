@@ -38,7 +38,7 @@ end
 
 -- Plain substrings that must not appear anywhere.
 local bannedPlain = {
-    "SetOwned", "SetUnowned", "ProbeByDecorID",
+    "SetOwned", "SetUnowned", "ProbeByDecorID", "GetItemPresentation",
     "GetItemAvailabilityState", "GetItemStatusIcon", "GetItemStatusColor",
     "UISpecialFrames", "UIPanelWindows", "ShowUIPanel", "hooksecurefunc", "WorldMapFrame", "QuestMapFrame_",
     "SetItemRef", "ItemRefTooltip", "HousingModelPreviewFrame", "UnregisterCallbacks",
@@ -73,8 +73,6 @@ local callRules = {
     { name = "GetVendorItemAvailabilityState",
       what = "GetVendorItemAvailabilityState must be the three-argument form ending in true",
       ok = function(args) return args:match("^[^,]+,[^,]+,%s*true%s*$") ~= nil end },
-    { name = "GetItemPresentation", what = 'GetItemPresentation must pass context = "browser"',
-      ok = function(args) return args:match('context%s*=%s*"browser"') ~= nil end },
 }
 
 -- Checks every direct call of rule.name in text, and that no other use of the name exists
@@ -117,23 +115,14 @@ local function checkBans(path, text)
     checkLooping(path, text)
 end
 
-local presentationCalls = 0
 for _, path in ipairs(files) do
     local text = sources[path]
     checkBans(path, text)
 
     for _, rule in ipairs(callRules) do
-        local calls = scanCalls(path, text, rule)
-        -- Presentation reads live in the adapter only.
-        if rule.name == "GetItemPresentation" then
-            if calls > 0 and not path:match("/Adapter%.lua$") then
-                fail(path, "GetItemPresentation outside the adapter")
-            end
-            presentationCalls = presentationCalls + calls
-        end
+        scanCalls(path, text, rule)
     end
 end
-assert(presentationCalls >= 1, "the adapter makes no presentation read; the scan is vacuous")
 
 -- The scan must catch what it claims to: run the same rules against known-bad text.
 do
@@ -143,8 +132,6 @@ do
         "CatalogStore:IsOwnedFresh(\n    itemID\n)",
         "local f = CatalogStore.IsOwnedFresh; f(CatalogStore, itemID)",
         "SM:GetVendorItemAvailabilityState(itemID, npcID)",
-        'SM:GetItemPresentation(itemID, { context = "sidePanel" })',
-        "local g = SM.GetItemPresentation",
     }
     for _, snippet in ipairs(bad) do
         local caught = false
@@ -153,7 +140,7 @@ do
         end
         assert(caught, "the call rules missed: " .. snippet)
     end
-    local good = 'SM:GetItemPresentation(itemID, { context = "browser" }) CS:IsOwnedFresh(itemID, true)'
+    local good = 'CS:IsOwnedFresh(itemID, true)'
     for _, rule in ipairs(callRules) do
         assert(pcall(scanCalls, "probe", good, rule), "the call rules rejected an allowed call")
     end
@@ -180,6 +167,7 @@ do
         "if IsAltKeyDown() then end",
         "if IsModifiedClick(\"CHATLINK\") then end",
         "local tip = CreateFrame(\"GameTooltip\", nil, UIParent)",
+        "local p = SM:GetItemPresentation(itemID, { context = \"browser\" })",
     }
     for _, snippet in ipairs(badText) do
         assert(not pcall(checkBans, "probe", snippet), "the bans missed: " .. snippet)

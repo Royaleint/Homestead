@@ -68,14 +68,12 @@ local function newEnv()
     }
     for _, file in ipairs({ "Locale/enUS.lua", "Data/CatalogStore.lua", "Data/SourceManager.lua",
         "UI/VendorFilter.lua", "UI/Browser/Style.lua", "UI/Browser/Adapter.lua", "UI/Browser/Facts.lua",
-        "UI/Browser/CanGet.lua" }) do
+        "UI/Browser/CanGet.lua", "UI/Browser/Item.lua" }) do
         assert(loadfile(root .. "/" .. file))("Homestead", HA)
     end
     local SM = HA.SourceManager
     SM.GetAllSources = function(_, id) return env.sources[id] or {} end
     SM.GetRequirements = function() return {} end
-    env.realPresentation = SM.GetItemPresentation
-    SM.GetItemPresentation = function() return { availabilityState = "purchasable" } end
     local store = HA.CatalogStore
     for name in pairs(env.spies) do
         local original = store[name]
@@ -135,7 +133,6 @@ do
     HA.AchievementSources[102] = { achievementID = 8 }
     assert(HA.CatalogStore:Get(101) == nil, "sanity: no stored record")
     assert(D.OwnState(101, env.catalog[101]) == "owned", "a readable entry with counts reads owned")
-    assert(D.ItemStatus(101).state == "owned", "the item shows Collected")
     local p = CG.Walk().progress
     assert(p.src.achievements.total == 2 and p.src.achievements.owned == 1,
         "counted in Achievements collected: " .. p.src.achievements.owned)
@@ -157,7 +154,6 @@ do
     assert(CG.Offer(201, nil) == "owned")
     assert(D.OwnState(202, env.catalog[202]) == "notOwned", "a readable entry with counts 0 is not owned")
     assert(D.OwnState(203, nil) == nil, "no entry and no stored owned is unknown")
-    assert(D.ItemStatus(203).state == "unknown", "no Collected or Not collected word")
     local p = CG.Walk().progress
     assert(p.total == 3 and p.owned == 1, "the unknown item counts in the total, not as collected")
     assert(p.src.quests.total == 1 and p.src.quests.owned == 0)
@@ -196,7 +192,6 @@ do
     assert(D.OwnState(402, env.catalog[402]) == nil)
     assert(CG.Offer(402, 51) == "unknown" and CG.Walk() == nil and CG.Entry(402) == nil)
     assert(#env.measured == 0, "no walk runs before the first read")
-    assert(D.ItemStatus(401).state == "unknown")
     print("hs538_ownership: nothing before the first read ok")
 end
 
@@ -220,7 +215,7 @@ end
 -------------------------------------------------------------------------------
 
 do
-    local env, HA, D, CG = newEnv()
+    local env, HA, _, CG = newEnv()
     env.records({ [601] = { isOwned = true, decorID = 1601 }, [602] = { name = "Lamp" } })
     env.decor(601, ZERO)
     env.decor(602, { totalNumPlaced = 1 })
@@ -233,8 +228,9 @@ do
     CG.Rank()
     CG.Fill()
     for _, id in ipairs({ 601, 602, 603, 604 }) do
-        D.ItemStatus(id, 53, true)
         CG.HiddenBy(id)
+        HA.DecorBrowser.ItemState(id, 53)
+        HA.DecorBrowser.ItemState(id)
     end
     assert(w.progress.owned == 3, "sanity: two items were derived as owned")
     assert(deepEqual(before, HA.Addon.db.global), "the saved catalog must be unchanged by a walk")
@@ -243,30 +239,6 @@ do
         "a derived owned must never reach the store")
     for name, n in pairs(env.spies) do assert(n == 0, name .. " was called " .. n .. " times") end
     print("hs538_ownership: no CatalogStore writes ok")
-end
-
--- The same through the real item presentation an uncollected item's status reads.
-do
-    local env, HA, D = newEnv()
-    env.records({ [611] = { isOwned = true, decorID = 1611 } })
-    env.decor(611, ZERO)
-    env.decor(612, ZERO)
-    env.sell(612, 53)
-    local real = 0
-    HA.SourceManager.GetItemPresentation = function(...)
-        real = real + 1
-        return env.realPresentation(...)
-    end
-    local before = deepCopy(HA.Addon.db.global)
-    for _, id in ipairs({ 611, 612 }) do
-        D.ItemStatus(id, 53, true)
-        D.ItemStatus(id, 53)
-        D.ItemStatus(id)
-    end
-    assert(real >= 3, "sanity: the uncollected item's status read the real presentation")
-    assert(deepEqual(before, HA.Addon.db.global), "the saved catalog must be unchanged by a status read")
-    for name, n in pairs(env.spies) do assert(n == 0, name .. " was called " .. n .. " times") end
-    print("hs538_ownership: real presentation writes nothing ok")
 end
 
 -------------------------------------------------------------------------------

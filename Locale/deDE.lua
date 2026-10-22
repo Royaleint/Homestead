@@ -444,4 +444,27 @@ L["%d hidden by '%s' (%d collected, %d %s only)."] = "%d ausgeblendet durch '%s'
 -------------------------------------------------------------------------------
 -- Decor Browser: Item
 -------------------------------------------------------------------------------
+L["Vendor:"] = "Händler:"
+L["Zone:"] = "Gebiet:"
+L["Cost:"] = "Kosten:"
+L["Achievement:"] = "Erfolg:"
+L["Quest:"] = "Quest:"
+L["Recipe:"] = "Rezept:"
+L["Profession:"] = "Beruf:"
+L["Drop:"] = "Beute:"
+L["Event:"] = "Ereignis:"
+L["Starts in %s"] = "Beginnt in %s"
+L["Daily from The Last Architect"] = "Täglich von The Last Architect"
+L["Set dig site waypoint"] = "Wegpunkt für Grabungsstätte setzen"
+L["Can get now here"] = "Hier jetzt erhältlich"
+L["Confirmed by a scan on %s"] = "Durch einen Scan am %s bestätigt"
+L["Where to get it"] = "Wo man es bekommt"
+L["Show achievement"] = "Erfolg zeigen"
+L["Show quest"] = "Quest zeigen"
+L["Show recipe"] = "Rezept zeigen"
+L["Show drop"] = "Beute zeigen"
+L["Show event"] = "Ereignis zeigen"
+L["%s (done)"] = "%s (erledigt)"
+L["%s (not yet)"] = "%s (noch nicht)"
+L["Active now: %s"] = "Jetzt aktiv: %s"
 -- end: Item

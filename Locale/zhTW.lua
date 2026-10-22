@@ -444,4 +444,27 @@ L["%d hidden by '%s' (%d collected, %d %s only)."] = "已隱藏 %d 項（'%s'）
 -------------------------------------------------------------------------------
 -- Decor Browser: Item
 -------------------------------------------------------------------------------
+L["Vendor:"] = "商人："
+L["Zone:"] = "區域："
+L["Cost:"] = "花費："
+L["Achievement:"] = "成就："
+L["Quest:"] = "任務："
+L["Recipe:"] = "配方："
+L["Profession:"] = "專業技能："
+L["Drop:"] = "掉落："
+L["Event:"] = "事件："
+L["Starts in %s"] = "於%s開始"
+L["Daily from The Last Architect"] = "來自The Last Architect的每日任務"
+L["Set dig site waypoint"] = "設定挖掘點路徑點"
+L["Can get now here"] = "現在可在此取得"
+L["Confirmed by a scan on %s"] = "已於%s透過掃描確認"
+L["Where to get it"] = "取得方式"
+L["Show achievement"] = "顯示成就"
+L["Show quest"] = "顯示任務"
+L["Show recipe"] = "顯示配方"
+L["Show drop"] = "顯示掉落"
+L["Show event"] = "顯示事件"
+L["%s (done)"] = "%s（已完成）"
+L["%s (not yet)"] = "%s（尚未）"
+L["Active now: %s"] = "目前啟用：%s"
 -- end: Item

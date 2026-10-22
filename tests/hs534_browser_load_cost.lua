@@ -99,10 +99,8 @@ for _, fn in ipairs({ "Toggle", "Open", "Close", "RequestRefresh",
 end
 assert(B.Window.frame == nil, "the window exists before the first open")
 
-for _, fn in ipairs({ "Build", "Show", "Hide", "SetCombatGated", "ReportText" }) do
-    assert(type(B.Item and B.Item[fn]) == "function", "Item." .. fn .. " is missing")
-end
-for _, fn in ipairs({ "Build", "Show", "Clear", "SetCombat" }) do
+assert(B.Item == nil, "the item page leaks a second public table")
+for _, fn in ipairs({ "Build", "Show", "Clear", "SetCombat", "ReportText" }) do
     assert(type(B.ItemDetail and B.ItemDetail[fn]) == "function", "ItemDetail." .. fn .. " is missing")
 end
 for _, fn in ipairs({ "RegisterTab", "ShowTab", "Walk", "SetLocation" }) do
