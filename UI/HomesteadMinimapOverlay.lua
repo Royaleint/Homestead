@@ -14,6 +14,7 @@ HA.HomesteadMinimapOverlay = Overlay
 
 local PinFrameFactory = HA.PinFrameFactory
 local FPU = HA.FramePoolUtils
+local MapPinProvider = HA.MapPinProvider
 
 local cos, sin, max, sqrt = math.cos, math.sin, math.max, math.sqrt
 local format = string.format
@@ -313,6 +314,12 @@ local function DrawPin(pin, playerX, playerY, rotateMinimap)
     end
 
     if dist <= 1 or pin.floatOnEdge then
+        -- HS-536: show/hide and range above use the real position; the
+        -- display-only overlap nudge is added only to where the pin is drawn.
+        if pin.nudgeX then
+            diffX, diffY = MapPinProvider.NudgeMinimapPosition(diffX, diffY, pin.nudgeX, pin.nudgeY,
+                minimapWidth, minimapHeight, mapSin, mapCos, rotateMinimap, isRound)
+        end
         local pixelX = diffX * minimapWidth
         local pixelY = -diffY * minimapHeight
         local clearRadiusSq = PLAYER_ARROW_CLEAR_RADIUS * PLAYER_ARROW_CLEAR_RADIUS
