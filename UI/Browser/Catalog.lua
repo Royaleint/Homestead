@@ -347,6 +347,7 @@ local function BuildToolbar(bar)
         root:CreateDivider()
         root:CreateButton(L["Reset filters"], Reset)
     end)
+    sort:SetSelectionTranslator(function(sel) return L["Sort: %s"]:format(SORT[sel.data]) end)
     sort:SetupMenu(function(_, root)
         for _, k in ipairs({ "best", "name", "price" }) do
             root:CreateRadio(SORT[k], function() return cat.sort == k end, function()
@@ -355,14 +356,13 @@ local function BuildToolbar(bar)
             end, k)
         end
     end)
-    sort:SetSelectionTranslator(function(sel) return L["Sort: %s"]:format(SORT[sel.data]) end)
     function sort.Set(k)
         cat.sort = k
         sort:GenerateMenu()
     end
     ui.search = W.NewSearchBox(bar, L["Search decor by name"], function(text)
         local q = text:lower():match("^%s*(.-)%s*$")
-        if silent or not cat or q == cat.q then return end
+        if silent or q == cat.q then return end
         cat.q, cat.pin = q, nil
         Apply(false)
     end)
@@ -373,6 +373,8 @@ end
 function Tab.Build(parent)
     local c = W.NewColumns(parent)
     ui.cols = c
+    -- The dropdowns build their menus at SetupMenu and again when shown, before Show runs, and read the view.
+    cat = NewView()
     BuildNav(c.nav)
     BuildToolbar(c.toolbar)
     local fl = CreateFrame("Button", nil, c.body)
@@ -399,21 +401,19 @@ end
 
 -- nil keeps the view. A table resets search, kind and filters (sort stays), applies opts, then lands on itemID.
 function Tab.Show(opts)
-    local f = opts and opts.filters or {}
-    if opts or not cat then
-        cat = NewView(opts and opts.sort or cat and cat.sort)
-        if opts then
-            cat.q = (opts.search or ""):lower():match("^%s*(.-)%s*$")
-            cat.kind = KIND[opts.kind] and opts.kind or "all"
-            if f.collected or f.notCollected then cat.coll, cat.notColl = f.collected == true, f.notCollected == true end
-            cat.canGet, cat.bonus = f.canGet == true, f.bonus == true
-            for k in pairs(cat.types) do cat.types[k] = f.sources == nil or f.sources[k] == true end
-            cat.sel = opts.itemID
-            cat.pin = opts.itemID
-            silent = true
-            ui.search:SetText(opts.search or "")
-            silent = false
-        end
+    if opts then
+        local f = opts.filters or {}
+        cat = NewView(opts.sort or cat.sort)
+        cat.q = (opts.search or ""):lower():match("^%s*(.-)%s*$")
+        cat.kind = KIND[opts.kind] and opts.kind or "all"
+        if f.collected or f.notCollected then cat.coll, cat.notColl = f.collected == true, f.notCollected == true end
+        cat.canGet, cat.bonus = f.canGet == true, f.bonus == true
+        for k in pairs(cat.types) do cat.types[k] = f.sources == nil or f.sources[k] == true end
+        cat.sel = opts.itemID
+        cat.pin = opts.itemID
+        silent = true
+        ui.search:SetText(opts.search or "")
+        silent = false
         ui.sort.Set(cat.sort)
     end
     if not recs or version ~= D.MemoVersion() or hideFor ~= B.State.hideNA then
@@ -433,7 +433,7 @@ end
 
 -- Only "data" reads the walk. The rest reuse the cached records, and may follow Hide without a Show.
 function Tab.Refresh(reason)
-    if not cat then return end
+    if not recs then return end
     if reason == "layout" or reason == "paint" then
         if reason == "layout" then
             ui.cols:Fit()

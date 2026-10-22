@@ -5,11 +5,15 @@
 -- The world is the real router, Summary, Catalog, Sources and the item detail over the real data modules,
 -- with stubbed game data and recording widgets. Tests drive it through B.ShowTab, B.SetHideNA, the tabs'
 -- Show and Refresh, the drawn rows and frames, and B.ItemState.
+-- opts.realWindow loads the real Window.lua in place of the window stub, so B:Toggle builds what the client
+-- builds. Showing a frame runs the OnShow script of each frame that becomes visible with it, and the two
+-- dropdown templates follow Blizzard's menu order (tests/hs538_menu.lua).
 
 local function noop() end
 
 return function(root, opts)
     root = root:gsub("\\", "/"):gsub("/+$", "")
+    local menuStub = assert(loadfile(root .. "/tests/hs538_menu.lua"))()
     local env = {
         done = true, attempted = true, warm = true, responded = true, faction = "Alliance",
         catalog = {}, names = {}, sources = {}, vendors = {}, offers = {}, reqs = {}, scanned = {}, records = {},
@@ -45,11 +49,42 @@ return function(root, opts)
     function methods.SetSize(self, w, h) self.width, self.height = w, h end
     function methods.SetHeight(self, h) self.height = h end
     function methods.GetHeight(self) return rawget(self, "height") or 24 end
-    function methods.SetShown(self, on) self.shown = on and true or false end
-    function methods.Show(self) self.shown = true end
-    function methods.Hide(self) self.shown = false end
+    -- Visible: shown, and every parent shown. A frame that becomes visible runs its OnShow, and so does
+    -- each shown frame under it, as the client does; becoming hidden runs OnHide the same way.
+    local function Visible(w)
+        while w do
+            if not w.shown then return false end
+            w = w.parent
+        end
+        return true
+    end
+    local function Under(f, top)
+        while f do
+            if f == top then return true end
+            f = f.parent
+        end
+    end
+    local function SetShown(self, on)
+        on = on and true or false
+        local was = Visible(self)
+        local hiding = {}
+        if was and not on then
+            for _, f in ipairs(env.all) do
+                if f.scripts and f.scripts.OnHide and Under(f, self) and Visible(f) then hiding[#hiding + 1] = f end
+            end
+        end
+        self.shown = on
+        for _, f in ipairs(hiding) do f.scripts.OnHide(f) end
+        if not on or was or not Visible(self) then return end
+        for _, f in ipairs(env.all) do
+            if f.scripts and f.scripts.OnShow and Under(f, self) and Visible(f) then f.scripts.OnShow(f) end
+        end
+    end
+    methods.SetShown = SetShown
+    function methods.Show(self) SetShown(self, true) end
+    function methods.Hide(self) SetShown(self, false) end
     function methods.IsShown(self) return self.shown end
-    function methods.IsVisible(self) return self.shown end
+    function methods.IsVisible(self) return Visible(self) end
     function methods.SetEnabled(self, on) self.enabled = on end
     function methods.IsEnabled(self) return self.enabled end
     function methods.SetChecked(self, on) self.checked = on end
@@ -67,7 +102,13 @@ return function(root, opts)
     function methods.GetTextWidth(self) return #tostring(self.text) * 6 end
     function methods.GetFrameLevel() return 1 end
     function methods.GetParent(self) return self.parent end
-    function methods.SetupMenu(self, fn) self.menu = fn end
+    function methods.GetStringWidth(self) return #tostring(self.text) * 6 end
+    function methods.SetCustomOnMouseUpHandler(self, fn) self.customMouseUpHandler = fn end
+    function methods.CreateAnimationGroup()
+        local g = Widget("AnimationGroup")
+        function g.CreateAnimation() return Widget("Animation") end
+        return g
+    end
     function methods.SetCreature(self, id) self.creature = id end
     function methods.GetModelFileID(self) return self.fileID end
     function Widget(kind)
@@ -84,6 +125,10 @@ return function(root, opts)
     -- tests read what the rows draw.
     local function Render(box)
         local view = box.view
+        -- The client measures every element before it initialises the visible ones.
+        if view.extent then
+            for i, d in ipairs(box.provider) do view.extent(i, d) end
+        end
         for _, f in ipairs(box.frames) do view.resetter(f) end
         box.frames = {}
         local used = {}
@@ -166,6 +211,22 @@ return function(root, opts)
         w.parent, w.template = parent, template
         env.all[#env.all + 1] = w
         if kind == "EditBox" then w.Instructions = Widget("FontString") end
+        if template == "WowStyle1DropdownTemplate" or template == "WowStyle1FilterDropdownTemplate" then
+            menuStub(w, template)
+        elseif template == "ButtonFrameTemplate" then
+            w.Inset, w.CloseButton = Widget("Frame"), Widget("Button")
+            w.Inset.parent, w.CloseButton.parent = w, w
+            w.Inset.Bg = Widget("Texture")
+        elseif template == "LargeSideTabButtonTemplate" then
+            w.Icon = Widget("Texture")
+            -- SidePanelTabButtonMixin:SetChecked sets the icon from the atlas fields set before it.
+            function w:SetChecked(on)
+                assert(self.activeAtlas and self.inactiveAtlas, "a side tab is checked before its atlases are set")
+                self.checked = on
+            end
+        elseif template == "UICheckButtonTemplate" then
+            w.Text = Widget("FontString")
+        end
         return w
     end)
     G("CreateFont", function() return Widget("Font") end)
@@ -176,6 +237,9 @@ return function(root, opts)
     G("CreateAnchor", noop)
     G("CreateDataProvider", function(t) return t end)
     G("TextSizeManager", { GetScale = function() return 1 end })
+    G("FrameUtil", { UpdateScaleForFitSpecific = noop })
+    G("EventRegistry", { RegisterCallback = noop, UnregisterCallback = noop })
+    G("Menu", { GetManager = function() return { IsAnyMenuOpen = function() return false end, CloseMenus = noop } end })
     G("BreakUpLargeNumbers", tostring)
     G("NORMAL_FONT_COLOR", { r = 1, g = 0.82, b = 0 })
     G("ITEM_QUALITY2_DESC", "Uncommon")
@@ -293,23 +357,36 @@ return function(root, opts)
     local W = B.Widgets
     env.B, env.W, env.D, env.CG, env.Facts = B, W, B.Data, B.CanGet, B.Facts
 
-    -- The window: a stub with the real tab list. The router and the tabs are the real files.
-    local Win = { TABS = {
-        { key = "summary", word = "Summary" }, { key = "catalog", word = "Catalog" }, { key = "sources", word = "Sources" },
-    } }
-    B.Window = Win
-    function Win.AddSearchBox() end
-    function Win.SetLocation(text) env.location = text end
-    function Win.SetSelectedTab(key) env.tab = key end
-    function Win.Build(handlers)
-        env.handlers = handlers
-        Win.frame, Win.host = Widget("Frame"), Widget("Frame")
-        Win.hideNA = Widget("CheckButton")
-        return Win.frame
-    end
-    for _, name in ipairs({ "PlayOpen", "PlayClose", "Fit", "CheckTextScale", "AssertPropagation", "StopGlow",
-        "OnTextScale", "Glow" }) do
-        Win[name] = noop
+    -- The window: a stub with the real tab list, or the real Window.lua. The router and the tabs are the real files.
+    local Win
+    if env.realWindow then
+        Load("UI/Browser/Window.lua")
+        Win = B.Window
+        local build, setLocation, setSelected = Win.Build, Win.SetLocation, Win.SetSelectedTab
+        function Win.Build(handlers)
+            env.handlers = handlers
+            return build(handlers)
+        end
+        function Win.SetLocation(text) env.location = text return setLocation(text) end
+        function Win.SetSelectedTab(key) env.tab = key return setSelected(key) end
+    else
+        Win = { TABS = {
+            { key = "summary", word = "Summary" }, { key = "catalog", word = "Catalog" }, { key = "sources", word = "Sources" },
+        } }
+        B.Window = Win
+        function Win.AddSearchBox() end
+        function Win.SetLocation(text) env.location = text end
+        function Win.SetSelectedTab(key) env.tab = key end
+        function Win.Build(handlers)
+            env.handlers = handlers
+            Win.frame, Win.host = Widget("Frame"), Widget("Frame")
+            Win.hideNA = Widget("CheckButton")
+            return Win.frame
+        end
+        for _, name in ipairs({ "PlayOpen", "PlayClose", "Fit", "CheckTextScale", "AssertPropagation", "StopGlow",
+            "OnTextScale", "Glow" }) do
+            Win[name] = noop
+        end
     end
     Load("UI/Browser/Browser.lua")
 

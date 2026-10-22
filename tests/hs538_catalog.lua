@@ -44,7 +44,6 @@ function methods.GetStringHeight() return 12 end
 function methods.GetTextWidth(self) return #self.text * 6 end
 function methods.GetFrameLevel() return 1 end
 function methods.GetParent(self) return self.parent end
-function methods.SetupMenu(self, fn) self.menu = fn end
 function Widget(kind)
     return setmetatable({ kind = kind, shown = true, text = "", scripts = {} }, {
         __index = function(_, k)
@@ -56,6 +55,10 @@ end
 
 local function Render(box)
     local view = box.view
+    -- The client measures every element before it initialises the visible ones.
+    if view.extent then
+        for i, d in ipairs(box.provider) do view.extent(i, d) end
+    end
     for _, f in ipairs(box.frames) do view.resetter(f) end
     box.frames = {}
     local used = {}
@@ -97,13 +100,16 @@ end
 
 -- WowStyle1FilterDropdownTemplate: DropdownTextMixin has SetText but no SetDefaultText or
 -- SetSelectionTranslator. WowStyle1DropdownTemplate: DropdownSelectionTextMixin has both.
--- SetupMenu and GenerateMenu come from DropdownButtonMixin.
+-- SetupMenu and GenerateMenu come from DropdownButtonMixin; the shared menu stub gives both templates
+-- Blizzard's menu order (the generator and every selection callback run at SetupMenu).
 local STRICT = {
     WowStyle1FilterDropdownTemplate = { SetPoint = true, SetWidth = true, GetWidth = true, SetText = true,
         GetText = true, SetupMenu = true, GenerateMenu = true },
     WowStyle1DropdownTemplate = { SetPoint = true, SetWidth = true, GetWidth = true, SetupMenu = true,
         GenerateMenu = true, SetSelectionTranslator = true },
 }
+
+local menuStub = assert(loadfile(root .. "/tests/hs538_menu.lua"))()
 
 local function newEnv(opts)
     opts = opts or {}
@@ -157,6 +163,7 @@ local function newEnv(opts)
                     if self.resizeToText then self.width = #text * 6 + 60 end
                 end
             end
+            menuStub(w, template)
         end
         env.all[#env.all + 1] = w
         if kind == "EditBox" then w.Instructions = Widget("FontString") end
@@ -378,6 +385,13 @@ do
     local env = fixture()
     eq(#env.log, 1, "build")
     eq(env.log[1], "build", "the detail is built into the third column")
+    -- Blizzard builds each menu at SetupMenu and reads every selection callback then, before any Show.
+    eq(env.sort().generated, 1, "the sort menu is built once at SetupMenu")
+    eq(env.filters().generated, 1, "the filter menu is built once at SetupMenu")
+    eq(env.sort().text, "Sort: Best to get now", "the sort label uses the translator from the first build")
+    -- The page shows before the tab's Show runs; the sort button rebuilds its menu then.
+    env.sort().scripts.OnShow(env.sort())
+    eq(env.sort().text, "Sort: Best to get now", "the sort label after the button is shown")
     env.tab.Show()
     eq(env.ids(), "1,2,8,5,7,3,6,4", "Best to get now: ranked, plain, requirement, other faction, collected")
     eq(env.log[#env.log], "show:1", "R24: the first row is selected and the detail filled")
@@ -410,6 +424,10 @@ do
     eq(env.ids(), "6,5,3,2,8,1,7,4", "Name: named first alphabetical, collected last")
     sortMenu:Find("Price").setSel()
     eq(env.ids(), "5,3,6,2,1,8,7,4", "Price: lowest gold first, no gold-only price last, collected last")
+    -- A click on a radio as Blizzard runs it: the responder, then the selections walked again.
+    env.sort():TestPick("Name")
+    eq(env.ids(), "6,5,3,2,8,1,7,4", "Name again through the menu")
+    eq(env.sort().text, "Sort: Name", "the sort label follows the picked radio")
     print("hs538_catalog: build, rows and sorts ok")
 end
 
