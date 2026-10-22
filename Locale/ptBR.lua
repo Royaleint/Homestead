@@ -429,6 +429,26 @@ L["%d hidden by '%s' (%d collected, %d %s only)."] = "%d ocultos por '%s' (%d co
 -------------------------------------------------------------------------------
 -- Decor Browser: Summary
 -------------------------------------------------------------------------------
+L["What can I get now?"] = "O que posso obter agora?"
+L["Decor this character can buy or earn today, best first."] = "Decorações que este personagem pode comprar ou conseguir hoje, as melhores primeiro."
+L["Can get now means this character can buy or earn it today: the right faction, and no requirement left to meet. The closest ones come first. Use See all for the full list."] = "Disponível agora significa que este personagem pode comprar ou conseguir hoje: facção certa e nenhum requisito restante. Os mais próximos vêm primeiro. Use Ver tudo para a lista completa."
+L["Search"] = "Buscar"
+L["Show"] = "Mostrar"
+L["Not yet: next step"] = "Ainda não: próximo passo"
+L["and %d more"] = "e mais %d"
+L["See all you can get now (%d)"] = "Ver tudo o que você pode obter agora (%d)"
+L["Here in %s: %s sells %d decor you can get now."] = "Aqui em %s: %s vende %d decorações que você pode obter agora."
+L["Sold here in %s"] = "Vendido aqui em %s"
+L["Sold on %s"] = "Vendido em %s"
+L["%s: active now"] = "%s: ativo agora"
+L["Gold only"] = "Somente ouro"
+L["Gold only, no requirements left"] = "Somente ouro, sem requisitos restantes"
+L["No requirements left"] = "Sem requisitos restantes"
+L["By source"] = "Por origem"
+L["%d of %d"] = "%d de %d"
+L["Not read yet"] = "Ainda não lido"
+L["Decor collected, by where it comes from. Pick one to see each source."] = "Decorações coletadas, por onde vêm. Escolha uma para ver cada fonte."
+L["Reading your collection"] = "Lendo sua coleção"
 -- end: Summary
 
 -------------------------------------------------------------------------------

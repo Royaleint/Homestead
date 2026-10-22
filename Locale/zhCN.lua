@@ -429,6 +429,26 @@ L["%d hidden by '%s' (%d collected, %d %s only)."] = "已隐藏 %d 项（'%s'）
 -------------------------------------------------------------------------------
 -- Decor Browser: Summary
 -------------------------------------------------------------------------------
+L["What can I get now?"] = "现在能获得什么？"
+L["Decor this character can buy or earn today, best first."] = "此角色今天可以购买或赚取的装饰，最好的排在前面。"
+L["Can get now means this character can buy or earn it today: the right faction, and no requirement left to meet. The closest ones come first. Use See all for the full list."] = "“现在可获得”表示此角色今天就能购买或赚取：阵营符合，且没有未满足的条件。最近的排在前面。使用“查看全部”可看完整列表。"
+L["Search"] = "搜索"
+L["Show"] = "显示"
+L["Not yet: next step"] = "尚不可得：下一步"
+L["and %d more"] = "等另外 %d 项"
+L["See all you can get now (%d)"] = "查看现在可获得的全部装饰 (%d)"
+L["Here in %s: %s sells %d decor you can get now."] = "此处 %s：%s 出售 %d 件现在可获得的装饰。"
+L["Sold here in %s"] = "在 %s 出售"
+L["Sold on %s"] = "在 %s 大陆出售"
+L["%s: active now"] = "%s：当前开放"
+L["Gold only"] = "仅需金币"
+L["Gold only, no requirements left"] = "仅需金币，已无其他条件"
+L["No requirements left"] = "已无其他条件"
+L["By source"] = "按来源"
+L["%d of %d"] = "%d / %d"
+L["Not read yet"] = "尚未读取"
+L["Decor collected, by where it comes from. Pick one to see each source."] = "已收集的装饰，按来源统计。选择一项可查看各个来源。"
+L["Reading your collection"] = "正在读取你的收藏"
 -- end: Summary
 
 -------------------------------------------------------------------------------

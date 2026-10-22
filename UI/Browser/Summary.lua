@@ -1,14 +1,309 @@
--- Summary tab: where the browser opens. Placeholder until its page is built.
+-- Summary tab: what can be had now, the zone's best vendor, the first-use tip and the per-source counts.
+-- Every link goes through B.ShowTab. Draw reads the memoised walk; only a data refresh makes a new one.
 local _, HA = ...
 
 local B = HA.DecorBrowser
+local L = HA.L
+local S = B.Style
+local W = B.Widgets
+local D = B.Data
+local CG = B.CanGet
+local Facts = B.Facts
+local K, SP, R = S.color, S.space, S.row
+
+local SIDE_W, TILE, MEASURE_W = 248, 48, 520
+local LABEL = {
+    L["Vendors"], L["Achievements"], L["Quests"], L["Professions"], L["Drops"], L["Events"], L["Shop"],
+}
+local DOT = " \194\183 "
 
 local Tab = {}
+local main, box, goBtn, title, lede, tip, zone, empty, seeAll
+local rows, lines = {}, {}
+local at, tipForced, glowMap, fill, filledFor
 
-function Tab.Build() end
-function Tab.Show() end
-function Tab.Hide() end
-function Tab.Refresh() end
+local function Text(parent, role, text, wrap)
+    local fs = S.Text(parent, role, "OVERLAY")
+    fs:SetJustifyH("LEFT")
+    fs:SetWordWrap(wrap == true)
+    fs:SetText(text or "")
+    return fs
+end
+
+local function CloseTip()
+    tipForced = false
+    local saved = B.Saved()
+    if saved and not saved.tipSeen then B.Save("tipSeen", true) end
+end
+
+local function Open(itemID)
+    if itemID then B.ShowTab("catalog", { itemID = itemID }) end
+end
+
+local function Go()
+    B.ShowTab("catalog", { search = box:GetText():match("^%s*(.-)%s*$"), kind = "all" })
+end
+
+-- Stacks a block under the previous one, so a block left out leaves no gap.
+local function Put(f, h, narrow)
+    f:ClearAllPoints()
+    f:SetPoint("TOPLEFT", main, "TOPLEFT", 0, -at)
+    if not narrow then f:SetPoint("TOPRIGHT", main, "TOPRIGHT", 0, -at) end
+    if h then f:SetHeight(h) end
+    f:Show()
+    at = at + (h or f:GetHeight()) + SP.s
+end
+
+-- At most two signals; a fallback fills the line when none apply, so it is never empty.
+local function Why(e)
+    local b, r, where = e.best, {}, Facts.Here()
+    if b.event then r[#r + 1] = L["%s: active now"]:format(b.event) end
+    if e.bonus then r[#r + 1] = L["First-Time Collection Bonus"] end
+    local continent = e.near == 2 and C_Map.GetMapInfo(where.continent)
+    if e.near == 1 and where.name then
+        r[#r + 1] = L["Sold here in %s"]:format(where.name)
+    elseif continent and continent.name then
+        r[#r + 1] = L["Sold on %s"]:format(continent.name)
+    elseif not (b.event or e.bonus) then
+        r[#r + 1] = b.gold and L["Gold only, no requirements left"] or L["No requirements left"]
+    end
+    if #r < 2 and b.gold and (e.near <= 2 or e.bonus or b.event) then r[#r + 1] = L["Gold only"] end
+    return table.concat(r, DOT, 1, math.min(#r, 2))
+end
+
+-- A can-get-now offer is a vendor's: Set waypoint when its spot is known, else Show.
+local function CanData(e)
+    local v = D.Vendor(e.best.npcID)
+    local src = not (v and v.name) and L["Source unknown"] or v.zone and L["Vendor: %s, %s"]:format(v.name, v.zone)
+        or L["Vendor: %s"]:format(v.name)
+    local price = D.Price(e.itemID, v)
+    local d = { itemID = e.itemID, npcID = e.best.npcID, why = Why(e), src = price and src .. DOT .. price or src, e = e }
+    local mapID, x, y
+    if v then mapID, x, y = D.VendorLocation(v) end
+    if mapID then d.wp = { mapID = mapID, x = x, y = y, title = v.name } end
+    return d
+end
+
+-- A dimmed row: the first unmet requirement (and how many more), or the event it waits for.
+local function NextData(c)
+    local e, reason = c.entry, nil
+    if c.npcID then
+        local text = L["Other requirement"]
+        for _, req in ipairs(D.Requirements(e.itemID, c.npcID)) do
+            if req.met ~= true then text = req.text break end
+        end
+        reason = L["Requires: %s"]:format(text)
+        if c.unmet > 1 then reason = reason .. " " .. L["and %d more"]:format(c.unmet - 1) end
+    end
+    return { itemID = e.itemID, why = L["Not yet: next step"], dim = true, e = e, src = reason or L["%s only"]:format(e.event) }
+end
+
+-- d.e is the walk's entry; without one the row is a placeholder.
+local function SetRow(r, d)
+    local e = d.e
+    r.itemID, r.npcID = d.itemID, d.npcID
+    local cr, cg, cb = W.QualityRGB(e and D.IconData(e.itemID, true, B.State.catalogMemo))
+    W.SetTile(r.tile, { icon = e and D.ItemIcon(e.itemID) }, cr, cg, cb)
+    r.name:SetText(e and (e.name or L["Item %d"]:format(e.itemID)) or W.StateWords("counting"))
+    r.name:SetTextColor(cr, cg, cb)
+    r.why:SetText(d.why)
+    r.src:SetText(d.src or "")
+    r:SetAlpha(d.dim and 0.6 or 1)
+    r.wp.wp = d.wp
+    r.wp:SetShown(d.wp ~= nil)
+    r.show:SetShown(d.npcID ~= nil and d.wp == nil)
+end
+
+local function BuildRow(parent)
+    local r = CreateFrame("Button", nil, parent)
+    r:RegisterForClicks("LeftButtonUp")
+    local bg = r:CreateTexture(nil, "BACKGROUND")
+    bg:SetAllPoints()
+    bg:SetColorTexture(unpack(K.card))
+    local hover = r:CreateTexture(nil, "HIGHLIGHT")
+    hover:SetAllPoints()
+    hover:SetColorTexture(unpack(K.hoverRow))
+    r.tile = W.NewTile(r, TILE)
+    r.tile.icon:SetPoint("LEFT", SP.m, 0)
+    r.name, r.why, r.src = Text(r, "subheader"), Text(r, "body"), Text(r, "bodyMuted")
+    local above
+    for _, fs in ipairs({ r.name, r.why, r.src }) do
+        local rel, p1, p2, x1, x2, dy = r, "TOPLEFT", "TOPRIGHT", TILE + 2 * SP.m, -SP.xxl * 3, -R.pad
+        if above then rel, p1, p2, x1, x2, dy = above, "BOTTOMLEFT", "BOTTOMRIGHT", 0, 0, -R.gap end
+        fs:SetPoint("TOPLEFT", rel, p1, x1, dy)
+        fs:SetPoint("TOPRIGHT", rel, p2, x2, dy)
+        above = fs
+    end
+    r.wp = W.WaypointButton(r)
+    r.show = W.NewButton(r, L["Show"], function() Open(r.itemID) end)
+    r.wp:SetPoint("RIGHT", -SP.m, 0)
+    r.show:SetPoint("RIGHT", -SP.m, 0)
+    r:SetScript("OnClick", function() Open(r.itemID) end)
+    r:SetScript("OnEnter", function() if r.itemID then B.ShowItemTooltip(r, r.itemID, r.npcID) end end)
+    r:SetScript("OnLeave", B.HideTooltip)
+    return r
+end
+
+local function BuildBlocks(parent)
+    zone = W.Pane(parent)
+    zone.btn = W.NewButton(zone, L["Show vendor"], function(self)
+        local key = Facts.SourceKey("vendors", { npcID = self.npcID })
+        if key then B.ShowTab("sources", { type = "vendors", select = { key = key } }) end
+    end)
+    zone.btn:SetPoint("RIGHT", -SP.s, 0)
+    zone.text = Text(zone, "body")
+    zone.text:SetPoint("LEFT", SP.s, 0)
+    zone.text:SetPoint("RIGHT", zone.btn, "LEFT", -SP.s, 0)
+    tip = W.Pane(parent)
+    tip.text = Text(tip, "body", L["Can get now means this character can buy or earn it today: the right faction, and no requirement left to meet. The closest ones come first. Use See all for the full list."], true)
+    tip.text:SetPoint("TOPLEFT", SP.m, -SP.s)
+    tip.text:SetPoint("TOPRIGHT", -(SP.xl + SP.s), -SP.s)
+    local close = CreateFrame("Button", nil, tip, "UIPanelCloseButton")
+    close:SetPoint("TOPRIGHT", 2, 2)
+    close:SetScript("OnClick", function() CloseTip() Tab.Draw() end)
+    empty = W.NewEmptyState(parent)
+    seeAll = W.NewButton(parent, "", function()
+        CloseTip()
+        B.ShowTab("catalog", { filters = { canGet = true }, sort = "best" })
+    end)
+    for i = 1, 3 do rows[i] = BuildRow(parent) end
+end
+
+local function BuildSide(parent)
+    local side = W.Well(parent)
+    side:SetWidth(SIDE_W)
+    side:SetPoint("TOPRIGHT", goBtn, "BOTTOMRIGHT", 0, -SP.m)
+    side:SetPoint("BOTTOMRIGHT")
+    local above = Text(side, "subheader", L["By source"])
+    above:SetPoint("TOPLEFT", SP.m, -SP.m)
+    for i, key in ipairs(CG.SOURCE_KEYS) do
+        local line = CreateFrame("Button", nil, side)
+        line.key = key
+        line:SetPoint("TOPLEFT", above, "BOTTOMLEFT", 0, i == 1 and -SP.s or 0)
+        line:SetWidth(SIDE_W - 2 * SP.m)
+        local hover = line:CreateTexture(nil, "HIGHLIGHT")
+        hover:SetAllPoints()
+        hover:SetColorTexture(unpack(K.hoverRow))
+        Text(line, "body", LABEL[i]):SetPoint("LEFT")
+        line.num = Text(line, "body")
+        line.num:SetPoint("RIGHT")
+        line:SetScript("OnClick", function() B.ShowTab("sources", { type = key }) end)
+        lines[i], above = line, line
+    end
+    local caption = Text(side, "metaMuted", L["Decor collected, by where it comes from. Pick one to see each source."], true)
+    caption:SetPoint("TOPLEFT", above, "BOTTOMLEFT", 0, -SP.s)
+    caption:SetWidth(SIDE_W - 2 * SP.m)
+end
+
+function Tab.Build(parent)
+    box = W.NewSearchBox(parent, L["Search decor by name"], function() end)
+    box:HookScript("OnEnterPressed", Go)
+    goBtn = W.NewButton(parent, L["Search"], Go)
+    goBtn:SetPoint("TOPRIGHT")
+    box:SetPoint("TOPLEFT")
+    box:SetPoint("TOPRIGHT", goBtn, "TOPLEFT", -SP.s, 0)
+    main = CreateFrame("Frame", nil, parent)
+    main:SetPoint("TOPLEFT", box, "BOTTOMLEFT", 0, -SP.m)
+    main:SetPoint("BOTTOMRIGHT", -(SIDE_W + SP.l), 0)
+    title = S.Text(main, "display", "OVERLAY")
+    title:SetJustifyH("LEFT")
+    title:SetText(L["What can I get now?"])
+    lede = Text(main, "bodyMuted", L["Decor this character can buy or earn today, best first."])
+    BuildBlocks(main)
+    BuildSide(parent)
+end
+
+-- The vendor here with the most decor to get now (the nearest on a tie).
+local function DrawZone()
+    local vendors, mapID, name = D.NearYou()
+    local best, most = nil, 0
+    for _, v in ipairs(vendors) do
+        local n = CG.VendorCanCount(v) or 0
+        if n > most then best, most = v, n end
+    end
+    if not best then return end
+    zone.btn.npcID = best.npcID
+    zone.btn:SetShown(Facts.SourceKey("vendors", best) ~= nil)
+    zone.btn:Fit()
+    zone.text:SetText(L["Here in %s: %s sells %d decor you can get now."]:format(name or "", best.name or "", most))
+    Put(zone, zone.btn:GetHeight() + SP.s)
+    if glowMap ~= mapID then
+        glowMap = mapID
+        local gen = B.Generation()
+        C_Timer.After(0, function()
+            if gen == B.Generation() and zone:IsVisible() then B.Window.Glow(zone) end
+        end)
+    end
+end
+
+local function DrawEmpty(kind, d, button)
+    empty:Set(kind, d)
+    local h = W.TextHeight("subheader") + SP.xs + W.TextHeight("body", empty.text:GetText(), MEASURE_W)
+    Put(empty, button and h + W.TextHeight("body") + 2 * SP.s or h)
+end
+
+function Tab.Draw()
+    if not main then return end
+    for _, f in ipairs({ tip, zone, empty, seeAll, rows[1], rows[2], rows[3] }) do f:Hide() end
+    at = 0
+    goBtn:Fit()
+    box:SetHeight(goBtn:GetHeight())
+    Put(title, W.TextHeight("display"))
+    Put(lede, W.TextHeight("bodyMuted"))
+    local saved = B.Saved()
+    if tipForced or (saved and not saved.tipSeen) then
+        Put(tip, W.TextHeight("body", tip.text:GetText(), MEASURE_W - SP.xxl) + 2 * SP.s)
+    end
+    -- The fill scans every entry, so it is reused until the ranking changes (a zone, a late name, a new walk).
+    local ranked = CG.Rank()
+    if ranked ~= filledFor then fill, filledFor = ranked and CG.Fill(), ranked end
+    local state = fill and "ready" or D.CollectionState()
+    local list = {}
+    if fill then
+        DrawZone()
+        if fill.allCollected then
+            DrawEmpty("nothingMissing", { arg = CG.Walk().progress.total })
+        elseif fill.count == 0 then
+            DrawEmpty("nothingNow", { arg = UnitFactionGroup("player") == "Alliance" and L["Horde"] or L["Alliance"],
+                onMissing = function() B.ShowTab("catalog", { filters = { notCollected = true } }) end }, true)
+        end
+        for i, e in ipairs(fill.rows) do list[i] = CanData(e) end
+        for _, c in ipairs(fill.notYet) do list[#list + 1] = NextData(c) end
+    elseif state == "notRead" then
+        DrawEmpty("notRead")
+    else
+        for i = 1, 3 do list[i] = { why = L["Reading your collection"] } end
+    end
+    local height = math.max(TILE + 2 * R.pad, 2 * R.pad + 2 * R.gap + W.TextHeight("subheader") + 2 * W.TextHeight("body"))
+    for i, d in ipairs(list) do
+        SetRow(rows[i], d)
+        Put(rows[i], height)
+    end
+    if fill and fill.count > 0 then
+        seeAll:SetText(L["See all you can get now (%d)"]:format(fill.count))
+        seeAll:Fit()
+        Put(seeAll, nil, true)
+    end
+    local progress = fill and CG.Walk().progress.src
+    for _, line in ipairs(lines) do
+        local p = progress and progress[line.key]
+        line.num:SetText(p and L["%d of %d"]:format(p.owned, p.total) or state == "notRead" and L["Not read yet"] or W.StateWords("counting"))
+        line:SetHeight(W.TextHeight("body") + SP.s)
+    end
+end
+
+function Tab.Show(opts)
+    if opts and opts.showTip then tipForced = true end
+    Tab.Draw()
+end
+
+function Tab.Hide()
+    for _, r in ipairs(rows) do B.HideTooltipFor(r) end
+end
+
+Tab.Refresh = Tab.Draw
+
 function Tab.SetCombat() end
 
+Tab.lines = lines
 B.RegisterTab("summary", Tab)

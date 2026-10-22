@@ -429,6 +429,26 @@ L["%d hidden by '%s' (%d collected, %d %s only)."] = "%d개 숨김: '%s' 설정 
 -------------------------------------------------------------------------------
 -- Decor Browser: Summary
 -------------------------------------------------------------------------------
+L["What can I get now?"] = "지금 무엇을 얻을 수 있을까요?"
+L["Decor this character can buy or earn today, best first."] = "이 캐릭터가 오늘 구매하거나 얻을 수 있는 장식, 가장 좋은 것부터."
+L["Can get now means this character can buy or earn it today: the right faction, and no requirement left to meet. The closest ones come first. Use See all for the full list."] = "지금 획득 가능은 이 캐릭터가 오늘 구매하거나 얻을 수 있다는 뜻입니다. 진영이 맞고 남은 조건이 없습니다. 가까운 항목이 먼저 나옵니다. 전체 목록은 모두 보기를 사용하세요."
+L["Search"] = "검색"
+L["Show"] = "보기"
+L["Not yet: next step"] = "아직 아님: 다음 단계"
+L["and %d more"] = "외 %d개"
+L["See all you can get now (%d)"] = "지금 얻을 수 있는 항목 모두 보기 (%d)"
+L["Here in %s: %s sells %d decor you can get now."] = "%s 지역: %s이(가) 지금 얻을 수 있는 장식 %d개를 판매합니다."
+L["Sold here in %s"] = "%s에서 판매"
+L["Sold on %s"] = "%s 대륙에서 판매"
+L["%s: active now"] = "%s: 현재 진행 중"
+L["Gold only"] = "골드만 필요"
+L["Gold only, no requirements left"] = "골드만 필요, 남은 조건 없음"
+L["No requirements left"] = "남은 조건 없음"
+L["By source"] = "출처별"
+L["%d of %d"] = "%d / %d"
+L["Not read yet"] = "아직 읽지 않음"
+L["Decor collected, by where it comes from. Pick one to see each source."] = "획득처별로 수집한 장식입니다. 하나를 선택하면 각 출처를 볼 수 있습니다."
+L["Reading your collection"] = "수집품을 읽는 중"
 -- end: Summary
 
 -------------------------------------------------------------------------------
