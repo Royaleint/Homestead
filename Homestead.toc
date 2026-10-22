@@ -49,6 +49,7 @@ Data\CatalogStore.lua
 Data\AchievementSources.lua
 Data\QuestSources.lua
 Data\TreasureHuntSpots.lua
+Data\QuestStarts.lua
 Data\ProfessionSources.lua
 Data\ReagentIndex.lua
 Data\EventSources.lua
