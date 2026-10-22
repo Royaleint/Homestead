@@ -39,8 +39,22 @@ assert(left and calls(left, "ToggleBrowser"), "left click must toggle the browse
 assert(right and calls(right, "OpenOptions"), "right click must open Options")
 assert(not click:find("ToggleDetached", 1, true), "right click must not toggle the detached panel")
 
+-- The Compartment's func runs with a stub self: left toggles, right opens Options, as its tooltip says.
 local compartment = block("AddonCompartmentFrame:RegisterAddon", "funcOnEnter")
-assert(calls(compartment, "ToggleBrowser"), "the Addon Compartment click must toggle the browser")
+local funcText = compartment:match("func = (function%(.-%send),%s*funcOnEnter")
+assert(funcText, "the Addon Compartment has no func")
+local opened = {}
+local stub = {
+    ToggleBrowser = function() opened[#opened + 1] = "browser" end,
+    OpenOptions = function() opened[#opened + 1] = "options" end,
+}
+local func = assert(loadstring("local self = ...; return " .. funcText))(stub)
+func(nil, { buttonName = "LeftButton" })
+func(nil, { buttonName = "RightButton" })
+func(nil, { buttonName = "MiddleButton" })
+func(nil, nil)
+assert(table.concat(opened, ",") == "browser,options,browser,browser",
+    "Addon Compartment clicks went to: " .. table.concat(opened, ","))
 
 assert(core:find("function HousingAddon:ToggleBrowser()", 1, true), "ToggleBrowser is not defined")
 assert(not core:find("ToggleOptions", 1, true), "ToggleOptions has no caller left and must stay removed")

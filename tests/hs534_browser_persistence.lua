@@ -1,12 +1,12 @@
--- luacheck: globals assert loadfile print io UIParent CreateFrame InCombatLockdown C_Timer wipe
+-- luacheck: globals assert loadfile print io UIParent CreateFrame InCombatLockdown C_Timer wipe EventRegistry
 -- Run from the repo root:  lua tests/hs534_browser_persistence.lua [root]
 
 local root = (... or "."):gsub("\\\\", "/"):gsub("/+$", "")
 
 -------------------------------------------------------------------------------
 -- Decor Browser settings: the saved defaults, writes only on player actions and
--- only into profile.browser, the window's fixed size, the clamp on open, and
--- no Options rows.
+-- only into profile.browser, the window's fixed size, the save on a drop only,
+-- and no Options rows. The clamp and the drop itself run in hs538_window.
 -------------------------------------------------------------------------------
 
 local function readFile(path)
@@ -52,22 +52,25 @@ local global = Proxy("global", {})
 
 local screenW, screenH = 1365, 768
 UIParent = { GetWidth = function() return screenW end, GetHeight = function() return screenH end }
-local created = 0
 local function noop() end
 local function Stub() return setmetatable({}, { __index = function() return noop end }) end
-CreateFrame = function()
-    created = created + 1
-    return Stub()
-end
+CreateFrame = Stub
 InCombatLockdown = function() return false end
 local timers = {}
-C_Timer = { After = function(_, fn) timers[#timers + 1] = fn end }
+C_Timer = {
+    After = function(_, fn) fn() end,
+    NewTimer = function(_, fn)
+        timers[#timers + 1] = fn
+        return { Cancel = noop }
+    end,
+}
+EventRegistry = { RegisterCallback = noop, UnregisterCallback = noop }
 wipe = function(t) for k in pairs(t) do t[k] = nil end return t end
 
 local HA = {
     Constants = { TEXTURE_ROOT = "Textures/" },
     Addon = { _enabled = true, db = { profile = profile, global = global } },
-    Events = { RegisterCallback = noop },
+    Events = { RegisterCallback = noop, UnregisterCallback = noop },
     PerformanceTrace = { Measure = function(_, _, _, fn, ...) return fn(...) end },
 }
 assert(loadfile(root .. "/Locale/enUS.lua"))("Homestead", HA)
@@ -77,117 +80,73 @@ for line in readFile("Homestead.toc"):gmatch("[^\r\n]+") do
 end
 local B = HA.DecorBrowser
 local Win = B.Window
-created = 0
 
 -- The window is a fixed 860 x 580.
 assert(B.Style.window.width == 860 and B.Style.window.height == 580, "the window size is not 860 x 580")
 
--- The window and the data are stubs; the open, restore and save paths are the real ones.
-B.Data = {
-    MemoVersion = function() return 1 end,
-    InvalidateMemos = noop,
-    IsReady = function() return true end,
-}
-
-local frame = { shown = false, w = 860, h = 580, left = 200, top = 700 }
-local onShow
-function frame:Show() self.shown = true onShow() end
-function frame:Hide() self.shown = false end
-function frame:IsShown() return self.shown end
-function frame:GetWidth() return self.w end
-function frame:GetHeight() return self.h end
-function frame:GetLeft() return not self.unplaced and self.left or nil end
-function frame:GetTop() return not self.unplaced and self.top or nil end
-function frame:GetPoint() return self.point, UIParent, self.point, self.px, self.py end
-function frame:SetSize(w, h) self.w, self.h = w, h end
-function frame:ClearAllPoints() self.point = nil end
-function frame:SetPoint(point, rel, relPoint, x, y)
-    assert(rel == UIParent and relPoint == point, "positions must be relative to the same point of UIParent")
-    self.point, self.px, self.py = point, x, y
-    if point == "TOPLEFT" then self.left, self.top = x, screenH + y end
-end
-
-Win.Build = function(show)
-    onShow = show
-    Win.frame = frame
+-- The window and the data are stubs; the open, refresh and save paths are the real ones.
+B.Data.IsReady = function() return true end
+B.Data.CollectionState = function() return "ready" end
+B.Facts.Here = noop
+local shown, hooks = false, nil
+local frame = { IsVisible = function() return shown end, IsShown = function() return shown end }
+Win.Build = function(h)
+    hooks = h
+    Win.frame, Win.host, Win.hideNA = frame, Stub(), Stub()
     return frame
 end
-for _, fn in ipairs({ "ResetSearch", "AssertPropagation", "CancelSearch" }) do
-    Win[fn] = noop
+Win.PlayOpen = function()
+    if shown then return end
+    shown = true
+    hooks.OnShow()
+end
+Win.PlayClose = function()
+    shown = false
+    hooks.OnHide()
+end
+for _, name in ipairs({ "CheckTextScale", "Fit", "SetSelectedTab", "SetLocation", "AssertPropagation", "StopGlow" }) do
+    Win[name] = noop
+end
+for _, key in ipairs({ "summary", "catalog", "sources" }) do
+    B.RegisterTab(key, { Build = noop, Show = noop, Hide = noop, Refresh = noop, SetCombat = noop })
 end
 
 -- Opening writes nothing.
 B:Open()
-assert(frame.shown, "the browser did not open")
+assert(shown, "the browser did not open")
 assert(TakeWrites() == "", "opening wrote saved settings")
 
--- Refreshes, a re-clamp, close and reopen write nothing.
+-- Refreshes, a tab change, close and reopen write nothing.
 B.RequestRefresh(false, true)
 for _, fn in ipairs(timers) do fn() end
-Win.Clamp()
+B.ShowTab("sources")
 B:Close()
 B:Open()
-assert(TakeWrites() == "", "a refresh, the clamp or a reopen wrote saved settings")
+assert(TakeWrites() == "", "a refresh, a tab change or a reopen wrote saved settings")
 
--- Player actions: a drag writes the position alone, as the top-left corner's offset.
-frame.left, frame.top = 120, 650
-Win.SavePosition()
-assert(TakeWrites() == "browser.position", "a drag must write position only")
-local p = saved.position
-assert(p[1] == "TOPLEFT" and p[2] == 120 and p[3] == 650 - screenH, "the position is not the top-left offset")
+-- Player actions: the Hide toggle writes hideNA alone; a drop writes the position alone.
+B.SetHideNA(false)
+assert(TakeWrites() == "browser.hideNA" and saved.hideNA == false, "the Hide toggle did not write its one key")
+B.Save("position", { "TOPLEFT", 120, -118 })
+assert(TakeWrites() == "browser.position", "a drop must write position only")
 for key in pairs(saved) do
     assert(key == "hideNA" or key == "tipSeen" or key == "position", "the browser saved an unexpected key: " .. key)
 end
 
-B.Save("hideNA", false)
-assert(TakeWrites() == "browser.hideNA" and saved.hideNA == false, "Save did not write its one key")
-
--- The save paths are the ones the window uses.
+-- The window saves in one place, the drop, as the top-left corner in UIParent units; a fit never saves.
 local window = readFile("UI/Browser/Window.lua")
-assert(window:find("self:StopMovingOrSizing%(%)%s+Win%.SavePosition%(%)"), "drag stop does not save the position")
-assert(window:find("Win.Restore(f, B.Saved())", 1, true), "the window does not restore the saved position")
+local _, saveCalls = window:gsub("B%.Save%(", "")
+assert(saveCalls == 1, "the window must save only on a drop")
+assert(window:find('B%.Save%("position", { "TOPLEFT", l, t %- ph }%)'), "the drop does not save the UIParent-unit corner")
+assert(window:find('SetScript%("OnDragStop", function%(%) DropSave%(f%) end%)'), "drag stop does not save the position")
+local fit = window:match("function Win%.Fit%(.-\nend")
+assert(fit and not fit:find("B.Save", 1, true), "a fit must not save")
+assert(window:find("SavedCorner", 1, true) and window:find("Win.Fit(true)", 1, true),
+    "the window does not restore the saved position")
 assert(not window:find("SetResiz", 1, true), "the window must not be resizable")
-
--- Clamp maths: the size is fixed, so only the corner moves.
-local C = Win.ClampPosition
-local l, t = C(860, 580, 50, 700, 1365, 768)
-assert(l == 50 and t == 700, "a window that fits must not move")
-l, t = C(860, 580, -400, 2000, 1365, 768)
-assert(l == 0 and t == 768, "a window off the top-left must come back on screen")
-l, t = C(860, 580, 1300, 100, 1365, 768)
-assert(l == 1365 - 860 and t == 580, "a window off the bottom-right must come back on screen")
-l, t = C(860, 580, nil, nil, 1365, 768)
-assert(l == nil and t == nil, "an unplaced window keeps its anchor")
-
--- A small screen: the corner pins to the top-left.
-screenW, screenH = 800, 560
-frame.left, frame.top = 600, 900
-Win.Clamp()
-assert(frame.w == 860 and frame.h == 580 and frame.left == 0 and frame.top == 560,
-    "the window does not pin to the corner of a small screen")
-
--- Restore: a well-formed position comes back unchanged; a malformed one, or a saved size, leaves the window alone.
-screenW, screenH = 1365, 768
-frame.left, frame.top = 140, 720
-Win.SavePosition()
-frame.left, frame.top = 0, 0
-Win.Restore(frame, saved)
-Win.Clamp()
-assert(frame.left == 140 and frame.top == 720, "a saved position did not come back unchanged")
-Win.Restore(frame, { position = { "CENTER", 1, 2 } })
-Win.Restore(frame, { position = { "TOPLEFT", nil, 3 } })
-Win.Restore(frame, { position = 7 })
-Win.Restore(frame, nil)
-Win.Restore(frame, { size = { 1000, 700 } })
-assert(frame.w == 860 and frame.h == 580 and frame.left == 140 and frame.top == 720,
-    "a malformed save or a stale size moved or resized the window")
-
--- Before its first layout the window has no edges: the clamp reads the restored anchor instead.
-frame.unplaced = true
-Win.Restore(frame, { position = { "TOPLEFT", -300, 500 } })
-Win.Clamp()
-frame.unplaced = nil
-assert(frame.left == 0 and frame.top == 768, "a saved place the screen no longer holds was not clamped on the first open")
+local browser = readFile("UI/Browser/Browser.lua")
+local _, browserSaves = browser:gsub("B%.Save%(\"", "")
+assert(browserSaves == 1, "the router saves only the Hide toggle")
 TakeWrites()
 
 -- A profile.browser that is not a table is never trusted: writes are skipped.
@@ -203,7 +162,7 @@ do
 end
 
 -- Only profile.browser is ever written.
-assert(#allWrites >= 3, "the write log missed the player actions")
+assert(#allWrites >= 2, "the write log missed the player actions")
 for _, entry in ipairs(allWrites) do
     assert(entry:find("^browser%."), "wrote outside profile.browser: " .. entry)
 end

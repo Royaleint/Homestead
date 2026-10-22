@@ -165,14 +165,15 @@ local function WarmHoliday(vendor)
 end
 
 -- collected, total over the vendor's knowable wares, from the map pins' cache. nil while cold, which asks
--- for the background fill unless noPrewarm (a fill-triggered refresh must not ask again).
+-- for the background fill unless noPrewarm or the browser's refresh says not to (a fill-triggered refresh
+-- must not ask again).
 function D.VendorCounts(vendor, noPrewarm)
     local BC = HA.BadgeCalculation
     if not (BC and vendor and vendor.npcID) or D.CollectionState() ~= "ready" then return nil end
     local stats = BC:PeekVendorStats(vendor, "all")
     if not stats then
         if D.HolidayActive(vendor) ~= nil then WarmHoliday(vendor)
-        elseif not noPrewarm then BC:RequestPrewarm("browser_vendor_list") end
+        elseif not (noPrewarm or (B.State and B.State.noPrewarm)) then BC:RequestPrewarm("browser_vendor_list") end
         return nil
     end
     return stats.collected, stats.total

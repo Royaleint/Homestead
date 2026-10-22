@@ -22,7 +22,7 @@ for line in readFile("Homestead.toc"):gmatch("[^\r\n]+") do
     if entry then files[#files + 1] = (entry:gsub("\\", "/")) end
 end
 assert(#files >= 7, "the TOC lists too few UI/Browser Lua files")
-assert(files[#files] == "UI/Browser/Browser.lua", "Browser.lua must load last")
+assert(files[#files] == "UI/Browser/Item.lua", "Item.lua must load last")
 
 local counts = { CreateFrame = 0, RegisterEvent = 0, RegisterCallback = 0, C_Timer = 0 }
 
@@ -99,17 +99,23 @@ for _, fn in ipairs({ "Toggle", "Open", "Close", "RequestRefresh",
 end
 assert(B.Window.frame == nil, "the window exists before the first open")
 
--- The item detail loads before Browser.lua.
 for _, fn in ipairs({ "Build", "Show", "Hide", "SetCombatGated", "ReportText" }) do
     assert(type(B.Item and B.Item[fn]) == "function", "Item." .. fn .. " is missing")
 end
+for _, fn in ipairs({ "Build", "Show", "Clear", "SetCombat" }) do
+    assert(type(B.ItemDetail and B.ItemDetail[fn]) == "function", "ItemDetail." .. fn .. " is missing")
+end
+for _, fn in ipairs({ "RegisterTab", "ShowTab", "Walk", "SetLocation" }) do
+    assert(type(B[fn]) == "function", "B." .. fn .. " is missing")
+end
 
--- TOC order: each file loads after the ones it reads, and Browser.lua last.
+-- TOC order: each file loads after the ones it reads; the tabs register with the router in Browser.lua.
 local order = {}
 for _, path in ipairs(files) do order[#order + 1] = path:match("([%w_]+)%.lua$") end
 local pos = {}
 for i, name in ipairs(order) do pos[name] = i end
-local ORDER = { "Style", "Visuals", "Adapter", "Facts", "CanGet", "Widgets", "Window", "Item", "Browser" }
+local ORDER = { "Style", "Visuals", "Adapter", "Facts", "CanGet", "Widgets", "Window", "Browser",
+    "Summary", "Catalog", "Sources", "Item" }
 for i, name in ipairs(ORDER) do
     assert(pos[name], name .. ".lua is not in the TOC")
     assert(i == 1 or pos[name] > pos[ORDER[i - 1]], name .. ".lua is out of order in the TOC")

@@ -444,7 +444,14 @@ function HousingAddon:InitializeMinimapButton()
         AddonCompartmentFrame:RegisterAddon({
             text = "Homestead",
             icon = Constants.Icons.MINIMAP,
-            func = function() self:ToggleBrowser() end,
+            -- Blizzard passes the mouse button in menuInputData.buttonName.
+            func = function(_, menuInputData)
+                if menuInputData and menuInputData.buttonName == "RightButton" then
+                    self:OpenOptions()
+                else
+                    self:ToggleBrowser()
+                end
+            end,
             funcOnEnter = function(btn)
                 GameTooltip:SetOwner(btn, "ANCHOR_LEFT")
                 dataObj.OnTooltipShow(GameTooltip)

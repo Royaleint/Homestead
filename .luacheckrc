@@ -46,6 +46,7 @@ read_globals = {
     "CreateColor", "CreateAnchor",
     "CreateFramePool", "CreateUnsecuredRegionPoolInstance",
     "EventRegistry",
+    "FrameUtil", "TextSizeManager",
     "EventUtil", -- HS-368: EventUtil.ContinueOnAddOnLoaded (Blizzard_SharedXML/EventUtil.lua)
     "GameFontHighlight", "GameFontHighlightSmall",
     "GameFontNormal", "GameFontNormalLarge", "GameFontNormalHuge2", "GameFontNormalSmall",

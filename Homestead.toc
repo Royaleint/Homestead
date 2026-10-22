@@ -118,7 +118,10 @@ UI\Browser\Facts.lua
 UI\Browser\CanGet.lua
 UI\Browser\Widgets.lua
 UI\Browser\Window.lua
-UI\Browser\Item.lua
 UI\Browser\Browser.lua
+UI\Browser\Summary.lua
+UI\Browser\Catalog.lua
+UI\Browser\Sources.lua
+UI\Browser\Item.lua
 UI\Options.lua
 

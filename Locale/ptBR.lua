@@ -310,6 +310,12 @@ L["? / %s"] = "? / %s"
 
 -- Decor Browser: window and navigation
 L["Open a list to search"] = "Abra uma lista para pesquisar"
+L["Homestead Decor"] = "Decoração do Homestead"
+L["Summary"] = "Resumo"
+L["Catalog"] = "Catálogo"
+L["Sources"] = "Fontes"
+L["Help"] = "Ajuda"
+L["Hide what doesn't apply to me"] = "Ocultar o que não se aplica a mim"
 L["The Decor Browser opens once Homestead has finished loading."] = "O navegador de decoração abre assim que o Homestead terminar de carregar."
 L["Collection"] = "Coleção"
 L["Placed"] = "Colocadas"

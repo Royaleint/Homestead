@@ -48,6 +48,11 @@ local SP = S.space
 
 S.window = { width = 860, height = 580 }
 
+-- Side tabs outside the right edge, as on the Housing Dashboard; the portrait overhangs the top-left
+-- corner by pad.left and pad.top.
+S.tab = { top = 60, gap = 12, minWidth = 64, height = 55, wordPad = 12 }
+S.pad = { left = 5, top = 7 }
+
 S.layout = {
     -- content rect {left, top, right, bottom}
     rect = { 2, 21, 2, 2 }, titleBar = 21,
@@ -166,6 +171,5 @@ S.model = {
 }
 
 S.plate = {
-    windowTitle = L["Homestead"],
-    title = L["Decor Browser"],
+    windowTitle = L["Homestead Decor"],
 }

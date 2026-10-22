@@ -197,5 +197,37 @@ do
     end
 end
 
+-- Registrations: only the router listens, only while shown. Everything OnShow registers, OnHide
+-- unregisters with the same arguments; nothing registers at load or Build. hs538_window runs it.
+do
+    for path, text in pairs(sources) do
+        if path ~= "UI/Browser/Browser.lua" and (text:find("RegisterCallback", 1, true)
+                or text:find("RegisterEvent", 1, true) or text:find("RegisterUnitEvent", 1, true)) then
+            fail(path, "registers events or callbacks; only the router does, while shown")
+        end
+    end
+    local router = sources["UI/Browser/Browser.lua"]
+    local onShow = router:match("local function OnShow%(%)(.-)\nend")
+    local onHide = router:match("local function OnHide%(%)(.-)\nend")
+    assert(onShow and onHide, "the router has no OnShow or OnHide")
+    local outside = router:gsub("local function OnShow%(%).-\nend", ""):gsub("local function OnHide%(%).-\nend", "")
+    for _, word in ipairs({ ":RegisterCallback(", ":RegisterEvent(", ":UnregisterCallback(", ":UnregisterAllEvents(" }) do
+        if outside:find(word, 1, true) then fail("UI/Browser/Browser.lua", word .. " outside OnShow and OnHide") end
+    end
+    local shown = 0
+    for args in onShow:gmatch("HA%.Events:RegisterCallback(%b())") do
+        shown = shown + 1
+        if not onHide:find("HA.Events:UnregisterCallback" .. args, 1, true) then
+            fail("UI/Browser/Browser.lua", "OnHide does not unregister " .. args)
+        end
+    end
+    assert(shown >= 3, "the registration scan found too few callbacks; it is vacuous")
+    assert(onShow:find(":RegisterEvent(", 1, true) and onHide:find("events:UnregisterAllEvents()", 1, true),
+        "the game events are not dropped on hide")
+    local event, owner = onShow:match("EventRegistry:RegisterCallback%(([%w_]+), [%w_]+, ([%w_]+)%)")
+    assert(event and onHide:find("EventRegistry:UnregisterCallback(" .. event .. ", " .. owner .. ")", 1, true),
+        "the text-size callback is not released on hide")
+end
+
 print("hs534_browser_invariants: ok (" .. #files .. " files)")
 

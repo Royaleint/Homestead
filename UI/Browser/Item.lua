@@ -11,10 +11,10 @@ local LABEL_W = 120
 local VENDOR_ROWS = 3
 local OTHER_ROWS = 5
 
-local STATE_ATLAS = { owned = S.atlas.check, unlocked = S.atlas.coin, locked = S.atlas.lock }
+-- No buy wording here: whether an item can be bought now comes from the vendor offers, not this status.
+local STATE_ATLAS = { owned = S.atlas.check, locked = S.atlas.lock }
 local STATE_NOTE = {
     owned = L["You own this."],
-    unlocked = L["You can buy it now. Not collected yet."],
     locked = L["Not available to you yet."],
 }
 local REQ_TAG = {
@@ -309,8 +309,8 @@ function Page.Show(route)
     local st = D.ItemStatus(itemID, npcID, true)
     local atlas = STATE_ATLAS[st.state]
     local sc = K.stateText[st.state]
-    Page.status:SetText((atlas and ("|A:" .. atlas .. ":16:16|a ") or "")
-        .. S.Colored(sc, S.stateLabel[st.state]))
+    Page.status:SetText(st.state == "unlocked" and ""
+        or (atlas and ("|A:" .. atlas .. ":16:16|a ") or "") .. S.Colored(sc, S.stateLabel[st.state]))
     local note = STATE_NOTE[st.state]
     if st.state == "locked" and st.labels and #st.labels > 0 then
         note = L["Needs: %s"]:format(table.concat(st.labels, L[", "]))
@@ -318,7 +318,7 @@ function Page.Show(route)
         note = st.excluded and L["Ownership cannot be read for this kind of item."]
             or L["Ownership is not known yet."]
     end
-    Page.statusNote:SetText(note)
+    Page.statusNote:SetText(note or "")
     Page.price:SetText(m.price or L["Not listed"])
 
     local reqs = D.Requirements(itemID, npcID)
@@ -347,3 +347,11 @@ function Page.SetCombatGated(gated)
 end
 
 B.Item = Page
+
+-- The item detail the Catalog tab hosts.
+B.ItemDetail = {
+    Build = Page.Build,
+    Show = function(itemID) Page.Show({ itemID = itemID }) end,
+    Clear = Page.Hide,
+    SetCombat = Page.SetCombatGated,
+}
