@@ -194,7 +194,7 @@ end
 -------------------------------------------------------------------------------
 
 -- Resolve effective faction for a vendor: explicit field first, then zone map fallback.
-local function GetEffectiveFaction(vendor)
+function VendorFilter.GetEffectiveFaction(vendor)
     local f = vendor.faction
     if f and f ~= "Neutral" then return f end
     if vendor.mapID then
@@ -204,7 +204,7 @@ end
 
 -- Check if vendor is accessible to player's faction
 function VendorFilter.CanAccessVendor(vendor)
-    local faction = GetEffectiveFaction(vendor)
+    local faction = VendorFilter.GetEffectiveFaction(vendor)
     if not faction then return true end
     local playerFaction = UnitFactionGroup("player")
     return faction == playerFaction
@@ -212,7 +212,7 @@ end
 
 -- Check if vendor is opposite faction (not neutral, not player's faction)
 function VendorFilter.IsOppositeFaction(vendor)
-    local faction = GetEffectiveFaction(vendor)
+    local faction = VendorFilter.GetEffectiveFaction(vendor)
     if not faction then return false end
     local playerFaction = UnitFactionGroup("player")
     return faction ~= playerFaction

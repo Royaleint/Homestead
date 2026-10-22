@@ -53,8 +53,6 @@ L["Use TomTom for waypoints"] = "Использовать TomTom для путе
 L["Collection: %d / %d (%d%%)"] = "Коллекция: %d / %d (%d%%)" -- human-translated
 L["Vendors nearby: %d"] = "Торговцев рядом: %d" -- human-translated
 L["Vendors scanned: %d"] = "Просканировано торговцев: %d" -- human-translated
-L["Left-Click: Toggle options"] = "|cFFFFFFFFЛКМ:|r Открыть настройки" -- human-translated
-L["Right-Click: Detach/close vendor panel"] = "|cFFFFFFFFПКМ:|r Открепить/закрыть панель торговцев" -- human-translated
 
 -------------------------------------------------------------------------------
 -- Slash Commands
@@ -276,3 +274,178 @@ L["None (always)"] = "Нет (всегда)" -- human-translated
 -- Misc
 L["Approximate map appearance"] = "Примерный вид карты" -- human-translated
 L["ExportImport not available."] = "Экспорт/Импорт недоступен." -- human-translated
+
+-------------------------------------------------------------------------------
+-- Decor Browser
+-------------------------------------------------------------------------------
+-- Decor Browser: minimap tooltip
+L["Left-Click: Toggle Decor Browser"] = "|cFFFFFFFFЛКМ:|r Открыть/закрыть обозреватель декора"
+L["Right-Click: Open options"] = "|cFFFFFFFFПКМ:|r Открыть настройки"
+
+-- Decor Browser: options
+L["Animations"] = "Анимации"
+L["desc_browser_animations"] = "Включает анимационные эффекты обозревателя декора: блики заголовка, свечение, вспышки и плавное заполнение полосы прогресса."
+L["desc_browser_model3d"] = "Показывает 3D-модель предмета декора на страницах предметов в обозревателе декора. Флажок на каждой странице предмета меняет эту же настройку."
+
+-- Decor Browser: data adapter
+L["Other Vendors"] = "Другие торговцы"
+L["Gold"] = "Золото"
+L["Unknown"] = "Неизвестно"
+L["Other"] = "Другое"
+L["Required"] = "Требуется"
+L["Unknown faction"] = "Неизвестная фракция"
+L["Other requirement"] = "Другое требование"
+L["Source unknown"] = "Источник неизвестен"
+L["Item %d"] = "Предмет %d"
+L["%s %s"] = "%s %s"
+L["%s, %s"] = "%s, %s"
+L["%s - %s"] = "%s - %s"
+L["%s (%s)"] = "%s (%s)"
+L["%s: %s"] = "%s: %s"
+L["%s with %s"] = "%s (%s)"
+L["Level %s"] = "Уровень %s"
+L["Achievement: %s"] = "Достижение: %s"
+L["Quest: %s"] = "Задание: %s"
+L["Promotion: %s"] = "Акция: %s"
+L["Profession: %s"] = "Профессия: %s"
+L["Profession: %s rank %s"] = "Профессия: %s, ранг %s"
+L["Vendor: %s"] = "Торговец: %s"
+L["Vendor: %s, %s"] = "Торговец: %s, %s"
+L["Crafted: %s - %s"] = "Изготовление: %s - %s"
+L["Drops from %s"] = "Добыча с: %s"
+L["Drops from %s (%s)"] = "Добыча с: %s (%s)"
+L["Event: %s"] = "Событие: %s"
+L["Event: %s - %s"] = "Событие: %s - %s"
+L["Other source"] = "Другой источник"
+
+-- Decor Browser: visuals and widgets
+L["Decor Browser"] = "Обозреватель декора"
+L["Owned"] = "Имеется"
+L["Unlocked to buy"] = "Открыто для покупки"
+L["Locked"] = "Закрыто"
+L["Set waypoint"] = "Поставить метку"
+L["New decor collected"] = "Новый декор получен"
+L["first seen"] = "впервые замечено"
+L["Wrath"] = "Wrath"
+L["Warlords"] = "Warlords"
+L["Burning Crusade"] = "Burning Crusade"
+L["BfA"] = "BfA"
+L["Pandaria"] = "Pandaria"
+L["%s / %s  ·  %d%%"] = "%s / %s  ·  %d%%"
+L["0 / 0"] = "0 / 0"
+L["? / %s"] = "? / %s"
+
+-- Decor Browser: window and navigation
+L["Overview"] = "Обзор"
+L["Near You"] = "Рядом с вами"
+L["Achievements"] = "Достижения"
+L["Quests"] = "Задания"
+L["Professions"] = "Профессии"
+L["Drops"] = "Добыча"
+L["Events"] = "События"
+L["Back"] = "Назад"
+L["Hide owned"] = "Скрыть имеющиеся"
+L["Open a list to search"] = "Откройте список для поиска"
+L["%s of %s decor collected"] = "Собрано декора: %s из %s"
+L["The Decor Browser opens once Homestead has finished loading."] = "Обозреватель декора откроется, когда Homestead закончит загрузку."
+L["Collection"] = "Коллекция"
+L["Placed"] = "Размещено"
+L["In storage"] = "На хранении"
+L["Not yet redeemed"] = "Ещё не получено"
+L["Counts not loaded yet"] = "Количество ещё не загружено"
+L["Source"] = "Источник"
+L["Price"] = "Цена"
+
+-- Decor Browser: shop and item pages
+L[", "] = ", "
+L["; "] = "; "
+L["Clear filters"] = "Сбросить фильтры"
+L["Search: %s"] = "Поиск: %s"
+L["Nothing matches %s."] = "Ничего не найдено по запросу %s."
+L["Seasonal: %s"] = "Сезонное: %s"
+L["Rotates with the %s Endeavor"] = "Меняется вместе с предприятием %s"
+L["Rotates with neighborhood Endeavors"] = "Меняется вместе с предприятиями района"
+L["No model shown"] = "Модель не показана"
+L["Location not recorded"] = "Местоположение не записано"
+L["Map preview unavailable"] = "Предпросмотр карты недоступен"
+L["Vendor not found"] = "Торговец не найден"
+L["Currency"] = "Валюта"
+L["Requires"] = "Требуется"
+L["Wares"] = "Товары"
+L["%d items"] = "Предметов: %d"
+L["No decor listed"] = "Декор не указан"
+L["You own this."] = "Это у вас есть."
+L["You can buy it now. Not collected yet."] = "Вы можете купить это прямо сейчас. Ещё не получено."
+L["Not available to you yet."] = "Пока недоступно для вас."
+L["Ownership cannot be read for this kind of item."] = "Наличие нельзя проверить для этого типа предметов."
+L["Ownership is not known yet."] = "Наличие пока неизвестно."
+L["Met: %s"] = "Выполнено: %s"
+L["Needs: %s"] = "Нужно: %s"
+L["Unknown: %s"] = "Неизвестно: %s"
+L["Status"] = "Статус"
+L["Requirement"] = "Требование"
+L["Sold by"] = "Продаёт"
+L["Not listed"] = "Не указано"
+L["Not sold by a vendor"] = "Не продаётся торговцами"
+L["+%d more vendors"] = "Ещё торговцев: +%d"
+L["+%d more sources"] = "Ещё источников: +%d"
+L["None of these wares count toward your collection."] = "Ни один из этих товаров не учитывается в вашей коллекции."
+L["Also available from"] = "Также доступно у"
+L["No other sources on record."] = "Других источников нет."
+L["Show 3D preview"] = "Показать 3D-предпросмотр"
+L["3D preview is off."] = "3D-предпросмотр отключён."
+L["Preview unavailable for this item."] = "Предпросмотр для этого предмета недоступен."
+L["Not available in combat"] = "Недоступно в бою"
+L["Report a data error"] = "Сообщить об ошибке в данных"
+L["Item: %s (%d)"] = "Предмет: %s (%d)"
+L["Record ID: %s"] = "ID записи: %s"
+L["none"] = "нет"
+L["no location"] = "нет местоположения"
+L["map %d at %.1f, %.1f"] = "карта %d, %.1f, %.1f"
+L["Vendor %d: %s, %s, %s"] = "Торговец %d: %s, %s, %s"
+L["Client: %s (%s)"] = "Клиент: %s (%s)"
+L["Homestead: %s"] = "Homestead: %s"
+
+-- Decor Browser: overview, shop lists and source lists
+L["Recently acquired"] = "Недавно получено"
+L["Collection progress"] = "Прогресс коллекции"
+L["Decor collected"] = "Собрано декора"
+L["Nothing acquired yet."] = "Пока ничего не получено."
+L["today"] = "сегодня"
+L["yesterday"] = "вчера"
+L["%d days ago"] = "%d дн. назад"
+L["%d of %d owned"] = "Имеется: %d из %d"
+L["No vendors found on your current map."] = "На вашей текущей карте торговцы не найдены."
+L["No vendors to show."] = "Нет торговцев для показа."
+L["Nothing to list here."] = "Здесь нечего перечислять."
+
+-- Decor Browser: entry points
+L["Toggle Decor Browser"] = "Открыть/закрыть обозреватель декора"
+L["Open the Decor Browser, or bind a key under Keybindings > Homestead"] = "Открывает обозреватель декора. Можно также назначить клавишу в разделе «Назначение клавиш» > Homestead"
+L["Minimap button"] = "Кнопка у миникарты"
+L["Left-click opens the Decor Browser, right-click opens options"] = "ЛКМ открывает обозреватель декора, ПКМ открывает настройки"
+
+-- Welcome window
+L["Find every decor vendor on your map and see what you own before you buy."] = "Находите всех торговцев декором на карте и смотрите, что у вас уже есть, прежде чем покупать."
+L["What Homestead Does"] = "Что умеет Homestead"
+L["Every decor vendor pinned on your world map and minimap, with badges showing how many items you still need per zone."] = "Все торговцы декором отмечены на карте мира и миникарте, а значки показывают, сколько предметов вам ещё нужно в каждой зоне."
+L["Map Side Panel"] = "Боковая панель карты"
+L["Click the Homestead button on the world map to open the side panel listing that zone's vendors, then click any vendor to browse their wares and see what you still need. Pop it out as a standalone window with |cFF00FF00/hs panel|r."] = "Нажмите кнопку Homestead на карте мира, чтобы открыть боковую панель со списком торговцев зоны, затем выберите любого торговца, чтобы просмотреть его товары и узнать, чего вам ещё не хватает. Её можно открепить в отдельное окно командой |cFF00FF00/hs panel|r."
+L["Tooltips Expanded"] = "Расширенные подсказки"
+L["Every item in the Housing Catalog gets tooltips showing where it comes from (vendor, quest, achievement, profession, or drop), what it costs, and what you need to unlock it, so you never have to leave the game to look something up."] = "Каждый предмет каталога жилья получает подсказки: откуда он берётся (торговец, задание, достижение, профессия или добыча), сколько стоит и что нужно для его открытия, так что искать информацию вне игры не придётся."
+L["Key Commands"] = "Основные команды"
+L["Export everything you've scanned"] = "Экспортировать всё отсканированное"
+L["Show all commands"] = "Показать все команды"
+L["Found a Problem?"] = "Нашли проблему?"
+L["Report bugs or wrong vendor info on GitHub using the link below."] = "Сообщайте об ошибках и неверных данных о торговцах на GitHub по ссылке ниже."
+L["Report issues (GitHub):"] = "Сообщить о проблеме (GitHub):"
+L["CurseForge:"] = "CurseForge:"
+L["Don't show this again"] = "Больше не показывать"
+L["Let's Decorate!"] = "Украшаем!"
+
+-------------------------------------------------------------------------------
+-- Decor Browser: holiday vendors
+-------------------------------------------------------------------------------
+L["Active"] = "Активен"
+L["Not Active"] = "Неактивен"
+L["The Decor Browser is not available yet."] = "Обозреватель декора пока недоступен."

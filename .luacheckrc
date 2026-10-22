@@ -8,8 +8,11 @@ globals = {
     "HomesteadMapSidePanelTooltip",
     "HomesteadVendorMapPinsTooltip",
     "HomesteadVendorMapPinsWaresTooltip",
+    "HomesteadBrowserTooltip",
     "SlashCmdList",
     "SLASH_HOMESTEAD1", "SLASH_HOMESTEAD2",
+    "BINDING_HEADER_HOMESTEAD",
+    "BINDING_NAME_HOMESTEAD_TOGGLE_BROWSER",
     -- SavedVariables (created by WoW, read/written by addon)
     "HomesteadDB",
 }
@@ -35,11 +38,12 @@ read_globals = {
     "BankFrame",
     "ChatFontNormal",
     "ContainerFrameCombinedBags", "ContainerFrameContainer",
-    "CreateFrame",
+    "CreateFrame", "CreateVector2D",
     "DEFAULT_CHAT_FRAME",
     "CreateDataProvider",
     "CreateFromMixins",
-    "CreateScrollBoxListLinearView",
+    "CreateScrollBoxListLinearView", "CreateScrollBoxListGridView",
+    "CreateColor", "CreateAnchor",
     "CreateFramePool", "CreateUnsecuredRegionPoolInstance",
     "EventRegistry",
     "EventUtil", -- HS-368: EventUtil.ContinueOnAddOnLoaded (Blizzard_SharedXML/EventUtil.lua)
@@ -48,7 +52,7 @@ read_globals = {
     "GameTooltip", "GameTooltip_Hide",
     "GameTooltip_AddNormalLine", "GameTooltip_SetTitle",
     "GameTooltip_AddColoredLine", "GameTooltip_AddColoredDoubleLine",
-    "NORMAL_FONT_COLOR", "Item",
+    "NORMAL_FONT_COLOR", "NEW_ITEM_ATLAS_BY_QUALITY", "Item",
     "ItemRefTooltip",
     "MerchantFrame", "MerchantFrameTab1", "MerchantFrameTab2",
     "MerchantNextPageButton", "MerchantPrevPageButton",
@@ -66,6 +70,7 @@ read_globals = {
     "MenuUtil",
     "Mixin",
     "NineSliceUtil",
+    "PixelUtil",
     "PlaySound",
     "WorldMapFrame",
     -- Templates
@@ -96,6 +101,7 @@ read_globals = {
     "C_Reputation",
     "C_SpellBook",
     "C_SuperTrack",
+    "C_Texture",
     "C_TaxiMap",  -- HS-347: flight point dodge candidates
     "C_Timer",
     "C_TooltipInfo",
@@ -104,9 +110,11 @@ read_globals = {
     "UiMapPoint",
 
     -- WoW API (functions)
-    "GetAchievementCriteriaInfo", "GetAchievementInfo",
+    "GetAchievementCriteriaInfo", "GetAchievementInfo", "GetAchievementLink", "GetQuestLink",
+    "ShowAchievementFrameForAchievement", "CreateTexturePool",
+    "CAMERA_TRANSITION_TYPE_IMMEDIATE", "CAMERA_MODIFICATION_TYPE_DISCARD",
     "GetItemCount", "GetItemInfo", "GetItemInfoInstant",
-    "GetCoinTextureString",
+    "GetCoinTextureString", "BreakUpLargeNumbers",
     "GetCVarBool",  -- HS-347: dungeon/delve entrance map-legend filter check
     "GetMerchantItemInfo", "GetMerchantItemLink", "GetMerchantNumItems",
     "GetLocale",
@@ -164,6 +172,7 @@ files["Locale/enUS.lua"] = {
     read_globals = {
         "GENERAL", "CLOSE", "MINIMAP_LABEL", "BLIZZARD_STORE", "WORLDMAP_BUTTON",
         "SHIFT_KEY_TEXT", "ALT_KEY_TEXT", "CTRL_KEY_TEXT", "HOUSING_DASHBOARD_ENDEAVOR",
-        "BROWSE_NO_RESULTS",
+        "BROWSE_NO_RESULTS", "FACTION_ALLIANCE", "FACTION_HORDE",
+        "EXPANSION_NAME0", "EXPANSION_NAME1", "EXPANSION_NAME2", "EXPANSION_NAME3", "EXPANSION_NAME4", "EXPANSION_NAME5", "EXPANSION_NAME6", "EXPANSION_NAME7", "EXPANSION_NAME8", "EXPANSION_NAME9", "EXPANSION_NAME10", "EXPANSION_NAME11",
     },
 }

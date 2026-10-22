@@ -1,0 +1,15 @@
+<Ui xmlns="http://www.blizzard.com/wow/ui/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.blizzard.com/wow/ui/
+..\..\Blizzard_SharedXML\UI.xsd">
+	<!-- TextureCoordTranslation can only be declared in XML. Visuals.lua creates each group
+	     with CreateAnimationGroup(nil, name) on a texture. One whole tile per loop, so the
+	     repeat has no seam. -->
+	<AnimationGroup name="HomesteadDecorBrowserSheenA" looping="REPEAT" virtual="true">
+		<TextureCoordTranslation duration="14" order="1" offsetU="1" offsetV="0"/>
+	</AnimationGroup>
+	<AnimationGroup name="HomesteadDecorBrowserSheenB" looping="REPEAT" virtual="true">
+		<TextureCoordTranslation duration="22" order="1" offsetU="-1" offsetV="0"/>
+	</AnimationGroup>
+	<!-- Own frame pools for the list kinds that share Button as their frame type. -->
+	<Button name="HomesteadDecorBrowserHeader" virtual="true"/>
+	<Button name="HomesteadDecorBrowserVendorRow" virtual="true"/>
+</Ui>
