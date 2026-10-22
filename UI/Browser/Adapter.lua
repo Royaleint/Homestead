@@ -410,9 +410,9 @@ function D.TooltipData(itemID, npcID, catalogMemo)
             redeemable = info.remainingRedeemable or 0,
         }
     end
-    local p = B.CanGet.Primary(itemID)
+    local p = npcID and { type = "vendor", npcID = npcID } or B.CanGet.Primary(itemID)
     local v = p and p.type == "vendor" and p.npcID and D.Vendor(p.npcID)
-    out.price = npcID and D.Price(itemID, D.Vendor(npcID)) or p and p.price
+    out.price = npcID and D.Price(itemID, v) or p and p.price
     out.source = D.SourceLine(itemID, { p })
     out.unconfirmed = v and not B.Facts.Confirmed(v) or nil
     return out

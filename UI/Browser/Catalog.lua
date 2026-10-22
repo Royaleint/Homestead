@@ -192,11 +192,13 @@ local function Describe(r)
         local p = CG.Primary(id, sources)
         local v = p and p.type == "vendor" and p.npcID and HA.VendorData:GetVendor(p.npcID)
         local active, state, arg = nil, B.ItemState(id)
+        local more = #sources
+        for _, s in ipairs(sources) do if s == p then more = more - 1 end end
         for _, o in pairs(e.canBy or {}) do active = active or o.event end
         d = { itemID = id, name = e.name or L["Item %d"]:format(id),
             quality = e.info and e.info.quality or C_Item.GetItemQualityByID(id),
             icon = e.info and e.info.iconTexture or D.ItemIcon(id), active = active, bonus = r.bonus,
-            right = p and p.price, line2 = D.SourceLine(id, { p }) .. (#sources > 1 and " " .. L["(+%d more)"]:format(#sources - 1) or ""),
+            right = p and p.price, line2 = D.SourceLine(id, { p }) .. (more > 0 and " " .. L["(+%d more)"]:format(more) or ""),
             unconfirmed = v and not B.Facts.Confirmed(v) or nil, state = state, arg = arg,
             onClick = function() Pick(id) end }
         r.d = d

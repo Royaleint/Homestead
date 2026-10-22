@@ -283,3 +283,27 @@ do
     eq(next.src.text:sub(1, #D.TooltipData(6).source), D.TooltipData(6).source, "Summary names another vendor")
     print("hs538_parity: one primary source ok")
 end
+
+do
+    -- A tooltip for one vendor's ware describes that vendor, never the item's primary source.
+    local env = world(nil, function(e)
+        e.vendors[100].scanConfirmed = nil
+        e.vendors[102].scanConfirmed = "2026-10-01"
+    end)
+    local D = env.B.Data
+    local cora, anna = D.TooltipData(6, 102), D.TooltipData(6)
+    assert(anna.source:find("^Vendor: Anna") and anna.unconfirmed, "the primary source is Anna, unconfirmed")
+    assert(cora.source:find("^Vendor: Cora"), "Cora's tooltip names " .. cora.source)
+    eq(cora.price, D.Price(6, D.Vendor(102)), "Cora's price")
+    eq(cora.unconfirmed, nil, "Cora's tooltip says Anna is not confirmed")
+    print("hs538_parity: one vendor's tooltip ok")
+end
+
+do
+    -- In season, the event vendor is the primary source though it is not listed: the listed source is "more".
+    local env = world(nil, function(e) e.calendar["Hallow's End"] = true end)
+    env.go("catalog", { sort = "name" })
+    local line = env.catalogRow(51).d.line2
+    assert(line:find("^Vendor: Ghoul") and line:find("(+1 more)", 1, true), "item 51 reads " .. line)
+    print("hs538_parity: unlisted primary source ok")
+end
