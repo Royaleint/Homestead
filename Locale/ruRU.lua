@@ -442,6 +442,26 @@ L["%d hidden by '%s' (%d collected, %d %s only)."] = "Скрыто %d по на�
 -------------------------------------------------------------------------------
 -- Decor Browser: Summary
 -------------------------------------------------------------------------------
+L["What can I get now?"] = "Что можно получить сейчас?"
+L["Decor this character can buy or earn today, best first."] = "Декор, который этот персонаж может купить или заработать сегодня, лучшее в начале."
+L["Can get now means this character can buy or earn it today: the right faction, and no requirement left to meet. The closest ones come first. Use See all for the full list."] = "«Можно получить сейчас» значит, что этот персонаж может купить или заработать это сегодня: подходящая фракция и не осталось невыполненных требований. Ближайшие идут первыми. Весь список открывает «Показать все»."
+L["Search"] = "Поиск"
+L["Show"] = "Показать"
+L["Not yet: next step"] = "Пока нельзя: следующий шаг"
+L["and %d more"] = "и ещё %d"
+L["See all you can get now (%d)"] = "Показать все, что можно получить сейчас (%d)"
+L["Here in %s: %s sells %d decor you can get now."] = "Здесь, в %s: %s продаёт %d ед. декора, доступного сейчас."
+L["Sold here in %s"] = "Продаётся здесь, в %s"
+L["Sold on %s"] = "Продаётся на %s"
+L["%s: active now"] = "%s: сейчас активно"
+L["Gold only"] = "Только за золото"
+L["Gold only, no requirements left"] = "Только за золото, требований не осталось"
+L["No requirements left"] = "Требований не осталось"
+L["By source"] = "По источнику"
+L["%d of %d"] = "%d из %d"
+L["Not read yet"] = "Ещё не прочитано"
+L["Decor collected, by where it comes from. Pick one to see each source."] = "Собранный декор по источникам получения. Выберите один, чтобы увидеть каждый источник."
+L["Reading your collection"] = "Чтение коллекции"
 -- end: Summary
 
 -------------------------------------------------------------------------------

@@ -461,6 +461,26 @@ L["%d hidden by '%s' (%d collected, %d %s only)."] = "%d hidden by '%s' (%d coll
 -------------------------------------------------------------------------------
 -- Decor Browser: Summary
 -------------------------------------------------------------------------------
+L["What can I get now?"] = "What can I get now?"
+L["Decor this character can buy or earn today, best first."] = "Decor this character can buy or earn today, best first."
+L["Can get now means this character can buy or earn it today: the right faction, and no requirement left to meet. The closest ones come first. Use See all for the full list."] = "Can get now means this character can buy or earn it today: the right faction, and no requirement left to meet. The closest ones come first. Use See all for the full list."
+L["Search"] = "Search"
+L["Show"] = "Show"
+L["Not yet: next step"] = "Not yet: next step"
+L["and %d more"] = "and %d more"
+L["See all you can get now (%d)"] = "See all you can get now (%d)"
+L["Here in %s: %s sells %d decor you can get now."] = "Here in %s: %s sells %d decor you can get now."
+L["Sold here in %s"] = "Sold here in %s"
+L["Sold on %s"] = "Sold on %s"
+L["%s: active now"] = "%s: active now"
+L["Gold only"] = "Gold only"
+L["Gold only, no requirements left"] = "Gold only, no requirements left"
+L["No requirements left"] = "No requirements left"
+L["By source"] = "By source"
+L["%d of %d"] = "%d of %d"
+L["Not read yet"] = "Not read yet"
+L["Decor collected, by where it comes from. Pick one to see each source."] = "Decor collected, by where it comes from. Pick one to see each source."
+L["Reading your collection"] = "Reading your collection"
 -- end: Summary
 
 -------------------------------------------------------------------------------
