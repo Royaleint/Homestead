@@ -299,17 +299,12 @@ L["Event: %s - %s"] = "事件：%s - %s"
 L["Other source"] = "其他來源"
 
 -- Decor Browser: visuals and widgets
-L["Decor Browser"] = "裝飾瀏覽器"
 L["Owned"] = "已擁有"
 L["Unlocked to buy"] = "已解鎖，可購買"
 L["Locked"] = "未解鎖"
 L["Set waypoint"] = "設定導航點"
-L["%s / %s  ·  %d%%"] = "%s / %s  ·  %d%%"
-L["0 / 0"] = "0 / 0"
-L["? / %s"] = "? / %s"
 
 -- Decor Browser: window and navigation
-L["Open a list to search"] = "開啟清單以搜尋"
 L["Homestead Decor"] = "Homestead 裝飾"
 L["Summary"] = "概要"
 L["Catalog"] = "目錄"
@@ -327,14 +322,10 @@ L["Price"] = "價格"
 
 -- Decor Browser: shop and item pages
 L[", "] = ", "
-L["Clear filters"] = "清除篩選"
-L["Search: %s"] = "搜尋：%s"
-L["Nothing matches %s."] = "沒有符合%s的內容。"
 L["Seasonal: %s"] = "季節限定：%s"
 L["Rotates with the %s Endeavor"] = "隨%s睦鄰活動輪替"
 L["Rotates with neighborhood Endeavors"] = "隨社區睦鄰活動輪替"
 L["You own this."] = "你已擁有此物品。"
-L["You can buy it now. Not collected yet."] = "你現在可以購買。尚未收集。"
 L["Not available to you yet."] = "你暫時還無法取得。"
 L["Ownership cannot be read for this kind of item."] = "無法讀取此類物品的擁有狀況。"
 L["Ownership is not known yet."] = "暫時無法得知是否已擁有。"
@@ -401,3 +392,56 @@ L["Requires"] = "需要"
 -- Decor Browser: holiday vendors
 -------------------------------------------------------------------------------
 L["The Decor Browser is not available yet."] = "裝飾瀏覽器尚無法使用。"
+
+-------------------------------------------------------------------------------
+-- Decor Browser: states and shared parts
+-------------------------------------------------------------------------------
+L["Collected"] = "已收集"
+L["Can get now"] = "現在可取得"
+L["Requires: %s"] = "需要：%s"
+L["%s only"] = "僅限%s"
+L["Not collected"] = "未收集"
+L["Counting…"] = "計算中…"
+L["Not confirmed"] = "未確認"
+L["Active now"] = "目前開放"
+L["Best to get now"] = "現在最易取得"
+L["Search decor by name"] = "依名稱搜尋裝飾"
+L["Reset filters"] = "重設篩選"
+L["Search all decor"] = "搜尋全部裝飾"
+L["Show what's missing"] = "顯示缺少的"
+L["Sort by name"] = "依名稱排序"
+L["Show them"] = "顯示"
+L["Show vendor"] = "顯示商人"
+L["Report a problem"] = "回報問題"
+L["Reading your collection. This list fills in when it's ready."] = "正在讀取你的收藏。準備好後，此清單會自動填入。"
+L["Reading your collection. This list fills in when it's ready, because Best to get now depends on what you own."] = "正在讀取你的收藏。準備好後，此清單會自動填入，因為現在最易取得的排序取決於你已擁有的物品。"
+L["Nothing missing"] = "沒有缺少的"
+L["You've collected all %d decor Homestead knows about."] = "你已收集 Homestead 所知的全部 %d 件裝飾。"
+L["Nothing you can get right now"] = "目前沒有可取得的"
+L["Everything you're missing needs a reputation, achievement or quest first, is sold only during an event, or is sold only to the %s."] = "你缺少的物品都需要先滿足聲望、成就或任務條件，或只在活動期間販售，或只賣給%s。"
+L["Collection not read yet"] = "尚未讀取收藏"
+L["Homestead hasn't read this character's decor collection yet, so it can't tell what you're missing. It reads it shortly after you log in. If this message stays, open the Housing Dashboard once."] = "Homestead 尚未讀取此角色的裝飾收藏，因此無法得知你缺少什麼。它會在你登入後不久讀取。若此訊息一直存在，請開啟一次房屋面板。"
+L["These filters need your collection, which Homestead hasn't read yet. If this stays, open the Housing Dashboard once."] = "這些篩選需要你的收藏，但 Homestead 尚未讀取。若一直如此，請開啟一次房屋面板。"
+L["No results"] = "沒有結果"
+L["No decor matches these words and filters. Search looks at item names only."] = "沒有符合這些詞語和篩選的裝飾。搜尋只看物品名稱。"
+L["%d hidden by '%s' (%d collected, %d %s only)."] = "已隱藏 %d 項（'%s'）：已收集 %d 項，另有 %d 項僅限%s。"
+
+-------------------------------------------------------------------------------
+-- Decor Browser: Summary
+-------------------------------------------------------------------------------
+-- end: Summary
+
+-------------------------------------------------------------------------------
+-- Decor Browser: Catalog
+-------------------------------------------------------------------------------
+-- end: Catalog
+
+-------------------------------------------------------------------------------
+-- Decor Browser: Sources
+-------------------------------------------------------------------------------
+-- end: Sources
+
+-------------------------------------------------------------------------------
+-- Decor Browser: Item
+-------------------------------------------------------------------------------
+-- end: Item

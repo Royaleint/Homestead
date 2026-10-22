@@ -1,4 +1,4 @@
--- luacheck: globals assert loadfile print rawset
+-- luacheck: globals assert io loadfile print rawset
 
 local root = (... or "."):gsub("\\", "/"):gsub("/+$", "")
 
@@ -68,6 +68,51 @@ do
     local st = D.ItemStatus(5)
     assert(st.state == "unknown", "no Collected or Not collected for an unknown item")
     print("hs538_states: unknown ownership shows no word ok")
+end
+
+-- The words and second signal of every state.
+do
+    local _, HA = state({ true, false, true, true }, {})
+    local S = HA.DecorBrowser.Style
+    local words = {
+        owned = { "Collected", "check" }, can = { "Can get now", "dot" }, locked = { "Requires: %s", "lock" },
+        faction = { "%s only", "stop" }, event = { "%s only", "clock" }, notOwned = { "Not collected", nil },
+        counting = { "Counting\226\128\166", nil },
+    }
+    for key, want in pairs(words) do
+        local st = S.state[key]
+        assert(st and st.word == want[1], "wrong words for state " .. key)
+        assert(st.glyph == want[2], "wrong second signal for state " .. key)
+    end
+    for key in pairs(S.state) do assert(words[key], "unexpected state " .. key) end
+    assert(S.state.can.color == S.color.can, "Can get now is not the green")
+    assert(S.state.faction.color == S.color.stop, "the other faction is not red")
+    for key, st in pairs(S.state) do
+        if key ~= "faction" then assert(st.color ~= S.color.stop, key .. " must not be red") end
+    end
+    assert(S.state.unlocked == nil and not S.state.owned.word:find("Unlocked"), "rows must not say Unlocked to buy")
+    print("hs538_states: state words ok")
+end
+
+-- Every locale file carries each tab's section, ending with its fixed line, so the tab changes can add
+-- keys above their own line without touching each other.
+do
+    local tabs = { "Summary", "Catalog", "Sources", "Item" }
+    local locales = { "enUS", "deDE", "esES", "esMX", "frFR", "itIT", "koKR", "ptBR", "ruRU", "zhCN", "zhTW" }
+    for _, loc in ipairs(locales) do
+        local f = assert(io.open(root .. "/Locale/" .. loc .. ".lua", "rb"))
+        local text = f:read("*a"):gsub("\r", "")
+        f:close()
+        local last = 0
+        for _, tab in ipairs(tabs) do
+            local at = text:find("-- Decor Browser: " .. tab .. "\n", 1, true)
+            local stop = text:find("\n-- end: " .. tab .. "\n", 1, true) or text:find("\n-- end: " .. tab .. "$")
+            assert(at and stop and at > last and stop > at, loc .. " lacks the " .. tab .. " section or its end line")
+            assert(not text:find("-- end: " .. tab, stop + 2, true), loc .. " has two end lines for " .. tab)
+            last = stop
+        end
+    end
+    print("hs538_states: locale tab sections ok")
 end
 
 print("hs538_states: ok")

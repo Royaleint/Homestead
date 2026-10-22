@@ -16,22 +16,40 @@ B.Style = S
 
 local L = HA.L
 
+-- Text steps: 10, 12, 14 and 16 are Blizzard's user-scaled fonts. None exists at 24, so display is a
+-- private font that S.ScaleDisplay resizes with the text size.
 S.font = {
-    title = "Fancy24Font",
-    header = "GameFontNormalLarge",
-    subheader = "GameFontNormalMed3",
-    body = "GameFontHighlight",
-    bodyLarge = "GameFontHighlightLarge",
-    bodyGold = "GameFontNormal",
-    meta = "GameFontHighlightSmall",
-    metaGold = "GameFontNormalSmall",
-    metaMuted = "GameFontDisableSmall",
-    number = "Number12Font",
-    numberLarge = "NumberFontNormal",
+    meta = "UserScaledFontGameHighlightSmall",
+    metaMuted = "UserScaledFontGameDisableSmall",
+    body = "UserScaledFontGameHighlight",
+    bodyGold = "UserScaledFontGameNormal",
+    bodyMuted = "UserScaledFontGameDisable",
+    subheader = "UserScaledFontGameNormalMed2",
+    header = "UserScaledFontGameNormalLarge",
+    display = "HomesteadBrowserDisplay",
 }
+local DISPLAY_SIZE = 24
+
+local display
+local function DisplayFont()
+    if not display then
+        display = CreateFont(S.font.display)
+        display:CopyFontObject("GameFontNormalHuge2")
+        display:SetFontHeight(DISPLAY_SIZE * TextSizeManager:GetScale())
+    end
+end
+
+function S.ScaleDisplay()
+    if display then display:SetFontHeight(DISPLAY_SIZE * TextSizeManager:GetScale()) end
+end
+
+function S.FontName(role)
+    if role == "display" then DisplayFont() end
+    return S.font[role]
+end
 
 function S.Text(parent, role, layer)
-    return parent:CreateFontString(nil, layer or "ARTWORK", S.font[role])
+    return parent:CreateFontString(nil, layer or "ARTWORK", S.FontName(role))
 end
 
 function S.Colored(c, text)
@@ -62,17 +80,16 @@ S.layout = {
     wellPad = 6,
     pagePad = SP.m, scrollBarGap = 14,
     headerHeight = 28,
-    listRowHeight = 56, rowGap = SP.xs,
-    iconRim = 42,
 }
+
+-- Heights come from measured text (Widgets.TextHeight); these are only the padding around it.
+S.row = { pad = 6, gap = 2, tile = 30 }
+S.cols = { nav = 172, detail = 252, gap = SP.xs }
 
 S.tex = {
     placeholderIcon = [[Interface\Icons\INV_Misc_QuestionMark]],
-    vendorPlaceholder = [[Interface\Icons\INV_Misc_QuestionMark]],
-    plainWhite = [[Interface\Buttons\WHITE8X8]],
     iconBorder = [[Interface\Common\WhiteIconFrame]],
     marble = [[Interface\FrameGeneral\UI-Background-Marble]],
-    circleMask = [[Interface\CharacterFrame\TempPortraitAlphaMask]],
 }
 
 S.art = {
@@ -81,16 +98,20 @@ S.art = {
 
 S.atlas = {
     check = "common-icon-checkmark",
-    coin = "coin-gold",
     lock = "Padlock",
-    lockBadge = "ui-journeys-greatvault-lock",
-    lockBadgeFallback = "Bags-padlock-authenticator",
     waypointOff = "Waypoint-MapPin-Untracked",
     waypointOn = "Waypoint-MapPin-Tracked",
-    expand = "common-icon-plus",
-    collapse = "common-icon-minus",
     divider = "Options_HorizontalDivider",
-    vendorPin = "housing-decor-vendor_32",
+}
+
+-- State marks, first atlas the client has wins; Vis.Marker falls back to a colour square.
+S.glyph = {
+    check = { "common-icon-checkmark" },
+    dot = { "common-radiobutton-dot" },
+    lock = { "groupfinder-icon-lock", "ui-journeys-greatvault-lock" },
+    stop = { "common-icon-redx" },
+    clock = { "housing-dashboard-timertag-clock-icon", "worldquest-icon-clock" },
+    star = { "tradeskills-star" },
 }
 
 -- texcoords {l, r, t, b}
@@ -101,8 +122,6 @@ S.coord = {
 
 S.material = {
     shadow = { 0, 0, 0 },
-    stone = { 0.11, 0.10, 0.09 },
-    gilt = { 1.00, 0.82, 0.00 },
 }
 
 -- Housing dashboard art behind the pane, under a neutral scrim; without the atlas the pane goes opaque.
@@ -130,16 +149,14 @@ S.filigree = {
     dividerAlpha = 1,
 }
 
+-- Green means only "Can get now"; red only "can't on this character" and errors, never a row's own lock or
+-- count.
 S.color = {
-    card = { 0.19, 0.17, 0.15, 1 },
+    card = { 0.09, 0.08, 0.06, 1 },
     hoverRow = { 1, 1, 1, 0.10 },
+    selected = { 0.20, 0.16, 0.11, 1 },
     iconPlateTop = { 0.80, 0.69, 0.50, 1 },
     iconPlateBottom = { 0.56, 0.46, 0.32, 1 },
-    owned = { 0.2, 0.7, 0.2, 1 },
-    locked = { 0.7, 0.15, 0.15, 1 },
-    available = { 0.78, 0.62, 0.15, 1 },
-    unknown = { 0.45, 0.45, 0.45, 1 },
-    neutral = { 0.55, 0.47, 0.25, 1 },
     stateText = {
         owned = { 0.35, 0.85, 0.35 },
         unlocked = { 1.00, 0.82, 0.00 },
@@ -147,16 +164,28 @@ S.color = {
         unknown = { 0.67, 0.67, 0.67 },
     },
     body = { 1, 1, 1 },
-    muted = { 0.70, 0.70, 0.70 },
-    -- Text on an unusable control: darker than muted.
+    muted = { 0.55, 0.55, 0.55 },
     disabled = { 0.50, 0.50, 0.50 },
+    gold = { 1.00, 0.82, 0.00 },
+    money = { 0.94, 0.79, 0.29 },
+    can = { 0.24, 0.88, 0.24 },
+    stop = { 1.00, 0.20, 0.20 },
+    badge = { 0.90, 0.84, 0.66 },
+}
+local K = S.color
+
+-- The words and second signal of each row state. Locked and faction/event take their argument.
+S.state = {
+    owned = { word = L["Collected"], glyph = "check", color = K.muted, dim = true },
+    can = { word = L["Can get now"], glyph = "dot", color = K.can },
+    locked = { word = L["Requires: %s"], glyph = "lock", color = K.muted },
+    faction = { word = L["%s only"], glyph = "stop", color = K.stop },
+    event = { word = L["%s only"], glyph = "clock", color = K.muted },
+    notOwned = { word = L["Not collected"], color = K.muted },
+    counting = { word = L["Counting…"], color = K.muted },
 }
 
 S.chrome = { linePad = SP.s, shadowHeight = SP.m, wellShadowHeight = SP.l, wellShade = 0.55 }
-
-S.lockBadge = {
-    row = { size = 18, point = { "BOTTOMRIGHT", 3, -3 } },
-}
 
 S.stateLabel = {
     owned = L["Owned"],

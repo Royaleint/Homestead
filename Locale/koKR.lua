@@ -299,17 +299,12 @@ L["Event: %s - %s"] = "이벤트: %s - %s"
 L["Other source"] = "기타 출처"
 
 -- Decor Browser: visuals and widgets
-L["Decor Browser"] = "장식 탐색기"
 L["Owned"] = "보유"
 L["Unlocked to buy"] = "구매 가능"
 L["Locked"] = "잠김"
 L["Set waypoint"] = "웨이포인트 설정"
-L["%s / %s  ·  %d%%"] = "%s / %s  ·  %d%%"
-L["0 / 0"] = "0 / 0"
-L["? / %s"] = "? / %s"
 
 -- Decor Browser: window and navigation
-L["Open a list to search"] = "목록을 열어 검색하세요"
 L["Homestead Decor"] = "Homestead 장식"
 L["Summary"] = "요약"
 L["Catalog"] = "카탈로그"
@@ -327,14 +322,10 @@ L["Price"] = "가격"
 
 -- Decor Browser: shop and item pages
 L[", "] = ", "
-L["Clear filters"] = "필터 지우기"
-L["Search: %s"] = "검색: %s"
-L["Nothing matches %s."] = "%s와(과) 일치하는 항목이 없습니다."
 L["Seasonal: %s"] = "계절 한정: %s"
 L["Rotates with the %s Endeavor"] = "%s 교류회와 함께 교체됨"
 L["Rotates with neighborhood Endeavors"] = "지역 교류회와 함께 교체됨"
 L["You own this."] = "이미 보유하고 있습니다."
-L["You can buy it now. Not collected yet."] = "지금 구매할 수 있습니다. 아직 획득하지 않았습니다."
 L["Not available to you yet."] = "아직 이용할 수 없습니다."
 L["Ownership cannot be read for this kind of item."] = "이 종류의 아이템은 보유 여부를 확인할 수 없습니다."
 L["Ownership is not known yet."] = "보유 여부를 아직 알 수 없습니다."
@@ -401,3 +392,56 @@ L["Requires"] = "필요 조건"
 -- Decor Browser: holiday vendors
 -------------------------------------------------------------------------------
 L["The Decor Browser is not available yet."] = "장식 탐색기를 아직 사용할 수 없습니다."
+
+-------------------------------------------------------------------------------
+-- Decor Browser: states and shared parts
+-------------------------------------------------------------------------------
+L["Collected"] = "수집함"
+L["Can get now"] = "지금 획득 가능"
+L["Requires: %s"] = "필요: %s"
+L["%s only"] = "%s 전용"
+L["Not collected"] = "미수집"
+L["Counting…"] = "집계 중…"
+L["Not confirmed"] = "미확인"
+L["Active now"] = "현재 진행 중"
+L["Best to get now"] = "지금 얻기 좋은 순"
+L["Search decor by name"] = "이름으로 장식 검색"
+L["Reset filters"] = "필터 초기화"
+L["Search all decor"] = "모든 장식 검색"
+L["Show what's missing"] = "부족한 항목 보기"
+L["Sort by name"] = "이름순 정렬"
+L["Show them"] = "보기"
+L["Show vendor"] = "상인 보기"
+L["Report a problem"] = "문제 신고"
+L["Reading your collection. This list fills in when it's ready."] = "수집품을 읽는 중입니다. 준비되면 이 목록이 채워집니다."
+L["Reading your collection. This list fills in when it's ready, because Best to get now depends on what you own."] = "수집품을 읽는 중입니다. 준비되면 이 목록이 채워집니다. 지금 얻기 좋은 순은 보유 여부에 따라 달라지기 때문입니다."
+L["Nothing missing"] = "부족한 항목 없음"
+L["You've collected all %d decor Homestead knows about."] = "Homestead가 아는 장식 %d개를 모두 수집했습니다."
+L["Nothing you can get right now"] = "지금 얻을 수 있는 항목 없음"
+L["Everything you're missing needs a reputation, achievement or quest first, is sold only during an event, or is sold only to the %s."] = "부족한 항목은 모두 먼저 평판, 업적 또는 퀘스트가 필요하거나, 이벤트 기간에만 판매되거나, %s에게만 판매됩니다."
+L["Collection not read yet"] = "수집품을 아직 읽지 못함"
+L["Homestead hasn't read this character's decor collection yet, so it can't tell what you're missing. It reads it shortly after you log in. If this message stays, open the Housing Dashboard once."] = "Homestead가 이 캐릭터의 장식 수집품을 아직 읽지 못해 부족한 항목을 알 수 없습니다. 접속 직후 잠시 뒤에 읽습니다. 이 메시지가 계속 표시되면 주거 대시보드를 한 번 열어 주세요."
+L["These filters need your collection, which Homestead hasn't read yet. If this stays, open the Housing Dashboard once."] = "이 필터는 아직 읽지 못한 수집품 정보가 필요합니다. 계속되면 주거 대시보드를 한 번 열어 주세요."
+L["No results"] = "결과 없음"
+L["No decor matches these words and filters. Search looks at item names only."] = "이 검색어와 필터에 맞는 장식이 없습니다. 검색은 아이템 이름만 확인합니다."
+L["%d hidden by '%s' (%d collected, %d %s only)."] = "%d개 숨김: '%s' 설정 (수집 %d개, %d개는 %s 전용)."
+
+-------------------------------------------------------------------------------
+-- Decor Browser: Summary
+-------------------------------------------------------------------------------
+-- end: Summary
+
+-------------------------------------------------------------------------------
+-- Decor Browser: Catalog
+-------------------------------------------------------------------------------
+-- end: Catalog
+
+-------------------------------------------------------------------------------
+-- Decor Browser: Sources
+-------------------------------------------------------------------------------
+-- end: Sources
+
+-------------------------------------------------------------------------------
+-- Decor Browser: Item
+-------------------------------------------------------------------------------
+-- end: Item

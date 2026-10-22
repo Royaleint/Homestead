@@ -74,26 +74,34 @@ function Chrome.Header(frame, rect, height)
     return { line = line, shadow = shadow }
 end
 
-local Desaturate = {}
-Vis.Desaturate = Desaturate
+-- A state's mark on a texture: the glyph's first atlas the client has, tinted, else a colour square.
+local Marker = {}
+Vis.Marker = Marker
 
--- What greys lives under unit.art; unit.over holds badges and hover, so rims and the lock keep colour.
-function Desaturate.Create(parent, lockSize, lockPoint)
-    local art = CreateFrame("Frame", nil, parent)
-    local over = CreateFrame("Frame", nil, parent)
-    over:SetAllPoints(art)
-    over:SetFrameLevel(art:GetFrameLevel() + 2)
-
-    local a = S.atlas
-    local lock = over:CreateTexture(nil, "OVERLAY")
-    lock:SetAtlas(C_Texture.GetAtlasInfo(a.lockBadge) and a.lockBadge or a.lockBadgeFallback)
-    lock:SetSize(lockSize, lockSize)
-    lock:SetPoint(lockPoint[1], art, lockPoint[1], lockPoint[2], lockPoint[3])
-    lock:Hide()
-    return { art = art, over = over, lock = lock }
+local resolved = {}
+local function Atlas(glyph)
+    local found = resolved[glyph]
+    if found == nil then
+        found = false
+        for _, atlas in ipairs(S.glyph[glyph]) do
+            if C_Texture.GetAtlasInfo(atlas) then found = atlas break end
+        end
+        resolved[glyph] = found
+    end
+    return found
 end
 
-function Desaturate.Set(unit, grey, badge)
-    unit.art:DesaturateHierarchy(grey and 1.0 or 0)
-    unit.lock:SetShown(badge and true or false)
+function Marker.Set(tex, glyph, c)
+    tex:SetShown(glyph ~= nil)
+    if not glyph then return end
+    local atlas = Atlas(glyph)
+    if atlas then
+        tex:SetAtlas(atlas)
+        tex:SetDesaturated(true)
+        tex:SetVertexColor(c[1], c[2], c[3], 1)
+    else
+        tex:SetDesaturated(false)
+        tex:SetVertexColor(1, 1, 1, 1)
+        tex:SetColorTexture(c[1], c[2], c[3], 1)
+    end
 end

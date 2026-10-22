@@ -27,7 +27,6 @@ local TEXT_SCALE_EVENT = "TextSizeManager.OnTextScaleUpdated"
 -- hideNA: the Hide toggle. noPrewarm: true while a refresh must not ask for the vendor-count fill.
 local State = {
     hideNA = false, inCombat = false, generation = 0, noPrewarm = false, catalogMemo = {},
-    collapsed = setmetatable({}, { __index = function(t, k) local s = {} t[k] = s return s end }),
 }
 B.State = State
 
@@ -108,11 +107,6 @@ end
 local function SetCombat(inCombat)
     State.inCombat = inCombat
     for _, tab in pairs(tabs) do tab.SetCombat(inCombat) end
-end
-
--- The empty-result button: the current tab again, with nothing narrowing it.
-function B.ClearFilters()
-    if current then B.ShowTab(current) end
 end
 
 function B.SetHideNA(on)
@@ -306,6 +300,10 @@ end
 
 function B.HideTooltip()
     if tooltip then tooltip:Hide() end
+end
+
+function B.HideTooltipFor(owner)
+    if tooltip and tooltip:IsShown() and tooltip:GetOwner() == owner then tooltip:Hide() end
 end
 
 local LABEL = { 0.74, 0.70, 0.62 }

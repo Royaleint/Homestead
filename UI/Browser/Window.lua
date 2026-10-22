@@ -172,6 +172,8 @@ end
 
 -- Width and height of the tabs from their measured words; the clamp rect grows to keep them on screen.
 function Win.MeasureTabs()
+    S.ScaleDisplay()
+    B.Widgets.ResetMeasure()
     local widest, tall = 0, 0
     for _, t in ipairs(TABS) do
         widest = math.max(widest, t.frame.word:GetUnboundedStringWidth())

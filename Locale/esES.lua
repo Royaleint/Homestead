@@ -299,17 +299,12 @@ L["Event: %s - %s"] = "Evento: %s - %s"
 L["Other source"] = "Otro origen"
 
 -- Decor Browser: visuals and widgets
-L["Decor Browser"] = "Explorador de adornos"
 L["Owned"] = "En propiedad"
 L["Unlocked to buy"] = "Desbloqueado para comprar"
 L["Locked"] = "Bloqueado"
 L["Set waypoint"] = "Marcar punto de ruta"
-L["%s / %s  ·  %d%%"] = "%s / %s  ·  %d%%"
-L["0 / 0"] = "0 / 0"
-L["? / %s"] = "? / %s"
 
 -- Decor Browser: window and navigation
-L["Open a list to search"] = "Abre una lista para buscar"
 L["Homestead Decor"] = "Decoración de Homestead"
 L["Summary"] = "Resumen"
 L["Catalog"] = "Catálogo"
@@ -327,14 +322,10 @@ L["Price"] = "Precio"
 
 -- Decor Browser: shop and item pages
 L[", "] = ", "
-L["Clear filters"] = "Borrar filtros"
-L["Search: %s"] = "Búsqueda: %s"
-L["Nothing matches %s."] = "Nada coincide con %s."
 L["Seasonal: %s"] = "De temporada: %s"
 L["Rotates with the %s Endeavor"] = "Rota con el proyecto %s"
 L["Rotates with neighborhood Endeavors"] = "Rota con los proyectos del vecindario"
 L["You own this."] = "Ya tienes esto."
-L["You can buy it now. Not collected yet."] = "Puedes comprarlo ahora. Aún no lo has conseguido."
 L["Not available to you yet."] = "Todavía no está disponible para ti."
 L["Ownership cannot be read for this kind of item."] = "No se puede consultar la propiedad de este tipo de objeto."
 L["Ownership is not known yet."] = "Aún no se sabe si lo tienes."
@@ -401,3 +392,56 @@ L["Requires"] = "Requiere"
 -- Decor Browser: holiday vendors
 -------------------------------------------------------------------------------
 L["The Decor Browser is not available yet."] = "El explorador de adornos aún no está disponible."
+
+-------------------------------------------------------------------------------
+-- Decor Browser: states and shared parts
+-------------------------------------------------------------------------------
+L["Collected"] = "Coleccionado"
+L["Can get now"] = "Disponible ahora"
+L["Requires: %s"] = "Requiere: %s"
+L["%s only"] = "Solo %s"
+L["Not collected"] = "Sin coleccionar"
+L["Counting…"] = "Contando…"
+L["Not confirmed"] = "Sin confirmar"
+L["Active now"] = "Activo ahora"
+L["Best to get now"] = "Mejor para conseguir ya"
+L["Search decor by name"] = "Buscar decoración por nombre"
+L["Reset filters"] = "Restablecer filtros"
+L["Search all decor"] = "Buscar en toda la decoración"
+L["Show what's missing"] = "Mostrar lo que falta"
+L["Sort by name"] = "Ordenar por nombre"
+L["Show them"] = "Mostrarlos"
+L["Show vendor"] = "Mostrar vendedor"
+L["Report a problem"] = "Informar de un problema"
+L["Reading your collection. This list fills in when it's ready."] = "Leyendo tu colección. Esta lista se rellena cuando termina."
+L["Reading your collection. This list fills in when it's ready, because Best to get now depends on what you own."] = "Leyendo tu colección. Esta lista se rellena cuando termina, porque Mejor para conseguir ya depende de lo que tienes."
+L["Nothing missing"] = "No falta nada"
+L["You've collected all %d decor Homestead knows about."] = "Has coleccionado las %d piezas de decoración que conoce Homestead."
+L["Nothing you can get right now"] = "Nada disponible ahora mismo"
+L["Everything you're missing needs a reputation, achievement or quest first, is sold only during an event, or is sold only to the %s."] = "Todo lo que te falta requiere antes una reputación, un logro o una misión, se vende solo durante un evento o se vende solo a la %s."
+L["Collection not read yet"] = "Colección sin leer"
+L["Homestead hasn't read this character's decor collection yet, so it can't tell what you're missing. It reads it shortly after you log in. If this message stays, open the Housing Dashboard once."] = "Homestead aún no ha leído la colección de decoración de este personaje, así que no puede saber qué te falta. La lee poco después de iniciar sesión. Si este mensaje persiste, abre el panel de vivienda una vez."
+L["These filters need your collection, which Homestead hasn't read yet. If this stays, open the Housing Dashboard once."] = "Estos filtros necesitan tu colección, que Homestead aún no ha leído. Si esto persiste, abre el panel de vivienda una vez."
+L["No results"] = "Sin resultados"
+L["No decor matches these words and filters. Search looks at item names only."] = "Ninguna decoración coincide con estas palabras y filtros. La búsqueda solo mira los nombres de los objetos."
+L["%d hidden by '%s' (%d collected, %d %s only)."] = "%d ocultos por '%s' (%d coleccionados, %d solo %s)."
+
+-------------------------------------------------------------------------------
+-- Decor Browser: Summary
+-------------------------------------------------------------------------------
+-- end: Summary
+
+-------------------------------------------------------------------------------
+-- Decor Browser: Catalog
+-------------------------------------------------------------------------------
+-- end: Catalog
+
+-------------------------------------------------------------------------------
+-- Decor Browser: Sources
+-------------------------------------------------------------------------------
+-- end: Sources
+
+-------------------------------------------------------------------------------
+-- Decor Browser: Item
+-------------------------------------------------------------------------------
+-- end: Item

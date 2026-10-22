@@ -9,6 +9,7 @@ globals = {
     "HomesteadVendorMapPinsTooltip",
     "HomesteadVendorMapPinsWaresTooltip",
     "HomesteadBrowserTooltip",
+    "HomesteadBrowserDisplay",
     "SlashCmdList",
     "SLASH_HOMESTEAD1", "SLASH_HOMESTEAD2",
     "BINDING_HEADER_HOMESTEAD",
@@ -38,7 +39,7 @@ read_globals = {
     "BankFrame",
     "ChatFontNormal",
     "ContainerFrameCombinedBags", "ContainerFrameContainer",
-    "CreateFrame", "CreateVector2D",
+    "CreateFrame", "CreateFont", "CreateVector2D",
     "DEFAULT_CHAT_FRAME",
     "CreateDataProvider",
     "CreateFromMixins",
@@ -173,5 +174,6 @@ files["Locale/enUS.lua"] = {
         "GENERAL", "CLOSE", "MINIMAP_LABEL", "BLIZZARD_STORE", "WORLDMAP_BUTTON",
         "SHIFT_KEY_TEXT", "ALT_KEY_TEXT", "CTRL_KEY_TEXT", "HOUSING_DASHBOARD_ENDEAVOR",
         "BROWSE_NO_RESULTS", "FACTION_ALLIANCE", "FACTION_HORDE",
+        "HOUSING_CATALOG_FILTERS_FIRST_ACQUISITION", "HOUSING_DECOR_FIRST_ACQUISITION_AVAILABLE",
     },
 }
