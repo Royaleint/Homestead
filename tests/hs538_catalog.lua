@@ -707,8 +707,8 @@ do
     assert(d, "the item is listed")
     eq(d.npcID, nil, "a row carries no vendor")
     eq(d.state, "can", "an Alliance character can get it from the other vendor")
-    local memo = env.B.State.catalogMemo
-    eq(env.D.TooltipData(10, d.npcID, memo).state, "unlocked", "the tooltip judges the item: buyable")
+    assert(loadfile(root .. "/UI/Browser/Item.lua"))("Homestead", env.HA)
+    eq(env.B.ItemState(10, d.npcID), "can", "the tooltip judges the item: can get now")
     print("hs538_catalog: item-level rows ok")
 end
 

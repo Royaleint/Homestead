@@ -313,20 +313,19 @@ local function Pair(tip, label, value)
 end
 
 function B.ShowItemTooltip(owner, itemID, npcID)
-    local S = B.Style
+    local W = B.Widgets
     local d = B.Data.TooltipData(itemID, npcID, State.catalogMemo)
     local tip = B.Tooltip()
     local gold = NORMAL_FONT_COLOR
-    local r, g, b = 1, 1, 1
-    if d.quality then
-        local color = C_ColorOverrides.GetColorForQuality(d.quality)
-        r, g, b = color.r, color.g, color.b
-    end
-    local sc = S.color.stateText[d.state] or S.color.stateText.unknown
+    local r, g, b = W.QualityRGB(d.quality)
+    local state, arg = B.ItemState(itemID, npcID)
 
     tip:SetOwner(owner, "ANCHOR_RIGHT")
     tip:AddLine(d.name, r, g, b)
-    tip:AddLine(S.stateLabel[d.state] or "", sc[1], sc[2], sc[3])
+    if state then
+        local c = B.Style.state[state].color
+        tip:AddLine(W.StateWords(state, arg), c[1], c[2], c[3])
+    end
     tip:AddLine(L["Collection"], gold.r, gold.g, gold.b)
     if d.counts then
         Pair(tip, L["Placed"], d.counts.placed)

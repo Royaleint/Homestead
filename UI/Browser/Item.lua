@@ -1,4 +1,4 @@
--- One decor item: ownership, price, requirements, sources, and a data-error report.
+-- Item detail: one decor item's state, flags, requirements and sources in a scroll pane.
 local _, HA = ...
 
 local B = HA.DecorBrowser
@@ -6,30 +6,26 @@ local L = HA.L
 local S = B.Style
 local W = B.Widgets
 local K = S.color
+local SP = S.space
 
-local LABEL_W = 120
-local VENDOR_ROWS = 3
-local OTHER_ROWS = 5
+local PAD = SP.m
+local MARK = 12
+local FALLBACK_W = S.cols.detail - 2 * PAD - S.layout.scrollBarGap
 
--- No buy wording here: whether an item can be bought now comes from the vendor offers, not this status.
-local STATE_ATLAS = { owned = S.atlas.check, locked = S.atlas.lock }
-local STATE_NOTE = {
-    owned = L["You own this."],
-    locked = L["Not available to you yet."],
-}
-local REQ_TAG = {
-    [true] = { L["Met: %s"], K.stateText.owned },
-    [false] = { L["Needs: %s"], K.stateText.locked },
-    unknown = { L["Unknown: %s"], K.stateText.unknown },
+local SHOW = {
+    vendor = L["Show vendor"], achievement = L["Show achievement"], quest = L["Show quest"],
+    profession = L["Show recipe"], drop = L["Show drop"], event = L["Show event"],
 }
 
 local Page = {}
-local memo
+local scroll, content, parts
+local lines, buttons = {}, {}
+local items, head, flagged
 
 -- Data-error report text. r = { itemID, name, recordID, build, buildNumber, version,
 -- vendors = { { npcID, name, zone, mapID, x, y } } }.
 function Page.ReportText(r)
-    local lines = {
+    local out = {
         L["Item: %s (%d)"]:format(r.name or "?", r.itemID),
         L["Record ID: %s"]:format(r.recordID and tostring(r.recordID) or L["none"]),
     }
@@ -38,320 +34,381 @@ function Page.ReportText(r)
         if v.mapID and v.x and v.y then
             where = L["map %d at %.1f, %.1f"]:format(v.mapID, v.x * 100, v.y * 100)
         end
-        lines[#lines + 1] = L["Vendor %d: %s, %s, %s"]:format(v.npcID, v.name or L["Unknown"],
+        out[#out + 1] = L["Vendor %d: %s, %s, %s"]:format(v.npcID, v.name or L["Unknown"],
             v.zone or L["Unknown"], where)
     end
-    lines[#lines + 1] = L["Client: %s (%s)"]:format(r.build or "?", r.buildNumber or "?")
-    lines[#lines + 1] = L["Homestead: %s"]:format(r.version or "?")
-    return table.concat(lines, "\n")
+    out[#out + 1] = L["Client: %s (%s)"]:format(r.build or "?", r.buildNumber or "?")
+    out[#out + 1] = L["Homestead: %s"]:format(r.version or "?")
+    return table.concat(out, "\n")
 end
 
-local function FactLabel(parent, labelText, prevValue, firstAnchor, firstX, firstY)
-    local label = S.Text(parent, "body", "OVERLAY")
-    label:SetTextColor(K.muted[1], K.muted[2], K.muted[3])
-    label:SetWidth(LABEL_W)
-    label:SetJustifyH("LEFT")
-    if prevValue then
-        label:SetPoint("TOPLEFT", prevValue, "BOTTOMLEFT", -(LABEL_W + 8), -12)
-    else
-        label:SetPoint("TOPLEFT", firstAnchor, "TOPLEFT", firstX, firstY)
-    end
-    label:SetText(labelText)
-    return label
-end
-
-local function Fact(parent, ...)
-    local label = FactLabel(parent, ...)
-    local value = S.Text(parent, "body", "OVERLAY")
-    value:SetPoint("TOPLEFT", label, "TOPRIGHT", 8, 0)
-    value:SetPoint("RIGHT", parent, "RIGHT", -10, 0)
-    value:SetJustifyH("LEFT")
-    value:SetJustifyV("TOP")
-    return label, value
-end
-
-local function TextColor(b, c)
-    b.text:SetTextColor(c[1], c[2], c[3])
-end
-
-local function RestColor(b)
-    TextColor(b, b:IsEnabled() and K.muted or K.disabled)
-end
-
--- Disabled in combat: greyed, tooltip says why.
-local function NewTextButton(parent)
-    local b = CreateFrame("Button", nil, parent)
-    b.text = S.Text(b, "body", "OVERLAY")
-    b.text:SetPoint("LEFT")
-    b.text:SetPoint("RIGHT")
-    b.text:SetJustifyH("LEFT")
-    b.text:SetWordWrap(false)
-    TextColor(b, K.muted)
-    b:SetMotionScriptsWhileDisabled(true)
-    b:SetScript("OnEnter", function(self)
-        if not self:IsEnabled() then
-            local tip = B.Tooltip()
-            tip:SetOwner(self, "ANCHOR_RIGHT")
-            tip:SetText(L["Not available in combat"])
-            tip:Show()
-            return
+local function FactionLabel(itemID, npcID)
+    local D = B.Data
+    for _, src in ipairs(D.ItemSources(itemID)) do
+        if src.type == "vendor" and src.npcID and (not npcID or src.npcID == npcID) then
+            local v = D.Vendor(src.npcID)
+            local label = v and D.IsOppositeFaction(v) and D.VendorFactionLabel(v)
+            if label then return label end
         end
-        if self.onClick then TextColor(self, K.body) end
-        if self.tooltipLink then B.ShowLinkTooltip(self, self.tooltipLink) end
-    end)
-    b:SetScript("OnLeave", function(self)
-        RestColor(self)
-        B.HideTooltip()
-    end)
-    b:SetScript("OnClick", function(self)
-        if self.onClick then self.onClick(self) end
-    end)
-    return b
+    end
+end
+
+-- The item-state rule for every surface: S.state key, its argument, and the vendor a locked state names.
+-- npcID picks one vendor's offer, else the item's best (its first locked vendor with unmet requirements).
+function B.ItemState(itemID, npcID)
+    local D, CG = B.Data, B.CanGet
+    local phase = D.CollectionState()
+    if phase ~= "ready" then return phase == "counting" and "counting" or nil end
+    local e = CG.Entry(itemID)
+    if not e then return end
+    if e.own ~= "notOwned" then return e.own == "owned" and "owned" or nil end
+    local offer = npcID and CG.Offer(itemID, npcID, e.info) or e.verdict
+    if offer == "can" then return "can" end
+    if npcID and offer == "faction" or not npcID and e.factionOnly then
+        local label = FactionLabel(itemID, npcID)
+        if label then return "faction", label end
+    end
+    for _, at in ipairs(npcID and { npcID } or e.locked or {}) do
+        local unmet = {}
+        for _, r in ipairs(CG.Offer(itemID, at, e.info) == "locked" and D.Requirements(itemID, at) or {}) do
+            if r.met ~= true then unmet[#unmet + 1] = r.text end
+        end
+        if #unmet > 0 then
+            return "locked", unmet[2] and unmet[1] .. " " .. L["... and %d more."]:format(#unmet - 1) or unmet[1], at
+        end
+    end
+    local ev = npcID and B.Facts.EventVendor(npcID)
+    local event = offer == "unlisted" and (npcID and ev and (ev.event or (D.Vendor(npcID) or {}).event) or not npcID and e.event)
+    return event and "event" or "notOwned", event or nil
+end
+
+local function Line(text, glyph, color, role)
+    items[#items + 1] = { text = text, glyph = glyph, color = color or K.body, role = role }
+end
+
+local function Heading(text)
+    items[#items + 1] = { gap = true }
+    Line(text, nil, K.gold, "subheader")
+end
+
+local function Pair(label, value)
+    Line(S.Colored(K.gold, label) .. " " .. value)
+end
+
+local function Act(label, fn, gated)
+    items[#items + 1] = { act = label, fn = fn, gated = gated }
+end
+
+local function Waypoint(label, mapID, x, y, title, data)
+    if not (mapID and x and y) then return end
+    Act(label, function() HA.Waypoints:Set(mapID, x, y, { title = title, data = data }) end)
+end
+
+local function ShowSource(sourceType, key)
+    return function() B.ShowTab("sources", { type = sourceType, select = { key = key } }) end
 end
 
 local function Report()
     if InCombatLockdown() then return end
     local D, itemID = B.Data, Page.itemID
-    local info = D.CatalogInfo(itemID, B.State.catalogMemo)
-    local vendors, seen = {}, {}
-    local function add(npcID)
-        if not npcID or seen[npcID] then return end
-        seen[npcID] = true
-        local v = D.Vendor(npcID)
-        local e = { npcID = npcID, name = v and v.name, zone = v and v.zone }
-        if v then e.mapID, e.x, e.y = D.VendorLocation(v) end
-        vendors[#vendors + 1] = e
-    end
-    add(Page.npcID)
-    for _, src in ipairs(memo.sources) do
-        if src.type == "vendor" then add(src.npcID) end
-    end
+    local info = D.CatalogInfo(itemID, B.State and B.State.catalogMemo)
     local build, buildNumber = GetBuildInfo()
     HA.OutputWindow:Show(L["Report a data error"], Page.ReportText({
-        itemID = itemID, name = D.ItemName(itemID) or (info and info.name),
-        recordID = D.RecordID(itemID, info), vendors = vendors,
+        itemID = itemID, name = D.ItemName(itemID, info),
+        recordID = D.RecordID(itemID, info), vendors = Page.vendors,
         build = build, buildNumber = buildNumber, version = HA.Constants.VERSION,
     }))
 end
 
-function Page.Build(host)
-    local f = CreateFrame("Frame", nil, host)
-    f:SetAllPoints()
+-- Open vendors by nearness, then other vendors, other sources, other-faction vendors.
+local function Rank(b)
+    if not b.vendor then return 6 end
+    if b.offer == "can" then return B.Facts.Nearness(b.mapID, B.Facts.Here()) end
+    return B.Data.IsOppositeFaction(b.vendor) and 9 or 5
+end
 
-    local hdr = W.NewSectionHeader(f)
-    hdr:SetPoint("TOPLEFT")
-    hdr:SetPoint("TOPRIGHT")
-    Page.header = hdr
+local function EventLine(name, active)
+    if active and flagged[name] then return end
+    Line(active and L["Active now: %s"]:format(name) or W.StateWords("event", name), "clock",
+        active and K.badge or K.muted)
+end
 
-    local box = W.Well(f)
-    box:SetSize(S.model.itemW, S.model.itemH)
-    box:SetPoint("TOPLEFT", 0, -36)
-    W.WoodCorners(box)
-    local icon = box:CreateTexture(nil, "ARTWORK")
-    icon:SetSize(S.model.thumb * 1.5, S.model.thumb * 1.5)
-    icon:SetPoint("CENTER")
-    W.Coord(icon, S.coord.icon)
-    Page.icon = icon
-
-    local _, status = Fact(f, L["Status"], nil, box, S.model.itemW + 22, 0)
-    Page.status = status
-    local note = S.Text(f, "meta", "OVERLAY")
-    note:SetPoint("TOPLEFT", status, "BOTTOMLEFT", 0, -2)
-    note:SetPoint("RIGHT", f, "RIGHT", -10, 0)
-    note:SetJustifyH("LEFT")
-    note:SetTextColor(K.muted[1], K.muted[2], K.muted[3])
-    Page.statusNote = note
-
-    local _, price = Fact(f, L["Price"], note)
-    Page.price = price
-    local _, req = Fact(f, L["Requirement"], price)
-    Page.req = req
-    local soldLabel = FactLabel(f, L["Sold by"], req)
-    Page.soldRows = {}
-    for i = 1, VENDOR_ROWS do
-        local row = CreateFrame("Frame", nil, f)
-        row:SetHeight(30)
-        row:SetPoint("TOPLEFT", soldLabel, "TOPRIGHT", 8, -(i - 1) * 32 + 8)
-        row:SetPoint("RIGHT", f, "RIGHT", -10, 0)
-        row.wp = W.WaypointButton(row)
-        row.wp:SetPoint("RIGHT")
-        row.btn = NewTextButton(row)
-        row.btn:SetPoint("LEFT")
-        row.btn:SetPoint("RIGHT", row.wp, "LEFT", -8, 0)
-        row.btn:SetHeight(18)
-        Page.soldRows[i] = row
+local function VendorBlock(itemID, b)
+    local D, F, v = B.Data, B.Facts, b.vendor
+    Pair(L["Vendor:"], v.name or L["Unknown"])
+    if v.zone then
+        Pair(L["Zone:"], v.subzone and L["%s, %s"]:format(v.subzone, v.zone) or v.zone)
+    else
+        Line(L["Location not recorded"], nil, K.muted)
     end
-    Page.soldMore = S.Text(f, "meta", "OVERLAY")
-    Page.soldMore:SetTextColor(K.muted[1], K.muted[2], K.muted[3])
-    Page.soldMore:SetPoint("TOPLEFT", soldLabel, "TOPRIGHT", 8, -VENDOR_ROWS * 32 + 4)
-
-    local otherHdr = S.Text(f, "subheader", "OVERLAY")
-    otherHdr:SetPoint("TOPLEFT", box, "BOTTOMLEFT", 0, -40)
-    otherHdr:SetText(L["Also available from"])
-    Page.otherRows = {}
-    for i = 1, OTHER_ROWS do
-        local b = NewTextButton(f)
-        b:SetPoint("TOPLEFT", otherHdr, "BOTTOMLEFT", 0, -6 - (i - 1) * 20)
-        b:SetPoint("RIGHT", f, "RIGHT", -10, 0)
-        b:SetHeight(18)
-        Page.otherRows[i] = b
+    local price = D.Price(itemID, v)
+    if price then Pair(L["Cost:"], price) end
+    local label = D.IsOppositeFaction(v) and D.VendorFactionLabel(v)
+    if label then Line(W.StateWords("faction", label), "stop", K.stop) end
+    local ev = F.EventVendor(b.npcID)
+    local event = ev and ev.event or v.event
+    if event then EventLine(event, F.BrowserListed(v)) end
+    if b.offer == "can" then Line(L["Can get now here"], "dot", K.can) end
+    local confirmed = F.Confirmed(v)
+    if confirmed then
+        Line(L["Confirmed by a scan on %s"]:format(confirmed), "check", K.muted)
+    else
+        Line(L["Not confirmed"], nil, K.muted)
     end
-    Page.otherMore = S.Text(f, "meta", "OVERLAY")
-    Page.otherMore:SetTextColor(K.muted[1], K.muted[2], K.muted[3])
-    Page.otherMore:SetPoint("TOPLEFT", otherHdr, "BOTTOMLEFT", 0, -6 - OTHER_ROWS * 20)
-    Page.noOther = S.Text(f, "meta", "OVERLAY")
-    Page.noOther:SetTextColor(K.muted[1], K.muted[2], K.muted[3])
-    Page.noOther:SetPoint("TOPLEFT", otherHdr, "BOTTOMLEFT", 0, -6)
-    Page.noOther:SetText(L["No other sources on record."])
+    local key = F.SourceKey("vendors", { npcID = b.npcID }, itemID)
+    if key then Act(SHOW.vendor, ShowSource("vendors", key)) end
+    Waypoint(L["Set waypoint"], b.mapID, b.x, b.y, v.name, { type = "vendor", npcID = b.npcID })
+end
 
-    local report = NewTextButton(f)
-    report:SetPoint("BOTTOMLEFT", 0, 4)
-    report:SetSize(200, 18)
-    report.text:SetText(L["Report a data error"])
-    report.onClick = Report
-    Page.report = report
+local function OtherBlock(itemID, src)
+    local F, t = B.Facts, src.type
+    local name = src.name or L["Unknown"]
+    if t == "achievement" then
+        Pair(L["Achievement:"], name)
+    elseif t == "quest" then
+        Pair(L["Quest:"], name)
+        local spot, start = F.TreasureSpot(src.questID), F.QuestStart(src.questID)
+        if spot then Line(L["Daily from The Last Architect"], nil, K.muted) end
+        if start then
+            local map = C_Map.GetMapInfo(start.mapID)
+            Line(L["Starts in %s"]:format(map and map.name or L["Unknown"]), nil, K.muted)
+            Waypoint(L["Set waypoint"], start.mapID, start.x, start.y, name)
+        end
+        if spot then Waypoint(L["Set dig site waypoint"], spot.mapID, spot.x, spot.y, name) end
+    elseif t == "profession" then
+        Pair(L["Recipe:"], name)
+        if src.profession then Pair(L["Profession:"], src.profession) end
+    elseif t == "drop" then
+        Pair(L["Drop:"], name)
+        if src.zone then Pair(L["Zone:"], src.zone) end
+        if src.notes then Line(src.notes, nil, K.muted) end
+        Waypoint(L["Set waypoint"], src.mapID, src.x, src.y, name)
+    elseif t == "event" then
+        Pair(L["Event:"], name)
+        if src.vendorName then Pair(L["Vendor:"], src.vendorName) end
+        if src.zone then Pair(L["Zone:"], src.zone) end
+        local CD = HA.CalendarDetector
+        EventLine(name, CD and CD:IsHolidayActive(name) == true)
+        Waypoint(L["Set waypoint"], src.mapID, src.x, src.y, name)
+    else
+        Line(B.Data.SourceLine(itemID, { src }))
+    end
+    local sourceType = F.SOURCE_TYPE[t]
+    local file = HA[B.CanGet.SOURCE_TABLES[sourceType] or ""]
+    local key = sourceType and t ~= "shop" and F.SourceKey(sourceType, file and file[itemID], itemID)
+    if key then Act(SHOW[t], ShowSource(sourceType, key)) end
+end
+
+-- The page as descriptors: lines, buttons and gaps.
+local function Describe(itemID)
+    local D, CG, F = B.Data, B.CanGet, B.Facts
+    items, flagged = {}, {}
+    local memo = B.State and B.State.catalogMemo
+    local e = CG.Entry(itemID)
+    local info = e and e.info or D.CatalogInfo(itemID, memo)
+
+    local quality = D.IconData(itemID, true, memo)
+    local kind = info and info.categoryIDs and info.categoryIDs[1]
+    kind = kind and C_HousingCatalog.GetCatalogCategoryInfo(kind)
+    head = {
+        name = D.ItemName(itemID, info) or L["Item %d"]:format(itemID), quality = quality, icon = D.ItemIcon(itemID),
+        meta = L["%s - %s"]:format(quality and _G["ITEM_QUALITY" .. quality .. "_DESC"] or L["Unknown"],
+            kind and kind.name or L["Other"]),
+    }
+
+    local blocks, seen = {}, {}
+    Page.vendors = {}
+    local function addVendor(npcID)
+        local v = npcID and not seen[npcID] and D.Vendor(npcID)
+        if not v then return false end
+        seen[npcID] = true
+        local mapID, x, y = D.VendorLocation(v)
+        blocks[#blocks + 1] = { vendor = v, npcID = npcID, mapID = mapID, x = x, y = y,
+            offer = CG.Offer(itemID, npcID, e and e.info) }
+        Page.vendors[#Page.vendors + 1] = { npcID = npcID, name = v.name, zone = v.zone, mapID = mapID, x = x, y = y }
+        return true
+    end
+    for _, src in ipairs(D.ItemSources(itemID)) do
+        if not (src.type == "vendor" and (addVendor(src.npcID) or seen[src.npcID])) then
+            blocks[#blocks + 1] = { src = src }
+        end
+    end
+    for _, npcID in ipairs(F.EventVendorsFor(itemID) or {}) do addVendor(npcID) end
+    for i, b in ipairs(blocks) do b.rank = Rank(b) + i / 1000 end
+    table.sort(blocks, function(a, c) return a.rank < c.rank end)
+
+    local state, arg, at = B.ItemState(itemID)
+    if state then
+        local st = S.state[state]
+        Line(W.StateWords(state, arg), st.glyph, st.color)
+    end
+    if info and D.CollectionState() == "ready" then
+        local n = { info.totalNumPlaced, info.totalNumStored, info.remainingRedeemable }
+        for i, label in ipairs({ L["Placed"], L["In storage"], L["Not yet redeemed"] }) do
+            if (n[i] or 0) > 0 then Pair(label, tostring(n[i])) end
+        end
+    end
+    local active
+    for _, o in pairs(e and e.canBy or {}) do
+        if o.event and (not active or o.event < active) then active = o.event end
+    end
+    if active then
+        flagged[active] = true
+        Line(L["Active now: %s"]:format(active), "clock", K.badge)
+    end
+    if e and e.bonus then
+        local blue = _G.BRIGHTBLUE_FONT_COLOR
+        Line(L["First-Time Collection Bonus Available"], "star", blue and { blue.r, blue.g, blue.b } or K.gold)
+    end
+
+    local reqs = D.Requirements(itemID, at or blocks[1] and blocks[1].npcID)
+    if #reqs > 0 then
+        Heading(L["Requires"])
+        for _, r in ipairs(reqs) do
+            if r.met == true then
+                Line(L["%s (done)"]:format(r.text), "check", K.muted)
+            elseif r.met == false then
+                Line(L["%s (not yet)"]:format(r.text), "lock")
+            else
+                Line(r.text)
+            end
+        end
+    end
+
+    Heading(L["Where to get it"])
+    if #blocks == 0 then Line(L["Source unknown"], nil, K.muted) end
+    for _, b in ipairs(blocks) do
+        items[#items + 1] = { gap = true }
+        if b.vendor then
+            VendorBlock(itemID, b)
+        else
+            OtherBlock(itemID, b.src)
+        end
+    end
+    items[#items + 1] = { gap = true }
+    Act(L["Report a problem"], Report, true)
+end
+
+local function NewLine()
+    local f = CreateFrame("Frame", nil, content)
+    f.mark = f:CreateTexture(nil, "OVERLAY")
+    f.mark:SetSize(MARK, MARK)
+    f.mark:SetPoint("TOPLEFT", 0, -1)
+    f.text = S.Text(f, "body", "OVERLAY")
+    f.text:SetJustifyH("LEFT")
     return f
 end
 
-local function ItemMemo(itemID, npcID)
-    local D = B.Data
-    if memo and memo.itemID == itemID and memo.npcID == npcID and memo.version == D.MemoVersion() then
-        return memo
-    end
-    local m = { itemID = itemID, npcID = npcID, version = D.MemoVersion(),
-        sources = D.ItemSources(itemID), sold = {}, others = {} }
-    for _, src in ipairs(m.sources) do
-        if src.type == "vendor" then
-            local v = src.npcID and D.Vendor(src.npcID)
-            if v and D.IsListedVendor(v) then m.sold[#m.sold + 1] = { src = src, vendor = v } end
+local function NewAct()
+    local b = W.NewButton(content, "", function(self)
+        if self.act then self.act() end
+    end)
+    b:SetMotionScriptsWhileDisabled(true)
+    b:SetScript("OnEnter", function(self)
+        if self.gated and not self:IsEnabled() then
+            local tip = B.Tooltip()
+            tip:SetOwner(self, "ANCHOR_RIGHT")
+            tip:SetText(L["Not available in combat"])
+            tip:Show()
+        end
+    end)
+    b:SetScript("OnLeave", function() B.HideTooltip() end)
+    return b
+end
+
+local function Layout()
+    local w = scroll:GetWidth()
+    if w < 1 then w = FALLBACK_W end
+    content:SetWidth(w)
+    local r, g, b = W.QualityRGB(head.quality)
+    W.SetTile(parts.tile, { icon = head.icon }, r, g, b)
+    local textW = w - S.model.thumb - SP.s
+    parts.name:SetWidth(textW)
+    parts.name:SetText(head.name)
+    parts.name:SetTextColor(r, g, b)
+    parts.meta:SetWidth(textW)
+    parts.meta:SetText(head.meta)
+    local y = math.max(S.model.thumb, parts.name:GetStringHeight() + SP.xs + parts.meta:GetStringHeight()) + SP.m
+
+    local nl, nb = 0, 0
+    for _, d in ipairs(items) do
+        if d.gap then
+            y = y + SP.s
+        elseif d.act then
+            nb = nb + 1
+            buttons[nb] = buttons[nb] or NewAct()
+            local btn = buttons[nb]
+            btn.act, btn.gated = d.fn, d.gated
+            btn:SetText(d.act)
+            btn:Fit()
+            btn:SetEnabled(not (d.gated and Page.combat))
+            btn:SetPoint("TOPLEFT", content, "TOPLEFT", 0, -y)
+            btn:Show()
+            y = y + btn:GetHeight() + SP.xs
         else
-            m.others[#m.others + 1] = src
+            nl = nl + 1
+            lines[nl] = lines[nl] or NewLine()
+            local f = lines[nl]
+            local indent = d.glyph and MARK + SP.xs or 0
+            f.text:SetFontObject(S.FontName(d.role or "body"))
+            f.text:SetPoint("TOPLEFT", indent, 0)
+            f.text:SetWidth(w - indent)
+            f.text:SetText(d.text)
+            f.text:SetTextColor(d.color[1], d.color[2], d.color[3])
+            B.Vis.Marker.Set(f.mark, d.glyph, d.color)
+            local h = f.text:GetStringHeight()
+            f:SetSize(w, h)
+            f:SetPoint("TOPLEFT", content, "TOPLEFT", 0, -y)
+            f:Show()
+            y = y + h + SP.xs
         end
     end
-    if npcID then m.price = D.Price(itemID, D.Vendor(npcID)) end
-    for _, src in ipairs(m.sources) do
-        if m.price then break end
-        if src.type == "vendor" then m.price = src.price end
-    end
-    memo = m
-    return m
+    for i = nl + 1, #lines do lines[i]:Hide() end
+    for i = nb + 1, #buttons do buttons[i]:Hide() end
+    content:SetHeight(y)
 end
 
-local function SoldLine(v)
-    local D = B.Data
-    local place = v.zone or L["Unknown"]
-    if v.subzone then place = L["%s, %s"]:format(v.subzone, place) end
-    if D.IsOppositeFaction(v) then
-        local label = D.VendorFactionLabel(v)
-        if label then place = L["%s (%s)"]:format(place, label) end
-    end
-    return L["%s - %s"]:format(v.name or L["Unknown"], S.Muted(place))
+function Page.Build(host)
+    scroll = CreateFrame("ScrollFrame", nil, host, "ScrollFrameTemplate")
+    scroll:SetPoint("TOPLEFT", PAD, -PAD)
+    scroll:SetPoint("BOTTOMRIGHT", -(PAD + S.layout.scrollBarGap), PAD)
+    content = CreateFrame("Frame", nil, scroll)
+    content:SetSize(FALLBACK_W, 1)
+    scroll:SetScrollChild(content)
+    scroll:HookScript("OnSizeChanged", function()
+        if items then Layout() end
+    end)
+    local tile = W.NewTile(content, S.model.thumb)
+    tile.icon:SetPoint("TOPLEFT")
+    parts = { tile = tile, name = S.Text(content, "subheader", "OVERLAY"), meta = S.Text(content, "body", "OVERLAY") }
+    parts.name:SetPoint("TOPLEFT", tile.icon, "TOPRIGHT", SP.s, 0)
+    parts.meta:SetPoint("TOPLEFT", parts.name, "BOTTOMLEFT", 0, -SP.xs)
+    parts.meta:SetTextColor(K.muted[1], K.muted[2], K.muted[3])
+    parts.name:SetJustifyH("LEFT")
+    parts.meta:SetJustifyH("LEFT")
+    return scroll
 end
 
-local function ShowSold(m)
-    for i, row in ipairs(Page.soldRows) do
-        local e = m.sold[i]
-        local b = row.btn
-        if e then
-            local v = e.vendor
-            b.text:SetText(SoldLine(v))
-            local mapID, x, y = B.Data.VendorLocation(v)
-            row.wp.wp = mapID and { mapID = mapID, x = x, y = y, title = v.name,
-                data = { type = "vendor", npcID = v.npcID } } or nil
-            row.wp:SetShown(mapID ~= nil)
-            row:Show()
-        else
-            row:Hide()
-        end
-    end
-    local extra = #m.sold - VENDOR_ROWS
-    Page.soldMore:SetText(extra > 0 and L["+%d more vendors"]:format(extra) or "")
-    if #m.sold == 0 then
-        local row = Page.soldRows[1]
-        row.btn.text:SetText(L["Not sold by a vendor"])
-        row.btn.onClick = nil
-        row.wp:Hide()
-        row:Show()
+function Page.Show(itemID)
+    Page.itemID = itemID
+    Page.combat = B.InCombat()
+    Describe(itemID)
+    Layout()
+    scroll:Show()
+end
+
+function Page.Clear()
+    Page.itemID, items = nil, nil
+    if scroll then scroll:Hide() end
+    for _, btn in ipairs(buttons) do B.HideTooltipFor(btn) end
+end
+
+function Page.SetCombat(inCombat)
+    Page.combat = inCombat
+    for _, btn in ipairs(buttons) do
+        if btn.gated and btn:IsShown() then btn:SetEnabled(not inCombat) end
     end
 end
 
-local function ShowOthers(m)
-    for i, b in ipairs(Page.otherRows) do
-        local src = m.others[i]
-        b.tooltipLink = nil
-        if src then
-            b.text:SetText(B.Data.SourceLine(Page.itemID, { src }))
-            if src.type == "achievement" and src.achievementID then
-                b.tooltipLink = GetAchievementLink(src.achievementID)
-            elseif src.type == "quest" and src.questID then
-                b.tooltipLink = GetQuestLink(src.questID) or ("quest:" .. src.questID)
-            end
-            b:Show()
-        else
-            b:Hide()
-        end
-    end
-    local extra = #m.others - OTHER_ROWS
-    Page.otherMore:SetText(extra > 0 and L["+%d more sources"]:format(extra) or "")
-    Page.noOther:SetShown(#m.others == 0)
-end
-
-function Page.Show(route)
-    local D = B.Data
-    local itemID, npcID = route.itemID, route.npcID
-    Page.itemID, Page.npcID = itemID, npcID
-    local m = ItemMemo(itemID, npcID)
-
-    Page.header.text:SetText(D.ItemName(itemID) or L["Item %d"]:format(itemID))
-    Page.header.right:SetText(L["Item %d"]:format(itemID))
-    Page.icon:SetTexture(D.ItemIcon(itemID))
-
-    local st = D.ItemStatus(itemID, npcID, true)
-    local atlas = STATE_ATLAS[st.state]
-    local sc = K.stateText[st.state]
-    Page.status:SetText(st.state == "unlocked" and ""
-        or (atlas and ("|A:" .. atlas .. ":16:16|a ") or "") .. S.Colored(sc, S.stateLabel[st.state]))
-    local note = STATE_NOTE[st.state]
-    if st.state == "locked" and st.labels and #st.labels > 0 then
-        note = L["Needs: %s"]:format(table.concat(st.labels, L[", "]))
-    elseif st.state == "unknown" then
-        note = st.excluded and L["Ownership cannot be read for this kind of item."]
-            or L["Ownership is not known yet."]
-    end
-    Page.statusNote:SetText(note or "")
-    Page.price:SetText(m.price or L["Not listed"])
-
-    local reqs = D.Requirements(itemID, npcID)
-    if #reqs == 0 then
-        Page.req:SetText(L["None"])
-    else
-        local lines = {}
-        for i, r in ipairs(reqs) do
-            local tag = REQ_TAG[r.met] or REQ_TAG.unknown
-            lines[i] = S.Colored(tag[2], tag[1]:format(r.text))
-        end
-        Page.req:SetText(table.concat(lines, "\n"))
-    end
-
-    ShowSold(m)
-    ShowOthers(m)
-end
-
-function Page.Hide()
-    memo = nil
-end
-
-function Page.SetCombatGated(gated)
-    Page.report:SetEnabled(not gated)
-    RestColor(Page.report)
-end
-
-B.Item = Page
-
--- The item detail the Catalog tab hosts.
-B.ItemDetail = {
-    Build = Page.Build,
-    Show = function(itemID) Page.Show({ itemID = itemID }) end,
-    Clear = Page.Hide,
-    SetCombat = Page.SetCombatGated,
-}
+B.ItemDetail = { Build = Page.Build, Show = Page.Show, Clear = Page.Clear, SetCombat = Page.SetCombat,
+    ReportText = Page.ReportText }

@@ -157,12 +157,6 @@ S.color = {
     selected = { 0.20, 0.16, 0.11, 1 },
     iconPlateTop = { 0.80, 0.69, 0.50, 1 },
     iconPlateBottom = { 0.56, 0.46, 0.32, 1 },
-    stateText = {
-        owned = { 0.35, 0.85, 0.35 },
-        unlocked = { 1.00, 0.82, 0.00 },
-        locked = { 1.00, 0.42, 0.35 },
-        unknown = { 0.67, 0.67, 0.67 },
-    },
     body = { 1, 1, 1 },
     muted = { 0.55, 0.55, 0.55 },
     disabled = { 0.50, 0.50, 0.50 },
@@ -186,13 +180,6 @@ S.state = {
 }
 
 S.chrome = { linePad = SP.s, shadowHeight = SP.m, wellShadowHeight = SP.l, wellShade = 0.55 }
-
-S.stateLabel = {
-    owned = L["Owned"],
-    unlocked = L["Unlocked to buy"],
-    locked = L["Locked"],
-    unknown = L["Unknown"],
-}
 
 S.model = {
     itemW = 268, itemH = 250,

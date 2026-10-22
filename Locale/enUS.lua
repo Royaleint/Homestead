@@ -540,4 +540,26 @@ L["Nothing to show here."] = "Nothing to show here."
 -------------------------------------------------------------------------------
 -- Decor Browser: Item
 -------------------------------------------------------------------------------
+L["Vendor:"] = "Vendor:"
+L["Zone:"] = "Zone:"
+L["Cost:"] = "Cost:"
+L["Achievement:"] = "Achievement:"
+L["Quest:"] = "Quest:" -- untranslated
+L["Recipe:"] = "Recipe:"
+L["Profession:"] = "Profession:"
+L["Drop:"] = "Drop:"
+L["Event:"] = "Event:"
+L["Starts in %s"] = "Starts in %s"
+L["Daily from The Last Architect"] = "Daily from The Last Architect"
+L["Set dig site waypoint"] = "Set dig site waypoint"
+L["Can get now here"] = "Can get now here"
+L["Where to get it"] = "Where to get it"
+L["Show achievement"] = "Show achievement"
+L["Show quest"] = "Show quest"
+L["Show recipe"] = "Show recipe"
+L["Show drop"] = "Show drop"
+L["Show event"] = "Show event"
+L["%s (done)"] = "%s (done)"
+L["%s (not yet)"] = "%s (not yet)"
+L["Active now: %s"] = "Active now: %s"
 -- end: Item

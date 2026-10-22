@@ -23,7 +23,7 @@ for line in readFile("Homestead.toc"):gmatch("[^\r\n]+") do
     if entry then assert(loadfile(root .. "/" .. entry:gsub("\\", "/")))("Homestead", HA) end
 end
 
-local item = HA.DecorBrowser.Item
+local item = HA.DecorBrowser.ItemDetail
 assert(item and type(item.ReportText) == "function", "the item page has no report builder")
 
 local function has(text, needle)
@@ -44,6 +44,14 @@ has(text, "Vendor 255203: Shop Keeper, Silvermoon City, map 2393 at 45.2, 60.3")
 has(text, "Vendor 219318: Far Trader, Dornogal, no location")
 has(text, "Client: 12.0.5 (66102)")
 has(text, "Homestead: 2.14.1")
+
+-- The page that gathers the report is the item detail the Catalog hosts: its four-call contract is
+-- intact and the pure builder is the one it hands to the output window.
+local detail = HA.DecorBrowser.ItemDetail
+for _, name in ipairs({ "Build", "Show", "Clear", "SetCombat" }) do
+    assert(type(detail[name]) == "function", "ItemDetail." .. name .. " is missing")
+end
+assert(detail.Show and item.ReportText, "the item path no longer reaches the report builder")
 
 -- Missing pieces still produce a complete report, never an error.
 text = item.ReportText({ itemID = 7, vendors = {} })

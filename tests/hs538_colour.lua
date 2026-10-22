@@ -101,7 +101,7 @@ function Win.PlayOpen() Win.frame.shown = true hooks.OnShow() end
 function Win.PlayClose() Win.frame.shown = false hooks.OnHide() end
 Win.CheckTextScale, Win.Fit, Win.AssertPropagation, Win.StopGlow = noop, noop, noop, noop
 Win.SetSelectedTab, Win.SetLocation = noop, noop
-for _, file in ipairs({ "Adapter", "Facts", "CanGet", "Browser" }) do
+for _, file in ipairs({ "Adapter", "Facts", "CanGet", "Browser", "Item" }) do
     assert(loadfile(root .. "/UI/Browser/" .. file .. ".lua"))("Homestead", HA)
 end
 B.Data.IsReady = function() return true end
@@ -147,7 +147,7 @@ assert(calls == 2, "a repaint must redraw each pooled row of a list, redrew " ..
 
 -- A recycled row that owns the tooltip hides it; a row that does not own it leaves it alone.
 NORMAL_FONT_COLOR = { r = 1, g = 0.8, b = 0 }
-B.Data.TooltipData = function() return { name = "Pine Table", state = "unknown" } end
+B.Data.TooltipData = function() return { name = "Pine Table" } end
 shown[1].scripts.OnEnter(shown[1])
 local tip = B.Tooltip()
 assert(tip:IsShown() and tip:GetOwner() == shown[1], "the hover did not put the tooltip on the row")

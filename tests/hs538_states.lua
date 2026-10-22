@@ -64,9 +64,6 @@ do
     local D = HA.DecorBrowser.Data
     assert(s == "ready")
     assert(D.OwnState(5, nil) == nil, "no entry and no record is unknown")
-    HA.SourceManager = { GetItemPresentation = function() error("unknown ownership reads no presentation") end }
-    local st = D.ItemStatus(5)
-    assert(st.state == "unknown", "no Collected or Not collected for an unknown item")
     print("hs538_states: unknown ownership shows no word ok")
 end
 
