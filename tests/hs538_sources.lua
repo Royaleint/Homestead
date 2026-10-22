@@ -748,7 +748,9 @@ do
     assert(not row(main, 9002), "the other collected source stays hidden")
     local fd = main.data[#main.data]
     assert(fd.kind == "foot" and fd.collected == 1 and fd.faction == 0
-        and (fd.parts[1][2] == "Alliance" or fd.parts[1][2] == "Horde"), "only collected rows hidden: the faction name is still the other faction")
+        and #fd.parts == 0, "only collected rows hidden: no faction is named")
+    assert(env.W.FooterText({ hidden = 3, collected = 1, faction = 2, parts = {} })
+        == "3 hidden by 'Hide what doesn't apply to me' (1 collected).", "the footer prints the whole hidden count")
     env.tab.Show({ type = "achievements" })
     assert(main.shown == false, "everything collected: the empty state")
     local back = button("Show them")

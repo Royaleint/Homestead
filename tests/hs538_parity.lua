@@ -227,3 +227,30 @@ do
     surfaces(env, "several requirements")
     print("hs538_parity: several unmet requirements ok")
 end
+
+do
+    -- Two locked vendors: Summary's next step, the Catalog row and the item page all name the vendor with the
+    -- fewest unmet requirements, though it comes second.
+    local env = world(nil, function(e)
+        for _, id in ipairs({ 1, 2, 6, 13 }) do e.owned(id) end
+        e.sell(3, e.vendors[101], { gold = 60 })
+        e.reqs["3:100"] = { { type = "unknown", text = "Mysterious Favor" }, { type = "unknown", text = "Old Debt" } }
+        e.reqs["3:101"] = { { type = "unknown", text = "Bran's Favor" } }
+    end)
+    local state, arg, at = env.B.ItemState(3)
+    eq(describe(state, arg), "locked/Bran's Favor", "the easiest vendor")
+    eq(at, 101)
+    env.go("summary")
+    local next
+    for _, f in ipairs(env.all) do
+        if env.owner(f) == "summary" and rawget(f, "why") and f.shown and f.itemID == 3 then next = f end
+    end
+    assert(next, "Summary draws no next step for item 3")
+    env.go("catalog", { sort = "name" })
+    local row = env.catalogRow(3)
+    eq(describe(row.d.state, row.d.arg), describe(state, arg), "Catalog row")
+    eq(next.src.text, "Requires: " .. row.d.arg, "Summary's next step reads as the Catalog row")
+    env.go("catalog", { sort = "name", itemID = 3 })
+    assert(holds(pageLines(env), words(env, state, arg)), "the item page names the same vendor's requirement")
+    print("hs538_parity: easiest locked vendor ok")
+end

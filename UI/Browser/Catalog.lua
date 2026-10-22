@@ -10,8 +10,13 @@ local NAV = { "all", 1, 2, 3, 4, "other" }
 local KIND = { [1] = L["Furnishings"], [2] = L["Structural"], [3] = L["Accents"], [4] = L["Lighting"], other = L["Other"] }
 local TYPE = S.sourceLabel
 local SORT = { best = L["Best to get now"], name = L["Name"], price = L["Price"] }
--- Best-sort groups; the default is 1.
-local GROUP = { can = 0, locked = 2, event = 2, faction = 3, owned = 4 }
+-- The best-sort group from the walk alone (can, other, locked or event, faction, owned); drawn rows judge their words.
+local function Group(e)
+    if e.own ~= "notOwned" then return e.own == "owned" and 4 or 1 end
+    if e.verdict == "can" then return 0 end
+    if e.factionOnly then return 3 end
+    return (e.locked or e.verdict == "unlisted" and e.event) and 2 or 1
+end
 
 local Tab, ui, orders = {}, {}, {}
 local cat, recs, counts, walk, version, hideFor, bare
@@ -75,8 +80,7 @@ local function Rebuild()
         local r = { kind = "item", id = e.itemID, e = e, lname = e.name and e.name:lower() or "",
             hasName = e.name ~= nil, cat = KindOf(e.info), bonus = e.bonus,
             done = e.own == "owned", hid = hideFor and (walk and (e.own == "owned" and "collected" or e.factionOnly and "faction" or nil) or not walk and CG.HiddenBy(e.itemID)) or nil }
-        r.state, r.arg = B.ItemState(e.itemID)
-        r.g = GROUP[r.state] or 1
+        r.g = walk and Group(e) or 1
         recs[i] = r
         counts[r.cat] = (counts[r.cat] or 0) + 1
     end
@@ -195,13 +199,13 @@ local function Describe(r)
         local sources = D.ItemSources(id)
         local p = sources[1]
         local v = p and p.type == "vendor" and p.npcID and HA.VendorData:GetVendor(p.npcID)
-        local active
+        local active, state, arg = nil, B.ItemState(id)
         for _, o in pairs(e.canBy or {}) do active = active or o.event end
         d = { itemID = id, name = e.name or L["Item %d"]:format(id),
             quality = e.info and e.info.quality or C_Item.GetItemQualityByID(id),
             icon = e.info and e.info.iconTexture or D.ItemIcon(id), active = active, bonus = r.bonus,
             right = p and p.price, line2 = D.SourceLine(id, { p }) .. (#sources > 1 and " " .. L["(+%d more)"]:format(#sources - 1) or ""),
-            unconfirmed = v and not B.Facts.Confirmed(v) or nil, state = r.state, arg = r.arg,
+            unconfirmed = v and not B.Facts.Confirmed(v) or nil, state = state, arg = arg,
             onClick = function() Pick(id) end }
         r.d = d
     end
@@ -272,7 +276,7 @@ function Apply(keep, force)
     -- A landed id with no record (not decor, or unmapped) keeps its detail; no row is selected.
     if not sel then cat.sel = cat.pin or n > 0 and out[1].id or nil end
     if hc + hf > 0 then
-        out[n + 1] = { kind = "footer", hidden = hc + hf, collected = hc, faction = hf, parts = B.Facts.FactionParts(seen, hf),
+        out[n + 1] = { kind = "footer", hidden = hc + hf, collected = hc, faction = hf, parts = B.Facts.FactionParts(seen),
             onShow = function() B.SetHideNA(false) B.Window.hideNA:SetChecked(false) end }
     end
     local empty = Empty(D.CollectionState(), n, hc + hf > 0, words)

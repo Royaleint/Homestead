@@ -80,15 +80,10 @@ local function CanData(e)
 end
 
 local function NextData(c)
-    local e, reason = c.entry, nil
-    if c.npcID then
-        local text = L["Other requirement"]
-        for _, req in ipairs(D.Requirements(e.itemID, c.npcID)) do
-            if req.met ~= true then text = req.text break end
-        end
-        reason = L["Requires: %s"]:format(c.unmet > 1 and L["%s and %d more"]:format(text, c.unmet - 1) or text)
-    end
-    return { itemID = e.itemID, why = L["Not yet: next step"], dim = true, e = e, src = reason or L["%s only"]:format(e.event) }
+    local e = c.entry
+    local state, arg = B.ItemState(e.itemID)
+    return { itemID = e.itemID, why = L["Not yet: next step"], dim = true, e = e, src = state == "event"
+        and L["%s only"]:format(arg) or L["Requires: %s"]:format(state == "locked" and arg or L["Other requirement"]) }
 end
 
 local function SetRow(r, d)

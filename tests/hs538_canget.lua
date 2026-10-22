@@ -334,8 +334,10 @@ end
 -------------------------------------------------------------------------------
 
 do
+    local B
     local function fillFor(q, candidates, allOwned)
-        local env, _, _, CG = newEnv()
+        local env, HA, _, CG = newEnv()
+        B = HA.DecorBrowser
         local v = env.vendor(10)
         for i = 1, q do env.decor(i) env.sell(i, v) end
         for i = 1, candidates do
@@ -363,7 +365,7 @@ do
         assert(not f.allCollected)
         for i, row in ipairs(f.notYet) do
             assert(row.entry.itemID == 55 - i, "fewest unmet first: " .. row.entry.itemID)
-            assert(row.unmet == i and row.npcID == 10)
+            assert(row.unmet == i and select(3, B.ItemState(row.entry.itemID)) == 10)
             assert(row.entry.name ~= nil, "unnamed items are never next steps")
         end
     end

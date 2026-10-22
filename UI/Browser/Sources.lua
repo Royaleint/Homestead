@@ -202,9 +202,7 @@ local function BuildList(keep)
                 hidden.hidden = hidden.hidden + 1
                 hidden[why] = hidden[why] + 1
                 if why == "faction" then
-                    local label = v and D.VendorFactionLabel(v)
-                    for _, id in ipairs(not v and s.items or {}) do label = label or CG.FactionLabel(id) end
-                    label = label or ""
+                    local label = v and D.VendorFactionLabel(v) or ""
                     seen[label] = (seen[label] or 0) + 1
                 end
             else
@@ -213,7 +211,7 @@ local function BuildList(keep)
             end
         end
     end
-    hidden.parts = Facts.FactionParts(seen, hidden.faction)
+    hidden.parts = Facts.FactionParts(seen)
     table.sort(out, Before)
     local sel, found = st.sel[t], false
     for _, s in ipairs(out) do found = found or s.key == sel end

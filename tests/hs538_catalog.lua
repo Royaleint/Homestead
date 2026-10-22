@@ -733,4 +733,29 @@ do
     print("hs538_catalog: one item state ok")
 end
 
+-- A data refresh judges the drawn rows only: requirements are read for no row the list doesn't draw.
+do
+    local env = fixture()
+    for id = 100, 139 do
+        env.decor(id, "Locked " .. id, { totalNumStored = 0, categoryIDs = { 1 } })
+        env.sell(id, env.vendors[10], { gold = 5 })
+        env.reqs[id .. ":10"] = { { type = "unknown", text = "Req " .. id } }
+    end
+    local read, real = {}, env.D.Requirements
+    env.D.Requirements = function(itemID, ...)
+        read[itemID] = (read[itemID] or 0) + 1
+        return real(itemID, ...)
+    end
+    env.tab.Show()
+    env.D.InvalidateMemos()
+    env.tab.Refresh("data")
+    local drawn, locked = {}, 0
+    for _, f in ipairs(env.box().frames) do drawn[f.d.itemID] = true end
+    for id in pairs(read) do assert(drawn[id], "requirements read for undrawn item " .. id) end
+    for id = 100, 139 do if read[id] then locked = locked + 1 end end
+    assert(#env.box().provider > 40 and locked > 0 and locked <= 8, "the drawn locked rows are judged: " .. locked)
+    env.D.Requirements = real
+    print("hs538_catalog: drawn rows only ok")
+end
+
 print("hs538_catalog: ok")

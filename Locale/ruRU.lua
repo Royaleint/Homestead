@@ -419,7 +419,7 @@ L["These filters need your collection, which Homestead hasn't read yet. If this 
 L["No results"] = "Ничего не найдено"
 L["No decor matches these words and filters. Search looks at item names only."] = "Ни один декор не подходит под эти слова и фильтры. Поиск учитывает только названия предметов."
 L["%d hidden by '%s' (%d collected, %d %s only)."] = "Скрыто %d по настройке '%s' (собрано: %d; ещё %d только для %s)."
-L["%d hidden by '%s' (%d collected, %d %s only, %d %s only)."] = "Скрыто %d по настройке '%s' (собрано: %d; ещё %d только для %s; %d только для %s)."
+L["%d hidden by '%s' (%d collected, %d %s only, %d %s only)."] = "Скрыто %d по настройке '%s' (собрано: %d; %d только для %s; %d только для %s)."
 L["%d hidden by '%s' (%d collected)."] = "Скрыто %d по настройке '%s' (собрано: %d)."
 L["%s or the %s"] = "%s или %s"
 

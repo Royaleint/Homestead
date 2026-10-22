@@ -477,8 +477,8 @@ do
 end
 
 -------------------------------------------------------------------------------
--- Two locked vendors with different unmet requirements: page and tooltip name the same one.
--- Two unmet requirements add the "and N more" tail. Unknown ownership returns nothing.
+-- Two locked vendors with different unmet requirements: page and tooltip name the same one, the vendor with
+-- the fewest unmet (here the second in source order).
 -------------------------------------------------------------------------------
 do
     fresh(1020)
@@ -490,8 +490,8 @@ do
     REQS[1020] = function(npcID) return npcID == 102 and { a1, a2 } or { b1 } end
     local list = show(1020)
     local line = list[assert(indexOf(list, "Requires: "), "no Requires state")].text
-    assert(line:find("Ironforge", 1, true) and line:find("and 1 more", 1, true), "state line: " .. line)
-    assert(has(list, "Honored with Darnassus (not yet)") and not has(list, "Orgrimmar"), "Requires names another vendor")
+    assert(line == "Requires: Friendly with Orgrimmar", "state line: " .. line)
+    assert(has(list, "Friendly with Orgrimmar (not yet)") and not has(list, "Ironforge"), "Requires names another vendor")
     local tip = B.Tooltip()
     tip.lines = {}
     B.ShowItemTooltip(Widget("Frame"), 1020)

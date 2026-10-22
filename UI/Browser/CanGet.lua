@@ -301,22 +301,22 @@ function CG.Rank()
     return out
 end
 
--- Unmet requirements at the item's easiest locked vendor (at least 1), and that vendor.
-local function Unmet(e)
-    if not e.locked then return 1, nil end
-    local SM, fewest, at = HA.SourceManager, nil, nil
-    for _, npcID in ipairs(e.locked) do
-        local n = 0
-        for _, req in ipairs(SM:GetRequirements(e.itemID, npcID) or {}) do
-            if SM:IsRequirementMet(req) ~= true then n = n + 1 end
+-- The unmet requirement texts at the easiest of these locked vendors (fewest unmet, ties in source
+-- order; a vendor with none unmet doesn't count), and that vendor.
+local function Easiest(itemID, npcIDs)
+    local best, at
+    for _, npcID in ipairs(npcIDs or {}) do
+        local unmet = {}
+        for _, r in ipairs(D.Requirements(itemID, npcID)) do
+            if r.met ~= true then unmet[#unmet + 1] = r.text end
         end
-        if not fewest or n < fewest then fewest, at = n, npcID end
+        if unmet[1] and not (best and #best <= #unmet) then best, at = unmet, npcID end
     end
-    return math.max(fewest, 1), at
+    return best, at
 end
 
 -- The Summary's rows: up to three can-get-now entries, then dimmed "not yet" rows so three slots fill
--- when enough candidates exist. Returns { rows, notYet = { { entry, unmet, npcID } }, count, allCollected }.
+-- when enough candidates exist. Returns { rows, notYet = { { entry, unmet } }, count, allCollected }.
 function CG.Fill()
     local ranked = CG.Rank()
     if not ranked then return nil end
@@ -329,8 +329,8 @@ function CG.Fill()
     local candidates = {}
     for _, e in ipairs(w.list) do
         if e.own == "notOwned" and e.name and (e.verdict == "locked" or (e.verdict == "unlisted" and e.event)) then
-            local unmet, npcID = Unmet(e)
-            candidates[#candidates + 1] = { entry = e, unmet = unmet, npcID = npcID }
+            local unmet = Easiest(e.itemID, e.locked)
+            candidates[#candidates + 1] = { entry = e, unmet = unmet and #unmet or 1 }
         end
     end
     table.sort(candidates, function(a, b)
@@ -394,22 +394,15 @@ local function Judge(e, itemID, npcID)
         local label = FactionLabel(itemID, npcID)
         if label then return "faction", label end
     end
-    for _, at in ipairs(npcID and { npcID } or e.locked or {}) do
-        local unmet = {}
-        for _, r in ipairs(CG.Offer(itemID, at, e.info) == "locked" and D.Requirements(itemID, at) or {}) do
-            if r.met ~= true then unmet[#unmet + 1] = r.text end
-        end
-        if unmet[1] then
-            return "locked", unmet[2] and L["%s and %d more"]:format(unmet[1], #unmet - 1) or unmet[1], at
-        end
-    end
+    local unmet, at = Easiest(itemID, not npcID and e.locked or offer == "locked" and { npcID })
+    if unmet then return "locked", unmet[2] and L["%s and %d more"]:format(unmet[1], #unmet - 1) or unmet[1], at end
     local ev = npcID and Facts.EventVendor(npcID)
     local event = offer == "unlisted" and (npcID and ev and (ev.event or (D.Vendor(npcID) or {}).event) or not npcID and e.event)
     return event and "event" or "notOwned", event or nil
 end
 
 -- The item-state rule for every surface: an S.state key, its argument, and the vendor a locked state names.
--- npcID judges that vendor's offer; without it, the item's first locked vendor with unmet requirements.
+-- npcID judges that vendor's offer; without it, the item's easiest locked vendor.
 function B.ItemState(itemID, npcID)
     local phase = D.CollectionState()
     if phase ~= "ready" then return phase == "counting" and "counting" or nil end

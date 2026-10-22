@@ -120,12 +120,9 @@ function F.Nearness(mapID, where)
     return (c and c == where.continent) and 2 or 3
 end
 
--- The factions a faction stop names, as { { count, label } }: the other one, with total, for a faction
--- character; for a Neutral one, only the factions in seen (label -> count).
-function F.FactionParts(seen, total)
-    local mine = UnitFactionGroup("player")
-    if mine == "Alliance" then return { { total, L["Horde"] } } end
-    if mine == "Horde" then return { { total, L["Alliance"] } } end
+-- The factions a faction stop names, as { { count, label } }: only those in seen (label -> count), the
+-- vendor factions of the items it is about.
+function F.FactionParts(seen)
     local out = {}
     for _, label in ipairs({ L["Alliance"], L["Horde"] }) do
         if seen and seen[label] then out[#out + 1] = { seen[label], label } end
@@ -133,9 +130,9 @@ function F.FactionParts(seen, total)
     return out
 end
 
--- The same, for a sentence; nil for a Neutral character with none seen.
+-- The same, for a sentence; nil with none seen.
 function F.OtherFaction(seen)
-    local p = F.FactionParts(seen, 0)
+    local p = F.FactionParts(seen)
     if p[2] then return L["%s or the %s"]:format(p[1][2], p[2][2]) end
     return p[1] and p[1][2]
 end

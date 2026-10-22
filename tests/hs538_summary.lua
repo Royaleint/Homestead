@@ -441,22 +441,20 @@ do
     eq(env.rows()[1].src.text, "Lunar Festival only")
 
     -- Nothing you can get: the button opens Catalog on what is missing.
-    env = filled(0, 0)
-    env.decor(70)
-    env.refreshData()
+    env = filled(0, 0, function(e) e.decor(70) end)
     local empty = env.empty()
-    assert(empty.shown and empty.text.text:find("sold only to the Horde.", 1, true), "the other faction is named")
+    local none = "Everything you're missing needs a reputation, achievement or quest first, or is sold only during an event."
+    assert(empty.shown and empty.text.text == none, "no missing item is faction-limited, yet a faction is named: " .. empty.text.text)
     click(empty.buttons[1])
     eq(env.calls[#env.calls][1], "catalog")
     assert(env.calls[#env.calls][2].filters.notCollected == true, "Show what's missing")
     env.HA.Addon.db.profile.browser.tipSeen = true
-    env.faction = "Horde"
-    env.tab.Refresh("paint")
-    assert(empty.text.text:find("sold only to the Alliance.", 1, true), "the other faction follows the character")
     env.faction = "Neutral"
     env.tab.Refresh("paint")
-    assert(empty.text.text == "Everything you're missing needs a reputation, achievement or quest first, or is sold only during an event.",
-        "a Neutral character with no faction-only item is told a faction: " .. empty.text.text)
+    assert(empty.text.text == none, "a Neutral character with no faction-only item is told a faction: " .. empty.text.text)
+    env = filled(0, 0, function(e) e.decor(70) e.sell(70, e.vendor(71, { faction = "Horde" })) end)
+    empty = env.empty()
+    assert(empty.shown and empty.text.text:find("sold only to the Horde.", 1, true), "a Horde-only missing item: " .. empty.text.text)
 
     -- Everything collected.
     env = filled(0, 0, function(e) e.decor(80) e.owned(80) end)
