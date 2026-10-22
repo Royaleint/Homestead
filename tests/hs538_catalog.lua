@@ -95,6 +95,16 @@ local function NewBox()
     return box
 end
 
+-- WowStyle1FilterDropdownTemplate: DropdownTextMixin has SetText but no SetDefaultText or
+-- SetSelectionTranslator. WowStyle1DropdownTemplate: DropdownSelectionTextMixin has both.
+-- SetupMenu and GenerateMenu come from DropdownButtonMixin.
+local STRICT = {
+    WowStyle1FilterDropdownTemplate = { SetPoint = true, SetWidth = true, GetWidth = true, SetText = true,
+        GetText = true, SetupMenu = true, GenerateMenu = true },
+    WowStyle1DropdownTemplate = { SetPoint = true, SetWidth = true, GetWidth = true, SetupMenu = true,
+        GenerateMenu = true, SetSelectionTranslator = true },
+}
+
 local function newEnv(opts)
     opts = opts or {}
     local env = {
@@ -133,6 +143,21 @@ local function newEnv(opts)
         local w
         if template == "WowScrollBoxList" then w = NewBox() else w = Widget(kind) end
         w.parent, w.template = parent, template
+        local strict = STRICT[template]
+        if strict then
+            -- Only the methods Blizzard's mixin chain for this template has and our code uses.
+            setmetatable(w, { __index = function(_, k)
+                if strict[k] then return methods[k] or noop end
+            end })
+            if template == "WowStyle1FilterDropdownTemplate" then
+                -- The template's own resizeToText default, applied by DropdownTextMixin:UpdateText.
+                w.resizeToText = true
+                function w:SetText(text)
+                    self.text = text
+                    if self.resizeToText then self.width = #text * 6 + 60 end
+                end
+            end
+        end
         env.all[#env.all + 1] = w
         if kind == "EditBox" then w.Instructions = Widget("FontString") end
         if template then
@@ -357,6 +382,9 @@ do
     eq(env.ids(), "1,2,8,5,7,3,6,4", "Best to get now: ranked, plain, requirement, other faction, collected")
     eq(env.log[#env.log], "show:1", "R24: the first row is selected and the detail filled")
     eq(env.location, "All decor", "location")
+    eq(env.filters():GetText(), "Filters", "the filter button carries its label")
+    eq(env.filters().resizeToText, false, "the filter button keeps its fixed width")
+    eq(env.filters():GetWidth(), 100, "a long label does not resize the filter button")
     local frames = env.box().frames
     eq(frames[1].d.selected, true, "the first row is drawn selected")
     eq(frames[2].d.selected, false, "the others are not")
