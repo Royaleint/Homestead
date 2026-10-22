@@ -466,6 +466,19 @@ L["%d hidden by '%s' (%d collected, %d %s only)."] = "%d hidden by '%s' (%d coll
 -------------------------------------------------------------------------------
 -- Decor Browser: Catalog
 -------------------------------------------------------------------------------
+L["All decor"] = "All decor"
+L["Filters"] = "Filters"
+L["Name"] = "Name" -- untranslated
+L["Sort: %s"] = "Sort: %s"
+L["Furnishings"] = "Furnishings"
+L["Structural"] = "Structural"
+L["Accents"] = "Accents" -- untranslated
+L["Lighting"] = "Lighting"
+L["Neither collected nor not collected"] = "Neither collected nor not collected"
+L["Sources: %s"] = "Sources: %s"
+L["Filtered: %s"] = "Filtered: %s"
+L["and %d more"] = "and %d more"
+L["(+%d more)"] = "(+%d more)"
 -- end: Catalog
 
 -------------------------------------------------------------------------------

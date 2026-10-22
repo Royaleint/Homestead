@@ -434,6 +434,19 @@ L["%d hidden by '%s' (%d collected, %d %s only)."] = "已隱藏 %d 項（'%s'）
 -------------------------------------------------------------------------------
 -- Decor Browser: Catalog
 -------------------------------------------------------------------------------
+L["All decor"] = "全部裝飾"
+L["Filters"] = "篩選"
+L["Name"] = "名稱"
+L["Sort: %s"] = "排序：%s"
+L["Furnishings"] = "家具"
+L["Structural"] = "結構"
+L["Accents"] = "點綴"
+L["Lighting"] = "照明"
+L["Neither collected nor not collected"] = "既非已收集也非未收集"
+L["Sources: %s"] = "來源：%s"
+L["Filtered: %s"] = "已篩選：%s"
+L["and %d more"] = "以及另外 %d 項"
+L["(+%d more)"] = "(另外 %d 項)"
 -- end: Catalog
 
 -------------------------------------------------------------------------------

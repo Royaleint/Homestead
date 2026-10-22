@@ -434,6 +434,19 @@ L["%d hidden by '%s' (%d collected, %d %s only)."] = "%d개 숨김: '%s' 설정 
 -------------------------------------------------------------------------------
 -- Decor Browser: Catalog
 -------------------------------------------------------------------------------
+L["All decor"] = "모든 장식"
+L["Filters"] = "필터"
+L["Name"] = "이름"
+L["Sort: %s"] = "정렬: %s"
+L["Furnishings"] = "가구"
+L["Structural"] = "구조물"
+L["Accents"] = "소품"
+L["Lighting"] = "조명"
+L["Neither collected nor not collected"] = "수집도 미수집도 아님"
+L["Sources: %s"] = "획득처: %s"
+L["Filtered: %s"] = "필터 적용: %s"
+L["and %d more"] = "외 %d개"
+L["(+%d more)"] = "(+%d개 더)"
 -- end: Catalog
 
 -------------------------------------------------------------------------------
