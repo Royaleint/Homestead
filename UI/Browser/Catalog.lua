@@ -19,7 +19,7 @@ local function Group(e)
 end
 
 local Tab, ui, orders = {}, {}, {}
-local cat, recs, counts, walk, version, hideFor, bare
+local cat, recs, counts, walk, version, hideFor, bare, bareList, bareVer
 local shown = {}
 local shownSel, silent = false, false
 
@@ -56,12 +56,16 @@ local function BareEntries()
         end
         table.sort(bare)
     end
-    local list = {}
+    if bareVer == D.MemoVersion() then
+        for _, e in ipairs(bareList) do e.name = e.name or D.ItemName(e.itemID, e.info) end
+        return bareList
+    end
+    bareList, bareVer = {}, D.MemoVersion()
     for i, id in ipairs(bare) do
         local info = D.CatalogInfo(id, B.State.catalogMemo)
-        list[i] = { itemID = id, info = info, name = D.ItemName(id, info), src = {} }
+        bareList[i] = { itemID = id, info = info, name = D.ItemName(id, info), src = {} }
     end
-    return list
+    return bareList
 end
 
 local function Rebuild()

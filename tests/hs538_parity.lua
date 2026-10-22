@@ -305,5 +305,12 @@ do
     env.go("catalog", { sort = "name" })
     local line = env.catalogRow(51).d.line2
     assert(line:find("^Vendor: Ghoul") and line:find("(+1 more)", 1, true), "item 51 reads " .. line)
+    local row, drawn = env.catalogRow(51)
+    for _, fs in ipairs(env.fontStrings) do
+        local p = fs.parent
+        while p and p ~= row do p = p.parent end
+        drawn = drawn or p and fs.text == "Active now" and fs.shown
+    end
+    assert(row.d.active and drawn, "the in-season row draws no Active now")
     print("hs538_parity: unlisted primary source ok")
 end

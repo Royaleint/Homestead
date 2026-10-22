@@ -1680,7 +1680,7 @@ function SourceManager:GetItemPresentation(itemID, options)
 
     local allSources = self:GetAllSources(itemID) or EMPTY_SOURCES
     local bestSource = nil
-    -- HS-210 (correction): scoped to exactly the contexts
+    -- Scoped to exactly the contexts
     -- verified to never read bestSource/displaySource/sourceType off the
     -- returned presentation — badge recounts (UI/BadgeCalculation.lua, only
     -- reads isOwned/availabilityState/blockerLabels), vendor map-pin

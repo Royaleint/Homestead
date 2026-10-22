@@ -615,6 +615,30 @@ do
     print("hs538_catalog: counting and not-read states ok")
 end
 
+do
+    -- Before the first read the list is built once per data version; arriving names still land.
+    local env = fixture({ done = false, attempted = false })
+    local name = env.names[1]
+    env.names[1] = nil
+    env.tab.Show()
+    env.empty.d.onSort()
+    local info, reads = env.D.CatalogInfo, 0
+    env.D.CatalogInfo = function(...) reads = reads + 1 return info(...) end
+    env.tab.Refresh("names")
+    env.tab.Refresh("data")
+    eq(reads, 0, "a rebuild with no new data reads the catalog again")
+    env.names[1] = name
+    env.tab.Refresh("names")
+    local named
+    for _, f in ipairs(env.box().frames) do named = named or f.d and f.d.itemID == 1 and f.d.name == name end
+    assert(named, "a name that arrives later never reaches its row")
+    env.D.InvalidateMemos()
+    env.tab.Refresh("data")
+    assert(reads > 0, "new data keeps the old list")
+    env.D.CatalogInfo = info
+    print("hs538_catalog: pre-read list cache ok")
+end
+
 -------------------------------------------------------------------------------
 -- The walk runs only for "data"; the other repaints reuse the cache
 -------------------------------------------------------------------------------
