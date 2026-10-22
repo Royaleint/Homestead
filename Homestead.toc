@@ -114,6 +114,8 @@ UI\Browser\Visuals.xml
 UI\Browser\Style.lua
 UI\Browser\Visuals.lua
 UI\Browser\Adapter.lua
+UI\Browser\Facts.lua
+UI\Browser\CanGet.lua
 UI\Browser\Widgets.lua
 UI\Browser\Window.lua
 UI\Browser\Item.lua

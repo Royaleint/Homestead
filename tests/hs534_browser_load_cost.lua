@@ -109,7 +109,7 @@ local order = {}
 for _, path in ipairs(files) do order[#order + 1] = path:match("([%w_]+)%.lua$") end
 local pos = {}
 for i, name in ipairs(order) do pos[name] = i end
-local ORDER = { "Style", "Visuals", "Adapter", "Widgets", "Window", "Item", "Browser" }
+local ORDER = { "Style", "Visuals", "Adapter", "Facts", "CanGet", "Widgets", "Window", "Item", "Browser" }
 for i, name in ipairs(ORDER) do
     assert(pos[name], name .. ".lua is not in the TOC")
     assert(i == 1 or pos[name] > pos[ORDER[i - 1]], name .. ".lua is out of order in the TOC")

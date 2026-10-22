@@ -19,15 +19,13 @@ local SOURCE_TYPE_LABELS = {
     ["treasure"] = L["Treasure"],
 }
 
-local cache = {}
 -- Per requested item: true while loading, then "loaded" or "failed".
 local nameLoads = {}
 
 local memoVersion = 0
 
--- Drops the progress result.
+-- Starts a new memo generation: the walk and every memo keyed on MemoVersion rebuild on next read.
 function D.InvalidateMemos()
-    cache.progress = nil
     memoVersion = memoVersion + 1
 end
 
@@ -40,20 +38,13 @@ function D.IsReady()
     return (HA.VendorData and HA.VendorIdentity and HA.CatalogStore and HA.SourceManager) and true or false
 end
 
-local function HasOwnershipData()
-    return (HA.CatalogStore and HA.CatalogStore:HasPersistedData()) and true or false
-end
-
-function D.IsOwned(itemID)
-    return (HA.CatalogStore and HA.CatalogStore:IsOwned(itemID)) and true or false
-end
-
 function D.IsExcluded(itemID)
     return (HA.CatalogStore and HA.CatalogStore:IsOwnershipUnknowable(itemID)) and true or false
 end
 
-function D.ItemName(itemID)
-    local name = C_Item.GetItemNameByID(itemID)
+-- info, the item's catalog entry when the caller has it, supplies the name while the item loads.
+function D.ItemName(itemID, info)
+    local name = C_Item.GetItemNameByID(itemID) or (info and info.name)
     if name then return name end
     if nameLoads[itemID] == nil then
         nameLoads[itemID] = true
@@ -73,15 +64,17 @@ function D.ItemIcon(itemID)
     return C_Item.GetItemIconByID(itemID) or B.Style.tex.placeholderIcon
 end
 
+-- A scan confirmed it sells no decor. Static vendors are never dropped, and holiday vendors skip this.
+local function ConfirmedNoDecor(vendor)
+    if vendor._isEventVendor or not vendor.npcID then return false end
+    local db = HA.Addon.db.global
+    local entry = db.noDecorVendors and db.noDecorVendors[vendor.npcID]
+    return entry ~= nil and entry.scanConfidence == "confirmed" and not HA.VendorData:HasVendor(vendor.npcID)
+end
+
+-- The browser's vendor lists: its listing rule, ignoring the map pin settings, less confirmed no-decor vendors.
 function D.IsListedVendor(vendor)
-    if HA.VendorFilter.ShouldHideVendor(vendor) then return false end
-    local VD = HA.VendorData
-    if VD.IsHolidayVendorHidden and VD:IsHolidayVendorHidden(vendor.npcID) then return false end
-    local ED = HA.EndeavorsData
-    if vendor.endeavor and ED and ED.IsVendorActive and not ED:IsVendorActive(vendor) then
-        return false
-    end
-    return true
+    return B.Facts.BrowserListed(vendor) and not ConfirmedNoDecor(vendor)
 end
 
 -- Holiday vendors show on Events in or out of season; IsListedVendor drops idle ones elsewhere.
@@ -105,11 +98,14 @@ function D.HolidayVendor(npcID)
     return vendor
 end
 
+-- Every holiday vendor, in season or not; the pin setting never applies here.
 function D.HolidayVendors()
-    local out = {}
+    local VF, out = HA.VendorFilter, {}
     for npcID in pairs(HolidayEntries()) do
         local vendor = D.HolidayVendor(npcID)
-        if not HA.VendorFilter.ShouldHideVendor(vendor) then out[#out + 1] = vendor end
+        if not vendor.removed and not (vendor.unreleased and not VF.ShouldRevealUnreleasedVendors()) then
+            out[#out + 1] = vendor
+        end
     end
     return out
 end
@@ -172,7 +168,7 @@ end
 -- for the background fill unless noPrewarm (a fill-triggered refresh must not ask again).
 function D.VendorCounts(vendor, noPrewarm)
     local BC = HA.BadgeCalculation
-    if not (BC and vendor and vendor.npcID) or not HasOwnershipData() then return nil end
+    if not (BC and vendor and vendor.npcID) or D.CollectionState() ~= "ready" then return nil end
     local stats = BC:PeekVendorStats(vendor, "all")
     if not stats then
         if D.HolidayActive(vendor) ~= nil then WarmHoliday(vendor)
@@ -247,16 +243,11 @@ function D.VendorRequirements(vendor, itemIDs)
     return out
 end
 
--- Nearest-first vendors on this map and its children for the player's faction: vendors, mapID, mapName.
+-- Nearest-first vendors in the player's zone and its child maps for their faction: vendors, zone, zone name.
 function D.NearYou()
-    local mapID = C_Map.GetBestMapForUnit("player")
-    if not mapID then return {}, nil, nil end
-    local info = C_Map.GetMapInfo(mapID)
-    local maps = { mapID }
-    local kids = C_Map.GetMapChildrenInfo(mapID, nil, true)
-    if kids then
-        for _, kid in ipairs(kids) do maps[#maps + 1] = kid.mapID end
-    end
+    local where = B.Facts.Here()
+    if not where then return {}, nil, nil end
+    local mapID = where.zone
 
     local pos = C_Map.GetPlayerMapPosition(mapID, "player")
     local continent, wx, wy
@@ -267,7 +258,7 @@ function D.NearYou()
 
     local VF = HA.VendorFilter
     local seen, out = {}, {}
-    for _, m in ipairs(maps) do
+    for m in pairs(where.maps) do
         for _, vendor in ipairs(HA.VendorData:GetVendorsInMap(m)) do
             local id = vendor.npcID
             if id and not seen[id] and D.IsListedVendor(vendor) and VF.CanAccessVendor(vendor) then
@@ -291,7 +282,7 @@ function D.NearYou()
     end)
     local vendors = {}
     for i, e in ipairs(out) do vendors[i] = e.vendor end
-    return vendors, mapID, info and info.name
+    return vendors, mapID, where.name
 end
 
 function D.Price(itemID, vendor)
@@ -301,15 +292,19 @@ function D.Price(itemID, vendor)
     return HA.VendorData:FormatCost(cost)
 end
 
--- state: owned | unlocked | locked | unknown. fresh also asks the catalog directly (no write), so the open
--- item page sees a purchase made since the last scan.
+-- state: owned | unlocked | locked | unknown. Owned and unknown come from OwnState. fresh also asks the
+-- catalog directly (no write), so the open item page sees a purchase made since the last scan.
 function D.ItemStatus(itemID, npcID, fresh)
     local out = { state = "unknown" }
     if D.IsExcluded(itemID) then
         out.excluded = true
         return out
     end
-    if not HasOwnershipData() then return out end
+    local own = D.OwnState(itemID, D.CatalogInfo(itemID, B.State and B.State.catalogMemo))
+    if own ~= "notOwned" then
+        if own == "owned" then out.state = "owned" end
+        return out
+    end
     local pres = HA.SourceManager:GetItemPresentation(itemID, {
         context = "browser",
         npcID = npcID,
@@ -321,8 +316,6 @@ function D.ItemStatus(itemID, npcID, fresh)
     local a = pres.availabilityState
     if pres.isOwnershipExcluded then
         out.state = "unknown"
-    elseif pres.isOwned or a == "owned" then
-        out.state = "owned"
     elseif a == "purchasable" or a == "available" then
         out.state = "unlocked"
     elseif a == "locked" or a == "blocked" or a == "unobtainable" then
@@ -461,39 +454,11 @@ function D.CatalogInfo(itemID, catalogMemo)
     return info
 end
 
--- Collection totals over the shipped decor list, inclusive per source kind; nil while data is not loaded.
+-- Collection totals over the shipped decor list, inclusive per source kind (Shop included): the walk's
+-- { known, total, owned, src = { [kind] = { total, owned } } }. nil until the collection is ready.
 function D.Progress()
-    local known = HasOwnershipData()
-    local cached = cache.progress
-    if cached and cached.known == known then return cached end
-    local map = HA.DecorMapping
-    if not (map and D.IsReady()) then return nil end
-    local VD = HA.VendorData
-    local keys = { "vendors", "achievements", "quests", "professions", "drops", "events" }
-    local r = { known = known, total = 0, owned = 0, src = {} }
-    for _, k in ipairs(keys) do r.src[k] = { total = 0, owned = 0 } end
-    local function add(k, owned)
-        local s = r.src[k]
-        s.total = s.total + 1
-        if owned then s.owned = s.owned + 1 end
-    end
-    local seen = {}
-    for _, itemID in pairs(map) do
-        if not seen[itemID] then
-            seen[itemID] = true
-            local owned = known and D.IsOwned(itemID)
-            r.total = r.total + 1
-            if owned then r.owned = r.owned + 1 end
-            if VD:HasOfferForItem(itemID) then add("vendors", owned) end
-            if HA.AchievementSources and HA.AchievementSources[itemID] then add("achievements", owned) end
-            if HA.QuestSources and HA.QuestSources[itemID] then add("quests", owned) end
-            if HA.ProfessionSources and HA.ProfessionSources[itemID] then add("professions", owned) end
-            if HA.DropSources and HA.DropSources[itemID] then add("drops", owned) end
-            if HA.EventSources and HA.EventSources[itemID] then add("events", owned) end
-        end
-    end
-    cache.progress = r
-    return r
+    local walk = D.IsReady() and B.CanGet.Walk()
+    return walk and walk.progress or nil
 end
 
 function D.SourceLine(itemID, sources)
@@ -528,7 +493,7 @@ function D.IconData(itemID, wantCopies, catalogMemo)
     if wantCopies then
         local info = D.CatalogInfo(itemID, catalogMemo)
         quality = info and info.quality
-        if info and HasOwnershipData() then
+        if info and D.CollectionState() == "ready" then
             local n = (info.totalNumPlaced or 0) + (info.totalNumStored or 0)
             if n > 0 then copies = n end
         end
@@ -546,7 +511,7 @@ function D.TooltipData(itemID, npcID, catalogMemo)
         quality = info and info.quality or C_Item.GetItemQualityByID(itemID),
         state = st.state,
     }
-    if info and HasOwnershipData() then
+    if info and D.CollectionState() == "ready" then
         out.counts = {
             placed = info.totalNumPlaced or 0,
             stored = info.totalNumStored or 0,

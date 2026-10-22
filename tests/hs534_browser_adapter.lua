@@ -5,12 +5,14 @@ local root = (... or "."):gsub("\\\\", "/"):gsub("/+$", "")
 -------------------------------------------------------------------------------
 -- Decor browser data adapter (UI/Browser/Adapter.lua): the vendor-list
 -- predicate, item status, vendor counts, the catalog memo, progress, the
--- faction label and Near You. The real Style, VendorFilter, enUS and Adapter
--- files run against stubbed Homestead modules and WoW globals.
+-- faction label and Near You. The real Style, VendorFilter, enUS, Adapter,
+-- Facts and CanGet files run against stubbed Homestead modules and WoW globals.
+-- The collection is ready when the first read is done and store.known is true.
 -------------------------------------------------------------------------------
 
 local T0 = 1700000000
 rawset(_G, "GetBuildInfo", function() return "12.0.1", "1", "1", 120001 end)
+rawset(_G, "wipe", function(t) for k in pairs(t) do t[k] = nil end return t end)
 
 local function newEnv()
     local HA = { DecorMapping = {} }
@@ -21,18 +23,35 @@ local function newEnv()
         return r ~= nil and r.isOwned == true
     end
     function store:IsOwnershipUnknowable(id) return self.excluded[id] == true end
+    function store:ComputeOwnedFromInfo(info)
+        return ((info.totalNumStored or 0) + (info.remainingRedeemable or 0) + (info.totalNumPlaced or 0)) > 0
+    end
     function store:Get(id)
         self.getCalls = self.getCalls + 1
         return self.records[id]
     end
     HA.CatalogStore = store
+    HA.CatalogScanner = {
+        HasFirstReadCompleted = function() return true end,
+        HasFirstReadAttempted = function() return true end,
+        IsWarm = function() return false end,
+    }
+    HA.PerformanceTrace = { Measure = function(_, _, _, fn, ...) return fn(...) end }
+    local catalog = {}
+    HA.catalogFixture = catalog
+    rawset(_G, "C_HousingCatalog", {
+        GetCatalogEntryInfoByItem = function(itemID) return catalog[itemID] end,
+        GetCatalogEntryInfoByRecordID = function() return nil end,
+    })
+    rawset(_G, "C_Item", { GetItemNameByID = function() return "Item" end })
     HA.Addon = { db = {
         global = { noDecorVendors = {}, scannedVendors = {} },
         profile = { vendorTracer = { showEventVendors = true } },
     } }
     HA.Constants = { ZoneToFactionMap = {}, TEXTURE_ROOT = "Textures/" }
     HA.VendorData = { HasVendor = function() return false end }
-    for _, file in ipairs({ "Locale/enUS.lua", "UI/Browser/Style.lua", "UI/VendorFilter.lua", "UI/Browser/Adapter.lua" }) do
+    for _, file in ipairs({ "Locale/enUS.lua", "UI/Browser/Style.lua", "UI/VendorFilter.lua", "UI/Browser/Adapter.lua",
+            "UI/Browser/Facts.lua", "UI/Browser/CanGet.lua" }) do
         assert(loadfile(root .. "/" .. file))("Homestead", HA)
     end
     return HA, store, HA.DecorBrowser.Data
@@ -59,38 +78,39 @@ do
     assert(D.IsListedVendor({ npcID = 4 }) == true, "a known vendor is never hidden as no-decor")
     HA.VendorData.HasVendor = function() return false end
 
-    local event = { npcID = 5, _isEventVendor = true }
+    -- Holiday vendors list while their holiday runs, whatever the map pin setting says.
+    local running = { ["Hallow's End"] = true }
+    HA.CalendarDetector = { IsHolidayActive = function(_, name) return running[name] end }
+    local event = { npcID = 5, event = "Hallow's End", _isEventVendor = true }
     assert(D.IsListedVendor(event) == true)
     HA.Addon.db.global.noDecorVendors[5] = { scanConfidence = "confirmed" }
     assert(D.IsListedVendor(event) == true, "event vendors skip the no-decor check")
     HA.Addon.db.profile.vendorTracer.showEventVendors = false
-    assert(D.IsListedVendor(event) == false, "event setting off")
+    assert(D.IsListedVendor(event) == true, "event pins off: a running holiday's vendor is still listed")
     assert(D.IsListedVendor({ npcID = 5, removed = true, _isEventVendor = true }) == false, "removed beats event")
     HA.Addon.db.profile.vendorTracer.showEventVendors = true
+    running["Hallow's End"] = false
+    assert(D.IsListedVendor(event) == false, "holiday over")
+    running["Hallow's End"] = nil
+    assert(D.IsListedVendor(event) == false, "holiday state unknown")
 
-    -- The holiday predicate is feature-detected: absent first, then stubbed.
-    assert(HA.VendorData.IsHolidayVendorHidden == nil)
-    assert(D.IsListedVendor({ npcID = 6 }) == true, "absent holiday function lists the vendor")
-    local asked
-    HA.VendorData.IsHolidayVendorHidden = function(self, npcID)
-        assert(self == HA.VendorData, "called as a method")
-        asked = npcID
-        return npcID == 6
-    end
-    assert(D.IsListedVendor({ npcID = 6 }) == false and asked == 6, "holiday hidden")
-    assert(D.IsListedVendor({ npcID = 7 }) == true and asked == 7, "holiday not hidden")
-
-    -- Inactive Endeavor vendors drop out; vendors without the flag never ask.
-    local activeCalls = 0
-    HA.EndeavorsData = { IsVendorActive = function(_, vendor)
-        activeCalls = activeCalls + 1
-        return vendor.npcID ~= 8
-    end }
+    -- Endeavor vendors list only while their theme is known to be on; others never ask.
+    local themeCalls, active = 0, { [8] = false, [9] = true }
+    HA.EndeavorsData = {
+        GetThemeForVendor = function(_, vendor) return vendor.npcID ~= 10 and vendor.npcID or nil end,
+        IsThemeActive = function(_, theme)
+            themeCalls = themeCalls + 1
+            return active[theme]
+        end,
+        IsVendorActive = function() error("the browser never asks IsVendorActive") end,
+    }
     assert(D.IsListedVendor({ npcID = 8, endeavor = true }) == false, "inactive Endeavor")
     assert(D.IsListedVendor({ npcID = 9, endeavor = true }) == true, "active Endeavor")
-    local before = activeCalls
+    assert(D.IsListedVendor({ npcID = 7, endeavor = true }) == false, "unknown theme state")
+    assert(D.IsListedVendor({ npcID = 10, endeavor = true }) == false, "no theme")
+    local before = themeCalls
     assert(D.IsListedVendor({ npcID = 8 }) == true)
-    assert(activeCalls == before, "only Endeavor vendors consult the Endeavor state")
+    assert(themeCalls == before, "only Endeavor vendors consult the Endeavor state")
 
 
 end
@@ -138,6 +158,10 @@ do
         [4] = { availabilityState = "owned", isOwned = true, isOwnershipExcluded = true },
     }
 
+    -- Item 1 is stored as owned; the others have readable entries that count 0.
+    store.records[1] = { isOwned = true }
+    for id = 2, 6 do HA.catalogFixture[id] = { totalNumStored = 0 } end
+
     store.known = false
     assert(D.ItemStatus(1, 99).state == "unknown", "no persisted data")
     assert(calls == 0, "no presentation read without persisted data")
@@ -148,10 +172,11 @@ do
     assert(calls == 0, "no presentation read for an excluded item")
 
     assert(D.ItemStatus(1, 99).state == "owned")
-    assert(lastOptions.context == "browser" and lastOptions.npcID == 99 and lastOptions.isVendorContext == true)
-    assert(D.ItemStatus(2).state == "unlocked" and lastOptions.isVendorContext == false)
+    assert(calls == 0, "stored ownership answers without a presentation read")
     local locked = D.ItemStatus(3, 99)
     assert(locked.state == "locked" and locked.labels[1] == "Renown")
+    assert(lastOptions.context == "browser" and lastOptions.npcID == 99 and lastOptions.isVendorContext == true)
+    assert(D.ItemStatus(2).state == "unlocked" and lastOptions.isVendorContext == false)
     assert(D.ItemStatus(4, 99).state == "unknown", "an owned flag on an excluded presentation stays unknown")
     assert(D.ItemStatus(6, 99).state == "unknown", "no presentation")
 end
@@ -224,7 +249,7 @@ do
     local HA, store, D = newEnv()
     HA.VendorData.HasOfferForItem = function(_, id) return id <= 2 end
     HA.VendorIdentity = {}
-    HA.SourceManager = {}
+    HA.SourceManager = { GetAllSources = function() return {} end }
     HA.QuestSources = { [2] = {}, [3] = {} }
     addOwned(HA, store, 1, T0)
     addOwned(HA, store, 2, T0)
@@ -238,8 +263,7 @@ do
     D.InvalidateMemos()
     assert(D.Progress() ~= p, "invalidation recomputes")
     store.known = false
-    local unknown = D.Progress()
-    assert(unknown.known == false and unknown.owned == 0 and unknown.total == 3, "no owned fraction while unknown")
+    assert(D.Progress() == nil, "no totals until the collection is ready")
     store.known = true
     assert(D.Progress().known == true, "a change in what is known recomputes")
 end
@@ -286,9 +310,10 @@ do
     end
     local continentOf = 1
     local vendorsByMap = {}
+    rawset(_G, "Enum", { UIMapType = { Continent = 2, Zone = 3 } })
     rawset(_G, "C_Map", {
         GetBestMapForUnit = function() return 10 end,
-        GetMapInfo = function() return { name = "Here" } end,
+        GetMapInfo = function() return { name = "Here", mapType = 3 } end,
         GetMapChildrenInfo = function() return { { mapID = 11 } } end,
         GetPlayerMapPosition = function() return { x = 0, y = 0 } end,
         GetWorldPosFromMapPos = function(_, pos)
@@ -346,6 +371,7 @@ do
         return v ~= nil and not running[v.event]
     end
     function VD.GetVendorItems() return { 900 } end
+    HA.CalendarDetector = { IsHolidayActive = function(_, event) return running[event] == true end }
 
     local function holiday()
         local t = {}
@@ -371,9 +397,12 @@ do
     assert(D.HolidayActive(shop) == false and D.HolidayActive({ npcID = 1 }) == nil)
     assert(D.Vendor(404) == nil)
 
-    -- The pin setting still hides event vendors.
+    -- The map pin setting never changes the browser's holiday list.
+    local pinsOn = holiday()
     HA.Addon.db.profile.vendorTracer.showEventVendors = false
-    assert(holiday() == "", "event vendors off: " .. holiday())
+    assert(holiday() == pinsOn, "event pins off lists the same vendors: " .. holiday())
+    HA.EventSources.EventVendors[273403].removed = true
+    assert(holiday() == "Echo:Not Active,Valadar:Active", "a removed holiday vendor drops out: " .. holiday())
 end
 
 -------------------------------------------------------------------------------

@@ -32,10 +32,11 @@ HA.SourceManager = { GetVendorItemCost = function(_, itemID, vendor)
 end }
 HA.CatalogStore = { HasPersistedData = function() return true end, IsOwned = function() return false end,
     IsOwnershipUnknowable = function() return false end }
+HA.CatalogScanner = { HasFirstReadCompleted = function() return true end, IsWarm = function() return true end }
 
 for _, f in ipairs({ "Locale/enUS.lua", "Data/VendorIdentity.lua", "Data/VendorOffers.lua", "Data/VendorData.lua",
     "Data/EndeavorsData.lua", "Data/EventSources.lua", "UI/VendorFilter.lua", "UI/Browser/Style.lua",
-    "UI/Browser/Adapter.lua" }) do
+    "UI/Browser/Adapter.lua", "UI/Browser/Facts.lua", "UI/Browser/CanGet.lua" }) do
     assert(loadfile(root .. "/" .. f))("Homestead", HA)
 end
 HA.VendorData:BuildOfferIndexes()
