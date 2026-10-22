@@ -454,6 +454,18 @@ L["Reading your collection"] = "Lettura della tua collezione"
 -------------------------------------------------------------------------------
 -- Decor Browser: Catalog
 -------------------------------------------------------------------------------
+L["All decor"] = "Tutte le decorazioni"
+L["Filters"] = "Filtri"
+L["Name"] = "Nome"
+L["Sort: %s"] = "Ordina: %s"
+L["Furnishings"] = "Arredi"
+L["Structural"] = "Strutture"
+L["Accents"] = "Accenti"
+L["Lighting"] = "Illuminazione"
+L["Neither collected nor not collected"] = "Né raccolto né non raccolto"
+L["Sources: %s"] = "Fonti: %s"
+L["Filtered: %s"] = "Filtrato: %s"
+L["(+%d more)"] = "(+%d altri)"
 -- end: Catalog
 
 -------------------------------------------------------------------------------
