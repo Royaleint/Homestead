@@ -52,6 +52,8 @@ L["Navigate modifier key"] = "길 안내 보조 키"
 L["Collection: %d / %d (%d%%)"] = "수집품: %d / %d (%d%%)"
 L["Vendors nearby: %d"] = "근처 상인: %d"
 L["Vendors scanned: %d"] = "스캔한 상인: %d"
+L["Left-Click: Toggle Decor Browser"] = "|cFFFFFFFF왼쪽 클릭:|r 장식 탐색기 열기/닫기"
+L["Right-Click: Open options"] = "|cFFFFFFFF오른쪽 클릭:|r 설정 창 열기"
 
 -------------------------------------------------------------------------------
 -- Slash Commands
@@ -263,15 +265,10 @@ L["Approximate map appearance"] = "지도에서의 대략적인 모양"
 L["ExportImport not available."] = "ExportImport를 사용할 수 없습니다."
 
 -------------------------------------------------------------------------------
--- Decor Browser
--------------------------------------------------------------------------------
--- Decor Browser: minimap tooltip
-L["Left-Click: Toggle Decor Browser"] = "|cFFFFFFFF왼쪽 클릭:|r 장식 탐색기 열기/닫기"
-L["Right-Click: Open options"] = "|cFFFFFFFF오른쪽 클릭:|r 설정 창 열기"
-
 -- Decor Browser: data adapter
-L["Gold"] = "골드"
+-------------------------------------------------------------------------------
 L["Unknown"] = "알 수 없음"
+L["A vendor"] = "상인"
 L["Required"] = "필수"
 L["Unknown faction"] = "알 수 없는 진영"
 L["Other requirement"] = "기타 조건"
@@ -317,7 +314,6 @@ L["Source"] = "출처"
 L["Price"] = "가격"
 
 -- Decor Browser: shop and item pages
-L[", "] = ", "
 L["Seasonal: %s"] = "계절 한정: %s"
 L["Rotates with the %s Endeavor"] = "%s 교류회와 함께 교체됨"
 L["Rotates with neighborhood Endeavors"] = "지역 교류회와 함께 교체됨"
@@ -337,6 +333,7 @@ L["Toggle Decor Browser"] = "장식 탐색기 열기/닫기"
 L["Open the Decor Browser, or bind a key under Keybindings > Homestead"] = "장식 탐색기를 엽니다. 단축키 설정 > Homestead에서 키를 지정할 수도 있습니다."
 L["Minimap button"] = "미니맵 버튼"
 L["Left-click opens the Decor Browser, right-click opens options"] = "왼쪽 클릭은 장식 탐색기를, 오른쪽 클릭은 설정 창을 엽니다"
+L["The Decor Browser is not available yet."] = "장식 탐색기를 아직 사용할 수 없습니다."
 
 -- Welcome window
 L["Find every decor vendor on your map and see what you own before you buy."] = "지도에서 모든 장식 상인을 찾고, 구매하기 전에 이미 가진 장식을 확인하세요."
@@ -367,11 +364,6 @@ L["Events"] = "이벤트"
 L["Other"] = "기타"
 L["Location not recorded"] = "위치가 기록되지 않음"
 L["Requires"] = "필요 조건"
-
--------------------------------------------------------------------------------
--- Decor Browser: holiday vendors
--------------------------------------------------------------------------------
-L["The Decor Browser is not available yet."] = "장식 탐색기를 아직 사용할 수 없습니다."
 
 -------------------------------------------------------------------------------
 -- Decor Browser: states and shared parts
@@ -480,7 +472,6 @@ L["Decor sold here"] = "여기서 파는 장식"
 L["Decor from this source"] = "이 출처의 장식"
 L["No decor is recorded here. If this source gives decor, report it below."] = "여기에 기록된 장식이 없습니다. 이 출처가 장식을 준다면 아래에서 신고해 주세요."
 L["Pick a source to see its decor."] = "출처를 선택하면 장식을 볼 수 있습니다."
-L["Quest starts in %s"] = "%s에서 퀘스트 시작"
 L["Dig site in %s"] = "%s의 발굴 지점"
 L["No model shown"] = "표시할 모델 없음"
 L["No events active right now. Event decor is sold only while its event runs."] = "지금 진행 중인 이벤트가 없습니다. 이벤트 장식은 이벤트가 진행되는 동안에만 판매됩니다."
@@ -512,5 +503,6 @@ L["Show drop"] = "전리품 보기"
 L["Show event"] = "이벤트 보기"
 L["%s (done)"] = "%s (완료)"
 L["%s (not yet)"] = "%s (아직 아님)"
+L["Can't check this requirement yet"] = "아직 이 조건을 확인할 수 없습니다"
 L["Active now: %s"] = "현재 활성: %s"
 -- end: Item

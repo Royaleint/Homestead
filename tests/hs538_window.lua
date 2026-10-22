@@ -56,6 +56,7 @@ function Widget(kind)
     function w:Hide() self.shown = false end
     function w:IsShown() return self.shown end
     function w:SetChecked(on) self.checked = on end
+    function w:SetSize(width, height) self.width, self.height = width, height end
     function w:GetChecked() return self.checked end
     function w:RegisterEvent(name) self.events[name] = true end
     function w:UnregisterAllEvents() wipe(self.events) end
@@ -261,7 +262,8 @@ local c = created[1]
 assert(c.template == "ButtonFrameTemplate" and c.name == nil and c.parent == UIParent,
     "the window must be an unnamed ButtonFrameTemplate on UIParent")
 assert(frame.strata == "MEDIUM" and frame.toplevel and frame.clamped, "strata, top-level or clamp is wrong")
-local tw = Win.TabWidth()
+local function TabWidth() return Win.TABS[1].frame.width end
+local tw = TabWidth()
 assert(tw == 64, "a short tab word must keep the 64-px tab")
 local ins = frame.insets
 assert(ins[1] == -5 and ins[2] == tw and ins[3] == 7 and ins[4] == 0, "the clamp insets are wrong")
@@ -407,9 +409,9 @@ assert(owner and entry.event == "TextSizeManager.OnTextScaleUpdated", "the text-
 textScale, wordWidth, wordHeight = 2.0, 103.2, 24
 log = {}
 entry.fn()
-assert(near(Win.TabWidth(), 115.2, 0.001) and near(fitArgs[1], 980.2, 0.001) and fitArgs[2] == 587,
+assert(near(TabWidth(), 115.2, 0.001) and near(fitArgs[1], 980.2, 0.001) and fitArgs[2] == 587,
     "the Gigantic tab width or fit width is wrong")
-assert(frame.insets[2] == Win.TabWidth(), "the clamp insets did not follow the tab width")
+assert(frame.insets[2] == TabWidth(), "the clamp insets did not follow the tab width")
 assert(Find("read") < Find("fit") and Find("fit") < Find("anchor", Find("fit")), "text-size fit order")
 assert(saves == 0, "a fit saved the position")
 
@@ -419,7 +421,7 @@ closeGroup.scripts.OnFinished()
 assert(next(registry) == nil, "the text-size callback outlived the hide")
 textScale, wordWidth, wordHeight = 1, 40, 12
 B:Open()
-assert(Win.TabWidth() == 64, "a text-size change while hidden was not picked up")
+assert(TabWidth() == 64, "a text-size change while hidden was not picked up")
 
 -- Fit scales on 4:3 and 5:4 at UI scale 1.15, at Small and Gigantic text.
 local cases = {
@@ -433,7 +435,7 @@ for _, case in ipairs(cases) do
     local s = frame:GetScale()
     assert(near(s, case[5], 0.005), ("fit scale %.3f, expected %.2f"):format(s, case[5]))
     local L, T = frame.x * s, ph + frame.y * s
-    assert(L - 5 * s >= -0.001 and L + (860 + Win.TabWidth()) * s <= pw + 0.001, "the portrait or tabs are off screen")
+    assert(L - 5 * s >= -0.001 and L + (860 + TabWidth()) * s <= pw + 0.001, "the portrait or tabs are off screen")
     assert(T + 7 * s <= ph + 0.001 and T - 580 * s >= -0.001, "the window is off screen vertically")
 end
 

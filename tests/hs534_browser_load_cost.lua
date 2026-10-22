@@ -94,7 +94,7 @@ end
 local B = HA.DecorBrowser
 assert(B and B.Window and B.Data and B.Widgets, "the browser modules did not load")
 for _, fn in ipairs({ "Toggle", "Open", "Close", "RequestRefresh",
-        "Tooltip", "HideTooltip", "ShowItemTooltip", "ShowLinkTooltip" }) do
+        "Tooltip", "HideTooltip", "ShowItemTooltip" }) do
     assert(type(B[fn]) == "function", "B." .. fn .. " is missing")
 end
 assert(B.Window.frame == nil, "the window exists before the first open")

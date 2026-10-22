@@ -254,3 +254,32 @@ do
     assert(holds(pageLines(env), words(env, state, arg)), "the item page names the same vendor's requirement")
     print("hs538_parity: easiest locked vendor ok")
 end
+
+do
+    -- An Alliance character, items sold by a Horde vendor listed first: every surface names the vendor this
+    -- character can use, and says when no scan has confirmed it.
+    local env = world(nil, function(e)
+        for _, id in ipairs({ 1, 2, 13 }) do e.owned(id) end
+        e.decor(71, "Yew Bench", { totalNumStored = 0, categoryIDs = { 1 } })
+        e.sell(71, e.vendors[102], { gold = 70 })
+        e.sell(71, e.vendors[101], { gold = 15 })
+        e.reqs["71:101"] = { { type = "unknown", text = "Bran's Favor" } }
+    end)
+    local D = env.B.Data
+    eq(env.B.ItemState(71), "locked", "Bran's item")
+    env.go("summary")
+    local next
+    for _, f in ipairs(env.all) do
+        if env.owner(f) == "summary" and rawget(f, "why") and f.shown and f.itemID == 6 then next = f end
+    end
+    assert(next, "Summary draws no row for item 6")
+    env.go("catalog", { sort = "name" })
+    for id, name in pairs({ [6] = "Anna", [71] = "Bran" }) do
+        local tip, row = D.TooltipData(id), env.catalogRow(id)
+        assert(tip.source:find("^Vendor: " .. name), "tooltip, item " .. id .. ": " .. tip.source)
+        eq(row.d.line2:sub(1, #tip.source), tip.source, "Catalog row, item " .. id)
+        eq(tip.unconfirmed, name == "Bran" or nil, "tooltip unconfirmed, item " .. id)
+    end
+    eq(next.src.text:sub(1, #D.TooltipData(6).source), D.TooltipData(6).source, "Summary names another vendor")
+    print("hs538_parity: one primary source ok")
+end

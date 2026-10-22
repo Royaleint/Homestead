@@ -1685,8 +1685,8 @@ function SourceManager:GetItemPresentation(itemID, options)
     -- returned presentation — badge recounts (UI/BadgeCalculation.lua, only
     -- reads isOwned/availabilityState/blockerLabels), vendor map-pin
     -- tooltips (UI/VendorPinTooltips.lua AddPinTooltipItemLine, only reads
-    -- availabilityState), and the browser window (UI/Browser/Adapter.lua,
-    -- only reads isOwned, state, blockerLabels and the excluded flag). The side-panel
+    -- availabilityState), and the browser window (reserved for the browser; it
+    -- currently reads ownership through CatalogStore). The side-panel
     -- "sidePanel" context is explicitly EXCLUDED: PopulateItemResultRow (UI/MapSidePanel.lua) reads
     -- presentation.displaySource/sourceBadgeAtlas, and that path is reachable
     -- with npcID set (a vendor-scoped search result whose preferred source

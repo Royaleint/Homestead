@@ -29,10 +29,6 @@ local tabWidth = TAB.minWidth
 local laidOutTextScale
 local searchBoxes = {}
 
-function Win.TabWidth()
-    return tabWidth
-end
-
 -- Search boxes a tab owns; Escape takes focus from them before it closes the window.
 function Win.AddSearchBox(box)
     searchBoxes[#searchBoxes + 1] = box

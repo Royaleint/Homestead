@@ -307,10 +307,6 @@ function W.BuildRow(row)
     return row
 end
 
-function W.NewRow(parent)
-    return W.BuildRow(CreateFrame("Button", nil, parent))
-end
-
 -- The kind for lists of decor rows: the pooled frame is the row.
 W.rowKind = {
     frameType = "Button",

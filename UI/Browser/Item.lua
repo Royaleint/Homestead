@@ -93,7 +93,7 @@ local function VendorBlock(itemID, b)
     if confirmed then
         Line(L["Confirmed by a scan on %s"]:format(confirmed), "check", K.muted)
     else
-        Line(L["Not confirmed"], nil, K.muted)
+        Line(F.NotConfirmed(), nil, K.muted)
     end
     local key = F.SourceKey("vendors", { npcID = b.npcID }, itemID)
     if key then Act(SHOW.vendor, ShowSource("vendors", key)) end
@@ -148,12 +148,10 @@ local function Describe(itemID)
     local info = e and e.info or D.CatalogInfo(itemID, memo)
 
     local quality = D.IconData(itemID, true, memo)
-    local kind = info and info.categoryIDs and info.categoryIDs[1]
-    kind = kind and C_HousingCatalog.GetCatalogCategoryInfo(kind)
     head = {
         name = D.ItemName(itemID, info) or L["Item %d"]:format(itemID), quality = quality, icon = D.ItemIcon(itemID),
         meta = L["%s - %s"]:format(quality and _G["ITEM_QUALITY" .. quality .. "_DESC"] or L["Unknown"],
-            kind and kind.name or L["Other"]),
+            S.kind[S.KindOf(info)]),
     }
 
     local blocks, seen = {}, {}
@@ -210,7 +208,8 @@ local function Describe(itemID)
             elseif r.met == false then
                 Line(L["%s (not yet)"]:format(r.text), "lock")
             else
-                Line(r.text)
+                Line(r.text, "lock")
+                Line(L["Can't check this requirement yet"], nil, K.muted)
             end
         end
     end

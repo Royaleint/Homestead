@@ -215,14 +215,14 @@ end
 -------------------------------------------------------------------------------
 
 do
-    local env, _, D, CG = newEnv()
+    local env, _, _, CG = newEnv()
     local v = env.vendor(10)
     env.decor(1)
     env.sell(1, v)
     for _, state in ipairs({ { false, false }, { false, true } }) do
         env.done, env.attempted = state[1], state[2]
         assert(CG.Offer(1, 10) == "unknown" and CG.Walk() == nil and CG.Rank() == nil and CG.Fill() == nil)
-        assert(CG.Entry(1) == nil and CG.VendorCanCount(v) == nil and D.Progress() == nil)
+        assert(CG.Entry(1) == nil and CG.VendorCanCount(v) == nil)
     end
     assert(#env.measured == 0 and env.catalogCalls == 0, "no item walk and no catalog read before the first read")
     env.done = true

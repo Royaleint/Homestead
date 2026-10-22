@@ -53,6 +53,8 @@ L["Use TomTom for waypoints"] = "Использовать TomTom для путе
 L["Collection: %d / %d (%d%%)"] = "Коллекция: %d / %d (%d%%)" -- human-translated
 L["Vendors nearby: %d"] = "Торговцев рядом: %d" -- human-translated
 L["Vendors scanned: %d"] = "Просканировано торговцев: %d" -- human-translated
+L["Left-Click: Toggle Decor Browser"] = "|cFFFFFFFFЛКМ:|r Открыть/закрыть обозреватель декора"
+L["Right-Click: Open options"] = "|cFFFFFFFFПКМ:|r Открыть настройки"
 
 -------------------------------------------------------------------------------
 -- Slash Commands
@@ -276,15 +278,10 @@ L["Approximate map appearance"] = "Примерный вид карты" -- huma
 L["ExportImport not available."] = "Экспорт/Импорт недоступен." -- human-translated
 
 -------------------------------------------------------------------------------
--- Decor Browser
--------------------------------------------------------------------------------
--- Decor Browser: minimap tooltip
-L["Left-Click: Toggle Decor Browser"] = "|cFFFFFFFFЛКМ:|r Открыть/закрыть обозреватель декора"
-L["Right-Click: Open options"] = "|cFFFFFFFFПКМ:|r Открыть настройки"
-
 -- Decor Browser: data adapter
-L["Gold"] = "Золото"
+-------------------------------------------------------------------------------
 L["Unknown"] = "Неизвестно"
+L["A vendor"] = "Торговец"
 L["Required"] = "Требуется"
 L["Unknown faction"] = "Неизвестная фракция"
 L["Other requirement"] = "Другое требование"
@@ -330,7 +327,6 @@ L["Source"] = "Источник"
 L["Price"] = "Цена"
 
 -- Decor Browser: shop and item pages
-L[", "] = ", "
 L["Seasonal: %s"] = "Сезонное: %s"
 L["Rotates with the %s Endeavor"] = "Меняется вместе с предприятием %s"
 L["Rotates with neighborhood Endeavors"] = "Меняется вместе с предприятиями района"
@@ -350,6 +346,7 @@ L["Toggle Decor Browser"] = "Открыть/закрыть обозревате�
 L["Open the Decor Browser, or bind a key under Keybindings > Homestead"] = "Открывает обозреватель декора. Можно также назначить клавишу в разделе «Назначение клавиш» > Homestead"
 L["Minimap button"] = "Кнопка у миникарты"
 L["Left-click opens the Decor Browser, right-click opens options"] = "ЛКМ открывает обозреватель декора, ПКМ открывает настройки"
+L["The Decor Browser is not available yet."] = "Обозреватель декора пока недоступен."
 
 -- Welcome window
 L["Find every decor vendor on your map and see what you own before you buy."] = "Находите всех торговцев декором на карте и смотрите, что у вас уже есть, прежде чем покупать."
@@ -380,11 +377,6 @@ L["Events"] = "События"
 L["Other"] = "Другое"
 L["Location not recorded"] = "Местоположение не записано"
 L["Requires"] = "Требуется"
-
--------------------------------------------------------------------------------
--- Decor Browser: holiday vendors
--------------------------------------------------------------------------------
-L["The Decor Browser is not available yet."] = "Обозреватель декора пока недоступен."
 
 -------------------------------------------------------------------------------
 -- Decor Browser: states and shared parts
@@ -493,7 +485,6 @@ L["Decor sold here"] = "Декор в продаже здесь"
 L["Decor from this source"] = "Декор из этого источника"
 L["No decor is recorded here. If this source gives decor, report it below."] = "Здесь нет записанного декора. Если этот источник дает декор, сообщите об этом ниже."
 L["Pick a source to see its decor."] = "Выберите источник, чтобы увидеть его декор."
-L["Quest starts in %s"] = "Задание начинается в зоне: %s"
 L["Dig site in %s"] = "Место раскопок: %s"
 L["No model shown"] = "Модель не показана"
 L["No events active right now. Event decor is sold only while its event runs."] = "Сейчас нет активных событий. Декор событий продается только во время события."
@@ -525,5 +516,6 @@ L["Show drop"] = "Показать добычу"
 L["Show event"] = "Показать событие"
 L["%s (done)"] = "%s (выполнено)"
 L["%s (not yet)"] = "%s (ещё нет)"
+L["Can't check this requirement yet"] = "Это требование пока нельзя проверить"
 L["Active now: %s"] = "Сейчас активно: %s"
 -- end: Item

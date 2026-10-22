@@ -52,6 +52,8 @@ L["Navigate modifier key"] = "导航修饰键"
 L["Collection: %d / %d (%d%%)"] = "收藏：%d / %d（%d%%）"
 L["Vendors nearby: %d"] = "附近商人：%d"
 L["Vendors scanned: %d"] = "已扫描商人：%d"
+L["Left-Click: Toggle Decor Browser"] = "|cFFFFFFFF左键点击：|r打开/关闭装饰浏览器"
+L["Right-Click: Open options"] = "|cFFFFFFFF右键点击：|r打开选项"
 
 -------------------------------------------------------------------------------
 -- Slash Commands
@@ -263,15 +265,10 @@ L["Approximate map appearance"] = "地图上的大致外观"
 L["ExportImport not available."] = "ExportImport不可用。"
 
 -------------------------------------------------------------------------------
--- Decor Browser
--------------------------------------------------------------------------------
--- Decor Browser: minimap tooltip
-L["Left-Click: Toggle Decor Browser"] = "|cFFFFFFFF左键点击：|r打开/关闭装饰浏览器"
-L["Right-Click: Open options"] = "|cFFFFFFFF右键点击：|r打开选项"
-
 -- Decor Browser: data adapter
-L["Gold"] = "金币"
+-------------------------------------------------------------------------------
 L["Unknown"] = "未知"
+L["A vendor"] = "某个商人"
 L["Required"] = "必需"
 L["Unknown faction"] = "未知阵营"
 L["Other requirement"] = "其他要求"
@@ -317,7 +314,6 @@ L["Source"] = "来源"
 L["Price"] = "价格"
 
 -- Decor Browser: shop and item pages
-L[", "] = ", "
 L["Seasonal: %s"] = "季节限定：%s"
 L["Rotates with the %s Endeavor"] = "随%s文化节轮换"
 L["Rotates with neighborhood Endeavors"] = "随社区文化节轮换"
@@ -337,6 +333,7 @@ L["Toggle Decor Browser"] = "打开/关闭装饰浏览器"
 L["Open the Decor Browser, or bind a key under Keybindings > Homestead"] = "打开装饰浏览器，也可以在“按键设置” > Homestead 中绑定按键"
 L["Minimap button"] = "微缩地图按钮"
 L["Left-click opens the Decor Browser, right-click opens options"] = "左键点击打开装饰浏览器，右键点击打开选项"
+L["The Decor Browser is not available yet."] = "装饰浏览器尚不可用。"
 
 -- Welcome window
 L["Find every decor vendor on your map and see what you own before you buy."] = "在地图上找到每一位装饰商人，购买前先看看你已经拥有什么。"
@@ -367,11 +364,6 @@ L["Events"] = "事件"
 L["Other"] = "其他"
 L["Location not recorded"] = "未记录位置"
 L["Requires"] = "需要"
-
--------------------------------------------------------------------------------
--- Decor Browser: holiday vendors
--------------------------------------------------------------------------------
-L["The Decor Browser is not available yet."] = "装饰浏览器尚不可用。"
 
 -------------------------------------------------------------------------------
 -- Decor Browser: states and shared parts
@@ -480,7 +472,6 @@ L["Decor sold here"] = "此处出售的装饰"
 L["Decor from this source"] = "此来源的装饰"
 L["No decor is recorded here. If this source gives decor, report it below."] = "此处没有已记录的装饰。如果此来源提供装饰，请在下方报告。"
 L["Pick a source to see its decor."] = "选择一个来源以查看其装饰。"
-L["Quest starts in %s"] = "任务起点位于 %s"
 L["Dig site in %s"] = "%s 的挖掘点"
 L["No model shown"] = "未显示模型"
 L["No events active right now. Event decor is sold only while its event runs."] = "目前没有进行中的事件。事件装饰仅在事件期间出售。"
@@ -512,5 +503,6 @@ L["Show drop"] = "显示掉落"
 L["Show event"] = "显示事件"
 L["%s (done)"] = "%s（已完成）"
 L["%s (not yet)"] = "%s（尚未）"
+L["Can't check this requirement yet"] = "暂时无法检查此要求"
 L["Active now: %s"] = "当前活跃：%s"
 -- end: Item

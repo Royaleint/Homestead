@@ -25,7 +25,6 @@ S.font = {
     bodyGold = "UserScaledFontGameNormal",
     bodyMuted = "UserScaledFontGameDisable",
     subheader = "UserScaledFontGameNormalMed2",
-    header = "UserScaledFontGameNormalLarge",
     display = "HomesteadBrowserDisplay",
 }
 local DISPLAY_SIZE = 24
@@ -176,6 +175,16 @@ S.sourceLabel = {
     vendors = L["Vendors"], achievements = L["Achievements"], quests = L["Quests"], professions = L["Professions"],
     drops = L["Drops"], events = L["Events"], shop = L["Shop"],
 }
+
+-- Decor kinds, as on the Catalog nav; categoryIDs may be an array or a set.
+S.kind = { [1] = L["Furnishings"], [2] = L["Structural"], [3] = L["Accents"], [4] = L["Lighting"], other = L["Other"] }
+function S.KindOf(info)
+    for k, v in pairs(info and info.categoryIDs or {}) do
+        local id = type(v) == "number" and v or k
+        if S.kind[id] then return id end
+    end
+    return "other"
+end
 
 S.chrome = { linePad = SP.s, shadowHeight = SP.m, wellShadowHeight = SP.l, wellShade = 0.55 }
 

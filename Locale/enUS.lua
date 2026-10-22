@@ -290,8 +290,8 @@ L["ExportImport not available."] = "ExportImport not available."
 -------------------------------------------------------------------------------
 L["Alliance"] = FACTION_ALLIANCE or "Alliance"
 L["Horde"] = FACTION_HORDE or "Horde"
-L["Gold"] = "Gold" -- untranslated
 L["Unknown"] = "Unknown"
+L["A vendor"] = "A vendor"
 L["Required"] = "Required"
 L["Unknown faction"] = "Unknown faction"
 L["Other requirement"] = "Other requirement"
@@ -343,7 +343,6 @@ L["Price"] = "Price"
 -------------------------------------------------------------------------------
 -- Decor Browser: shop and item pages
 -------------------------------------------------------------------------------
-L[", "] = ", " -- untranslated
 L["Seasonal: %s"] = "Seasonal: %s"
 L["Rotates with the %s Endeavor"] = "Rotates with the %s Endeavor"
 L["Rotates with neighborhood Endeavors"] = "Rotates with neighborhood Endeavors"
@@ -365,6 +364,7 @@ L["Toggle Decor Browser"] = "Toggle Decor Browser"
 L["Open the Decor Browser, or bind a key under Keybindings > Homestead"] = "Open the Decor Browser, or bind a key under Keybindings > Homestead"
 L["Minimap button"] = "Minimap button"
 L["Left-click opens the Decor Browser, right-click opens options"] = "Left-click opens the Decor Browser, right-click opens options"
+L["The Decor Browser is not available yet."] = "The Decor Browser is not available yet."
 
 -------------------------------------------------------------------------------
 -- Welcome window
@@ -397,11 +397,6 @@ L["Events"] = "Events"
 L["Other"] = "Other"
 L["Location not recorded"] = "Location not recorded"
 L["Requires"] = "Requires"
-
--------------------------------------------------------------------------------
--- Decor Browser: holiday vendors
--------------------------------------------------------------------------------
-L["The Decor Browser is not available yet."] = "The Decor Browser is not available yet."
 
 -------------------------------------------------------------------------------
 -- Decor Browser: states and shared parts
@@ -512,7 +507,6 @@ L["Decor sold here"] = "Decor sold here"
 L["Decor from this source"] = "Decor from this source"
 L["No decor is recorded here. If this source gives decor, report it below."] = "No decor is recorded here. If this source gives decor, report it below."
 L["Pick a source to see its decor."] = "Pick a source to see its decor."
-L["Quest starts in %s"] = "Quest starts in %s"
 L["Dig site in %s"] = "Dig site in %s"
 L["No model shown"] = "No model shown"
 L["No events active right now. Event decor is sold only while its event runs."] = "No events active right now. Event decor is sold only while its event runs."
@@ -544,5 +538,6 @@ L["Show drop"] = "Show drop"
 L["Show event"] = "Show event"
 L["%s (done)"] = "%s (done)"
 L["%s (not yet)"] = "%s (not yet)"
+L["Can't check this requirement yet"] = "Can't check this requirement yet"
 L["Active now: %s"] = "Active now: %s"
 -- end: Item

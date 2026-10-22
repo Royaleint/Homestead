@@ -52,6 +52,8 @@ L["Navigate modifier key"] = "Tasto modificatore per la navigazione"
 L["Collection: %d / %d (%d%%)"] = "Raccolta: %d / %d (%d%%)"
 L["Vendors nearby: %d"] = "Mercanti nelle vicinanze: %d"
 L["Vendors scanned: %d"] = "Mercanti scansionati: %d"
+L["Left-Click: Toggle Decor Browser"] = "|cFFFFFFFFClic sinistro:|r Mostra/nascondi il browser delle decorazioni"
+L["Right-Click: Open options"] = "|cFFFFFFFFClic destro:|r Apri le opzioni"
 
 -------------------------------------------------------------------------------
 -- Slash Commands
@@ -263,15 +265,10 @@ L["Approximate map appearance"] = "Aspetto approssimativo sulla mappa"
 L["ExportImport not available."] = "ExportImport non disponibile."
 
 -------------------------------------------------------------------------------
--- Decor Browser
--------------------------------------------------------------------------------
--- Decor Browser: minimap tooltip
-L["Left-Click: Toggle Decor Browser"] = "|cFFFFFFFFClic sinistro:|r Mostra/nascondi il browser delle decorazioni"
-L["Right-Click: Open options"] = "|cFFFFFFFFClic destro:|r Apri le opzioni"
-
 -- Decor Browser: data adapter
-L["Gold"] = "Oro"
+-------------------------------------------------------------------------------
 L["Unknown"] = "Sconosciuto"
+L["A vendor"] = "Un mercante"
 L["Required"] = "Richiesto"
 L["Unknown faction"] = "Fazione sconosciuta"
 L["Other requirement"] = "Altro requisito"
@@ -317,7 +314,6 @@ L["Source"] = "Origine"
 L["Price"] = "Prezzo"
 
 -- Decor Browser: shop and item pages
-L[", "] = ", "
 L["Seasonal: %s"] = "Stagionale: %s"
 L["Rotates with the %s Endeavor"] = "Ruota con l'iniziativa %s"
 L["Rotates with neighborhood Endeavors"] = "Ruota con le iniziative del quartiere"
@@ -337,6 +333,7 @@ L["Toggle Decor Browser"] = "Mostra/nascondi il browser delle decorazioni"
 L["Open the Decor Browser, or bind a key under Keybindings > Homestead"] = "Apre il browser delle decorazioni, oppure assegna un tasto in Assegnazione tasti > Homestead"
 L["Minimap button"] = "Pulsante sulla minimappa"
 L["Left-click opens the Decor Browser, right-click opens options"] = "Il clic sinistro apre il browser delle decorazioni, il clic destro apre le opzioni"
+L["The Decor Browser is not available yet."] = "Il browser delle decorazioni non è ancora disponibile."
 
 -- Welcome window
 L["Find every decor vendor on your map and see what you own before you buy."] = "Trova ogni mercante di decorazioni sulla tua mappa e scopri cosa possiedi prima di comprare."
@@ -367,11 +364,6 @@ L["Events"] = "Eventi"
 L["Other"] = "Altro"
 L["Location not recorded"] = "Posizione non registrata"
 L["Requires"] = "Richiede"
-
--------------------------------------------------------------------------------
--- Decor Browser: holiday vendors
--------------------------------------------------------------------------------
-L["The Decor Browser is not available yet."] = "Il browser delle decorazioni non è ancora disponibile."
 
 -------------------------------------------------------------------------------
 -- Decor Browser: states and shared parts
@@ -480,7 +472,6 @@ L["Decor sold here"] = "Decorazioni in vendita qui"
 L["Decor from this source"] = "Decorazioni di questa fonte"
 L["No decor is recorded here. If this source gives decor, report it below."] = "Nessuna decorazione registrata qui. Se questa fonte dà decorazioni, segnalalo qui sotto."
 L["Pick a source to see its decor."] = "Scegli una fonte per vederne le decorazioni."
-L["Quest starts in %s"] = "La missione inizia a %s"
 L["Dig site in %s"] = "Sito di scavo a %s"
 L["No model shown"] = "Nessun modello mostrato"
 L["No events active right now. Event decor is sold only while its event runs."] = "Nessun evento attivo al momento. Le decorazioni degli eventi si vendono solo mentre l'evento è in corso."
@@ -512,5 +503,6 @@ L["Show drop"] = "Mostra bottino"
 L["Show event"] = "Mostra evento"
 L["%s (done)"] = "%s (fatto)"
 L["%s (not yet)"] = "%s (non ancora)"
+L["Can't check this requirement yet"] = "Non è ancora possibile verificare questo requisito"
 L["Active now: %s"] = "Attivo ora: %s"
 -- end: Item

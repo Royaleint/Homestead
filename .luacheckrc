@@ -43,7 +43,7 @@ read_globals = {
     "DEFAULT_CHAT_FRAME",
     "CreateDataProvider",
     "CreateFromMixins",
-    "CreateScrollBoxListLinearView", "CreateScrollBoxListGridView",
+    "CreateScrollBoxListLinearView",
     "CreateColor", "CreateAnchor",
     "CreateFramePool", "CreateUnsecuredRegionPoolInstance",
     "EventRegistry",
@@ -113,9 +113,9 @@ read_globals = {
     "UiMapPoint",
 
     -- WoW API (functions)
-    "GetAchievementCriteriaInfo", "GetAchievementInfo", "GetAchievementLink", "GetQuestLink",
+    "GetAchievementCriteriaInfo", "GetAchievementInfo",
     "GetItemCount", "GetItemInfo", "GetItemInfoInstant",
-    "GetCoinTextureString", "BreakUpLargeNumbers",
+    "GetCoinTextureString",
     "GetCVarBool",  -- HS-347: dungeon/delve entrance map-legend filter check
     "GetMerchantItemInfo", "GetMerchantItemLink", "GetMerchantNumItems",
     "GetLocale",

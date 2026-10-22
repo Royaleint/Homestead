@@ -102,7 +102,7 @@ local cases = {
 for _, case in ipairs(cases) do
     local state, arg, words, color, marked = case[1], case[2], case[3], case[4], case[5]
     made = {}
-    row = W.NewRow(Widget("Frame"))
+    row = W.BuildRow(CreateFrame("Button", nil, Widget("Frame")))
     row:Set({ name = "Oak Bench", quality = 3, state = state, arg = arg, line2 = "Vendor: Joruh" })
     local fs = find(words)
     assert(fs, "no words '" .. words .. "' for state " .. state)
@@ -131,7 +131,7 @@ assert(not src:find("Unlocked", 1, true) and not src:find("stateLabel", 1, true)
 
 -- Tags and counts on the source line.
 made = {}
-row = W.NewRow(Widget("Frame"))
+row = W.BuildRow(CreateFrame("Button", nil, Widget("Frame")))
 row:Set({ name = "Oak Bench", quality = 1, state = "can", line2 = "Vendor: Joruh (+2 more)", unconfirmed = true, active = true })
 assert(find("Vendor: Joruh (+2 more)"), "the source line is not drawn as given")
 assert(find("Not confirmed"), "the Not confirmed tag text is missing")

@@ -108,7 +108,7 @@ B.Data.IsReady = function() return true end
 B.Facts.Here = noop
 
 -- Draw time: every draw asks the colour service, and the name wears the answer.
-local row = W.NewRow(Widget("Frame"))
+local row = W.BuildRow(CreateFrame("Button", nil, Widget("Frame")))
 row:Set({ name = "Oak Bench", quality = 3, state = "notOwned" })
 assert(calls == 1, "a draw must read the quality colour once, read " .. calls)
 answer = { r = 0, g = 1, b = 0 }

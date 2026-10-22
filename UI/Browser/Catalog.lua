@@ -7,7 +7,7 @@ local SP, K = S.space, S.color
 
 local KEYS = CG.SOURCE_KEYS
 local NAV = { "all", 1, 2, 3, 4, "other" }
-local KIND = { [1] = L["Furnishings"], [2] = L["Structural"], [3] = L["Accents"], [4] = L["Lighting"], other = L["Other"] }
+local KIND, KindOf = S.kind, S.KindOf
 local TYPE = S.sourceLabel
 local SORT = { best = L["Best to get now"], name = L["Name"], price = L["Price"] }
 -- The best-sort group from the walk alone (can, other, locked or event, faction, owned); drawn rows judge their words.
@@ -41,14 +41,6 @@ local function Words(c)
     end
     if #on < #KEYS then f[#f + 1] = L["Sources: %s"]:format(table.concat(on, ", ")) end
     return table.concat(f, ", ")
-end
-
-local function KindOf(info)
-    for k, v in pairs(info and info.categoryIDs or {}) do
-        local id = type(v) == "number" and v or k
-        if KIND[id] then return id end
-    end
-    return "other"
 end
 
 -- Before the collection is ready there is no walk: the same domain rule gives entries to name and sort.
@@ -197,7 +189,7 @@ local function Describe(r)
     local d, e, id = r.d, r.e, r.id
     if not d then
         local sources = D.ItemSources(id)
-        local p = sources[1]
+        local p = CG.Primary(id, sources)
         local v = p and p.type == "vendor" and p.npcID and HA.VendorData:GetVendor(p.npcID)
         local active, state, arg = nil, B.ItemState(id)
         for _, o in pairs(e.canBy or {}) do active = active or o.event end

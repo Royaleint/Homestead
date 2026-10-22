@@ -263,7 +263,13 @@ local function newEnv()
     function env.empty()
         return env.find(function(f) return rawget(f, "buttons") end)
     end
-    function env.lines() return env.tab.lines end
+    -- The By source lines: the frames that carry a count.
+    function env.lines()
+        local out = {}
+        for _, f in ipairs(frames) do if rawget(f, "num") then out[#out + 1] = f end end
+        assert(#out == 7, "expected one By source line per source type, got " .. #out)
+        return out
+    end
     -- What the router does for a data refresh: a new memo generation, then the repaint.
     function env.refreshData()
         env.D.InvalidateMemos()

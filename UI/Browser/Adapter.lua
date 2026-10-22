@@ -95,18 +95,6 @@ function D.HolidayVendor(npcID)
     return vendor
 end
 
--- Every holiday vendor, in season or not; the pin setting never applies here.
-function D.HolidayVendors()
-    local VF, out = HA.VendorFilter, {}
-    for npcID in pairs(HolidayEntries()) do
-        local vendor = D.HolidayVendor(npcID)
-        if not vendor.removed and not (vendor.unreleased and not VF.ShouldRevealUnreleasedVendors()) then
-            out[#out + 1] = vendor
-        end
-    end
-    return out
-end
-
 function D.IsOppositeFaction(vendor)
     return HA.VendorFilter.IsOppositeFaction(vendor)
 end
@@ -176,65 +164,6 @@ function D.VendorLocation(vendor)
     local coords, mapID = HA.VendorFilter.GetBestVendorCoordinates(vendor)
     if not (coords and mapID) then return nil end
     return mapID, coords.x, coords.y
-end
-
--- Currencies the wares are priced in, as "|T..|t Name" strings; pending while a name loads, failed ones left out.
-function D.VendorCurrencies(vendor, itemIDs)
-    local SM = HA.SourceManager
-    local out, seen, pending = {}, {}, false
-    local function add(key, icon, name)
-        if seen[key] then return end
-        seen[key] = true
-        out[#out + 1] = (icon and ("|T" .. icon .. ":0|t ") or "") .. name
-    end
-    for _, itemID in ipairs(itemIDs) do
-        local cost = SM:GetVendorItemCost(itemID, vendor)
-        if cost then
-            if cost.gold and cost.gold > 0 then add("gold", nil, L["Gold"]) end
-            for _, c in ipairs(cost.currencies or {}) do
-                if c.id and not seen["c" .. c.id] then
-                    local info = C_CurrencyInfo.GetCurrencyInfo(c.id)
-                    local name = info and info.name or c.name
-                    if name then add("c" .. c.id, info and info.iconFileID, name) end
-                end
-            end
-            for _, it in ipairs(cost.items or {}) do
-                if it.id and not seen["i" .. it.id] then
-                    local name = D.ItemName(it.id) or it.name
-                    if name then
-                        add("i" .. it.id, C_Item.GetItemIconByID(it.id), name)
-                    elseif nameLoads[it.id] ~= "failed" then
-                        pending = true
-                    end
-                end
-            end
-        end
-    end
-    return out, pending
-end
-
-function D.VendorRequirements(vendor, itemIDs)
-    local out = {}
-    local factionLabel = D.VendorFactionLabel(vendor)
-    if factionLabel then out[1] = factionLabel end
-    if #itemIDs == 0 then return out end
-    local common
-    for _, itemID in ipairs(itemIDs) do
-        local here = {}
-        for _, r in ipairs(D.Requirements(itemID, vendor.npcID)) do here[r.text] = true end
-        if common then
-            for text in pairs(common) do
-                if not here[text] then common[text] = nil end
-            end
-        else
-            common = here
-        end
-        if not next(common) then return out end
-    end
-    for _, r in ipairs(D.Requirements(itemIDs[1], vendor.npcID)) do
-        if common[r.text] then out[#out + 1] = r.text end
-    end
-    return out
 end
 
 -- Nearest-first vendors in the player's zone and its child maps for their faction: vendors, zone, zone name.
@@ -424,19 +353,14 @@ function D.CatalogInfo(itemID, catalogMemo)
     return info
 end
 
--- Collection totals over the shipped decor list, inclusive per source kind (Shop included): the walk's
--- { known, total, owned, src = { [kind] = { total, owned } } }. nil until the collection is ready.
-function D.Progress()
-    local walk = D.IsReady() and B.CanGet.Walk()
-    return walk and walk.progress or nil
-end
-
 function D.SourceLine(itemID, sources)
     local src = (sources or D.ItemSources(itemID))[1]
     if not src then return L["Source unknown"] end
     local t = src.type
+    if t == "vendor" and not src.name then src = src.npcID and D.Vendor(src.npcID) or {} end
     local name = src.name or L["Unknown"]
     if t == "vendor" then
+        if not src.name then return L["A vendor"] end
         local place = src.zone
         if src.subzone then place = L["%s, %s"]:format(src.subzone, src.zone or L["Unknown"]) end
         if place then return L["Vendor: %s, %s"]:format(name, place) end
@@ -486,16 +410,10 @@ function D.TooltipData(itemID, npcID, catalogMemo)
             redeemable = info.remainingRedeemable or 0,
         }
     end
-    local sources = D.ItemSources(itemID)
-    if npcID then out.price = D.Price(itemID, D.Vendor(npcID)) end
-    if not out.price then
-        for _, src in ipairs(sources) do
-            if src.type == "vendor" and src.price then
-                out.price = src.price
-                break
-            end
-        end
-    end
-    out.source = D.SourceLine(itemID, sources)
+    local p = B.CanGet.Primary(itemID)
+    local v = p and p.type == "vendor" and p.npcID and D.Vendor(p.npcID)
+    out.price = npcID and D.Price(itemID, D.Vendor(npcID)) or p and p.price
+    out.source = D.SourceLine(itemID, { p })
+    out.unconfirmed = v and not B.Facts.Confirmed(v) or nil
     return out
 end

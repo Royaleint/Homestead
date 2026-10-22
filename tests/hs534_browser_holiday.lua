@@ -46,7 +46,7 @@ local ECHO, VALADAR = 273402, 15864
 
 local function tags()
     local out = {}
-    for _, v in ipairs(D.HolidayVendors()) do out[v.npcID] = D.HolidayActive(v) end
+    for npcID in pairs(HA.EventSources.EventVendors) do out[npcID] = D.HolidayActive(D.HolidayVendor(npcID)) end
     return out
 end
 

@@ -50,6 +50,8 @@ function F.EventVendor(npcID)
     return EventVendors()[npcID]
 end
 
+function F.NotConfirmed() return L["Not confirmed"] .. ": " .. L["No scan has confirmed this vendor yet. Visit the vendor to check."] end
+
 -- The newer of the shipped confirmation and the player's own scan, as "YYYY-MM-DD"; nil when neither.
 function F.Confirmed(vendor)
     local shipped = vendor.scanConfirmed

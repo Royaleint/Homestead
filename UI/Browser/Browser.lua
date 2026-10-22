@@ -346,13 +346,6 @@ function B.ShowItemTooltip(owner, itemID, npcID)
     tip:AddLine(L["Source"], gold.r, gold.g, gold.b)
     if d.price then Pair(tip, L["Price"], d.price) end
     tip:AddLine(d.source, LABEL[1], LABEL[2], LABEL[3], true)
-    tip:Show()
-end
-
-function B.ShowLinkTooltip(owner, link)
-    if not link then return end
-    local tip = B.Tooltip()
-    tip:SetOwner(owner, "ANCHOR_RIGHT")
-    tip:SetHyperlink(link)
+    if d.unconfirmed then tip:AddLine(B.Facts.NotConfirmed(), LABEL[1], LABEL[2], LABEL[3], true) end
     tip:Show()
 end

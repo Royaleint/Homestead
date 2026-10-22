@@ -52,6 +52,8 @@ L["Navigate modifier key"] = "Tecla modificadora de navegación"
 L["Collection: %d / %d (%d%%)"] = "Colección: %d / %d (%d%%)"
 L["Vendors nearby: %d"] = "Vendedores cercanos: %d"
 L["Vendors scanned: %d"] = "Vendedores escaneados: %d"
+L["Left-Click: Toggle Decor Browser"] = "|cFFFFFFFFClic izquierdo:|r Mostrar/ocultar el explorador de adornos"
+L["Right-Click: Open options"] = "|cFFFFFFFFClic derecho:|r Abrir opciones"
 
 -------------------------------------------------------------------------------
 -- Slash Commands
@@ -263,15 +265,10 @@ L["Approximate map appearance"] = "Apariencia aproximada en el mapa"
 L["ExportImport not available."] = "ExportImport no está disponible."
 
 -------------------------------------------------------------------------------
--- Decor Browser
--------------------------------------------------------------------------------
--- Decor Browser: minimap tooltip
-L["Left-Click: Toggle Decor Browser"] = "|cFFFFFFFFClic izquierdo:|r Mostrar/ocultar el explorador de adornos"
-L["Right-Click: Open options"] = "|cFFFFFFFFClic derecho:|r Abrir opciones"
-
 -- Decor Browser: data adapter
-L["Gold"] = "Oro"
+-------------------------------------------------------------------------------
 L["Unknown"] = "Desconocido"
+L["A vendor"] = "Un vendedor"
 L["Required"] = "Obligatorio"
 L["Unknown faction"] = "Facción desconocida"
 L["Other requirement"] = "Otro requisito"
@@ -317,7 +314,6 @@ L["Source"] = "Origen"
 L["Price"] = "Precio"
 
 -- Decor Browser: shop and item pages
-L[", "] = ", "
 L["Seasonal: %s"] = "De temporada: %s"
 L["Rotates with the %s Endeavor"] = "Rota con el proyecto %s"
 L["Rotates with neighborhood Endeavors"] = "Rota con los proyectos del vecindario"
@@ -337,6 +333,7 @@ L["Toggle Decor Browser"] = "Mostrar/ocultar el explorador de adornos"
 L["Open the Decor Browser, or bind a key under Keybindings > Homestead"] = "Abre el explorador de adornos, o asigna una tecla en Asignación de teclas > Homestead"
 L["Minimap button"] = "Botón del minimapa"
 L["Left-click opens the Decor Browser, right-click opens options"] = "El clic izquierdo abre el explorador de adornos y el derecho abre las opciones"
+L["The Decor Browser is not available yet."] = "El explorador de adornos aún no está disponible."
 
 -- Welcome window
 L["Find every decor vendor on your map and see what you own before you buy."] = "Encuentra todos los vendedores de adornos en tu mapa y comprueba lo que ya tienes antes de comprar."
@@ -367,11 +364,6 @@ L["Events"] = "Eventos"
 L["Other"] = "Otro"
 L["Location not recorded"] = "Ubicación no registrada"
 L["Requires"] = "Requiere"
-
--------------------------------------------------------------------------------
--- Decor Browser: holiday vendors
--------------------------------------------------------------------------------
-L["The Decor Browser is not available yet."] = "El explorador de adornos aún no está disponible."
 
 -------------------------------------------------------------------------------
 -- Decor Browser: states and shared parts
@@ -480,7 +472,6 @@ L["Decor sold here"] = "Decoración a la venta aquí"
 L["Decor from this source"] = "Decoración de esta fuente"
 L["No decor is recorded here. If this source gives decor, report it below."] = "No hay decoración registrada aquí. Si esta fuente da decoración, infórmalo abajo."
 L["Pick a source to see its decor."] = "Elige una fuente para ver su decoración."
-L["Quest starts in %s"] = "La misión empieza en %s"
 L["Dig site in %s"] = "Zona de excavación en %s"
 L["No model shown"] = "Sin modelo"
 L["No events active right now. Event decor is sold only while its event runs."] = "No hay eventos activos ahora mismo. La decoración de evento solo se vende mientras dura el evento."
@@ -512,5 +503,6 @@ L["Show drop"] = "Mostrar botín"
 L["Show event"] = "Mostrar evento"
 L["%s (done)"] = "%s (hecho)"
 L["%s (not yet)"] = "%s (aún no)"
+L["Can't check this requirement yet"] = "Aún no se puede comprobar este requisito"
 L["Active now: %s"] = "Activo ahora: %s"
 -- end: Item

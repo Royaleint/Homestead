@@ -68,11 +68,10 @@ local function Why(e)
 end
 
 local function CanData(e)
-    local v = D.Vendor(e.best.npcID)
-    local src = not (v and v.name) and L["Source unknown"] or v.zone and L["Vendor: %s, %s"]:format(v.name, v.zone)
-        or L["Vendor: %s"]:format(v.name)
+    local p = CG.Primary(e.itemID)
+    local v, src = D.Vendor(p.npcID), D.SourceLine(e.itemID, { p })
     local price = D.Price(e.itemID, v)
-    local d = { itemID = e.itemID, npcID = e.best.npcID, why = Why(e), src = price and src .. DOT .. price or src, e = e }
+    local d = { itemID = e.itemID, npcID = p.npcID, why = Why(e), src = price and src .. DOT .. price or src, e = e }
     local mapID, x, y
     if v then mapID, x, y = D.VendorLocation(v) end
     if mapID then d.wp = { mapID = mapID, x = x, y = y, title = v.name } end
@@ -291,5 +290,4 @@ Tab.Refresh = Tab.Draw
 
 function Tab.SetCombat() end
 
-Tab.lines = lines
 B.RegisterTab("summary", Tab)

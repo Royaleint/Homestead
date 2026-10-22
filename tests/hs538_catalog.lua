@@ -460,7 +460,7 @@ end
 do
     local env = fixture()
     env.tab.Show()
-    local progress = env.D.Progress()
+    local progress = env.CG.Walk().progress
     for _, key in ipairs(env.CG.SOURCE_KEYS) do
         env.tab.Show({ filters = { sources = { [key] = true } } })
         eq(#env.rows(), progress.src[key].total, "total for " .. key)

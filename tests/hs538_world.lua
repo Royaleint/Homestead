@@ -145,7 +145,6 @@ return function(root, opts)
     G("C_HousingCatalog", {
         GetCatalogEntryInfoByItem = function(id) return env.catalog[id] end,
         GetCatalogEntryInfoByRecordID = function() return nil end,
-        GetCatalogCategoryInfo = function(id) return id == 1 and { name = "Furnishings" } or nil end,
     })
     G("C_Map", {
         GetBestMapForUnit = function() return env.playerMap end,

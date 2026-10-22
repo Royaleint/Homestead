@@ -52,6 +52,8 @@ L["Navigate modifier key"] = "Zusatztaste für Navigation"
 L["Collection: %d / %d (%d%%)"] = "Sammlung: %d / %d (%d%%)"
 L["Vendors nearby: %d"] = "Händler in der Nähe: %d"
 L["Vendors scanned: %d"] = "Gescannte Händler: %d"
+L["Left-Click: Toggle Decor Browser"] = "|cFFFFFFFFLinksklick:|r Dekorationsbrowser ein-/ausblenden"
+L["Right-Click: Open options"] = "|cFFFFFFFFRechtsklick:|r Optionen öffnen"
 
 -------------------------------------------------------------------------------
 -- Slash Commands
@@ -263,15 +265,10 @@ L["Approximate map appearance"] = "Ungefähres Aussehen auf der Karte"
 L["ExportImport not available."] = "ExportImport nicht verfügbar."
 
 -------------------------------------------------------------------------------
--- Decor Browser
--------------------------------------------------------------------------------
--- Decor Browser: minimap tooltip
-L["Left-Click: Toggle Decor Browser"] = "|cFFFFFFFFLinksklick:|r Dekorationsbrowser ein-/ausblenden"
-L["Right-Click: Open options"] = "|cFFFFFFFFRechtsklick:|r Optionen öffnen"
-
 -- Decor Browser: data adapter
-L["Gold"] = "Gold"
+-------------------------------------------------------------------------------
 L["Unknown"] = "Unbekannt"
+L["A vendor"] = "Ein Händler"
 L["Required"] = "Erforderlich"
 L["Unknown faction"] = "Unbekannte Fraktion"
 L["Other requirement"] = "Sonstige Voraussetzung"
@@ -317,7 +314,6 @@ L["Source"] = "Herkunft"
 L["Price"] = "Preis"
 
 -- Decor Browser: shop and item pages
-L[", "] = ", "
 L["Seasonal: %s"] = "Saisonal: %s"
 L["Rotates with the %s Endeavor"] = "Wechselt mit dem Unterfangen %s"
 L["Rotates with neighborhood Endeavors"] = "Wechselt mit den Unterfangen der Nachbarschaft"
@@ -337,6 +333,7 @@ L["Toggle Decor Browser"] = "Dekorationsbrowser ein-/ausblenden"
 L["Open the Decor Browser, or bind a key under Keybindings > Homestead"] = "Öffnet den Dekorationsbrowser. Unter Tastaturbelegung > Homestead könnt Ihr auch eine Taste zuweisen."
 L["Minimap button"] = "Minikartenknopf"
 L["Left-click opens the Decor Browser, right-click opens options"] = "Linksklick öffnet den Dekorationsbrowser, Rechtsklick die Optionen"
+L["The Decor Browser is not available yet."] = "Der Dekorationsbrowser ist noch nicht verfügbar."
 
 -- Welcome window
 L["Find every decor vendor on your map and see what you own before you buy."] = "Findet jeden Dekorationshändler auf Eurer Karte und seht, was Ihr besitzt, bevor Ihr kauft."
@@ -367,11 +364,6 @@ L["Events"] = "Ereignisse"
 L["Other"] = "Sonstiges"
 L["Location not recorded"] = "Standort nicht erfasst"
 L["Requires"] = "Benötigt"
-
--------------------------------------------------------------------------------
--- Decor Browser: holiday vendors
--------------------------------------------------------------------------------
-L["The Decor Browser is not available yet."] = "Der Dekorationsbrowser ist noch nicht verfügbar."
 
 -------------------------------------------------------------------------------
 -- Decor Browser: states and shared parts
@@ -480,7 +472,6 @@ L["Decor sold here"] = "Hier verkaufte Dekoration"
 L["Decor from this source"] = "Dekoration aus dieser Quelle"
 L["No decor is recorded here. If this source gives decor, report it below."] = "Hier ist keine Dekoration verzeichnet. Wenn diese Quelle Dekoration gibt, meldet es unten."
 L["Pick a source to see its decor."] = "Wählt eine Quelle, um ihre Dekoration zu sehen."
-L["Quest starts in %s"] = "Quest beginnt in %s"
 L["Dig site in %s"] = "Grabungsstelle in %s"
 L["No model shown"] = "Kein Modell angezeigt"
 L["No events active right now. Event decor is sold only while its event runs."] = "Gerade sind keine Ereignisse aktiv. Ereignis-Dekoration gibt es nur, solange das Ereignis läuft."
@@ -512,5 +503,6 @@ L["Show drop"] = "Beute zeigen"
 L["Show event"] = "Ereignis zeigen"
 L["%s (done)"] = "%s (erledigt)"
 L["%s (not yet)"] = "%s (noch nicht)"
+L["Can't check this requirement yet"] = "Diese Voraussetzung kann noch nicht geprüft werden"
 L["Active now: %s"] = "Jetzt aktiv: %s"
 -- end: Item

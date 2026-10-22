@@ -124,7 +124,7 @@ local function RowData(s)
     if v and D.IsOppositeFaction(v) then state, arg = "faction", D.VendorFactionLabel(v)
     elseif s.type == "events" and not Live(s.key) then state = "idle"
     elseif cs == "counting" then state = "counting"
-    elseif got and total > 0 and got == total then state = "allDone"
+    elseif CG.HiddenBy(v and { vendor = v } or { items = s.items }) == "collected" then state = "allDone"
     elseif can and can > 0 then state, arg = "some", can
     elseif s.type == "events" or (v and D.HolidayActive(v)) then state = "live" end
     return {
@@ -343,7 +343,7 @@ local function Lines(s, total, got, can)
         elseif label and label ~= "Neutral" then out[2] = S.Muted(L["%s vendor"]:format(label)) end
         out[3] = note and ((D.HolidayActive(v) and (L["Active now"] .. ". ") or "") .. note)
         out[4] = conf and S.Muted(L["Confirmed by a scan on %s"]:format(conf))
-            or (L["Not confirmed"] .. ": " .. L["No scan has confirmed this vendor yet. Visit the vendor to check."])
+            or Facts.NotConfirmed()
     elseif s.type == "events" then
         out[1] = Live(s.key) and S.Colored(K.badge, L["Active now"]) or L["Not active"]
     elseif s.type ~= "shop" then
@@ -388,7 +388,7 @@ local function Fill(s)
             local spot, f = (i == 1 and qs) or (i == 2 and ts) or nil, U["q" .. i]
             f:SetShown(spot ~= nil)
             if spot then
-                local text = (i == 1 and L["Quest starts in %s"] or L["Dig site in %s"]):format(MapName(spot.mapID) or L["Unknown"])
+                local text = (i == 1 and L["Starts in %s"] or L["Dig site in %s"]):format(MapName(spot.mapID) or L["Unknown"])
                 f.text:SetText(text)
                 f:SetHeight(math.max(26, W.TextHeight("body", text, IW - 30)))
                 f.wp.wp = { mapID = spot.mapID, x = spot.x, y = spot.y, title = s.title }
@@ -472,6 +472,7 @@ local function BuildDetail(pane)
     U.list = W.NewList(U.lh, { extent = W.RowHeight, kinds = { row = W.rowKind }, reclaim = true })
     U.report = W.NewButton(pane, L["Report a problem"], Report)
     U.report:SetPoint("BOTTOMLEFT", SP.m, SP.s)
+    U.report:SetMotionScriptsWhileDisabled(true)
     U.report:SetScript("OnEnter", function(self)
         if not B.InCombat() then return end
         local tip = B.Tooltip()

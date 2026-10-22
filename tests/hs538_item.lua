@@ -40,6 +40,11 @@ function methods.Hide(self) self.shown = false end
 function methods.IsShown(self) return self.shown end
 function methods.SetEnabled(self, on) self.enabled = on end
 function methods.IsEnabled(self) return self.enabled end
+function methods.SetMotionScriptsWhileDisabled(self, on) self.motion = on end
+-- The engine's gate: a disabled button runs no OnEnter unless its motion scripts are on.
+local function Enter(f)
+    if f:IsEnabled() or rawget(f, "motion") then f.scripts.OnEnter(f) end
+end
 function methods.SetScript(self, name, fn) self.scripts[name] = fn end
 function methods.HookScript(self, name, fn) self.scripts[name] = fn end
 function methods.SetAlpha(self, a) self.alpha = a end
@@ -103,7 +108,6 @@ C_Item = {
 C_HousingCatalog = {
     GetCatalogEntryInfoByItem = function(id) return INFO[id] end,
     GetCatalogEntryInfoByRecordID = function() return nil end,
-    GetCatalogCategoryInfo = function(id) return id == 1 and { name = "Furnishings" } or nil end,
 }
 C_Map = {
     GetBestMapForUnit = function() return 100 end,
@@ -214,7 +218,7 @@ local function show(id)
     for _, fr in ipairs(frames) do
         local y = fr.shown and fr.pt and fr.pt[5] and -fr.pt[5]
         if y and fr.mark then
-            list[#list + 1] = { y = y, text = fr.text.text, color = fr.text.color }
+            list[#list + 1] = { y = y, text = fr.text.text, color = fr.text.color, glyph = rawget(fr.mark, "glyph") }
         elseif y and fr.kind == "Button" and fr.act then
             list[#list + 1] = { y = y, act = fr.text, fn = fr.act, gated = fr.gated }
         end
@@ -408,15 +412,21 @@ do
     B.ShowItemTooltip(Widget("Frame"), 1011)
     assert(tip.lines[2].text == list[i].text, "the tooltip disagrees with the page: " .. tostring(tip.lines[2].text))
     local before = #made
-    B.Widgets.NewRow(Widget("Button")):Set({ name = "Item 1011", state = B.ItemState(1011) })
+    B.Widgets.BuildRow(CreateFrame("Button", nil, Widget("Button"))):Set({ name = "Item 1011", state = B.ItemState(1011) })
     local words
     for k = before + 1, #made do words = words or made[k].text == list[i].text end
     assert(words, "a row does not draw the page's words")
 
     fresh(1012)
-    SOURCES[1012] = { vsrc(horde), { type = "vendor", data = { npcID = 4041, name = "A vendor" } } }
+    SOURCES[1012] = { vsrc(horde), { type = "vendor", data = {} } }
     list = show(1012)
     assert(B.ItemState(1012) == "notOwned" and has(list, "Not collected"), "a vendor with no record reads faction only")
+    local plain
+    for _, d in ipairs(list) do
+        plain = plain or d.text == "A vendor"
+        assert(not (d.text or ""):find("Vendor: Unknown", 1, true), "a vendor with no identity reads Vendor: Unknown")
+    end
+    assert(plain, "a vendor with no identity is not 'A vendor': " .. table.concat(texts(list), "|"))
 
     fresh(1013)
     SOURCES[1013] = { vsrc(horde) }
@@ -452,7 +462,23 @@ do
     assert(indexOf(list, "Revered with Ironforge (not yet)"), "Requires lost the unmet line")
     local _, _, at = B.ItemState(1015)
     assert(at == 62, "the vendor is not reported")
-    OFFER[61], OFFER[62], OFFER[71] = nil, nil, nil
+
+    -- A requirement Homestead can't check: the row reads locked, the page draws the padlock and says so.
+    fresh(1016)
+    OFFER[63] = "locked"
+    SOURCES[1016] = { vsrc(vendor(63, "Rite Vendor")) }
+    REQS[1016] = { { type = "unknown", text = "Mystery Rite" } }
+    local mark = B.Vis.Marker.Set
+    B.Vis.Marker.Set = function(tex, glyph, c) tex.glyph = glyph return mark(tex, glyph, c) end
+    list = show(1016)
+    B.Vis.Marker.Set = mark
+    local state, arg = B.ItemState(1016)
+    assert(state == "locked" and arg == "Mystery Rite", "the row reads locked")
+    local iReq
+    for i, d in ipairs(list) do if d.text == "Mystery Rite" then iReq = i end end
+    assert(iReq and list[iReq].glyph == "lock", "the unchecked requirement has no padlock: " .. table.concat(texts(list), "|"))
+    assert(list[iReq + 1].text == "Can't check this requirement yet", "no reason under the requirement")
+    OFFER[61], OFFER[62], OFFER[63], OFFER[71] = nil, nil, nil, nil
     print("hs538_item: locked states ok")
 end
 
@@ -559,7 +585,7 @@ do
     assert(reports[1].text:find("Item: Item 1005 (1005)", 1, true))
     Item.SetCombat(true)
     assert(report.enabled == false, "Report stays on in combat")
-    report.scripts.OnEnter(report)
+    Enter(report)
     assert(B.Tooltip().text == "Not available in combat", "no reason on the disabled Report")
     Item.Clear()
     assert(not B.Tooltip():IsShown(), "Clear left the page's own tooltip up")
@@ -683,6 +709,41 @@ do
     assert(not src:find("GetItemPresentation", 1, true) and not src:find("ItemStatus", 1, true),
         "the page reads a presentation for its state")
     print("hs538_item: retired state words gone ok")
+end
+
+-- The page's kind is the Catalog nav's, whether categoryIDs is an array or a set.
+do
+    for id, ids in pairs({ [1031] = { 2 }, [1032] = { [2] = true } }) do
+        fresh(id, { quality = 3, categoryIDs = ids, totalNumPlaced = 0, totalNumStored = 0 })
+        local before = #made
+        show(id)
+        local meta
+        for k = before + 1, #made do
+            local t = made[k].text
+            meta = meta or type(t) == "string" and t:find(" %- Structural$") and t
+        end
+        assert(meta, "item " .. id .. " does not read Structural")
+        assert(S.KindOf(INFO[id]) == 2, "the Catalog nav files item " .. id .. " elsewhere")
+    end
+    print("hs538_item: decor kind ok")
+end
+
+-- A vendor no scan has confirmed: the page and the tooltip say so in full.
+do
+    fresh(1033)
+    SOURCES[1033] = { vsrc(vendor(65, "Unscanned Vendor")) }
+    local list = show(1033)
+    local sentence = B.Facts.NotConfirmed()
+    assert(sentence:find("No scan has confirmed", 1, true), sentence)
+    assert(has(list, sentence), "the page lacks the full sentence: " .. table.concat(texts(list), "|"))
+    assert(D.TooltipData(1033).unconfirmed, "the tooltip data misses the unconfirmed vendor")
+    local tip = B.Tooltip()
+    tip.lines = {}
+    B.ShowItemTooltip(Widget("Frame"), 1033)
+    local said
+    for _, l in ipairs(tip.lines) do said = said or l.text == sentence end
+    assert(said, "the tooltip does not say the vendor is not confirmed")
+    print("hs538_item: not confirmed ok")
 end
 
 -- A linked id with no decor record and no sources (Catalog lands on it with no row) still draws a page.

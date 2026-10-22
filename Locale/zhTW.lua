@@ -52,6 +52,8 @@ L["Navigate modifier key"] = "導航組合鍵"
 L["Collection: %d / %d (%d%%)"] = "收藏：%d / %d（%d%%）"
 L["Vendors nearby: %d"] = "附近商人：%d"
 L["Vendors scanned: %d"] = "已掃描商人：%d"
+L["Left-Click: Toggle Decor Browser"] = "|cFFFFFFFF左鍵點擊：|r開啟/關閉裝飾瀏覽器"
+L["Right-Click: Open options"] = "|cFFFFFFFF右鍵點擊：|r開啟選項"
 
 -------------------------------------------------------------------------------
 -- Slash Commands
@@ -263,15 +265,10 @@ L["Approximate map appearance"] = "地圖上的大致外觀"
 L["ExportImport not available."] = "ExportImport 無法使用。"
 
 -------------------------------------------------------------------------------
--- Decor Browser
--------------------------------------------------------------------------------
--- Decor Browser: minimap tooltip
-L["Left-Click: Toggle Decor Browser"] = "|cFFFFFFFF左鍵點擊：|r開啟/關閉裝飾瀏覽器"
-L["Right-Click: Open options"] = "|cFFFFFFFF右鍵點擊：|r開啟選項"
-
 -- Decor Browser: data adapter
-L["Gold"] = "金幣"
+-------------------------------------------------------------------------------
 L["Unknown"] = "未知"
+L["A vendor"] = "某位商人"
 L["Required"] = "必要"
 L["Unknown faction"] = "未知陣營"
 L["Other requirement"] = "其他需求"
@@ -317,7 +314,6 @@ L["Source"] = "來源"
 L["Price"] = "價格"
 
 -- Decor Browser: shop and item pages
-L[", "] = ", "
 L["Seasonal: %s"] = "季節限定：%s"
 L["Rotates with the %s Endeavor"] = "隨%s睦鄰活動輪替"
 L["Rotates with neighborhood Endeavors"] = "隨社區睦鄰活動輪替"
@@ -337,6 +333,7 @@ L["Toggle Decor Browser"] = "開啟/關閉裝飾瀏覽器"
 L["Open the Decor Browser, or bind a key under Keybindings > Homestead"] = "開啟裝飾瀏覽器，也可以在「按鍵設定」> Homestead 中綁定按鍵"
 L["Minimap button"] = "小地圖按鈕"
 L["Left-click opens the Decor Browser, right-click opens options"] = "左鍵點擊開啟裝飾瀏覽器，右鍵點擊開啟選項"
+L["The Decor Browser is not available yet."] = "裝飾瀏覽器尚無法使用。"
 
 -- Welcome window
 L["Find every decor vendor on your map and see what you own before you buy."] = "在地圖上找到每一位裝飾商人，購買前先看看你已經擁有什麼。"
@@ -367,11 +364,6 @@ L["Events"] = "事件"
 L["Other"] = "其他"
 L["Location not recorded"] = "未記錄位置"
 L["Requires"] = "需要"
-
--------------------------------------------------------------------------------
--- Decor Browser: holiday vendors
--------------------------------------------------------------------------------
-L["The Decor Browser is not available yet."] = "裝飾瀏覽器尚無法使用。"
 
 -------------------------------------------------------------------------------
 -- Decor Browser: states and shared parts
@@ -480,7 +472,6 @@ L["Decor sold here"] = "此處販售的裝飾"
 L["Decor from this source"] = "此來源的裝飾"
 L["No decor is recorded here. If this source gives decor, report it below."] = "此處沒有已記錄的裝飾。如果此來源提供裝飾，請在下方回報。"
 L["Pick a source to see its decor."] = "選擇一個來源以檢視其裝飾。"
-L["Quest starts in %s"] = "任務起點位於 %s"
 L["Dig site in %s"] = "%s 的挖掘點"
 L["No model shown"] = "未顯示模型"
 L["No events active right now. Event decor is sold only while its event runs."] = "目前沒有進行中的事件。事件裝飾僅在事件期間販售。"
@@ -512,5 +503,6 @@ L["Show drop"] = "顯示掉落"
 L["Show event"] = "顯示事件"
 L["%s (done)"] = "%s（已完成）"
 L["%s (not yet)"] = "%s（尚未）"
+L["Can't check this requirement yet"] = "暫時無法檢查此條件"
 L["Active now: %s"] = "目前啟用：%s"
 -- end: Item

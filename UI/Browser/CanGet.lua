@@ -280,6 +280,28 @@ local function Before(a, b)
     return a.itemID < b.itemID
 end
 
+-- The source an item is shown by on the row, Summary and the tooltip: its best open offer, else a vendor
+-- this character can use, else the first vendor on record, else the first source.
+function CG.Primary(itemID, sources)
+    sources = sources or D.ItemSources(itemID)
+    local e = CG.Entry(itemID)
+    local best = e and e.canBy and (e.best or BestOffer(e, Facts.Here()))
+    local own, first
+    for _, s in ipairs(sources) do
+        local v = s.type == "vendor" and s.npcID and D.Vendor(s.npcID)
+        if v and best and s.npcID == best.npcID then return s end
+        if v then
+            own = own or not D.IsOppositeFaction(v) and s or nil
+            first = first or s
+        end
+    end
+    if best then
+        local v = D.Vendor(best.npcID) or {}
+        return { type = "vendor", npcID = best.npcID, name = v.name, zone = v.zone, subzone = v.subzone, price = D.Price(itemID, v) }
+    end
+    return own or first or sources[1]
+end
+
 -- Can-get-now entries in ranked order. Sets each entry's best (offer) and near (1-3). A zone change
 -- re-ranks the saved walk without walking again.
 function CG.Rank()

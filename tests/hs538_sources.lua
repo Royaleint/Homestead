@@ -50,6 +50,11 @@ function methods.GetFrameLevel() return 1 end
 function methods.GetParent(self) return self.parent end
 function methods.SetEnabled(self, on) self.enabled = on end
 function methods.IsEnabled(self) return self.enabled ~= false end
+function methods.SetMotionScriptsWhileDisabled(self, on) self.motion = on end
+-- The engine's gate: a disabled button runs no OnEnter unless its motion scripts are on.
+local function Enter(f)
+    if f:IsEnabled() or rawget(f, "motion") then f.scripts.OnEnter(f) end
+end
 function methods.SetChecked(self, on) self.checked = on end
 function methods.SetDataProvider(self, data) self.data = data end
 function methods.FindElementDataIndexByPredicate(self, fn)
@@ -472,9 +477,22 @@ do
     env.tab.Refresh("stats")
     assert(row(main, 100).right == "1 of 3", "stats arrive: " .. tostring(row(main, 100).right))
     assert(not row(main, 101).unconfirmed, "the player's own scan clears Not confirmed")
+    -- All collected follows the rule Hide uses: every ware owned, never the counts alone or an unknown ware.
     env.stats[100] = { collected = 3, total = 3 }
     env.tab.Refresh("stats")
-    assert(row(main, 100).state == "allDone")
+    assert(row(main, 100).state == "some", "the counts alone read All collected")
+    local saved = { env.catalog[1], env.catalog[2], env.catalog[3] }
+    env.catalog[1], env.catalog[2], env.catalog[3] = { totalNumStored = 1 }, { totalNumStored = 1 }, nil
+    invalidate(env)
+    env.tab.Refresh("data")
+    assert(row(main, 100).state ~= "allDone" and env.CG.HiddenBy({ vendor = v.here }) == nil, "a ware of unknown ownership")
+    env.catalog[3] = { totalNumStored = 1 }
+    invalidate(env)
+    env.tab.Refresh("data")
+    assert(row(main, 100).state == "allDone" and env.CG.HiddenBy({ vendor = v.here }) == "collected", "every ware collected")
+    env.catalog[1], env.catalog[2], env.catalog[3] = saved[1], saved[2], saved[3]
+    invalidate(env)
+    env.tab.Refresh("data")
     env.done, env.attempted = false, false
     env.tab.Refresh("stats")
     assert(row(main, 101).state == "counting" and row(main, 101).right == "1 decor", "counting reads N decor")
@@ -647,7 +665,7 @@ do
     local q = {}
     for _, w in ipairs(all) do if rawget(w, "wp") and w.kind == "Frame" then q[#q + 1] = w end end
     assert(#q == 2)
-    assert(q[1].shown and q[1].text.text == "Quest starts in Stormwind" and not q[2].shown, "quest start line")
+    assert(q[1].shown and q[1].text.text == "Starts in Stormwind" and not q[2].shown, "quest start line")
     assert(q[1].wp.wp.mapID == 10 and q[1].wp.wp.x == 0.5 and q[1].wp.wp.y == 0.6)
     q[1].wp.scripts.OnClick(q[1].wp)
     assert(env.waypoints[1][1] == 10 and env.waypoints[1][2] == 0.5, "the line's waypoint is set")
@@ -866,13 +884,13 @@ do
     env.B.State.inCombat = true
     env.tab.Show({ type = "vendors", select = { key = 101 } })
     assert(report.enabled == false, "a new selection in combat stays disabled")
-    report.scripts.OnEnter(report)
+    Enter(report)
     assert(env.tip == "Not available in combat", "the tooltip says why")
     env.tip = nil
     env.B.State.inCombat = false
     env.tab.SetCombat(false)
     assert(report.enabled == true)
-    report.scripts.OnEnter(report)
+    Enter(report)
     assert(env.tip == nil, "no tooltip out of combat")
     print("hs538_sources: report and combat ok")
 end

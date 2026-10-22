@@ -129,14 +129,8 @@ do
     assert(D.VendorFactionLabel(nilInHorde) == "Horde", "a vendor with no faction labels its map's faction")
     assert(D.VendorFactionLabel(neutralInHorde) == "Horde", "a Neutral vendor must not label as Neutral")
     assert(D.VendorFactionLabel({ npcID = 9 }) == nil, "no faction and no map gives no label")
-
-    assert(D.VendorRequirements({ npcID = 3, mapID = allianceMap, faction = "Horde" }, {})[1] == "Horde")
-    assert(D.VendorRequirements(neutralInHorde, {})[1] == "Horde", "a Neutral vendor in a Horde map lists Horde")
-    assert(D.VendorRequirements({ npcID = 7, mapID = allianceMap, faction = "Neutral" }, {})[1] == "Alliance")
-    local nilInAlliance = D.VendorRequirements({ npcID = 4, mapID = allianceMap }, {})
-    assert(#nilInAlliance == 1 and nilInAlliance[1] == "Alliance", "a vendor with no faction in an Alliance map lists exactly Alliance")
-    assert(#D.VendorRequirements({ npcID = 5, faction = "Neutral" }, {}) == 0, "no faction map lists no faction")
-    assert(#D.VendorRequirements({ npcID = 8 }, {}) == 0, "no faction and no map lists no faction")
+    assert(D.VendorFactionLabel({ npcID = 3, mapID = allianceMap, faction = "Horde" }) == "Horde", "the vendor's own faction wins")
+    assert(D.VendorFactionLabel({ npcID = 7, mapID = allianceMap, faction = "Neutral" }) == "Alliance")
 end
 
 -------------------------------------------------------------------------------
@@ -213,17 +207,22 @@ do
     addOwned(HA, store, 2, T0)
     HA.DecorMapping[500003] = 3
     HA.DecorMapping[900001] = 1 -- a second decor record for an item already counted
-    local p = D.Progress()
+    local CG = HA.DecorBrowser.CanGet
+    local function Progress()
+        local walk = CG.Walk()
+        return walk and walk.progress
+    end
+    local p = Progress()
     assert(p.known and p.total == 3 and p.owned == 2)
     assert(p.src.vendors.total == 2 and p.src.vendors.owned == 2)
     assert(p.src.quests.total == 2 and p.src.quests.owned == 1)
-    assert(D.Progress() == p, "memoised")
+    assert(Progress() == p, "memoised")
     D.InvalidateMemos()
-    assert(D.Progress() ~= p, "invalidation recomputes")
+    assert(Progress() ~= p, "invalidation recomputes")
     store.known = false
-    assert(D.Progress() == nil, "no totals until the collection is ready")
+    assert(Progress() == nil, "no totals until the collection is ready")
     store.known = true
-    assert(D.Progress().known == true, "a change in what is known recomputes")
+    assert(Progress().known == true, "a change in what is known recomputes")
 end
 
 -------------------------------------------------------------------------------
@@ -239,6 +238,7 @@ do
     assert(line({ type = "unknown", name = "X" }) == "Other source: X")
     assert(line({ type = "somethingnew", name = "X" }) == "Other source: X", "never the raw key")
     assert(line({ type = "vendor", name = "V", zone = "Z" }) == "Vendor: V, Z")
+    assert(line({ type = "vendor" }) == "A vendor", "a vendor with no identity")
     assert(D.SourceLine(1, {}) == "Source unknown")
 
     -- A journal-anchored drop carries an area ID in mapID: no map data.
@@ -333,7 +333,10 @@ do
 
     local function holiday()
         local t = {}
-        for _, v in ipairs(D.HolidayVendors()) do t[#t + 1] = v.name .. (D.HolidayActive(v) and ":Active" or ":Not Active") end
+        for npcID in pairs(HA.EventSources.EventVendors) do
+            local v = D.HolidayVendor(npcID)
+            t[#t + 1] = v.name .. (D.HolidayActive(v) and ":Active" or ":Not Active")
+        end
         table.sort(t)
         return table.concat(t, ",")
     end
@@ -355,12 +358,10 @@ do
     assert(D.HolidayActive(shop) == false and D.HolidayActive({ npcID = 1 }) == nil)
     assert(D.Vendor(404) == nil)
 
-    -- The map pin setting never changes the browser's holiday list.
+    -- The map pin setting never changes a holiday vendor's season tag.
     local pinsOn = holiday()
     HA.Addon.db.profile.vendorTracer.showEventVendors = false
-    assert(holiday() == pinsOn, "event pins off lists the same vendors: " .. holiday())
-    HA.EventSources.EventVendors[273403].removed = true
-    assert(holiday() == "Echo:Not Active,Valadar:Active", "a removed holiday vendor drops out: " .. holiday())
+    assert(holiday() == pinsOn, "event pins off tags the same: " .. holiday())
 end
 
 -------------------------------------------------------------------------------
@@ -368,7 +369,7 @@ end
 -------------------------------------------------------------------------------
 
 do
-    local HA, _, D = newEnv()
+    local _, _, D = newEnv()
     local names, requests = {}, {}
     rawset(_G, "C_Item", {
         GetItemNameByID = function(id) return names[id] end,
@@ -389,22 +390,6 @@ do
     assert(D.NameArrived(11, true) == false, "a failed item must not be waited on again")
     assert(#requests == 2, "a failed item must not be requested again")
 
-    -- A vendor's currency line waits for a loading item name, not for one that failed.
-    rawset(_G, "C_Item", {
-        GetItemNameByID = function(id) return names[id] end,
-        RequestLoadItemDataByID = function(id) requests[#requests + 1] = id end,
-        GetItemIconByID = function() return nil end,
-    })
-    HA.SourceManager = { GetVendorItemCost = function(_, itemID)
-        return { items = { { id = itemID } } }
-    end }
-    local out, pending = D.VendorCurrencies({}, { 12 })
-    assert(#out == 0 and pending == true, "a currency whose name is loading keeps the line pending")
-    D.NameArrived(12, false)
-    out, pending = D.VendorCurrencies({}, { 12 })
-    assert(#out == 0 and pending == false, "a currency whose name failed must not keep the line pending")
-    out, pending = D.VendorCurrencies({}, { 10 })
-    assert(out[1] == "Lamp" and pending == false)
 end
 
 print("hs534_browser_adapter: ok")
