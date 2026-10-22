@@ -23,8 +23,8 @@ for line in readFile("Homestead.toc"):gmatch("[^\r\n]+") do
     if entry then assert(loadfile(root .. "/" .. entry:gsub("\\", "/")))("Homestead", HA) end
 end
 
-local item = HA.DecorBrowser.ItemDetail
-assert(item and type(item.ReportText) == "function", "the item page has no report builder")
+local item = HA.DecorBrowser.Data
+assert(item and type(item.ReportText) == "function", "the data adapter has no report builder")
 
 local function has(text, needle)
     assert(text:find(needle, 1, true), "the report lacks: " .. needle .. "\n" .. text)
@@ -46,12 +46,15 @@ has(text, "Client: 12.0.5 (66102)")
 has(text, "Homestead: 2.14.1")
 
 -- The page that gathers the report is the item detail the Catalog hosts: its four-call contract is
--- intact and the pure builder is the one it hands to the output window.
+-- intact, with nothing else on it, and its Report hands the adapter's builder to the output window.
 local detail = HA.DecorBrowser.ItemDetail
 for _, name in ipairs({ "Build", "Show", "Clear", "SetCombat" }) do
     assert(type(detail[name]) == "function", "ItemDetail." .. name .. " is missing")
 end
-assert(detail.Show and item.ReportText, "the item path no longer reaches the report builder")
+local fields = 0
+for _ in pairs(detail) do fields = fields + 1 end
+assert(fields == 4, "ItemDetail carries more than its four calls")
+assert(readFile("UI/Browser/Item.lua"):find("D.ReportText(", 1, true), "the item page no longer reaches the report builder")
 
 -- Missing pieces still produce a complete report, never an error.
 text = item.ReportText({ itemID = 7, vendors = {} })

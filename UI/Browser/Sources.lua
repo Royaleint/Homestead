@@ -1,5 +1,4 @@
 -- Sources tab: seven kinds of source, each a grouped list with a detail pane. Rows are keyed by Facts.SourceKey.
--- luacheck: globals SetPortraitTextureFromCreatureDisplayID
 local _, HA = ...
 
 local B = HA.DecorBrowser
@@ -13,28 +12,23 @@ local function MapName(mapID)
 end
 
 local KIND = {
-    vendors = { L["Vendors"], L["Vendor"], L["Search vendors and zones"] },
-    achievements = { L["Achievements"], L["Achievement"], L["Search achievements"], "AchievementSources",
+    vendors = { L["Vendor"], L["Search vendors and zones"] },
+    achievements = { L["Achievement"], L["Search achievements"], "AchievementSources",
         function(d) return { title = d.achievementName, sub = d.category or L["Achievement"], group = d.category or L["Other"] } end },
-    quests = { L["Quests"], L["Quest"], L["Search quests"], "QuestSources", function(d)
+    quests = { L["Quest"], L["Search quests"], "QuestSources", function(d)
         local at = Facts.TreasureSpot(d.questID) or Facts.QuestStart(d.questID)
         return { title = d.questName, sub = MapName(at and at.mapID) or L["Quest"], questID = d.questID }
     end },
-    professions = { L["Professions"], L["Profession"], L["Search recipes and professions"], "ProfessionSources",
+    professions = { L["Profession"], L["Search recipes and professions"], "ProfessionSources",
         function(d) return { title = d.recipeName, sub = d.skillTier or d.profession, group = d.profession } end },
-    drops = { L["Drops"], L["Drop"], L["Search drops and zones"], "DropSources",
+    drops = { L["Drop"], L["Search drops and zones"], "DropSources",
         function(d) return { title = d.mobName, sub = d.zone, drop = d } end },
-    events = { L["Events"], L["Event"], L["Search events"], "EventSources",
+    events = { L["Event"], L["Search events"], "EventSources",
         function(d) return { title = d.event, sub = L["Holiday event"] } end },
-    shop = { L["Shop"], L["Shop"], L["Search the Shop"], "ShopSources", function() return { sub = L["Shop"] } end },
+    shop = { L["Shop"], L["Search the Shop"], "ShopSources", function() return { sub = L["Shop"] } end },
 }
 local TYPES = CG.SOURCE_KEYS
 local IW = S.cols.detail - 2 * SP.m
-
-S.state.allDone = { word = L["All collected"], glyph = "check", color = K.muted, dim = true }
-S.state.some = { word = L["%d can get now"], glyph = "dot", color = K.can }
-S.state.idle = { word = L["Not active"], glyph = "clock", color = K.muted }
-S.state.live = { word = L["Active now"], glyph = "clock", color = K.badge }
 
 local Tab = {}
 local st = { type = "vendors", q = {}, sel = {} }
@@ -63,12 +57,12 @@ local function Statics()
     for _, t in ipairs(TYPES) do
         local bucket, kind = { by = {} }, KIND[t]
         static[t] = bucket
-        for itemID, d in pairs(kind[4] and HA[kind[4]] or {}) do
+        for itemID, d in pairs(kind[3] and HA[kind[3]] or {}) do
             local key = type(d) == "table" and type(itemID) == "number" and Facts.SourceKey(t, d, itemID)
             if key then
                 local s = bucket.by[key]
                 if not s then
-                    s = kind[5](d)
+                    s = kind[4](d)
                     s.key, s.type, s.items, s.title = key, t, {}, s.title or L["Unknown"]
                     bucket.by[key], bucket[#bucket + 1] = s, s
                 end
@@ -197,8 +191,7 @@ local function BuildList(keep)
     local q = (st.q[t] or ""):lower()
     local where = t == "vendors" and Facts.Here() or nil
     local out, live = {}, false
-    local hidden = { kind = "foot", hidden = 0, collected = 0, faction = 0, onShow = ShowHidden,
-        factionName = UnitFactionGroup("player") == "Horde" and L["Alliance"] or L["Horde"] }
+    local hidden, seen = { kind = "foot", hidden = 0, collected = 0, faction = 0, onShow = ShowHidden }, {}
     for _, s in ipairs(Src(t)) do
         if t == "shop" then s.title = D.ItemName(s.items[1]) or L["Item %d"]:format(s.items[1]) end
         live = live or (t == "events" and Live(s.key))
@@ -208,12 +201,19 @@ local function BuildList(keep)
             if why then
                 hidden.hidden = hidden.hidden + 1
                 hidden[why] = hidden[why] + 1
+                if why == "faction" then
+                    local label = v and D.VendorFactionLabel(v)
+                    for _, id in ipairs(not v and s.items or {}) do label = label or CG.FactionLabel(id) end
+                    label = label or ""
+                    seen[label] = (seen[label] or 0) + 1
+                end
             else
                 out[#out + 1] = s
                 Place(s, where)
             end
         end
     end
+    hidden.parts = Facts.FactionParts(seen, hidden.faction)
     table.sort(out, Before)
     local sel, found = st.sel[t], false
     for _, s in ipairs(out) do found = found or s.key == sel end
@@ -241,12 +241,9 @@ local function BuildList(keep)
     else
         local text = q ~= "" and L["Nothing matches your search."] or L["Nothing to show here."]
         empty:Set("noResults", {
-            title = L["No results"], text = note and (text .. " " .. L["%d hidden by '%s' (%d collected, %d %s only)."]:format(
-                note.hidden, L["Hide what doesn't apply to me"], note.collected, note.faction, note.factionName)) or text,
-            onReset = (q ~= "" or note) and function()
-                if note then ShowHidden() end
-                if q ~= "" then box:SetText("") end
-            end or nil,
+            title = L["No results"], text = note and text .. " " .. W.FooterText(note) or text,
+            onShow = note and ShowHidden,
+            onReset = q ~= "" and function() box:SetText("") end or nil,
         })
     end
     local h = W.TextHeight("body") + SP.m
@@ -299,31 +296,15 @@ local function Line(fs, role, text)
     end
 end
 
-local function ItemState(e, itemID, v)
-    if cs == "counting" then return "counting", nil, 2 end
-    if not (e and e.own) then return nil, nil, 2 end
-    if e.own == "owned" then return "owned", nil, 3 end
-    local o = v and CG.Offer(itemID, v.npcID, e.info) or e.verdict
-    if o == "can" then return "can", nil, 1 end
-    if o == "faction" and v then return "faction", D.VendorFactionLabel(v), 2 end
-    if o == "locked" then
-        for _, r in ipairs(D.Requirements(itemID, v and v.npcID or e.locked and e.locked[1])) do
-            if r.met ~= true then return "locked", r.text, 2 end
-        end
-    elseif o == "unlisted" and e.event then
-        return "event", e.event, 2
-    end
-    return "notOwned", nil, 2
-end
-
 local function Rows(s)
     local v, rows = s.vendor, {}
     for _, itemID in ipairs(s.items) do
         local e = CG.Entry(itemID)
         local info = e and e.info
-        local state, arg, rank = ItemState(e, itemID, v)
+        local state, arg = B.ItemState(itemID, v and v.npcID)
         rows[#rows + 1] = {
-            kind = "row", name = D.ItemName(itemID, info) or L["Item %d"]:format(itemID), rank = rank,
+            kind = "row", name = D.ItemName(itemID, info) or L["Item %d"]:format(itemID),
+            rank = state == "can" and 1 or state == "owned" and 3 or 2,
             quality = info and info.quality or C_Item.GetItemQualityByID(itemID), icon = D.ItemIcon(itemID),
             itemID = itemID, npcID = v and v.npcID, state = state, arg = arg, right = v and D.Price(itemID, v),
             onClick = function() B.ShowTab("catalog", { itemID = itemID }) end,
@@ -349,7 +330,7 @@ local function SetHead(s)
     U.name:SetText(s.title)
     local h = W.TextHeight("subheader", s.title, IW - x)
     U.name:SetHeight(h)
-    U.meta:SetText(KIND[s.type][2])
+    U.meta:SetText(KIND[s.type][1])
     U.head:SetSize(IW, math.max(x, h + W.TextHeight("meta") + 2))
 end
 
@@ -445,7 +426,7 @@ local function Report()
     local build, number = GetBuildInfo()
     HA.OutputWindow:Show(L["Report a data error"], table.concat({
         v and L["Vendor %d: %s, %s, %s"]:format(v.npcID, v.name or L["Unknown"], v.zone or L["Unknown"], where)
-            or L["%s: %s"]:format(KIND[s.type][2], s.title),
+            or L["%s: %s"]:format(KIND[s.type][1], s.title),
         L["Client: %s (%s)"]:format(build or "?", number or "?"),
         L["Homestead: %s"]:format(HA.Constants.VERSION or "?"),
     }, "\n"))
@@ -515,7 +496,7 @@ end
 
 local function SetType(t)
     st.type = t
-    box.Instructions:SetText(KIND[t][3])
+    box.Instructions:SetText(KIND[t][2])
     box:SetText(st.q[t] or "")
 end
 
@@ -529,7 +510,7 @@ function Tab.Build(parent)
         b:CreateTexture(nil, "HIGHLIGHT"):SetAllPoints()
         b.label = S.Text(b, "body", "OVERLAY")
         b.label:SetPoint("LEFT", SP.s, 0)
-        b.label:SetText(KIND[t][1])
+        b.label:SetText(S.sourceLabel[t])
         b.count = S.Text(b, "metaMuted", "OVERLAY")
         b.count:SetPoint("RIGHT", -SP.s, 0)
         b:SetScript("OnClick", function()
@@ -539,7 +520,7 @@ function Tab.Build(parent)
         end)
         navs[t] = b
     end
-    box = W.NewSearchBox(c.toolbar, KIND.vendors[3], function(text)
+    box = W.NewSearchBox(c.toolbar, KIND.vendors[2], function(text)
         if text == (st.q[st.type] or "") then return end
         st.q[st.type] = text
         Rebuild(false)

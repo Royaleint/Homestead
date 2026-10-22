@@ -21,7 +21,6 @@ local panes = {}
 local function Coord(tex, c)
     tex:SetTexCoord(c[1], c[2], c[3], c[4])
 end
-W.Coord = Coord
 
 local ruler
 
@@ -66,10 +65,12 @@ function W.ResetMeasure()
 end
 
 -- Two lines of body text between padding.
+local function MeasureRow()
+    return math.max(2 * R.pad + 2 * W.TextHeight("body") + R.gap, R.tile + 2 * R.pad)
+end
+
 function W.RowHeight()
-    return Measured("row", function()
-        return math.max(2 * R.pad + 2 * W.TextHeight("body") + R.gap, R.tile + 2 * R.pad)
-    end)
+    return Measured("row", MeasureRow)
 end
 
 function W.StateWords(state, arg)
@@ -97,45 +98,6 @@ end
 
 function W.OpaquePanes(opaque)
     for _, pane in ipairs(panes) do PaintPane(pane, opaque) end
-end
-
-function W.Rule(parent)
-    local rule = parent:CreateTexture(nil, "ARTWORK")
-    rule:SetAtlas(S.filigree.divider, true)
-    rule:SetAlpha(S.filigree.dividerAlpha)
-    return rule
-end
-
-function W.WoodCorners(box)
-    local F = S.filigree
-    local holder = CreateFrame("Frame", nil, box)
-    holder:SetAllPoints()
-    holder:SetFrameLevel(box:GetFrameLevel() + 10)
-    for key, atlas in pairs(F.wood) do
-        if C_Texture.GetAtlasInfo(atlas) then
-            local t = holder:CreateTexture(nil, "OVERLAY")
-            t:SetAtlas(atlas, false)
-            t:SetSize(F.woodSize, F.woodSize)
-            t:SetPoint(({ TL = "TOPLEFT", TR = "TOPRIGHT", BL = "BOTTOMLEFT", BR = "BOTTOMRIGHT" })[key])
-        end
-    end
-    return holder
-end
-
-function W.NewSectionHeader(parent)
-    local f = CreateFrame("Frame", nil, parent)
-    f:SetHeight(LO.headerHeight)
-    f.right = S.Text(f, "meta", "OVERLAY")
-    f.right:SetPoint("RIGHT", -4, 2)
-    f.text = S.Text(f, "subheader", "OVERLAY")
-    f.text:SetPoint("LEFT", 4, 2)
-    f.text:SetPoint("RIGHT", f.right, "LEFT", -S.space.s, 0)
-    f.text:SetJustifyH("LEFT")
-    f.text:SetWordWrap(false)
-    local rule = W.Rule(f)
-    rule:SetPoint("LEFT", f, "BOTTOMLEFT", 0, 0)
-    rule:SetPoint("RIGHT", f, "BOTTOMRIGHT", 0, 0)
-    return f
 end
 
 -- Standard button with user-scaled text; sized from the text, so it follows the text size.
@@ -234,7 +196,7 @@ local function BuildRight(row)
     return box
 end
 
--- Decor row. row:Set{ name, quality, icon or atlas, noTile, active, bonus, right, line2, more, unconfirmed,
+-- Decor row. row:Set{ name, quality, icon or atlas, noTile, active, bonus, right, line2, unconfirmed,
 -- state, arg, selected, itemID, npcID, onClick, onEnter }. state is a key of S.state; arg fills its words.
 -- Line one: name, badges, price. Line two: source line, Not confirmed tag, the state's words and mark.
 -- Builds onto a Button it is given (a pooled list frame) and adds row:Set, row:Redraw and row:Reset.
@@ -318,8 +280,7 @@ function W.BuildRow(row)
         tag:SetShown(d.unconfirmed == true)
         tag:SetSize(tag.text:GetUnboundedStringWidth() + SP.s, W.TextHeight("meta") + 2)
         Pack(bottom, words, mark, tag)
-        local more = d.more and d.more > 0 and (" (+" .. d.more .. ")") or ""
-        line:SetText((d.line2 or "") .. more)
+        line:SetText(d.line2 or "")
         line:SetAlpha(dim and 0.55 or 1)
 
         self.itemID, self.npcID = d.itemID, d.npcID
@@ -427,7 +388,7 @@ function W.NewList(parent, opts)
 end
 
 -- List kinds for the pieces that sit among rows. Group header: { kind = "header", text }.
--- Footer: { kind = "footer", hidden, collected, faction, factionName, onShow }.
+-- Footer: { kind = "footer", hidden, collected, parts (Facts.FactionParts) or faction and factionName, onShow }.
 W.headerKind = {
     frameType = "HomesteadDecorBrowserHeader",
     build = function(f)
@@ -441,14 +402,25 @@ W.headerKind = {
     init = function(f, d) f.text:SetText(d.text) end,
 }
 
-function W.HeaderHeight()
-    return Measured("header", function() return W.TextHeight("body") + SP.s end)
+local function MeasureHeader()
+    return W.TextHeight("body") + SP.s
 end
 
-local function FooterText(d)
-    return L["%d hidden by '%s' (%d collected, %d %s only)."]:format(
-        d.hidden, L["Hide what doesn't apply to me"], d.collected, d.faction, d.factionName)
+function W.HeaderHeight()
+    return Measured("header", MeasureHeader)
 end
+
+function W.FooterText(d)
+    local p, hide = d.parts or { { d.faction, d.factionName } }, L["Hide what doesn't apply to me"]
+    if p[2] then
+        return L["%d hidden by '%s' (%d collected, %d %s only, %d %s only)."]:format(
+            d.hidden, hide, d.collected, p[1][1], p[1][2], p[2][1], p[2][2])
+    elseif p[1] then
+        return L["%d hidden by '%s' (%d collected, %d %s only)."]:format(d.hidden, hide, d.collected, p[1][1], p[1][2])
+    end
+    return L["%d hidden by '%s' (%d collected)."]:format(d.hidden, hide, d.collected)
+end
+local FooterText = W.FooterText
 
 W.footerKind = {
     frameType = "HomesteadDecorBrowserFooter",
@@ -479,8 +451,7 @@ function W.FooterHeight(d, width)
     return W.TextHeight("bodyMuted", FooterText(d), width - 2 * SP.s) + W.TextHeight("body") + 2 * SP.s + R.gap
 end
 
--- The empty-list kinds, each with its own words (a tab may pass its own title and text). Buttons show when d
--- carries their handler.
+-- The empty-list kinds and their words. Buttons show when d carries their handler.
 local EMPTY = {
     counting = { L["Counting…"], L["Reading your collection. This list fills in when it's ready."] },
     countingSort = { L["Counting…"],
@@ -496,13 +467,13 @@ local EMPTY = {
         L["These filters need your collection, which Homestead hasn't read yet. If this stays, open the Housing Dashboard once."],
         { "onReset", L["Reset filters"] } },
     noResults = { L["No results"], L["No decor matches these words and filters. Search looks at item names only."],
-        { "onReset", L["Reset filters"] }, { "onAll", L["Search all decor"] } },
+        { "onReset", L["Reset filters"] }, { "onShow", L["Show them"] }, { "onAll", L["Search all decor"] } },
 }
 
 local NEEDS_ARG = { nothingMissing = true, nothingNow = true }
 
 -- Empty-list block near the top of parent. f:Set(kind, d): d.arg fills a %d or %s in the text; d.title and
--- d.text replace the kind's words; d.onSort, d.onMissing, d.onReset and d.onAll are the buttons' handlers.
+-- d.text replace the kind's words; d's on* fields are the buttons' handlers.
 function W.NewEmptyState(parent)
     local f = CreateFrame("Frame", nil, parent)
     f:SetPoint("TOPLEFT", SP.m, -SP.m)
@@ -525,13 +496,13 @@ function W.NewEmptyState(parent)
         if NEEDS_ARG[kind] and d.arg == nil and not d.text then error("empty state " .. kind .. " needs d.arg", 2) end
         self.title:SetText(d.title or e[1])
         self.text:SetText(d.text or d.arg ~= nil and e[2]:format(d.arg) or e[2])
-        local prev
-        for i = 3, 4 do
-            local b = self.buttons[i - 2]
+        local prev, n = nil, 0
+        for i = 3, #e do
             local spec = e[i]
-            if spec and d[spec[1]] then
-                b = b or W.NewButton(self, "", nil)
-                self.buttons[i - 2] = b
+            if d[spec[1]] then
+                n = n + 1
+                local b = self.buttons[n] or W.NewButton(self, "", nil)
+                self.buttons[n] = b
                 b:SetText(spec[2])
                 b:SetScript("OnClick", d[spec[1]])
                 b:Fit()
@@ -540,10 +511,9 @@ function W.NewEmptyState(parent)
                 else b:SetPoint("TOPLEFT", self.text, "BOTTOMLEFT", 0, -SP.s) end
                 b:Show()
                 prev = b
-            elseif b then
-                b:Hide()
             end
         end
+        for i = n + 1, #self.buttons do self.buttons[i]:Hide() end
         self:Show()
     end
     return f

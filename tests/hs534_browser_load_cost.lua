@@ -100,9 +100,10 @@ end
 assert(B.Window.frame == nil, "the window exists before the first open")
 
 assert(B.Item == nil, "the item page leaks a second public table")
-for _, fn in ipairs({ "Build", "Show", "Clear", "SetCombat", "ReportText" }) do
+for _, fn in ipairs({ "Build", "Show", "Clear", "SetCombat" }) do
     assert(type(B.ItemDetail and B.ItemDetail[fn]) == "function", "ItemDetail." .. fn .. " is missing")
 end
+assert(type(B.Data.ReportText) == "function", "Data.ReportText is missing")
 for _, fn in ipairs({ "RegisterTab", "ShowTab", "Walk", "SetLocation" }) do
     assert(type(B[fn]) == "function", "B." .. fn .. " is missing")
 end

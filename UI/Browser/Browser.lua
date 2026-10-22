@@ -163,7 +163,13 @@ end
 local function BuildCallbacks()
     callbacks = {
         data = function() if Shown() then B.RequestRefresh(false, true) end end,
-        scan = function(record) if Shown() and ScanMatters(record) then B.RequestRefresh(false, true) end end,
+        scan = function(record)
+            if Shown() and ScanMatters(record) then
+                -- A scan adds sources without SOURCE_CACHES_INVALIDATED.
+                B.CanGet.ResetFactionOnly()
+                B.RequestRefresh(false, true)
+            end
+        end,
         stats = function() if Shown() then B.RequestRefresh(true) end end,
     }
     textScaleOwner = {}
@@ -201,6 +207,8 @@ local function OnShow()
     for _, name in ipairs(DATA_EVENTS) do HA.Events:RegisterCallback(name, callbacks.data) end
     HA.Events:RegisterCallback("VENDOR_SCANNED", callbacks.scan)
     HA.Events:RegisterCallback("HS_VENDOR_STATS_WARMED", callbacks.stats)
+    HA.Events:RegisterCallback("SOURCE_CACHES_INVALIDATED", B.CanGet.ResetFactionOnly)
+    B.CanGet.ResetFactionOnly()
     for _, name in ipairs(GAME_EVENTS) do events:RegisterEvent(name) end
     EventRegistry:RegisterCallback(TEXT_SCALE_EVENT, OnTextScale, textScaleOwner)
     Win.AssertPropagation()
@@ -216,6 +224,7 @@ local function OnHide()
     for _, name in ipairs(DATA_EVENTS) do HA.Events:UnregisterCallback(name, callbacks.data) end
     HA.Events:UnregisterCallback("VENDOR_SCANNED", callbacks.scan)
     HA.Events:UnregisterCallback("HS_VENDOR_STATS_WARMED", callbacks.stats)
+    HA.Events:UnregisterCallback("SOURCE_CACHES_INVALIDATED", B.CanGet.ResetFactionOnly)
     events:UnregisterAllEvents()
     EventRegistry:UnregisterCallback(TEXT_SCALE_EVENT, textScaleOwner)
     ClearPending()

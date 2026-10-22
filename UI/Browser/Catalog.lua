@@ -8,8 +8,7 @@ local SP, K = S.space, S.color
 local KEYS = CG.SOURCE_KEYS
 local NAV = { "all", 1, 2, 3, 4, "other" }
 local KIND = { [1] = L["Furnishings"], [2] = L["Structural"], [3] = L["Accents"], [4] = L["Lighting"], other = L["Other"] }
-local TYPE = { vendors = L["Vendors"], achievements = L["Achievements"], quests = L["Quests"],
-    professions = L["Professions"], drops = L["Drops"], events = L["Events"], shop = L["Shop"] }
+local TYPE = S.sourceLabel
 local SORT = { best = L["Best to get now"], name = L["Name"], price = L["Price"] }
 -- Best-sort groups; the default is 1.
 local GROUP = { can = 0, locked = 2, event = 2, faction = 3, owned = 4 }
@@ -18,10 +17,6 @@ local Tab, ui, orders = {}, {}, {}
 local cat, recs, counts, walk, version, hideFor, bare
 local shown = {}
 local shownSel, silent = false, false
-
-local function OtherFaction()
-    return UnitFactionGroup("player") == "Horde" and L["Alliance"] or L["Horde"]
-end
 
 local function NewView(sort)
     local types = {}
@@ -72,25 +67,15 @@ local function BareEntries()
     return list
 end
 
-local function StateOf(e, status)
-    if status ~= "ready" then return status == "counting" and "counting" or nil end
-    local v = e.verdict
-    if e.own == "owned" or e.own == nil then return e.own end
-    if v == "can" then return v end
-    if e.factionOnly then return "faction" end
-    if v == "locked" then return v end
-    return v == "unlisted" and e.event and "event" or "notOwned"
-end
-
 local function Rebuild()
     version, hideFor = D.MemoVersion(), B.State.hideNA
     wipe(orders)
     counts, recs = {}, {}
-    local status = D.CollectionState()
     for i, e in ipairs(walk and walk.list or BareEntries()) do
         local r = { kind = "item", id = e.itemID, e = e, lname = e.name and e.name:lower() or "",
-            hasName = e.name ~= nil, cat = KindOf(e.info), state = StateOf(e, status), bonus = e.bonus,
+            hasName = e.name ~= nil, cat = KindOf(e.info), bonus = e.bonus,
             done = e.own == "owned", hid = hideFor and (walk and (e.own == "owned" and "collected" or e.factionOnly and "faction" or nil) or not walk and CG.HiddenBy(e.itemID)) or nil }
+        r.state, r.arg = B.ItemState(e.itemID)
         r.g = GROUP[r.state] or 1
         recs[i] = r
         counts[r.cat] = (counts[r.cat] or 0) + 1
@@ -166,7 +151,7 @@ end
 
 -- The matching records in order, their count, whether the selection is among them, and the Hide counts.
 local function Filter()
-    local c, out, n, hc, hf, sel, subset = cat, {}, 0, 0, 0, false, false
+    local c, out, n, hc, hf, sel, subset, seen = cat, {}, 0, 0, 0, false, false, {}
     for _, k in ipairs(KEYS) do
         if not c.types[k] then subset = true end
     end
@@ -174,7 +159,12 @@ local function Filter()
         local pinned = r.id == c.pin
         if pinned or Passes(r, c, c.coll and c.notColl, subset) then
             if r.hid and not pinned then
-                if r.hid == "collected" then hc = hc + 1 else hf = hf + 1 end
+                if r.hid == "collected" then hc = hc + 1
+                else
+                    hf = hf + 1
+                    r.fl = r.fl or CG.FactionLabel(r.id) or ""
+                    seen[r.fl] = (seen[r.fl] or 0) + 1
+                end
             else
                 n = n + 1
                 out[n] = r
@@ -182,7 +172,7 @@ local function Filter()
             end
         end
     end
-    return out, n, sel, hc, hf
+    return out, n, sel, hc, hf, seen
 end
 
 local Apply, ShowDetail
@@ -205,25 +195,13 @@ local function Describe(r)
         local sources = D.ItemSources(id)
         local p = sources[1]
         local v = p and p.type == "vendor" and p.npcID and HA.VendorData:GetVendor(p.npcID)
-        local arg, active
-        if r.state == "locked" then
-            arg = L["Unknown"]
-            local unmet = 0
-            for _, q in ipairs(D.Requirements(id, e.locked[1])) do
-                if q.met ~= true then
-                    unmet = unmet + 1
-                    if unmet == 1 then arg = q.text end
-                end
-            end
-            if unmet > 1 then arg = arg .. " " .. L["and %d more"]:format(unmet - 1) end
-        elseif r.state == "faction" then arg = OtherFaction()
-        elseif r.state == "event" then arg = e.event end
+        local active
         for _, o in pairs(e.canBy or {}) do active = active or o.event end
         d = { itemID = id, name = e.name or L["Item %d"]:format(id),
             quality = e.info and e.info.quality or C_Item.GetItemQualityByID(id),
             icon = e.info and e.info.iconTexture or D.ItemIcon(id), active = active, bonus = r.bonus,
-            right = p and p.price, line2 = D.SourceLine(id, { p }) .. (#sources > 1 and " " .. L["(+%d more)"]:format(#sources - 1) or ""), more = 0,
-            unconfirmed = v and not B.Facts.Confirmed(v) or nil, state = r.state, arg = arg,
+            right = p and p.price, line2 = D.SourceLine(id, { p }) .. (#sources > 1 and " " .. L["(+%d more)"]:format(#sources - 1) or ""),
+            unconfirmed = v and not B.Facts.Confirmed(v) or nil, state = r.state, arg = r.arg,
             onClick = function() Pick(id) end }
         r.d = d
     end
@@ -289,11 +267,12 @@ end
 
 -- Filters the cached records into the list. keep holds the scroll position; force refills the detail.
 function Apply(keep, force)
-    local out, n, sel, hc, hf = Filter()
+    local out, n, sel, hc, hf, seen = Filter()
     local words = Words(cat)
-    if not sel then cat.sel = n > 0 and out[1].id or nil end
+    -- A landed id with no record (not decor, or unmapped) keeps its detail; no row is selected.
+    if not sel then cat.sel = cat.pin or n > 0 and out[1].id or nil end
     if hc + hf > 0 then
-        out[n + 1] = { kind = "footer", hidden = hc + hf, collected = hc, faction = hf, factionName = OtherFaction(),
+        out[n + 1] = { kind = "footer", hidden = hc + hf, collected = hc, faction = hf, parts = B.Facts.FactionParts(seen, hf),
             onShow = function() B.SetHideNA(false) B.Window.hideNA:SetChecked(false) end }
     end
     local empty = Empty(D.CollectionState(), n, hc + hf > 0, words)

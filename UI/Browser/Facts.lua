@@ -1,8 +1,9 @@
 -- Static facts the browser reads: which vendors it lists, confirmation dates, portraits and spots,
--- the player's zone, decor kinds, the Shop count and the keys that name a source.
+-- the player's zone and the keys that name a source.
 local _, HA = ...
 
 local B = HA.DecorBrowser
+local L = HA.L
 
 local F = {}
 B.Facts = F
@@ -119,19 +120,24 @@ function F.Nearness(mapID, where)
     return (c and c == where.continent) and 2 or 3
 end
 
--- Decor kinds: Blizzard's four top catalog categories plus Other. The words come from the tabs.
-local KINDS = { { id = 1 }, { id = 2 }, { id = 3 }, { id = 4 }, { id = "other" } }
-function F.Kinds()
-    return KINDS
+-- The factions a faction stop names, as { { count, label } }: the other one, with total, for a faction
+-- character; for a Neutral one, only the factions in seen (label -> count).
+function F.FactionParts(seen, total)
+    local mine = UnitFactionGroup("player")
+    if mine == "Alliance" then return { { total, L["Horde"] } } end
+    if mine == "Horde" then return { { total, L["Alliance"] } } end
+    local out = {}
+    for _, label in ipairs({ L["Alliance"], L["Horde"] }) do
+        if seen and seen[label] then out[#out + 1] = { seen[label], label } end
+    end
+    return out
 end
 
-local shopCount
-function F.ShopCount()
-    if not shopCount then
-        shopCount = 0
-        for _ in pairs(HA.ShopSources or {}) do shopCount = shopCount + 1 end
-    end
-    return shopCount
+-- The same, for a sentence; nil for a Neutral character with none seen.
+function F.OtherFaction(seen)
+    local p = F.FactionParts(seen, 0)
+    if p[2] then return L["%s or the %s"]:format(p[1][2], p[2][2]) end
+    return p[1] and p[1][2]
 end
 
 -- A source's data type to its Sources type.

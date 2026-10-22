@@ -79,7 +79,6 @@ S.layout = {
     titleLeft = 68, panePad = SP.xs,
     wellPad = 6,
     pagePad = SP.m, scrollBarGap = 14,
-    headerHeight = 28,
 }
 
 -- Heights come from measured text (Widgets.TextHeight); these are only the padding around it.
@@ -97,11 +96,8 @@ S.art = {
 }
 
 S.atlas = {
-    check = "common-icon-checkmark",
-    lock = "Padlock",
     waypointOff = "Waypoint-MapPin-Untracked",
     waypointOn = "Waypoint-MapPin-Tracked",
-    divider = "Options_HorizontalDivider",
 }
 
 -- State marks, first atlas the client has wins; Vis.Marker falls back to a colour square.
@@ -116,7 +112,6 @@ S.glyph = {
 
 -- texcoords {l, r, t, b}
 S.coord = {
-    icon = { 0.08, 0.92, 0.08, 0.92 },
     wareIcon = { 0.07, 0.93, 0.07, 0.93 },
 }
 
@@ -138,13 +133,6 @@ S.filigree = {
         BL = { atlas = "housing-dashboard-filigree-corner-bl", x = -6, y = -2 },
         BR = { atlas = "housing-dashboard-filigree-corner-br", x = 5, y = -2 },
     },
-    wood = {
-        TL = "housing-dashboard-filigree-wood-small-tl",
-        TR = "housing-dashboard-filigree-wood-small-tr",
-        BL = "housing-dashboard-filigree-wood-small-bl",
-        BR = "housing-dashboard-filigree-wood-small-br",
-    },
-    woodSize = 23,
     divider = "housing-dashboard-divider-horz-tile",
     dividerAlpha = 1,
 }
@@ -159,7 +147,6 @@ S.color = {
     iconPlateBottom = { 0.56, 0.46, 0.32, 1 },
     body = { 1, 1, 1 },
     muted = { 0.55, 0.55, 0.55 },
-    disabled = { 0.50, 0.50, 0.50 },
     gold = { 1.00, 0.82, 0.00 },
     money = { 0.94, 0.79, 0.29 },
     can = { 0.24, 0.88, 0.24 },
@@ -168,7 +155,8 @@ S.color = {
 }
 local K = S.color
 
--- The words and second signal of each row state. Locked and faction/event take their argument.
+-- The words and second signal of each row state. Locked and faction/event take their argument; the last
+-- four are Sources' list rows.
 S.state = {
     owned = { word = L["Collected"], glyph = "check", color = K.muted, dim = true },
     can = { word = L["Can get now"], glyph = "dot", color = K.can },
@@ -177,14 +165,21 @@ S.state = {
     event = { word = L["%s only"], glyph = "clock", color = K.muted },
     notOwned = { word = L["Not collected"], color = K.muted },
     counting = { word = L["Counting…"], color = K.muted },
+    allDone = { word = L["All collected"], glyph = "check", color = K.muted, dim = true },
+    some = { word = L["%d can get now"], glyph = "dot", color = K.can },
+    idle = { word = L["Not active"], glyph = "clock", color = K.muted },
+    live = { word = L["Active now"], glyph = "clock", color = K.badge },
+}
+
+-- Each Sources type's name, on the Sources nav, the Catalog filters and the Summary counts.
+S.sourceLabel = {
+    vendors = L["Vendors"], achievements = L["Achievements"], quests = L["Quests"], professions = L["Professions"],
+    drops = L["Drops"], events = L["Events"], shop = L["Shop"],
 }
 
 S.chrome = { linePad = SP.s, shadowHeight = SP.m, wellShadowHeight = SP.l, wellShade = 0.55 }
 
-S.model = {
-    itemW = 268, itemH = 250,
-    thumb = 44,
-}
+S.model = { thumb = 44 }
 
 S.plate = {
     windowTitle = L["Homestead Decor"],

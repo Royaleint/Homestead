@@ -22,66 +22,6 @@ local scroll, content, parts
 local lines, buttons = {}, {}
 local items, head, flagged
 
--- Data-error report text. r = { itemID, name, recordID, build, buildNumber, version,
--- vendors = { { npcID, name, zone, mapID, x, y } } }.
-function Page.ReportText(r)
-    local out = {
-        L["Item: %s (%d)"]:format(r.name or "?", r.itemID),
-        L["Record ID: %s"]:format(r.recordID and tostring(r.recordID) or L["none"]),
-    }
-    for _, v in ipairs(r.vendors) do
-        local where = L["no location"]
-        if v.mapID and v.x and v.y then
-            where = L["map %d at %.1f, %.1f"]:format(v.mapID, v.x * 100, v.y * 100)
-        end
-        out[#out + 1] = L["Vendor %d: %s, %s, %s"]:format(v.npcID, v.name or L["Unknown"],
-            v.zone or L["Unknown"], where)
-    end
-    out[#out + 1] = L["Client: %s (%s)"]:format(r.build or "?", r.buildNumber or "?")
-    out[#out + 1] = L["Homestead: %s"]:format(r.version or "?")
-    return table.concat(out, "\n")
-end
-
-local function FactionLabel(itemID, npcID)
-    local D = B.Data
-    for _, src in ipairs(D.ItemSources(itemID)) do
-        if src.type == "vendor" and src.npcID and (not npcID or src.npcID == npcID) then
-            local v = D.Vendor(src.npcID)
-            local label = v and D.IsOppositeFaction(v) and D.VendorFactionLabel(v)
-            if label then return label end
-        end
-    end
-end
-
--- The item-state rule for every surface: S.state key, its argument, and the vendor a locked state names.
--- npcID picks one vendor's offer, else the item's best (its first locked vendor with unmet requirements).
-function B.ItemState(itemID, npcID)
-    local D, CG = B.Data, B.CanGet
-    local phase = D.CollectionState()
-    if phase ~= "ready" then return phase == "counting" and "counting" or nil end
-    local e = CG.Entry(itemID)
-    if not e then return end
-    if e.own ~= "notOwned" then return e.own == "owned" and "owned" or nil end
-    local offer = npcID and CG.Offer(itemID, npcID, e.info) or e.verdict
-    if offer == "can" then return "can" end
-    if npcID and offer == "faction" or not npcID and e.factionOnly then
-        local label = FactionLabel(itemID, npcID)
-        if label then return "faction", label end
-    end
-    for _, at in ipairs(npcID and { npcID } or e.locked or {}) do
-        local unmet = {}
-        for _, r in ipairs(CG.Offer(itemID, at, e.info) == "locked" and D.Requirements(itemID, at) or {}) do
-            if r.met ~= true then unmet[#unmet + 1] = r.text end
-        end
-        if #unmet > 0 then
-            return "locked", unmet[2] and unmet[1] .. " " .. L["... and %d more."]:format(#unmet - 1) or unmet[1], at
-        end
-    end
-    local ev = npcID and B.Facts.EventVendor(npcID)
-    local event = offer == "unlisted" and (npcID and ev and (ev.event or (D.Vendor(npcID) or {}).event) or not npcID and e.event)
-    return event and "event" or "notOwned", event or nil
-end
-
 local function Line(text, glyph, color, role)
     items[#items + 1] = { text = text, glyph = glyph, color = color or K.body, role = role }
 end
@@ -113,7 +53,7 @@ local function Report()
     local D, itemID = B.Data, Page.itemID
     local info = D.CatalogInfo(itemID, B.State and B.State.catalogMemo)
     local build, buildNumber = GetBuildInfo()
-    HA.OutputWindow:Show(L["Report a data error"], Page.ReportText({
+    HA.OutputWindow:Show(L["Report a data error"], D.ReportText({
         itemID = itemID, name = D.ItemName(itemID, info),
         recordID = D.RecordID(itemID, info), vendors = Page.vendors,
         build = build, buildNumber = buildNumber, version = HA.Constants.VERSION,
@@ -410,5 +350,4 @@ function Page.SetCombat(inCombat)
     end
 end
 
-B.ItemDetail = { Build = Page.Build, Show = Page.Show, Clear = Page.Clear, SetCombat = Page.SetCombat,
-    ReportText = Page.ReportText }
+B.ItemDetail = { Build = Page.Build, Show = Page.Show, Clear = Page.Clear, SetCombat = Page.SetCombat }

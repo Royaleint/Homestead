@@ -12,9 +12,6 @@ local Facts = B.Facts
 local K, SP, R = S.color, S.space, S.row
 
 local SIDE_W, TILE, MEASURE_W = 248, 48, 520
-local LABEL = {
-    L["Vendors"], L["Achievements"], L["Quests"], L["Professions"], L["Drops"], L["Events"], L["Shop"],
-}
 local DOT = " \194\183 "
 
 local Tab = {}
@@ -44,7 +41,6 @@ local function Go()
     B.ShowTab("catalog", { search = box:GetText():match("^%s*(.-)%s*$"), kind = "all" })
 end
 
--- Stacks a block under the previous one, so a block left out leaves no gap.
 local function Put(f, h, narrow)
     f:ClearAllPoints()
     f:SetPoint("TOPLEFT", main, "TOPLEFT", 0, -at)
@@ -71,7 +67,6 @@ local function Why(e)
     return table.concat(r, DOT, 1, math.min(#r, 2))
 end
 
--- A can-get-now offer is a vendor's: Set waypoint when its spot is known, else Show.
 local function CanData(e)
     local v = D.Vendor(e.best.npcID)
     local src = not (v and v.name) and L["Source unknown"] or v.zone and L["Vendor: %s, %s"]:format(v.name, v.zone)
@@ -84,7 +79,6 @@ local function CanData(e)
     return d
 end
 
--- A dimmed row: the first unmet requirement (and how many more), or the event it waits for.
 local function NextData(c)
     local e, reason = c.entry, nil
     if c.npcID then
@@ -92,13 +86,11 @@ local function NextData(c)
         for _, req in ipairs(D.Requirements(e.itemID, c.npcID)) do
             if req.met ~= true then text = req.text break end
         end
-        reason = L["Requires: %s"]:format(text)
-        if c.unmet > 1 then reason = reason .. " " .. L["and %d more"]:format(c.unmet - 1) end
+        reason = L["Requires: %s"]:format(c.unmet > 1 and L["%s and %d more"]:format(text, c.unmet - 1) or text)
     end
     return { itemID = e.itemID, why = L["Not yet: next step"], dim = true, e = e, src = reason or L["%s only"]:format(e.event) }
 end
 
--- d.e is the walk's entry; without one the row is a placeholder.
 local function SetRow(r, d)
     local e = d.e
     r.itemID, r.npcID = d.itemID, d.npcID
@@ -184,15 +176,12 @@ local function BuildSide(parent)
         local hover = line:CreateTexture(nil, "HIGHLIGHT")
         hover:SetAllPoints()
         hover:SetColorTexture(unpack(K.hoverRow))
-        Text(line, "body", LABEL[i]):SetPoint("LEFT")
+        Text(line, "body", S.sourceLabel[key]):SetPoint("LEFT")
         line.num = Text(line, "body")
         line.num:SetPoint("RIGHT")
         line:SetScript("OnClick", function() B.ShowTab("sources", { type = key }) end)
         lines[i], above = line, line
     end
-    local caption = Text(side, "metaMuted", L["Decor collected, by where it comes from. Pick one to see each source."], true)
-    caption:SetPoint("TOPLEFT", above, "BOTTOMLEFT", 0, -SP.s)
-    caption:SetWidth(SIDE_W - 2 * SP.m)
 end
 
 function Tab.Build(parent)
@@ -264,7 +253,9 @@ function Tab.Draw()
         if fill.allCollected then
             DrawEmpty("nothingMissing", { arg = CG.Walk().progress.total })
         elseif fill.count == 0 then
-            DrawEmpty("nothingNow", { arg = UnitFactionGroup("player") == "Alliance" and L["Horde"] or L["Alliance"],
+            local who = Facts.OtherFaction(CG.MissingFactions())
+            DrawEmpty("nothingNow", { arg = who, text = not who
+                    and L["Everything you're missing needs a reputation, achievement or quest first, or is sold only during an event."] or nil,
                 onMissing = function() B.ShowTab("catalog", { filters = { notCollected = true } }) end }, true)
         end
         for i, e in ipairs(fill.rows) do list[i] = CanData(e) end

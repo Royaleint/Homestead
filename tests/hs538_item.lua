@@ -401,6 +401,17 @@ do
     local list = show(1011)
     local i = assert(indexOf(list, "Not collected"), "achievement plus Horde vendor: " .. table.concat(texts(list), "|"))
     assert(not isStop(list[i]) and B.ItemState(1011) == "notOwned", "a second source still reads faction only")
+    -- One rule on every surface: the page's state line, the tooltip's and a row's (hs538_catalog renders the
+    -- Catalog row for the same achievement plus other-faction vendor shape).
+    local tip = B.Tooltip()
+    tip.lines = {}
+    B.ShowItemTooltip(Widget("Frame"), 1011)
+    assert(tip.lines[2].text == list[i].text, "the tooltip disagrees with the page: " .. tostring(tip.lines[2].text))
+    local before = #made
+    B.Widgets.NewRow(Widget("Button")):Set({ name = "Item 1011", state = B.ItemState(1011) })
+    local words
+    for k = before + 1, #made do words = words or made[k].text == list[i].text end
+    assert(words, "a row does not draw the page's words")
 
     fresh(1012)
     SOURCES[1012] = { vsrc(horde), { type = "vendor", data = { npcID = 4041, name = "A vendor" } } }
@@ -508,7 +519,10 @@ do
     assert(state == "event" and arg == "Midsummer", "item-wide: " .. tostring(state))
     state, arg = B.ItemState(1022, 111)
     assert(state == "event" and arg == "Midsummer", "vendor: " .. tostring(state))
-    assert(has(show(1022), "Midsummer only"), "the page lost the event state")
+    local page = show(1022)
+    local at = indexOf(page, "Midsummer only")
+    assert(at and page[at].text == "Midsummer only" and at < indexOf(page, "Where to get it"),
+        "the page's state line lost the event state: " .. table.concat(texts(page), "|"))
     local tip = B.Tooltip()
     tip.lines = {}
     B.ShowItemTooltip(Widget("Frame"), 1022, 111)
@@ -669,6 +683,16 @@ do
     assert(not src:find("GetItemPresentation", 1, true) and not src:find("ItemStatus", 1, true),
         "the page reads a presentation for its state")
     print("hs538_item: retired state words gone ok")
+end
+
+-- A linked id with no decor record and no sources (Catalog lands on it with no row) still draws a page.
+do
+    D.InvalidateMemos()
+    local list = show(5555)
+    assert(#list > 0, "an id with no record draws no page")
+    local state = B.ItemState(5555)
+    assert(state == nil or state == "notOwned", "an id with no record reads " .. tostring(state))
+    print("hs538_item: id with no record ok")
 end
 
 print("hs538_item: ok")

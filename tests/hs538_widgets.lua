@@ -132,8 +132,8 @@ assert(not src:find("Unlocked", 1, true) and not src:find("stateLabel", 1, true)
 -- Tags and counts on the source line.
 made = {}
 row = W.NewRow(Widget("Frame"))
-row:Set({ name = "Oak Bench", quality = 1, state = "can", line2 = "Vendor: Joruh", more = 2, unconfirmed = true, active = true })
-assert(find("Vendor: Joruh (+2)"), "the source line lost its (+N) count")
+row:Set({ name = "Oak Bench", quality = 1, state = "can", line2 = "Vendor: Joruh (+2 more)", unconfirmed = true, active = true })
+assert(find("Vendor: Joruh (+2 more)"), "the source line is not drawn as given")
 assert(find("Not confirmed"), "the Not confirmed tag text is missing")
 assert(find("Active now"), "the Active now badge text is missing")
 
@@ -148,6 +148,8 @@ assert(e.title.text == "No results" and e.text.text:find("Search looks at item n
 assert(e.buttons[1] and e.buttons[1].text == "Reset filters" and not e.buttons[2], "no results shows Reset only")
 e = empty("noResults", { onReset = noop, onAll = noop })
 assert(e.buttons[2] and e.buttons[2].text == "Search all decor", "no results with a kind shows Search all decor")
+e:Set("noResults", { onShow = noop })
+assert(e.buttons[1].text == "Show them" and e.buttons[1].shown and not e.buttons[2].shown, "hidden rows: Show them alone")
 e = empty("countingSort", { onSort = noop })
 assert(e.title.text == "Counting…" and e.buttons[1].text == "Sort by name", "counting sort button")
 assert(next(empty("counting", {}).buttons) == nil, "plain counting has no button")

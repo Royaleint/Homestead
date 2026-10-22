@@ -1,4 +1,4 @@
--- luacheck: globals assert loadfile print
+-- luacheck: globals assert loadfile print rawset io UnitFactionGroup
 
 local root = (... or "."):gsub("\\", "/"):gsub("/+$", "")
 
@@ -11,12 +11,36 @@ local root = (... or "."):gsub("\\", "/"):gsub("/+$", "")
 
 local vendors = { [100] = { npcID = 100 } }
 local HA = {
-    DecorBrowser = {},
+    DecorBrowser = {}, L = { Alliance = "Alliance", Horde = "Horde", ["%s or the %s"] = "%s or the %s" },
     VendorData = { GetVendor = function(_, npcID) return vendors[npcID] end },
 }
 assert(loadfile(root .. "/UI/Browser/Facts.lua"))("Homestead", HA)
 local F = HA.DecorBrowser.Facts
 local key = F.SourceKey
+
+-- The other faction, the one helper every surface names it with. A Neutral character can use neither,
+-- so it is told only the factions its hidden or missing items are sold to.
+for mine, other in pairs({ Alliance = "Horde", Horde = "Alliance" }) do
+    rawset(_G, "UnitFactionGroup", function() return mine end)
+    assert(F.OtherFaction() == other, mine .. " is told " .. tostring(F.OtherFaction()))
+    assert(F.OtherFaction({ [mine] = 1 }) == other, "a faction character is always told the other faction")
+    local p = F.FactionParts({ [mine] = 1 }, 3)
+    assert(#p == 1 and p[1][1] == 3 and p[1][2] == other, mine .. ": the footer counts every hidden item")
+end
+rawset(_G, "UnitFactionGroup", function() return "Neutral" end)
+assert(F.OtherFaction() == nil and F.OtherFaction({ [""] = 2 }) == nil, "a Neutral character is told a faction with none seen")
+assert(F.OtherFaction({ Alliance = 1 }) == "Alliance" and F.OtherFaction({ Horde = 2 }) == "Horde",
+    "a Neutral character is told a faction its items are not limited to")
+assert(F.OtherFaction({ Horde = 1, Alliance = 3 }) == "Alliance or the Horde", "both factions seen")
+local p = F.FactionParts({ Horde = 1, Alliance = 3, [""] = 1 }, 5)
+assert(#p == 2 and p[1][1] == 3 and p[1][2] == "Alliance" and p[2][1] == 1 and p[2][2] == "Horde", "two footer parts")
+assert(#F.FactionParts({}, 0) == 0, "no faction part with none seen")
+for _, file in ipairs({ "Summary", "Catalog", "Sources" }) do
+    local f = assert(io.open(root .. "/UI/Browser/" .. file .. ".lua", "rb"))
+    local src = f:read("*a")
+    f:close()
+    assert(not src:find("UnitFactionGroup", 1, true), file .. " names the other faction itself")
+end
 
 assert(key("vendors", { npcID = 100 }, 1) == 100)
 assert(key("vendors", { name = "A vendor" }, 1) == nil, '"A vendor" has no key')

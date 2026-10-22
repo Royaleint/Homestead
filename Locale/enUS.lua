@@ -300,7 +300,6 @@ L["Item %d"] = "Item %d" -- untranslated
 L["%s %s"] = "%s %s" -- untranslated
 L["%s, %s"] = "%s, %s" -- untranslated
 L["%s - %s"] = "%s - %s" -- untranslated
-L["%s (%s)"] = "%s (%s)" -- untranslated
 L["%s: %s"] = "%s: %s" -- untranslated
 L["%s with %s"] = "%s with %s"
 L["Level %s"] = "Level %s"
@@ -321,9 +320,6 @@ L["Other source"] = "Other source"
 -------------------------------------------------------------------------------
 -- Decor Browser: visuals and widgets
 -------------------------------------------------------------------------------
-L["Owned"] = "Owned"
-L["Unlocked to buy"] = "Unlocked to buy"
-L["Locked"] = "Locked"
 L["Set waypoint"] = "Set waypoint"
 
 -------------------------------------------------------------------------------
@@ -351,22 +347,6 @@ L[", "] = ", " -- untranslated
 L["Seasonal: %s"] = "Seasonal: %s"
 L["Rotates with the %s Endeavor"] = "Rotates with the %s Endeavor"
 L["Rotates with neighborhood Endeavors"] = "Rotates with neighborhood Endeavors"
-L["You own this."] = "You own this."
-L["Not available to you yet."] = "Not available to you yet."
-L["Ownership cannot be read for this kind of item."] = "Ownership cannot be read for this kind of item."
-L["Ownership is not known yet."] = "Ownership is not known yet."
-L["Met: %s"] = "Met: %s"
-L["Needs: %s"] = "Needs: %s"
-L["Unknown: %s"] = "Unknown: %s"
-L["Status"] = "Status" -- untranslated
-L["Requirement"] = "Requirement"
-L["Sold by"] = "Sold by"
-L["Not listed"] = "Not listed"
-L["Not sold by a vendor"] = "Not sold by a vendor"
-L["+%d more vendors"] = "+%d more vendors"
-L["+%d more sources"] = "+%d more sources"
-L["Also available from"] = "Also available from"
-L["No other sources on record."] = "No other sources on record."
 L["Not available in combat"] = "Not available in combat"
 L["Report a data error"] = "Report a data error"
 L["Item: %s (%d)"] = "Item: %s (%d)" -- untranslated
@@ -451,12 +431,16 @@ L["Nothing missing"] = "Nothing missing"
 L["You've collected all %d decor Homestead knows about."] = "You've collected all %d decor Homestead knows about."
 L["Nothing you can get right now"] = "Nothing you can get right now"
 L["Everything you're missing needs a reputation, achievement or quest first, is sold only during an event, or is sold only to the %s."] = "Everything you're missing needs a reputation, achievement or quest first, is sold only during an event, or is sold only to the %s."
+L["Everything you're missing needs a reputation, achievement or quest first, or is sold only during an event."] = "Everything you're missing needs a reputation, achievement or quest first, or is sold only during an event."
 L["Collection not read yet"] = "Collection not read yet"
 L["Homestead hasn't read this character's decor collection yet, so it can't tell what you're missing. It reads it shortly after you log in. If this message stays, open the Housing Dashboard once."] = "Homestead hasn't read this character's decor collection yet, so it can't tell what you're missing. It reads it shortly after you log in. If this message stays, open the Housing Dashboard once."
 L["These filters need your collection, which Homestead hasn't read yet. If this stays, open the Housing Dashboard once."] = "These filters need your collection, which Homestead hasn't read yet. If this stays, open the Housing Dashboard once."
 L["No results"] = "No results"
 L["No decor matches these words and filters. Search looks at item names only."] = "No decor matches these words and filters. Search looks at item names only."
 L["%d hidden by '%s' (%d collected, %d %s only)."] = "%d hidden by '%s' (%d collected, %d %s only)."
+L["%d hidden by '%s' (%d collected, %d %s only, %d %s only)."] = "%d hidden by '%s' (%d collected, %d %s only, %d %s only)."
+L["%d hidden by '%s' (%d collected)."] = "%d hidden by '%s' (%d collected)."
+L["%s or the %s"] = "%s or the %s"
 
 -------------------------------------------------------------------------------
 -- Decor Browser: Summary
@@ -467,7 +451,7 @@ L["Can get now means this character can buy or earn it today: the right faction,
 L["Search"] = "Search"
 L["Show"] = "Show"
 L["Not yet: next step"] = "Not yet: next step"
-L["and %d more"] = "and %d more"
+L["%s and %d more"] = "%s and %d more"
 L["See all you can get now (%d)"] = "See all you can get now (%d)"
 L["Here in %s: %s sells %d decor you can get now."] = "Here in %s: %s sells %d decor you can get now."
 L["Sold here in %s"] = "Sold here in %s"
@@ -479,7 +463,6 @@ L["No requirements left"] = "No requirements left"
 L["By source"] = "By source"
 L["%d of %d"] = "%d of %d"
 L["Not read yet"] = "Not read yet"
-L["Decor collected, by where it comes from. Pick one to see each source."] = "Decor collected, by where it comes from. Pick one to see each source."
 L["Reading your collection"] = "Reading your collection"
 -- end: Summary
 

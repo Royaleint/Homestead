@@ -374,7 +374,6 @@ do
     eq(rowOf[7].state, "notOwned", "not collected")
     eq(rowOf[7].line2, "Achievement: Fixture Win", "the primary source line")
     eq(rowOf[5].state, nil, "unknown ownership shows no state")
-    eq(rowOf[2].more, 0, "the extra source is counted in the line, not by Widgets")
     assert(rowOf[2].line2:find("(+1 more)", 1, true), "R23 more sources: " .. rowOf[2].line2)
     eq(rowOf[7].line2:find("(+", 1, true), nil, "a single source has no count")
 
@@ -524,7 +523,12 @@ do
     eq(env.emptyFrame.shown, false, "no empty state")
 
     env.tab.Show({ itemID = 999 })
-    eq(env.log[#env.log], "show:1", "an item outside the list falls back to the first row")
+    eq(env.log[#env.log], "show:999", "an id with no record still lands on its detail")
+    for _, f in ipairs(env.box().frames) do assert(not f.d.selected, "no row is selected for it") end
+    env.tab.Refresh("data")
+    eq(env.log[#env.log], "show:999", "a data refresh keeps it")
+    env.tab.Show({ search = "chair" })
+    eq(env.log[#env.log], "show:2", "a new landing drops it for the first row")
     print("hs538_catalog: opts contract and landing ok")
 end
 
@@ -543,7 +547,7 @@ do
     eq(footer.hidden, 3, "the footer counts them")
     eq(footer.collected, 1, "one collected")
     eq(footer.faction, 2, "two other-faction")
-    eq(footer.factionName, "Horde", "the faction named")
+    eq(#footer.parts == 1 and footer.parts[1][1] == 2 and footer.parts[1][2], "Horde", "the faction named")
     eq(env.box().view.extent(nil, footer), env.W.FooterHeight(footer, env.box():GetWidth()), "the footer measures its own text")
     eq(env.box().view.extent(nil, env.box().provider[1]), env.W.RowHeight(), "a row is a row high")
 
@@ -606,7 +610,7 @@ do
     eq(footer.hidden, 1, "the footer counts it")
     eq(footer.collected, 0, "nothing collected is hidden: ownership is unknown")
     eq(footer.faction, 1, "one other-faction")
-    eq(footer.factionName, "Horde", "the faction named")
+    eq(#footer.parts == 1 and footer.parts[1][1] == 1 and footer.parts[1][2], "Horde", "the faction named")
     assert(table.concat(ids, ","):find("4", 1, true), "the owned item stays listed")
     print("hs538_catalog: counting and not-read states ok")
 end
@@ -707,9 +711,26 @@ do
     assert(d, "the item is listed")
     eq(d.npcID, nil, "a row carries no vendor")
     eq(d.state, "can", "an Alliance character can get it from the other vendor")
-    assert(loadfile(root .. "/UI/Browser/Item.lua"))("Homestead", env.HA)
     eq(env.B.ItemState(10, d.npcID), "can", "the tooltip judges the item: can get now")
     print("hs538_catalog: item-level rows ok")
+end
+
+-- One rule on every surface. hs538_item checks the page and the tooltip for the same shape: an achievement
+-- plus an other-faction vendor reads Not collected, never the faction stop.
+do
+    local env = fixture()
+    env.decor(12, "Fern Rug", { totalNumStored = 0, categoryIDs = { 4 } })
+    env.sell(12, env.vendors[11], { gold = 5 })
+    env.HA.AchievementSources[12] = { achievementID = 13 }
+    env.sources[12][#env.sources[12] + 1] = { type = "achievement", data = { achievementID = 13, achievementName = "Rug Feat" } }
+    env.tab.Show()
+    local d
+    for _, f in ipairs(env.box().frames) do if f.d.itemID == 12 then d = f.d end end
+    assert(d, "the rug is listed")
+    local state, arg = env.B.ItemState(12)
+    eq(d.state, "notOwned", "achievement plus other-faction vendor: Not collected on the row")
+    assert(d.state == state and d.arg == arg, "the row and the shared rule disagree")
+    print("hs538_catalog: one item state ok")
 end
 
 print("hs538_catalog: ok")

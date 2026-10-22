@@ -38,10 +38,6 @@ function D.IsReady()
     return (HA.VendorData and HA.VendorIdentity and HA.CatalogStore and HA.SourceManager) and true or false
 end
 
-function D.IsExcluded(itemID)
-    return (HA.CatalogStore and HA.CatalogStore:IsOwnershipUnknowable(itemID)) and true or false
-end
-
 -- info, the item's catalog entry when the caller has it, supplies the name while the item loads.
 function D.ItemName(itemID, info)
     local name = C_Item.GetItemNameByID(itemID) or (info and info.name)
@@ -124,10 +120,6 @@ end
 -- An out-of-season holiday vendor still resolves here (GetVendor gives nil); vendor lists never use it.
 function D.Vendor(npcID)
     return HA.VendorData:GetVendor(npcID) or D.HolidayVendor(npcID)
-end
-
-function D.ItemKnown(itemID)
-    return HA.CatalogStore:GetDecorIDFromItemID(itemID) ~= nil
 end
 
 function D.VendorWares(vendor)
@@ -301,6 +293,26 @@ function D.RecordID(itemID, info)
     return store.GetDecorIDFromItemID and store:GetDecorIDFromItemID(itemID) or nil
 end
 
+-- Data-error report text. r = { itemID, name, recordID, build, buildNumber, version,
+-- vendors = { { npcID, name, zone, mapID, x, y } } }.
+function D.ReportText(r)
+    local out = {
+        L["Item: %s (%d)"]:format(r.name or "?", r.itemID),
+        L["Record ID: %s"]:format(r.recordID and tostring(r.recordID) or L["none"]),
+    }
+    for _, v in ipairs(r.vendors) do
+        local where = L["no location"]
+        if v.mapID and v.x and v.y then
+            where = L["map %d at %.1f, %.1f"]:format(v.mapID, v.x * 100, v.y * 100)
+        end
+        out[#out + 1] = L["Vendor %d: %s, %s, %s"]:format(v.npcID, v.name or L["Unknown"],
+            v.zone or L["Unknown"], where)
+    end
+    out[#out + 1] = L["Client: %s (%s)"]:format(r.build or "?", r.buildNumber or "?")
+    out[#out + 1] = L["Homestead: %s"]:format(r.version or "?")
+    return table.concat(out, "\n")
+end
+
 -- Shop note: seasonal and Endeavor vendors from data flags, else the vendor's own note (verbatim = true).
 function D.VendorNote(vendor)
     if vendor.event then return L["Seasonal: %s"]:format(vendor.event) end
@@ -393,14 +405,6 @@ function D.ItemSources(itemID)
         out[#out + 1] = e
     end
     return out
-end
-
-function D.ItemVendorWaypoint(itemID)
-    local src = HA.SourceManager:GetVendorSource(itemID)
-    if not (src and src.vendor) then return nil end
-    local coords, mapID = HA.VendorFilter.GetBestVendorCoordinates(src.vendor)
-    if not (coords and mapID) then return nil end
-    return { mapID = mapID, x = coords.x, y = coords.y, title = src.name }
 end
 
 -- Housing catalog entry. The router empties catalogMemo on a page show or new data.

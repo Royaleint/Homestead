@@ -512,10 +512,14 @@ events.scripts.OnEvent(events, "PLAYER_REGEN_ENABLED")
 
 -- A scan of a merchant the browser does not know, with no housing items, changes nothing.
 HA.VendorData = { GetVendor = function(_, npcID) return npcID == 7 and {} or nil end }
+local resets, reset = 0, B.CanGet.ResetFactionOnly
+B.CanGet.ResetFactionOnly = function() resets = resets + 1 end
 byName.VENDOR_SCANNED({ npcID = 5, hasHousing = false })
-assert(#timers == 0, "an unrelated merchant scan refreshed the browser")
+assert(#timers == 0 and resets == 0, "an unrelated merchant scan refreshed the browser")
 byName.VENDOR_SCANNED({ npcID = 7, hasHousing = false })
 assert(#timers == 1, "a scan of a known vendor did not refresh")
+assert(resets == 1, "a scan that can add a vendor kept the faction-only answers")
+B.CanGet.ResetFactionOnly = reset
 flush()
 byName.VENDOR_SCANNED({ npcID = 5, hasHousing = true })
 assert(#timers == 1, "a scan that found housing items did not refresh")

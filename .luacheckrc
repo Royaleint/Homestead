@@ -59,7 +59,7 @@ read_globals = {
     "MerchantFrame", "MerchantFrameTab1", "MerchantFrameTab2",
     "MerchantNextPageButton", "MerchantPrevPageButton",
     "InterfaceOptions_AddCategory",
-    "Settings",
+    "Settings", "SetPortraitTextureFromCreatureDisplayID",
     "ShoppingTooltip1", "ShoppingTooltip2",
     "ScrollBoxConstants",
     "BaseScrollBoxEvents",

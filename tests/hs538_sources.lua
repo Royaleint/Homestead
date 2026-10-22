@@ -718,7 +718,7 @@ do
     assert(same(keyList(main), { "# Eastern Kingdoms", "101", "# Location not recorded", "103", "foot" }),
         "Hide drops the collected vendor and the other faction: " .. table.concat(keyList(main), ","))
     local foot = main.data[#main.data]
-    assert(foot.hidden == 2 and foot.collected == 1 and foot.faction == 1 and foot.factionName ~= "" and foot.onShow,
+    assert(foot.hidden == 2 and foot.collected == 1 and foot.faction == 1 and foot.parts[1][1] == 1 and foot.parts[1][2] ~= "" and foot.onShow,
         "the footer splits collected and faction")
     local counts = {}
     for _, w in ipairs(all) do if rawget(w, "count") and rawget(w, "label") then counts[#counts + 1] = w.count.text end end
@@ -748,11 +748,12 @@ do
     assert(not row(main, 9002), "the other collected source stays hidden")
     local fd = main.data[#main.data]
     assert(fd.kind == "foot" and fd.collected == 1 and fd.faction == 0
-        and (fd.factionName == "Alliance" or fd.factionName == "Horde"), "only collected rows hidden: the faction name is still the other faction")
+        and (fd.parts[1][2] == "Alliance" or fd.parts[1][2] == "Horde"), "only collected rows hidden: the faction name is still the other faction")
     env.tab.Show({ type = "achievements" })
     assert(main.shown == false, "everything collected: the empty state")
-    local back = button("Reset filters")
+    local back = button("Show them")
     assert(back and back.shown, "the empty state offers a way to show them")
+    assert(not (button("Reset filters") or {}).shown, "with no search there is nothing else to reset")
     back.scripts.OnClick()
     assert(env.hideNASet == false, "and it turns Hide off")
     print("hs538_sources: Hide ok")

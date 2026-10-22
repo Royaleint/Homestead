@@ -3,6 +3,7 @@
 local _, HA = ...
 
 local B = HA.DecorBrowser
+local L = HA.L
 local D = B.Data
 local Facts = B.Facts
 
@@ -14,7 +15,8 @@ function D.CollectionState()
     local scanner, store = HA.CatalogScanner, HA.CatalogStore
     if not (scanner and store and scanner.HasFirstReadCompleted) then return "counting" end
     if scanner:HasFirstReadCompleted() then
-        -- Safe though HasPersistedData rejects "IsWarm or": the first read latches only after a scan that started warm has recorded ownership, so the mid-scan zero is past.
+        -- "IsWarm or" is safe here, though HasPersistedData warns against it: the first read latches only
+        -- once a warm-started scan has recorded ownership, so the mid-scan zero is past.
         if scanner:IsWarm() or store:HasPersistedData() then return "ready" end
         return "notRead"
     end
@@ -75,31 +77,40 @@ local function GoldOnly(cost)
         and not (cost.items and cost.items[1])
 end
 
--- true when every source is a vendor and every vendor is other-faction.
+-- true when every source is an other-faction vendor. Kept per item; the router resets it on show, on
+-- SOURCE_CACHES_INVALIDATED and on a decor vendor scan.
+local factionOnly = {}
+function CG.ResetFactionOnly()
+    wipe(factionOnly)
+end
+
 local function FactionOnly(itemID)
-    local VF, any = HA.VendorFilter, false
-    for _, s in ipairs(HA.SourceManager:GetAllSources(itemID) or {}) do
-        local v = s.type == "vendor" and s.data and s.data.vendor
-        if not (v and VF.IsOppositeFaction(v)) then return false end
-        any = true
+    local only = factionOnly[itemID]
+    if only == nil then
+        only = false
+        for _, s in ipairs(HA.SourceManager:GetAllSources(itemID) or {}) do
+            local v = s.type == "vendor" and s.data and s.data.vendor
+            only = v and HA.VendorFilter.IsOppositeFaction(v) or false
+            if not only then break end
+        end
+        factionOnly[itemID] = only
     end
-    return any
+    return only
 end
 
 -- Records one vendor offer on an uncollected item's entry; returns the better of its verdict and best.
 local function Consider(e, SM, npcID, vendor, cost, best)
     local verdict = Verdict(SM, e.itemID, npcID, vendor, "notOwned")
+    local ev = Facts.EventVendor(npcID)
+    local event = ev and (ev.event or vendor.event)
     if verdict == "can" then
         e.canBy = e.canBy or {}
-        e.canBy[npcID] = {
-            npcID = npcID, mapID = vendor.mapID, event = Facts.EventVendor(npcID) and vendor.event,
-            gold = GoldOnly(cost),
-        }
+        e.canBy[npcID] = { npcID = npcID, mapID = vendor.mapID, event = event, gold = GoldOnly(cost) }
     elseif verdict == "locked" then
         e.locked = e.locked or {}
         e.locked[#e.locked + 1] = npcID
-    elseif verdict == "unlisted" and Facts.EventVendor(npcID) then
-        e.event = vendor.event
+    elseif verdict == "unlisted" and event then
+        e.event = event
     end
     if not best or PRIORITY[verdict] < PRIORITY[best] then return verdict end
     return best
@@ -351,4 +362,61 @@ function CG.HiddenBy(what)
         if not (e and e.own == "owned") then return nil end
     end
     return "collected"
+end
+
+local function FactionLabel(itemID, npcID)
+    if npcID then return D.VendorFactionLabel(D.Vendor(npcID) or {}) end
+    for _, src in ipairs(D.ItemSources(itemID)) do
+        local v = src.type == "vendor" and src.npcID and D.Vendor(src.npcID)
+        local label = v and D.IsOppositeFaction(v) and D.VendorFactionLabel(v)
+        if label then return label end
+    end
+end
+
+CG.FactionLabel = FactionLabel
+
+-- How many missing items only the other faction's vendors sell, by vendor faction label.
+function CG.MissingFactions()
+    local seen = {}
+    for itemID, e in pairs(entries) do
+        if e.own == "notOwned" and e.factionOnly then
+            local label = FactionLabel(itemID) or ""
+            seen[label] = (seen[label] or 0) + 1
+        end
+    end
+    return seen
+end
+
+local function Judge(e, itemID, npcID)
+    local offer = npcID and CG.Offer(itemID, npcID, e.info) or e.verdict
+    if offer == "can" then return "can" end
+    if npcID and offer == "faction" or not npcID and e.factionOnly then
+        local label = FactionLabel(itemID, npcID)
+        if label then return "faction", label end
+    end
+    for _, at in ipairs(npcID and { npcID } or e.locked or {}) do
+        local unmet = {}
+        for _, r in ipairs(CG.Offer(itemID, at, e.info) == "locked" and D.Requirements(itemID, at) or {}) do
+            if r.met ~= true then unmet[#unmet + 1] = r.text end
+        end
+        if unmet[1] then
+            return "locked", unmet[2] and L["%s and %d more"]:format(unmet[1], #unmet - 1) or unmet[1], at
+        end
+    end
+    local ev = npcID and Facts.EventVendor(npcID)
+    local event = offer == "unlisted" and (npcID and ev and (ev.event or (D.Vendor(npcID) or {}).event) or not npcID and e.event)
+    return event and "event" or "notOwned", event or nil
+end
+
+-- The item-state rule for every surface: an S.state key, its argument, and the vendor a locked state names.
+-- npcID judges that vendor's offer; without it, the item's first locked vendor with unmet requirements.
+function B.ItemState(itemID, npcID)
+    local phase = D.CollectionState()
+    if phase ~= "ready" then return phase == "counting" and "counting" or nil end
+    local e = CG.Entry(itemID)
+    if not e then return end
+    if e.own ~= "notOwned" then return e.own == "owned" and "owned" or nil end
+    if npcID then return Judge(e, itemID, npcID) end
+    e.st = e.st or { Judge(e, itemID) }
+    return e.st[1], e.st[2], e.st[3]
 end

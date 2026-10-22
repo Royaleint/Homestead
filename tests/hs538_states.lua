@@ -75,6 +75,8 @@ do
         owned = { "Collected", "check" }, can = { "Can get now", "dot" }, locked = { "Requires: %s", "lock" },
         faction = { "%s only", "stop" }, event = { "%s only", "clock" }, notOwned = { "Not collected", nil },
         counting = { "Counting\226\128\166", nil },
+        allDone = { "All collected", "check" }, some = { "%d can get now", "dot" },
+        idle = { "Not active", "clock" }, live = { "Active now", "clock" },
     }
     for key, want in pairs(words) do
         local st = S.state[key]

@@ -396,6 +396,9 @@ do
     assert(CG.HiddenBy({ vendor = horde }) == "faction")
     assert(CG.HiddenBy({ vendor = ally }) == nil, "an unknown ware keeps the vendor shown")
     assert(CG.HiddenBy({ items = { 1 } }) == "collected" and CG.HiddenBy({ items = { 1, 4 } }) == nil)
+    env.sell(2, ally)
+    CG.ResetFactionOnly()
+    assert(CG.HiddenBy(2) == nil, "a new own-faction vendor clears the faction hide once the sources change")
     env.done, env.attempted = false, false
     assert(CG.HiddenBy(1) == nil and CG.HiddenBy({ items = { 1 } }) == nil, "nothing hides as collected while counting")
     print("hs538_canget: hide reasons ok")

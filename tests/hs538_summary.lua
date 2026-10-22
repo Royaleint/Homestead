@@ -453,6 +453,10 @@ do
     env.faction = "Horde"
     env.tab.Refresh("paint")
     assert(empty.text.text:find("sold only to the Alliance.", 1, true), "the other faction follows the character")
+    env.faction = "Neutral"
+    env.tab.Refresh("paint")
+    assert(empty.text.text == "Everything you're missing needs a reputation, achievement or quest first, or is sold only during an event.",
+        "a Neutral character with no faction-only item is told a faction: " .. empty.text.text)
 
     -- Everything collected.
     env = filled(0, 0, function(e) e.decor(80) e.owned(80) end)
