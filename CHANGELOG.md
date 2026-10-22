@@ -2,6 +2,35 @@
 
 ---
 
+## Homestead v2.14.2 (10-22-2026)
+
+Hallow's End vendors, holiday detection that works, and pins that no longer hide each other.
+
+---
+
+## Vendor Database
+
+**New and Updated Vendors**
+
+- Added the Hallow's End vendors Echo (Tirisfal Glades), Jack (Elwynn Forest), Cordula Wolfgang (Founder's Point) and Spew Gutsout (Razorwind Shores), with their decor and prices. They show only while Hallow's End runs.
+- Added four decorations at Naynar in Harandar: the Haranir Pennant, Rutaani Birdfeeder, Rutaani Birdbath and Rutaani Bird Perch.
+- Moved "Yen" Malone's pin to where he stands in Razorwind Shores.
+
+**Prices**
+
+- Prices for 59 items now show the vendor's base price, with no reputation discount applied.
+- Corrected 21 currency prices and 30 Order Resources prices at Berazus, Torv Dubstomp, Jocenna and Ransa Greyfeather in the Broken Isles to the amounts after the patch 12.1 price changes.
+
+---
+
+## Events and Map
+
+- Fixed Hallow's End and other holidays not being recognized, so their vendors and "Active Now" tooltip lines now appear while each holiday runs.
+- Vendors who stand side by side, such as Cordula Wolfgang and Holly Twinklebright, now draw slightly apart on the world map and minimap so you can see and hover both.
+- Saved vendor scans no longer show a holiday vendor outside their holiday.
+
+---
+
 ## Homestead v2.14.1 (10-16-2026)
 
 Updated more vendors for both faction neighborhoods.
