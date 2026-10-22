@@ -84,9 +84,10 @@ end
 
 -- true / false for a holiday vendor, nil for any other.
 function D.HolidayActive(vendor)
-    if not (vendor and HolidayEntries()[vendor.npcID]) then return nil end
-    local VD = HA.VendorData
-    return not (VD.IsHolidayVendorHidden and VD:IsHolidayVendorHidden(vendor.npcID))
+    local entry = vendor and HolidayEntries()[vendor.npcID]
+    if not entry then return nil end
+    local CD = HA.CalendarDetector
+    return entry.event ~= nil and CD ~= nil and CD:IsHolidayActive(entry.event) == true
 end
 
 function D.HolidayVendor(npcID)
