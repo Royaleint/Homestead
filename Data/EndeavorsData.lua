@@ -87,11 +87,20 @@ local initiativeTitleToTheme = {
     ["Holm Sweet Holm"] = "Earthen",
 }
 
--- Stable initiative IDs observed in-game.
--- Extend as additional themes are observed.
+-- Initiative IDs come from the game's initiative data and are the same in every
+-- language, so these resolve a theme on any client. Only 15 and 17 have been
+-- seen in game so far.
 local initiativeIDToTheme = {
+    [12] = "Kobold",
+    [13] = "Grummle",
     [15] = "Blood Elf",
+    [16] = "Dracthyr",
     [17] = "Mechagnome",
+    [18] = "K'areshi",
+    [19] = "Niffen",
+    [20] = "Maruuk",
+    [22] = "Amani",
+    [24] = "Tortollan",
 }
 
 -------------------------------------------------------------------------------
