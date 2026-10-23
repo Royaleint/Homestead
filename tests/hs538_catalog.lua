@@ -251,7 +251,6 @@ local function newEnv(opts)
     end
     B.Window = { AddSearchBox = noop, hideNA = Widget("CheckButton") }
     B.HideTooltipFor = noop
-    B.SetLocation = function(text) env.location = text end
     B.ItemDetail = {
         Build = function(parent) env.log[#env.log + 1] = "build" env.detailParent = parent end,
         Show = function(id) env.log[#env.log + 1] = "show:" .. id end,
@@ -395,7 +394,7 @@ do
     env.tab.Show()
     eq(env.ids(), "1,2,8,5,7,3,6,4", "Best to get now: ranked, plain, requirement, other faction, collected")
     eq(env.log[#env.log], "show:1", "R24: the first row is selected and the detail filled")
-    eq(env.location, "All decor", "location")
+    assert(env.nav("all").bg.shown and not env.nav(1).bg.shown, "All decor is the kind shown")
     eq(env.filters():GetText(), "Filters", "the filter button carries its label")
     eq(env.filters().resizeToText, false, "the filter button keeps its fixed width")
     eq(env.filters():GetWidth(), 100, "a long label does not resize the filter button")
@@ -477,7 +476,7 @@ do
     eq(env.nav(1).count.text, 2, "its count")
     eq(env.nav("other").count.text, 1, "the unlisted-category item counts as Other")
     eq(env.nav("all").count.text, 8, "All decor counts every item")
-    eq(env.location, "Furnishings", "the location line names the kind")
+    assert(env.nav(1).bg.shown and not env.nav("all").bg.shown, "Furnishings is the kind shown")
     env.nav("all").scripts.OnClick()
 
     local before = { walks = env.walks(), reads = env.catalogCalls, sorts = env.sortCalls, sources = env.sourceCalls }
@@ -495,7 +494,7 @@ do
     env.nav(2).scripts.OnClick()
     assert(type(env.empty.d.onAll) == "function", "Search all decor with a kind chosen")
     env.empty.d.onAll()
-    eq(env.location, "All decor", "it leaves the kind")
+    assert(env.nav("all").bg.shown and not env.nav(2).bg.shown, "it leaves the kind")
     env.empty.d.onReset()
     eq(env.ids(), "1,2,8,5,7,3,6,4", "Reset filters clears the search too")
     eq(env.byTemplate.SearchBoxTemplate.text, "", "and the box")

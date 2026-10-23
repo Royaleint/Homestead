@@ -176,7 +176,7 @@ for _, file in ipairs({ "Style", "Visuals", "Widgets", "Adapter", "Facts" }) do
     assert(loadfile(root .. "/UI/Browser/" .. file .. ".lua"))("Homestead", HA)
 end
 local B = HA.DecorBrowser
-B.Window = { TABS = {}, AddSearchBox = noop }
+B.Window = { AddSearchBox = noop }
 assert(loadfile(root .. "/UI/Browser/CanGet.lua"))("Homestead", HA)
 assert(loadfile(root .. "/UI/Browser/Browser.lua"))("Homestead", HA)
 assert(loadfile(root .. "/UI/Browser/Item.lua"))("Homestead", HA)

@@ -299,9 +299,11 @@ L["Set waypoint"] = "Imposta tappa"
 
 -- Decor Browser: window and navigation
 L["Homestead Decor"] = "Decorazioni Homestead"
-L["Summary"] = "Riepilogo"
+L["Overview"] = "Panoramica"
 L["Catalog"] = "Catalogo"
-L["Sources"] = "Fonti"
+L["Back"] = "Indietro"
+L["Other Vendors"] = "Altri mercanti"
+L["%d of %d decor collected"] = "%d di %d decorazioni raccolte"
 L["Help"] = "Aiuto"
 L["Hide what doesn't apply to me"] = "Nascondi ciò che non mi riguarda"
 L["The Decor Browser opens once Homestead has finished loading."] = "Il browser delle decorazioni si apre non appena Homestead ha finito di caricarsi."

@@ -44,7 +44,7 @@ function W.QualityRGB(quality)
     return c.r, c.g, c.b
 end
 
--- Row and header heights are measured once per text size; Win.MeasureTabs calls ResetMeasure when it changes.
+-- Row and header heights are measured once per text size; Win.Measure calls ResetMeasure when it changes.
 local measured = {}
 local function Measured(key, fn)
     local scale = TextSizeManager:GetScale()

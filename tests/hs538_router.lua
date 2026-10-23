@@ -57,6 +57,7 @@ local HA = {
     Constants = { TEXTURE_ROOT = "Textures/" },
     Addon = { _enabled = true },
     Events = { RegisterCallback = noop, UnregisterCallback = noop },
+    VendorData = { GetVendor = noop },
 }
 assert(loadfile(root .. "/Locale/enUS.lua"))("Homestead", HA)
 for line in readFile("Homestead.toc"):gmatch("[^\r\n]+") do
@@ -87,7 +88,8 @@ Win.PlayClose = function()
     shown = false
     hooks.OnHide()
 end
-for _, name in ipairs({ "CheckTextScale", "Fit", "SetSelectedTab", "SetLocation", "AssertPropagation", "StopGlow" }) do
+for _, name in ipairs({ "CheckTextScale", "Fit", "SetSelectedTab", "SetLocation", "AssertPropagation", "StopGlow",
+    "UpdateCount" }) do
     Win[name] = noop
 end
 local crumbs, navs, backs = {}, {}, {}

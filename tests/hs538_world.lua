@@ -91,7 +91,12 @@ return function(root, opts)
     function methods.GetChecked(self) return self.checked end
     function methods.SetScript(self, name, fn) self.scripts[name] = fn end
     function methods.HookScript(self, name, fn) self.scripts[name] = fn end
-    function methods.SetPoint(self, ...) self.pt = { ... } end
+    function methods.SetPoint(self, ...)
+        self.pt = { ... }
+        self.pts = self.pts or {}
+        self.pts[(...)] = self.pt
+    end
+    function methods.SetNormalAtlas(self, atlas) self.atlas = atlas end
     function methods.SetAlpha(self, a) self.alpha = a end
     function methods.SetDesaturated(self, on) self.desaturated = on end
     function methods.SetTextColor(self, r, g, b) self.color = { r, g, b } end
@@ -357,31 +362,27 @@ return function(root, opts)
     local W = B.Widgets
     env.B, env.W, env.D, env.CG, env.Facts = B, W, B.Data, B.CanGet, B.Facts
 
-    -- The window: a stub with the real tab list, or the real Window.lua. The router and the tabs are the real files.
+    -- The window: a stub, or the real Window.lua. The router and the tabs are the real files.
     local Win
-    -- The side tab a route kind lights up.
+    -- The tab a route kind belongs to, for the finders below.
     local TAB_OF = { overview = "summary", catalog = "catalog", item = "catalog" }
     local function TabOf(kind) return TAB_OF[kind] or "sources" end
     if env.realWindow then
         Load("UI/Browser/Window.lua")
         Win = B.Window
-        local build, setLocation, selectNav = Win.Build, Win.SetLocation, Win.SelectNav
+        local build, selectNav = Win.Build, Win.SelectNav
         function Win.Build(handlers)
             env.handlers = handlers
             return build(handlers)
         end
-        function Win.SetLocation(text) env.location = text return setLocation(text) end
         function Win.SelectNav(route) env.tab = TabOf(route.kind) return selectNav(route) end
     else
-        Win = { TABS = {
-            { key = "summary", word = "Summary" }, { key = "catalog", word = "Catalog" }, { key = "sources", word = "Sources" },
-        } }
+        Win = {}
         B.Window = Win
         function Win.AddSearchBox() end
-        function Win.SetLocation(text) env.location = text end
-        function Win.SetSelectedTab(key) env.tab = key end
-        function Win.SetCrumb() end
+        function Win.SetCrumb(segs) env.crumb = segs end
         function Win.SetBack() end
+        function Win.UpdateCount() end
         function Win.SelectNav(route) env.tab = TabOf(route.kind) end
         function Win.Build(handlers)
             env.handlers = handlers

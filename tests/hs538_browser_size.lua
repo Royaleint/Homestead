@@ -15,17 +15,17 @@ local CAP = 180224
 
 local CEIL = {
     ["Visuals.xml"] = 391,
-    ["Style.lua"] = 6611,
+    ["Style.lua"] = 6400,
     ["Visuals.lua"] = 3482,
-    ["Adapter.lua"] = 16258,
+    ["Adapter.lua"] = 17300,
     ["Facts.lua"] = 6026,
     ["CanGet.lua"] = 17179,
     ["Widgets.lua"] = 20354,
-    ["Window.lua"] = 14000,
-    ["Browser.lua"] = 13900,
+    ["Window.lua"] = 20300,
+    ["Browser.lua"] = 14000,
     ["Summary.lua"] = 11691,
-    ["Catalog.lua"] = 16892,
-    ["Sources.lua"] = 21949,
+    ["Catalog.lua"] = 17200,
+    ["Sources.lua"] = 21900,
     ["Item.lua"] = 13216,
 }
 

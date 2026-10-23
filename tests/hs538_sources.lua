@@ -282,7 +282,6 @@ local function setup()
     end
     B.Generation = function() return gen end
     B.InCombat = function() return B.State.inCombat end
-    B.SetLocation = function(detail) env.location = detail end
     B.RegisterTab = function(key, tab) tabs[key] = tab end
     B.ShowTab = function(key, o) env.shown[#env.shown + 1] = { key = key, opts = o } end
     B.Tooltip = function()
@@ -365,6 +364,14 @@ local function shownText(sub)
     for _, fs in ipairs(made) do
         if fs.shown and fs.text:find(sub, 1, true) then return fs.text end
     end
+end
+
+-- True when the detail head shows this name (the head's name is the only subheader text on the page).
+local function headShows(name)
+    for _, fs in ipairs(made) do
+        if fs.shown and fs.font == "UserScaledFontGameNormalMed2" and fs.text == name then return true end
+    end
+    return false
 end
 
 local function same(a, b)
@@ -554,7 +561,7 @@ do
     env.HA.VendorPortraits[100] = 555
     local _, side = build(env)
     env.tab.Show({ type = "vendors", select = { key = 100 } })
-    assert(env.location == "Anna", "the location line names the vendor")
+    assert(headShows("Anna"), "the detail head names the vendor")
     assert(shownText("Trade District, Stormwind") and shownText("Eastern Kingdoms"), "zone, subzone and continent")
     assert(shownText("Confirmed by a scan on 2026-10-01"), "the shipped date shows")
     assert(shownText("Sells 3 decor.") and shownText("3 you can get now."), "the count line")
@@ -709,10 +716,10 @@ do
         assert(d and d.selected, t .. ": the row is selected")
         local last = scrolls[#scrolls]
         assert(last.box == main and main.data[last.index] == d, t .. ": scrolled to the row")
-        assert(env.location == title, t .. ": the detail is filled (" .. tostring(env.location) .. ")")
+        assert(headShows(title), t .. ": the detail head shows " .. title)
         env.tab.Show({ type = t, select = { key = "missing" } })
         local first = rows(main)[1]
-        assert(first.selected and env.location == first.name, t .. ": a missing key opens the first row")
+        assert(first.selected and headShows(first.name), t .. ": a missing key opens the first row")
         env.tab.Show({ type = t })
         assert(rows(main)[1].selected, t .. ": no select opens the first row")
     end
@@ -1003,7 +1010,7 @@ do
     assert(rows(main)[1].name == "Loaded", "the name fills in on the next refresh")
     env.tab.Hide()
     env.tab.Refresh("zone")
-    assert(rows(main)[1].name == "Loaded" and env.location == "Loaded", "Refresh after Hide redraws the detail")
+    assert(rows(main)[1].name == "Loaded" and headShows("Loaded"), "Refresh after Hide redraws the detail")
     for state, st in pairs(env.B.Style.state) do
         if st.color == env.B.Style.color.stop then assert(state == "faction", "red on " .. state) end
     end

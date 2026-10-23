@@ -1,4 +1,4 @@
--- The browser window: frame, header band, side tabs, scale-to-fit, Escape and motion. Built on first open.
+-- Browser window: frame, header, tree, crumb bar, scale-to-fit, Escape and motion. Built on first open.
 local _, HA = ...
 
 local B = HA.DecorBrowser
@@ -7,8 +7,8 @@ local S = B.Style
 local Vis = B.Vis
 local W = B.Widgets
 local LO = S.layout
+local K = S.color
 local SP = S.space
-local TAB = S.tab
 local PAD = S.pad
 local WIN_W, WIN_H = S.window.width, S.window.height
 
@@ -16,25 +16,16 @@ local Win = {}
 B.Window = Win
 
 local OPEN_TIME, CLOSE_TIME, TRAVEL = 0.15, 0.1, 8
-
-local TABS = {
-    { key = "summary", word = L["Summary"], on = "housing-icon-dashboard", off = "housing-icon-dashboard-dis" },
-    { key = "catalog", word = L["Catalog"], on = "housing-icon-catalog", off = "housing-icon-catalog-dis" },
-    { key = "sources", word = L["Sources"], on = S.atlas.waypointOn, off = S.atlas.waypointOff },
-}
-Win.TABS = TABS
+local CRUMB_SEP = " \226\128\186 "
 
 local hooks
-local tabWidth = TAB.minWidth
 local laidOutTextScale
 local searchBoxes = {}
 
--- Search boxes a tab owns; Escape takes focus from them before it closes the window.
 function Win.AddSearchBox(box)
     searchBoxes[#searchBoxes + 1] = box
 end
 
--- Aspect-correct cover crop in the atlas's texcoords; run after SetAtlas and on resize.
 local function CropBackdrop(tex, info, w, h)
     if not (info and w and h and w > 0 and h > 0) then return end
     local l, r, t, b = info.leftTexCoord, info.rightTexCoord, info.topTexCoord, info.bottomTexCoord
@@ -50,6 +41,262 @@ local function CropBackdrop(tex, info, w, h)
 end
 
 local CORNER_POINT = { TL = "TOPLEFT", TR = "TOPRIGHT", BL = "BOTTOMLEFT", BR = "BOTTOMRIGHT" }
+
+-- Tree rows: a group's label opens its page and its +/- only folds. Folds last the session.
+local function Row(key, label, route, kids)
+    return { kind = "row", key = key, label = label, route = route, kids = kids }
+end
+
+local function CatalogKids()
+    local kids = { Row("catalog:all", L["All decor"], { kind = "catalog", key = "all" }) }
+    for _, k in ipairs({ 1, 2, 3, 4, "other" }) do
+        kids[#kids + 1] = Row("catalog:" .. k, S.kind[k], { kind = "catalog", key = k })
+    end
+    return kids
+end
+
+local function VendorKids()
+    local kids = {}
+    for _, e in ipairs(B.Data.Expansions()) do
+        kids[#kids + 1] = Row("vendors:" .. e, B.Data.ExpansionLabel(e), { kind = "vendors", key = e })
+    end
+    return kids
+end
+
+local TREE = {
+    Row("overview", L["Overview"], { kind = "overview" }),
+    Row("catalog", L["Catalog"], { kind = "catalog", key = "all" }, CatalogKids),
+    Row("vendors", L["Vendors"], { kind = "allVendors" }, VendorKids),
+}
+for _, t in ipairs({ "achievements", "quests", "professions", "drops", "events", "shop" }) do
+    TREE[#TREE + 1] = Row(t, S.sourceLabel[t], { kind = "sources", key = t })
+end
+
+local expanded, list, selected, selGroup, rowH, crumbH, backShown, lastSegs = {}, nil, "overview", nil, 0, 0, false
+
+local function NavData()
+    local data = {}
+    for _, row in ipairs(TREE) do
+        data[#data + 1] = row
+        if row.kids and expanded[row.key] then
+            for _, kid in ipairs(row.kids()) do
+                kid.child = true
+                data[#data + 1] = kid
+            end
+        end
+    end
+    return data
+end
+
+local function ReloadNav(data)
+    list:SetData(data or NavData(), true)
+end
+
+-- Vendor pages arrive later; until then their routes open the vendors list.
+local function Go(route)
+    local k = route.kind
+    B.Go((k == "allVendors" or k == "vendors") and { kind = "sources", key = "vendors" } or route)
+end
+
+local function ShowTruncated(self, fs)
+    if not fs:IsTruncated() then return end
+    local tip = B.Tooltip()
+    tip:SetOwner(self, "ANCHOR_RIGHT")
+    tip:SetText(fs:GetText())
+    tip:Show()
+end
+
+local function BuildRow(f)
+    f.hl = f:CreateTexture(nil, "HIGHLIGHT")
+    f.hl:SetColorTexture(unpack(K.hoverRow))
+    f.sel = f:CreateTexture(nil, "BACKGROUND")
+    Vis.Chrome.VGradient(f.sel, K.gold, 0.04, 0.22)
+    f.bar = f:CreateTexture(nil, "ARTWORK")
+    f.bar:SetColorTexture(K.gold[1], K.gold[2], K.gold[3], 1)
+    PixelUtil.SetWidth(f.bar, 3)
+    f.fold = CreateFrame("Button", nil, f)
+    f.fold:SetSize(16, 16)
+    f.fold:SetScript("OnClick", function()
+        expanded[f.data.key] = not expanded[f.data.key]
+        ReloadNav()
+    end)
+    f.label = S.Text(f, "bodyGold", "OVERLAY")
+    f.label:SetJustifyH("LEFT")
+    f.label:SetWordWrap(false)
+    f:RegisterForClicks("LeftButtonUp")
+    f:SetScript("OnClick", function(self) Go(self.data.route) end)
+    f:SetScript("OnEnter", function(self) ShowTruncated(self, self.label) end)
+    f:SetScript("OnLeave", B.HideTooltip)
+end
+
+local function InitRow(f, d)
+    f.data = d
+    local indent = d.child and S.nav.indent or 0
+    for _, region in ipairs({ f.hl, f.sel }) do
+        region:ClearAllPoints()
+        region:SetPoint("TOPLEFT", indent, 0)
+        region:SetPoint("BOTTOMRIGHT")
+    end
+    f.bar:ClearAllPoints()
+    f.bar:SetPoint("TOPLEFT", indent, 0)
+    f.bar:SetPoint("BOTTOMLEFT", indent, 0)
+    local on = d.key == selected or d.key == selGroup and not expanded[selGroup]
+    f.sel:SetShown(on)
+    f.bar:SetShown(on)
+    f.fold:ClearAllPoints()
+    f.fold:SetPoint("LEFT", indent + SP.xs, 0)
+    f.fold:SetShown(d.kids ~= nil)
+    if d.kids then f.fold:SetNormalAtlas(expanded[d.key] and S.atlas.collapse or S.atlas.expand) end
+    f.label:ClearAllPoints()
+    f.label:SetPoint("LEFT", indent + 2 * SP.xs + 16, 0)
+    f.label:SetPoint("RIGHT", -SP.s, 0)
+    f.label:SetFontObject(S.font[d.child and (on and "metaGold" or "meta") or "bodyGold"])
+    f.label:SetText(d.label)
+end
+
+local function BuildTree(page)
+    local tree = CreateFrame("Frame", nil, page)
+    tree:SetPoint("TOPLEFT", LO.pagePad, -LO.pagePad)
+    tree:SetPoint("BOTTOMLEFT", LO.pagePad, LO.pagePad)
+    tree:SetWidth(S.cols.nav)
+    list = W.NewList(tree, {
+        spacing = S.nav.gap,
+        reclaim = true,
+        extent = function() return rowH end,
+        kinds = { row = { frameType = "Button", build = BuildRow, init = InitRow } },
+    })
+    return tree
+end
+
+-- A crumb segment's tree row, the group the row lives in, and its label.
+local function Describe(r, last)
+    local k, key = r.kind, r.key
+    if k == "overview" then return k, nil, L["Overview"] end
+    if k == "catalog" then
+        return "catalog:" .. tostring(key), "catalog", key == "all" and (last and L["All decor"] or L["Catalog"]) or S.kind[key]
+    end
+    if k == "vendors" then return "vendors:" .. tostring(key), "vendors", B.Data.ExpansionLabel(key) end
+    if k == "allVendors" or k == "sources" and key == "vendors" then return "vendors", "vendors", L["Vendors"] end
+    if k == "sources" then return key, nil, S.sourceLabel[key] end
+    if k == "vendor" then
+        local v = B.Data.Vendor(r.id)
+        return nil, nil, v and v.name or L["Unknown"]
+    end
+    if k == "item" then return nil, nil, B.Data.ItemName(r.id) or L["Item %d"]:format(r.id) end
+    return nil, nil, tostring(r.id)
+end
+
+-- Lights the deepest crumb segment that has a row, else its group row; the page's group opens. A folded
+-- group lights itself while it hides the lit row.
+function Win.SelectNav(route)
+    local segs = B.Home(route)
+    for _, seg in ipairs(segs) do
+        local _, group = Describe(seg)
+        if group then expanded[group] = true end
+    end
+    local data, has = NavData(), {}
+    for _, d in ipairs(data) do has[d.key] = true end
+    selected, selGroup = "overview", nil
+    for i = #segs, 1, -1 do
+        local row, group = Describe(segs[i])
+        local pick = has[row] and row or has[group] and group
+        if pick then
+            selected, selGroup = pick, group
+            break
+        end
+    end
+    ReloadNav(data)
+end
+
+local crumbs = {}
+Win.crumbs = crumbs
+
+local function PlaceCrumb(c, prev)
+    local b = c.btn
+    b:ClearAllPoints()
+    if prev then
+        b:SetPoint("LEFT", prev.sep, "RIGHT")
+    elseif backShown then
+        b:SetPoint("LEFT", Win.back, "RIGHT", SP.m, 0)
+    else
+        b:SetPoint("LEFT", Win.bar, "LEFT", SP.s, 0)
+    end
+    if c.last then b:SetPoint("RIGHT", Win.bar, "RIGHT", -SP.m, 0) end
+end
+
+local function NewCrumb()
+    local c = {}
+    c.btn = CreateFrame("Button", nil, Win.bar)
+    c.btn:SetHeight(crumbH)
+    c.text = S.Text(c.btn, "body", "OVERLAY")
+    c.text:SetAllPoints()
+    c.text:SetJustifyH("LEFT")
+    c.text:SetWordWrap(false)
+    c.sep = S.Text(Win.bar, "body", "OVERLAY")
+    c.sep:SetTextColor(K.muted[1], K.muted[2], K.muted[3])
+    c.sep:SetText(CRUMB_SEP)
+    c.btn:SetScript("OnClick", function() if c.route then Go(c.route) end end)
+    return c
+end
+
+-- The page's home in the tree: earlier segments link, the last is plain text.
+function Win.SetCrumb(segs)
+    local prev
+    lastSegs = segs
+    for i, route in ipairs(segs) do
+        local c = crumbs[i] or NewCrumb()
+        crumbs[i] = c
+        c.last = i == #segs
+        c.route = not c.last and route or nil
+        c.btn:EnableMouse(not c.last)
+        c.text:SetText(select(3, Describe(route, c.last)))
+        local col = c.last and K.body or K.muted
+        c.text:SetTextColor(col[1], col[2], col[3])
+        c.btn:SetWidth(c.last and 0 or c.text:GetStringWidth() + 1)
+        PlaceCrumb(c, prev)
+        c.sep:ClearAllPoints()
+        c.sep:SetPoint("LEFT", c.btn, "RIGHT")
+        c.btn:Show()
+        c.sep:SetShown(not c.last)
+        prev = c
+    end
+    for i = #segs + 1, #crumbs do
+        crumbs[i].btn:Hide()
+        crumbs[i].sep:Hide()
+    end
+end
+
+function Win.SetBack(on)
+    backShown = on
+    Win.back:SetShown(on)
+    if crumbs[1] then PlaceCrumb(crumbs[1]) end
+end
+
+local function BuildBar(page, tree)
+    local bar = CreateFrame("Frame", nil, page)
+    bar:SetPoint("TOPLEFT", tree, "TOPRIGHT", S.cols.gap, 0)
+    bar:SetPoint("TOPRIGHT", -LO.pagePad, -LO.pagePad)
+    Win.bar = bar
+    local back = CreateFrame("Button", nil, bar)
+    back.arrow = back:CreateTexture(nil, "ARTWORK")
+    back.arrow:SetAtlas(S.atlas.backArrow)
+    back.arrow:SetSize(14, 14)
+    back.arrow:SetPoint("LEFT")
+    local hover = back:CreateTexture(nil, "HIGHLIGHT")
+    hover:SetAtlas(S.atlas.backArrow)
+    hover:SetAllPoints(back.arrow)
+    hover:SetBlendMode("ADD")
+    back.text = S.Text(back, "bodyGold", "OVERLAY")
+    back.text:SetPoint("LEFT", back.arrow, "RIGHT", SP.xs, 0)
+    back.text:SetText(L["Back"])
+    back:SetWidth(14 + SP.xs + back.text:GetStringWidth() + 1)
+    back:RegisterForClicks("LeftButtonUp")
+    back:SetScript("OnClick", function() B.Back() end)
+    back:SetPoint("LEFT", bar, "LEFT", SP.s, 0)
+    back:Hide()
+    Win.back = back
+    return bar
+end
 
 local function BuildWell(f)
     local well = f.Inset
@@ -70,7 +317,6 @@ local function BuildWell(f)
         well:HookScript("OnSizeChanged", function(_, w, h) CropBackdrop(bd, info, w, h) end)
         CropBackdrop(bd, info, well:GetSize())
 
-        -- Above the pane, mouse-transparent.
         local trim = CreateFrame("Frame", nil, well)
         trim:SetAllPoints()
         trim:SetFrameLevel(pageWell:GetFrameLevel() + 50)
@@ -88,14 +334,14 @@ local function BuildWell(f)
     local page = CreateFrame("Frame", nil, pageWell)
     page:SetPoint("TOPLEFT", LO.wellPad, -LO.wellPad)
     page:SetPoint("BOTTOMRIGHT", -LO.wellPad, LO.wellPad)
+    local bar = BuildBar(page, BuildTree(page))
 
     local host = CreateFrame("Frame", nil, page)
-    host:SetPoint("TOPLEFT", LO.pagePad, -LO.pagePad)
+    host:SetPoint("TOPLEFT", bar, "BOTTOMLEFT", 0, -SP.xs)
     host:SetPoint("BOTTOMRIGHT", -LO.pagePad, LO.pagePad)
     Win.host = host
 end
 
--- Header band: where you are on the left; the Hide toggle and Help on the right.
 local function BuildHeader(f)
     local r, bandH = LO.rect, LO.headerBand
     local band = CreateFrame("Frame", nil, f)
@@ -122,72 +368,40 @@ local function BuildHeader(f)
     hide:SetScript("OnClick", function(self) hooks.HideNA(self:GetChecked() and true or false) end)
     Win.hideNA, Win.help = hide, help
 
-    local where = band:CreateFontString(nil, "OVERLAY", "UserScaledFontGameNormal")
-    where:SetPoint("LEFT", LO.titleLeft - r[1], 0)
-    where:SetPoint("RIGHT", hide, "LEFT", -SP.m, 0)
-    where:SetJustifyH("LEFT")
-    where:SetWordWrap(false)
-    Win.location = where
+    local count = S.Text(band, "header", "OVERLAY")
+    count:SetPoint("LEFT", LO.titleLeft - r[1], 0)
+    count:SetPoint("RIGHT", hide, "LEFT", -SP.m, 0)
+    count:SetJustifyH("LEFT")
+    count:SetWordWrap(false)
+    Win.count = count
+    local hit = CreateFrame("Frame", nil, band)
+    hit:SetAllPoints(count)
+    hit:EnableMouse(true)
+    hit:SetScript("OnEnter", function(self) ShowTruncated(self, count) end)
+    hit:SetScript("OnLeave", B.HideTooltip)
 end
 
-function Win.SetLocation(text)
-    Win.location:SetText(text or "")
+function Win.UpdateCount()
+    local walk = B.Walk()
+    Win.count:SetText(walk and L["%d of %d decor collected"]:format(walk.progress.owned, walk.progress.total)
+        or L["Counting…"])
 end
 
-local function BuildTabs(f)
-    local prev
-    for _, t in ipairs(TABS) do
-        local tab = CreateFrame("Frame", nil, f, "LargeSideTabButtonTemplate")
-        tab.activeAtlas, tab.inactiveAtlas = t.on, t.off
-        if prev then
-            tab:SetPoint("TOP", prev, "BOTTOM", 0, -TAB.gap)
-        else
-            tab:SetPoint("TOPLEFT", f, "TOPRIGHT", 0, -TAB.top)
-        end
-        tab.Icon:ClearAllPoints()
-        tab.Icon:SetPoint("TOP", 0, -SP.s)
-        tab.word = tab:CreateFontString(nil, "OVERLAY", "UserScaledFontGameHighlightSmall")
-        tab.word:SetPoint("TOP", tab.Icon, "BOTTOM", 0, -SP.xs)
-        tab.word:SetText(t.word)
-        -- The word is on the tab; no tooltip repeats it (the template's would use the shared one).
-        tab:SetScript("OnEnter", nil)
-        tab:SetScript("OnLeave", nil)
-        local key = t.key
-        tab:SetCustomOnMouseUpHandler(function(_, button, upInside)
-            if button == "LeftButton" and upInside then hooks.SelectTab(key) end
-        end)
-        tab:SetChecked(false)
-        t.frame = tab
-        prev = tab
-    end
-end
-
-function Win.SetSelectedTab(key)
-    for _, t in ipairs(TABS) do t.frame:SetChecked(t.key == key) end
-end
-
-function Win.SetCrumb() end
-
-function Win.SetBack() end
-
-function Win.SelectNav(route)
-    Win.SetSelectedTab(B.TabOf(route.kind))
-end
-
--- Width and height of the tabs from their measured words; the clamp rect grows to keep them on screen.
-function Win.MeasureTabs()
+-- Row and bar heights follow the text size; the clamp rect keeps the portrait on screen.
+function Win.Measure()
     S.ScaleDisplay()
-    B.Widgets.ResetMeasure()
-    local widest, tall = 0, 0
-    for _, t in ipairs(TABS) do
-        widest = math.max(widest, t.frame.word:GetUnboundedStringWidth())
-        tall = math.max(tall, t.frame.word:GetStringHeight())
-    end
-    tabWidth = math.max(TAB.minWidth, widest + TAB.wordPad)
-    for _, t in ipairs(TABS) do t.frame:SetSize(tabWidth, TAB.height + tall) end
+    W.ResetMeasure()
     local hide = Win.hideNA
     hide:SetPoint("RIGHT", Win.help, "LEFT", -(hide.Text:GetStringWidth() + SP.l), 0)
-    Win.frame:SetClampRectInsets(-PAD.left, tabWidth, PAD.top, 0)
+    Win.frame:SetClampRectInsets(-PAD.left, 0, PAD.top, 0)
+    rowH = W.TextHeight("bodyGold") + SP.s
+    crumbH = W.TextHeight("body") + SP.s
+    Win.bar:SetHeight(crumbH)
+    Win.back:SetHeight(crumbH)
+    for _, c in ipairs(crumbs) do c.btn:SetHeight(crumbH) end
+    Win.back:SetWidth(14 + SP.xs + Win.back.text:GetStringWidth() + 1)
+    if lastSegs then Win.SetCrumb(lastSegs) end
+    ReloadNav()
     laidOutTextScale = TextSizeManager:GetScale()
 end
 
@@ -200,11 +414,10 @@ local function ReadCorner(f)
     if point == "TOPLEFT" then return x * s, y * s + UIParent:GetHeight() end
 end
 
--- Clamps the corner on screen (portrait and tabs included), anchors it and returns it.
 local function Place(f, l, t)
     local s = f:GetScale()
     local pw, ph = UIParent:GetWidth(), UIParent:GetHeight()
-    l = math.max(PAD.left * s, math.min(l, pw - (WIN_W + tabWidth) * s))
+    l = math.max(PAD.left * s, math.min(l, pw - WIN_W * s))
     t = math.min(ph - PAD.top * s, math.max(t, WIN_H * s))
     f:ClearAllPoints()
     f:SetPoint("TOPLEFT", UIParent, "TOPLEFT", l / s, (t - ph) / s)
@@ -218,22 +431,19 @@ local function SavedCorner()
     end
 end
 
--- Read, fit, re-anchor, clamp. Never saves: only a drop does.
 function Win.Fit(fromSaved)
     local f = Win.frame
     local l, t
     if fromSaved then l, t = SavedCorner() else l, t = ReadCorner(f) end
-    FrameUtil.UpdateScaleForFitSpecific(f, PAD.left + WIN_W + tabWidth, PAD.top + WIN_H)
+    FrameUtil.UpdateScaleForFitSpecific(f, PAD.left + WIN_W, PAD.top + WIN_H)
     if l then Place(f, l, t) end
 end
 
--- A text-size change re-measures the tabs, then fits.
 function Win.OnTextScale()
-    Win.MeasureTabs()
+    Win.Measure()
     Win.Fit()
 end
 
--- The text size can change while the window is hidden and not listening.
 function Win.CheckTextScale()
     if TextSizeManager:GetScale() ~= laidOutTextScale then Win.OnTextScale() end
 end
@@ -321,7 +531,6 @@ local function BuildMotion(f)
     Win.closeAnim = close
 end
 
--- Shows the window and fades it in; a close still fading is cancelled.
 function Win.PlayOpen()
     local f = Win.frame
     Win.closeAnim:Stop()
@@ -338,7 +547,6 @@ function Win.PlayClose()
     Win.closeAnim:Play()
 end
 
--- One short glow on a region, never looping; Hide stops it.
 local glowing = {}
 function Win.Glow(region)
     local g = region.browserGlow
@@ -361,7 +569,6 @@ function Win.StopGlow()
     end
 end
 
--- h = { OnShow, OnHide, Close, Help, HideNA(on), SelectTab(key) }.
 function Win.Build(h)
     if Win.frame then return Win.frame end
     hooks = h
@@ -378,7 +585,6 @@ function Win.Build(h)
     f:SetClampedToScreen(true)
     f:EnableMouse(true)
 
-    -- Dragged by the title bar only.
     local grab = CreateFrame("Frame", nil, f)
     grab:SetPoint("TOPLEFT", PAD.left + LO.titleLeft - LO.rect[1], 0)
     grab:SetPoint("TOPRIGHT", -LO.titleBar - SP.xs, 0)
@@ -388,16 +594,14 @@ function Win.Build(h)
     grab:SetScript("OnDragStart", function() f:StartMoving() end)
     grab:SetScript("OnDragStop", function() DropSave(f) end)
 
-    -- A plain close; the template's own path goes through the panel manager.
     f.CloseButton:SetScript("OnClick", function() hooks.Close() end)
     Win.AssertPropagation()
     f:SetScript("OnKeyDown", OnKeyDown)
 
     BuildHeader(f)
     BuildWell(f)
-    BuildTabs(f)
     BuildMotion(f)
-    Win.MeasureTabs()
+    Win.Measure()
     Win.Fit(true)
 
     f:SetScript("OnShow", hooks.OnShow)

@@ -312,9 +312,11 @@ L["Set waypoint"] = "Поставить метку"
 
 -- Decor Browser: window and navigation
 L["Homestead Decor"] = "Декор Homestead"
-L["Summary"] = "Сводка"
+L["Overview"] = "Обзор"
 L["Catalog"] = "Каталог"
-L["Sources"] = "Источники"
+L["Back"] = "Назад"
+L["Other Vendors"] = "Прочие торговцы"
+L["%d of %d decor collected"] = "Собрано предметов декора: %d из %d"
 L["Help"] = "Справка"
 L["Hide what doesn't apply to me"] = "Скрыть то, что ко мне не относится"
 L["The Decor Browser opens once Homestead has finished loading."] = "Обозреватель декора откроется, когда Homestead закончит загрузку."

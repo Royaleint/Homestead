@@ -7,7 +7,7 @@ local newWorld = assert(loadfile(root .. "/tests/hs538_world.lua"))()
 -------------------------------------------------------------------------------
 -- The first open as a player makes it: B:Toggle with no saved state builds the
 -- real window, the real router and every real tab, then each tab is opened in
--- turn from its side tab (Summary, Catalog, Sources), then an item page from a
+-- turn from its tree row (Overview, Catalog, Vendors), then an item page from a
 -- Summary row and from a Catalog row, then a close and a reopen. Frames that
 -- become visible run their OnShow and the dropdowns build their menus the way
 -- the client does, so any callback that reads state before it exists fails here.
@@ -34,11 +34,14 @@ assert(env.pages[1]:IsVisible(), "the Summary page is visible")
 env.flush()
 print("hs538_first_open: Toggle to Summary ok")
 
-local function clickTab(key)
-    for _, t in ipairs(Win.TABS) do
-        if t.key == key then return t.frame.customMouseUpHandler(t.frame, "LeftButton", true) end
+-- Clicks the tree row with this label, as drawn.
+local function clickNav(label)
+    for _, box in ipairs(env.boxList) do
+        for _, f in ipairs(box.frames) do
+            if f.data and f.data.label == label then return f.scripts.OnClick(f) end
+        end
     end
-    error("no side tab " .. key)
+    error("no tree row " .. label)
 end
 
 local sort
@@ -46,23 +49,24 @@ for _, f in ipairs(env.all) do
     if f.template == "WowStyle1DropdownTemplate" then sort = f end
 end
 local built = sort.generated
-clickTab("catalog")
-eq(env.tab, "catalog", "the Catalog side tab shows Catalog")
+clickNav("Catalog")
+eq(env.tab, "catalog", "the Catalog tree row shows Catalog")
 assert(env.pages[2]:IsVisible() and not env.pages[1]:IsVisible(), "only the Catalog page is visible")
-eq(sort.generated, built + 1, "the sort button rebuilt its menu once, when its page was shown")
+-- A tree row opens the page with a fresh view: the show rebuilds the menu, and so does the reset.
+eq(sort.generated, built + 2, "the sort button rebuilt its menu when its page was shown and the view reset")
 eq(sort.text, "Sort: Best to get now", "the sort label")
 assert(#(env.catalogList()) > 0, "the Catalog lists decor")
 env.flush()
 print("hs538_first_open: Catalog ok")
 
-clickTab("sources")
-eq(env.tab, "sources", "the Sources side tab shows Sources")
+clickNav("Vendors")
+eq(env.tab, "sources", "the Vendors tree row shows the vendors list")
 assert(#(env.sourcesList()) > 0, "Sources lists vendors")
 env.flush()
 print("hs538_first_open: Sources ok")
 
 -- An item page from Summary: the row's Show button lands on the Catalog with the item selected.
-clickTab("summary")
+clickNav("Overview")
 local row
 for _, f in ipairs(env.all) do
     if env.owner(f) == "summary" and rawget(f, "why") and f.itemID and f.shown then row = row or f end
@@ -89,7 +93,7 @@ eq(Win.closing, false, "the window's OnHide ran")
 B:Toggle()
 assert(Win.frame:IsVisible(), "the third Toggle opens it again")
 eq(env.tab, "summary", "a reopen shows Summary")
-clickTab("catalog")
+clickNav("Catalog")
 eq(env.tab, "catalog", "and the Catalog again")
 env.flush()
 print("hs538_first_open: close and reopen ok")

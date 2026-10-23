@@ -299,9 +299,11 @@ L["Set waypoint"] = "웨이포인트 설정"
 
 -- Decor Browser: window and navigation
 L["Homestead Decor"] = "Homestead 장식"
-L["Summary"] = "요약"
+L["Overview"] = "개요"
 L["Catalog"] = "카탈로그"
-L["Sources"] = "획득처"
+L["Back"] = "뒤로"
+L["Other Vendors"] = "기타 상인"
+L["%d of %d decor collected"] = "장식 %d/%d 수집함"
 L["Help"] = "도움말"
 L["Hide what doesn't apply to me"] = "나와 관련 없는 항목 숨기기"
 L["The Decor Browser opens once Homestead has finished loading."] = "Homestead 로딩이 끝나면 장식 탐색기가 열립니다."

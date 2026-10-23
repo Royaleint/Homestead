@@ -13,23 +13,19 @@ local FACTION_LABELS = {
     ["Horde"] = L["Horde"],
 }
 
--- Source types with their own format; any other gets a generic label.
 local SOURCE_TYPE_LABELS = {
     ["shop"] = L["Shop"],
     ["treasure"] = L["Treasure"],
 }
 
--- Per requested item: true while loading, then "loaded" or "failed".
 local nameLoads = {}
 
 local memoVersion = 0
 
--- Starts a new memo generation: the walk and every memo keyed on MemoVersion rebuild on next read.
 function D.InvalidateMemos()
     memoVersion = memoVersion + 1
 end
 
--- Changes with every InvalidateMemos, so callers can drop their own memos too.
 function D.MemoVersion()
     return memoVersion
 end
@@ -38,7 +34,6 @@ function D.IsReady()
     return (HA.VendorData and HA.VendorIdentity and HA.CatalogStore and HA.SourceManager) and true or false
 end
 
--- info, the item's catalog entry when the caller has it, supplies the name while the item loads.
 function D.ItemName(itemID, info)
     local name = C_Item.GetItemNameByID(itemID) or (info and info.name)
     if name then return name end
@@ -49,7 +44,6 @@ function D.ItemName(itemID, info)
     return nil
 end
 
--- GET_ITEM_INFO_RECEIVED: true when awaited. Requested once, never retried.
 function D.NameArrived(itemID, success)
     if nameLoads[itemID] ~= true then return false end
     nameLoads[itemID] = success == false and "failed" or "loaded"
@@ -73,12 +67,61 @@ function D.IsListedVendor(vendor)
     return B.Facts.BrowserListed(vendor) and not ConfirmedNoDecor(vendor)
 end
 
--- Holiday vendors show on Events in or out of season; IsListedVendor drops idle ones elsewhere.
+-- Newest first, each with its LE_EXPANSION_ name.
+local EXPANSIONS = {
+    { "Midnight", "MIDNIGHT" }, { "The War Within", "WAR_WITHIN" }, { "Dragonflight", "DRAGONFLIGHT" },
+    { "Shadowlands", "SHADOWLANDS" }, { "Battle for Azeroth", "BATTLE_FOR_AZEROTH" }, { "Legion", "LEGION" },
+    { "Warlords of Draenor", "WARLORDS_OF_DRAENOR" }, { "Mists of Pandaria", "MISTS_OF_PANDARIA" },
+    { "Cataclysm", "CATACLYSM" }, { "Wrath of the Lich King", "WRATH_OF_THE_LICH_KING" },
+    { "The Burning Crusade", "BURNING_CRUSADE" }, { "Classic", "CLASSIC" },
+}
+local TOKEN = {}
+for _, e in ipairs(EXPANSIONS) do TOKEN[e[1]] = e[2] end
+
+local listed, homes, listedVersion
+
+-- Vendor tables only, one per vendor key, rebuilt after each InvalidateMemos.
+function D.ListedVendors()
+    if listed and listedVersion == memoVersion then return listed end
+    listed, homes, listedVersion = {}, nil, memoVersion
+    local seen = {}
+    for _, v in ipairs(HA.VendorData:GetAllVendors()) do
+        local key = D.IsListedVendor(v) and B.Facts.SourceKey("vendors", v)
+        if key and not seen[key] then
+            seen[key] = true
+            listed[#listed + 1] = v
+        end
+    end
+    return listed
+end
+
+function D.VendorHome(vendor)
+    return TOKEN[vendor.expansion] and vendor.expansion or "other"
+end
+
+function D.Expansions()
+    local vendors = D.ListedVendors()
+    if homes then return homes end
+    local has = {}
+    for _, v in ipairs(vendors) do has[D.VendorHome(v)] = true end
+    homes = {}
+    for _, e in ipairs(EXPANSIONS) do
+        if has[e[1]] then homes[#homes + 1] = e[1] end
+    end
+    if has.other then homes[#homes + 1] = "other" end
+    return homes
+end
+
+function D.ExpansionLabel(key)
+    if key == "other" then return L["Other Vendors"] end
+    local token = TOKEN[key]
+    return token and _G["EXPANSION_NAME" .. tostring(_G["LE_EXPANSION_" .. token])] or key
+end
+
 local function HolidayEntries()
     return HA.EventSources and HA.EventSources.EventVendors or {}
 end
 
--- true / false for a holiday vendor, nil for any other.
 function D.HolidayActive(vendor)
     local entry = vendor and HolidayEntries()[vendor.npcID]
     if not entry then return nil end
@@ -99,7 +142,6 @@ function D.IsOppositeFaction(vendor)
     return HA.VendorFilter.IsOppositeFaction(vendor)
 end
 
--- The label for the faction that makes this vendor opposite; nil when none resolves.
 function D.VendorFactionLabel(vendor)
     local faction = HA.VendorFilter.GetEffectiveFaction(vendor)
     return faction and (FACTION_LABELS[faction] or faction) or nil
@@ -166,7 +208,6 @@ function D.VendorLocation(vendor)
     return mapID, coords.x, coords.y
 end
 
--- Nearest-first vendors in the player's zone and its child maps for their faction: vendors, zone, zone name.
 function D.NearYou()
     local where = B.Facts.Here()
     if not where then return {}, nil, nil end
@@ -242,7 +283,6 @@ function D.ReportText(r)
     return table.concat(out, "\n")
 end
 
--- Shop note: seasonal and Endeavor vendors from data flags, else the vendor's own note (verbatim = true).
 function D.VendorNote(vendor)
     if vendor.event then return L["Seasonal: %s"]:format(vendor.event) end
     if vendor.endeavor then
@@ -336,7 +376,6 @@ function D.ItemSources(itemID)
     return out
 end
 
--- Housing catalog entry. The router empties catalogMemo on a page show or new data.
 function D.CatalogInfo(itemID, catalogMemo)
     if catalogMemo and catalogMemo[itemID] then return catalogMemo[itemID] end
     local info
@@ -381,7 +420,6 @@ function D.SourceLine(itemID, sources)
     return L["%s: %s"]:format(SOURCE_TYPE_LABELS[t] or L["Other source"], name)
 end
 
--- Quality and owned copies (placed + stored) for an icon; copies is nil until known, and at 0.
 function D.IconData(itemID, wantCopies, catalogMemo)
     local quality, copies
     if wantCopies then

@@ -77,15 +77,13 @@ local function Vendors()
     local version = D.MemoVersion()
     if vend and vendVer == version then return vend end
     vend, vendVer = { by = {} }, version
-    for _, v in ipairs(HA.VendorData:GetAllVendors()) do
-        local key = D.IsListedVendor(v) and Facts.SourceKey("vendors", v)
-        if key and not vend.by[key] then
-            local s = {
-                key = key, type = "vendors", vendor = v, title = v.name or L["Unknown"], items = D.VendorWares(v),
-                sub = Where(v) or "",
-            }
-            vend.by[key], vend[#vend + 1] = s, s
-        end
+    for _, v in ipairs(D.ListedVendors()) do
+        local key = Facts.SourceKey("vendors", v)
+        local s = {
+            key = key, type = "vendors", vendor = v, title = v.name or L["Unknown"], items = D.VendorWares(v),
+            sub = Where(v) or "",
+        }
+        vend.by[key], vend[#vend + 1] = s, s
     end
     return vend
 end
@@ -367,7 +365,6 @@ local function Loc(s)
 end
 
 local function Fill(s)
-    B.SetLocation(s and s.title)
     local els = { U.head, U.mb, U.i1, U.i2, U.i3, U.i4, U.i5, U.q1, U.q2, U.go, U.hdr }
     for _, el in ipairs(els) do el:Hide() end
     local rows = s and Rows(s) or {}

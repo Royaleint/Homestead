@@ -1,7 +1,8 @@
 -- Browser router: pages and routes, opening and closing, coalesced refresh, events while shown, combat state
 -- and the item tooltip. Delayed work checks B.Generation() first: it changes on every open and every close.
--- Page contract: Show(route, saved) gets saved only on Back. Hide tears down transient state and keeps the
--- route. Refresh may follow Hide without Show (UI restore); Refresh must restore whatever Hide tore down.
+-- Page contract: Show(route, saved) gets saved only on Back. Hide tears down transient state, resets render
+-- keys and keeps the route. Refresh may follow Hide without Show (UI restore) and must restore whatever Hide
+-- tore down. A vanished target falls back to its list home.
 local _, HA = ...
 
 local B = HA.DecorBrowser
@@ -74,12 +75,7 @@ function B.RegisterPage(kind, page)
 end
 
 local TAB_KIND = { summary = "overview", catalog = "catalog", sources = "sources" }
-local TAB_OF = { overview = "summary", catalog = "catalog", item = "catalog" }
 local SEED_KEY = { catalog = "kind", sources = "type" }
-
-function B.TabOf(kind)
-    return TAB_OF[kind] or "sources"
-end
 
 -- A tab-era page: Show(opts) gets the seed as is, else the key, else nil.
 function B.RegisterTab(key, tab)
@@ -94,20 +90,15 @@ function B.RegisterTab(key, tab)
     B.RegisterPage(TAB_KIND[key], page)
 end
 
-local WORD = {}
-for _, t in ipairs(Win.TABS) do WORD[t.key] = t.word end
-
--- The header's location line: the tab's word, then what the tab says is open in it.
-function B.SetLocation(detail)
-    local word = curRoute and WORD[B.TabOf(curRoute.kind)] or ""
-    Win.SetLocation(detail and (word .. "  \226\128\186  " .. detail) or word)
-end
-
 -- The crumb: the page's home in the tree (its parent, then itself), never the path walked.
 function B.Home(route)
     local kind, key = route.kind, route.key
+    if kind == "vendor" then
+        local v = B.Data.Vendor(route.id)
+        return { { kind = "allVendors" }, { kind = "vendors", key = B.Data.VendorHome(v or {}) }, route }
+    end
     local up = (kind == "item" or kind == "catalog" and key and key ~= "all") and { kind = "catalog", key = "all" }
-        or (kind == "vendors" or kind == "vendor") and { kind = "allVendors" }
+        or kind == "vendors" and { kind = "allVendors" }
         or kind == "source" and { kind = "sources", key = key }
     return up and { up, route } or { route }
 end
@@ -128,11 +119,11 @@ local function Transition(route, saved)
     if old and old ~= page then frames[curRoute.kind]:Hide() end
     curRoute = route
     frames[route.kind]:Show()
-    B.SetLocation()
     page:Show(route, saved)
     Win.SetCrumb(B.Home(route))
     Win.SelectNav(route)
     Win.SetBack(#history > 0)
+    Win.UpdateCount()
     page:SetCombat(State.inCombat)
 end
 
@@ -140,6 +131,7 @@ local function GoNow(route)
     if curRoute and curRoute.kind == route.kind and curRoute.key == route.key and curRoute.id == route.id then
         local page = Current()
         if route.seed then page:Show(route) else page:Refresh("route") end
+        Win.SelectNav(route)
         return
     end
     if curRoute then
@@ -195,6 +187,7 @@ end
 local function Repaint(reason)
     SyncMemo()
     Current():Refresh(reason)
+    Win.UpdateCount()
 end
 
 -- The walk runs only here, at most once per coalesced refresh, in combat too.
@@ -308,7 +301,6 @@ local function Build()
         Close = function() B:Close() end,
         Help = function() B.Go({ kind = "overview", seed = { showTip = true } }) end,
         HideNA = B.SetHideNA,
-        SelectTab = function(key) B.ShowTab(key) end,
     })
     events = CreateFrame("Frame", nil, f)
     events:SetScript("OnEvent", OnEvent)

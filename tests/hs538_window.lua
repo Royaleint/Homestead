@@ -1,5 +1,6 @@
 -- luacheck: globals assert loadfile print io wipe C_Timer C_Texture InCombatLockdown CreateFrame UIParent
 -- luacheck: globals EventRegistry FrameUtil TextSizeManager Menu PixelUtil NineSliceUtil CreateColor
+-- luacheck: globals ScrollUtil CreateScrollBoxListLinearView CreateDataProvider CreateAnchor
 -- Run from the repo root:  lua tests/hs538_window.lua [root]
 
 local root = (... or "."):gsub("\\\\", "/"):gsub("/+$", "")
@@ -57,6 +58,11 @@ function Widget(kind)
     function w:IsShown() return self.shown end
     function w:SetChecked(on) self.checked = on end
     function w:SetSize(width, height) self.width, self.height = width, height end
+    function w:SetWidth(width) self.width = width end
+    function w:SetPoint(...)
+        self.pts = rawget(self, "pts") or {}
+        self.pts[(...)] = { ... }
+    end
     function w:GetChecked() return self.checked end
     function w:RegisterEvent(name) self.events[name] = true end
     function w:UnregisterAllEvents() wipe(self.events) end
@@ -65,6 +71,7 @@ function Widget(kind)
         local fs = Widget("FontString")
         fs.GetUnboundedStringWidth = function() return wordWidth end
         fs.GetStringHeight = function() return wordHeight end
+        fs.GetStringWidth = function() return wordWidth end
         return fs
     end
     function w:CreateAnimationGroup()
@@ -96,7 +103,15 @@ function wipe(t)
 end
 
 local pw, ph = 1200, 700
-UIParent = { GetWidth = function() return pw end, GetHeight = function() return ph end }
+UIParent = {
+    GetWidth = function() return pw end,
+    GetHeight = function() return ph end,
+    CreateFontString = function() return Widget("FontString") end,
+}
+ScrollUtil = { InitScrollBoxListWithScrollBar = function() end, AddManagedScrollBarVisibilityBehavior = function() end }
+CreateScrollBoxListLinearView = function() return Widget("View") end
+CreateDataProvider = function(t) return t end
+CreateAnchor = function() end
 
 -- The window frame: scale, anchor and edges kept in frame units, as the client does.
 local frame
@@ -131,7 +146,10 @@ local function NewWindowFrame()
     end
     function f:IsVisible() return self.shown end
     function f:SetAlpha(a) self.alpha = a end
-    function f:SetClampRectInsets(...) self.insets = { ... } end
+    function f:SetClampRectInsets(...)
+        self.insets = { ... }
+        self.insetCalls = (rawget(self, "insetCalls") or 0) + 1
+    end
     function f:SetPropagateKeyboardInput(on) self.propagate = on end
     function f:GetPropagateKeyboardInput() return self.propagate end
     function f:SetFrameStrata(s) self.strata = s end
@@ -230,6 +248,7 @@ D.IsReady = function() return true end
 local realInvalidate = D.InvalidateMemos
 D.InvalidateMemos = function() invalidated = invalidated + 1 realInvalidate() end
 D.CollectionState = function() return "ready" end
+B.CanGet.Walk = function() end
 B.Facts.Here = function() end
 local realSave = B.Save
 B.Save = function(...) saves = saves + 1 return realSave(...) end
@@ -262,11 +281,18 @@ local c = created[1]
 assert(c.template == "ButtonFrameTemplate" and c.name == nil and c.parent == UIParent,
     "the window must be an unnamed ButtonFrameTemplate on UIParent")
 assert(frame.strata == "MEDIUM" and frame.toplevel and frame.clamped, "strata, top-level or clamp is wrong")
-local function TabWidth() return Win.TABS[1].frame.width end
-local tw = TabWidth()
-assert(tw == 64, "a short tab word must keep the 64-px tab")
 local ins = frame.insets
-assert(ins[1] == -5 and ins[2] == tw and ins[3] == 7 and ins[4] == 0, "the clamp insets are wrong")
+assert(ins[1] == -5 and ins[2] == 0 and ins[3] == 7 and ins[4] == 0, "the clamp insets are wrong")
+assert(fitArgs[1] == 5 + 860 and fitArgs[2] == 587, "the fit must not add a tab width")
+
+-- The tree is 172 px with a 4 px gap before the crumb bar and the host below it: 806 - 176 = 630 wide.
+local S, LO = B.Style, B.Style.layout
+local bar, tree = Win.bar, Win.bar.pts.TOPLEFT[2]
+assert(tree.width == 172 and bar.pts.TOPLEFT[3] == "TOPRIGHT" and bar.pts.TOPLEFT[4] == 4, "the tree column is wrong")
+assert(Win.host.pts.TOPLEFT[2] == bar and Win.host.pts.TOPLEFT[3] == "BOTTOMLEFT", "the host is not below the crumb bar")
+local hostWidth = S.window.width - LO.insetLeft - LO.insetRight - 2 * LO.panePad - 2 * LO.wellPad
+    - LO.pagePad - LO.pagePad - tree.width - bar.pts.TOPLEFT[4]
+assert(hostWidth == 630, "the host is " .. hostWidth .. " wide")
 assert(Find("render:summary") < Find("show"), "Summary was not drawn before the window showed")
 assert(frame.shown and frame.propagate == true, "the window is not shown with keys passing through")
 
@@ -311,13 +337,7 @@ assert(shownWith.catalog == "nil", "a plain tab switch must pass nil options")
 local filters = { search = "bench" }
 B.ShowTab("catalog", filters)
 assert(shownWith.catalog == filters, "tab options did not pass through unchanged")
-for i, want in ipairs({ false, true, false }) do
-    assert(Win.TABS[i].frame.checked == want, "the real side tabs do not highlight the Catalog tab")
-end
 B.ShowTab("sources", { type = "drops" })
-for i, want in ipairs({ false, false, true }) do
-    assert(Win.TABS[i].frame.checked == want, "the real side tabs do not highlight the Sources tab")
-end
 B.ShowTab("catalog")
 
 -- Close fade: Open during the fade cancels it and lands on Summary.
@@ -353,12 +373,12 @@ closeGroup.scripts.OnFinished()
 
 -- One-space clamp at s = 0.9.
 saved.position = { "TOPLEFT", 100, -100 }
-pw, ph, fitScale = 900, 700, 0.9
+pw, ph, fitScale = 850, 700, 0.9
 log = {}
 Win.Fit(true)
-assert(near(frame.x, 76.0, 0.01) and near(frame.y, -111.1, 0.1),
+assert(near(frame.x, 84.44, 0.01) and near(frame.y, -111.1, 0.1),
     ("the clamp at 0.9 anchored at %.2f, %.2f"):format(frame.x, frame.y))
-assert(near((frame.x - 5) * 0.9, 63.9, 0.01), "the portrait is off screen")
+assert(near((frame.x - 5) * 0.9, 71.5, 0.01), "the portrait is off screen")
 
 -- A malformed save leaves the window where it is.
 for _, bad in ipairs({ { "CENTER", 1, 2 }, { "TOPLEFT", nil, 3 }, 7, false }) do
@@ -411,15 +431,16 @@ for _, ev in ipairs({ "UI_SCALE_CHANGED", "DISPLAY_SIZE_CHANGED" }) do
     assert(Find("read") < Find("fit") and Find("fit") < Find("anchor", Find("fit")), ev .. " fit order")
 end
 
--- Text size: Gigantic words re-measure the tabs before the fit.
+-- Text size: Gigantic text re-measures the window before the fit.
 local owner, entry = next(registry)
 assert(owner and entry.event == "TextSizeManager.OnTextScaleUpdated", "the text-size callback is not registered")
 textScale, wordWidth, wordHeight = 2.0, 103.2, 24
 log = {}
+local measured = frame.insetCalls
 entry.fn()
-assert(near(TabWidth(), 115.2, 0.001) and near(fitArgs[1], 980.2, 0.001) and fitArgs[2] == 587,
-    "the Gigantic tab width or fit width is wrong")
-assert(frame.insets[2] == TabWidth(), "the clamp insets did not follow the tab width")
+assert(fitArgs[1] == 865 and fitArgs[2] == 587, "the Gigantic fit size is wrong")
+assert(Win.back.width == 14 + 4 + 103.2 + 1, "Back did not follow the text size")
+assert(frame.insetCalls == measured + 1 and frame.insets[2] == 0, "a text-size change did not re-measure")
 assert(Find("read") < Find("fit") and Find("fit") < Find("anchor", Find("fit")), "text-size fit order")
 assert(saves == 0, "a fit saved the position")
 
@@ -428,13 +449,15 @@ B:Close()
 closeGroup.scripts.OnFinished()
 assert(next(registry) == nil, "the text-size callback outlived the hide")
 textScale, wordWidth, wordHeight = 1, 40, 12
+measured = frame.insetCalls
 B:Open()
-assert(TabWidth() == 64, "a text-size change while hidden was not picked up")
+assert(frame.insetCalls == measured + 1, "a text-size change while hidden was not picked up")
+assert(Win.back.width == 14 + 4 + 40 + 1, "Back did not shrink with the text size")
 
--- Fit scales on 4:3 and 5:4 at UI scale 1.15, at Small and Gigantic text.
+-- Fit scales on narrow screens at Small and Gigantic text; the text size does not change the fit.
 local cases = {
-    { 890.4, 667.8, 0.8571, 40, 0.96 }, { 890.4, 667.8, 2.0, 103.2, 0.91 },
-    { 834.8, 667.8, 0.8571, 40, 0.90 }, { 834.8, 667.8, 2.0, 103.2, 0.85 },
+    { 830.4, 667.8, 0.8571, 40, 0.96 }, { 830.4, 667.8, 2.0, 103.2, 0.96 },
+    { 778.5, 667.8, 0.8571, 40, 0.90 }, { 778.5, 667.8, 2.0, 103.2, 0.90 },
 }
 for _, case in ipairs(cases) do
     pw, ph, textScale, wordWidth = case[1], case[2], case[3], case[4]
@@ -443,7 +466,7 @@ for _, case in ipairs(cases) do
     local s = frame:GetScale()
     assert(near(s, case[5], 0.005), ("fit scale %.3f, expected %.2f"):format(s, case[5]))
     local L, T = frame.x * s, ph + frame.y * s
-    assert(L - 5 * s >= -0.001 and L + (860 + TabWidth()) * s <= pw + 0.001, "the portrait or tabs are off screen")
+    assert(L - 5 * s >= -0.001 and L + 860 * s <= pw + 0.001, "the portrait or window is off screen")
     assert(T + 7 * s <= ph + 0.001 and T - 580 * s >= -0.001, "the window is off screen vertically")
 end
 
@@ -498,7 +521,7 @@ inCombat = false
 local walks, walkedAt = 0, nil
 B.CanGet.Walk = function()
     if D.MemoVersion() ~= walkedAt then walks, walkedAt = walks + 1, D.MemoVersion() end
-    return {}
+    return { progress = { owned = 0, total = 0 } }
 end
 B.RegisterTab("summary", {
     Build = function() end, Show = function() end, Hide = function() end, SetCombat = function() end,

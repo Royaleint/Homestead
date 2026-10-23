@@ -287,7 +287,6 @@ function Apply(keep, force)
     end
     PaintNav()
     PaintLine(words)
-    B.SetLocation(cat.kind == "all" and L["All decor"] or KIND[cat.kind])
     if force or cat.sel ~= shownSel then ShowDetail() end
 end
 

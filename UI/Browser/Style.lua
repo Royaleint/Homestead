@@ -1,4 +1,4 @@
--- Shared private table: the decor browser's colours, fonts, sizes and texture paths.
+-- Shared browser colours, fonts, sizes and textures.
 local _, HA = ...
 
 local B = {}
@@ -24,7 +24,9 @@ S.font = {
     body = "UserScaledFontGameHighlight",
     bodyGold = "UserScaledFontGameNormal",
     bodyMuted = "UserScaledFontGameDisable",
+    metaGold = "UserScaledFontGameNormalSmall",
     subheader = "UserScaledFontGameNormalMed2",
+    header = "UserScaledFontGameNormalLarge",
     display = "HomesteadBrowserDisplay",
 }
 local DISPLAY_SIZE = 24
@@ -65,13 +67,11 @@ local SP = S.space
 
 S.window = { width = 860, height = 580 }
 
--- Side tabs outside the right edge, as on the Housing Dashboard; the portrait overhangs the top-left
--- corner by pad.left and pad.top.
-S.tab = { top = 60, gap = 12, minWidth = 64, height = 55, wordPad = 12 }
+-- The portrait overhangs the top-left corner by these.
 S.pad = { left = 5, top = 7 }
+S.nav = { indent = 16, gap = 2 }
 
 S.layout = {
-    -- content rect {left, top, right, bottom}
     rect = { 2, 21, 2, 2 }, titleBar = 21,
     headerBand = 34, insetTop = 58,
     insetLeft = 4, insetRight = 6, insetBottom = 6,
@@ -80,7 +80,6 @@ S.layout = {
     pagePad = SP.m, scrollBarGap = 14,
 }
 
--- Heights come from measured text (Widgets.TextHeight); these are only the padding around it.
 S.row = { pad = 6, gap = 2, tile = 30 }
 S.cols = { nav = 172, detail = 252, gap = SP.xs }
 
@@ -97,9 +96,11 @@ S.art = {
 S.atlas = {
     waypointOff = "Waypoint-MapPin-Untracked",
     waypointOn = "Waypoint-MapPin-Tracked",
+    expand = "common-icon-plus",
+    collapse = "common-icon-minus",
+    backArrow = "common-icon-backarrow",
 }
 
--- State marks, first atlas the client has wins; Vis.Marker falls back to a colour square.
 S.glyph = {
     check = { "common-icon-checkmark" },
     dot = { "common-radiobutton-dot" },
@@ -109,7 +110,6 @@ S.glyph = {
     star = { "tradeskills-star" },
 }
 
--- texcoords {l, r, t, b}
 S.coord = {
     wareIcon = { 0.07, 0.93, 0.07, 0.93 },
 }
@@ -118,7 +118,6 @@ S.material = {
     shadow = { 0, 0, 0 },
 }
 
--- Housing dashboard art behind the pane, under a neutral scrim; without the atlas the pane goes opaque.
 S.backdrop = {
     atlas = "housing-dashboard-bg-welcome",
     scrim = { 0.04, 0.045, 0.05 },
@@ -170,13 +169,11 @@ S.state = {
     live = { word = L["Active now"], glyph = "clock", color = K.badge },
 }
 
--- Each Sources type's name, on the Sources nav, the Catalog filters and the Summary counts.
 S.sourceLabel = {
     vendors = L["Vendors"], achievements = L["Achievements"], quests = L["Quests"], professions = L["Professions"],
     drops = L["Drops"], events = L["Events"], shop = L["Shop"],
 }
 
--- Decor kinds, as on the Catalog nav; categoryIDs may be an array or a set.
 S.kind = { [1] = L["Furnishings"], [2] = L["Structural"], [3] = L["Accents"], [4] = L["Lighting"], other = L["Other"] }
 function S.KindOf(info)
     for k, v in pairs(info and info.categoryIDs or {}) do

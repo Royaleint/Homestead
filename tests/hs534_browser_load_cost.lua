@@ -104,7 +104,7 @@ for _, fn in ipairs({ "Build", "Show", "Clear", "SetCombat" }) do
     assert(type(B.ItemDetail and B.ItemDetail[fn]) == "function", "ItemDetail." .. fn .. " is missing")
 end
 assert(type(B.Data.ReportText) == "function", "Data.ReportText is missing")
-for _, fn in ipairs({ "RegisterTab", "ShowTab", "Walk", "SetLocation" }) do
+for _, fn in ipairs({ "RegisterTab", "ShowTab", "Walk" }) do
     assert(type(B[fn]) == "function", "B." .. fn .. " is missing")
 end
 
