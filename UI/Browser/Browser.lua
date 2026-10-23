@@ -184,6 +184,9 @@ function B.ShowTab(key, opts)
         if opts.select then return B.Go({ kind = "vendor", id = opts.select.key }) end
         return B.Go({ kind = "allVendors", seed = opts })
     end
+    if key == "sources" and opts and opts.type and opts.select then
+        return B.Go({ kind = "source", key = opts.type, id = opts.select.key })
+    end
     local route = { kind = TAB_KIND[key], seed = opts }
     if opts and SEED_KEY[key] then route.key = opts[SEED_KEY[key]] or key == "catalog" and "all" or nil end
     B.Go(route)
@@ -422,6 +425,14 @@ end
 
 function B.HideTooltipFor(owner)
     if tooltip and tooltip:IsShown() and tooltip:GetOwner() == owner then tooltip:Hide() end
+end
+
+-- The game's own tooltip for a hyperlink (achievement, quest). A nil or empty link leaves no box.
+function B.ShowLinkTooltip(owner, link)
+    local tip = B.Tooltip()
+    tip:SetOwner(owner, "ANCHOR_RIGHT")
+    if link then tip:SetHyperlink(link) end
+    if tip:NumLines() == 0 then tip:Hide() else tip:Show() end
 end
 
 local LABEL = { 0.74, 0.70, 0.62 }

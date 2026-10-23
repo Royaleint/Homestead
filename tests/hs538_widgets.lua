@@ -31,7 +31,7 @@ function methods.SetFontObject(self, font) self.font = font end
 function methods.SetText(self, text) self.text = text end
 function methods.GetText(self) return self.text end
 function methods.SetWidth(self, w) self.width = w end
-function methods.GetWidth(self) return self.width or 0 end
+function methods.GetWidth(self) return rawget(self, "width") or 0 end
 function methods.SetSize(self, w, h) self.width, self.height = w, h end
 function methods.SetHeight(self, h) self.height = h end
 function methods.SetShown(self, on) self.shown = on end
@@ -57,9 +57,11 @@ function Widget(kind)
 end
 
 UIParent = Widget("UIParent")
+local frames = {}
 CreateFrame = function(kind, _, parent)
     local w = Widget(kind)
     w.parent = parent
+    frames[#frames + 1] = w
     if kind == "EditBox" then w.Instructions = Widget("FontString") end
     return w
 end
@@ -84,6 +86,7 @@ local S, W = B.Style, B.Widgets
 local K = S.color
 local searchBoxes = {}
 B.Window = { AddSearchBox = function(box) searchBoxes[#searchBoxes + 1] = box end }
+B.HideTooltipFor = noop
 
 local function find(text)
     for _, fs in ipairs(made) do
@@ -140,6 +143,57 @@ row:Set({ name = "Oak Bench", quality = 1, state = "can", line2 = "Vendor: Joruh
 assert(find("Vendor: Joruh (+2 more)"), "the source line is not drawn as given")
 assert(find("Not confirmed"), "the Not confirmed tag text is missing")
 assert(find("Active now"), "the Active now badge text is missing")
+
+-- The words and the price truncate before the left text does: on a narrow row the text that draws gets a width
+-- of what the box may take, the left text keeps at least half the room, and a recycled row on a wide row gets the
+-- natural widths back. A row whose width is not known yet draws everything whole.
+do
+    frames, made = {}, {}
+    local pad, tile = S.space.s, S.row.tile
+    local r = W.BuildRow(CreateFrame("Button", nil, Widget("Frame")))
+    local boxes = {}
+    for _, fr in ipairs(frames) do
+        if fr.parent == r then boxes[#boxes + 1] = fr end
+    end
+    local top, bottom = boxes[1], boxes[2]
+    local d = { name = "Oak Bench", state = "locked", arg = ("r"):rep(100), right = ("9"):rep(80), line2 = "Vendor: Joruh" }
+    r:Set(d)
+    local words, price = find(W.StateWords("locked", d.arg)), find(d.right)
+    local wordsWide, priceWide = rawget(words, "width"), rawget(price, "width")
+    assert(wordsWide == #words.text * 6 and priceWide == #price.text * 6, "a row with no width yet draws the words whole")
+    local left = pad + tile + pad
+    r.width = 300
+    r:Set(d)
+    local room = 300 - left - 2 * pad
+    local half = math.floor(room / 2)
+    assert(bottom.width <= room - #d.line2 * 6 and top.width <= room - #d.name * 6,
+        "each right box takes only the room its line's left text leaves: " .. tostring(bottom.width) .. ", " .. tostring(top.width))
+    assert(rawget(words, "width") < wordsWide and rawget(words, "width") >= 1, "the words themselves are narrowed, not only the box")
+    assert(rawget(price, "width") < priceWide and rawget(price, "width") >= 1, "and so is the price")
+    assert(room - bottom.width >= #d.line2 * 6, "the second line keeps the width its text needs")
+    -- A long left text keeps half the room and no more; with no second line the words are drawn whole.
+    r:Set({ name = ("n"):rep(100), state = "locked", arg = ("r"):rep(100), right = ("9"):rep(80), line2 = ("l"):rep(100) })
+    assert(bottom.width <= half and top.width <= half and room - bottom.width >= half, "a long left text keeps half the room")
+    local short = { name = "Oak Bench", state = "locked", arg = ("r"):rep(20) }
+    r:Set(short)
+    local sw = find(W.StateWords("locked", short.arg))
+    assert(rawget(sw, "width") == #sw.text * 6, "with no second line the words are drawn whole")
+    r:Set(d)
+    r.width = 200
+    r.scripts.OnSizeChanged(r)
+    assert(rawget(words, "width") < room, "a row redraws with its new width")
+    r.width = 5000
+    r.scripts.OnSizeChanged(r)
+    assert(rawget(words, "width") == wordsWide and rawget(price, "width") == priceWide, "the same row on a wide row gets the natural widths back")
+    -- Nothing leaves a text at width 0, which would mean unbounded.
+    r.width = 60
+    r:Set(d)
+    assert(rawget(words, "width") >= 1 and rawget(price, "width") >= 1, "a very narrow row floors the text at 1")
+    r.width = 300
+    r:Set({ name = "Oak Bench", state = "locked", arg = ("r"):rep(100), noTile = true })
+    assert(bottom.width <= 300 - 3 * pad and bottom.width > math.floor((300 - 3 * pad) / 2),
+        "a row with no tile and no second line gives the words the tile's room too")
+end
 
 -- Empty states say their own words; buttons show only for handlers a tab passes.
 local function empty(kind, d)

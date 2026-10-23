@@ -47,7 +47,7 @@ end
 local function ShowSource(sourceType, key)
     return function()
         if sourceType == "vendors" then B.Go({ kind = "vendor", id = key })
-        else B.ShowTab("sources", { type = sourceType, select = { key = key } }) end
+        else B.Go({ kind = "source", key = sourceType, id = key }) end
     end
 end
 

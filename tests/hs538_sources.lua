@@ -6,11 +6,11 @@
 local root = (... or "."):gsub("\\", "/"):gsub("/+$", "")
 
 -------------------------------------------------------------------------------
--- The Sources page, run through the real Sources.lua, Widgets, Facts, Adapter and
+-- The Sources file, run through the real Sources.lua, Widgets, Facts, Adapter and
 -- CanGet against stubbed data and recording widgets: grouping and row words, the
--- vendor page the file registers (head, location, lines, bar, wares), the select
--- contract for every source type, Hide's footer, the count refresh, and the walk discipline.
--- The page registers for the sources, vendors and allVendors routes; env.tab shows it the way
+-- vendor page and the source page the file registers (head, location, lines, bar, rows), the route
+-- every source row opens, Hide's footer, the count refresh, and the walk discipline.
+-- The list page registers for the sources, vendors and allVendors routes; env.tab shows pages the way
 -- B.ShowTab("sources", opts) and the router would, and types into the header box through Filter.
 -------------------------------------------------------------------------------
 
@@ -19,9 +19,10 @@ local Widget
 local made, all, boxes, views = {}, {}, {}, {}
 local scrolls = {}
 local methods = {}
-function methods.CreateFontString(_, _, _, font)
+function methods.CreateFontString(self, _, _, font)
     local fs = Widget("FontString")
     fs.font = font
+    fs.parent = self
     made[#made + 1] = fs
     return fs
 end
@@ -289,6 +290,12 @@ local function setup()
     B.Tooltip = function()
         return { SetOwner = noop, SetText = function(_, t) env.tip = t end, Show = noop }
     end
+    env.linkTips, env.achLinks, env.questLinks = {}, {}, {}
+    B.ShowLinkTooltip = function(owner, link) env.linkTips[#env.linkTips + 1] = { owner = owner, link = link } end
+    rawset(_G, "GetAchievementLink", function(id) return env.achLinks[id] end)
+    rawset(_G, "GetQuestLink", function(id) return env.questLinks[id] end)
+    -- Nothing on the Sources pages opens the achievement journal.
+    rawset(_G, "ShowAchievementFrameForAchievement", function() error("the achievement journal opened") end)
     B.HideTooltip, B.HideTooltipFor = noop, noop
     env.search = ""
     B.Window = { AddSearchBox = noop, hideNA = Widget("CheckButton"), SetSearch = function(text) env.search = text or "" end }
@@ -301,11 +308,20 @@ local function setup()
     local before = #all
     assert(loadfile(path))("Homestead", HA)
     env.framesAtLoad = #all - before
-    env.pages, env.vpage, env.B, env.W = pages, pages.vendor, B, B.Widgets
+    env.pages, env.vpage, env.spage, env.B, env.W = pages, pages.vendor, pages.source, B, B.Widgets
     -- What B.ShowTab("sources", opts) goes to; the header box takes the seed's search, or is cleared, first.
     -- This harness sends { type = "vendors", select } to allVendors; the real router sends it to the vendor page.
+    -- A pick of any other type goes to the source page, built on first use, as the router does.
     local tab = {}
     function tab.Show(opts)
+        if opts and opts.type ~= "vendors" and opts.select then
+            if not env.spageFrame then
+                env.spageFrame = Widget("Page")
+                pages.source:Build(env.spageFrame)
+            end
+            pages.source:Show({ kind = "source", key = opts.type, id = opts.select.key })
+            return
+        end
         local route = opts and opts.type == "vendors" and { kind = "allVendors", seed = opts }
             or { kind = "sources", key = opts and opts.type, seed = opts }
         B.Window.SetSearch(opts and opts.search)
@@ -384,12 +400,40 @@ local function shownText(sub)
     end
 end
 
--- True when the detail head shows this name (the head's name is the only subheader text on the page).
-local function headShows(name)
-    for _, fs in ipairs(made) do
-        if fs.shown and fs.font == "UserScaledFontGameNormalMed2" and fs.text == name then return true end
+-- True when w is top or sits under it with nothing hidden on the way.
+local function within(w, top)
+    while w do
+        if rawget(w, "shown") == false then return false end
+        if w == top then return true end
+        w = rawget(w, "parent")
     end
     return false
+end
+
+-- The text of the shown font string on the source page that has exactly this text, or contains it.
+local function pageText(env, text, plain)
+    for _, fs in ipairs(made) do
+        if fs.shown and within(fs, env.spageFrame) and (fs.text == text or plain and fs.text:find(text, 1, true)) then
+            return fs.text
+        end
+    end
+end
+
+-- The source page's lines that carry a waypoint icon, shown, in build order: subtitle, starts, dig site.
+local function pinLines(env)
+    local out = {}
+    for _, w in ipairs(all) do
+        if w.kind == "Frame" and rawget(w, "wp") and w.shown and within(w, env.spageFrame) then out[#out + 1] = w end
+    end
+    return out
+end
+
+-- Lands on a source list with the row lit, as a direct Go with a select seed does.
+local function land(env, t, key, extra)
+    local seed = { select = { key = key } }
+    for k, v in pairs(extra or {}) do seed[k] = v end
+    env.B.Window.SetSearch(nil)
+    env.pages.sources:Show({ kind = "sources", key = t, seed = seed })
 end
 
 local function same(a, b)
@@ -651,32 +695,38 @@ do
 end
 
 -------------------------------------------------------------------------------
--- Rows open the vendor page; a vendor list is only a list and never fills the detail pane
+-- Rows open pages: a vendor row the vendor page, any other row the page of its source; a list selects nothing
 -------------------------------------------------------------------------------
 
 do
     local env = setup()
     world(env)
-    local main, decor = build(env)
+    local main = build(env)
     env.tab.Show({ type = "vendors" })
     row(main, 100).onClick()
     assert(#env.went == 1 and env.went[1].kind == "vendor" and env.went[1].id == 100, "a vendor row opens its page")
     assert(env.shown[#env.shown] == nil, "and goes through no tab")
     for _, d in ipairs(main.data) do assert(not d.selected, "a vendor list selects no row") end
-    assert(rawget(decor, "data") == nil and not headShows("Anna"), "a vendor list never fills the detail pane")
     env.tab.Show({ type = "vendors", select = { key = 100 } })
-    assert(not headShows("Anna") and rawget(decor, "data") == nil, "a pick in a vendor list opens no degraded detail pane")
-    local before = #env.shown
-    row(main, 100).onClick()
-    assert(#env.shown == before and env.went[2].id == 100, "a vendor row never selects in place")
-    env.tab.Show({ type = "achievements" })
-    row(main, 9001).onClick()
-    assert(#env.went == 2 and headShows("Ach A"), "other rows still select in place")
-    print("hs538_sources: vendor rows ok")
+    for _, d in ipairs(main.data) do assert(not d.selected, "a pick in a vendor list lights no row") end
+    for _, t in ipairs({ { "achievements", 9001 }, { "quests", 7001 }, { "professions", 8001 }, { "drops", "Boss|Keep" },
+        { "events", "Noblegarden" } }) do
+        env.tab.Show({ type = t[1] })
+        local before = #env.went
+        row(main, t[2]).onClick()
+        local go = env.went[#env.went]
+        assert(#env.went == before + 1 and go.kind == "source" and go.key == t[1] and go.id == t[2] and go.seed == nil,
+            t[1] .. ": a source row opens the source's page")
+        for _, d in ipairs(main.data) do assert(not d.selected, t[1] .. ": a click selects nothing in the list") end
+    end
+    env.tab.Show({ type = "shop" })
+    rows(main)[1].onClick()
+    assert(env.went[#env.went].key == "shop" and env.went[#env.went].id == 61, "a Shop row opens its page")
+    print("hs538_sources: row routes ok")
 end
 
 -------------------------------------------------------------------------------
--- Other source details, the S4 lines and the Not confirmed rule
+-- The source page: head, kind named once, where it starts, event status, drop notes
 -------------------------------------------------------------------------------
 
 do
@@ -684,30 +734,202 @@ do
     world(env)
     local main = build(env)
     env.tab.Show({ type = "quests", select = { key = 7001 } })
-    local q = {}
-    for _, w in ipairs(all) do if rawget(w, "wp") and w.kind == "Frame" then q[#q + 1] = w end end
-    assert(#q == 2)
-    assert(q[1].shown and q[1].text.text == "Starts in Stormwind" and not q[2].shown, "quest start line")
-    assert(q[1].wp.wp.mapID == 10 and q[1].wp.wp.x == 0.5 and q[1].wp.wp.y == 0.6)
-    q[1].wp.scripts.OnClick(q[1].wp)
-    assert(env.waypoints[1][1] == 10 and env.waypoints[1][2] == 0.5, "the line's waypoint is set")
+    local lines = pinLines(env)
+    assert(#lines == 2, "the subtitle and the start line carry a waypoint slot: " .. #lines)
+    local sub, start = lines[1], lines[2]
+    assert(pageText(env, "Quest One") and sub.text.text == "Quest · Stormwind", "the head names the quest and the kind once: " .. sub.text.text)
+    assert(not sub.wp.shown, "a quest's subtitle has no waypoint")
+    assert(start.text.text == "Starts in Stormwind", "quest start line")
+    assert(start.wp.wp.mapID == 10 and start.wp.wp.x == 0.5 and start.wp.wp.y == 0.6, "the line's spot")
+    start.wp.scripts.OnClick(start.wp)
+    assert(env.waypoints[1][1] == 10 and env.waypoints[1][2] == 0.5 and env.waypoints[1][4].title == "Quest One",
+        "the line's waypoint is set")
     env.tab.Show({ type = "quests", select = { key = 7002 } })
-    assert(not q[1].shown and q[2].shown and q[2].text.text == "Dig site in Elwynn Forest", "dig site line")
-    assert(q[2].wp.wp.mapID == 11 and q[2].wp.wp.x == 0.2)
+    lines = pinLines(env)
+    assert(#lines == 2 and lines[2].text.text == "Dig site in Elwynn Forest", "dig site line")
+    assert(lines[2].wp.wp.mapID == 11 and lines[2].wp.wp.x == 0.2 and lines[2].wp.wp.y == 0.3)
+    assert(not pageText(env, "Starts in", true), "a dig site has no start line")
     assert(not shownText("Not confirmed"), "no Not confirmed for a non-vendor")
+    env.tab.Show({ type = "quests" })
     assert(not row(main, 7002).unconfirmed)
-    assert(shownText("Gives 1 decor.") and not shownText("Sells"))
+    assert(not shownText("Gives 1 decor.") and not shownText("Sells"), "the old summary sentence is gone")
+
     env.tab.Show({ type = "drops", select = { key = "Boss|Keep" } })
-    local go = frameWith(function(w) return w.kind == "Button" and w.text == "Set waypoint" and rawget(w, "target") end)
-    assert(go.shown and go.target.mapID == 10 and go.target.x == 0.1, "a drop with coordinates has a waypoint")
-    assert(shownText("Rare."), "the drop's notes show")
+    lines = pinLines(env)
+    assert(#lines == 1 and lines[1].text.text == "Drop · Keep", "a drop's subtitle")
+    assert(lines[1].wp.shown and lines[1].wp.wp.mapID == 10 and lines[1].wp.wp.x == 0.1 and lines[1].wp.wp.title == "Boss",
+        "a drop with coordinates has a waypoint at the end of the subtitle")
+    assert(pageText(env, "Rare.", true), "the drop's notes show")
+    lines[1].wp.scripts.OnClick(lines[1].wp)
+    assert(env.waypoints[2][1] == 10 and env.waypoints[2][2] == 0.1, "and it sets the drop's waypoint")
+
     env.tab.Show({ type = "events", select = { key = "Noblegarden" } })
-    assert(shownText("Not active") and not go.shown, "an idle event says so and has no waypoint")
-    print("hs538_sources: other details ok")
+    assert(pinLines(env)[1].text.text == "Holiday event", "an event's subtitle already names the kind")
+    assert(pageText(env, "Not active"), "an idle event says so")
+    assert(not pageText(env, "Active now", true) and #pinLines(env) == 1 and not pinLines(env)[1].wp.shown,
+        "and has no waypoint")
+    env.calendar["Noblegarden"] = true
+    invalidate(env)
+    env.tab.Show({ type = "events", select = { key = "Noblegarden" } })
+    assert(pageText(env, "Active now", true) and not pageText(env, "Not active"), "a running event says Active now")
+    print("hs538_sources: source page ok")
 end
 
 -------------------------------------------------------------------------------
--- The select contract for every type
+-- A quest with no zone reads "Location not recorded", and the kind is named once
+-------------------------------------------------------------------------------
+
+do
+    local env = setup()
+    world(env)
+    env.decor(23)
+    env.HA.QuestSources[23] = { questID = 7003, questName = "Quest Lost" }
+    local main = build(env)
+    env.tab.Show({ type = "quests" })
+    assert(row(main, 7003).line2 == "Location not recorded", "the list subtitle: " .. tostring(row(main, 7003).line2))
+    assert(row(main, 7001).line2 == "Stormwind", "a quest with a zone keeps it")
+    env.tab.Show({ type = "quests", select = { key = 7003 } })
+    assert(pinLines(env)[1].text.text == "Quest · Location not recorded", "the page names the kind once")
+    assert(#pinLines(env) == 1, "no start or dig line without a spot")
+    env.tab.Show({ type = "achievements", select = { key = 9001 } })
+    assert(pinLines(env)[1].text.text == "Achievement · Catb", "a category follows the kind")
+    env.tab.Show({ type = "shop", select = { key = 61 } })
+    assert(pinLines(env)[1].text.text == "Shop", "a subtitle that is the kind is not repeated")
+    print("hs538_sources: kind named once ok")
+end
+
+-------------------------------------------------------------------------------
+-- "M of N collected" and "Counting…" on the source page; the can-get line
+-------------------------------------------------------------------------------
+
+do
+    local env = setup()
+    world(env)
+    -- Anna sells item 1, so this achievement's one piece of decor can be had now.
+    env.HA.AchievementSources[1] = { achievementID = 9010, achievementName = "Ach Anna", category = "Cata" }
+    build(env)
+    env.tab.Show({ type = "achievements", select = { key = 9010 } })
+    assert(pageText(env, "0 of 1 collected"), "the page counts its own decor")
+    assert(pageText(env, "1 can get now"), "the can-get line")
+    allItemsOwned(env)
+    invalidate(env)
+    env.spage:Refresh("data")
+    assert(pageText(env, "1 of 1 collected") and not pageText(env, "can get now", true), "owned decor counts and the line goes")
+    env.done, env.attempted = false, false
+    invalidate(env)
+    env.spage:Refresh("stats")
+    assert(pageText(env, "Counting…") and not pageText(env, "of 1 collected", true), "the page waits for the collection")
+    print("hs538_sources: collected count ok")
+end
+
+-------------------------------------------------------------------------------
+-- A locked item reads "Not collected" on the page of its own requirement, and only there
+-------------------------------------------------------------------------------
+
+do
+    local env = setup()
+    local v = world(env)
+    local HA = env.HA
+    env.decor(71)
+    env.sell(71, v.here)
+    HA.AchievementSources[71] = { achievementID = 9005, achievementName = "Ach Own", category = "Cata" }
+    env.reqs["71:100"] = { { type = "achievement", id = 9005, name = "Ach Own", met = false } }
+    -- The same requirement, known by its name only, as the shipped prerequisite data has it.
+    env.decor(72)
+    env.sell(72, v.here)
+    HA.AchievementSources[72] = { achievementID = 9007, achievementName = "Ach Named", category = "Cata" }
+    env.reqs["72:100"] = { { type = "achievement", name = "Ach Named", met = false } }
+    -- Locked by something else, on the page of an achievement.
+    HA.AchievementSources[3] = { achievementID = 9006, achievementName = "Ach Other", category = "Cata" }
+    env.reqs["3:100"] = { { type = "unknown", text = "Mysterious Favor" } }
+    -- Locked by its own achievement and by something else.
+    env.decor(73)
+    env.sell(73, v.here)
+    HA.AchievementSources[73] = { achievementID = 9008, achievementName = "Ach Both", category = "Cata" }
+    env.reqs["73:100"] = { { type = "achievement", id = 9008, met = false }, { type = "unknown", text = "Mysterious Favor" } }
+    -- The right requirement type under another source's number and name.
+    env.decor(74)
+    env.sell(74, v.here)
+    HA.QuestSources[74] = { questID = 9005, questName = "Quest Same Number" }
+    env.reqs["74:100"] = { { type = "achievement", id = 9005, met = false } }
+    build(env)
+    local function state(t, key, itemID)
+        env.tab.Show({ type = t, select = { key = key } })
+        local box = boxes[#boxes]
+        for _, d in ipairs(box.data) do
+            if d.itemID == itemID then return d.state, d.arg end
+        end
+    end
+    assert(env.B.ItemState(71) == "locked", "the item is locked at its vendor")
+    local s = state("achievements", 9005, 71)
+    assert(s == "notOwned", "locked only by this achievement: Not collected here, got " .. tostring(s))
+    assert(env.B.ItemState(71) == "locked", "and still Locked everywhere else")
+    s = state("achievements", 9007, 72)
+    assert(s == "notOwned", "a requirement known by name matches the page's title: " .. tostring(s))
+    local arg
+    s, arg = state("achievements", 9006, 3)
+    assert(s == "locked" and arg == "Mysterious Favor", "another unmet requirement keeps Locked: " .. tostring(s))
+    s = state("achievements", 9008, 73)
+    assert(s == "locked", "one matching requirement among others keeps Locked: " .. tostring(s))
+    s = state("quests", 9005, 74)
+    assert(s == "locked", "an achievement requirement does not read as the quest of the same number: " .. tostring(s))
+    env.reqs["71:100"][1].met = true
+    invalidate(env)
+    s = state("achievements", 9005, 71)
+    assert(s == "can", "a met requirement is no longer a lock: " .. tostring(s))
+    print("hs538_sources: own requirement ok")
+end
+
+-------------------------------------------------------------------------------
+-- Achievement and quest rows show the game's tooltip on hover; nothing opens the journal
+-------------------------------------------------------------------------------
+
+do
+    local env = setup()
+    world(env)
+    local main = build(env)
+    local factory = views[1].factory
+    local function hover(d)
+        local frame
+        factory(function(frameType, init)
+            frame = Widget(frameType)
+            frame.built = false
+            init(frame, d)
+        end, d)
+        frame.scripts.OnEnter(frame)
+        return frame
+    end
+    env.achLinks[9001] = "|cffffff00|Hachievement:9001:0:0:0:0:0:0:0:0:0:0|h[Ach A]|h|r"
+    env.questLinks[7002] = "|cffffff00|Hquest:7002:80|h[Quest Two]|h|r"
+    env.tab.Show({ type = "achievements" })
+    local frame = hover(row(main, 9001))
+    assert(#env.linkTips == 1 and env.linkTips[1].owner == frame and env.linkTips[1].link == env.achLinks[9001],
+        "an achievement row shows the achievement's tooltip from its link")
+    hover(row(main, 9002))
+    assert(env.linkTips[2].link == nil, "an achievement the game has no link for asks for none")
+    env.tab.Show({ type = "quests" })
+    hover(row(main, 7002))
+    assert(env.linkTips[3].link == env.questLinks[7002], "a quest row shows the quest's tooltip from its link")
+    hover(row(main, 7001))
+    assert(env.linkTips[4].link == "quest:7001", "a quest with no link falls back to quest:id")
+    env.tab.Show({ type = "professions" })
+    hover(row(main, 8001))
+    env.tab.Show({ type = "vendors" })
+    hover(row(main, 100))
+    assert(#env.linkTips == 4, "other rows ask for no link tooltip")
+    -- Clicking selects nothing and opens no journal; the rows' pages show no journal control either.
+    env.tab.Show({ type = "achievements" })
+    row(main, 9001).onClick()
+    env.tab.Show({ type = "achievements", select = { key = 9001 } })
+    local f = assert(io.open(root .. "/UI/Browser/Sources.lua", "rb"))
+    local src = f:read("*a")
+    f:close()
+    assert(not src:find("ShowAchievementFrame", 1, true), "Sources refers to the achievement journal")
+    print("hs538_sources: row tooltips ok")
+end
+
+-------------------------------------------------------------------------------
+-- A source of every type opens its page, which names it; a list landing lights and scrolls to its row
 -------------------------------------------------------------------------------
 
 do
@@ -720,27 +942,35 @@ do
         { "professions", 8002, "Stew" }, { "drops", "Boss|Keep", "Boss" }, { "events", "Noblegarden", "Noblegarden" },
         { "shop", 61, "Shop Thing" },
     }
+    local spage = env.pages.source
     for _, p in ipairs(picks) do
         local t, key, title = p[1], p[2], p[3]
+        env.tab.Show({ type = t, select = { key = key } })
+        assert(pageText(env, title), t .. ": the page names " .. title)
+        assert(spage:Has({ kind = "source", key = t, id = key }), t .. ": the page has its source")
+        assert(not spage:Has({ kind = "source", key = t, id = "missing" }), t .. ": and not a missing one")
+        assert(env.B.SourceTitle(t, key) == title, t .. ": the crumb names it " .. title)
+
         env.tab.Show({ type = t, search = "zzz" })
         assert(env.search == "zzz" and main.shown == false, t .. ": a search with no matches")
-        env.tab.Show({ type = t, select = { key = key }, search = "ignored" })
-        assert(env.search == "", t .. ": select clears the header box and ignores opts.search")
+        land(env, t, key, { search = "ignored" })
+        assert(env.search == "", t .. ": a landing clears the header box and ignores the seed's search")
         local d = row(main, key)
-        assert(d and d.selected, t .. ": the row is selected")
+        assert(d and d.selected, t .. ": the row is lit")
         local last = scrolls[#scrolls]
         assert(last.box == main and main.data[last.index] == d, t .. ": scrolled to the row")
-        assert(headShows(title), t .. ": the detail head shows " .. title)
-        env.tab.Show({ type = t, select = { key = "missing" } })
-        local first = rows(main)[1]
-        assert(first.selected and headShows(first.name), t .. ": a missing key opens the first row")
+        land(env, t, "missing")
+        for _, r in ipairs(rows(main)) do assert(not r.selected, t .. ": a missing key lights no row") end
         env.tab.Show({ type = t })
-        assert(rows(main)[1].selected, t .. ": no select opens the first row")
+        for _, r in ipairs(rows(main)) do assert(not r.selected, t .. ": no landing lights no row") end
     end
-    env.tab.Show({ type = "achievements", select = { key = 9001 } })
+    assert(not spage:Has({ kind = "source", key = "vendors", id = 100 }), "a vendor is not a source page")
+    assert(not spage:Has({ kind = "source", key = "nowhere", id = 1 }), "nor a type that does not exist")
+    assert(env.B.SourceTitle("quests", "missing") == "Unknown", "a source that is gone reads Unknown in the crumb")
+    env.tab.Show({ type = "achievements" })
     env.tab.Show(nil)
-    assert(row(main, 9001).selected and #rows(main) == 2, "a plain switch keeps the state")
-    print("hs538_sources: select contract ok")
+    assert(#rows(main) == 2, "a plain switch keeps the type")
+    print("hs538_sources: source pages and landings ok")
 end
 
 -------------------------------------------------------------------------------
@@ -777,11 +1007,13 @@ do
     local picks = { { "achievements", 9001 }, { "quests", 7001 },
         { "professions", 8001 }, { "drops", "Boss|Keep" }, { "shop", 61 } }
     for _, p in ipairs(picks) do
-        env.tab.Show({ type = p[1], select = { key = p[2] } })
+        land(env, p[1], p[2])
         local d = row(main, p[2])
         assert(d and d.selected, p[1] .. " " .. tostring(p[2]) .. ": Hide alone does not stop a landing")
+        env.tab.Show({ type = p[1], select = { key = p[2] } })
+        assert(pageText(env, "Decor from this source"), p[1] .. ": a source Hide would hide still opens its page with its decor")
     end
-    env.tab.Show({ type = "achievements", select = { key = 9001 } })
+    land(env, "achievements", 9001)
     assert(not row(main, 9002), "the other collected source stays hidden")
     local fd = main.data[#main.data]
     assert(fd.kind == "foot" and fd.collected == 1 and fd.faction == 0
@@ -888,26 +1120,26 @@ do
     build(env)
     env.vpage:Build(Widget("Page"))
     env.vpage:Show({ kind = "vendor", id = 100 })
+    env.tab.Show({ type = "achievements", select = { key = 9001 } })
     local reports = {}
     for _, w in ipairs(all) do
         if w.kind == "Button" and (w.text == "Report a problem" or type(w.text) == "table" and w.text.text == "Report a problem") then
             reports[#reports + 1] = w
         end
     end
-    assert(#reports == 2, "the Sources pane and the vendor page each have a Report link")
-    local report, vreport = reports[1], reports[2]
+    assert(#reports == 2, "the source page and the vendor page each have a Report link, the lists none")
+    local vreport, report = reports[1], reports[2]
     assert(vreport.enabled ~= false and vreport.shown)
     vreport.scripts.OnClick()
     local r = env.reports[1]
     assert(r.title == "Report a data error" and r.text:find("Vendor 100: Anna, Stormwind, map 10 at 40.0, 50.0", 1, true)
         and r.text:find("Homestead: 9.9.9", 1, true), "the vendor report")
-    env.tab.Show({ type = "achievements", select = { key = 9001 } })
     assert(report.enabled ~= false and report.shown)
     report.scripts.OnClick()
     assert(env.reports[2].text:find("Achievement: Ach A", 1, true), "the source report")
 
-    env.tab.SetCombat(true)
-    assert(report.enabled == false, "disabled in combat")
+    env.spage:SetCombat(true)
+    assert(report.enabled == false and vreport.enabled ~= false, "the source page's link is disabled in combat")
     env.B.State.inCombat = true
     env.tab.Show({ type = "quests", select = { key = 7001 } })
     assert(report.enabled == false, "a new selection in combat stays disabled")
@@ -915,7 +1147,7 @@ do
     assert(env.tip == "Not available in combat", "the tooltip says why")
     env.tip = nil
     env.B.State.inCombat = false
-    env.tab.SetCombat(false)
+    env.spage:SetCombat(false)
     assert(report.enabled == true)
     Enter(report)
     assert(env.tip == nil, "no tooltip out of combat")
@@ -1002,7 +1234,7 @@ do
     allItemsOwned(env)
     local main = build(env)
     env.B.State.hideNA = true
-    env.tab.Show({ type = "achievements", select = { key = 9001 } })
+    land(env, "achievements", 9001)
     assert(row(main, 9001) and row(main, 9001).selected)
     assert(headText() == "2 of 2 collected", "the head counts hidden sources too: " .. tostring(headText()))
     env.tab.Show({ type = "quests" })
@@ -1011,7 +1243,7 @@ do
     local clash = env.vendor(61, { name = "Clash", zone = "Stormwind", mapID = 10 })
     env.sell(1, clash)
     invalidate(env)
-    env.tab.Show({ type = "shop", select = { key = 61 } })
+    land(env, "shop", 61)
     env.tab.Show({ type = "vendors" })
     assert(main.shown == false, "a source pin never keeps a vendor with the same key in a vendor list")
     print("hs538_sources: pin ends on a kind switch")
@@ -1032,11 +1264,91 @@ do
     assert(rows(main)[1].name == "Loaded", "the name fills in on the next refresh")
     env.tab.Hide()
     env.tab.Refresh("zone")
-    assert(rows(main)[1].name == "Loaded" and headShows("Loaded"), "Refresh after Hide redraws the detail")
+    assert(rows(main)[1].name == "Loaded", "Refresh after Hide redraws the list")
+
     for state, st in pairs(env.B.Style.state) do
         if st.color == env.B.Style.color.stop then assert(state == "faction", "red on " .. state) end
     end
     print("hs538_sources: names and contract ok")
+end
+
+-------------------------------------------------------------------------------
+-- The source page through a refresh: names fill in, a page torn down by Hide comes back on any reason,
+-- and a shown page ignores the reasons that change nothing it draws
+-------------------------------------------------------------------------------
+
+do
+    local env = setup()
+    world(env)
+    build(env)
+    env.tab.Show({ type = "shop", select = { key = 61 } })
+    assert(pageText(env, "Item 61") and env.B.SourceTitle("shop", 61) == "Item 61", "the shop page waits for its item's name")
+    env.names[61] = "Loaded"
+    env.spage:Refresh("names")
+    assert(pageText(env, "Loaded") and env.B.SourceTitle("shop", 61) == "Loaded", "the name fills in on the next refresh")
+    env.spage:Hide()
+    env.names[61] = "Reloaded"
+    env.spage:Refresh("hide")
+    assert(pageText(env, "Reloaded"), "Refresh after Hide redraws the page, whatever the reason")
+    env.names[61] = "Painted"
+    env.spage:Refresh("hide")
+    env.spage:Refresh("paint")
+    assert(pageText(env, "Reloaded") and not pageText(env, "Painted"), "Hide and paint refreshes of a shown page redraw nothing")
+    local n = walks(env)
+    for _, reason in ipairs({ "zone", "paint", "layout", "hide", "names", "stats" }) do
+        env.spage:Refresh(reason)
+        assert(walks(env) == n, reason .. " repaint walked")
+    end
+    invalidate(env)
+    env.spage:Refresh("data")
+    assert(walks(env) == n + 1, "a data refresh walks once")
+    assert(pageText(env, "Painted"), "and redraws")
+    print("hs538_sources: source page refresh ok")
+end
+
+-------------------------------------------------------------------------------
+-- The source page's text fits its page: a long subtitle is one line cut where the icon leaves room, the name has
+-- the cut-off tooltip, the count is a text line with no bar, and a list hides the tooltip it owns
+-------------------------------------------------------------------------------
+
+do
+    local env = setup()
+    world(env)
+    env.decor(42)
+    local zone = ("Z"):rep(80)
+    env.HA.DropSources[42] = { mobName = "Long", zone = zone, mapID = 10, coords = { x = 0.3, y = 0.4 } }
+    local main = build(env)
+    env.tab.Show({ type = "drops", select = { key = "Long|" .. zone } })
+    local sub = pinLines(env)[1]
+    assert(#sub.text.text * 6 > 200, "the subtitle is longer than the page")
+    local room = 200 - sub.wp:GetWidth() - env.B.Style.space.xs
+    assert(rawget(sub.text, "width") <= room and rawget(sub.text, "width") >= 1,
+        "a long subtitle is capped to leave the icon room: " .. tostring(rawget(sub.text, "width")))
+    env.tab.Show({ type = "drops", select = { key = "Boss|Keep" } })
+    sub = pinLines(env)[1]
+    assert(rawget(sub.text, "width") == #sub.text.text * 6 + 1, "a short subtitle keeps its own width")
+
+    local name
+    for _, f in ipairs(all) do
+        if f.kind == "Frame" and rawget(f, "scripts") and f.scripts.OnEnter and f.scripts.OnLeave and within(f, env.spageFrame) then
+            name = f
+        end
+    end
+    assert(name, "the name has the tooltip that shows it whole when it is cut off")
+
+    for _, w in ipairs(all) do
+        assert(not (w.kind == "StatusBar" and within(w, env.spageFrame)), "the source page draws no bar")
+    end
+    env.tab.Show({ type = "achievements", select = { key = 9002 } })
+    assert(pageText(env, "0 of 1 collected"), "the count is a text line")
+
+    local hides = 0
+    env.B.HideTooltip = function() hides = hides + 1 end
+    env.tab.Show({ type = "achievements" })
+    env.pages.sources:Hide()
+    assert(hides == 1, "a list hides the link tooltip its rows own")
+    assert(main.shown ~= nil)
+    print("hs538_sources: source page text fit ok")
 end
 
 print("hs538_sources: all ok")

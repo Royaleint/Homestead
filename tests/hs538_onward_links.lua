@@ -58,21 +58,14 @@ local function landsOnItem(env, itemID, fn, label)
     assert(row and row.d.selected == true, label .. ": the drawn row is not selected")
 end
 
--- Runs fn, then checks Sources landed on key: shown, the row selected, scrolled to, its decor listed.
+-- Runs fn, then checks the source page is open for key and lists the source's decor.
 local function landsOnSource(env, key, wares, fn, label)
-    local _, _, _, box = env.sourcesList()
-    local scrolls = #box.scrolls
     fn()
     eq(env.tab, "sources", label .. ": tab")
-    local rows, selected, _, nowBox = env.sourcesList()
-    eq(selected, key, label .. ": selected source")
-    local at
-    for i, d in ipairs(nowBox.provider) do if d.key == key then at = i end end
-    assert(at, label .. ": row missing")
-    assert(#nowBox.scrolls > scrolls, label .. ": the list was not scrolled")
-    eq(env.lastScroll(nowBox), at, label .. ": scrolled to the row")
-    eq(env.decorIds(), wares, label .. ": the detail lists the source's decor")
-    return rows
+    local last = env.crumb[#env.crumb]
+    eq(last.kind, "source", label .. ": page")
+    eq(last.id, key, label .. ": source")
+    eq(env.decorIds(), wares, label .. ": the page lists the source's decor")
 end
 
 -- Runs fn, then checks the vendor page is open for npcID and draws its wares.
@@ -344,10 +337,16 @@ do
     env.open()
     env.B.SetHideNA(true)
 
+    -- A source pick opens the source's page, so the list landing with a select seed is a direct Go.
+    local function landOnList(key)
+        env.B.Go({ kind = "sources", key = "achievements", seed = { select = { key = key } } })
+    end
     env.go("sources", { type = "achievements" })
     eq(env.sourceKeys(), "9002,9001", "achievements: Crate Feat hides before any landing")
-    env.go("sources", { type = "achievements", select = { key = 9003 } })
+    landOnList(9003)
     eq(env.sourceKeys(), "9002,9003,9001", "the landing pins the hidden achievement")
+    local _, lit = env.sourcesList()
+    eq(lit, 9003, "and lights its row")
 
     -- Tree rows and crumbs go to a list with no seed at all (env.go passes the type as a seed).
     env.B.Go({ kind = "sources", key = "quests" })
@@ -355,14 +354,14 @@ do
     env.B.Go({ kind = "sources", key = "achievements" })
     eq(env.sourceKeys(), "9002,9001", "an unseeded return to the type drops the pin")
 
-    env.go("sources", { type = "achievements", select = { key = 9003 } })
+    landOnList(9003)
     eq(env.sourceKeys(), "9002,9003,9001", "pinned again")
     env.go("summary")
     env.B.Back()
     eq(env.sourceKeys(), "9002,9001", "Back to a pinned landing does not pin it again")
 
     -- A seeded Go from the same list is a forward landing and pins.
-    env.go("sources", { type = "achievements", select = { key = 9003 } })
+    landOnList(9003)
     eq(env.sourceKeys(), "9002,9003,9001", "a seeded Go from the same list pins")
     print("hs538_onward_links: pin lasts one landing ok")
 end
@@ -383,12 +382,69 @@ do
     eq(env.searchText("catalog"), "o", "and its search box")
     eq(env.selectedItem(), shown, "and its selection")
 
-    env.go("sources", { type = "achievements", select = { key = 9002 } })
+    env.go("sources", { type = "achievements" })
     local keys = env.sourceKeys()
     env.go("catalog")
     env.go("sources")
     eq(env.sourceKeys(), keys, "Sources keeps its type")
-    local _, selected = env.sourcesList()
-    eq(selected, 9002, "and its selected row")
     print("hs538_onward_links: plain switch keeps state ok")
+end
+
+-------------------------------------------------------------------------------
+-- The source page through the real router: Back restores its scroll, a source that is gone falls back to its
+-- list, and a forward visit starts at the top
+-------------------------------------------------------------------------------
+
+do
+    local env = world()
+    local function onSource(id)
+        local last = env.crumb[#env.crumb]
+        return last.kind == "source" and last.id == id
+    end
+    env.go("sources", { type = "achievements", select = { key = 9002 } })
+    assert(onSource(9002), "a source pick opens the source's page")
+    local _, box = env.decorList()
+    local scrolled = {}
+    box.GetDerivedScrollOffset = function() return 88 end
+    box.ScrollToOffset = function(_, offset) scrolled[#scrolled + 1] = offset end
+    env.go("summary")
+    eq(#scrolled, 0, "leaving the page scrolls nothing")
+    env.B.Back()
+    assert(onSource(9002), "Back returns to the source's page")
+    eq(env.decorIds(), "2", "and lists its decor")
+    eq(scrolled[1], 88, "Back restores the page's scroll")
+    env.go("summary")
+    env.go("sources", { type = "achievements", select = { key = 9002 } })
+    eq(#scrolled, 1, "a forward visit starts at the top")
+
+    -- A source the data does not have falls back to its type's list, on a forward Go.
+    env.B.Go({ kind = "source", key = "quests", id = 99999 })
+    local last = env.crumb[#env.crumb]
+    eq(last.kind .. ":" .. tostring(last.key), "sources:quests", "a missing source lands on its list")
+    eq(env.sourceKeys(), "7001,7002", "and the list is drawn")
+
+    -- A source that goes while the player is elsewhere is dropped from Back; one that goes while its page is
+    -- open replaces the route, with no history step.
+    local page
+    for _, p in ipairs(env.pageList) do
+        if env.pageKinds[p] == "source" then page = p end
+    end
+    env.go("sources", { type = "quests", select = { key = 7001 } })
+    env.go("summary")
+    env.go("sources", { type = "quests", select = { key = 7002 } })
+    local has = page.Has
+    page.Has = function(self, route) return route.id ~= 7002 and has(self, route) end
+    env.dataChanged()
+    last = env.crumb[#env.crumb]
+    eq(last.kind .. ":" .. tostring(last.key), "sources:quests", "a page whose source went falls back to the list")
+    env.B.Back()
+    eq(env.crumb[#env.crumb].kind, "overview", "the fallback took no history step: Back returns to the page before the dead one")
+    env.B.Back()
+    assert(onSource(7001), "and the entry before that is still the first source's page")
+    page.Has = function() return false end
+    env.go("summary")
+    env.B.Back()
+    assert(env.crumb[#env.crumb].kind ~= "source", "Back drops a source page whose source is gone")
+    page.Has = has
+    print("hs538_onward_links: source page restore and fallback ok")
 end

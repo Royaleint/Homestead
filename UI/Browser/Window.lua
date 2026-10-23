@@ -180,6 +180,7 @@ local function Describe(r, last)
         return nil, nil, v and v.name or L["Unknown"]
     end
     if k == "item" then return nil, nil, B.Data.ItemName(r.id) or L["Item %d"]:format(r.id) end
+    if k == "source" then return nil, nil, B.SourceTitle(r.key, r.id) end
     return nil, nil, tostring(r.id)
 end
 

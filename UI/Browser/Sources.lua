@@ -1,5 +1,6 @@
--- Sources: the vendor lists (all vendors, one expansion), the six other source lists with a detail pane, and the
--- vendor page. One page serves the sources, vendors and allVendors routes. Rows are keyed by Facts.SourceKey.
+-- Sources: the vendor lists (all vendors, one expansion), the six other source lists, the vendor page and the
+-- page of one other source. One page serves the sources, vendors and allVendors routes. Rows are keyed by
+-- Facts.SourceKey.
 local _, HA = ...
 
 local B = HA.DecorBrowser
@@ -15,28 +16,34 @@ end
 
 local KIND = {
     vendors = { L["Vendor"], L["Search vendors and zones"] },
-    achievements = { L["Achievement"], L["Search achievements"], "AchievementSources",
-        function(d) return { title = d.achievementName, sub = d.category or L["Achievement"], group = d.category or L["Other"] } end },
+    achievements = { L["Achievement"], L["Search achievements"], "AchievementSources", function(d)
+        return { title = d.achievementName, sub = d.category or L["Achievement"], group = d.category or L["Other"],
+            achievementID = d.achievementID }
+    end },
     quests = { L["Quest"], L["Search quests"], "QuestSources", function(d)
         local at = Facts.TreasureSpot(d.questID) or Facts.QuestStart(d.questID)
-        return { title = d.questName, sub = MapName(at and at.mapID) or L["Quest"], questID = d.questID }
+        return { title = d.questName, sub = MapName(at and at.mapID) or L["Location not recorded"], questID = d.questID }
     end },
     professions = { L["Profession"], L["Search recipes and professions"], "ProfessionSources",
         function(d) return { title = d.recipeName, sub = d.skillTier or d.profession, group = d.profession } end },
     drops = { L["Drop"], L["Search drops and zones"], "DropSources",
         function(d) return { title = d.mobName, sub = d.zone, drop = d } end },
     events = { L["Event"], L["Search events"], "EventSources",
-        function(d) return { title = d.event, sub = L["Holiday event"] } end },
+        function(d) return { title = d.event, sub = L["Holiday event"], namesKind = true } end },
     shop = { L["Shop"], L["Search the Shop"], "ShopSources", function() return { sub = L["Shop"] } end },
 }
 local TYPES = CG.SOURCE_KEYS
-local IW = S.cols.detail - 2 * SP.m
+
+-- The game's own tooltip for the sources it describes.
+local LINK = {
+    achievements = function(s) return GetAchievementLink(s.achievementID) end,
+    quests = function(s) return GetQuestLink(s.questID) or ("quest:" .. s.questID) end,
+}
 
 local Page = {}
-local st = { type = "achievements", sel = {} }
+local st = { type = "achievements" }
 local now, query, wide = nil, "", false
 local c, head, list, empty, torn, asked, cs, static, vend, vendVer
-local U = {}
 
 local function Live(event)
     local CD = HA.CalendarDetector
@@ -99,8 +106,9 @@ local function VendorList(home)
     return out
 end
 
-local function Current()
-    return not wide and Statics()[st.type].by[st.sel[st.type]] or nil
+-- A shop source is named after its item, which may not have loaded yet.
+local function ShopTitle(s)
+    s.title = D.ItemName(s.items[1]) or L["Item %d"]:format(s.items[1])
 end
 
 -- Total decor, owned (nil until known) and can get now (nil until known).
@@ -159,7 +167,8 @@ local function RowData(s)
         kind = "row", key = s.key, name = s.title, line2 = s.sub, noTile = true, state = state, arg = arg,
         right = total == 0 and L["No decor"] or got and L["%d of %d"]:format(got, total) or L["%d decor"]:format(total),
         unconfirmed = v and not Facts.Confirmed(v) or nil,
-        onClick = function() if v then B.Go({ kind = "vendor", id = s.key }) else Page.Select(s.key) end end,
+        onClick = function() B.Go(v and { kind = "vendor", id = s.key } or { kind = "source", key = s.type, id = s.key }) end,
+        onEnter = LINK[s.type] and function(self) B.ShowLinkTooltip(self, LINK[s.type](s)) end or nil,
     }
 end
 
@@ -217,7 +226,7 @@ end
 local function BuildList(keep, zone)
     asked, cs = false, D.CollectionState()
     local t, hide = wide and "vendors" or st.type, B.State.hideNA
-    local pin = not wide and st.pin or nil
+    local landed = not wide and st.pin and st.pin.type == t and st.pin.key or nil
     -- In the player's own zone the seed means everything the Overview "Here" line counts: the zone and its child maps.
     local here = zone and Facts.Here()
     local nearby = here and here.zone == zone and here.maps or nil
@@ -235,11 +244,11 @@ local function BuildList(keep, zone)
     local out, live = {}, false
     local hidden, seen = { kind = "foot", hidden = 0, collected = 0, faction = 0, onShow = ShowHidden }, {}
     for _, s in ipairs(entries) do
-        if t == "shop" then s.title = D.ItemName(s.items[1]) or L["Item %d"]:format(s.items[1]) end
+        if t == "shop" then ShopTitle(s) end
         live = live or (t == "events" and Live(s.key))
         local v = s.vendor
         if q == "" or (s.title .. " " .. (s.sub or "") .. " " .. (s.group or "") .. " " .. (v and v.zone or "")):lower():find(q, 1, true) then
-            local why = hide and not (pin and pin.type == t and pin.key == s.key) and CG.HiddenBy(v and { vendor = v } or { items = s.items })
+            local why = hide and landed ~= s.key and CG.HiddenBy(v and { vendor = v } or { items = s.items })
             if why then
                 hidden.hidden = hidden.hidden + 1
                 hidden[why] = hidden[why] + 1
@@ -255,14 +264,6 @@ local function BuildList(keep, zone)
     end
     hidden.parts = Facts.FactionParts(seen)
     table.sort(out, Before)
-    local sel
-    if not wide then
-        local found = false
-        sel = st.sel[t]
-        for _, s in ipairs(out) do found = found or s.key == sel end
-        sel = found and sel or out[1] and out[1].key
-        st.sel[t] = sel
-    end
     local data, group, expansion, headAt, zoneAt = {}, nil, nil, nil, nil
     if t == "events" and not live then
         data[1] = { kind = "foot", text = L["No events active right now. Event decor is sold only while its event runs."] }
@@ -282,7 +283,7 @@ local function BuildList(keep, zone)
             zoneAt = headAt
         end
         local d = RowData(s)
-        d.selected = s.key == sel
+        d.selected = landed == s.key
         data[#data + 1] = d
     end
     local note = hidden.hidden > 0 and hidden or nil
@@ -304,13 +305,33 @@ local function BuildList(keep, zone)
     return zoneAt
 end
 
-local function Line(fs, role, text, w)
+local function Para(fs, role, text)
     fs:SetShown(text and true or false)
     if text then
         fs:SetFontObject(S.font[role])
         fs:SetText(text)
-        fs:SetSize(w or IW, W.TextHeight(role, text, w or IW))
     end
+end
+
+local function Line(fs, role, text, w)
+    Para(fs, role, text)
+    if text then fs:SetSize(w, W.TextHeight(role, text, w)) end
+end
+
+-- The requirement type that names a source of each page type.
+local OWN = { achievements = "achievement", quests = "quest" }
+
+-- A locked item reads "Not collected" on the page of its own requirement: at the vendor it would be bought from,
+-- at least one requirement is unmet and every unmet one is this source, by id or by the source's name.
+local function OwnRequirement(s, itemID, at)
+    local SM, kind, unmet = HA.SourceManager, OWN[s.type], 0
+    for _, r in ipairs(SM:GetRequirements(itemID, at) or {}) do
+        if SM:IsRequirementMet(r) ~= true then
+            if not (kind and r.type == kind and (r.id == s.key or r.name == s.title)) then return false end
+            unmet = unmet + 1
+        end
+    end
+    return unmet > 0
 end
 
 local function Rows(s, cells)
@@ -318,7 +339,8 @@ local function Rows(s, cells)
     for _, itemID in ipairs(s.items) do
         local e = CG.Entry(itemID)
         local info = e and e.info
-        local state, arg = B.ItemState(itemID, v and v.npcID)
+        local state, arg, at = B.ItemState(itemID, v and v.npcID)
+        if state == "locked" and not v and OwnRequirement(s, itemID, at) then state, arg = "notOwned", nil end
         rows[#rows + 1] = {
             kind = "row", name = D.ItemName(itemID, info) or L["Item %d"]:format(itemID),
             rank = state == "can" and 1 or state == "owned" and 3 or 2,
@@ -335,81 +357,10 @@ local function Rows(s, cells)
     return rows
 end
 
-local function SetHead(s)
-    U.name:SetText(s.title)
-    local h = W.TextHeight("subheader", s.title, IW)
-    U.name:SetHeight(h)
-    U.meta:SetText(KIND[s.type][1])
-    U.head:SetSize(IW, h + W.TextHeight("meta") + 2)
-end
-
-local function Lines(s, total, got, can)
-    local out = {}
-    if s.type == "events" then
-        out[1] = Live(s.key) and S.Colored(K.badge, L["Active now"]) or L["Not active"]
-    elseif s.type ~= "shop" then
-        out[1] = s.sub and S.Muted(s.sub)
-        out[2] = s.drop and s.drop.notes and S.Muted(s.drop.notes)
-    end
-    if total > 0 then
-        local text = L["Gives %d decor."]:format(total)
-        if got then text = text .. " " .. L["You have %d."]:format(got) end
-        if can and can > 0 then text = text .. " " .. S.Colored(K.can, L["%d you can get now."]:format(can))
-        elseif cs == "counting" then text = text .. " " .. L["Counting…"] end
-        out[5] = text
-    end
-    return out
-end
-
 local function Loc(s)
     local v, d = s.vendor, s.drop
     if v then return D.VendorLocation(v) end
     if d and d.coords and not (d.journalEncounterID or d.journalInstanceID) then return d.mapID, d.coords.x, d.coords.y end
-end
-
-local function Fill(s)
-    local els = { U.head, U.i1, U.i2, U.i3, U.i4, U.i5, U.q1, U.q2, U.go, U.hdr }
-    for _, el in ipairs(els) do el:Hide() end
-    local rows = s and Rows(s) or {}
-    U.report:SetShown(s ~= nil)
-    if not s then
-        Line(U.hdr, "bodyMuted", L["Pick a source to see its decor."])
-    else
-        SetHead(s)
-        U.head:Show()
-        local lines = Lines(s, Stats(s))
-        for i = 1, 5 do Line(U["i" .. i], "body", lines[i]) end
-        local qs, ts = s.questID and Facts.QuestStart(s.questID), s.questID and Facts.TreasureSpot(s.questID)
-        for i = 1, 2 do
-            local spot, f = (i == 1 and qs) or (i == 2 and ts) or nil, U["q" .. i]
-            f:SetShown(spot ~= nil)
-            if spot then
-                local text = (i == 1 and L["Starts in %s"] or L["Dig site in %s"]):format(MapName(spot.mapID) or L["Unknown"])
-                f.text:SetText(text)
-                f:SetHeight(math.max(26, W.TextHeight("body", text, IW - 30)))
-                f.wp.wp = { mapID = spot.mapID, x = spot.x, y = spot.y, title = s.title }
-            end
-        end
-        local mapID, x, y = Loc(s)
-        U.go:SetShown(mapID ~= nil)
-        U.go.target = { mapID = mapID, x = x, y = y, title = s.title }
-        Line(U.hdr, #rows > 0 and "bodyGold" or "bodyMuted", #rows > 0 and L["Decor from this source"]
-            or L["No decor is recorded here. If this source gives decor, report it below."])
-    end
-    local top = SP.m
-    for _, el in ipairs(els) do
-        if el:IsShown() then
-            el:ClearAllPoints()
-            el:SetPoint("TOPLEFT", c.detail, "TOPLEFT", SP.m, -top)
-            top = top + el:GetHeight() + SP.xs
-        end
-    end
-    U.report:Fit()
-    U.lh:ClearAllPoints()
-    U.lh:SetPoint("TOPLEFT", c.detail, "TOPLEFT", SP.m, -top)
-    U.lh:SetPoint("BOTTOMRIGHT", c.detail, "BOTTOMRIGHT", -SP.m, U.report:GetHeight() + 2 * SP.s)
-    U.list:SetShown(#rows > 0)
-    if #rows > 0 then U.list:SetData(rows) end
 end
 
 local function Report(s)
@@ -428,7 +379,6 @@ end
 
 local function Text(parent, role)
     local fs = S.Text(parent, role or "body", "OVERLAY")
-    fs:SetWidth(IW)
     fs:SetJustifyH("LEFT")
     return fs
 end
@@ -445,46 +395,7 @@ local function ReportButton(parent, current)
     return b
 end
 
-local function BuildDetail(pane)
-    U.head = CreateFrame("Frame", nil, pane)
-    U.name, U.meta = Text(U.head, "subheader"), Text(U.head, "metaMuted")
-    U.name:SetPoint("TOPLEFT")
-    U.meta:SetPoint("TOPLEFT", U.name, "BOTTOMLEFT", 0, -2)
-    for i = 1, 5 do U["i" .. i] = Text(pane) end
-    U.hdr = Text(pane)
-    for i = 1, 2 do
-        local f = CreateFrame("Frame", nil, pane)
-        f:SetSize(IW, 26)
-        f.text = S.Text(f, "body", "OVERLAY")
-        f.text:SetPoint("LEFT")
-        f.text:SetWidth(IW - 30)
-        f.text:SetJustifyH("LEFT")
-        f.wp = W.WaypointButton(f)
-        f.wp:SetPoint("RIGHT")
-        U["q" .. i] = f
-    end
-    U.go = W.NewButton(pane, L["Set waypoint"], function(self)
-        local w = self.target
-        if w then HA.Waypoints:Set(w.mapID, w.x, w.y, { title = w.title, data = w.data }) end
-    end)
-    U.lh = CreateFrame("Frame", nil, pane)
-    U.list = W.NewList(U.lh, { extent = W.RowHeight, kinds = { row = W.rowKind }, reclaim = true })
-    U.report = ReportButton(pane, Current)
-    U.report:SetPoint("BOTTOMLEFT", SP.m, SP.s)
-end
-
-local function Rebuild(keep, zone)
-    local at = BuildList(keep, zone)
-    if not wide then Fill(Current()) end
-    return at
-end
-
-function Page.Select(key)
-    st.sel[st.type] = key
-    Rebuild(true)
-end
-
--- The detail column belongs to the source lists; a vendor list takes the whole page.
+-- A source list keeps the detail column (empty until the lists take the whole page); a vendor list has none.
 local function Layout()
     c.detail:SetShown(not wide)
     c.list:ClearAllPoints()
@@ -515,7 +426,6 @@ function Page:Build(parent)
         kinds = { row = W.rowKind, header = W.headerKind, foot = footKind },
     })
     empty = W.NewEmptyState(lh)
-    BuildDetail(c.detail)
 end
 
 -- A source route with no usable key keeps the type the player last had.
@@ -545,21 +455,20 @@ function Page:Show(route, saved)
     if not wide then
         st.type = TypeOf(route)
         pick = seed and seed.select and seed.select.key
-        if seed then st.sel[st.type] = pick end
-        -- The pin exempts the landed row from Hide for this one landing; every later Show of a list drops it.
+        -- The landed row is lit and exempt from Hide for this one landing; every later Show of a list drops it.
         st.pin = pick and { type = st.type, key = pick } or nil
     end
     query = saved and saved.search or not pick and seed and seed.search or ""
     B.Window.SetSearch(query)
     Layout()
     c:Fit()
-    local at = Rebuild(false, seed and seed.zone)
+    local at = BuildList(false, seed and seed.zone)
     if saved and saved.scroll then
         list.box:ScrollToOffset(saved.scroll, true)
     elseif at then
         list.box:ScrollToElementDataIndex(at, ScrollBoxConstants.AlignBegin)
     elseif pick then
-        local idx = list.box:FindElementDataIndexByPredicate(function(d) return d.key == st.sel[st.type] end)
+        local idx = list.box:FindElementDataIndexByPredicate(function(d) return d.key == pick end)
         if idx then list.box:ScrollToElementDataIndex(idx) end
     end
 end
@@ -571,38 +480,59 @@ end
 function Page:Filter(text)
     if text == query then return end
     query, torn = text, false
-    Rebuild(false)
+    BuildList(false)
 end
 
 function Page:Hide()
     torn = true
+    B.HideTooltip()
 end
 
 function Page:Refresh(reason)
     if not (c and now) then return end
     if reason == "data" then B.Walk() end
     if reason == "paint" and not torn then
-        W.RepaintRows(list)
-        if not wide then
-            W.RepaintRows(U.list)
-            if Current() then SetHead(Current()) end
-        end
-        return
+        return W.RepaintRows(list)
     end
     if reason == "layout" then c:Fit() end
     torn = false
-    Rebuild(true)
+    BuildList(true)
 end
 
-function Page:SetCombat(inCombat)
-    if U.report then U.report:SetEnabled(not inCombat) end
-end
+-- The lists have no control that waits for the end of combat.
+function Page:SetCombat() end
 
 -- The vendor page is one scroll, so a large text size scrolls the page instead of clipping the head.
 local Vend, V = {}, {}
 local vid, vtorn
 local PORTRAIT, FLOOR, GAP, DOT = 88, 2 * S.ware.size + S.ware.gap, SP.s, 12
 local Draw
+
+-- The "● N can get now" line: a dot and its words.
+local function CanLine(parent)
+    local f = CreateFrame("Frame", nil, parent)
+    f.dot = f:CreateTexture(nil, "OVERLAY")
+    f.dot:SetSize(DOT, DOT)
+    Vis.Marker.Set(f.dot, S.state.some.glyph, S.state.some.color)
+    f.text = Text(f)
+    f.text:SetPoint("TOPLEFT", DOT + SP.xs, 0)
+    f.text:SetTextColor(unpack(S.state.some.color))
+    return f
+end
+
+-- Shown only for a count above 0. w, when known, is the line's width and wraps the words; otherwise they run on.
+local function SetCan(f, can, w)
+    f:SetShown(can > 0)
+    if can <= 0 then return end
+    local words = W.StateWords("some", can)
+    f.text:SetText(words)
+    local tw = w and w - DOT - SP.xs or f.text:GetUnboundedStringWidth() + 1
+    local h = W.TextHeight("body", words, tw)
+    f.text:SetSize(tw, h)
+    f.dot:SetPoint("TOPLEFT", 0, -(W.TextHeight("body") - DOT) / 2)
+    f:SetHeight(h)
+    if w then f:SetWidth(w) end
+end
 
 -- A tooltip for a one-line text that is cut off, or always when fs.tip is set. Returns the mouse frame.
 local function Clip(fs)
@@ -665,13 +595,7 @@ function Vend:Build(parent)
         if fs == V.conf then V.hit = hit end
     end
     V.pb, V.hdr, V.key = W.Bar(body), Text(body), Text(body)
-    V.can = CreateFrame("Frame", nil, body)
-    V.dot = V.can:CreateTexture(nil, "OVERLAY")
-    V.dot:SetSize(DOT, DOT)
-    Vis.Marker.Set(V.dot, S.state.some.glyph, S.state.some.color)
-    V.canText = Text(V.can)
-    V.canText:SetPoint("TOPLEFT", DOT + SP.xs, 0)
-    V.canText:SetTextColor(unpack(S.state.some.color))
+    V.can = CanLine(body)
     V.holder = CreateFrame("Frame", nil, body)
     V.grid = W.NewGrid(V.holder, S.ware.size, S.ware.gap)
     V.empty = W.NewEmptyState(V.holder)
@@ -735,14 +659,7 @@ function Draw(fresh, saved)
     V.pb:SetWidth(w)
     V.pb:Fit()
     V.pb:Set(ready and L["%d of %d collected"]:format(owned, n) or L["Counting…"], ready and n > 0 and owned / n)
-    local can = ready and CG.VendorCanCount(v) or 0
-    V.can:SetShown(can > 0)
-    local canText = W.StateWords("some", can)
-    local canH = W.TextHeight("body", canText, w - DOT - SP.xs)
-    V.can:SetSize(w, canH)
-    V.dot:SetPoint("TOPLEFT", 0, -(bh - DOT) / 2)
-    V.canText:SetSize(w - DOT - SP.xs, canH)
-    V.canText:SetText(canText)
+    SetCan(V.can, ready and CG.VendorCanCount(v) or 0, w)
     Line(V.hdr, "bodyGold", L["Wares"], w)
     Line(V.key, "bodyMuted", n > 0 and L["Corners: state top right, bonus top left, event bottom left, copies bottom right."], w)
     V.report:Fit()
@@ -805,7 +722,152 @@ function Vend:SetCombat(inCombat)
     if V.report then V.report:SetEnabled(not inCombat) end
 end
 
+-- The page of one other source: the achievement, quest, recipe, drop, event or shop item. Its elements stack
+-- from the top, each hanging from the one above, so a wrapped line pushes the rest down; the decor list takes
+-- what is left above the report link.
+local Src, A = {}, {}
+local srcID, srcType, srcTorn
+
+local function PinLine(parent, role)
+    local f = CreateFrame("Frame", nil, parent)
+    f.role = role
+    f.text = S.Text(f, role, "OVERLAY")
+    f.text:SetWordWrap(false)
+    f.text:SetPoint("LEFT")
+    f.wp = W.WaypointButton(f)
+    f.wp:SetPoint("LEFT", f.text, "RIGHT", SP.xs, 0)
+    return f
+end
+
+-- No text hides the line; a spot puts the waypoint icon at the end of the text. The text is one line, cut off
+-- where the icon and the page edge leave room.
+local function SetPinLine(f, text, spot, title)
+    f:SetShown(text ~= nil)
+    if not text then return end
+    f.text:SetText(text)
+    local room = A.page:GetWidth() - f.wp:GetWidth() - SP.xs
+    local width = f.text:GetUnboundedStringWidth() + 1
+    f.text:SetWidth(math.max(room > 0 and math.min(width, room) or width, 1))
+    f:SetHeight(math.max(f.wp:GetHeight(), W.TextHeight(f.role)))
+    f.wp:SetShown(spot ~= nil)
+    f.wp.wp = spot and { mapID = spot.mapID, x = spot.x, y = spot.y, title = title } or nil
+end
+
+-- The source of that type and key, named as the page and the crumb show it; nil when the data has none.
+local function Source(sourceType, key)
+    local bucket = Statics()[sourceType]
+    local s = bucket and bucket.by[key]
+    if s and sourceType == "shop" then ShopTitle(s) end
+    return s
+end
+
+function B.SourceTitle(sourceType, key)
+    local s = Source(sourceType, key)
+    return s and s.title or L["Unknown"]
+end
+
+function Src:Build(parent)
+    A.page = parent
+    A.head = CreateFrame("Frame", nil, parent)
+    A.name = Text(A.head, "subheader")
+    A.name:SetWordWrap(false)
+    Clip(A.name)
+    A.name:SetPoint("TOPLEFT")
+    A.name:SetPoint("TOPRIGHT")
+    A.sub = PinLine(A.head, "metaMuted")
+    A.sub:SetPoint("TOPLEFT", A.name, "BOTTOMLEFT", 0, -2)
+    A.sub:SetPoint("TOPRIGHT", A.name, "BOTTOMRIGHT", 0, -2)
+    A.start, A.dig = PinLine(parent, "body"), PinLine(parent, "body")
+    A.event, A.notes, A.hdr = Text(parent), Text(parent), Text(parent)
+    A.count = Text(parent)
+    A.can = CanLine(parent)
+    A.holder = CreateFrame("Frame", nil, parent)
+    A.list = W.NewList(A.holder, { extent = W.RowHeight, kinds = { row = W.rowKind }, reclaim = true })
+    A.report = ReportButton(parent, function() return A.s end)
+    A.report:SetPoint("BOTTOMLEFT")
+    A.stack = { A.head, A.start, A.dig, A.event, A.notes, A.count, A.can, A.hdr }
+end
+
+local function Stack()
+    local prev
+    for _, el in ipairs(A.stack) do
+        if el:IsShown() then
+            el:ClearAllPoints()
+            local to, left, right, gap = A.page, "TOPLEFT", "TOPRIGHT", 0
+            if prev then to, left, right, gap = prev, "BOTTOMLEFT", "BOTTOMRIGHT", -SP.xs end
+            el:SetPoint("TOPLEFT", to, left, 0, gap)
+            el:SetPoint("TOPRIGHT", to, right, 0, gap)
+            prev = el
+        end
+    end
+    A.holder:ClearAllPoints()
+    A.holder:SetPoint("TOPLEFT", prev, "BOTTOMLEFT", 0, -SP.s)
+    A.holder:SetPoint("BOTTOMRIGHT", A.page, "BOTTOMRIGHT", 0, A.report:GetHeight() + SP.s)
+end
+
+local function DrawSource(keep)
+    local s = Source(srcType, srcID)
+    cs, A.s = D.CollectionState(), s
+    local kind = KIND[srcType][1]
+    A.name:SetText(s.title)
+    local mapID, x, y = Loc(s)
+    -- The subtitle names the kind once: a sub that is the kind, or already names it, stands alone.
+    local sub = s.namesKind and s.sub or s.sub and s.sub ~= kind and L["%s · %s"]:format(kind, s.sub) or kind
+    SetPinLine(A.sub, sub, mapID and { mapID = mapID, x = x, y = y }, s.title)
+    A.head:SetHeight(W.TextHeight("subheader") + 2 + A.sub:GetHeight())
+
+    local start, dig = s.questID and Facts.QuestStart(s.questID), s.questID and Facts.TreasureSpot(s.questID)
+    SetPinLine(A.start, start and L["Starts in %s"]:format(MapName(start.mapID) or L["Unknown"]), start, s.title)
+    SetPinLine(A.dig, dig and L["Dig site in %s"]:format(MapName(dig.mapID) or L["Unknown"]), dig, s.title)
+    Para(A.event, "body", srcType == "events" and (Live(s.key) and S.Colored(K.badge, L["Active now"]) or L["Not active"]) or nil)
+    Para(A.notes, "body", s.drop and s.drop.notes and S.Muted(s.drop.notes))
+
+    local rows = Rows(s)
+    local total, got, can = Stats(s)
+    Para(A.count, "body", total > 0 and (got and L["%d of %d collected"]:format(got, total) or L["Counting…"]) or nil)
+    SetCan(A.can, can or 0)
+    Para(A.hdr, #rows > 0 and "bodyGold" or "bodyMuted",
+        #rows > 0 and L["Decor from this source"] or L["No decor is recorded here. If this source gives decor, report it below."])
+    A.report:Fit()
+    A.list:SetShown(#rows > 0)
+    if #rows > 0 then A.list:SetData(rows, keep) end
+    Stack()
+end
+
+function Src:Has(route)
+    return Source(route.key, route.id) ~= nil
+end
+
+function Src:Show(route, saved)
+    srcType, srcID, srcTorn = route.key, route.id, false
+    DrawSource(false)
+    if saved and saved.scroll then A.list.box:ScrollToOffset(saved.scroll, true) end
+end
+
+function Src:Save()
+    return { scroll = A.list.box:GetDerivedScrollOffset() }
+end
+
+function Src:Hide()
+    srcTorn = true
+    B.HideTooltip()
+end
+
+function Src:Refresh(reason)
+    if not (A.list and srcID) then return end
+    if reason == "data" then B.Walk() end
+    if not srcTorn and reason == "hide" then return end
+    if not srcTorn and reason == "paint" then return W.RepaintRows(A.list) end
+    srcTorn = false
+    DrawSource(true)
+end
+
+function Src:SetCombat(inCombat)
+    if A.report then A.report:SetEnabled(not inCombat) end
+end
+
 B.RegisterPage("sources", Page)
 B.RegisterPage("vendors", Page)
 B.RegisterPage("allVendors", Page)
 B.RegisterPage("vendor", Vend)
+B.RegisterPage("source", Src)

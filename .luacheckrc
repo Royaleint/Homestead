@@ -113,7 +113,7 @@ read_globals = {
     "UiMapPoint",
 
     -- WoW API (functions)
-    "GetAchievementCriteriaInfo", "GetAchievementInfo",
+    "GetAchievementCriteriaInfo", "GetAchievementInfo", "GetAchievementLink", "GetQuestLink",
     "GetItemCount", "GetItemInfo", "GetItemInfoInstant",
     "GetCoinTextureString",
     "GetCVarBool",  -- HS-347: dungeon/delve entrance map-legend filter check

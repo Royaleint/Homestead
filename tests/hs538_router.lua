@@ -137,7 +137,7 @@ local function NewPage()
     return p
 end
 
-local overview, catalog, vendor = NewPage(), NewPage(), NewPage()
+local overview, catalog, vendor, source = NewPage(), NewPage(), NewPage(), NewPage()
 local multi = NewPage()
 for i = 1, 60 do vendor.known[i] = true end
 function vendor:Has(route) return self.known[route.id] == true end
@@ -145,6 +145,7 @@ B.RegisterPage("overview", overview)
 B.RegisterPage("catalog", multi)
 B.RegisterPage("item", multi)
 B.RegisterPage("vendor", vendor)
+B.RegisterPage("source", source)
 B.RegisterPage("sources", catalog)
 B.RegisterPage("vendors", catalog)
 B.RegisterPage("allVendors", catalog)
@@ -153,10 +154,10 @@ B:Open()
 eq(shown, true, "the browser did not open")
 eq(overview.builds, 1, "overview was not built once")
 eq(multi.builds, 1, "a page under two kinds must be built once")
-eq(vendor.builds + catalog.builds, 2, "the other pages were not built once each")
+eq(vendor.builds + catalog.builds + source.builds, 3, "the other pages were not built once each")
 local children = 0
 for _, f in ipairs(made) do if f.parent == host then children = children + 1 end end
-eq(children, 4, "one frame per page object under the host")
+eq(children, 5, "one frame per page object under the host")
 eq(overview.route.kind, "overview", "an open must land on overview")
 eq(backs[#backs], false, "an open has no history")
 eq(navs[#navs].kind, "overview", "the nav was not told the route")
@@ -414,7 +415,14 @@ Resolve("catalog", { itemID = 5 }, "catalog", "all")
 Resolve("catalog", { sort = "name", itemID = 5 }, "catalog", "all")
 Resolve("sources", nil, "sources", nil)
 Resolve("sources", { type = "vendors" }, "allVendors", nil)
-Resolve("sources", { type = "quests", select = { key = 7 } }, "sources", "quests")
+
+-- A source pick routes to the source page by type and key, with no seed.
+went = nil
+B.ShowTab("sources", { type = "quests", select = { key = 7 } })
+eq(went.kind, "source", "a source pick kind")
+eq(went.key, "quests", "a source pick type")
+eq(went.id, 7, "a source pick id")
+eq(went.seed, nil, "a source pick seed")
 
 -- A vendor pick routes to the vendor page by npcID, with no key and no seed.
 went = nil

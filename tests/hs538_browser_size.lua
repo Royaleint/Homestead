@@ -21,13 +21,13 @@ local CEIL = {
     ["Adapter.lua"] = 20000,
     ["Facts.lua"] = 6026,
     ["CanGet.lua"] = 16300,
-    ["Widgets.lua"] = 24400,
-    ["Window.lua"] = 21200,
-    ["Browser.lua"] = 16200,
+    ["Widgets.lua"] = 25700,
+    ["Window.lua"] = 21300,
+    ["Browser.lua"] = 16700,
     ["Summary.lua"] = 10100,
     ["Catalog.lua"] = 15700,
-    ["Sources.lua"] = 31400,
-    ["Item.lua"] = 13700,
+    ["Sources.lua"] = 34300,
+    ["Item.lua"] = 13600,
 }
 
 local function readFile(path)

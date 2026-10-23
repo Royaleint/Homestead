@@ -234,7 +234,7 @@ do
     assert(Win.crumbs[1].route and not Win.crumbs[2].route, "the earlier segment links and the last does not")
     B.Go({ kind = "sources", key = "drops" })
     Win.SetCrumb(B.Home({ kind = "source", key = "quests", id = 7001 }))
-    eq(crumbText(Win), "Quests>7001", "a source sits under its type, not under the page before it")
+    eq(crumbText(Win), "Quests>Quest One", "a source sits under its type, not under the page before it, and is named")
     Win.crumbs[1].btn.scripts.OnClick()
     eq(env.tab, "sources", "a link opens that page")
     eq(crumbText(Win), "Quests")

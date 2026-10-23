@@ -666,7 +666,7 @@ return function(root, opts)
         local shows = env.itemShows
         return shows[#shows]
     end
-    -- Sources: the main list's rows, the selected key, and the decor list under the detail.
+    -- Sources: the main list's rows, the lit key, and the decor list of the source page.
     function env.sourcesList()
         local box = env.boxes("sources")[1]
         local rows, footer, selected = {}, nil, nil
@@ -686,7 +686,10 @@ return function(root, opts)
         return table.concat(keys, ",")
     end
     function env.decorList()
-        local box = env.boxes("sources")[2]
+        local box
+        for _, b in ipairs(env.boxList) do
+            if env.ownerKind(b) == "source" then box = b end
+        end
         local rows = {}
         for _, d in ipairs(box.provider) do
             if d.kind == "row" then rows[#rows + 1] = d end

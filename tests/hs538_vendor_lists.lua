@@ -105,22 +105,25 @@ do
     print("hs538_vendor_lists: expansion lists ok")
 end
 
--- Rows open the vendor page and never select; the detail column belongs to the source lists.
+-- Rows open the vendor page and never select; the detail column belongs to the source lists, where it stays empty.
 do
     local env = world()
     env.B.Go({ kind = "allVendors" })
     local _, box = shape(env)
     for _, d in ipairs(box.provider) do assert(not d.selected, "a vendor list selects no row") end
-    local detail = env.boxes("sources")[2].parent.parent
+    -- The list box sits in the holder, the well, the list column and the page; the detail column is the page's first child.
+    local listPage = env.boxes("sources")[1].parent.parent.parent.parent
+    local detail
+    for _, f in ipairs(env.all) do
+        if f.parent == listPage and not detail then detail = f end
+    end
     eq(detail.shown, false, "a vendor list hides the detail column")
-    eq(#(env.decorList()), 0, "and fills nothing in it")
     local d
     for _, row in ipairs(box.provider) do if row.key == 101 then d = row end end
     d.onClick()
     eq(env.route.kind .. ":" .. env.route.id, "vendor:101", "a row opens the vendor page")
     env.B.Go({ kind = "sources", key = "achievements" })
     eq(detail.shown, true, "a source list shows it again")
-    assert(#(env.decorList()) > 0, "and fills it")
     env.B.Go({ kind = "vendors", key = "Midnight" })
     eq(detail.shown, false, "an expansion list hides it")
     print("hs538_vendor_lists: rows and detail ok")
@@ -191,7 +194,7 @@ end
 -- Landing on the selected row centres it (Blizzard's default); only a zone header is aligned to the top.
 do
     local env = world()
-    env.go("sources", { type = "quests", select = { key = 7002 } })
+    env.B.Go({ kind = "sources", key = "quests", seed = { select = { key = 7002 } } })
     local _, box = shape(env)
     eq(box.scrolls[#box.scrolls] ~= nil, true, "the selected row was scrolled to")
     eq(box.aligns[#box.scrolls], nil, "and left at the default alignment")

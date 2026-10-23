@@ -111,7 +111,7 @@ end
 for _, key in ipairs({ "summary", "catalog", "sources" }) do
     B.RegisterTab(key, { Build = noop, Show = noop, Hide = noop, Refresh = noop, SetCombat = noop })
 end
-for _, kind in ipairs({ "vendor", "vendors", "allVendors" }) do
+for _, kind in ipairs({ "vendor", "vendors", "allVendors", "source" }) do
     B.RegisterPage(kind, { Build = noop, Show = noop, Hide = noop, Refresh = noop, SetCombat = noop })
 end
 

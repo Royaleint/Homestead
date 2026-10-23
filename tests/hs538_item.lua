@@ -183,8 +183,6 @@ assert(loadfile(root .. "/UI/Browser/Item.lua"))("Homestead", HA)
 local S, D, CG, K = B.Style, B.Data, B.CanGet, B.Style.color
 local Item = B.ItemDetail
 
-local shown = {}
-B.ShowTab = function(key, opts) shown[#shown + 1] = { key = key, opts = opts } end
 local routed = {}
 B.Go = function(route) routed[#routed + 1] = route end
 local realWalk = CG.Walk
@@ -347,7 +345,7 @@ do
     assert(indexOf(list, "Can get now here") < iFar, "Can get now here is not in the open vendor's block")
     assert(has(list, "Horde only"), "no faction stop line")
 
-    -- Every Show button goes to the Sources key builder; Shop has none.
+    -- Every Show button opens the source's page by type and key; Shop has none.
     local function act(label)
         for _, d in ipairs(list) do
             if d.act == label then return d end
@@ -356,13 +354,13 @@ do
     for label, want in pairs({ ["Show recipe"] = { "professions", 55 }, ["Show drop"] = { "drops", "Boss|Dungeon" },
         ["Show event"] = { "events", "Midsummer" }, ["Show quest"] = { "quests", 9 } }) do
         local d = assert(act(label), label .. " has no button")
-        shown = {}
+        routed = {}
         d.fn()
-        assert(shown[1].key == "sources" and shown[1].opts.type == want[1] and shown[1].opts.select.key == want[2],
-            label .. " goes to the wrong key")
+        assert(#routed == 1 and routed[1].kind == "source" and routed[1].key == want[1] and routed[1].id == want[2]
+            and routed[1].seed == nil, label .. " goes to the wrong page")
     end
     local shows, npcs = 0, {}
-    shown = {}
+    routed = {}
     for _, d in ipairs(list) do
         if d.act == "Show vendor" then
             shows = shows + 1
@@ -372,7 +370,11 @@ do
     end
     assert(shows == 3, "each known vendor needs a Show vendor button, got " .. shows)
     table.sort(npcs)
-    assert(table.concat(npcs, ",") == "12,13,14" and #shown == 0, "Show vendor goes to the vendor page by npcID: " .. table.concat(npcs, ","))
+    assert(table.concat(npcs, ",") == "12,13,14" and #routed == 3, "Show vendor goes to the vendor page by npcID: " .. table.concat(npcs, ","))
+    local f = assert(io.open(root .. "/UI/Browser/Item.lua", "rb"))
+    local src = f:read("*a")
+    f:close()
+    assert(not src:find("ShowTab", 1, true), "the item page opens sources through the router, not a tab call")
     local shopAt = indexOf(list, "Shop")
     assert(shopAt and not (list[shopAt + 1] and (list[shopAt + 1].act or ""):find("Show")), "the Shop block has a Show button")
     print("hs538_item: order, open-first, gold labels and Show keys ok")
@@ -781,6 +783,38 @@ do
     local state = B.ItemState(5555)
     assert(state == nil or state == "notOwned", "an id with no record reads " .. tostring(state))
     print("hs538_item: id with no record ok")
+end
+
+-- The link tooltip: the game's own tooltip for a hyperlink on the browser's dedicated frame. A link the game
+-- cannot describe, or none, leaves no empty box.
+do
+    local realTooltip = B.Tooltip
+    local lines, hyperlinks, owners, visible = 0, {}, {}, false
+    local tip = {
+        SetOwner = function(_, owner, anchor)
+            owners[#owners + 1] = { owner, anchor }
+            lines, visible = 0, false
+        end,
+        SetHyperlink = function(_, link)
+            hyperlinks[#hyperlinks + 1] = link
+            lines = link == "achievement:9001" and 3 or 0
+        end,
+        NumLines = function() return lines end,
+        Show = function() visible = true end,
+        Hide = function() visible = false end,
+    }
+    B.Tooltip = function() return tip end
+    local owner = {}
+    B.ShowLinkTooltip(owner, "achievement:9001")
+    assert(hyperlinks[1] == "achievement:9001" and owners[1][1] == owner and owners[1][2] == "ANCHOR_RIGHT" and visible,
+        "the tooltip is set from the link on the row")
+    B.ShowLinkTooltip(owner, "quest:7")
+    assert(hyperlinks[2] == "quest:7" and not visible, "a link the game cannot describe leaves no empty tooltip")
+    visible = true
+    B.ShowLinkTooltip(owner, nil)
+    assert(#hyperlinks == 2 and not visible, "no link sets nothing and hides the tooltip")
+    B.Tooltip = realTooltip
+    print("hs538_item: link tooltip ok")
 end
 
 print("hs538_item: ok")

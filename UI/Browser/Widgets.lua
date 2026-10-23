@@ -206,14 +206,34 @@ function W.SetTile(tile, d, r, g, b)
     tile.border:SetVertexColor(r, g, b, 1)
 end
 
-local function Pack(box, ...)
+local function Natural(el)
+    return el.GetUnboundedStringWidth and el:GetUnboundedStringWidth() or el:GetWidth()
+end
+
+-- Lays the shown elements right to left in box. The first is a text: with a cap (the most the box may take) it
+-- gets what the others leave and truncates there, and without one it gets its natural width back, since a
+-- recycled row keeps the last width it was given. A width of 0 would mean unbounded, so it never goes below 1.
+local function Pack(box, cap, first, ...)
+    local others = 0
+    for i = 1, select("#", ...) do
+        local el = select(i, ...)
+        if el:IsShown() then others = others + Natural(el) + SP.xs end
+    end
     local x = 0
+    if first:IsShown() then
+        local natural = math.max(Natural(first), 1)
+        local w = cap and math.max(math.min(natural, cap - others), 1) or natural
+        first:SetWidth(w)
+        first:ClearAllPoints()
+        first:SetPoint("RIGHT", box, "RIGHT", 0, 0)
+        x = w + SP.xs
+    end
     for i = 1, select("#", ...) do
         local el = select(i, ...)
         if el:IsShown() then
             el:ClearAllPoints()
             el:SetPoint("RIGHT", box, "RIGHT", -x, 0)
-            x = x + (el.GetUnboundedStringWidth and el:GetUnboundedStringWidth() or el:GetWidth()) + SP.xs
+            x = x + Natural(el) + SP.xs
         end
     end
     box:SetWidth(math.max(x - SP.xs, 1))
@@ -246,6 +266,12 @@ local function BuildRight(row)
     return box
 end
 
+-- What a line's right box may take once the row's text room is known: all that its left text does not need,
+-- the left text keeping at most half.
+local function Cap(fs, room)
+    return room and room - math.min(math.ceil(fs:GetUnboundedStringWidth()), math.floor(room / 2)) or nil
+end
+
 -- Decor row on a pooled Button: row:Set{ name, quality, icon or atlas, noTile, active, bonus, right, line2,
 -- unconfirmed, state (an S.state key), arg, selected, itemID, npcID, onClick, onEnter }, Redraw, Reset.
 function W.BuildRow(row)
@@ -268,6 +294,7 @@ function W.BuildRow(row)
     top:SetPoint("TOPRIGHT", -SP.s, -R.pad)
     bottom:SetPoint("BOTTOMRIGHT", -SP.s, R.pad)
     local price = S.Text(top, "body", "OVERLAY")
+    price:SetWordWrap(false)
     price:SetTextColor(unpack(K.money))
     local badge = S.Text(top, "meta", "OVERLAY")
     badge:SetTextColor(unpack(K.badge))
@@ -277,6 +304,7 @@ function W.BuildRow(row)
     local star = top:CreateTexture(nil, "OVERLAY")
     star:SetSize(12, 12)
     local words = S.Text(bottom, "body", "OVERLAY")
+    words:SetWordWrap(false)
     local mark = bottom:CreateTexture(nil, "OVERLAY")
     mark:SetSize(12, 12)
     local tag = CreateFrame("Frame", nil, bottom)
@@ -317,7 +345,10 @@ function W.BuildRow(row)
         badge:SetShown(d.active and true or false)
         Vis.Marker.Set(clock, d.active and "clock" or nil, K.badge)
         Vis.Marker.Set(star, d.bonus and "star" or nil, K.gold)
-        Pack(top, price, badge, clock, star)
+        -- The right words truncate first: each line's left text keeps the width it needs, up to half the room.
+        local width = self:GetWidth()
+        local room = width > 0 and width - left - 2 * SP.s or nil
+        Pack(top, Cap(name, room), price, badge, clock, star)
 
         words:SetShown(st ~= nil)
         words:SetText(st and W.StateWords(d.state, d.arg) or "")
@@ -325,14 +356,16 @@ function W.BuildRow(row)
         Vis.Marker.Set(mark, st and st.glyph, c)
         tag:SetShown(d.unconfirmed == true)
         tag:SetSize(tag.text:GetUnboundedStringWidth() + SP.s, W.TextHeight("meta") + 2)
-        Pack(bottom, words, mark, tag)
         line:SetText(d.line2 or "")
+        Pack(bottom, Cap(line, room), words, mark, tag)
 
         self.itemID, self.npcID = d.itemID, d.npcID
         self.onClick, self.onEnter = d.onClick, d.onEnter
     end
 
     row.Redraw, row.Reset = Redraw, Reset
+    -- The row's width can arrive after its first Set; Set reads it again.
+    row:SetScript("OnSizeChanged", Redraw)
     row:SetScript("OnClick", function(self)
         if W.Linked(self.itemID) then return end
         if self.onClick then self.onClick() end

@@ -155,7 +155,7 @@ local function surfaces(env, label)
         n = n + 2
     end
 
-    -- Sources decor rows and vendor page cells: a vendor's wares read that vendor's offer, any other source reads the item's.
+    -- Sources decor rows and vendor page cells: a vendor's wares read that vendor's offer, any other source reads the item's, except a lock that is only this page's own requirement.
     for _, t in ipairs(SOURCE_KEYS) do
         env.go("sources", { type = t })
         local keys = {}
