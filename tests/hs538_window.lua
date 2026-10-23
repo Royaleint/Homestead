@@ -294,6 +294,17 @@ local hostWidth = S.window.width - LO.insetLeft - LO.insetRight - 2 * LO.panePad
     - LO.pagePad - LO.pagePad - tree.width - bar.pts.TOPLEFT[4]
 assert(hostWidth == 630, "the host is " .. hostWidth .. " wide")
 assert(Find("render:summary") < Find("show"), "Summary was not drawn before the window showed")
+
+-- The header: one 150 px search box left of Help, the Hide toggle left of the box, the count truncating first.
+local search = Win.search
+assert(search and rawget(search, "width") == 150, "the header search box is not 150 px")
+assert(search.pts.RIGHT[2] == Win.help and search.pts.RIGHT[3] == "LEFT", "the search box is not left of Help")
+assert(Win.hideNA.pts.RIGHT[2] == search, "the Hide toggle is not left of the search box")
+function search:SetText(text) self.text = text end
+Win.SetSearch("oak")
+assert(search.text == "oak", "SetSearch did not show the words")
+Win.SetSearch(nil)
+assert(search.text == "", "SetSearch(nil) did not clear the box")
 assert(frame.shown and frame.propagate == true, "the window is not shown with keys passing through")
 
 -- Motion: the open fade is 0.15 s with at most 8 px of travel, the close fade 0.1 s.

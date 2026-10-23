@@ -16,8 +16,6 @@ B.Style = S
 
 local L = HA.L
 
--- Text steps: 10, 12, 14 and 16 are Blizzard's user-scaled fonts. None exists at 24, so display is a
--- private font that S.ScaleDisplay resizes with the text size.
 S.font = {
     meta = "UserScaledFontGameHighlightSmall",
     metaMuted = "UserScaledFontGameDisableSmall",
@@ -27,25 +25,9 @@ S.font = {
     metaGold = "UserScaledFontGameNormalSmall",
     subheader = "UserScaledFontGameNormalMed2",
     header = "UserScaledFontGameNormalLarge",
-    display = "HomesteadBrowserDisplay",
 }
-local DISPLAY_SIZE = 24
-
-local display
-local function DisplayFont()
-    if not display then
-        display = CreateFont(S.font.display)
-        display:CopyFontObject("GameFontNormalHuge2")
-        display:SetFontHeight(DISPLAY_SIZE * TextSizeManager:GetScale())
-    end
-end
-
-function S.ScaleDisplay()
-    if display then display:SetFontHeight(DISPLAY_SIZE * TextSizeManager:GetScale()) end
-end
 
 function S.FontName(role)
-    if role == "display" then DisplayFont() end
     return S.font[role]
 end
 

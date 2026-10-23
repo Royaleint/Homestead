@@ -1,5 +1,4 @@
--- Summary tab: what can be had now, the zone's best vendor, the first-use tip and the per-source counts.
--- Every link goes through B.ShowTab. Draw reads the memoised walk; only a data refresh makes a new one.
+-- Overview page: what can be had now, the zone's best vendor and the first-use tip, from the memoised walk.
 local _, HA = ...
 
 local B = HA.DecorBrowser
@@ -11,12 +10,12 @@ local CG = B.CanGet
 local Facts = B.Facts
 local K, SP, R = S.color, S.space, S.row
 
-local SIDE_W, TILE, MEASURE_W = 248, 48, 520
+local TILE, MEASURE_W = 48, 600
 local DOT = " \194\183 "
 
-local Tab = {}
-local main, box, goBtn, title, lede, tip, zone, empty, seeAll
-local rows, lines = {}, {}
+local Page = {}
+local main, title, lede, tip, zone, empty, seeAll
+local rows = {}
 local at, tipForced, glowMap, fill, filledFor
 
 local function Text(parent, role, text, wrap)
@@ -37,10 +36,6 @@ local function Open(itemID)
     if itemID then B.ShowTab("catalog", { itemID = itemID }) end
 end
 
-local function Go()
-    B.ShowTab("catalog", { search = box:GetText():match("^%s*(.-)%s*$"), kind = "all" })
-end
-
 local function Put(f, h, narrow)
     f:ClearAllPoints()
     f:SetPoint("TOPLEFT", main, "TOPLEFT", 0, -at)
@@ -50,7 +45,6 @@ local function Put(f, h, narrow)
     at = at + (h or f:GetHeight()) + SP.s
 end
 
--- At most two signals; a fallback fills the line when none apply, so it is never empty.
 local function Why(e)
     local b, r, where = e.best, {}, Facts.Here()
     if b.event then r[#r + 1] = L["%s: active now"]:format(b.event) end
@@ -136,7 +130,9 @@ local function BuildBlocks(parent)
         local key = Facts.SourceKey("vendors", { npcID = self.npcID })
         if key then B.ShowTab("sources", { type = "vendors", select = { key = key } }) end
     end)
-    zone.btn:SetPoint("RIGHT", -SP.s, 0)
+    zone.more = W.NewButton(zone, L["More vendors here"], function() B.Go({ kind = "sources", key = "vendors" }) end)
+    zone.more:SetPoint("RIGHT", -SP.s, 0)
+    zone.btn:SetPoint("RIGHT", zone.more, "LEFT", -SP.s, 0)
     zone.text = Text(zone, "body")
     zone.text:SetPoint("LEFT", SP.s, 0)
     zone.text:SetPoint("RIGHT", zone.btn, "LEFT", -SP.s, 0)
@@ -146,57 +142,25 @@ local function BuildBlocks(parent)
     tip.text:SetPoint("TOPRIGHT", -(SP.xl + SP.s), -SP.s)
     local close = CreateFrame("Button", nil, tip, "UIPanelCloseButton")
     close:SetPoint("TOPRIGHT", 2, 2)
-    close:SetScript("OnClick", function() CloseTip() Tab.Draw() end)
+    close:SetScript("OnClick", function() CloseTip() Page.Draw() end)
     empty = W.NewEmptyState(parent)
     seeAll = W.NewButton(parent, "", function()
         CloseTip()
-        B.ShowTab("catalog", { filters = { canGet = true }, sort = "best" })
+        B.Go({ kind = "catalog", key = "all", seed = { filters = { canGet = true }, sort = "best" } })
     end)
     for i = 1, 3 do rows[i] = BuildRow(parent) end
 end
 
-local function BuildSide(parent)
-    local side = W.Well(parent)
-    side:SetWidth(SIDE_W)
-    side:SetPoint("TOPRIGHT", goBtn, "BOTTOMRIGHT", 0, -SP.m)
-    side:SetPoint("BOTTOMRIGHT")
-    local above = Text(side, "subheader", L["By source"])
-    above:SetPoint("TOPLEFT", SP.m, -SP.m)
-    for i, key in ipairs(CG.SOURCE_KEYS) do
-        local line = CreateFrame("Button", nil, side)
-        line.key = key
-        line:SetPoint("TOPLEFT", above, "BOTTOMLEFT", 0, i == 1 and -SP.s or 0)
-        line:SetWidth(SIDE_W - 2 * SP.m)
-        local hover = line:CreateTexture(nil, "HIGHLIGHT")
-        hover:SetAllPoints()
-        hover:SetColorTexture(unpack(K.hoverRow))
-        Text(line, "body", S.sourceLabel[key]):SetPoint("LEFT")
-        line.num = Text(line, "body")
-        line.num:SetPoint("RIGHT")
-        line:SetScript("OnClick", function() B.ShowTab("sources", { type = key }) end)
-        lines[i], above = line, line
-    end
-end
-
-function Tab.Build(parent)
-    box = W.NewSearchBox(parent, L["Search decor by name"], function() end)
-    box:HookScript("OnEnterPressed", Go)
-    goBtn = W.NewButton(parent, L["Search"], Go)
-    goBtn:SetPoint("TOPRIGHT")
-    box:SetPoint("TOPLEFT")
-    box:SetPoint("TOPRIGHT", goBtn, "TOPLEFT", -SP.s, 0)
+function Page:Build(parent)
     main = CreateFrame("Frame", nil, parent)
-    main:SetPoint("TOPLEFT", box, "BOTTOMLEFT", 0, -SP.m)
-    main:SetPoint("BOTTOMRIGHT", -(SIDE_W + SP.l), 0)
-    title = S.Text(main, "display", "OVERLAY")
+    main:SetAllPoints()
+    title = S.Text(main, "header", "OVERLAY")
     title:SetJustifyH("LEFT")
     title:SetText(L["What can I get now?"])
     lede = Text(main, "bodyMuted", L["Decor this character can buy or earn today, best first."])
     BuildBlocks(main)
-    BuildSide(parent)
 end
 
--- The vendor here with the most decor to get now (the nearest on a tie).
 local function DrawZone()
     local vendors, mapID, name = D.NearYou()
     local best, most = nil, 0
@@ -208,6 +172,7 @@ local function DrawZone()
     zone.btn.npcID = best.npcID
     zone.btn:SetShown(Facts.SourceKey("vendors", best) ~= nil)
     zone.btn:Fit()
+    zone.more:Fit()
     zone.text:SetText(L["Here in %s: %s sells %d decor you can get now."]:format(name or "", best.name or "", most))
     Put(zone, zone.btn:GetHeight() + SP.s)
     if glowMap ~= mapID then
@@ -225,19 +190,16 @@ local function DrawEmpty(kind, d, button)
     Put(empty, button and h + W.TextHeight("body") + 2 * SP.s or h)
 end
 
-function Tab.Draw()
+function Page.Draw()
     if not main then return end
     for _, f in ipairs({ tip, zone, empty, seeAll, rows[1], rows[2], rows[3] }) do f:Hide() end
     at = 0
-    goBtn:Fit()
-    box:SetHeight(goBtn:GetHeight())
-    Put(title, W.TextHeight("display"))
+    Put(title, W.TextHeight("header"))
     Put(lede, W.TextHeight("bodyMuted"))
     local saved = B.Saved()
     if tipForced or (saved and not saved.tipSeen) then
         Put(tip, W.TextHeight("body", tip.text:GetText(), MEASURE_W - SP.xxl) + 2 * SP.s)
     end
-    -- The fill scans every entry, so it is reused until the ranking changes (a zone, a late name, a new walk).
     local ranked = CG.Rank()
     if ranked ~= filledFor then fill, filledFor = ranked and CG.Fill(), ranked end
     local state = fill and "ready" or D.CollectionState()
@@ -250,7 +212,7 @@ function Tab.Draw()
             local who = Facts.OtherFaction(CG.MissingFactions())
             DrawEmpty("nothingNow", { arg = who, text = not who
                     and L["Everything you're missing needs a reputation, achievement or quest first, or is sold only during an event."] or nil,
-                onMissing = function() B.ShowTab("catalog", { filters = { notCollected = true } }) end }, true)
+                onMissing = function() B.Go({ kind = "catalog", key = "all", seed = { filters = { notCollected = true } } }) end }, true)
         end
         for i, e in ipairs(fill.rows) do list[i] = CanData(e) end
         for _, c in ipairs(fill.notYet) do list[#list + 1] = NextData(c) end
@@ -269,25 +231,21 @@ function Tab.Draw()
         seeAll:Fit()
         Put(seeAll, nil, true)
     end
-    local progress = fill and CG.Walk().progress.src
-    for _, line in ipairs(lines) do
-        local p = progress and progress[line.key]
-        line.num:SetText(p and L["%d of %d"]:format(p.owned, p.total) or state == "notRead" and L["Not read yet"] or W.StateWords("counting"))
-        line:SetHeight(W.TextHeight("body") + SP.s)
-    end
 end
 
-function Tab.Show(opts)
-    if opts and opts.showTip then tipForced = true end
-    Tab.Draw()
+function Page:Show(route)
+    if route.seed and route.seed.showTip then tipForced = true end
+    Page.Draw()
 end
 
-function Tab.Hide()
+function Page:Save() end
+
+function Page:Hide()
     for _, r in ipairs(rows) do B.HideTooltipFor(r) end
 end
 
-Tab.Refresh = Tab.Draw
+Page.Refresh = Page.Draw
 
-function Tab.SetCombat() end
+function Page:SetCombat() end
 
-B.RegisterTab("summary", Tab)
+B.RegisterPage("overview", Page)

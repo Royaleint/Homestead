@@ -16,6 +16,7 @@ local Win = {}
 B.Window = Win
 
 local OPEN_TIME, CLOSE_TIME, TRAVEL = 0.15, 0.1, 8
+local SEARCH_W = 150
 local CRUMB_SEP = " \226\128\186 "
 
 local hooks
@@ -366,7 +367,12 @@ local function BuildHeader(f)
     hide.Text:SetFontObject("UserScaledFontGameHighlightSmall")
     hide.Text:SetText(L["Hide what doesn't apply to me"])
     hide:SetScript("OnClick", function(self) hooks.HideNA(self:GetChecked() and true or false) end)
-    Win.hideNA, Win.help = hide, help
+
+    local search = W.NewSearchBox(band, L["Search decor"], function() end)
+    search:SetWidth(SEARCH_W)
+    search:SetPoint("RIGHT", help, "LEFT", -SP.m, 0)
+    search:HookScript("OnEnterPressed", function(self) hooks.Search(self:GetText():match("^%s*(.-)%s*$")) end)
+    Win.hideNA, Win.help, Win.search = hide, help, search
 
     local count = S.Text(band, "header", "OVERLAY")
     count:SetPoint("LEFT", LO.titleLeft - r[1], 0)
@@ -381,6 +387,11 @@ local function BuildHeader(f)
     hit:SetScript("OnLeave", B.HideTooltip)
 end
 
+-- The box shows the seed's search; a Go without one clears it, and a page restoring its own may set it after.
+function Win.SetSearch(text)
+    Win.search:SetText(text or "")
+end
+
 function Win.UpdateCount()
     local walk = B.Walk()
     Win.count:SetText(walk and L["%d of %d decor collected"]:format(walk.progress.owned, walk.progress.total)
@@ -389,10 +400,10 @@ end
 
 -- Row and bar heights follow the text size; the clamp rect keeps the portrait on screen.
 function Win.Measure()
-    S.ScaleDisplay()
     W.ResetMeasure()
     local hide = Win.hideNA
-    hide:SetPoint("RIGHT", Win.help, "LEFT", -(hide.Text:GetStringWidth() + SP.l), 0)
+    Win.search:SetHeight(W.TextHeight("body") + SP.s)
+    hide:SetPoint("RIGHT", Win.search, "LEFT", -(hide.Text:GetStringWidth() + SP.l), 0)
     Win.frame:SetClampRectInsets(-PAD.left, 0, PAD.top, 0)
     rowH = W.TextHeight("bodyGold") + SP.s
     crumbH = W.TextHeight("body") + SP.s

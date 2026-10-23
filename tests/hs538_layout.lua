@@ -16,7 +16,7 @@ local root = (... or "."):gsub("\\", "/"):gsub("/+$", "")
 local BASE = {
     UserScaledFontGameHighlightSmall = 10, UserScaledFontGameNormalSmall = 10, UserScaledFontGameDisableSmall = 10,
     UserScaledFontGameHighlight = 12, UserScaledFontGameNormal = 12, UserScaledFontGameDisable = 12,
-    UserScaledFontGameNormalMed2 = 14, UserScaledFontGameNormalLarge = 16, HomesteadBrowserDisplay = 24,
+    UserScaledFontGameNormalMed2 = 14, UserScaledFontGameNormalLarge = 16,
 }
 local scale = 1
 
@@ -122,21 +122,18 @@ end
 -- The window keeps its logical size whatever the text size (the fit scales the frame, not the size).
 assert(S.window.width == 860 and S.window.height == 580, "the window's logical size changed")
 
--- The display step follows the text size from one private font.
+-- The title step is the header font, one of Blizzard's user-scaled fonts, so it follows the text size without a private font.
 scale = 1
-local made
-CreateFont = function(name)
-    made = Widget("Font")
-    made.name = name
-    function made:CopyFontObject(src) self.src = src end
-    function made:SetFontHeight(h) self.fontHeight = h end
-    return made
+local made = false
+CreateFont = function()
+    made = true
+    return Widget("Font")
 end
-S.Text(Widget("Frame"), "display")
-assert(made and made.src == "GameFontNormalHuge2" and made.fontHeight == 24, "display is not a 24-point private font")
+local title = S.Text(Widget("Frame"), "header")
+assert(title.font == "UserScaledFontGameNormalLarge", "the title is not the header font")
+assert(not made and S.font.display == nil and S.ScaleDisplay == nil, "a private display font is still made")
 scale = 2
-S.ScaleDisplay()
-assert(made.fontHeight == 48, "display did not follow the text size")
+assert(W.TextHeight("header") == 32, "the header step did not follow the text size")
 
 -- Heights are measured once per text size, not once per row.
 local measures = 0

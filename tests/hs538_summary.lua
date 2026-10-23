@@ -5,11 +5,12 @@
 local root = (... or "."):gsub("\\", "/"):gsub("/+$", "")
 
 -------------------------------------------------------------------------------
--- The Decor Browser Summary tab: the three rows and their reason lines, the
--- fill, the zone line, search, the By source counts and the first-use tip. The
--- real CatalogStore, SourceManager verdict, VendorFilter, Adapter, Facts,
--- CanGet and Widgets run against stubbed data and frames. Every link is a
--- B.ShowTab call that the test records.
+-- The Decor Browser Overview page: the three rows and their reason lines, the
+-- fill, the zone line, the first-use tip, and no search box or By source list of
+-- its own. The real CatalogStore, SourceManager verdict, VendorFilter, Adapter,
+-- Facts, CanGet and Widgets run against stubbed data and frames. Item and vendor
+-- links are B.ShowTab calls and every other link is a B.Go route; the test
+-- records both.
 -------------------------------------------------------------------------------
 
 local function noop() end
@@ -66,7 +67,7 @@ local function newEnv()
         done = true, attempted = true, warm = true, responded = true, faction = "Alliance",
         catalog = {}, names = {}, sources = {}, vendors = {}, offers = {}, reqs = {}, scanned = {},
         calendar = {}, themes = {}, measured = {}, playerMap = nil, maps = {}, gen = 1,
-        calls = {}, saves = {}, glows = {}, timers = {}, tooltips = {}, hidden = {}, waypoints = {},
+        calls = {}, routes = {}, saves = {}, glows = {}, timers = {}, tooltips = {}, hidden = {}, waypoints = {},
         qualityReads = 0,
     }
     frames = {}
@@ -188,6 +189,7 @@ local function newEnv()
     B.Window = { AddSearchBox = noop, Glow = function(region) env.glows[#env.glows + 1] = region end }
     B.Generation = function() return env.gen end
     B.ShowTab = function(key, opts) env.calls[#env.calls + 1] = { key, opts } end
+    B.Go = function(route) env.routes[#env.routes + 1] = route end
     B.Save = function(key, value)
         env.saves[#env.saves + 1] = { key, value }
         B.Saved()[key] = value
@@ -195,12 +197,12 @@ local function newEnv()
     B.HideTooltip = noop
     B.HideTooltipFor = function(owner) env.hidden[#env.hidden + 1] = owner end
     B.ShowItemTooltip = function(owner, itemID, npcID) env.tooltips[#env.tooltips + 1] = { owner, itemID, npcID } end
-    local tabs = {}
-    B.RegisterTab = function(key, tab) tabs[key] = tab end
+    local pages = {}
+    B.RegisterPage = function(kind, page) pages[kind] = page end
     local created = #frames
     assert(loadfile(root .. "/UI/Browser/Summary.lua"))("Homestead", HA)
     assert(#frames == created, "loading Summary created a frame")
-    env.tab, env.B, env.D, env.CG = tabs.summary, B, B.Data, B.CanGet
+    env.tab, env.B, env.D, env.CG = pages.overview, B, B.Data, B.CanGet
 
     function env.decor(itemID, entry)
         HA.DecorMapping[itemID + 900000] = itemID
@@ -238,12 +240,12 @@ local function newEnv()
     env.maps[201] = { mapType = 3, parentMapID = 200, name = "Elwynn" }
     env.playerMap = 101
 
-    -- Builds and shows the tab the way the router does.
-    function env.open(opts)
+    -- Builds and shows the page the way the router does.
+    function env.open(seed)
         local page = Widget("Frame")
         env.page = page
-        env.tab.Build(page)
-        env.tab.Show(opts)
+        env.tab:Build(page)
+        env.tab:Show({ kind = "overview", seed = seed })
     end
     function env.rows()
         local out = {}
@@ -263,18 +265,11 @@ local function newEnv()
     function env.empty()
         return env.find(function(f) return rawget(f, "buttons") end)
     end
-    -- The By source lines: the frames that carry a count.
-    function env.lines()
-        local out = {}
-        for _, f in ipairs(frames) do if rawget(f, "num") then out[#out + 1] = f end end
-        assert(#out == 7, "expected one By source line per source type, got " .. #out)
-        return out
-    end
     -- What the router does for a data refresh: a new memo generation, then the repaint.
     function env.refreshData()
         env.D.InvalidateMemos()
         wipe(env.B.State.catalogMemo)
-        env.tab.Refresh("data")
+        env.tab:Refresh("data")
     end
     function env.flush()
         local run = env.timers
@@ -295,9 +290,9 @@ end
 do
     local env = newEnv()
     eq(#frames, 0, "frames before the first open")
-    env.tab.Refresh("data")
-    env.tab.Hide()
-    env.tab.SetCombat(true)
+    env.tab:Refresh("data")
+    env.tab:Hide()
+    env.tab:SetCombat(true)
     eq(#frames, 0, "a repaint before Build built something")
     print("hs538_summary: nothing built early ok")
 end
@@ -379,7 +374,7 @@ do
     row.scripts.OnEnter(row)
     eq(env.tooltips[1][1], row, "the tooltip goes through the browser tooltip")
     eq(env.tooltips[1][3], 1, "with the vendor")
-    env.tab.Hide()
+    env.tab:Hide()
     eq(#env.hidden, 3, "Hide releases the tooltip of every row")
     print("hs538_summary: R13 buttons and tooltip ok")
 end
@@ -452,11 +447,13 @@ do
     local none = "Everything you're missing needs a reputation, achievement or quest first, or is sold only during an event."
     assert(empty.shown and empty.text.text == none, "no missing item is faction-limited, yet a faction is named: " .. empty.text.text)
     click(empty.buttons[1])
-    eq(env.calls[#env.calls][1], "catalog")
-    assert(env.calls[#env.calls][2].filters.notCollected == true, "Show what's missing")
+    eq(#env.routes, 1)
+    eq(env.routes[1].kind, "catalog")
+    eq(env.routes[1].key, "all")
+    assert(env.routes[1].seed.filters.notCollected == true, "Show what's missing")
     env.HA.Addon.db.profile.browser.tipSeen = true
     env.faction = "Neutral"
-    env.tab.Refresh("paint")
+    env.tab:Refresh("paint")
     assert(empty.text.text == none, "a Neutral character with no faction-only item is told a faction: " .. empty.text.text)
     env = filled(0, 0, function(e) e.decor(70) e.sell(70, e.vendor(71, { faction = "Horde" })) end)
     empty = env.empty()
@@ -491,15 +488,14 @@ do
     end
     click(rows[1])
     eq(#env.calls, 0, "clicking a placeholder does nothing")
-    for _, line in ipairs(env.lines()) do eq(line.num.text, "Counting\226\128\166") end
+    eq(#env.routes, 0, "clicking a placeholder goes nowhere")
     eq(env.walks(), 0, "no walk before the collection is ready")
 
     env.done, env.attempted, env.warm, env.responded = true, true, false, false
-    env.tab.Refresh("data")
+    env.tab:Refresh("data")
     eq(#env.rows(), 0)
     local notRead = env.empty()
     assert(notRead.shown, "the not-read block")
-    for _, line in ipairs(env.lines()) do eq(line.num.text, "Not read yet") end
     eq(env.walks(), 0)
     print("hs538_summary: counting and not read ok")
 end
@@ -511,7 +507,7 @@ end
 do
     local env = filled(4, 0)
     env.HA.Addon.db.profile.browser.tipSeen = false
-    env.tab.Refresh("paint")
+    env.tab:Refresh("paint")
     local tip = env.find(function(f) return type(f.text) == "string" and f.text:find("^Can get now means") end).parent
     assert(tip.shown, "the tip shows while tipSeen is false")
     local firstRow = env.rows()[1]
@@ -519,31 +515,32 @@ do
     local seeAll = env.seeAll()
     eq(seeAll.text, "See all you can get now (4)")
     click(seeAll)
-    eq(env.calls[#env.calls][1], "catalog")
-    assert(env.calls[#env.calls][2].filters.canGet == true and env.calls[#env.calls][2].sort == "best", "See all opens Can get now, best first")
+    local route = env.routes[#env.routes]
+    assert(route.kind == "catalog" and route.key == "all", "See all opens All decor")
+    assert(route.seed.filters.canGet == true and route.seed.sort == "best", "See all opens Can get now, best first")
     eq(#env.saves, 1, "See all dismisses the tip with one write")
     eq(env.saves[1][1], "tipSeen")
     click(seeAll)
     eq(#env.saves, 1, "a second See all writes nothing")
-    env.tab.Refresh("paint")
+    env.tab:Refresh("paint")
     assert(not tip.shown, "the dismissed tip is gone")
     assert(env.top(env.rows()[1]) < topWithTip, "the tip leaves no gap")
 
     -- Help brings it back without a write; closing it again writes nothing more.
-    env.tab.Show({ showTip = true })
+    env.tab:Show({ kind = "overview", seed = { showTip = true } })
     assert(tip.shown, "showTip shows the tip")
     eq(#env.saves, 1, "showTip never writes")
     local close = env.find(function(f) return f.template == "UIPanelCloseButton" and f.parent == tip end)
     click(close)
     assert(not tip.shown, "close hides the tip")
     eq(#env.saves, 1, "tipSeen is saved once, ever")
-    env.tab.Show(nil)
+    env.tab:Show({ kind = "overview" })
     assert(not tip.shown, "a plain tab switch keeps the tip closed")
 
     -- Close on a fresh account writes once.
     local env2 = filled(1, 0)
     env2.HA.Addon.db.profile.browser.tipSeen = false
-    env2.tab.Refresh("paint")
+    env2.tab:Refresh("paint")
     local tip2 = env2.find(function(f) return type(f.text) == "string" and f.text:find("^Can get now means") end).parent
     click(env2.find(function(f) return f.template == "UIPanelCloseButton" and f.parent == tip2 end))
     eq(#env2.saves, 1)
@@ -581,44 +578,53 @@ do
     eq(env.calls[#env.calls][2].type, "vendors")
     eq(env.calls[#env.calls][2].select.key, 1, "Show vendor selects the vendor's key")
 
+    eq(zone.more.text, "More vendors here")
+    assert(zone.more.shown, "the Here line links to more vendors")
+    eq(#env.routes, 0, "nothing routed yet")
+    click(zone.more)
+    eq(#env.routes, 1)
+    eq(env.routes[1].kind, "sources", "More vendors here opens the vendors list until the vendor pages arrive")
+    eq(env.routes[1].key, "vendors")
+    eq(env.routes[1].seed, nil)
+
     eq(#env.glows, 0, "the glow waits for the next frame")
     env.flush()
     eq(#env.glows, 1, "glows when it first shows")
-    env.tab.Refresh("paint")
-    env.tab.Refresh("layout")
-    env.tab.Show()
+    env.tab:Refresh("paint")
+    env.tab:Refresh("layout")
+    env.tab:Show({ kind = "overview" })
     env.flush()
     eq(#env.glows, 1, "later draws for the same map do not glow")
     local walks = env.walks()
     env.playerMap = 102
-    env.tab.Refresh("zone")
+    env.tab:Refresh("zone")
     env.flush()
     eq(#env.glows, 2, "a new map glows once")
-    env.tab.Refresh("zone")
+    env.tab:Refresh("zone")
     env.flush()
     eq(#env.glows, 2, "and only once")
     env.playerMap = 101
-    env.tab.Refresh("zone")
+    env.tab:Refresh("zone")
     env.flush()
     eq(#env.glows, 3, "back to the first map is a new map again")
     eq(env.walks(), walks, "a zone change never walks")
 
     -- A glow queued before the window closed is dropped.
     env.playerMap = 102
-    env.tab.Refresh("zone")
+    env.tab:Refresh("zone")
     env.gen = env.gen + 1
     env.flush()
     eq(#env.glows, 3, "a stale glow is dropped")
 
     -- Nothing here: the line is absent and leaves no gap.
     env.playerMap = 201
-    env.tab.Refresh("zone")
+    env.tab:Refresh("zone")
     assert(not zone.shown, "no vendor here, no line")
     eq(env.top(env.rows()[1]), 40, "the rows move up into the gap")
 
     -- An unknown spot: the line is not shown at all.
     env.playerMap = nil
-    env.tab.Refresh("zone")
+    env.tab:Refresh("zone")
     assert(not zone.shown, "no map, no line")
 
     -- A vendor the browser cannot select names itself with no button.
@@ -635,30 +641,27 @@ do
 end
 
 -------------------------------------------------------------------------------
--- R17: search
+-- R17: the page registers as the overview, and the search and the By source list
+-- are not its own: the header searches, and the tree and the list heads count
 -------------------------------------------------------------------------------
 
 do
     local env = filled(1, 0)
-    local box = env.find(function(f) return f.kind == "EditBox" end)
-    box:SetText("  oak bench ")
-    box.scripts.OnEnterPressed(box)
-    eq(env.calls[#env.calls][1], "catalog")
-    eq(env.calls[#env.calls][2].search, "oak bench", "trimmed")
-    eq(env.calls[#env.calls][2].kind, "all")
-    eq(box.Instructions.text, "Search decor by name")
-    local go = env.find(function(f) return f.kind == "Button" and f.text == "Search" end)
-    box:SetText("table")
-    click(go)
-    eq(env.calls[#env.calls][2].search, "table")
-    eq(env.calls[#env.calls][2].kind, "all")
+    assert(env.tab and type(env.tab.Show) == "function", "Summary registers a page for the overview")
+    eq(env.tab:Save(), nil, "the overview has nothing to restore")
+    eq(env.find(function(f) return f.kind == "EditBox" end), nil, "the search box lives in the header")
+    eq(env.find(function(f) return f.kind == "Button" and f.text == "Search" end), nil, "no Search button")
+    eq(env.find(function(f) return f.text == "By source" or rawget(f, "num") ~= nil end), nil, "no By source list")
+    local title = env.find(function(f) return f.text == "What can I get now?" end)
+    eq(title.font, env.B.Style.font.header, "the title wears the header font")
     print("hs538_summary: R17 ok")
 end
 
 -------------------------------------------------------------------------------
--- R18: By source. The counts equal what Catalog's filter rule counts over the
--- same walk (every item with the source type; collected = owned), with unknown
--- ownership in the total and never in the collected.
+-- R18: the walk's By source counts, which the source list heads draw (the heads
+-- are asserted in hs538_parity and hs538_hide). They equal what Catalog's filter
+-- rule counts over the same walk (every item with the source type; collected =
+-- owned), with unknown ownership in the total and never in the collected.
 -------------------------------------------------------------------------------
 
 do
@@ -677,7 +680,7 @@ do
     env.open()
     local w = env.CG.Walk()
     local shown = 0
-    for i, key in ipairs(env.CG.SOURCE_KEYS) do
+    for _, key in ipairs(env.CG.SOURCE_KEYS) do
         local total, collected = 0, 0
         for _, e in ipairs(w.list) do
             if e.src[key] then
@@ -685,16 +688,14 @@ do
                 if e.own == "owned" then collected = collected + 1 end
             end
         end
-        local line = env.lines()[i]
-        eq(line.num.text, ("%d of %d"):format(collected, total), "By source " .. key)
+        local p = w.progress.src[key]
+        eq(p.owned, collected, "By source " .. key .. " collected")
+        eq(p.total, total, "By source " .. key .. " total")
         if total > 0 then shown = shown + 1 end
-        click(line)
-        eq(env.calls[#env.calls][1], "sources")
-        eq(env.calls[#env.calls][2].type, key, "By source opens its list")
-        eq(env.calls[#env.calls][2].select, nil)
     end
     assert(shown >= 4, "the fixture covers several source types")
-    eq(env.lines()[2].num.text, "1 of 3", "achievements: one owned, one unknown, one not owned")
+    eq(w.progress.src.achievements.owned, 1, "achievements: one owned, one unknown, one not owned")
+    eq(w.progress.src.achievements.total, 3)
     local pct = env.find(function(f) return type(f.text) == "string" and f.text:find("%%") and f.text:find("collected") end)
     eq(pct, nil, "no overall percentage")
     print("hs538_summary: R18 parity ok")
@@ -710,14 +711,14 @@ do
     local fills, fill = 0, env.CG.Fill
     env.CG.Fill = function() fills = fills + 1 return fill() end
     for _, reason in ipairs({ "paint", "layout", "hide", "names", "stats" }) do
-        env.tab.Refresh(reason)
+        env.tab:Refresh(reason)
         eq(env.walks(), 1, reason .. " walked")
     end
     eq(fills, 0, "the fill is reused while the ranking stands")
-    env.tab.Refresh("zone")
+    env.tab:Refresh("zone")
     eq(env.walks(), 1, "zone walked")
-    env.tab.Hide()
-    env.tab.Refresh("paint")
+    env.tab:Hide()
+    env.tab:Refresh("paint")
     eq(#env.rows(), 3, "a repaint after Hide restores the page without Show")
     eq(env.walks(), 1)
     env.refreshData()
@@ -733,13 +734,13 @@ end
 do
     local env = filled(2, 0)
     local before = env.qualityReads
-    env.tab.Refresh("paint")
+    env.tab:Refresh("paint")
     assert(env.qualityReads >= before + 2, "quality colours are read on every draw")
     local r1 = env.rows()[1]
     eq(r1.name.color[2], 0.5, "the name wears the quality colour")
     local h = r1.height
     lineHeight = 24
-    env.tab.Refresh("layout")
+    env.tab:Refresh("layout")
     assert(r1.height > h, "rows grow with the text size")
     lineHeight = 12
     print("hs538_summary: colour and layout ok")
@@ -752,7 +753,7 @@ end
 do
     local env = filled(3, 0)
     env.HA.Addon.db.profile.browser.tipSeen = false
-    env.tab.Refresh("paint")
+    env.tab:Refresh("paint")
     click(env.seeAll())
     for _, s in ipairs(env.saves) do eq(s[1], "tipSeen") end
     local f = assert(io.open(root .. "/UI/Browser/Summary.lua", "rb"))

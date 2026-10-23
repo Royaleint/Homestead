@@ -119,6 +119,7 @@ local function Transition(route, saved)
     if old and old ~= page then frames[curRoute.kind]:Hide() end
     curRoute = route
     frames[route.kind]:Show()
+    Win.SetSearch(route.seed and route.seed.search)
     page:Show(route, saved)
     Win.SetCrumb(B.Home(route))
     Win.SelectNav(route)
@@ -130,7 +131,12 @@ end
 local function GoNow(route)
     if curRoute and curRoute.kind == route.kind and curRoute.key == route.key and curRoute.id == route.id then
         local page = Current()
-        if route.seed then page:Show(route) else page:Refresh("route") end
+        if route.seed then
+            Win.SetSearch(route.seed.search)
+            page:Show(route)
+        else
+            page:Refresh("route")
+        end
         Win.SelectNav(route)
         return
     end
@@ -300,6 +306,7 @@ local function Build()
         OnShow = OnShow, OnHide = OnHide,
         Close = function() B:Close() end,
         Help = function() B.Go({ kind = "overview", seed = { showTip = true } }) end,
+        Search = function(text) B.Go({ kind = "catalog", key = "all", seed = { search = text } }) end,
         HideNA = B.SetHideNA,
     })
     events = CreateFrame("Frame", nil, f)

@@ -147,33 +147,56 @@ do
     landsOnSource(env, 100, "1,2,3,6,8", function() env.click(btn) end, "Show vendor")
     eq(env.sourceKeys(), "100,101,102,104", "the vendor type is open")
 
-    -- R17: the search box lands on Catalog with the words, both ways.
-    env.go("summary")
-    local box = env.find("summary", function(f) return f.kind == "EditBox" end)
-    box.text = "  oak "
-    env.click(env.button("summary", "Search"))
-    eq(env.tab, "catalog")
-    eq(idSet(env), "1,12", "Search: the Oak items, kind all")
-    eq(env.searchText("catalog"), "oak", "the Catalog box shows the words")
-    env.go("summary")
-    box.text = "willow"
-    box.scripts.OnEnterPressed(box)
-    eq(env.idString(), "7", "Enter does the same")
-    print("hs538_onward_links: zone block and search ok")
+    print("hs538_onward_links: zone block ok")
 end
 
 do
-    -- R18: each By source line opens that type with its sources listed.
+    -- R17: the header search box lands on All decor with the words, from any page, both ways.
+    local env = newWorld(root, { realWindow = true })
+    env.standard()
+    env.open()
+    local B = env.B
+    local box = B.Window.search
+    local routes, go = {}, B.Go
+    B.Go = function(route) routes[#routes + 1] = route return go(route) end
+    box.text = "  oak "
+    box.scripts.OnEnterPressed(box)
+    eq(#routes, 1, "Enter makes one route")
+    eq(routes[1].kind, "catalog")
+    eq(routes[1].key, "all")
+    eq(routes[1].seed.search, "oak", "the words arrive trimmed")
+    eq(env.tab, "catalog")
+    eq(idSet(env), "1,12", "Search: the Oak items, kind all")
+    eq(env.searchText("catalog"), "oak", "the Catalog box shows the words")
+    eq(box.text, "oak", "and so does the header box")
+    env.go("summary")
+    eq(box.text, "", "a page opened without a search clears the header box")
+    box.text = "willow"
+    box.scripts.OnEnterPressed(box)
+    eq(env.idString(), "7", "Enter does the same from the Overview")
+    box.text = "oak"
+    box.scripts.OnEnterPressed(box)
+    eq(env.idString(), "1,12", "Enter on the Catalog searches again")
+    print("hs538_onward_links: header search ok")
+end
+
+do
+    -- R18: each source type's tree row opens that type with its sources listed (the By source list's job).
     local want = { vendors = "100", achievements = "9001", quests = "7001", professions = "8001",
         drops = "Boss|Keep", events = "Hallow's End", shop = "61" }
     for _, key in ipairs({ "vendors", "achievements", "quests", "professions", "drops", "events", "shop" }) do
-        local env = world()
-        local line
-        for _, f in ipairs(env.all) do
-            if env.owner(f) == "summary" and rawget(f, "key") == key and rawget(f, "num") then line = f end
+        local env = newWorld(root, { realWindow = true })
+        env.standard()
+        env.open()
+        local label = env.B.Style.sourceLabel[key]
+        local row
+        for _, box in ipairs(env.boxList) do
+            for _, f in ipairs(box.frames) do
+                if f.data and f.data.label == label then row = f end
+            end
         end
-        assert(line, "no By source line for " .. key)
-        env.click(line)
+        assert(row, "no tree row for " .. key)
+        env.click(row)
         eq(env.tab, "sources", key .. ": tab")
         local found = false
         for _, d in ipairs((env.sourcesList())) do
@@ -181,7 +204,7 @@ do
         end
         assert(found, key .. ": the type's sources are not listed, got " .. env.sourceKeys())
     end
-    print("hs538_onward_links: By source ok")
+    print("hs538_onward_links: source tree rows ok")
 end
 
 do

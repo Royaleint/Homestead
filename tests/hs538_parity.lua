@@ -5,7 +5,7 @@ local root = (... or "."):gsub("\\", "/"):gsub("/+$", "")
 local newWorld = assert(loadfile(root .. "/tests/hs538_world.lua"))()
 
 -------------------------------------------------------------------------------
--- The tabs agree. Summary's progress numbers equal the Catalog's filtered counts
+-- The tabs agree. The source list heads' progress numbers equal the Catalog's filtered counts
 -- for the same filters, and one item reads the same state on a Catalog row, on a
 -- Sources decor row, on the item page and from B.ItemState, in every phase of
 -- the collection read.
@@ -25,14 +25,17 @@ end
 
 local SOURCE_KEYS = { "vendors", "achievements", "quests", "professions", "drops", "events", "shop" }
 
--- The "N of M" Summary draws on each By source line.
-local function summaryCounts(env)
+-- The "N of M collected" at the head of each source type's list.
+local function headCounts(env)
     local out = {}
-    for _, f in ipairs(env.all) do
-        if env.owner(f) == "summary" and rawget(f, "key") and rawget(f, "num") then
-            local owned, total = tostring(f.num.text):match("^(%d+) of (%d+)$")
-            out[f.key] = owned and { owned = tonumber(owned), total = tonumber(total) } or f.num.text
+    for _, key in ipairs(SOURCE_KEYS) do
+        env.go("sources", { type = key })
+        local text
+        for _, f in ipairs(env.fontStrings) do
+            if env.owner(f) == "sources" and tostring(f.text):find("^%d+ of %d+ collected$") then text = f.text end
         end
+        local owned, total = tostring(text):match("^(%d+) of (%d+) collected$")
+        out[key] = owned and { owned = tonumber(owned), total = tonumber(total) } or text
     end
     return out
 end
@@ -44,12 +47,11 @@ local function catalogCount(env, filters)
 end
 
 local function checkCounts(env, label)
-    env.go("summary")
-    local summary = summaryCounts(env)
+    local summary = headCounts(env)
     local walk = env.B.Walk()
     for _, key in ipairs(SOURCE_KEYS) do
         local s = summary[key]
-        assert(type(s) == "table", label .. ": Summary draws no count for " .. key .. ": " .. tostring(s))
+        assert(type(s) == "table", label .. ": the list head has no count for " .. key .. ": " .. tostring(s))
         eq(catalogCount(env, { sources = { [key] = true } }), s.total, label .. ": " .. key .. " total")
         eq(catalogCount(env, { sources = { [key] = true }, collected = true }), s.owned, label .. ": " .. key .. " collected")
         eq(walk.progress.src[key].total, s.total, label .. ": " .. key .. " walk total")
@@ -70,8 +72,7 @@ do
     local env = world()
     checkCounts(env, "standard")
     -- A source with two types of item and one with an unknown item are counted in totals, not collected.
-    env.go("summary")
-    local s = summaryCounts(env)
+    local s = headCounts(env)
     eq(s.quests.total, 2, "quests: the unknown-ownership item is in the total")
     eq(s.quests.owned, 0, "and not collected")
     eq(s.achievements.total, 3)

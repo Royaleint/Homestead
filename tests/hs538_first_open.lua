@@ -65,6 +65,21 @@ assert(#(env.sourcesList()) > 0, "Sources lists vendors")
 env.flush()
 print("hs538_first_open: Sources ok")
 
+-- The header search: one box with the Overview's placeholder; a tree row clears it, Enter lands on All decor.
+local search = Win.search
+assert(search and search:IsVisible(), "the header has a search box")
+eq(search.Instructions.text, "Search decor", "the header box placeholder")
+search.text = "stale"
+clickNav("Overview")
+eq(search.text, "", "a tree row opens its page with an empty search box")
+search.text = " elm "
+search.scripts.OnEnterPressed(search)
+eq(env.tab, "catalog", "Enter on the Overview searches the Catalog")
+eq(env.idString(), "2", "the Catalog lists Elm Chair only")
+eq(search.text, "elm", "the header box keeps the words")
+env.flush()
+print("hs538_first_open: header search ok")
+
 -- An item page from Summary: the row's Show button lands on the Catalog with the item selected.
 clickNav("Overview")
 local row

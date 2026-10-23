@@ -382,6 +382,7 @@ return function(root, opts)
         function Win.AddSearchBox() end
         function Win.SetCrumb(segs) env.crumb = segs end
         function Win.SetBack() end
+        function Win.SetSearch(text) env.search = text end
         function Win.UpdateCount() end
         function Win.SelectNav(route) env.tab = TabOf(route.kind) end
         function Win.Build(handlers)

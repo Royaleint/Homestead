@@ -96,6 +96,11 @@ local crumbs, navs, backs = {}, {}, {}
 Win.SetCrumb = function(segments) crumbs[#crumbs + 1] = segments end
 Win.SelectNav = function(route) navs[#navs + 1] = route end
 Win.SetBack = function(on) backs[#backs + 1] = on end
+local searchSets, order = {}, {}
+Win.SetSearch = function(text)
+    searchSets[#searchSets + 1] = text == nil and "none" or text
+    order[#order + 1] = "search"
+end
 
 local function fail(msg) error(msg, 2) end
 local function eq(a, b, msg)
@@ -191,6 +196,29 @@ eq(vendor.route.id, 1, "Back returned to the wrong route")
 eq(vendor.search, "bench", "Back did not restore the search")
 eq(vendor.scroll, 120, "Back did not restore the scroll")
 eq(vendor.changes, 1, "Back restored the search as a change")
+
+-- The header box: a forward Go sets it to the seed's search or clears it, before the page shows; an equal
+-- route sets it only with a seed; Back clears it (the page restores its own).
+local showOverview = overview.Show
+overview.Show = function(self, ...)
+    order[#order + 1] = "show"
+    return showOverview(self, ...)
+end
+local function lastSearch() return searchSets[#searchSets] end
+B.Go({ kind = "overview", seed = { search = "oak" } })
+eq(lastSearch(), "oak", "a seed with search must reach the header box")
+eq(order[#order - 1] .. order[#order], "searchshow", "the box is set before the page shows")
+B.Go({ kind = "sources", key = "drops" })
+eq(lastSearch(), "none", "a forward Go without a search must clear the header box")
+local sets = #searchSets
+B.Go({ kind = "sources", key = "drops" })
+eq(#searchSets, sets, "an equal route without a seed must leave the header box alone")
+B.Go({ kind = "sources", key = "drops", seed = { search = "pot" } })
+eq(lastSearch(), "pot", "an equal route with a seed must set the header box")
+B.Go({ kind = "vendor", id = 7 })
+B.Back()
+eq(lastSearch(), "none", "Back must clear the header box and leave the page to restore its own")
+overview.Show = showOverview
 
 -- Home is the tree home, never the path walked.
 local function Home(route) return B.Home(route) end

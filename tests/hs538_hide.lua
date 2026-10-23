@@ -117,21 +117,15 @@ do
 end
 
 -------------------------------------------------------------------------------
--- A source head is the Overview's By source number, a ware that is not decor included
+-- A source head is the walk's By source count; a ware that is not decor is outside it
 -------------------------------------------------------------------------------
 
 do
     local env = world(nil, function(e) e.sell(99, e.vendors[100]) end)
-    env.go("summary")
-    local line
-    for _, f in ipairs(env.all) do
-        if env.owner(f) == "summary" and rawget(f, "key") == "vendors" and rawget(f, "num") then line = f.num.text end
-    end
     local p = env.CG.Walk().progress.src.vendors
-    eq(line, ("%d of %d"):format(p.owned, p.total), "the Overview's Vendors line")
     env.go("sources", { type = "vendors" })
-    eq(head(env, "sources"), line .. " collected", "the Vendors head is the Overview's number")
-    print("hs538_hide: source heads match the Overview ok")
+    eq(head(env, "sources"), ("%d of %d collected"):format(p.owned, p.total), "the Vendors head is the By source count")
+    print("hs538_hide: source heads match the By source count ok")
 end
 
 -------------------------------------------------------------------------------
