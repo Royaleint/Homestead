@@ -1,5 +1,6 @@
 -- luacheck: globals assert loadfile print CreateFrame UIParent C_Texture PixelUtil CreateColor C_ColorOverrides wipe
--- luacheck: globals CreateScrollBoxListLinearView ScrollUtil CreateAnchor CreateDataProvider TextSizeManager
+-- luacheck: globals CreateScrollBoxListLinearView CreateScrollBoxListGridView ScrollUtil CreateAnchor CreateDataProvider
+-- luacheck: globals TextSizeManager
 -- luacheck: globals NineSliceUtil C_Timer InCombatLockdown EventRegistry NORMAL_FONT_COLOR table
 -- Run from the repo root:  lua tests/hs538_colour.lua [root]
 
@@ -160,6 +161,24 @@ assert(shown[1].d == nil and shown[1].itemID == nil, "a recycled row kept its da
 calls = 0
 shown[1]:Redraw()
 assert(calls == 0, "a recycled row redrew old data")
+
+-- A real grid repaints its pooled cells the same way.
+CreateScrollBoxListGridView = function()
+    local v = Widget("View")
+    function v:SetElementInitializer(_, fn) self.init = fn end
+    return v
+end
+local grid = W.NewGrid(Widget("Frame"), 48, 4)
+local cells = { CreateFrame("Button"), CreateFrame("Button"), CreateFrame("Button") }
+for i, cell in ipairs(cells) do grid.view.init(cell, { itemID = 20 + i, quality = 3, state = "can" }) end
+grid.box.ForEachFrame = function(_, fn) for _, cell in ipairs(cells) do fn(cell) end end
+calls = 0
+W.RepaintRows(grid)
+assert(calls == 3, "a repaint must redraw each pooled cell of a grid, redrew " .. calls)
+cells[1]:Reset()
+calls = 0
+W.RepaintRows(grid)
+assert(calls == 2, "a recycled cell redrew old data, redrew " .. calls)
 
 -- The window: the colour events are heard while shown, tell the open tab to repaint, and are gone on hide.
 local refreshed = {}

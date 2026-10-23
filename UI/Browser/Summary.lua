@@ -118,7 +118,7 @@ local function BuildRow(parent)
     r.show = W.NewButton(r, L["Show"], function() Open(r.itemID) end)
     r.wp:SetPoint("RIGHT", -SP.m, 0)
     r.show:SetPoint("RIGHT", -SP.m, 0)
-    r:SetScript("OnClick", function() Open(r.itemID) end)
+    r:SetScript("OnClick", function() if not W.Linked(r.itemID) then Open(r.itemID) end end)
     r:SetScript("OnEnter", function() if r.itemID then B.ShowItemTooltip(r, r.itemID, r.npcID) end end)
     r:SetScript("OnLeave", B.HideTooltip)
     return r

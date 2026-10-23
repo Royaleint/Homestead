@@ -19,7 +19,7 @@ return function(root, opts)
         catalog = {}, names = {}, sources = {}, vendors = {}, offers = {}, reqs = {}, scanned = {}, records = {},
         calendar = {}, themes = {}, measured = {}, maps = {}, playerMap = nil, stats = {},
         all = {}, boxList = {}, timers = {}, saves = {}, waypoints = {}, reports = {}, itemShows = {},
-        walkCalls = 0, combat = false, fontStrings = {}, emptySets = {},
+        walkCalls = 0, combat = false, fontStrings = {}, emptySets = {}, links = {}, linked = {},
     }
     for k, v in pairs(opts or {}) do env[k] = v end
 
@@ -191,7 +191,10 @@ return function(root, opts)
         RequestLoadItemDataByID = noop,
         GetItemIconByID = function(id) return 1000 + id end,
         GetItemQualityByID = function() return 2 end,
+        GetItemInfo = function(id) return env.names[id], env.links[id] end,
     })
+    G("IsModifiedClick", function(action) return env.modifier == action end)
+    G("HandleModifiedItemClick", function(link) env.linked[#env.linked + 1] = link return true end)
     G("C_HousingCatalog", {
         GetCatalogEntryInfoByItem = function(id) return env.catalog[id] end,
         GetCatalogEntryInfoByRecordID = function() return nil end,

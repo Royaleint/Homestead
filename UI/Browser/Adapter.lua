@@ -521,5 +521,8 @@ function D.TooltipData(itemID, npcID, catalogMemo)
     out.price = npcID and D.Price(itemID, v) or p and p.price
     out.source = D.SourceLine(itemID, { p })
     out.unconfirmed = v and not B.Facts.Confirmed(v) or nil
+    out.active = v and D.HolidayActive(v) and v.event or nil
+    local e = B.CanGet.Entry(itemID)
+    out.bonus = e and e.bonus or nil
     return out
 end

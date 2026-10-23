@@ -45,7 +45,7 @@ local bannedPlain = {
     '"HIGH"', "AddOns\\\\Homestead", "AddOns/Homestead",
     "CreateCatalogSearcher", "C_Map.OpenWorldMap", "TabGlowAnimation",
     "ShowAchievementFrameForAchievement", "C_Item.GetItemQualityColor",
-    "RightButton", "OnDoubleClick", "IsShiftKeyDown", "IsControlKeyDown", "IsAltKeyDown", "IsModifiedClick",
+    "RightButton", "OnDoubleClick", "IsShiftKeyDown", "IsControlKeyDown", "IsAltKeyDown",
 }
 
 -- Lua patterns that must not match: a catalog searcher is never configured from the browser.
@@ -73,6 +73,8 @@ local callRules = {
     { name = "GetVendorItemAvailabilityState",
       what = "GetVendorItemAvailabilityState must be the three-argument form ending in true",
       ok = function(args) return args:match("^[^,]+,[^,]+,%s*true%s*$") ~= nil end },
+    { name = "IsModifiedClick", what = "IsModifiedClick other than CHATLINK",
+      ok = function(args) return args:match('^%s*"CHATLINK"%s*$') ~= nil end },
 }
 
 -- Checks every direct call of rule.name in text, and that no other use of the name exists
@@ -132,6 +134,9 @@ do
         "CatalogStore:IsOwnedFresh(\n    itemID\n)",
         "local f = CatalogStore.IsOwnedFresh; f(CatalogStore, itemID)",
         "SM:GetVendorItemAvailabilityState(itemID, npcID)",
+        'if IsModifiedClick("DRESSUP") then end',
+        "if IsModifiedClick() then end",
+        "local f = IsModifiedClick; f(\"CHATLINK\")",
     }
     for _, snippet in ipairs(bad) do
         local caught = false
@@ -140,9 +145,10 @@ do
         end
         assert(caught, "the call rules missed: " .. snippet)
     end
-    local good = 'CS:IsOwnedFresh(itemID, true)'
-    for _, rule in ipairs(callRules) do
-        assert(pcall(scanCalls, "probe", good, rule), "the call rules rejected an allowed call")
+    for _, good in ipairs({ 'CS:IsOwnedFresh(itemID, true)', 'if IsModifiedClick("CHATLINK") then end' }) do
+        for _, rule in ipairs(callRules) do
+            assert(pcall(scanCalls, "probe", good, rule), "the call rules rejected an allowed call: " .. good)
+        end
     end
 
     local badText = {
@@ -165,7 +171,6 @@ do
         "if IsShiftKeyDown() then end",
         "if IsControlKeyDown() then end",
         "if IsAltKeyDown() then end",
-        "if IsModifiedClick(\"CHATLINK\") then end",
         "local tip = CreateFrame(\"GameTooltip\", nil, UIParent)",
         "local p = SM:GetItemPresentation(itemID, { context = \"browser\" })",
     }

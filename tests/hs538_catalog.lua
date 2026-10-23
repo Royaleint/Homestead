@@ -410,7 +410,7 @@ do
     for _, f in ipairs(frames) do rowOf[f.d.itemID] = f.d end
     eq(rowOf[1].state, "can", "Can get now")
     eq(rowOf[1].right, "300g", "the price on the right")
-    eq(rowOf[1].bonus, true, "the bonus star")
+    eq(rowOf[1].bonus, 1, "the bonus star carries the amount")
     eq(rowOf[3].state, "locked", "requirement")
     eq(rowOf[3].arg, "Mysterious Favor", "the first unmet requirement")
     eq(rowOf[6].state, "faction", "other faction")

@@ -1,5 +1,4 @@
--- Shared widgets: wells, panes, tiles, decor rows, lists, empty states, the three-column body and the
--- hidden-by footer. Tooltips come from B at call time.
+-- Shared widgets. Tooltips come from B at call time.
 local _, HA = ...
 
 local B = HA.DecorBrowser
@@ -18,13 +17,14 @@ B.Widgets = W
 
 local panes = {}
 
+local function HideTip() B.HideTooltip() end
+
 local function Coord(tex, c)
     tex:SetTexCoord(c[1], c[2], c[3], c[4])
 end
 
 local ruler
 
--- Height of a text role at the player's text size (one line, or wrapped to a width); sizes come from it.
 function W.TextHeight(role, text, width)
     if not ruler then
         ruler = UIParent:CreateFontString(nil, "ARTWORK")
@@ -44,7 +44,6 @@ function W.QualityRGB(quality)
     return c.r, c.g, c.b
 end
 
--- Row and header heights are measured once per text size; Win.Measure calls ResetMeasure when it changes.
 local measured = {}
 local function Measured(key, fn)
     local scale = TextSizeManager:GetScale()
@@ -64,7 +63,6 @@ function W.ResetMeasure()
     wipe(measured)
 end
 
--- Two lines of body text between padding.
 local function MeasureRow()
     return math.max(2 * R.pad + 2 * W.TextHeight("body") + R.gap, R.tile + 2 * R.pad)
 end
@@ -100,7 +98,6 @@ function W.OpaquePanes(opaque)
     for _, pane in ipairs(panes) do PaintPane(pane, opaque) end
 end
 
--- Standard button with user-scaled text; sized from the text, so it follows the text size.
 function W.NewButton(parent, label, onClick)
     local b = CreateFrame("Button", nil, parent, "UIPanelButtonTemplate")
     b:SetNormalFontObject(S.font.bodyGold)
@@ -115,7 +112,6 @@ function W.NewButton(parent, label, onClick)
     return b
 end
 
--- A search box the Escape key knows about (it takes focus before it closes the window).
 function W.NewSearchBox(parent, placeholder, onChange)
     local box = CreateFrame("EditBox", nil, parent, "SearchBoxTemplate")
     box:SetFontObject(S.font.body)
@@ -150,11 +146,10 @@ function W.WaypointButton(parent)
         tip:SetText(L["Set waypoint"])
         tip:Show()
     end)
-    b:SetScript("OnLeave", function() B.HideTooltip() end)
+    b:SetScript("OnLeave", HideTip)
     return b
 end
 
--- Item tile: gradient plate, icon and a border in the quality colour. Anchor tile.icon.
 function W.NewTile(parent, size)
     local tile = { icon = parent:CreateTexture(nil, "ARTWORK") }
     tile.icon:SetSize(size, size)
@@ -176,7 +171,6 @@ function W.SetTile(tile, d, r, g, b)
     tile.border:SetVertexColor(r, g, b, 1)
 end
 
--- Lays the shown elements right to left inside box and sizes the box to them.
 local function Pack(box, ...)
     local x = 0
     for i = 1, select("#", ...) do
@@ -190,16 +184,35 @@ local function Pack(box, ...)
     box:SetWidth(math.max(x - SP.xs, 1))
 end
 
+function W.Linked(id)
+    if id and IsModifiedClick("CHATLINK") then
+        local _, link = C_Item.GetItemInfo(id)
+        return link and HandleModifiedItemClick(link)
+    end
+end
+
+local function Redraw(self)
+    if self.d then self:Set(self.d) end
+end
+
+-- A recycled frame drops its data, and its tooltip if it owns it (the wheel scrolled it away under the mouse).
+local function Reset(self)
+    self.d, self.itemID, self.npcID, self.onClick, self.onEnter = nil, nil, nil, nil, nil
+    B.HideTooltipFor(self)
+end
+
+local function ShowTip(self)
+    if self.onEnter then self.onEnter(self) elseif self.itemID then B.ShowItemTooltip(self, self.itemID, self.npcID) end
+end
+
 local function BuildRight(row)
     local box = CreateFrame("Frame", nil, row)
     box:SetHeight(W.TextHeight("body"))
     return box
 end
 
--- Decor row. row:Set{ name, quality, icon or atlas, noTile, active, bonus, right, line2, unconfirmed,
--- state, arg, selected, itemID, npcID, onClick, onEnter }. state is a key of S.state; arg fills its words.
--- Line one: name, badges, price. Line two: source line, Not confirmed tag, the state's words and mark.
--- Builds onto a Button it is given (a pooled list frame) and adds row:Set, row:Redraw and row:Reset.
+-- Decor row on a pooled Button: row:Set{ name, quality, icon or atlas, noTile, active, bonus, right, line2,
+-- unconfirmed, state (an S.state key), arg, selected, itemID, npcID, onClick, onEnter }, Redraw, Reset.
 function W.BuildRow(row)
     row:RegisterForClicks("LeftButtonUp")
     row.bg = row:CreateTexture(nil, "BACKGROUND")
@@ -248,7 +261,6 @@ function W.BuildRow(row)
         self.d = d
         local r, g, b = W.QualityRGB(d.quality)
         local st = S.state[d.state]
-        local dim = st and st.dim
         local c = st and st.color or K.muted
         self.bg:SetColorTexture(unpack(d.selected and K.selected or K.card))
         stripe:SetShown(d.selected == true)
@@ -256,7 +268,7 @@ function W.BuildRow(row)
         tile.plate:SetShown(not d.noTile)
         tile.border:SetShown(not d.noTile)
         W.SetTile(tile, d, r, g, b)
-        tile.icon:SetDesaturated(dim == true)
+        tile.icon:SetDesaturated(d.state == "locked")
         local left = SP.s + (d.noTile and 0 or R.tile + SP.s)
         name:ClearAllPoints()
         name:SetPoint("TOPLEFT", row, "TOPLEFT", left, -R.pad)
@@ -266,7 +278,6 @@ function W.BuildRow(row)
         line:SetPoint("BOTTOMRIGHT", bottom, "BOTTOMLEFT", -SP.s, 0)
         name:SetText(d.name or "")
         name:SetTextColor(r, g, b)
-        name:SetAlpha(dim and 0.55 or 1)
         price:SetText(d.right or "")
         badge:SetShown(d.active and true or false)
         Vis.Marker.Set(clock, d.active and "clock" or nil, K.badge)
@@ -281,40 +292,27 @@ function W.BuildRow(row)
         tag:SetSize(tag.text:GetUnboundedStringWidth() + SP.s, W.TextHeight("meta") + 2)
         Pack(bottom, words, mark, tag)
         line:SetText(d.line2 or "")
-        line:SetAlpha(dim and 0.55 or 1)
 
         self.itemID, self.npcID = d.itemID, d.npcID
         self.onClick, self.onEnter = d.onClick, d.onEnter
     end
 
-    function row:Redraw()
-        if self.d then self:Set(self.d) end
-    end
-
+    row.Redraw, row.Reset = Redraw, Reset
     row:SetScript("OnClick", function(self)
+        if W.Linked(self.itemID) then return end
         if self.onClick then self.onClick() end
     end)
-    row:SetScript("OnEnter", function(self)
-        if self.onEnter then self.onEnter(self) elseif self.itemID then B.ShowItemTooltip(self, self.itemID, self.npcID) end
-    end)
-    row:SetScript("OnLeave", function() B.HideTooltip() end)
-
-    -- A recycled row drops its data, and its tooltip if it owns it (the wheel scrolled it away under the mouse).
-    function row:Reset()
-        self.d, self.itemID, self.npcID, self.onClick, self.onEnter = nil, nil, nil, nil, nil
-        B.HideTooltipFor(self)
-    end
+    row:SetScript("OnEnter", ShowTip)
+    row:SetScript("OnLeave", HideTip)
     return row
 end
 
--- The kind for lists of decor rows: the pooled frame is the row.
 W.rowKind = {
     frameType = "Button",
     build = W.BuildRow,
     init = function(f, d) f:Set(d) end,
 }
 
--- Repaints every visible row of a list (a colour override or an item name changed).
 function W.RepaintRows(list)
     list.box:ForEachFrame(function(frame)
         if frame.Redraw then frame:Redraw() end
@@ -325,13 +323,14 @@ local function ResetPooled(frame)
     if frame.Reset then frame:Reset() end
 end
 
-local function ScrollParts(parent)
+local function ScrollParts(parent, view)
     local box = CreateFrame("Frame", nil, parent, "WowScrollBoxList")
     local bar = CreateFrame("EventFrame", nil, parent, "MinimalScrollBar")
     box:SetPoint("TOPLEFT")
     box:SetPoint("BOTTOMRIGHT", -LO.scrollBarGap, 0)
     bar:SetPoint("TOPLEFT", box, "TOPRIGHT", 3, -2)
     bar:SetPoint("BOTTOMLEFT", box, "BOTTOMRIGHT", 3, 2)
+    ScrollUtil.InitScrollBoxListWithScrollBar(box, bar, view)
     return box, bar
 end
 
@@ -353,14 +352,13 @@ end
 --          init } }, reclaim = give the scrollbar's gutter back while the bar is hidden }
 function W.NewList(parent, opts)
     local list = {}
-    local box, bar = ScrollParts(parent)
     local view = CreateScrollBoxListLinearView(0, 0, 0, 0, opts.spacing or 0)
+    local box, bar = ScrollParts(parent, view)
     view:SetElementExtentCalculator(function(_, data)
         return (opts.extent or W.RowHeight)(data)
     end)
     view:SetElementFactory(W.KindFactory(opts.kinds))
     view:SetElementResetter(ResetPooled)
-    ScrollUtil.InitScrollBoxListWithScrollBar(box, bar, view)
     if opts.reclaim then
         ScrollUtil.AddManagedScrollBarVisibilityBehavior(box, bar, {
             CreateAnchor("TOPLEFT", parent, "TOPLEFT", 0, 0),
@@ -379,6 +377,104 @@ function W.NewList(parent, opts)
     function list:SetShown(shown)
         box:SetShown(shown)
         if not shown then bar:Hide() end
+    end
+    return list
+end
+
+function W.Bar(parent)
+    local bar = CreateFrame("Frame", nil, parent)
+    bar.text = S.Text(bar, "body", "OVERLAY")
+    bar.text:SetPoint("TOPLEFT")
+    local fill = CreateFrame("StatusBar", nil, bar)
+    fill:SetPoint("BOTTOMLEFT")
+    fill:SetPoint("BOTTOMRIGHT")
+    fill:SetHeight(6)
+    fill:SetStatusBarTexture([[Interface\Buttons\WHITE8X8]])
+    fill:SetStatusBarColor(unpack(K.gold))
+    fill:SetMinMaxValues(0, 1)
+    local track = fill:CreateTexture(nil, "BACKGROUND")
+    track:SetAllPoints()
+    track:SetColorTexture(0, 0, 0, 0.45)
+    function bar:Set(label, ratio)
+        self.text:SetText(label)
+        fill:SetValue(ratio or 0)
+    end
+    function bar:Fit()
+        self:SetHeight(W.TextHeight("body") + SP.xs + 6)
+    end
+    bar:Fit()
+    return bar
+end
+
+function W.NewWareCell(cell)
+    local tile = W.NewTile(cell, S.ware.size)
+    tile.icon:SetPoint("CENTER")
+    local hover = cell:CreateTexture(nil, "HIGHLIGHT")
+    hover:SetAllPoints()
+    hover:SetColorTexture(unpack(K.hoverRow))
+    cell:RegisterForClicks("LeftButtonUp")
+    local function Corner(point, x, y)
+        local t = cell:CreateTexture(nil, "OVERLAY", nil, 1)
+        t:SetSize(14, 14)
+        t:SetPoint(point, x, y)
+        return t
+    end
+    local mark, star, clock = Corner("TOPRIGHT", -2, -2), Corner("TOPLEFT", 2, -2), Corner("BOTTOMLEFT", 2, 2)
+    local copies = S.Text(cell, "meta", "OVERLAY")
+    copies:SetPoint("BOTTOMRIGHT", -3, 3)
+
+    function cell:Set(d)
+        self.d, self.itemID, self.npcID = d, d.itemID, d.npcID
+        local st = S.state[d.state]
+        W.SetTile(tile, d, W.QualityRGB(d.quality))
+        tile.icon:SetDesaturated(d.state == "locked")
+        Vis.Marker.Set(mark, st and st.glyph, st and st.color)
+        Vis.Marker.Set(star, d.bonus and "star" or nil, K.gold)
+        Vis.Marker.Set(clock, d.active and "clock" or nil, K.badge)
+        copies:SetShown(d.copies ~= nil)
+        copies:SetText(d.copies and d.copies > 99 and "99+" or d.copies or "")
+    end
+    cell.Redraw, cell.Reset = Redraw, Reset
+    cell:SetScript("OnClick", function(self)
+        if W.Linked(self.itemID) then return end
+        if self.itemID then B.ShowTab("catalog", { itemID = self.itemID }) end
+    end)
+    cell:SetScript("OnEnter", ShowTip)
+    cell:SetScript("OnLeave", HideTip)
+    return cell
+end
+
+function W.NewGrid(parent, cell, gap)
+    local list = {}
+    local view = CreateScrollBoxListGridView(1, gap, gap, 0, 0, gap, gap)
+    local box, bar = ScrollParts(parent, view)
+    view:SetElementInitializer("Button", function(frame, d)
+        if not frame.built then
+            frame.built = true
+            W.NewWareCell(frame)
+        end
+        frame:Set(d)
+    end)
+    view:SetElementResetter(ResetPooled)
+    view:SetElementSize(cell, cell)
+    ScrollUtil.AddManagedScrollBarVisibilityBehavior(box, bar)
+    list.box, list.bar, list.view = box, bar, view
+
+    local function Restride(width)
+        local w = width or box:GetWidth()
+        if w < cell then return false end
+        local n = math.floor((w + gap) / (cell + gap))
+        if n == view:GetStride() then return false end
+        view:SetStride(n)
+        return true
+    end
+    box:HookScript("OnSizeChanged", function()
+        if Restride() then box:FullUpdate() end
+    end)
+
+    function list:SetData(tbl, keepPosition, boxWidth)
+        Restride(boxWidth)
+        box:SetDataProvider(CreateDataProvider(tbl), keepPosition)
     end
     return list
 end
@@ -442,12 +538,10 @@ W.footerKind = {
     end,
 }
 
--- Height of the footer at the list's width (its text wraps).
 function W.FooterHeight(d, width)
     return W.TextHeight("bodyMuted", FooterText(d), width - 2 * SP.s) + W.TextHeight("body") + 2 * SP.s + R.gap
 end
 
--- The empty-list kinds and their words. Buttons show when d carries their handler.
 local EMPTY = {
     counting = { L["Counting…"], L["Reading your collection. This list fills in when it's ready."] },
     countingSort = { L["Counting…"],

@@ -93,6 +93,17 @@ do
     print("hs538_states: state words ok")
 end
 
+-- Collected is marked with a check and the word, and no state is dimmed.
+do
+    local _, HA = state({ true, false, true, true }, {})
+    local S = HA.DecorBrowser.Style
+    assert(S.state.owned.glyph == "check" and S.state.owned.word == "Collected", "Collected lost its check or its word")
+    assert(S.state.allDone.glyph == "check", "All collected lost its check")
+    for key, st in pairs(S.state) do assert(st.dim == nil, key .. " is dimmed") end
+    assert(S.ware.size == 48 and S.ware.gap == 4, "the ware cell is not 48 px with a 4 px gap")
+    print("hs538_states: collected is marked, not dimmed ok")
+end
+
 -- Every locale file carries each tab's section, ending with its fixed line, so the tab changes can add
 -- keys above their own line without touching each other.
 do

@@ -83,6 +83,7 @@ local function newEnv()
         GetItemIconByID = function(id) return 1000 + id end,
         GetItemQualityByID = function() return 1 end,
     })
+    rawset(_G, "IsModifiedClick", function() return false end)
     rawset(_G, "C_HousingCatalog", {
         GetCatalogEntryInfoByItem = function(id) return env.catalog[id] end,
         GetCatalogEntryInfoByRecordID = function() return nil end,

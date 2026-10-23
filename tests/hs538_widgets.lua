@@ -117,7 +117,7 @@ for _, case in ipairs(cases) do
     assert(W.StateWords(state, arg) == words, "StateWords disagrees for " .. state)
     local nameFs = find("Oak Bench")
     assert(nameFs.color[2] == 0.5, "the name is not in the quality colour")
-    assert(nameFs.alpha == (state == "owned" and 0.55 or 1), "only a Collected row is dimmed")
+    assert(rawget(nameFs, "alpha") == nil, "no row is dimmed: a Collected row keeps full colour")
     assert((marked and 1 or 0) == (S.state[state].glyph and 1 or 0), "second signal table disagrees for " .. state)
 end
 

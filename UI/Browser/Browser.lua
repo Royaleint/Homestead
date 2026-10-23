@@ -406,6 +406,14 @@ function B.ShowItemTooltip(owner, itemID, npcID)
         local c = B.Style.state[state].color
         tip:AddLine(W.StateWords(state, arg), c[1], c[2], c[3])
     end
+    if d.active then tip:AddLine(L["Active now: %s"]:format(d.active), unpack(B.Style.color.badge)) end
+    if d.bonus then
+        if GameTooltip_AddNormalLine and HOUSING_DECOR_FIRST_ACQUISITION_FORMAT then
+            GameTooltip_AddNormalLine(tip, HOUSING_DECOR_FIRST_ACQUISITION_FORMAT:format(d.bonus))
+        else
+            tip:AddLine(L["First-Time Collection Bonus Available"], gold.r, gold.g, gold.b)
+        end
+    end
     tip:AddLine(L["Collection"], gold.r, gold.g, gold.b)
     if d.counts then
         Pair(tip, L["Placed"], d.counts.placed)

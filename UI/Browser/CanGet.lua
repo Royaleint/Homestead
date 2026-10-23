@@ -125,7 +125,8 @@ local function Evaluate(itemID, store, SM, VD, memo)
     local info = D.CatalogInfo(itemID, memo)
     local own = Own(store, itemID, info)
     local e = { itemID = itemID, info = info, own = own, name = D.ItemName(itemID, info), src = {} }
-    e.bonus = own == "notOwned" and info ~= nil and (info.firstAcquisitionBonus or 0) > 0
+    local bonus = info and info.firstAcquisitionBonus or 0
+    e.bonus = own == "notOwned" and bonus > 0 and bonus or nil
     e.src.vendors = VD:HasOfferForItem(itemID) or nil
     for key, tbl in pairs(SOURCE_TABLES) do
         local t = HA[tbl]
@@ -152,7 +153,7 @@ local function Evaluate(itemID, store, SM, VD, memo)
 end
 
 -- The walk's record for one item, decor or a vendor ware outside the decor list; nil before ready.
--- Fields: itemID, info, own, name, bonus, src (Sources type set), factionOnly, verdict (nil without a
+-- Fields: itemID, info, own, name, bonus (the First-Time Collection amount, nil if none), src (Sources type set), factionOnly, verdict (nil without a
 -- vendor offer), canBy (npcID to offer), locked (npcIDs), event (an off-season holiday that sells it).
 function CG.Entry(itemID)
     if D.CollectionState() ~= "ready" then return nil end
@@ -261,7 +262,7 @@ end
 local function Before(a, b)
     local ta, tb = a.best.event ~= nil, b.best.event ~= nil
     if ta ~= tb then return ta end
-    if a.bonus ~= b.bonus then return a.bonus end
+    if (a.bonus ~= nil) ~= (b.bonus ~= nil) then return a.bonus ~= nil end
     if a.near ~= b.near then return a.near < b.near end
     if a.best.gold ~= b.best.gold then return a.best.gold end
     if (a.name ~= nil) ~= (b.name ~= nil) then return a.name ~= nil end

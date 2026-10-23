@@ -63,6 +63,7 @@ S.layout = {
 }
 
 S.row = { pad = 6, gap = 2, tile = 30 }
+S.ware = { size = 48, gap = 4 }
 S.cols = { nav = 172, detail = 252, gap = SP.xs }
 
 S.tex = {
@@ -138,14 +139,14 @@ local K = S.color
 -- The words and second signal of each row state. Locked and faction/event take their argument; the last
 -- four are Sources' list rows.
 S.state = {
-    owned = { word = L["Collected"], glyph = "check", color = K.muted, dim = true },
+    owned = { word = L["Collected"], glyph = "check", color = K.muted },
     can = { word = L["Can get now"], glyph = "dot", color = K.can },
     locked = { word = L["Requires: %s"], glyph = "lock", color = K.muted },
     faction = { word = L["%s only"], glyph = "stop", color = K.stop },
     event = { word = L["%s only"], glyph = "clock", color = K.muted },
     notOwned = { word = L["Not collected"], color = K.muted },
     counting = { word = L["Counting…"], color = K.muted },
-    allDone = { word = L["All collected"], glyph = "check", color = K.muted, dim = true },
+    allDone = { word = L["All collected"], glyph = "check", color = K.muted },
     some = { word = L["%d can get now"], glyph = "dot", color = K.can },
     idle = { word = L["Not active"], glyph = "clock", color = K.muted },
     live = { word = L["Active now"], glyph = "clock", color = K.badge },
