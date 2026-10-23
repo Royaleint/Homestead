@@ -1,15 +1,17 @@
 -- luacheck: globals assert loadfile print io rawset CreateFrame UIParent C_Texture PixelUtil CreateColor C_ColorOverrides
--- luacheck: globals CreateScrollBoxListLinearView CreateScrollBoxListGridView ScrollUtil CreateAnchor CreateDataProvider TextSizeManager NineSliceUtil
+-- luacheck: globals CreateScrollBoxListLinearView CreateScrollBoxListGridView ScrollBoxConstants ScrollUtil CreateAnchor CreateDataProvider TextSizeManager NineSliceUtil
 -- luacheck: globals C_Timer C_Item C_Map date os SetPortraitTextureFromCreatureDisplayID InCombatLockdown
 -- Run from the repo root:  lua tests/hs538_sources.lua [root]
 
 local root = (... or "."):gsub("\\", "/"):gsub("/+$", "")
 
 -------------------------------------------------------------------------------
--- The Sources tab, run through the real Sources.lua, Widgets, Facts, Adapter and
+-- The Sources page, run through the real Sources.lua, Widgets, Facts, Adapter and
 -- CanGet against stubbed data and recording widgets: grouping and row words, the
 -- vendor page the file registers (head, location, lines, bar, wares), the select
--- contract for every type, Hide's footer, the count refresh, and the walk discipline.
+-- contract for every source type, Hide's footer, the count refresh, and the walk discipline.
+-- The page registers for the sources, vendors and allVendors routes; env.tab shows it the way
+-- B.ShowTab("sources", opts) and the router would, and types into the header box through Filter.
 -------------------------------------------------------------------------------
 
 local function noop() end
@@ -89,6 +91,7 @@ CreateAnchor = noop
 CreateDataProvider = function(t) return t end
 TextSizeManager = { GetScale = function() return 1 end }
 C_ColorOverrides = { GetColorForQuality = function() return { r = 0, g = 0.5, b = 1 } end }
+ScrollBoxConstants = { AlignBegin = 0, AlignCenter = 0.5, AlignEnd = 1 }
 ScrollUtil = { InitScrollBoxListWithScrollBar = noop, AddManagedScrollBarVisibilityBehavior = noop, InitScrollFrameWithScrollBar = noop }
 CreateScrollBoxListGridView = function() return Widget("View") end
 CreateScrollBoxListLinearView = function()
@@ -271,7 +274,7 @@ local function setup()
         assert(loadfile(root .. "/UI/Browser/" .. file .. ".lua"))("Homestead", HA)
     end
     local B = HA.DecorBrowser
-    local tabs, pages, gen = {}, {}, 1
+    local pages, gen = {}, 1
     B.State = { hideNA = false, inCombat = false, generation = 1, noPrewarm = false, catalogMemo = {} }
     env.walkCalls = 0
     B.Walk = function()
@@ -280,7 +283,6 @@ local function setup()
     end
     B.Generation = function() return gen end
     B.InCombat = function() return B.State.inCombat end
-    B.RegisterTab = function(key, tab) tabs[key] = tab end
     B.RegisterPage = function(kind, page) pages[kind] = page end
     B.ShowTab = function(key, o) env.shown[#env.shown + 1] = { key = key, opts = o } end
     B.Go = function(route) env.went[#env.went + 1] = route end
@@ -288,17 +290,33 @@ local function setup()
         return { SetOwner = noop, SetText = function(_, t) env.tip = t end, Show = noop }
     end
     B.HideTooltip, B.HideTooltipFor = noop, noop
-    B.Window = { AddSearchBox = noop, hideNA = Widget("CheckButton") }
+    env.search = ""
+    B.Window = { AddSearchBox = noop, hideNA = Widget("CheckButton"), SetSearch = function(text) env.search = text or "" end }
     B.SetHideNA = function(on)
         B.State.hideNA = on
         env.hideNASet = on
-        if tabs.sources then tabs.sources.Refresh("hide") end
+        pages.sources:Refresh("hide")
     end
     local path = root .. "/UI/Browser/Sources.lua"
     local before = #all
     assert(loadfile(path))("Homestead", HA)
     env.framesAtLoad = #all - before
-    env.tab, env.vpage, env.B, env.W = tabs.sources, pages.vendor, B, B.Widgets
+    env.pages, env.vpage, env.B, env.W = pages, pages.vendor, B, B.Widgets
+    -- What B.ShowTab("sources", opts) goes to; the header box takes the seed's search, or is cleared, first.
+    -- This harness sends { type = "vendors", select } to allVendors; the real router sends it to the vendor page.
+    local tab = {}
+    function tab.Show(opts)
+        local route = opts and opts.type == "vendors" and { kind = "allVendors", seed = opts }
+            or { kind = "sources", key = opts and opts.type, seed = opts }
+        B.Window.SetSearch(opts and opts.search)
+        pages[route.kind]:Show(route)
+    end
+    function tab.Build(parent) pages.sources:Build(parent) end
+    function tab.Refresh(reason) pages.sources:Refresh(reason) end
+    function tab.Hide() pages.sources:Hide() end
+    function tab.SetCombat(on) pages.sources:SetCombat(on) end
+    function tab.Filter(text) pages.sources:Filter(text) end
+    env.tab = tab
     function env.bump() gen = gen + 1 end
     env.D, env.CG, env.HA = D, CG, HA
     return env
@@ -410,10 +428,6 @@ local function button(text)
     end)
 end
 
-local function searchBox()
-    return frameWith(function(w) return w.kind == "EditBox" end)
-end
-
 -- The drawn "N of M collected" at the head of the list.
 local function headText()
     for i = #all, 1, -1 do
@@ -447,16 +461,15 @@ do
     local env = setup()
     world(env)
     local main = build(env)
-    env.tab.Show({})
-    assert(same(keyList(main), { "# Here in Stormwind", "100", "# Eastern Kingdoms", "101", "# Kalimdor", "102",
-        "# Location not recorded", "103" }), "vendor groups: " .. table.concat(keyList(main), ","))
+    env.tab.Show({ type = "vendors" })
+    assert(same(keyList(main), { "# Other Vendors", "# Elwynn Forest", "101", "# Nowhere", "103", "# Orgrimmar", "102",
+        "# Stormwind", "100" }), "vendor groups: " .. table.concat(keyList(main), ","))
     local heads = {}
     for _, t in ipairs({ "vendors", "achievements", "quests", "professions", "drops", "events", "shop" }) do
         env.tab.Show({ type = t })
         heads[#heads + 1] = headText()
     end
     assert(same(heads, { "0 of 6 collected", "0 of 2 collected", "0 of 2 collected", "0 of 2 collected", "0 of 1 collected", "0 of 2 collected", "0 of 1 collected" }), "heads: " .. table.concat(heads, ";"))
-    env.tab.Show({})
 
     env.tab.Show({ type = "achievements" })
     assert(same(keyList(main), { "# Cata", "9002", "# Catb", "9001" }), "achievements by category")
@@ -485,7 +498,7 @@ do
     local v = world(env)
     local main = build(env)
     env.vendor(104, { name = "Eve", zone = "Stormwind", mapID = 10 })
-    env.tab.Show({})
+    env.tab.Show({ type = "vendors" })
     local anna = row(main, 100)
     assert(anna.state == "some" and anna.arg == 3 and anna.right == "3 decor", "stats nil: " .. tostring(anna.right))
     assert(row(main, 104).right == "No decor")
@@ -638,28 +651,27 @@ do
 end
 
 -------------------------------------------------------------------------------
--- Rows open the vendor page; the list's own detail pane no longer draws vendor-only parts
+-- Rows open the vendor page; a vendor list is only a list and never fills the detail pane
 -------------------------------------------------------------------------------
 
 do
     local env = setup()
     world(env)
-    local main = build(env)
-    env.tab.Show({})
+    local main, decor = build(env)
+    env.tab.Show({ type = "vendors" })
     row(main, 100).onClick()
     assert(#env.went == 1 and env.went[1].kind == "vendor" and env.went[1].id == 100, "a vendor row opens its page")
     assert(env.shown[#env.shown] == nil, "and goes through no tab")
+    for _, d in ipairs(main.data) do assert(not d.selected, "a vendor list selects no row") end
+    assert(rawget(decor, "data") == nil and not headShows("Anna"), "a vendor list never fills the detail pane")
     env.tab.Show({ type = "vendors", select = { key = 100 } })
-    assert(headShows("Anna") and shownText("Gives 3 decor."), "the interim pane keeps the head and the count")
-    assert(not shownText("Confirmed by a scan") and not shownText("Sells"), "the vendor-only lines are gone")
-    row(main, 100).onClick()
-    assert(env.went[2].id == 100, "a selected row still opens the page")
+    assert(not headShows("Anna") and rawget(decor, "data") == nil, "a pick in a vendor list opens no degraded detail pane")
     local before = #env.shown
     row(main, 100).onClick()
-    assert(#env.shown == before, "a vendor row never selects in place")
+    assert(#env.shown == before and env.went[2].id == 100, "a vendor row never selects in place")
     env.tab.Show({ type = "achievements" })
     row(main, 9001).onClick()
-    assert(#env.went == 3 and headShows("Ach A"), "other rows still select in place")
+    assert(#env.went == 2 and headShows("Ach A"), "other rows still select in place")
     print("hs538_sources: vendor rows ok")
 end
 
@@ -703,18 +715,17 @@ do
     world(env)
     env.names[61] = "Shop Thing"
     local main = build(env)
-    local box = searchBox()
     local picks = {
-        { "vendors", 101, "Bran" }, { "achievements", 9002, "Ach B" }, { "quests", 7002, "Decor Treasure Hunt" },
+        { "achievements", 9002, "Ach B" }, { "quests", 7002, "Decor Treasure Hunt" },
         { "professions", 8002, "Stew" }, { "drops", "Boss|Keep", "Boss" }, { "events", "Noblegarden", "Noblegarden" },
         { "shop", 61, "Shop Thing" },
     }
     for _, p in ipairs(picks) do
         local t, key, title = p[1], p[2], p[3]
         env.tab.Show({ type = t, search = "zzz" })
-        assert(box.text == "zzz" and main.shown == false, t .. ": a search with no matches")
+        assert(env.search == "zzz" and main.shown == false, t .. ": a search with no matches")
         env.tab.Show({ type = t, select = { key = key }, search = "ignored" })
-        assert(box.text == "", t .. ": select clears the type's search and ignores opts.search")
+        assert(env.search == "", t .. ": select clears the header box and ignores opts.search")
         local d = row(main, key)
         assert(d and d.selected, t .. ": the row is selected")
         local last = scrolls[#scrolls]
@@ -741,9 +752,9 @@ do
     world(env)
     env.catalog[1], env.catalog[2], env.catalog[3] = { totalNumStored = 1 }, { totalNumStored = 1 }, { totalNumStored = 1 }
     local main = build(env)
-    env.tab.Show({})
+    env.tab.Show({ type = "vendors" })
     env.B.SetHideNA(true)
-    assert(same(keyList(main), { "# Eastern Kingdoms", "101", "# Location not recorded", "103", "foot" }),
+    assert(same(keyList(main), { "# Other Vendors", "# Elwynn Forest", "101", "# Nowhere", "103", "foot" }),
         "Hide drops the collected vendor and the other faction: " .. table.concat(keyList(main), ","))
     local foot = main.data[#main.data]
     assert(foot.hidden == 2 and foot.collected == 1 and foot.faction == 1 and foot.parts[1][1] == 1 and foot.parts[1][2] ~= "" and foot.onShow,
@@ -763,7 +774,7 @@ do
 
     allItemsOwned(env)
     invalidate(env)
-    local picks = { { "vendors", 100 }, { "vendors", 102 }, { "achievements", 9001 }, { "quests", 7001 },
+    local picks = { { "achievements", 9001 }, { "quests", 7001 },
         { "professions", 8001 }, { "drops", "Boss|Keep" }, { "shop", 61 } }
     for _, p in ipairs(picks) do
         env.tab.Show({ type = p[1], select = { key = p[2] } })
@@ -795,25 +806,24 @@ do
     local env = setup()
     world(env)
     local main = build(env)
-    local box = searchBox()
-    env.tab.Show({})
-    box.text = "bran"
-    box.scripts.OnTextChanged(box, true)
-    assert(same(keyList(main), { "# Eastern Kingdoms", "101" }), "search by name")
-    box.text = "stormwind"
-    box.scripts.OnTextChanged(box, true)
-    assert(same(keyList(main), { "# Here in Stormwind", "100" }), "search by zone")
-    box.text = "nothing like it"
-    box.scripts.OnTextChanged(box, true)
+    env.tab.Show({ type = "vendors" })
+    env.tab.Filter("bran")
+    assert(same(keyList(main), { "# Other Vendors", "# Elwynn Forest", "101" }), "search by name")
+    env.tab.Filter("stormwind")
+    assert(same(keyList(main), { "# Other Vendors", "# Stormwind", "100" }), "search by zone")
+    env.tab.Filter("nothing like it")
     assert(main.shown == false and shownText("Nothing matches your search."), "no matches: the empty state")
     local resetBtn = button("Reset filters")
     assert(resetBtn and resetBtn.shown)
     resetBtn.scripts.OnClick()
-    assert(box.text == "", "Reset filters clears the search")
-    env.tab.Refresh("paint")
-    box.text = ""
-    box.scripts.OnTextChanged(box, true)
+    assert(env.search == "", "Reset filters clears the header box")
+    assert(#rows(main) == 4 and main.shown, "and brings the whole list back with no further typing")
+    env.tab.Filter("bran")
+    env.tab.Filter("")
     assert(#rows(main) == 4 and main.shown, "clearing the search brings the list back")
+    local data = main.data
+    env.tab.Filter("")
+    assert(main.data == data, "the same text is not filtered again")
     print("hs538_sources: search ok")
 end
 
@@ -825,7 +835,7 @@ do
     local env = setup()
     world(env)
     local main = build(env)
-    env.tab.Show({})
+    env.tab.Show({ type = "vendors" })
     assert(row(main, 100).right == "3 decor" and env.prewarm == 1, "one fill request for the whole list")
     env.B.State.noPrewarm = true
     env.tab.Refresh("stats")
@@ -850,7 +860,7 @@ do
     local env = setup()
     world(env)
     local main = build(env)
-    env.tab.Show({})
+    env.tab.Show({ type = "vendors" })
     local n = walks(env)
     assert(n >= 1, "the first draw walked")
     local calls = env.walkCalls
@@ -876,21 +886,30 @@ do
     local v = world(env)
     v.here.x, v.here.y = 0.4, 0.5
     build(env)
-    env.tab.Show({ type = "vendors", select = { key = 100 } })
-    local report = button("Report a problem")
-    assert(report.enabled ~= false and report.shown)
-    report.scripts.OnClick()
+    env.vpage:Build(Widget("Page"))
+    env.vpage:Show({ kind = "vendor", id = 100 })
+    local reports = {}
+    for _, w in ipairs(all) do
+        if w.kind == "Button" and (w.text == "Report a problem" or type(w.text) == "table" and w.text.text == "Report a problem") then
+            reports[#reports + 1] = w
+        end
+    end
+    assert(#reports == 2, "the Sources pane and the vendor page each have a Report link")
+    local report, vreport = reports[1], reports[2]
+    assert(vreport.enabled ~= false and vreport.shown)
+    vreport.scripts.OnClick()
     local r = env.reports[1]
     assert(r.title == "Report a data error" and r.text:find("Vendor 100: Anna, Stormwind, map 10 at 40.0, 50.0", 1, true)
         and r.text:find("Homestead: 9.9.9", 1, true), "the vendor report")
     env.tab.Show({ type = "achievements", select = { key = 9001 } })
+    assert(report.enabled ~= false and report.shown)
     report.scripts.OnClick()
     assert(env.reports[2].text:find("Achievement: Ach A", 1, true), "the source report")
 
     env.tab.SetCombat(true)
     assert(report.enabled == false, "disabled in combat")
     env.B.State.inCombat = true
-    env.tab.Show({ type = "vendors", select = { key = 101 } })
+    env.tab.Show({ type = "quests", select = { key = 7001 } })
     assert(report.enabled == false, "a new selection in combat stays disabled")
     Enter(report)
     assert(env.tip == "Not available in combat", "the tooltip says why")
@@ -934,7 +953,7 @@ do
 
     env.calendar = { ["Hallow's End"] = true }
     local main = build(env)
-    env.tab.Show({})
+    env.tab.Show({ type = "vendors" })
     assert(row(main, 20).state == "live" and not row(main, 21), "an active event vendor is listed and tagged Active now")
     env.vpage:Build(Widget("Page"))
     env.vpage:Show({ kind = "vendor", id = 20 })
@@ -983,12 +1002,18 @@ do
     allItemsOwned(env)
     local main = build(env)
     env.B.State.hideNA = true
-    env.tab.Show({ type = "vendors", select = { key = 100 } })
-    assert(row(main, 100) and row(main, 100).selected)
-    assert(headText() == "6 of 6 collected", "the head counts hidden vendors too: " .. tostring(headText()))
+    env.tab.Show({ type = "achievements", select = { key = 9001 } })
+    assert(row(main, 9001) and row(main, 9001).selected)
+    assert(headText() == "2 of 2 collected", "the head counts hidden sources too: " .. tostring(headText()))
+    env.tab.Show({ type = "quests" })
     env.tab.Show({ type = "achievements" })
+    assert(main.shown == false, "the pinned source is hidden again after leaving the kind")
+    local clash = env.vendor(61, { name = "Clash", zone = "Stormwind", mapID = 10 })
+    env.sell(1, clash)
+    invalidate(env)
+    env.tab.Show({ type = "shop", select = { key = 61 } })
     env.tab.Show({ type = "vendors" })
-    assert(main.shown == false, "the pinned vendor is hidden again after leaving the kind")
+    assert(main.shown == false, "a source pin never keeps a vendor with the same key in a vendor list")
     print("hs538_sources: pin ends on a kind switch")
 end
 

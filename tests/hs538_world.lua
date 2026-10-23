@@ -160,6 +160,7 @@ return function(root, opts)
     local function NewBox()
         local box = Widget("WowScrollBoxList")
         box.frames, box.pool, box.scrolls, box.provider = {}, {}, {}, {}
+        box.aligns = {}
         function box:SetDataProvider(p, keep)
             self.provider, self.data, self.keep = p, p, keep
             Render(self)
@@ -172,7 +173,10 @@ return function(root, opts)
                 if pred(d) then return i end
             end
         end
-        function box:ScrollToElementDataIndex(i) self.scrolls[#self.scrolls + 1] = i end
+        function box:ScrollToElementDataIndex(i, align)
+            self.scrolls[#self.scrolls + 1] = i
+            self.aligns[#self.scrolls] = align
+        end
         env.boxList[#env.boxList + 1] = box
         return box
     end
@@ -182,6 +186,7 @@ return function(root, opts)
     ---------------------------------------------------------------------------
     local function G(name, value) rawset(_G, name, value) end
     G("Foundry_1_0", { RaiseDevError = function(_, msg) error(msg) end })
+    G("ScrollBoxConstants", { AlignBegin = 0, AlignCenter = 0.5, AlignEnd = 1 })
     G("wipe", function(t) for k in pairs(t) do t[k] = nil end return t end)
     G("date", os.date)
     G("GetBuildInfo", function() return "12.0.1", "1", "1", 120001 end)
@@ -394,7 +399,7 @@ return function(root, opts)
             env.handlers = handlers
             return build(handlers)
         end
-        function Win.SelectNav(route) env.tab = TabOf(route.kind) return selectNav(route) end
+        function Win.SelectNav(route) env.tab, env.route = TabOf(route.kind), route return selectNav(route) end
     else
         Win = {}
         B.Window = Win
@@ -402,8 +407,9 @@ return function(root, opts)
         function Win.SetCrumb(segs) env.crumb = segs end
         function Win.SetBack() end
         function Win.SetSearch(text) env.search = text end
+        function Win.SetPlaceholder(text) env.placeholder = text end
         function Win.UpdateCount() end
-        function Win.SelectNav(route) env.tab = TabOf(route.kind) end
+        function Win.SelectNav(route) env.tab, env.route = TabOf(route.kind), route end
         function Win.Build(handlers)
             env.handlers = handlers
             Win.frame, Win.host = Widget("Frame"), Widget("Frame")

@@ -114,17 +114,21 @@ do
     eq(env.tab, "catalog", "unfolding leaves the page")
     eq(row(env, "vendors").fold.atlas, "common-icon-minus")
 
-    -- The Vendors label opens the vendors list until the vendor pages exist.
+    -- The Vendors label opens All vendors, and an expansion row opens that expansion's list.
     env.click(row(env, "vendors"))
-    eq(env.tab, "sources", "the Vendors label opens the vendors list")
+    eq(env.route.kind, "allVendors", "the Vendors label opens All vendors")
+    eq(env.route.key, nil)
+    eq(env.tab, "sources")
     eq(pageShows(env), shows + 3)
     eq(selectedKey(env), "vendors", "the Vendors row is lit")
-    -- Until the expansion lists exist, an expansion row opens the same list and the Vendors row stays lit.
+    eq(env.sourceKeys(), "100,101,102,104", "All vendors lists every listed vendor")
     env.click(row(env, "vendors:Midnight"))
-    eq(env.tab, "sources", "an expansion row opens the vendors list")
-    eq(selectedKey(env), "vendors")
+    eq(env.route.kind .. ":" .. env.route.key, "vendors:Midnight", "an expansion row opens its list")
+    eq(selectedKey(env), "vendors:Midnight", "and lights itself")
+    eq(env.sourceKeys(), "100", "the Midnight list holds only Midnight's vendors")
     env.click(row(env, "vendors:other"))
-    eq(env.tab, "sources", "Other Vendors opens the vendors list")
+    eq(env.route.kind .. ":" .. env.route.key, "vendors:other", "Other Vendors opens its list")
+    eq(env.sourceKeys(), "102,104", "the other list holds the vendors with no known expansion")
     env.click(row(env, "quests"))
     eq(env.tab, "sources")
     eq(selectedKey(env), "quests")

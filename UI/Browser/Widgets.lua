@@ -524,19 +524,22 @@ function W.NewGrid(parent, cell, gap)
     return list
 end
 
--- List kinds for the pieces that sit among rows. Group header: { kind = "header", text }.
+-- List kinds for the pieces that sit among rows. Group header: { kind = "header", text, nested }; a nested
+-- header sits one step in under its parent header.
 -- Footer: { kind = "footer", hidden, collected, parts (Facts.FactionParts) or faction and factionName, onShow }.
 W.headerKind = {
     frameType = "HomesteadDecorBrowserHeader",
     build = function(f)
         f.text = S.Text(f, "bodyGold", "OVERLAY")
-        f.text:SetPoint("LEFT", SP.s, 0)
         f.text:SetPoint("RIGHT", -SP.s, 0)
         f.text:SetJustifyH("LEFT")
         f.text:SetWordWrap(false)
         Vis.Chrome.Hairline(f, K.muted, 0.35)
     end,
-    init = function(f, d) f.text:SetText(d.text) end,
+    init = function(f, d)
+        f.text:SetPoint("LEFT", d.nested and SP.s + SP.m or SP.s, 0)
+        f.text:SetText(d.text)
+    end,
 }
 
 local function MeasureHeader()

@@ -1,4 +1,5 @@
--- Sources: seven source lists with a detail pane, and the vendor page. Rows are keyed by Facts.SourceKey.
+-- Sources: the vendor lists (all vendors, one expansion), the six other source lists with a detail pane, and the
+-- vendor page. One page serves the sources, vendors and allVendors routes. Rows are keyed by Facts.SourceKey.
 local _, HA = ...
 
 local B = HA.DecorBrowser
@@ -31,9 +32,10 @@ local KIND = {
 local TYPES = CG.SOURCE_KEYS
 local IW = S.cols.detail - 2 * SP.m
 
-local Tab = {}
-local st = { type = "vendors", q = {}, sel = {} }
-local c, box, head, list, empty, torn, asked, cs, static, vend, vendVer
+local Page = {}
+local st = { type = "achievements", sel = {} }
+local now, query, wide = nil, "", false
+local c, head, list, empty, torn, asked, cs, static, vend, vendVer
 local U = {}
 
 local function Live(event)
@@ -74,27 +76,31 @@ local function Statics()
     return static
 end
 
-local function Vendors()
+-- One entry per listed vendor of the list, all of them or one expansion's. Wares are read only for these, so
+-- opening one expansion never reads the others; each vendor's entry lasts one memo version.
+local function VendorList(home)
     local version = D.MemoVersion()
-    if vend and vendVer == version then return vend end
-    vend, vendVer = { by = {} }, version
+    if vendVer ~= version then vend, vendVer = {}, version end
+    local out = {}
     for _, v in ipairs(D.ListedVendors()) do
-        local key = Facts.SourceKey("vendors", v)
-        local s = {
-            key = key, type = "vendors", vendor = v, title = v.name or L["Unknown"], items = D.VendorWares(v),
-            sub = Where(v) or "",
-        }
-        vend.by[key], vend[#vend + 1] = s, s
+        if not home or D.VendorHome(v) == home then
+            local key = Facts.SourceKey("vendors", v)
+            local s = vend[key]
+            if not s then
+                s = {
+                    key = key, type = "vendors", vendor = v, title = v.name or L["Unknown"], items = D.VendorWares(v),
+                    sub = Where(v) or "",
+                }
+                vend[key] = s
+            end
+            out[#out + 1] = s
+        end
     end
-    return vend
-end
-
-local function Src(t)
-    return t == "vendors" and Vendors() or Statics()[t]
+    return out
 end
 
 local function Current()
-    return Src(st.type).by[st.sel[st.type]]
+    return not wide and Statics()[st.type].by[st.sel[st.type]] or nil
 end
 
 -- Total decor, owned (nil until known) and can get now (nil until known).
@@ -123,6 +129,23 @@ local function Head(t)
     return p and L["%d of %d collected"]:format(p.owned, p.total) or L["Counting…"]
 end
 
+-- An expansion's head counts each ware once, however many of its vendors sell it.
+local function ExpansionHead(vendors)
+    if cs ~= "ready" then return L["Counting…"] end
+    local seen, owned, total = {}, 0, 0
+    for _, s in ipairs(vendors) do
+        for _, id in ipairs(s.items) do
+            if not seen[id] then
+                local e = CG.Entry(id)
+                seen[id] = true
+                total = total + 1
+                if e and e.own == "owned" then owned = owned + 1 end
+            end
+        end
+    end
+    return L["%d of %d collected"]:format(owned, total)
+end
+
 local function RowData(s)
     local total, got, can = Stats(s)
     local v, state, arg = s.vendor
@@ -136,23 +159,17 @@ local function RowData(s)
         kind = "row", key = s.key, name = s.title, line2 = s.sub, noTile = true, state = state, arg = arg,
         right = total == 0 and L["No decor"] or got and L["%d of %d"]:format(got, total) or L["%d decor"]:format(total),
         unconfirmed = v and not Facts.Confirmed(v) or nil,
-        onClick = function() if v then B.Go({ kind = "vendor", id = s.key }) else Tab.Select(s.key) end end,
+        onClick = function() if v then B.Go({ kind = "vendor", id = s.key }) else Page.Select(s.key) end end,
     }
 end
 
-local function Place(s, where)
-    s.o, s.g, s.z = 0, s.group, ""
-    if s.type == "vendors" then
-        local v = s.vendor
-        local near = v.mapID and Facts.Nearness(v.mapID, where) or 4
-        s.z = v.zone or ""
-        if near == 1 then
-            s.g = L["Here in %s"]:format(where.name or s.z)
-        else
-            local name = Continent(v.mapID)
-            s.g = name or L["Location not recorded"]
-            s.o = not name and 4 or near == 2 and 1 or 2
-        end
+-- Vendors group by expansion (all vendors only) and zone, a vendor with no zone last; events by whether they run.
+local function Place(s, order)
+    s.o, s.g, s.late = 0, s.group, nil
+    local v = s.vendor
+    if v then
+        s.e, s.g, s.late = D.VendorHome(v), v.zone or L["Location not recorded"], v.zone == nil
+        s.o = order and order[s.e] or 0
     elseif s.type == "events" then
         s.o = Live(s.key) and 0 or 1
     end
@@ -160,9 +177,9 @@ end
 
 local function Before(a, b)
     if a.o ~= b.o then return a.o < b.o end
+    if a.late ~= b.late then return b.late == true end
     local ga, gb = a.g or "", b.g or ""
     if ga ~= gb then return ga < gb end
-    if a.z ~= b.z then return a.z < b.z end
     if a.title ~= b.title then return a.title < b.title end
     return tostring(a.key) < tostring(b.key)
 end
@@ -191,19 +208,38 @@ local function ShowHidden()
     B.SetHideNA(false)
 end
 
-local function BuildList(keep)
+local function ResetSearch()
+    B.Window.SetSearch("")
+    Page:Filter("")
+end
+
+-- Returns the index of the header of the zone (a map id) when given and the list has a vendor in it.
+local function BuildList(keep, zone)
     asked, cs = false, D.CollectionState()
-    local t, hide = st.type, B.State.hideNA
-    local q = (st.q[t] or ""):lower()
-    local where = t == "vendors" and Facts.Here() or nil
+    local t, hide = wide and "vendors" or st.type, B.State.hideNA
+    local pin = not wide and st.pin or nil
+    -- In the player's own zone the seed means everything the Overview "Here" line counts: the zone and its child maps.
+    local here = zone and Facts.Here()
+    local nearby = here and here.zone == zone and here.maps or nil
+    local q = query:lower()
+    local entries, order
+    if wide then
+        entries = VendorList(now.kind == "vendors" and now.key or nil)
+        if now.kind == "allVendors" then
+            order = {}
+            for i, e in ipairs(D.Expansions()) do order[e] = i end
+        end
+    else
+        entries = Statics()[t]
+    end
     local out, live = {}, false
     local hidden, seen = { kind = "foot", hidden = 0, collected = 0, faction = 0, onShow = ShowHidden }, {}
-    for _, s in ipairs(Src(t)) do
+    for _, s in ipairs(entries) do
         if t == "shop" then s.title = D.ItemName(s.items[1]) or L["Item %d"]:format(s.items[1]) end
         live = live or (t == "events" and Live(s.key))
         local v = s.vendor
         if q == "" or (s.title .. " " .. (s.sub or "") .. " " .. (s.group or "") .. " " .. (v and v.zone or "")):lower():find(q, 1, true) then
-            local why = hide and s.key ~= st.pin and CG.HiddenBy(v and { vendor = v } or { items = s.items })
+            local why = hide and not (pin and pin.type == t and pin.key == s.key) and CG.HiddenBy(v and { vendor = v } or { items = s.items })
             if why then
                 hidden.hidden = hidden.hidden + 1
                 hidden[why] = hidden[why] + 1
@@ -213,24 +249,37 @@ local function BuildList(keep)
                 end
             else
                 out[#out + 1] = s
-                Place(s, where)
+                Place(s, order)
             end
         end
     end
     hidden.parts = Facts.FactionParts(seen)
     table.sort(out, Before)
-    local sel, found = st.sel[t], false
-    for _, s in ipairs(out) do found = found or s.key == sel end
-    sel = found and sel or out[1] and out[1].key
-    st.sel[t] = sel
-    local data, group = {}, nil
+    local sel
+    if not wide then
+        local found = false
+        sel = st.sel[t]
+        for _, s in ipairs(out) do found = found or s.key == sel end
+        sel = found and sel or out[1] and out[1].key
+        st.sel[t] = sel
+    end
+    local data, group, expansion, headAt, zoneAt = {}, nil, nil, nil, nil
     if t == "events" and not live then
         data[1] = { kind = "foot", text = L["No events active right now. Event decor is sold only while its event runs."] }
     end
     for _, s in ipairs(out) do
+        if order and s.e ~= expansion then
+            expansion, group = s.e, nil
+            data[#data + 1] = { kind = "header", text = D.ExpansionLabel(expansion) }
+        end
         if s.g and s.g ~= group then
             group = s.g
-            data[#data + 1] = { kind = "header", text = group }
+            data[#data + 1] = { kind = "header", text = group, nested = order and true or nil }
+            headAt = #data
+        end
+        local v = s.vendor
+        if zone and not zoneAt and v and v.mapID and (nearby and nearby[v.mapID] or Facts.ZoneOf(v.mapID) == zone) then
+            zoneAt = headAt
         end
         local d = RowData(s)
         d.selected = s.key == sel
@@ -247,11 +296,12 @@ local function BuildList(keep)
         empty:Set("noResults", {
             title = L["No results"], text = note and text .. " " .. W.FooterText(note) or text,
             onShow = note and ShowHidden,
-            onReset = q ~= "" and function() box:SetText("") end or nil,
+            onReset = q ~= "" and ResetSearch or nil,
         })
     end
     head:SetHeight(W.TextHeight("bodyMuted") + SP.s)
-    head:SetText(Head(t))
+    head:SetText(wide and now.kind == "vendors" and ExpansionHead(entries) or Head(t))
+    return zoneAt
 end
 
 local function Line(fs, role, text, w)
@@ -325,7 +375,6 @@ local function Fill(s)
     if not s then
         Line(U.hdr, "bodyMuted", L["Pick a source to see its decor."])
     else
-        local v = s.vendor
         SetHead(s)
         U.head:Show()
         local lines = Lines(s, Stats(s))
@@ -343,7 +392,7 @@ local function Fill(s)
         end
         local mapID, x, y = Loc(s)
         U.go:SetShown(mapID ~= nil)
-        U.go.target = { mapID = mapID, x = x, y = y, title = s.title, data = v and { type = "vendor", npcID = v.npcID } or nil }
+        U.go.target = { mapID = mapID, x = x, y = y, title = s.title }
         Line(U.hdr, #rows > 0 and "bodyGold" or "bodyMuted", #rows > 0 and L["Decor from this source"]
             or L["No decor is recorded here. If this source gives decor, report it below."])
     end
@@ -424,31 +473,35 @@ local function BuildDetail(pane)
     U.report:SetPoint("BOTTOMLEFT", SP.m, SP.s)
 end
 
-local function Rebuild(keep)
-    BuildList(keep)
-    Fill(Current())
+local function Rebuild(keep, zone)
+    local at = BuildList(keep, zone)
+    if not wide then Fill(Current()) end
+    return at
 end
 
-function Tab.Select(key)
+function Page.Select(key)
     st.sel[st.type] = key
     Rebuild(true)
 end
 
-local function SetType(t)
-    st.type = t
-    box.Instructions:SetText(KIND[t][2])
-    box:SetText(st.q[t] or "")
+-- The detail column belongs to the source lists; a vendor list takes the whole page.
+local function Layout()
+    c.detail:SetShown(not wide)
+    c.list:ClearAllPoints()
+    c.list:SetPoint("TOPLEFT")
+    if wide then
+        c.list:SetPoint("BOTTOMRIGHT")
+    else
+        c.list:SetPoint("BOTTOMRIGHT", c.detail, "BOTTOMLEFT", -S.cols.gap, 0)
+    end
 end
 
-function Tab.Build(parent)
+function Page:Build(parent)
     c = W.NewColumns(parent)
-    box = W.NewSearchBox(c.toolbar, KIND.vendors[2], function(text)
-        if text == (st.q[st.type] or "") then return end
-        st.q[st.type] = text
-        Rebuild(false)
-    end)
-    box:SetPoint("TOPLEFT", c.toolbar, "TOPLEFT", SP.s, -SP.xs)
-    box:SetPoint("TOPRIGHT", c.toolbar, "TOPRIGHT", -SP.xs, -SP.xs)
+    c.toolbar:Hide()
+    c.body:ClearAllPoints()
+    c.body:SetPoint("TOPLEFT")
+    c.body:SetPoint("BOTTOMRIGHT")
     head = S.Text(c.body, "bodyMuted", "OVERLAY")
     head:SetPoint("TOPLEFT", S.layout.wellPad, -S.layout.wellPad)
     head:SetPoint("TOPRIGHT", -S.layout.wellPad, -S.layout.wellPad)
@@ -465,35 +518,75 @@ function Tab.Build(parent)
     BuildDetail(c.detail)
 end
 
--- A table is a landing: sets the type, its search and maybe a row.
-function Tab.Show(opts)
-    local key = opts and opts.select and opts.select.key
-    if opts then
-        if KIND[opts.type] then st.type = opts.type end
-        st.q[st.type] = not key and opts.search or ""
-        st.sel[st.type], st.pin = key, key
-        SetType(st.type)
+-- A source route with no usable key keeps the type the player last had.
+local function TypeOf(route)
+    local key = route.key
+    return key ~= "vendors" and KIND[key] and key or st.type
+end
+
+function Page:Placeholder(route)
+    return KIND[route.kind == "sources" and TypeOf(route) or "vendors"][2]
+end
+
+-- An expansion with no listed vendor left is gone: the router falls back to all vendors.
+function Page:Has(route)
+    if route.kind ~= "vendors" then return true end
+    for _, e in ipairs(D.Expansions()) do
+        if e == route.key then return true end
     end
-    torn = false
+    return false
+end
+
+-- A forward Show starts from the route's seed (search, zone, or the legacy type and select); Back gives saved.
+function Page:Show(route, saved)
+    local seed = route.seed
+    now, wide, torn = route, route.kind ~= "sources", false
+    local pick
+    if not wide then
+        st.type = TypeOf(route)
+        pick = seed and seed.select and seed.select.key
+        if seed then st.sel[st.type] = pick end
+        -- The pin exempts the landed row from Hide for this one landing; every later Show of a list drops it.
+        st.pin = pick and { type = st.type, key = pick } or nil
+    end
+    query = saved and saved.search or not pick and seed and seed.search or ""
+    B.Window.SetSearch(query)
+    Layout()
     c:Fit()
-    Rebuild(opts == nil)
-    if key then
+    local at = Rebuild(false, seed and seed.zone)
+    if saved and saved.scroll then
+        list.box:ScrollToOffset(saved.scroll, true)
+    elseif at then
+        list.box:ScrollToElementDataIndex(at, ScrollBoxConstants.AlignBegin)
+    elseif pick then
         local idx = list.box:FindElementDataIndexByPredicate(function(d) return d.key == st.sel[st.type] end)
         if idx then list.box:ScrollToElementDataIndex(idx) end
     end
 end
 
-function Tab.Hide()
+function Page:Save()
+    return { search = query, scroll = list.box:GetDerivedScrollOffset() }
+end
+
+function Page:Filter(text)
+    if text == query then return end
+    query, torn = text, false
+    Rebuild(false)
+end
+
+function Page:Hide()
     torn = true
 end
 
-function Tab.Refresh(reason)
-    if not c then return end
+function Page:Refresh(reason)
+    if not (c and now) then return end
     if reason == "data" then B.Walk() end
     if reason == "paint" and not torn then
         W.RepaintRows(list)
-        W.RepaintRows(U.list)
-        if Current() then SetHead(Current()) end
+        if not wide then
+            W.RepaintRows(U.list)
+            if Current() then SetHead(Current()) end
+        end
         return
     end
     if reason == "layout" then c:Fit() end
@@ -501,14 +594,14 @@ function Tab.Refresh(reason)
     Rebuild(true)
 end
 
-function Tab.SetCombat(inCombat)
+function Page:SetCombat(inCombat)
     if U.report then U.report:SetEnabled(not inCombat) end
 end
 
 -- The vendor page is one scroll, so a large text size scrolls the page instead of clipping the head.
 local Vend, V = {}, {}
 local vid, vtorn
-local PORTRAIT, FLOOR, GAP = 88, 2 * S.ware.size + S.ware.gap, SP.s
+local PORTRAIT, FLOOR, GAP, DOT = 88, 2 * S.ware.size + S.ware.gap, SP.s, 12
 local Draw
 
 -- A tooltip for a one-line text that is cut off, or always when fs.tip is set. Returns the mouse frame.
@@ -548,7 +641,6 @@ function Vend:Build(parent)
     sf:HookScript("OnSizeChanged", function(_, w)
         if vid and not vtorn and w > 0 and (V.wait or w ~= V.w) then
             local again = V.wait
-            V.wait = nil
             Draw(again and again[1] or false, again and again[2])
         end
     end)
@@ -575,11 +667,10 @@ function Vend:Build(parent)
     V.pb, V.hdr, V.key = W.Bar(body), Text(body), Text(body)
     V.can = CreateFrame("Frame", nil, body)
     V.dot = V.can:CreateTexture(nil, "OVERLAY")
-    V.dot:SetSize(12, 12)
-    V.dot:SetPoint("LEFT")
+    V.dot:SetSize(DOT, DOT)
     Vis.Marker.Set(V.dot, S.state.some.glyph, S.state.some.color)
     V.canText = Text(V.can)
-    V.canText:SetPoint("LEFT", 16, 0)
+    V.canText:SetPoint("TOPLEFT", DOT + SP.xs, 0)
     V.canText:SetTextColor(unpack(S.state.some.color))
     V.holder = CreateFrame("Frame", nil, body)
     V.grid = W.NewGrid(V.holder, S.ware.size, S.ware.gap)
@@ -595,7 +686,7 @@ function Draw(fresh, saved)
         V.wait = { fresh, saved }
         return
     end
-    V.w = w
+    V.wait, V.w = nil, w
     local s = { vendor = v, type = "vendors", title = v.name or L["Unknown"], items = D.VendorWares(v) }
     V.s = s
     local rows = Rows(s, true)
@@ -646,8 +737,12 @@ function Draw(fresh, saved)
     V.pb:Set(ready and L["%d of %d collected"]:format(owned, n) or L["Counting…"], ready and n > 0 and owned / n)
     local can = ready and CG.VendorCanCount(v) or 0
     V.can:SetShown(can > 0)
-    V.can:SetSize(w, bh)
-    V.canText:SetText(W.StateWords("some", can))
+    local canText = W.StateWords("some", can)
+    local canH = W.TextHeight("body", canText, w - DOT - SP.xs)
+    V.can:SetSize(w, canH)
+    V.dot:SetPoint("TOPLEFT", 0, -(bh - DOT) / 2)
+    V.canText:SetSize(w - DOT - SP.xs, canH)
+    V.canText:SetText(canText)
     Line(V.hdr, "bodyGold", L["Wares"], w)
     Line(V.key, "bodyMuted", n > 0 and L["Corners: state top right, bonus top left, event bottom left, copies bottom right."], w)
     V.report:Fit()
@@ -710,5 +805,7 @@ function Vend:SetCombat(inCombat)
     if V.report then V.report:SetEnabled(not inCombat) end
 end
 
-B.RegisterTab("sources", Tab)
+B.RegisterPage("sources", Page)
+B.RegisterPage("vendors", Page)
+B.RegisterPage("allVendors", Page)
 B.RegisterPage("vendor", Vend)

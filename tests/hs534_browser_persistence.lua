@@ -105,13 +105,15 @@ Win.PlayClose = function()
     hooks.OnHide()
 end
 for _, name in ipairs({ "CheckTextScale", "Fit", "SetSelectedTab", "SetLocation", "AssertPropagation", "StopGlow",
-    "SetCrumb", "SelectNav", "SetBack", "SetSearch", "UpdateCount" }) do
+    "SetCrumb", "SelectNav", "SetBack", "SetSearch", "SetPlaceholder", "UpdateCount" }) do
     Win[name] = noop
 end
 for _, key in ipairs({ "summary", "catalog", "sources" }) do
     B.RegisterTab(key, { Build = noop, Show = noop, Hide = noop, Refresh = noop, SetCombat = noop })
 end
-B.RegisterPage("vendor", { Build = noop, Show = noop, Hide = noop, Refresh = noop, SetCombat = noop })
+for _, kind in ipairs({ "vendor", "vendors", "allVendors" }) do
+    B.RegisterPage(kind, { Build = noop, Show = noop, Hide = noop, Refresh = noop, SetCombat = noop })
+end
 
 -- Opening writes nothing.
 B:Open()

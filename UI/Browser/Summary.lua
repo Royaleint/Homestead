@@ -130,7 +130,9 @@ local function BuildBlocks(parent)
         local key = Facts.SourceKey("vendors", { npcID = self.npcID })
         if key then B.Go({ kind = "vendor", id = key }) end
     end)
-    zone.more = W.NewButton(zone, L["More vendors here"], function() B.Go({ kind = "sources", key = "vendors" }) end)
+    zone.more = W.NewButton(zone, L["More vendors here"], function(self)
+        B.Go({ kind = "allVendors", seed = { zone = self.zone } })
+    end)
     zone.more:SetPoint("RIGHT", -SP.s, 0)
     zone.btn:SetPoint("RIGHT", zone.more, "LEFT", -SP.s, 0)
     zone.text = Text(zone, "body")
@@ -169,7 +171,7 @@ local function DrawZone()
         if n > most then best, most = v, n end
     end
     if not best then return end
-    zone.btn.npcID = best.npcID
+    zone.btn.npcID, zone.more.zone = best.npcID, mapID
     zone.btn:SetShown(Facts.SourceKey("vendors", best) ~= nil)
     zone.btn:Fit()
     zone.more:Fit()

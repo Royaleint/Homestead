@@ -17,11 +17,13 @@ B.Window = Win
 
 local OPEN_TIME, CLOSE_TIME, TRAVEL = 0.15, 0.1, 8
 local SEARCH_W = 150
+local DEFAULT_HINT = L["Search decor"]
 local CRUMB_SEP = " \226\128\186 "
 
 local hooks
 local laidOutTextScale
 local searchBoxes = {}
+local restoring
 
 function Win.AddSearchBox(box)
     searchBoxes[#searchBoxes + 1] = box
@@ -171,7 +173,7 @@ local function Describe(r, last)
         return "catalog:" .. tostring(key), "catalog", key == "all" and (last and L["All decor"] or L["Catalog"]) or S.kind[key]
     end
     if k == "vendors" then return "vendors:" .. tostring(key), "vendors", B.Data.ExpansionLabel(key) end
-    if k == "allVendors" or k == "sources" and key == "vendors" then return "vendors", "vendors", L["Vendors"] end
+    if k == "allVendors" then return "vendors", "vendors", L["Vendors"] end
     if k == "sources" then return key, nil, S.sourceLabel[key] end
     if k == "vendor" then
         local v = B.Data.Vendor(r.id)
@@ -362,7 +364,9 @@ local function BuildHeader(f)
     hide.Text:SetText(L["Hide what doesn't apply to me"])
     hide:SetScript("OnClick", function(self) hooks.HideNA(self:GetChecked() and true or false) end)
 
-    local search = W.NewSearchBox(band, L["Search decor"], function() end)
+    local search = W.NewSearchBox(band, DEFAULT_HINT, function(text)
+        if not restoring then hooks.Filter(text) end
+    end)
     search:SetWidth(SEARCH_W)
     search:SetPoint("RIGHT", help, "LEFT", -SP.m, 0)
     search:HookScript("OnEnterPressed", function(self) hooks.Search(self:GetText():match("^%s*(.-)%s*$")) end)
@@ -382,8 +386,16 @@ local function BuildHeader(f)
 end
 
 -- The box shows the seed's search; a Go without one clears it, and a page restoring its own may set it after.
+-- Neither counts as typing: the page is not asked to filter. The clear button does, because it only SetTexts.
 function Win.SetSearch(text)
+    restoring = true
     Win.search:SetText(text or "")
+    restoring = false
+end
+
+-- A page's hint for the box; nil is the default.
+function Win.SetPlaceholder(text)
+    Win.search.Instructions:SetText(text or DEFAULT_HINT)
 end
 
 function Win.UpdateCount()

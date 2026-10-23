@@ -89,7 +89,7 @@ Win.PlayClose = function()
     hooks.OnHide()
 end
 for _, name in ipairs({ "CheckTextScale", "Fit", "SetSelectedTab", "SetLocation", "AssertPropagation", "StopGlow",
-    "UpdateCount" }) do
+    "UpdateCount", "SetPlaceholder" }) do
     Win[name] = noop
 end
 local crumbs, navs, backs = {}, {}, {}
@@ -111,7 +111,7 @@ end
 -- with saved state sets both without one.
 local function NewPage()
     local p = { builds = 0, shows = 0, hides = 0, saves = 0, changes = 0, search = "", scroll = 0, up = false,
-        refreshes = {}, known = {} }
+        refreshes = {}, known = {}, combats = 0 }
     function p:Build(parent) self.builds, self.frame = self.builds + 1, parent end
     function p:Show(route, saved)
         self.shows, self.route, self.saved, self.up = self.shows + 1, route, saved, true
@@ -128,7 +128,7 @@ local function NewPage()
         self.refreshes[#self.refreshes + 1] = reason
         self.up = true
     end
-    function p:SetCombat(on) self.combat = on end
+    function p:SetCombat(on) self.combat, self.combats = on, self.combats + 1 end
     function p:Save()
         self.saves = self.saves + 1
         return { search = self.search, scroll = self.scroll }
@@ -146,6 +146,8 @@ B.RegisterPage("catalog", multi)
 B.RegisterPage("item", multi)
 B.RegisterPage("vendor", vendor)
 B.RegisterPage("sources", catalog)
+B.RegisterPage("vendors", catalog)
+B.RegisterPage("allVendors", catalog)
 
 B:Open()
 eq(shown, true, "the browser did not open")
@@ -254,18 +256,18 @@ flush()
 eq(vendor.up, true, "Refresh did not restore what Hide tore down")
 eq(vendor.shows, showsBefore, "the refresh showed the page again")
 
--- A vanished target falls back to its list home (the Sources vendors list until the vendor lists exist): on a
--- forward Go, on Back, which drops the dead entry, and on Refresh, which replaces the route with no history step.
+-- A vanished target falls back to its list home (All vendors): on a forward Go, on Back, which drops the dead
+-- entry, and on Refresh, which replaces the route with no history step.
 local function onList()
     local r = catalog.route
-    return r ~= nil and r.kind == "sources" and r.key == "vendors"
+    return r ~= nil and r.kind == "allVendors" and r.key == nil
 end
 local before = vendor.shows
 B.Go({ kind = "vendor", id = 99 })
 eq(vendor.shows, before, "a vanished target was shown")
 eq(onList(), true, "a Go to a vanished target did not fall back to the list")
-eq(navs[#navs].kind, "sources", "the tree was not told the fallback")
-eq(crumbs[#crumbs][#crumbs[#crumbs]].kind, "sources", "the crumb was not set from the fallback")
+eq(navs[#navs].kind, "allVendors", "the tree was not told the fallback")
+eq(crumbs[#crumbs][#crumbs[#crumbs]].kind, "allVendors", "the crumb was not set from the fallback")
 
 B.Go({ kind = "vendor", id = 4 })
 B.Go({ kind = "overview" })
@@ -288,6 +290,46 @@ vendor.known[5] = true
 overviewShows = overview.shows
 B.Back()
 eq(overview.shows, overviewShows + 1, "the refresh pushed a history step: Back did not return to the page before")
+
+-- A fallback must itself be live: a home that is gone too lands on Overview, not on a dead page.
+multi.Has = function(self, route) return not self.dead end
+B.Go({ kind = "vendor", id = 1 })
+multi.dead = true
+local multiShows, overviewShows2 = multi.shows, overview.shows
+B.Go({ kind = "item", id = 3 })
+eq(multi.shows, multiShows, "a page that is gone was shown")
+eq(overview.route.kind, "overview", "a dead home did not fall back to Overview")
+eq(overview.shows, overviewShows2 + 1, "Overview was not shown for a dead home")
+eq(navs[#navs].kind, "overview", "the tree was not told the last resort")
+multi.dead = false
+
+-- Back with nothing alive left: every entry is dead, so Back shows nothing, empties the history, hides itself
+-- and leaves the page where it was.
+B:Close()
+B:Open()
+B.Go({ kind = "vendor", id = 1 })
+B.Go({ kind = "vendor", id = 2 })
+B.Go({ kind = "vendor", id = 3 })
+overview.Has = function() return false end
+vendor.known[1], vendor.known[2] = nil, nil
+local shownBefore = overview.shows + vendor.shows + catalog.shows
+local atRoute = vendor.route
+B.Back()
+eq(overview.shows + vendor.shows + catalog.shows, shownBefore, "Back showed a page when every entry was dead")
+eq(vendor.route, atRoute, "Back moved off the current page")
+eq(backs[#backs], false, "Back is still offered with an empty history")
+B.Back()
+eq(backs[#backs], false, "a second Back with an empty history")
+overview.Has = nil
+vendor.known[1], vendor.known[2] = true, true
+
+-- A page serving several kinds hears combat once.
+inCombat = true
+B:Close()
+catalog.combats = 0
+B:Open()
+eq(catalog.combats, 1, "a page registered under three kinds heard combat " .. catalog.combats .. " times")
+inCombat = false
 
 -- Same page, two routes: one Hide between them.
 B.Go({ kind = "catalog", key = "all" })
@@ -314,6 +356,31 @@ vendor.combat = nil
 B.Back()
 eq(vendor.combat, true, "combat was not applied to the page Back returned to")
 inCombat = false
+
+-- The header box: typing reaches the current page's Filter; a page with no Filter is never asked. Enter on
+-- a page that filters goes nowhere (it filters as you type); Enter on any other page searches the Catalog.
+-- The box's hint is the page's own, or the default.
+local hints, typed = {}, {}
+Win.SetPlaceholder = function(text) hints[#hints + 1] = text == nil and "default" or text end
+function catalog:Filter(text) typed[#typed + 1] = text end
+function catalog:Placeholder(route) return "Find " .. route.kind end
+B.Go({ kind = "allVendors" })
+eq(hints[#hints], "Find allVendors", "the box did not take the page's hint")
+hooks.Filter("oak")
+eq(typed[#typed], "oak", "typing did not reach the page")
+B.Go({ kind = "overview" })
+eq(hints[#hints], "default", "a page with no hint did not restore the default")
+hooks.Filter("pine")
+eq(typed[#typed], "oak", "typing reached a page with no Filter")
+B.Go({ kind = "allVendors" })
+local at = catalog.route
+hooks.Search("oak")
+eq(catalog.route, at, "Enter on a filtering page left it")
+B.Go({ kind = "overview" })
+hooks.Search("oak")
+eq(multi.route.kind .. ":" .. tostring(multi.route.key), "catalog:all", "Enter on the Overview did not search the Catalog")
+eq(multi.route.seed.search, "oak")
+catalog.Filter, catalog.Placeholder = nil, nil
 
 -- A route with no page is a programming error, not a silent fallback.
 eq((pcall(B.Go, { kind = "nowhere" })), false, "a route with no page was accepted")
@@ -346,7 +413,7 @@ Resolve("catalog", { sort = "name", search = "x", filters = {} }, "catalog", "al
 Resolve("catalog", { itemID = 5 }, "catalog", "all")
 Resolve("catalog", { sort = "name", itemID = 5 }, "catalog", "all")
 Resolve("sources", nil, "sources", nil)
-Resolve("sources", { type = "vendors" }, "sources", "vendors")
+Resolve("sources", { type = "vendors" }, "allVendors", nil)
 Resolve("sources", { type = "quests", select = { key = 7 } }, "sources", "quests")
 
 -- A vendor pick routes to the vendor page by npcID, with no key and no seed.

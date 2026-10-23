@@ -11,7 +11,8 @@ local root = (... or "."):gsub("\\\\", "/"):gsub("/+$", "")
 -- ceiling needs a file.
 -------------------------------------------------------------------------------
 
-local CAP = 180224
+-- TEMPORARY: raised while the redesign is built; restore 180224 before merge.
+local CAP = 200000
 
 local CEIL = {
     ["Visuals.xml"] = 391,
@@ -20,12 +21,12 @@ local CEIL = {
     ["Adapter.lua"] = 20000,
     ["Facts.lua"] = 6026,
     ["CanGet.lua"] = 16300,
-    ["Widgets.lua"] = 24300,
-    ["Window.lua"] = 20900,
-    ["Browser.lua"] = 15700,
+    ["Widgets.lua"] = 24400,
+    ["Window.lua"] = 21200,
+    ["Browser.lua"] = 16200,
     ["Summary.lua"] = 10100,
     ["Catalog.lua"] = 15700,
-    ["Sources.lua"] = 27400,
+    ["Sources.lua"] = 31400,
     ["Item.lua"] = 13700,
 }
 

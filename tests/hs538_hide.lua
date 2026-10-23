@@ -160,7 +160,7 @@ do
     -- Sources: a vendor hides when it is other-faction or every ware is collected.
     env.go("sources", { type = "vendors" })
     local rights = rowRights(env)
-    eq(env.sourceKeys(), "100,104", "vendors: Bran (all collected) and Cora (Horde) hide")
+    eq(env.sourceKeys(), "104,100", "vendors: Bran (all collected) and Cora (Horde) hide")
     local _, _, sfooter, sbox = env.sourcesList()
     eq(sfooter.hidden, 2)
     eq(sfooter.collected, 1)
@@ -170,7 +170,7 @@ do
     setHide(env, false)
     eq(sourceHeads(env), on, "the source heads are unchanged by Hide")
     eq(on, "1 of 8 collected;1 of 3 collected;0 of 2 collected;0 of 1 collected;0 of 1 collected;0 of 1 collected;0 of 1 collected", "the source heads")
-    eq(env.sourceKeys(), "100,101,102,104", "off brings them back")
+    eq(env.sourceKeys(), "101,102,104,100", "off brings them back")
     local offRights = rowRights(env)
     setHide(env, true)
     for key, text in offRights:gmatch("(%d+)=([^;]*)") do
@@ -205,7 +205,7 @@ do
     env.click(link.link)
     eq(env.B.State.hideNA, false, "Sources: Show them turns Hide off")
     eq(env.Win and env.Win.hideNA or env.B.Window.hideNA.checked, false, "and unchecks the box")
-    eq(env.sourceKeys(), "100,101,102,104")
+    eq(env.sourceKeys(), "101,102,104,100")
     setHide(env, true)
     env.go("catalog")
     local _, catLink = footerText(env.boxes("catalog")[1])
@@ -231,7 +231,7 @@ do
         eq(footer.collected, 0, "nothing counted as collected")
         eq(footer.faction, 1)
         env.go("sources", { type = "vendors" })
-        eq(env.sourceKeys(), "100,101,104", "vendors: Bran stays, Cora hides")
+        eq(env.sourceKeys(), "101,104,100", "vendors: Bran stays, Cora hides")
     end
     print("hs538_hide: unread ownership never hides as collected ok")
 end
@@ -271,7 +271,18 @@ do
     assert(button and button.shown and button.scripts.OnClick, "the state offers a button")
     env.click(button)
     eq(env.B.State.hideNA, false, "the button turns Hide off")
-    eq(env.sourceKeys(), "100,101,102,104", "and the vendors come back")
+    eq(env.sourceKeys(), "101,102,104,100", "and the vendors come back")
+
+    -- An expansion's list says the same when Hide takes every vendor out of it.
+    setHide(env, true)
+    env.B.Go({ kind = "vendors", key = "other" })
+    eq(env.sourceKeys(), "", "an expansion list: every vendor hides")
+    empty = env.emptyOf("sources")
+    eq(empty and empty.kind, "noResults")
+    assert(empty.d.text:find("(3 collected, 1 Horde only)", 1, true), "and counts what: " .. tostring(empty.d.text))
+    env.click(empty.frame.buttons[1])
+    eq(env.B.State.hideNA, false, "its button turns Hide off")
+    eq(env.sourceKeys(), "101,102,104,100", "and the vendors come back")
     print("hs538_hide: all-hidden states ok")
 end
 

@@ -65,12 +65,13 @@ assert(#(env.sourcesList()) > 0, "Sources lists vendors")
 env.flush()
 print("hs538_first_open: Sources ok")
 
--- The header search: one box with the Overview's placeholder; a tree row clears it, Enter lands on All decor.
+-- The header search: one box whose placeholder follows the page; a tree row clears it, Enter lands on All decor.
 local search = Win.search
 assert(search and search:IsVisible(), "the header has a search box")
-eq(search.Instructions.text, "Search decor", "the header box placeholder")
+eq(search.Instructions.text, "Search vendors and zones", "the header box placeholder on the vendors list")
 search.text = "stale"
 clickNav("Overview")
+eq(search.Instructions.text, "Search decor", "the header box placeholder on the Overview")
 eq(search.text, "", "a tree row opens its page with an empty search box")
 search.text = " elm "
 search.scripts.OnEnterPressed(search)

@@ -145,7 +145,7 @@ do
     print("hs538_vendor_page: empty ok")
 end
 
--- A vendor that is gone lands on the vendors list (the tree home of a vendor), not on an empty page.
+-- A vendor that is gone lands on All vendors (the tree home of a vendor), drawn by the real list page.
 do
     local env = world()
     local function landed()
@@ -154,15 +154,16 @@ do
     end
     open(env, 100)
     open(env, 9999)
-    eq(landed(), "sources:vendors", "a Go to a vendor that does not exist")
+    eq(landed(), "allVendors:nil", "a Go to a vendor that does not exist")
     eq(env.tab, "sources")
+    assert(#(env.sourcesList()) > 0, "the fallback page lists the vendors")
     env.B.Back()
     eq(env.crumb[#env.crumb].id, 100, "Back skips nothing it can still show")
 
     -- A vendor that vanishes while its page is open: the next refresh replaces it with the list.
     env.vendors[100] = nil
     env.dataChanged()
-    eq(landed(), "sources:vendors", "a refresh of a vendor that vanished")
+    eq(landed(), "allVendors:nil", "a refresh of a vendor that vanished")
     print("hs538_vendor_page: vanished ok")
 end
 
@@ -331,6 +332,56 @@ do
     sf.scripts.OnSizeChanged(sf, 640, 400)
     eq(box.parent.width, 640, "a resize lays out again")
     print("hs538_vendor_page: width ok")
+end
+
+-- A draw that finds its width clears the wait: a later resize redraws in place and does not replay the show that
+-- was waiting (which would send the page back to the scroll it was told to restore).
+do
+    local env = world()
+    open(env, 101)
+    local sf = vfind(env, function(f) return f.kind == "ScrollFrame" end)
+    local verticals = {}
+    sf.SetVerticalScroll = function(_, offset) verticals[#verticals + 1] = offset end
+    sf:SetSize(0, 400)
+    open(env, 100)
+    eq(#verticals, 0, "a show with no width draws nothing")
+    sf:SetSize(500, 400)
+    page(env):Refresh("layout")
+    eq(#verticals, 0, "a refresh is not a fresh show")
+    sf:SetSize(640, 400)
+    sf.scripts.OnSizeChanged(sf, 640, 400)
+    eq(#verticals, 0, "the resize after it replayed the show that was waiting")
+    print("hs538_vendor_page: wait ok")
+end
+
+-- The can-get line is laid out like the other lines: the page's width less the mark, and as tall as its wrapped text.
+do
+    local env = world()
+    open(env, 100)
+    local sf = vfind(env, function(f) return f.kind == "ScrollFrame" end)
+    local base = { meta = 10, metaMuted = 10, metaGold = 10, body = 12, bodyGold = 12, bodyMuted = 12, subheader = 14, header = 16 }
+    env.W.TextHeight = function(role, text, width)
+        local line = base[role] * 2
+        if width and width > 0 and text then return line * math.max(1, math.ceil(#text * 6 * 2 / width)) end
+        return line
+    end
+    local S = env.B.Style
+    local words
+    for _, fs in ipairs(env.fontStrings) do
+        if env.ownerKind(fs) == "vendor" and fs.text == "3 can get now" then words = fs end
+    end
+    local mark = 12 + S.space.xs
+    sf:SetSize(mark + 100, 600)
+    page(env):Refresh("layout")
+    eq(words.width, 100, "the text takes the page's width less the mark")
+    eq(words.height, 48, "and wraps to two lines")
+    eq(words.parent.height, 48, "its frame is as tall as the text")
+    eq(words.parent.width, mark + 100, "and as wide as the page")
+    sf:SetSize(mark + 400, 600)
+    page(env):Refresh("layout")
+    eq(words.height, 24, "one line when the page is wide")
+    eq(words.parent.height, 24)
+    print("hs538_vendor_page: can-get line ok")
 end
 
 -- Save and Back: the grid and the page scroll come back; a forward visit starts at the top.

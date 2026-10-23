@@ -328,8 +328,43 @@ do
     -- Without a select the pin does not apply: the hidden vendors stay out.
     env.go("summary")
     env.go("sources", { type = "vendors" })
-    eq(env.sourceKeys(), "100,104", "no select, no pin")
+    eq(env.sourceKeys(), "104,100", "no select, no pin")
     print("hs538_onward_links: pinned landings ok")
+end
+
+-- The pin lasts one forward landing: a later list Show (a tree row, a crumb, Back) drops it, and it exempts only
+-- its own source type.
+do
+    local env = newWorld(root)
+    env.standard()
+    -- A collected quest numbered like the collected achievement.
+    env.decor(23, "Quest Crate")
+    env.owned(23)
+    env.give(23, "quest", { questID = 9003, questName = "Quest Nine" }, "QuestSources")
+    env.open()
+    env.B.SetHideNA(true)
+
+    env.go("sources", { type = "achievements" })
+    eq(env.sourceKeys(), "9002,9001", "achievements: Crate Feat hides before any landing")
+    env.go("sources", { type = "achievements", select = { key = 9003 } })
+    eq(env.sourceKeys(), "9002,9003,9001", "the landing pins the hidden achievement")
+
+    -- Tree rows and crumbs go to a list with no seed at all (env.go passes the type as a seed).
+    env.B.Go({ kind = "sources", key = "quests" })
+    eq(env.sourceKeys(), "7001,7002", "quests: a same-numbered collected quest is not exempted by the achievement pin")
+    env.B.Go({ kind = "sources", key = "achievements" })
+    eq(env.sourceKeys(), "9002,9001", "an unseeded return to the type drops the pin")
+
+    env.go("sources", { type = "achievements", select = { key = 9003 } })
+    eq(env.sourceKeys(), "9002,9003,9001", "pinned again")
+    env.go("summary")
+    env.B.Back()
+    eq(env.sourceKeys(), "9002,9001", "Back to a pinned landing does not pin it again")
+
+    -- A seeded Go from the same list is a forward landing and pins.
+    env.go("sources", { type = "achievements", select = { key = 9003 } })
+    eq(env.sourceKeys(), "9002,9003,9001", "a seeded Go from the same list pins")
+    print("hs538_onward_links: pin lasts one landing ok")
 end
 
 -------------------------------------------------------------------------------

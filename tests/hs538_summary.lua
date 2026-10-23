@@ -583,9 +583,9 @@ do
     assert(zone.more.shown, "the Here line links to more vendors")
     click(zone.more)
     eq(#env.routes, 2)
-    eq(env.routes[2].kind, "sources", "More vendors here opens the vendors list until the vendor pages arrive")
-    eq(env.routes[2].key, "vendors")
-    eq(env.routes[2].seed, nil)
+    eq(env.routes[2].kind, "allVendors", "More vendors here opens All vendors")
+    eq(env.routes[2].key, nil)
+    eq(env.routes[2].seed.zone, 101, "at the player's zone, walked up from the building (map 103)")
 
     eq(#env.glows, 0, "the glow waits for the next frame")
     env.flush()

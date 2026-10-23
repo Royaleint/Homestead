@@ -3,7 +3,9 @@
 -- Page contract: Show(route, saved) gets saved only on Back. Hide tears down transient state, resets render
 -- keys and keeps the route. Refresh may follow Hide without Show (UI restore) and must restore whatever Hide
 -- tore down. A page may define Has(route); a target it reports gone falls back to its list home on Go, is
--- dropped from Back, and replaces the route (no history step) on Refresh.
+-- dropped from Back, and replaces the route (no history step) on Refresh. A list page may define
+-- Filter(text), called as the player edits the header box (never for a restore), and Placeholder(route),
+-- the box's hint for that route.
 local _, HA = ...
 
 local B = HA.DecorBrowser
@@ -104,23 +106,16 @@ function B.Home(route)
     return up and { up, route } or { route }
 end
 
--- Until the vendor list pages exist, their kinds open the Sources vendors list.
-local function Aliased(route)
-    if (route.kind == "allVendors" or route.kind == "vendors") and not kindPage[route.kind] then
-        return { kind = "sources", key = "vendors" }
-    end
-    return route
-end
-
 local function Gone(route)
     local page = kindPage[route.kind]
     return page and page.Has and not page:Has(route)
 end
 
--- A route whose target is gone becomes its tree home.
+-- A route whose target is gone becomes its tree home, or Overview when that is gone too.
 local function Resolved(route)
-    if Gone(route) then route = B.Home(route)[1] end
-    return Aliased(route)
+    if not Gone(route) then return route end
+    local home = B.Home(route)[1]
+    return Gone(home) and { kind = "overview" } or home
 end
 
 local function SyncMemo()
@@ -141,6 +136,7 @@ local function Transition(route, saved)
     frames[route.kind]:Show()
     Win.SetSearch(route.seed and route.seed.search)
     page:Show(route, saved)
+    Win.SetPlaceholder(page.Placeholder and page:Placeholder(route))
     Win.SetCrumb(B.Home(route))
     Win.SelectNav(route)
     Win.SetBack(#history > 0)
@@ -184,8 +180,10 @@ function B.Back()
 end
 
 function B.ShowTab(key, opts)
-    local pick = key == "sources" and opts and opts.type == "vendors" and opts.select
-    if pick then return B.Go({ kind = "vendor", id = pick.key }) end
+    if key == "sources" and opts and opts.type == "vendors" then
+        if opts.select then return B.Go({ kind = "vendor", id = opts.select.key }) end
+        return B.Go({ kind = "allVendors", seed = opts })
+    end
     local route = { kind = TAB_KIND[key], seed = opts }
     if opts and SEED_KEY[key] then route.key = opts[SEED_KEY[key]] or key == "catalog" and "all" or nil end
     B.Go(route)
@@ -193,7 +191,14 @@ end
 
 local function SetCombat(inCombat)
     State.inCombat = inCombat
-    for _, kind in ipairs(kinds) do kindPage[kind]:SetCombat(inCombat) end
+    local done = {}
+    for _, kind in ipairs(kinds) do
+        local page = kindPage[kind]
+        if not done[page] then
+            done[page] = true
+            page:SetCombat(inCombat)
+        end
+    end
 end
 
 function B.SetHideNA(on)
@@ -331,7 +336,15 @@ local function Build()
         OnShow = OnShow, OnHide = OnHide,
         Close = function() B:Close() end,
         Help = function() B.Go({ kind = "overview", seed = { showTip = true } }) end,
-        Search = function(text) B.Go({ kind = "catalog", key = "all", seed = { search = text } }) end,
+        Search = function(text)
+            local page = Current()
+            if page and page.Filter then return end
+            B.Go({ kind = "catalog", key = "all", seed = { search = text } })
+        end,
+        Filter = function(text)
+            local page = Current()
+            if page and page.Filter then page:Filter(text) end
+        end,
         HideNA = B.SetHideNA,
     })
     events = CreateFrame("Frame", nil, f)
