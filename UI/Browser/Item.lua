@@ -45,7 +45,10 @@ local function Waypoint(label, mapID, x, y, title, data)
 end
 
 local function ShowSource(sourceType, key)
-    return function() B.ShowTab("sources", { type = sourceType, select = { key = key } }) end
+    return function()
+        if sourceType == "vendors" then B.Go({ kind = "vendor", id = key })
+        else B.ShowTab("sources", { type = sourceType, select = { key = key } }) end
+    end
 end
 
 local function Report()

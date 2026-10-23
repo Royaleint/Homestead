@@ -112,6 +112,41 @@ function W.NewButton(parent, label, onClick)
     return b
 end
 
+-- A text link: muted at rest, white under the mouse, darker while disabled. onEnter runs after the tint, so a
+-- caller can add a tooltip. Fit sizes it to the text.
+function W.NewLink(parent, label, onClick, onEnter)
+    local b = CreateFrame("Button", nil, parent)
+    b.text = S.Text(b, "body", "OVERLAY")
+    b.text:SetPoint("LEFT")
+    b.text:SetText(label)
+    local setEnabled, over = b.SetEnabled, false
+    local function Tint()
+        local c = not b:IsEnabled() and K.disabled or over and K.body or K.muted
+        b.text:SetTextColor(c[1], c[2], c[3])
+    end
+    function b:SetEnabled(on)
+        setEnabled(self, on)
+        Tint()
+    end
+    function b:Fit()
+        self:SetSize(self.text:GetUnboundedStringWidth(), W.TextHeight("body"))
+    end
+    b:SetScript("OnClick", onClick)
+    b:SetScript("OnEnter", function(self)
+        over = true
+        Tint()
+        if onEnter then onEnter(self) end
+    end)
+    b:SetScript("OnLeave", function()
+        over = false
+        Tint()
+        B.HideTooltip()
+    end)
+    b:Fit()
+    Tint()
+    return b
+end
+
 function W.NewSearchBox(parent, placeholder, onChange)
     local box = CreateFrame("EditBox", nil, parent, "SearchBoxTemplate")
     box:SetFontObject(S.font.body)
@@ -468,13 +503,23 @@ function W.NewGrid(parent, cell, gap)
         view:SetStride(n)
         return true
     end
+    -- A box with nothing to scroll gives the wheel to whatever scrolls behind it.
+    local function Wheel()
+        box:EnableMouseWheel(box:HasScrollableExtent())
+    end
     box:HookScript("OnSizeChanged", function()
         if Restride() then box:FullUpdate() end
+        Wheel()
     end)
 
     function list:SetData(tbl, keepPosition, boxWidth)
         Restride(boxWidth)
         box:SetDataProvider(CreateDataProvider(tbl), keepPosition)
+        Wheel()
+    end
+    function list:SetShown(shown)
+        box:SetShown(shown)
+        if not shown then bar:Hide() end
     end
     return list
 end

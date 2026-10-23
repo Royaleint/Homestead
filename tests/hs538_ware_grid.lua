@@ -130,6 +130,24 @@ do
     assert(mark.shown and at(f, "TOPRIGHT") == mark, "the swapped cell keeps its mark")
     view.reset(f)
     eq(f.itemID, nil, "reset clears the cell")
+
+    -- A box with nothing to scroll gives the wheel to the page behind it; a hidden grid hides its bar.
+    local scrollable = false
+    grid.box.HasScrollableExtent = function() return scrollable end
+    grid.box.EnableMouseWheel = function(self, on) self.wheel = on end
+    grid:SetData(data)
+    eq(grid.box.wheel, false, "a grid with nothing to scroll took the wheel")
+    scrollable = true
+    grid:SetData(data)
+    eq(grid.box.wheel, true, "a grid that scrolls lost the wheel")
+    scrollable = false
+    grid.box.scripts.OnSizeChanged(grid.box)
+    eq(grid.box.wheel, false, "a resize did not hand the wheel back")
+    grid:SetShown(false)
+    eq(grid.box.shown, false)
+    eq(grid.bar.shown, false, "a hidden grid left its bar showing")
+    grid:SetShown(true)
+    eq(grid.box.shown, true)
     print("hs538_ware_grid: stride ok")
 end
 

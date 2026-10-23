@@ -483,6 +483,12 @@ L["No model shown"] = "표시할 모델 없음"
 L["No events active right now. Event decor is sold only while its event runs."] = "지금 진행 중인 이벤트가 없습니다. 이벤트 장식은 이벤트가 진행되는 동안에만 판매됩니다."
 L["Nothing matches your search."] = "검색과 일치하는 항목이 없습니다."
 L["Nothing to show here."] = "표시할 항목이 없습니다."
+L["Currency"] = "화폐"
+L["Wares"] = "판매 상품"
+L["Not confirmed: visit to check."] = "미확인: 방문하여 확인하세요."
+L["Corners: state top right, bonus top left, event bottom left, copies bottom right."] = "모서리: 오른쪽 위는 상태, 왼쪽 위는 보너스, 왼쪽 아래는 이벤트, 오른쪽 아래는 보유 수량."
+L["%s; %s"] = "%s; %s"
+L["%s · %s"] = "%s · %s"
 -- end: Sources
 
 -------------------------------------------------------------------------------

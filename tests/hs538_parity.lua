@@ -155,7 +155,7 @@ local function surfaces(env, label)
         n = n + 2
     end
 
-    -- Sources decor rows: a vendor's rows read that vendor's offer, any other source reads the item's.
+    -- Sources decor rows and vendor page cells: a vendor's wares read that vendor's offer, any other source reads the item's.
     for _, t in ipairs(SOURCE_KEYS) do
         env.go("sources", { type = t })
         local keys = {}
@@ -163,7 +163,8 @@ local function surfaces(env, label)
         for _, key in ipairs(keys) do
             env.go("sources", { type = t, select = { key = key } })
             local npcID = t == "vendors" and key or nil
-            for _, d in ipairs((env.decorList())) do
+            if npcID then eq(env.crumb[#env.crumb].id, npcID, label .. ": the crumb ends at vendor " .. npcID) end
+            for _, d in ipairs(npcID and env.wareList() or env.decorList()) do
                 local state, arg = B.ItemState(d.itemID, npcID)
                 eq(describe(d.state, d.arg), describe(state, arg), label .. ": Sources " .. t .. " " .. tostring(key) .. ", item " .. d.itemID)
                 n = n + 1

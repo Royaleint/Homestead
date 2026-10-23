@@ -496,6 +496,12 @@ L["No model shown"] = "Модель не показана"
 L["No events active right now. Event decor is sold only while its event runs."] = "Сейчас нет активных событий. Декор событий продается только во время события."
 L["Nothing matches your search."] = "По вашему запросу ничего не найдено."
 L["Nothing to show here."] = "Здесь нечего показывать."
+L["Currency"] = "Валюта"
+L["Wares"] = "Товары"
+L["Not confirmed: visit to check."] = "Не подтверждено: посетите торговца, чтобы проверить."
+L["Corners: state top right, bonus top left, event bottom left, copies bottom right."] = "Углы: состояние справа вверху, бонус слева вверху, событие слева внизу, количество копий справа внизу."
+L["%s; %s"] = "%s; %s"
+L["%s · %s"] = "%s · %s"
 -- end: Sources
 
 -------------------------------------------------------------------------------

@@ -140,6 +140,7 @@ end
 local overview, catalog, vendor = NewPage(), NewPage(), NewPage()
 local multi = NewPage()
 for i = 1, 60 do vendor.known[i] = true end
+function vendor:Has(route) return self.known[route.id] == true end
 B.RegisterPage("overview", overview)
 B.RegisterPage("catalog", multi)
 B.RegisterPage("item", multi)
@@ -253,15 +254,40 @@ flush()
 eq(vendor.up, true, "Refresh did not restore what Hide tore down")
 eq(vendor.shows, showsBefore, "the refresh showed the page again")
 
--- A vanished target falls back to the page's home, on a forward Go and on Back.
+-- A vanished target falls back to its list home (the Sources vendors list until the vendor lists exist): on a
+-- forward Go, on Back, which drops the dead entry, and on Refresh, which replaces the route with no history step.
+local function onList()
+    local r = catalog.route
+    return r ~= nil and r.kind == "sources" and r.key == "vendors"
+end
+local before = vendor.shows
 B.Go({ kind = "vendor", id = 99 })
-eq(vendor.home, true, "a vanished target did not fall back")
+eq(vendor.shows, before, "a vanished target was shown")
+eq(onList(), true, "a Go to a vanished target did not fall back to the list")
+eq(navs[#navs].kind, "sources", "the tree was not told the fallback")
+eq(crumbs[#crumbs][#crumbs[#crumbs]].kind, "sources", "the crumb was not set from the fallback")
+
 B.Go({ kind = "vendor", id = 4 })
-vendor.known[4] = nil
 B.Go({ kind = "overview" })
+vendor.known[4] = nil
+catalog.route = nil
+local overviewShows = overview.shows
 B.Back()
-eq(vendor.home, true, "Back to a vanished target did not fall back")
+eq(overview.shows, overviewShows, "Back showed the page it left")
+eq(onList(), true, "Back did not drop the dead entry and return to the one before it")
 vendor.known[4] = true
+
+B.Go({ kind = "overview" })
+B.Go({ kind = "vendor", id = 5 })
+vendor.known[5] = nil
+catalog.route = nil
+B.RequestRefresh(false, true)
+flush()
+eq(onList(), true, "a refresh of a vanished target did not fall back")
+vendor.known[5] = true
+overviewShows = overview.shows
+B.Back()
+eq(overview.shows, overviewShows + 1, "the refresh pushed a history step: Back did not return to the page before")
 
 -- Same page, two routes: one Hide between them.
 B.Go({ kind = "catalog", key = "all" })
@@ -321,8 +347,15 @@ Resolve("catalog", { itemID = 5 }, "catalog", "all")
 Resolve("catalog", { sort = "name", itemID = 5 }, "catalog", "all")
 Resolve("sources", nil, "sources", nil)
 Resolve("sources", { type = "vendors" }, "sources", "vendors")
-Resolve("sources", { type = "vendors", select = { key = 7 } }, "sources", "vendors")
 Resolve("sources", { type = "quests", select = { key = 7 } }, "sources", "quests")
+
+-- A vendor pick routes to the vendor page by npcID, with no key and no seed.
+went = nil
+B.ShowTab("sources", { type = "vendors", select = { key = 7 } })
+eq(went.kind, "vendor", "a vendor pick kind")
+eq(went.id, 7, "a vendor pick id")
+eq(went.key, nil, "a vendor pick key")
+eq(went.seed, nil, "a vendor pick seed")
 
 local opts = { search = "bench", kind = "all" }
 B.ShowTab("catalog", opts)

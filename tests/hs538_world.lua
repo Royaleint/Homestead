@@ -19,7 +19,7 @@ return function(root, opts)
         catalog = {}, names = {}, sources = {}, vendors = {}, offers = {}, reqs = {}, scanned = {}, records = {},
         calendar = {}, themes = {}, measured = {}, maps = {}, playerMap = nil, stats = {},
         all = {}, boxList = {}, timers = {}, saves = {}, waypoints = {}, reports = {}, itemShows = {},
-        walkCalls = 0, combat = false, fontStrings = {}, emptySets = {}, links = {}, linked = {},
+        walkCalls = 0, combat = false, fontStrings = {}, textures = {}, emptySets = {}, links = {}, linked = {},
     }
     for k, v in pairs(opts or {}) do env[k] = v end
 
@@ -28,17 +28,20 @@ return function(root, opts)
     ---------------------------------------------------------------------------
     local Widget
     local methods = {}
-    function methods.CreateFontString(self)
+    function methods.CreateFontString(self, _, _, font)
         local fs = Widget("FontString")
-        fs.parent = self
+        fs.parent, fs.font = self, font
         env.fontStrings[#env.fontStrings + 1] = fs
         return fs
     end
     function methods.CreateTexture(self)
         local t = Widget("Texture")
         t.parent = self
+        env.textures[#env.textures + 1] = t
         return t
     end
+    function methods.SetFontObject(self, font) self.font = font end
+    function methods.SetMotionScriptsWhileDisabled(self, on) self.motion = on end
     function methods.SetText(self, text)
         self.text = text
         if self.scripts.OnTextChanged then self.scripts.OnTextChanged(self, false) end
@@ -232,6 +235,9 @@ return function(root, opts)
                 assert(self.activeAtlas and self.inactiveAtlas, "a side tab is checked before its atlases are set")
                 self.checked = on
             end
+        elseif template == "ScrollFrameTemplate" then
+            w.ScrollBar = Widget("EventFrame")
+            w.ScrollBar.SetHideIfUnscrollable = function(self, on) self.hideIfUnscrollable = on end
         elseif template == "UICheckButtonTemplate" then
             w.Text = Widget("FontString")
         end
@@ -256,7 +262,17 @@ return function(root, opts)
     G("ScrollUtil", {
         InitScrollBoxListWithScrollBar = function(box, _, view) box.view = view end,
         AddManagedScrollBarVisibilityBehavior = noop,
+        InitScrollFrameWithScrollBar = noop,
     })
+    G("CreateScrollBoxListGridView", function(stride)
+        local v = Widget("View")
+        v.stride = stride
+        function v:SetElementInitializer(template, fn) self.factory = function(factory) factory(template, fn) end end
+        function v:SetElementResetter(fn) self.resetter = fn end
+        function v:SetStride(n) self.stride = n end
+        function v:GetStride() return self.stride end
+        return v
+    end)
     G("CreateScrollBoxListLinearView", function()
         local v = Widget("View")
         function v:SetElementFactory(fn) self.factory = fn end
@@ -674,6 +690,18 @@ return function(root, opts)
     function env.decorIds()
         local ids = {}
         for i, d in ipairs((env.decorList())) do ids[i] = d.itemID end
+        table.sort(ids)
+        return table.concat(ids, ",")
+    end
+    -- The vendor page: its wares as the grid draws them, and the grid's box.
+    function env.wareList()
+        for _, b in ipairs(env.boxList) do
+            if env.ownerKind(b) == "vendor" then return b.provider, b end
+        end
+    end
+    function env.wareIds()
+        local ids = {}
+        for i, d in ipairs((env.wareList())) do ids[i] = d.itemID end
         table.sort(ids)
         return table.concat(ids, ",")
     end

@@ -483,6 +483,12 @@ L["No model shown"] = "Nessun modello mostrato"
 L["No events active right now. Event decor is sold only while its event runs."] = "Nessun evento attivo al momento. Le decorazioni degli eventi si vendono solo mentre l'evento è in corso."
 L["Nothing matches your search."] = "Nessun risultato per la tua ricerca."
 L["Nothing to show here."] = "Niente da mostrare qui."
+L["Currency"] = "Valuta"
+L["Wares"] = "Merci"
+L["Not confirmed: visit to check."] = "Non confermato: visita il venditore per verificare."
+L["Corners: state top right, bonus top left, event bottom left, copies bottom right."] = "Angoli: stato in alto a destra, bonus in alto a sinistra, evento in basso a sinistra, copie in basso a destra."
+L["%s; %s"] = "%s; %s"
+L["%s · %s"] = "%s · %s"
 -- end: Sources
 
 -------------------------------------------------------------------------------

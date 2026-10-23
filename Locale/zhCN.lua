@@ -483,6 +483,12 @@ L["No model shown"] = "未显示模型"
 L["No events active right now. Event decor is sold only while its event runs."] = "目前没有进行中的事件。事件装饰仅在事件期间出售。"
 L["Nothing matches your search."] = "没有符合搜索的结果。"
 L["Nothing to show here."] = "此处没有可显示的内容。"
+L["Currency"] = "货币"
+L["Wares"] = "商品"
+L["Not confirmed: visit to check."] = "未确认：请前往查看。"
+L["Corners: state top right, bonus top left, event bottom left, copies bottom right."] = "角标：右上为状态，左上为奖励，左下为活动，右下为拥有数量。"
+L["%s; %s"] = "%s；%s"
+L["%s · %s"] = "%s · %s"
 -- end: Sources
 
 -------------------------------------------------------------------------------

@@ -8,9 +8,9 @@ local root = (... or "."):gsub("\\", "/"):gsub("/+$", "")
 -- The Decor Browser Overview page: the three rows and their reason lines, the
 -- fill, the zone line, the first-use tip, and no search box or By source list of
 -- its own. The real CatalogStore, SourceManager verdict, VendorFilter, Adapter,
--- Facts, CanGet and Widgets run against stubbed data and frames. Item and vendor
--- links are B.ShowTab calls and every other link is a B.Go route; the test
--- records both.
+-- Facts, CanGet and Widgets run against stubbed data and frames. Item links are
+-- B.ShowTab calls and every other link, the vendor's too, is a B.Go route; the
+-- test records both.
 -------------------------------------------------------------------------------
 
 local function noop() end
@@ -575,18 +575,17 @@ do
     eq(env.top(zone), 40, "the zone line sits under the title and the lede")
     assert(zone.btn.shown)
     click(zone.btn)
-    eq(env.calls[#env.calls][1], "sources")
-    eq(env.calls[#env.calls][2].type, "vendors")
-    eq(env.calls[#env.calls][2].select.key, 1, "Show vendor selects the vendor's key")
+    eq(#env.routes, 1)
+    eq(env.routes[1].kind, "vendor", "Show vendor opens the vendor page")
+    eq(env.routes[1].id, 1, "Show vendor routes to the vendor's key")
 
     eq(zone.more.text, "More vendors here")
     assert(zone.more.shown, "the Here line links to more vendors")
-    eq(#env.routes, 0, "nothing routed yet")
     click(zone.more)
-    eq(#env.routes, 1)
-    eq(env.routes[1].kind, "sources", "More vendors here opens the vendors list until the vendor pages arrive")
-    eq(env.routes[1].key, "vendors")
-    eq(env.routes[1].seed, nil)
+    eq(#env.routes, 2)
+    eq(env.routes[2].kind, "sources", "More vendors here opens the vendors list until the vendor pages arrive")
+    eq(env.routes[2].key, "vendors")
+    eq(env.routes[2].seed, nil)
 
     eq(#env.glows, 0, "the glow waits for the next frame")
     env.flush()

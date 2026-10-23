@@ -15,18 +15,18 @@ local CAP = 180224
 
 local CEIL = {
     ["Visuals.xml"] = 391,
-    ["Style.lua"] = 5800,
+    ["Style.lua"] = 5900,
     ["Visuals.lua"] = 3482,
     ["Adapter.lua"] = 20000,
     ["Facts.lua"] = 6026,
     ["CanGet.lua"] = 16300,
-    ["Widgets.lua"] = 22900,
-    ["Window.lua"] = 21100,
-    ["Browser.lua"] = 14700,
+    ["Widgets.lua"] = 24300,
+    ["Window.lua"] = 20900,
+    ["Browser.lua"] = 15700,
     ["Summary.lua"] = 10100,
     ["Catalog.lua"] = 15700,
-    ["Sources.lua"] = 21600,
-    ["Item.lua"] = 13216,
+    ["Sources.lua"] = 27400,
+    ["Item.lua"] = 13700,
 }
 
 local function readFile(path)

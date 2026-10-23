@@ -1,5 +1,5 @@
 -- luacheck: globals assert loadfile print io rawset CreateFrame UIParent C_Texture PixelUtil CreateColor C_ColorOverrides
--- luacheck: globals CreateScrollBoxListLinearView ScrollUtil CreateAnchor CreateDataProvider TextSizeManager NineSliceUtil
+-- luacheck: globals CreateScrollBoxListLinearView CreateScrollBoxListGridView ScrollUtil CreateAnchor CreateDataProvider TextSizeManager NineSliceUtil
 -- luacheck: globals C_Timer C_Item C_Map date os SetPortraitTextureFromCreatureDisplayID InCombatLockdown
 -- Run from the repo root:  lua tests/hs538_sources.lua [root]
 
@@ -8,13 +8,13 @@ local root = (... or "."):gsub("\\", "/"):gsub("/+$", "")
 -------------------------------------------------------------------------------
 -- The Sources tab, run through the real Sources.lua, Widgets, Facts, Adapter and
 -- CanGet against stubbed data and recording widgets: grouping and row words, the
--- vendor detail (confirmation, counts, model, report), the select contract for
--- every type, Hide's footer, the count refresh, and the walk discipline.
+-- vendor page the file registers (head, location, lines, bar, wares), the select
+-- contract for every type, Hide's footer, the count refresh, and the walk discipline.
 -------------------------------------------------------------------------------
 
 local function noop() end
 local Widget
-local made, all, boxes, views, models = {}, {}, {}, {}, {}
+local made, all, boxes, views = {}, {}, {}, {}
 local scrolls = {}
 local methods = {}
 function methods.CreateFontString(_, _, _, font)
@@ -28,10 +28,10 @@ function methods.SetFontObject(self, font) self.font = font end
 function methods.SetText(self, text) self.text = text end
 function methods.GetText(self) return self.text end
 function methods.SetWidth(self, w) self.width = w end
-function methods.GetWidth(self) return self.width or 200 end
+function methods.GetWidth(self) return rawget(self, "width") or 200 end
 function methods.SetSize(self, w, h) self.width, self.height = w, h end
 function methods.SetHeight(self, h) self.height = h end
-function methods.GetHeight(self) return self.height or 0 end
+function methods.GetHeight(self) return rawget(self, "height") or 0 end
 function methods.SetShown(self, on) self.shown = on end
 function methods.Show(self) self.shown = true end
 function methods.Hide(self) self.shown = false end
@@ -64,9 +64,6 @@ function methods.FindElementDataIndexByPredicate(self, fn)
 end
 function methods.ScrollToElementDataIndex(self, index) scrolls[#scrolls + 1] = { box = self, index = index } end
 function methods.SetElementFactory(self, fn) self.factory = fn end
-function methods.SetCreature(self, id) self.creature = id; self.calls[#self.calls + 1] = "SetCreature" end
-function methods.ClearModel(self) self.calls[#self.calls + 1] = "ClearModel" end
-function methods.GetModelFileID(self) return self.fileID end
 function Widget(kind)
     local w = setmetatable({ kind = kind, shown = true, text = "", scripts = {}, calls = {} }, {
         __index = function(_, k) return methods[k] or noop end,
@@ -80,8 +77,8 @@ CreateFrame = function(kind, _, parent, template)
     local w = Widget(kind)
     w.parent, w.template = parent, template
     if kind == "EditBox" then w.Instructions = Widget("FontString") end
+    if template == "ScrollFrameTemplate" then w.ScrollBar = Widget("EventFrame") end
     if template == "WowScrollBoxList" then boxes[#boxes + 1] = w end
-    if kind == "PlayerModel" then models[#models + 1] = w end
     return w
 end
 C_Texture = { GetAtlasInfo = function() return nil end }
@@ -92,7 +89,8 @@ CreateAnchor = noop
 CreateDataProvider = function(t) return t end
 TextSizeManager = { GetScale = function() return 1 end }
 C_ColorOverrides = { GetColorForQuality = function() return { r = 0, g = 0.5, b = 1 } end }
-ScrollUtil = { InitScrollBoxListWithScrollBar = noop, AddManagedScrollBarVisibilityBehavior = noop }
+ScrollUtil = { InitScrollBoxListWithScrollBar = noop, AddManagedScrollBarVisibilityBehavior = noop, InitScrollFrameWithScrollBar = noop }
+CreateScrollBoxListGridView = function() return Widget("View") end
 CreateScrollBoxListLinearView = function()
     local v = Widget("View")
     views[#views + 1] = v
@@ -222,7 +220,7 @@ end
 -- A fresh world: the real browser modules over stubbed data, the real Widgets over recording frames, and the
 -- Sources tab built and registered.
 local function reset()
-    made, all, boxes, views, models, scrolls, timers = {}, {}, {}, {}, {}, {}, {}
+    made, all, boxes, views, scrolls, timers = {}, {}, {}, {}, {}, {}
     portraitCalls = {}
     combat = false
 end
@@ -231,7 +229,7 @@ local function setup()
     reset()
     local env, HA, D, CG = newEnv()
     env.records, env.stats, env.prewarm, env.reports, env.waypoints = {}, {}, 0, {}, {}
-    env.shown = {}
+    env.shown, env.went = {}, {}
     env.maps = {
         [100] = { name = "Kalimdor", mapType = 2, parentMapID = 0 },
         [200] = { name = "Eastern Kingdoms", mapType = 2, parentMapID = 0 },
@@ -273,7 +271,7 @@ local function setup()
         assert(loadfile(root .. "/UI/Browser/" .. file .. ".lua"))("Homestead", HA)
     end
     local B = HA.DecorBrowser
-    local tabs, gen = {}, 1
+    local tabs, pages, gen = {}, {}, 1
     B.State = { hideNA = false, inCombat = false, generation = 1, noPrewarm = false, catalogMemo = {} }
     env.walkCalls = 0
     B.Walk = function()
@@ -283,7 +281,9 @@ local function setup()
     B.Generation = function() return gen end
     B.InCombat = function() return B.State.inCombat end
     B.RegisterTab = function(key, tab) tabs[key] = tab end
+    B.RegisterPage = function(kind, page) pages[kind] = page end
     B.ShowTab = function(key, o) env.shown[#env.shown + 1] = { key = key, opts = o } end
+    B.Go = function(route) env.went[#env.went + 1] = route end
     B.Tooltip = function()
         return { SetOwner = noop, SetText = function(_, t) env.tip = t end, Show = noop }
     end
@@ -298,7 +298,7 @@ local function setup()
     local before = #all
     assert(loadfile(path))("Homestead", HA)
     env.framesAtLoad = #all - before
-    env.tab, env.B, env.W = tabs.sources, B, B.Widgets
+    env.tab, env.vpage, env.B, env.W = tabs.sources, pages.vendor, B, B.Widgets
     function env.bump() gen = gen + 1 end
     env.D, env.CG, env.HA = D, CG, HA
     return env
@@ -405,7 +405,9 @@ local function frameWith(pred)
 end
 
 local function button(text)
-    return frameWith(function(w) return w.kind == "Button" and w.text == text end)
+    return frameWith(function(w)
+        return w.kind == "Button" and (w.text == text or type(w.text) == "table" and w.text.text == text)
+    end)
 end
 
 local function searchBox()
@@ -425,17 +427,15 @@ local function allItemsOwned(env)
 end
 
 -------------------------------------------------------------------------------
--- Nothing is created before first open; the model frame waits for a vendor
+-- Nothing is created before first open
 -------------------------------------------------------------------------------
 
 do
     local env = setup()
     world(env)
     assert(env.framesAtLoad == 0, "loading Sources.lua created frames")
+    assert(env.vpage, "the vendor page registers itself")
     build(env)
-    assert(#models == 0, "the vendor model was created at Build")
-    env.tab.Show(nil)
-    assert(#models == 1, "the model is created when the first vendor is shown")
     print("hs538_sources: lazy creation ok")
 end
 
@@ -589,113 +589,78 @@ do
 end
 
 -------------------------------------------------------------------------------
--- R29 vendor detail
+-- R29 vendor page: the head, location, shared lines, bar and wares, drawn by the
+-- page the Sources file registers for the vendor route
 -------------------------------------------------------------------------------
+
+local function vendorPage(env)
+    env.vpage:Build(Widget("Page"))
+    return boxes[#boxes]
+end
 
 do
     local env = setup()
     local v = world(env)
     v.here.x, v.here.y = 0.4, 0.5
     env.HA.VendorPortraits[100] = 555
-    local _, side = build(env)
-    env.tab.Show({ type = "vendors", select = { key = 100 } })
-    assert(headShows("Anna"), "the detail head names the vendor")
-    assert(shownText("Trade District, Stormwind") and shownText("Eastern Kingdoms"), "zone, subzone and continent")
-    assert(shownText("Confirmed by a scan on 2026-10-01"), "the shipped date shows")
-    assert(shownText("Sells 3 decor.") and shownText("3 you can get now."), "the count line")
+    local grid = vendorPage(env)
+    env.vpage:Show({ kind = "vendor", id = 100 })
+    assert(shownText("Anna"), "the head names the vendor")
+    assert(shownText("Trade District, Stormwind"), "subzone and zone")
+    assert(not shownText("Eastern Kingdoms"), "the player's own continent is not repeated")
+    assert(not shownText("Not confirmed"), "the shipped confirmation date counts")
+    assert(shownText("0 of 3 collected") and shownText("3 can get now"), "the bar and the can-get line")
     assert(portraitCalls[#portraitCalls] == 555, "the headshot comes from the portrait table")
-    assert(models[1].creature == 100, "the model is set from the vendor")
-    assert(#side.data == 3 and side.data[1].state == "can" and side.data[1].npcID == 100, "the decor list")
-    side.data[1].onClick()
-    assert(env.shown[#env.shown].key == "catalog" and env.shown[#env.shown].opts.itemID == side.data[1].itemID,
-        "a decor row opens Catalog at the item")
+    assert(#grid.data == 3 and grid.data[1].state == "can" and grid.data[1].npcID == 100, "the wares")
 
     env.records[100] = { lastScanned = os.time({ year = 2026, month = 9, day = 1, hour = 12 }) }
-    env.tab.Refresh("data")
-    assert(shownText("Confirmed by a scan on 2026-10-01"), "an older scan does not replace the shipped date")
-    env.records[100] = { lastScanned = os.time({ year = 2026, month = 10, day = 20, hour = 12 }) }
-    env.tab.Refresh("data")
-    assert(shownText("Confirmed by a scan on 2026-10-20"), "the newer of the two shows")
+    env.vpage:Refresh("data")
+    assert(not shownText("Not confirmed"), "an older scan does not take the confirmation away")
 
-    local go = frameWith(function(w) return w.kind == "Button" and w.text == "Set waypoint" and rawget(w, "target") end)
-    assert(go and go.target.mapID == 10 and go.shown, "Set waypoint targets the vendor")
-    go.scripts.OnClick(go)
-    assert(env.waypoints[1][1] == 10 and env.waypoints[1][4].title == "Anna")
+    local wp = frameWith(function(w) return w.kind == "Button" and rawget(w, "wp") ~= nil end)
+    assert(wp and wp.shown and wp.wp.mapID == 10, "the waypoint targets the vendor")
+    wp.scripts.OnClick(wp)
+    assert(env.waypoints[1][1] == 10 and env.waypoints[1][4].title == "Anna" and env.waypoints[1][4].data.npcID == 100)
 
-    env.tab.Select(101)
-    assert(shownText("Not confirmed: No scan has confirmed this vendor yet."), "the Not confirmed sentence")
-    assert(not frameWith(function(w) return w.kind == "Button" and w.text == "Set waypoint" and rawget(w, "target") and w.shown end),
-        "no location, no waypoint button")
-    env.tab.Select(102)
+    env.vpage:Show({ kind = "vendor", id = 101 })
+    assert(shownText("Not confirmed: visit to check."), "the Not confirmed line")
+    assert(not wp.shown, "no location, no waypoint button")
+    assert(not shownText("Kalimdor"), "Elwynn is on the player's continent")
+    env.records[101] = { lastScanned = os.time() }
+    env.vpage:Refresh("data")
+    assert(not shownText("Not confirmed"), "the player's own scan clears Not confirmed")
+    env.vpage:Show({ kind = "vendor", id = 102 })
     assert(shownText("Horde only: can't buy on this character"), "the faction stop line")
-    env.tab.Select(103)
+    assert(shownText("Orgrimmar · Kalimdor"), "another continent is named")
+    env.vpage:Show({ kind = "vendor", id = 103 })
     assert(not shownText("Horde only"), "the stop line is gone")
-    print("hs538_sources: vendor detail ok")
+    print("hs538_sources: vendor page ok")
 end
 
 -------------------------------------------------------------------------------
--- The model: placeholder until it loads, stale work does nothing, Hide clears
+-- Rows open the vendor page; the list's own detail pane no longer draws vendor-only parts
 -------------------------------------------------------------------------------
 
 do
     local env = setup()
     world(env)
-    build(env)
+    local main = build(env)
+    env.tab.Show({})
+    row(main, 100).onClick()
+    assert(#env.went == 1 and env.went[1].kind == "vendor" and env.went[1].id == 100, "a vendor row opens its page")
+    assert(env.shown[#env.shown] == nil, "and goes through no tab")
     env.tab.Show({ type = "vendors", select = { key = 100 } })
-    local model = models[1]
-    model.fileID = false
-    local ph = frameWith(function(w) return w.kind == "Frame" and w.parent == model.parent end)
-    assert(ph and ph.shown, "the placeholder shows while the model is unknown")
-    local t100 = timers[1]
-    t100()
-    assert(ph.shown, "no model file yet: the placeholder stays")
-    env.tab.Select(101)
-    assert(model.creature == 101 and ph.shown)
-    model.fileID = 99
-    t100()
-    assert(ph.shown, "the first vendor's late check does nothing")
-    timers[2]()
-    assert(not ph.shown, "the current vendor's check hides the placeholder")
-    env.tab.Select(100)
-    assert(ph.shown, "a new vendor starts on the placeholder")
-    model.scripts.OnModelLoaded(model)
-    assert(not ph.shown, "OnModelLoaded hides it for the current vendor")
-    env.tab.Select(101)
-    assert(ph.shown)
-    env.bump()
-    model.scripts.OnModelLoaded(model)
-    assert(ph.shown, "work from before a window change does nothing")
-    local t101 = timers[#timers]
-    t101()
-    assert(ph.shown, "a timer from before a window change does nothing")
-
-    env.tab.Hide()
-    assert(model.shown == false and model.calls[#model.calls] == "ClearModel", "Hide clears and hides the model")
-    model.scripts.OnModelLoaded(model)
-    assert(ph.shown, "nothing is current after Hide")
-    local creatures = 0
-    for _, c in ipairs(model.calls) do if c == "SetCreature" then creatures = creatures + 1 end end
-    env.tab.Refresh("paint")
-    local after = 0
-    for _, c in ipairs(model.calls) do if c == "SetCreature" then after = after + 1 end end
-    assert(after == creatures + 1 and model.shown, "Refresh after Hide restores the model without Show")
+    assert(headShows("Anna") and shownText("Gives 3 decor."), "the interim pane keeps the head and the count")
+    assert(not shownText("Confirmed by a scan") and not shownText("Sells"), "the vendor-only lines are gone")
+    row(main, 100).onClick()
+    assert(env.went[2].id == 100, "a selected row still opens the page")
+    local before = #env.shown
+    row(main, 100).onClick()
+    assert(#env.shown == before, "a vendor row never selects in place")
     env.tab.Show({ type = "achievements" })
-    assert(model.shown == false, "a source with no vendor clears the model")
-
-    env.tab.Show({ type = "vendors", select = { key = 100 } })
-    local creates, nt = 0, #timers
-    for _, c in ipairs(model.calls) do if c == "SetCreature" then creates = creates + 1 end end
-    local box = searchBox()
-    env.tab.Refresh("stats")
-    env.tab.Refresh("names")
-    env.tab.Refresh("zone")
-    env.tab.Select(100)
-    box.text = "anna"
-    box.scripts.OnTextChanged(box, true)
-    local now = 0
-    for _, c in ipairs(model.calls) do if c == "SetCreature" then now = now + 1 end end
-    assert(now == creates and #timers == nt, "the same vendor keeps its model through repaints, clicks and searches")
-    print("hs538_sources: model ok")
+    row(main, 9001).onClick()
+    assert(#env.went == 3 and headShows("Ach A"), "other rows still select in place")
+    print("hs538_sources: vendor rows ok")
 end
 
 -------------------------------------------------------------------------------
@@ -971,8 +936,10 @@ do
     local main = build(env)
     env.tab.Show({})
     assert(row(main, 20).state == "live" and not row(main, 21), "an active event vendor is listed and tagged Active now")
-    env.tab.Select(20)
-    assert(shownText("Active now. Seasonal: Hallow's End"), "the event line")
+    env.vpage:Build(Widget("Page"))
+    env.vpage:Show({ kind = "vendor", id = 20 })
+    assert(shownText("Echo") and shownText("Active now"), "the head names the vendor and tags it Active now")
+    assert(shownText("Seasonal: Hallow's End"), "the Seasonal note follows the location")
     print("hs538_sources: event vendors ok")
 end
 

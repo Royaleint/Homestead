@@ -267,6 +267,8 @@ for _, key in ipairs({ "summary", "catalog", "sources" }) do
         SetCombat = function(on) combatSeen = on end,
     })
 end
+B.RegisterPage("vendor", { Build = function() end, Show = function() end, Hide = function() end,
+    Refresh = function() end, SetCombat = function() end })
 
 -- Ready() false creates nothing.
 D.IsReady = function() return false end

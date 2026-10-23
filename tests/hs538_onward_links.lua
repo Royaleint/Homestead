@@ -75,6 +75,15 @@ local function landsOnSource(env, key, wares, fn, label)
     return rows
 end
 
+-- Runs fn, then checks the vendor page is open for npcID and draws its wares.
+local function landsOnVendor(env, npcID, wares, fn, label)
+    fn()
+    local last = env.crumb[#env.crumb]
+    eq(last.kind, "vendor", label .. ": page")
+    eq(last.id, npcID, label .. ": vendor")
+    eq(env.wareIds(), wares, label .. ": the page draws the vendor's wares")
+end
+
 -- The Catalog's item ids, sorted, for checks that do not care about the order.
 local function idSet(env)
     local ids = {}
@@ -141,11 +150,11 @@ end
 
 do
     local env = world()
-    -- R16: the zone block's Show vendor lands on that vendor with its wares in the detail.
+    -- R16: the zone block's Show vendor lands on that vendor's page with its wares.
     local btn = env.button("summary", "Show vendor")
     assert(btn, "the zone block offers Show vendor")
-    landsOnSource(env, 100, "1,2,3,6,8", function() env.click(btn) end, "Show vendor")
-    eq(env.sourceKeys(), "100,101,102,104", "the vendor type is open")
+    landsOnVendor(env, 100, "1,2,3,6,8", function() env.click(btn) end, "Show vendor")
+    eq(env.crumb[2].key, "other", "the crumb passes through the vendor's expansion")
 
     print("hs538_onward_links: zone block ok")
 end
@@ -237,11 +246,11 @@ do
     eq(env.idString(), "1", "filtered Catalog")
     env.go("sources", { type = "vendors", select = { key = 100 } })
     local frame
-    for _, f in ipairs(env.boxes("sources")[2].frames) do
+    for _, f in ipairs(select(2, env.wareList()).frames) do
         if f.d and f.d.itemID == 3 then frame = f end
     end
-    assert(frame, "Anna's decor row for item 3 is drawn")
-    landsOnItem(env, 3, function() env.click(frame) end, "decor list row")
+    assert(frame, "Anna's ware cell for item 3 is drawn")
+    landsOnItem(env, 3, function() env.click(frame) end, "ware cell")
     eq(env.searchText("catalog"), "", "the landing cleared the search")
     eq(env.idString(), order.name, "filters reset, the sort kept (Name)")
     print("hs538_onward_links: Sources decor list ok")
@@ -266,7 +275,11 @@ do
         eq(env.selectedItem(), c.item)
         local btn = env.button("catalog", c.button)
         assert(btn, c.item .. ": no " .. c.button .. " button")
-        landsOnSource(env, c.key, c.wares, function() env.click(btn) end, c.button)
+        if c.button == "Show vendor" then
+            landsOnVendor(env, c.key, c.wares, function() env.click(btn) end, c.button)
+        else
+            landsOnSource(env, c.key, c.wares, function() env.click(btn) end, c.button)
+        end
     end
 
     local env = world()
@@ -299,18 +312,18 @@ do
     end
 
     -- A Sources landing on a source whose decor is all collected, and on an other-faction vendor.
-    landsOnSource(env, 101, "4", function() env.go("sources", { type = "vendors", select = { key = 101 } }) end, "pinned vendor 101")
-    landsOnSource(env, 102, "5,6", function() env.go("sources", { type = "vendors", select = { key = 102 } }) end, "pinned vendor 102")
+    landsOnVendor(env, 101, "4", function() env.go("sources", { type = "vendors", select = { key = 101 } }) end, "pinned vendor 101")
+    landsOnVendor(env, 102, "5,6", function() env.go("sources", { type = "vendors", select = { key = 102 } }) end, "pinned vendor 102")
     landsOnSource(env, 9003, "12", function() env.go("sources", { type = "achievements", select = { key = 9003 } }) end, "pinned achievement")
 
     -- From a pinned vendor's decor list, the other-faction item still lands in Catalog.
     env.go("sources", { type = "vendors", select = { key = 102 } })
     local frame
-    for _, f in ipairs(env.boxes("sources")[2].frames) do
+    for _, f in ipairs(select(2, env.wareList()).frames) do
         if f.d and f.d.itemID == 5 then frame = f end
     end
-    assert(frame, "Cora's decor row for item 5 is drawn")
-    landsOnItem(env, 5, function() env.click(frame) end, "decor row under Hide")
+    assert(frame, "Cora's ware cell for item 5 is drawn")
+    landsOnItem(env, 5, function() env.click(frame) end, "ware cell under Hide")
 
     -- Without a select the pin does not apply: the hidden vendors stay out.
     env.go("summary")

@@ -128,7 +128,7 @@ local function BuildBlocks(parent)
     zone = W.Pane(parent)
     zone.btn = W.NewButton(zone, L["Show vendor"], function(self)
         local key = Facts.SourceKey("vendors", { npcID = self.npcID })
-        if key then B.ShowTab("sources", { type = "vendors", select = { key = key } }) end
+        if key then B.Go({ kind = "vendor", id = key }) end
     end)
     zone.more = W.NewButton(zone, L["More vendors here"], function() B.Go({ kind = "sources", key = "vendors" }) end)
     zone.more:SetPoint("RIGHT", -SP.s, 0)

@@ -93,12 +93,6 @@ local function ReloadNav(data)
     list:SetData(data or NavData(), true)
 end
 
--- Vendor pages arrive later; until then their routes open the vendors list.
-local function Go(route)
-    local k = route.kind
-    B.Go((k == "allVendors" or k == "vendors") and { kind = "sources", key = "vendors" } or route)
-end
-
 local function ShowTruncated(self, fs)
     if not fs:IsTruncated() then return end
     local tip = B.Tooltip()
@@ -125,7 +119,7 @@ local function BuildRow(f)
     f.label:SetJustifyH("LEFT")
     f.label:SetWordWrap(false)
     f:RegisterForClicks("LeftButtonUp")
-    f:SetScript("OnClick", function(self) Go(self.data.route) end)
+    f:SetScript("OnClick", function(self) B.Go(self.data.route) end)
     f:SetScript("OnEnter", function(self) ShowTruncated(self, self.label) end)
     f:SetScript("OnLeave", B.HideTooltip)
 end
@@ -236,7 +230,7 @@ local function NewCrumb()
     c.sep = S.Text(Win.bar, "body", "OVERLAY")
     c.sep:SetTextColor(K.muted[1], K.muted[2], K.muted[3])
     c.sep:SetText(CRUMB_SEP)
-    c.btn:SetScript("OnClick", function() if c.route then Go(c.route) end end)
+    c.btn:SetScript("OnClick", function() if c.route then B.Go(c.route) end end)
     return c
 end
 

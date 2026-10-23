@@ -1,4 +1,4 @@
--- luacheck: globals assert loadfile print io CreateFrame UIParent C_Texture PixelUtil CreateColor C_ColorOverrides
+-- luacheck: globals assert loadfile print io os CreateFrame UIParent C_Texture PixelUtil CreateColor C_ColorOverrides
 -- luacheck: globals CreateScrollBoxListLinearView ScrollUtil CreateAnchor CreateDataProvider TextSizeManager NineSliceUtil
 -- luacheck: globals C_Item C_HousingCatalog C_Map Enum InCombatLockdown GetBuildInfo wipe NORMAL_FONT_COLOR rawset
 -- Run from the repo root:  lua tests/hs538_item.lua [root]
@@ -115,7 +115,7 @@ C_Map = {
     GetMapChildrenInfo = function() return {} end,
 }
 
-local VENDOR = {}
+local VENDOR, RECORDS = {}, {}
 local SOURCES = {}
 local REQS = {}
 local OFFER = {}
@@ -153,7 +153,7 @@ local HA = {
         GetVendor = function(_, npcID) return VENDOR[npcID] end,
         FormatCost = function() return "1g" end,
         HasOfferForItem = function() return nil end,
-        GetScannedVendorRecord = function() return nil end,
+        GetScannedVendorRecord = function(_, v) return RECORDS[v.npcID] end,
         GetVendorItems = function() return {} end,
     },
     VendorFilter = {
@@ -185,6 +185,8 @@ local Item = B.ItemDetail
 
 local shown = {}
 B.ShowTab = function(key, opts) shown[#shown + 1] = { key = key, opts = opts } end
+local routed = {}
+B.Go = function(route) routed[#routed + 1] = route end
 local realWalk = CG.Walk
 CG.Walk = function(...)
     walks = walks + 1
@@ -359,11 +361,18 @@ do
         assert(shown[1].key == "sources" and shown[1].opts.type == want[1] and shown[1].opts.select.key == want[2],
             label .. " goes to the wrong key")
     end
-    local shows = 0
+    local shows, npcs = 0, {}
+    shown = {}
     for _, d in ipairs(list) do
-        if d.act == "Show vendor" then shows = shows + 1 end
+        if d.act == "Show vendor" then
+            shows = shows + 1
+            d.fn()
+            npcs[#npcs + 1] = routed[#routed].kind == "vendor" and routed[#routed].id
+        end
     end
     assert(shows == 3, "each known vendor needs a Show vendor button, got " .. shows)
+    table.sort(npcs)
+    assert(table.concat(npcs, ",") == "12,13,14" and #shown == 0, "Show vendor goes to the vendor page by npcID: " .. table.concat(npcs, ","))
     local shopAt = indexOf(list, "Shop")
     assert(shopAt and not (list[shopAt + 1] and (list[shopAt + 1].act or ""):find("Show")), "the Shop block has a Show button")
     print("hs538_item: order, open-first, gold labels and Show keys ok")
@@ -744,6 +753,24 @@ do
     for _, l in ipairs(tip.lines) do said = said or l.text == sentence end
     assert(said, "the tooltip does not say the vendor is not confirmed")
     print("hs538_item: not confirmed ok")
+end
+
+-- The confirmation date is the newer of the shipped one and the player's own scan. (The vendor page no longer
+-- draws it; the item page does.)
+do
+    rawset(_G, "date", rawget(_G, "date") or os.date)
+    fresh(1034)
+    local v = vendor(66, "Scanned Vendor", { scanConfirmed = "2026-10-01" })
+    SOURCES[1034] = { vsrc(v) }
+    assert(has(show(1034), "Confirmed by a scan on 2026-10-01"), "the shipped date shows")
+    RECORDS[66] = { lastScanned = os.time({ year = 2026, month = 9, day = 1, hour = 12 }) }
+    D.InvalidateMemos()
+    assert(has(show(1034), "Confirmed by a scan on 2026-10-01"), "an older scan does not replace the shipped date")
+    RECORDS[66] = { lastScanned = os.time({ year = 2026, month = 10, day = 20, hour = 12 }) }
+    D.InvalidateMemos()
+    assert(has(show(1034), "Confirmed by a scan on 2026-10-20"), "the newer of the two shows")
+    RECORDS[66] = nil
+    print("hs538_item: confirmation date ok")
 end
 
 -- A linked id with no decor record and no sources (Catalog lands on it with no row) still draws a page.

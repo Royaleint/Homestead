@@ -86,6 +86,7 @@ end
 for _, key in ipairs({ "summary", "catalog", "sources" }) do
     B.RegisterTab(key, { Build = noop, Show = noop, Hide = noop, Refresh = noop, SetCombat = noop })
 end
+B.RegisterPage("vendor", { Build = noop, Show = noop, Hide = noop, Refresh = noop, SetCombat = noop })
 
 local memo = B.State.catalogMemo
 local function seed() memo[1] = "info" end

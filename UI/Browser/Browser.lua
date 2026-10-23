@@ -2,7 +2,8 @@
 -- and the item tooltip. Delayed work checks B.Generation() first: it changes on every open and every close.
 -- Page contract: Show(route, saved) gets saved only on Back. Hide tears down transient state, resets render
 -- keys and keeps the route. Refresh may follow Hide without Show (UI restore) and must restore whatever Hide
--- tore down. A vanished target falls back to its list home.
+-- tore down. A page may define Has(route); a target it reports gone falls back to its list home on Go, is
+-- dropped from Back, and replaces the route (no history step) on Refresh.
 local _, HA = ...
 
 local B = HA.DecorBrowser
@@ -67,8 +68,8 @@ function B.Walk()
     return B.CanGet.Walk()
 end
 
--- page = { Build(parent), Show(route, saved), Hide(), Refresh(reason), SetCombat(on), Save() }; built once
--- however many kinds it serves.
+-- page = { Build(parent), Show(route, saved), Hide(), Refresh(reason), SetCombat(on), Save(), Has(route)? };
+-- built once however many kinds it serves.
 function B.RegisterPage(kind, page)
     if not kindPage[kind] then kinds[#kinds + 1] = kind end
     kindPage[kind] = page
@@ -103,6 +104,25 @@ function B.Home(route)
     return up and { up, route } or { route }
 end
 
+-- Until the vendor list pages exist, their kinds open the Sources vendors list.
+local function Aliased(route)
+    if (route.kind == "allVendors" or route.kind == "vendors") and not kindPage[route.kind] then
+        return { kind = "sources", key = "vendors" }
+    end
+    return route
+end
+
+local function Gone(route)
+    local page = kindPage[route.kind]
+    return page and page.Has and not page:Has(route)
+end
+
+-- A route whose target is gone becomes its tree home.
+local function Resolved(route)
+    if Gone(route) then route = B.Home(route)[1] end
+    return Aliased(route)
+end
+
 local function SyncMemo()
     local version = B.Data.MemoVersion()
     if version ~= memoWipedAt then
@@ -129,6 +149,7 @@ local function Transition(route, saved)
 end
 
 local function GoNow(route)
+    route = Resolved(route)
     if curRoute and curRoute.kind == route.kind and curRoute.key == route.key and curRoute.id == route.id then
         local page = Current()
         if route.seed then
@@ -157,11 +178,14 @@ function B.Go(route)
 end
 
 function B.Back()
-    local entry = table.remove(history)
-    if entry then Traced(entry[1], Transition, entry[2]) end
+    local entry
+    repeat entry = table.remove(history) until not entry or not Gone(entry[1])
+    if entry then Traced(entry[1], Transition, entry[2]) else Win.SetBack(false) end
 end
 
 function B.ShowTab(key, opts)
+    local pick = key == "sources" and opts and opts.type == "vendors" and opts.select
+    if pick then return B.Go({ kind = "vendor", id = pick.key }) end
     local route = { kind = TAB_KIND[key], seed = opts }
     if opts and SEED_KEY[key] then route.key = opts[SEED_KEY[key]] or key == "catalog" and "all" or nil end
     B.Go(route)
@@ -192,6 +216,7 @@ end
 
 local function Repaint(reason)
     SyncMemo()
+    if Gone(curRoute) then return Transition(Resolved(curRoute)) end
     Current():Refresh(reason)
     Win.UpdateCount()
 end
