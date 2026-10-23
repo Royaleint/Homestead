@@ -161,7 +161,7 @@ do
     env.go("sources", { type = "vendors" })
     local rights = rowRights(env)
     eq(env.sourceKeys(), "104,100", "vendors: Bran (all collected) and Cora (Horde) hide")
-    local _, _, sfooter, sbox = env.sourcesList()
+    local _, sfooter, sbox = env.sourcesList()
     eq(sfooter.hidden, 2)
     eq(sfooter.collected, 1)
     eq(sfooter.faction, 1)
@@ -181,19 +181,19 @@ do
 
     env.go("sources", { type = "achievements" })
     eq(env.sourceKeys(), "9002,9001", "achievements: Crate Feat (all collected) hides")
-    local _, _, afooter = env.sourcesList()
+    local _, afooter = env.sourcesList()
     eq(afooter.hidden, 1)
     eq(afooter.collected, 1)
     eq(afooter.faction, 0)
 
     env.go("sources", { type = "quests" })
     eq(env.sourceKeys(), "7001,7002", "quests: the unknown-ownership quest does not hide")
-    local _, _, qfooter = env.sourcesList()
+    local _, qfooter = env.sourcesList()
     eq(qfooter, nil, "and nothing is counted as hidden")
 
     for _, t in ipairs({ "professions", "drops", "events", "shop" }) do
         env.go("sources", { type = t })
-        local _, _, f = env.sourcesList()
+        local _, f = env.sourcesList()
         eq(f and f.hidden, nil, t .. ": nothing to hide")
     end
     env.go("sources", { type = "events" })
@@ -287,6 +287,31 @@ do
 end
 
 -------------------------------------------------------------------------------
+-- A source list takes nothing from a select seed: under Hide the collected source stays hidden and no row is lit
+-------------------------------------------------------------------------------
+
+do
+    local env = world()
+    setHide(env, true)
+    env.go("sources", { type = "achievements" })
+    eq(env.sourceKeys(), "9002,9001", "achievements: Crate Feat hides")
+    local function unlit(label)
+        for _, d in ipairs((env.sourcesList())) do eq(d.selected, nil, label .. ": row " .. tostring(d.key) .. " is lit") end
+    end
+    env.B.Go({ kind = "sources", key = "achievements", seed = { select = { key = 9003 } } })
+    eq(env.sourceKeys(), "9002,9001", "a select seed on the open list exempts nothing from Hide")
+    unlit("same list")
+    env.go("sources", { type = "quests" })
+    env.B.Go({ kind = "sources", key = "achievements", seed = { select = { key = 9003 } } })
+    eq(env.sourceKeys(), "9002,9001", "nor does one that switches the list")
+    unlit("switched list")
+    env.B.Back()
+    env.B.Back()
+    eq(env.sourceKeys(), "9002,9001", "and Back to the list shows it the same way")
+    print("hs538_hide: a list ignores a select seed ok")
+end
+
+-------------------------------------------------------------------------------
 -- Neutral: an unaffiliated Pandaren is never told what it can't buy is sold to a faction it isn't
 -------------------------------------------------------------------------------
 
@@ -316,7 +341,7 @@ do
         check(footer and footer.faction == 1, "Dale's item should be the one faction-hidden item")
         check(not text:find("Horde", 1, true), "the Catalog footer names the Horde for an Alliance vendor's item: " .. text)
         env.go("sources", { type = "vendors" })
-        local _, _, _, sbox = env.sourcesList()
+        local _, _, sbox = env.sourcesList()
         text = footerText(sbox) or ""
         check(not text:find("Horde", 1, true), "the Sources footer names the Horde for an Alliance vendor: " .. text)
     end
@@ -360,7 +385,7 @@ do
     local text = footerText(box) or ""
     assert(text:find(" collected, 1 Alliance only, 1 Horde only).", 1, true), "Catalog footer, both factions: " .. text)
     env.go("sources", { type = "vendors" })
-    local _, _, _, sbox = env.sourcesList()
+    local _, _, sbox = env.sourcesList()
     text = footerText(sbox) or ""
     assert(text:find("1 Alliance only, 1 Horde only", 1, true), "Sources footer, both factions: " .. text)
     setHide(env, false)

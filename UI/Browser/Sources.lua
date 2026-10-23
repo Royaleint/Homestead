@@ -43,7 +43,7 @@ local LINK = {
 local Page = {}
 local st = { type = "achievements" }
 local now, query, wide = nil, "", false
-local c, head, list, empty, torn, asked, cs, static, vend, vendVer
+local head, list, empty, torn, asked, cs, static, vend, vendVer
 
 local function Live(event)
     local CD = HA.CalendarDetector
@@ -226,7 +226,6 @@ end
 local function BuildList(keep, zone)
     asked, cs = false, D.CollectionState()
     local t, hide = wide and "vendors" or st.type, B.State.hideNA
-    local landed = not wide and st.pin and st.pin.type == t and st.pin.key or nil
     -- In the player's own zone the seed means everything the Overview "Here" line counts: the zone and its child maps.
     local here = zone and Facts.Here()
     local nearby = here and here.zone == zone and here.maps or nil
@@ -248,7 +247,7 @@ local function BuildList(keep, zone)
         live = live or (t == "events" and Live(s.key))
         local v = s.vendor
         if q == "" or (s.title .. " " .. (s.sub or "") .. " " .. (s.group or "") .. " " .. (v and v.zone or "")):lower():find(q, 1, true) then
-            local why = hide and landed ~= s.key and CG.HiddenBy(v and { vendor = v } or { items = s.items })
+            local why = hide and CG.HiddenBy(v and { vendor = v } or { items = s.items })
             if why then
                 hidden.hidden = hidden.hidden + 1
                 hidden[why] = hidden[why] + 1
@@ -282,9 +281,7 @@ local function BuildList(keep, zone)
         if zone and not zoneAt and v and v.mapID and (nearby and nearby[v.mapID] or Facts.ZoneOf(v.mapID) == zone) then
             zoneAt = headAt
         end
-        local d = RowData(s)
-        d.selected = landed == s.key
-        data[#data + 1] = d
+        data[#data + 1] = RowData(s)
     end
     local note = hidden.hidden > 0 and hidden or nil
     if note and #out > 0 then data[#data + 1] = note end
@@ -395,30 +392,17 @@ local function ReportButton(parent, current)
     return b
 end
 
--- A source list keeps the detail column (empty until the lists take the whole page); a vendor list has none.
-local function Layout()
-    c.detail:SetShown(not wide)
-    c.list:ClearAllPoints()
-    c.list:SetPoint("TOPLEFT")
-    if wide then
-        c.list:SetPoint("BOTTOMRIGHT")
-    else
-        c.list:SetPoint("BOTTOMRIGHT", c.detail, "BOTTOMLEFT", -S.cols.gap, 0)
-    end
-end
-
+-- Every list is the whole page: a count head over the rows, in one well.
 function Page:Build(parent)
-    c = W.NewColumns(parent)
-    c.toolbar:Hide()
-    c.body:ClearAllPoints()
-    c.body:SetPoint("TOPLEFT")
-    c.body:SetPoint("BOTTOMRIGHT")
-    head = S.Text(c.body, "bodyMuted", "OVERLAY")
+    local body = W.Well(parent)
+    body:SetPoint("TOPLEFT")
+    body:SetPoint("BOTTOMRIGHT")
+    head = S.Text(body, "bodyMuted", "OVERLAY")
     head:SetPoint("TOPLEFT", S.layout.wellPad, -S.layout.wellPad)
     head:SetPoint("TOPRIGHT", -S.layout.wellPad, -S.layout.wellPad)
     head:SetJustifyH("LEFT")
     head:SetWordWrap(false)
-    local lh = CreateFrame("Frame", nil, c.body)
+    local lh = CreateFrame("Frame", nil, body)
     lh:SetPoint("TOPLEFT", head, "BOTTOMLEFT", 0, -SP.xs)
     lh:SetPoint("BOTTOMRIGHT", -S.layout.wellPad, S.layout.wellPad)
     list = W.NewList(lh, {
@@ -447,29 +431,18 @@ function Page:Has(route)
     return false
 end
 
--- A forward Show starts from the route's seed (search, zone, or the legacy type and select); Back gives saved.
+-- A forward Show starts from the route's seed (search or zone); Back gives saved.
 function Page:Show(route, saved)
     local seed = route.seed
     now, wide, torn = route, route.kind ~= "sources", false
-    local pick
-    if not wide then
-        st.type = TypeOf(route)
-        pick = seed and seed.select and seed.select.key
-        -- The landed row is lit and exempt from Hide for this one landing; every later Show of a list drops it.
-        st.pin = pick and { type = st.type, key = pick } or nil
-    end
-    query = saved and saved.search or not pick and seed and seed.search or ""
+    if not wide then st.type = TypeOf(route) end
+    query = saved and saved.search or seed and seed.search or ""
     B.Window.SetSearch(query)
-    Layout()
-    c:Fit()
     local at = BuildList(false, seed and seed.zone)
     if saved and saved.scroll then
         list.box:ScrollToOffset(saved.scroll, true)
     elseif at then
         list.box:ScrollToElementDataIndex(at, ScrollBoxConstants.AlignBegin)
-    elseif pick then
-        local idx = list.box:FindElementDataIndexByPredicate(function(d) return d.key == pick end)
-        if idx then list.box:ScrollToElementDataIndex(idx) end
     end
 end
 
@@ -489,12 +462,11 @@ function Page:Hide()
 end
 
 function Page:Refresh(reason)
-    if not (c and now) then return end
+    if not (list and now) then return end
     if reason == "data" then B.Walk() end
     if reason == "paint" and not torn then
         return W.RepaintRows(list)
     end
-    if reason == "layout" then c:Fit() end
     torn = false
     BuildList(true)
 end

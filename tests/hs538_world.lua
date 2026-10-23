@@ -666,19 +666,18 @@ return function(root, opts)
         local shows = env.itemShows
         return shows[#shows]
     end
-    -- Sources: the main list's rows, the lit key, and the decor list of the source page.
+    -- Sources: the main list's rows, its footer and its box.
     function env.sourcesList()
         local box = env.boxes("sources")[1]
-        local rows, footer, selected = {}, nil, nil
+        local rows, footer = {}, nil
         for _, d in ipairs(box.shown and box.provider or {}) do
             if d.kind == "row" then
                 rows[#rows + 1] = d
-                if d.selected then selected = d.key end
             elseif d.kind == "foot" then
                 footer = d
             end
         end
-        return rows, selected, footer, box
+        return rows, footer, box
     end
     function env.sourceKeys()
         local keys = {}

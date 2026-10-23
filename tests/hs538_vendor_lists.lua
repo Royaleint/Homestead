@@ -8,7 +8,7 @@ local newWorld = assert(loadfile(root .. "/tests/hs538_world.lua"))()
 -- The vendor lists, through the real router, window, Sources page and data modules: All vendors grouped by
 -- expansion then zone, one expansion's list grouped by zone, rows that open the vendor page and never select,
 -- the heads, the zone seed behind "More vendors here", the header box (live filter, a restore that is not a new
--- search, the clear button, Enter), the per-page placeholder, the detail column, the ware reads, and a
+-- search, the clear button, Enter), the per-page placeholder, the full-width page, the ware reads, and a
 -- vanished expansion.
 -------------------------------------------------------------------------------
 
@@ -64,6 +64,11 @@ local function wares(env)
     return n
 end
 
+-- The header box's hint.
+local function hint(env)
+    return env.B.Window.search.Instructions:GetText()
+end
+
 local function type_(env, text)
     local box = env.B.Window.search
     box.text = text
@@ -105,28 +110,38 @@ do
     print("hs538_vendor_lists: expansion lists ok")
 end
 
--- Rows open the vendor page and never select; the detail column belongs to the source lists, where it stays empty.
+-- Rows open the vendor page and never select. Every list, vendor or source, is one well filling its page.
 do
     local env = world()
     env.B.Go({ kind = "allVendors" })
     local _, box = shape(env)
     for _, d in ipairs(box.provider) do assert(not d.selected, "a vendor list selects no row") end
-    -- The list box sits in the holder, the well, the list column and the page; the detail column is the page's first child.
-    local listPage = env.boxes("sources")[1].parent.parent.parent.parent
-    local detail
-    for _, f in ipairs(env.all) do
-        if f.parent == listPage and not detail then detail = f end
+    -- The list box sits in the holder and the well; the well is the page's only child.
+    local listPage = env.boxes("sources")[1].parent.parent.parent
+    local function fills()
+        local kids = {}
+        for _, f in ipairs(env.all) do
+            if f.parent == listPage then kids[#kids + 1] = f end
+        end
+        eq(#kids, 1, "the list page holds the well alone")
+        eq(#kids[1].pts.TOPLEFT, 1, "the well starts at the page's corner")
+        eq(#kids[1].pts.BOTTOMRIGHT, 1, "and ends at the page's opposite corner")
+        eq(kids[1].shown, true, "and is shown")
     end
-    eq(detail.shown, false, "a vendor list hides the detail column")
+    fills()
     local d
     for _, row in ipairs(box.provider) do if row.key == 101 then d = row end end
     d.onClick()
     eq(env.route.kind .. ":" .. env.route.id, "vendor:101", "a row opens the vendor page")
     env.B.Go({ kind = "sources", key = "achievements" })
-    eq(detail.shown, true, "a source list shows it again")
+    fills()
+    eq(hint(env), "Search achievements", "a source list's hint names its kind")
+    env.B.Go({ kind = "sources", key = "shop" })
+    eq(hint(env), "Search the Shop", "and follows the list")
     env.B.Go({ kind = "vendors", key = "Midnight" })
-    eq(detail.shown, false, "an expansion list hides it")
-    print("hs538_vendor_lists: rows and detail ok")
+    fills()
+    eq(hint(env), "Search vendors and zones", "a vendor list's hint names vendors and zones")
+    print("hs538_vendor_lists: rows and full width ok")
 end
 
 -- The zone seed scrolls to that zone's header; Back and a seed with no match scroll nowhere.
@@ -191,16 +206,6 @@ do
     print("hs538_vendor_lists: here zone includes child maps ok")
 end
 
--- Landing on the selected row centres it (Blizzard's default); only a zone header is aligned to the top.
-do
-    local env = world()
-    env.B.Go({ kind = "sources", key = "quests", seed = { select = { key = 7002 } } })
-    local _, box = shape(env)
-    eq(box.scrolls[#box.scrolls] ~= nil, true, "the selected row was scrolled to")
-    eq(box.aligns[#box.scrolls], nil, "and left at the default alignment")
-    print("hs538_vendor_lists: selected row alignment ok")
-end
-
 -- The header box filters the list as you type; a restore is not typing; the clear button is.
 do
     local env = world()
@@ -243,6 +248,26 @@ do
     env.B.Back()
     eq(env.route.kind, "overview", "two Backs reach Overview: the restore added no step")
     print("hs538_vendor_lists: header box ok")
+end
+
+-- A source list gets its search and scroll back on Back, as the vendor lists do.
+do
+    local env = world()
+    env.B.Go({ kind = "sources", key = "achievements" })
+    type_(env, "rug")
+    eq(env.sourceKeys(), "9001", "typing filters a source list")
+    local box = env.boxes("sources")[1]
+    box.GetDerivedScrollOffset = function() return 55 end
+    local offsets = {}
+    box.ScrollToOffset = function(_, offset) offsets[#offsets + 1] = offset end
+    env.B.Go({ kind = "overview" })
+    eq(env.B.Window.search.text, "", "the box clears when the page changes")
+    env.B.Back()
+    eq(env.route.kind .. ":" .. env.route.key, "sources:achievements")
+    eq(env.B.Window.search.text, "rug", "Back sets the box again")
+    eq(env.sourceKeys(), "9001", "and the list is as it was")
+    eq(offsets[#offsets], 55, "and the offset the page saved")
+    print("hs538_vendor_lists: source list Back ok")
 end
 
 -- Enter on a list page filters nothing further and goes nowhere; the hint follows the page.

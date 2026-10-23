@@ -60,11 +60,6 @@ local function Enter(f)
 end
 function methods.SetChecked(self, on) self.checked = on end
 function methods.SetDataProvider(self, data) self.data = data end
-function methods.FindElementDataIndexByPredicate(self, fn)
-    for i, d in ipairs(self.data or {}) do
-        if fn(d) then return i end
-    end
-end
 function methods.ScrollToElementDataIndex(self, index) scrolls[#scrolls + 1] = { box = self, index = index } end
 function methods.SetElementFactory(self, fn) self.factory = fn end
 function Widget(kind)
@@ -428,14 +423,6 @@ local function pinLines(env)
     return out
 end
 
--- Lands on a source list with the row lit, as a direct Go with a select seed does.
-local function land(env, t, key, extra)
-    local seed = { select = { key = key } }
-    for k, v in pairs(extra or {}) do seed[k] = v end
-    env.B.Window.SetSearch(nil)
-    env.pages.sources:Show({ kind = "sources", key = t, seed = seed })
-end
-
 local function same(a, b)
     if #a ~= #b then return false end
     for i = 1, #a do if a[i] ~= b[i] then return false end end
@@ -695,7 +682,7 @@ do
 end
 
 -------------------------------------------------------------------------------
--- Rows open pages: a vendor row the vendor page, any other row the page of its source; a list selects nothing
+-- Rows open pages: a vendor row the vendor page, any other row the page of its source
 -------------------------------------------------------------------------------
 
 do
@@ -706,9 +693,6 @@ do
     row(main, 100).onClick()
     assert(#env.went == 1 and env.went[1].kind == "vendor" and env.went[1].id == 100, "a vendor row opens its page")
     assert(env.shown[#env.shown] == nil, "and goes through no tab")
-    for _, d in ipairs(main.data) do assert(not d.selected, "a vendor list selects no row") end
-    env.tab.Show({ type = "vendors", select = { key = 100 } })
-    for _, d in ipairs(main.data) do assert(not d.selected, "a pick in a vendor list lights no row") end
     for _, t in ipairs({ { "achievements", 9001 }, { "quests", 7001 }, { "professions", 8001 }, { "drops", "Boss|Keep" },
         { "events", "Noblegarden" } }) do
         env.tab.Show({ type = t[1] })
@@ -717,7 +701,6 @@ do
         local go = env.went[#env.went]
         assert(#env.went == before + 1 and go.kind == "source" and go.key == t[1] and go.id == t[2] and go.seed == nil,
             t[1] .. ": a source row opens the source's page")
-        for _, d in ipairs(main.data) do assert(not d.selected, t[1] .. ": a click selects nothing in the list") end
     end
     env.tab.Show({ type = "shop" })
     rows(main)[1].onClick()
@@ -929,7 +912,7 @@ do
 end
 
 -------------------------------------------------------------------------------
--- A source of every type opens its page, which names it; a list landing lights and scrolls to its row
+-- A source of every type opens its page, which names it; a list ignores a select seed
 -------------------------------------------------------------------------------
 
 do
@@ -953,16 +936,11 @@ do
 
         env.tab.Show({ type = t, search = "zzz" })
         assert(env.search == "zzz" and main.shown == false, t .. ": a search with no matches")
-        land(env, t, key, { search = "ignored" })
-        assert(env.search == "", t .. ": a landing clears the header box and ignores the seed's search")
-        local d = row(main, key)
-        assert(d and d.selected, t .. ": the row is lit")
-        local last = scrolls[#scrolls]
-        assert(last.box == main and main.data[last.index] == d, t .. ": scrolled to the row")
-        land(env, t, "missing")
-        for _, r in ipairs(rows(main)) do assert(not r.selected, t .. ": a missing key lights no row") end
-        env.tab.Show({ type = t })
-        for _, r in ipairs(rows(main)) do assert(not r.selected, t .. ": no landing lights no row") end
+        local before = #scrolls
+        env.pages.sources:Show({ kind = "sources", key = t, seed = { select = { key = key } } })
+        assert(env.search == "" and #rows(main) > 0, t .. ": a select seed shows the whole list in an empty box")
+        for _, r in ipairs(rows(main)) do assert(r.selected == nil, t .. ": a select seed lights row " .. tostring(r.key)) end
+        assert(#scrolls == before, t .. ": and scrolls nowhere")
     end
     assert(not spage:Has({ kind = "source", key = "vendors", id = 100 }), "a vendor is not a source page")
     assert(not spage:Has({ kind = "source", key = "nowhere", id = 1 }), "nor a type that does not exist")
@@ -1007,17 +985,9 @@ do
     local picks = { { "achievements", 9001 }, { "quests", 7001 },
         { "professions", 8001 }, { "drops", "Boss|Keep" }, { "shop", 61 } }
     for _, p in ipairs(picks) do
-        land(env, p[1], p[2])
-        local d = row(main, p[2])
-        assert(d and d.selected, p[1] .. " " .. tostring(p[2]) .. ": Hide alone does not stop a landing")
         env.tab.Show({ type = p[1], select = { key = p[2] } })
         assert(pageText(env, "Decor from this source"), p[1] .. ": a source Hide would hide still opens its page with its decor")
     end
-    land(env, "achievements", 9001)
-    assert(not row(main, 9002), "the other collected source stays hidden")
-    local fd = main.data[#main.data]
-    assert(fd.kind == "foot" and fd.collected == 1 and fd.faction == 0
-        and #fd.parts == 0, "only collected rows hidden: no faction is named")
     assert(env.W.FooterText({ hidden = 3, collected = 1, faction = 2, parts = {} })
         == "3 hidden by 'Hide what doesn't apply to me' (1 collected).", "the footer prints the whole hidden count")
     env.tab.Show({ type = "achievements" })
@@ -1225,7 +1195,33 @@ do
 end
 
 -------------------------------------------------------------------------------
--- A landing's pin ends when the player moves to another kind of source
+-- The header box's hint names the list; a source route with no key keeps the last type
+-------------------------------------------------------------------------------
+
+do
+    local env = setup()
+    world(env)
+    build(env)
+    local page = env.pages.sources
+    local hints = {
+        achievements = "Search achievements", quests = "Search quests", professions = "Search recipes and professions",
+        drops = "Search drops and zones", events = "Search events", shop = "Search the Shop",
+    }
+    for t, hint in pairs(hints) do
+        page:Show({ kind = "sources", key = t })
+        assert(page:Placeholder({ kind = "sources", key = t }) == hint, t .. ": the hint is " .. hint)
+    end
+    page:Show({ kind = "sources", key = "quests" })
+    page:Show({ kind = "sources" })
+    assert(page:Placeholder({ kind = "sources" }) == "Search quests", "no key keeps the last type's hint")
+    for _, kind in ipairs({ "vendors", "allVendors" }) do
+        assert(page:Placeholder({ kind = kind, key = "Midnight" }) == "Search vendors and zones", kind .. ": the vendor hint")
+    end
+    print("hs538_sources: list hints ok")
+end
+
+-------------------------------------------------------------------------------
+-- The head counts the sources Hide drops
 -------------------------------------------------------------------------------
 
 do
@@ -1234,19 +1230,10 @@ do
     allItemsOwned(env)
     local main = build(env)
     env.B.State.hideNA = true
-    land(env, "achievements", 9001)
-    assert(row(main, 9001) and row(main, 9001).selected)
-    assert(headText() == "2 of 2 collected", "the head counts hidden sources too: " .. tostring(headText()))
-    env.tab.Show({ type = "quests" })
     env.tab.Show({ type = "achievements" })
-    assert(main.shown == false, "the pinned source is hidden again after leaving the kind")
-    local clash = env.vendor(61, { name = "Clash", zone = "Stormwind", mapID = 10 })
-    env.sell(1, clash)
-    invalidate(env)
-    land(env, "shop", 61)
-    env.tab.Show({ type = "vendors" })
-    assert(main.shown == false, "a source pin never keeps a vendor with the same key in a vendor list")
-    print("hs538_sources: pin ends on a kind switch")
+    assert(main.shown == false, "everything collected is hidden")
+    assert(headText() == "2 of 2 collected", "the head counts hidden sources too: " .. tostring(headText()))
+    print("hs538_sources: head counts hidden sources")
 end
 
 -------------------------------------------------------------------------------
