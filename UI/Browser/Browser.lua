@@ -77,22 +77,6 @@ function B.RegisterPage(kind, page)
     kindPage[kind] = page
 end
 
-local TAB_KIND = { summary = "overview", catalog = "catalog", sources = "sources" }
-local SEED_KEY = { catalog = "kind", sources = "type" }
-
--- A tab-era page: Show(opts) gets the seed as is, else the key, else nil.
-function B.RegisterTab(key, tab)
-    local field = SEED_KEY[key]
-    local page = { Save = function() end }
-    function page:Show(route)
-        tab.Show(route.seed or route.key and { [field] = route.key } or nil)
-    end
-    for _, name in ipairs({ "Build", "Hide", "Refresh", "SetCombat" }) do
-        page[name] = function(_, ...) return tab[name](...) end
-    end
-    B.RegisterPage(TAB_KIND[key], page)
-end
-
 -- The crumb: the page's home in the tree (its parent, then itself), never the path walked.
 function B.Home(route)
     local kind, key = route.kind, route.key
@@ -177,20 +161,6 @@ function B.Back()
     local entry
     repeat entry = table.remove(history) until not entry or not Gone(entry[1])
     if entry then Traced(entry[1], Transition, entry[2]) else Win.SetBack(false) end
-end
-
-function B.ShowTab(key, opts)
-    if key == "sources" and opts and opts.type == "vendors" then
-        if opts.select then return B.Go({ kind = "vendor", id = opts.select.key }) end
-        return B.Go({ kind = "allVendors", seed = opts })
-    end
-    if key == "sources" and opts and opts.type and opts.select then
-        return B.Go({ kind = "source", key = opts.type, id = opts.select.key })
-    end
-    if key == "catalog" and opts and opts.itemID then return B.Go({ kind = "item", id = opts.itemID }) end
-    local route = { kind = TAB_KIND[key], seed = opts }
-    if opts and SEED_KEY[key] then route.key = opts[SEED_KEY[key]] or key == "catalog" and "all" or nil end
-    B.Go(route)
 end
 
 local function SetCombat(inCombat)

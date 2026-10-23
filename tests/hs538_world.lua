@@ -3,8 +3,8 @@
 --   local newWorld = assert(loadfile(root .. "/tests/hs538_world.lua"))()
 --   local env = newWorld(root, { faction = "Alliance" })
 -- The world is the real router, Summary, Catalog, Sources and the item detail over the real data modules,
--- with stubbed game data and recording widgets. Tests drive it through B.ShowTab, B.SetHideNA, the tabs'
--- Show and Refresh, the drawn rows and frames, and B.ItemState.
+-- with stubbed game data and recording widgets. Tests drive it through env.go (a page key and options, turned
+-- into a route), B.SetHideNA, the pages' Show and Refresh, the drawn rows and frames, and B.ItemState.
 -- opts.realWindow loads the real Window.lua in place of the window stub, so B:Toggle builds what the client
 -- builds. Showing a frame runs the OnShow script of each frame that becomes visible with it, and the two
 -- dropdown templates follow Blizzard's menu order (tests/hs538_menu.lua).
@@ -625,7 +625,24 @@ return function(root, opts)
         end
         assert(#env.pages == env.pageCount, "expected one frame per page, got " .. #env.pages)
     end
-    function env.go(key, o) B.ShowTab(key, o) end
+    -- A page key and its seed as the route the router takes. No seed keeps the page's state; an item id opens
+    -- the item page, a vendor pick the vendor page, other picks the source page.
+    local KIND_OF = { summary = "overview", catalog = "catalog", sources = "sources" }
+    local SEED_KEY = { catalog = "kind", sources = "type" }
+    function env.routeFor(key, seed)
+        if key == "sources" and seed and seed.type == "vendors" then
+            if seed.select then return { kind = "vendor", id = seed.select.key } end
+            return { kind = "allVendors", seed = seed }
+        end
+        if key == "sources" and seed and seed.type and seed.select then
+            return { kind = "source", key = seed.type, id = seed.select.key }
+        end
+        if key == "catalog" and seed and seed.itemID then return { kind = "item", id = seed.itemID } end
+        local route = { kind = KIND_OF[key], seed = seed }
+        if seed and SEED_KEY[key] then route.key = seed[SEED_KEY[key]] or key == "catalog" and "all" or nil end
+        return route
+    end
+    function env.go(key, o) B.Go(env.routeFor(key, o)) end
     function env.flush()
         local run = env.timers
         env.timers = {}

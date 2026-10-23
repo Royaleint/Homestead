@@ -61,9 +61,11 @@ print("hs538_states: collection state branches ok")
 -- Unknown ownership: neither Collected nor Not collected.
 do
     local s, HA = state({ true, false, true, true }, {})
-    local D = HA.DecorBrowser.Data
+    HA.VendorData = { HasOfferForItem = function() return false end }
+    HA.SourceManager = { GetAllSources = function() return {} end }
+    rawset(_G, "C_Item", { GetItemNameByID = function() return nil end, RequestLoadItemDataByID = function() end })
     assert(s == "ready")
-    assert(D.OwnState(5, nil) == nil, "no entry and no record is unknown")
+    assert(HA.DecorBrowser.CanGet.Entry(5).own == nil, "no entry and no record is unknown")
     print("hs538_states: unknown ownership shows no word ok")
 end
 

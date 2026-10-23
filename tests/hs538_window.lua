@@ -255,16 +255,17 @@ B.Save = function(...) saves = saves + 1 return realSave(...) end
 
 local combatSeen
 local shownWith = {}
-for _, key in ipairs({ "summary", "catalog", "sources" }) do
-    B.RegisterTab(key, {
+for _, kind in ipairs({ "overview", "catalog", "sources" }) do
+    B.RegisterPage(kind, {
         Build = function() end,
-        Show = function(opts)
-            shownWith[key] = opts == nil and "nil" or opts
-            Log("render:" .. key)
+        Show = function(_, route)
+            shownWith[kind] = route.seed == nil and "nil" or route.seed
+            Log("render:" .. kind)
         end,
         Hide = function() end,
-        Refresh = function(reason) Log("refresh:" .. reason) end,
-        SetCombat = function(on) combatSeen = on end,
+        Save = function() end,
+        Refresh = function(_, reason) Log("refresh:" .. reason) end,
+        SetCombat = function(_, on) combatSeen = on end,
     })
 end
 B.RegisterPage("vendor", { Build = function() end, Show = function() end, Hide = function() end,
@@ -295,7 +296,7 @@ assert(Win.host.pts.TOPLEFT[2] == bar and Win.host.pts.TOPLEFT[3] == "BOTTOMLEFT
 local hostWidth = S.window.width - LO.insetLeft - LO.insetRight - 2 * LO.panePad - 2 * LO.wellPad
     - LO.pagePad - LO.pagePad - tree.width - bar.pts.TOPLEFT[4]
 assert(hostWidth == 630, "the host is " .. hostWidth .. " wide")
-assert(Find("render:summary") < Find("show"), "Summary was not drawn before the window showed")
+assert(Find("render:overview") < Find("show"), "Summary was not drawn before the window showed")
 
 -- The header: one 150 px search box left of Help, the Hide toggle left of the box, the count truncating first.
 local search = Win.search
@@ -344,19 +345,19 @@ assert(Win.closing, "Escape with nothing else to close must close the window")
 key(frame, "A")
 assert(frame.propagate == true, "other keys must pass through")
 
--- A plain tab switch passes no options, so the tab keeps its state; a table passes through as is.
-B.ShowTab("catalog")
-assert(shownWith.catalog == "nil", "a plain tab switch must pass nil options")
+-- A plain Go passes no seed, so the page keeps its state; a seed passes through as the same table.
+B.Go({ kind = "catalog" })
+assert(shownWith.catalog == "nil", "a plain Go must pass no seed")
 local filters = { search = "bench" }
-B.ShowTab("catalog", filters)
-assert(shownWith.catalog == filters, "tab options did not pass through unchanged")
-B.ShowTab("sources", { type = "drops" })
-B.ShowTab("catalog")
+B.Go({ kind = "catalog", seed = filters })
+assert(shownWith.catalog == filters, "the seed did not pass through unchanged")
+B.Go({ kind = "sources", key = "drops" })
+B.Go({ kind = "catalog" })
 
 -- Close fade: Open during the fade cancels it and lands on Summary.
 log = {}
 B:Open()
-assert(not Win.closing and frame.shown and Find("render:summary"), "Open during the fade did not reopen on Summary")
+assert(not Win.closing and frame.shown and Find("render:overview"), "Open during the fade did not reopen on Summary")
 B:Close()
 local closeGroup = frame.groups[2]
 closeGroup.scripts.OnFinished()
@@ -371,7 +372,7 @@ for _, w in ipairs(frames) do assert(next(w.events) == nil, "a hidden window sti
 invalidated, inCombat, log = 0, true, {}
 B:Open()
 assert(invalidated == 1 and combatSeen == true, "a reopen did not refresh its inputs")
-assert(Find("render:summary") < Find("show"), "Summary was not drawn before the reopen showed")
+assert(Find("render:overview") < Find("show"), "Summary was not drawn before the reopen showed")
 assert(next(callbacks) and next(registry), "a shown window must listen")
 inCombat = false
 
@@ -488,11 +489,11 @@ end
 local names, prewarmSeen = 0, {}
 B.CanGet.RefreshNames = function() names = names + 1 end
 D.NameArrived = function() return true end
-B.RegisterTab("summary", {
-    Build = function() end, Show = function() end, Hide = function() end, SetCombat = function() end,
-    Refresh = function(reason) prewarmSeen[#prewarmSeen + 1] = reason .. ":" .. tostring(B.State.noPrewarm) end,
+B.RegisterPage("overview", {
+    Build = function() end, Show = function() end, Hide = function() end, SetCombat = function() end, Save = function() end,
+    Refresh = function(_, reason) prewarmSeen[#prewarmSeen + 1] = reason .. ":" .. tostring(B.State.noPrewarm) end,
 })
-B.ShowTab("summary")
+B.Go({ kind = "overview" })
 prewarmSeen = {}
 timers = {}
 for i = 1, 3 do events.scripts.OnEvent(events, "GET_ITEM_INFO_RECEIVED", i, true) end
@@ -536,8 +537,8 @@ B.CanGet.Walk = function()
     if D.MemoVersion() ~= walkedAt then walks, walkedAt = walks + 1, D.MemoVersion() end
     return { progress = { owned = 0, total = 0 } }
 end
-B.RegisterTab("summary", {
-    Build = function() end, Show = function() end, Hide = function() end, SetCombat = function() end,
+B.RegisterPage("overview", {
+    Build = function() end, Show = function() end, Hide = function() end, SetCombat = function() end, Save = function() end,
     Refresh = function() B.Walk() B.Walk() end,
 })
 HA.VendorData = { GetVendor = function() return nil end }
@@ -581,12 +582,12 @@ B:Open()
 -- UI restore (Alt+Z): OnHide then OnShow with no Open. The callbacks come back, combat is read again,
 -- one stale refresh follows and reaches the current tab, and nothing is saved.
 local restored = {}
-B.RegisterTab("summary", {
-    Build = function() end, Hide = function() end, SetCombat = function(on) combatSeen = on end,
+B.RegisterPage("overview", {
+    Build = function() end, Hide = function() end, SetCombat = function(_, on) combatSeen = on end, Save = function() end,
     Show = function() restored[#restored + 1] = "show" end,
-    Refresh = function(reason) restored[#restored + 1] = reason end,
+    Refresh = function(_, reason) restored[#restored + 1] = reason end,
 })
-B.ShowTab("summary")
+B.Go({ kind = "overview" })
 restored, saves, timers, invalidated = {}, 0, {}, 0
 frame:Hide()
 assert(next(callbacks) == nil and next(registry) == nil, "the UI hide left callbacks registered")

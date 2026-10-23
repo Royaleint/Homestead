@@ -155,7 +155,7 @@ local function BuildTree(page)
     local tree = CreateFrame("Frame", nil, page)
     tree:SetPoint("TOPLEFT", LO.pagePad, -LO.pagePad)
     tree:SetPoint("BOTTOMLEFT", LO.pagePad, LO.pagePad)
-    tree:SetWidth(S.cols.nav)
+    tree:SetWidth(S.nav.width)
     list = W.NewList(tree, {
         spacing = S.nav.gap,
         reclaim = true,
@@ -272,7 +272,7 @@ end
 
 local function BuildBar(page, tree)
     local bar = CreateFrame("Frame", nil, page)
-    bar:SetPoint("TOPLEFT", tree, "TOPRIGHT", S.cols.gap, 0)
+    bar:SetPoint("TOPLEFT", tree, "TOPRIGHT", SP.xs, 0)
     bar:SetPoint("TOPRIGHT", -LO.pagePad, -LO.pagePad)
     Win.bar = bar
     local back = CreateFrame("Button", nil, bar)

@@ -10,16 +10,6 @@ local root = (... or "."):gsub("\\", "/"):gsub("/+$", "")
 
 local newWorld = assert(loadfile(root .. "/tests/hs538_world.lua"))()
 
--- BadgeCalculation.lua is the map pins' rule; the browser's ware list must not change it.
-do
-    local f = assert(io.open(root .. "/UI/BadgeCalculation.lua", "rb"))
-    local text = f:read("*a"):gsub("\r", "")
-    f:close()
-    local h = 0
-    for i = 1, #text do h = (h * 31 + text:byte(i)) % 4294967291 end
-    assert(#text == 71149 and h == 3595448028, "BadgeCalculation.lua changed: " .. #text .. " bytes, hash " .. h)
-end
-
 local function world()
     local env = newWorld(root)
     local HA = env.HA

@@ -443,7 +443,7 @@ end
 
 
 -------------------------------------------------------------------------------
--- Filters match OwnState exactly; the Filtered line; kinds; sources; search
+-- Filters match the entry's ownership exactly; the Filtered line; kinds; sources; search
 -------------------------------------------------------------------------------
 
 do

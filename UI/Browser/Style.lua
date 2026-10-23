@@ -51,7 +51,7 @@ S.window = { width = 860, height = 580 }
 
 -- The portrait overhangs the top-left corner by these.
 S.pad = { left = 5, top = 7 }
-S.nav = { indent = 16, gap = 2 }
+S.nav = { indent = 16, gap = 2, width = 172 }
 
 S.layout = {
     rect = { 2, 21, 2, 2 }, titleBar = 21,
@@ -64,7 +64,6 @@ S.layout = {
 
 S.row = { pad = 6, gap = 2, tile = 30 }
 S.ware = { size = 48, gap = 4 }
-S.cols = { nav = 172, detail = 252, gap = SP.xs }
 
 S.tex = {
     placeholderIcon = [[Interface\Icons\INV_Misc_QuestionMark]],

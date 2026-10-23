@@ -129,13 +129,13 @@ local ZERO = { totalNumStored = 0, remainingRedeemable = 0, totalNumPlaced = 0 }
 -------------------------------------------------------------------------------
 
 do
-    local env, HA, D, CG = newEnv()
+    local env, HA, _, CG = newEnv()
     env.decor(101, { totalNumStored = 1 })
     HA.AchievementSources[101] = { achievementID = 7 }
     env.decor(102, ZERO)
     HA.AchievementSources[102] = { achievementID = 8 }
     assert(HA.CatalogStore:Get(101) == nil, "sanity: no stored record")
-    assert(D.OwnState(101, env.catalog[101]) == "owned", "a readable entry with counts reads owned")
+    assert(CG.Entry(101).own == "owned", "a readable entry with counts reads owned")
     local p = CG.Walk().progress
     assert(p.src.achievements.total == 2 and p.src.achievements.owned == 1,
         "counted in Achievements collected: " .. p.src.achievements.owned)
@@ -147,16 +147,16 @@ end
 -------------------------------------------------------------------------------
 
 do
-    local env, HA, D, CG = newEnv()
+    local env, HA, _, CG = newEnv()
     env.records({ [201] = { isOwned = true } })
     env.decor(201, ZERO)
     env.decor(202, ZERO)
     env.decor(203, nil)
     HA.QuestSources[203] = { questID = 9 }
-    assert(D.OwnState(201, env.catalog[201]) == "owned", "a stored owned beats an entry that reads 0")
+    assert(CG.Entry(201).own == "owned", "a stored owned beats an entry that reads 0")
     assert(CG.Offer(201, nil) == "owned")
-    assert(D.OwnState(202, env.catalog[202]) == "notOwned", "a readable entry with counts 0 is not owned")
-    assert(D.OwnState(203, nil) == nil, "no entry and no stored owned is unknown")
+    assert(CG.Entry(202).own == "notOwned", "a readable entry with counts 0 is not owned")
+    assert(CG.Entry(203).own == nil, "no entry and no stored owned is unknown")
     local p = CG.Walk().progress
     assert(p.total == 3 and p.owned == 1, "the unknown item counts in the total, not as collected")
     assert(p.src.quests.total == 1 and p.src.quests.owned == 0)
@@ -174,7 +174,7 @@ do
     env.decor(302, ZERO)
     env.sell(301, 50)
     assert(D.CollectionState() == "ready", "a zero-decor player is known")
-    assert(D.OwnState(302, env.catalog[302]) == "notOwned", "every readable entry reads not owned")
+    assert(CG.Entry(302).own == "notOwned", "every readable entry reads not owned")
     assert(CG.Offer(301, 50) == "can", "Can get now is possible")
     assert(CG.Walk().list[1].verdict == "can")
     print("hs538_ownership: zero-decor account ok")
@@ -185,14 +185,13 @@ end
 -------------------------------------------------------------------------------
 
 do
-    local env, _, D, CG = newEnv()
+    local env, _, _, CG = newEnv()
     env.records({ [401] = { isOwned = true } })
     env.decor(401, { totalNumStored = 2 })
     env.decor(402, ZERO)
     env.sell(402, 51)
     env.done, env.attempted = false, false
-    assert(D.OwnState(401, env.catalog[401]) == nil, "stored owned says nothing before the first read")
-    assert(D.OwnState(402, env.catalog[402]) == nil)
+    assert(CG.Entry(401) == nil, "stored owned says nothing before the first read")
     assert(CG.Offer(402, 51) == "unknown" and CG.Walk() == nil and CG.Entry(402) == nil)
     assert(#env.measured == 0, "no walk runs before the first read")
     print("hs538_ownership: nothing before the first read ok")
@@ -203,11 +202,11 @@ end
 -------------------------------------------------------------------------------
 
 do
-    local env, _, D, CG = newEnv()
+    local env, _, _, CG = newEnv()
     env.subclass[501] = 1
     env.decor(501, { totalNumStored = 3 })
     env.sell(501, 52)
-    assert(D.OwnState(501, env.catalog[501]) == nil, "a non-decor housing item is unknown")
+    assert(CG.Entry(501).own == nil, "a non-decor housing item is unknown")
     assert(CG.Offer(501, 52) == "unknown", "never Can get now")
     assert(CG.Entry(501).verdict == "unknown" and CG.Entry(501).canBy == nil)
     print("hs538_ownership: unknowable subclass ok")
@@ -249,7 +248,7 @@ end
 -------------------------------------------------------------------------------
 
 do
-    local env, HA, D = newEnv()
+    local env, HA, _, CG = newEnv()
     local cases = {
         { "stored", { totalNumStored = 1 }, "owned" }, { "placed", { totalNumPlaced = 2 }, "owned" },
         { "redeemable", { remainingRedeemable = 1 }, "owned" }, { "zero", ZERO, "notOwned" },
@@ -259,7 +258,7 @@ do
         env.decor(700 + i, info)
         local store = HA.CatalogStore:ComputeOwnedFromInfo(info) and "owned" or "notOwned"
         assert(store == expected, "sanity: " .. name)
-        assert(D.OwnState(700 + i, info) == store, name .. " entry: " .. tostring(D.OwnState(700 + i, info)))
+        assert(CG.Entry(700 + i).own == store, name .. " entry: " .. tostring(CG.Entry(700 + i).own))
     end
     print("hs538_ownership: ComputeOwnedFromInfo parity ok")
 end

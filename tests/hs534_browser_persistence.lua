@@ -105,15 +105,12 @@ Win.PlayClose = function()
     shown = false
     hooks.OnHide()
 end
-for _, name in ipairs({ "CheckTextScale", "Fit", "SetSelectedTab", "SetLocation", "AssertPropagation", "StopGlow",
+for _, name in ipairs({ "CheckTextScale", "Fit", "AssertPropagation", "StopGlow",
     "SetCrumb", "SelectNav", "SetBack", "SetSearch", "SetPlaceholder", "UpdateCount" }) do
     Win[name] = noop
 end
-for _, key in ipairs({ "summary", "catalog", "sources" }) do
-    B.RegisterTab(key, { Build = noop, Show = noop, Hide = noop, Refresh = noop, SetCombat = noop })
-end
-for _, kind in ipairs({ "vendor", "vendors", "allVendors", "source", "item" }) do
-    B.RegisterPage(kind, { Build = noop, Show = noop, Hide = noop, Refresh = noop, SetCombat = noop })
+for _, kind in ipairs({ "overview", "catalog", "sources", "vendor", "vendors", "allVendors", "source", "item" }) do
+    B.RegisterPage(kind, { Build = noop, Show = noop, Hide = noop, Refresh = noop, SetCombat = noop, Save = noop })
 end
 
 -- Opening writes nothing.
@@ -121,13 +118,13 @@ B:Open()
 assert(shown, "the browser did not open")
 assert(TakeWrites() == "", "opening wrote saved settings")
 
--- Refreshes, a tab change, close and reopen write nothing.
+-- Refreshes, a page change, close and reopen write nothing.
 B.RequestRefresh(false, true)
 for _, fn in ipairs(timers) do fn() end
-B.ShowTab("sources")
+B.Go({ kind = "sources" })
 B:Close()
 B:Open()
-assert(TakeWrites() == "", "a refresh, a tab change or a reopen wrote saved settings")
+assert(TakeWrites() == "", "a refresh, a page change or a reopen wrote saved settings")
 
 -- Player actions: the Hide toggle writes hideNA alone; a drop writes the position alone.
 B.SetHideNA(false)

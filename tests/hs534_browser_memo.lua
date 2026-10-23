@@ -79,15 +79,12 @@ Win.PlayClose = function()
     shown = false
     hooks.OnHide()
 end
-for _, name in ipairs({ "CheckTextScale", "Fit", "SetSelectedTab", "SetLocation", "AssertPropagation", "StopGlow",
+for _, name in ipairs({ "CheckTextScale", "Fit", "AssertPropagation", "StopGlow",
     "SetCrumb", "SelectNav", "SetBack", "SetSearch", "SetPlaceholder", "UpdateCount" }) do
     Win[name] = noop
 end
-for _, key in ipairs({ "summary", "catalog", "sources" }) do
-    B.RegisterTab(key, { Build = noop, Show = noop, Hide = noop, Refresh = noop, SetCombat = noop })
-end
-for _, kind in ipairs({ "vendor", "vendors", "allVendors", "source", "item" }) do
-    B.RegisterPage(kind, { Build = noop, Show = noop, Hide = noop, Refresh = noop, SetCombat = noop })
+for _, kind in ipairs({ "overview", "catalog", "sources", "vendor", "vendors", "allVendors", "source", "item" }) do
+    B.RegisterPage(kind, { Build = noop, Show = noop, Hide = noop, Refresh = noop, SetCombat = noop, Save = noop })
 end
 
 local memo = B.State.catalogMemo
@@ -106,8 +103,8 @@ kept("an item-name refresh")
 B.RequestRefresh(true)
 flush()
 kept("a vendor-count refresh")
-B.ShowTab("catalog")
-kept("a tab change")
+B.Go({ kind = "catalog", key = "all" })
+kept("a page change")
 
 B.RequestRefresh(false, true)
 flush()

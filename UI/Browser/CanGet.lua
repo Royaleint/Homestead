@@ -30,12 +30,6 @@ local function Own(store, itemID, info)
     return store:ComputeOwnedFromInfo(info) and "owned" or "notOwned"
 end
 
--- "owned", "notOwned", or nil when unknown (always nil before the collection is ready).
-function D.OwnState(itemID, info)
-    if D.CollectionState() ~= "ready" then return nil end
-    return Own(HA.CatalogStore, itemID, info)
-end
-
 local function Memo()
     return B.State and B.State.catalogMemo
 end

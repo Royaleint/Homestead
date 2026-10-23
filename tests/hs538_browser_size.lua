@@ -16,14 +16,14 @@ local CAP = 200000
 
 local CEIL = {
     ["Visuals.xml"] = 391,
-    ["Style.lua"] = 6000,
+    ["Style.lua"] = 5900,
     ["Visuals.lua"] = 3482,
     ["Adapter.lua"] = 20000,
     ["Facts.lua"] = 6600,
-    ["CanGet.lua"] = 16300,
+    ["CanGet.lua"] = 16100,
     ["Widgets.lua"] = 26200,
     ["Window.lua"] = 21300,
-    ["Browser.lua"] = 17100,
+    ["Browser.lua"] = 15800,
     ["Summary.lua"] = 10100,
     ["Catalog.lua"] = 15700,
     ["Sources.lua"] = 32000,

@@ -128,7 +128,7 @@ CreateFont = function()
 end
 local title = S.Text(Widget("Frame"), "header")
 assert(title.font == "UserScaledFontGameNormalLarge", "the title is not the header font")
-assert(not made and S.font.display == nil and S.ScaleDisplay == nil, "a private display font is still made")
+assert(not made and S.font.display == nil, "a private display font is still made")
 scale = 2
 assert(W.TextHeight("header") == 32, "the header step did not follow the text size")
 

@@ -11,7 +11,7 @@ local root = (... or "."):gsub("\\", "/"):gsub("/+$", "")
 -- vendor page and the source page the file registers (head, location, lines, bar, rows), the route
 -- every source row opens, Hide's footer, the count refresh, and the walk discipline.
 -- The list page registers for the sources, vendors and allVendors routes; env.tab shows pages the way
--- B.ShowTab("sources", opts) and the router would, and types into the header box through Filter.
+-- the router would for a sources route with a seed, and types into the header box through Filter.
 -------------------------------------------------------------------------------
 
 local function noop() end
@@ -303,7 +303,7 @@ local function setup()
     assert(loadfile(path))("Homestead", HA)
     env.framesAtLoad = #all - before
     env.pages, env.vpage, env.spage, env.B, env.W = pages, pages.vendor, pages.source, B, B.Widgets
-    -- What B.ShowTab("sources", opts) goes to; the header box takes the seed's search, or is cleared, first.
+    -- What a sources route with a seed goes to; the header box takes the seed's search, or is cleared, first.
     -- This harness sends { type = "vendors", select } to allVendors; the real router sends it to the vendor page.
     -- A pick of any other type goes to the source page, built on first use, as the router does.
     local tab = {}

@@ -6,8 +6,7 @@ local root = (... or "."):gsub("\\\\", "/"):gsub("/+$", "")
 -------------------------------------------------------------------------------
 -- The page router: Go and Back, the history cap, equal routes, seeds, what a page
 -- saves and gets back, the hide-then-refresh contract, a vanished target, combat
--- on Back, and the route every tab-era call resolves to. Pages here are test pages
--- registered through RegisterPage; the tab adapter is checked through RegisterTab.
+-- on Back. Pages here are test pages registered through RegisterPage.
 -------------------------------------------------------------------------------
 
 local function readFile(path)
@@ -88,7 +87,7 @@ Win.PlayClose = function()
     shown = false
     hooks.OnHide()
 end
-for _, name in ipairs({ "CheckTextScale", "Fit", "SetSelectedTab", "SetLocation", "AssertPropagation", "StopGlow",
+for _, name in ipairs({ "CheckTextScale", "Fit", "AssertPropagation", "StopGlow",
     "UpdateCount", "SetPlaceholder" }) do
     Win[name] = noop
 end
@@ -385,70 +384,5 @@ catalog.Filter, catalog.Placeholder = nil, nil
 
 -- A route with no page is a programming error, not a silent fallback.
 eq((pcall(B.Go, { kind = "nowhere" })), false, "a route with no page was accepted")
-
--- Every tab-era call resolves to its route; the adapter passes the seed as is, or the key, or nil.
-local went, tabShows = nil, {}
-local realGo = B.Go
-B.Go = function(route) went = route return realGo(route) end
-for _, key in ipairs({ "summary", "catalog", "sources" }) do
-    B.RegisterTab(key, { Build = noop, Hide = noop, Refresh = noop, SetCombat = noop,
-        Show = function(opts) tabShows[key] = opts or "nil" end })
-end
-local function Resolve(key, opts, kind, routeKey)
-    went = nil
-    B.ShowTab(key, opts)
-    local tag = key .. " " .. tostring(opts and next(opts))
-    eq(went.kind, kind, tag .. " kind")
-    eq(went.key, routeKey, tag .. " key")
-    eq(went.seed, opts, tag .. " seed")
-end
-Resolve("summary", nil, "overview", nil)
-Resolve("summary", { showTip = true }, "overview", nil)
-Resolve("catalog", nil, "catalog", nil)
-Resolve("catalog", { search = "x", kind = "all" }, "catalog", "all")
-Resolve("catalog", { search = "x", kind = 2 }, "catalog", 2)
-Resolve("catalog", { filters = { canGet = true } }, "catalog", "all")
-Resolve("catalog", { filters = { canGet = true }, sort = "best" }, "catalog", "all")
-Resolve("catalog", { sort = "name" }, "catalog", "all")
-Resolve("catalog", { sort = "name", search = "x", filters = {} }, "catalog", "all")
--- An item opens its own page; the rest of the seed is dropped.
-for _, opts in ipairs({ { itemID = 5 }, { sort = "name", itemID = 5 } }) do
-    went = nil
-    B.ShowTab("catalog", opts)
-    eq(went.kind, "item", "an item opens the item page")
-    eq(went.id, 5, "the item id")
-    eq(went.key, nil, "the item key")
-    eq(went.seed, nil, "the item seed")
-end
-Resolve("sources", nil, "sources", nil)
-Resolve("sources", { type = "vendors" }, "allVendors", nil)
-
--- A source pick routes to the source page by type and key, with no seed.
-went = nil
-B.ShowTab("sources", { type = "quests", select = { key = 7 } })
-eq(went.kind, "source", "a source pick kind")
-eq(went.key, "quests", "a source pick type")
-eq(went.id, 7, "a source pick id")
-eq(went.seed, nil, "a source pick seed")
-
--- A vendor pick routes to the vendor page by npcID, with no key and no seed.
-went = nil
-B.ShowTab("sources", { type = "vendors", select = { key = 7 } })
-eq(went.kind, "vendor", "a vendor pick kind")
-eq(went.id, 7, "a vendor pick id")
-eq(went.key, nil, "a vendor pick key")
-eq(went.seed, nil, "a vendor pick seed")
-
-local opts = { search = "bench", kind = "all" }
-B.ShowTab("catalog", opts)
-eq(tabShows.catalog, opts, "the adapter did not pass the seed as the same table")
-B.Go({ kind = "catalog", key = 3 })
-eq(tabShows.catalog.kind, 3, "the adapter did not pass the key as kind")
-B.Go({ kind = "sources", key = "drops" })
-eq(tabShows.sources.type, "drops", "the adapter did not pass the key as type")
-B.Go({ kind = "sources" })
-eq(tabShows.sources, "nil", "the adapter must pass nil when there is no key")
-B.Go({ kind = "overview" })
-eq(tabShows.summary, "nil", "the adapter must pass nil to overview")
 
 print("hs538_router: ok")

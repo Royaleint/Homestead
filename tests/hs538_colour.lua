@@ -90,7 +90,7 @@ local W = B.Widgets
 
 -- A recording stand-in for the window: Build keeps the hooks, the fade just shows or hides.
 local hooks
-local Win = { TABS = { { key = "summary", word = "S" }, { key = "catalog", word = "C" }, { key = "sources", word = "O" } } }
+local Win = {}
 B.Window = Win
 Win.host = Widget("Frame")
 Win.hideNA = Widget("CheckButton")
@@ -102,7 +102,6 @@ end
 function Win.PlayOpen() Win.frame.shown = true hooks.OnShow() end
 function Win.PlayClose() Win.frame.shown = false hooks.OnHide() end
 Win.CheckTextScale, Win.Fit, Win.AssertPropagation, Win.StopGlow = noop, noop, noop, noop
-Win.SetSelectedTab, Win.SetLocation = noop, noop
 Win.SetCrumb, Win.SelectNav, Win.SetBack, Win.SetSearch, Win.SetPlaceholder, Win.UpdateCount = noop, noop, noop, noop, noop, noop
 for _, file in ipairs({ "Adapter", "Facts", "CanGet", "Browser", "Item" }) do
     assert(loadfile(root .. "/UI/Browser/" .. file .. ".lua"))("Homestead", HA)
@@ -181,12 +180,12 @@ calls = 0
 W.RepaintRows(grid)
 assert(calls == 2, "a recycled cell redrew old data, redrew " .. calls)
 
--- The window: the colour events are heard while shown, tell the open tab to repaint, and are gone on hide.
+-- The window: the colour events are heard while shown, tell the open page to repaint, and are gone on hide.
 local refreshed = {}
-for _, key in ipairs({ "summary", "catalog", "sources" }) do
-    B.RegisterTab(key, {
-        Build = noop, Show = noop, Hide = noop, SetCombat = noop,
-        Refresh = function(reason) refreshed[#refreshed + 1] = key .. ":" .. reason end,
+for _, kind in ipairs({ "overview", "catalog", "sources" }) do
+    B.RegisterPage(kind, {
+        Build = noop, Show = noop, Hide = noop, SetCombat = noop, Save = noop,
+        Refresh = function(_, reason) refreshed[#refreshed + 1] = kind .. ":" .. reason end,
     })
 end
 B:Open()
@@ -200,7 +199,7 @@ for _, name in ipairs({ "COLOR_OVERRIDE_UPDATED", "COLOR_OVERRIDES_RESET" }) do
     assert(events.events[name], name .. " is not registered while the window is shown")
     refreshed = {}
     events.scripts.OnEvent(events, name, 2)
-    assert(refreshed[1] == "summary:paint" and #refreshed == 1, name .. " did not repaint the open tab once")
+    assert(refreshed[1] == "overview:paint" and #refreshed == 1, name .. " did not repaint the open page once")
 end
 B:Close()
 assert(next(registry) == nil, "the text-size owner outlived the hide")

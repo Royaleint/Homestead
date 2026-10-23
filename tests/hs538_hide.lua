@@ -150,7 +150,7 @@ do
     eq(footer.faction, 1, "footer: other faction")
     eq(footerText(box), hiddenLine(3, 2, 1, "Horde"), "the drawn footer")
     eq(head(env, "catalog"), counts, "the Catalog head is unchanged by Hide")
-    eq(env.D.OwnState(8, env.catalog[8]), nil, "item 8's ownership is unknown")
+    eq(env.CG.Entry(8).own, nil, "item 8's ownership is unknown")
     eq(env.CG.HiddenBy(8), nil, "unknown ownership is not hidden as collected")
     eq(env.CG.HiddenBy(6), nil, "an item one accessible vendor sells is not other-faction only")
 

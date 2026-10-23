@@ -321,7 +321,7 @@ function Page:Build(parent)
     Fit()
     BuildToolbar(bar)
     local body = W.Well(parent)
-    body:SetPoint("TOPLEFT", bar, "BOTTOMLEFT", 0, -S.cols.gap)
+    body:SetPoint("TOPLEFT", bar, "BOTTOMLEFT", 0, -SP.xs)
     body:SetPoint("BOTTOMRIGHT")
     local head = S.Text(body, "bodyMuted", "OVERLAY")
     ui.head = head
