@@ -51,7 +51,7 @@ end
 local function selectedKey(env)
     local picked
     for _, f in ipairs(treeBox(env).frames) do
-        if f.sel.shown then
+        if f.sign[1].shown then
             assert(not picked, "more than one row is selected")
             picked = f.data.key
         end
@@ -83,6 +83,21 @@ do
     assert(not row(env, "overview").fold.shown and row(env, "catalog").fold.shown, "only groups have a fold")
     eq(row(env, "catalog").fold.atlas, "common-icon-plus", "a closed group shows plus")
     print("hs538_tree: rows ok")
+end
+
+-- Rows are recycled: a row that stops being selected gets its gold back.
+do
+    local env = world()
+    local prev = row(env, "overview")
+    env.click(row(env, "quests"))
+    eq(prev.data.key, "overview", "the same row object still shows Overview")
+    local gold, got = env.B.Style.color.gold, prev.label.color
+    for i = 1, 3 do assert(math.abs(got[i] - gold[i]) < 0.001, "the old selection is gold again") end
+    eq(row(env, "quests").label.color[3], 1, "the new selection is white")
+    env.click(row(env, "catalog"))
+    env.click(row(env, "catalog:1"))
+    eq(row(env, "catalog:all").label.color[3], 1, "an unselected child is white")
+    print("hs538_tree: label colour reset ok")
 end
 
 -- A group label opens its page and its group; the +/- only folds.
@@ -247,25 +262,78 @@ do
     print("hs538_tree: crumb ok")
 end
 
--- Back shows with history and returns one page; an open starts clean.
+-- Back shows only after going into something; a tree click or a crumb jump starts fresh.
 do
     local env = world()
     local Win, B = env.B.Window, env.B
     assert(not Win.back.shown, "no Back on the first page")
     env.click(row(env, "catalog"))
-    assert(Win.back.shown, "Back shows once there is a page to return to")
+    assert(not Win.back.shown, "a tree click lands with no Back")
     eq(env.tab, "catalog")
+    B.Go({ kind = "catalog", key = 2 })
+    assert(Win.back.shown, "going into a page shows Back")
     env.click(Win.back)
-    eq(env.tab, "summary", "Back returns to the page before")
+    eq(selectedKey(env), "catalog:all", "Back returns to the page before")
     assert(not Win.back.shown, "and hides when the history is empty")
-    eq(selectedKey(env), "overview", "the tree follows Back")
+    B.Go({ kind = "catalog", key = 2 })
     env.click(row(env, "quests"))
-    env.click(row(env, "drops"))
-    env.click(Win.back)
-    eq(selectedKey(env), "quests")
+    assert(not Win.back.shown, "a tree click clears the history")
+    -- The real crumb button, not GoTop called directly.
     B.Go({ kind = "catalog", key = "all" })
-    assert(Win.back.shown)
+    B.Go({ kind = "catalog", key = 2 })
+    assert(Win.back.shown, "going into a page shows Back")
+    eq(crumbText(Win), "Catalog>Structural")
+    Win.crumbs[1].btn.scripts.OnClick()
+    assert(not Win.back.shown, "a crumb jump hides Back")
+    local landed = env.route
+    B.Back()
+    eq(env.route, landed, "a crumb jump leaves no history to go back to")
+    assert(not Win.back.shown, "and Back stays hidden")
     print("hs538_tree: Back ok")
+end
+
+-- The selected row's wood sign; without the art the row keeps a flat highlight.
+do
+    local env = world()
+    local Win = env.B.Window
+    local sel = row(env, "overview")
+    assert(sel.sign[1].shown and sel.sign[3].shown and not sel.flat.shown, "the sign marks the selected row")
+    eq(sel.sign[1].width, 2 * sel.sign[1].height, "the cap keeps the art's 2:1 shape at the row height")
+    assert(not row(env, "quests").sign[1].shown, "an unselected row has no sign")
+    env.noSignAtlas = true
+    Win.Measure()
+    sel = row(env, "overview")
+    assert(sel.flat.shown and not sel.sign[1].shown and not sel.sign[3].shown, "no art: the flat highlight stands in")
+    print("hs538_tree: sign ok")
+end
+
+-- The header: the title and Help keep their size on hover, and the Hide label truncates before the count is squeezed out.
+do
+    local env = world()
+    local Win, S = env.B.Window, env.B.Style
+    eq(Win.frame.TitleContainer.TitleText.font, "GameFontNormalMed2", "the title is a fixed 14 pt font")
+    local help = Win.help
+    eq(help.normalFont, S.font.subheader, "Help is the scaled subheader")
+    eq(help.highlightFont, help.normalFont, "Help keeps its size on hover")
+    local label = help:GetFontString()
+    help.scripts.OnEnter(help)
+    eq(label.color[3], 1, "Help turns white on hover")
+    help.scripts.OnLeave(help)
+    eq(label.color[3], 0, "and gold again after")
+
+    -- Band 856 wide; the count starts 66 in and keeps 160; the right side takes 12 + Help + 12 + 150 + 16 + 26 + 12.
+    local helpW = #"Help" * 6 + S.space.xl
+    local room = 856 - 66 - 160 - (12 + helpW + 12 + 150 + 16 + 26 + 12)
+    local text = Win.hideNA.Text
+    text:SetText(("x"):rep(200))
+    Win.Measure()
+    eq(text.width, room, "a long label is capped so the count keeps its room")
+    eq(Win.hideNA.pts.RIGHT[4], -(room + S.space.l), "the box sits left of the capped label")
+    eq(Win.hideNA.hitInsets[2], -(room + S.space.xs), "hovering the label reaches the box's tooltip")
+    text:SetText("Hide")
+    Win.Measure()
+    eq(text.width, 4 * 6, "a short label keeps its own width")
+    print("hs538_tree: header ok")
 end
 
 -- The header: the overall count, "Counting…" until the collection is ready.
@@ -297,7 +365,7 @@ do
     assert(Win.bar.parent ~= Win.host and treeBox(env).parent.parent == Win.bar.parent, "tree and bar share a parent")
     eq(Win.host.pts.TOPLEFT[2], Win.bar, "the host sits below the crumb bar")
     eq(Win.bar.pts.TOPLEFT[2], treeBox(env).parent, "the bar sits right of the tree")
-    eq(treeBox(env).parent.width, 172, "the tree is 172 wide")
+    eq(treeBox(env).parent.width, 192, "the tree is 192 wide")
     print("hs538_tree: placement ok")
 end
 

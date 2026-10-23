@@ -42,6 +42,9 @@ return function(root, opts)
         return t
     end
     function methods.SetFontObject(self, font) self.font = font end
+    function methods.SetNormalFontObject(self, font) self.normalFont = font end
+    function methods.SetHighlightFontObject(self, font) self.highlightFont = font end
+    function methods.SetHitRectInsets(self, l, r, t, b) self.hitInsets = { l, r, t, b } end
     function methods.SetMotionScriptsWhileDisabled(self, on) self.motion = on end
     function methods.SetText(self, text)
         self.text = text
@@ -234,6 +237,8 @@ return function(root, opts)
             w.Inset, w.CloseButton = Widget("Frame"), Widget("Button")
             w.Inset.parent, w.CloseButton.parent = w, w
             w.Inset.Bg = Widget("Texture")
+            w.TitleContainer = { TitleText = Widget("FontString") }
+            function w:GetTitleText() return self.TitleContainer.TitleText end
         elseif template == "LargeSideTabButtonTemplate" then
             w.Icon = Widget("Texture")
             -- SidePanelTabButtonMixin:SetChecked sets the icon from the atlas fields set before it.
@@ -246,6 +251,9 @@ return function(root, opts)
             w.ScrollBar.SetHideIfUnscrollable = function(self, on) self.hideIfUnscrollable = on end
         elseif template == "UICheckButtonTemplate" then
             w.Text = Widget("FontString")
+        elseif template == "UIPanelButtonTemplate" then
+            local label = Widget("FontString")
+            function w:GetFontString() return label end
         elseif template == "NoZoomModelSceneMixinTemplate" then
             -- A decor scene's actor is tagged "decor", unless env.noActor names the scene. env.sceneIDs and
             -- env.models record what the scene is given; env.clears counts ClearScene.
@@ -272,7 +280,9 @@ return function(root, opts)
     G("CAMERA_TRANSITION_TYPE_IMMEDIATE", "immediate")
     G("CAMERA_MODIFICATION_TYPE_DISCARD", "discard")
     G("CreateFont", function() return Widget("Font") end)
-    G("C_Texture", { GetAtlasInfo = function() return nil end })
+    G("C_Texture", { GetAtlasInfo = function(atlas)
+        if atlas:find("^housing%-dashboard%-woodsign") and not env.noSignAtlas then return { width = 64, height = 32 } end
+    end })
     G("PixelUtil", { SetHeight = noop, SetWidth = noop })
     G("NineSliceUtil", { ApplyLayoutByName = noop })
     G("CreateColor", function() return {} end)

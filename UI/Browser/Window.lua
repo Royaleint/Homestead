@@ -17,6 +17,11 @@ B.Window = Win
 
 local OPEN_TIME, CLOSE_TIME, TRAVEL = 0.15, 0.1, 8
 local SEARCH_W = 150
+local HIDE_BOX = 26
+-- The least the header count keeps when the Hide label has to truncate.
+local COUNT_MIN = 160
+-- 14 pt and fixed: it does not follow the text size, so the title always fits the 20 px title container.
+local TITLE_FONT = "GameFontNormalMed2"
 local DEFAULT_HINT = L["Search decor"]
 local CRUMB_SEP = " \226\128\186 "
 
@@ -99,14 +104,20 @@ local function ShowTruncated(self, fs)
     if fs:IsTruncated() then W.TextTip(self, "ANCHOR_RIGHT", fs:GetText()) end
 end
 
+local SIGN = { "housing-dashboard-woodsign-left", "housing-dashboard-woodsign-center", "housing-dashboard-woodsign-right" }
+-- Widths of the sign's end caps at the row height; empty when the art is missing.
+local signEnd = {}
+
 local function BuildRow(f)
     f.hl = f:CreateTexture(nil, "HIGHLIGHT")
     f.hl:SetColorTexture(unpack(K.hoverRow))
-    f.sel = f:CreateTexture(nil, "BACKGROUND")
-    Vis.Chrome.VGradient(f.sel, K.gold, 0.04, 0.22)
-    f.bar = f:CreateTexture(nil, "ARTWORK")
-    f.bar:SetColorTexture(K.gold[1], K.gold[2], K.gold[3], 1)
-    PixelUtil.SetWidth(f.bar, 3)
+    f.sign = {}
+    for i, atlas in ipairs(SIGN) do
+        f.sign[i] = f:CreateTexture(nil, "BACKGROUND")
+        f.sign[i]:SetAtlas(atlas)
+    end
+    f.flat = f:CreateTexture(nil, "BACKGROUND")
+    f.flat:SetColorTexture(K.gold[1], K.gold[2], K.gold[3], 0.2)
     f.fold = CreateFrame("Button", nil, f)
     f.fold:SetSize(16, 16)
     f.fold:SetScript("OnClick", function()
@@ -117,7 +128,7 @@ local function BuildRow(f)
     f.label:SetJustifyH("LEFT")
     f.label:SetWordWrap(false)
     f:RegisterForClicks("LeftButtonUp")
-    f:SetScript("OnClick", function(self) B.Go(self.data.route) end)
+    f:SetScript("OnClick", function(self) B.GoTop(self.data.route) end)
     f:SetScript("OnEnter", function(self) ShowTruncated(self, self.label) end)
     f:SetScript("OnLeave", B.HideTooltip)
 end
@@ -125,17 +136,24 @@ end
 local function InitRow(f, d)
     f.data = d
     local indent = d.child and S.nav.indent or 0
-    for _, region in ipairs({ f.hl, f.sel }) do
-        region:ClearAllPoints()
-        region:SetPoint("TOPLEFT", indent, 0)
-        region:SetPoint("BOTTOMRIGHT")
-    end
-    f.bar:ClearAllPoints()
-    f.bar:SetPoint("TOPLEFT", indent, 0)
-    f.bar:SetPoint("BOTTOMLEFT", indent, 0)
+    f.hl:ClearAllPoints()
+    f.hl:SetPoint("TOPLEFT", indent, 0)
+    f.hl:SetPoint("BOTTOMRIGHT")
+    f.flat:ClearAllPoints()
+    f.flat:SetPoint("TOPLEFT", indent, 0)
+    f.flat:SetPoint("BOTTOMRIGHT")
+    local s = f.sign
+    s[1]:SetPoint("TOPLEFT", indent, 0)
+    s[3]:SetPoint("TOPRIGHT")
+    s[2]:SetPoint("TOPLEFT", s[1], "TOPRIGHT")
+    s[2]:SetPoint("BOTTOMRIGHT", s[3], "BOTTOMLEFT")
     local on = d.key == selected or d.key == selGroup and not expanded[selGroup]
-    f.sel:SetShown(on)
-    f.bar:SetShown(on)
+    local art = signEnd[1] ~= nil and signEnd[3] ~= nil
+    for i, t in ipairs(s) do
+        t:SetShown(on and art)
+        if art and i ~= 2 then t:SetSize(signEnd[i], rowH) end
+    end
+    f.flat:SetShown(on and not art)
     f.fold:ClearAllPoints()
     f.fold:SetPoint("LEFT", indent + SP.xs, 0)
     f.fold:SetShown(d.kids ~= nil)
@@ -143,7 +161,8 @@ local function InitRow(f, d)
     f.label:ClearAllPoints()
     f.label:SetPoint("LEFT", indent + 2 * SP.xs + 16, 0)
     f.label:SetPoint("RIGHT", -SP.s, 0)
-    f.label:SetFontObject(S.font[d.child and (on and "metaGold" or "meta") or "bodyGold"])
+    f.label:SetFontObject(S.font[d.child and "body" or "header"])
+    f.label:SetTextColor(unpack((on or d.child) and K.body or K.gold))
     f.label:SetText(d.label)
 end
 
@@ -229,7 +248,7 @@ local function NewCrumb()
     c.sep = S.Text(Win.bar, "body", "OVERLAY")
     c.sep:SetTextColor(K.muted[1], K.muted[2], K.muted[3])
     c.sep:SetText(CRUMB_SEP)
-    c.btn:SetScript("OnClick", function() if c.route then B.Go(c.route) end end)
+    c.btn:SetScript("OnClick", function() if c.route then B.GoTop(c.route) end end)
     return c
 end
 
@@ -351,15 +370,31 @@ local function BuildHeader(f)
 
     local help = CreateFrame("Button", nil, band, "UIPanelButtonTemplate")
     help:SetText(L["Help"])
-    help:SetSize(help:GetTextWidth() + SP.xl, 22)
+    help:SetNormalFontObject(S.font.subheader)
+    help:SetHighlightFontObject(S.font.subheader)
+    help:GetFontString():SetFixedColor(true)
     help:SetPoint("RIGHT", -SP.m, 0)
     help:SetScript("OnClick", function() hooks.Help() end)
+    help:SetScript("OnEnter", function(self)
+        self:GetFontString():SetTextColor(unpack(K.body))
+        W.TextTip(self, "ANCHOR_BOTTOM", L["Opens a page explaining this window."], true)
+    end)
+    help:SetScript("OnLeave", function(self)
+        self:GetFontString():SetTextColor(unpack(K.gold))
+        B.HideTooltip()
+    end)
 
     local hide = CreateFrame("CheckButton", nil, band, "UICheckButtonTemplate")
-    hide:SetSize(24, 24)
-    hide.Text:SetFontObject("UserScaledFontGameHighlightSmall")
-    hide.Text:SetText(L["Hide what doesn't apply to me"])
+    hide:SetSize(HIDE_BOX, HIDE_BOX)
+    hide.Text:SetFontObject(S.font.subheader)
+    hide.Text:SetTextColor(unpack(K.body))
+    hide.Text:SetWordWrap(false)
+    hide.Text:SetText(L["Hide collected and other-faction"])
     hide:SetScript("OnClick", function(self) hooks.HideNA(self:GetChecked() and true or false) end)
+    hide:SetScript("OnEnter", function(self)
+        W.TextTip(self, "ANCHOR_BOTTOM", L["Hides decor you have collected, vendors with nothing left to collect, and anything only the other faction can get."], true)
+    end)
+    hide:SetScript("OnLeave", B.HideTooltip)
 
     local search = W.NewSearchBox(band, DEFAULT_HINT, function(text)
         if not restoring then hooks.Filter(text) end
@@ -405,10 +440,23 @@ end
 function Win.Measure()
     W.ResetMeasure()
     local hide = Win.hideNA
-    Win.search:SetHeight(W.TextHeight("body") + SP.s)
-    hide:SetPoint("RIGHT", Win.search, "LEFT", -(hide.Text:GetStringWidth() + SP.l), 0)
+    local ctlH = W.TextHeight("subheader") + SP.s
+    Win.search:SetHeight(ctlH)
+    local helpW = Win.help:GetTextWidth() + SP.xl
+    Win.help:SetSize(helpW, ctlH)
+    -- The label truncates (its tooltip has the full text) before the count falls under COUNT_MIN.
+    local room = WIN_W - LO.rect[1] - LO.rect[3] - (LO.titleLeft - LO.rect[1]) - COUNT_MIN
+        - (SP.m + helpW + SP.m + SEARCH_W + SP.l + HIDE_BOX + SP.m)
+    local label = math.max(math.min(hide.Text:GetUnboundedStringWidth(), room), 1)
+    hide.Text:SetWidth(label)
+    hide:SetHitRectInsets(0, -(label + SP.xs), 0, 0)
+    hide:SetPoint("RIGHT", Win.search, "LEFT", -(label + SP.l), 0)
     Win.frame:SetClampRectInsets(-PAD.left, 0, PAD.top, 0)
-    rowH = W.TextHeight("bodyGold") + SP.s
+    rowH = W.TextHeight("header") + SP.s
+    for i = 1, 3, 2 do
+        local info = C_Texture.GetAtlasInfo(SIGN[i])
+        signEnd[i] = info and info.width * rowH / info.height or nil
+    end
     crumbH = W.TextHeight("body") + SP.s
     Win.bar:SetHeight(crumbH)
     Win.back:SetHeight(crumbH)
@@ -590,6 +638,7 @@ function Win.Build(h)
     Win.frame = f
     f:Hide()
     f:SetTitle(S.plate.windowTitle)
+    f:GetTitleText():SetFontObject(TITLE_FONT)
     f:SetPortraitToAsset(S.art.portrait)
     f:SetSize(WIN_W, WIN_H)
     f:SetPoint("CENTER")

@@ -382,6 +382,15 @@ eq(multi.route.kind .. ":" .. tostring(multi.route.key), "catalog:all", "Enter o
 eq(multi.route.seed.search, "oak")
 catalog.Filter, catalog.Placeholder = nil, nil
 
+-- GoTop starts fresh: it leaves no history to return to, even when the target is the page already showing.
+B.Go({ kind = "vendor", id = 5 })
+eq(backs[#backs], true, "a Go into a page leaves history")
+B.GoTop({ kind = "overview" })
+eq(backs[#backs], false, "GoTop hid Back")
+B.Go({ kind = "vendor", id = 5 })
+B.GoTop({ kind = "vendor", id = 5 })
+eq(backs[#backs], false, "GoTop to the page already showing cleared history")
+
 -- A route with no page is a programming error, not a silent fallback.
 eq((pcall(B.Go, { kind = "nowhere" })), false, "a route with no page was accepted")
 

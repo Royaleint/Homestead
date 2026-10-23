@@ -288,7 +288,7 @@ do
     eq(sf.ScrollBar.hideIfUnscrollable, true, "the page's bar hides itself when nothing scrolls")
     local ranges = 0
     sf.UpdateScrollChildRect = function() ranges = ranges + 1 end
-    sf:SetSize(616, 600)
+    sf:SetSize(596, 600)
     p:Refresh("layout")
     assert(holder.height > 100, "a tall page gives the grid the room")
     local cur
@@ -299,13 +299,13 @@ do
     eq(ranges, 1, "every draw refreshes the scroll range")
     assert(holder.parent.height <= 600, "and nothing needs to scroll")
 
-    local base = { meta = 10, metaMuted = 10, metaGold = 10, body = 12, bodyGold = 12, bodyMuted = 12, subheader = 14, header = 16 }
+    local base = { meta = 10, metaMuted = 10, body = 12, bodyGold = 12, bodyMuted = 12, subheader = 14, header = 16 }
     env.W.TextHeight = function(role, text, width)
         local line = base[role] * 2
         if width and width > 0 and text then return line * math.max(1, math.ceil(#text * 6 * 2 / width)) end
         return line
     end
-    sf:SetSize(616, 320)
+    sf:SetSize(596, 320)
     p:Refresh("layout")
     eq(holder.height, 2 * env.B.Style.ware.size + env.B.Style.ware.gap, "the grid keeps two rows and a gap")
     eq(ranges, 2)
@@ -359,7 +359,7 @@ do
     local env = world()
     open(env, 100)
     local sf = vfind(env, function(f) return f.kind == "ScrollFrame" end)
-    local base = { meta = 10, metaMuted = 10, metaGold = 10, body = 12, bodyGold = 12, bodyMuted = 12, subheader = 14, header = 16 }
+    local base = { meta = 10, metaMuted = 10, body = 12, bodyGold = 12, bodyMuted = 12, subheader = 14, header = 16 }
     env.W.TextHeight = function(role, text, width)
         local line = base[role] * 2
         if width and width > 0 and text then return line * math.max(1, math.ceil(#text * 6 * 2 / width)) end

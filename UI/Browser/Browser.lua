@@ -124,8 +124,10 @@ local function Transition(route, saved)
     page:SetCombat(State.inCombat)
 end
 
-local function GoNow(route)
+-- top: a jump to the top of a hierarchy (tree row, crumb) starts fresh, so Back shows only after going into something.
+local function GoNow(route, top)
     route = Resolved(route)
+    if top then wipe(history) end
     if curRoute and curRoute.kind == route.kind and curRoute.key == route.key and curRoute.id == route.id then
         local page = Current()
         if route.seed then
@@ -135,9 +137,10 @@ local function GoNow(route)
             page:Refresh("route")
         end
         Win.SelectNav(route)
+        Win.SetBack(#history > 0)
         return
     end
-    if curRoute then
+    if curRoute and not top then
         history[#history + 1] = { { kind = curRoute.kind, key = curRoute.key, id = curRoute.id }, Current():Save() }
         if #history > 40 then table.remove(history, 1) end
     end
@@ -151,6 +154,10 @@ end
 
 function B.Go(route)
     Traced(route, GoNow)
+end
+
+function B.GoTop(route)
+    Traced(route, GoNow, true)
 end
 
 function B.Back()

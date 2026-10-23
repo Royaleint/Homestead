@@ -5,7 +5,7 @@ local root = (... or "."):gsub("\\", "/"):gsub("/+$", "")
 local newWorld = assert(loadfile(root .. "/tests/hs538_world.lua"))()
 
 -------------------------------------------------------------------------------
--- "Hide what doesn't apply to me" across the three tabs, through the real router:
+-- "Hide collected and other-faction" across the three tabs, through the real router:
 -- a toggle repaints the open tab and never walks (only a data refresh does),
 -- collected and other-faction items and sources hide, unknown ownership never
 -- hides as collected, the footers count exactly what was hidden, the all-hidden
@@ -44,7 +44,7 @@ local function footerText(box)
 end
 
 local function hiddenLine(hidden, collected, faction, name)
-    return ("%d hidden by 'Hide what doesn't apply to me' (%d collected, %d %s only)."):format(hidden, collected, faction, name)
+    return ("%d hidden by 'Hide collected and other-faction' (%d collected, %d %s only)."):format(hidden, collected, faction, name)
 end
 
 -- Summary's drawn numbers and rows, for "counts unchanged".
@@ -265,7 +265,7 @@ do
     eq(env.sourceKeys(), "", "Sources: every vendor hides")
     local empty = env.emptyOf("sources")
     eq(empty and empty.kind, "noResults")
-    assert(empty.d.text:find("hidden by 'Hide what doesn't apply to me'", 1, true), "the state says why: " .. tostring(empty.d.text))
+    assert(empty.d.text:find("hidden by 'Hide collected and other-faction'", 1, true), "the state says why: " .. tostring(empty.d.text))
     assert(empty.d.text:find("(3 collected, 1 Horde only)", 1, true), "and counts what: " .. tostring(empty.d.text))
     local button = empty.frame.buttons[1]
     assert(button and button.shown and button.scripts.OnClick, "the state offers a button")

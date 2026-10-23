@@ -22,7 +22,6 @@ S.font = {
     body = "UserScaledFontGameHighlight",
     bodyGold = "UserScaledFontGameNormal",
     bodyMuted = "UserScaledFontGameDisable",
-    metaGold = "UserScaledFontGameNormalSmall",
     subheader = "UserScaledFontGameNormalMed2",
     header = "UserScaledFontGameNormalLarge",
 }
@@ -51,7 +50,7 @@ S.window = { width = 860, height = 580 }
 
 -- The portrait overhangs the top-left corner by these.
 S.pad = { left = 5, top = 7 }
-S.nav = { indent = 16, gap = 2, width = 172 }
+S.nav = { indent = 16, gap = 2, width = 192 }
 
 S.layout = {
     rect = { 2, 21, 2, 2 }, titleBar = 21,

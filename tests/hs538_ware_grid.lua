@@ -101,12 +101,12 @@ do
     local full = 0
     grid.box.SetDataProvider = function(_, p) grid.box.provider = p end
     grid.box.FullUpdate = function() full = full + 1 end
-    grid.box:SetWidth(616)
+    grid.box:SetWidth(582)
     grid:SetData({})
-    eq(view.stride, 11, "stride at 616 px")
+    eq(view.stride, 11, "stride at 582 px")
     grid:SetData({}, false, 214)
     eq(view.stride, 4, "stride at 214 px (a width given with the data wins)")
-    grid.box:SetWidth(616)
+    grid.box:SetWidth(582)
     grid.box.scripts.OnSizeChanged(grid.box)
     eq(view.stride, 11, "a resize restrides")
     eq(full, 1, "and redraws once")

@@ -226,7 +226,7 @@ local frame = Widget("Frame")
 frame.parent = nil
 kind.build(frame)
 kind.init(frame, { hidden = 12, collected = 7, faction = 5, factionName = "Horde", onShow = function() shown = true end })
-assert(frame.text.text == "12 hidden by 'Hide what doesn't apply to me' (7 collected, 5 Horde only).", "footer words: " .. frame.text.text)
+assert(frame.text.text == "12 hidden by 'Hide collected and other-faction' (7 collected, 5 Horde only).", "footer words: " .. frame.text.text)
 assert(frame.link.text.text == "Show them", "footer link words")
 frame.link.scripts.OnClick(frame.link)
 assert(shown, "Show them did nothing")

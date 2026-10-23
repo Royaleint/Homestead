@@ -28,7 +28,7 @@ local function Find(what, from)
 end
 
 -- A widget stub: any unknown member is a callable stub of its own, so fields (f.Inset.Bg) and methods
--- (f:SetSize()) both work. Get* calls answer 0, Is*/Has* false, Create* a new widget.
+-- (f:SetSize()) both work. GetFontString answers a widget, other Get* calls 0, Is*/Has* false, Create* a new widget.
 local Widget
 local function Member(name)
     local m = {}
@@ -39,6 +39,7 @@ local function Member(name)
             return c
         end,
         __call = function()
+            if name == "GetFontString" then return Widget() end
             if name:find("^Get") then return 0 end
             if name:find("^Is") or name:find("^Has") then return false end
             if name:find("^Create") then return Widget() end
@@ -118,6 +119,8 @@ local frame
 local function NewWindowFrame()
     local f = Widget("ButtonFrameTemplate")
     f.shown, f.scale, f.alpha = false, 1, 1
+    f.TitleContainer = { TitleText = Widget("FontString") }
+    function f:GetTitleText() return self.TitleContainer.TitleText end
     function f:GetScale() return self.scale end
     function f:SetScale(s) self.scale = s end
     function f:ClearAllPoints() self.point = nil end
@@ -288,14 +291,14 @@ local ins = frame.insets
 assert(ins[1] == -5 and ins[2] == 0 and ins[3] == 7 and ins[4] == 0, "the clamp insets are wrong")
 assert(fitArgs[1] == 5 + 860 and fitArgs[2] == 587, "the fit must not add a tab width")
 
--- The tree is 172 px with a 4 px gap before the crumb bar and the host below it: 806 - 176 = 630 wide.
+-- The tree is 192 px with a 4 px gap before the crumb bar and the host below it: 806 - 196 = 610 wide.
 local S, LO = B.Style, B.Style.layout
 local bar, tree = Win.bar, Win.bar.pts.TOPLEFT[2]
-assert(tree.width == 172 and bar.pts.TOPLEFT[3] == "TOPRIGHT" and bar.pts.TOPLEFT[4] == 4, "the tree column is wrong")
+assert(tree.width == 192 and bar.pts.TOPLEFT[3] == "TOPRIGHT" and bar.pts.TOPLEFT[4] == 4, "the tree column is wrong")
 assert(Win.host.pts.TOPLEFT[2] == bar and Win.host.pts.TOPLEFT[3] == "BOTTOMLEFT", "the host is not below the crumb bar")
 local hostWidth = S.window.width - LO.insetLeft - LO.insetRight - 2 * LO.panePad - 2 * LO.wellPad
     - LO.pagePad - LO.pagePad - tree.width - bar.pts.TOPLEFT[4]
-assert(hostWidth == 630, "the host is " .. hostWidth .. " wide")
+assert(hostWidth == 610, "the host is " .. hostWidth .. " wide")
 assert(Find("render:overview") < Find("show"), "Summary was not drawn before the window showed")
 
 -- The header: one 150 px search box left of Help, the Hide toggle left of the box, the count truncating first.

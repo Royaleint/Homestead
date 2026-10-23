@@ -621,7 +621,7 @@ do
         assert(words[k].color[1] ~= env.B.Style.color.stop[1], k .. " must not be red")
     end
     local foot = render({ kind = "foot", hidden = 2, collected = 1, faction = 1, factionName = "Horde", onShow = noop })
-    assert(foot.text.text == "2 hidden by 'Hide what doesn't apply to me' (1 collected, 1 Horde only)." and foot.link.shown)
+    assert(foot.text.text == "2 hidden by 'Hide collected and other-faction' (1 collected, 1 Horde only)." and foot.link.shown)
     local note = render({ kind = "foot", text = "No events" })
     assert(not note.link.shown, "the empty-events note has no Show them link")
     render({ kind = "header", text = "Kalimdor" })
@@ -993,7 +993,7 @@ do
         assert(pageText(env, "Decor from this source"), p[1] .. ": a source Hide would hide still opens its page with its decor")
     end
     assert(env.W.FooterText({ hidden = 3, collected = 1, faction = 2, parts = {} })
-        == "3 hidden by 'Hide what doesn't apply to me' (1 collected).", "the footer prints the whole hidden count")
+        == "3 hidden by 'Hide collected and other-faction' (1 collected).", "the footer prints the whole hidden count")
     env.tab.Show({ type = "achievements" })
     assert(main.shown == false, "everything collected: the empty state")
     local back = button("Show them")

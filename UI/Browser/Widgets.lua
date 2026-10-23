@@ -634,7 +634,7 @@ function W.HeaderHeight()
 end
 
 function W.FooterText(d)
-    local p, hide = d.parts or { { d.faction, d.factionName } }, L["Hide what doesn't apply to me"]
+    local p, hide = d.parts or { { d.faction, d.factionName } }, L["Hide collected and other-faction"]
     if p[2] then
         return L["%d hidden by '%s' (%d collected, %d %s only, %d %s only)."]:format(
             d.hidden, hide, d.collected, p[1][1], p[1][2], p[2][1], p[2][2])
