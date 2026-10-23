@@ -96,11 +96,7 @@ local function ReloadNav(data)
 end
 
 local function ShowTruncated(self, fs)
-    if not fs:IsTruncated() then return end
-    local tip = B.Tooltip()
-    tip:SetOwner(self, "ANCHOR_RIGHT")
-    tip:SetText(fs:GetText())
-    tip:Show()
+    if fs:IsTruncated() then W.TextTip(self, "ANCHOR_RIGHT", fs:GetText()) end
 end
 
 local function BuildRow(f)

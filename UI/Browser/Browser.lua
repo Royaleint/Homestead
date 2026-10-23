@@ -47,10 +47,6 @@ function B.Generation()
     return State.generation
 end
 
-function B.InCombat()
-    return State.inCombat
-end
-
 local function Trace(operation, workload, fn, ...)
     return HA.PerformanceTrace:Measure(operation, workload, fn, ...)
 end

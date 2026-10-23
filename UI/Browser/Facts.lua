@@ -61,6 +61,11 @@ function F.Confirmed(vendor)
     return shipped
 end
 
+-- Where a vendor is: "subzone, zone" when both are known, else the zone; nil when there is none.
+function F.Where(v)
+    return v.zone and v.subzone and L["%s, %s"]:format(v.subzone, v.zone) or v.zone
+end
+
 function F.Portrait(npcID)
     return HA.VendorPortraits and HA.VendorPortraits[npcID]
 end

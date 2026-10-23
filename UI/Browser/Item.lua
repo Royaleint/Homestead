@@ -25,16 +25,8 @@ local shownID, torn, wait, drawnW
 -- The item, model and setting the preview last loaded; nil after Hide, so the next draw loads again.
 local modelKey
 
-local function Text(parent, role)
-    local fs = S.Text(parent, role, "OVERLAY")
-    fs:SetJustifyH("LEFT")
-    return fs
-end
-
 local function Joined(parts)
-    local out = parts[1]
-    for i = 2, #parts do out = L["%s · %s"]:format(out, parts[i]) end
-    return out
+    return W.Join(parts, L["%s · %s"])
 end
 
 local function Labeled(label, value, extra)
@@ -91,7 +83,7 @@ end
 local function VendorRow(itemID, b, flagged)
     local D, v = B.Data, b.vendor
     local row = { status = {}, one = Labeled(L["Vendor:"], v.name or L["Unknown"], D.Price(itemID, v)) }
-    Status(row, v.zone and (v.subzone and L["%s, %s"]:format(v.subzone, v.zone) or v.zone) or L["Location not recorded"])
+    Status(row, F.Where(v) or L["Location not recorded"])
     local label = D.IsOppositeFaction(v) and D.VendorFactionLabel(v)
     if label then Status(row, W.StateWords("faction", label), "stop", K.stop) end
     if b.offer == "can" then Status(row, L["Can get now here"], "dot", K.can) end
@@ -302,7 +294,7 @@ local function NewLine(box)
     local f = CreateFrame("Frame", nil, box)
     f.mark = f:CreateTexture(nil, "OVERLAY")
     f.mark:SetSize(MARK, MARK)
-    f.text = Text(f, "body")
+    f.text = W.Text(f, "body")
     f:SetScript("OnEnter", LineTip)
     f:SetScript("OnLeave", B.HideTooltip)
     box.lines[#box.lines + 1] = f
@@ -355,7 +347,7 @@ local function NewRow()
     local f = CreateFrame("Button", nil, P.body)
     f.mark = f:CreateTexture(nil, "OVERLAY")
     f.mark:SetSize(MARK, MARK)
-    f.one, f.two = Text(f, "body"), Text(f, "bodyMuted")
+    f.one, f.two = W.Text(f, "body"), W.Text(f, "bodyMuted")
     f.one:SetWordWrap(false)
     f.two:SetWordWrap(false)
     f.show = W.NewButton(f, "", function(self) self.act() end)
@@ -423,7 +415,7 @@ end
 local function Draw(fresh, saved)
     local w = P.page:GetWidth()
     if w <= 0 then
-        wait = { fresh or (wait and wait[1]) or false, saved or (wait and wait[2]) }
+        wait = W.Owe(wait, fresh, saved)
         return
     end
     wait, drawnW = nil, w
@@ -490,7 +482,7 @@ function Page:Build(parent)
     P.top:SetPoint("TOPLEFT", parent, "TOPLEFT", 0, 0)
     P.tile = W.NewTile(P.top, THUMB)
     P.tile.icon:SetPoint("TOPLEFT", P.top, "TOPLEFT", 0, 0)
-    P.name, P.meta = Text(P.top, "subheader"), Text(P.top, "bodyMuted")
+    P.name, P.meta = W.Text(P.top, "subheader"), W.Text(P.top, "bodyMuted")
     P.name:SetWordWrap(false)
     P.meta:SetWordWrap(false)
     W.Clip(P.name)
@@ -510,9 +502,9 @@ function Page:Build(parent)
     P.sf.ScrollBar:SetHideIfUnscrollable(true)
     P.body = CreateFrame("Frame", nil, P.sf)
     P.sf:SetScrollChild(P.body)
-    P.where = Text(P.body, "bodyGold")
+    P.where = W.Text(P.body, "bodyGold")
     P.where:SetText(L["Where to get it"])
-    P.unknown = Text(P.body, "bodyMuted")
+    P.unknown = W.Text(P.body, "bodyMuted")
     P.unknown:SetText(L["Source unknown"])
     P.report = W.ReportLink(P.body, Report)
 
@@ -524,7 +516,7 @@ function Page:Build(parent)
     end)
     parent:HookScript("OnSizeChanged", function(_, w)
         if shownID and not torn and w > 0 and (wait or w ~= drawnW) then
-            Draw(wait and wait[1] or false, wait and wait[2])
+            Draw(W.Owed(wait))
         end
     end)
 end

@@ -11,8 +11,8 @@ local root = (... or "."):gsub("\\\\", "/"):gsub("/+$", "")
 -- ceiling needs a file.
 -------------------------------------------------------------------------------
 
--- TEMPORARY: raised while the redesign is built; restore 180224 before merge.
-local CAP = 200000
+-- TEMPORARY: the 180224 target is short by about 11.7 KB after the trim pass; Rawb decides how to close it.
+local CAP = 192000
 
 local CEIL = {
     ["Visuals.xml"] = 391,
@@ -21,7 +21,7 @@ local CEIL = {
     ["Adapter.lua"] = 20000,
     ["Facts.lua"] = 6600,
     ["CanGet.lua"] = 16100,
-    ["Widgets.lua"] = 26200,
+    ["Widgets.lua"] = 26500,
     ["Window.lua"] = 21300,
     ["Browser.lua"] = 15800,
     ["Summary.lua"] = 10100,

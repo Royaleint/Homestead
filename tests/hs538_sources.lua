@@ -278,7 +278,6 @@ local function setup()
         return CG.Walk()
     end
     B.Generation = function() return gen end
-    B.InCombat = function() return B.State.inCombat end
     B.RegisterPage = function(kind, page) pages[kind] = page end
     B.Go = function(route) env.went[#env.went + 1] = route end
     B.Tooltip = function()

@@ -45,10 +45,6 @@ local function Live(event)
     return CD ~= nil and CD:IsHolidayActive(event) == true
 end
 
-local function Where(v)
-    return v.zone and v.subzone and L["%s, %s"]:format(v.subzone, v.zone) or v.zone
-end
-
 local conts = {}
 local function Continent(mapID)
     local id = mapID and Facts.ContinentOf(mapID)
@@ -91,7 +87,7 @@ local function VendorList(home)
             if not s then
                 s = {
                     key = key, type = "vendors", vendor = v, title = v.name or L["Unknown"], items = D.VendorWares(v),
-                    sub = Where(v) or "",
+                    sub = Facts.Where(v) or "",
                 }
                 vend[key] = s
             end
@@ -369,11 +365,7 @@ local function Report(s)
     }, "\n"))
 end
 
-local function Text(parent, role)
-    local fs = S.Text(parent, role or "body", "OVERLAY")
-    fs:SetJustifyH("LEFT")
-    return fs
-end
+local Text = W.Text
 
 -- Every list is the whole page: a count head over the rows, in one well.
 function Page:Build(parent)
@@ -381,13 +373,13 @@ function Page:Build(parent)
     body:SetPoint("TOPLEFT")
     body:SetPoint("BOTTOMRIGHT")
     head = S.Text(body, "bodyMuted", "OVERLAY")
-    head:SetPoint("TOPLEFT", S.layout.wellPad, -S.layout.wellPad)
-    head:SetPoint("TOPRIGHT", -S.layout.wellPad, -S.layout.wellPad)
+    head:SetPoint("TOPLEFT", LO.wellPad, -LO.wellPad)
+    head:SetPoint("TOPRIGHT", -LO.wellPad, -LO.wellPad)
     head:SetJustifyH("LEFT")
     head:SetWordWrap(false)
     local lh = CreateFrame("Frame", nil, body)
     lh:SetPoint("TOPLEFT", head, "BOTTOMLEFT", 0, -SP.xs)
-    lh:SetPoint("BOTTOMRIGHT", -S.layout.wellPad, S.layout.wellPad)
+    lh:SetPoint("BOTTOMRIGHT", -LO.wellPad, LO.wellPad)
     list = W.NewList(lh, {
         extent = Extent, reclaim = true,
         kinds = { row = W.rowKind, header = W.headerKind, foot = footKind },
@@ -489,12 +481,6 @@ local function SetCan(f, can, w)
     if w then f:SetWidth(w) end
 end
 
-local function Joined(items, format)
-    local out = items[1]
-    for i = 2, #items do out = format:format(out, items[i]) end
-    return out
-end
-
 local function SetFace(v)
     local face = Facts.Portrait(v.npcID)
     if face then SetPortraitTextureFromCreatureDisplayID(V.face, face) else V.face:SetTexture(S.tex.placeholderIcon) end
@@ -507,8 +493,7 @@ function Vend:Build(parent)
     sf.ScrollBar:SetHideIfUnscrollable(true)
     sf:HookScript("OnSizeChanged", function(_, w)
         if vid and not vtorn and w > 0 and (V.wait or w ~= V.w) then
-            local again = V.wait
-            Draw(again and again[1] or false, again and again[2])
+            Draw(W.Owed(V.wait))
         end
     end)
     local body = CreateFrame("Frame", nil, sf)
@@ -544,7 +529,7 @@ function Draw(fresh, saved)
     local v, w = D.Vendor(vid), V.sf:GetWidth()
     if not v then return end
     if w <= 0 then
-        V.wait = { fresh or (V.wait and V.wait[1]) or false, saved or (V.wait and V.wait[2]) }
+        V.wait = W.Owe(V.wait, fresh, saved)
         return
     end
     V.wait, V.w = nil, w
@@ -567,7 +552,7 @@ function Draw(fresh, saved)
     V.tag:SetShown(act ~= nil)
     local tagH = act and W.TextHeight("meta", V.tag:GetText(), cw) or 0
     V.tag:SetSize(cw, tagH)
-    local place = Where(v) or L["Unknown"]
+    local place = Facts.Where(v) or L["Unknown"]
     local cont = Facts.Nearness(v.mapID, Facts.Here()) == 3 and Continent(v.mapID)
     V.where:SetText(cont and L["%s · %s"]:format(place, cont) or place)
     V.where:SetSize(math.min(V.where:GetUnboundedStringWidth() + 1, cw - V.wp:GetWidth() - SP.xs), bh)
@@ -580,13 +565,13 @@ function Draw(fresh, saved)
 
     Line(V.note, "bodyMuted", (D.VendorNote(v)), w)
     local cur = D.VendorCurrencies(v)
-    Line(V.cur, "body", cur[1] and L["%s: %s"]:format(S.Colored(K.gold, L["Currency"]), Joined(cur, L["%s, %s"])), w)
+    Line(V.cur, "body", cur[1] and L["%s: %s"]:format(S.Colored(K.gold, L["Currency"]), W.Join(cur, L["%s, %s"])), w)
     local parts, unknown = {}, false
     for _, r in ipairs(D.VendorRequirements(v)) do
         parts[#parts + 1] = r.met == true and L["%s (done)"]:format(r.text) or r.met == false and L["%s (not yet)"]:format(r.text) or r.text
         unknown = unknown or r.met == nil
     end
-    Line(V.req, "body", parts[1] and L["%s: %s"]:format(S.Colored(K.gold, L["Requires"]), Joined(parts, L["%s; %s"]))
+    Line(V.req, "body", parts[1] and L["%s: %s"]:format(S.Colored(K.gold, L["Requires"]), W.Join(parts, L["%s; %s"]))
         .. (unknown and "\n" .. S.Muted(L["Can't check this requirement yet"]) or ""), w)
     Line(V.stop, "body", D.IsOppositeFaction(v)
         and S.Colored(K.stop, L["%s only: can't buy on this character"]:format(D.VendorFactionLabel(v) or "")), w)

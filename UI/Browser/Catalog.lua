@@ -3,7 +3,7 @@ local _, HA = ...
 
 local B, L = HA.DecorBrowser, HA.L
 local S, W, D, CG = B.Style, B.Widgets, B.Data, B.CanGet
-local SP, K = S.space, S.color
+local SP, K, LO = S.space, S.color, S.layout
 
 local KEYS = CG.SOURCE_KEYS
 local KIND, KindOf = S.kind, S.KindOf
@@ -325,8 +325,8 @@ function Page:Build(parent)
     body:SetPoint("BOTTOMRIGHT")
     local head = S.Text(body, "bodyMuted", "OVERLAY")
     ui.head = head
-    head:SetPoint("TOPLEFT", SP.s, -SP.xs)
-    head:SetPoint("TOPRIGHT", -SP.s, -SP.xs)
+    head:SetPoint("TOPLEFT", LO.wellPad, -LO.wellPad)
+    head:SetPoint("TOPRIGHT", -LO.wellPad, -LO.wellPad)
     head:SetJustifyH("LEFT")
     head:SetWordWrap(false)
     local fl = CreateFrame("Button", nil, body)
@@ -339,8 +339,8 @@ function Page:Build(parent)
     fl.text:SetJustifyH("LEFT")
     fl.text:SetWordWrap(false)
     local holder = CreateFrame("Frame", nil, body)
-    holder:SetPoint("TOPLEFT", fl, "BOTTOMLEFT", -SP.s, 0)
-    holder:SetPoint("BOTTOMRIGHT", -SP.xs, SP.xs)
+    holder:SetPoint("TOPLEFT", fl, "BOTTOMLEFT", -LO.wellPad, 0)
+    holder:SetPoint("BOTTOMRIGHT", -LO.wellPad, LO.wellPad)
     ui.list = W.NewList(holder, {
         kinds = { item = ITEM, footer = W.footerKind },
         extent = function(d)

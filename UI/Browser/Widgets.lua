@@ -147,14 +147,18 @@ function W.NewLink(parent, label, onClick, onEnter)
     return b
 end
 
+-- A one-text tooltip on owner; wrap lets a long text run to several lines.
+function W.TextTip(owner, anchor, text, wrap)
+    local tip = B.Tooltip()
+    tip:SetOwner(owner, anchor)
+    tip:SetText(text, nil, nil, nil, nil, wrap)
+    tip:Show()
+end
+
 -- The muted "Report a problem" link. It is off in combat and says why under the mouse.
 function W.ReportLink(parent, onClick)
     local b = W.NewLink(parent, L["Report a problem"], onClick, function(self)
-        if self:IsEnabled() then return end
-        local tip = B.Tooltip()
-        tip:SetOwner(self, "ANCHOR_RIGHT")
-        tip:SetText(L["Not available in combat"])
-        tip:Show()
+        if not self:IsEnabled() then W.TextTip(self, "ANCHOR_RIGHT", L["Not available in combat"]) end
     end)
     b:SetMotionScriptsWhileDisabled(true)
     return b
@@ -167,12 +171,7 @@ function W.Clip(fs)
     hit:EnableMouse(true)
     hit:SetScript("OnEnter", function(self)
         local text = fs.tip or fs:IsTruncated() and fs:GetText()
-        if text then
-            local tip = B.Tooltip()
-            tip:SetOwner(self, "ANCHOR_RIGHT")
-            tip:SetText(text, nil, nil, nil, nil, true)
-            tip:Show()
-        end
+        if text then W.TextTip(self, "ANCHOR_RIGHT", text, true) end
     end)
     hit:SetScript("OnLeave", HideTip)
     return hit
@@ -206,12 +205,7 @@ function W.WaypointButton(parent)
             HA.Waypoints:Set(w.mapID, w.x, w.y, { title = w.title, data = w.data })
         end
     end)
-    b:SetScript("OnEnter", function(self)
-        local tip = B.Tooltip()
-        tip:SetOwner(self, "ANCHOR_LEFT")
-        tip:SetText(L["Set waypoint"])
-        tip:Show()
-    end)
+    b:SetScript("OnEnter", function(self) W.TextTip(self, "ANCHOR_LEFT", L["Set waypoint"]) end)
     b:SetScript("OnLeave", HideTip)
     return b
 end
@@ -275,6 +269,31 @@ function W.Linked(id)
         local _, link = C_Item.GetItemInfo(id)
         return link and HandleModifiedItemClick(link)
     end
+end
+
+-- A page asked to draw before its window has a width owes that draw. Owe merges what is asked with what is
+-- already owed, so a refresh arriving first loses neither the fresh flag nor the saved position; Owed unpacks
+-- it for the draw that pays it.
+function W.Owe(owed, fresh, saved)
+    return { fresh or (owed and owed[1]) or false, saved or (owed and owed[2]) }
+end
+
+function W.Owed(owed)
+    return owed and owed[1] or false, owed and owed[2]
+end
+
+-- A left-justified text on the overlay layer.
+function W.Text(parent, role)
+    local fs = S.Text(parent, role or "body", "OVERLAY")
+    fs:SetJustifyH("LEFT")
+    return fs
+end
+
+-- Items joined one by one through format, a "%s, %s" style string.
+function W.Join(items, format)
+    local out = items[1]
+    for i = 2, #items do out = format:format(out, items[i]) end
+    return out
 end
 
 local function Redraw(self)
@@ -633,20 +652,16 @@ W.footerKind = {
         f.text:SetPoint("TOPLEFT", SP.s, -SP.s)
         f.text:SetPoint("TOPRIGHT", -SP.s, -SP.s)
         f.text:SetJustifyH("LEFT")
-        f.link = CreateFrame("Button", nil, f)
-        f.link.text = S.Text(f.link, "bodyGold", "OVERLAY")
-        f.link.text:SetPoint("LEFT")
-        f.link.text:SetText(L["Show them"])
-        f.link:SetPoint("TOPLEFT", f.text, "BOTTOMLEFT", 0, -R.gap)
-        f.link:SetScript("OnClick", function(self)
+        f.link = W.NewLink(f, L["Show them"], function(self)
             local show = self:GetParent().onShow
             if show then show() end
         end)
+        f.link:SetPoint("TOPLEFT", f.text, "BOTTOMLEFT", 0, -R.gap)
     end,
     init = function(f, d)
         f.onShow = d.onShow
         f.text:SetText(FooterText(d))
-        f.link:SetSize(f.link.text:GetUnboundedStringWidth(), W.TextHeight("body"))
+        f.link:Fit()
     end,
 }
 
