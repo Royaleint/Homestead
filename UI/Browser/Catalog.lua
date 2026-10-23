@@ -1,4 +1,4 @@
--- Catalog tab: every decor item in a virtual list with filters and sorts, the item detail beside it.
+-- Catalog: every decor item, with filters and sorts
 local _, HA = ...
 
 local B, L = HA.DecorBrowser, HA.L
@@ -6,7 +6,6 @@ local S, W, D, CG = B.Style, B.Widgets, B.Data, B.CanGet
 local SP, K = S.space, S.color
 
 local KEYS = CG.SOURCE_KEYS
-local NAV = { "all", 1, 2, 3, 4, "other" }
 local KIND, KindOf = S.kind, S.KindOf
 local TYPE = S.sourceLabel
 local SORT = { best = L["Best to get now"], name = L["Name"], price = L["Price"] }
@@ -19,7 +18,7 @@ local function Group(e)
 end
 
 local Tab, ui, orders = {}, {}, {}
-local cat, recs, counts, walk, version, hideFor, bare, bareList, bareVer
+local cat, recs, counts, owns, walk, version, hideFor, bare, bareList, bareVer
 local shown = {}
 local shownSel, silent = false, false
 
@@ -43,7 +42,6 @@ local function Words(c)
     return table.concat(f, ", ")
 end
 
--- Before the collection is ready there is no walk: the same domain rule gives entries to name and sort.
 local function BareEntries()
     if not bare then
         local seen = {}
@@ -71,14 +69,15 @@ end
 local function Rebuild()
     version, hideFor = D.MemoVersion(), B.State.hideNA
     wipe(orders)
-    counts, recs = {}, {}
+    counts, owns, recs = {}, {}, {}
     for i, e in ipairs(walk and walk.list or BareEntries()) do
         local r = { kind = "item", id = e.itemID, e = e, lname = e.name and e.name:lower() or "",
             hasName = e.name ~= nil, cat = KindOf(e.info), bonus = e.bonus,
             done = e.own == "owned", hid = hideFor and (walk and (e.own == "owned" and "collected" or e.factionOnly and "faction" or nil) or not walk and CG.HiddenBy(e.itemID)) or nil }
         r.g = walk and Group(e) or 1
         recs[i] = r
-        counts[r.cat] = (counts[r.cat] or 0) + 1
+        counts[r.cat], counts.all = (counts[r.cat] or 0) + 1, (counts.all or 0) + 1
+        if r.done then owns[r.cat], owns.all = (owns[r.cat] or 0) + 1, (owns.all or 0) + 1 end
     end
 end
 
@@ -116,7 +115,6 @@ local SORTERS = {
     end,
 }
 
--- A sorted copy of the records; kept until the data, the names or (Best) the zone change.
 local function Order(sort)
     local o = orders[sort]
     if o then return o end
@@ -149,7 +147,6 @@ local function Passes(r, c, anyOwn, subset)
     return true
 end
 
--- The matching records in order, their count, whether the selection is among them, and the Hide counts.
 local function Filter()
     local c, out, n, hc, hf, sel, subset, seen = cat, {}, 0, 0, 0, false, false, {}
     for _, k in ipairs(KEYS) do
@@ -227,21 +224,10 @@ function ShowDetail()
     if cat.sel then B.ItemDetail.Show(cat.sel) else B.ItemDetail.Clear() end
 end
 
-local function PaintNav()
-    local h, y = W.TextHeight("body") + 2 * SP.s, 0
-    for _, b in ipairs(ui.nav) do
-        local n = b.key == "all" and #recs or counts[b.key] or 0
-        local on = cat.kind == b.key
-        b:SetShown(n > 0 or b.key == "all")
-        b:SetHeight(h)
-        b:ClearAllPoints()
-        b:SetPoint("TOPLEFT", ui.cols.nav, "TOPLEFT", 0, -y)
-        b:SetPoint("TOPRIGHT", ui.cols.nav, "TOPRIGHT", 0, -y)
-        y = y + (b:IsShown() and h or 0)
-        b.count:SetText(n)
-        b.bg:SetShown(on)
-        b.label:SetTextColor(unpack(on and K.gold or K.body))
-    end
+local function PaintHead()
+    local k = cat.kind
+    ui.head:SetHeight(W.TextHeight("bodyMuted") + SP.s)
+    ui.head:SetText(walk and L["%d of %d collected"]:format(owns[k] or 0, counts[k] or 0) or L["Counting…"])
 end
 
 local function PaintLine(words)
@@ -258,7 +244,7 @@ local function Empty(status, n, hidden, words)
             kind, d.onSort = "countingSort", function() ui.sort.Set("name") Apply(false) end
         end
     elseif n == 0 and not hidden then
-        d.onAll = c.kind ~= "all" and function() c.kind, c.pin = "all", nil Apply(false) end or nil
+        d.onAll = c.kind ~= "all" and function() B.Go({ kind = "catalog", key = "all", seed = { search = ui.search:GetText() } }) end or nil
     else
         ui.empty:Hide()
         return false
@@ -267,7 +253,6 @@ local function Empty(status, n, hidden, words)
     return true
 end
 
--- Filters the cached records into the list. keep holds the scroll position; force refills the detail.
 function Apply(keep, force)
     local out, n, sel, hc, hf, seen = Filter()
     local words = Words(cat)
@@ -285,7 +270,7 @@ function Apply(keep, force)
         shown = out
         ui.list:SetData(out, keep)
     end
-    PaintNav()
+    PaintHead()
     PaintLine(words)
     if force or cat.sel ~= shownSel then ShowDetail() end
 end
@@ -293,30 +278,6 @@ end
 local function Changed()
     cat.pin = nil
     Apply(false)
-end
-
-local function BuildNav(parent)
-    ui.nav = {}
-    for i, key in ipairs(NAV) do
-        local b = CreateFrame("Button", nil, parent)
-        b.key = key
-        b.bg = b:CreateTexture(nil, "BACKGROUND")
-        b.bg:SetAllPoints()
-        b.bg:SetColorTexture(unpack(K.selected))
-        b.count = S.Text(b, "meta", "OVERLAY")
-        b.count:SetPoint("RIGHT", -SP.s, 0)
-        b.label = S.Text(b, "body", "OVERLAY")
-        b.label:SetPoint("LEFT", SP.s, 0)
-        b.label:SetPoint("RIGHT", b.count, "LEFT", -SP.xs, 0)
-        b.label:SetJustifyH("LEFT")
-        b.label:SetWordWrap(false)
-        b.label:SetText(key == "all" and L["All decor"] or KIND[key])
-        b:SetScript("OnClick", function()
-            cat.kind = key
-            Changed()
-        end)
-        ui.nav[i] = b
-    end
 end
 
 local function BuildToolbar(bar)
@@ -374,12 +335,17 @@ function Tab.Build(parent)
     ui.cols = c
     -- The dropdowns build their menus at SetupMenu and again when shown, before Show runs, and read the view.
     cat = NewView()
-    BuildNav(c.nav)
     BuildToolbar(c.toolbar)
+    local head = S.Text(c.body, "bodyMuted", "OVERLAY")
+    ui.head = head
+    head:SetPoint("TOPLEFT", SP.s, -SP.xs)
+    head:SetPoint("TOPRIGHT", -SP.s, -SP.xs)
+    head:SetJustifyH("LEFT")
+    head:SetWordWrap(false)
     local fl = CreateFrame("Button", nil, c.body)
     ui.fl = fl
-    fl:SetPoint("TOPLEFT", SP.s, -SP.xs)
-    fl:SetPoint("TOPRIGHT", -SP.s, -SP.xs)
+    fl:SetPoint("TOPLEFT", head, "BOTTOMLEFT")
+    fl:SetPoint("TOPRIGHT", head, "BOTTOMRIGHT")
     fl:SetScript("OnClick", Reset)
     fl.text = S.Text(fl, "bodyMuted", "OVERLAY")
     fl.text:SetAllPoints()
@@ -398,7 +364,6 @@ function Tab.Build(parent)
     B.ItemDetail.Build(c.detail)
 end
 
--- nil keeps the view. A table resets search, kind and filters (sort stays), applies opts, then lands on itemID.
 function Tab.Show(opts)
     if opts then
         local f = opts.filters or {}
@@ -437,7 +402,7 @@ function Tab.Refresh(reason)
         if reason == "layout" then
             ui.cols:Fit()
             ui.search:SetHeight(W.TextHeight("body") + SP.s)
-            PaintNav()
+            PaintHead()
             PaintLine(Words(cat))
             ui.list:SetData(shown, true)
         end

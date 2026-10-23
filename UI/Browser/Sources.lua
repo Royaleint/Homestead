@@ -32,8 +32,8 @@ local IW = S.cols.detail - 2 * SP.m
 
 local Tab = {}
 local st = { type = "vendors", q = {}, sel = {} }
-local c, box, list, empty, torn, asked, cs, static, vend, vendVer, model
-local navs, U = {}, {}
+local c, box, head, list, empty, torn, asked, cs, static, vend, vendVer, model
+local U = {}
 
 local function Live(event)
     local CD = HA.CalendarDetector
@@ -114,6 +114,12 @@ local function Stats(s)
         end
     end
     return total, got, can
+end
+
+local function Head(t)
+    local w = cs == "ready" and CG.Walk()
+    local p = w and w.progress.src[t]
+    return p and L["%d of %d collected"]:format(p.owned, p.total) or L["Counting…"]
 end
 
 local function RowData(s)
@@ -242,16 +248,8 @@ local function BuildList(keep)
             onReset = q ~= "" and function() box:SetText("") end or nil,
         })
     end
-    local h = W.TextHeight("body") + SP.m
-    for i, k in ipairs(TYPES) do
-        local b = navs[k]
-        b:ClearAllPoints()
-        b:SetPoint("TOPLEFT", c.nav, "TOPLEFT", 0, -(i - 1) * h)
-        b:SetPoint("TOPRIGHT", c.nav, "TOPRIGHT", 0, -(i - 1) * h)
-        b:SetHeight(h)
-        b.bg:SetShown(k == t)
-        b.count:SetText(tostring(#Src(k)))
-    end
+    head:SetHeight(W.TextHeight("bodyMuted") + SP.s)
+    head:SetText(Head(t))
 end
 
 local function ShowModel(npcID)
@@ -498,24 +496,6 @@ end
 
 function Tab.Build(parent)
     c = W.NewColumns(parent)
-    for _, t in ipairs(TYPES) do
-        local b = CreateFrame("Button", nil, c.nav)
-        b.bg = b:CreateTexture(nil, "BACKGROUND")
-        b.bg:SetAllPoints()
-        b.bg:SetColorTexture(unpack(K.selected))
-        b:CreateTexture(nil, "HIGHLIGHT"):SetAllPoints()
-        b.label = S.Text(b, "body", "OVERLAY")
-        b.label:SetPoint("LEFT", SP.s, 0)
-        b.label:SetText(S.sourceLabel[t])
-        b.count = S.Text(b, "metaMuted", "OVERLAY")
-        b.count:SetPoint("RIGHT", -SP.s, 0)
-        b:SetScript("OnClick", function()
-            st.pin = nil
-            SetType(t)
-            Rebuild(false)
-        end)
-        navs[t] = b
-    end
     box = W.NewSearchBox(c.toolbar, KIND.vendors[2], function(text)
         if text == (st.q[st.type] or "") then return end
         st.q[st.type] = text
@@ -523,14 +503,19 @@ function Tab.Build(parent)
     end)
     box:SetPoint("TOPLEFT", c.toolbar, "TOPLEFT", SP.s, -SP.xs)
     box:SetPoint("TOPRIGHT", c.toolbar, "TOPRIGHT", -SP.xs, -SP.xs)
+    head = S.Text(c.body, "bodyMuted", "OVERLAY")
+    head:SetPoint("TOPLEFT", S.layout.wellPad, -S.layout.wellPad)
+    head:SetPoint("TOPRIGHT", -S.layout.wellPad, -S.layout.wellPad)
+    head:SetJustifyH("LEFT")
+    head:SetWordWrap(false)
     local lh = CreateFrame("Frame", nil, c.body)
-    lh:SetPoint("TOPLEFT", S.layout.wellPad, -S.layout.wellPad)
+    lh:SetPoint("TOPLEFT", head, "BOTTOMLEFT", 0, -SP.xs)
     lh:SetPoint("BOTTOMRIGHT", -S.layout.wellPad, S.layout.wellPad)
     list = W.NewList(lh, {
         extent = Extent, reclaim = true,
         kinds = { row = W.rowKind, header = W.headerKind, foot = footKind },
     })
-    empty = W.NewEmptyState(c.body)
+    empty = W.NewEmptyState(lh)
     BuildDetail(c.detail)
 end
 

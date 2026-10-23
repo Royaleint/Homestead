@@ -59,19 +59,21 @@ local function summaryFace(env)
     return table.concat(out, ";")
 end
 
-local function navCounts(env)
-    local out = {}
-    for _, f in ipairs(env.all) do
-        if env.owner(f) == "catalog" and rawget(f, "count") and rawget(f, "key") ~= nil then out[#out + 1] = f.key .. "=" .. tostring(f.count.text) end
+-- The drawn "N of M collected" at the head of a page's list.
+local function head(env, key)
+    for _, f in ipairs(env.fontStrings) do
+        if env.owner(f) == key and tostring(f.text):find("^%d+ of %d+ collected$") then return f.text end
     end
-    return table.concat(out, ";")
 end
 
-local function sourceNavCounts(env)
+-- Every source type's head, and back to the vendors list.
+local function sourceHeads(env)
     local out = {}
-    for _, f in ipairs(env.all) do
-        if env.owner(f) == "sources" and rawget(f, "count") and f.kind == "Button" then out[#out + 1] = tostring(f.count.text) end
+    for _, t in ipairs({ "vendors", "achievements", "quests", "professions", "drops", "events", "shop" }) do
+        env.go("sources", { type = t })
+        out[#out + 1] = tostring(head(env, "sources"))
     end
+    env.go("sources", { type = "vendors" })
     return table.concat(out, ";")
 end
 
@@ -115,6 +117,24 @@ do
 end
 
 -------------------------------------------------------------------------------
+-- A source head is the Overview's By source number, a ware that is not decor included
+-------------------------------------------------------------------------------
+
+do
+    local env = world(nil, function(e) e.sell(99, e.vendors[100]) end)
+    env.go("summary")
+    local line
+    for _, f in ipairs(env.all) do
+        if env.owner(f) == "summary" and rawget(f, "key") == "vendors" and rawget(f, "num") then line = f.num.text end
+    end
+    local p = env.CG.Walk().progress.src.vendors
+    eq(line, ("%d of %d"):format(p.owned, p.total), "the Overview's Vendors line")
+    env.go("sources", { type = "vendors" })
+    eq(head(env, "sources"), line .. " collected", "the Vendors head is the Overview's number")
+    print("hs538_hide: source heads match the Overview ok")
+end
+
+-------------------------------------------------------------------------------
 -- What hides, and what the footers say
 -------------------------------------------------------------------------------
 
@@ -123,7 +143,8 @@ do
     local all = "1,2,3,4,5,6,7,8,12,13,21,22,31,41,51,61"
     env.go("catalog")
     eq(idSet(env), all, "Catalog without Hide")
-    local counts = navCounts(env)
+    local counts = head(env, "catalog")
+    eq(counts, "2 of 16 collected", "the Catalog head")
     local face = summaryFace(env)
     setHide(env, true)
     env.go("catalog")
@@ -134,7 +155,7 @@ do
     eq(footer.collected, 2, "footer: collected")
     eq(footer.faction, 1, "footer: other faction")
     eq(footerText(box), hiddenLine(3, 2, 1, "Horde"), "the drawn footer")
-    eq(navCounts(env), counts, "the kind counts are unchanged")
+    eq(head(env, "catalog"), counts, "the Catalog head is unchanged by Hide")
     eq(env.D.OwnState(8, env.catalog[8]), nil, "item 8's ownership is unknown")
     eq(env.CG.HiddenBy(8), nil, "unknown ownership is not hidden as collected")
     eq(env.CG.HiddenBy(6), nil, "an item one accessible vendor sells is not other-faction only")
@@ -151,8 +172,10 @@ do
     eq(sfooter.collected, 1)
     eq(sfooter.faction, 1)
     eq(footerText(sbox), hiddenLine(2, 1, 1, "Horde"), "the drawn vendor footer")
-    eq(sourceNavCounts(env), "4;3;2;1;1;1;1", "the type counts are unchanged by Hide")
+    local on = sourceHeads(env)
     setHide(env, false)
+    eq(sourceHeads(env), on, "the source heads are unchanged by Hide")
+    eq(on, "1 of 8 collected;1 of 3 collected;0 of 2 collected;0 of 1 collected;0 of 1 collected;0 of 1 collected;0 of 1 collected", "the source heads")
     eq(env.sourceKeys(), "100,101,102,104", "off brings them back")
     local offRights = rowRights(env)
     setHide(env, true)

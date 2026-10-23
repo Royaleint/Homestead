@@ -412,6 +412,14 @@ local function searchBox()
     return frameWith(function(w) return w.kind == "EditBox" end)
 end
 
+-- The drawn "N of M collected" at the head of the list.
+local function headText()
+    for i = #all, 1, -1 do
+        local w = all[i]
+        if w.kind == "FontString" and (w.text:find("^%d+ of %d+ collected$") or w.text == "Counting…") then return w.text end
+    end
+end
+
 local function allItemsOwned(env)
     for id in pairs(env.catalog) do env.catalog[id] = { totalNumStored = 1 } end
 end
@@ -442,9 +450,13 @@ do
     env.tab.Show({})
     assert(same(keyList(main), { "# Here in Stormwind", "100", "# Eastern Kingdoms", "101", "# Kalimdor", "102",
         "# Location not recorded", "103" }), "vendor groups: " .. table.concat(keyList(main), ","))
-    local counts = {}
-    for _, w in ipairs(all) do if rawget(w, "count") and rawget(w, "label") then counts[#counts + 1] = w.count.text end end
-    assert(same(counts, { "4", "2", "2", "2", "1", "2", "1" }), "nav counts: " .. table.concat(counts, ","))
+    local heads = {}
+    for _, t in ipairs({ "vendors", "achievements", "quests", "professions", "drops", "events", "shop" }) do
+        env.tab.Show({ type = t })
+        heads[#heads + 1] = headText()
+    end
+    assert(same(heads, { "0 of 6 collected", "0 of 2 collected", "0 of 2 collected", "0 of 2 collected", "0 of 1 collected", "0 of 2 collected", "0 of 1 collected" }), "heads: " .. table.concat(heads, ";"))
+    env.tab.Show({})
 
     env.tab.Show({ type = "achievements" })
     assert(same(keyList(main), { "# Cata", "9002", "# Catb", "9001" }), "achievements by category")
@@ -461,7 +473,7 @@ do
     env.tab.Refresh("data")
     assert(same(keyList(main), { "Noblegarden", "Hallow's End" }), "an active event sorts first and the note goes")
     assert(row(main, "Noblegarden").state == "live" and row(main, "Hallow's End").state == "idle")
-    print("hs538_sources: nav counts, grouping and events ok")
+    print("hs538_sources: heads, grouping and events ok")
 end
 
 -------------------------------------------------------------------------------
@@ -505,6 +517,32 @@ do
     assert(row(main, 101).state == "counting" and row(main, 101).right == "1 decor", "counting reads N decor")
     assert(v.here.npcID == 100)
     print("hs538_sources: row words ok")
+end
+
+-------------------------------------------------------------------------------
+-- The head is the By source count; it waits for the collection; the empty state sits under it
+-------------------------------------------------------------------------------
+
+do
+    local env = setup()
+    world(env)
+    env.sell(99, env.vendors[100])
+    local main = build(env)
+    env.tab.Show({ type = "vendors" })
+    local p = env.CG.Walk().progress.src.vendors
+    assert(p.total == 6, "a ware that is not decor is outside the By source count: " .. p.total)
+    assert(headText() == ("%d of %d collected"):format(p.owned, p.total), "the head is the By source count: " .. tostring(headText()))
+    env.done, env.attempted = false, false
+    env.tab.Refresh("stats")
+    assert(headText() == "Counting…", "the head waits for the collection: " .. tostring(headText()))
+    local head, empty
+    for _, w in ipairs(all) do
+        if w.kind == "FontString" and w.text == "Counting…" and not head then head = w end
+        if rawget(w, "title") and rawget(w, "text") and w.kind == "Frame" then empty = w end
+    end
+    assert(empty and head and empty.parent == main.parent and empty.parent ~= head.parent,
+        "the empty state is under the list holder, not the well the head draws in")
+    print("hs538_sources: head count, counting and empty state ok")
 end
 
 -------------------------------------------------------------------------------
@@ -745,9 +783,7 @@ do
     local foot = main.data[#main.data]
     assert(foot.hidden == 2 and foot.collected == 1 and foot.faction == 1 and foot.parts[1][1] == 1 and foot.parts[1][2] ~= "" and foot.onShow,
         "the footer splits collected and faction")
-    local counts = {}
-    for _, w in ipairs(all) do if rawget(w, "count") and rawget(w, "label") then counts[#counts + 1] = w.count.text end end
-    assert(counts[1] == "4", "counts never change")
+    assert(headText() == "3 of 6 collected", "the head never changes under Hide: " .. tostring(headText()))
     foot.onShow()
     assert(env.hideNASet == false and env.B.Window.hideNA.checked == false, "Show them turns the toggle off")
     assert(#rows(main) == 4)
@@ -982,15 +1018,9 @@ do
     env.B.State.hideNA = true
     env.tab.Show({ type = "vendors", select = { key = 100 } })
     assert(row(main, 100) and row(main, 100).selected)
-    local nav
-    for _, w in ipairs(all) do
-        if rawget(w, "label") and w.label.text == "Achievements" then nav = w end
-    end
-    nav.scripts.OnClick()
-    for _, w in ipairs(all) do
-        if rawget(w, "label") and w.label.text == "Vendors" then nav = w end
-    end
-    nav.scripts.OnClick()
+    assert(headText() == "6 of 6 collected", "the head counts hidden vendors too: " .. tostring(headText()))
+    env.tab.Show({ type = "achievements" })
+    env.tab.Show({ type = "vendors" })
     assert(main.shown == false, "the pinned vendor is hidden again after leaving the kind")
     print("hs538_sources: pin ends on a kind switch")
 end

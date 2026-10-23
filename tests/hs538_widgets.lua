@@ -1,4 +1,4 @@
--- luacheck: globals assert loadfile print io CreateFrame UIParent C_Texture PixelUtil CreateColor C_ColorOverrides
+-- luacheck: globals assert loadfile print io rawget CreateFrame UIParent C_Texture PixelUtil CreateColor C_ColorOverrides
 -- luacheck: globals CreateScrollBoxListLinearView ScrollUtil CreateAnchor CreateDataProvider TextSizeManager NineSliceUtil
 -- Run from the repo root:  lua tests/hs538_widgets.lua [root]
 
@@ -23,6 +23,10 @@ function methods.CreateFontString(self, _, _, font)
     return fs
 end
 function methods.CreateTexture() return Widget("Texture") end
+function methods.SetPoint(self, ...)
+    self.points = rawget(self, "points") or {}
+    self.points[#self.points + 1] = { ... }
+end
 function methods.SetFontObject(self, font) self.font = font end
 function methods.SetText(self, text) self.text = text end
 function methods.GetText(self) return self.text end
@@ -173,9 +177,14 @@ assert(frame.link.text.text == "Show them", "footer link words")
 frame.link.scripts.OnClick(frame.link)
 assert(shown, "Show them did nothing")
 
--- Columns: 172 | list | 252.
+-- Columns: list | 252. The list starts at the page's left edge and ends 4 px before the detail, so a 630 px page
+-- leaves it 374.
 local cols = W.NewColumns(Widget("Frame"))
-assert(cols.nav.width == 172 and cols.detail.width == 252, "column widths")
+assert(cols.nav == nil and cols.detail.width == 252, "column widths")
+local from, to = cols.list.points[1], cols.list.points[2]
+assert(#from == 1 and from[1] == "TOPLEFT", "the list does not start at the page's left edge")
+assert(to[2] == cols.detail and to[3] == "BOTTOMLEFT" and to[4] == -4, "the list does not end 4 px before the detail")
+assert(630 - cols.detail.width - 4 == 374, "the interim list width")
 
 -- A search box is known to the window, so Escape can take its focus.
 local changed

@@ -117,6 +117,7 @@ local function newEnv(opts)
         done = true, attempted = true, warm = true, responded = true, faction = "Alliance",
         catalog = {}, catalogCalls = 0, names = {}, sources = {}, vendors = {}, offers = {}, reqs = {},
         scanned = {}, calendar = {}, measured = {}, sortCalls = 0, sourceCalls = 0,
+        firstText = #fontStrings + 1,
     }
     for k, v in pairs(opts) do env[k] = v end
     rawset(_G, "Foundry_1_0", { RaiseDevError = function(_, msg) error(msg) end })
@@ -272,6 +273,7 @@ local function newEnv(opts)
         return c
     end
     function B.RegisterTab(_, tab) env.tab = tab end
+    function B.Go(route) env.went = route end
     function B.SetHideNA(on)
         B.State.hideNA = on
         env.tab.Refresh("hide")
@@ -336,9 +338,11 @@ local function newEnv(opts)
             if fs.text:find("^Filtered:") then return fs.text, fs.parent.shown end
         end
     end
-    function env.nav(key)
-        for _, w in ipairs(env.all) do
-            if w.key == key then return w end
+    -- The list head: the drawn "N of M collected" (or "Counting…") above the list.
+    function env.head()
+        for i = env.firstText, #fontStrings do
+            local t = fontStrings[i].text
+            if t:find("^%d+ of %d+ collected$") or t == "Counting…" then return t end
         end
     end
     return env, HA
@@ -394,7 +398,7 @@ do
     env.tab.Show()
     eq(env.ids(), "1,2,8,5,7,3,6,4", "Best to get now: ranked, plain, requirement, other faction, collected")
     eq(env.log[#env.log], "show:1", "R24: the first row is selected and the detail filled")
-    assert(env.nav("all").bg.shown and not env.nav(1).bg.shown, "All decor is the kind shown")
+    eq(env.head(), "1 of 8 collected", "the head counts every item and the collected ones")
     eq(env.filters():GetText(), "Filters", "the filter button carries its label")
     eq(env.filters().resizeToText, false, "the filter button keeps its fixed width")
     eq(env.filters():GetWidth(), 100, "a long label does not resize the filter button")
@@ -471,13 +475,15 @@ do
     assert(env.filtered():find("Sources: Achievements", 1, true), "the line lists the sources left")
     fm:Find("Reset filters").click()
 
-    env.nav(1).scripts.OnClick()
+    env.tab.Show({ kind = 1 })
     eq(env.ids(), "1,2", "a kind")
-    eq(env.nav(1).count.text, 2, "its count")
-    eq(env.nav("other").count.text, 1, "the unlisted-category item counts as Other")
-    eq(env.nav("all").count.text, 8, "All decor counts every item")
-    assert(env.nav(1).bg.shown and not env.nav("all").bg.shown, "Furnishings is the kind shown")
-    env.nav("all").scripts.OnClick()
+    eq(env.head(), "0 of 2 collected", "the head counts the kind")
+    env.tab.Show({ kind = "other" })
+    eq(env.head(), "0 of 1 collected", "the unlisted-category item counts as Other")
+    env.tab.Show({ kind = 3 })
+    eq(env.head(), "1 of 2 collected", "the head counts the kind's collected items")
+    env.tab.Show({ kind = "all" })
+    eq(env.head(), "1 of 8 collected", "All decor counts every item")
 
     local before = { walks = env.walks(), reads = env.catalogCalls, sorts = env.sortCalls, sources = env.sourceCalls }
     env.type("o")
@@ -491,10 +497,15 @@ do
     env.type("zzz")
     eq(env.empty.kind, "noResults", "no results")
     eq(env.empty.d.onAll, nil, "Search all decor only while a kind is chosen")
-    env.nav(2).scripts.OnClick()
+    env.tab.Show({ kind = 2, search = "zzz" })
     assert(type(env.empty.d.onAll) == "function", "Search all decor with a kind chosen")
+    eq(env.head(), "0 of 1 collected", "the head counts the chosen kind")
     env.empty.d.onAll()
-    assert(env.nav("all").bg.shown and not env.nav(2).bg.shown, "it leaves the kind")
+    local went = env.went
+    assert(went and went.kind == "catalog" and went.key == "all" and went.seed.search == "zzz",
+        "Search all decor goes to all decor, keeping the search")
+    env.tab.Show({ kind = went.key, search = went.seed.search })
+    eq(env.head(), "1 of 8 collected", "the route lands on all decor")
     env.empty.d.onReset()
     eq(env.ids(), "1,2,8,5,7,3,6,4", "Reset filters clears the search too")
     eq(env.byTemplate.SearchBoxTemplate.text, "", "and the box")
@@ -622,6 +633,7 @@ do
     env.empty.d.onSort()
     eq(env.ids(), "6,5,3,2,8,1,4,7", "Sort by name lists every item, nothing jumps")
     eq(env.box().frames[1].d.state, "counting", "rows read Counting…")
+    eq(env.head(), "Counting…", "the head waits for the collection too")
     local fm = env.menu(env.filters())
     fm:Find("Can get now").setSel()
     eq(env.empty.kind, "counting", "a filter that needs the collection waits too")
@@ -634,6 +646,7 @@ do
     env.tab.Refresh("data")
     eq(env.walks(), 1, "the data refresh walks once")
     eq(env.ids(), "6,5,3,2,8,1,7,4", "ownership is known: collected sinks")
+    eq(env.head(), "1 of 8 collected", "and the head counts")
     eq(env.box().frames[1].d.state, "faction", "and rows have their states")
 end
 

@@ -24,8 +24,8 @@ local CEIL = {
     ["Window.lua"] = 20300,
     ["Browser.lua"] = 14000,
     ["Summary.lua"] = 11691,
-    ["Catalog.lua"] = 17200,
-    ["Sources.lua"] = 21900,
+    ["Catalog.lua"] = 15700,
+    ["Sources.lua"] = 21600,
     ["Item.lua"] = 13216,
 }
 

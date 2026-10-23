@@ -515,21 +515,17 @@ function W.NewEmptyState(parent)
     return f
 end
 
--- Three columns in a tab page: nav (plain), a list column (a toolbar above a well) and the detail well.
+-- Two columns in a tab page: a list column (a toolbar above a well) and the detail well.
 -- Call c:Fit() again after a text size change.
 function W.NewColumns(parent)
     local cols = S.cols
     local c = {}
-    c.nav = CreateFrame("Frame", nil, parent)
-    c.nav:SetPoint("TOPLEFT")
-    c.nav:SetPoint("BOTTOMLEFT")
-    c.nav:SetWidth(cols.nav)
     c.detail = W.Well(parent)
     c.detail:SetPoint("TOPRIGHT")
     c.detail:SetPoint("BOTTOMRIGHT")
     c.detail:SetWidth(cols.detail)
     c.list = CreateFrame("Frame", nil, parent)
-    c.list:SetPoint("TOPLEFT", c.nav, "TOPRIGHT", cols.gap, 0)
+    c.list:SetPoint("TOPLEFT")
     c.list:SetPoint("BOTTOMRIGHT", c.detail, "BOTTOMLEFT", -cols.gap, 0)
     c.toolbar = CreateFrame("Frame", nil, c.list)
     c.toolbar:SetPoint("TOPLEFT")
