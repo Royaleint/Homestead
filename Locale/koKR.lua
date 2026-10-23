@@ -517,4 +517,7 @@ L["%s (done)"] = "%s (완료)"
 L["%s (not yet)"] = "%s (아직 아님)"
 L["Can't check this requirement yet"] = "아직 이 조건을 확인할 수 없습니다"
 L["Active now: %s"] = "현재 활성: %s"
+L["Decor Browser"] = "장식 탐색기"
+L["Show 3D preview"] = "3D 미리보기 표시"
+L["desc_browser_model3d"] = "장식 탐색기의 아이템 페이지에 3D 모델을 표시합니다."
 -- end: Item

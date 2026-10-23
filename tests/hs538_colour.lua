@@ -46,9 +46,10 @@ end
 
 UIParent = Widget("UIParent")
 local created = {}
-CreateFrame = function(kind)
+CreateFrame = function(kind, _, _, template)
     local w = Widget(kind)
     w.shown = true
+    if template == "ScrollFrameTemplate" then w.ScrollBar = Widget("EventFrame") end
     created[#created + 1] = w
     return w
 end

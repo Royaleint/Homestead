@@ -33,12 +33,7 @@ local KIND = {
     shop = { L["Shop"], L["Search the Shop"], "ShopSources", function() return { sub = L["Shop"] } end },
 }
 local TYPES = CG.SOURCE_KEYS
-
--- The game's own tooltip for the sources it describes.
-local LINK = {
-    achievements = function(s) return GetAchievementLink(s.achievementID) end,
-    quests = function(s) return GetQuestLink(s.questID) or ("quest:" .. s.questID) end,
-}
+local LINK = Facts.LINK
 
 local Page = {}
 local st = { type = "achievements" }
@@ -380,18 +375,6 @@ local function Text(parent, role)
     return fs
 end
 
-local function ReportButton(parent, current)
-    local b = W.NewLink(parent, L["Report a problem"], function() Report(current()) end, function(self)
-        if not B.InCombat() then return end
-        local tip = B.Tooltip()
-        tip:SetOwner(self, "ANCHOR_RIGHT")
-        tip:SetText(L["Not available in combat"])
-        tip:Show()
-    end)
-    b:SetMotionScriptsWhileDisabled(true)
-    return b
-end
-
 -- Every list is the whole page: a count head over the rows, in one well.
 function Page:Build(parent)
     local body = W.Well(parent)
@@ -506,24 +489,6 @@ local function SetCan(f, can, w)
     if w then f:SetWidth(w) end
 end
 
--- A tooltip for a one-line text that is cut off, or always when fs.tip is set. Returns the mouse frame.
-local function Clip(fs)
-    local hit = CreateFrame("Frame", nil, fs:GetParent())
-    hit:SetAllPoints(fs)
-    hit:EnableMouse(true)
-    hit:SetScript("OnEnter", function(self)
-        local text = fs.tip or fs:IsTruncated() and fs:GetText()
-        if text then
-            local tip = B.Tooltip()
-            tip:SetOwner(self, "ANCHOR_RIGHT")
-            tip:SetText(text, nil, nil, nil, nil, true)
-            tip:Show()
-        end
-    end)
-    hit:SetScript("OnLeave", B.HideTooltip)
-    return hit
-end
-
 local function Joined(items, format)
     local out = items[1]
     for i = 2, #items do out = format:format(out, items[i]) end
@@ -563,7 +528,7 @@ function Vend:Build(parent)
     V.conf.tip = Facts.NotConfirmed()
     for _, fs in ipairs({ V.name, V.where, V.conf }) do
         fs:SetWordWrap(false)
-        local hit = Clip(fs)
+        local hit = W.Clip(fs)
         if fs == V.conf then V.hit = hit end
     end
     V.pb, V.hdr, V.key = W.Bar(body), Text(body), Text(body)
@@ -571,7 +536,7 @@ function Vend:Build(parent)
     V.holder = CreateFrame("Frame", nil, body)
     V.grid = W.NewGrid(V.holder, S.ware.size, S.ware.gap)
     V.empty = W.NewEmptyState(V.holder)
-    V.report = ReportButton(body, function() return V.s end)
+    V.report = W.ReportLink(body, function() Report(V.s) end)
     V.stack = { V.head, V.note, V.cur, V.req, V.stop, V.conf, V.pb, V.can, V.hdr, V.key, V.holder, V.report }
 end
 
@@ -579,7 +544,7 @@ function Draw(fresh, saved)
     local v, w = D.Vendor(vid), V.sf:GetWidth()
     if not v then return end
     if w <= 0 then
-        V.wait = { fresh, saved }
+        V.wait = { fresh or (V.wait and V.wait[1]) or false, saved or (V.wait and V.wait[2]) }
         return
     end
     V.wait, V.w = nil, w
@@ -743,7 +708,7 @@ function Src:Build(parent)
     A.head = CreateFrame("Frame", nil, parent)
     A.name = Text(A.head, "subheader")
     A.name:SetWordWrap(false)
-    Clip(A.name)
+    W.Clip(A.name)
     A.name:SetPoint("TOPLEFT")
     A.name:SetPoint("TOPRIGHT")
     A.sub = PinLine(A.head, "metaMuted")
@@ -755,7 +720,7 @@ function Src:Build(parent)
     A.can = CanLine(parent)
     A.holder = CreateFrame("Frame", nil, parent)
     A.list = W.NewList(A.holder, { extent = W.RowHeight, kinds = { row = W.rowKind }, reclaim = true })
-    A.report = ReportButton(parent, function() return A.s end)
+    A.report = W.ReportLink(parent, function() Report(A.s) end)
     A.report:SetPoint("BOTTOMLEFT")
     A.stack = { A.head, A.start, A.dig, A.event, A.notes, A.count, A.can, A.hdr }
 end

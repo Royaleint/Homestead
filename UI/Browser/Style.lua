@@ -169,7 +169,8 @@ end
 
 S.chrome = { linePad = SP.s, shadowHeight = SP.m, wellShadowHeight = SP.l, wellShade = 0.55 }
 
-S.model = { thumb = 44 }
+-- The item page: its head tile, and the 3D preview as width, height.
+S.model = { thumb = 44, preview = { 220, 160 } }
 
 S.plate = {
     windowTitle = L["Homestead Decor"],

@@ -552,4 +552,7 @@ L["%s (done)"] = "%s (done)"
 L["%s (not yet)"] = "%s (not yet)"
 L["Can't check this requirement yet"] = "Can't check this requirement yet"
 L["Active now: %s"] = "Active now: %s"
+L["Decor Browser"] = "Decor Browser"
+L["Show 3D preview"] = "Show 3D preview"
+L["desc_browser_model3d"] = "Show a 3D model of the item on its page in the Decor Browser."
 -- end: Item

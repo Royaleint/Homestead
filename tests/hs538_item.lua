@@ -1,18 +1,21 @@
 -- luacheck: globals assert loadfile print io os CreateFrame UIParent C_Texture PixelUtil CreateColor C_ColorOverrides
 -- luacheck: globals CreateScrollBoxListLinearView ScrollUtil CreateAnchor CreateDataProvider TextSizeManager NineSliceUtil
 -- luacheck: globals C_Item C_HousingCatalog C_Map Enum InCombatLockdown GetBuildInfo wipe NORMAL_FONT_COLOR rawset
+-- luacheck: globals GetAchievementLink GetQuestLink IsModifiedClick HandleModifiedItemClick GameTooltip_AddHighlightLine
+-- luacheck: globals HOUSING_DECOR_FIRST_ACQUISITION_FORMAT
 -- Run from the repo root:  lua tests/hs538_item.lua [root]
 
 local root = (... or "."):gsub("\\", "/"):gsub("/+$", "")
 
 -------------------------------------------------------------------------------
--- The item detail: states come from the vendor offer (never a buy state from
+-- The item page: states come from the vendor offer (never a buy state from
 -- the presentation), the page runs head, state, flags, requires, sources and
--- Report in that order with open sources first, vendor blocks use gold labels
+-- Report in that order with open sources first, vendor rows use gold labels
 -- with white values, every Show button calls the one key builder, the faction
 -- tag never reaches a format string as nil, Report is off in combat, a redraw
 -- never walks, and no red appears outside the faction state on the page or
--- in the tooltip.
+-- in the tooltip. Source rows show the game's tooltip for achievements and
+-- quests and link the item on a shift-click.
 -------------------------------------------------------------------------------
 
 local function noop() end
@@ -21,7 +24,7 @@ local frames, made = {}, {}
 local methods = {}
 function methods.CreateFontString(self, _, _, font)
     local fs = Widget("FontString")
-    fs.font = font
+    fs.font, fs.parent = font, self
     made[#made + 1] = fs
     return fs
 end
@@ -53,11 +56,17 @@ function methods.SetTextColor(self, r, g, b) self.color = { r, g, b } end
 function methods.SetVertexColor(self, r, g, b) self.color = { r, g, b } end
 function methods.SetColorTexture(self, r, g, b) self.color = { r, g, b } end
 function methods.GetUnboundedStringWidth(self) return #self.text * 6 end
+function methods.IsTruncated(self) return #self.text * 6 > (rawget(self, "width") or 0) end
 function methods.GetStringHeight() return 12 end
 function methods.GetTextWidth(self) return #self.text * 6 end
 function methods.GetFrameLevel() return 1 end
 function methods.GetParent(self) return self.parent end
-function methods.SetPoint(self, ...) self.pt = { ... } end
+function methods.SetPoint(self, ...)
+    self.pt = { ... }
+    self.pts = rawget(self, "pts") or {}
+    self.pts[(...)] = self.pt
+end
+function methods.GetScript(self, name) return self.scripts[name] end
 function methods.SetOwner(self, owner) self.owner = owner end
 function methods.GetOwner(self) return self.owner end
 function methods.AddLine(self, text, r, g, b) self.lines[#self.lines + 1] = { text = text, r = r, g = g, b = b } end
@@ -69,9 +78,10 @@ function Widget(kind)
 end
 
 UIParent = Widget("UIParent")
-CreateFrame = function(kind, _, parent)
+CreateFrame = function(kind, _, parent, template)
     local w = Widget(kind)
     w.parent = parent
+    if template == "ScrollFrameTemplate" then w.ScrollBar = Widget("EventFrame") end
     frames[#frames + 1] = w
     return w
 end
@@ -93,6 +103,14 @@ InCombatLockdown = function() return inCombat end
 GetBuildInfo = function() return "12.0.1", "1", "1", 120001 end
 rawset(_G, "wipe", function(t) for k in pairs(t) do t[k] = nil end return t end)
 rawset(_G, "ITEM_QUALITY3_DESC", "Rare")
+GetAchievementLink = function(id) return "achievement:" .. id end
+GetQuestLink = function() return nil end
+local modified, linkedItems = false, {}
+IsModifiedClick = function(name) return name == "CHATLINK" and modified end
+HandleModifiedItemClick = function(link) linkedItems[#linkedItems + 1] = link return true end
+local highlights = {}
+GameTooltip_AddHighlightLine = function(tip, text) highlights[#highlights + 1] = { tip = tip, text = text } end
+HOUSING_DECOR_FIRST_ACQUISITION_FORMAT = "First-Time Collection: %d"
 
 -- Game data -------------------------------------------------------------------
 local phase = "ready"
@@ -104,6 +122,7 @@ C_Item = {
     RequestLoadItemDataByID = noop,
     GetItemIconByID = function() return 134400 end,
     GetItemQualityByID = function() return 3 end,
+    GetItemInfo = function(id) return "Item " .. id, "item:" .. id end,
 }
 C_HousingCatalog = {
     GetCatalogEntryInfoByItem = function(id) return INFO[id] end,
@@ -179,9 +198,20 @@ local B = HA.DecorBrowser
 B.Window = { AddSearchBox = noop }
 assert(loadfile(root .. "/UI/Browser/CanGet.lua"))("Homestead", HA)
 assert(loadfile(root .. "/UI/Browser/Browser.lua"))("Homestead", HA)
+local Item
+local registerPage = B.RegisterPage
+B.RegisterPage = function(kind, page)
+    if kind == "item" then Item = page end
+    return registerPage(kind, page)
+end
 assert(loadfile(root .. "/UI/Browser/Item.lua"))("Homestead", HA)
+assert(Item, "the item page did not register with the router")
 local S, D, CG, K = B.Style, B.Data, B.CanGet, B.Style.color
-local Item = B.ItemDetail
+-- The colour code that opens red text.
+local RED = S.Colored(K.stop, ""):match("^|c%x+")
+local host = Widget("Frame")
+host:SetWidth(600)
+Item:Build(host)
 
 local routed = {}
 B.Go = function(route) routed[#routed + 1] = route end
@@ -208,27 +238,77 @@ local function fresh(id, info)
     B.State.catalogMemo = {}
 end
 
-local function show(id)
-    local ok, err = pcall(function()
-        Item.Build(Widget("Frame"))
-        Item.Show(id)
-    end)
-    assert(ok, "Show failed: " .. tostring(err))
+-- How far down the page a frame's top sits, through the frames it is anchored to.
+local function top(f)
+    local pts = rawget(f, "pts")
+    local pt = pts and (pts.TOPLEFT or pts.LEFT)
+    if not pt then
+        local parent = rawget(f, "parent")
+        return parent and top(parent) or 0
+    end
+    local rel = type(pt[2]) == "table" and pt[2] or rawget(f, "parent")
+    local relPoint = type(pt[3]) == "string" and pt[3] or pt[1]
+    local y = 0
+    for i = #pt, 2, -1 do
+        if type(pt[i]) == "number" then y = pt[i] break end
+    end
+    local base = rel and top(rel) or 0
+    if relPoint:find("BOTTOM") then base = base + rel:GetHeight() end
+    return base - y
+end
+
+-- Shown on the page: shown, under the page's host, and every parent shown.
+local function visible(f)
+    while f do
+        if not f.shown then return false end
+        if f == host then return true end
+        f = rawget(f, "parent")
+    end
+    return false
+end
+
+-- The page top to bottom: its lines, each source row as its first line, its Show button and its second line,
+-- the free texts (head, Where to get it) and the Report link.
+local function collect()
     local list = {}
+    local function add(f, d)
+        d.y, d.seq = top(f), #list
+        list[#list + 1] = d
+    end
     for _, fr in ipairs(frames) do
-        local y = fr.shown and fr.pt and fr.pt[5] and -fr.pt[5]
-        if y and fr.mark then
-            list[#list + 1] = { y = y, text = fr.text.text, color = fr.text.color, glyph = rawget(fr.mark, "glyph") }
-        elseif y and fr.kind == "Button" and fr.act then
-            list[#list + 1] = { y = y, act = fr.text, fn = fr.act, gated = fr.gated }
+        if visible(fr) and rawget(fr, "pts") then
+            if fr.one then
+                add(fr.one, { text = fr.one.text, glyph = rawget(fr.mark, "glyph"), row = fr })
+                if fr.show.shown then add(fr.one, { act = fr.show.text, fn = fr.show.act }) end
+                if fr.two.shown then add(fr.two, { text = fr.two.text, row = fr }) end
+            elseif fr.mark then
+                add(fr, { text = fr.text.text, color = fr.text.color, glyph = rawget(fr.mark, "glyph"), frame = fr })
+            elseif fr.kind == "Button" and type(fr.text) == "table" and fr.text.text == "Report a problem" then
+                add(fr, { act = fr.text.text, fn = function() fr.scripts.OnClick(fr) end, gated = true, frame = fr })
+            end
         end
     end
-    table.sort(list, function(a, c) return a.y < c.y end)
+    for _, fs in ipairs(made) do
+        local parent = rawget(fs, "parent")
+        if parent and visible(fs) and rawget(fs, "pts") and not (parent.mark or parent.one or parent.kind == "Button") then
+            add(fs, { text = fs.text, color = fs.color })
+        end
+    end
+    table.sort(list, function(a, c)
+        if a.y ~= c.y then return a.y < c.y end
+        return a.seq < c.seq
+    end)
     return list
 end
 
+local function show(id)
+    local ok, err = pcall(function() Item:Show({ kind = "item", id = id }) end)
+    assert(ok, "Show failed: " .. tostring(err))
+    return collect()
+end
+
 local function isStop(d)
-    return d.color and d.color[1] == K.stop[1] and d.color[2] == K.stop[2] and d.color[3] == K.stop[3]
+    return d.text and d.text:find(RED, 1, true) ~= nil
 end
 
 local function texts(list)
@@ -340,7 +420,8 @@ do
         .. table.concat({ iNear, iFar, iQuest, iHostile }, ","))
     assert(list[iNear].text:find("|cffffd100Vendor:|r Near Vendor", 1, true), "vendor label is not gold with a white value")
     local value = list[iNear].text:match("|r (.*)$")
-    assert(value == "Near Vendor" and not value:find("|c", 1, true), "the value is not plain white")
+    assert(value == "Near Vendor · " .. D.Price(1003, VENDOR[12]) and not value:find("|c", 1, true),
+        "the value is not the plain white name and price: " .. value)
     assert(has(list, "Can get now here"), "no Can get now here on the open vendor")
     assert(indexOf(list, "Can get now here") < iFar, "Can get now here is not in the open vendor's block")
     assert(has(list, "Horde only"), "no faction stop line")
@@ -583,43 +664,32 @@ do
     fresh(1005)
     local v = vendor(31, "Report Vendor")
     SOURCES[1005] = { vsrc(v) }
-    show(1005)
-    local function button(label)
-        for _, f in ipairs(frames) do
-            if f.kind == "Button" and f.act and f.text == label and f.shown then return f end
-        end
-    end
-    local report = assert(button("Report a problem"), "no Report button")
+    local list = show(1005)
+    local report = list[#list].frame
+    assert(list[#list].act == "Report a problem", "no Report link")
     assert(report.enabled == true, "Report is off out of combat")
     report.scripts.OnClick(report)
     assert(#reports == 1 and reports[1].text:find("Vendor 31: Report Vendor", 1, true), "Report did not gather the vendor")
     assert(reports[1].text:find("Item: Item 1005 (1005)", 1, true))
-    Item.SetCombat(true)
+    Item:SetCombat(true)
     assert(report.enabled == false, "Report stays on in combat")
     Enter(report)
     assert(B.Tooltip().text == "Not available in combat", "no reason on the disabled Report")
-    Item.Clear()
-    assert(not B.Tooltip():IsShown(), "Clear left the page's own tooltip up")
-    Item.Show(1005)
-    B.Tooltip():SetOwner(Widget("Frame"))
-    B.Tooltip():Show()
-    Item.Clear()
-    assert(B.Tooltip():IsShown(), "Clear hid a tooltip the page does not own")
-    B.Tooltip():Hide()
-    Item.Show(1005)
+    Item:Hide()
+    assert(not B.Tooltip():IsShown(), "Hide left the page's tooltip up")
+    show(1005)
+    assert(report.enabled == false, "a redraw in combat turns Report on")
     inCombat = true
     report.scripts.OnClick(report)
     assert(#reports == 1, "Report opened a window in combat")
     inCombat = false
-    local wp = button("Set waypoint")
+    local wp
+    for _, f in ipairs(frames) do
+        if visible(f) and rawget(f, "wp") then wp = f end
+    end
     assert(wp and wp.enabled, "Set waypoint must stay on in combat")
-    Item.SetCombat(false)
+    Item:SetCombat(false)
     assert(report.enabled == true, "Report stays off after combat")
-    B.State.inCombat = true
-    Item.Show(1005)
-    assert(report.enabled == false, "a redraw in combat enables Report")
-    B.State.inCombat = false
-    Item.SetCombat(false)
     wp.scripts.OnClick(wp)
     assert(#waypoints == 1 and waypoints[1][1] == 100, "Set waypoint did not set")
     print("hs538_item: combat gate ok")
@@ -633,12 +703,12 @@ do
     SOURCES[1006] = { vsrc(vendor(41, "Pool Vendor")) }
     show(1006)
     local before, count = walks, #frames
-    for _ = 1, 3 do Item.Show(1006) end
+    for _ = 1, 3 do show(1006) end
     assert(walks == before, "Show walked the catalog")
     assert(#frames == count, "Show built new frames on a redraw")
-    Item.Clear()
-    Item.Show(1006)
-    assert(walks == before and #frames == count, "Clear then Show walked or rebuilt")
+    Item:Hide()
+    Item:Refresh("stats")
+    assert(walks == before and #frames == count, "Hide then Refresh walked or rebuilt")
     print("hs538_item: no walk, no rebuild ok")
 end
 
@@ -657,9 +727,10 @@ do
     local list = show(1007)
     local red = 0
     for _, d in ipairs(list) do
+        assert(not (d.color and d.color[1] == K.stop[1] and d.color[2] == K.stop[2]), "a red line: " .. tostring(d.text))
         if isStop(d) then
             red = red + 1
-            assert(d.text:find("only", 1, true), "red outside the faction state: " .. d.text)
+            assert(d.text:find(RED .. "Horde only|r", 1, true), "red outside the faction state: " .. d.text)
         end
     end
     assert(red == 1, "expected exactly the faction line to be red, got " .. red)
@@ -722,33 +793,37 @@ do
     print("hs538_item: retired state words gone ok")
 end
 
--- The page's kind is the Catalog nav's, whether categoryIDs is an array or a set.
+-- The page's kind is the Catalog nav's, whether categoryIDs is an array or a set, after the quality.
 do
     for id, ids in pairs({ [1031] = { 2 }, [1032] = { [2] = true } }) do
         fresh(id, { quality = 3, categoryIDs = ids, totalNumPlaced = 0, totalNumStored = 0 })
-        local before = #made
-        show(id)
-        local meta
-        for k = before + 1, #made do
-            local t = made[k].text
-            meta = meta or type(t) == "string" and t:find(" %- Structural$") and t
-        end
-        assert(meta, "item " .. id .. " does not read Structural")
+        assert(texts(show(id))[2] == "Rare · Structural", "item " .. id .. " does not read Structural")
         assert(S.KindOf(INFO[id]) == 2, "the Catalog nav files item " .. id .. " elsewhere")
     end
+    fresh(1035, { quality = 3, categoryIDs = { 4 }, totalNumPlaced = 0, totalNumStored = 0 })
+    local head = texts(show(1035))
+    assert(head[1] == "Item 1035" and head[2] == "Rare · Lighting", "the head reads " .. table.concat(head, "|"))
     print("hs538_item: decor kind ok")
 end
 
--- A vendor no scan has confirmed: the page and the tooltip say so in full.
+-- A vendor no scan has confirmed: the row says so in short and in full under the mouse, and the tooltip in full.
 do
     fresh(1033)
     SOURCES[1033] = { vsrc(vendor(65, "Unscanned Vendor")) }
     local list = show(1033)
     local sentence = B.Facts.NotConfirmed()
     assert(sentence:find("No scan has confirmed", 1, true), sentence)
-    assert(has(list, sentence), "the page lacks the full sentence: " .. table.concat(texts(list), "|"))
-    assert(D.TooltipData(1033).unconfirmed, "the tooltip data misses the unconfirmed vendor")
+    local at = assert(indexOf(list, "Not confirmed"), "the row does not say Not confirmed")
+    assert(not has(list, sentence), "the page spells out the full sentence")
+    local row = list[at].row
     local tip = B.Tooltip()
+    tip.lines = {}
+    row.scripts.OnEnter(row)
+    local full
+    for _, l in ipairs(tip.lines) do full = full or l.text == sentence end
+    assert(full and tip.owner == row, "the row's tooltip lacks the full sentence")
+    row.scripts.OnLeave(row)
+    assert(D.TooltipData(1033).unconfirmed, "the tooltip data misses the unconfirmed vendor")
     tip.lines = {}
     B.ShowItemTooltip(Widget("Frame"), 1033)
     local said
@@ -785,36 +860,114 @@ do
     print("hs538_item: id with no record ok")
 end
 
+-- Source rows: an achievement or quest row shows the game's own tooltip for it; a shift-click on any row links
+-- the item, and a plain click does nothing.
+do
+    fresh(1040)
+    SOURCES[1040] = { { type = "achievement", data = { achievementID = 77, achievementName = "Feat" } },
+        { type = "quest", data = { questID = 78, questName = "Errand" } } }
+    HA.AchievementSources = { [1040] = { achievementID = 77, achievementName = "Feat" } }
+    HA.QuestSources = { [1040] = { questID = 78, questName = "Errand" } }
+    local list = show(1040)
+    local feat = list[assert(indexOf(list, "Feat"), "no achievement row")].row
+    local errand = list[assert(indexOf(list, "Errand"), "no quest row")].row
+    local realLink, links = B.ShowLinkTooltip, {}
+    B.ShowLinkTooltip = function(owner, link) links[#links + 1] = { owner, link } end
+    feat.scripts.OnEnter(feat)
+    errand.scripts.OnEnter(errand)
+    B.ShowLinkTooltip = realLink
+    assert(#links == 2 and links[1][1] == feat and links[1][2] == "achievement:77", "the achievement row's tooltip")
+    assert(links[2][1] == errand and links[2][2] == "quest:78", "the quest row falls back to the quest id")
+    feat.scripts.OnClick(feat)
+    assert(#linkedItems == 0, "a plain click linked the item")
+    modified = true
+    errand.scripts.OnClick(errand)
+    modified = false
+    assert(#linkedItems == 1 and linkedItems[1] == "item:1040", "a shift-click did not link the item")
+    print("hs538_item: source row tooltips and shift-click ok")
+end
+
+-- The first-time collection line reads as the game's preview does: white words, no mark, and the amount under
+-- the mouse.
+do
+    fresh(1041, { quality = 3, categoryIDs = { 1 }, firstAcquisitionBonus = 25, totalNumPlaced = 0, totalNumStored = 0 })
+    SOURCES[1041] = { vsrc(vendor(130, "Bonus Vendor")) }
+    local list = show(1041)
+    local d = list[assert(indexOf(list, "First-Time Collection Bonus Available"), "no first-time line")]
+    assert(d.glyph == nil and d.color[1] == 1 and d.color[2] == 1 and d.color[3] == 1, "the line is not plain white")
+    local tip = B.Tooltip()
+    d.frame.scripts.OnEnter(d.frame)
+    assert(#highlights == 1 and highlights[1].tip == tip and highlights[1].text == "First-Time Collection: 25"
+        and tip.owner == d.frame, "the amount is not under the mouse")
+    d.frame.scripts.OnLeave(d.frame)
+    print("hs538_item: first-time collection line ok")
+end
+
 -- The link tooltip: the game's own tooltip for a hyperlink on the browser's dedicated frame. A link the game
 -- cannot describe, or none, leaves no empty box.
 do
     local realTooltip = B.Tooltip
-    local lines, hyperlinks, owners, visible = 0, {}, {}, false
+    local lines, hyperlinks, owners, up = 0, {}, {}, false
     local tip = {
         SetOwner = function(_, owner, anchor)
             owners[#owners + 1] = { owner, anchor }
-            lines, visible = 0, false
+            lines, up = 0, false
         end,
         SetHyperlink = function(_, link)
             hyperlinks[#hyperlinks + 1] = link
             lines = link == "achievement:9001" and 3 or 0
         end,
         NumLines = function() return lines end,
-        Show = function() visible = true end,
-        Hide = function() visible = false end,
+        Show = function() up = true end,
+        Hide = function() up = false end,
     }
     B.Tooltip = function() return tip end
     local owner = {}
     B.ShowLinkTooltip(owner, "achievement:9001")
-    assert(hyperlinks[1] == "achievement:9001" and owners[1][1] == owner and owners[1][2] == "ANCHOR_RIGHT" and visible,
+    assert(hyperlinks[1] == "achievement:9001" and owners[1][1] == owner and owners[1][2] == "ANCHOR_RIGHT" and up,
         "the tooltip is set from the link on the row")
     B.ShowLinkTooltip(owner, "quest:7")
-    assert(hyperlinks[2] == "quest:7" and not visible, "a link the game cannot describe leaves no empty tooltip")
-    visible = true
+    assert(hyperlinks[2] == "quest:7" and not up, "a link the game cannot describe leaves no empty tooltip")
+    up = true
     B.ShowLinkTooltip(owner, nil)
-    assert(#hyperlinks == 2 and not visible, "no link sets nothing and hides the tooltip")
+    assert(#hyperlinks == 2 and not up, "no link sets nothing and hides the tooltip")
     B.Tooltip = realTooltip
     print("hs538_item: link tooltip ok")
+end
+
+-- A source row's first line keeps to its own width when the page has room, takes only the room the Show button
+-- and waypoint leave when it is narrow, and then gives the whole line under the mouse.
+do
+    fresh(1042)
+    SOURCES[1042] = { vsrc(vendor(140, "A Vendor With A Long Name")) }
+    local list = show(1042)
+    local row = list[assert(indexOf(list, "A Vendor With A Long Name"), "no vendor row")].row
+    local one = row.one
+    local SP = S.space
+    local function room()
+        local left = host:GetWidth() - S.layout.scrollBarGap - 12 - SP.xs
+        for _, c in ipairs({ row.show, row.wp }) do
+            if c.shown then left = left - c:GetWidth() - SP.xs end
+        end
+        return left
+    end
+    assert(row.show.shown, "the row has no Show button")
+    assert(row.show.pts.LEFT[2] == one, "the Show button does not follow the line")
+    assert(room() > #one.text * 6 + 1, "the wide case has no spare room")
+    assert(one.width == #one.text * 6 + 1 and not one:IsTruncated(), "the line does not keep to its own width")
+    host:SetWidth(260)
+    Item:Refresh("layout")
+    assert(room() < #one.text * 6, "the narrow case is not tight")
+    assert(one.width == room() and one:IsTruncated(), "the line overran the room left: " .. one.width)
+    assert(row.show.shown and row.show.pts.LEFT[2] == one, "the Show button was pushed off the line")
+    local tip = B.Tooltip()
+    tip.lines = {}
+    row.scripts.OnEnter(row)
+    assert(tip.owner == row and tip.text == one.text, "the truncated line is not whole under the mouse")
+    row.scripts.OnLeave(row)
+    host:SetWidth(600)
+    Item:Refresh("layout")
+    print("hs538_item: row line width ok")
 end
 
 print("hs538_item: ok")

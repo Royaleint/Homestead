@@ -20,6 +20,7 @@ return function(root, opts)
         calendar = {}, themes = {}, measured = {}, maps = {}, playerMap = nil, stats = {},
         all = {}, boxList = {}, timers = {}, saves = {}, waypoints = {}, reports = {}, itemShows = {},
         walkCalls = 0, combat = false, fontStrings = {}, textures = {}, emptySets = {}, links = {}, linked = {},
+        sceneIDs = {}, models = {}, clears = 0, noActor = {},
     }
     for k, v in pairs(opts or {}) do env[k] = v end
 
@@ -245,9 +246,31 @@ return function(root, opts)
             w.ScrollBar.SetHideIfUnscrollable = function(self, on) self.hideIfUnscrollable = on end
         elseif template == "UICheckButtonTemplate" then
             w.Text = Widget("FontString")
+        elseif template == "NoZoomModelSceneMixinTemplate" then
+            -- A decor scene's actor is tagged "decor", unless env.noActor names the scene. env.sceneIDs and
+            -- env.models record what the scene is given; env.clears counts ClearScene.
+            local actor = {}
+            function actor:SetPreferModelCollisionBounds(on) self.bounds = on end
+            function actor:SetModelByFileID(id) env.models[#env.models + 1] = id end
+            w.actor = actor
+            function w:TransitionToModelSceneID(id, transition, modification, force)
+                env.sceneIDs[#env.sceneIDs + 1] = id
+                self.sceneID, self.sceneArgs = id, { transition, modification, force }
+            end
+            function w:GetActorByTag(tag)
+                return tag == "decor" and self.sceneID and not env.noActor[self.sceneID] and actor or nil
+            end
+            function w:ClearScene()
+                self.sceneID = nil
+                env.clears = env.clears + 1
+            end
+            function w:EnableMouseWheel(on) self.wheel = on end
         end
         return w
     end)
+    G("Constants", { HousingCatalogConsts = { HOUSING_CATALOG_DECOR_MODELSCENEID_DEFAULT = 1317 } })
+    G("CAMERA_TRANSITION_TYPE_IMMEDIATE", "immediate")
+    G("CAMERA_MODIFICATION_TYPE_DISCARD", "discard")
     G("CreateFont", function() return Widget("Font") end)
     G("C_Texture", { GetAtlasInfo = function() return nil end })
     G("PixelUtil", { SetHeight = noop, SetWidth = noop })
@@ -459,11 +482,17 @@ return function(root, opts)
     for _, file in ipairs({ "Summary", "Catalog", "Sources", "Item" }) do Load("UI/Browser/" .. file .. ".lua") end
     env.pageCount = #env.pageList
 
-    -- Every call that fills or clears the item detail.
-    local detail = B.ItemDetail
-    local realShow, realClear = detail.Show, detail.Clear
-    detail.Show = function(id) env.itemShows[#env.itemShows + 1] = id return realShow(id) end
-    detail.Clear = function() env.itemShows[#env.itemShows + 1] = false return realClear() end
+    -- Every item the item page is shown for.
+    for _, page in ipairs(env.pageList) do
+        if env.pageKinds[page] == "item" then
+            local realShow = page.Show
+            function page.Show(self, route, saved)
+                local out = realShow(self, route, saved)
+                env.itemShows[#env.itemShows + 1] = route.id
+                return out
+            end
+        end
+    end
 
     ---------------------------------------------------------------------------
     -- Map: Eastern Kingdoms > Stormwind (the player), Elwynn Forest; Kalimdor > Orgrimmar
@@ -665,6 +694,17 @@ return function(root, opts)
     function env.selectedItem()
         local shows = env.itemShows
         return shows[#shows]
+    end
+    -- The item page: the first line of each shown source row, top to bottom.
+    function env.itemRows()
+        local rows = {}
+        for _, f in ipairs(env.all) do
+            if f.one and f.shown and env.ownerKind(f) == "item" then rows[#rows + 1] = f end
+        end
+        table.sort(rows, function(a, b) return a.pt[5] > b.pt[5] end)
+        local out = {}
+        for i, f in ipairs(rows) do out[i] = f.one.text end
+        return table.concat(out, " | ")
     end
     -- Sources: the main list's rows, its footer and its box.
     function env.sourcesList()

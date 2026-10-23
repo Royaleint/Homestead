@@ -156,43 +156,52 @@ do
     print("hs538_catalog_page: Back restore ok")
 end
 
--- The item page: Hide clears it, Refresh draws it again, the id is kept, combat reaches it, the crumb names it.
+-- The item page: a zone change orders its open vendors again, a stats refresh leaves it alone, Hide keeps the
+-- item and a refresh after Hide draws it again, combat reaches it, the crumb names it.
 do
     local env = world()
     local win = env.B.Window
     local page = pageOf(env, "item")
     local shows = env.itemShows
-    env.B.Go({ kind = "item", id = 2 })
-    eq(shows[#shows], 2, "the page fills the detail")
-    eq(win.crumbs[#win.crumbs].text.text, "Elm Chair", "the crumb names the item")
+    local s = env.vendors
+    env.decor(70, "Twin Lamp")
+    env.sell(70, s[101], { gold = 5 })
+    env.sell(70, s[100], { gold = 5 })
+    env.dataChanged()
+    env.B.Go({ kind = "item", id = 70 })
+    eq(shows[#shows], 70, "the page shows the item")
+    eq(win.crumbs[#win.crumbs].text.text, "Twin Lamp", "the crumb names the item")
     eq(win.crumbs[#win.crumbs - 1].text.text, "Catalog", "under Catalog")
+    local here = env.itemRows()
+    assert(here:find("^|c%x+Vendor:|r Anna"), "the vendor in the player's zone comes first: " .. here)
+
+    env.playerMap = 11
+    page:Refresh("stats")
+    eq(env.itemRows(), here, "a stats refresh leaves a shown page alone")
+    page:Refresh("zone")
+    local there = env.itemRows()
+    assert(there:find("^|c%x+Vendor:|r Bran"), "a zone change does not order the open vendors again: " .. there)
 
     local n = #shows
-    page:Refresh("zone")
-    page:Refresh("stats")
-    eq(#shows, n, "a zone or stats refresh leaves a shown page alone")
-    page:Refresh("data")
-    eq(#shows, n + 1, "any other refresh draws it again")
-    eq(shows[#shows], 2)
-
     page:Hide()
-    eq(shows[#shows], false, "Hide clears the detail")
+    eq(#shows, n, "Hide shows nothing")
+    eq(shows[#shows], 70, "Hide keeps the item")
+    env.playerMap = 10
     page:Refresh("stats")
-    eq(shows[#shows], 2, "a refresh after Hide draws the same item again, without a Show")
-    page:Refresh("zone")
-    page:Hide()
-    page:Refresh("zone")
-    eq(shows[#shows], 2, "even a zone refresh")
+    eq(env.itemRows(), here, "a refresh after Hide draws the same item again, without a Show")
 
     env.B.Go({ kind = "overview" })
-    eq(shows[#shows], false, "leaving the page clears the detail")
+    eq(shows[#shows], 70, "leaving the page keeps the item")
     env.B.Back()
-    eq(shows[#shows], 2, "Back draws the item again")
+    eq(shows[#shows], 70, "Back shows the item again")
+    eq(#shows, n + 1, "through one Show")
 
-    local combat
-    env.B.ItemDetail.SetCombat = function(on) combat = on end
+    local report = env.find("catalog", function(f) return f.kind == "Button" and type(f.text) == "table"
+        and f.text.text == "Report a problem" end)
+    eq(report.enabled, true, "Report is on out of combat")
     page:SetCombat(true)
-    eq(combat, true, "combat reaches the detail through the table")
+    eq(report.enabled, false, "combat turns the page's Report off")
+    page:SetCombat(false)
 
     env.B.Go({ kind = "item", id = 9999 })
     eq(win.crumbs[#win.crumbs].text.text, "Item 9999", "an item with no name reads Item N in the crumb")

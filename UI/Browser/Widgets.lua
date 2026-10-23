@@ -147,6 +147,37 @@ function W.NewLink(parent, label, onClick, onEnter)
     return b
 end
 
+-- The muted "Report a problem" link. It is off in combat and says why under the mouse.
+function W.ReportLink(parent, onClick)
+    local b = W.NewLink(parent, L["Report a problem"], onClick, function(self)
+        if self:IsEnabled() then return end
+        local tip = B.Tooltip()
+        tip:SetOwner(self, "ANCHOR_RIGHT")
+        tip:SetText(L["Not available in combat"])
+        tip:Show()
+    end)
+    b:SetMotionScriptsWhileDisabled(true)
+    return b
+end
+
+-- A tooltip for a one-line text that is cut off, or always when fs.tip is set. Returns the mouse frame.
+function W.Clip(fs)
+    local hit = CreateFrame("Frame", nil, fs:GetParent())
+    hit:SetAllPoints(fs)
+    hit:EnableMouse(true)
+    hit:SetScript("OnEnter", function(self)
+        local text = fs.tip or fs:IsTruncated() and fs:GetText()
+        if text then
+            local tip = B.Tooltip()
+            tip:SetOwner(self, "ANCHOR_RIGHT")
+            tip:SetText(text, nil, nil, nil, nil, true)
+            tip:Show()
+        end
+    end)
+    hit:SetScript("OnLeave", HideTip)
+    return hit
+end
+
 function W.NewSearchBox(parent, placeholder, onChange)
     local box = CreateFrame("EditBox", nil, parent, "SearchBoxTemplate")
     box:SetFontObject(S.font.body)

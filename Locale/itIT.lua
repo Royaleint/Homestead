@@ -517,4 +517,7 @@ L["%s (done)"] = "%s (fatto)"
 L["%s (not yet)"] = "%s (non ancora)"
 L["Can't check this requirement yet"] = "Non è ancora possibile verificare questo requisito"
 L["Active now: %s"] = "Attivo ora: %s"
+L["Decor Browser"] = "Browser delle decorazioni"
+L["Show 3D preview"] = "Mostra anteprima 3D"
+L["desc_browser_model3d"] = "Mostra un modello 3D dell'oggetto nella sua pagina del browser delle decorazioni."
 -- end: Item

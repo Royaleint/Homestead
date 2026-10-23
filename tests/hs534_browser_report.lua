@@ -45,15 +45,8 @@ has(text, "Vendor 219318: Far Trader, Dornogal, no location")
 has(text, "Client: 12.0.5 (66102)")
 has(text, "Homestead: 2.14.1")
 
--- The page that gathers the report is the item detail the Catalog hosts: its four-call contract is
--- intact, with nothing else on it, and its Report hands the adapter's builder to the output window.
-local detail = HA.DecorBrowser.ItemDetail
-for _, name in ipairs({ "Build", "Show", "Clear", "SetCombat" }) do
-    assert(type(detail[name]) == "function", "ItemDetail." .. name .. " is missing")
-end
-local fields = 0
-for _ in pairs(detail) do fields = fields + 1 end
-assert(fields == 4, "ItemDetail carries more than its four calls")
+-- The page that gathers the report is the item page: its Report hands the adapter's builder to the output
+-- window.
 assert(readFile("UI/Browser/Item.lua"):find("D.ReportText(", 1, true), "the item page no longer reaches the report builder")
 
 -- Missing pieces still produce a complete report, never an error.

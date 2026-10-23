@@ -1,16 +1,18 @@
--- Item detail: one decor item's state, flags, requirements and sources in a scroll pane.
+-- The item page: one decor item. A fixed top holds the head (tile, name, kind, state and flags) and, beside the
+-- 3D preview, what the item requires and how many the player has; a scroll below holds its sources and the
+-- Report link. The preview is never inside the scroll, since a model scene is not clipped by a scroll frame.
+-- What does not fit beside the preview, or has no preview to sit beside, leads the scroll instead.
+-- luacheck: read globals Constants
 local _, HA = ...
 
 local B = HA.DecorBrowser
-local L = HA.L
-local S = B.Style
-local W = B.Widgets
-local K = S.color
-local SP = S.space
+local L, S, W = HA.L, B.Style, B.Widgets
+local F = B.Facts
+local K, SP, LO = S.color, S.space, S.layout
 
-local PAD = SP.m
 local MARK = 12
-local FALLBACK_W = S.cols.detail - 2 * PAD - S.layout.scrollBarGap
+local THUMB = S.model.thumb
+local PREVIEW_W, PREVIEW_H = S.model.preview[1], S.model.preview[2]
 
 local SHOW = {
     vendor = L["Show vendor"], achievement = L["Show achievement"], quest = L["Show quest"],
@@ -18,30 +20,30 @@ local SHOW = {
 }
 
 local Page = {}
-local scroll, content, parts
-local lines, buttons = {}, {}
-local items, head, flagged
+local P = {}
+local shownID, torn, wait, drawnW
+-- The item, model and setting the preview last loaded; nil after Hide, so the next draw loads again.
+local modelKey
 
-local function Line(text, glyph, color, role)
-    items[#items + 1] = { text = text, glyph = glyph, color = color or K.body, role = role }
+local function Text(parent, role)
+    local fs = S.Text(parent, role, "OVERLAY")
+    fs:SetJustifyH("LEFT")
+    return fs
 end
 
-local function Heading(text)
-    items[#items + 1] = { gap = true }
-    Line(text, nil, K.gold, "subheader")
+local function Joined(parts)
+    local out = parts[1]
+    for i = 2, #parts do out = L["%s · %s"]:format(out, parts[i]) end
+    return out
 end
 
-local function Pair(label, value)
-    Line(S.Colored(K.gold, label) .. " " .. value)
+local function Labeled(label, value, extra)
+    local text = S.Colored(K.gold, label) .. " " .. value
+    return extra and L["%s · %s"]:format(text, extra) or text
 end
 
-local function Act(label, fn, gated)
-    items[#items + 1] = { act = label, fn = fn, gated = gated }
-end
-
-local function Waypoint(label, mapID, x, y, title, data)
-    if not (mapID and x and y) then return end
-    Act(label, function() HA.Waypoints:Set(mapID, x, y, { title = title, data = data }) end)
+local function Spot(mapID, x, y, title, data)
+    return mapID and x and y and { mapID = mapID, x = x, y = y, title = title, data = data } or nil
 end
 
 local function ShowSource(sourceType, key)
@@ -53,12 +55,12 @@ end
 
 local function Report()
     if InCombatLockdown() then return end
-    local D, itemID = B.Data, Page.itemID
-    local info = D.CatalogInfo(itemID, B.State and B.State.catalogMemo)
+    local D, itemID = B.Data, shownID
+    local info = D.CatalogInfo(itemID, B.State.catalogMemo)
     local build, buildNumber = GetBuildInfo()
     HA.OutputWindow:Show(L["Report a data error"], D.ReportText({
         itemID = itemID, name = D.ItemName(itemID, info),
-        recordID = D.RecordID(itemID, info), vendors = Page.vendors,
+        recordID = D.RecordID(itemID, info), vendors = P.vendors,
         build = build, buildNumber = buildNumber, version = HA.Constants.VERSION,
     }))
 end
@@ -66,99 +68,112 @@ end
 -- Open vendors by nearness, then other vendors, other sources, other-faction vendors.
 local function Rank(b)
     if not b.vendor then return 6 end
-    if b.offer == "can" then return B.Facts.Nearness(b.mapID, B.Facts.Here()) end
+    if b.offer == "can" then return F.Nearness(b.mapID, F.Here()) end
     return B.Data.IsOppositeFaction(b.vendor) and 9 or 5
 end
 
-local function EventLine(name, active)
-    if active and flagged[name] then return end
-    Line(active and L["Active now: %s"]:format(name) or W.StateWords("event", name), "clock",
-        active and K.badge or K.muted)
+-- A part of a source row's second line; the first one with a glyph also marks the row.
+local function Status(row, words, glyph, color)
+    row.status[#row.status + 1] = color and S.Colored(color, words) or words
+    if glyph and not row.glyph then row.glyph, row.color = glyph, color or K.muted end
 end
 
-local function VendorBlock(itemID, b)
-    local D, F, v = B.Data, B.Facts, b.vendor
-    Pair(L["Vendor:"], v.name or L["Unknown"])
-    if v.zone then
-        Pair(L["Zone:"], v.subzone and L["%s, %s"]:format(v.subzone, v.zone) or v.zone)
+-- An event the head already flags as on is not repeated on the row.
+local function EventStatus(row, name, active, flagged)
+    if active and flagged[name] then return end
+    if active then
+        Status(row, L["Active now: %s"]:format(name), "clock", K.badge)
     else
-        Line(L["Location not recorded"], nil, K.muted)
+        Status(row, W.StateWords("event", name), "clock")
     end
-    local price = D.Price(itemID, v)
-    if price then Pair(L["Cost:"], price) end
+end
+
+local function VendorRow(itemID, b, flagged)
+    local D, v = B.Data, b.vendor
+    local row = { status = {}, one = Labeled(L["Vendor:"], v.name or L["Unknown"], D.Price(itemID, v)) }
+    Status(row, v.zone and (v.subzone and L["%s, %s"]:format(v.subzone, v.zone) or v.zone) or L["Location not recorded"])
     local label = D.IsOppositeFaction(v) and D.VendorFactionLabel(v)
-    if label then Line(W.StateWords("faction", label), "stop", K.stop) end
+    if label then Status(row, W.StateWords("faction", label), "stop", K.stop) end
+    if b.offer == "can" then Status(row, L["Can get now here"], "dot", K.can) end
     local ev = F.EventVendor(b.npcID)
     local event = ev and ev.event or v.event
-    if event then EventLine(event, F.BrowserListed(v)) end
-    if b.offer == "can" then Line(L["Can get now here"], "dot", K.can) end
+    if event then EventStatus(row, event, F.BrowserListed(v), flagged) end
     local confirmed = F.Confirmed(v)
     if confirmed then
-        Line(L["Confirmed by a scan on %s"]:format(confirmed), "check", K.muted)
+        Status(row, L["Confirmed by a scan on %s"]:format(confirmed))
     else
-        Line(F.NotConfirmed(), nil, K.muted)
+        Status(row, L["Not confirmed"])
+        row.note = F.NotConfirmed()
     end
     local key = F.SourceKey("vendors", { npcID = b.npcID }, itemID)
-    if key then Act(SHOW.vendor, ShowSource("vendors", key)) end
-    Waypoint(L["Set waypoint"], b.mapID, b.x, b.y, v.name, { type = "vendor", npcID = b.npcID })
+    if key then row.show = { SHOW.vendor, ShowSource("vendors", key) } end
+    row.wp = Spot(b.mapID, b.x, b.y, v.name, { type = "vendor", npcID = b.npcID })
+    return row
 end
 
-local function OtherBlock(itemID, src)
-    local F, t = B.Facts, src.type
+local function OtherRow(itemID, src, flagged)
+    local t = src.type
     local name = src.name or L["Unknown"]
+    local row = { status = {} }
     if t == "achievement" then
-        Pair(L["Achievement:"], name)
+        row.one = Labeled(L["Achievement:"], name)
     elseif t == "quest" then
-        Pair(L["Quest:"], name)
-        local spot, start = F.TreasureSpot(src.questID), F.QuestStart(src.questID)
-        if spot then Line(L["Daily from The Last Architect"], nil, K.muted) end
+        row.one = Labeled(L["Quest:"], name)
+        local start, spot = F.QuestStart(src.questID), F.TreasureSpot(src.questID)
         if start then
             local map = C_Map.GetMapInfo(start.mapID)
-            Line(L["Starts in %s"]:format(map and map.name or L["Unknown"]), nil, K.muted)
-            Waypoint(L["Set waypoint"], start.mapID, start.x, start.y, name)
+            Status(row, L["Starts in %s"]:format(map and map.name or L["Unknown"]))
+            row.wp = Spot(start.mapID, start.x, start.y, name)
         end
-        if spot then Waypoint(L["Set dig site waypoint"], spot.mapID, spot.x, spot.y, name) end
+        if spot then
+            local map = C_Map.GetMapInfo(spot.mapID)
+            Status(row, L["Daily from The Last Architect"])
+            Status(row, L["Dig site in %s"]:format(map and map.name or L["Unknown"]))
+            row.wp2 = Spot(spot.mapID, spot.x, spot.y, name)
+        end
     elseif t == "profession" then
-        Pair(L["Recipe:"], name)
-        if src.profession then Pair(L["Profession:"], src.profession) end
+        row.one = Labeled(L["Recipe:"], name)
+        if src.profession then Status(row, src.profession) end
     elseif t == "drop" then
-        Pair(L["Drop:"], name)
-        if src.zone then Pair(L["Zone:"], src.zone) end
-        if src.notes then Line(src.notes, nil, K.muted) end
-        Waypoint(L["Set waypoint"], src.mapID, src.x, src.y, name)
+        row.one = Labeled(L["Drop:"], name)
+        if src.zone then Status(row, src.zone) end
+        if src.notes then Status(row, src.notes) end
+        row.wp = Spot(src.mapID, src.x, src.y, name)
     elseif t == "event" then
-        Pair(L["Event:"], name)
-        if src.vendorName then Pair(L["Vendor:"], src.vendorName) end
-        if src.zone then Pair(L["Zone:"], src.zone) end
+        row.one = Labeled(L["Event:"], name)
+        if src.vendorName then Status(row, src.vendorName) end
+        if src.zone then Status(row, src.zone) end
         local CD = HA.CalendarDetector
-        EventLine(name, CD and CD:IsHolidayActive(name) == true)
-        Waypoint(L["Set waypoint"], src.mapID, src.x, src.y, name)
+        EventStatus(row, name, CD and CD:IsHolidayActive(name) == true, flagged)
+        row.wp = Spot(src.mapID, src.x, src.y, name)
     else
-        Line(B.Data.SourceLine(itemID, { src }))
+        row.one = B.Data.SourceLine(itemID, { src })
     end
     local sourceType = F.SOURCE_TYPE[t]
     local file = HA[B.CanGet.SOURCE_TABLES[sourceType] or ""]
     local key = sourceType and t ~= "shop" and F.SourceKey(sourceType, file and file[itemID], itemID)
-    if key then Act(SHOW[t], ShowSource(sourceType, key)) end
+    if key then row.show = { SHOW[t], ShowSource(sourceType, key) } end
+    local link = F.LINK[sourceType]
+    if link then row.link = function() return link(src) end end
+    return row
 end
 
--- The page as descriptors: lines, buttons and gaps.
+-- The page as data: the head, the facts beside the preview and the source rows.
 local function Describe(itemID)
-    local D, CG, F = B.Data, B.CanGet, B.Facts
-    items, flagged = {}, {}
-    local memo = B.State and B.State.catalogMemo
+    local D, CG = B.Data, B.CanGet
+    local memo = B.State.catalogMemo
     local e = CG.Entry(itemID)
     local info = e and e.info or D.CatalogInfo(itemID, memo)
-
     local quality = D.IconData(itemID, true, memo)
-    head = {
-        name = D.ItemName(itemID, info) or L["Item %d"]:format(itemID), quality = quality, icon = D.ItemIcon(itemID),
-        meta = L["%s - %s"]:format(quality and _G["ITEM_QUALITY" .. quality .. "_DESC"] or L["Unknown"],
+    local m = {
+        info = info, quality = quality, icon = D.ItemIcon(itemID),
+        name = D.ItemName(itemID, info) or L["Item %d"]:format(itemID),
+        meta = L["%s · %s"]:format(quality and _G["ITEM_QUALITY" .. quality .. "_DESC"] or L["Unknown"],
             S.kind[S.KindOf(info)]),
+        flags = {}, facts = {}, rows = {},
     }
 
-    local blocks, seen = {}, {}
-    Page.vendors = {}
+    local blocks, seen, vendors = {}, {}, {}
     local function addVendor(npcID)
         local v = npcID and not seen[npcID] and D.Vendor(npcID)
         if not v then return false end
@@ -166,7 +181,7 @@ local function Describe(itemID)
         local mapID, x, y = D.VendorLocation(v)
         blocks[#blocks + 1] = { vendor = v, npcID = npcID, mapID = mapID, x = x, y = y,
             offer = CG.Offer(itemID, npcID, e and e.info) }
-        Page.vendors[#Page.vendors + 1] = { npcID = npcID, name = v.name, zone = v.zone, mapID = mapID, x = x, y = y }
+        vendors[#vendors + 1] = { npcID = npcID, name = v.name, zone = v.zone, mapID = mapID, x = x, y = y }
         return true
     end
     for _, src in ipairs(D.ItemSources(itemID)) do
@@ -177,17 +192,13 @@ local function Describe(itemID)
     for _, npcID in ipairs(F.EventVendorsFor(itemID) or {}) do addVendor(npcID) end
     for i, b in ipairs(blocks) do b.rank = Rank(b) + i / 1000 end
     table.sort(blocks, function(a, c) return a.rank < c.rank end)
+    m.vendors = vendors
 
+    local flags, flagged = m.flags, {}
     local state, arg, at = B.ItemState(itemID)
     if state then
         local st = S.state[state]
-        Line(W.StateWords(state, arg), st.glyph, st.color)
-    end
-    if info and D.CollectionState() == "ready" then
-        local n = { info.totalNumPlaced, info.totalNumStored, info.remainingRedeemable }
-        for i, label in ipairs({ L["Placed"], L["In storage"], L["Not yet redeemed"] }) do
-            if (n[i] or 0) > 0 then Pair(label, tostring(n[i])) end
-        end
+        flags[#flags + 1] = { text = W.StateWords(state, arg), glyph = st.glyph, color = st.color }
     end
     local active
     for _, o in pairs(e and e.canBy or {}) do
@@ -195,193 +206,355 @@ local function Describe(itemID)
     end
     if active then
         flagged[active] = true
-        Line(L["Active now: %s"]:format(active), "clock", K.badge)
+        flags[#flags + 1] = { text = L["Active now: %s"]:format(active), glyph = "clock", color = K.badge }
     end
-    if e and e.bonus then
-        local blue = _G.BRIGHTBLUE_FONT_COLOR
-        Line(L["First-Time Collection Bonus Available"], "star", blue and { blue.r, blue.g, blue.b } or K.gold)
+    local bonus = e and e.bonus
+    if bonus then
+        -- As the game's own preview: white words, the amount under the mouse.
+        flags[#flags + 1] = { text = HOUSING_DECOR_FIRST_ACQUISITION_AVAILABLE or L["First-Time Collection Bonus Available"], color = K.body, tip = function(tip)
+            GameTooltip_AddHighlightLine(tip, HOUSING_DECOR_FIRST_ACQUISITION_FORMAT:format(bonus))
+        end }
     end
 
+    local facts = m.facts
     local reqs = D.Requirements(itemID, at or blocks[1] and blocks[1].npcID)
     if #reqs > 0 then
-        Heading(L["Requires"])
+        facts[#facts + 1] = { text = L["Requires"], color = K.gold, role = "bodyGold" }
         for _, r in ipairs(reqs) do
             if r.met == true then
-                Line(L["%s (done)"]:format(r.text), "check", K.muted)
+                facts[#facts + 1] = { text = L["%s (done)"]:format(r.text), glyph = "check", color = K.muted }
             elseif r.met == false then
-                Line(L["%s (not yet)"]:format(r.text), "lock")
+                facts[#facts + 1] = { text = L["%s (not yet)"]:format(r.text), glyph = "lock", color = K.body }
             else
-                Line(r.text, "lock")
-                Line(L["Can't check this requirement yet"], nil, K.muted)
+                facts[#facts + 1] = { text = r.text, glyph = "lock", color = K.body }
+                facts[#facts + 1] = { text = L["Can't check this requirement yet"], color = K.muted }
             end
         end
     end
-
-    Heading(L["Where to get it"])
-    if #blocks == 0 then Line(L["Source unknown"], nil, K.muted) end
-    for _, b in ipairs(blocks) do
-        items[#items + 1] = { gap = true }
-        if b.vendor then
-            VendorBlock(itemID, b)
-        else
-            OtherBlock(itemID, b.src)
+    if info and D.CollectionState() == "ready" then
+        local n, counts = { info.totalNumPlaced, info.totalNumStored, info.remainingRedeemable }, {}
+        for i, label in ipairs({ L["Placed"], L["In storage"], L["Not yet redeemed"] }) do
+            if (n[i] or 0) > 0 then counts[#counts + 1] = S.Colored(K.gold, label) .. " " .. n[i] end
         end
+        if counts[1] then facts[#facts + 1] = { text = Joined(counts), color = K.body } end
     end
-    items[#items + 1] = { gap = true }
-    Act(L["Report a problem"], Report, true)
+
+    for _, b in ipairs(blocks) do
+        m.rows[#m.rows + 1] = b.vendor and VendorRow(itemID, b, flagged) or OtherRow(itemID, b.src, flagged)
+    end
+    return m
 end
 
-local function NewLine()
-    local f = CreateFrame("Frame", nil, content)
+-- The preview -----------------------------------------------------------------
+
+local function Scene()
+    if not P.scene then
+        local scene = CreateFrame("ModelScene", nil, P.well, "NoZoomModelSceneMixinTemplate")
+        scene:SetPoint("TOPLEFT", P.well, "TOPLEFT", LO.panePad, -LO.panePad)
+        scene:SetPoint("BOTTOMRIGHT", P.well, "BOTTOMRIGHT", -LO.panePad, LO.panePad)
+        -- The wheel scrolls the page; the scene would swallow it.
+        scene:EnableMouseWheel(false)
+        P.scene = scene
+    end
+    return P.scene
+end
+
+-- The entry's own scene, else the catalog's default, as the game's own preview frames a decor model.
+local function Load(info, asset)
+    local scene = Scene()
+    local default = Constants.HousingCatalogConsts.HOUSING_CATALOG_DECOR_MODELSCENEID_DEFAULT
+    local actor
+    for _, id in ipairs({ info.uiModelSceneID or default, default }) do
+        scene:TransitionToModelSceneID(id, CAMERA_TRANSITION_TYPE_IMMEDIATE, CAMERA_MODIFICATION_TYPE_DISCARD, true)
+        actor = scene:GetActorByTag("decor")
+        if actor or id == default then break end
+    end
+    if not actor then return false end
+    actor:SetPreferModelCollisionBounds(true)
+    actor:SetModelByFileID(asset)
+    return true
+end
+
+-- Loads once per item, model and setting; true when the preview shows.
+local function Preview(itemID, info)
+    local asset = B.Model3D() and info and info.asset or nil
+    local key = itemID .. ":" .. tostring(asset)
+    if key ~= modelKey then
+        modelKey = key
+        P.live = asset ~= nil and Load(info, asset)
+        if not P.live and P.scene then P.scene:ClearScene() end
+    end
+    P.well:SetShown(P.live)
+    return P.live
+end
+
+-- Lines and rows ----------------------------------------------------------------
+
+local function LineTip(self)
+    if not self.tip then return end
+    local tip = B.Tooltip()
+    tip:SetOwner(self, "ANCHOR_LEFT")
+    self.tip(tip)
+    tip:Show()
+end
+
+local function NewLine(box)
+    local f = CreateFrame("Frame", nil, box)
     f.mark = f:CreateTexture(nil, "OVERLAY")
     f.mark:SetSize(MARK, MARK)
-    f.mark:SetPoint("TOPLEFT", 0, -1)
-    f.text = S.Text(f, "body", "OVERLAY")
-    f.text:SetJustifyH("LEFT")
+    f.text = Text(f, "body")
+    f:SetScript("OnEnter", LineTip)
+    f:SetScript("OnLeave", B.HideTooltip)
+    box.lines[#box.lines + 1] = f
     return f
 end
 
-local function NewAct()
-    local b = W.NewButton(content, "", function(self)
-        if self.act then self.act() end
-    end)
-    b:SetMotionScriptsWhileDisabled(true)
-    b:SetScript("OnEnter", function(self)
-        if self.gated and not self:IsEnabled() then
-            local tip = B.Tooltip()
-            tip:SetOwner(self, "ANCHOR_RIGHT")
-            tip:SetText(L["Not available in combat"])
-            tip:Show()
-        end
-    end)
-    b:SetScript("OnLeave", function() B.HideTooltip() end)
-    return b
+-- Stacks list's lines in box, each wrapping at w; returns the height they take.
+local function Stack(box, list, w)
+    local y = 0
+    for i, d in ipairs(list) do
+        local f = box.lines[i] or NewLine(box)
+        local role = d.role or "body"
+        local indent = d.glyph and MARK + SP.xs or 0
+        local th = W.TextHeight(role)
+        f.text:SetFontObject(S.FontName(role))
+        f.text:SetText(d.text)
+        f.text:SetTextColor(d.color[1], d.color[2], d.color[3])
+        local h = W.TextHeight(role, d.text, w - indent)
+        f.text:SetSize(w - indent, h)
+        f.text:SetPoint("TOPLEFT", f, "TOPLEFT", indent, 0)
+        B.Vis.Marker.Set(f.mark, d.glyph, d.color)
+        f.mark:SetPoint("TOPLEFT", f, "TOPLEFT", 0, -(th - MARK) / 2)
+        f.tip = d.tip
+        f:EnableMouse(d.tip ~= nil)
+        f:SetSize(w, h)
+        f:SetPoint("TOPLEFT", box, "TOPLEFT", 0, -y)
+        f:Show()
+        y = y + h + SP.xs
+    end
+    for i = #list + 1, #box.lines do box.lines[i]:Hide() end
+    box:SetSize(w, math.max(y - SP.xs, 1))
+    return #list > 0 and y - SP.xs or 0
 end
 
-local function Layout()
-    local w = scroll:GetWidth()
-    if w < 1 then w = FALLBACK_W end
-    content:SetWidth(w)
-    local r, g, b = W.QualityRGB(head.quality)
-    W.SetTile(parts.tile, { icon = head.icon }, r, g, b)
-    local textW = w - S.model.thumb - SP.s
-    parts.name:SetWidth(textW)
-    parts.name:SetText(head.name)
-    parts.name:SetTextColor(r, g, b)
-    parts.meta:SetWidth(textW)
-    parts.meta:SetText(head.meta)
-    local y = math.max(S.model.thumb, parts.name:GetStringHeight() + SP.xs + parts.meta:GetStringHeight()) + SP.m
+-- A source row's tooltip: the game's own for an achievement or quest, else the row's words when they are cut
+-- off or say less than the whole.
+local function RowTip(self)
+    local d = self.d
+    if d.link then return B.ShowLinkTooltip(self, d.link()) end
+    if not (d.note or self.one:IsTruncated() or self.two:IsShown() and self.two:IsTruncated()) then return end
+    local tip = B.Tooltip()
+    tip:SetOwner(self, "ANCHOR_RIGHT")
+    tip:SetText(d.one, 1, 1, 1, 1, true)
+    if self.two:IsShown() then tip:AddLine(self.two:GetText(), K.muted[1], K.muted[2], K.muted[3], true) end
+    if d.note then tip:AddLine(d.note, K.muted[1], K.muted[2], K.muted[3], true) end
+    tip:Show()
+end
 
-    local nl, nb = 0, 0
-    for _, d in ipairs(items) do
-        if d.gap then
-            y = y + SP.s
-        elseif d.act then
-            nb = nb + 1
-            buttons[nb] = buttons[nb] or NewAct()
-            local btn = buttons[nb]
-            btn.act, btn.gated = d.fn, d.gated
-            btn:SetText(d.act)
-            btn:Fit()
-            btn:SetEnabled(not (d.gated and Page.combat))
-            btn:SetPoint("TOPLEFT", content, "TOPLEFT", 0, -y)
-            btn:Show()
-            y = y + btn:GetHeight() + SP.xs
-        else
-            nl = nl + 1
-            lines[nl] = lines[nl] or NewLine()
-            local f = lines[nl]
-            local indent = d.glyph and MARK + SP.xs or 0
-            f.text:SetFontObject(S.FontName(d.role or "body"))
-            f.text:SetPoint("TOPLEFT", indent, 0)
-            f.text:SetWidth(w - indent)
-            f.text:SetText(d.text)
-            f.text:SetTextColor(d.color[1], d.color[2], d.color[3])
-            B.Vis.Marker.Set(f.mark, d.glyph, d.color)
-            local h = f.text:GetStringHeight()
-            f:SetSize(w, h)
-            f:SetPoint("TOPLEFT", content, "TOPLEFT", 0, -y)
-            f:Show()
-            y = y + h + SP.xs
+local function NewRow()
+    local f = CreateFrame("Button", nil, P.body)
+    f.mark = f:CreateTexture(nil, "OVERLAY")
+    f.mark:SetSize(MARK, MARK)
+    f.one, f.two = Text(f, "body"), Text(f, "bodyMuted")
+    f.one:SetWordWrap(false)
+    f.two:SetWordWrap(false)
+    f.show = W.NewButton(f, "", function(self) self.act() end)
+    f.wp, f.wp2 = W.WaypointButton(f), W.WaypointButton(f)
+    f:SetScript("OnClick", function() W.Linked(shownID) end)
+    f:SetScript("OnEnter", RowTip)
+    f:SetScript("OnLeave", B.HideTooltip)
+    P.rows[#P.rows + 1] = f
+    return f
+end
+
+-- One line of a row: the text, cut off where the controls after it and the row's edge leave room, then the
+-- shown controls. Returns the line's height.
+local function RowLine(f, fs, role, text, w, y, ...)
+    local th = W.TextHeight(role)
+    local room, h = w - MARK - SP.xs, th
+    for i = 1, select("#", ...) do
+        local c = select(i, ...)
+        if c:IsShown() then
+            room = room - c:GetWidth() - SP.xs
+            h = math.max(h, c:GetHeight())
         end
     end
-    for i = nl + 1, #lines do lines[i]:Hide() end
-    for i = nb + 1, #buttons do buttons[i]:Hide() end
-    content:SetHeight(y)
-end
-
-function Page.Build(host)
-    scroll = CreateFrame("ScrollFrame", nil, host, "ScrollFrameTemplate")
-    scroll:SetPoint("TOPLEFT", PAD, -PAD)
-    scroll:SetPoint("BOTTOMRIGHT", -(PAD + S.layout.scrollBarGap), PAD)
-    content = CreateFrame("Frame", nil, scroll)
-    content:SetSize(FALLBACK_W, 1)
-    scroll:SetScrollChild(content)
-    scroll:HookScript("OnSizeChanged", function()
-        if items then Layout() end
-    end)
-    local tile = W.NewTile(content, S.model.thumb)
-    tile.icon:SetPoint("TOPLEFT")
-    parts = { tile = tile, name = S.Text(content, "subheader", "OVERLAY"), meta = S.Text(content, "body", "OVERLAY") }
-    parts.name:SetPoint("TOPLEFT", tile.icon, "TOPRIGHT", SP.s, 0)
-    parts.meta:SetPoint("TOPLEFT", parts.name, "BOTTOMLEFT", 0, -SP.xs)
-    parts.meta:SetTextColor(K.muted[1], K.muted[2], K.muted[3])
-    parts.name:SetJustifyH("LEFT")
-    parts.meta:SetJustifyH("LEFT")
-    return scroll
-end
-
-function Page.Show(itemID)
-    Page.itemID = itemID
-    Page.combat = B.InCombat()
-    Describe(itemID)
-    Layout()
-    scroll:Show()
-end
-
-function Page.Clear()
-    Page.itemID, items = nil, nil
-    if scroll then scroll:Hide() end
-    for _, btn in ipairs(buttons) do B.HideTooltipFor(btn) end
-end
-
-function Page.SetCombat(inCombat)
-    Page.combat = inCombat
-    for _, btn in ipairs(buttons) do
-        if btn.gated and btn:IsShown() then btn:SetEnabled(not inCombat) end
+    fs:SetText(text)
+    fs:SetSize(math.max(math.min(fs:GetUnboundedStringWidth() + 1, room), 1), th)
+    fs:SetPoint("LEFT", f, "TOPLEFT", MARK + SP.xs, -(y + h / 2))
+    local prev = fs
+    for i = 1, select("#", ...) do
+        local c = select(i, ...)
+        if c:IsShown() then
+            c:SetPoint("LEFT", prev, "RIGHT", SP.xs, 0)
+            prev = c
+        end
     end
+    return h
 end
 
-B.ItemDetail = { Build = Page.Build, Show = Page.Show, Clear = Page.Clear, SetCombat = Page.SetCombat }
-
--- The item's own page, reached through B.ItemDetail at call time rather than through captured locals.
--- Interim: Hide clears the detail and Refresh draws it again; the item is kept across a Hide.
-local Route = {}
-local shownID, torn
-
-function Route:Build(parent)
-    B.ItemDetail.Build(parent)
+local function SetSpot(b, spot)
+    b:SetShown(spot ~= nil)
+    b.wp = spot
 end
 
-function Route:Show(route)
+local function SetRow(f, d, w)
+    f.d = d
+    f.show:SetShown(d.show ~= nil)
+    if d.show then
+        f.show.act = d.show[2]
+        f.show:SetText(d.show[1])
+        f.show:Fit()
+    end
+    SetSpot(f.wp, d.wp)
+    SetSpot(f.wp2, d.wp2)
+    local h = RowLine(f, f.one, "body", d.one, w, 0, f.show, f.wp)
+    B.Vis.Marker.Set(f.mark, d.glyph, d.color)
+    f.mark:SetPoint("TOPLEFT", f, "TOPLEFT", 0, -(h - MARK) / 2)
+    f.two:SetShown(d.status[1] ~= nil)
+    if d.status[1] then h = h + RowLine(f, f.two, "bodyMuted", Joined(d.status), w, h, f.wp2) end
+    f:SetSize(w, h)
+    f:Show()
+    return h
+end
+
+-- Drawing -----------------------------------------------------------------------
+
+local function Draw(fresh, saved)
+    local w = P.page:GetWidth()
+    if w <= 0 then
+        wait = { fresh or (wait and wait[1]) or false, saved or (wait and wait[2]) }
+        return
+    end
+    wait, drawnW = nil, w
+    local m = Describe(shownID)
+    P.vendors = m.vendors
+
+    local r, g, b = W.QualityRGB(m.quality)
+    W.SetTile(P.tile, { icon = m.icon }, r, g, b)
+    local tw = w - THUMB - SP.s
+    local nh, mh = W.TextHeight("subheader"), W.TextHeight("bodyMuted")
+    P.name:SetText(m.name)
+    P.name:SetTextColor(r, g, b)
+    P.name:SetSize(tw, nh)
+    P.meta:SetText(m.meta)
+    P.meta:SetSize(tw, mh)
+    local fh = Stack(P.flags, m.flags, tw)
+    local headH = math.max(THUMB, nh + SP.xs + mh + (fh > 0 and SP.xs + fh or 0))
+
+    local cw = w - LO.scrollBarGap
+    local live = Preview(shownID, m.info)
+    local sideW = w - PREVIEW_W - SP.m
+    local beside = live and #m.facts > 0 and Stack(P.facts, m.facts, sideW) <= PREVIEW_H
+    P.well:SetPoint("TOPLEFT", P.top, "TOPLEFT", 0, -(headH + SP.m))
+    P.top:SetHeight(headH + (live and SP.m + PREVIEW_H or 0))
+
+    local y = 0
+    if beside then
+        P.facts:SetParent(P.top)
+        P.facts:SetPoint("TOPLEFT", P.top, "TOPLEFT", PREVIEW_W + SP.m, -(headH + SP.m))
+    else
+        P.facts:SetParent(P.body)
+        local h = Stack(P.facts, m.facts, cw)
+        P.facts:SetPoint("TOPLEFT", P.body, "TOPLEFT", 0, 0)
+        if h > 0 then y = h + SP.m end
+    end
+    P.facts:SetShown(#m.facts > 0)
+
+    P.where:SetSize(cw, W.TextHeight("bodyGold"))
+    P.where:SetPoint("TOPLEFT", P.body, "TOPLEFT", 0, -y)
+    y = y + P.where:GetHeight() + SP.xs
+    P.unknown:SetShown(#m.rows == 0)
+    if #m.rows == 0 then
+        P.unknown:SetSize(cw, W.TextHeight("bodyMuted"))
+        P.unknown:SetPoint("TOPLEFT", P.body, "TOPLEFT", 0, -y)
+        y = y + P.unknown:GetHeight() + SP.s
+    end
+    for i, d in ipairs(m.rows) do
+        local f = P.rows[i] or NewRow()
+        f:SetPoint("TOPLEFT", P.body, "TOPLEFT", 0, -y)
+        y = y + SetRow(f, d, cw) + SP.s
+    end
+    for i = #m.rows + 1, #P.rows do P.rows[i]:Hide() end
+    P.report:Fit()
+    P.report:SetPoint("TOPLEFT", P.body, "TOPLEFT", 0, -(y + SP.xs))
+    P.body:SetSize(cw, y + SP.xs + P.report:GetHeight())
+    P.sf:UpdateScrollChildRect()
+    if fresh then P.sf:SetVerticalScroll(saved and saved.scroll or 0) end
+end
+
+function Page:Build(parent)
+    P.page, P.rows = parent, {}
+    P.top = CreateFrame("Frame", nil, parent)
+    P.top:SetPoint("TOPRIGHT", parent, "TOPRIGHT", 0, 0)
+    P.top:SetPoint("TOPLEFT", parent, "TOPLEFT", 0, 0)
+    P.tile = W.NewTile(P.top, THUMB)
+    P.tile.icon:SetPoint("TOPLEFT", P.top, "TOPLEFT", 0, 0)
+    P.name, P.meta = Text(P.top, "subheader"), Text(P.top, "bodyMuted")
+    P.name:SetWordWrap(false)
+    P.meta:SetWordWrap(false)
+    W.Clip(P.name)
+    P.name:SetPoint("TOPLEFT", P.top, "TOPLEFT", THUMB + SP.s, 0)
+    P.meta:SetPoint("TOPLEFT", P.name, "BOTTOMLEFT", 0, -SP.xs)
+    P.flags = CreateFrame("Frame", nil, P.top)
+    P.flags.lines = {}
+    P.flags:SetPoint("TOPLEFT", P.meta, "BOTTOMLEFT", 0, -SP.xs)
+    P.well = W.Well(P.top)
+    P.well:SetSize(PREVIEW_W, PREVIEW_H)
+    P.facts = CreateFrame("Frame", nil, P.top)
+    P.facts.lines = {}
+
+    P.sf = CreateFrame("ScrollFrame", nil, parent, "ScrollFrameTemplate")
+    P.sf:SetPoint("BOTTOMRIGHT", parent, "BOTTOMRIGHT", -LO.scrollBarGap, 0)
+    P.sf:SetPoint("TOPLEFT", P.top, "BOTTOMLEFT", 0, -SP.m)
+    P.sf.ScrollBar:SetHideIfUnscrollable(true)
+    P.body = CreateFrame("Frame", nil, P.sf)
+    P.sf:SetScrollChild(P.body)
+    P.where = Text(P.body, "bodyGold")
+    P.where:SetText(L["Where to get it"])
+    P.unknown = Text(P.body, "bodyMuted")
+    P.unknown:SetText(L["Source unknown"])
+    P.report = W.ReportLink(P.body, Report)
+
+    -- The wheel over the fixed top scrolls the sources below it.
+    P.top:EnableMouseWheel(true)
+    P.top:SetScript("OnMouseWheel", function(_, delta)
+        local scroll = P.sf:GetScript("OnMouseWheel")
+        if scroll then scroll(P.sf, delta) end
+    end)
+    parent:HookScript("OnSizeChanged", function(_, w)
+        if shownID and not torn and w > 0 and (wait or w ~= drawnW) then
+            Draw(wait and wait[1] or false, wait and wait[2])
+        end
+    end)
+end
+
+function Page:Show(route, saved)
     shownID, torn = route.id, false
-    B.ItemDetail.Show(shownID)
+    Draw(true, saved)
 end
 
-function Route:Save() end
-
-function Route:Hide()
-    torn = true
-    B.ItemDetail.Clear()
+function Page:Save()
+    return { scroll = P.sf:GetVerticalScroll() }
 end
 
--- A zone or stats refresh changes nothing on the page unless Hide cleared it.
-function Route:Refresh(reason)
-    if shownID and (torn or reason ~= "zone" and reason ~= "stats") then self:Show({ id = shownID }) end
+-- The item is kept; the preview is let go and loads again on the next draw.
+function Page:Hide()
+    torn, modelKey = true, nil
+    if P.scene then P.scene:ClearScene() end
+    B.HideTooltip()
 end
 
-function Route:SetCombat(inCombat)
-    B.ItemDetail.SetCombat(inCombat)
+-- A zone change draws again: open vendors are ordered by nearness to the player.
+function Page:Refresh(reason)
+    if not (P.body and shownID) then return end
+    if not torn and (reason == "stats" or reason == "hide") then return end
+    torn = false
+    Draw(false)
 end
 
-B.RegisterPage("item", Route)
+function Page:SetCombat(inCombat)
+    if P.report then P.report:SetEnabled(not inCombat) end
+end
+
+B.RegisterPage("item", Page)

@@ -6,7 +6,7 @@ local root = (... or "."):gsub("\\\\", "/"):gsub("/+$", "")
 -------------------------------------------------------------------------------
 -- Decor Browser settings: the saved defaults, writes only on player actions and
 -- only into profile.browser, the window's fixed size, the save on a drop only,
--- and no Options rows. The clamp and the drop itself run in hs538_window.
+-- and one Options row, the 3D preview. The clamp and the drop itself run in hs538_window.
 -------------------------------------------------------------------------------
 
 local function readFile(path)
@@ -16,7 +16,8 @@ local function readFile(path)
     return text
 end
 
--- Defaults: two keys, and nothing the player has not set yet.
+-- Defaults: three keys, and nothing the player has not set yet. The 3D preview is on by default; a profile
+-- saved before it existed has no model3D and reads the default.
 do
     local HA = {}
     assert(loadfile(root .. "/Core/constants.lua"))("Homestead", HA)
@@ -24,8 +25,8 @@ do
     assert(d, "profile.browser has no defaults")
     local keys = 0
     for _ in pairs(d) do keys = keys + 1 end
-    assert(keys == 2 and d.hideNA == false and d.tipSeen == false and d.position == nil,
-        "profile.browser defaults must be exactly hideNA = false and tipSeen = false")
+    assert(keys == 3 and d.hideNA == false and d.tipSeen == false and d.model3D == true and d.position == nil,
+        "profile.browser defaults must be exactly hideNA = false, tipSeen = false and model3D = true")
 end
 
 -- Every write to the saved tables is recorded as "<table>.<key>".
@@ -150,8 +151,33 @@ assert(window:find("SavedCorner", 1, true) and window:find("Win.Fit(true)", 1, t
 assert(not window:find("SetResiz", 1, true), "the window must not be resizable")
 local browser = readFile("UI/Browser/Browser.lua")
 local _, browserSaves = browser:gsub("B%.Save%(\"", "")
-assert(browserSaves == 1, "the router saves only the Hide toggle")
+assert(browserSaves == 2, "the router saves only the Hide toggle and the 3D preview setting")
 TakeWrites()
+
+-- Options: one Decor Browser header and one checkbox, the 3D preview. A profile without the key reads on; the
+-- checkbox writes model3D alone, while the browser is open or closed.
+do
+    assert(loadfile(root .. "/UI/OptionsModel.lua"))("Homestead", HA)
+    local found = {}
+    for _, section in ipairs(HA.OptionsModel.sections) do
+        for _, row in ipairs(section.rows) do
+            if tostring(row.key):find("^browser") then found[#found + 1] = row end
+        end
+    end
+    assert(#found == 2 and found[1].type == "header" and found[2].type == "checkbox"
+        and found[2].label == "Show 3D preview", "the Options rows for the Decor Browser are not one header and one checkbox")
+    local box = found[2]
+    assert(saved.model3D == nil and box.get() == true, "a profile without the key does not read on")
+    box.set(false)
+    assert(TakeWrites() == "browser.model3D" and saved.model3D == false and box.get() == false,
+        "the checkbox did not write model3D alone")
+    B:Close()
+    box.set(true)
+    assert(TakeWrites() == "browser.model3D" and saved.model3D == true and box.get() == true,
+        "the checkbox did not write model3D alone while the browser is closed")
+    B:Open()
+    TakeWrites()
+end
 
 -- A profile.browser that is not a table is never trusted: writes are skipped.
 do
@@ -169,17 +195,6 @@ end
 assert(#allWrites >= 2, "the write log missed the player actions")
 for _, entry in ipairs(allWrites) do
     assert(entry:find("^browser%."), "wrote outside profile.browser: " .. entry)
-end
-
--- Options carry no Decor Browser rows.
-do
-    local OHA = { L = HA.L, Addon = { db = { profile = { browser = {} } } } }
-    assert(loadfile(root .. "/UI/OptionsModel.lua"))("Homestead", OHA)
-    for _, section in ipairs(OHA.OptionsModel.sections) do
-        for _, row in ipairs(section.rows) do
-            assert(not tostring(row.key):find("^browser"), "an Options row belongs to the Decor Browser: " .. row.key)
-        end
-    end
 end
 
 print("hs534_browser_persistence: ok")

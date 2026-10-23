@@ -145,6 +145,12 @@ F.SOURCE_TYPE = {
     drop = "drops", event = "events", shop = "shop",
 }
 
+-- The game's own hyperlink for the source types it describes, by Sources type.
+F.LINK = {
+    achievements = function(d) return GetAchievementLink(d.achievementID) end,
+    quests = function(d) return GetQuestLink(d.questID) or ("quest:" .. d.questID) end,
+}
+
 -- The only builder of Sources row keys and onward-link keys. nil draws no "Show" button.
 function F.SourceKey(sourceType, data, itemID)
     if not data then return nil end

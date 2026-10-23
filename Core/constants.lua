@@ -551,6 +551,7 @@ Constants.Defaults = {
         browser = {
             hideNA = false,
             tipSeen = false,
+            model3D = true,  -- the item page's 3D preview
         },
 
         -- Version-check notifications (HS-086)

@@ -230,6 +230,18 @@ local function Repaint(reason)
     Win.UpdateCount()
 end
 
+-- The item page's 3D preview: on unless the player turned it off.
+function B.Model3D()
+    local s = B.Saved()
+    return not s or s.model3D ~= false
+end
+
+-- The Options checkbox. A browser that was never opened builds nothing; a shown one draws its page again.
+function B.SetModel3D(on)
+    B.Save("model3D", on)
+    if Shown() and curRoute then Repaint("paint") end
+end
+
 -- The walk runs only here, at most once per coalesced refresh, in combat too.
 local function RunRefresh()
     local wasStale, hadNames, allowed = stale, names, prewarm
