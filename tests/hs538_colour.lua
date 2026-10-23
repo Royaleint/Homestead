@@ -101,6 +101,7 @@ function Win.PlayOpen() Win.frame.shown = true hooks.OnShow() end
 function Win.PlayClose() Win.frame.shown = false hooks.OnHide() end
 Win.CheckTextScale, Win.Fit, Win.AssertPropagation, Win.StopGlow = noop, noop, noop, noop
 Win.SetSelectedTab, Win.SetLocation = noop, noop
+Win.SetCrumb, Win.SelectNav, Win.SetBack = noop, noop, noop
 for _, file in ipairs({ "Adapter", "Facts", "CanGet", "Browser", "Item" }) do
     assert(loadfile(root .. "/UI/Browser/" .. file .. ".lua"))("Homestead", HA)
 end

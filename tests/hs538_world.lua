@@ -359,16 +359,19 @@ return function(root, opts)
 
     -- The window: a stub with the real tab list, or the real Window.lua. The router and the tabs are the real files.
     local Win
+    -- The side tab a route kind lights up.
+    local TAB_OF = { overview = "summary", catalog = "catalog", item = "catalog" }
+    local function TabOf(kind) return TAB_OF[kind] or "sources" end
     if env.realWindow then
         Load("UI/Browser/Window.lua")
         Win = B.Window
-        local build, setLocation, setSelected = Win.Build, Win.SetLocation, Win.SetSelectedTab
+        local build, setLocation, selectNav = Win.Build, Win.SetLocation, Win.SelectNav
         function Win.Build(handlers)
             env.handlers = handlers
             return build(handlers)
         end
         function Win.SetLocation(text) env.location = text return setLocation(text) end
-        function Win.SetSelectedTab(key) env.tab = key return setSelected(key) end
+        function Win.SelectNav(route) env.tab = TabOf(route.kind) return selectNav(route) end
     else
         Win = { TABS = {
             { key = "summary", word = "Summary" }, { key = "catalog", word = "Catalog" }, { key = "sources", word = "Sources" },
@@ -377,6 +380,9 @@ return function(root, opts)
         function Win.AddSearchBox() end
         function Win.SetLocation(text) env.location = text end
         function Win.SetSelectedTab(key) env.tab = key end
+        function Win.SetCrumb() end
+        function Win.SetBack() end
+        function Win.SelectNav(route) env.tab = TabOf(route.kind) end
         function Win.Build(handlers)
             env.handlers = handlers
             Win.frame, Win.host = Widget("Frame"), Widget("Frame")
@@ -389,6 +395,17 @@ return function(root, opts)
         end
     end
     Load("UI/Browser/Browser.lua")
+
+    -- The page objects the pages register, in order, each with the first kind it was registered under.
+    env.pageList, env.pageKinds = {}, {}
+    local registerPage = B.RegisterPage
+    function B.RegisterPage(kind, page)
+        if not env.pageKinds[page] then
+            env.pageList[#env.pageList + 1] = page
+            env.pageKinds[page] = kind
+        end
+        return registerPage(kind, page)
+    end
 
     -- Counts of what the tabs ask the router for.
     local realWalk, realSave = B.Walk, B.Save
@@ -413,6 +430,7 @@ return function(root, opts)
     end
 
     for _, file in ipairs({ "Summary", "Catalog", "Sources", "Item" }) do Load("UI/Browser/" .. file .. ".lua") end
+    env.pageCount = #env.pageList
 
     -- Every call that fills or clears the item detail.
     local detail = B.ItemDetail
@@ -549,7 +567,7 @@ return function(root, opts)
         for _, f in ipairs(env.all) do
             if f.parent == Win.host then env.pages[#env.pages + 1] = f end
         end
-        assert(#env.pages == 3, "expected one page per tab, got " .. #env.pages)
+        assert(#env.pages == env.pageCount, "expected one frame per page, got " .. #env.pages)
     end
     function env.go(key, o) B.ShowTab(key, o) end
     function env.flush()
@@ -570,13 +588,17 @@ return function(root, opts)
         return n
     end
 
-    -- The tab a frame is drawn under.
-    function env.owner(frame)
+    -- The route kind a frame is drawn under (the first kind of its page), and the tab that kind lights up.
+    function env.ownerKind(frame)
         local f = frame
         while f and f.parent ~= Win.host do f = f.parent end
         for i, page in ipairs(env.pages) do
-            if page == f then return Win.TABS[i].key end
+            if page == f then return env.pageKinds[env.pageList[i]] end
         end
+    end
+    function env.owner(frame)
+        local kind = env.ownerKind(frame)
+        return kind and TabOf(kind)
     end
     function env.find(key, pred)
         for _, f in ipairs(env.all) do

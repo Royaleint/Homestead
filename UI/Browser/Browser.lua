@@ -1,7 +1,7 @@
--- Browser router: tabs, opening and closing, coalesced refresh, events while shown, combat state and the
--- item tooltip. Delayed work checks B.Generation() first: it changes on every open and every close.
--- Tab contract: Show(opts) gets nil on a plain tab switch (keep state) and a table to set state. Refresh may
--- follow Hide without Show (UI restore); Refresh must restore whatever Hide tore down.
+-- Browser router: pages and routes, opening and closing, coalesced refresh, events while shown, combat state
+-- and the item tooltip. Delayed work checks B.Generation() first: it changes on every open and every close.
+-- Page contract: Show(route, saved) gets saved only on Back. Hide tears down transient state and keeps the
+-- route. Refresh may follow Hide without Show (UI restore); Refresh must restore whatever Hide tore down.
 local _, HA = ...
 
 local B = HA.DecorBrowser
@@ -12,7 +12,6 @@ BINDING_HEADER_HOMESTEAD = L["Homestead"]
 BINDING_NAME_HOMESTEAD_TOGGLE_BROWSER = L["Toggle Decor Browser"]
 
 local REFRESH_DELAY = 0.5
--- Each marks the walk stale; one refresh follows.
 local DATA_EVENTS = {
     "OWNERSHIP_UPDATED", "SOURCE_CACHES_INVALIDATED", "ACTIVE_HOLIDAYS_CHANGED",
     "ACTIVE_ENDEAVOR_CHANGED", "HS_CATALOG_TRUE_WARM", "HS_CATALOG_READ_STATE",
@@ -24,13 +23,18 @@ local GAME_EVENTS = {
 }
 local TEXT_SCALE_EVENT = "TextSizeManager.OnTextScaleUpdated"
 
--- hideNA: the Hide toggle. noPrewarm: true while a refresh must not ask for the vendor-count fill.
 local State = {
     hideNA = false, inCombat = false, generation = 0, noPrewarm = false, catalogMemo = {},
 }
 B.State = State
 
-local tabs, pages, current = {}, {}, nil
+local kindPage, kinds, frames, history = {}, {}, {}, {}
+local curRoute
+
+local function Current()
+    return curRoute and kindPage[curRoute.kind]
+end
+
 local events, callbacks, textScaleOwner
 local memoWipedAt
 local opening = false
@@ -54,19 +58,40 @@ function B.Save(key, value)
     s[key] = value
 end
 
--- Visible (Alt+Z hides it) and not fading out.
 local function Shown()
     return Win.frame ~= nil and Win.frame:IsVisible() and not Win.closing
 end
 
--- The memoised walk over every decor item; nil until the collection is ready.
 function B.Walk()
     return B.CanGet.Walk()
 end
 
--- tab = { Build(parent), Show(opts), Hide(), Refresh(reason), SetCombat(inCombat) }; see the contract above.
+-- page = { Build(parent), Show(route, saved), Hide(), Refresh(reason), SetCombat(on), Save() }; built once
+-- however many kinds it serves.
+function B.RegisterPage(kind, page)
+    if not kindPage[kind] then kinds[#kinds + 1] = kind end
+    kindPage[kind] = page
+end
+
+local TAB_KIND = { summary = "overview", catalog = "catalog", sources = "sources" }
+local TAB_OF = { overview = "summary", catalog = "catalog", item = "catalog" }
+local SEED_KEY = { catalog = "kind", sources = "type" }
+
+function B.TabOf(kind)
+    return TAB_OF[kind] or "sources"
+end
+
+-- A tab-era page: Show(opts) gets the seed as is, else the key, else nil.
 function B.RegisterTab(key, tab)
-    tabs[key] = tab
+    local field = SEED_KEY[key]
+    local page = { Save = function() end }
+    function page:Show(route)
+        tab.Show(route.seed or route.key and { [field] = route.key } or nil)
+    end
+    for _, name in ipairs({ "Build", "Hide", "Refresh", "SetCombat" }) do
+        page[name] = function(_, ...) return tab[name](...) end
+    end
+    B.RegisterPage(TAB_KIND[key], page)
 end
 
 local WORD = {}
@@ -74,11 +99,19 @@ for _, t in ipairs(Win.TABS) do WORD[t.key] = t.word end
 
 -- The header's location line: the tab's word, then what the tab says is open in it.
 function B.SetLocation(detail)
-    local word = WORD[current] or ""
+    local word = curRoute and WORD[B.TabOf(curRoute.kind)] or ""
     Win.SetLocation(detail and (word .. "  \226\128\186  " .. detail) or word)
 end
 
--- Empties the catalog memo when the shared memos moved on since it was filled.
+-- The crumb: the page's home in the tree (its parent, then itself), never the path walked.
+function B.Home(route)
+    local kind, key = route.kind, route.key
+    local up = (kind == "item" or kind == "catalog" and key and key ~= "all") and { kind = "catalog", key = "all" }
+        or (kind == "vendors" or kind == "vendor") and { kind = "allVendors" }
+        or kind == "source" and { kind = "sources", key = key }
+    return up and { up, route } or { route }
+end
+
 local function SyncMemo()
     local version = B.Data.MemoVersion()
     if version ~= memoWipedAt then
@@ -87,32 +120,65 @@ local function SyncMemo()
     end
 end
 
-local function ShowTabNow(key, opts)
-    if current and current ~= key then
-        tabs[current].Hide()
-        pages[current]:Hide()
-    end
-    current = key
-    Win.SetSelectedTab(key)
-    pages[key]:Show()
+local function Transition(route, saved)
+    local page = kindPage[route.kind]
+    if not page then error("no page for the route kind " .. tostring(route.kind), 2) end
+    local old = Current()
+    if old then old:Hide() end
+    if old and old ~= page then frames[curRoute.kind]:Hide() end
+    curRoute = route
+    frames[route.kind]:Show()
     B.SetLocation()
-    tabs[key].Show(opts)
+    page:Show(route, saved)
+    Win.SetCrumb(B.Home(route))
+    Win.SelectNav(route)
+    Win.SetBack(#history > 0)
+    page:SetCombat(State.inCombat)
+end
+
+local function GoNow(route)
+    if curRoute and curRoute.kind == route.kind and curRoute.key == route.key and curRoute.id == route.id then
+        local page = Current()
+        if route.seed then page:Show(route) else page:Refresh("route") end
+        return
+    end
+    if curRoute then
+        history[#history + 1] = { { kind = curRoute.kind, key = curRoute.key, id = curRoute.id }, Current():Save() }
+        if #history > 40 then table.remove(history, 1) end
+    end
+    Transition(route)
+end
+
+local function Traced(route, fn, ...)
+    SyncMemo()
+    Trace("browser_page_show", route.kind, fn, route, ...)
+end
+
+function B.Go(route)
+    Traced(route, GoNow)
+end
+
+function B.Back()
+    local entry = table.remove(history)
+    if entry then Traced(entry[1], Transition, entry[2]) end
 end
 
 function B.ShowTab(key, opts)
-    SyncMemo()
-    Trace("browser_tab_show", key, ShowTabNow, key, opts)
+    local route = { kind = TAB_KIND[key], seed = opts }
+    if opts and SEED_KEY[key] then route.key = opts[SEED_KEY[key]] or key == "catalog" and "all" or nil end
+    B.Go(route)
 end
 
 local function SetCombat(inCombat)
     State.inCombat = inCombat
-    for _, tab in pairs(tabs) do tab.SetCombat(inCombat) end
+    for _, kind in ipairs(kinds) do kindPage[kind]:SetCombat(inCombat) end
 end
 
 function B.SetHideNA(on)
     State.hideNA = on
     B.Save("hideNA", on)
-    if current then tabs[current].Refresh("hide") end
+    local page = Current()
+    if page then page:Refresh("hide") end
 end
 
 -- Pending refresh: stale (walk out of date), names (item names arrived), prewarm (a data change or a
@@ -128,7 +194,7 @@ end
 
 local function Repaint(reason)
     SyncMemo()
-    tabs[current].Refresh(reason)
+    Current():Refresh(reason)
 end
 
 -- The walk runs only here, at most once per coalesced refresh, in combat too.
@@ -136,7 +202,7 @@ local function RunRefresh()
     local wasStale, hadNames, allowed = stale, names, prewarm
     timer = nil
     stale, names, prewarm = false, false, false
-    if not (Shown() and current) then return end
+    if not (Shown() and curRoute) then return end
     if wasStale then B.Data.InvalidateMemos() end
     if hadNames then B.CanGet.RefreshNames() end
     local reason = wasStale and "data" or hadNames and "names" or "stats"
@@ -154,7 +220,6 @@ function B.RequestRefresh(fromStatsFill, newData)
     timer = C_Timer.NewTimer(REFRESH_DELAY, RunRefresh)
 end
 
--- A scan of a merchant the browser does not know, with no housing items, changes nothing it shows.
 local function ScanMatters(record)
     if type(record) ~= "table" or record.hasHousing then return true end
     return HA.VendorData:GetVendor(record.npcID) ~= nil
@@ -230,7 +295,8 @@ local function OnHide()
     ClearPending()
     Win.closing = false
     Win.StopGlow()
-    if current then tabs[current].Hide() end
+    local page = Current()
+    if page then page:Hide() end
     B.HideTooltip()
     State.generation = State.generation + 1
 end
@@ -240,25 +306,28 @@ local function Build()
     local f = Win.Build({
         OnShow = OnShow, OnHide = OnHide,
         Close = function() B:Close() end,
-        Help = function() B.ShowTab("summary", { showTip = true }) end,
+        Help = function() B.Go({ kind = "overview", seed = { showTip = true } }) end,
         HideNA = B.SetHideNA,
         SelectTab = function(key) B.ShowTab(key) end,
     })
     events = CreateFrame("Frame", nil, f)
     events:SetScript("OnEvent", OnEvent)
-    for _, t in ipairs(Win.TABS) do
-        local page = CreateFrame("Frame", nil, Win.host)
-        page:SetAllPoints()
-        page:Hide()
-        pages[t.key] = page
-        tabs[t.key].Build(page)
+    local built = {}
+    for _, kind in ipairs(kinds) do
+        local page = kindPage[kind]
+        if not built[page] then
+            local frame = CreateFrame("Frame", nil, Win.host)
+            frame:SetAllPoints()
+            frame:Hide()
+            built[page] = frame
+            page:Build(frame)
+        end
+        frames[kind] = built[page]
     end
     local s = B.Saved()
     State.hideNA = s and s.hideNA == true or false
 end
 
--- Every open: build once, drop the walk (it re-reads the collection state), read the zone and combat,
--- draw Summary, then show and fade in.
 local function OpenNow()
     if not Win.frame then Build() end
     B.Data.InvalidateMemos()
@@ -268,7 +337,10 @@ local function OpenNow()
     Win.CheckTextScale()
     State.generation = State.generation + 1
     opening = true
-    B.ShowTab("summary")
+    wipe(history)
+    if curRoute then Current():Hide() frames[curRoute.kind]:Hide() end
+    curRoute = nil
+    B.Go({ kind = "overview" })
     Win.PlayOpen()
     opening = false
 end

@@ -104,7 +104,8 @@ Win.PlayClose = function()
     shown = false
     hooks.OnHide()
 end
-for _, name in ipairs({ "CheckTextScale", "Fit", "SetSelectedTab", "SetLocation", "AssertPropagation", "StopGlow" }) do
+for _, name in ipairs({ "CheckTextScale", "Fit", "SetSelectedTab", "SetLocation", "AssertPropagation", "StopGlow",
+    "SetCrumb", "SelectNav", "SetBack" }) do
     Win[name] = noop
 end
 for _, key in ipairs({ "summary", "catalog", "sources" }) do

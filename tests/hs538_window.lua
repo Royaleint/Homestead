@@ -311,6 +311,14 @@ assert(shownWith.catalog == "nil", "a plain tab switch must pass nil options")
 local filters = { search = "bench" }
 B.ShowTab("catalog", filters)
 assert(shownWith.catalog == filters, "tab options did not pass through unchanged")
+for i, want in ipairs({ false, true, false }) do
+    assert(Win.TABS[i].frame.checked == want, "the real side tabs do not highlight the Catalog tab")
+end
+B.ShowTab("sources", { type = "drops" })
+for i, want in ipairs({ false, false, true }) do
+    assert(Win.TABS[i].frame.checked == want, "the real side tabs do not highlight the Sources tab")
+end
+B.ShowTab("catalog")
 
 -- Close fade: Open during the fade cancels it and lands on Summary.
 log = {}
@@ -449,6 +457,7 @@ B.RegisterTab("summary", {
     Refresh = function(reason) prewarmSeen[#prewarmSeen + 1] = reason .. ":" .. tostring(B.State.noPrewarm) end,
 })
 B.ShowTab("summary")
+prewarmSeen = {}
 timers = {}
 for i = 1, 3 do events.scripts.OnEvent(events, "GET_ITEM_INFO_RECEIVED", i, true) end
 assert(#timers == 1 and names == 0, "item names did not coalesce")

@@ -79,7 +79,8 @@ Win.PlayClose = function()
     shown = false
     hooks.OnHide()
 end
-for _, name in ipairs({ "CheckTextScale", "Fit", "SetSelectedTab", "SetLocation", "AssertPropagation", "StopGlow" }) do
+for _, name in ipairs({ "CheckTextScale", "Fit", "SetSelectedTab", "SetLocation", "AssertPropagation", "StopGlow",
+    "SetCrumb", "SelectNav", "SetBack" }) do
     Win[name] = noop
 end
 for _, key in ipairs({ "summary", "catalog", "sources" }) do
@@ -121,7 +122,7 @@ B:Close()
 B:Open()
 emptied("opening again")
 
-local want = "browser_first_open,browser_tab_show,browser_refresh,browser_refresh,browser_tab_show,"
-    .. "browser_refresh,browser_refresh,browser_reopen,browser_tab_show,browser_reopen,browser_tab_show"
+local want = "browser_first_open,browser_page_show,browser_refresh,browser_refresh,browser_page_show,"
+    .. "browser_refresh,browser_refresh,browser_reopen,browser_page_show,browser_reopen,browser_page_show"
 assert(table.concat(measured, ",") == want, "unexpected renders: " .. table.concat(measured, ","))
 print("hs534_browser_memo: ok")

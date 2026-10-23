@@ -166,6 +166,14 @@ function Win.SetSelectedTab(key)
     for _, t in ipairs(TABS) do t.frame:SetChecked(t.key == key) end
 end
 
+function Win.SetCrumb() end
+
+function Win.SetBack() end
+
+function Win.SelectNav(route)
+    Win.SetSelectedTab(B.TabOf(route.kind))
+end
+
 -- Width and height of the tabs from their measured words; the clamp rect grows to keep them on screen.
 function Win.MeasureTabs()
     S.ScaleDisplay()
