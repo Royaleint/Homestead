@@ -8,9 +8,8 @@ local root = (... or "."):gsub("\\", "/"):gsub("/+$", "")
 -- The Decor Browser Overview page: the three rows and their reason lines, the
 -- fill, the zone line, the first-use tip, and no search box or By source list of
 -- its own. The real CatalogStore, SourceManager verdict, VendorFilter, Adapter,
--- Facts, CanGet and Widgets run against stubbed data and frames. Item links are
--- B.ShowTab calls and every other link, the vendor's too, is a B.Go route; the
--- test records both.
+-- Facts, CanGet and Widgets run against stubbed data and frames. Every link, an
+-- item's and a vendor's too, is a B.Go route; the test records them.
 -------------------------------------------------------------------------------
 
 local function noop() end
@@ -67,7 +66,7 @@ local function newEnv()
         done = true, attempted = true, warm = true, responded = true, faction = "Alliance",
         catalog = {}, names = {}, sources = {}, vendors = {}, offers = {}, reqs = {}, scanned = {},
         calendar = {}, themes = {}, measured = {}, playerMap = nil, maps = {}, gen = 1,
-        calls = {}, routes = {}, saves = {}, glows = {}, timers = {}, tooltips = {}, hidden = {}, waypoints = {},
+        routes = {}, saves = {}, glows = {}, timers = {}, tooltips = {}, hidden = {}, waypoints = {},
         qualityReads = 0,
     }
     frames = {}
@@ -189,7 +188,6 @@ local function newEnv()
     B.State = { catalogMemo = {} }
     B.Window = { AddSearchBox = noop, Glow = function(region) env.glows[#env.glows + 1] = region end }
     B.Generation = function() return env.gen end
-    B.ShowTab = function(key, opts) env.calls[#env.calls + 1] = { key, opts } end
     B.Go = function(route) env.routes[#env.routes + 1] = route end
     B.Save = function(key, value)
         env.saves[#env.saves + 1] = { key, value }
@@ -350,10 +348,11 @@ do
     -- Buttons: no spot for vendor 3 means Show; a spot means Set waypoint.
     assert(rows[1].show.shown and not rows[1].wp.shown, "no coordinates: Show")
     click(rows[1].show)
-    eq(env.calls[#env.calls][1], "catalog")
-    eq(env.calls[#env.calls][2].itemID, 3, "Show opens the item in Catalog")
+    local route = env.routes[#env.routes]
+    assert(route.kind == "item" and route.id == 3, "Show opens the item page")
     click(rows[1])
-    eq(env.calls[#env.calls][2].itemID, 3, "the row opens the item in Catalog")
+    route = env.routes[#env.routes]
+    assert(route.kind == "item" and route.id == 3, "the row opens the item page")
     print("hs538_summary: R13 rows ok")
 end
 
@@ -367,10 +366,11 @@ do
     assert(row.wp.shown and not row.show.shown, "a known spot: Set waypoint")
     eq(row.wp.wp.mapID, 101)
     eq(row.wp.wp.title, "Joruh")
+    local routed = #env.routes
     click(row.wp)
     eq(#env.waypoints, 1, "Set waypoint sets the waypoint and changes no tab")
     eq(env.waypoints[1][1], 101)
-    eq(#env.calls, 0)
+    eq(#env.routes, routed, "and goes nowhere")
     eq(row.itemID, 1)
     row.scripts.OnEnter(row)
     eq(env.tooltips[1][1], row, "the tooltip goes through the browser tooltip")
@@ -488,7 +488,6 @@ do
         eq(rawget(r, "itemID"), nil, "a placeholder opens nothing")
     end
     click(rows[1])
-    eq(#env.calls, 0, "clicking a placeholder does nothing")
     eq(#env.routes, 0, "clicking a placeholder goes nowhere")
     eq(env.walks(), 0, "no walk before the collection is ready")
 

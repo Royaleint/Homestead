@@ -275,12 +275,12 @@ do
     local env = world()
     local loads, shows = 0, {}
     C_Item.RequestLoadItemDataByID = function() loads = loads + 1 end
-    env.B.ShowTab = function(key, opts) shows[#shows + 1] = key .. ":" .. tostring(opts.itemID) end
+    env.B.Go = function(route) shows[#shows + 1] = route.kind .. ":" .. tostring(route.id) end
     local cell = newCell(env)
     cell:Set(ware(env, 2, 100))
 
     cell.scripts.OnClick(cell)
-    eq(shows[1], "catalog:2", "a plain click opens the item")
+    eq(shows[1], "item:2", "a plain click opens the item")
     eq(#env.linked, 0)
 
     env.modifier = "CHATLINK"
@@ -292,7 +292,7 @@ do
     env.links[2] = nil
     cell.scripts.OnClick(cell)
     eq(#env.linked, 1, "without a cached link nothing is linked")
-    eq(shows[2], "catalog:2", "and the click falls through to open the item")
+    eq(shows[2], "item:2", "and the click falls through to open the item")
     eq(loads, 0, "and no load is requested")
 
     -- A modifier that is not the chat link does not link.
@@ -335,14 +335,14 @@ do
     assert(row, "Overview draws no item row")
     local id = row.itemID
     local shows = {}
-    env.B.ShowTab = function(key, opts) shows[#shows + 1] = key .. ":" .. tostring(opts.itemID) end
+    env.B.Go = function(route) shows[#shows + 1] = route.kind .. ":" .. tostring(route.id) end
     env.modifier, env.links[id] = "CHATLINK", "|Hitem:" .. id .. "|h[Item]|h"
     row.scripts.OnClick(row)
     eq(env.linked[1], env.links[id], "a shift-click on an Overview row links the item")
     eq(#shows, 0, "and does not navigate")
     env.modifier = nil
     row.scripts.OnClick(row)
-    eq(shows[1], "catalog:" .. id, "a plain click on an Overview row opens the item")
+    eq(shows[1], "item:" .. id, "a plain click on an Overview row opens the item")
 
     env.modifier = "CHATLINK"
     rawset(_G, "HandleModifiedItemClick", function() return false end)
@@ -353,7 +353,7 @@ do
     plain:Set({ name = "Elm Chair", quality = 2, itemID = 2, onClick = function() clicked = clicked + 1 end })
     env.links[2] = "|Hitem:2|h[Elm Chair]|h"
     cell.scripts.OnClick(cell)
-    eq(shows[#shows], "catalog:2", "a refused link falls through to opening the item (cell)")
+    eq(shows[#shows], "item:2", "a refused link falls through to opening the item (cell)")
     plain.scripts.OnClick(plain)
     eq(clicked, 1, "a refused link falls through to the row's click")
     local n = #shows

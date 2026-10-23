@@ -505,7 +505,7 @@ function W.NewWareCell(cell)
     cell.Redraw, cell.Reset = Redraw, Reset
     cell:SetScript("OnClick", function(self)
         if W.Linked(self.itemID) then return end
-        if self.itemID then B.ShowTab("catalog", { itemID = self.itemID }) end
+        if self.itemID then B.Go({ kind = "item", id = self.itemID }) end
     end)
     cell:SetScript("OnEnter", ShowTip)
     cell:SetScript("OnLeave", HideTip)
@@ -688,29 +688,4 @@ function W.NewEmptyState(parent)
         self:Show()
     end
     return f
-end
-
--- Two columns in a tab page: a list column (a toolbar above a well) and the detail well.
--- Call c:Fit() again after a text size change.
-function W.NewColumns(parent)
-    local cols = S.cols
-    local c = {}
-    c.detail = W.Well(parent)
-    c.detail:SetPoint("TOPRIGHT")
-    c.detail:SetPoint("BOTTOMRIGHT")
-    c.detail:SetWidth(cols.detail)
-    c.list = CreateFrame("Frame", nil, parent)
-    c.list:SetPoint("TOPLEFT")
-    c.list:SetPoint("BOTTOMRIGHT", c.detail, "BOTTOMLEFT", -cols.gap, 0)
-    c.toolbar = CreateFrame("Frame", nil, c.list)
-    c.toolbar:SetPoint("TOPLEFT")
-    c.toolbar:SetPoint("TOPRIGHT")
-    c.body = W.Well(c.list)
-    c.body:SetPoint("TOPLEFT", c.toolbar, "BOTTOMLEFT", 0, -cols.gap)
-    c.body:SetPoint("BOTTOMRIGHT")
-    function c:Fit()
-        self.toolbar:SetHeight(W.TextHeight("body") + 2 * SP.s)
-    end
-    c:Fit()
-    return c
 end

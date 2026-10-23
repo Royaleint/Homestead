@@ -68,9 +68,12 @@ local function newEnv()
     }
     for _, file in ipairs({ "Locale/enUS.lua", "Data/CatalogStore.lua", "Data/SourceManager.lua",
         "UI/VendorFilter.lua", "UI/Browser/Style.lua", "UI/Browser/Adapter.lua", "UI/Browser/Facts.lua",
-        "UI/Browser/CanGet.lua", "UI/Browser/Item.lua" }) do
+        "UI/Browser/CanGet.lua" }) do
         assert(loadfile(root .. "/" .. file))("Homestead", HA)
     end
+    -- The router is not loaded; the item page registers itself on it.
+    HA.DecorBrowser.RegisterPage = function() end
+    assert(loadfile(root .. "/UI/Browser/Item.lua"))("Homestead", HA)
     local SM = HA.SourceManager
     SM.GetAllSources = function(_, id) return env.sources[id] or {} end
     SM.GetRequirements = function() return {} end

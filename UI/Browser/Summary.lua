@@ -33,7 +33,7 @@ local function CloseTip()
 end
 
 local function Open(itemID)
-    if itemID then B.ShowTab("catalog", { itemID = itemID }) end
+    if itemID then B.Go({ kind = "item", id = itemID }) end
 end
 
 local function Put(f, h, narrow)

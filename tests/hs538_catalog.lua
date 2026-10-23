@@ -4,10 +4,12 @@
 local root = (... or "."):gsub("\\", "/"):gsub("/+$", "")
 
 -------------------------------------------------------------------------------
--- The Catalog tab, run through the real Catalog.lua, Widgets.lua, CanGet.lua and
+-- The Catalog page, run through the real Catalog.lua, Widgets.lua, CanGet.lua and
 -- the real data stack against stubbed data and recording widgets: sorts, filters
--- (unknown ownership in neither ownership filter), the landing contract, the
--- Hide pin and footer, the states, the walk discipline and the keystroke cost.
+-- (unknown ownership in neither ownership filter), the forward-visit contract,
+-- the Hide footer, the states, the walk discipline and the keystroke cost. The
+-- router and the window are stubbed; hs538_catalog_page.lua runs the page through
+-- the real ones.
 -------------------------------------------------------------------------------
 
 local function noop() end
@@ -243,22 +245,18 @@ local function newEnv(opts)
     local B = HA.DecorBrowser
     local W = B.Widgets
     env.B, env.W, env.D, env.CG = B, W, B.Data, B.CanGet
-    env.log, env.empty, env.fits, env.all = {}, nil, 0, {}
+    env.empty, env.tipHides, env.all, env.search = nil, 0, {}, ""
     B.State = { hideNA = false, inCombat = false, generation = 0, catalogMemo = {} }
     env.walkCalls = 0
     B.Walk = function()
         env.walkCalls = env.walkCalls + 1
         return B.CanGet.Walk()
     end
-    B.Window = { AddSearchBox = noop, hideNA = Widget("CheckButton") }
+    -- The header box: what the window shows, and what a Reset clears.
+    B.Window = { AddSearchBox = noop, hideNA = Widget("CheckButton"), SetSearch = function(text) env.search = text end }
     B.HideTooltipFor = noop
-    B.ItemDetail = {
-        Build = function(parent) env.log[#env.log + 1] = "build" env.detailParent = parent end,
-        Show = function(id) env.log[#env.log + 1] = "show:" .. id end,
-        Clear = function() env.log[#env.log + 1] = "clear" end,
-        SetCombat = function(on) env.log[#env.log + 1] = "combat:" .. tostring(on) end,
-    }
-    local newEmpty, newCols = W.NewEmptyState, W.NewColumns
+    B.HideTooltip = function() env.tipHides = env.tipHides + 1 end
+    local newEmpty = W.NewEmptyState
     W.NewEmptyState = function(parent)
         local f = newEmpty(parent)
         local set = f.Set
@@ -266,13 +264,20 @@ local function newEnv(opts)
         env.emptyFrame = f
         return f
     end
-    W.NewColumns = function(parent)
-        local c = newCols(parent)
-        local fit = c.Fit
-        c.Fit = function(self) env.fits = env.fits + 1 return fit(self) end
-        return c
+    function B.RegisterPage(kind, page)
+        assert(kind == "catalog", "the Catalog registers the catalog kind")
+        env.page = page
+        -- The router's calls, a forward Show with the seed as the route's, and Back with what Save returned.
+        env.tab = {
+            Build = function(parent) return page:Build(parent) end,
+            Show = function(seed) return page:Show({ kind = "catalog", key = seed and seed.kind, seed = seed }) end,
+            Back = function(saved, key) return page:Show({ kind = "catalog", key = key }, saved) end,
+            Save = function() return page:Save() end,
+            Hide = function() return page:Hide() end,
+            Refresh = function(reason) return page:Refresh(reason) end,
+            SetCombat = function(on) return page:SetCombat(on) end,
+        }
     end
-    function B.RegisterTab(_, tab) env.tab = tab end
     function B.Go(route) env.went = route end
     function B.SetHideNA(on)
         B.State.hideNA = on
@@ -330,7 +335,11 @@ local function newEnv(opts)
     end
     function env.filters() return env.byTemplate.WowStyle1FilterDropdownTemplate end
     function env.sort() return env.byTemplate.WowStyle1DropdownTemplate end
-    function env.type(text) env.byTemplate.SearchBoxTemplate:SetText(text) end
+    -- Typing in the header box: the window hands the words to the page.
+    function env.type(text)
+        env.search = text
+        env.page:Filter(text)
+    end
     -- The Filtered line: its text, and whether its button is shown.
     function env.filtered()
         for i = #fontStrings, 1, -1 do
@@ -373,8 +382,8 @@ local function fixture(opts)
     HA.AchievementSources[2] = { achievementID = 12 }
     env.sources[2][#env.sources[2] + 1] = { type = "achievement", data = { achievementID = 12, achievementName = "Chair Feat" } }
     env.sources[7] = { { type = "achievement", data = { achievementID = 9, achievementName = "Fixture Win" } } }
-    local page = Widget("Frame")
-    env.tab.Build(page)
+    env.pageFrame = Widget("Frame")
+    env.tab.Build(env.pageFrame)
     return env, HA
 end
 
@@ -386,8 +395,6 @@ local function eq(a, b, msg) assert(a == b, (msg or "") .. ": got " .. tostring(
 
 do
     local env = fixture()
-    eq(#env.log, 1, "build")
-    eq(env.log[1], "build", "the detail is built into the third column")
     -- Blizzard builds each menu at SetupMenu and reads every selection callback then, before any Show.
     eq(env.sort().generated, 1, "the sort menu is built once at SetupMenu")
     eq(env.filters().generated, 1, "the filter menu is built once at SetupMenu")
@@ -397,17 +404,17 @@ do
     eq(env.sort().text, "Sort: Best to get now", "the sort label after the button is shown")
     env.tab.Show()
     eq(env.ids(), "1,2,8,5,7,3,6,4", "Best to get now: ranked, plain, requirement, other faction, collected")
-    eq(env.log[#env.log], "show:1", "R24: the first row is selected and the detail filled")
     eq(env.head(), "1 of 8 collected", "the head counts every item and the collected ones")
     eq(env.filters():GetText(), "Filters", "the filter button carries its label")
     eq(env.filters().resizeToText, false, "the filter button keeps its fixed width")
     eq(env.filters():GetWidth(), 100, "a long label does not resize the filter button")
     local frames = env.box().frames
-    eq(frames[1].d.selected, true, "the first row is drawn selected")
-    eq(frames[2].d.selected, false, "the others are not")
-
     local rowOf = {}
     for _, f in ipairs(frames) do rowOf[f.d.itemID] = f.d end
+    rowOf[2].onClick()
+    assert(env.went and env.went.kind == "item" and env.went.id == 2 and env.went.key == nil and env.went.seed == nil,
+        "a row opens its item page")
+    env.went = nil
     eq(rowOf[1].state, "can", "Can get now")
     eq(rowOf[1].right, "300g", "the price on the right")
     eq(rowOf[1].bonus, 1, "the bonus star carries the amount")
@@ -508,7 +515,7 @@ do
     eq(env.head(), "1 of 8 collected", "the route lands on all decor")
     env.empty.d.onReset()
     eq(env.ids(), "1,2,8,5,7,3,6,4", "Reset filters clears the search too")
-    eq(env.byTemplate.SearchBoxTemplate.text, "", "and the box")
+    eq(env.search, "", "and the header box")
     print("hs538_catalog: filters, kinds and search ok")
 end
 
@@ -544,7 +551,7 @@ do
 end
 
 -------------------------------------------------------------------------------
--- The opts contract and R25 landing
+-- A forward visit: the kind from the route, the rest from the seed, the sort kept
 -------------------------------------------------------------------------------
 
 do
@@ -553,43 +560,29 @@ do
     env.type("oak")
     env.menu(env.sort()):Find("Name").setSel()
     env.tab.Hide()
-    eq(env.log[#env.log], "clear", "Hide clears the detail")
-    env.tab.Show()
-    eq(env.ids(), "1", "nil opts keeps the search")
-    eq(env.log[#env.log], "show:1", "and refills the detail")
-    eq(env.box().keep, true, "and the scroll position")
+    eq(env.tipHides, 1, "Hide takes the row tooltip down")
+    env.tab.Refresh("route")
+    eq(env.ids(), "1", "a refresh in place keeps the search")
+    env.tab.Hide()
+    env.tab.Refresh("paint")
+    eq(env.ids(), "1", "a refresh after Hide needs no Show")
 
-    env.tab.Show({})
-    eq(env.ids(), "6,5,3,2,8,1,7,4", "a table resets the search but sort stays")
-    eq(env.byTemplate.SearchBoxTemplate.text, "", "the box is cleared")
+    env.tab.Show()
+    eq(env.ids(), "6,5,3,2,8,1,7,4", "a forward Show clears the search but keeps the sort")
+    eq(env.search, "", "the header box is cleared")
 
     env.tab.Show({ search = "chair", kind = 1, filters = { canGet = true } })
-    eq(env.ids(), "2", "opts are applied after the reset")
-    eq(env.byTemplate.SearchBoxTemplate.text, "chair", "the box shows the landed search")
+    eq(env.ids(), "2", "the seed is applied")
+    eq(env.search, "chair", "the header box shows the seeded search")
 
     env.tab.Show({ filters = { notCollected = true }, sort = "best" })
-    eq(env.ids(), "1,2,8,7,3,6", "Show what's missing: Not collected only, sort from opts")
-
-    env.tab.Show({ search = "zzz", kind = 2, filters = { canGet = true } })
-    env.tab.Show({ itemID = 3 })
-    eq(env.ids(), "1,2,8,5,7,3,6,4", "R25: search, kind and filters reset")
-    eq(env.log[#env.log], "show:3", "R25: the item is selected and its detail filled")
-    eq(env.box().scrolls[#env.box().scrolls], 6, "R25: scrolled to the item's index")
-    eq(env.box().frames[1].d.selected, false, "the first row is no longer the selected one")
-    eq(env.emptyFrame.shown, false, "no empty state")
-
-    env.tab.Show({ itemID = 999 })
-    eq(env.log[#env.log], "show:999", "an id with no record still lands on its detail")
-    for _, f in ipairs(env.box().frames) do assert(not f.d.selected, "no row is selected for it") end
-    env.tab.Refresh("data")
-    eq(env.log[#env.log], "show:999", "a data refresh keeps it")
-    env.tab.Show({ search = "chair" })
-    eq(env.log[#env.log], "show:2", "a new landing drops it for the first row")
-    print("hs538_catalog: opts contract and landing ok")
+    eq(env.ids(), "1,2,8,7,3,6", "Show what's missing: Not collected only, sort from the seed")
+    eq(env.sort().text, "Sort: Best to get now", "and the sort button follows it")
+    print("hs538_catalog: forward visit ok")
 end
 
 -------------------------------------------------------------------------------
--- Hide: counts, pin and footer
+-- Hide: counts and footer
 -------------------------------------------------------------------------------
 
 do
@@ -607,16 +600,10 @@ do
     eq(env.box().view.extent(nil, footer), env.W.FooterHeight(footer, env.box():GetWidth()), "the footer measures its own text")
     eq(env.box().view.extent(nil, env.box().provider[1]), env.W.RowHeight(), "a row is a row high")
 
-    env.tab.Show({ itemID = 4 })
-    ids, footer = env.rows()
-    eq(table.concat(ids, ","), "1,2,8,5,7,3,4", "R25: an item hidden only by Hide is pinned in view")
-    eq(footer.hidden, 2, "the pinned item is not counted as hidden")
-    eq(env.log[#env.log], "show:4", "and selected")
-
     footer.onShow()
     eq(env.B.State.hideNA, false, "Show them turns the toggle off")
     eq(env.ids(), "1,2,8,5,7,3,6,9,4", "and refreshes the list")
-    print("hs538_catalog: Hide pin and footer ok")
+    print("hs538_catalog: Hide footer ok")
 end
 
 -------------------------------------------------------------------------------
@@ -712,32 +699,30 @@ do
         eq(env.walkCalls, asked, reason .. " never asks for the walk")
     end
     env.tab.Show()
-    eq(env.walks(), 1, "a plain tab switch does not walk again")
+    eq(env.walks(), 1, "a forward visit does not walk again")
     eq(env.walkCalls, asked, "nor ask for it")
 
     local n = env.box().sets
     env.tab.Refresh("paint")
     eq(env.box().sets, n, "paint redraws the rows without re-setting the data")
-    local fits = env.fits
+    local bar
+    for _, f in ipairs(env.all) do
+        if not bar and f.kind == "Frame" and f.parent == env.pageFrame then bar = f end
+    end
+    local pad = env.B.Style.space.s
+    eq(bar.height, 12 + 2 * pad, "the toolbar is one text line between its padding")
+    local textHeight = env.W.TextHeight
+    env.W.TextHeight = function() return 30 end
     env.tab.Refresh("layout")
+    env.W.TextHeight = textHeight
     eq(env.box().sets, n + 1, "layout re-sets the data so the heights are measured again")
     eq(env.box().keep, true, "keeping the scroll position")
-    eq(env.fits, fits + 1, "and the columns fit again")
+    eq(bar.height, 30 + 2 * pad, "and the toolbar fits the new text size")
 
     env.D.InvalidateMemos()
     env.tab.Refresh("data")
     eq(env.walks(), 2, "data walks once")
-    env.tab.Hide()
-    env.tab.Refresh("data")
-    eq(env.log[#env.log], "show:1", "a data refresh after Hide restores the detail")
-    env.tab.Hide()
-    env.tab.Refresh("paint")
-    eq(env.log[#env.log], "show:1", "so does a paint refresh")
-    env.tab.Hide()
-    env.tab.Refresh("zone")
-    eq(env.log[#env.log], "show:1", "and a zone refresh")
     env.tab.SetCombat(true)
-    eq(env.log[#env.log], "combat:true", "combat reaches the detail")
 
     local created = env.box().created
     for _, q in ipairs({ "a", "b", "", "c", "" }) do env.type(q) end
@@ -770,6 +755,12 @@ do
     env.tab.Refresh("zone")
     eq(env.ids(), "22,21", "after a zone change the item sold in the new zone comes first")
     eq(env.walks(), 1, "without a new walk")
+    -- The zone can change while another page is current: the next Show ranks for where the player is now.
+    env.tab.Hide()
+    env.playerMap = 101
+    env.tab.Show()
+    eq(env.ids(), "21,22", "a Show after a zone change elsewhere ranks for the new zone")
+    eq(env.walks(), 1, "still without a new walk")
     print("hs538_catalog: zone re-rank ok")
 end
 

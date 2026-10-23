@@ -411,8 +411,15 @@ Resolve("catalog", { filters = { canGet = true } }, "catalog", "all")
 Resolve("catalog", { filters = { canGet = true }, sort = "best" }, "catalog", "all")
 Resolve("catalog", { sort = "name" }, "catalog", "all")
 Resolve("catalog", { sort = "name", search = "x", filters = {} }, "catalog", "all")
-Resolve("catalog", { itemID = 5 }, "catalog", "all")
-Resolve("catalog", { sort = "name", itemID = 5 }, "catalog", "all")
+-- An item opens its own page; the rest of the seed is dropped.
+for _, opts in ipairs({ { itemID = 5 }, { sort = "name", itemID = 5 } }) do
+    went = nil
+    B.ShowTab("catalog", opts)
+    eq(went.kind, "item", "an item opens the item page")
+    eq(went.id, 5, "the item id")
+    eq(went.key, nil, "the item key")
+    eq(went.seed, nil, "the item seed")
+end
 Resolve("sources", nil, "sources", nil)
 Resolve("sources", { type = "vendors" }, "allVendors", nil)
 

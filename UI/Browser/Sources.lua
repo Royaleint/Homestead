@@ -343,7 +343,7 @@ local function Rows(s, cells)
             rank = state == "can" and 1 or state == "owned" and 3 or 2,
             quality = info and info.quality or C_Item.GetItemQualityByID(itemID), icon = D.ItemIcon(itemID),
             itemID = itemID, npcID = v and v.npcID, state = state, arg = arg, right = v and not cells and D.Price(itemID, v),
-            onClick = function() B.ShowTab("catalog", { itemID = itemID }) end,
+            onClick = function() B.Go({ kind = "item", id = itemID }) end,
         }
     end
     table.sort(rows, function(a, b)

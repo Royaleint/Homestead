@@ -231,15 +231,6 @@ assert(frame.link.text.text == "Show them", "footer link words")
 frame.link.scripts.OnClick(frame.link)
 assert(shown, "Show them did nothing")
 
--- Columns: list | 252. The list starts at the page's left edge and ends 4 px before the detail, so a 630 px page
--- leaves it 374.
-local cols = W.NewColumns(Widget("Frame"))
-assert(cols.nav == nil and cols.detail.width == 252, "column widths")
-local from, to = cols.list.points[1], cols.list.points[2]
-assert(#from == 1 and from[1] == "TOPLEFT", "the list does not start at the page's left edge")
-assert(to[2] == cols.detail and to[3] == "BOTTOMLEFT" and to[4] == -4, "the list does not end 4 px before the detail")
-assert(630 - cols.detail.width - 4 == 374, "the interim list width")
-
 -- A search box is known to the window, so Escape can take its focus.
 local changed
 local box = W.NewSearchBox(Widget("Frame"), "Search decor by name", function(text) changed = text end)

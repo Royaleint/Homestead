@@ -187,6 +187,7 @@ function B.ShowTab(key, opts)
     if key == "sources" and opts and opts.type and opts.select then
         return B.Go({ kind = "source", key = opts.type, id = opts.select.key })
     end
+    if key == "catalog" and opts and opts.itemID then return B.Go({ kind = "item", id = opts.itemID }) end
     local route = { kind = TAB_KIND[key], seed = opts }
     if opts and SEED_KEY[key] then route.key = opts[SEED_KEY[key]] or key == "catalog" and "all" or nil end
     B.Go(route)

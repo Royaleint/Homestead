@@ -353,3 +353,35 @@ function Page.SetCombat(inCombat)
 end
 
 B.ItemDetail = { Build = Page.Build, Show = Page.Show, Clear = Page.Clear, SetCombat = Page.SetCombat }
+
+-- The item's own page, reached through B.ItemDetail at call time rather than through captured locals.
+-- Interim: Hide clears the detail and Refresh draws it again; the item is kept across a Hide.
+local Route = {}
+local shownID, torn
+
+function Route:Build(parent)
+    B.ItemDetail.Build(parent)
+end
+
+function Route:Show(route)
+    shownID, torn = route.id, false
+    B.ItemDetail.Show(shownID)
+end
+
+function Route:Save() end
+
+function Route:Hide()
+    torn = true
+    B.ItemDetail.Clear()
+end
+
+-- A zone or stats refresh changes nothing on the page unless Hide cleared it.
+function Route:Refresh(reason)
+    if shownID and (torn or reason ~= "zone" and reason ~= "stats") then self:Show({ id = shownID }) end
+end
+
+function Route:SetCombat(inCombat)
+    B.ItemDetail.SetCombat(inCombat)
+end
+
+B.RegisterPage("item", Route)

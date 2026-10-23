@@ -228,7 +228,7 @@ local function setup()
     reset()
     local env, HA, D, CG = newEnv()
     env.records, env.stats, env.prewarm, env.reports, env.waypoints = {}, {}, 0, {}, {}
-    env.shown, env.went = {}, {}
+    env.went = {}
     env.maps = {
         [100] = { name = "Kalimdor", mapType = 2, parentMapID = 0 },
         [200] = { name = "Eastern Kingdoms", mapType = 2, parentMapID = 0 },
@@ -280,7 +280,6 @@ local function setup()
     B.Generation = function() return gen end
     B.InCombat = function() return B.State.inCombat end
     B.RegisterPage = function(kind, page) pages[kind] = page end
-    B.ShowTab = function(key, o) env.shown[#env.shown + 1] = { key = key, opts = o } end
     B.Go = function(route) env.went[#env.went + 1] = route end
     B.Tooltip = function()
         return { SetOwner = noop, SetText = function(_, t) env.tip = t end, Show = noop }
@@ -682,7 +681,7 @@ do
 end
 
 -------------------------------------------------------------------------------
--- Rows open pages: a vendor row the vendor page, any other row the page of its source
+-- Rows open pages: a vendor row the vendor page, any other row the page of its source, a decor row its item
 -------------------------------------------------------------------------------
 
 do
@@ -692,7 +691,6 @@ do
     env.tab.Show({ type = "vendors" })
     row(main, 100).onClick()
     assert(#env.went == 1 and env.went[1].kind == "vendor" and env.went[1].id == 100, "a vendor row opens its page")
-    assert(env.shown[#env.shown] == nil, "and goes through no tab")
     for _, t in ipairs({ { "achievements", 9001 }, { "quests", 7001 }, { "professions", 8001 }, { "drops", "Boss|Keep" },
         { "events", "Noblegarden" } }) do
         env.tab.Show({ type = t[1] })
@@ -705,6 +703,13 @@ do
     env.tab.Show({ type = "shop" })
     rows(main)[1].onClick()
     assert(env.went[#env.went].key == "shop" and env.went[#env.went].id == 61, "a Shop row opens its page")
+    env.tab.Show({ type = "quests", select = { key = 7001 } })
+    local decor = rows(boxes[#boxes])[1]
+    assert(decor and decor.itemID, "the source page lists its decor")
+    decor.onClick()
+    local go = env.went[#env.went]
+    assert(go.kind == "item" and go.id == decor.itemID and go.key == nil and go.seed == nil,
+        "a decor row on a source page opens the item's page")
     print("hs538_sources: row routes ok")
 end
 

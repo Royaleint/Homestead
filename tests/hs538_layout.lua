@@ -84,7 +84,6 @@ end
 local B = HA.DecorBrowser
 local S, W = B.Style, B.Widgets
 local R = S.row
-local SP = S.space
 
 for _, s in ipairs({ 0.8571, 1, 2.0 }) do
     scale = s
@@ -104,12 +103,10 @@ for _, s in ipairs({ 0.8571, 1, 2.0 }) do
     for _ = 1, 40 do total = total + view.extent(nil, { kind = "row" }) end
     assert(total == 40 * rowH, "the list extent is not the sum of its rows at scale " .. s)
 
-    -- Buttons, the toolbar and the group header grow with the text.
+    -- Buttons and the group header grow with the text.
     local b = W.NewButton(Widget("Frame"), "Reset filters", noop)
     assert(b.height >= body, "a button is shorter than its text at scale " .. s)
     assert(b.width >= #"Reset filters" * 6 * s, "a button is narrower than its text at scale " .. s)
-    local cols = W.NewColumns(Widget("Frame"))
-    assert(cols.toolbar.height >= body + 2 * SP.s - 0.001, "the toolbar is shorter than its text at scale " .. s)
     assert(W.HeaderHeight() >= body, "the group header is shorter than its text at scale " .. s)
 
     -- The footer wraps: narrower lists give taller footers, and it always holds text plus the link.

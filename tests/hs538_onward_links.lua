@@ -6,10 +6,10 @@ local newWorld = assert(loadfile(root .. "/tests/hs538_world.lua"))()
 
 -------------------------------------------------------------------------------
 -- Every onward link between the tabs, run through the real router with the real
--- Summary, Catalog, Sources and item detail: the target tab is shown, a Catalog
--- landing resets the filters and keeps the sort, the landed item or source is
--- selected, scrolled into view and its detail filled, a plain tab switch keeps
--- state, and a landing still works when the Hide toggle would hide the target.
+-- Summary, Catalog, Sources and item detail: the target page is shown, a Catalog
+-- visit starts unfiltered and keeps the sort, the landed item or source has its
+-- own page with its detail filled, and a landing still works when the Hide
+-- toggle would hide the target.
 -------------------------------------------------------------------------------
 
 local function eq(a, b, msg)
@@ -40,22 +40,14 @@ local function summaryRow(env, itemID)
     error("Summary draws no row for item " .. itemID)
 end
 
--- Runs fn, then checks the Catalog landed on itemID: shown, selected, scrolled to, detail filled.
+-- Runs fn, then checks the item page is open for itemID and its detail filled.
 local function landsOnItem(env, itemID, fn, label)
-    local _, _, box = env.catalogList()
-    local scrolls, shows = #box.scrolls, #env.itemShows
+    local shows = #env.itemShows
     fn()
-    eq(env.tab, "catalog", label .. ": tab")
-    local ids, _, nowBox = env.catalogList()
-    local at
-    for i, id in ipairs(ids) do if id == itemID then at = i end end
-    assert(at, label .. ": item " .. itemID .. " is not in the list " .. table.concat(ids, ","))
-    assert(#nowBox.scrolls > scrolls, label .. ": the list was not scrolled")
-    eq(env.lastScroll(nowBox), at, label .. ": scrolled to the item's row")
+    eq(env.route.kind, "item", label .. ": page")
+    eq(env.route.id, itemID, label .. ": item")
     assert(#env.itemShows > shows, label .. ": the detail was not filled")
-    eq(env.selectedItem(), itemID, label .. ": selected item")
-    local row = env.catalogRow(itemID)
-    assert(row and row.d.selected == true, label .. ": the drawn row is not selected")
+    eq(env.selectedItem(), itemID, label .. ": shown item")
 end
 
 -- Runs fn, then checks the source page is open for key and lists the source's decor.
@@ -132,7 +124,7 @@ do
     env.click(see)
     eq(env.tab, "catalog")
     eq(env.idString(), "1,13,6,2", "R15: the four you can get now, Best order")
-    eq(env.searchText("catalog"), "", "no search")
+    eq(env.search, "", "no search")
     eq(tipWrites(env), 1, "tipSeen written once")
     eq(env.HA.Addon.db.profile.browser.tipSeen, true, "tipSeen saved")
     env.go("summary")
@@ -169,16 +161,14 @@ do
     eq(routes[1].seed.search, "oak", "the words arrive trimmed")
     eq(env.tab, "catalog")
     eq(idSet(env), "1,12", "Search: the Oak items, kind all")
-    eq(env.searchText("catalog"), "oak", "the Catalog box shows the words")
-    eq(box.text, "oak", "and so does the header box")
+    eq(box.text, "oak", "the header box shows the words")
     env.go("summary")
     eq(box.text, "", "a page opened without a search clears the header box")
     box.text = "willow"
     box.scripts.OnEnterPressed(box)
     eq(env.idString(), "7", "Enter does the same from the Overview")
-    box.text = "oak"
-    box.scripts.OnEnterPressed(box)
-    eq(env.idString(), "1,12", "Enter on the Catalog searches again")
+    box:SetText("oak")
+    eq(env.idString(), "1,12", "typing on the Catalog filters it")
     print("hs538_onward_links: header search ok")
 end
 
@@ -244,7 +234,8 @@ do
     end
     assert(frame, "Anna's ware cell for item 3 is drawn")
     landsOnItem(env, 3, function() env.click(frame) end, "ware cell")
-    eq(env.searchText("catalog"), "", "the landing cleared the search")
+    env.go("catalog")
+    eq(env.search, "", "a visit to the Catalog clears the search")
     eq(env.idString(), order.name, "filters reset, the sort kept (Name)")
     print("hs538_onward_links: Sources decor list ok")
 end
@@ -278,7 +269,7 @@ do
     local env = world()
     env.go("catalog", { itemID = 61 })
     eq(env.selectedItem(), 61)
-    local any = env.find("catalog", function(f) return f.kind == "Button" and f.shown and f.text:find("^Show ") end)
+    local any = env.find("catalog", function(f) return f.kind == "Button" and f.shown and type(f.text) == "string" and f.text:find("^Show ") end)
     eq(any, nil, "the Shop block has no Show button")
 
     -- An event vendor out of season has no row to show, so it gets no Show vendor button.
@@ -288,7 +279,7 @@ do
 end
 
 -------------------------------------------------------------------------------
--- Hide would hide the target: the landing pins it
+-- Hide would hide the target: the item page opens it anyway
 -------------------------------------------------------------------------------
 
 do
@@ -298,7 +289,7 @@ do
         assert(id ~= 4 and id ~= 5 and id ~= 12, "Hide shows item " .. id)
     end
 
-    -- A Catalog landing on a collected item and on an other-faction item.
+    -- A landing on a collected item and on an other-faction item.
     for _, id in ipairs({ 4, 5, 12 }) do
         landsOnItem(env, id, function() env.go("catalog", { itemID = id }) end, "pinned item " .. id)
         env.go("summary")
@@ -309,7 +300,7 @@ do
     landsOnVendor(env, 102, "5,6", function() env.go("sources", { type = "vendors", select = { key = 102 } }) end, "pinned vendor 102")
     landsOnSource(env, 9003, "12", function() env.go("sources", { type = "achievements", select = { key = 9003 } }) end, "pinned achievement")
 
-    -- From a pinned vendor's decor list, the other-faction item still lands in Catalog.
+    -- From a pinned vendor's decor list, the other-faction item still lands on its page.
     env.go("sources", { type = "vendors", select = { key = 102 } })
     local frame
     for _, f in ipairs(select(2, env.wareList()).frames) do
@@ -326,27 +317,31 @@ do
 end
 
 -------------------------------------------------------------------------------
--- A plain tab switch keeps state
+-- A forward visit starts clean; the sort and the source type stay
 -------------------------------------------------------------------------------
 
 do
     local env = world()
     env.go("catalog", { search = "o", sort = "name", filters = { notCollected = true } })
-    local ids, shown = env.idString(), env.selectedItem()
+    local ids = env.idString()
     assert(ids ~= "", "the filtered Catalog has rows")
     env.go("summary")
     env.go("sources")
     env.go("catalog")
-    eq(env.idString(), ids, "Catalog keeps its filters, search and sort")
-    eq(env.searchText("catalog"), "o", "and its search box")
-    eq(env.selectedItem(), shown, "and its selection")
+    assert(env.idString() ~= ids, "the Catalog drops its filters and search")
+    eq(env.search, "", "and the header box is clear")
+    env.go("catalog", { sort = "name" })
+    local byName = env.idString()
+    env.go("summary")
+    env.go("catalog")
+    eq(env.idString(), byName, "but keeps its sort")
 
     env.go("sources", { type = "achievements" })
     local keys = env.sourceKeys()
     env.go("catalog")
     env.go("sources")
     eq(env.sourceKeys(), keys, "Sources keeps its type")
-    print("hs538_onward_links: plain switch keeps state ok")
+    print("hs538_onward_links: forward visits ok")
 end
 
 -------------------------------------------------------------------------------

@@ -17,10 +17,11 @@ local function Group(e)
     return (e.locked or e.verdict == "unlisted" and e.event) and 2 or 1
 end
 
-local Tab, ui, orders = {}, {}, {}
-local cat, recs, counts, owns, walk, version, hideFor, bare, bareList, bareVer
+local Page, ui, orders = {}, {}, {}
+local cat, recs, counts, owns, walk, version, hideFor, bare, bareList, bareVer, rankedIn
 local shown = {}
-local shownSel, silent = false, false
+-- What the header box holds, as typed; cat.q is the same words trimmed and lowercased.
+local query = ""
 
 local function NewView(sort)
     local types = {}
@@ -131,6 +132,15 @@ local function Order(sort)
     return o
 end
 
+-- Best to get now ranks by the player's zone, and only a shown Catalog hears a zone refresh, so Show checks too.
+local function Rezone()
+    local here = B.Facts.Here()
+    local zone = here and here.zone
+    if zone == rankedIn then return false end
+    orders.best, rankedIn = nil, zone
+    return true
+end
+
 -- Collected and Not collected match owned and notOwned only; unknown ownership is in neither.
 local function Passes(r, c, anyOwn, subset)
     local e = r.e
@@ -148,14 +158,13 @@ local function Passes(r, c, anyOwn, subset)
 end
 
 local function Filter()
-    local c, out, n, hc, hf, sel, subset, seen = cat, {}, 0, 0, 0, false, false, {}
+    local c, out, n, hc, hf, subset, seen = cat, {}, 0, 0, 0, false, {}
     for _, k in ipairs(KEYS) do
         if not c.types[k] then subset = true end
     end
     for _, r in ipairs(Order(c.sort)) do
-        local pinned = r.id == c.pin
-        if pinned or Passes(r, c, c.coll and c.notColl, subset) then
-            if r.hid and not pinned then
+        if Passes(r, c, c.coll and c.notColl, subset) then
+            if r.hid then
                 if r.hid == "collected" then hc = hc + 1
                 else
                     hf = hf + 1
@@ -165,26 +174,22 @@ local function Filter()
             else
                 n = n + 1
                 out[n] = r
-                sel = sel or r.id == c.sel
             end
         end
     end
-    return out, n, sel, hc, hf, seen
+    return out, n, hc, hf, seen
 end
 
-local Apply, ShowDetail
+local Apply
 
+-- Clears the filters and the search, keeping the kind and the sort.
 local function Reset()
-    local v = NewView(cat.sort)
-    v.kind, v.sel = cat.kind, cat.sel
-    cat = v
-    silent = true
-    ui.search:SetText("")
-    silent = false
+    local kind = cat.kind
+    cat = NewView(cat.sort)
+    cat.kind, query = kind, ""
+    B.Window.SetSearch("")
     Apply(false)
 end
-
-local Pick
 
 local function Describe(r)
     local d, e, id = r.d, r.e, r.id
@@ -201,28 +206,14 @@ local function Describe(r)
             icon = e.info and e.info.iconTexture or D.ItemIcon(id), active = active, bonus = r.bonus,
             right = p and p.price, line2 = D.SourceLine(id, { p }) .. (more > 0 and " " .. L["(+%d more)"]:format(more) or ""),
             unconfirmed = v and not B.Facts.Confirmed(v) or nil, state = state, arg = arg,
-            onClick = function() Pick(id) end }
+            onClick = function() B.Go({ kind = "item", id = id }) end }
         r.d = d
     end
-    d.selected = cat.sel == id
     return d
-end
-
-function Pick(id)
-    cat.sel = id
-    ui.list.box:ForEachFrame(function(f)
-        if f.rec then f:Set(Describe(f.rec)) end
-    end)
-    ShowDetail()
 end
 
 local ITEM = { frameType = W.rowKind.frameType, build = W.rowKind.build,
     init = function(f, r) f.rec = r f:Set(Describe(r)) end }
-
-function ShowDetail()
-    shownSel = cat.sel
-    if cat.sel then B.ItemDetail.Show(cat.sel) else B.ItemDetail.Clear() end
-end
 
 local function PaintHead()
     local k = cat.kind
@@ -238,13 +229,13 @@ end
 
 local function Empty(status, n, hidden, words)
     local c, kind, d = cat, "noResults", { onReset = Reset }
-    if status ~= "ready" and (words ~= "" or (status == "counting" and c.sort == "best" and not c.pin)) then
+    if status ~= "ready" and (words ~= "" or (status == "counting" and c.sort == "best")) then
         kind = status == "counting" and "counting" or "notReadFilters"
         if kind == "counting" and c.sort == "best" then
             kind, d.onSort = "countingSort", function() ui.sort.Set("name") Apply(false) end
         end
     elseif n == 0 and not hidden then
-        d.onAll = c.kind ~= "all" and function() B.Go({ kind = "catalog", key = "all", seed = { search = ui.search:GetText() } }) end or nil
+        d.onAll = c.kind ~= "all" and function() B.Go({ kind = "catalog", key = "all", seed = { search = query } }) end or nil
     else
         ui.empty:Hide()
         return false
@@ -253,30 +244,24 @@ local function Empty(status, n, hidden, words)
     return true
 end
 
-function Apply(keep, force)
-    local out, n, sel, hc, hf, seen = Filter()
+function Apply(keep)
+    local out, n, hc, hf, seen = Filter()
     local words = Words(cat)
-    -- A landed id with no record (not decor, or unmapped) keeps its detail; no row is selected.
-    if not sel then cat.sel = cat.pin or n > 0 and out[1].id or nil end
     if hc + hf > 0 then
         out[n + 1] = { kind = "footer", hidden = hc + hf, collected = hc, faction = hf, parts = B.Facts.FactionParts(seen),
             onShow = function() B.SetHideNA(false) B.Window.hideNA:SetChecked(false) end }
     end
     local empty = Empty(D.CollectionState(), n, hc + hf > 0, words)
     ui.list:SetShown(not empty)
-    if empty then
-        cat.sel = nil
-    else
+    if not empty then
         shown = out
         ui.list:SetData(out, keep)
     end
     PaintHead()
     PaintLine(words)
-    if force or cat.sel ~= shownSel then ShowDetail() end
 end
 
 local function Changed()
-    cat.pin = nil
     Apply(false)
 end
 
@@ -320,29 +305,31 @@ local function BuildToolbar(bar)
         cat.sort = k
         sort:GenerateMenu()
     end
-    ui.search = W.NewSearchBox(bar, L["Search decor by name"], function(text)
-        local q = text:lower():match("^%s*(.-)%s*$")
-        if silent or q == cat.q then return end
-        cat.q, cat.pin = q, nil
-        Apply(false)
-    end)
-    ui.search:SetPoint("LEFT", SP.xs, 0)
-    ui.search:SetPoint("RIGHT", filters, "LEFT", -SP.s, 0)
 end
 
-function Tab.Build(parent)
-    local c = W.NewColumns(parent)
-    ui.cols = c
+local function Fit()
+    ui.bar:SetHeight(W.TextHeight("body") + 2 * SP.s)
+end
+
+function Page:Build(parent)
     -- The dropdowns build their menus at SetupMenu and again when shown, before Show runs, and read the view.
     cat = NewView()
-    BuildToolbar(c.toolbar)
-    local head = S.Text(c.body, "bodyMuted", "OVERLAY")
+    local bar = CreateFrame("Frame", nil, parent)
+    ui.bar = bar
+    bar:SetPoint("TOPLEFT")
+    bar:SetPoint("TOPRIGHT")
+    Fit()
+    BuildToolbar(bar)
+    local body = W.Well(parent)
+    body:SetPoint("TOPLEFT", bar, "BOTTOMLEFT", 0, -S.cols.gap)
+    body:SetPoint("BOTTOMRIGHT")
+    local head = S.Text(body, "bodyMuted", "OVERLAY")
     ui.head = head
     head:SetPoint("TOPLEFT", SP.s, -SP.xs)
     head:SetPoint("TOPRIGHT", -SP.s, -SP.xs)
     head:SetJustifyH("LEFT")
     head:SetWordWrap(false)
-    local fl = CreateFrame("Button", nil, c.body)
+    local fl = CreateFrame("Button", nil, body)
     ui.fl = fl
     fl:SetPoint("TOPLEFT", head, "BOTTOMLEFT")
     fl:SetPoint("TOPRIGHT", head, "BOTTOMRIGHT")
@@ -351,7 +338,7 @@ function Tab.Build(parent)
     fl.text:SetAllPoints()
     fl.text:SetJustifyH("LEFT")
     fl.text:SetWordWrap(false)
-    local holder = CreateFrame("Frame", nil, c.body)
+    local holder = CreateFrame("Frame", nil, body)
     holder:SetPoint("TOPLEFT", fl, "BOTTOMLEFT", -SP.s, 0)
     holder:SetPoint("BOTTOMRIGHT", -SP.xs, SP.xs)
     ui.list = W.NewList(holder, {
@@ -361,66 +348,79 @@ function Tab.Build(parent)
         end,
     })
     ui.empty = W.NewEmptyState(holder)
-    B.ItemDetail.Build(c.detail)
 end
 
-function Tab.Show(opts)
-    if opts then
-        local f = opts.filters or {}
-        cat = NewView(opts.sort or cat.sort)
-        cat.q = (opts.search or ""):lower():match("^%s*(.-)%s*$")
-        cat.kind = KIND[opts.kind] and opts.kind or "all"
+function Page:Placeholder()
+    return L["Search decor"]
+end
+
+-- A forward Show starts from the route's kind and seed, keeping only the sort; Back gives saved.
+function Page:Show(route, saved)
+    if saved then
+        cat, query = saved.view, saved.query
+    else
+        local seed = route.seed or {}
+        local f = seed.filters or {}
+        cat = NewView(seed.sort or cat.sort)
+        query = seed.search or ""
+        cat.q = query:lower():match("^%s*(.-)%s*$")
+        cat.kind = KIND[route.key] and route.key or "all"
         if f.collected or f.notCollected then cat.coll, cat.notColl = f.collected == true, f.notCollected == true end
         cat.canGet, cat.bonus = f.canGet == true, f.bonus == true
         for k in pairs(cat.types) do cat.types[k] = f.sources == nil or f.sources[k] == true end
-        cat.sel = opts.itemID
-        cat.pin = opts.itemID
-        silent = true
-        ui.search:SetText(opts.search or "")
-        silent = false
-        ui.sort.Set(cat.sort)
     end
+    B.Window.SetSearch(query)
+    ui.sort.Set(cat.sort)
     if not recs or version ~= D.MemoVersion() or hideFor ~= B.State.hideNA then
         walk = B.Walk()
         Rebuild()
     end
-    Apply(not opts, true)
-    local id = opts and opts.itemID
-    local at = id and ui.list.box:FindElementDataIndexByPredicate(function(d) return d.id == id end)
-    if at then ui.list.box:ScrollToElementDataIndex(at) end
+    Rezone()
+    Apply(false)
+    if saved then ui.list.box:ScrollToOffset(saved.scroll, true) end
 end
 
-function Tab.Hide()
-    shownSel = false
-    B.ItemDetail.Clear()
+-- A forward Show builds a new view, so the one saved here is never touched again before Back gives it back.
+function Page:Save()
+    return { view = cat, query = query, scroll = ui.list.box:GetDerivedScrollOffset() }
+end
+
+-- The header box as the player types; a restore or a seed never gets here.
+function Page:Filter(text)
+    query = text
+    local q = text:lower():match("^%s*(.-)%s*$")
+    if q == cat.q then return end
+    cat.q = q
+    Apply(false)
+end
+
+function Page:Hide()
+    B.HideTooltip()
 end
 
 -- Only "data" reads the walk. The rest reuse the cached records, and may follow Hide without a Show.
-function Tab.Refresh(reason)
+function Page:Refresh(reason)
     if not recs then return end
     if reason == "layout" or reason == "paint" then
         if reason == "layout" then
-            ui.cols:Fit()
-            ui.search:SetHeight(W.TextHeight("body") + SP.s)
+            Fit()
             PaintHead()
             PaintLine(Words(cat))
             ui.list:SetData(shown, true)
         end
         W.RepaintRows(ui.list)
-        ShowDetail()
     elseif reason == "zone" or reason == "stats" then
-        if reason == "zone" then orders.best = nil end
-        if reason == "zone" and cat.sort == "best" then Apply(true, shownSel == false)
-        elseif shownSel == false then ShowDetail() end
+        if reason == "zone" then
+            if Rezone() and cat.sort == "best" then Apply(true) end
+        end
     else
         if reason == "data" then walk = B.Walk() end
         Rebuild()
-        Apply(true, true)
+        Apply(true)
     end
 end
 
-function Tab.SetCombat(inCombat)
-    B.ItemDetail.SetCombat(inCombat)
-end
+-- Nothing on the list waits for the end of combat.
+function Page:SetCombat() end
 
-B.RegisterTab("catalog", Tab)
+B.RegisterPage("catalog", Page)
