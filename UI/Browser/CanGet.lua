@@ -10,7 +10,6 @@ local Facts = B.Facts
 local CG = {}
 B.CanGet = CG
 
--- "counting" until this session's first collection read, then "ready", or "notRead" when it failed.
 function D.CollectionState()
     local scanner, store = HA.CatalogScanner, HA.CatalogStore
     if not (scanner and store and scanner.HasFirstReadCompleted) then return "counting" end
@@ -41,7 +40,6 @@ local function Memo()
     return B.State and B.State.catalogMemo
 end
 
--- One offer's verdict for an item whose ownership is own. vendor is nil when its identity is unknown.
 local function Verdict(SM, itemID, npcID, vendor, own)
     if own ~= "notOwned" then return own == "owned" and "owned" or "unknown" end
     if not (npcID and vendor) then return "unknown" end
@@ -52,8 +50,6 @@ local function Verdict(SM, itemID, npcID, vendor, own)
     return state == "unobtainable" and "unobtainable" or "locked"
 end
 
--- "can", "locked", "unobtainable", "faction", "unlisted", "owned" or "unknown". info defaults to the
--- memoised catalog entry. The single verdict every surface uses.
 function CG.Offer(itemID, npcID, info)
     if D.CollectionState() ~= "ready" then return "unknown" end
     info = info or D.CatalogInfo(itemID, Memo())
@@ -61,7 +57,6 @@ function CG.Offer(itemID, npcID, info)
     return Verdict(HA.SourceManager, itemID, npcID, vendor, Own(HA.CatalogStore, itemID, info))
 end
 
--- Lower is better when an item's offers disagree.
 local PRIORITY = { can = 1, locked = 2, unlisted = 3, faction = 4, unobtainable = 5, unknown = 6 }
 
 local SOURCE_TABLES = {
@@ -98,7 +93,6 @@ local function FactionOnly(itemID)
     return only
 end
 
--- Records one vendor offer on an uncollected item's entry; returns the better of its verdict and best.
 local function Consider(e, SM, npcID, vendor, cost, best)
     local verdict = Verdict(SM, e.itemID, npcID, vendor, "notOwned")
     local ev = Facts.EventVendor(npcID)
@@ -213,7 +207,6 @@ local function RunWalk(items)
     return { list = list, progress = progress, vendorCan = {} }
 end
 
--- One memoised walk over every decor item per refresh; nil until the collection is ready.
 function CG.Walk()
     if D.CollectionState() ~= "ready" then return nil end
     Fresh()
@@ -224,8 +217,6 @@ function CG.Walk()
     return walk
 end
 
--- Item names that load after the walk: fills them in and drops the ranking so it sorts again.
--- Returns true when any arrived.
 function CG.RefreshNames()
     Fresh()
     if not walk then return false end
@@ -240,7 +231,6 @@ function CG.RefreshNames()
     return arrived
 end
 
--- How many of a vendor's wares this character can get now from it.
 function CG.VendorCanCount(vendor)
     local w = CG.Walk()
     if not (w and vendor and vendor.npcID) then return nil end
@@ -257,7 +247,6 @@ function CG.VendorCanCount(vendor)
     return n
 end
 
--- Picks each item's best offer (time-limited, then nearest, then gold only) for where the player is.
 local function BestOffer(e, where)
     local best, bestKey
     for _, o in pairs(e.canBy) do
@@ -280,8 +269,6 @@ local function Before(a, b)
     return a.itemID < b.itemID
 end
 
--- The source an item is shown by on the row, Summary and the tooltip: its best open offer, else a vendor
--- this character can use, else the first vendor on record, else the first source.
 function CG.Primary(itemID, sources)
     sources = sources or D.ItemSources(itemID)
     local e = CG.Entry(itemID)
@@ -302,8 +289,6 @@ function CG.Primary(itemID, sources)
     return own or first or sources[1]
 end
 
--- Can-get-now entries in ranked order. Sets each entry's best (offer) and near (1-3). A zone change
--- re-ranks the saved walk without walking again.
 function CG.Rank()
     local w = CG.Walk()
     if not w then return nil end
@@ -397,7 +382,6 @@ end
 
 CG.FactionLabel = FactionLabel
 
--- How many missing items only the other faction's vendors sell, by vendor faction label.
 function CG.MissingFactions()
     local seen = {}
     for itemID, e in pairs(entries) do

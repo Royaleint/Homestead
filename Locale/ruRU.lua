@@ -435,6 +435,7 @@ L["Here in %s: %s sells %d decor you can get now."] = "Здесь, в %s: %s п�
 L["Sold here in %s"] = "Продаётся здесь, в %s"
 L["Sold on %s"] = "Продаётся на %s"
 L["%s: active now"] = "%s: сейчас активно"
+L["Gold"] = "Золото"
 L["Gold only"] = "Только за золото"
 L["Gold only, no requirements left"] = "Только за золото, требований не осталось"
 L["No requirements left"] = "Требований не осталось"

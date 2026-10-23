@@ -422,6 +422,7 @@ L["Here in %s: %s sells %d decor you can get now."] = "%s 지역: %s이(가) 지
 L["Sold here in %s"] = "%s에서 판매"
 L["Sold on %s"] = "%s 대륙에서 판매"
 L["%s: active now"] = "%s: 현재 진행 중"
+L["Gold"] = "골드"
 L["Gold only"] = "골드만 필요"
 L["Gold only, no requirements left"] = "골드만 필요, 남은 조건 없음"
 L["No requirements left"] = "남은 조건 없음"

@@ -22,8 +22,10 @@ local nameLoads = {}
 
 local memoVersion = 0
 
+local listed, homes, perVendor = nil, nil, {}
+
 function D.InvalidateMemos()
-    memoVersion = memoVersion + 1
+    memoVersion, listed, homes, perVendor = memoVersion + 1, nil, nil, {}
 end
 
 function D.MemoVersion()
@@ -78,12 +80,10 @@ local EXPANSIONS = {
 local TOKEN = {}
 for _, e in ipairs(EXPANSIONS) do TOKEN[e[1]] = e[2] end
 
-local listed, homes, listedVersion
-
 -- Vendor tables only, one per vendor key, rebuilt after each InvalidateMemos.
 function D.ListedVendors()
-    if listed and listedVersion == memoVersion then return listed end
-    listed, homes, listedVersion = {}, nil, memoVersion
+    if listed then return listed end
+    listed = {}
     local seen = {}
     for _, v in ipairs(HA.VendorData:GetAllVendors()) do
         local key = D.IsListedVendor(v) and B.Facts.SourceKey("vendors", v)
@@ -152,8 +152,31 @@ function D.Vendor(npcID)
     return HA.VendorData:GetVendor(npcID) or D.HolidayVendor(npcID)
 end
 
+local function Memo(npcID)
+    local k = npcID or 0
+    perVendor[k] = perVendor[k] or {}
+    return perVendor[k]
+end
+
+local function Knowable(npcID, ids)
+    local store, SM, out = HA.CatalogStore, HA.SourceManager, {}
+    for _, id in ipairs(ids) do
+        if not store:IsOwnershipUnknowable(id) and (store:IsOwned(id) == true
+                or SM:GetVendorItemAvailabilityState(id, npcID, true) ~= "unobtainable") then
+            out[#out + 1] = id
+        end
+    end
+    return out
+end
+
+-- What the map pins count: knowable ownership, less unowned wares it can never sell (promotions).
 function D.VendorWares(vendor)
-    return HA.VendorData:GetMergedItemIDs(vendor) or {}
+    local m = Memo(vendor.npcID)
+    if not m.wares then
+        local ids = HA.VendorData:GetMergedItemIDs(vendor) or {}
+        m.wares = HA.PerformanceTrace:Measure("browser_vendor_wares", #ids, Knowable, vendor.npcID, ids)
+    end
+    return m.wares
 end
 
 -- The fill skips holiday vendors: compute theirs one per tick, then refresh once. Combat,
@@ -325,6 +348,51 @@ function D.Requirements(itemID, npcID)
         out[#out + 1] = { text = ReqText(req), met = SM:IsRequirementMet(req) }
     end
     return out
+end
+
+-- Pending (and not memoised) while an item currency's name loads.
+function D.VendorCurrencies(vendor)
+    local m = Memo(vendor.npcID)
+    if m.cur then return m.cur, false end
+    local out, seen, pending = {}, {}, false
+    local function add(icon, name)
+        if name and not seen[name] then
+            seen[name] = true
+            out[#out + 1] = (icon and "|T" .. icon .. ":0|t " or "") .. name
+        end
+    end
+    for _, id in ipairs(D.VendorWares(vendor)) do
+        local cost = HA.SourceManager:GetVendorItemCost(id, vendor) or {}
+        if (cost.gold or 0) > 0 then add(nil, L["Gold"]) end
+        for _, c in ipairs(cost.currencies or {}) do
+            local info = c.id and C_CurrencyInfo.GetCurrencyInfo(c.id) or c
+            add(info.iconFileID, info.name or c.name)
+        end
+        for _, it in ipairs(cost.items or {}) do
+            local name = it.id and D.ItemName(it.id) or it.name
+            if name then add(it.id and C_Item.GetItemIconByID(it.id), name)
+            elseif it.id and nameLoads[it.id] ~= "failed" then pending = true end
+        end
+    end
+    if not pending then m.cur = out end
+    return out, pending
+end
+
+function D.VendorRequirements(vendor)
+    local m = Memo(vendor.npcID)
+    if m.reqs then return m.reqs end
+    local out
+    for _, id in ipairs(D.VendorWares(vendor)) do
+        local reqs, here = D.Requirements(id, vendor.npcID), {}
+        if not out then out = reqs end
+        for _, r in ipairs(reqs) do here[r.text] = true end
+        for i = #out, 1, -1 do
+            if not here[out[i].text] then table.remove(out, i) end
+        end
+        if not out[1] then break end
+    end
+    m.reqs = out or {}
+    return m.reqs
 end
 
 function D.ItemSources(itemID)

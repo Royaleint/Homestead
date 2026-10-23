@@ -29,7 +29,8 @@ local priced = {}
 HA.SourceManager = { GetVendorItemCost = function(_, itemID, vendor)
     priced[#priced + 1] = vendor and vendor.npcID
     return vendor and { gold = vendor.npcID * 1000 + itemID } or nil
-end }
+end, GetVendorItemAvailabilityState = function() return "purchasable" end }
+HA.PerformanceTrace = { Measure = function(_, _, _, fn, ...) return fn(...) end }
 HA.CatalogStore = { HasPersistedData = function() return true end, IsOwned = function() return false end,
     IsOwnershipUnknowable = function() return false end }
 HA.CatalogScanner = { HasFirstReadCompleted = function() return true end, IsWarm = function() return true end }
@@ -72,7 +73,9 @@ local idle = D.Vendor(ECHO)
 assert(idle and idle.name == active.name and #idle.items == #active.items, "Not Active shop data matches Active")
 assert(activePrice == "cost" .. (ECHO * 1000 + ware), "the price comes from the vendor record: " .. tostring(activePrice))
 assert(D.Price(ware, D.Vendor(ECHO)) == activePrice, "prices populate the same")
-assert(D.VendorWares(idle)[1] == D.VendorWares(active)[1], "wares match")
+local activeWares = table.concat(D.VendorWares(active), ",")
+D.InvalidateMemos()
+assert(table.concat(D.VendorWares(idle), ",") == activeWares, "wares match")
 assert(D.Vendor(ECHO) ~= HA.EventSources.EventVendors[ECHO], "a copy, never the data table")
 
 -- Counts: the background fill never covers an out-of-season holiday vendor, so the browser computes

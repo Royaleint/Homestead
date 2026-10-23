@@ -422,6 +422,7 @@ L["Here in %s: %s sells %d decor you can get now."] = "此處 %s：%s 出售 %d 
 L["Sold here in %s"] = "在 %s 出售"
 L["Sold on %s"] = "在 %s 大陸出售"
 L["%s: active now"] = "%s：目前開放"
+L["Gold"] = "金幣"
 L["Gold only"] = "僅需金幣"
 L["Gold only, no requirements left"] = "僅需金幣，已無其他條件"
 L["No requirements left"] = "已無其他條件"

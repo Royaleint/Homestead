@@ -422,6 +422,7 @@ L["Here in %s: %s sells %d decor you can get now."] = "Qui a %s: %s vende %d dec
 L["Sold here in %s"] = "Venduto qui a %s"
 L["Sold on %s"] = "Venduto su %s"
 L["%s: active now"] = "%s: attivo ora"
+L["Gold"] = "Oro"
 L["Gold only"] = "Solo oro"
 L["Gold only, no requirements left"] = "Solo oro, nessun requisito rimasto"
 L["No requirements left"] = "Nessun requisito rimasto"

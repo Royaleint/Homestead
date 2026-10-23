@@ -248,9 +248,9 @@ do
         "the walk is measured as browser_walk with the item count")
     assert(env.catalogCalls == 3, "one catalog read per item")
     assert(CG.Walk() == w and #env.measured == 1, "memoised")
-    assert(CG.VendorCanCount(v) == 3)
+    assert(CG.VendorCanCount(v) == 3 and env.measured[2].op == "browser_vendor_wares")
     D.InvalidateMemos()
-    assert(CG.Walk() ~= w and #env.measured == 2, "a new memo generation walks again")
+    assert(CG.Walk() ~= w and #env.measured == 3 and env.measured[3].op == "browser_walk", "a new memo generation walks again")
     print("hs538_canget: walk ok")
 end
 
