@@ -63,6 +63,7 @@ local function click(f, ...) f.scripts.OnClick(f, ...) end
 
 local function newEnv()
     local env = {
+        money = 1e9, currency = {}, count = {},
         done = true, attempted = true, warm = true, responded = true, faction = "Alliance",
         catalog = {}, names = {}, sources = {}, vendors = {}, offers = {}, reqs = {}, scanned = {},
         calendar = {}, themes = {}, measured = {}, playerMap = nil, maps = {}, gen = 1,
@@ -76,7 +77,14 @@ local function newEnv()
     rawset(_G, "UnitFactionGroup", function() return env.faction end)
     rawset(_G, "Enum", { ItemClass = { Housing = 20 }, ItemHousingSubclass = { Decor = 0, Dye = 1 },
         UIMapType = { Continent = 2, Zone = 3 } })
+    rawset(_G, "GetMoney", function() return env.money end)
+    rawset(_G, "C_CurrencyInfo", { GetCurrencyInfo = function(id)
+        local c = env.currency[id]
+        if c == nil then return { quantity = 1e6 } end
+        return c or nil
+    end })
     rawset(_G, "C_Item", {
+        GetItemCount = function(id) return env.count[id] or 1e6 end,
         GetItemNameByID = function(id) return env.names[id] end,
         RequestLoadItemDataByID = function() end,
         GetItemIconByID = function(id) return 1000 + id end,

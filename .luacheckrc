@@ -121,6 +121,7 @@ read_globals = {
     "GetCVarBool",  -- HS-347: dungeon/delve entrance map-legend filter check
     "GetMerchantItemInfo", "GetMerchantItemLink", "GetMerchantNumItems",
     "GetLocale",
+    "GetMoney",
     "GetProfessions", "GetProfessionInfo", -- HS-158/160 professionRank requirements
     "GetRealZoneText",
     "GetSubZoneText",

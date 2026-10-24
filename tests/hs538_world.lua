@@ -15,6 +15,7 @@ return function(root, opts)
     root = root:gsub("\\", "/"):gsub("/+$", "")
     local menuStub = assert(loadfile(root .. "/tests/hs538_menu.lua"))()
     local env = {
+        money = 1e9, currency = {}, count = {},
         done = true, attempted = true, warm = true, responded = true, faction = "Alliance",
         catalog = {}, names = {}, sources = {}, vendors = {}, offers = {}, reqs = {}, scanned = {}, records = {},
         calendar = {}, themes = {}, measured = {}, maps = {}, playerMap = nil, stats = {},
@@ -198,7 +199,14 @@ return function(root, opts)
     G("InCombatLockdown", function() return env.combat end)
     G("Enum", { ItemClass = { Housing = 20 }, ItemHousingSubclass = { Decor = 0, Dye = 1 },
         UIMapType = { Continent = 2, Zone = 3 } })
+    G("GetMoney", function() return env.money end)
+    G("C_CurrencyInfo", { GetCurrencyInfo = function(id)
+        local c = env.currency[id]
+        if c == nil then return { quantity = 1e6 } end
+        return c or nil
+    end })
     G("C_Item", {
+        GetItemCount = function(id) return env.count[id] or 1e6 end,
         GetItemNameByID = function(id) return env.names[id] end,
         RequestLoadItemDataByID = noop,
         GetItemIconByID = function(id) return 1000 + id end,

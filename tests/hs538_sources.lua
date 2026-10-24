@@ -105,6 +105,7 @@ InCombatLockdown = function() return combat end
 
 local function newEnv()
     local env = {
+        money = 1e9, currency = {}, count = {},
         done = true, attempted = true, warm = true, responded = true, faction = "Alliance",
         catalog = {}, catalogCalls = 0, names = {}, sources = {}, vendors = {}, offers = {}, reqs = {},
         scanned = {}, calendar = {}, themes = {}, vendorActiveCalls = 0, measured = {},
@@ -116,7 +117,14 @@ local function newEnv()
     rawset(_G, "UnitFactionGroup", function() return env.faction end)
     rawset(_G, "Enum", { ItemClass = { Housing = 20 }, ItemHousingSubclass = { Decor = 0, Dye = 1 },
         UIMapType = { Continent = 2, Zone = 3 } })
+    rawset(_G, "GetMoney", function() return env.money end)
+    rawset(_G, "C_CurrencyInfo", { GetCurrencyInfo = function(id)
+        local c = env.currency[id]
+        if c == nil then return { quantity = 1e6 } end
+        return c or nil
+    end })
     rawset(_G, "C_Item", {
+        GetItemCount = function(id) return env.count[id] or 1e6 end,
         GetItemNameByID = function(id) return env.names[id] end,
         RequestLoadItemDataByID = function() end,
     })
@@ -1258,7 +1266,7 @@ do
     assert(rows(main)[1].name == "Loaded", "Refresh after Hide redraws the list")
 
     for state, st in pairs(env.B.Style.state) do
-        if st.color == env.B.Style.color.stop then assert(state == "faction", "red on " .. state) end
+        if st.color == env.B.Style.color.stop then assert(state == "faction" or state == "short", "red on " .. state) end
     end
     print("hs538_sources: names and contract ok")
 end

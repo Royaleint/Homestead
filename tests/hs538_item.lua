@@ -1,6 +1,6 @@
 -- luacheck: globals assert loadfile print io os CreateFrame UIParent C_Texture PixelUtil CreateColor C_ColorOverrides
 -- luacheck: globals CreateScrollBoxListLinearView ScrollUtil CreateAnchor CreateDataProvider TextSizeManager NineSliceUtil
--- luacheck: globals C_Item C_HousingCatalog C_Map Enum InCombatLockdown GetBuildInfo wipe NORMAL_FONT_COLOR rawset
+-- luacheck: globals GetMoney C_CurrencyInfo C_Item C_HousingCatalog C_Map Enum InCombatLockdown GetBuildInfo wipe NORMAL_FONT_COLOR rawset
 -- luacheck: globals GetAchievementLink GetQuestLink IsModifiedClick HandleModifiedItemClick GameTooltip_AddHighlightLine
 -- luacheck: globals HOUSING_DECOR_FIRST_ACQUISITION_FORMAT
 -- Run from the repo root:  lua tests/hs538_item.lua [root]
@@ -117,7 +117,10 @@ local phase = "ready"
 local OWNED = {}
 local INFO = {}
 local NAMES = {}
+GetMoney = function() return 1e9 end
+C_CurrencyInfo = { GetCurrencyInfo = function() return { quantity = 1e6 } end }
 C_Item = {
+    GetItemCount = function() return 1e6 end,
     GetItemNameByID = function(id) return NAMES[id] end,
     RequestLoadItemDataByID = noop,
     GetItemIconByID = function() return 134400 end,

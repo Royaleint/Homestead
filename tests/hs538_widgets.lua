@@ -127,7 +127,7 @@ end
 -- No lock badge, no "Unlocked to buy" and no stateLabel on rows; red belongs to the faction state alone.
 for state, st in pairs(S.state) do
     assert(not st.word:find("Unlocked"), "state " .. state .. " says Unlocked to buy")
-    if st.color == K.stop then assert(state == "faction", "red on " .. state) end
+    if st.color == K.stop then assert(state == "faction" or state == "short", "red on " .. state) end
 end
 assert(S.state.unlocked == nil, "an unlocked row state exists")
 local f = assert(io.open(root .. "/UI/Browser/Widgets.lua", "rb"))

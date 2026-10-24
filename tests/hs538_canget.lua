@@ -11,6 +11,7 @@ local root = (... or "."):gsub("\\", "/"):gsub("/+$", "")
 
 local function newEnv()
     local env = {
+        money = 1e9, currency = {}, count = {},
         done = true, attempted = true, warm = true, responded = true, faction = "Alliance",
         catalog = {}, catalogCalls = 0, names = {}, sources = {}, vendors = {}, offers = {}, reqs = {},
         scanned = {}, calendar = {}, themes = {}, vendorActiveCalls = 0, measured = {},
@@ -22,7 +23,14 @@ local function newEnv()
     rawset(_G, "UnitFactionGroup", function() return env.faction end)
     rawset(_G, "Enum", { ItemClass = { Housing = 20 }, ItemHousingSubclass = { Decor = 0, Dye = 1 },
         UIMapType = { Continent = 2, Zone = 3 } })
+    rawset(_G, "GetMoney", function() return env.money end)
+    rawset(_G, "C_CurrencyInfo", { GetCurrencyInfo = function(id)
+        local c = env.currency[id]
+        if c == nil then return { quantity = 1e6 } end
+        return c or nil
+    end })
     rawset(_G, "C_Item", {
+        GetItemCount = function(id) return env.count[id] or 1e6 end,
         GetItemNameByID = function(id) return env.names[id] end,
         RequestLoadItemDataByID = function() end,
     })
@@ -243,6 +251,7 @@ do
     CG.Offer(1, 10)
     assert(env.catalogCalls == 1, "an offer reads the catalog through the shared page memo")
     HA.DecorBrowser.State, env.catalogCalls = nil, 0
+    D.InvalidateMemos()
     local w = CG.Walk()
     assert(#env.measured == 1 and env.measured[1].op == "browser_walk" and env.measured[1].workload == 3,
         "the walk is measured as browser_walk with the item count")
@@ -271,7 +280,7 @@ do
     local events = HA.EventSources.EventVendors
     events[4] = { npcID = 4, mapID = 201, event = "Lunar Festival", _isEventVendor = true, items = {} }
     env.calendar = { ["Lunar Festival"] = true }
-    local currency = { gold = 0, currencies = { { id = 1 } } }
+    local currency = { gold = 0, currencies = { { id = 1, amount = 5 } } }
     for id = 11, 17 do env.decor(id) end
     env.names[16] = nil
     env.sell(11, far, currency)
@@ -404,6 +413,261 @@ do
     env.done, env.attempted = false, false
     assert(CG.HiddenBy(1) == nil and CG.HiddenBy({ items = { 1 } }) == nil, "nothing hides as collected while counting")
     print("hs538_canget: hide reasons ok")
+end
+
+-------------------------------------------------------------------------------
+-- Paying: "can get now" needs the requirements met and the cost covered by what
+-- this character carries. Each case is a fresh load, so a fresh wallet snapshot.
+-------------------------------------------------------------------------------
+
+local function costWords(_, c)
+    local t = {}
+    if c.gold then t[#t + 1] = "g" .. c.gold end
+    for _, p in ipairs(c.currencies or {}) do t[#t + 1] = "c" .. p.id .. "x" .. p.amount end
+    for _, p in ipairs(c.items or {}) do t[#t + 1] = "i" .. p.id .. "x" .. p.amount end
+    return t[1] and table.concat(t, " ") or nil
+end
+
+local function payEnv()
+    local env, HA, D, CG = newEnv()
+    HA.VendorData.FormatCost = costWords
+    return env, HA, D, CG, HA.DecorBrowser
+end
+
+-- An offer with no cost recorded at all.
+local function sellFree(env, itemID, v)
+    local list = env.sources[itemID] or {}
+    list[#list + 1] = { type = "vendor", data = { npcID = v.npcID, vendor = v } }
+    env.sources[itemID] = list
+    env.offers[itemID] = true
+    v.items[#v.items + 1] = itemID
+end
+
+local function judge(setup)
+    local env, HA, _, CG, B = payEnv()
+    local v = env.vendor(10)
+    env.decor(1)
+    setup(env, v, HA)
+    return CG.Entry(1).verdict, CG.Offer(1, 10), select(2, B.ItemState(1)), CG, B
+end
+
+do
+    local reads = 0
+    for _, case in ipairs({ { 99, "short" }, { 100, "can" }, { 101, "can" }, { 0, "short" }, { 1e15, "can" } }) do
+        local verdict, offer, words = judge(function(env, v)
+            env.sell(1, v, { gold = 100 })
+            env.money = case[1]
+        end)
+        assert(verdict == case[2] and offer == case[2], "gold with " .. case[1] .. ": " .. verdict .. "/" .. offer)
+        assert(words == (case[2] == "short" and "g100" or nil), "short words name the gold price")
+    end
+
+    local env, _, _, CG = payEnv()
+    local v = env.vendor(10)
+    for id = 1, 3 do env.decor(id) env.sell(id, v, { gold = 100 }) end
+    rawset(_G, "GetMoney", function() reads = reads + 1 return env.money end)
+    CG.Walk()
+    assert(CG.Offer(2, 10) == "can" and reads == 1, "gold is read once per snapshot: " .. reads)
+    print("hs538_canget: gold short, exact and enough ok")
+end
+
+do
+    local cost = { currencies = { { id = 3363, amount = 5 } } }
+    for _, case in ipairs({ { 4, "short" }, { 5, "can" }, { 0, "short" }, { false, "unpriced" } }) do
+        local verdict, offer = judge(function(env, v)
+            env.sell(1, v, cost)
+            env.currency[3363] = case[1] and { quantity = case[1] } or false
+        end)
+        assert(verdict == case[2] and offer == case[2], "currency with " .. tostring(case[1]) .. ": " .. verdict)
+    end
+    print("hs538_canget: currency short, undiscovered and no info ok")
+end
+
+do
+    local args
+    local function carrying(bags, reagent, bank)
+        return function(env, v)
+            env.sell(1, v, { items = { { id = 7, amount = 2 } } })
+            rawget(_G, "C_Item").GetItemCount = function(id, includeBank, includeUses, includeReagentBank, includeAccountBank)
+                args = { id, includeBank, includeUses, includeReagentBank, includeAccountBank }
+                return bags + (includeReagentBank and reagent or 0) + (includeBank and bank or 0)
+                    + (includeAccountBank and bank or 0)
+            end
+        end
+    end
+    assert(judge(carrying(2, 0, 0)) == "can", "bags count")
+    assert(judge(carrying(0, 2, 0)) == "can", "the reagent bank counts")
+    assert(judge(carrying(0, 0, 5)) == "short", "the bank alone does not count")
+    assert(args[1] == 7 and args[2] == false and args[3] == false and args[4] == true and args[5] == nil,
+        "counted as the merchant counts: bags and reagent bank")
+    assert(judge(carrying(1, 0, 0)) == "short")
+    print("hs538_canget: item costs ok")
+end
+
+do
+    local mixed = { gold = 100, currencies = { { id = 1, amount = 5 } }, items = { { id = 7, amount = 2 } } }
+    local verdict, _, words = judge(function(env, v) env.sell(1, v, mixed) env.money = 100 env.count[7] = 1 end)
+    assert(verdict == "short" and words == "i7x2", "every part must be covered; the words list only short parts")
+    verdict, _, words = judge(function(env, v)
+        env.sell(1, v, mixed)
+        env.money, env.currency[1], env.count[7] = 50, { quantity = 1 }, 2
+    end)
+    assert(verdict == "short" and words == "g100 c1x5", "full prices of the short parts: " .. tostring(words))
+    assert(judge(function(env, v) env.sell(1, v, mixed) env.money, env.count[7] = 100, 2 end) == "can")
+    verdict, _, words = judge(function(env, v)
+        env.sell(1, v, { gold = 100, currencies = { { id = 1 } } })
+        env.money = 10
+    end)
+    assert(verdict == "short" and words == "g100", "a short part outweighs one that can't be checked")
+    print("hs538_canget: mixed costs ok")
+end
+
+-------------------------------------------------------------------------------
+-- Unknown prices are never "can get now"
+-------------------------------------------------------------------------------
+
+do
+    local verdict, offer, words, CG, B = judge(function(env, v) sellFree(env, 1, v) end)
+    assert(verdict == "unpriced" and offer == "unpriced" and words == nil, "no cost recorded")
+    assert(next(CG.Entry(1).canBy) == nil and CG.VendorCanCount(B.Data.Vendor(10)) == 0 and #CG.Rank() == 0,
+        "not counted")
+    local st = B.Style.state.unpriced
+    assert(st.word == "Price not recorded" and st.color == B.Style.color.muted and st.glyph == nil, "muted, no glyph")
+    for _, cost in ipairs({
+        { currencies = { { amount = 5 } } }, { currencies = { { id = 1 } } }, { items = { { amount = 1 } } },
+        { items = { { id = 7 } } }, { gold = 0 }, {},
+    }) do
+        assert(judge(function(env, v) env.sell(1, v, cost) end) == "unpriced", "a part that can't be checked")
+    end
+    assert(judge(function(env, v) env.sell(1, v, { currencies = { { id = 1, amount = 5 } } }) env.currency[1] = false end)
+        == "unpriced", "a currency the game has no info for")
+    print("hs538_canget: unknown prices ok")
+end
+
+do
+    local env, HA, _, CG, B = payEnv()
+    local events = HA.EventSources.EventVendors
+    events[20] = { npcID = 20, mapID = 1, event = "Lunar Festival", _isEventVendor = true, items = { 1, 2 } }
+    env.calendar = { ["Lunar Festival"] = true }
+    env.decor(1) env.decor(2)
+    local asked = {}
+    HA.SourceManager.GetVendorItemCost = function(_, id, vendor)
+        asked[id] = vendor.npcID
+        return id == 1 and { gold = 100 } or nil
+    end
+    local e = CG.Entry(1)
+    assert(asked[1] == 20 and e.verdict == "can" and e.reach[20].cost.gold == 100 and e.canBy[20],
+        "an event vendor's shipped or scanned cost is used")
+    assert(CG.Entry(2).verdict == "unpriced" and next(CG.Entry(2).canBy) == nil, "an event vendor with no cost stays unpriced")
+    assert(select(3, B.ItemState(2)) == 20, "the state names the event vendor")
+    env.money = 99
+    B.Data.InvalidateMemos()
+    assert(CG.Entry(1).verdict == "short", "an event vendor's cost is judged like any other")
+    print("hs538_canget: event vendor costs ok")
+end
+
+-------------------------------------------------------------------------------
+-- Any vendor: one paid offer makes "can get now"; the state names its vendor
+-------------------------------------------------------------------------------
+
+do
+    local env, _, D, CG, B = payEnv()
+    local a, b, c = env.vendor(10), env.vendor(11), env.vendor(12)
+    env.money = 150
+    for id = 1, 5 do env.decor(id) end
+    env.sell(1, a, { gold = 100 }) env.sell(1, b, { gold = 200 })
+    env.sell(2, a, { gold = 300 }) env.sell(2, b, { gold = 200 })
+    env.sell(3, c, { gold = 100 }) env.sell(3, b, { gold = 200 })
+    env.sell(4, c, { gold = 100 }) sellFree(env, 4, a)
+    env.sell(5, c, { gold = 100 })
+    env.reqs["3:12"] = { { type = "achievement", id = 1, met = false } }
+    env.reqs["4:12"] = { { type = "achievement", id = 1, met = false } }
+
+    local e = CG.Entry(1)
+    assert(e.verdict == "can" and e.canBy[10] and not e.canBy[11], "A paid and B short: can, with only A in canBy")
+    assert(CG.Offer(1, 11) == "short" and B.ItemState(1, 11) == "short", "B judged alone is short")
+    assert(select(2, B.ItemState(1, 11)) == "g200" and CG.Primary(1).npcID == 10)
+
+    local state, words, at = B.ItemState(2)
+    assert(state == "short" and (at == 10 or at == 11), "both short")
+    assert(words == (at == 10 and "g300" or "g200"), "the words describe the vendor the state names")
+    assert(CG.Primary(2).npcID == at, "the row names the state's vendor")
+
+    state, words, at = B.ItemState(3)
+    assert(state == "short" and words == "g200" and at == 11, "short plus locked is short")
+    assert(CG.Primary(3).npcID == 11, "the short vendor, not the first listed")
+
+    state, words, at = B.ItemState(4)
+    assert(state == "unpriced" and words == nil and at == 10, "unpriced plus locked is unpriced")
+    assert(CG.Primary(4).npcID == 10)
+
+    assert(B.ItemState(5) == "can" and CG.Entry(5).canBy[12], "a plain paid offer")
+
+    -- The counts agree, and none counts short or unpriced.
+    local counts = CG.VendorCanCount(D.Vendor(10)) .. "," .. CG.VendorCanCount(D.Vendor(11)) .. ","
+        .. CG.VendorCanCount(D.Vendor(12))
+    assert(counts == "1,0,1", "vendor counts: " .. counts)
+    local ranked = {}
+    for i, r in ipairs(CG.Rank()) do ranked[i] = r.itemID end
+    assert(table.concat(ranked, ",") == "1,5" and CG.Fill().count == 2, "ranked: " .. table.concat(ranked, ","))
+    print("hs538_canget: any vendor ok")
+end
+
+-------------------------------------------------------------------------------
+-- A row that can't be got now names the vendor its state names
+-------------------------------------------------------------------------------
+
+do
+    local env, HA, _, CG, B = payEnv()
+    local events = HA.EventSources.EventVendors
+    events[20] = { npcID = 20, mapID = 1, event = "Hallow's End", _isEventVendor = true, items = { 2 } }
+    local a, b = env.vendor(10), env.vendor(11)
+    env.decor(1)
+    env.sell(1, a) env.sell(1, b)
+    env.reqs["1:10"] = { { type = "achievement", id = 1, met = false }, { type = "achievement", id = 2, met = false } }
+    env.reqs["1:11"] = { { type = "achievement", id = 1, met = false } }
+    assert(B.ItemState(1) == "locked" and CG.Primary(1).npcID == 11, "the easiest locked vendor, not the first listed")
+
+    env.decor(2)
+    env.sell(2, env.vendor(41, { removed = true }))
+    local state, arg, at = B.ItemState(2)
+    assert(state == "event" and arg == "Hallow's End" and at == 20, "an off-season holiday names its vendor")
+    assert(CG.Primary(2).npcID == 20, "the holiday vendor, not the first listed")
+    print("hs538_canget: state vendor ok")
+end
+
+-------------------------------------------------------------------------------
+-- The fill's next steps: short, then unpriced, then locked by fewest unmet
+-------------------------------------------------------------------------------
+
+do
+    local env, _, _, CG = payEnv()
+    local v = env.vendor(10)
+    env.money = 50
+    for id = 1, 5 do env.decor(id) end
+    env.names[1], env.names[2], env.names[3], env.names[4], env.names[5] = "Zed", "Yew", "Bell", "Alpha", "Cork"
+    env.sell(1, v, { gold = 100 })
+    sellFree(env, 2, v)
+    env.sell(3, v) env.reqs["3:10"] = { { type = "achievement", id = 1, met = false } }
+    env.sell(4, v) env.reqs["4:10"] = { { type = "achievement", id = 1, met = false }, { type = "achievement", id = 2, met = false } }
+    env.sell(5, v, { gold = 100 })
+    local f = CG.Fill()
+    local ids = {}
+    for i, row in ipairs(f.notYet) do ids[i] = row.entry.itemID end
+    assert(f.count == 0 and table.concat(ids, ",") == "5,1,2", "short by name first: " .. table.concat(ids, ","))
+
+    env, _, _, CG = payEnv()
+    v = env.vendor(10)
+    env.money = 50
+    for id = 2, 4 do env.decor(id) end
+    env.names[2], env.names[3], env.names[4] = "Yew", "Bell", "Alpha"
+    sellFree(env, 2, v)
+    env.sell(3, v) env.reqs["3:10"] = { { type = "achievement", id = 1, met = false } }
+    env.sell(4, v) env.reqs["4:10"] = { { type = "achievement", id = 1, met = false }, { type = "achievement", id = 2, met = false } }
+    ids = {}
+    for i, row in ipairs(CG.Fill().notYet) do ids[i] = row.entry.itemID .. ":" .. row.unmet end
+    assert(table.concat(ids, ",") == "2:0,3:1,4:2", "unpriced, then locked by fewest unmet: " .. table.concat(ids, ","))
+    print("hs538_canget: fill next steps ok")
 end
 
 print("hs538_canget: ok")

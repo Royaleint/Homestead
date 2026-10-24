@@ -75,6 +75,7 @@ do
     local S = HA.DecorBrowser.Style
     local words = {
         owned = { "Collected", "check" }, can = { "Can get now", "dot" }, locked = { "Requires: %s", "lock" },
+        short = { "Not enough: %s", "coin" }, unpriced = { "Price not recorded", nil },
         faction = { "%s only", "stop" }, event = { "%s only", "clock" }, notOwned = { "Not collected", nil },
         counting = { "Counting\226\128\166", nil },
         allDone = { "All collected", "check" }, some = { "%d can get now", "dot" },
@@ -88,8 +89,9 @@ do
     for key in pairs(S.state) do assert(words[key], "unexpected state " .. key) end
     assert(S.state.can.color == S.color.can, "Can get now is not the green")
     assert(S.state.faction.color == S.color.stop, "the other faction is not red")
+    assert(S.state.short.color == S.color.stop, "a cost this character can't pay is not red")
     for key, st in pairs(S.state) do
-        if key ~= "faction" then assert(st.color ~= S.color.stop, key .. " must not be red") end
+        if key ~= "faction" and key ~= "short" then assert(st.color ~= S.color.stop, key .. " must not be red") end
     end
     assert(S.state.unlocked == nil and not S.state.owned.word:find("Unlocked"), "rows must not say Unlocked to buy")
     print("hs538_states: state words ok")

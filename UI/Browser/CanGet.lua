@@ -44,14 +44,94 @@ local function Verdict(SM, itemID, npcID, vendor, own)
     return state == "unobtainable" and "unobtainable" or "locked"
 end
 
+-- What this character carries, each key read once per memo version, so the keys are what the offers need:
+-- gold in copper, cur[id] (false without currency info), item[id] in bags and reagent bank as the merchant counts.
+local wallet = { cur = {}, item = {} }
+CG.wallet = wallet
+
+local function Have(kind, id)
+    local n = wallet[kind][id]
+    if n == nil then
+        if kind == "cur" then
+            local info = C_CurrencyInfo.GetCurrencyInfo(id)
+            n = info and info.quantity or false
+        else
+            n = C_Item.GetItemCount(id, false, false, true)
+        end
+        wallet[kind][id] = n
+    end
+    return n
+end
+
+-- "paid" when every part is checked and covered; "short" when a checked part isn't, which outweighs the rest;
+-- else "unknown": no part, or one with no id, no amount or no currency info. out gathers the short parts.
+local NONE, KINDS = {}, { currencies = "cur", items = "item" }
+local function Pay(cost, out)
+    if not cost then return "unknown" end
+    local parts, short, unknown = 0, false, false
+    local gold = cost.gold or 0
+    if gold > 0 then
+        wallet.gold = wallet.gold or GetMoney()
+        parts, short = 1, wallet.gold < gold
+        if short and out then out.gold = gold end
+    end
+    for key, kind in pairs(KINDS) do
+        for _, c in ipairs(cost[key] or NONE) do
+            parts = parts + 1
+            local have = c.id and c.amount and Have(kind, c.id)
+            if not have then
+                unknown = true
+            elseif have < c.amount then
+                short = true
+                if out then out[key] = out[key] or {} table.insert(out[key], c) end
+            end
+        end
+    end
+    if short then return "short" end
+    return (unknown or parts == 0) and "unknown" or "paid"
+end
+
+local function ShortWords(cost)
+    local out = {}
+    Pay(cost, out)
+    return HA.VendorData:FormatCost(out)
+end
+
+local VERDICT = { paid = "can", short = "short", unknown = "unpriced" }
+local PAY = { short = "short", unpriced = "unknown" }
+
+local entries, walk, version = {}, nil, nil
+
+local function Fresh()
+    local v = D.MemoVersion()
+    if v ~= version then
+        version, walk = v, nil
+        wipe(entries)
+        wallet.gold = nil
+        wipe(wallet.cur)
+        wipe(wallet.item)
+    end
+end
+
+local function OfferCost(itemID, npcID, vendor)
+    local e = CG.Entry(itemID)
+    local o = e and e.reach and e.reach[npcID]
+    if o then return o.cost end
+    vendor = vendor or HA.VendorData:GetVendor(npcID) or Facts.EventVendor(npcID)
+    return vendor and HA.SourceManager:GetVendorItemCost(itemID, vendor)
+end
+
+-- One vendor's offer: requirements first, then payment.
 function CG.Offer(itemID, npcID, info)
     if D.CollectionState() ~= "ready" then return "unknown" end
     info = info or D.CatalogInfo(itemID, Memo())
     local vendor = npcID and (HA.VendorData:GetVendor(npcID) or Facts.EventVendor(npcID))
-    return Verdict(HA.SourceManager, itemID, npcID, vendor, Own(HA.CatalogStore, itemID, info))
+    local verdict = Verdict(HA.SourceManager, itemID, npcID, vendor, Own(HA.CatalogStore, itemID, info))
+    if verdict ~= "can" then return verdict end
+    return VERDICT[Pay(OfferCost(itemID, npcID, vendor))]
 end
 
-local PRIORITY = { can = 1, locked = 2, unlisted = 3, faction = 4, unobtainable = 5, unknown = 6 }
+local PRIORITY = { can = 1, short = 2, unpriced = 3, locked = 4, unlisted = 5, faction = 6, unobtainable = 7, unknown = 8 }
 
 local SOURCE_TABLES = {
     achievements = "AchievementSources", quests = "QuestSources", professions = "ProfessionSources",
@@ -92,26 +172,36 @@ local function Consider(e, SM, npcID, vendor, cost, best)
     local ev = Facts.EventVendor(npcID)
     local event = ev and (ev.event or vendor.event)
     if verdict == "can" then
-        e.canBy = e.canBy or {}
-        e.canBy[npcID] = { npcID = npcID, mapID = vendor.mapID, event = event, gold = GoldOnly(cost) }
+        -- A source with no cost, and every event vendor, asks the resolver.
+        cost = cost or SM:GetVendorItemCost(e.itemID, vendor)
+        local gold = GoldOnly(cost)
+        e.reach, e.canBy = e.reach or {}, e.canBy or {}
+        e.reach[npcID] = { npcID = npcID, mapID = vendor.mapID, event = event, cost = cost, gold = gold,
+            price = gold and cost.gold or nil }
+        return best
     elseif verdict == "locked" then
         e.locked = e.locked or {}
         e.locked[#e.locked + 1] = npcID
     elseif verdict == "unlisted" and event then
-        e.event = event
+        e.event, e.eventAt = event, npcID
     end
     if not best or PRIORITY[verdict] < PRIORITY[best] then return verdict end
     return best
 end
 
-local entries, walk, version = {}, nil, nil
-
-local function Fresh()
-    local v = D.MemoVersion()
-    if v ~= version then
-        version, walk = v, nil
-        wipe(entries)
+-- Judges each reachable offer against the wallet; the verdict is the best of theirs and the rest's.
+local function Settle(e)
+    local verdict = e.rest
+    if e.reach then
+        wipe(e.canBy)
+        for npcID, o in pairs(e.reach) do
+            o.pay = Pay(o.cost)
+            local v = VERDICT[o.pay]
+            if v == "can" then e.canBy[npcID] = o end
+            if not verdict or PRIORITY[v] < PRIORITY[verdict] then verdict = v end
+        end
     end
+    e.verdict = verdict
 end
 
 -- Offers are evaluated only for uncollected items; collected and unknown items never reach a vendor check.
@@ -142,13 +232,15 @@ local function Evaluate(itemID, store, SM, VD, memo)
     for _, npcID in ipairs(Facts.EventVendorsFor(itemID) or {}) do
         if not seen[npcID] then best = Consider(e, SM, npcID, Facts.EventVendor(npcID), nil, best) end
     end
-    e.verdict = best
+    e.rest = best
+    Settle(e)
     return e
 end
 
 -- The walk's record for one item, decor or a vendor ware outside the decor list; nil before ready.
 -- Fields: itemID, info, own, name, bonus (the First-Time Collection amount, nil if none), src (Sources type set), factionOnly, verdict (nil without a
--- vendor offer), canBy (npcID to offer), locked (npcIDs), event (an off-season holiday that sells it).
+-- vendor offer), reach (npcID to each offer with requirements met, with cost and pay), canBy (its paid ones),
+-- rest (the others' best verdict), locked (npcIDs), event and eventAt (an off-season holiday that sells it, and its vendor).
 function CG.Entry(itemID)
     if D.CollectionState() ~= "ready" then return nil end
     Fresh()
@@ -242,12 +334,14 @@ function CG.VendorCanCount(vendor)
     return n
 end
 
-local function BestOffer(e, where)
+local function BestOffer(offers, where, pay)
     local best, bestKey
-    for _, o in pairs(e.canBy) do
-        local key = (o.event and 0 or 4) + Facts.Nearness(o.mapID, where) - (o.gold and 0.5 or 0)
-        if not bestKey or key < bestKey or (key == bestKey and o.npcID < best.npcID) then
-            best, bestKey = o, key
+    for _, o in pairs(offers) do
+        if not pay or o.pay == pay then
+            local key = (o.event and 0 or 4) + Facts.Nearness(o.mapID, where) - (o.gold and 0.5 or 0)
+            if not bestKey or key < bestKey or (key == bestKey and o.npcID < best.npcID) then
+                best, bestKey = o, key
+            end
         end
     end
     return best
@@ -264,22 +358,24 @@ local function Before(a, b)
     return a.itemID < b.itemID
 end
 
+-- The best paid offer, else the vendor the item's state names, else the first own-faction vendor.
 function CG.Primary(itemID, sources)
     sources = sources or D.ItemSources(itemID)
     local e = CG.Entry(itemID)
-    local best = e and e.canBy and (e.best or BestOffer(e, Facts.Here()))
+    local best = e and e.verdict == "can" and (e.best or BestOffer(e.canBy, Facts.Here()))
+    local at = best and best.npcID or e and select(3, B.ItemState(itemID))
     local own, first
     for _, s in ipairs(sources) do
         local v = s.type == "vendor" and s.npcID and D.Vendor(s.npcID)
-        if v and best and s.npcID == best.npcID then return s end
+        if v and at and s.npcID == at then return s end
         if v then
             own = own or not D.IsOppositeFaction(v) and s or nil
             first = first or s
         end
     end
-    if best then
-        local v = D.Vendor(best.npcID) or {}
-        return { type = "vendor", npcID = best.npcID, name = v.name, zone = v.zone, subzone = v.subzone, price = D.Price(itemID, v) }
+    if at then
+        local v = D.Vendor(at) or {}
+        return { type = "vendor", npcID = at, name = v.name, zone = v.zone, subzone = v.subzone, price = D.Price(itemID, v) }
     end
     return own or first or sources[1]
 end
@@ -293,7 +389,7 @@ function CG.Rank()
     local out = {}
     for _, e in ipairs(w.list) do
         if e.verdict == "can" then
-            e.best = BestOffer(e, where)
+            e.best = BestOffer(e.canBy, where)
             e.near = Facts.Nearness(e.best.mapID, where)
             out[#out + 1] = e
         end
@@ -317,8 +413,11 @@ local function Easiest(itemID, npcIDs)
     return best, at
 end
 
+local STEP = { short = 1, unpriced = 2, locked = 3 }
+
 -- The Summary's rows: up to three can-get-now entries, then dimmed "not yet" rows so three slots fill
--- when enough candidates exist. Returns { rows, notYet = { { entry, unmet } }, count, allCollected }.
+-- when enough candidates exist: short, unpriced, then locked or an off-season holiday by fewest unmet.
+-- Returns { rows, notYet = { { entry, step, unmet } }, count, allCollected }.
 function CG.Fill()
     local ranked = CG.Rank()
     if not ranked then return nil end
@@ -330,12 +429,14 @@ function CG.Fill()
     if room == 0 or out.allCollected then return out end
     local candidates = {}
     for _, e in ipairs(w.list) do
-        if e.own == "notOwned" and e.name and (e.verdict == "locked" or (e.verdict == "unlisted" and e.event)) then
-            local unmet = Easiest(e.itemID, e.locked)
-            candidates[#candidates + 1] = { entry = e, unmet = unmet and #unmet or 1 }
+        local step = e.own == "notOwned" and e.name and (STEP[e.verdict] or e.verdict == "unlisted" and e.event and 3)
+        if step then
+            local unmet = step == 3 and Easiest(e.itemID, e.locked)
+            candidates[#candidates + 1] = { entry = e, step = step, unmet = step < 3 and 0 or unmet and #unmet or 1 }
         end
     end
     table.sort(candidates, function(a, b)
+        if a.step ~= b.step then return a.step < b.step end
         if a.unmet ~= b.unmet then return a.unmet < b.unmet end
         if a.entry.name ~= b.entry.name then return a.entry.name < b.entry.name end
         return a.entry.itemID < b.entry.itemID
@@ -391,6 +492,11 @@ end
 local function Judge(e, itemID, npcID)
     local offer = npcID and CG.Offer(itemID, npcID, e.info) or e.verdict
     if offer == "can" then return "can" end
+    if PAY[offer] then
+        local o = not npcID and BestOffer(e.reach, Facts.Here(), PAY[offer])
+        local words = offer == "short" and ShortWords(o and o.cost or OfferCost(itemID, npcID)) or nil
+        return offer, words, o and o.npcID or npcID
+    end
     if npcID and offer == "faction" or not npcID and e.factionOnly then
         local label = FactionLabel(itemID, npcID)
         if label then return "faction", label end
@@ -399,11 +505,12 @@ local function Judge(e, itemID, npcID)
     if unmet then return "locked", unmet[2] and L["%s and %d more"]:format(unmet[1], #unmet - 1) or unmet[1], at end
     local ev = npcID and Facts.EventVendor(npcID)
     local event = offer == "unlisted" and (npcID and ev and (ev.event or (D.Vendor(npcID) or {}).event) or not npcID and e.event)
-    return event and "event" or "notOwned", event or nil
+    return event and "event" or "notOwned", event or nil, event and (npcID or e.eventAt) or nil
 end
 
--- The item-state rule for every surface: an S.state key, its argument, and the vendor a locked state names.
--- npcID judges that vendor's offer; without it, the item's easiest locked vendor.
+-- The item-state rule for every surface: an S.state key, its argument, and the vendor the state names.
+-- npcID judges that vendor's offer; without it, the item's best short or unpriced offer, its easiest locked
+-- vendor or its holiday vendor.
 function B.ItemState(itemID, npcID)
     local phase = D.CollectionState()
     if phase ~= "ready" then return phase == "counting" and "counting" or nil end

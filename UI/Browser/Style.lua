@@ -89,6 +89,8 @@ S.glyph = {
     stop = { "common-icon-redx" },
     clock = { "housing-dashboard-timertag-clock-icon", "worldquest-icon-clock" },
     star = { "tradeskills-star" },
+    -- Drawn in its own colours.
+    coin = { "coin-gold", native = true },
 }
 
 S.coord = {
@@ -116,8 +118,8 @@ S.filigree = {
     dividerAlpha = 1,
 }
 
--- Green means only "Can get now"; red only "can't on this character" and errors, never a row's own lock or
--- count.
+-- Green means only "Can get now"; red only "can't on this character", a cost this character can't pay, and
+-- errors, never a requirement, a row's own lock or a count.
 S.color = {
     card = { 0.09, 0.08, 0.06, 1 },
     hoverRow = { 1, 1, 1, 0.10 },
@@ -135,11 +137,13 @@ S.color = {
 }
 local K = S.color
 
--- The words and second signal of each row state. Locked and faction/event take their argument; the last
--- four are Sources' list rows.
+-- The words and second signal of each row state. Locked, short and faction/event take their argument; the
+-- last four are Sources' list rows.
 S.state = {
     owned = { word = L["Collected"], glyph = "check", color = K.muted },
     can = { word = L["Can get now"], glyph = "dot", color = K.can },
+    short = { word = L["Not enough: %s"], glyph = "coin", color = K.stop },
+    unpriced = { word = L["Price not recorded"], color = K.muted },
     locked = { word = L["Requires: %s"], glyph = "lock", color = K.muted },
     faction = { word = L["%s only"], glyph = "stop", color = K.stop },
     event = { word = L["%s only"], glyph = "clock", color = K.muted },

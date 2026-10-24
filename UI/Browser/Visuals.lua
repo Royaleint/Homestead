@@ -96,9 +96,11 @@ function Marker.Set(tex, glyph, c)
     if not glyph then return end
     local atlas = Atlas(glyph)
     if atlas then
+        local native = S.glyph[glyph].native
+        local k = native and S.color.body or c
         tex:SetAtlas(atlas)
-        tex:SetDesaturated(true)
-        tex:SetVertexColor(c[1], c[2], c[3], 1)
+        tex:SetDesaturated(not native)
+        tex:SetVertexColor(k[1], k[2], k[3], 1)
     else
         tex:SetDesaturated(false)
         tex:SetVertexColor(1, 1, 1, 1)

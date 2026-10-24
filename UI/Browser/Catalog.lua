@@ -9,12 +9,13 @@ local KEYS = CG.SOURCE_KEYS
 local KIND, KindOf = S.kind, S.KindOf
 local TYPE = S.sourceLabel
 local SORT = { best = L["Best to get now"], name = L["Name"], price = L["Price"] }
--- The best-sort group from the walk alone (can, other, locked or event, faction, owned); drawn rows judge their words.
+-- The best-sort group from the walk alone (can; other; short, unpriced, locked or event; faction; owned); drawn rows judge their words.
 local function Group(e)
     if e.own ~= "notOwned" then return e.own == "owned" and 4 or 1 end
     if e.verdict == "can" then return 0 end
     if e.factionOnly then return 3 end
-    return (e.locked or e.verdict == "unlisted" and e.event) and 2 or 1
+    local v = e.verdict
+    return (e.locked or v == "short" or v == "unpriced" or v == "unlisted" and e.event) and 2 or 1
 end
 
 local Page, ui, orders = {}, {}, {}

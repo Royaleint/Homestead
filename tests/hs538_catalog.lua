@@ -116,6 +116,7 @@ local menuStub = assert(loadfile(root .. "/tests/hs538_menu.lua"))()
 local function newEnv(opts)
     opts = opts or {}
     local env = {
+        money = 1e9, currency = {}, count = {},
         done = true, attempted = true, warm = true, responded = true, faction = "Alliance",
         catalog = {}, catalogCalls = 0, names = {}, sources = {}, vendors = {}, offers = {}, reqs = {},
         scanned = {}, calendar = {}, measured = {}, sortCalls = 0, sourceCalls = 0,
@@ -128,7 +129,14 @@ local function newEnv(opts)
     rawset(_G, "UnitFactionGroup", function() return env.faction end)
     rawset(_G, "Enum", { ItemClass = { Housing = 20 }, ItemHousingSubclass = { Decor = 0, Dye = 1 },
         UIMapType = { Continent = 2, Zone = 3 } })
+    rawset(_G, "GetMoney", function() return env.money end)
+    rawset(_G, "C_CurrencyInfo", { GetCurrencyInfo = function(id)
+        local c = env.currency[id]
+        if c == nil then return { quantity = 1e6 } end
+        return c or nil
+    end })
     rawset(_G, "C_Item", {
+        GetItemCount = function(id) return env.count[id] or 1e6 end,
         GetItemNameByID = function(id) return env.names[id] end,
         RequestLoadItemDataByID = function() end,
         GetItemIconByID = function(id) return "icon" .. id end,
@@ -376,7 +384,7 @@ local function fixture(opts)
     env.sell(4, near, { gold = 10 })
     env.sell(5, near, { gold = 20 })
     env.sell(6, horde, { gold = 70 })
-    env.sell(8, near, { gold = 0, currencies = { { id = 1 } } })
+    env.sell(8, near, { gold = 0, currencies = { { id = 1, amount = 5 } } })
     env.reqs["3:10"] = { { type = "unknown", text = "Mysterious Favor" } }
     HA.AchievementSources[7] = { achievementID = 9 }
     HA.AchievementSources[2] = { achievementID = 12 }
@@ -829,6 +837,18 @@ do
     assert(#env.box().provider > 40 and locked > 0 and locked <= 8, "the drawn locked rows are judged: " .. locked)
     env.D.Requirements = real
     print("hs538_catalog: drawn rows only ok")
+end
+
+-------------------------------------------------------------------------------
+-- Best to get now: short and unpriced items sort with the "not yet" group
+-------------------------------------------------------------------------------
+
+do
+    -- 1 costs more gold than the player has; 8's currency has no info, so its price is unknown.
+    local env = fixture({ money = 150, currency = { [1] = false } })
+    env.tab.Show()
+    eq(env.ids(), "2,5,7,3,8,1,6,4", "short and unpriced join the requirement group, by name")
+    print("hs538_catalog: short and unpriced group ok")
 end
 
 print("hs538_catalog: ok")

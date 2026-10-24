@@ -11,20 +11,20 @@ local root = (... or "."):gsub("\\\\", "/"):gsub("/+$", "")
 -- ceiling needs a file.
 -------------------------------------------------------------------------------
 
-local CAP = 200704
+local CAP = 229376
 
 local CEIL = {
     ["Visuals.xml"] = 700,
-    ["Style.lua"] = 5900,
-    ["Visuals.lua"] = 3800,
+    ["Style.lua"] = 5809,
+    ["Visuals.lua"] = 3580,
     ["Adapter.lua"] = 20000,
     ["Facts.lua"] = 6800,
-    ["CanGet.lua"] = 16100,
+    ["CanGet.lua"] = 20107,
     ["Widgets.lua"] = 26800,
     ["Window.lua"] = 23500,
     ["Browser.lua"] = 16000,
     ["Summary.lua"] = 10100,
-    ["Catalog.lua"] = 15700,
+    ["Catalog.lua"] = 15429,
     ["Sources.lua"] = 31500,
     ["Item.lua"] = 22000,
 }

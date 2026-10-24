@@ -12,6 +12,7 @@ local root = (... or "."):gsub("\\", "/"):gsub("/+$", "")
 
 local function newEnv()
     local env = {
+        money = 1e9, currency = {}, count = {},
         done = true, attempted = true, warm = true, responded = true,
         catalog = {}, subclass = {}, sources = {}, vendors = {}, offers = {},
         measured = {}, spies = { SetOwned = 0, SetUnowned = 0, ProbeByDecorID = 0, IsOwnedFresh = 0 },
@@ -22,7 +23,14 @@ local function newEnv()
     rawset(_G, "UnitFactionGroup", function() return "Alliance" end)
     rawset(_G, "Enum", { ItemClass = { Housing = 20 }, ItemHousingSubclass = { Decor = 0, Dye = 1 },
         UIMapType = { Continent = 2, Zone = 3 } })
+    rawset(_G, "GetMoney", function() return env.money end)
+    rawset(_G, "C_CurrencyInfo", { GetCurrencyInfo = function(id)
+        local c = env.currency[id]
+        if c == nil then return { quantity = 1e6 } end
+        return c or nil
+    end })
     rawset(_G, "C_Item", {
+        GetItemCount = function(id) return env.count[id] or 1e6 end,
         GetItemInfoInstant = function(id)
             local sub = env.subclass[id]
             if sub then return id, "", "", "", 0, 20, sub end
