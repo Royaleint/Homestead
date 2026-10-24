@@ -89,8 +89,7 @@ local function Statics()
     return static
 end
 
--- One entry per listed vendor of the list, all of them or one expansion's. Wares are read only for these, so
--- opening one expansion never reads the others; each vendor's entry lasts one memo version.
+-- One entry per listed vendor, for all vendors or one expansion. Wares are read only for these.
 local function VendorList(home)
     local version = D.MemoVersion()
     if vendVer ~= version then vend, vendVer = {}, version end
@@ -365,9 +364,9 @@ local function Arrange()
     end
 end
 
--- Arranges an already-built list for the mode. A header's and a footer's height follow the list's width, and
--- frames already on screen keep their old extent until they run their initializers again, so a width change
--- rebuilds the box in place: same data, same scroll position. A box that was never given data has no frames.
+-- Arranges an already-built list for the mode. Header and footer heights follow the width, and frames on screen
+-- keep their old extent until their initializers run again, so a width change rebuilds the box in place, keeping
+-- the scroll position. Rebuild raises on a box that was never given data.
 local function Fit()
     local was = colNow
     Arrange()
@@ -606,10 +605,10 @@ local function SetFace(v)
     if face then SetPortraitTextureFromCreatureDisplayID(V.face, face) else V.face:SetTexture(S.tex.placeholderIcon) end
 end
 
--- The card is an opaque well that takes the mouse, above the list under it, with a close button that stays still
--- while the card scrolls. The template puts the button at frame level 510, above the window's trim. It sits in a
--- holder that places it, shows it and clips it, so a sliding card never draws outside the space it opens into.
--- The holder reaches 1 px below the card, where the well's border draws its bottom corners.
+-- The card is an opaque well that takes the mouse and the wheel, with a close button that stays still while the
+-- card scrolls.
+-- The template puts the button at frame level 510, above the window's trim.
+-- The clip frame places, shows and clips the card, and reaches 1 px below it for the well's bottom corners.
 function Vend:Build(parent)
     local clip = CreateFrame("Frame", nil, parent)
     clip:SetClipsChildren(true)
@@ -784,9 +783,8 @@ function Vend:Refresh(reason, wasTorn)
     Draw(W.Owed(V.wait))
 end
 
--- The page of one other source: the achievement, quest, recipe, drop, event or shop item. Its elements stack
--- from the top, each hanging from the one above, so a wrapped line pushes the rest down; the decor list takes
--- what is left above the report link.
+-- The page of one other source: the achievement, quest, recipe, drop, event or shop item. Its elements
+-- hang from the one above, so a wrapped line pushes the rest down.
 local Src, A = {}, {}
 local srcID, srcType, srcTorn
 
