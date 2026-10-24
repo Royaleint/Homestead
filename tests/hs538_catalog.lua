@@ -235,7 +235,12 @@ local function newEnv(opts)
         GetScannedVendorItems = function(_, npcID, itemID) return env.scanned[npcID .. ":" .. itemID] end,
         GetScannedVendorRecord = function() return nil end,
         GetMergedItemIDs = function(_, v) return v.items end,
-        FormatCost = function(_, cost) return (cost.gold or 0) .. "g" end,
+        FormatCost = function(_, cost)
+            local parts = {}
+            if (cost.gold or 0) > 0 then parts[#parts + 1] = cost.gold .. "g" end
+            for _, c in ipairs(cost.currencies or {}) do parts[#parts + 1] = c.amount .. "c" end
+            return parts[1] and table.concat(parts, " + ") or nil
+        end,
     }
     for _, file in ipairs({ "Locale/enUS.lua", "Data/CatalogStore.lua", "Data/SourceManager.lua",
         "UI/VendorFilter.lua", "UI/Browser/Style.lua", "UI/Browser/Visuals.lua", "UI/Browser/Adapter.lua",
@@ -772,6 +777,21 @@ do
     eq(env.ids(), "22,21", "a Show after a zone change elsewhere is the same")
     eq(env.walks(), 1, "still without a new walk")
     print("hs538_catalog: zone-free order ok")
+end
+
+-- Naming the faction of a faction-only item builds no source list and no price text
+do
+    local env = fixture()
+    local priced, listed, D = 0, 0, env.D
+    local price, sources = D.PriceOf, D.ItemSources
+    D.PriceOf = function(...) priced = priced + 1 return price(...) end
+    D.ItemSources = function(...) listed = listed + 1 return sources(...) end
+    env.CG.Walk()
+    eq(env.CG.FactionLabel(6), "Horde", "the faction-only item names its faction")
+    assert(next(env.CG.MissingFactions()), "the faction-only item is counted")
+    eq(priced, 0, "no price text is built to name a faction")
+    eq(listed, 0, "no source list is built to name a faction")
+    D.PriceOf, D.ItemSources = price, sources
 end
 
 -- Hide with a walk reads the walk; a row is judged as an item, not by its first vendor

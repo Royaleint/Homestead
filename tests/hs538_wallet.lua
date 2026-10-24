@@ -103,6 +103,7 @@ do
     local can = CG.VendorCanCount(env.s.anna)
     assert(at(env, 1) > at(env, 3), "a short item sorts after the locked one that comes first by name")
     eq(env.catalogRow(1).d.state, "short")
+    eq(env.catalogRow(1).d.right, "|cffff3333300g|r", "the short part of the price is red")
     local rec = env.catalogRow(1).rec
     local walks, dropped = env.walks(), env.dropped
     env.reasons = {}
@@ -122,7 +123,28 @@ do
     assert(at(env, 1) < at(env, 3), "the Catalog orders by the new verdict")
     eq(env.catalogRow(1).rec, rec, "the records are kept, not rebuilt")
     eq(env.catalogRow(1).d.state, "can", "and its rows describe it again")
+    eq(env.catalogRow(1).d.right, "300g", "a part that is now covered is red no more")
     print("hs538_wallet: money re-judges without a walk ok")
+end
+
+-- A part that turns from short to covered while the item stays short reaches the Catalog's wallet branch
+-- too, so the row's price is drawn again with one part red.
+do
+    local env = world(nil, function(e, s)
+        e.decor(72, "Two Part Lamp")
+        e.sell(72, s.anna, { gold = 300, currencies = { { id = 700, amount = 5 } } })
+    end)
+    env.go("catalog")
+    env.flush()
+    eq(env.catalogRow(72).d.state, "short")
+    eq(env.catalogRow(72).d.right, "|cffff3333300g|r + |cffff33335c|r", "both parts are short")
+    env.money = 1000
+    fire(env, "PLAYER_MONEY")
+    env.flush()
+    eq(env.reasons[#env.reasons], "wallet", "a changed part is a wallet change, whatever the verdict")
+    eq(env.catalogRow(72).d.state, "short", "the item is still short")
+    eq(env.catalogRow(72).d.right, "300g + |cffff33335c|r", "only the part still short is red")
+    print("hs538_wallet: a covered part stops being red ok")
 end
 
 -- A Catalog filtered to Can get now gains the item.

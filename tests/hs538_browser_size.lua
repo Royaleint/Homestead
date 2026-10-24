@@ -17,16 +17,16 @@ local CEIL = {
     ["Visuals.xml"] = 700,
     ["Style.lua"] = 5809,
     ["Visuals.lua"] = 3580,
-    ["Adapter.lua"] = 20000,
+    ["Adapter.lua"] = 20348,
     ["Facts.lua"] = 6800,
-    ["CanGet.lua"] = 22272,
+    ["CanGet.lua"] = 22383,
     ["Widgets.lua"] = 26800,
     ["Window.lua"] = 23500,
     ["Browser.lua"] = 17117,
-    ["Summary.lua"] = 9836,
+    ["Summary.lua"] = 10196,
     ["Catalog.lua"] = 15154,
     ["Sources.lua"] = 31500,
-    ["Item.lua"] = 22000,
+    ["Item.lua"] = 22152,
 }
 
 local function readFile(path)

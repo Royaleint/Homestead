@@ -57,10 +57,14 @@ local function Report()
     }))
 end
 
--- Open vendors by nearness, then other vendors, other sources, other-faction vendors.
-local function Rank(b)
+-- "Get it" first, other open vendors by nearness, then short, unpriced, other vendors, other sources,
+-- other-faction vendors.
+local SHORT_RANK = { short = 4, unpriced = 4.5 }
+local function Rank(b, primary)
     if not b.vendor then return 6 end
+    if b.npcID == primary then return 0 end
     if b.offer == "can" then return F.Nearness(b.mapID, F.Here()) end
+    if SHORT_RANK[b.offer] then return SHORT_RANK[b.offer] end
     return B.Data.IsOppositeFaction(b.vendor) and 9 or 5
 end
 
@@ -87,6 +91,11 @@ local function VendorRow(itemID, b, flagged)
     local label = D.IsOppositeFaction(v) and D.VendorFactionLabel(v)
     if label then Status(row, W.StateWords("faction", label), "stop", K.stop) end
     if b.offer == "can" then Status(row, L["Can get now here"], "dot", K.can) end
+    if SHORT_RANK[b.offer] then
+        local _, words = B.ItemState(itemID, b.npcID)
+        local st = S.state[b.offer]
+        Status(row, W.StateWords(b.offer, words), st.glyph, st.color)
+    end
     local ev = F.EventVendor(b.npcID)
     local event = ev and ev.event or v.event
     if event then EventStatus(row, event, F.BrowserListed(v), flagged) end
@@ -176,13 +185,15 @@ local function Describe(itemID)
         vendors[#vendors + 1] = { npcID = npcID, name = v.name, zone = v.zone, mapID = mapID, x = x, y = y }
         return true
     end
-    for _, src in ipairs(D.ItemSources(itemID)) do
+    local sources = D.ItemSources(itemID)
+    local primary = CG.Primary(itemID, sources)
+    for _, src in ipairs(sources) do
         if not (src.type == "vendor" and (addVendor(src.npcID) or seen[src.npcID])) then
             blocks[#blocks + 1] = { src = src }
         end
     end
     for _, npcID in ipairs(F.EventVendorsFor(itemID) or {}) do addVendor(npcID) end
-    for i, b in ipairs(blocks) do b.rank = Rank(b) + i / 1000 end
+    for i, b in ipairs(blocks) do b.rank = Rank(b, primary and primary.npcID) + i / 1000 end
     table.sort(blocks, function(a, c) return a.rank < c.rank end)
     m.vendors = vendors
 

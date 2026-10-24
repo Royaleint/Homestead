@@ -118,7 +118,7 @@ local OWNED = {}
 local INFO = {}
 local NAMES = {}
 GetMoney = function() return 1e9 end
-C_CurrencyInfo = { GetCurrencyInfo = function() return { quantity = 1e6 } end }
+C_CurrencyInfo = { GetCurrencyInfo = function(id) if id ~= 7 then return { quantity = 1e6 } end end }
 C_Item = {
     GetItemCount = function() return 1e6 end,
     GetItemNameByID = function(id) return NAMES[id] end,
@@ -141,6 +141,7 @@ local VENDOR, RECORDS = {}, {}
 local SOURCES = {}
 local REQS = {}
 local OFFER = {}
+local COST = {}
 local OPPOSITE, FACTION_LABEL = {}, {}
 local inSeason = true
 local walks, waypoints, reports, presentations = 0, {}, {}, 0
@@ -168,12 +169,12 @@ local HA = {
             return r
         end,
         IsRequirementMet = function(_, r) return r.met end,
-        GetVendorItemCost = function() return { gold = 100 } end,
+        GetVendorItemCost = function(_, _, v) return COST[v and v.npcID] or { gold = 100 } end,
         GetItemPresentation = function() presentations = presentations + 1 return nil end,
     },
     VendorData = {
         GetVendor = function(_, npcID) return VENDOR[npcID] end,
-        FormatCost = function() return "1g" end,
+        FormatCost = function(_, cost) return (cost.gold or 0) > 0 and "1g" or nil end,
         HasOfferForItem = function() return nil end,
         GetScannedVendorRecord = function(_, v) return RECORDS[v.npcID] end,
         GetVendorItems = function() return {} end,
@@ -231,7 +232,7 @@ local function vendor(npcID, name, extra)
     return v
 end
 local function vsrc(v)
-    return { type = "vendor", data = { npcID = v.npcID, name = v.name, zone = v.zone, vendor = v, cost = { gold = 100 } } }
+    return { type = "vendor", data = { npcID = v.npcID, name = v.name, zone = v.zone, vendor = v, cost = COST[v.npcID] or { gold = 100 } } }
 end
 
 local function fresh(id, info)
@@ -477,9 +478,9 @@ do
     HA.EventSources.EventVendors = { [82] = { event = "Midsummer" } }
     SOURCES[1010] = { vsrc(event), vsrc(plain) }
     local list = show(1010)
-    assert(indexOf(list, "Plain Vendor") < indexOf(list, "Event Vendor"), "sanity: the plain vendor is the top block")
+    assert(indexOf(list, "Event Vendor") < indexOf(list, "Plain Vendor"), "Get it is the open event vendor, the top block")
     assert(indexOf(list, "Active now: Midsummer") < indexOf(list, "Where to get it"),
-        "the flag follows the top block, not the open event offer")
+        "the flag comes from the open event offer")
     HA.EventSources.EventVendors = {}
     print("hs538_item: active-now flag ok")
 end
@@ -967,6 +968,49 @@ do
     host:SetWidth(600)
     Item:Refresh("layout")
     print("hs538_item: row line width ok")
+end
+
+-------------------------------------------------------------------------------
+-- AC29 and AC20: "Get it" leads, other open vendors follow by nearness, then short, then unpriced; a short
+-- price is red only in its short part and the row says why in the state's words.
+-------------------------------------------------------------------------------
+do
+    fresh(1030)
+    local unpriced = vendor(31, "Unpriced Vendor")
+    local short = vendor(32, "Short Vendor")
+    local far = vendor(33, "Cheap Far Vendor", { mapID = 200 })
+    local near = vendor(34, "Near Vendor")
+    COST[31] = { currencies = { { id = 7, amount = 3 } } }
+    COST[32] = { gold = 5e9 }
+    COST[33] = { gold = 50 }
+    SOURCES[1030] = { vsrc(unpriced), vsrc(short), vsrc(near), vsrc(far) }
+    local mark = B.Vis.Marker.Set
+    B.Vis.Marker.Set = function(tex, glyph, c) tex.glyph = glyph return mark(tex, glyph, c) end
+    local list = show(1030)
+    B.Vis.Marker.Set = mark
+    local order = {}
+    for _, name in ipairs({ "Cheap Far Vendor", "Near Vendor", "Short Vendor", "Unpriced Vendor" }) do
+        order[#order + 1] = assert(indexOf(list, name), name .. " has no row: " .. table.concat(texts(list), "|"))
+    end
+    assert(order[1] < order[2] and order[2] < order[3] and order[3] < order[4],
+        "Get it (the cheaper gold-only vendor), the open vendor, short, then unpriced: " .. table.concat(order, ","))
+    assert(list[order[1]].text:find(RED, 1, true) == nil and list[order[2]].text:find(RED, 1, true) == nil, "a paid price is not red")
+    assert(list[order[3]].text:find(S.Colored(K.stop, "1g"), 1, true), "the short part of the price is red: " .. list[order[3]].text)
+    assert(list[order[3] + 2].text:find("Not enough: 1g", 1, true), "the short row says why: " .. table.concat(texts(list), "|"))
+    assert(list[order[3]].glyph == "coin", "and carries the coin")
+    assert(list[order[4] + 2].text:find("Price not recorded", 1, true), "the unpriced row says so: " .. table.concat(texts(list), "|"))
+    assert(list[order[4]].glyph == nil, "with no glyph")
+    -- The tooltip's price line goes through the same colouring, for a named vendor and for "Get it".
+    local tip = B.Tooltip()
+    local function priceLine(npcID)
+        tip.lines = {}
+        B.ShowItemTooltip(Widget("Frame"), 1030, npcID)
+        for _, l in ipairs(tip.lines) do if l.text:find("^Price ") then return l.text end end
+    end
+    assert(priceLine(32) == "Price " .. S.Colored(K.stop, "1g"), "a short tooltip price is red: " .. tostring(priceLine(32)))
+    assert(priceLine() == "Price 1g", "and Get it's price is not: " .. tostring(priceLine()))
+    COST[31], COST[32], COST[33] = nil, nil, nil
+    print("hs538_item: AC29 vendor order and short words ok")
 end
 
 print("hs538_item: ok")

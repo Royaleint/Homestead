@@ -94,7 +94,11 @@ local function Pay(cost, out)
     return (unknown or parts == 0) and "unknown" or "paid"
 end
 
-local function ShortWords(cost)
+function CG.IsShort(cost)
+    return Pay(cost) == "short"
+end
+
+function CG.ShortWords(cost)
     local out = {}
     Pay(cost, out)
     return HA.VendorData:FormatCost(out)
@@ -523,8 +527,9 @@ end
 
 local function FactionLabel(itemID, npcID)
     if npcID then return D.VendorFactionLabel(D.Vendor(npcID) or {}) end
-    for _, src in ipairs(D.ItemSources(itemID)) do
-        local v = src.type == "vendor" and src.npcID and D.Vendor(src.npcID)
+    for _, s in ipairs(HA.SourceManager:GetAllSources(itemID) or {}) do
+        local at = s.type == "vendor" and s.data and s.data.npcID
+        local v = at and D.Vendor(at)
         local label = v and D.IsOppositeFaction(v) and D.VendorFactionLabel(v)
         if label then return label end
     end
@@ -548,7 +553,7 @@ local function Judge(e, itemID, npcID)
     if offer == "can" then return "can" end
     if PAY[offer] then
         local o = not npcID and BestOffer(e.reach, Facts.Here(), PAY[offer])
-        local words = offer == "short" and ShortWords(o and o.cost or OfferCost(itemID, npcID)) or nil
+        local words = offer == "short" and CG.ShortWords(o and o.cost or OfferCost(itemID, npcID)) or nil
         return offer, words, o and o.npcID or npcID
     end
     if npcID and offer == "faction" or not npcID and e.factionOnly then

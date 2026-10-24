@@ -396,7 +396,12 @@ return function(root, opts)
             end
             return out
         end,
-        FormatCost = function(_, cost) return (cost.gold or 0) .. "g" end,
+        FormatCost = function(_, cost)
+            local parts = {}
+            if (cost.gold or 0) > 0 then parts[#parts + 1] = cost.gold .. "g" end
+            for _, c in ipairs(cost.currencies or {}) do parts[#parts + 1] = c.amount .. "c" end
+            return parts[1] and table.concat(parts, " + ") or nil
+        end,
     }
     HA.BadgeCalculation = {
         PeekVendorStats = function(_, v) return env.stats[v.npcID] end,

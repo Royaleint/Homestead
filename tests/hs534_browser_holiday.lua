@@ -1,4 +1,4 @@
--- luacheck: globals assert loadfile print rawset
+-- luacheck: globals assert loadfile print rawset GetMoney
 local root = (... or "."):gsub("\\", "/"):gsub("/+$", "")
 
 -------------------------------------------------------------------------------
@@ -9,6 +9,7 @@ local root = (... or "."):gsub("\\", "/"):gsub("/+$", "")
 rawset(_G, "C_NeighborhoodInitiative", { GetNeighborhoodInitiativeInfo = function() return nil end })
 rawset(_G, "C_Item", { GetItemNameByID = function(id) return "Item" .. id end })
 rawset(_G, "UnitFactionGroup", function() return "Horde" end)
+rawset(_G, "GetMoney", function() return 1e12 end)
 rawset(_G, "GetBuildInfo", function() return "12.0.1", "1", "1", 120001 end)
 
 local HA = {
@@ -42,7 +43,7 @@ for _, f in ipairs({ "Locale/enUS.lua", "Data/VendorIdentity.lua", "Data/VendorO
 end
 HA.VendorData:BuildOfferIndexes()
 local D, VD = HA.DecorBrowser.Data, HA.VendorData
-VD.FormatCost = function(_, cost) return "cost" .. cost.gold end
+VD.FormatCost = function(_, cost) return cost.gold and "cost" .. cost.gold or nil end
 local ECHO, VALADAR = 273402, 15864
 
 local function tags()

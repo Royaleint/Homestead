@@ -62,11 +62,17 @@ local function Why(e)
     return table.concat(r, DOT, 1, math.min(#r, 2))
 end
 
-local function CanData(e)
+-- The source line and price of the vendor "Get it" names, or the state's vendor.
+local function RowData(e, why, color)
     local p = CG.Primary(e.itemID)
-    local v, src = D.Vendor(p.npcID), D.SourceLine(e.itemID, { p })
-    local price = D.Price(e.itemID, v)
-    local d = { itemID = e.itemID, npcID = p.npcID, why = Why(e), src = price and src .. DOT .. price or src, e = e }
+    local v = p and p.npcID and D.Vendor(p.npcID)
+    return { itemID = e.itemID, why = why, color = color, src = D.SourceLine(e.itemID, { p }),
+        price = D.Price(e.itemID, v), e = e }, p, v
+end
+
+local function CanData(e)
+    local d, p, v = RowData(e, Why(e))
+    d.npcID = p.npcID
     local mapID, x, y
     if v then mapID, x, y = D.VendorLocation(v) end
     if mapID then d.wp = { mapID = mapID, x = x, y = y, title = v.name } end
@@ -74,10 +80,10 @@ local function CanData(e)
 end
 
 local function NextData(c)
-    local e = c.entry
-    local state, arg = B.ItemState(e.itemID)
-    return { itemID = e.itemID, why = L["Not yet: next step"], dim = true, e = e, src = state == "event"
-        and L["%s only"]:format(arg) or L["Requires: %s"]:format(state == "locked" and arg or L["Other requirement"]) }
+    local state, arg = B.ItemState(c.entry.itemID)
+    local d = RowData(c.entry, W.StateWords(state, arg), S.state[state].color)
+    d.dim = true
+    return d
 end
 
 local function SetRow(r, d)
@@ -88,6 +94,9 @@ local function SetRow(r, d)
     r.name:SetText(e and (e.name or L["Item %d"]:format(e.itemID)) or W.StateWords("counting"))
     r.name:SetTextColor(cr, cg, cb)
     r.why:SetText(d.why)
+    r.why:SetTextColor(unpack(d.color or K.body))
+    r.price:SetText(d.price or "")
+    r.price:SetHeight(W.TextHeight("subheader"))
     r.src:SetText(d.src or "")
     r:SetAlpha(d.dim and 0.6 or 1)
     r.wp.wp = d.wp
@@ -106,15 +115,16 @@ local function BuildRow(parent)
     hover:SetColorTexture(unpack(K.hoverRow))
     r.tile = W.NewTile(r, TILE)
     r.tile.icon:SetPoint("LEFT", SP.m, 0)
-    r.name, r.why, r.src = Text(r, "subheader"), Text(r, "body"), Text(r, "bodyMuted")
-    local above
-    for _, fs in ipairs({ r.name, r.why, r.src }) do
-        local rel, p1, p2, x1, x2, dy = r, "TOPLEFT", "TOPRIGHT", TILE + 2 * SP.m, -SP.xxl * 3, -R.pad
-        if above then rel, p1, p2, x1, x2, dy = above, "BOTTOMLEFT", "BOTTOMRIGHT", 0, 0, -R.gap end
-        fs:SetPoint("TOPLEFT", rel, p1, x1, dy)
-        fs:SetPoint("TOPRIGHT", rel, p2, x2, dy)
-        above = fs
-    end
+    r.name, r.why, r.src, r.price = Text(r, "subheader"), Text(r, "body"), Text(r, "bodyMuted"), Text(r, "subheader")
+    r.price:SetJustifyH("RIGHT")
+    r.price:SetTextColor(unpack(K.money))
+    r.price:SetPoint("TOPRIGHT", r, "TOPRIGHT", -SP.xxl * 3, -R.pad)
+    r.name:SetPoint("TOPLEFT", r, "TOPLEFT", TILE + 2 * SP.m, -R.pad)
+    r.name:SetPoint("TOPRIGHT", r.price, "TOPLEFT", -SP.s, 0)
+    r.why:SetPoint("TOPLEFT", r.name, "BOTTOMLEFT", 0, -R.gap)
+    r.why:SetPoint("TOPRIGHT", r.price, "BOTTOMRIGHT", 0, -R.gap)
+    r.src:SetPoint("TOPLEFT", r.why, "BOTTOMLEFT", 0, -R.gap)
+    r.src:SetPoint("TOPRIGHT", r.why, "BOTTOMRIGHT", 0, -R.gap)
     r.wp = W.WaypointButton(r)
     r.show = W.NewButton(r, L["Show"], function() Open(r.itemID) end)
     r.wp:SetPoint("RIGHT", -SP.m, 0)
@@ -140,7 +150,7 @@ local function BuildBlocks(parent)
     zone.text:SetPoint("LEFT", SP.s, 0)
     zone.text:SetPoint("RIGHT", zone.btn, "LEFT", -SP.s, 0)
     tip = W.Pane(parent)
-    tip.text = Text(tip, "body", L["Can get now means this character can buy or earn it today: the right faction, and no requirement left to meet. The closest ones come first. Use See all for the full list."], true)
+    tip.text = Text(tip, "body", L["Can get now means this character can get it today: the right faction, no requirement left to meet, and enough gold or currency to pay. Gold-only and cheaper items come first. Use See all for the full list."], true)
     tip.text:SetPoint("TOPLEFT", SP.m, -SP.s)
     tip.text:SetPoint("TOPRIGHT", -(SP.xl + SP.s), -SP.s)
     local close = CreateFrame("Button", nil, tip, "UIPanelCloseButton")

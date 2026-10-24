@@ -272,11 +272,28 @@ function D.NearYou()
     return vendors, mapID, where.name
 end
 
+-- A cost as text. Each part this character can't pay is red, judged by CanGet's wallet.
+local NO_PARTS = {}
+local function AddPart(parts, part)
+    local text = HA.VendorData:FormatCost(part)
+    if not text then return end
+    local S = B.Style
+    parts[#parts + 1] = B.CanGet.IsShort(part) and S.Colored(S.color.stop, text) or text
+end
+
+function D.PriceOf(cost)
+    if not cost then return nil end
+    if not B.CanGet.IsShort(cost) then return HA.VendorData:FormatCost(cost) end
+    local parts = {}
+    if (cost.gold or 0) > 0 then AddPart(parts, { gold = cost.gold }) end
+    for _, c in ipairs(cost.currencies or NO_PARTS) do AddPart(parts, { currencies = { c } }) end
+    for _, c in ipairs(cost.items or NO_PARTS) do AddPart(parts, { items = { c } }) end
+    return parts[1] and table.concat(parts, " + ")
+end
+
 function D.Price(itemID, vendor)
     if not vendor then return nil end
-    local cost = HA.SourceManager:GetVendorItemCost(itemID, vendor)
-    if not cost then return nil end
-    return HA.VendorData:FormatCost(cost)
+    return D.PriceOf(HA.SourceManager:GetVendorItemCost(itemID, vendor))
 end
 
 function D.RecordID(itemID, info)
@@ -409,7 +426,7 @@ function D.ItemSources(itemID)
             e.mapID = d.mapID
             e.x = d.coords and d.coords.x
             e.y = d.coords and d.coords.y
-            e.price = d.cost and HA.VendorData:FormatCost(d.cost) or nil
+            e.price = d.cost and D.PriceOf(d.cost) or nil
         elseif src.type == "achievement" then
             e.achievementID = d.achievementID
             e.name = d.achievementName

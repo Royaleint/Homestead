@@ -173,7 +173,12 @@ local function newEnv()
             table.sort(out, function(a, b) return a.npcID < b.npcID end)
             return out
         end,
-        FormatCost = function(_, cost) return cost.gold .. "g" end,
+        FormatCost = function(_, cost)
+            local parts = {}
+            if (cost.gold or 0) > 0 then parts[#parts + 1] = cost.gold .. "g" end
+            for _, c in ipairs(cost.currencies or {}) do parts[#parts + 1] = c.amount .. "c" end
+            return parts[1] and table.concat(parts, " + ") or nil
+        end,
     }
     for _, file in ipairs({ "Locale/enUS.lua", "Data/CatalogStore.lua", "Data/SourceManager.lua",
         "UI/VendorFilter.lua", "UI/Browser/Style.lua", "UI/Browser/Visuals.lua", "UI/Browser/Adapter.lua",
@@ -337,7 +342,8 @@ do
     eq(rows[1].name.text, "Item 5")
     eq(rows[1].why.text, "Hallow's End: active now \194\183 First-Time Collection Bonus", "two signals, never three")
     eq(rows[2].why.text, "Sold here in Durotar \194\183 Gold only", "sold here, then gold only")
-    eq(rows[2].src.text, "Vendor: Joruh, Durotar \194\183 100g", "source and price line")
+    eq(rows[2].src.text, "Vendor: Joruh, Durotar", "the source line holds no price")
+    eq(rows[2].price.text, "100g", "the price is its own slot")
     eq(rows[3].why.text, "Sold on Kalimdor \194\183 Gold only", "same continent")
 
     -- Travelling redraws the reasons at draw time and leaves the order and the walk alone.
@@ -445,7 +451,9 @@ do
         for i, r in ipairs(rows) do
             assert(r.name.text ~= "" and r.why.text ~= "" and r.src.text ~= "", "blank line in row " .. i)
             if i > q then
-                eq(r.why.text, "Not yet: next step")
+                assert(r.why.text:find("^Requires: "), "a next step names its requirement: " .. r.why.text)
+                eq(r.src.text, "Vendor: Vendor 10, Durotar", "and the vendor it is at")
+                eq(r.price.text, "100g", "and its price")
                 eq(r.alpha, 0.6, "a next step is dimmed")
                 assert(not r.wp.shown and not r.show.shown, "a next step has no button")
             else
@@ -466,8 +474,8 @@ do
     -- A next step shows its first requirement and how many more.
     local env = filled(0, 3)
     local rows = env.rows()
-    eq(rows[1].src.text, "Requires: Achievement: Feat 1 and 1 more")
-    eq(rows[3].src.text, "Requires: Achievement: Feat 1 and 3 more")
+    eq(rows[1].why.text, "Requires: Achievement: Feat 1 and 1 more")
+    eq(rows[3].why.text, "Requires: Achievement: Feat 1 and 3 more")
 
     -- An event that is off season reads "<event> only".
     env = newEnv()
@@ -475,7 +483,7 @@ do
     env.HA.EventSources.EventVendors[20] = ev
     env.decor(21)
     env.open()
-    eq(env.rows()[1].src.text, "Lunar Festival only")
+    eq(env.rows()[1].why.text, "Lunar Festival only")
 
     -- Nothing you can get: the button opens Catalog on what is missing.
     env = filled(0, 0, function(e) e.decor(70) end)
@@ -502,6 +510,70 @@ do
     assert(done.shown and done.text.text:find("all 1 decor", 1, true), done.text.text)
     eq(#env.rows(), 0, "no rows when nothing is missing")
     print("hs538_summary: R14 states ok")
+end
+
+-------------------------------------------------------------------------------
+-- AC29 and AC20: a next step says why in the state's words and colour, never "Requires:" for a price,
+-- and the price keeps its own slot beside a long name
+-------------------------------------------------------------------------------
+
+do
+    local env = newEnv()
+    local K = env.B.Style.color
+    local v = env.vendor(10, { name = "A Vendor Whose Name Is Long Enough To Really Collide With Every Price", zone = "Durotar" })
+    env.money = 100
+    env.currency[7] = false
+    local costs = {
+        [60] = { gold = 500, currencies = { { id = 1, amount = 5 } } },
+        [61] = { gold = 0, currencies = { { id = 7, amount = 3 } } },
+        [62] = { gold = 500 },
+    }
+    env.cost = costs
+    for id = 60, 62 do
+        env.decor(id)
+        env.sell(id, v, costs[id])
+    end
+    env.reqs["62:10"] = { { type = "achievement", name = "Feat", met = false } }
+    env.open()
+    local rows = env.rows()
+    eq(#rows, 3)
+    local want = {
+        { "Not enough: 500g", K.stop, "|cffff3333500g|r + 5c" },
+        { "Price not recorded", K.muted, "3c" },
+        { "Requires: Achievement: Feat", K.muted, "|cffff3333500g|r" },
+    }
+    for i, r in ipairs(rows) do
+        eq(r.why.text, want[i][1], "row " .. i .. " reason")
+        eq(r.why.color[1], want[i][2][1], "row " .. i .. " reason colour")
+        eq(r.why.color[2], want[i][2][2], "row " .. i .. " reason colour")
+        eq(r.price.text, want[i][3], "row " .. i .. " price: only the part this character can't pay is red")
+        eq(r.src.text, "Vendor: " .. v.name .. ", Durotar", "row " .. i .. " names the state's vendor")
+        eq(r.alpha, 0.6)
+        if i < 3 then
+            assert(not r.why.text:find("Requires:", 1, true) and not r.src.text:find("Requires:", 1, true),
+                "a short or unpriced row never reads Requires:")
+        end
+        local price, name = r.price, r.name
+        eq(rawget(price, "width"), nil, "the price takes the width its text needs")
+        eq(price.points[1][1], "TOPRIGHT")
+        eq(price.points[1][2], r)
+        eq(price.points[1][4], -96, "before the button area")
+        eq(name.points[2][1], "TOPRIGHT")
+        eq(name.points[2][2], price, "the name ends where the price begins, so the name truncates first")
+        eq(name.points[2][3], "TOPLEFT")
+    end
+
+    -- Paying for the short part clears the red on the next paint.
+    env.money = 1000
+    eq(env.CG.Rejudge(), true, "a changed wallet is re-judged")
+    env.tab:Refresh("wallet")
+    local fresh = env.rows()
+    eq(fresh[1].name.text, "Item 60", "the paid item is now a can-get row")
+    eq(fresh[1].price.text, "500g + 5c", "its price is red no more")
+    eq(fresh[2].price.text, "3c", "the unpriced row is unchanged")
+    eq(fresh[3].why.text, "Requires: Achievement: Feat", "the locked row keeps its words")
+    eq(fresh[3].price.text, "500g", "and its covered price is plain")
+    print("hs538_summary: AC29 next-step words, price slot ok")
 end
 
 -------------------------------------------------------------------------------
