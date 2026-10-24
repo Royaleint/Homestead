@@ -296,6 +296,11 @@ function D.Price(itemID, vendor)
     return D.PriceOf(HA.SourceManager:GetVendorItemCost(itemID, vendor))
 end
 
+-- A vendor source's cost: its own, else the resolver's. The shown price and the Price sort both read it.
+function D.SourceCost(itemID, data)
+    return data.cost or data.vendor and (HA.SourceManager:GetVendorItemCost(itemID, data.vendor))
+end
+
 -- Another character's biggest holding of a currency, from account data already received: its name (the full
 -- name when two results share one) and amount. Nothing when the data is not ready or no one else holds any.
 function D.OtherHolder(currencyID)
@@ -442,7 +447,7 @@ function D.ItemSources(itemID)
             e.mapID = d.mapID
             e.x = d.coords and d.coords.x
             e.y = d.coords and d.coords.y
-            e.price = d.cost and D.PriceOf(d.cost) or D.Price(itemID, d.vendor)
+            e.price = D.PriceOf(D.SourceCost(itemID, d))
         elseif src.type == "achievement" then
             e.achievementID = d.achievementID
             e.name = d.achievementName

@@ -196,6 +196,28 @@ do
     print("hs538_wallet: Catalog shown after a wallet change ok")
 end
 
+-- The same, returning through Back: the router restores the page and Show still sees the verdicts have moved.
+do
+    local env = world()
+    env.go("catalog")
+    env.flush()
+    eq(env.catalogRow(1).d.state, "short")
+    local rec = env.catalogRow(1).rec
+    env.go("summary")
+    env.flush()
+    env.money = 1000
+    fire(env, "PLAYER_MONEY")
+    env.flush()
+    env.B.Back()
+    env.flush()
+    eq(env.route.kind, "catalog", "Back returns to the Catalog")
+    eq(env.catalogRow(1).rec, rec, "the records are kept")
+    eq(env.catalogRow(1).rec.g, 0, "the row's group follows the new verdict")
+    eq(env.catalogRow(1).d.state, "can", "the words are described again")
+    assert(at(env, 1) < at(env, 3), "the best order is rebuilt")
+    print("hs538_wallet: Catalog reached by Back after a wallet change ok")
+end
+
 -- A vendor source with no recorded cost shows the price the walk judges by, in every list.
 do
     local env = world(nil, function(e, s)
@@ -211,6 +233,35 @@ do
     env.flush()
     eq(env.catalogRow(95).d.right, want, "and the Catalog row shows it")
     print("hs538_wallet: resolved price on a cost-less source ok")
+end
+
+-- The Price sort reads the price the row shows: a cost-less source priced by the resolver sorts by that gold,
+-- and one the resolver prices in currency has no gold to compare, so it stays behind every gold price.
+do
+    local env = world(nil, function(e, s)
+        e.decor(95, "Bare Cost Stool")
+        e.sources[95] = { { type = "vendor", data = { npcID = s.anna.npcID, vendor = s.anna, name = s.anna.name } } }
+        e.decor(96, "Bare Token Stool")
+        e.sources[96] = { { type = "vendor", data = { npcID = s.anna.npcID, vendor = s.anna, name = s.anna.name } } }
+        e.offers[95], e.offers[96] = true, true
+        s.anna.items[#s.anna.items + 1] = 95
+        s.anna.items[#s.anna.items + 1] = 96
+        local priced = {
+            [95] = { gold = 5 },
+            [96] = { currencies = { { id = 700, amount = 5 } } },
+        }
+        e.HA.SourceManager.GetVendorItemCost = function(_, itemID) return priced[itemID] or { gold = 100 } end
+    end)
+    env.go("catalog")
+    env.flush()
+    local sort
+    for _, f in ipairs(env.all) do
+        if f.template == "WowStyle1DropdownTemplate" then sort = f end
+    end
+    sort:TestPick("Price")
+    eq(env.catalogList()[1], 95, "the cost-less source priced 5g sorts before the 20g one")
+    assert(at(env, 96) > at(env, 1), "a currency price has no gold and sorts after the 300g one")
+    print("hs538_wallet: Price sort follows the resolved price ok")
 end
 
 -- Summary with fewer than three items to get now: a re-judge asks for each shown row's requirements at most

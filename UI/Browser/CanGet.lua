@@ -207,6 +207,7 @@ local function GoldOnly(cost)
     return cost ~= nil and (cost.gold or 0) > 0 and not (cost.currencies and cost.currencies[1])
         and not (cost.items and cost.items[1])
 end
+CG.GoldOnly = GoldOnly
 
 -- true when every source is an other-faction vendor. Kept per item; the router resets it on show, on
 -- SOURCE_CACHES_INVALIDATED and on a decor vendor scan.

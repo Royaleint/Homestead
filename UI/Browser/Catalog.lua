@@ -91,13 +91,13 @@ local function Rejudged()
     judged = CG.Gen()
 end
 
+-- The lowest gold-only price among the item's vendors, each priced as its row shows it. Costs change only with
+-- the data, which rebuilds the records, so a wallet change leaves the cached value right.
 local function Gold(itemID)
     local low = math.huge
     for _, s in ipairs(HA.SourceManager:GetAllSources(itemID) or {}) do
-        local c = s.type == "vendor" and s.data and s.data.cost
-        if c and (c.gold or 0) > 0 and not (c.currencies and c.currencies[1]) and not (c.items and c.items[1]) then
-            low = math.min(low, c.gold)
-        end
+        local c = s.type == "vendor" and s.data and D.SourceCost(itemID, s.data)
+        if c and CG.GoldOnly(c) then low = math.min(low, c.gold) end
     end
     return low
 end
