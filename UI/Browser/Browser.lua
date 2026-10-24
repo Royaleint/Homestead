@@ -107,6 +107,16 @@ local function SyncMemo()
     end
 end
 
+-- Other characters' currency amounts are asked for once per show (until the next hide), after a draw finds a
+-- short part in a currency they could cover. The opening draw comes before OnShow.
+local asked = false
+local function AskAccount()
+    if not asked and B.CanGet.NeedAccount() then
+        asked = true
+        C_CurrencyInfo.RequestCurrencyDataForAccountCharacters()
+    end
+end
+
 local function Transition(route, saved)
     local page = kindPage[route.kind]
     if not page then error("no page for the route kind " .. tostring(route.kind), 2) end
@@ -123,6 +133,7 @@ local function Transition(route, saved)
     Win.SetBack(#history > 0)
     Win.UpdateCount()
     page:SetCombat(State.inCombat)
+    AskAccount()
 end
 
 -- top: a jump to the top of a hierarchy (tree row, crumb) starts fresh, so Back shows only after going into something.
@@ -204,6 +215,7 @@ local function Repaint(reason)
     if Gone(curRoute) then return Transition(Resolved(curRoute)) end
     Current():Refresh(reason)
     Win.UpdateCount()
+    AskAccount()
 end
 
 -- The item page's 3D preview: on unless the player turned it off.
@@ -295,6 +307,7 @@ local function OnEvent(_, event, arg1, arg2)
         end
     elseif event == "ACCOUNT_CHARACTER_CURRENCY_DATA_RECEIVED" then
         walletPaint = true
+        B.CanGet.AccountData()
         B.RequestRefresh(true, false, true)
     else
         Repaint("paint")
@@ -330,6 +343,7 @@ local function OnHide()
     HA.Events:UnregisterCallback("HS_VENDOR_STATS_WARMED", callbacks.stats)
     HA.Events:UnregisterCallback("SOURCE_CACHES_INVALIDATED", B.CanGet.ResetFactionOnly)
     events:UnregisterAllEvents()
+    asked = false
     EventRegistry:UnregisterCallback(TEXT_SCALE_EVENT, textScaleOwner)
     ClearPending()
     Win.closing = false

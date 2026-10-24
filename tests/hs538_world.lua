@@ -16,6 +16,8 @@ return function(root, opts)
     local menuStub = assert(loadfile(root .. "/tests/hs538_menu.lua"))()
     local env = {
         money = 1e9, currency = {}, count = {},
+        -- Other characters' currency data: transferable[id], rows[id] (as Fetch returns them), ready, and the calls made.
+        account = { transferable = {}, rows = {}, ready = false, requests = 0, fetches = 0 },
         done = true, attempted = true, warm = true, responded = true, faction = "Alliance",
         catalog = {}, names = {}, sources = {}, vendors = {}, offers = {}, reqs = {}, scanned = {}, records = {},
         calendar = {}, themes = {}, measured = {}, maps = {}, playerMap = nil, stats = {},
@@ -204,7 +206,15 @@ return function(root, opts)
         local c = env.currency[id]
         if c == nil then return { quantity = 1e6 } end
         return c or nil
-    end })
+    end,
+    IsAccountTransferableCurrency = function(id) return env.account.transferable[id] == true end,
+    IsAccountCharacterCurrencyDataReady = function() return env.account.ready end,
+    FetchCurrencyDataFromAccountCharacters = function(id)
+        env.account.fetches = env.account.fetches + 1
+        return env.account.rows[id]
+    end,
+    RequestCurrencyDataForAccountCharacters = function() env.account.requests = env.account.requests + 1 end })
+    G("UnitGUID", function() return "Player-1" end)
     G("C_Item", {
         GetItemCount = function(id) return env.count[id] or 1e6 end,
         GetItemNameByID = function(id) return env.names[id] end,

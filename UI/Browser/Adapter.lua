@@ -296,6 +296,22 @@ function D.Price(itemID, vendor)
     return D.PriceOf(HA.SourceManager:GetVendorItemCost(itemID, vendor))
 end
 
+-- Another character's biggest holding of a currency, from account data already received: its name (the full
+-- name when two results share one) and amount. Nothing when the data is not ready or no one else holds any.
+function D.OtherHolder(currencyID)
+    if not C_CurrencyInfo.IsAccountCharacterCurrencyDataReady() then return nil end
+    local rows = C_CurrencyInfo.FetchCurrencyDataFromAccountCharacters(currencyID) or NO_PARTS
+    local me, best = UnitGUID("player"), nil
+    for _, r in ipairs(rows) do
+        if r.characterGUID ~= me and r.quantity > 0 and (not best or r.quantity > best.quantity) then best = r end
+    end
+    if not best then return nil end
+    for _, r in ipairs(rows) do
+        if r ~= best and r.characterName == best.characterName then return best.fullCharacterName, best.quantity end
+    end
+    return best.characterName, best.quantity
+end
+
 function D.RecordID(itemID, info)
     local entry = info and info.entryID
     if type(entry) == "table" and entry.recordID then return entry.recordID end

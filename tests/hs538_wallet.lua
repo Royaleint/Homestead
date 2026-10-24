@@ -1,7 +1,20 @@
--- luacheck: globals assert loadfile print CreateFrame
+-- luacheck: globals assert loadfile print CreateFrame string io
 -- Run from the repo root:  lua tests/hs538_wallet.lua [root]
 
 local root = (... or "."):gsub("\\", "/"):gsub("/+$", "")
+
+-- Lua 5.1's string.format has no "%n$" specifiers; WoW's takes them (Blizzard ships "%3$d/%2$d/20%4$02d").
+-- Test-only: rewrite them as plain specifiers and put the arguments in the named order.
+local format = string.format
+function string.format(fmt, ...)
+    if not fmt:find("%%%d+%$") then return format(fmt, ...) end
+    local args, order = { ... }, {}
+    local plain = fmt:gsub("%%(%d+)%$", function(n)
+        order[#order + 1] = args[tonumber(n)]
+        return "%"
+    end)
+    return format(plain, unpack(order))
+end
 local newWorld = assert(loadfile(root .. "/tests/hs538_world.lua"))()
 
 -------------------------------------------------------------------------------
@@ -341,5 +354,181 @@ do
     eq(#env2.reasons, 0, "a hidden browser repaints nothing")
     print("hs538_wallet: hidden browser registers none ok")
 end
+
+-- Another character holds the missing currency. Coin Lamp needs 5 of currency 700 and the player holds 1.
+local function holders(env, mine, alt, other)
+    env.account.ready = true
+    env.account.rows[700] = {
+        { characterGUID = "Player-1", characterName = "Me", fullCharacterName = "Me-Realm", quantity = mine },
+        { characterGUID = "G2", characterName = "Alt", fullCharacterName = "Alt-Realm", quantity = alt },
+        { characterGUID = "G3", characterName = "Other", fullCharacterName = "Other-Realm", quantity = other },
+    }
+end
+
+local function hint(env, text)
+    local _, words = env.B.ItemState(70)
+    local muted = env.B.Style.Muted(text)
+    eq(words:sub(-#muted), muted, "the hint is muted and last: " .. tostring(words))
+end
+
+-- The item page's second lines (the status of each source row), top to bottom.
+local function statusLines(env)
+    local lines = {}
+    for _, f in ipairs(env.all) do
+        if f.two and f.two.shown and env.ownerKind(f) == "item" then lines[#lines + 1] = f.two.text end
+    end
+    return table.concat(lines, " | ")
+end
+
+do
+    local env = world(nil, function(e) e.account.transferable[700] = true end)
+    eq(env.account.requests, 1, "one request when a short part is a transferable currency")
+    local state, words = env.B.ItemState(70)
+    eq(state, "short")
+    assert(not words:find("has"), "no data yet: no hint")
+    eq(env.account.fetches, 0, "not ready: nothing is fetched")
+
+    holders(env, 50, 12000, 300)
+    local rejudged = rejudges(env)
+    env.reasons = {}
+    fire(env, "ACCOUNT_CHARACTER_CURRENCY_DATA_RECEIVED")
+    env.flush()
+    eq(table.concat(env.reasons, ","), "wallet", "the data event draws again")
+    eq(rejudges(env), rejudged, "without judging again")
+    hint(env, "(Alt has 12000)")
+    eq(env.CG.ShortWords({ currencies = { { id = 700, amount = 5 } } }), select(2, env.B.ItemState(70)))
+    local fetches = env.account.fetches
+    for _ = 1, 3 do env.CG.ShortWords({ currencies = { { id = 700, amount = 5 } } }) end
+    env.B.ItemState(70)
+    eq(env.account.fetches, fetches, "the fetch is kept until the next data event or wallet refresh")
+
+    local _, gold = env.B.ItemState(1)
+    assert(not gold:find("has"), "a gold cost gets no hint")
+    local state71, item = env.B.ItemState(71)
+    eq(state71, "short")
+    assert(not (item or ""):find("has"), "an item cost gets no hint")
+
+    env.B.Go({ kind = "item", id = 70 })
+    env.flush()
+    local S = env.B.Style
+    local vendorState, vendorWords = env.B.ItemState(70, 100)
+    eq(vendorState, "short")
+    local line = statusLines(env)
+    assert(line:find(S.Colored(S.color.stop, "Not enough: " .. vendorWords), 1, true), "the item page row says: " .. line)
+    local hintAt = vendorWords:find(S.Muted("(Alt has 12000)"), 1, true)
+    assert(hintAt and vendorWords:sub(1, hintAt - 1):find("5c", 1, true), "the red parts come first, the muted hint after: " .. vendorWords)
+    assert(line:find(S.Muted("(Alt has 12000)") .. "|r", 1, true), "and the row closes after the hint: " .. line)
+
+    env.account.rows[700][2].quantity = 13000
+    env.currency[700] = { quantity = 2 }
+    fire(env, "CURRENCY_DISPLAY_UPDATE", 700)
+    env.flush()
+    hint(env, "(Alt has 13000)")
+    eq(env.account.requests, 1, "a request at most once per show")
+    env.money = 1
+    fire(env, "PLAYER_MONEY")
+    env.flush()
+    eq(env.account.requests, 1)
+
+    env.B:Close()
+    env.B.Window.frame:Hide()
+    env.B:Open()
+    env.flush()
+    eq(env.account.requests, 2, "a new show asks again")
+    print("hs538_wallet: other-character hint ok")
+end
+
+-- The player is dropped, the largest holding above 0 wins, a shared name shows in full, and an empty or
+-- unreadable result is no hint.
+do
+    local env = world(nil, function(e) e.account.transferable[700] = true end)
+    holders(env, 99999, 12000, 300)
+    fire(env, "ACCOUNT_CHARACTER_CURRENCY_DATA_RECEIVED")
+    env.flush()
+    hint(env, "(Alt has 12000)")
+
+    env.account.rows[700][3].characterName = "Alt"
+    fire(env, "ACCOUNT_CHARACTER_CURRENCY_DATA_RECEIVED")
+    env.flush()
+    hint(env, "(Alt-Realm has 12000)")
+
+    env.account.rows[700][2].quantity, env.account.rows[700][3].quantity = 0, 7
+    fire(env, "ACCOUNT_CHARACTER_CURRENCY_DATA_RECEIVED")
+    env.flush()
+    hint(env, "(Other-Realm has 7)")
+
+    env.account.rows[700][3].quantity = 0
+    fire(env, "ACCOUNT_CHARACTER_CURRENCY_DATA_RECEIVED")
+    env.flush()
+    assert(not select(2, env.B.ItemState(70)):find("has"), "every other character at 0: no hint")
+
+    env.account.rows[700] = nil
+    fire(env, "ACCOUNT_CHARACTER_CURRENCY_DATA_RECEIVED")
+    env.flush()
+    assert(not select(2, env.B.ItemState(70)):find("has"), "nothing returned: no hint")
+    print("hs538_wallet: holder choice ok")
+end
+
+-- A currency that is not transferable, or no short currency at all, asks for nothing and fetches nothing.
+do
+    local env = world(nil, function(e) holders(e, 50, 12000, 300) end)
+    eq(env.account.requests, 0, "not transferable: no request")
+    assert(not select(2, env.B.ItemState(70)):find("has"), "not transferable: no hint")
+    eq(env.account.fetches, 0, "and no fetch")
+    local bare = world(true, function(e) e.account.transferable[700] = true holders(e, 50, 12000, 300) end)
+    eq(bare.account.requests, 0, "no short currency: no request")
+    eq(bare.account.fetches, 0)
+    print("hs538_wallet: no hint without a transferable short currency ok")
+end
+
+-- Only a reachable offer that is short in a transferable currency asks. A locked or other-faction offer is
+-- short too, and its price is drawn red, but it asks for nothing. A reachable short offer asks exactly once.
+do
+    local function asks(setup)
+        local env = world(true, function(e, s)
+            e.account.transferable[700] = true
+            e.decor(80, "Test Piece")
+            setup(e, s)
+        end)
+        env.go("catalog")
+        env.flush()
+        env.B.Go({ kind = "item", id = 80 })
+        env.flush()
+        env.go("summary")
+        env.flush()
+        return env.account.requests
+    end
+    local cost = { currencies = { { id = 700, amount = 5 } } }
+    eq(asks(function(e, s)
+        e.sell(80, s.anna, cost)
+        e.reqs["80:100"] = { { type = "unknown", text = "Mysterious Favor" } }
+    end), 0, "a locked offer asks for nothing")
+    eq(asks(function(e, s) e.sell(80, s.cora, cost) end), 0, "an other-faction offer asks for nothing")
+    eq(asks(function(e, s) e.sell(80, s.anna, cost) end), 1, "a reachable short offer asks once")
+    print("hs538_wallet: only reachable short offers ask ok")
+end
+
+-- The restricted transfer call is never named by the addon.
+do
+    local needle = "RequestCurrency" .. "FromAccountCharacter"
+    local toc = assert(io.open(root .. "/Homestead.toc", "rb"))
+    local text = toc:read("*a")
+    toc:close()
+    local files = 0
+    for path in text:gmatch("[^\r\n]+") do
+        if path:find("%.lua%s*$") and not path:find("^#") then
+            local f = assert(io.open(root .. "/" .. path:gsub("\\", "/"):gsub("%s+$", ""), "rb"), path)
+            assert(not f:read("*a"):find(needle, 1, true), path .. " names the transfer call")
+            f:close()
+            files = files + 1
+        end
+    end
+    assert(files > 50, "the TOC scan found too few files")
+    print("hs538_wallet: transfer call never named ok")
+end
+
+-- AC30: a positional string renders in the native suite.
+eq(("(%1$s has %2$s)"):format("Alt", 12000), "(Alt has 12000)")
+eq(("%2$s-%1$s"):format("a", "b"), "b-a", "the shim reorders")
 
 print("hs538_wallet: all ok")

@@ -66,10 +66,47 @@ local function Have(kind, id)
     return n
 end
 
+-- Whether a currency moves between the account's characters, asked once per walk, and whether a reachable offer
+-- is short in one: then the browser asks for the other characters' amounts.
+local transferable, needAccount = {}, false
+local function Transferable(id)
+    local t = transferable[id]
+    if t == nil then
+        t = C_CurrencyInfo.IsAccountTransferableCurrency(id) and true or false
+        transferable[id] = t
+    end
+    return t
+end
+
+-- The muted hint per short currency, kept until account data arrives or the wallet changes.
+local holders = {}
+local function Hint(id)
+    local h = holders[id]
+    if h == nil then
+        h = false
+        if Transferable(id) then
+            local name, n = D.OtherHolder(id)
+            if name then h = B.Style.Muted(L["(%1$s has %2$s)"]:format(name, n)) end
+        end
+        holders[id] = h
+    end
+    return h
+end
+
+local entries = {}
+
+-- Account data arrived: the hints and the words built from them are stale; nothing is judged again.
+function CG.AccountData()
+    wipe(holders)
+    for _, e in pairs(entries) do e.st = nil end
+end
+
 -- "paid" when every part is checked and covered; "short" when a checked part isn't, which outweighs the rest;
--- else "unknown": no part, or one with no id, no amount or no currency info. out gathers the short parts.
+-- else "unknown": no part, or one with no id, no amount or no currency info. out gathers the short parts; judging
+-- marks a reachable offer's judgment, the only kind that can need account data.
 local NONE, KINDS = {}, { currencies = "cur", items = "item" }
-local function Pay(cost, out)
+
+local function Pay(cost, out, judging)
     if not cost then return "unknown" end
     local parts, short, unknown = 0, false, false
     local gold = cost.gold or 0
@@ -86,6 +123,7 @@ local function Pay(cost, out)
                 unknown = true
             elseif have < c.amount then
                 short = true
+                if judging and kind == "cur" and not needAccount then needAccount = Transferable(c.id) end
                 if out then out[key] = out[key] or {} table.insert(out[key], c) end
             end
         end
@@ -101,23 +139,35 @@ end
 function CG.ShortWords(cost)
     local out = {}
     Pay(cost, out)
-    return HA.VendorData:FormatCost(out)
+    local words = HA.VendorData:FormatCost(out)
+    for _, c in ipairs(out.currencies or NONE) do
+        local hint = Hint(c.id)
+        if hint then return words .. " " .. hint end
+    end
+    return words
 end
 
 local VERDICT = { paid = "can", short = "short", unknown = "unpriced" }
 local PAY = { short = "short", unpriced = "unknown" }
 
-local entries, walk, version = {}, nil, nil
+local walk, version = nil, nil
 
 local function Fresh()
     local v = D.MemoVersion()
     if v ~= version then
-        version, walk = v, nil
+        version, walk, needAccount = v, nil, false
         wipe(entries)
+        wipe(holders)
+        wipe(transferable)
         wallet.gold = nil
         wipe(wallet.cur)
         wipe(wallet.item)
     end
+end
+
+function CG.NeedAccount()
+    Fresh()
+    return needAccount
 end
 
 local function OfferCost(itemID, npcID, vendor)
@@ -202,7 +252,7 @@ local function Settle(e)
     if e.reach then
         wipe(e.canBy)
         for npcID, o in pairs(e.reach) do
-            o.pay = Pay(o.cost)
+            o.pay = Pay(o.cost, nil, true)
             local v = VERDICT[o.pay]
             if v == "can" then e.canBy[npcID] = o end
             if not verdict or PRIORITY[v] < PRIORITY[verdict] then verdict = v end
@@ -230,6 +280,7 @@ function CG.Rejudge()
         end
     end
     if not changed then return false end
+    wipe(holders)
     for _, e in pairs(entries) do
         e.st = nil
         if e.reach then Settle(e) end

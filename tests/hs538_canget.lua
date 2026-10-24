@@ -28,7 +28,7 @@ local function newEnv()
         local c = env.currency[id]
         if c == nil then return { quantity = 1e6 } end
         return c or nil
-    end })
+    end, IsAccountTransferableCurrency = function() return false end })
     rawset(_G, "C_Item", {
         GetItemCount = function(id) return env.count[id] or 1e6 end,
         GetItemNameByID = function(id) return env.names[id] end,
