@@ -1,16 +1,15 @@
 -- Browser router: pages and routes, opening and closing, coalesced refresh, events while shown, combat state
 -- and the item tooltip. Delayed work checks B.Generation() first: it changes on every open and every close.
 -- Page contract: Show(route, saved) gets saved only on Back. Hide tears down transient state, resets render
--- keys and keeps the route. Refresh may follow Hide without Show (UI restore) and must restore whatever Hide
--- tore down. A page may define Has(route); a target it reports gone falls back to its list home on Go, is
--- dropped from Back, and replaces the route (no history step) on Refresh. A list page may define
--- Filter(text), called as the player edits the header box (never for a restore), and Placeholder(route),
--- the box's hint for that route. A route may carry list, the route it sits over (the vendor card over its
--- list): moving between a route and its list, or between two routes over one list, on one page hides nothing
--- and leaves the header box alone. Such a page defines ListOf(route), the list a route sits over (the router
--- stores it on the route as Transition runs; Resolved and GoNow's swap check read a row-supplied one first),
--- and CloseCard(), true when it closed a card; its Show(route, saved, keep) hears keep when the list is already
--- up and must be left as it is.
+-- keys and keeps the route. Refresh may follow Hide without Show (UI restore) and must restore what Hide tore
+-- down. Optional page hooks: Has(route) (a gone target falls back to its list home on Go, is dropped from Back,
+-- and replaces the route with no history step on Refresh), Filter(text) and Placeholder(route) for list pages
+-- (Filter is never called for a restore).
+-- A route may carry list, the route it sits over (a vendor card over its list). Moving between a route and its
+-- list, or between two routes over one list, on one page hides nothing and leaves the header box alone. Such a
+-- page defines ListOf(route) (stored on the route as Transition runs; Resolved and GoNow's swap check run earlier
+-- and read a row-supplied one) and CloseCard() (true when it closed a card). Its Show(route, saved, keep) hears
+-- keep when the list is already up and must be left as it is.
 local _, HA = ...
 
 local B = HA.DecorBrowser
