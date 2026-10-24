@@ -5,7 +5,11 @@
 -- tore down. A page may define Has(route); a target it reports gone falls back to its list home on Go, is
 -- dropped from Back, and replaces the route (no history step) on Refresh. A list page may define
 -- Filter(text), called as the player edits the header box (never for a restore), and Placeholder(route),
--- the box's hint for that route.
+-- the box's hint for that route. A route may carry list, the route it sits over (the vendor card over its
+-- list): moving between a route and its list, or between two routes over one list, on one page hides nothing
+-- and leaves the header box alone. Such a page defines ListOf(route), the list a route sits over (the router
+-- stores it on the route before anything reads it), and CloseCard(), true when it closed a card; its
+-- Show(route, saved, keep) hears keep when the list is already up and must be left as it is.
 local _, HA = ...
 
 local B = HA.DecorBrowser
@@ -92,10 +96,11 @@ local function Gone(route)
     return page and page.Has and not page:Has(route)
 end
 
--- A route whose target is gone becomes its tree home, or Overview when that is gone too.
+-- A route whose target is gone becomes the list it sits over, else its tree home, or Overview when that is
+-- gone too.
 local function Resolved(route)
     if not Gone(route) then return route end
-    local home = B.Home(route)[1]
+    local home = route.list and not Gone(route.list) and route.list or B.Home(route)[1]
     return Gone(home) and { kind = "overview" } or home
 end
 
@@ -117,20 +122,35 @@ local function AskAccount()
     end
 end
 
+local function SameRoute(a, b)
+    return a.kind == b.kind and a.key == b.key and a.id == b.id
+end
+
+-- The list a route sits over; a list sits over itself.
+local function Over(route)
+    return route.list or route
+end
+
 local function Transition(route, saved)
     local page = kindPage[route.kind]
     if not page then error("no page for the route kind " .. tostring(route.kind), 2) end
+    if page.ListOf then route.list = page:ListOf(route) end
     local old = Current()
-    if old then old:Hide() end
+    -- A card and its list share a page: moving between them leaves the page and the header box as they are.
+    local keep = old == page and not route.seed and (curRoute.list or route.list) ~= nil
+        and SameRoute(Over(curRoute), Over(route))
+    if old and not keep then old:Hide() end
     if old and old ~= page then frames[curRoute.kind]:Hide() end
     curRoute = route
     frames[route.kind]:Show()
-    Win.SetSearch(route.seed and route.seed.search)
-    page:Show(route, saved)
-    Win.SetPlaceholder(page.Placeholder and page:Placeholder(route))
-    Win.SetCrumb(B.Home(route))
-    Win.SelectNav(route)
+    if not keep then Win.SetSearch(route.seed and route.seed.search) end
+    -- The crumb bar comes and goes with the route's depth and the history, so both are set before the page
+    -- measures its room.
     Win.SetBack(#history > 0)
+    Win.SetCrumb(B.Home(route))
+    page:Show(route, saved, keep)
+    Win.SetPlaceholder(page.Placeholder and page:Placeholder(route))
+    Win.SelectNav(route)
     Win.UpdateCount()
     page:SetCombat(State.inCombat)
     AskAccount()
@@ -140,7 +160,7 @@ end
 local function GoNow(route, top)
     route = Resolved(route)
     if top then wipe(history) end
-    if curRoute and curRoute.kind == route.kind and curRoute.key == route.key and curRoute.id == route.id then
+    if curRoute and SameRoute(curRoute, route) then
         local page = Current()
         if route.seed then
             Win.SetSearch(route.seed.search)
@@ -152,8 +172,12 @@ local function GoNow(route, top)
         Win.SetBack(#history > 0)
         return
     end
-    if curRoute and not top then
-        history[#history + 1] = { { kind = curRoute.kind, key = curRoute.key, id = curRoute.id }, Current():Save() }
+    -- Another card over the same list takes the card's place.
+    local swap = curRoute and curRoute.list and route.list and SameRoute(curRoute.list, route.list)
+    if curRoute and not top and not swap then
+        history[#history + 1] = {
+            { kind = curRoute.kind, key = curRoute.key, id = curRoute.id, list = curRoute.list }, Current():Save(),
+        }
         if #history > 40 then table.remove(history, 1) end
     end
     Transition(route)
@@ -176,6 +200,20 @@ function B.Back()
     local entry
     repeat entry = table.remove(history) until not entry or not Gone(entry[1])
     if entry then Traced(entry[1], Transition, entry[2]) else Win.SetBack(false) end
+end
+
+local function Replace(route)
+    Transition(Resolved(route))
+end
+
+-- Closes a route that sits over a list. When the step before it is that list this is Back; otherwise the
+-- list takes the route's place with no history step. False when the route sits over nothing.
+function B.CloseOver()
+    local over = curRoute and curRoute.list
+    if not over then return false end
+    local top = history[#history]
+    if top and SameRoute(top[1], over) and not Gone(top[1]) then B.Back() else Traced(over, Replace) end
+    return true
 end
 
 local function SetCombat(inCombat)
@@ -212,7 +250,12 @@ end
 
 local function Repaint(reason)
     SyncMemo()
-    if Gone(curRoute) then return Transition(Resolved(curRoute)) end
+    local at = curRoute
+    if Gone(at) then
+        Transition(Resolved(at))
+        -- A card closed onto its list leaves the list as it was, so the data that removed it redraws it.
+        if not at.list then return end
+    end
     Current():Refresh(reason)
     Win.UpdateCount()
     AskAccount()
@@ -360,6 +403,10 @@ local function Build()
         OnShow = OnShow, OnHide = OnHide,
         Close = function() B:Close() end,
         Help = function() B.Go({ kind = "overview", seed = { showTip = true } }) end,
+        CloseCard = function()
+            local page = Current()
+            return page and page.CloseCard and page:CloseCard()
+        end,
         Search = function(text)
             local page = Current()
             if page and page.Filter then return end

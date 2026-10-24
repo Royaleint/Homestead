@@ -415,6 +415,7 @@ return function(root, opts)
     }
     HA.BadgeCalculation = {
         PeekVendorStats = function(_, v) return env.stats[v.npcID] end,
+        GetVendorStats = noop,
         RequestPrewarm = noop,
     }
 
@@ -694,12 +695,19 @@ return function(root, opts)
         return n
     end
 
-    -- The route kind a frame is drawn under (the first kind of its page), and the tab that kind lights up.
+    -- The route kind a frame is drawn under (the first kind of its page), and the tab that kind lights up. The
+    -- vendor card is a scroll frame inside the sources page, so what draws under one is the vendor's.
     function env.ownerKind(frame)
-        local f = frame
-        while f and f.parent ~= Win.host do f = f.parent end
+        local f, card = frame, false
+        while f and f.parent ~= Win.host do
+            card = card or f.template == "ScrollFrameTemplate"
+            f = f.parent
+        end
         for i, page in ipairs(env.pages) do
-            if page == f then return env.pageKinds[env.pageList[i]] end
+            if page == f then
+                local kind = env.pageKinds[env.pageList[i]]
+                return card and kind == "sources" and "vendor" or kind
+            end
         end
     end
     function env.owner(frame)

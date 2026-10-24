@@ -56,6 +56,7 @@ function Widget(kind)
     function w:HookScript(name, fn) self.scripts[name] = fn end
     function w:Show() self.shown = true end
     function w:Hide() self.shown = false end
+    function w:SetShown(on) self.shown = on and true or false end
     function w:IsShown() return self.shown end
     function w:SetChecked(on) self.checked = on end
     function w:SetSize(width, height) self.width, self.height = width, height end
@@ -258,6 +259,14 @@ B.Save = function(...) saves = saves + 1 return realSave(...) end
 
 local combatSeen
 local shownWith = {}
+-- Escape asks the page showing for a card to close.
+local cardOpen = false
+local function CloseCard()
+    local was = cardOpen
+    cardOpen = false
+    if was then Log("closeCard") end
+    return was
+end
 for _, kind in ipairs({ "overview", "catalog", "sources" }) do
     B.RegisterPage(kind, {
         Build = function() end,
@@ -269,10 +278,13 @@ for _, kind in ipairs({ "overview", "catalog", "sources" }) do
         Save = function() end,
         Refresh = function(_, reason) Log("refresh:" .. reason) end,
         SetCombat = function(_, on) combatSeen = on end,
+        CloseCard = kind == "sources" and CloseCard or nil,
     })
 end
-B.RegisterPage("vendor", { Build = function() end, Show = function() end, Hide = function() end,
-    Refresh = function() end, SetCombat = function() end })
+for _, kind in ipairs({ "vendors", "allVendors", "vendor" }) do
+    B.RegisterPage(kind, { Build = function() end, Show = function() end, Hide = function() end,
+        Refresh = function() end, SetCombat = function() end })
+end
 
 -- Ready() false creates nothing.
 D.IsReady = function() return false end
@@ -295,7 +307,9 @@ assert(fitArgs[1] == 5 + 860 and fitArgs[2] == 587, "the fit must not add a tab 
 local S, LO = B.Style, B.Style.layout
 local bar, tree = Win.bar, Win.bar.pts.TOPLEFT[2]
 assert(tree.width == 192 and bar.pts.TOPLEFT[3] == "TOPRIGHT" and bar.pts.TOPLEFT[4] == 4, "the tree column is wrong")
-assert(Win.host.pts.TOPLEFT[2] == bar and Win.host.pts.TOPLEFT[3] == "BOTTOMLEFT", "the host is not below the crumb bar")
+assert(Win.host.pts.TOPLEFT[2] == bar and Win.host.pts.TOPLEFT[3] == "TOPLEFT" and Win.host.pts.TOPLEFT[5] == 0,
+    "Overview goes no deeper than the tree: the bar is hidden and the host takes its room")
+assert(bar.shown == false, "the bar shows on a page that repeats the tree")
 local hostWidth = S.window.width - LO.insetLeft - LO.insetRight - 2 * LO.panePad - 2 * LO.wellPad
     - LO.pagePad - LO.pagePad - tree.width - bar.pts.TOPLEFT[4]
 assert(hostWidth == 610, "the host is " .. hostWidth .. " wide")
@@ -324,13 +338,16 @@ end
 assert(travel > 0 and travel <= 8, "the open travel is over 8 px")
 for _, a in ipairs(frame.groups[2].anims) do assert(rawget(a, "duration") == 0.1, "the close fade is not 0.1 s") end
 
--- R6: Escape, with a menu open and the search focused: the menu first, then the search, then the window.
+-- R6: Escape, with a menu open, the search focused and a card open: the menu first, then the search, then
+-- the card, then the window.
 local key = frame.scripts.OnKeyDown
 local box = { focus = true, text = "bench" }
 function box:HasFocus() return self.focus end
 function box:ClearFocus() self.focus = false Log("clearFocus") end
 Win.AddSearchBox(box)
 menuOpen = true
+cardOpen = true
+B.Go({ kind = "sources", key = "drops" })
 log = {}
 key(frame, "ESCAPE")
 assert(Find("closeMenus") and box.focus and frame.shown,
@@ -341,8 +358,14 @@ after = {}
 assert(frame.propagate == true, "propagation did not come back")
 
 key(frame, "ESCAPE")
-assert(Find("clearFocus") and box.text == "bench" and frame.shown and not Win.closing,
-    "Escape must let go of the search and keep its text")
+assert(Find("clearFocus") and box.text == "bench" and frame.shown and not Win.closing and cardOpen,
+    "Escape must let go of the search and keep its text and the card")
+key(frame, "ESCAPE")
+assert(Find("closeCard") and not cardOpen and frame.shown and not Win.closing,
+    "Escape with a card open must close only the card")
+assert(frame.propagate == false, "closing a card out of combat does not let Escape reach the game")
+after[1]()
+after = {}
 key(frame, "ESCAPE")
 assert(Win.closing, "Escape with nothing else to close must close the window")
 key(frame, "A")
@@ -382,6 +405,12 @@ inCombat = false
 -- Escape in combat leaves propagation alone.
 inCombat = true
 frame.propagate = true
+-- Closing a card in combat changes nothing about keys either: it closes, and Escape also reaches the game.
+B.Go({ kind = "sources", key = "drops" })
+cardOpen = true
+key(frame, "ESCAPE")
+assert(not cardOpen and not Win.closing and frame.propagate == true, "a card closed in combat touched propagation or the window")
+B.Go({ kind = "overview" })
 key(frame, "ESCAPE")
 assert(frame.propagate == true, "propagation changed in combat")
 inCombat = false

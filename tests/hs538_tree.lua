@@ -266,30 +266,77 @@ end
 do
     local env = world()
     local Win, B = env.B.Window, env.B
-    assert(not Win.back.shown, "no Back on the first page")
+    assert(not Win.back:IsVisible(), "no Back on the first page")
     env.click(row(env, "catalog"))
-    assert(not Win.back.shown, "a tree click lands with no Back")
+    assert(not Win.back:IsVisible(), "a tree click lands with no Back")
     eq(env.tab, "catalog")
     B.Go({ kind = "catalog", key = 2 })
-    assert(Win.back.shown, "going into a page shows Back")
+    assert(Win.back:IsVisible(), "going into a page shows Back")
     env.click(Win.back)
     eq(selectedKey(env), "catalog:all", "Back returns to the page before")
-    assert(not Win.back.shown, "and hides when the history is empty")
+    assert(not Win.back:IsVisible(), "and hides when the history is empty")
     B.Go({ kind = "catalog", key = 2 })
     env.click(row(env, "quests"))
-    assert(not Win.back.shown, "a tree click clears the history")
+    assert(not Win.back:IsVisible(), "a tree click clears the history")
     -- The real crumb button, not GoTop called directly.
     B.Go({ kind = "catalog", key = "all" })
     B.Go({ kind = "catalog", key = 2 })
-    assert(Win.back.shown, "going into a page shows Back")
+    assert(Win.back:IsVisible(), "going into a page shows Back")
     eq(crumbText(Win), "Catalog>Structural")
     Win.crumbs[1].btn.scripts.OnClick()
-    assert(not Win.back.shown, "a crumb jump hides Back")
+    assert(not Win.back:IsVisible(), "a crumb jump hides Back")
     local landed = env.route
     B.Back()
     eq(env.route, landed, "a crumb jump leaves no history to go back to")
-    assert(not Win.back.shown, "and Back stays hidden")
+    assert(not Win.back:IsVisible(), "and Back stays hidden")
     print("hs538_tree: Back ok")
+end
+
+-- The path bar, and Back inside it, show only for a page deeper than the tree (an item, a vendor card); on a
+-- page the tree already names, the page takes the bar's room. A tree click with a card open closes the card.
+do
+    local env = world()
+    local Win, B = env.B.Window, env.B
+    local function shallow(label)
+        eq(Win.bar:IsVisible(), false, label .. " repeats the tree: no bar")
+        eq(Win.host.pts.TOPLEFT[3], "TOPLEFT", label .. " takes the bar's room")
+    end
+    local function deep(label)
+        eq(Win.bar:IsVisible(), true, label .. " goes deeper than the tree: the bar shows")
+        eq(Win.host.pts.TOPLEFT[3], "BOTTOMLEFT", label .. " sits under the bar")
+    end
+    shallow("Overview")
+    -- A jump that leaves history keeps the bar and Back, whatever the page (Overview "See all" into Catalog).
+    B.Go({ kind = "catalog", key = "all", seed = { filters = { canGet = true } } })
+    deep("a Catalog page reached from Overview")
+    assert(Win.back:IsVisible(), "Back stays visible while history exists")
+    env.click(row(env, "vendors"))
+    shallow("a tree click")
+    assert(not Win.back:IsVisible(), "a tree click hides Back")
+    B.Go({ kind = "item", id = 1 })
+    deep("an item page")
+    assert(Win.back:IsVisible(), "Back comes with the bar")
+    B.Back()
+    shallow("the list Back returns to")
+    local row1 = env.sourcesList()[1]
+    row1.onClick()
+    deep("a vendor card")
+    assert(Win.back:IsVisible(), "Back comes with the card")
+    env.click(row(env, "quests"))
+    eq(env.route.kind, "sources", "a tree click leaves the card")
+    shallow("the tree's page")
+    assert(not Win.back:IsVisible(), "a tree click clears the history")
+    B.Back()
+    eq(env.route.kind, "sources", "and leaves nothing to go back to")
+
+    -- The tree row of the card's own list closes the card in place.
+    B.GoTop({ kind = "vendors", key = "Midnight" })
+    env.sourcesList()[1].onClick()
+    eq(env.route.kind, "vendor")
+    env.click(row(env, "vendors:Midnight"))
+    eq(env.route.kind .. ":" .. env.route.key, "vendors:Midnight", "the list's own row closes the card")
+    assert(not Win.back:IsVisible() and not Win.bar:IsVisible(), "with no history and no bar")
+    print("hs538_tree: path bar ok")
 end
 
 -- The selected row's wood sign; without the art the row keeps a flat highlight.

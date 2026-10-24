@@ -252,10 +252,21 @@ local function NewCrumb()
     return c
 end
 
+-- The bar, with Back, shows when the page goes deeper than the tree (a segment with no row) or there is
+-- history to go back to; otherwise the page takes its room.
+local deep
+local function ShowBar()
+    local on = deep or backShown
+    Win.bar:SetShown(on)
+    Win.host:SetPoint("TOPLEFT", Win.bar, on and "BOTTOMLEFT" or "TOPLEFT", 0, on and -SP.xs or 0)
+end
+
 -- The page's home in the tree: earlier segments link, the last is plain text.
 function Win.SetCrumb(segs)
     local prev
     lastSegs = segs
+    deep = Describe(segs[#segs]) == nil
+    ShowBar()
     for i, route in ipairs(segs) do
         local c = crumbs[i] or NewCrumb()
         crumbs[i] = c
@@ -282,6 +293,7 @@ end
 function Win.SetBack(on)
     backShown = on
     Win.back:SetShown(on)
+    ShowBar()
     if crumbs[1] then PlaceCrumb(crumbs[1]) end
 end
 
@@ -542,8 +554,8 @@ local function FocusedSearch()
     end
 end
 
--- Escape: an open menu closes, else a focused search box lets go (its text stays), else the window closes.
--- A search box's own Escape handler usually gets there first.
+-- Escape: an open menu closes, else a focused search box lets go (its text stays), else an open card closes,
+-- else the window closes. A search box's own Escape handler usually gets there first.
 local function OnKeyDown(self, key)
     if key ~= "ESCAPE" then
         SetPropagate(self, true)
@@ -556,7 +568,7 @@ local function OnKeyDown(self, key)
         menus:CloseMenus()
     elseif box then
         box:ClearFocus()
-    else
+    elseif not hooks.CloseCard() then
         hooks.Close()
     end
     C_Timer.After(0, Win.AssertPropagation)

@@ -137,7 +137,10 @@ local function NewPage()
 end
 
 local overview, catalog, vendor, source = NewPage(), NewPage(), NewPage(), NewPage()
-local multi = NewPage()
+local multi, deck = NewPage(), NewPage()
+for i = 1, 9 do deck.known[i] = true end
+function deck:Has(route) return route.kind ~= "pcard" or self.known[route.id] == true end
+function deck:CloseCard() return B.CloseOver() end
 for i = 1, 60 do vendor.known[i] = true end
 function vendor:Has(route) return self.known[route.id] == true end
 B.RegisterPage("overview", overview)
@@ -148,15 +151,17 @@ B.RegisterPage("source", source)
 B.RegisterPage("sources", catalog)
 B.RegisterPage("vendors", catalog)
 B.RegisterPage("allVendors", catalog)
+B.RegisterPage("plist", deck)
+B.RegisterPage("pcard", deck)
 
 B:Open()
 eq(shown, true, "the browser did not open")
 eq(overview.builds, 1, "overview was not built once")
 eq(multi.builds, 1, "a page under two kinds must be built once")
-eq(vendor.builds + catalog.builds + source.builds, 3, "the other pages were not built once each")
+eq(vendor.builds + catalog.builds + source.builds + deck.builds, 4, "the other pages were not built once each")
 local children = 0
 for _, f in ipairs(made) do if f.parent == host then children = children + 1 end end
-eq(children, 5, "one frame per page object under the host")
+eq(children, 6, "one frame per page object under the host")
 eq(overview.route.kind, "overview", "an open must land on overview")
 eq(backs[#backs], false, "an open has no history")
 eq(navs[#navs].kind, "overview", "the nav was not told the route")
@@ -390,6 +395,53 @@ eq(backs[#backs], false, "GoTop hid Back")
 B.Go({ kind = "vendor", id = 5 })
 B.GoTop({ kind = "vendor", id = 5 })
 eq(backs[#backs], false, "GoTop to the page already showing cleared history")
+
+-- A card over its list (a route with a list): moving between the list and a card, or between two cards over
+-- one list, hides nothing and leaves the header box alone. History keeps the list. A swap takes no step.
+-- Closing is Back when the step before is the list and a replacement with no step otherwise.
+local function over() return { kind = "plist", key = "a" } end
+B.GoTop(over())
+local hidesDeck, setsBefore = deck.hides, #searchSets
+B.Go({ kind = "pcard", id = 1, list = over() })
+eq(deck.route.kind, "pcard", "the card was not shown")
+eq(deck.hides, hidesDeck, "opening a card over its list hid the page")
+eq(#searchSets, setsBefore, "opening a card over its list touched the header box")
+eq(backs[#backs], true, "a card over a list is one history step")
+B.Go({ kind = "pcard", id = 2, list = over() })
+eq(deck.route.id, 2, "the swap did not show the other card")
+eq(deck.hides, hidesDeck, "a swap hid the page")
+eq(#searchSets, setsBefore, "a swap touched the header box")
+eq(hooks.CloseCard(), true, "the open card did not close")
+eq(deck.route.kind, "plist", "closing did not land on the list")
+eq(deck.hides, hidesDeck, "closing hid the page")
+eq(#searchSets, setsBefore, "closing touched the header box")
+eq(backs[#backs], false, "the swap took a history step: Back is still offered after the close")
+eq(hooks.CloseCard(), false, "Escape found a card on a list")
+
+-- History keeps the list: Back from a page the card led to returns to the card over its list.
+B.Go({ kind = "pcard", id = 4, list = over() })
+B.Go({ kind = "item", id = 7 })
+B.Back()
+eq(deck.route.kind .. deck.route.id, "pcard4", "Back did not return to the card")
+eq(deck.route.list.key, "a", "history lost the list the card sits over")
+eq(deck.saved.search, "", "the card's saved state did not come back with it")
+
+-- A card opened from another page: the list takes its place with no step, so Back still returns there.
+B.GoTop({ kind = "overview" })
+B.Go({ kind = "pcard", id = 3, list = over() })
+eq(hooks.CloseCard(), true)
+eq(deck.route.kind, "plist", "closing a card opened from elsewhere did not land on its list")
+eq(backs[#backs], true, "closing in place used up the step that leads back to the page before")
+B.Back()
+eq(overview.route.kind, "overview", "Back after an in-place close did not return to where the card came from")
+
+-- A seed asks for a fresh list: the page is hidden and the box is set.
+B.GoTop(over())
+B.Go({ kind = "pcard", id = 5, list = over() })
+hidesDeck, setsBefore = deck.hides, #searchSets
+B.Go({ kind = "plist", key = "a", seed = { search = "oak" } })
+eq(deck.hides, hidesDeck + 1, "a seeded list was not shown fresh")
+eq(#searchSets, setsBefore + 1, "a seeded list did not set the box")
 
 -- A route with no page is a programming error, not a silent fallback.
 eq((pcall(B.Go, { kind = "nowhere" })), false, "a route with no page was accepted")

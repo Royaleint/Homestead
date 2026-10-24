@@ -42,6 +42,21 @@ local function shape(env)
     return table.concat(out, ","), box
 end
 
+-- The drawn data of a vendor's row in the main list.
+local function rowOf(env, key)
+    for _, d in ipairs((select(2, shape(env))).provider) do
+        if d.key == key then return d end
+    end
+end
+
+local function crumbText(env)
+    local out = {}
+    for _, c in ipairs(env.B.Window.crumbs) do
+        if c.btn.shown then out[#out + 1] = c.text.text end
+    end
+    return table.concat(out, ">")
+end
+
 local function head(env)
     for i = #env.fontStrings, 1, -1 do
         local fs = env.fontStrings[i]
@@ -110,23 +125,25 @@ do
     print("hs538_vendor_lists: expansion lists ok")
 end
 
--- Rows open the vendor page and never select. Every list, vendor or source, is one well filling its page.
+-- A row opens the vendor card and lights only while its card is open. Every list, vendor or source, is one well
+-- filling its page, with the card hidden behind it.
 do
     local env = world()
     env.B.Go({ kind = "allVendors" })
     local _, box = shape(env)
     for _, d in ipairs(box.provider) do assert(not d.selected, "a vendor list selects no row") end
-    -- The list box sits in the holder and the well; the well is the page's only child.
+    -- The list box sits in the holder and the well; the well is the page's first child, the hidden card its second.
     local listPage = env.boxes("sources")[1].parent.parent.parent
     local function fills()
         local kids = {}
         for _, f in ipairs(env.all) do
             if f.parent == listPage then kids[#kids + 1] = f end
         end
-        eq(#kids, 1, "the list page holds the well alone")
+        eq(#kids, 2, "the list page holds the well and the card")
         eq(#kids[1].pts.TOPLEFT, 1, "the well starts at the page's corner")
         eq(#kids[1].pts.BOTTOMRIGHT, 1, "and ends at the page's opposite corner")
         eq(kids[1].shown, true, "and is shown")
+        eq(kids[2].shown, false, "the card is hidden")
     end
     fills()
     local d
@@ -221,13 +238,19 @@ do
     type_(env, "bran")
     eq(shape(env), "# Midnight,## Elwynn Forest,101", "typing filters")
     eq(filtered, 1)
+    rowOf(env, 101).onClick()
+    eq(win.search.text, "bran", "a row opens its card over the list: the box keeps its words")
+    eq(filtered, 1, "and that is not typing")
+    env.B.Back()
+    eq(win.search.text, "bran", "Back closes the card and the box still has its words")
+    eq(shape(env), "# Midnight,## Elwynn Forest,101", "and the list is as it was")
+    eq(filtered, 1, "a restore does not count as a new search")
+    -- A card opened without its list (Show vendor from another page) starts the page fresh.
     env.B.Go({ kind = "vendor", id = 101 })
     eq(win.search.text, "", "the box clears when the page changes")
     eq(filtered, 1, "and that is not typing")
     env.B.Back()
     eq(win.search.text, "bran", "Back sets the box again")
-    eq(shape(env), "# Midnight,## Elwynn Forest,101", "and the list is as it was")
-    eq(filtered, 1, "a restore does not count as a new search")
     win.SetSearch("oak")
     eq(filtered, 1, "SetSearch never filters")
     win.search:SetText("")
@@ -243,11 +266,131 @@ do
     eq(env.sourceKeys(), "101,100,102,104,105", "and brings the list back")
     -- Back out of the page and in again: one step each, no stray history from the restore.
     type_(env, "bran")
-    env.B.Go({ kind = "vendor", id = 101 })
+    rowOf(env, 101).onClick()
     env.B.Back()
     env.B.Back()
     eq(env.route.kind, "overview", "two Backs reach Overview: the restore added no step")
     print("hs538_vendor_lists: header box ok")
+end
+
+-- The card is a route over its list. A row click is one history step and lights the row; the list keeps its
+-- words, its rows and its place; the crumb is the vendor's home. Another row swaps in place. Back, Escape and
+-- the selected row close it, each leaving the list as it was and Back hidden again. Nothing is saved.
+do
+    local env = world()
+    local B, win = env.B, env.B.Window
+    B.GoTop({ kind = "allVendors" })
+    type_(env, "an")
+    local keys = env.sourceKeys()
+    local _, box = shape(env)
+    local sets, setData = 0, box.SetDataProvider
+    box.SetDataProvider = function(self, ...) sets = sets + 1 return setData(self, ...) end
+    local saves = #env.saves
+    local function closed(how)
+        eq(env.route.kind, "allVendors", how .. " lands on the list")
+        eq(win.search.text, "an", how .. " leaves the words")
+        eq(env.sourceKeys(), keys, how .. " leaves the rows")
+        eq(sets, 0, how .. " rebuilds nothing")
+        eq(win.back:IsVisible(), false, how .. " empties the history, so Back hides")
+        eq(win.bar:IsVisible(), false, how .. " hides the path bar")
+        eq(rowOf(env, 100).selected, nil, how .. " lights no row")
+    end
+    local function opened(id)
+        eq(env.route.kind .. ":" .. env.route.id, "vendor:" .. id)
+        eq(env.tab, "sources", "the list page serves the card")
+    end
+
+    rowOf(env, 100).onClick()
+    opened(100)
+    eq(win.search.text, "an", "opening keeps the words")
+    eq(env.sourceKeys(), keys, "and the rows")
+    eq(sets, 0, "and rebuilds nothing")
+    eq(win.back:IsVisible(), true, "a row click is one step")
+    eq(win.bar:IsVisible(), true, "the path bar is below the tree's depth")
+    eq(win.host.pts.TOPLEFT[3], "BOTTOMLEFT", "and the page sits under it")
+    eq(rowOf(env, 100).selected, true, "the row is lit")
+    eq(crumbText(env), "Vendors>Midnight>Anna", "the crumb is the vendor's home")
+
+    -- Another row swaps: no step, the lit row moves.
+    rowOf(env, 101).onClick()
+    opened(101)
+    eq(rowOf(env, 100).selected, nil, "the old row is dark")
+    eq(rowOf(env, 101).selected, true, "and the new one lit")
+    eq(sets, 0, "a swap rebuilds nothing")
+    eq(env.handlers.CloseCard(), true, "Escape closes the card")
+    closed("Escape")
+    local landed = env.route
+    B.Back()
+    eq(env.route, landed, "the swap left no step behind")
+
+    rowOf(env, 100).onClick()
+    env.click(win.back)
+    closed("Back")
+
+    rowOf(env, 100).onClick()
+    rowOf(env, 100).onClick()
+    closed("A click on the selected row")
+    eq(#env.saves, saves, "no card action saves anything")
+
+    -- A ware leads to its item page; Back returns to the card over the list it sat on, with the list's words.
+    rowOf(env, 100).onClick()
+    B.Go({ kind = "item", id = 1 })
+    B.Back()
+    eq(env.route.kind .. ":" .. env.route.id, "vendor:100", "Back from a ware returns to the card")
+    eq(env.route.list.kind, "allVendors", "over the list it sat on")
+    eq(win.search.text, "an", "with the list's words")
+    eq(rowOf(env, 100).selected, true, "and its row lit")
+    eq(env.handlers.CloseCard(), true, "the restored card closes")
+    eq(env.route.kind, "allVendors", "onto its list")
+    eq(win.back:IsVisible(), false, "with nothing left to go back to")
+
+    -- From another page: the card opens over its vendor's home list with the row lit and in view; closing
+    -- replaces the card with the list and Back still returns to where it came from.
+    B.GoTop({ kind = "overview" })
+    B.Go({ kind = "vendor", id = 100 })
+    eq(env.route.list.kind .. ":" .. env.route.list.key, "vendors:Midnight", "the card opens over its vendor's expansion")
+    eq(win.search.text, "", "with a fresh box")
+    local mid, midBox = shape(env)
+    eq(mid, "# Elwynn Forest,101,# Stormwind,100", "the home list is up")
+    eq(rowOf(env, 100).selected, true, "the row is lit")
+    local at = env.indexOf(midBox, function(d) return d.key == 100 end)
+    eq(midBox.scrolls[#midBox.scrolls], at, "and scrolled into view")
+    eq(env.handlers.CloseCard(), true)
+    eq(env.route.kind .. ":" .. env.route.key, "vendors:Midnight", "closing leaves the vendor's expansion list showing")
+    eq(win.back:IsVisible(), true, "the way back to the Overview is kept")
+    eq(win.bar:IsVisible(), true, "and the bar that carries it")
+    B.Back()
+    eq(env.route.kind, "overview", "Back returns to where the card came from")
+
+    -- A vendor with no row lights none; a list that is gone gives way to All vendors.
+    B.Go({ kind = "vendor", id = 150 })
+    eq(env.route.kind, "vendor")
+    for _, d in ipairs(select(2, shape(env)).provider) do eq(d.selected, nil, "an unlisted vendor lights no row") end
+    B.GoTop({ kind = "overview" })
+    B.Go({ kind = "vendor", id = 100, list = { kind = "vendors", key = "Gone" } })
+    eq(env.route.list.kind, "allVendors", "a list that is gone gives way to All vendors")
+    eq(#env.saves, saves, "still nothing saved")
+
+    -- A card whose vendor vanishes closes onto its list, and the data that removed it redraws that list.
+    B.GoTop({ kind = "allVendors" })
+    type_(env, "an")
+    rowOf(env, 101).onClick()
+    env.vendors[101] = nil
+    env.dataChanged()
+    eq(env.route.kind, "allVendors", "a vanished vendor closes its card onto the list")
+    eq(win.search.text, "an", "with the words kept")
+    assert(not env.sourceKeys():find("101", 1, true) and env.sourceKeys():find("100", 1, true),
+        "and the list redrawn without it: " .. env.sourceKeys())
+    print("hs538_vendor_lists: card route ok")
+end
+
+-- Show vendor for a vendor whose expansion list no longer exists opens over All vendors.
+do
+    local env = world(function(e) e.vendors[104], e.vendors[105] = nil, nil end)
+    for _, e in ipairs(env.D.Expansions()) do eq(e == "other", false, "the home list is gone") end
+    env.B.Go({ kind = "vendor", id = 150 })
+    eq(env.route.list.kind, "allVendors", "a card whose home list is gone sits over All vendors")
+    print("hs538_vendor_lists: home list gone ok")
 end
 
 -- A source list gets its search and scroll back on Back, as the vendor lists do.

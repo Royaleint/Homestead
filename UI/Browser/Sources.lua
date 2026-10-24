@@ -1,6 +1,6 @@
--- Sources: the vendor lists (all vendors, one expansion), the six other source lists, the vendor page and the
--- page of one other source. One page serves the sources, vendors and allVendors routes. Rows are keyed by
--- Facts.SourceKey.
+-- Sources: the vendor lists (all vendors, one expansion), the six other source lists, the vendor card and the
+-- page of one other source. One page serves the sources, vendors, allVendors and vendor routes: the vendor
+-- route is a card over its list. Rows are keyed by Facts.SourceKey.
 local _, HA = ...
 
 local B = HA.DecorBrowser
@@ -39,6 +39,8 @@ local Page = {}
 local st = { type = "achievements" }
 local now, query, wide = nil, "", false
 local head, list, empty, torn, asked, cs, static, vend, vendVer
+local well, shown, vid
+local Vend, V = {}, {}
 
 local function Live(event)
     local CD = HA.CalendarDetector
@@ -156,9 +158,14 @@ local function RowData(s)
     elseif s.type == "events" or (v and D.HolidayActive(v)) then state = "live" end
     return {
         kind = "row", key = s.key, name = s.title, line2 = s.sub, noTile = true, state = state, arg = arg,
+        selected = vid ~= nil and s.key == vid or nil,
         right = total == 0 and L["No decor"] or got and L["%d of %d"]:format(got, total) or L["%d decor"]:format(total),
         unconfirmed = v and not Facts.Confirmed(v) or nil,
-        onClick = function() B.Go(v and { kind = "vendor", id = s.key } or { kind = "source", key = s.type, id = s.key }) end,
+        onClick = function()
+            if not v then B.Go({ kind = "source", key = s.type, id = s.key })
+            elseif vid == s.key then Page:CloseCard()
+            else B.Go({ kind = "vendor", id = s.key, list = { kind = now.kind, key = now.key } }) end
+        end,
         onEnter = LINK[s.type] and function(self) B.ShowLinkTooltip(self, LINK[s.type](s)) end or nil,
     }
 end
@@ -213,7 +220,8 @@ local function ResetSearch()
     Page:Filter("")
 end
 
--- Returns the index of the header of the zone (a map id) when given and the list has a vendor in it.
+-- Returns the index of the header of the zone (a map id) when given and the list has a vendor in it, then
+-- the index of the open card's row.
 local function BuildList(keep, zone)
     asked, cs = false, D.CollectionState()
     local t, hide = wide and "vendors" or st.type, B.State.hideNA
@@ -254,7 +262,7 @@ local function BuildList(keep, zone)
     end
     hidden.parts = Facts.FactionParts(seen)
     table.sort(out, Before)
-    local data, group, expansion, headAt, zoneAt = {}, nil, nil, nil, nil
+    local data, group, expansion, headAt, zoneAt, openAt = {}, nil, nil, nil, nil, nil
     if t == "events" and not live then
         data[1] = { kind = "foot", text = L["No events active right now. Event decor is sold only while its event runs."] }
     end
@@ -273,9 +281,11 @@ local function BuildList(keep, zone)
             zoneAt = headAt
         end
         data[#data + 1] = RowData(s)
+        if vid and s.key == vid then openAt = #data end
     end
     local note = hidden.hidden > 0 and hidden or nil
     if note and #out > 0 then data[#data + 1] = note end
+    shown = data
     list:SetShown(#out > 0)
     if #out > 0 then
         empty:Hide()
@@ -290,7 +300,15 @@ local function BuildList(keep, zone)
     end
     head:SetHeight(W.TextHeight("bodyMuted") + SP.s)
     head:SetText(wide and now.kind == "vendors" and ExpansionHead(entries) or Head(t))
-    return zoneAt
+    return zoneAt, openAt
+end
+
+-- Lights the open card's row, or none, without rebuilding the list.
+local function Mark()
+    for _, d in ipairs(shown) do
+        if d.kind == "row" then d.selected = vid ~= nil and d.key == vid or nil end
+    end
+    W.RepaintRows(list)
 end
 
 local function Para(fs, role, text)
@@ -369,15 +387,15 @@ local Text = W.Text
 
 -- Every list is the whole page: a count head over the rows, in one well.
 function Page:Build(parent)
-    local body = W.Well(parent)
-    body:SetPoint("TOPLEFT")
-    body:SetPoint("BOTTOMRIGHT")
-    head = S.Text(body, "bodyMuted", "OVERLAY")
+    well = W.Well(parent)
+    well:SetPoint("TOPLEFT")
+    well:SetPoint("BOTTOMRIGHT")
+    head = S.Text(well, "bodyMuted", "OVERLAY")
     head:SetPoint("TOPLEFT", LO.wellPad, -LO.wellPad)
     head:SetPoint("TOPRIGHT", -LO.wellPad, -LO.wellPad)
     head:SetJustifyH("LEFT")
     head:SetWordWrap(false)
-    local lh = CreateFrame("Frame", nil, body)
+    local lh = CreateFrame("Frame", nil, well)
     lh:SetPoint("TOPLEFT", head, "BOTTOMLEFT", 0, -SP.xs)
     lh:SetPoint("BOTTOMRIGHT", -LO.wellPad, LO.wellPad)
     list = W.NewList(lh, {
@@ -385,6 +403,7 @@ function Page:Build(parent)
         kinds = { row = W.rowKind, header = W.headerKind, foot = footKind },
     })
     empty = W.NewEmptyState(lh)
+    Vend:Build(parent)
 end
 
 -- A source route with no usable key keeps the type the player last had.
@@ -397,8 +416,10 @@ function Page:Placeholder(route)
     return KIND[route.kind == "sources" and TypeOf(route) or "vendors"][2]
 end
 
--- An expansion with no listed vendor left is gone: the router falls back to all vendors.
+-- An expansion with no listed vendor left is gone: the router falls back to all vendors. So is a vendor the
+-- data no longer has.
 function Page:Has(route)
+    if route.kind == "vendor" then return D.Vendor(route.id) ~= nil end
     if route.kind ~= "vendors" then return true end
     for _, e in ipairs(D.Expansions()) do
         if e == route.key then return true end
@@ -406,23 +427,51 @@ function Page:Has(route)
     return false
 end
 
--- A forward Show starts from the route's seed (search or zone); Back gives saved.
-function Page:Show(route, saved)
-    local seed = route.seed
-    now, wide, torn = route, route.kind ~= "sources", false
-    if not wide then st.type = TypeOf(route) end
-    query = saved and saved.search or seed and seed.search or ""
-    B.Window.SetSearch(query)
-    local at = BuildList(false, seed and seed.zone)
-    if saved and saved.scroll then
-        list.box:ScrollToOffset(saved.scroll, true)
-    elseif at then
-        list.box:ScrollToElementDataIndex(at, ScrollBoxConstants.AlignBegin)
+-- The list a card sits over: the route's own, else its vendor's expansion, else all vendors when that is gone.
+function Page:ListOf(route)
+    if route.kind ~= "vendor" then return nil end
+    local over = route.list or { kind = "vendors", key = D.VendorHome(D.Vendor(route.id) or {}) }
+    return self:Has(over) and over or { kind = "allVendors" }
+end
+
+-- A forward Show starts from the route's seed (search or zone); Back gives saved. A vendor route is a card over
+-- its list (route.list): with keep, that list is already up, and opening, swapping and closing the card leave it.
+function Page:Show(route, saved, keep)
+    local card = route.kind == "vendor"
+    local over = card and route.list or route
+    if keep then
+        B.HideTooltip()
+        vid = card and route.id or nil
+        Mark()
+    else
+        local seed = route.seed
+        now, wide, torn, vid = over, over.kind ~= "sources", false, card and route.id or nil
+        if not wide then st.type = TypeOf(over) end
+        query = saved and saved.search or seed and seed.search or ""
+        B.Window.SetSearch(query)
+        local at, openAt = BuildList(false, seed and seed.zone)
+        if saved and saved.scroll then
+            list.box:ScrollToOffset(saved.scroll, true)
+        elseif at then
+            list.box:ScrollToElementDataIndex(at, ScrollBoxConstants.AlignBegin)
+        elseif openAt then
+            list.box:ScrollToElementDataIndex(openAt, ScrollBoxConstants.AlignCenter)
+        end
     end
+    well:SetShown(not card)
+    V.sf:SetShown(card)
+    if card then Vend:Show(saved and saved.card) end
 end
 
 function Page:Save()
-    return { search = query, scroll = list.box:GetDerivedScrollOffset() }
+    return {
+        search = query, scroll = list.box:GetDerivedScrollOffset(), card = vid and Vend:Save() or nil,
+    }
+end
+
+-- Closes the open card onto its list: Escape, and clicking the selected row.
+function Page:CloseCard()
+    return vid ~= nil and B.CloseOver()
 end
 
 function Page:Filter(text)
@@ -439,19 +488,22 @@ end
 function Page:Refresh(reason)
     if not (list and now) then return end
     if reason == "data" then B.Walk() end
+    local was = torn
     if reason == "paint" and not torn then
-        return W.RepaintRows(list)
+        W.RepaintRows(list)
+    else
+        torn = false
+        BuildList(true)
     end
-    torn = false
-    BuildList(true)
+    if vid then Vend:Refresh(reason, was) end
 end
 
--- The lists have no control that waits for the end of combat.
-function Page:SetCombat() end
+-- Only the card has a control that waits for the end of combat.
+function Page:SetCombat(inCombat)
+    if V.report then V.report:SetEnabled(not inCombat) end
+end
 
--- The vendor page is one scroll, so a large text size scrolls the page instead of clipping the head.
-local Vend, V = {}, {}
-local vid, vtorn
+-- The card is one scroll, so a large text size scrolls the card instead of clipping the head.
 local PORTRAIT, FLOOR, GAP, DOT = 88, 2 * S.ware.size + S.ware.gap, SP.s, 12
 local Draw
 
@@ -491,8 +543,9 @@ function Vend:Build(parent)
     sf:SetPoint("TOPLEFT")
     sf:SetPoint("BOTTOMRIGHT", -LO.scrollBarGap, 0)
     sf.ScrollBar:SetHideIfUnscrollable(true)
+    sf:Hide()
     sf:HookScript("OnSizeChanged", function(_, w)
-        if vid and not vtorn and w > 0 and (V.wait or w ~= V.w) then
+        if vid and not torn and w > 0 and (V.wait or w ~= V.w) then
             Draw(W.Owed(V.wait))
         end
     end)
@@ -609,12 +662,8 @@ function Draw(fresh, saved)
     end
 end
 
-function Vend:Has(route)
-    return D.Vendor(route.id) ~= nil
-end
-
-function Vend:Show(route, saved)
-    vid, vtorn = route.id, false
+function Vend:Show(saved)
+    V.wait = nil
     Draw(true, saved)
 end
 
@@ -622,26 +671,14 @@ function Vend:Save()
     return { scroll = V.grid.box:GetDerivedScrollOffset(), outer = V.sf:GetVerticalScroll() }
 end
 
-function Vend:Hide()
-    vtorn = true
-    B.HideTooltip()
-end
-
-function Vend:Refresh(reason)
-    if not (V.c and vid) then return end
-    if reason == "data" then B.Walk() end
-    if not vtorn and reason == "hide" then return end
-    if not vtorn and reason == "paint" then
+function Vend:Refresh(reason, wasTorn)
+    if not wasTorn and reason == "hide" then return end
+    if not wasTorn and reason == "paint" then
         local v = D.Vendor(vid)
         if v then SetFace(v) end
         return W.RepaintRows(V.grid)
     end
-    vtorn = false
     Draw(false)
-end
-
-function Vend:SetCombat(inCombat)
-    if V.report then V.report:SetEnabled(not inCombat) end
 end
 
 -- The page of one other source: the achievement, quest, recipe, drop, event or shop item. Its elements stack
@@ -791,5 +828,5 @@ end
 B.RegisterPage("sources", Page)
 B.RegisterPage("vendors", Page)
 B.RegisterPage("allVendors", Page)
-B.RegisterPage("vendor", Vend)
+B.RegisterPage("vendor", Page)
 B.RegisterPage("source", Src)

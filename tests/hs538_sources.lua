@@ -588,7 +588,7 @@ do
     local head, empty
     for _, w in ipairs(all) do
         if w.kind == "FontString" and w.text == "Counting…" and not head then head = w end
-        if rawget(w, "title") and rawget(w, "text") and w.kind == "Frame" then empty = w end
+        if rawget(w, "title") and rawget(w, "text") and w.kind == "Frame" and not empty then empty = w end
     end
     assert(empty and head and empty.parent == main.parent and empty.parent ~= head.parent,
         "the empty state is under the list holder, not the well the head draws in")
@@ -1100,7 +1100,6 @@ do
     local v = world(env)
     v.here.x, v.here.y = 0.4, 0.5
     build(env)
-    env.vpage:Build(Widget("Page"))
     env.vpage:Show({ kind = "vendor", id = 100 })
     env.tab.Show({ type = "achievements", select = { key = 9001 } })
     local reports = {}
@@ -1169,7 +1168,6 @@ do
     local main = build(env)
     env.tab.Show({ type = "vendors" })
     assert(row(main, 20).state == "live" and not row(main, 21), "an active event vendor is listed and tagged Active now")
-    env.vpage:Build(Widget("Page"))
     env.vpage:Show({ kind = "vendor", id = 20 })
     assert(shownText("Echo") and shownText("Active now"), "the head names the vendor and tags it Active now")
     assert(shownText("Seasonal: Hallow's End"), "the Seasonal note follows the location")

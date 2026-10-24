@@ -44,7 +44,7 @@ end
 
 local function page(env)
     for p, kind in pairs(env.pageKinds) do
-        if kind == "vendor" then return p end
+        if kind == "sources" then return p end
     end
 end
 
@@ -163,7 +163,7 @@ do
     -- A vendor that vanishes while its page is open: the next refresh replaces it with the list.
     env.vendors[100] = nil
     env.dataChanged()
-    eq(landed(), "allVendors:nil", "a refresh of a vendor that vanished")
+    eq(landed(), "vendors:other", "a refresh of a vendor that vanished closes onto the list it sat over")
     print("hs538_vendor_page: vanished ok")
 end
 
@@ -427,7 +427,7 @@ do
     end
     p:Refresh("paint")
     eq(sets, 0, "a paint sets no data")
-    eq(painted, 1, "and repaints the grid's cells")
+    eq(painted, 2, "and repaints the list's rows and the grid's cells")
     p:Refresh("hide")
     eq(sets, 0, "Hide toggled: nothing to redo on this page")
     p:Hide()
@@ -438,7 +438,7 @@ do
     p:Hide()
     p:Refresh("paint")
     eq(sets, 2, "a paint after Hide restores the page")
-    eq(painted, 1, "instead of repainting")
+    eq(painted, 2, "instead of repainting")
     p:Refresh("names")
     eq(sets, 3, "a names refresh draws again, keeping the place")
     eq(box.keep, true)
