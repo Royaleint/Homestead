@@ -26,7 +26,7 @@ read_globals = {
     "tinsert", "tremove", "wipe", "strsplit",
     "time", "date", "math", "string", "table",
     "error", "pcall", "rawget", "rawset", "setmetatable", "getmetatable",
-    "issecretvalue", -- Midnight combat-secrecy probe (HS-168)
+    "issecretvalue", -- Midnight combat-secrecy probe
     "GetBuildInfo",
 
     -- WoW constants
@@ -48,7 +48,7 @@ read_globals = {
     "CreateFramePool", "CreateUnsecuredRegionPoolInstance",
     "EventRegistry",
     "FrameUtil", "TextSizeManager",
-    "EventUtil", -- HS-368: EventUtil.ContinueOnAddOnLoaded (Blizzard_SharedXML/EventUtil.lua)
+    "EventUtil", -- EventUtil.ContinueOnAddOnLoaded (Blizzard_SharedXML/EventUtil.lua)
     "GameFontHighlight", "GameFontHighlightSmall",
     "GameFontNormal", "GameFontNormalLarge", "GameFontNormalHuge2", "GameFontNormalSmall",
     "GameTooltip", "GameTooltip_Hide",
@@ -92,7 +92,7 @@ read_globals = {
     "C_CurrencyInfo",
     "C_DateAndTime",
     "C_DateInfo",
-    "C_EncounterJournal",  -- HS-229: EJ-anchored drop pins
+    "C_EncounterJournal",  -- EJ-anchored drop pins
     "C_GossipInfo",
     "C_Housing",
     "C_AreaPoiInfo",
@@ -107,7 +107,7 @@ read_globals = {
     "C_SpellBook",
     "C_SuperTrack",
     "C_Texture",
-    "C_TaxiMap",  -- HS-347: flight point dodge candidates
+    "C_TaxiMap",  -- flight point dodge candidates
     "C_Timer",
     "C_TooltipInfo",
     "C_TradeSkillUI",
@@ -118,11 +118,11 @@ read_globals = {
     "GetAchievementCriteriaInfo", "GetAchievementInfo", "GetAchievementLink", "GetQuestLink",
     "GetItemCount", "GetItemInfo", "GetItemInfoInstant",
     "GetCoinTextureString",
-    "GetCVarBool",  -- HS-347: dungeon/delve entrance map-legend filter check
+    "GetCVarBool",  -- dungeon/delve entrance map-legend filter check
     "GetMerchantItemInfo", "GetMerchantItemLink", "GetMerchantNumItems",
     "GetLocale",
     "GetMoney",
-    "GetProfessions", "GetProfessionInfo", -- HS-158/160 professionRank requirements
+    "GetProfessions", "GetProfessionInfo", -- professionRank requirements
     "GetRealZoneText",
     "GetSubZoneText",
     "GetScreenWidth", "GetScreenHeight",
@@ -136,7 +136,7 @@ read_globals = {
     "IsAltKeyDown", "IsControlKeyDown", "IsShiftKeyDown",
     "IsIndoors",
     "IsInGroup", "IsInRaid", "IsInInstance", "IsInGuild",
-    "Lerp", "Saturate", -- Blizzard_SharedXMLBase/MathUtil.lua (HS-274 zoom-growth curve)
+    "Lerp", "Saturate", -- Blizzard_SharedXMLBase/MathUtil.lua (zoom-growth curve)
     "OpenAllBags", "OpenBag",
     "SOUNDKIT",
     "ToggleAllBags", "ToggleBag", "ToggleWorldMap",
@@ -153,7 +153,7 @@ read_globals = {
 ignore = {"21[23]"}  -- Ace3 callback patterns
 
 -- Vendored third-party libraries are linted in their own repos, not here. The
--- Foundry-1.0 embed (HS-120) is the one tracked lib in Libs/; exclude the whole
+-- Foundry-1.0 embed is the one tracked lib in Libs/; exclude the whole
 -- Libs/ tree so `luacheck .` covers only Homestead's own files.
 --
 -- luacheck doesn't honor .gitignore or skip dot-directories, so every other
