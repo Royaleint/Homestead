@@ -491,7 +491,7 @@ do
 end
 
 -------------------------------------------------------------------------------
--- R26 counts, R27 grouping
+-- Counts and grouping
 -------------------------------------------------------------------------------
 
 do
@@ -515,7 +515,7 @@ do
     env.tab.Show({ type = "quests" })
     assert(same(keyList(main), { "7002", "7001" }), "quests are ungrouped and sorted by title")
     env.tab.Show({ type = "events" })
-    assert(keyList(main)[1] == "foot", "R30: no event active shows the empty-events note first")
+    assert(keyList(main)[1] == "foot", "no event active shows the empty-events note first")
     assert(main.data[1].text == "No events active right now. Event decor is sold only while its event runs.")
     assert(same({ keyList(main)[2], keyList(main)[3] }, { "Hallow's End", "Noblegarden" }))
     env.calendar["Noblegarden"] = true
@@ -527,7 +527,7 @@ do
 end
 
 -------------------------------------------------------------------------------
--- R28 row words
+-- Row words
 -------------------------------------------------------------------------------
 
 do
@@ -639,7 +639,7 @@ do
 end
 
 -------------------------------------------------------------------------------
--- R29 vendor page: the head, location, shared lines, bar and wares, drawn by the
+-- Vendor page: the head, location, shared lines, bar and wares, drawn by the
 -- page the Sources file registers for the vendor route
 -------------------------------------------------------------------------------
 
@@ -964,7 +964,7 @@ do
 end
 
 -------------------------------------------------------------------------------
--- R33 Hide: counts unchanged, the footer, nothing unknown hidden, pinned landings
+-- Hide: counts unchanged, the footer, nothing unknown hidden, pinned landings
 -------------------------------------------------------------------------------
 
 do

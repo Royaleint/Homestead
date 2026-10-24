@@ -370,7 +370,7 @@ do
 end
 
 -------------------------------------------------------------------------------
--- R31 order, open sources first, gold labels with white values, Show buttons.
+-- Order: open sources first, gold labels with white values, Show buttons.
 -------------------------------------------------------------------------------
 do
     fresh(1003, { quality = 3, categoryIDs = { 1 }, firstAcquisitionBonus = 5, totalNumPlaced = 2, totalNumStored = 1 })
@@ -407,7 +407,7 @@ do
     local iWhere = indexOf(list, "Where to get it")
     local iReport = indexOf(list, "Report a problem")
     assert(iState and iActive and iBonus and iReq and iWhere and iReport, table.concat(texts(list), " | "))
-    assert(iState < iActive and iActive < iBonus and iBonus < iReq and iReq < iWhere and iWhere < iReport, "R31 order is wrong")
+    assert(iState < iActive and iActive < iBonus and iBonus < iReq and iReq < iWhere and iWhere < iReport, "item page order is wrong")
     assert(list[iReport].gated == true and iReport == #list, "Report is not the last, gated control")
     assert(has(list, "Placed"), "the collection counts are missing from the page")
     local activeLines = 0
@@ -832,8 +832,7 @@ do
     print("hs538_item: not confirmed ok")
 end
 
--- The confirmation date is the newer of the shipped one and the player's own scan. (The vendor page no longer
--- draws it; the item page does.)
+-- The confirmation date is the newer of the shipped one and the player's own scan. The item page draws it, not the vendor page.
 do
     rawset(_G, "date", rawget(_G, "date") or os.date)
     fresh(1034)
@@ -971,7 +970,7 @@ do
 end
 
 -------------------------------------------------------------------------------
--- AC29 and AC20: "Get it" leads, other open vendors follow by nearness, then short, then unpriced; a short
+-- "Get it" leads, other open vendors follow by nearness, then short, then unpriced; a short
 -- price is red only in its short part and the row says why in the state's words.
 -------------------------------------------------------------------------------
 do
@@ -1010,7 +1009,7 @@ do
     assert(priceLine(32) == "Price " .. S.Colored(K.stop, "1g"), "a short tooltip price is red: " .. tostring(priceLine(32)))
     assert(priceLine() == "Price 1g", "and Get it's price is not: " .. tostring(priceLine()))
     COST[31], COST[32], COST[33] = nil, nil, nil
-    print("hs538_item: AC29 vendor order and short words ok")
+    print("hs538_item: vendor order and short words ok")
 end
 
 print("hs538_item: ok")

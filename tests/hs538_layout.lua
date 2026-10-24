@@ -156,7 +156,7 @@ assert(measures >= 1, "ResetMeasure did not force a new measure")
 methods.GetStringHeight = rawHeight
 
 -------------------------------------------------------------------------------
--- The width ruler, and the breakpoint between two columns and a covering card (B8). The harness measures a
+-- The width ruler, and the breakpoint between two columns and a covering card. The harness measures a
 -- string as 6 px a byte at the text scale. The room is the page area's width, read from the tree's width.
 -------------------------------------------------------------------------------
 

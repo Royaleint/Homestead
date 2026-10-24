@@ -8,7 +8,7 @@ local root = (... or "."):gsub("\\", "/"):gsub("/+$", "")
 -- The shared parts: a decor row shows each state's words with its second signal
 -- (and red only for the other faction), the empty-state kinds say their own
 -- words and show only the buttons a tab asked for, the hidden-by footer reads
--- as the spec words it, the columns have their widths, and a search box is
+-- its exact words, the columns have their widths, and a search box is
 -- known to Escape.
 -------------------------------------------------------------------------------
 

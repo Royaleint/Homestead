@@ -338,7 +338,7 @@ end
 assert(travel > 0 and travel <= 8, "the open travel is over 8 px")
 for _, a in ipairs(frame.groups[2].anims) do assert(rawget(a, "duration") == 0.1, "the close fade is not 0.1 s") end
 
--- R6: Escape, with a menu open, the search focused and a card open: the menu first, then the search, then
+-- Escape, with a menu open, the search focused and a card open: the menu first, then the search, then
 -- the card, then the window.
 local key = frame.scripts.OnKeyDown
 local box = { focus = true, text = "bench" }

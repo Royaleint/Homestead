@@ -123,7 +123,7 @@ do
     eq(see.text, "See all you can get now (4)")
     env.click(see)
     eq(env.tab, "catalog")
-    eq(env.idString(), "13,1,6,2", "R15: the four you can get now, Best order")
+    eq(env.idString(), "13,1,6,2", "the four you can get now, Best order")
     eq(env.search, "", "no search")
     eq(tipWrites(env), 1, "tipSeen written once")
     eq(env.HA.Addon.db.profile.browser.tipSeen, true, "tipSeen saved")
@@ -135,7 +135,7 @@ end
 
 do
     local env = world()
-    -- R16: the zone block's Show vendor lands on that vendor's page with its wares.
+    -- The zone block's Show vendor lands on that vendor's page with its wares.
     local btn = env.button("summary", "Show vendor")
     assert(btn, "the zone block offers Show vendor")
     landsOnVendor(env, 100, "1,2,3,6,8", function() env.click(btn) end, "Show vendor")
@@ -145,7 +145,7 @@ do
 end
 
 do
-    -- R17: the header search box lands on All decor with the words, from any page, both ways.
+    -- The header search box lands on All decor with the words, from any page, both ways.
     local env = newWorld(root, { realWindow = true })
     env.standard()
     env.open()
@@ -173,7 +173,7 @@ do
 end
 
 do
-    -- R18: each source type's tree row opens that type with its sources listed (the By source list's job).
+    -- Each source type's tree row opens that type with its sources listed (the By source list's job).
     local want = { vendors = "100", achievements = "9001", quests = "7001", professions = "8001",
         drops = "Boss|Keep", events = "Hallow's End", shop = "61" }
     for _, key in ipairs({ "vendors", "achievements", "quests", "professions", "drops", "events", "shop" }) do
@@ -200,7 +200,7 @@ do
 end
 
 do
-    -- R37: Show what's missing, from the Nothing you can get right now state.
+    -- Show what's missing, from the Nothing you can get right now state.
     local env = world()
     for _, id in ipairs({ 1, 2, 6, 13 }) do env.owned(id) end
     env.dataChanged()

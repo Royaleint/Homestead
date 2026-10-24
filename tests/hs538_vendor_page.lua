@@ -594,7 +594,7 @@ local function narrowed(env)
     return all, any, table.concat(lit, ",")
 end
 
--- Two columns or cover (B8): a card opened from a list narrows the list and sits beside it when the page has
+-- Two columns or cover: a card opened from a list narrows the list and sits beside it when the page has
 -- room for both, and covers the page when it does not. Only the page's width and the text decide.
 do
     local env = world()
@@ -641,7 +641,7 @@ do
     eq((narrowed(env)), true, "two columns again")
     eq(env.route.id, 100, "the card never closed")
 
-    -- A search that filters the open card's row out leaves the card open with no row lit (B10).
+    -- A search that filters the open card's row out leaves the card open with no row lit.
     page(env):Filter("Elwynn")
     eq(env.route.id, 100, "the card stays open")
     eq(card.shown, true)
@@ -730,7 +730,7 @@ do
     print("hs538_vendor_page: text size and rescale ok")
 end
 
--- The red X (B6): the NoScripts template with its own click, on the card's well and not on the scroll, never
+-- The red X: the NoScripts template with its own click, on the card's well and not on the scroll, never
 -- disabled, and no other close template on the vendor page.
 do
     local env = world()

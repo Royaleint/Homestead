@@ -527,7 +527,7 @@ do
     print("hs538_wallet: transfer call never named ok")
 end
 
--- AC30: a positional string renders in the native suite.
+-- A positional string renders in the native suite.
 eq(("(%1$s has %2$s)"):format("Alt", 12000), "(Alt has 12000)")
 eq(("%2$s-%1$s"):format("a", "b"), "b-a", "the shim reorders")
 

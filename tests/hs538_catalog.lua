@@ -403,7 +403,7 @@ end
 local function eq(a, b, msg) assert(a == b, (msg or "") .. ": got " .. tostring(a) .. ", expected " .. tostring(b)) end
 
 -------------------------------------------------------------------------------
--- Build, R24 and the three sorts
+-- Build, the row words and the three sorts
 -------------------------------------------------------------------------------
 
 do
@@ -439,7 +439,7 @@ do
     eq(rowOf[7].state, "notOwned", "not collected")
     eq(rowOf[7].line2, "Achievement: Fixture Win", "the primary source line")
     eq(rowOf[5].state, nil, "unknown ownership shows no state")
-    assert(rowOf[2].line2:find("(+1 more)", 1, true), "R23 more sources: " .. rowOf[2].line2)
+    assert(rowOf[2].line2:find("(+1 more)", 1, true), "more sources: " .. rowOf[2].line2)
     eq(rowOf[7].line2:find("(+", 1, true), nil, "a single source has no count")
 
     local sortMenu = env.menu(env.sort())
@@ -471,7 +471,7 @@ do
     local text, shown = env.filtered()
     local plain = tostring(text):gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", "")
     eq(shown, true, "the Filtered line is shown")
-    eq(plain, "Filtered: Collected \194\183 Reset filters", "R22 Filtered line")
+    eq(plain, "Filtered: Collected \194\183 Reset filters", "Filtered line")
     fm:Find("Not collected").setSel()
     fm:Find("Collected").setSel()
     eq(env.ids(), "1,2,8,7,3,6", "Not collected only: unknown ownership (5) and owned (4) are in neither filter")
@@ -532,7 +532,7 @@ do
     print("hs538_catalog: filters, kinds and search ok")
 end
 
--- W4: the Catalog's counts per source type are the By source numbers.
+-- The Catalog's counts per source type are the By source numbers.
 do
     local env = fixture()
     env.tab.Show()

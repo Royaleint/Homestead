@@ -310,8 +310,8 @@ do
 end
 
 -------------------------------------------------------------------------------
--- R13: the rows follow the ranked walk; the reason line is never empty, has at most
--- two signals and falls back to the mock's words; the button and the links
+-- The rows follow the ranked walk; the reason line is never empty, has at most
+-- two signals and falls back to its default words; the button and the links
 -------------------------------------------------------------------------------
 
 do
@@ -335,7 +335,7 @@ do
 
     local order = {}
     for i, e in ipairs(env.CG.Rank()) do order[i] = e.itemID end
-    eq(table.concat(order, ","), "5,1,2,3,4", "R11 order")
+    eq(table.concat(order, ","), "5,1,2,3,4", "overview order")
 
     local rows = env.rows()
     eq(#rows, 3, "three rows")
@@ -378,7 +378,7 @@ do
     click(rows[1])
     route = env.routes[#env.routes]
     assert(route.kind == "item" and route.id == 3, "the row opens the item page")
-    print("hs538_summary: R13 rows ok")
+    print("hs538_summary: overview rows ok")
 end
 
 -- "Get it" names the nearer of two equal vendors, and follows the player across a zone change
@@ -418,11 +418,11 @@ do
     eq(env.tooltips[1][3], 1, "with the vendor")
     env.tab:Hide()
     eq(#env.hidden, 3, "Hide releases the tooltip of every row")
-    print("hs538_summary: R13 buttons and tooltip ok")
+    print("hs538_summary: overview buttons and tooltip ok")
 end
 
 -------------------------------------------------------------------------------
--- R14: the fill at q = 0, 1, 2, 3 and all collected, and never a blank slot
+-- The fill at q = 0, 1, 2, 3 and all collected, and never a blank slot
 -------------------------------------------------------------------------------
 
 local function filled(q, candidates, extra)
@@ -468,7 +468,7 @@ do
         local empty = env.empty()
         eq(empty.shown, q == 0, "Nothing you can get right now at q = " .. q)
         if q == 0 then eq(empty.title.text, "Nothing you can get right now") end
-        print("hs538_summary: R14 q = " .. q .. " with " .. notYet .. " next steps ok")
+        print("hs538_summary: fill q = " .. q .. " with " .. notYet .. " next steps ok")
     end
 
     -- A next step shows its first requirement and how many more.
@@ -509,11 +509,11 @@ do
     local done = env.empty()
     assert(done.shown and done.text.text:find("all 1 decor", 1, true), done.text.text)
     eq(#env.rows(), 0, "no rows when nothing is missing")
-    print("hs538_summary: R14 states ok")
+    print("hs538_summary: fill states ok")
 end
 
 -------------------------------------------------------------------------------
--- AC29 and AC20: a next step says why in the state's words and colour, never "Requires:" for a price,
+-- A next step says why in the state's words and colour, never "Requires:" for a price,
 -- and the price keeps its own slot beside a long name
 -------------------------------------------------------------------------------
 
@@ -573,11 +573,11 @@ do
     eq(fresh[2].price.text, "3c", "the unpriced row is unchanged")
     eq(fresh[3].why.text, "Requires: Achievement: Feat", "the locked row keeps its words")
     eq(fresh[3].price.text, "500g", "and its covered price is plain")
-    print("hs538_summary: AC29 next-step words, price slot ok")
+    print("hs538_summary: next-step words, price slot ok")
 end
 
 -------------------------------------------------------------------------------
--- Counting and not read (R37)
+-- Counting and not read
 -------------------------------------------------------------------------------
 
 do
@@ -608,7 +608,7 @@ do
 end
 
 -------------------------------------------------------------------------------
--- R15 and R19: See all, and the first-use tip (written once)
+-- See all, and the first-use tip (written once)
 -------------------------------------------------------------------------------
 
 do
@@ -652,11 +652,11 @@ do
     click(env2.find(function(f) return f.template == "UIPanelCloseButton" and f.parent == tip2 end))
     eq(#env2.saves, 1)
     eq(env2.saves[1][2], true)
-    print("hs538_summary: R15 and R19 ok")
+    print("hs538_summary: See all and first-use tip ok")
 end
 
 -------------------------------------------------------------------------------
--- R16: Here in <zone>, the glow, the walk-up and the missing line
+-- Here in <zone>, the glow, the walk-up and the missing line
 -------------------------------------------------------------------------------
 
 do
@@ -743,11 +743,11 @@ do
     local line2 = env2.find(function(f) return f.text == "Here in Durotar: Ghost sells 1 decor you can get now." end)
     assert(line2 and line2.parent.shown, "the line is drawn")
     assert(not line2.parent.btn.shown, "a nil key draws no Show vendor button")
-    print("hs538_summary: R16 ok")
+    print("hs538_summary: Here in zone ok")
 end
 
 -------------------------------------------------------------------------------
--- R17: the page registers as the overview, and the search and the By source list
+-- The page registers as the overview, and the search and the By source list
 -- are not its own: the header searches, and the tree and the list heads count
 -------------------------------------------------------------------------------
 
@@ -760,11 +760,11 @@ do
     eq(env.find(function(f) return f.text == "By source" or rawget(f, "num") ~= nil end), nil, "no By source list")
     local title = env.find(function(f) return f.text == "What can I get now?" end)
     eq(title.font, env.B.Style.font.header, "the title wears the header font")
-    print("hs538_summary: R17 ok")
+    print("hs538_summary: page registration ok")
 end
 
 -------------------------------------------------------------------------------
--- R18: the walk's By source counts, which the source list heads draw (the heads
+-- The walk's By source counts, which the source list heads draw (the heads
 -- are asserted in hs538_parity and hs538_hide). They equal what Catalog's filter
 -- rule counts over the same walk (every item with the source type; collected =
 -- owned), with unknown ownership in the total and never in the collected.
@@ -804,7 +804,7 @@ do
     eq(w.progress.src.achievements.total, 3)
     local pct = env.find(function(f) return type(f.text) == "string" and f.text:find("%%") and f.text:find("collected") end)
     eq(pct, nil, "no overall percentage")
-    print("hs538_summary: R18 parity ok")
+    print("hs538_summary: By source parity ok")
 end
 
 -------------------------------------------------------------------------------
