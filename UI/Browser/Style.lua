@@ -63,6 +63,10 @@ S.layout = {
 
 S.row = { pad = 6, gap = 2, tile = 30 }
 S.ware = { size = 48, gap = 4 }
+-- The vendor card: its portrait, a state mark, and the well and scroll gutter around its text.
+S.card = { portrait = 88, mark = 12, close = 24, closePad = 2, frame = 2 * S.layout.wellPad + S.layout.scrollBarGap }
+-- The part of the close button that is over the card's text column, and a gap.
+S.card.reserve = S.card.close + S.card.closePad - (S.layout.wellPad + S.layout.scrollBarGap) + S.space.xs
 
 S.tex = {
     placeholderIcon = [[Interface\Icons\INV_Misc_QuestionMark]],

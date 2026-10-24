@@ -292,8 +292,9 @@ do
     print("hs538_tree: Back ok")
 end
 
--- The path bar, and Back inside it, show only for a page deeper than the tree (an item, a vendor card); on a
--- page the tree already names, the page takes the bar's room. A tree click with a card open closes the card.
+-- The path bar, and Back inside it, show for a page deeper than the tree (an item, a vendor card) or when the
+-- history is not empty; on a page the tree already names with nothing to go back to, the page takes the bar's
+-- room. A tree click with a card open closes the card.
 do
     local env = world()
     local Win, B = env.B.Window, env.B

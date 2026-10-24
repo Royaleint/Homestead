@@ -28,6 +28,7 @@ function methods.SetPoint(self, ...)
     self.points[#self.points + 1] = { ... }
 end
 function methods.SetFontObject(self, font) self.font = font end
+function methods.SetWordWrap(self, on) self.wrap = on end
 function methods.SetText(self, text) self.text = text end
 function methods.GetText(self) return self.text end
 function methods.SetWidth(self, w) self.width = w end
@@ -143,6 +144,53 @@ row:Set({ name = "Oak Bench", quality = 1, state = "can", line2 = "Vendor: Joruh
 assert(find("Vendor: Joruh (+2 more)"), "the source line is not drawn as given")
 assert(find("Not confirmed"), "the Not confirmed tag text is missing")
 assert(find("Active now"), "the Active now badge text is missing")
+
+-- A group header wraps its text; its row height comes from W.HeaderExtent.
+do
+    made = {}
+    local h = Widget("Frame")
+    W.headerKind.build(h)
+    assert(made[#made].wrap == true, "a group header does not wrap its text")
+end
+
+-- A narrow row (the list beside an open vendor card): the name, and "N can get now" only for a count above 0.
+-- The second line, the count words, the Not confirmed tag and every other state's words are dropped; a wide row
+-- with the same data shows them all.
+do
+    local function shown(text)
+        local fs = find(text)
+        return fs ~= nil and fs.shown == true
+    end
+    local wide = { name = "Anna", state = "some", arg = 3, line2 = "Trade District", right = "3 of 6", unconfirmed = true }
+    made = {}
+    local r = W.BuildRow(CreateFrame("Button", nil, Widget("Frame")))
+    r:Set(wide)
+    local function tag()
+        local last
+        for _, fr in ipairs(frames) do
+            if type(fr.text) == "table" and fr.text.text == "Not confirmed" then last = fr end
+        end
+        return last
+    end
+    assert(shown("3 can get now") and shown("Trade District") and shown("3 of 6") and tag().shown == true,
+        "a wide row shows the second line, the count and the tag")
+    wide.narrow = true
+    r:Set(wide)
+    assert(shown("Anna") and shown("3 can get now"), "a narrow row keeps the name and the can-get words")
+    assert(not shown("Trade District"), "and drops the second line")
+    assert(not shown("3 of 6"), "the count")
+    assert(tag().shown == false, "and the Not confirmed tag")
+    -- Every other state, and a row still counting, leaves the second line blank.
+    for _, state in ipairs({ "counting", "allDone", "faction", "idle", "live", "unknown" }) do
+        r:Set({ name = "Anna", state = state ~= "unknown" and state or nil, arg = "Horde", line2 = "Trade District",
+            right = "3 of 6", narrow = true })
+        assert(shown("Anna"), "the name stays for " .. state)
+        for _, words in ipairs({ W.StateWords("counting"), W.StateWords("allDone"), W.StateWords("faction", "Horde"),
+            W.StateWords("idle"), W.StateWords("live") }) do
+            assert(not shown(words), "a narrow row for " .. state .. " shows '" .. words .. "'")
+        end
+    end
+end
 
 -- The words and the price truncate before the left text does: on a narrow row the text that draws gets a width
 -- of what the box may take, the left text keeps at least half the room, and a recycled row on a wide row gets the

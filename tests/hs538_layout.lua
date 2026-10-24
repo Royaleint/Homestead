@@ -1,4 +1,4 @@
--- luacheck: globals assert loadfile print CreateFrame UIParent C_Texture PixelUtil CreateColor C_ColorOverrides
+-- luacheck: globals assert loadfile print io CreateFrame UIParent C_Texture PixelUtil CreateColor C_ColorOverrides
 -- luacheck: globals CreateScrollBoxListLinearView ScrollUtil CreateAnchor CreateDataProvider TextSizeManager
 -- luacheck: globals CreateFont NineSliceUtil
 -- luacheck: globals wipe
@@ -154,5 +154,67 @@ measures = 0
 W.RowHeight()
 assert(measures >= 1, "ResetMeasure did not force a new measure")
 methods.GetStringHeight = rawHeight
+
+-------------------------------------------------------------------------------
+-- The width ruler, and the breakpoint between two columns and a covering card (B8). The harness measures a
+-- string as 6 px a byte at the text scale. The room is the page area's width, read from the tree's width.
+-------------------------------------------------------------------------------
+
+for _, s in ipairs({ 0.8571, 1, 2.0 }) do
+    scale = s
+    assert(W.TextWidth("body", "99 can get now") == 14 * 6 * s, "the width ruler did not follow the text size at " .. s)
+    W.TextHeight("body", "99 can get now", 20)
+    assert(W.TextWidth("body", "99 can get now") == 14 * 6 * s, "the height ruler's width bounded a width measure")
+end
+
+local LO, SP = S.layout, S.space
+local function roomAt(nav)
+    return S.window.width - LO.insetLeft - LO.insetRight - 2 * LO.panePad - 2 * LO.wellPad - 2 * LO.pagePad - nav - SP.xs
+end
+
+local function localeWords(name)
+    local f = assert(io.open(root .. "/Locale/" .. name .. ".lua", "rb"))
+    local text = f:read("*a")
+    f:close()
+    return assert(text:match('L%["%%d can get now"%] = "(.-)"'), name .. " has no can-get words")
+end
+local ENGLISH = S.state.some.word
+
+local function split(words, size, nav, room)
+    S.state.some.word, scale, S.nav.width = words, size, nav
+    W.ResetMeasure()
+    return W.Split(room or roomAt(nav))
+end
+
+for _, nav in ipairs({ 172, 186, 192 }) do
+    for _, size in ipairs({ 0.8571, 1, 2.0 }) do
+        local col, cover = split(ENGLISH, size, nav)
+        assert(not cover, "English at " .. size .. ", tree " .. nav .. " should sit beside the list")
+        assert(col == (size == 2.0 and 226 or nav), "the English list column at " .. size .. ", tree " .. nav .. " is " .. col)
+    end
+    assert(select(2, split(localeWords("deDE"), 1, nav)) == false, "German at 1.0, tree " .. nav)
+    assert(select(2, split(localeWords("deDE"), 2.0, nav)) == true, "German at 2.0, tree " .. nav)
+    assert(select(2, split(localeWords("frFR"), 1, nav)) == false, "French at 1.0, tree " .. nav)
+    assert(select(2, split(localeWords("frFR"), 2.0, nav)) == true, "French at 2.0, tree " .. nav)
+    assert(select(2, split(localeWords("ruRU"), 2.0, nav)) == true, "Russian at 2.0, tree " .. nav)
+end
+
+-- The line is where the card tips over: four ware cells at 1.0 (192 + 4 + 244), the portrait beside the line at
+-- Gigantic (226 + 4 + 320, the portrait column keeping the close button's 10 px). One px less and the card covers.
+assert(select(2, split(ENGLISH, 1, 192, 440)) == false and select(2, split(ENGLISH, 1, 192, 439)) == true,
+    "the two-column floor at 1.0 is not 440")
+assert(select(2, split(ENGLISH, 2.0, 192, 550)) == false and select(2, split(ENGLISH, 2.0, 192, 549)) == true,
+    "the two-column floor at Gigantic is not 550")
+
+-- A group header wraps in the width it is given: one line when wide, more lines when narrow, nested or not.
+scale = 1
+W.ResetMeasure()
+local long = { text = ("w"):rep(60), nested = true }
+assert(W.HeaderExtent(long, 1000) == W.HeaderHeight(), "a wide header is one line")
+assert(W.HeaderExtent(long, 150) > W.HeaderHeight(), "a narrow header wraps")
+assert(W.HeaderExtent({ text = long.text }, 200) < W.HeaderExtent(long, 200), "a nested header has less room")
+assert(W.HeaderExtent(long, 10) == W.HeaderHeight(), "no room for the indent leaves one line")
+S.state.some.word, S.nav.width, scale = ENGLISH, 192, 1
+W.ResetMeasure()
 
 print("hs538_layout: ok")

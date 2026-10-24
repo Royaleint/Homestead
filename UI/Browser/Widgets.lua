@@ -25,7 +25,7 @@ end
 
 local ruler
 
-function W.TextHeight(role, text, width)
+local function Ruler(role, text, width)
     if not ruler then
         ruler = UIParent:CreateFontString(nil, "ARTWORK")
         ruler:Hide()
@@ -33,7 +33,16 @@ function W.TextHeight(role, text, width)
     ruler:SetFontObject(S.FontName(role))
     ruler:SetWidth(width or 0)
     ruler:SetText(text or "Ag")
-    return ruler:GetStringHeight()
+    return ruler
+end
+
+function W.TextHeight(role, text, width)
+    return Ruler(role, text, width):GetStringHeight()
+end
+
+-- The text on one line.
+function W.TextWidth(role, text)
+    return Ruler(role, text):GetUnboundedStringWidth()
 end
 
 -- Read at draw time and never kept, so a colour override shows on the next draw.
@@ -77,6 +86,20 @@ end
 
 function W.Well(parent)
     return Vis.Chrome.Inset(parent)
+end
+
+local function MeasureCan()
+    return W.TextWidth("body", W.StateWords("some", 99)) + S.card.mark + SP.xs
+end
+
+-- The list column and whether the card covers the page, for a page room wide. The list takes the nav's width or,
+-- if more, the "99 can get now" line with its mark and the row and well around it. The card needs four ware
+-- cells or its portrait beside that line, in its well and gutter. Two columns when both fit with a gap.
+function W.Split(room)
+    local line = Measured("can", MeasureCan)
+    local col = math.max(S.nav.width, line + 2 * SP.s + S.card.frame)
+    local card = math.max(4 * S.ware.size + 3 * S.ware.gap + LO.scrollBarGap, S.card.portrait + SP.m + line + S.card.reserve)
+    return col, col + SP.xs + card + S.card.frame > room
 end
 
 local function PaintPane(pane, opaque)
@@ -323,7 +346,8 @@ local function Cap(fs, room)
 end
 
 -- Decor row on a pooled Button: row:Set{ name, quality, icon or atlas, noTile, active, bonus, right, line2,
--- unconfirmed, state (an S.state key), arg, selected, itemID, npcID, onClick, onEnter }, Redraw, Reset.
+-- unconfirmed, state (an S.state key), arg, selected, narrow (the name and the can-get words only), itemID, npcID,
+-- onClick, onEnter }, Redraw, Reset.
 function W.BuildRow(row)
     row:RegisterForClicks("LeftButtonUp")
     row.bg = row:CreateTexture(nil, "BACKGROUND")
@@ -373,7 +397,8 @@ function W.BuildRow(row)
     function row:Set(d)
         self.d = d
         local r, g, b = W.QualityRGB(d.quality)
-        local st = S.state[d.state]
+        local full = not d.narrow
+        local st = S.state[(full or d.state == "some") and d.state or nil]
         local c = st and st.color or K.muted
         self.bg:SetColorTexture(unpack(d.selected and K.selected or K.card))
         stripe:SetShown(d.selected == true)
@@ -391,7 +416,7 @@ function W.BuildRow(row)
         line:SetPoint("BOTTOMRIGHT", bottom, "BOTTOMLEFT", -SP.s, 0)
         name:SetText(d.name or "")
         name:SetTextColor(r, g, b)
-        price:SetText(d.right or "")
+        price:SetText(full and d.right or "")
         badge:SetShown(d.active and true or false)
         Vis.Marker.Set(clock, d.active and "clock" or nil, K.badge)
         Vis.Marker.Set(star, d.bonus and "star" or nil, K.gold)
@@ -404,9 +429,9 @@ function W.BuildRow(row)
         words:SetText(st and W.StateWords(d.state, d.arg) or "")
         words:SetTextColor(c[1], c[2], c[3])
         Vis.Marker.Set(mark, st and st.glyph, c)
-        tag:SetShown(d.unconfirmed == true)
+        tag:SetShown(full and d.unconfirmed == true)
         tag:SetSize(tag.text:GetUnboundedStringWidth() + SP.s, W.TextHeight("meta") + 2)
-        line:SetText(d.line2 or "")
+        line:SetText(full and d.line2 or "")
         Pack(bottom, Cap(line, room), words, mark, tag)
 
         self.itemID, self.npcID = d.itemID, d.npcID
@@ -616,7 +641,7 @@ W.headerKind = {
         f.text = S.Text(f, "bodyGold", "OVERLAY")
         f.text:SetPoint("RIGHT", -SP.s, 0)
         f.text:SetJustifyH("LEFT")
-        f.text:SetWordWrap(false)
+        f.text:SetWordWrap(true)
         Vis.Chrome.Hairline(f, K.muted, 0.35)
     end,
     init = function(f, d)
@@ -631,6 +656,12 @@ end
 
 function W.HeaderHeight()
     return Measured("header", MeasureHeader)
+end
+
+-- A header wraps in the width it is given: one line's height, or more when its text needs them.
+function W.HeaderExtent(d, width)
+    local room = width - (d.nested and SP.s + SP.m or SP.s) - SP.s
+    return room > 0 and math.max(W.HeaderHeight(), W.TextHeight("bodyGold", d.text, room) + SP.s) or W.HeaderHeight()
 end
 
 function W.FooterText(d)

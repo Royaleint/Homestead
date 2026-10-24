@@ -1,6 +1,7 @@
 -- Sources: the vendor lists (all vendors, one expansion), the six other source lists, the vendor card and the
 -- page of one other source. One page serves the sources, vendors, allVendors and vendor routes: the vendor
--- route is a card over its list. Rows are keyed by Facts.SourceKey.
+-- route is a card over its list, beside it in a narrowed list or, when the page is too narrow for both, over it.
+-- Rows are keyed by Facts.SourceKey.
 local _, HA = ...
 
 local B = HA.DecorBrowser
@@ -41,6 +42,18 @@ local now, query, wide = nil, "", false
 local head, list, empty, torn, asked, cs, static, vend, vendVer
 local well, shown, vid
 local Vend, V = {}, {}
+local P, colNow
+local colW, cover = S.nav.width, false
+local PORTRAIT, DOT, FRAME = S.card.portrait, S.card.mark, S.card.frame
+local FLOOR, GAP, LIFT = 2 * S.ware.size + S.ware.gap, SP.s, 20
+-- The card's text and scroll frame sit INSET in from its well. The close button sits XPAD in from the well's
+-- corner; the head leaves XRES for the part of it that is over the text, and the card's scroll bar starts below it.
+local INSET, XSIZE, XPAD, XRES = LO.wellPad, S.card.close, S.card.closePad, S.card.reserve
+
+-- Beside an open card the list is narrowed to its names and what can be got now; under a covering card it keeps its rows.
+local function Narrow()
+    return vid ~= nil and not cover
+end
 
 local function Live(event)
     local CD = HA.CalendarDetector
@@ -158,7 +171,7 @@ local function RowData(s)
     elseif s.type == "events" or (v and D.HolidayActive(v)) then state = "live" end
     return {
         kind = "row", key = s.key, name = s.title, line2 = s.sub, noTile = true, state = state, arg = arg,
-        selected = vid ~= nil and s.key == vid or nil,
+        selected = vid ~= nil and s.key == vid or nil, narrow = Narrow() or nil,
         right = total == 0 and L["No decor"] or got and L["%d of %d"]:format(got, total) or L["%d decor"]:format(total),
         unconfirmed = v and not Facts.Confirmed(v) or nil,
         onClick = function()
@@ -192,7 +205,7 @@ local function Before(a, b)
 end
 
 local function Extent(d)
-    if d.kind == "header" then return W.HeaderHeight() end
+    if d.kind == "header" then return W.HeaderExtent(d, list.box:GetWidth()) end
     if d.kind == "foot" then
         local w = list.box:GetWidth()
         return d.text and W.TextHeight("bodyMuted", d.text, w - 2 * SP.s) + W.TextHeight("body") + 3 * SP.s
@@ -303,12 +316,54 @@ local function BuildList(keep, zone)
     return zoneAt, openAt
 end
 
--- Lights the open card's row, or none, without rebuilding the list.
+-- Lights the open card's row, or none, and narrows or widens the rows for the mode, without rebuilding the list.
 local function Mark()
+    local narrow = Narrow()
     for _, d in ipairs(shown) do
-        if d.kind == "row" then d.selected = vid ~= nil and d.key == vid or nil end
+        if d.kind == "row" then d.selected, d.narrow = vid ~= nil and d.key == vid or nil, narrow or nil end
     end
     W.RepaintRows(list)
+end
+
+-- The width the card's text takes: the page less the list beside it and the card's own well and gutter.
+local function BodyWidth()
+    return P:GetWidth() - (cover and 0 or colW + SP.xs) - FRAME
+end
+
+-- Reads the mode from the page's width; false while the page has none, when the draw is owed.
+local function Layout()
+    local room = P:GetWidth()
+    if room <= 0 then return false end
+    colW, cover = W.Split(room)
+    return true
+end
+
+-- Places the list and the card for the mode: the list narrowed with the card beside it, or the card over the page.
+local function Arrange()
+    local narrow = Narrow()
+    colNow = narrow and colW or 0
+    well:ClearAllPoints()
+    well:SetPoint("TOPLEFT")
+    if narrow then
+        well:SetPoint("BOTTOMLEFT")
+        well:SetWidth(colW)
+    else
+        well:SetPoint("BOTTOMRIGHT")
+    end
+    V.well:ClearAllPoints()
+    if narrow then V.well:SetPoint("TOPLEFT", well, "TOPRIGHT", SP.xs, 0) else V.well:SetPoint("TOPLEFT") end
+    V.well:SetPoint("BOTTOMRIGHT")
+    V.well:SetShown(vid ~= nil)
+end
+
+-- Arranges an already-built list for the mode. A header's and a footer's height follow the list's width, and
+-- frames already on screen keep their old extent until they run their initializers again, so a width change
+-- rebuilds the box in place: same data, same scroll position. A box that was never given data has no frames.
+local function Fit()
+    local was = colNow
+    Arrange()
+    Mark()
+    if colNow ~= was and list.box:HasDataProvider() then list.box:Rebuild(ScrollBoxConstants.RetainScrollPosition) end
 end
 
 local function Para(fs, role, text)
@@ -403,6 +458,7 @@ function Page:Build(parent)
         kinds = { row = W.rowKind, header = W.headerKind, foot = footKind },
     })
     empty = W.NewEmptyState(lh)
+    P = parent
     Vend:Build(parent)
 end
 
@@ -439,14 +495,16 @@ end
 function Page:Show(route, saved, keep)
     local card = route.kind == "vendor"
     local over = card and route.list or route
+    if card then Layout() end
     if keep then
         B.HideTooltip()
         vid = card and route.id or nil
-        Mark()
+        Fit()
     else
         local seed = route.seed
         now, wide, torn, vid = over, over.kind ~= "sources", false, card and route.id or nil
         if not wide then st.type = TypeOf(over) end
+        Arrange()
         query = saved and saved.search or seed and seed.search or ""
         B.Window.SetSearch(query)
         local at, openAt = BuildList(false, seed and seed.zone)
@@ -458,8 +516,6 @@ function Page:Show(route, saved, keep)
             list.box:ScrollToElementDataIndex(openAt, ScrollBoxConstants.AlignCenter)
         end
     end
-    well:SetShown(not card)
-    V.sf:SetShown(card)
     if card then Vend:Show(saved and saved.card) end
 end
 
@@ -488,6 +544,7 @@ end
 function Page:Refresh(reason)
     if not (list and now) then return end
     if reason == "data" then B.Walk() end
+    if reason == "layout" and vid and Layout() then Arrange() end
     local was = torn
     if reason == "paint" and not torn then
         W.RepaintRows(list)
@@ -504,7 +561,6 @@ function Page:SetCombat(inCombat)
 end
 
 -- The card is one scroll, so a large text size scrolls the card instead of clipping the head.
-local PORTRAIT, FLOOR, GAP, DOT = 88, 2 * S.ware.size + S.ware.gap, SP.s, 12
 local Draw
 
 -- The "● N can get now" line: a dot and its words.
@@ -538,20 +594,36 @@ local function SetFace(v)
     if face then SetPortraitTextureFromCreatureDisplayID(V.face, face) else V.face:SetTexture(S.tex.placeholderIcon) end
 end
 
+-- The card is an opaque well that takes the mouse, above the list under it, with a close button that stays still
+-- while the card scrolls. The template puts the button at frame level 510, above the window's trim.
 function Vend:Build(parent)
-    local sf = CreateFrame("ScrollFrame", nil, parent, "ScrollFrameTemplate")
-    sf:SetPoint("TOPLEFT")
-    sf:SetPoint("BOTTOMRIGHT", -LO.scrollBarGap, 0)
+    local card = W.Well(parent)
+    card:SetFrameLevel(parent:GetFrameLevel() + LIFT)
+    card:EnableMouse(true)
+    card:Hide()
+    local sf = CreateFrame("ScrollFrame", nil, card, "ScrollFrameTemplate")
+    sf:SetPoint("TOPLEFT", INSET, -INSET)
+    sf:SetPoint("BOTTOMRIGHT", -(INSET + LO.scrollBarGap), INSET)
     sf.ScrollBar:SetHideIfUnscrollable(true)
-    sf:Hide()
-    sf:HookScript("OnSizeChanged", function(_, w)
-        if vid and not torn and w > 0 and (V.wait or w ~= V.w) then
-            Draw(W.Owed(V.wait))
+    sf.ScrollBar:ClearAllPoints()
+    sf.ScrollBar:SetPoint("TOPLEFT", sf, "TOPRIGHT", 6, INSET - XPAD - XSIZE - SP.xs)
+    sf.ScrollBar:SetPoint("BOTTOMLEFT", sf, "BOTTOMRIGHT", 6, -2)
+    card:EnableMouseWheel(true)
+    card:SetScript("OnMouseWheel", function() end)
+    V.close = CreateFrame("Button", nil, card, "UIPanelCloseButtonNoScripts")
+    V.close:SetPoint("TOPRIGHT", -XPAD, -XPAD)
+    V.close:SetScript("OnClick", function() Page:CloseCard() end)
+    parent:HookScript("OnSizeChanged", function(_, w)
+        if w <= 0 or (w == V.room and not V.wait) or not Layout() then return end
+        V.room = w
+        if vid and not torn then
+            Fit()
+            if V.wait or BodyWidth() ~= V.w then Draw(W.Owed(V.wait)) end
         end
     end)
     local body = CreateFrame("Frame", nil, sf)
     sf:SetScrollChild(body)
-    V.sf, V.c, V.head = sf, body, CreateFrame("Frame", nil, body)
+    V.well, V.sf, V.c, V.head = card, sf, body, CreateFrame("Frame", nil, body)
     V.face = V.head:CreateTexture(nil, "ARTWORK")
     V.face:SetSize(PORTRAIT, PORTRAIT)
     V.face:SetPoint("TOPLEFT")
@@ -569,22 +641,23 @@ function Vend:Build(parent)
         local hit = W.Clip(fs)
         if fs == V.conf then V.hit = hit end
     end
-    V.pb, V.hdr, V.key = W.Bar(body), Text(body), Text(body)
-    V.can = CanLine(body)
+    V.pb, V.can = W.Bar(V.head), CanLine(V.head)
+    V.hdr, V.key = Text(body), Text(body)
     V.holder = CreateFrame("Frame", nil, body)
     V.grid = W.NewGrid(V.holder, S.ware.size, S.ware.gap)
     V.empty = W.NewEmptyState(V.holder)
     V.report = W.ReportLink(body, function() Report(V.s) end)
-    V.stack = { V.head, V.note, V.cur, V.req, V.stop, V.conf, V.pb, V.can, V.hdr, V.key, V.holder, V.report }
+    V.stack = { V.head, V.note, V.cur, V.req, V.stop, V.conf, V.hdr, V.key, V.holder, V.report }
 end
 
 function Draw(fresh, saved)
-    local v, w = D.Vendor(vid), V.sf:GetWidth()
+    local v = D.Vendor(vid)
     if not v then return end
-    if w <= 0 then
+    if P:GetWidth() <= 0 then
         V.wait = W.Owe(V.wait, fresh, saved)
         return
     end
+    local w = BodyWidth()
     V.wait, V.w = nil, w
     local s = { vendor = v, type = "vendors", title = v.name or L["Unknown"], items = D.VendorWares(v) }
     V.s = s
@@ -598,7 +671,7 @@ function Draw(fresh, saved)
         if r.state == "owned" then owned = owned + 1 end
     end
 
-    local cw, nh, bh = w - PORTRAIT - SP.m, W.TextHeight("subheader"), W.TextHeight("body")
+    local cw, nh, bh = w - PORTRAIT - SP.m - XRES, W.TextHeight("subheader"), W.TextHeight("body")
     SetFace(v)
     V.name:SetText(s.title)
     V.name:SetSize(cw, nh)
@@ -614,7 +687,18 @@ function Draw(fresh, saved)
     local mapID, mx, my = Loc(s)
     V.wp:SetShown(mapID ~= nil)
     V.wp.wp = { mapID = mapID, x = mx, y = my, title = s.title, data = { type = "vendor", npcID = v.npcID } }
-    V.head:SetSize(w, math.max(PORTRAIT, nh + (act and tagH + 2 or 0) + SP.xs + bh))
+    -- The bar and the can-get line sit under the location, beside the portrait.
+    V.pb:SetShown(n > 0)
+    V.pb:SetWidth(cw)
+    V.pb:Fit()
+    V.pb:Set(ready and L["%d of %d collected"]:format(owned, n) or L["Counting…"], ready and n > 0 and owned / n)
+    V.pb:ClearAllPoints()
+    V.pb:SetPoint("TOPLEFT", V.where, "BOTTOMLEFT", 0, -SP.xs)
+    SetCan(V.can, ready and CG.VendorCanCount(v) or 0, cw)
+    V.can:ClearAllPoints()
+    V.can:SetPoint("TOPLEFT", n > 0 and V.pb or V.where, "BOTTOMLEFT", 0, -SP.xs)
+    V.head:SetSize(w, math.max(PORTRAIT, nh + (act and tagH + 2 or 0) + SP.xs + bh
+        + (n > 0 and SP.xs + V.pb:GetHeight() or 0) + (V.can:IsShown() and SP.xs + V.can:GetHeight() or 0)))
 
     Line(V.note, "bodyMuted", (D.VendorNote(v)), w)
     local cur = D.VendorCurrencies(v)
@@ -630,11 +714,6 @@ function Draw(fresh, saved)
         and S.Colored(K.stop, L["%s only: can't buy on this character"]:format(D.VendorFactionLabel(v) or "")), w)
     Line(V.conf, "bodyMuted", not Facts.Confirmed(v) and L["Not confirmed: visit to check."], w)
     V.hit:SetShown(V.conf:IsShown())
-    V.pb:SetShown(n > 0)
-    V.pb:SetWidth(w)
-    V.pb:Fit()
-    V.pb:Set(ready and L["%d of %d collected"]:format(owned, n) or L["Counting…"], ready and n > 0 and owned / n)
-    SetCan(V.can, ready and CG.VendorCanCount(v) or 0, w)
     Line(V.hdr, "bodyGold", L["Wares"], w)
     Line(V.key, "bodyMuted", n > 0 and L["Corners: state top right, bonus top left, event bottom left, copies bottom right."], w)
     V.report:Fit()
@@ -644,7 +723,7 @@ function Draw(fresh, saved)
         V.empty:Set("noResults", { title = L["No decor"], text = L["No decor is recorded here. If this source gives decor, report it below."] })
     end
 
-    local h, y = V.sf:GetHeight(), 0
+    local h, y = P:GetHeight() - 2 * INSET, 0
     V.c:SetWidth(w)
     for _, el in ipairs(V.stack) do
         if el == V.holder then el:SetSize(w, math.max(FLOOR, h - y - V.report:GetHeight() - GAP)) end

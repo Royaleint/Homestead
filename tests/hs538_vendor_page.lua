@@ -48,6 +48,12 @@ local function page(env)
     end
 end
 
+-- The page width that gives the card's text body wide, in two columns beside the nav-wide list.
+local function roomFor(env, body)
+    local S = env.B.Style
+    return body + S.card.frame + S.nav.width + S.space.xs
+end
+
 local function barText(env)
     for _, fs in ipairs(env.fontStrings) do
         local t = tostring(fs.text)
@@ -285,10 +291,12 @@ do
     local _, box = env.wareList()
     local holder = box.parent
     local p = page(env)
+    local fr = env.listFrame()
+    local inset = 2 * env.B.Style.layout.wellPad
     eq(sf.ScrollBar.hideIfUnscrollable, true, "the page's bar hides itself when nothing scrolls")
     local ranges = 0
     sf.UpdateScrollChildRect = function() ranges = ranges + 1 end
-    sf:SetSize(596, 600)
+    fr:SetSize(610, 600 + inset)
     p:Refresh("layout")
     assert(holder.height > 100, "a tall page gives the grid the room")
     local cur
@@ -305,13 +313,17 @@ do
         if width and width > 0 and text then return line * math.max(1, math.ceil(#text * 6 * 2 / width)) end
         return line
     end
-    sf:SetSize(596, 320)
+    fr:SetSize(610, 320 + inset)
     p:Refresh("layout")
     eq(holder.height, 2 * env.B.Style.ware.size + env.B.Style.ware.gap, "the grid keeps two rows and a gap")
     eq(ranges, 2)
     assert(holder.parent.height > 320, "the content is taller than the page, so the page scrolls")
-    local head = vfind(env, function(f) return f.pts and f.pts.TOPLEFT and f.parent == holder.parent and f.height == 88 end)
-    assert(head, "the head is kept at its size")
+    local face
+    for _, tex in ipairs(env.textures) do
+        if tex.width == 88 then face = tex end
+    end
+    local head = face.parent
+    assert(head.parent == holder.parent and head.height >= 88, "the head is kept at its size, or the taller column beside the portrait")
     eq(head.pts.TOPLEFT[3], 0, "and starts at the top")
     print("hs538_vendor_page: ladder ok")
 end
@@ -320,17 +332,23 @@ end
 do
     local env = world()
     open(env, 101)
-    local sf = vfind(env, function(f) return f.kind == "ScrollFrame" end)
+    local fr = env.listFrame()
     local _, box = env.wareList()
-    sf:SetSize(0, 400)
+    local S = env.B.Style
+    fr:SetSize(0, 400)
     open(env, 100)
-    sf:SetSize(500, 400)
-    sf.scripts.OnSizeChanged(sf, 500, 400)
-    eq(box.parent.width, 500, "the width arrives and the page draws")
+    eq(says(env, "Anna"), nil, "a draw before the page has a width is owed, not made")
+    fr:SetSize(500, 400)
+    fr.scripts.OnSizeChanged(fr, 500, 400)
+    eq(box.parent.width, 500 - S.nav.width - S.space.xs - S.card.frame, "the width arrives and the page draws beside the list")
     eq(order(env), "6,2,1,3,8", "with the wares of the vendor it waited for")
-    sf:SetSize(640, 400)
-    sf.scripts.OnSizeChanged(sf, 640, 400)
-    eq(box.parent.width, 640, "a resize lays out again")
+    eq(says(env, "Anna") ~= nil, true, "and the head")
+    fr:SetSize(640, 400)
+    fr.scripts.OnSizeChanged(fr, 640, 400)
+    eq(box.parent.width, 640 - S.nav.width - S.space.xs - S.card.frame, "a resize lays out again")
+    fr:SetSize(400, 400)
+    fr.scripts.OnSizeChanged(fr, 400, 400)
+    eq(box.parent.width, 400 - S.card.frame, "a page too narrow for both is covered by the card, which takes all of it")
     print("hs538_vendor_page: width ok")
 end
 
@@ -340,25 +358,27 @@ do
     local env = world()
     open(env, 101)
     local sf = vfind(env, function(f) return f.kind == "ScrollFrame" end)
+    local fr = env.listFrame()
     local verticals = {}
     sf.SetVerticalScroll = function(_, offset) verticals[#verticals + 1] = offset end
-    sf:SetSize(0, 400)
+    fr:SetSize(0, 400)
     open(env, 100)
     eq(#verticals, 0, "a show with no width draws nothing")
-    sf:SetSize(500, 400)
+    fr:SetSize(500, 400)
     page(env):Refresh("layout")
     eq(#verticals, 0, "a refresh is not a fresh show")
-    sf:SetSize(640, 400)
-    sf.scripts.OnSizeChanged(sf, 640, 400)
+    fr:SetSize(640, 400)
+    fr.scripts.OnSizeChanged(fr, 640, 400)
     eq(#verticals, 0, "the resize after it replayed the show that was waiting")
     print("hs538_vendor_page: wait ok")
 end
 
--- The can-get line is laid out like the other lines: the page's width less the mark, and as tall as its wrapped text.
+-- The can-get line is laid out like the other lines: the column's width less the mark, and as tall as its wrapped text.
+-- The column is the page beside the portrait, less the 10 px the close button takes over the text.
 do
     local env = world()
     open(env, 100)
-    local sf = vfind(env, function(f) return f.kind == "ScrollFrame" end)
+    local fr = env.listFrame()
     local base = { meta = 10, metaMuted = 10, body = 12, bodyGold = 12, bodyMuted = 12, subheader = 14, header = 16 }
     env.W.TextHeight = function(role, text, width)
         local line = base[role] * 2
@@ -366,18 +386,19 @@ do
         return line
     end
     local S = env.B.Style
+    local head = S.card.portrait + S.space.m
     local words
     for _, fs in ipairs(env.fontStrings) do
         if env.ownerKind(fs) == "vendor" and fs.text == "3 can get now" then words = fs end
     end
     local mark = 12 + S.space.xs
-    sf:SetSize(mark + 100, 600)
+    fr:SetSize(roomFor(env, head + 10 + mark + 100), 600)
     page(env):Refresh("layout")
-    eq(words.width, 100, "the text takes the page's width less the mark")
+    eq(words.width, 100, "the text takes the head column's width less the mark")
     eq(words.height, 48, "and wraps to two lines")
     eq(words.parent.height, 48, "its frame is as tall as the text")
-    eq(words.parent.width, mark + 100, "and as wide as the page")
-    sf:SetSize(mark + 400, 600)
+    eq(words.parent.width, mark + 100, "and as wide as the column beside the portrait")
+    fr:SetSize(roomFor(env, head + 10 + mark + 400), 600)
     page(env):Refresh("layout")
     eq(words.height, 24, "one line when the page is wide")
     eq(words.parent.height, 24)
@@ -544,6 +565,386 @@ do
     hit.scripts.OnEnter(hit)
     eq(said, env.Facts.NotConfirmed(), "the tooltip is the full sentence")
     print("hs538_vendor_page: key and tooltip ok")
+end
+
+-- The list's well and the card's: the list page's first two children.
+local function wells(env)
+    local fr, kids = env.listFrame(), {}
+    for _, f in ipairs(env.all) do
+        if f.parent == fr then kids[#kids + 1] = f end
+    end
+    return kids[1], kids[2]
+end
+
+local function closeButton(env)
+    for _, f in ipairs(env.all) do
+        if f.template == "UIPanelCloseButtonNoScripts" then return f end
+    end
+end
+
+-- Whether every row of the list is narrowed, and which are selected.
+local function narrowed(env)
+    local all, any, lit = true, false, {}
+    for _, d in ipairs((env.sourcesList())) do
+        all, any = all and d.narrow == true, any or d.narrow == true
+        if d.selected then lit[#lit + 1] = d.key end
+    end
+    return all, any, table.concat(lit, ",")
+end
+
+-- Two columns or cover (B8): a card opened from a list narrows the list and sits beside it when the page has
+-- room for both, and covers the page when it does not. Only the page's width and the text decide.
+do
+    local env = world()
+    local S = env.B.Style
+    local fr = env.listFrame()
+    env.B.Go({ kind = "allVendors" })
+    local well, card = wells(env)
+    eq(card.shown, false, "no card, no card well")
+    eq(well.pts.BOTTOMRIGHT ~= nil and well.pts.BOTTOMLEFT == nil, true, "the list takes the whole page")
+    open(env, 100)
+    eq(card.shown, true, "the card shows")
+    eq(well.shown, true, "and the list stays shown")
+    eq(well.pts.BOTTOMLEFT ~= nil and well.pts.BOTTOMRIGHT == nil, true, "the list is a column")
+    eq(well.width, S.nav.width, "as wide as the tree")
+    eq(card.pts.TOPLEFT[2], well, "the card starts at the list")
+    eq(card.pts.TOPLEFT[3], "TOPRIGHT")
+    eq(card.pts.TOPLEFT[4], S.space.xs, "a gap away")
+    eq(card.mouse, true, "and takes the mouse")
+    local all, _, lit = narrowed(env)
+    eq(all, true, "every row is narrowed beside a card")
+    eq(lit, "100", "and only the open card's row is lit")
+
+    -- A page too narrow for both: the card covers it, the list keeps its rows, and the row is still lit.
+    fr:SetSize(400, 480)
+    fr.scripts.OnSizeChanged(fr, 400, 480)
+    eq(#card.pts.TOPLEFT, 1, "the card starts at the page's corner")
+    eq(card.pts.BOTTOMRIGHT ~= nil, true, "and ends at the opposite corner")
+    eq(well.pts.BOTTOMRIGHT ~= nil and well.pts.BOTTOMLEFT == nil, true, "the list is the whole page under it")
+    local any
+    _, any, lit = narrowed(env)
+    eq(any, false, "under a covering card the list keeps its full rows")
+    eq(lit, "100", "and the row is lit")
+    eq(card.shown, true)
+
+    -- Room again: the mode changes at once, in place.
+    fr:SetSize(610, 480)
+    fr.scripts.OnSizeChanged(fr, 610, 480)
+    eq(well.width, S.nav.width)
+    eq((narrowed(env)), true, "two columns again")
+    eq(env.route.id, 100, "the card never closed")
+
+    -- A search that filters the open card's row out leaves the card open with no row lit (B10).
+    page(env):Filter("Elwynn")
+    eq(env.route.id, 100, "the card stays open")
+    eq(card.shown, true)
+    eq(#env.sourcesList() > 0, true, "the list still has other vendors")
+    all, _, lit = narrowed(env)
+    eq(all, true, "narrowed")
+    eq(lit, "", "with no row lit")
+    page(env):Filter("")
+    _, _, lit = narrowed(env)
+    eq(lit, "100", "and the row lights again when the search clears")
+
+    -- Close by the X: the list is whole again, with no row narrowed or lit.
+    local x = closeButton(env)
+    x.scripts.OnClick(x)
+    eq(env.route.kind, "vendors", "the X closes the card onto its list")
+    eq(card.shown, false)
+    eq(well.pts.BOTTOMRIGHT ~= nil and well.pts.BOTTOMLEFT == nil, true, "the list is the whole page")
+    _, any, lit = narrowed(env)
+    eq(any, false, "no row stays narrowed")
+    eq(lit, "", "or lit")
+    print("hs538_vendor_page: columns and cover ok")
+end
+
+-- The mode follows the text and the language, at each tree width, and nothing else.
+do
+    local function modeAt(nav, words, size)
+        local env = world(nil, function(e) e.B.Style.nav.width = nav end)
+        local S = env.B.Style
+        S.state.some.word = words
+        env.W.TextWidth = function(_, text) return #text * 6 * size end
+        env.W.ResetMeasure()
+        env.B.Go({ kind = "allVendors" })
+        open(env, 100)
+        local well, card = wells(env)
+        return well.pts.BOTTOMLEFT ~= nil and "two" or "cover", well.width, card
+    end
+    for _, nav in ipairs({ 172, 186, 192 }) do
+        for _, size in ipairs({ 0.857, 1, 2 }) do
+            local mode, col = modeAt(nav, "%d can get now", size)
+            eq(mode, "two", "English at " .. size .. ", tree " .. nav)
+            eq(col, size == 2 and 226 or nav, "the list column at " .. size .. ", tree " .. nav)
+        end
+        eq((modeAt(nav, "%d jetzt erhältlich", 1)), "two", "German at 1.0, tree " .. nav)
+        eq((modeAt(nav, "%d jetzt erhältlich", 2)), "cover", "German at 2.0, tree " .. nav)
+        eq((modeAt(nav, "Можно получить сейчас: %d", 2)), "cover", "Russian at 2.0, tree " .. nav)
+    end
+    print("hs538_vendor_page: breakpoint ok")
+end
+
+-- A text-size change moves the card between the modes at once, and a window rescale does not.
+do
+    local env = world()
+    local S = env.B.Style
+    local size = 1
+    env.W.TextWidth = function(_, text) return #text * 6 * size end
+    env.W.ResetMeasure()
+    env.B.Go({ kind = "allVendors" })
+    open(env, 100)
+    local well = wells(env)
+    local p = page(env)
+    size = 2
+    env.W.ResetMeasure()
+    p:Refresh("layout")
+    eq(well.width, 226, "Gigantic English: a wider column, still two columns")
+    S.state.some.word = "%d jetzt erhältlich"
+    env.W.ResetMeasure()
+    p:Refresh("layout")
+    eq(well.pts.BOTTOMRIGHT ~= nil and well.pts.BOTTOMLEFT == nil, true, "Gigantic German: the card covers")
+    eq(env.route.id, 100, "with the card still open")
+    local events
+    for _, f in ipairs(env.all) do
+        if f.scripts.OnEvent then events = f end
+    end
+    for _, ev in ipairs({ "UI_SCALE_CHANGED", "DISPLAY_SIZE_CHANGED" }) do
+        events.scripts.OnEvent(events, ev)
+        eq(well.pts.BOTTOMRIGHT ~= nil and well.pts.BOTTOMLEFT == nil, true, ev .. " left the covering card as it was")
+    end
+    size = 1
+    env.W.ResetMeasure()
+    p:Refresh("layout")
+    eq(well.pts.BOTTOMLEFT ~= nil, true, "German at 1.0 fits beside the list")
+    for _, ev in ipairs({ "UI_SCALE_CHANGED", "DISPLAY_SIZE_CHANGED" }) do
+        events.scripts.OnEvent(events, ev)
+        eq(well.pts.BOTTOMLEFT ~= nil, true, ev .. " left two columns as they were")
+    end
+    print("hs538_vendor_page: text size and rescale ok")
+end
+
+-- The red X (B6): the NoScripts template with its own click, on the card's well and not on the scroll, never
+-- disabled, and no other close template on the vendor page.
+do
+    local env = world()
+    open(env, 100)
+    local _, card = wells(env)
+    local x = closeButton(env)
+    eq(x.kind, "Button", "a plain button")
+    eq(x.parent, card, "on the card's well, so it stays put while the card scrolls")
+    local names = {}
+    for name in pairs(x.scripts) do names[#names + 1] = name end
+    eq(table.concat(names, ","), "OnClick", "it has our own click and nothing else")
+    for _, f in ipairs(env.all) do
+        if env.ownerKind(f) == "vendor" or f.parent == card then
+            assert(f.template ~= "UIPanelCloseButton", "the stock close button hides its parent panel")
+        end
+    end
+    env.B.State.inCombat = true
+    page(env):SetCombat(true)
+    eq(x:IsEnabled(), true, "combat leaves the X enabled")
+    eq(x:IsShown(), true)
+    x.scripts.OnClick(x)
+    eq(env.route.kind, "vendors", "and the X closes the card in combat")
+    eq(card.shown, false)
+    env.B.State.inCombat = false
+    page(env):SetCombat(false)
+    print("hs538_vendor_page: X ok")
+end
+
+-- Boundaries: a vendor with no wares, one with a single ware, and the largest (which scrolls its grid and, with
+-- the header, still fits the card), at each tree width.
+do
+    for _, nav in ipairs({ 172, 186, 192 }) do
+        local env = world(nil, function(e)
+            e.B.Style.nav.width = nav
+            local big = e.vendor(130, { name = "Big" })
+            for i = 1, 80 do
+                e.decor(1000 + i, "Big " .. i)
+                e.sell(1000 + i, big)
+            end
+            e.vendor(131, { name = "Lone" })
+            e.decor(2000, "Lone 1")
+            e.sell(2000, e.vendors[131])
+            e.vendor(110, { name = "Empty" })
+        end)
+        local S = env.B.Style
+        env.B.Go({ kind = "allVendors" })
+        local _, card = wells(env)
+        for _, id in ipairs({ 110, 131, 130 }) do
+            open(env, id)
+            eq(card.shown, true, "the card opens for vendor " .. id .. " at tree " .. nav)
+            local wares = env.wareList()
+            eq(#wares, id == 130 and 80 or id == 131 and 1 or 0, "its wares")
+            local _, box = env.wareList()
+            local holder = box.parent
+            local floor = 2 * S.ware.size + S.ware.gap
+            assert(holder.height >= floor, "the grid keeps two rows")
+            assert(holder.parent.height <= 480 - 2 * S.layout.wellPad, "the header and the grid fit the card, so the grid scrolls")
+            eq(holder.width, env.room(nav) - nav - S.space.xs - S.card.frame, "the body is the page less the list and the frame")
+        end
+    end
+    print("hs538_vendor_page: boundaries ok")
+end
+
+-- Opening, swapping, covering and closing a card change the list's width and never its data: the box measures
+-- its frames again in place (Rebuild, keeping the scroll position), so a header that now wraps is drawn at its new
+-- height, and the list keeps its data, its scroll and its lit row. FullUpdate would leave drawn frames as they are.
+do
+    for _, footer in ipairs({ false, true }) do
+        local env = world(nil, function(e)
+            e.owned(4)
+            e.stats[101] = { collected = 1, total = 1 }
+            e.vendor(140, { name = "Longzone", zone = "The Extremely Long Zone Name Of Doom And Gloom Valley" })
+            e.decor(90, "Long 90")
+            e.sell(90, e.vendors[140])
+        end)
+        local base = { meta = 10, metaMuted = 10, body = 12, bodyGold = 12, bodyMuted = 12, subheader = 14, header = 16 }
+        env.W.TextHeight = function(role, text, width)
+            local line = base[role]
+            if width and width > 0 and text then return line * math.max(1, math.ceil(#text * 6 / width)) end
+            return line
+        end
+        env.B.SetHideNA(footer)
+        env.B.Go({ kind = "vendors", key = "other" })
+        local _, note, box = env.sourcesList()
+        eq(note ~= nil, footer, "the list has a footer only while Hide hides something")
+        local provider, scrolls = box.provider, #box.scrolls
+        local long
+        local function held(label, rebuilds, width)
+            eq(box.provider, provider, label .. ": it is the same data")
+            eq(#box.scrolls, scrolls, label .. ": the list scrolled nowhere")
+            eq(box.rebuilds or 0, rebuilds, label .. ": the box rebuilt its frames")
+            if rebuilds > 0 then eq(box.retain, true, label .. ": keeping the scroll position") end
+            for i, d in ipairs(provider) do
+                local f = box.frames[i]
+                if f and d.kind == "header" then
+                    eq(f.extent, box.view.extent(i, d), label .. ": the header on screen has its new extent")
+                    if d.text:find("Extremely", 1, true) then long = f.extent end
+                end
+            end
+            eq(long > env.W.HeaderHeight(), width < 300, label .. ": the long header wraps only in the narrow list")
+        end
+        box.width = 130
+        open(env, 100)
+        held("opening", 1, 130)
+        eq((select(3, narrowed(env))), "100", "the open card's row is lit")
+        env.B.Go({ kind = "vendor", id = 101, list = { kind = "vendors", key = "other" } })
+        held("swapping", 1, 130)
+        local fr = env.listFrame()
+        box.width = 600
+        fr:SetSize(400, 480)
+        fr.scripts.OnSizeChanged(fr, 400, 480)
+        held("covering", 2, 600)
+        box.width = 130
+        fr:SetSize(610, 480)
+        fr.scripts.OnSizeChanged(fr, 610, 480)
+        held("two columns again", 3, 130)
+        eq((select(3, narrowed(env))), footer and "" or "101", "the lit row is kept")
+        box.width = 600
+        page(env):CloseCard()
+        held("closing", 4, 600)
+    end
+    print("hs538_vendor_page: list measures in place ok")
+end
+
+-- Headers: a long zone name is one line in a wide list and wraps in the narrow column; the width the box has
+-- when it measures decides.
+do
+    local env = world(nil, function(e)
+        e.vendor(140, { name = "Longzone", zone = "The Extremely Long Zone Name Of Doom And Gloom Valley" })
+        e.decor(90, "Long 90")
+        e.sell(90, e.vendors[140])
+    end)
+    local base = { meta = 10, metaMuted = 10, body = 12, bodyGold = 12, bodyMuted = 12, subheader = 14, header = 16 }
+    env.W.TextHeight = function(role, text, width)
+        local line = base[role]
+        if width and width > 0 and text then return line * math.max(1, math.ceil(#text * 6 / width)) end
+        return line
+    end
+    env.B.Go({ kind = "vendors", key = "other" })
+    local _, _, box = env.sourcesList()
+    local at = env.indexOf(box, function(d) return d.kind == "header" and d.text:find("Extremely", 1, true) end)
+    assert(at, "the long zone has a header")
+    box.width = 600
+    local wide = box.view.extent(at, box.provider[at])
+    eq(wide, env.W.HeaderHeight(), "wide: one line")
+    box.width = 130
+    local narrow = box.view.extent(at, box.provider[at])
+    assert(narrow > wide, "narrow: the header wraps into more lines")
+    print("hs538_vendor_page: header wrap ok")
+end
+
+-- The card's own scroll bar starts below the close button, so neither covers the other's controls; the card
+-- keeps the wheel from the list under it.
+do
+    local env = world()
+    open(env, 100)
+    local _, card = wells(env)
+    local x = closeButton(env)
+    local sf = vfind(env, function(f) return f.kind == "ScrollFrame" end)
+    local barTop = sf.pts.TOPLEFT[3] + sf.ScrollBar.pts.TOPLEFT[5]
+    local xBottom = x.pts.TOPRIGHT[3] - env.B.Style.card.close
+    assert(barTop <= xBottom, "the scroll bar starts at " .. barTop .. ", under the close button, which ends at " .. xBottom)
+    eq(sf.ScrollBar.pts.TOPLEFT[2], sf, "and hangs from the scroll frame")
+    eq(card.wheel, true, "the card takes the wheel")
+    assert(card.scripts.OnMouseWheel, "and answers it, so the list under a covering card does not scroll")
+    print("hs538_vendor_page: scroll bar and wheel ok")
+end
+
+-- The size hook: a height-only change does not read the mode again; a draw owed at width 0 is paid when the
+-- width comes back, even though it is the width seen before.
+do
+    local env = world()
+    env.B.Go({ kind = "allVendors" })
+    local splits, split = 0, env.W.Split
+    env.W.Split = function(...) splits = splits + 1 return split(...) end
+    open(env, 100)
+    local fr = env.listFrame()
+    fr.scripts.OnSizeChanged(fr, 610, 480)
+    local seen = splits
+    fr.scripts.OnSizeChanged(fr, 610, 500)
+    eq(splits, seen, "the same width reads nothing again")
+    fr.scripts.OnSizeChanged(fr, 611, 500)
+    eq(splits, seen + 1, "a new width reads the mode")
+    fr:SetSize(610, 480)
+    fr.scripts.OnSizeChanged(fr, 610, 480)
+    fr:SetSize(0, 480)
+    fr.scripts.OnSizeChanged(fr, 0, 480)
+    open(env, 101)
+    assert(order(env) ~= "4", "a draw at width 0 is owed")
+    fr:SetSize(610, 480)
+    fr.scripts.OnSizeChanged(fr, 610, 480)
+    eq(order(env), "4", "and paid when the width returns")
+    print("hs538_vendor_page: size hook ok")
+end
+
+-- A list that never had a row has no data in its box: the client's Rebuild would raise on it, so a card opened
+-- over it and closed again changes the mode and rebuilds nothing, and the route change completes.
+do
+    local env = world(nil, function(e)
+        for id in pairs(e.vendors) do
+            if id ~= 101 then e.vendors[id] = nil end
+        end
+        e.owned(4)
+        e.stats[101] = { collected = 1, total = 1 }
+    end)
+    env.B.SetHideNA(true)
+    open(env, 101)
+    local well, card = wells(env)
+    local box = env.boxes("sources")[1]
+    eq(box.provider, nil, "the list never had a row, so its box has no data")
+    eq(box:HasDataProvider(), false)
+    eq(card.shown, true, "the card is open over the empty list")
+    local x = closeButton(env)
+    local ok, err = pcall(x.scripts.OnClick, x)
+    eq(ok, true, "closing the card raised: " .. tostring(err))
+    eq(env.route.kind, "vendors", "the route change completed")
+    eq(env.tab, "sources", "and the nav is on the list")
+    eq(card.shown, false, "the card is closed")
+    eq(well.pts.BOTTOMRIGHT ~= nil and well.pts.BOTTOMLEFT == nil, true, "and the list is the whole page")
+    eq(box.rebuilds, nil, "nothing was rebuilt")
+    print("hs538_vendor_page: empty list ok")
 end
 
 print("hs538_vendor_page: all ok")

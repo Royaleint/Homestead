@@ -8,8 +8,9 @@
 -- the box's hint for that route. A route may carry list, the route it sits over (the vendor card over its
 -- list): moving between a route and its list, or between two routes over one list, on one page hides nothing
 -- and leaves the header box alone. Such a page defines ListOf(route), the list a route sits over (the router
--- stores it on the route before anything reads it), and CloseCard(), true when it closed a card; its
--- Show(route, saved, keep) hears keep when the list is already up and must be left as it is.
+-- stores it on the route as Transition runs; Resolved and GoNow's swap check read a row-supplied one first),
+-- and CloseCard(), true when it closed a card; its Show(route, saved, keep) hears keep when the list is already
+-- up and must be left as it is.
 local _, HA = ...
 
 local B = HA.DecorBrowser

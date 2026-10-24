@@ -106,6 +106,9 @@ return function(root, opts)
         self.pts = self.pts or {}
         self.pts[(...)] = self.pt
     end
+    function methods.ClearAllPoints(self) self.pt, self.pts = nil, nil end
+    function methods.EnableMouse(self, on) self.mouse = on end
+    function methods.EnableMouseWheel(self, on) self.wheel = on end
     function methods.SetNormalAtlas(self, atlas) self.atlas = atlas end
     function methods.SetAlpha(self, a) self.alpha = a end
     function methods.SetDesaturated(self, on) self.desaturated = on end
@@ -141,9 +144,7 @@ return function(root, opts)
     local function Render(box)
         local view = box.view
         -- The client measures every element before it initialises the visible ones.
-        if view.extent then
-            for i, d in ipairs(box.provider) do view.extent(i, d) end
-        end
+        box:Measure()
         for _, f in ipairs(box.frames) do view.resetter(f) end
         box.frames = {}
         local used = {}
@@ -160,16 +161,38 @@ return function(root, opts)
                 end
                 box.frames[#box.frames + 1] = f
                 init(f, box.provider[i])
+                f.extent = box.extents[i]
             end, box.provider[i])
         end
     end
 
     local function NewBox()
         local box = Widget("WowScrollBoxList")
-        box.frames, box.pool, box.scrolls, box.provider = {}, {}, {}, {}
+        box.frames, box.pool, box.scrolls = {}, {}, {}
         box.aligns = {}
         function box:SetDataProvider(p, keep)
             self.provider, self.data, self.keep = p, p, keep
+            Render(self)
+        end
+        -- The extent of every element, as the view's calculator gives it now.
+        function box:Measure()
+            self.extents = {}
+            if self.view.extent and self.provider then
+                for i, d in ipairs(self.provider) do self.extents[i] = self.view.extent(i, d) end
+            end
+        end
+        -- Like the client's FullUpdate: extents are recalculated, frames already drawn are left as they are.
+        function box:FullUpdate(flag)
+            self.fulls = (self.fulls or 0) + 1
+            self.fullFlag = flag
+            self:Measure()
+        end
+        -- Like ScrollBoxListMixin:Rebuild: recalculates and runs every visible frame's initializer again.
+        function box:HasDataProvider() return self.provider ~= nil end
+        function box:Rebuild(retain)
+            if not self.provider then error("SetDataProvider() dataProvider was nil") end
+            self.rebuilds = (self.rebuilds or 0) + 1
+            self.retain = retain
             Render(self)
         end
         function box:ForEachFrame(fn)
@@ -193,7 +216,7 @@ return function(root, opts)
     ---------------------------------------------------------------------------
     local function G(name, value) rawset(_G, name, value) end
     G("Foundry_1_0", { RaiseDevError = function(_, msg) error(msg) end })
-    G("ScrollBoxConstants", { AlignBegin = 0, AlignCenter = 0.5, AlignEnd = 1 })
+    G("ScrollBoxConstants", { AlignBegin = 0, AlignCenter = 0.5, AlignEnd = 1, UpdateImmediately = 1, RetainScrollPosition = true })
     G("wipe", function(t) for k in pairs(t) do t[k] = nil end return t end)
     G("date", os.date)
     G("GetBuildInfo", function() return "12.0.1", "1", "1", 120001 end)
@@ -658,6 +681,23 @@ return function(root, opts)
             if f.parent == Win.host then env.pages[#env.pages + 1] = f end
         end
         assert(#env.pages == env.pageCount, "expected one frame per page, got " .. #env.pages)
+        env.size(env.room(), 480)
+    end
+    -- The page area's width at a tree width (the host of tests/hs538_window.lua): 610 at 192, 630 at 172.
+    function env.room(nav)
+        local S, LO = B.Style, B.Style.layout
+        return S.window.width - LO.insetLeft - LO.insetRight - 2 * LO.panePad - 2 * LO.wellPad - 2 * LO.pagePad
+            - (nav or S.nav.width) - S.space.xs
+    end
+    -- Sizes every page frame, as the client does once the window has laid out; a width of 0 is before that.
+    function env.size(w, h)
+        for _, p in ipairs(env.pages) do p.width, p.height = w, h end
+    end
+    -- The frame of the list page, which the vendor card sits in.
+    function env.listFrame()
+        for i, p in ipairs(env.pages) do
+            if env.pageKinds[env.pageList[i]] == "sources" then return p end
+        end
     end
     -- A page key and its seed as the route the router takes. No seed keeps the page's state; an item id opens
     -- the item page, a vendor pick the vendor page, other picks the source page.
@@ -696,11 +736,11 @@ return function(root, opts)
     end
 
     -- The route kind a frame is drawn under (the first kind of its page), and the tab that kind lights up. The
-    -- vendor card is a scroll frame inside the sources page, so what draws under one is the vendor's.
+    -- vendor card is a scroll frame (or its close button) inside the sources page, so what draws under one is the vendor's.
     function env.ownerKind(frame)
         local f, card = frame, false
         while f and f.parent ~= Win.host do
-            card = card or f.template == "ScrollFrameTemplate"
+            card = card or f.template == "ScrollFrameTemplate" or f.template == "UIPanelCloseButtonNoScripts"
             f = f.parent
         end
         for i, page in ipairs(env.pages) do
