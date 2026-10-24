@@ -414,6 +414,10 @@ function Page:Refresh(reason)
         if reason == "zone" then
             if Rezone() and cat.sort == "best" then Apply(true) end
         end
+    elseif reason == "wallet" then
+        wipe(orders)
+        for _, r in ipairs(recs) do r.g, r.d = walk and Group(r.e) or 1, nil end
+        Apply(true)
     else
         if reason == "data" then walk = B.Walk() end
         Rebuild()

@@ -1,0 +1,323 @@
+-- luacheck: globals assert loadfile print CreateFrame
+-- Run from the repo root:  lua tests/hs538_wallet.lua [root]
+
+local root = (... or "."):gsub("\\", "/"):gsub("/+$", "")
+local newWorld = assert(loadfile(root .. "/tests/hs538_world.lua"))()
+
+-------------------------------------------------------------------------------
+-- The wallet events through the real router, window, pages and CanGet: money, a currency or a bag change
+-- judges the walk's offers again without a new walk; nothing changed repaints nothing; a burst is one
+-- re-judge; the account-data event only draws again; a hidden browser listens to none of them.
+-------------------------------------------------------------------------------
+
+local function eq(a, b, msg)
+    if a ~= b then error((msg or "mismatch") .. ": got " .. tostring(a) .. ", wanted " .. tostring(b), 2) end
+end
+
+local WALLET_EVENTS = { "PLAYER_MONEY", "CURRENCY_DISPLAY_UPDATE", "BAG_UPDATE_DELAYED",
+    "ACCOUNT_CHARACTER_CURRENCY_DATA_RECEIVED" }
+
+-- A world with the Decor Browser open on Summary. Every frame records the events it registers. Player gold
+-- is 250: Oak Bench (300) is short, the rest of the standard world is affordable. Coin Lamp costs 5 of
+-- currency 700 (the player holds 1) and Token Vase 2 of item 500 (the player holds 0).
+local function world(bare, before)
+    local env = newWorld(root, { realWindow = true })
+    env.prewarm = 0
+    env.HA.BadgeCalculation = {
+        PeekVendorStats = function() return nil end,
+        RequestPrewarm = function() env.prewarm = env.prewarm + 1 end,
+    }
+    local make = CreateFrame
+    CreateFrame = function(...)
+        local f = make(...)
+        f.registered = {}
+        f.RegisterEvent = function(self, name) self.registered[name] = true end
+        f.UnregisterAllEvents = function(self) self.registered = {} end
+        return f
+    end
+    local s = env.standard()
+    if not bare then
+        env.decor(70, "Coin Lamp")
+        env.sell(70, s.anna, { currencies = { { id = 700, amount = 5 } } })
+        env.decor(71, "Token Vase")
+        env.sell(71, s.anna, { items = { { id = 500, amount = 2 } } })
+    end
+    env.money, env.currency[700], env.count[500] = 250, { quantity = 1 }, 0
+    env.s = s
+    if before then before(env, s) end
+    env.reasons, env.dropped = {}, 0
+    for _, page in ipairs(env.pageList) do
+        local refresh = page.Refresh
+        function page.Refresh(self, reason)
+            env.reasons[#env.reasons + 1] = reason
+            return refresh(self, reason)
+        end
+    end
+    env.open()
+    env.flush()
+    local invalidate = env.D.InvalidateMemos
+    function env.D.InvalidateMemos()
+        env.dropped = env.dropped + 1
+        return invalidate()
+    end
+    env.reasons, env.reqCalls = {}, 0
+    local requirements = env.D.Requirements
+    function env.D.Requirements(...)
+        env.reqCalls = env.reqCalls + 1
+        return requirements(...)
+    end
+    return env
+end
+
+local function at(env, id)
+    for i, v in ipairs((env.catalogList())) do if v == id then return i end end
+end
+
+local function listener(env)
+    for _, f in ipairs(env.all) do
+        if f.registered and f.registered.PLAYER_MONEY then return f end
+    end
+end
+
+local function fire(env, event, ...)
+    local f = listener(env)
+    assert(f and f.registered[event], event .. " is not registered on a shown browser")
+    f.scripts.OnEvent(f, event, ...)
+end
+
+local function rejudges(env)
+    local n = 0
+    for _, op in ipairs(env.measured) do if op == "browser_rejudge" then n = n + 1 end end
+    return n
+end
+
+-- Money moves an item from short to can after one coalesced refresh: no new memo, no new walk, and the
+-- ranking, the vendor counts, the item states and the Catalog rows are rebuilt.
+do
+    local env = world()
+    local B, CG = env.B, env.CG
+    env.go("catalog")
+    env.flush()
+    eq(B.ItemState(1), "short", "300 against 250 gold is short")
+    local ranked = CG.Rank()
+    local can = CG.VendorCanCount(env.s.anna)
+    assert(at(env, 1) > at(env, 3), "a short item sorts after the locked one that comes first by name")
+    eq(env.catalogRow(1).d.state, "short")
+    local rec = env.catalogRow(1).rec
+    local walks, dropped = env.walks(), env.dropped
+    env.reasons = {}
+
+    env.money = 1000
+    fire(env, "PLAYER_MONEY")
+    fire(env, "PLAYER_MONEY")
+    eq(#env.timers, 1, "events in a burst share one timer")
+    env.flush()
+    eq(table.concat(env.reasons, ","), "wallet", "one repaint, for the wallet")
+    eq(B.ItemState(1), "can", "the item is now affordable")
+    assert(CG.Rank() ~= ranked and #CG.Rank() == #ranked + 1, "the ranking was not rebuilt")
+    eq(CG.VendorCanCount(env.s.anna), can + 1, "the vendor count was not rebuilt")
+    eq(env.dropped, dropped, "a wallet change must not drop the memos")
+    eq(env.walks(), walks, "a wallet change must not walk again")
+    eq(rejudges(env), 1)
+    assert(at(env, 1) < at(env, 3), "the Catalog orders by the new verdict")
+    eq(env.catalogRow(1).rec, rec, "the records are kept, not rebuilt")
+    eq(env.catalogRow(1).d.state, "can", "and its rows describe it again")
+    print("hs538_wallet: money re-judges without a walk ok")
+end
+
+-- A Catalog filtered to Can get now gains the item.
+do
+    local env = world()
+    env.go("catalog", { filters = { canGet = true } })
+    env.flush()
+    assert(not at(env, 1), "a short item is not in Can get now")
+    env.money = 1000
+    fire(env, "PLAYER_MONEY")
+    env.flush()
+    assert(at(env, 1), "the item joins Can get now after the re-judge")
+    print("hs538_wallet: Can get now filter gains the item ok")
+end
+
+-- Summary with fewer than three items to get now: a re-judge asks for each shown row's requirements at most
+-- once, not once for every locked candidate in the walk.
+do
+    local env = world(false, function(e, s)
+        for id = 90, 97 do
+            e.decor(id, "Locked " .. id)
+            e.sell(id, s.anna, { gold = 50 })
+            e.reqs[id .. ":100"] = { { type = "unknown", text = "Favor " .. id } }
+        end
+    end)
+    env.money = 0
+    fire(env, "PLAYER_MONEY")
+    env.flush()
+    env.go("summary")
+    env.flush()
+    env.money = 25
+    env.reasons, env.reqCalls = {}, 0
+    fire(env, "PLAYER_MONEY")
+    env.flush()
+    eq(table.concat(env.reasons, ","), "wallet")
+    eq(#env.CG.Rank(), 1, "fewer than three items to get now")
+    assert(env.reqCalls <= 3, "a re-judge asked for requirements " .. env.reqCalls .. " times")
+    print("hs538_wallet: Summary refill stays cheap ok")
+end
+
+-- The vendors list counts the item that became affordable, and the refresh asks for no background fill.
+do
+    local env = world()
+    env.go("sources", { type = "vendors" })
+    env.flush()
+    local function count()
+        for _, row in ipairs((env.sourcesList())) do
+            if row.key == 100 then return row.arg end
+        end
+    end
+    local before, asked = count(), env.prewarm
+    assert(before, "Anna's row says how many can be got now")
+    env.reasons = {}
+    env.money = 1000
+    fire(env, "PLAYER_MONEY")
+    env.flush()
+    eq(table.concat(env.reasons, ","), "wallet")
+    eq(count(), before + 1, "the row's count went up")
+    eq(env.prewarm, asked, "a wallet refresh must not ask for the vendor-count fill")
+    print("hs538_wallet: vendors list count ok")
+end
+
+-- Summary and the item page also draw again for a wallet change.
+do
+    local env = world()
+    for _, key in ipairs({ "summary", "item" }) do
+        if key == "item" then env.B.Go({ kind = "item", id = 1 }) else env.go(key) end
+        env.flush()
+        env.reasons = {}
+        env.money = env.money + 1000
+        fire(env, "PLAYER_MONEY")
+        env.flush()
+        eq(table.concat(env.reasons, ","), "wallet", key .. " must be told")
+    end
+    print("hs538_wallet: Summary and item page draw again ok")
+end
+
+-- An unused currency, an unchanged currency and an unchanged bag repaint nothing; a changed bag, a changed
+-- currency and a key first read after the walk do.
+do
+    local env = world()
+    local B, CG = env.B, env.CG
+    eq(B.ItemState(70), "short")
+    eq(B.ItemState(71), "short")
+    local ranked, entry, st
+    local function snap()
+        B.ItemState(1)
+        ranked, entry = CG.Rank(), CG.Entry(1)
+        st = entry.st
+        assert(st, "the entry has a cached state to keep")
+    end
+    snap()
+    local function quiet(msg)
+        env.flush()
+        eq(#env.reasons, 0, msg)
+        eq(CG.Rank(), ranked, msg .. ": the ranking must stay")
+        eq(entry.st, st, msg .. ": the entry's state must stay")
+    end
+    local walks, dropped = env.walks(), env.dropped
+
+    eq(CG.wallet.cur[999], nil)
+    fire(env, "CURRENCY_DISPLAY_UPDATE", 999)
+    eq(#env.timers, 0, "a currency no offer needs schedules nothing")
+    eq(rejudges(env), 0)
+
+    fire(env, "CURRENCY_DISPLAY_UPDATE")
+    eq(#env.timers, 1, "an unnamed currency could be a needed one")
+    quiet("an unnamed currency that changed nothing")
+    eq(rejudges(env), 1)
+
+    fire(env, "CURRENCY_DISPLAY_UPDATE", 700)
+    eq(#env.timers, 1, "a needed currency schedules a re-judge")
+    quiet("a needed currency whose amount is the same")
+    eq(rejudges(env), 2, "it was compared")
+
+    fire(env, "BAG_UPDATE_DELAYED")
+    quiet("a bag with the same count")
+    eq(rejudges(env), 3)
+
+    env.count[500] = 2
+    fire(env, "BAG_UPDATE_DELAYED")
+    env.flush()
+    eq(table.concat(env.reasons, ","), "wallet", "a changed count repaints")
+    eq(B.ItemState(71), "can")
+    snap()
+    env.reasons = {}
+
+    env.currency[700] = { quantity = 9 }
+    fire(env, "CURRENCY_DISPLAY_UPDATE", 700)
+    env.flush()
+    eq(table.concat(env.reasons, ","), "wallet", "a changed currency repaints")
+    eq(B.ItemState(70), "can")
+    snap()
+    env.reasons = {}
+
+    eq(env.dropped, dropped, "none of it dropped the memos")
+    eq(env.walks(), walks, "none of it walked again")
+    print("hs538_wallet: relevance and unchanged wallets ok")
+end
+
+-- With no offer needing a currency, an unnamed currency update schedules nothing.
+do
+    local env = world(true)
+    eq(next(env.CG.wallet.cur), nil)
+    fire(env, "CURRENCY_DISPLAY_UPDATE")
+    eq(#env.timers, 0, "no needed currency, nothing to judge")
+    print("hs538_wallet: unnamed currency ok")
+end
+
+-- Twenty bag events in a burst are one re-judge, and the account-data event only draws again.
+do
+    local env = world()
+    local walks, dropped = env.walks(), env.dropped
+    for i = 1, 20 do
+        env.count[500] = i % 3
+        fire(env, "BAG_UPDATE_DELAYED")
+    end
+    eq(#env.timers, 1, "twenty bag events share one timer")
+    env.flush()
+    eq(rejudges(env), 1, "and make one re-judge")
+
+    env.reasons = {}
+    fire(env, "ACCOUNT_CHARACTER_CURRENCY_DATA_RECEIVED")
+    eq(#env.timers, 1)
+    env.flush()
+    eq(table.concat(env.reasons, ","), "wallet", "account data draws again")
+    eq(rejudges(env), 1, "without judging again")
+    eq(env.dropped, dropped)
+    eq(env.walks(), walks)
+    print("hs538_wallet: debounce and account data ok")
+end
+
+-- A shown browser listens to the four events; a closed one, and one never opened, listen to none, and a
+-- pending refresh dies with the window.
+do
+    local env = newWorld(root, { realWindow = true })
+    env.standard()
+    assert(not listener(env), "a browser never opened registers nothing")
+    local env2 = world()
+    local f = listener(env2)
+    for _, name in ipairs(WALLET_EVENTS) do assert(f.registered[name], name .. " is not registered while shown") end
+    fire(env2, "PLAYER_MONEY")
+    local pending = env2.timers[#env2.timers]
+    env2.B:Close()
+    env2.B.Window.frame:Hide()
+    assert(pending.cancelled, "the pending refresh must be cancelled by the close")
+    for _, frame in ipairs(env2.all) do
+        for _, name in ipairs(WALLET_EVENTS) do
+            assert(not (frame.registered and frame.registered[name]), name .. " is still registered while hidden")
+        end
+    end
+    env2.reasons = {}
+    env2.flush()
+    eq(#env2.reasons, 0, "a hidden browser repaints nothing")
+    print("hs538_wallet: hidden browser registers none ok")
+end
+
+print("hs538_wallet: all ok")

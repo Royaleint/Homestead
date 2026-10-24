@@ -49,15 +49,18 @@ end
 local wallet = { cur = {}, item = {} }
 CG.wallet = wallet
 
+local function Read(kind, id)
+    if kind == "cur" then
+        local info = C_CurrencyInfo.GetCurrencyInfo(id)
+        return info and info.quantity or false
+    end
+    return C_Item.GetItemCount(id, false, false, true)
+end
+
 local function Have(kind, id)
     local n = wallet[kind][id]
     if n == nil then
-        if kind == "cur" then
-            local info = C_CurrencyInfo.GetCurrencyInfo(id)
-            n = info and info.quantity or false
-        else
-            n = C_Item.GetItemCount(id, false, false, true)
-        end
+        n = Read(kind, id)
         wallet[kind][id] = n
     end
     return n
@@ -202,6 +205,36 @@ local function Settle(e)
         end
     end
     e.verdict = verdict
+end
+
+-- Re-reads every key already in the wallet, in place. Nothing changed: false, and nothing is touched. A
+-- change settles the entries again and drops what was derived from their verdicts; the walk stays.
+function CG.Rejudge()
+    Fresh()
+    local changed = false
+    local gold = wallet.gold
+    if gold then
+        wallet.gold = GetMoney()
+        changed = changed or wallet.gold ~= gold
+    end
+    for _, kind in pairs(KINDS) do
+        local held = wallet[kind]
+        for id, old in pairs(held) do
+            local n = Read(kind, id)
+            held[id] = n
+            changed = changed or n ~= old
+        end
+    end
+    if not changed then return false end
+    for _, e in pairs(entries) do
+        e.st, e.best = nil, nil
+        if e.reach then Settle(e) end
+    end
+    if walk then
+        walk.ranked = nil
+        wipe(walk.vendorCan)
+    end
+    return true
 end
 
 -- Offers are evaluated only for uncollected items; collected and unknown items never reach a vendor check.
@@ -413,6 +446,16 @@ local function Easiest(itemID, npcIDs)
     return best, at
 end
 
+-- Which items are locked, and at which vendor, does not depend on the wallet: a re-judge keeps the answer.
+local function EasiestOf(e)
+    local easy = e.easy
+    if not easy then
+        easy = { Easiest(e.itemID, e.locked) }
+        e.easy = easy
+    end
+    return easy[1]
+end
+
 local STEP = { short = 1, unpriced = 2, locked = 3 }
 
 -- The Summary's rows: up to three can-get-now entries, then dimmed "not yet" rows so three slots fill
@@ -431,7 +474,7 @@ function CG.Fill()
     for _, e in ipairs(w.list) do
         local step = e.own == "notOwned" and e.name and (STEP[e.verdict] or e.verdict == "unlisted" and e.event and 3)
         if step then
-            local unmet = step == 3 and Easiest(e.itemID, e.locked)
+            local unmet = step == 3 and EasiestOf(e)
             candidates[#candidates + 1] = { entry = e, step = step, unmet = step < 3 and 0 or unmet and #unmet or 1 }
         end
     end

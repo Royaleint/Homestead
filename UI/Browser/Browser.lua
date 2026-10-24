@@ -24,6 +24,7 @@ local GAME_EVENTS = {
     "GET_ITEM_INFO_RECEIVED", "PORTRAITS_UPDATED", "COLOR_OVERRIDE_UPDATED", "COLOR_OVERRIDES_RESET",
     "ZONE_CHANGED_NEW_AREA", "UI_SCALE_CHANGED", "DISPLAY_SIZE_CHANGED",
     "PLAYER_REGEN_DISABLED", "PLAYER_REGEN_ENABLED",
+    "PLAYER_MONEY", "CURRENCY_DISPLAY_UPDATE", "BAG_UPDATE_DELAYED", "ACCOUNT_CHARACTER_CURRENCY_DATA_RECEIVED",
 }
 local TEXT_SCALE_EVENT = "TextSizeManager.OnTextScaleUpdated"
 
@@ -185,15 +186,17 @@ function B.SetHideNA(on)
     if page then page:Refresh("hide") end
 end
 
--- Pending refresh: stale (walk out of date), names (item names arrived), prewarm (a data change or a
--- name may ask for the vendor-count fill; a fill-only repaint must not, or fill and repaint loop).
+-- Pending refresh: stale (walk out of date), names (item names arrived), wallet (money, a currency or a bag
+-- changed: judge again, no walk), walletPaint (account data arrived: draw again), plain (any other request),
+-- prewarm (a data change or a name may ask for the vendor-count fill; a fill-only repaint must not, or fill and
+-- repaint loop).
 local timer
-local stale, names, prewarm = false, false, false
+local stale, names, wallet, walletPaint, plain, prewarm = false, false, false, false, false, false
 
 local function ClearPending()
     if timer then timer:Cancel() end
     timer = nil
-    stale, names, prewarm = false, false, false
+    stale, names, wallet, walletPaint, plain, prewarm = false, false, false, false, false, false
 end
 
 local function Repaint(reason)
@@ -215,24 +218,29 @@ function B.SetModel3D(on)
     if Shown() and curRoute then Repaint("paint") end
 end
 
--- The walk runs only here, at most once per coalesced refresh, in combat too.
+-- The walk runs only here, at most once per coalesced refresh, in combat too. A wallet change judges the
+-- offers again and draws only if one changed.
 local function RunRefresh()
-    local wasStale, hadNames, allowed = stale, names, prewarm
+    local wasStale, hadNames, allowed, moved, account, other = stale, names, prewarm, wallet, walletPaint, plain
     timer = nil
-    stale, names, prewarm = false, false, false
+    stale, names, wallet, walletPaint, plain, prewarm = false, false, false, false, false, false
     if not (Shown() and curRoute) then return end
     if wasStale then B.Data.InvalidateMemos() end
     if hadNames then B.CanGet.RefreshNames() end
-    local reason = wasStale and "data" or hadNames and "names" or "stats"
+    local reason = wasStale and "data" or hadNames and "names" or nil
+    local changed = moved and not wasStale and Trace("browser_rejudge", nil, B.CanGet.Rejudge)
+    reason = reason or (changed or account) and "wallet" or other and "stats"
+    if not reason then return end
     State.noPrewarm = not allowed
     Trace("browser_refresh", reason, Repaint, reason)
     State.noPrewarm = false
 end
 
 -- Coalesces bursts into one refresh half a second later, if shown. fromStatsFill must not ask for another
--- fill; newData marks the walk stale.
-function B.RequestRefresh(fromStatsFill, newData)
+-- fill; newData marks the walk stale; fromWallet is a wallet event's request, which draws only for a change.
+function B.RequestRefresh(fromStatsFill, newData, fromWallet)
     if not fromStatsFill then prewarm = true end
+    if not fromWallet then plain = true end
     if newData then stale = true end
     if timer then return end
     timer = C_Timer.NewTimer(REFRESH_DELAY, RunRefresh)
@@ -275,6 +283,19 @@ local function OnEvent(_, event, arg1, arg2)
         Repaint("layout")
     elseif event == "ZONE_CHANGED_NEW_AREA" then
         Repaint("zone")
+    elseif event == "PLAYER_MONEY" or event == "BAG_UPDATE_DELAYED" then
+        wallet = true
+        B.RequestRefresh(true, false, true)
+    elseif event == "CURRENCY_DISPLAY_UPDATE" then
+        -- A nil currencyType could be any currency.
+        local cur = B.CanGet.wallet.cur
+        if arg1 == nil and next(cur) ~= nil or cur[arg1] ~= nil then
+            wallet = true
+            B.RequestRefresh(true, false, true)
+        end
+    elseif event == "ACCOUNT_CHARACTER_CURRENCY_DATA_RECEIVED" then
+        walletPaint = true
+        B.RequestRefresh(true, false, true)
     else
         Repaint("paint")
     end
