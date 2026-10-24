@@ -19,7 +19,7 @@ local function Group(e)
 end
 
 local Page, ui, orders = {}, {}, {}
-local cat, recs, counts, owns, walk, version, hideFor, bare, bareList, bareVer, rankedIn
+local cat, recs, counts, owns, walk, version, hideFor, bare, bareList, bareVer
 local shown = {}
 -- What the header box holds, as typed; cat.q is the same words trimmed and lowercased.
 local query = ""
@@ -131,15 +131,6 @@ local function Order(sort)
     table.sort(o, SORTERS[sort])
     orders[sort] = o
     return o
-end
-
--- Best to get now ranks by the player's zone, and only a shown Catalog hears a zone refresh, so Show checks too.
-local function Rezone()
-    local here = B.Facts.Here()
-    local zone = here and here.zone
-    if zone == rankedIn then return false end
-    orders.best, rankedIn = nil, zone
-    return true
 end
 
 -- Collected and Not collected match owned and notOwned only; unknown ownership is in neither.
@@ -376,7 +367,6 @@ function Page:Show(route, saved)
         walk = B.Walk()
         Rebuild()
     end
-    Rezone()
     Apply(false)
     if saved then ui.list.box:ScrollToOffset(saved.scroll, true) end
 end
@@ -411,9 +401,7 @@ function Page:Refresh(reason)
         end
         W.RepaintRows(ui.list)
     elseif reason == "zone" or reason == "stats" then
-        if reason == "zone" then
-            if Rezone() and cat.sort == "best" then Apply(true) end
-        end
+        return
     elseif reason == "wallet" then
         wipe(orders)
         for _, r in ipairs(recs) do r.g, r.d = walk and Group(r.e) or 1, nil end

@@ -741,7 +741,7 @@ do
 end
 
 -------------------------------------------------------------------------------
--- A zone change re-ranks Best to get now from the cached walk
+-- A zone change leaves Best to get now as it was: the order reads no zone
 -------------------------------------------------------------------------------
 
 do
@@ -758,18 +758,20 @@ do
     env.sell(22, far)
     env.tab.Build(Widget("Frame"))
     env.tab.Show()
-    eq(env.ids(), "21,22", "the item sold here comes first")
+    eq(env.ids(), "22,21", "equal offers order by name, not by the zone")
+    local sets, provider, first = env.box().sets, env.box().provider, env.box().provider[1]
     env.playerMap = 201
     env.tab.Refresh("zone")
-    eq(env.ids(), "22,21", "after a zone change the item sold in the new zone comes first")
+    eq(env.ids(), "22,21", "after a zone change the order is the same")
     eq(env.walks(), 1, "without a new walk")
-    -- The zone can change while another page is current: the next Show ranks for where the player is now.
+    eq(env.box().sets, sets, "the list is not set again")
+    assert(env.box().provider == provider and provider[1] == first, "the records are the ones shown before")
     env.tab.Hide()
     env.playerMap = 101
     env.tab.Show()
-    eq(env.ids(), "21,22", "a Show after a zone change elsewhere ranks for the new zone")
+    eq(env.ids(), "22,21", "a Show after a zone change elsewhere is the same")
     eq(env.walks(), 1, "still without a new walk")
-    print("hs538_catalog: zone re-rank ok")
+    print("hs538_catalog: zone-free order ok")
 end
 
 -- Hide with a walk reads the walk; a row is judged as an item, not by its first vendor

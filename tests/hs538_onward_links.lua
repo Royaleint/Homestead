@@ -92,9 +92,9 @@ do
     eq(env.tab, "summary", "opens on Summary")
     local rows = summaryRows(env)
     eq(#rows, 3, "three rows")
-    eq(rows[1].itemID, 1, "best row")
+    eq(rows[1].itemID, 13, "best row: of the two with the bonus, the cheaper")
 
-    landsOnItem(env, 1, function() env.click(rows[1]) end, "row click")
+    landsOnItem(env, 13, function() env.click(rows[1]) end, "row click")
 
     -- A row with a known spot offers Set waypoint and leaves the tab alone.
     env.go("summary")
@@ -123,7 +123,7 @@ do
     eq(see.text, "See all you can get now (4)")
     env.click(see)
     eq(env.tab, "catalog")
-    eq(env.idString(), "1,13,6,2", "R15: the four you can get now, Best order")
+    eq(env.idString(), "13,1,6,2", "R15: the four you can get now, Best order")
     eq(env.search, "", "no search")
     eq(tipWrites(env), 1, "tipSeen written once")
     eq(env.HA.Addon.db.profile.browser.tipSeen, true, "tipSeen saved")

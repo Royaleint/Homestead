@@ -320,7 +320,7 @@ do
     local currency = { gold = 0, currencies = { { id = 1, amount = 5 } } }
     for id = 1, 5 do env.decor(id) end
     env.sell(1, here)
-    env.sell(2, same, currency)
+    env.sell(2, same)
     env.sell(3, far)
     env.sell(4, far, currency)
     env.sell(5, ev, currency)
@@ -338,7 +338,18 @@ do
     eq(rows[1].why.text, "Hallow's End: active now \194\183 First-Time Collection Bonus", "two signals, never three")
     eq(rows[2].why.text, "Sold here in Durotar \194\183 Gold only", "sold here, then gold only")
     eq(rows[2].src.text, "Vendor: Joruh, Durotar \194\183 100g", "source and price line")
-    eq(rows[3].why.text, "Sold on Kalimdor", "same continent")
+    eq(rows[3].why.text, "Sold on Kalimdor \194\183 Gold only", "same continent")
+
+    -- Travelling redraws the reasons at draw time and leaves the order and the walk alone.
+    local walks = env.walks()
+    env.playerMap = 201
+    env.tab:Refresh("zone")
+    rows = env.rows()
+    eq(rows[1].name.text .. rows[2].name.text .. rows[3].name.text, "Item 5Item 1Item 2", "the same order in another zone")
+    eq(rows[2].why.text, "Gold only, no requirements left", "no nearness signal far from the vendor")
+    eq(env.walks(), walks, "a zone change does not walk again")
+    env.playerMap = 101
+    env.tab:Refresh("zone")
 
     -- Take the near items out of the walk so the far ones show their fallback lines.
     for _, id in ipairs({ 1, 2, 5 }) do env.owned(id) end
@@ -362,6 +373,22 @@ do
     route = env.routes[#env.routes]
     assert(route.kind == "item" and route.id == 3, "the row opens the item page")
     print("hs538_summary: R13 rows ok")
+end
+
+-- "Get it" names the nearer of two equal vendors, and follows the player across a zone change
+do
+    local env = newEnv()
+    local joruh = env.vendor(1, { mapID = 101, name = "Joruh", zone = "Durotar" })
+    local hamish = env.vendor(2, { mapID = 201, name = "Hamish", zone = "Elwynn" })
+    env.decor(1)
+    env.sell(1, joruh)
+    env.sell(1, hamish)
+    env.open()
+    assert(env.rows()[1].src.text:find("Joruh", 1, true), "in Durotar: " .. env.rows()[1].src.text)
+    env.playerMap = 201
+    env.tab:Refresh("zone")
+    assert(env.rows()[1].src.text:find("Hamish", 1, true), "in Elwynn: " .. env.rows()[1].src.text)
+    print("hs538_summary: Get it follows the zone ok")
 end
 
 do

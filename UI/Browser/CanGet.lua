@@ -227,7 +227,7 @@ function CG.Rejudge()
     end
     if not changed then return false end
     for _, e in pairs(entries) do
-        e.st, e.best = nil, nil
+        e.st = nil
         if e.reach then Settle(e) end
     end
     if walk then
@@ -273,7 +273,7 @@ end
 -- The walk's record for one item, decor or a vendor ware outside the decor list; nil before ready.
 -- Fields: itemID, info, own, name, bonus (the First-Time Collection amount, nil if none), src (Sources type set), factionOnly, verdict (nil without a
 -- vendor offer), reach (npcID to each offer with requirements met, with cost and pay), canBy (its paid ones),
--- rest (the others' best verdict), locked (npcIDs), event and eventAt (an off-season holiday that sells it, and its vendor).
+-- eventPaid and lowGold (set by Rank: a paid event offer, the lowest paid gold-only price), rest (the others' best verdict), locked (npcIDs), event and eventAt (an off-season holiday that sells it, and its vendor).
 function CG.Entry(itemID)
     if D.CollectionState() ~= "ready" then return nil end
     Fresh()
@@ -367,25 +367,35 @@ function CG.VendorCanCount(vendor)
     return n
 end
 
+-- "Get it": event, gold only, lowest gold, nearest to where (none: all alike), lowest npcID.
+local function Closer(o, best, where)
+    if (o.event ~= nil) ~= (best.event ~= nil) then return o.event ~= nil end
+    if o.gold ~= best.gold then return o.gold end
+    if o.gold and o.price ~= best.price then return o.price < best.price end
+    local near, far = Facts.Nearness(o.mapID, where), Facts.Nearness(best.mapID, where)
+    if near ~= far then return near < far end
+    return o.npcID < best.npcID
+end
+
 local function BestOffer(offers, where, pay)
-    local best, bestKey
+    local best
     for _, o in pairs(offers) do
-        if not pay or o.pay == pay then
-            local key = (o.event and 0 or 4) + Facts.Nearness(o.mapID, where) - (o.gold and 0.5 or 0)
-            if not bestKey or key < bestKey or (key == bestKey and o.npcID < best.npcID) then
-                best, bestKey = o, key
-            end
-        end
+        if (not pay or o.pay == pay) and (not best or Closer(o, best, where)) then best = o end
     end
     return best
 end
 
+-- "Get it" for a can-get-now entry, for where the player is now; never kept on the entry.
+function CG.Best(e)
+    return e.verdict == "can" and BestOffer(e.canBy, Facts.Here()) or nil
+end
+
+-- Best overall, from no zone; Rank sets e.eventPaid and e.lowGold.
 local function Before(a, b)
-    local ta, tb = a.best.event ~= nil, b.best.event ~= nil
-    if ta ~= tb then return ta end
+    if a.eventPaid ~= b.eventPaid then return a.eventPaid end
     if (a.bonus ~= nil) ~= (b.bonus ~= nil) then return a.bonus ~= nil end
-    if a.near ~= b.near then return a.near < b.near end
-    if a.best.gold ~= b.best.gold then return a.best.gold end
+    if (a.lowGold ~= nil) ~= (b.lowGold ~= nil) then return a.lowGold ~= nil end
+    if a.lowGold ~= b.lowGold then return a.lowGold < b.lowGold end
     if (a.name ~= nil) ~= (b.name ~= nil) then return a.name ~= nil end
     if a.name and a.name ~= b.name then return a.name < b.name end
     return a.itemID < b.itemID
@@ -395,7 +405,7 @@ end
 function CG.Primary(itemID, sources)
     sources = sources or D.ItemSources(itemID)
     local e = CG.Entry(itemID)
-    local best = e and e.verdict == "can" and (e.best or BestOffer(e.canBy, Facts.Here()))
+    local best = e and CG.Best(e)
     local at = best and best.npcID or e and select(3, B.ItemState(itemID))
     local own, first
     for _, s in ipairs(sources) do
@@ -416,19 +426,20 @@ end
 function CG.Rank()
     local w = CG.Walk()
     if not w then return nil end
-    local where = Facts.Here()
-    local zone = where and where.zone or 0
-    if w.ranked and w.rankedFor == zone then return w.ranked end
+    if w.ranked then return w.ranked end
     local out = {}
     for _, e in ipairs(w.list) do
         if e.verdict == "can" then
-            e.best = BestOffer(e.canBy, where)
-            e.near = Facts.Nearness(e.best.mapID, where)
+            e.eventPaid, e.lowGold = false, nil
+            for _, o in pairs(e.canBy) do
+                if o.event ~= nil then e.eventPaid = true end
+                if o.gold and (not e.lowGold or o.price < e.lowGold) then e.lowGold = o.price end
+            end
             out[#out + 1] = e
         end
     end
     table.sort(out, Before)
-    w.ranked, w.rankedFor = out, zone
+    w.ranked = out
     return out
 end
 
@@ -561,6 +572,13 @@ function B.ItemState(itemID, npcID)
     if not e then return end
     if e.own ~= "notOwned" then return e.own == "owned" and "owned" or nil end
     if npcID then return Judge(e, itemID, npcID) end
-    e.st = e.st or { Judge(e, itemID) }
-    return e.st[1], e.st[2], e.st[3]
+    local st = e.st
+    if st and st.zoned and st.zone ~= (Facts.Here() or NONE).zone then st = nil end
+    if not st then
+        st = { Judge(e, itemID) }
+        -- The nearest-vendor pick of short and unpriced follows the zone: it is judged again when the zone differs.
+        if st[1] == "short" or st[1] == "unpriced" then st.zoned, st.zone = true, (Facts.Here() or NONE).zone end
+        e.st = st
+    end
+    return st[1], st[2], st[3]
 end

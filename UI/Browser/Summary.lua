@@ -46,18 +46,19 @@ local function Put(f, h, narrow)
 end
 
 local function Why(e)
-    local b, r, where = e.best, {}, Facts.Here()
+    local b, r, where = CG.Best(e), {}, Facts.Here()
+    local near = Facts.Nearness(b.mapID, where)
     if b.event then r[#r + 1] = L["%s: active now"]:format(b.event) end
     if e.bonus then r[#r + 1] = L["First-Time Collection Bonus"] end
-    local continent = e.near == 2 and C_Map.GetMapInfo(where.continent)
-    if e.near == 1 and where.name then
+    local continent = near == 2 and C_Map.GetMapInfo(where.continent)
+    if near == 1 and where.name then
         r[#r + 1] = L["Sold here in %s"]:format(where.name)
     elseif continent and continent.name then
         r[#r + 1] = L["Sold on %s"]:format(continent.name)
     elseif not (b.event or e.bonus) then
         r[#r + 1] = b.gold and L["Gold only, no requirements left"] or L["No requirements left"]
     end
-    if #r < 2 and b.gold and (e.near <= 2 or e.bonus or b.event) then r[#r + 1] = L["Gold only"] end
+    if #r < 2 and b.gold and (near <= 2 or e.bonus or b.event) then r[#r + 1] = L["Gold only"] end
     return table.concat(r, DOT, 1, math.min(#r, 2))
 end
 

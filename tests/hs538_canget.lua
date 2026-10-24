@@ -264,7 +264,7 @@ do
 end
 
 -------------------------------------------------------------------------------
--- Ranking: time-limited, bonus, nearness, gold only, then name
+-- Ranking: time-limited, bonus, gold only with the lowest gold, then name; the same in every zone
 -------------------------------------------------------------------------------
 
 do
@@ -281,7 +281,7 @@ do
     events[4] = { npcID = 4, mapID = 201, event = "Lunar Festival", _isEventVendor = true, items = {} }
     env.calendar = { ["Lunar Festival"] = true }
     local currency = { gold = 0, currencies = { { id = 1, amount = 5 } } }
-    for id = 11, 17 do env.decor(id) end
+    for id = 11, 24 do env.decor(id) end
     env.names[16] = nil
     env.sell(11, far, currency)
     env.sell(12, near, currency)
@@ -292,18 +292,61 @@ do
     env.sell(16, here)
     env.sell(17, events[4], currency)
     env.sell(17, here)
-    local order = {}
-    for i, e in ipairs(CG.Rank()) do order[i] = e.itemID end
-    assert(table.concat(order, ",") == "17,15,14,16,13,12,11", table.concat(order, ","))
-    local first = CG.Rank()[1]
-    assert(first.best.npcID == 4 and first.near == 3, "the best source is the time-limited one, even far away")
-    assert(CG.Rank()[3].near == 1, "a building's map walks up to its zone")
+    env.sell(18, far)
+    env.sell(18, here)
+    env.sell(19, far, { gold = 50 })
+    env.sell(20, far, { gold = 1e12 })
+    env.sell(20, here, { gold = 1e12 })
+    env.sell(21, here, currency)
+    env.sell(21, far)
+    -- Two paid gold-only offers rank by the cheaper; another item's single offer sits between them.
+    env.sell(22, here, { gold = 400 })
+    env.sell(22, far, { gold = 90 })
+    env.sell(23, here, { gold = 200 })
+    -- Only a paid offer counts: the short gold offer gives item 24 no gold price.
+    env.sell(24, here, currency)
+    env.sell(24, far, { gold = 1e12 })
+    local function ranked()
+        local order = {}
+        for i, e in ipairs(CG.Rank()) do order[i] = e.itemID end
+        return table.concat(order, ",")
+    end
+    local want = "17,15,19,22,14,18,21,16,23,11,12,13,24"
+    assert(ranked() == want, ranked())
+    assert(CG.Best(CG.Rank()[1]).npcID == 4, "the best source is the time-limited one, even far away")
+    assert(CG.Best(CG.Entry(20)) == nil, "an item that is not can-get-now has no best offer")
 
+    -- Each zone, nil included, ranks again from scratch (a changed purse drops the cached order) and agrees.
+    for _, z in ipairs({ { 201 }, { 103 }, {}, { 201 } }) do
+        env.playerMap = z[1]
+        local before = CG.Rank()
+        env.money = env.money - 1
+        assert(CG.Rejudge(), "a changed purse is judged again")
+        assert(CG.Rank() ~= before, "the order was ranked again")
+        assert(ranked() == want, "the order is the same in zone " .. tostring(z[1]) .. ": " .. ranked())
+    end
+    assert(#env.measured == 1, "ranking again does not walk again")
+
+    -- A short item names the nearer of its equal vendors, and follows a zone change.
+    local ItemState = HA.DecorBrowser.ItemState
+    HA.VendorData.FormatCost = function() return "" end
+    for _, z in ipairs({ { 201, 3 }, { 103, 1 }, { nil, 1 }, { 201, 3 } }) do
+        env.playerMap = z[1]
+        assert(select(3, ItemState(20)) == z[2] and CG.Primary(20).npcID == z[2],
+            "a short item's vendor in zone " .. tostring(z[1]) .. ": " .. tostring(select(3, ItemState(20))))
+    end
+    assert(#env.measured == 1, "a zone change does not walk again")
+
+    -- "Get it" is chosen at draw: of two equal offers, the nearer one for where the player is now.
+    env.playerMap = 103
+    assert(CG.Primary(18).npcID == 1 and CG.Best(CG.Entry(18)).npcID == 1, "here")
     env.playerMap = 201
-    order = {}
-    for i, e in ipairs(CG.Rank()) do order[i] = e.itemID end
-    assert(#env.measured == 1, "a zone change re-ranks without walking again")
-    assert(table.concat(order, ",", 3) == "11,14,16,12,13", table.concat(order, ","))
+    assert(CG.Primary(18).npcID == 3 and CG.Best(CG.Entry(18)).npcID == 3, "after travelling")
+    env.playerMap = nil
+    assert(CG.Primary(18).npcID == 1, "with no zone, the lowest npcID")
+    assert(CG.Primary(19).npcID == 3 and CG.Primary(17).npcID == 4, "gold and events outrank nearness")
+    env.playerMap = 103
+    assert(CG.Primary(21).npcID == 3, "a gold-only offer outranks a nearer one that wants currency")
     print("hs538_canget: ranking ok")
 end
 
