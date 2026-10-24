@@ -442,7 +442,7 @@ function D.ItemSources(itemID)
             e.mapID = d.mapID
             e.x = d.coords and d.coords.x
             e.y = d.coords and d.coords.y
-            e.price = d.cost and D.PriceOf(d.cost) or nil
+            e.price = d.cost and D.PriceOf(d.cost) or D.Price(itemID, d.vendor)
         elseif src.type == "achievement" then
             e.achievementID = d.achievementID
             e.name = d.achievementName

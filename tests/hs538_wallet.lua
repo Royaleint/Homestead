@@ -173,6 +173,46 @@ do
     print("hs538_wallet: Can get now filter gains the item ok")
 end
 
+-- The wallet changes while another page is up: the Catalog, shown later, must not keep the old verdicts.
+do
+    local env = world()
+    env.go("catalog")
+    env.flush()
+    eq(env.catalogRow(1).d.state, "short")
+    local rec = env.catalogRow(1).rec
+    env.go("summary")
+    env.flush()
+    env.money = 1000
+    fire(env, "PLAYER_MONEY")
+    env.flush()
+    eq(env.B.ItemState(1), "can", "the Overview side already judges it can")
+    env.go("catalog")
+    env.flush()
+    eq(env.catalogRow(1).rec, rec, "the records are kept")
+    eq(env.catalogRow(1).rec.g, 0, "the row's group follows the new verdict")
+    eq(env.catalogRow(1).d.state, "can", "the words are described again")
+    eq(env.catalogRow(1).d.right, "300g", "no red part is left")
+    assert(at(env, 1) < at(env, 3), "the best order is rebuilt")
+    print("hs538_wallet: Catalog shown after a wallet change ok")
+end
+
+-- A vendor source with no recorded cost shows the price the walk judges by, in every list.
+do
+    local env = world(nil, function(e, s)
+        e.decor(95, "Bare Cost Stool")
+        e.sources[95] = { { type = "vendor", data = { npcID = s.anna.npcID, vendor = s.anna, name = s.anna.name } } }
+        e.offers[95] = true
+        s.anna.items[#s.anna.items + 1] = 95
+    end)
+    local want = env.D.Price(95, env.s.anna)
+    assert(want, "the resolver prices it")
+    eq(env.D.ItemSources(95)[1].price, want, "the source carries the resolved price")
+    env.go("catalog")
+    env.flush()
+    eq(env.catalogRow(95).d.right, want, "and the Catalog row shows it")
+    print("hs538_wallet: resolved price on a cost-less source ok")
+end
+
 -- Summary with fewer than three items to get now: a re-judge asks for each shown row's requirements at most
 -- once, not once for every locked candidate in the walk.
 do
@@ -436,6 +476,25 @@ do
     env.flush()
     eq(env.account.requests, 2, "a new show asks again")
     print("hs538_wallet: other-character hint ok")
+end
+
+-- Account data lands while another page is up: the Catalog, shown later, describes its row with the hint.
+do
+    local env = world(nil, function(e) e.account.transferable[700] = true end)
+    env.go("catalog")
+    env.flush()
+    assert(not (env.catalogRow(70).d.arg or ""):find("has"), "no data yet: no hint")
+    env.go("summary")
+    env.flush()
+    holders(env, 50, 12000, 300)
+    fire(env, "ACCOUNT_CHARACTER_CURRENCY_DATA_RECEIVED")
+    env.flush()
+    env.go("catalog")
+    env.flush()
+    local arg = env.catalogRow(70).d.arg or ""
+    local muted = env.B.Style.Muted("(Alt has 12000)")
+    eq(arg:sub(-#muted), muted, "the row carries the hint: " .. arg)
+    print("hs538_wallet: Catalog shown after account data ok")
 end
 
 -- The player is dropped, the largest holding above 0 wins, a shared name shows in full, and an empty or

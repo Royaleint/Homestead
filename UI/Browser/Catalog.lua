@@ -19,7 +19,7 @@ local function Group(e)
 end
 
 local Page, ui, orders = {}, {}, {}
-local cat, recs, counts, owns, walk, version, hideFor, bare, bareList, bareVer
+local cat, recs, counts, owns, walk, version, hideFor, judged, bare, bareList, bareVer
 local shown = {}
 -- What the header box holds, as typed; cat.q is the same words trimmed and lowercased.
 local query = ""
@@ -69,7 +69,7 @@ local function BareEntries()
 end
 
 local function Rebuild()
-    version, hideFor = D.MemoVersion(), B.State.hideNA
+    version, hideFor, judged = D.MemoVersion(), B.State.hideNA, CG.Gen()
     wipe(orders)
     counts, owns, recs = {}, {}, {}
     for i, e in ipairs(walk and walk.list or BareEntries()) do
@@ -81,6 +81,14 @@ local function Rebuild()
         counts[r.cat], counts.all = (counts[r.cat] or 0) + 1, (counts.all or 0) + 1
         if r.done then owns[r.cat], owns.all = (owns[r.cat] or 0) + 1, (owns.all or 0) + 1 end
     end
+end
+
+-- A re-judge or account data changed the verdicts and words under the records: regroup them and drop what was
+-- built from the old ones, without rebuilding the records.
+local function Rejudged()
+    wipe(orders)
+    for _, r in ipairs(recs) do r.g, r.d = walk and Group(r.e) or 1, nil end
+    judged = CG.Gen()
 end
 
 local function Gold(itemID)
@@ -366,6 +374,8 @@ function Page:Show(route, saved)
     if not recs or version ~= D.MemoVersion() or hideFor ~= B.State.hideNA then
         walk = B.Walk()
         Rebuild()
+    elseif judged ~= CG.Gen() then
+        Rejudged()
     end
     Apply(false)
     if saved then ui.list.box:ScrollToOffset(saved.scroll, true) end
@@ -403,8 +413,7 @@ function Page:Refresh(reason)
     elseif reason == "zone" or reason == "stats" then
         return
     elseif reason == "wallet" then
-        wipe(orders)
-        for _, r in ipairs(recs) do r.g, r.d = walk and Group(r.e) or 1, nil end
+        Rejudged()
         Apply(true)
     else
         if reason == "data" then walk = B.Walk() end

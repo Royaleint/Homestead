@@ -95,8 +95,13 @@ end
 
 local entries = {}
 
+-- Moves whenever the verdicts or the words built from the wallet change, so a page that cached them can tell.
+local gen = 0
+function CG.Gen() return gen end
+
 -- Account data arrived: the hints and the words built from them are stale; nothing is judged again.
 function CG.AccountData()
+    gen = gen + 1
     wipe(holders)
     for _, e in pairs(entries) do e.st = nil end
 end
@@ -280,6 +285,7 @@ function CG.Rejudge()
         end
     end
     if not changed then return false end
+    gen = gen + 1
     wipe(holders)
     for _, e in pairs(entries) do
         e.st = nil
