@@ -21,11 +21,11 @@ local CEIL = {
     ["Facts.lua"] = 6800,
     ["CanGet.lua"] = 24005,
     ["Widgets.lua"] = 27854,
-    ["Window.lua"] = 23697,
-    ["Browser.lua"] = 19923,
+    ["Window.lua"] = 24470,
+    ["Browser.lua"] = 20236,
     ["Summary.lua"] = 10196,
     ["Catalog.lua"] = 15154,
-    ["Sources.lua"] = 36802,
+    ["Sources.lua"] = 37808,
     ["Item.lua"] = 22152,
 }
 

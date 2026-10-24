@@ -396,6 +396,22 @@ B.Go({ kind = "vendor", id = 5 })
 B.GoTop({ kind = "vendor", id = 5 })
 eq(backs[#backs], false, "GoTop to the page already showing cleared history")
 
+-- A same-route click on the tree sets Back and the bar before the page refreshes, so the page measures its room
+-- with the bar settled.
+do
+    B.GoTop({ kind = "overview" })
+    B.Go({ kind = "vendor", id = 5 })
+    eq(backs[#backs], true, "history is up")
+    local refresh, seen = vendor.Refresh, nil
+    vendor.Refresh = function(self, reason)
+        seen = backs[#backs]
+        return refresh(self, reason)
+    end
+    B.GoTop({ kind = "vendor", id = 5 })
+    vendor.Refresh = refresh
+    eq(seen, false, "Back was already hidden when the page refreshed")
+end
+
 -- A card over its list (a route with a list): moving between the list and a card, or between two cards over
 -- one list, hides nothing and leaves the header box alone. History keeps the list. A swap takes no step.
 -- Closing is Back when the step before is the list and a replacement with no step otherwise.

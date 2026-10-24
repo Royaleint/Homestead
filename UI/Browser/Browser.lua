@@ -155,6 +155,7 @@ local function Transition(route, saved)
     Win.UpdateCount()
     page:SetCombat(State.inCombat)
     AskAccount()
+    return keep
 end
 
 -- top: a jump to the top of a hierarchy (tree row, crumb) starts fresh, so Back shows only after going into something.
@@ -163,6 +164,7 @@ local function GoNow(route, top)
     if top then wipe(history) end
     if curRoute and SameRoute(curRoute, route) then
         local page = Current()
+        Win.SetBack(#history > 0)
         if route.seed then
             Win.SetSearch(route.seed.search)
             page:Show(route)
@@ -170,7 +172,6 @@ local function GoNow(route, top)
             page:Refresh("route")
         end
         Win.SelectNav(route)
-        Win.SetBack(#history > 0)
         return
     end
     -- Another card over the same list takes the card's place.
@@ -253,9 +254,13 @@ local function Repaint(reason)
     SyncMemo()
     local at = curRoute
     if Gone(at) then
-        Transition(Resolved(at))
-        -- A card closed onto its list leaves the list as it was, so the data that removed it redraws it.
-        if not at.list then return end
+        -- The card's close uses up the step that opening it added, as every other close does.
+        local top = history[#history]
+        if at.list and top and SameRoute(top[1], at.list) then history[#history] = nil end
+        local kept = Transition(Resolved(at))
+        -- A card closed onto its list, which stayed up as it was, is redrawn by the data that removed it. Any
+        -- other fall-back was drawn fresh.
+        if not (at.list and kept) then return end
     end
     Current():Refresh(reason)
     Win.UpdateCount()

@@ -42,7 +42,7 @@ local now, query, wide = nil, "", false
 local head, list, empty, torn, asked, cs, static, vend, vendVer
 local well, shown, vid
 local Vend, V = {}, {}
-local P, colNow
+local P, colNow, slide
 local colW, cover = S.nav.width, false
 local PORTRAIT, DOT, FRAME = S.card.portrait, S.card.mark, S.card.frame
 local FLOOR, GAP, LIFT = 2 * S.ware.size + S.ware.gap, SP.s, 20
@@ -330,6 +330,11 @@ local function BodyWidth()
     return P:GetWidth() - (cover and 0 or colW + SP.xs) - FRAME
 end
 
+-- The card's own width: the page less the narrowed list and the gap beside it.
+local function CardWidth()
+    return P:GetWidth() - (colNow > 0 and colNow + SP.xs or 0)
+end
+
 -- Reads the mode from the page's width; false while the page has none, when the draw is owed.
 local function Layout()
     local room = P:GetWidth()
@@ -350,10 +355,14 @@ local function Arrange()
     else
         well:SetPoint("BOTTOMRIGHT")
     end
-    V.well:ClearAllPoints()
-    if narrow then V.well:SetPoint("TOPLEFT", well, "TOPRIGHT", SP.xs, 0) else V.well:SetPoint("TOPLEFT") end
-    V.well:SetPoint("BOTTOMRIGHT")
-    V.well:SetShown(vid ~= nil)
+    V.clip:ClearAllPoints()
+    if narrow then V.clip:SetPoint("TOPLEFT", well, "TOPRIGHT", SP.xs, 0) else V.clip:SetPoint("TOPLEFT") end
+    V.clip:SetPoint("BOTTOMRIGHT", 0, -1)
+    V.clip:SetShown(vid ~= nil)
+    if vid == nil then
+        slide = false
+        B.Window.StopSlide(V.well)
+    end
 end
 
 -- Arranges an already-built list for the mode. A header's and a footer's height follow the list's width, and
@@ -495,6 +504,8 @@ end
 function Page:Show(route, saved, keep)
     local card = route.kind == "vendor"
     local over = card and route.list or route
+    -- Only a card the player opens slides: not a swap, a Back restore or a refresh.
+    if card and not saved and (not keep or vid == nil) then slide = true end
     if card then Layout() end
     if keep then
         B.HideTooltip()
@@ -537,7 +548,8 @@ function Page:Filter(text)
 end
 
 function Page:Hide()
-    torn = true
+    torn, slide = true, false
+    B.Window.StopSlide(V.well)
     B.HideTooltip()
 end
 
@@ -595,12 +607,18 @@ local function SetFace(v)
 end
 
 -- The card is an opaque well that takes the mouse, above the list under it, with a close button that stays still
--- while the card scrolls. The template puts the button at frame level 510, above the window's trim.
+-- while the card scrolls. The template puts the button at frame level 510, above the window's trim. It sits in a
+-- holder that places it, shows it and clips it, so a sliding card never draws outside the space it opens into.
+-- The holder reaches 1 px below the card, where the well's border draws its bottom corners.
 function Vend:Build(parent)
-    local card = W.Well(parent)
+    local clip = CreateFrame("Frame", nil, parent)
+    clip:SetClipsChildren(true)
+    clip:Hide()
+    local card = W.Well(clip)
+    card:SetPoint("TOPLEFT")
+    card:SetPoint("BOTTOMRIGHT", 0, 1)
     card:SetFrameLevel(parent:GetFrameLevel() + LIFT)
     card:EnableMouse(true)
-    card:Hide()
     local sf = CreateFrame("ScrollFrame", nil, card, "ScrollFrameTemplate")
     sf:SetPoint("TOPLEFT", INSET, -INSET)
     sf:SetPoint("BOTTOMRIGHT", -(INSET + LO.scrollBarGap), INSET)
@@ -623,7 +641,7 @@ function Vend:Build(parent)
     end)
     local body = CreateFrame("Frame", nil, sf)
     sf:SetScrollChild(body)
-    V.well, V.sf, V.c, V.head = card, sf, body, CreateFrame("Frame", nil, body)
+    V.clip, V.well, V.sf, V.c, V.head = clip, card, sf, body, CreateFrame("Frame", nil, body)
     V.face = V.head:CreateTexture(nil, "ARTWORK")
     V.face:SetSize(PORTRAIT, PORTRAIT)
     V.face:SetPoint("TOPLEFT")
@@ -655,6 +673,7 @@ function Draw(fresh, saved)
     if not v then return end
     if P:GetWidth() <= 0 then
         V.wait = W.Owe(V.wait, fresh, saved)
+        V.clip:Hide()
         return
     end
     local w = BodyWidth()
@@ -739,6 +758,11 @@ function Draw(fresh, saved)
         V.sf:SetVerticalScroll(saved and saved.outer or 0)
         if saved and saved.scroll then V.grid.box:ScrollToOffset(saved.scroll, true) end
     end
+    V.clip:Show()
+    if slide then
+        slide = false
+        B.Window.Slide(V.well, CardWidth())
+    end
 end
 
 function Vend:Show(saved)
@@ -757,7 +781,7 @@ function Vend:Refresh(reason, wasTorn)
         if v then SetFace(v) end
         return W.RepaintRows(V.grid)
     end
-    Draw(false)
+    Draw(W.Owed(V.wait))
 end
 
 -- The page of one other source: the achievement, quest, recipe, drop, event or shop item. Its elements stack

@@ -20,7 +20,7 @@ local BANNED = {
 -- The Near You list is gone from the browser. A bare "near" stays legal: Nearness, the
 -- vendor's near field and the nearYou data helper are still real.
 local BANNED_IN_BROWSER = { 'L%["Near You"%]', '"nearYou"', 'L%["Not yet: next step"%]',
-    'L%["Can get now means this character can buy' }
+    'L%["Can get now means this character can buy', "OnUpdate" }
 
 local self = "hs538_removed_names.lua"
 

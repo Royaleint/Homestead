@@ -299,7 +299,7 @@ local function setup()
     rawset(_G, "ShowAchievementFrameForAchievement", function() error("the achievement journal opened") end)
     B.HideTooltip, B.HideTooltipFor = noop, noop
     env.search = ""
-    B.Window = { AddSearchBox = noop, hideNA = Widget("CheckButton"), SetSearch = function(text) env.search = text or "" end }
+    B.Window = { AddSearchBox = noop, Slide = noop, StopSlide = noop, hideNA = Widget("CheckButton"), SetSearch = function(text) env.search = text or "" end }
     B.SetHideNA = function(on)
         B.State.hideNA = on
         env.hideNASet = on

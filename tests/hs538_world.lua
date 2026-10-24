@@ -23,7 +23,7 @@ return function(root, opts)
         calendar = {}, themes = {}, measured = {}, maps = {}, playerMap = nil, stats = {},
         all = {}, boxList = {}, timers = {}, saves = {}, waypoints = {}, reports = {}, itemShows = {},
         walkCalls = 0, combat = false, fontStrings = {}, textures = {}, emptySets = {}, links = {}, linked = {},
-        sceneIDs = {}, models = {}, clears = 0, noActor = {},
+        sceneIDs = {}, models = {}, clears = 0, noActor = {}, groups = {}, slides = {}, stopped = {},
     }
     for k, v in pairs(opts or {}) do env[k] = v end
 
@@ -122,11 +122,34 @@ return function(root, opts)
     function methods.GetParent(self) return self.parent end
     function methods.GetStringWidth(self) return #tostring(self.text) * 6 end
     function methods.SetCustomOnMouseUpHandler(self, fn) self.customMouseUpHandler = fn end
-    function methods.CreateAnimationGroup()
+    -- An animation group records what it is asked: Play(reverse) and Stop, and whether it is still playing. It
+    -- stays playing until the test finishes it (g.Finish runs OnFinished, as the client does at the end of a run
+    -- and not on Stop). Its animations keep their settings.
+    function methods.CreateAnimationGroup(self)
         local g = Widget("AnimationGroup")
-        function g.CreateAnimation() return Widget("Animation") end
+        g.parent, g.anims, g.plays, g.stops, g.playing = self, {}, 0, 0, false
+        function g.CreateAnimation(_, kind)
+            local a = Widget("Animation")
+            a.animKind = kind
+            function a.SetOffset(_, x, y) a.offset = { x, y } end
+            function a.SetFromAlpha(_, v) a.from = v end
+            function a.SetToAlpha(_, v) a.to = v end
+            function a.SetDuration(_, d) a.duration = d end
+            g.anims[#g.anims + 1] = a
+            return a
+        end
+        function g.Play(_, reverse) g.plays, g.playing, g.reverse = g.plays + 1, true, reverse end
+        function g.Stop() if g.playing then g.stops = g.stops + 1 end g.playing = false end
+        function g.IsPlaying() return g.playing end
+        function g.Finish()
+            g.playing = false
+            if g.scripts.OnFinished then g.scripts.OnFinished(g) end
+        end
+        env.groups[#env.groups + 1] = g
         return g
     end
+    function methods.SetClipsChildren(self, on) self.clips = on end
+    function methods.SetAllPoints(self, rel) self.allPoints = rel or true end
     function methods.SetCreature(self, id) self.creature = id end
     function methods.GetModelFileID(self) return self.fileID end
     function Widget(kind)
@@ -170,10 +193,14 @@ return function(root, opts)
         local box = Widget("WowScrollBoxList")
         box.frames, box.pool, box.scrolls = {}, {}, {}
         box.aligns = {}
+        -- Like the client: a new provider scrolls to the top unless it retains the position.
         function box:SetDataProvider(p, keep)
             self.provider, self.data, self.keep = p, p, keep
+            if not keep then self.offset = 0 end
             Render(self)
         end
+        function box:ScrollToOffset(offset) self.offset = offset end
+        function box:GetDerivedScrollOffset() return self.offset or 0 end
         -- The extent of every element, as the view's calculator gives it now.
         function box:Measure()
             self.extents = {}
@@ -206,6 +233,7 @@ return function(root, opts)
         function box:ScrollToElementDataIndex(i, align)
             self.scrolls[#self.scrolls + 1] = i
             self.aligns[#self.scrolls] = align
+            self.offset = (i - 1) * 30
         end
         env.boxList[#env.boxList + 1] = box
         return box
@@ -290,6 +318,8 @@ return function(root, opts)
         elseif template == "ScrollFrameTemplate" then
             w.ScrollBar = Widget("EventFrame")
             w.ScrollBar.SetHideIfUnscrollable = function(self, on) self.hideIfUnscrollable = on end
+            function w:SetVerticalScroll(v) self.vscroll = v end
+            function w:GetVerticalScroll() return self.vscroll or 0 end
         elseif template == "UICheckButtonTemplate" then
             w.Text = Widget("FontString")
         elseif template == "UIPanelButtonTemplate" then
@@ -486,6 +516,8 @@ return function(root, opts)
         function Win.AddSearchBox() end
         function Win.SetCrumb(segs) env.crumb = segs end
         function Win.SetBack() end
+        function Win.Slide(region, width) env.slides[#env.slides + 1] = { region = region, width = width } end
+        function Win.StopSlide(region) env.stopped[region] = (env.stopped[region] or 0) + 1 end
         function Win.SetSearch(text) env.search = text end
         function Win.SetPlaceholder(text) env.placeholder = text end
         function Win.UpdateCount() end

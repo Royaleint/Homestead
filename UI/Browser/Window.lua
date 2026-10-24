@@ -643,6 +643,29 @@ function Win.StopGlow()
     end
 end
 
+-- Slides a region in from the right over OPEN_TIME, fading it in, and settles it where it is anchored. The
+-- group moves it width to the right and plays backwards from there; the alpha runs 1 to 0 so that it reads 0 to 1.
+function Win.Slide(region, width)
+    local g = region.browserSlide
+    if not g then
+        g = region:CreateAnimationGroup()
+        g.shift = g:CreateAnimation("Translation")
+        g.shift:SetDuration(OPEN_TIME)
+        local fade = g:CreateAnimation("Alpha")
+        fade:SetFromAlpha(1)
+        fade:SetToAlpha(0)
+        fade:SetDuration(OPEN_TIME)
+        region.browserSlide = g
+    end
+    g.shift:SetOffset(width, 0)
+    g:Play(true)
+end
+
+function Win.StopSlide(region)
+    local g = region.browserSlide
+    if g then g:Stop() end
+end
+
 function Win.Build(h)
     if Win.frame then return Win.frame end
     hooks = h

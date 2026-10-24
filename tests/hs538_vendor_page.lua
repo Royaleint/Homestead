@@ -352,8 +352,9 @@ do
     print("hs538_vendor_page: width ok")
 end
 
--- A draw that finds its width clears the wait: a later resize redraws in place and does not replay the show that
--- was waiting (which would send the page back to the scroll it was told to restore).
+-- A draw that finds its width clears the wait: a refresh that finds it pays the show that was waiting, once, and
+-- a later resize redraws in place and does not replay it (which would send the page back to the scroll it was
+-- told to restore).
 do
     local env = world()
     open(env, 101)
@@ -366,10 +367,10 @@ do
     eq(#verticals, 0, "a show with no width draws nothing")
     fr:SetSize(500, 400)
     page(env):Refresh("layout")
-    eq(#verticals, 0, "a refresh is not a fresh show")
+    eq(#verticals, 1, "a refresh that finds the width pays the show that was waiting")
     fr:SetSize(640, 400)
     fr.scripts.OnSizeChanged(fr, 640, 400)
-    eq(#verticals, 0, "the resize after it replayed the show that was waiting")
+    eq(#verticals, 1, "the resize after it replayed the show that was waiting")
     print("hs538_vendor_page: wait ok")
 end
 
@@ -567,7 +568,8 @@ do
     print("hs538_vendor_page: key and tooltip ok")
 end
 
--- The list's well and the card's: the list page's first two children.
+-- The list's well and the card's holder: the list page's first two children. The card's own well fills the
+-- holder and takes the mouse.
 local function wells(env)
     local fr, kids = env.listFrame(), {}
     for _, f in ipairs(env.all) do
@@ -610,7 +612,12 @@ do
     eq(card.pts.TOPLEFT[2], well, "the card starts at the list")
     eq(card.pts.TOPLEFT[3], "TOPRIGHT")
     eq(card.pts.TOPLEFT[4], S.space.xs, "a gap away")
-    eq(card.mouse, true, "and takes the mouse")
+    local inner
+    for _, f in ipairs(env.all) do
+        if f.parent == card then inner = f end
+    end
+    eq(inner.mouse, true, "and its well takes the mouse")
+    eq(inner.pts.TOPLEFT[2], nil, "filling the holder from its corner")
     local all, _, lit = narrowed(env)
     eq(all, true, "every row is narrowed beside a card")
     eq(lit, "100", "and only the open card's row is lit")
@@ -731,7 +738,7 @@ do
     local _, card = wells(env)
     local x = closeButton(env)
     eq(x.kind, "Button", "a plain button")
-    eq(x.parent, card, "on the card's well, so it stays put while the card scrolls")
+    eq(x.parent.parent, card, "on the card's well, so it stays put while the card scrolls")
     local names = {}
     for name in pairs(x.scripts) do names[#names + 1] = name end
     eq(table.concat(names, ","), "OnClick", "it has our own click and nothing else")
@@ -880,15 +887,15 @@ end
 do
     local env = world()
     open(env, 100)
-    local _, card = wells(env)
     local x = closeButton(env)
     local sf = vfind(env, function(f) return f.kind == "ScrollFrame" end)
     local barTop = sf.pts.TOPLEFT[3] + sf.ScrollBar.pts.TOPLEFT[5]
     local xBottom = x.pts.TOPRIGHT[3] - env.B.Style.card.close
     assert(barTop <= xBottom, "the scroll bar starts at " .. barTop .. ", under the close button, which ends at " .. xBottom)
     eq(sf.ScrollBar.pts.TOPLEFT[2], sf, "and hangs from the scroll frame")
-    eq(card.wheel, true, "the card takes the wheel")
-    assert(card.scripts.OnMouseWheel, "and answers it, so the list under a covering card does not scroll")
+    local inner = x.parent
+    eq(inner.wheel, true, "the card takes the wheel")
+    assert(inner.scripts.OnMouseWheel, "and answers it, so the list under a covering card does not scroll")
     print("hs538_vendor_page: scroll bar and wheel ok")
 end
 
