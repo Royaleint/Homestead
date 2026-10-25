@@ -91,13 +91,22 @@ local function Rejudged()
     judged = CG.Gen()
 end
 
--- The lowest gold-only price among the item's vendors, each priced as its row shows it. Costs change only with
--- the data, which rebuilds the records, so a wallet change leaves the cached value right.
+-- The lowest gold-only price at any of the item's vendors: listed sources, then unlisted holiday vendors. The
+-- source list changes with the season, but the two together always cover the same vendors, so the cached
+-- value holds until the records rebuild.
 local function Gold(itemID)
-    local low = math.huge
-    for _, s in ipairs(HA.SourceManager:GetAllSources(itemID) or {}) do
-        local c = s.type == "vendor" and s.data and D.SourceCost(itemID, s.data)
+    local low, seen = math.huge, {}
+    local function Take(c)
         if c and CG.GoldOnly(c) then low = math.min(low, c.gold) end
+    end
+    for _, s in ipairs(HA.SourceManager:GetAllSources(itemID) or {}) do
+        if s.type == "vendor" and s.data then
+            if s.data.npcID then seen[s.data.npcID] = true end
+            Take(D.SourceCost(itemID, s.data))
+        end
+    end
+    for _, npcID in ipairs(B.Facts.EventVendorsFor(itemID) or {}) do
+        if not seen[npcID] then Take(HA.SourceManager:GetVendorItemCost(itemID, B.Facts.EventVendor(npcID))) end
     end
     return low
 end

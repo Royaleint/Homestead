@@ -658,7 +658,7 @@ function Vend:Build(parent)
         local hit = W.Clip(fs)
         if fs == V.conf then V.hit = hit end
     end
-    V.pb, V.can = W.Bar(V.head), CanLine(V.head)
+    V.count, V.can = Text(V.head), CanLine(V.head)
     V.hdr, V.key = Text(body), Text(body)
     V.holder = CreateFrame("Frame", nil, body)
     V.grid = W.NewGrid(V.holder, S.ware.size, S.ware.gap)
@@ -705,18 +705,15 @@ function Draw(fresh, saved)
     local mapID, mx, my = Loc(s)
     V.wp:SetShown(mapID ~= nil)
     V.wp.wp = { mapID = mapID, x = mx, y = my, title = s.title, data = { type = "vendor", npcID = v.npcID } }
-    -- The bar and the can-get line sit under the location, beside the portrait.
-    V.pb:SetShown(n > 0)
-    V.pb:SetWidth(cw)
-    V.pb:Fit()
-    V.pb:Set(ready and L["%d of %d collected"]:format(owned, n) or L["Counting…"], ready and n > 0 and owned / n)
-    V.pb:ClearAllPoints()
-    V.pb:SetPoint("TOPLEFT", V.where, "BOTTOMLEFT", 0, -SP.xs)
+    -- The count and the can-get line sit under the location, beside the portrait.
+    Line(V.count, "body", n > 0 and (ready and L["%d of %d collected"]:format(owned, n) or L["Counting…"]) or nil, cw)
+    V.count:ClearAllPoints()
+    V.count:SetPoint("TOPLEFT", V.where, "BOTTOMLEFT", 0, -SP.xs)
     SetCan(V.can, ready and CG.VendorCanCount(v) or 0, cw)
     V.can:ClearAllPoints()
-    V.can:SetPoint("TOPLEFT", n > 0 and V.pb or V.where, "BOTTOMLEFT", 0, -SP.xs)
+    V.can:SetPoint("TOPLEFT", n > 0 and V.count or V.where, "BOTTOMLEFT", 0, -SP.xs)
     V.head:SetSize(w, math.max(PORTRAIT, nh + (act and tagH + 2 or 0) + SP.xs + bh
-        + (n > 0 and SP.xs + V.pb:GetHeight() or 0) + (V.can:IsShown() and SP.xs + V.can:GetHeight() or 0)))
+        + (n > 0 and SP.xs + V.count:GetHeight() or 0) + (V.can:IsShown() and SP.xs + V.can:GetHeight() or 0)))
 
     Line(V.note, "bodyMuted", (D.VendorNote(v)), w)
     local cur = D.VendorCurrencies(v)

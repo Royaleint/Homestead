@@ -8,7 +8,7 @@ local root = (... or "."):gsub("\\", "/"):gsub("/+$", "")
 -------------------------------------------------------------------------------
 -- The Sources file, run through the real Sources.lua, Widgets, Facts, Adapter and
 -- CanGet against stubbed data and recording widgets: grouping and row words, the
--- vendor page and the source page the file registers (head, location, lines, bar, rows), the route
+-- vendor page and the source page the file registers (head, location, lines, count line, rows), the route
 -- every source row opens, Hide's footer, the count refresh, and the walk discipline.
 -- The list page registers for the sources, vendors and allVendors routes; env.tab shows pages the way
 -- the router would for a sources route with a seed, and types into the header box through Filter.
@@ -639,7 +639,7 @@ do
 end
 
 -------------------------------------------------------------------------------
--- Vendor page: the head, location, shared lines, bar and wares, drawn by the
+-- Vendor page: the head, location, shared lines, count line and wares, drawn by the
 -- page the Sources file registers for the vendor route
 -------------------------------------------------------------------------------
 
@@ -659,7 +659,7 @@ do
     assert(shownText("Trade District, Stormwind"), "subzone and zone")
     assert(not shownText("Eastern Kingdoms"), "the player's own continent is not repeated")
     assert(not shownText("Not confirmed"), "the shipped confirmation date counts")
-    assert(shownText("0 of 3 collected") and shownText("3 can get now"), "the bar and the can-get line")
+    assert(shownText("0 of 3 collected") and shownText("3 can get now"), "the count line and the can-get line")
     assert(portraitCalls[#portraitCalls] == 555, "the headshot comes from the portrait table")
     assert(#grid.data == 3 and grid.data[1].state == "can" and grid.data[1].npcID == 100, "the wares")
 

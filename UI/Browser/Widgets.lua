@@ -524,31 +524,6 @@ function W.NewList(parent, opts)
     return list
 end
 
-function W.Bar(parent)
-    local bar = CreateFrame("Frame", nil, parent)
-    bar.text = S.Text(bar, "body", "OVERLAY")
-    bar.text:SetPoint("TOPLEFT")
-    local fill = CreateFrame("StatusBar", nil, bar)
-    fill:SetPoint("BOTTOMLEFT")
-    fill:SetPoint("BOTTOMRIGHT")
-    fill:SetHeight(6)
-    fill:SetStatusBarTexture([[Interface\Buttons\WHITE8X8]])
-    fill:SetStatusBarColor(unpack(K.gold))
-    fill:SetMinMaxValues(0, 1)
-    local track = fill:CreateTexture(nil, "BACKGROUND")
-    track:SetAllPoints()
-    track:SetColorTexture(0, 0, 0, 0.45)
-    function bar:Set(label, ratio)
-        self.text:SetText(label)
-        fill:SetValue(ratio or 0)
-    end
-    function bar:Fit()
-        self:SetHeight(W.TextHeight("body") + SP.xs + 6)
-    end
-    bar:Fit()
-    return bar
-end
-
 function W.NewWareCell(cell)
     local tile = W.NewTile(cell, S.ware.size)
     tile.icon:SetPoint("CENTER")

@@ -296,7 +296,7 @@ function D.Price(itemID, vendor)
     return D.PriceOf(HA.SourceManager:GetVendorItemCost(itemID, vendor))
 end
 
--- A vendor source's cost: its own, else the resolver's. The shown price and the Price sort both read it.
+-- A vendor source's cost: its own, else the resolver's. Read for a listed vendor's shown price and sort.
 function D.SourceCost(itemID, data)
     return data.cost or data.vendor and (HA.SourceManager:GetVendorItemCost(itemID, data.vendor))
 end

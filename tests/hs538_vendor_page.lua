@@ -6,7 +6,7 @@ local newWorld = assert(loadfile(root .. "/tests/hs538_world.lua"))()
 
 -------------------------------------------------------------------------------
 -- The vendor page, run through the real router, Sources, Widgets, Adapter and CanGet over the shared world:
--- the grid's band order, the bar, the cells and the list row agreeing, the empty and counting states, the
+-- the grid's band order, the count line, the cells and the list row agreeing, the empty and counting states, the
 -- Requires line, Hide never removing a ware, the location line, the ladder at a large text size, what
 -- Save gives back on Back, and Hide followed by Refresh.
 -------------------------------------------------------------------------------
@@ -100,7 +100,7 @@ do
     print("hs538_vendor_page: order ok")
 end
 
--- The bar, the cells and the list row agree; Counting… before the collection is read.
+-- The count line, the cells and the list row agree; Counting… before the collection is read.
 do
     local env = world(nil, function(e)
         annaWith(e)
@@ -108,7 +108,7 @@ do
     end)
     eq(rowRight(env, 100), "1 of 6", "the list row")
     open(env, 100)
-    eq(barText(env), "1 of 6 collected", "the bar")
+    eq(barText(env), "1 of 6 collected", "the count line")
     local owned = 0
     for _, d in ipairs((env.wareList())) do if d.state == "owned" then owned = owned + 1 end end
     eq(#env.wareList(), 6, "the cells")
@@ -127,10 +127,10 @@ do
 
     local counting = world({ done = false, attempted = false }, annaWith)
     open(counting, 100)
-    eq(barText(counting), "Counting…", "the bar waits for the collection")
+    eq(barText(counting), "Counting…", "the count line waits for the collection")
     eq(says(counting, "can get now"), nil, "and so does the can-get line")
     eq(order(counting), "6,3,2,8,1,70", "the cells still show; with no states they sort by name")
-    print("hs538_vendor_page: bar, cells and row ok")
+    print("hs538_vendor_page: count line, cells and row ok")
 end
 
 -- A vendor with no wares and a vanished vendor.
@@ -144,7 +144,7 @@ do
     assert(e, "no empty state")
     eq(e.d.title, "No decor")
     eq(#env.wareList(), 0)
-    eq(barText(env), nil, "no bar at 0 wares")
+    eq(barText(env), nil, "no count line at 0 wares")
     eq(says(env, "Corners:"), nil, "no key for an empty grid")
     eq(says(env, "Empty") ~= nil, true, "the head still names the vendor")
 
@@ -224,7 +224,7 @@ do
     print("hs538_vendor_page: locale ok")
 end
 
--- Hide never removes a ware, and the bar counts them all.
+-- Hide never removes a ware, and the count line counts them all.
 do
     local env = world(nil, function(e) e.owned(4) e.stats[101] = { collected = 1, total = 1 } end)
     open(env, 101)
@@ -235,7 +235,7 @@ do
     local all = order(env)
     open(env, 101)
     eq(order(env), "4", "a page drawn under Hide dropped an owned ware")
-    eq(barText(env), "1 of 1 collected", "and the bar still counts it")
+    eq(barText(env), "1 of 1 collected", "and the count line still counts it")
     open(env, 100)
     eq(order(env), all, "a page drawn under Hide dropped a ware")
     env.B.SetHideNA(false)

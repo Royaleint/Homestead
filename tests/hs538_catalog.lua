@@ -873,4 +873,36 @@ do
     print("hs538_catalog: short and unpriced group ok")
 end
 
+-------------------------------------------------------------------------------
+-- Price sort: holiday vendors count, and a vendor in both lists is priced once
+-------------------------------------------------------------------------------
+
+do
+    local env, HA = newEnv()
+    local shop = env.vendor(10)
+    env.decor(1, "Oak Bench")
+    env.decor(2, "Elm Chair")
+    env.decor(3, "Cedar Table")
+    env.decor(4, "Pine Shelf")
+    env.sell(1, shop, { gold = 500 })
+    -- 2 is sold only by a holiday vendor that the source list leaves out; 3 is in both lists, listed at 300.
+    local events = HA.EventSources.EventVendors
+    events[20] = { npcID = 20, mapID = 1, event = "Hallow's End", _isEventVendor = true, items = { 2, 3 } }
+    env.sell(3, env.vendor(20), { gold = 300 })
+    local priced = {}
+    HA.SourceManager.GetVendorItemCost = function(_, id, vendor)
+        priced[#priced + 1] = id .. ":" .. vendor.npcID
+        return { gold = id == 2 and 50 or 1 }
+    end
+    env.pageFrame = Widget("Frame")
+    env.tab.Build(env.pageFrame)
+    env.tab.Show()
+    env.menu(env.sort()):Find("Price").setSel()
+    eq(env.ids(), "2,3,1,4", "Price: the holiday-only item sorts by its price, the one with none last")
+    local twice = 0
+    for _, k in ipairs(priced) do if k == "3:20" then twice = twice + 1 end end
+    eq(twice, 0, "a vendor in both lists keeps the listed cost and is not priced again")
+    print("hs538_catalog: price sort holiday vendors ok")
+end
+
 print("hs538_catalog: ok")

@@ -422,23 +422,4 @@ do
     print("hs538_ware_grid: tooltip lines ok")
 end
 
--- The bar.
-do
-    local env = world()
-    local bar = env.W.Bar(frame("Frame"))
-    local fill
-    for _, f in ipairs(env.all) do
-        if f.kind == "StatusBar" then fill = f end
-    end
-    assert(fill, "the bar made no status bar")
-    fill.SetValue = function(self, v) self.value = v end
-    bar.text.SetText = function(self, t) self.shown_text = t end
-    bar:Set("3 of 4 collected", 0.75)
-    eq(fill.value, 0.75)
-    eq(bar.text.shown_text, "3 of 4 collected")
-    bar:Set("Counting…", nil)
-    eq(fill.value, 0, "no ratio is an empty bar")
-    print("hs538_ware_grid: bar ok")
-end
-
 print("hs538_ware_grid: ok")
