@@ -357,6 +357,11 @@ function HousingAddon:OnEnable()
         HA.VersionCheck:Initialize()
     end
 
+    -- At login, before the browser's window exists: its key propagation cannot be set in combat
+    if HA.DecorBrowser then
+        HA.DecorBrowser.Window.Prepare()
+    end
+
     self:Debug("Homestead enabled")
     -- The decor browser opens only once the enable chain has completed.
     self._enabled = true

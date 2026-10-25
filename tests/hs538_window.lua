@@ -1,4 +1,4 @@
--- luacheck: globals assert loadfile print io wipe C_Timer C_Texture InCombatLockdown CreateFrame UIParent
+-- luacheck: globals assert loadfile loadstring print io wipe C_Timer C_Texture InCombatLockdown CreateFrame UIParent
 -- luacheck: globals EventRegistry FrameUtil TextSizeManager Menu PixelUtil NineSliceUtil CreateColor
 -- luacheck: globals ScrollUtil CreateScrollBoxListLinearView CreateDataProvider CreateAnchor
 -- Run from the repo root:  lua tests/hs538_window.lua [root]
@@ -154,12 +154,22 @@ local function NewWindowFrame()
         self.insets = { ... }
         self.insetCalls = (rawget(self, "insetCalls") or 0) + 1
     end
-    function f:SetPropagateKeyboardInput(on) self.propagate = on end
-    function f:GetPropagateKeyboardInput() return self.propagate end
     function f:SetFrameStrata(s) self.strata = s end
     function f:SetToplevel(on) self.toplevel = on end
     function f:SetClampedToScreen(on) self.clamped = on end
     return f
+end
+
+-- The keyboard frame: propagation and keyboard input start off, as the client makes a frame.
+local function NewKeysFrame()
+    local k = Widget("Frame")
+    k.propagate, k.keyboard = false, false
+    function k:SetPropagateKeyboardInput(on) self.propagate = on end
+    function k:GetPropagateKeyboardInput() return self.propagate end
+    function k:EnableKeyboard(on) self.keyboard = on end
+    function k:SetParent(p) self.parent = p end
+    function k:SetAllPoints(p) self.allPoints = p end
+    return k
 end
 
 local created = {}
@@ -169,6 +179,7 @@ CreateFrame = function(kind, name, parent, template)
         frame = NewWindowFrame()
         return frame
     end
+    if kind == "Frame" and parent == nil then return NewKeysFrame() end
     local w = Widget(kind)
     frames[#frames + 1] = w
     return w
@@ -286,16 +297,52 @@ for _, kind in ipairs({ "vendors", "allVendors", "vendor" }) do
         Refresh = function() end, SetCombat = function() end })
 end
 
+-- Login, out of combat: the real enable chain makes only the hidden keyboard frame, before the browser can open,
+-- with keys on and passing through.
+local coreText = readFile("Core/core.lua")
+local enableAt = assert(coreText:find("function HousingAddon:OnEnable()", 1, true), "core.lua lacks OnEnable")
+local enableEnd = assert(coreText:find("\nend\r?\n", enableAt), "OnEnable has no end")
+local enableChunk = assert(loadstring("local HA, F, HousingAddon = ... "
+    .. coreText:sub(enableAt, enableEnd + 4) .. " return HousingAddon.OnEnable"))
+local addon = { _initialized = true, RegisterEvents = function() end, Debug = function() end }
+local realPrepare, enabledAtPrepare = Win.Prepare, "never"
+Win.Prepare = function() enabledAtPrepare = addon._enabled == true return realPrepare() end
+enableChunk(HA, {}, {})(addon)
+Win.Prepare = realPrepare
+assert(enabledAtPrepare == false and addon._enabled, "the enable chain did not prepare the keys before enabling")
+local keys = Win.keys
+assert(created[1].kind == "Frame" and created[1].parent == nil and not keys.shown and not Win.frame,
+    "login must make only the hidden keyboard frame")
+assert(keys.propagate == true and keys.keyboard == true, "the keyboard frame does not pass keys on")
+assert(Win.Prepare() == keys and #created == 1, "a second Prepare made another frame")
+
 -- Ready() false creates nothing.
 D.IsReady = function() return false end
 HA.Addon.Print = function() end
 B:Open()
-assert(#created == 0 and not Win.frame, "opening before Homestead is ready created a frame")
+assert(#created == 1 and not Win.frame, "opening before Homestead is ready created a frame")
 D.IsReady = function() return true end
 
--- First open (also the first open after a reload): Summary is drawn before the window shows.
+-- First open in combat: the window is built in lockdown on keys prepared at login, so Escape closes the card,
+-- then the window, and every key still reaches the game.
+inCombat = true
 B:Open()
-local c = created[1]
+assert(keys.parent == frame and keys.allPoints == frame and keys.shown and keys.propagate == true and keys.keyboard == true,
+    "the window built in combat does not take keys")
+local key = keys.scripts.OnKeyDown
+B.Go({ kind = "sources", key = "drops" })
+cardOpen = true
+key(keys, "ESCAPE")
+assert(not cardOpen and frame.shown and not Win.closing and keys.propagate == true,
+    "Escape in the first fight did not close only the card")
+key(keys, "ESCAPE")
+assert(Win.closing and keys.propagate == true and keys.keyboard == true, "Escape in the first fight did not close the window")
+frame.groups[2].scripts.OnFinished()
+inCombat, after, log = false, {}, {}
+
+-- First open out of combat: Summary is drawn before the window shows.
+B:Open()
+local c = created[2]
 assert(c.template == "ButtonFrameTemplate" and c.name == nil and c.parent == UIParent,
     "the window must be an unnamed ButtonFrameTemplate on UIParent")
 assert(frame.strata == "MEDIUM" and frame.toplevel and frame.clamped, "strata, top-level or clamp is wrong")
@@ -325,7 +372,7 @@ Win.SetSearch("oak")
 assert(search.text == "oak", "SetSearch did not show the words")
 Win.SetSearch(nil)
 assert(search.text == "", "SetSearch(nil) did not clear the box")
-assert(frame.shown and frame.propagate == true, "the window is not shown with keys passing through")
+assert(frame.shown and keys.propagate == true, "the window is not shown with keys passing through")
 
 -- Motion: the open fade is 0.15 s with at most 8 px of travel, the close fade 0.1 s.
 local openGroup = frame.groups[1]
@@ -340,7 +387,6 @@ for _, a in ipairs(frame.groups[2].anims) do assert(rawget(a, "duration") == 0.1
 
 -- Escape, with a menu open, the search focused and a card open: the menu first, then the search, then
 -- the card, then the window.
-local key = frame.scripts.OnKeyDown
 local box = { focus = true, text = "bench" }
 function box:HasFocus() return self.focus end
 function box:ClearFocus() self.focus = false Log("clearFocus") end
@@ -349,27 +395,27 @@ menuOpen = true
 cardOpen = true
 B.Go({ kind = "sources", key = "drops" })
 log = {}
-key(frame, "ESCAPE")
+key(keys, "ESCAPE")
 assert(Find("closeMenus") and box.focus and frame.shown,
     "Escape with a menu open must close only the menu and keep the window")
-assert(frame.propagate == false, "Escape must not reach the game out of combat")
+assert(keys.propagate == false, "Escape must not reach the game out of combat")
 after[1]()
 after = {}
-assert(frame.propagate == true, "propagation did not come back")
+assert(keys.propagate == true, "propagation did not come back")
 
-key(frame, "ESCAPE")
+key(keys, "ESCAPE")
 assert(Find("clearFocus") and box.text == "bench" and frame.shown and not Win.closing and cardOpen,
     "Escape must let go of the search and keep its text and the card")
-key(frame, "ESCAPE")
+key(keys, "ESCAPE")
 assert(Find("closeCard") and not cardOpen and frame.shown and not Win.closing,
     "Escape with a card open must close only the card")
-assert(frame.propagate == false, "closing a card out of combat does not let Escape reach the game")
+assert(keys.propagate == false, "closing a card out of combat does not let Escape reach the game")
 after[1]()
 after = {}
-key(frame, "ESCAPE")
+key(keys, "ESCAPE")
 assert(Win.closing, "Escape with nothing else to close must close the window")
-key(frame, "A")
-assert(frame.propagate == true, "other keys must pass through")
+key(keys, "A")
+assert(keys.propagate == true, "other keys must pass through")
 
 -- A plain Go passes no seed, so the page keeps its state; a seed passes through as the same table.
 B.Go({ kind = "catalog" })
@@ -400,19 +446,30 @@ B:Open()
 assert(invalidated == 1 and combatSeen == true, "a reopen did not refresh its inputs")
 assert(Find("render:overview") < Find("show"), "Summary was not drawn before the reopen showed")
 assert(next(callbacks) and next(registry), "a shown window must listen")
+
+-- Keys prepared in lockdown never passed through: keyboard input goes off so no key is held, and comes back
+-- when combat ends.
+keys.propagate = false
+Win.AssertPropagation()
+assert(keys.keyboard == false and keys.propagate == false, "a keyboard frame that cannot pass keys on still takes them")
+local regen
+for _, w in ipairs(frames) do if w.scripts.OnEvent then regen = w end end
+inCombat = false
+regen.scripts.OnEvent(regen, "PLAYER_REGEN_ENABLED")
+assert(keys.propagate == true and keys.keyboard == true, "the end of combat did not give the keys back")
 inCombat = false
 
 -- Escape in combat leaves propagation alone.
 inCombat = true
-frame.propagate = true
+keys.propagate = true
 -- Closing a card in combat changes nothing about keys either: it closes, and Escape also reaches the game.
 B.Go({ kind = "sources", key = "drops" })
 cardOpen = true
-key(frame, "ESCAPE")
-assert(not cardOpen and not Win.closing and frame.propagate == true, "a card closed in combat touched propagation or the window")
+key(keys, "ESCAPE")
+assert(not cardOpen and not Win.closing and keys.propagate == true, "a card closed in combat touched propagation or the window")
 B.Go({ kind = "overview" })
-key(frame, "ESCAPE")
-assert(frame.propagate == true, "propagation changed in combat")
+key(keys, "ESCAPE")
+assert(keys.propagate == true, "propagation changed in combat")
 inCombat = false
 after = {}
 closeGroup.scripts.OnFinished()

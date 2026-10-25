@@ -539,7 +539,7 @@ end
 -- Keyboard input is on only while propagation is, so the window never holds keys it cannot pass on;
 -- in combat a stale false turns it off until combat ends.
 function Win.AssertPropagation()
-    local f = Win.frame
+    local f = Win.keys
     if InCombatLockdown() then
         if not f:GetPropagateKeyboardInput() then f:EnableKeyboard(false) end
         return
@@ -572,6 +572,17 @@ local function OnKeyDown(self, key)
         hooks.Close()
     end
     C_Timer.After(0, Win.AssertPropagation)
+end
+
+-- Keys go through this frame, made at login: propagation cannot be set in combat and the window is built on open.
+function Win.Prepare()
+    if Win.keys then return Win.keys end
+    local keys = CreateFrame("Frame")
+    keys:Hide()
+    keys:SetScript("OnKeyDown", OnKeyDown)
+    Win.keys = keys
+    Win.AssertPropagation()
+    return keys
 end
 
 local function BuildMotion(f)
@@ -693,8 +704,10 @@ function Win.Build(h)
     grab:SetScript("OnDragStop", function() DropSave(f) end)
 
     f.CloseButton:SetScript("OnClick", function() hooks.Close() end)
-    Win.AssertPropagation()
-    f:SetScript("OnKeyDown", OnKeyDown)
+    local keys = Win.Prepare()
+    keys:SetParent(f)
+    keys:SetAllPoints(f)
+    keys:Show()
 
     BuildHeader(f)
     BuildWell(f)
