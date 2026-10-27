@@ -147,6 +147,7 @@ read_globals = {
 
     -- Optional external addons
     "Baganator",
+    "KrowiEVU",
     "TomTom",
 }
 
