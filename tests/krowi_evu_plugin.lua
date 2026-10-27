@@ -17,7 +17,7 @@ CreateFrame = function()
 end
 
 MERCHANT_ITEMS_PER_PAGE = 10
-MerchantFrame = { page = 1, selectedTab = 1 }
+MerchantFrame = { page = 1, selectedTab = 1, IsShown = function() return true end }
 
 local links = {}
 for i = 1, 40 do links[i] = "item:" .. (5000 + i) end
@@ -96,7 +96,7 @@ assert(Overlay.externalRefreshers.krowiEVU, "refresher must be registered")
 local function newSlot(id)
     return {
         shown = true,
-        IsShown = function(self) return self.shown end,
+        IsVisible = function(self) return self.shown end,
         ItemButton = { id = id, GetID = function(self) return self.id end },
     }
 end
@@ -106,17 +106,32 @@ plugin:OnItemSlotUpdated(slot, 23)
 local overlay = slot.ItemButton.HousingAddonOverlay
 assert(painted[overlay] == "item5023", "slot must paint for the real index")
 
--- Ownership repaint reads the slot's current index.
-slot.ItemButton.id = 24
+-- Ownership repaint uses the index Krowi handed over, not GetID().
+slot.ItemButton.id = 99
 Overlay.externalRefreshers.krowiEVU()
-assert(painted[overlay] == "item5024", "refresher must repaint a shown slot")
+assert(painted[overlay] == "item5023", "refresher must repaint from the stored index")
 
 -- Hidden slots are skipped.
+painted[overlay] = nil
 slot.shown = false
-slot.ItemButton.id = 25
 Overlay.externalRefreshers.krowiEVU()
-assert(painted[overlay] == "item5024", "hidden slot must not repaint")
+assert(painted[overlay] == nil, "hidden slot must not repaint")
 slot.shown = true
+
+-- Nothing repaints while the vendor frame is hidden.
+MerchantFrame.IsShown = function() return false end
+Overlay.externalRefreshers.krowiEVU()
+assert(painted[overlay] == nil, "refresher must skip while the vendor is closed")
+MerchantFrame.IsShown = function() return true end
+Overlay.externalRefreshers.krowiEVU()
+assert(painted[overlay] == "item5023")
+
+-- An empty slot whose GetID still points at a real item stays clear.
+local stale = newSlot(7)
+plugin:OnItemSlotUpdated(stale, 7)
+plugin:OnItemSlotUpdated(stale, nil)
+Overlay.externalRefreshers.krowiEVU()
+assert(painted[stale.ItemButton.HousingAddonOverlay] == nil, "empty slot must stay clear on refresh")
 
 -- Empty slot clears; buyback tab clears.
 plugin:OnItemSlotUpdated(slot, nil)
@@ -154,6 +169,21 @@ waiter.scripts.OnEvent(waiter, "ADDON_LOADED", "SomeOtherAddon")
 assert(not registered.Homestead)
 KrowiEVU = { PluginsApi = { RegisterPlugin = function(_, name, p) registered[name] = (registered[name] and error("double register")) or p end } }
 waiter.scripts.OnEvent(waiter, "ADDON_LOADED", "Krowi_ExtendedVendorUI")
+waiter.scripts.OnEvent(waiter, "ADDON_LOADED", "Krowi_ExtendedVendorUI")
 assert(registered.Homestead and Overlay.externalRefreshers.krowiEVU)
+
+-- RegisterPlugin throwing: no Lua error, not marked registered, retried later.
+Overlay.externalRefreshers.krowiEVU = nil
+local attempts = 0
+KrowiEVU = { PluginsApi = { RegisterPlugin = function() attempts = attempts + 1; error("boom") end } }
+timers = {}
+eventFrames = {}
+assert(loadfile(root .. "/Overlay/KrowiEVU.lua"))("Homestead", HA)
+C_AddOns.IsAddOnLoaded = function() return true end
+for i = 1, #timers do timers[i]() end
+assert(attempts == 1 and Overlay.externalRefreshers.krowiEVU == nil, "failed register must not install the refresher")
+local retry = eventFrames[#eventFrames]
+retry.scripts.OnEvent(retry, "ADDON_LOADED", "Krowi_ExtendedVendorUI")
+assert(attempts == 2, "failed register must stay retryable")
 
 print("krowi_evu_plugin: all checks passed")

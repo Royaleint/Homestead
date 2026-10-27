@@ -13,7 +13,8 @@ local pairs = pairs
 local ADDON_NAME = "Krowi_ExtendedVendorUI"
 local BUYBACK_TAB = 2
 
--- Slots handed to us by Krowi, kept so ownership changes can repaint them.
+-- Slots handed to us by Krowi, mapped to the merchant index it last drew in
+-- them (false for an empty slot), so ownership changes can repaint them.
 local trackedSlots = {}
 local isRegistered = false
 local waitFrame
@@ -46,18 +47,16 @@ local plugin = {}
 
 function plugin:OnItemSlotUpdated(slot, index)
     if not slot then return end
-    trackedSlots[slot] = true
+    trackedSlots[slot] = index or false
     PaintSlot(slot, index)
 end
 
 local function RefreshSlots()
-    for slot in pairs(trackedSlots) do
-        if slot:IsShown() and slot.ItemButton then
-            local index = slot.ItemButton:GetID()
-            if not index or index < 1 then
-                index = nil
-            end
-            PaintSlot(slot, index)
+    if not (MerchantFrame and MerchantFrame:IsShown()) then return end
+
+    for slot, index in pairs(trackedSlots) do
+        if slot:IsVisible() then
+            PaintSlot(slot, index or nil)
         end
     end
 end
@@ -68,7 +67,14 @@ local function Register()
     local api = KrowiEVU and KrowiEVU.PluginsApi
     if not api or not api.RegisterPlugin then return false end
 
-    api:RegisterPlugin("Homestead", plugin)
+    local success, err = pcall(api.RegisterPlugin, api, "Homestead", plugin)
+    if not success then
+        if HA.Addon then
+            HA.Addon:Debug("Failed to register Krowi's Extended Vendor UI plugin:", err)
+        end
+        return false
+    end
+
     isRegistered = true
     Overlay:RegisterExternalRefresher("krowiEVU", RefreshSlots)
 
