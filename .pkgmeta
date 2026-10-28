@@ -21,6 +21,7 @@ ignore:
   - .git
   - .gitignore
   - .pkgmeta
+  - Libs/Foundry-1.0/PIN
   - .claude
   - .github
   - .luacheckrc
