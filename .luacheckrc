@@ -68,7 +68,7 @@ read_globals = {
     "ScrollUtil",
     "ScrollBoxListViewMixin",
     "TooltipDataProcessor",
-    "UIParent", "UISpecialFrames",
+    "UIParent",
     "MapCanvasDataProviderMixin",
     "Menu",
     "MenuUtil",

@@ -1,4 +1,3 @@
--- luacheck: push ignore 111 112 113
 -- Global-name and UISpecialFrames check. Plain Lua 5.1, no requires, no network.
 --
 -- Run from the repo root:  lua tests/globals_check.lua [<repo root>]
@@ -14,10 +13,17 @@
 -- minus Libs/ and anything .pkgmeta ignores. tests/ and the dev folders are not
 -- in the TOC, so they are never read.
 --
--- Limit: names built at run time ("Prefix" .. i) or held in a variable this
--- script cannot trace to a string constant in the same file cannot be resolved.
--- Such a call is reported as "unresolved" and fails until it is listed in
--- UNRESOLVED_TODAY; the list is empty on purpose.
+-- Limits: this is a text scan, not a Lua parser.
+--  * A name built at run time ("Prefix" .. i) or held in a variable that is not a
+--    statement-level `NAME = "x"` / `local NAME = "x"` / `T.NAME = "x"` constant in
+--    the same file (outside any table constructor, and never reused as a local or
+--    parameter) is "unresolved" and fails until its key is listed in UNRESOLVED_TODAY.
+--    The list is empty on purpose.
+--  * Aliases are not followed: `local G = _G; G.X = 1` and `local CF = CreateFrame`
+--    are invisible to the scan.
+--  * Named child regions (CreateFontString, CreateTexture, CreateAnimationGroup)
+--    also create globals when given a name; only CreateFrame and CreateFont are read.
+--  * XML names are compared as written, so "$parentTitle" is reported literally.
 --
 -- Every failure prints "FAIL (<id>) <path>: <detail>" and the run exits 1.
 -- A clean run prints "RESULT: OK" and exits 0.
@@ -37,12 +43,12 @@ local ALLOWED_TODAY = {
 	HomesteadDecorBrowserFooter = true,
 }
 
--- "<path>: <call>" keys for calls whose name cannot be resolved statically.
+-- "<path>: <call>(<argument text>)" keys for calls whose name cannot be resolved statically.
 local UNRESOLVED_TODAY = {}
 
 -- luacheck: globals assert loadfile print io os
 
-local root = (... or "."):gsub("\\\\", "/"):gsub("/+$", "")
+local root = (... or "."):gsub("\\", "/"):gsub("/+$", "")
 
 local fails = {}
 
@@ -168,16 +174,77 @@ local function literal(arg)
 	return arg:match('^"([^"\\]*)"$') or arg:match("^'([^'\\]*)'$")
 end
 
--- name -> string constant, for `NAME = "x"`, `local NAME = "x"` and `T.NAME = "x"`
--- in one file. A name assigned two different strings is dropped (ambiguous).
-local function constants(code)
-	local map, bad = {}, {}
-	for lhs, value in code:gmatch('([%a_][%w_%.]*)%s*=%s*"([^"\\\n]*)"') do
-		local key = lhs:match("([%w_]+)$")
-		if map[key] ~= nil and map[key] ~= value then
-			bad[key] = true
+-- Brace depth at the start of each line, counted on code with string contents
+-- and comments removed.
+local function depthByLine(code)
+	local bare = code:gsub('"[^"\\\n]*"', '""'):gsub("'[^'\\\n]*'", "''")
+	local depths, depth, n = {}, 0, 0
+	for line in (bare .. "\n"):gmatch("([^\n]*)\n") do
+		n = n + 1
+		depths[n] = depth
+		for c in line:gmatch("[{}]") do
+			depth = depth + (c == "{" and 1 or -1)
 		end
-		map[key] = value
+	end
+	return depths
+end
+
+-- name -> string constant, for statement-level `NAME = "x"`, `local NAME = "x"`
+-- and `T.NAME = "x"` (a whole line, outside any table constructor). A name that
+-- is assigned two different strings, or is also declared as a parameter, loop
+-- variable or another local in the file, is dropped (ambiguous).
+local function constants(code)
+	local depths = depthByLine(code)
+	local map, bad, n = {}, {}, 0
+	for line in (code .. "\n"):gmatch("([^\n]*)\n") do
+		n = n + 1
+		if depths[n] == 0 then
+			local lhs, value = line:match('^%s*local%s+([%a_][%w_]*)%s*=%s*"([^"\\]*)"%s*;?%s*$')
+			if not lhs then
+				lhs, value = line:match('^%s*([%a_][%w_%.]*)%s*=%s*"([^"\\]*)"%s*;?%s*$')
+			end
+			if lhs then
+				local key = lhs:match("([%w_]+)$")
+				if map[key] ~= nil and map[key] ~= value then
+					bad[key] = true
+				end
+				map[key] = value
+			end
+		end
+	end
+	local function shadow(list)
+		for id in list:gmatch("[%a_][%w_]*") do
+			if map[id] ~= nil then
+				bad[id] = true
+			end
+		end
+	end
+	for params in code:gmatch("function%s*[%w_%.:]*%s*%(([^)]*)%)") do
+		shadow(params)
+	end
+	for list in code:gmatch("%f[%w_]for%s+([%w_,%s]-)%s+in%f[%W]") do
+		shadow(list)
+	end
+	for list in code:gmatch("%f[%w_]for%s+([%a_][%w_]*)%s*=") do
+		shadow(list)
+	end
+	-- A second `local NAME` anywhere (the constant's own line counts once), or
+	-- NAME as a later name in a `local a, NAME` list.
+	local seenLocal = {}
+	for list in code:gmatch("%f[%w_]local%s+([%a_][%w_,%s]*)") do
+		local first = true
+		for id in list:gmatch("[%a_][%w_]*") do
+			if id == "function" then
+				break
+			end
+			if map[id] ~= nil then
+				seenLocal[id] = (seenLocal[id] or 0) + 1
+				if seenLocal[id] > 1 or not first then
+					bad[id] = true
+				end
+			end
+			first = false
+		end
 	end
 	for key in pairs(bad) do
 		map[key] = nil
@@ -185,7 +252,45 @@ local function constants(code)
 	return map
 end
 
--- Scans one Lua file. Returns { names = { {name, how} }, unresolved = { call },
+-- Is the access that ends at `pos` (just past `_G.x` or `_G[...]`) an assignment
+-- target? Covers `_G.A = v` and every target of `_G.A, _G.B = 1, 2`.
+local function isTarget(code, pos)
+	local i, n = pos, #code
+	while true do
+		i = code:find("%S", i) or n + 1
+		local c = code:sub(i, i)
+		if c == "=" then
+			return code:sub(i + 1, i + 1) ~= "="
+		elseif c ~= "," then
+			return false
+		end
+		-- Another assignment target must follow: a name with .field / [index] parts.
+		i = code:find("%S", i + 1) or n + 1
+		local id = code:match("^[%a_][%w_]*", i)
+		if not id then
+			return false
+		end
+		i = i + #id
+		while true do
+			local field = code:match("^%.[%a_][%w_]*", i)
+			if field then
+				i = i + #field
+			elseif code:sub(i, i) == "[" then
+				local depth, j = 1, i + 1
+				while j <= n and depth > 0 do
+					local d = code:sub(j, j)
+					depth = depth + (d == "[" and 1 or d == "]" and -1 or 0)
+					j = j + 1
+				end
+				i = j
+			else
+				break
+			end
+		end
+	end
+end
+
+-- Scans one Lua file. Returns { names = { {name, how} }, unresolved = { {key, line} },
 -- special = { line } }.
 local function scanLua(text)
 	local code = blankComments(text)
@@ -207,7 +312,7 @@ local function scanLua(text)
 		if resolved then
 			out.names[#out.names + 1] = { name = resolved, how = how }
 		else
-			out.unresolved[#out.unresolved + 1] = how .. "(" .. tostring(arg) .. ") line " .. lineOf(pos)
+			out.unresolved[#out.unresolved + 1] = { key = how .. "(" .. tostring(arg) .. ")", line = lineOf(pos) }
 		end
 	end
 
@@ -228,28 +333,31 @@ local function scanLua(text)
 		end
 	end
 
-	-- _G.X = v   _G["X"] = v   _G[expr] = v
-	for key in code:gmatch("%f[%w_]_G%.([%a_][%w_]*)%s*=[^=]") do
-		out.names[#out.names + 1] = { name = key, how = "_G write" }
-	end
+	-- _G.X = v   _G["X"] = v   _G[expr] = v   and every target of a multiple assignment
 	local init = 1
 	while true do
-		local s, e = code:find("%f[%w_]_G%s*%[", init)
+		local s, e = code:find("%f[%w_]_G%s*[%.%[]", init)
 		if not s then
 			break
 		end
-		local depth, i, n = 1, e + 1, #code
-		while i <= n and depth > 0 do
-			local c = code:sub(i, i)
-			if c == "[" then
-				depth = depth + 1
-			elseif c == "]" then
-				depth = depth - 1
+		local arg, after
+		if code:sub(e, e) == "." then
+			arg = code:match("^[%a_][%w_]*", e + 1)
+			if arg then
+				after = e + 1 + #arg
+				arg = '"' .. arg .. '"'
 			end
-			i = i + 1
+		else
+			local depth, i, n = 1, e + 1, #code
+			while i <= n and depth > 0 do
+				local c = code:sub(i, i)
+				depth = depth + (c == "[" and 1 or c == "]" and -1 or 0)
+				i = i + 1
+			end
+			arg, after = trim(code:sub(e + 1, i - 2)), i
 		end
-		if code:match("^%s*=[^=]", i) then
-			record(trim(code:sub(e + 1, i - 2)), "_G write", s)
+		if arg and isTarget(code, after) then
+			record(arg, "_G write", s)
 		end
 		init = e + 1
 	end
@@ -279,13 +387,19 @@ local function scanLua(text)
 	return out
 end
 
--- Scans one XML file: name="..." attributes and file="..." includes.
-local function scanXml(text)
-	local plain = text:gsub("<!%-%-.-%-%->", function(c)
+local function stripXmlComments(text)
+	return (text:gsub("<!%-%-.-%-%->", function(c)
 		return (c:gsub("[^\n]", " "))
-	end)
-	local names, includes = {}, {}
-	for name in plain:gmatch("%sname%s*=%s*\"([^\"]*)\"") do
+	end))
+end
+
+-- Scans one XML file. Returns the name="..." attributes, the file="..." includes,
+-- the Lua text of inline <Scripts>/<Script> bodies, and whether the comment-free
+-- XML mentions UISpecialFrames anywhere.
+local function scanXml(text)
+	local plain = stripXmlComments(text)
+	local names, includes, bodies = {}, {}, {}
+	for _, name in plain:gmatch("%sname%s*=%s*([\"'])(.-)%1") do
 		names[#names + 1] = { name = name, how = "XML name" }
 	end
 	for tag, file in plain:gmatch("<(%a+)[^>]-%sfile%s*=%s*\"([^\"]*)\"") do
@@ -293,7 +407,22 @@ local function scanXml(text)
 			includes[#includes + 1] = file
 		end
 	end
-	return { names = names, includes = includes }
+	-- Inline Lua: the inside of every <Scripts> block, and <Script> without file=.
+	local function body(inner)
+		inner = inner:gsub("<!%[CDATA%[", ""):gsub("%]%]>", "")
+		inner = inner:gsub("</?%a[^>]*>", "\n")
+		inner = inner:gsub("&lt;", "<"):gsub("&gt;", ">"):gsub("&quot;", '"'):gsub("&apos;", "'"):gsub("&amp;", "&")
+		bodies[#bodies + 1] = inner
+	end
+	for inner in plain:gmatch("<Scripts>(.-)</Scripts>") do
+		body(inner)
+	end
+	for attrs, inner in plain:gmatch("<Script(%f[%s>][^>]*)>(.-)</Script>") do
+		if not attrs:find("file%s*=") then
+			body(inner)
+		end
+	end
+	return { names = names, includes = includes, bodies = bodies, special = plain:find("UISpecialFrames", 1, true) ~= nil }
 end
 
 local function normalize(path)
@@ -393,30 +522,41 @@ local function check(files, readText, declared, allowed, unresolvedOk)
 	local function add(id, path, detail)
 		problems[#problems + 1] = { id, path, detail }
 	end
+	local function report(path, r, how)
+		for _, hit in ipairs(r.names) do
+			if not declared[hit.name] and not allowed[hit.name] then
+				add("name", path, hit.how .. ' creates global "' .. hit.name .. '" (not in .luacheckrc globals or the allowlist)' .. how)
+			end
+		end
+		for _, call in ipairs(r.unresolved) do
+			if not unresolvedOk[path .. ": " .. call.key] then
+				add("unresolved", path, "name cannot be resolved statically: " .. call.key .. " near line " .. call.line .. how)
+			end
+		end
+	end
+	local specialHint = " (Escape is wired with SetScript/OnKeyDown, never by inserting here)"
 	for _, path in ipairs(files) do
 		local text = readText(path)
 		if not text then
 			add("read", path, "listed in the TOC but cannot be read")
 		elseif path:match("%.lua$") then
 			local r = scanLua(text)
-			for _, hit in ipairs(r.names) do
-				if not declared[hit.name] and not allowed[hit.name] then
-					add("name", path, hit.how .. ' creates global "' .. hit.name .. '" (not in .luacheckrc globals or the allowlist)')
-				end
-			end
-			for _, call in ipairs(r.unresolved) do
-				if not unresolvedOk[path .. ": " .. call] then
-					add("unresolved", path, "name cannot be resolved statically: " .. call)
-				end
-			end
+			report(path, r, "")
 			for _, where in ipairs(r.special) do
-				add("uispecial", path, "UISpecialFrames is mentioned at " .. where .. " (Escape is wired with SetScript/OnKeyDown, never by inserting here)")
+				add("uispecial", path, "UISpecialFrames is mentioned at " .. where .. specialHint)
 			end
 		elseif path:match("%.xml$") then
-			for _, hit in ipairs(scanXml(text).names) do
+			local x = scanXml(text)
+			for _, hit in ipairs(x.names) do
 				if not declared[hit.name] and not allowed[hit.name] then
 					add("name", path, 'XML name="' .. hit.name .. '" (not in .luacheckrc globals or the allowlist)')
 				end
+			end
+			for _, body in ipairs(x.bodies) do
+				report(path, scanLua(body), " (inline script)")
+			end
+			if x.special then
+				add("uispecial", path, "UISpecialFrames is mentioned" .. specialHint)
 			end
 		end
 	end
@@ -439,8 +579,27 @@ local function selfCheck()
 			'tinsert(UISpecialFrames, "X")',
 			'-- CreateFrame("Frame", "HomesteadFixtureInComment")',
 			'local same = _G.Minimap == nil',
+			'_G.HomesteadFixtureMultiA, _G.HomesteadFixtureMultiB = 1, 2',
+			'print(_G.HomesteadFixtureArgA, _G.HomesteadFixtureArgB)',
+			'local Layout = { PANEL = "HomesteadFixtureField" }',
+			'local function make(PANEL) return CreateFrame("Frame", PANEL, UIParent) end',
+			"local h = CreateFrame('Frame', 'HomesteadFixtureSingle', UIParent)",
+			"local T = {",
+			'    PANEL = "HomesteadFixtureField"',
+			"}",
 		}, "\n"),
-		["b.xml"] = '<Ui><!-- <Frame name="HomesteadFixtureXmlComment"/> --><Frame name="HomesteadFixtureXml" virtual="true"/></Ui>',
+		["b.xml"] = table.concat({
+			'<Ui><!-- <Frame name="HomesteadFixtureXmlComment"/> -->',
+			'<Frame name="HomesteadFixtureXml" virtual="true"/>',
+			"<Frame name='HomesteadFixtureXmlSingle'/>",
+			'<Frame><Scripts><OnLoad>_G.HomesteadFixtureXmlWrite = 1',
+			'tinsert(UISpecialFrames, self:GetName())',
+			'local x = CreateFrame("Frame", "HomesteadFixtureXmlFrame")',
+			'if 1 &lt; 2 then end</OnLoad></Scripts></Frame>',
+			'<Script><![CDATA[ _G.HomesteadFixtureXmlCdata = 1 ]]></Script>',
+			'<!-- <Scripts><OnLoad>_G.HomesteadFixtureXmlCommented = 1</OnLoad></Scripts> -->',
+			'</Ui>',
+		}, "\n"),
 	}
 	local function read(path)
 		return fixture[path]
@@ -456,22 +615,42 @@ local function selfCheck()
 		'"HomesteadFixtureConst"',
 		'"HomesteadFixtureWrite"',
 		'"HomesteadFixtureIndexed"',
+		'"HomesteadFixtureMultiA"',
+		'"HomesteadFixtureMultiB"',
+		'"HomesteadFixtureSingle"',
 		'XML name="HomesteadFixtureXml"',
+		'XML name="HomesteadFixtureXmlSingle"',
 		'name cannot be resolved statically: _G write(',
 		"UISpecialFrames is mentioned at line 9",
+		-- the parameter PANEL shares its name with a table field, and must not resolve
+		"name cannot be resolved statically: CreateFrame(PANEL) near line 15",
+		-- inline XML scripts
+		'"HomesteadFixtureXmlWrite" (not in .luacheckrc globals or the allowlist) (inline script)',
+		'"HomesteadFixtureXmlFrame" (not in .luacheckrc globals or the allowlist) (inline script)',
+		'"HomesteadFixtureXmlCdata"',
 	}
 	for _, want in ipairs(expected) do
 		if not text:find(want, 1, true) then
 			fail("self", "tests/globals_check.lua", "scanner missed: " .. want)
 		end
 	end
-	for _, bad in ipairs({ "InComment", "XmlComment", "Minimap" }) do
+	local xmlSpecial = false
+	for _, p in ipairs(problems) do
+		xmlSpecial = xmlSpecial or (p[1] == "uispecial" and p[2] == "b.xml")
+	end
+	if not xmlSpecial then
+		fail("self", "tests/globals_check.lua", "scanner missed: UISpecialFrames in an inline XML script")
+	end
+	for _, bad in ipairs({ "InComment", "XmlComment", "Minimap", "ArgA", "ArgB", "XmlCommented", "HomesteadFixtureField" }) do
 		if text:find(bad, 1, true) then
 			fail("self", "tests/globals_check.lua", "scanner flagged something it should skip: " .. bad)
 		end
 	end
-	local allowedOk = check({ "a.lua" }, read, { HomesteadFixtureNamed = true, HomesteadFixtureConst = true, HomesteadFixtureWrite = true, HomesteadFixtureIndexed = true }, {}, {})
-	for _, p in ipairs(allowedOk) do
+	local declared = {}
+	for _, name in ipairs({ "Named", "Const", "Write", "Indexed", "MultiA", "MultiB", "Single" }) do
+		declared["HomesteadFixture" .. name] = true
+	end
+	for _, p in ipairs(check({ "a.lua" }, read, declared, {}, {})) do
 		if p[1] == "name" then
 			fail("self", "tests/globals_check.lua", "a declared name was still flagged: " .. p[3])
 		end
@@ -509,4 +688,3 @@ for _, p in ipairs(check(files, readRoot, declared, ALLOWED_TODAY, UNRESOLVED_TO
 end
 
 finish()
--- luacheck: pop
