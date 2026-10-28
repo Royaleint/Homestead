@@ -174,6 +174,28 @@ local function literal(arg)
 	return arg:match('^"([^"\\]*)"$') or arg:match("^'([^'\\]*)'$")
 end
 
+local isTarget
+
+-- Is `pos` inside an unclosed table constructor (a { ... } with no function body
+-- opened since)? `bare` is the code with string contents blanked.
+local function inConstructor(bare, pos)
+	local stack, init = {}, 1
+	while true do
+		local s = bare:find("[{}]", init)
+		if not s or s > pos then
+			break
+		end
+		if bare:sub(s, s) == "{" then
+			stack[#stack + 1] = s
+		else
+			stack[#stack] = nil
+		end
+		init = s + 1
+	end
+	local top = stack[#stack]
+	return top ~= nil and not bare:sub(top, pos):find("%f[%w_]function%f[%W]")
+end
+
 -- Brace depth at the start of each line, counted on code with string contents
 -- and comments removed.
 local function depthByLine(code)
@@ -204,11 +226,10 @@ local function constants(code)
 				lhs, value = line:match('^%s*([%a_][%w_%.]*)%s*=%s*"([^"\\]*)"%s*;?%s*$')
 			end
 			if lhs then
-				local key = lhs:match("([%w_]+)$")
-				if map[key] ~= nil and map[key] ~= value then
-					bad[key] = true
+				if map[lhs] ~= nil and map[lhs] ~= value then
+					bad[lhs] = true
 				end
-				map[key] = value
+				map[lhs] = value
 			end
 		end
 	end
@@ -246,6 +267,16 @@ local function constants(code)
 			first = false
 		end
 	end
+	-- Any assignment to the name whose value is not the same string literal.
+	for id, after in code:gmatch("([%a_][%w_%.]*)()") do
+		local value = map[id]
+		if value ~= nil and isTarget(code, after) then
+			local rest = code:match("^[ \t]*=[ \t]*([^\n]*)", after)
+			if not rest or rest:match('^"([^"\\]*)"%s*;?%s*$') ~= value then
+				bad[id] = true
+			end
+		end
+	end
 	for key in pairs(bad) do
 		map[key] = nil
 	end
@@ -253,15 +284,17 @@ local function constants(code)
 end
 
 -- Is the access that ends at `pos` (just past `_G.x` or `_G[...]`) an assignment
--- target? Covers `_G.A = v` and every target of `_G.A, _G.B = 1, 2`.
-local function isTarget(code, pos)
+-- target? Covers `_G.A = v` and every target of `_G.A, _G.B = 1, 2`; with
+-- `allowChain` false only a direct `= v` counts (inside a table constructor,
+-- `{ _G.X, key = 1 }` is a positional value followed by a keyed field).
+function isTarget(code, pos, allowChain)
 	local i, n = pos, #code
 	while true do
 		i = code:find("%S", i) or n + 1
 		local c = code:sub(i, i)
 		if c == "=" then
 			return code:sub(i + 1, i + 1) ~= "="
-		elseif c ~= "," then
+		elseif c ~= "," or allowChain == false then
 			return false
 		end
 		-- Another assignment target must follow: a name with .field / [index] parts.
@@ -292,14 +325,20 @@ end
 
 -- Scans one Lua file. Returns { names = { {name, how} }, unresolved = { {key, line} },
 -- special = { line } }.
-local function scanLua(text)
+local function scanLua(text, lineBase)
 	local code = blankComments(text)
 	local consts = constants(code)
 	local out = { names = {}, unresolved = {}, special = {} }
+	local function blank(s)
+		return (" "):rep(#s)
+	end
+	local bare = code:gsub('"[^"\\\n]*"', blank):gsub("'[^'\\\n]*'", blank)
 
+	-- Line numbers are relative to `text`; `lineBase` shifts them to the file line
+	-- when `text` is an inline XML script.
 	local function lineOf(pos)
 		local _, count = code:sub(1, pos):gsub("\n", "")
-		return count + 1
+		return count + 1 + (lineBase or 0)
 	end
 
 	local function record(arg, how, pos)
@@ -308,7 +347,7 @@ local function scanLua(text)
 			out.names[#out.names + 1] = { name = name, how = how }
 			return
 		end
-		local resolved = arg and arg:match("^[%a_][%w_%.]*$") and consts[arg:match("([%w_]+)$")]
+		local resolved = arg and consts[arg]
 		if resolved then
 			out.names[#out.names + 1] = { name = resolved, how = how }
 		else
@@ -356,7 +395,7 @@ local function scanLua(text)
 			end
 			arg, after = trim(code:sub(e + 1, i - 2)), i
 		end
-		if arg and isTarget(code, after) then
+		if arg and isTarget(code, after, not inConstructor(bare, s)) then
 			record(arg, "_G write", s)
 		end
 		init = e + 1
@@ -387,42 +426,58 @@ local function scanLua(text)
 	return out
 end
 
+-- Same-length copy of `s` with everything but newlines turned into spaces.
+local function blankKeepLines(s)
+	return (s:gsub("[^\n]", " "))
+end
+
 local function stripXmlComments(text)
-	return (text:gsub("<!%-%-.-%-%->", function(c)
-		return (c:gsub("[^\n]", " "))
-	end))
+	return (text:gsub("<!%-%-.-%-%->", blankKeepLines))
 end
 
 -- Scans one XML file. Returns the name="..." attributes, the file="..." includes,
--- the Lua text of inline <Scripts>/<Script> bodies, and whether the comment-free
--- XML mentions UISpecialFrames anywhere.
+-- the Lua text of inline <Scripts>/<Script> bodies (each with the number of file
+-- lines before it), and the line of the first UISpecialFrames mention in the
+-- comment-free XML, if any.
 local function scanXml(text)
 	local plain = stripXmlComments(text)
 	local names, includes, bodies = {}, {}, {}
-	for _, name in plain:gmatch("%sname%s*=%s*([\"'])(.-)%1") do
-		names[#names + 1] = { name = name, how = "XML name" }
-	end
 	for tag, file in plain:gmatch("<(%a+)[^>]-%sfile%s*=%s*\"([^\"]*)\"") do
 		if tag == "Include" or tag == "Script" then
 			includes[#includes + 1] = file
 		end
 	end
-	-- Inline Lua: the inside of every <Scripts> block, and <Script> without file=.
-	local function body(inner)
-		inner = inner:gsub("<!%[CDATA%[", ""):gsub("%]%]>", "")
-		inner = inner:gsub("</?%a[^>]*>", "\n")
+	-- A self-closing <Script .../> has no body; blank it so the next paired
+	-- <Script> is not read as its partner.
+	local paired = plain:gsub("<Script%f[%s>][^>]-/>", blankKeepLines)
+	local scriptless = paired:gsub("<Scripts>.-</Scripts>", blankKeepLines)
+		:gsub("<Script%f[%s>][^>]*>.-</Script>", blankKeepLines)
+	for _, name in scriptless:gmatch("%sname%s*=%s*([\"'])(.-)%1") do
+		names[#names + 1] = { name = name, how = "XML name" }
+	end
+	-- Inline Lua: the inside of every <Scripts> block and of <Script> without file=.
+	local function body(start, inner)
+		inner = inner:gsub("<!%[CDATA%[", blankKeepLines):gsub("%]%]>", blankKeepLines)
+		inner = inner:gsub("</?%a[^>]*>", blankKeepLines)
 		inner = inner:gsub("&lt;", "<"):gsub("&gt;", ">"):gsub("&quot;", '"'):gsub("&apos;", "'"):gsub("&amp;", "&")
-		bodies[#bodies + 1] = inner
+		local _, before = paired:sub(1, start):gsub("\n", "")
+		bodies[#bodies + 1] = { text = inner, lineBase = before }
 	end
-	for inner in plain:gmatch("<Scripts>(.-)</Scripts>") do
-		body(inner)
+	for start, inner in paired:gmatch("<Scripts>()(.-)</Scripts>") do
+		body(start, inner)
 	end
-	for attrs, inner in plain:gmatch("<Script(%f[%s>][^>]*)>(.-)</Script>") do
+	for attrs, start, inner in paired:gmatch("<Script(%f[%s>][^>]*)>()(.-)</Script>") do
 		if not attrs:find("file%s*=") then
-			body(inner)
+			body(start, inner)
 		end
 	end
-	return { names = names, includes = includes, bodies = bodies, special = plain:find("UISpecialFrames", 1, true) ~= nil }
+	local special
+	local at = plain:find("UISpecialFrames", 1, true)
+	if at then
+		local _, before = plain:sub(1, at):gsub("\n", "")
+		special = before + 1
+	end
+	return { names = names, includes = includes, bodies = bodies, special = special }
 end
 
 local function normalize(path)
@@ -553,10 +608,10 @@ local function check(files, readText, declared, allowed, unresolvedOk)
 				end
 			end
 			for _, body in ipairs(x.bodies) do
-				report(path, scanLua(body), " (inline script)")
+				report(path, scanLua(body.text, body.lineBase), " (inline script)")
 			end
 			if x.special then
-				add("uispecial", path, "UISpecialFrames is mentioned" .. specialHint)
+				add("uispecial", path, "UISpecialFrames is mentioned at line " .. x.special .. specialHint)
 			end
 		end
 	end
@@ -581,12 +636,19 @@ local function selfCheck()
 			'local same = _G.Minimap == nil',
 			'_G.HomesteadFixtureMultiA, _G.HomesteadFixtureMultiB = 1, 2',
 			'print(_G.HomesteadFixtureArgA, _G.HomesteadFixtureArgB)',
-			'local Layout = { PANEL = "HomesteadFixtureField" }',
-			'local function make(PANEL) return CreateFrame("Frame", PANEL, UIParent) end',
+			'local PARAMNAME = "HomesteadFixtureParam"',
+			'local function make(PARAMNAME) return CreateFrame("Frame", PARAMNAME, UIParent) end',
 			"local h = CreateFrame('Frame', 'HomesteadFixtureSingle', UIParent)",
 			"local T = {",
-			'    PANEL = "HomesteadFixtureField"',
+			'    FIELDNAME = "HomesteadFixtureField"',
 			"}",
+			'local u = CreateFrame("Frame", FIELDNAME, UIParent)',
+			'LayoutProbe.PROBE_NAME = "HomesteadFixtureDotted"',
+			'local d = CreateFrame("Frame", opts.PROBE_NAME, UIParent)',
+			'local REASSIGN = "HomesteadFixtureReassign"',
+			'local function r() REASSIGN = x end',
+			'local e = CreateFrame("Frame", REASSIGN, UIParent)',
+			'local pos = { _G.HomesteadFixturePositional, key = 1 }',
 		}, "\n"),
 		["b.xml"] = table.concat({
 			'<Ui><!-- <Frame name="HomesteadFixtureXmlComment"/> -->',
@@ -597,6 +659,9 @@ local function selfCheck()
 			'local x = CreateFrame("Frame", "HomesteadFixtureXmlFrame")',
 			'if 1 &lt; 2 then end</OnLoad></Scripts></Frame>',
 			'<Script><![CDATA[ _G.HomesteadFixtureXmlCdata = 1 ]]></Script>',
+			'<Script file="Other.lua"/>',
+			'<Script>_G.HomesteadFixtureXmlAfterSelf = 1; local name = "ScriptLocalName"',
+			'CreateFrame("Frame", scriptVar)</Script>',
 			'<!-- <Scripts><OnLoad>_G.HomesteadFixtureXmlCommented = 1</OnLoad></Scripts> -->',
 			'</Ui>',
 		}, "\n"),
@@ -622,12 +687,18 @@ local function selfCheck()
 		'XML name="HomesteadFixtureXmlSingle"',
 		'name cannot be resolved statically: _G write(',
 		"UISpecialFrames is mentioned at line 9",
-		-- the parameter PANEL shares its name with a table field, and must not resolve
-		"name cannot be resolved statically: CreateFrame(PANEL) near line 15",
+		-- a parameter, a table field, a dotted path and a reassigned constant must not resolve
+		"name cannot be resolved statically: CreateFrame(PARAMNAME) near line 15",
+		"name cannot be resolved statically: CreateFrame(FIELDNAME) near line 20",
+		"name cannot be resolved statically: CreateFrame(opts.PROBE_NAME) near line 22",
+		"name cannot be resolved statically: CreateFrame(REASSIGN) near line 25",
 		-- inline XML scripts
 		'"HomesteadFixtureXmlWrite" (not in .luacheckrc globals or the allowlist) (inline script)',
 		'"HomesteadFixtureXmlFrame" (not in .luacheckrc globals or the allowlist) (inline script)',
 		'"HomesteadFixtureXmlCdata"',
+		'"HomesteadFixtureXmlAfterSelf"',
+		-- inline-script hits carry XML file lines
+		"name cannot be resolved statically: CreateFrame(scriptVar) near line 11 (inline script)",
 	}
 	for _, want in ipairs(expected) do
 		if not text:find(want, 1, true) then
@@ -641,7 +712,8 @@ local function selfCheck()
 	if not xmlSpecial then
 		fail("self", "tests/globals_check.lua", "scanner missed: UISpecialFrames in an inline XML script")
 	end
-	for _, bad in ipairs({ "InComment", "XmlComment", "Minimap", "ArgA", "ArgB", "XmlCommented", "HomesteadFixtureField" }) do
+	local skip = { "InComment", "XmlComment", "Minimap", "ArgA", "ArgB", "XmlCommented", "HomesteadFixtureField", "HomesteadFixtureParam", "HomesteadFixtureDotted", "HomesteadFixtureReassign", "Positional", "ScriptLocalName" }
+	for _, bad in ipairs(skip) do
 		if text:find(bad, 1, true) then
 			fail("self", "tests/globals_check.lua", "scanner flagged something it should skip: " .. bad)
 		end
