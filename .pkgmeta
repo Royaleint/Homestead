@@ -21,6 +21,7 @@ ignore:
   - .git
   - .gitignore
   - .pkgmeta
+  - Libs/Foundry-1.0/PIN
   - .claude
   - .github
   - .luacheckrc
@@ -51,7 +52,6 @@ ignore:
   - Data/SourceTextParserTests.lua
   - Modules/Validation.lua
   - Modules/ExportImport.lua
-  - UI/OutputWindow.lua
   # HS-351/HS-284: the test suite (plain Lua harnesses invoked outside the
   # TOC, never loaded in-game) was shipping to every player who downloaded a
   # release zip -- no ignore entry existed for it at all.

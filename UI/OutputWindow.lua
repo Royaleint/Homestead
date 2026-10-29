@@ -1,10 +1,6 @@
 --[[
     Homestead - OutputWindow
     Reusable popup window for displaying command output
-
-    Dev-only (HS-537): its only consumers are the dev-only validation and
-    export modules, so it is never listed in Homestead.toc and is excluded
-    from the packaged zip (.pkgmeta); the DevBuild TOC loads it before them.
 ]]
 
 local _, HA = ...

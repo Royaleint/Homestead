@@ -259,7 +259,7 @@ local function OnUserWaypointUpdated()
     StopArrivalCheck()
 
     if HA.Addon then
-        HA.Addon:Debug("Waypoints: native waypoint changed externally — releasing our claim")
+        HA.Addon:Debug("Waypoints: native waypoint changed externally, releasing our claim")
     end
 end
 

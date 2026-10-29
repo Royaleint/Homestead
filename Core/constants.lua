@@ -14,8 +14,8 @@ local Constants = HA.Constants
 -------------------------------------------------------------------------------
 -- Version Info
 -------------------------------------------------------------------------------
-Constants.VERSION = "2.14.1"
-Constants.RELEASE_DATE = "2026-10-16"   -- ISO YYYY-MM-DD. Bump alongside VERSION.
+Constants.VERSION = "2.14.2"
+Constants.RELEASE_DATE = "2026-10-22"   -- ISO YYYY-MM-DD. Bump alongside VERSION.
 Constants.ADDON_NAME = "Homestead"
 Constants.ADDON_SHORT = "HS"
 Constants.WELCOME_SEEN_VERSION_MAX = 4
@@ -521,6 +521,13 @@ Constants.Defaults = {
         -- Vendor scanning settings
         vendorScanning = {
             enabled = true,  -- Auto-scan merchants for housing decor data
+        },
+
+        -- Decor Browser. position is absent until the player moves the window.
+        browser = {
+            hideNA = false,
+            tipSeen = false,
+            model3D = true,  -- the item page's 3D preview
         },
 
         -- Version-check notifications (HS-086)

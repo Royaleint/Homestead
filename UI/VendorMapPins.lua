@@ -1075,7 +1075,9 @@ local function CollectVendorPinRecords(self, mapID, validMapIDs, filter, renderS
         for npcID, scannedData in pairs(HA.Addon.db.global.scannedVendors) do
             -- Only process if this scanned vendor's mapID matches the current map or a child map
             -- AND we haven't already added this vendor from static data
-            if validMapIDs[scannedData.mapID] and not addedVendors[npcID] then
+            -- HS-532: a saved scan never shows a holiday vendor outside its holiday.
+            if validMapIDs[scannedData.mapID] and not addedVendors[npcID]
+                    and not HA.VendorData:IsHolidayVendorHidden(npcID) then
                 scannedFallbackCount = scannedFallbackCount + 1
                 -- Try to get full vendor info from static data, fall back to scanned data
                 local vendor = HA.VendorData:GetVendor(npcID)
@@ -1097,6 +1099,9 @@ local function CollectVendorPinRecords(self, mapID, validMapIDs, filter, renderS
             end
         end
     end
+
+    -- HS-536: display-only offset for pins that would cover each other.
+    MPP.AssignOverlapNudge(renderState.vendorPins, "x", "y")
 
     if shouldLogSilvermoonDebug then
         local renderedVendorPins = #renderState.vendorPins - startVendorPinCount

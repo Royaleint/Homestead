@@ -51,8 +51,8 @@ L["Navigate modifier key"] = "Tecla modificadora de navegação"
 L["Collection: %d / %d (%d%%)"] = "Coleção: %d / %d (%d%%)"
 L["Vendors nearby: %d"] = "Comerciantes próximos: %d"
 L["Vendors scanned: %d"] = "Comerciantes escaneados: %d"
-L["Left-Click: Toggle options"] = "|cFFFFFFFFClique esquerdo:|r Abrir/fechar opções"
-L["Right-Click: Detach/close vendor panel"] = "|cFFFFFFFFClique direito:|r Desacoplar/fechar painel de comerciantes"
+L["Left-Click: Toggle Decor Browser"] = "|cFFFFFFFFClique esquerdo:|r Abrir/fechar o navegador de decoração"
+L["Right-Click: Open options"] = "|cFFFFFFFFClique direito:|r Abrir opções"
 
 -------------------------------------------------------------------------------
 -- Slash Commands
@@ -107,6 +107,13 @@ L["Continent Collection Progress"] = "Progresso da coleção no continente"
 L["Global Collection Progress"] = "Progresso global da coleção"
 L["Order Hall"] = "Salão de Classe"
 L["Click to preview"] = "Clique para ver a prévia"
+
+-------------------------------------------------------------------------------
+-- Output Window
+-------------------------------------------------------------------------------
+L["Output"] = "Saída"
+L["Select All"] = "Selecionar todos"
+L["All text selected. Press Ctrl+C to copy to clipboard."] = "Todo o texto foi selecionado. Pressione Ctrl+C para copiar para a área de transferência."
 
 -------------------------------------------------------------------------------
 -- Options - Names
@@ -242,3 +249,246 @@ L["None (always)"] = "Nenhuma (sempre)"
 
 -- Misc
 L["Approximate map appearance"] = "Aparência aproximada no mapa"
+
+-------------------------------------------------------------------------------
+-- Decor Browser: data adapter
+-------------------------------------------------------------------------------
+L["Unknown"] = "Desconhecido"
+L["A vendor"] = "Um vendedor"
+L["Required"] = "Necessário"
+L["Unknown faction"] = "Facção desconhecida"
+L["Other requirement"] = "Outro requisito"
+L["Source unknown"] = "Origem desconhecida"
+L["Item %d"] = "Item %d"
+L["%s %s"] = "%s %s"
+L["%s, %s"] = "%s, %s"
+L["%s: %s"] = "%s: %s"
+L["%s with %s"] = "%s com %s"
+L["Level %s"] = "Nível %s"
+L["Achievement: %s"] = "Conquista: %s"
+L["Quest: %s"] = "Missão: %s"
+L["Promotion: %s"] = "Promoção: %s"
+L["Profession: %s"] = "Profissão: %s"
+L["Profession: %s rank %s"] = "Profissão: %s, nível %s"
+L["Vendor: %s"] = "Comerciante: %s"
+L["Vendor: %s, %s"] = "Comerciante: %s, %s"
+L["Crafted: %s - %s"] = "Fabricado: %s - %s"
+L["Drops from %s"] = "Saque de %s"
+L["Drops from %s (%s)"] = "Saque de %s (%s)"
+L["Event: %s"] = "Evento: %s"
+L["Event: %s - %s"] = "Evento: %s - %s"
+L["Other source"] = "Outra origem"
+
+-- Decor Browser: visuals and widgets
+L["Set waypoint"] = "Definir ponto de rota"
+
+-- Decor Browser: window and navigation
+L["Homestead Decor"] = "Decoração do Homestead"
+L["Overview"] = "Visão geral"
+L["Catalog"] = "Catálogo"
+L["Back"] = "Voltar"
+L["Other Vendors"] = "Outros comerciantes"
+L["%d of %d decor collected"] = "%d de %d decorações coletadas"
+L["%d of %d collected"] = "%d de %d coletadas"
+L["Help"] = "Ajuda"
+L["Hide collected and other-faction"] = "Ocultar coletado e facção oposta"
+L["Hides decor you have collected, vendors with nothing left to collect, and anything only the other faction can get."] = "Oculta decorações coletadas, comerciantes sem nada mais para coletar e tudo o que só a facção oposta pode obter."
+L["Opens a page explaining this window."] = "Abre uma página que explica esta janela."
+L["The Decor Browser opens once Homestead has finished loading."] = "O navegador de decoração abre assim que o Homestead terminar de carregar."
+L["Collection"] = "Coleção"
+L["Placed"] = "Colocadas"
+L["In storage"] = "No armazenamento"
+L["Not yet redeemed"] = "Ainda não resgatado"
+L["Counts not loaded yet"] = "Contagens ainda não carregadas"
+L["Source"] = "Origem"
+L["Price"] = "Preço"
+
+-- Decor Browser: shop and item pages
+L["Seasonal: %s"] = "Sazonal: %s"
+L["Rotates with the %s Endeavor"] = "Alterna com a Empreitada %s"
+L["Rotates with neighborhood Endeavors"] = "Alterna com as Empreitadas da vizinhança"
+L["Not available in combat"] = "Indisponível em combate"
+L["Report a data error"] = "Relatar um erro nos dados"
+L["Item: %s (%d)"] = "Item: %s (%d)"
+L["Record ID: %s"] = "ID do registro: %s"
+L["none"] = "nenhum"
+L["no location"] = "sem local"
+L["map %d at %.1f, %.1f"] = "mapa %d em %.1f, %.1f"
+L["Vendor %d: %s, %s, %s"] = "Comerciante %d: %s, %s, %s"
+L["Client: %s (%s)"] = "Cliente: %s (%s)"
+L["Homestead: %s"] = "Homestead: %s"
+
+-- Decor Browser: entry points
+L["Toggle Decor Browser"] = "Abrir/fechar o navegador de decoração"
+L["Open the Decor Browser, or bind a key under Keybindings > Homestead"] = "Abre o navegador de decoração, ou atribua uma tecla em Atalhos > Homestead"
+L["Minimap button"] = "Botão do minimapa"
+L["Left-click opens the Decor Browser, right-click opens options"] = "O clique esquerdo abre o navegador de decoração e o clique direito abre as opções"
+L["The Decor Browser is not available yet."] = "O navegador de decoração ainda não está disponível."
+
+-- Welcome window
+L["Find every decor vendor on your map and see what you own before you buy."] = "Encontre todos os comerciantes de decoração no seu mapa e veja o que você já possui antes de comprar."
+L["What Homestead Does"] = "O que o Homestead faz"
+L["Every decor vendor pinned on your world map and minimap, with badges showing how many items you still need per zone."] = "Todos os comerciantes de decoração marcados no mapa-múndi e no minimapa, com selos que mostram quantos itens ainda faltam em cada zona."
+L["Map Side Panel"] = "Painel lateral do mapa"
+L["Click the Homestead button on the world map to open the side panel listing that zone's vendors, then click any vendor to browse their wares and see what you still need. Pop it out as a standalone window with |cFF00FF00/hs panel|r."] = "Clique no botão do Homestead no mapa-múndi para abrir o painel lateral com os comerciantes da zona e depois clique em qualquer um para ver as mercadorias e o que ainda falta. Destaque-o como janela independente com |cFF00FF00/hs panel|r."
+L["Tooltips Expanded"] = "Dicas de Interface expandidas"
+L["Every item in the Housing Catalog gets tooltips showing where it comes from (vendor, quest, achievement, profession, or drop), what it costs, and what you need to unlock it, so you never have to leave the game to look something up."] = "Todo item do Catálogo de Moradia ganha dicas de interface que mostram de onde ele vem (comerciante, missão, conquista, profissão ou saque), quanto custa e o que é preciso para desbloqueá-lo, para você nunca precisar sair do jogo para consultar algo."
+L["Key Commands"] = "Comandos principais"
+L["Show all commands"] = "Mostrar todos os comandos"
+L["Found a Problem?"] = "Encontrou um problema?"
+L["Report bugs or wrong vendor info on GitHub using the link below."] = "Relate bugs ou dados incorretos de comerciantes no GitHub pelo link abaixo."
+L["Report issues (GitHub):"] = "Relatar problemas (GitHub):"
+L["CurseForge:"] = "CurseForge:"
+L["Don't show this again"] = "Não mostrar novamente"
+L["Let's Decorate!"] = "Vamos decorar!"
+
+-------------------------------------------------------------------------------
+-- Decor Browser: source and vendor labels
+-------------------------------------------------------------------------------
+L["Achievements"] = "Conquistas"
+L["Quests"] = "Missões"
+L["Professions"] = "Profissões"
+L["Drops"] = "Saques"
+L["Events"] = "Eventos"
+L["Other"] = "Outro"
+L["Location not recorded"] = "Local não registrado"
+L["Requires"] = "Requer"
+
+-------------------------------------------------------------------------------
+-- Decor Browser: states and shared parts
+-------------------------------------------------------------------------------
+L["Collected"] = "Coletado"
+L["Can get now"] = "Disponível agora"
+L["Requires: %s"] = "Requer: %s"
+L["Not enough: %s"] = "Não é suficiente: %s"
+L["(%1$s has %2$s)"] = "(%1$s tem %2$s)"
+L["Price not recorded"] = "Preço não registrado"
+L["%s only"] = "Somente %s"
+L["Not collected"] = "Não coletado"
+L["Counting…"] = "Contando…"
+L["Not confirmed"] = "Não confirmado"
+L["Active now"] = "Ativo agora"
+L["Best to get now"] = "Melhor para obter agora"
+L["Search decor"] = "Buscar decoração"
+L["More vendors here"] = "Mais comerciantes aqui"
+L["Reset filters"] = "Redefinir filtros"
+L["Search all decor"] = "Buscar em toda a decoração"
+L["Show what's missing"] = "Mostrar o que falta"
+L["Sort by name"] = "Ordenar por nome"
+L["Show them"] = "Mostrar"
+L["Show vendor"] = "Mostrar vendedor"
+L["Report a problem"] = "Relatar um problema"
+L["Reading your collection. This list fills in when it's ready."] = "Lendo sua coleção. Esta lista é preenchida quando estiver pronta."
+L["Reading your collection. This list fills in when it's ready, because Best to get now depends on what you own."] = "Lendo sua coleção. Esta lista é preenchida quando estiver pronta, porque Melhor para obter agora depende do que você possui."
+L["Nothing missing"] = "Nada falta"
+L["You've collected all %d decor Homestead knows about."] = "Você coletou todas as %d decorações que o Homestead conhece."
+L["Nothing you can get right now"] = "Nada para obter agora"
+L["Everything you're missing needs a reputation, achievement or quest first, is sold only during an event, or is sold only to the %s."] = "Tudo o que falta exige antes uma reputação, uma conquista ou uma missão, é vendido apenas durante um evento ou é vendido apenas para a %s."
+L["Everything you're missing needs a reputation, achievement or quest first, or is sold only during an event."] = "Tudo o que falta exige antes uma reputação, uma conquista ou uma missão, ou é vendido apenas durante um evento."
+L["Collection not read yet"] = "Coleção ainda não lida"
+L["Homestead hasn't read this character's decor collection yet, so it can't tell what you're missing. It reads it shortly after you log in. If this message stays, open the Housing Dashboard once."] = "O Homestead ainda não leu a coleção de decoração deste personagem e não consegue dizer o que falta. Ele a lê pouco depois de você entrar. Se esta mensagem continuar, abra o Painel de Moradia uma vez."
+L["These filters need your collection, which Homestead hasn't read yet. If this stays, open the Housing Dashboard once."] = "Estes filtros precisam da sua coleção, que o Homestead ainda não leu. Se isso continuar, abra o Painel de Moradia uma vez."
+L["No results"] = "Nenhum resultado"
+L["No decor matches these words and filters. Search looks at item names only."] = "Nenhuma decoração corresponde a estas palavras e filtros. A busca olha apenas os nomes dos itens."
+L["%d hidden by '%s' (%d collected, %d %s only)."] = "%d ocultos por '%s' (%d coletados, %d somente %s)."
+L["%d hidden by '%s' (%d collected, %d %s only, %d %s only)."] = "%d ocultos por '%s' (%d coletados, %d somente %s, %d somente %s)."
+L["%d hidden by '%s' (%d collected)."] = "%d ocultos por '%s' (%d coletados)."
+L["%s or the %s"] = "%s ou a %s"
+
+-------------------------------------------------------------------------------
+-- Decor Browser: Summary
+-------------------------------------------------------------------------------
+L["What can I get now?"] = "O que posso obter agora?"
+L["Decor this character can buy or earn today, best first."] = "Decorações que este personagem pode comprar ou conseguir hoje, as melhores primeiro."
+L["Can get now means this character can get it today: the right faction, no requirement left to meet, and enough gold or currency to pay. Gold-only and cheaper items come first. Use See all for the full list."] = "Disponível agora significa que este personagem pode conseguir hoje: facção certa, nenhum requisito restante e ouro ou moeda suficiente para pagar. Os itens só de ouro e os mais baratos vêm primeiro. Use Ver tudo para a lista completa."
+L["Show"] = "Mostrar"
+L["%s and %d more"] = "%s e mais %d"
+L["See all you can get now (%d)"] = "Ver tudo o que você pode obter agora (%d)"
+L["Here in %s: %s sells %d decor you can get now."] = "Aqui em %s: %s vende %d decorações que você pode obter agora."
+L["Sold here in %s"] = "Vendido aqui em %s"
+L["Sold on %s"] = "Vendido em %s"
+L["%s: active now"] = "%s: ativo agora"
+L["Gold"] = "Ouro"
+L["Gold only"] = "Somente ouro"
+L["Gold only, no requirements left"] = "Somente ouro, sem requisitos restantes"
+L["No requirements left"] = "Sem requisitos restantes"
+L["%d of %d"] = "%d de %d"
+L["Reading your collection"] = "Lendo sua coleção"
+-- end: Summary
+
+-------------------------------------------------------------------------------
+-- Decor Browser: Catalog
+-------------------------------------------------------------------------------
+L["All decor"] = "Toda a decoração"
+L["Filters"] = "Filtros"
+L["Name"] = "Nome"
+L["Sort: %s"] = "Ordenar: %s"
+L["Furnishings"] = "Mobília"
+L["Structural"] = "Estruturas"
+L["Accents"] = "Acentos"
+L["Lighting"] = "Iluminação"
+L["Neither collected nor not collected"] = "Nem coletado nem não coletado"
+L["Sources: %s"] = "Fontes: %s"
+L["Filtered: %s"] = "Filtrado: %s"
+L["(+%d more)"] = "(+%d mais)"
+-- end: Catalog
+
+-------------------------------------------------------------------------------
+-- Decor Browser: Sources
+-------------------------------------------------------------------------------
+L["Search vendors and zones"] = "Buscar vendedores e zonas"
+L["Search achievements"] = "Buscar conquistas"
+L["Search quests"] = "Buscar missões"
+L["Search recipes and professions"] = "Buscar receitas e profissões"
+L["Search drops and zones"] = "Buscar saques e zonas"
+L["Search events"] = "Buscar eventos"
+L["Search the Shop"] = "Buscar na loja"
+L["%d decor"] = "%d decorações"
+L["No decor"] = "Sem decoração"
+L["Not active"] = "Inativo"
+L["All collected"] = "Tudo coletado"
+L["%d can get now"] = "%d disponíveis agora"
+L["Holiday event"] = "Evento sazonal"
+L["%s only: can't buy on this character"] = "Somente %s: não pode comprar com este personagem"
+L["Confirmed by a scan on %s"] = "Confirmado por uma varredura em %s"
+L["No scan has confirmed this vendor yet. Visit the vendor to check."] = "Nenhuma varredura confirmou este vendedor ainda. Visite o vendedor para conferir."
+L["Decor from this source"] = "Decorações desta fonte"
+L["No decor is recorded here. If this source gives decor, report it below."] = "Nenhuma decoração registrada aqui. Se esta fonte dá decorações, reporte abaixo."
+L["Dig site in %s"] = "Local de escavação em %s"
+L["No events active right now. Event decor is sold only while its event runs."] = "Nenhum evento ativo agora. As decorações de evento só são vendidas enquanto o evento acontece."
+L["Nothing matches your search."] = "Nada corresponde à sua busca."
+L["Nothing to show here."] = "Nada para mostrar aqui."
+L["Currency"] = "Moeda"
+L["Wares"] = "Mercadorias"
+L["Not confirmed: visit to check."] = "Não confirmado: visite para verificar."
+L["Corners: state top right, bonus top left, event bottom left, copies bottom right."] = "Cantos: estado no canto superior direito, bônus no superior esquerdo, evento no inferior esquerdo, cópias no inferior direito."
+L["%s; %s"] = "%s; %s"
+L["%s · %s"] = "%s · %s"
+-- end: Sources
+
+-------------------------------------------------------------------------------
+-- Decor Browser: Item
+-------------------------------------------------------------------------------
+L["Vendor:"] = "Vendedor:"
+L["Achievement:"] = "Conquista:"
+L["Quest:"] = "Missão:"
+L["Recipe:"] = "Receita:"
+L["Drop:"] = "Saque:"
+L["Event:"] = "Evento:"
+L["Starts in %s"] = "Começa em %s"
+L["Daily from The Last Architect"] = "Diária de The Last Architect"
+L["Can get now here"] = "Disponível agora aqui"
+L["Where to get it"] = "Onde obter"
+L["Show achievement"] = "Mostrar conquista"
+L["Show quest"] = "Mostrar missão"
+L["Show recipe"] = "Mostrar receita"
+L["Show drop"] = "Mostrar saque"
+L["Show event"] = "Mostrar evento"
+L["%s (done)"] = "%s (feito)"
+L["%s (not yet)"] = "%s (ainda não)"
+L["Can't check this requirement yet"] = "Ainda não é possível verificar este requisito"
+L["Active now: %s"] = "Ativo agora: %s"
+L["Decor Browser"] = "Navegador de decoração"
+L["Show 3D preview"] = "Mostrar prévia 3D"
+L["desc_browser_model3d"] = "Mostra um modelo 3D do item na página dele no navegador de decoração."
+-- end: Item

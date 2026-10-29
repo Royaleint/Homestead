@@ -974,7 +974,7 @@ function CatalogStore:RunMigrations()
         version = 1
         if HA.Addon then
             HA.Addon:Debug("CatalogStore: schemaVersion was not a number ("
-                .. tostring(storedVersion) .. ") — repairing to 1 and re-running migrations")
+                .. tostring(storedVersion) .. "), repairing to 1 and re-running migrations")
         end
         db.global.schemaVersion = version
     end

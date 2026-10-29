@@ -1650,7 +1650,7 @@ function SourceManager:GetItemPresentation(itemID, options)
     -- burst class all over again.
     local cacheOnlyOwnership = context == "inventory" or context == "badge"
         or context == "sidePanel" or context == "vendorMapPin"
-        or context == "dropMapPin"
+        or context == "dropMapPin" or context == "browser"
     local catalogStore = HA.CatalogStore
     local isOwned = false
     if cacheOnlyOwnership then
@@ -1680,19 +1680,21 @@ function SourceManager:GetItemPresentation(itemID, options)
 
     local allSources = self:GetAllSources(itemID) or EMPTY_SOURCES
     local bestSource = nil
-    -- HS-210 (correction): scoped to exactly the two contexts
+    -- Scoped to exactly the contexts
     -- verified to never read bestSource/displaySource/sourceType off the
     -- returned presentation — badge recounts (UI/BadgeCalculation.lua, only
-    -- reads isOwned/availabilityState/blockerLabels) and vendor map-pin
+    -- reads isOwned/availabilityState/blockerLabels), vendor map-pin
     -- tooltips (UI/VendorPinTooltips.lua AddPinTooltipItemLine, only reads
-    -- availabilityState). The side-panel "sidePanel" context is explicitly
-    -- EXCLUDED: PopulateItemResultRow (UI/MapSidePanel.lua) reads
+    -- availabilityState), and the browser window (reserved for the browser; it
+    -- currently reads ownership through CatalogStore). The side-panel
+    -- "sidePanel" context is explicitly EXCLUDED: PopulateItemResultRow (UI/MapSidePanel.lua) reads
     -- presentation.displaySource/sourceBadgeAtlas, and that path is reachable
     -- with npcID set (a vendor-scoped search result whose preferred source
     -- doesn't match and whose primary source is unavailable falls through to
     -- bestSource) — skipping the probe there would silently wrong the badge.
     -- Standalone callers (tooltips, catalog) were never in scope for the skip.
-    local skipBestSourceProbe = npcID and (context == "badge" or context == "vendorMapPin")
+    local skipBestSourceProbe = npcID
+        and (context == "badge" or context == "vendorMapPin" or context == "browser")
     if not skipBestSourceProbe then
         for _, source in ipairs(allSources) do
             local available = self:IsSourceAvailableNow(itemID, source)
@@ -2732,9 +2734,9 @@ local function HookCompletionCacheInvalidation()
                 -- which logs its own suppressed/invalidating verdict
                 -- immediately after. Say so, not "invalidating", so a manual-testing
                 -- capture doesn't read two contradictory adjacent lines.
-                HA.Addon:Debug("SourceManager: SKILL_LINES_CHANGED arrived — "
+                HA.Addon:Debug("SourceManager: SKILL_LINES_CHANGED arrived: "
                     .. (unchanged and "suppressed (no profession change detected)"
-                        or "fingerprint changed — verifying"))
+                        or "fingerprint changed, verifying"))
             end
 
             if unchanged then
@@ -2868,7 +2870,7 @@ local function HookCompletionCacheInvalidation()
             local achievementID = ...
             if type(achievementID) ~= "number" then
                 if HA.Addon then
-                    HA.Addon:Debug("SourceManager: ACHIEVEMENT_EARNED invalidating (fail-open — non-number payload "
+                    HA.Addon:Debug("SourceManager: ACHIEVEMENT_EARNED invalidating (fail-open, non-number payload "
                         .. tostring(achievementID) .. ")")
                 end
                 SourceManager:InvalidateAllSourceCaches()
@@ -2960,7 +2962,7 @@ local function HookCompletionCacheInvalidation()
             elseif HA.Addon then
                 -- Keep the discriminator log complete: an invalidation from
                 -- this branch must be explainable from a debug capture.
-                HA.Addon:Debug("SourceManager: QUEST_TURNED_IN invalidating (fail-open — non-number payload "
+                HA.Addon:Debug("SourceManager: QUEST_TURNED_IN invalidating (fail-open, non-number payload "
                     .. tostring(questID) .. ")")
             end
         end

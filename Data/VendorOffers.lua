@@ -71,11 +71,10 @@ local GeneratedBase = {
   },
   [1465] = {
     [246422] = {
-      price = 2850000,
+      price = 3000000,
       currencies = {},
       isUsable = true,
       displayOrder = 1,
-      costBuild = "12.0.7.68974",
     },
   },
   [2140] = {
@@ -97,11 +96,10 @@ local GeneratedBase = {
   },
   [3178] = {
     [257405] = {
-      price = 1600000,
+      price = 2000000,
       currencies = {},
       isUsable = true,
       displayOrder = 1,
-      costBuild = "12.0.7.68974",
     },
   },
   [13217] = {
@@ -116,18 +114,16 @@ local GeneratedBase = {
   },
   [14624] = {
     [245333] = {
-      price = 1200000,
+      price = 1500000,
       currencies = {},
       isUsable = true,
       displayOrder = 1,
-      costBuild = "12.0.7.68974",
     },
     [246409] = {
-      price = 5600000,
+      price = 7000000,
       currencies = {},
       isUsable = true,
       displayOrder = 2,
-      costBuild = "12.0.7.68974",
     },
   },
   [16528] = {
@@ -240,130 +236,112 @@ local GeneratedBase = {
   },
   [49877] = {
     [248333] = {
-      price = 800000,
+      price = 1000000,
       currencies = {},
       isUsable = false,
       displayOrder = 1,
-      costBuild = "12.0.7.68974",
     },
     [248336] = {
-      price = 2400000,
+      price = 1000000,
       currencies = {},
       isUsable = false,
       displayOrder = 2,
-      costBuild = "12.0.7.68974",
     },
     [248617] = {
-      price = 1200000,
+      price = 1500000,
       currencies = {},
       isUsable = false,
       displayOrder = 3,
-      costBuild = "12.0.7.68974",
     },
     [248618] = {
-      price = 1600000,
+      price = 2000000,
       currencies = {},
       isUsable = false,
       displayOrder = 4,
-      costBuild = "12.0.7.68974",
     },
     [248619] = {
-      price = 2000000,
+      price = 2500000,
       currencies = {},
       isUsable = false,
       displayOrder = 5,
-      costBuild = "12.0.7.68974",
     },
     [248620] = {
-      price = 1200000,
+      price = 1500000,
       currencies = {},
       isUsable = false,
       displayOrder = 6,
-      costBuild = "12.0.7.68974",
     },
     [248621] = {
-      price = 2400000,
+      price = 3000000,
       currencies = {},
       isUsable = false,
       displayOrder = 7,
-      costBuild = "12.0.7.68974",
     },
     [248662] = {
-      price = 4000000,
+      price = 5000000,
       currencies = {},
       isUsable = false,
       displayOrder = 8,
-      costBuild = "12.0.7.68974",
     },
     [248665] = {
-      price = 2000000,
+      price = 2500000,
       currencies = {},
       isUsable = false,
       displayOrder = 9,
-      costBuild = "12.0.7.68974",
     },
     [248794] = {
-      price = 400000,
+      price = 500000,
       currencies = {},
       isUsable = false,
       displayOrder = 10,
-      costBuild = "12.0.7.68974",
     },
     [248795] = {
-      price = 600000,
+      price = 750000,
       currencies = {},
       isUsable = false,
       displayOrder = 11,
-      costBuild = "12.0.7.68974",
     },
     [248797] = {
-      price = 400000,
+      price = 500000,
       currencies = {},
       isUsable = false,
       displayOrder = 12,
-      costBuild = "12.0.7.68974",
     },
     [248798] = {
-      price = 1600000,
+      price = 2000000,
       currencies = {},
       isUsable = false,
       displayOrder = 13,
-      costBuild = "12.0.7.68974",
     },
     [248801] = {
-      price = 800000,
+      price = 1000000,
       currencies = {},
       isUsable = false,
       displayOrder = 14,
-      costBuild = "12.0.7.68974",
     },
     [248938] = {
-      price = 1200000,
+      price = 1500000,
       currencies = {},
       isUsable = false,
       displayOrder = 15,
-      costBuild = "12.0.7.68974",
     },
     [248939] = {
-      price = 800000,
+      price = 1000000,
       currencies = {},
       isUsable = false,
       displayOrder = 16,
-      costBuild = "12.0.7.68974",
     },
     [253168] = {
-      price = 160000,
+      price = 200000,
       currencies = {},
       isUsable = false,
       displayOrder = 17,
-      costBuild = "12.0.7.68974",
     },
     [256673] = {
-      price = 8000000,
+      price = 10000000,
       currencies = {},
       isUsable = false,
       displayOrder = 18,
-      costBuild = "12.0.7.68974",
     },
   },
   [50304] = {
@@ -382,78 +360,68 @@ local GeneratedBase = {
   },
   [50307] = {
     [245518] = {
-      price = 1200000,
+      price = 1500000,
       currencies = {},
       isUsable = true,
       displayOrder = 1,
-      costBuild = "12.0.7.68974",
     },
     [245603] = {
-      price = 2800000,
+      price = 3500000,
       currencies = {},
       isUsable = true,
       displayOrder = 3,
-      costBuild = "12.0.7.68974",
     },
     [245605] = {
-      price = 2400000,
+      price = 3000000,
       currencies = {},
       isUsable = true,
       displayOrder = 2,
-      costBuild = "12.0.7.68974",
     },
     [245620] = {
-      price = 3600000,
+      price = 4500000,
       currencies = {},
       isUsable = true,
       displayOrder = 4,
-      costBuild = "12.0.7.68974",
     },
   },
   [50309] = {
     [246426] = {
-      price = 5700000,
+      price = 6000000,
       currencies = {},
       isUsable = true,
       displayOrder = 4,
-      costBuild = "12.0.7.68974",
     },
     [246490] = {
-      price = 2375000,
+      price = 2500000,
       currencies = {},
       isUsable = true,
       displayOrder = 2,
-      costBuild = "12.0.7.68974",
     },
     [246491] = {
-      price = 1425000,
+      price = 1500000,
       currencies = {},
       isUsable = true,
       displayOrder = 1,
-      costBuild = "12.0.7.68974",
     },
     [252010] = {
-      price = 4275000,
+      price = 4500000,
       currencies = {},
       isUsable = true,
       displayOrder = 3,
-      costBuild = "12.0.7.68974",
     },
     [256333] = {
-      price = 9500000,
+      price = 10000000,
       currencies = {},
       isUsable = true,
       displayOrder = 5,
-      costBuild = "12.0.7.68974",
     },
   },
   [50483] = {
     [243335] = {
-      price = 1900000,
+      price = 2000000,
       currencies = {},
       isUsable = true,
       displayOrder = 1,
-      costBuild = "12.0.7.68974",
     },
   },
   [50488] = {
@@ -679,46 +647,40 @@ local GeneratedBase = {
   },
   [78564] = {
     [245275] = {
-      price = 425000,
+      price = 500000,
       currencies = {{id = 824, amount = 100}},
       isUsable = true,
       displayOrder = 1,
-      costBuild = "12.0.7.68974",
     },
     [248334] = {
-      price = 1700000,
+      price = 2000000,
       currencies = {{id = 824, amount = 300}},
       isUsable = true,
       displayOrder = 2,
-      costBuild = "12.0.7.68974",
     },
     [248335] = {
-      price = 425000,
+      price = 500000,
       currencies = {{id = 824, amount = 100}},
       isUsable = true,
       displayOrder = 3,
-      costBuild = "12.0.7.68974",
     },
     [248660] = {
-      price = 1700000,
+      price = 2000000,
       currencies = {{id = 824, amount = 300}},
       isUsable = true,
       displayOrder = 4,
-      costBuild = "12.0.7.68974",
     },
     [248661] = {
-      price = 1700000,
+      price = 2000000,
       currencies = {{id = 824, amount = 300}},
       isUsable = true,
       displayOrder = 5,
-      costBuild = "12.0.7.68974",
     },
     [248799] = {
-      price = 425000,
+      price = 500000,
       currencies = {{id = 824, amount = 100}},
       isUsable = true,
       displayOrder = 6,
-      costBuild = "12.0.7.68974",
     },
     [248800] = {
       price = 0,
@@ -728,11 +690,10 @@ local GeneratedBase = {
       costBuild = "12.0.7.68974",
     },
     [248810] = {
-      price = 425000,
+      price = 500000,
       currencies = {{id = 824, amount = 100}},
       isUsable = true,
       displayOrder = 8,
-      costBuild = "12.0.7.68974",
     },
   },
   [79774] = {
@@ -744,25 +705,22 @@ local GeneratedBase = {
       costBuild = "12.0.7.68974",
     },
     [244316] = {
-      price = 1800000,
+      price = 2000000,
       currencies = {{id = 824, amount = 300}},
       isUsable = true,
       displayOrder = 2,
-      costBuild = "12.0.7.68974",
     },
     [244320] = {
-      price = 450000,
+      price = 500000,
       currencies = {{id = 824, amount = 100}},
       isUsable = true,
       displayOrder = 3,
-      costBuild = "12.0.7.68974",
     },
     [244653] = {
-      price = 1800000,
+      price = 2000000,
       currencies = {{id = 824, amount = 300}},
       isUsable = true,
       displayOrder = 4,
-      costBuild = "12.0.7.68974",
     },
     [245438] = {
       price = 2700000,
@@ -772,11 +730,10 @@ local GeneratedBase = {
       costBuild = "12.0.7.68974",
     },
     [245443] = {
-      price = 1800000,
+      price = 2000000,
       currencies = {{id = 824, amount = 300}},
       isUsable = true,
       displayOrder = 6,
-      costBuild = "12.0.7.68974",
     },
   },
   [79812] = {
@@ -1264,39 +1221,39 @@ local GeneratedBase = {
   },
   [97140] = {
     [244536] = {
-      price = 6650000,
-      currencies = {{id = 1220, amount = 1000}},
-      isUsable = false,
+      price = 7000000,
+      currencies = {{id = 1220, amount = 300}},
+      isUsable = true,
       displayOrder = 1,
-      costBuild = "12.0.7.68974",
+      costBuild = "12.1.0.69299",
     },
     [246850] = {
-      price = 9500000,
-      currencies = {{id = 1220, amount = 2000}},
-      isUsable = false,
+      price = 10000000,
+      currencies = {{id = 1220, amount = 500}},
+      isUsable = true,
       displayOrder = 2,
-      costBuild = "12.0.7.68974",
+      costBuild = "12.1.0.69299",
     },
     [247844] = {
-      price = 4750000,
-      currencies = {{id = 1220, amount = 750}},
-      isUsable = false,
+      price = 5000000,
+      currencies = {{id = 1220, amount = 250}},
+      isUsable = true,
       displayOrder = 3,
-      costBuild = "12.0.7.68974",
+      costBuild = "12.1.0.69299",
     },
     [247845] = {
-      price = 4750000,
-      currencies = {{id = 1220, amount = 750}},
-      isUsable = false,
+      price = 5000000,
+      currencies = {{id = 1220, amount = 250}},
+      isUsable = true,
       displayOrder = 4,
-      costBuild = "12.0.7.68974",
+      costBuild = "12.1.0.69299",
     },
     [247847] = {
-      price = 6650000,
-      currencies = {{id = 1220, amount = 1000}},
-      isUsable = false,
+      price = 7000000,
+      currencies = {{id = 1220, amount = 300}},
+      isUsable = true,
       displayOrder = 5,
-      costBuild = "12.0.7.68974",
+      costBuild = "12.1.0.69299",
     },
     [247908] = {
       price = 285000,
@@ -1306,25 +1263,25 @@ local GeneratedBase = {
       costBuild = "12.0.7.68974",
     },
     [247910] = {
-      price = 2850000,
-      currencies = {{id = 1220, amount = 500}},
+      price = 3000000,
+      currencies = {{id = 1220, amount = 200}},
       isUsable = true,
       displayOrder = 7,
-      costBuild = "12.0.7.68974",
+      costBuild = "12.1.0.69299",
     },
     [247921] = {
-      price = 2850000,
-      currencies = {{id = 1220, amount = 500}},
+      price = 3000000,
+      currencies = {{id = 1220, amount = 200}},
       isUsable = true,
       displayOrder = 8,
-      costBuild = "12.0.7.68974",
+      costBuild = "12.1.0.69299",
     },
     [247924] = {
-      price = 6650000,
-      currencies = {{id = 1220, amount = 1000}},
-      isUsable = false,
+      price = 7000000,
+      currencies = {{id = 1220, amount = 300}},
+      isUsable = true,
       displayOrder = 9,
-      costBuild = "12.0.7.68974",
+      costBuild = "12.1.0.69299",
     },
   },
   [100196] = {
@@ -1604,67 +1561,67 @@ local GeneratedBase = {
   [106901] = {
     [238859] = {
       price = 10000000,
-      currencies = {{id = 1220, amount = 2000}},
+      currencies = {{id = 1220, amount = 500}},
       isUsable = false,
       displayOrder = 1,
-      costBuild = "12.0.7.68974",
+      costBuild = "12.1.0.69299",
     },
     [238861] = {
       price = 5000000,
-      currencies = {{id = 1220, amount = 750}},
+      currencies = {{id = 1220, amount = 250}},
       isUsable = false,
       displayOrder = 2,
-      costBuild = "12.0.7.68974",
+      costBuild = "12.1.0.69299",
     },
     [245261] = {
       price = 7000000,
-      currencies = {{id = 1220, amount = 1000}},
+      currencies = {{id = 1220, amount = 300}},
       isUsable = false,
       displayOrder = 3,
-      costBuild = "12.0.7.68974",
+      costBuild = "12.1.0.69299",
     },
     [251494] = {
       price = 0,
-      currencies = {{id = 1220, amount = 200}},
+      currencies = {{id = 1220, amount = 150}},
       isUsable = false,
       displayOrder = 4,
-      costBuild = "12.0.7.68974",
+      costBuild = "12.1.0.69299",
     },
     [264168] = {
       price = 5000000,
-      currencies = {{id = 1220, amount = 750}},
+      currencies = {{id = 1220, amount = 250}},
       isUsable = false,
       displayOrder = 5,
-      costBuild = "12.0.7.68974",
+      costBuild = "12.1.0.69299",
     },
   },
   [106902] = {
     [243290] = {
-      price = 8000000,
+      price = 10000000,
       currencies = {{id = 1220, amount = 500}},
       isUsable = true,
       displayOrder = 1,
     },
     [243359] = {
-      price = 5600000,
+      price = 7000000,
       currencies = {{id = 1220, amount = 300}},
       isUsable = true,
       displayOrder = 2,
     },
     [245270] = {
-      price = 5600000,
+      price = 7000000,
       currencies = {{id = 1220, amount = 300}},
       isUsable = true,
       displayOrder = 3,
     },
     [245450] = {
-      price = 8000000,
+      price = 10000000,
       currencies = {{id = 1220, amount = 500}},
       isUsable = true,
       displayOrder = 4,
     },
     [245452] = {
-      price = 4000000,
+      price = 5000000,
       currencies = {{id = 1220, amount = 250}},
       isUsable = true,
       displayOrder = 5,
@@ -1682,7 +1639,7 @@ local GeneratedBase = {
       displayOrder = 7,
     },
     [248985] = {
-      price = 4000000,
+      price = 5000000,
       currencies = {{id = 1220, amount = 250}},
       isUsable = true,
       displayOrder = 8,
@@ -1708,7 +1665,7 @@ local GeneratedBase = {
       displayOrder = 3,
     },
     [245456] = {
-      price = 4000000,
+      price = 5000000,
       currencies = {{id = 1220, amount = 250}},
       isUsable = true,
       displayOrder = 4,
@@ -1720,13 +1677,13 @@ local GeneratedBase = {
       displayOrder = 5,
     },
     [245460] = {
-      price = 4000000,
+      price = 5000000,
       currencies = {{id = 1220, amount = 250}},
       isUsable = true,
       displayOrder = 6,
     },
     [245461] = {
-      price = 5600000,
+      price = 7000000,
       currencies = {{id = 1220, amount = 300}},
       isUsable = true,
       displayOrder = 7,
@@ -1738,13 +1695,13 @@ local GeneratedBase = {
       displayOrder = 8,
     },
     [257397] = {
-      price = 4000000,
+      price = 5000000,
       currencies = {{id = 1220, amount = 250}},
       isUsable = true,
       displayOrder = 9,
     },
     [257401] = {
-      price = 5600000,
+      price = 7000000,
       currencies = {{id = 1220, amount = 300}},
       isUsable = true,
       displayOrder = 10,
@@ -1762,13 +1719,13 @@ local GeneratedBase = {
       displayOrder = 12,
     },
     [257723] = {
-      price = 4000000,
+      price = 5000000,
       currencies = {{id = 1220, amount = 250}},
       isUsable = true,
       displayOrder = 13,
     },
     [260698] = {
-      price = 800000,
+      price = 1000000,
       currencies = {{id = 1220, amount = 150}},
       isUsable = true,
       displayOrder = 14,
@@ -2251,10 +2208,10 @@ local GeneratedBase = {
     },
     [245260] = {
       price = 0,
-      currencies = {{id = 1220, amount = 400}},
+      currencies = {{id = 1220, amount = 200}},
       isUsable = true,
       displayOrder = 2,
-      costBuild = "12.0.7.68974",
+      costBuild = "12.1.0.69299",
     },
   },
   [112716] = {
@@ -2276,18 +2233,16 @@ local GeneratedBase = {
   },
   [125346] = {
     [245422] = {
-      price = 6400000,
+      price = 8000000,
       currencies = {},
       isUsable = true,
       displayOrder = 1,
-      costBuild = "12.0.7.68974",
     },
     [251480] = {
-      price = 2400000,
+      price = 3000000,
       currencies = {},
       isUsable = true,
       displayOrder = 2,
-      costBuild = "12.0.7.68974",
     },
   },
   [135459] = {
@@ -3542,6 +3497,30 @@ local GeneratedBase = {
       hasExtendedCost = true,
       displayOrder = 5,
       costBuild = "12.0.7.68974",
+    },
+    [263019] = {
+      price = 0,
+      currencies = {{id = 3316, amount = 250}},
+      isUsable = true,
+      displayOrder = 6,
+    },
+    [264267] = {
+      price = 0,
+      currencies = {{id = 3316, amount = 500}},
+      isUsable = true,
+      displayOrder = 7,
+    },
+    [264268] = {
+      price = 0,
+      currencies = {{id = 3316, amount = 250}},
+      isUsable = true,
+      displayOrder = 8,
+    },
+    [264269] = {
+      price = 0,
+      currencies = {{id = 3316, amount = 250}},
+      isUsable = true,
+      displayOrder = 9,
     },
   },
   [240465] = {
@@ -6067,10 +6046,10 @@ local GeneratedBase = {
   [253387] = {
     [238859] = {
       price = 10000000,
-      currencies = {{id = 1220, amount = 2000}},
+      currencies = {{id = 1220, amount = 500}},
       isUsable = false,
       displayOrder = 1,
-      costBuild = "12.0.7.68974",
+      costBuild = "12.1.0.69299",
     },
     [238860] = {
       price = 0,
@@ -6081,24 +6060,24 @@ local GeneratedBase = {
     },
     [238861] = {
       price = 5000000,
-      currencies = {{id = 1220, amount = 750}},
+      currencies = {{id = 1220, amount = 250}},
       isUsable = false,
       displayOrder = 3,
-      costBuild = "12.0.7.68974",
+      costBuild = "12.1.0.69299",
     },
     [245261] = {
       price = 7000000,
-      currencies = {{id = 1220, amount = 1000}},
+      currencies = {{id = 1220, amount = 300}},
       isUsable = false,
       displayOrder = 4,
-      costBuild = "12.0.7.68974",
+      costBuild = "12.1.0.69299",
     },
     [245697] = {
       price = 0,
-      currencies = {{id = 1220, amount = 950}},
+      currencies = {{id = 1220, amount = 300}},
       isUsable = true,
       displayOrder = 5,
-      costBuild = "12.0.7.68974",
+      costBuild = "12.1.0.69299",
     },
     [245700] = {
       price = 0,
@@ -6109,10 +6088,10 @@ local GeneratedBase = {
     },
     [245702] = {
       price = 0,
-      currencies = {{id = 1220, amount = 450}},
+      currencies = {{id = 1220, amount = 200}},
       isUsable = true,
       displayOrder = 7,
-      costBuild = "12.0.7.68974",
+      costBuild = "12.1.0.69299",
     },
     [245703] = {
       price = 0,
@@ -6130,17 +6109,17 @@ local GeneratedBase = {
     },
     [251494] = {
       price = 0,
-      currencies = {{id = 1220, amount = 200}},
+      currencies = {{id = 1220, amount = 150}},
       isUsable = false,
       displayOrder = 10,
-      costBuild = "12.0.7.68974",
+      costBuild = "12.1.0.69299",
     },
     [264168] = {
       price = 5000000,
-      currencies = {{id = 1220, amount = 750}},
+      currencies = {{id = 1220, amount = 250}},
       isUsable = false,
       displayOrder = 11,
-      costBuild = "12.0.7.68974",
+      costBuild = "12.1.0.69299",
     },
   },
   [253434] = {
@@ -16100,11 +16079,10 @@ local GeneratedBase = {
       displayOrder = 17,
     },
     [260785] = {
-      price = 14250000,
+      price = 15000000,
       currencies = {},
       isUsable = false,
       displayOrder = 1,
-      costBuild = "12.0.7.68974",
     },
   },
   [262726] = {
@@ -16839,15 +16817,7 @@ local ManualOverrides = {
         [264003] = { price = 50000, currencies = {}, isUsable = true, displayOrder = 1 }, -- Midnight Herbalist's Shop Sign
     },
     [97140] = { -- First Arcanist Thalyssra (Shal'Aran, Suramar)
-        [244536] = { price = 7000000, currencies = {{id = 1220, amount = 1000}}, isUsable = true, costBuild = "12.0.7.68974" }, -- NB Fireplace
-        [246850] = { price = 10000000, currencies = {{id = 1220, amount = 2000}}, isUsable = true, costBuild = "12.0.7.68974" }, -- Arcan'dor Art
-        [247844] = { price = 5000000, currencies = {{id = 1220, amount = 750}}, isUsable = true, costBuild = "12.0.7.68974" }, -- Suramar Library
-        [247845] = { price = 5000000, currencies = {{id = 1220, amount = 750}}, isUsable = true, costBuild = "12.0.7.68974" }, -- Nightborne Bench
-        [247847] = { price = 7000000, currencies = {{id = 1220, amount = 1000}}, isUsable = true, costBuild = "12.0.7.68974" }, -- Arcwine Counter
         [247908] = { price = 300000, currencies = {{id = 1220, amount = 50}}, isUsable = true, costBuild = "12.0.7.68974" }, -- Nightborne Lantern
-        [247910] = { price = 3000000, currencies = {{id = 1220, amount = 500}}, isUsable = true, costBuild = "12.0.7.68974" }, -- Suramar Sconce
-        [247921] = { price = 3000000, currencies = {{id = 1220, amount = 500}}, isUsable = true, costBuild = "12.0.7.68974" }, -- NB Wall Shelf
-        [247924] = { price = 7000000, currencies = {{id = 1220, amount = 1000}}, isUsable = true, costBuild = "12.0.7.68974" }, -- Street Light
     },
     -- HS-250 (2026-08-11): scan-confirmed cost corrections for rows GeneratedBase
     -- carried stale. The generator preserves pre-existing GeneratedBase rows
@@ -17263,7 +17233,6 @@ local ManualOverrides = {
     -- 1000000 base. Its 17 siblings are stored at the 20% tier (0.80 x base), so it is
     -- stored on that basis too; the stored 2400000 was out of line with all of them.
     [49877] = { -- Captain Lancy Revshon (Stormwind)
-        [248336] = { price = 800000, currencies = {}, isUsable = false, displayOrder = 2 }, -- Stormwind Wooden Table (was g=2400000)
         [284223] = { price = 2000000, currencies = {}, isUsable = true },
     },
     -- HS-459: offers the same capture shows that shipped data did not carry.
@@ -17707,6 +17676,86 @@ local ManualOverrides = {
         [244344] = { price = 0, currencies = {{id = 3363, amount = 10}}, isUsable = true }, -- Griftah's Mystical Polter-Urn
         [263875] = { price = 0, currencies = {{id = 3363, amount = 10}}, isUsable = true }, -- Griftah's Resizing Hex-Skull
         [276312] = { price = 0, currencies = {{id = 3363, amount = 10}}, isUsable = true }, -- Griftah's Torch of Rotation
+    },
+    -- Hallow's End vendors (shown only while Hallow's End runs): prices seen at the vendors on 2026-10-19.
+    -- Item 33226 is Tricky Treats. Jack showed every gold price 5% lower (likely a reputation discount);
+    -- his rows carry the base price. Echo's Candlelit Shrieking Jack-o'-Lantern cost was not captured
+    -- by the scan; it costs 20 Tricky Treats, as at the other three.
+    [273402] = { -- Echo (Tirisfal Glades)
+        [282081] = { price = 5000000, currencies = {}, isUsable = true }, -- Candlelit Smiling Jack-o'-Lantern
+        [282083] = { price = 5000000, currencies = {}, isUsable = true }, -- Unlit Smiling Jack-o'-Lantern
+        [282086] = { price = 2500000, currencies = {}, isUsable = true }, -- Buckled Witch Hat
+        [282090] = { price = 1000000, currencies = {}, isUsable = true }, -- Eternally Powered Glowskull
+        [282072] = { price = 1000000, currencies = {}, isUsable = true }, -- Enchanted Hallow's End Candle
+        [282051] = { price = 1000000, currencies = {}, isUsable = true }, -- Simple Hallow's End Candle
+        [282077] = { price = 5000000, currencies = {}, isUsable = true }, -- Spooky Scarecrow
+        [282095] = { price = 5000000, currencies = {}, isUsable = true }, -- Ominous Heartsbane Banner
+        [282075] = { price = 1000000, currencies = {}, isUsable = true }, -- Heartsbane Candle
+        [282092] = { price = 5000000, currencies = {}, isUsable = true }, -- Heartsbane Ritual Markings
+        [282100] = { price = 1000000, currencies = {}, isUsable = true }, -- Heartsbane Doom Catcher
+        [282098] = { price = 1000000, currencies = {}, isUsable = true }, -- Elaborate Heartsbane Doom Catcher
+        [282192] = { price = 0, currencies = {}, itemCosts = {{itemID = 33226, amount = 20}}, isUsable = true }, -- Candlelit Shrieking Jack-o'-Lantern
+        [282194] = { price = 0, currencies = {}, itemCosts = {{itemID = 33226, amount = 20}}, isUsable = true }, -- Candlelit Ogre Jack-o'-Lantern
+        [282196] = { price = 0, currencies = {}, itemCosts = {{itemID = 33226, amount = 20}}, isUsable = true }, -- Filled Candy Bucket
+        [282198] = { price = 0, currencies = {}, itemCosts = {{itemID = 33226, amount = 20}}, isUsable = true }, -- Unlit Shrieking Jack-o'-Lantern
+        [282200] = { price = 0, currencies = {}, itemCosts = {{itemID = 33226, amount = 20}}, isUsable = true }, -- Unlit Ogre Jack-o'-Lantern
+        [282202] = { price = 0, currencies = {}, itemCosts = {{itemID = 33226, amount = 15}}, isUsable = true }, -- Elaborate Heartsbane Ritual Markings
+        [282204] = { price = 0, currencies = {}, itemCosts = {{itemID = 33226, amount = 25}}, isUsable = true }, -- Ominous Heartsbane Shrine
+        [282206] = { price = 0, currencies = {}, itemCosts = {{itemID = 33226, amount = 15}}, isUsable = true }, -- Heartsbane Stone Circle
+        [282208] = { price = 0, currencies = {}, itemCosts = {{itemID = 33226, amount = 25}}, isUsable = true }, -- Heartsbane Banner
+        [282213] = { price = 0, currencies = {}, itemCosts = {{itemID = 33226, amount = 25}}, isUsable = true }, -- Looming Heartsbane Effigy
+        [282289] = { price = 0, currencies = {}, itemCosts = {{itemID = 33226, amount = 20}}, isUsable = true }, -- Horrific Head of the Horseman
+    },
+    [273403] = { -- Jack (Elwynn Forest)
+        [282081] = { price = 5000000, currencies = {}, isUsable = true }, -- Candlelit Smiling Jack-o'-Lantern
+        [282083] = { price = 5000000, currencies = {}, isUsable = true }, -- Unlit Smiling Jack-o'-Lantern
+        [282086] = { price = 2500000, currencies = {}, isUsable = true }, -- Buckled Witch Hat
+        [282090] = { price = 1000000, currencies = {}, isUsable = true }, -- Eternally Powered Glowskull
+        [282072] = { price = 1000000, currencies = {}, isUsable = true }, -- Enchanted Hallow's End Candle
+        [282051] = { price = 1000000, currencies = {}, isUsable = true }, -- Simple Hallow's End Candle
+        [282077] = { price = 5000000, currencies = {}, isUsable = true }, -- Spooky Scarecrow
+        [282095] = { price = 5000000, currencies = {}, isUsable = true }, -- Ominous Heartsbane Banner
+        [282075] = { price = 1000000, currencies = {}, isUsable = true }, -- Heartsbane Candle
+        [282092] = { price = 5000000, currencies = {}, isUsable = true }, -- Heartsbane Ritual Markings
+        [282100] = { price = 1000000, currencies = {}, isUsable = true }, -- Heartsbane Doom Catcher
+        [282098] = { price = 1000000, currencies = {}, isUsable = true }, -- Elaborate Heartsbane Doom Catcher
+        [282192] = { price = 0, currencies = {}, itemCosts = {{itemID = 33226, amount = 20}}, isUsable = true }, -- Candlelit Shrieking Jack-o'-Lantern
+        [282194] = { price = 0, currencies = {}, itemCosts = {{itemID = 33226, amount = 20}}, isUsable = true }, -- Candlelit Ogre Jack-o'-Lantern
+        [282196] = { price = 0, currencies = {}, itemCosts = {{itemID = 33226, amount = 20}}, isUsable = true }, -- Filled Candy Bucket
+        [282198] = { price = 0, currencies = {}, itemCosts = {{itemID = 33226, amount = 20}}, isUsable = true }, -- Unlit Shrieking Jack-o'-Lantern
+        [282200] = { price = 0, currencies = {}, itemCosts = {{itemID = 33226, amount = 20}}, isUsable = true }, -- Unlit Ogre Jack-o'-Lantern
+        [282202] = { price = 0, currencies = {}, itemCosts = {{itemID = 33226, amount = 15}}, isUsable = true }, -- Elaborate Heartsbane Ritual Markings
+        [282204] = { price = 0, currencies = {}, itemCosts = {{itemID = 33226, amount = 25}}, isUsable = true }, -- Ominous Heartsbane Shrine
+        [282206] = { price = 0, currencies = {}, itemCosts = {{itemID = 33226, amount = 15}}, isUsable = true }, -- Heartsbane Stone Circle
+        [282208] = { price = 0, currencies = {}, itemCosts = {{itemID = 33226, amount = 25}}, isUsable = true }, -- Heartsbane Banner
+        [282213] = { price = 0, currencies = {}, itemCosts = {{itemID = 33226, amount = 25}}, isUsable = true }, -- Looming Heartsbane Effigy
+        [282289] = { price = 0, currencies = {}, itemCosts = {{itemID = 33226, amount = 20}}, isUsable = true }, -- Horrific Head of the Horseman
+    },
+    [273472] = { -- Cordula Wolfgang (Founder's Point)
+        [282192] = { price = 0, currencies = {}, itemCosts = {{itemID = 33226, amount = 20}}, isUsable = true }, -- Candlelit Shrieking Jack-o'-Lantern
+        [282194] = { price = 0, currencies = {}, itemCosts = {{itemID = 33226, amount = 20}}, isUsable = true }, -- Candlelit Ogre Jack-o'-Lantern
+        [282196] = { price = 0, currencies = {}, itemCosts = {{itemID = 33226, amount = 20}}, isUsable = true }, -- Filled Candy Bucket
+        [282198] = { price = 0, currencies = {}, itemCosts = {{itemID = 33226, amount = 20}}, isUsable = true }, -- Unlit Shrieking Jack-o'-Lantern
+        [282200] = { price = 0, currencies = {}, itemCosts = {{itemID = 33226, amount = 20}}, isUsable = true }, -- Unlit Ogre Jack-o'-Lantern
+        [282202] = { price = 0, currencies = {}, itemCosts = {{itemID = 33226, amount = 15}}, isUsable = true }, -- Elaborate Heartsbane Ritual Markings
+        [282204] = { price = 0, currencies = {}, itemCosts = {{itemID = 33226, amount = 25}}, isUsable = true }, -- Ominous Heartsbane Shrine
+        [282206] = { price = 0, currencies = {}, itemCosts = {{itemID = 33226, amount = 15}}, isUsable = true }, -- Heartsbane Stone Circle
+        [282208] = { price = 0, currencies = {}, itemCosts = {{itemID = 33226, amount = 25}}, isUsable = true }, -- Heartsbane Banner
+        [282213] = { price = 0, currencies = {}, itemCosts = {{itemID = 33226, amount = 25}}, isUsable = true }, -- Looming Heartsbane Effigy
+        [282289] = { price = 0, currencies = {}, itemCosts = {{itemID = 33226, amount = 20}}, isUsable = true }, -- Horrific Head of the Horseman
+    },
+    [273470] = { -- Spew Gutsout (Razorwind Shores)
+        [282192] = { price = 0, currencies = {}, itemCosts = {{itemID = 33226, amount = 20}}, isUsable = true }, -- Candlelit Shrieking Jack-o'-Lantern
+        [282194] = { price = 0, currencies = {}, itemCosts = {{itemID = 33226, amount = 20}}, isUsable = true }, -- Candlelit Ogre Jack-o'-Lantern
+        [282196] = { price = 0, currencies = {}, itemCosts = {{itemID = 33226, amount = 20}}, isUsable = true }, -- Filled Candy Bucket
+        [282198] = { price = 0, currencies = {}, itemCosts = {{itemID = 33226, amount = 20}}, isUsable = true }, -- Unlit Shrieking Jack-o'-Lantern
+        [282200] = { price = 0, currencies = {}, itemCosts = {{itemID = 33226, amount = 20}}, isUsable = true }, -- Unlit Ogre Jack-o'-Lantern
+        [282202] = { price = 0, currencies = {}, itemCosts = {{itemID = 33226, amount = 15}}, isUsable = true }, -- Elaborate Heartsbane Ritual Markings
+        [282204] = { price = 0, currencies = {}, itemCosts = {{itemID = 33226, amount = 25}}, isUsable = true }, -- Ominous Heartsbane Shrine
+        [282206] = { price = 0, currencies = {}, itemCosts = {{itemID = 33226, amount = 15}}, isUsable = true }, -- Heartsbane Stone Circle
+        [282208] = { price = 0, currencies = {}, itemCosts = {{itemID = 33226, amount = 25}}, isUsable = true }, -- Heartsbane Banner
+        [282213] = { price = 0, currencies = {}, itemCosts = {{itemID = 33226, amount = 25}}, isUsable = true }, -- Looming Heartsbane Effigy
+        [282289] = { price = 0, currencies = {}, itemCosts = {{itemID = 33226, amount = 20}}, isUsable = true }, -- Horrific Head of the Horseman
     },
     [274062] = {
         [282661] = { price = 0, currencies = {{id = 1813, amount = 200}}, isUsable = true },

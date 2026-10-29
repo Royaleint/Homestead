@@ -4,6 +4,7 @@
 ]]
 
 local _, HA = ...
+local L = HA.L
 
 local WelcomeFrame = {}
 HA.WelcomeFrame = WelcomeFrame
@@ -198,14 +199,16 @@ local function CreateWelcomeFrame()
 
     local tagline = frame:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
     tagline:SetPoint("TOP", title, "BOTTOM", -15, -12)
-    tagline:SetText("|cFFFFD100Find every decor vendor on your map and see what you own before you buy.|r")
+    tagline:SetWidth(CONTENT_WIDTH)
+    tagline:SetJustifyH("CENTER")
+    tagline:SetText("|cFFFFD100" .. L["Find every decor vendor on your map and see what you own before you buy."] .. "|r")
 
     -- =========================================================================
     -- Content area
     -- =========================================================================
 
     local content = CreateFrame("Frame", nil, frame)
-    content:SetPoint("TOPLEFT", PADDING, -96)
+    content:SetPoint("TOPLEFT", tagline, "BOTTOMLEFT", PADDING - ((FRAME_WIDTH - CONTENT_WIDTH) / 2), -10)
     content:SetPoint("BOTTOMRIGHT", -PADDING, 66)
 
     -- Invisible top anchor
@@ -218,18 +221,18 @@ local function CreateWelcomeFrame()
     -- SECTION 1: What Homestead Does
     -- =====================================================================
 
-    local sec1Header = AddHeader(content, topAnchor, "What Homestead Does", 2)
+    local sec1Header = AddHeader(content, topAnchor, L["What Homestead Does"], 2)
 
     local bullet1 = AddFeatureRow(content, sec1Header,
         { atlas = "housing-decor-vendor_32" },
-        "Map Pins",
-        "Every decor vendor pinned on your world map and minimap, with badges showing how many items you still need per zone.",
+        L["Map Pins"],
+        L["Every decor vendor pinned on your world map and minimap, with badges showing how many items you still need per zone."],
         8)
 
     local bullet2 = AddFeatureRow(content, bullet1,
         HA.Constants.Icons.MINIMAP,
-        "Map Side Panel",
-        "Click the Homestead button on the world map to open the side panel listing that zone's vendors, then click any vendor to browse their wares and see what you still need. Pop it out as a standalone window with |cFF00FF00/hs panel|r or by right-clicking the minimap button.",
+        L["Map Side Panel"],
+        L["Click the Homestead button on the world map to open the side panel listing that zone's vendors, then click any vendor to browse their wares and see what you still need. Pop it out as a standalone window with |cFF00FF00/hs panel|r."],
         FEATURE_GAP)
 
     -- Bullet 3: Tooltips Expanded. Custom layout to accommodate right-floated mock tooltip.
@@ -251,7 +254,7 @@ local function CreateWelcomeFrame()
     b3Heading:SetPoint("TOPLEFT", b3TextLeft, 0)
     b3Heading:SetWidth(b3TextWidth)
     b3Heading:SetJustifyH("LEFT")
-    b3Heading:SetText("|cFFFFD100Tooltips Expanded|r")
+    b3Heading:SetText("|cFFFFD100" .. L["Tooltips Expanded"] .. "|r")
 
     local b3Body = bullet3:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
     local b3Font, b3Size, b3Flags = b3Body:GetFont()
@@ -260,7 +263,7 @@ local function CreateWelcomeFrame()
     b3Body:SetWidth(b3TextWidth)
     b3Body:SetJustifyH("LEFT")
     b3Body:SetSpacing(2)
-    b3Body:SetText("Every item in the Housing Catalog gets tooltips showing where it comes from (vendor, quest, achievement, profession, or drop), what it costs, and what you need to unlock it, so you never have to leave the game to look something up.")
+    b3Body:SetText(L["Every item in the Housing Catalog gets tooltips showing where it comes from (vendor, quest, achievement, profession, or drop), what it costs, and what you need to unlock it, so you never have to leave the game to look something up."])
 
     local b3HeadingH = b3Heading:GetStringHeight()
     local b3BodyH = b3Body:GetStringHeight()
@@ -280,11 +283,11 @@ local function CreateWelcomeFrame()
     -- SECTION 2: Key Commands
     -- =====================================================================
 
-    local sec2Header = AddHeader(content, bullet3, "Key Commands", SECTION_GAP)
+    local sec2Header = AddHeader(content, bullet3, L["Key Commands"], SECTION_GAP)
 
-    local cmd1 = AddCommand(content, sec2Header, "/hs", "Open options & settings", 6)
-    local cmd2 = AddCommand(content, cmd1, "/hs help", "Show all commands")
-    local cmd3 = AddCommand(content, cmd2, "Right-click minimap button", "Open the standalone vendor panel")
+    local cmd1 = AddCommand(content, sec2Header, "/hs", L["Open the Decor Browser, or bind a key under Keybindings > Homestead"], 6)
+    local cmd2 = AddCommand(content, cmd1, "/hs help", L["Show all commands"])
+    local cmd3 = AddCommand(content, cmd2, L["Minimap button"], L["Left-click opens the Decor Browser, right-click opens options"])
 
     -- =====================================================================
     -- SECTION 3: Found a Problem?
@@ -294,18 +297,18 @@ local function CreateWelcomeFrame()
     sec3Header:SetPoint("TOP", cmd3, "BOTTOM", 0, -(SECTION_GAP + 10))
     sec3Header:SetWidth(CONTENT_WIDTH)
     sec3Header:SetJustifyH("CENTER")
-    sec3Header:SetText("|cFFFFD100Found a Problem?|r")
+    sec3Header:SetText("|cFFFFD100" .. L["Found a Problem?"] .. "|r")
 
     local sec3Body = AddParagraph(content, sec3Header,
-        "Report bugs or wrong vendor info on GitHub using the link below.",
+        L["Report bugs or wrong vendor info on GitHub using the link below."],
         14)
 
     local issueLabel = AddSmallText(content, sec3Body,
-        "|cFFFF4444Report issues (GitHub):|r", 14)
+        "|cFFFF4444" .. L["Report issues (GitHub):"] .. "|r", 14)
     local ghBox = AddURLBox(content, issueLabel,
         "https://github.com/Royaleint/Homestead/issues", 2)
 
-    local cfLabel = AddSmallText(content, ghBox, "|cFFFF4444CurseForge:|r", 6)
+    local cfLabel = AddSmallText(content, ghBox, "|cFFFF4444" .. L["CurseForge:"] .. "|r", 6)
     AddURLBox(content, cfLabel, "https://www.curseforge.com/wow/addons/homestead-wow", 2)
 
     -- =========================================================================
@@ -319,13 +322,13 @@ local function CreateWelcomeFrame()
 
     local checkLabel = frame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
     checkLabel:SetPoint("LEFT", checkBtn, "RIGHT", 2, 0)
-    checkLabel:SetText("Don't show this again")
+    checkLabel:SetText(L["Don't show this again"])
     checkLabel:SetTextColor(0.7, 0.7, 0.7)
 
     local startBtn = CreateFrame("Button", nil, frame, "UIPanelButtonTemplate")
     startBtn:SetSize(120, 24)
     startBtn:SetPoint("BOTTOMRIGHT", -18, 28)
-    startBtn:SetText("Let's Decorate!")
+    startBtn:SetText(L["Let's Decorate!"])
     startBtn:SetScript("OnClick", function() WelcomeFrame:Hide() end)
 
     frame:Hide()

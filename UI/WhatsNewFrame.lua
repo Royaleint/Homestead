@@ -243,7 +243,7 @@ local function BuildContent(frame, version)
         icymiLabel:SetWidth(CONTENT_WIDTH)
         icymiLabel:SetJustifyH("LEFT")
         icymiLabel:SetTextColor(0.53, 0.53, 0.53)
-        icymiLabel:SetText("In Case You Missed It  \226\128\148  v" .. prevVersion)
+        icymiLabel:SetText("In Case You Missed It: v" .. prevVersion)
         icymiHeight = icymiHeight + ICYMI_LABEL_GAP + icymiLabel:GetStringHeight()
 
         local icymiLastRow = icymiLabel

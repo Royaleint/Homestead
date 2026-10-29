@@ -8,8 +8,12 @@ globals = {
     "HomesteadMapSidePanelTooltip",
     "HomesteadVendorMapPinsTooltip",
     "HomesteadVendorMapPinsWaresTooltip",
+    "HomesteadBrowserTooltip",
+    "HomesteadBrowserDisplay",
     "SlashCmdList",
     "SLASH_HOMESTEAD1", "SLASH_HOMESTEAD2",
+    "BINDING_HEADER_HOMESTEAD",
+    "BINDING_NAME_HOMESTEAD_TOGGLE_BROWSER",
     -- SavedVariables (created by WoW, read/written by addon)
     "HomesteadDB",
 }
@@ -22,7 +26,7 @@ read_globals = {
     "tinsert", "tremove", "wipe", "strsplit",
     "time", "date", "math", "string", "table",
     "error", "pcall", "rawget", "rawset", "setmetatable", "getmetatable",
-    "issecretvalue", -- Midnight combat-secrecy probe (HS-168)
+    "issecretvalue", -- Midnight combat-secrecy probe
     "GetBuildInfo",
 
     -- WoW constants
@@ -35,37 +39,42 @@ read_globals = {
     "BankFrame",
     "ChatFontNormal",
     "ContainerFrameCombinedBags", "ContainerFrameContainer",
-    "CreateFrame",
+    "CreateFrame", "CreateFont", "CreateVector2D",
     "DEFAULT_CHAT_FRAME",
     "CreateDataProvider",
     "CreateFromMixins",
-    "CreateScrollBoxListLinearView",
+    "CreateScrollBoxListLinearView", "CreateScrollBoxListGridView",
+    "CreateColor", "CreateAnchor",
     "CreateFramePool", "CreateUnsecuredRegionPoolInstance",
     "EventRegistry",
-    "EventUtil", -- HS-368: EventUtil.ContinueOnAddOnLoaded (Blizzard_SharedXML/EventUtil.lua)
+    "FrameUtil", "TextSizeManager",
+    "EventUtil", -- EventUtil.ContinueOnAddOnLoaded (Blizzard_SharedXML/EventUtil.lua)
     "GameFontHighlight", "GameFontHighlightSmall",
     "GameFontNormal", "GameFontNormalLarge", "GameFontNormalHuge2", "GameFontNormalSmall",
     "GameTooltip", "GameTooltip_Hide",
-    "GameTooltip_AddNormalLine", "GameTooltip_SetTitle",
-    "GameTooltip_AddColoredLine", "GameTooltip_AddColoredDoubleLine",
+    "GameTooltip_AddNormalLine", "GameTooltip_SetTitle", "HOUSING_DECOR_FIRST_ACQUISITION_FORMAT",
+    "HOUSING_DECOR_FIRST_ACQUISITION_AVAILABLE",
+    "GameTooltip_AddColoredLine", "GameTooltip_AddColoredDoubleLine", "GameTooltip_AddHighlightLine",
+    "CAMERA_TRANSITION_TYPE_IMMEDIATE", "CAMERA_MODIFICATION_TYPE_DISCARD",
     "NORMAL_FONT_COLOR", "Item",
-    "ItemRefTooltip",
+    "ItemRefTooltip", "HandleModifiedItemClick", "IsModifiedClick",
     "MerchantFrame", "MerchantFrameTab1", "MerchantFrameTab2",
     "MerchantNextPageButton", "MerchantPrevPageButton",
     "InterfaceOptions_AddCategory",
-    "Settings",
+    "Settings", "SetPortraitTextureFromCreatureDisplayID",
     "ShoppingTooltip1", "ShoppingTooltip2",
     "ScrollBoxConstants",
     "BaseScrollBoxEvents",
     "ScrollUtil",
     "ScrollBoxListViewMixin",
     "TooltipDataProcessor",
-    "UIParent", "UISpecialFrames",
+    "UIParent",
     "MapCanvasDataProviderMixin",
     "Menu",
     "MenuUtil",
     "Mixin",
     "NineSliceUtil",
+    "PixelUtil",
     "PlaySound",
     "WorldMapFrame",
     -- Templates
@@ -83,11 +92,12 @@ read_globals = {
     "C_CurrencyInfo",
     "C_DateAndTime",
     "C_DateInfo",
-    "C_EncounterJournal",  -- HS-229: EJ-anchored drop pins
+    "C_EncounterJournal",  -- EJ-anchored drop pins
     "C_GossipInfo",
     "C_Housing",
     "C_AreaPoiInfo",
     "C_HousingCatalog",
+    "C_ColorOverrides",
     "C_Item",
     "C_Map",
     "C_MerchantFrame",
@@ -96,7 +106,8 @@ read_globals = {
     "C_Reputation",
     "C_SpellBook",
     "C_SuperTrack",
-    "C_TaxiMap",  -- HS-347: flight point dodge candidates
+    "C_Texture",
+    "C_TaxiMap",  -- flight point dodge candidates
     "C_Timer",
     "C_TooltipInfo",
     "C_TradeSkillUI",
@@ -104,13 +115,14 @@ read_globals = {
     "UiMapPoint",
 
     -- WoW API (functions)
-    "GetAchievementCriteriaInfo", "GetAchievementInfo",
+    "GetAchievementCriteriaInfo", "GetAchievementInfo", "GetAchievementLink", "GetQuestLink",
     "GetItemCount", "GetItemInfo", "GetItemInfoInstant",
     "GetCoinTextureString",
-    "GetCVarBool",  -- HS-347: dungeon/delve entrance map-legend filter check
+    "GetCVarBool",  -- dungeon/delve entrance map-legend filter check
     "GetMerchantItemInfo", "GetMerchantItemLink", "GetMerchantNumItems",
     "GetLocale",
-    "GetProfessions", "GetProfessionInfo", -- HS-158/160 professionRank requirements
+    "GetMoney",
+    "GetProfessions", "GetProfessionInfo", -- professionRank requirements
     "GetRealZoneText",
     "GetSubZoneText",
     "GetScreenWidth", "GetScreenHeight",
@@ -124,7 +136,7 @@ read_globals = {
     "IsAltKeyDown", "IsControlKeyDown", "IsShiftKeyDown",
     "IsIndoors",
     "IsInGroup", "IsInRaid", "IsInInstance", "IsInGuild",
-    "Lerp", "Saturate", -- Blizzard_SharedXMLBase/MathUtil.lua (HS-274 zoom-growth curve)
+    "Lerp", "Saturate", -- Blizzard_SharedXMLBase/MathUtil.lua (zoom-growth curve)
     "OpenAllBags", "OpenBag",
     "SOUNDKIT",
     "ToggleAllBags", "ToggleBag", "ToggleWorldMap",
@@ -141,7 +153,7 @@ read_globals = {
 ignore = {"21[23]"}  -- Ace3 callback patterns
 
 -- Vendored third-party libraries are linted in their own repos, not here. The
--- Foundry-1.0 embed (HS-120) is the one tracked lib in Libs/; exclude the whole
+-- Foundry-1.0 embed is the one tracked lib in Libs/; exclude the whole
 -- Libs/ tree so `luacheck .` covers only Homestead's own files.
 --
 -- luacheck doesn't honor .gitignore or skip dot-directories, so every other
@@ -164,6 +176,7 @@ files["Locale/enUS.lua"] = {
     read_globals = {
         "GENERAL", "CLOSE", "MINIMAP_LABEL", "BLIZZARD_STORE", "WORLDMAP_BUTTON",
         "SHIFT_KEY_TEXT", "ALT_KEY_TEXT", "CTRL_KEY_TEXT", "HOUSING_DASHBOARD_ENDEAVOR",
-        "BROWSE_NO_RESULTS",
+        "BROWSE_NO_RESULTS", "FACTION_ALLIANCE", "FACTION_HORDE",
+        "HOUSING_CATALOG_FILTERS_FIRST_ACQUISITION", "HOUSING_DECOR_FIRST_ACQUISITION_AVAILABLE",
     },
 }
