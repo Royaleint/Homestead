@@ -478,6 +478,19 @@ function VendorData:ResolveAlias(npcID)
     return nil
 end
 
+-- HS-532: the single holiday gate. Holiday vendors (EventSources.EventVendors,
+-- by npcID) are hidden unless CalendarDetector reads their holiday as exactly
+-- true; unknown counts as off. Every other npcID, endeavor vendors included,
+-- is never hidden here.
+-- Callers check this before building a vendor; none may rely on GetVendor's nil.
+function VendorData:IsHolidayVendorHidden(npcID)
+    local eventVendors = npcID ~= nil and HA.EventSources and HA.EventSources.EventVendors
+    local eventVendor = eventVendors and eventVendors[npcID]
+    if not eventVendor then return false end
+    return not (HA.CalendarDetector
+        and HA.CalendarDetector:IsHolidayActive(eventVendor.event) == true)
+end
+
 local function ProjectVendorWithItems(self, vendor, npcID)
     if not vendor then return nil end
 
@@ -498,6 +511,14 @@ function VendorData:GetVendor(npcID)
     if HA.EndeavorsData and HA.EndeavorsData.Vendors then
         local vendor = HA.EndeavorsData.Vendors[npcID]
         if vendor then return vendor end
+    end
+    -- HS-532: holiday vendors, only while their holiday runs. HasVendor
+    -- deliberately does not learn them (scan saving and export read it).
+    local eventVendors = HA.EventSources and HA.EventSources.EventVendors
+    local eventVendor = eventVendors and eventVendors[npcID]
+    if eventVendor then
+        if self:IsHolidayVendorHidden(npcID) then return nil end
+        return ProjectVendorWithItems(self, eventVendor, npcID)
     end
     -- Resolve alias and retry (cycle guard: canonicalID must differ)
     local canonicalID = self:ResolveAlias(npcID)
@@ -534,6 +555,39 @@ local function ShouldIncludeEndeavorVendorForDisplay(vendor)
     end
 
     return true
+end
+
+-- Whether an endeavor vendor's second position also reaches the item tooltip,
+-- the source summary and the closest-vendor waypoint. Map pins show both either way.
+local ALT_POSITION_FOR_ENDEAVOR_VENDORS = true
+
+-- The vendor's other position as mapID, x, y, zone, subzone, or nil. A primary
+-- row answers with its alt fields; the alt copy answers with the primary's.
+function VendorData:GetOtherPosition(vendor)
+    if not vendor or not vendor.altMapID then return nil end
+    if vendor.endeavor and not ALT_POSITION_FOR_ENDEAVOR_VENDORS then return nil end
+    if vendor.mapID ~= vendor.altMapID then
+        return vendor.altMapID, vendor.altX, vendor.altY, vendor.altZone or vendor.zone, vendor.altSubzone
+    end
+    local primary = vendor.endeavor
+        and HA.EndeavorsData and HA.EndeavorsData.Vendors and HA.EndeavorsData.Vendors[vendor.npcID]
+        or HA.VendorIdentity and HA.VendorIdentity:GetVendor(vendor.npcID)
+    if primary then
+        return primary.mapID, primary.x, primary.y, primary.zone, primary.subzone
+    end
+    return nil
+end
+
+-- The entry GetVendorsInMap returns for the vendor's second position.
+local function GetSecondPositionCopy(self, vendor)
+    if vendor.endeavor then
+        local atAlt = HA.EndeavorsData.ByMapID[vendor.altMapID]
+        for _, entry in ipairs(atAlt or {}) do
+            if entry.npcID == vendor.npcID then return entry end
+        end
+        return nil
+    end
+    return ProjectVendorWithItems(self, HA.VendorIdentity:GetAltCopy(vendor.npcID))
 end
 
 -- Get all vendors in a specific map/zone
@@ -579,8 +633,8 @@ function VendorData:GetVendorsInMap(mapID)
             for _, vendor in ipairs(eventVendors) do
                 -- Dedup: skip if already added (e.g., vendor was scanned in-game)
                 if vendor.npcID and not addedNPCs[vendor.npcID] then
-                    -- Only include if holiday is active (nil = unknown → don't inject)
-                    if HA.CalendarDetector and HA.CalendarDetector:IsHolidayActive(vendor.event) == true then
+                    -- Only while the holiday runs (unknown = off)
+                    if not self:IsHolidayVendorHidden(vendor.npcID) then
                         result[#result + 1] = vendor
                         addedNPCs[vendor.npcID] = true
                     end
@@ -630,10 +684,14 @@ function VendorData:GetVendorsForItem(itemID)
     -- Priority 1: Static offer index (curated, authoritative)
     if self.OfferByItemID and self.OfferByItemID[itemID] then
         for _, npcID in ipairs(self.OfferByItemID[itemID]) do
-            local vendor = self:GetVendor(npcID)
-            if vendor then
-                table.insert(result, vendor)
-                seenNPCs[npcID] = true
+            if self:IsHolidayVendorHidden(npcID) then
+                seenNPCs[npcID] = true  -- HS-532: a gated vendor must not re-enter below
+            else
+                local vendor = self:GetVendor(npcID)
+                if vendor then
+                    table.insert(result, vendor)
+                    seenNPCs[npcID] = true
+                end
             end
         end
     end
@@ -656,7 +714,7 @@ function VendorData:GetVendorsForItem(itemID)
         local db = HA.Addon and HA.Addon.db
         if db and db.global and db.global.scannedVendors then
             for _, npcID in ipairs(self.ScannedByItemID[itemID]) do
-                if not seenNPCs[npcID] then
+                if not seenNPCs[npcID] and not self:IsHolidayVendorHidden(npcID) then
                     local scannedVendor = db.global.scannedVendors[npcID]
                     if scannedVendor then
                         -- Resolve zone name from mapID
@@ -691,8 +749,7 @@ function VendorData:GetVendorsForItem(itemID)
     if HA.EventSources and HA.EventSources.EventVendors then
         for _, eventVendor in pairs(HA.EventSources.EventVendors) do
             if eventVendor.npcID and not seenNPCs[eventVendor.npcID]
-                    and eventVendor.items and HA.CalendarDetector
-                    and HA.CalendarDetector:IsHolidayActive(eventVendor.event) == true then
+                    and eventVendor.items and not self:IsHolidayVendorHidden(eventVendor.npcID) then
                 for _, eventItemID in ipairs(eventVendor.items) do
                     if eventItemID == itemID then
                         result[#result + 1] = eventVendor
@@ -724,6 +781,7 @@ function VendorData:GetClosestVendorForItem(itemID)
     end
 
     local closestVendor = nil
+    local closestIsSecondPosition = false
     local closestDistance = math.huge
 
     for _, vendor in ipairs(vendorList) do
@@ -736,8 +794,26 @@ function VendorData:GetClosestVendorForItem(itemID)
             if distance < closestDistance then
                 closestDistance = distance
                 closestVendor = vendor
+                closestIsSecondPosition = false
             end
         end
+
+        local otherMapID, otherX, otherY = self:GetOtherPosition(vendor)
+        if otherMapID == playerMapID and otherX and otherY then
+            local dx = otherX - playerPos.x
+            local dy = otherY - playerPos.y
+            local distance = math.sqrt(dx*dx + dy*dy)
+
+            if distance < closestDistance then
+                closestDistance = distance
+                closestVendor = vendor
+                closestIsSecondPosition = true
+            end
+        end
+    end
+
+    if closestIsSecondPosition then
+        return GetSecondPositionCopy(self, closestVendor) or closestVendor
     end
 
     -- If no vendor on same map, just return first one
@@ -799,7 +875,7 @@ function VendorData:SearchVendors(searchText)
     if HA.EventSources and HA.EventSources.EventVendors then
         for npcID, vendor in pairs(HA.EventSources.EventVendors) do
             if not addedNPCs[npcID] then
-                if HA.CalendarDetector and HA.CalendarDetector:IsHolidayActive(vendor.event) == true then
+                if not self:IsHolidayVendorHidden(npcID) then
                     local matched = false
                     if vendor.name and vendor.name:lower():find(lowerSearch, 1, true) then
                         matched = true
@@ -848,10 +924,12 @@ function VendorData:GetAllVendors()
 
     -- Append active event vendors
     if HA.EventSources and HA.EventSources.EventVendors then
-        for _, vendor in pairs(HA.EventSources.EventVendors) do
+        for npcID, vendor in pairs(HA.EventSources.EventVendors) do
             if vendor.npcID and not addedNPCs[vendor.npcID] then
-                if HA.CalendarDetector and HA.CalendarDetector:IsHolidayActive(vendor.event) == true then
-                    result[#result + 1] = vendor
+                if not self:IsHolidayVendorHidden(npcID) then  -- npcID = the pairs key
+                    -- A copy, as for identity rows: callers may write fields onto
+                    -- what they get, and the shipped row's npcID is the gate's key.
+                    result[#result + 1] = ProjectVendorWithItems(self, vendor, npcID)
                     addedNPCs[vendor.npcID] = true
                 end
             end

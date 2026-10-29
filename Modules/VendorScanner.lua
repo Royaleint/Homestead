@@ -514,7 +514,7 @@ function VendorScanner:StopScan(endReason)
         -- Clear session lock so vendor can be re-scanned this session
         scannedVendorsThisSession[scanQueue.npcID] = nil
         if HA.DevAddon then
-            HA.Addon:Debug("Scan aborted for " .. (scanQueue.vendorName or "Unknown") .. " — partial data discarded")
+            HA.Addon:Debug("Scan aborted for " .. (scanQueue.vendorName or "Unknown") .. ": partial data discarded")
         end
     end
 

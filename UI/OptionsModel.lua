@@ -342,6 +342,19 @@ OptionsModel.sections = {
                 type = "pinPreview",
                 label = L["Approximate map appearance"],
             },
+            {
+                key = "browserHeader",
+                type = "header",
+                label = L["Decor Browser"],
+            },
+            {
+                key = "browserModel3D",
+                type = "checkbox",
+                label = L["Show 3D preview"],
+                tooltip = L["desc_browser_model3d"],
+                get = function() return HA.DecorBrowser.Model3D() end,
+                set = function(value) HA.DecorBrowser.SetModel3D(value) end,
+            },
         },
     },
     {

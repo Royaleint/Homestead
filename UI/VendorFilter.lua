@@ -76,8 +76,9 @@ function VendorFilter.GetBestVendorCoordinates(vendor)
 
             -- Use scanned coords if they're valid and mapID matches.
             -- For endeavor vendors, skip scan data from a different mapID — it may
-            -- be stale from a previous neighborhood rotation.
-            local scanMapMismatch = vendor.endeavor and scannedMapID ~= vendor.mapID
+            -- be stale from a previous neighborhood rotation. Vendors with a second
+            -- position stand in two maps, so a scan on one never moves the other.
+            local scanMapMismatch = (vendor.endeavor or vendor.altMapID) and scannedMapID ~= vendor.mapID
             if VendorFilter.AreValidCoordinates(scannedX, scannedY) and scannedMapID
                     and not scanMapMismatch then
                 -- Debug output
@@ -193,7 +194,7 @@ end
 -------------------------------------------------------------------------------
 
 -- Resolve effective faction for a vendor: explicit field first, then zone map fallback.
-local function GetEffectiveFaction(vendor)
+function VendorFilter.GetEffectiveFaction(vendor)
     local f = vendor.faction
     if f and f ~= "Neutral" then return f end
     if vendor.mapID then
@@ -203,7 +204,7 @@ end
 
 -- Check if vendor is accessible to player's faction
 function VendorFilter.CanAccessVendor(vendor)
-    local faction = GetEffectiveFaction(vendor)
+    local faction = VendorFilter.GetEffectiveFaction(vendor)
     if not faction then return true end
     local playerFaction = UnitFactionGroup("player")
     return faction == playerFaction
@@ -211,7 +212,7 @@ end
 
 -- Check if vendor is opposite faction (not neutral, not player's faction)
 function VendorFilter.IsOppositeFaction(vendor)
-    local faction = GetEffectiveFaction(vendor)
+    local faction = VendorFilter.GetEffectiveFaction(vendor)
     if not faction then return false end
     local playerFaction = UnitFactionGroup("player")
     return faction ~= playerFaction

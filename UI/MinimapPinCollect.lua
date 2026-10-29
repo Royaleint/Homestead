@@ -196,9 +196,11 @@ function MinimapPinCollect:RefreshMinimapPins()
                             or VF.ShouldHideCompletedVendorPin(vendor, nil)
 
                         -- Skip static/scanned map mismatches to avoid misplaced minimap pins.
-                        -- Bypass for endeavor vendors: scan data may be stale from a previous
-                        -- neighborhood rotation. GetBestVendorCoordinates handles the fallback.
-                        if not shouldSkipVendor and not vendor.endeavor
+                        -- Bypass for endeavor vendors (scan data may be stale from a previous
+                        -- neighborhood rotation) and for vendors with a second position (a scan
+                        -- on one map must not hide the other). GetBestVendorCoordinates handles
+                        -- the fallback.
+                        if not shouldSkipVendor and not (vendor.endeavor or vendor.altMapID)
                                 and HA.Addon and HA.Addon.db
                                 and HA.Addon.db.global.scannedVendors then
                             local scannedData = HA.Addon.db.global.scannedVendors[vendor.npcID]
@@ -244,6 +246,8 @@ function MinimapPinCollect:RefreshMinimapPins()
                                         pendingPins[#pendingPins + 1] = {
                                             vendor = vendor,
                                             mapID = vendorMapID,
+                                            mapX = coords.x,
+                                            mapY = coords.y,
                                             instanceID = instanceID,
                                             worldX = worldX,
                                             worldY = worldY,
@@ -260,6 +264,9 @@ function MinimapPinCollect:RefreshMinimapPins()
                 end
             end
         end
+
+        -- HS-536: display-only offset for pins that would cover each other.
+        MPP.AssignOverlapNudge(pendingPins, "mapX", "mapY", "mapID")
 
         if MinimapOverlay then
             MinimapOverlay:SetPins(pendingPins)

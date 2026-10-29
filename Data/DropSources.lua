@@ -64,7 +64,7 @@ HA.DropSources = {
     [266886] = {mobName = "Chimaerus", zone = "The Dreamrift", journalInstanceID = 1314, journalEncounterID = 2795, notes = "Gleaming tier (Mythic kill)."},
     [266887] = {mobName = "Crown of the Cosmos", zone = "The Voidspire", mapID = 2215, coords = {x = 0.5, y = 0.5}, journalInstanceID = 1307, journalEncounterID = 2738, notes = "Gleaming."},
     [267007] = {mobName = "Scourgelord Tyrannus", zone = "Pit of Saron", journalInstanceID = 278, journalEncounterID = 610},
-    [267008] = {mobName = "Zaxasj the Speaker", zone = "Crucible of Storms", mapID = 2133, coords = {x = 0.492, y = 0.524}, journalInstanceID = 1177, journalEncounterID = 2328, notes = "First boss (The Restless Cabal — Zaxasj + Fa'thuul); confirmed."},
+    [267008] = {mobName = "Zaxasj the Speaker", zone = "Crucible of Storms", mapID = 2133, coords = {x = 0.492, y = 0.524}, journalInstanceID = 1177, journalEncounterID = 2328, notes = "First boss (The Restless Cabal: Zaxasj + Fa'thuul); confirmed."},
     [267645] = {mobName = "Chimaerus", zone = "The Dreamrift", journalInstanceID = 1314, journalEncounterID = 2795, notes = "Argent tier (Normal kill)."},
     [268049] = {mobName = "Crown of the Cosmos", zone = "The Voidspire", journalInstanceID = 1307, journalEncounterID = 2738, notes = "Argent tier (Normal kill)."},
     [269269] = {mobName = "Alleria Windrunner", zone = "The Voidspire", journalInstanceID = 1307, journalEncounterID = 2738},

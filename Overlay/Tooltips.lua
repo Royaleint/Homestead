@@ -214,7 +214,7 @@ local function AddRequirementsToTooltip(tooltip, itemID, npcID, dedupSet, reputa
                 if isExpired then
                     tooltip:AddLine("  No longer obtainable", COLOR_GRAY.r, COLOR_GRAY.g, COLOR_GRAY.b)
                 else
-                    local promoText = "Promotion reward — " .. (req.name or "Unknown Promotion")
+                    local promoText = "Promotion reward: " .. (req.name or "Unknown Promotion")
                     if req.endsAt then
                         promoText = promoText .. ", through " .. req.endsAt
                     end
@@ -550,6 +550,13 @@ local function RenderVendorSourceLines(tooltip, source, parsedTag, _itemID, _com
 
     tooltip:AddLine("Source: |cFFFFFFFF" .. vendorName .. "|r" .. parsedTag, COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
     tooltip:AddLine("  Location: |cFFFFFFFF" .. locationText .. "|r", COLOR_WHITE.r, COLOR_WHITE.g, COLOR_WHITE.b)
+
+    if source.data.altZone then
+        local altLocationText = source.data.altSubzone
+            and (source.data.altSubzone .. " (" .. source.data.altZone .. ")")
+            or source.data.altZone
+        tooltip:AddLine("  Location: |cFFFFFFFF" .. altLocationText .. "|r", COLOR_WHITE.r, COLOR_WHITE.g, COLOR_WHITE.b)
+    end
 
     -- Show faction if not neutral
     if source.data.faction and source.data.faction ~= "Neutral" then

@@ -162,7 +162,7 @@ end
 -- anchored to the canvas's (x, y) via normalized coordinates and scale
 -- counter-normalized to real screen pixels; the content frame (the vendor
 -- icon) is reparented onto it so hover/click hit-rects track the icon.
-local function PlaceNativePin(frame, x, y)
+local function PlaceNativePin(frame, x, y, iconOffsetX, iconOffsetY)
     local wrapper = AcquireNativePin()
     if not wrapper then return nil end
 
@@ -174,7 +174,7 @@ local function PlaceNativePin(frame, x, y)
     wrapper.icon = frame
     frame:SetParent(wrapper)
     frame:ClearAllPoints()
-    frame:SetPoint("CENTER", wrapper, "CENTER", 0, 0)
+    frame:SetPoint("CENTER", wrapper, "CENTER", iconOffsetX or 0, iconOffsetY or 0)
     if frame.SetFrameStrata then frame:SetFrameStrata(wrapper:GetFrameStrata()) end
     if frame.SetFrameLevel then frame:SetFrameLevel(wrapper:GetFrameLevel() + 1) end
     frame:Show()
@@ -245,7 +245,7 @@ function Provider:RenderEntries(vendorPins)
     for _, entry in ipairs(vendorPins) do
         local frame = AcquireVendorFrame(entry)
         if frame then
-            PlaceNativePin(frame, entry.x, entry.y)
+            PlaceNativePin(frame, entry.x, entry.y, entry.nudgeX, entry.nudgeY)
             activeVendorFrames[#activeVendorFrames + 1] = frame
         end
     end

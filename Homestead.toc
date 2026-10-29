@@ -7,7 +7,7 @@
 ## IconTexture: Interface\AddOns\Homestead\Textures\HomesteadMinimap
 ## Category: Housing
 ## X-Website: https://github.com/Royaleint/Homestead
-## X-License: GPL-3.0
+## X-License: All Rights Reserved
 ## X-Wago-ID: aNDMQ86o
 ## X-Curse-Project-ID: 1450714
 ## OptionalDeps: WagoAnalytics, Foundry-1.0, Foundry-1.0_DevBuild
@@ -37,6 +37,7 @@ Core\events.lua
 
 # Data Classes
 Data\VendorIdentity.lua
+Data\VendorPortraits.lua
 Data\VendorOffers.lua
 Data\VendorStagedAdditions.lua
 Data\VendorData.lua
@@ -47,6 +48,8 @@ Data\CatalogStore.lua
 # Source Data (non-vendor acquisition)
 Data\AchievementSources.lua
 Data\QuestSources.lua
+Data\TreasureHuntSpots.lua
+Data\QuestStarts.lua
 Data\ProfessionSources.lua
 Data\ReagentIndex.lua
 Data\EventSources.lua
@@ -107,5 +110,18 @@ UI\SearchProvider.lua
 UI\MapSidePanel.lua
 UI\VendorPinTooltips.lua
 UI\VendorMapPins.lua
+UI\Browser\Visuals.xml
+UI\Browser\Style.lua
+UI\Browser\Visuals.lua
+UI\Browser\Adapter.lua
+UI\Browser\Facts.lua
+UI\Browser\CanGet.lua
+UI\Browser\Widgets.lua
+UI\Browser\Window.lua
+UI\Browser\Browser.lua
+UI\Browser\Summary.lua
+UI\Browser\Catalog.lua
+UI\Browser\Sources.lua
+UI\Browser\Item.lua
 UI\Options.lua
 

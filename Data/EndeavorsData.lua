@@ -87,11 +87,20 @@ local initiativeTitleToTheme = {
     ["Holm Sweet Holm"] = "Earthen",
 }
 
--- Stable initiative IDs observed in-game.
--- Extend as additional themes are observed.
+-- Initiative IDs come from the game's initiative data and are the same in every
+-- language, so these resolve a theme on any client. Only 15 and 17 have been
+-- seen in game so far.
 local initiativeIDToTheme = {
+    [12] = "Kobold",
+    [13] = "Grummle",
     [15] = "Blood Elf",
+    [16] = "Dracthyr",
     [17] = "Mechagnome",
+    [18] = "K'areshi",
+    [19] = "Niffen",
+    [20] = "Maruuk",
+    [22] = "Amani",
+    [24] = "Tortollan",
 }
 
 -------------------------------------------------------------------------------
@@ -338,7 +347,7 @@ EndeavorsData.Vendors = {
     -- Midnight 12.1 endeavor vendors. Promoted visible for the 12.1 release
     -- (HS-310, 2026-08-11): `unreleased = true` removed from all four per the
     -- validation this block already recorded -- costs verified against the
-    -- release matrix (HS-311 patch-discovery, PTR build 12.1.0.69189)
+    -- release matrix (HS-311, PTR build 12.1.0.69189)
     -- and, for Griftah, a real in-game PTR scan (2026-08-09, build
     -- 12.1.0.69189, scanConfidence: confirmed). Griftah has confirmed
     -- altMapID/altX/altY (real PTR scans placed him in both neighborhoods);

@@ -450,7 +450,7 @@ local function CaseO6()
     holidayActive = true
     local listed = false
     for _, vendor in ipairs(VD:GetAllVendors()) do
-        if vendor == row then listed = true end
+        if vendor.npcID == row.npcID then listed = true end
     end
     assert(listed, "O6: the event row must be in the vendor list while its holiday is active")
     local snap = Snap(row)

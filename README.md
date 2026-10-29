@@ -27,7 +27,7 @@ Click the Homestead button on the world map to open a panel listing every decor 
 - Filter by source type.
 - A progress bar shows what you own (green), what you can buy right now (gold), and what's locked (red).
 - Locked items tell you exactly what's blocking them: the reputation, quest, achievement, or profession level you still need.
-- Use `/hs panel` or right-click the minimap button to pop the panel out into its own window that stays open without the map.
+- Use `/hs panel` to pop the panel out into its own window that stays open without the map.
 
 **Tooltips and icons**
 
@@ -62,7 +62,8 @@ Don't want it? Turn off **Auto-scan vendors** in the General tab of the options.
 
 | Command | What it does |
 |---------|-------------|
-| `/hs` | Open the options panel |
+| `/hs` | Toggle the Decor Browser |
+| `/hs config` | Open the options panel |
 | `/hs help` | List every command |
 | `/hs panel` | Toggle the detached vendor panel |
 | `/hs vendor [name]` | Search for a decor vendor by name or zone |
@@ -79,7 +80,7 @@ Don't want it? Turn off **Auto-scan vendors** in the General tab of the options.
 
 ## Options
 
-Type `/hs` or left-click the minimap button. Settings are split into General, Overlays, Tooltips, World Map, Minimap, Endeavors, and Export tabs.
+Type `/hs config` or right-click the minimap button. Settings are split into General, Overlays, Tooltips, World Map, Minimap, Endeavors, and Export tabs.
 
 A few worth knowing about:
 
@@ -111,4 +112,4 @@ Special thanks to Azro, author of [HomeDecor](https://www.curseforge.com/wow/add
 
 ## License
 
-[GPL-3.0](LICENSE)
+All rights reserved. See [LICENSE](LICENSE) for the exceptions: the bundled libraries keep their own licenses, and the Russian translation stays under GPL-3.0.

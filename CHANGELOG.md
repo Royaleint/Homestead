@@ -2,6 +2,58 @@
 
 ---
 
+## Homestead v2.14.2 (10-22-2026)
+
+Hallow's End vendors, holiday detection that works, and pins that no longer hide each other.
+
+---
+
+## Vendor Database
+
+**New and Updated Vendors**
+
+- Added the Hallow's End vendors Echo (Tirisfal Glades), Jack (Elwynn Forest), Cordula Wolfgang (Founder's Point) and Spew Gutsout (Razorwind Shores), with their decor and prices. They show only while Hallow's End runs.
+- Added four decorations at Naynar in Harandar: the Haranir Pennant, Rutaani Birdfeeder, Rutaani Birdbath and Rutaani Bird Perch.
+- Moved "Yen" Malone's pin to where he stands in Razorwind Shores.
+
+**Prices**
+
+- Prices for 59 items now show the vendor's base price, with no reputation discount applied.
+- Corrected 21 currency prices and 30 Order Resources prices at Berazus, Torv Dubstomp, Jocenna and Ransa Greyfeather in the Broken Isles to the amounts after the patch 12.1 price changes.
+
+---
+
+## Events and Map
+
+- Fixed Hallow's End and other holidays not being recognized, so their vendors and "Active Now" tooltip lines now appear while each holiday runs.
+- Vendors who stand side by side, such as Cordula Wolfgang and Holly Twinklebright, now draw slightly apart on the world map and minimap so you can see and hover both.
+- Saved vendor scans no longer show a holiday vendor outside their holiday.
+
+---
+
+## Homestead v2.14.1 (10-16-2026)
+
+Updated more vendors for both faction neighborhoods.
+
+---
+
+## Vendor Database
+
+**New and Updated Vendors**
+
+- Added Rotha in The Common, Razorwind Shores.
+- Added Unquestionably Griftah in both Razorwind Shores and Breakwater Bight (Founder's Point).
+- Added Jolli Maxiboom (Razorwind Shores) and Holly Twinklebright (Founder's Point).
+- Fixed issues with Timicky, Taifa, and Roshai Lightstep in Founder's Point too.
+- Buy Tortollan and Grummle endeavor items from Throska and Cousin Shortkaf as well when available.
+
+**Tooltips and Map**
+
+- Hover an item to see every location of vendors who stand in both neighborhoods. The waypoint takes you to the nearer one.
+- Hover Unquestionably Griftah's pin in Razorwind Shores again. "Yen" Malone's pin no longer covers it.
+
+---
+
 ## Homestead v2.14.0 (10-13-2026)
 
 Homestead is updated for patch 12.1.5 with new vendors and decor sources, and the continent map now shows one badge per zone.

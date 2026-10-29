@@ -30,29 +30,46 @@ local hasOpenedCalendarThisSession = false  -- HS-218: OpenCalendar is a server 
 
 -------------------------------------------------------------------------------
 -- Holiday ID Mapping
--- Maps our internal event names to C_Calendar eventID values.
+-- Maps C_Calendar eventID values to our internal event names.
 -- These are stable IDs from WoW's DB/Holidays table (locale-independent).
--- eventID is returned as a string by GetDayEvent() in retail 10.0.7+.
+-- GetDayEvent() may return eventID as a number or a string, so lookups use tostring().
 -------------------------------------------------------------------------------
 
 local holidayIDToEvent = {
-    ["7"]  = "Lunar Festival",
-    ["9"]  = "Noblegarden",
-    ["24"] = "Brewfest",
-    ["8"]  = "Love is in the Air",
-    ["1"]  = "Midsummer Fire Festival",
-    ["2"]  = "Feast of Winter Veil",
-    ["12"] = "Hallow's End",
-    ["26"] = "Pilgrim's Bounty",
-    ["10"] = "Children's Week",
-    ["50"] = "Pirates' Day",
-    ["51"] = "Day of the Dead",
+    ["327"] = "Lunar Festival",
+    ["181"] = "Noblegarden",
+    ["372"] = "Brewfest",
+    ["423"] = "Love is in the Air",
+    ["341"] = "Midsummer Fire Festival",
+    ["141"] = "Feast of Winter Veil",
+    ["324"] = "Hallow's End",  -- field-verified 2026-10-20
+    ["404"] = "Pilgrim's Bounty",
+    ["201"] = "Children's Week",
+    ["398"] = "Pirates' Day",
+    ["409"] = "Day of the Dead",
 }
 
 
 -------------------------------------------------------------------------------
 -- Calendar Scanning
 -------------------------------------------------------------------------------
+
+-- luacheck: globals CalendarFrame
+-- CalendarFrame is nil until the load-on-demand Blizzard_Calendar addon loads.
+local function IsBlizzardCalendarShown()
+    return CalendarFrame ~= nil and CalendarFrame:IsShown()
+end
+
+-- Points the viewed month at today, as Blizzard's own CalendarFrame_OnShow does.
+-- Never moves the view while the calendar window is open: the player may be
+-- paging it. Returns true only when it actually called SetAbsMonth.
+local function ViewTodaysMonth(today)
+    if C_Calendar and C_Calendar.SetAbsMonth and not IsBlizzardCalendarShown() then
+        C_Calendar.SetAbsMonth(today.month, today.year)
+        return true
+    end
+    return false
+end
 
 local function ScanTodaysHolidays()
     if not C_Calendar or not C_Calendar.GetNumDayEvents or not C_Calendar.GetDayEvent then
@@ -69,15 +86,24 @@ local function ScanTodaysHolidays()
     -- calendar UI is currently VIEWED at (offset 0 = viewed month), which is
     -- NOT necessarily the real current month — if the player (or another
     -- addon) paged the in-game calendar to a different month, this scan
-    -- would silently read that month's events instead of today's. Bail out
-    -- and keep prior state rather than risk a false "no holidays" read.
+    -- would silently read that month's events instead of today's. Before the
+    -- calendar window has ever been shown the viewed month is the client
+    -- default (observed 11/2004), not today. With the window closed nobody is
+    -- paging it, so move the view to today and re-read. Otherwise (window
+    -- open, or the move did not take) bail and keep prior state rather than
+    -- risk a false "no holidays" read.
     -- month/year are plain numbers here (not the calendarType/sequenceType
     -- string fields HS-121 guards against), so no pcall needed for this read.
+    local movedView = false
     if C_Calendar.GetMonthInfo then
         local monthInfo = C_Calendar.GetMonthInfo()
         if monthInfo and (monthInfo.month ~= today.month or monthInfo.year ~= today.year) then
+            movedView = ViewTodaysMonth(today)
+            monthInfo = C_Calendar.GetMonthInfo()
+        end
+        if monthInfo and (monthInfo.month ~= today.month or monthInfo.year ~= today.year) then
             if HA.Addon then
-                HA.Addon:Debug("CalendarDetector: calendar UI is viewing a different month than today — "
+                HA.Addon:Debug("CalendarDetector: calendar UI is viewing a different month than today, "
                     .. "skipping scan, keeping prior state")
             end
             return nil, "viewed_month_mismatch"
@@ -86,6 +112,10 @@ local function ScanTodaysHolidays()
 
     local numEvents = C_Calendar.GetNumDayEvents(0, today.monthDay)
     if not numEvents then return nil end
+    -- Right after moving the view the month's events may not be loaded yet; an
+    -- empty result would be recorded as "no holidays", so wait for the next
+    -- CALENDAR_UPDATE_EVENT_LIST or ticker pass to confirm.
+    if movedView and numEvents == 0 then return nil, "moved_unconfirmed" end
 
     local found = {}
 
@@ -242,6 +272,8 @@ function CalendarDetector:Initialize()
             -- holidays" per login from repeated requests/scans).
             if not hasOpenedCalendarThisSession and C_Calendar and C_Calendar.OpenCalendar then
                 hasOpenedCalendarThisSession = true
+                local today = C_DateAndTime and C_DateAndTime.GetCurrentCalendarTime and C_DateAndTime.GetCurrentCalendarTime()
+                if today then ViewTodaysMonth(today) end
                 C_Calendar.OpenCalendar()
             end
             -- Try an initial scan after a short delay (calendar may need time)

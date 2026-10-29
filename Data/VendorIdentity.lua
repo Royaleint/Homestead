@@ -612,7 +612,7 @@ VendorIdentity.Vendors = {
         areaID = 4281,
         faction = "Neutral",
         expansion = "Legion",
-        notes = "Death Knight only — enter via class spell Death Gate (usable from anywhere). Pin marks the Dalaran Order Hall portal entrance.",
+        notes = "Death Knight only: enter via class spell Death Gate (usable from anywhere). Pin marks the Dalaran Order Hall portal entrance.",
     },
     [93971] = {
         name = "Leyweaver Inondra",
@@ -644,7 +644,7 @@ VendorIdentity.Vendors = {
         areaID = 7638,
         faction = "Neutral",
         expansion = "Legion",
-        notes = "Paladin only — enter via portal in Dalaran.",
+        notes = "Paladin only: enter via portal in Dalaran.",
         class = "PALADIN",
         portal = { mapID = 627, x = 0.325, y = 0.689 },
         badgeMapID = 627,
@@ -657,7 +657,7 @@ VendorIdentity.Vendors = {
         zone = "Trueshot Lodge",
         faction = "Neutral",
         expansion = "Legion",
-        notes = "Hunter only — talk to Talua in Dalaran to fly to Trueshot Lodge.",
+        notes = "Hunter only: talk to Talua in Dalaran to fly to Trueshot Lodge.",
         class = "HUNTER",
         portal = { mapID = 627, x = 0.72, y = 0.403 },
         badgeMapID = 627,
@@ -682,7 +682,7 @@ VendorIdentity.Vendors = {
         subzone = "Den of Thieves",
         faction = "Neutral",
         expansion = "Legion",
-        notes = "Rogue only — enter via pipe entrance in Dalaran.",
+        notes = "Rogue only: enter via pipe entrance in Dalaran.",
         class = "ROGUE",
         portal = { mapID = 627, x = 0.467, y = 0.264 },
         badgeMapID = 627,
@@ -750,7 +750,7 @@ VendorIdentity.Vendors = {
         areaID = 7753,
         faction = "Neutral",
         expansion = "Legion",
-        notes = "Shaman only — enter via portal in Dalaran.",
+        notes = "Shaman only: enter via portal in Dalaran.",
         class = "SHAMAN",
         portal = { mapID = 627, x = 0.683, y = 0.502 },
         badgeMapID = 627,
@@ -763,7 +763,7 @@ VendorIdentity.Vendors = {
         zone = "The Dreamgrove",
         faction = "Neutral",
         expansion = "Legion",
-        notes = "Druid only — enter via class spell Dreamwalk (usable from anywhere).",
+        notes = "Druid only: enter via class spell Dreamwalk (usable from anywhere).",
     },
     [112338] = {
         name = "Caydori Brightstar",
@@ -775,7 +775,7 @@ VendorIdentity.Vendors = {
         areaID = 7911,
         faction = "Neutral",
         expansion = "Legion",
-        notes = "Monk only — enter via class spell Zen Pilgrimage (usable from anywhere).",
+        notes = "Monk only: enter via class spell Zen Pilgrimage (usable from anywhere).",
         class = "MONK",
         scanConfirmed = "2026-07-06",
         portal = { mapID = 627, x = 0.523, y = 0.567 },
@@ -789,7 +789,7 @@ VendorIdentity.Vendors = {
         zone = "Skyhold",
         faction = "Neutral",
         expansion = "Legion",
-        notes = "Warrior only — enter via portal in Dalaran.",
+        notes = "Warrior only: enter via portal in Dalaran.",
         class = "WARRIOR",
         portal = { mapID = 627, x = 0.754, y = 0.4738 },
         badgeMapID = 627,
@@ -802,7 +802,7 @@ VendorIdentity.Vendors = {
         zone = "Netherlight Temple",
         faction = "Neutral",
         expansion = "Legion",
-        notes = "Priest only — enter via portal in Dalaran.",
+        notes = "Priest only: enter via portal in Dalaran.",
         class = "PRIEST",
         portal = { mapID = 627, x = 0.391, y = 0.572 },
         badgeMapID = 627,
@@ -817,7 +817,7 @@ VendorIdentity.Vendors = {
         areaID = 8023,
         faction = "Neutral",
         expansion = "Legion",
-        notes = "Demon Hunter only — enter via portal at the eastern edge of Dalaran.",
+        notes = "Demon Hunter only: enter via portal at the eastern edge of Dalaran.",
         class = "DEMONHUNTER",
         portal = { mapID = 627, x = 0.924, y = 0.642 },
         badgeMapID = 627,
@@ -830,7 +830,7 @@ VendorIdentity.Vendors = {
         zone = "Dreadscar Rift",
         faction = "Neutral",
         expansion = "Legion",
-        notes = "Warlock only — enter via portal in the Dalaran Underbelly.",
+        notes = "Warlock only: enter via portal in the Dalaran Underbelly.",
         class = "WARLOCK",
         portal = { mapID = 628, x = 0.273, y = 0.438 },
         badgeMapID = 628,
@@ -843,7 +843,7 @@ VendorIdentity.Vendors = {
         zone = "Hall of the Guardian",
         faction = "Neutral",
         expansion = "Legion",
-        notes = "Mage only — enter via class spell Teleport: Hall of the Guardian.",
+        notes = "Mage only: enter via class spell Teleport: Hall of the Guardian.",
         class = "MAGE",
         portal = { mapID = 627, x = 0.286, y = 0.524 },
         badgeMapID = 627,
@@ -856,7 +856,7 @@ VendorIdentity.Vendors = {
         zone = "Val'sharah",
         faction = "Neutral",
         expansion = "Legion",
-        notes = "Patrols the road through Lorlathil — coordinates may vary.",
+        notes = "Patrols the road through Lorlathil, so coordinates may vary.",
     },
     [112716] = {
         name = "Rasil Fireborne",
@@ -2182,12 +2182,12 @@ VendorIdentity.Vendors = {
     [255319] = {
         name = "\"Yen\" Malone",
         mapID = 2351,
-        x = 0.403,
-        y = 0.73,
+        x = 0.4077,
+        y = 0.7313,
         zone = "Razorwind Shores",
         faction = "Horde",
         expansion = "The War Within",
-        scanConfirmed = "2026-07-07",
+        scanConfirmed = "2026-10-15",
     },
     [255325] = {
         name = "\"High Tides\" Ren",
@@ -2242,7 +2242,7 @@ VendorIdentity.Vendors = {
         zone = "Silvermoon City",
         faction = "Neutral",
         expansion = "Midnight",
-        notes = "Profession achievement vendor — items require specific profession achievements.",
+        notes = "Profession achievement vendor. Items require specific profession achievements.",
     },
     [256071] = {
         name = "Solelo",
@@ -2571,7 +2571,12 @@ VendorIdentity.Vendors = {
         y = 0.7292,
         zone = "Razorwind Shores",
         expansion = "Midnight",
-        scanConfirmed = "2026-10-14",
+        scanConfirmed = "2026-10-15",
+        altMapID = 2352,
+        altX = 0.6249,
+        altY = 0.7922,
+        altZone = "Founder's Point",
+        altSubzone = "Breakwater Bight",
     },
     [268228] = {
         name = "Jan'sari the Watchful",
@@ -2748,6 +2753,8 @@ VendorIdentity.ContinentNames = (HA.Constants and HA.Constants.ContinentNames) o
 function VendorIdentity:BuildIndexes()
     self.ByMapID = {}
     self.ByExpansion = {}
+    self.AltByMapID = {}
+    self.AltCopies = {}
     local function indexVendor(npcID, vendor)
         vendor.npcID = npcID
         if vendor.mapID then
@@ -2757,6 +2764,19 @@ function VendorIdentity:BuildIndexes()
         if vendor.expansion then
             self.ByExpansion[vendor.expansion] = self.ByExpansion[vendor.expansion] or {}
             table.insert(self.ByExpansion[vendor.expansion], npcID)
+        end
+        -- A second position gets its own copy and its own map index: ByMapID
+        -- stores npcIDs that resolve through self.Vendors, which would return the
+        -- primary row for the alt map.
+        if vendor.altMapID then
+            local copy = {}
+            for key, value in pairs(vendor) do copy[key] = value end
+            copy.mapID, copy.x, copy.y = vendor.altMapID, vendor.altX, vendor.altY
+            copy.zone, copy.subzone = vendor.altZone, vendor.altSubzone
+            copy.areaID, copy.portal, copy.badgeMapID = nil, nil, nil
+            self.AltCopies[npcID] = copy
+            self.AltByMapID[copy.mapID] = self.AltByMapID[copy.mapID] or {}
+            table.insert(self.AltByMapID[copy.mapID], copy)
         end
     end
     for npcID, vendor in pairs(self.Vendors) do
@@ -2803,9 +2823,8 @@ end
 function VendorIdentity:GetVendorsByMapID(mapID)
     if not self.ByMapID then self:BuildIndexes() end
     local npcIDs = self.ByMapID and self.ByMapID[mapID]
-    if not npcIDs then return {} end
     local result = {}
-    for _, npcID in ipairs(npcIDs) do
+    for _, npcID in ipairs(npcIDs or {}) do
         -- HS-217: BuildIndexes indexes StagedAdditions-only vendors into
         -- ByMapID too, but this lookup was checking self.Vendors alone —
         -- staged-only vendors indexed fine and then dropped silently here.
@@ -2813,7 +2832,15 @@ function VendorIdentity:GetVendorsByMapID(mapID)
         local vendor = self.Vendors[npcID] or (self.StagedAdditions and self.StagedAdditions[npcID])
         if vendor then result[#result + 1] = vendor end
     end
+    for _, copy in ipairs(self.AltByMapID[mapID] or {}) do
+        result[#result + 1] = copy
+    end
     return result
+end
+
+function VendorIdentity:GetAltCopy(npcID)
+    if not self.AltCopies then self:BuildIndexes() end
+    return self.AltCopies[npcID]
 end
 
 function VendorIdentity:GetVendorsByExpansion(expansion)
