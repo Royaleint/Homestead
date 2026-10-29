@@ -214,7 +214,7 @@ local function AddRequirementsToTooltip(tooltip, itemID, npcID, dedupSet, reputa
                 if isExpired then
                     tooltip:AddLine("  No longer obtainable", COLOR_GRAY.r, COLOR_GRAY.g, COLOR_GRAY.b)
                 else
-                    local promoText = "Promotion reward — " .. (req.name or "Unknown Promotion")
+                    local promoText = "Promotion reward: " .. (req.name or "Unknown Promotion")
                     if req.endsAt then
                         promoText = promoText .. ", through " .. req.endsAt
                     end

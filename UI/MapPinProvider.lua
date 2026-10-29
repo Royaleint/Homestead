@@ -139,20 +139,20 @@ MapPinProvider.manualZoneCenters = {
 -- Notes shown in zone badge tooltips for special locations (class halls, etc.)
 MapPinProvider.zoneNotes = {
     -- Class halls physically on the Broken Isles
-    [739] = "Hunter Order Hall — Trueshot Lodge in Highmountain",
-    [747] = "Druid Order Hall — Dreamwalk spell",
-    [647] = "Death Knight Order Hall — Death Gate spell",
-    [695] = "Warrior Order Hall — Jump from Krasus' Landing, Dalaran",
+    [739] = "Hunter Order Hall: Trueshot Lodge in Highmountain",
+    [747] = "Druid Order Hall: Dreamwalk spell",
+    [647] = "Death Knight Order Hall: Death Gate spell",
+    [695] = "Warrior Order Hall: Jump from Krasus' Landing, Dalaran",
     -- Class halls under/inside Dalaran
-    [626] = "Rogue Order Hall — Entrance in Dalaran sewers",
-    [734] = "Mage Order Hall — Portal from Dalaran",
+    [626] = "Rogue Order Hall: Entrance in Dalaran sewers",
+    [734] = "Mage Order Hall: Portal from Dalaran",
     -- Class halls off-world, accessed via Dalaran
-    [24]  = "Paladin Order Hall — Portal from Dalaran",
-    [702] = "Priest Order Hall — Portal from Dalaran",
-    [709] = "Monk Order Hall — Zen Pilgrimage spell",
-    [717] = "Warlock Order Hall — Portal from Dalaran",
-    [720] = "Demon Hunter Order Hall — Portal from Krasus' Landing, Dalaran",
-    [726] = "Shaman Order Hall — Portal from Dalaran",
+    [24]  = "Paladin Order Hall: Portal from Dalaran",
+    [702] = "Priest Order Hall: Portal from Dalaran",
+    [709] = "Monk Order Hall: Zen Pilgrimage spell",
+    [717] = "Warlock Order Hall: Portal from Dalaran",
+    [720] = "Demon Hunter Order Hall: Portal from Krasus' Landing, Dalaran",
+    [726] = "Shaman Order Hall: Portal from Dalaran",
 }
 
 -- Exclude continents in separate world spaces where cross-zone minimap translation

@@ -585,7 +585,7 @@ local function SetupEventScanning()
             -- (isOwned, decorID, name, sourceText are all static per catalog
             -- entry). A full ~220-vendor rescan on every decor placed/removed
             -- during a decorating session is a wasted pass; skip it.
-            HA.Addon:Debug(event, "fired — ownership-neutral, skipping scan")
+            HA.Addon:Debug(event, "fired: ownership-neutral, skipping scan")
         else
             if event == "HOUSING_STORAGE_UPDATED" then
                 -- HS-276: latch logic lives in the shared TryLatchWarmFromCounts()
@@ -616,7 +616,7 @@ local function SetupEventScanning()
                 -- scans.
                 if loginForced and C_HousingCatalog.GetDecorTotalOwnedCount
                         and C_HousingCatalog.GetDecorTotalOwnedCount() == 0 then
-                    HA.Addon:Debug(event, "fired — login-forced with zero decor owned, skipping scan")
+                    HA.Addon:Debug(event, "fired: login-forced with zero decor owned, skipping scan")
                     -- Storage answered with a zero total: this player owns
                     -- nothing, so the read is complete. Without that answer
                     -- the zero proves nothing.
@@ -633,7 +633,7 @@ local function SetupEventScanning()
             -- into a single debounced scan -- these can carry real ownership
             -- changes (storage load, purchase/loot), unlike the
             -- placement/removal pair above.
-            HA.Addon:Debug(event, "fired — requesting scan")
+            HA.Addon:Debug(event, "fired: requesting scan")
             RequestScan()
         end
     end)
@@ -815,7 +815,7 @@ function CatalogScanner:Initialize()
             -- get an initial scan either, but that's a no-op regardless — the
             -- cache stays empty because nothing was ever going to be found.
             if not CatalogScanner:IsWarm() then
-                HA.Addon:Debug("Initial catalog scan skipped — not warm yet; "
+                HA.Addon:Debug("Initial catalog scan skipped: not warm yet; "
                     .. "HOUSING_STORAGE_UPDATED will trigger the real scan once data loads")
                 return
             end

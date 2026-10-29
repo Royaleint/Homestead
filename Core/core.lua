@@ -596,7 +596,7 @@ function HousingAddon:ShowCacheInfo()
             end
         end
     else
-        table.insert(output, "CatalogStore unavailable — ownership data cannot be displayed.")
+        table.insert(output, "CatalogStore unavailable: ownership data cannot be displayed.")
     end
 
     if count == 0 and #items == 0 then
@@ -630,7 +630,7 @@ function HousingAddon:ClearOwnershipCache()
         self:Print("Cleared ownership cache. Removed " .. count .. " cached items.")
         self:Print("Use /hs scan to rebuild the cache.")
     else
-        self:Print("CatalogStore unavailable — cannot clear ownership cache.")
+        self:Print("CatalogStore unavailable: cannot clear ownership cache.")
     end
 end
 

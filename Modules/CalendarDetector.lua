@@ -103,7 +103,7 @@ local function ScanTodaysHolidays()
         end
         if monthInfo and (monthInfo.month ~= today.month or monthInfo.year ~= today.year) then
             if HA.Addon then
-                HA.Addon:Debug("CalendarDetector: calendar UI is viewing a different month than today — "
+                HA.Addon:Debug("CalendarDetector: calendar UI is viewing a different month than today, "
                     .. "skipping scan, keeping prior state")
             end
             return nil, "viewed_month_mismatch"

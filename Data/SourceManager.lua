@@ -2734,9 +2734,9 @@ local function HookCompletionCacheInvalidation()
                 -- which logs its own suppressed/invalidating verdict
                 -- immediately after. Say so, not "invalidating", so a manual-testing
                 -- capture doesn't read two contradictory adjacent lines.
-                HA.Addon:Debug("SourceManager: SKILL_LINES_CHANGED arrived — "
+                HA.Addon:Debug("SourceManager: SKILL_LINES_CHANGED arrived: "
                     .. (unchanged and "suppressed (no profession change detected)"
-                        or "fingerprint changed — verifying"))
+                        or "fingerprint changed, verifying"))
             end
 
             if unchanged then
@@ -2870,7 +2870,7 @@ local function HookCompletionCacheInvalidation()
             local achievementID = ...
             if type(achievementID) ~= "number" then
                 if HA.Addon then
-                    HA.Addon:Debug("SourceManager: ACHIEVEMENT_EARNED invalidating (fail-open — non-number payload "
+                    HA.Addon:Debug("SourceManager: ACHIEVEMENT_EARNED invalidating (fail-open, non-number payload "
                         .. tostring(achievementID) .. ")")
                 end
                 SourceManager:InvalidateAllSourceCaches()
@@ -2962,7 +2962,7 @@ local function HookCompletionCacheInvalidation()
             elseif HA.Addon then
                 -- Keep the discriminator log complete: an invalidation from
                 -- this branch must be explainable from a debug capture.
-                HA.Addon:Debug("SourceManager: QUEST_TURNED_IN invalidating (fail-open — non-number payload "
+                HA.Addon:Debug("SourceManager: QUEST_TURNED_IN invalidating (fail-open, non-number payload "
                     .. tostring(questID) .. ")")
             end
         end
