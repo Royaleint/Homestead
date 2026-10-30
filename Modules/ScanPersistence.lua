@@ -111,7 +111,8 @@ function ScanPersistence:SaveVendorData(scanData)
         mapChain = scanData.mapChain,
         continentMapID = scanData.continentMapID,
         lastScanned = time(),
-        itemCount = itemCount,          -- Total items at vendor
+        itemCount = itemCount,          -- Slots that returned an item link
+        slotCount = scanData.totalItems, -- Merchant slots the scan walked (capped at 200)
         decorCount = decorCount,        -- Housing decor items (subclass 0 only)
         hasDecor = decorCount > 0,      -- Flag to identify if vendor sells housing decor
         lastScanHadDecor = decorCount > 0, -- Last observed scan result, even if old items are preserved
@@ -176,11 +177,15 @@ function ScanPersistence:SaveVendorData(scanData)
     vendorRecord.currency = primaryCurrency
     vendorRecord.expansion = scanData.expansion
 
+    -- This scan's own position. StartScan stores 0.5/0.5 when the client gave
+    -- none, so either coordinate at exactly 0.5 means no position.
+    local scanHasPosition = scanData.coords and scanData.coords.x and scanData.coords.y
+        and scanData.coords.x ~= 0.5 and scanData.coords.y ~= 0.5
+
     -- Merge with existing data if present (keep more complete record)
     if existingData then
         -- Use newer coords if available
-        if scanData.coords and scanData.coords.x and scanData.coords.y
-            and scanData.coords.x ~= 0.5 and scanData.coords.y ~= 0.5 then
+        if scanHasPosition then
             vendorRecord.coords = scanData.coords
         elseif existingData.coords then
             vendorRecord.coords = existingData.coords
@@ -251,9 +256,9 @@ function ScanPersistence:SaveVendorData(scanData)
 
     -- Determine scan confidence BEFORE the save decision below (moved up from
     -- its old post-save position): "confirmed" only if the scan completed AND
-    -- every item slot returned valid data. "unknown" if the scan completed but
-    -- any C_MerchantFrame.GetItemInfo() call returned nil during
-    -- ProcessScanQueue() — e.g. a laggy partial scan with no retry.
+    -- every slot had its link and item info by the end of the scan, re-reads
+    -- included. "unknown" if any slot was still missing either at that point,
+    -- or the scan ended early during its re-reads or on a slot total change.
     local scanConfidence = "unknown"
     if scanData.scanComplete and not scanData.hadNilSlots then
         scanConfidence = "confirmed"
@@ -282,6 +287,13 @@ function ScanPersistence:SaveVendorData(scanData)
         -- consolidation, scan-timestamp provenance) that the unobserved rows
         -- were freshly re-verified. Record the attempt separately instead.
         existingData.lastScanAttempt = vendorRecord.lastScanned
+        -- What this scan did see still counts: a housing item is on the
+        -- vendor, so a stale "had nothing" mark from an earlier zero scan is
+        -- wrong. Raise the marks only, never lower them.
+        existingData.lastScanHadHousing = true
+        if vendorRecord.hasDecor then
+            existingData.lastScanHadDecor = true
+        end
         -- Debug (already debug-gated) rather than DevAddon-gated: a rejected
         -- scan is evidence loss the user should be able to see with debug on.
         HA.Addon:Debug(string.format(
@@ -294,15 +306,28 @@ function ScanPersistence:SaveVendorData(scanData)
         -- Good scan: save new data
         HA.Addon.db.global.scannedVendors[scanData.npcID] = vendorRecord
     elseif isKnownVendor then
-        -- Known housing vendor scanned with 0 housing items = API failure,
-        -- not truth. Preserve existing scan data; record the latest scan
-        -- result separately.
+        -- Known housing vendor scanned with 0 housing items. The stored
+        -- items are kept either way. Only a confirmed scan (every slot read)
+        -- may say "had nothing" and re-date the record; an unconfirmed one
+        -- just logs the attempt.
         if existingData then
-            existingData.lastScanned = vendorRecord.lastScanned
-            existingData.lastScanHadDecor = false
-            existingData.lastScanHadHousing = false
-            if vendorRecord.coords and vendorRecord.coords.x ~= 0.5 and vendorRecord.coords.y ~= 0.5 then
-                existingData.coords = vendorRecord.coords
+            if scanConfidence == "confirmed" then
+                existingData.lastScanned = vendorRecord.lastScanned
+                existingData.lastScanHadDecor = false
+                existingData.lastScanHadHousing = false
+            else
+                existingData.lastScanAttempt = vendorRecord.lastScanned
+            end
+            -- Coords and map move together, and only on this scan's own
+            -- position; the other location fields take the values merged above.
+            if scanHasPosition then
+                existingData.coords = scanData.coords
+                existingData.mapID = scanData.mapID
+                existingData.realZone = vendorRecord.realZone
+                existingData.parentMapID = vendorRecord.parentMapID
+                existingData.mapChain = vendorRecord.mapChain
+                existingData.continentMapID = vendorRecord.continentMapID
+                existingData.expansion = vendorRecord.expansion
             end
             existingData.zone = vendorRecord.zone or existingData.zone
             existingData.subZone = vendorRecord.subZone or existingData.subZone
@@ -320,9 +345,15 @@ function ScanPersistence:SaveVendorData(scanData)
         -- field existed: hasDecor=true on an old record still means it had
         -- housing items (decor is a housing subclass), so it must not fall
         -- through to the delete branch below just because hasHousing is nil.
-        existingData.lastScanned = vendorRecord.lastScanned
-        existingData.lastScanHadDecor = false
-        existingData.lastScanHadHousing = false
+        -- As above, only a confirmed scan may mark the vendor empty or
+        -- re-date it.
+        if scanConfidence == "confirmed" then
+            existingData.lastScanned = vendorRecord.lastScanned
+            existingData.lastScanHadDecor = false
+            existingData.lastScanHadHousing = false
+        else
+            existingData.lastScanAttempt = vendorRecord.lastScanned
+        end
         if HA.DevAddon then
             HA.Addon:Debug(string.format(
                 "Scan protection: %s (NPC %d) previously had housing items but new scan found 0. "

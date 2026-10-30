@@ -263,6 +263,8 @@ L["None (always)"] = "無（每次點擊）"
 -- Misc
 L["Approximate map appearance"] = "地圖上的大致外觀"
 L["ExportImport not available."] = "ExportImport 無法使用。"
+L["Catalog scan is on cooldown. Try again in a few seconds."] = "目錄掃描尚在冷卻中。請於幾秒後再試。"
+L["A catalog scan is already in progress."] = "目錄掃描已在進行中。"
 
 -------------------------------------------------------------------------------
 -- Decor Browser: data adapter

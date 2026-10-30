@@ -302,7 +302,7 @@ end
 function CatalogScanner:ScanFullCatalog(callback)
     if isScanning then
         HA.Addon:Debug("Catalog scan already in progress")
-        return
+        return false
     end
 
     local currentTime = GetTime()
@@ -834,7 +834,8 @@ end
 
 -- Manual scan command
 function CatalogScanner:ManualScan()
-    self:ScanFullCatalog(function(owned, checked)
+    local L = HA.L or {}
+    local started, cooldownRemaining = self:ScanFullCatalog(function(owned, checked)
         HA.Addon:Print("Catalog scan complete.")
         HA.Addon:Print("  Items checked:", checked)
         HA.Addon:Print("  Items owned:", owned)
@@ -854,6 +855,13 @@ function CatalogScanner:ManualScan()
             HA.Addon:Print("  Visit vendors to scan their inventory.")
         end
     end)
+    if started == false then
+        if cooldownRemaining then
+            HA.Addon:Print(L["Catalog scan is on cooldown. Try again in a few seconds."] or "Catalog scan is on cooldown. Try again in a few seconds.")
+        else
+            HA.Addon:Print(L["A catalog scan is already in progress."] or "A catalog scan is already in progress.")
+        end
+    end
 end
 
 -- Debug scan to show raw API data for sample items

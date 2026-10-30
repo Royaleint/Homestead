@@ -263,6 +263,8 @@ L["None (always)"] = "Keine (immer)"
 -- Misc
 L["Approximate map appearance"] = "Ungefähres Aussehen auf der Karte"
 L["ExportImport not available."] = "ExportImport nicht verfügbar."
+L["Catalog scan is on cooldown. Try again in a few seconds."] = "Der Katalogscan ist noch in Abklingzeit. Versucht es in wenigen Sekunden erneut."
+L["A catalog scan is already in progress."] = "Ein Katalogscan läuft bereits."
 
 -------------------------------------------------------------------------------
 -- Decor Browser: data adapter
