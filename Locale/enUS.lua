@@ -28,7 +28,6 @@ L["Homestead Options"] = "Homestead Options"
 L["General"] = GENERAL or "General"
 L["Overlays"] = "Overlays"
 L["Tooltips"] = "Tooltips" -- untranslated
-L["Export"] = "Export"
 
 L["Show minimap button"] = "Show minimap button"
 L["Enable overlays"] = "Enable overlays"
@@ -95,14 +94,6 @@ L["Homestead version: %s (%s)"] = "Homestead version: %s (%s)"
 L["Newest version seen this session: %s (%s)"] = "Newest version seen this session: %s (%s)"
 L["No newer version seen this session."] = "No newer version seen this session."
 L["Version-check notifications: %s"] = "Version-check notifications: %s"
-
--------------------------------------------------------------------------------
--- Export Dialog
--------------------------------------------------------------------------------
-L["Export Vendor Data"] = "Export Vendor Data"
-L["Choose export option:"] = "Choose export option:"
-L["Export New Scans"] = "Export New Scans"
-L["Export All"] = "Export All"
 
 -------------------------------------------------------------------------------
 -- Map Side Panel
@@ -181,7 +172,6 @@ L["desc_options_tooltips"] = "Extra ownership, source, requirement, and vendor d
 L["desc_options_world_map"] = "World map vendor pins, zone badges, side-panel behavior, and map pin display."
 L["desc_options_minimap"] = "Nearby vendor pins, elevation arrows, and waypoint behavior on the minimap."
 L["desc_options_endeavors"] = "Housing Endeavor progress shown on Blizzard's Housing Dashboard."
-L["desc_options_export"] = "Scanned vendor data export for review or backup."
 L["desc_vendor_visibility_section"] = "Choose which vendor groups appear on maps and in collection totals."
 L["desc_pin_appearance_section"] = "Adjust the color and preview for Homestead vendor pins."
 L["desc_overlay_inventory_section"] = "Show collection markers on item slots outside the Housing Catalog."
@@ -234,9 +224,6 @@ L["desc_use_native_waypoints"] = "Use WoW's built-in waypoint system with map pi
 L["desc_auto_waypoint"] = "Automatically create a waypoint when clicking on a vendor in the list or map"
 L["desc_navigate_modifier"] = "Hold this key when clicking to create a waypoint (if auto-waypoint is off)"
 L["desc_milestone_xp"] = "Display next milestone XP progress on Blizzard's Housing Dashboard Endeavors tab. Disable if you use another addon for this (e.g., Endeavor Simple Progress Tracker)."
-L["desc_export"] = "Export scanned vendor data for backup."
-L["desc_export_new"] = "Exports vendors scanned since your last export. Includes price, currencies, faction, and catalog info."
-L["desc_export_all"] = "Exports all scanned vendors, bypassing the timestamp filter."
 
 -------------------------------------------------------------------------------
 -- Options - Select Values
@@ -283,7 +270,6 @@ L["None (always)"] = "None (always)"
 
 -- Misc
 L["Approximate map appearance"] = "Approximate map appearance"
-L["ExportImport not available."] = "ExportImport not available."
 L["Catalog scan is on cooldown. Try again in a few seconds."] = "Catalog scan is on cooldown. Try again in a few seconds."
 L["A catalog scan is already in progress."] = "A catalog scan is already in progress."
 
@@ -383,7 +369,6 @@ L["Click the Homestead button on the world map to open the side panel listing th
 L["Tooltips Expanded"] = "Tooltips Expanded"
 L["Every item in the Housing Catalog gets tooltips showing where it comes from (vendor, quest, achievement, profession, or drop), what it costs, and what you need to unlock it, so you never have to leave the game to look something up."] = "Every item in the Housing Catalog gets tooltips showing where it comes from (vendor, quest, achievement, profession, or drop), what it costs, and what you need to unlock it, so you never have to leave the game to look something up."
 L["Key Commands"] = "Key Commands"
-L["Export everything you've scanned"] = "Export everything you've scanned"
 L["Show all commands"] = "Show all commands"
 L["Found a Problem?"] = "Found a Problem?"
 L["Report bugs or wrong vendor info on GitHub using the link below."] = "Report bugs or wrong vendor info on GitHub using the link below."

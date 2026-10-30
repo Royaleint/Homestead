@@ -1,11 +1,11 @@
 --[[
     Homestead - ScanPersistence
-    Vendor scan data storage, retrieval, clearing, and export
+    Vendor scan data storage, retrieval, and clearing
 
     Extracted from VendorScanner.lua to reduce file size.
     Manages all SavedVariables reads/writes for scanned vendor data.
 
-    Reusable by VendorScanner, ExportImport, Options, etc.
+    Reusable by VendorScanner, Options, etc.
 ]]
 
 local _, HA = ...
@@ -527,31 +527,6 @@ function ScanPersistence:GetCorrectedNPCID(vendorName)
         end
     end
     return nil
-end
-
--- Export NPC ID corrections for manual database updates
-function ScanPersistence:ExportNPCIDCorrections()
-    if not HA.Addon.db or not HA.Addon.db.global.npcIDCorrections then
-        HA.Addon:Print("No NPC ID corrections recorded.")
-        return ""
-    end
-
-    local output = "-- Homestead NPC ID Corrections\n"
-    output = output .. "-- Generated: " .. date("%Y-%m-%d %H:%M:%S") .. "\n\n"
-
-    local count = 0
-    for name, correction in pairs(HA.Addon.db.global.npcIDCorrections) do
-        output = output .. string.format("-- %s: %d -> %d\n", name, correction.oldID, correction.newID)
-        count = count + 1
-    end
-
-    if count == 0 then
-        HA.Addon:Print("No NPC ID corrections recorded.")
-        return ""
-    end
-
-    HA.Addon:Print("Found " .. count .. " NPC ID correction(s). Copy from chat or use /hs exportcorrections")
-    return output
 end
 
 -------------------------------------------------------------------------------

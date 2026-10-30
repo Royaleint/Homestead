@@ -23,7 +23,6 @@ L["Homestead"] = "Homestead"
 L["Homestead Options"] = "Options de Homestead"
 L["Overlays"] = "Marqueurs"
 L["Tooltips"] = "Encadrés d’aide"
-L["Export"] = "Exportation"
 
 L["Show minimap button"] = "Afficher le bouton de la minicarte"
 L["Enable overlays"] = "Activer les marqueurs"
@@ -90,14 +89,6 @@ L["Homestead version: %s (%s)"] = "Version de Homestead : %s (%s)"
 L["Newest version seen this session: %s (%s)"] = "Version la plus récente vue durant cette session : %s (%s)"
 L["No newer version seen this session."] = "Aucune version plus récente vue durant cette session."
 L["Version-check notifications: %s"] = "Notifications de vérification de version : %s"
-
--------------------------------------------------------------------------------
--- Export Dialog
--------------------------------------------------------------------------------
-L["Export Vendor Data"] = "Exporter les données des vendeurs"
-L["Choose export option:"] = "Choisissez une option d’exportation :"
-L["Export New Scans"] = "Exporter les nouvelles analyses"
-L["Export All"] = "Tout exporter"
 
 -------------------------------------------------------------------------------
 -- Map Side Panel
@@ -170,7 +161,6 @@ L["desc_options_tooltips"] = "Détails supplémentaires sur la possession, les s
 L["desc_options_world_map"] = "Repères des vendeurs sur la carte du monde, badges de zone, comportement du panneau latéral et affichage des repères."
 L["desc_options_minimap"] = "Repères des vendeurs à proximité, flèches d’altitude et comportement des points de passage sur la minicarte."
 L["desc_options_endeavors"] = "Progression des initiatives de logis affichée dans le tableau de bord des logis de Blizzard."
-L["desc_options_export"] = "Exportation des données des vendeurs analysés, pour vérification ou sauvegarde."
 L["desc_vendor_visibility_section"] = "Choisissez quels groupes de vendeurs apparaissent sur les cartes et dans les totaux de collection."
 L["desc_pin_appearance_section"] = "Réglez la couleur et l’aperçu des repères de vendeurs de Homestead."
 L["desc_overlay_inventory_section"] = "Affiche les marqueurs de collection sur les emplacements d’objets hors du catalogue des logis."
@@ -216,9 +206,6 @@ L["desc_use_native_waypoints"] = "Utilise le système de points de passage inté
 L["desc_auto_waypoint"] = "Crée automatiquement un point de passage lorsque vous cliquez sur un vendeur dans la liste ou sur la carte"
 L["desc_navigate_modifier"] = "Maintenez cette touche en cliquant pour créer un point de passage (si la création automatique est désactivée)"
 L["desc_milestone_xp"] = "Affiche la progression en EXP du prochain palier dans l’onglet Initiatives du tableau de bord des logis de Blizzard. Désactivez si vous utilisez un autre addon pour cela (par ex. Endeavor Simple Progress Tracker)."
-L["desc_export"] = "Exporte les données des vendeurs analysés pour sauvegarde."
-L["desc_export_new"] = "Exporte les vendeurs analysés depuis votre dernière exportation. Inclut le prix, les monnaies, la faction et les infos du catalogue."
-L["desc_export_all"] = "Exporte tous les vendeurs analysés, sans tenir compte du filtre d’horodatage."
 
 -------------------------------------------------------------------------------
 -- Options - Select Values
@@ -262,7 +249,6 @@ L["None (always)"] = "Aucune (toujours)"
 
 -- Misc
 L["Approximate map appearance"] = "Aperçu approximatif sur la carte"
-L["ExportImport not available."] = "ExportImport n’est pas disponible."
 L["Catalog scan is on cooldown. Try again in a few seconds."] = "L’analyse du catalogue est en recharge. Réessayez dans quelques secondes."
 L["A catalog scan is already in progress."] = "Une analyse du catalogue est déjà en cours."
 
@@ -350,7 +336,6 @@ L["Click the Homestead button on the world map to open the side panel listing th
 L["Tooltips Expanded"] = "Encadrés d’aide enrichis"
 L["Every item in the Housing Catalog gets tooltips showing where it comes from (vendor, quest, achievement, profession, or drop), what it costs, and what you need to unlock it, so you never have to leave the game to look something up."] = "Chaque objet du catalogue des logis affiche un encadré d’aide indiquant son origine (vendeur, quête, haut fait, métier ou butin), son prix et ce qu’il faut pour le débloquer, afin de ne jamais avoir à quitter le jeu pour vous renseigner."
 L["Key Commands"] = "Commandes principales"
-L["Export everything you've scanned"] = "Exporter tout ce que vous avez analysé"
 L["Show all commands"] = "Afficher toutes les commandes"
 L["Found a Problem?"] = "Un problème ?"
 L["Report bugs or wrong vendor info on GitHub using the link below."] = "Signalez les bugs ou les informations erronées sur les vendeurs sur GitHub via le lien ci-dessous."

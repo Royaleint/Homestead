@@ -56,10 +56,6 @@ local function CallMethod(target, methodName, ...)
     end
 end
 
-local function CallAddon(methodName, ...)
-    return CallMethod(GetAddon(), methodName, ...)
-end
-
 local function CallVendorMapPins(methodName, ...)
     return CallMethod(HA.VendorMapPins, methodName, ...)
 end
@@ -977,44 +973,6 @@ OptionsModel.sections = {
                     local endeavors = GetEndeavors()
                     if endeavors then
                         endeavors.showMilestoneXP = value
-                    end
-                end,
-            },
-        },
-    },
-    {
-        key = "export",
-        label = L["Export"],
-        description = L["desc_options_export"],
-        rows = {
-            {
-                key = "exportDesc",
-                type = "description",
-                label = L["desc_export"],
-            },
-            {
-                key = "exportNewButton",
-                type = "button",
-                label = L["Export New Scans"],
-                tooltip = L["desc_export_new"],
-                run = function()
-                    if HA.ExportImport then
-                        HA.ExportImport:ExportScannedVendors(false, false)
-                    else
-                        CallAddon("Print", L["ExportImport not available."])
-                    end
-                end,
-            },
-            {
-                key = "exportAllButton",
-                type = "button",
-                label = L["Export All"],
-                tooltip = L["desc_export_all"],
-                run = function()
-                    if HA.ExportImport then
-                        HA.ExportImport:ExportScannedVendors(true, true)
-                    else
-                        CallAddon("Print", L["ExportImport not available."])
                     end
                 end,
             },

@@ -23,7 +23,6 @@ L["Homestead"] = "Homestead"
 L["Homestead Options"] = "Homestead 설정"
 L["Overlays"] = "오버레이"
 L["Tooltips"] = "툴팁"
-L["Export"] = "내보내기"
 
 L["Show minimap button"] = "미니맵 버튼 표시"
 L["Enable overlays"] = "오버레이 사용"
@@ -90,14 +89,6 @@ L["Homestead version: %s (%s)"] = "Homestead 버전: %s (%s)"
 L["Newest version seen this session: %s (%s)"] = "이번 접속 중 확인된 최신 버전: %s (%s)"
 L["No newer version seen this session."] = "이번 접속 중 확인된 새 버전이 없습니다."
 L["Version-check notifications: %s"] = "버전 확인 알림: %s"
-
--------------------------------------------------------------------------------
--- Export Dialog
--------------------------------------------------------------------------------
-L["Export Vendor Data"] = "상인 데이터 내보내기"
-L["Choose export option:"] = "내보내기 방식 선택:"
-L["Export New Scans"] = "새 스캔 내보내기"
-L["Export All"] = "모두 내보내기"
 
 -------------------------------------------------------------------------------
 -- Map Side Panel
@@ -170,7 +161,6 @@ L["desc_options_tooltips"] = "아이템 및 지도 핀 툴팁에 추가되는 �
 L["desc_options_world_map"] = "세계 지도의 상인 핀, 지역 배지, 측면 패널 동작, 지도 핀 표시 방식입니다."
 L["desc_options_minimap"] = "미니맵의 근처 상인 핀, 높이 화살표, 웨이포인트 동작입니다."
 L["desc_options_endeavors"] = "블리자드 하우징 대시보드에 표시되는 하우징 교류회 진행도입니다."
-L["desc_options_export"] = "검토나 백업을 위해 스캔한 상인 데이터를 내보냅니다."
 L["desc_vendor_visibility_section"] = "지도와 수집품 합계에 포함할 상인 그룹을 선택합니다."
 L["desc_pin_appearance_section"] = "Homestead 상인 핀의 색상과 미리 보기를 조정합니다."
 L["desc_overlay_inventory_section"] = "하우징 분류 목록 밖의 아이템 칸에 수집품 표식을 표시합니다."
@@ -216,9 +206,6 @@ L["desc_use_native_waypoints"] = "WoW 기본 웨이포인트 시스템과 지도
 L["desc_auto_waypoint"] = "목록이나 지도에서 상인을 클릭하면 자동으로 웨이포인트를 생성합니다"
 L["desc_navigate_modifier"] = "이 키를 누른 채 클릭하면 웨이포인트를 생성합니다 (자동 웨이포인트가 꺼져 있을 때)"
 L["desc_milestone_xp"] = "블리자드 하우징 대시보드의 교류회 탭에 다음 이정표까지의 경험치 진행도를 표시합니다. 이 기능에 다른 애드온을 사용한다면 끄십시오 (예: Endeavor Simple Progress Tracker)."
-L["desc_export"] = "백업용으로 스캔한 상인 데이터를 내보냅니다."
-L["desc_export_new"] = "마지막 내보내기 이후 스캔한 상인을 내보냅니다. 가격, 재화, 진영, 분류 목록 정보가 포함됩니다."
-L["desc_export_all"] = "시간 기록 필터를 무시하고 스캔한 모든 상인을 내보냅니다."
 
 -------------------------------------------------------------------------------
 -- Options - Select Values
@@ -262,7 +249,6 @@ L["None (always)"] = "없음 (항상)"
 
 -- Misc
 L["Approximate map appearance"] = "지도에서의 대략적인 모양"
-L["ExportImport not available."] = "ExportImport를 사용할 수 없습니다."
 L["Catalog scan is on cooldown. Try again in a few seconds."] = "분류 목록 스캔은 재사용 대기 중입니다. 잠시 후에 다시 시도하십시오."
 L["A catalog scan is already in progress."] = "분류 목록 스캔이 이미 진행 중입니다."
 
@@ -350,7 +336,6 @@ L["Click the Homestead button on the world map to open the side panel listing th
 L["Tooltips Expanded"] = "확장 툴팁"
 L["Every item in the Housing Catalog gets tooltips showing where it comes from (vendor, quest, achievement, profession, or drop), what it costs, and what you need to unlock it, so you never have to leave the game to look something up."] = "하우징 분류 목록의 모든 아이템에 획득처(상인, 퀘스트, 업적, 전문 기술, 전리품), 가격, 잠금 해제 조건을 보여 주는 툴팁이 표시되므로 게임을 벗어나 따로 찾아볼 필요가 없습니다."
 L["Key Commands"] = "주요 명령어"
-L["Export everything you've scanned"] = "스캔한 모든 정보 내보내기"
 L["Show all commands"] = "모든 명령어 표시"
 L["Found a Problem?"] = "문제를 발견하셨나요?"
 L["Report bugs or wrong vendor info on GitHub using the link below."] = "버그나 잘못된 상인 정보는 아래 링크를 통해 GitHub에 제보해 주세요."

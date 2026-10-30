@@ -407,30 +407,6 @@ function Constants.GetElevationDirection(playerMapID, vendorMapID)
     return siblings and siblings[vendorMapID]
 end
 
-function Constants.GetVerticalSiblingsInfo()
-    local seen, lines = {}, {}
-    for mapID, targets in pairs(Constants.VerticalSiblings) do
-        for targetID, direction in pairs(targets) do
-            local pairKey = mapID < targetID
-                and (mapID .. ":" .. targetID)
-                or (targetID .. ":" .. mapID)
-            if not seen[pairKey] then
-                seen[pairKey] = true
-                local infoA = C_Map.GetMapInfo(mapID)
-                local infoB = C_Map.GetMapInfo(targetID)
-                local nameA = infoA and infoA.name or tostring(mapID)
-                local nameB = infoB and infoB.name or tostring(targetID)
-                local arrow = direction == "below" and "above" or "below"
-                lines[#lines + 1] = string.format(
-                    "%d (%s) is %s %d (%s)",
-                    mapID, nameA, arrow, targetID, nameB
-                )
-            end
-        end
-    end
-    return lines
-end
-
 -------------------------------------------------------------------------------
 -- Overlay Configuration
 -------------------------------------------------------------------------------

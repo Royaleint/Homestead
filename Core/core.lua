@@ -147,46 +147,11 @@ function HousingAddon:OnInitialize()
     cmd:Register({ name = "refreshmap",
         help = "Refresh world map pins.",
         handler = function() self:RefreshMapPins() end })
-    cmd:Register({ name = "export",
-        help = "Show the export dialog.",
-        handler = function()
-            if HA.ExportImport then
-                HA.ExportImport:ShowExportDialog()
-            end
-        end })
-    cmd:Register({ name = "export full",
-        help = "Export all scanned vendors.",
-        handler = function()
-            if HA.ExportImport then
-                HA.ExportImport:ExportScannedVendors(true, false)
-            end
-        end })
-    cmd:Register({ name = "exportall",
-        help = "Export ALL, bypassing the timestamp filter.",
-        handler = function()
-            if HA.ExportImport then
-                HA.ExportImport:ExportScannedVendors(true, true)
-            end
-        end })
     cmd:Register({ name = "clearscans",
         help = "Clear all scanned vendor data.",
         handler = function()
-            if HA.ExportImport then
-                HA.ExportImport:ClearScannedData()
-            end
-        end })
-    cmd:Register({ name = "validate",
-        help = "Validate the vendor database.",
-        handler = function()
-            if HA.Validation then
-                HA.Validation:RunFullValidation()
-            end
-        end })
-    cmd:Register({ name = "validate details",
-        help = "Show validation details.",
-        handler = function()
-            if HA.Validation then
-                HA.Validation:ShowDetails()
+            if HA.VendorScanner then
+                HA.VendorScanner:ClearScannedData()
             end
         end })
     cmd:Register({ name = "welcome",
@@ -217,28 +182,9 @@ function HousingAddon:OnInitialize()
             self:Print(format(L["Debug mode: %s"] or "Debug mode: %s",
                 self.db.profile.debug and (L["ON"] or "ON") or (L["OFF"] or "OFF")))
         end })
-    cmd:Register({ name = "debug vertical",
-        help = "Print vertical-sibling info.",
-        handler = function()
-            local lines = HA.Constants.GetVerticalSiblingsInfo()
-            self:Print("VerticalSiblings (" .. #lines .. " pairs):")
-            for _, line in ipairs(lines) do
-                self:Print("  " .. line)
-            end
-        end })
-    cmd:Register({ name = "debug geography",
-        help = "Audit manual map geography entries.",
-        handler = function() self:PrintManualGeographyAuditReport() end })
-    cmd:Register({ name = "debug parsertest",
-        help = "Run SourceTextParser's built-in self-test suite.",
-        handler = function()
-            if HA.SourceTextParser and HA.SourceTextParser.RunTests then
-                HA.SourceTextParser:RunTests()
-            end
-        end })
-    -- HS-282: /hs debug memallsources and /hs debug membudget are dev-only
-    -- diagnostics; they register themselves from Core/DevMemoryDiagnostics.lua
-    -- (a file this shipped module never references) once self.commands below
+    -- The dev-only commands (memory diagnostics, geography,
+    -- vertical, parsertest, validate, export) register themselves from DevBuild-only
+    -- files this shipped module never references, once self.commands below
     -- exists and PLAYER_LOGIN has fired. Never registered here.
 
     self.commands = cmd
@@ -470,39 +416,6 @@ end
 -------------------------------------------------------------------------------
 -- Slash Command Helpers
 -------------------------------------------------------------------------------
-
-function HousingAddon:PrintManualGeographyAuditReport()
-    local MPP = HA.MapPinProvider
-    if not MPP or not MPP.GetManualGeographyAuditReport then
-        self:Print("MapPinProvider audit is not available.")
-        return
-    end
-
-    local report = MPP:GetManualGeographyAuditReport()
-    local summary = report and report.summary or {}
-    self:Print(format(
-        "Manual geography audit: %d checked, %d required, %d redundant candidates",
-        summary.checked or 0,
-        summary.manualRequired or 0,
-        summary.redundantCandidates or 0
-    ))
-
-    if not report or not report.rows or #report.rows == 0 then
-        return
-    end
-
-    for _, row in ipairs(report.rows) do
-        self:Print(format(
-            "  %s %s->%s: %s (%s; native=%s)",
-            row.tableName or "?",
-            tostring(row.sourceMapID),
-            tostring(row.viewMapID),
-            row.status or "?",
-            row.manualReason or "?",
-            row.nativeReason or "unknown"
-        ))
-    end
-end
 
 -- Refresh map pins manually
 function HousingAddon:RefreshMapPins()

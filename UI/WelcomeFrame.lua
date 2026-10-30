@@ -286,16 +286,15 @@ local function CreateWelcomeFrame()
     local sec2Header = AddHeader(content, bullet3, L["Key Commands"], SECTION_GAP)
 
     local cmd1 = AddCommand(content, sec2Header, "/hs", L["Open the Decor Browser, or bind a key under Keybindings > Homestead"], 6)
-    local cmd2 = AddCommand(content, cmd1, "/hs exportall", L["Export everything you've scanned"])
-    local cmd3 = AddCommand(content, cmd2, "/hs help", L["Show all commands"])
-    local cmd4 = AddCommand(content, cmd3, L["Minimap button"], L["Left-click opens the Decor Browser, right-click opens options"])
+    local cmd2 = AddCommand(content, cmd1, "/hs help", L["Show all commands"])
+    local cmd3 = AddCommand(content, cmd2, L["Minimap button"], L["Left-click opens the Decor Browser, right-click opens options"])
 
     -- =====================================================================
     -- SECTION 3: Found a Problem?
     -- =====================================================================
 
     local sec3Header = content:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
-    sec3Header:SetPoint("TOP", cmd4, "BOTTOM", 0, -(SECTION_GAP + 10))
+    sec3Header:SetPoint("TOP", cmd3, "BOTTOM", 0, -(SECTION_GAP + 10))
     sec3Header:SetWidth(CONTENT_WIDTH)
     sec3Header:SetJustifyH("CENTER")
     sec3Header:SetText("|cFFFFD100" .. L["Found a Problem?"] .. "|r")

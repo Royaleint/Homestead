@@ -23,7 +23,6 @@ L["Homestead"] = "Homestead"
 L["Homestead Options"] = "Opções do Homestead"
 L["Overlays"] = "Sobreposições"
 L["Tooltips"] = "Dicas de Interface"
-L["Export"] = "Exportar"
 
 L["Show minimap button"] = "Mostrar botão no minimapa"
 L["Enable overlays"] = "Ativar sobreposições"
@@ -90,14 +89,6 @@ L["Homestead version: %s (%s)"] = "Versão do Homestead: %s (%s)"
 L["Newest version seen this session: %s (%s)"] = "Versão mais recente vista nesta sessão: %s (%s)"
 L["No newer version seen this session."] = "Nenhuma versão mais recente vista nesta sessão."
 L["Version-check notifications: %s"] = "Avisos de verificação de versão: %s"
-
--------------------------------------------------------------------------------
--- Export Dialog
--------------------------------------------------------------------------------
-L["Export Vendor Data"] = "Exportar dados de comerciantes"
-L["Choose export option:"] = "Escolha uma opção de exportação:"
-L["Export New Scans"] = "Exportar novas varreduras"
-L["Export All"] = "Exportar tudo"
 
 -------------------------------------------------------------------------------
 -- Map Side Panel
@@ -170,7 +161,6 @@ L["desc_options_tooltips"] = "Detalhes extras de posse, origem, requisitos e com
 L["desc_options_world_map"] = "Marcadores de comerciantes no mapa-múndi, emblemas de zona, comportamento do painel lateral e exibição dos marcadores do mapa."
 L["desc_options_minimap"] = "Marcadores de comerciantes próximos, setas de elevação e comportamento dos pontos de rota no minimapa."
 L["desc_options_endeavors"] = "Progresso das Empreitadas de moradia exibido no Painel de moradia da Blizzard."
-L["desc_options_export"] = "Exportação dos dados de comerciantes escaneados para revisão ou backup."
 L["desc_vendor_visibility_section"] = "Escolha quais grupos de comerciantes aparecem nos mapas e nos totais da coleção."
 L["desc_pin_appearance_section"] = "Ajuste a cor e a prévia dos marcadores de comerciantes do Homestead."
 L["desc_overlay_inventory_section"] = "Mostra marcadores de coleção nos espaços de itens fora do Catálogo de Moradia."
@@ -216,9 +206,6 @@ L["desc_use_native_waypoints"] = "Usa o sistema de pontos de rota nativo do WoW 
 L["desc_auto_waypoint"] = "Cria um ponto de rota automaticamente ao clicar em um comerciante na lista ou no mapa"
 L["desc_navigate_modifier"] = "Segure esta tecla ao clicar para criar um ponto de rota (se o ponto de rota automático estiver desativado)"
 L["desc_milestone_xp"] = "Exibe o progresso de EXP do próximo marco na aba Empreitadas do Painel de moradia da Blizzard. Desative se você usa outro addon para isso (ex.: Endeavor Simple Progress Tracker)."
-L["desc_export"] = "Exporta os dados de comerciantes escaneados para backup."
-L["desc_export_new"] = "Exporta os comerciantes escaneados desde sua última exportação. Inclui preço, moedas, facção e informações do catálogo."
-L["desc_export_all"] = "Exporta todos os comerciantes escaneados, ignorando o filtro de data e hora."
 
 -------------------------------------------------------------------------------
 -- Options - Select Values
@@ -262,7 +249,6 @@ L["None (always)"] = "Nenhuma (sempre)"
 
 -- Misc
 L["Approximate map appearance"] = "Aparência aproximada no mapa"
-L["ExportImport not available."] = "ExportImport não está disponível."
 L["Catalog scan is on cooldown. Try again in a few seconds."] = "A varredura do catálogo está em recarga. Tente novamente em alguns segundos."
 L["A catalog scan is already in progress."] = "Uma varredura do catálogo já está em andamento."
 
@@ -350,7 +336,6 @@ L["Click the Homestead button on the world map to open the side panel listing th
 L["Tooltips Expanded"] = "Dicas de Interface expandidas"
 L["Every item in the Housing Catalog gets tooltips showing where it comes from (vendor, quest, achievement, profession, or drop), what it costs, and what you need to unlock it, so you never have to leave the game to look something up."] = "Todo item do Catálogo de Moradia ganha dicas de interface que mostram de onde ele vem (comerciante, missão, conquista, profissão ou saque), quanto custa e o que é preciso para desbloqueá-lo, para você nunca precisar sair do jogo para consultar algo."
 L["Key Commands"] = "Comandos principais"
-L["Export everything you've scanned"] = "Exportar tudo o que você escaneou"
 L["Show all commands"] = "Mostrar todos os comandos"
 L["Found a Problem?"] = "Encontrou um problema?"
 L["Report bugs or wrong vendor info on GitHub using the link below."] = "Relate bugs ou dados incorretos de comerciantes no GitHub pelo link abaixo."

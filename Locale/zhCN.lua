@@ -23,7 +23,6 @@ L["Homestead"] = "Homestead"
 L["Homestead Options"] = "Homestead选项"
 L["Overlays"] = "覆盖图标"
 L["Tooltips"] = "说明条"
-L["Export"] = "导出"
 
 L["Show minimap button"] = "显示微缩地图按钮"
 L["Enable overlays"] = "启用覆盖图标"
@@ -90,14 +89,6 @@ L["Homestead version: %s (%s)"] = "Homestead版本：%s（%s）"
 L["Newest version seen this session: %s (%s)"] = "本次登录见到的最新版本：%s（%s）"
 L["No newer version seen this session."] = "本次登录未发现更新的版本。"
 L["Version-check notifications: %s"] = "版本检查通知：%s"
-
--------------------------------------------------------------------------------
--- Export Dialog
--------------------------------------------------------------------------------
-L["Export Vendor Data"] = "导出商人数据"
-L["Choose export option:"] = "选择导出方式："
-L["Export New Scans"] = "导出新扫描"
-L["Export All"] = "导出全部"
 
 -------------------------------------------------------------------------------
 -- Map Side Panel
@@ -170,7 +161,6 @@ L["desc_options_tooltips"] = "在物品和地图标记提示信息中添加的�
 L["desc_options_world_map"] = "世界地图商人标记、地区徽标、侧边面板行为和地图标记显示。"
 L["desc_options_minimap"] = "微缩地图上的附近商人标记、高度箭头和导航点行为。"
 L["desc_options_endeavors"] = "在暴雪的住宅信息板上显示住宅文化节进度。"
-L["desc_options_export"] = "导出已扫描的商人数据，用于查看或备份。"
 L["desc_vendor_visibility_section"] = "选择哪些商人分组显示在地图上并计入收藏总数。"
 L["desc_pin_appearance_section"] = "调整Homestead商人标记的颜色和预览。"
 L["desc_overlay_inventory_section"] = "在住宅装饰类别以外的物品栏位上显示收藏标记。"
@@ -216,9 +206,6 @@ L["desc_use_native_waypoints"] = "使用魔兽世界内置的导航点系统和�
 L["desc_auto_waypoint"] = "点击列表或地图中的商人时自动创建导航点"
 L["desc_navigate_modifier"] = "点击时按住此键以创建导航点（自动导航点关闭时）"
 L["desc_milestone_xp"] = "在暴雪住宅信息板的文化节标签页上显示下一个里程碑的经验值进度。如果你已使用其他插件实现此功能（例如Endeavor Simple Progress Tracker），请禁用此项。"
-L["desc_export"] = "导出已扫描的商人数据用于备份。"
-L["desc_export_new"] = "导出自上次导出以来扫描的商人。包括价格、货币、阵营和装饰类别信息。"
-L["desc_export_all"] = "导出所有已扫描的商人，忽略时间戳筛选。"
 
 -------------------------------------------------------------------------------
 -- Options - Select Values
@@ -262,7 +249,6 @@ L["None (always)"] = "无（始终）"
 
 -- Misc
 L["Approximate map appearance"] = "地图上的大致外观"
-L["ExportImport not available."] = "ExportImport不可用。"
 L["Catalog scan is on cooldown. Try again in a few seconds."] = "装饰类别扫描正在冷却中。请在几秒后重试。"
 L["A catalog scan is already in progress."] = "装饰类别扫描已在进行中。"
 
@@ -350,7 +336,6 @@ L["Click the Homestead button on the world map to open the side panel listing th
 L["Tooltips Expanded"] = "增强说明条"
 L["Every item in the Housing Catalog gets tooltips showing where it comes from (vendor, quest, achievement, profession, or drop), what it costs, and what you need to unlock it, so you never have to leave the game to look something up."] = "住宅装饰类别中的每件物品都会显示说明条，列出它的来源（商人、任务、成就、专业技能或掉落）、价格以及解锁所需条件，让你无需离开游戏去查询。"
 L["Key Commands"] = "常用命令"
-L["Export everything you've scanned"] = "导出你扫描到的全部内容"
 L["Show all commands"] = "显示所有命令"
 L["Found a Problem?"] = "发现问题？"
 L["Report bugs or wrong vendor info on GitHub using the link below."] = "请通过下方链接在 GitHub 上报告错误或有误的商人信息。"

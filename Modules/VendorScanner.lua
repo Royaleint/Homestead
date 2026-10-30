@@ -25,7 +25,7 @@ HA.VendorScanner = VendorScanner
 local DC = HA.DecorClassifier
 local ClassifyHousingItem = DC.ClassifyHousingItem
 
--- Persistence module (data storage, retrieval, clearing, export)
+-- Persistence module (data storage, retrieval, clearing)
 local SP = HA.ScanPersistence
 
 -- Note: Some merchant APIs may be nil at load time, accessed via _G at runtime
@@ -841,17 +841,13 @@ function VendorScanner:VerifyAndUpdateDatabaseEntry(npcID, vendorName)
     return nil
 end
 
--- Note: GetCorrectedNPCID, ExportNPCIDCorrections, SaveVendorData,
+-- Note: GetCorrectedNPCID, SaveVendorData,
 -- GetScannedVendors, GetScannedVendor, and Clear*
 -- are now in ScanPersistence.lua (imported as SP above).
 
 -- Delegation wrappers for external callers
 function VendorScanner:GetCorrectedNPCID(vendorName)
     return SP:GetCorrectedNPCID(vendorName)
-end
-
-function VendorScanner:ExportNPCIDCorrections()
-    return SP:ExportNPCIDCorrections()
 end
 
 function VendorScanner:GetScannedVendors()
