@@ -262,6 +262,8 @@ L["None (always)"] = "Нет (всегда)" -- human-translated
 
 -- Misc
 L["Approximate map appearance"] = "Примерный вид карты" -- human-translated
+L["Catalog scan is on cooldown. Try again in a few seconds."] = "Сканирование каталога ещё на перезарядке. Повторите попытку через несколько секунд."
+L["A catalog scan is already in progress."] = "Сканирование каталога уже выполняется."
 
 -------------------------------------------------------------------------------
 -- Decor Browser: data adapter

@@ -37,10 +37,20 @@ end
 -- Merchant Item Update Function
 -------------------------------------------------------------------------------
 
+-- Paint (or clear) the marker on a merchant item button for the vendor's
+-- real merchant index. A nil index means an empty slot and clears the marker.
+-- Shared by Blizzard's MerchantItem buttons and third-party vendor frames.
 local function UpdateMerchantButton(button, index)
     if not button then return end
 
     local overlay = button.HousingAddonOverlay
+    if not index then
+        if overlay then
+            Overlay:ClearIcon(overlay)
+        end
+        return
+    end
+
     if not overlay then
         overlay = Overlay:AddToFrame(button)
     end
@@ -83,6 +93,20 @@ local function UpdateMerchantButton(button, index)
     end
 end
 
+-- Real merchant index for the slot at position `slot` on the current page.
+local function GetMerchantIndexForSlot(slot, itemsPerPage)
+    local page = MerchantFrame and MerchantFrame.page
+    if page then
+        return slot + ((page - 1) * itemsPerPage)
+    end
+    return slot
+end
+
+-- Let other vendor frames paint through the same decor/status logic.
+Overlay.Merchant = {
+    UpdateButton = UpdateMerchantButton,
+}
+
 -------------------------------------------------------------------------------
 -- Merchant Frame Hooking
 -------------------------------------------------------------------------------
@@ -101,12 +125,8 @@ local function HookMerchantFrame()
             merchantButtons[i] = button
 
             -- Create overlay with update function
-            Overlay:AddToFrame(button, function(overlay)
-                local index = button:GetID()
-                if MerchantFrame.page then
-                    index = index + ((MerchantFrame.page - 1) * itemsPerPage)
-                end
-                UpdateMerchantButton(button, index)
+            Overlay:AddToFrame(button, function()
+                UpdateMerchantButton(button, GetMerchantIndexForSlot(i, itemsPerPage))
             end)
 
             button.HousingAddonHooked = true -- luacheck: ignore 122
@@ -170,11 +190,7 @@ UpdateAllMerchantOverlays = function()
     for i = 1, itemsPerPage do
         local button = merchantButtons[i]
         if button then
-            local index = i
-            if MerchantFrame and MerchantFrame.page then
-                index = i + ((MerchantFrame.page - 1) * itemsPerPage)
-            end
-            UpdateMerchantButton(button, index)
+            UpdateMerchantButton(button, GetMerchantIndexForSlot(i, itemsPerPage))
         end
     end
 end

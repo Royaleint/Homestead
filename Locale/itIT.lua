@@ -249,6 +249,8 @@ L["None (always)"] = "Nessuno (sempre)"
 
 -- Misc
 L["Approximate map appearance"] = "Aspetto approssimativo sulla mappa"
+L["Catalog scan is on cooldown. Try again in a few seconds."] = "La scansione del catalogo è in tempo di recupero. Riprova tra qualche secondo."
+L["A catalog scan is already in progress."] = "Una scansione del catalogo è già in corso."
 
 -------------------------------------------------------------------------------
 -- Decor Browser: data adapter
