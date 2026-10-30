@@ -3,7 +3,7 @@
 local root = (... or "."):gsub("\\\\", "/"):gsub("/+$", "")
 
 -------------------------------------------------------------------------------
--- HS-439: ManualScan used to drop a request silently when ScanFullCatalog was
+-- ManualScan used to drop a request silently when ScanFullCatalog was
 -- blocked by SCAN_COOLDOWN or an already-running scan. This drives the real
 -- Modules/CatalogScanner.lua and checks what the player is told, that no
 -- second scan starts, and that the automatic callers print nothing.

@@ -3,7 +3,7 @@
 local root = (... or "."):gsub("\\\\", "/"):gsub("/+$", "")
 
 -------------------------------------------------------------------------------
--- HS-501: a scan with empty merchant slots can prove a housing item is there,
+-- A scan with empty merchant slots can prove a housing item is there,
 -- but never that none is. Only a confirmed scan (every slot read) may store
 -- "had nothing" or re-date a record; an unconfirmed one writes lastScanAttempt
 -- only. An unconfirmed scan that does see housing raises the had-housing

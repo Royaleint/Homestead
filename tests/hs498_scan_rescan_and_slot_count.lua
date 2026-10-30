@@ -3,7 +3,7 @@
 local root = (... or "."):gsub("\\\\", "/"):gsub("/+$", "")
 
 -------------------------------------------------------------------------------
--- HS-498: a scan that finishes with empty merchant slots is saved "unknown",
+-- A scan that finishes with empty merchant slots is saved "unknown",
 -- and the vendor must be scannable again on the next visit. A confirmed scan
 -- keeps the once-per-session lock. The saved record also carries the slot
 -- total. Drives the real DecorClassifier, ScanPersistence and VendorScanner

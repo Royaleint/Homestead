@@ -3,7 +3,7 @@
 local root = (... or "."):gsub("\\\\", "/"):gsub("/+$", "")
 
 -------------------------------------------------------------------------------
--- HS-498: slots that return no data are read again, a bounded number of times
+-- Slots that return no data are read again, a bounded number of times
 -- and only after a wait, before the scan is saved. A scan that still ends short
 -- is saved unknown and, in a dev build, says so in chat. A new merchant opening
 -- ends a running or waiting scan. Drives the real DecorClassifier,
