@@ -1,5 +1,5 @@
 --[[
-    Homestead - SourceTextParser built-in self-test suite (HS-537)
+    Homestead - SourceTextParser built-in self-test suite
 
     Dev-only home for SourceTextParser:RunTests and the /hs debug parsertest
     command. Split out of Data/SourceTextParser.lua so the player addon does
@@ -155,7 +155,7 @@ function SourceTextParser:RunTests()
         end
     end
 
-    -- Test 9: Unknown prefix (still unmodeled after HS-241 — proves the
+    -- Test 9: Unknown prefix (still unmodeled after the class fixes — proves the
     -- "not matched" branch, and the class-wide invariant below, still cover
     -- whatever the next unrecognized prefix turns out to be)
     do
@@ -169,7 +169,7 @@ function SourceTextParser:RunTests()
         end
     end
 
-    -- Test 10: HS-241 class 1 — Treasure prefix (items 243106, 245282,
+    -- Test 10: source-text class 1 — Treasure prefix (items 243106, 245282,
     -- 246416, 251912, 262616, 263211)
     do
         local input = "Treasure: Gift of the Phoenix|nZone: Eversong Woods"
@@ -183,7 +183,7 @@ function SourceTextParser:RunTests()
         end
     end
 
-    -- Test 11: HS-241 class 2 — "Vendors:" plural, multi-vendor name plus
+    -- Test 11: source-text class 2 — "Vendors:" plural, multi-vendor name plus
     -- zone/faction/cost all riding the same block (item 251494)
     do
         local input = "Vendors: Selfira Ambergrove, Sylvia Hartshorn|nZone: Val'sharah|nFaction: Dreamweavers - Friendly|nCost: 200|Hcurrency:1220|h|h"
@@ -201,7 +201,7 @@ function SourceTextParser:RunTests()
         end
     end
 
-    -- Test 12: HS-241 class 3 (discriminating) — space-separated fields with
+    -- Test 12: source-text class 3 (discriminating) — space-separated fields with
     -- no |n at all (decorID 714 / item 245284). Pre-fix, the line-split at
     -- the top of ParseSourceBlock yields one line and everything past
     -- "Vendor: " — including "Zone: Silvermoon City  Cost: ..." — lands in
@@ -220,7 +220,7 @@ function SourceTextParser:RunTests()
         end
     end
 
-    -- Class-wide invariant (HS-241): once a source is successfully typed
+    -- Class-wide invariant: once a source is successfully typed
     -- (sourceType ~= "unknown"), its name must never contain a field label,
     -- whatever the input shape looked like. This is the actual spec — fixing
     -- the three shapes above without asserting this property leaves the next

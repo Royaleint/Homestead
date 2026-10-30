@@ -4,7 +4,7 @@
 
     Usage: /hs validate
 
-    Dev-only (HS-537): never listed in Homestead.toc and excluded from the
+    Dev-only: never listed in Homestead.toc and excluded from the
     packaged zip (.pkgmeta); the DevBuild TOC loads it. It registers its own
     slash commands at PLAYER_LOGIN, after core.lua's OnInitialize has created
     HousingAddon.commands (see Core/DevMemoryDiagnostics.lua).

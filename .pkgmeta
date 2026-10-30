@@ -45,7 +45,7 @@ ignore:
   # never download the dead weight.
   - Core/MemoryEstimator.lua
   - Core/DevMemoryDiagnostics.lua
-  # HS-537: more dev-only files, same treatment (debug/validation commands and
+  # More dev-only files, same treatment (debug/validation commands and
   # the parser self-test suite register their own slash commands in the
   # DevBuild; none is in Homestead.toc).
   - Core/DevGeographyDiagnostics.lua

@@ -1,5 +1,5 @@
 --[[
-    Homestead - Dev Geography Diagnostics (HS-537)
+    Homestead - Dev Geography Diagnostics
 
     Dev-only home for the /hs debug geography and /hs debug vertical commands
     and the report builders behind them, split out of Core/core.lua,

@@ -182,7 +182,7 @@ function HousingAddon:OnInitialize()
             self:Print(format(L["Debug mode: %s"] or "Debug mode: %s",
                 self.db.profile.debug and (L["ON"] or "ON") or (L["OFF"] or "OFF")))
         end })
-    -- HS-282/HS-537: the dev-only commands (memory diagnostics, geography,
+    -- The dev-only commands (memory diagnostics, geography,
     -- vertical, parsertest, validate, export) register themselves from DevBuild-only
     -- files this shipped module never references, once self.commands below
     -- exists and PLAYER_LOGIN has fired. Never registered here.
