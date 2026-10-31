@@ -802,8 +802,15 @@ end
 -- rotated with the minimap, added to the drawn position only, and the result
 -- is clamped back to the rim when it would land past the mask (the same
 -- 0.9 rim and shape rule DrawPin uses). isRound is DrawPin's own value.
+-- The nudge is sized for world-map pins of NUDGE_SPACING px; pinSize, the
+-- minimap pin's drawn width, scales it so a pair ends up one minimap pin
+-- apart (half a pin each) instead of a world-map pin apart.
 function MapPinProvider.NudgeMinimapPosition(diffX, diffY, nudgeX, nudgeY, minimapWidth, minimapHeight,
-        facingSin, facingCos, rotate, isRound)
+        facingSin, facingCos, rotate, isRound, pinSize)
+    if pinSize then
+        local scale = pinSize / NUDGE_SPACING
+        nudgeX, nudgeY = nudgeX * scale, nudgeY * scale
+    end
     if rotate then
         nudgeX, nudgeY = nudgeX * facingCos + nudgeY * facingSin, nudgeY * facingCos - nudgeX * facingSin
     end

@@ -467,4 +467,36 @@ for _, pair in ipairs(PAIRS) do
         "minimap " .. pair.map .. ": the world position must be the real one")
 end
 
+
+-- On the minimap the nudge is scaled to the minimap pin's width (12 px
+-- by default, against the 18 px world-map pin the nudge is sized for), so a
+-- pair ends up one minimap pin apart instead of 18 px apart. The world-map
+-- nudge values above are not touched.
+do
+    local MINIMAP_PIN = 12
+    for _, p in ipairs(PAIRS) do
+        playerMapID, playerPos = p.map, { x = 0.5, y = 0.5 }
+        collected = nil
+        minimapHA.MinimapPinCollect:RefreshMinimapPins()
+        local byNpc = ByNpc(collected or {})
+        local a, b = byNpc[p.a], byNpc[p.b]
+        local ax, ay = MPP.NudgeMinimapPosition(0, 0, a.nudgeX, a.nudgeY, 1000, 1000, 0, 1, false, true, MINIMAP_PIN)
+        local bx, by = MPP.NudgeMinimapPosition(0, 0, b.nudgeX, b.nudgeY, 1000, 1000, 0, 1, false, true, MINIMAP_PIN)
+        local realGap = RealGap(a, b) -- px on the 1000 px reference canvas, ~1 px
+        ax, ay, bx, by = ax * 1000, ay * 1000, bx * 1000, by * 1000
+        local gap = math.sqrt((ax - bx) ^ 2 + (ay - by) ^ 2)
+        local off = math.max(math.sqrt(ax * ax + ay * ay), math.sqrt(bx * bx + by * by))
+        print("hs561 minimap " .. p.map .. ": gap " .. gap .. " px, max offset " .. off .. " px")
+        -- The nudge alone leaves the pair (18 - real gap) * 12 / 18 apart, about 11 px.
+        assert(gap >= MINIMAP_PIN * 0.9, "minimap " .. p.map .. ": the pair must stop covering at the minimap pin size, got " .. gap)
+        assert(off <= MINIMAP_PIN * 0.6, "minimap " .. p.map .. ": each pin moves about half a pin, got " .. off)
+        assert(realGap < 2, "sanity: the pair really is about 1 px apart")
+        -- Without a pin size the pixel nudge is applied as given (world-map units).
+        local ux = MPP.NudgeMinimapPosition(0, 0, a.nudgeX, a.nudgeY, 1000, 1000, 0, 1, false, true)
+        assert(math.abs(ux * 1000 - a.nudgeX) < 1e-6, "no pinSize: nudge unscaled")
+    end
+    -- Pin size 24 (slider max) scales up with the pin so it still clears.
+    local x1 = MPP.NudgeMinimapPosition(0, 0, 9, 0, 1000, 1000, 0, 1, false, true, 24)
+    assert(math.abs(x1 * 1000 - 12) < 1e-6, "nudge scales with the minimap pin size")
+end
 print("hs536_pin_overlap_nudge: ok")
