@@ -47,32 +47,6 @@ local dataLoaded = false
 -- PREWARM SIGNAL only; it must never gate SetUnowned. See SetupEventScanning.
 local storageResponded = false
 
--- Whether this session's first trustworthy collection read has finished, so
--- consumers may say an item is or is not owned. Set only by a scan that
--- started with dataLoaded already true (a scan started on storageResponded
--- alone can read stale-0 per-item counts), or by the login-forced zero-decor
--- skip once storage has answered. firstReadAttempted means the read was tried
--- and could not complete; firstReadDone takes precedence over it.
-local firstReadDone = false
-local firstReadAttempted = false
-local FIRST_READ_TIMEOUT = 60 -- seconds after the login force-load before giving up
-
-local function SetFirstReadDone()
-    if firstReadDone then return end
-    firstReadDone = true
-    if HA.Events then
-        HA.Events:Fire("HS_CATALOG_READ_STATE")
-    end
-end
-
-local function SetFirstReadAttempted()
-    if firstReadDone or firstReadAttempted then return end
-    firstReadAttempted = true
-    if HA.Events then
-        HA.Events:Fire("HS_CATALOG_READ_STATE")
-    end
-end
-
 -- HS-276: one-shot login force-load state. loginForceLoadAttempted guards the
 -- PLAYER_ENTERING_WORLD deferred action (PEW fires every loading screen per
 -- HS-218, not just initial login -- see SetupLoginForceLoad). pendingSearcher
@@ -321,7 +295,6 @@ function CatalogScanner:ScanFullCatalog(callback)
 
     isScanning = true
     lastScanTime = currentTime
-    local scanStartedWarm = dataLoaded
 
     -- Begin batch mode on CatalogStore to suppress per-item events
     if HA.CatalogStore then
@@ -343,9 +316,6 @@ function CatalogScanner:ScanFullCatalog(callback)
         isScanning = false
         if HA.CatalogStore then
             HA.CatalogStore:EndBatch()
-        end
-        if scanStartedWarm then
-            SetFirstReadDone()
         end
         HA.Addon:Debug("No items to scan - vendor database may be empty")
         if callback then callback(0, 0) end
@@ -423,10 +393,6 @@ function CatalogScanner:ScanFullCatalog(callback)
             -- End batch mode on CatalogStore (fires single OWNERSHIP_UPDATED + CATALOG_ITEM_UPDATED)
             if HA.CatalogStore then
                 HA.CatalogStore:EndBatch()
-            end
-
-            if scanStartedWarm then
-                SetFirstReadDone()
             end
 
             HA.Addon:Debug("Catalog scan complete. Checked:", checkedCount, "Owned:", ownedCount)
@@ -617,14 +583,6 @@ local function SetupEventScanning()
                 if loginForced and C_HousingCatalog.GetDecorTotalOwnedCount
                         and C_HousingCatalog.GetDecorTotalOwnedCount() == 0 then
                     HA.Addon:Debug(event, "fired: login-forced with zero decor owned, skipping scan")
-                    -- Storage answered with a zero total: this player owns
-                    -- nothing, so the read is complete. Without that answer
-                    -- the zero proves nothing.
-                    if storageResponded then
-                        SetFirstReadDone()
-                    else
-                        SetFirstReadAttempted()
-                    end
                     return
                 end
             end
@@ -637,20 +595,6 @@ local function SetupEventScanning()
             RequestScan()
         end
     end)
-end
-
--- Gives the forced storage event and the scan behind it time to land. While a
--- scan is running or queued (including a cooldown retry, which leaves
--- pendingScanTimer nil), waits again rather than giving up on a read that is
--- still under way; a combat-paused scan keeps isScanning true.
-local function CheckFirstReadTimeout()
-    if firstReadDone then return end
-    if isScanning or pendingScanTimer ~= nil or scanRequestedDuringActive
-            or GetTime() - lastScanTime < SCAN_COOLDOWN then
-        C_Timer.After(FIRST_READ_TIMEOUT, CheckFirstReadTimeout)
-        return
-    end
-    SetFirstReadAttempted()
 end
 
 -- HS-276: one-shot login force-load. Runs the actual force-load attempt --
@@ -671,7 +615,6 @@ local function RunLoginStorageForceLoad()
     -- by an event having fired -- guard it before anything below dereferences it.
     if not C_HousingCatalog then
         HA.Addon:Debug("Login storage force-load skipped: C_HousingCatalog unavailable")
-        SetFirstReadAttempted()
         return
     end
 
@@ -701,7 +644,6 @@ local function RunLoginStorageForceLoad()
     -- trustworthy: it can never fire on anything but a genuine engine signal.
     if type(C_HousingCatalog.CreateCatalogSearcher) ~= "function" then
         HA.Addon:Debug("Login storage force-load skipped: CreateCatalogSearcher unavailable")
-        SetFirstReadAttempted()
         return
     end
 
@@ -711,14 +653,12 @@ local function RunLoginStorageForceLoad()
     local createOk, searcher = pcall(C_HousingCatalog.CreateCatalogSearcher)
     if not createOk or not searcher then
         HA.Addon:Debug("Login storage force-load: CreateCatalogSearcher failed:", searcher)
-        SetFirstReadAttempted()
         return
     end
 
     local runOk, runErr = pcall(searcher.RunSearch, searcher)
     if not runOk then
         HA.Addon:Debug("Login storage force-load: RunSearch failed:", runErr)
-        SetFirstReadAttempted()
         return
     end
 
@@ -732,8 +672,6 @@ local function RunLoginStorageForceLoad()
     -- session's login-synthesized one. Set last, so none of the failure exits
     -- above can attribute a genuine event to a search that never ran.
     loginForcedStorageEventPending = true
-
-    C_Timer.After(FIRST_READ_TIMEOUT, CheckFirstReadTimeout)
 end
 
 -- Registers a SEPARATE frame from SetupEventScanning's -- that frame's
@@ -780,18 +718,6 @@ end
 -- Never an erase authorization — that stays on IsWarm/dataLoaded above.
 function CatalogScanner:HasStorageResponded()
     return storageResponded
-end
-
--- Whether this session's first trustworthy collection read has finished.
--- Until it has, nothing may say an item is owned or not owned.
-function CatalogScanner:HasFirstReadCompleted()
-    return firstReadDone
-end
-
--- Whether the first read was tried and could not finish. A later completed
--- read does not clear it, so check HasFirstReadCompleted first.
-function CatalogScanner:HasFirstReadAttempted()
-    return firstReadAttempted
 end
 
 function CatalogScanner:Initialize()

@@ -38,9 +38,6 @@ local ALLOWED_TODAY = {
 	HomesteadOutputWindow = true,
 	HomesteadWelcomeFrame = true,
 	HomesteadWhatsNewFrame = true,
-	-- XML virtual templates (UI/Browser/Visuals.xml)
-	HomesteadDecorBrowserHeader = true,
-	HomesteadDecorBrowserFooter = true,
 }
 
 -- "<path>: <call>(<argument text>)" keys for calls whose name cannot be resolved statically.
