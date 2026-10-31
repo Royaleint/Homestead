@@ -2,6 +2,25 @@
 
 ---
 
+## Homestead v2.15.0 (10-31-2026)
+
+Endeavor vendor fixes and decor markers for Krowi's Extended Vendor UI.
+
+---
+
+## Endeavor Vendors
+
+- Fixed endeavor and holiday vendors sometimes disappearing from the map after you visited them.
+- Improved how neighborhood endeavors are identified on non-English clients, so each endeavor shows its own vendors.
+
+---
+
+## Krowi's Extended Vendor UI
+
+- Added support for Homestead decor ownership markers for those who use Krowi's Extended Vendor UI.
+
+---
+
 ## Homestead v2.14.2 (10-22-2026)
 
 Hallow's End vendors, holiday detection that works, and pins that no longer hide each other.

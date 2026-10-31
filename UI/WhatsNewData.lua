@@ -7,6 +7,21 @@
 local _, HA = ...
 
 HA.WhatsNew = {
+    ["2.15.0"] = {
+        title = "Homestead - What's New in v2.15.0!",
+        features = {
+            {
+                icon = "Interface\\Icons\\INV_Misc_Map_01",
+                heading = "Endeavor Vendors",
+                body = "Endeavor and holiday vendors no longer disappear from the map after you visit them, and endeavors are better identified on non-English clients.",
+            },
+            {
+                atlas = "housing-decor-vendor_32",
+                heading = "Krowi's Extended Vendor UI",
+                body = "Added support for Homestead decor ownership markers for those who use Krowi's Extended Vendor UI.",
+            },
+        },
+    },
     ["2.11.0"] = {
         title = "Homestead - What's New in v2.11.0!",
         features = {
