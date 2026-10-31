@@ -470,7 +470,10 @@ EndeavorsData.Vendors = {
         },
     },
 
-    -- Tortollan theme, second vendor. Positions and prices not yet confirmed in game.
+    -- Tortollan theme, second vendor. A scan on 2026-10-13 confirmed his Razorwind
+    -- Shores position (scanned 0.3913, 0.7410; shipped 0.3908, 0.7409) and his three
+    -- item prices, and his pin was checked in game. His Founder's Point position has
+    -- not been scanned.
     [257168] = {
         name = "Throska",
         mapID = 2351,
