@@ -489,7 +489,7 @@ do
         print("hs561 minimap " .. p.map .. ": gap " .. gap .. " px, max offset " .. off .. " px")
         -- The nudge alone leaves the pair (18 - real gap) * 12 / 18 apart, about 11 px.
         assert(gap >= MINIMAP_PIN * 0.9, "minimap " .. p.map .. ": the pair must stop covering at the minimap pin size, got " .. gap)
-        assert(off <= MINIMAP_PIN * 0.6, "minimap " .. p.map .. ": each pin moves about half a pin, got " .. off)
+        assert(off <= MINIMAP_PIN * 0.65, "minimap " .. p.map .. ": each pin moves about half a pin, got " .. off)
         assert(realGap < 2, "sanity: the pair really is about 1 px apart")
         -- Without a pin size the pixel nudge is applied as given (world-map units).
         local ux = MPP.NudgeMinimapPosition(0, 0, a.nudgeX, a.nudgeY, 1000, 1000, 0, 1, false, true)

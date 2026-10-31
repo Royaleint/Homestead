@@ -166,6 +166,7 @@ local HA = {
 }
 
 assert(loadfile(root .. "/UI/FramePoolUtils.lua"))("Homestead", HA)
+assert(loadfile(root .. "/UI/MapPinProvider.lua"))("Homestead", HA)
 assert(loadfile(root .. "/UI/HomesteadMinimapOverlay.lua"))("Homestead", HA)
 local Overlay = HA.HomesteadMinimapOverlay
 
@@ -457,3 +458,22 @@ assert(#minimapRefreshRequests == 0,
 Overlay:StopReconciliationBackstop()
 
 print("hs208_minimap_pin_spikes: reconciliation backstop stays quiet while vendor pins are off ok")
+
+-------------------------------------------------------------------------------
+-- The overlap nudge is scaled to the minimap pin's drawn width (18 px nudge
+-- sizing, 12 px minimap pin) when a nudged pin goes through the real DrawPin.
+-------------------------------------------------------------------------------
+
+do
+    local nudged = MakePin(30)
+    nudged.nudgeX, nudged.nudgeY = 9, 0
+    Overlay:SetPins({ nudged })
+    local frame = Overlay:GetActiveFrames()[1].frame
+    local drawnX
+    function frame:GetWidth() return 12 end
+    function frame:SetPoint(_, _, _, x) drawnX = x end
+    Overlay:RefreshPositions(true)
+    assert(drawnX and math.abs(drawnX - 9 * 12 / 18) < 1e-6,
+        "a nudged minimap pin must be offset by the nudge scaled to its width, got " .. tostring(drawnX))
+    print("hs208_minimap_pin_spikes: nudge scaled to the minimap pin width ok")
+end
