@@ -163,36 +163,12 @@ end
 
 -- Register a callback for an update type OR a custom event name — single
 -- public entry point, see the UPDATE_TYPES note above for how storage splits.
---
--- Registering and removing both build a new list and assign it rather than
--- editing the old one in place: a dispatch already in progress keeps
--- iterating the list it started with, so a callback added or removed during
--- that dispatch takes effect from the next one.
 function Events:RegisterCallback(name, callbackFunc)
     local target = UPDATE_TYPES[name] and updateCallbacks or eventCallbacks
-    local old = target[name]
-    local list = {}
-    if old then
-        for i = 1, #old do
-            list[i] = old[i]
-        end
+    if not target[name] then
+        target[name] = {}
     end
-    list[#list + 1] = callbackFunc
-    target[name] = list
-end
-
--- Remove one callback, by reference, from an update type or event name.
-function Events:UnregisterCallback(name, callbackFunc)
-    local target = UPDATE_TYPES[name] and updateCallbacks or eventCallbacks
-    local old = target[name]
-    if not old then return end
-    local list = {}
-    for i = 1, #old do
-        if old[i] ~= callbackFunc then
-            list[#list + 1] = old[i]
-        end
-    end
-    target[name] = list
+    table.insert(target[name], callbackFunc)
 end
 
 -- Unregister all callbacks for an update type or event name.

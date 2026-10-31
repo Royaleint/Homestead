@@ -523,13 +523,6 @@ Constants.Defaults = {
             enabled = true,  -- Auto-scan merchants for housing decor data
         },
 
-        -- Decor Browser. position is absent until the player moves the window.
-        browser = {
-            hideNA = false,
-            tipSeen = false,
-            model3D = true,  -- the item page's 3D preview
-        },
-
         -- Version-check notifications (HS-086)
         versionCheck = {
             notify = true,
