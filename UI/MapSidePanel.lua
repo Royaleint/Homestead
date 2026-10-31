@@ -1445,6 +1445,12 @@ end
 -- Row Creation
 -------------------------------------------------------------------------------
 
+-- Endeavor vendors are not tied to one expansion, so the tooltip names the activity.
+local function VendorExpansionText(vendor)
+    if vendor.endeavor then return L["Endeavor"] end
+    return vendor.expansion
+end
+
 local function CreateVendorRow(parent)
     local row = CreateFrame("Button", nil, parent)
     row:SetHeight(Layout.ROW_HEIGHT)
@@ -1541,8 +1547,9 @@ local function CreateVendorRow(parent)
         end
         tooltip:AddLine(" ")
         if self.searchMode then
-            if self.vendor.expansion then
-                tooltip:AddLine(self.vendor.expansion, 0.5, 0.5, 0.5)
+            local expansionText = VendorExpansionText(self.vendor)
+            if expansionText then
+                tooltip:AddLine(expansionText, 0.5, 0.5, 0.5)
             end
             if State.expandedVendorID == self.vendor.npcID then
                 tooltip:AddLine("Click to collapse items", 0.5, 0.5, 0.5)
