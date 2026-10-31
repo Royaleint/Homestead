@@ -318,7 +318,7 @@ local function DrawPin(pin, playerX, playerY, rotateMinimap)
         -- display-only overlap nudge is added only to where the pin is drawn.
         if pin.nudgeX then
             diffX, diffY = MapPinProvider.NudgeMinimapPosition(diffX, diffY, pin.nudgeX, pin.nudgeY,
-                minimapWidth, minimapHeight, mapSin, mapCos, rotateMinimap, isRound)
+                minimapWidth, minimapHeight, mapSin, mapCos, rotateMinimap, isRound, pin.frame:GetWidth())
         end
         local pixelX = diffX * minimapWidth
         local pixelY = -diffY * minimapHeight

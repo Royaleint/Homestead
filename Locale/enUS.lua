@@ -338,6 +338,7 @@ L["Price"] = "Price"
 L["Seasonal: %s"] = "Seasonal: %s"
 L["Rotates with the %s Endeavor"] = "Rotates with the %s Endeavor"
 L["Rotates with neighborhood Endeavors"] = "Rotates with neighborhood Endeavors"
+L["Endeavor"] = "Endeavor"
 L["Not available in combat"] = "Not available in combat"
 L["Report a data error"] = "Report a data error"
 L["Item: %s (%d)"] = "Item: %s (%d)" -- untranslated
