@@ -463,15 +463,31 @@ local function ReadMerchantSlot(i)
     -- decorInfo is only ever populated for subclass 0 (Decor) — see
     -- DecorClassifier.
     local isHousing, subclassID, decorInfo = ClassifyHousingItem(itemLink)
+    local rowItemID = itemID or C_Item.GetItemInfoInstant(itemLink)
     local allRow = {
-        itemID = itemID or C_Item.GetItemInfoInstant(itemLink),
+        itemID = rowItemID,
         name = name,
     }
+
+    -- Some decor reports an item class other than Housing. When the decor
+    -- index knows its item ID, record it as a Decor item with the indexed
+    -- decor ID; the subclass the client reports for it is not used.
+    local indexDecorID = nil
+    if not isHousing then
+        local catalogStore = HA.CatalogStore
+        if catalogStore and catalogStore.GetDecorIDFromItemID then
+            indexDecorID = catalogStore:GetDecorIDFromItemID(rowItemID)
+            if indexDecorID then
+                isHousing = true
+                subclassID = Enum.ItemHousingSubclass.Decor
+            end
+        end
+    end
 
     local housingRow = nil
     if isHousing then
         -- Extract decorID (recordID) from catalog entryID if available
-        local decorID = nil
+        local decorID = indexDecorID
         if decorInfo and decorInfo.entryID and type(decorInfo.entryID) == "table" then
             decorID = decorInfo.entryID.recordID
         end
