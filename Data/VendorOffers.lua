@@ -9298,11 +9298,10 @@ local GeneratedBase = {
       costBuild = "12.0.7.68974",
     },
     [244778] = {
-      price = 2500000,
+      price = 200,
       currencies = {},
       isUsable = true,
       displayOrder = 11,
-      costBuild = "12.0.7.68974",
     },
     [245264] = {
       price = 100000,
@@ -12811,11 +12810,10 @@ local GeneratedBase = {
       costBuild = "12.0.7.68974",
     },
     [244778] = {
-      price = 2500000,
+      price = 200,
       currencies = {},
       isUsable = true,
       displayOrder = 15,
-      costBuild = "12.0.7.68974",
     },
     [245267] = {
       price = 100000,
