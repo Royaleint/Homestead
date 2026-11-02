@@ -2745,6 +2745,16 @@ VendorIdentity.Vendors = {
         expansion = "Midnight",
         scanConfirmed = "2026-10-12",
     },
+    [276366] = {
+        name = "Amani Representative",
+        mapID = 2393,
+        x = 0.3947,
+        y = 0.8009,
+        zone = "Silvermoon City",
+        faction = "Neutral",
+        expansion = "Midnight",
+        scanConfirmed = "2026-11-01",
+    },
 }
 
 VendorIdentity.ZoneToContinentMap = (HA.Constants and HA.Constants.ZoneToContinentMap) or {}
