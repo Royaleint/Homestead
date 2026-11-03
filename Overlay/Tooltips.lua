@@ -60,8 +60,8 @@ local function GetNPCIDFromGUID(guid)
 end
 
 -- Check if an item is a housing decor item.
--- HS-202: delegates to CatalogStore:IsDecorItem, which is cache-first as of
--- HS-180 (ci record, then the static DecorMapping index, then a session-only
+-- delegates to CatalogStore:IsDecorItem, which is cache-first
+-- (ci record, then the static DecorMapping index, then a session-only
 -- warm-gated negative cache). This tooltip post-call runs on every item
 -- hover in the game; a raw C_HousingCatalog probe here fired uncached every
 -- time.
@@ -74,7 +74,7 @@ local function IsDecorItem(itemLink)
 end
 
 -- Check if a decor item is owned (by itemLink)
--- Delegates to CatalogStore:IsOwnedFresh() (Phase 2)
+-- Delegates to CatalogStore:IsOwnedFresh()
 local function IsDecorOwned(itemLink)
     local itemID = GetItemIDFromLink(itemLink)
     if not itemID then return nil end
@@ -205,8 +205,8 @@ local function AddRequirementsToTooltip(tooltip, itemID, npcID, dedupSet, reputa
                     end
                 end
             elseif req.type == "promotion" then
-                -- Not a met/unmet requirement — decision 4 excludes promotion
-                -- items from uncollected counts whether live or expired, but
+                -- Not a met/unmet requirement — promotion items are excluded
+                -- from uncollected counts whether live or expired, but
                 -- the tooltip still differentiates live vs. expired so the
                 -- item stays discoverable while the promo is running.
                 local isExpired = HA.SourceManager.IsPromotionExpired
@@ -505,7 +505,7 @@ local function RenderSourceText(tooltip, sourceText, itemID)
                 -- "First-Time Collection Bonus:") — a bare cost line like
                 -- "1200|T...BLP:0|t" also contains a colon (the texture escape's size
                 -- suffix), and splitting there injects color codes inside the escape,
-                -- which un-renders the icon and leaks the raw |T path (HS-146 reopen).
+                -- which un-renders the icon and leaks the raw |T path.
                 local label, value = line:match("^(%a[%a%s%-']*:%s*)(.*)")
                 if label and value and value ~= "" then
                     -- Apply per-block completion color to the first line of each block
@@ -570,7 +570,7 @@ local function RenderVendorSourceLines(tooltip, source, parsedTag, _itemID, _com
         if costStr then
             -- "Vendor Price", not "Cost": Blizzard's native item tooltip can carry a
             -- "Sell Price" (sell-back) line on the same tooltip; an unqualified "Cost"
-            -- label reads as contradicting it (issue #46).
+            -- label reads as contradicting it.
             tooltip:AddLine("  Vendor Price: |cFFFFFFFF" .. costStr .. "|r", COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
         end
     end
@@ -733,7 +733,7 @@ local function DetectContext(tooltip)
     local owner = tooltip and tooltip.GetOwner and tooltip:GetOwner()
     if not owner then return "standard" end
 
-    -- Panel: MapSidePanel stamps this flag on item icon frames (B1)
+    -- Panel: MapSidePanel stamps this flag on item icon frames
     if owner.isHomesteadPanelIcon then return "panel" end
 
     -- Merchant: only if a merchant is open AND the owner is a merchant item button.
@@ -884,7 +884,7 @@ end
 -- deep inside a delegated helper (AddSourceInfoToTooltip's renderer dispatch,
 -- AddRequirementsToTooltip, AddReputationProgressToTooltip) alike, without
 -- changing any of those helpers. A tooltip that ends up with nothing gated
--- behind it never shows the header at all (HS-349).
+-- behind it never shows the header at all.
 local function CreateHeaderGate(tooltip)
     local headerShown = false
     local gate = {}
@@ -922,7 +922,7 @@ local function AddDecorInfoToTooltip(tooltip, itemLink, gate)
     local context = DetectContext(tooltip)
     local detailed = (context == "panel") or IsShiftKeyDown()
 
-    -- Track owner for Shift-to-refresh (B6)
+    -- Track owner for Shift-to-refresh
     lastTooltipFrame = tooltip
     lastTooltipOwner = tooltip:GetOwner()
 
@@ -938,7 +938,7 @@ local function AddDecorInfoToTooltip(tooltip, itemLink, gate)
 
     -- Gate the [Homestead] separator+header behind the first content line
     -- below so a fully-suppressed tooltip (source off, no reputation lines,
-    -- etc.) never leaves a dangling header with nothing under it (HS-349).
+    -- etc.) never leaves a dangling header with nothing under it.
     local gatedTooltip = gate or CreateHeaderGate(tooltip)
 
     -- Resolve vendor NPC scope for availability classification
@@ -1166,7 +1166,7 @@ local function OnHousingCatalogTooltipCreated(ownerID, entryFrame, tooltip)
 
     -- Gate the [Homestead] separator+header behind the first content line
     -- below so a fully-suppressed tooltip (source off, no reputation lines,
-    -- etc.) never leaves a dangling header with nothing under it (HS-349).
+    -- etc.) never leaves a dangling header with nothing under it.
     local gatedTooltip = CreateHeaderGate(tooltip)
 
     -- Query item's reputation/renown requirements from Blizzard's tooltip data
@@ -1177,8 +1177,8 @@ local function OnHousingCatalogTooltipCreated(ownerID, entryFrame, tooltip)
     -- renderedFactions tracks which factions already have progress lines (cross-path dedup).
     local renderedFactions = nil
     if not db or db.showSource ~= false then
-        -- Priority 1: our structured source DB (HS-197 — ruling made during
-        -- HS-174's live verification: validated Homestead data renders first). Blizzard sourceText carried
+        -- Priority 1: our structured source DB (validated Homestead data renders
+        -- first). Blizzard sourceText carried
         -- stale attributions that our verified tables correct, and while it took
         -- priority those corrections never reached this surface.
         local hasSource, renderedFactionsFromSources = AddSourceInfoToTooltip(gatedTooltip, itemID)
@@ -1219,7 +1219,7 @@ local function OnHousingCatalogTooltipCreated(ownerID, entryFrame, tooltip)
 end
 
 -------------------------------------------------------------------------------
--- Managed-tooltip item rendering (issue #46)
+-- Managed-tooltip item rendering
 -------------------------------------------------------------------------------
 
 -- Render an item's tooltip into a Homestead-managed tooltip frame from
@@ -1329,7 +1329,7 @@ local function OnTooltipSetItem(tooltip, data)
     if itemLink then
         -- A reagent line needs a header even on a non-decor item, so the
         -- gate is created here and shared; otherwise the decor block makes
-        -- its own (HS-349).
+        -- its own.
         local reagentCount = GetReagentUsageCount(itemLink)
         local gate = (reagentCount > 0) and CreateHeaderGate(tooltip) or nil
         AddDecorInfoToTooltip(tooltip, itemLink, gate)
@@ -1339,7 +1339,7 @@ local function OnTooltipSetItem(tooltip, data)
     end
 end
 
--- Issue #38: a tooltip owned by a Blizzard MapCanvas pin (AreaPOI / event-POI /
+-- A tooltip owned by a Blizzard MapCanvas pin (AreaPOI / event-POI /
 -- quest-offer / quest pins) must never be touched from our post-call. Doing so
 -- runs Homestead (insecure) code inside Blizzard's secure map-data-provider flow
 -- and taints it; the next time Blizzard touches a "secret" value in that flow
@@ -1368,7 +1368,7 @@ local function HookTooltips()
                     or (tooltip and tooltip.isHomesteadManagedTooltip)) then
                 return
             end
-            -- Issue #38: never augment a Blizzard map-pin tooltip (taint vector).
+            -- Never augment a Blizzard map-pin tooltip (taint vector).
             if IsBlizzardMapPinOwnedTooltip(tooltip) then
                 return
             end
@@ -1447,7 +1447,7 @@ local function Initialize()
         end
     end)
 
-    -- Shift-to-refresh: re-fire OnEnter when Shift toggles detail level (B6)
+    -- Shift-to-refresh: re-fire OnEnter when Shift toggles detail level
     local modifierFrame = CreateFrame("Frame")
     modifierFrame:RegisterEvent("MODIFIER_STATE_CHANGED")
     modifierFrame:SetScript("OnEvent", function(_, _, key, state)

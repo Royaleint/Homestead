@@ -755,7 +755,7 @@ end
 -- them up and Data/VendorData.lua applies them at query time via
 -- VendorScanner:GetCorrectedNPCID. The dev addon displays them.
 --
--- HS-374 removed the player-facing /hs corrections command, which printed
+-- The player-facing /hs corrections command was removed; it printed
 -- data-entry instructions for a file that no longer loads. Be precise about what
 -- that cost: the persisted table above survives untouched, but the command also
 -- ran a live name-vs-ID mismatch pass that was computed on demand, stored

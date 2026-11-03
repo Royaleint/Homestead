@@ -1,8 +1,8 @@
 --[[
     Homestead - VersionCheck
-    HS-086: peer-broadcast out-of-date notification.
+    peer-broadcast out-of-date notification.
 
-    On first PLAYER_ENTERING_WORLD each session (HS-217: moved off PLAYER_LOGIN,
+    On first PLAYER_ENTERING_WORLD each session (moved off PLAYER_LOGIN,
     which never actually fired the hello — see VersionCheck:Initialize) and on
     group/raid/instance join, we send a hello over the appropriate channel.
     Peers reply with their version + release date. If we see a version newer
@@ -47,7 +47,7 @@ local PROTOCOL         = 1
 local PROTOCOL_STR     = tostring(PROTOCOL)
 local CMD_HELLO        = "H"
 local CMD_VERSION      = "V"
--- HS-217 (Low): a fixed 3s reply delay means every guild member's client
+-- a fixed 3s reply delay means every guild member's client
 -- replies at the exact same instant, a synchronized burst that scales with
 -- guild size. Randomized per-reply so replies spread out instead of piling up.
 local REPLY_DELAY_MIN  = 2
@@ -300,7 +300,7 @@ end
 -------------------------------------------------------------------------------
 
 function VersionCheck:Initialize()
-    -- HS-217: this module is initialized from core.lua's OnEnable, which is
+    -- This module is initialized from core.lua's OnEnable, which is
     -- itself dispatched off PLAYER_LOGIN (Foundry.Lifecycle's OnLogin hook)
     -- — so registering a NEW frame for PLAYER_LOGIN here happens WHILE that
     -- very PLAYER_LOGIN event is already being dispatched. A frame that

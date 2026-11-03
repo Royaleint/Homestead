@@ -6,7 +6,7 @@
     Single source of truth for item ownership, metadata, sources, and requirements.
     All writes go through this module. Read API provides cache-only and fresh paths.
 
-    Phase 1-10: catalogItems is the canonical ownership store.
+    catalogItems is the canonical ownership store.
 
     Event contract:
       _save()            — internal table merge, NEVER fires events
@@ -21,7 +21,7 @@
 
 local _, HA = ...
 
--- HS-300: existing idiom for reaching Foundry from a Homestead module
+-- existing idiom for reaching Foundry from a Homestead module
 -- (core.lua:14, UI/MapSidePanel.lua:18, UI/OptionsFrame.lua:11). F is never
 -- nil here: Core/core.lua:14-17 errors at load if Foundry is absent, and
 -- core.lua (Homestead.toc:33) loads before this file (Homestead.toc:43).
@@ -42,7 +42,7 @@ local ci = nil              -- shorthand for db.global.catalogItems (set on Init
 local decorToItemID = {}    -- reverse index: decorID → itemID
 local itemIDToDecor = {}    -- forward index: itemID → decorID (for byRecordID fallback probes)
 local ownedCount = 0        -- cached count of owned items (incremented in SetOwned)
--- HS-209 H3: nesting depth for BeginBatch/EndBatch, not a boolean. Two
+-- nesting depth for BeginBatch/EndBatch, not a boolean. Two
 -- independent callers can hold a batch open at once (CatalogScanner's scan
 -- and ProfessionOverlay's reconcile pass, Overlay/ProfessionOverlay.lua:334-357)
 -- — a plain boolean let the inner EndBatch prematurely clear batchMode and
@@ -54,7 +54,7 @@ local batchOwnershipChanged = false
 local batchDataChanged = false
 local negativeGeneration = 0  -- bumped on SetOwned/ClearAll to bust negative cache
 
--- HS-180: session-only "confirmed not decor" cache for CatalogStore:IsDecorItem.
+-- session-only "confirmed not decor" cache for CatalogStore:IsDecorItem.
 -- Positive results never need this (a positive is trustworthy at any time);
 -- this only holds itemIDs a live, warm probe has confirmed are NOT decor, so
 -- repeat overlay refreshes for the same non-decor bag/bank slot skip the API
@@ -64,14 +64,14 @@ local negativeGeneration = 0  -- bumped on SetOwned/ClearAll to bust negative ca
 local identityNegativeCache = {}
 local identityNegativeCacheGen = -1
 
--- HS-180: session-only positive-identity memo for the same probe. Covers the
+-- session-only positive-identity memo for the same probe. Covers the
 -- rare decor item that is in the live catalog but absent from both ci and the
 -- static DecorMapping index (new-patch item before the mapping regenerates) —
 -- without this it would re-probe the API on every refresh. A positive identity
 -- is trustworthy at any temperature and never revoked, so no generation bust.
 local identityPositiveCache = {}
 
--- HS-249: session memo for GetHousingSubclass. An item's class/subclass is a
+-- session memo for GetHousingSubclass. An item's class/subclass is a
 -- fixed property of the item record, so unlike the identity caches above this
 -- one needs no generation bust — a resolved verdict is never revised.
 -- One table rather than the positive/negative pair used above, because both
@@ -196,13 +196,12 @@ function CatalogStore:SetUnowned(itemID)
     end
 end
 
--- Store parsed source data for an item. HS-205: catalogItems is the single
--- owner of parsed-source data (ITEM_SNAPSHOT_CONTRACT.md Open Question #1,
--- resolved: "persist in catalogItems"). db.global.parsedSources now stores
+-- Store parsed source data for an item. catalogItems is the single
+-- owner of parsed-source data. db.global.parsedSources now stores
 -- ONLY the sourceHash/lastParsed stamp SourceTextScanner's change-detection
 -- needs — the full `sources` payload used to be written to BOTH tables on
 -- every parse, roughly doubling the bytes for source data.
--- rawSourceText is optional and dev-only (Homestead_Dev's /hsdev exportsources
+-- rawSourceText is optional and dev-only (used by a dev-addon source export
 -- diagnostic) — SourceTextScanner passes it only when HA.DevAddon is loaded,
 -- so it never affects a normal player's SavedVariables size.
 function CatalogStore:SetSources(itemID, sources, rawSourceText)
@@ -252,7 +251,7 @@ end
 -- Batch Mode (suppress per-item events during catalog scan)
 -------------------------------------------------------------------------------
 
--- HS-209 H3: reentrant. Two independent callers can hold a batch open at
+-- reentrant. Two independent callers can hold a batch open at
 -- once (CatalogScanner's scan, ProfessionOverlay's reconcile pass) — only
 -- the OUTERMOST BeginBatch resets the accumulated-change flags, so a nested
 -- Begin can never clobber an outer batch's already-accumulated
@@ -265,7 +264,7 @@ function CatalogStore:BeginBatch()
     end
 end
 
--- HS-209 H3: reentrant counterpart to BeginBatch. Only the outermost
+-- reentrant counterpart to BeginBatch. Only the outermost
 -- EndBatch (the one that brings batchDepth back to 0) fires the transition
 -- events and clears the flags — an inner EndBatch just decrements and
 -- returns, leaving the outer batch's suppression and accumulated flags
@@ -324,13 +323,13 @@ end
 --      identification.
 --   2. itemIDToDecor[itemID] — the static DecorMapping index (seeded at
 --      Initialize, ~1710 known decor itemIDs) is a second positive gate; it
---      also covers the HS-059 byItem-gap items that GetCatalogEntryInfoByItem
+--      also covers the byItem-gap items that GetCatalogEntryInfoByItem
 --      can return nil for even when owned.
 --   3. identityPositiveCache[itemID] — session-only positive memo for decor
 --      items found only by live probe (see declaration).
 --   4. identityNegativeCache[itemID] — a session-only "confirmed not decor"
 --      verdict from a prior warm probe (see below).
--- HS-180: overlay refresh paths (bags/merchant) call this per-slot, per-tick;
+-- overlay refresh paths (bags/merchant) call this per-slot, per-tick;
 -- non-decor bag/bank items (the majority of a bag) used to miss all caching
 -- and re-fire the API every refresh. Only itemIDs unresolved by any of the
 -- four gates reach the live API probe.
@@ -378,7 +377,7 @@ function CatalogStore:IsDecorItem(itemLink)
             return true
         end
 
-        -- Negative-caching hazard (HS-060): a nil/cold API result is not
+        -- Negative-caching hazard: a nil/cold API result is not
         -- authoritative on its own — GetCatalogEntryInfoByItem returns nil
         -- both for genuinely non-decor items AND for cold/unloaded catalog
         -- data. Only memoize the negative verdict once the catalog is warm
@@ -392,7 +391,7 @@ function CatalogStore:IsDecorItem(itemLink)
     return false
 end
 
--- HS-249: which housing subclass an item belongs to, or nil if it is not a
+-- which housing subclass an item belongs to, or nil if it is not a
 -- housing-class item at all. Reads classID/subClassID as the 6th and 7th
 -- returns of C_Item.GetItemInfoInstant — the same call Blizzard's own
 -- MerchantFrame.lua uses to classify a merchant row. It is synchronous and
@@ -402,7 +401,7 @@ end
 -- is not memoized.
 --
 -- Memoized because the badge recount loops call this per item per recount —
--- the same hot path HS-234's prewarm exists to defend.
+-- the same hot path the prewarm exists to defend.
 function CatalogStore:GetHousingSubclass(itemID)
     if not itemID then return nil end
 
@@ -427,7 +426,7 @@ function CatalogStore:GetHousingSubclass(itemID)
     return subClassID
 end
 
--- HS-249: true when this item is a housing item whose ownership Homestead
+-- true when this item is a housing item whose ownership Homestead
 -- cannot yet resolve. Only ItemHousingSubclass.Decor maps to a housing catalog
 -- entry, so every other housing subclass (Dye, Room, RoomCustomization,
 -- ExteriorCustomization, ServiceItem) falls through IsOwned's hard `false` and
@@ -436,7 +435,7 @@ end
 -- entirely rather than defaulted to unowned.
 --
 -- Everything else — decor, and any non-housing item — answers false, so the
--- existing counts are unchanged. Phase 2 resolves itemID → recordID for the
+-- existing counts are unchanged. A later change resolves itemID → recordID for the
 -- other subclasses and this predicate goes away with it.
 function CatalogStore:IsOwnershipUnknowable(itemID)
     local subclassID = self:GetHousingSubclass(itemID)
@@ -506,7 +505,7 @@ function CatalogStore:IsOwnedFresh(itemID, readOnly)
     end
 
     -- Stage 4: byRecordID fallback via reverse index.
-    -- GetCatalogEntryInfoByItem returns nil for some items on 12.0.1 (HS-059:
+    -- GetCatalogEntryInfoByItem returns nil for some items on 12.0.1 (for example
     -- itemID 244778 Sethraliss Priest's Pillow). GetCatalogEntryInfoByRecordID
     -- indexes the catalog directly without requiring item-cache data and is reliable.
     -- In readOnly mode: probe without writing to cache.
@@ -606,7 +605,7 @@ function CatalogStore:GetGeneration()
     return negativeGeneration
 end
 
--- HS-282: dev-only debug accessor exposing this module's runtime caches to
+-- dev-only debug accessor exposing this module's runtime caches to
 -- the /hs debug membudget walker. Read-only references, never mutated by
 -- the caller. Persisted SavedVariables tables (catalogItems etc.) are read
 -- directly from self.db.global by the caller -- this covers only the
@@ -698,7 +697,7 @@ end
 -- Migrations (sequential, schema-versioned)
 -------------------------------------------------------------------------------
 
--- HS-300: recursive deep copy for the temporary legacy-chain backup. A v5 or
+-- recursive deep copy for the temporary legacy-chain backup. A v5 or
 -- corrupt stored version needs this snapshot before v6 removes its keys; v7
 -- deletes the backup at the end of that migration chain. No recovery surface
 -- remains after migration.
@@ -709,12 +708,12 @@ local function deepCopy(value)
     return out
 end
 
--- HS-300: the five keys the v6 migration destroys. The legacy-chain snapshot
+-- the five keys the v6 migration destroys. The legacy-chain snapshot
 -- and v6 migration share this list; v7 removes the snapshot after the chain.
 local V6_DROPPED_KEYS = { "vendorVisited", "dyeRecipesKnown", "discoveredAliases",
                           "decorIDValidation", "enableRequirementScraping" }
 
--- HS-300: snapshot ONLY the keys v6 destroys, once, before ANY migration runs.
+-- snapshot ONLY the keys v6 destroys, once, before ANY migration runs.
 -- Lives in RunMigrations (not in Migration_5_to_6) because the corrupt-stamp
 -- repair replays the chain from 1 and a snapshot taken inside 5→6 would then
 -- capture data already rewritten by 1→5. Only-if-absent so a replay never
@@ -825,14 +824,13 @@ local function Migration_3_to_4(db)
     end
 end
 
--- Migration 4→5: parsedSources → catalogItems single ownership (HS-205)
+-- Migration 4→5: parsedSources → catalogItems single ownership
 -- Moves the full parsed-source payload (sources/lastParsed/sourceHash, plus
 -- recordID→decorID where still missing, same mapping Migration_1_to_2 already
 -- performs) out of db.global.parsedSources and into catalogItems, then
 -- rewrites parsedSources to the stamp-only shape (sourceHash + lastParsed)
 -- SourceTextScanner's change-detection needs. See CatalogStore:SetSources'
--- comment and ITEM_SNAPSHOT_CONTRACT.md Open Question #1 for the design
--- authority (resolved: catalogItems persists parsed source data).
+-- comment for the design (catalogItems persists parsed source data).
 --
 -- Newer-wins when both sides have data and disagree: verified the CURRENT
 -- write path (SourceTextScanner:ProcessScannedItem) writes both tables
@@ -840,7 +838,7 @@ end
 -- pre-dual-write history — comparing lastParsed timestamps picks the
 -- objectively newer payload rather than assuming a fixed write order.
 --
--- Idempotent (M10a rule — every migration must survive a re-run untouched):
+-- Idempotent (every migration must survive a re-run untouched):
 -- an entry already rewritten to the stamp-only shape has no .sources field,
 -- so the migrate-in branch below is skipped entirely and the stamp is
 -- rewritten to itself (a no-op value-wise).
@@ -871,7 +869,7 @@ local function Migration_4_to_5(db)
                 end
 
                 -- Preserve dev raw sourceText regardless of which side won
-                -- (HS-205): the common dual-write-era state is
+                -- The common dual-write-era state is
                 -- EQUAL hashes, where takeParsed is false — copying raw only
                 -- inside that branch destroyed the whole dev raw corpus in the
                 -- common case while the stamp rewrite below deletes data.raw.
@@ -910,10 +908,10 @@ local function Migration_4_to_5(db)
     end
 end
 
--- Migration 5→6: drop five dead/orphaned db.global keys (HS-300) —
+-- Migration 5→6: drop five dead/orphaned db.global keys —
 -- vendorVisited, dyeRecipesKnown (declared, zero references repo-wide),
 -- discoveredAliases (reader-only orphan, its writer is retired in this
--- ticket), decorIDValidation (write-only dev report, no reader), and
+-- migration), decorIDValidation (write-only dev report, no reader), and
 -- enableRequirementScraping (already nil'd every load at core.lua:83,
 -- folded into the schema here). Does NOT touch catalogItems — the `ci`
 -- upvalue is bound to it before RunMigrations runs, and a table swap here
@@ -960,7 +958,7 @@ function CatalogStore:RunMigrations()
     if not HA.Addon or not HA.Addon.db then return end
     local db = HA.Addon.db
 
-    -- HS-209 M10a: schemaVersion has no type guarantee — a hand-edited WTF or
+    -- schemaVersion has no type guarantee — a hand-edited WTF or
     -- a downgrade artifact can leave it as a non-number, and `version < 2`
     -- below would throw uncaught ("attempt to compare number with <type>"),
     -- aborting RunMigrations and, with it, the whole OnEnable chain silently.
@@ -979,9 +977,9 @@ function CatalogStore:RunMigrations()
         db.global.schemaVersion = version
     end
 
-    -- HS-300 no-downgrade guard. A newer stamp means a newer client wrote this
+    -- No-downgrade guard. A newer stamp means a newer client wrote this
     -- file; running nothing and stamping nothing keeps the file byte-intact for
-    -- the client that owns it. Fail loud (precedent core.lua:267). HS-344 will
+    -- the client that owns it. Fail loud (precedent core.lua:267). A later change will
     -- replace this with Foundry.DB's schema seam. On a DevBuild F:RaiseDevError
     -- throws instead of returning (Foundry.lua:44-51), so this `return` is only
     -- reached on release builds; a dev build fails loud out of Initialize by
@@ -1058,10 +1056,10 @@ function CatalogStore:Initialize()
     end
 end
 
--- HS-273 R3 (predicate corrected in review): whether the persistent
+-- whether the persistent
 -- cache holds an OWNERSHIP SIGNAL worth computing badge stats from. Record
 -- presence is not that signal: a cold full scan writes name-only records for
--- every item ("Checked: 1624 Owned: 0", HS-216), and the /hs clear-ownership
+-- every item ("Checked: 1624 Owned: 0"), and the /hs clear-ownership
 -- command empties isOwned on every record while leaving the records in
 -- place — under a mere next(ci) check both states let a prewarm confidently
 -- cache "0 owned" everywhere for a player who owns plenty. ownedCount > 0 is
@@ -1072,8 +1070,7 @@ end
 -- latch needs total > 0). A decor owner mid-first-scan is the opposite shape
 -- (IsWarm true, ownedCount still 0) and stays gated to the honest "..."
 -- until the scan records ownership. Not "IsWarm or" — that polarity is
--- unreachable for the zero-decor player and opens exactly the wrong window
--- (caught in review).
+-- unreachable for the zero-decor player and opens exactly the wrong window.
 function CatalogStore:HasPersistedData()
     if ci == nil then return false end
     if ownedCount > 0 then return true end

@@ -351,7 +351,7 @@ function WelcomeFrame:Hide()
     if welcomeFrame then
         welcomeFrame:Hide()
         if HA.Addon and HA.Addon.db then
-            -- HS-219: read the checkbox at close time (mirrors WhatsNewFrame's
+            -- Read the checkbox at close time (mirrors WhatsNewFrame's
             -- OnHide) instead of unconditionally marking it seen. Every close
             -- path (X button, Escape, "Let's Decorate!") funnels through this
             -- one Hide(), so this is the single authoritative point. An
@@ -360,9 +360,9 @@ function WelcomeFrame:Hide()
             if welcomeFrame.dontShowCheck and welcomeFrame.dontShowCheck:GetChecked() then
                 HA.Addon.db.global[SV_KEY] = true
             end
-            -- HS-224 (product decision, 2026-07-19): closing the
+            -- As of 2026-07-19, closing the
             -- Welcome screen no longer stamps lastSeenVersion. The old stamp
-            -- silently consumed What's New for the version. With the HS-219
+            -- silently consumed What's New for the version. With the
             -- stacking gate, that meant acknowledging Welcome ate the What's
             -- New popup entirely. Now What's New auto-shows on the next login
             -- after the Welcome is out of the way, exactly what the gate was
@@ -383,7 +383,7 @@ function WelcomeFrame:Toggle()
     end
 end
 
--- HS-219: lets WhatsNewFrame's onboarding stacking gate ask "is Welcome
+-- lets WhatsNewFrame's onboarding stacking gate ask "is Welcome
 -- already up" without reaching into this module's private welcomeFrame local.
 function WelcomeFrame:IsShown()
     return welcomeFrame ~= nil and welcomeFrame:IsShown()

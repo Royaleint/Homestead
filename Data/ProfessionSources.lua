@@ -2,12 +2,10 @@
     Homestead - ProfessionSources
     Generated: 2026-06-12 23:37:36
     Total entries: 330
-    Rows for patch 12.1.5 added by hand to mirror the overrides file (HS-480).
+    Rows for patch 12.1.5 added by hand.
 
     Profession recipe source data for housing decor items.
-    Regenerate with: python Home_Dev/scripts/generate_source_tables.py --table profession
-    DO NOT EDIT — changes will be overwritten. Use overrides file instead:
-    Home_Dev/scripts/overrides/profession_sources_overrides.lua
+    DO NOT EDIT — this file is generated and changes will be overwritten.
 --]]
 
 local _, HA = ...

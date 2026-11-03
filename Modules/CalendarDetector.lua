@@ -26,7 +26,7 @@ local calendarReady = false
 local refreshTimer = nil
 local REFRESH_INTERVAL = 14400  -- 4 hours (safety net only)
 local pendingCombatRescan = false  -- scan aborted on combat-secret values; rescan on regen
-local hasOpenedCalendarThisSession = false  -- HS-218: OpenCalendar is a server request; once per session, not per loading screen
+local hasOpenedCalendarThisSession = false  -- OpenCalendar is a server request; once per session, not per loading screen
 
 -------------------------------------------------------------------------------
 -- Holiday ID Mapping
@@ -82,7 +82,7 @@ local function ScanTodaysHolidays()
     local today = C_DateAndTime and C_DateAndTime.GetCurrentCalendarTime and C_DateAndTime.GetCurrentCalendarTime()
     if not today then return nil end
 
-    -- HS-218: GetNumDayEvents/GetDayEvent(0, ...) read whatever month the
+    -- GetNumDayEvents/GetDayEvent(0, ...) read whatever month the
     -- calendar UI is currently VIEWED at (offset 0 = viewed month), which is
     -- NOT necessarily the real current month — if the player (or another
     -- addon) paged the in-game calendar to a different month, this scan
@@ -93,7 +93,7 @@ local function ScanTodaysHolidays()
     -- open, or the move did not take) bail and keep prior state rather than
     -- risk a false "no holidays" read.
     -- month/year are plain numbers here (not the calendarType/sequenceType
-    -- string fields HS-121 guards against), so no pcall needed for this read.
+    -- string fields guarded against below), so no pcall needed for this read.
     local movedView = false
     if C_Calendar.GetMonthInfo then
         local monthInfo = C_Calendar.GetMonthInfo()
@@ -124,7 +124,7 @@ local function ScanTodaysHolidays()
         if event then
             -- In combat, Midnight can return eventID as a SECRET value; using a
             -- secret as a table key throws "cannot be indexed with secret keys"
-            -- (HS-168, Sentry 2026-07-07). Treat the whole scan as unavailable so
+            -- (seen in an error report on 2026-07-07). Treat the whole scan as unavailable so
             -- stale holiday state persists instead of being wrongly cleared, and
             -- signal the caller to rescan once combat ends.
             if issecretvalue and issecretvalue(event.eventID) then
@@ -132,7 +132,7 @@ local function ScanTodaysHolidays()
             end
             -- Match by stable eventID first (numeric field, not a protected string).
             -- calendarType and sequenceType are secret strings when tainted; comparing
-            -- them directly throws and can propagate into other addons (HS-121/#40).
+            -- them directly throws and can propagate into other addons.
             -- Only read those fields for events we actually track, inside a pcall.
             -- If pcall fails (tainted), the eventID match alone is treated as active
             -- (false positive is harmless; false negative suppresses seasonal detection).
@@ -260,13 +260,13 @@ function CalendarDetector:Initialize()
     -- Also listen for PEW to trigger calendar open
     eventFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
 
-    -- One-shot rescan after combat when a scan aborted on secret values (HS-168)
+    -- One-shot rescan after combat when a scan aborted on secret values
     eventFrame:RegisterEvent("PLAYER_REGEN_ENABLED")
 
     eventFrame:SetScript("OnEvent", function(_, event)
         if event == "PLAYER_ENTERING_WORLD" then
             -- Request calendar data (required before GetDayEvent works).
-            -- HS-218: PLAYER_ENTERING_WORLD fires on every loading screen,
+            -- PLAYER_ENTERING_WORLD fires on every loading screen,
             -- not just initial login — OpenCalendar is a server request, so
             -- gate it to once per session (observed live: 4x "no active
             -- holidays" per login from repeated requests/scans).

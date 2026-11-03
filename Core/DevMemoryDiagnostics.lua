@@ -1,16 +1,16 @@
 --[[
-    Homestead - Dev Memory Diagnostics (HS-282)
+    Homestead - Dev Memory Diagnostics
 
     Dev-only home for the /hs debug memallsources and /hs debug membudget
     commands and the measurement functions behind them. Moved out of
-    Core/core.lua per Rawb's ruling (2026-08-14): memory diagnostics are dev
+    Core/core.lua (2026-08-14): memory diagnostics are dev
     tooling, not a player-facing feature, so they must not ship in the
     player addon. This file is never listed in Homestead.toc and is excluded
-    from the packaged zip (.pkgmeta); Home_Dev/scripts/generate-devbuild-toc
-    .mjs appends it (after Core/MemoryEstimator.lua, its dependency) to the
+    from the packaged zip (.pkgmeta); the DevBuild TOC build step
+    appends it (after Core/MemoryEstimator.lua, its dependency) to the
     generated Homestead_DevBuild.toc so both still load under the DevBuild.
 
-    /hs debug zonerollup (HS-497) lists, per continent, the vendor maps whose
+    /hs debug zonerollup lists, per continent, the vendor maps whose
     zone badge key changes under the sub-zone roll-up, and the maps the roll-up
     leaves alone because their chain ends outside the continent table.
 
@@ -28,15 +28,15 @@ local addonName, HA = ...
 local HousingAddon = HA.Addon
 local format = string.format
 
--- HS-279: isolates allSourcesCache's own memory cost via a forced full-corpus
+-- Isolates allSourcesCache's own memory cost via a forced full-corpus
 -- warm bracketed by _G.collectgarbage("collect") + GetAddOnMemoryUsage.
--- Extracted from DebugMemAllSourcesReport (below) so HS-282's membudget
+-- Extracted from DebugMemAllSourcesReport (below) so the membudget
 -- report can reuse the exact same measurement instead of duplicating it --
 -- allSourcesCache is the one subsystem in that report with a proven,
 -- session-safe forced-rebuild path; everything else there is walker-
 -- estimated (Core/MemoryEstimator.lua) precisely because it lacks one.
 -- Returns true, isolatedKB, fullCount, corpusSize, emptyKB, fullKB on
--- success, or false, reason on a missing prerequisite. HS-282: the forced
+-- success, or false, reason on a missing prerequisite. The forced
 -- warm now cycles SourceManager's SOURCES_MEMO_MAX_ENTRIES (512) eviction
 -- cap, so it leaves the cache cap-full on success (safe -- it's a pure memo,
 -- identical to normal play state once that cap has been reached), not
@@ -56,7 +56,7 @@ function HousingAddon:MeasureAllSourcesCacheIsolatedKB()
     -- be asked about (Data/SourceManager.lua RegisterDefaultProviders) --
     -- vendor items, plus the six static per-itemID source tables the other
     -- providers read directly (quest/achievement/profession/event/drop/shop).
-    -- Argus HS-279 review: a vendor-only corpus understates the memo's true
+    -- A vendor-only corpus understates the memo's true
     -- organic ceiling, since tooltips/badges query GetAllSources for these
     -- non-vendor items too -- the eviction threshold this diagnostic feeds
     -- needs the real ceiling, not a partial one.
@@ -91,7 +91,7 @@ function HousingAddon:MeasureAllSourcesCacheIsolatedKB()
 
     -- Not included: parsed sourceText discovery (HA.SourceTextScanner),
     -- which is opt-in (useParsedSources, default false) and has no static
-    -- table to enumerate -- HS-273 R7 already documents this as a deferred
+    -- table to enumerate -- this is a known, deferred
     -- edge, not something this diagnostic can cheaply close. The reported
     -- ceiling below is real but not exhaustive when that setting is on.
 
@@ -116,12 +116,12 @@ function HousingAddon:MeasureAllSourcesCacheIsolatedKB()
     return true, fullKB - emptyKB, fullCount, #corpus, emptyKB, fullKB
 end
 
--- HS-279: dev diagnostic for allSourcesCache's memory footprint. Snapshot-only
+-- Dev diagnostic for allSourcesCache's memory footprint. Snapshot-only
 -- by default (safe, non-destructive); 'full' additionally forces a
 -- full-corpus warm (MeasureAllSourcesCacheIsolatedKB above) so the isolated
--- cost of a cap-full cache (HS-282: SOURCES_MEMO_MAX_ENTRIES, 512 entries) is
--- measurable, not guessed -- this fed HS-279's original eviction-threshold
--- work and HS-282's own cap sizing.
+-- cost of a cap-full cache (SOURCES_MEMO_MAX_ENTRIES, 512 entries) is
+-- measurable, not guessed -- this informed the eviction-threshold
+-- and cap sizing.
 -- addonName (the file-scope TOC vararg) is used instead of a literal
 -- "Homestead" so this reads correctly under Homestead_DevBuild, the target
 -- this diagnostic is actually run against. (VendorMapPins.lua:218's
@@ -138,7 +138,7 @@ function HousingAddon:DebugMemAllSourcesReport(full)
     end
 
     local output = {}
-    table.insert(output, "=== Homestead allSourcesCache Diagnostics (HS-279) ===")
+    table.insert(output, "=== Homestead allSourcesCache Diagnostics ===")
     table.insert(output, "")
 
     _G.collectgarbage("collect")
@@ -159,7 +159,7 @@ function HousingAddon:DebugMemAllSourcesReport(full)
         return
     end
 
-    -- Argus Gate 1 finding #8: print the helper's OWN returned reason rather
+    -- Print the helper's OWN returned reason rather
     -- than a message hardcoded here, so this can't silently drift from
     -- MeasureAllSourcesCacheIsolatedKB's actual failure text if that ever
     -- changes.
@@ -178,7 +178,7 @@ function HousingAddon:DebugMemAllSourcesReport(full)
     table.insert(output, "Corpus size (distinct itemIDs: vendors + quest/achievement/")
     table.insert(output, format("profession/event/drop/shop sources): %d", corpusSize))
     table.insert(output, format(
-        "Cap-full cache: %d entries (HS-282 SOURCES_MEMO_MAX_ENTRIES = 512 -- <= 512 against the "
+        "Cap-full cache: %d entries (SOURCES_MEMO_MAX_ENTRIES = 512 -- <= 512 against the "
             .. "larger corpusSize above is expected, not a bug).", fullCount))
     table.insert(output, format("Empty-cache baseline: %.1f KB total addon memory.", emptyKB))
     table.insert(output, format("Fully-warmed: %.1f KB total addon memory.", fullKB))
@@ -190,7 +190,7 @@ function HousingAddon:DebugMemAllSourcesReport(full)
     table.insert(output, "setting is enabled. Also: the organic ceiling is bounded by catalog")
     table.insert(output, "size, not this corpus size -- a decor item with no known source still")
     table.insert(output, "caches an empty entry when hovered, so real max entries can run slightly")
-    table.insert(output, "above this number (Sage HS-279 review).")
+    table.insert(output, "above this number.")
     table.insert(output, "")
     table.insert(output, "Cache has been left cap-full (safe -- it's a pure memo, identical to")
     table.insert(output, "normal play state once the 512-entry eviction cap has been reached).")
@@ -198,9 +198,9 @@ function HousingAddon:DebugMemAllSourcesReport(full)
     self:ShowCopyableText(table.concat(output, "\n"))
 end
 
--- HS-282: umbrella per-subsystem memory-budget breakdown, extending the
--- memallsources diagnostic pattern (HS-279) above across every subsystem the
--- master ticket's sub-items (A/B/D/E) need prioritized numbers for. Default
+-- Umbrella per-subsystem memory-budget breakdown, extending the
+-- memallsources diagnostic pattern above across every subsystem
+-- that needs prioritized numbers. Default
 -- mode is fully non-destructive: every subsystem is walker-estimated
 -- (Core/MemoryEstimator.lua) from its CURRENT organic state via a narrow
 -- read-only debug accessor added to each owning module (mirrors
@@ -221,7 +221,7 @@ function HousingAddon:DebugMemBudgetReport(full)
 
     local output = {}
     local accounted = 0
-    table.insert(output, "=== Homestead Memory Budget Breakdown (HS-282) ===")
+    table.insert(output, "=== Homestead Memory Budget Breakdown ===")
     table.insert(output, full
         and "Mode: full (additionally forces a one-time allSourcesCache corpus warm -- other lines are still organic snapshots; also runs the client-wide GC pause described below)"
         or "Mode: default (non-destructive to addon state -- run '/hs debug membudget full' to also isolate allSourcesCache; still runs one client-wide collectgarbage(\"collect\") for the live-total reconciliation below)")
@@ -236,9 +236,9 @@ function HousingAddon:DebugMemBudgetReport(full)
         table.insert(output, format("%s: not measurable: %s", name, reason))
     end
 
-    -- SourceManager.allSourcesCache (sub-item A) -- reuses memallsources'
-    -- proven wipe-delta measurement rather than the walker, per the ticket's
-    -- "reuse, don't duplicate" direction. Only available in 'full' mode: the
+    -- SourceManager.allSourcesCache -- reuses memallsources'
+    -- proven wipe-delta measurement rather than the walker, to avoid
+    -- duplicating the measurement. Only available in 'full' mode: the
     -- measurement forces a full-corpus warm, the same one-time cost
     -- memallsources full already documents.
     if full then
@@ -263,7 +263,7 @@ function HousingAddon:DebugMemBudgetReport(full)
         reportSkip("SourceManager.requirementMetCache", "SourceManager unavailable")
     end
 
-    -- HS-281 vendor-items memo (Data/VendorData.lua:1108-1153), lazily built
+    -- vendor-items memo (Data/VendorData.lua:1108-1153), lazily built
     -- on first VendorData:GetVendorItems call per npcID.
     if HA.VendorData then
         local memo = HA.VendorData.VendorItemsMemo
@@ -280,7 +280,7 @@ function HousingAddon:DebugMemBudgetReport(full)
     -- caches (zone, continent, child-map and roll-up memo) are separate root
     -- tables measured as one line via EstimateTablesSizeKB so a structure
     -- shared between them (unlikely but not assumed) is charged once, not
-    -- twice (Argus Gate 1 finding #5).
+    -- twice.
     if HA.BadgeCalculation and HA.BadgeCalculation.GetDebugCacheTables then
         local caches = HA.BadgeCalculation:GetDebugCacheTables()
         reportKB("BadgeCalculation.vendorStatsCache", ME.EstimateTableSizeKB(caches.vendorStatsCache), "est")
@@ -343,14 +343,14 @@ function HousingAddon:DebugMemBudgetReport(full)
         reportSkip("MapPinProvider.mapCaches", "MapPinProvider unavailable")
     end
 
-    -- Static Data/ tables (sub-items B/D) -- every pure-data file the .toc
-    -- loads. VendorDatabase.lua is NOT in the .toc (HS-242 corrected premise)
+    -- Static Data/ tables -- every pure-data file the .toc
+    -- loads. VendorDatabase.lua is NOT in the .toc
     -- and is deliberately not listed. VendorStagedAdditions.lua attaches its
     -- tables onto HA.VendorOffers/HA.VendorIdentity at load time, so it's
     -- already included in those two walks, not a separate line.
     --
-    -- Argus Gate 1 (re-review) blocker #2: the ordering inversion that made
-    -- the original calibration finding Critical -- AchievementSources is
+    -- The ordering inversion that made
+    -- the original calibration problem -- AchievementSources is
     -- really the bigger subsystem, but its walker estimate can print BELOW
     -- DecorMapping's -- was still only explained in source comments, invisible
     -- to whoever reads the live /hs debug membudget output. UPVALUE_GAP_LINES
@@ -387,9 +387,8 @@ function HousingAddon:DebugMemBudgetReport(full)
         end
     end
 
-    -- SavedVariables subtrees (sub-item E + the other large db.global tables
-    -- HS-282's session context calls out). Each field is checked for nil
-    -- individually (Argus Gate 1 finding #7): self.db.global can exist
+    -- SavedVariables subtrees (and the other large db.global tables). Each field is checked for nil
+    -- individually: self.db.global can exist
     -- while a specific subtree is still nil (e.g. parsedSources before the
     -- first scan), and that must read as "not measurable: not initialized",
     -- not a silent, misleading 0.0 KB.
@@ -413,11 +412,11 @@ function HousingAddon:DebugMemBudgetReport(full)
 
     table.insert(output, format("accounted (sum of lines above): %.1f KB", accounted))
 
-    -- Reconciliation (Argus Gate 1 finding #4): compare the sum of every
+    -- Reconciliation: compare the sum of every
     -- measured line against the addon's real, live memory footprint, so
     -- this reads as a budget with a residual, not just a list of numbers.
     -- "unaccounted" is expected to be nonzero -- it covers UI frames, Ace3
-    -- library overhead (sub-item C), event-frame state, and anything this
+    -- library overhead, event-frame state, and anything this
     -- report doesn't have a line for yet, not just estimator error.
     if _G.UpdateAddOnMemoryUsage and _G.GetAddOnMemoryUsage then
         _G.collectgarbage("collect")
@@ -456,7 +455,7 @@ function HousingAddon:DebugMemBudgetReport(full)
     self:ShowCopyableText(table.concat(output, "\n"))
 end
 
--- HS-282 sub-item I: itemizes /hs debug membudget's "unaccounted" remainder by
+-- itemizes /hs debug membudget's "unaccounted" remainder by
 -- walking the addon's ENTIRE reachable table graph from a fixed, ordered list
 -- of owned/shared roots (Core/MemoryEstimator.lua's sweep engine), instead of
 -- membudget's curated per-subsystem list above. Building the line for one
@@ -472,13 +471,12 @@ local function FormatSweepLine(name, kb, tables, functions, widgets, shared)
 end
 
 -- Builds the full report as an array of lines (not yet concatenated), so
--- DebugMemFloorReport can wrap the whole build in one pcall (design §5
--- reentrancy: an error here must clear the running flag, not wedge the
+-- DebugMemFloorReport can wrap the whole build in one pcall (reentrancy: an error here must clear the running flag, not wedge the
 -- command). Returns the output array on success; errors propagate to the
 -- caller's pcall.
 local function BuildMemFloorReport(self, ME, deep)
     local output = {}
-    table.insert(output, "=== Homestead Memory Floor Sweep (HS-282 sub-item I) ===")
+    table.insert(output, "=== Homestead Memory Floor Sweep ===")
     table.insert(output, deep
         and "Mode: deep (also walks widget tables -- runs one client-wide collectgarbage(\"collect\") for the live-total reconciliation below, exactly like membudget; the live total is read BEFORE the sweep so the walker's own bookkeeping is excluded from it)"
         or "Mode: default (widget tables are counted, not walked -- run '/hs debug memfloor deep' to also walk them; still runs one client-wide collectgarbage(\"collect\") for the live-total reconciliation below, exactly like membudget; the live total is read BEFORE the sweep so the walker's own bookkeeping is excluded from it)")
@@ -498,7 +496,7 @@ local function BuildMemFloorReport(self, ME, deep)
     -- The live total is read BEFORE the sweep allocates anything. The
     -- sweep's bookkeeping (one visited set deduping every table AND string
     -- it meets, plus the report strings) is billed to this addon and
-    -- measured ~3.8 MB in Gate 2 captures -- reading the total after the
+    -- measured ~3.8 MB in in-game captures -- reading the total after the
     -- walk inflated it and both remainder lines by exactly that much.
     -- Reconciliation semantics are otherwise membudget's (DebugMemBudgetReport
     -- above): one client-wide collectgarbage("collect") right before the
@@ -512,9 +510,9 @@ local function BuildMemFloorReport(self, ME, deep)
 
     -- GetTimePreciseSec brackets everything the command itself does -- the
     -- context allocation, the ~20k-global foreign-root seed, and the walk --
-    -- and excludes ONLY the GC pass above (design §5). Starting the bracket
+    -- and excludes ONLY the GC pass above. Starting the bracket
     -- any later would omit part of the command's own work from the printed
-    -- cost, the same self-accounting defect class Gate 2 caught in the
+    -- cost, the same self-accounting defect class in-game testing caught in the
     -- live-total read. (Not debugprofilestop: any addon's
     -- debugprofilestart() call between our two reads would reset it and
     -- falsify the cost; GetTimePreciseSec is monotonic and matches this
@@ -561,7 +559,7 @@ local function BuildMemFloorReport(self, ME, deep)
     end
 
     table.insert(output, "-- Owned --")
-    -- Root order is load-bearing (design §1a/§2): first-owner-wins
+    -- Root order is load-bearing: first-owner-wins
     -- attribution means each later root's KB is only what's new at that
     -- point, so this order can never be replaced with pairs() order.
     sweepOwned("sv:HomesteadDB", _G.HomesteadDB)
@@ -616,7 +614,7 @@ local function BuildMemFloorReport(self, ME, deep)
     table.insert(output, "")
 
     -- addonTotalKB was captured before the sweep (see above); only the
-    -- rendering happens here so the report order (design §6) is unchanged.
+    -- rendering happens here so the report order is unchanged.
     if addonTotalKB ~= nil then
         table.insert(output, format("addon total (live, GetAddOnMemoryUsage): %.1f KB", addonTotalKB))
 
@@ -666,7 +664,7 @@ local function BuildMemFloorReport(self, ME, deep)
     table.insert(output, "fn is a COUNT of distinct function objects reached, never a size -- a Lua function")
     table.insert(output, "object and its upvalue array cannot be sized from Lua code. widgets is a count of")
     table.insert(output, "distinct widget tables reached (rawget(t, 0) ~= nil, or a GetObjectType method); by")
-    table.insert(output, "default charged HEADER_BYTES only and not descended into (see design §1d) --")
+    table.insert(output, "default charged HEADER_BYTES only and not descended into --")
     table.insert(output, "'deep' mode walks them too. (shared) marks a line whose bytes are never folded into")
     table.insert(output, "the owned total -- which addon a shared library's bytes are truly billed to depends")
     table.insert(output, "on load order and isn't knowable from Lua. fn-heavy marks a line where functions")
@@ -680,7 +678,7 @@ end
 -- MemoryEstimator itself (ME._sweepRunning) since the sweep engine is the
 -- shared resource being protected; wrapping the build in pcall means a Lua
 -- error mid-sweep clears the flag and re-raises instead of wedging the
--- command for the rest of the session (design §5).
+-- command for the rest of the session.
 function HousingAddon:DebugMemFloorReport(deep)
     local ME = HA.MemoryEstimator
     if not ME then
@@ -702,7 +700,7 @@ function HousingAddon:DebugMemFloorReport(deep)
     self:ShowCopyableText(table.concat(outputOrErr, "\n"))
 end
 
--- HS-497: '/hs debug zonerollup'. Per continent, lists every vendor map whose
+-- '/hs debug zonerollup'. Per continent, lists every vendor map whose
 -- badge key differs from its own ID once the sub-zone roll-up and sibling merge
 -- apply, the ContinentBadgeOverrides entries on their own lines, and the maps
 -- left unchanged because they sit below a zone the roll-up cannot use: the
@@ -841,15 +839,15 @@ local devDiagFrame = CreateFrame("Frame")
 devDiagFrame:RegisterEvent("PLAYER_LOGIN")
 devDiagFrame:SetScript("OnEvent", function()
     HousingAddon.commands:Register({ name = "debug memallsources", args = "[full]",
-        help = "Report allSourcesCache size/memory (HS-279). 'full' forces a full-corpus warm to isolate its cost.",
+        help = "Report allSourcesCache size/memory. 'full' forces a full-corpus warm to isolate its cost.",
         handler = function(rest) HousingAddon:DebugMemAllSourcesReport(rest == "full") end })
     HousingAddon.commands:Register({ name = "debug membudget", args = "[full]",
-        help = "Per-subsystem memory budget breakdown (HS-282). 'full' additionally isolates allSourcesCache via a forced full-corpus warm.",
+        help = "Per-subsystem memory budget breakdown. 'full' additionally isolates allSourcesCache via a forced full-corpus warm.",
         handler = function(rest) HousingAddon:DebugMemBudgetReport(rest == "full") end })
     HousingAddon.commands:Register({ name = "debug memfloor", args = "[deep]",
-        help = "Full-reachability per-owner memory sweep (HS-282 sub-item I). 'deep' also walks widget tables.",
+        help = "Full-reachability per-owner memory sweep. 'deep' also walks widget tables.",
         handler = function(rest) HousingAddon:DebugMemFloorReport(rest == "deep") end })
     HousingAddon.commands:Register({ name = "debug zonerollup",
-        help = "List vendor maps by continent whose zone badge key changes under the sub-zone roll-up, and those left unchanged (HS-497).",
+        help = "List vendor maps by continent whose zone badge key changes under the sub-zone roll-up, and those left unchanged.",
         handler = function() HousingAddon:DebugZoneRollupReport() end })
 end)

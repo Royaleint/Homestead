@@ -2,13 +2,12 @@
     RUNTIME SOURCE OF TRUTH for who a vendor is and where they are. This file
     and VendorOffers.lua are what the addon actually reads; Data/VendorDatabase.lua
     is a build-time seed that is not in any .toc and never loads. Fix identity
-    problems here, not there (HS-370).
+    problems here, not there.
 
     Homestead - VendorIdentity
     Generated vendor identity, location, lifecycle, and alias data.
 
-    GENERATED: do not hand-edit. Regenerate with:
-        node Home_Dev/scripts/generate-vendor-identity.mjs --write
+    GENERATED: do not hand-edit.
 ]]
 
 local _, HA = ...
@@ -2823,7 +2822,7 @@ function VendorIdentity:BuildIndexes()
     for npcID, vendor in pairs(self.Vendors) do
         indexVendor(npcID, vendor)
     end
-    -- Staged additions (Data/VendorStagedAdditions.lua, pipeline-owned) join
+    -- Staged additions (Data/VendorStagedAdditions.lua, generation-owned) join
     -- the indexes unless a baseline row already owns the npcID.
     for npcID, vendor in pairs(self.StagedAdditions or {}) do
         if not self.Vendors[npcID] then
@@ -2866,7 +2865,7 @@ function VendorIdentity:GetVendorsByMapID(mapID)
     local npcIDs = self.ByMapID and self.ByMapID[mapID]
     local result = {}
     for _, npcID in ipairs(npcIDs or {}) do
-        -- HS-217: BuildIndexes indexes StagedAdditions-only vendors into
+        -- BuildIndexes indexes StagedAdditions-only vendors into
         -- ByMapID too, but this lookup was checking self.Vendors alone —
         -- staged-only vendors indexed fine and then dropped silently here.
         -- Mirrors GetVendor's fallback exactly.
@@ -2890,7 +2889,7 @@ function VendorIdentity:GetVendorsByExpansion(expansion)
     if not npcIDs then return {} end
     local result = {}
     for _, npcID in ipairs(npcIDs) do
-        -- HS-217: same StagedAdditions fallback as GetVendorsByMapID above.
+        -- Same StagedAdditions fallback as GetVendorsByMapID above.
         local vendor = self.Vendors[npcID] or (self.StagedAdditions and self.StagedAdditions[npcID])
         if vendor then result[#result + 1] = vendor end
     end

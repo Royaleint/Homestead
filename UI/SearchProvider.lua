@@ -71,7 +71,7 @@ function SearchProvider:GetRevision()
     return indexRevision
 end
 
--- HS-282: dev-only debug accessor for the /hs debug membudget walker.
+-- dev-only debug accessor for the /hs debug membudget walker.
 -- Returns nil if the index hasn't been built yet (lazy -- first search or
 -- side-panel open) so the caller can report "not measurable" instead of a
 -- misleading 0 KB for an index that just hasn't warmed.
@@ -369,7 +369,7 @@ function SearchProvider:Search(query, options)
         end
     end
 
-    -- HS-019: group item-first results by source type so the panel can emit
+    -- Group item-first results by source type so the panel can emit
     -- section headers (Profession / Quest / Achievement / Event / Drop) on
     -- sourceType transitions. Alphabetical within each group.
     local SOURCE_TYPE_ORDER = {

@@ -44,7 +44,7 @@ local mapCos
 local minimapShape
 local lastHideReason
 
--- HS-367: the state the currently-active pin set was last built/reconciled
+-- the state the currently-active pin set was last built/reconciled
 -- against. Compared by the reconciliation backstop's own ticker against the
 -- live state on every tick; a mismatch (or these still nil, meaning SetPins
 -- has never run this session) means something changed that no other trigger
@@ -53,14 +53,14 @@ local lastReconciledMapID
 local lastReconciledHidden
 local reconciliationTicker
 
--- HS-366 (filed, Backlog): the reconciliation ticker deliberately runs on
+-- the reconciliation ticker deliberately runs on
 -- C_Timer.NewTicker, not OnUpdate -- a few seconds is more than fast enough
--- for a safety net (every other trigger this ticket adds/fixes handles the
--- normal case immediately) while staying nowhere near HS-366's per-frame
--- polling-cost concern.
+-- for a safety net (every other trigger handles the
+-- normal case immediately) while staying nowhere near the per-frame
+-- polling cost concern.
 local RECONCILIATION_INTERVAL_SECONDS = 3
 
--- HS-090 Phase H: cache the rotateMinimap cvar instead of calling GetCVar
+-- cache the rotateMinimap cvar instead of calling GetCVar
 -- every OnUpdate tick. Refresh on CVAR_UPDATE so live toggles of "Rotate
 -- Minimap" in the Blizzard Interface options work without /reload.
 local rotateMinimapEnabled = _G.GetCVar and _G.GetCVar("rotateMinimap") == "1" or false
@@ -89,7 +89,7 @@ local minimapShapes = {
     ["TRICORNER-BOTTOMRIGHT"] = { false, true,  true,  true },
 }
 
--- HS-358: elevation-arrow existence is the one property CreateMinimapPinFrame
+-- elevation-arrow existence is the one property CreateMinimapPinFrame
 -- genuinely bakes into construction (a whole extra texture object exists only
 -- when elevation is set). isOppositeFaction no longer changes construction at
 -- all -- ApplyMinimapPinStyle now sets its texture state on every acquire --
@@ -101,13 +101,13 @@ local function GetFramePoolKey(pin)
     return format("o%s|e%s", BoolToKey(pin.isOppositeFaction), BoolToKey(pin.elevation ~= nil))
 end
 
--- HS-208: identity used by SetPins to diff the new pin set against the
+-- identity used by SetPins to diff the new pin set against the
 -- previous one. Deliberately the vendor's npcID PLUS the same pool key
 -- (opposite-faction/elevation-existence) rather than npcID alone --
 -- elevation-arrow existence changes the frame's actual visual construction
 -- (CreateMinimapPinFrame bakes it in), so a vendor gaining or losing its
 -- elevation arrow across a zone crossing must NOT reuse its old frame.
--- Elevation *direction* (above/below) is style, not identity, as of HS-358 --
+-- Elevation *direction* (above/below) is style, not identity:
 -- a vendor whose direction flips keeps its frame and gets restyled in place
 -- by ApplyMinimapPinStyle; only an identity+style match is required to carry
 -- a frame over as-is.
@@ -146,7 +146,7 @@ local function AcquireFrame(pin)
     frame:SetFrameStrata(minimap:GetFrameStrata())
     frame:SetFrameLevel(minimap:GetFrameLevel() + 10)
     frame:SetAlpha(1)
-    -- The actual repaint mechanism (HS-358): a pool hit may be carrying
+    -- The actual repaint mechanism: a pool hit may be carrying
     -- stale size/color/direction from before a style change, so every
     -- acquire restyles regardless of whether the frame was just built or
     -- pulled from the pool.
@@ -188,7 +188,7 @@ function Overlay:GetHybridMinimapState()
     return frameShown == true, reason, shouldUse == true, frameShown == true
 end
 
--- HS-362: Blizzard swaps in an opaque static overlay across the whole
+-- Blizzard swaps in an opaque static overlay across the whole
 -- minimap whenever the player is inside a house (Minimap.lua's
 -- UpdateStaticOverlayTexture, gated on C_Housing.IsInsideHouse()) --
 -- independent of HybridMinimap state, so it needs its own check rather than
@@ -198,7 +198,7 @@ local function IsInsideHouse()
     return housingAPI and housingAPI.IsInsideHouse and housingAPI.IsInsideHouse() or false
 end
 
--- HS-362/HS-367: an ordinary building (not a player house) has no distinct
+-- An ordinary building (not a player house) has no distinct
 -- map ID, so a collect-time filter can never react to its entry/exit --
 -- this MUST be re-checked live, every RefreshPositions/SetPins pass, not
 -- decided once at collect time. The generic IsIndoors() flag is broader
@@ -240,7 +240,7 @@ local function ShouldHideMinimapPins()
     return hide
 end
 
--- HS-208: RefreshPositions used to treat ANY change in playerX/playerY as
+-- RefreshPositions used to treat ANY change in playerX/playerY as
 -- worth a full redraw, so every OnUpdate tick while moving re-ran
 -- RefreshPlacementMetrics + DrawPin for every active pin — a small but
 -- continuous per-frame cost while flying. A sub-pixel world-distance
@@ -314,7 +314,7 @@ local function DrawPin(pin, playerX, playerY, rotateMinimap)
     end
 
     if dist <= 1 or pin.floatOnEdge then
-        -- HS-536: show/hide and range above use the real position; the
+        -- show/hide and range above use the real position; the
         -- display-only overlap nudge is added only to where the pin is drawn.
         if pin.nudgeX then
             diffX, diffY = MapPinProvider.NudgeMinimapPosition(diffX, diffY, pin.nudgeX, pin.nudgeY,
@@ -360,7 +360,7 @@ function Overlay:RefreshPositions(force)
     local zoom = _G.Minimap:GetZoom()
     local minimapScale = _G.Minimap:GetScale()
 
-    -- HS-208: a raw position change no longer forces a redraw on its own —
+    -- a raw position change no longer forces a redraw on its own —
     -- only one that exceeds the current sub-pixel threshold does. lastPlayerX/
     -- lastPlayerY are nil only before the first-ever redraw (Clear() resets
     -- them, and SetPins always forces the next call), so this never runs
@@ -438,7 +438,7 @@ function Overlay:Clear()
     lastReconciledHidden = nil
 end
 
--- HS-367: runs on its own always-on driver (a plain C_Timer.NewTicker, not
+-- runs on its own always-on driver (a plain C_Timer.NewTicker, not
 -- the OnUpdate loop RefreshPositions uses -- that loop only exists while
 -- #activePins > 0 and is started solely from SetPins, which is never
 -- reached while suppressed, so a backstop hosted there is inert in exactly
@@ -525,7 +525,7 @@ function Overlay:StopReconciliationBackstop()
     lastReconciledHidden = nil
 end
 
--- HS-208: diffs the new pin set against the previous one instead of
+-- diffs the new pin set against the previous one instead of
 -- releasing every existing frame to the pool and reacquiring the whole set.
 -- Crossing a zone boundary re-triggers a full VendorMapPins candidate-set
 -- rebuild, but a zone crossing typically leaves most of that set unchanged
@@ -552,7 +552,7 @@ function Overlay:SetPins(pinRecords)
     -- own per-frame hide check already suppresses display without releasing
     -- frames, so nothing here needs to. This path is unreached in production
     -- today (MinimapPinCollect.lua always hide-checks before calling
-    -- SetPins), kept correct defensively for HS-364, which will make it
+    -- SetPins), kept correct defensively in case it becomes
     -- reachable.
     if hidden then
         return
@@ -582,10 +582,10 @@ function Overlay:SetPins(pinRecords)
             frame.vendor = pin.vendor
             frame.isOppositeFaction = pin.isOppositeFaction
             frame.elevation = pin.elevation
-            -- Defense-in-depth (HS-358): this branch is confirmed unreachable
+            -- Defense-in-depth: this branch is confirmed unreachable
             -- in production today (MinimapPinCollect.lua always clears
-            -- activePins before calling SetPins) — inert until HS-364 makes
-            -- it reachable, correct either way.
+            -- activePins before calling SetPins) — inert unless it ever becomes
+            -- reachable, correct either way.
             PinFrameFactory:ApplyMinimapPinStyle(frame, pin.isOppositeFaction, pin.elevation)
             pin.frame = frame
             reusedOldPins[previousPin] = true

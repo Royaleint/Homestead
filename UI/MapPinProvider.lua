@@ -26,7 +26,7 @@ local projectionRectCache = {}
 local parentMapCache = {}
 local childMapIDsCache = {}
 
--- HS-282: read-only debug accessor for the /hs debug membudget walker.
+-- Read-only debug accessor for the /hs debug membudget walker.
 -- Read-only references, never mutated by the caller.
 function MapPinProvider.GetDebugCacheTables()
     return {
@@ -405,9 +405,8 @@ end
 
 local nativePins = {}          -- active wrapper frames
 local nativePinPool = {}       -- recycled wrapper frames
--- Blizzard's map pin frame levels (MEDIUM strata). Per HS-319
--- (Home_Dev/reference/MAP_LAYERING_STUDY.md, verified against Blizzard
--- source):
+-- Blizzard's map pin frame levels (MEDIUM strata), verified against Blizzard
+-- source:
 --   Area POI:    2023
 --   Map Link:    2025
 --   Encounter:   2026
@@ -418,7 +417,7 @@ local nativePinPool = {}       -- recycled wrapper frames
 -- exactly TIES Gossip (2024); sibling order vs Gossip at that tie is
 -- creation-order dependent/unspecified. Quests, world quests, vignettes,
 -- and waypoints already sit at 2025+, so they still outrank Homestead.
--- Intentional placement (HS-319 ruling) — do not change the level to chase
+-- Intentional placement (deliberate) — do not change the level to chase
 -- the old "parity with Area POI" language this replaced.
 --
 -- Constants below Vignette are patch-stable; PIN_FRAME_LEVEL_ACTIVE_QUEST
@@ -522,7 +521,7 @@ function MapPinProvider.RepositionWorldMapPins()
     end
     for _, wrapper in ipairs(nativePins) do
         if wrapper.__hsNormX and wrapper.__hsNormY then
-            -- HS-274 follow-up: this now runs on every canvas-scale tick during
+            -- This now runs on every canvas-scale tick during
             -- a zoom (previously only on rare resize/maximize), so the parent
             -- and ignore-parent-scale calls -- one-time setup from Acquire that
             -- never actually changes mid-gesture -- were re-issued dozens of
@@ -546,7 +545,7 @@ function MapPinProvider.RepositionWorldMapPins()
     end
 end
 
--- HS-536: overlapping-pin nudge. Vendors that stand side by side get map
+-- Overlapping-pin nudge. Vendors that stand side by side get map
 -- positions about 0.001 apart, which draws their pins on top of each other.
 -- AssignOverlapNudge gives pins that overlap a small screen-pixel offset
 -- (nudgeX/nudgeY, +x right, +y up). Display only: the caller passes it to
@@ -564,7 +563,7 @@ end
 -- OVERLAP_THRESHOLD: the default pin is 10 px (setting range 8-18) on a
 -- canvas about NUDGE_REF_CANVAS_PX wide at default zoom, so 0.005 is half a
 -- pin: closer than that, one pin hides at least half of the other. The two
--- HS-536 pairs are 0.0011 and 0.0013 apart.
+-- The two known pairs are 0.0011 and 0.0013 apart.
 -- NUDGE_SPACING is the largest pin the size slider allows, so a nudged pair
 -- never covers itself at any setting.
 -- NUDGE_CROWD_NEIGHBORS: a group in which any pin has this many other pins
@@ -796,7 +795,7 @@ function MapPinProvider.AssignOverlapNudge(pins, xKey, yKey, mapKey)
     WipeNudgeSort(n)
 end
 
--- HS-536: final minimap position of a nudged pin. diffX/diffY are the pin's
+-- Final minimap position of a nudged pin. diffX/diffY are the pin's
 -- real position in minimap-radius units (already tested for range, and
 -- already clamped to the rim for floatOnEdge pins). The pixel nudge is
 -- rotated with the minimap, added to the drawn position only, and the result

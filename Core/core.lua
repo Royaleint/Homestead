@@ -52,8 +52,8 @@ local HousingAddon = Homestead
 -- window before Foundry's Lifecycle release lands -- instead of an opaque
 -- nil-index. (Foundry-itself-missing is the guard above.)
 local Lifecycle = F:RequireModule("Lifecycle", 1)
--- Fail loud at load if this Foundry build lacks the DB module (HS-117; the
--- BSP-060 guard precedent — RequireModule raises in BOTH builds).
+-- Fail loud at load if this Foundry build lacks the DB module (RequireModule
+-- raises in BOTH builds).
 F:RequireModule("DB", 1)
 local lifecycle = Lifecycle:New(Homestead, addonName)
 -- Registration order does NOT protect OnInitialize-before-OnEnable on a
@@ -79,7 +79,7 @@ local format = string.format
 function HousingAddon:OnInitialize()
     -- Initialize SavedVariables database
     -- name must be the real folder name (Homestead or Homestead_DevBuild): Foundry
-    -- feeds it to C_AddOns.IsAddOnLoaded for the SV-availability check (STU-073).
+    -- feeds it to C_AddOns.IsAddOnLoaded for the SV-availability check.
     self.db = F.DB:New({ name = addonName, sv = "HomesteadDB", defaults = Constants.Defaults, defaultProfile = true })
 
     -- One-time migration: pin size default was too large for native pin system.
@@ -90,7 +90,7 @@ function HousingAddon:OnInitialize()
     end
 
     -- Initialize minimap button.
-    -- HS-221: HA.__collisionStandDown (set by the generated DevBuildGuard.lua,
+    -- HA.__collisionStandDown (set by the generated DevBuildGuard.lua,
     -- which loads earlier in the TOC, so the flag is already readable here)
     -- — narrow gate on just this call: a visible minimap button would
     -- otherwise duplicate if this session's DevBuild collision copy and the
@@ -194,7 +194,7 @@ function HousingAddon:OnInitialize()
 end
 
 function HousingAddon:OnEnable()
-    -- HS-217: DevBuild collision poison flag (set by the generated
+    -- DevBuild collision poison flag (set by the generated
     -- DevBuildGuard.lua when it detects the live 'Homestead' addon is also
     -- enabled). DisableAddOn only takes effect on the NEXT reload, so this
     -- session's DevBuild copy is still fully loaded and would otherwise run
@@ -258,7 +258,7 @@ function HousingAddon:OnEnable()
         HA.SourceManager:Initialize()
     end
 
-    -- HS-209 H1: Overlay:Initialize() had zero call sites — its
+    -- Overlay:Initialize() had zero call sites — its
     -- Events:RegisterCallback("bags"/"merchant"/"all"/"OWNERSHIP_UPDATED")
     -- wiring never ran. Wired here, after CatalogStore/SourceManager (which
     -- its callbacks call into once fired) and before the more UI-specific
@@ -298,7 +298,7 @@ function HousingAddon:OnEnable()
         HA.WhatsNewFrame:Initialize()
     end
 
-    -- Version-check peer broadcast (HS-086)
+    -- Version-check peer broadcast
     if HA.VersionCheck then
         HA.VersionCheck:Initialize()
     end
@@ -307,7 +307,7 @@ function HousingAddon:OnEnable()
 end
 
 -- No OnDisable / runtime-disable path. AceAddon-3.0's manual :Enable/:Disable
--- affordance was removed with AceAddon (HS-109): the addon is enabled for the
+-- affordance was removed with AceAddon: the addon is enabled for the
 -- session, and disabling is done via the AddOns list + /reload. No logout
 -- teardown is needed -- frame/event cleanup happens on session end.
 
@@ -535,11 +535,11 @@ function HousingAddon:ClearOwnershipCache()
     end
 end
 
--- HS-282: MeasureAllSourcesCacheIsolatedKB, DebugMemAllSourcesReport, and
+-- MeasureAllSourcesCacheIsolatedKB, DebugMemAllSourcesReport, and
 -- DebugMemBudgetReport (and the /hs debug memallsources / membudget commands
 -- that drove them) moved to Core/DevMemoryDiagnostics.lua, a dev-only file
 -- never listed in Homestead.toc -- memory diagnostics are dev tooling, not a
--- player-facing feature (owner ruling, 2026-08-14).
+-- player-facing feature.
 
 -- Show scanned vendor data
 function HousingAddon:ShowScannedVendors()
@@ -706,8 +706,8 @@ end
 -- Note: a core HousingAddon:OnMerchantShow handler previously existed here but
 -- was dead under AceEvent (its MERCHANT_SHOW registration was clobbered by
 -- VendorTracer's, last-write-wins) and had no other caller. The merchant overlay
--- still refreshes through Overlay/Merchant.lua's own standalone frame. Removed as
--- part of HS-097 to resolve the registration ambiguity (see RegisterEvents).
+-- still refreshes through Overlay/Merchant.lua's own standalone frame. Removed to
+-- resolve the registration ambiguity (see RegisterEvents).
 
 function HousingAddon:OnMerchantClosed()
     -- Clean up merchant overlays
@@ -741,7 +741,7 @@ end
 
 function HousingAddon:RefreshAllOverlays()
     if HA.Overlay then
-        -- HS-239: this direct RefreshAll fires on every loading screen via
+        -- this direct RefreshAll fires on every loading screen via
         -- PLAYER_ENTERING_WORLD -- a sibling entry into the same repaint the
         -- Events "all" callback measures. Wrapped so an armed trace can't
         -- miss a plot zone-in repaint and still render the affirmative
@@ -852,7 +852,7 @@ function HousingAddon:GetDecorInfo(itemLink)
     return setmetatable(info, DecorInfoCompatMT)
 end
 
--- HS-218: HousingAddon:GetVendorDecor removed — it delegated to
+-- HousingAddon:GetVendorDecor removed — it delegated to
 -- HA.VendorTracer:GetVendorDecor, a method that doesn't exist anywhere in
 -- VendorTracer.lua (would have errored if ever called). Zero callers of
 -- this wrapper anywhere in the codebase; removing beats implementing the

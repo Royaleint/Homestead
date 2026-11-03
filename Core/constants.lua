@@ -21,8 +21,8 @@ Constants.ADDON_SHORT = "HS"
 Constants.WELCOME_SEEN_VERSION_MAX = 4
 
 -- Texture path derived from the folder WoW loaded us from: "Homestead" when
--- installed from CurseForge, "Homestead_DevBuild" for the dev junction (STU-073).
--- Never hardcode the addon folder name in a texture path (STU-073 --check greps for it).
+-- installed from CurseForge, "Homestead_DevBuild" for the local dev build.
+-- Never hardcode the addon folder name in a texture path.
 Constants.TEXTURE_ROOT = "Interface\\AddOns\\" .. ADDON_NAME .. "\\Textures\\"
 
 -------------------------------------------------------------------------------
@@ -190,18 +190,18 @@ Constants.ZoneToContinentMap = {
     [27] = 13,
     [32] = 13,
     [36] = 13,
-    [47] = 13,     -- Duskwood (HS-393; scan V-row chain 47;13)
+    [47] = 13,     -- Duskwood (parent chain 47;13)
     [48] = 13,
     [50] = 13,     -- Northern Stranglethorn
     [56] = 13,
     [57] = 13,
-    [62] = 12,     -- Darkshore (HS-393)
+    [62] = 12,     -- Darkshore
     [69] = 12,
     [70] = 12,
     [71] = 12,     -- Tanaris
     [77] = 12,     -- Felwood
     [80] = 12,     -- Moonglade (Lunar Festival vendor)
-    [81] = 12,     -- Silithus (HS-393; Chamber of Heart interior is 1473 below)
+    [81] = 12,     -- Silithus (Chamber of Heart interior is 1473 below)
     [84] = 13,
     [85] = 12,
     [87] = 13,
@@ -334,11 +334,11 @@ Constants.ZoneToContinentMap = {
     [2437] = 2537, -- Zul'Aman (Midnight)
     [2444] = 2537, -- Slayer's Rise (Midnight)
     [2472] = 2274, -- Tazavesh
-    [2509] = 2537, -- Vaults of Atal'Utek (12.1 dungeon; UiMap parent 2512 per DB2)
-    [2512] = 2537, -- The Coiled Isle (12.1; continentMapID 2537 per client scan V-rows)
-    [2541] = 2537, -- Arcantina (HS-393; V-row chain 2541;2537)
+    [2509] = 2537, -- Vaults of Atal'Utek (12.1 dungeon; UiMap parent 2512 per game data)
+    [2512] = 2537, -- The Coiled Isle (12.1; continentMapID 2537 per game data)
+    [2541] = 2537, -- Arcantina (parent chain 2541;2537)
     [2576] = 2537, -- The Den / Harandar sub-zone (Midnight)
-    [2599] = 2537, -- Umbral Base Camp (HS-393; V-row chain 2599;2405;2537, parent Founder's Point)
+    [2599] = 2537, -- Umbral Base Camp (parent chain 2599;2405;2537, parent Founder's Point)
     [2694] = 2537, -- Harandar (Midnight)
     [15958] = 2537, -- Voidstorm (Midnight)
 }
@@ -393,7 +393,7 @@ Constants.VerticalSiblings = {
     [628] = { [627] = "above" },
 }
 
--- HS-497: zones that keep their own badge on the continent map instead of
+-- zones that keep their own badge on the continent map instead of
 -- rolling up to the zone below the continent. Key: vendor map, value: the
 -- badge key it counts under. Undermine's zone and its dungeon map both hang off
 -- The Ringing Deeps in the client, but read as a place of their own.
@@ -480,7 +480,7 @@ Constants.Defaults = {
             useNativeWaypoints = true,
             autoWaypoint = false,
             showVendorDetails = true,
-            showVendorPinItemDetails = true,  -- HS-074B: gates the HS-074/HS-074B pin-tooltip enrichment (icons, cost column, vendor-only count) as a unit
+            showVendorPinItemDetails = true,  -- gates the pin-tooltip enrichment (icons, cost column, vendor-only count) as a unit
             navigateModifier = "shift",  -- shift, ctrl, alt, or none
             showOppositeFaction = true,  -- Show vendors for opposite faction with faction emblem
             pinColorPreset = "default",              -- Color preset key or "custom"
@@ -497,10 +497,10 @@ Constants.Defaults = {
             sidePanelHeight = nil,                     -- Saved detached height for /reload restore
             showEventVendors = true,                   -- Show seasonal event vendor pins when events are active
             -- showUnverifiedVendors removed: no vendors use the unverified flag
-            hideCompletedVendorPins = false,            -- HS-022: hide map/minimap pins for fully-collected vendors
+            hideCompletedVendorPins = false,            -- hide map/minimap pins for fully-collected vendors
         },
 
-        -- HS-231: per-source world-map/minimap pin visibility, exposed via
+        -- per-source world-map/minimap pin visibility, exposed via
         -- Blizzard's world map filter dropdown (Homestead section). Absent
         -- key = shown (default ON) — only an explicit `false` is ever
         -- written, and toggling a source back ON removes the key rather
@@ -523,7 +523,7 @@ Constants.Defaults = {
             enabled = true,  -- Auto-scan merchants for housing decor data
         },
 
-        -- Version-check notifications (HS-086)
+        -- Version-check notifications
         versionCheck = {
             notify = true,
         },
@@ -539,7 +539,7 @@ Constants.Defaults = {
         npcIDCorrections = {},  -- [vendorName] = { oldID, newID, correctedAt }
         -- Coordinate updates detected when visiting vendors at new locations
         coordsUpdates = {},     -- [vendorName] = { mapID, x, y, updatedAt }
-        -- HS-205: change-detection stamp only — the full parsed payload
+        -- change-detection stamp only — the full parsed payload
         -- (sources, decorID, raw sourceText) is owned by catalogItems below.
         parsedSources = {},          -- [itemID] = { sourceHash, lastParsed }
         -- Locale-learned vendor names for cross-reference
