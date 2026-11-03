@@ -674,6 +674,31 @@ function VendorData:GetVendorsForFaction(faction)
     return result
 end
 
+-- True when any shipped row for this NPC (after alias resolution) is hidden on
+-- this build. Scanned vendor records carry no retired or unreleased flag, so
+-- anything built from a scan has to be judged by the shipped row instead.
+-- VendorFilter loads after this file, so it is looked up at call time.
+local function IsShippedRowHidden(filter, id)
+    local identity = HA.VendorIdentity and HA.VendorIdentity:GetVendor(id)
+    local endeavor = HA.EndeavorsData and HA.EndeavorsData.Vendors and HA.EndeavorsData.Vendors[id]
+    local event = HA.EventSources and HA.EventSources.EventVendors and HA.EventSources.EventVendors[id]
+    return filter.IsHiddenOnThisBuild(identity) or filter.IsHiddenOnThisBuild(endeavor)
+        or filter.IsHiddenOnThisBuild(event)
+end
+
+function VendorData:IsVendorHiddenByNpcID(npcID)
+    local filter = HA.VendorFilter
+    if not filter or not npcID then return false end
+    if IsShippedRowHidden(filter, npcID) then return true end
+    local canonicalID = self:ResolveAlias(npcID)
+    return canonicalID ~= nil and IsShippedRowHidden(filter, canonicalID)
+end
+
+-- True for a vendor object the player must not see on this build.
+local function IsHiddenVendor(vendor)
+    return VendorData:IsVendorHiddenByNpcID(vendor.npcID)
+end
+
 -- Get all vendors that sell a specific item
 function VendorData:GetVendorsForItem(itemID)
     if not itemID then return {} end
@@ -689,8 +714,10 @@ function VendorData:GetVendorsForItem(itemID)
             else
                 local vendor = self:GetVendor(npcID)
                 if vendor then
-                    table.insert(result, vendor)
-                    seenNPCs[npcID] = true
+                    if not IsHiddenVendor(vendor) then
+                        table.insert(result, vendor)
+                    end
+                    seenNPCs[npcID] = true  -- a hidden vendor must not re-enter below
                 end
             end
         end
@@ -702,7 +729,9 @@ function VendorData:GetVendorsForItem(itemID)
             if not seenNPCs[npcID] then
                 local vendor = HA.EndeavorsData.Vendors[npcID]
                 if vendor then
-                    table.insert(result, vendor)
+                    if not IsHiddenVendor(vendor) then
+                        table.insert(result, vendor)
+                    end
                     seenNPCs[npcID] = true
                 end
             end
@@ -714,7 +743,8 @@ function VendorData:GetVendorsForItem(itemID)
         local db = HA.Addon and HA.Addon.db
         if db and db.global and db.global.scannedVendors then
             for _, npcID in ipairs(self.ScannedByItemID[itemID]) do
-                if not seenNPCs[npcID] and not self:IsHolidayVendorHidden(npcID) then
+                if not seenNPCs[npcID] and not self:IsHolidayVendorHidden(npcID)
+                        and not self:IsVendorHiddenByNpcID(npcID) then
                     local scannedVendor = db.global.scannedVendors[npcID]
                     if scannedVendor then
                         -- Resolve zone name from mapID
@@ -749,7 +779,8 @@ function VendorData:GetVendorsForItem(itemID)
     if HA.EventSources and HA.EventSources.EventVendors then
         for _, eventVendor in pairs(HA.EventSources.EventVendors) do
             if eventVendor.npcID and not seenNPCs[eventVendor.npcID]
-                    and eventVendor.items and not self:IsHolidayVendorHidden(eventVendor.npcID) then
+                    and eventVendor.items and not self:IsHolidayVendorHidden(eventVendor.npcID)
+                    and not IsHiddenVendor(eventVendor) then
                 for _, eventItemID in ipairs(eventVendor.items) do
                     if eventItemID == itemID then
                         result[#result + 1] = eventVendor
@@ -843,7 +874,9 @@ function VendorData:SearchVendors(searchText)
                 matched = true
             end
             if matched then
-                result[#result + 1] = ProjectVendorWithItems(self, vendor, npcID)
+                if not IsHiddenVendor(vendor) then
+                    result[#result + 1] = ProjectVendorWithItems(self, vendor, npcID)
+                end
                 addedNPCs[npcID] = true
             end
         end
@@ -864,7 +897,9 @@ function VendorData:SearchVendors(searchText)
                     matched = true
                 end
                 if matched and ShouldIncludeEndeavorVendorForDisplay(vendor) then
-                    result[#result + 1] = vendor
+                    if not IsHiddenVendor(vendor) then
+                        result[#result + 1] = vendor
+                    end
                     addedNPCs[npcID] = true
                 end
             end
@@ -884,7 +919,7 @@ function VendorData:SearchVendors(searchText)
                     elseif vendor.event and vendor.event:lower():find(lowerSearch, 1, true) then
                         matched = true
                     end
-                    if matched then
+                    if matched and not IsHiddenVendor(vendor) then
                         result[#result + 1] = vendor
                         addedNPCs[npcID] = true
                     end
