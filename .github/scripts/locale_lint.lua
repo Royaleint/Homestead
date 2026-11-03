@@ -1,7 +1,7 @@
 -- luacheck: push ignore 111 112 113
 -- Locale file lint for WoW addons. Plain Lua 5.1, no requires, no network.
 --
--- Run from the repo root:  lua tests/locale_lint.lua [<toc path>]
+-- Run from the repo root:  lua .github/scripts/locale_lint.lua [<toc path>]
 -- Without an argument the TOC is <package-as value>.toc from ./.pkgmeta.
 -- `lua locale_lint.lua --form-lines <file>` only prints the Blizzard-backed
 -- form lines it parses (FORM<TAB>line<TAB>key<TAB>GLOBAL<TAB>fallback).
