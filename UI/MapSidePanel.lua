@@ -458,6 +458,14 @@ end
 -- Item Grid (expandable section below each vendor row)
 -------------------------------------------------------------------------------
 
+-- Owned items get a thicker rim so it stays visible on icons with a bright
+-- frame in their own art; the match ring sits 3px out, so 2px leaves it showing.
+local function SetIconBorderOutset(icon, px)
+    icon.border:ClearAllPoints()
+    icon.border:SetPoint("TOPLEFT", -px, px)
+    icon.border:SetPoint("BOTTOMRIGHT", px, -px)
+end
+
 local function CreateItemIcon(parent)
     local frame = CreateFrame("Frame", nil, parent)
     frame:SetSize(Layout.ITEM_ICON_SIZE, Layout.ITEM_ICON_SIZE)
@@ -673,19 +681,23 @@ local function PopulateItemGrid(row, vendor, sourceFilter, highlightItems, itemI
             -- requirement tooltip is unaffected (icon.requirements is set
             -- above, outside this branch).
             icon.border:SetColorTexture(0.45, 0.45, 0.45, 1)
+            SetIconBorderOutset(icon, 1)
         elseif owned then
             -- Owned: green border + checkmark
             icon.border:SetColorTexture(0.2, 0.7, 0.2, 1)
+            SetIconBorderOutset(icon, 2)
             icon.check:Show()
         elseif unmetReqs then
             -- Locked: red border + desaturated icon + lock icon
             icon.border:SetColorTexture(0.7, 0.15, 0.15, 1)
+            SetIconBorderOutset(icon, 1)
             icon.texture:SetDesaturated(true)
             icon.texture:SetVertexColor(0.6, 0.4, 0.4)
             icon.lock:Show()
         else
             -- Available to purchase: gold border
             icon.border:SetColorTexture(0.6, 0.5, 0.2, 1)
+            SetIconBorderOutset(icon, 1)
         end
 
         -- In search mode, dim non-matching items; matched items get a
@@ -699,6 +711,7 @@ local function PopulateItemGrid(row, vendor, sourceFilter, highlightItems, itemI
                 icon.texture:SetDesaturated(true)
                 icon.texture:SetVertexColor(0.4, 0.4, 0.4)
                 icon.border:SetColorTexture(0.2, 0.2, 0.2, 0.5)
+                SetIconBorderOutset(icon, 1)
                 icon.check:Hide()
                 icon.lock:Hide()
             end
@@ -933,16 +946,20 @@ local function PopulateBossItemGrid(row, dropGroup)
         -- Same neutral state as the vendor grid, same reason.
         if IsOwnershipExcluded(itemID, presentation) then
             icon.border:SetColorTexture(0.45, 0.45, 0.45, 1)
+            SetIconBorderOutset(icon, 1)
         elseif owned then
             icon.border:SetColorTexture(0.2, 0.7, 0.2, 1)
+            SetIconBorderOutset(icon, 2)
             icon.check:Show()
         elseif unmetReqs then
             icon.border:SetColorTexture(0.7, 0.15, 0.15, 1)
+            SetIconBorderOutset(icon, 1)
             icon.texture:SetDesaturated(true)
             icon.texture:SetVertexColor(0.6, 0.4, 0.4)
             icon.lock:Show()
         else
             icon.border:SetColorTexture(0.6, 0.5, 0.2, 1)
+            SetIconBorderOutset(icon, 1)
         end
 
         icon:Show()
