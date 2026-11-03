@@ -534,6 +534,7 @@ HA.PrerequisiteSources = {
     [264657] = {{type = "quest", name = "First, The Shells"}},
     [264659] = {{type = "quest", name = "The Harvest"}},
     [264660] = {{type = "quest", name = "Nothing Stands Forever"}},
+    [264718] = {{type = "quest", id = 95203, name = "The Ties That Bind"}},
     [265106] = {{type = "quest", name = "From Darkness, Light"}},
     [265631] = {{type = "quest", name = "From Darkness, Light"}},
     [265681] = {{type = "achievement", name = "Prey: Mad Magisters (Nightmare)"}},
@@ -578,4 +579,5 @@ HA.PrerequisiteSources = {
     [272142] = {{type = "quest", name = "Cursed Keepsake"}},
     [278696] = {{type = "quest", name = "Cursed Keepsake"}},
     [278701] = {{type = "quest", name = "Cursed Keepsake"}},
+    [279067] = {{type = "quest", id = 95200, name = "An Offering for Halazzi"}},
 }
