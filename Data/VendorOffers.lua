@@ -6683,14 +6683,6 @@ local GeneratedBase = {
       costBuild = "12.1.5.70688",
     },
   },
-  [255095] = {
-    [264173] = {
-      price = 50000,
-      currencies = {},
-      isUsable = true,
-      displayOrder = 1,
-    },
-  },
   [255101] = {
     [257393] = {
       price = 0,
