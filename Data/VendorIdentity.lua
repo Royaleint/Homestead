@@ -2043,6 +2043,17 @@ VendorIdentity.Vendors = {
         expansion = "Midnight",
         scanConfirmed = "2026-11-02",
     },
+    [255095] = {
+        name = "Kuvahn",
+        mapID = 2437,
+        x = 0.4522,
+        y = 0.6983,
+        zone = "Zul'Aman",
+        subzone = "Amani'Zar Village",
+        areaID = 16183,
+        faction = "Neutral",
+        expansion = "Midnight",
+    },
     [255101] = {
         name = "Mynde",
         mapID = 680,
