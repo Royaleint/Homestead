@@ -509,7 +509,6 @@ HA.PrerequisiteSources = {
     [263320] = {{type = "reputation", faction = "Amani Tribe", standing = "Renown 3", factionID = 2696, renownLevel = 3}},
     [263876] = {{type = "quest", name = "Cursed Keepsake"}},
     [264168] = {{type = "reputation", faction = "Dreamweavers", standing = "Honored"}},
-    [264172] = {{type = "achievement", name = "Mining at Midnight"}},
     [264173] = {{type = "achievement", name = "Skinning at Midnight"}},
     [264178] = {{type = "quest", name = "Root Dash Delivery"}},
     [264248] = {{type = "quest", name = "Fairbreeze Favors"}},
