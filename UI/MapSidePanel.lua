@@ -81,7 +81,7 @@ State.topTileFrame = nil   -- Inner decorative top-edge tile
 State.topStreaksFrame = nil -- Decorative streaks overlay
 State.bgTexture = nil      -- QuestLogBackground fill (anchored below header zone)
 State.isInitialized = false
--- HS-210: debounced content-refresh scheduler shared by every event listener
+-- Debounced content-refresh scheduler shared by every event listener
 -- below that wants a deferred repaint. Mirrors Overlay/Merchant.lua's
 -- ScheduleOverlayUpdate shape, but tracks pending state with an explicit
 -- boolean instead of the C_Timer.After return value — C_Timer.After returns
@@ -271,7 +271,7 @@ local function ShowItemPreview(itemID)
     end
 
     -- Get catalog entry info directly from itemID. Guarded like every other
-    -- GetCatalogEntryInfoByItem call site (HS-059: nil for some items) with
+    -- GetCatalogEntryInfoByItem call site (nil for some items) with
     -- the byRecordID fallback via CatalogStore's decorID reverse index — see
     -- CatalogStore:IsOwnedFresh's readOnly branch for the reference pattern.
     local ok, info = pcall(C_HousingCatalog.GetCatalogEntryInfoByItem, itemID, true)
@@ -301,7 +301,7 @@ end
 -------------------------------------------------------------------------------
 
 -- Check if item is owned (same pattern as BadgeCalculation/VendorMapPins).
--- HS-200: this is the no-presentation fallback for PopulateItemGrid and
+-- This is the no-presentation fallback for PopulateItemGrid and
 -- RenderItemRow. PopulateItemGrid is still an aggregate per-item loop over a
 -- vendor's full item grid; the item path now runs once per realized row rather
 -- than over the full result list. It must stay cache-only, matching
@@ -315,7 +315,7 @@ local function IsItemOwned(itemID)
     return false
 end
 
--- HS-249: is this item's ownership knowable at all? Housing items outside the
+-- Is this item's ownership knowable at all? Housing items outside the
 -- Decor subclass resolve to no catalog entry, so IsItemOwned answers a hard
 -- false that says nothing about the player. The grids must render those in a
 -- neutral state rather than the gold "available to purchase" border, which
@@ -468,7 +468,7 @@ local function CreateItemIcon(parent)
     tex:SetTexCoord(0.08, 0.92, 0.08, 0.92)  -- Trim default icon border
     frame.texture = tex
 
-    -- HS-019: search-match ring (yellow, rendered BEHIND the ownership border so
+    -- Search-match ring (yellow, rendered BEHIND the ownership border so
     -- red/green/gold accessibility coloring remains visible on matched items).
     local matchRing = frame:CreateTexture(nil, "BACKGROUND", nil, -1)
     matchRing:SetPoint("TOPLEFT", -3, 3)
@@ -667,7 +667,7 @@ local function PopulateItemGrid(row, vendor, sourceFilter, highlightItems, itemI
         icon.check:Hide()
 
         if IsOwnershipExcluded(itemID, presentation) then
-            -- HS-249: ownership not yet knowable — neutral grey border, no
+            -- Ownership not yet knowable — neutral grey border, no
             -- check and no lock tint. Tested first: neither the owned nor the
             -- available branch may claim an item we cannot resolve. The
             -- requirement tooltip is unaffected (icon.requirements is set
@@ -688,7 +688,7 @@ local function PopulateItemGrid(row, vendor, sourceFilter, highlightItems, itemI
             icon.border:SetColorTexture(0.6, 0.5, 0.2, 1)
         end
 
-        -- HS-019: in search mode, dim non-matching items; matched items get a
+        -- In search mode, dim non-matching items; matched items get a
         -- yellow outer ring (rendered behind the ownership border) so red/green
         -- /gold accessibility coloring + lock/check indicators remain readable.
         if highlightItems then
@@ -724,7 +724,7 @@ local function PopulateItemGrid(row, vendor, sourceFilter, highlightItems, itemI
 end
 
 -------------------------------------------------------------------------------
--- HS-230: Instance Drop-Source Rows
+-- Instance Drop-Source Rows
 --
 -- Sibling of the vendor row/item-grid pair above, for instance maps
 -- (C_EncounterJournal.GetEncountersOnMap(mapID) non-empty): one row per
@@ -741,10 +741,10 @@ end
 -- encounter array (from C_EncounterJournal.GetEncountersOnMap), in the
 -- SAME order Blizzard returned them — bosses read in canonical order, not
 -- itemID/table order. Items within a boss are sorted by itemID, matching
--- the HS-229 pin tooltip's stability convention. No entrance-fallback pass
+-- the drop pin tooltip's stability convention. No entrance-fallback pass
 -- here (unlike CollectEjDropPinRecords) — the panel only lists bosses
--- actually present on THIS map, per the spec ("a row per boss... present
--- on this map").
+-- actually present on THIS map (a row per boss present
+-- on this map).
 local function GetInstanceDropGroups(encounters)
     local drops = HA.DropSources
     if not drops or not encounters or #encounters == 0 then
@@ -777,7 +777,7 @@ local function GetInstanceDropGroups(encounters)
     return groups
 end
 
--- HS-229's own dropMapPin presentation context — same context string
+-- The drop pin's own dropMapPin presentation context — same context string
 -- AddPinTooltipItemLine (VendorPinTooltips.lua) and BuildDropGroupStats
 -- (BadgeCalculation.lua) already use, so this is provably the same
 -- cache-backed call, not a new SourceManager surface.
@@ -916,7 +916,7 @@ local function PopulateBossItemGrid(row, dropGroup)
         if not presentation then
             owned = IsItemOwned(itemID)
         end
-        -- HS-200: no live SM:GetRequirements(itemID, npcID) call — a drop
+        -- No live SM:GetRequirements(itemID, npcID) call — a drop
         -- item has no npcID to scope requirements to. presentation's own
         -- availabilityState/blockerLabels (already computed by the same
         -- cache-backed GetItemPresentation call above) carry the same
@@ -930,7 +930,7 @@ local function PopulateBossItemGrid(row, dropGroup)
         icon.check:Hide()
         if icon.matchRing then icon.matchRing:Hide() end
 
-        -- HS-249: same neutral state as the vendor grid, same reason.
+        -- Same neutral state as the vendor grid, same reason.
         if IsOwnershipExcluded(itemID, presentation) then
             icon.border:SetColorTexture(0.45, 0.45, 0.45, 1)
         elseif owned then
@@ -1235,7 +1235,7 @@ local function PopulateItemSourceList(row, itemID, sourceFilter)
     return totalHeight
 end
 
--- HS-019: search-result section header. Non-interactive divider that labels
+-- Search-result section header. Non-interactive divider that labels
 -- the section by source type (Vendors / Profession / Quest / Achievement /
 -- Event / Drop). One per active section; emitted on type transitions in
 -- RefreshSearchResults.
@@ -1250,7 +1250,7 @@ local function CreateSearchHeaderRow(parent)
     text:SetTextColor(1, 0.82, 0)
     row.text = text
 
-    -- HS-019: hairlines bracket the centered label. Anchored to the text's
+    -- Hairlines bracket the centered label. Anchored to the text's
     -- left/right edges with a 6px gap, so they reflow automatically when
     -- different section labels (different lengths) are set.
     local leftLine = row:CreateTexture(nil, "ARTWORK")
@@ -1369,7 +1369,7 @@ local function RenderItemRow(row, rec)
         owned = IsItemOwned(itemID)
     end
 
-    -- HS-249: same neutral state as the item grids, same reason.
+    -- Same neutral state as the item grids, same reason.
     if IsOwnershipExcluded(itemID, presentation) then
         row.iconBorder:SetColorTexture(0.45, 0.45, 0.45, 1)
         row.nameText:SetTextColor(1, 1, 1)
@@ -1976,7 +1976,7 @@ local function BuildZoneExpansionRows(zoneMapID, rows)
     local showOpposite = VF.ShouldShowOppositeFaction()
 
     -- Gather vendors in this zone under the badge count's own key: sibling
-    -- merge and sub-zone roll-up (HS-497) both happen inside GetVendorBadgeZone.
+    -- merge and sub-zone roll-up both happen inside GetVendorBadgeZone.
     local zoneVendors = {}
     for _, vendor in ipairs(allVendors) do
         if not VF.ShouldHideVendor(vendor) then
@@ -2512,13 +2512,13 @@ local function CreatePanel()
 
     State.resizeHandle:Hide()
 
-    -- HS-282 sub-item G: evict the SearchProvider index whenever this panel
+    -- Evict the SearchProvider index whenever this panel
     -- hides, on ANY path (Hide/Toggle/CloseDetached, or the map closing, or
     -- maximizing in combat, out from under a panel via MapWatchTick) -- every one
     -- of those paths ends by calling panel:Hide(), so OnHide is the single
     -- point they all converge on. Reclaims ~2.2 MB in the non-searching
     -- steady state; BuildIndex() lazily rebuilds (~20ms worst case) on the
-    -- next Search, a trade Rawb accepted against the reclaim.
+    -- next Search, an accepted trade against the reclaim.
     panel:HookScript("OnHide", function()
         if HA.SearchProvider and HA.SearchProvider.Invalidate then
             HA.SearchProvider:Invalidate()
@@ -2652,8 +2652,8 @@ local function CreateOverlayButton()
 
     -- Position after existing overlay buttons. Re-runs from the WorldMapFrame
     -- state poll in MapSidePanel:Initialize (on map open / zone change / overlay-
-    -- count change) -- HS-081 removed the RefreshOverlayFrames hooksecurefunc that
-    -- used to do this, because it ran inside Blizzard's secure map path and tainted it.
+    -- count change) -- a RefreshOverlayFrames hooksecurefunc used to
+    -- do this but was removed, because it ran inside Blizzard's secure map path and tainted it.
     PositionOverlayButton()
 
     button:SetScript("OnClick", function(self, mouseButton)
@@ -2935,12 +2935,12 @@ function MapSidePanel:RefreshZoneSummaries(mapID, mapInfo)
     -- Vendor expansion is not part of this display. The rows themselves are
     -- cleared when this function publishes its own records below.
     State.expandedVendorID = nil
-    -- HS-230: instance drop-source expansion too, same convention as above.
+    -- Instance drop-source expansion too, same convention as above.
     State.expandedBossKey = nil
 
     State.headerText:SetText(mapInfo.name or "")
 
-    -- HS-018: honor the panel's source filter at continent view so per-zone
+    -- Honor the panel's source filter at continent view so per-zone
     -- summary rows reflect the active filter (was previously unfiltered).
     -- A continent that rolls into this one is a single row carrying the sum of
     -- its own zone list.
@@ -3046,7 +3046,7 @@ function MapSidePanel:RefreshContinentSummaries(mapID, mapInfo)
     -- Vendor expansion is not part of this display. The rows themselves are
     -- cleared when this function publishes its own records below.
     State.expandedVendorID = nil
-    -- HS-230: instance drop-source expansion too, same convention as above.
+    -- Instance drop-source expansion too, same convention as above.
     State.expandedBossKey = nil
 
     State.headerText:SetText(mapInfo.name or "")
@@ -3152,7 +3152,7 @@ end
 -- Search Results Refresh
 -------------------------------------------------------------------------------
 
--- HS-019: header labels keyed by source-section identifier. The vendor
+-- Header labels keyed by source-section identifier. The vendor
 -- section always shows when any vendor result is present; item sections only
 -- show when at least one item-first row in that source type is present.
 local SEARCH_SECTION_LABELS = {
@@ -3298,7 +3298,7 @@ function MapSidePanel:RefreshSearchResults()
 end
 
 -------------------------------------------------------------------------------
--- HS-230: Instance Drop-Source Listing
+-- Instance Drop-Source Listing
 --
 -- Sibling of the zone-level vendor listing inside RefreshContent — same
 -- row-population/expand/collapse/empty-state/summary-line shape, built off
@@ -3439,12 +3439,12 @@ function MapSidePanel:RefreshContent()
     -- Update header with zone name
     State.headerText:SetText(mapInfo.name or "")
 
-    -- Determine map type — three-tier dispatch (HS-230 adds a fourth: instance)
+    -- Determine map type — three-tier dispatch (plus a fourth: instance)
     local mapType = mapInfo.mapType
     local isContinentLevel = mapType and mapType == Enum.UIMapType.Continent
     local isWorldLevel = mapType and (mapType == Enum.UIMapType.World or mapType == Enum.UIMapType.Cosmic)
 
-    -- HS-230: instance maps (dungeon/raid interiors) with EJ encounters get
+    -- Instance maps (dungeon/raid interiors) with EJ encounters get
     -- their own drop-source listing instead of the (always-empty, since no
     -- Homestead vendor lives inside an instance) vendor list. Structurally
     -- gated on mapType == Dungeon — Zone/Continent/World/Cosmic/Micro/Orphan
@@ -3490,7 +3490,7 @@ function MapSidePanel:RefreshContent()
     State.expandedSummaryMapID = nil
     State.currentDisplayLevel = "zone"
 
-    -- HS-230: instance drop-source expansion is not part of the zone-level display,
+    -- Instance drop-source expansion is not part of the zone-level display,
     -- mirroring how the summary paths reset vendor expansion when they are active.
     State.expandedBossKey = nil
 
@@ -4677,7 +4677,7 @@ function MapSidePanel:SetSourceFilter(sourceFilter)
 
     UpdateSourceFilterDropdownText()
 
-    -- HS-018: continent/world badges now honor the filter, so invalidate caches
+    -- Continent/world badges now honor the filter, so invalidate caches
     -- unconditionally on filter change (the prior zone-only gate at this site
     -- was a workaround for the unfiltered higher-level paths). Also kick a
     -- world-map repaint when the map is currently open so pins/badges update
@@ -4709,7 +4709,7 @@ function MapSidePanel:ResetIntegrationMode()
     ResetStandaloneCheck()
 end
 
--- HS-210: debounced scheduler for OWNERSHIP_UPDATED / VENDOR_SCANNED /
+-- Debounced scheduler for OWNERSHIP_UPDATED / VENDOR_SCANNED /
 -- ACTIVE_ENDEAVOR_CHANGED / SOURCE_CACHES_INVALIDATED. Without this, a burst
 -- of the same event (e.g. UPDATE_FACTION firing SOURCE_CACHES_INVALIDATED
 -- several times in one frame) schedules N independent 0.1s timers that each
@@ -4751,14 +4751,14 @@ function MapSidePanel:Initialize()
     CreatePanel()
     CreateOverlayButton()
 
-    -- HS-081: passive WorldMapFrame state detection. Replaces 6 hooksecurefunc/
+    -- Passive WorldMapFrame state detection. Replaces 6 hooksecurefunc/
     -- HookScript callbacks (SetMapID, OnShow, OnHide, HandleUserActionMaximizeSelf,
     -- HandleUserActionMinimizeSelf, and the RefreshOverlayFrames hook in
     -- CreateOverlayButton) that fired inside Blizzard's secure ToggleWorldMap ->
     -- ShowUIPanel(WorldMapFrame) -> Show()/SetMapID() path; the posthook bodies left
     -- that context tainted, blocking the protected SetPassThroughButtons continuation
     -- (QuestDataProvider -> MapCanvasPinMixin:CheckMouseButtonPassthrough), surfacing
-    -- as [ADDON_ACTION_BLOCKED] tainted by 'Homestead'. HS-275: the provider now feeds
+    -- as [ADDON_ACTION_BLOCKED] tainted by 'Homestead'. The provider now feeds
     -- this from DispatchMapWatch's C_Timer.After(0) deferral (HomesteadWorldMapProvider.lua),
     -- which reacts one frame AFTER the secure path has returned, so the reaction is
     -- never in a tainted context -- the same pattern as that file (which has zero
@@ -4779,17 +4779,17 @@ function MapSidePanel:Initialize()
         mapWatch.overlayCount = CountVisibleOverlayButtons()
     end
 
-    -- HS-223a: this used to run its own independent 10Hz ticker polling
+    -- This used to run its own independent 10Hz ticker polling
     -- WorldMapFrame:IsShown()/:GetMapID()/isMaximized -- the exact same raw
     -- state HomesteadWorldMapProvider.lua reads. Registered as a callback
     -- there instead of running a second redundant poll; trigger semantics
     -- below are unchanged, just fed from the shared dispatch's (isShown,
-    -- mapID, maximized) instead of a private one. HS-275: the provider side
+    -- mapID, maximized) instead of a private one. The provider side
     -- is now push-driven off Blizzard's map-canvas data-provider dispatch
     -- rather than a 10Hz ticker, so this callback fires on-change instead of
     -- 10 times a second -- every branch here is edge-triggered against
     -- mapWatch, so cadence doesn't change what fires. Do NOT convert this to
-    -- a WorldMapFrame hook (HS-081): hooks run inside Blizzard's secure
+    -- a WorldMapFrame hook: hooks run inside Blizzard's secure
     -- map-open path and taint execution.
     local function MapWatchTick(shown, mapID, maximized)
         if shown and not mapWatch.shown then
@@ -4810,7 +4810,7 @@ function MapSidePanel:Initialize()
         elseif not shown and mapWatch.shown then
             -- Map just closed (was: WorldMapFrame OnHide hook).
             if not State.isPoppedOut then
-                -- HS-019: clear any active search when the docked panel closes with
+                -- Clear any active search when the docked panel closes with
                 -- the map. Popped-out panels keep their search state (early return above).
                 ClearSearch(false)
                 -- Bump generation to cancel any pending deferred Show callbacks.

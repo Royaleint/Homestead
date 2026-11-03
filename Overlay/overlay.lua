@@ -28,7 +28,7 @@ local OVERLAY_CONFIG = Constants.Overlay or {
     LEVEL_OFFSET = 10,
 }
 
--- HS-209 H1: guards Initialize() against double registration now that it's
+-- guards Initialize() against double registration now that it's
 -- actually wired into core.lua's OnEnable — matches the isInitialized
 -- pattern other modules (e.g. Modules/CatalogScanner.lua) already use.
 local isInitialized = false
@@ -240,7 +240,7 @@ function Overlay:SetHomestoneState(parent, state, opts)
 
     parent.HomestoneState = state
 
-    -- HS-204(c): reuse the per-overlay options table in place instead of
+    -- Reuse the per-overlay options table in place instead of
     -- allocating a new 4-field table every SetIcon-path call (CatalogOverlay
     -- pattern). All four fields are always overwritten below, so no field can
     -- carry a stale value from a previous slot/state.
@@ -366,7 +366,7 @@ end
 
 -- Refresh all active overlays.
 -- runExternal (default true): whether to also run the externalRefreshers pass
--- (Baganator/BetterBags/etc). HS-180: the "bags" event fires on every bag
+-- (Baganator/BetterBags/etc). The "bags" event fires on every bag
 -- change and each external bag addon already refreshes itself via its own
 -- hook, so the high-frequency bags path passes false to skip the redundant
 -- external pass; other call sites are unaffected by the default.
@@ -527,18 +527,18 @@ end
 -- Initialization
 -------------------------------------------------------------------------------
 
--- HS-209 H1/decision: this had zero call sites for a while, so its
+-- Overlay:Initialize() had zero call sites for a while, so its
 -- RegisterCallback wiring never ran — now wired from core.lua's OnEnable
 -- (guarded above against double registration if OnEnable is ever re-entered).
 -- Ownership rule for what gets registered HERE: per-surface refreshes belong
 -- to the surface modules that already own them (Overlay/Containers.lua owns
 -- "bags", Overlay/Merchant.lua owns "merchant" — both were the wiring that
--- actually ran in production the whole time H1 was dead). Registering "bags"/
+-- actually ran in production the whole time Initialize() was dead). Registering "bags"/
 -- "merchant" here too would run a second, parallel full-pool sweep
 -- (Overlay:RefreshAll walks the SAME activeOverlays that Containers'/
 -- Merchant's own per-surface refresh already walks via their overlay
--- updateFuncs) — pure duplicate work, traced and confirmed during the H1
--- rollout. Overlay:Initialize() therefore registers ONLY genuinely
+-- updateFuncs) — pure duplicate work, traced and confirmed when
+-- Initialize() was wired in. Overlay:Initialize() therefore registers ONLY genuinely
 -- cross-surface triggers: OWNERSHIP_UPDATED (no surface module owns "every
 -- overlay, everywhere" repaint on an ownership change) and "all" (the one
 -- RequestUpdate("all") requester is OWNERSHIP_UPDATED's own handler below,
@@ -550,7 +550,7 @@ function Overlay:Initialize()
     if isInitialized then return end
     isInitialized = true
 
-    -- HS-239: the "all" callback is the only path into Overlay:RefreshAll()
+    -- the "all" callback is the only path into Overlay:RefreshAll()
     -- that OWNERSHIP_UPDATED reaches (confirmed: no other RequestUpdate("all")
     -- or Fire("all") caller exists anywhere in the addon), so this is where
     -- the actual bag-overlay repaint work happens. Workload is overlayCount
@@ -569,7 +569,7 @@ function Overlay:Initialize()
     -- above — every trigger into RefreshAll here goes through exactly this
     -- one deferred, coalesced route.
     --
-    -- HS-239: measured separately from the "all" callback above (not
+    -- measured separately from the "all" callback above (not
     -- nested — this handler only schedules the deferred repaint via
     -- RequestUpdate; the actual RefreshAll measurement above runs later, on
     -- its own timer pump). Workload is the update type it requests, already

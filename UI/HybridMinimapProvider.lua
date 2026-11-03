@@ -3,11 +3,11 @@
     Renders vendor pins onto Blizzard's HybridMinimap canvas, the same
     coverage Homestead already gives the round minimap and the world map.
 
-    HS-368: registers a pin-less data provider on HybridMinimap.MapCanvas
+    registers a pin-less data provider on HybridMinimap.MapCanvas
     (AddDataProvider) purely to receive Blizzard's map-state notifications
     (OnShow/OnHide/OnMapChanged/OnCanvasSizeChanged/OnCanvasScaleChanged).
     Never enters Blizzard's managed pin lifecycle -- that lifecycle is the
-    taint vector HS-081 hit (a chain reaching a protected passthrough-button
+    taint vector that an earlier version hit (a chain reaching a protected passthrough-button
     setter). Vendor pins here are plain, self-managed frames positioned with
     manual math, the exact technique UI/MapPinProvider.lua and
     UI/HomesteadWorldMapProvider.lua already ship for the world map. This
@@ -267,8 +267,7 @@ end
 -- request) since state can change between the poke and the next frame --
 -- e.g. HybridMinimapMixin:OnHide nils self.mapID. Same discipline
 -- HomesteadWorldMapProvider's RequestDeferredRefresh uses reading
--- WorldMapFrame:GetMapID() at fire time (HomesteadWorldMapProvider.lua,
--- HS-234 comment), not a captured value.
+-- WorldMapFrame:GetMapID() at fire time (HomesteadWorldMapProvider.lua), not a captured value.
 local function DoRefresh()
     refreshPending = false
 

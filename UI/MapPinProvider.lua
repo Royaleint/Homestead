@@ -521,7 +521,7 @@ function MapPinProvider.RepositionWorldMapPins()
     end
     for _, wrapper in ipairs(nativePins) do
         if wrapper.__hsNormX and wrapper.__hsNormY then
-            -- HS-274 follow-up: this now runs on every canvas-scale tick during
+            -- This now runs on every canvas-scale tick during
             -- a zoom (previously only on rare resize/maximize), so the parent
             -- and ignore-parent-scale calls -- one-time setup from Acquire that
             -- never actually changes mid-gesture -- were re-issued dozens of
@@ -563,7 +563,7 @@ end
 -- OVERLAP_THRESHOLD: the default pin is 10 px (setting range 8-18) on a
 -- canvas about NUDGE_REF_CANVAS_PX wide at default zoom, so 0.005 is half a
 -- pin: closer than that, one pin hides at least half of the other. The two
--- HS-536 pairs are 0.0011 and 0.0013 apart.
+-- The two known pairs are 0.0011 and 0.0013 apart.
 -- NUDGE_SPACING is the largest pin the size slider allows, so a nudged pair
 -- never covers itself at any setting.
 -- NUDGE_CROWD_NEIGHBORS: a group in which any pin has this many other pins

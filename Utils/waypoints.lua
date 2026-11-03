@@ -181,7 +181,7 @@ local function CheckArrival()
     local distance = math.sqrt(dx*dx + dy*dy)
 
     -- defaults.arrivalDistance is the only source: the profile key was never
-    -- written by anything (HS-218 deleted its dead UpdateConfig mirror too).
+    -- written by anything (its dead UpdateConfig mirror is gone too).
     return distance <= defaults.arrivalDistance
 end
 
@@ -222,7 +222,7 @@ end
 -- External Waypoint Change Detection
 -------------------------------------------------------------------------------
 
--- HS-218: this module never observed external waypoint changes — if the
+-- this module never observed external waypoint changes — if the
 -- player (or another addon) sets, moves, or clears the native waypoint, we'd
 -- keep believing we still own it, and could later call Clear() on arrival
 -- and wipe out whatever the player is now using the pin for.
@@ -326,7 +326,7 @@ function Waypoints:Set(mapID, x, y, options)
             data = options.data,
         }
 
-        -- Self-normalize against the native API's round-trip (HS-218):
+        -- Self-normalize against the native API's round-trip:
         -- SetUserWaypoint may quantize coordinates, and USER_WAYPOINT_UPDATED
         -- fires for our own set — comparing our RAW values against the
         -- quantized readback could mismatch and silently drop our claim
@@ -480,7 +480,7 @@ function Waypoints:UpdateConfig()
         end
     end
 
-    -- HS-218: announceWaypoint/autoRemoveOnArrival/arrivalDistance used to
+    -- announceWaypoint/autoRemoveOnArrival/arrivalDistance used to
     -- read profile.* keys that nothing in the codebase ever writes (no
     -- options UI, no other caller) — hard-coded to defaults.* in practice.
     -- Removed rather than wired to new options (not asked for here).
@@ -492,7 +492,7 @@ end
 function Waypoints:Initialize()
     self:UpdateConfig()
 
-    -- HS-218: observe external native-waypoint changes (see
+    -- Observe external native-waypoint changes (see
     -- OnUserWaypointUpdated above).
     local watcherFrame = CreateFrame("Frame")
     watcherFrame:RegisterEvent("USER_WAYPOINT_UPDATED")

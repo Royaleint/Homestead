@@ -114,7 +114,7 @@ local function UpdateMilestoneDisplayImpl()
     local vendor = vendorNPC and HA.EndeavorsData.Vendors[vendorNPC]
     if vendor and HA.VendorData and HA.VendorData.GetItemsForVendor then
         local vendorItems = HA.VendorData:GetItemsForVendor(vendor)
-        -- HS-249: this line derives its own counts rather than reading
+        -- This line derives its own counts rather than reading
         -- BadgeCalculation, so it needs its own exclusion guard. Housing items
         -- outside the Decor subclass have no resolvable ownership yet, and
         -- would otherwise sit permanently in the denominator as unowned.
@@ -150,7 +150,7 @@ local function UpdateMilestoneDisplayImpl()
     end
 end
 
--- HS-239 boundary: the whole dashboard overlay update pass -- every caller
+-- the whole dashboard overlay update pass -- every caller
 -- below routes through here. Workload is the literal "update"; the active theme
 -- is only resolved deep inside the body, so naming it here would mean an extra
 -- lookup added purely to feed this call. The body goes in by reference rather

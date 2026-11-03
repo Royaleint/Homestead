@@ -20,7 +20,7 @@ local overlayUpdatePending = false
 local UpdateAllMerchantOverlays  -- forward declaration (used in HookMerchantFrame before definition)
 
 -- Debounced scheduler — ensures only one pending timer at a time.
--- HS-212: the guard must be an explicit boolean set BEFORE scheduling —
+-- the guard must be an explicit boolean set BEFORE scheduling —
 -- C_Timer.After returns nothing, so the old `pendingOverlayTimer =
 -- C_Timer.After(...)` left the guard permanently nil and every call
 -- scheduled its own timer; coalescing never actually engaged.
@@ -214,7 +214,7 @@ local function OnMerchantClosed()
 end
 
 local function OnMerchantUpdate()
-    -- HS-204(a): route through the same 0.1s debounce page/tab/scroll clicks
+    -- Route through the same 0.1s debounce page/tab/scroll clicks
     -- use. MERCHANT_UPDATE can fire in bursts (e.g. repeated stack-count
     -- updates); calling UpdateAllMerchantOverlays() directly bypassed that
     -- coalescing entirely.

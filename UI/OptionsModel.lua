@@ -192,7 +192,7 @@ OptionsModel.sections = {
         label = L["General"],
         description = L["desc_options_general"],
         rows = {
-            -- (Runtime "Enable addon" checkbox removed in HS-109 with AceAddon-3.0:
+            -- (Runtime "Enable addon" checkbox removed with AceAddon-3.0:
             -- it called AceAddon's :Enable/:Disable, was a no-op across /reload, and
             -- left overlays/pins up when "disabled". Disable via the AddOns list.)
             {
@@ -857,7 +857,7 @@ OptionsModel.sections = {
                     local vendorTracer = GetVendorTracer()
                     if not vendorTracer then return end
                     vendorTracer.minimapIconSize = value
-                    -- Size is a mutate-in-place style property (HS-358), not part
+                    -- Size is a mutate-in-place style property, not part
                     -- of the minimap pin-pool key; RefreshAllPinColors drives a
                     -- fresh AcquireFrame per pin, which restyles every frame it
                     -- hands back, pool hit or not.

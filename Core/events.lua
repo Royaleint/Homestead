@@ -44,7 +44,7 @@ local pendingUpdates = {}
 -- Is an update currently scheduled?
 local updateScheduled = false
 
--- HS-209 (item 6): update types and Fire event names used to share one
+-- update types and Fire event names used to share one
 -- updateCallbacks table with two different calling conventions —
 -- ExecuteUpdate invokes callback() (no args), Fire invokes
 -- callback(unpack(args)). Nothing collides today, but nothing PREVENTED it
@@ -92,7 +92,7 @@ end
 
 -- Process all pending updates
 --
--- HS-209 M6: a callback invoked from ExecuteUpdate below can itself call
+-- a callback invoked from ExecuteUpdate below can itself call
 -- RequestUpdate, which inserts a NEW key into pendingUpdates — doing that
 -- while a `pairs(pendingUpdates)` traversal over the SAME table is still in
 -- flight is undefined behavior in Lua 5.1 (the manual: "the behavior of next
@@ -204,7 +204,7 @@ end
 -- Smart Event Registration
 -------------------------------------------------------------------------------
 --
--- HS-209 (item 5): this module used to also carry a loading-screen busy gate
+-- this module used to also carry a loading-screen busy gate
 -- (SetLoading/IsLoading/RunIfNotBusy, a LOADING_SCREEN_ENABLED/DISABLED frame
 -- in an Events:Initialize(), self-invoked at file scope) with zero callers —
 -- RunIfNotBusy was never called anywhere, and the LOADING_SCREEN_DISABLED

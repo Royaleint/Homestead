@@ -237,17 +237,17 @@ local function IsDelistCandidate(vendor, npcID)
         return false
     end
 
-    -- HS-250: ask whether the last scan found any HOUSING item, not whether it
+    -- ask whether the last scan found any HOUSING item, not whether it
     -- found decor. A vendor selling only room plans, dyes or customizations
     -- scans successfully and captures items, but lastScanHadDecor is false for
     -- it — correctly, since it sells no decor. Reading that as "this vendor had
     -- nothing" emitted a delist row and suppressed every item row below, so the
-    -- stock we had just captured never reached the pipeline while the pipeline
+    -- stock we had just captured never reached the export while the export
     -- was told to consider retiring the vendor.
     --
     -- Records saved before lastScanHadHousing existed fall back to the decor
     -- flag, which on those records IS the housing answer: decor was the only
-    -- subclass the pre-HS-249 capture gate could see.
+    -- subclass the earlier capture gate could see.
     local hadHousing = vendor.lastScanHadHousing
     if hadHousing == nil then
         hadHousing = vendor.lastScanHadDecor
@@ -289,19 +289,19 @@ function ExportImport:ExportScannedVendors(fullExport, exportAll)
 
     table.insert(output, EXPORT_PREFIX .. "\n")
     table.insert(output, "# exportFormatVersion: 3\n")
-    -- Client build stamps every export so the data pipeline reads the live
+    -- Client build stamps every export so the importer reads the live
     -- build from scans instead of external checkouts that lag hotfix builds.
     local clientVersion, clientBuild = GetBuildInfo()
     if clientVersion and clientBuild then
         table.insert(output, "# clientBuild: " .. clientVersion .. "." .. clientBuild .. "\n")
     end
-    -- HS-251 Stage C: housingCount appended at the END of the row. This is
+    -- housingCount is appended at the END of the row. This is
     -- positional TSV and other columns are indexed by position downstream, so
     -- a mid-row insert would break every existing consumer; append-only is
     -- the only safe way to extend it.
     table.insert(output, "# V: npcID\tname\tmapID\tx\ty\tfaction\ttimestamp\titemCount\tdecorCount\tzone\tsubZone\trealZone\tparentMapID\tcontinentMapID\texpansion\tcurrency\tmapChain\tscanConfidence\thousingCount\n")
-    -- HS-285: subclassID appended at the END of the row, same append-only
-    -- rule HS-251 Stage C established for the V-row's housingCount — this is
+    -- subclassID appended at the END of the row, same append-only
+    -- rule used for the V-row's housingCount — this is
     -- positional TSV and other columns are indexed by position downstream, so
     -- a mid-row insert would break every existing consumer.
     table.insert(output, "# I: npcID\titemID\tname\tprice\tcostData\tisUsable\tisPurchasable\tspellID\trequirements\tdecorID\tmerchantSlot\thasExtendedCost\tsubclassID\n")
@@ -329,7 +329,7 @@ function ExportImport:ExportScannedVendors(fullExport, exportAll)
         -- Handle vendors with no decor items
         if shouldProcess and IsDelistCandidate(vendor, npcID) then
             -- Vendor is in our DB but scanned with 0 housing items — flag for
-            -- review. HS-250: housing-wide, not decor-only; a vendor selling
+            -- review. housing-wide, not decor-only; a vendor selling
             -- only room plans or dyes is stock, not an empty vendor.
             shouldProcess = false
             skipReason = "delist"
@@ -386,7 +386,7 @@ function ExportImport:ExportScannedVendors(fullExport, exportAll)
                 SanitizeExportField(vendor.currency or ""),
                 (vendor.mapChain and #vendor.mapChain > 0) and table.concat(vendor.mapChain, ";") or "",
                 tostring(vendor.scanConfidence or "unknown"),
-                -- HS-251 Stage C: a housing-only (non-decor) vendor's total stock was
+                -- A housing-only (non-decor) vendor's total stock was
                 -- invisible to anything reading only V-rows, since this column used
                 -- to be decorCount's job alone. Same fallback idiom decorCount already
                 -- uses: pre-housing-gate records have no housingCount, and decorCount

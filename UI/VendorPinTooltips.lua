@@ -3,7 +3,7 @@
     Homestead - VendorPinTooltips
     Pin tooltips: vendor, zone/continent badge, portal, minimap, and drop pins
 
-    Extracted from VendorMapPins.lua (HS-301 cut #1) to reduce file size.
+    Extracted from VendorMapPins.lua to reduce file size.
     Owns the pin-tooltip GameTooltip instance, GET_ITEM_INFO_RECEIVED-driven
     tooltip refresh, and the five Show*Tooltip entry points PinFrameFactory
     calls on hover.
@@ -140,7 +140,7 @@ local function IsActivePinTooltipVisible()
     return pinTooltip:GetOwner() == activeTooltipData.pin
 end
 
--- HS-235: shared debounced rebuild, factored out of the GET_ITEM_INFO_RECEIVED
+-- shared debounced rebuild, factored out of the GET_ITEM_INFO_RECEIVED
 -- handler below so a second arrival signal (Item:ContinueOnItemLoad's own
 -- callback, see RequestItemDataForTooltip) can drive the exact same render
 -- path through the exact same tooltipRebuildPending debounce, instead of
@@ -177,10 +177,10 @@ itemInfoEventFrame:SetScript("OnEvent", function(self, event, itemID, success)
     RebuildActivePinTooltip()
 end)
 
--- HS-235: item 264500 class — C_Item.DoesItemExistByID true, but the server
+-- item 264500 class — C_Item.DoesItemExistByID true, but the server
 -- never volunteers the data, so GetItemInfo stays nil forever and
 -- GET_ITEM_INFO_RECEIVED never arrives to drive a rebuild; the tooltip line
--- was stuck on "Unknown Item" across hovers AND sessions. HS-190 precedent
+-- was stuck on "Unknown Item" across hovers AND sessions. The existing precedent
 -- (Overlay/Tooltips.lua's cold-cache re-render on OnTooltipSetItem) is the
 -- idiom reused here verbatim: Item:CreateFromItemID(itemID):ContinueOnItemLoad
 -- rather than a manual C_Item.RequestLoadItemDataByID + GET_ITEM_INFO_RECEIVED
@@ -194,7 +194,7 @@ end)
 -- (through RebuildActivePinTooltip, the SAME debounce GET_ITEM_INFO_RECEIVED
 -- already uses) rather than assumed to also arrive via GET_ITEM_INFO_RECEIVED
 -- — GET_ITEM_INFO_RECEIVED and ITEM_DATA_LOAD_RESULT are distinct events, and
--- the already-shipped HS-190 precedent in Tooltips.lua does the same thing
+-- the existing precedent in Tooltips.lua does the same thing
 -- (never waits on GET_ITEM_INFO_RECEIVED for its own cold-cache path). This
 -- means no new event registration was needed to close this gap.
 --
@@ -243,7 +243,7 @@ end
 -- Tooltips
 -------------------------------------------------------------------------------
 
--- HS-074 test: atlas-based inline glyphs for non-vendor source types.
+-- atlas-based inline glyphs for non-vendor source types.
 -- Atlas rendering tends to be sharper at small inline sizes than item-icon
 -- texture paths (which can look pixelated when scaled down from 64x64). Atlas
 -- names mirror Constants.SourceBadgeAtlas (the catalog overlay's pick).
@@ -256,11 +256,11 @@ local SOURCE_TOOLTIP_ICONS = {
     achievement = "|A:UI-Achievement-Shield-NoPoints:16:16|a",
 }
 
--- HS-074 test: concatenated icon string for an item's non-vendor source types.
+-- concatenated icon string for an item's non-vendor source types.
 -- Returns empty string when item is vendor-only or has no source data.
 -- Optional `sources` lets a caller that already fetched GetAllSources (e.g.
 -- AddPinTooltipItemLine's presentation.allSources) pass them in and skip the
--- second lookup; GetAllSources is memoized regardless (HS-273/281/282).
+-- second lookup; GetAllSources is memoized regardless.
 -- src.type runs through NormalizeSourceType, matching every other
 -- source.type consumer (SourceManager.lua's own display-source resolution).
 local function BuildItemSourceIconText(itemID, sources)
@@ -290,7 +290,7 @@ end
 local function AddPinTooltipItemLine(tooltip, item, options, suffix)
     local itemID = item and item.itemID
     local resolvedName = (item and item.name) or (itemID and C_Item.GetItemInfo(itemID))
-    -- HS-235: name genuinely unresolved (not just "item has no .name override") —
+    -- name genuinely unresolved (not just "item has no .name override") —
     -- request the data once per session so a future hover (this one still
     -- shows the honest fallback) or the debounced rebuild below can pick it
     -- up once/if it arrives.
@@ -306,7 +306,7 @@ local function AddPinTooltipItemLine(tooltip, item, options, suffix)
         local presentation = SM:GetItemPresentation(itemID, options)
         availabilityState = presentation and presentation.availabilityState
         allSources = presentation and presentation.allSources
-    -- HS-203: no-presentation fallback stays cache-only, matching
+    -- no-presentation fallback stays cache-only, matching
     -- SourceManager's "vendorMapPin" context (the primary path above).
     elseif itemID and HA.CatalogStore and HA.CatalogStore:IsOwned(itemID) then
         availabilityState = "owned"
@@ -315,7 +315,7 @@ local function AddPinTooltipItemLine(tooltip, item, options, suffix)
         availabilityState = SM:GetVendorItemAvailabilityState(itemID, options.npcID)
     end
 
-    -- HS-229: entrance-grouped drop pins can carry records from several
+    -- entrance-grouped drop pins can carry records from several
     -- different bosses; callers pass a suffix (e.g. "(Boss Name)") so each
     -- item line stays attributable when the tooltip header can't name one.
     local lineText = suffix and ("  " .. itemName .. " " .. suffix) or ("  " .. itemName)
@@ -327,7 +327,7 @@ local function AddPinTooltipItemLine(tooltip, item, options, suffix)
         lr, lg, lb = 1, 0.25, 0.25
     end
 
-    -- HS-074: vendor-pin tooltips additionally show alternative-source glyphs
+    -- vendor-pin tooltips additionally show alternative-source glyphs
     -- trailing the name and the vendor's cost in a right-aligned column.
     -- Drop-pin tooltips (isVendorContext false/absent) keep the plain
     -- single-line rendering unchanged.
@@ -342,8 +342,8 @@ local function AddPinTooltipItemLine(tooltip, item, options, suffix)
     return availabilityState
 end
 
--- HS-074B: "Vendor pin item details" toggle (default ON) gates the whole
--- HS-074/HS-074B pin-tooltip enrichment as a unit -- source icons, cost
+-- "Vendor pin item details" toggle (default ON) gates the whole
+-- pin-tooltip enrichment as a unit -- source icons, cost
 -- column, and the vendor-only summary line. Read fresh per tooltip build
 -- (cheap -- tooltip content already rebuilds per hover), not cached at load.
 -- profile.vendorTracer.showVendorPinItemDetails has a registered
@@ -415,13 +415,12 @@ local function AddVendorFooterLines(tooltip, vendor, isOpposite, itemDetailsEnab
         tooltip:AddLine(" ")
         BC.AddSummaryLine(tooltip, stats.collected, stats.total, stats.locked, stats.unverified)
 
-        -- HS-074 test: count of items at this vendor with no non-vendor source
+        -- count of items at this vendor with no non-vendor source
         -- type. Read from stats.vendorOnly (BadgeCalculation) rather than
         -- re-walking allItems here — that keeps this number counting the exact
         -- same population as the collected/total/locked figures above it
-        -- (source filter, HS-249 exclusion, merged static+scanned set) instead
-        -- of a second, differently-filtered pass. Wording is a stand-in;
-        -- refine during design review.
+        -- (source filter, exclusion rules, merged static+scanned set) instead
+        -- of a second, differently-filtered pass. Wording is a placeholder.
         if itemDetailsEnabled and stats.vendorOnly and stats.vendorOnly > 0 then
             AddFooterLine(tooltip, wrap, string.format("Vendor-only: %d", stats.vendorOnly), 0.85, 0.85, 0.85)
         end
@@ -778,7 +777,7 @@ function VendorPinTooltips:ShowVendorTooltip(pin, vendor, isRebuild)
         local itemID = HA.VendorData:GetItemID(item)
         if itemID and not itemsSeen[itemID] then
             itemsSeen[itemID] = true
-            -- HS-074 test: preserve cost on the wrapped record so the right column
+            -- preserve cost on the wrapped record so the right column
             -- can format it. Previously stripped, which is why the cost column
             -- rendered "?" even for vendors that had data populated.
             local cost = HA.VendorData:GetItemCost(item)
@@ -955,7 +954,7 @@ function VendorPinTooltips:ShowDropPinTooltip(pin, record)
         and ("Items Dropped (%d):"):format(#record.records)
         or "Items Dropped:", 1, 1, 0)
 
-    -- HS-249: this loop derives its own counts rather than reading
+    -- this loop derives its own counts rather than reading
     -- BadgeCalculation, so it needs its own exclusion guard. The denominator
     -- is the record count, so an item whose ownership we cannot resolve would
     -- otherwise inflate it and read as "0/1 collected" on a room plan.

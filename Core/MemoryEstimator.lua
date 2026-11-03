@@ -1,9 +1,8 @@
 --[[
     Homestead - MemoryEstimator
 
-    Cycle-safe Lua table size estimator, built for the HS-282 umbrella
-    per-subsystem memory-budget breakdown (/hs debug membudget, Core/core.lua).
-    Most subsystems that ticket needs measured have no safe way to wipe and
+    Cycle-safe Lua table size estimator, built for the per-subsystem memory-budget breakdown
+    (/hs debug membudget, Core/core.lua). Most subsystems that need measuring have no safe way to wipe and
     force a synchronous full rebuild mid-session (badge caches, the search
     index, CatalogStore's identity caches all repopulate lazily on the next
     player action, not on demand) -- GetAddOnMemoryUsage delta measurement
@@ -94,7 +93,7 @@
          reader of the live report has no way to see a source comment. The
          AchievementSources file is pipeline-generated ("DO NOT EDIT" in its
          own header), so exposing the index as a field isn't a fix this
-         ticket can make; the calibration test documents both known cases
+         module can make; the calibration test documents both known cases
          rather than silently absorbing them into the tolerance band.
       7. The three constants above are a single flat linear fit across a
          calibration corpus spanning roughly 11KB to 1.06MB of real Data/
@@ -225,7 +224,7 @@ function MemoryEstimator.EstimateTablesSizeKB(tables)
 end
 
 -------------------------------------------------------------------------------
--- HS-282 sub-item I: full-reachability ownership sweep (/hs debug memfloor,
+-- full-reachability ownership sweep (/hs debug memfloor,
 -- Core/DevMemoryDiagnostics.lua). Itemizes membudget's "unaccounted" remainder
 -- by walking the addon's ENTIRE reachable table graph from a fixed, ordered
 -- list of owned/shared roots, instead of the curated per-subsystem list above.
@@ -313,7 +312,7 @@ end
 -- first-owner-wins attribution falls straight out of that shared set -- once
 -- a root has claimed a table, every later root's walk sees it in `seen` and
 -- contributes 0 for it, so each owner's byte count is only what's new at that
--- point in the fixed root order the caller walks in (design §2).
+-- point in the fixed root order the caller walks in.
 SweepTableBytes = function(t, ctx)
     if ctx.aborted then
         return 0
@@ -337,7 +336,7 @@ SweepTableBytes = function(t, ctx)
             -- table walker silently attributes Blizzard's bytes to us (hooked
             -- bag/merchant buttons, template regions, canvas children) --
             -- their Lua-side storage lands in the remainder and is named
-            -- there instead (design §1d).
+            -- there instead.
             return HEADER_BYTES
         end
     end
@@ -363,7 +362,7 @@ SweepTableBytes = function(t, ctx)
 end
 
 -- Fresh sweep state for one full /hs debug memfloor run. opts.walkWidgets
--- (default false) selects 'deep' mode (design §1d); opts.nodeCap (default
+-- (default false) selects 'deep' mode; opts.nodeCap (default
 -- SWEEP_NODE_CAP) is overridable for tests only.
 function MemoryEstimator.NewSweepContext(opts)
     opts = opts or {}
@@ -380,7 +379,7 @@ function MemoryEstimator.NewSweepContext(opts)
     }
 end
 
--- Boundary rule (design §1c): pre-seed `ctx.seen` with every table that is a
+-- Boundary rule: pre-seed `ctx.seen` with every table that is a
 -- direct value of a global, except ours (any string global key starting with
 -- "Homestead" -- the same prefix .luacheckrc's globals allowlist confirms
 -- every Homestead-created global carries). A table in `seen` contributes 0

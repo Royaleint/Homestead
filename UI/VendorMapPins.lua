@@ -53,7 +53,7 @@ local GetVendorXY
 -- Badge/collection helpers delegated to BadgeCalculation (loaded before this file)
 local BC = HA.BadgeCalculation
 
--- HS-018: read the active side-panel source filter, with a defensive fallback
+-- Read the active side-panel source filter, with a defensive fallback
 -- to "all" if MapSidePanel isn't loaded yet (e.g. early init before panel module
 -- finishes Initialize()). MapSidePanel:GetSourceFilter() reads the persisted
 -- profile value at module load, so this returns the user's setting even when
@@ -66,14 +66,14 @@ local function GetActiveSourceFilter()
     return "all"
 end
 
--- HS-301: cross-file accessor for VendorPinTooltips.lua, which needs the
+-- Cross-file accessor for VendorPinTooltips.lua, which needs the
 -- active source filter but has no other reason to depend on MapSidePanel.
 function VendorMapPins:GetActiveSourceFilter()
     return GetActiveSourceFilter()
 end
 
 -------------------------------------------------------------------------------
--- HS-231: Map Filter Toggles
+-- Map Filter Toggles
 --
 -- Per-source PIN visibility, exposed as a "Homestead" section in Blizzard's
 -- world map filter dropdown (Menu.ModifyMenu("MENU_WORLD_MAP_TRACKING", ...),
@@ -115,9 +115,9 @@ local function SetMapFilterSourceEnabled(sourceKey, enabled)
     end
 end
 
--- HS-317: "Fully-collected vendors" entry in the same Homestead menu
+-- "Fully-collected vendors" entry in the same Homestead menu
 -- section, SHOW-semantics matching Blizzard's filter idiom (checked =
--- shown). Reads/writes the HS-022 vendorTracer.hideCompletedVendorPins
+-- shown). Reads/writes the vendorTracer.hideCompletedVendorPins
 -- flag the options panel row (OptionsModel.lua) already owns, inverted —
 -- checked here means the flag is NOT set.
 local function IsCompletedVendorPinsShown()
@@ -131,7 +131,7 @@ local function SetCompletedVendorPinsShown(shown)
     vendorTracer.hideCompletedVendorPins = not shown
 end
 
--- HS-074B: "Vendor pin item details" entry in the same Homestead menu
+-- "Vendor pin item details" entry in the same Homestead menu
 -- section, mirroring the options panel row (OptionsModel.lua) that owns
 -- vendorTracer.showVendorPinItemDetails. Same two-surface pattern as
 -- IsCompletedVendorPinsShown/SetCompletedVendorPinsShown above.
@@ -166,7 +166,7 @@ local minimapWarmupTimer = nil
 -- Dedup guards for minimap and world map refreshes
 local lastMinimapMapID = nil
 
--- HS-367: set by MinimapPinCollect.lua's hide-check drop site -- a refresh
+-- Set by MinimapPinCollect.lua's hide-check drop site -- a refresh
 -- WAS requested and reached RefreshMinimapPins, but landed while pins were
 -- suppressed, so nothing was rebuilt. Consumed by the reconciliation
 -- backstop's ticker the moment ShouldHideMinimapPins() next reports false --
@@ -468,10 +468,10 @@ function VendorMapPins:RefreshAllPinColors()
         self:ClearAllPins()
     end
 
-    -- HS-358: minimap pins no longer need a pool flush here — the narrowed
+    -- Minimap pins no longer need a pool flush here — the narrowed
     -- pool key is stable across style changes, and RefreshMinimapPins below
     -- drives a fresh AcquireFrame per pin (which restyles pool hits too).
-    -- HS-367: no longer calls ClearMinimapPins directly either -- that was
+    -- No longer calls ClearMinimapPins directly either -- that was
     -- an unguarded destructive clear reachable while pins were suppressed
     -- (e.g. changing pin color/size while indoors). RefreshMinimapPins is
     -- the guarded choke point: it hide-checks before clearing anything.
@@ -480,7 +480,7 @@ function VendorMapPins:RefreshAllPinColors()
 end
 
 -- Called by PinFrameFactory OnLeave scripts to clear tooltip tracking state.
--- Implementation lives in VendorPinTooltips.lua (HS-301 cut #1).
+-- Implementation lives in VendorPinTooltips.lua.
 function VendorMapPins:OnPinLeave()
     HA.VendorPinTooltips:OnPinLeave()
 end
@@ -513,7 +513,7 @@ function VendorMapPins:GetVendorStats(vendor, sourceFilter)
     return BC:GetVendorStats(vendor, sourceFilter)
 end
 
--- HS-271 item 2: cache-only peek delegation, mirroring GetVendorStats above.
+-- Cache-only peek delegation, mirroring GetVendorStats above.
 function VendorMapPins:PeekVendorStats(vendor, sourceFilter)
     return BC:PeekVendorStats(vendor, sourceFilter)
 end
@@ -550,7 +550,7 @@ function VendorMapPins:SetWaypointToVendor(vendor)
 end
 
 -------------------------------------------------------------------------------
--- Tooltips (implementation in VendorPinTooltips.lua, HS-301 cut #1)
+-- Tooltips (implementation in VendorPinTooltips.lua)
 -------------------------------------------------------------------------------
 
 function VendorMapPins:ShowVendorTooltip(pin, vendor)
@@ -647,10 +647,10 @@ function VendorMapPins:ClearMinimapPins()
     self:HidePinTooltip()
     MPP.ClearMinimapPins("HomesteadMinimapVendors")
 
-    -- Defense-in-depth (HS-367): a still-enabled, still-vendor-filtered
+    -- Defense-in-depth: a still-enabled, still-vendor-filtered
     -- caller invoking this while pins are merely suppressed (hybrid/house/
     -- indoors) must not release frames or stop the update driver -- the
-    -- same one-way-door defect class this ticket exists to close, now
+    -- same one-way-door defect class this guard exists to close, now
     -- guarded here too rather than relying solely on every caller getting
     -- the ordering right. Today's real callers (the disabled-feature path
     -- and DisableMinimapPins) are already genuinely destructive by the time
@@ -669,7 +669,7 @@ function VendorMapPins:ClearMinimapPins()
     end
 end
 
--- HS-367: set by MinimapPinCollect.lua's hide-check drop site; consumed by
+-- Set by MinimapPinCollect.lua's hide-check drop site; consumed by
 -- the reconciliation backstop's ticker in HomesteadMinimapOverlay.lua.
 function VendorMapPins:MarkMinimapRefreshPending()
     minimapRefreshPending = true
@@ -755,7 +755,7 @@ function VendorMapPins:RequestMinimapRefresh(reason, delay, forceImmediate)
     end
 end
 
--- HS-301: cross-file accessors for MinimapPinCollect.lua, which needs these
+-- Cross-file accessors for MinimapPinCollect.lua, which needs these
 -- gates but has no other reason to depend on VendorMapPins's private state.
 function VendorMapPins:IsInitialized()
     return isInitialized
@@ -769,10 +769,10 @@ function VendorMapPins:IsMinimapWarmupActive()
     return minimapWarmupActive
 end
 
--- Implementation in MinimapPinCollect.lua (HS-301 cut #3).
+-- Implementation in MinimapPinCollect.lua.
 function VendorMapPins:RefreshMinimapPins()
     local result = HA.MinimapPinCollect:RefreshMinimapPins()
-    -- HS-368: this wrapper is the single choke point every round-minimap
+    -- This wrapper is the single choke point every round-minimap
     -- content-refresh reason funnels through (zone change, ownership/scan,
     -- option toggle, style change) -- poke the HybridMinimap provider here
     -- too, unconditionally, so it stays fed even while
@@ -798,7 +798,7 @@ local function DebugWorldMapProjectionSkip(kind, sourceMapID, viewMapID, reason)
     ))
 end
 
--- HS-301: cross-file accessor for BadgeEmission.lua, which needs debug-gated
+-- Cross-file accessor for BadgeEmission.lua, which needs debug-gated
 -- projection-skip logging but has no other reason to depend on HA.DevAddon.
 function VendorMapPins:DebugWorldMapProjectionSkip(kind, sourceMapID, viewMapID, reason)
     return DebugWorldMapProjectionSkip(kind, sourceMapID, viewMapID, reason)
@@ -812,7 +812,7 @@ function VendorMapPins:BuildWorldMapRenderState(mapID)
         mapID = mapID,
         mapType = mapInfo and mapInfo.mapType or nil,
         vendorPins = {},
-        sourcePins = {},      -- HS-018: non-vendor source pins (drop, etc.)
+        sourcePins = {},      -- non-vendor source pins (drop, etc.)
         zoneBadges = {},
         portalBadges = {},
         continentBadges = {},
@@ -839,12 +839,12 @@ function VendorMapPins:BuildWorldMapRenderState(mapID)
 end
 
 -------------------------------------------------------------------------------
--- HS-018: Pin Source Provider Registry
+-- Pin Source Provider Registry
 --
 -- Registry of per-source-type pin collectors. Each entry is a table:
 --   { collect = function(self, mapID, validMapIDs, filter, renderState) end }
--- Only the vendor slot is populated in HS-018 commit 2. Drop is filled in by
--- commit 3. Future tickets plug in profession (HS-075), quest, achievement,
+-- Only the vendor slot is populated at first. Drop is filled in by
+-- a later provider. Future source types plug in profession, quest, achievement,
 -- shop without modifying CollectSourcePins.
 --
 -- Filter semantics:
@@ -857,9 +857,9 @@ end
 
 VendorMapPins.pinSourceProviders = {
     vendor      = nil,  -- assigned below once CollectVendorPinRecords is defined
-    drop        = nil,  -- HS-018 commit 3
+    drop        = nil,  -- assigned by the drop provider
     event       = nil,  -- EventVendors flow through vendor pipeline
-    profession  = nil,  -- HS-075
+    profession  = nil,  -- reserved for a future provider
     quest       = nil,  -- registry slot reserved
     achievement = nil,  -- registry slot reserved
     shop        = nil,  -- registry slot reserved
@@ -882,7 +882,7 @@ function VendorMapPins:CollectSourcePins(mapID, renderState)
     end
 
     for sourceType, provider in pairs(self.pinSourceProviders) do
-        -- HS-231: cheap early-continue, not a restructure — with every
+        -- Cheap early-continue, not a restructure — with every
         -- source left ON (the default), IsMapFilterSourceEnabled is a single
         -- table lookup returning true, so the loop's behavior is unchanged
         -- from before this feature existed.
@@ -893,7 +893,7 @@ function VendorMapPins:CollectSourcePins(mapID, renderState)
     end
 
     -- Portal badges are vendor-context navigation aids; only emit under
-    -- vendor/all filters (Decision 2).
+    -- vendor/all filters.
     if filter == "all" or filter == "vendor" then
         self:EmitPortalBadges(mapID, renderState)
     end
@@ -922,7 +922,7 @@ function VendorMapPins:RefreshPins(force)
 
     WorldMapProvider:EnsureRegistered()
 
-    -- HS-239: workload is mapID, already read from WorldMapFrame above for the
+    -- Workload is mapID, already read from WorldMapFrame above for the
     -- dirty check -- no new scan added to feed this call. Peer of
     -- world_map_refresh, which measures this same open path's render half.
     local renderState = HA.PerformanceTrace:Measure("world_map_build", mapID,
@@ -935,7 +935,7 @@ function VendorMapPins:RefreshPins(force)
 end
 
 -------------------------------------------------------------------------------
--- HS-018: Vendor pin provider
+-- Vendor pin provider
 --
 -- Collects vendor pins for the given mapID into renderState.vendorPins.
 -- Extracted from the previous ShowVendorPins so it can be plugged into the
@@ -975,7 +975,7 @@ local function CollectVendorPinRecords(self, mapID, validMapIDs, filter, renderS
             return
         end
 
-        -- HS-022: hide fully-collected vendor pins when the opt-in setting is
+        -- Hide fully-collected vendor pins when the opt-in setting is
         -- on. Single chokepoint for both the static loop and the scanned
         -- fallback loop below, since both funnel through ProcessVendor.
         -- Cheap-check-first: ShouldHideVendor above is a plain field/table
@@ -1075,7 +1075,7 @@ local function CollectVendorPinRecords(self, mapID, validMapIDs, filter, renderS
         for npcID, scannedData in pairs(HA.Addon.db.global.scannedVendors) do
             -- Only process if this scanned vendor's mapID matches the current map or a child map
             -- AND we haven't already added this vendor from static data
-            -- HS-532: a saved scan never shows a holiday vendor outside its holiday.
+            -- A saved scan never shows a holiday vendor outside its holiday.
             if validMapIDs[scannedData.mapID] and not addedVendors[npcID]
                     and not HA.VendorData:IsHolidayVendorHidden(npcID) then
                 scannedFallbackCount = scannedFallbackCount + 1
@@ -1100,7 +1100,7 @@ local function CollectVendorPinRecords(self, mapID, validMapIDs, filter, renderS
         end
     end
 
-    -- HS-536: display-only offset for pins that would cover each other.
+    -- Display-only offset for pins that would cover each other.
     MPP.AssignOverlapNudge(renderState.vendorPins, "x", "y")
 
     if shouldLogSilvermoonDebug then
@@ -1122,11 +1122,11 @@ end
 VendorMapPins.pinSourceProviders.vendor = { collect = CollectVendorPinRecords }
 
 -------------------------------------------------------------------------------
--- HS-018/HS-229: Drop pin provider
+-- Drop pin provider
 --
 -- Walks HA.DropSources and emits pins for drop records. Two placement paths:
 --
---   EJ-anchored (rows with journalEncounterID/journalInstanceID, HS-229):
+--   EJ-anchored (rows with journalEncounterID/journalInstanceID):
 --     a. journalEncounterID resolves via C_EncounterJournal.GetEncountersOnMap
 --        (once per collect) -> boss position on the instance's own map.
 --     b. journalInstanceID resolves via
@@ -1138,7 +1138,7 @@ VendorMapPins.pinSourceProviders.vendor = { collect = CollectVendorPinRecords }
 --     Rows that resolve nowhere on the viewed map emit nothing (fail-quiet).
 --
 --   Legacy mapID/coords (rows with no journal IDs, e.g. warfront rares):
---     same Decision 7 hygiene as before —
+--     same hygiene as before —
 --       1. Skip records with no mapID (zone-only data).
 --       2. Skip records with coords = {0, 0} (explicit placeholder).
 --       3. Emit {0.5, 0.5} as approximate-center pins as-is.
@@ -1333,7 +1333,7 @@ local function CollectDropPinRecords(self, mapID, validMapIDs, _filter, renderSt
 
     for _, key in ipairs(order) do
         local group = groups[key]
-        -- Stable tooltip ordering (SUGGESTION: sort by itemID rather than
+        -- Stable tooltip ordering (sort by itemID rather than
         -- leaving grouped records in pairs()-iteration order).
         table.sort(group.records, function(a, b) return a.itemID < b.itemID end)
         renderState.sourcePins[#renderState.sourcePins + 1] = {
@@ -1349,12 +1349,12 @@ end
 
 VendorMapPins.pinSourceProviders.drop = { collect = CollectDropPinRecords }
 
--- Implementation in VendorPinTooltips.lua (HS-301 cut #1).
+-- Implementation in VendorPinTooltips.lua.
 function VendorMapPins:ShowDropPinTooltip(pin, record)
     return HA.VendorPinTooltips:ShowDropPinTooltip(pin, record)
 end
 
--- Implementation in BadgeEmission.lua (HS-301 cut #2).
+-- Implementation in BadgeEmission.lua.
 function VendorMapPins:EmitPortalBadges(mapID, renderState)
     return HA.BadgeEmission:EmitPortalBadges(mapID, renderState)
 end
@@ -1421,7 +1421,7 @@ function VendorMapPins:DisableMinimapPins()
     minimapPinsEnabled = false
     StopMinimapWarmup()
     self:ClearMinimapPins()
-    -- HS-368: DisableMinimapPins clears directly and never routes through
+    -- DisableMinimapPins clears directly and never routes through
     -- RefreshMinimapPins (see that function's own poke above), so it needs
     -- its own explicit clear -- otherwise already-rendered HybridMinimap
     -- pins would linger after the player turns minimap pins off.
@@ -1479,7 +1479,7 @@ function VendorMapPins:Initialize()
         WorldMapProvider:EnsureRegistered()
     end
 
-    -- HS-231: Homestead section in Blizzard's world map filter dropdown.
+    -- Homestead section in Blizzard's world map filter dropdown.
     -- Menu.ModifyMenu registers a callback that Blizzard's menu system
     -- fires EVERY time the tagged menu opens — it is not a one-shot build,
     -- so this call itself must happen exactly once per UI session. The
@@ -1492,8 +1492,8 @@ function VendorMapPins:Initialize()
     -- Foundry.Menu's own GetNativeHandles() doc even hands the raw Menu
     -- table back to the consumer for exactly this case. Calling the raw
     -- global directly is the Blizzard-supported addon path per the API's
-    -- own doc, not a workaround — flagged separately as a Foundry.Menu
-    -- coverage gap worth its own FND ticket.
+    -- own doc, not a workaround — a Foundry.Menu
+    -- coverage gap worth tracking on its own.
     if _G.Menu and _G.Menu.ModifyMenu then
         _G.Menu.ModifyMenu("MENU_WORLD_MAP_TRACKING", function(_, rootDescription)
             -- Source list derived live from the provider registry, never
@@ -1524,11 +1524,11 @@ function VendorMapPins:Initialize()
                 end)
             end
 
-            -- HS-317: parity with the options panel row's effect set
+            -- Parity with the options panel row's effect set
             -- (OptionsModel.lua's hideCompletedVendorPins set: invalidate
             -- + repaint), not just the debounced repaint pair the
             -- neighboring source toggles use. Badge counts don't yet read
-            -- this setting -- HS-022 v1 deferred badge suppression -- so
+            -- this setting -- the first version deferred badge suppression -- so
             -- the invalidate call is not currently load-bearing; it
             -- becomes load-bearing once badge suppression lands.
             local completedCheckbox = rootDescription:CreateCheckbox(HA.L["Fully-collected vendors"], IsCompletedVendorPinsShown, function()
@@ -1549,7 +1549,7 @@ function VendorMapPins:Initialize()
                 GameTooltip:Hide()
             end)
 
-            -- HS-074B: parity with the options panel row. No refresh calls --
+            -- Parity with the options panel row. No refresh calls --
             -- unlike the completed-vendor filter above, this doesn't change
             -- which pins are shown, only what their tooltips render, and
             -- tooltip content is already rebuilt fresh on every hover.
@@ -1570,13 +1570,13 @@ function VendorMapPins:Initialize()
         end)
     end
 
-    -- HS-275: world map refresh is driven by the pin-less data provider
+    -- World map refresh is driven by the pin-less data provider
     -- HomesteadWorldMapProvider:EnsureRegistered() registers with
     -- WorldMapFrame:AddDataProvider. Do NOT hook WorldMapFrame OnShow or
     -- SetMapID directly, and do NOT use MapCanvasPinMixin/AcquirePin for
     -- these pins — those run/enter Blizzard's secure map-open path and
     -- managed pin lifecycle, tainting the execution context and causing
-    -- SetPassThroughButtons() errors in combat (HS-081). The data provider
+    -- SetPassThroughButtons() errors in combat. The data provider
     -- is the sanctioned path for map-state notifications.
 
     -- Listen for vendor scan events to refresh pins with new data

@@ -1,6 +1,6 @@
 name: Delete Branch
 
-# Companion to create-tag.yml (STU-073): remote/mobile sessions sit behind a
+# Companion to create-tag.yml: remote/mobile sessions sit behind a
 # git proxy that blocks ref deletions, so branch cleanup needs to happen
 # repo-side. Dispatch with the branch name to delete.
 
