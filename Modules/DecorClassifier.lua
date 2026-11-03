@@ -45,14 +45,14 @@ function DecorClassifier.ClassifyHousingItem(itemLink)
                 -- itemID comes from the classification call above; this runs
                 -- per merchant slot, so a second GetItemInfoInstant on the
                 -- same link would be pure waste on the scan path.
-                -- HS-218: isOwned/quantityOwned removed — they don't exist on
+                -- isOwned/quantityOwned removed — they don't exist on
                 -- HousingCatalogEntryInfo. Ownership must only ever come from
                 -- CatalogStore:ComputeOwnedFromInfo (the canonical count-contract
                 -- read); no individual field here is an ownership signal, and
-                -- firstAcquisitionBonus in particular is display-only (settled
-                -- HS-123 ruling). These two always read nil; the one caller here never
+                -- firstAcquisitionBonus in particular is display-only.
+                -- These two always read nil; the one caller here never
                 -- consulted them, but a future reader would have silently seen
-                -- "unowned" from a field that was never real (the HS-123 silent-
+                -- "unowned" from a field that was never real (the silent-
                 -- shape class) instead of an obvious missing-field signal.
                 decorInfo = {
                     itemID = itemID,

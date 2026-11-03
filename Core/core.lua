@@ -52,8 +52,8 @@ local HousingAddon = Homestead
 -- window before Foundry's Lifecycle release lands -- instead of an opaque
 -- nil-index. (Foundry-itself-missing is the guard above.)
 local Lifecycle = F:RequireModule("Lifecycle", 1)
--- Fail loud at load if this Foundry build lacks the DB module (HS-117; the
--- BSP-060 guard precedent — RequireModule raises in BOTH builds).
+-- Fail loud at load if this Foundry build lacks the DB module (RequireModule
+-- raises in BOTH builds).
 F:RequireModule("DB", 1)
 local lifecycle = Lifecycle:New(Homestead, addonName)
 -- Registration order does NOT protect OnInitialize-before-OnEnable on a
@@ -79,7 +79,7 @@ local format = string.format
 function HousingAddon:OnInitialize()
     -- Initialize SavedVariables database
     -- name must be the real folder name (Homestead or Homestead_DevBuild): Foundry
-    -- feeds it to C_AddOns.IsAddOnLoaded for the SV-availability check (STU-073).
+    -- feeds it to C_AddOns.IsAddOnLoaded for the SV-availability check.
     self.db = F.DB:New({ name = addonName, sv = "HomesteadDB", defaults = Constants.Defaults, defaultProfile = true })
 
     -- One-time migration: pin size default was too large for native pin system.
@@ -90,7 +90,7 @@ function HousingAddon:OnInitialize()
     end
 
     -- Initialize minimap button.
-    -- HS-221: HA.__collisionStandDown (set by the generated DevBuildGuard.lua,
+    -- HA.__collisionStandDown (set by the generated DevBuildGuard.lua,
     -- which loads earlier in the TOC, so the flag is already readable here)
     -- — narrow gate on just this call: a visible minimap button would
     -- otherwise duplicate if this session's DevBuild collision copy and the
@@ -147,46 +147,11 @@ function HousingAddon:OnInitialize()
     cmd:Register({ name = "refreshmap",
         help = "Refresh world map pins.",
         handler = function() self:RefreshMapPins() end })
-    cmd:Register({ name = "export",
-        help = "Show the export dialog.",
-        handler = function()
-            if HA.ExportImport then
-                HA.ExportImport:ShowExportDialog()
-            end
-        end })
-    cmd:Register({ name = "export full",
-        help = "Export all scanned vendors.",
-        handler = function()
-            if HA.ExportImport then
-                HA.ExportImport:ExportScannedVendors(true, false)
-            end
-        end })
-    cmd:Register({ name = "exportall",
-        help = "Export ALL, bypassing the timestamp filter.",
-        handler = function()
-            if HA.ExportImport then
-                HA.ExportImport:ExportScannedVendors(true, true)
-            end
-        end })
     cmd:Register({ name = "clearscans",
         help = "Clear all scanned vendor data.",
         handler = function()
-            if HA.ExportImport then
-                HA.ExportImport:ClearScannedData()
-            end
-        end })
-    cmd:Register({ name = "validate",
-        help = "Validate the vendor database.",
-        handler = function()
-            if HA.Validation then
-                HA.Validation:RunFullValidation()
-            end
-        end })
-    cmd:Register({ name = "validate details",
-        help = "Show validation details.",
-        handler = function()
-            if HA.Validation then
-                HA.Validation:ShowDetails()
+            if HA.VendorScanner then
+                HA.VendorScanner:ClearScannedData()
             end
         end })
     cmd:Register({ name = "welcome",
@@ -217,28 +182,9 @@ function HousingAddon:OnInitialize()
             self:Print(format(L["Debug mode: %s"] or "Debug mode: %s",
                 self.db.profile.debug and (L["ON"] or "ON") or (L["OFF"] or "OFF")))
         end })
-    cmd:Register({ name = "debug vertical",
-        help = "Print vertical-sibling info.",
-        handler = function()
-            local lines = HA.Constants.GetVerticalSiblingsInfo()
-            self:Print("VerticalSiblings (" .. #lines .. " pairs):")
-            for _, line in ipairs(lines) do
-                self:Print("  " .. line)
-            end
-        end })
-    cmd:Register({ name = "debug geography",
-        help = "Audit manual map geography entries.",
-        handler = function() self:PrintManualGeographyAuditReport() end })
-    cmd:Register({ name = "debug parsertest",
-        help = "Run SourceTextParser's built-in self-test suite.",
-        handler = function()
-            if HA.SourceTextParser and HA.SourceTextParser.RunTests then
-                HA.SourceTextParser:RunTests()
-            end
-        end })
-    -- HS-282: /hs debug memallsources and /hs debug membudget are dev-only
-    -- diagnostics; they register themselves from Core/DevMemoryDiagnostics.lua
-    -- (a file this shipped module never references) once self.commands below
+    -- The dev-only commands (memory diagnostics, geography,
+    -- vertical, parsertest, validate, export) register themselves from DevBuild-only
+    -- files this shipped module never references, once self.commands below
     -- exists and PLAYER_LOGIN has fired. Never registered here.
 
     self.commands = cmd
@@ -248,7 +194,7 @@ function HousingAddon:OnInitialize()
 end
 
 function HousingAddon:OnEnable()
-    -- HS-217: DevBuild collision poison flag (set by the generated
+    -- DevBuild collision poison flag (set by the generated
     -- DevBuildGuard.lua when it detects the live 'Homestead' addon is also
     -- enabled). DisableAddOn only takes effect on the NEXT reload, so this
     -- session's DevBuild copy is still fully loaded and would otherwise run
@@ -282,6 +228,11 @@ function HousingAddon:OnEnable()
         HA.CatalogScanner:Initialize()
     end
 
+    -- Reverse reagent index for the reagent tooltip line
+    if HA.ReagentIndex then
+        HA.ReagentIndex:Initialize()
+    end
+
     -- Initialize VendorScanner for automatic vendor discovery
     if HA.VendorScanner then
         HA.VendorScanner:Initialize()
@@ -307,7 +258,7 @@ function HousingAddon:OnEnable()
         HA.SourceManager:Initialize()
     end
 
-    -- HS-209 H1: Overlay:Initialize() had zero call sites — its
+    -- Overlay:Initialize() had zero call sites — its
     -- Events:RegisterCallback("bags"/"merchant"/"all"/"OWNERSHIP_UPDATED")
     -- wiring never ran. Wired here, after CatalogStore/SourceManager (which
     -- its callbacks call into once fired) and before the more UI-specific
@@ -347,7 +298,7 @@ function HousingAddon:OnEnable()
         HA.WhatsNewFrame:Initialize()
     end
 
-    -- Version-check peer broadcast (HS-086)
+    -- Version-check peer broadcast
     if HA.VersionCheck then
         HA.VersionCheck:Initialize()
     end
@@ -356,7 +307,7 @@ function HousingAddon:OnEnable()
 end
 
 -- No OnDisable / runtime-disable path. AceAddon-3.0's manual :Enable/:Disable
--- affordance was removed with AceAddon (HS-109): the addon is enabled for the
+-- affordance was removed with AceAddon: the addon is enabled for the
 -- session, and disabling is done via the AddOns list + /reload. No logout
 -- teardown is needed -- frame/event cleanup happens on session end.
 
@@ -454,39 +405,6 @@ end
 -- Slash Command Helpers
 -------------------------------------------------------------------------------
 
-function HousingAddon:PrintManualGeographyAuditReport()
-    local MPP = HA.MapPinProvider
-    if not MPP or not MPP.GetManualGeographyAuditReport then
-        self:Print("MapPinProvider audit is not available.")
-        return
-    end
-
-    local report = MPP:GetManualGeographyAuditReport()
-    local summary = report and report.summary or {}
-    self:Print(format(
-        "Manual geography audit: %d checked, %d required, %d redundant candidates",
-        summary.checked or 0,
-        summary.manualRequired or 0,
-        summary.redundantCandidates or 0
-    ))
-
-    if not report or not report.rows or #report.rows == 0 then
-        return
-    end
-
-    for _, row in ipairs(report.rows) do
-        self:Print(format(
-            "  %s %s->%s: %s (%s; native=%s)",
-            row.tableName or "?",
-            tostring(row.sourceMapID),
-            tostring(row.viewMapID),
-            row.status or "?",
-            row.manualReason or "?",
-            row.nativeReason or "unknown"
-        ))
-    end
-end
-
 -- Refresh map pins manually
 function HousingAddon:RefreshMapPins()
     if HA.VendorMapPins then
@@ -579,7 +497,7 @@ function HousingAddon:ShowCacheInfo()
             end
         end
     else
-        table.insert(output, "CatalogStore unavailable — ownership data cannot be displayed.")
+        table.insert(output, "CatalogStore unavailable: ownership data cannot be displayed.")
     end
 
     if count == 0 and #items == 0 then
@@ -613,15 +531,15 @@ function HousingAddon:ClearOwnershipCache()
         self:Print("Cleared ownership cache. Removed " .. count .. " cached items.")
         self:Print("Use /hs scan to rebuild the cache.")
     else
-        self:Print("CatalogStore unavailable — cannot clear ownership cache.")
+        self:Print("CatalogStore unavailable: cannot clear ownership cache.")
     end
 end
 
--- HS-282: MeasureAllSourcesCacheIsolatedKB, DebugMemAllSourcesReport, and
+-- MeasureAllSourcesCacheIsolatedKB, DebugMemAllSourcesReport, and
 -- DebugMemBudgetReport (and the /hs debug memallsources / membudget commands
 -- that drove them) moved to Core/DevMemoryDiagnostics.lua, a dev-only file
 -- never listed in Homestead.toc -- memory diagnostics are dev tooling, not a
--- player-facing feature (owner ruling, 2026-08-14).
+-- player-facing feature.
 
 -- Show scanned vendor data
 function HousingAddon:ShowScannedVendors()
@@ -788,8 +706,8 @@ end
 -- Note: a core HousingAddon:OnMerchantShow handler previously existed here but
 -- was dead under AceEvent (its MERCHANT_SHOW registration was clobbered by
 -- VendorTracer's, last-write-wins) and had no other caller. The merchant overlay
--- still refreshes through Overlay/Merchant.lua's own standalone frame. Removed as
--- part of HS-097 to resolve the registration ambiguity (see RegisterEvents).
+-- still refreshes through Overlay/Merchant.lua's own standalone frame. Removed to
+-- resolve the registration ambiguity (see RegisterEvents).
 
 function HousingAddon:OnMerchantClosed()
     -- Clean up merchant overlays
@@ -823,7 +741,7 @@ end
 
 function HousingAddon:RefreshAllOverlays()
     if HA.Overlay then
-        -- HS-239: this direct RefreshAll fires on every loading screen via
+        -- this direct RefreshAll fires on every loading screen via
         -- PLAYER_ENTERING_WORLD -- a sibling entry into the same repaint the
         -- Events "all" callback measures. Wrapped so an armed trace can't
         -- miss a plot zone-in repaint and still render the affirmative
@@ -934,7 +852,7 @@ function HousingAddon:GetDecorInfo(itemLink)
     return setmetatable(info, DecorInfoCompatMT)
 end
 
--- HS-218: HousingAddon:GetVendorDecor removed — it delegated to
+-- HousingAddon:GetVendorDecor removed — it delegated to
 -- HA.VendorTracer:GetVendorDecor, a method that doesn't exist anywhere in
 -- VendorTracer.lua (would have errored if ever called). Zero callers of
 -- this wrapper anywhere in the codebase; removing beats implementing the

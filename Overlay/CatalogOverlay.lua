@@ -75,7 +75,7 @@ local GLOW_COLORS = {
     owned        = { 0.0, 0.8, 0.0, 0.6 },  -- green: you have at least 1
     available    = { 1.0, 0.8, 0.0, 0.6 },  -- yellow: unowned, source reqs met
     blocked      = { 1.0, 0.15, 0.15, 0.9 }, -- red: unowned, all sources blocked
-    unobtainable = { 0.5, 0.5, 0.5, 0.6 },  -- gray: promotion-gated (HS-158/160), not a normal "blocked" state
+    unobtainable = { 0.5, 0.5, 0.5, 0.6 },  -- gray: promotion-gated, not a normal "blocked" state
 }
 
 -- Per-frame result cache: entryFrame → {itemID, atlas or false, glowState or false}
@@ -93,7 +93,7 @@ local overlayCache = setmetatable({}, { __mode = "k" })
 -- InvalidateAllOverlays wipes it.
 local itemVerdictCache = {}
 
--- HS-282: read-only debug accessor for the /hs debug membudget walker. This
+-- read-only debug accessor for the /hs debug membudget walker. This
 -- file has no module table of its own (top-level hook-installing script) --
 -- HA.CatalogOverlay exists purely to carry this diagnostic accessor,
 -- nothing else attaches to it. overlayCache above is intentionally NOT
@@ -104,7 +104,7 @@ function HA.CatalogOverlay.GetDebugCacheTables()
     return { itemVerdictCache = itemVerdictCache }
 end
 
--- HS-223b: per-frame LAST-APPLIED-TO-THE-FRAME signature: entryFrame →
+-- Per-frame LAST-APPLIED-TO-THE-FRAME signature: entryFrame →
 -- {itemID, effectiveAtlas or false, effectiveGlowState or false, ownedStyle,
 -- isOwned}. Distinct from overlayCache above, which tracks the raw computed
 -- verdict (itemID/atlas/glowState) to skip re-running GetSource; this tracks
@@ -254,7 +254,7 @@ end
 -- Fallback: resolve sourceText through the shared parser so catalog badges stay
 -- aligned with the addon's source taxonomy and locale profiles. First parsed
 -- block wins -- this contract is relied on by its only caller below for the
--- ordinary no-static-badge fallback and is unchanged by the HS-241 gate fix.
+-- ordinary no-static-badge fallback and is unchanged by the treasure ownership gate.
 local function GetSourceBadgeFromSourceText(sourceText, parsedSources)
     if not sourceText or sourceText == "" then return nil end
 
@@ -426,7 +426,7 @@ local function GetAccessibilityState(itemID, sourceText, presentation)
 end
 
 -- Hide both badge and glow for an entry frame (used by early-return paths).
--- HS-223b (CRITICAL): must also clear appliedState. A recycled
+-- CRITICAL: must also clear appliedState. A recycled
 -- entry frame passes through here with a nil itemID (or settings disabled)
 -- before rebinding to its next item — if the signature memo survived that,
 -- a frame recycled back to the SAME item with an unchanged verdict would
@@ -464,7 +464,7 @@ local function ShowBadgeAtlas(entryFrame, atlas)
     badge:Show()
 end
 
--- HS-223b: applies the settings-aware badge/glow/owned-style outcome to an
+-- Applies the settings-aware badge/glow/owned-style outcome to an
 -- entry frame, skipping the Show*/Hide*/ApplyOwnedStyle calls entirely when
 -- the outcome is identical to what's already applied (appliedState above).
 -- Shared by both the cache-hit and cache-miss paths in UpdateEntryOverlay so
@@ -540,9 +540,9 @@ UpdateEntryOverlay = function(entryFrame)
         return HideAllOverlays(entryFrame)
     end
 
-    -- Cache hit: re-apply visual state without calling GetSource. (HS-223b:
+    -- Cache hit: re-apply visual state without calling GetSource.
     -- ApplyResolvedOverlay itself skips the actual Show*/Hide* calls when
-    -- nothing has changed since the last tick.)
+    -- nothing has changed since the last tick.
     local cached = overlayCache[entryFrame]
     if cached and cached[1] == itemID then
         ApplyResolvedOverlay(entryFrame, itemID, cached[2], cached[3], showBadges, showGlow, ownedStyle)
@@ -558,7 +558,7 @@ UpdateEntryOverlay = function(entryFrame)
         local sourceText = ResolveSourceText(entryInfo, itemID)
 
         -- Badge: look up source atlas (static data first, then sourceText).
-        -- HS-241 Gate 2 finding: every item with a treasure sourceText also
+        -- Every item with a treasure sourceText also
         -- carries a vendor/profession source Blizzard's catalog API resolves
         -- statically, so the treasure fallback never won under plain
         -- static-first priority. Ownership-gate it instead: while the item is
@@ -606,7 +606,7 @@ end
 -------------------------------------------------------------------------------
 
 -- Force all entry frames to re-evaluate on next repaint.
--- Called when ownership or source data changes. HS-223b: also wipes
+-- Called when ownership or source data changes. Also wipes
 -- appliedState — belt-and-braces so a real change is never suppressed by a
 -- stale last-applied signature. (In practice appliedState's comparison is
 -- itself value-based and already includes itemID, so a genuine change would
@@ -702,7 +702,7 @@ end
 --   * A merchant scan discovering a new source wipes SourceManager's memo
 --     through InvalidateSourcesMemo, which is deliberately broadcast-free (the
 --     broadcasting version would restart the badge prewarm on every vendor
---     visit — the HS-238 over-invalidation). It announces VENDOR_SCANNED
+--     visit — an over-invalidation). It announces VENDOR_SCANNED
 --     instead, which is why that is wired below.
 --   * The /hs clear* commands wipe the memo through ScanPersistence's
 --     RefreshMapPins. That one now uses the broadcasting variant, so it
@@ -727,7 +727,7 @@ end
 -- Not wired, and not an oversight: CatalogStore:SetSources (the sourceText
 -- parse pipeline) fires CATALOG_ITEM_UPDATED rather than any of the above, so
 -- a fresh parse can lag this cache. That lag is pre-existing and deferred with
--- rationale in SourceManager.lua's allSourcesCache note (HS-273 R7) — the memo
+-- rationale in SourceManager.lua's allSourcesCache note — the memo
 -- there has the same gap — and useParsedSources defaults false.
 
 -- Register external refresher so Overlay:RefreshAll() also updates catalog overlays

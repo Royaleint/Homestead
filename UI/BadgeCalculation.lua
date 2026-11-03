@@ -49,6 +49,64 @@ function BadgeCalculation.GetCanonicalZoneMapID(zoneMapID)
     return zoneMapID
 end
 
+-- A vendor recorded on a sub-zone or dungeon map is counted under the
+-- zone map that sits directly below its continent, so a continent map shows one
+-- badge per zone. The returned key always resolves, via GetContinentForZone, to
+-- the same continent as the sibling-merged input; any other result (no parent
+-- data, a chain that never reaches the continent within the bound, or an
+-- ancestor missing from the continent table) returns the merged input.
+-- Constants.ContinentBadgeOverrides names the zones that keep their own badge
+-- and are looked up before the walk, under the same continent check.
+local ZONE_ROLLUP_MAX_DEPTH = 6
+BadgeCalculation.ZONE_ROLLUP_MAX_DEPTH = ZONE_ROLLUP_MAX_DEPTH
+local zoneRollupCache = {}
+
+function BadgeCalculation.GetBadgeZoneMapID(mapID)
+    local cached = zoneRollupCache[mapID]
+    if cached then return cached end
+
+    local merged = BadgeCalculation.GetCanonicalZoneMapID(mapID)
+    local rolled = merged
+    local continent = BadgeCalculation.GetContinentForZone(merged)
+    if continent then
+        local override = Constants.ContinentBadgeOverrides and Constants.ContinentBadgeOverrides[merged]
+        if override then
+            rolled = override
+        else
+            local current = merged
+            for _ = 1, ZONE_ROLLUP_MAX_DEPTH do
+                local parent = MPP:GetParentMapID(current)
+                if not parent then break end
+                if parent == continent then
+                    rolled = current
+                    break
+                end
+                current = parent
+            end
+        end
+        if BadgeCalculation.GetContinentForZone(rolled) ~= continent then
+            rolled = merged
+        end
+    end
+
+    zoneRollupCache[mapID] = rolled
+    return rolled
+end
+
+-- Best coordinates plus the zone map this vendor is counted under: the scanned
+-- map when present, the badgeMapID override (e.g. a Dalaran portal vendor's
+-- accessible map) when set, rolled up per GetBadgeZoneMapID.
+function BadgeCalculation.GetVendorBadgeZone(vendor)
+    local coords, mapID = VF.GetBestVendorCoordinates(vendor)
+    if vendor.badgeMapID then
+        mapID = vendor.badgeMapID
+    end
+    if coords and mapID then
+        mapID = BadgeCalculation.GetBadgeZoneMapID(mapID)
+    end
+    return coords, mapID
+end
+
 -------------------------------------------------------------------------------
 -- Caches
 -------------------------------------------------------------------------------
@@ -57,7 +115,7 @@ end
 -- hasUncollectedState stores true / false / "unknown".
 local vendorStatsCache = {}
 
--- HS-278: bumped on every vendorStatsCache wipe/invalidation so the sliced
+-- Bumped on every vendorStatsCache wipe/invalidation so the sliced
 -- prewarm item loop (below) can detect a mid-vendor invalidation and discard
 -- its in-progress accumulator instead of blending pre/post-invalidation item
 -- state into one cached result.
@@ -67,8 +125,10 @@ local vendorStatsCacheGeneration = 0
 -- Keyed by "continentMapID|sourceFilter" for zone badges, sourceFilter for continent badges.
 local cachedZoneBadges = {}
 local cachedContinentBadges = {}
+-- Keyed by "viewMapID|sourceFilter|dateStamp": child-map badges for a zone view.
+local cachedChildMapBadges = {}
 
--- HS-234: forward-declared here (ahead of InvalidateAllCaches below, which
+-- Forward-declared here (ahead of InvalidateAllCaches below, which
 -- calls it) — the real function body is assigned much further down, after
 -- StartPrewarmPass exists for it to reference. Lua locals must be declared
 -- before any reference to them, even though the call only ever happens
@@ -106,7 +166,7 @@ local function NormalizeSourceFilter(sourceFilter)
     return lower
 end
 
--- HS-158/160 §1/H3: availability (promotion expiry) is day-stamped at the
+-- Availability (promotion expiry) is day-stamped at the
 -- SourceManager layer, but these caches are otherwise only invalidated by
 -- ownership/scan/settings EVENTS — a vendor's stats computed before midnight
 -- would keep reading the stale unobtainable classification until an
@@ -158,12 +218,11 @@ local UNKNOWN_VENDOR_STATS = {
     vendorOnly = 0,
 }
 
--- HS-249/HS-451: is this item's ownership knowable at all? Decor resolves by
--- itemID, and a Room plan resolves when it is in the curated RoomMapping;
--- everything else (Dye, RoomCustomization, ExteriorCustomization,
--- ServiceItem, and any unmapped Room plan) reads as a hard false that says
--- nothing about the player. Mirrors the isOwned resolution below, including
--- the cache-only no-presentation fallback.
+-- Is this item's ownership knowable at all? Decor resolves by itemID, and a Room
+-- plan resolves when it is in the curated RoomMapping; everything else (Dye,
+-- RoomCustomization, ExteriorCustomization, ServiceItem, and any unmapped Room
+-- plan) reads as a hard false that says nothing about the player. Mirrors the
+-- isOwned resolution below, including the cache-only no-presentation fallback.
 local function IsOwnershipExcluded(itemID, presentation)
     if presentation then
         return presentation.isOwnershipExcluded == true
@@ -174,15 +233,15 @@ local function IsOwnershipExcluded(itemID, presentation)
     return false
 end
 
--- HS-074: true when the item has no source types other than vendor-like
+-- True when the item has no source types other than vendor-like
 -- (vendor/event/shop). Approximation of "this vendor-NPC is the only path."
--- Moved here from VendorMapPins.lua (code review) so BuildVendorStats' item
+-- Moved here from VendorMapPins.lua so BuildVendorStats' item
 -- loop can produce the "Vendor-only" count from the same population as
 -- collected/total/locked, instead of a second differently-filtered pass over
 -- the tooltip's hand-rolled item list. Optional `sources` lets a caller that
 -- already has GetAllSources' result (e.g. AccumulateVendorItem's
 -- presentation.allSources) pass them in and skip the second lookup;
--- GetAllSources is memoized regardless (HS-273/281/282). src.type runs
+-- GetAllSources is memoized regardless. src.type runs
 -- through NormalizeSourceType, matching every other source.type consumer.
 local function IsItemVendorOnly(itemID, sources)
     local SM = HA.SourceManager
@@ -200,7 +259,7 @@ local function IsItemVendorOnly(itemID, sources)
     return true
 end
 
--- HS-278: per-vendor accumulator state, extracted out of BuildVendorStats so
+-- Per-vendor accumulator state, extracted out of BuildVendorStats so
 -- the prewarm pass's item loop (below) can resume it across ticks instead of
 -- running one vendor's whole item list in a single unbreakable call.
 local function NewVendorStatsAccum()
@@ -236,7 +295,7 @@ local function AccumulateVendorItem(accum, itemID, vendor, sourceFilter)
     local matchesSourceFilter = presentation and presentation.matchesSourceFilter
         or (not presentation and ItemMatchesSourceFilter(itemID, sourceFilter))
 
-    -- HS-249: tested ahead of everything else in the branch, unlike the
+    -- Tested ahead of everything else in the branch, unlike the
     -- `unobtainable` divert below — that one comes after isOwned because
     -- ownership is knowable and wins, whereas here it is unknowable and
     -- consulting it is the thing being ruled out. hasMatchingItems stays
@@ -251,12 +310,12 @@ local function AccumulateVendorItem(accum, itemID, vendor, sourceFilter)
         local isUnverified = presentation and presentation.isUnverified or false
         local hasVerifiableRequirement = presentation and presentation.hasVerifiableRequirement or false
         local blockerLabels = presentation and presentation.blockerLabels or nil
-        -- HS-074: same population as total (owned + locked/purchasable below,
+        -- Same population as total (owned + locked/purchasable below,
         -- not the unobtainable branch) so the tooltip's "Vendor-only: N" line
         -- never contradicts the collected/total numbers next to it.
         local isVendorOnlyItem = IsItemVendorOnly(itemID, presentation and presentation.allSources)
 
-        -- HS-200: badge recounts are an aggregate per-vendor-item loop —
+        -- Badge recounts are an aggregate per-vendor-item loop —
         -- this no-presentation fallback must stay cache-only the same way
         -- the primary presentation.isOwned path is (SourceManager's
         -- "badge" context), or it reintroduces the per-item API burst.
@@ -275,7 +334,7 @@ local function AccumulateVendorItem(accum, itemID, vendor, sourceFilter)
                 accum.vendorOnly = accum.vendorOnly + 1
             end
         elseif state == "unobtainable" then
-            -- HS-158/160 §3/decision 4: unowned unobtainable items
+            -- Unowned unobtainable items
             -- (promotion-gated, live or expired) are EXCLUDED from total
             -- so collected/total can reach completion. This must be
             -- checked before the locked/purchasable split below.
@@ -310,10 +369,11 @@ end
 -- shape and the blocker-sort + final table build.
 local function FinalizeVendorStatsAccum(accum)
     -- No matching items under this filter is a known empty result, not unknown.
-    -- HS-249: unless the only things this vendor sells under the filter are
+    -- Unless the only things this vendor sells under the filter are
     -- items whose ownership we cannot compute — that is genuinely unknown, and
     -- reporting `false` here would render it as "you own everything on this
-    -- vendor". With no excluded items this is the pre-HS-249 value exactly.
+    -- vendor". With no excluded items the result is exactly what it was before
+    -- excluded items were tracked.
     if not accum.hasMatchingItems then
         return {
             hasUncollectedState = accum.excluded > 0 and "unknown" or false,
@@ -409,7 +469,7 @@ function BadgeCalculation:GetVendorStats(vendor, sourceFilter)
     return stats
 end
 
--- HS-271 item 2: cache-only peek, same cache-key derivation as GetVendorStats
+-- Cache-only peek, same cache-key derivation as GetVendorStats
 -- above but NEVER computes on a miss. Cold-pin count text uses this so a
 -- pin's frame-acquire never pays BuildVendorStats' per-item
 -- GetItemPresentation loop -- the exact cost the background prewarm pass
@@ -430,7 +490,7 @@ local function GetVendorStats(vendor, sourceFilter)
 end
 
 -------------------------------------------------------------------------------
--- HS-229: Drop Pin Group Stats
+-- Drop Pin Group Stats
 --
 -- Mirrors BuildVendorStats/GetVendorStats for a grouped drop pin's records
 -- (one or more {itemID, drop} pairs — an EJ entrance pin can group several
@@ -440,7 +500,7 @@ end
 -- Same collected/locked/purchasable semantics as BuildVendorStats so the
 -- pin badges read identically, and the SAME per-item presentation call
 -- AddPinTooltipItemLine already uses for drop-pin tooltips (context =
--- "dropMapPin") — cache-only, HS-203/HS-200's no-live-API-on-hot-path rule.
+-- "dropMapPin") — cache-only, per the no-live-API-on-hot-path rule.
 -------------------------------------------------------------------------------
 
 local UNKNOWN_DROP_GROUP_STATS = {
@@ -482,14 +542,14 @@ local function BuildDropGroupStats(records)
         end
 
         local state = presentation and presentation.availabilityState or "purchasable"
-        -- HS-200: cache-only fallback, matching AddPinTooltipItemLine's own
+        -- Cache-only fallback, matching AddPinTooltipItemLine's own
         -- no-presentation path — never a live API call on this render path.
         local isOwned = presentation and presentation.isOwned
         if not presentation and HA.CatalogStore and HA.CatalogStore.IsOwned then
             isOwned = HA.CatalogStore:IsOwned(itemID) == true
         end
 
-        -- HS-249: same ordering as BuildVendorStats — the exclusion is tested
+        -- Same ordering as BuildVendorStats — the exclusion is tested
         -- before ownership, not after it like `unobtainable`.
         if IsOwnershipExcluded(itemID, presentation) then
             excluded = excluded + 1
@@ -603,9 +663,10 @@ end
 function BadgeCalculation:InvalidateBadgeCache()
     wipe(cachedZoneBadges)
     wipe(cachedContinentBadges)
+    wipe(cachedChildMapBadges)
 end
 
--- HS-278 accepted tradeoff: an ownership-update invalidation storm arriving
+-- Accepted tradeoff: an ownership-update invalidation storm arriving
 -- faster than one large vendor's total slice time will restart that vendor's
 -- prewarm accumulator repeatedly for as long as the storm lasts. Each
 -- restart is correct (the cache really was invalidated), live callers still
@@ -617,7 +678,7 @@ function BadgeCalculation:InvalidateAllCaches()
     wipe(vendorStatsCache)
     wipe(dropGroupStatsCache)
     self:InvalidateBadgeCache()
-    -- HS-234 (ADOPTED WARNING): this is the chokepoint every wipe path
+    -- This is the chokepoint every wipe path
     -- routes through (OWNERSHIP_UPDATED, VendorMapPins direct calls,
     -- MapSidePanel, OptionsModel, SOURCE_CACHES_INVALIDATED) — re-warming
     -- here covers all of them uniformly instead of one special-cased event
@@ -641,23 +702,89 @@ function BadgeCalculation:InvalidateVendorCache(npcID)
     end
 end
 
--- HS-282: dev-only debug accessor exposing this module's caches to the
+-- Dev-only debug accessor exposing this module's caches to the
 -- /hs debug membudget walker. Read-only references, never mutated by the
--- caller. cachedZoneBadges/cachedContinentBadges are reported together as
--- "badge caches" by the caller -- kept as separate table references here
--- so InvalidateBadgeCache's existing wipe-both shape isn't disturbed.
+-- caller. The badge-count tables are reported together as "badge caches" by
+-- the caller -- kept as separate table references here so
+-- InvalidateBadgeCache's per-table wipes aren't disturbed.
 function BadgeCalculation:GetDebugCacheTables()
     return {
         vendorStatsCache = vendorStatsCache,
         dropGroupStatsCache = dropGroupStatsCache,
         cachedZoneBadges = cachedZoneBadges,
         cachedContinentBadges = cachedContinentBadges,
+        cachedChildMapBadges = cachedChildMapBadges,
+        zoneRollupCache = zoneRollupCache,
     }
 end
 
 -------------------------------------------------------------------------------
 -- Badge Count Computation
 -------------------------------------------------------------------------------
+
+-- Adds one countable vendor to zoneCounts[zoneMapID], creating the entry on
+-- first use. Shared by the continent zone badges and the child-map badges.
+local function AddVendorToZoneCounts(zoneCounts, zoneMapID, vendor, sourceFilter, isOpposite)
+    local entry = zoneCounts[zoneMapID]
+    if not entry then
+        local mapInfo = C_Map.GetMapInfo(zoneMapID)
+        entry = {
+            zoneName = mapInfo and mapInfo.name or "Unknown",
+            vendorCount = 0,
+            uncollectedCount = 0,
+            unknownCount = 0,
+            oppositeFactionCount = 0,
+            dominantFaction = nil,  -- Will be set to "Alliance", "Horde", or nil (mixed/neutral)
+            collectedItems = 0,
+            totalItems = 0,
+            lockedItems = 0,
+            unverifiedItems = 0,
+            unobtainableItems = 0,
+            excludedItems = 0,
+        }
+        zoneCounts[zoneMapID] = entry
+    end
+
+    -- Direct stats lookup is intentional in this hot path.
+    -- Vendor validity is already gated by the caller.
+    local stats = GetVendorStats(vendor, sourceFilter)
+
+    -- Gate vendor-context counters on the vendor actually
+    -- contributing at least one item that passes the filter. Prevents
+    -- "N vendors / 0 items" degenerate badges under non-vendor filters.
+    -- For filter == "all" or "vendor" every accessible vendor contributes
+    -- >= 1 item, so this is a no-op vs. prior behavior.
+    if (stats.total or 0) > 0 then
+        entry.vendorCount = entry.vendorCount + 1
+
+        if isOpposite then
+            entry.oppositeFactionCount = entry.oppositeFactionCount + 1
+            -- Track the opposite faction for this zone
+            if vendor.faction then
+                entry.dominantFaction = vendor.faction
+            end
+        end
+
+        local hasUncollectedState = stats.hasUncollectedState
+        if hasUncollectedState == true then
+            entry.uncollectedCount = entry.uncollectedCount + 1
+        elseif hasUncollectedState == "unknown" then
+            entry.unknownCount = entry.unknownCount + 1
+        end
+        -- false means all collected, don't increment uncollected/unknown.
+
+        entry.collectedItems = entry.collectedItems + (stats.collected or 0)
+        entry.totalItems = entry.totalItems + (stats.total or 0)
+        entry.lockedItems = entry.lockedItems + (stats.locked or 0)
+        entry.unverifiedItems = entry.unverifiedItems + (stats.unverified or 0)
+        entry.unobtainableItems = entry.unobtainableItems + (stats.unobtainable or 0)
+        -- Tracked alongside the other exclusions,
+        -- deliberately outside collectedItems/totalItems —
+        -- a zone badge that summed these into its fraction
+        -- would re-introduce the defect one level up.
+        entry.excludedItems = entry.excludedItems + (stats.excluded or 0)
+    end
+end
 
 function BadgeCalculation:GetZoneVendorCounts(continentMapID, sourceFilter)
     sourceFilter = NormalizeSourceFilter(sourceFilter)
@@ -673,20 +800,12 @@ function BadgeCalculation:GetZoneVendorCounts(continentMapID, sourceFilter)
     for _, vendor in ipairs(allVendors) do
         if ShouldIncludeVendorInBadgeCounts(vendor)
                 and not VF.ShouldHideVendor(vendor) then
-            -- Get best coordinates (scanned preferred over static)
-            local coords, zoneMapID = VF.GetBestVendorCoordinates(vendor)
-
-            -- Badge zone override: count vendor under its accessible map (e.g. Dalaran portal)
-            -- rather than its inaccessible instance zone. Decoupled from vendor.portal so this
-            -- works independently if the portal pin feature is absent or reverted.
-            if vendor.badgeMapID then
-                zoneMapID = vendor.badgeMapID
-            end
+            -- Scanned coordinates preferred over static; badgeMapID and the
+            -- sub-zone roll-up are applied inside GetVendorBadgeZone.
+            local coords, zoneMapID = BadgeCalculation.GetVendorBadgeZone(vendor)
 
             -- Only count vendors with valid coordinates
             if coords and zoneMapID then
-                -- Merge vertically-stacked sibling zones into one summary row.
-                zoneMapID = BadgeCalculation.GetCanonicalZoneMapID(zoneMapID)
                 local continent = BadgeCalculation.GetContinentForZone(zoneMapID)
 
                 if continent == continentMapID then
@@ -695,63 +814,7 @@ function BadgeCalculation:GetZoneVendorCounts(continentMapID, sourceFilter)
 
                     -- Include vendor if accessible OR if opposite faction and setting enabled
                     if canAccess or (isOpposite and showOpposite) then
-                        if not zoneCounts[zoneMapID] then
-                            local mapInfo = C_Map.GetMapInfo(zoneMapID)
-                            zoneCounts[zoneMapID] = {
-                                zoneName = mapInfo and mapInfo.name or "Unknown",
-                                vendorCount = 0,
-                                uncollectedCount = 0,
-                                unknownCount = 0,
-                                oppositeFactionCount = 0,
-                                dominantFaction = nil,  -- Will be set to "Alliance", "Horde", or nil (mixed/neutral)
-                                collectedItems = 0,
-                                totalItems = 0,
-                                lockedItems = 0,
-                                unverifiedItems = 0,
-                                unobtainableItems = 0,
-                                excludedItems = 0,
-                            }
-                        end
-
-                        -- Direct stats lookup is intentional in this hot path.
-                        -- Vendor validity is already gated above in this loop.
-                        local stats = GetVendorStats(vendor, sourceFilter)
-
-                        -- HS-018: gate vendor-context counters on the vendor actually
-                        -- contributing at least one item that passes the filter. Prevents
-                        -- "N vendors / 0 items" degenerate badges under non-vendor filters.
-                        -- For filter == "all" or "vendor" every accessible vendor contributes
-                        -- >= 1 item, so this is a no-op vs. prior behavior.
-                        if (stats.total or 0) > 0 then
-                            zoneCounts[zoneMapID].vendorCount = zoneCounts[zoneMapID].vendorCount + 1
-
-                            if isOpposite then
-                                zoneCounts[zoneMapID].oppositeFactionCount = zoneCounts[zoneMapID].oppositeFactionCount + 1
-                                -- Track the opposite faction for this zone
-                                if vendor.faction then
-                                    zoneCounts[zoneMapID].dominantFaction = vendor.faction
-                                end
-                            end
-
-                            local hasUncollectedState = stats.hasUncollectedState
-                            if hasUncollectedState == true then
-                                zoneCounts[zoneMapID].uncollectedCount = zoneCounts[zoneMapID].uncollectedCount + 1
-                            elseif hasUncollectedState == "unknown" then
-                                zoneCounts[zoneMapID].unknownCount = zoneCounts[zoneMapID].unknownCount + 1
-                            end
-                            -- false means all collected, don't increment uncollected/unknown.
-
-                            zoneCounts[zoneMapID].collectedItems = zoneCounts[zoneMapID].collectedItems + (stats.collected or 0)
-                            zoneCounts[zoneMapID].totalItems = zoneCounts[zoneMapID].totalItems + (stats.total or 0)
-                            zoneCounts[zoneMapID].lockedItems = zoneCounts[zoneMapID].lockedItems + (stats.locked or 0)
-                            zoneCounts[zoneMapID].unverifiedItems = zoneCounts[zoneMapID].unverifiedItems + (stats.unverified or 0)
-                            zoneCounts[zoneMapID].unobtainableItems = zoneCounts[zoneMapID].unobtainableItems + (stats.unobtainable or 0)
-                            -- HS-249: tracked alongside the other exclusions,
-                            -- deliberately outside collectedItems/totalItems —
-                            -- a zone badge that summed these into its fraction
-                            -- would re-introduce the defect one level up.
-                            zoneCounts[zoneMapID].excludedItems = zoneCounts[zoneMapID].excludedItems + (stats.excluded or 0)
-                        end
+                        AddVendorToZoneCounts(zoneCounts, zoneMapID, vendor, sourceFilter, isOpposite)
                     end
                 end
             end
@@ -760,6 +823,105 @@ function BadgeCalculation:GetZoneVendorCounts(continentMapID, sourceFilter)
 
     cachedZoneBadges[cacheKey] = zoneCounts
     return zoneCounts
+end
+
+-- Direct child of viewMapID on mapID's parent chain (mapID itself when it is a
+-- direct child), merged with its vertical sibling when that sibling is also a
+-- direct child. Nil when the chain does not pass through viewMapID within
+-- ZONE_ROLLUP_MAX_DEPTH.
+local function GetDirectChildOf(viewMapID, mapID)
+    local current = mapID
+    for _ = 1, ZONE_ROLLUP_MAX_DEPTH do
+        local parent = MPP:GetParentMapID(current)
+        if not parent then return nil end
+        if parent == viewMapID then
+            local canonical = BadgeCalculation.GetCanonicalZoneMapID(current)
+            if canonical ~= current and MPP:GetParentMapID(canonical) == viewMapID then
+                return canonical
+            end
+            return current
+        end
+        current = parent
+    end
+    return nil
+end
+
+-- Counts, per child map of viewMapID, the countable vendors a zone view does
+-- not draw as pins: those on a map outside the pin set (the viewed map plus its
+-- more-specific children), grouped under the direct child of the viewed map
+-- that leads to them. Same inclusion rules and entry shape as
+-- GetZoneVendorCounts. Cached per view; wiped with the other badge caches.
+function BadgeCalculation:GetChildMapVendorCounts(viewMapID, sourceFilter)
+    sourceFilter = NormalizeSourceFilter(sourceFilter)
+    local cacheKey = tostring(viewMapID) .. "|" .. sourceFilter .. "|" .. GetAvailabilityDateStamp()
+    local cached = cachedChildMapBadges[cacheKey]
+    if cached then return cached end
+
+    local childCounts = {}
+    if not HA.VendorData then return childCounts end
+
+    -- Only a zone map has child maps to badge; any other view type gets none,
+    -- which also keeps a cosmic view from walking every vendor.
+    local viewInfo = C_Map.GetMapInfo(viewMapID)
+    if not (viewInfo and viewInfo.mapType == Enum.UIMapType.Zone) then return childCounts end
+
+    local pinned = { [viewMapID] = true }
+    for _, childMapID in ipairs(MPP:GetMoreSpecificChildMapIDs(viewMapID)) do
+        pinned[childMapID] = true
+    end
+
+    local showOpposite = VF.ShouldShowOppositeFaction()
+
+    for _, vendor in ipairs(HA.VendorData:GetAllVendors()) do
+        if ShouldIncludeVendorInBadgeCounts(vendor)
+                and not VF.ShouldHideVendor(vendor) then
+            local coords, mapID = VF.GetBestVendorCoordinates(vendor)
+            -- The pin collector draws a vendor whose coordinate map or static
+            -- map is in the pin set.
+            if coords and mapID and not pinned[mapID] and not pinned[vendor.mapID] then
+                local childMapID = GetDirectChildOf(viewMapID, vendor.badgeMapID or mapID)
+                if childMapID then
+                    local canAccess = VF.CanAccessVendor(vendor)
+                    local isOpposite = VF.IsOppositeFaction(vendor)
+                    if canAccess or (isOpposite and showOpposite) then
+                        AddVendorToZoneCounts(childCounts, childMapID, vendor, sourceFilter, isOpposite)
+                    end
+                end
+            end
+        end
+    end
+
+    cachedChildMapBadges[cacheKey] = childCounts
+    return childCounts
+end
+
+-- Adds the source continent's totals to the destination's and removes the
+-- source key, so the world map carries one badge for both.
+local function RollContinentCountsInto(continentCounts, srcID, destID)
+    local src = continentCounts[srcID]
+    if not src then return end
+    if not continentCounts[destID] then
+        local mapInfo = C_Map.GetMapInfo(destID)
+        continentCounts[destID] = {
+            continentName = mapInfo and mapInfo.name or "Unknown",
+            vendorCount = 0, uncollectedCount = 0, unknownCount = 0,
+            oppositeFactionCount = 0, collectedItems = 0, totalItems = 0,
+            lockedItems = 0, unverifiedItems = 0, unobtainableItems = 0,
+            excludedItems = 0,
+        }
+    end
+    local dest = continentCounts[destID]
+    dest.vendorCount          = dest.vendorCount          + src.vendorCount
+    dest.uncollectedCount     = dest.uncollectedCount     + src.uncollectedCount
+    dest.unknownCount         = dest.unknownCount         + src.unknownCount
+    dest.oppositeFactionCount = dest.oppositeFactionCount + src.oppositeFactionCount
+    dest.collectedItems       = dest.collectedItems       + src.collectedItems
+    dest.totalItems           = dest.totalItems           + src.totalItems
+    dest.lockedItems          = dest.lockedItems          + src.lockedItems
+    dest.unverifiedItems      = dest.unverifiedItems      + src.unverifiedItems
+    dest.unobtainableItems    = dest.unobtainableItems    + (src.unobtainableItems or 0)
+    dest.excludedItems        = dest.excludedItems        + (src.excludedItems or 0)
+    continentCounts[srcID] = nil
 end
 
 function BadgeCalculation:GetContinentVendorCounts(sourceFilter)
@@ -810,7 +972,7 @@ function BadgeCalculation:GetContinentVendorCounts(sourceFilter)
                         -- Vendor validity is already gated above in this loop.
                         local stats = GetVendorStats(vendor, sourceFilter)
 
-                        -- HS-018: gate vendor-context counters on filter contribution
+                        -- Gate vendor-context counters on filter contribution
                         -- (see GetZoneVendorCounts for rationale; same behavior at
                         -- continent scope).
                         if (stats.total or 0) > 0 then
@@ -841,37 +1003,60 @@ function BadgeCalculation:GetContinentVendorCounts(sourceFilter)
         end
     end
 
-    -- Roll child continent counts into their parent (e.g. Argus → Broken Isles)
+    -- Roll child continent counts into their parent: Argus into Broken Isles,
+    -- Quel'Thalas into Eastern Kingdoms.
     for srcID, destID in pairs(BadgeCalculation.continentMergesInto) do
-        local src = continentCounts[srcID]
-        if src then
-            if not continentCounts[destID] then
-                local mapInfo = C_Map.GetMapInfo(destID)
-                continentCounts[destID] = {
-                    continentName = mapInfo and mapInfo.name or "Unknown",
-                    vendorCount = 0, uncollectedCount = 0, unknownCount = 0,
-                    oppositeFactionCount = 0, collectedItems = 0, totalItems = 0,
-                    lockedItems = 0, unverifiedItems = 0, unobtainableItems = 0,
-                    excludedItems = 0,
-                }
-            end
-            local dest = continentCounts[destID]
-            dest.vendorCount          = dest.vendorCount          + src.vendorCount
-            dest.uncollectedCount     = dest.uncollectedCount     + src.uncollectedCount
-            dest.unknownCount         = dest.unknownCount         + src.unknownCount
-            dest.oppositeFactionCount = dest.oppositeFactionCount + src.oppositeFactionCount
-            dest.collectedItems       = dest.collectedItems       + src.collectedItems
-            dest.totalItems           = dest.totalItems           + src.totalItems
-            dest.lockedItems          = dest.lockedItems          + src.lockedItems
-            dest.unverifiedItems      = dest.unverifiedItems      + src.unverifiedItems
-            dest.unobtainableItems    = dest.unobtainableItems    + (src.unobtainableItems or 0)
-            dest.excludedItems        = dest.excludedItems        + (src.excludedItems or 0)
-            continentCounts[srcID] = nil
-        end
+        RollContinentCountsInto(continentCounts, srcID, destID)
+    end
+    for srcID, destID in pairs(BadgeCalculation.continentZoneBadgesOnParent) do
+        RollContinentCountsInto(continentCounts, srcID, destID)
     end
 
     cachedContinentBadges[cacheKey] = continentCounts
     return continentCounts
+end
+
+local ZONE_LIST_SUM_FIELDS = {
+    "vendorCount", "uncollectedCount", "unknownCount", "oppositeFactionCount",
+    "collectedItems", "totalItems", "lockedItems", "unverifiedItems",
+    "unobtainableItems", "excludedItems",
+}
+
+-- One zone-list entry for a whole continent: the sum of its zone entries, in
+-- the same shape, so it totals what that continent's own panel shows.
+local function SumContinentZoneCounts(continentMapID, zoneCounts)
+    local mapInfo = C_Map.GetMapInfo(continentMapID)
+    local entry = { zoneName = mapInfo and mapInfo.name or "Unknown", isContinent = true }
+    for _, field in ipairs(ZONE_LIST_SUM_FIELDS) do
+        entry[field] = 0
+    end
+    for _, zoneData in pairs(zoneCounts) do
+        for _, field in ipairs(ZONE_LIST_SUM_FIELDS) do
+            entry[field] = entry[field] + (zoneData[field] or 0)
+        end
+    end
+    return entry
+end
+
+-- Side-panel list for a continent: its own zones plus one entry, keyed by the
+-- continent's map ID, for each continent whose zone badges roll onto it
+-- (Quel'Thalas under Eastern Kingdoms). A rolled-in continent with no vendors
+-- under the filter has no entry. Argus (continentMergesInto) is deliberately
+-- not listed: its map has not been confirmed to open as a continent view.
+function BadgeCalculation:GetContinentZoneListCounts(continentMapID, sourceFilter)
+    local list = {}
+    for zoneMapID, zoneData in pairs(self:GetZoneVendorCounts(continentMapID, sourceFilter)) do
+        list[zoneMapID] = zoneData
+    end
+    for srcID, destID in pairs(self.continentZoneBadgesOnParent) do
+        if destID == continentMapID then
+            local entry = SumContinentZoneCounts(srcID, self:GetZoneVendorCounts(srcID, sourceFilter))
+            if entry.vendorCount > 0 then
+                list[srcID] = entry
+            end
+        end
+    end
+    return list
 end
 
 -------------------------------------------------------------------------------
@@ -895,7 +1080,7 @@ function BadgeCalculation:GetZoneCenterOnMap(zoneMapID, parentMapID)
 end
 
 -------------------------------------------------------------------------------
--- HS-234: Background Vendor-Stats Pre-Warm
+-- Background Vendor-Stats Pre-Warm
 --
 -- GetContinentVendorCounts/GetZoneVendorCounts (below) each iterate the FULL
 -- vendor DB (~220 vendors) through GetVendorStats. That accessor is cached
@@ -917,39 +1102,39 @@ end
 -- uses — zone-level browsing (the hot normal-play path) is untouched, it
 -- doesn't go anywhere near this code.
 --
--- HS-216 lesson applies here, and matters MORE than it did for CatalogScanner:
+-- The cold-data lesson from the catalog scanner applies here, and matters MORE:
 -- warming with cold ownership/requirement data wouldn't just waste API calls
 -- like a cold scan does, it would CACHE wrong (understated) collected/locked
 -- counts that then persist until the next invalidation. But that lesson is
 -- about the SCANNER's own live C_HousingCatalog reads going out cold — badge
--- computation itself is cache-only (HS-200/HS-203: GetItemPresentation's
+-- computation itself is cache-only (GetItemPresentation's
 -- badge context sets cacheOnlyOwnership/skipBestSourceProbe, zero live calls).
--- So this gates on HA.CatalogStore:HasPersistedData() (HS-273 R3) instead of
+-- So this gates on HA.CatalogStore:HasPersistedData() instead of
 -- HA.CatalogScanner:IsWarm() — HasPersistedData is true as soon as the
 -- persistent ownership cache is bound AND non-empty, which is all a
 -- cache-only computation needs; IsWarm additionally promises a live scan
 -- happened THIS session, which this pass was blocking on for no reason a
--- cold player could ever satisfy (HS-271 regression: never warm behind an
+-- cold player could ever satisfy (never warm behind an
 -- unlatchable gate). A fresh install (bound but empty) still fails this
 -- gate on purpose — honest "..." beats a confident wrong 0/N.
 -------------------------------------------------------------------------------
 
--- HS-271 item 3c: time-boxed, not count-boxed. A fixed vendor-per-batch
+-- Time-boxed, not count-boxed. A fixed vendor-per-batch
 -- count (the old WARMUP_VENDORS_PER_BATCH = 10) spiked to 228.91ms on its
--- own (HS-270 capture E) because some vendors cost far more than others
+-- own because some vendors cost far more than others
 -- (per-item GetItemPresentation loops of very different sizes) -- a FIXED
 -- COUNT has no relationship to how long that count actually takes. Checked
 -- via GetTimePreciseSec() (never debugprofilestop -- absent from this repo)
 -- inside the batch loop below.
 local WARMUP_BATCH_TIME_MS = 4
 local WARMUP_BATCH_DELAY = 0.02
--- HS-238: while the player is in combat, batches don't run — they reschedule
+-- While the player is in combat, batches don't run — they reschedule
 -- at this interval until combat drops. Cheap poll (one timer + one C call
 -- per second) versus cold requirement evaluation landing on combat frames.
 local WARMUP_COMBAT_RETRY_DELAY = 1.0
 
 local warmupInProgress = false
--- HS-234 (CRITICAL fix): a wipe arriving mid-pass must not be
+-- A wipe arriving mid-pass must not be
 -- silently dropped by the reentrancy guard — that left vendors already
 -- wiped-but-not-yet-reprocessed permanently missing from vendorStatsCache
 -- until the NEXT invalidation, so a future World/Continent open paid
@@ -965,14 +1150,14 @@ local warmupPendingRerun = false
 -- (BadgeCalculation:InvalidateAllCaches, defined further up the file, calls
 -- it) — assigned below, after StartPrewarmPass exists for it to reference.
 
--- HS-271 item 3a: partitions the vendor list current-zone-first /
+-- Partitions the vendor list current-zone-first /
 -- current-continent-next / everything else last, so the pass warms whatever
 -- the player can actually open first. One VF.GetBestVendorCoordinates +
 -- GetContinentForZone per vendor -- the same per-vendor cost
 -- GetZoneVendorCounts/GetContinentVendorCounts already pay, just run once
 -- here to establish order instead of the arbitrary VendorData table order.
 -- Called from inside the first ProcessBatch tick only (see below) — never
--- from StartPrewarmPass's own caller frame (orchestrator review flag 2).
+-- from StartPrewarmPass's own caller frame.
 local function BuildZoneFirstVendorOrder(allVendors)
     local playerMapID = C_Map.GetBestMapForUnit("player")
     local playerContinent = playerMapID and BadgeCalculation.GetContinentForZone(playerMapID)
@@ -1016,27 +1201,27 @@ local function StartPrewarmPass()
     -- out from under it, and it restarts rather than catching up.
     local passGeneration = vendorStatsCacheGeneration
     local currentIndex = 1
-    -- Built lazily on the FIRST batch tick below (orchestrator review flag 2).
+    -- Built lazily on the FIRST batch tick below.
     local orderedVendors = nil
 
-    -- HS-278: resumable per-vendor item slice state, so a single vendor's
+    -- Resumable per-vendor item slice state, so a single vendor's
     -- item list can be interrupted mid-vendor by the same time-box that
     -- already interrupts the loop between vendors. All nil when not
     -- currently mid-vendor.
     local itemCursor, itemAccum, itemOrderedIDs = nil, nil, nil
     local itemVendorNpcID, itemVendorKey, itemGeneration = nil, nil, nil
 
-    -- HS-271 item 3b: after the vendor-stats loop below finishes, the SAME
-    -- pass (never ahead of it — HS-216/HS-234) warms the badge-aggregate
+    -- After the vendor-stats loop below finishes, the SAME
+    -- pass (never ahead of it) warms the badge-aggregate
     -- caches the vendor loop never touches. GetZoneVendorCounts/
-    -- GetContinentVendorCounts are what the zoom-sweep capture (HS-270
-    -- capture C) found cold at up to 188.64ms.
+    -- GetContinentVendorCounts are what the zoom-sweep capture
+    -- found cold at up to 188.64ms.
     local continentList = nil
     local continentIndex = 1
     local continentTotalsWarmed = false
 
     local function ProcessBatch()
-        -- HS-238: never run a warm-up batch during combat — whatever event
+        -- Never run a warm-up batch during combat — whatever event
         -- triggered this pass (a verified reputation flip, a decor drop
         -- firing OWNERSHIP_UPDATED, a scan), cold requirement evaluation
         -- must not land on combat frames. Reschedule until combat drops;
@@ -1047,7 +1232,7 @@ local function StartPrewarmPass()
         end
 
         if currentIndex <= totalVendors then
-            -- HS-239: batchStartIndex (not a vendor count) is the Measure
+            -- The batch start index (not a vendor count) is the Measure
             -- workload — under time-boxing, how many vendors this tick will
             -- process isn't knowable before the loop runs (that's the whole
             -- point of time-boxing over count-boxing), but the starting
@@ -1070,7 +1255,7 @@ local function StartPrewarmPass()
             -- never comes).
             local ok = HA.PerformanceTrace:Measure("badge_prewarm", batchStartIndex, pcall, function()
                 if not orderedVendors then
-                    -- HS-271: moved inside this Measure/pcall
+                    -- Moved inside this Measure/pcall
                     -- boundary (previously unmeasured and unguarded) so a
                     -- slow or erroring partition shows up in the SAME
                     -- badge_prewarm record class and degrades the pass the
@@ -1088,7 +1273,7 @@ local function StartPrewarmPass()
                     orderedVendors = BuildZoneFirstVendorOrder(allVendors)
                 end
 
-                -- HS-278: "all" — GetVendorStats'/BuildVendorStats' internal
+                -- "all" — GetVendorStats'/BuildVendorStats' internal
                 -- per-item presentation loop runs unconditionally regardless
                 -- of sourceFilter (filtering only affects downstream
                 -- aggregation, not which items get a presentation lookup) —
@@ -1164,7 +1349,7 @@ local function StartPrewarmPass()
                 warmupPendingRerun = false
                 return
             end
-            -- HS-271 item 2: batch-level fire (not per-vendor, not once per
+            -- Batch-level fire (not per-vendor, not once per
             -- whole pass) — PinFrameFactory's listener walks currently
             -- rendered vendor pins and re-runs RefreshVendorPinCount on
             -- whichever are still flagged hsStatsPending.
@@ -1195,7 +1380,7 @@ local function StartPrewarmPass()
             return
         end
 
-        -- Vendor-stats loop is done. Orchestrator review flag 1: each
+        -- Vendor-stats loop is done. Each
         -- aggregate call below is an ATOMIC batch unit — the time-box is
         -- BETWEEN calls (one call per tick), never inside one.
 
@@ -1267,7 +1452,7 @@ local function StartPrewarmPass()
             warmupPendingRerun = false
             StartPrewarmPass()
         else
-            -- HS-282: a clean, nothing-pending pass end is the one reliable
+            -- A clean, nothing-pending pass end is the one reliable
             -- point where every vendor's source/vendor-item lookups have run
             -- -- flush the two eviction-capped memos here so a session that
             -- never organically hits the 512/64 caps still gets relief.
@@ -1280,7 +1465,7 @@ local function StartPrewarmPass()
         end
     end
 
-    -- HS-234 (CRITICAL fix): batch 1 must not run synchronously in
+    -- Batch 1 must not run synchronously in
     -- the caller's frame either (it was — ~45ms of cold requirement evals
     -- injected directly into the SOURCE_CACHES_INVALIDATED dispatch frame
     -- and the login ticker's tick). Defer it exactly like batches 2+ so
@@ -1298,7 +1483,7 @@ local function TryStartPrewarmPass()
     StartPrewarmPass()
 end
 
--- HS-234 (CRITICAL fix): trigger-level cancel-and-restart debounce,
+-- Trigger-level cancel-and-restart debounce,
 -- same discipline as HomesteadWorldMapProvider's RequestSettledRefresh —
 -- a burst of calls (rapid rep ticks each invalidating, multiple wipe paths
 -- firing close together) now schedules exactly ONE prewarm attempt after
@@ -1316,7 +1501,7 @@ RequestVendorStatsPrewarm = function(_reason)
     end)
 end
 
--- HS-271: public self-heal entry point for the deferred-fill
+-- Public self-heal entry point for the deferred-fill
 -- path (PinFrameFactory:RefreshVendorPinCount, on a double cache miss) —
 -- thin wrapper over the same debounced trigger every other caller already
 -- uses, nothing else. Safe to call from a render-path double miss because
@@ -1325,7 +1510,7 @@ function BadgeCalculation:RequestPrewarm(reason)
     RequestVendorStatsPrewarm(reason)
 end
 
--- Login trigger: poll HA.CatalogStore:HasPersistedData() (HS-273 R3 — a
+-- Login trigger: poll HA.CatalogStore:HasPersistedData() (a
 -- cheap boolean read, not a new event registration) once a second until it
 -- flips true, request the pre-warm pass (through the same debounced entry
 -- point as every other trigger), then cancel — self-terminating, no leaked
@@ -1354,13 +1539,13 @@ if HA.Events then
         BadgeCalculation:InvalidateAllCaches()
     end)
 
-    -- HS-273 R7: listens for CatalogScanner's two true-warm one-shots
+    -- Listens for CatalogScanner's two true-warm one-shots
     -- (no existing chain reliably re-fires on that exact
     -- edge). This FILLS the gap on the cold->warm transition specifically;
     -- it does not replace SOURCE_CACHES_INVALIDATED above as the source of
     -- ongoing freshness — later ownership changes still flow through that
     -- chain's own OWNERSHIP_UPDATED-driven invalidation, same as before
-    -- HS-273. Runs the same debounced trigger every other caller uses.
+    -- this latch existed. Runs the same debounced trigger every other caller uses.
     HA.Events:RegisterCallback("HS_CATALOG_TRUE_WARM", function()
         RequestVendorStatsPrewarm("true_warm_latch")
     end)

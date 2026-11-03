@@ -21,7 +21,7 @@ local isRegistered = false
 local waitFrame = nil
 local registeredCorner = nil
 
--- HS-204(c/d): SetHomestoneState only reads opts.* synchronously within the
+-- SetHomestoneState only reads opts.* synchronously within the
 -- call (it copies values into its own per-parent-frame table and never
 -- retains this table), so one reused scratch table is safe across the many
 -- UpdateWidget calls per bag refresh instead of a fresh table per item.
@@ -125,7 +125,7 @@ local function RefreshWidgets()
         return
     end
 
-    -- HS-239: one of the two external_bag_refresh call sites (BetterBags.lua
+    -- One of the two external_bag_refresh call sites (BetterBags.lua
     -- is the other). Workload is "baganator", the same literal already used
     -- as this refresher's RegisterExternalRefresher key.
     HA.PerformanceTrace:Measure("external_bag_refresh", "baganator", RequestBaganatorRefresh)

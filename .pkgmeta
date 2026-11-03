@@ -9,7 +9,7 @@ manual-changelog:
 # never stripped or interpreted, so "!README.md" only matches a file
 # literally named that). Do not reach for a "*.md" + "!exceptions" idiom here
 # — it silently strips every .md file, README and CHANGELOG included, with
-# no CI signal (STU-134 finding; every release zip has shipped without them).
+# no CI signal (every release zip has shipped without them).
 # This list is deny-by-default for everything else, but for markdown
 # specifically it is effectively allow-by-default: only the files below are
 # named, so a new root .md file (a CONTRIBUTING.md, a NOTES.md) ships to
@@ -21,6 +21,7 @@ ignore:
   - .git
   - .gitignore
   - .pkgmeta
+  - Libs/Foundry-1.0/PIN
   - .claude
   - .github
   - .luacheckrc
@@ -35,31 +36,36 @@ ignore:
   - Libs/WagoAnalytics/README.md
   - RELEASE_NOTES.html
   - HousingAddon.toc
-  # STU-073 dev-build files (generated, gitignored; listed here as belt-and-braces —
-  # the STU-064 TOC-vs-zip check expects exactly one TOC in the packaged zip)
+  # Dev-build files (generated, gitignored; listed here as belt-and-braces —
+  # the TOC-vs-zip check expects exactly one TOC in the packaged zip)
   - Homestead_DevBuild.toc
   - DevBuildGuard.lua
-  # HS-282: dev-only memory diagnostics -- tracked in git (so the DevBuild can
+  # Dev-only memory diagnostics -- tracked in git (so the DevBuild can
   # load them) but never listed in Homestead.toc; ignored here too so players
   # never download the dead weight.
   - Core/MemoryEstimator.lua
   - Core/DevMemoryDiagnostics.lua
-  # HS-351/HS-284: the test suite (plain Lua harnesses invoked outside the
-  # TOC, never loaded in-game) was shipping to every player who downloaded a
-  # release zip -- no ignore entry existed for it at all.
+  # More dev-only files, same treatment (debug/validation commands and
+  # the parser self-test suite register their own slash commands in the
+  # DevBuild; none is in Homestead.toc).
+  - Core/DevGeographyDiagnostics.lua
+  - Data/SourceTextParserTests.lua
+  - Modules/Validation.lua
+  - Modules/ExportImport.lua
+  # Guard: no tests folder belongs in a player package, so keep one out of
+  # the zip if it ever reappears.
   - tests
-  # HS-374 / HS-385: the vendor seed (194 KB) is in neither TOC and has not
-  # loaded in-game since the cutover, but used to ship in every release zip.
-  # As of HS-385 it no longer lives in the addon at all -- it moved to
-  # Home_Dev/VendorDatabase.lua (ignored above), where the vendor generators
-  # and the promotion pipeline read it at build time. The entry stays so a
-  # copy dropped back into Data/ is stripped from the zip and can never ship.
+  # The vendor seed (194 KB) is in neither TOC and has not loaded in-game
+  # since the cutover, but used to ship in every release zip. It no longer
+  # lives in the addon at all; it is kept outside the repo (ignored above) and
+  # read only at build time. The entry stays so a copy dropped back into Data/
+  # is stripped from the zip and can never ship.
   - Data/VendorDatabase.lua
 
 # CF-only upload metadata: the packager sends this as a CurseForge relation
 # when a CF project id is active. Wago's upload API has no dependency field,
 # so the Wago packager steps (-p 0) simply never use it — one recipe serves
-# both platforms. (Foundry itself is vendored at Libs/Foundry-1.0/ per HS-120;
+# both platforms. (Foundry itself is vendored at Libs/Foundry-1.0/;
 # the relation is a CF-page listing, not a packaging instruction.)
 required-dependencies:
   - foundry

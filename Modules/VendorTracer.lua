@@ -24,7 +24,7 @@ local isInitialized = false
 -- TomTom Availability
 -------------------------------------------------------------------------------
 
--- HS-218: the rest of this module's own TomTom/native waypoint
+-- the rest of this module's own TomTom/native waypoint
 -- implementation (SetTomTomWaypoint/ClearTomTomWaypoint/SetNativeWaypoint/
 -- ClearNativeWaypoint + the currentWaypoint/tomtomUID locals) was dead code
 -- — SetWaypoint below always delegates to HA.Waypoints when it's available,
@@ -107,7 +107,7 @@ end
 
 -- Set a waypoint to a location. Delegates to the Waypoints utility, which is
 -- always loaded (Utils/waypoints.lua is unconditionally part of the TOC) and
--- respects the user's TomTom/native preferences itself. HS-218: data.npcID
+-- respects the user's TomTom/native preferences itself. data.npcID
 -- is threaded through so OnMerchantShow's arrival-check below can confirm
 -- the waypoint we're clearing on arrival is actually the one for THIS
 -- vendor, not just "a" waypoint.
@@ -194,15 +194,14 @@ function VendorTracer:GetMissingItemVendors()
         for _, item in ipairs(vendorItems) do
             local itemID = HA.VendorData:GetItemID(item)
             if itemID then
-                -- HS-249/HS-451: this derives its own ownership rather than
-                -- reading BadgeCalculation, so it needs its own exclusion
-                -- guard. Decor resolves by itemID, and a mapped Room plan
-                -- resolves through the curated RoomMapping; every other
-                -- non-Decor housing subclass (Dye, RoomCustomization,
-                -- ExteriorCustomization, ServiceItem, unmapped Room plans)
-                -- still resolves to no catalog entry, so IsOwnedFresh
-                -- answers a hard false for them and would be reported as
-                -- missing. Leave those out.
+                -- This derives its own ownership rather than reading
+                -- BadgeCalculation, so it needs its own exclusion guard. Decor
+                -- resolves by itemID, and a mapped Room plan resolves through
+                -- the curated RoomMapping; every other non-Decor housing
+                -- subclass (Dye, RoomCustomization, ExteriorCustomization,
+                -- ServiceItem, unmapped Room plans) still resolves to no
+                -- catalog entry, so IsOwnedFresh answers a hard false for them
+                -- and they would be reported as missing. Leave those out.
                 local ownershipExcluded = CS and CS.IsOwnershipUnknowable
                     and CS:IsOwnershipUnknowable(itemID)
 
@@ -244,7 +243,7 @@ function VendorTracer:OnDecorItemClick(itemID, button)
         return false
     end
 
-    -- Check if modifier key is held (for navigation). HS-218: this read a
+    -- Check if modifier key is held (for navigation). This read a
     -- top-level profile.navigateModifier key nothing ever writes — the
     -- actual setting lives at profile.vendorTracer.navigateModifier
     -- (Core/constants.lua default, UI/OptionsModel.lua's get/set) — so a
@@ -347,7 +346,7 @@ function VendorTracer:OnMerchantShow()
         return
     end
 
-    -- HS-218: currentWaypoint (this module's own local) was only ever
+    -- currentWaypoint (this module's own local) was only ever
     -- populated by the dead SetNativeWaypoint fallback removed above — this
     -- check never actually fired in production. Consult the Waypoints
     -- utility's real current waypoint instead, matched by npcID (threaded

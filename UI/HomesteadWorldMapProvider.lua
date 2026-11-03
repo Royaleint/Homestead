@@ -2,12 +2,12 @@
     Homestead - World Map Provider
     Self-managed world-map renderer using plain canvas-child frames.
 
-    HS-275: registers a PIN-LESS data provider (WorldMapFrame:AddDataProvider)
+    Registers a PIN-LESS data provider (WorldMapFrame:AddDataProvider)
     purely to receive Blizzard's map-state notifications (OnShow/OnHide/
     OnMapChanged/OnCanvasSizeChanged/OnCanvasScaleChanged). Still does NOT use
     MapCanvasPinMixin or enter Blizzard's managed pin lifecycle or pin-frame
     pooling — that lifecycle calls protected SetPassThroughButtons in combat
-    and is the taint vector HS-081 hit. Vendor/badge/portal/source pins keep
+    and is the taint vector that earlier pin code hit. Vendor/badge/portal/source pins keep
     the existing plain-frame path (MPP.PlaceNativePin) untouched.
 ]]
 
@@ -35,17 +35,17 @@ local activeVendorFrames = {}
 local refreshPending = false
 local renderedState = nil
 local renderedMapID = nil
--- HS-234: settle-debounce timer for map-transition-triggered refreshes
+-- Settle-debounce timer for map-transition-triggered refreshes
 -- (watcher_map_changed, watcher_zoom) — see RequestSettledRefresh below.
 -- Separate from refreshPending above, which stays the same-frame coalesce
 -- for watcher_opened (a single deliberate action, not a spam vector).
 local settleTimer = nil
--- HS-223a: external consumers (currently MapSidePanel) of the shared map
+-- External consumers (currently MapSidePanel) of the shared map
 -- watch dispatch below, keyed by caller-chosen string so multiple registrants
 -- can't clobber each other. Each callback receives (isShown, mapID,
 -- maximized) on every dispatch -- the raw state MapSidePanel's own watch
 -- logic needs, read from this ONE dispatch instead of running an independent
--- watcher against the same WorldMapFrame state. HS-275: dispatch is now
+-- watcher against the same WorldMapFrame state. Dispatch is now
 -- driven by DispatchMapWatch() (on-change, push-driven) instead of a 0.1s
 -- poll -- see DispatchMapWatch below.
 local mapWatchCallbacks = {}
@@ -70,7 +70,7 @@ local watcherStats = {
     resized = 0,
     zoomChanged = 0,
     deferredRefreshes = 0,
-    -- HS-234 (SUGGESTION): settled refreshes get their own counter
+    -- Settled refreshes get their own counter
     -- rather than sharing deferredRefreshes, so live testing can read how many
     -- transition-triggered refreshes actually happened post-settle
     -- (distinct from watcher_opened's same-frame deferredRefreshes) when
@@ -100,7 +100,7 @@ local cachedPoiMapID = nil
 local vendorFramePool = {}
 local badgeFramePool = {}
 local portalFramePool = {}
--- HS-018: pool for non-vendor source pins (drop, future profession etc.)
+-- Pool for non-vendor source pins (drop, future profession etc.)
 local sourceFramePool = {}
 -- Frame level constant no longer needed — plain frames use direct SetFrameLevel
 
@@ -306,17 +306,17 @@ end
 -- bottom-right, at every zoom level.
 local EJ_DROP_PIN_OFFSET_PIXELS = 10
 
--- HS-348: shared predicate for "this entry is an EJ-anchored drop pin" —
+-- Shared predicate for "this entry is an EJ-anchored drop pin" —
 -- used to apply the fixed EJ_DROP_PIN_OFFSET_PIXELS offset
 -- (GetEjDropPinIconOffset below) and, in ApplyAreaPoiDodge, to skip the POI
--- dodge entirely for these entries (ruling 2026-08-18: the fixed offset
+-- dodge entirely for these entries (the fixed offset
 -- owns placement alone, see ApplyAreaPoiDodge).
 local function IsEjAnchoredDropPin(entry)
     return entry.sourceType == "drop"
         and (entry.dropGroupKind == "enc" or entry.dropGroupKind == "ent")
 end
 
--- Fail-soft hardening (HS-347/348 review, 2026-08-18): mirrors
+-- Fail-soft hardening (2026-08-18): mirrors
 -- VendorMapPins.lua's IsFiniteNumber (used by its own BuildEntrancePositions/
 -- BuildEncounterPositions) -- a NaN coordinate from any dodge candidate
 -- source would otherwise silently invert the `closestDist > collisionThreshold`
@@ -343,7 +343,7 @@ local function GetPoiPositionsForMap(mapID)
     -- Regular: C_AreaPoiInfo.GetAreaPOIForMap (quest hubs, portals, etc.)
     -- Events: C_AreaPoiInfo.GetEventsForMap (Saltheril's Soiree, Abundance, etc.)
     -- Both are data API calls — taint-safe. The list queries are
-    -- pcall-protected (per review) so a throwing list API degrades to zero
+    -- pcall-protected so a throwing list API degrades to zero
     -- candidates from that source instead of aborting the render pass; the
     -- per-item detail/guard calls below (GetAreaPOIInfo) are not wrapped.
     -- ok==false below means either the API is absent (C_AreaPoiInfo and
@@ -370,8 +370,8 @@ local function GetPoiPositionsForMap(mapID)
         end
     end
 
-    -- HS-347: extend the dodge candidate pool with the three POI classes
-    -- HS-319 found it blind to. Same availability-guard discipline as the
+    -- Extend the dodge candidate pool with the three POI classes
+    -- it was previously blind to. Same availability-guard discipline as the
     -- two queries above -- all three are taint-safe data API calls -- plus
     -- the same pcall-wrapping as those two.
     --
@@ -459,11 +459,19 @@ local function ApplyAreaPoiDodge(entry, x, y)
         return x, y
     end
 
-    -- HS-348 (ruling 2026-08-18): an EJ-anchored drop pin is placed by
+    -- An EJ-anchored drop pin is placed by
     -- the fixed EJ_DROP_PIN_OFFSET_PIXELS offset alone (GetEjDropPinIconOffset
     -- below) -- letting the POI dodge also fire stacked a random-direction
     -- nudge on top of that deliberate, tested-and-cleared offset.
     if IsEjAnchoredDropPin(entry) then
+        return x, y
+    end
+
+    -- An overlap-nudged vendor pin is placed by its pixel nudge
+    -- alone. The dodge picks a direction per vendor, so two nudged
+    -- neighbors would dodge apart or together and undo the spacing the
+    -- nudge just set.
+    if entry.nudgeX then
         return x, y
     end
 
@@ -563,11 +571,11 @@ local function GetEntryDisplayScale(kind, mapType)
     return 1
 end
 
--- HS-274: pins hold GetEntryDisplayScale's base size at min zoom and grow
+-- Pins hold GetEntryDisplayScale's base size at min zoom and grow
 -- toward PIN_ZOOM_GROWTH_MAX as the canvas zooms in, matching Blizzard's own
 -- pin growth feel (MapCanvasPinMixin:ApplyCurrentScale's Lerp shape) instead
 -- of a flat size. Both constants are a tunable design choice, not a
--- mechanism -- safe to retune without re-review.
+-- mechanism -- safe to retune without a deeper review.
 local PIN_ZOOM_GROWTH_MAX = 1.5
 local PIN_ZOOM_SCALE_FACTOR = 1.0
 
@@ -614,7 +622,7 @@ local function RequestDeferredRefresh(reason)
     end)
 end
 
--- HS-234: settle-debounce for map-transition refreshes. Each full refresh is
+-- Settle-debounce for map-transition refreshes. Each full refresh is
 -- a teardown+rebuild (Provider:RefreshAllData -> RemoveAllData then
 -- RenderEntries for every pin kind) — rapid right-click-through-levels
 -- (World -> Continent -> Zone -> sub-zone) fires a NEW mapID/zoom-scale
@@ -629,7 +637,7 @@ end
 -- call, so the eventual single build is always for the map the player
 -- actually stopped on, not a stale one from mid-spam.
 --
--- 0.25s chosen over the spec's 0.15s floor: no in-game click-cadence data
+-- 0.25s chosen over a shorter 0.15s floor: no in-game click-cadence data
 -- to justify tuning down without evidence, and this delay is invisible to
 -- the player (a background pin-render refresh, not something gating any
 -- user action) — the extra ~100ms of margin against real click cadences
@@ -664,8 +672,8 @@ local function RequestSettledRefresh(reason)
     settleTimer = C_Timer.NewTimer(WATCHER_SETTLE_DELAY, OnSettleTimerFire)
 end
 
--- HS-275: identity kept so a future RemoveDataProvider call has a stable
--- reference to match on (CLAIM-PINS-0011 -- MapCanvasMixin:RemoveDataProvider
+-- Identity kept so a future RemoveDataProvider call has a stable
+-- reference to match on (MapCanvasMixin:RemoveDataProvider
 -- clears its dataProviders table by instance identity).
 local mapDataProvider = nil
 
@@ -688,7 +696,7 @@ local function DispatchMapWatch()
     end)
 end
 
--- HS-275: handlers dispatched by Blizzard's MapCanvasMixin data-provider
+-- Handlers dispatched by Blizzard's MapCanvasMixin data-provider
 -- protocol (WorldMapFrame:CallMethodOnDataProviders / CallMethodOnPinsAnd
 -- DataProviders), armored by secureexecuterange on every dispatch. Mixed
 -- onto a CreateFromMixins(MapCanvasDataProviderMixin) delegate in
@@ -715,7 +723,7 @@ end
 
 function mapDataProviderMethods:OnHide()
     watcherStats.closed = watcherStats.closed + 1
-    -- HS-234: a pending settle-debounce from a transition made just
+    -- A pending settle-debounce from a transition made just
     -- before closing the map would otherwise fire uselessly ~0.25s
     -- later against a closed map — cancel it now, same discipline
     -- VendorMapPins:ClearAllPins already applies to its own
@@ -730,6 +738,10 @@ end
 
 function mapDataProviderMethods:OnMapChanged()
     watcherStats.mapChanged = watcherStats.mapChanged + 1
+    local VMP = HA.VendorMapPins
+    if VMP and VMP.CloseInteractivePinTooltip then
+        VMP:CloseInteractivePinTooltip()
+    end
     RequestSettledRefresh("watcher_map_changed")
     DispatchMapWatch()
 end
@@ -746,7 +758,7 @@ end
 function mapDataProviderMethods:OnCanvasScaleChanged()
     watcherStats.zoomChanged = watcherStats.zoomChanged + 1
 
-    -- HS-274: per-tick, in-place rescale so pins track zoom continuously
+    -- Per-tick, in-place rescale so pins track zoom continuously
     -- instead of only snapping to the right size once the settled refresh
     -- below lands. RepositionWorldMapPins refreshes the wrapper counter-scale
     -- (uiScale/canvasScale) that holds pins at their intended screen size;
@@ -787,7 +799,7 @@ function mapDataProviderMethods:RemoveAllData()
     DispatchMapWatch()
 end
 
--- HS-275: canvas *effective* scale also moves when UIParent scale changes
+-- Canvas *effective* scale also moves when UIParent scale changes
 -- (uiScale CVar, resolution change), and no MapCanvasMixin callback fires
 -- for that -- it isn't a canvas-size or canvas-scale event, it's a
 -- UIParent-wide rescale. Own event frame, same idiom as
@@ -816,7 +828,7 @@ local function GetVendorFramePoolKey(entry)
         factionKey = entry.vendor.faction
     end
 
-    -- HS-158/160 §5: vendorType affects the icon set at frame-create time
+    -- vendorType affects the icon set at frame-create time
     -- (PinFrameFactory:CreateVendorPinFrame), so it must join the pool key —
     -- same class of fix as GetPortalFramePoolKey's `class` component below.
     -- Without this, a pooled default-art frame could serve a professionShop
@@ -844,7 +856,7 @@ local function GetBadgeDisplayFactionKey(badgeData)
     return "none"
 end
 
--- HS-222: the pool key used to bake vendorCount/uncollectedCount/
+-- The pool key used to bake vendorCount/uncollectedCount/
 -- oppositeFactionCount straight into the string. Those are live ownership
 -- counts, not stable pin identity — every distinct combination minted its own
 -- permanent bucket in badgeFramePool that never got reused again (the churn
@@ -906,7 +918,7 @@ local function AcquirePortalFrame(entry)
     return frame
 end
 
--- HS-018: source pins (drop today; profession/quest/achievement/shop later).
+-- Source pins (drop today; profession/quest/achievement/shop later).
 -- Pool key is keyed on size + sourceType so each source type has its own bucket
 -- inside the source pool — required because CreateSourcePinFrame dispatches by
 -- sourceType.
@@ -928,7 +940,7 @@ local function AcquireSourceFrame(entry)
             return PinFrameFactory:CreateSourcePinFrame(sourceType, entry)
         end)
         frame.record = entry
-        -- HS-229: a reused frame's badge still reflects whatever record it
+        -- A reused frame's badge still reflects whatever record it
         -- last showed — refresh it for the new one, same as
         -- AcquireVendorFrame does for vendor pins. Fresh creates are already
         -- covered inside CreateDropPinFrame itself.
@@ -987,7 +999,7 @@ function Provider:EnsureRegistered()
         return
     end
 
-    -- HS-275: fail-loud, not a silent return and not a Debug line. Duck-typed
+    -- Fail-loud, not a silent return and not a Debug line. Duck-typed
     -- dispatch means a Blizzard rename of this callback produces no error at
     -- all otherwise — just pins that quietly stop repositioning. Blizzard_
     -- MapCanvas is LoadOnDemand, so MapCanvasDataProviderMixin can be nil at
@@ -1003,7 +1015,7 @@ function Provider:EnsureRegistered()
     self.mapCanvas = WorldMapFrame:GetCanvasContainer()
     isRegistered = true
 
-    -- HS-275: every read of WorldMapFrame.dataProviders inside Blizzard's
+    -- Every read of WorldMapFrame.dataProviders inside Blizzard's
     -- dispatch (Blizzard_MapCanvas.lua: AddDataProvider, RemoveDataProvider,
     -- CallMethodOnDataProviders, CallMethodOnPinsAndDataProviders) goes
     -- through secureexecuterange -- Blizzard's own containment primitive for
@@ -1011,16 +1023,16 @@ function Provider:EnsureRegistered()
     -- ticker as the taint-safe detection mechanism. No WorldMapFrame
     -- HookScript/hooksecurefunc is used here or anywhere else -- those still
     -- run inside Blizzard's secure map-open path and remain forbidden
-    -- (HS-081).
+    -- (they taint the map).
     mapDataProvider = CreateFromMixins(MapCanvasDataProviderMixin)
     Mixin(mapDataProvider, mapDataProviderMethods)
     WorldMapFrame:AddDataProvider(mapDataProvider)
 end
 
--- HS-223a: register to be driven by DispatchMapWatch above instead of
+-- Register to be driven by DispatchMapWatch above instead of
 -- starting a second independent watcher. Called on-change with
 -- (isShown, mapID, maximized) -- the exact raw state MapSidePanel's watch
--- logic was reading from its own separate poll. HS-275: dispatch is now
+-- logic was reading from its own separate poll. Dispatch is now
 -- push-driven off the map data provider's callbacks instead of a 10Hz poll.
 function Provider:RegisterMapWatchCallback(key, callback)
     if not key or type(callback) ~= "function" then return end
@@ -1059,6 +1071,11 @@ function Provider:Refresh()
 end
 
 function Provider:RemoveAllData()
+    local VMP = HA.VendorMapPins
+    if VMP and VMP.CloseInteractivePinTooltip then
+        VMP:CloseInteractivePinTooltip()
+    end
+
     MPP.ClearWorldMapPins("HomesteadVendors")
 
     for i = #activeEntries, 1, -1 do
@@ -1095,7 +1112,7 @@ function Provider:RenderEntries(entries, kind)
             frame = AcquirePortalFrame(entry)
         end
 
-        -- HS-018: source-pin factory may return nil for unsupported source
+        -- Source-pin factory may return nil for unsupported source
         -- types (registry has slots reserved for profession/quest/etc with no
         -- factory branch yet). Skip rendering rather than erroring.
         if frame then
@@ -1108,6 +1125,10 @@ function Provider:RenderEntries(entries, kind)
             local x, y = entry.x, entry.y
             x, y = ApplyAreaPoiDodge(entry, x, y)
             local iconOffsetX, iconOffsetY = GetEjDropPinIconOffset(entry)
+            if entry.nudgeX then
+                iconOffsetX = (iconOffsetX or 0) + entry.nudgeX
+                iconOffsetY = (iconOffsetY or 0) + entry.nudgeY
+            end
             local wrapper = MPP.PlaceNativePin(frame, x, y, iconOffsetX, iconOffsetY)
             MaybeLogPlacementProbe(entry, wrapper, kind, index)
             MaybeLogSizeProbe(frame, wrapper, kind, index)
@@ -1144,7 +1165,7 @@ function Provider:RefreshAllData()
         return
     end
 
-    -- HS-239: workload is currentMapID, already computed above for the
+    -- Workload is currentMapID, already computed above for the
     -- mismatch check — no new scan added to feed this call.
     HA.PerformanceTrace:Measure("world_map_refresh", currentMapID, function()
         self:RemoveAllData()
@@ -1163,17 +1184,17 @@ function Provider:RefreshAllData()
 end
 
 -------------------------------------------------------------------------------
--- HS-271 item 1: Pool Floor Pre-Build
+-- Pool Floor Pre-Build
 --
 -- Cold first pin-frame acquire on a dense map pays CreateFrame for every
 -- distinct pool bucket the render touches (PinFrameFactory:Create*Frame),
 -- landing inside the world_map_refresh render pass diagnosed at 558-651ms
--- (HS-270 captures A/D). Pre-building a floor of frames into each pool at
+-- (seen in profiling). Pre-building a floor of frames into each pool at
 -- login moves that CreateFrame cost off the render path for the common
 -- case: the default style/faction/source-type bucket every kind resolves
 -- to before any player style customization.
 --
--- Floor sizes are density-derived (HS-271): 16 vendor (Razorwind
+-- Floor sizes are density-derived: 16 vendor (Razorwind
 -- Shores, the densest zone), 10 badge (continent zone-badge view), 6 source
 -- (drop pins -- the only populated non-vendor source type today). Only the
 -- DEFAULT bucket is pre-built -- a mid-session pin-style change before first
@@ -1205,7 +1226,7 @@ local POOL_FLOOR_KIND_ORDER = { "vendor", "badge", "source" }
 -- login/loading-screen window.
 local POOL_FLOOR_BATCH_SIZE = 4
 local POOL_FLOOR_BATCH_DELAY = 0.05
--- HS-238: same combat-retry idiom as HS-234's ProcessBatch -- this pre-build
+-- Same combat-retry idiom as the vendor-stats ProcessBatch -- this pre-build
 -- has no urgency, so it costs nothing to defer it off combat frames.
 local POOL_FLOOR_COMBAT_RETRY_DELAY = 1.0
 
@@ -1263,7 +1284,7 @@ function Provider:PrewarmPoolFloor()
             local poolKey, pool, createFunc = BuildPoolFloorJob(kind)
             local frame = createFunc()
             if kind == "vendor" then
-                -- HS-271 (nit): CreateVendorPinFrame's own
+                -- CreateVendorPinFrame's own
                 -- RefreshVendorPinCount call (for the synthetic {} vendor
                 -- above) is a double miss by construction (no npcID) and
                 -- sets hsStatsPending=true — harmless (RequestPrewarm is
@@ -1288,7 +1309,7 @@ function Provider:PrewarmPoolFloor()
 end
 
 -- Login trigger: same self-terminating polling idiom as BadgeCalculation.lua's
--- login warmup ticker (HS-234) -- bounded so a session where OnInitialize
+-- login warmup ticker -- bounded so a session where OnInitialize
 -- somehow never completes doesn't poll forever. Polls addon-init completion
 -- (HA.Addon._initialized, set at the end of Core/core.lua's OnInitialize)
 -- rather than IsWarm(): frame creation needs no catalog data, only

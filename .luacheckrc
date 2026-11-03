@@ -7,6 +7,7 @@ globals = {
     "HomesteadMinimapButton",
     "HomesteadMapSidePanelTooltip",
     "HomesteadVendorMapPinsTooltip",
+    "HomesteadVendorMapPinsWaresTooltip",
     "SlashCmdList",
     "SLASH_HOMESTEAD1", "SLASH_HOMESTEAD2",
     -- SavedVariables (created by WoW, read/written by addon)
@@ -21,7 +22,7 @@ read_globals = {
     "tinsert", "tremove", "wipe", "strsplit",
     "time", "date", "math", "string", "table",
     "error", "pcall", "rawget", "rawset", "setmetatable", "getmetatable",
-    "issecretvalue", -- Midnight combat-secrecy probe (HS-168)
+    "issecretvalue", -- Midnight combat-secrecy probe
     "GetBuildInfo",
 
     -- WoW constants
@@ -41,7 +42,7 @@ read_globals = {
     "CreateScrollBoxListLinearView",
     "CreateFramePool", "CreateUnsecuredRegionPoolInstance",
     "EventRegistry",
-    "EventUtil", -- HS-368: EventUtil.ContinueOnAddOnLoaded (Blizzard_SharedXML/EventUtil.lua)
+    "EventUtil", -- EventUtil.ContinueOnAddOnLoaded (Blizzard_SharedXML/EventUtil.lua)
     "GameFontHighlight", "GameFontHighlightSmall",
     "GameFontNormal", "GameFontNormalLarge", "GameFontNormalHuge2", "GameFontNormalSmall",
     "GameTooltip", "GameTooltip_Hide",
@@ -55,10 +56,11 @@ read_globals = {
     "Settings",
     "ShoppingTooltip1", "ShoppingTooltip2",
     "ScrollBoxConstants",
+    "BaseScrollBoxEvents",
     "ScrollUtil",
     "ScrollBoxListViewMixin",
     "TooltipDataProcessor",
-    "UIParent", "UISpecialFrames",
+    "UIParent",
     "MapCanvasDataProviderMixin",
     "Menu",
     "MenuUtil",
@@ -81,7 +83,7 @@ read_globals = {
     "C_CurrencyInfo",
     "C_DateAndTime",
     "C_DateInfo",
-    "C_EncounterJournal",  -- HS-229: EJ-anchored drop pins
+    "C_EncounterJournal",  -- EJ-anchored drop pins
     "C_GossipInfo",
     "C_Housing",
     "C_AreaPoiInfo",
@@ -92,8 +94,9 @@ read_globals = {
     "C_MajorFactions",
     "C_QuestLog",
     "C_Reputation",
+    "C_SpellBook",
     "C_SuperTrack",
-    "C_TaxiMap",  -- HS-347: flight point dodge candidates
+    "C_TaxiMap",  -- flight point dodge candidates
     "C_Timer",
     "C_TooltipInfo",
     "C_TradeSkillUI",
@@ -104,10 +107,10 @@ read_globals = {
     "GetAchievementCriteriaInfo", "GetAchievementInfo",
     "GetItemCount", "GetItemInfo", "GetItemInfoInstant",
     "GetCoinTextureString",
-    "GetCVarBool",  -- HS-347: dungeon/delve entrance map-legend filter check
+    "GetCVarBool",  -- dungeon/delve entrance map-legend filter check
     "GetMerchantItemInfo", "GetMerchantItemLink", "GetMerchantNumItems",
     "GetLocale",
-    "GetProfessions", "GetProfessionInfo", -- HS-158/160 professionRank requirements
+    "GetProfessions", "GetProfessionInfo", -- professionRank requirements
     "GetRealZoneText",
     "GetSubZoneText",
     "GetScreenWidth", "GetScreenHeight",
@@ -121,7 +124,7 @@ read_globals = {
     "IsAltKeyDown", "IsControlKeyDown", "IsShiftKeyDown",
     "IsIndoors",
     "IsInGroup", "IsInRaid", "IsInInstance", "IsInGuild",
-    "Lerp", "Saturate", -- Blizzard_SharedXMLBase/MathUtil.lua (HS-274 zoom-growth curve)
+    "Lerp", "Saturate", -- Blizzard_SharedXMLBase/MathUtil.lua (zoom-growth curve)
     "OpenAllBags", "OpenBag",
     "SOUNDKIT",
     "ToggleAllBags", "ToggleBag", "ToggleWorldMap",
@@ -132,13 +135,14 @@ read_globals = {
 
     -- Optional external addons
     "Baganator",
+    "KrowiEVU",
     "TomTom",
 }
 
 ignore = {"21[23]"}  -- Ace3 callback patterns
 
 -- Vendored third-party libraries are linted in their own repos, not here. The
--- Foundry-1.0 embed (HS-120) is the one tracked lib in Libs/; exclude the whole
+-- Foundry-1.0 embed is the one tracked lib in Libs/; exclude the whole
 -- Libs/ tree so `luacheck .` covers only Homestead's own files.
 --
 -- luacheck doesn't honor .gitignore or skip dot-directories, so every other
@@ -150,10 +154,17 @@ exclude_files = {
     "Home_Dev/plans/",
     "Home_Dev/reports/",
     "Home_Dev/scan-data/",
-    "Home_Dev/tools/patch-discovery/output/",
-    "Home_Dev/scripts/att_cache/",
     "Home_Dev/Homestead_Dev/",
     "Home_Dev/.claude/reports/",
     "Home_Dev/scripts/templates/",
     "Home_Dev/scripts/verify-handynotes-export.lua",
+}
+
+-- Game globals the enUS locale reads for its own labels, with a literal fallback.
+files["Locale/enUS.lua"] = {
+    read_globals = {
+        "GENERAL", "CLOSE", "MINIMAP_LABEL", "BLIZZARD_STORE", "WORLDMAP_BUTTON",
+        "SHIFT_KEY_TEXT", "ALT_KEY_TEXT", "CTRL_KEY_TEXT", "HOUSING_DASHBOARD_ENDEAVOR",
+        "BROWSE_NO_RESULTS",
+    },
 }

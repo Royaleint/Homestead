@@ -1,6 +1,6 @@
 --[[
     Homestead - RoomMapping
-    Hand-curated (HS-451). Total entries: 17
+    Hand-curated. Total entries: 17
 
     Static roomRecordID -> itemID mapping for room plans
     (Enum.HousingCatalogEntryType.Room = 2). Seeds CatalogStore's room index

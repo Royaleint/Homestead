@@ -12,8 +12,8 @@
     - 4-tier milestone progression gates item availability
     - Dedicated API: C_NeighborhoodInitiative
 
-    10 vendors, 140 items total. The four Midnight 12.1 theme vendors were
-    promoted visible for the 12.1 release (HS-310, 2026-08-11).
+    12 vendors, 144 items total. The four Midnight 12.1 theme vendors were
+    promoted visible for the 12.1 release.
 ]]
 
 local _, HA = ...
@@ -87,28 +87,39 @@ local initiativeTitleToTheme = {
     ["Holm Sweet Holm"] = "Earthen",
 }
 
--- Stable initiative IDs observed in-game.
--- Extend as additional themes are observed.
+-- Initiative IDs come from the game's initiative data and are the same in every
+-- language, so these resolve a theme on any client. Only 15 and 17 have been
+-- seen in game so far.
 local initiativeIDToTheme = {
+    [12] = "Kobold",
+    [13] = "Grummle",
     [15] = "Blood Elf",
+    [16] = "Dracthyr",
     [17] = "Mechagnome",
+    [18] = "K'areshi",
+    [19] = "Niffen",
+    [20] = "Maruuk",
+    [22] = "Amani",
+    [24] = "Tortollan",
 }
 
 -------------------------------------------------------------------------------
 -- Endeavor Theme Metadata (for future C_NeighborhoodInitiative integration)
 -------------------------------------------------------------------------------
 
+-- vendorNPC is the theme's main vendor. extraVendorNPCs lists further vendors
+-- that are active only while the same theme is.
 EndeavorsData.Endeavors = {
-    ["Grummle"]    = { vendorNPC = 249684 },
+    ["Grummle"]    = { vendorNPC = 249684, extraVendorNPCs = { 263258 } },
     ["Blood Elf"]  = { vendorNPC = 256202 },
     ["Dracthyr"]   = { vendorNPC = 250820 },
     ["Mechagnome"] = { vendorNPC = 248525 },
     ["K'areshi"]   = { vendorNPC = 252605 },
     ["Niffen"]     = { vendorNPC = 257897 },
-    -- Midnight 12.1 themes (promoted visible for the 12.1 release, HS-310)
+    -- Midnight 12.1 themes (promoted visible for the 12.1 release)
     ["Amani"]      = { vendorNPC = 260485 },
     ["Maruuk"]     = { vendorNPC = 265551 },
-    ["Tortollan"]  = { vendorNPC = 268106 },
+    ["Tortollan"]  = { vendorNPC = 268106, extraVendorNPCs = { 257168 } },
     ["Kobold"]     = { vendorNPC = 271173 },
 }
 
@@ -138,7 +149,7 @@ EndeavorsData.Vendors = {
         altZone = "Razorwind Shores",
         faction = "Neutral",
         currency = "Community Coupons",
-        expansion = "The War Within",
+        expansion = "Midnight",
         endeavor = true,
         scanConfirmed = "2026-04-10",
         items = {
@@ -169,7 +180,7 @@ EndeavorsData.Vendors = {
         altZone = "Founder's Point",
         faction = "Neutral",
         currency = "Community Coupons",
-        expansion = "The War Within",
+        expansion = "Midnight",
         endeavor = true,
         items = {
             {254400, cost = {currencies = {{id = 3363, amount = 2}}}},
@@ -203,7 +214,7 @@ EndeavorsData.Vendors = {
         altZone = "Founder's Point",
         faction = "Neutral",
         currency = "Community Coupons",
-        expansion = "The War Within",
+        expansion = "Midnight",
         endeavor = true,
         scanConfirmed = "2026-04-10",
         items = {
@@ -225,6 +236,25 @@ EndeavorsData.Vendors = {
         },
     },
 
+    -- Grummle theme, second vendor. Positions and prices not yet confirmed in game.
+    [263258] = {
+        name = "Cousin Shortkaf",
+        mapID = 2351,
+        x = 0.5515, y = 0.6194,
+        zone = "Razorwind Shores",
+        altMapID = 2352,
+        altX = 0.5512, altY = 0.4363,
+        altZone = "Founder's Point",
+        faction = "Neutral",
+        currency = "Community Coupons",
+        expansion = "Midnight",
+        endeavor = true,
+        notes = "Neighborhood Endeavor vendor (Grummle theme)",
+        items = {
+            {248404, cost = {currencies = {{id = 3363, amount = 10}}}}, -- Stack of Kafa Mugs
+        },
+    },
+
     -- Dracthyr theme
     [250820] = {
         name = "Hordranin",
@@ -236,7 +266,7 @@ EndeavorsData.Vendors = {
         altZone = "Founder's Point",
         faction = "Neutral",
         currency = "Community Coupons",
-        expansion = "The War Within",
+        expansion = "Midnight",
         endeavor = true,
         items = {
             {250627, cost = {currencies = {{id = 3363, amount = 5}}}},
@@ -265,7 +295,7 @@ EndeavorsData.Vendors = {
         altZone = "Founder's Point",
         faction = "Neutral",
         currency = "Community Coupons",
-        expansion = "The War Within",
+        expansion = "Midnight",
         endeavor = true,
         scanConfirmed = "2026-04-10",
         items = {
@@ -292,10 +322,12 @@ EndeavorsData.Vendors = {
         mapID = 2352,
         x = 0.5311, y = 0.3829,
         zone = "Founder's Point",
-        subzone = "Town Center",
+        altMapID = 2351,
+        altX = 0.5433, altY = 0.5603,
+        altZone = "Razorwind Shores",
         faction = "Neutral",
         currency = "Community Coupons",
-        expansion = "The War Within",
+        expansion = "Midnight",
         endeavor = true,
         notes = "Neighborhood Endeavor vendor (Blood Elf theme)",
         items = {
@@ -313,9 +345,9 @@ EndeavorsData.Vendors = {
 
     -- =========================================================================
     -- Midnight 12.1 endeavor vendors. Promoted visible for the 12.1 release
-    -- (HS-310, 2026-08-11): `unreleased = true` removed from all four per the
+    -- (2026-08-11): `unreleased = true` removed from all four per the
     -- validation this block already recorded -- costs verified against the
-    -- release matrix (HS-311 patch-discovery, PTR build 12.1.0.69189)
+    -- game data (PTR build 12.1.0.69189)
     -- and, for Griftah, a real in-game PTR scan (2026-08-09, build
     -- 12.1.0.69189, scanConfidence: confirmed). Griftah has confirmed
     -- altMapID/altX/altY (real PTR scans placed him in both neighborhoods);
@@ -373,6 +405,10 @@ EndeavorsData.Vendors = {
         mapID = 2351,
         x = 0.5420, y = 0.5597,
         zone = "Razorwind Shores",
+        -- Founder's Point position not yet confirmed in game.
+        altMapID = 2352,
+        altX = 0.5291, altY = 0.3753,
+        altZone = "Founder's Point",
         faction = "Neutral",
         currency = "Community Coupons",
         expansion = "Midnight",
@@ -403,6 +439,10 @@ EndeavorsData.Vendors = {
         mapID = 2351,
         x = 0.5487, y = 0.5730,
         zone = "Razorwind Shores",
+        -- Founder's Point position not yet confirmed in game.
+        altMapID = 2352,
+        altX = 0.5315, altY = 0.3830,
+        altZone = "Founder's Point",
         faction = "Neutral",
         currency = "Community Coupons",
         expansion = "Midnight",
@@ -430,12 +470,39 @@ EndeavorsData.Vendors = {
         },
     },
 
+    -- Tortollan theme, second vendor. A scan on 2026-10-13 confirmed his Razorwind
+    -- Shores position (scanned 0.3913, 0.7410; shipped 0.3908, 0.7409) and his three
+    -- item prices, and his pin was checked in game. His Founder's Point position has
+    -- not been scanned.
+    [257168] = {
+        name = "Throska",
+        mapID = 2351,
+        x = 0.3908, y = 0.7409,
+        zone = "Razorwind Shores",
+        altMapID = 2352,
+        altX = 0.6216, altY = 0.8222,
+        altZone = "Founder's Point",
+        faction = "Neutral",
+        currency = "Community Coupons",
+        expansion = "Midnight",
+        endeavor = true,
+        notes = "Neighborhood Endeavor vendor (Tortollan theme)",
+        items = {
+            {247776, cost = {currencies = {{id = 3363, amount = 5}}}}, -- Glowing Zangarshroom Cup
+            {279455, cost = {currencies = {{id = 3363, amount = 5}}}}, -- K'areshi Tea Cup
+            {279458, cost = {currencies = {{id = 3363, amount = 5}}}}, -- Draenei Rock Goblet
+        },
+    },
+
     -- Kobold theme
     [271173] = {
         name = "Timicky",
         mapID = 2351,
         x = 0.5489, y = 0.5728,
         zone = "Razorwind Shores",
+        altMapID = 2352,
+        altX = 0.5313, altY = 0.3827,
+        altZone = "Founder's Point",
         faction = "Neutral",
         currency = "Community Coupons",
         expansion = "Midnight",
@@ -475,6 +542,12 @@ for themeName, themeData in pairs(EndeavorsData.Endeavors) do
     local vendorNPC = themeData and themeData.vendorNPC
     if vendorNPC then
         EndeavorsData.NPCToTheme[vendorNPC] = themeName
+    end
+    local extraVendorNPCs = themeData and themeData.extraVendorNPCs
+    if extraVendorNPCs then
+        for _, extraNPC in ipairs(extraVendorNPCs) do
+            EndeavorsData.NPCToTheme[extraNPC] = themeName
+        end
     end
 end
 
@@ -665,7 +738,7 @@ local function ResolveThemeFromInitiativeInfo(info)
 
     -- Step 6: Vendor name fallback handled inside ResolveThemeFromText (not persisted)
 
-    -- HS-313: a neighborhood with NO active endeavour returns a LOADED payload
+    -- a neighborhood with NO active endeavour returns a LOADED payload
     -- with initiativeID 0, empty title, and progressRequired 0 (live-probed
     -- 2026-08-11). That exact shape means "definitively none active" — a
     -- known state, not unknown. Anything else falls through to unknown below.
@@ -749,7 +822,7 @@ local function RefreshActiveTheme(reason)
         loggedRawTitle = true
     end
 
-    -- HS-216: log the "active theme" line only when the resolved theme
+    -- log the "active theme" line only when the resolved theme
     -- actually CHANGED (same `changed` this function already computes to
     -- decide whether to fire ACTIVE_ENDEAVOR_CHANGED) — unsolicited
     -- NEIGHBORHOOD_INITIATIVE_UPDATED fires (every consume, no theme change)
@@ -758,7 +831,7 @@ local function RefreshActiveTheme(reason)
         if activeThemeKnown and activeTheme then
             HA.Addon:Debug("EndeavorsData: active theme:", activeTheme, "(" .. tostring(reason) .. ")")
         elseif activeThemeKnown then
-            -- HS-313: known-but-none state (no endeavour active). activeTheme
+            -- known-but-none state (no endeavour active). activeTheme
             -- is nil here; passing it to Debug's varargs would leave a hole
             -- in the {...} array Print builds, so log it explicitly instead.
             HA.Addon:Debug("EndeavorsData: active theme: none", "(" .. tostring(reason) .. ")")
@@ -899,7 +972,7 @@ function EndeavorsData:Initialize()
     eventFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
     eventFrame:RegisterEvent("NEIGHBORHOOD_INITIATIVE_UPDATED")
     eventFrame:SetScript("OnEvent", function(_, event)
-        -- HS-215: NEIGHBORHOOD_INITIATIVE_UPDATED is the RESPONSE to
+        -- NEIGHBORHOOD_INITIATIVE_UPDATED is the RESPONSE to
         -- RequestNeighborhoodInitiativeInfo — calling RequestInitiativeInfo
         -- again here was requesting a new response inside the handler for
         -- the previous one, an infinite server-paced request loop (confirmed

@@ -1,4 +1,4 @@
-## Interface: 120100
+## Interface: 120105
 ## Title: Homestead
 ## Notes: See housing decor vendors and their wares on your map and track your collection progress
 ## Author: Nubs
@@ -7,10 +7,10 @@
 ## IconTexture: Interface\AddOns\Homestead\Textures\HomesteadMinimap
 ## Category: Housing
 ## X-Website: https://github.com/Royaleint/Homestead
-## X-License: GPL-3.0
+## X-License: All Rights Reserved
 ## X-Wago-ID: aNDMQ86o
 ## X-Curse-Project-ID: 1450714
-## OptionalDeps: WagoAnalytics, Foundry-1.0, Foundry-1.0_DevBuild
+## OptionalDeps: WagoAnalytics, Foundry-1.0, Foundry-1.0_DevBuild, Krowi_ExtendedVendorUI
 
 # Libraries
 embeds.xml
@@ -26,6 +26,8 @@ Locale\esMX.lua
 Locale\ptBR.lua
 Locale\koKR.lua
 Locale\ruRU.lua
+Locale\itIT.lua
+Locale\zhTW.lua
 
 # Core
 Core\constants.lua
@@ -47,6 +49,7 @@ Data\CatalogStore.lua
 Data\AchievementSources.lua
 Data\QuestSources.lua
 Data\ProfessionSources.lua
+Data\ReagentIndex.lua
 Data\EventSources.lua
 Data\DropSources.lua
 Data\ShopSources.lua
@@ -66,8 +69,6 @@ Modules\VendorTracer.lua
 Modules\DecorClassifier.lua
 Modules\ScanPersistence.lua
 Modules\VendorScanner.lua
-Modules/ExportImport.lua
-Modules/Validation.lua
 Modules\VersionCheck.lua
 
 # Overlay System
@@ -76,6 +77,7 @@ Overlay\Containers.lua
 Overlay\Baganator.lua
 Overlay\BetterBags.lua
 Overlay\Merchant.lua
+Overlay\KrowiEVU.lua
 Overlay\Tooltips.lua
 Overlay\CatalogOverlay.lua
 # ProfessionOverlay depends on SourceManager + ProfessionSources + CatalogStore (all in the Data block above)

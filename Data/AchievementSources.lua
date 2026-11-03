@@ -1,16 +1,14 @@
 --[[
     Homestead - AchievementSources
     Generated: 2026-08-18 22:24:20
-    Total entries: 305
-    Hand-corrected under HS-405 (2026-09-01): four refuted entries removed to
-    mirror the overrides file. Do NOT regenerate without reading HS-392's
-    crossref disposition §5 first — the current export vintage lost rows and
-    a regen would silently drop five still-valid entries.
+    Total entries: 308
+    Hand-corrected (2026-09-01): four refuted entries removed. Do NOT
+    regenerate without checking the source data first — the current data
+    vintage lost rows and a regen would silently drop five still-valid entries.
+    Rows for patch 12.1.5 added by hand.
 
     Achievement source data for housing decor items.
-    Regenerate with: python Home_Dev/scripts/generate_source_tables.py --table achievement
-    DO NOT EDIT — changes will be overwritten. Use overrides file instead:
-    Home_Dev/scripts/overrides/achievement_sources_overrides.lua
+    DO NOT EDIT — this file is generated and changes will be overwritten.
 --]]
 
 local _, HA = ...
@@ -390,6 +388,13 @@ local sourceData = {
 
     -- Events
     [260785] = {achievementID = 62387, achievementName = "It's Nearly Midnight", category = "Events"},
+
+    -- Hallow's End
+    [282287] = {achievementID = 10365, achievementName = "A Frightening Friend", category = "Hallow's End"},
+
+    -- Shadowlands
+    [283262] = {achievementID = 14164, achievementName = "Awaken, Ardenweald", category = "Shadowlands"},
+    [284546] = {achievementID = 14311, achievementName = "Treasures of Bastion", category = "Shadowlands"},
 }
 
 -------------------------------------------------------------------------------

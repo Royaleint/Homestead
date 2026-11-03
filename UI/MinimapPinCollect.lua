@@ -3,7 +3,7 @@
     Minimap vendor pin collection — gathers nearby vendors into pending pins
     and hands them to the minimap overlay for placement.
 
-    Extracted from VendorMapPins.lua (HS-301 cut #3) to reduce file size.
+    Extracted from VendorMapPins.lua to reduce file size.
     Cross-zone reach, pin caps, and warmup throttling are resolved here;
     faction/collection filtering comes from VendorFilter, coordinates from
     VendorFilter and MapPinProvider.
@@ -71,7 +71,7 @@ end
 
 function MinimapPinCollect:RefreshMinimapPins()
     if not HA.VendorMapPins:IsInitialized() then return end
-    -- HS-231: the minimap has always only ever shown vendor pins (no
+    -- The minimap has always only ever shown vendor pins (no
     -- provider-registry abstraction here, unlike the world map's
     -- CollectSourcePins), so gating on the "vendor" toggle covers it —
     -- "vendor toggle hides minimap vendor pins too, one mental model."
@@ -80,8 +80,8 @@ function MinimapPinCollect:RefreshMinimapPins()
         return
     end
 
-    -- HS-367: hide check runs BEFORE ClearMinimapPins, not after. Every
-    -- earlier HS-362 attempt cleared unconditionally first, so any refresh
+    -- Hide check runs BEFORE ClearMinimapPins, not after. Every
+    -- earlier attempt cleared unconditionally first, so any refresh
     -- trigger landing while already suppressed (indoors, in a player house,
     -- or HybridMinimap active) permanently wiped activePins — and since a
     -- same-mapID building exit never re-triggers a fresh collect, nothing
@@ -108,9 +108,9 @@ function MinimapPinCollect:RefreshMinimapPins()
     local playerMapID = C_Map.GetBestMapForUnit("player")
     if not playerMapID then return end
 
-    -- HS-271 item 4: workload is playerMapID, already read/validated above --
+    -- Workload is playerMapID, already read/validated above --
     -- no new scan added to feed this call. Minimap-refresh cost was
-    -- previously unmeasured (HS-270, open item); this is its peer
+    -- previously unmeasured; this is its peer
     -- boundary to world_map_refresh/world_map_build for the movement capture.
     HA.PerformanceTrace:Measure("minimap_refresh", playerMapID, function()
         local showElevationArrows = HA.Addon.db.profile.vendorTracer.showElevationArrows ~= false
@@ -190,15 +190,17 @@ function MinimapPinCollect:RefreshMinimapPins()
 
                     -- Use npcID for deduplication (vendor tables may be different objects)
                     if vendor.npcID and not addedVendors[vendor.npcID] then
-                        -- HS-022: minimap has no source filter; pass nil and let
+                        -- Minimap has no source filter; pass nil and let
                         -- the completion check default to "all" internally.
                         local shouldSkipVendor = VF.ShouldHideVendor(vendor)
                             or VF.ShouldHideCompletedVendorPin(vendor, nil)
 
                         -- Skip static/scanned map mismatches to avoid misplaced minimap pins.
-                        -- Bypass for endeavor vendors: scan data may be stale from a previous
-                        -- neighborhood rotation. GetBestVendorCoordinates handles the fallback.
-                        if not shouldSkipVendor and not vendor.endeavor
+                        -- Bypass for endeavor vendors (scan data may be stale from a previous
+                        -- neighborhood rotation) and for vendors with a second position (a scan
+                        -- on one map must not hide the other). GetBestVendorCoordinates handles
+                        -- the fallback.
+                        if not shouldSkipVendor and not (vendor.endeavor or vendor.altMapID)
                                 and HA.Addon and HA.Addon.db
                                 and HA.Addon.db.global.scannedVendors then
                             local scannedData = HA.Addon.db.global.scannedVendors[vendor.npcID]
@@ -244,6 +246,8 @@ function MinimapPinCollect:RefreshMinimapPins()
                                         pendingPins[#pendingPins + 1] = {
                                             vendor = vendor,
                                             mapID = vendorMapID,
+                                            mapX = coords.x,
+                                            mapY = coords.y,
                                             instanceID = instanceID,
                                             worldX = worldX,
                                             worldY = worldY,
@@ -260,6 +264,9 @@ function MinimapPinCollect:RefreshMinimapPins()
                 end
             end
         end
+
+        -- Display-only offset for pins that would cover each other.
+        MPP.AssignOverlapNudge(pendingPins, "mapX", "mapY", "mapID")
 
         if MinimapOverlay then
             MinimapOverlay:SetPins(pendingPins)

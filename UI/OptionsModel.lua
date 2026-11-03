@@ -56,10 +56,6 @@ local function CallMethod(target, methodName, ...)
     end
 end
 
-local function CallAddon(methodName, ...)
-    return CallMethod(GetAddon(), methodName, ...)
-end
-
 local function CallVendorMapPins(methodName, ...)
     return CallMethod(HA.VendorMapPins, methodName, ...)
 end
@@ -196,7 +192,7 @@ OptionsModel.sections = {
         label = L["General"],
         description = L["desc_options_general"],
         rows = {
-            -- (Runtime "Enable addon" checkbox removed in HS-109 with AceAddon-3.0:
+            -- (Runtime "Enable addon" checkbox removed with AceAddon-3.0:
             -- it called AceAddon's :Enable/:Disable, was a no-op across /reload, and
             -- left overlays/pins up when "disabled". Disable via the AddOns list.)
             {
@@ -436,22 +432,6 @@ OptionsModel.sections = {
                     local overlay = GetOverlay()
                     if not overlay then return end
                     overlay.showOnBank = value
-                    CallOverlay("RefreshAll")
-                end,
-            },
-            {
-                key = "showOnAuctionHouse",
-                type = "checkbox",
-                label = L["Show on auction house"],
-                tooltip = L["desc_show_on_auction_house"],
-                get = function()
-                    local overlay = GetOverlay()
-                    return overlay and overlay.showOnAuctionHouse
-                end,
-                set = function(value)
-                    local overlay = GetOverlay()
-                    if not overlay then return end
-                    overlay.showOnAuctionHouse = value
                     CallOverlay("RefreshAll")
                 end,
             },
@@ -877,7 +857,7 @@ OptionsModel.sections = {
                     local vendorTracer = GetVendorTracer()
                     if not vendorTracer then return end
                     vendorTracer.minimapIconSize = value
-                    -- Size is a mutate-in-place style property (HS-358), not part
+                    -- Size is a mutate-in-place style property, not part
                     -- of the minimap pin-pool key; RefreshAllPinColors drives a
                     -- fresh AcquireFrame per pin, which restyles every frame it
                     -- hands back, pool hit or not.
@@ -980,44 +960,6 @@ OptionsModel.sections = {
                     local endeavors = GetEndeavors()
                     if endeavors then
                         endeavors.showMilestoneXP = value
-                    end
-                end,
-            },
-        },
-    },
-    {
-        key = "export",
-        label = L["Export"],
-        description = L["desc_options_export"],
-        rows = {
-            {
-                key = "exportDesc",
-                type = "description",
-                label = L["desc_export"],
-            },
-            {
-                key = "exportNewButton",
-                type = "button",
-                label = L["Export New Scans"],
-                tooltip = L["desc_export_new"],
-                run = function()
-                    if HA.ExportImport then
-                        HA.ExportImport:ExportScannedVendors(false, false)
-                    else
-                        CallAddon("Print", L["ExportImport not available."])
-                    end
-                end,
-            },
-            {
-                key = "exportAllButton",
-                type = "button",
-                label = L["Export All"],
-                tooltip = L["desc_export_all"],
-                run = function()
-                    if HA.ExportImport then
-                        HA.ExportImport:ExportScannedVendors(true, true)
-                    else
-                        CallAddon("Print", L["ExportImport not available."])
                     end
                 end,
             },

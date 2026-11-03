@@ -10,103 +10,37 @@ local L = {}
 HA.L = L
 
 -------------------------------------------------------------------------------
--- Collection Status
--------------------------------------------------------------------------------
-L["Collected"] = "Collected"
-L["Collected (Placed)"] = "Collected (Placed)"
-L["Not Collected"] = "Not Collected"
-L["Unknown"] = "Unknown"
-
--------------------------------------------------------------------------------
--- Source Descriptions
--------------------------------------------------------------------------------
-L["Available from vendor"] = "Available from vendor"
-L["Can be crafted"] = "Can be crafted"
-L["Achievement reward"] = "Achievement reward"
-L["World drop"] = "World drop"
-L["Quest reward"] = "Quest reward"
-L["Reputation reward"] = "Reputation reward"
-L["Event reward"] = "Event reward"
-L["Promotional item"] = "Promotional item"
-
--------------------------------------------------------------------------------
--- Decor Properties
--------------------------------------------------------------------------------
-L["Can be dyed"] = "Can be dyed"
-L["Colorable"] = "Colorable"
-L["Warbound"] = "Warbound"
-L["Indoor only"] = "Indoor only"
-L["Outdoor only"] = "Outdoor only"
-L["Quantity owned: %d"] = "Quantity owned: %d"
-L["Currently placed: %d"] = "Currently placed: %d"
-
--------------------------------------------------------------------------------
 -- Tooltip
 -------------------------------------------------------------------------------
-L["[Housing Addon]"] = "|cFF00FF00[Housing Addon]|r"
-L["Source:"] = "Source:"
-L["Vendor:"] = "Vendor:"
-L["Location:"] = "Location:"
-L["Click to set waypoint"] = "Click to set waypoint"
+L["Used in %d known recipe for decor you haven't collected"] = "Used in %d known recipe for decor you haven't collected"
+L["Used in %d known recipes for decor you haven't collected"] = "Used in %d known recipes for decor you haven't collected"
 
 -------------------------------------------------------------------------------
 -- UI Labels
 -------------------------------------------------------------------------------
-L["Housing Addon"] = "Housing Addon"
-L["Decor Browser"] = "Decor Browser"
-L["Vendor Tracer"] = "Vendor Tracer"
-L["Color Tracker"] = "Color Tracker"
-L["Export Data"] = "Export Data"
-L["Options"] = "Options"
-L["Search"] = "Search"
-L["Filter"] = "Filter"
-L["Close"] = "Close"
-
--------------------------------------------------------------------------------
--- Vendor Tracer
--------------------------------------------------------------------------------
-L["Set Waypoint"] = "Set Waypoint"
-L["Show on Map"] = "Show on Map"
-L["Vendor sells %d decor items"] = "Vendor sells %d decor items"
-L["You own %d/%d items"] = "You own %d/%d items"
-L["Missing items:"] = "Missing items:"
-L["No vendors found"] = "No vendors found"
-
--------------------------------------------------------------------------------
--- Color/Dye Tracker
--------------------------------------------------------------------------------
-L["Dye Collection"] = "Dye Collection"
-L["Owned Dyes"] = "Owned Dyes"
-L["Known Recipes"] = "Known Recipes"
-L["Dye Slots"] = "Dye Slots"
-L["Apply Dye"] = "Apply Dye"
-L["Preview"] = "Preview"
+L["Close"] = CLOSE or "Close"
 
 -------------------------------------------------------------------------------
 -- Options
 -------------------------------------------------------------------------------
-L["Homestead"] = "Homestead"
-L["General"] = "General"
+L["Homestead"] = "Homestead" -- untranslated
+L["Homestead Options"] = "Homestead Options"
+L["General"] = GENERAL or "General"
 L["Overlays"] = "Overlays"
-L["Tooltips"] = "Tooltips"
-L["Export"] = "Export"
+L["Tooltips"] = "Tooltips" -- untranslated
 
 L["Show minimap button"] = "Show minimap button"
 L["Enable overlays"] = "Enable overlays"
 L["Show on bags"] = "Show on bags"
 L["Show on bank"] = "Show on bank"
 L["Show on merchant"] = "Show on merchant"
-L["Show on auction house"] = "Show on auction house"
 L["Show on housing catalog"] = "Show on housing catalog"
 L["Icon size"] = "Icon size"
 L["Icon position"] = "Icon position"
 L["Show opposite faction vendors"] = "Show opposite faction vendors"
-L["Show unverified vendors"] = "Show unverified vendors"
 
 L["Enable tooltip additions"] = "Enable tooltip additions"
 L["Show source information"] = "Show source information"
-L["Show quantity owned"] = "Show quantity owned"
-L["Show dye slot information"] = "Show dye slot information"
 L["Show vendor details in tooltips"] = "Show vendor details in tooltips"
 
 L["Show map pins"] = "Show map pins"
@@ -129,12 +63,6 @@ L["Right-Click: Detach/close vendor panel"] = "|cFFFFFFFFRight-Click:|r Detach/c
 -- Slash Commands
 -------------------------------------------------------------------------------
 L["Homestead Commands:"] = "Homestead Commands:"
-L["/hs - Open options panel"] = "/hs — Open options panel"
-L["/hs scan - Scan catalog"] = "/hs scan — Scan catalog for owned items"
-L["/hs vendor [search] - Search vendors"] = "/hs vendor [search] — Search for decor vendors"
-L["/hs export - Show export dialog"] = "/hs export — Show export dialog"
-L["/hs debug - Toggle debug mode"] = "/hs debug — Toggle debug mode"
-L["/hs help - Show this help"] = "/hs help — Show this help"
 
 -------------------------------------------------------------------------------
 -- Slash Command Feedback
@@ -156,7 +84,6 @@ L["ON"] = "ON"
 L["OFF"] = "OFF"
 L["Unknown command: %s"] = "Unknown command: %s"
 L["Type /hs help for a list of commands."] = "Type /hs help for a list of commands."
-L["Not yet implemented"] = "Not yet implemented"
 
 -------------------------------------------------------------------------------
 -- Version Check
@@ -169,31 +96,24 @@ L["No newer version seen this session."] = "No newer version seen this session."
 L["Version-check notifications: %s"] = "Version-check notifications: %s"
 
 -------------------------------------------------------------------------------
--- Export Dialog
--------------------------------------------------------------------------------
-L["Export Vendor Data"] = "Export Vendor Data"
-L["Choose export option:"] = "Choose export option:"
-L["Export New Scans"] = "Export New Scans"
-L["Export All"] = "Export All"
-
--------------------------------------------------------------------------------
 -- Map Side Panel
 -------------------------------------------------------------------------------
 L["All"] = "All"
 L["Vendor"] = "Vendor"
 L["Vendors"] = "Vendors"
-L["Quest"] = "Quest"
+L["Quest"] = "Quest" -- untranslated
 L["Achievement"] = "Achievement"
 L["Profession"] = "Profession"
 L["Event"] = "Event"
 L["Drop"] = "Drop"
-L["Shop"] = "Shop"
+L["Shop"] = BLIZZARD_STORE or "Shop"
 L["Treasure"] = "Treasure"
 L["Zone Collection Progress"] = "Zone Collection Progress"
 L["Continent Collection Progress"] = "Continent Collection Progress"
 L["Global Collection Progress"] = "Global Collection Progress"
 L["Order Hall"] = "Order Hall"
 L["Click to preview"] = "Click to preview"
+L["No items found"] = BROWSE_NO_RESULTS or "No items found"
 
 -------------------------------------------------------------------------------
 -- Output Window
@@ -203,31 +123,15 @@ L["Select All"] = "Select All"
 L["All text selected. Press Ctrl+C to copy to clipboard."] = "All text selected. Press Ctrl+C to copy to clipboard."
 
 -------------------------------------------------------------------------------
--- Statistics
--------------------------------------------------------------------------------
-L["Statistics"] = "Statistics"
-L["Total Decor:"] = "Total Decor:"
-L["Collected:"] = "Collected:"
-L["Placed:"] = "Placed:"
-L["Remaining:"] = "Remaining:"
-L["Collection Progress: %d%%"] = "Collection Progress: %d%%"
-
--------------------------------------------------------------------------------
 -- Options - Names
 -------------------------------------------------------------------------------
-L["Show opposite faction vendors"] = "Show opposite faction vendors"
-L["Show unverified vendors"] = "Show unverified vendors"
-L["Show vendor details in tooltips"] = "Show vendor details in tooltips"
 L["Vendor pin item details"] = "Vendor pin item details"
-L["Use native waypoints"] = "Use native waypoints"
-L["Auto-create waypoint on click"] = "Auto-create waypoint on click"
-L["Navigate modifier key"] = "Navigate modifier key"
 
 L["Auto-scan vendors"] = "Auto-scan vendors"
 L["Vendor Visibility"] = "Vendor Visibility"
 L["Show event vendors"] = "Show event vendors"
 L["Hide fully-collected vendor pins"] = "Hide fully-collected vendor pins"
--- HS-317: world map filter menu checkbox (SHOW semantics, inverse of the panel row above)
+-- World map filter menu checkbox (SHOW semantics, inverse of the panel row above)
 L["Fully-collected vendors"] = "Fully-collected vendors"
 L["desc_map_filter_completed_vendors"] = "Uncheck to hide pins for vendors whose decor you've fully collected."
 L["Pin Appearance"] = "Pin Appearance"
@@ -239,22 +143,20 @@ L["Show ownership status"] = "Show ownership status"
 L["Show requirements"] = "Show requirements"
 L["Show all sources"] = "Show all sources"
 L["Map Pins"] = "Map Pins"
-L["World Map"] = "World Map"
+L["World Map"] = WORLDMAP_BUTTON or "World Map"
 L["Show vendor panel on world map"] = "Show vendor panel on world map"
 L["Vendor panel source filter"] = "Vendor panel source filter"
 L["Integrate with map frame border"] = "Integrate with map frame border"
 L["Zone badges on world map"] = "Zone badges on world map"
 L["World map pin size"] = "World map pin size"
 L["Show collection counts"] = "Show collection counts"
-L["Minimap"] = "Minimap"
+L["Minimap"] = MINIMAP_LABEL or "Minimap"
 L["Show elevation arrows"] = "Show elevation arrows"
 L["Minimap nearby-zone pins"] = "Minimap nearby-zone pins"
 L["Minimap pin size"] = "Minimap pin size"
 L["Waypoints"] = "Waypoints"
-L["Endeavors"] = "Endeavors"
+L["Endeavors"] = HOUSING_DASHBOARD_ENDEAVOR or "Endeavors"
 L["Show milestone progress on dashboard"] = "Show milestone progress on dashboard"
-L["Export New Scans"] = "Export New Scans"
-L["Export All"] = "Export All"
 L["Inventory"] = "Inventory"
 L["Merchant"] = "Merchant"
 L["Housing Catalog"] = "Housing Catalog"
@@ -263,14 +165,13 @@ L["Housing Catalog"] = "Housing Catalog"
 -- Options - Descriptions
 -------------------------------------------------------------------------------
 L["desc_minimap_button"] = "Show or hide the minimap button"
-L["desc_auto_scan_vendors"] = "Automatically scan merchant inventory for housing decor data when visiting vendors. Community data helps improve the addon's vendor database. Disabling may slightly improve performance when opening merchants."
+L["desc_auto_scan_vendors"] = "Automatically scan merchant inventory for housing decor data when visiting vendors. Disabling may slightly improve performance when opening merchants."
 L["desc_options_general"] = "Core addon behavior, minimap access, vendor scanning, and map pin appearance."
-L["desc_options_overlays"] = "Collection markers shown on bags, merchants, the auction house, and the Housing Catalog."
+L["desc_options_overlays"] = "Collection markers shown on bags, the bank, merchants, and the Housing Catalog."
 L["desc_options_tooltips"] = "Extra ownership, source, requirement, and vendor details added to item and map-pin tooltips."
 L["desc_options_world_map"] = "World map vendor pins, zone badges, side-panel behavior, and map pin display."
 L["desc_options_minimap"] = "Nearby vendor pins, elevation arrows, and waypoint behavior on the minimap."
 L["desc_options_endeavors"] = "Housing Endeavor progress shown on Blizzard's Housing Dashboard."
-L["desc_options_export"] = "Scanned vendor data export for review, backup, or community sharing."
 L["desc_vendor_visibility_section"] = "Choose which vendor groups appear on maps and in collection totals."
 L["desc_pin_appearance_section"] = "Adjust the color and preview for Homestead vendor pins."
 L["desc_overlay_inventory_section"] = "Show collection markers on item slots outside the Housing Catalog."
@@ -279,18 +180,16 @@ L["desc_overlay_catalog_section"] = "Control Housing Catalog markers, highlights
 L["desc_tooltip_map_pins_section"] = "Choose how much vendor detail appears on map-pin tooltips."
 L["desc_minimap_waypoints_section"] = "Configure TomTom and native waypoint behavior from map and vendor clicks."
 L["desc_opposite_faction"] = "Show vendors for the opposite faction with their faction emblem. Useful for completionists to see all available vendors."
-L["desc_unverified_vendors"] = "Show vendors with unverified locations (orange pins). These are imported from external sources and may have incorrect coordinates. Visit these vendors in-game to verify their location."
 L["desc_event_vendors"] = "Show seasonal holiday vendor pins on the map when their event is active (e.g., Lunar Festival)"
 L["desc_hide_completed_vendor_pins"] = "Hide map and minimap pins for vendors whose housing decor you've fully collected. The vendor panel list is unaffected."
-L["desc_pin_color"] = "Choose a color for map and minimap pins. Unverified pins always show orange."
+L["desc_pin_color"] = "Choose a color for map and minimap pins."
 L["desc_custom_color"] = "Pick a custom base color for map pins"
 L["desc_enable_overlays"] = "Add small icons and highlights to decor items throughout the game so you can tell at a glance which ones you've collected. Turning this off hides all Homestead overlays everywhere."
 L["desc_icon_size"] = "Controls how large the collection icons appear on item slots."
 L["desc_icon_position"] = "Which corner of the item slot the collection icon sits in."
-L["desc_show_on_bags"] = "Adds a |TInterface\\RaidFrame\\ReadyCheck-Ready:16|t to decor items in your bags that you've already collected. Works with default bags, Baganator, and BetterBags."
+L["desc_show_on_bags"] = "Adds a |A:homestone-minimap-icon:16:16|a to decor items in your bags, colored to show whether you've collected each one. Works with default bags, Baganator, and BetterBags."
 L["desc_show_on_bank"] = "Mark decor items in your bank so you can see which ones you've already collected."
-L["desc_show_on_auction_house"] = "Mark decor items on the auction house so you can avoid buying duplicates."
-L["desc_show_on_merchant"] = "Adds a |TInterface\\RaidFrame\\ReadyCheck-Ready:16|t to decor items at vendors that you've already collected."
+L["desc_show_on_merchant"] = "Adds a |A:homestone-minimap-icon:16:16|a to decor items at vendors, colored to show whether you've collected each one."
 L["desc_show_on_housing_catalog"] = "Mark items in the Housing Catalog with collection icons showing where each item comes from.\n\n"
     .. "|A:auctionhouse-icon-coin-gold:16:16|a Vendor\n"
     .. "|A:QuestNormal:16:16|a Quest\n"
@@ -303,8 +202,7 @@ L["desc_accessibility_glow"] = "Add a colored border glow to Housing Catalog ite
 L["desc_owned_item_style"] = "Choose how collected items look in the Housing Catalog. Green highlight shows the default glow, Dimmed fades them out, and Checkmark adds a small green check. Pick None to leave them untouched."
 L["desc_enable_tooltips"] = "Add Homestead information to item tooltips when you hover over decor items. Turning this off removes all tooltip additions."
 L["desc_show_ownership"] = "Add a line to tooltips showing whether you've already collected a decor item."
-L["desc_show_source"] = "Show how to obtain a decor item — vendors, quests, achievements, professions, events, and drops."
-L["desc_show_quantity"] = "Display how many copies of a decor item you currently own."
+L["desc_show_source"] = "Show how to obtain a decor item: vendors, quests, achievements, professions, events, and drops."
 L["desc_show_requirements"] = "Display purchase requirements like reputation, quest completion, or achievements needed to buy an item."
 L["desc_show_all_sources"] = "List every known way to obtain an item instead of just the best available source. Helpful when an item can be acquired from multiple vendors, quests, or other sources."
 L["desc_vendor_details"] = "Show a vendor's full inventory and your collection progress when hovering over their map pin. Disable for a simpler tooltip with just the vendor name."
@@ -326,9 +224,6 @@ L["desc_use_native_waypoints"] = "Use WoW's built-in waypoint system with map pi
 L["desc_auto_waypoint"] = "Automatically create a waypoint when clicking on a vendor in the list or map"
 L["desc_navigate_modifier"] = "Hold this key when clicking to create a waypoint (if auto-waypoint is off)"
 L["desc_milestone_xp"] = "Display next milestone XP progress on Blizzard's Housing Dashboard Endeavors tab. Disable if you use another addon for this (e.g., Endeavor Simple Progress Tracker)."
-L["desc_export"] = "Export scanned vendor data for community sharing or backup."
-L["desc_export_new"] = "Exports vendors scanned since your last export. Includes price, currencies, faction, and catalog info."
-L["desc_export_all"] = "Exports all scanned vendors, bypassing the timestamp filter."
 
 -------------------------------------------------------------------------------
 -- Options - Select Values
@@ -361,13 +256,6 @@ L["Checkmark"] = "Checkmark"
 
 -- Source filter
 L["All sources"] = "All sources"
-L["Vendor"] = "Vendor"
-L["Quest"] = "Quest"
-L["Achievement"] = "Achievement"
-L["Profession"] = "Profession"
-L["Event"] = "Event"
-L["Shop"] = "Shop"
-L["Drop"] = "Drop"
 
 -- Minimap cross-zone mode
 L["Auto (recommended)"] = "Auto (recommended)"
@@ -375,11 +263,13 @@ L["Current zone only"] = "Current zone only"
 L["Always show nearby zones"] = "Always show nearby zones"
 
 -- Navigate modifier
-L["Shift"] = "Shift"
-L["Control"] = "Control"
-L["Alt"] = "Alt"
+L["Shift"] = SHIFT_KEY_TEXT or "SHIFT"
+L["Control"] = CTRL_KEY_TEXT or "CTRL"
+L["Alt"] = ALT_KEY_TEXT or "ALT"
 L["None (always)"] = "None (always)"
 
 -- Misc
 L["Approximate map appearance"] = "Approximate map appearance"
-L["ExportImport not available."] = "ExportImport not available."
+L["Catalog scan is on cooldown. Try again in a few seconds."] = "Catalog scan is on cooldown. Try again in a few seconds."
+L["A catalog scan is already in progress."] = "A catalog scan is already in progress."
+L["Endeavor"] = "Endeavor"

@@ -44,13 +44,19 @@ Layout.ITEM_RESULT_ICON_SIZE = 20
 Layout.ITEM_RESULT_BADGE_SIZE = 14
 Layout.ITEM_RESULT_LINE_HEIGHT = 18
 Layout.ITEM_GRID_INSET = 24  -- Left indent for item grid (aligns under name text)
+Layout.AUTO_DETACH_MIN_WIDTH = 133  -- Narrowest auto-detached panel: two tiles per row
 
--- Icons per grid row. Derived only from constants above, so it is one itself:
--- content width is Layout.PANEL_WIDTH - 20 (borders) - 22 (scrollbar) = 218.
-Layout.ICONS_PER_ROW = math.floor(
-    ((Layout.PANEL_WIDTH - 20 - 22) - Layout.ITEM_GRID_INSET - Layout.PADDING + Layout.ITEM_ICON_PAD)
-    / (Layout.ITEM_ICON_SIZE + Layout.ITEM_ICON_PAD))
-if Layout.ICONS_PER_ROW < 1 then Layout.ICONS_PER_ROW = 1 end
+-- Tiles per grid row for a panel of the given width: content width is
+-- panelWidth - 20 (borders) - 22 (scrollbar).
+local function IconsPerRowForWidth(panelWidth)
+    local n = math.floor(
+        ((panelWidth - 20 - 22) - Layout.ITEM_GRID_INSET - Layout.PADDING + Layout.ITEM_ICON_PAD)
+        / (Layout.ITEM_ICON_SIZE + Layout.ITEM_ICON_PAD))
+    if n < 1 then n = 1 end
+    return n
+end
+-- Not a constant: SetPanelWidth keeps it in step with the panel's current width.
+Layout.ICONS_PER_ROW = IconsPerRowForWidth(Layout.PANEL_WIDTH)
 
 Layout.PROGRESS_BAR_HEIGHT = 14
 local SEARCH_OPTIONS = { includeItemResults = true }
@@ -75,7 +81,7 @@ State.topTileFrame = nil   -- Inner decorative top-edge tile
 State.topStreaksFrame = nil -- Decorative streaks overlay
 State.bgTexture = nil      -- QuestLogBackground fill (anchored below header zone)
 State.isInitialized = false
--- HS-210: debounced content-refresh scheduler shared by every event listener
+-- Debounced content-refresh scheduler shared by every event listener
 -- below that wants a deferred repaint. Mirrors Overlay/Merchant.lua's
 -- ScheduleOverlayUpdate shape, but tracks pending state with an explicit
 -- boolean instead of the C_Timer.After return value — C_Timer.After returns
@@ -159,6 +165,8 @@ State.popOutButton = nil   -- Arrow button to detach (docked mode)
 State.closeButton = nil    -- X button (detached mode)
 State.reattachButton = nil -- Dock-back button (detached mode)
 State.pendingDockedAction = nil  -- "apply" | "remove" | "clear" | nil
+State.isAutoDetached = false  -- Floating beside the maximized map (runtime only, never saved)
+State.autoPlacement = {}      -- Last applied mode, width, height, topOffset
 State.panelTooltip = nil
 
 local function GetPanelTooltip()
@@ -217,6 +225,7 @@ local function ShowItemPreview(itemID)
 
         -- Re-apply our map shift if Blizzard's preview resets WorldMapFrame
         local function ReapplyMapShift()
+            if State.isAutoDetached then return end
             if State.panelFrame and State.panelFrame:IsShown() and not State.isPoppedOut then
                 if InCombatLockdown() then
                     State.pendingDockedAction = "apply"
@@ -262,7 +271,7 @@ local function ShowItemPreview(itemID)
     end
 
     -- Get catalog entry info directly from itemID. Guarded like every other
-    -- GetCatalogEntryInfoByItem call site (HS-059: nil for some items) with
+    -- GetCatalogEntryInfoByItem call site (nil for some items) with
     -- the byRecordID fallback via CatalogStore's decorID reverse index — see
     -- CatalogStore:IsOwnedFresh's readOnly branch for the reference pattern.
     local ok, info = pcall(C_HousingCatalog.GetCatalogEntryInfoByItem, itemID, true)
@@ -292,7 +301,7 @@ end
 -------------------------------------------------------------------------------
 
 -- Check if item is owned (same pattern as BadgeCalculation/VendorMapPins).
--- HS-200: this is the no-presentation fallback for PopulateItemGrid and
+-- This is the no-presentation fallback for PopulateItemGrid and
 -- RenderItemRow. PopulateItemGrid is still an aggregate per-item loop over a
 -- vendor's full item grid; the item path now runs once per realized row rather
 -- than over the full result list. It must stay cache-only, matching
@@ -306,7 +315,7 @@ local function IsItemOwned(itemID)
     return false
 end
 
--- HS-249: is this item's ownership knowable at all? Housing items outside the
+-- Is this item's ownership knowable at all? Housing items outside the
 -- Decor subclass resolve to no catalog entry, so IsItemOwned answers a hard
 -- false that says nothing about the player. The grids must render those in a
 -- neutral state rather than the gold "available to purchase" border, which
@@ -459,7 +468,7 @@ local function CreateItemIcon(parent)
     tex:SetTexCoord(0.08, 0.92, 0.08, 0.92)  -- Trim default icon border
     frame.texture = tex
 
-    -- HS-019: search-match ring (yellow, rendered BEHIND the ownership border so
+    -- Search-match ring (yellow, rendered BEHIND the ownership border so
     -- red/green/gold accessibility coloring remains visible on matched items).
     local matchRing = frame:CreateTexture(nil, "BACKGROUND", nil, -1)
     matchRing:SetPoint("TOPLEFT", -3, 3)
@@ -658,7 +667,7 @@ local function PopulateItemGrid(row, vendor, sourceFilter, highlightItems, itemI
         icon.check:Hide()
 
         if IsOwnershipExcluded(itemID, presentation) then
-            -- HS-249: ownership not yet knowable — neutral grey border, no
+            -- Ownership not yet knowable — neutral grey border, no
             -- check and no lock tint. Tested first: neither the owned nor the
             -- available branch may claim an item we cannot resolve. The
             -- requirement tooltip is unaffected (icon.requirements is set
@@ -679,7 +688,7 @@ local function PopulateItemGrid(row, vendor, sourceFilter, highlightItems, itemI
             icon.border:SetColorTexture(0.6, 0.5, 0.2, 1)
         end
 
-        -- HS-019: in search mode, dim non-matching items; matched items get a
+        -- In search mode, dim non-matching items; matched items get a
         -- yellow outer ring (rendered behind the ownership border) so red/green
         -- /gold accessibility coloring + lock/check indicators remain readable.
         if highlightItems then
@@ -715,7 +724,7 @@ local function PopulateItemGrid(row, vendor, sourceFilter, highlightItems, itemI
 end
 
 -------------------------------------------------------------------------------
--- HS-230: Instance Drop-Source Rows
+-- Instance Drop-Source Rows
 --
 -- Sibling of the vendor row/item-grid pair above, for instance maps
 -- (C_EncounterJournal.GetEncountersOnMap(mapID) non-empty): one row per
@@ -732,10 +741,10 @@ end
 -- encounter array (from C_EncounterJournal.GetEncountersOnMap), in the
 -- SAME order Blizzard returned them — bosses read in canonical order, not
 -- itemID/table order. Items within a boss are sorted by itemID, matching
--- the HS-229 pin tooltip's stability convention. No entrance-fallback pass
+-- the drop pin tooltip's stability convention. No entrance-fallback pass
 -- here (unlike CollectEjDropPinRecords) — the panel only lists bosses
--- actually present on THIS map, per the spec ("a row per boss... present
--- on this map").
+-- actually present on THIS map (a row per boss present
+-- on this map).
 local function GetInstanceDropGroups(encounters)
     local drops = HA.DropSources
     if not drops or not encounters or #encounters == 0 then
@@ -768,7 +777,7 @@ local function GetInstanceDropGroups(encounters)
     return groups
 end
 
--- HS-229's own dropMapPin presentation context — same context string
+-- The drop pin's own dropMapPin presentation context — same context string
 -- AddPinTooltipItemLine (VendorPinTooltips.lua) and BuildDropGroupStats
 -- (BadgeCalculation.lua) already use, so this is provably the same
 -- cache-backed call, not a new SourceManager surface.
@@ -809,6 +818,7 @@ local function CreateBossRow(parent)
     countText:SetPoint("TOPLEFT", icon, "BOTTOMRIGHT", 6, -2)
     countText:SetPoint("RIGHT", row, "RIGHT", -Layout.PADDING, 0)
     countText:SetJustifyH("LEFT")
+    countText:SetWordWrap(false)
     row.countText = countText
 
     local sep = row:CreateTexture(nil, "BACKGROUND")
@@ -906,7 +916,7 @@ local function PopulateBossItemGrid(row, dropGroup)
         if not presentation then
             owned = IsItemOwned(itemID)
         end
-        -- HS-200: no live SM:GetRequirements(itemID, npcID) call — a drop
+        -- No live SM:GetRequirements(itemID, npcID) call — a drop
         -- item has no npcID to scope requirements to. presentation's own
         -- availabilityState/blockerLabels (already computed by the same
         -- cache-backed GetItemPresentation call above) carry the same
@@ -920,7 +930,7 @@ local function PopulateBossItemGrid(row, dropGroup)
         icon.check:Hide()
         if icon.matchRing then icon.matchRing:Hide() end
 
-        -- HS-249: same neutral state as the vendor grid, same reason.
+        -- Same neutral state as the vendor grid, same reason.
         if IsOwnershipExcluded(itemID, presentation) then
             icon.border:SetColorTexture(0.45, 0.45, 0.45, 1)
         elseif owned then
@@ -997,6 +1007,11 @@ end
 
 local function GetSourceLocationText(data)
     if type(data) ~= "table" then return nil end
+
+    -- The summary line does not wrap, so two positions show zone names only.
+    if data.altZone and data.zone then
+        return data.zone .. " / " .. data.altZone
+    end
 
     if data.subzone and data.zone then
         return data.subzone .. ", " .. data.zone
@@ -1220,7 +1235,7 @@ local function PopulateItemSourceList(row, itemID, sourceFilter)
     return totalHeight
 end
 
--- HS-019: search-result section header. Non-interactive divider that labels
+-- Search-result section header. Non-interactive divider that labels
 -- the section by source type (Vendors / Profession / Quest / Achievement /
 -- Event / Drop). One per active section; emitted on type transitions in
 -- RefreshSearchResults.
@@ -1235,7 +1250,7 @@ local function CreateSearchHeaderRow(parent)
     text:SetTextColor(1, 0.82, 0)
     row.text = text
 
-    -- HS-019: hairlines bracket the centered label. Anchored to the text's
+    -- Hairlines bracket the centered label. Anchored to the text's
     -- left/right edges with a 6px gap, so they reflow automatically when
     -- different section labels (different lengths) are set.
     local leftLine = row:CreateTexture(nil, "ARTWORK")
@@ -1354,7 +1369,7 @@ local function RenderItemRow(row, rec)
         owned = IsItemOwned(itemID)
     end
 
-    -- HS-249: same neutral state as the item grids, same reason.
+    -- Same neutral state as the item grids, same reason.
     if IsOwnershipExcluded(itemID, presentation) then
         row.iconBorder:SetColorTexture(0.45, 0.45, 0.45, 1)
         row.nameText:SetTextColor(1, 1, 1)
@@ -1430,6 +1445,12 @@ end
 -- Row Creation
 -------------------------------------------------------------------------------
 
+-- Endeavor vendors are not tied to one expansion, so the tooltip names the activity.
+local function VendorExpansionText(vendor)
+    if vendor.endeavor then return L["Endeavor"] end
+    return vendor.expansion
+end
+
 local function CreateVendorRow(parent)
     local row = CreateFrame("Button", nil, parent)
     row:SetHeight(Layout.ROW_HEIGHT)
@@ -1460,6 +1481,7 @@ local function CreateVendorRow(parent)
     countText:SetPoint("TOPLEFT", icon, "BOTTOMRIGHT", 6, -2)
     countText:SetPoint("RIGHT", row, "RIGHT", -Layout.PADDING, 0)
     countText:SetJustifyH("LEFT")
+    countText:SetWordWrap(false)
     row.countText = countText
 
     -- Separator line
@@ -1525,8 +1547,9 @@ local function CreateVendorRow(parent)
         end
         tooltip:AddLine(" ")
         if self.searchMode then
-            if self.vendor.expansion then
-                tooltip:AddLine(self.vendor.expansion, 0.5, 0.5, 0.5)
+            local expansionText = VendorExpansionText(self.vendor)
+            if expansionText then
+                tooltip:AddLine(expansionText, 0.5, 0.5, 0.5)
             end
             if State.expandedVendorID == self.vendor.npcID then
                 tooltip:AddLine("Click to collapse items", 0.5, 0.5, 0.5)
@@ -1592,7 +1615,7 @@ local function CreateSummaryRow(parent)
     navButton:SetScript("OnEnter", function(self)
         local tooltip = BeginPanelTooltip(self, "ANCHOR_RIGHT")
         local level = State.currentDisplayLevel
-        if level == "world" then
+        if level == "world" or row.isContinent then
             tooltip:SetText("Navigate to continent")
         else
             tooltip:SetText("Navigate to zone")
@@ -1615,6 +1638,7 @@ local function CreateSummaryRow(parent)
     summaryLine:SetPoint("TOPLEFT", arrow, "BOTTOMRIGHT", 6, -2)
     summaryLine:SetPoint("RIGHT", navButton, "LEFT", -2, 0)
     summaryLine:SetJustifyH("LEFT")
+    summaryLine:SetWordWrap(false)
     row.summaryLine = summaryLine
 
     -- Separator line
@@ -1766,7 +1790,7 @@ local function CreateSummarySubRow(parent)
         if self.vendor then
             tooltip:AddLine("Click to view items", 0.5, 0.5, 0.5)
         else
-            tooltip:AddLine("Click to view zone", 0.5, 0.5, 0.5)
+            tooltip:AddLine(self.isContinent and "Click to view continent" or "Click to view zone", 0.5, 0.5, 0.5)
         end
         tooltip:Show()
     end)
@@ -1822,6 +1846,7 @@ end
 
 local function RenderSummaryRow(row, rec)
     row.targetMapID = rec.targetMapID
+    row.isContinent = rec.isContinent
     row.vendorCount = rec.vendorCount
     row.collectedItems = rec.collectedItems
     row.totalItems = rec.totalItems
@@ -1845,6 +1870,7 @@ local function RenderSubRow(row, rec)
 
     row.vendor = rec.vendor
     row.targetMapID = rec.targetMapID
+    row.isContinent = rec.isContinent
     row.tooltipText = rec.tooltipText
     row.tooltipSub = rec.tooltipSub
     row.isOrderHall = rec.isOrderHall
@@ -1925,6 +1951,7 @@ local function ResetListElement(container)
     HideItemSourceList(content)
     content.vendor, content.dropGroup, content.result, content.itemID = nil, nil, nil, nil
     content.targetMapID, content.tooltipText, content.tooltipSub, content.isOrderHall = nil, nil, nil, nil
+    content.isContinent = nil
     content.searchMode, content.searchMatchedItems = false, nil
     content.collected, content.total, content.locked = nil, nil, nil
     content.vendorCount, content.totalItems = 0, 0
@@ -1948,21 +1975,13 @@ local function BuildZoneExpansionRows(zoneMapID, rows)
     local allVendors = VendorData:GetAllVendors()
     local showOpposite = VF.ShouldShowOppositeFaction()
 
-    -- Build set of maps to include (canonical + siblings for merged zones)
-    local targetMaps = {[zoneMapID] = true}
-    local Constants = HA.Constants
-    if Constants and Constants.VerticalSiblings and Constants.VerticalSiblings[zoneMapID] then
-        for sibID, _ in pairs(Constants.VerticalSiblings[zoneMapID]) do
-            targetMaps[sibID] = true
-        end
-    end
-
-    -- Gather vendors in this zone using same logic as badge calculation
+    -- Gather vendors in this zone under the badge count's own key: sibling
+    -- merge and sub-zone roll-up both happen inside GetVendorBadgeZone.
     local zoneVendors = {}
     for _, vendor in ipairs(allVendors) do
         if not VF.ShouldHideVendor(vendor) then
-            local coords, vendorMapID = VF.GetBestVendorCoordinates(vendor)
-            if coords and targetMaps[vendorMapID] then
+            local coords, badgeZoneMapID = BC.GetVendorBadgeZone(vendor)
+            if coords and badgeZoneMapID == zoneMapID then
                 local canAccess = VF.CanAccessVendor(vendor)
                 local isOpposite = VF.IsOppositeFaction(vendor)
                 if canAccess or (isOpposite and showOpposite) then
@@ -2007,16 +2026,15 @@ local function BuildZoneExpansionRows(zoneMapID, rows)
     end
 end
 
--- Build continent expansion: append zone sub-row records for a continent at world level.
-local function BuildContinentExpansionRows(continentMapID, rows)
-    if not BC then return end
-
-    local zoneCounts = BC:GetZoneVendorCounts(continentMapID, State.panelSourceFilter)
-
+-- Append a zone sub-row record per entry of a zone-count table, sorted by name.
+-- skipEmpty drops entries with no counted vendor.
+local function AppendZoneSubRows(zoneCounts, rows, skipEmpty)
     -- Build sorted zone list
     local zoneList = {}
     for zoneMapID, data in pairs(zoneCounts) do
-        zoneList[#zoneList + 1] = { mapID = zoneMapID, data = data }
+        if not skipEmpty or (data.vendorCount or 0) > 0 then
+            zoneList[#zoneList + 1] = { mapID = zoneMapID, data = data }
+        end
     end
     table.sort(zoneList, function(a, b)
         return (a.data.zoneName or "") < (b.data.zoneName or "")
@@ -2050,11 +2068,30 @@ local function BuildContinentExpansionRows(continentMapID, rows)
             tooltipText = data.zoneName or "Unknown",
             tooltipSub = tooltipSub,
             isOrderHall = false,
+            isContinent = data.isContinent,
             name = data.zoneName or "Unknown",
             countText = countText,
             countColor = countColor,
         }
     end
+end
+
+-- Build continent expansion: append zone sub-row records for a continent at world level,
+-- with one row for each continent that rolls into it.
+local function BuildContinentExpansionRows(continentMapID, rows)
+    if not BC then return end
+
+    AppendZoneSubRows(BC:GetContinentZoneListCounts(continentMapID, State.panelSourceFilter), rows)
+end
+
+-- Zone view: zone sub-rows for the child maps whose vendors the map shows as
+-- a badge rather than pins. Returns the number of rows appended.
+local function AppendChildMapRows(viewMapID, rows)
+    if not BC then return 0 end
+
+    local before = #rows
+    AppendZoneSubRows(BC:GetChildMapVendorCounts(viewMapID, State.panelSourceFilter), rows, true)
+    return #rows - before
 end
 
 -------------------------------------------------------------------------------
@@ -2150,6 +2187,7 @@ local function CreatePanel()
     State.headerText:SetPoint("TOP", titleLabel, "BOTTOM", 0, -3)
     State.headerText:SetJustifyH("CENTER")
     State.headerText:SetWordWrap(false)
+    State.headerText:SetWidth(Layout.PANEL_WIDTH - 56)
     State.headerText:SetTextColor(0.7, 0.7, 0.7)
     State.headerText:SetText("")
 
@@ -2172,6 +2210,7 @@ local function CreatePanel()
     State.summaryText:SetPoint("BOTTOMLEFT", panel, "BOTTOMLEFT", BORDER_LEFT, BORDER_BOTTOM)
     State.summaryText:SetPoint("BOTTOMRIGHT", panel, "BOTTOMRIGHT", -BORDER_RIGHT, BORDER_BOTTOM)
     State.summaryText:SetJustifyH("CENTER")
+    State.summaryText:SetWordWrap(false)
     State.summaryText:SetTextColor(0.6, 0.6, 0.6)
 
     -- Search bar (above summary line at bottom)
@@ -2228,6 +2267,7 @@ local function CreatePanel()
     backText:SetPoint("LEFT", backArrow, "RIGHT", 4, 0)
     backText:SetPoint("RIGHT", State.backBar, "RIGHT", -8, 0)
     backText:SetJustifyH("LEFT")
+    backText:SetWordWrap(false)
     backText:SetTextColor(0.5, 0.7, 1.0)
     State.backBar.text = backText
 
@@ -2350,7 +2390,9 @@ local function CreatePanel()
 
     -- Empty state text
     State.emptyText = panel:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
-    State.emptyText:SetPoint("CENTER", State.scrollContainer, "CENTER", 0, 0)
+    State.emptyText:SetPoint("LEFT", State.scrollContainer, "LEFT", 8, 0)
+    State.emptyText:SetPoint("RIGHT", State.scrollContainer, "RIGHT", -8, 0)
+    State.emptyText:SetJustifyH("CENTER")
     State.emptyText:SetText("No vendors in this zone")
     State.emptyText:Hide()
 
@@ -2392,8 +2434,12 @@ local function CreatePanel()
     State.closeButton = CreateFrame("Button", nil, panel, "UIPanelCloseButton")
     State.closeButton:SetPoint("TOPRIGHT", -2, -2)
     State.closeButton:SetScript("OnClick", function()
-        -- Full reset: hide panel, clear pop-out state
-        MapSidePanel:CloseDetached()
+        -- Detached: full reset (hide panel, clear pop-out state). Auto-detached: hide only.
+        if State.isPoppedOut then
+            MapSidePanel:CloseDetached()
+        else
+            MapSidePanel:Toggle()
+        end
     end)
     State.closeButton:Hide()
 
@@ -2444,12 +2490,18 @@ local function CreatePanel()
     grip:SetHeight(2)
     grip:SetPoint("LEFT", 8, 0)
     grip:SetPoint("RIGHT", -8, 0)
-    grip:SetColorTexture(0.6, 0.6, 0.6, 0.4)
+    grip:SetColorTexture(0.8, 0.8, 0.8, 0.8)
     local grip2 = State.resizeHandle:CreateTexture(nil, "ARTWORK")
     grip2:SetHeight(2)
     grip2:SetPoint("LEFT", 8, -3)
     grip2:SetPoint("RIGHT", -8, -3)
-    grip2:SetColorTexture(0.6, 0.6, 0.6, 0.4)
+    grip2:SetColorTexture(0.8, 0.8, 0.8, 0.8)
+
+    -- The game's standard size-grabber at the right end
+    local gripArt = State.resizeHandle:CreateTexture(nil, "OVERLAY")
+    gripArt:SetSize(16, 16)
+    gripArt:SetPoint("BOTTOMRIGHT", State.resizeHandle, "BOTTOMRIGHT", 0, 0)
+    gripArt:SetTexture("Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Up")
 
     -- Hover highlight
     local hl = State.resizeHandle:CreateTexture(nil, "HIGHLIGHT")
@@ -2460,13 +2512,13 @@ local function CreatePanel()
 
     State.resizeHandle:Hide()
 
-    -- HS-282 sub-item G: evict the SearchProvider index whenever this panel
-    -- hides, on ANY path (Hide/Toggle/CloseDetached, or the map closing/
-    -- maximizing out from under a docked panel via MapWatchTick) -- every one
+    -- Evict the SearchProvider index whenever this panel
+    -- hides, on ANY path (Hide/Toggle/CloseDetached, or the map closing, or
+    -- maximizing in combat, out from under a panel via MapWatchTick) -- every one
     -- of those paths ends by calling panel:Hide(), so OnHide is the single
     -- point they all converge on. Reclaims ~2.2 MB in the non-searching
     -- steady state; BuildIndex() lazily rebuilds (~20ms worst case) on the
-    -- next Search, a trade Rawb accepted against the reclaim.
+    -- next Search, an accepted trade against the reclaim.
     panel:HookScript("OnHide", function()
         if HA.SearchProvider and HA.SearchProvider.Invalidate then
             HA.SearchProvider:Invalidate()
@@ -2600,8 +2652,8 @@ local function CreateOverlayButton()
 
     -- Position after existing overlay buttons. Re-runs from the WorldMapFrame
     -- state poll in MapSidePanel:Initialize (on map open / zone change / overlay-
-    -- count change) -- HS-081 removed the RefreshOverlayFrames hooksecurefunc that
-    -- used to do this, because it ran inside Blizzard's secure map path and tainted it.
+    -- count change) -- a RefreshOverlayFrames hooksecurefunc used to
+    -- do this but was removed, because it ran inside Blizzard's secure map path and tainted it.
     PositionOverlayButton()
 
     button:SetScript("OnClick", function(self, mouseButton)
@@ -2883,14 +2935,16 @@ function MapSidePanel:RefreshZoneSummaries(mapID, mapInfo)
     -- Vendor expansion is not part of this display. The rows themselves are
     -- cleared when this function publishes its own records below.
     State.expandedVendorID = nil
-    -- HS-230: instance drop-source expansion too, same convention as above.
+    -- Instance drop-source expansion too, same convention as above.
     State.expandedBossKey = nil
 
     State.headerText:SetText(mapInfo.name or "")
 
-    -- HS-018: honor the panel's source filter at continent view so per-zone
+    -- Honor the panel's source filter at continent view so per-zone
     -- summary rows reflect the active filter (was previously unfiltered).
-    local zoneCounts = BC:GetZoneVendorCounts(mapID, State.panelSourceFilter)
+    -- A continent that rolls into this one is a single row carrying the sum of
+    -- its own zone list.
+    local zoneCounts = BC:GetContinentZoneListCounts(mapID, State.panelSourceFilter)
 
     -- Build sorted zone list
     local zoneList = {}
@@ -2947,15 +3001,22 @@ function MapSidePanel:RefreshZoneSummaries(mapID, mapInfo)
             lockedItems = dataLocked,
             unverifiedItems = data.unverifiedItems or 0,
             name = data.zoneName or "Unknown",
-            nameColor = Layout.COLOR_WHITE,
+            -- Gold for a rolled-in continent's row, as on the world list
+            nameColor = data.isContinent and Layout.COLOR_GOLD or Layout.COLOR_WHITE,
+            isContinent = data.isContinent,
             summaryLineText = summaryLineText,
             summaryLineColor = summaryLineColor,
             isExpanded = isExpanded,
         }
 
-        -- If expanded, append vendor sub-rows below this zone row
+        -- If expanded, append sub-rows below this row: the zones of a rolled-in
+        -- continent, or the vendors of a zone
         if isExpanded then
-            BuildZoneExpansionRows(entry.mapID, rows)
+            if data.isContinent then
+                BuildContinentExpansionRows(entry.mapID, rows)
+            else
+                BuildZoneExpansionRows(entry.mapID, rows)
+            end
         end
 
         totalCollected = totalCollected + dataCollected
@@ -2985,7 +3046,7 @@ function MapSidePanel:RefreshContinentSummaries(mapID, mapInfo)
     -- Vendor expansion is not part of this display. The rows themselves are
     -- cleared when this function publishes its own records below.
     State.expandedVendorID = nil
-    -- HS-230: instance drop-source expansion too, same convention as above.
+    -- Instance drop-source expansion too, same convention as above.
     State.expandedBossKey = nil
 
     State.headerText:SetText(mapInfo.name or "")
@@ -3091,7 +3152,7 @@ end
 -- Search Results Refresh
 -------------------------------------------------------------------------------
 
--- HS-019: header labels keyed by source-section identifier. The vendor
+-- Header labels keyed by source-section identifier. The vendor
 -- section always shows when any vendor result is present; item sections only
 -- show when at least one item-first row in that source type is present.
 local SEARCH_SECTION_LABELS = {
@@ -3237,7 +3298,7 @@ function MapSidePanel:RefreshSearchResults()
 end
 
 -------------------------------------------------------------------------------
--- HS-230: Instance Drop-Source Listing
+-- Instance Drop-Source Listing
 --
 -- Sibling of the zone-level vendor listing inside RefreshContent — same
 -- row-population/expand/collapse/empty-state/summary-line shape, built off
@@ -3378,12 +3439,12 @@ function MapSidePanel:RefreshContent()
     -- Update header with zone name
     State.headerText:SetText(mapInfo.name or "")
 
-    -- Determine map type — three-tier dispatch (HS-230 adds a fourth: instance)
+    -- Determine map type — three-tier dispatch (plus a fourth: instance)
     local mapType = mapInfo.mapType
     local isContinentLevel = mapType and mapType == Enum.UIMapType.Continent
     local isWorldLevel = mapType and (mapType == Enum.UIMapType.World or mapType == Enum.UIMapType.Cosmic)
 
-    -- HS-230: instance maps (dungeon/raid interiors) with EJ encounters get
+    -- Instance maps (dungeon/raid interiors) with EJ encounters get
     -- their own drop-source listing instead of the (always-empty, since no
     -- Homestead vendor lives inside an instance) vendor list. Structurally
     -- gated on mapType == Dungeon — Zone/Continent/World/Cosmic/Micro/Orphan
@@ -3429,7 +3490,7 @@ function MapSidePanel:RefreshContent()
     State.expandedSummaryMapID = nil
     State.currentDisplayLevel = "zone"
 
-    -- HS-230: instance drop-source expansion is not part of the zone-level display,
+    -- Instance drop-source expansion is not part of the zone-level display,
     -- mirroring how the summary paths reset vendor expansion when they are active.
     State.expandedBossKey = nil
 
@@ -3494,10 +3555,11 @@ function MapSidePanel:RefreshContent()
         totalLocked = totalLocked + rec.locked
     end
 
+    local childRowCount = AppendChildMapRows(mapID, rows)
     SetListRows(rows)
 
     -- Empty state
-    if #vendorList == 0 then
+    if #vendorList == 0 and childRowCount == 0 then
         State.emptyText:SetText("No vendors in this zone")
         State.emptyText:Show()
     else
@@ -3775,6 +3837,17 @@ local function RestoreMapElements()
     -- Nav bar (full restore — parent, strata, level, all anchors)
     local navBar = wm.NavBar
     if navBar and State.savedNavBarState then
+        -- Blizzard re-anchors the nav bar when the map is maximized or minimized.
+        -- If no point is on the panel any more, it has done so since we docked it:
+        -- keep those points and restore only parent, strata and level around them.
+        local live = SaveFrameState(navBar).anchors
+        local onPanel = false
+        for _, a in ipairs(live) do
+            if a[2] == State.panelFrame then onPanel = true end
+        end
+        if not onPanel and #live > 0 then
+            State.savedNavBarState.anchors = live
+        end
         RestoreFrameState(navBar, State.savedNavBarState)
         State.savedNavBarState = nil
     end
@@ -3988,6 +4061,24 @@ local function RestoreTopBorder()
     State.borderUnified = false
 end
 
+-- Placement beside the maximized map, in screen (UIParent) units.
+-- Returns mode, width, height, topOffset, maxHeight.
+local function ComputeAutoDetachPlacement(screenLeft, screenTop, mapLeft, mapTop, mapBottom, overlapTop)
+    local minWidth = Layout.AUTO_DETACH_MIN_WIDTH
+    if screenLeft and mapLeft and mapTop and mapBottom then
+        local margin = mapLeft - screenLeft
+        if margin >= minWidth then
+            local mapHeight = mapTop - mapBottom
+            return "beside", math.min(Layout.PANEL_WIDTH, math.floor(margin)), mapHeight, 0,
+                math.max(200, mapHeight)
+        end
+    end
+    local top = overlapTop or mapTop or screenTop or 0
+    local bottom = mapBottom or 0
+    return "overlap", minWidth, top - bottom, (screenTop or top) - top,
+        math.max(200, (mapTop or screenTop or top) - bottom)
+end
+
 -------------------------------------------------------------------------------
 -- Toggle / Visibility
 -------------------------------------------------------------------------------
@@ -4047,11 +4138,20 @@ State.combatFrame:SetScript("OnEvent", function()
             ApplyDockedIntegration()
         end
     elseif action == "remove" then
-        -- Panel was hidden during combat; restore map now
-        RemoveDockedIntegration(true)
+        -- Panel was hidden during combat; restore map now. A map maximized since
+        -- then was repositioned by Blizzard, so its saved point is stale.
+        RemoveDockedIntegration(not WorldMapFrame.isMaximized)
     elseif action == "clear" then
         -- Blizzard already repositioned the map; only clear our integrated state.
         RemoveDockedIntegration(false)
+    end
+
+    -- A panel that a maximize hid in combat comes back beside the maximized map
+    if not State.isPoppedOut and State.panelFrame and not State.panelFrame:IsShown()
+            and WorldMapFrame:IsShown() and WorldMapFrame.isMaximized
+            and HA.Addon and HA.Addon.db
+            and HA.Addon.db.profile.vendorTracer.showMapSidePanel then
+        MapSidePanel:Show()
     end
 end)
 
@@ -4064,9 +4164,14 @@ local function ShowPanel()
         return
     end
 
-    -- Don't show docked panel when map is maximized (fills the screen)
-    if WorldMapFrame.isMaximized then return end
+    -- Maximized map: the panel floats in the margin beside it. A closed map keeps
+    -- isMaximized set, and nothing shows without the map.
+    if WorldMapFrame.isMaximized then
+        if WorldMapFrame:IsShown() then State.EnterAutoDetached() end
+        return
+    end
 
+    State.ExitAutoDetached()
     State.panelFrame:Show()
 
     -- Defer all docked map mutations until combat ends
@@ -4096,6 +4201,12 @@ local function HidePanel()
 
     State.panelFrame:Hide()
 
+    if State.isAutoDetached then
+        -- Nothing on the map was changed; only the panel needs resetting
+        State.ExitAutoDetached()
+        return
+    end
+
     -- Defer map restoration until combat ends
     if InCombatLockdown() then
         State.pendingDockedAction = "remove"
@@ -4114,7 +4225,7 @@ local function UpdatePopOutButtons()
         State.reattachButton:Show()
     else
         State.popOutButton:Show()
-        State.closeButton:Hide()
+        State.closeButton:SetShown(State.isAutoDetached)
         State.reattachButton:Hide()
     end
 end
@@ -4137,10 +4248,156 @@ local function EnsureCompleteBorder()
     if ns.TopRightCorner then ns.TopRightCorner:Show() end
 end
 
+-- Sets the panel's width and the tiles per row that fit it. 260 everywhere except
+-- the auto-detached panel, which narrows to the strip beside the maximized map.
+local function SetPanelWidth(width)
+    State.panelFrame:SetWidth(width)
+    Layout.ICONS_PER_ROW = IconsPerRowForWidth(width)
+    if State.headerText then State.headerText:SetWidth(width - 56) end
+end
+
+-- The grip sits on the bottom border; raise it above the border art whenever it shows
+local function ShowResizeHandle()
+    if not State.resizeHandle then return end
+    State.resizeHandle:SetFrameLevel(State.panelFrame:GetFrameLevel() + 5)
+    State.resizeHandle:Show()
+end
+
+-- Bottom edge of Blizzard's floor selector in screen units, only while it is shown.
+-- It is the overlay frame that carries the floor menu; nil when absent or unreadable.
+local function GetFloorSelectorBottom(ui)
+    if not ui or not WorldMapFrame.overlayFrames then return nil end
+    for _, frame in ipairs(WorldMapFrame.overlayFrames) do
+        if frame.RefreshMenu and frame:IsShown() then
+            local bottom, scale = frame:GetBottom(), frame:GetEffectiveScale()
+            if bottom and scale then return bottom * (scale / ui) end
+        end
+    end
+    return nil
+end
+
+State.PlaceAutoDetached = function(force)
+    local panel = State.panelFrame
+    if not panel or not State.isAutoDetached then return false end
+
+    -- Every edge goes to screen (UIParent) units; a nil read stays nil.
+    local ui = UIParent:GetEffectiveScale()
+    if not ui or ui <= 0 then ui = nil end
+    local mapScale = WorldMapFrame:GetEffectiveScale()
+    local ratio = ui and mapScale and (mapScale / ui) or nil
+    local mapLeft, mapTop, mapBottom = WorldMapFrame:GetLeft(), WorldMapFrame:GetTop(), WorldMapFrame:GetBottom()
+    mapLeft = mapLeft and ratio and (mapLeft * ratio) or nil
+    mapTop = mapTop and ratio and (mapTop * ratio) or nil
+    mapBottom = mapBottom and ratio and (mapBottom * ratio) or nil
+
+    -- Overlap fallback top: below the floor selector, else the top of the map canvas
+    -- (just below the title bar and the breadcrumb row)
+    local canvasTop
+    local container = WorldMapFrame:GetCanvasContainer()
+    local containerTop = container and container:GetTop()
+    local containerScale = container and container:GetEffectiveScale()
+    if ui and containerTop and containerScale then
+        canvasTop = containerTop * (containerScale / ui)
+    end
+
+    local mode, width, height, topOffset, maxHeight = ComputeAutoDetachPlacement(
+        UIParent:GetLeft(), UIParent:GetTop(), mapLeft, mapTop, mapBottom,
+        GetFloorSelectorBottom(ui) or canvasTop)
+
+    local last = State.autoPlacement
+    if not force and last.mode == mode and last.width == width
+            and last.height == height and last.topOffset == topOffset then
+        return false
+    end
+    local widthChanged = last.width ~= width
+    last.mode, last.width, last.height, last.topOffset = mode, width, height, topOffset
+
+    panel:StopMovingOrSizing()
+    -- Bounds before size: a detach earlier in the session leaves other bounds behind
+    panel:SetResizeBounds(width, 200, width, maxHeight)
+    panel:ClearAllPoints()
+    SetPanelWidth(width)
+    panel:SetHeight(height)
+    if mode == "overlap" then
+        panel:SetPoint("TOPLEFT", UIParent, "TOPLEFT", 0, -topOffset)
+    else
+        panel:SetPoint("TOPRIGHT", WorldMapFrame, "TOPLEFT", 0, 0)
+    end
+    return widthChanged
+end
+
+State.EnterAutoDetached = function()
+    local panel = State.panelFrame
+    if not panel or State.isPoppedOut then return end
+    if State.isAutoDetached then
+        panel:Show()
+        return
+    end
+    -- Map pieces still ride on the panel until a restore deferred in combat has run.
+    -- Moving it now would take them along; the combat-end handler shows it.
+    if State.savedPortraitState or State.savedTutorialState or State.savedNavBarState
+            or State.borderUnified or State.contentInsetApplied then
+        if panel:IsShown() then panel:Hide() end
+        return
+    end
+
+    State.panelShowGeneration = State.panelShowGeneration + 1
+    State.isAutoDetached = true
+    RestoreFrameLevels()
+    panel:SetMovable(true)
+    panel:RegisterForDrag("LeftButton")
+    panel:SetScript("OnDragStart", panel.StartMoving)
+    panel:SetScript("OnDragStop", State.DetachAfterDrag)
+    panel:SetResizable(true)
+    ShowResizeHandle()
+    EnsureCompleteBorder()
+    UpdatePopOutButtons()
+    State.PlaceAutoDetached(true)
+    panel:Show()
+end
+
+State.ExitAutoDetached = function()
+    if not State.isAutoDetached then return end
+    local panel = State.panelFrame
+    panel:StopMovingOrSizing()
+    State.isAutoDetached = false
+    panel:SetMovable(false)
+    panel:SetResizable(false)
+    panel:SetScript("OnDragStart", nil)
+    panel:SetScript("OnDragStop", nil)
+    if State.resizeHandle then State.resizeHandle:Hide() end
+    local canvas = WorldMapFrame.ScrollContainer
+    panel:ClearAllPoints()
+    -- Bounds first: they were set to the narrow width, and a width outside them may be clamped
+    panel:SetResizeBounds(Layout.PANEL_WIDTH, 200, Layout.PANEL_WIDTH, UIParent:GetHeight() * 0.9)
+    SetPanelWidth(Layout.PANEL_WIDTH)
+    panel:SetPoint("TOPRIGHT", canvas, "TOPLEFT", 0, 0)
+    panel:SetPoint("BOTTOMRIGHT", canvas, "BOTTOMLEFT", 0, 0)
+    RestoreFrameLevels()
+    UpdatePopOutButtons()
+end
+
+-- A drag of the auto-detached panel is the player's own detach: it becomes the
+-- normal detached panel where it was dropped, and that spot is saved.
+State.DetachAfterDrag = function()
+    local panel = State.panelFrame
+    panel:StopMovingOrSizing()
+    if not State.isAutoDetached then return end
+    local left, top = panel:GetLeft(), panel:GetTop()
+    local uiLeft, uiTop = UIParent:GetLeft(), UIParent:GetTop()
+    MapSidePanel:PopOut()
+    if left and top and uiLeft and uiTop then
+        panel:ClearAllPoints()
+        panel:SetPoint("TOPLEFT", UIParent, "TOPLEFT", left - uiLeft, top - uiTop)
+        State.SaveDetachedPosition()
+    end
+end
+
 -- Save detached position to profile. Called from the resize/drag handlers
 -- above and from DockPanel()/CloseDetached() below.
 State.SaveDetachedPosition = function()
     if not State.panelFrame or not HA.Addon or not HA.Addon.db then return end
+    if not State.isPoppedOut then return end
     local point, _, _, x, y = State.panelFrame:GetPoint(1)
     if point then
         HA.Addon.db.profile.vendorTracer.sidePanelPosition = {
@@ -4163,6 +4420,7 @@ end
 function MapSidePanel:PopOut()
     if not State.panelFrame then return end
     if State.isPoppedOut then return end
+    State.ExitAutoDetached()
 
     -- 1. Determine detached height: prefer saved user preference (from previous
     --    resize), then half the canvas height, then a compact screen fraction.
@@ -4196,6 +4454,8 @@ function MapSidePanel:PopOut()
 
     -- 5-6. Clear anchors, set size, restore position
     State.panelFrame:ClearAllPoints()
+    -- Bounds before size: an earlier narrower panel may have left a width bound behind
+    State.panelFrame:SetResizeBounds(Layout.PANEL_WIDTH, 200, Layout.PANEL_WIDTH, UIParent:GetHeight() * 0.9)
     State.panelFrame:SetWidth(Layout.PANEL_WIDTH)
     State.panelFrame:SetHeight(h)
 
@@ -4221,8 +4481,7 @@ function MapSidePanel:PopOut()
 
     -- 8. Enable height resizing
     State.panelFrame:SetResizable(true)
-    State.panelFrame:SetResizeBounds(Layout.PANEL_WIDTH, 200, Layout.PANEL_WIDTH, UIParent:GetHeight() * 0.9)
-    if State.resizeHandle then State.resizeHandle:Show() end
+    ShowResizeHandle()
 
     -- 9. Ensure complete border
     EnsureCompleteBorder()
@@ -4418,7 +4677,7 @@ function MapSidePanel:SetSourceFilter(sourceFilter)
 
     UpdateSourceFilterDropdownText()
 
-    -- HS-018: continent/world badges now honor the filter, so invalidate caches
+    -- Continent/world badges now honor the filter, so invalidate caches
     -- unconditionally on filter change (the prior zone-only gate at this site
     -- was a workaround for the unfiltered higher-level paths). Also kick a
     -- world-map repaint when the map is currently open so pins/badges update
@@ -4450,7 +4709,7 @@ function MapSidePanel:ResetIntegrationMode()
     ResetStandaloneCheck()
 end
 
--- HS-210: debounced scheduler for OWNERSHIP_UPDATED / VENDOR_SCANNED /
+-- Debounced scheduler for OWNERSHIP_UPDATED / VENDOR_SCANNED /
 -- ACTIVE_ENDEAVOR_CHANGED / SOURCE_CACHES_INVALIDATED. Without this, a burst
 -- of the same event (e.g. UPDATE_FACTION firing SOURCE_CACHES_INVALIDATED
 -- several times in one frame) schedules N independent 0.1s timers that each
@@ -4492,14 +4751,14 @@ function MapSidePanel:Initialize()
     CreatePanel()
     CreateOverlayButton()
 
-    -- HS-081: passive WorldMapFrame state detection. Replaces 6 hooksecurefunc/
+    -- Passive WorldMapFrame state detection. Replaces 6 hooksecurefunc/
     -- HookScript callbacks (SetMapID, OnShow, OnHide, HandleUserActionMaximizeSelf,
     -- HandleUserActionMinimizeSelf, and the RefreshOverlayFrames hook in
     -- CreateOverlayButton) that fired inside Blizzard's secure ToggleWorldMap ->
     -- ShowUIPanel(WorldMapFrame) -> Show()/SetMapID() path; the posthook bodies left
     -- that context tainted, blocking the protected SetPassThroughButtons continuation
     -- (QuestDataProvider -> MapCanvasPinMixin:CheckMouseButtonPassthrough), surfacing
-    -- as [ADDON_ACTION_BLOCKED] tainted by 'Homestead'. HS-275: the provider now feeds
+    -- as [ADDON_ACTION_BLOCKED] tainted by 'Homestead'. The provider now feeds
     -- this from DispatchMapWatch's C_Timer.After(0) deferral (HomesteadWorldMapProvider.lua),
     -- which reacts one frame AFTER the secure path has returned, so the reaction is
     -- never in a tainted context -- the same pattern as that file (which has zero
@@ -4520,17 +4779,17 @@ function MapSidePanel:Initialize()
         mapWatch.overlayCount = CountVisibleOverlayButtons()
     end
 
-    -- HS-223a: this used to run its own independent 10Hz ticker polling
+    -- This used to run its own independent 10Hz ticker polling
     -- WorldMapFrame:IsShown()/:GetMapID()/isMaximized -- the exact same raw
     -- state HomesteadWorldMapProvider.lua reads. Registered as a callback
     -- there instead of running a second redundant poll; trigger semantics
     -- below are unchanged, just fed from the shared dispatch's (isShown,
-    -- mapID, maximized) instead of a private one. HS-275: the provider side
+    -- mapID, maximized) instead of a private one. The provider side
     -- is now push-driven off Blizzard's map-canvas data-provider dispatch
     -- rather than a 10Hz ticker, so this callback fires on-change instead of
     -- 10 times a second -- every branch here is edge-triggered against
     -- mapWatch, so cadence doesn't change what fires. Do NOT convert this to
-    -- a WorldMapFrame hook (HS-081): hooks run inside Blizzard's secure
+    -- a WorldMapFrame hook: hooks run inside Blizzard's secure
     -- map-open path and taint execution.
     local function MapWatchTick(shown, mapID, maximized)
         if shown and not mapWatch.shown then
@@ -4538,7 +4797,7 @@ function MapSidePanel:Initialize()
             -- wrapper needed here -- DispatchMapWatch's own After(0) deferral already
             -- runs this after the secure path; ShowPanel -> ApplyDockedIntegration
             -- keeps its own one-frame border/inset defer.
-            if not State.isPoppedOut and not maximized
+            if not State.isPoppedOut
                     and HA.Addon and HA.Addon.db
                     and HA.Addon.db.profile.vendorTracer.showMapSidePanel then
                 ShowPanel()
@@ -4551,12 +4810,13 @@ function MapSidePanel:Initialize()
         elseif not shown and mapWatch.shown then
             -- Map just closed (was: WorldMapFrame OnHide hook).
             if not State.isPoppedOut then
-                -- HS-019: clear any active search when the docked panel closes with
+                -- Clear any active search when the docked panel closes with
                 -- the map. Popped-out panels keep their search state (early return above).
                 ClearSearch(false)
                 -- Bump generation to cancel any pending deferred Show callbacks.
                 State.panelShowGeneration = State.panelShowGeneration + 1
                 if State.panelFrame then State.panelFrame:Hide() end
+                State.ExitAutoDetached()
 
                 if InCombatLockdown() then
                     -- Closing during combat; defer restoration. Cancel any pending
@@ -4573,30 +4833,37 @@ function MapSidePanel:Initialize()
 
         elseif shown then
             if maximized and not mapWatch.maximized then
-                -- Map maximized (was: HandleUserActionMaximizeSelf hook). Blizzard has
-                -- already repositioned the map, so clear our shift state without
-                -- restoring (the saved point is stale).
+                -- Map maximized. Blizzard has already repositioned the map, so clear our
+                -- shift state without restoring (the saved point is stale). The panel
+                -- moves beside the map; in combat it hides until the map can be restored.
                 if not State.isPoppedOut and State.panelFrame and State.panelFrame:IsShown() then
                     State.panelShowGeneration = State.panelShowGeneration + 1
-                    State.panelFrame:Hide()
 
                     if InCombatLockdown() then
                         State.mapShifted = false
                         State.savedMapPoint = nil
                         State.pendingDockedAction = "clear"
+                        State.panelFrame:Hide()
                     else
                         RemoveDockedIntegration(false)
+                        ShowPanel()
+                        MapSidePanel:RefreshContent()
                     end
                 end
+                PositionOverlayButton()
+                mapWatch.overlayCount = CountVisibleOverlayButtons()
 
             elseif not maximized and mapWatch.maximized then
-                -- Map minimized (was: HandleUserActionMinimizeSelf hook).
+                -- Map minimized. An auto-detached panel docks whatever the setting says.
                 if not State.isPoppedOut and State.panelFrame
-                        and HA.Addon and HA.Addon.db
-                        and HA.Addon.db.profile.vendorTracer.showMapSidePanel then
+                        and (State.isAutoDetached
+                            or (HA.Addon and HA.Addon.db
+                                and HA.Addon.db.profile.vendorTracer.showMapSidePanel)) then
                     ShowPanel()
                     MapSidePanel:RefreshContent()
                 end
+                PositionOverlayButton()
+                mapWatch.overlayCount = CountVisibleOverlayButtons()
 
             elseif mapID and mapID ~= mapWatch.mapID and mapID ~= State.lastRefreshMapID then
                 -- Blizzard-driven zone change (was: SetMapID hook). Self-driven nav
@@ -4616,6 +4883,7 @@ function MapSidePanel:Initialize()
                     PositionOverlayButton()
                 end
             end
+            if State.isAutoDetached and State.PlaceAutoDetached() then MapSidePanel:RefreshContent() end
         end
 
         mapWatch.shown     = shown

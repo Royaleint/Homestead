@@ -139,7 +139,7 @@ function PinFrameFactory:CreateVendorPinFrame(vendor, isOppositeFaction)
     local isCustomColor = self:IsCustomPinColor()
 
     -- Housing icon
-    -- HS-158/160 §5: profession-shop vendors get a distinct pin treatment.
+    -- profession-shop vendors get a distinct pin treatment.
     -- No confirmed compact (32px map-pin-sized) "profession sign" atlas was
     -- found in the local Blizzard UI source checkout (Blizzard_Professions
     -- atlases are all large-panel textures, not pin icons) — shipping an
@@ -209,11 +209,11 @@ function PinFrameFactory:CreateVendorPinFrame(vendor, isOppositeFaction)
 end
 
 -------------------------------------------------------------------------------
--- HS-018: Source-typed pin factory
+-- Source-typed pin factory
 --
 -- Dispatch entry for the pin source provider registry. Returns a frame for a
--- pin record of the given source type. Commit 2 wires the "vendor" path
--- (delegates to CreateVendorPinFrame) and stubs "drop" (filled in by commit 3).
+-- pin record of the given source type. The "vendor" path delegates to
+-- CreateVendorPinFrame and the "drop" path to CreateDropPinFrame.
 -- Future source types (profession, quest, achievement, shop) plug in here
 -- without modifying the registry iterator in VendorMapPins.
 -------------------------------------------------------------------------------
@@ -228,12 +228,12 @@ function PinFrameFactory:CreateSourcePinFrame(sourceType, record)
     end
 
     -- Other source types (profession, quest, achievement, shop) are reserved
-    -- registry slots awaiting their own tickets.
+    -- registry slots awaiting their own implementations.
     return nil
 end
 
 -------------------------------------------------------------------------------
--- HS-018: Drop Pin Frame
+-- Drop Pin Frame
 --
 -- Visually distinct from vendor pins so filter = "Drop" reads at a glance.
 -- Same base size as vendor pins for consistency. Click does nothing (no
@@ -287,14 +287,14 @@ function PinFrameFactory:RefreshVendorPinCount(frame, vendor, reason)
         if frame.count then
             frame.count:Hide()
         end
-        -- HS-271 item 2: reset on every acquire path (this function runs on
+        -- reset on every acquire path (this function runs on
         -- every AcquireVendorFrame call) so a recycled frame never carries a
         -- stale pending flag from whatever it last showed.
         frame.hsStatsPending = false
         return
     end
 
-    -- HS-018: respect the active source filter so pin counts match the
+    -- respect the active source filter so pin counts match the
     -- side-panel filter. Defensive fallback to "all" if MapSidePanel isn't
     -- loaded yet (early init order).
     local sourceFilter = "all"
@@ -306,7 +306,7 @@ function PinFrameFactory:RefreshVendorPinCount(frame, vendor, reason)
     -- below to skip repainting an unchanged "..." placeholder.
     local wasPending = frame.hsStatsPending
 
-    -- HS-271 (CRITICAL fix): two-tier peek. The prewarm only
+    -- two-tier peek. The prewarm only
     -- ever warms "all"-filter cache keys (BadgeCalculation's vendor-stats
     -- batch always calls GetVendorStats(vendor, "all")), but a render can be
     -- under any active filter — peeking ONLY the active filter's key against
@@ -317,8 +317,8 @@ function PinFrameFactory:RefreshVendorPinCount(frame, vendor, reason)
     -- BuildVendorStats still allocates fresh presentation tables per item
     -- synchronously here. What "all" being warm buys is the requirement-met
     -- and ownership caches underneath (the genuinely expensive part, per
-    -- HS-200) — still far cheaper than a fully cold compute, but not free;
-    -- its real cost under a non-"all" filter is unmeasured until Capture I.
+    -- profiling) — still far cheaper than a fully cold compute, but not free;
+    -- its real cost under a non-"all" filter is unmeasured.
     local stats
     if vendor and HA.VendorMapPins and HA.VendorMapPins.PeekVendorStats then
         stats = HA.VendorMapPins:PeekVendorStats(vendor, sourceFilter)
@@ -392,7 +392,7 @@ function PinFrameFactory:RefreshVendorPinCount(frame, vendor, reason)
     frame.count:Show()
 end
 
--- HS-229: refreshes the collected/total counter on a drop pin frame, mirroring
+-- refreshes the collected/total counter on a drop pin frame, mirroring
 -- RefreshVendorPinCount so the two pin families read identically. `record` is
 -- the sourcePins entry (record.records is the pin's grouped {itemID, drop}
 -- list — one entry for a legacy/enc pin, several for a multi-boss ent pin).
@@ -441,7 +441,7 @@ end
 -- Badge Pin Frame (continent/world-level zone summary pins)
 -------------------------------------------------------------------------------
 
--- HS-222: single source of truth for the count-driven badge visuals (icon
+-- single source of truth for the count-driven badge visuals (icon
 -- tint, count text/color). Called both by CreateBadgePinFrame below (fresh
 -- frame) and by HomesteadWorldMapProvider.lua's AcquireBadgeFrame after every
 -- pool acquire (reused frame) — the world-map badge pool key deliberately
@@ -452,7 +452,7 @@ end
 -- tint/color must be explicitly reset here, not just re-applied when a
 -- condition matches, or a frame last shown desaturated/red would stay that
 -- way forever once recycled into a bucket that no longer produces that
--- state. Mirrors RefreshVendorPinCount's role for vendor pins (HS-208).
+-- state. Mirrors RefreshVendorPinCount's role for vendor pins.
 function PinFrameFactory:RefreshBadgePinVisuals(frame, badgeData)
     if not frame or not badgeData then return end
 
@@ -726,8 +726,7 @@ end
 -- Mutate-in-place restyle: size, icon tint, and (if the frame has an
 -- elevation arrow shell) arrow size/anchor/texcoord/tint. Called every time
 -- a minimap pin frame is handed out for use — fresh construct or pool hit —
--- so a reused frame never carries stale style from before a settings change
--- (HS-358; see HomesteadMinimapOverlay.lua's AcquireFrame).
+-- so a reused frame never carries stale style from before a settings change.
 function PinFrameFactory:ApplyMinimapPinStyle(frame, isOppositeFaction, elevationDirection)
     local mmSize = self:GetMinimapIconSize()
     frame:SetSize(mmSize, mmSize)
@@ -767,9 +766,9 @@ function PinFrameFactory:ApplyMinimapPinStyle(frame, isOppositeFaction, elevatio
 end
 
 -------------------------------------------------------------------------------
--- HS-271 item 2: Deferred Count Fill
+-- Deferred Count Fill
 --
--- BadgeCalculation's HS-234 prewarm fires HS_VENDOR_STATS_WARMED once per
+-- BadgeCalculation's prewarm fires HS_VENDOR_STATS_WARMED once per
 -- completed vendor-stats batch (not once per whole pass) -- this listener
 -- re-runs RefreshVendorPinCount on every currently-rendered vendor pin still
 -- flagged hsStatsPending, so a cold pin's "..." placeholder flips to its

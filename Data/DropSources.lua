@@ -1,12 +1,11 @@
 --[[
     Homestead - DropSources
     Generated: 2026-09-23 10:35:37
-    Total entries: 55
+    Total entries: 59
+    Rows for patch 12.1.5 added by hand.
 
     World drop source data for housing decor items.
-    Regenerate with: python Home_Dev/scripts/generate_source_tables.py --table drop
-    DO NOT EDIT — changes will be overwritten. Use overrides file instead:
-    Home_Dev/scripts/overrides/drop_sources_overrides.lua
+    DO NOT EDIT — this file is generated and changes will be overwritten.
 --]]
 
 local _, HA = ...
@@ -63,8 +62,12 @@ HA.DropSources = {
     [266886] = {mobName = "Chimaerus", zone = "The Dreamrift", journalInstanceID = 1314, journalEncounterID = 2795, notes = "Gleaming tier (Mythic kill)."},
     [266887] = {mobName = "Crown of the Cosmos", zone = "The Voidspire", mapID = 2215, coords = {x = 0.5, y = 0.5}, journalInstanceID = 1307, journalEncounterID = 2738, notes = "Gleaming."},
     [267007] = {mobName = "Scourgelord Tyrannus", zone = "Pit of Saron", journalInstanceID = 278, journalEncounterID = 610},
-    [267008] = {mobName = "Zaxasj the Speaker", zone = "Crucible of Storms", mapID = 2133, coords = {x = 0.492, y = 0.524}, journalInstanceID = 1177, journalEncounterID = 2328, notes = "First boss (The Restless Cabal — Zaxasj + Fa'thuul); confirmed."},
+    [267008] = {mobName = "Zaxasj the Speaker", zone = "Crucible of Storms", mapID = 2133, coords = {x = 0.492, y = 0.524}, journalInstanceID = 1177, journalEncounterID = 2328, notes = "First boss (The Restless Cabal: Zaxasj + Fa'thuul); confirmed."},
     [267645] = {mobName = "Chimaerus", zone = "The Dreamrift", journalInstanceID = 1314, journalEncounterID = 2795, notes = "Argent tier (Normal kill)."},
     [268049] = {mobName = "Crown of the Cosmos", zone = "The Voidspire", journalInstanceID = 1307, journalEncounterID = 2738, notes = "Argent tier (Normal kill)."},
     [269269] = {mobName = "Alleria Windrunner", zone = "The Voidspire", journalInstanceID = 1307, journalEncounterID = 2738},
+    [278245] = {mobName = "King Dazar", zone = "King's Rest", journalInstanceID = 1041, journalEncounterID = 2172},
+    [278982] = {mobName = "Avatar of Sethraliss", zone = "Temple of Sethraliss", journalInstanceID = 1030, journalEncounterID = 2145},
+    [281213] = {mobName = "Kith'ix", zone = "Temple of Ula'tek", journalInstanceID = 1324, journalEncounterID = 2896},
+    [284194] = {mobName = "Yalnu", zone = "The Everbloom", journalInstanceID = 556, journalEncounterID = 1210},
 }

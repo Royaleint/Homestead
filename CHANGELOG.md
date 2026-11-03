@@ -2,6 +2,214 @@
 
 ---
 
+## Homestead v2.15.0 (10-31-2026)
+
+Endeavor vendor fixes and decor markers for Krowi's Extended Vendor UI.
+
+---
+
+## Endeavor Vendors
+
+- Fixed endeavor and holiday vendors sometimes disappearing from the map after you visited them.
+- Improved how neighborhood endeavors are identified on non-English clients, so each endeavor shows its own vendors.
+
+---
+
+## Krowi's Extended Vendor UI
+
+- Added support for Homestead decor ownership markers for those who use Krowi's Extended Vendor UI.
+
+---
+
+## Homestead v2.14.2 (10-22-2026)
+
+Hallow's End vendors, holiday detection that works, and pins that no longer hide each other.
+
+---
+
+## Vendor Database
+
+**New and Updated Vendors**
+
+- Added the Hallow's End vendors Echo (Tirisfal Glades), Jack (Elwynn Forest), Cordula Wolfgang (Founder's Point) and Spew Gutsout (Razorwind Shores), with their decor and prices. They show only while Hallow's End runs.
+- Added four decorations at Naynar in Harandar: the Haranir Pennant, Rutaani Birdfeeder, Rutaani Birdbath and Rutaani Bird Perch.
+- Moved "Yen" Malone's pin to where he stands in Razorwind Shores.
+
+**Prices**
+
+- Prices for 59 items now show the vendor's base price, with no reputation discount applied.
+- Corrected 21 currency prices and 30 Order Resources prices at Berazus, Torv Dubstomp, Jocenna and Ransa Greyfeather in the Broken Isles to the amounts after the patch 12.1 price changes.
+
+---
+
+## Events and Map
+
+- Fixed Hallow's End and other holidays not being recognized, so their vendors and "Active Now" tooltip lines now appear while each holiday runs.
+- Vendors who stand side by side, such as Cordula Wolfgang and Holly Twinklebright, now draw slightly apart on the world map and minimap so you can see and hover both.
+- Saved vendor scans no longer show a holiday vendor outside their holiday.
+
+---
+
+## Homestead v2.14.1 (10-16-2026)
+
+Updated more vendors for both faction neighborhoods.
+
+---
+
+## Vendor Database
+
+**New and Updated Vendors**
+
+- Added Rotha in The Common, Razorwind Shores.
+- Added Unquestionably Griftah in both Razorwind Shores and Breakwater Bight (Founder's Point).
+- Added Jolli Maxiboom (Razorwind Shores) and Holly Twinklebright (Founder's Point).
+- Fixed issues with Timicky, Taifa, and Roshai Lightstep in Founder's Point too.
+- Buy Tortollan and Grummle endeavor items from Throska and Cousin Shortkaf as well when available.
+
+**Tooltips and Map**
+
+- Hover an item to see every location of vendors who stand in both neighborhoods. The waypoint takes you to the nearer one.
+- Hover Unquestionably Griftah's pin in Razorwind Shores again. "Yen" Malone's pin no longer covers it.
+
+---
+
+## Homestead v2.14.0 (10-13-2026)
+
+Homestead is updated for patch 12.1.5 with new vendors and decor sources, and the continent map now shows one badge per zone.
+
+---
+
+## World Map
+
+**Zone Badges on the Continent Map**
+
+- The continent map now shows one badge per zone. Vendors in a zone's sub-zones, such as a city inside a zone, are counted under that zone instead of getting a badge of their own.
+- Quel'Thalas is now counted under Eastern Kingdoms on the Azeroth map, so Eastern Kingdoms shows one badge for both. In the side panel, Quel'Thalas appears as a single continent row inside the Eastern Kingdoms list, and opening it lists its zones.
+- Undermine keeps its own badge on the Khaz Algar map instead of being counted under The Ringing Deeps.
+- Zone maps now show a badge for sub-zones whose vendors are not drawn as pins, and the side panel lists them under the zone.
+
+---
+
+## Vendor Database
+
+**Patch 12.1.5**
+
+- Added the new decor sold by vendors in the Shadowlands, Draenor, Argus, Dalaran, Drustvar, Vol'dun, Stormwind and Silvermoon City, including the vendors added in patch 12.1.5.
+- Updated source information for many other decor items, including decor from Hallow's End, crafting, achievements, boss drops and quests.
+- Corrected prices and other incorrect information across Homestead.
+
+---
+
+## Homestead v2.13.0 (10-12-2026)
+
+Vendor pins with long wares lists now open a scrolling tooltip with a search box, the vendor panel stays beside the maximized world map, and more vendor prices are corrected.
+
+---
+
+## Vendor Pin Tooltips
+
+**Long Wares Tooltip**
+
+- Hovering a vendor pin that sells more than 15 wares now opens a scrolling tooltip that shows 15 wares at a time, instead of one tall list that ran off the screen. Scroll with the mouse wheel or the scroll bar.
+- Type in the search box along the bottom to narrow the list as you type. It matches ware names, plus the currency and reagent names in the price column.
+- Move your cursor from the pin onto the tooltip to scroll and search. It closes when your cursor leaves both, or when you press Escape in the search box.
+- Vendors with 15 wares or fewer show the same tooltip as before.
+
+---
+
+## World Map Vendor Panel
+
+**Beside the Maximized Map**
+
+- The vendor panel now stays visible when you maximize the world map. It moves into the blank strip on the left, narrower than usual, so it shows fewer item tiles per row, and returns to its docked spot when you minimize the map.
+- If your screen has no room beside the maximized map, the panel sits on the left screen edge over the map, below the floor selector.
+- Drag the panel off the strip to detach it. It becomes the normal detached panel where you drop it, and Homestead remembers that spot. A panel you already detached is left alone.
+- The resize grip on the bottom edge of a detached panel is easier to see, with brighter lines and a corner grabber.
+
+---
+
+## Bug Fixes
+
+- Fixed vendors you have not visited yet showing an older price when Homestead already had the corrected one.
+- Fixed the breadcrumb bar at the top of the world map shifting to the right when you maximize the map with the vendor panel docked.
+
+---
+
+## Vendor Database
+
+**Corrections**
+
+- Corrected 111 decor prices across 23 vendors that still showed older amounts.
+- Thirteen decor items sold by **MOTHER**, **Boatswain Hardee**, **Shredz the Scrapper**, **Lab Assistant Laszly** and **Janey Forrest** no longer show a 10 gold price. They now show the currency price each vendor charges.
+
+---
+
+## Homestead v2.12.0 (10-09-2026)
+
+Italian and Traditional Chinese are now supported, every language is fully translated, and more vendor prices and locations are corrected.
+
+---
+
+## Languages
+
+- Added Italian and Traditional Chinese.
+- Every supported language is now fully translated, so you no longer see a mix of your language and English.
+- Shared labels such as General, World Map, Minimap, Endeavors, Shop, Close, and the Shift, Ctrl and Alt key names now use the game's own words, so they match your client.
+- Russian decor and housing catalog terms now use the game's own Russian words.
+
+---
+
+## Vendor Database
+
+**Corrections**
+
+- Corrected numerous vendor prices paid in currencies such as Order Resources, Veiled Argunite, War Resources, Honor, and Elemental Overflow, which still showed the older, higher amounts.
+- **Amurra Thistledew**: Corrected five Order Resources prices in the Dreamgrove.
+
+**Location Fixes**
+
+- Moved four vendors to their live positions: Jackson Watkins, Morta Gage, Irodalmin and Samantha Buckley.
+
+---
+
+## Homestead v2.11.0 (09-27-2026)
+
+A new tooltip line for crafting reagents, a round of vendor price corrections for patch 12.1, and a cleaner Welcome screen and options panel.
+
+---
+
+## Tooltips
+
+**Reagent Recipe Usage**
+
+- Hovering a crafting reagent now shows how many known housing decor recipes you haven't collected yet use it, so you know what to hang onto before you sell it.
+
+---
+
+## Interface
+
+- Cleaned up the Welcome screen: fixed a few wrong icons, tightened the wording, and simplified the feedback section to point straight to GitHub for bugs and vendor corrections.
+- Removed outdated text about sharing scanned vendor data elsewhere. Scanning and exporting still work the same; only the old submission wording is gone.
+- Removed the "Show on auction house" option. It never did anything.
+
+---
+
+## Vendor Database
+
+**Corrections**
+
+- Corrected 41 vendor prices for patch 12.1, mostly at Draenor and Undermine vendors.
+
+**New and Updated Vendors**
+
+- Added 9 vendor offers that were missing, at vendors in Arcantina, Silvermoon City, and the Vaults of Atal'Utek.
+
+**Location Fixes**
+
+- Added sources for 5 decor items that had none: three from quests, and two from drops, including one from Ziekket in The Blinding Vale.
+
+---
+
 ## Homestead v2.10.3 (09-16-2026)
 
 Vendor pins on more minimaps, a treasure badge in the housing catalog, and a batch of fixes for tooltips, vendor costs, and locked reputation items.

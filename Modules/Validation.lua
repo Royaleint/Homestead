@@ -3,6 +3,11 @@
     Validates database integrity and catches data problems early
 
     Usage: /hs validate
+
+    Dev-only: never listed in Homestead.toc and excluded from the
+    packaged zip (.pkgmeta); the DevBuild TOC loads it. It registers its own
+    slash commands at PLAYER_LOGIN, after core.lua's OnInitialize has created
+    HousingAddon.commands (see Core/DevMemoryDiagnostics.lua).
 ]]
 
 local _, HA = ...
@@ -246,6 +251,10 @@ function Validation:ValidateVendorOffers()
         if scannedVendors and (scannedVendors[canonicalID] or scannedVendors[npcID]) then
             return true
         end
+        local eventVendors = HA.EventSources and HA.EventSources.EventVendors
+        if eventVendors and (eventVendors[canonicalID] or eventVendors[npcID]) then
+            return true
+        end
         return false
     end
 
@@ -261,7 +270,7 @@ function Validation:ValidateVendorOffers()
                     "%s offers: npcID key '%s' is not a number", source, tostring(npcID)))
             elseif not hasKnownVendor(npcID) then
                 table.insert(warnings, string.format(
-                    "%s offers: npcID %d has no identity, endeavor, or scanned record",
+                    "%s offers: npcID %d has no identity, endeavor, holiday, or scanned record",
                     source, npcID))
             end
             if type(offers) == "table" then
@@ -572,4 +581,17 @@ end
 
 if HA.Addon then
     HA.Addon:RegisterModule("Validation", Validation)
+end
+
+if HA.Addon and CreateFrame then
+    local validationFrame = CreateFrame("Frame")
+    validationFrame:RegisterEvent("PLAYER_LOGIN")
+    validationFrame:SetScript("OnEvent", function()
+        HA.Addon.commands:Register({ name = "validate",
+            help = "Validate the vendor database.",
+            handler = function() Validation:RunFullValidation() end })
+        HA.Addon.commands:Register({ name = "validate details",
+            help = "Show validation details.",
+            handler = function() Validation:ShowDetails() end })
+    end)
 end

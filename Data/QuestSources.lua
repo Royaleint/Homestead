@@ -1,15 +1,13 @@
 --[[
     Homestead - QuestSources
     Generated: 2026-09-23 10:35:37
-    Total entries: 279
-    Hand-corrected under HS-392 (2026-09-13): one refuted entry removed to
-    mirror the overrides file. See Home_Dev/.claude/reports/
-    hs392-quest-source-evidence.md for the held-back 250704 row.
+    Total entries: 281
+    Hand-corrected (2026-09-13): one refuted entry removed; the 250704 row is
+    held back pending evidence.
+    Rows for patch 12.1.5 added by hand.
 
     Quest source data for housing decor items.
-    Regenerate with: python Home_Dev/scripts/generate_source_tables.py --table quest
-    DO NOT EDIT — changes will be overwritten. Use overrides file instead:
-    Home_Dev/scripts/overrides/quest_sources_overrides.lua
+    DO NOT EDIT — this file is generated and changes will be overwritten.
 --]]
 
 local _, HA = ...
@@ -288,10 +286,12 @@ HA.QuestSources = {
     [264657] = {questID = 86530, questName = "First, The Shells"},
     [264659] = {questID = 86512, questName = "The Harvest"},
     [264660] = {questID = 88706, questName = "Nothing Stands Forever"},
+    [264718] = {questID = 95203, questName = "The Ties That Bind"},
     [265106] = {questID = 90867, questName = "From Darkness, Light"},
     [265631] = {questID = 90867, questName = "From Darkness, Light"},
     [266130] = {questID = 84912, questName = "The Show Must Go On"},
     [266259] = {questID = 86851, questName = "The Foundation of Aln"},
     [267082] = {questID = 86516, questName = "All Become Prey"},
     [267209] = {questID = 86541, questName = "Just In Case..."},
+    [279067] = {questID = 95200, questName = "An Offering for Halazzi"},
 }

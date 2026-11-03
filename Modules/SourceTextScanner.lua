@@ -2,13 +2,12 @@
     Homestead - SourceTextScanner
     Processes sourceText from CatalogScanner and stores parsed results
 
-    Data collection module for the player addon. Cross-reference reporting
-    lives in Homestead_Dev/ValidationReport.lua (dev addon only).
+    Data collection module for the player addon.
 
     Flow: CatalogScanner:ProcessBatch() → SourceTextScanner:ProcessScannedItem()
           → SourceTextParser:ParseSourceText() → CatalogStore:SetSources()
 
-    HS-205: db.global.parsedSources used to store the full parsed payload
+    db.global.parsedSources used to store the full parsed payload
     (sources/recordID/lastParsed/sourceHash/raw) on every parse, duplicating
     it byte-for-byte into catalogItems via the CatalogStore:SetSources dual-
     write. catalogItems is now the single owner (see CatalogStore:SetSources'
@@ -61,8 +60,7 @@ function SourceTextScanner:ProcessScannedItem(result)
     -- Skip only if both the sourceText is unchanged AND it was parsed by the
     -- current parser version. A stored entry with no/old parserVersion (from
     -- before this gate existed, or a version bump) forces a re-parse even
-    -- though sourceHash still matches — otherwise a parser bugfix (e.g.
-    -- HS-241) never reaches players who already scanned the affected items.
+    -- though sourceHash still matches — otherwise a parser bugfix never reaches players who already scanned the affected items.
     local existing = parsedSources[result.itemID]
     if existing and existing.sourceHash == hash and existing.parserVersion == parserVersion then
         return
@@ -92,7 +90,7 @@ end
 -- Public Queries
 -------------------------------------------------------------------------------
 
--- HS-205: returns the full parsed-source shape callers expect. Payload is
+-- returns the full parsed-source shape callers expect. Payload is
 -- read from catalogItems while lastParsed/sourceHash come from parsedSources.
 -- recordID is intentionally NOT reconstructed here — nothing reads it live (only a
 -- historical one-time migration ever did; decorID on the catalogItems record

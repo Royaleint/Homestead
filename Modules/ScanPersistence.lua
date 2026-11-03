@@ -1,11 +1,11 @@
 --[[
     Homestead - ScanPersistence
-    Vendor scan data storage, retrieval, clearing, and export
+    Vendor scan data storage, retrieval, and clearing
 
     Extracted from VendorScanner.lua to reduce file size.
     Manages all SavedVariables reads/writes for scanned vendor data.
 
-    Reusable by VendorScanner, ExportImport, Options, etc.
+    Reusable by VendorScanner, Options, etc.
 ]]
 
 local _, HA = ...
@@ -17,7 +17,7 @@ HA.ScanPersistence = ScanPersistence
 -- Data Storage
 -------------------------------------------------------------------------------
 
--- HS-251 Stage C: the aggregate housingCount guard (existingHousingCount vs
+-- the aggregate housingCount guard (existingHousingCount vs
 -- vendorRecord.housingCount below) misses a rescan that loses items from one
 -- subclass while gaining items in another — same total, real data loss. This
 -- generalizes it per subclass. subclassCounts is sparse (only subclasses
@@ -48,7 +48,7 @@ function ScanPersistence:SaveVendorData(scanData)
 
     local existingData = HA.Addon.db.global.scannedVendors[scanData.npcID]
 
-    -- HS-249: records written before the housing gate carry no housingCount.
+    -- records written before the housing gate carry no housingCount.
     -- On those, decorCount IS the housing count — decor was the only subclass
     -- the old gate could capture. Falling back to 0 instead would make the
     -- partial-scan guard below never fire for any pre-existing record, so the
@@ -57,7 +57,7 @@ function ScanPersistence:SaveVendorData(scanData)
         and (existingData.housingCount or existingData.decorCount or 0)
         or 0
 
-    -- HS-251 Stage C: a record with no subclassCounts is one of two shapes,
+    -- a record with no subclassCounts is one of two shapes,
     -- and they need different fallbacks. Pre-housing-gate records (written
     -- before 6e5d82f) carry items with no subclassID at all — decor was the
     -- only subclass the old gate could ever see, so attribute the whole
@@ -111,7 +111,8 @@ function ScanPersistence:SaveVendorData(scanData)
         mapChain = scanData.mapChain,
         continentMapID = scanData.continentMapID,
         lastScanned = time(),
-        itemCount = itemCount,          -- Total items at vendor
+        itemCount = itemCount,          -- Slots that returned an item link
+        slotCount = scanData.totalItems, -- Merchant slots the scan walked (capped at 200)
         decorCount = decorCount,        -- Housing decor items (subclass 0 only)
         hasDecor = decorCount > 0,      -- Flag to identify if vendor sells housing decor
         lastScanHadDecor = decorCount > 0, -- Last observed scan result, even if old items are preserved
@@ -121,7 +122,7 @@ function ScanPersistence:SaveVendorData(scanData)
         -- vendorRecord.items below (after decorID enrichment / merge logic),
         -- the same way decorCount/housingCount already are. Setting it here
         -- too would just be overwritten there, unread in between.
-        -- HS-250: housing-wide counterpart to lastScanHadDecor; see IsDelistCandidate.
+        -- housing-wide counterpart to lastScanHadDecor; see IsDelistCandidate.
         lastScanHadHousing = housingCount > 0,
         items = {},                     -- Enhanced item data
     }
@@ -176,11 +177,15 @@ function ScanPersistence:SaveVendorData(scanData)
     vendorRecord.currency = primaryCurrency
     vendorRecord.expansion = scanData.expansion
 
+    -- This scan's own position. StartScan stores 0.5/0.5 when the client gave
+    -- none, so either coordinate at exactly 0.5 means no position.
+    local scanHasPosition = scanData.coords and scanData.coords.x and scanData.coords.y
+        and scanData.coords.x ~= 0.5 and scanData.coords.y ~= 0.5
+
     -- Merge with existing data if present (keep more complete record)
     if existingData then
         -- Use newer coords if available
-        if scanData.coords and scanData.coords.x and scanData.coords.y
-            and scanData.coords.x ~= 0.5 and scanData.coords.y ~= 0.5 then
+        if scanHasPosition then
             vendorRecord.coords = scanData.coords
         elseif existingData.coords then
             vendorRecord.coords = existingData.coords
@@ -203,9 +208,9 @@ function ScanPersistence:SaveVendorData(scanData)
         vendorRecord.expansion = vendorRecord.expansion or existingData.expansion
         vendorRecord.currency = vendorRecord.currency or existingData.currency
 
-        -- HS-249: decorID is now produced by an enrichment step rather than by
+        -- decorID is now produced by an enrichment step rather than by
         -- the capture test itself, so a cold housing catalog yields genuine
-        -- decor items carrying no decorID. Before this ticket such an item
+        -- decor items carrying no decorID. Previously such an item
         -- failed capture outright and the preserve branches below kept the old
         -- record intact; now it IS captured, the housing counts match, and a
         -- good row would be overwritten by one that had silently lost its
@@ -251,9 +256,9 @@ function ScanPersistence:SaveVendorData(scanData)
 
     -- Determine scan confidence BEFORE the save decision below (moved up from
     -- its old post-save position): "confirmed" only if the scan completed AND
-    -- every item slot returned valid data. "unknown" if the scan completed but
-    -- any C_MerchantFrame.GetItemInfo() call returned nil during
-    -- ProcessScanQueue() — e.g. a laggy partial scan with no retry.
+    -- every slot had its link and item info by the end of the scan, re-reads
+    -- included. "unknown" if any slot was still missing either at that point,
+    -- or the scan ended early during its re-reads or on a slot total change.
     local scanConfidence = "unknown"
     if scanData.scanComplete and not scanData.hadNilSlots then
         scanConfidence = "confirmed"
@@ -265,7 +270,7 @@ function ScanPersistence:SaveVendorData(scanData)
             and (existingHousingCount > vendorRecord.housingCount
                 or SubclassCountsRegressed(existingSubclassCounts, vendorRecord.subclassCounts)) then
         -- An unconfirmed (laggy/partial) scan found fewer items than the
-        -- existing record — either in aggregate or, HS-251 Stage C, within a
+        -- existing record — either in aggregate or within a
         -- single subclass while the total happened to match (e.g. 3 fewer
         -- decor, 3 more room plans: same housingCount, real data loss). The
         -- aggregate check alone missed that case. The two checks are NOT
@@ -278,10 +283,17 @@ function ScanPersistence:SaveVendorData(scanData)
         -- record entirely — do NOT touch lastScanned here: that field means
         -- "these items were observed at this time," and this attempt
         -- observed neither the full item set nor confirmed data. Re-dating it
-        -- would tell every recency consumer (UI staleness, HS-151
+        -- would tell every recency consumer (UI staleness,
         -- consolidation, scan-timestamp provenance) that the unobserved rows
         -- were freshly re-verified. Record the attempt separately instead.
         existingData.lastScanAttempt = vendorRecord.lastScanned
+        -- What this scan did see still counts: a housing item is on the
+        -- vendor, so a stale "had nothing" mark from an earlier zero scan is
+        -- wrong. Raise the marks only, never lower them.
+        existingData.lastScanHadHousing = true
+        if vendorRecord.hasDecor then
+            existingData.lastScanHadDecor = true
+        end
         -- Debug (already debug-gated) rather than DevAddon-gated: a rejected
         -- scan is evidence loss the user should be able to see with debug on.
         HA.Addon:Debug(string.format(
@@ -294,15 +306,28 @@ function ScanPersistence:SaveVendorData(scanData)
         -- Good scan: save new data
         HA.Addon.db.global.scannedVendors[scanData.npcID] = vendorRecord
     elseif isKnownVendor then
-        -- Known housing vendor scanned with 0 housing items = API failure,
-        -- not truth. Preserve existing scan data; record the latest scan
-        -- result separately.
+        -- Known housing vendor scanned with 0 housing items. The stored
+        -- items are kept either way. Only a confirmed scan (every slot read)
+        -- may say "had nothing" and re-date the record; an unconfirmed one
+        -- just logs the attempt.
         if existingData then
-            existingData.lastScanned = vendorRecord.lastScanned
-            existingData.lastScanHadDecor = false
-            existingData.lastScanHadHousing = false
-            if vendorRecord.coords and vendorRecord.coords.x ~= 0.5 and vendorRecord.coords.y ~= 0.5 then
-                existingData.coords = vendorRecord.coords
+            if scanConfidence == "confirmed" then
+                existingData.lastScanned = vendorRecord.lastScanned
+                existingData.lastScanHadDecor = false
+                existingData.lastScanHadHousing = false
+            else
+                existingData.lastScanAttempt = vendorRecord.lastScanned
+            end
+            -- Coords and map move together, and only on this scan's own
+            -- position; the other location fields take the values merged above.
+            if scanHasPosition then
+                existingData.coords = scanData.coords
+                existingData.mapID = scanData.mapID
+                existingData.realZone = vendorRecord.realZone
+                existingData.parentMapID = vendorRecord.parentMapID
+                existingData.mapChain = vendorRecord.mapChain
+                existingData.continentMapID = vendorRecord.continentMapID
+                existingData.expansion = vendorRecord.expansion
             end
             existingData.zone = vendorRecord.zone or existingData.zone
             existingData.subZone = vendorRecord.subZone or existingData.subZone
@@ -320,9 +345,15 @@ function ScanPersistence:SaveVendorData(scanData)
         -- field existed: hasDecor=true on an old record still means it had
         -- housing items (decor is a housing subclass), so it must not fall
         -- through to the delete branch below just because hasHousing is nil.
-        existingData.lastScanned = vendorRecord.lastScanned
-        existingData.lastScanHadDecor = false
-        existingData.lastScanHadHousing = false
+        -- As above, only a confirmed scan may mark the vendor empty or
+        -- re-date it.
+        if scanConfidence == "confirmed" then
+            existingData.lastScanned = vendorRecord.lastScanned
+            existingData.lastScanHadDecor = false
+            existingData.lastScanHadHousing = false
+        else
+            existingData.lastScanAttempt = vendorRecord.lastScanned
+        end
         if HA.DevAddon then
             HA.Addon:Debug(string.format(
                 "Scan protection: %s (NPC %d) previously had housing items but new scan found 0. "
@@ -391,7 +422,7 @@ function ScanPersistence:SaveVendorData(scanData)
     -- argument on the VENDOR_SCANNED fire below instead.
     local hadRequirementDiscovery = false
     if HA.CatalogStore then
-        -- HS-092: a vendor with several requirement-bearing decor items was
+        -- a vendor with several requirement-bearing decor items was
         -- firing CATALOG_ITEM_UPDATED once per item on every ordinary vendor
         -- scan instead of once per scan. BeginBatch/EndBatch suppresses the
         -- per-item fires the same way CatalogScanner's own ProcessBatch does.
@@ -399,9 +430,9 @@ function ScanPersistence:SaveVendorData(scanData)
         for _, item in ipairs(vendorRecord.items) do
             -- Containment: this path writes catalogItems records for
             -- Decor-subclass items only. Room-plan records come from the
-            -- catalog scanner (HS-451), and IsDecorItem never treats a
-            -- non-Decor housing record as decor, so bag/merchant/tooltip
-            -- overlays stay off for them.
+            -- catalog scanner, and IsDecorItem never treats a non-Decor
+            -- housing record as decor, so bag/merchant/tooltip overlays stay
+            -- off for them.
             if item.itemID and item.subclassID == Enum.ItemHousingSubclass.Decor then
                 if item.requirements and #item.requirements > 0 then
                     HA.CatalogStore:SetRequirements(item.itemID, item.requirements)
@@ -427,7 +458,7 @@ function ScanPersistence:SaveVendorData(scanData)
     -- Invalidate cached vendor data (new scan data may affect results)
     -- Ordering is load-bearing: this rebuild must run BEFORE the VENDOR_SCANNED
     -- fire below, so any listener observes a freshly-rebuilt index, never a
-    -- stale one between save and rebuild (HS-280).
+    -- stale one between save and rebuild.
     --
     -- Perf cleanup: this is now the ONLY place that rebuilds the scanned-items
     -- index. VendorData used to also rebuild it on its own VENDOR_SCANNED
@@ -442,7 +473,7 @@ function ScanPersistence:SaveVendorData(scanData)
         HA.VendorData:InvalidateVendorCaches()
     end
 
-    -- HS-273 R2: a decor-bearing vendor scan discovers new sources for items
+    -- a decor-bearing vendor scan discovers new sources for items
     -- (a vendor selling an item nothing else pointed to yet), which
     -- SourceManager's GetAllSources memoization would otherwise cache stale
     -- forever -- the rep/quest/achievement/holiday trigger set behind
@@ -451,7 +482,7 @@ function ScanPersistence:SaveVendorData(scanData)
     -- InvalidateAllSourceCaches -- the full version's SearchProvider wipe +
     -- SOURCE_CACHES_INVALIDATED broadcast would restart the badge prewarm
     -- pass on every vendor scan, which is exactly the over-invalidation
-    -- HS-238 already fixed once. Skipped entirely for a decor-less vendor
+    -- fixed once already. Skipped entirely for a decor-less vendor
     -- (vendorRecord.hasDecor, computed above from scanData.decorItems) --
     -- nothing was discovered for the memo to be stale about.
     if vendorRecord.hasDecor and HA.SourceManager and HA.SourceManager.InvalidateSourcesMemo then
@@ -497,31 +528,6 @@ function ScanPersistence:GetCorrectedNPCID(vendorName)
     return nil
 end
 
--- Export NPC ID corrections for manual database updates
-function ScanPersistence:ExportNPCIDCorrections()
-    if not HA.Addon.db or not HA.Addon.db.global.npcIDCorrections then
-        HA.Addon:Print("No NPC ID corrections recorded.")
-        return ""
-    end
-
-    local output = "-- Homestead NPC ID Corrections\n"
-    output = output .. "-- Generated: " .. date("%Y-%m-%d %H:%M:%S") .. "\n\n"
-
-    local count = 0
-    for name, correction in pairs(HA.Addon.db.global.npcIDCorrections) do
-        output = output .. string.format("-- %s: %d -> %d\n", name, correction.oldID, correction.newID)
-        count = count + 1
-    end
-
-    if count == 0 then
-        HA.Addon:Print("No NPC ID corrections recorded.")
-        return ""
-    end
-
-    HA.Addon:Print("Found " .. count .. " NPC ID correction(s). Copy from chat or use /hs exportcorrections")
-    return output
-end
-
 -------------------------------------------------------------------------------
 -- Data Clearing
 -------------------------------------------------------------------------------
@@ -539,7 +545,7 @@ local function RefreshMapPins()
         HA.VendorMapPins:RefreshMinimapPins()
     end
 
-    -- HS-273 R2 (/hs clearscans ghost-sources, critical): all three
+    -- All three
     -- clear-data entry points below route through here, so invalidating the
     -- GetAllSources memo here covers ClearScannedData/ClearNoDecorData/
     -- ClearAllData in one place. Without this, GetAllSources would keep
@@ -547,16 +553,16 @@ local function RefreshMapPins()
     -- forget -- ghost sources surviving a data clear.
     --
     -- BROAD wipe here, unlike the deliberately narrow one at the vendor-scan
-    -- site above, and the difference is frequency. R2 kept that site narrow
+    -- site above, and the difference is frequency. That site is kept narrow
     -- because the broadcasting version restarts the badge prewarm, and paying
-    -- that on every first-visit merchant is the HS-238 over-invalidation.
+    -- that on every first-visit merchant is over-invalidation.
     -- These three functions run only from the /hs clear* commands, where a
     -- full repaint is both affordable and what "forget my scan data" ought to
     -- mean. The narrow wipe also announced nothing, so caches downstream that
     -- key off source data -- CatalogOverlay's per-item verdicts, the search
     -- index -- kept serving the cleared vendors until something unrelated
     -- invalidated them. InvalidateAllSourceCaches composes the narrow wipe,
-    -- so nothing R2 relied on is lost.
+    -- so nothing the narrow wipe provided is lost.
     if HA.SourceManager and HA.SourceManager.InvalidateAllSourceCaches then
         HA.SourceManager:InvalidateAllSourceCaches()
     end

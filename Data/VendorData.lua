@@ -295,7 +295,7 @@ local function HasOnlyGoldCost(cost)
     return cost and cost.gold and not cost.currencies and not cost.items
 end
 
--- HS-383: scanned {cost, scannedAt} for one vendor/item pair, exposed so
+-- scanned {cost, scannedAt} for one vendor/item pair, exposed so
 -- callers can decide whether a source-text lookup is worth doing (see
 -- CanSkipSourceTextLookup below) without duplicating GetScannedItemAndCost.
 function VendorData:GetScannedItemCost(vendor, itemID)
@@ -304,22 +304,46 @@ function VendorData:GetScannedItemCost(vendor, itemID)
     return cost, record and record.lastScanned
 end
 
--- HS-383: true when the given scanned cost/time already determines
+-- shipped cost for one vendor/item pair, or nil when no shipped row
+-- carries a price. Exposed like GetScannedItemCost so a caller can fetch it
+-- once for both CanSkipSourceTextLookup and ResolveVendorItemCost.
+function VendorData:GetStaticItemCost(vendor, itemID)
+    if not vendor or not itemID then return nil end
+    local staticItems = vendor.items
+    if (not staticItems or #staticItems == 0) and vendor.npcID then
+        staticItems = self:GetVendorItems(vendor.npcID)
+    end
+    for _, item in ipairs(staticItems or {}) do
+        if self:GetItemID(item) == itemID then
+            local staticCost = self:GetItemCost(item)
+            if staticCost then
+                return staticCost
+            end
+        end
+    end
+    return nil
+end
+
+-- true when the given scanned cost/time already determines
 -- ResolveVendorItemCost's outcome regardless of any source-text cost --
 -- i.e. a source-text lookup for this item would be pure waste. Mirrors the
 -- exact gold-only + staleness gate the sourceText-discount branch below
--- requires, so the two can never drift apart.
-function VendorData:CanSkipSourceTextLookup(scannedCost, scannedAt)
-    if not scannedCost then return false end
+-- requires, so the two can never drift apart. With no scanned cost, a shipped
+-- cost (staticCost) outranks source text and decides the outcome instead.
+function VendorData:CanSkipSourceTextLookup(scannedCost, scannedAt, staticCost)
+    if not scannedCost then return staticCost ~= nil end
     if not HasOnlyGoldCost(scannedCost) then return true end
     if not scannedAt then return true end
     return (time() - scannedAt) <= VENDOR_COST_STALE_SECONDS
 end
 
 -- Resolve a vendor item's display cost for every UI surface.
+-- Order: scanned, shipped (static), then catalog source text; a stale gold-only
+-- scan can lose to a cheaper newer source-text price (sourceText-discount).
 -- sourceText is optional {cost = normalizedCost, lastParsed = timestamp}.
--- Returns normalized cost and provenance: scanned, sourceText-discount, sourceText,
--- static, or nil.
+-- staticCostKnown with a nil staticCostOverride means "no shipped price".
+-- Returns normalized cost and provenance: scanned, sourceText-discount, static,
+-- sourceText, or nil.
 function VendorData:ResolveVendorItemCost(
         vendor, itemID, sourceText, scannedCostOverride, scannedCostKnown,
         staticCostOverride, staticCostKnown, scannedAtOverride)
@@ -349,28 +373,16 @@ function VendorData:ResolveVendorItemCost(
         return scannedCost, "scanned"
     end
 
+    local staticCost = staticCostOverride
+    if not staticCostKnown then
+        staticCost = self:GetStaticItemCost(vendor, itemID)
+    end
+    if staticCost then
+        return staticCost, "static"
+    end
+
     if sourceCost then
         return sourceCost, "sourceText"
-    end
-
-    if staticCostKnown then
-        if staticCostOverride then
-            return staticCostOverride, "static"
-        end
-        return nil, nil
-    end
-
-    local staticItems = vendor.items
-    if (not staticItems or #staticItems == 0) and vendor.npcID then
-        staticItems = self:GetVendorItems(vendor.npcID)
-    end
-    for _, item in ipairs(staticItems or {}) do
-        if self:GetItemID(item) == itemID then
-            local staticCost = self:GetItemCost(item)
-            if staticCost then
-                return staticCost, "static"
-            end
-        end
     end
 
     return nil, nil
@@ -466,6 +478,19 @@ function VendorData:ResolveAlias(npcID)
     return nil
 end
 
+-- the single holiday gate. Holiday vendors (EventSources.EventVendors,
+-- by npcID) are hidden unless CalendarDetector reads their holiday as exactly
+-- true; unknown counts as off. Every other npcID, endeavor vendors included,
+-- is never hidden here.
+-- Callers check this before building a vendor; none may rely on GetVendor's nil.
+function VendorData:IsHolidayVendorHidden(npcID)
+    local eventVendors = npcID ~= nil and HA.EventSources and HA.EventSources.EventVendors
+    local eventVendor = eventVendors and eventVendors[npcID]
+    if not eventVendor then return false end
+    return not (HA.CalendarDetector
+        and HA.CalendarDetector:IsHolidayActive(eventVendor.event) == true)
+end
+
 local function ProjectVendorWithItems(self, vendor, npcID)
     if not vendor then return nil end
 
@@ -486,6 +511,14 @@ function VendorData:GetVendor(npcID)
     if HA.EndeavorsData and HA.EndeavorsData.Vendors then
         local vendor = HA.EndeavorsData.Vendors[npcID]
         if vendor then return vendor end
+    end
+    -- holiday vendors, only while their holiday runs. HasVendor
+    -- deliberately does not learn them (scan saving and export read it).
+    local eventVendors = HA.EventSources and HA.EventSources.EventVendors
+    local eventVendor = eventVendors and eventVendors[npcID]
+    if eventVendor then
+        if self:IsHolidayVendorHidden(npcID) then return nil end
+        return ProjectVendorWithItems(self, eventVendor, npcID)
     end
     -- Resolve alias and retry (cycle guard: canonicalID must differ)
     local canonicalID = self:ResolveAlias(npcID)
@@ -522,6 +555,39 @@ local function ShouldIncludeEndeavorVendorForDisplay(vendor)
     end
 
     return true
+end
+
+-- Whether an endeavor vendor's second position also reaches the item tooltip,
+-- the source summary and the closest-vendor waypoint. Map pins show both either way.
+local ALT_POSITION_FOR_ENDEAVOR_VENDORS = true
+
+-- The vendor's other position as mapID, x, y, zone, subzone, or nil. A primary
+-- row answers with its alt fields; the alt copy answers with the primary's.
+function VendorData:GetOtherPosition(vendor)
+    if not vendor or not vendor.altMapID then return nil end
+    if vendor.endeavor and not ALT_POSITION_FOR_ENDEAVOR_VENDORS then return nil end
+    if vendor.mapID ~= vendor.altMapID then
+        return vendor.altMapID, vendor.altX, vendor.altY, vendor.altZone or vendor.zone, vendor.altSubzone
+    end
+    local primary = vendor.endeavor
+        and HA.EndeavorsData and HA.EndeavorsData.Vendors and HA.EndeavorsData.Vendors[vendor.npcID]
+        or HA.VendorIdentity and HA.VendorIdentity:GetVendor(vendor.npcID)
+    if primary then
+        return primary.mapID, primary.x, primary.y, primary.zone, primary.subzone
+    end
+    return nil
+end
+
+-- The entry GetVendorsInMap returns for the vendor's second position.
+local function GetSecondPositionCopy(self, vendor)
+    if vendor.endeavor then
+        local atAlt = HA.EndeavorsData.ByMapID[vendor.altMapID]
+        for _, entry in ipairs(atAlt or {}) do
+            if entry.npcID == vendor.npcID then return entry end
+        end
+        return nil
+    end
+    return ProjectVendorWithItems(self, HA.VendorIdentity:GetAltCopy(vendor.npcID))
 end
 
 -- Get all vendors in a specific map/zone
@@ -567,8 +633,8 @@ function VendorData:GetVendorsInMap(mapID)
             for _, vendor in ipairs(eventVendors) do
                 -- Dedup: skip if already added (e.g., vendor was scanned in-game)
                 if vendor.npcID and not addedNPCs[vendor.npcID] then
-                    -- Only include if holiday is active (nil = unknown → don't inject)
-                    if HA.CalendarDetector and HA.CalendarDetector:IsHolidayActive(vendor.event) == true then
+                    -- Only while the holiday runs (unknown = off)
+                    if not self:IsHolidayVendorHidden(vendor.npcID) then
                         result[#result + 1] = vendor
                         addedNPCs[vendor.npcID] = true
                     end
@@ -618,10 +684,14 @@ function VendorData:GetVendorsForItem(itemID)
     -- Priority 1: Static offer index (curated, authoritative)
     if self.OfferByItemID and self.OfferByItemID[itemID] then
         for _, npcID in ipairs(self.OfferByItemID[itemID]) do
-            local vendor = self:GetVendor(npcID)
-            if vendor then
-                table.insert(result, vendor)
-                seenNPCs[npcID] = true
+            if self:IsHolidayVendorHidden(npcID) then
+                seenNPCs[npcID] = true  -- a gated vendor must not re-enter below
+            else
+                local vendor = self:GetVendor(npcID)
+                if vendor then
+                    table.insert(result, vendor)
+                    seenNPCs[npcID] = true
+                end
             end
         end
     end
@@ -644,7 +714,7 @@ function VendorData:GetVendorsForItem(itemID)
         local db = HA.Addon and HA.Addon.db
         if db and db.global and db.global.scannedVendors then
             for _, npcID in ipairs(self.ScannedByItemID[itemID]) do
-                if not seenNPCs[npcID] then
+                if not seenNPCs[npcID] and not self:IsHolidayVendorHidden(npcID) then
                     local scannedVendor = db.global.scannedVendors[npcID]
                     if scannedVendor then
                         -- Resolve zone name from mapID
@@ -679,8 +749,7 @@ function VendorData:GetVendorsForItem(itemID)
     if HA.EventSources and HA.EventSources.EventVendors then
         for _, eventVendor in pairs(HA.EventSources.EventVendors) do
             if eventVendor.npcID and not seenNPCs[eventVendor.npcID]
-                    and eventVendor.items and HA.CalendarDetector
-                    and HA.CalendarDetector:IsHolidayActive(eventVendor.event) == true then
+                    and eventVendor.items and not self:IsHolidayVendorHidden(eventVendor.npcID) then
                 for _, eventItemID in ipairs(eventVendor.items) do
                     if eventItemID == itemID then
                         result[#result + 1] = eventVendor
@@ -712,6 +781,7 @@ function VendorData:GetClosestVendorForItem(itemID)
     end
 
     local closestVendor = nil
+    local closestIsSecondPosition = false
     local closestDistance = math.huge
 
     for _, vendor in ipairs(vendorList) do
@@ -724,8 +794,26 @@ function VendorData:GetClosestVendorForItem(itemID)
             if distance < closestDistance then
                 closestDistance = distance
                 closestVendor = vendor
+                closestIsSecondPosition = false
             end
         end
+
+        local otherMapID, otherX, otherY = self:GetOtherPosition(vendor)
+        if otherMapID == playerMapID and otherX and otherY then
+            local dx = otherX - playerPos.x
+            local dy = otherY - playerPos.y
+            local distance = math.sqrt(dx*dx + dy*dy)
+
+            if distance < closestDistance then
+                closestDistance = distance
+                closestVendor = vendor
+                closestIsSecondPosition = true
+            end
+        end
+    end
+
+    if closestIsSecondPosition then
+        return GetSecondPositionCopy(self, closestVendor) or closestVendor
     end
 
     -- If no vendor on same map, just return first one
@@ -787,7 +875,7 @@ function VendorData:SearchVendors(searchText)
     if HA.EventSources and HA.EventSources.EventVendors then
         for npcID, vendor in pairs(HA.EventSources.EventVendors) do
             if not addedNPCs[npcID] then
-                if HA.CalendarDetector and HA.CalendarDetector:IsHolidayActive(vendor.event) == true then
+                if not self:IsHolidayVendorHidden(npcID) then
                     local matched = false
                     if vendor.name and vendor.name:lower():find(lowerSearch, 1, true) then
                         matched = true
@@ -836,10 +924,12 @@ function VendorData:GetAllVendors()
 
     -- Append active event vendors
     if HA.EventSources and HA.EventSources.EventVendors then
-        for _, vendor in pairs(HA.EventSources.EventVendors) do
+        for npcID, vendor in pairs(HA.EventSources.EventVendors) do
             if vendor.npcID and not addedNPCs[vendor.npcID] then
-                if HA.CalendarDetector and HA.CalendarDetector:IsHolidayActive(vendor.event) == true then
-                    result[#result + 1] = vendor
+                if not self:IsHolidayVendorHidden(npcID) then  -- npcID = the pairs key
+                    -- A copy, as for identity rows: callers may write fields onto
+                    -- what they get, and the shipped row's npcID is the gate's key.
+                    result[#result + 1] = ProjectVendorWithItems(self, vendor, npcID)
                     addedNPCs[vendor.npcID] = true
                 end
             end
@@ -1011,8 +1101,8 @@ end
 -- GetRequirements' requirement-normalizer (SourceManager.lua's
 -- normalizeAndValidateRequirement) already rewrites unknown-type requirements'
 -- .type/.faction/.standing fields in place through this same reference,
--- writing back into SavedVariables (pre-existing behavior, unchanged by
--- HS-280) -- callers must not assume nothing writes back through it.
+-- writing back into SavedVariables (pre-existing behavior, unchanged by this accessor) —
+-- callers must not assume nothing writes back through it.
 function VendorData:BuildScannedIndex()
     self.ScannedByItemID = {}
     self.ScannedItemsByNPC = {}
@@ -1053,7 +1143,7 @@ end
 
 -- Get all scanned items for (npcID, itemID), in original scan-array order.
 -- May return more than one entry -- the same itemID can occupy more than one
--- merchant slot on one vendor (HS-280: why GetRequirements' merge-all
+-- merchant slot on one vendor (why GetRequirements' merge-all
 -- contract needs a list, not a single record). Returns nil if none scanned.
 --
 -- Init-order invariant: returns nil for everything until VendorData:Initialize()
@@ -1077,10 +1167,10 @@ function VendorData:Initialize()
 
     self:BuildOfferIndexes()
 
-    -- HS-281: per-npcID memo for GetVendorItems. GetOffers' four input tables
+    -- per-npcID memo for GetVendorItems. GetOffers' four input tables
     -- are static after load with no runtime writers, so this needs no
     -- invalidation hook -- see GetVendorItems for the full rationale.
-    -- HS-282: VendorItemsMemoCount tracks population for the insert-site
+    -- VendorItemsMemoCount tracks population for the insert-site
     -- eviction cap (InsertVendorItemsMemo below) -- reset here alongside the
     -- memo itself.
     self.VendorItemsMemo = {}
@@ -1114,7 +1204,7 @@ end
 
 -- Get the merged offer table for an NPC from VendorOffers.
 -- Returns {[itemID] = offerRecord, ...} with ManualOverrides winning over GeneratedBase,
--- StagedAdditions merging at lowest precedence (reviewed-but-unverified pipeline rows,
+-- StagedAdditions merging at lowest precedence (reviewed-but-unverified rows staged by the data build,
 -- Data/VendorStagedAdditions.lua), and Tombstones suppressing entries.
 -- Returns nil if no offer data exists for npcID.
 function VendorData:GetOffers(npcID)
@@ -1210,14 +1300,14 @@ function VendorData:OfferToLegacyItem(itemID, offer)
     return { itemID, cost = cost }
 end
 
--- HS-281: memoized per npcID (VendorItemsMemo, built in Initialize()). The
+-- memoized per npcID (VendorItemsMemo, built in Initialize()). The
 -- lazy `or {}` below covers standalone/partial-mock test harnesses that load
 -- this file without calling Initialize(). GetOffers' four input tables
 -- (GeneratedBase, ManualOverrides, StagedAdditions, Tombstones) are static
 -- after addon load with no runtime writers -- no *correctness* invalidation
--- is needed; the wipes exist purely for memory (HS-282's eviction cap and
+-- is needed; the wipes exist purely for memory (the eviction cap and
 -- BadgeCalculation's end-of-pass flush, below).
--- HS-282: eviction cap for VendorItemsMemo. Unlike SourceManager's
+-- eviction cap for VendorItemsMemo. Unlike SourceManager's
 -- allSourcesCache (Cache A), which is capped by distinct ITEM count, this
 -- cache's unit is VENDORS: GetAllVendors() walks a static working set of
 -- ~225 vendors on every pass, and a live session adds scanned-vendor npcIDs
@@ -1242,7 +1332,7 @@ local function InsertVendorItemsMemo(self, npcID, value)
     return value
 end
 
--- HS-282: narrow wipe of VendorItemsMemo alone, mirroring
+-- narrow wipe of VendorItemsMemo alone, mirroring
 -- SourceManager:InvalidateSourcesMemo -- used by the cap above and by
 -- BadgeCalculation's end-of-prewarm-pass flush.
 function VendorData:InvalidateVendorItemsMemo()
@@ -1334,14 +1424,14 @@ function VendorData:GetVendorWithItems(npcID)
     return self:GetVendor(npcID)
 end
 
--- HS-204(b): BuildOfferIndexes only needs "does this npcID sell this itemID
+-- BuildOfferIndexes only needs "does this npcID sell this itemID
 -- at all" for the reverse index — it never needed GetOffers()'s full
 -- ManualOverrides > GeneratedBase > StagedAdditions precedence merge (which
 -- source's offer record wins is irrelevant to itemID membership). The old
 -- version ran that full merge per npcID, then discarded everything but the
 -- itemID keys. It also built a "npcID:itemID" string per item to check
--- against Tombstones, which currently holds exactly 2 pair-specific entries
--- (HS-176, HS-182) — so building ~2,000 strings to check a 2-entry table was
+-- against Tombstones, which currently holds exactly 2 pair-specific entries,
+-- so building ~2,000 strings to check a 2-entry table was
 -- pure waste. This still reads the raw tables directly and still applies
 -- both tombstone forms (bare itemID and "npcID:itemID"), so tombstoned
 -- pairs are excluded exactly as before; only npcIDs that actually carry a

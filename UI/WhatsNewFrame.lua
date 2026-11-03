@@ -13,7 +13,7 @@ local whatsNewFrame = nil
 
 -- Layout constants
 local FRAME_WIDTH = 800
-local FRAME_HEIGHT = 700  -- HS-232: floor, not a fixed size — see BuildContent's
+local FRAME_HEIGHT = 700  -- Floor, not a fixed size — see BuildContent's
                            -- measure-and-fit sizing. Existing entries that already
                            -- fit comfortably at 700 render identically; only content
                            -- that genuinely needs more room grows the frame.
@@ -23,7 +23,7 @@ local FEATURE_GAP = 12
 local ICON_SIZE_PRIMARY = 32
 local ICON_SIZE_ICYMI = 24
 
--- HS-232: header/footer/ICYMI spacing constants, pulled out of their former
+-- header/footer/ICYMI spacing constants, pulled out of their former
 -- inline literals so BuildContent's height accumulation and its anchor
 -- offsets are provably the SAME numbers, not independently re-derived ones
 -- that could drift out of sync.
@@ -183,7 +183,7 @@ local function BuildContent(frame, version)
     content:ClearAllPoints()
     content:SetPoint("TOPLEFT", PADDING, contentTop)
     content:SetPoint("BOTTOMRIGHT", -PADDING, FOOTER_HEIGHT)
-    -- HS-232 hard backstop: whatever the measure-and-fit sizing below decides,
+    -- Hard backstop: whatever the measure-and-fit sizing below decides,
     -- nothing parented to `content` (feature rows, ICYMI divider/label/rows —
     -- everything CreateFeatureRow and the ICYMI block below create) can ever
     -- render outside content's own rectangle. The rectangle itself is always
@@ -199,7 +199,7 @@ local function BuildContent(frame, version)
     topAnchor:SetHeight(1)
 
     local lastRow = topAnchor
-    -- HS-232: accumulated from each row's REAL rendered height (GetHeight,
+    -- Accumulated from each row's REAL rendered height (GetHeight,
     -- read right after CreateFeatureRow sets it from measured GetStringHeight
     -- calls) plus the same gap constants used to anchor them — never a
     -- re-derived estimate, so multi-line bodies of any length are accounted
@@ -243,7 +243,7 @@ local function BuildContent(frame, version)
         icymiLabel:SetWidth(CONTENT_WIDTH)
         icymiLabel:SetJustifyH("LEFT")
         icymiLabel:SetTextColor(0.53, 0.53, 0.53)
-        icymiLabel:SetText("In Case You Missed It  \226\128\148  v" .. prevVersion)
+        icymiLabel:SetText("In Case You Missed It: v" .. prevVersion)
         icymiHeight = icymiHeight + ICYMI_LABEL_GAP + icymiLabel:GetStringHeight()
 
         local icymiLastRow = icymiLabel
@@ -261,7 +261,7 @@ local function BuildContent(frame, version)
         icymiSection:SetHeight(icymiHeight)
     end
 
-    -- HS-232: measure-and-fit sizing. Bounded below by the familiar 700px
+    -- Measure-and-fit sizing. Bounded below by the familiar 700px
     -- look (existing entries that already fit don't change size) and above
     -- by MAX_HEIGHT_RATIO of the screen (never outgrow it). Degrade order
     -- when the ICYMI-included height doesn't fit: drop ICYMI (bonus by
@@ -463,7 +463,7 @@ function WhatsNewFrame:Initialize()
     local lastSeen = db.lastSeenVersion or ""
     local suppressed = db.suppressWhatsNewUntil or ""
 
-    -- HS-219: onboarding stacking gate. A long-time user crossing a welcome-
+    -- Onboarding stacking gate. A long-time user crossing a welcome-
     -- version bump satisfies both auto-popup conditions at once (same
     -- strata/level, center-anchored, ~1.5s apart). If Welcome is due to show
     -- (hasn't been acknowledged for the current WELCOME_SEEN_VERSION_MAX) or
