@@ -2,6 +2,33 @@
 
 ---
 
+## Homestead v2.16.0 (11-03-2026)
+
+Room plan collection, cleaner vendor search, and more price fixes.
+
+---
+
+## Room Plans
+
+- Fen Rucket's room plans now count as collected or not collected, so his search rows, map pins and zone badges show real totals.
+
+---
+
+## Vendors
+
+- Vendors that are retired or not yet released no longer appear in search, item source lists, tooltips or closest-vendor picks.
+- Added Victor Esquivias in Boralus, Samia Inkling in The Waking Shores and the Amani Representative in Silvermoon City.
+- Tajaka Sawtusk's canoe and Symbol of Halazzi, and The Last Architect's Purified decor, now show the quest that unlocks them.
+- Removed Kobold's Hanging Kandles from Morta Gage, who no longer sells it.
+
+---
+
+## Prices
+
+- Updated decor prices lowered in patch 12.1 across many expansions, and corrected prices at Ruuan the Seer, Duskcaller Erthix, the Stolen Royal Vendorbot, Crafty Palu, Mothkeeper Wew'tam (thanks Briandris!), both High Tides Ren vendors and 26 other decor offers.
+
+---
+
 ## Homestead v2.15.0 (10-31-2026)
 
 Endeavor vendor fixes and decor markers for Krowi's Extended Vendor UI.

@@ -7,6 +7,21 @@
 local _, HA = ...
 
 HA.WhatsNew = {
+    ["2.16.0"] = {
+        title = "Homestead - What's New in v2.16.0!",
+        features = {
+            {
+                atlas = "housing-decor-vendor_32",
+                heading = "Room Plans",
+                body = "Fen Rucket's room plans now count as collected or not collected like other decor, so his search rows, map pins and zone badges show real totals.",
+            },
+            {
+                icon = "Interface\\Icons\\INV_Misc_Coin_01",
+                heading = "Vendor Fixes",
+                body = "Vendors that are retired or not yet released no longer show up in search or item sources, and many decor prices are corrected.",
+            },
+        },
+    },
     ["2.15.0"] = {
         title = "Homestead - What's New in v2.15.0!",
         features = {
