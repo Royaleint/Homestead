@@ -8,9 +8,9 @@
       Currency hyperlinks: |Hcurrency:<id>|h|h
       Source types: Vendor, Quest, Achievement, Profession, Drop
 
-    Two-tier parsing:
-      Tier 1 (structural): All locales. Splits blocks/lines, extracts currency hyperlinks.
-      Tier 2 (typed): enUS/enGB. Maps prefixes to typed fields (vendor, zone, cost, etc.).
+    Two-level parsing:
+      Level 1 (structural): All locales. Splits blocks/lines, extracts currency hyperlinks.
+      Level 2 (typed): enUS/enGB. Maps prefixes to typed fields (vendor, zone, cost, etc.).
 
     No WoW API calls. No SavedVariables access.
 ]]
@@ -122,7 +122,7 @@ local function ParseCostField(costText)
     return nil
 end
 
--- Parse a structural block (Tier 1 — all locales)
+-- Parse a structural block (Level 1 — all locales)
 -- Extracts raw key:value pairs and currency hyperlinks without locale knowledge
 local function ParseStructuralBlock(block)
     local source = {
@@ -217,7 +217,7 @@ local function SplitEmbeddedFields(line, profile)
     return segments
 end
 
--- Parse a typed source block (Tier 2 — enUS/enGB)
+-- Parse a typed source block (Level 2 — enUS/enGB)
 -- Maps known prefixes to semantic fields
 local function ParseSourceBlock(block, profile)
     if not profile then

@@ -295,7 +295,7 @@ local function HasOnlyGoldCost(cost)
     return cost and cost.gold and not cost.currencies and not cost.items
 end
 
--- HS-383: scanned {cost, scannedAt} for one vendor/item pair, exposed so
+-- scanned {cost, scannedAt} for one vendor/item pair, exposed so
 -- callers can decide whether a source-text lookup is worth doing (see
 -- CanSkipSourceTextLookup below) without duplicating GetScannedItemAndCost.
 function VendorData:GetScannedItemCost(vendor, itemID)
@@ -304,7 +304,7 @@ function VendorData:GetScannedItemCost(vendor, itemID)
     return cost, record and record.lastScanned
 end
 
--- HS-485: shipped cost for one vendor/item pair, or nil when no shipped row
+-- shipped cost for one vendor/item pair, or nil when no shipped row
 -- carries a price. Exposed like GetScannedItemCost so a caller can fetch it
 -- once for both CanSkipSourceTextLookup and ResolveVendorItemCost.
 function VendorData:GetStaticItemCost(vendor, itemID)
@@ -324,7 +324,7 @@ function VendorData:GetStaticItemCost(vendor, itemID)
     return nil
 end
 
--- HS-383: true when the given scanned cost/time already determines
+-- true when the given scanned cost/time already determines
 -- ResolveVendorItemCost's outcome regardless of any source-text cost --
 -- i.e. a source-text lookup for this item would be pure waste. Mirrors the
 -- exact gold-only + staleness gate the sourceText-discount branch below
@@ -478,7 +478,7 @@ function VendorData:ResolveAlias(npcID)
     return nil
 end
 
--- HS-532: the single holiday gate. Holiday vendors (EventSources.EventVendors,
+-- the single holiday gate. Holiday vendors (EventSources.EventVendors,
 -- by npcID) are hidden unless CalendarDetector reads their holiday as exactly
 -- true; unknown counts as off. Every other npcID, endeavor vendors included,
 -- is never hidden here.
@@ -512,7 +512,7 @@ function VendorData:GetVendor(npcID)
         local vendor = HA.EndeavorsData.Vendors[npcID]
         if vendor then return vendor end
     end
-    -- HS-532: holiday vendors, only while their holiday runs. HasVendor
+    -- holiday vendors, only while their holiday runs. HasVendor
     -- deliberately does not learn them (scan saving and export read it).
     local eventVendors = HA.EventSources and HA.EventSources.EventVendors
     local eventVendor = eventVendors and eventVendors[npcID]
@@ -685,7 +685,7 @@ function VendorData:GetVendorsForItem(itemID)
     if self.OfferByItemID and self.OfferByItemID[itemID] then
         for _, npcID in ipairs(self.OfferByItemID[itemID]) do
             if self:IsHolidayVendorHidden(npcID) then
-                seenNPCs[npcID] = true  -- HS-532: a gated vendor must not re-enter below
+                seenNPCs[npcID] = true  -- a gated vendor must not re-enter below
             else
                 local vendor = self:GetVendor(npcID)
                 if vendor then
@@ -1101,8 +1101,8 @@ end
 -- GetRequirements' requirement-normalizer (SourceManager.lua's
 -- normalizeAndValidateRequirement) already rewrites unknown-type requirements'
 -- .type/.faction/.standing fields in place through this same reference,
--- writing back into SavedVariables (pre-existing behavior, unchanged by
--- HS-280) -- callers must not assume nothing writes back through it.
+-- writing back into SavedVariables (pre-existing behavior, unchanged by this accessor) —
+-- callers must not assume nothing writes back through it.
 function VendorData:BuildScannedIndex()
     self.ScannedByItemID = {}
     self.ScannedItemsByNPC = {}
@@ -1143,7 +1143,7 @@ end
 
 -- Get all scanned items for (npcID, itemID), in original scan-array order.
 -- May return more than one entry -- the same itemID can occupy more than one
--- merchant slot on one vendor (HS-280: why GetRequirements' merge-all
+-- merchant slot on one vendor (why GetRequirements' merge-all
 -- contract needs a list, not a single record). Returns nil if none scanned.
 --
 -- Init-order invariant: returns nil for everything until VendorData:Initialize()
@@ -1167,10 +1167,10 @@ function VendorData:Initialize()
 
     self:BuildOfferIndexes()
 
-    -- HS-281: per-npcID memo for GetVendorItems. GetOffers' four input tables
+    -- per-npcID memo for GetVendorItems. GetOffers' four input tables
     -- are static after load with no runtime writers, so this needs no
     -- invalidation hook -- see GetVendorItems for the full rationale.
-    -- HS-282: VendorItemsMemoCount tracks population for the insert-site
+    -- VendorItemsMemoCount tracks population for the insert-site
     -- eviction cap (InsertVendorItemsMemo below) -- reset here alongside the
     -- memo itself.
     self.VendorItemsMemo = {}
@@ -1204,7 +1204,7 @@ end
 
 -- Get the merged offer table for an NPC from VendorOffers.
 -- Returns {[itemID] = offerRecord, ...} with ManualOverrides winning over GeneratedBase,
--- StagedAdditions merging at lowest precedence (reviewed-but-unverified pipeline rows,
+-- StagedAdditions merging at lowest precedence (reviewed-but-unverified rows staged by the data build,
 -- Data/VendorStagedAdditions.lua), and Tombstones suppressing entries.
 -- Returns nil if no offer data exists for npcID.
 function VendorData:GetOffers(npcID)
@@ -1300,14 +1300,14 @@ function VendorData:OfferToLegacyItem(itemID, offer)
     return { itemID, cost = cost }
 end
 
--- HS-281: memoized per npcID (VendorItemsMemo, built in Initialize()). The
+-- memoized per npcID (VendorItemsMemo, built in Initialize()). The
 -- lazy `or {}` below covers standalone/partial-mock test harnesses that load
 -- this file without calling Initialize(). GetOffers' four input tables
 -- (GeneratedBase, ManualOverrides, StagedAdditions, Tombstones) are static
 -- after addon load with no runtime writers -- no *correctness* invalidation
--- is needed; the wipes exist purely for memory (HS-282's eviction cap and
+-- is needed; the wipes exist purely for memory (the eviction cap and
 -- BadgeCalculation's end-of-pass flush, below).
--- HS-282: eviction cap for VendorItemsMemo. Unlike SourceManager's
+-- eviction cap for VendorItemsMemo. Unlike SourceManager's
 -- allSourcesCache (Cache A), which is capped by distinct ITEM count, this
 -- cache's unit is VENDORS: GetAllVendors() walks a static working set of
 -- ~225 vendors on every pass, and a live session adds scanned-vendor npcIDs
@@ -1332,7 +1332,7 @@ local function InsertVendorItemsMemo(self, npcID, value)
     return value
 end
 
--- HS-282: narrow wipe of VendorItemsMemo alone, mirroring
+-- narrow wipe of VendorItemsMemo alone, mirroring
 -- SourceManager:InvalidateSourcesMemo -- used by the cap above and by
 -- BadgeCalculation's end-of-prewarm-pass flush.
 function VendorData:InvalidateVendorItemsMemo()
@@ -1424,14 +1424,14 @@ function VendorData:GetVendorWithItems(npcID)
     return self:GetVendor(npcID)
 end
 
--- HS-204(b): BuildOfferIndexes only needs "does this npcID sell this itemID
+-- BuildOfferIndexes only needs "does this npcID sell this itemID
 -- at all" for the reverse index — it never needed GetOffers()'s full
 -- ManualOverrides > GeneratedBase > StagedAdditions precedence merge (which
 -- source's offer record wins is irrelevant to itemID membership). The old
 -- version ran that full merge per npcID, then discarded everything but the
 -- itemID keys. It also built a "npcID:itemID" string per item to check
--- against Tombstones, which currently holds exactly 2 pair-specific entries
--- (HS-176, HS-182) — so building ~2,000 strings to check a 2-entry table was
+-- against Tombstones, which currently holds exactly 2 pair-specific entries,
+-- so building ~2,000 strings to check a 2-entry table was
 -- pure waste. This still reads the raw tables directly and still applies
 -- both tombstone forms (bare itemID and "npcID:itemID"), so tombstoned
 -- pairs are excluded exactly as before; only npcIDs that actually carry a

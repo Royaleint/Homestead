@@ -13,7 +13,7 @@
     - Dedicated API: C_NeighborhoodInitiative
 
     12 vendors, 144 items total. The four Midnight 12.1 theme vendors were
-    promoted visible for the 12.1 release (HS-310, 2026-08-11).
+    promoted visible for the 12.1 release.
 ]]
 
 local _, HA = ...
@@ -116,7 +116,7 @@ EndeavorsData.Endeavors = {
     ["Mechagnome"] = { vendorNPC = 248525 },
     ["K'areshi"]   = { vendorNPC = 252605 },
     ["Niffen"]     = { vendorNPC = 257897 },
-    -- Midnight 12.1 themes (promoted visible for the 12.1 release, HS-310)
+    -- Midnight 12.1 themes (promoted visible for the 12.1 release)
     ["Amani"]      = { vendorNPC = 260485 },
     ["Maruuk"]     = { vendorNPC = 265551 },
     ["Tortollan"]  = { vendorNPC = 268106, extraVendorNPCs = { 257168 } },
@@ -345,9 +345,9 @@ EndeavorsData.Vendors = {
 
     -- =========================================================================
     -- Midnight 12.1 endeavor vendors. Promoted visible for the 12.1 release
-    -- (HS-310, 2026-08-11): `unreleased = true` removed from all four per the
+    -- (2026-08-11): `unreleased = true` removed from all four per the
     -- validation this block already recorded -- costs verified against the
-    -- release matrix (HS-311, PTR build 12.1.0.69189)
+    -- game data (PTR build 12.1.0.69189)
     -- and, for Griftah, a real in-game PTR scan (2026-08-09, build
     -- 12.1.0.69189, scanConfidence: confirmed). Griftah has confirmed
     -- altMapID/altX/altY (real PTR scans placed him in both neighborhoods);
@@ -738,7 +738,7 @@ local function ResolveThemeFromInitiativeInfo(info)
 
     -- Step 6: Vendor name fallback handled inside ResolveThemeFromText (not persisted)
 
-    -- HS-313: a neighborhood with NO active endeavour returns a LOADED payload
+    -- a neighborhood with NO active endeavour returns a LOADED payload
     -- with initiativeID 0, empty title, and progressRequired 0 (live-probed
     -- 2026-08-11). That exact shape means "definitively none active" — a
     -- known state, not unknown. Anything else falls through to unknown below.
@@ -822,7 +822,7 @@ local function RefreshActiveTheme(reason)
         loggedRawTitle = true
     end
 
-    -- HS-216: log the "active theme" line only when the resolved theme
+    -- log the "active theme" line only when the resolved theme
     -- actually CHANGED (same `changed` this function already computes to
     -- decide whether to fire ACTIVE_ENDEAVOR_CHANGED) — unsolicited
     -- NEIGHBORHOOD_INITIATIVE_UPDATED fires (every consume, no theme change)
@@ -831,7 +831,7 @@ local function RefreshActiveTheme(reason)
         if activeThemeKnown and activeTheme then
             HA.Addon:Debug("EndeavorsData: active theme:", activeTheme, "(" .. tostring(reason) .. ")")
         elseif activeThemeKnown then
-            -- HS-313: known-but-none state (no endeavour active). activeTheme
+            -- known-but-none state (no endeavour active). activeTheme
             -- is nil here; passing it to Debug's varargs would leave a hole
             -- in the {...} array Print builds, so log it explicitly instead.
             HA.Addon:Debug("EndeavorsData: active theme: none", "(" .. tostring(reason) .. ")")
@@ -972,7 +972,7 @@ function EndeavorsData:Initialize()
     eventFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
     eventFrame:RegisterEvent("NEIGHBORHOOD_INITIATIVE_UPDATED")
     eventFrame:SetScript("OnEvent", function(_, event)
-        -- HS-215: NEIGHBORHOOD_INITIATIVE_UPDATED is the RESPONSE to
+        -- NEIGHBORHOOD_INITIATIVE_UPDATED is the RESPONSE to
         -- RequestNeighborhoodInitiativeInfo — calling RequestInitiativeInfo
         -- again here was requesting a new response inside the handler for
         -- the previous one, an infinite server-paced request loop (confirmed

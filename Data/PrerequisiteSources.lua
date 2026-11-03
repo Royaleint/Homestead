@@ -1,7 +1,7 @@
 --[[
     Homestead - PrerequisiteSources
     Prerequisite source data for housing decor items.
-    Rows for patch 12.1.5 added by hand to mirror the overrides file (HS-480).
+    Rows for patch 12.1.5 added by hand.
 ]]
 
 local _, HA = ...

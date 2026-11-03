@@ -119,11 +119,11 @@ end
 -- Vendor Visibility Filters
 -------------------------------------------------------------------------------
 
--- HS-245: the client build that ships the vendors currently flagged
+-- the client build that ships the vendors currently flagged
 -- `unreleased`. This serves ONE batch at a time — it is a floor, not a match,
 -- so raising it for a later patch would stop revealing today's rows rather than
 -- adding to them. A second batch targeting a different build needs the per-row
--- target field in HS-246, not a bump here. When 12.1 ships, clear the data flags.
+-- target field, not a bump here. When 12.1 ships, clear the data flags.
 local UNRELEASED_CONTENT_INTERFACE = 120100  -- 12.1
 
 -- The build cannot change mid-session, so read it once.
@@ -239,7 +239,7 @@ function VendorFilter.ShouldShowEventVendors()
     return true  -- Default to showing
 end
 
--- Get the setting for hiding fully-collected vendor pins (HS-022)
+-- Get the setting for hiding fully-collected vendor pins
 function VendorFilter.ShouldHideCompletedVendorPins()
     if HA.Addon and HA.Addon.db and HA.Addon.db.profile.vendorTracer then
         return HA.Addon.db.profile.vendorTracer.hideCompletedVendorPins == true
@@ -253,12 +253,12 @@ function VendorFilter.IsEventVendor(vendor)
 end
 
 -------------------------------------------------------------------------------
--- Map Pin Completion Gate (HS-022)
+-- Map Pin Completion Gate
 -------------------------------------------------------------------------------
 
 -- Map-pin-only completion gate: true only when the setting is on AND the
 -- vendor is confirmed fully collected. Unknown/nil completion always shows
--- (same fail-direction discipline as the HS-313 endeavour gate) so a vendor
+-- (same fail-direction discipline as the endeavour gate) so a vendor
 -- never disappears because its collection state couldn't be determined.
 --
 -- Deliberately separate from ShouldHideVendor: that gate is reused by

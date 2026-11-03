@@ -2,12 +2,10 @@
     Homestead - DropSources
     Generated: 2026-09-23 10:35:37
     Total entries: 59
-    Rows for patch 12.1.5 added by hand to mirror the overrides file (HS-480).
+    Rows for patch 12.1.5 added by hand.
 
     World drop source data for housing decor items.
-    Regenerate with: python Home_Dev/scripts/generate_source_tables.py --table drop
-    DO NOT EDIT — changes will be overwritten. Use overrides file instead:
-    Home_Dev/scripts/overrides/drop_sources_overrides.lua
+    DO NOT EDIT — this file is generated and changes will be overwritten.
 --]]
 
 local _, HA = ...
