@@ -2314,6 +2314,7 @@ VendorIdentity.Vendors = {
         y = 0.5804,
         zone = "Razorwind Shores",
         expansion = "Midnight",
+        unreleased = true,
         scanConfirmed = "2026-08-11",
     },
     [256826] = {
