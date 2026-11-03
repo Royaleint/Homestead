@@ -147,6 +147,18 @@ function VendorFilter.ShouldRevealUnreleasedVendors()
         and CLIENT_INTERFACE >= UNRELEASED_CONTENT_INTERFACE
 end
 
+-- True when the vendor is retired, or not out yet and not being revealed this
+-- session. Shared by the pin filter and by every list that names vendors (search,
+-- item sources, closest-vendor picks), so a hidden vendor shows up nowhere.
+function VendorFilter.IsHiddenOnThisBuild(vendor)
+    if not vendor then return false end
+    if vendor.removed then return true end
+    if vendor.unreleased and not VendorFilter.ShouldRevealUnreleasedVendors() then
+        return true
+    end
+    return false
+end
+
 -- Check if a vendor should be hidden from all pin displays
 -- Returns true if vendor should be hidden (removed, unreleased, or scanned with no decor)
 function VendorFilter.ShouldHideVendor(vendor)
@@ -162,7 +174,7 @@ function VendorFilter.ShouldHideVendor(vendor)
         return not VendorFilter.ShouldShowEventVendors()
     end
 
-    if vendor.unreleased and not VendorFilter.ShouldRevealUnreleasedVendors() then
+    if VendorFilter.IsHiddenOnThisBuild(vendor) then
         return true
     end
 

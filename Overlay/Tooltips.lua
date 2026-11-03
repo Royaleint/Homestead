@@ -416,7 +416,12 @@ local function RenderSourceText(tooltip, sourceText, itemID)
     if itemID then
         if HA.VendorData and HA.VendorData.ScannedByItemID then
             local npcList = HA.VendorData.ScannedByItemID[itemID]
-            if npcList and npcList[1] then vendorNpcID = npcList[1] end
+            for _, scannedNpcID in ipairs(npcList or {}) do
+                if not HA.VendorData:IsVendorHiddenByNpcID(scannedNpcID) then
+                    vendorNpcID = scannedNpcID
+                    break
+                end
+            end
         end
         if not vendorNpcID and HA.VendorData and HA.VendorData.GetVendorsForItem then
             local vendors = HA.VendorData:GetVendorsForItem(itemID)

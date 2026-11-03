@@ -144,8 +144,9 @@ local function BuildIndex()
 
     -- Vendor → items mapping (names resolved at query time)
     local allVendors = VD:GetAllVendors()
+    local VF = HA.VendorFilter
     for _, vendor in ipairs(allVendors) do
-        if vendor.npcID then
+        if vendor.npcID and not (VF and VF.IsHiddenOnThisBuild(vendor)) then
             local itemIDs = VD:GetMergedItemIDs(vendor)
             local items = {}
             if itemIDs then
