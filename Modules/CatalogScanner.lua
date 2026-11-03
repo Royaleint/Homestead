@@ -437,7 +437,7 @@ end
 -- again the single latch site it was under HS-273). Body is copied VERBATIM
 -- from the original HOUSING_STORAGE_UPDATED-only handler (HS-273) --
 -- conditions and fire sites are pinned byte-identical by
--- tests/hs273_cold_prewarm_and_memo.lua; do not paraphrase.
+-- its regression test; do not paraphrase.
 -- Returns nothing on purpose: callers must decide on the CURRENT value of
 -- dataLoaded/storageResponded, never on whether an edge flipped THIS call.
 -- (a this-call-edge decision on the login path created a

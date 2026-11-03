@@ -19,4 +19,4 @@ jobs:
           luaVersion: '5.1'
 
       - name: Run locale check
-        run: lua tests/locale_lint.lua
+        run: lua .github/scripts/locale_lint.lua

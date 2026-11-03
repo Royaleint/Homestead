@@ -15,7 +15,7 @@
 
     Accounting model (calibrated against real Data/ files loaded under
     desktop Lua 5.1 with collectgarbage("count") bracketing -- see
-    tests/hs282_memory_estimator.lua's calibration section, which asserts
+    its calibration test, which asserts
     every sampled file lands within a stated tolerance band of its live
     measured size):
       - HEADER_BYTES is charged once per table (the Table struct + GC header
@@ -116,7 +116,7 @@ local math_floor = math.floor
 
 -- Argus's initial single-file measurement (Gate 1, HS-282) suggested ~80-90
 -- bytes/table for the header and ~50 bytes/entry for the hash part. This
--- module's calibration test (tests/hs282_memory_estimator.lua) jointly fits
+-- module's calibration test jointly fits
 -- all three constants against a corpus of real Data/ files spanning roughly
 -- 11KB to 1.06MB, and 76/53 is the best joint fit found across that range --
 -- a flat linear model can't hit every file in [0.85, 1.15] simultaneously at
@@ -231,7 +231,7 @@ end
 -- list of owned/shared roots, instead of the curated per-subsystem list above.
 --
 -- This is a SIBLING walker, not a mode of EstimateTableBytes: that function is
--- pinned byte-identical by tests/hs282_memory_estimator.lua's calibration (see
+-- pinned byte-identical by its calibration test (see
 -- its header) and must stay comparable across existing membudget captures.
 -- SweepTableBytes below duplicates the same #t array/hash classification and
 -- reuses the same five constants so the byte model itself cannot drift
