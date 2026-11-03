@@ -2473,6 +2473,15 @@ VendorIdentity.Vendors = {
         expansion = "Midnight",
         scanConfirmed = "2026-03-22",
     },
+    [258540] = {
+        name = "Hawli",
+        mapID = 2576,
+        x = 0.599,
+        y = 0.329,
+        zone = "The Den",
+        faction = "Neutral",
+        expansion = "Midnight",
+    },
     [259864] = {
         name = "Sathren Azuredawn",
         mapID = 2395,

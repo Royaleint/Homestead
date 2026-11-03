@@ -15598,6 +15598,14 @@ local GeneratedBase = {
       costBuild = "12.0.7.68974",
     },
   },
+  [258540] = {
+    [264172] = {
+      price = 50000,
+      currencies = {},
+      isUsable = true,
+      displayOrder = 1,
+    },
+  },
   [259864] = {
     [243106] = {
       price = 0,
