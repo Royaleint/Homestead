@@ -114,14 +114,14 @@ local type = type
 local pairs = pairs
 local math_floor = math.floor
 
--- Argus's initial single-file measurement (Gate 1, HS-282) suggested ~80-90
+-- An initial single-file measurement suggested ~80-90
 -- bytes/table for the header and ~50 bytes/entry for the hash part. This
 -- module's calibration test jointly fits
 -- all three constants against a corpus of real Data/ files spanning roughly
 -- 11KB to 1.06MB, and 76/53 is the best joint fit found across that range --
 -- a flat linear model can't hit every file in [0.85, 1.15] simultaneously at
 -- this scale spread (see the calibration test's comments for the two known
--- outliers and why). ARRAY_SLOT_BYTES=16 matches Argus's stated figure
+-- outliers and why). ARRAY_SLOT_BYTES=16 matches that measurement's figure
 -- directly (a TValue slot with no separate key storage) and wasn't found to
 -- need adjustment.
 local HEADER_BYTES = 76

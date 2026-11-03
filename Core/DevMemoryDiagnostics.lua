@@ -3,11 +3,11 @@
 
     Dev-only home for the /hs debug memallsources and /hs debug membudget
     commands and the measurement functions behind them. Moved out of
-    Core/core.lua per Rawb's ruling (2026-08-14): memory diagnostics are dev
+    Core/core.lua (2026-08-14): memory diagnostics are dev
     tooling, not a player-facing feature, so they must not ship in the
     player addon. This file is never listed in Homestead.toc and is excluded
-    from the packaged zip (.pkgmeta); Home_Dev/scripts/generate-devbuild-toc
-    .mjs appends it (after Core/MemoryEstimator.lua, its dependency) to the
+    from the packaged zip (.pkgmeta); the DevBuild TOC generator
+    appends it (after Core/MemoryEstimator.lua, its dependency) to the
     generated Homestead_DevBuild.toc so both still load under the DevBuild.
 
     /hs debug zonerollup (HS-497) lists, per continent, the vendor maps whose
@@ -28,7 +28,7 @@ local addonName, HA = ...
 local HousingAddon = HA.Addon
 local format = string.format
 
--- HS-279: isolates allSourcesCache's own memory cost via a forced full-corpus
+-- Isolates allSourcesCache's own memory cost via a forced full-corpus
 -- warm bracketed by _G.collectgarbage("collect") + GetAddOnMemoryUsage.
 -- Extracted from DebugMemAllSourcesReport (below) so HS-282's membudget
 -- report can reuse the exact same measurement instead of duplicating it --
@@ -56,7 +56,7 @@ function HousingAddon:MeasureAllSourcesCacheIsolatedKB()
     -- be asked about (Data/SourceManager.lua RegisterDefaultProviders) --
     -- vendor items, plus the six static per-itemID source tables the other
     -- providers read directly (quest/achievement/profession/event/drop/shop).
-    -- Argus HS-279 review: a vendor-only corpus understates the memo's true
+    -- A vendor-only corpus understates the memo's true
     -- organic ceiling, since tooltips/badges query GetAllSources for these
     -- non-vendor items too -- the eviction threshold this diagnostic feeds
     -- needs the real ceiling, not a partial one.
@@ -116,7 +116,7 @@ function HousingAddon:MeasureAllSourcesCacheIsolatedKB()
     return true, fullKB - emptyKB, fullCount, #corpus, emptyKB, fullKB
 end
 
--- HS-279: dev diagnostic for allSourcesCache's memory footprint. Snapshot-only
+-- Dev diagnostic for allSourcesCache's memory footprint. Snapshot-only
 -- by default (safe, non-destructive); 'full' additionally forces a
 -- full-corpus warm (MeasureAllSourcesCacheIsolatedKB above) so the isolated
 -- cost of a cap-full cache (HS-282: SOURCES_MEMO_MAX_ENTRIES, 512 entries) is
@@ -159,7 +159,7 @@ function HousingAddon:DebugMemAllSourcesReport(full)
         return
     end
 
-    -- Argus Gate 1 finding #8: print the helper's OWN returned reason rather
+    -- Print the helper's OWN returned reason rather
     -- than a message hardcoded here, so this can't silently drift from
     -- MeasureAllSourcesCacheIsolatedKB's actual failure text if that ever
     -- changes.
@@ -190,7 +190,7 @@ function HousingAddon:DebugMemAllSourcesReport(full)
     table.insert(output, "setting is enabled. Also: the organic ceiling is bounded by catalog")
     table.insert(output, "size, not this corpus size -- a decor item with no known source still")
     table.insert(output, "caches an empty entry when hovered, so real max entries can run slightly")
-    table.insert(output, "above this number (Sage HS-279 review).")
+    table.insert(output, "above this number.")
     table.insert(output, "")
     table.insert(output, "Cache has been left cap-full (safe -- it's a pure memo, identical to")
     table.insert(output, "normal play state once the 512-entry eviction cap has been reached).")
@@ -198,7 +198,7 @@ function HousingAddon:DebugMemAllSourcesReport(full)
     self:ShowCopyableText(table.concat(output, "\n"))
 end
 
--- HS-282: umbrella per-subsystem memory-budget breakdown, extending the
+-- Umbrella per-subsystem memory-budget breakdown, extending the
 -- memallsources diagnostic pattern (HS-279) above across every subsystem the
 -- master ticket's sub-items (A/B/D/E) need prioritized numbers for. Default
 -- mode is fully non-destructive: every subsystem is walker-estimated
@@ -280,7 +280,7 @@ function HousingAddon:DebugMemBudgetReport(full)
     -- caches (zone, continent, child-map and roll-up memo) are separate root
     -- tables measured as one line via EstimateTablesSizeKB so a structure
     -- shared between them (unlikely but not assumed) is charged once, not
-    -- twice (Argus Gate 1 finding #5).
+    -- twice.
     if HA.BadgeCalculation and HA.BadgeCalculation.GetDebugCacheTables then
         local caches = HA.BadgeCalculation:GetDebugCacheTables()
         reportKB("BadgeCalculation.vendorStatsCache", ME.EstimateTableSizeKB(caches.vendorStatsCache), "est")
@@ -349,7 +349,7 @@ function HousingAddon:DebugMemBudgetReport(full)
     -- tables onto HA.VendorOffers/HA.VendorIdentity at load time, so it's
     -- already included in those two walks, not a separate line.
     --
-    -- Argus Gate 1 (re-review) blocker #2: the ordering inversion that made
+    -- The ordering inversion that made
     -- the original calibration finding Critical -- AchievementSources is
     -- really the bigger subsystem, but its walker estimate can print BELOW
     -- DecorMapping's -- was still only explained in source comments, invisible
@@ -389,7 +389,7 @@ function HousingAddon:DebugMemBudgetReport(full)
 
     -- SavedVariables subtrees (sub-item E + the other large db.global tables
     -- HS-282's session context calls out). Each field is checked for nil
-    -- individually (Argus Gate 1 finding #7): self.db.global can exist
+    -- individually: self.db.global can exist
     -- while a specific subtree is still nil (e.g. parsedSources before the
     -- first scan), and that must read as "not measurable: not initialized",
     -- not a silent, misleading 0.0 KB.
@@ -413,7 +413,7 @@ function HousingAddon:DebugMemBudgetReport(full)
 
     table.insert(output, format("accounted (sum of lines above): %.1f KB", accounted))
 
-    -- Reconciliation (Argus Gate 1 finding #4): compare the sum of every
+    -- Reconciliation: compare the sum of every
     -- measured line against the addon's real, live memory footprint, so
     -- this reads as a budget with a residual, not just a list of numbers.
     -- "unaccounted" is expected to be nonzero -- it covers UI frames, Ace3
@@ -498,7 +498,7 @@ local function BuildMemFloorReport(self, ME, deep)
     -- The live total is read BEFORE the sweep allocates anything. The
     -- sweep's bookkeeping (one visited set deduping every table AND string
     -- it meets, plus the report strings) is billed to this addon and
-    -- measured ~3.8 MB in Gate 2 captures -- reading the total after the
+    -- measured ~3.8 MB in in-game captures -- reading the total after the
     -- walk inflated it and both remainder lines by exactly that much.
     -- Reconciliation semantics are otherwise membudget's (DebugMemBudgetReport
     -- above): one client-wide collectgarbage("collect") right before the
@@ -514,7 +514,7 @@ local function BuildMemFloorReport(self, ME, deep)
     -- context allocation, the ~20k-global foreign-root seed, and the walk --
     -- and excludes ONLY the GC pass above (design §5). Starting the bracket
     -- any later would omit part of the command's own work from the printed
-    -- cost, the same self-accounting defect class Gate 2 caught in the
+    -- cost, the same self-accounting defect class in-game testing caught in the
     -- live-total read. (Not debugprofilestop: any addon's
     -- debugprofilestart() call between our two reads would reset it and
     -- falsify the cost; GetTimePreciseSec is monotonic and matches this
@@ -702,7 +702,7 @@ function HousingAddon:DebugMemFloorReport(deep)
     self:ShowCopyableText(table.concat(outputOrErr, "\n"))
 end
 
--- HS-497: '/hs debug zonerollup'. Per continent, lists every vendor map whose
+-- '/hs debug zonerollup'. Per continent, lists every vendor map whose
 -- badge key differs from its own ID once the sub-zone roll-up and sibling merge
 -- apply, the ContinentBadgeOverrides entries on their own lines, and the maps
 -- left unchanged because they sit below a zone the roll-up cannot use: the

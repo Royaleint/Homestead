@@ -20,7 +20,7 @@ local _, HA = ...
 local PerformanceTrace = {}
 HA.PerformanceTrace = PerformanceTrace
 
--- nil until a DevBuild registers one (see Home_Dev/Homestead_Dev/PerformanceTrace.lua).
+-- nil until a DevBuild registers one (the DevBuild's own trace backend).
 local backend = nil
 
 -- Register (or clear, with nil) the DevBuild measurement backend. Only the

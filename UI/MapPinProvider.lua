@@ -26,7 +26,7 @@ local projectionRectCache = {}
 local parentMapCache = {}
 local childMapIDsCache = {}
 
--- HS-282: read-only debug accessor for the /hs debug membudget walker.
+-- Read-only debug accessor for the /hs debug membudget walker.
 -- Read-only references, never mutated by the caller.
 function MapPinProvider.GetDebugCacheTables()
     return {
@@ -405,9 +405,8 @@ end
 
 local nativePins = {}          -- active wrapper frames
 local nativePinPool = {}       -- recycled wrapper frames
--- Blizzard's map pin frame levels (MEDIUM strata). Per HS-319
--- (Home_Dev/reference/MAP_LAYERING_STUDY.md, verified against Blizzard
--- source):
+-- Blizzard's map pin frame levels (MEDIUM strata), verified against Blizzard
+-- source:
 --   Area POI:    2023
 --   Map Link:    2025
 --   Encounter:   2026
@@ -418,7 +417,7 @@ local nativePinPool = {}       -- recycled wrapper frames
 -- exactly TIES Gossip (2024); sibling order vs Gossip at that tie is
 -- creation-order dependent/unspecified. Quests, world quests, vignettes,
 -- and waypoints already sit at 2025+, so they still outrank Homestead.
--- Intentional placement (HS-319 ruling) — do not change the level to chase
+-- Intentional placement (deliberate) — do not change the level to chase
 -- the old "parity with Area POI" language this replaced.
 --
 -- Constants below Vignette are patch-stable; PIN_FRAME_LEVEL_ACTIVE_QUEST
@@ -546,7 +545,7 @@ function MapPinProvider.RepositionWorldMapPins()
     end
 end
 
--- HS-536: overlapping-pin nudge. Vendors that stand side by side get map
+-- Overlapping-pin nudge. Vendors that stand side by side get map
 -- positions about 0.001 apart, which draws their pins on top of each other.
 -- AssignOverlapNudge gives pins that overlap a small screen-pixel offset
 -- (nudgeX/nudgeY, +x right, +y up). Display only: the caller passes it to
@@ -796,7 +795,7 @@ function MapPinProvider.AssignOverlapNudge(pins, xKey, yKey, mapKey)
     WipeNudgeSort(n)
 end
 
--- HS-536: final minimap position of a nudged pin. diffX/diffY are the pin's
+-- Final minimap position of a nudged pin. diffX/diffY are the pin's
 -- real position in minimap-radius units (already tested for range, and
 -- already clamped to the rim for floatOnEdge pins). The pixel nudge is
 -- rotated with the minimap, added to the drawn position only, and the result
