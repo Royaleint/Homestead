@@ -76,7 +76,7 @@ VendorData.VendorNameToNPC = {
     ["Amurra Thistledew"] = {112323},
     ["Berazus"] = {89939, 116305},
     ["Rasil Fireborne"] = {112716},
-    ["Toraan the Revered"] = {125346},
+    ["Toraan the Revered"] = {127151},
 
     -- Stormwind / Alliance
     ["Captain Lancy Revshon"] = {45389, 49877},

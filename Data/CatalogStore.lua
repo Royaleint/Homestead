@@ -1032,6 +1032,43 @@ local function Migration_6_to_7(db)
     end
 end
 
+-- Migration 7→8: Toraan the Revered's NPC ID was corrected from 125346
+-- to 127151. Move his saved scan to the new key so the old ID does not keep
+-- showing a second vendor. When both IDs hold a record the newer scan wins; a
+-- tie or a missing date keeps the record already under the new ID.
+local TORAAN_OLD_ID, TORAAN_NEW_ID = 125346, 127151
+local TORAAN_ITEMS = { [245422] = true, [251480] = true }
+
+local function ListsToraanItem(rec)
+    if type(rec.items) ~= "table" then return false end
+    for _, it in ipairs(rec.items) do
+        if type(it) == "table" and TORAAN_ITEMS[it.itemID] then return true end
+    end
+    return false
+end
+
+local function Migration_7_to_8(db)
+    local global = db.global
+    local sv = global.scannedVendors
+    local old = sv and sv[TORAAN_OLD_ID]
+    if type(old) == "table" and ListsToraanItem(old) then
+        local cur = sv[TORAAN_NEW_ID]
+        local takeOld = type(cur) ~= "table"
+            or (type(old.lastScanned) == "number" and type(cur.lastScanned) == "number"
+                and old.lastScanned > cur.lastScanned)
+        if takeOld then
+            old.npcID = TORAAN_NEW_ID
+            sv[TORAAN_NEW_ID] = old
+        end
+        sv[TORAAN_OLD_ID] = nil
+    end
+    global.schemaVersion = 8
+
+    if HA.Addon then
+        HA.Addon:Debug("CatalogStore: Migration 7→8 complete")
+    end
+end
+
 function CatalogStore:RunMigrations()
     if not HA.Addon or not HA.Addon.db then return end
     local db = HA.Addon.db
@@ -1062,9 +1099,9 @@ function CatalogStore:RunMigrations()
     -- throws instead of returning (Foundry.lua:44-51), so this `return` is only
     -- reached on release builds; a dev build fails loud out of Initialize by
     -- design, same precedent as core.lua:264.
-    if version > 7 then
+    if version > 8 then
         F:RaiseDevError("CatalogStore: SavedVariables schemaVersion " .. version
-            .. " is newer than this build supports (7); migrations skipped.")
+            .. " is newer than this build supports (8); migrations skipped.")
         return
     end
     if version < 6 then
@@ -1093,6 +1130,10 @@ function CatalogStore:RunMigrations()
 
     if version < 7 then
         Migration_6_to_7(db)
+    end
+
+    if version < 8 then
+        Migration_7_to_8(db)
     end
 end
 

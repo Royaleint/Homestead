@@ -484,20 +484,6 @@ local GeneratedBase = {
       displayOrder = 1,
     },
   },
-  [62032] = {
-    [247729] = {
-      price = 3000000,
-      currencies = {},
-      isUsable = true,
-      displayOrder = 1,
-    },
-    [264362] = {
-      price = 5000000,
-      currencies = {},
-      isUsable = true,
-      displayOrder = 2,
-    },
-  },
   [62088] = {
     [245332] = {
       price = 20000000,
@@ -533,6 +519,20 @@ local GeneratedBase = {
       isUsable = true,
       displayOrder = 5,
       costBuild = "12.0.7.68974",
+    },
+  },
+  [64001] = {
+    [247729] = {
+      price = 3000000,
+      currencies = {},
+      isUsable = true,
+      displayOrder = 1,
+    },
+    [264362] = {
+      price = 5000000,
+      currencies = {},
+      isUsable = true,
+      displayOrder = 2,
     },
   },
   [64032] = {
@@ -2211,7 +2211,7 @@ local GeneratedBase = {
       displayOrder = 1,
     },
   },
-  [125346] = {
+  [127151] = {
     [245422] = {
       price = 8000000,
       currencies = {},
