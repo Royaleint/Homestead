@@ -17233,22 +17233,19 @@ local ManualOverrides = {
     [218202] = { -- Thripps (City of Threads, Lower City Armaments)
         [246866] = { price = 0, currencies = {{id = 3056, amount = 500}}, isUsable = true, isPurchasable = false, merchantSlot = 1, hasExtendedCost = true, displayOrder = 1, costBuild = "12.1.0.69299" }, -- Kaheti Scribe's Records (was c3056:1500)
     },
-    -- 2026-08-14: NO override for The Last Architect [253596] item 262453,
-    -- deliberately. A live 12.1.0.69299 scan shows that vendor listing the item in
-    -- TWO merchant slots, one per payment method -- slot 1 at 30 Community Coupons,
-    -- slot 2 at 500g, an EITHER/OR. An override carrying both costs on one row was
-    -- written here and reverted (2026-08-14): VendorData.FormatCost
-    -- joins cost components with " + " (Data/VendorData.lua, table.concat), so the
-    -- tooltip would have read "Vendor Price: 500g + 30 Community Coupons" and
-    -- overstated the cost to exactly the gold-holding player the fix was meant to
-    -- help. Incomplete beat false, so GeneratedBase's coupon-only row stands until
-    -- the schema can express alternative costs. Of the 82 both-cost
-    -- (npcID, itemID) pairs in this file, 81 are positively proven SINGLE-slot
-    -- combined costs by a scan row carrying price and currency together on one
-    -- line, where the " + " reading is correct; the other one has no scan
-    -- coverage on disk (88126:253527) and is unproven either way. Do not use it
-    -- as precedent for an either/or: 253596:262453 is the only item ever recorded in
-    -- two slots with different payment methods, across every scan on disk.
+    -- 2026-11-07: Hearthlight Armillary is marked costStatus = "unresolved", so every
+    -- player sees "Cost unverified" for it instead of a price. Scans have shown this
+    -- vendor listing the item in two merchant slots with different payment methods
+    -- (30 Community Coupons, or 500g), but not enough about each slot to ship a
+    -- complete set of alternatives. The row keeps the coupon-only primary cost it
+    -- already shipped with; that is stored data, not a displayed price. Do not add the
+    -- gold to this row: components on one row are summed ("500g + 30 Community
+    -- Coupons"), which no merchant slot charges. Clearing saved scans does not
+    -- remove this marker, and an older or partial scan cannot replace it; a later
+    -- complete scan of the vendor's full listing can replace the whole cost set.
+    [253596] = { -- The Last Architect (1)
+        [262453] = { price = 0, currencies = {{id = 3363, amount = 30}}, isUsable = true, displayOrder = 1, costBuild = "12.0.7.68974", costStatus = "unresolved" }, -- Hearthlight Armillary
+    },
     -- 2026-08-22: 35 rows that shipped with no cost at all -- price = 0 and no
     -- currency -- on four vendors whose live scans have carried real gold prices since
     -- July. Each of these items is a bare item ID in the build seed, so offer generation
