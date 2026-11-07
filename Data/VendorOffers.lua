@@ -17443,7 +17443,7 @@ local ManualOverrides = {
     },
     -- Order Resources, Veiled Argunite, War Resources, Honor and Elemental Overflow
     -- costs corrected to the live 12.1.0 values (checked in game, 2026-10-08).
-    [93550] = { -- Quartermaster Ozorg (Broken Shore)
+    [93550] = { -- Quartermaster Ozorg (Acherus: The Ebon Hold)
         [250112] = { price = 0, currencies = {{id = 1220, amount = 350}}, displayOrder = 1, isUsable = true, costBuild = "12.1.0.69933" }, -- (was c1220:1500)
         [250113] = { price = 0, currencies = {{id = 1220, amount = 150}}, costBuild = "12.1.0.69933", displayOrder = 2, isUsable = true },
         [250114] = { price = 0, currencies = {{id = 1220, amount = 150}}, costBuild = "12.1.0.69933", displayOrder = 3, isUsable = true },
