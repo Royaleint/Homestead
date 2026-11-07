@@ -1,0 +1,6 @@
+<Bindings>
+	<Binding name="HOMESTEAD_TOGGLE_BROWSER" category="BINDING_HEADER_HOMESTEAD">
+		local b = Homestead and Homestead.DecorBrowser
+		if b then b:Toggle() end
+	</Binding>
+</Bindings>

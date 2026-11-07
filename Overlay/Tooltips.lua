@@ -990,14 +990,12 @@ local function AddDecorInfoToTooltip(tooltip, itemLink, gate)
         end
     end
 
-    -- Panel-only opposite-faction vendor access note
+    -- Panel-only note for a vendor this character can't use at any of its positions
     if context == "panel" and vendorNpcID then
         local scopedVendor = HA.VendorData and HA.VendorData.GetVendor
             and HA.VendorData:GetVendor(vendorNpcID)
-        if scopedVendor and HA.VendorFilter and HA.VendorFilter.IsOppositeFaction
-                and HA.VendorFilter.IsOppositeFaction(scopedVendor)
-                and HA.VendorFilter.CanAccessVendor
-                and not HA.VendorFilter.CanAccessVendor(scopedVendor) then
+        if scopedVendor and HA.VendorFilter and HA.VendorFilter.CanUseVendor
+                and not HA.VendorFilter.CanUseVendor(scopedVendor) then
             gatedTooltip:AddLine("Vendor access: Opposite-faction vendor on this character", 1.0, 0.5, 0.5)
         end
     end

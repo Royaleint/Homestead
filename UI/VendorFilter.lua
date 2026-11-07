@@ -205,13 +205,19 @@ end
 -- Faction Checks
 -------------------------------------------------------------------------------
 
--- Resolve effective faction for a vendor: explicit field first, then zone map fallback.
-local function GetEffectiveFaction(vendor)
+-- The faction a vendor serves at a position on mapID: its own faction, or for a
+-- Neutral vendor the faction of the zone it stands in. nil serves everyone.
+local function PositionFaction(vendor, mapID)
     local f = vendor.faction
     if f and f ~= "Neutral" then return f end
-    if vendor.mapID then
-        return HA.Constants.ZoneToFactionMap[vendor.mapID]
+    if mapID then
+        return HA.Constants.ZoneToFactionMap[mapID]
     end
+end
+
+-- Resolve effective faction for a vendor: explicit field first, then zone map fallback.
+local function GetEffectiveFaction(vendor)
+    return PositionFaction(vendor, vendor.mapID)
 end
 
 -- Check if vendor is accessible to player's faction
@@ -228,6 +234,54 @@ function VendorFilter.IsOppositeFaction(vendor)
     if not faction then return false end
     local playerFaction = UnitFactionGroup("player")
     return faction ~= playerFaction
+end
+
+-- CanAccessVendor and IsOppositeFaction judge the one position a map pin stands
+-- for. This judges the vendor as a whole: whether this character can use it at
+-- any of its positions, its own and VendorData:GetOtherPosition's. When it
+-- can't, it also returns the faction each position serves (the second only
+-- when it differs from the first). For a vendor with one position the verdict
+-- is CanAccessVendor's.
+function VendorFilter.CanUseVendor(vendor)
+    local playerFaction = UnitFactionGroup("player")
+    local faction = PositionFaction(vendor, vendor.mapID)
+    if not faction or faction == playerFaction then return true end
+    local otherMapID = HA.VendorData:GetOtherPosition(vendor)
+    if not otherMapID then return false, faction end
+    local other = PositionFaction(vendor, otherMapID)
+    if not other or other == playerFaction then return true end
+    return false, faction, other ~= faction and other or nil
+end
+
+-- Where this character should go for the vendor, in GetBestVendorCoordinates'
+-- shape: a position it can use, the nearer one when it can use both, and the
+-- vendor's own position when it can use neither.
+function VendorFilter.GetUsableVendorCoordinates(vendor)
+    local coords, mapID, source = VendorFilter.GetBestVendorCoordinates(vendor)
+    local VD = HA.VendorData
+    local otherMapID, otherX, otherY = VD:GetOtherPosition(vendor)
+    if not (otherMapID and VendorFilter.AreValidCoordinates(otherX, otherY)) then
+        return coords, mapID, source
+    end
+    local playerFaction = UnitFactionGroup("player")
+    local other = PositionFaction(vendor, otherMapID)
+    if other and other ~= playerFaction then return coords, mapID, source end
+    local own = PositionFaction(vendor, vendor.mapID)
+    if coords and (not own or own == playerFaction)
+            and not VD:IsSecondPositionNearer(mapID, coords.x, coords.y, otherMapID, otherX, otherY) then
+        return coords, mapID, source
+    end
+    return { x = otherX, y = otherY }, otherMapID, "static"
+end
+
+-- The map, zone and subzone of the position GetUsableVendorCoordinates picks.
+-- A vendor with one position answers with its own fields.
+function VendorFilter.GetUsableVendorPlace(vendor)
+    local otherMapID, _, _, zone, subzone = HA.VendorData:GetOtherPosition(vendor)
+    if otherMapID and select(2, VendorFilter.GetUsableVendorCoordinates(vendor)) == otherMapID then
+        return otherMapID, zone, subzone
+    end
+    return vendor.mapID, vendor.zone, vendor.subzone
 end
 
 -------------------------------------------------------------------------------

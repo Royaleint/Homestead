@@ -795,6 +795,33 @@ function VendorData:GetVendorsForItem(itemID)
     return result
 end
 
+-- The player's map and position on it; the position is nil when it can't be read.
+local function PlayerMapPosition()
+    local mapID = C_Map.GetBestMapForUnit("player")
+    return mapID, mapID and C_Map.GetPlayerMapPosition(mapID, "player")
+end
+
+-- Straight-line distance from the player to a position on the player's own map;
+-- nil for a position on any other map.
+local function DistanceOnPlayerMap(playerMapID, playerPos, mapID, x, y)
+    if mapID ~= playerMapID or not (x and y) then return nil end
+    local dx = x - playerPos.x
+    local dy = y - playerPos.y
+    return math.sqrt(dx*dx + dy*dy)
+end
+
+-- Whether the second of two positions is nearer the player, by the same rule as
+-- the closest-vendor pick: only a position on the player's map has a distance,
+-- and when neither does, or they tie, the first wins.
+function VendorData:IsSecondPositionNearer(mapID, x, y, otherMapID, otherX, otherY)
+    local playerMapID, playerPos = PlayerMapPosition()
+    if not playerPos then return false end
+    local other = DistanceOnPlayerMap(playerMapID, playerPos, otherMapID, otherX, otherY)
+    if not other then return false end
+    local first = DistanceOnPlayerMap(playerMapID, playerPos, mapID, x, y)
+    return not first or other < first
+end
+
 -- Get the closest vendor that sells a specific item
 function VendorData:GetClosestVendorForItem(itemID)
     local vendorList = self:GetVendorsForItem(itemID)
@@ -803,8 +830,7 @@ function VendorData:GetClosestVendorForItem(itemID)
     end
 
     -- Get player's current map and position
-    local playerMapID = C_Map.GetBestMapForUnit("player")
-    local playerPos = playerMapID and C_Map.GetPlayerMapPosition(playerMapID, "player")
+    local playerMapID, playerPos = PlayerMapPosition()
 
     if not playerMapID or not playerPos then
         -- Can't determine position, return first vendor
@@ -816,30 +842,19 @@ function VendorData:GetClosestVendorForItem(itemID)
     local closestDistance = math.huge
 
     for _, vendor in ipairs(vendorList) do
-        if vendor.mapID == playerMapID and vendor.x and vendor.y then
-            -- Same map - calculate direct distance
-            local dx = vendor.x - playerPos.x
-            local dy = vendor.y - playerPos.y
-            local distance = math.sqrt(dx*dx + dy*dy)
-
-            if distance < closestDistance then
-                closestDistance = distance
-                closestVendor = vendor
-                closestIsSecondPosition = false
-            end
+        local distance = DistanceOnPlayerMap(playerMapID, playerPos, vendor.mapID, vendor.x, vendor.y)
+        if distance and distance < closestDistance then
+            closestDistance = distance
+            closestVendor = vendor
+            closestIsSecondPosition = false
         end
 
         local otherMapID, otherX, otherY = self:GetOtherPosition(vendor)
-        if otherMapID == playerMapID and otherX and otherY then
-            local dx = otherX - playerPos.x
-            local dy = otherY - playerPos.y
-            local distance = math.sqrt(dx*dx + dy*dy)
-
-            if distance < closestDistance then
-                closestDistance = distance
-                closestVendor = vendor
-                closestIsSecondPosition = true
-            end
+        distance = DistanceOnPlayerMap(playerMapID, playerPos, otherMapID, otherX, otherY)
+        if distance and distance < closestDistance then
+            closestDistance = distance
+            closestVendor = vendor
+            closestIsSecondPosition = true
         end
     end
 

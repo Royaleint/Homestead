@@ -95,7 +95,7 @@ local function tokens(s)
 	while i <= #s do
 		local c = s:sub(i, i)
 		if c == "%" then
-			local tok = s:match("^%%[-+ #0]*%d*%.?%d*[%a%%]", i)
+			local tok = s:match("^%%%d+%$[-+ #0]*%d*%.?%d*[%a%%]", i) or s:match("^%%[-+ #0]*%d*%.?%d*[%a%%]", i)
 			if tok then
 				out[#out + 1] = tok
 				i = i + #tok
@@ -119,13 +119,49 @@ local function tokens(s)
 	return out
 end
 
+-- Plain tokens must match in order. Positional ones ("%1$s") name their argument, so a translation may
+-- reorder them: they compare as a multiset. A string that mixes the two never matches: what a format does
+-- with the mix is undefined.
 local function sameTokens(a, b)
-	local ta, tb = tokens(a), tokens(b)
-	if #ta ~= #tb then
+	local plainA, plainB, left = {}, {}, {}
+	local positionalA, positionalB = false, false
+	for _, t in ipairs(tokens(a)) do
+		if t:find("^%%%d+%$") then
+			left[t] = (left[t] or 0) + 1
+			positionalA = true
+		else
+			plainA[#plainA + 1] = t
+		end
+	end
+	for _, t in ipairs(tokens(b)) do
+		if t:find("^%%%d+%$") then
+			left[t] = (left[t] or 0) - 1
+			positionalB = true
+		else
+			plainB[#plainB + 1] = t
+		end
+	end
+	local function mixed(plain, positional)
+		for _, t in ipairs(plain) do
+			if positional and t:find("^%%[^%%]") then
+				return true
+			end
+		end
 		return false
 	end
-	for i = 1, #ta do
-		if ta[i] ~= tb[i] then
+	if mixed(plainA, positionalA) or mixed(plainB, positionalB) then
+		return false
+	end
+	if #plainA ~= #plainB then
+		return false
+	end
+	for i = 1, #plainA do
+		if plainA[i] ~= plainB[i] then
+			return false
+		end
+	end
+	for _, n in pairs(left) do
+		if n ~= 0 then
 			return false
 		end
 	end

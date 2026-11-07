@@ -1521,11 +1521,12 @@ local function CreateVendorRow(parent)
             State.expandedVendorID = nil
         else
             State.expandedVendorID = npcID
-            -- Search mode: also navigate the world map to this vendor's zone.
+            -- Search mode: also navigate the world map to the vendor's zone, at a
+            -- position this character can use.
             if self.searchMode then
                 local VF = HA.VendorFilter
                 if VF then
-                    local _, vendorMapID = VF.GetBestVendorCoordinates(self.vendor)
+                    local _, vendorMapID = VF.GetUsableVendorCoordinates(self.vendor)
                     if vendorMapID and WorldMapFrame then
                         if not WorldMapFrame:IsShown() then
                             WorldMapFrame:Show()
@@ -1542,20 +1543,32 @@ local function CreateVendorRow(parent)
         if not self.vendor then return end
         local tooltip = BeginPanelTooltip(self, "ANCHOR_RIGHT")
         tooltip:AddLine(self.vendor.name or "Unknown", 1, 1, 1)
-        if self.vendor.subzone then
-            tooltip:AddLine(self.vendor.subzone .. " (" .. (self.vendor.zone or "?") .. ")", 0.7, 0.7, 0.7)
-        elseif self.vendor.zone then
-            tooltip:AddLine(self.vendor.zone, 0.7, 0.7, 0.7)
+        -- A search result names the position its click goes to.
+        local mapID, zone, subzone = self.vendor.mapID, self.vendor.zone, self.vendor.subzone
+        if self.searchMode then
+            mapID, zone, subzone = HA.VendorFilter.GetUsableVendorPlace(self.vendor)
         end
-        if self.vendor.mapID and ORDER_HALL_MAPS[self.vendor.mapID] then
+        if subzone then
+            tooltip:AddLine(subzone .. " (" .. (zone or "?") .. ")", 0.7, 0.7, 0.7)
+        elseif zone then
+            tooltip:AddLine(zone, 0.7, 0.7, 0.7)
+        end
+        if mapID and ORDER_HALL_MAPS[mapID] then
             tooltip:AddLine("Legion Order Hall", 1, 0.82, 0)
         end
         if self.vendor.faction and self.vendor.faction ~= "Neutral" then
             local factionColor = self.vendor.faction == "Alliance" and {0, 0.44, 0.87} or {0.77, 0.12, 0.23}
             tooltip:AddLine(self.vendor.faction, unpack(factionColor))
         end
-        if HA.VendorFilter and HA.VendorFilter.IsOppositeFaction
-                and HA.VendorFilter.IsOppositeFaction(self.vendor) then
+        -- A search result is the vendor as a whole; a map row is the one position it stands at.
+        local VF = HA.VendorFilter
+        local opposite
+        if self.searchMode then
+            opposite = not VF.CanUseVendor(self.vendor)
+        else
+            opposite = VF.IsOppositeFaction(self.vendor)
+        end
+        if opposite then
             tooltip:AddLine("Cannot access - opposite faction vendor", 0.8, 0.3, 0.3)
         end
         if self.total and self.total > 0 then

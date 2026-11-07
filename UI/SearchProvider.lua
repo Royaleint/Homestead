@@ -232,8 +232,8 @@ function SearchProvider:Search(query, options)
 
     local results = {}
     for npcID, entry in pairs(searchIndex.vendorItems) do repeat
-        -- Skip opposite-faction vendors when setting is off
-        if not showOpposite and VF.IsOppositeFaction(entry.vendor) then break end
+        -- Skip vendors this character can't use at any position when the setting is off
+        if not showOpposite and not VF.CanUseVendor(entry.vendor) then break end
 
         local matchCount = 0
         local matchType = nil
