@@ -152,6 +152,141 @@ local function FormatCostData(currencies, itemCosts)
     return table.concat(parts, ",")
 end
 
+-------------------------------------------------------------------------------
+-- Cost evidence records (costEvidenceFormatVersion 1)
+-- G: one item's frozen rows from one listing observation. Identity fields
+--    are the original ones; nothing here is re-dated at export.
+-- S: the mutable status of that observation for that item, keyed by the
+--    same identity. A status change re-exports S without changing G.
+-- Empty field = unknown (never zero or false). Text fields escape % , ; : |
+-- and whitespace delimiters as %XX.
+-------------------------------------------------------------------------------
+
+local function EscapeEvidenceText(value)
+    return (tostring(value):gsub("[%%,;:|\t\n\r]", function(c)
+        return string.format("%%%02X", c:byte())
+    end))
+end
+
+local function EvidenceField(value)
+    if value == nil then return "" end
+    if type(value) == "boolean" then return tostring(value) end
+    if type(value) == "number" then
+        if value ~= value or value == math.huge or value == -math.huge or value ~= math.floor(value) then
+            error("unrepresentable evidence number")
+        end
+        return string.format("%d", value)
+    end
+    return EscapeEvidenceText(value)
+end
+
+local function EvidenceRow(row)
+    local components = {}
+    for i, component in ipairs(row.components or {}) do
+        components[i] = table.concat({
+            EvidenceField(component.kind), EvidenceField(component.id),
+            EvidenceField(component.amount), EvidenceField(component.kind == "unknown" and component.name or nil),
+        }, ":")
+    end
+    return table.concat({
+        EvidenceField(row.slot), EvidenceField(row.itemID), EvidenceField(row.price),
+        EvidenceField(row.quantity), EvidenceField(row.extended), EvidenceField(row.costCount),
+        EvidenceField(row.purchasable), EvidenceField(row.usable), EvidenceField(row.complete),
+        table.concat(components, "|"),
+    }, ",")
+end
+
+local function EvidenceIdentity(group)
+    return {
+        EvidenceField(group.origin), EvidenceField(group.context), EvidenceField(group.vendor),
+        EvidenceField(group.serial), EvidenceField(group.epoch),
+    }
+end
+
+local function EvidenceLines(witness, status, out)
+    local group, coverage = witness.group, witness.coverage
+    local identity = EvidenceIdentity(group)
+    local rows = {}
+    for i, row in ipairs(witness.rows) do rows[i] = EvidenceRow(row) end
+    local fields = {"G", "1"}
+    for _, value in ipairs(identity) do fields[#fields + 1] = value end
+    for _, value in ipairs({
+        EvidenceField(group.build), EvidenceField(group.environment), EvidenceField(group.locale),
+        EvidenceField(group.mapID), EvidenceField(coverage.total), EvidenceField(coverage.capped),
+        EvidenceField(coverage.coherent), EvidenceField(coverage.complete), EvidenceField(coverage.reason),
+        EvidenceField(witness.itemID), table.concat(rows, ";"),
+    }) do
+        fields[#fields + 1] = value
+    end
+    out[#out + 1] = table.concat(fields, "\t") .. "\n"
+
+    local statusFields = {"S", "1"}
+    for _, value in ipairs(identity) do statusFields[#statusFields + 1] = value end
+    statusFields[#statusFields + 1] = EvidenceField(witness.itemID)
+    statusFields[#statusFields + 1] = status
+    out[#out + 1] = table.concat(statusFields, "\t") .. "\n"
+end
+
+-- A witness holding a value the format cannot carry is held, not dropped:
+-- an S record with status "malformed: <reason>" under its original identity
+-- when that identity itself is representable. Returns that S line or nil.
+local function HeldWitnessLine(witness, reason)
+    local ok, line = pcall(function()
+        local fields = {"S", "1"}
+        for _, value in ipairs(EvidenceIdentity(witness.group)) do fields[#fields + 1] = value end
+        fields[#fields + 1] = EvidenceField(witness.itemID)
+        fields[#fields + 1] = EvidenceField("malformed: " .. reason)
+        return table.concat(fields, "\t") .. "\n"
+    end)
+    return ok and line or nil
+end
+
+-- G/S lines for retained evidence changed after cursor (all when exportAll).
+-- Returns lines, entry count and the held witnesses ({npcID, itemID, reason}).
+-- One unrepresentable witness is held alone; the rest still export.
+local function BuildCostEvidenceLines(evidence, cursor, exportAll)
+    local out, count, held = {}, 0, {}
+    local npcIDs = {}
+    for npcID in pairs(evidence or {}) do npcIDs[#npcIDs + 1] = npcID end
+    table.sort(npcIDs)
+    for _, npcID in ipairs(npcIDs) do
+        local itemIDs = {}
+        for itemID in pairs(evidence[npcID]) do itemIDs[#itemIDs + 1] = itemID end
+        table.sort(itemIDs)
+        for _, itemID in ipairs(itemIDs) do
+            local entry = evidence[npcID][itemID]
+            if exportAll or (entry.changed or 0) > cursor then
+                count = count + 1
+                local witnesses = {}
+                if entry.selected and entry.selected.witness then
+                    witnesses[#witnesses + 1] = {entry.selected.witness, "selected"}
+                end
+                for _, witness in pairs(entry.unresolved or {}) do
+                    witnesses[#witnesses + 1] = {witness, "unresolved"}
+                end
+                table.sort(witnesses, function(a, b)
+                    if a[1].observedAt ~= b[1].observedAt then
+                        return (a[1].observedAt or 0) < (b[1].observedAt or 0)
+                    end
+                    return (a[1].group.serial or 0) < (b[1].group.serial or 0)
+                end)
+                for _, pair in ipairs(witnesses) do
+                    local lines = {}
+                    local ok, err = pcall(EvidenceLines, pair[1], pair[2], lines)
+                    if ok then
+                        for _, line in ipairs(lines) do out[#out + 1] = line end
+                    else
+                        local reason = tostring(err):gsub("^.-:%d+: ", "")
+                        held[#held + 1] = {npcID = npcID, itemID = itemID, reason = reason}
+                        out[#out + 1] = HeldWitnessLine(pair[1], reason)
+                    end
+                end
+            end
+        end
+    end
+    return out, count, held
+end
+
 -- Sanitize string fields for tab-delimited export
 -- Replaces tabs, newlines, carriage returns with spaces (lossy but safe)
 local function SanitizeExportField(value)
@@ -261,18 +396,33 @@ local function IsDelistCandidate(vendor, npcID)
 end
 
 -- Export scanned vendor data
--- fullExport: include vendors already in VendorDatabase
--- exportAll: bypass timestamp filter (export everything scanned)
+-- fullExport: unused; kept for the existing call sites
+-- exportAll: bypass both the vendor timestamp filter and the cost-evidence
+-- cursor (export everything scanned and every retained cost claim)
 function ExportImport:ExportScannedVendors(fullExport, exportAll)
     if not HA.Addon or not HA.Addon.db then
         HA.Addon:Print("Database not available.")
         return
     end
 
-    local data = HA.Addon.db.global.scannedVendors
-    if not data or not next(data) then
+    local global = HA.Addon.db.global
+    local data = global.scannedVendors or {}
+    local evidence = global.vendorCostEvidence
+    local counters = global.costEvidenceCounters
+    if not next(data) and not (evidence and next(evidence)) then
         HA.Addon:Print("No scanned vendor data to export. Visit some vendors first!")
         return
+    end
+
+    -- Cost evidence has its own cursor over the merge serial, independent
+    -- of lastScanned and lastExportTimestamp.
+    local evidenceCursor = counters and counters.exportCursor or 0
+    local evidenceSnapshot = counters and counters.mergeSerial or 0
+    local okEvidence, evidenceLines, evidenceCount, heldWitnesses = pcall(BuildCostEvidenceLines,
+        evidence, evidenceCursor, exportAll)
+    if not okEvidence then
+        HA.Addon:Print("Cost evidence could not be exported; it stays queued for the next export.")
+        evidenceLines, evidenceCount = {}, 0
     end
 
     -- Get last export timestamp for differential exports
@@ -306,6 +456,9 @@ function ExportImport:ExportScannedVendors(fullExport, exportAll)
     -- a mid-row insert would break every existing consumer.
     table.insert(output, "# I: npcID\titemID\tname\tprice\tcostData\tisUsable\tisPurchasable\tspellID\trequirements\tdecorID\tmerchantSlot\thasExtendedCost\tsubclassID\n")
     table.insert(output, "# D: npcID\tname\tmapID\tx\ty\tzone\ttimestamp (vendor in DB but scanned with 0 housing items)\n")
+    table.insert(output, "# costEvidenceFormatVersion: 1\n")
+    table.insert(output, "# G: version\torigin\tcontext\tvendor\tserial\tobservedAt\tbuild\tenvironment\tlocale\tmapID\ttotal\tcapped\tcoherent\tcomplete\treason\titemID\trows (slot,itemID,price,quantity,extended,costCount,purchasable,usable,complete,kind:id:amount:name|...;...)\n")
+    table.insert(output, "# S: version\torigin\tcontext\tvendor\tserial\tobservedAt\titemID\tstatus\n")
 
     -- Collect and sort npcIDs for deterministic output
     local sortedNPCs = {}
@@ -440,6 +593,13 @@ function ExportImport:ExportScannedVendors(fullExport, exportAll)
         end
     end
 
+    for _, line in ipairs(evidenceLines) do
+        table.insert(output, line)
+    end
+    if evidenceCount > 0 then
+        hasReportData = true
+    end
+
     -- Export source summary comments (primary-only categorization, one bucket per unique item).
     local uniqueItemCount = 0
     for _ in pairs(exportedUniqueItems) do
@@ -475,6 +635,13 @@ function ExportImport:ExportScannedVendors(fullExport, exportAll)
         skipMsg = skipMsg .. string.format(" [%d flagged for delist - in DB but 0 housing items]", delistedCount)
     end
 
+    for _, held in ipairs(okEvidence and heldWitnesses or {}) do
+        HA.Addon:Print(string.format("Cost evidence for NPC %s item %s held, not exported: %s",
+            tostring(held.npcID), tostring(held.itemID), held.reason))
+    end
+    if evidenceCount > 0 then
+        skipMsg = skipMsg .. string.format(" [%d item cost record(s)]", evidenceCount)
+    end
     if exportAll then
         HA.Addon:Print(string.format("Export ALL: %d vendors, %d items.%s", vendorCount, itemCount, skipMsg))
     else
@@ -496,6 +663,12 @@ function ExportImport:ExportScannedVendors(fullExport, exportAll)
             for _, line in ipairs(output) do
                 HA.Addon:Print(line)
             end
+        end
+
+        -- Presented: the evidence included up to this snapshot is exported.
+        -- Merges after the snapshot stay above the cursor.
+        if okEvidence and counters and evidenceSnapshot > counters.exportCursor then
+            counters.exportCursor = evidenceSnapshot
         end
     else
         HA.Addon:Print("Nothing new to export. All scanned data is already exported or has no decor items.")

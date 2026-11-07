@@ -89,9 +89,9 @@ end
 -------------------------------------------------------------------------------
 
 -- Format cost using VendorData (canonical formatter, always available via TOC load order)
-local function FormatCost(cost)
+local function FormatCost(cost, status)
     if HA.VendorData then
-        return HA.VendorData:FormatCost(cost)
+        return HA.VendorData:FormatCost(cost, status)
     end
     return nil
 end
@@ -569,9 +569,10 @@ local function RenderVendorSourceLines(tooltip, source, parsedTag, _itemID, _com
         tooltip:AddLine("  Faction: " .. factionColor .. source.data.faction .. "|r", COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
     end
 
-    -- Show cost if available (SourceManager includes cost in vendor source data)
-    if source.data.cost then
-        local costStr = FormatCost(source.data.cost)
+    -- Show cost if available (SourceManager includes cost in vendor source data).
+    -- An unresolved cost has no cost table but still shows its status.
+    if source.data.cost or source.data.costStatus == "unresolved" then
+        local costStr = FormatCost(source.data.cost, source.data.costStatus)
         if costStr then
             -- "Vendor Price", not "Cost": Blizzard's native item tooltip can carry a
             -- "Sell Price" (sell-back) line on the same tooltip; an unqualified "Cost"

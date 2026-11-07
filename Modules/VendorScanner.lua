@@ -216,6 +216,13 @@ function VendorScanner:OnMerchantUpdate()
         HA.Addon:Debug("MERCHANT_UPDATE event received")
     end
 
+    -- A listing update during a scan breaks the observation's cost
+    -- coherence even when the slot count stays the same. The scan itself
+    -- carries on; only its claim to be one coherent listing is lost.
+    if isScanning and scanQueue then
+        scanQueue.coherenceInvalidated = true
+    end
+
     -- If we have a pending scan, try to start it now
     if pendingScanNpcID then
         self:TryStartScan(pendingScanNpcID, "merchant_update")
@@ -285,7 +292,9 @@ function VendorScanner:StartScan(npcID)
     local numItems = _G.GetMerchantNumItems and _G.GetMerchantNumItems() or 0
     if numItems == 0 then return end
 
-    -- Cap items to prevent issues with massive vendors
+    -- Cap items to prevent issues with massive vendors. The uncapped total
+    -- is kept: a capped walk cannot prove a listing complete.
+    local originalTotal = numItems
     numItems = math.min(numItems, MAX_ITEMS_TO_SCAN)
 
     -- Get vendor info
@@ -356,6 +365,8 @@ function VendorScanner:StartScan(npcID)
         expansion = expansion,
         currentIndex = 1,
         totalItems = numItems,
+        originalTotal = originalTotal,
+        costGroup = SP:AllocateCostGroup(npcID, mapID),
         housingItems = {},
         allItems = {},  -- Track all items for itemCount
         phase = PHASE_WALK,
@@ -415,14 +426,30 @@ local function ReadMerchantSlot(i)
         spellID = info.spellID
     end
 
-    -- Extract all cost components (items and currencies) if extendedCost is true
+    -- Extract all cost components (items and currencies) if extendedCost is true.
+    -- costComponents records every expected component in index order, an
+    -- unidentified one as kind "unknown"; costCount is the expected count, or
+    -- nil when it could not be read. The bundle is complete (costComplete)
+    -- only when price, extended state, count and every component are known.
     local currencies = {}
     local itemCosts = {}
-    if extendedCost and _G.GetMerchantItemCostInfo then
-        local totalCosts = _G.GetMerchantItemCostInfo(i) or 0
+    local costComponents = {}
+    local costCount = nil
+    local componentsResolved = true
+    if extendedCost == false then
+        costCount = 0
+    elseif extendedCost and _G.GetMerchantItemCostInfo then
+        local readCount = _G.GetMerchantItemCostInfo(i)
+        local totalCosts = readCount or 0
+        if type(readCount) == "number" and readCount >= 1 then
+            costCount = readCount
+        else
+            componentsResolved = false
+        end
 
         -- Iterate through ALL cost components
         for c = 1, totalCosts do
+            local resolved = nil
             if _G.GetMerchantItemCostItem then
                 local _, amount, link, costName = _G.GetMerchantItemCostItem(i, c)
                 if link and amount then
@@ -434,6 +461,7 @@ local function ReadMerchantSlot(i)
                             amount = amount,
                             name = costName,
                         })
+                        resolved = {kind = "currency", id = tonumber(currID), amount = amount}
                     else
                         -- It's an item cost (tokens, reagents, etc.)
                         local costItemID = link:match("item:(%d+)")
@@ -443,6 +471,7 @@ local function ReadMerchantSlot(i)
                                 amount = amount,
                                 name = costName,
                             })
+                            resolved = {kind = "item", id = tonumber(costItemID), amount = amount}
                         end
                     end
                 elseif not link and costName and amount and amount > 0 then
@@ -454,10 +483,20 @@ local function ReadMerchantSlot(i)
                         amount = amount,
                         name = costName,
                     })
+                    resolved = {kind = "unknown", amount = amount, name = costName}
                 end
             end
+            resolved = resolved or {kind = "unknown"}
+            costComponents[c] = resolved
+            if resolved.kind == "unknown" or type(resolved.amount) ~= "number" or resolved.amount <= 0 then
+                componentsResolved = false
+            end
         end
+    elseif extendedCost then
+        componentsResolved = false
     end
+    local costComplete = info ~= nil and type(price) == "number" and price >= 0
+        and type(extendedCost) == "boolean" and costCount ~= nil and componentsResolved
 
     -- Classify item: any housing subclass, or not housing at all.
     -- decorInfo is only ever populated for subclass 0 (Decor) — see
@@ -507,6 +546,9 @@ local function ReadMerchantSlot(i)
             itemCosts = (#itemCosts > 0) and itemCosts or nil,
             merchantSlot = i,
             hasExtendedCost = extendedCost,
+            costCount = costCount,
+            costComponents = costComponents,
+            costComplete = costComplete,
         }
     end
 
@@ -526,7 +568,10 @@ function VendorScanner:StopScan(endReason)
     isScanning = false
 
     if scanQueue and scanQueue.npcID then
-        -- Scan ended during its slot walk — discard partial data
+        -- Scan ended during its slot walk — discard partial data, except the
+        -- cost evidence of rows already read: kept as a partial observation,
+        -- never as a scanned vendor.
+        SP:SaveCostEvidence(scanQueue, "aborted: " .. tostring(endReason))
         -- Clear session lock so vendor can be re-scanned this session
         scannedVendorsThisSession[scanQueue.npcID] = nil
         if HA.DevAddon then
@@ -690,6 +735,7 @@ function VendorScanner:CompleteScan(endReason, newTotal)
     local short = nilSlotCount > 0 or endReason ~= nil
     q.hadNilSlots = short
     q.scanComplete = true
+    q.endReason = endReason
 
     local housingCount = #q.housingItems
     local itemCount = #q.allItems
