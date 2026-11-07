@@ -99,9 +99,11 @@ local function VendorList(home)
             local key = Facts.SourceKey("vendors", v)
             local s = vend[key]
             if not s then
+                -- The shipped names too, so a search in English still finds the place the row names.
+                local _, zone, subzone = HA.VendorFilter.GetUsableVendorPlace(v)
                 s = {
                     key = key, type = "vendors", vendor = v, title = v.name or L["Unknown"], items = D.VendorWares(v),
-                    sub = Facts.Where(v) or "",
+                    sub = Facts.Where(v) or "", en = (zone or "") .. " " .. (subzone or ""),
                 }
                 vend[key] = s
             end
@@ -258,7 +260,8 @@ local function BuildList(keep, zone)
         if t == "shop" then ShopTitle(s) end
         live = live or (t == "events" and Live(s.key))
         local v = s.vendor
-        if q == "" or (s.title .. " " .. (s.sub or "") .. " " .. (s.group or "") .. " " .. (v and v.zone or "")):lower():find(q, 1, true) then
+        if q == "" or (s.title .. " " .. (s.sub or "") .. " " .. (s.group or "") .. " " .. (v and v.zone or "")
+                .. " " .. (s.en or "")):lower():find(q, 1, true) then
             local why = hide and CG.HiddenBy(v and { vendor = v } or { items = s.items })
             if why then
                 hidden.hidden = hidden.hidden + 1

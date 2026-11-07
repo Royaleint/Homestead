@@ -18,8 +18,8 @@ B.Window = Win
 local OPEN_TIME, CLOSE_TIME, TRAVEL = 0.15, 0.1, 8
 local SEARCH_W = 150
 local HIDE_BOX = 26
--- The least the header count keeps when the Hide label has to truncate.
-local COUNT_MIN = 160
+-- The least the Hide label keeps when the header count's text takes the room first.
+local LABEL_MIN = 60
 -- 14 pt and fixed: it does not follow the text size, so the title always fits the 20 px title container.
 local TITLE_FONT = "GameFontNormalMed2"
 local DEFAULT_HINT = L["Search decor"]
@@ -27,6 +27,7 @@ local CRUMB_SEP = " \226\128\186 "
 
 local hooks
 local laidOutTextScale
+local helpW = 0
 local searchBoxes = {}
 local restoring
 
@@ -404,7 +405,8 @@ local function BuildHeader(f)
     hide.Text:SetText(L["Hide collected and other-faction"])
     hide:SetScript("OnClick", function(self) hooks.HideNA(self:GetChecked() and true or false) end)
     hide:SetScript("OnEnter", function(self)
-        W.TextTip(self, "ANCHOR_BOTTOM", L["Hides decor you have collected, vendors with nothing left to collect, and anything only the other faction can get."], true)
+        local why = L["Hides decor you have collected, vendors with nothing left to collect, and anything only the other faction can get."]
+        W.TextTip(self, "ANCHOR_BOTTOM", self.Text:IsTruncated() and self.Text:GetText() .. "\n" .. why or why, true)
     end)
     hide:SetScript("OnLeave", B.HideTooltip)
 
@@ -442,27 +444,35 @@ function Win.SetPlaceholder(text)
     Win.search.Instructions:SetText(text or DEFAULT_HINT)
 end
 
+-- The count's text gets the bar first; the Hide label truncates (its tooltip then has the full text) to what is
+-- left, down to LABEL_MIN.
+local function FitLabel()
+    local hide = Win.hideNA
+    local room = WIN_W - LO.rect[1] - LO.rect[3] - (LO.titleLeft - LO.rect[1]) - Win.count:GetUnboundedStringWidth()
+        - (SP.m + helpW + SP.m + SEARCH_W + SP.l + HIDE_BOX + SP.m)
+    local own = hide.Text:GetUnboundedStringWidth()
+    local label = math.max(math.min(own, room), math.min(own, LABEL_MIN))
+    hide.Text:SetWidth(label)
+    hide:SetHitRectInsets(0, -(label + SP.xs), 0, 0)
+    hide:SetPoint("RIGHT", Win.search, "LEFT", -(label + SP.l), 0)
+end
+
 function Win.UpdateCount()
     local walk = B.Walk()
-    Win.count:SetText(walk and L["%d of %d decor collected"]:format(walk.progress.owned, walk.progress.total)
-        or L["Counting…"])
+    local text = walk and L["%d of %d collected"]:format(walk.progress.owned, walk.progress.total) or L["Counting…"]
+    if text == Win.count:GetText() then return end
+    Win.count:SetText(text)
+    FitLabel()
 end
 
 -- Row and bar heights follow the text size; the clamp rect keeps the portrait on screen.
 function Win.Measure()
     W.ResetMeasure()
-    local hide = Win.hideNA
     local ctlH = W.TextHeight("subheader") + SP.s
     Win.search:SetHeight(ctlH)
-    local helpW = Win.help:GetTextWidth() + SP.xl
+    helpW = Win.help:GetTextWidth() + SP.xl
     Win.help:SetSize(helpW, ctlH)
-    -- The label truncates (its tooltip has the full text) before the count falls under COUNT_MIN.
-    local room = WIN_W - LO.rect[1] - LO.rect[3] - (LO.titleLeft - LO.rect[1]) - COUNT_MIN
-        - (SP.m + helpW + SP.m + SEARCH_W + SP.l + HIDE_BOX + SP.m)
-    local label = math.max(math.min(hide.Text:GetUnboundedStringWidth(), room), 1)
-    hide.Text:SetWidth(label)
-    hide:SetHitRectInsets(0, -(label + SP.xs), 0, 0)
-    hide:SetPoint("RIGHT", Win.search, "LEFT", -(label + SP.l), 0)
+    FitLabel()
     Win.frame:SetClampRectInsets(-PAD.left, 0, PAD.top, 0)
     rowH = W.TextHeight("header") + SP.s
     for i = 1, 3, 2 do

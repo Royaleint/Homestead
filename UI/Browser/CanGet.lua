@@ -19,7 +19,22 @@ function D.CollectionState()
         if scanner:IsWarm() or store:HasPersistedData() then return "ready" end
         return "notRead"
     end
+    -- Until this session's read lands, the saved ownership is enough to draw; the read's event redraws.
+    if store:HasPersistedData() then return "ready" end
     return scanner:HasFirstReadAttempted() and "notRead" or "counting"
+end
+
+-- Whether the list draws from last session's saved ownership because this session's read was tried and could
+-- not finish.
+function D.CollectionStale()
+    local scanner = HA.CatalogScanner
+    return D.CollectionState() == "ready" and not scanner:HasFirstReadCompleted() and scanner:HasFirstReadAttempted()
+end
+
+-- Whether the catalog's placed, stored and redeemable counts are this session's: they read 0 until the first
+-- read lands, even when the saved ownership already draws.
+function D.CountsLive()
+    return D.CollectionState() == "ready" and HA.CatalogScanner:HasFirstReadCompleted()
 end
 
 -- A stored "owned" always wins: an entry can read 0 in the cold window after a reload.
@@ -86,7 +101,12 @@ local function Hint(id)
         h = false
         if Transferable(id) then
             local name, n = D.OtherHolder(id)
-            if name then h = B.Style.Muted(L["(%1$s has %2$s)"]:format(name, n)) end
+            if name then
+                -- The currency's icon names which one the amount is in.
+                local info = C_CurrencyInfo.GetCurrencyInfo(id)
+                local icon = info and info.iconFileID
+                h = B.Style.Muted(L["(%1$s has %2$s)"]:format(name, (icon and "|T" .. icon .. ":0|t " or "") .. n))
+            end
         end
         holders[id] = h
     end

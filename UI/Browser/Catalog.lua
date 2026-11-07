@@ -19,7 +19,7 @@ local function Group(e)
 end
 
 local Page, ui, orders = {}, {}, {}
-local cat, recs, counts, owns, walk, version, hideFor, judged, bare, bareList, bareVer
+local cat, recs, counts, owns, walk, version, hideFor, judged, named, bare, bareList, bareVer
 local shown = {}
 -- What the header box holds, as typed; cat.q is the same words trimmed and lowercased.
 local query = ""
@@ -69,7 +69,7 @@ local function BareEntries()
 end
 
 local function Rebuild()
-    version, hideFor, judged = D.MemoVersion(), B.State.hideNA, CG.Gen()
+    version, hideFor, judged, named = D.MemoVersion(), B.State.hideNA, CG.Gen(), D.NameGen()
     wipe(orders)
     counts, owns, recs = {}, {}, {}
     for i, e in ipairs(walk and walk.list or BareEntries()) do
@@ -227,7 +227,9 @@ local ITEM = { frameType = W.rowKind.frameType, build = W.rowKind.build,
 local function PaintHead()
     local k = cat.kind
     ui.head:SetHeight(W.TextHeight("bodyMuted") + SP.s)
-    ui.head:SetText(walk and L["%d of %d collected"]:format(owns[k] or 0, counts[k] or 0) or L["Counting…"])
+    local text = walk and L["%d of %d collected"]:format(owns[k] or 0, counts[k] or 0) or L["Counting…"]
+    if D.CollectionStale() then text = text .. " \194\183 " .. L["Collection not refreshed this session"] end
+    ui.head:SetText(text)
 end
 
 local function PaintLine(words)
@@ -380,7 +382,7 @@ function Page:Show(route, saved)
     end
     B.Window.SetSearch(query)
     ui.sort.Set(cat.sort)
-    if not recs or version ~= D.MemoVersion() or hideFor ~= B.State.hideNA then
+    if not recs or version ~= D.MemoVersion() or hideFor ~= B.State.hideNA or named ~= D.NameGen() then
         walk = B.Walk()
         Rebuild()
     elseif judged ~= CG.Gen() then

@@ -274,14 +274,42 @@ function VendorFilter.GetUsableVendorCoordinates(vendor)
     return { x = otherX, y = otherY }, otherMapID, "static"
 end
 
--- The map, zone and subzone of the position GetUsableVendorCoordinates picks.
--- A vendor with one position answers with its own fields.
+-- The map, zone, subzone and area ID of the position GetUsableVendorCoordinates
+-- picks. A vendor with one position answers with its own fields.
 function VendorFilter.GetUsableVendorPlace(vendor)
-    local otherMapID, _, _, zone, subzone = HA.VendorData:GetOtherPosition(vendor)
+    local otherMapID, _, _, zone, subzone, areaID = HA.VendorData:GetOtherPosition(vendor)
     if otherMapID and select(2, VendorFilter.GetUsableVendorCoordinates(vendor)) == otherMapID then
-        return otherMapID, zone, subzone
+        return otherMapID, zone, subzone, areaID
     end
-    return vendor.mapID, vendor.zone, vendor.subzone
+    return vendor.mapID, vendor.zone, vendor.subzone, vendor.areaID
+end
+
+-- The client's names for the position GetUsableVendorPlace picks, in the
+-- player's language: mapID, zone (the map's name) and subzone (the area's
+-- name). Each falls back to the shipped text when the client has no name or the
+-- position has no area ID; an area name that only repeats the zone is the zone-level
+-- area row, so the shipped subzone stays.
+local mapNames, areaNames = {}, {}
+function VendorFilter.GetVendorPlaceNames(vendor)
+    local mapID, zone, subzone, areaID = VendorFilter.GetUsableVendorPlace(vendor)
+    if mapID then
+        local name = mapNames[mapID]
+        if name == nil then
+            local info = C_Map.GetMapInfo(mapID)
+            name = info and info.name or false
+            mapNames[mapID] = name
+        end
+        zone = name or zone
+    end
+    if areaID then
+        local name = areaNames[areaID]
+        if name == nil then
+            name = C_Map.GetAreaInfo(areaID) or false
+            areaNames[areaID] = name
+        end
+        if name and name ~= zone then subzone = name end
+    end
+    return mapID, zone, subzone
 end
 
 -------------------------------------------------------------------------------

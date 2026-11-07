@@ -561,8 +561,9 @@ end
 -- the source summary and the closest-vendor waypoint. Map pins show both either way.
 local ALT_POSITION_FOR_ENDEAVOR_VENDORS = true
 
--- The vendor's other position as mapID, x, y, zone, subzone, or nil. A primary
--- row answers with its alt fields; the alt copy answers with the primary's.
+-- The vendor's other position as mapID, x, y, zone, subzone, areaID, or nil. A
+-- primary row answers with its alt fields (which carry no area ID); the alt copy
+-- answers with the primary's.
 function VendorData:GetOtherPosition(vendor)
     if not vendor or not vendor.altMapID then return nil end
     if vendor.endeavor and not ALT_POSITION_FOR_ENDEAVOR_VENDORS then return nil end
@@ -573,7 +574,7 @@ function VendorData:GetOtherPosition(vendor)
         and HA.EndeavorsData and HA.EndeavorsData.Vendors and HA.EndeavorsData.Vendors[vendor.npcID]
         or HA.VendorIdentity and HA.VendorIdentity:GetVendor(vendor.npcID)
     if primary then
-        return primary.mapID, primary.x, primary.y, primary.zone, primary.subzone
+        return primary.mapID, primary.x, primary.y, primary.zone, primary.subzone, primary.areaID
     end
     return nil
 end

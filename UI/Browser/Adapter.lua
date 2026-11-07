@@ -19,6 +19,8 @@ local SOURCE_TYPE_LABELS = {
 }
 
 local nameLoads = {}
+-- Moves whenever an asked-for name arrives, so a page that sorted or searched by name can tell.
+local nameGen = 0
 
 local memoVersion = 0
 
@@ -49,7 +51,12 @@ end
 function D.NameArrived(itemID, success)
     if nameLoads[itemID] ~= true then return false end
     nameLoads[itemID] = success == false and "failed" or "loaded"
+    nameGen = nameGen + 1
     return true
+end
+
+function D.NameGen()
+    return nameGen
 end
 
 function D.ItemIcon(itemID)
@@ -546,7 +553,7 @@ function D.IconData(itemID, wantCopies, catalogMemo)
     if wantCopies then
         local info = D.CatalogInfo(itemID, catalogMemo)
         quality = info and info.quality
-        if info and D.CollectionState() == "ready" then
+        if info and D.CountsLive() then
             local n = (info.totalNumPlaced or 0) + (info.totalNumStored or 0)
             if n > 0 then copies = n end
         end
@@ -554,15 +561,15 @@ function D.IconData(itemID, wantCopies, catalogMemo)
     return quality or C_Item.GetItemQualityByID(itemID), copies
 end
 
--- Everything the item tooltip shows. counts is nil until ownership and the catalog entry are known;
--- before storage loads they read 0 for owned items.
+-- Everything the item tooltip shows. counts is nil until this session's counts and the catalog entry are
+-- known; before storage loads they read 0 for owned items.
 function D.TooltipData(itemID, npcID, catalogMemo)
     local info = D.CatalogInfo(itemID, catalogMemo)
     local out = {
         name = D.ItemName(itemID) or (info and info.name) or L["Item %d"]:format(itemID),
         quality = info and info.quality or C_Item.GetItemQualityByID(itemID),
     }
-    if info and D.CollectionState() == "ready" then
+    if info and D.CountsLive() then
         out.counts = {
             placed = info.totalNumPlaced or 0,
             stored = info.totalNumStored or 0,

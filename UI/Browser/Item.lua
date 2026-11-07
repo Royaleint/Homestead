@@ -234,7 +234,7 @@ local function Describe(itemID)
             end
         end
     end
-    if info and D.CollectionState() == "ready" then
+    if info and D.CountsLive() then
         local n, counts = { info.totalNumPlaced, info.totalNumStored, info.remainingRedeemable }, {}
         for i, label in ipairs({ L["Placed"], L["In storage"], L["Not yet redeemed"] }) do
             if (n[i] or 0) > 0 then counts[#counts + 1] = S.Colored(K.gold, label) .. " " .. n[i] end

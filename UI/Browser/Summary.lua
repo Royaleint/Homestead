@@ -170,7 +170,7 @@ function Page:Build(parent)
     title = S.Text(main, "header", "OVERLAY")
     title:SetJustifyH("LEFT")
     title:SetText(L["What can I get now?"])
-    lede = Text(main, "bodyMuted", L["Decor this character can buy or earn today, best first."])
+    lede = Text(main, "bodyMuted", L["Decor this character can buy or earn today, best first."], true)
     BuildBlocks(main)
 end
 
@@ -208,7 +208,10 @@ function Page.Draw()
     for _, f in ipairs({ tip, zone, empty, seeAll, rows[1], rows[2], rows[3] }) do f:Hide() end
     at = 0
     Put(title, W.TextHeight("header"))
-    Put(lede, W.TextHeight("bodyMuted"))
+    local ledeText = L["Decor this character can buy or earn today, best first."]
+    if D.CollectionStale() then ledeText = ledeText .. DOT .. L["Collection not refreshed this session"] end
+    lede:SetText(ledeText)
+    Put(lede, W.TextHeight("bodyMuted", ledeText, MEASURE_W))
     local saved = B.Saved()
     if tipForced or (saved and not saved.tipSeen) then
         Put(tip, W.TextHeight("body", tip.text:GetText(), MEASURE_W - SP.xxl) + 2 * SP.s)

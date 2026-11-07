@@ -63,10 +63,10 @@ function F.Confirmed(vendor)
     return shipped
 end
 
--- The position the browser points this character to for a vendor, the one its waypoint uses: mapID, zone,
--- subzone.
+-- The position the browser points this character to for a vendor, the one its waypoint uses: mapID, and the
+-- client's zone and subzone names.
 function F.Place(v)
-    return HA.VendorFilter.GetUsableVendorPlace(v)
+    return HA.VendorFilter.GetVendorPlaceNames(v)
 end
 
 -- Where a vendor is: "subzone, zone" when both are known, else the zone; nil when there is none.
