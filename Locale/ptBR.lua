@@ -15,6 +15,9 @@ local L = HA.L
 -------------------------------------------------------------------------------
 L["Used in %d known recipe for decor you haven't collected"] = "Usado em %d receita conhecida de decoração que você não coletou"
 L["Used in %d known recipes for decor you haven't collected"] = "Usado em %d receitas conhecidas de decorações que você não coletou"
+L["or"] = "ou"
+L["Cost unverified"] = "Custo não verificado"
+L["(requirements unverified)"] = "(requisitos não verificados)"
 
 -------------------------------------------------------------------------------
 -- Options

@@ -6166,9 +6166,11 @@ local GeneratedBase = {
     [262453] = {
       price = 0,
       currencies = {{id = 3363, amount = 30}},
+      purchaseQuantity = 1,
+      alternativeCosts = {{price = 5000000, purchaseQuantity = 1}},
+      costSet = {coverage = "complete", eligibility = "unknown", qualification = "display-only", build = "12.1.0.69299", observedAt = 1786759942},
       isUsable = true,
       displayOrder = 1,
-      costBuild = "12.0.7.68974",
     },
     [263876] = {
       price = 0,
@@ -17233,22 +17235,6 @@ local ManualOverrides = {
     [218202] = { -- Thripps (City of Threads, Lower City Armaments)
         [246866] = { price = 0, currencies = {{id = 3056, amount = 500}}, isUsable = true, isPurchasable = false, merchantSlot = 1, hasExtendedCost = true, displayOrder = 1, costBuild = "12.1.0.69299" }, -- Kaheti Scribe's Records (was c3056:1500)
     },
-    -- 2026-08-14: NO override for The Last Architect [253596] item 262453,
-    -- deliberately. A live 12.1.0.69299 scan shows that vendor listing the item in
-    -- TWO merchant slots, one per payment method -- slot 1 at 30 Community Coupons,
-    -- slot 2 at 500g, an EITHER/OR. An override carrying both costs on one row was
-    -- written here and reverted (2026-08-14): VendorData.FormatCost
-    -- joins cost components with " + " (Data/VendorData.lua, table.concat), so the
-    -- tooltip would have read "Vendor Price: 500g + 30 Community Coupons" and
-    -- overstated the cost to exactly the gold-holding player the fix was meant to
-    -- help. Incomplete beat false, so GeneratedBase's coupon-only row stands until
-    -- the schema can express alternative costs. Of the 82 both-cost
-    -- (npcID, itemID) pairs in this file, 81 are positively proven SINGLE-slot
-    -- combined costs by a scan row carrying price and currency together on one
-    -- line, where the " + " reading is correct; the other one has no scan
-    -- coverage on disk (88126:253527) and is unproven either way. Do not use it
-    -- as precedent for an either/or: 253596:262453 is the only item ever recorded in
-    -- two slots with different payment methods, across every scan on disk.
     -- 2026-08-22: 35 rows that shipped with no cost at all -- price = 0 and no
     -- currency -- on four vendors whose live scans have carried real gold prices since
     -- July. Each of these items is a bare item ID in the build seed, so offer generation

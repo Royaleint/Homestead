@@ -1999,6 +1999,7 @@ VendorIdentity.Vendors = {
         zone = "Razorwind Shores",
         faction = "Neutral",
         expansion = "The War Within",
+        scanConfirmed = "2026-11-08",
     },
     [254603] = {
         name = "Riica",

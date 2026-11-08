@@ -333,7 +333,9 @@ local function AddPinTooltipItemLine(tooltip, item, options, suffix)
     -- single-line rendering unchanged.
     if options and options.isVendorContext then
         local sourceIcons = BuildItemSourceIconText(itemID, allSources)
-        local costText = HA.VendorData and HA.VendorData:FormatCost(item and item.cost) or "?"
+        local costTexts = HA.VendorData
+            and HA.VendorData:FormatCostOptions(item and item.cost, item and item.costStatus)
+        local costText = costTexts and costTexts[1] or "?"
         tooltip:AddDoubleLine(lineText .. sourceIcons, costText, lr, lg, lb, 1, 0.82, 0)
     else
         tooltip:AddLine(lineText, lr, lg, lb)
@@ -566,8 +568,9 @@ local function OnInteractiveMouseWheel(_, delta)
     end
 end
 
--- Search text is built when the wares are gathered, following FormatCost's guards
--- for what the cost column shows; a keystroke then only scans cached strings.
+-- Search text is built when the wares are gathered, following the cost column's
+-- guards for what it shows; each row searches its own payment option, and a
+-- keystroke then only scans cached strings.
 local function BuildWareSearchText(hover)
     local itemIDs = {}
     hover.itemIDs = itemIDs
@@ -576,25 +579,29 @@ local function BuildWareSearchText(hover)
         if ware.itemID then itemIDs[ware.itemID] = true end
         local name = ware.name or (ware.itemID and C_Item.GetItemNameByID(ware.itemID))
         if name then parts[#parts + 1] = name end
-        local cost = hover.itemDetailsEnabled and ware.cost or nil
-        if cost and cost.currencies then
-            for _, currency in ipairs(cost.currencies) do
-                if currency.amount then
-                    local info = currency.id and C_CurrencyInfo.GetCurrencyInfo(currency.id)
-                    local currencyName = (info and info.name) or currency.name
-                    if currencyName then parts[#parts + 1] = currencyName end
+        -- Every payment option is searchable; an unverified cost shows no
+        -- components, so none of them are searched either.
+        local cost = hover.itemDetailsEnabled and ware.costStatus ~= "unresolved" and ware.cost or nil
+        HA.VendorData:ForEachCostBundle(cost, function(bundle)
+            if bundle.currencies then
+                for _, currency in ipairs(bundle.currencies) do
+                    if currency.amount then
+                        local info = currency.id and C_CurrencyInfo.GetCurrencyInfo(currency.id)
+                        local currencyName = (info and info.name) or currency.name
+                        if currencyName then parts[#parts + 1] = currencyName end
+                    end
                 end
             end
-        end
-        if cost and cost.items then
-            for _, itemCost in ipairs(cost.items) do
-                if itemCost.id then itemIDs[itemCost.id] = true end
-                if itemCost.amount and itemCost.id then
-                    local reagentName = C_Item.GetItemNameByID(itemCost.id) or itemCost.name
-                    if reagentName then parts[#parts + 1] = reagentName end
+            if bundle.items then
+                for _, itemCost in ipairs(bundle.items) do
+                    if itemCost.id then itemIDs[itemCost.id] = true end
+                    if itemCost.amount and itemCost.id then
+                        local reagentName = C_Item.GetItemNameByID(itemCost.id) or itemCost.name
+                        if reagentName then parts[#parts + 1] = reagentName end
+                    end
                 end
             end
-        end
+        end)
         ware.searchText = table.concat(parts, "\n"):lower()
     end
 end
@@ -736,6 +743,32 @@ local function ShowInteractiveVendorTooltip(pin, vendor, allItems, itemDetailsEn
     end
 end
 
+-- An item with an approved set of payment options gets one adjacent row per
+-- option, primary first; every other ware keeps its single untagged row.
+local function SplitWareCostOptions(wares)
+    for i = #wares, 1, -1 do
+        local ware = wares[i]
+        local views = ware.cost and HA.VendorData:SplitCostOptions(ware.cost, ware.costStatus)
+        if views then
+            for optionIndex = #views, 1, -1 do
+                local row = {
+                    itemID = ware.itemID,
+                    name = ware.name,
+                    cost = views[optionIndex],
+                    costStatus = ware.costStatus,
+                    optionIndex = optionIndex,
+                    optionCount = #views,
+                }
+                if optionIndex == 1 then
+                    wares[i] = row
+                else
+                    tinsert(wares, i + 1, row)
+                end
+            end
+        end
+    end
+end
+
 function VendorPinTooltips:ShowVendorTooltip(pin, vendor, isRebuild)
     if not vendor then return end
 
@@ -760,6 +793,13 @@ function VendorPinTooltips:ShowVendorTooltip(pin, vendor, isRebuild)
     end
     local scannedCostByItemID = {}
     local scannedCostKnownByItemID = {}
+    -- Rows of one item with different priced bundles have no single scanned
+    -- cost: such an item shows its cost as unverified, whatever the row order.
+    -- A whole-set pair is decided by its set state first, exactly as the item
+    -- tooltip's SourceManager path does; the disagreement fallback applies
+    -- only to pairs without one (an approved set's own rows always differ).
+    local scannedRowByItemID = {}
+    local scannedConflictByItemID = {}
     if scannedItems and itemDetailsEnabled then
         for _, item in ipairs(scannedItems) do
             if item.itemID then
@@ -767,6 +807,9 @@ function VendorPinTooltips:ShowVendorTooltip(pin, vendor, isRebuild)
             end
             if item.itemID and scannedCostByItemID[item.itemID] == nil then
                     scannedCostByItemID[item.itemID] = HA.VendorData and HA.VendorData:NormalizeScannedCost(item)
+                    scannedRowByItemID[item.itemID] = item
+            elseif item.itemID and HA.VendorData:ScannedRowsDisagree(scannedRowByItemID[item.itemID], item) then
+                scannedConflictByItemID[item.itemID] = true
             end
         end
     end
@@ -785,8 +828,16 @@ function VendorPinTooltips:ShowVendorTooltip(pin, vendor, isRebuild)
                 cost = scannedCostByItemID[itemID]
             end
             tinsert(allItems, {itemID = itemID, cost = cost})
-            if itemDetailsEnabled and HA.SourceManager and HA.SourceManager.GetVendorItemCost then
-                allItems[#allItems].cost = HA.SourceManager:GetVendorItemCost(
+            local ware = allItems[#allItems]
+            local costState = itemDetailsEnabled and HA.VendorData:GetCostSetState(vendor, itemID)
+            if costState then
+                local _
+                ware.cost, _, ware.costStatus = HA.VendorData:ResolveCostSetState(costState)
+            elseif scannedConflictByItemID[itemID] then
+                ware.cost, ware.costStatus = nil, "unresolved"
+            elseif itemDetailsEnabled and HA.SourceManager and HA.SourceManager.GetVendorItemCost then
+                local _
+                ware.cost, _, ware.costStatus = HA.SourceManager:GetVendorItemCost(
                     itemID, vendor, scannedCostByItemID[itemID],
                     true, cost, true, scannedLastScanned)
             end
@@ -799,14 +850,26 @@ function VendorPinTooltips:ShowVendorTooltip(pin, vendor, isRebuild)
             if item.itemID and not itemsSeen[item.itemID] then
                 itemsSeen[item.itemID] = true
                 local cost = scannedCostByItemID[item.itemID]
-                if itemDetailsEnabled and HA.SourceManager and HA.SourceManager.GetVendorItemCost then
-                    cost = HA.SourceManager:GetVendorItemCost(
+                local costStatus
+                local costState = itemDetailsEnabled and HA.VendorData:GetCostSetState(vendor, item.itemID)
+                if costState then
+                    local _
+                    cost, _, costStatus = HA.VendorData:ResolveCostSetState(costState)
+                elseif scannedConflictByItemID[item.itemID] then
+                    cost, costStatus = nil, "unresolved"
+                elseif itemDetailsEnabled and HA.SourceManager and HA.SourceManager.GetVendorItemCost then
+                    local _
+                    cost, _, costStatus = HA.SourceManager:GetVendorItemCost(
                         item.itemID, vendor, scannedCostByItemID[item.itemID],
                         scannedCostKnownByItemID[item.itemID] == true, nil, true, scannedLastScanned)
                 end
-                tinsert(allItems, {itemID = item.itemID, name = item.name, cost = cost})
+                tinsert(allItems, {itemID = item.itemID, name = item.name, cost = cost, costStatus = costStatus})
             end
         end
+    end
+
+    if itemDetailsEnabled and HA.VendorData then
+        SplitWareCostOptions(allItems)
     end
 
     if #allItems > LONG_WARES_THRESHOLD then

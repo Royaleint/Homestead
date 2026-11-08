@@ -637,8 +637,20 @@ function SourceManager:GetVendorItemCost(
         return nil, nil
     end
 
+    -- A whole-set pair (alternatives, a shipped cost status or retained cost
+    -- evidence) is decided by its set state, never by a precomputed scanned
+    -- or static cost and never by source text. O(1) index read.
+    local costState = HA.VendorData.GetCostSetState and HA.VendorData:GetCostSetState(vendor, itemID)
+    if costState then
+        return HA.VendorData:ResolveCostSetState(costState)
+    end
+
     if not scannedCostKnown then
-        scannedCost, scannedAt = HA.VendorData:GetScannedItemCost(vendor, itemID)
+        local scannedStatus
+        scannedCost, scannedAt, scannedStatus = HA.VendorData:GetScannedItemCost(vendor, itemID)
+        if scannedStatus == "unresolved" then
+            return nil, "legacy", scannedStatus
+        end
         scannedCostKnown = true
     end
 
@@ -669,9 +681,10 @@ end
 local function BuildVendorSourceData(itemID, vendor, parsedSource)
     if not itemID or not vendor then return nil end
 
-    local cost = nil
+    local cost, costStatus = nil, nil
     if HA.SourceManager.GetVendorItemCost then
-        cost = HA.SourceManager:GetVendorItemCost(
+        local _
+        cost, _, costStatus = HA.SourceManager:GetVendorItemCost(
             itemID, vendor, nil, nil, nil, nil, nil, parsedSource)
     end
 
@@ -695,6 +708,7 @@ local function BuildVendorSourceData(itemID, vendor, parsedSource)
         faction = vendor.faction,
         coords = vendor.coords or (vendor.x and vendor.y and {x = vendor.x, y = vendor.y}),
         cost = cost,
+        costStatus = costStatus,
     }
 end
 
@@ -3086,8 +3100,9 @@ function SourceManager:DebugItem(itemID)
         if source.type == "vendor" then
             HA.Addon:Debug("  Vendor:", source.data.name)
             HA.Addon:Debug("  Zone:", source.data.zone)
-            if source.data.cost then
-                local costStr = HA.VendorData and HA.VendorData:FormatCost(source.data.cost) or "has cost"
+            if source.data.cost or source.data.costStatus == "unresolved" then
+                local costStr = HA.VendorData
+                    and HA.VendorData:FormatCost(source.data.cost, source.data.costStatus) or "has cost"
                 HA.Addon:Debug("  Cost:", costStr)
             end
         elseif source.type == "quest" then
