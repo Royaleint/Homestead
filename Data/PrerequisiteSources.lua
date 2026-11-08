@@ -540,7 +540,7 @@ HA.PrerequisiteSources = {
     [265681] = {{type = "achievement", name = "Prey: Mad Magisters (Nightmare)"}},
     [265682] = {{type = "achievement", name = "Prey: Insane Inventors (Nightmare)"}},
     [265683] = {{type = "achievement", name = "Prey: Ethereal Assassins (Nightmare)"}},
-    [265684] = {{type = "achievement", name = "Prey: Anger Mangement (Nightmare)"}},
+    [265684] = {{type = "achievement", id = 62174, name = "Prey: Anger Management (Nightmare)"}},
     [265685] = {{type = "achievement", name = "Prey: Sadistic Shamans (Nightmare)"}},
     [265686] = {{type = "achievement", name = "Prey: Bloody Green Thumbs (Nightmare)"}},
     [265687] = {{type = "achievement", name = "Prey: Blinded By The Light (Nightmare)"}},
