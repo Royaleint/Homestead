@@ -6166,9 +6166,11 @@ local GeneratedBase = {
     [262453] = {
       price = 0,
       currencies = {{id = 3363, amount = 30}},
+      purchaseQuantity = 1,
+      alternativeCosts = {{price = 5000000, purchaseQuantity = 1}},
+      costSet = {coverage = "complete", eligibility = "unknown", qualification = "display-only", build = "12.1.0.69299", observedAt = 1786759942},
       isUsable = true,
       displayOrder = 1,
-      costBuild = "12.0.7.68974",
     },
     [263876] = {
       price = 0,
@@ -17232,19 +17234,6 @@ local ManualOverrides = {
     -- reach other TWW-era currencies. Confirmed 2026-08-15: it did.
     [218202] = { -- Thripps (City of Threads, Lower City Armaments)
         [246866] = { price = 0, currencies = {{id = 3056, amount = 500}}, isUsable = true, isPurchasable = false, merchantSlot = 1, hasExtendedCost = true, displayOrder = 1, costBuild = "12.1.0.69299" }, -- Kaheti Scribe's Records (was c3056:1500)
-    },
-    -- 2026-11-07: Hearthlight Armillary is marked costStatus = "unresolved", so every
-    -- player sees "Cost unverified" for it instead of a price. Scans have shown this
-    -- vendor listing the item in two merchant slots with different payment methods
-    -- (30 Community Coupons, or 500g), but not enough about each slot to ship a
-    -- complete set of alternatives. The row keeps the coupon-only primary cost it
-    -- already shipped with; that is stored data, not a displayed price. Do not add the
-    -- gold to this row: components on one row are summed ("500g + 30 Community
-    -- Coupons"), which no merchant slot charges. Clearing saved scans does not
-    -- remove this marker, and an older or partial scan cannot replace it; a later
-    -- complete scan of the vendor's full listing can replace the whole cost set.
-    [253596] = { -- The Last Architect (1)
-        [262453] = { price = 0, currencies = {{id = 3363, amount = 30}}, isUsable = true, displayOrder = 1, costBuild = "12.0.7.68974", costStatus = "unresolved" }, -- Hearthlight Armillary
     },
     -- 2026-08-22: 35 rows that shipped with no cost at all -- price = 0 and no
     -- currency -- on four vendors whose live scans have carried real gold prices since
