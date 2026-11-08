@@ -1,7 +1,7 @@
 --[[
     Homestead - AchievementSources
-    Generated: 2026-11-08 16:32:20
-    Total entries: 258
+    Generated: 2026-11-08 17:11:25
+    Total entries: 208
 
     Achievement source data for housing decor items.
     DO NOT EDIT — this file is generated and changes will be overwritten.
@@ -15,7 +15,6 @@ local sourceData = {
     -- Midnight
     [244656] = {achievementID = 62185, achievementName = "Ever Painting", category = "Midnight"},
     [248962] = {achievementID = 63432, achievementName = "Mysterious Mix Master", category = "Midnight"},
-    [251325] = {achievementID = 62289, achievementName = "Zul'Aman: The Highest Peaks", category = "Midnight"},
     [251909] = {achievementID = 62186, achievementName = "The Party Must Go On", category = "Midnight"},
     [254773] = {achievementID = 62288, achievementName = "Eversong Woods: The Highest Peaks", category = "Midnight"},
     [256925] = {achievementID = 62289, achievementName = "Zul'Aman: The Highest Peaks", category = "Midnight"},
@@ -35,8 +34,6 @@ local sourceData = {
     [245324] = {achievementID = 40894, achievementName = "Sojourner of Undermine", category = "War Within"},
     [246866] = {achievementID = 40542, achievementName = "Smelling History", category = "War Within"},
     [246867] = {achievementID = 41186, achievementName = "Slate of the Union", category = "War Within"},
-    [252532] = {achievementID = 40542, achievementName = "Smelling History", category = "War Within"},
-    [252533] = {achievementID = 41186, achievementName = "Slate of the Union", category = "War Within"},
     [252757] = {achievementID = 20595, achievementName = "Sojourner of Isle of Dorn", category = "War Within"},
     [253023] = {achievementID = 40504, achievementName = "Rocked to Sleep", category = "War Within"},
     [253037] = {achievementID = 40859, achievementName = "We're Here All Night", category = "War Within"},
@@ -48,12 +45,6 @@ local sourceData = {
 
     -- Battle for Azeroth
     [241062] = {achievementID = 12509, achievementName = "Ready for War", category = "Battle for Azeroth"},
-    [241100] = {achievementID = 12582, achievementName = "Come Sail Away", category = "Battle for Azeroth"},
-    [241150] = {achievementID = 12997, achievementName = "The Pride of Kul Tiras", category = "Battle for Azeroth"},
-    [241175] = {achievementID = 13038, achievementName = "Raptari Rider", category = "Battle for Azeroth"},
-    [241200] = {achievementID = 13049, achievementName = "The Long Con", category = "Battle for Azeroth"},
-    [241750] = {achievementID = 13473, achievementName = "Diversified Investments", category = "Battle for Azeroth"},
-    [241800] = {achievementID = 13018, achievementName = "Dune Rider", category = "Battle for Azeroth"},
     [244326] = {achievementID = 13018, achievementName = "Dune Rider", category = "Battle for Azeroth"},
     [245271] = {achievementID = 12582, achievementName = "Come Sail Away", category = "Battle for Azeroth"},
     [245476] = {achievementID = 13284, achievementName = "Frontline Warrior", category = "Battle for Azeroth"},
@@ -68,14 +59,11 @@ local sourceData = {
     [252654] = {achievementID = 12997, achievementName = "The Pride of Kul Tiras", category = "Battle for Azeroth"},
 
     -- Legion
-    [241881] = {achievementID = 10698, achievementName = "That's Val'sharah Folks!", category = "Legion"},
-    [241887] = {achievementID = 11258, achievementName = "Treasures of Val'sharah", category = "Legion"},
     [245448] = {achievementID = 11124, achievementName = "Good Suramaritan", category = "Legion"},
     [245460] = {achievementID = 11257, achievementName = "Treasures of Highmountain", category = "Legion"},
     [245697] = {achievementID = 10698, achievementName = "That's Val'sharah Folks!", category = "Legion"},
     [245703] = {achievementID = 11258, achievementName = "Treasures of Val'sharah", category = "Legion"},
     [247843] = {achievementID = 11340, achievementName = "Insurrection", category = "Legion"},
-    [251751] = {achievementID = 10398, achievementName = "Drum Circle", category = "Legion"},
     [257721] = {achievementID = 10398, achievementName = "Drum Circle", category = "Legion"},
 
     -- Expansion Features
@@ -84,10 +72,8 @@ local sourceData = {
     [248124] = {achievementID = 19458, achievementName = "A World Awoken", category = "Expansion Features"},
     [248125] = {achievementID = 20501, achievementName = "Back from the Beyond", category = "Expansion Features"},
     [257353] = {achievementID = 61451, achievementName = "Worldsoul-Searching", category = "Expansion Features"},
-    [267122] = {achievementID = 61451, achievementName = "Worldsoul-Searching", category = "Expansion Features"},
 
     -- Archaeology
-    [241216] = {achievementID = 4859, achievementName = "Kings Under the Mountain", category = "Archaeology"},
     [245426] = {achievementID = 4859, achievementName = "Kings Under the Mountain", category = "Archaeology"},
     [258740] = {achievementID = 9415, achievementName = "Secrets of Skettis", category = "Archaeology"},
 
@@ -95,15 +81,7 @@ local sourceData = {
     [244325] = {achievementID = 12746, achievementName = "The Zandalari Menu", category = "Cooking"},
 
     -- Legion Class Hall
-    [244042] = {achievementID = 42273, achievementName = "The Huntmaster's Campaign", category = "Legion Class Hall"},
-    [245126] = {achievementID = 42275, achievementName = "The Grandmaster's Campaign", category = "Legion Class Hall"},
-    [245128] = {achievementID = 42282, achievementName = "The Battlelord's Campaign", category = "Legion Class Hall"},
     [245429] = {achievementID = 42274, achievementName = "The Archmage's Campaign", category = "Legion Class Hall"},
-    [245906] = {achievementID = 60968, achievementName = "Legendary Research of the Silver Hand", category = "Legion Class Hall"},
-    [245907] = {achievementID = 60969, achievementName = "Legendary Research of the Netherlight Conclave", category = "Legion Class Hall"},
-    [245908] = {achievementID = 60970, achievementName = "Legendary Research of the Uncrowned", category = "Legion Class Hall"},
-    [245909] = {achievementID = 60971, achievementName = "Legendary Research of the Maelstrom", category = "Legion Class Hall"},
-    [247824] = {achievementID = 42277, achievementName = "The High Priest's Campaign", category = "Legion Class Hall"},
     [248011] = {achievementID = 42273, achievementName = "The Huntmaster's Campaign", category = "Legion Class Hall"},
     [248940] = {achievementID = 42297, achievementName = "Hidden Potential of the Netherlord", category = "Legion Class Hall"},
     [248942] = {achievementID = 60986, achievementName = "Raise an Army for the Temple of Five Dawns", category = "Legion Class Hall"},
@@ -141,7 +119,6 @@ local sourceData = {
     [251013] = {achievementID = 60983, achievementName = "Raise an Army for the Dreamgrove", category = "Legion Class Hall"},
     [251014] = {achievementID = 60990, achievementName = "Raise an Army for the Maelstrom", category = "Legion Class Hall"},
     [251636] = {achievementID = 60988, achievementName = "Raise an Army for the Netherlight Temple", category = "Legion Class Hall"},
-    [254358] = {achievementID = 42272, achievementName = "The Archdruid's Campaign", category = "Legion Class Hall"},
     [256674] = {achievementID = 60966, achievementName = "Legendary Research of the Tirisgarde", category = "Legion Class Hall"},
     [256679] = {achievementID = 60967, achievementName = "Legendary Research of Five Dawns", category = "Legion Class Hall"},
     [256907] = {achievementID = 60972, achievementName = "Legendary Research of the Black Harvest", category = "Legion Class Hall"},
@@ -214,9 +191,7 @@ local sourceData = {
     [278380] = {achievementID = 63453, achievementName = "One, Two, Ral'kala's Coming for You", category = "Prey"},
 
     -- Professions
-    [241191] = {achievementID = 12733, achievementName = "Professional Zandalari Master", category = "Professions"},
     [245490] = {achievementID = 12733, achievementName = "Professional Zandalari Master", category = "Professions"},
-    [249237] = {achievementID = 19408, achievementName = "Professional Algari Master", category = "Professions"},
     [253163] = {achievementID = 19408, achievementName = "Professional Algari Master", category = "Professions"},
     [263997] = {achievementID = 42788, achievementName = "Alchemizing at Midnight", category = "Professions"},
     [263998] = {achievementID = 42792, achievementName = "Blacksmithing at Midnight", category = "Professions"},
@@ -233,17 +208,14 @@ local sourceData = {
     [264174] = {achievementID = 42794, achievementName = "Tailoring at Midnight", category = "Professions"},
 
     -- War Effort
-    [241650] = {achievementID = 12867, achievementName = "Azeroth at War: The Barrens", category = "War Effort"},
     [245463] = {achievementID = 12867, achievementName = "Azeroth at War: The Barrens", category = "War Effort"},
     [245467] = {achievementID = 12869, achievementName = "Azeroth at War: After Lordaeron", category = "War Effort"},
     [245483] = {achievementID = 12870, achievementName = "Azeroth at War: Kalimdor on Fire", category = "War Effort"},
 
     -- Battle Dungeon
-    [241700] = {achievementID = 13723, achievementName = "M.C., Hammered", category = "Battle Dungeon"},
     [246479] = {achievementID = 13723, achievementName = "M.C., Hammered", category = "Battle Dungeon"},
 
     -- Legion Dungeon
-    [251315] = {achievementID = 10996, achievementName = "Got to Ketchum All", category = "Legion Dungeon"},
     [256913] = {achievementID = 10996, achievementName = "Got to Ketchum All", category = "Legion Dungeon"},
 
     -- Legion Raid
@@ -266,41 +238,28 @@ local sourceData = {
     [248807] = {achievementID = 938, achievementName = "The Snows of Northrend", category = "Northrend"},
 
     -- Pandaria Scenarios
-    [251300] = {achievementID = 7322, achievementName = "Roll Club", category = "Pandaria Scenarios"},
-    [251301] = {achievementID = 8316, achievementName = "Blood in the Snow", category = "Pandaria Scenarios"},
     [256425] = {achievementID = 8316, achievementName = "Blood in the Snow", category = "Pandaria Scenarios"},
 
     -- Alterac Valley
-    [243896] = {achievementID = 221, achievementName = "Alterac Grave Robber", category = "Alterac Valley"},
-    [243897] = {achievementID = 222, achievementName = "Tower Defense", category = "Alterac Valley"},
     [247758] = {achievementID = 221, achievementName = "Alterac Grave Robber", category = "Alterac Valley"},
     [247760] = {achievementID = 222, achievementName = "Tower Defense", category = "Alterac Valley"},
 
     -- Arathi Basin
-    [243894] = {achievementID = 158, achievementName = "Me and the Cappin' Makin' It Happen", category = "Arathi Basin"},
-    [243898] = {achievementID = 1153, achievementName = "Overly Defensive", category = "Arathi Basin"},
     [247757] = {achievementID = 158, achievementName = "Me and the Cappin' Makin' It Happen", category = "Arathi Basin"},
     [247759] = {achievementID = 1153, achievementName = "Overly Defensive", category = "Arathi Basin"},
 
     -- Battle for Gilneas
-    [251296] = {achievementID = 5245, achievementName = "Battle for Gilneas Victory", category = "Battle for Gilneas"},
     [256896] = {achievementID = 5245, achievementName = "Battle for Gilneas Victory", category = "Battle for Gilneas"},
 
     -- Deephaul Ravine
-    [243890] = {achievementID = 40612, achievementName = "Sprinting in the Ravine", category = "Deephaul Ravine"},
     [247750] = {achievementID = 40612, achievementName = "Sprinting in the Ravine", category = "Deephaul Ravine"},
     [253170] = {achievementID = 40210, achievementName = "Deephaul Ravine Victory", category = "Deephaul Ravine"},
 
     -- Eye of the Storm
-    [243899] = {achievementID = 212, achievementName = "Storm Capper", category = "Eye of the Storm"},
-    [243900] = {achievementID = 213, achievementName = "Stormtrooper", category = "Eye of the Storm"},
     [247761] = {achievementID = 212, achievementName = "Storm Capper", category = "Eye of the Storm"},
     [247762] = {achievementID = 213, achievementName = "Stormtrooper", category = "Eye of the Storm"},
 
     -- Player vs. Player
-    [243884] = {achievementID = 231, achievementName = "Wrecking Ball", category = "Player vs. Player"},
-    [243893] = {achievementID = 1157, achievementName = "Duel-icious", category = "Player vs. Player"},
-    [243895] = {achievementID = 229, achievementName = "The Grim Reaper", category = "Player vs. Player"},
     [247744] = {achievementID = 231, achievementName = "Wrecking Ball", category = "Player vs. Player"},
     [247745] = {achievementID = 229, achievementName = "The Grim Reaper", category = "Player vs. Player"},
     [247756] = {achievementID = 1157, achievementName = "Duel-icious", category = "Player vs. Player"},
@@ -310,25 +269,16 @@ local sourceData = {
     [247768] = {achievementID = 61684, achievementName = "Progressing in Battle", category = "Player vs. Player"},
     [247769] = {achievementID = 61685, achievementName = "Proficient in Battle", category = "Player vs. Player"},
     [247770] = {achievementID = 61686, achievementName = "Expert in Battle", category = "Player vs. Player"},
-    [267354] = {achievementID = 61683, achievementName = "Entering Battle", category = "Player vs. Player"},
     [267356] = {achievementID = 61685, achievementName = "Proficient in Battle", category = "Player vs. Player"},
-    [267357] = {achievementID = 61686, achievementName = "Expert in Battle", category = "Player vs. Player"},
-    [267358] = {achievementID = 61687, achievementName = "Champion in Battle", category = "Player vs. Player"},
-    [267359] = {achievementID = 61688, achievementName = "Master in Battle", category = "Player vs. Player"},
 
     -- Temple of Kotmogu
     [247740] = {achievementID = 6981, achievementName = "Master of Temple of Kotmogu", category = "Temple of Kotmogu"},
     [247741] = {achievementID = 6981, achievementName = "Master of Temple of Kotmogu", category = "Temple of Kotmogu"},
-    [251298] = {achievementID = 6981, achievementName = "Master of Temple of Kotmogu", category = "Temple of Kotmogu"},
-    [251299] = {achievementID = 6981, achievementName = "Master of Temple of Kotmogu", category = "Temple of Kotmogu"},
 
     -- Twin Peaks
     [247727] = {achievementID = 5223, achievementName = "Master of Twin Peaks", category = "Twin Peaks"},
-    [251297] = {achievementID = 5223, achievementName = "Master of Twin Peaks", category = "Twin Peaks"},
 
     -- Warsong Gulch
-    [243901] = {achievementID = 200, achievementName = "Persistent Defender", category = "Warsong Gulch"},
-    [243902] = {achievementID = 167, achievementName = "Warsong Gulch Veteran", category = "Warsong Gulch"},
     [247746] = {achievementID = 200, achievementName = "Persistent Defender", category = "Warsong Gulch"},
     [247747] = {achievementID = 167, achievementName = "Warsong Gulch Veteran", category = "Warsong Gulch"},
 
