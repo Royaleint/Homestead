@@ -15,6 +15,9 @@ local L = HA.L
 -------------------------------------------------------------------------------
 L["Used in %d known recipe for decor you haven't collected"] = "用於%d個已知配方，可製作你尚未收集的裝飾"
 L["Used in %d known recipes for decor you haven't collected"] = "用於%d個已知配方，可製作你尚未收集的裝飾"
+L["or"] = "或"
+L["Cost unverified"] = "花費未確認"
+L["(requirements unverified)"] = "(需求未確認)"
 
 -------------------------------------------------------------------------------
 -- Options

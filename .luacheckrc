@@ -24,6 +24,7 @@ read_globals = {
     "error", "pcall", "rawget", "rawset", "setmetatable", "getmetatable",
     "issecretvalue", -- Midnight combat-secrecy probe
     "GetBuildInfo",
+    "IsPublicTestClient", -- cost-evidence environment (retail/ptr)
 
     -- WoW constants
     "BANK_CONTAINER",

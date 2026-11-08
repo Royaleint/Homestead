@@ -15,6 +15,9 @@ local L = HA.L
 -------------------------------------------------------------------------------
 L["Used in %d known recipe for decor you haven't collected"] = "획득하지 않은 하우징 장식의 알려진 제조법 %d개에 사용됨"
 L["Used in %d known recipes for decor you haven't collected"] = "획득하지 않은 하우징 장식의 알려진 제조법 %d개에 사용됨"
+L["or"] = "또는"
+L["Cost unverified"] = "비용 미확인"
+L["(requirements unverified)"] = "(요구 사항 미확인)"
 
 -------------------------------------------------------------------------------
 -- Options

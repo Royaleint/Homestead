@@ -135,10 +135,136 @@ function VendorData:GetItemCost(item)
     return cost
 end
 
--- Format cost as a display string with icons (e.g., "10|Tgold|t 50|Tsilver|t" or "500 |Tcurrency|t")
-function VendorData:FormatCost(cost)
-    if not cost then return nil end
+-------------------------------------------------------------------------------
+-- Cost Sets
+-- A normalized cost is one payment bundle: its gold, currencies and items are
+-- all required together. cost.alternatives optionally lists further complete
+-- bundles, each an alternative way to pay. cost.status is one of the
+-- COST_STATUS values; a cost without one is legacy. purchaseQuantity is the
+-- stack one payment buys, when known; nil is unknown, never one.
+-------------------------------------------------------------------------------
 
+local COST_STATUS_LEGACY = "legacy"
+local COST_STATUS_VERIFIED = "verified"
+local COST_STATUS_QUALIFIED = "qualified"
+local COST_STATUS_UNRESOLVED = "unresolved"
+
+local function Text(key)
+    local L = HA.L
+    return (L and L[key]) or key
+end
+
+-- Calls visitor(bundle, index) for the primary bundle, then each alternative.
+function VendorData:ForEachCostBundle(cost, visitor)
+    local _ = self
+    if not cost then return end
+    visitor(cost, 1)
+    if cost.alternatives then
+        for i, alternative in ipairs(cost.alternatives) do
+            visitor(alternative, i + 1)
+        end
+    end
+end
+
+local function ComponentTokens(list, prefix, out)
+    if not list then return end
+    for _, component in ipairs(list) do
+        local id = component.id or component.currencyID or component.itemID
+        if id then
+            out[#out + 1] = prefix .. id .. "x" .. tostring(component.amount)
+        else
+            out[#out + 1] = prefix .. "n:" .. tostring(component.name) .. "x" .. tostring(component.amount)
+        end
+    end
+end
+
+-- Order-independent semantic signature of one bundle. Display names are
+-- ignored where a stable ID exists; quantity is part of the bundle.
+function VendorData:CostBundleSignature(bundle)
+    local _ = self
+    if not bundle then return nil end
+    local tokens = {}
+    ComponentTokens(bundle.currencies, "c", tokens)
+    ComponentTokens(bundle.items, "i", tokens)
+    table.sort(tokens)
+    local quantity = bundle.purchaseQuantity
+    return "g" .. tostring(bundle.gold or 0) .. "|q" .. (quantity and tostring(quantity) or "?")
+        .. "|" .. table.concat(tokens, ",")
+end
+
+-- Order-independent signature of a whole set, plus its bundle count.
+function VendorData:CostSetSignature(cost)
+    if not cost then return nil, 0 end
+    local signatures = {}
+    self:ForEachCostBundle(cost, function(bundle)
+        signatures[#signatures + 1] = self:CostBundleSignature(bundle)
+    end)
+    table.sort(signatures)
+    return table.concat(signatures, "||"), #signatures
+end
+
+local function IsWholeNumber(value, minimum)
+    return type(value) == "number" and value >= minimum and value == math.floor(value)
+end
+
+-- Validate a primary bundle plus alternatives into a detached candidate
+-- set. Returns candidate, nil or nil, reasons. Makes no authority decision
+-- and never mutates its inputs.
+function VendorData:BuildCostSet(primary, alternatives, metadata)
+    local reasons = {}
+    local function CopyBundle(bundle, label)
+        if type(bundle) ~= "table" then
+            reasons[#reasons + 1] = label .. ": missing bundle"
+            return nil
+        end
+        local copy = {
+            gold = bundle.gold,
+            purchaseQuantity = bundle.purchaseQuantity,
+        }
+        if copy.gold ~= nil and not IsWholeNumber(copy.gold, 0) then
+            reasons[#reasons + 1] = label .. ": invalid gold"
+        end
+        if not IsWholeNumber(copy.purchaseQuantity, 1) then
+            reasons[#reasons + 1] = label .. ": purchase quantity unknown"
+        end
+        for _, field in ipairs({"currencies", "items"}) do
+            if bundle[field] then
+                copy[field] = {}
+                for i, component in ipairs(bundle[field]) do
+                    if not IsWholeNumber(component.amount, 1) or not component.id then
+                        reasons[#reasons + 1] = string.format("%s: %s[%d] unresolved", label, field, i)
+                    end
+                    copy[field][i] = {id = component.id, amount = component.amount, name = component.name}
+                end
+            end
+        end
+        return copy
+    end
+
+    local candidate = CopyBundle(primary, "primary")
+    if candidate and alternatives and #alternatives > 0 then
+        candidate.alternatives = {}
+        for i, alternative in ipairs(alternatives) do
+            candidate.alternatives[i] = CopyBundle(alternative, "alternative " .. i)
+        end
+    end
+    if candidate then
+        local seen = {}
+        self:ForEachCostBundle(candidate, function(bundle, index)
+            local signature = self:CostBundleSignature(bundle)
+            if seen[signature] then
+                reasons[#reasons + 1] = "bundle " .. index .. ": duplicates another bundle"
+            end
+            seen[signature] = true
+        end)
+        candidate.status = metadata and metadata.status or nil
+    end
+    if #reasons > 0 then return nil, reasons end
+    return candidate, nil
+end
+
+-- One bundle as display text plus its number of parts; nil when it has none.
+local function FormatCostBundle(cost)
     local parts = {}
 
     -- Format gold (stored in copper) using C_CurrencyInfo.GetCoinTextureString for coin icons
@@ -203,7 +329,93 @@ function VendorData:FormatCost(cost)
         return nil
     end
 
-    return table.concat(parts, " + ")
+    return table.concat(parts, " + "), #parts
+end
+
+-- Format cost as a display string with icons (e.g., "10|Tgold|t 50|Tsilver|t" or "500 |Tcurrency|t").
+-- Alternative bundles join with a localized "or"; a bundle with several parts
+-- is parenthesized among alternatives. status defaults to cost.status, then
+-- legacy. An unresolved cost renders "Cost unverified" even when cost is nil.
+function VendorData:FormatCost(cost, status)
+    status = status or (cost and cost.status) or COST_STATUS_LEGACY
+    if status == COST_STATUS_UNRESOLVED then
+        return Text("Cost unverified")
+    end
+    if not cost then return nil end
+
+    local text
+    if cost.alternatives and #cost.alternatives > 0 then
+        local options = {}
+        local renderable = true
+        self:ForEachCostBundle(cost, function(bundle)
+            local bundleText, partCount = FormatCostBundle(bundle)
+            if not bundleText then
+                renderable = false
+            elseif partCount > 1 then
+                options[#options + 1] = "(" .. bundleText .. ")"
+            else
+                options[#options + 1] = bundleText
+            end
+        end)
+        -- An option with nothing to show cannot be told apart from free.
+        if not renderable then
+            return Text("Cost unverified")
+        end
+        text = table.concat(options, " " .. Text("or") .. " ")
+    else
+        text = FormatCostBundle(cost)
+    end
+
+    if text and status == COST_STATUS_QUALIFIED then
+        text = text .. " " .. Text("(requirements unverified)")
+    end
+    return text
+end
+
+-- One view per payment option of a cost set with alternatives, primary first,
+-- or nil when the cost should stay a single entry (no cost, unresolved, no
+-- alternatives, or a bundle with nothing to show). Views are new tables that
+-- share the component arrays and carry no alternatives.
+function VendorData:SplitCostOptions(cost, status)
+    if not cost or not cost.alternatives or #cost.alternatives == 0 then return nil end
+    status = status or cost.status or COST_STATUS_LEGACY
+    if status == COST_STATUS_UNRESOLVED then return nil end
+
+    local views = {}
+    local renderable = true
+    self:ForEachCostBundle(cost, function(bundle)
+        if not FormatCostBundle(bundle) then
+            renderable = false
+        end
+        views[#views + 1] = {
+            gold = bundle.gold,
+            currencies = bundle.currencies,
+            items = bundle.items,
+            purchaseQuantity = bundle.purchaseQuantity,
+        }
+    end)
+    if not renderable then return nil end
+    return views
+end
+
+-- One display string per payment option; never carries the qualifier suffix.
+-- Empty when there is nothing to show. FormatCost stays the one-string form.
+function VendorData:FormatCostOptions(cost, status)
+    status = status or (cost and cost.status) or COST_STATUS_LEGACY
+    local views = self:SplitCostOptions(cost, status)
+    if views then
+        local texts = {}
+        for i, view in ipairs(views) do
+            texts[i] = FormatCostBundle(view)
+        end
+        return texts
+    end
+    if status == COST_STATUS_QUALIFIED then
+        status = COST_STATUS_LEGACY
+    end
+    local text = self:FormatCost(cost, status)
+    if text then return { text } end
+    return {}
 end
 
 -- Convert scanned item cost format to static item cost format
@@ -275,33 +487,59 @@ function VendorData:GetScannedVendorRecord(vendor)
     return record
 end
 
+-- Bundle signature of one scanned row, quantity included when recorded.
+local function ScannedRowSignature(item, cost)
+    return VendorData:CostBundleSignature(cost) .. "|s" .. tostring(item.stackCount)
+end
+
+-- The scanned cost of one item on one record. Rows of one item that carry
+-- different priced bundles have no single scanned cost: the third return is
+-- then "unresolved" and the cost nil, whatever the row order.
 local function GetScannedItemAndCost(record, itemID)
     if not record or not record.items or not itemID then return nil, nil end
 
-    local matchingItem
+    local matchingItem, firstCost, firstSignature
     for _, item in ipairs(record.items) do
         if item.itemID == itemID then
             matchingItem = matchingItem or item
             local cost = VendorData:NormalizeScannedCost(item)
             if cost then
-                return item, cost
+                local signature = ScannedRowSignature(item, cost)
+                if not firstCost then
+                    matchingItem, firstCost, firstSignature = item, cost, signature
+                elseif signature ~= firstSignature then
+                    return matchingItem, nil, COST_STATUS_UNRESOLVED
+                end
             end
         end
     end
-    return matchingItem, nil
+    return matchingItem, firstCost
 end
 
+-- true when two scanned rows of one item both carry a priced bundle and the
+-- bundles differ.
+function VendorData:ScannedRowsDisagree(rowA, rowB)
+    if not rowA or not rowB then return false end
+    local costA, costB = self:NormalizeScannedCost(rowA), self:NormalizeScannedCost(rowB)
+    return costA ~= nil and costB ~= nil
+        and ScannedRowSignature(rowA, costA) ~= ScannedRowSignature(rowB, costB)
+end
+
+-- Exactly one bundle that is gold only.
 local function HasOnlyGoldCost(cost)
     return cost and cost.gold and not cost.currencies and not cost.items
+        and not (cost.alternatives and #cost.alternatives > 0)
+        and cost.status ~= COST_STATUS_UNRESOLVED
 end
 
--- scanned {cost, scannedAt} for one vendor/item pair, exposed so
+-- scanned {cost, scannedAt, status} for one vendor/item pair, exposed so
 -- callers can decide whether a source-text lookup is worth doing (see
 -- CanSkipSourceTextLookup below) without duplicating GetScannedItemAndCost.
+-- status is "unresolved" when the rows disagree.
 function VendorData:GetScannedItemCost(vendor, itemID)
     local record = self:GetScannedVendorRecord(vendor)
-    local _, cost = GetScannedItemAndCost(record, itemID)
-    return cost, record and record.lastScanned
+    local _, cost, status = GetScannedItemAndCost(record, itemID)
+    return cost, record and record.lastScanned, status
 end
 
 -- shipped cost for one vendor/item pair, or nil when no shipped row
@@ -330,7 +568,10 @@ end
 -- exact gold-only + staleness gate the sourceText-discount branch below
 -- requires, so the two can never drift apart. With no scanned cost, a shipped
 -- cost (staticCost) outranks source text and decides the outcome instead.
-function VendorData:CanSkipSourceTextLookup(scannedCost, scannedAt, staticCost)
+-- costState is the optional GetCostSetState result for the pair: a pair with
+-- one is resolved as a whole set, which never reads source text.
+function VendorData:CanSkipSourceTextLookup(scannedCost, scannedAt, staticCost, costState)
+    if costState then return true end
     if not scannedCost then return staticCost ~= nil end
     if not HasOnlyGoldCost(scannedCost) then return true end
     if not scannedAt then return true end
@@ -342,12 +583,19 @@ end
 -- scan can lose to a cheaper newer source-text price (sourceText-discount).
 -- sourceText is optional {cost = normalizedCost, lastParsed = timestamp}.
 -- staticCostKnown with a nil staticCostOverride means "no shipped price".
--- Returns normalized cost and provenance: scanned, sourceText-discount, static,
--- sourceText, or nil.
+-- Returns normalized cost, provenance (scanned, sourceText-discount, static,
+-- sourceText, legacy or nil) and status (legacy, verified, qualified,
+-- unresolved or nil). A pair carrying alternatives or a cost status is
+-- resolved as a whole set (ResolveCostSetState) before any override is read.
 function VendorData:ResolveVendorItemCost(
         vendor, itemID, sourceText, scannedCostOverride, scannedCostKnown,
         staticCostOverride, staticCostKnown, scannedAtOverride)
     if not vendor or not itemID then return nil, nil end
+
+    local costState = self:GetCostSetState(vendor, itemID)
+    if costState then
+        return self:ResolveCostSetState(costState)
+    end
 
     local scannedVendor
     if not scannedCostKnown then
@@ -355,7 +603,11 @@ function VendorData:ResolveVendorItemCost(
     end
     local scannedCost = scannedCostOverride
     if not scannedCostKnown then
-        _, scannedCost = GetScannedItemAndCost(scannedVendor, itemID)
+        local scannedStatus
+        _, scannedCost, scannedStatus = GetScannedItemAndCost(scannedVendor, itemID)
+        if scannedStatus == COST_STATUS_UNRESOLVED then
+            return nil, "legacy", COST_STATUS_UNRESOLVED
+        end
     end
     local scannedAt = scannedAtOverride or (scannedVendor and scannedVendor.lastScanned)
     local sourceCost = sourceText and sourceText.cost
@@ -366,23 +618,26 @@ function VendorData:ResolveVendorItemCost(
             and scannedAt and sourceAt and sourceAt > scannedAt
             and now - scannedAt > VENDOR_COST_STALE_SECONDS
             and sourceCost.gold < scannedCost.gold then
-        return sourceCost, "sourceText-discount"
+        return sourceCost, "sourceText-discount", COST_STATUS_LEGACY
     end
 
     if scannedCost then
-        return scannedCost, "scanned"
+        return scannedCost, "scanned", scannedCost.status or COST_STATUS_LEGACY
     end
 
     local staticCost = staticCostOverride
     if not staticCostKnown then
         staticCost = self:GetStaticItemCost(vendor, itemID)
     end
+    if staticCost and staticCost.status == COST_STATUS_UNRESOLVED then
+        return nil, "static", COST_STATUS_UNRESOLVED
+    end
     if staticCost then
-        return staticCost, "static"
+        return staticCost, "static", staticCost.status or COST_STATUS_LEGACY
     end
 
     if sourceCost then
-        return sourceCost, "sourceText"
+        return sourceCost, "sourceText", COST_STATUS_LEGACY
     end
 
     return nil, nil
@@ -1141,9 +1396,14 @@ end
 function VendorData:BuildScannedIndex()
     self.ScannedByItemID = {}
     self.ScannedItemsByNPC = {}
+    self.ScannedCostState = {}
 
     local db = HA.Addon and HA.Addon.db
-    if not db or not db.global or not db.global.scannedVendors then
+    if not db or not db.global then
+        return
+    end
+    self:BuildCostEvidenceIndex(db.global)
+    if not db.global.scannedVendors then
         return
     end
 
@@ -1168,11 +1428,82 @@ function VendorData:BuildScannedIndex()
                     table.insert(byItem[itemID], item)
                 end
             end
+            -- Every record's priced rows are compared, however the scan was
+            -- identified: evidence is only retained for pairs relevant when
+            -- scanned, so a set shipped later must still see these rows.
+            self:IndexLegacyCostRows(db.global, npcID, vendorRecord, byItem)
         end
     end
 
     if HA.Addon then
         HA.Addon:Debug("VendorData scanned index built:", itemCount, "unique items")
+    end
+end
+
+local function ScannedCostStateFor(self, npcID, itemID)
+    local byItem = self.ScannedCostState[npcID]
+    if not byItem then
+        byItem = {}
+        self.ScannedCostState[npcID] = byItem
+    end
+    local state = byItem[itemID]
+    if not state then
+        state = {}
+        byItem[itemID] = state
+    end
+    return state
+end
+
+-- Sidecar entries, keyed by the scanner's canonical vendor ID.
+function VendorData:BuildCostEvidenceIndex(global)
+    local evidence = global.vendorCostEvidence
+    if not evidence then return end
+    for npcID, byItem in pairs(evidence) do
+        for itemID, entry in pairs(byItem) do
+            ScannedCostStateFor(self, npcID, itemID).evidence = entry
+        end
+    end
+end
+
+-- A scanned record's rows for one item join the whole-set index when they
+-- hold several distinct priced bundles, or when the shipped pair is a
+-- whole-set pair (under this ID or the shipped ID a name correction
+-- replaced). Rows are never grouped into an observation.
+function VendorData:IndexLegacyCostRows(global, npcID, vendorRecord, byItem)
+    local shippedByNPC = self.ShippedCostState and self.ShippedCostState[npcID]
+    local correction = vendorRecord.name and global.npcIDCorrections
+        and global.npcIDCorrections[vendorRecord.name]
+    local correctedShipped = correction and correction.newID == npcID and self.ShippedCostState
+        and self.ShippedCostState[correction.oldID]
+    for itemID, rows in pairs(byItem) do
+        local tracked = (shippedByNPC and shippedByNPC[itemID])
+            or (correctedShipped and correctedShipped[itemID])
+        if tracked or #rows > 1 then
+            local bundles, seen, distinct = {}, {}, 0
+            for _, row in ipairs(rows) do
+                -- A row the scan marked incomplete is a partial read: it can
+                -- neither confirm nor contradict a set. Rows saved without the
+                -- field keep their legacy treatment.
+                local cost = row.costComplete ~= false and self:NormalizeScannedCost(row) or nil
+                if cost then
+                    local signature = ScannedRowSignature(row, cost)
+                    if not seen[signature] then
+                        seen[signature] = true
+                        distinct = distinct + 1
+                        local bundle = {
+                            gold = cost.gold,
+                            currencies = cost.currencies,
+                            items = cost.items,
+                            purchaseQuantity = row.stackCount,
+                        }
+                        bundles[#bundles + 1] = bundle
+                    end
+                end
+            end
+            if (tracked and distinct > 0) or distinct > 1 then
+                ScannedCostStateFor(self, npcID, itemID).legacyBundles = bundles
+            end
+        end
     end
 end
 
@@ -1281,11 +1612,9 @@ function VendorData:GetOffers(npcID)
     return next(result) and result or nil
 end
 
--- Convert a VendorOffers row into the legacy item shape older consumers expect.
-function VendorData:OfferToLegacyItem(itemID, offer)
-    local _ = self
-    if not offer then return itemID end
-
+-- One offer bundle (primary fields or one alternativeCosts entry) as a
+-- normalized cost, or nil when it carries no price or component.
+local function OfferBundleToCost(offer)
     local cost = nil
 
     if offer.price and offer.price > 0 then
@@ -1328,6 +1657,77 @@ function VendorData:OfferToLegacyItem(itemID, offer)
         end
     end
 
+    return cost
+end
+
+-- Every bundle of an alternative set must be positively known to buy one
+-- item: the price column cannot say how many a payment buys.
+local function AllQuantitiesOne(offer)
+    if offer.purchaseQuantity ~= 1 then return false end
+    for _, alternative in ipairs(offer.alternativeCosts) do
+        if alternative.purchaseQuantity ~= 1 then return false end
+    end
+    return true
+end
+
+-- The cost status a shipped offer declares, or nil for an ordinary row.
+-- Alternatives without positively compatible eligibility are at most
+-- qualified (display-only review), otherwise unresolved.
+function VendorData:GetOfferCostStatus(offer)
+    local _ = self
+    if not offer then return nil end
+    if offer.costStatus == COST_STATUS_UNRESOLVED then
+        return COST_STATUS_UNRESOLVED
+    end
+    if offer.alternativeCosts and #offer.alternativeCosts > 0 then
+        local costSet = offer.costSet
+        if not costSet or costSet.coverage ~= "complete" or not AllQuantitiesOne(offer) then
+            return COST_STATUS_UNRESOLVED
+        end
+        if costSet.eligibility == "compatible" and offer.costStatus ~= COST_STATUS_QUALIFIED then
+            return COST_STATUS_VERIFIED
+        end
+        if costSet.qualification == "display-only" then
+            return COST_STATUS_QUALIFIED
+        end
+        return COST_STATUS_UNRESOLVED
+    end
+    if offer.costStatus == COST_STATUS_QUALIFIED or offer.costStatus == COST_STATUS_VERIFIED then
+        return offer.costStatus
+    end
+    return nil
+end
+
+-- A VendorOffers row as one normalized cost: primary bundle, alternatives,
+-- quantity and declared status. nil for a row without price or status.
+function VendorData:OfferToCost(offer, status)
+    if not offer then return nil end
+    status = status or self:GetOfferCostStatus(offer)
+    local cost = OfferBundleToCost(offer)
+    if offer.alternativeCosts and #offer.alternativeCosts > 0 then
+        cost = cost or {}
+        cost.alternatives = {}
+        for i, alternative in ipairs(offer.alternativeCosts) do
+            local bundle = OfferBundleToCost(alternative) or {}
+            bundle.purchaseQuantity = alternative.purchaseQuantity
+            cost.alternatives[i] = bundle
+        end
+    end
+    if cost then
+        cost.purchaseQuantity = offer.purchaseQuantity
+    end
+    if status then
+        cost = cost or {}
+        cost.status = status
+    end
+    return cost
+end
+
+-- Convert a VendorOffers row into the legacy item shape older consumers expect.
+function VendorData:OfferToLegacyItem(itemID, offer)
+    if not offer then return itemID end
+
+    local cost = self:OfferToCost(offer)
     if not cost then
         return itemID
     end
@@ -1521,6 +1921,165 @@ function VendorData:BuildOfferIndexes()
     for npcID in pairs(HA.VendorOffers.GeneratedBase or {}) do addNPC(npcID) end
     for npcID in pairs(HA.VendorOffers.ManualOverrides or {}) do addNPC(npcID) end
     for npcID in pairs(HA.VendorOffers.StagedAdditions or {}) do addNPC(npcID) end
+
+    self:BuildShippedCostStateIndex()
+end
+
+local function DeclaresCostSet(offer)
+    return offer and (offer.costStatus ~= nil or offer.costSet ~= nil
+        or (offer.alternativeCosts ~= nil and #offer.alternativeCosts > 0))
+end
+
+-- ShippedCostState[npcID][itemID] = {cost, status, observedAt} for every
+-- effective shipped pair resolved as a whole set: one declaring alternatives
+-- or a cost status, or an override over an alternative-bearing generated row.
+-- Such an override with no cost set of its own cannot replace or extend the
+-- generated set: an override repeating its primary bundle leaves it a
+-- qualified reference, any other override leaves the pair unresolved.
+function VendorData:BuildShippedCostStateIndex()
+    local index = {}
+    self.ShippedCostState = index
+    local offers = HA.VendorOffers
+    if not offers then return end
+    local tombstones = offers.Tombstones or {}
+    local base = offers.GeneratedBase or {}
+    local overrides = offers.ManualOverrides or {}
+    local staged = offers.StagedAdditions or {}
+
+    local function Note(npcID, itemID)
+        if index[npcID] and index[npcID][itemID] ~= nil then return end
+        if tombstones[itemID] or tombstones[tostring(npcID) .. ":" .. tostring(itemID)] then return end
+        local override = overrides[npcID] and overrides[npcID][itemID]
+        local generated = base[npcID] and base[npcID][itemID]
+        local effective = override or generated or (staged[npcID] and staged[npcID][itemID])
+
+        local state
+        if override and not DeclaresCostSet(override) and DeclaresCostSet(generated)
+                and generated.alternativeCosts and #generated.alternativeCosts > 0 then
+            local overrideSignature = self:CostSetSignature(OfferBundleToCost(override) or {})
+            local generatedPrimary = self:CostSetSignature(OfferBundleToCost(generated) or {})
+            local status = self:GetOfferCostStatus(generated)
+            if overrideSignature ~= generatedPrimary or status == COST_STATUS_UNRESOLVED then
+                status = COST_STATUS_UNRESOLVED
+            else
+                status = COST_STATUS_QUALIFIED
+            end
+            state = {cost = self:OfferToCost(generated, status), status = status, reconcile = true}
+            state.observedAt = generated.costSet and generated.costSet.observedAt
+        elseif DeclaresCostSet(effective) then
+            local status = self:GetOfferCostStatus(effective) or COST_STATUS_UNRESOLVED
+            state = {cost = self:OfferToCost(effective, status), status = status}
+            state.observedAt = effective.costSet and effective.costSet.observedAt
+        end
+        index[npcID] = index[npcID] or {}
+        index[npcID][itemID] = state or false
+    end
+
+    for _, tier in ipairs({base, overrides, staged}) do
+        for npcID, rows in pairs(tier) do
+            for itemID, offer in pairs(rows) do
+                if DeclaresCostSet(offer) then Note(npcID, itemID) end
+            end
+        end
+    end
+end
+
+-------------------------------------------------------------------------------
+-- Whole-set cost resolution
+-------------------------------------------------------------------------------
+
+-- O(1) lookup of everything that makes a pair a whole-set pair, or nil for
+-- an ordinary pair. Reads the shipped index (by the vendor's npcID) and the
+-- scanned/evidence index (direct ID, then the corrected-ID fallback
+-- GetScannedVendorRecord uses).
+function VendorData:GetCostSetState(vendor, itemID)
+    if not vendor or not itemID then return nil end
+    local shippedByNPC = self.ShippedCostState and vendor.npcID and self.ShippedCostState[vendor.npcID]
+    local shipped = shippedByNPC and shippedByNPC[itemID] or nil
+
+    local scannedIndex = self.ScannedCostState
+    local scannedByNPC = scannedIndex and vendor.npcID and scannedIndex[vendor.npcID]
+    if not scannedByNPC and scannedIndex and vendor.name and HA.VendorScanner then
+        local correctedID = HA.VendorScanner:GetCorrectedNPCID(vendor.name)
+        scannedByNPC = correctedID and scannedIndex[correctedID]
+    end
+    local scanned = scannedByNPC and scannedByNPC[itemID] or nil
+
+    if not shipped and not scanned then return nil end
+    return {shipped = shipped or nil, scanned = scanned or nil}
+end
+
+local function SignatureSet(self, cost)
+    local set = {}
+    self:ForEachCostBundle(cost, function(bundle)
+        set[self:CostBundleSignature(bundle)] = true
+    end)
+    return set
+end
+
+-- Whether every bundle of a witness or legacy row set is one of the
+-- effective set's bundles. Quantity compares only where both sides know it.
+local function BundleIn(self, signatureSet, bundle)
+    local signature = self:CostBundleSignature(bundle)
+    if signatureSet[signature] then return true end
+    if bundle.purchaseQuantity == nil then
+        local unknown = signature:gsub("|q[^|]*|", "|q?|", 1)
+        for known in pairs(signatureSet) do
+            if known:gsub("|q[^|]*|", "|q?|", 1) == unknown then return true end
+        end
+    end
+    return false
+end
+
+-- cost, provenance, status for a whole-set pair.
+--   * a retained complete local snapshot newer than the shipped set replaces
+--     it whole (scanned / verified);
+--   * otherwise the shipped set, with its declared status;
+--   * any retained witness or legacy row whose bundle is not in the
+--     effective set, or several distinct bundles with no approved set, leaves
+--     the pair unresolved: no hybrid, first-row or source-text fallback.
+function VendorData:ResolveCostSetState(state)
+    local shipped = state.shipped
+    local scanned = state.scanned
+    local effective, provenance, status
+    if shipped then
+        effective, provenance, status = shipped.cost, "static", shipped.status
+    end
+
+    local evidence = scanned and scanned.evidence
+    local selected = evidence and evidence.selected
+    if selected and selected.cost
+            and (not shipped or not shipped.observedAt
+                or (selected.observedAt and selected.observedAt > shipped.observedAt)) then
+        effective, provenance, status = selected.cost, "scanned", COST_STATUS_VERIFIED
+    end
+
+    local contradicted = false
+    local signatureSet = effective and SignatureSet(self, effective)
+    local function Check(bundle)
+        if not signatureSet or not BundleIn(self, signatureSet, bundle) then
+            contradicted = true
+        end
+    end
+    if scanned and scanned.legacyBundles then
+        for _, bundle in ipairs(scanned.legacyBundles) do Check(bundle) end
+        if not effective then
+            provenance = "legacy"
+        end
+    end
+    -- Only complete bundles are compared: an incomplete read can neither
+    -- confirm nor contradict a set.
+    if evidence and evidence.unresolved then
+        for _, witness in pairs(evidence.unresolved) do
+            for _, bundle in ipairs(witness.bundles or {}) do Check(bundle) end
+        end
+        provenance = provenance or "scanned"
+    end
+
+    if contradicted or not effective or status == COST_STATUS_UNRESOLVED then
+        return nil, provenance or "static", COST_STATUS_UNRESOLVED
+    end
+    return effective, provenance, status or COST_STATUS_LEGACY
 end
 
 function VendorData:InvalidateVendorCaches()
