@@ -372,6 +372,52 @@ function VendorData:FormatCost(cost, status)
     return text
 end
 
+-- One view per payment option of a cost set with alternatives, primary first,
+-- or nil when the cost should stay a single entry (no cost, unresolved, no
+-- alternatives, or a bundle with nothing to show). Views are new tables that
+-- share the component arrays and carry no alternatives.
+function VendorData:SplitCostOptions(cost, status)
+    if not cost or not cost.alternatives or #cost.alternatives == 0 then return nil end
+    status = status or cost.status or COST_STATUS_LEGACY
+    if status == COST_STATUS_UNRESOLVED then return nil end
+
+    local views = {}
+    local renderable = true
+    self:ForEachCostBundle(cost, function(bundle)
+        if not FormatCostBundle(bundle) then
+            renderable = false
+        end
+        views[#views + 1] = {
+            gold = bundle.gold,
+            currencies = bundle.currencies,
+            items = bundle.items,
+            purchaseQuantity = bundle.purchaseQuantity,
+        }
+    end)
+    if not renderable then return nil end
+    return views
+end
+
+-- One display string per payment option; never carries the qualifier suffix.
+-- Empty when there is nothing to show. FormatCost stays the one-string form.
+function VendorData:FormatCostOptions(cost, status)
+    status = status or (cost and cost.status) or COST_STATUS_LEGACY
+    local views = self:SplitCostOptions(cost, status)
+    if views then
+        local texts = {}
+        for i, view in ipairs(views) do
+            texts[i] = FormatCostBundle(view)
+        end
+        return texts
+    end
+    if status == COST_STATUS_QUALIFIED then
+        status = COST_STATUS_LEGACY
+    end
+    local text = self:FormatCost(cost, status)
+    if text then return { text } end
+    return {}
+end
+
 -- Convert scanned item cost format to static item cost format
 -- Scanned (legacy): {price = copper, currencies = {{currencyID, amount, name}}, itemCosts = {{itemID, amount, name}}}
 -- Scanned (future): {cost = {gold = copper, currencies = {{id, amount}}}}

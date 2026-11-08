@@ -333,8 +333,9 @@ local function AddPinTooltipItemLine(tooltip, item, options, suffix)
     -- single-line rendering unchanged.
     if options and options.isVendorContext then
         local sourceIcons = BuildItemSourceIconText(itemID, allSources)
-        local costText = HA.VendorData
-            and HA.VendorData:FormatCost(item and item.cost, item and item.costStatus) or "?"
+        local costTexts = HA.VendorData
+            and HA.VendorData:FormatCostOptions(item and item.cost, item and item.costStatus)
+        local costText = costTexts and costTexts[1] or "?"
         tooltip:AddDoubleLine(lineText .. sourceIcons, costText, lr, lg, lb, 1, 0.82, 0)
     else
         tooltip:AddLine(lineText, lr, lg, lb)
@@ -567,8 +568,9 @@ local function OnInteractiveMouseWheel(_, delta)
     end
 end
 
--- Search text is built when the wares are gathered, following FormatCost's guards
--- for what the cost column shows; a keystroke then only scans cached strings.
+-- Search text is built when the wares are gathered, following the cost column's
+-- guards for what it shows; each row searches its own payment option, and a
+-- keystroke then only scans cached strings.
 local function BuildWareSearchText(hover)
     local itemIDs = {}
     hover.itemIDs = itemIDs
@@ -741,6 +743,32 @@ local function ShowInteractiveVendorTooltip(pin, vendor, allItems, itemDetailsEn
     end
 end
 
+-- An item with an approved set of payment options gets one adjacent row per
+-- option, primary first; every other ware keeps its single untagged row.
+local function SplitWareCostOptions(wares)
+    for i = #wares, 1, -1 do
+        local ware = wares[i]
+        local views = ware.cost and HA.VendorData:SplitCostOptions(ware.cost, ware.costStatus)
+        if views then
+            for optionIndex = #views, 1, -1 do
+                local row = {
+                    itemID = ware.itemID,
+                    name = ware.name,
+                    cost = views[optionIndex],
+                    costStatus = ware.costStatus,
+                    optionIndex = optionIndex,
+                    optionCount = #views,
+                }
+                if optionIndex == 1 then
+                    wares[i] = row
+                else
+                    tinsert(wares, i + 1, row)
+                end
+            end
+        end
+    end
+end
+
 function VendorPinTooltips:ShowVendorTooltip(pin, vendor, isRebuild)
     if not vendor then return end
 
@@ -838,6 +866,10 @@ function VendorPinTooltips:ShowVendorTooltip(pin, vendor, isRebuild)
                 tinsert(allItems, {itemID = item.itemID, name = item.name, cost = cost, costStatus = costStatus})
             end
         end
+    end
+
+    if itemDetailsEnabled and HA.VendorData then
+        SplitWareCostOptions(allItems)
     end
 
     if #allItems > LONG_WARES_THRESHOLD then

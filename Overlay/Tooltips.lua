@@ -88,10 +88,10 @@ end
 -- Cost Lookup Functions
 -------------------------------------------------------------------------------
 
--- Format cost using VendorData (canonical formatter, always available via TOC load order)
-local function FormatCost(cost, status)
+-- One display string per payment option (VendorData is always available via TOC load order)
+local function FormatCostOptions(cost, status)
     if HA.VendorData then
-        return HA.VendorData:FormatCost(cost, status)
+        return HA.VendorData:FormatCostOptions(cost, status)
     end
     return nil
 end
@@ -572,12 +572,14 @@ local function RenderVendorSourceLines(tooltip, source, parsedTag, _itemID, _com
     -- Show cost if available (SourceManager includes cost in vendor source data).
     -- An unresolved cost has no cost table but still shows its status.
     if source.data.cost or source.data.costStatus == "unresolved" then
-        local costStr = FormatCost(source.data.cost, source.data.costStatus)
-        if costStr then
-            -- "Vendor Price", not "Cost": Blizzard's native item tooltip can carry a
-            -- "Sell Price" (sell-back) line on the same tooltip; an unqualified "Cost"
-            -- label reads as contradicting it.
-            tooltip:AddLine("  Vendor Price: |cFFFFFFFF" .. costStr .. "|r", COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
+        local costTexts = FormatCostOptions(source.data.cost, source.data.costStatus)
+        if costTexts then
+            for _, costStr in ipairs(costTexts) do
+                -- "Vendor Price", not "Cost": Blizzard's native item tooltip can carry a
+                -- "Sell Price" (sell-back) line on the same tooltip; an unqualified "Cost"
+                -- label reads as contradicting it.
+                tooltip:AddLine("  Vendor Price: |cFFFFFFFF" .. costStr .. "|r", COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
+            end
         end
     end
 end
