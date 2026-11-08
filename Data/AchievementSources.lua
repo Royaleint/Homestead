@@ -1,7 +1,7 @@
 --[[
     Homestead - AchievementSources
-    Generated: 2026-11-08 17:11:25
-    Total entries: 208
+    Generated: 2026-11-08 17:24:42
+    Total entries: 207
 
     Achievement source data for housing decor items.
     DO NOT EDIT — this file is generated and changes will be overwritten.
@@ -269,7 +269,6 @@ local sourceData = {
     [247768] = {achievementID = 61684, achievementName = "Progressing in Battle", category = "Player vs. Player"},
     [247769] = {achievementID = 61685, achievementName = "Proficient in Battle", category = "Player vs. Player"},
     [247770] = {achievementID = 61686, achievementName = "Expert in Battle", category = "Player vs. Player"},
-    [267356] = {achievementID = 61685, achievementName = "Proficient in Battle", category = "Player vs. Player"},
 
     -- Temple of Kotmogu
     [247740] = {achievementID = 6981, achievementName = "Master of Temple of Kotmogu", category = "Temple of Kotmogu"},
@@ -303,10 +302,10 @@ local CATEGORY_EXPANSION = {
     ["War Within"]       = "The War Within",
     ["War Within Raid"]  = "The War Within",
     ["Deephaul Ravine"]  = "The War Within",
-    ["Prey"]             = "The War Within",
     -- Midnight
     ["Midnight"]         = "Midnight",
     ["Void Assaults"]    = "Midnight",
+    ["Prey"]             = "Midnight",
     -- Dragonflight
     ["Dragonflight"]     = "Dragonflight",
     ["Dragon Isles"]     = "Dragonflight",
