@@ -1,13 +1,7 @@
 --[[
     Homestead - AchievementSources
-    Generated: 2026-08-18 22:24:20
-    Total entries: 250
-    Hand-corrected (2026-09-01): four refuted entries removed. Do NOT
-    regenerate without checking the source data first — the current data
-    vintage lost rows and a regen would silently drop five still-valid entries.
-    Rows for patch 12.1.5 added by hand.
-    Non-decor items removed (2026-11-07) after a check against the client's decor table:
-    58 rows whose items are gear, ensembles, potions, charms and similar, not decor.
+    Generated: 2026-11-08 16:32:20
+    Total entries: 258
 
     Achievement source data for housing decor items.
     DO NOT EDIT — this file is generated and changes will be overwritten.
@@ -20,11 +14,13 @@ local AchievementSources = {}
 local sourceData = {
     -- Midnight
     [244656] = {achievementID = 62185, achievementName = "Ever Painting", category = "Midnight"},
+    [248962] = {achievementID = 63432, achievementName = "Mysterious Mix Master", category = "Midnight"},
     [251325] = {achievementID = 62289, achievementName = "Zul'Aman: The Highest Peaks", category = "Midnight"},
     [251909] = {achievementID = 62186, achievementName = "The Party Must Go On", category = "Midnight"},
     [254773] = {achievementID = 62288, achievementName = "Eversong Woods: The Highest Peaks", category = "Midnight"},
     [256925] = {achievementID = 62289, achievementName = "Zul'Aman: The Highest Peaks", category = "Midnight"},
     [257367] = {achievementID = 61507, achievementName = "A Bloody Song", category = "Midnight"},
+    [263873] = {achievementID = 63358, achievementName = "Coiled to Strike", category = "Midnight"},
     [264259] = {achievementID = 61574, achievementName = "Legends Never Die", category = "Midnight"},
     [264266] = {achievementID = 61264, achievementName = "Leaf None Behind", category = "Midnight"},
     [264335] = {achievementID = 62122, achievementName = "Tallest Tree in the Forest", category = "Midnight"},
@@ -185,6 +181,7 @@ local sourceData = {
     [265681] = {achievementID = 62167, achievementName = "Prey: Mad Magisters (Nightmare)", category = "Prey"},
     [265682] = {achievementID = 62168, achievementName = "Prey: Insane Inventors (Nightmare)", category = "Prey"},
     [265683] = {achievementID = 62173, achievementName = "Prey: Ethereal Assassins (Nightmare)", category = "Prey"},
+    [265684] = {achievementID = 62174, achievementName = "Prey: Anger Management (Nightmare)", category = "Prey"},
     [265685] = {achievementID = 62175, achievementName = "Prey: Sadistic Shamans (Nightmare)", category = "Prey"},
     [265686] = {achievementID = 62177, achievementName = "Prey: Bloody Green Thumbs (Nightmare)", category = "Prey"},
     [265687] = {achievementID = 62178, achievementName = "Prey: Blinded By The Light (Nightmare)", category = "Prey"},
@@ -211,6 +208,10 @@ local sourceData = {
     [265797] = {achievementID = 62176, achievementName = "Prey: The Fallen Farstriders (Nightmare)", category = "Prey"},
     [265798] = {achievementID = 62154, achievementName = "Prey: A Different Kind of Void (Hard)", category = "Prey"},
     [265799] = {achievementID = 62158, achievementName = "Prey: The Fallen Farstriders (Hard)", category = "Prey"},
+    [278369] = {achievementID = 63451, achievementName = "Scales for Days", category = "Prey"},
+    [278372] = {achievementID = 63452, achievementName = "Fangs for the Memories", category = "Prey"},
+    [278376] = {achievementID = 63454, achievementName = "Nine, Ten, Never Sleep Again", category = "Prey"},
+    [278380] = {achievementID = 63453, achievementName = "One, Two, Ral'kala's Coming for You", category = "Prey"},
 
     -- Professions
     [241191] = {achievementID = 12733, achievementName = "Professional Zandalari Master", category = "Professions"},
@@ -288,6 +289,7 @@ local sourceData = {
     -- Deephaul Ravine
     [243890] = {achievementID = 40612, achievementName = "Sprinting in the Ravine", category = "Deephaul Ravine"},
     [247750] = {achievementID = 40612, achievementName = "Sprinting in the Ravine", category = "Deephaul Ravine"},
+    [253170] = {achievementID = 40210, achievementName = "Deephaul Ravine Victory", category = "Deephaul Ravine"},
 
     -- Eye of the Storm
     [243899] = {achievementID = 212, achievementName = "Storm Capper", category = "Eye of the Storm"},
