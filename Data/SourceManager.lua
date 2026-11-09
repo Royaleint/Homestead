@@ -2857,10 +2857,9 @@ local function HookCompletionCacheInvalidation()
             -- 2. requirementEvalBaseline entries: the availability path
             --    (line ~398) baselines with req.id populated; Data/
             --    PrerequisiteSources.lua's achievement requirements
-            --    (consumed via Tooltips.lua's prerequisite display) are
-            --    100% NAME-ONLY (CRITICAL: an id-only
-            --    lookup silently missed all 109 of them). Which baseline
-            --    belongs to the earned achievement is decided by
+            --    (consumed via Tooltips.lua's prerequisite display) mostly
+            --    carry an id now; a row without one is matched by name.
+            --    Which baseline belongs to the earned achievement is decided by
             --    ResolveAchievementID -- the SAME locale-neutral resolution
             --    EvaluateRequirementMetLive performs (id direct, or name
             --    resolved through the addon's own AchievementSources data).
