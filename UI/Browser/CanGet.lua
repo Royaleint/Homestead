@@ -474,7 +474,8 @@ function CG.Primary(itemID, sources)
     if at then
         local v = D.Vendor(at) or {}
         local _, zone, subzone = Facts.Place(v)
-        return { type = "vendor", npcID = at, name = v.name, zone = zone, subzone = subzone, price = D.Price(itemID, v) }
+        return { type = "vendor", npcID = at, name = v.name, zone = zone, subzone = subzone, price = D.Price(itemID, v),
+            source = D.VendorSource(at) }
     end
     return own or first or sources[1]
 end

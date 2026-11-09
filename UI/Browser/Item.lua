@@ -142,7 +142,7 @@ local function OtherRow(itemID, src, flagged)
         EventStatus(row, name, CD and CD:IsHolidayActive(name) == true, flagged)
         row.wp = Spot(src.mapID, src.x, src.y, name)
     else
-        row.one = B.Data.SourceLine(itemID, { src })
+        row.one = HA.FormatSourceLine(src.source)
     end
     local sourceType = F.SOURCE_TYPE[t]
     local file = HA.SourceManager:GetSourceTable(sourceType)

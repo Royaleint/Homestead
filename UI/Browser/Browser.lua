@@ -569,7 +569,7 @@ function B.ShowItemTooltip(owner, itemID, npcID, tile)
     end
     tip:AddLine(L["Source"], gold.r, gold.g, gold.b)
     if d.price then Pair(tip, L["Price"], d.price) end
-    tip:AddLine(d.source, 1, 1, 1, true)
+    HA.AddItemSourceLine(tip, itemID, d.source)
     if tile then
         tip:AddLine(" ")
         tip:AddLine(L["Left-click: details"], gold.r, gold.g, gold.b)

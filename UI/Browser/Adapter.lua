@@ -13,11 +13,6 @@ local FACTION_LABELS = {
     ["Horde"] = L["Horde"],
 }
 
-local SOURCE_TYPE_LABELS = {
-    ["shop"] = L["Shop"],
-    ["treasure"] = L["Treasure"],
-}
-
 -- Moves whenever an asked-for name arrives, so a page that sorted or searched by name can tell.
 local nameGen = 0
 
@@ -343,11 +338,21 @@ function D.VendorRequirements(vendor)
     return m.reqs
 end
 
+-- A vendor as a source-manager source, for the shared source line: its name and both positions.
+function D.VendorSource(npcID)
+    local v = D.Vendor(npcID) or {}
+    local altMapID, _, _, altZone, altSubzone = HA.VendorData:GetOtherPosition(v)
+    return { type = "vendor", data = {
+        vendor = v, name = v.name, mapID = v.mapID, zone = v.zone, subzone = v.subzone,
+        altMapID = altMapID, altZone = altZone, altSubzone = altSubzone,
+    } }
+end
+
 function D.ItemSources(itemID)
     local out = {}
     for _, src in ipairs(HA.SourceManager:GetAllSources(itemID) or {}) do
         local d = src.data or {}
-        local e = { type = src.type }
+        local e = { type = src.type, source = src }
         if src.type == "vendor" then
             e.npcID = d.npcID
             e.name = d.name
@@ -406,34 +411,6 @@ function D.CatalogInfo(itemID, catalogMemo)
     return (select(2, D.Ownership(itemID, catalogMemo)))
 end
 
-function D.SourceLine(itemID, sources)
-    local src = (sources or D.ItemSources(itemID))[1]
-    if not src then return L["Source unknown"] end
-    local t = src.type
-    if t == "vendor" and not src.name then src = src.npcID and D.Vendor(src.npcID) or {} end
-    local name = src.name or L["Unknown"]
-    if t == "vendor" then
-        if not src.name then return L["A vendor"] end
-        local place = src.zone
-        if src.subzone then place = L["%s, %s"]:format(src.subzone, src.zone or L["Unknown"]) end
-        if place then return L["Vendor: %s, %s"]:format(name, place) end
-        return L["Vendor: %s"]:format(name)
-    elseif t == "achievement" then
-        return L["Achievement: %s"]:format(name)
-    elseif t == "quest" then
-        return L["Quest: %s"]:format(name)
-    elseif t == "profession" then
-        return L["Crafted: %s - %s"]:format(src.profession or L["Unknown"], name)
-    elseif t == "drop" then
-        if src.zone then return L["Drops from %s (%s)"]:format(name, src.zone) end
-        return L["Drops from %s"]:format(name)
-    elseif t == "event" then
-        if src.vendorName then return L["Event: %s - %s"]:format(name, src.vendorName) end
-        return L["Event: %s"]:format(name)
-    end
-    return L["%s: %s"]:format(SOURCE_TYPE_LABELS[t] or L["Other source"], name)
-end
-
 function D.IconData(itemID, wantCopies, catalogMemo)
     local quality, copies
     if wantCopies then
@@ -462,10 +439,10 @@ function D.TooltipData(itemID, npcID, catalogMemo)
             redeemable = info.remainingRedeemable or 0,
         }
     end
-    local p = npcID and { type = "vendor", npcID = npcID } or B.CanGet.Primary(itemID)
+    local p = npcID and { type = "vendor", npcID = npcID, source = D.VendorSource(npcID) } or B.CanGet.Primary(itemID)
     local v = p and p.type == "vendor" and p.npcID and D.Vendor(p.npcID)
     out.price = npcID and D.Price(itemID, v) or p and p.price
-    out.source = D.SourceLine(itemID, { p })
+    out.source = p and p.source
     out.active = v and D.HolidayActive(v) and v.event or nil
     local e = B.CanGet.Entry(itemID)
     out.bonus = e and e.bonus or nil

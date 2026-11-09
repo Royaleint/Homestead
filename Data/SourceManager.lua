@@ -1369,7 +1369,8 @@ function SourceManager:GetRequirementText(req)
 
     if t == "reputation" then
         local standing = req.standing or Text("Required")
-        local faction = req.faction or Text("Unknown faction")
+        -- Scanned factions can end in a period.
+        local faction = (req.faction or Text("Unknown faction")):gsub("%.$", "")
         if standing:match("^Renown") then
             return Text("%s %s"):format(standing, faction)
         end

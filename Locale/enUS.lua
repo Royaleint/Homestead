@@ -306,6 +306,14 @@ L["Drops from %s (%s)"] = "Drops from %s (%s)"
 L["Event: %s"] = "Event: %s"
 L["Event: %s - %s"] = "Event: %s - %s"
 L["Other source"] = "Other source"
+L["%s / %s"] = "%s / %s"
+L["Requires %s"] = "Requires %s"
+L["%s (%s)"] = "%s (%s)"
+L["%s (until %s)"] = "%s (until %s)"
+L["Shop: %s"] = "Shop: %s"
+L["Twitch Drop"] = "Twitch Drop"
+L["Charity Pack"] = "Charity Pack"
+L["Promotion"] = "Promotion"
 
 -------------------------------------------------------------------------------
 -- Decor Browser: visuals and widgets

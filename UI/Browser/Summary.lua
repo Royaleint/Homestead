@@ -66,7 +66,7 @@ end
 local function RowData(e, why, color)
     local p = CG.Primary(e.itemID)
     local v = p and p.npcID and D.Vendor(p.npcID)
-    return { itemID = e.itemID, why = why, color = color, src = D.SourceLine(e.itemID, { p }),
+    return { itemID = e.itemID, why = why, color = color, src = HA.FormatSourceLine(p and p.source),
         price = D.Price(e.itemID, v), e = e }, p, v
 end
 

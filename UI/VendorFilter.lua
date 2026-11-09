@@ -282,23 +282,35 @@ end
 -- position has no area ID; an area name that only repeats the zone is the zone-level
 -- area row, so the shipped subzone stays.
 local mapNames, areaNames = {}, {}
+
+-- The client's name for a map, or nil when it has none.
+function VendorFilter.GetMapName(mapID)
+    local name = mapNames[mapID]
+    if name == nil then
+        local info = C_Map.GetMapInfo(mapID)
+        name = info and info.name or false
+        mapNames[mapID] = name
+    end
+    return name or nil
+end
+
+-- The client's name for an area, or nil when it has none.
+function VendorFilter.GetAreaName(areaID)
+    local name = areaNames[areaID]
+    if name == nil then
+        name = C_Map.GetAreaInfo(areaID) or false
+        areaNames[areaID] = name
+    end
+    return name or nil
+end
+
 function VendorFilter.GetVendorPlaceNames(vendor)
     local mapID, zone, subzone, areaID = VendorFilter.GetUsableVendorPlace(vendor)
     if mapID then
-        local name = mapNames[mapID]
-        if name == nil then
-            local info = C_Map.GetMapInfo(mapID)
-            name = info and info.name or false
-            mapNames[mapID] = name
-        end
-        zone = name or zone
+        zone = VendorFilter.GetMapName(mapID) or zone
     end
     if areaID then
-        local name = areaNames[areaID]
-        if name == nil then
-            name = C_Map.GetAreaInfo(areaID) or false
-            areaNames[areaID] = name
-        end
+        local name = VendorFilter.GetAreaName(areaID)
         if name and name ~= zone then subzone = name end
     end
     return mapID, zone, subzone

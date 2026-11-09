@@ -981,15 +981,6 @@ end
 -- Item Search Result Rows
 -------------------------------------------------------------------------------
 
-local function GetSourceTypeLabel(sourceType)
-    local SM = HA.SourceManager
-    local normalizedType = sourceType
-    if SM and SM.NormalizeSourceType then
-        normalizedType = SM:NormalizeSourceType(sourceType) or sourceType
-    end
-    return SOURCE_FILTER_LABELS[normalizedType] or normalizedType or "Source"
-end
-
 local function GetSourceBadgeAtlas(sourceType)
     local SM = HA.SourceManager
     local normalizedType = sourceType
@@ -1020,78 +1011,6 @@ local function ApplySourceBadge(texture, sourceType, atlas, icon)
     end
 
     texture:Show()
-end
-
-local function GetSourceLocationText(data)
-    if type(data) ~= "table" then return nil end
-
-    -- The summary line does not wrap, so two positions show zone names only.
-    if data.altZone and data.zone then
-        return data.zone .. " / " .. data.altZone
-    end
-
-    if data.subzone and data.zone then
-        return data.subzone .. ", " .. data.zone
-    end
-
-    return data.zone or data.subzone
-end
-
-local function FormatSourceSummary(source)
-    if not source then
-        return "Source details unavailable"
-    end
-
-    local sourceType = source.type or source.sourceType
-    local data = source.data or source
-    local label = GetSourceTypeLabel(sourceType)
-    local detail
-
-    if sourceType == "vendor" then
-        local vendorName = data.name or data.vendorName or "Unknown Vendor"
-        local location = GetSourceLocationText(data)
-        detail = location and (vendorName .. " (" .. location .. ")") or vendorName
-    elseif sourceType == "quest" then
-        detail = data.questName or "Unknown Quest"
-    elseif sourceType == "achievement" then
-        detail = data.achievementName or "Unknown Achievement"
-    elseif sourceType == "profession" then
-        local recipeName = data.recipeName or data.name
-        local professionName = data.skillTier or data.profession
-        if recipeName and professionName then
-            detail = recipeName .. " (" .. professionName .. ")"
-        else
-            detail = recipeName or professionName or "Unknown Recipe"
-        end
-    elseif sourceType == "event" then
-        local eventName = data.event or data.vendorName or "Unknown Event"
-        local vendorName = data.vendorName
-        local location = GetSourceLocationText(data)
-        if vendorName and vendorName ~= eventName then
-            local vendorDisplay = location and (vendorName .. " - " .. location) or vendorName
-            detail = eventName .. " / " .. vendorDisplay
-        else
-            detail = location and (eventName .. " (" .. location .. ")") or eventName
-        end
-    elseif sourceType == "drop" then
-        local mobName = data.mobName or "Unknown Drop"
-        local location = data.zone
-        detail = location and (mobName .. " (" .. location .. ")") or mobName
-    elseif sourceType == "shop" then
-        local method = data.method or "hearthsteel"
-        if method == "hearthsteel" and data.cost then
-            detail = data.cost .. " Hearthsteel"
-        else
-            detail = data.name or "In-Game Shop"
-        end
-        if data.expires then
-            detail = detail .. " (until " .. data.expires .. ")"
-        end
-    else
-        detail = data.name or data.sourceText or "Unknown Source"
-    end
-
-    return label .. ": " .. detail
 end
 
 local function GetDisplaySourcesForItem(itemID, sourceFilter)
@@ -1234,7 +1153,7 @@ local function PopulateItemSourceList(row, itemID, sourceFilter)
             line:SetPoint("TOPLEFT", sourcesFrame, "TOPLEFT", 0, -((i - 1) * Layout.ITEM_RESULT_LINE_HEIGHT))
             line:SetPoint("TOPRIGHT", sourcesFrame, "TOPRIGHT", 0, -((i - 1) * Layout.ITEM_RESULT_LINE_HEIGHT))
             ApplySourceBadge(line.badge, source.type)
-            line.text:SetText(FormatSourceSummary(source))
+            line.text:SetText(HA.FormatSourceLine(source))
             line.text:SetTextColor(0.8, 0.8, 0.8)
             line:Show()
         end
@@ -1402,7 +1321,7 @@ local function RenderItemRow(row, rec)
         ApplySourceBadge(row.sourceBadge, preferredSource.type,
             presentation and presentation.sourceBadgeAtlas,
             presentation and presentation.sourceIcon)
-        row.sourceText:SetText(FormatSourceSummary(preferredSource))
+        row.sourceText:SetText(HA.FormatSourceLine(preferredSource))
         row.sourceText:SetTextColor(0.8, 0.8, 0.8)
     else
         row.sourceBadge:Hide()
