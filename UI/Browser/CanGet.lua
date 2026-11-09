@@ -42,7 +42,7 @@ end
 local function Verdict(SM, itemID, npcID, vendor, own)
     if own ~= "notOwned" then return own == "owned" and "owned" or "unknown" end
     if not (npcID and vendor) then return "unknown" end
-    if not Facts.BrowserListed(vendor) then return "unlisted" end
+    if not Facts.OnSale(vendor) then return "unlisted" end
     if D.IsOppositeFaction(vendor) then return "faction" end
     local state = SM:GetVendorItemAvailabilityState(itemID, npcID, true)
     if state == "purchasable" then return "can" end
@@ -316,7 +316,7 @@ local function Evaluate(itemID, SM, VD, memo, tables)
     local e = { itemID = itemID, info = info, own = own, name = D.ItemName(itemID, info), src = {} }
     local bonus = info and info.firstAcquisitionBonus or 0
     e.bonus = own == "notOwned" and bonus > 0 and bonus or nil
-    e.src.vendors = VD:HasOfferForItem(itemID) or nil
+    e.src.vendors = VD:IsCountedVendorItem(itemID) or nil
     for key, t in pairs(tables) do
         if t[itemID] then e.src[key] = true end
     end

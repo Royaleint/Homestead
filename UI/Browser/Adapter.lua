@@ -55,9 +55,9 @@ function D.ItemIcon(itemID)
     return C_Item.GetItemIconByID(itemID) or B.Style.tex.placeholderIcon
 end
 
--- The browser's vendor lists: its listing rule, ignoring the map pin settings, less confirmed no-decor vendors.
+-- The browser's vendor lists: its listing rule, ignoring the map pin settings.
 function D.IsListedVendor(vendor)
-    return B.Facts.BrowserListed(vendor) and not HA.VendorFilter.IsConfirmedNoDecor(vendor)
+    return B.Facts.BrowserListed(vendor)
 end
 
 -- Expansion name to its LE_EXPANSION_ token, from the shared newest-first order, built on first use.
@@ -115,15 +115,11 @@ function D.ExpansionLabel(key)
     return token and _G["EXPANSION_NAME" .. tostring(_G["LE_EXPANSION_" .. token])] or key
 end
 
-local function HolidayEntries()
-    return HA.EventSources and HA.EventSources.EventVendors or {}
-end
-
 function D.HolidayActive(vendor)
-    local entry = vendor and HolidayEntries()[vendor.npcID]
-    if not entry then return nil end
+    local event = vendor and HA.VendorData:GetHolidayEvent(vendor.npcID)
+    if not event then return nil end
     local CD = HA.CalendarDetector
-    return entry.event ~= nil and CD ~= nil and CD:IsHolidayActive(entry.event) == true
+    return CD ~= nil and CD:IsHolidayActive(event) == true
 end
 
 -- True when this character can use the vendor at none of its positions.
@@ -218,7 +214,7 @@ function D.NearYou()
     for m in pairs(where.maps) do
         for _, vendor in ipairs(HA.VendorData:GetVendorsInMap(m)) do
             local id = vendor.npcID
-            if id and not seen[id] and D.IsListedVendor(vendor) and VF.CanAccessVendor(vendor) then
+            if id and not seen[id] and B.Facts.OnSale(vendor) and VF.CanAccessVendor(vendor) then
                 seen[id] = true
                 local dist = math.huge
                 local coords, vmap = VF.GetBestVendorCoordinates(vendor)

@@ -97,7 +97,7 @@ local function VendorRow(itemID, b, flagged)
         Status(row, W.StateWords(b.offer, words), st.glyph, st.color)
     end
     local event = HA.VendorData:GetHolidayEvent(b.npcID) or v.event
-    if event then EventStatus(row, event, F.BrowserListed(v), flagged) end
+    if event then EventStatus(row, event, D.HolidayActive(v), flagged) end
     local confirmed = HA.VendorData:GetConfirmedDate(v)
     if confirmed then Status(row, L["Confirmed by a scan on %s"]:format(confirmed)) end
     local key = F.SourceKey("vendors", { npcID = b.npcID }, itemID)

@@ -210,7 +210,7 @@ local function RowData(s)
     elseif cs == "counting" then state = "counting"
     elseif CG.HiddenBy(v and { vendor = v } or { items = s.items }) == "collected" then state = "allDone"
     elseif can and can > 0 then state, arg = "some", can
-    elseif s.type == "events" or (v and D.HolidayActive(v)) then state = "live" end
+    elseif s.type == "events" or (v and (D.HolidayActive(v) or Facts.EndeavorActive(v))) then state = "live" end
     return {
         kind = "row", key = s.key, name = s.title, line2 = not oneLine and s.sub or s.where, noTile = true, state = state, arg = arg,
         iconsOf = oneLine and function() return Rows(s, true) end or nil,
@@ -934,6 +934,7 @@ function Draw(fresh, saved)
     local rows = Rows(s, true)
     local ready = D.CollectionState() == "ready"
     local act = D.HolidayActive(v) and v.event or nil
+    local live = act ~= nil or Facts.EndeavorActive(v) == true
     local n, owned = #rows, 0
     for _, r in ipairs(rows) do
         local e = CG.Entry(r.itemID)
@@ -945,8 +946,8 @@ function Draw(fresh, saved)
     SetFace(v)
     V.name:SetText(s.title)
     V.name:SetSize(cw, nh)
-    V.tag:SetShown(act ~= nil)
-    local tagH = act and W.TextHeight("meta", V.tag:GetText(), cw) or 0
+    V.tag:SetShown(live)
+    local tagH = live and W.TextHeight("meta", V.tag:GetText(), cw) or 0
     V.tag:SetSize(cw, tagH)
     local place = Facts.Where(v) or L["Unknown"]
     local at = Facts.Place(v)
@@ -954,7 +955,7 @@ function Draw(fresh, saved)
     V.where:SetText(cont and L["%s · %s"]:format(place, cont) or place)
     V.where:SetSize(math.min(V.where:GetUnboundedStringWidth() + 1, cw - V.wp:GetWidth() - SP.xs), bh)
     V.where:ClearAllPoints()
-    V.where:SetPoint("TOPLEFT", act and V.tag or V.name, "BOTTOMLEFT", 0, -SP.xs)
+    V.where:SetPoint("TOPLEFT", live and V.tag or V.name, "BOTTOMLEFT", 0, -SP.xs)
     local mapID, mx, my = Loc(s)
     V.wp:SetShown(mapID ~= nil)
     V.wp.wp = { mapID = mapID, x = mx, y = my, title = s.title, data = { type = "vendor", npcID = v.npcID } }
@@ -965,7 +966,7 @@ function Draw(fresh, saved)
     SetCan(V.can, ready and CG.VendorCanCount(v) or 0, cw)
     V.can:ClearAllPoints()
     V.can:SetPoint("TOPLEFT", n > 0 and V.count or V.where, "BOTTOMLEFT", 0, -SP.xs)
-    V.head:SetSize(w, math.max(PORTRAIT, nh + (act and tagH + 2 or 0) + SP.xs + bh
+    V.head:SetSize(w, math.max(PORTRAIT, nh + (live and tagH + 2 or 0) + SP.xs + bh
         + (n > 0 and SP.xs + V.count:GetHeight() or 0) + (V.can:IsShown() and SP.xs + V.can:GetHeight() or 0)))
 
     Line(V.note, "body", (D.VendorNote(v)), w)

@@ -7,25 +7,24 @@ local L = HA.L
 local F = {}
 B.Facts = F
 
-local function EventVendors()
-    return HA.EventSources and HA.EventSources.EventVendors or {}
+-- Whether the browser lists a vendor at all. Unlike the map pins it ignores display settings. A holiday
+-- vendor is listed in its season, and every Endeavor vendor is listed whichever theme is on.
+function F.BrowserListed(vendor)
+    if not vendor then return false end
+    local VD = HA.VendorData
+    return not VD:IsVendorHiddenByNpcID(vendor.npcID) and not VD:IsHolidayVendorHidden(vendor.npcID)
+        and not HA.VendorFilter.IsConfirmedNoDecor(vendor)
 end
 
--- Whether the browser lists a vendor at all. Unlike the map pins it ignores display settings, and a
--- holiday or Endeavor vendor counts only while its event or theme is known to be on.
-function F.BrowserListed(vendor)
-    if not vendor or HA.VendorData:IsVendorHiddenByNpcID(vendor.npcID) then return false end
-    local ev = EventVendors()[vendor.npcID]
-    if ev or vendor._isEventVendor then
-        local event = ev and ev.event or vendor.event
-        local CD = HA.CalendarDetector
-        if not (event and CD and CD:IsHolidayActive(event) == true) then return false end
-    end
-    if vendor.endeavor then
-        local ED = HA.EndeavorsData
-        if not (ED and ED:IsThemeActive(ED:GetThemeForVendor(vendor)) == true) then return false end
-    end
-    return true
+-- For an Endeavor vendor, whether this week's theme is its own: true only when the game has reported the
+-- theme, false otherwise. nil for any other vendor.
+function F.EndeavorActive(vendor)
+    return HA.VendorData:IsEndeavorVendorActive(vendor)
+end
+
+-- Whether a listed vendor is selling now: an Endeavor vendor sells only in its theme's week.
+function F.OnSale(vendor)
+    return F.BrowserListed(vendor) and F.EndeavorActive(vendor) ~= false
 end
 
 -- The position the browser points this character to for a vendor, the one its waypoint uses: mapID, and the

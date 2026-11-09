@@ -1510,6 +1510,52 @@ function VendorData:HasOfferForItem(itemID)
     return self.OfferByItemID ~= nil and self.OfferByItemID[itemID] ~= nil
 end
 
+-- For an Endeavor vendor (a record or an NPC ID, scan-built records included), whether this week's theme is
+-- its own: true only when the game has reported the theme; false for an unknown or unmapped theme. nil for any
+-- other vendor.
+function VendorData:IsEndeavorVendorActive(vendor)
+    local ED = HA.EndeavorsData
+    if not ED then return nil end
+    local isRecord = type(vendor) == "table"
+    local theme = ED:GetThemeForVendor(vendor)
+    if not (theme or (isRecord and vendor.endeavor) or (ED.Vendors and ED.Vendors[isRecord and vendor.npcID or vendor])) then
+        return nil
+    end
+    return theme ~= nil and ED:IsThemeActive(theme) == true
+end
+
+-- One seller of an item, for IsCountedVendorItem: not retired or hidden, not confirmed as selling no decor,
+-- and, for an Endeavor vendor, on this week's theme (an unknown theme is off). A holiday vendor counts in any
+-- season. The probe stands in for a vendor record so the lookup allocates nothing.
+local sellerProbe = {}
+local function SellerCounts(self, npcID)
+    if self:IsVendorHiddenByNpcID(npcID) then return false end
+    local active = self:IsEndeavorVendorActive(npcID)
+    if active ~= nil then return active end
+    sellerProbe.npcID = npcID
+    sellerProbe._isEventVendor = self:GetHolidayEvent(npcID) ~= nil or nil
+    return not (HA.VendorFilter and HA.VendorFilter.IsConfirmedNoDecor(sellerProbe))
+end
+
+-- Whether the item counts toward the Vendors source: any seller, from the offer index, the Endeavor wares or a
+-- holiday vendor's own item list, counts by SellerCounts. Keeps nothing between calls.
+function VendorData:IsCountedVendorItem(itemID)
+    local offers = self.OfferByItemID and self.OfferByItemID[itemID]
+    for i = 1, offers and #offers or 0 do
+        if SellerCounts(self, offers[i]) then return true end
+    end
+    local ED = HA.EndeavorsData
+    local endeavors = ED and ED.ByItemID and ED.ByItemID[itemID]
+    for i = 1, endeavors and #endeavors or 0 do
+        if SellerCounts(self, endeavors[i]) then return true end
+    end
+    local holiday = self:GetHolidayVendorsForItem(itemID)
+    for i = 1, holiday and #holiday or 0 do
+        if SellerCounts(self, holiday[i]) then return true end
+    end
+    return false
+end
+
 function VendorData:GetVendorWithItems(npcID)
     return self:GetVendor(npcID)
 end
