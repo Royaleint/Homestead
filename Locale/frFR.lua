@@ -481,6 +481,8 @@ L["Right-click: open in the Housing Dashboard"] = "Clic droit : ouvrir dans le t
 L["Right-click: Housing Dashboard unavailable in combat"] = "Clic droit : tableau de bord des logis indisponible en combat"
 L["%s; %s"] = "%s; %s"
 L["%s · %s"] = "%s · %s"
+L["Start:"] = "Début :"
+L["Use %s"] = "Utiliser %s"
 -- end: Sources
 
 -------------------------------------------------------------------------------

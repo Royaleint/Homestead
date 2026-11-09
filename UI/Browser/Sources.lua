@@ -116,12 +116,44 @@ local function VendorList(home)
     return out
 end
 
--- A shop source is named after its item, which may not have loaded yet.
-local function ShopTitle(s)
-    local id = s.items[1]
+-- A decor item's name, which may not have loaded yet.
+local function DecorName(id)
     local e = CG.Entry(id)
-    local info = e and e.info or D.CatalogInfo(id, B.State.catalogMemo)
-    s.title = D.ItemName(id, info) or L["Item %d"]:format(id)
+    return D.ItemName(id, e and e.info or D.CatalogInfo(id, B.State.catalogMemo)) or L["Item %d"]:format(id)
+end
+
+local function ShopTitle(s)
+    s.title = DecorName(s.items[1])
+end
+
+-- What starts a quest, in words: an item is used, an object is named, and a creature is named in the player's
+-- language when the client has it, else by the shipped English name.
+local function StartWords(g)
+    if g.kind == "item" then return L["Use %s"]:format(D.ItemName(g.giver) or L["Item %d"]:format(g.giver)) end
+    return g.kind == "object" and g.name or D.NpcName(g.giver) or g.name
+end
+
+-- One row per decor item of a quest. The giver's name is read when a row draws.
+local function QuestRows(s, data)
+    local giver = Facts.QuestGiver(s.questID)
+    local at = Facts.TreasureSpot(s.questID) or Facts.QuestStart(s.questID)
+    local where = at and s.where and s.where .. " " .. HA.Waypoints:FormatCoords(at.x, at.y) or s.sub
+    table.sort(s.pick)
+    for _, id in ipairs(s.pick) do
+        local e = CG.Entry(id)
+        local info = e and e.info
+        data[#data + 1] = {
+            kind = "quest", key = s.key, itemID = id, name = DecorName(id), quality = info and info.quality or C_Item.GetItemQualityByID(id),
+            icon = D.ItemIcon(id), state = B.ItemState(id), quest = s.title, where = where,
+            start = giver and function() return StartWords(giver) end or nil,
+            onQuest = function() B.Go({ kind = "source", key = "quests", id = s.key }) end,
+            onQuestTip = function(owner) B.ShowLinkTooltip(owner, LINK.quests(s)) end,
+            onMap = at and function()
+                HA.Waypoints:Set(at.mapID, at.x, at.y, { title = s.title })
+                OpenWorldMap(at.mapID)
+            end or nil,
+        }
+    end
 end
 
 -- Total decor, owned (nil until known) and can get now (nil until known).
@@ -303,6 +335,7 @@ local function Before(a, b)
 end
 
 local function Extent(d)
+    if d.kind == "quest" then return W.QuestRowHeight() end
     if d.kind == "header" then return W.HeaderExtent(d, list.box:GetWidth() - (d.fold and GLYPH + SP.xs or 0)) end
     if d.kind == "foot" then
         local w = list.box:GetWidth()
@@ -382,8 +415,28 @@ local function BuildList(keep, zone)
         if t == "shop" then ShopTitle(s) end
         live = live or (t == "events" and Live(s.key))
         local v = s.vendor
-        if q == "" or (s.title .. " " .. (s.sub or "") .. " " .. (s.group or "") .. " " .. (v and v.zone or "")
-                .. " " .. (s.en or "")):lower():find(q, 1, true) then
+        local text = (s.title .. " " .. (s.sub or "") .. " " .. (s.group or "") .. " " .. (v and v.zone or "")
+            .. " " .. (s.en or "")):lower()
+        if t == "quests" then
+            -- Each decor item is its own row: hidden on its own, and found by its name when the quest is not.
+            s.pick = {}
+            for _, id in ipairs(s.items) do
+                if q == "" or text:find(q, 1, true) or DecorName(id):lower():find(q, 1, true) then
+                    local why = hide and CG.HiddenBy(id)
+                    if why then
+                        hidden.hidden = hidden.hidden + 1
+                        hidden[why] = hidden[why] + 1
+                        if why == "faction" then seen[""] = (seen[""] or 0) + 1 end
+                    else
+                        s.pick[#s.pick + 1] = id
+                    end
+                end
+            end
+            if #s.pick > 0 then
+                out[#out + 1] = s
+                Place(s, order)
+            end
+        elseif q == "" or text:find(q, 1, true) then
             local why = hide and CG.HiddenBy(v and { vendor = v } or { items = s.items })
             if why then
                 hidden.hidden = hidden.hidden + 1
@@ -450,7 +503,7 @@ local function BuildList(keep, zone)
         end
         if zone and not zoneAt and Near(s) then zoneAt = headAt end
         if not (shut or topShut) and not grid then
-            data[#data + 1] = RowData(s)
+            if t == "quests" then QuestRows(s, data) else data[#data + 1] = RowData(s) end
             if vid and s.key == vid then openAt = #data end
         end
     end
@@ -695,7 +748,7 @@ function Page:Build(parent)
     lh:SetPoint("BOTTOMRIGHT", -LO.wellPad, LO.wellPad)
     list = W.NewList(lh, {
         extent = Extent, reclaim = true,
-        kinds = { row = W.rowKind, header = headerKind, foot = footKind },
+        kinds = { row = W.rowKind, quest = W.questKind, header = headerKind, foot = footKind },
     })
     empty = W.NewEmptyState(lh)
     shopNote = CreateFrame("Frame", nil, lh)
@@ -809,6 +862,7 @@ end
 -- Only the card has a control that waits for the end of combat.
 function Page:SetCombat(inCombat)
     if V.report then V.report:SetEnabled(not inCombat) end
+    if list then W.RepaintRows(list) end
 end
 
 -- The card is one scroll, so a large text size scrolls the card instead of clipping the head.

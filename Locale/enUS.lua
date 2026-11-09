@@ -516,6 +516,9 @@ L["Right-click: open in the Housing Dashboard"] = "Right-click: open in the Hous
 L["Right-click: Housing Dashboard unavailable in combat"] = "Right-click: Housing Dashboard unavailable in combat"
 L["%s; %s"] = "%s; %s" -- untranslated
 L["%s · %s"] = "%s · %s" -- untranslated
+L["Map"] = WORLD_MAP or "Map"
+L["Start:"] = "Start:" -- untranslated
+L["Use %s"] = "Use %s"
 -- end: Sources
 
 -------------------------------------------------------------------------------

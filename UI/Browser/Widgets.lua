@@ -381,12 +381,12 @@ local function Cap(fs, room)
     return room and room - math.min(math.ceil(fs:GetUnboundedStringWidth()), math.floor(room / 2)) or nil
 end
 
--- A small icon that opens its item's page (right-click: the Dashboard) and shows the item's tooltip.
-local function BuildIcon(row)
+-- An icon (R.icon square, or size) that opens its item's page (right-click: the Dashboard) and shows the item's tooltip.
+local function BuildIcon(row, size)
     local btn = CreateFrame("Button", nil, row)
-    btn:SetSize(R.icon, R.icon)
+    btn:SetSize(size or R.icon, size or R.icon)
     btn:RegisterForClicks("LeftButtonUp", "RightButtonUp")
-    btn.tile = W.NewTile(btn, R.icon)
+    btn.tile = W.NewTile(btn, size or R.icon)
     btn.tile.icon:SetAllPoints(btn)
     btn:SetScript("OnEnter", function(self) B.ShowItemTooltip(self, self.itemID, nil, true) end)
     btn:SetScript("OnLeave", HideTip)
@@ -604,6 +604,79 @@ W.rowKind = {
     frameType = "Button",
     build = W.BuildRow,
     init = function(f, d) f:Set(d) end,
+}
+
+-- A decor quest row: { itemID, name, icon, quality, state, quest (name), start (fn to the giver's words or nil),
+-- where (third line), onQuest, onMap (nil: no Map button) }. Its icon has the catalog tile's clicks and tooltip.
+local function MeasureQuestRow()
+    local h = W.TextHeight("body")
+    return 2 * R.pad + math.max(3 * h + 2 * R.gap, S.ware.size, 2 * (h + SP.s) + SP.xs)
+end
+
+function W.QuestRowHeight()
+    return Measured("questRow", MeasureQuestRow)
+end
+
+local function SetQuestRow(row, d)
+    row.d = d
+    local t = row.lines
+    local r, g, b = W.QualityRGB(d.quality)
+    row.bg:SetColorTexture(unpack(K.card))
+    row.icon.itemID = d.itemID
+    W.SetTile(row.icon.tile, d, r, g, b)
+    t[1]:SetText(d.name or "")
+    t[1]:SetTextColor(unpack(d.state == "owned" and K.nameOwned or K.nameMissing))
+    local start = d.start and d.start()
+    t[2]:SetText(L["Quest:"] .. " " .. d.quest .. (start and "  " .. L["Start:"] .. " " .. start or ""))
+    t[3]:SetText(d.where or "")
+    row.quest:Fit()
+    row.map:Fit()
+    local w = math.max(row.quest:GetWidth(), row.map:GetWidth())
+    row.quest:SetWidth(w)
+    row.map:SetWidth(w)
+    row.map:SetShown(d.onMap ~= nil)
+    row.map:SetEnabled(not B.State.inCombat)
+    t[1]:SetPoint("TOPRIGHT", row, "TOPRIGHT", -(w + 2 * SP.s), -R.pad)
+    t[2]:SetPoint("TOPRIGHT", t[1], "BOTTOMRIGHT", 0, -R.gap)
+    t[3]:SetPoint("TOPRIGHT", t[2], "BOTTOMRIGHT", 0, -R.gap)
+end
+
+W.questKind = {
+    -- The Sources list draws its own headers from "Frame", so the header template's pool is free for these rows.
+    -- A template named for them would be a new entry on the frozen globals allowlist.
+    frameType = "HomesteadDecorBrowserHeader",
+    init = SetQuestRow,
+    build = function(row)
+        row.bg = row:CreateTexture(nil, "BACKGROUND")
+        row.bg:SetAllPoints()
+        row.icon = BuildIcon(row, S.ware.size)
+        row.icon:SetPoint("LEFT", SP.s, 0)
+        row.quest = W.NewButton(row, L["Quest"], function() row.d.onQuest() end)
+        row.quest:SetScript("OnEnter", function(self) row.d.onQuestTip(self) end)
+        row.quest:SetScript("OnLeave", HideTip)
+        row.map = W.NewButton(row, L["Map"], function() row.d.onMap() end)
+        row.map:SetMotionScriptsWhileDisabled(true)
+        row.map:SetScript("OnEnter", function(self)
+            if not self:IsEnabled() then W.TextTip(self, "ANCHOR_LEFT", L["Not available in combat"]) end
+        end)
+        row.map:SetScript("OnLeave", HideTip)
+        row.quest:SetPoint("TOPRIGHT", -SP.s, -R.pad)
+        row.map:SetPoint("BOTTOMRIGHT", -SP.s, R.pad)
+        row.lines = {}
+        for i = 1, 3 do
+            local fs = W.Text(row)
+            fs:SetWordWrap(false)
+            fs:SetTextColor(unpack(K.body))
+            if i == 1 then fs:SetPoint("TOPLEFT", row.icon, "TOPRIGHT", SP.s, 0)
+            else fs:SetPoint("TOPLEFT", row.lines[i - 1], "BOTTOMLEFT", 0, -R.gap) end
+            row.lines[i] = fs
+        end
+        W.Clip(row.lines[2])
+        row.Set, row.Redraw, row.Reset = SetQuestRow, Redraw, function(self)
+            Reset(self)
+            B.HideTooltipFor(self.icon)
+        end
+    end,
 }
 
 function W.RepaintRows(list)

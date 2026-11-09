@@ -481,6 +481,8 @@ L["Right-click: open in the Housing Dashboard"] = "右键点击：在住宅信�
 L["Right-click: Housing Dashboard unavailable in combat"] = "右键点击：战斗中无法使用住宅信息板"
 L["%s; %s"] = "%s；%s"
 L["%s · %s"] = "%s · %s"
+L["Start:"] = "开始："
+L["Use %s"] = "使用%s"
 -- end: Sources
 
 -------------------------------------------------------------------------------

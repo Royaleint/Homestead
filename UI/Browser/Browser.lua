@@ -25,7 +25,7 @@ local DATA_EVENTS = {
     "ACTIVE_ENDEAVOR_CHANGED", "HS_CATALOG_TRUE_WARM", "HS_CATALOG_READ_STATE",
 }
 local GAME_EVENTS = {
-    "GET_ITEM_INFO_RECEIVED", "PORTRAITS_UPDATED", "COLOR_OVERRIDE_UPDATED", "COLOR_OVERRIDES_RESET",
+    "GET_ITEM_INFO_RECEIVED", "TOOLTIP_DATA_UPDATE", "PORTRAITS_UPDATED", "COLOR_OVERRIDE_UPDATED", "COLOR_OVERRIDES_RESET",
     "ZONE_CHANGED_NEW_AREA", "UI_SCALE_CHANGED", "DISPLAY_SIZE_CHANGED",
     "PLAYER_REGEN_DISABLED", "PLAYER_REGEN_ENABLED",
     "PLAYER_MONEY", "CURRENCY_DISPLAY_UPDATE", "BAG_UPDATE_DELAYED", "ACCOUNT_CHARACTER_CURRENCY_DATA_RECEIVED",
@@ -328,6 +328,11 @@ local function OnEvent(_, event, arg1, arg2)
     if not Shown() then return end
     if event == "GET_ITEM_INFO_RECEIVED" then
         if B.Data.NameArrived(arg1, arg2) then
+            names = true
+            B.RequestRefresh()
+        end
+    elseif event == "TOOLTIP_DATA_UPDATE" then
+        if B.Data.NpcArrived(arg1) then
             names = true
             B.RequestRefresh()
         end

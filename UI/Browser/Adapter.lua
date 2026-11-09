@@ -59,6 +59,33 @@ function D.NameGen()
     return nameGen
 end
 
+-- A creature's name in the player's language, read from the game's tooltip data for its ID; nil while the client
+-- has none. Each ask keeps the tooltip data's ID; when the client announces that ID (NpcArrived) the name is asked
+-- again, three asks in all. Other tooltip updates do not count.
+local npcNames, npcAsks, npcWait = {}, {}, {}
+
+local function AskNpc(npcID)
+    npcAsks[npcID] = (npcAsks[npcID] or 0) + 1
+    local data = C_TooltipInfo.GetHyperlink("unit:Creature-0-0-0-0-" .. npcID .. "-0000000000")
+    local line = data and data.lines and data.lines[1]
+    npcNames[npcID] = line and line.leftText ~= "" and line.leftText or nil
+    npcWait[npcID] = not npcNames[npcID] and data and data.dataInstanceID or nil
+    return npcNames[npcID]
+end
+
+function D.NpcName(npcID)
+    return npcNames[npcID] or not npcAsks[npcID] and AskNpc(npcID) or nil
+end
+
+-- Asks again for the creature whose tooltip data just updated; true when its name arrived.
+function D.NpcArrived(dataInstanceID)
+    local arrived = false
+    for npcID, id in pairs(npcWait) do
+        if id == dataInstanceID and npcAsks[npcID] < 3 and AskNpc(npcID) then arrived = true end
+    end
+    return arrived
+end
+
 function D.ItemIcon(itemID)
     return C_Item.GetItemIconByID(itemID) or B.Style.tex.placeholderIcon
 end

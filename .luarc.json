@@ -73,6 +73,7 @@
     "Mixin",
     "NineSliceUtil",
     "PlaySound",
+    "OpenWorldMap",
     "WorldMapFrame",
     "BackdropTemplate",
     "InputBoxTemplate",

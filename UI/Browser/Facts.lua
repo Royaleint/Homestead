@@ -78,7 +78,15 @@ function F.Portrait(npcID)
 end
 
 function F.QuestStart(questID)
-    return HA.QuestStarts and HA.QuestStarts[questID]
+    local row = HA.QuestStarts and HA.QuestStarts[questID]
+    return row and row.mapID and row or nil
+end
+
+-- A quest's giver as { giver = ID, kind = "object" or "item" (an NPC has none), name = English name (not for an item) };
+-- the row may have no spot.
+function F.QuestGiver(questID)
+    local row = HA.QuestStarts and HA.QuestStarts[questID]
+    return row and row.giver and row or nil
 end
 
 function F.TreasureSpot(questID)
