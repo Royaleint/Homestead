@@ -377,6 +377,19 @@ Constants.ContinentToExpansion = {
     [2537] = "Midnight",            -- Midnight (Silvermoon / Blood Elf zones)
 }
 
+-- Expansions newest first, each with its LE_EXPANSION_ name.
+Constants.EXPANSION_ORDER = {
+    { "Midnight", "MIDNIGHT" }, { "The War Within", "WAR_WITHIN" }, { "Dragonflight", "DRAGONFLIGHT" },
+    { "Shadowlands", "SHADOWLANDS" }, { "Battle for Azeroth", "BATTLE_FOR_AZEROTH" }, { "Legion", "LEGION" },
+    { "Warlords of Draenor", "WARLORDS_OF_DRAENOR" }, { "Mists of Pandaria", "MISTS_OF_PANDARIA" },
+    { "Cataclysm", "CATACLYSM" }, { "Wrath of the Lich King", "WRATH_OF_THE_LICH_KING" },
+    { "The Burning Crusade", "BURNING_CRUSADE" }, { "Classic", "CLASSIC" },
+}
+
+-- Profession skill tiers, oldest first, as the start of a recipe's skill tier name.
+Constants.PROFESSION_TIERS = { "Classic", "Outland", "Northrend", "Cataclysm", "Pandaria", "Draenor", "Legion",
+    "Battle for Azeroth", "Shadowlands", "Dragon Isles", "Khaz Algar", "Midnight" }
+
 -------------------------------------------------------------------------------
 -- Vertical Zone Siblings (for minimap elevation arrows)
 -- Maps zones that are vertically stacked in the same physical location.

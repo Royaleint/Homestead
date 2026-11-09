@@ -19,7 +19,7 @@ local function Group(e)
 end
 
 local Page, ui, orders = {}, {}, {}
-local cat, recs, walk, version, hideFor, judged, named, bare, bareList, bareVer
+local cat, recs, walk, version, hideFor, judged, named, bareList, bareVer
 local hiddenNote
 local shown = {}
 -- What the header box holds, as typed; cat.q is the same words trimmed and lowercased.
@@ -46,23 +46,12 @@ local function Words(c)
 end
 
 local function BareEntries()
-    if not bare then
-        local seen = {}
-        bare = {}
-        for _, id in pairs(HA.DecorMapping or {}) do
-            if not seen[id] then
-                seen[id] = true
-                bare[#bare + 1] = id
-            end
-        end
-        table.sort(bare)
-    end
     if bareVer == D.MemoVersion() then
         for _, e in ipairs(bareList) do e.name = e.name or D.ItemName(e.itemID, e.info) end
         return bareList
     end
     bareList, bareVer = {}, D.MemoVersion()
-    for i, id in ipairs(bare) do
+    for i, id in ipairs(HA.CatalogStore:GetDecorItemIDs()) do
         local info = D.CatalogInfo(id, B.State.catalogMemo)
         bareList[i] = { itemID = id, info = info, name = D.ItemName(id, info), src = {} }
     end

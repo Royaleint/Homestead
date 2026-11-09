@@ -52,23 +52,20 @@ end
 -- What this character carries, each key read once per memo version, so the keys are what the offers need:
 -- gold in copper, cur[id] (false without currency info), item[id] in bags and reagent bank as the merchant counts.
 local wallet = { cur = {}, item = {} }
-CG.wallet = wallet
-
-local function Read(kind, id)
-    if kind == "cur" then
-        local info = C_CurrencyInfo.GetCurrencyInfo(id)
-        return info and info.quantity or false
-    end
-    return C_Item.GetItemCount(id, false, false, true)
-end
 
 local function Have(kind, id)
     local n = wallet[kind][id]
     if n == nil then
-        n = Read(kind, id)
+        n = HA.SourceManager:GetWalletCount(kind, id)
         wallet[kind][id] = n
     end
     return n
+end
+
+-- Whether this currency (any currency when nil) has been read in this snapshot.
+function CG.HasReadCurrency(currencyID)
+    if currencyID == nil then return next(wallet.cur) ~= nil end
+    return wallet.cur[currencyID] ~= nil
 end
 
 -- Whether a currency moves between the account's characters, asked once per walk, and whether a reachable offer
@@ -77,7 +74,7 @@ local transferable, needAccount = {}, false
 local function Transferable(id)
     local t = transferable[id]
     if t == nil then
-        t = C_CurrencyInfo.IsAccountTransferableCurrency(id) and true or false
+        t = HA.SourceManager:IsCurrencyTransferable(id)
         transferable[id] = t
     end
     return t
@@ -90,11 +87,9 @@ local function Hint(id)
     if h == nil then
         h = false
         if Transferable(id) then
-            local name, n = D.OtherHolder(id)
+            -- The currency's icon names which one the amount is in.
+            local name, n, icon = HA.SourceManager:GetOtherCharacterCurrency(id)
             if name then
-                -- The currency's icon names which one the amount is in.
-                local info = C_CurrencyInfo.GetCurrencyInfo(id)
-                local icon = info and info.iconFileID
                 -- White, so it reads as information inside the red shortfall.
                 local text = L["(%1$s has %2$s)"]:format(name, (icon and "|T" .. icon .. ":0|t " or "") .. n)
                 h = B.Style.Colored(B.Style.color.body, text)
@@ -125,10 +120,11 @@ local NONE, KINDS = {}, { currencies = "cur", items = "item" }
 
 local function Pay(cost, out, judging)
     if not cost then return "unknown" end
+    local SM = HA.SourceManager
     local parts, short, unknown = 0, false, false
     local gold = cost.gold or 0
     if gold > 0 then
-        wallet.gold = wallet.gold or GetMoney()
+        wallet.gold = wallet.gold or SM:GetWalletGold()
         parts, short = 1, wallet.gold < gold
         if short and out then out.gold = gold end
     end
@@ -206,13 +202,8 @@ end
 
 local PRIORITY = { can = 1, short = 2, unpriced = 3, locked = 4, unlisted = 5, faction = 6, unobtainable = 7, unknown = 8 }
 
-local SOURCE_TABLES = {
-    achievements = "AchievementSources", quests = "QuestSources", professions = "ProfessionSources",
-    drops = "DropSources", events = "EventSources", shop = "ShopSources",
-}
 local SOURCE_KEYS = { "vendors", "achievements", "quests", "professions", "drops", "events", "shop" }
 CG.SOURCE_KEYS = SOURCE_KEYS
-CG.SOURCE_TABLES = SOURCE_TABLES
 
 local function GoldOnly(cost)
     return cost ~= nil and (cost.gold or 0) > 0 and not (cost.currencies and cost.currencies[1])
@@ -284,13 +275,13 @@ function CG.Rejudge()
     local changed = false
     local gold = wallet.gold
     if gold then
-        wallet.gold = GetMoney()
-        changed = changed or wallet.gold ~= gold
+        wallet.gold = HA.SourceManager:GetWalletGold()
+        changed = wallet.gold ~= gold
     end
     for _, kind in pairs(KINDS) do
         local held = wallet[kind]
         for id, old in pairs(held) do
-            local n = Read(kind, id)
+            local n = HA.SourceManager:GetWalletCount(kind, id)
             held[id] = n
             changed = changed or n ~= old
         end
@@ -309,16 +300,25 @@ function CG.Rejudge()
     return true
 end
 
+-- The shipped item rows of each source type other than vendors, by Sources type.
+local function SourceTables()
+    local out = {}
+    for _, key in ipairs(SOURCE_KEYS) do
+        local t = key ~= "vendors" and HA.SourceManager:GetSourceTable(key)
+        if t then out[key] = t end
+    end
+    return out
+end
+
 -- Offers are evaluated only for uncollected items; collected and unknown items never reach a vendor check.
-local function Evaluate(itemID, SM, VD, memo)
+local function Evaluate(itemID, SM, VD, memo, tables)
     local own, info = Own(itemID, memo)
     local e = { itemID = itemID, info = info, own = own, name = D.ItemName(itemID, info), src = {} }
     local bonus = info and info.firstAcquisitionBonus or 0
     e.bonus = own == "notOwned" and bonus > 0 and bonus or nil
     e.src.vendors = VD:HasOfferForItem(itemID) or nil
-    for key, tbl in pairs(SOURCE_TABLES) do
-        local t = HA[tbl]
-        if t and t[itemID] then e.src[key] = true end
+    for key, t in pairs(tables) do
+        if t[itemID] then e.src[key] = true end
     end
     e.factionOnly = FactionOnly(itemID)
     if own ~= "notOwned" then
@@ -350,30 +350,14 @@ function CG.Entry(itemID)
     Fresh()
     local e = entries[itemID]
     if not e then
-        e = Evaluate(itemID, HA.SourceManager, HA.VendorData, Memo())
+        e = Evaluate(itemID, HA.SourceManager, HA.VendorData, Memo(), SourceTables())
         entries[itemID] = e
     end
     return e
 end
 
-local domain
-local function Domain()
-    if not domain then
-        domain = {}
-        local seen = {}
-        for _, itemID in pairs(HA.DecorMapping or {}) do
-            if not seen[itemID] then
-                seen[itemID] = true
-                domain[#domain + 1] = itemID
-            end
-        end
-        table.sort(domain)
-    end
-    return domain
-end
-
 local function RunWalk(items)
-    local SM, VD, memo = HA.SourceManager, HA.VendorData, Memo()
+    local SM, VD, memo, tables = HA.SourceManager, HA.VendorData, Memo(), SourceTables()
     local list = {}
     local progress = { known = true, total = 0, owned = 0, src = {} }
     local src = progress.src
@@ -382,7 +366,7 @@ local function RunWalk(items)
         local itemID = items[i]
         local e = entries[itemID]
         if not e then
-            e = Evaluate(itemID, SM, VD, memo)
+            e = Evaluate(itemID, SM, VD, memo, tables)
             entries[itemID] = e
         end
         list[i] = e
@@ -402,7 +386,7 @@ function CG.Walk()
     if D.CollectionState() ~= "ready" then return nil end
     Fresh()
     if not walk then
-        local items = Domain()
+        local items = HA.CatalogStore:GetDecorItemIDs()
         walk = HA.PerformanceTrace:Measure("browser_walk", #items, RunWalk, items)
     end
     return walk

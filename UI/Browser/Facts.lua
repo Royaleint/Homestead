@@ -70,43 +70,15 @@ function F.QuestMap(questID)
     return zone and zone.mapID
 end
 
--- The zone-level map at or above mapID: a building or dungeon map walks up to its zone.
-function F.ZoneOf(mapID)
-    local zoneType = Enum.UIMapType.Zone
-    while mapID do
-        local info = C_Map.GetMapInfo(mapID)
-        if not info then return nil end
-        if info.mapType <= zoneType or not info.parentMapID or info.parentMapID == 0 then return mapID end
-        mapID = info.parentMapID
-    end
-    return nil
-end
-
-local continentOf = {}
-function F.ContinentOf(mapID)
-    if not mapID then return nil end
-    local known = continentOf[mapID]
-    if known ~= nil then return known or nil end
-    local continentType, id = Enum.UIMapType.Continent, mapID
-    local found = false
-    while id and id ~= 0 do
-        local info = C_Map.GetMapInfo(id)
-        if not info then break end
-        if info.mapType == continentType then found = id break end
-        id = info.parentMapID
-    end
-    continentOf[mapID] = found
-    return found or nil
-end
-
 -- The player's zone: { zone, name, continent, maps = set of the zone and its child maps }; nil when unknown.
 local here
 function F.Here()
-    local zone = F.ZoneOf(C_Map.GetBestMapForUnit("player"))
+    local MPP = HA.MapPinProvider
+    local zone = MPP.ZoneOf(C_Map.GetBestMapForUnit("player"))
     if not zone then return nil end
     if here and here.zone == zone then return here end
     local info = C_Map.GetMapInfo(zone)
-    here = { zone = zone, name = info and info.name, continent = F.ContinentOf(zone), maps = { [zone] = true } }
+    here = { zone = zone, name = info and info.name, continent = MPP.ContinentOf(zone), maps = { [zone] = true } }
     for _, kid in ipairs(C_Map.GetMapChildrenInfo(zone, nil, true) or {}) do here.maps[kid.mapID] = true end
     return here
 end
@@ -115,7 +87,7 @@ end
 function F.Nearness(mapID, where)
     if not (where and mapID) then return 3 end
     if where.maps[mapID] then return 1 end
-    local c = F.ContinentOf(mapID)
+    local c = HA.MapPinProvider.ContinentOf(mapID)
     return (c and c == where.continent) and 2 or 3
 end
 

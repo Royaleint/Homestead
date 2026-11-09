@@ -118,7 +118,7 @@ local asked = false
 local function AskAccount()
     if not asked and B.CanGet.NeedAccount() then
         asked = true
-        C_CurrencyInfo.RequestCurrencyDataForAccountCharacters()
+        HA.SourceManager:RequestOtherCharacterCurrencies()
     end
 end
 
@@ -351,8 +351,7 @@ local function OnEvent(_, event, arg1, arg2)
         B.RequestRefresh(true, false, true)
     elseif event == "CURRENCY_DISPLAY_UPDATE" then
         -- A nil currencyType could be any currency.
-        local cur = B.CanGet.wallet.cur
-        if arg1 == nil and next(cur) ~= nil or cur[arg1] ~= nil then
+        if B.CanGet.HasReadCurrency(arg1) then
             wallet = true
             B.RequestRefresh(true, false, true)
         end

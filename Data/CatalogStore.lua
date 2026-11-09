@@ -734,11 +734,30 @@ function CatalogStore:ClearAll()
     end
 end
 
+-- Every decor item ID in the shipped DecorMapping, once each, in ascending order. Built on first ask, dropped
+-- when the indexes are rebuilt.
+local decorItemIDs = nil
+function CatalogStore:GetDecorItemIDs()
+    if not decorItemIDs then
+        decorItemIDs = {}
+        local seen = {}
+        for _, itemID in pairs(HA.DecorMapping or {}) do
+            if not seen[itemID] then
+                seen[itemID] = true
+                decorItemIDs[#decorItemIDs + 1] = itemID
+            end
+        end
+        table.sort(decorItemIDs)
+    end
+    return decorItemIDs
+end
+
 -- Rebuild decorID ↔ itemID indexes (both directions)
 -- Seeds from static DecorMapping first, then overlays runtime discoveries
 function CatalogStore:BuildDecorIndex()
     decorToItemID = {}
     itemIDToDecor = {}
+    decorItemIDs = nil
 
     -- Seed from static mapping (generated from Blizzard web API)
     local staticMapping = HA.DecorMapping

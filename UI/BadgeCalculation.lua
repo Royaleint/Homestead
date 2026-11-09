@@ -115,6 +115,9 @@ end
 -- hasUncollectedState stores true / false / "unknown".
 local vendorStatsCache = {}
 
+-- Cached counted-ware lists keyed like vendorStatsCache, dropped with it.
+local countedWaresCache = {}
+
 -- Bumped on every vendorStatsCache wipe/invalidation so the sliced
 -- prewarm item loop (below) can detect a mid-vendor invalidation and discard
 -- its in-progress accumulator instead of blending pre/post-invalidation item
@@ -204,6 +207,8 @@ end
 -------------------------------------------------------------------------------
 -- Collection Status
 -------------------------------------------------------------------------------
+
+local EMPTY_ITEM_IDS = {}
 
 local UNKNOWN_VENDOR_STATS = {
     hasUncollectedState = "unknown",
@@ -483,6 +488,36 @@ function BadgeCalculation:PeekVendorStats(vendor, sourceFilter)
     return vendorStatsCache[cacheKey]
 end
 
+-- The wares that count toward a vendor's collected and total under the "all" filter, in the vendor's
+-- order: ownership knowable, and owned or not unobtainable (AccumulateVendorItem's rule, read without the
+-- full item presentation). The list is shared, never changed by a caller.
+function BadgeCalculation:GetCountedItemIDs(vendor)
+    if not vendor or not vendor.npcID then
+        return EMPTY_ITEM_IDS
+    end
+
+    local cacheKey = BuildVendorFilterCacheKey(vendor, "all")
+    local counted = countedWaresCache[cacheKey]
+    if counted then
+        return counted
+    end
+
+    local store, SM = HA.CatalogStore, HA.SourceManager
+    local itemIDs = HA.VendorData:GetMergedItemIDs(vendor) or EMPTY_ITEM_IDS
+    counted = HA.PerformanceTrace:Measure("vendor_counted_wares", #itemIDs, function()
+        local out = {}
+        for _, itemID in ipairs(itemIDs) do
+            if not store:IsOwnershipUnknowable(itemID) and (store:IsOwned(itemID) == true
+                    or SM:GetVendorItemAvailabilityState(itemID, vendor.npcID, true) ~= "unobtainable") then
+                out[#out + 1] = itemID
+            end
+        end
+        return out
+    end)
+    countedWaresCache[cacheKey] = counted
+    return counted
+end
+
 -- Local alias for internal callers (aggregate builders) that need
 -- the same caching without going through the colon-method dispatch.
 local function GetVendorStats(vendor, sourceFilter)
@@ -676,6 +711,7 @@ end
 function BadgeCalculation:InvalidateAllCaches()
     vendorStatsCacheGeneration = vendorStatsCacheGeneration + 1
     wipe(vendorStatsCache)
+    wipe(countedWaresCache)
     wipe(dropGroupStatsCache)
     self:InvalidateBadgeCache()
     -- This is the chokepoint every wipe path
@@ -699,6 +735,11 @@ function BadgeCalculation:InvalidateVendorCache(npcID)
                 vendorStatsCache[key] = nil
             end
         end
+        for key in pairs(countedWaresCache) do
+            if key:sub(1, #prefix) == prefix then
+                countedWaresCache[key] = nil
+            end
+        end
     end
 end
 
@@ -710,6 +751,7 @@ end
 function BadgeCalculation:GetDebugCacheTables()
     return {
         vendorStatsCache = vendorStatsCache,
+        countedWaresCache = countedWaresCache,
         dropGroupStatsCache = dropGroupStatsCache,
         cachedZoneBadges = cachedZoneBadges,
         cachedContinentBadges = cachedContinentBadges,

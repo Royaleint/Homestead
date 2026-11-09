@@ -17,23 +17,23 @@ end
 
 local KIND = {
     vendors = { L["Vendor"], L["Search vendors and zones"] },
-    achievements = { L["Achievement"], L["Search achievements"], "AchievementSources", function(d)
+    achievements = { L["Achievement"], L["Search achievements"], function(d)
         return { title = d.achievementName, sub = d.category or L["Achievement"], group = d.category or L["Other"],
             achievementID = d.achievementID }
     end },
-    quests = { L["Quest"], L["Search quests"], "QuestSources", function(d)
+    quests = { L["Quest"], L["Search quests"], function(d)
         local where = MapName(Facts.QuestMap(d.questID))
         return { title = d.questName, sub = where or L["Location not recorded"], where = where, questID = d.questID }
     end },
-    professions = { L["Profession"], L["Search recipes and professions"], "ProfessionSources",
+    professions = { L["Profession"], L["Search recipes and professions"],
         function(d)
         return { title = d.recipeName, sub = d.skillTier or d.profession, group = d.profession, tier = d.skillTier }
     end },
-    drops = { L["Drop"], L["Search drops and zones"], "DropSources",
+    drops = { L["Drop"], L["Search drops and zones"],
         function(d) return { title = d.mobName, sub = d.zone, drop = d } end },
-    events = { L["Event"], L["Search events"], "EventSources",
+    events = { L["Event"], L["Search events"],
         function(d) return { title = d.event, sub = L["Holiday event"], namesKind = true } end },
-    shop = { L["Shop"], L["Search the Shop"], "ShopSources", function() return { sub = L["Shop"] } end },
+    shop = { L["Shop"], L["Search the Shop"], function() return { sub = L["Shop"] } end },
 }
 local TYPES = CG.SOURCE_KEYS
 local LINK = Facts.LINK
@@ -65,7 +65,7 @@ end
 
 local conts = {}
 local function Continent(mapID)
-    local id = mapID and Facts.ContinentOf(mapID)
+    local id = mapID and HA.MapPinProvider.ContinentOf(mapID)
     if id and conts[id] == nil then conts[id] = MapName(id) or false end
     return id and conts[id] or nil
 end
@@ -76,12 +76,12 @@ local function Statics()
     for _, t in ipairs(TYPES) do
         local bucket, kind = { by = {} }, KIND[t]
         static[t] = bucket
-        for itemID, d in pairs(kind[3] and HA[kind[3]] or {}) do
+        for itemID, d in pairs(HA.SourceManager:GetSourceTable(t) or {}) do
             local key = type(d) == "table" and type(itemID) == "number" and Facts.SourceKey(t, d, itemID)
             if key then
                 local s = bucket.by[key]
                 if not s then
-                    s = kind[4](d)
+                    s = kind[3](d)
                     s.key, s.type, s.items, s.title = key, t, {}, s.title or L["Unknown"]
                     bucket.by[key], bucket[#bucket + 1] = s, s
                 end
@@ -225,46 +225,6 @@ local function RowData(s)
     }
 end
 
--- Blizzard's achievement tree, read once per category: top title and position, then the subcategory's title and
--- position when the category has a parent. Nil when the client has no such category.
-local tree, treePos = {}, nil
-local function CategoryPos(id)
-    if not treePos then
-        treePos = {}
-        for i, c in ipairs(GetCategoryList() or {}) do treePos[c] = i end
-        if next(treePos) == nil then treePos = nil end
-    end
-    return treePos and treePos[id] or 1e6 + id
-end
-
-local function Category(id)
-    local cat = GetAchievementCategory(id)
-    local c = cat and tree[cat]
-    if c or not cat then return c end
-    local topName, parent = GetCategoryInfo(cat)
-    if not topName then return nil end
-    local topID, subID, subName = cat, nil, nil
-    while parent and parent > 0 do
-        local name, up = GetCategoryInfo(parent)
-        if not name then break end
-        topID, topName, subID, subName, parent = parent, name, topID, topName, up
-    end
-    c = { topName, CategoryPos(topID), subName, subID and CategoryPos(subID) }
-    if treePos then tree[cat] = c end
-    return c
-end
-
--- The map a quest's spot sits in, climbed to the zone the client types as one; nil when no zone is above it.
-local function ZoneMap(mapID)
-    local id = mapID
-    while id and id ~= 0 do
-        local info = C_Map.GetMapInfo(id)
-        if not info or info.mapType <= Enum.UIMapType.Continent then return nil end
-        if info.mapType == Enum.UIMapType.Zone then return id end
-        id = info.parentMapID
-    end
-end
-
 -- Quests: expansion of the continent the quest's spot is on, then the zone the spot is in; the unlocated quests last.
 -- A map with no continent above it takes the continent of the quest's turn-in. A quest whose zone row names an
 -- expansion lists directly under that expansion, with no zone group, whatever map it shows.
@@ -278,8 +238,9 @@ local function QuestGroup(s)
         elseif not mapID then
             s.qt, s.qo = L["Location not recorded"], 2e6
         else
-            local exp = HA.Constants.ContinentToExpansion[Facts.ContinentOf(mapID) or zoneRow and zoneRow.turnIn]
-            local zone = ZoneMap(mapID)
+            local continent = HA.MapPinProvider.ContinentOf(mapID) or zoneRow and zoneRow.turnIn
+            local exp = HA.Constants.ContinentToExpansion[continent]
+            local zone = HA.MapPinProvider.ZoneOnlyOf(mapID)
             s.qt, s.qo, s.qg = exp and D.ExpansionLabel(exp) or L["Other"], exp and D.ExpansionRank(exp) or 1e6,
                 zone and MapName(zone)
         end
@@ -287,13 +248,12 @@ local function QuestGroup(s)
     return s.qt, s.qo, s.qg
 end
 
-local TIERS = { "Classic", "Outland", "Northrend", "Cataclysm", "Pandaria", "Draenor", "Legion", "Battle for Azeroth",
-    "Shadowlands", "Dragon Isles", "Khaz Algar", "Midnight" }
 local function TierRank(tier)
-    for i, name in ipairs(TIERS) do
+    local tiers = HA.Constants.PROFESSION_TIERS
+    for i, name in ipairs(tiers) do
         if tier:sub(1, #name) == name then return i end
     end
-    return #TIERS + 1
+    return #tiers + 1
 end
 
 -- Vendors group by expansion (all vendors only) and zone, a vendor with no zone last; events by whether they run;
@@ -309,7 +269,7 @@ local function Place(s, order)
     elseif t == "events" then
         s.o = Live(s.key) and 0 or 1
     elseif t == "achievements" then
-        local c = Category(s.achievementID)
+        local c = HA.SourceManager:GetAchievementCategoryPath(s.achievementID)
         if c then s.top, s.o, s.g, s.p = c[1], c[2], c[3], c[4] else s.top, s.o = s.group, 1e7 end
     elseif t == "quests" then
         s.top, s.o, s.g = QuestGroup(s)
@@ -317,7 +277,7 @@ local function Place(s, order)
         s.top, s.o = s.group, s.group == "Miscellaneous" and 1 or 0
         if s.tier then
             s.g = s.tier:gsub(" " .. s.group .. "$", "")
-            s.p = s.tier == "Junkyard Tinkering" and #TIERS + 2 or TierRank(s.tier)
+            s.p = s.tier == "Junkyard Tinkering" and #HA.Constants.PROFESSION_TIERS + 2 or TierRank(s.tier)
         end
     end
 end
@@ -463,7 +423,7 @@ local function BuildList(keep, zone)
     end
     local function Near(s)
         local at = s.vendor and Facts.Place(s.vendor)
-        return at and (nearby and nearby[at] or Facts.ZoneOf(at) == zone)
+        return at and (nearby and nearby[at] or HA.MapPinProvider.ZoneOf(at) == zone)
     end
     if zone and fold then
         for _, s in ipairs(out) do

@@ -555,9 +555,11 @@ function VendorData:GetHolidayVendorsForItem(itemID)
             if not self:IsVendorHiddenByNpcID(npcID) then
                 for _, entry in ipairs(v.items or self:GetVendorItems(npcID) or {}) do
                     local id = UnpackItem(entry)
-                    local list = holidayItemIndex[id] or {}
-                    list[#list + 1] = npcID
-                    holidayItemIndex[id] = list
+                    if id then
+                        local list = holidayItemIndex[id] or {}
+                        list[#list + 1] = npcID
+                        holidayItemIndex[id] = list
+                    end
                 end
             end
         end
@@ -1580,10 +1582,9 @@ end
 -- Vendor lookups for the browser
 -------------------------------------------------------------------------------
 
--- The currencies a vendor's wares cost, as display strings (gold included), and whether an item currency's name
--- is still loading. itemIDs are the wares to judge. itemName(id) gives an item's name (nil while it loads) and
--- whether to keep waiting for it.
-function VendorData:GetVendorCurrencies(vendor, itemIDs, itemName)
+-- The currencies a vendor's wares cost, as display strings (gold included), and whether an item currency's
+-- name is still loading. itemIDs are the wares to judge.
+function VendorData:GetVendorCurrencies(vendor, itemIDs)
     local out, seen, pending = {}, {}, false
     local function add(icon, name)
         if name and not seen[name] then
@@ -1600,7 +1601,7 @@ function VendorData:GetVendorCurrencies(vendor, itemIDs, itemName)
         end
         for _, it in ipairs(cost.items or {}) do
             local name, waiting
-            if it.id then name, waiting = itemName(it.id) end
+            if it.id then name, waiting = HA.GetItemName(it.id) end
             name = name or it.name
             if name then add(it.id and C_Item.GetItemIconByID(it.id), name)
             elseif it.id and waiting then pending = true end

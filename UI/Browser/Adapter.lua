@@ -18,7 +18,6 @@ local SOURCE_TYPE_LABELS = {
     ["treasure"] = L["Treasure"],
 }
 
-local nameLoads = {}
 -- Moves whenever an asked-for name arrives, so a page that sorted or searched by name can tell.
 local nameGen = 0
 
@@ -39,18 +38,11 @@ function D.IsReady()
 end
 
 function D.ItemName(itemID, info)
-    local name = C_Item.GetItemNameByID(itemID) or (info and info.name)
-    if name then return name end
-    if nameLoads[itemID] == nil then
-        nameLoads[itemID] = true
-        C_Item.RequestLoadItemDataByID(itemID)
-    end
-    return nil
+    return (HA.GetItemName(itemID, info and info.name))
 end
 
 function D.NameArrived(itemID, success)
-    if nameLoads[itemID] ~= true then return false end
-    nameLoads[itemID] = success == false and "failed" or "loaded"
+    if not HA.ItemNameArrived(itemID, success) then return false end
     nameGen = nameGen + 1
     return true
 end
@@ -68,16 +60,15 @@ function D.IsListedVendor(vendor)
     return B.Facts.BrowserListed(vendor) and not HA.VendorFilter.IsConfirmedNoDecor(vendor)
 end
 
--- Newest first, each with its LE_EXPANSION_ name.
-local EXPANSIONS = {
-    { "Midnight", "MIDNIGHT" }, { "The War Within", "WAR_WITHIN" }, { "Dragonflight", "DRAGONFLIGHT" },
-    { "Shadowlands", "SHADOWLANDS" }, { "Battle for Azeroth", "BATTLE_FOR_AZEROTH" }, { "Legion", "LEGION" },
-    { "Warlords of Draenor", "WARLORDS_OF_DRAENOR" }, { "Mists of Pandaria", "MISTS_OF_PANDARIA" },
-    { "Cataclysm", "CATACLYSM" }, { "Wrath of the Lich King", "WRATH_OF_THE_LICH_KING" },
-    { "The Burning Crusade", "BURNING_CRUSADE" }, { "Classic", "CLASSIC" },
-}
-local TOKEN = {}
-for _, e in ipairs(EXPANSIONS) do TOKEN[e[1]] = e[2] end
+-- Expansion name to its LE_EXPANSION_ token, from the shared newest-first order, built on first use.
+local TOKEN
+local function Tokens()
+    if not TOKEN then
+        TOKEN = {}
+        for _, e in ipairs(HA.Constants.EXPANSION_ORDER) do TOKEN[e[1]] = e[2] end
+    end
+    return TOKEN
+end
 
 -- Vendor tables only, one per vendor key, rebuilt after each InvalidateMemos.
 function D.ListedVendors()
@@ -95,7 +86,7 @@ function D.ListedVendors()
 end
 
 function D.VendorHome(vendor)
-    return TOKEN[vendor.expansion] and vendor.expansion or "other"
+    return Tokens()[vendor.expansion] and vendor.expansion or "other"
 end
 
 function D.Expansions()
@@ -104,7 +95,7 @@ function D.Expansions()
     local has = {}
     for _, v in ipairs(vendors) do has[D.VendorHome(v)] = true end
     homes = {}
-    for _, e in ipairs(EXPANSIONS) do
+    for _, e in ipairs(HA.Constants.EXPANSION_ORDER) do
         if has[e[1]] then homes[#homes + 1] = e[1] end
     end
     if has.other then homes[#homes + 1] = "other" end
@@ -113,14 +104,14 @@ end
 
 -- The expansion's place in the newest-first order, or nil.
 function D.ExpansionRank(key)
-    for i, e in ipairs(EXPANSIONS) do
+    for i, e in ipairs(HA.Constants.EXPANSION_ORDER) do
         if e[1] == key then return i end
     end
 end
 
 function D.ExpansionLabel(key)
     if key == "other" then return L["Other Vendors"] end
-    local token = TOKEN[key]
+    local token = Tokens()[key]
     return token and _G["EXPANSION_NAME" .. tostring(_G["LE_EXPANSION_" .. token])] or key
 end
 
@@ -159,25 +150,9 @@ local function Memo(npcID)
     return perVendor[k]
 end
 
-local function Knowable(npcID, ids)
-    local store, SM, out = HA.CatalogStore, HA.SourceManager, {}
-    for _, id in ipairs(ids) do
-        if not store:IsOwnershipUnknowable(id) and (store:IsOwned(id) == true
-                or SM:GetVendorItemAvailabilityState(id, npcID, true) ~= "unobtainable") then
-            out[#out + 1] = id
-        end
-    end
-    return out
-end
-
 -- What the map pins count: knowable ownership, less unowned wares it can never sell (promotions).
 function D.VendorWares(vendor)
-    local m = Memo(vendor.npcID)
-    if not m.wares then
-        local ids = HA.VendorData:GetMergedItemIDs(vendor) or {}
-        m.wares = HA.PerformanceTrace:Measure("browser_vendor_wares", #ids, Knowable, vendor.npcID, ids)
-    end
-    return m.wares
+    return HA.BadgeCalculation:GetCountedItemIDs(vendor)
 end
 
 -- The fill skips holiday vendors: compute theirs one per tick, then refresh once. Combat,
@@ -292,22 +267,6 @@ function D.SourceCost(itemID, data)
     return data.cost or data.vendor and (HA.SourceManager:GetVendorItemCost(itemID, data.vendor))
 end
 
--- Another character's biggest holding of a currency, from account data already received: its name (the full
--- name when two results share one) and amount. Nothing when the data is not ready or no one else holds any.
-function D.OtherHolder(currencyID)
-    if not C_CurrencyInfo.IsAccountCharacterCurrencyDataReady() then return nil end
-    local rows = C_CurrencyInfo.FetchCurrencyDataFromAccountCharacters(currencyID) or NO_PARTS
-    local me, best = UnitGUID("player"), nil
-    for _, r in ipairs(rows) do
-        if r.characterGUID ~= me and r.quantity > 0 and (not best or r.quantity > best.quantity) then best = r end
-    end
-    if not best then return nil end
-    for _, r in ipairs(rows) do
-        if r ~= best and r.characterName == best.characterName then return best.fullCharacterName, best.quantity end
-    end
-    return best.characterName, best.quantity
-end
-
 -- A room plan's catalog entry is a room, found by the room index; its record ID is not a decor ID.
 function D.RoomID(itemID)
     local store = HA.CatalogStore
@@ -385,17 +344,11 @@ function D.Requirements(itemID, npcID)
     return out
 end
 
--- An item's name for a currency line, and whether to keep waiting for it.
-local function CurrencyItemName(itemID)
-    local name = D.ItemName(itemID)
-    return name, not name and nameLoads[itemID] ~= "failed"
-end
-
 -- Pending (and not memoised) while an item currency's name loads.
 function D.VendorCurrencies(vendor)
     local m = Memo(vendor.npcID)
     if m.cur then return m.cur, false end
-    local out, pending = HA.VendorData:GetVendorCurrencies(vendor, D.VendorWares(vendor), CurrencyItemName)
+    local out, pending = HA.VendorData:GetVendorCurrencies(vendor, D.VendorWares(vendor))
     if not pending then m.cur = out end
     return out, pending
 end

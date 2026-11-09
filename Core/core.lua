@@ -73,6 +73,32 @@ local print = print
 local format = string.format
 
 -------------------------------------------------------------------------------
+-- Item Names
+-------------------------------------------------------------------------------
+
+-- Items whose name was asked for: true while the load is out, "loaded" or "failed" once the client answered.
+local itemNameLoads = {}
+
+-- An item's name from the client, or fallback; nil (and true as the second result) while a requested load is
+-- still out. The load is requested once per item. The second result is false once the client reported it failed.
+function HA.GetItemName(itemID, fallback)
+    local name = C_Item.GetItemNameByID(itemID) or fallback
+    if name then return name, false end
+    if itemNameLoads[itemID] == nil then
+        itemNameLoads[itemID] = true
+        C_Item.RequestLoadItemDataByID(itemID)
+    end
+    return nil, itemNameLoads[itemID] ~= "failed"
+end
+
+-- The client answered a load GetItemName asked for; true when it was one of ours.
+function HA.ItemNameArrived(itemID, success)
+    if itemNameLoads[itemID] ~= true then return false end
+    itemNameLoads[itemID] = success == false and "failed" or "loaded"
+    return true
+end
+
+-------------------------------------------------------------------------------
 -- Addon Lifecycle
 -------------------------------------------------------------------------------
 

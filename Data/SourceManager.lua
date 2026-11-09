@@ -3127,6 +3127,97 @@ function SourceManager:DebugItem(itemID)
 end
 
 -------------------------------------------------------------------------------
+-- Source tables, achievement categories and wallet reads
+-------------------------------------------------------------------------------
+
+local SOURCE_TABLES = {
+    achievements = "AchievementSources", quests = "QuestSources", professions = "ProfessionSources",
+    drops = "DropSources", events = "EventSources", shop = "ShopSources",
+}
+
+-- The shipped item rows of one source kind (achievements, quests, professions, drops, events or shop).
+function SourceManager:GetSourceTable(kind)
+    local name = SOURCE_TABLES[kind]
+    return name and HA[name] or nil
+end
+
+-- Blizzard's achievement tree, read once per category.
+local categoryTree, categoryPos = {}, nil
+
+local function CategoryPos(id)
+    if not categoryPos then
+        categoryPos = {}
+        for i, c in ipairs(GetCategoryList() or {}) do categoryPos[c] = i end
+        if next(categoryPos) == nil then categoryPos = nil end
+    end
+    return categoryPos and categoryPos[id] or 1e6 + id
+end
+
+-- An achievement's category as { top title, top position, subcategory title, subcategory position }, the last
+-- two nil when the category has no parent; nil when the client has no such category.
+function SourceManager:GetAchievementCategoryPath(achievementID)
+    local cat = GetAchievementCategory(achievementID)
+    local c = cat and categoryTree[cat]
+    if c or not cat then return c end
+    local topName, parent = GetCategoryInfo(cat)
+    if not topName then return nil end
+    local topID, subID, subName = cat, nil, nil
+    while parent and parent > 0 do
+        local name, up = GetCategoryInfo(parent)
+        if not name then break end
+        topID, topName, subID, subName, parent = parent, name, topID, topName, up
+    end
+    c = { topName, CategoryPos(topID), subName, subID and CategoryPos(subID) }
+    if categoryPos then categoryTree[cat] = c end
+    return c
+end
+
+-- What this character carries, read from the game on each call: gold in copper, then the amount of a currency
+-- (false without currency info) or of an item in bags and reagent bank as a merchant counts them.
+function SourceManager:GetWalletGold()
+    return GetMoney()
+end
+
+-- kind is "cur" (a currency) or "item".
+function SourceManager:GetWalletCount(kind, id)
+    if kind == "cur" then
+        local info = C_CurrencyInfo.GetCurrencyInfo(id)
+        return info and info.quantity or false
+    end
+    return C_Item.GetItemCount(id, false, false, true)
+end
+
+-- Whether a currency moves between the account's characters.
+function SourceManager:IsCurrencyTransferable(currencyID)
+    return C_CurrencyInfo.IsAccountTransferableCurrency(currencyID) and true or false
+end
+
+function SourceManager:RequestOtherCharacterCurrencies()
+    C_CurrencyInfo.RequestCurrencyDataForAccountCharacters()
+end
+
+-- Another character's biggest holding of a currency, from account data already received: its name (the full
+-- name when two results share one), amount and the currency's icon. Nothing when the data is not ready or no
+-- one else holds any.
+function SourceManager:GetOtherCharacterCurrency(currencyID)
+    if not C_CurrencyInfo.IsAccountCharacterCurrencyDataReady() then return nil end
+    local rows = C_CurrencyInfo.FetchCurrencyDataFromAccountCharacters(currencyID) or {}
+    local me, best = UnitGUID("player"), nil
+    for _, r in ipairs(rows) do
+        if r.characterGUID ~= me and r.quantity > 0 and (not best or r.quantity > best.quantity) then best = r end
+    end
+    if not best then return nil end
+    local info = C_CurrencyInfo.GetCurrencyInfo(currencyID)
+    local icon = info and info.iconFileID
+    for _, r in ipairs(rows) do
+        if r ~= best and r.characterName == best.characterName then
+            return best.fullCharacterName, best.quantity, icon
+        end
+    end
+    return best.characterName, best.quantity, icon
+end
+
+-------------------------------------------------------------------------------
 -- Initialization
 -------------------------------------------------------------------------------
 

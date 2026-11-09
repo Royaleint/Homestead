@@ -145,7 +145,7 @@ local function OtherRow(itemID, src, flagged)
         row.one = B.Data.SourceLine(itemID, { src })
     end
     local sourceType = F.SOURCE_TYPE[t]
-    local file = HA[B.CanGet.SOURCE_TABLES[sourceType] or ""]
+    local file = HA.SourceManager:GetSourceTable(sourceType)
     local key = sourceType and t ~= "shop" and F.SourceKey(sourceType, file and file[itemID], itemID)
     if key then row.show = { SHOW[t], ShowSource(sourceType, key) } end
     local link = F.LINK[sourceType]
