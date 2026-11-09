@@ -25,19 +25,21 @@ end
 
 local ruler
 
-local function Ruler(role, text, width)
+local function Ruler(role, text, width, anywhere)
     if not ruler then
         ruler = UIParent:CreateFontString(nil, "ARTWORK")
         ruler:Hide()
     end
     ruler:SetFontObject(S.FontName(role))
+    ruler:SetNonSpaceWrap(anywhere == true)
     ruler:SetWidth(width or 0)
     ruler:SetText(text or "Ag")
     return ruler
 end
 
-function W.TextHeight(role, text, width)
-    return Ruler(role, text, width):GetStringHeight()
+-- anywhere lets a word wider than the width break, as a text with SetNonSpaceWrap does.
+function W.TextHeight(role, text, width, anywhere)
+    return Ruler(role, text, width, anywhere):GetStringHeight()
 end
 
 -- The text on one line.
@@ -78,6 +80,33 @@ end
 
 function W.RowHeight()
     return Measured("row", MeasureRow)
+end
+
+local function MeasureIconRow()
+    return math.max(R.icon, W.TextHeight("body")) + 2 * R.iconPad
+end
+
+function W.IconRowHeight()
+    return Measured("iconRow", MeasureIconRow)
+end
+
+-- The height of a catalog tile w wide: the icon square inside the pad, a pad, and the tallest name among items
+-- (nameOf gives one) wrapped at the icon's width, then a pad. A name is measured once per width, until the text size changes.
+local function TileHeight(items, nameOf, w)
+    local room, seen = w - 2 * S.tile.pad, Measured("tileNames", function() return {} end)
+    local at = seen[room] or {}
+    seen[room] = at
+    local tallest = W.TextHeight("body")
+    for _, item in ipairs(items) do
+        local name = nameOf(item)
+        local h = at[name]
+        if not h then
+            h = W.TextHeight("body", name, room, true)
+            at[name] = h
+        end
+        if h > tallest then tallest = h end
+    end
+    return w + S.tile.pad + tallest
 end
 
 function W.StateWords(state, arg)
@@ -125,7 +154,7 @@ function W.NewButton(parent, label, onClick)
     local b = CreateFrame("Button", nil, parent, "UIPanelButtonTemplate")
     b:SetNormalFontObject(S.font.bodyGold)
     b:SetHighlightFontObject(S.font.body)
-    b:SetDisabledFontObject(S.font.bodyMuted)
+    b:SetDisabledFontObject(S.font.disabled)
     b:SetText(label)
     function b:Fit()
         self:SetSize(self:GetTextWidth() + SP.xl, W.TextHeight("body") + SP.s)
@@ -135,7 +164,7 @@ function W.NewButton(parent, label, onClick)
     return b
 end
 
--- A text link: muted at rest, white under the mouse, darker while disabled. onEnter runs after the tint, so a
+-- A text link: gold at rest, white under the mouse, darker while disabled. onEnter runs after the tint, so a
 -- caller can add a tooltip. Fit sizes it to the text.
 function W.NewLink(parent, label, onClick, onEnter)
     local b = CreateFrame("Button", nil, parent)
@@ -144,7 +173,7 @@ function W.NewLink(parent, label, onClick, onEnter)
     b.text:SetText(label)
     local setEnabled, over = b.SetEnabled, false
     local function Tint()
-        local c = not b:IsEnabled() and K.disabled or over and K.body or K.muted
+        local c = not b:IsEnabled() and K.disabled or over and K.body or K.gold
         b.text:SetTextColor(c[1], c[2], c[3])
     end
     function b:SetEnabled(on)
@@ -178,7 +207,7 @@ function W.TextTip(owner, anchor, text, wrap)
     tip:Show()
 end
 
--- The muted "Report a problem" link. It is off in combat and says why under the mouse.
+-- The "Report a problem" link. It is off in combat and says why under the mouse.
 function W.ReportLink(parent, onClick)
     local b = W.NewLink(parent, L["Report a problem"], onClick, function(self)
         if not self:IsEnabled() then W.TextTip(self, "ANCHOR_RIGHT", L["Not available in combat"]) end
@@ -203,7 +232,7 @@ end
 function W.NewSearchBox(parent, placeholder, onChange)
     local box = CreateFrame("EditBox", nil, parent, "SearchBoxTemplate")
     box:SetFontObject(S.font.body)
-    box.Instructions:SetFontObject(S.font.bodyMuted)
+    box.Instructions:SetFontObject(S.font.disabled)
     box.Instructions:SetText(placeholder)
     box:SetHeight(W.TextHeight("body") + SP.s)
     box:HookScript("OnTextChanged", function(self, byPlayer) onChange(self:GetText(), byPlayer) end)
@@ -233,14 +262,17 @@ function W.WaypointButton(parent)
     return b
 end
 
-function W.NewTile(parent, size)
+-- bare leaves out the plate behind the icon.
+function W.NewTile(parent, size, bare)
     local tile = { icon = parent:CreateTexture(nil, "ARTWORK") }
     tile.icon:SetSize(size, size)
     Coord(tile.icon, C.wareIcon)
-    tile.plate = parent:CreateTexture(nil, "ARTWORK", nil, -1)
-    tile.plate:SetAllPoints(tile.icon)
-    tile.plate:SetColorTexture(1, 1, 1, 1)
-    tile.plate:SetGradient("VERTICAL", CreateColor(unpack(K.iconPlateBottom)), CreateColor(unpack(K.iconPlateTop)))
+    if not bare then
+        tile.plate = parent:CreateTexture(nil, "ARTWORK", nil, -1)
+        tile.plate:SetAllPoints(tile.icon)
+        tile.plate:SetColorTexture(1, 1, 1, 1)
+        tile.plate:SetGradient("VERTICAL", CreateColor(unpack(K.iconPlateBottom)), CreateColor(unpack(K.iconPlateTop)))
+    end
     tile.border = parent:CreateTexture(nil, "OVERLAY")
     tile.border:SetTexture(T.iconBorder)
     tile.border:SetAllPoints(tile.icon)
@@ -330,7 +362,11 @@ local function Reset(self)
 end
 
 local function ShowTip(self)
-    if self.onEnter then self.onEnter(self) elseif self.itemID then B.ShowItemTooltip(self, self.itemID, self.npcID) end
+    if self.onEnter then
+        self.onEnter(self)
+    elseif self.itemID then
+        B.ShowItemTooltip(self, self.itemID, self.npcID, self.named)
+    end
 end
 
 local function BuildRight(row)
@@ -345,9 +381,27 @@ local function Cap(fs, room)
     return room and room - math.min(math.ceil(fs:GetUnboundedStringWidth()), math.floor(room / 2)) or nil
 end
 
+-- A small icon that opens its item's page (right-click: the Dashboard) and shows the item's tooltip.
+local function BuildIcon(row)
+    local btn = CreateFrame("Button", nil, row)
+    btn:SetSize(R.icon, R.icon)
+    btn:RegisterForClicks("LeftButtonUp", "RightButtonUp")
+    btn.tile = W.NewTile(btn, R.icon)
+    btn.tile.icon:SetAllPoints(btn)
+    btn:SetScript("OnEnter", function(self) B.ShowItemTooltip(self, self.itemID, nil, true) end)
+    btn:SetScript("OnLeave", HideTip)
+    btn:SetScript("OnClick", function(self, button)
+        if W.Linked(self.itemID) then return end
+        if button == "RightButton" and B.OpenInCatalog(self.itemID) then return end
+        B.Go({ kind = "item", id = self.itemID })
+    end)
+    return btn
+end
+
 -- Decor row on a pooled Button: row:Set{ name, quality, icon or atlas, noTile, active, bonus, right, line2,
--- unconfirmed, state (an S.state key), arg, selected, narrow (the name and the can-get words only), itemID, npcID,
--- onClick, onEnter }, Redraw, Reset.
+-- state (an S.state key), arg, selected, narrow (the name and the can-get words only), itemID, npcID,
+-- onClick, onEnter, iconsOf }, Redraw, Reset. iconsOf makes the row one line: its name, then the icons it returns
+-- (a source's ware rows, each owned or not), the "+N" for those that do not fit, and the right words.
 function W.BuildRow(row)
     row:RegisterForClicks("LeftButtonUp")
     row.bg = row:CreateTexture(nil, "BACKGROUND")
@@ -363,6 +417,16 @@ function W.BuildRow(row)
 
     local tile = W.NewTile(row, R.tile)
     tile.icon:SetPoint("LEFT", SP.s, 0)
+
+    -- A fully collected row ends in the Endeavor list's completed flag, sized to the one-line row.
+    local flag = row:CreateTexture(nil, "ARTWORK", nil, 2)
+    flag:SetAtlas(S.atlas.doneFlag)
+    flag:SetSize(R.flag, R.flag)
+    flag:SetPoint("RIGHT", -SP.xs, 0)
+    local check = row:CreateTexture(nil, "OVERLAY", nil, 2)
+    check:SetAtlas(S.atlas.doneCheck)
+    check:SetSize(R.check, R.check)
+    check:SetPoint("CENTER", flag, "CENTER", 0, R.checkLift)
 
     local top, bottom = BuildRight(row), BuildRight(row)
     top:SetPoint("TOPRIGHT", -SP.s, -R.pad)
@@ -381,25 +445,103 @@ function W.BuildRow(row)
     words:SetWordWrap(false)
     local mark = bottom:CreateTexture(nil, "OVERLAY")
     mark:SetSize(12, 12)
-    local tag = CreateFrame("Frame", nil, bottom)
-    Vis.Chrome.Hairline(tag, K.muted, 0.7)
-    tag.text = S.Text(tag, "metaMuted", "OVERLAY")
-    tag.text:SetPoint("CENTER")
-    tag.text:SetText(L["Not confirmed"])
 
     local name = S.Text(row, "body", "OVERLAY")
-    local line = S.Text(row, "bodyMuted", "OVERLAY")
+    local line = S.Text(row, "body", "OVERLAY")
     for _, fs in ipairs({ name, line }) do
         fs:SetJustifyH("LEFT")
         fs:SetWordWrap(false)
     end
 
+    local icons, more = {}, S.Text(row, "body", "OVERLAY")
+    more:SetWordWrap(false)
+    more:SetTextColor(unpack(K.body))
+
+    local function HideIcons(from)
+        for i = from, #icons do icons[i]:Hide() end
+        if from == 1 then more:Hide() end
+    end
+
+    -- How many of n icons fit in avail, and whether the "+N" for the rest fits too.
+    local function Fit(n, avail)
+        local step, shown = R.icon + SP.xs, math.min(n, R.maxIcons)
+        while true do
+            local w = shown > 0 and shown * step - SP.xs or 0
+            if shown < n then
+                more:SetText("+" .. n - shown)
+                w = w + (shown > 0 and SP.xs or 0) + more:GetUnboundedStringWidth()
+            end
+            if w <= avail then return shown, shown < n end
+            if shown == 0 then return 0, false end
+            shown = shown - 1
+        end
+    end
+
+    -- The one-line row: the right box centred at the end, the icons ending beside it, the name taking the rest.
+    local function Compact(self, d, st, c, full, left, room, inset)
+        d.list = d.list or d.iconsOf()
+        line:SetText(full and d.line2 or "")
+        price:SetText(full and d.right or "")
+        badge:SetShown(false)
+        Vis.Marker.Set(clock, nil)
+        Vis.Marker.Set(star, nil)
+        words:SetShown(st ~= nil and d.state ~= "allDone")
+        words:SetText(st and W.StateWords(d.state, d.arg) or "")
+        words:SetTextColor(c[1], c[2], c[3])
+        Vis.Marker.Set(mark, st and d.state ~= "allDone" and st.glyph or nil, c)
+        bottom:ClearAllPoints()
+        bottom:SetPoint("RIGHT", self, "RIGHT", -inset, 0)
+        Pack(bottom, nil, price, words, mark)
+        local list = d.list
+        local text = room and math.min(math.ceil(name:GetUnboundedStringWidth()), math.floor(room / 2)) or 0
+        local shown, plus = Fit(#list, room and room - bottom:GetWidth() - 2 * SP.s - text or math.huge)
+        local x = SP.s
+        more:SetShown(plus)
+        if plus then
+            more:ClearAllPoints()
+            more:SetPoint("RIGHT", bottom, "LEFT", -x, 0)
+            x = x + more:GetUnboundedStringWidth() + SP.xs
+        end
+        for i = shown, 1, -1 do
+            local btn, e = icons[i], list[i]
+            if not btn then
+                btn = BuildIcon(self)
+                icons[i] = btn
+            end
+            local unowned = e.state ~= nil and e.state ~= "owned" and e.state ~= "counting"
+            local r, g, b = W.QualityRGB(e.quality)
+            btn.itemID = e.itemID
+            W.SetTile(btn.tile, e, r, g, b)
+            btn.tile.icon:SetDesaturated(unowned)
+            btn:SetAlpha(unowned and R.dim or 1)
+            btn:ClearAllPoints()
+            btn:SetPoint("RIGHT", bottom, "LEFT", -x, 0)
+            btn:Show()
+            x = x + R.icon + SP.xs
+        end
+        HideIcons(shown + 1)
+        name:ClearAllPoints()
+        if d.line2 then
+            local right = inset + bottom:GetWidth() + x
+            name:SetPoint("TOPLEFT", self, "TOPLEFT", left, -R.pad)
+            name:SetPoint("TOPRIGHT", self, "TOPRIGHT", -right, -R.pad)
+            line:ClearAllPoints()
+            line:SetPoint("BOTTOMLEFT", self, "BOTTOMLEFT", left, R.pad)
+            line:SetPoint("BOTTOMRIGHT", self, "BOTTOMRIGHT", -right, R.pad)
+            return
+        end
+        name:SetPoint("LEFT", self, "LEFT", left, 0)
+        name:SetPoint("RIGHT", bottom, "LEFT", -x, 0)
+    end
+
     function row:Set(d)
         self.d = d
+        self.itemID, self.npcID = d.itemID, d.npcID
+        self.onClick, self.onEnter = d.onClick, d.onEnter
         local r, g, b = W.QualityRGB(d.quality)
         local full = not d.narrow
         local st = S.state[(full or d.state == "some") and d.state or nil]
-        local c = st and st.color or K.muted
+        local c = st and st.color or K.body
         self.bg:SetColorTexture(unpack(d.selected and K.selected or K.card))
         stripe:SetShown(d.selected == true)
         tile.icon:SetShown(not d.noTile)
@@ -408,34 +550,42 @@ function W.BuildRow(row)
         W.SetTile(tile, d, r, g, b)
         tile.icon:SetDesaturated(d.state == "locked")
         local left = SP.s + (d.noTile and 0 or R.tile + SP.s)
+        name:SetText(d.name or "")
+        name:SetTextColor(r, g, b)
+        local done = full and d.state == "allDone"
+        flag:SetShown(done)
+        check:SetShown(done)
+        local inset = done and SP.s + R.flag + SP.xs or SP.s
+        local width = self:GetWidth()
+        local room = width > 0 and width - left - SP.s - inset or nil
+        if d.iconsOf then
+            Compact(self, d, st, c, full, left, room, inset)
+            return
+        end
+        top:ClearAllPoints()
+        if st and not done then top:SetPoint("TOPRIGHT", -inset, -R.pad) else top:SetPoint("RIGHT", row, "RIGHT", -inset, 0) end
+        HideIcons(1)
         name:ClearAllPoints()
         name:SetPoint("TOPLEFT", row, "TOPLEFT", left, -R.pad)
         name:SetPoint("TOPRIGHT", top, "TOPLEFT", -SP.s, 0)
         line:ClearAllPoints()
         line:SetPoint("BOTTOMLEFT", row, "BOTTOMLEFT", left, R.pad)
         line:SetPoint("BOTTOMRIGHT", bottom, "BOTTOMLEFT", -SP.s, 0)
-        name:SetText(d.name or "")
-        name:SetTextColor(r, g, b)
+        bottom:ClearAllPoints()
+        bottom:SetPoint("BOTTOMRIGHT", -inset, R.pad)
         price:SetText(full and d.right or "")
         badge:SetShown(d.active and true or false)
         Vis.Marker.Set(clock, d.active and "clock" or nil, K.badge)
         Vis.Marker.Set(star, d.bonus and "star" or nil, K.gold)
         -- The right words truncate first: each line's left text keeps the width it needs, up to half the room.
-        local width = self:GetWidth()
-        local room = width > 0 and width - left - 2 * SP.s or nil
         Pack(top, Cap(name, room), price, badge, clock, star)
 
-        words:SetShown(st ~= nil)
+        words:SetShown(st ~= nil and not done)
         words:SetText(st and W.StateWords(d.state, d.arg) or "")
         words:SetTextColor(c[1], c[2], c[3])
-        Vis.Marker.Set(mark, st and st.glyph, c)
-        tag:SetShown(full and d.unconfirmed == true)
-        tag:SetSize(tag.text:GetUnboundedStringWidth() + SP.s, W.TextHeight("meta") + 2)
+        Vis.Marker.Set(mark, st and not done and st.glyph or nil, c)
         line:SetText(full and d.line2 or "")
-        Pack(bottom, Cap(line, room), words, mark, tag)
-
-        self.itemID, self.npcID = d.itemID, d.npcID
-        self.onClick, self.onEnter = d.onClick, d.onEnter
+        Pack(bottom, Cap(line, room), words, mark)
     end
 
     row.Redraw, row.Reset = Redraw, Reset
@@ -524,27 +674,53 @@ function W.NewList(parent, opts)
     return list
 end
 
-function W.NewWareCell(cell)
-    local tile = W.NewTile(cell, S.ware.size)
-    tile.icon:SetPoint("CENTER")
+-- A ware cell is its icon. A named one is a catalog tile: the icon filling the top, the full name wrapped under
+-- it, and its own tooltip and clicks (the Housing Dashboard on a right-click when it can open, else the item).
+function W.NewWareCell(cell, named)
+    local t = S.tile
+    local tile = W.NewTile(cell, S.ware.size, named)
+    cell.named = named
+    if named then tile.icon:SetPoint("TOP", 0, -t.pad) else tile.icon:SetPoint("CENTER") end
     local hover = cell:CreateTexture(nil, "HIGHLIGHT")
     hover:SetAllPoints()
     hover:SetColorTexture(unpack(K.hoverRow))
-    cell:RegisterForClicks("LeftButtonUp")
+    if named then cell:RegisterForClicks("LeftButtonUp", "RightButtonUp") else cell:RegisterForClicks("LeftButtonUp") end
     local function Corner(point, x, y)
-        local t = cell:CreateTexture(nil, "OVERLAY", nil, 1)
-        t:SetSize(14, 14)
-        t:SetPoint(point, x, y)
-        return t
+        local c = cell:CreateTexture(nil, "OVERLAY", nil, 1)
+        c:SetSize(14, 14)
+        c:SetPoint(point, tile.icon, point, x, y)
+        return c
     end
     local mark, star, clock = Corner("TOPRIGHT", -2, -2), Corner("TOPLEFT", 2, -2), Corner("BOTTOMLEFT", 2, 2)
     local copies = S.Text(cell, "meta", "OVERLAY")
-    copies:SetPoint("BOTTOMRIGHT", -3, 3)
+    copies:SetPoint("BOTTOMRIGHT", tile.icon, "BOTTOMRIGHT", -3, 3)
+    local name
+    if named then
+        name = S.Text(cell, "body", "OVERLAY")
+        name:SetJustifyH("CENTER")
+        name:SetJustifyV("TOP")
+        name:SetNonSpaceWrap(true)
+        name:SetPoint("TOP", tile.icon, "BOTTOM", 0, -t.pad)
+        -- A tile w by h: the name gets a fixed box as wide as the icon and as tall as its row's tallest name,
+        -- so its wrap never waits on the pooled frame's size.
+        function cell:Fit(w, h)
+            if self.w == w and self.h == h then return end
+            self.w, self.h = w, h
+            local room = w - 2 * t.pad
+            tile.icon:SetSize(room, room)
+            name:SetSize(room, h - w - t.pad)
+        end
+    end
 
     function cell:Set(d)
         self.d, self.itemID, self.npcID = d, d.itemID, d.npcID
         local st = S.state[d.state]
-        W.SetTile(tile, d, W.QualityRGB(d.quality))
+        local r, g, b = W.QualityRGB(d.quality)
+        W.SetTile(tile, d, r, g, b)
+        if name then
+            name:SetText(d.name or "")
+            name:SetTextColor(unpack(d.state == "owned" and K.nameOwned or K.nameMissing))
+        end
         tile.icon:SetDesaturated(d.state == "locked")
         Vis.Marker.Set(mark, st and st.glyph, st and st.color)
         Vis.Marker.Set(star, d.bonus and "star" or nil, K.gold)
@@ -553,9 +729,10 @@ function W.NewWareCell(cell)
         copies:SetText(d.copies and d.copies > 99 and "99+" or d.copies or "")
     end
     cell.Redraw, cell.Reset = Redraw, Reset
-    cell:SetScript("OnClick", function(self)
-        if W.Linked(self.itemID) then return end
-        if self.itemID then B.Go({ kind = "item", id = self.itemID }) end
+    cell:SetScript("OnClick", function(self, button)
+        if W.Linked(self.itemID) or not self.itemID then return end
+        if named and button == "RightButton" and B.OpenInCatalog(self.itemID) then return end
+        B.Go({ kind = "item", id = self.itemID })
     end)
     cell:SetScript("OnEnter", ShowTip)
     cell:SetScript("OnLeave", HideTip)
@@ -607,6 +784,84 @@ function W.NewGrid(parent, cell, gap)
     return list
 end
 
+-- The catalog's tiles, as a list of rows: each row holds up to n tiles at least min wide that share out the box's
+-- width, and is as tall as its own tallest name wraps (nameOf gives one); describe(element) gives what a tile
+-- draws. A width change groups the rows again.
+function W.NewTileGrid(parent, min, gap, describe, nameOf)
+    local n, width, data, rows = 0, min, {}, {}
+    local function ResetRow(f)
+        for _, c in ipairs(f.cells) do c:Reset() end
+    end
+    local function RedrawRow(f)
+        for i = 1, #f.row do f.cells[i]:Redraw() end
+    end
+    local kind = { frameType = "Frame",
+        build = function(f) f.cells, f.Reset, f.Redraw = {}, ResetRow, RedrawRow end,
+        init = function(f, row)
+            f.row = row
+            for i, item in ipairs(row) do
+                local c = f.cells[i]
+                if not c then
+                    c = W.NewWareCell(CreateFrame("Button", nil, f), true)
+                    f.cells[i] = c
+                end
+                c:SetPoint("TOPLEFT", (i - 1) * (width + gap), 0)
+                c:SetSize(width, row.h)
+                c:Fit(width, row.h)
+                c:Set(describe(item))
+                c:Show()
+            end
+            for i = #row + 1, #f.cells do
+                f.cells[i]:Reset()
+                f.cells[i]:Hide()
+            end
+        end }
+    local list = W.NewList(parent, { spacing = gap, kinds = { tiles = kind }, extent = function(row) return row.h end })
+    local box, set = list.box, list.SetData
+
+    local function Restride()
+        local w = box:GetWidth()
+        if w < min then return false end
+        local k = math.floor((w + gap) / (min + gap))
+        local cw = math.floor((w - (k - 1) * gap) / k)
+        if k == n and cw == width then return false end
+        n, width = k, cw
+        return true
+    end
+    -- Rows of n in order, each as tall as its icon and its tallest name.
+    local function Group()
+        rows = {}
+        local row
+        for i, item in ipairs(data) do
+            if (i - 1) % math.max(n, 1) == 0 then
+                row = { kind = "tiles" }
+                rows[#rows + 1] = row
+            end
+            row[#row + 1] = item
+        end
+        for _, r in ipairs(rows) do r.h = TileHeight(r, nameOf, width) end
+    end
+    -- A box with nothing to scroll gives the wheel to whatever scrolls behind it.
+    local function Draw(keep)
+        set(list, rows, keep)
+        box:EnableMouseWheel(box:HasScrollableExtent())
+    end
+    box:HookScript("OnSizeChanged", function()
+        if Restride() then
+            Group()
+            Draw(true)
+        end
+    end)
+
+    function list:SetData(tbl, keep)
+        data = tbl
+        Restride()
+        Group()
+        Draw(keep)
+    end
+    return list
+end
+
 -- List kinds for the pieces that sit among rows. Group header: { kind = "header", text, nested }; a nested
 -- header sits one step in under its parent header.
 -- Footer: { kind = "footer", hidden, collected, parts (Facts.FactionParts) or faction and factionName, onShow }.
@@ -617,7 +872,7 @@ W.headerKind = {
         f.text:SetPoint("RIGHT", -SP.s, 0)
         f.text:SetJustifyH("LEFT")
         f.text:SetWordWrap(true)
-        Vis.Chrome.Hairline(f, K.muted, 0.35)
+        Vis.Chrome.Hairline(f, K.rule, 0.35)
     end,
     init = function(f, d)
         f.text:SetPoint("LEFT", d.nested and SP.s + SP.m or SP.s, 0)
@@ -636,7 +891,7 @@ end
 -- A header wraps in the width it is given: one line's height, or more when its text needs them.
 function W.HeaderExtent(d, width)
     local room = width - (d.nested and SP.s + SP.m or SP.s) - SP.s
-    return room > 0 and math.max(W.HeaderHeight(), W.TextHeight("bodyGold", d.text, room) + SP.s) or W.HeaderHeight()
+    return room > 0 and math.max(W.HeaderHeight(), W.TextHeight(d.big and "subheader" or "bodyGold", d.text, room) + SP.s) or W.HeaderHeight()
 end
 
 function W.FooterText(d)
@@ -654,7 +909,7 @@ local FooterText = W.FooterText
 W.footerKind = {
     frameType = "HomesteadDecorBrowserFooter",
     build = function(f)
-        f.text = S.Text(f, "bodyMuted", "OVERLAY")
+        f.text = S.Text(f, "body", "OVERLAY")
         f.text:SetPoint("TOPLEFT", SP.s, -SP.s)
         f.text:SetPoint("TOPRIGHT", -SP.s, -SP.s)
         f.text:SetJustifyH("LEFT")
@@ -672,7 +927,7 @@ W.footerKind = {
 }
 
 function W.FooterHeight(d, width)
-    return W.TextHeight("bodyMuted", FooterText(d), width - 2 * SP.s) + W.TextHeight("body") + 2 * SP.s + R.gap
+    return W.TextHeight("body", FooterText(d), width - 2 * SP.s) + W.TextHeight("body") + 2 * SP.s + R.gap
 end
 
 local EMPTY = {

@@ -52,8 +52,6 @@ function F.EventVendor(npcID)
     return EventVendors()[npcID]
 end
 
-function F.NotConfirmed() return L["Not confirmed"] .. ": " .. L["No scan has confirmed this vendor yet. Visit the vendor to check."] end
-
 -- The newer of the shipped confirmation and the player's own scan, as "YYYY-MM-DD"; nil when neither.
 function F.Confirmed(vendor)
     local shipped = vendor.scanConfirmed
@@ -85,6 +83,20 @@ end
 
 function F.TreasureSpot(questID)
     return HA.TreasureHuntSpots and HA.TreasureHuntSpots[questID]
+end
+
+-- A quest's zone with no position, for grouping only: { mapID = zone map, turnIn = continent map, expansion = expansion key }
+-- with each part optional. It never feeds a waypoint or a pin.
+function F.QuestZone(questID)
+    return HA.QuestZones and HA.QuestZones[questID]
+end
+
+-- The map a quest is grouped under: where it starts or its dig site, else its recorded zone; nil when unknown.
+function F.QuestMap(questID)
+    local at = F.TreasureSpot(questID) or F.QuestStart(questID)
+    if at and at.mapID then return at.mapID end
+    local zone = F.QuestZone(questID)
+    return zone and zone.mapID
 end
 
 -- The zone-level map at or above mapID: a building or dungeon map walks up to its zone.

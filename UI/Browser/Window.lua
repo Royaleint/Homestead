@@ -51,7 +51,8 @@ end
 
 local CORNER_POINT = { TL = "TOPLEFT", TR = "TOPRIGHT", BL = "BOTTOMLEFT", BR = "BOTTOMRIGHT" }
 
--- Tree rows: a group's label opens its page and its +/- only folds. Folds last the session.
+-- Tree rows: a group's label opens its page and folds or unfolds the group; its +/- only folds. Folds last
+-- the session.
 local function Row(key, label, route, kids)
     return { kind = "row", key = key, label = label, route = route, kids = kids }
 end
@@ -105,7 +106,7 @@ local function ShowTruncated(self, fs)
     if fs:IsTruncated() then W.TextTip(self, "ANCHOR_RIGHT", fs:GetText()) end
 end
 
-local SIGN = { "housing-dashboard-woodsign-left", "housing-dashboard-woodsign-center", "housing-dashboard-woodsign-right" }
+local SIGN = S.atlas.sign
 -- Widths of the sign's end caps at the row height; empty when the art is missing.
 local signEnd = {}
 
@@ -129,7 +130,15 @@ local function BuildRow(f)
     f.label:SetJustifyH("LEFT")
     f.label:SetWordWrap(false)
     f:RegisterForClicks("LeftButtonUp")
-    f:SetScript("OnClick", function(self) B.GoTop(self.data.route) end)
+    f:SetScript("OnClick", function(self)
+        local d = self.data
+        local open = not expanded[d.key]
+        B.GoTop(d.route)
+        if d.kids then
+            expanded[d.key] = open
+            ReloadNav()
+        end
+    end)
     f:SetScript("OnEnter", function(self) ShowTruncated(self, self.label) end)
     f:SetScript("OnLeave", B.HideTooltip)
 end
@@ -171,6 +180,7 @@ local function BuildTree(page)
     local tree = CreateFrame("Frame", nil, page)
     tree:SetPoint("TOPLEFT", LO.pagePad, -LO.pagePad)
     tree:SetPoint("BOTTOMLEFT", LO.pagePad, LO.pagePad)
+    Win.tree = tree
     tree:SetWidth(S.nav.width)
     list = W.NewList(tree, {
         spacing = S.nav.gap,
@@ -247,7 +257,7 @@ local function NewCrumb()
     c.text:SetJustifyH("LEFT")
     c.text:SetWordWrap(false)
     c.sep = S.Text(Win.bar, "body", "OVERLAY")
-    c.sep:SetTextColor(K.muted[1], K.muted[2], K.muted[3])
+    c.sep:SetTextColor(K.rule[1], K.rule[2], K.rule[3])
     c.sep:SetText(CRUMB_SEP)
     c.btn:SetScript("OnClick", function() if c.route then B.GoTop(c.route) end end)
     return c
@@ -275,7 +285,7 @@ function Win.SetCrumb(segs)
         c.route = not c.last and route or nil
         c.btn:EnableMouse(not c.last)
         c.text:SetText(select(3, Describe(route, c.last)))
-        local col = c.last and K.body or K.muted
+        local col = c.last and K.body or K.gold
         c.text:SetTextColor(col[1], col[2], col[3])
         c.btn:SetWidth(c.last and 0 or c.text:GetStringWidth() + 1)
         PlaceCrumb(c, prev)
@@ -365,7 +375,15 @@ local function BuildWell(f)
     local host = CreateFrame("Frame", nil, page)
     host:SetPoint("TOPLEFT", bar, "BOTTOMLEFT", 0, -SP.xs)
     host:SetPoint("BOTTOMRIGHT", -LO.pagePad, LO.pagePad)
-    Win.host = host
+    Win.host, Win.area = host, page
+end
+
+-- A strip of height h along the bottom of the whole page area, under the tree and the page; nil gives the room
+-- back. Only the Overview takes one.
+function Win.SetStrip(h)
+    local y = LO.pagePad + (h and h + SP.s or 0)
+    Win.tree:SetPoint("BOTTOMLEFT", LO.pagePad, y)
+    Win.host:SetPoint("BOTTOMRIGHT", -LO.pagePad, y)
 end
 
 local function BuildHeader(f)
@@ -417,18 +435,6 @@ local function BuildHeader(f)
     search:SetPoint("RIGHT", help, "LEFT", -SP.m, 0)
     search:HookScript("OnEnterPressed", function(self) hooks.Search(self:GetText():match("^%s*(.-)%s*$")) end)
     Win.hideNA, Win.help, Win.search = hide, help, search
-
-    local count = S.Text(band, "header", "OVERLAY")
-    count:SetPoint("LEFT", LO.titleLeft - r[1], 0)
-    count:SetPoint("RIGHT", hide, "LEFT", -SP.m, 0)
-    count:SetJustifyH("LEFT")
-    count:SetWordWrap(false)
-    Win.count = count
-    local hit = CreateFrame("Frame", nil, band)
-    hit:SetAllPoints(count)
-    hit:EnableMouse(true)
-    hit:SetScript("OnEnter", function(self) ShowTruncated(self, count) end)
-    hit:SetScript("OnLeave", B.HideTooltip)
 end
 
 -- The box shows the seed's search; a Go without one clears it, and a page restoring its own may set it after.
@@ -444,25 +450,17 @@ function Win.SetPlaceholder(text)
     Win.search.Instructions:SetText(text or DEFAULT_HINT)
 end
 
--- The count's text gets the bar first; the Hide label truncates (its tooltip then has the full text) to what is
--- left, down to LABEL_MIN.
+-- The Hide label takes the bar left of the search, from the title's start; it truncates (its tooltip then has the
+-- full text) to that room, down to LABEL_MIN.
 local function FitLabel()
     local hide = Win.hideNA
-    local room = WIN_W - LO.rect[1] - LO.rect[3] - (LO.titleLeft - LO.rect[1]) - Win.count:GetUnboundedStringWidth()
+    local room = WIN_W - LO.rect[1] - LO.rect[3] - (LO.titleLeft - LO.rect[1])
         - (SP.m + helpW + SP.m + SEARCH_W + SP.l + HIDE_BOX + SP.m)
     local own = hide.Text:GetUnboundedStringWidth()
     local label = math.max(math.min(own, room), math.min(own, LABEL_MIN))
     hide.Text:SetWidth(label)
     hide:SetHitRectInsets(0, -(label + SP.xs), 0, 0)
     hide:SetPoint("RIGHT", Win.search, "LEFT", -(label + SP.l), 0)
-end
-
-function Win.UpdateCount()
-    local walk = B.Walk()
-    local text = walk and L["%d of %d collected"]:format(walk.progress.owned, walk.progress.total) or L["Counting…"]
-    if text == Win.count:GetText() then return end
-    Win.count:SetText(text)
-    FitLabel()
 end
 
 -- Row and bar heights follow the text size; the clamp rect keeps the portrait on screen.
@@ -640,28 +638,6 @@ function Win.PlayClose()
     Win.openAnim:Stop()
     Win.closing = true
     Win.closeAnim:Play()
-end
-
-local glowing = {}
-function Win.Glow(region)
-    local g = region.browserGlow
-    if not g then
-        g = region:CreateAnimationGroup()
-        local a = g:CreateAnimation("Alpha")
-        a:SetFromAlpha(0.3)
-        a:SetToAlpha(1)
-        a:SetDuration(OPEN_TIME)
-        region.browserGlow = g
-    end
-    glowing[region] = g
-    g:Restart()
-end
-
-function Win.StopGlow()
-    for region, g in pairs(glowing) do
-        g:Stop()
-        glowing[region] = nil
-    end
 end
 
 -- Slides a region in from the right over OPEN_TIME, fading it in, and settles it where it is anchored. The

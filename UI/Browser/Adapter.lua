@@ -119,6 +119,13 @@ function D.Expansions()
     return homes
 end
 
+-- The expansion's place in the newest-first order, or nil.
+function D.ExpansionRank(key)
+    for i, e in ipairs(EXPANSIONS) do
+        if e[1] == key then return i end
+    end
+end
+
 function D.ExpansionLabel(key)
     if key == "other" then return L["Other Vendors"] end
     local token = TOKEN[key]
@@ -580,7 +587,6 @@ function D.TooltipData(itemID, npcID, catalogMemo)
     local v = p and p.type == "vendor" and p.npcID and D.Vendor(p.npcID)
     out.price = npcID and D.Price(itemID, v) or p and p.price
     out.source = D.SourceLine(itemID, { p })
-    out.unconfirmed = v and not B.Facts.Confirmed(v) or nil
     out.active = v and D.HolidayActive(v) and v.event or nil
     local e = B.CanGet.Entry(itemID)
     out.bonus = e and e.bonus or nil

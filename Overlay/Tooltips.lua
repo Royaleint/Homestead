@@ -1233,10 +1233,13 @@ end
 -- rendering does not fire the TooltipDataProcessor post-call.
 -- Falls back to SetItemByID (full native tooltip, sell price included, and
 -- the post-call appends the block) if structured data is unavailable.
-function HA.SetManagedItemTooltip(tooltip, itemID)
+-- linesOnly renders the item lines alone, for a caller that adds its own
+-- Homestead lines: no block, no fallback, and true when the lines rendered.
+function HA.SetManagedItemTooltip(tooltip, itemID, linesOnly)
     local data = C_TooltipInfo and C_TooltipInfo.GetItemByID
         and C_TooltipInfo.GetItemByID(itemID)
     if not (data and data.lines) then
+        if linesOnly then return false end
         tooltip:SetItemByID(itemID)
         return
     end
@@ -1269,8 +1272,10 @@ function HA.SetManagedItemTooltip(tooltip, itemID)
         end
     end
 
-    local _, link = C_Item.GetItemInfo(itemID)
-    AddDecorInfoToTooltip(tooltip, link or ("item:" .. itemID))
+    if not linesOnly then
+        local _, link = C_Item.GetItemInfo(itemID)
+        AddDecorInfoToTooltip(tooltip, link or ("item:" .. itemID))
+    end
 
     -- Cold cache: the manual path has no client-side refresh when item data
     -- streams in, so re-run the owner's OnEnter once it loads (re-entry finds
@@ -1289,6 +1294,7 @@ function HA.SetManagedItemTooltip(tooltip, itemID)
             end
         end)
     end
+    return true
 end
 
 -------------------------------------------------------------------------------

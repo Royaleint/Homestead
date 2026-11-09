@@ -107,3 +107,11 @@ function Marker.Set(tex, glyph, c)
         tex:SetColorTexture(c[1], c[2], c[3], 1)
     end
 end
+
+-- The same mark inline in a line of text, tinted as Set tints it; nil when the client has none of its atlases.
+function Marker.Markup(glyph, c, size)
+    local atlas = Atlas(glyph)
+    if not atlas then return nil end
+    local k, f = S.glyph[glyph].native and S.color.body or c, math.floor
+    return CreateAtlasMarkup(atlas, size, size, 0, 0, f(k[1] * 255), f(k[2] * 255), f(k[3] * 255))
+end

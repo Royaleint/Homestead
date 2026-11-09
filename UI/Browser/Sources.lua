@@ -22,11 +22,13 @@ local KIND = {
             achievementID = d.achievementID }
     end },
     quests = { L["Quest"], L["Search quests"], "QuestSources", function(d)
-        local at = Facts.TreasureSpot(d.questID) or Facts.QuestStart(d.questID)
-        return { title = d.questName, sub = MapName(at and at.mapID) or L["Location not recorded"], questID = d.questID }
+        local where = MapName(Facts.QuestMap(d.questID))
+        return { title = d.questName, sub = where or L["Location not recorded"], where = where, questID = d.questID }
     end },
     professions = { L["Profession"], L["Search recipes and professions"], "ProfessionSources",
-        function(d) return { title = d.recipeName, sub = d.skillTier or d.profession, group = d.profession } end },
+        function(d)
+        return { title = d.recipeName, sub = d.skillTier or d.profession, group = d.profession, tier = d.skillTier }
+    end },
     drops = { L["Drop"], L["Search drops and zones"], "DropSources",
         function(d) return { title = d.mobName, sub = d.zone, drop = d } end },
     events = { L["Event"], L["Search events"], "EventSources",
@@ -39,7 +41,7 @@ local LINK = Facts.LINK
 local Page = {}
 local st = { type = "achievements" }
 local now, query, wide = nil, "", false
-local head, list, empty, torn, asked, cs, static, vend, vendVer
+local head, list, empty, torn, asked, cs, static, vend, vendVer, collapse, expand
 local well, shown, vid
 local Vend, V = {}, {}
 local P, colNow, slide
@@ -49,6 +51,7 @@ local FLOOR, GAP, LIFT = 2 * S.ware.size + S.ware.gap, SP.s, 20
 -- The card's text and scroll frame sit INSET in from its well. The close button sits XPAD in from the well's
 -- corner; the head leaves XRES for the part of it that is over the text, and the card's scroll bar starts below it.
 local INSET, XSIZE, XPAD, XRES = LO.wellPad, S.card.close, S.card.closePad, S.card.reserve
+local GLYPH = 14
 
 -- Beside an open card the list is narrowed to its names and what can be got now; under a covering card it keeps its rows.
 local function Narrow()
@@ -115,7 +118,10 @@ end
 
 -- A shop source is named after its item, which may not have loaded yet.
 local function ShopTitle(s)
-    s.title = D.ItemName(s.items[1]) or L["Item %d"]:format(s.items[1])
+    local id = s.items[1]
+    local e = CG.Entry(id)
+    local info = e and e.info or D.CatalogInfo(id, B.State.catalogMemo)
+    s.title = D.ItemName(id, info) or L["Item %d"]:format(id)
 end
 
 -- Total decor, owned (nil until known) and can get now (nil until known).
@@ -161,9 +167,12 @@ local function ExpansionHead(vendors)
     return L["%d of %d collected"]:format(owned, total)
 end
 
+local Rows
+
 local function RowData(s)
     local total, got, can = Stats(s)
     local v, state, arg = s.vendor
+    local oneLine = s.type ~= "vendors" and s.type ~= "drops"
     if v and D.IsOppositeFaction(v) then state, arg = "faction", D.VendorFactionLabel(v)
     elseif s.type == "events" and not Live(s.key) then state = "idle"
     elseif cs == "counting" then state = "counting"
@@ -171,10 +180,10 @@ local function RowData(s)
     elseif can and can > 0 then state, arg = "some", can
     elseif s.type == "events" or (v and D.HolidayActive(v)) then state = "live" end
     return {
-        kind = "row", key = s.key, name = s.title, line2 = s.sub, noTile = true, state = state, arg = arg,
+        kind = "row", key = s.key, name = s.title, line2 = not oneLine and s.sub or s.where, noTile = true, state = state, arg = arg,
+        iconsOf = oneLine and function() return Rows(s, true) end or nil,
         selected = vid ~= nil and s.key == vid or nil, narrow = Narrow() or nil,
         right = total == 0 and L["No decor"] or got and L["%d of %d"]:format(got, total) or L["%d decor"]:format(total),
-        unconfirmed = v and not Facts.Confirmed(v) or nil,
         onClick = function()
             if not v then B.Go({ kind = "source", key = s.type, id = s.key })
             elseif vid == s.key then Page:CloseCard()
@@ -184,22 +193,109 @@ local function RowData(s)
     }
 end
 
--- Vendors group by expansion (all vendors only) and zone, a vendor with no zone last; events by whether they run.
+-- Blizzard's achievement tree, read once per category: top title and position, then the subcategory's title and
+-- position when the category has a parent. Nil when the client has no such category.
+local tree, treePos = {}, nil
+local function CategoryPos(id)
+    if not treePos then
+        treePos = {}
+        for i, c in ipairs(GetCategoryList() or {}) do treePos[c] = i end
+        if next(treePos) == nil then treePos = nil end
+    end
+    return treePos and treePos[id] or 1e6 + id
+end
+
+local function Category(id)
+    local cat = GetAchievementCategory(id)
+    local c = cat and tree[cat]
+    if c or not cat then return c end
+    local topName, parent = GetCategoryInfo(cat)
+    if not topName then return nil end
+    local topID, subID, subName = cat, nil, nil
+    while parent and parent > 0 do
+        local name, up = GetCategoryInfo(parent)
+        if not name then break end
+        topID, topName, subID, subName, parent = parent, name, topID, topName, up
+    end
+    c = { topName, CategoryPos(topID), subName, subID and CategoryPos(subID) }
+    if treePos then tree[cat] = c end
+    return c
+end
+
+-- The map a quest's spot sits in, climbed to the zone the client types as one; nil when no zone is above it.
+local function ZoneMap(mapID)
+    local id = mapID
+    while id and id ~= 0 do
+        local info = C_Map.GetMapInfo(id)
+        if not info or info.mapType <= Enum.UIMapType.Continent then return nil end
+        if info.mapType == Enum.UIMapType.Zone then return id end
+        id = info.parentMapID
+    end
+end
+
+-- Quests: expansion of the continent the quest's spot is on, then the zone the spot is in; the unlocated quests last.
+-- A map with no continent above it takes the continent of the quest's turn-in. A quest whose zone row names an
+-- expansion lists directly under that expansion, with no zone group, whatever map it shows.
+local function QuestGroup(s)
+    if not s.qo then
+        local mapID = Facts.QuestMap(s.questID)
+        local zoneRow = Facts.QuestZone(s.questID)
+        local rowExp = zoneRow and zoneRow.expansion
+        if rowExp and D.ExpansionRank(rowExp) then
+            s.qt, s.qo = D.ExpansionLabel(rowExp), D.ExpansionRank(rowExp)
+        elseif not mapID then
+            s.qt, s.qo = L["Location not recorded"], 2e6
+        else
+            local exp = HA.Constants.ContinentToExpansion[Facts.ContinentOf(mapID) or zoneRow and zoneRow.turnIn]
+            local zone = ZoneMap(mapID)
+            s.qt, s.qo, s.qg = exp and D.ExpansionLabel(exp) or L["Other"], exp and D.ExpansionRank(exp) or 1e6,
+                zone and MapName(zone)
+        end
+    end
+    return s.qt, s.qo, s.qg
+end
+
+local TIERS = { "Classic", "Outland", "Northrend", "Cataclysm", "Pandaria", "Draenor", "Legion", "Battle for Azeroth",
+    "Shadowlands", "Dragon Isles", "Khaz Algar", "Midnight" }
+local function TierRank(tier)
+    for i, name in ipairs(TIERS) do
+        if tier:sub(1, #name) == name then return i end
+    end
+    return #TIERS + 1
+end
+
+-- Vendors group by expansion (all vendors only) and zone, a vendor with no zone last; events by whether they run;
+-- achievements by Blizzard's category and subcategory, quests by expansion and zone, professions by skill tier,
+-- oldest first. s.top is the plain header over s.g, the folding one.
 local function Place(s, order)
-    s.o, s.g, s.late = 0, s.group, nil
-    local v = s.vendor
+    s.o, s.g, s.late, s.top, s.p = 0, nil, nil, nil, nil
+    local v, t = s.vendor, s.type
     if v then
         local _, zone = Facts.Place(v)
         s.e, s.g, s.late = D.VendorHome(v), zone or L["Location not recorded"], zone == nil
         s.o = order and order[s.e] or 0
-    elseif s.type == "events" then
+    elseif t == "events" then
         s.o = Live(s.key) and 0 or 1
+    elseif t == "achievements" then
+        local c = Category(s.achievementID)
+        if c then s.top, s.o, s.g, s.p = c[1], c[2], c[3], c[4] else s.top, s.o = s.group, 1e7 end
+    elseif t == "quests" then
+        s.top, s.o, s.g = QuestGroup(s)
+    elseif t == "professions" then
+        s.top, s.o = s.group, s.group == "Miscellaneous" and 1 or 0
+        if s.tier then
+            s.g = s.tier:gsub(" " .. s.group .. "$", "")
+            s.p = s.tier == "Junkyard Tinkering" and #TIERS + 2 or TierRank(s.tier)
+        end
     end
 end
 
 local function Before(a, b)
     if a.o ~= b.o then return a.o < b.o end
     if a.late ~= b.late then return b.late == true end
+    local ta, tb, pa, pb = a.top or "", b.top or "", a.p or 0, b.p or 0
+    if ta ~= tb then return ta < tb end
+    if pa ~= pb then return pa < pb end
     local ga, gb = a.g or "", b.g or ""
     if ga ~= gb then return ga < gb end
     if a.title ~= b.title then return a.title < b.title end
@@ -207,13 +303,13 @@ local function Before(a, b)
 end
 
 local function Extent(d)
-    if d.kind == "header" then return W.HeaderExtent(d, list.box:GetWidth()) end
+    if d.kind == "header" then return W.HeaderExtent(d, list.box:GetWidth() - (d.fold and GLYPH + SP.xs or 0)) end
     if d.kind == "foot" then
         local w = list.box:GetWidth()
-        return d.text and W.TextHeight("bodyMuted", d.text, w - 2 * SP.s) + W.TextHeight("body") + 3 * SP.s
+        return d.text and W.TextHeight("body", d.text, w - 2 * SP.s) + W.TextHeight("body") + 3 * SP.s
             or W.FooterHeight(d, w)
     end
-    return W.RowHeight()
+    return d.iconsOf and not d.line2 and W.IconRowHeight() or W.RowHeight()
 end
 
 local footKind = {
@@ -235,6 +331,32 @@ local function ResetSearch()
     Page:Filter("")
 end
 
+-- Folded groups, for the session: a vendor zone, or the folding header under a plain one in the achievement,
+-- quest and profession lists. A search shows every matching group open, and the seed zone opens. A fold changes
+-- only which rows draw: the head and the hidden-items footer still count everything.
+local folded, keys = {}, {}
+local TOPS = { achievements = true, quests = true, professions = true }
+
+-- The Shop is a grid of the Catalog's tiles, one per item, with the Catalog's clicks.
+local tiles, shopNote
+
+local function ShopTile(s)
+    local id = s.items[1]
+    local e = CG.Entry(id)
+    local info = e and e.info
+    local state, arg = B.ItemState(id)
+    return { itemID = id, name = s.title, quality = info and info.quality or C_Item.GetItemQualityByID(id),
+        icon = D.ItemIcon(id), state = state, arg = arg, bonus = e and e.bonus,
+        copies = select(2, D.IconData(id, true, B.State.catalogMemo)) }
+end
+
+-- The hidden-items line above the tiles; one pixel when there is none.
+local function PaintShopNote(note)
+    shopNote:SetShown(note ~= nil)
+    shopNote:SetHeight(note and W.FooterHeight(note, math.max(shopNote:GetWidth(), 1)) or 1)
+    if note then W.footerKind.init(shopNote, note) end
+end
+
 -- Returns the index of the header of the zone (a map id) when given and the list has a vendor in it, then
 -- the index of the open card's row.
 local function BuildList(keep, zone)
@@ -254,7 +376,7 @@ local function BuildList(keep, zone)
     else
         entries = Statics()[t]
     end
-    local out, live = {}, false
+    local out, live, grid = {}, false, t == "shop"
     local hidden, seen = { kind = "foot", hidden = 0, collected = 0, faction = 0, onShow = ShowHidden }, {}
     for _, s in ipairs(entries) do
         if t == "shop" then ShopTitle(s) end
@@ -278,34 +400,71 @@ local function BuildList(keep, zone)
     end
     hidden.parts = Facts.FactionParts(seen)
     table.sort(out, Before)
-    local data, group, expansion, headAt, zoneAt, openAt = {}, nil, nil, nil, nil, nil
+    local data, group, expansion, headAt, zoneAt, openAt, shut, topShut = {}, nil, nil, nil, nil, nil, nil, nil
+    local tops = not wide and TOPS[t]
+    local fold = (wide or tops) and q == ""
+    -- The fold keys of a source's plain header and of its folding one.
+    local function KeysOf(s)
+        local tk = order and tostring(s.e) or tops and t .. "\1" .. s.top or nil
+        return tk, s.g and (wide and tostring(s.e) .. "\1" .. s.g or tops and tk .. "\1" .. s.g) or nil
+    end
+    local function Near(s)
+        local at = s.vendor and Facts.Place(s.vendor)
+        return at and (nearby and nearby[at] or Facts.ZoneOf(at) == zone)
+    end
+    if zone and fold then
+        for _, s in ipairs(out) do
+            if Near(s) then
+                local tk, sk = KeysOf(s)
+                folded[tk or false], folded[sk or false] = nil, nil
+                break
+            end
+        end
+    end
     if t == "events" and not live then
         data[1] = { kind = "foot", text = L["No events active right now. Event decor is sold only while its event runs."] }
     end
+    keys = {}
+    local canShut = false
     for _, s in ipairs(out) do
-        if order and s.e ~= expansion then
-            expansion, group = s.e, nil
-            data[#data + 1] = { kind = "header", text = D.ExpansionLabel(expansion) }
+        local top = order and s.e or tops and s.top
+        local tk, sk = KeysOf(s)
+        if top and top ~= expansion then
+            expansion, group, shut = top, nil, nil
+            topShut = fold and folded[tk]
+            keys[tk] = true
+            canShut = canShut or (fold and not topShut)
+            data[#data + 1] = { kind = "header", text = order and D.ExpansionLabel(top) or top, top = true, zone = tk,
+                big = (order or t == "quests") and true or nil, fold = fold or nil, folded = topShut }
         end
         if s.g and s.g ~= group then
             group = s.g
-            data[#data + 1] = { kind = "header", text = group, nested = order and true or nil }
-            headAt = #data
+            keys[sk] = true
+            shut = fold and folded[sk]
+            if not topShut then
+                data[#data + 1] = { kind = "header", text = group, nested = (order or tops) and true or nil, zone = sk,
+                    fold = fold or nil, folded = shut }
+                headAt = #data
+                canShut = canShut or (fold and not shut)
+            end
         end
-        local at = s.vendor and Facts.Place(s.vendor)
-        if zone and not zoneAt and at and (nearby and nearby[at] or Facts.ZoneOf(at) == zone) then
-            zoneAt = headAt
+        if zone and not zoneAt and Near(s) then zoneAt = headAt end
+        if not (shut or topShut) and not grid then
+            data[#data + 1] = RowData(s)
+            if vid and s.key == vid then openAt = #data end
         end
-        data[#data + 1] = RowData(s)
-        if vid and s.key == vid then openAt = #data end
     end
+    local canOpen = false
+    for k in pairs(keys) do canOpen = canOpen or folded[k] ~= nil end
     local note = hidden.hidden > 0 and hidden or nil
-    if note and #out > 0 then data[#data + 1] = note end
-    shown = data
-    list:SetShown(#out > 0)
+    if note and #out > 0 and not grid then data[#data + 1] = note end
+    shown = grid and out or data
+    list:SetShown(#out > 0 and not grid)
+    tiles:SetShown(#out > 0 and grid)
+    PaintShopNote(grid and #out > 0 and note or nil)
     if #out > 0 then
         empty:Hide()
-        list:SetData(data, keep)
+        if grid then tiles:SetData(out, keep) else list:SetData(data, keep) end
     else
         local text = q ~= "" and L["Nothing matches your search."] or L["Nothing to show here."]
         empty:Set("noResults", {
@@ -314,12 +473,26 @@ local function BuildList(keep, zone)
             onReset = q ~= "" and ResetSearch or nil,
         })
     end
-    head:SetHeight(W.TextHeight("bodyMuted") + SP.s)
+    collapse:SetShown((wide or tops) and true or false)
+    expand:SetShown(collapse:IsShown())
+    collapse:SetEnabled(fold and canShut and true or false)
+    expand:SetEnabled(fold and canOpen and true or false)
+    head:SetHeight(W.TextHeight("body") + SP.s)
     head:SetText(wide and now.kind == "vendors" and ExpansionHead(entries) or Head(t))
     return zoneAt, openAt
 end
 
+-- Folds or unfolds every group the list on screen has, and none that other lists have.
+local function FoldAll(on)
+    for k in pairs(keys) do folded[k] = on or nil end
+    BuildList(true)
+end
+
 -- Lights the open card's row, or none, and narrows or widens the rows for the mode, without rebuilding the list.
+local function Scroller()
+    return not wide and st.type == "shop" and tiles or list
+end
+
 local function Mark()
     local narrow = Narrow()
     for _, d in ipairs(shown) do
@@ -327,6 +500,57 @@ local function Mark()
     end
     W.RepaintRows(list)
 end
+
+-- Fold header: nested ones (vendor zones, achievement subcategories, quest zones, profession tiers)
+-- are a wood plank, top ones a rule. A Frame pools apart from rows.
+local headerKind = {
+    frameType = "Frame",
+    build = function(f)
+        f.sign = {}
+        for i, atlas in ipairs(S.atlas.sign) do
+            f.sign[i] = f:CreateTexture(nil, "BACKGROUND")
+            f.sign[i]:SetAtlas(atlas)
+        end
+        f.sign[2]:SetPoint("TOPLEFT", f.sign[1], "TOPRIGHT")
+        f.sign[2]:SetPoint("BOTTOMRIGHT", f.sign[3], "BOTTOMLEFT")
+        f.sign[3]:SetPoint("TOPRIGHT")
+        f.line = CreateFrame("Frame", nil, f)
+        f.line:SetAllPoints()
+        Vis.Chrome.Hairline(f.line, K.rule, 0.35)
+        f.fold = f:CreateTexture(nil, "OVERLAY")
+        f.fold:SetSize(GLYPH, GLYPH)
+        f.text = S.Text(f, "bodyGold", "OVERLAY")
+        f.text:SetPoint("RIGHT", -SP.s, 0)
+        f.text:SetJustifyH("LEFT")
+        f.text:SetWordWrap(true)
+        f:SetScript("OnMouseUp", function(self, button)
+            if button ~= "LeftButton" then return end
+            folded[self.zone] = not folded[self.zone] or nil
+            BuildList(true)
+        end)
+    end,
+    init = function(f, d)
+        local x = d.nested and SP.s + SP.m or SP.s
+        local h, art = Extent(d), d.zone and not d.top and C_Texture.GetAtlasInfo(S.atlas.sign[1]) or nil
+        local cap = art and C_Texture.GetAtlasInfo(S.atlas.sign[3])
+        f.zone = d.fold and d.zone
+        f:EnableMouse(f.zone ~= nil)
+        f.line:SetShown(not cap)
+        for _, t in ipairs(f.sign) do t:SetShown(cap ~= nil) end
+        if cap then
+            f.sign[1]:SetPoint("TOPLEFT", x - SP.s, 0)
+            f.sign[1]:SetSize(art.width * h / art.height, h)
+            f.sign[3]:SetSize(cap.width * h / cap.height, h)
+        end
+        f.fold:SetShown(f.zone ~= nil)
+        f.fold:SetPoint("LEFT", x, 0)
+        if f.zone then f.fold:SetAtlas(d.folded and S.atlas.expand or S.atlas.collapse) end
+        f.text:SetPoint("LEFT", f.zone and x + GLYPH + SP.xs or x, 0)
+        f.text:SetFontObject(S.font[d.big and "subheader" or "bodyGold"])
+        f.text:SetTextColor(unpack(cap and K.body or K.gold))
+        f.text:SetText(d.text)
+    end,
+}
 
 -- The width the card's text takes: the page less the list beside it and the card's own well and gutter.
 local function BodyWidth()
@@ -407,7 +631,7 @@ local function OwnRequirement(s, itemID, at)
     return unmet > 0
 end
 
-local function Rows(s, cells)
+function Rows(s, cells)
     local v, rows = s.vendor, {}
     for _, itemID in ipairs(s.items) do
         local e = CG.Entry(itemID)
@@ -457,9 +681,13 @@ function Page:Build(parent)
     well = W.Well(parent)
     well:SetPoint("TOPLEFT")
     well:SetPoint("BOTTOMRIGHT")
-    head = S.Text(well, "bodyMuted", "OVERLAY")
+    expand = W.NewButton(well, L["Expand all"], function() FoldAll(false) end)
+    expand:SetPoint("TOPRIGHT", -LO.wellPad, -LO.wellPad)
+    collapse = W.NewButton(well, L["Collapse all"], function() FoldAll(true) end)
+    collapse:SetPoint("TOPRIGHT", expand, "TOPLEFT", -SP.xs, 0)
+    head = S.Text(well, "body", "OVERLAY")
     head:SetPoint("TOPLEFT", LO.wellPad, -LO.wellPad)
-    head:SetPoint("TOPRIGHT", -LO.wellPad, -LO.wellPad)
+    head:SetPoint("TOPRIGHT", collapse, "TOPLEFT", -SP.s, 0)
     head:SetJustifyH("LEFT")
     head:SetWordWrap(false)
     local lh = CreateFrame("Frame", nil, well)
@@ -467,9 +695,17 @@ function Page:Build(parent)
     lh:SetPoint("BOTTOMRIGHT", -LO.wellPad, LO.wellPad)
     list = W.NewList(lh, {
         extent = Extent, reclaim = true,
-        kinds = { row = W.rowKind, header = W.headerKind, foot = footKind },
+        kinds = { row = W.rowKind, header = headerKind, foot = footKind },
     })
     empty = W.NewEmptyState(lh)
+    shopNote = CreateFrame("Frame", nil, lh)
+    shopNote:SetPoint("TOPLEFT")
+    shopNote:SetPoint("TOPRIGHT")
+    W.footerKind.build(shopNote)
+    local th = CreateFrame("Frame", nil, lh)
+    th:SetPoint("TOPLEFT", shopNote, "BOTTOMLEFT", 0, -SP.xs)
+    th:SetPoint("BOTTOMRIGHT")
+    tiles = W.NewTileGrid(th, S.tile.min, S.tile.gap, ShopTile, function(s) return s.title end)
     P = parent
     Vend:Build(parent)
 end
@@ -523,7 +759,7 @@ function Page:Show(route, saved, keep)
         B.Window.SetSearch(query)
         local at, openAt = BuildList(false, seed and seed.zone)
         if saved and saved.scroll then
-            list.box:ScrollToOffset(saved.scroll, true)
+            Scroller().box:ScrollToOffset(saved.scroll, true)
         elseif at then
             list.box:ScrollToElementDataIndex(at, ScrollBoxConstants.AlignBegin)
         elseif openAt then
@@ -535,7 +771,7 @@ end
 
 function Page:Save()
     return {
-        search = query, scroll = list.box:GetDerivedScrollOffset(), card = vid and Vend:Save() or nil,
+        search = query, scroll = Scroller().box:GetDerivedScrollOffset(), card = vid and Vend:Save() or nil,
     }
 end
 
@@ -562,7 +798,7 @@ function Page:Refresh(reason)
     if reason == "layout" and vid and Layout() then Arrange() end
     local was = torn
     if reason == "paint" and not torn then
-        W.RepaintRows(list)
+        W.RepaintRows(Scroller())
     else
         torn = false
         BuildList(true)
@@ -655,12 +891,10 @@ function Vend:Build(parent)
     V.tag:SetText(W.StateWords("live"))
     V.wp = W.WaypointButton(V.head)
     V.wp:SetPoint("LEFT", V.where, "RIGHT", SP.xs, 0)
-    V.note, V.cur, V.req, V.stop, V.conf = Text(body), Text(body), Text(body), Text(body), Text(body)
-    V.conf.tip = Facts.NotConfirmed()
-    for _, fs in ipairs({ V.name, V.where, V.conf }) do
+    V.note, V.cur, V.req, V.stop = Text(body), Text(body), Text(body), Text(body)
+    for _, fs in ipairs({ V.name, V.where }) do
         fs:SetWordWrap(false)
-        local hit = W.Clip(fs)
-        if fs == V.conf then V.hit = hit end
+        W.Clip(fs)
     end
     V.count, V.can = Text(V.head), CanLine(V.head)
     V.hdr, V.key = Text(body), Text(body)
@@ -668,7 +902,7 @@ function Vend:Build(parent)
     V.grid = W.NewGrid(V.holder, S.ware.size, S.ware.gap)
     V.empty = W.NewEmptyState(V.holder)
     V.report = W.ReportLink(body, function() Report(V.s) end)
-    V.stack = { V.head, V.note, V.cur, V.req, V.stop, V.conf, V.hdr, V.key, V.holder, V.report }
+    V.stack = { V.head, V.note, V.cur, V.req, V.stop, V.hdr, V.key, V.holder, V.report }
 end
 
 function Draw(fresh, saved)
@@ -720,7 +954,7 @@ function Draw(fresh, saved)
     V.head:SetSize(w, math.max(PORTRAIT, nh + (act and tagH + 2 or 0) + SP.xs + bh
         + (n > 0 and SP.xs + V.count:GetHeight() or 0) + (V.can:IsShown() and SP.xs + V.can:GetHeight() or 0)))
 
-    Line(V.note, "bodyMuted", (D.VendorNote(v)), w)
+    Line(V.note, "body", (D.VendorNote(v)), w)
     local cur = D.VendorCurrencies(v)
     Line(V.cur, "body", cur[1] and L["%s: %s"]:format(S.Colored(K.gold, L["Currency"]), W.Join(cur, L["%s, %s"])), w)
     local parts, unknown = {}, false
@@ -729,13 +963,11 @@ function Draw(fresh, saved)
         unknown = unknown or r.met == nil
     end
     Line(V.req, "body", parts[1] and L["%s: %s"]:format(S.Colored(K.gold, L["Requires"]), W.Join(parts, L["%s; %s"]))
-        .. (unknown and "\n" .. S.Muted(L["Can't check this requirement yet"]) or ""), w)
+        .. (unknown and "\n" .. L["Can't check this requirement yet"] or ""), w)
     Line(V.stop, "body", D.IsOppositeFaction(v)
         and S.Colored(K.stop, L["%s only: can't buy on this character"]:format(D.VendorFactionLabel(v) or "")), w)
-    Line(V.conf, "bodyMuted", not Facts.Confirmed(v) and L["Not confirmed: visit to check."], w)
-    V.hit:SetShown(V.conf:IsShown())
     Line(V.hdr, "bodyGold", L["Wares"], w)
-    Line(V.key, "bodyMuted", n > 0 and L["Corners: state top right, bonus top left, event bottom left, copies bottom right."], w)
+    Line(V.key, "body", n > 0 and L["Corners: state top right, bonus top left, event bottom left, copies bottom right."], w)
     V.report:Fit()
     V.grid:SetShown(n > 0)
     V.grid:SetData(rows, not fresh, w - LO.scrollBarGap)
@@ -836,7 +1068,7 @@ function Src:Build(parent)
     W.Clip(A.name)
     A.name:SetPoint("TOPLEFT")
     A.name:SetPoint("TOPRIGHT")
-    A.sub = PinLine(A.head, "metaMuted")
+    A.sub = PinLine(A.head, "meta")
     A.sub:SetPoint("TOPLEFT", A.name, "BOTTOMLEFT", 0, -2)
     A.sub:SetPoint("TOPRIGHT", A.name, "BOTTOMRIGHT", 0, -2)
     A.start, A.dig = PinLine(parent, "body"), PinLine(parent, "body")
@@ -882,13 +1114,13 @@ local function DrawSource(keep)
     SetPinLine(A.start, start and L["Starts in %s"]:format(MapName(start.mapID) or L["Unknown"]), start, s.title)
     SetPinLine(A.dig, dig and L["Dig site in %s"]:format(MapName(dig.mapID) or L["Unknown"]), dig, s.title)
     Para(A.event, "body", srcType == "events" and (Live(s.key) and S.Colored(K.badge, L["Active now"]) or L["Not active"]) or nil)
-    Para(A.notes, "body", s.drop and s.drop.notes and S.Muted(s.drop.notes))
+    Para(A.notes, "body", s.drop and s.drop.notes)
 
     local rows = Rows(s)
     local total, got, can = Stats(s)
     Para(A.count, "body", total > 0 and (got and L["%d of %d collected"]:format(got, total) or L["Counting…"]) or nil)
     SetCan(A.can, can or 0)
-    Para(A.hdr, #rows > 0 and "bodyGold" or "bodyMuted",
+    Para(A.hdr, #rows > 0 and "bodyGold" or "body",
         #rows > 0 and L["Decor from this source"] or L["No decor is recorded here. If this source gives decor, report it below."])
     A.report:Fit()
     A.list:SetShown(#rows > 0)

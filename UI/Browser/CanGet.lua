@@ -93,7 +93,7 @@ local function Transferable(id)
     return t
 end
 
--- The muted hint per short currency, kept until account data arrives or the wallet changes.
+-- The holder hint per short currency, kept until account data arrives or the wallet changes.
 local holders = {}
 local function Hint(id)
     local h = holders[id]
@@ -105,7 +105,9 @@ local function Hint(id)
                 -- The currency's icon names which one the amount is in.
                 local info = C_CurrencyInfo.GetCurrencyInfo(id)
                 local icon = info and info.iconFileID
-                h = B.Style.Muted(L["(%1$s has %2$s)"]:format(name, (icon and "|T" .. icon .. ":0|t " or "") .. n))
+                -- White, so it reads as information inside the red shortfall.
+                local text = L["(%1$s has %2$s)"]:format(name, (icon and "|T" .. icon .. ":0|t " or "") .. n)
+                h = B.Style.Colored(B.Style.color.body, text)
             end
         end
         holders[id] = h

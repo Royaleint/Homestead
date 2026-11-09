@@ -71,7 +71,7 @@ end
 -- A part of a source row's second line; the first one with a glyph also marks the row.
 local function Status(row, words, glyph, color)
     row.status[#row.status + 1] = color and S.Colored(color, words) or words
-    if glyph and not row.glyph then row.glyph, row.color = glyph, color or K.muted end
+    if glyph and not row.glyph then row.glyph, row.color = glyph, color or K.body end
 end
 
 -- An event the head already flags as on is not repeated on the row.
@@ -100,12 +100,7 @@ local function VendorRow(itemID, b, flagged)
     local event = ev and ev.event or v.event
     if event then EventStatus(row, event, F.BrowserListed(v), flagged) end
     local confirmed = F.Confirmed(v)
-    if confirmed then
-        Status(row, L["Confirmed by a scan on %s"]:format(confirmed))
-    else
-        Status(row, L["Not confirmed"])
-        row.note = F.NotConfirmed()
-    end
+    if confirmed then Status(row, L["Confirmed by a scan on %s"]:format(confirmed)) end
     local key = F.SourceKey("vendors", { npcID = b.npcID }, itemID)
     if key then row.show = { SHOW.vendor, ShowSource("vendors", key) } end
     row.wp = Spot(b.mapID, b.x, b.y, v.name, { type = "vendor", npcID = b.npcID })
@@ -225,12 +220,12 @@ local function Describe(itemID)
         facts[#facts + 1] = { text = L["Requires"], color = K.gold, role = "bodyGold" }
         for _, r in ipairs(reqs) do
             if r.met == true then
-                facts[#facts + 1] = { text = L["%s (done)"]:format(r.text), glyph = "check", color = K.muted }
+                facts[#facts + 1] = { text = L["%s (done)"]:format(r.text), glyph = "check", color = K.body }
             elseif r.met == false then
                 facts[#facts + 1] = { text = L["%s (not yet)"]:format(r.text), glyph = "lock", color = K.body }
             else
                 facts[#facts + 1] = { text = r.text, glyph = "lock", color = K.body }
-                facts[#facts + 1] = { text = L["Can't check this requirement yet"], color = K.muted }
+                facts[#facts + 1] = { text = L["Can't check this requirement yet"], color = K.body }
             end
         end
     end
@@ -349,8 +344,8 @@ local function RowTip(self)
     local tip = B.Tooltip()
     tip:SetOwner(self, "ANCHOR_RIGHT")
     tip:SetText(d.one, 1, 1, 1, 1, true)
-    if self.two:IsShown() then tip:AddLine(self.two:GetText(), K.muted[1], K.muted[2], K.muted[3], true) end
-    if d.note then tip:AddLine(d.note, K.muted[1], K.muted[2], K.muted[3], true) end
+    if self.two:IsShown() then tip:AddLine(self.two:GetText(), K.body[1], K.body[2], K.body[3], true) end
+    if d.note then tip:AddLine(d.note, K.body[1], K.body[2], K.body[3], true) end
     tip:Show()
 end
 
@@ -358,7 +353,7 @@ local function NewRow()
     local f = CreateFrame("Button", nil, P.body)
     f.mark = f:CreateTexture(nil, "OVERLAY")
     f.mark:SetSize(MARK, MARK)
-    f.one, f.two = W.Text(f, "body"), W.Text(f, "bodyMuted")
+    f.one, f.two = W.Text(f, "body"), W.Text(f, "body")
     f.one:SetWordWrap(false)
     f.two:SetWordWrap(false)
     f.show = W.NewButton(f, "", function(self) self.act() end)
@@ -415,7 +410,7 @@ local function SetRow(f, d, w)
     B.Vis.Marker.Set(f.mark, d.glyph, d.color)
     f.mark:SetPoint("TOPLEFT", f, "TOPLEFT", 0, -(h - MARK) / 2)
     f.two:SetShown(d.status[1] ~= nil)
-    if d.status[1] then h = h + RowLine(f, f.two, "bodyMuted", Joined(d.status), w, h, f.wp2) end
+    if d.status[1] then h = h + RowLine(f, f.two, "body", Joined(d.status), w, h, f.wp2) end
     f:SetSize(w, h)
     f:Show()
     return h
@@ -436,7 +431,7 @@ local function Draw(fresh, saved)
     local r, g, b = W.QualityRGB(m.quality)
     W.SetTile(P.tile, { icon = m.icon }, r, g, b)
     local tw = w - THUMB - SP.s
-    local nh, mh = W.TextHeight("subheader"), W.TextHeight("bodyMuted")
+    local nh, mh = W.TextHeight("subheader"), W.TextHeight("body")
     P.name:SetText(m.name)
     P.name:SetTextColor(r, g, b)
     P.name:SetSize(tw, nh)
@@ -469,7 +464,7 @@ local function Draw(fresh, saved)
     y = y + P.where:GetHeight() + SP.xs
     P.unknown:SetShown(#m.rows == 0)
     if #m.rows == 0 then
-        P.unknown:SetSize(cw, W.TextHeight("bodyMuted"))
+        P.unknown:SetSize(cw, W.TextHeight("body"))
         P.unknown:SetPoint("TOPLEFT", P.body, "TOPLEFT", 0, -y)
         y = y + P.unknown:GetHeight() + SP.s
     end
@@ -493,7 +488,7 @@ function Page:Build(parent)
     P.top:SetPoint("TOPLEFT", parent, "TOPLEFT", 0, 0)
     P.tile = W.NewTile(P.top, THUMB)
     P.tile.icon:SetPoint("TOPLEFT", P.top, "TOPLEFT", 0, 0)
-    P.name, P.meta = W.Text(P.top, "subheader"), W.Text(P.top, "bodyMuted")
+    P.name, P.meta = W.Text(P.top, "subheader"), W.Text(P.top, "body")
     P.name:SetWordWrap(false)
     P.meta:SetWordWrap(false)
     W.Clip(P.name)
@@ -515,7 +510,7 @@ function Page:Build(parent)
     P.sf:SetScrollChild(P.body)
     P.where = W.Text(P.body, "bodyGold")
     P.where:SetText(L["Where to get it"])
-    P.unknown = W.Text(P.body, "bodyMuted")
+    P.unknown = W.Text(P.body, "body")
     P.unknown:SetText(L["Source unknown"])
     P.report = W.ReportLink(P.body, Report)
 

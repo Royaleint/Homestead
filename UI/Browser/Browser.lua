@@ -151,7 +151,6 @@ local function Transition(route, saved)
     page:Show(route, saved, keep)
     Win.SetPlaceholder(page.Placeholder and page:Placeholder(route))
     Win.SelectNav(route)
-    Win.UpdateCount()
     page:SetCombat(State.inCombat)
     AskAccount()
     return keep
@@ -262,7 +261,6 @@ local function Repaint(reason)
         if not (at.list and kept) then return end
     end
     Current():Refresh(reason)
-    Win.UpdateCount()
     AskAccount()
 end
 
@@ -395,7 +393,6 @@ local function OnHide()
     EventRegistry:UnregisterCallback(TEXT_SCALE_EVENT, textScaleOwner)
     ClearPending()
     Win.closing = false
-    Win.StopGlow()
     local page = Current()
     if page then page:Hide() end
     B.HideTooltip()
@@ -475,7 +472,6 @@ end
 function B:Close()
     if not Win.frame then return end
     B.HideTooltip()
-    Win.StopGlow()
     Win.PlayClose()
 end
 
@@ -508,13 +504,36 @@ function B.ShowLinkTooltip(owner, link)
     if tip:NumLines() == 0 then tip:Hide() else tip:Show() end
 end
 
-local LABEL = { 0.74, 0.70, 0.62 }
-
+-- A label in gold and its value in white, as Blizzard's tooltips pair them.
 local function Pair(tip, label, value)
-    tip:AddDoubleLine(label, tostring(value), LABEL[1], LABEL[2], LABEL[3], 1, 1, 1)
+    local gold = NORMAL_FONT_COLOR
+    tip:AddDoubleLine(label, tostring(value), gold.r, gold.g, gold.b, 1, 1, 1)
 end
 
-function B.ShowItemTooltip(owner, itemID, npcID)
+-- Off, a tile's right-click opens the item page as its left-click does.
+B.dashboardClick = true
+
+-- The decor ID a tile's right-click opens in the Housing Dashboard, or nil when it opens the item page.
+function B.DashboardID(itemID)
+    if not B.dashboardClick or InCombatLockdown() or B.Data.RoomID(itemID) or PlayerIsTimerunning()
+            or not C_Housing.IsHousingServiceEnabled() or not LinkUtil.IsLinkHandlerRegistered(LinkTypes.HousingDecor) then
+        return nil
+    end
+    return B.Data.RecordID(itemID)
+end
+
+-- Opens the item in the Housing Dashboard through the game's own decor link; false when it can't.
+function B.OpenInCatalog(itemID)
+    local id = B.DashboardID(itemID)
+    if not id then return false end
+    if not HousingDashboardFrame then pcall(C_AddOns.LoadAddOn, "Blizzard_HousingDashboard") end
+    if not HousingDashboardFrame then return false end
+    SetItemRef("housingdecor:" .. id, "", "LeftButton")
+    return true
+end
+
+-- tile: the game's own item lines head the tooltip, and the click hints end it.
+function B.ShowItemTooltip(owner, itemID, npcID, tile)
     local W = B.Widgets
     local d = B.Data.TooltipData(itemID, npcID, State.catalogMemo)
     local tip = B.Tooltip()
@@ -523,7 +542,7 @@ function B.ShowItemTooltip(owner, itemID, npcID)
     local state, arg = B.ItemState(itemID, npcID)
 
     tip:SetOwner(owner, "ANCHOR_RIGHT")
-    tip:AddLine(d.name, r, g, b)
+    if not (tile and HA.SetManagedItemTooltip(tip, itemID, true)) then tip:AddLine(d.name, r, g, b) end
     if state then
         local c = B.Style.state[state].color
         tip:AddLine(W.StateWords(state, arg), c[1], c[2], c[3])
@@ -542,11 +561,19 @@ function B.ShowItemTooltip(owner, itemID, npcID)
         Pair(tip, L["In storage"], d.counts.stored)
         if d.counts.redeemable > 0 then Pair(tip, L["Not yet redeemed"], d.counts.redeemable) end
     else
-        tip:AddLine(L["Counts not loaded yet"], 0.6, 0.6, 0.6)
+        tip:AddLine(L["Counts not loaded yet"], 1, 1, 1)
     end
     tip:AddLine(L["Source"], gold.r, gold.g, gold.b)
     if d.price then Pair(tip, L["Price"], d.price) end
-    tip:AddLine(d.source, LABEL[1], LABEL[2], LABEL[3], true)
-    if d.unconfirmed then tip:AddLine(B.Facts.NotConfirmed(), LABEL[1], LABEL[2], LABEL[3], true) end
+    tip:AddLine(d.source, 1, 1, 1, true)
+    if tile then
+        tip:AddLine(" ")
+        tip:AddLine(L["Left-click: details"], gold.r, gold.g, gold.b)
+        if B.DashboardID(itemID) then
+            tip:AddLine(L["Right-click: open in the Housing Dashboard"], gold.r, gold.g, gold.b)
+        elseif InCombatLockdown() and not B.Data.RoomID(itemID) then
+            tip:AddLine(L["Right-click: Housing Dashboard unavailable in combat"], 1, 1, 1, true)
+        end
+    end
     tip:Show()
 end

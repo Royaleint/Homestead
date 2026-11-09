@@ -28,6 +28,7 @@ read_globals = {
     "error", "pcall", "rawget", "rawset", "setmetatable", "getmetatable",
     "issecretvalue", -- Midnight combat-secrecy probe
     "GetBuildInfo",
+    "GetAchievementCategory", "GetCategoryInfo", "GetCategoryList",
 
     -- WoW constants
     "BANK_CONTAINER",
@@ -44,7 +45,7 @@ read_globals = {
     "CreateDataProvider",
     "CreateFromMixins",
     "CreateScrollBoxListLinearView", "CreateScrollBoxListGridView",
-    "CreateColor", "CreateAnchor",
+    "CreateColor", "CreateAnchor", "CreateAtlasMarkup",
     "CreateFramePool", "CreateUnsecuredRegionPoolInstance",
     "EventRegistry",
     "FrameUtil", "TextSizeManager",
@@ -58,6 +59,7 @@ read_globals = {
     "CAMERA_TRANSITION_TYPE_IMMEDIATE", "CAMERA_MODIFICATION_TYPE_DISCARD",
     "NORMAL_FONT_COLOR", "Item",
     "ItemRefTooltip", "HandleModifiedItemClick", "IsModifiedClick",
+    "SetItemRef", "LinkUtil", "LinkTypes", "PlayerIsTimerunning", "HousingDashboardFrame",
     "MerchantFrame", "MerchantFrameTab1", "MerchantFrameTab2",
     "MerchantNextPageButton", "MerchantPrevPageButton",
     "InterfaceOptions_AddCategory",
