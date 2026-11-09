@@ -1,5 +1,4 @@
--- Static facts the browser reads: which vendors it lists, confirmation dates, portraits and spots,
--- the player's zone and the keys that name a source.
+-- Static facts the browser reads: which vendors it lists, spots, the player's zone and the keys that name a source.
 local _, HA = ...
 
 local B = HA.DecorBrowser
@@ -29,38 +28,6 @@ function F.BrowserListed(vendor)
     return true
 end
 
--- Holiday vendors selling an item, in or out of season, less those retired or not out on this build; nil when none.
-local eventIndex
-function F.EventVendorsFor(itemID)
-    if not eventIndex then
-        eventIndex = {}
-        local VD = HA.VendorData
-        for npcID, v in pairs(EventVendors()) do
-            if not VD:IsVendorHiddenByNpcID(npcID) then
-                for _, id in ipairs(v.items or VD:GetVendorItems(npcID) or {}) do
-                    local list = eventIndex[id] or {}
-                    list[#list + 1] = npcID
-                    eventIndex[id] = list
-                end
-            end
-        end
-    end
-    return eventIndex[itemID]
-end
-
-function F.EventVendor(npcID)
-    return EventVendors()[npcID]
-end
-
--- The newer of the shipped confirmation and the player's own scan, as "YYYY-MM-DD"; nil when neither.
-function F.Confirmed(vendor)
-    local shipped = vendor.scanConfirmed
-    local record = HA.VendorData:GetScannedVendorRecord(vendor)
-    local mine = record and record.lastScanned and date("%Y-%m-%d", record.lastScanned)
-    if mine and (not shipped or mine > shipped) then return mine end
-    return shipped
-end
-
 -- The position the browser points this character to for a vendor, the one its waypoint uses: mapID, and the
 -- client's zone and subzone names.
 function F.Place(v)
@@ -71,10 +38,6 @@ end
 function F.Where(v)
     local _, zone, subzone = F.Place(v)
     return zone and subzone and L["%s, %s"]:format(subzone, zone) or zone
-end
-
-function F.Portrait(npcID)
-    return HA.VendorPortraits and HA.VendorPortraits[npcID]
 end
 
 function F.QuestStart(questID)

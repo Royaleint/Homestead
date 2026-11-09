@@ -130,7 +130,7 @@ end
 -- language when the client has it, else by the shipped English name.
 local function StartWords(g)
     if g.kind == "item" then return L["Use %s"]:format(D.ItemName(g.giver) or L["Item %d"]:format(g.giver)) end
-    return g.kind == "object" and g.name or D.NpcName(g.giver) or g.name
+    return g.kind == "object" and g.name or HA.VendorData:GetNpcName(g.giver) or g.name
 end
 
 -- One row per decor item of a quest. The giver's name is read when a row draws.
@@ -895,7 +895,7 @@ local function SetCan(f, can, w)
 end
 
 local function SetFace(v)
-    local face = Facts.Portrait(v.npcID)
+    local face = HA.VendorData:GetPortrait(v.npcID)
     if face then SetPortraitTextureFromCreatureDisplayID(V.face, face) else V.face:SetTexture(S.tex.placeholderIcon) end
 end
 

@@ -59,48 +59,13 @@ function D.NameGen()
     return nameGen
 end
 
--- A creature's name in the player's language, read from the game's tooltip data for its ID; nil while the client
--- has none. Each ask keeps the tooltip data's ID; when the client announces that ID (NpcArrived) the name is asked
--- again, three asks in all. Other tooltip updates do not count.
-local npcNames, npcAsks, npcWait = {}, {}, {}
-
-local function AskNpc(npcID)
-    npcAsks[npcID] = (npcAsks[npcID] or 0) + 1
-    local data = C_TooltipInfo.GetHyperlink("unit:Creature-0-0-0-0-" .. npcID .. "-0000000000")
-    local line = data and data.lines and data.lines[1]
-    npcNames[npcID] = line and line.leftText ~= "" and line.leftText or nil
-    npcWait[npcID] = not npcNames[npcID] and data and data.dataInstanceID or nil
-    return npcNames[npcID]
-end
-
-function D.NpcName(npcID)
-    return npcNames[npcID] or not npcAsks[npcID] and AskNpc(npcID) or nil
-end
-
--- Asks again for the creature whose tooltip data just updated; true when its name arrived.
-function D.NpcArrived(dataInstanceID)
-    local arrived = false
-    for npcID, id in pairs(npcWait) do
-        if id == dataInstanceID and npcAsks[npcID] < 3 and AskNpc(npcID) then arrived = true end
-    end
-    return arrived
-end
-
 function D.ItemIcon(itemID)
     return C_Item.GetItemIconByID(itemID) or B.Style.tex.placeholderIcon
 end
 
--- A scan confirmed it sells no decor. Static vendors are never dropped, and holiday vendors skip this.
-local function ConfirmedNoDecor(vendor)
-    if vendor._isEventVendor or not vendor.npcID then return false end
-    local db = HA.Addon.db.global
-    local entry = db.noDecorVendors and db.noDecorVendors[vendor.npcID]
-    return entry ~= nil and entry.scanConfidence == "confirmed" and not HA.VendorData:HasVendor(vendor.npcID)
-end
-
 -- The browser's vendor lists: its listing rule, ignoring the map pin settings, less confirmed no-decor vendors.
 function D.IsListedVendor(vendor)
-    return B.Facts.BrowserListed(vendor) and not ConfirmedNoDecor(vendor)
+    return B.Facts.BrowserListed(vendor) and not HA.VendorFilter.IsConfirmedNoDecor(vendor)
 end
 
 -- Newest first, each with its LE_EXPANSION_ name.
@@ -170,15 +135,6 @@ function D.HolidayActive(vendor)
     return entry.event ~= nil and CD ~= nil and CD:IsHolidayActive(entry.event) == true
 end
 
-function D.HolidayVendor(npcID)
-    local entry = HolidayEntries()[npcID]
-    if not entry then return nil end
-    local vendor = {}
-    for key, value in pairs(entry) do vendor[key] = value end
-    vendor.items = entry.items or HA.VendorData:GetVendorItems(npcID)
-    return vendor
-end
-
 -- True when this character can use the vendor at none of its positions.
 function D.IsOppositeFaction(vendor)
     return not HA.VendorFilter.CanUseVendor(vendor)
@@ -194,7 +150,7 @@ end
 
 -- An out-of-season holiday vendor still resolves here (GetVendor gives nil); vendor lists never use it.
 function D.Vendor(npcID)
-    return HA.VendorData:GetVendor(npcID) or D.HolidayVendor(npcID)
+    return HA.VendorData:GetVendorAnySeason(npcID)
 end
 
 local function Memo(npcID)
@@ -282,12 +238,6 @@ function D.NearYou()
     local mapID = where.zone
 
     local pos = C_Map.GetPlayerMapPosition(mapID, "player")
-    local continent, wx, wy
-    if pos then
-        local c, world = C_Map.GetWorldPosFromMapPos(mapID, pos)
-        if world then continent, wx, wy = c, world:GetXY() end
-    end
-
     local VF = HA.VendorFilter
     local seen, out = {}, {}
     for m in pairs(where.maps) do
@@ -297,12 +247,8 @@ function D.NearYou()
                 seen[id] = true
                 local dist = math.huge
                 local coords, vmap = VF.GetBestVendorCoordinates(vendor)
-                if continent and coords and vmap then
-                    local vc, vworld = C_Map.GetWorldPosFromMapPos(vmap, CreateVector2D(coords.x, coords.y))
-                    if vworld and vc == continent then
-                        local vx, vy = vworld:GetXY()
-                        dist = (vx - wx) ^ 2 + (vy - wy) ^ 2
-                    end
+                if pos and coords and vmap then
+                    dist = HA.VendorData:GetWorldDistance(mapID, pos, vmap, CreateVector2D(coords.x, coords.y)) or dist
                 end
                 out[#out + 1] = { vendor = vendor, dist = dist }
             end
@@ -439,30 +385,17 @@ function D.Requirements(itemID, npcID)
     return out
 end
 
+-- An item's name for a currency line, and whether to keep waiting for it.
+local function CurrencyItemName(itemID)
+    local name = D.ItemName(itemID)
+    return name, not name and nameLoads[itemID] ~= "failed"
+end
+
 -- Pending (and not memoised) while an item currency's name loads.
 function D.VendorCurrencies(vendor)
     local m = Memo(vendor.npcID)
     if m.cur then return m.cur, false end
-    local out, seen, pending = {}, {}, false
-    local function add(icon, name)
-        if name and not seen[name] then
-            seen[name] = true
-            out[#out + 1] = (icon and "|T" .. icon .. ":0|t " or "") .. name
-        end
-    end
-    for _, id in ipairs(D.VendorWares(vendor)) do
-        local cost = HA.SourceManager:GetVendorItemCost(id, vendor) or {}
-        if (cost.gold or 0) > 0 then add(nil, L["Gold"]) end
-        for _, c in ipairs(cost.currencies or {}) do
-            local info = c.id and C_CurrencyInfo.GetCurrencyInfo(c.id) or c
-            add(info.iconFileID, info.name or c.name)
-        end
-        for _, it in ipairs(cost.items or {}) do
-            local name = it.id and D.ItemName(it.id) or it.name
-            if name then add(it.id and C_Item.GetItemIconByID(it.id), name)
-            elseif it.id and nameLoads[it.id] ~= "failed" then pending = true end
-        end
-    end
+    local out, pending = HA.VendorData:GetVendorCurrencies(vendor, D.VendorWares(vendor), CurrencyItemName)
     if not pending then m.cur = out end
     return out, pending
 end

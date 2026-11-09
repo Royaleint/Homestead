@@ -191,14 +191,14 @@ local function OfferCost(itemID, npcID, vendor)
     local e = CG.Entry(itemID)
     local o = e and e.reach and e.reach[npcID]
     if o then return o.cost end
-    vendor = vendor or HA.VendorData:GetVendor(npcID) or Facts.EventVendor(npcID)
+    vendor = vendor or HA.VendorData:GetVendorAnySeason(npcID)
     return vendor and HA.SourceManager:GetVendorItemCost(itemID, vendor)
 end
 
 -- One vendor's offer: requirements first, then payment.
 function CG.Offer(itemID, npcID)
     if D.CollectionState() ~= "ready" then return "unknown" end
-    local vendor = npcID and (HA.VendorData:GetVendor(npcID) or Facts.EventVendor(npcID))
+    local vendor = npcID and HA.VendorData:GetVendorAnySeason(npcID)
     local verdict = Verdict(HA.SourceManager, itemID, npcID, vendor, (Own(itemID, Memo())))
     if verdict ~= "can" then return verdict end
     return VERDICT[Pay(OfferCost(itemID, npcID, vendor))]
@@ -243,8 +243,7 @@ end
 
 local function Consider(e, SM, npcID, vendor, cost, best)
     local verdict = Verdict(SM, e.itemID, npcID, vendor, "notOwned")
-    local ev = Facts.EventVendor(npcID)
-    local event = ev and (ev.event or vendor.event)
+    local event = HA.VendorData:GetHolidayEvent(npcID)
     if verdict == "can" then
         -- A source with no cost, and every event vendor, asks the resolver.
         cost = cost or SM:GetVendorItemCost(e.itemID, vendor)
@@ -334,8 +333,8 @@ local function Evaluate(itemID, SM, VD, memo)
             best = Consider(e, SM, d.npcID, d.vendor, d.cost, best)
         end
     end
-    for _, npcID in ipairs(Facts.EventVendorsFor(itemID) or {}) do
-        if not seen[npcID] then best = Consider(e, SM, npcID, Facts.EventVendor(npcID), nil, best) end
+    for _, npcID in ipairs(HA.VendorData:GetHolidayVendorsForItem(itemID) or {}) do
+        if not seen[npcID] then best = Consider(e, SM, npcID, HA.VendorData:GetVendorAnySeason(npcID), nil, best) end
     end
     e.rest = best
     Settle(e)
@@ -631,8 +630,7 @@ local function Judge(e, itemID, npcID)
     end
     local unmet, at = Easiest(itemID, not npcID and e.locked or offer == "locked" and { npcID })
     if unmet then return "locked", unmet[2] and L["%s and %d more"]:format(unmet[1], #unmet - 1) or unmet[1], at end
-    local ev = npcID and Facts.EventVendor(npcID)
-    local event = offer == "unlisted" and (npcID and ev and (ev.event or (D.Vendor(npcID) or {}).event) or not npcID and e.event)
+    local event = offer == "unlisted" and (npcID and HA.VendorData:GetHolidayEvent(npcID) or not npcID and e.event)
     return event and "event" or "notOwned", event or nil, event and (npcID or e.eventAt) or nil
 end
 

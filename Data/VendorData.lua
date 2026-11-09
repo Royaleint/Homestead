@@ -528,6 +528,43 @@ function VendorData:GetVendor(npcID)
     return nil
 end
 
+-- A vendor by NPC ID in any season: a holiday vendor resolves while its holiday is off too, which GetVendor
+-- (and every vendor list) does not.
+function VendorData:GetVendorAnySeason(npcID)
+    local vendor = self:GetVendor(npcID)
+    if vendor then return vendor end
+    local eventVendors = HA.EventSources and HA.EventSources.EventVendors
+    return ProjectVendorWithItems(self, eventVendors and eventVendors[npcID], npcID)
+end
+
+-- The holiday a holiday vendor belongs to, from its shipped row; nil for any other vendor. Scan-built vendor
+-- records carry no event, so callers ask by NPC ID.
+function VendorData:GetHolidayEvent(npcID)
+    local eventVendors = HA.EventSources and HA.EventSources.EventVendors
+    local row = eventVendors and eventVendors[npcID]
+    return row and row.event
+end
+
+-- Holiday vendors selling an item, in or out of season, less those retired or not out on this build; nil when none.
+local holidayItemIndex
+function VendorData:GetHolidayVendorsForItem(itemID)
+    if not holidayItemIndex then
+        holidayItemIndex = {}
+        local eventVendors = HA.EventSources and HA.EventSources.EventVendors or {}
+        for npcID, v in pairs(eventVendors) do
+            if not self:IsVendorHiddenByNpcID(npcID) then
+                for _, entry in ipairs(v.items or self:GetVendorItems(npcID) or {}) do
+                    local id = UnpackItem(entry)
+                    local list = holidayItemIndex[id] or {}
+                    list[#list + 1] = npcID
+                    holidayItemIndex[id] = list
+                end
+            end
+        end
+    end
+    return holidayItemIndex[itemID]
+end
+
 -- Check if vendor exists (resolves aliases)
 function VendorData:HasVendor(npcID)
     if HA.VendorIdentity and HA.VendorIdentity:HasVendor(npcID) then
@@ -1539,7 +1576,101 @@ function VendorData:BuildOfferIndexes()
     for npcID in pairs(HA.VendorOffers.StagedAdditions or {}) do addNPC(npcID) end
 end
 
+-------------------------------------------------------------------------------
+-- Vendor lookups for the browser
+-------------------------------------------------------------------------------
+
+-- The currencies a vendor's wares cost, as display strings (gold included), and whether an item currency's name
+-- is still loading. itemIDs are the wares to judge. itemName(id) gives an item's name (nil while it loads) and
+-- whether to keep waiting for it.
+function VendorData:GetVendorCurrencies(vendor, itemIDs, itemName)
+    local out, seen, pending = {}, {}, false
+    local function add(icon, name)
+        if name and not seen[name] then
+            seen[name] = true
+            out[#out + 1] = (icon and "|T" .. icon .. ":0|t " or "") .. name
+        end
+    end
+    for _, id in ipairs(itemIDs) do
+        local cost = HA.SourceManager:GetVendorItemCost(id, vendor) or {}
+        if (cost.gold or 0) > 0 then add(nil, HA.L and HA.L["Gold"] or "Gold") end
+        for _, c in ipairs(cost.currencies or {}) do
+            local info = c.id and C_CurrencyInfo.GetCurrencyInfo(c.id) or c
+            add(info.iconFileID, info.name or c.name)
+        end
+        for _, it in ipairs(cost.items or {}) do
+            local name, waiting
+            if it.id then name, waiting = itemName(it.id) end
+            name = name or it.name
+            if name then add(it.id and C_Item.GetItemIconByID(it.id), name)
+            elseif it.id and waiting then pending = true end
+        end
+    end
+    return out, pending
+end
+
+-- A creature's name in the player's language, read from the game's tooltip data for its ID; nil while the client
+-- has none. Each ask keeps the tooltip data's ID; when the client announces that ID (NpcNameArrived) the name is
+-- asked again, three asks in all. Other tooltip updates do not count, and a creature past its last ask waits for
+-- nothing.
+local NPC_NAME_ASKS = 3
+local npcNames, npcAsks, npcWait = {}, {}, {}
+
+local function AskNpcName(npcID)
+    npcAsks[npcID] = (npcAsks[npcID] or 0) + 1
+    local data = C_TooltipInfo.GetHyperlink("unit:Creature-0-0-0-0-" .. npcID .. "-0000000000")
+    local line = data and data.lines and data.lines[1]
+    npcNames[npcID] = line and line.leftText ~= "" and line.leftText or nil
+    npcWait[npcID] = not npcNames[npcID] and npcAsks[npcID] < NPC_NAME_ASKS and data and data.dataInstanceID or nil
+    return npcNames[npcID]
+end
+
+function VendorData:GetNpcName(npcID)
+    return npcNames[npcID] or not npcAsks[npcID] and AskNpcName(npcID) or nil
+end
+
+-- Asks again for the creature whose tooltip data just updated; true when its name arrived.
+function VendorData:NpcNameArrived(dataInstanceID)
+    local arrived = false
+    for npcID, id in pairs(npcWait) do
+        if id == dataInstanceID and AskNpcName(npcID) then arrived = true end
+    end
+    return arrived
+end
+
+function VendorData:GetPortrait(npcID)
+    return HA.VendorPortraits and HA.VendorPortraits[npcID]
+end
+
+-- The newer of the shipped confirmation and the player's own scan, as "YYYY-MM-DD"; nil when neither.
+function VendorData:GetConfirmedDate(vendor)
+    local shipped = vendor.scanConfirmed
+    local record = self:GetScannedVendorRecord(vendor)
+    local mine = record and record.lastScanned and date("%Y-%m-%d", record.lastScanned)
+    if mine and (not shipped or mine > shipped) then return mine end
+    return shipped
+end
+
+local function WorldPosition(mapID, pos)
+    local continent, world = C_Map.GetWorldPosFromMapPos(mapID, pos)
+    if continent and world then
+        local x, y = world:GetXY()
+        return continent, x, y
+    end
+end
+
+-- The squared world distance between two map positions (pos and otherPos are map vectors); nil when either has
+-- no world position or they lie on different continents.
+function VendorData:GetWorldDistance(mapID, pos, otherMapID, otherPos)
+    local continent, x, y = WorldPosition(mapID, pos)
+    if not continent then return nil end
+    local otherContinent, otherX, otherY = WorldPosition(otherMapID, otherPos)
+    if otherContinent ~= continent then return nil end
+    return (otherX - x) ^ 2 + (otherY - y) ^ 2
+end
+
 function VendorData:InvalidateVendorCaches()
+    holidayItemIndex = nil
     if HA.VendorIdentity and HA.VendorIdentity.InvalidateVendorCache then
         HA.VendorIdentity:InvalidateVendorCache()
     end

@@ -159,6 +159,17 @@ function VendorFilter.IsHiddenOnThisBuild(vendor)
     return false
 end
 
+-- A scan confirmed the vendor sells no decor. Static vendors are never dropped (a noDecorVendors entry for
+-- a known vendor is a false positive), and holiday vendors skip this.
+function VendorFilter.IsConfirmedNoDecor(vendor)
+    if not vendor or vendor._isEventVendor or not vendor.npcID then return false end
+    local db = HA.Addon and HA.Addon.db and HA.Addon.db.global
+    local entry = db and db.noDecorVendors and db.noDecorVendors[vendor.npcID]
+    -- Only trust confirmed entries (guards against corrupted SVs)
+    if not (entry and entry.scanConfidence == "confirmed") then return false end
+    return not (HA.VendorData and HA.VendorData:HasVendor(vendor.npcID))
+end
+
 -- Check if a vendor should be hidden from all pin displays
 -- Returns true if vendor should be hidden (removed, unreleased, or scanned with no decor)
 function VendorFilter.ShouldHideVendor(vendor)
@@ -178,27 +189,8 @@ function VendorFilter.ShouldHideVendor(vendor)
         return true
     end
 
-    local npcID = vendor.npcID
-    if not npcID then return false end
-
-    local db = HA.Addon and HA.Addon.db and HA.Addon.db.global
-    if not db then return false end
-
     -- Persistent no-decor list (survives ClearScannedData)
-    if db.noDecorVendors and db.noDecorVendors[npcID] then
-        local data = db.noDecorVendors[npcID]
-        -- Defensive: only trust confirmed entries (guards against corrupted SVs)
-        if data.scanConfidence == "confirmed" then
-            -- Never hide vendors that exist in static databases.
-            -- A noDecorVendors entry for a known vendor is a false positive.
-            if HA.VendorData and HA.VendorData:HasVendor(npcID) then
-                return false
-            end
-            return true
-        end
-    end
-
-    return false
+    return VendorFilter.IsConfirmedNoDecor(vendor)
 end
 
 -------------------------------------------------------------------------------

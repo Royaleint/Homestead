@@ -332,7 +332,7 @@ local function OnEvent(_, event, arg1, arg2)
             B.RequestRefresh()
         end
     elseif event == "TOOLTIP_DATA_UPDATE" then
-        if B.Data.NpcArrived(arg1) then
+        if HA.VendorData:NpcNameArrived(arg1) then
             names = true
             B.RequestRefresh()
         end
