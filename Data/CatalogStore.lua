@@ -490,6 +490,56 @@ function CatalogStore:IsOwned(itemID)
     return false
 end
 
+-- Read-only catalog walk: the item entry, then the decor record, then the room
+-- record, stopping at the first entry that says owned. Returns owned, entry,
+-- where entry is the owned one, else the first entry any read returned.
+-- GetCatalogEntryInfoByItem returns nil for some items on 12.0.1 (for example
+-- itemID 244778 Sethraliss Priest's Pillow); GetCatalogEntryInfoByRecordID
+-- indexes the catalog directly without item-cache data and is reliable, so the
+-- record reads go through the static decor and room indexes.
+-- Without wantEntry a cached owned answers true with no API call; with it the
+-- walk always runs, because the caller needs the entry itself. Writes nothing.
+local function WalkEntries(self, itemID, wantEntry)
+    local cachedOwned = self:IsOwned(itemID)
+    if cachedOwned and not wantEntry then
+        return true, nil
+    end
+
+    local CHC = _G.C_HousingCatalog
+    if not CHC then return cachedOwned, nil end
+    local entry
+
+    if CHC.GetCatalogEntryInfoByItem then
+        local ok, info = pcall(CHC.GetCatalogEntryInfoByItem, "item:" .. tostring(itemID), true)
+        if ok and info then
+            if self:ComputeOwnedFromInfo(info) then return true, info end
+            entry = info
+        end
+    end
+
+    if CHC.GetCatalogEntryInfoByRecordID then
+        local decorID = itemIDToDecor[itemID]
+        if decorID then
+            local ok, info = pcall(CHC.GetCatalogEntryInfoByRecordID, 1, decorID, true)
+            if ok and info then
+                if self:ComputeOwnedFromInfo(info) then return true, info end
+                entry = entry or info
+            end
+        end
+
+        local roomID = itemIDToRoom[itemID]
+        if roomID then
+            local ok, info = pcall(CHC.GetCatalogEntryInfoByRecordID, ENTRY_TYPE_ROOM, roomID)
+            if ok and info then
+                if self:ComputeOwnedFromInfo(info) then return true, info end
+                entry = entry or info
+            end
+        end
+    end
+
+    return cachedOwned, entry
+end
+
 -- Fresh ownership check for UI display paths
 -- IsOwned() + live byItem probe + byRecordID fallback
 -- Use this for VendorMapPins, Tooltips, VendorTracer — NOT for badge counts or export
@@ -499,6 +549,10 @@ end
 -- The scanner remains the authoritative cache writer.
 function CatalogStore:IsOwnedFresh(itemID, readOnly)
     if not itemID then return false end
+
+    if readOnly then
+        return (WalkEntries(self, itemID, false))
+    end
 
     -- Fast path: cache says owned
     if self:IsOwned(itemID) then
@@ -512,62 +566,53 @@ function CatalogStore:IsOwnedFresh(itemID, readOnly)
         if success and info then
             -- Ownership = GetEntryTotalOwned > 0 (Blizzard's contract)
             if self:ComputeOwnedFromInfo(info) then
-                if not readOnly then
-                    local recordID = nil
-                    if info.entryID and type(info.entryID) == "table" then
-                        recordID = info.entryID.recordID
-                    end
-                    self:SetOwned(itemID, info.name, recordID)
+                local recordID = nil
+                if info.entryID and type(info.entryID) == "table" then
+                    recordID = info.entryID.recordID
                 end
+                self:SetOwned(itemID, info.name, recordID)
                 return true
             end
         end
     end
 
-    -- Stage 4: byRecordID fallback via reverse index.
-    -- GetCatalogEntryInfoByItem returns nil for some items on 12.0.1 (for example
-    -- itemID 244778 Sethraliss Priest's Pillow). GetCatalogEntryInfoByRecordID
-    -- indexes the catalog directly without requiring item-cache data and is reliable.
-    -- In readOnly mode: probe without writing to cache.
-    -- In write mode: ProbeByDecorID handles the probe and SetOwned cache write together.
+    -- byRecordID fallback via the static indexes (see WalkEntries for why).
+    -- ProbeByDecorID / ProbeByRoomID handle the probe and SetOwned cache write together.
     local decorID = itemIDToDecor[itemID]
     if decorID then
-        if not readOnly then
-            local info = self:ProbeByDecorID(decorID)
-            if self:ComputeOwnedFromInfo(info) then
-                return true
-            end
-        else
-            local CHC = _G.C_HousingCatalog
-            if CHC and CHC.GetCatalogEntryInfoByRecordID then
-                local ok, info = pcall(CHC.GetCatalogEntryInfoByRecordID, 1, decorID, true)
-                if ok and self:ComputeOwnedFromInfo(info) then
-                    return true
-                end
-            end
+        local info = self:ProbeByDecorID(decorID)
+        if self:ComputeOwnedFromInfo(info) then
+            return true
         end
     end
 
-    -- Room byRecordID via the static room index.
     local roomID = itemIDToRoom[itemID]
     if roomID then
-        if not readOnly then
-            local info = self:ProbeByRoomID(roomID)
-            if self:ComputeOwnedFromInfo(info) then
-                return true
-            end
-        else
-            local CHC = _G.C_HousingCatalog
-            if CHC and CHC.GetCatalogEntryInfoByRecordID then
-                local ok, info = pcall(CHC.GetCatalogEntryInfoByRecordID, ENTRY_TYPE_ROOM, roomID)
-                if ok and self:ComputeOwnedFromInfo(info) then
-                    return true
-                end
-            end
+        local info = self:ProbeByRoomID(roomID)
+        if self:ComputeOwnedFromInfo(info) then
+            return true
         end
     end
 
     return false
+end
+
+-- Read-only ownership state plus the catalog entry behind it, for callers that
+-- need both: "owned", "notOwned" or "unknown". Unknowable items and items no
+-- read returned an entry for are "unknown", where IsOwnedFresh still answers
+-- the walk's boolean; a cached owned stays "owned" even without an entry.
+-- For a cached owned item the entry may carry zero counts on a cold catalog,
+-- so callers take ownership from the state, never from the entry's counts.
+-- Writes nothing.
+function CatalogStore:ReadOwnershipEntry(itemID)
+    if not itemID or self:IsOwnershipUnknowable(itemID) then
+        return "unknown", nil
+    end
+
+    local owned, info = WalkEntries(self, itemID, true)
+    if owned then return "owned", info end
+    if info == nil then return "unknown", nil end
+    return "notOwned", info
 end
 
 -- Get decorID for an item

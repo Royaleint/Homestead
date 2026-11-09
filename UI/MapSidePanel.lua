@@ -273,7 +273,7 @@ local function ShowItemPreview(itemID)
     -- Get catalog entry info directly from itemID. Guarded like every other
     -- GetCatalogEntryInfoByItem call site (nil for some items) with
     -- the byRecordID fallback via CatalogStore's decorID reverse index — see
-    -- CatalogStore:IsOwnedFresh's readOnly branch for the reference pattern.
+    -- CatalogStore's WalkEntries for the reference pattern.
     local ok, info = pcall(C_HousingCatalog.GetCatalogEntryInfoByItem, itemID, true)
     if not ok then info = nil end
 
