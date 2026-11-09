@@ -307,35 +307,12 @@ function D.VendorNote(vendor)
     return vendor.notes, vendor.notes ~= nil
 end
 
-local function ReqText(req)
-    local t = req.type
-    if t == "reputation" then
-        local standing = req.standing or L["Required"]
-        local faction = req.faction or L["Unknown faction"]
-        if standing:match("^Renown") then return L["%s %s"]:format(standing, faction) end
-        return L["%s with %s"]:format(standing, faction)
-    elseif t == "achievement" then
-        return L["Achievement: %s"]:format(req.name or L["Unknown"])
-    elseif t == "quest" then
-        return L["Quest: %s"]:format(req.name or L["Unknown"])
-    elseif t == "level" then
-        return L["Level %s"]:format(tostring(req.level))
-    elseif t == "promotion" then
-        return L["Promotion: %s"]:format(req.name or L["Unknown"])
-    elseif t == "professionRank" then
-        return L["Profession: %s rank %s"]:format(tostring(req.profession), tostring(req.rank))
-    elseif t == "profession" then
-        return L["Profession: %s"]:format(tostring(req.profession))
-    end
-    return req.text or L["Other requirement"]
-end
-
 -- list of { text, met } where met is true / false / nil (cannot tell)
 function D.Requirements(itemID, npcID)
     local SM = HA.SourceManager
     local out = {}
     for _, req in ipairs(SM:GetRequirements(itemID, npcID) or {}) do
-        out[#out + 1] = { text = ReqText(req), met = SM:IsRequirementMet(req) }
+        out[#out + 1] = { text = SM:GetRequirementText(req), met = SM:IsRequirementMet(req) }
     end
     return out
 end

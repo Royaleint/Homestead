@@ -1357,47 +1357,44 @@ end
 -- Availability Classification
 -------------------------------------------------------------------------------
 
--- Build a human-readable blocker label from a single requirement.
-local function GetRequirementBlockerLabel(req)
+-- Translated text for one requirement. Shared by pin tallies, the side panel
+-- and the Decor Browser.
+local function Text(key)
+    return HA.L and HA.L[key] or key
+end
+
+function SourceManager:GetRequirementText(req)
     if not req then return nil end
+    local t = req.type
 
-    if req.type == "reputation" then
-        local standing = req.standing or "Required"
-        local faction = req.faction or "Unknown Faction"
+    if t == "reputation" then
+        local standing = req.standing or Text("Required")
+        local faction = req.faction or Text("Unknown faction")
         if standing:match("^Renown") then
-            return standing .. " " .. faction
+            return Text("%s %s"):format(standing, faction)
         end
-        return standing .. " with " .. faction
-    end
-
-    if req.type == "achievement" then
-        return "Achievement: " .. (req.name or "Unknown Achievement")
-    end
-
-    if req.type == "quest" then
-        return "Quest: " .. (req.name or "Unknown Quest")
-    end
-
-    if req.type == "profession" then
-        return req.profession and ("Profession: " .. req.profession) or "Profession requirement"
-    end
-
-    if req.type == "professionRank" then
+        return Text("%s with %s"):format(standing, faction)
+    elseif t == "achievement" then
+        return Text("Achievement: %s"):format(req.name or Text("Unknown"))
+    elseif t == "quest" then
+        return Text("Quest: %s"):format(req.name or Text("Unknown"))
+    elseif t == "level" and req.level then
+        return Text("Level %s"):format(tostring(req.level))
+    elseif t == "promotion" then
+        return Text("Promotion: %s"):format(req.name or Text("Unknown"))
+    elseif t == "professionRank" then
         if req.profession and req.rank then
-            return "Profession: " .. req.profession .. " Rank " .. req.rank
+            return Text("Profession: %s rank %s"):format(tostring(req.profession), tostring(req.rank))
         end
-        return "Profession rank requirement"
+        return Text("Profession rank requirement")
+    elseif t == "profession" then
+        if req.profession then
+            return Text("Profession: %s"):format(tostring(req.profession))
+        end
+        return Text("Profession requirement")
     end
 
-    if req.type == "promotion" then
-        return "Promotion: " .. (req.name or "Unknown Promotion")
-    end
-
-    if req.text then
-        return req.text
-    end
-
-    return "Other requirements"
+    return req.text or Text("Other requirement")
 end
 
 -------------------------------------------------------------------------------
@@ -1522,7 +1519,7 @@ local function EvaluateRequirementAvailability(reqs)
         end
 
         if SourceManager:IsRequirementMet(req) ~= true then
-            blockerLabels = AppendUniqueBlockerLabel(blockerLabels, GetRequirementBlockerLabel(req))
+            blockerLabels = AppendUniqueBlockerLabel(blockerLabels, SourceManager:GetRequirementText(req))
         end
     end
 
@@ -1566,7 +1563,7 @@ function SourceManager:GetVendorItemAvailabilityState(itemID, npcID, skipOwnersh
     if state == "purchasable" then
         local scannedItem = GetScannedVendorItem(itemID, npcID)
         if scannedItem and scannedItem.isPurchasable == false then
-            return "locked", false, false, { "Purchase gated" }
+            return "locked", false, false, { Text("Purchase gated") }
         end
     end
 
