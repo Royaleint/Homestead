@@ -755,6 +755,15 @@ local function ProjectVendorWithItems(self, vendor, npcID)
         copy[key] = value
     end
     copy.items = vendor.items or self:GetVendorItems(npcID or vendor.npcID)
+
+    -- A vendor who follows a moving event stands where it is now.
+    local tracker = HA.DreamsurgeTracker
+    if tracker and (npcID or vendor.npcID) == tracker.NPC_ID then
+        local mapID, x, y = tracker:GetEffectiveLocation(tracker.NPC_ID)
+        if mapID then
+            copy.mapID, copy.x, copy.y = mapID, x, y
+        end
+    end
     return copy
 end
 
@@ -851,16 +860,28 @@ end
 function VendorData:GetVendorsInMap(mapID)
     local result = {}
     local addedNPCs = {}
+    local tracker = HA.DreamsurgeTracker
+    local trackedMapID = tracker and tracker:GetEffectiveLocation(tracker.NPC_ID)
 
     -- Static identity vendors
     if HA.VendorIdentity then
         local identityVendors = HA.VendorIdentity:GetVendorsByMapID(mapID)
         if identityVendors then
             for _, vendor in ipairs(identityVendors) do
-                result[#result + 1] = ProjectVendorWithItems(self, vendor)
-                if vendor.npcID then
-                    addedNPCs[vendor.npcID] = true
+                -- A vendor following a moving event is listed where it is now.
+                if not (trackedMapID and trackedMapID ~= mapID and vendor.npcID == tracker.NPC_ID) then
+                    result[#result + 1] = ProjectVendorWithItems(self, vendor)
+                    if vendor.npcID then
+                        addedNPCs[vendor.npcID] = true
+                    end
                 end
+            end
+        end
+        if trackedMapID == mapID and not addedNPCs[tracker.NPC_ID] then
+            local vendor = HA.VendorIdentity:GetVendor(tracker.NPC_ID)
+            if vendor then
+                result[#result + 1] = ProjectVendorWithItems(self, vendor, tracker.NPC_ID)
+                addedNPCs[tracker.NPC_ID] = true
             end
         end
     end
@@ -1025,6 +1046,13 @@ function VendorData:GetVendorsForItem(itemID)
                             items = scannedVendor.items,
                             _isScanned = true,
                         }
+                        -- A scan of a vendor following a moving event holds a past spot.
+                        local tracker = HA.DreamsurgeTracker
+                        local row = tracker and npcID == tracker.NPC_ID and self:GetVendor(npcID)
+                        if row then
+                            vendorObj.mapID, vendorObj.x, vendorObj.y, vendorObj.zone =
+                                row.mapID, row.x, row.y, row.zone
+                        end
                         table.insert(result, vendorObj)
                         seenNPCs[npcID] = true
                     end
