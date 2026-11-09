@@ -41,6 +41,7 @@ VendorData.VendorNameToNPC = {
     ["Lefton Farrer"] = {255299},
     ["Lonomia"] = {240465},
     ["Shon'ja"] = {255297},
+    ["The Last Architect"] = {248854, 253596},
     ["Trevor Grenner"] = {255221},
     ["Xiao Dan"] = {255203},
 
@@ -1001,7 +1002,9 @@ function VendorData:GetVendorsForItem(itemID)
                 if not seenNPCs[npcID] and not self:IsHolidayVendorHidden(npcID)
                         and not self:IsVendorHiddenByNpcID(npcID) then
                     local scannedVendor = db.global.scannedVendors[npcID]
-                    if scannedVendor then
+                    local listedVendor = scannedVendor and HA.VendorIdentity and HA.VendorIdentity:GetVendor(npcID)
+                    if scannedVendor and not (listedVendor and HA.Constants.IsScanInOtherNeighborhoodHub(
+                            listedVendor.mapID, scannedVendor.mapID)) then
                         -- Resolve zone name from mapID
                         local zoneName
                         if scannedVendor.mapID and C_Map and C_Map.GetMapInfo then

@@ -78,7 +78,9 @@ function VendorFilter.GetBestVendorCoordinates(vendor)
             -- For endeavor vendors, skip scan data from a different mapID — it may
             -- be stale from a previous neighborhood rotation. Vendors with a second
             -- position stand in two maps, so a scan on one never moves the other.
-            local scanMapMismatch = (vendor.endeavor or vendor.altMapID) and scannedMapID ~= vendor.mapID
+            -- A scan in the other neighborhood hub belongs to that hub's NPC ID.
+            local scanMapMismatch = ((vendor.endeavor or vendor.altMapID) and scannedMapID ~= vendor.mapID)
+                or HA.Constants.IsScanInOtherNeighborhoodHub(vendor.mapID, scannedMapID)
             if VendorFilter.AreValidCoordinates(scannedX, scannedY) and scannedMapID
                     and not scanMapMismatch then
                 -- Debug output
