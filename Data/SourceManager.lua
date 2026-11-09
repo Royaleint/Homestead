@@ -1650,7 +1650,7 @@ function SourceManager:GetItemPresentation(itemID, options)
     -- burst class all over again.
     local cacheOnlyOwnership = context == "inventory" or context == "badge"
         or context == "sidePanel" or context == "vendorMapPin"
-        or context == "dropMapPin" or context == "browser"
+        or context == "dropMapPin"
     local catalogStore = HA.CatalogStore
     local isOwned = false
     if cacheOnlyOwnership then
@@ -1685,10 +1685,9 @@ function SourceManager:GetItemPresentation(itemID, options)
     -- Scoped to exactly the contexts
     -- verified to never read bestSource/displaySource/sourceType off the
     -- returned presentation — badge recounts (UI/BadgeCalculation.lua, only
-    -- reads isOwned/availabilityState/blockerLabels), vendor map-pin
+    -- reads isOwned/availabilityState/blockerLabels) and vendor map-pin
     -- tooltips (UI/VendorPinTooltips.lua AddPinTooltipItemLine, only reads
-    -- availabilityState), and the browser window (reserved for the browser; it
-    -- currently reads ownership through CatalogStore). The side-panel
+    -- availabilityState). The side-panel
     -- "sidePanel" context is explicitly EXCLUDED: PopulateItemResultRow (UI/MapSidePanel.lua) reads
     -- presentation.displaySource/sourceBadgeAtlas, and that path is reachable
     -- with npcID set (a vendor-scoped search result whose preferred source
@@ -1696,7 +1695,7 @@ function SourceManager:GetItemPresentation(itemID, options)
     -- bestSource) — skipping the probe there would silently wrong the badge.
     -- Standalone callers (tooltips, catalog) were never in scope for the skip.
     local skipBestSourceProbe = npcID
-        and (context == "badge" or context == "vendorMapPin" or context == "browser")
+        and (context == "badge" or context == "vendorMapPin")
     if not skipBestSourceProbe then
         for _, source in ipairs(allSources) do
             local available = self:IsSourceAvailableNow(itemID, source)

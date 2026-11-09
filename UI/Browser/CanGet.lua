@@ -1,5 +1,5 @@
--- What this character owns and can get now. Ownership is derived from the catalog entries the browser
--- already reads and lives only in this walk's memo: nothing here writes to CatalogStore.
+-- What this character owns and can get now. Ownership comes from CatalogStore's shared read, kept per memo
+-- version: nothing here writes to CatalogStore.
 local _, HA = ...
 
 local B = HA.DecorBrowser
@@ -10,43 +10,33 @@ local Facts = B.Facts
 local CG = {}
 B.CanGet = CG
 
-function D.CollectionState()
-    local scanner, store = HA.CatalogScanner, HA.CatalogStore
-    if not (scanner and store and scanner.HasFirstReadCompleted) then return "counting" end
-    if scanner:HasFirstReadCompleted() then
-        -- "IsWarm or" is safe here, though HasPersistedData warns against it: the first read latches only
-        -- once a warm-started scan has recorded ownership, so the mid-scan zero is past.
-        if scanner:IsWarm() or store:HasPersistedData() then return "ready" end
-        return "notRead"
-    end
-    -- Until this session's read lands, the saved ownership is enough to draw; the read's event redraws.
-    if store:HasPersistedData() then return "ready" end
-    return scanner:HasFirstReadAttempted() and "notRead" or "counting"
-end
-
--- Whether the list draws from last session's saved ownership because this session's read was tried and could
--- not finish.
-function D.CollectionStale()
+-- The scanner's read state (state, stale, countsLive); the read's event redraws.
+local function ReadState()
     local scanner = HA.CatalogScanner
-    return D.CollectionState() == "ready" and not scanner:HasFirstReadCompleted() and scanner:HasFirstReadAttempted()
+    if not scanner then return "counting", false, false end
+    return scanner:GetReadState()
 end
 
--- Whether the catalog's placed, stored and redeemable counts are this session's: they read 0 until the first
--- read lands, even when the saved ownership already draws.
+function D.CollectionState()
+    return (ReadState())
+end
+
+function D.CollectionStale()
+    return (select(2, ReadState()))
+end
+
 function D.CountsLive()
-    return D.CollectionState() == "ready" and HA.CatalogScanner:HasFirstReadCompleted()
-end
-
--- A stored "owned" always wins: an entry can read 0 in the cold window after a reload.
-local function Own(store, itemID, info)
-    if store:IsOwnershipUnknowable(itemID) then return nil end
-    if store:IsOwned(itemID) then return "owned" end
-    if info == nil then return nil end
-    return store:ComputeOwnedFromInfo(info) and "owned" or "notOwned"
+    return (select(3, ReadState()))
 end
 
 local function Memo()
     return B.State and B.State.catalogMemo
+end
+
+-- "owned", "notOwned" or nil (unknown), and the catalog entry, from the shared read.
+local function Own(itemID, memo)
+    local state, info = D.Ownership(itemID, memo)
+    return state ~= "unknown" and state or nil, info
 end
 
 local function Verdict(SM, itemID, npcID, vendor, own)
@@ -206,11 +196,10 @@ local function OfferCost(itemID, npcID, vendor)
 end
 
 -- One vendor's offer: requirements first, then payment.
-function CG.Offer(itemID, npcID, info)
+function CG.Offer(itemID, npcID)
     if D.CollectionState() ~= "ready" then return "unknown" end
-    info = info or D.CatalogInfo(itemID, Memo())
     local vendor = npcID and (HA.VendorData:GetVendor(npcID) or Facts.EventVendor(npcID))
-    local verdict = Verdict(HA.SourceManager, itemID, npcID, vendor, Own(HA.CatalogStore, itemID, info))
+    local verdict = Verdict(HA.SourceManager, itemID, npcID, vendor, (Own(itemID, Memo())))
     if verdict ~= "can" then return verdict end
     return VERDICT[Pay(OfferCost(itemID, npcID, vendor))]
 end
@@ -322,9 +311,8 @@ function CG.Rejudge()
 end
 
 -- Offers are evaluated only for uncollected items; collected and unknown items never reach a vendor check.
-local function Evaluate(itemID, store, SM, VD, memo)
-    local info = D.CatalogInfo(itemID, memo)
-    local own = Own(store, itemID, info)
+local function Evaluate(itemID, SM, VD, memo)
+    local own, info = Own(itemID, memo)
     local e = { itemID = itemID, info = info, own = own, name = D.ItemName(itemID, info), src = {} }
     local bonus = info and info.firstAcquisitionBonus or 0
     e.bonus = own == "notOwned" and bonus > 0 and bonus or nil
@@ -363,7 +351,7 @@ function CG.Entry(itemID)
     Fresh()
     local e = entries[itemID]
     if not e then
-        e = Evaluate(itemID, HA.CatalogStore, HA.SourceManager, HA.VendorData, Memo())
+        e = Evaluate(itemID, HA.SourceManager, HA.VendorData, Memo())
         entries[itemID] = e
     end
     return e
@@ -386,7 +374,7 @@ local function Domain()
 end
 
 local function RunWalk(items)
-    local store, SM, VD, memo = HA.CatalogStore, HA.SourceManager, HA.VendorData, Memo()
+    local SM, VD, memo = HA.SourceManager, HA.VendorData, Memo()
     local list = {}
     local progress = { known = true, total = 0, owned = 0, src = {} }
     local src = progress.src
@@ -395,7 +383,7 @@ local function RunWalk(items)
         local itemID = items[i]
         local e = entries[itemID]
         if not e then
-            e = Evaluate(itemID, store, SM, VD, memo)
+            e = Evaluate(itemID, SM, VD, memo)
             entries[itemID] = e
         end
         list[i] = e
@@ -630,7 +618,7 @@ function CG.MissingFactions()
 end
 
 local function Judge(e, itemID, npcID)
-    local offer = npcID and CG.Offer(itemID, npcID, e.info) or e.verdict
+    local offer = npcID and CG.Offer(itemID, npcID) or e.verdict
     if offer == "can" then return "can" end
     if PAY[offer] then
         local o = not npcID and BestOffer(e.reach, Facts.Here(), PAY[offer])

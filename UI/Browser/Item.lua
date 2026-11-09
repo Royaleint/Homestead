@@ -176,7 +176,7 @@ local function Describe(itemID)
         seen[npcID] = true
         local mapID, x, y = D.VendorLocation(v)
         blocks[#blocks + 1] = { vendor = v, npcID = npcID, mapID = mapID, x = x, y = y,
-            offer = CG.Offer(itemID, npcID, e and e.info) }
+            offer = CG.Offer(itemID, npcID) }
         vendors[#vendors + 1] = { npcID = npcID, name = v.name, zone = select(2, F.Place(v)), mapID = mapID, x = x, y = y }
         return true
     end

@@ -1,5 +1,5 @@
 -- Data adapter: every browser read of Homestead data goes through B.Data. Cache-only (no SavedVariables
--- writes, scans or ownership probes) apart from CatalogInfo's read-only catalog queries.
+-- writes, scans or ownership probes); catalog entries and ownership come from CatalogStore's shared read.
 local _, HA = ...
 
 local B = HA.DecorBrowser
@@ -532,26 +532,19 @@ function D.ItemSources(itemID)
     return out
 end
 
+-- The shared ownership read: state ("owned", "notOwned", "unknown") and the catalog entry behind it. Take
+-- ownership from the state, never the entry's counts. "unknown" without an entry is asked again, so late
+-- catalog data still arrives.
+function D.Ownership(itemID, catalogMemo)
+    local m = catalogMemo and catalogMemo[itemID]
+    if m then return m.state, m.info end
+    local state, info = HA.CatalogStore:ReadOwnershipEntry(itemID)
+    if catalogMemo and (info or state ~= "unknown") then catalogMemo[itemID] = { state = state, info = info } end
+    return state, info
+end
+
 function D.CatalogInfo(itemID, catalogMemo)
-    if catalogMemo and catalogMemo[itemID] then return catalogMemo[itemID] end
-    local info
-    local ok, result = pcall(C_HousingCatalog.GetCatalogEntryInfoByItem, itemID, true)
-    if ok then info = result end
-    if not info and HA.CatalogStore.GetDecorIDFromItemID then
-        local decorID = HA.CatalogStore:GetDecorIDFromItemID(itemID)
-        if decorID then
-            local ok2, result2 = pcall(C_HousingCatalog.GetCatalogEntryInfoByRecordID, 1, decorID, true)
-            if ok2 then info = result2 end
-        end
-    end
-    -- A room plan has no item lookup, only its room entry (type 2).
-    local roomID = not info and D.RoomID(itemID)
-    if roomID then
-        local ok3, result3 = pcall(C_HousingCatalog.GetCatalogEntryInfoByRecordID, 2, roomID)
-        if ok3 then info = result3 end
-    end
-    if catalogMemo and info then catalogMemo[itemID] = info end
-    return info
+    return (select(2, D.Ownership(itemID, catalogMemo)))
 end
 
 function D.SourceLine(itemID, sources)

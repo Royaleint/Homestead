@@ -812,6 +812,30 @@ function CatalogScanner:HasFirstReadAttempted()
     return firstReadAttempted
 end
 
+-- What a display may say about the collection: state, stale, countsLive.
+-- state is "ready" (ownership can be drawn), "notRead" (the read finished or
+-- gave up with nothing trustworthy) or "counting" (wait). Until this
+-- session's read lands, last session's saved ownership is enough to draw.
+-- stale: drawing from that saved ownership because the read was tried and
+-- could not finish. countsLive: catalog placed, stored and redeemable counts
+-- are this session's; they read 0 until the first read lands.
+function CatalogScanner:GetReadState()
+    local done = self:HasFirstReadCompleted()
+    local state
+    if done then
+        -- "IsWarm or" is safe here, though HasPersistedData warns against it:
+        -- the first read latches only once a warm-started scan has recorded
+        -- ownership, so the mid-scan zero is past.
+        state = (self:IsWarm() or HA.CatalogStore:HasPersistedData()) and "ready" or "notRead"
+    elseif HA.CatalogStore:HasPersistedData() then
+        state = "ready"
+    else
+        state = self:HasFirstReadAttempted() and "notRead" or "counting"
+    end
+    local ready = state == "ready"
+    return state, ready and not done and self:HasFirstReadAttempted(), ready and done
+end
+
 function CatalogScanner:Initialize()
     if isInitialized then return end
 
