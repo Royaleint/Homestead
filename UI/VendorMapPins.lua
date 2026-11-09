@@ -1629,6 +1629,14 @@ function VendorMapPins:Initialize()
             end
             self:RequestMinimapRefresh("endeavor_changed")
         end)
+
+        HA.Events:RegisterCallback("DREAMSURGE_LOCATION_CHANGED", function()
+            self:InvalidateBadgeCache()
+            if WorldMapFrame:IsShown() then
+                self:RequestWorldMapRefresh("dreamsurge_moved")
+            end
+            self:RequestMinimapRefresh("dreamsurge_moved")
+        end)
     end
 
     isInitialized = true

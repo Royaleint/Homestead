@@ -248,6 +248,11 @@ function HousingAddon:OnEnable()
         HA.CalendarDetector:Initialize()
     end
 
+    -- Initialize DreamsurgeTracker for Celestine of the Harvest's moving spot
+    if HA.DreamsurgeTracker then
+        HA.DreamsurgeTracker:Initialize()
+    end
+
     -- Initialize EndeavorsData for active endeavor detection
     if HA.EndeavorsData and HA.EndeavorsData.Initialize then
         HA.EndeavorsData:Initialize()

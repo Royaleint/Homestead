@@ -198,10 +198,13 @@ function MinimapPinCollect:RefreshMinimapPins()
                         -- Skip static/scanned map mismatches to avoid misplaced minimap pins.
                         -- Bypass for endeavor vendors (scan data may be stale from a previous
                         -- neighborhood rotation), for vendors with a second position (a scan
-                        -- on one map must not hide the other), and for a scan in the other
-                        -- neighborhood hub (it belongs to that hub's NPC ID).
+                        -- on one map must not hide the other), for a scan in the other
+                        -- neighborhood hub (it belongs to that hub's NPC ID), and for a
+                        -- vendor following a moving event (its scan is a past spot).
                         -- GetBestVendorCoordinates handles the fallback.
+                        local tracker = HA.DreamsurgeTracker
                         if not shouldSkipVendor and not (vendor.endeavor or vendor.altMapID)
+                                and not (tracker and vendor.npcID == tracker.NPC_ID)
                                 and HA.Addon and HA.Addon.db
                                 and HA.Addon.db.global.scannedVendors then
                             local scannedData = HA.Addon.db.global.scannedVendors[vendor.npcID]

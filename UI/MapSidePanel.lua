@@ -4922,7 +4922,7 @@ function MapSidePanel:Initialize()
     if HA.Events then
         -- Deferred like its VENDOR_SCANNED sibling below: VendorMapPins' cache wipe
         -- on this same event is init-order dependent, so a synchronous repaint here
-        -- can race ahead of it and never repaint after the wipe lands. All four
+        -- can race ahead of it and never repaint after the wipe lands. All the
         -- listeners below share ScheduleContentRefresh's debounce so a burst of
         -- any one of them (or a mix) collapses into a single RefreshContent.
         HA.Events:RegisterCallback("OWNERSHIP_UPDATED", ScheduleContentRefresh)
@@ -4930,6 +4930,8 @@ function MapSidePanel:Initialize()
         HA.Events:RegisterCallback("VENDOR_SCANNED", ScheduleContentRefresh)
 
         HA.Events:RegisterCallback("ACTIVE_ENDEAVOR_CHANGED", ScheduleContentRefresh)
+
+        HA.Events:RegisterCallback("DREAMSURGE_LOCATION_CHANGED", ScheduleContentRefresh)
 
         -- Source caches invalidated — covers achievement, quest, reputation,
         -- profession, and holiday changes through SourceManager. An
