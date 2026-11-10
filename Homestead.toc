@@ -67,6 +67,7 @@ Utils\waypoints.lua
 Modules\CatalogScanner.lua
 Modules\SourceTextScanner.lua
 Modules\CalendarDetector.lua
+Modules\DreamsurgeTracker.lua
 Modules\VendorTracer.lua
 Modules\DecorClassifier.lua
 Modules\ScanPersistence.lua

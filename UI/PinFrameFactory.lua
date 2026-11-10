@@ -29,10 +29,6 @@ local PIN_COLOR_PRESETS = {
     yellow    = { 1.0, 0.9, 0.3 },   -- Yellow
 }
 
--- Desaturated atlas base luminance (~82% grey). Used for Options preview swatch
--- when a custom color is active (desaturated icon tints accurately).
-local DESAT_LUMINANCE = 0.82
-
 -- Alpha applied when vertex-tinting a desaturated vendor pin atlas.
 -- Exposed as a module-level constant so the Options preview widget can match
 -- the in-game render exactly (single source of truth for the tint alpha).
@@ -76,17 +72,6 @@ function PinFrameFactory:IsCustomPinColor()
     if not db then return false end
     local preset = db.profile.vendorTracer.pinColorPreset or "default"
     return preset ~= "default"
-end
-
-function PinFrameFactory:GetPinColorPreviewHex()
-    local r, g, b = self:GetPinColor()
-    if self:IsCustomPinColor() then
-        local cr = math.min(r * DESAT_LUMINANCE, 1.0)
-        local cg = math.min(g * DESAT_LUMINANCE, 1.0)
-        local cb = math.min(b * DESAT_LUMINANCE, 1.0)
-        return string.format("%02x%02x%02x", cr * 255, cg * 255, cb * 255)
-    end
-    return "f2d173"
 end
 
 -------------------------------------------------------------------------------

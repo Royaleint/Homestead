@@ -1,8 +1,8 @@
 --[[
     Homestead - PrerequisiteSources
-    Generated: 2026-11-08 21:37:05
-    Items with prerequisites: 573
-    Total prerequisite entries: 624
+    Generated: 2026-11-08 23:35:27
+    Items with prerequisites: 580
+    Total prerequisite entries: 631
 
     Vendor purchase prerequisites: Blizzard web API rows plus hand-checked additions.
     Used by SourceManager:GetRequirements() as a high-confidence source.
@@ -315,6 +315,7 @@ HA.PrerequisiteSources = {
     [248939] = {{type = "reputation", faction = "Stormwind", standing = "Honored"}},
     [248942] = {{type = "achievement", id = 60986, name = "Raise an Army for the Temple of Five Dawns"}},
     [248958] = {{type = "achievement", id = 42275, name = "The Grandmaster's Campaign"}},
+    [248962] = {{type = "achievement", id = 63432, name = "Mysterious Mix Master"}},
     [248985] = {{type = "reputation", faction = "Highmountain Tribe", standing = "Honored"}},
     [249549] = {{type = "quest", name = "Augmenting a Dragon"}},
     [250112] = {{type = "achievement", id = 60981, name = "Raise an Army for Acherus"}},
@@ -505,6 +506,7 @@ HA.PrerequisiteSources = {
     [262906] = {{type = "quest", name = "Russula's Outreach"}},
     [263020] = {{type = "quest", name = "From This Point Forward"}},
     [263037] = {{type = "quest", name = "Wey'nan's Ward"}},
+    [263038] = {{type = "quest", id = 96507, name = "Haranir Reclined Bed"}},
     [263041] = {{type = "quest", name = "Root of the World"}},
     [263196] = {{type = "quest", name = "Aln'hara's Bloom"}},
     [263231] = {{type = "quest", name = "Paved in Ash"}},
@@ -512,6 +514,7 @@ HA.PrerequisiteSources = {
     [263315] = {{type = "quest", name = "The Cauldron of Echoes"}},
     [263318] = {{type = "reputation", faction = "Amani Tribe", standing = "Renown 3", factionID = 2696, renownLevel = 3}},
     [263320] = {{type = "reputation", faction = "Amani Tribe", standing = "Renown 3", factionID = 2696, renownLevel = 3}},
+    [263873] = {{type = "achievement", id = 63358, name = "Coiled to Strike"}},
     [263876] = {{type = "quest", name = "Cursed Keepsake"}},
     [264168] = {{type = "reputation", faction = "Dreamweavers", standing = "Honored"}},
     [264173] = {{type = "achievement", id = 42790, name = "Skinning at Midnight"}},
@@ -582,6 +585,10 @@ HA.PrerequisiteSources = {
     [268943] = {{type = "quest", name = "Cursed Keepsake"}},
     [272129] = {{type = "quest", name = "Cursed Keepsake"}},
     [272142] = {{type = "quest", name = "Cursed Keepsake"}},
+    [278369] = {{type = "achievement", id = 63451, name = "Scales for Days"}},
+    [278372] = {{type = "achievement", id = 63452, name = "Fangs for the Memories"}},
+    [278376] = {{type = "achievement", id = 63454, name = "Nine, Ten, Never Sleep Again"}},
+    [278380] = {{type = "achievement", id = 63453, name = "One, Two, Ral'kala's Coming for You"}},
     [278696] = {{type = "quest", name = "Cursed Keepsake"}},
     [278701] = {{type = "quest", name = "Cursed Keepsake"}},
     [279067] = {{type = "quest", id = 95200, name = "An Offering for Halazzi"}},

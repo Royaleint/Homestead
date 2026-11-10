@@ -1245,14 +1245,15 @@ VendorIdentity.Vendors = {
     },
     [210608] = {
         name = "Celestine of the Harvest",
-        mapID = 2025,
-        x = 0.512,
-        y = 0.432,
+        mapID = 2023,
+        x = 0.642,
+        y = 0.417,
         zone = "Dragon Isles",
         subzone = "Dreamsurge (Rotating)",
         faction = "Neutral",
         expansion = "Events",
         notes = "Location is not static, she moves with the dreamsurge event",
+        scanConfirmed = "2026-11-08",
     },
     [211065] = {
         name = "Marie Allen",

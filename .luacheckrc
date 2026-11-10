@@ -131,6 +131,7 @@ read_globals = {
     "GetSubZoneText",
     "GetScreenWidth", "GetScreenHeight",
     "GetRealmName",
+    "GetServerTime",
     "GetTime",
     "HideUIPanel",
     "InCombatLockdown",

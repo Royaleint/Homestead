@@ -454,10 +454,6 @@ function VendorMapPins:IsCustomPinColor()
     return HA.PinFrameFactory:IsCustomPinColor()
 end
 
-function VendorMapPins:GetPinColorPreviewHex()
-    return HA.PinFrameFactory:GetPinColorPreviewHex()
-end
-
 function VendorMapPins:RefreshAllPinColors()
     worldMapDirty = true
     lastRenderedWorldMapID = nil
@@ -1628,6 +1624,14 @@ function VendorMapPins:Initialize()
                 self:RequestWorldMapRefresh("endeavor_changed")
             end
             self:RequestMinimapRefresh("endeavor_changed")
+        end)
+
+        HA.Events:RegisterCallback("DREAMSURGE_LOCATION_CHANGED", function()
+            self:InvalidateBadgeCache()
+            if WorldMapFrame:IsShown() then
+                self:RequestWorldMapRefresh("dreamsurge_moved")
+            end
+            self:RequestMinimapRefresh("dreamsurge_moved")
         end)
     end
 

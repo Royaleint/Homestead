@@ -2,6 +2,28 @@
 
 ---
 
+## Homestead v2.17.0 (11-10-2026)
+
+Celestine follows the Dreamsurge, plus vendor fixes.
+
+---
+
+## Dreamsurge
+
+- Celestine of the Harvest's pins, side panel entry and waypoint now follow the Dreamsurge to whichever Dragon Isles zone it is in. If your character can't see it, Homestead uses where another of your characters last found it, or her usual spot in Ohn'ahran Plains.
+
+---
+
+## Vendors
+
+- Seven more decor items now show as locked until you finish their achievement or quest.
+- Items you can buy more than one way now list each price, like the Hearthlight Armillary from The Last Architect.
+- The Last Architect has an Alliance pin at Founder's Point again.
+- Corrected the location names for a dozen vendors, and Quartermaster Ozorg's pin is now in Acherus: The Ebon Hold.
+- Achievement reward lists no longer include items that aren't decor, and eight missing decor items are added.
+
+---
+
 ## Homestead v2.16.0 (11-03-2026)
 
 Room plan collection, cleaner vendor search, and more price fixes.
