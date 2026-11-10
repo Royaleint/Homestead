@@ -66,8 +66,21 @@ function VendorFilter.GetBestVendorCoordinates(vendor)
         return nil, nil, nil
     end
 
+    -- A vendor following a moving event: its tracked spot, else its shipped
+    -- row. Never the scan, and never the passed copy, which may be older
+    -- than the last move.
+    local tracker = HA.DreamsurgeTracker
+    local tracked = tracker and vendor.npcID == tracker.NPC_ID
+    if tracked then
+        local mapID, x, y = tracker:GetEffectiveLocation(vendor.npcID)
+        if mapID then
+            return {x = x, y = y}, mapID, "static"
+        end
+        vendor = HA.VendorIdentity and HA.VendorIdentity:GetVendor(vendor.npcID) or vendor
+    end
+
     -- First check scanned vendor data (uses old coords format)
-    if HA.Addon and HA.Addon.db and HA.Addon.db.global.scannedVendors then
+    if not tracked and HA.Addon and HA.Addon.db and HA.Addon.db.global.scannedVendors then
         local scannedData = HA.Addon.db.global.scannedVendors[vendor.npcID]
         if scannedData and scannedData.coords then
             local scannedX = scannedData.coords.x
