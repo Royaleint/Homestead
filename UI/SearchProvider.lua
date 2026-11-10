@@ -12,6 +12,7 @@
 ]]
 
 local _, HA = ...
+local L = HA.L
 
 local SearchProvider = {}
 HA.SearchProvider = SearchProvider
@@ -23,10 +24,10 @@ local initialized = false
 local VD  -- VendorData reference, set in Initialize
 local NON_VENDOR_SOURCE_DESCRIPTORS = {
     { tableKey = "QuestSources", type = "quest", nameField = "questName" },
-    { tableKey = "AchievementSources", type = "achievement", nameField = "achievementName" },
-    { tableKey = "ProfessionSources", type = "profession", nameField = "recipeName" },
+    { tableKey = "AchievementSources", type = "achievement", nameField = "achievementName", extraField = "category" },
+    { tableKey = "ProfessionSources", type = "profession", nameField = "recipeName", extraField = "profession" },
     { tableKey = "EventSources", type = "event", nameField = "vendorName" },
-    { tableKey = "DropSources", type = "drop", nameField = "mobName" },
+    { tableKey = "DropSources", type = "drop", nameField = "mobName", extraField = "zone" },
 }
 
 local function ForEachNonVendorSourceItem(callback)
@@ -37,7 +38,7 @@ local function ForEachNonVendorSourceItem(callback)
         if sourceTable then
             for itemID, data in pairs(sourceTable) do
                 if type(itemID) == "number" then
-                    callback(itemID, descriptor.type, descriptor.nameField, data)
+                    callback(itemID, descriptor.type, descriptor.nameField, data, descriptor.extraField)
                 end
             end
         end
@@ -133,6 +134,16 @@ end
 -- Index (built lazily on first Search)
 -------------------------------------------------------------------------------
 
+-- Adds a field to match text on its own line, so a query never matches across two fields. A field already
+-- contained in one line adds nothing.
+local function AddLine(text, line)
+    if not line or line == "" then return text end
+    line = line:lower()
+    if text == "" then return line end
+    if text:find(line, 1, true) then return text end
+    return text .. "\n" .. line
+end
+
 local function BuildIndex()
     if searchIndex or not VD then return end
     searchIndex = { vendorItems = {}, sourceItems = {}, decorToItem = {} }
@@ -148,7 +159,7 @@ local function BuildIndex()
     local allVendors = VD:GetAllVendors()
     local VF = HA.VendorFilter
     for _, vendor in ipairs(allVendors) do
-        if vendor.npcID and not (VF and VF.IsHiddenOnThisBuild(vendor)) then
+        if vendor.npcID and not VF.IsHiddenOnThisBuild(vendor) then
             local itemIDs = VD:GetMergedItemIDs(vendor)
             local items = {}
             if itemIDs then
@@ -158,11 +169,17 @@ local function BuildIndex()
                     end
                 end
             end
+            -- Both positions' shipped zone and subzone, then the client's names for them.
+            local otherMapID, _, _, otherZone, otherSubzone = VD:GetOtherPosition(vendor)
+            local places = AddLine(AddLine("", vendor.zone), vendor.subzone)
+            places = AddLine(AddLine(places, otherZone), otherSubzone)
+            places = AddLine(places, vendor.mapID and VF.GetMapName(vendor.mapID))
+            places = AddLine(places, vendor.areaID and VF.GetAreaName(vendor.areaID))
+            places = AddLine(places, otherMapID and VF.GetMapName(otherMapID))
             searchIndex.vendorItems[vendor.npcID] = {
                 vendor = vendor,
                 nameLower = (vendor.name or ""):lower(),
-                zoneLower = (vendor.zone or ""):lower(),
-                subzoneLower = (vendor.subzone or ""):lower(),
+                placesLower = places,
                 items = items,
             }
         end
@@ -170,7 +187,7 @@ local function BuildIndex()
 
     -- Item-first index for non-vendor sources (names resolved lazily at query time)
     local SM = HA.SourceManager
-    ForEachNonVendorSourceItem(function(itemID, sourceType, nameField, data)
+    ForEachNonVendorSourceItem(function(itemID, sourceType, nameField, data, extraField)
         local entry = searchIndex.sourceItems[itemID]
         if not entry then
             entry = {
@@ -190,10 +207,16 @@ local function BuildIndex()
                     or eventText
             end
         end
-        -- The quest giver's shipped English name; a newline keeps a query from matching across the two names.
-        local starter = sourceType == "quest" and SM and data.questID and SM:GetQuestStarter(data.questID)
-        if starter and starter.name then
-            searchText = searchText .. "\n" .. starter.name:lower()
+        if extraField then
+            searchText = AddLine(searchText, data[extraField])
+        elseif sourceType == "event" then
+            searchText = AddLine(searchText, L["Holiday event"])
+        elseif sourceType == "quest" and data.questID then
+            -- The quest giver's shipped English name, and the client's name for the quest's map.
+            local starter = SM:GetQuestStarter(data.questID)
+            searchText = AddLine(searchText, starter and starter.name)
+            local mapID = SM:GetQuestMap(data.questID)
+            searchText = AddLine(searchText, mapID and VF.GetMapName(mapID))
         end
 
         entry.sources[#entry.sources + 1] = {
@@ -248,9 +271,7 @@ function SearchProvider:Search(query, options)
         local matchedItems = nil  -- set of matched itemIDs (item-level matches only)
 
         -- Vendor / zone / subzone name match
-        if entry.nameLower:find(query, 1, true)
-            or entry.zoneLower:find(query, 1, true)
-            or (entry.subzoneLower ~= "" and entry.subzoneLower:find(query, 1, true)) then
+        if entry.nameLower:find(query, 1, true) or entry.placesLower:find(query, 1, true) then
             matchType = "vendor"
             matchCount = #entry.items
         else
