@@ -914,8 +914,8 @@ function Draw(fresh, saved)
     V.s = s
     local rows = Rows(s, true)
     local ready = HA.CatalogScanner:GetReadState() == "ready"
-    local act = D.HolidayActive(v) and v.event or nil
-    local live = act ~= nil or Facts.EndeavorActive(v) == true
+    local act = D.HolidayActive(v) and v.event or Facts.EndeavorActive(v) == true or nil
+    local live = act ~= nil
     local n, owned = #rows, 0
     for _, r in ipairs(rows) do
         local e = CG.Entry(r.itemID)

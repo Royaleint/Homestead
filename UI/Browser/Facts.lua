@@ -16,13 +16,13 @@ function F.BrowserListed(vendor)
         and not HA.VendorFilter.IsConfirmedNoDecor(vendor)
 end
 
--- For an Endeavor vendor, whether this week's theme is its own: true only when the game has reported the
+-- For an Endeavor vendor, whether the running theme is its own: true only when the game has reported the
 -- theme, false otherwise. nil for any other vendor.
 function F.EndeavorActive(vendor)
     return HA.VendorData:IsEndeavorVendorActive(vendor)
 end
 
--- Whether a listed vendor is selling now: an Endeavor vendor sells only in its theme's week.
+-- Whether a listed vendor is selling now: an Endeavor vendor sells only when its theme runs.
 function F.OnSale(vendor)
     return F.BrowserListed(vendor) and F.EndeavorActive(vendor) ~= false
 end

@@ -877,18 +877,13 @@ function EndeavorsData:GetThemeForVendor(vendorOrNPCID)
     return canonicalNPC and EndeavorsData.NPCToTheme[canonicalNPC] or nil
 end
 
--- Fail-open while active theme is unknown.
+-- A vendor with no theme is always active; a themed vendor is off until the game reports the theme.
 function EndeavorsData:IsVendorActive(vendorOrNPCID)
     local themeName = self:GetThemeForVendor(vendorOrNPCID)
     if not themeName then
         return true
     end
-
-    local isActive = self:IsThemeActive(themeName)
-    if isActive == nil then
-        return true
-    end
-    return isActive
+    return self:IsThemeActive(themeName) == true
 end
 
 -------------------------------------------------------------------------------
