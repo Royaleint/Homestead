@@ -167,6 +167,7 @@ local function BuildIndex()
     end
 
     -- Item-first index for non-vendor sources (names resolved lazily at query time)
+    local SM = HA.SourceManager
     ForEachNonVendorSourceItem(function(itemID, sourceType, nameField, data)
         local entry = searchIndex.sourceItems[itemID]
         if not entry then
@@ -186,6 +187,11 @@ local function BuildIndex()
                     and (searchText .. " " .. eventText)
                     or eventText
             end
+        end
+        -- The quest giver's shipped English name; a newline keeps a query from matching across the two names.
+        local starter = sourceType == "quest" and SM and data.questID and SM:GetQuestStarter(data.questID)
+        if starter and starter.name then
+            searchText = searchText .. "\n" .. starter.name:lower()
         end
 
         entry.sources[#entry.sources + 1] = {
