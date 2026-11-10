@@ -1371,47 +1371,45 @@ end
 -- Availability Classification
 -------------------------------------------------------------------------------
 
--- Build a human-readable blocker label from a single requirement.
-local function GetRequirementBlockerLabel(req)
+-- Translated text for one requirement. Shared by pin tallies, the side panel
+-- and the Decor Browser.
+local function Text(key)
+    return HA.L and HA.L[key] or key
+end
+
+function SourceManager:GetRequirementText(req)
     if not req then return nil end
+    local t = req.type
 
-    if req.type == "reputation" then
-        local standing = req.standing or "Required"
-        local faction = req.faction or "Unknown Faction"
+    if t == "reputation" then
+        local standing = req.standing or Text("Required")
+        -- Scanned factions can end in a period.
+        local faction = (req.faction or Text("Unknown faction")):gsub("%.$", "")
         if standing:match("^Renown") then
-            return standing .. " " .. faction
+            return Text("%s %s"):format(standing, faction)
         end
-        return standing .. " with " .. faction
-    end
-
-    if req.type == "achievement" then
-        return "Achievement: " .. (req.name or "Unknown Achievement")
-    end
-
-    if req.type == "quest" then
-        return "Quest: " .. (req.name or "Unknown Quest")
-    end
-
-    if req.type == "profession" then
-        return req.profession and ("Profession: " .. req.profession) or "Profession requirement"
-    end
-
-    if req.type == "professionRank" then
+        return Text("%s with %s"):format(standing, faction)
+    elseif t == "achievement" then
+        return Text("Achievement: %s"):format(req.name or Text("Unknown"))
+    elseif t == "quest" then
+        return Text("Quest: %s"):format(req.name or Text("Unknown"))
+    elseif t == "level" and req.level then
+        return Text("Level %s"):format(tostring(req.level))
+    elseif t == "promotion" then
+        return Text("Promotion: %s"):format(req.name or Text("Unknown"))
+    elseif t == "professionRank" then
         if req.profession and req.rank then
-            return "Profession: " .. req.profession .. " Rank " .. req.rank
+            return Text("Profession: %s rank %s"):format(tostring(req.profession), tostring(req.rank))
         end
-        return "Profession rank requirement"
+        return Text("Profession rank requirement")
+    elseif t == "profession" then
+        if req.profession then
+            return Text("Profession: %s"):format(tostring(req.profession))
+        end
+        return Text("Profession requirement")
     end
 
-    if req.type == "promotion" then
-        return "Promotion: " .. (req.name or "Unknown Promotion")
-    end
-
-    if req.text then
-        return req.text
-    end
-
-    return "Other requirements"
+    return req.text or Text("Other requirement")
 end
 
 -------------------------------------------------------------------------------
@@ -1536,7 +1534,7 @@ local function EvaluateRequirementAvailability(reqs)
         end
 
         if SourceManager:IsRequirementMet(req) ~= true then
-            blockerLabels = AppendUniqueBlockerLabel(blockerLabels, GetRequirementBlockerLabel(req))
+            blockerLabels = AppendUniqueBlockerLabel(blockerLabels, SourceManager:GetRequirementText(req))
         end
     end
 
@@ -1580,7 +1578,7 @@ function SourceManager:GetVendorItemAvailabilityState(itemID, npcID, skipOwnersh
     if state == "purchasable" then
         local scannedItem = GetScannedVendorItem(itemID, npcID)
         if scannedItem and scannedItem.isPurchasable == false then
-            return "locked", false, false, { "Purchase gated" }
+            return "locked", false, false, { Text("Purchase gated") }
         end
     end
 
@@ -1696,19 +1694,20 @@ function SourceManager:GetItemPresentation(itemID, options)
 
     local allSources = self:GetAllSources(itemID) or EMPTY_SOURCES
     local bestSource = nil
-    -- Scoped to exactly the two contexts
+    -- Scoped to exactly the contexts
     -- verified to never read bestSource/displaySource/sourceType off the
     -- returned presentation — badge recounts (UI/BadgeCalculation.lua, only
     -- reads isOwned/availabilityState/blockerLabels) and vendor map-pin
     -- tooltips (UI/VendorPinTooltips.lua AddPinTooltipItemLine, only reads
-    -- availabilityState). The side-panel "sidePanel" context is explicitly
-    -- EXCLUDED: PopulateItemResultRow (UI/MapSidePanel.lua) reads
+    -- availabilityState). The side-panel
+    -- "sidePanel" context is explicitly EXCLUDED: PopulateItemResultRow (UI/MapSidePanel.lua) reads
     -- presentation.displaySource/sourceBadgeAtlas, and that path is reachable
     -- with npcID set (a vendor-scoped search result whose preferred source
     -- doesn't match and whose primary source is unavailable falls through to
     -- bestSource) — skipping the probe there would silently wrong the badge.
     -- Standalone callers (tooltips, catalog) were never in scope for the skip.
-    local skipBestSourceProbe = npcID and (context == "badge" or context == "vendorMapPin")
+    local skipBestSourceProbe = npcID
+        and (context == "badge" or context == "vendorMapPin")
     if not skipBestSourceProbe then
         for _, source in ipairs(allSources) do
             local available = self:IsSourceAvailableNow(itemID, source)
@@ -3137,6 +3136,130 @@ function SourceManager:DebugItem(itemID)
             HA.Addon:Debug("  ", i, "-", src.type)
         end
     end
+end
+
+-------------------------------------------------------------------------------
+-- Source tables, achievement categories and wallet reads
+-------------------------------------------------------------------------------
+
+local SOURCE_TABLES = {
+    achievements = "AchievementSources", quests = "QuestSources", professions = "ProfessionSources",
+    drops = "DropSources", events = "EventSources", shop = "ShopSources",
+}
+
+-- The shipped item rows of one source kind (achievements, quests, professions, drops, events or shop).
+function SourceManager:GetSourceTable(kind)
+    local name = SOURCE_TABLES[kind]
+    return name and HA[name] or nil
+end
+
+-- Where a decor quest starts, as { mapID, x, y }; nil when its start spot is not recorded. A zone is never a start.
+function SourceManager:GetQuestStart(questID)
+    local row = HA.QuestFacts and HA.QuestFacts[questID]
+    return row and row.start or nil
+end
+
+-- Who or what starts a quest, as { id, kind = "object" or "item" (a creature has none), name = English name (not for
+-- an item) }; the quest may have no recorded start spot.
+function SourceManager:GetQuestStarter(questID)
+    local row = HA.QuestFacts and HA.QuestFacts[questID]
+    return row and row.starter or nil
+end
+
+-- A quest's zone with no position, for grouping only: { mapID = zone map, turnIn = continent map, expansion = expansion
+-- key }, each part optional. It never feeds a waypoint or a pin.
+function SourceManager:GetQuestZone(questID)
+    local row = HA.QuestFacts and HA.QuestFacts[questID]
+    return row and row.zone or nil
+end
+
+-- The dig site of a Decor Treasure Hunt quest, as { mapID, x, y }.
+function SourceManager:GetTreasureSpot(questID)
+    return HA.TreasureHuntSpots and HA.TreasureHuntSpots[questID]
+end
+
+-- The map a quest is grouped under: where it starts or its dig site, else its recorded zone; nil when unknown.
+function SourceManager:GetQuestMap(questID)
+    local at = self:GetTreasureSpot(questID) or self:GetQuestStart(questID)
+    if at and at.mapID then return at.mapID end
+    local zone = self:GetQuestZone(questID)
+    return zone and zone.mapID
+end
+
+-- Blizzard's achievement tree, read once per category.
+local categoryTree, categoryPos = {}, nil
+
+local function CategoryPos(id)
+    if not categoryPos then
+        categoryPos = {}
+        for i, c in ipairs(GetCategoryList() or {}) do categoryPos[c] = i end
+        if next(categoryPos) == nil then categoryPos = nil end
+    end
+    return categoryPos and categoryPos[id] or 1e6 + id
+end
+
+-- An achievement's category as { top title, top position, subcategory title, subcategory position }, the last
+-- two nil when the category has no parent; nil when the client has no such category.
+function SourceManager:GetAchievementCategoryPath(achievementID)
+    local cat = GetAchievementCategory(achievementID)
+    local c = cat and categoryTree[cat]
+    if c or not cat then return c end
+    local topName, parent = GetCategoryInfo(cat)
+    if not topName then return nil end
+    local topID, subID, subName = cat, nil, nil
+    while parent and parent > 0 do
+        local name, up = GetCategoryInfo(parent)
+        if not name then break end
+        topID, topName, subID, subName, parent = parent, name, topID, topName, up
+    end
+    c = { topName, CategoryPos(topID), subName, subID and CategoryPos(subID) }
+    if categoryPos then categoryTree[cat] = c end
+    return c
+end
+
+-- What this character carries, read from the game on each call: gold in copper, then the amount of a currency
+-- (false without currency info) or of an item in bags and reagent bank as a merchant counts them.
+function SourceManager:GetWalletGold()
+    return GetMoney()
+end
+
+-- kind is "cur" (a currency) or "item".
+function SourceManager:GetWalletCount(kind, id)
+    if kind == "cur" then
+        local info = C_CurrencyInfo.GetCurrencyInfo(id)
+        return info and info.quantity or false
+    end
+    return C_Item.GetItemCount(id, false, false, true)
+end
+
+-- Whether a currency moves between the account's characters.
+function SourceManager:IsCurrencyTransferable(currencyID)
+    return C_CurrencyInfo.IsAccountTransferableCurrency(currencyID) and true or false
+end
+
+function SourceManager:RequestOtherCharacterCurrencies()
+    C_CurrencyInfo.RequestCurrencyDataForAccountCharacters()
+end
+
+-- Another character's biggest holding of a currency, from account data already received: its name (the full
+-- name when two results share one), amount and the currency's icon. Nothing when the data is not ready or no
+-- one else holds any.
+function SourceManager:GetOtherCharacterCurrency(currencyID)
+    if not C_CurrencyInfo.IsAccountCharacterCurrencyDataReady() then return nil end
+    local rows = C_CurrencyInfo.FetchCurrencyDataFromAccountCharacters(currencyID) or {}
+    local me, best = UnitGUID("player"), nil
+    for _, r in ipairs(rows) do
+        if r.characterGUID ~= me and r.quantity > 0 and (not best or r.quantity > best.quantity) then best = r end
+    end
+    if not best then return nil end
+    local info = C_CurrencyInfo.GetCurrencyInfo(currencyID)
+    local icon = info and info.iconFileID
+    for _, r in ipairs(rows) do
+        if r ~= best and r.characterName == best.characterName then
+            return best.fullCharacterName, best.quantity, icon
+        end
+    end
+    return best.characterName, best.quantity, icon
 end
 
 -------------------------------------------------------------------------------

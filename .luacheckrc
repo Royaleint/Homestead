@@ -8,8 +8,12 @@ globals = {
     "HomesteadMapSidePanelTooltip",
     "HomesteadVendorMapPinsTooltip",
     "HomesteadVendorMapPinsWaresTooltip",
+    "HomesteadBrowserTooltip",
+    "HomesteadBrowserDisplay",
     "SlashCmdList",
     "SLASH_HOMESTEAD1", "SLASH_HOMESTEAD2",
+    "BINDING_HEADER_HOMESTEAD",
+    "BINDING_NAME_HOMESTEAD_TOGGLE_BROWSER",
     -- SavedVariables (created by WoW, read/written by addon)
     "HomesteadDB",
 }
@@ -24,6 +28,7 @@ read_globals = {
     "error", "pcall", "rawget", "rawset", "setmetatable", "getmetatable",
     "issecretvalue", -- Midnight combat-secrecy probe
     "GetBuildInfo",
+    "GetAchievementCategory", "GetCategoryInfo", "GetCategoryList",
     "IsPublicTestClient", -- cost-evidence environment (retail/ptr)
 
     -- WoW constants
@@ -36,25 +41,30 @@ read_globals = {
     "BankFrame",
     "ChatFontNormal",
     "ContainerFrameCombinedBags", "ContainerFrameContainer",
-    "CreateFrame",
+    "CreateFrame", "CreateFont", "CreateVector2D",
     "DEFAULT_CHAT_FRAME",
     "CreateDataProvider",
     "CreateFromMixins",
-    "CreateScrollBoxListLinearView",
+    "CreateScrollBoxListLinearView", "CreateScrollBoxListGridView",
+    "CreateColor", "CreateAnchor", "CreateAtlasMarkup",
     "CreateFramePool", "CreateUnsecuredRegionPoolInstance",
     "EventRegistry",
+    "FrameUtil", "TextSizeManager",
     "EventUtil", -- EventUtil.ContinueOnAddOnLoaded (Blizzard_SharedXML/EventUtil.lua)
     "GameFontHighlight", "GameFontHighlightSmall",
     "GameFontNormal", "GameFontNormalLarge", "GameFontNormalHuge2", "GameFontNormalSmall",
     "GameTooltip", "GameTooltip_Hide",
-    "GameTooltip_AddNormalLine", "GameTooltip_SetTitle",
-    "GameTooltip_AddColoredLine", "GameTooltip_AddColoredDoubleLine",
+    "GameTooltip_AddNormalLine", "GameTooltip_SetTitle", "HOUSING_DECOR_FIRST_ACQUISITION_FORMAT",
+    "HOUSING_DECOR_FIRST_ACQUISITION_AVAILABLE",
+    "GameTooltip_AddColoredLine", "GameTooltip_AddColoredDoubleLine", "GameTooltip_AddHighlightLine",
+    "CAMERA_TRANSITION_TYPE_IMMEDIATE", "CAMERA_MODIFICATION_TYPE_DISCARD",
     "NORMAL_FONT_COLOR", "Item",
-    "ItemRefTooltip",
+    "ItemRefTooltip", "HandleModifiedItemClick", "IsModifiedClick",
+    "SetItemRef", "LinkUtil", "LinkTypes", "PlayerIsTimerunning", "HousingDashboardFrame",
     "MerchantFrame", "MerchantFrameTab1", "MerchantFrameTab2",
     "MerchantNextPageButton", "MerchantPrevPageButton",
     "InterfaceOptions_AddCategory",
-    "Settings",
+    "Settings", "SetPortraitTextureFromCreatureDisplayID",
     "ShoppingTooltip1", "ShoppingTooltip2",
     "ScrollBoxConstants",
     "BaseScrollBoxEvents",
@@ -67,7 +77,9 @@ read_globals = {
     "MenuUtil",
     "Mixin",
     "NineSliceUtil",
+    "PixelUtil",
     "PlaySound",
+    "OpenWorldMap",
     "WorldMapFrame",
     -- Templates
     "BackdropTemplate",
@@ -89,6 +101,7 @@ read_globals = {
     "C_Housing",
     "C_AreaPoiInfo",
     "C_HousingCatalog",
+    "C_ColorOverrides",
     "C_Item",
     "C_Map",
     "C_MerchantFrame",
@@ -97,6 +110,7 @@ read_globals = {
     "C_Reputation",
     "C_SpellBook",
     "C_SuperTrack",
+    "C_Texture",
     "C_TaxiMap",  -- flight point dodge candidates
     "C_Timer",
     "C_TooltipInfo",
@@ -105,12 +119,13 @@ read_globals = {
     "UiMapPoint",
 
     -- WoW API (functions)
-    "GetAchievementCriteriaInfo", "GetAchievementInfo",
+    "GetAchievementCriteriaInfo", "GetAchievementInfo", "GetAchievementLink", "GetQuestLink",
     "GetItemCount", "GetItemInfo", "GetItemInfoInstant",
     "GetCoinTextureString",
     "GetCVarBool",  -- dungeon/delve entrance map-legend filter check
     "GetMerchantItemInfo", "GetMerchantItemLink", "GetMerchantNumItems",
     "GetLocale",
+    "GetMoney",
     "GetProfessions", "GetProfessionInfo", -- professionRank requirements
     "GetRealZoneText",
     "GetSubZoneText",
@@ -167,6 +182,8 @@ files["Locale/enUS.lua"] = {
     read_globals = {
         "GENERAL", "CLOSE", "MINIMAP_LABEL", "BLIZZARD_STORE", "WORLDMAP_BUTTON",
         "SHIFT_KEY_TEXT", "ALT_KEY_TEXT", "CTRL_KEY_TEXT", "HOUSING_DASHBOARD_ENDEAVOR",
-        "BROWSE_NO_RESULTS",
+        "BROWSE_NO_RESULTS", "FACTION_ALLIANCE", "FACTION_HORDE", "WORLD_MAP",
+        "HOUSING_CATALOG_FILTERS_FIRST_ACQUISITION", "HOUSING_DECOR_FIRST_ACQUISITION_AVAILABLE",
+        "ZONE_COLON", "LOCATION_COLON",
     },
 }
