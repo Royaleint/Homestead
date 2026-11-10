@@ -567,6 +567,8 @@ function B.ShowItemTooltip(owner, itemID, npcID, tile)
     HA.SetManagedItemTooltip(tip, itemID)
     if B.Data.RoomID(itemID) then AddRoomPlanLines(tip, itemID, npcID) end
     if d.active then tip:AddLine(L["Active now: %s"]:format(d.active), unpack(B.Style.color.badge)) end
+    -- A ware a vendor card lists outside its count says why.
+    if owner.d and owner.d.mark then tip:AddLine(owner.d.mark, 1, 1, 1) end
     tip:AddLine(L["Collection"], gold.r, gold.g, gold.b)
     if d.counts then
         Pair(tip, L["Placed"], d.counts.placed)

@@ -770,15 +770,16 @@ local function ProjectVendorWithItems(self, vendor, npcID)
     return copy
 end
 
--- Get vendor info by NPC ID (resolves aliases)
-function VendorData:GetVendor(npcID)
+-- The row GetVendor answers with before it is copied: the row, whether GetVendor copies it, and the NPC ID
+-- it was found under.
+local function FindVendorRow(self, npcID)
     if HA.VendorIdentity then
         local vendor = HA.VendorIdentity:GetVendor(npcID)
-        if vendor then return ProjectVendorWithItems(self, vendor, npcID) end
+        if vendor then return vendor, true, npcID end
     end
     if HA.EndeavorsData and HA.EndeavorsData.Vendors then
         local vendor = HA.EndeavorsData.Vendors[npcID]
-        if vendor then return vendor end
+        if vendor then return vendor, false, npcID end
     end
     -- holiday vendors, only while their holiday runs. HasVendor
     -- deliberately does not learn them (scan saving and export read it).
@@ -786,14 +787,21 @@ function VendorData:GetVendor(npcID)
     local eventVendor = eventVendors and eventVendors[npcID]
     if eventVendor then
         if self:IsHolidayVendorHidden(npcID) then return nil end
-        return ProjectVendorWithItems(self, eventVendor, npcID)
+        return eventVendor, true, npcID
     end
     -- Resolve alias and retry (cycle guard: canonicalID must differ)
     local canonicalID = self:ResolveAlias(npcID)
     if canonicalID and canonicalID ~= npcID then
-        return self:GetVendor(canonicalID)
+        return FindVendorRow(self, canonicalID)
     end
     return nil
+end
+
+-- Get vendor info by NPC ID (resolves aliases)
+function VendorData:GetVendor(npcID)
+    local vendor, copied, foundID = FindVendorRow(self, npcID)
+    if copied then return ProjectVendorWithItems(self, vendor, foundID) end
+    return vendor
 end
 
 -- A vendor by NPC ID in any season: a holiday vendor resolves while its holiday is off too, which GetVendor
@@ -1019,25 +1027,23 @@ local function IsHiddenVendor(vendor)
     return VendorData:IsVendorHiddenByNpcID(vendor.npcID)
 end
 
--- Get all vendors that sell a specific item
-function VendorData:GetVendorsForItem(itemID)
-    if not itemID then return {} end
-
-    local result = {}
-    local seenNPCs = {}  -- Track NPC IDs to avoid duplicates
-
+-- Hands each vendor selling the item to visit(self, out, kind, npcID, row), in listing order, and stops at
+-- the first visit that returns true. kind is "copy" (a row GetVendor copies), "row" (listed as is) or "scan"
+-- (a saved scan record). seenNPCs must arrive empty.
+local function EachSeller(self, itemID, seenNPCs, visit, out)
     -- Priority 1: Static offer index (curated, authoritative)
     if self.OfferByItemID and self.OfferByItemID[itemID] then
         for _, npcID in ipairs(self.OfferByItemID[itemID]) do
             if self:IsHolidayVendorHidden(npcID) then
                 seenNPCs[npcID] = true  -- a gated vendor must not re-enter below
             else
-                local vendor = self:GetVendor(npcID)
+                local vendor, copied, foundID = FindVendorRow(self, npcID)
                 if vendor then
-                    if not IsHiddenVendor(vendor) then
-                        table.insert(result, vendor)
-                    end
                     seenNPCs[npcID] = true  -- a hidden vendor must not re-enter below
+                    if not IsHiddenVendor(vendor)
+                            and visit(self, out, copied and "copy" or "row", foundID, vendor) then
+                        return true
+                    end
                 end
             end
         end
@@ -1049,10 +1055,10 @@ function VendorData:GetVendorsForItem(itemID)
             if not seenNPCs[npcID] then
                 local vendor = HA.EndeavorsData.Vendors[npcID]
                 if vendor then
-                    if not IsHiddenVendor(vendor) then
-                        table.insert(result, vendor)
-                    end
                     seenNPCs[npcID] = true
+                    if not IsHiddenVendor(vendor) and visit(self, out, "row", npcID, vendor) then
+                        return true
+                    end
                 end
             end
         end
@@ -1069,35 +1075,8 @@ function VendorData:GetVendorsForItem(itemID)
                     local listedVendor = scannedVendor and HA.VendorIdentity and HA.VendorIdentity:GetVendor(npcID)
                     if scannedVendor and not (listedVendor and HA.Constants.IsScanInOtherNeighborhoodHub(
                             listedVendor.mapID, scannedVendor.mapID)) then
-                        -- Resolve zone name from mapID
-                        local zoneName
-                        if scannedVendor.mapID and C_Map and C_Map.GetMapInfo then
-                            local mapInfo = C_Map.GetMapInfo(scannedVendor.mapID)
-                            if mapInfo then
-                                zoneName = mapInfo.name
-                            end
-                        end
-
-                        local vendorObj = {
-                            npcID = npcID,
-                            name = scannedVendor.name,
-                            mapID = scannedVendor.mapID,
-                            x = scannedVendor.coords and scannedVendor.coords.x,
-                            y = scannedVendor.coords and scannedVendor.coords.y,
-                            zone = zoneName or ("Map " .. (scannedVendor.mapID or "?")),
-                            faction = scannedVendor.faction,
-                            items = scannedVendor.items,
-                            _isScanned = true,
-                        }
-                        -- A scan of a vendor following a moving event holds a past spot.
-                        local tracker = HA.DreamsurgeTracker
-                        local row = tracker and npcID == tracker.NPC_ID and self:GetVendor(npcID)
-                        if row then
-                            vendorObj.mapID, vendorObj.x, vendorObj.y, vendorObj.zone =
-                                row.mapID, row.x, row.y, row.zone
-                        end
-                        table.insert(result, vendorObj)
                         seenNPCs[npcID] = true
+                        if visit(self, out, "scan", npcID, scannedVendor) then return true end
                     end
                 end
             end
@@ -1112,16 +1091,72 @@ function VendorData:GetVendorsForItem(itemID)
                     and not IsHiddenVendor(eventVendor) then
                 for _, eventItemID in ipairs(eventVendor.items) do
                     if eventItemID == itemID then
-                        result[#result + 1] = eventVendor
                         seenNPCs[eventVendor.npcID] = true
+                        if visit(self, out, "row", eventVendor.npcID, eventVendor) then return true end
                         break
                     end
                 end
             end
         end
     end
+    return false
+end
 
+local function ScannedVendorRecord(self, npcID, scannedVendor)
+    -- Resolve zone name from mapID
+    local zoneName
+    if scannedVendor.mapID and C_Map and C_Map.GetMapInfo then
+        local mapInfo = C_Map.GetMapInfo(scannedVendor.mapID)
+        if mapInfo then
+            zoneName = mapInfo.name
+        end
+    end
+
+    local vendorObj = {
+        npcID = npcID,
+        name = scannedVendor.name,
+        mapID = scannedVendor.mapID,
+        x = scannedVendor.coords and scannedVendor.coords.x,
+        y = scannedVendor.coords and scannedVendor.coords.y,
+        zone = zoneName or ("Map " .. (scannedVendor.mapID or "?")),
+        faction = scannedVendor.faction,
+        items = scannedVendor.items,
+        _isScanned = true,
+    }
+    -- A scan of a vendor following a moving event holds a past spot.
+    local tracker = HA.DreamsurgeTracker
+    local row = tracker and npcID == tracker.NPC_ID and self:GetVendor(npcID)
+    if row then
+        vendorObj.mapID, vendorObj.x, vendorObj.y, vendorObj.zone =
+            row.mapID, row.x, row.y, row.zone
+    end
+    return vendorObj
+end
+
+local function AddSeller(self, result, kind, npcID, vendor)
+    if kind == "copy" then
+        vendor = ProjectVendorWithItems(self, vendor, npcID)
+    elseif kind == "scan" then
+        vendor = ScannedVendorRecord(self, npcID, vendor)
+    end
+    result[#result + 1] = vendor
+end
+
+-- Get all vendors that sell a specific item
+function VendorData:GetVendorsForItem(itemID)
+    local result = {}
+    if itemID then EachSeller(self, itemID, {}, AddSeller, result) end
     return result
+end
+
+local sellerSeen = {}
+local function StopAtFirst() return true end
+
+-- Whether GetVendorsForItem lists any vendor for the item, building no vendor records.
+function VendorData:HasSellerForItem(itemID)
+    if not itemID then return false end
+    wipe(sellerSeen)
+    return EachSeller(self, itemID, sellerSeen, StopAtFirst)
 end
 
 -- The player's map and position on it; the position is nil when it can't be read.
@@ -1962,38 +1997,6 @@ end
 -- Endeavor vendor whose theme is not running, true for every other vendor.
 function VendorData:IsVendorSellingNow(npcID)
     return not self:IsHolidayVendorHidden(npcID) and self:IsEndeavorVendorActive(npcID) ~= false
-end
-
--- One seller of an item, for IsCountedVendorItem: not retired or hidden, not confirmed as selling no decor,
--- and, for an Endeavor vendor, on the running theme (an unknown theme is off). A holiday vendor counts in any
--- season. The probe stands in for a vendor record so the lookup allocates nothing.
-local sellerProbe = {}
-local function SellerCounts(self, npcID)
-    if self:IsVendorHiddenByNpcID(npcID) then return false end
-    local active = self:IsEndeavorVendorActive(npcID)
-    if active ~= nil then return active end
-    sellerProbe.npcID = npcID
-    sellerProbe._isEventVendor = self:GetHolidayEvent(npcID) ~= nil or nil
-    return not (HA.VendorFilter and HA.VendorFilter.IsConfirmedNoDecor(sellerProbe))
-end
-
--- Whether the item counts toward the Vendors source: any seller, from the offer index, the Endeavor wares or a
--- holiday vendor's own item list, counts by SellerCounts. Keeps nothing between calls.
-function VendorData:IsCountedVendorItem(itemID)
-    local offers = self.OfferByItemID and self.OfferByItemID[itemID]
-    for i = 1, offers and #offers or 0 do
-        if SellerCounts(self, offers[i]) then return true end
-    end
-    local ED = HA.EndeavorsData
-    local endeavors = ED and ED.ByItemID and ED.ByItemID[itemID]
-    for i = 1, endeavors and #endeavors or 0 do
-        if SellerCounts(self, endeavors[i]) then return true end
-    end
-    local holiday = self:GetHolidayVendorsForItem(itemID)
-    for i = 1, holiday and #holiday or 0 do
-        if SellerCounts(self, holiday[i]) then return true end
-    end
-    return false
 end
 
 function VendorData:GetVendorWithItems(npcID)

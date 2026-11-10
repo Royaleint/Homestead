@@ -335,12 +335,12 @@ local function SourceTables()
 end
 
 -- Offers are evaluated only for uncollected items; collected and unknown items never reach a vendor check.
-local function Evaluate(itemID, SM, VD, memo, tables)
+local function Evaluate(itemID, SM, memo, tables)
     local own, info = Own(itemID, memo)
     local e = { itemID = itemID, info = info, own = own, name = D.ItemName(itemID, info), src = {} }
     local bonus = info and info.firstAcquisitionBonus or 0
     e.bonus = own == "notOwned" and bonus > 0 and bonus or nil
-    e.src.vendors = VD:IsCountedVendorItem(itemID) or nil
+    e.src.vendors = SM:IsVendorItem(itemID) or nil
     for key, t in pairs(tables) do
         if t[itemID] then e.src[key] = true end
     end
@@ -370,14 +370,14 @@ function CG.Entry(itemID)
     Fresh()
     local e = entries[itemID]
     if not e then
-        e = Evaluate(itemID, HA.SourceManager, HA.VendorData, Memo(), SourceTables())
+        e = Evaluate(itemID, HA.SourceManager, Memo(), SourceTables())
         entries[itemID] = e
     end
     return e
 end
 
 local function RunWalk(items)
-    local SM, VD, memo, tables = HA.SourceManager, HA.VendorData, Memo(), SourceTables()
+    local SM, memo, tables = HA.SourceManager, Memo(), SourceTables()
     local list = {}
     local progress = { known = true, total = 0, owned = 0, src = {} }
     local src = progress.src
@@ -386,7 +386,7 @@ local function RunWalk(items)
         local itemID = items[i]
         local e = entries[itemID]
         if not e then
-            e = Evaluate(itemID, SM, VD, memo, tables)
+            e = Evaluate(itemID, SM, memo, tables)
             entries[itemID] = e
         end
         list[i] = e

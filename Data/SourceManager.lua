@@ -3011,8 +3011,11 @@ local function HookCompletionCacheInvalidation()
     end
 end
 
+-- The one vendor-item rule: some listed vendor sells the item, and a holiday vendor's item counts in any season.
 function SourceManager:IsVendorItem(itemID)
-    return self:GetVendorSource(itemID) ~= nil
+    local VD = HA.VendorData
+    if not (itemID and VD and VD.HasSellerForItem) then return false end
+    return VD:GetHolidayVendorsForItem(itemID) ~= nil or VD:HasSellerForItem(itemID)
 end
 
 function SourceManager:IsQuestItem(itemID)

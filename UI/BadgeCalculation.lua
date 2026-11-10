@@ -117,6 +117,8 @@ local vendorStatsCache = {}
 
 -- Cached counted-ware lists keyed like vendorStatsCache, dropped with it.
 local countedWaresCache = {}
+-- Each counted list's left-out wares, gone when the list is.
+local leftOutOf = setmetatable({}, { __mode = "k" })
 
 -- Bumped on every vendorStatsCache wipe/invalidation so the sliced
 -- prewarm item loop (below) can detect a mid-vendor invalidation and discard
@@ -490,7 +492,8 @@ end
 
 -- The wares that count toward a vendor's collected and total under the "all" filter, in the vendor's
 -- order: ownership knowable, and owned or not unobtainable (AccumulateVendorItem's rule, read without the
--- full item presentation). The list is shared, never changed by a caller.
+-- full item presentation). Second, the wares left out, in the same order: { promotion = unowned promotion
+-- items, unknown = items whose ownership the game does not report }. Both are shared, never changed by a caller.
 function BadgeCalculation:GetCountedItemIDs(vendor)
     if not vendor or not vendor.npcID then
         return EMPTY_ITEM_IDS
@@ -499,23 +502,29 @@ function BadgeCalculation:GetCountedItemIDs(vendor)
     local cacheKey = BuildVendorFilterCacheKey(vendor, "all")
     local counted = countedWaresCache[cacheKey]
     if counted then
-        return counted
+        return counted, leftOutOf[counted]
     end
 
     local store, SM = HA.CatalogStore, HA.SourceManager
     local itemIDs = HA.VendorData:GetMergedItemIDs(vendor) or EMPTY_ITEM_IDS
+    local left = { promotion = {}, unknown = {} }
     counted = HA.PerformanceTrace:Measure("vendor_counted_wares", #itemIDs, function()
         local out = {}
         for _, itemID in ipairs(itemIDs) do
-            if not store:IsOwnershipUnknowable(itemID) and (store:IsOwned(itemID) == true
-                    or SM:GetVendorItemAvailabilityState(itemID, vendor.npcID, true) ~= "unobtainable") then
-                out[#out + 1] = itemID
+            local list = out
+            if store:IsOwnershipUnknowable(itemID) then
+                list = left.unknown
+            elseif store:IsOwned(itemID) ~= true
+                    and SM:GetVendorItemAvailabilityState(itemID, vendor.npcID, true) == "unobtainable" then
+                list = left.promotion
             end
+            list[#list + 1] = itemID
         end
         return out
     end)
     countedWaresCache[cacheKey] = counted
-    return counted
+    leftOutOf[counted] = left
+    return counted, left
 end
 
 -- Local alias for internal callers (aggregate builders) that need

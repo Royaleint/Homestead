@@ -625,6 +625,9 @@ end
 -- The requirement type that names a source of each page type.
 local OWN = { achievements = "achievement", quests = "quest" }
 
+-- A vendor card's left-out wares, by the shared reason, and the mark each is named by.
+local LEFT_OUT = { { "promotion", L["Promotion"] }, { "unknown", L["Ownership unknown"] } }
+
 -- A locked item reads "Not collected" on the page of its own requirement: at the vendor it would be bought from,
 -- at least one requirement is unmet and every unmet one is this source, by id or by the source's name.
 local function OwnRequirement(s, itemID, at)
@@ -910,7 +913,8 @@ function Draw(fresh, saved)
     end
     local w = BodyWidth()
     V.wait, V.w = nil, w
-    local s = { vendor = v, type = "vendors", title = v.name or L["Unknown"], items = D.VendorWares(v) }
+    local items, left = D.VendorWares(v)
+    local s = { vendor = v, type = "vendors", title = v.name or L["Unknown"], items = items }
     V.s = s
     local rows = Rows(s, true)
     local ready = HA.CatalogScanner:GetReadState() == "ready"
@@ -921,6 +925,13 @@ function Draw(fresh, saved)
         local e = CG.Entry(r.itemID)
         r.bonus, r.active, r.copies = e and e.bonus, act, select(2, D.IconData(r.itemID, true, B.State.catalogMemo))
         if r.state == "owned" then owned = owned + 1 end
+    end
+    -- Wares left out of the count follow it, greyed and named on hover.
+    for _, why in ipairs(left and LEFT_OUT or {}) do
+        for _, r in ipairs(Rows({ vendor = v, items = left[why[1]] }, true)) do
+            r.state, r.mark = nil, why[2]
+            rows[#rows + 1] = r
+        end
     end
 
     local cw, nh, bh = w - PORTRAIT - SP.m - XRES, W.TextHeight("subheader"), W.TextHeight("body")
@@ -963,11 +974,12 @@ function Draw(fresh, saved)
     Line(V.stop, "body", D.IsOppositeFaction(v)
         and S.Colored(K.stop, L["%s only: can't buy on this character"]:format(D.VendorFactionLabel(v) or "")), w)
     Line(V.hdr, "bodyGold", L["Wares"], w)
-    Line(V.key, "body", n > 0 and L["Corners: state top right, bonus top left, event bottom left, copies bottom right."], w)
+    Line(V.key, "body", rows[1] and L["Corners: state top right, bonus top left, event bottom left, copies bottom right."]
+        .. (#rows > n and " " .. L["Greyed: a promotion item, or one whose ownership the game doesn't report. Not counted."] or ""), w)
     V.report:Fit()
-    V.grid:SetShown(n > 0)
+    V.grid:SetShown(rows[1] ~= nil)
     V.grid:SetData(rows, not fresh, w - LO.scrollBarGap)
-    if n > 0 then V.empty:Hide() else
+    if rows[1] then V.empty:Hide() else
         V.empty:Set("noResults", { title = L["No decor"], text = L["No decor is recorded here. If this source gives decor, report it below."] })
     end
 

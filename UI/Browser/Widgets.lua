@@ -794,7 +794,7 @@ function W.NewWareCell(cell, named)
             name:SetText(d.name or "")
             name:SetTextColor(unpack(d.state == "owned" and K.nameOwned or K.nameMissing))
         end
-        tile.icon:SetDesaturated(d.state == "locked")
+        tile.icon:SetDesaturated(d.state == "locked" or d.mark ~= nil)
         Vis.Marker.Set(mark, st and st.glyph, st and st.color)
         Vis.Marker.Set(star, d.bonus and "star" or nil, K.gold)
         Vis.Marker.Set(clock, d.active and "clock" or nil, K.badge)

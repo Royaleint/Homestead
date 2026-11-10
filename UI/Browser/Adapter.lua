@@ -144,7 +144,8 @@ local function Memo(npcID)
     return perVendor[k]
 end
 
--- What the map pins count: knowable ownership, less unowned wares it can never sell (promotions).
+-- What the map pins count: knowable ownership, less unowned wares it can never sell (promotions). Second, the
+-- wares left out, as { promotion = ids, unknown = ids }; nil for a vendor without an NPC ID.
 function D.VendorWares(vendor)
     return HA.BadgeCalculation:GetCountedItemIDs(vendor)
 end
