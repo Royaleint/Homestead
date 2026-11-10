@@ -57,6 +57,49 @@ function MapPinProvider.GetContinentForZone(zoneMapID)
     return zoneToContinent[zoneMapID] or nil
 end
 
+-- The zone-level map at or above mapID, read live: a building or dungeon map walks up to its zone. Unlike
+-- GetContinentForZone it answers for maps the static table does not list.
+function MapPinProvider.ZoneOf(mapID)
+    local zoneType = Enum.UIMapType.Zone
+    while mapID do
+        local info = C_Map.GetMapInfo(mapID)
+        if not info then return nil end
+        if info.mapType <= zoneType or not info.parentMapID or info.parentMapID == 0 then return mapID end
+        mapID = info.parentMapID
+    end
+    return nil
+end
+
+-- The map of the zone mapID sits in, climbing past dungeon and building maps; nil once the climb reaches a
+-- continent or higher, or when there is no map data.
+function MapPinProvider.ZoneOnlyOf(mapID)
+    local id = mapID
+    while id and id ~= 0 do
+        local info = C_Map.GetMapInfo(id)
+        if not info or info.mapType <= Enum.UIMapType.Continent then return nil end
+        if info.mapType == Enum.UIMapType.Zone then return id end
+        id = info.parentMapID
+    end
+end
+
+-- The continent map at or above mapID, read live and kept per map; nil when none is above it.
+local liveContinent = {}
+function MapPinProvider.ContinentOf(mapID)
+    if not mapID then return nil end
+    local known = liveContinent[mapID]
+    if known ~= nil then return known or nil end
+    local continentType, id = Enum.UIMapType.Continent, mapID
+    local found = false
+    while id and id ~= 0 do
+        local info = C_Map.GetMapInfo(id)
+        if not info then break end
+        if info.mapType == continentType then found = id break end
+        id = info.parentMapID
+    end
+    liveContinent[mapID] = found
+    return found or nil
+end
+
 -------------------------------------------------------------------------------
 -- Geography Tables
 -------------------------------------------------------------------------------

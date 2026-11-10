@@ -337,7 +337,10 @@ end
 -- Alternative bundles join with a localized "or"; a bundle with several parts
 -- is parenthesized among alternatives. status defaults to cost.status, then
 -- legacy. An unresolved cost renders "Cost unverified" even when cost is nil.
-function VendorData:FormatCost(cost, status)
+-- formatBundle optionally replaces the per-bundle formatter: it takes a bundle
+-- and returns its text and part count, as FormatCostBundle does.
+function VendorData:FormatCost(cost, status, formatBundle)
+    formatBundle = formatBundle or FormatCostBundle
     status = status or (cost and cost.status) or COST_STATUS_LEGACY
     if status == COST_STATUS_UNRESOLVED then
         return Text("Cost unverified")
@@ -349,7 +352,7 @@ function VendorData:FormatCost(cost, status)
         local options = {}
         local renderable = true
         self:ForEachCostBundle(cost, function(bundle)
-            local bundleText, partCount = FormatCostBundle(bundle)
+            local bundleText, partCount = formatBundle(bundle)
             if not bundleText then
                 renderable = false
             elseif partCount > 1 then
@@ -364,7 +367,7 @@ function VendorData:FormatCost(cost, status)
         end
         text = table.concat(options, " " .. Text("or") .. " ")
     else
-        text = FormatCostBundle(cost)
+        text = formatBundle(cost)
     end
 
     if text and status == COST_STATUS_QUALIFIED then
@@ -793,6 +796,45 @@ function VendorData:GetVendor(npcID)
     return nil
 end
 
+-- A vendor by NPC ID in any season: a holiday vendor resolves while its holiday is off too, which GetVendor
+-- (and every vendor list) does not.
+function VendorData:GetVendorAnySeason(npcID)
+    local vendor = self:GetVendor(npcID)
+    if vendor then return vendor end
+    local eventVendors = HA.EventSources and HA.EventSources.EventVendors
+    return ProjectVendorWithItems(self, eventVendors and eventVendors[npcID], npcID)
+end
+
+-- The holiday a holiday vendor belongs to, from its shipped row; nil for any other vendor. Scan-built vendor
+-- records carry no event, so callers ask by NPC ID.
+function VendorData:GetHolidayEvent(npcID)
+    local eventVendors = HA.EventSources and HA.EventSources.EventVendors
+    local row = eventVendors and eventVendors[npcID]
+    return row and row.event
+end
+
+-- Holiday vendors selling an item, in or out of season, less those retired or not out on this build; nil when none.
+local holidayItemIndex
+function VendorData:GetHolidayVendorsForItem(itemID)
+    if not holidayItemIndex then
+        holidayItemIndex = {}
+        local eventVendors = HA.EventSources and HA.EventSources.EventVendors or {}
+        for npcID, v in pairs(eventVendors) do
+            if not self:IsVendorHiddenByNpcID(npcID) then
+                for _, entry in ipairs(v.items or self:GetVendorItems(npcID) or {}) do
+                    local id = UnpackItem(entry)
+                    if id then
+                        local list = holidayItemIndex[id] or {}
+                        list[#list + 1] = npcID
+                        holidayItemIndex[id] = list
+                    end
+                end
+            end
+        end
+    end
+    return holidayItemIndex[itemID]
+end
+
 -- Check if vendor exists (resolves aliases)
 function VendorData:HasVendor(npcID)
     if HA.VendorIdentity and HA.VendorIdentity:HasVendor(npcID) then
@@ -826,8 +868,9 @@ end
 -- the source summary and the closest-vendor waypoint. Map pins show both either way.
 local ALT_POSITION_FOR_ENDEAVOR_VENDORS = true
 
--- The vendor's other position as mapID, x, y, zone, subzone, or nil. A primary
--- row answers with its alt fields; the alt copy answers with the primary's.
+-- The vendor's other position as mapID, x, y, zone, subzone, areaID, or nil. A
+-- primary row answers with its alt fields (which carry no area ID); the alt copy
+-- answers with the primary's.
 function VendorData:GetOtherPosition(vendor)
     if not vendor or not vendor.altMapID then return nil end
     if vendor.endeavor and not ALT_POSITION_FOR_ENDEAVOR_VENDORS then return nil end
@@ -838,7 +881,7 @@ function VendorData:GetOtherPosition(vendor)
         and HA.EndeavorsData and HA.EndeavorsData.Vendors and HA.EndeavorsData.Vendors[vendor.npcID]
         or HA.VendorIdentity and HA.VendorIdentity:GetVendor(vendor.npcID)
     if primary then
-        return primary.mapID, primary.x, primary.y, primary.zone, primary.subzone
+        return primary.mapID, primary.x, primary.y, primary.zone, primary.subzone, primary.areaID
     end
     return nil
 end
@@ -1081,6 +1124,33 @@ function VendorData:GetVendorsForItem(itemID)
     return result
 end
 
+-- The player's map and position on it; the position is nil when it can't be read.
+local function PlayerMapPosition()
+    local mapID = C_Map.GetBestMapForUnit("player")
+    return mapID, mapID and C_Map.GetPlayerMapPosition(mapID, "player")
+end
+
+-- Straight-line distance from the player to a position on the player's own map;
+-- nil for a position on any other map.
+local function DistanceOnPlayerMap(playerMapID, playerPos, mapID, x, y)
+    if mapID ~= playerMapID or not (x and y) then return nil end
+    local dx = x - playerPos.x
+    local dy = y - playerPos.y
+    return math.sqrt(dx*dx + dy*dy)
+end
+
+-- Whether the second of two positions is nearer the player, by the same rule as
+-- the closest-vendor pick: only a position on the player's map has a distance,
+-- and when neither does, or they tie, the first wins.
+function VendorData:IsSecondPositionNearer(mapID, x, y, otherMapID, otherX, otherY)
+    local playerMapID, playerPos = PlayerMapPosition()
+    if not playerPos then return false end
+    local other = DistanceOnPlayerMap(playerMapID, playerPos, otherMapID, otherX, otherY)
+    if not other then return false end
+    local first = DistanceOnPlayerMap(playerMapID, playerPos, mapID, x, y)
+    return not first or other < first
+end
+
 -- Get the closest vendor that sells a specific item
 function VendorData:GetClosestVendorForItem(itemID)
     local vendorList = self:GetVendorsForItem(itemID)
@@ -1089,8 +1159,7 @@ function VendorData:GetClosestVendorForItem(itemID)
     end
 
     -- Get player's current map and position
-    local playerMapID = C_Map.GetBestMapForUnit("player")
-    local playerPos = playerMapID and C_Map.GetPlayerMapPosition(playerMapID, "player")
+    local playerMapID, playerPos = PlayerMapPosition()
 
     if not playerMapID or not playerPos then
         -- Can't determine position, return first vendor
@@ -1102,30 +1171,19 @@ function VendorData:GetClosestVendorForItem(itemID)
     local closestDistance = math.huge
 
     for _, vendor in ipairs(vendorList) do
-        if vendor.mapID == playerMapID and vendor.x and vendor.y then
-            -- Same map - calculate direct distance
-            local dx = vendor.x - playerPos.x
-            local dy = vendor.y - playerPos.y
-            local distance = math.sqrt(dx*dx + dy*dy)
-
-            if distance < closestDistance then
-                closestDistance = distance
-                closestVendor = vendor
-                closestIsSecondPosition = false
-            end
+        local distance = DistanceOnPlayerMap(playerMapID, playerPos, vendor.mapID, vendor.x, vendor.y)
+        if distance and distance < closestDistance then
+            closestDistance = distance
+            closestVendor = vendor
+            closestIsSecondPosition = false
         end
 
         local otherMapID, otherX, otherY = self:GetOtherPosition(vendor)
-        if otherMapID == playerMapID and otherX and otherY then
-            local dx = otherX - playerPos.x
-            local dy = otherY - playerPos.y
-            local distance = math.sqrt(dx*dx + dy*dy)
-
-            if distance < closestDistance then
-                closestDistance = distance
-                closestVendor = vendor
-                closestIsSecondPosition = true
-            end
+        distance = DistanceOnPlayerMap(playerMapID, playerPos, otherMapID, otherX, otherY)
+        if distance and distance < closestDistance then
+            closestDistance = distance
+            closestVendor = vendor
+            closestIsSecondPosition = true
         end
     end
 
@@ -1886,6 +1944,52 @@ function VendorData:HasOfferForItem(itemID)
     return self.OfferByItemID ~= nil and self.OfferByItemID[itemID] ~= nil
 end
 
+-- For an Endeavor vendor (a record or an NPC ID, scan-built records included), whether this week's theme is
+-- its own: true only when the game has reported the theme; false for an unknown or unmapped theme. nil for any
+-- other vendor.
+function VendorData:IsEndeavorVendorActive(vendor)
+    local ED = HA.EndeavorsData
+    if not ED then return nil end
+    local isRecord = type(vendor) == "table"
+    local theme = ED:GetThemeForVendor(vendor)
+    if not (theme or (isRecord and vendor.endeavor) or (ED.Vendors and ED.Vendors[isRecord and vendor.npcID or vendor])) then
+        return nil
+    end
+    return theme ~= nil and ED:IsThemeActive(theme) == true
+end
+
+-- One seller of an item, for IsCountedVendorItem: not retired or hidden, not confirmed as selling no decor,
+-- and, for an Endeavor vendor, on this week's theme (an unknown theme is off). A holiday vendor counts in any
+-- season. The probe stands in for a vendor record so the lookup allocates nothing.
+local sellerProbe = {}
+local function SellerCounts(self, npcID)
+    if self:IsVendorHiddenByNpcID(npcID) then return false end
+    local active = self:IsEndeavorVendorActive(npcID)
+    if active ~= nil then return active end
+    sellerProbe.npcID = npcID
+    sellerProbe._isEventVendor = self:GetHolidayEvent(npcID) ~= nil or nil
+    return not (HA.VendorFilter and HA.VendorFilter.IsConfirmedNoDecor(sellerProbe))
+end
+
+-- Whether the item counts toward the Vendors source: any seller, from the offer index, the Endeavor wares or a
+-- holiday vendor's own item list, counts by SellerCounts. Keeps nothing between calls.
+function VendorData:IsCountedVendorItem(itemID)
+    local offers = self.OfferByItemID and self.OfferByItemID[itemID]
+    for i = 1, offers and #offers or 0 do
+        if SellerCounts(self, offers[i]) then return true end
+    end
+    local ED = HA.EndeavorsData
+    local endeavors = ED and ED.ByItemID and ED.ByItemID[itemID]
+    for i = 1, endeavors and #endeavors or 0 do
+        if SellerCounts(self, endeavors[i]) then return true end
+    end
+    local holiday = self:GetHolidayVendorsForItem(itemID)
+    for i = 1, holiday and #holiday or 0 do
+        if SellerCounts(self, holiday[i]) then return true end
+    end
+    return false
+end
+
 function VendorData:GetVendorWithItems(npcID)
     return self:GetVendor(npcID)
 end
@@ -2113,7 +2217,100 @@ function VendorData:ResolveCostSetState(state)
     return effective, provenance, status or COST_STATUS_LEGACY
 end
 
+-------------------------------------------------------------------------------
+-- Vendor lookups for the browser
+-------------------------------------------------------------------------------
+
+-- The currencies a vendor's wares cost, as display strings (gold included), and whether an item currency's
+-- name is still loading. itemIDs are the wares to judge.
+function VendorData:GetVendorCurrencies(vendor, itemIDs)
+    local out, seen, pending = {}, {}, false
+    local function add(icon, name)
+        if name and not seen[name] then
+            seen[name] = true
+            out[#out + 1] = (icon and "|T" .. icon .. ":0|t " or "") .. name
+        end
+    end
+    for _, id in ipairs(itemIDs) do
+        local cost = HA.SourceManager:GetVendorItemCost(id, vendor) or {}
+        if (cost.gold or 0) > 0 then add(nil, HA.L and HA.L["Gold"] or "Gold") end
+        for _, c in ipairs(cost.currencies or {}) do
+            local info = c.id and C_CurrencyInfo.GetCurrencyInfo(c.id) or c
+            add(info.iconFileID, info.name or c.name)
+        end
+        for _, it in ipairs(cost.items or {}) do
+            local name, waiting
+            if it.id then name, waiting = HA.GetItemName(it.id) end
+            name = name or it.name
+            if name then add(it.id and C_Item.GetItemIconByID(it.id), name)
+            elseif it.id and waiting then pending = true end
+        end
+    end
+    return out, pending
+end
+
+-- A creature's name in the player's language, read from the game's tooltip data for its ID; nil while the client
+-- has none. Each ask keeps the tooltip data's ID; when the client announces that ID (NpcNameArrived) the name is
+-- asked again, three asks in all. Other tooltip updates do not count, and a creature past its last ask waits for
+-- nothing.
+local NPC_NAME_ASKS = 3
+local npcNames, npcAsks, npcWait = {}, {}, {}
+
+local function AskNpcName(npcID)
+    npcAsks[npcID] = (npcAsks[npcID] or 0) + 1
+    local data = C_TooltipInfo.GetHyperlink("unit:Creature-0-0-0-0-" .. npcID .. "-0000000000")
+    local line = data and data.lines and data.lines[1]
+    npcNames[npcID] = line and line.leftText ~= "" and line.leftText or nil
+    npcWait[npcID] = not npcNames[npcID] and npcAsks[npcID] < NPC_NAME_ASKS and data and data.dataInstanceID or nil
+    return npcNames[npcID]
+end
+
+function VendorData:GetNpcName(npcID)
+    return npcNames[npcID] or not npcAsks[npcID] and AskNpcName(npcID) or nil
+end
+
+-- Asks again for the creature whose tooltip data just updated; true when its name arrived.
+function VendorData:NpcNameArrived(dataInstanceID)
+    local arrived = false
+    for npcID, id in pairs(npcWait) do
+        if id == dataInstanceID and AskNpcName(npcID) then arrived = true end
+    end
+    return arrived
+end
+
+function VendorData:GetPortrait(npcID)
+    return HA.VendorPortraits and HA.VendorPortraits[npcID]
+end
+
+-- The newer of the shipped confirmation and the player's own scan, as "YYYY-MM-DD"; nil when neither.
+function VendorData:GetConfirmedDate(vendor)
+    local shipped = vendor.scanConfirmed
+    local record = self:GetScannedVendorRecord(vendor)
+    local mine = record and record.lastScanned and date("%Y-%m-%d", record.lastScanned)
+    if mine and (not shipped or mine > shipped) then return mine end
+    return shipped
+end
+
+local function WorldPosition(mapID, pos)
+    local continent, world = C_Map.GetWorldPosFromMapPos(mapID, pos)
+    if continent and world then
+        local x, y = world:GetXY()
+        return continent, x, y
+    end
+end
+
+-- The squared world distance between two map positions (pos and otherPos are map vectors); nil when either has
+-- no world position or they lie on different continents.
+function VendorData:GetWorldDistance(mapID, pos, otherMapID, otherPos)
+    local continent, x, y = WorldPosition(mapID, pos)
+    if not continent then return nil end
+    local otherContinent, otherX, otherY = WorldPosition(otherMapID, otherPos)
+    if otherContinent ~= continent then return nil end
+    return (otherX - x) ^ 2 + (otherY - y) ^ 2
+end
+
 function VendorData:InvalidateVendorCaches()
+    holidayItemIndex = nil
     if HA.VendorIdentity and HA.VendorIdentity.InvalidateVendorCache then
         HA.VendorIdentity:InvalidateVendorCache()
     end

@@ -73,6 +73,32 @@ local print = print
 local format = string.format
 
 -------------------------------------------------------------------------------
+-- Item Names
+-------------------------------------------------------------------------------
+
+-- Items whose name was asked for: true while the load is out, "loaded" or "failed" once the client answered.
+local itemNameLoads = {}
+
+-- An item's name from the client, or fallback; nil (and true as the second result) while a requested load is
+-- still out. The load is requested once per item. The second result is false once the client reported it failed.
+function HA.GetItemName(itemID, fallback)
+    local name = C_Item.GetItemNameByID(itemID) or fallback
+    if name then return name, false end
+    if itemNameLoads[itemID] == nil then
+        itemNameLoads[itemID] = true
+        C_Item.RequestLoadItemDataByID(itemID)
+    end
+    return nil, itemNameLoads[itemID] ~= "failed"
+end
+
+-- The client answered a load GetItemName asked for; true when it was one of ours.
+function HA.ItemNameArrived(itemID, success)
+    if itemNameLoads[itemID] ~= true then return false end
+    itemNameLoads[itemID] = success == false and "failed" or "loaded"
+    return true
+end
+
+-------------------------------------------------------------------------------
 -- Addon Lifecycle
 -------------------------------------------------------------------------------
 
@@ -106,7 +132,7 @@ function HousingAddon:OnInitialize()
     local cmd = F.Commands:New({
         name = "Homestead",
         slashes = { "/hs", "/homestead" },
-        defaultHandler = function() self:OpenOptions() end,
+        defaultHandler = function() self:ToggleBrowser() end,
         description = L["Homestead Commands:"] or "Homestead Commands:",
         unknownMessage = function(input)
             local msg = format(L["Unknown command: %s"] or "Unknown command: %s", input)
@@ -308,7 +334,14 @@ function HousingAddon:OnEnable()
         HA.VersionCheck:Initialize()
     end
 
+    -- At login, before the browser's window exists: its key propagation cannot be set in combat
+    if HA.DecorBrowser then
+        HA.DecorBrowser.Window.Prepare()
+    end
+
     self:Debug("Homestead enabled")
+    -- The decor browser opens only once the enable chain has completed.
+    self._enabled = true
 end
 
 -- No OnDisable / runtime-disable path. AceAddon-3.0's manual :Enable/:Disable
@@ -335,11 +368,9 @@ function HousingAddon:InitializeMinimapButton()
         icon = Constants.Icons.MINIMAP,
         OnClick = function(_, button)
             if button == "LeftButton" then
-                self:ToggleOptions()
+                self:ToggleBrowser()
             elseif button == "RightButton" then
-                if HA.MapSidePanel then
-                    HA.MapSidePanel:ToggleDetached()
-                end
+                self:OpenOptions()
             end
         end,
         OnTooltipShow = function(tooltip)
@@ -376,8 +407,8 @@ function HousingAddon:InitializeMinimapButton()
             end
 
             tooltip:AddLine(" ")
-            tooltip:AddLine(L["Left-Click: Toggle options"] or "|cFFFFFFFFLeft-Click:|r Toggle options")
-            tooltip:AddLine(L["Right-Click: Detach/close vendor panel"] or "|cFFFFFFFFRight-Click:|r Detach/close vendor panel")
+            tooltip:AddLine(L["Left-Click: Toggle Decor Browser"] or "|cFFFFFFFFLeft-Click:|r Toggle Decor Browser")
+            tooltip:AddLine(L["Right-Click: Open options"] or "|cFFFFFFFFRight-Click:|r Open options")
         end,
     })
 
@@ -395,7 +426,14 @@ function HousingAddon:InitializeMinimapButton()
         AddonCompartmentFrame:RegisterAddon({
             text = "Homestead",
             icon = Constants.Icons.MINIMAP,
-            func = function() self:ToggleOptions() end,
+            -- Blizzard passes the mouse button in menuInputData.buttonName.
+            func = function(_, menuInputData)
+                if menuInputData and menuInputData.buttonName == "RightButton" then
+                    self:OpenOptions()
+                else
+                    self:ToggleBrowser()
+                end
+            end,
             funcOnEnter = function(btn)
                 GameTooltip:SetOwner(btn, "ANCHOR_LEFT")
                 dataObj.OnTooltipShow(GameTooltip)
@@ -730,11 +768,11 @@ function HousingAddon:OpenOptions()
     end
 end
 
-function HousingAddon:ToggleOptions()
-    if HA.OptionsFrame and HA.OptionsFrame.Toggle then
-        HA.OptionsFrame:Toggle()
+function HousingAddon:ToggleBrowser()
+    if HA.DecorBrowser and HA.DecorBrowser.Toggle then
+        HA.DecorBrowser:Toggle()
     else
-        self:Print("Options are not available yet.")
+        self:Print(L["The Decor Browser is not available yet."] or "The Decor Browser is not available yet.")
     end
 end
 
