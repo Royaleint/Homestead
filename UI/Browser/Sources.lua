@@ -354,7 +354,7 @@ end
 -- Returns the index of the header of the zone (a map id) when given and the list has a vendor in it, then
 -- the index of the open card's row.
 local function BuildList(keep, zone)
-    asked, cs = false, D.CollectionState()
+    asked, cs = false, HA.CatalogScanner:GetReadState()
     local t, hide = wide and "vendors" or st.type, B.State.hideNA
     -- In the player's own zone the seed means everything the Overview "Here" line counts: the zone and its child maps.
     local here = zone and Facts.Here()
@@ -933,7 +933,7 @@ function Draw(fresh, saved)
     local s = { vendor = v, type = "vendors", title = v.name or L["Unknown"], items = D.VendorWares(v) }
     V.s = s
     local rows = Rows(s, true)
-    local ready = D.CollectionState() == "ready"
+    local ready = HA.CatalogScanner:GetReadState() == "ready"
     local act = D.HolidayActive(v) and v.event or nil
     local live = act ~= nil or Facts.EndeavorActive(v) == true
     local n, owned = #rows, 0
@@ -1117,7 +1117,7 @@ end
 
 local function DrawSource(keep)
     local s = Source(srcType, srcID)
-    cs, A.s = D.CollectionState(), s
+    cs, A.s = HA.CatalogScanner:GetReadState(), s
     local kind = KIND[srcType][1]
     A.name:SetText(s.title)
     local mapID, x, y = Loc(s)

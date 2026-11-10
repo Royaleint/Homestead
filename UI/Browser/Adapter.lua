@@ -182,7 +182,7 @@ end
 -- must not ask again).
 function D.VendorCounts(vendor, noPrewarm)
     local BC = HA.BadgeCalculation
-    if not (BC and vendor and vendor.npcID) or D.CollectionState() ~= "ready" then return nil end
+    if not (BC and vendor and vendor.npcID) or HA.CatalogScanner:GetReadState() ~= "ready" then return nil end
     local stats = BC:PeekVendorStats(vendor, "all")
     if not stats then
         if D.HolidayActive(vendor) ~= nil then WarmHoliday(vendor)
@@ -416,7 +416,7 @@ function D.IconData(itemID, wantCopies, catalogMemo)
     if wantCopies then
         local info = D.CatalogInfo(itemID, catalogMemo)
         quality = info and info.quality
-        if info and D.CountsLive() then
+        if info and select(3, HA.CatalogScanner:GetReadState()) then
             local n = (info.totalNumPlaced or 0) + (info.totalNumStored or 0)
             if n > 0 then copies = n end
         end
@@ -429,7 +429,7 @@ end
 function D.TooltipData(itemID, npcID, catalogMemo)
     local info = D.CatalogInfo(itemID, catalogMemo)
     local out = {}
-    if info and D.CountsLive() then
+    if info and select(3, HA.CatalogScanner:GetReadState()) then
         out.counts = {
             placed = info.totalNumPlaced or 0,
             stored = info.totalNumStored or 0,

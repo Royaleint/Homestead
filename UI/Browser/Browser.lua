@@ -567,7 +567,7 @@ function B.ShowItemTooltip(owner, itemID, npcID, tile)
     local gold = NORMAL_FONT_COLOR
 
     tip:SetOwner(owner, "ANCHOR_RIGHT")
-    if npcID then owner.npcID = npcID end -- the block reads the vendor scope from the owner
+    owner.npcID = npcID -- the block reads the vendor scope from the owner; none of an earlier hover stays
     HA.SetManagedItemTooltip(tip, itemID)
     if B.Data.RoomID(itemID) then AddRoomPlanLines(tip, itemID, npcID) end
     if d.active then tip:AddLine(L["Active now: %s"]:format(d.active), unpack(B.Style.color.badge)) end

@@ -199,7 +199,7 @@ local function Describe(r)
         local active, state, arg = nil, B.ItemState(id)
         for _, o in pairs(e.canBy or {}) do active = active or o.event end
         local info = e.info
-        local copies = info and D.CountsLive() and (info.totalNumPlaced or 0) + (info.totalNumStored or 0) or 0
+        local copies = info and select(3, HA.CatalogScanner:GetReadState()) and (info.totalNumPlaced or 0) + (info.totalNumStored or 0) or 0
         d = { itemID = id, name = Name(r), quality = info and info.quality or C_Item.GetItemQualityByID(id),
             icon = info and info.iconTexture or D.ItemIcon(id), active = active, bonus = r.bonus,
             copies = copies > 0 and copies or nil, state = state, arg = arg }
@@ -210,7 +210,7 @@ end
 
 -- Over the grid only when the collection is stale, and then just the note; one pixel otherwise.
 local function PaintHead()
-    local stale = D.CollectionStale()
+    local stale = select(2, HA.CatalogScanner:GetReadState())
     ui.head:SetShown(stale)
     ui.head:SetHeight(stale and W.TextHeight("body") + SP.s or 1)
     ui.head:SetText(stale and L["Collection not refreshed this session"] or "")
@@ -252,7 +252,7 @@ end
 function Apply(keep)
     local out, n, hc, hf, seen = Filter()
     local words = Words(cat)
-    local empty = Empty(D.CollectionState(), n, hc + hf > 0, words)
+    local empty = Empty(HA.CatalogScanner:GetReadState(), n, hc + hf > 0, words)
     hiddenNote = not empty and hc + hf > 0 and { hidden = hc + hf, collected = hc, faction = hf,
         parts = B.Facts.FactionParts(seen),
         onShow = function() B.SetHideNA(false) B.Window.hideNA:SetChecked(false) end } or nil

@@ -401,7 +401,7 @@ function Page.Draw()
     DrawStrip()
     local ranked = CG.Rank()
     if ranked ~= filledFor then fill, filledFor = ranked and CG.Fill(), ranked end
-    local state = fill and "ready" or D.CollectionState()
+    local state = fill and "ready" or HA.CatalogScanner:GetReadState()
     at = 0
     -- The title with the vendor buttons at its right, its row as tall as they are even when hidden so the rows
     -- never move with the zone; then the lede with See all at its right.
@@ -418,7 +418,7 @@ function Page.Draw()
         seeW = seeAll:GetWidth() + SP.m
     end
     local ledeText = L["Decor this character can buy or earn today, best first."]
-    if D.CollectionStale() then ledeText = ledeText .. DOT .. L["Collection not refreshed this session"] end
+    if select(2, HA.CatalogScanner:GetReadState()) then ledeText = ledeText .. DOT .. L["Collection not refreshed this session"] end
     lede:SetText(ledeText)
     local ledeW = (main:GetWidth() > 0 and math.min(MEASURE_W, main:GetWidth()) or MEASURE_W) - seeW
     lede:SetWidth(ledeW)

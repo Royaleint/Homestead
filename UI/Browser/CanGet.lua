@@ -10,25 +10,6 @@ local Facts = B.Facts
 local CG = {}
 B.CanGet = CG
 
--- The scanner's read state (state, stale, countsLive); the read's event redraws.
-local function ReadState()
-    local scanner = HA.CatalogScanner
-    if not scanner then return "counting", false, false end
-    return scanner:GetReadState()
-end
-
-function D.CollectionState()
-    return (ReadState())
-end
-
-function D.CollectionStale()
-    return (select(2, ReadState()))
-end
-
-function D.CountsLive()
-    return (select(3, ReadState()))
-end
-
 local function Memo()
     return B.State and B.State.catalogMemo
 end
@@ -193,7 +174,7 @@ end
 
 -- One vendor's offer: requirements first, then payment.
 function CG.Offer(itemID, npcID)
-    if D.CollectionState() ~= "ready" then return "unknown" end
+    if HA.CatalogScanner:GetReadState() ~= "ready" then return "unknown" end
     local vendor = npcID and HA.VendorData:GetVendorAnySeason(npcID)
     local verdict = Verdict(HA.SourceManager, itemID, npcID, vendor, (Own(itemID, Memo())))
     if verdict ~= "can" then return verdict end
@@ -346,7 +327,7 @@ end
 -- vendor offer), reach (npcID to each offer with requirements met, with cost and pay), canBy (its paid ones),
 -- eventPaid and lowGold (set by Rank: a paid event offer, the lowest paid gold-only price), rest (the others' best verdict), locked (npcIDs), event and eventAt (an off-season holiday that sells it, and its vendor).
 function CG.Entry(itemID)
-    if D.CollectionState() ~= "ready" then return nil end
+    if HA.CatalogScanner:GetReadState() ~= "ready" then return nil end
     Fresh()
     local e = entries[itemID]
     if not e then
@@ -383,7 +364,7 @@ local function RunWalk(items)
 end
 
 function CG.Walk()
-    if D.CollectionState() ~= "ready" then return nil end
+    if HA.CatalogScanner:GetReadState() ~= "ready" then return nil end
     Fresh()
     if not walk then
         local items = HA.CatalogStore:GetDecorItemIDs()
@@ -623,7 +604,7 @@ end
 -- npcID judges that vendor's offer; without it, the item's best short or unpriced offer, its easiest locked
 -- vendor or its holiday vendor.
 function B.ItemState(itemID, npcID)
-    local phase = D.CollectionState()
+    local phase = HA.CatalogScanner:GetReadState()
     if phase ~= "ready" then return phase == "counting" and "counting" or nil end
     local e = CG.Entry(itemID)
     if not e then return end
