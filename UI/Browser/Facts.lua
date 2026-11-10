@@ -39,36 +39,6 @@ function F.Where(v)
     return zone and subzone and L["%s, %s"]:format(subzone, zone) or zone
 end
 
-function F.QuestStart(questID)
-    local row = HA.QuestStarts and HA.QuestStarts[questID]
-    return row and row.mapID and row or nil
-end
-
--- A quest's giver as { giver = ID, kind = "object" or "item" (an NPC has none), name = English name (not for an item) };
--- the row may have no spot.
-function F.QuestGiver(questID)
-    local row = HA.QuestStarts and HA.QuestStarts[questID]
-    return row and row.giver and row or nil
-end
-
-function F.TreasureSpot(questID)
-    return HA.TreasureHuntSpots and HA.TreasureHuntSpots[questID]
-end
-
--- A quest's zone with no position, for grouping only: { mapID = zone map, turnIn = continent map, expansion = expansion key }
--- with each part optional. It never feeds a waypoint or a pin.
-function F.QuestZone(questID)
-    return HA.QuestZones and HA.QuestZones[questID]
-end
-
--- The map a quest is grouped under: where it starts or its dig site, else its recorded zone; nil when unknown.
-function F.QuestMap(questID)
-    local at = F.TreasureSpot(questID) or F.QuestStart(questID)
-    if at and at.mapID then return at.mapID end
-    local zone = F.QuestZone(questID)
-    return zone and zone.mapID
-end
-
 -- The player's zone: { zone, name, continent, maps = set of the zone and its child maps }; nil when unknown.
 local here
 function F.Here()

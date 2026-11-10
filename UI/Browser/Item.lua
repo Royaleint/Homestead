@@ -114,7 +114,8 @@ local function OtherRow(itemID, src, flagged)
         row.one = Labeled(L["Achievement:"], name)
     elseif t == "quest" then
         row.one = Labeled(L["Quest:"], name)
-        local start, spot = F.QuestStart(src.questID), F.TreasureSpot(src.questID)
+        local SM = HA.SourceManager
+        local start, spot = SM:GetQuestStart(src.questID), SM:GetTreasureSpot(src.questID)
         if start then
             local map = C_Map.GetMapInfo(start.mapID)
             Status(row, L["Starts in %s"]:format(map and map.name or L["Unknown"]))

@@ -22,7 +22,7 @@ local KIND = {
             achievementID = d.achievementID }
     end },
     quests = { L["Quest"], L["Search quests"], function(d)
-        local where = MapName(Facts.QuestMap(d.questID))
+        local where = MapName(HA.SourceManager:GetQuestMap(d.questID))
         return { title = d.questName, sub = where or L["Location not recorded"], where = where, questID = d.questID }
     end },
     professions = { L["Profession"], L["Search recipes and professions"],
@@ -129,14 +129,15 @@ end
 -- What starts a quest, in words: an item is used, an object is named, and a creature is named in the player's
 -- language when the client has it, else by the shipped English name.
 local function StartWords(g)
-    if g.kind == "item" then return L["Use %s"]:format(D.ItemName(g.giver) or L["Item %d"]:format(g.giver)) end
-    return g.kind == "object" and g.name or HA.VendorData:GetNpcName(g.giver) or g.name
+    if g.kind == "item" then return L["Use %s"]:format(D.ItemName(g.id) or L["Item %d"]:format(g.id)) end
+    return g.kind == "object" and g.name or HA.VendorData:GetNpcName(g.id) or g.name
 end
 
 -- One row per decor item of a quest. The giver's name is read when a row draws.
 local function QuestRows(s, data)
-    local giver = Facts.QuestGiver(s.questID)
-    local at = Facts.TreasureSpot(s.questID) or Facts.QuestStart(s.questID)
+    local SM = HA.SourceManager
+    local giver = SM:GetQuestStarter(s.questID)
+    local at = SM:GetTreasureSpot(s.questID) or SM:GetQuestStart(s.questID)
     local where = at and s.where and s.where .. " " .. HA.Waypoints:FormatCoords(at.x, at.y) or s.sub
     table.sort(s.pick)
     for _, id in ipairs(s.pick) do
@@ -230,8 +231,8 @@ end
 -- expansion lists directly under that expansion, with no zone group, whatever map it shows.
 local function QuestGroup(s)
     if not s.qo then
-        local mapID = Facts.QuestMap(s.questID)
-        local zoneRow = Facts.QuestZone(s.questID)
+        local mapID = HA.SourceManager:GetQuestMap(s.questID)
+        local zoneRow = HA.SourceManager:GetQuestZone(s.questID)
         local rowExp = zoneRow and zoneRow.expansion
         if rowExp and D.ExpansionRank(rowExp) then
             s.qt, s.qo = D.ExpansionLabel(rowExp), D.ExpansionRank(rowExp)
@@ -1125,7 +1126,8 @@ local function DrawSource(keep)
     SetPinLine(A.sub, sub, mapID and { mapID = mapID, x = x, y = y }, s.title)
     A.head:SetHeight(W.TextHeight("subheader") + 2 + A.sub:GetHeight())
 
-    local start, dig = s.questID and Facts.QuestStart(s.questID), s.questID and Facts.TreasureSpot(s.questID)
+    local SM = HA.SourceManager
+    local start, dig = s.questID and SM:GetQuestStart(s.questID), s.questID and SM:GetTreasureSpot(s.questID)
     SetPinLine(A.start, start and L["Starts in %s"]:format(MapName(start.mapID) or L["Unknown"]), start, s.title)
     SetPinLine(A.dig, dig and L["Dig site in %s"]:format(MapName(dig.mapID) or L["Unknown"]), dig, s.title)
     Para(A.event, "body", srcType == "events" and (Live(s.key) and S.Colored(K.badge, L["Active now"]) or L["Not active"]) or nil)

@@ -3139,6 +3139,39 @@ function SourceManager:GetSourceTable(kind)
     return name and HA[name] or nil
 end
 
+-- Where a decor quest starts, as { mapID, x, y }; nil when its start spot is not recorded. A zone is never a start.
+function SourceManager:GetQuestStart(questID)
+    local row = HA.QuestFacts and HA.QuestFacts[questID]
+    return row and row.start or nil
+end
+
+-- Who or what starts a quest, as { id, kind = "object" or "item" (a creature has none), name = English name (not for
+-- an item) }; the quest may have no recorded start spot.
+function SourceManager:GetQuestStarter(questID)
+    local row = HA.QuestFacts and HA.QuestFacts[questID]
+    return row and row.starter or nil
+end
+
+-- A quest's zone with no position, for grouping only: { mapID = zone map, turnIn = continent map, expansion = expansion
+-- key }, each part optional. It never feeds a waypoint or a pin.
+function SourceManager:GetQuestZone(questID)
+    local row = HA.QuestFacts and HA.QuestFacts[questID]
+    return row and row.zone or nil
+end
+
+-- The dig site of a Decor Treasure Hunt quest, as { mapID, x, y }.
+function SourceManager:GetTreasureSpot(questID)
+    return HA.TreasureHuntSpots and HA.TreasureHuntSpots[questID]
+end
+
+-- The map a quest is grouped under: where it starts or its dig site, else its recorded zone; nil when unknown.
+function SourceManager:GetQuestMap(questID)
+    local at = self:GetTreasureSpot(questID) or self:GetQuestStart(questID)
+    if at and at.mapID then return at.mapID end
+    local zone = self:GetQuestZone(questID)
+    return zone and zone.mapID
+end
+
 -- Blizzard's achievement tree, read once per category.
 local categoryTree, categoryPos = {}, nil
 
