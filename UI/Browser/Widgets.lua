@@ -591,9 +591,9 @@ function W.BuildRow(row)
     row.Redraw, row.Reset = Redraw, Reset
     -- The row's width can arrive after its first Set; Set reads it again.
     row:SetScript("OnSizeChanged", Redraw)
-    row:SetScript("OnClick", function(self)
+    row:SetScript("OnClick", function(self, button)
         if W.Linked(self.itemID) then return end
-        if self.onClick then self.onClick() end
+        if self.onClick then self.onClick(button) end
     end)
     row:SetScript("OnEnter", ShowTip)
     row:SetScript("OnLeave", HideTip)
@@ -1017,8 +1017,7 @@ local EMPTY = {
     notReadFilters = { L["Collection not read yet"],
         L["These filters need your collection, which Homestead hasn't read yet. If this stays, open the Housing Dashboard once."],
         { "onReset", L["Reset filters"] } },
-    noResults = { L["No results"], L["No decor matches these words and filters. Search looks at item names only."],
-        { "onReset", L["Reset filters"] }, { "onShow", L["Show them"] }, { "onAll", L["Search all decor"] } },
+    noResults = { L["No results"], L["Nothing to show here."], { "onReset", L["Reset filters"] }, { "onShow", L["Show them"] } },
 }
 
 local NEEDS_ARG = { nothingMissing = true, nothingNow = true }

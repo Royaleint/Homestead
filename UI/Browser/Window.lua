@@ -207,6 +207,7 @@ local function Describe(r, last)
     end
     if k == "item" then return nil, nil, B.Data.ItemName(r.id) or L["Item %d"]:format(r.id) end
     if k == "source" then return nil, nil, B.SourceTitle(r.key, r.id) end
+    if k == "search" then return nil, nil, DEFAULT_HINT end
     return nil, nil, tostring(r.id)
 end
 
@@ -432,22 +433,19 @@ local function BuildHeader(f)
         if not restoring then hooks.Filter(text) end
     end)
     search:SetWidth(SEARCH_W)
+    search:SetMaxLetters(50)
+    search:HookScript("OnEditFocusGained", function() hooks.Focus() end)
     search:SetPoint("RIGHT", help, "LEFT", -SP.m, 0)
-    search:HookScript("OnEnterPressed", function(self) hooks.Search(self:GetText():match("^%s*(.-)%s*$")) end)
+    search:HookScript("OnEnterPressed", function(self) hooks.Search(self:GetText()) end)
     Win.hideNA, Win.help, Win.search = hide, help, search
 end
 
 -- The box shows the seed's search; a Go without one clears it, and a page restoring its own may set it after.
--- Neither counts as typing: the page is not asked to filter. The clear button does, because it only SetTexts.
+-- Neither counts as typing: nothing is searched. The clear button does, because it only SetTexts.
 function Win.SetSearch(text)
     restoring = true
     Win.search:SetText(text or "")
     restoring = false
-end
-
--- A page's hint for the box; nil is the default.
-function Win.SetPlaceholder(text)
-    Win.search.Instructions:SetText(text or DEFAULT_HINT)
 end
 
 -- The Hide label takes the bar left of the search, from the title's start; it truncates (its tooltip then has the

@@ -22,13 +22,11 @@ local Page, ui, orders = {}, {}, {}
 local cat, recs, walk, version, hideFor, judged, named, bareList, bareVer
 local hiddenNote
 local shown = {}
--- What the header box holds, as typed; cat.q is the same words trimmed and lowercased.
-local query = ""
 
 local function NewView(sort)
     local types = {}
     for _, k in ipairs(KEYS) do types[k] = true end
-    return { q = "", kind = "all", coll = true, notColl = true, canGet = false, bonus = false,
+    return { kind = "all", coll = true, notColl = true, canGet = false, bonus = false,
         types = types, sort = sort or "best" }
 end
 
@@ -143,7 +141,6 @@ end
 local function Passes(r, c, anyOwn, subset)
     local e = r.e
     if c.kind ~= "all" and r.cat ~= c.kind then return false end
-    if c.q ~= "" and not r.lname:find(c.q, 1, true) then return false end
     if not anyOwn and not ((e.own == "owned" and c.coll) or (e.own == "notOwned" and c.notColl)) then return false end
     if (c.canGet and e.verdict ~= "can") or (c.bonus and not r.bonus) then return false end
     if subset then
@@ -180,12 +177,11 @@ end
 
 local Apply
 
--- Clears the filters and the search, keeping the kind and the sort.
+-- Clears the filters, keeping the kind and the sort.
 local function Reset()
     local kind = cat.kind
     cat = NewView(cat.sort)
-    cat.kind, query = kind, ""
-    B.Window.SetSearch("")
+    cat.kind = kind
     Apply(false)
 end
 
@@ -239,9 +235,7 @@ local function Empty(status, n, hidden, words)
         if kind == "counting" and c.sort == "best" then
             kind, d.onSort = "countingSort", function() ui.sort.Set("name") Apply(false) end
         end
-    elseif n == 0 and not hidden then
-        d.onAll = c.kind ~= "all" and function() B.Go({ kind = "catalog", key = "all", seed = { search = query } }) end or nil
-    else
+    elseif n > 0 or hidden then
         ui.empty:Hide()
         return false
     end
@@ -401,26 +395,19 @@ function Page:Build(parent)
     ui.empty = W.NewEmptyState(holder)
 end
 
-function Page:Placeholder()
-    return L["Search decor"]
-end
-
 -- A forward Show starts from the route's kind and seed, keeping only the sort; Back gives saved.
 function Page:Show(route, saved)
     if saved then
-        cat, query = saved.view, saved.query
+        cat = saved.view
     else
         local seed = route.seed or {}
         local f = seed.filters or {}
         cat = NewView(seed.sort or cat.sort)
-        query = seed.search or ""
-        cat.q = D.Query(query)
         cat.kind = KIND[route.key] and route.key or "all"
         if f.collected or f.notCollected then cat.coll, cat.notColl = f.collected == true, f.notCollected == true end
         cat.canGet, cat.bonus = f.canGet == true, f.bonus == true
         for k in pairs(cat.types) do cat.types[k] = f.sources == nil or f.sources[k] == true end
     end
-    B.Window.SetSearch(query)
     ui.sort.Set(cat.sort)
     if not recs or version ~= D.MemoVersion() or hideFor ~= B.State.hideNA or named ~= D.NameGen() then
         walk = B.Walk()
@@ -434,16 +421,7 @@ end
 
 -- A forward Show builds a new view, so the one saved here is never touched again before Back gives it back.
 function Page:Save()
-    return { view = cat, query = query, scroll = ui.grid.box:GetDerivedScrollOffset() }
-end
-
--- The header box as the player types; a restore or a seed never gets here.
-function Page:Filter(text)
-    query = text
-    local q = D.Query(text)
-    if q == cat.q then return end
-    cat.q = q
-    Apply(false)
+    return { view = cat, scroll = ui.grid.box:GetDerivedScrollOffset() }
 end
 
 function Page:Hide()

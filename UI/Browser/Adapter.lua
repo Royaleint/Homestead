@@ -120,8 +120,6 @@ function D.HolidayActive(vendor)
     if event then return D.EventActive(event) end
 end
 
-function D.Query(text) return text:lower():match("^%s*(.-)%s*$") end
-
 -- True when this character can use the vendor at none of its positions.
 function D.IsOppositeFaction(vendor)
     return not HA.VendorFilter.CanUseVendor(vendor)

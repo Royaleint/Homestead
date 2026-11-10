@@ -15,31 +15,28 @@ local function MapName(mapID)
 end
 
 local KIND = {
-    vendors = { L["Vendor"], L["Search vendors and zones"] },
-    achievements = { L["Achievement"], L["Search achievements"], function(d)
+    vendors = { L["Vendor"] },
+    achievements = { L["Achievement"], function(d)
         return { title = d.achievementName, sub = d.category or L["Achievement"], group = d.category or L["Other"],
             achievementID = d.achievementID }
     end },
-    quests = { L["Quest"], L["Search quests"], function(d)
+    quests = { L["Quest"], function(d)
         local where = MapName(HA.SourceManager:GetQuestMap(d.questID))
         return { title = d.questName, sub = where or L["Location not recorded"], where = where, questID = d.questID }
     end },
-    professions = { L["Profession"], L["Search recipes and professions"],
-        function(d)
+    professions = { L["Profession"], function(d)
         return { title = d.recipeName, sub = d.skillTier or d.profession, group = d.profession, tier = d.skillTier }
     end },
-    drops = { L["Drop"], L["Search drops and zones"],
-        function(d) return { title = d.mobName, sub = d.zone, drop = d } end },
-    events = { L["Event"], L["Search events"],
-        function(d) return { title = d.event, sub = L["Holiday event"], namesKind = true } end },
-    shop = { L["Shop"], L["Search the Shop"], function() return { sub = L["Shop"] } end },
+    drops = { L["Drop"], function(d) return { title = d.mobName, sub = d.zone, drop = d } end },
+    events = { L["Event"], function(d) return { title = d.event, sub = L["Holiday event"], namesKind = true } end },
+    shop = { L["Shop"], function() return { sub = L["Shop"] } end },
 }
 local TYPES = CG.SOURCE_KEYS
 local LINK = Facts.LINK
 
 local Page = {}
 local st = { type = "achievements" }
-local now, query, wide = nil, "", false
+local now, wide = nil, false
 local head, list, empty, torn, asked, cs, static, vend, vendVer, collapse, expand
 local well, shown, vid
 local Vend, V = {}, {}
@@ -77,7 +74,7 @@ local function Statics()
             if key then
                 local s = bucket.by[key]
                 if not s then
-                    s = kind[3](d)
+                    s = kind[2](d)
                     s.key, s.type, s.items, s.title = key, t, {}, s.title or L["Unknown"]
                     bucket.by[key], bucket[#bucket + 1] = s, s
                 end
@@ -88,26 +85,25 @@ local function Statics()
     return static
 end
 
--- One entry per listed vendor, for all vendors or one expansion. Wares are read only for these.
-local function VendorList(home)
+-- A vendor's entry, kept until the memos are wiped. Wares are read only for the vendors asked for.
+local function VendorEntry(v)
     local version = D.MemoVersion()
     if vendVer ~= version then vend, vendVer = {}, version end
+    local key = Facts.SourceKey("vendors", v)
+    local s = vend[key]
+    if not s then
+        s = { key = key, type = "vendors", vendor = v, title = v.name or L["Unknown"], items = D.VendorWares(v),
+            sub = Facts.Where(v) or "" }
+        vend[key] = s
+    end
+    return s
+end
+
+-- One entry per listed vendor, for all vendors or one expansion.
+local function VendorList(home)
     local out = {}
     for _, v in ipairs(D.ListedVendors()) do
-        if not home or D.VendorHome(v) == home then
-            local key = Facts.SourceKey("vendors", v)
-            local s = vend[key]
-            if not s then
-                -- The shipped names too, so a search in English still finds the place the row names.
-                local _, zone, subzone = HA.VendorFilter.GetUsableVendorPlace(v)
-                s = {
-                    key = key, type = "vendors", vendor = v, title = v.name or L["Unknown"], items = D.VendorWares(v),
-                    sub = Facts.Where(v) or "", en = (zone or "") .. " " .. (subzone or ""),
-                }
-                vend[key] = s
-            end
-            out[#out + 1] = s
-        end
+        if not home or D.VendorHome(v) == home then out[#out + 1] = VendorEntry(v) end
     end
     return out
 end
@@ -222,6 +218,17 @@ local function RowData(s)
     }
 end
 
+-- A vendor's row on another page's list, read as this page reads its own; it opens the card over all vendors.
+-- fill: a missing count may ask for the counts again, once per draw of that list.
+function B.VendorRow(v, fill)
+    cs = HA.CatalogScanner:GetReadState()
+    if fill then asked = false end
+    local d = RowData(VendorEntry(v))
+    d.selected, d.narrow = nil, nil
+    d.onClick = function() B.Go({ kind = "vendor", id = d.key, list = { kind = "allVendors" } }) end
+    return d
+end
+
 -- Quests: expansion of the continent the quest's spot is on, then the zone the spot is in; the unlocated quests last.
 -- A map with no continent above it takes the continent of the quest's turn-in. A quest whose zone row names an
 -- expansion lists directly under that expansion, with no zone group, whatever map it shows.
@@ -311,19 +318,16 @@ local footKind = {
     end,
 }
 
-local function ShowHidden()
+-- Turns the Hide toggle off: a footer's or an empty list's "Show them".
+function B.ShowHidden()
     B.Window.hideNA:SetChecked(false)
     B.SetHideNA(false)
 end
-
-local function ResetSearch()
-    B.Window.SetSearch("")
-    Page:Filter("")
-end
+local ShowHidden = B.ShowHidden
 
 -- Folded groups, for the session: a vendor zone, or the folding header under a plain one in the achievement,
--- quest and profession lists. A search shows every matching group open, and the seed zone opens. A fold changes
--- only which rows draw: the head and the hidden-items footer still count everything.
+-- quest and profession lists. The seed zone opens. A fold changes only which rows draw: the head and the
+-- hidden-items footer still count everything.
 local folded, keys = {}, {}
 local TOPS = { achievements = true, quests = true, professions = true }
 
@@ -355,7 +359,6 @@ local function BuildList(keep, zone)
     -- In the player's own zone the seed means everything the Overview "Here" line counts: the zone and its child maps.
     local here = zone and Facts.Here()
     local nearby = here and here.zone == zone and here.maps or nil
-    local q = D.Query(query)
     local entries, order
     if wide then
         entries = VendorList(now.kind == "vendors" and now.key or nil)
@@ -372,30 +375,24 @@ local function BuildList(keep, zone)
         if t == "shop" then ShopTitle(s) end
         live = live or (t == "events" and Live(s.key))
         local v = s.vendor
-        local text = (s.title .. " " .. (s.sub or "") .. " " .. (s.group or "") .. " " .. (v and v.zone or "")
-            .. " " .. (s.en or "")):lower()
         if t == "quests" then
-            -- Each decor item is its own row: hidden on its own, and found by its name when the quest is not.
+            -- Each decor item is its own row, hidden on its own.
             s.pick = {}
-            local giver = q ~= "" and HA.SourceManager:GetQuestStarter(s.questID)
-            if giver and giver.name then text = text .. " " .. giver.name:lower() end
             for _, id in ipairs(s.items) do
-                if q == "" or text:find(q, 1, true) or DecorName(id):lower():find(q, 1, true) then
-                    local why = hide and CG.HiddenBy(id)
-                    if why then
-                        hidden.hidden = hidden.hidden + 1
-                        hidden[why] = hidden[why] + 1
-                        if why == "faction" then seen[""] = (seen[""] or 0) + 1 end
-                    else
-                        s.pick[#s.pick + 1] = id
-                    end
+                local why = hide and CG.HiddenBy(id)
+                if why then
+                    hidden.hidden = hidden.hidden + 1
+                    hidden[why] = hidden[why] + 1
+                    if why == "faction" then seen[""] = (seen[""] or 0) + 1 end
+                else
+                    s.pick[#s.pick + 1] = id
                 end
             end
             if #s.pick > 0 then
                 out[#out + 1] = s
                 Place(s, order)
             end
-        elseif q == "" or text:find(q, 1, true) then
+        else
             local why = hide and CG.HiddenBy(v and { vendor = v } or { items = s.items })
             if why then
                 hidden.hidden = hidden.hidden + 1
@@ -414,7 +411,7 @@ local function BuildList(keep, zone)
     table.sort(out, Before)
     local data, group, expansion, headAt, zoneAt, openAt, shut, topShut = {}, nil, nil, nil, nil, nil, nil, nil
     local tops = not wide and TOPS[t]
-    local fold = (wide or tops) and q == ""
+    local fold = wide or tops
     -- The fold keys of a source's plain header and of its folding one.
     local function KeysOf(s)
         local tk = order and tostring(s.e) or tops and t .. "\1" .. s.top or nil
@@ -478,11 +475,9 @@ local function BuildList(keep, zone)
         empty:Hide()
         if grid then tiles:SetData(out, keep) else list:SetData(data, keep) end
     else
-        local text = q ~= "" and L["Nothing matches your search."] or L["Nothing to show here."]
+        local text = L["Nothing to show here."]
         empty:Set("noResults", {
-            title = L["No results"], text = note and text .. " " .. W.FooterText(note) or text,
-            onShow = note and ShowHidden,
-            onReset = q ~= "" and ResetSearch or nil,
+            title = L["No results"], text = note and text .. " " .. W.FooterText(note) or text, onShow = note and ShowHidden,
         })
     end
     collapse:SetShown((wide or tops) and true or false)
@@ -727,10 +722,6 @@ local function TypeOf(route)
     return key ~= "vendors" and KIND[key] and key or st.type
 end
 
-function Page:Placeholder(route)
-    return KIND[route.kind == "sources" and TypeOf(route) or "vendors"][2]
-end
-
 -- An expansion with no listed vendor left is gone: the router falls back to all vendors. So is a vendor the
 -- data no longer has.
 function Page:Has(route)
@@ -749,7 +740,7 @@ function Page:ListOf(route)
     return self:Has(over) and over or { kind = "allVendors" }
 end
 
--- A forward Show starts from the route's seed (search or zone); Back gives saved. A vendor route is a card over
+-- A forward Show starts from the route's seed (a zone); Back gives saved. A vendor route is a card over
 -- its list (route.list): with keep, that list is already up, and opening, swapping and closing the card leave it.
 function Page:Show(route, saved, keep)
     local card = route.kind == "vendor"
@@ -766,8 +757,6 @@ function Page:Show(route, saved, keep)
         now, wide, torn, vid = over, over.kind ~= "sources", false, card and route.id or nil
         if not wide then st.type = TypeOf(over) end
         Arrange()
-        query = saved and saved.search or seed and seed.search or ""
-        B.Window.SetSearch(query)
         local at, openAt = BuildList(false, seed and seed.zone)
         if saved and saved.scroll then
             Scroller().box:ScrollToOffset(saved.scroll, true)
@@ -782,19 +771,13 @@ end
 
 function Page:Save()
     return {
-        search = query, scroll = Scroller().box:GetDerivedScrollOffset(), card = vid and Vend:Save() or nil,
+        scroll = Scroller().box:GetDerivedScrollOffset(), card = vid and Vend:Save() or nil,
     }
 end
 
 -- Closes the open card onto its list: Escape, and clicking the selected row.
 function Page:CloseCard()
     return vid ~= nil and B.CloseOver()
-end
-
-function Page:Filter(text)
-    if text == query then return end
-    query, torn = text, false
-    BuildList(false)
 end
 
 function Page:Hide()

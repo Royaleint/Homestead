@@ -121,6 +121,7 @@ UI\Browser\Browser.lua
 UI\Browser\Summary.lua
 UI\Browser\Catalog.lua
 UI\Browser\Sources.lua
+UI\Browser\Search.lua
 UI\Browser\Item.lua
 UI\Options.lua
 

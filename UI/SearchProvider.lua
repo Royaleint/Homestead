@@ -3,10 +3,12 @@
     Search index and query engine for vendor/item discovery
 
     Builds a lightweight index of vendor metadata + item IDs, resolves item names
-    at query time via C_Item.GetItemNameByID. Batched pre-warming populates WoW's
-    item cache on first search focus.
+    at query time via HA.GetItemName, so a name that loads later reaches the
+    consumers that listen for it. Batched pre-warming populates WoW's item cache
+    on first search focus.
 
-    Consumers: MapSidePanel (search bar UI + result rendering)
+    Consumers: MapSidePanel (search bar UI + result rendering), the Decor Browser's
+    result page
 ]]
 
 local _, HA = ...
@@ -208,7 +210,7 @@ local function ResolveIndexedItemName(itemID, entry)
         return entry.itemName, entry.itemNameLower
     end
 
-    local itemName = C_Item.GetItemNameByID(itemID)
+    local itemName = HA.GetItemName(itemID)
     if itemName then
         entry.itemName = itemName
         entry.itemNameLower = itemName:lower()
@@ -227,7 +229,7 @@ function SearchProvider:Search(query, options)
     BuildIndex()
     if not searchIndex then return {} end
 
-    query = query:lower()
+    query = query:match("^%s*(.-)%s*$"):lower()
     local queryNum = tonumber(query)
     local decorItemID = queryNum and searchIndex.decorToItem[queryNum]
     local includeItemResults = type(options) == "table" and options.includeItemResults == true
@@ -265,7 +267,7 @@ function SearchProvider:Search(query, options)
                 if not matched then
                     -- Resolve name lazily (may have been nil at index time)
                     if not item.nameLower then
-                        local name = C_Item.GetItemNameByID(item.itemID)
+                        local name = HA.GetItemName(item.itemID)
                         if name then item.nameLower = name:lower() end
                     end
                     if item.nameLower and item.nameLower:find(query, 1, true) then

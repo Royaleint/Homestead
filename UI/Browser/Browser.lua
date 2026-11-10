@@ -3,8 +3,8 @@
 -- Page contract: Show(route, saved) gets saved only on Back. Hide tears down transient state, resets render
 -- keys and keeps the route. Refresh may follow Hide without Show (UI restore) and must restore what Hide tore
 -- down. Optional page hooks: Has(route) (a gone target falls back to its list home on Go, is dropped from Back,
--- and replaces the route with no history step on Refresh), Filter(text) and Placeholder(route) for list pages
--- (Filter is never called for a restore).
+-- and replaces the route with no history step on Refresh) and Closed() (the Browser hid, whatever page was up). The
+-- header box belongs to the search page (Search.lua).
 -- A route may carry list, the route it sits over (a vendor card over its list). Moving between a route and its
 -- list, or between two routes over one list, on one page hides nothing and leaves the header box alone. Such a
 -- page defines ListOf(route) (stored on the route as Transition runs; Resolved and GoNow's swap check run earlier
@@ -149,7 +149,6 @@ local function Transition(route, saved)
     Win.SetBack(#history > 0)
     Win.SetCrumb(B.Home(route))
     page:Show(route, saved, keep)
-    Win.SetPlaceholder(page.Placeholder and page:Placeholder(route))
     Win.SelectNav(route)
     page:SetCombat(State.inCombat)
     AskAccount()
@@ -196,10 +195,12 @@ function B.GoTop(route)
     Traced(route, GoNow, true)
 end
 
+-- False when there was nothing to go back to.
 function B.Back()
     local entry
     repeat entry = table.remove(history) until not entry or not Gone(entry[1])
     if entry then Traced(entry[1], Transition, entry[2]) else Win.SetBack(false) end
+    return entry ~= nil
 end
 
 local function Replace(route)
@@ -396,6 +397,9 @@ local function OnHide()
     asked = false
     EventRegistry:UnregisterCallback(TEXT_SCALE_EVENT, textScaleOwner)
     ClearPending()
+    for _, page in pairs(kindPage) do
+        if page.Closed then page:Closed() end
+    end
     Win.closing = false
     local page = Current()
     if page then page:Hide() end
@@ -413,15 +417,7 @@ local function Build()
             local page = Current()
             return page and page.CloseCard and page:CloseCard()
         end,
-        Search = function(text)
-            local page = Current()
-            if page and page.Filter then return end
-            B.Go({ kind = "catalog", key = "all", seed = { search = text } })
-        end,
-        Filter = function(text)
-            local page = Current()
-            if page and page.Filter then page:Filter(text) end
-        end,
+        Search = B.SearchNow, Filter = B.SearchTyped, Focus = B.SearchFocus,
         HideNA = B.SetHideNA,
     })
     events = CreateFrame("Frame", nil, f)
