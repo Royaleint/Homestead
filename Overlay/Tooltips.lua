@@ -581,6 +581,17 @@ local function Name(decorateName, name)
     return decorateName and decorateName(name) or name
 end
 
+local function NotActiveTag()
+    return " |cffff4444(" .. Text("Not Active") .. ")|r"
+end
+
+-- The not-active mark for a vendor source that is listed but not selling now; "" for any other.
+local function NotSellingTag(data)
+    local VD = HA.VendorData
+    if data.npcID and VD and not VD:IsVendorSellingNow(data.npcID) then return NotActiveTag() end
+    return ""
+end
+
 local function ShopSummary(data)
     local method = data.method or "hearthsteel"
     if method == "hearthsteel" and data.cost then
@@ -607,8 +618,8 @@ function HA.FormatSourceLine(source, decorateName)
         local name = data.name or data.vendorName
         if not name then return Text("A vendor") end
         local place = PlaceText(data)
-        if place then return Text("Vendor: %s, %s"):format(Name(decorateName, name), place) end
-        return Text("Vendor: %s"):format(Name(decorateName, name))
+        if place then return Text("Vendor: %s, %s"):format(Name(decorateName, name), place) .. NotSellingTag(data) end
+        return Text("Vendor: %s"):format(Name(decorateName, name)) .. NotSellingTag(data)
     elseif t == "quest" then
         return Text("Quest: %s"):format(Name(decorateName, data.questName or Text("Unknown")))
     elseif t == "achievement" then
@@ -655,7 +666,8 @@ local function RenderVendorSourceLines(tooltip, source, parsedTag, _itemID, _com
         and (subzone .. " (" .. zoneName .. ")")
         or zoneName
 
-    tooltip:AddLine(LabelLine("Source:", WhiteName(vendorName)) .. parsedTag, COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
+    tooltip:AddLine(LabelLine("Source:", WhiteName(vendorName)) .. NotSellingTag(source.data) .. parsedTag,
+        COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
     tooltip:AddLine("  " .. LabelLine("Location:", WhiteName(locationText)), COLOR_WHITE.r, COLOR_WHITE.g, COLOR_WHITE.b)
 
     if altZone then
@@ -745,7 +757,7 @@ local function RenderEventSourceLines(tooltip, source, parsedTag, _itemID, _comp
         if isActive == true then
             statusText = " |cff00ff00(" .. Text("Active Now") .. ")|r"
         elseif isActive == false then
-            statusText = " |cffff4444(" .. Text("Not Active") .. ")|r"
+            statusText = NotActiveTag()
         end
         -- nil = unknown/loading → omit status entirely
     end

@@ -120,18 +120,6 @@ function D.HolidayActive(vendor)
     if event then return D.EventActive(event) end
 end
 
--- The holiday vendors that sell the item and are not in `taken` (a set of npcIDs the caller has already handled), in the shared order.
-local NO_VENDORS = {}
-function D.UnlistedHolidayVendors(itemID, taken)
-    local all = HA.VendorData:GetHolidayVendorsForItem(itemID)
-    if not all then return NO_VENDORS end
-    local out = {}
-    for i = 1, #all do
-        if not taken[all[i]] then out[#out + 1] = all[i] end
-    end
-    return out
-end
-
 -- True when this character can use the vendor at none of its positions.
 function D.IsOppositeFaction(vendor)
     return not HA.VendorFilter.CanUseVendor(vendor)

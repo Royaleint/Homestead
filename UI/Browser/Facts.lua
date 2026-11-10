@@ -88,12 +88,13 @@ F.LINK = {
     quests = function(d) return GetQuestLink(d.questID) or ("quest:" .. d.questID) end,
 }
 
--- The only builder of Sources row keys and onward-link keys. nil draws no "Show" button.
+-- The only builder of Sources row keys and onward-link keys. nil draws no "Show" button. A holiday vendor has a
+-- key out of season too.
 function F.SourceKey(sourceType, data, itemID)
     if not data then return nil end
     if sourceType == "vendors" then
         local npcID = data.npcID
-        return (npcID and HA.VendorData:GetVendor(npcID)) and npcID or nil
+        return (npcID and HA.VendorData:GetVendorAnySeason(npcID)) and npcID or nil
     elseif sourceType == "achievements" then
         return data.achievementID
     elseif sourceType == "quests" then

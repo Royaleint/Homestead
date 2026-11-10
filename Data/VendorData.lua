@@ -1944,7 +1944,7 @@ function VendorData:HasOfferForItem(itemID)
     return self.OfferByItemID ~= nil and self.OfferByItemID[itemID] ~= nil
 end
 
--- For an Endeavor vendor (a record or an NPC ID, scan-built records included), whether this week's theme is
+-- For an Endeavor vendor (a record or an NPC ID, scan-built records included), whether the running theme is
 -- its own: true only when the game has reported the theme; false for an unknown or unmapped theme. nil for any
 -- other vendor.
 function VendorData:IsEndeavorVendorActive(vendor)
@@ -1958,8 +1958,14 @@ function VendorData:IsEndeavorVendorActive(vendor)
     return theme ~= nil and ED:IsThemeActive(theme) == true
 end
 
+-- Whether a vendor listed as a source is selling now: false for a holiday vendor out of season and for an
+-- Endeavor vendor whose theme is not running, true for every other vendor.
+function VendorData:IsVendorSellingNow(npcID)
+    return not self:IsHolidayVendorHidden(npcID) and self:IsEndeavorVendorActive(npcID) ~= false
+end
+
 -- One seller of an item, for IsCountedVendorItem: not retired or hidden, not confirmed as selling no decor,
--- and, for an Endeavor vendor, on this week's theme (an unknown theme is off). A holiday vendor counts in any
+-- and, for an Endeavor vendor, on the running theme (an unknown theme is off). A holiday vendor counts in any
 -- season. The probe stands in for a vendor record so the lookup allocates nothing.
 local sellerProbe = {}
 local function SellerCounts(self, npcID)

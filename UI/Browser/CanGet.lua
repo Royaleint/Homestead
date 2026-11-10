@@ -349,16 +349,12 @@ local function Evaluate(itemID, SM, VD, memo, tables)
         e.verdict = own == "owned" and "owned" or "unknown"
         return e
     end
-    local best, seen = nil, {}
+    local best
     for _, s in ipairs(SM:GetAllSources(itemID) or {}) do
         if s.type == "vendor" then
             local d = s.data or {}
-            if d.npcID then seen[d.npcID] = true end
             best = Consider(e, SM, d.npcID, d.vendor, d.cost, best)
         end
-    end
-    for _, npcID in ipairs(D.UnlistedHolidayVendors(itemID, seen)) do
-        best = Consider(e, SM, npcID, HA.VendorData:GetVendorAnySeason(npcID), nil, best)
     end
     e.rest = best
     Settle(e)

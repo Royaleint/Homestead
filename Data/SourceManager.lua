@@ -398,6 +398,9 @@ function SourceManager:IsSourceAvailableNow(itemID, source)
     if sourceType == "vendor" then
         local vendorNPCID = data.npcID
         if vendorNPCID then
+            if HA.VendorData and not HA.VendorData:IsVendorSellingNow(vendorNPCID) then
+                return false
+            end
             local reqs = self:GetRequirements(itemID, vendorNPCID)
             if reqs and #reqs > 0 then
                 for _, req in ipairs(reqs) do
@@ -728,25 +731,39 @@ function SourceManager:GetVendorSource(itemID)
 end
 
 -- Get ALL vendor sources for an item (not just the closest).
+-- Holiday vendors are listed all year: one out of season follows the vendors selling now, and
+-- IsSourceAvailableNow reads it as not available.
 -- Returns array of {type = "vendor", data = {...}} entries.
 function SourceManager:GetVendorSources(itemID)
-    if not itemID or not HA.VendorData or not HA.VendorData.GetVendorsForItem then
+    local VD = HA.VendorData
+    if not itemID or not VD or not VD.GetVendorsForItem then
         return EMPTY_SOURCES
     end
 
-    local vendors = HA.VendorData:GetVendorsForItem(itemID)
-    if not vendors or #vendors == 0 then
+    local vendors = VD:GetVendorsForItem(itemID) or EMPTY_SOURCES
+    local holiday = VD:GetHolidayVendorsForItem(itemID)
+    if #vendors == 0 and not holiday then
         return EMPTY_SOURCES
     end
 
-    -- fetch once for the item instead of once per vendor in the loop below.
+    -- fetch once for the item instead of once per vendor in the loops below.
     local parsedSource = HA.SourceTextScanner and HA.SourceTextScanner:GetParsedSource(itemID)
 
-    local sources = {}
-    for _, vendor in ipairs(vendors) do
+    local sources, listed = {}, {}
+    local function Add(vendor)
         local vendorData = BuildVendorSourceData(itemID, vendor, parsedSource)
         if vendorData then
             sources[#sources + 1] = { type = "vendor", data = vendorData }
+        end
+    end
+    for _, vendor in ipairs(vendors) do
+        listed[vendor.npcID] = true
+        Add(vendor)
+    end
+    for _, npcID in ipairs(holiday or EMPTY_SOURCES) do
+        if not listed[npcID] and VD:IsHolidayVendorHidden(npcID) then
+            listed[npcID] = true
+            Add(VD:GetVendorAnySeason(npcID))
         end
     end
 

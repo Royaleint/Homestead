@@ -97,7 +97,8 @@ local function VendorRow(itemID, b, flagged)
         Status(row, W.StateWords(b.offer, words), st.glyph, st.color)
     end
     local event = HA.VendorData:GetHolidayEvent(b.npcID) or v.event
-    if event then EventStatus(row, event, D.HolidayActive(v), flagged) end
+    if event then EventStatus(row, event, D.HolidayActive(v), flagged)
+    elseif F.EndeavorActive(v) == false then Status(row, W.StateWords("idle"), "clock") end
     local confirmed = HA.VendorData:GetConfirmedDate(v)
     if confirmed then Status(row, L["Confirmed by a scan on %s"]:format(confirmed)) end
     local key = F.SourceKey("vendors", { npcID = b.npcID }, itemID)
@@ -184,7 +185,6 @@ local function Describe(itemID)
             blocks[#blocks + 1] = { src = src }
         end
     end
-    for _, npcID in ipairs(D.UnlistedHolidayVendors(itemID, seen)) do addVendor(npcID) end
     for i, b in ipairs(blocks) do b.rank = Rank(b, primary and primary.npcID) + i / 1000 end
     table.sort(blocks, function(a, c) return a.rank < c.rank end)
     m.vendors = vendors
