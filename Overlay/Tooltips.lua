@@ -632,12 +632,6 @@ function HA.FormatSourceLine(source, decorateName)
         Name(decorateName, data.name or data.sourceText or Text("Unknown")))
 end
 
--- Adds the source line of an item's first source, or of source when given.
-function HA.AddItemSourceLine(tooltip, itemID, source)
-    source = source or (HA.SourceManager:GetAllSources(itemID))[1]
-    tooltip:AddLine(HA.FormatSourceLine(source), 1, 1, 1, true)
-end
-
 -------------------------------------------------------------------------------
 -- Per-Source-Type Renderers (extracted from AddSourceInfoToTooltip)
 -- Each renderer adds the lines for one source type.
@@ -997,6 +991,22 @@ local function CreateHeaderGate(tooltip)
     return gate
 end
 
+-- The first-time collection bonus, worded as Blizzard's catalog tooltip words it.
+-- Only an item the character does not own carries one, and none shows before the first catalog read.
+local function AddFirstAcquisitionLine(tooltip, itemID)
+    local scanner = HA.CatalogScanner
+    if not (HA.CatalogStore and scanner and scanner:GetReadState() == "ready") then return end
+    local state, info = HA.CatalogStore:ReadOwnershipEntry(itemID)
+    local bonus = info and info.firstAcquisitionBonus or 0
+    if state ~= "notOwned" or bonus <= 0 then return end
+    if GameTooltip_AddNormalLine and HOUSING_DECOR_FIRST_ACQUISITION_FORMAT then
+        GameTooltip_AddNormalLine(tooltip, HOUSING_DECOR_FIRST_ACQUISITION_FORMAT:format(bonus))
+    else
+        tooltip:AddLine(Text("First-Time Collection Bonus Available"),
+            NORMAL_FONT_COLOR.r, NORMAL_FONT_COLOR.g, NORMAL_FONT_COLOR.b)
+    end
+end
+
 -- gate: optional header gate from the caller, shared with the reagent line
 -- so both render under one [Homestead] header.
 local function AddDecorInfoToTooltip(tooltip, itemLink, gate)
@@ -1079,6 +1089,12 @@ local function AddDecorInfoToTooltip(tooltip, itemLink, gate)
         else
             gatedTooltip:AddLine("Status: Unknown", COLOR_GRAY.r, COLOR_GRAY.g, COLOR_GRAY.b)
         end
+    end
+
+    -- Panel format only, so a bag or merchant tooltip keeps its lines. Outside the showOwned gate on purpose:
+    -- the bonus always shows when there is one, whatever the showOwned option says.
+    if context == "panel" then
+        AddFirstAcquisitionLine(gatedTooltip, itemID)
     end
 
     -- Panel-only note for a vendor this character can't use at any of its positions
@@ -1324,13 +1340,10 @@ end
 -- rendering does not fire the TooltipDataProcessor post-call.
 -- Falls back to SetItemByID (full native tooltip, sell price included, and
 -- the post-call appends the block) if structured data is unavailable.
--- linesOnly renders the item lines alone, for a caller that adds its own
--- Homestead lines: no block, no fallback, and true when the lines rendered.
-function HA.SetManagedItemTooltip(tooltip, itemID, linesOnly)
+function HA.SetManagedItemTooltip(tooltip, itemID)
     local data = C_TooltipInfo and C_TooltipInfo.GetItemByID
         and C_TooltipInfo.GetItemByID(itemID)
     if not (data and data.lines) then
-        if linesOnly then return false end
         tooltip:SetItemByID(itemID)
         return
     end
@@ -1363,10 +1376,8 @@ function HA.SetManagedItemTooltip(tooltip, itemID, linesOnly)
         end
     end
 
-    if not linesOnly then
-        local _, link = C_Item.GetItemInfo(itemID)
-        AddDecorInfoToTooltip(tooltip, link or ("item:" .. itemID))
-    end
+    local _, link = C_Item.GetItemInfo(itemID)
+    AddDecorInfoToTooltip(tooltip, link or ("item:" .. itemID))
 
     -- Cold cache: the manual path has no client-side refresh when item data
     -- streams in, so re-run the owner's OnEnter once it loads (re-entry finds

@@ -424,14 +424,11 @@ function D.IconData(itemID, wantCopies, catalogMemo)
     return quality or C_Item.GetItemQualityByID(itemID), copies
 end
 
--- Everything the item tooltip shows. counts is nil until this session's counts and the catalog entry are
--- known; before storage loads they read 0 for owned items.
+-- What the item tooltip adds to the shared tooltip: the event a vendor's stock is active in, and the counts, which are
+-- nil until this session's counts and the catalog entry are known; before storage loads they read 0 for owned items.
 function D.TooltipData(itemID, npcID, catalogMemo)
     local info = D.CatalogInfo(itemID, catalogMemo)
-    local out = {
-        name = D.ItemName(itemID) or (info and info.name) or L["Item %d"]:format(itemID),
-        quality = info and info.quality or C_Item.GetItemQualityByID(itemID),
-    }
+    local out = {}
     if info and D.CountsLive() then
         out.counts = {
             placed = info.totalNumPlaced or 0,
@@ -439,12 +436,8 @@ function D.TooltipData(itemID, npcID, catalogMemo)
             redeemable = info.remainingRedeemable or 0,
         }
     end
-    local p = npcID and { type = "vendor", npcID = npcID, source = D.VendorSource(npcID) } or B.CanGet.Primary(itemID)
+    local p = npcID and { type = "vendor", npcID = npcID } or B.CanGet.Primary(itemID)
     local v = p and p.type == "vendor" and p.npcID and D.Vendor(p.npcID)
-    out.price = npcID and D.Price(itemID, v) or p and p.price
-    out.source = p and p.source
     out.active = v and D.HolidayActive(v) and v.event or nil
-    local e = B.CanGet.Entry(itemID)
-    out.bonus = e and e.bonus or nil
     return out
 end

@@ -488,6 +488,10 @@ local tooltip
 function B.Tooltip()
     if not tooltip then
         tooltip = CreateFrame("GameTooltip", "HomesteadBrowserTooltip", UIParent, "GameTooltipTemplate")
+        -- The side panel's tooltip flags: the format (Tooltips.lua DetectContext) and the managed tooltip the
+        -- item post-call decorates when SetItemByID stands in for the game's item lines.
+        tooltip.isHomesteadPanelTooltip = true
+        tooltip.isHomesteadManagedTooltip = true
     end
     return tooltip
 end
@@ -536,29 +540,37 @@ function B.OpenInCatalog(itemID)
     return true
 end
 
--- tile: the game's own item lines head the tooltip, and the click hints end it.
+-- A room plan is not decor, so the shared block skips it: its state and shared source line stand in, under the
+-- same tooltip options as the block (additions off hides both; showOwned and showSource each hide their line).
+local function AddRoomPlanLines(tip, itemID, npcID)
+    local db = HA.Addon and HA.Addon.db and HA.Addon.db.profile.tooltip
+    if db and not db.enabled then return end
+    if not db or db.showOwned ~= false then
+        local state, arg = B.ItemState(itemID, npcID)
+        if state then
+            local c = B.Style.state[state].color
+            tip:AddLine(B.Widgets.StateWords(state, arg), c[1], c[2], c[3])
+        end
+    end
+    if not db or db.showSource ~= false then
+        local primary = npcID and { source = B.Data.VendorSource(npcID) } or B.CanGet.Primary(itemID)
+        tip:AddLine(HA.FormatSourceLine(primary and primary.source), 1, 1, 1, true)
+    end
+end
+
+-- The game's own item lines, then the [Homestead] block as the side panel renders it (the tooltip is flagged for
+-- that format; a vendor's npcID scopes the block through the owner frame). The counts and click hints are the
+-- browser's own, after a room plan's state and source. tile: the click hints end the tooltip.
 function B.ShowItemTooltip(owner, itemID, npcID, tile)
-    local W = B.Widgets
     local d = B.Data.TooltipData(itemID, npcID, State.catalogMemo)
     local tip = B.Tooltip()
     local gold = NORMAL_FONT_COLOR
-    local r, g, b = W.QualityRGB(d.quality)
-    local state, arg = B.ItemState(itemID, npcID)
 
     tip:SetOwner(owner, "ANCHOR_RIGHT")
-    if not (tile and HA.SetManagedItemTooltip(tip, itemID, true)) then tip:AddLine(d.name, r, g, b) end
-    if state then
-        local c = B.Style.state[state].color
-        tip:AddLine(W.StateWords(state, arg), c[1], c[2], c[3])
-    end
+    if npcID then owner.npcID = npcID end -- the block reads the vendor scope from the owner
+    HA.SetManagedItemTooltip(tip, itemID)
+    if B.Data.RoomID(itemID) then AddRoomPlanLines(tip, itemID, npcID) end
     if d.active then tip:AddLine(L["Active now: %s"]:format(d.active), unpack(B.Style.color.badge)) end
-    if d.bonus then
-        if GameTooltip_AddNormalLine and HOUSING_DECOR_FIRST_ACQUISITION_FORMAT then
-            GameTooltip_AddNormalLine(tip, HOUSING_DECOR_FIRST_ACQUISITION_FORMAT:format(d.bonus))
-        else
-            tip:AddLine(L["First-Time Collection Bonus Available"], gold.r, gold.g, gold.b)
-        end
-    end
     tip:AddLine(L["Collection"], gold.r, gold.g, gold.b)
     if d.counts then
         Pair(tip, L["Placed"], d.counts.placed)
@@ -567,9 +579,6 @@ function B.ShowItemTooltip(owner, itemID, npcID, tile)
     else
         tip:AddLine(L["Counts not loaded yet"], 1, 1, 1)
     end
-    tip:AddLine(L["Source"], gold.r, gold.g, gold.b)
-    if d.price then Pair(tip, L["Price"], d.price) end
-    HA.AddItemSourceLine(tip, itemID, d.source)
     if tile then
         tip:AddLine(" ")
         tip:AddLine(L["Left-click: details"], gold.r, gold.g, gold.b)
