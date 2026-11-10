@@ -50,7 +50,8 @@ local function VendorRow(r)
     local d = B.VendorRow(r.vendor, fill)
     fill = false
     if r.matchType == "item" then
-        d.right = L[r.matchCount == 1 and "%d match, %s" or "%d matches, %s"]:format(r.matchCount, d.right)
+        local text = r.matchCount == 1 and L["%d match, %s"] or L["%d matches, %s"]
+        d.right = text:format(r.matchCount, d.right)
     end
     return d
 end
