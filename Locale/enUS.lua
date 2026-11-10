@@ -15,6 +15,11 @@ HA.L = L
 L["Used in %d known recipe for decor you haven't collected"] = "Used in %d known recipe for decor you haven't collected"
 L["Used in %d known recipes for decor you haven't collected"] = "Used in %d known recipes for decor you haven't collected"
 
+-- Vendor cost: joins alternative ways to pay ("30 coupons or 500 gold")
+L["or"] = "or"
+L["Cost unverified"] = "Cost unverified"
+L["(requirements unverified)"] = "(requirements unverified)"
+
 -------------------------------------------------------------------------------
 -- UI Labels
 -------------------------------------------------------------------------------

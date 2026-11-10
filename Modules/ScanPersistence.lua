@@ -34,12 +34,298 @@ local function SubclassCountsRegressed(existingCounts, newCounts)
     return false
 end
 
+-------------------------------------------------------------------------------
+-- Cost Evidence Sidecar
+-- db.global.vendorCostEvidence[npcID][itemID] = {
+--     selected   = {cost, observedAt, environment, witness} -- a complete
+--                  single-bundle snapshot that replaces the shipped set,
+--     unresolved = {[claimKey] = witness},                  -- raw claims,
+--     changed    = merge serial of the last retained change,
+-- }
+-- Independent of scannedVendors: replacing or deleting a vendor record never
+-- erases it. Only explicit clears do. Ordinary single-cost items never enter
+-- it. A witness is one item's frozen rows from one listing observation plus
+-- that observation's identity; its fields never change once retained.
+--
+-- db.global.costEvidenceCounters holds the allocators and survives clears:
+-- origin (opaque, per install), nextContext, captureSerial, mergeSerial and
+-- exportCursor. db.char.costEvidenceContext is this character's opaque
+-- context ID. Neither is derived from any name or GUID.
+-------------------------------------------------------------------------------
+
+local MAX_SCANNED_SLOTS = 200
+
+local function EvidenceCounters(global)
+    local counters = global.costEvidenceCounters
+    if not counters then
+        counters = {
+            origin = string.format("o%x", time()),
+            nextContext = 0,
+            captureSerial = 0,
+            mergeSerial = 0,
+            exportCursor = 0,
+        }
+        global.costEvidenceCounters = counters
+    end
+    return counters
+end
+
+-- Opaque identity for one bounded listing observation, allocated once when
+-- the observation starts and never rewritten afterwards.
+function ScanPersistence:AllocateCostGroup(npcID, mapID)
+    local db = HA.Addon and HA.Addon.db
+    if not db or not db.global then return nil end
+    local counters = EvidenceCounters(db.global)
+    local charData = db.char
+    local context = charData and charData.costEvidenceContext
+    if charData and not context then
+        counters.nextContext = counters.nextContext + 1
+        context = "c" .. counters.nextContext
+        charData.costEvidenceContext = context
+    end
+    counters.captureSerial = counters.captureSerial + 1
+
+    local version, build
+    if GetBuildInfo then version, build = GetBuildInfo() end
+    local environment = (IsPublicTestClient and IsPublicTestClient()) and "ptr" or "retail"
+    return {
+        origin = counters.origin,
+        context = context or "c0",
+        vendor = npcID,
+        serial = counters.captureSerial,
+        epoch = time(),
+        build = (version and build) and (version .. "." .. build) or nil,
+        environment = environment,
+        locale = GetLocale and GetLocale() or nil,
+        mapID = mapID,
+    }
+end
+
+local function GroupKey(group)
+    return table.concat({group.origin, group.context, tostring(group.vendor),
+        tostring(group.serial), tostring(group.epoch)}, ":")
+end
+
+local function CopyComponents(components)
+    local copy = {}
+    for i, component in ipairs(components or {}) do
+        copy[i] = {kind = component.kind, id = component.id, amount = component.amount, name = component.name}
+    end
+    return copy
+end
+
+local function FreezeRow(row)
+    return {
+        slot = row.merchantSlot,
+        itemID = row.itemID,
+        price = row.price,
+        quantity = row.stackCount,
+        extended = row.hasExtendedCost,
+        costCount = row.costCount,
+        components = CopyComponents(row.costComponents),
+        purchasable = row.isPurchasable,
+        usable = row.isUsable,
+        complete = row.costComplete == true,
+    }
+end
+
+-- The bundle a complete frozen row pays, or nil for an incomplete row.
+local function RowBundle(row)
+    if not row.complete then return nil end
+    local bundle = {purchaseQuantity = row.quantity}
+    if row.price and row.price > 0 then bundle.gold = row.price end
+    for _, component in ipairs(row.components) do
+        local field = component.kind == "currency" and "currencies" or "items"
+        bundle[field] = bundle[field] or {}
+        table.insert(bundle[field], {id = component.id, amount = component.amount})
+    end
+    return bundle
+end
+
+-- Partial-data signature of any row, used only to notice distinct bundles.
+local function RowSignature(row)
+    local parts = {tostring(row.price), tostring(row.quantity), tostring(row.extended)}
+    local tokens = {}
+    for _, component in ipairs(row.components) do
+        tokens[#tokens + 1] = tostring(component.kind) .. tostring(component.id or component.name)
+            .. "x" .. tostring(component.amount)
+    end
+    table.sort(tokens)
+    parts[#parts + 1] = table.concat(tokens, ",")
+    return table.concat(parts, "|")
+end
+
+local function CoverageOf(scanData, terminationReason)
+    local total = scanData.originalTotal or scanData.totalItems
+    local capped = total ~= nil and total > MAX_SCANNED_SLOTS
+    local coherent = not scanData.coherenceInvalidated
+    local complete = total ~= nil and not capped and coherent and terminationReason == nil
+        and scanData.scanComplete == true and not scanData.hadNilSlots
+    return {
+        total = total,
+        capped = capped,
+        coherent = coherent,
+        complete = complete,
+        reason = terminationReason,
+    }
+end
+
+-- Merge the relevant cost evidence of one listing attempt into the sidecar.
+-- Relevant: an item seen with several distinct bundles, or a pair already
+-- tracked (shipped whole-set data or retained evidence). Never touches
+-- scannedVendors, lastScanned or scan confidence. Returns true when the
+-- retained evidence changed. Callers invalidate (SaveCostEvidence below).
+function ScanPersistence:MergeCostEvidence(scanData, terminationReason)
+    local db = HA.Addon and HA.Addon.db
+    local group = scanData and scanData.costGroup
+    if not db or not db.global or not group or not scanData.housingItems then return false end
+
+    local byItem, order = {}, {}
+    for _, row in ipairs(scanData.housingItems) do
+        if row.itemID then
+            if not byItem[row.itemID] then
+                byItem[row.itemID] = {}
+                order[#order + 1] = row.itemID
+            end
+            table.insert(byItem[row.itemID], FreezeRow(row))
+        end
+    end
+    if #order == 0 then return false end
+
+    local VD = HA.VendorData
+    if not VD or not VD.CostBundleSignature then return false end
+    local npcID = scanData.npcID
+    local vendorRef = {npcID = npcID, name = scanData.vendorName}
+    local coverage = CoverageOf(scanData, terminationReason)
+    local key = GroupKey(group)
+    local changedEntries = {}
+
+    for _, itemID in ipairs(order) do
+        local rows = byItem[itemID]
+        table.sort(rows, function(a, b) return (a.slot or 0) < (b.slot or 0) end)
+        local distinct, seen = 0, {}
+        local bundles, bundleSeen, allComplete = {}, {}, true
+        for _, row in ipairs(rows) do
+            local signature = RowSignature(row)
+            if not seen[signature] then
+                seen[signature] = true
+                distinct = distinct + 1
+            end
+            local bundle = RowBundle(row)
+            if bundle then
+                local bundleSignature = VD:CostBundleSignature(bundle)
+                if not bundleSeen[bundleSignature] then
+                    bundleSeen[bundleSignature] = true
+                    bundles[#bundles + 1] = bundle
+                end
+            end
+            if not row.complete or row.quantity == nil then allComplete = false end
+        end
+
+        local state = VD:GetCostSetState(vendorRef, itemID)
+        if distinct > 1 or state then
+            local evidence = db.global.vendorCostEvidence
+            if not evidence then
+                evidence = {}
+                db.global.vendorCostEvidence = evidence
+            end
+            evidence[npcID] = evidence[npcID] or {}
+            local entry = evidence[npcID][itemID]
+            if not entry then
+                entry = {unresolved = {}}
+                evidence[npcID][itemID] = entry
+            end
+
+            local witness = {
+                group = group,
+                groupKey = key,
+                coverage = coverage,
+                itemID = itemID,
+                rows = rows,
+                bundles = bundles,
+                observedAt = group.epoch,
+            }
+
+            if coverage.complete and allComplete and #bundles == 1 then
+                -- A complete coherent listing showing one bundle replaces the
+                -- whole set; older comparable claims are settled by it.
+                if not entry.selected or (entry.selected.observedAt or 0) < group.epoch then
+                    entry.selected = {
+                        cost = bundles[1],
+                        observedAt = group.epoch,
+                        environment = group.environment,
+                        witness = witness,
+                    }
+                    for claimKey, older in pairs(entry.unresolved) do
+                        if older.observedAt and older.observedAt < group.epoch
+                                and older.group.environment == group.environment then
+                            entry.unresolved[claimKey] = nil
+                        end
+                    end
+                    changedEntries[#changedEntries + 1] = entry
+                end
+            else
+                local bundleSignatures = {}
+                for i, bundle in ipairs(bundles) do
+                    bundleSignatures[i] = VD:CostBundleSignature(bundle)
+                end
+                table.sort(bundleSignatures)
+                local setSignature = table.concat(bundleSignatures, "||")
+                -- Incomplete rows never contradict a set, but their raw shape
+                -- is part of what was observed: attempts that read different
+                -- incomplete values stay separate witnesses.
+                local incompleteShapes = {}
+                for _, row in ipairs(rows) do
+                    if not row.complete then incompleteShapes[#incompleteShapes + 1] = RowSignature(row) end
+                end
+                table.sort(incompleteShapes)
+                local claimKey = table.concat({tostring(group.vendor), tostring(group.build),
+                    group.environment, group.context, tostring(itemID), setSignature,
+                    tostring(#rows), coverage.complete and "complete" or "partial",
+                    allComplete and "rows" or "incomplete", table.concat(incompleteShapes, ";")}, "#")
+                if not entry.unresolved[claimKey] then
+                    entry.unresolved[claimKey] = witness
+                    changedEntries[#changedEntries + 1] = entry
+                end
+            end
+        end
+    end
+
+    if #changedEntries == 0 then return false end
+    local counters = EvidenceCounters(db.global)
+    counters.mergeSerial = counters.mergeSerial + 1
+    for _, entry in ipairs(changedEntries) do
+        entry.changed = counters.mergeSerial
+    end
+    return true
+end
+
+-- Evidence-only save (aborted or superseded attempt): merges, and on change
+-- invalidates the vendor indexes and source memo. It is not a scan save, so
+-- the VENDOR_SCANNED callback is left to SaveVendorData.
+function ScanPersistence:SaveCostEvidence(scanData, terminationReason)
+    local changed = self:MergeCostEvidence(scanData, terminationReason)
+    if changed then
+        if HA.VendorData and HA.VendorData.InvalidateVendorCaches then
+            HA.VendorData:InvalidateVendorCaches()
+        end
+        if HA.SourceManager and HA.SourceManager.InvalidateSourcesMemo then
+            HA.SourceManager:InvalidateSourcesMemo()
+        end
+    end
+    return changed
+end
+
 function ScanPersistence:SaveVendorData(scanData)
     -- Ensure SavedVariables structure exists
     if not HA.Addon.db or not HA.Addon.db.global then
         HA.Addon:Debug("SavedVariables not ready, cannot save vendor data")
         return
     end
+
+    -- Cost evidence first, against the indexes as they stand; the single
+    -- invalidation below covers it.
+    local evidenceChanged = self:MergeCostEvidence(scanData, scanData.endReason)
 
     -- Initialize scanned vendors storage
     if not HA.Addon.db.global.scannedVendors then
@@ -142,6 +428,9 @@ function ScanPersistence:SaveVendorData(scanData)
             requirements = item.requirements,
             merchantSlot = item.merchantSlot,
             hasExtendedCost = item.hasExtendedCost,
+            -- false when the scan could not read the whole cost; such a row
+            -- never confirms or contradicts a cost set. Absent on older saves.
+            costComplete = item.costComplete,
         }
 
         -- Add currency data if present
@@ -487,6 +776,9 @@ function ScanPersistence:SaveVendorData(scanData)
     -- nothing was discovered for the memo to be stale about.
     if vendorRecord.hasDecor and HA.SourceManager and HA.SourceManager.InvalidateSourcesMemo then
         HA.SourceManager:InvalidateSourcesMemo()
+    elseif evidenceChanged and HA.SourceManager and HA.SourceManager.InvalidateSourcesMemo then
+        -- Retained cost evidence changes a pair's resolved cost.
+        HA.SourceManager:InvalidateSourcesMemo()
     end
 
     -- Fire callback for other modules. The second arg must never be nil —
@@ -577,7 +869,9 @@ function ScanPersistence:ClearScannedData()
     end
 
     HA.Addon.db.global.scannedVendors = {}
-    -- noDecorVendors intentionally preserved
+    -- noDecorVendors intentionally preserved. Local cost evidence goes with
+    -- the scans, orphan entries included; its allocators do not rewind.
+    HA.Addon.db.global.vendorCostEvidence = nil
     HA.Addon.db.global.lastExportTimestamp = nil
 
     RefreshMapPins()
@@ -604,6 +898,7 @@ function ScanPersistence:ClearAllData()
 
     HA.Addon.db.global.scannedVendors = {}
     HA.Addon.db.global.noDecorVendors = {}
+    HA.Addon.db.global.vendorCostEvidence = nil
     HA.Addon.db.global.lastExportTimestamp = nil
 
     RefreshMapPins()

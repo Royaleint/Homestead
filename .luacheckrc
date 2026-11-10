@@ -29,6 +29,7 @@ read_globals = {
     "issecretvalue", -- Midnight combat-secrecy probe
     "GetBuildInfo",
     "GetAchievementCategory", "GetCategoryInfo", "GetCategoryList",
+    "IsPublicTestClient", -- cost-evidence environment (retail/ptr)
 
     -- WoW constants
     "BANK_CONTAINER",

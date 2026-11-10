@@ -4321,6 +4321,177 @@ local GeneratedBase = {
       costBuild = "12.0.7.68974",
     },
   },
+  [248854] = {
+    [244347] = {
+      price = 0,
+      currencies = {},
+      itemCosts = {{itemID = 274481, amount = 100}},
+      gated = true,
+      isUsable = true,
+      displayOrder = 2,
+    },
+    [245991] = {
+      price = 0,
+      currencies = {},
+      itemCosts = {{itemID = 274481, amount = 100}},
+      gated = true,
+      isUsable = true,
+      displayOrder = 3,
+    },
+    [245993] = {
+      price = 0,
+      currencies = {},
+      itemCosts = {{itemID = 274481, amount = 100}},
+      gated = true,
+      isUsable = true,
+      displayOrder = 4,
+    },
+    [252042] = {
+      price = 0,
+      currencies = {},
+      itemCosts = {{itemID = 274481, amount = 100}},
+      gated = true,
+      isUsable = true,
+      displayOrder = 5,
+    },
+    [253396] = {
+      price = 0,
+      currencies = {},
+      itemCosts = {{itemID = 274481, amount = 100}},
+      gated = true,
+      isUsable = true,
+      displayOrder = 6,
+    },
+    [253703] = {
+      price = 0,
+      currencies = {},
+      itemCosts = {{itemID = 274481, amount = 100}},
+      gated = true,
+      isUsable = true,
+      displayOrder = 7,
+    },
+    [255652] = {
+      price = 0,
+      currencies = {},
+      itemCosts = {{itemID = 274481, amount = 100}},
+      gated = true,
+      isUsable = true,
+      displayOrder = 8,
+    },
+    [255712] = {
+      price = 0,
+      currencies = {},
+      itemCosts = {{itemID = 274481, amount = 100}},
+      gated = true,
+      isUsable = true,
+      displayOrder = 9,
+    },
+    [256361] = {
+      price = 0,
+      currencies = {},
+      itemCosts = {{itemID = 274481, amount = 100}},
+      gated = true,
+      isUsable = true,
+      displayOrder = 10,
+    },
+    [256684] = {
+      price = 0,
+      currencies = {},
+      itemCosts = {{itemID = 274481, amount = 100}},
+      gated = true,
+      isUsable = true,
+      displayOrder = 11,
+    },
+    [258540] = {
+      price = 0,
+      currencies = {},
+      itemCosts = {{itemID = 274481, amount = 100}},
+      gated = true,
+      isUsable = true,
+      displayOrder = 12,
+    },
+    [262453] = {
+      price = 0,
+      currencies = {{id = 3363, amount = 30}},
+      purchaseQuantity = 1,
+      alternativeCosts = {{price = 5000000, purchaseQuantity = 1}},
+      costSet = {coverage = "complete", eligibility = "unknown", qualification = "display-only", build = "12.1.0.69299", observedAt = 1786759942},
+      isUsable = true,
+      displayOrder = 1,
+    },
+    [263876] = {
+      price = 0,
+      currencies = {},
+      itemCosts = {{itemID = 274481, amount = 100}},
+      gated = true,
+      isUsable = true,
+      displayOrder = 13,
+    },
+    [267205] = {
+      price = 0,
+      currencies = {},
+      itemCosts = {{itemID = 274481, amount = 100}},
+      gated = true,
+      isUsable = true,
+      displayOrder = 14,
+    },
+    [267355] = {
+      price = 0,
+      currencies = {},
+      itemCosts = {{itemID = 274481, amount = 100}},
+      gated = true,
+      isUsable = true,
+      displayOrder = 15,
+    },
+    [267435] = {
+      price = 0,
+      currencies = {},
+      itemCosts = {{itemID = 274481, amount = 100}},
+      gated = true,
+      isUsable = true,
+      displayOrder = 16,
+    },
+    [268943] = {
+      price = 0,
+      currencies = {},
+      itemCosts = {{itemID = 274481, amount = 100}},
+      gated = true,
+      isUsable = true,
+      displayOrder = 17,
+    },
+    [272129] = {
+      price = 0,
+      currencies = {},
+      itemCosts = {{itemID = 274481, amount = 100}},
+      gated = true,
+      isUsable = true,
+      displayOrder = 18,
+    },
+    [272142] = {
+      price = 0,
+      currencies = {},
+      itemCosts = {{itemID = 274481, amount = 100}},
+      gated = true,
+      isUsable = true,
+      displayOrder = 19,
+    },
+    [278696] = {
+      price = 0,
+      currencies = {},
+      itemCosts = {{itemID = 274481, amount = 100}},
+      gated = true,
+      isUsable = true,
+      displayOrder = 20,
+    },
+    [278701] = {
+      price = 0,
+      currencies = {},
+      itemCosts = {{itemID = 274481, amount = 100}},
+      gated = true,
+      isUsable = true,
+      displayOrder = 21,
+    },
+  },
   [249196] = {
     [245284] = {
       price = 0,
@@ -6166,9 +6337,11 @@ local GeneratedBase = {
     [262453] = {
       price = 0,
       currencies = {{id = 3363, amount = 30}},
+      purchaseQuantity = 1,
+      alternativeCosts = {{price = 5000000, purchaseQuantity = 1}},
+      costSet = {coverage = "complete", eligibility = "unknown", qualification = "display-only", build = "12.1.0.69299", observedAt = 1786759942},
       isUsable = true,
       displayOrder = 1,
-      costBuild = "12.0.7.68974",
     },
     [263876] = {
       price = 0,
@@ -17233,22 +17406,6 @@ local ManualOverrides = {
     [218202] = { -- Thripps (City of Threads, Lower City Armaments)
         [246866] = { price = 0, currencies = {{id = 3056, amount = 500}}, isUsable = true, isPurchasable = false, merchantSlot = 1, hasExtendedCost = true, displayOrder = 1, costBuild = "12.1.0.69299" }, -- Kaheti Scribe's Records (was c3056:1500)
     },
-    -- 2026-08-14: NO override for The Last Architect [253596] item 262453,
-    -- deliberately. A live 12.1.0.69299 scan shows that vendor listing the item in
-    -- TWO merchant slots, one per payment method -- slot 1 at 30 Community Coupons,
-    -- slot 2 at 500g, an EITHER/OR. An override carrying both costs on one row was
-    -- written here and reverted (2026-08-14): VendorData.FormatCost
-    -- joins cost components with " + " (Data/VendorData.lua, table.concat), so the
-    -- tooltip would have read "Vendor Price: 500g + 30 Community Coupons" and
-    -- overstated the cost to exactly the gold-holding player the fix was meant to
-    -- help. Incomplete beat false, so GeneratedBase's coupon-only row stands until
-    -- the schema can express alternative costs. Of the 82 both-cost
-    -- (npcID, itemID) pairs in this file, 81 are positively proven SINGLE-slot
-    -- combined costs by a scan row carrying price and currency together on one
-    -- line, where the " + " reading is correct; the other one has no scan
-    -- coverage on disk (88126:253527) and is unproven either way. Do not use it
-    -- as precedent for an either/or: 253596:262453 is the only item ever recorded in
-    -- two slots with different payment methods, across every scan on disk.
     -- 2026-08-22: 35 rows that shipped with no cost at all -- price = 0 and no
     -- currency -- on four vendors whose live scans have carried real gold prices since
     -- July. Each of these items is a bare item ID in the build seed, so offer generation
@@ -17443,7 +17600,7 @@ local ManualOverrides = {
     },
     -- Order Resources, Veiled Argunite, War Resources, Honor and Elemental Overflow
     -- costs corrected to the live 12.1.0 values (checked in game, 2026-10-08).
-    [93550] = { -- Quartermaster Ozorg (Broken Shore)
+    [93550] = { -- Quartermaster Ozorg (Acherus: The Ebon Hold)
         [250112] = { price = 0, currencies = {{id = 1220, amount = 350}}, displayOrder = 1, isUsable = true, costBuild = "12.1.0.69933" }, -- (was c1220:1500)
         [250113] = { price = 0, currencies = {{id = 1220, amount = 150}}, costBuild = "12.1.0.69933", displayOrder = 2, isUsable = true },
         [250114] = { price = 0, currencies = {{id = 1220, amount = 150}}, costBuild = "12.1.0.69933", displayOrder = 3, isUsable = true },

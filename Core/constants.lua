@@ -179,6 +179,20 @@ Constants.ZoneToFactionMap = {
     [2351] = "Horde",     -- Razorwind Shores
 }
 
+-- Each housing neighborhood hub mapped to the other one. Some hub vendors use a
+-- different NPC ID in each hub, and saved scans from older versions can hold one
+-- ID's record at the other hub's position.
+local OTHER_NEIGHBORHOOD_HUB = {
+    [2352] = 2351,
+    [2351] = 2352,
+}
+
+-- True when a vendor listed in one neighborhood hub has a saved scan placed in
+-- the other hub. That scan position is not used for the vendor.
+function Constants.IsScanInOtherNeighborhoodHub(vendorMapID, scannedMapID)
+    return vendorMapID ~= nil and OTHER_NEIGHBORHOOD_HUB[vendorMapID] == scannedMapID
+end
+
 -- Canonical zone-to-continent map consumed by VendorDatabase, BadgeCalculation,
 -- and scanner inference paths.
 Constants.ZoneToContinentMap = {
