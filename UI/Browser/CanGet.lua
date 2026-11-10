@@ -99,8 +99,7 @@ end
 -- marks a reachable offer's judgment, the only kind that can need account data.
 local NONE, KINDS = {}, { currencies = "cur", items = "item" }
 
-local function Pay(cost, out, judging)
-    if not cost then return "unknown" end
+local function PayBundle(cost, out, judging)
     local SM = HA.SourceManager
     local parts, short, unknown = 0, false, false
     local gold = cost.gold or 0
@@ -126,19 +125,48 @@ local function Pay(cost, out, judging)
     return (unknown or parts == 0) and "unknown" or "paid"
 end
 
+-- With alternatives: paid when any option is, short only when every option is, else unknown. The shared
+-- splitter says which options exist (an unresolved cost has none).
+local function Pay(cost, out, judging)
+    if not cost then return "unknown" end
+    if not (cost.alternatives and cost.alternatives[1]) then return PayBundle(cost, out, judging) end
+    local views = HA.VendorData:SplitCostOptions(cost)
+    if not views then return "unknown" end
+    local paid, short = false, true
+    for _, view in ipairs(views) do
+        local verdict = PayBundle(view)
+        paid = paid or verdict == "paid"
+        short = short and verdict == "short"
+    end
+    if paid then return "paid" end
+    if judging then
+        for _, view in ipairs(views) do PayBundle(view, nil, true) end
+    end
+    return short and "short" or "unknown"
+end
+
 function CG.IsShort(cost)
     return Pay(cost) == "short"
 end
 
-function CG.ShortWords(cost)
+-- A bundle's short parts as words and their count, the shared formatter's shape.
+local function ShortParts(bundle)
     local out = {}
-    Pay(cost, out)
+    if bundle then PayBundle(bundle, out) end
     local words = HA.VendorData:FormatCost(out)
+    local n = (out.gold and 1 or 0) + #(out.currencies or NONE) + #(out.items or NONE)
     for _, c in ipairs(out.currencies or NONE) do
         local hint = Hint(c.id)
-        if hint then return words .. " " .. hint end
+        if hint then return words .. " " .. hint, n end
     end
-    return words
+    return words, n
+end
+
+function CG.ShortWords(cost)
+    if cost and cost.alternatives and cost.alternatives[1] then
+        return HA.VendorData:FormatCost(cost, "legacy", ShortParts)
+    end
+    return (ShortParts(cost))
 end
 
 local VERDICT = { paid = "can", short = "short", unknown = "unpriced" }
@@ -186,11 +214,24 @@ local PRIORITY = { can = 1, short = 2, unpriced = 3, locked = 4, unlisted = 5, f
 local SOURCE_KEYS = { "vendors", "achievements", "quests", "professions", "drops", "events", "shop" }
 CG.SOURCE_KEYS = SOURCE_KEYS
 
-local function GoldOnly(cost)
-    return cost ~= nil and (cost.gold or 0) > 0 and not (cost.currencies and cost.currencies[1])
+local function GoldOnlyBundle(cost)
+    return (cost.gold or 0) > 0 and not (cost.currencies and cost.currencies[1])
         and not (cost.items and cost.items[1])
 end
-CG.GoldOnly = GoldOnly
+
+-- The smallest gold-only option, or nil. With payable, only options this character can pay count (a single option always counts).
+local function LowGold(cost, payable)
+    if not cost then return nil end
+    if not (cost.alternatives and cost.alternatives[1]) then
+        return GoldOnlyBundle(cost) and cost.gold or nil
+    end
+    local low
+    for _, v in ipairs(HA.VendorData:SplitCostOptions(cost) or NONE) do
+        if GoldOnlyBundle(v) and (not low or v.gold < low) and (not payable or PayBundle(v) == "paid") then low = v.gold end
+    end
+    return low
+end
+CG.LowGold = LowGold
 
 -- true when every source is an other-faction vendor. Kept per item; the router resets it on show, on
 -- SOURCE_CACHES_INVALIDATED and on a decor vendor scan.
@@ -219,10 +260,8 @@ local function Consider(e, SM, npcID, vendor, cost, best)
     if verdict == "can" then
         -- A source with no cost, and every event vendor, asks the resolver.
         cost = cost or SM:GetVendorItemCost(e.itemID, vendor)
-        local gold = GoldOnly(cost)
         e.reach, e.canBy = e.reach or {}, e.canBy or {}
-        e.reach[npcID] = { npcID = npcID, mapID = (Facts.Place(vendor)), event = event, cost = cost, gold = gold,
-            price = gold and cost.gold or nil }
+        e.reach[npcID] = { npcID = npcID, mapID = (Facts.Place(vendor)), event = event, cost = cost }
         return best
     elseif verdict == "locked" then
         e.locked = e.locked or {}
@@ -241,6 +280,10 @@ local function Settle(e)
         wipe(e.canBy)
         for npcID, o in pairs(e.reach) do
             o.pay = Pay(o.cost, nil, true)
+            -- Gold only: a gold option this wallet can pay; else, unless paid another way, the cheapest one.
+            local low = LowGold(o.cost, true)
+            if not low and o.pay ~= "paid" then low = LowGold(o.cost) end
+            o.price, o.gold = low, low ~= nil
             local v = VERDICT[o.pay]
             if v == "can" then e.canBy[npcID] = o end
             if not verdict or PRIORITY[v] < PRIORITY[verdict] then verdict = v end

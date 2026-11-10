@@ -337,7 +337,10 @@ end
 -- Alternative bundles join with a localized "or"; a bundle with several parts
 -- is parenthesized among alternatives. status defaults to cost.status, then
 -- legacy. An unresolved cost renders "Cost unverified" even when cost is nil.
-function VendorData:FormatCost(cost, status)
+-- formatBundle optionally replaces the per-bundle formatter: it takes a bundle
+-- and returns its text and part count, as FormatCostBundle does.
+function VendorData:FormatCost(cost, status, formatBundle)
+    formatBundle = formatBundle or FormatCostBundle
     status = status or (cost and cost.status) or COST_STATUS_LEGACY
     if status == COST_STATUS_UNRESOLVED then
         return Text("Cost unverified")
@@ -349,7 +352,7 @@ function VendorData:FormatCost(cost, status)
         local options = {}
         local renderable = true
         self:ForEachCostBundle(cost, function(bundle)
-            local bundleText, partCount = FormatCostBundle(bundle)
+            local bundleText, partCount = formatBundle(bundle)
             if not bundleText then
                 renderable = false
             elseif partCount > 1 then
@@ -364,7 +367,7 @@ function VendorData:FormatCost(cost, status)
         end
         text = table.concat(options, " " .. Text("or") .. " ")
     else
-        text = FormatCostBundle(cost)
+        text = formatBundle(cost)
     end
 
     if text and status == COST_STATUS_QUALIFIED then

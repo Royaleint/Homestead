@@ -85,7 +85,8 @@ end
 local function Gold(itemID)
     local low, seen = math.huge, {}
     local function Take(c)
-        if c and CG.GoldOnly(c) then low = math.min(low, c.gold) end
+        local gold = CG.LowGold(c)
+        if gold then low = math.min(low, gold) end
     end
     for _, s in ipairs(HA.SourceManager:GetAllSources(itemID) or {}) do
         if s.type == "vendor" and s.data then

@@ -238,24 +238,38 @@ local function AddPart(parts, part)
     parts[#parts + 1] = B.CanGet.IsShort(part) and S.Colored(S.color.stop, text) or text
 end
 
-function D.PriceOf(cost)
-    if not cost then return nil end
-    if not B.CanGet.IsShort(cost) then return HA.VendorData:FormatCost(cost) end
+-- One payment bundle as text and its part count, each part this character can't pay in red.
+local function ShortParts(cost)
     local parts = {}
     if (cost.gold or 0) > 0 then AddPart(parts, { gold = cost.gold }) end
     for _, c in ipairs(cost.currencies or NO_PARTS) do AddPart(parts, { currencies = { c } }) end
     for _, c in ipairs(cost.items or NO_PARTS) do AddPart(parts, { items = { c } }) end
-    return parts[1] and table.concat(parts, " + ")
+    return parts[1] and table.concat(parts, " + "), #parts
+end
+
+-- A cost as text, with the cost's status when the resolver gave one apart from it. A cost with several payment
+-- options lists them all as the tooltip does, each option's short parts in red.
+function D.PriceOf(cost, status)
+    if not cost then return status and HA.VendorData:FormatCost(nil, status) or nil end
+    if cost.alternatives and cost.alternatives[1] then
+        return HA.VendorData:FormatCost(cost, status, ShortParts)
+    end
+    if not B.CanGet.IsShort(cost) then return HA.VendorData:FormatCost(cost, status) end
+    return (ShortParts(cost))
 end
 
 function D.Price(itemID, vendor)
     if not vendor then return nil end
-    return D.PriceOf(HA.SourceManager:GetVendorItemCost(itemID, vendor))
+    local cost, _, status = HA.SourceManager:GetVendorItemCost(itemID, vendor)
+    return D.PriceOf(cost, status)
 end
 
--- A vendor source's cost: its own, else the resolver's. Read for a listed vendor's shown price and sort.
+-- A vendor source's cost and status: its own, else the resolver's. Read for a listed vendor's shown price and sort.
 function D.SourceCost(itemID, data)
-    return data.cost or data.vendor and (HA.SourceManager:GetVendorItemCost(itemID, data.vendor))
+    if data.cost then return data.cost, data.costStatus end
+    if not data.vendor then return nil end
+    local cost, _, status = HA.SourceManager:GetVendorItemCost(itemID, data.vendor)
+    return cost, status
 end
 
 -- A room plan's catalog entry is a room, found by the room index; its record ID is not a decor ID.
