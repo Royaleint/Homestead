@@ -357,8 +357,8 @@ local function Evaluate(itemID, SM, VD, memo, tables)
             best = Consider(e, SM, d.npcID, d.vendor, d.cost, best)
         end
     end
-    for _, npcID in ipairs(HA.VendorData:GetHolidayVendorsForItem(itemID) or {}) do
-        if not seen[npcID] then best = Consider(e, SM, npcID, HA.VendorData:GetVendorAnySeason(npcID), nil, best) end
+    for _, npcID in ipairs(D.UnlistedHolidayVendors(itemID, seen)) do
+        best = Consider(e, SM, npcID, HA.VendorData:GetVendorAnySeason(npcID), nil, best)
     end
     e.rest = best
     Settle(e)

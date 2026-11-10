@@ -184,7 +184,7 @@ local function Describe(itemID)
             blocks[#blocks + 1] = { src = src }
         end
     end
-    for _, npcID in ipairs(HA.VendorData:GetHolidayVendorsForItem(itemID) or {}) do addVendor(npcID) end
+    for _, npcID in ipairs(D.UnlistedHolidayVendors(itemID, seen)) do addVendor(npcID) end
     for i, b in ipairs(blocks) do b.rank = Rank(b, primary and primary.npcID) + i / 1000 end
     table.sort(blocks, function(a, c) return a.rank < c.rank end)
     m.vendors = vendors
@@ -216,20 +216,15 @@ local function Describe(itemID)
     if #reqs > 0 then
         facts[#facts + 1] = { text = L["Requires"], color = K.gold, role = "bodyGold" }
         for _, r in ipairs(reqs) do
-            if r.met == true then
-                facts[#facts + 1] = { text = L["%s (done)"]:format(r.text), glyph = "check", color = K.body }
-            elseif r.met == false then
-                facts[#facts + 1] = { text = L["%s (not yet)"]:format(r.text), glyph = "lock", color = K.body }
-            else
-                facts[#facts + 1] = { text = r.text, glyph = "lock", color = K.body }
-                facts[#facts + 1] = { text = L["Can't check this requirement yet"], color = K.body }
-            end
+            facts[#facts + 1] = { text = D.RequirementWords(r), glyph = r.met == true and "check" or "lock", color = K.body }
+            if r.met == nil then facts[#facts + 1] = { text = L["Can't check this requirement yet"], color = K.body } end
         end
     end
-    if info and select(3, HA.CatalogScanner:GetReadState()) then
-        local n, counts = { info.totalNumPlaced, info.totalNumStored, info.remainingRedeemable }, {}
-        for i, label in ipairs({ L["Placed"], L["In storage"], L["Not yet redeemed"] }) do
-            if (n[i] or 0) > 0 then counts[#counts + 1] = S.Colored(K.gold, label) .. " " .. n[i] end
+    local have = D.Counts(info)
+    if have then
+        local counts = {}
+        for _, row in ipairs({ { L["Placed"], have.placed }, { L["In storage"], have.stored }, { L["Not yet redeemed"], have.redeemable } }) do
+            if row[2] > 0 then counts[#counts + 1] = S.Colored(K.gold, row[1]) .. " " .. row[2] end
         end
         if counts[1] then facts[#facts + 1] = { text = Joined(counts), color = K.body } end
     end

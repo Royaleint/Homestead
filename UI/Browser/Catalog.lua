@@ -92,8 +92,8 @@ local function Gold(itemID)
             Take(D.SourceCost(itemID, s.data))
         end
     end
-    for _, npcID in ipairs(HA.VendorData:GetHolidayVendorsForItem(itemID) or {}) do
-        if not seen[npcID] then Take(HA.SourceManager:GetVendorItemCost(itemID, HA.VendorData:GetVendorAnySeason(npcID))) end
+    for _, npcID in ipairs(D.UnlistedHolidayVendors(itemID, seen)) do
+        Take(HA.SourceManager:GetVendorItemCost(itemID, HA.VendorData:GetVendorAnySeason(npcID)))
     end
     return low
 end

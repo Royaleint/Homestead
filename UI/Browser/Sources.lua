@@ -955,7 +955,7 @@ function Draw(fresh, saved)
     Line(V.cur, "body", cur[1] and L["%s: %s"]:format(S.Colored(K.gold, L["Currency"]), W.Join(cur, L["%s, %s"])), w)
     local parts, unknown = {}, false
     for _, r in ipairs(D.VendorRequirements(v)) do
-        parts[#parts + 1] = r.met == true and L["%s (done)"]:format(r.text) or r.met == false and L["%s (not yet)"]:format(r.text) or r.text
+        parts[#parts + 1] = D.RequirementWords(r)
         unknown = unknown or r.met == nil
     end
     Line(V.req, "body", parts[1] and L["%s: %s"]:format(S.Colored(K.gold, L["Requires"]), W.Join(parts, L["%s; %s"]))

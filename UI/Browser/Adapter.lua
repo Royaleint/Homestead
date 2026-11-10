@@ -120,6 +120,18 @@ function D.HolidayActive(vendor)
     if event then return D.EventActive(event) end
 end
 
+-- The holiday vendors that sell the item and are not in `taken` (a set of npcIDs the caller has already handled), in the shared order.
+local NO_VENDORS = {}
+function D.UnlistedHolidayVendors(itemID, taken)
+    local all = HA.VendorData:GetHolidayVendorsForItem(itemID)
+    if not all then return NO_VENDORS end
+    local out = {}
+    for i = 1, #all do
+        if not taken[all[i]] then out[#out + 1] = all[i] end
+    end
+    return out
+end
+
 -- True when this character can use the vendor at none of its positions.
 function D.IsOppositeFaction(vendor)
     return not HA.VendorFilter.CanUseVendor(vendor)
@@ -336,6 +348,13 @@ function D.VendorCurrencies(vendor)
     return out, pending
 end
 
+-- A requirement's text with its state in words; a requirement that cannot be checked is its bare text.
+function D.RequirementWords(r)
+    if r.met == true then return L["%s (done)"]:format(r.text) end
+    if r.met == false then return L["%s (not yet)"]:format(r.text) end
+    return r.text
+end
+
 function D.VendorRequirements(vendor)
     local m = Memo(vendor.npcID)
     if m.reqs then return m.reqs end
@@ -436,18 +455,16 @@ function D.IconData(itemID, wantCopies, catalogMemo)
     return quality or C_Item.GetItemQualityByID(itemID), copies
 end
 
+-- The placed, stored and not-yet-redeemed counts of a catalog entry; nil until this session's counts and the entry are known.
+function D.Counts(info)
+    if not (info and select(3, HA.CatalogScanner:GetReadState())) then return nil end
+    return { placed = info.totalNumPlaced or 0, stored = info.totalNumStored or 0, redeemable = info.remainingRedeemable or 0 }
+end
+
 -- What the item tooltip adds to the shared tooltip: the event a vendor's stock is active in, and the counts, which are
 -- nil until this session's counts and the catalog entry are known; before storage loads they read 0 for owned items.
 function D.TooltipData(itemID, npcID, catalogMemo)
-    local info = D.CatalogInfo(itemID, catalogMemo)
-    local out = {}
-    if info and select(3, HA.CatalogScanner:GetReadState()) then
-        out.counts = {
-            placed = info.totalNumPlaced or 0,
-            stored = info.totalNumStored or 0,
-            redeemable = info.remainingRedeemable or 0,
-        }
-    end
+    local out = { counts = D.Counts(D.CatalogInfo(itemID, catalogMemo)) }
     local p = npcID and { type = "vendor", npcID = npcID } or B.CanGet.Primary(itemID)
     local v = p and p.type == "vendor" and p.npcID and D.Vendor(p.npcID)
     out.active = v and D.HolidayActive(v) and v.event or nil
