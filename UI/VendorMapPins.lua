@@ -454,10 +454,6 @@ function VendorMapPins:IsCustomPinColor()
     return HA.PinFrameFactory:IsCustomPinColor()
 end
 
-function VendorMapPins:GetPinColorPreviewHex()
-    return HA.PinFrameFactory:GetPinColorPreviewHex()
-end
-
 function VendorMapPins:RefreshAllPinColors()
     worldMapDirty = true
     lastRenderedWorldMapID = nil
