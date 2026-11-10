@@ -622,6 +622,21 @@ end
 -- Sources outside the named types read "<label>: <name>".
 local OTHER_LABEL_KEYS = { treasure = "Treasure" }
 
+-- A recipe's skill tier with the skill level it needs: "Battle for Azeroth Leatherworking (140)".
+function HA.ProfessionTierText(data)
+    local tier = data.skillTier or data.profession or Text("Unknown")
+    if data.skillLevel then tier = Text("%s (%s)"):format(tier, data.skillLevel) end
+    return tier
+end
+
+-- Whether a source's quest or achievement is done, or its recipe known, as coloured words; nil for any other
+-- source, or when the game cannot say.
+local COMPLETION_TYPES = { achievement = true, quest = true, profession = true }
+function HA.CompletionText(itemID, source)
+    local c = COMPLETION_TYPES[source.type] and HA.SourceManager:GetCompletionStatus(itemID, source.type, source.data)
+    return c and c.color .. c.text .. "|r"
+end
+
 -- source is a SourceManager source, { type = ..., data = ... }. decorateName,
 -- optional, takes the main name of the line and returns it coloured.
 function HA.FormatSourceLine(source, decorateName)
@@ -640,9 +655,8 @@ function HA.FormatSourceLine(source, decorateName)
     elseif t == "achievement" then
         return Text("Achievement: %s"):format(Name(decorateName, data.achievementName or Text("Unknown")))
     elseif t == "profession" then
-        local tier = data.skillTier or data.profession or Text("Unknown")
-        if data.skillLevel then tier = Text("%s (%s)"):format(tier, data.skillLevel) end
-        return Text("Crafted: %s - %s"):format(Name(decorateName, tier), data.recipeName or data.name or Text("Unknown"))
+        return Text("Crafted: %s - %s"):format(Name(decorateName, HA.ProfessionTierText(data)),
+            data.recipeName or data.name or Text("Unknown"))
     elseif t == "drop" then
         local mob = Name(decorateName, data.mobName or data.name or Text("Unknown"))
         if data.zone then return Text("Drops from %s (%s)"):format(mob, data.zone) end
@@ -749,10 +763,7 @@ local function RenderProfessionSourceLines(tooltip, source, parsedTag, _itemID, 
         return
     end
 
-    local professionDisplay = source.data.skillTier or source.data.profession or Text("Unknown")
-    if source.data.skillLevel then
-        professionDisplay = Text("%s (%s)"):format(professionDisplay, source.data.skillLevel)
-    end
+    local professionDisplay = HA.ProfessionTierText(source.data)
 
     local recipeName = source.data.recipeName or Text("Unknown Recipe")
     local recipeColor = completion and completion.color or "|cFF808080"

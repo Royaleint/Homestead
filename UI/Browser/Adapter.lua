@@ -55,16 +55,6 @@ function D.IsListedVendor(vendor)
     return B.Facts.BrowserListed(vendor)
 end
 
--- Expansion name to its LE_EXPANSION_ token, from the shared newest-first order, built on first use.
-local TOKEN
-local function Tokens()
-    if not TOKEN then
-        TOKEN = {}
-        for _, e in ipairs(HA.Constants.EXPANSION_ORDER) do TOKEN[e[1]] = e[2] end
-    end
-    return TOKEN
-end
-
 -- Vendor tables only, one per vendor key, rebuilt after each InvalidateMemos.
 function D.ListedVendors()
     if listed then return listed end
@@ -81,7 +71,7 @@ function D.ListedVendors()
 end
 
 function D.VendorHome(vendor)
-    return Tokens()[vendor.expansion] and vendor.expansion or "other"
+    return HA.VendorData:GetVendorGroup(vendor)
 end
 
 function D.Expansions()
@@ -90,10 +80,9 @@ function D.Expansions()
     local has = {}
     for _, v in ipairs(vendors) do has[D.VendorHome(v)] = true end
     homes = {}
-    for _, e in ipairs(HA.Constants.EXPANSION_ORDER) do
-        if has[e[1]] then homes[#homes + 1] = e[1] end
+    for _, e in ipairs(HA.VendorData:GetVendorGroups()) do
+        if has[e] then homes[#homes + 1] = e end
     end
-    if has.other then homes[#homes + 1] = "other" end
     return homes
 end
 
@@ -105,9 +94,7 @@ function D.ExpansionRank(key)
 end
 
 function D.ExpansionLabel(key)
-    if key == "other" then return L["Other Vendors"] end
-    local token = Tokens()[key]
-    return token and _G["EXPANSION_NAME" .. tostring(_G["LE_EXPANSION_" .. token])] or key
+    return HA.VendorData:GetVendorGroupLabel(key)
 end
 
 function D.EventActive(event)
@@ -392,8 +379,6 @@ function D.ItemSources(itemID)
             e.name = d.questName
         elseif src.type == "profession" then
             e.name = d.recipeName
-            e.profession = d.profession
-            e.skillTier = d.skillTier
         elseif src.type == "drop" then
             e.name = d.mobName
             e.zone = d.zone

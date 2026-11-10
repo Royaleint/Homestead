@@ -129,7 +129,8 @@ local function OtherRow(itemID, src, flagged)
         end
     elseif t == "profession" then
         row.one = Labeled(L["Recipe:"], name)
-        if src.profession then Status(row, src.profession) end
+        local d = src.source.data
+        if d.skillTier or d.profession then Status(row, HA.ProfessionTierText(d)) end
     elseif t == "drop" then
         row.one = Labeled(L["Drop:"], name)
         if src.zone then Status(row, src.zone) end
@@ -144,6 +145,8 @@ local function OtherRow(itemID, src, flagged)
     else
         row.one = HA.FormatSourceLine(src.source)
     end
+    local done = HA.CompletionText(itemID, src.source)
+    if done then Status(row, done) end
     local sourceType = F.SOURCE_TYPE[t]
     local file = HA.SourceManager:GetSourceTable(sourceType)
     local key = sourceType and t ~= "shop" and F.SourceKey(sourceType, file and file[itemID], itemID)

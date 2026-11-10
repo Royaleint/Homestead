@@ -96,7 +96,7 @@ function F.SourceKey(sourceType, data, itemID)
     elseif sourceType == "professions" then
         return data.spellID
     elseif sourceType == "drops" then
-        return (data.mobName and data.zone) and (data.mobName .. "|" .. data.zone) or nil
+        return HA.SourceManager:GetDropGroupKey(data)
     elseif sourceType == "events" then
         return data.event
     elseif sourceType == "shop" then

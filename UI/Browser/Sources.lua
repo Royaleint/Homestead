@@ -27,7 +27,7 @@ local KIND = {
     professions = { L["Profession"], function(d)
         return { title = d.recipeName, sub = d.skillTier or d.profession, group = d.profession, tier = d.skillTier }
     end },
-    drops = { L["Drop"], function(d) return { title = d.mobName, sub = d.zone, drop = d } end },
+    drops = { L["Drop"], function(d) return { sub = d.zone, drop = d } end },
     events = { L["Event"], function(d) return { title = d.event, sub = L["Holiday event"], namesKind = true } end },
     shop = { L["Shop"], function() return { sub = L["Shop"] } end },
 }
@@ -114,8 +114,10 @@ local function DecorName(id)
     return D.ItemName(id, e and e.info or D.CatalogInfo(id, B.State.catalogMemo)) or L["Item %d"]:format(id)
 end
 
-local function ShopTitle(s)
-    s.title = DecorName(s.items[1])
+-- Titles that can arrive after the list was built: a shop item's name, a drop group's journal name.
+local function Retitle(s)
+    if s.type == "shop" then s.title = DecorName(s.items[1])
+    elseif s.drop then s.title = HA.SourceManager:GetDropGroupName(s.drop) end
 end
 
 -- What starts a quest, in words: an item is used, an object is named, and a creature is named in the player's
@@ -372,7 +374,7 @@ local function BuildList(keep, zone)
     local out, live, grid = {}, false, t == "shop"
     local hidden, seen = { kind = "foot", hidden = 0, collected = 0, faction = 0, onShow = ShowHidden }, {}
     for _, s in ipairs(entries) do
-        if t == "shop" then ShopTitle(s) end
+        Retitle(s)
         live = live or (t == "events" and Live(s.key))
         local v = s.vendor
         if t == "quests" then
@@ -1041,7 +1043,7 @@ end
 local function Source(sourceType, key)
     local bucket = Statics()[sourceType]
     local s = bucket and bucket.by[key]
-    if s and sourceType == "shop" then ShopTitle(s) end
+    if s then Retitle(s) end
     return s
 end
 

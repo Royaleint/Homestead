@@ -147,14 +147,6 @@ local ORDER_HALL_MAPS = {
     [734] = true,  -- Hall of the Guardian (Mage)
 }
 
-local function GetVendorDisplayName(vendor)
-    local name = HA.VendorData:GetVendorName(vendor) or "Unknown"
-    if vendor.mapID and ORDER_HALL_MAPS[vendor.mapID] then
-        name = name .. " |cff888888(" .. (L["Order Hall"] or "Order Hall") .. ")|r"
-    end
-    return name
-end
-
 -- Map shift state (declared early so preview hooks can reference them)
 State.mapShifted = false
 State.savedMapPoint = nil  -- {point, relativeTo, relativePoint, xOfs, yOfs}
@@ -765,13 +757,15 @@ local function GetInstanceDropGroups(encounters)
         return {}
     end
 
-    local recordsByEncounter = {}
+    -- The shared drop groups: a drop of an encounter is keyed by its encounter ID, the only groups listed here.
+    local recordsByGroup = {}
     for itemID, drop in pairs(drops) do
-        if drop.journalEncounterID then
-            local list = recordsByEncounter[drop.journalEncounterID]
+        local key = HA.SourceManager:GetDropGroupKey(drop)
+        if type(key) == "number" then
+            local list = recordsByGroup[key]
             if not list then
                 list = {}
-                recordsByEncounter[drop.journalEncounterID] = list
+                recordsByGroup[key] = list
             end
             list[#list + 1] = { itemID = itemID, drop = drop }
         end
@@ -779,7 +773,7 @@ local function GetInstanceDropGroups(encounters)
 
     local groups = {}
     for _, enc in ipairs(encounters) do
-        local records = enc.encounterID and recordsByEncounter[enc.encounterID]
+        local records = enc.encounterID and recordsByGroup[enc.encounterID]
         if records then
             table.sort(records, function(a, b) return a.itemID < b.itemID end)
             groups[#groups + 1] = {
@@ -1108,6 +1102,12 @@ local function HideItemSourceList(row)
     end
 end
 
+-- A source line with, for a quest, an achievement or a recipe, whether it is done.
+local function SourceLineText(itemID, source)
+    local line, done = HA.FormatSourceLine(source), HA.CompletionText(itemID, source)
+    return done and L["%s (%s)"]:format(line, done) or line
+end
+
 local function PopulateItemSourceList(row, itemID, sourceFilter)
     if not row then return 0 end
 
@@ -1154,7 +1154,7 @@ local function PopulateItemSourceList(row, itemID, sourceFilter)
             line:SetPoint("TOPLEFT", sourcesFrame, "TOPLEFT", 0, -((i - 1) * Layout.ITEM_RESULT_LINE_HEIGHT))
             line:SetPoint("TOPRIGHT", sourcesFrame, "TOPRIGHT", 0, -((i - 1) * Layout.ITEM_RESULT_LINE_HEIGHT))
             ApplySourceBadge(line.badge, source.type)
-            line.text:SetText(HA.FormatSourceLine(source))
+            line.text:SetText(SourceLineText(itemID, source))
             line.text:SetTextColor(0.8, 0.8, 0.8)
             line:Show()
         end
@@ -1322,7 +1322,7 @@ local function RenderItemRow(row, rec)
         ApplySourceBadge(row.sourceBadge, preferredSource.type,
             presentation and presentation.sourceBadgeAtlas,
             presentation and presentation.sourceIcon)
-        row.sourceText:SetText(HA.FormatSourceLine(preferredSource))
+        row.sourceText:SetText(SourceLineText(itemID, preferredSource))
         row.sourceText:SetTextColor(0.8, 0.8, 0.8)
     else
         row.sourceBadge:Hide()
@@ -1382,10 +1382,10 @@ end
 -- Row Creation
 -------------------------------------------------------------------------------
 
--- Endeavor vendors are not tied to one expansion, so the tooltip names the activity.
+-- The group the vendor lists under, as the Decor Browser's vendor list names it.
 local function VendorExpansionText(vendor)
-    if vendor.endeavor then return L["Endeavor"] end
-    return vendor.expansion
+    local VD = HA.VendorData
+    return VD:GetVendorGroupLabel(VD:GetVendorGroup(vendor))
 end
 
 local function CreateVendorRow(parent)
@@ -1767,7 +1767,7 @@ local function RenderVendorRow(row, rec)
     row.searchMode = rec.searchMode
     row.searchMatchedItems = rec.matchedItems
 
-    row.nameText:SetText(GetVendorDisplayName(vendor))
+    row.nameText:SetText(HA.VendorData:GetVendorName(vendor) or "Unknown")
     row.nameText:SetTextColor(rec.nameColor[1], rec.nameColor[2], rec.nameColor[3])
 
     -- Set icon color
@@ -1963,7 +1963,7 @@ local function BuildZoneExpansionRows(zoneMapID, rows)
             tooltipText = HA.VendorData:GetVendorName(vendor) or "Unknown",
             tooltipSub = tooltipSub,
             isOrderHall = vendor.mapID and ORDER_HALL_MAPS[vendor.mapID] or false,
-            name = GetVendorDisplayName(vendor),
+            name = HA.VendorData:GetVendorName(vendor) or "Unknown",
             countText = countText,
             countColor = countColor,
         }
@@ -3292,7 +3292,7 @@ function MapSidePanel:RefreshInstanceDropSources(mapID, mapInfo, encounters)
             kind = "boss",
             height = Layout.ROW_HEIGHT + (isExpanded and ComputeItemGridHeight(#group.records) or 0),
             dropGroup = group,
-            name = (group.records[1].drop and group.records[1].drop.mobName) or "Unknown",
+            name = HA.SourceManager:GetDropGroupName(group.records[1].drop),
             collected = collected,
             total = total,
             locked = locked,

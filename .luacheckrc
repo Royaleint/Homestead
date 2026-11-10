@@ -97,6 +97,7 @@ read_globals = {
     "C_DateAndTime",
     "C_DateInfo",
     "C_EncounterJournal",  -- EJ-anchored drop pins
+    "EJ_GetEncounterInfo",  -- drop group names
     "C_GossipInfo",
     "C_Housing",
     "C_AreaPoiInfo",

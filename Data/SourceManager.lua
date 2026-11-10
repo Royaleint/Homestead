@@ -2204,9 +2204,17 @@ local function CopyCompletionStatus(status)
     if not status then return nil end
     return {
         color = status.color,
+        text = status.text,
         suffix = status.suffix,
         met = status.met,
+        account = status.account,
     }
+end
+
+-- A completion status: its colour, its words in the client's language, the same words as a " (words)" suffix, and
+-- met. account marks an achievement earned on another character only.
+local function Completion(color, words, met, account)
+    return { color = color, text = words, suffix = " (" .. words .. ")", met = met, account = account }
 end
 
 local function ResolveCompletionSource(itemID, sourceType, sourceData)
@@ -2245,7 +2253,7 @@ end
 
 -- Returns completion state for source types that can be checked at runtime.
 -- Response shape:
---   { color = "|cFF......", suffix = " (...)", met = true|false|nil } or nil.
+--   { color = "|cFF......", text = words, suffix = " (words)", met = true|false|nil, account = true|nil } or nil.
 function SourceManager:GetCompletionStatus(itemID, sourceType, sourceData)
     local resolvedType, resolvedData = ResolveCompletionSource(itemID, sourceType, sourceData)
     if not resolvedType then return nil end
@@ -2267,15 +2275,14 @@ function SourceManager:GetCompletionStatus(itemID, sourceType, sourceData)
 
         local result
         if wasEarnedByMe then
-            result = { color = "|cFF00FF00", suffix = " (This Character)", met = true }
+            result = Completion("|cFF00FF00", Text("This Character"), true)
         elseif completed then
-            -- " (Account)" is load-bearing, not just display text --
-            -- the ACHIEVEMENT_EARNED handler's completionCache staleness
-            -- check compares against this exact string to detect an
-            -- Account -> This Character promotion. Reword both together.
-            result = { color = "|cFF66FF66", suffix = " (Account)", met = true }
+            -- account is load-bearing: the ACHIEVEMENT_EARNED handler's
+            -- completionCache staleness check reads it to detect an
+            -- Account -> This Character promotion.
+            result = Completion("|cFF66FF66", Text("Account"), true, true)
         else
-            result = { color = "|cFFFF0000", suffix = " (Incomplete)", met = false }
+            result = Completion("|cFFFF0000", Text("Incomplete"), false)
         end
 
         completionCache[cacheKey] = result
@@ -2293,8 +2300,8 @@ function SourceManager:GetCompletionStatus(itemID, sourceType, sourceData)
 
         local completed = C_QuestLog.IsQuestFlaggedCompleted(questID)
         local result = completed
-            and { color = "|cFF00FF00", suffix = " (Completed)", met = true }
-            or { color = "|cFFFF0000", suffix = " (Incomplete)", met = false }
+            and Completion("|cFF00FF00", Text("Completed"), true)
+            or Completion("|cFFFF0000", Text("Incomplete"), false)
 
         completionCache[cacheKey] = result
         return CopyCompletionStatus(result)
@@ -2304,13 +2311,14 @@ function SourceManager:GetCompletionStatus(itemID, sourceType, sourceData)
         -- Check if the player has this profession before querying recipe status.
         local hasProf = self:PlayerHasProfession(resolvedData)
         if hasProf == false then
-            return { color = "|cFFFF0000", suffix = " (Not Your Profession)", met = false }
+            return Completion("|cFFFF0000", Text("Not Your Profession"), false)
         end
 
-        -- Check expansion-tier skill level (e.g., Midnight Leatherworking 50)
-        local meetsLevel = self:PlayerMeetsSkillLevel(resolvedData)
-        if meetsLevel == false then
-            return { color = "|cFFFF0000", suffix = " (Skill Too Low)", met = false }
+        -- Check expansion-tier skill level (e.g., Midnight Leatherworking 50).
+        -- Before the profession window has opened this session the client
+        -- reads every skill as 0, so no skill verdict is given until then.
+        if professionDataLoaded and self:PlayerMeetsSkillLevel(resolvedData) == false then
+            return Completion("|cFFFF0000", Text("Skill Too Low"), false)
         end
 
         -- A profession block was recognized but we can't resolve recipe state
@@ -2319,18 +2327,18 @@ function SourceManager:GetCompletionStatus(itemID, sourceType, sourceData)
         -- renders a consistent suffix — never a bare line with no status.
         local spellID = resolvedData and resolvedData.spellID
         if not spellID then
-            return { color = "|cFF808080", suffix = " (Unknown)", met = nil }
+            return Completion("|cFF808080", Text("Unknown"), nil)
         end
 
         local tradeSkillUI = _G and _G.C_TradeSkillUI
         if not tradeSkillUI or not tradeSkillUI.GetRecipeInfo then
             -- API unavailable until profession systems are ready/opened.
-            return { color = "|cFF808080", suffix = " (Unknown)", met = nil }
+            return Completion("|cFF808080", Text("Unknown"), nil)
         end
 
         local recipeInfo = tradeSkillUI.GetRecipeInfo(spellID)
         if not recipeInfo then
-            return { color = "|cFF808080", suffix = " (Unknown)", met = nil }
+            return Completion("|cFF808080", Text("Unknown"), nil)
         end
 
         -- Report only what we KNOW: whether the recipe is learned. NOT "Can Craft
@@ -2339,9 +2347,9 @@ function SourceManager:GetCompletionStatus(itemID, sourceType, sourceData)
         -- reagents. A learned recipe reads "(Recipe Known)" regardless of craftable.
         local result
         if recipeInfo.learned then
-            result = { color = "|cFF00FF00", suffix = " (Recipe Known)", met = true }
+            result = Completion("|cFF00FF00", Text("Recipe Known"), true)
         else
-            result = { color = "|cFFFF0000", suffix = " (Recipe Unknown)", met = false }
+            result = Completion("|cFFFF0000", Text("Recipe Unknown"), false)
         end
 
         return CopyCompletionStatus(result)
@@ -2896,12 +2904,11 @@ local function HookCompletionCacheInvalidation()
             --    directly, never a name) via a direct GetAchievementInfo
             --    call that never touches IsRequirementMet, so that entry has
             --    no requirementEvalBaseline counterpart. Stale means either
-            --    met == false (was incomplete), or the cached suffix is
-            --    " (Account)" (earned by another character) -- earning it on
-            --    THIS character always promotes that to " (This Character)",
-            --    a label change the met boolean alone can't distinguish. The suffix is the addon's
-            --    own generated string, never a Blizzard one -- no locale
-            --    concern in that comparison.
+            --    met == false (was incomplete), or the cached status is
+            --    account (earned by another character) -- earning it on
+            --    THIS character always promotes that to "This Character",
+            --    a label change the met boolean alone can't distinguish. The
+            --    flag is compared, never the translated words.
             --
             -- 2. requirementEvalBaseline entries: the availability path
             --    (line ~398) baselines with req.id populated; Data/
@@ -2940,7 +2947,7 @@ local function HookCompletionCacheInvalidation()
 
             local idKey = "achievement:" .. achievementID
             local cachedCompletion = completionCache[idKey]
-            if cachedCompletion and (cachedCompletion.met == false or cachedCompletion.suffix == " (Account)") then
+            if cachedCompletion and (cachedCompletion.met == false or cachedCompletion.account) then
                 if HA.Addon then
                     HA.Addon:Debug("SourceManager: ACHIEVEMENT_EARNED invalidating (achievement "
                         .. achievementID .. " completion cache was stale)")
@@ -3204,6 +3211,40 @@ local SOURCE_TABLES = {
 function SourceManager:GetSourceTable(kind)
     local name = SOURCE_TABLES[kind]
     return name and HA[name] or nil
+end
+
+-- Drops group by boss encounter: every drop of one Encounter Journal encounter is one source, whichever mob its row
+-- names. A drop with no encounter groups by its mob and zone. nil when the row names neither.
+function SourceManager:GetDropGroupKey(drop)
+    local _ = self
+    if drop.journalEncounterID then return drop.journalEncounterID end
+    return (drop.mobName and drop.zone) and (drop.mobName .. "|" .. drop.zone) or nil
+end
+
+-- A drop group's name: the encounter's name from the client's Encounter Journal, in the client's language and kept
+-- for the session. The read needs no journal selection and no journal window. Until the client gives a name, the
+-- shipped mob name of the encounter's lowest item ID; "Unknown" when there is none.
+local encounterNames, encounterMobs = {}, nil
+function SourceManager:GetDropGroupName(drop)
+    local _ = self
+    local id = drop.journalEncounterID
+    if not id then return drop.mobName or Text("Unknown") end
+    local name = encounterNames[id]
+    if not name and EJ_GetEncounterInfo then
+        name = EJ_GetEncounterInfo(id)
+        if (issecretvalue and issecretvalue(name)) or name == "" then name = nil end
+        encounterNames[id] = name
+    end
+    if name then return name end
+    if not encounterMobs then
+        encounterMobs = {}
+        local low = {}
+        for itemID, d in pairs(HA.DropSources or {}) do
+            local e = type(d) == "table" and type(itemID) == "number" and d.journalEncounterID
+            if e and d.mobName and not (low[e] and low[e] < itemID) then low[e], encounterMobs[e] = itemID, d.mobName end
+        end
+    end
+    return encounterMobs[id] or drop.mobName or Text("Unknown")
 end
 
 -- Where a decor quest starts, as { mapID, x, y }; nil when its start spot is not recorded. A zone is never a start.

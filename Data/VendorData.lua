@@ -2243,9 +2243,9 @@ function VendorData:GetVendorCurrencies(vendor, itemIDs)
             out[#out + 1] = (icon and "|T" .. icon .. ":0|t " or "") .. name
         end
     end
-    for _, id in ipairs(itemIDs) do
-        local cost = HA.SourceManager:GetVendorItemCost(id, vendor) or {}
-        if (cost.gold or 0) > 0 then add(nil, HA.L and HA.L["Gold"] or "Gold") end
+    -- Every price option counts, so a ware also sold for gold puts Gold in the list.
+    local function visit(cost)
+        if (cost.gold or 0) > 0 then add(nil, Text("Gold")) end
         for _, c in ipairs(cost.currencies or {}) do
             local info = c.id and C_CurrencyInfo.GetCurrencyInfo(c.id) or c
             add(info.iconFileID, info.name or c.name)
@@ -2258,7 +2258,47 @@ function VendorData:GetVendorCurrencies(vendor, itemIDs)
             elseif it.id and waiting then pending = true end
         end
     end
+    for _, id in ipairs(itemIDs) do
+        self:ForEachCostBundle(HA.SourceManager:GetVendorItemCost(id, vendor), visit)
+    end
     return out, pending
+end
+
+-- The group a vendor belongs to: "Endeavor", an expansion from Constants.EXPANSION_ORDER, "Events", or "other".
+-- A holiday vendor's group is Events in any season; whether it is listed at all is decided elsewhere.
+-- GetVendorGroups gives the groups in list order and GetVendorGroupLabel names one in the client's language.
+local groupTokens
+local function GroupTokens()
+    if not groupTokens then
+        groupTokens = { Endeavor = false, Events = false }
+        for _, e in ipairs(HA.Constants.EXPANSION_ORDER) do groupTokens[e[1]] = e[2] end
+    end
+    return groupTokens
+end
+
+function VendorData:GetVendorGroup(vendor)
+    if vendor.endeavor then return "Endeavor" end
+    if vendor.npcID and self:GetHolidayEvent(vendor.npcID) then return "Events" end
+    return GroupTokens()[vendor.expansion] ~= nil and vendor.expansion or "other"
+end
+
+-- Endeavor first, then the expansions newest first, then Events and the rest.
+function VendorData:GetVendorGroups()
+    local _ = self
+    local out = { "Endeavor" }
+    for _, e in ipairs(HA.Constants.EXPANSION_ORDER) do out[#out + 1] = e[1] end
+    out[#out + 1] = "Events"
+    out[#out + 1] = "other"
+    return out
+end
+
+function VendorData:GetVendorGroupLabel(key)
+    local _ = self
+    if key == "other" then return Text("Other Vendors") end
+    if key == "Endeavor" then return Text("Endeavor") end
+    if key == "Events" then return Text("Events") end
+    local token = GroupTokens()[key]
+    return token and _G["EXPANSION_NAME" .. tostring(_G["LE_EXPANSION_" .. token])] or key
 end
 
 -- A creature's name in the player's language, read from the game's tooltip data for its ID. Placeholder text,

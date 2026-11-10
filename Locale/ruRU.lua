@@ -101,7 +101,6 @@ L["Vendors"] = "Торговцы" -- human-translated
 L["Zone Collection Progress"] = "Прогресс коллекции зоны" -- human-translated
 L["Continent Collection Progress"] = "Прогресс коллекции континента" -- human-translated
 L["Global Collection Progress"] = "Общий прогресс коллекции" -- human-translated
-L["Order Hall"] = "Оплот класса" -- human-translated
 L["Click to preview"] = "Нажмите для предпросмотра" -- human-translated
 
 -------------------------------------------------------------------------------
@@ -274,6 +273,14 @@ L["Unknown"] = "Неизвестно"
 L["A vendor"] = "Торговец"
 L["Required"] = "Требуется"
 L["Unknown faction"] = "Неизвестная фракция"
+L["This Character"] = "This Character"
+L["Account"] = "Account"
+L["Completed"] = "Completed"
+L["Incomplete"] = "Incomplete"
+L["Not Your Profession"] = "Not Your Profession"
+L["Skill Too Low"] = "Skill Too Low"
+L["Recipe Known"] = "Recipe Known"
+L["Recipe Unknown"] = "Recipe Unknown"
 L["Other requirement"] = "Другое требование"
 L["Source unknown"] = "Источник неизвестен"
 L["Item %d"] = "Предмет %d"
