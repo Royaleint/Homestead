@@ -46,8 +46,7 @@ function F.Here()
     local zone = MPP.ZoneOf(C_Map.GetBestMapForUnit("player"))
     if not zone then return nil end
     if here and here.zone == zone then return here end
-    local info = C_Map.GetMapInfo(zone)
-    here = { zone = zone, name = info and info.name, continent = MPP.ContinentOf(zone), maps = { [zone] = true } }
+    here = { zone = zone, name = HA.VendorFilter.GetMapName(zone), continent = MPP.ContinentOf(zone), maps = { [zone] = true } }
     for _, kid in ipairs(C_Map.GetMapChildrenInfo(zone, nil, true) or {}) do here.maps[kid.mapID] = true end
     return here
 end

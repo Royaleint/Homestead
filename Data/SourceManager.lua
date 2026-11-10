@@ -679,10 +679,10 @@ end
 -- parsedSource: optional pre-fetched parsed-source table, threaded through to
 -- GetVendorItemCost (see GetVendorSources, which hoists this per item).
 local function BuildVendorSourceData(itemID, vendor, parsedSource)
-    if not itemID or not vendor then return nil end
+    if not vendor then return nil end
 
     local cost, costStatus = nil, nil
-    if HA.SourceManager.GetVendorItemCost then
+    if itemID and HA.SourceManager.GetVendorItemCost then
         local _
         cost, _, costStatus = HA.SourceManager:GetVendorItemCost(
             itemID, vendor, nil, nil, nil, nil, nil, parsedSource)
@@ -710,6 +710,11 @@ local function BuildVendorSourceData(itemID, vendor, parsedSource)
         cost = cost,
         costStatus = costStatus,
     }
+end
+
+-- The vendor source record for a vendor; itemID is optional and only prices the item.
+function SourceManager:BuildVendorSource(itemID, vendor, parsedSource)
+    return BuildVendorSourceData(itemID, vendor, parsedSource)
 end
 
 -- Helper: Get vendor source from VendorData

@@ -11,8 +11,7 @@ local SP, K, LO = S.space, S.color, S.layout
 local Vis = B.Vis
 
 local function MapName(mapID)
-    local info = mapID and C_Map.GetMapInfo(mapID)
-    return info and info.name
+    return mapID and HA.VendorFilter.GetMapName(mapID)
 end
 
 local KIND = {
@@ -58,10 +57,7 @@ local function Narrow()
     return vid ~= nil and not cover
 end
 
-local function Live(event)
-    local CD = HA.CalendarDetector
-    return CD ~= nil and CD:IsHolidayActive(event) == true
-end
+local Live = D.EventActive
 
 local conts = {}
 local function Continent(mapID)
@@ -359,7 +355,7 @@ local function BuildList(keep, zone)
     -- In the player's own zone the seed means everything the Overview "Here" line counts: the zone and its child maps.
     local here = zone and Facts.Here()
     local nearby = here and here.zone == zone and here.maps or nil
-    local q = query:lower()
+    local q = D.Query(query)
     local entries, order
     if wide then
         entries = VendorList(now.kind == "vendors" and now.key or nil)
@@ -381,6 +377,8 @@ local function BuildList(keep, zone)
         if t == "quests" then
             -- Each decor item is its own row: hidden on its own, and found by its name when the quest is not.
             s.pick = {}
+            local giver = q ~= "" and HA.SourceManager:GetQuestStarter(s.questID)
+            if giver and giver.name then text = text .. " " .. giver.name:lower() end
             for _, id in ipairs(s.items) do
                 if q == "" or text:find(q, 1, true) or DecorName(id):lower():find(q, 1, true) then
                     local why = hide and CG.HiddenBy(id)
@@ -635,10 +633,11 @@ local OWN = { achievements = "achievement", quests = "quest" }
 -- A locked item reads "Not collected" on the page of its own requirement: at the vendor it would be bought from,
 -- at least one requirement is unmet and every unmet one is this source, by id or by the source's name.
 local function OwnRequirement(s, itemID, at)
-    local SM, kind, unmet = HA.SourceManager, OWN[s.type], 0
-    for _, r in ipairs(SM:GetRequirements(itemID, at) or {}) do
-        if SM:IsRequirementMet(r) ~= true then
-            if not (kind and r.type == kind and (r.id == s.key or r.name == s.title)) then return false end
+    local kind, unmet = OWN[s.type], 0
+    for _, r in ipairs(D.Requirements(itemID, at)) do
+        if r.met ~= true then
+            local req = r.req
+            if not (kind and req.type == kind and (req.id == s.key or req.name == s.title)) then return false end
             unmet = unmet + 1
         end
     end
@@ -678,14 +677,12 @@ local function Report(s)
     if not s then return end
     local v = s.vendor
     local mapID, x, y = Loc(s)
-    local where = mapID and L["map %d at %.1f, %.1f"]:format(mapID, x * 100, y * 100) or L["no location"]
     local build, number = GetBuildInfo()
-    HA.OutputWindow:Show(L["Report a data error"], table.concat({
-        v and L["Vendor %d: %s, %s, %s"]:format(v.npcID, v.name or L["Unknown"], select(2, Facts.Place(v)) or L["Unknown"], where)
-            or L["%s: %s"]:format(KIND[s.type][1], s.title),
-        L["Client: %s (%s)"]:format(build or "?", number or "?"),
-        L["Homestead: %s"]:format(HA.Constants.VERSION or "?"),
-    }, "\n"))
+    HA.OutputWindow:Show(L["Report a data error"], D.ReportText({
+        head = not v and { L["%s: %s"]:format(KIND[s.type][1], s.title) } or {},
+        vendors = { v and { npcID = v.npcID, name = v.name, zone = select(2, Facts.Place(v)), mapID = mapID, x = x, y = y } },
+        build = build, buildNumber = number, version = HA.Constants.VERSION,
+    }))
 end
 
 local Text = W.Text

@@ -200,10 +200,9 @@ local function Describe(r)
         local active, state, arg = nil, B.ItemState(id)
         for _, o in pairs(e.canBy or {}) do active = active or o.event end
         local info = e.info
-        local copies = info and select(3, HA.CatalogScanner:GetReadState()) and (info.totalNumPlaced or 0) + (info.totalNumStored or 0) or 0
         d = { itemID = id, name = Name(r), quality = info and info.quality or C_Item.GetItemQualityByID(id),
             icon = info and info.iconTexture or D.ItemIcon(id), active = active, bonus = r.bonus,
-            copies = copies > 0 and copies or nil, state = state, arg = arg }
+            copies = D.Copies(info), state = state, arg = arg }
         r.d = d
     end
     return d
@@ -415,7 +414,7 @@ function Page:Show(route, saved)
         local f = seed.filters or {}
         cat = NewView(seed.sort or cat.sort)
         query = seed.search or ""
-        cat.q = query:lower():match("^%s*(.-)%s*$")
+        cat.q = D.Query(query)
         cat.kind = KIND[route.key] and route.key or "all"
         if f.collected or f.notCollected then cat.coll, cat.notColl = f.collected == true, f.notCollected == true end
         cat.canGet, cat.bonus = f.canGet == true, f.bonus == true
@@ -441,7 +440,7 @@ end
 -- The header box as the player types; a restore or a seed never gets here.
 function Page:Filter(text)
     query = text
-    local q = text:lower():match("^%s*(.-)%s*$")
+    local q = D.Query(text)
     if q == cat.q then return end
     cat.q = q
     Apply(false)

@@ -110,12 +110,17 @@ function D.ExpansionLabel(key)
     return token and _G["EXPANSION_NAME" .. tostring(_G["LE_EXPANSION_" .. token])] or key
 end
 
-function D.HolidayActive(vendor)
-    local event = vendor and HA.VendorData:GetHolidayEvent(vendor.npcID)
-    if not event then return nil end
+function D.EventActive(event)
     local CD = HA.CalendarDetector
     return CD ~= nil and CD:IsHolidayActive(event) == true
 end
+
+function D.HolidayActive(vendor)
+    local event = vendor and HA.VendorData:GetHolidayEvent(vendor.npcID)
+    if event then return D.EventActive(event) end
+end
+
+function D.Query(text) return text:lower():match("^%s*(.-)%s*$") end
 
 -- True when this character can use the vendor at none of its positions.
 function D.IsOppositeFaction(vendor)
@@ -286,17 +291,15 @@ function D.RecordID(itemID, info)
 end
 
 -- Data-error report text. r = { itemID, name, recordID, build, buildNumber, version,
--- vendors = { { npcID, name, zone, mapID, x, y } } }.
+-- vendors = { { npcID, name, zone, mapID, x, y } } }; head, if given, replaces the item lines.
 function D.ReportText(r)
-    local out = {
+    local out = r.head or {
         L["Item: %s (%d)"]:format(r.name or "?", r.itemID),
         L["Record ID: %s"]:format(r.recordID and tostring(r.recordID) or L["none"]),
     }
     for _, v in ipairs(r.vendors) do
-        local where = L["no location"]
-        if v.mapID and v.x and v.y then
-            where = L["map %d at %.1f, %.1f"]:format(v.mapID, v.x * 100, v.y * 100)
-        end
+        local where = v.mapID and v.x and v.y and L["map %d at %.1f, %.1f"]:format(v.mapID, v.x * 100, v.y * 100)
+            or L["no location"]
         out[#out + 1] = L["Vendor %d: %s, %s, %s"]:format(v.npcID, v.name or L["Unknown"],
             v.zone or L["Unknown"], where)
     end
@@ -316,12 +319,12 @@ function D.VendorNote(vendor)
     return vendor.notes, vendor.notes ~= nil
 end
 
--- list of { text, met } where met is true / false / nil (cannot tell)
+-- list of { text, met, req }, met true / false / nil (cannot tell)
 function D.Requirements(itemID, npcID)
     local SM = HA.SourceManager
     local out = {}
     for _, req in ipairs(SM:GetRequirements(itemID, npcID) or {}) do
-        out[#out + 1] = { text = SM:GetRequirementText(req), met = SM:IsRequirementMet(req) }
+        out[#out + 1] = { text = SM:GetRequirementText(req), met = SM:IsRequirementMet(req), req = req }
     end
     return out
 end
@@ -354,12 +357,7 @@ end
 
 -- A vendor as a source-manager source, for the shared source line: its name and both positions.
 function D.VendorSource(npcID)
-    local v = D.Vendor(npcID) or {}
-    local altMapID, _, _, altZone, altSubzone = HA.VendorData:GetOtherPosition(v)
-    return { type = "vendor", data = {
-        vendor = v, name = v.name, mapID = v.mapID, zone = v.zone, subzone = v.subzone,
-        altMapID = altMapID, altZone = altZone, altSubzone = altSubzone,
-    } }
+    return { type = "vendor", data = HA.SourceManager:BuildVendorSource(nil, D.Vendor(npcID) or {}) }
 end
 
 function D.ItemSources(itemID)
@@ -425,15 +423,17 @@ function D.CatalogInfo(itemID, catalogMemo)
     return (select(2, D.Ownership(itemID, catalogMemo)))
 end
 
+-- Placed plus stored; nil when none or not yet known.
+function D.Copies(info)
+    local n = info and select(3, HA.CatalogScanner:GetReadState()) and (info.totalNumPlaced or 0) + (info.totalNumStored or 0)
+    return n and n > 0 and n or nil
+end
+
 function D.IconData(itemID, wantCopies, catalogMemo)
     local quality, copies
     if wantCopies then
         local info = D.CatalogInfo(itemID, catalogMemo)
-        quality = info and info.quality
-        if info and select(3, HA.CatalogScanner:GetReadState()) then
-            local n = (info.totalNumPlaced or 0) + (info.totalNumStored or 0)
-            if n > 0 then copies = n end
-        end
+        quality, copies = info and info.quality, D.Copies(info)
     end
     return quality or C_Item.GetItemQualityByID(itemID), copies
 end

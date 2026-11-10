@@ -117,14 +117,12 @@ local function OtherRow(itemID, src, flagged)
         local SM = HA.SourceManager
         local start, spot = SM:GetQuestStart(src.questID), SM:GetTreasureSpot(src.questID)
         if start then
-            local map = C_Map.GetMapInfo(start.mapID)
-            Status(row, L["Starts in %s"]:format(map and map.name or L["Unknown"]))
+            Status(row, L["Starts in %s"]:format(HA.VendorFilter.GetMapName(start.mapID) or L["Unknown"]))
             row.wp = Spot(start.mapID, start.x, start.y, name)
         end
         if spot then
-            local map = C_Map.GetMapInfo(spot.mapID)
             Status(row, L["Daily from The Last Architect"])
-            Status(row, L["Dig site in %s"]:format(map and map.name or L["Unknown"]))
+            Status(row, L["Dig site in %s"]:format(HA.VendorFilter.GetMapName(spot.mapID) or L["Unknown"]))
             row.wp2 = Spot(spot.mapID, spot.x, spot.y, name)
         end
     elseif t == "profession" then
@@ -139,8 +137,7 @@ local function OtherRow(itemID, src, flagged)
         row.one = Labeled(L["Event:"], name)
         if src.vendorName then Status(row, src.vendorName) end
         if src.zone then Status(row, src.zone) end
-        local CD = HA.CalendarDetector
-        EventStatus(row, name, CD and CD:IsHolidayActive(name) == true, flagged)
+        EventStatus(row, name, B.Data.EventActive(name), flagged)
         row.wp = Spot(src.mapID, src.x, src.y, name)
     else
         row.one = HA.FormatSourceLine(src.source)
