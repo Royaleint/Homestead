@@ -1,5 +1,5 @@
 -- ShopSources.lua — Static source data for shop, promotional, and Twitch drop items.
--- Created: 2026-03-22 | Entries: 42
+-- Created: 2026-03-22 | Entries: 55
 -- Sources: catalog sourceText scan (27 "Shop" items) + community pack research + Roofus charity pack
 --
 -- Schema:
@@ -16,7 +16,6 @@ HA.ShopSources = {
     -- Individual Hearthsteel items (shop-only, not available from gold vendors)
     ---------------------------------------------------------------------------
     [256764] = { method = "hearthsteel", name = "In-Game Shop" },              -- Sanctuary's Horadric Cube
-    [258211] = { method = "hearthsteel", name = "In-Game Shop" },              -- Kirin Tor Glass Table
     [259055] = { method = "hearthsteel", name = "In-Game Shop" },              -- Hatred's Wolfpelt Rug
     [259056] = { method = "hearthsteel", name = "In-Game Shop" },              -- Prime Evil's Chest
     [263052] = { method = "hearthsteel", name = "In-Game Shop" },              -- Beloved Lion Plushie
@@ -31,7 +30,7 @@ HA.ShopSources = {
     [264384] = { method = "hearthsteel", name = "In-Game Shop" },              -- Zapmaster Viewer 3000
 
     ---------------------------------------------------------------------------
-    -- Sanctuary Chess Set (Hearthsteel — also sold by Dennia Silvertongue [256828] for gold)
+    -- Sanctuary Chess Set (Diablo IV: Lord of Hatred purchase bonus; extra copies sold by decor vendors for gold)
     ---------------------------------------------------------------------------
     [259057] = { method = "hearthsteel", name = "Sanctuary Chess Set" },           -- Sanctuary's Chess Match
     [259058] = { method = "hearthsteel", name = "Sanctuary Chess Set" },           -- Sanctuary's Chess Board
