@@ -216,8 +216,8 @@ local function Describe(itemID)
     if #reqs > 0 then
         facts[#facts + 1] = { text = L["Requires"], color = K.gold, role = "bodyGold" }
         for _, r in ipairs(reqs) do
-            facts[#facts + 1] = { text = D.RequirementWords(r), glyph = r.met == true and "check" or "lock", color = K.body }
-            if r.met == nil then facts[#facts + 1] = { text = L["Can't check this requirement yet"], color = K.body } end
+            facts[#facts + 1] = { text = D.RequirementWords(r), glyph = not r.plain and (r.met == true and "check" or "lock") or nil, color = K.body }
+            if r.met == nil and not r.plain then facts[#facts + 1] = { text = L["Can't check this requirement yet"], color = K.body } end
         end
     end
     local have = D.Counts(info)

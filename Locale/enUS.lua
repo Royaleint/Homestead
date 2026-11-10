@@ -18,7 +18,6 @@ L["Used in %d known recipes for decor you haven't collected"] = "Used in %d know
 -- Vendor cost: joins alternative ways to pay ("30 coupons or 500 gold")
 L["or"] = "or"
 L["Cost unverified"] = "Cost unverified"
-L["(requirements unverified)"] = "(requirements unverified)"
 
 -------------------------------------------------------------------------------
 -- UI Labels
@@ -297,7 +296,6 @@ L["%s with %s"] = "%s with %s"
 L["Level %s"] = "Level %s"
 L["Achievement: %s"] = "Achievement: %s"
 L["Quest: %s"] = "Quest: %s" -- untranslated
-L["Promotion: %s"] = "Promotion: %s"
 L["Profession: %s"] = "Profession: %s"
 L["Profession: %s rank %s"] = "Profession: %s rank %s"
 L["Profession requirement"] = "Profession requirement"

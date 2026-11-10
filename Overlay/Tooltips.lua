@@ -211,17 +211,8 @@ local function AddRequirementsToTooltip(tooltip, itemID, npcID, dedupSet, reputa
                 -- from uncollected counts whether live or expired, but
                 -- the tooltip still differentiates live vs. expired so the
                 -- item stays discoverable while the promo is running.
-                local isExpired = HA.SourceManager.IsPromotionExpired
-                    and HA.SourceManager:IsPromotionExpired(req)
-                if isExpired then
-                    tooltip:AddLine("  " .. Text("No longer obtainable"), COLOR_GRAY.r, COLOR_GRAY.g, COLOR_GRAY.b)
-                else
-                    local promoName = req.name or Text("Unknown Promotion")
-                    local promoText = req.endsAt
-                        and Text("Promotion reward: %s, through %s"):format(promoName, req.endsAt)
-                        or Text("Promotion reward: %s"):format(promoName)
-                    tooltip:AddLine("  " .. promoText, COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
-                end
+                local color = HA.SourceManager:IsPromotionExpired(req) and COLOR_GRAY or COLOR_YELLOW
+                tooltip:AddLine("  " .. HA.SourceManager:GetRequirementText(req), color.r, color.g, color.b)
             elseif req.type == "unknown" and req.text then
                 text = HA.SourceManager:GetRequirementText(req)
             end
@@ -1093,12 +1084,15 @@ local function AddDecorInfoToTooltip(tooltip, itemLink, gate)
         availabilityState = HA.SourceManager:GetItemAvailabilityState(itemID, vendorNpcID)
     end
 
-    if not db or db.showOwned ~= false then
+    -- No status at all when the game reports no ownership for the item.
+    local unreported = presentation and presentation.ownershipState == "unknown"
+    if (not db or db.showOwned ~= false) and not unreported then
         if availabilityState == "owned" or isOwned == true then
             gatedTooltip:AddLine(LabelLine("Status:", Text("Owned")), COLOR_GREEN.r, COLOR_GREEN.g, COLOR_GREEN.b)
         elseif vendorNpcID and availabilityState == "purchasable" then
             gatedTooltip:AddLine(LabelLine("Status:", Text("Available")), COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
-        elseif vendorNpcID and availabilityState == "locked" then
+        elseif vendorNpcID and availabilityState == "locked"
+                or availabilityState == "blocked" and presentation and presentation.requirementLocked then
             gatedTooltip:AddLine(LabelLine("Status:", Text("Locked")), COLOR_RED.r, COLOR_RED.g, COLOR_RED.b)
         elseif availabilityState == "available" then
             gatedTooltip:AddLine(LabelLine("Status:", Text("Available Now")), COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)

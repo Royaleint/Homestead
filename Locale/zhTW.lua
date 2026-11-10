@@ -17,7 +17,6 @@ L["Used in %d known recipe for decor you haven't collected"] = "用於%d個已�
 L["Used in %d known recipes for decor you haven't collected"] = "用於%d個已知配方，可製作你尚未收集的裝飾"
 L["or"] = "或"
 L["Cost unverified"] = "花費未確認"
-L["(requirements unverified)"] = "(需求未確認)"
 
 -------------------------------------------------------------------------------
 -- Options
@@ -272,7 +271,6 @@ L["%s with %s"] = "%s（%s聲望）"
 L["Level %s"] = "等級%s"
 L["Achievement: %s"] = "成就：%s"
 L["Quest: %s"] = "任務：%s"
-L["Promotion: %s"] = "促銷活動：%s"
 L["Profession: %s"] = "專業技能：%s"
 L["Profession: %s rank %s"] = "專業技能：%s，等級%s"
 L["Vendor: %s"] = "商人：%s"

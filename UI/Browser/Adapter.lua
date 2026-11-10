@@ -318,12 +318,16 @@ function D.VendorNote(vendor)
     return vendor.notes, vendor.notes ~= nil
 end
 
--- list of { text, met, req }, met true / false / nil (cannot tell)
+-- list of { text, met, req, plain }, met true / false / nil (cannot tell). A promotion is not the player's to
+-- meet: plain, its text alone, as the tooltip words it.
 function D.Requirements(itemID, npcID)
     local SM = HA.SourceManager
     local out = {}
     for _, req in ipairs(SM:GetRequirements(itemID, npcID) or {}) do
-        out[#out + 1] = { text = SM:GetRequirementText(req), met = SM:IsRequirementMet(req), req = req }
+        local plain = req.type == "promotion"
+        local met
+        if not plain then met = SM:IsRequirementMet(req) end
+        out[#out + 1] = { text = SM:GetRequirementText(req), met = met, req = req, plain = plain }
     end
     return out
 end

@@ -87,6 +87,10 @@ local identityPositiveCache = {}
 -- freezing a non-answer for the session.
 local housingSubclassCache = {}
 
+-- Session-only: itemIDs the last trusted catalog scan found no entry for, so the game reports no
+-- ownership for them. Never saved; any read that finds an entry clears its item, and ClearAll empties it.
+local unreported = {}
+
 -------------------------------------------------------------------------------
 -- Internal: Table Merge (no events, no side effects beyond storage)
 -------------------------------------------------------------------------------
@@ -498,7 +502,8 @@ end
 -- indexes the catalog directly without item-cache data and is reliable, so the
 -- record reads go through the static decor and room indexes.
 -- Without wantEntry a cached owned answers true with no API call; with it the
--- walk always runs, because the caller needs the entry itself. Writes nothing.
+-- walk always runs, because the caller needs the entry itself. Writes no
+-- ownership; an entry it finds takes the item off the session's unreported set.
 local function WalkEntries(self, itemID, wantEntry)
     local cachedOwned = self:IsOwned(itemID)
     if cachedOwned and not wantEntry then
@@ -512,6 +517,7 @@ local function WalkEntries(self, itemID, wantEntry)
     if CHC.GetCatalogEntryInfoByItem then
         local ok, info = pcall(CHC.GetCatalogEntryInfoByItem, "item:" .. tostring(itemID), true)
         if ok and info then
+            unreported[itemID] = nil
             if self:ComputeOwnedFromInfo(info) then return true, info end
             entry = info
         end
@@ -522,6 +528,7 @@ local function WalkEntries(self, itemID, wantEntry)
         if decorID then
             local ok, info = pcall(CHC.GetCatalogEntryInfoByRecordID, 1, decorID, true)
             if ok and info then
+                unreported[itemID] = nil
                 if self:ComputeOwnedFromInfo(info) then return true, info end
                 entry = entry or info
             end
@@ -531,6 +538,7 @@ local function WalkEntries(self, itemID, wantEntry)
         if roomID then
             local ok, info = pcall(CHC.GetCatalogEntryInfoByRecordID, ENTRY_TYPE_ROOM, roomID)
             if ok and info then
+                unreported[itemID] = nil
                 if self:ComputeOwnedFromInfo(info) then return true, info end
                 entry = entry or info
             end
@@ -559,11 +567,15 @@ function CatalogStore:IsOwnedFresh(itemID, readOnly)
         return true
     end
 
+    if not C_HousingCatalog then return false end
+    local found = false
+
     -- Live byItem probe (handles post-purchase before next scan)
-    if C_HousingCatalog and C_HousingCatalog.GetCatalogEntryInfoByItem then
+    if C_HousingCatalog.GetCatalogEntryInfoByItem then
         local itemLink = "item:" .. tostring(itemID)
         local success, info = pcall(C_HousingCatalog.GetCatalogEntryInfoByItem, itemLink, true)
         if success and info then
+            found = true
             -- Ownership = GetEntryTotalOwned > 0 (Blizzard's contract)
             if self:ComputeOwnedFromInfo(info) then
                 local recordID = nil
@@ -584,6 +596,7 @@ function CatalogStore:IsOwnedFresh(itemID, readOnly)
         if self:ComputeOwnedFromInfo(info) then
             return true
         end
+        found = found or info ~= nil
     end
 
     local roomID = itemIDToRoom[itemID]
@@ -592,9 +605,25 @@ function CatalogStore:IsOwnedFresh(itemID, readOnly)
         if self:ComputeOwnedFromInfo(info) then
             return true
         end
+        found = found or info ~= nil
     end
 
+    if found then unreported[itemID] = nil end
     return false
+end
+
+-- true when the game reports no ownership for this item: a housing item Homestead cannot read, or one
+-- the last trusted catalog scan found no entry for. Cache only; an owned item never reads true.
+function CatalogStore:IsOwnershipUnreported(itemID)
+    if not itemID or self:IsOwned(itemID) then return false end
+    return unreported[itemID] == true or self:IsOwnershipUnknowable(itemID)
+end
+
+-- Replaces the unreported set with the items a full catalog scan found no entry for. Only the scan fills
+-- it: a single empty read cannot tell a missing entry from a catalog that is not answering yet.
+function CatalogStore:SetUnreported(itemIDs)
+    wipe(unreported)
+    for _, itemID in ipairs(itemIDs) do unreported[itemID] = true end
 end
 
 -- Read-only ownership state plus the catalog entry behind it, for callers that
@@ -603,7 +632,7 @@ end
 -- the walk's boolean; a cached owned stays "owned" even without an entry.
 -- For a cached owned item the entry may carry zero counts on a cold catalog,
 -- so callers take ownership from the state, never from the entry's counts.
--- Writes nothing.
+-- Writes no ownership; see WalkEntries for the unreported set.
 function CatalogStore:ReadOwnershipEntry(itemID)
     if not itemID or self:IsOwnershipUnknowable(itemID) then
         return "unknown", nil
@@ -725,6 +754,7 @@ function CatalogStore:ClearAll()
     end
 
     ownedCount = 0
+    wipe(unreported)
 
     -- Bust negative cache
     negativeGeneration = negativeGeneration + 1

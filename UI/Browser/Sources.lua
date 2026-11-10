@@ -622,33 +622,15 @@ local function Line(fs, role, text, w)
     if text then fs:SetSize(w, W.TextHeight(role, text, w)) end
 end
 
--- The requirement type that names a source of each page type.
-local OWN = { achievements = "achievement", quests = "quest" }
-
 -- A vendor card's left-out wares, by the shared reason, and the mark each is named by.
 local LEFT_OUT = { { "promotion", L["Promotion"] }, { "unknown", L["Ownership unknown"] } }
-
--- A locked item reads "Not collected" on the page of its own requirement: at the vendor it would be bought from,
--- at least one requirement is unmet and every unmet one is this source, by id or by the source's name.
-local function OwnRequirement(s, itemID, at)
-    local kind, unmet = OWN[s.type], 0
-    for _, r in ipairs(D.Requirements(itemID, at)) do
-        if r.met ~= true then
-            local req = r.req
-            if not (kind and req.type == kind and (req.id == s.key or req.name == s.title)) then return false end
-            unmet = unmet + 1
-        end
-    end
-    return unmet > 0
-end
 
 function Rows(s, cells)
     local v, rows = s.vendor, {}
     for _, itemID in ipairs(s.items) do
         local e = CG.Entry(itemID)
         local info = e and e.info
-        local state, arg, at = B.ItemState(itemID, v and v.npcID)
-        if state == "locked" and not v and OwnRequirement(s, itemID, at) then state, arg = "notOwned", nil end
+        local state, arg = B.ItemState(itemID, v and v.npcID)
         rows[#rows + 1] = {
             kind = "row", name = D.ItemName(itemID, info) or L["Item %d"]:format(itemID),
             rank = state == "can" and 1 or state == "owned" and 3 or 2,
@@ -967,7 +949,7 @@ function Draw(fresh, saved)
     local parts, unknown = {}, false
     for _, r in ipairs(D.VendorRequirements(v)) do
         parts[#parts + 1] = D.RequirementWords(r)
-        unknown = unknown or r.met == nil
+        unknown = unknown or r.met == nil and not r.plain
     end
     Line(V.req, "body", parts[1] and L["%s: %s"]:format(S.Colored(K.gold, L["Requires"]), W.Join(parts, L["%s; %s"]))
         .. (unknown and "\n" .. L["Can't check this requirement yet"] or ""), w)

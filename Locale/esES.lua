@@ -17,7 +17,6 @@ L["Used in %d known recipe for decor you haven't collected"] = "Se usa en %d rec
 L["Used in %d known recipes for decor you haven't collected"] = "Se usa en %d recetas conocidas de adornos que no has conseguido"
 L["or"] = "o"
 L["Cost unverified"] = "Coste sin verificar"
-L["(requirements unverified)"] = "(requisitos sin verificar)"
 
 -------------------------------------------------------------------------------
 -- Options
@@ -272,7 +271,6 @@ L["%s with %s"] = "%s con %s"
 L["Level %s"] = "Nivel %s"
 L["Achievement: %s"] = "Logro: %s"
 L["Quest: %s"] = "Misión: %s"
-L["Promotion: %s"] = "Promoción: %s"
 L["Profession: %s"] = "Profesión: %s"
 L["Profession: %s rank %s"] = "Profesión: %s, rango %s"
 L["Vendor: %s"] = "Vendedor: %s"

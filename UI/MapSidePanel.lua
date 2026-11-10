@@ -315,17 +315,18 @@ local function IsItemOwned(itemID)
     return false
 end
 
--- Is this item's ownership knowable at all? Housing items outside the
--- Decor subclass resolve to no catalog entry, so IsItemOwned answers a hard
--- false that says nothing about the player. The grids must render those in a
--- neutral state rather than the gold "available to purchase" border, which
--- would be telling the player to buy a room they may already own.
-local function IsOwnershipExcluded(itemID, presentation)
+-- Does the game report this item's ownership at all? Housing items outside
+-- the Decor subclass, and items the catalog returned no entry for this
+-- session, answer a hard false from IsItemOwned that says nothing about the
+-- player. The grids render those in a neutral state rather than the gold
+-- "available to purchase" border, which would be telling the player to buy a
+-- room they may already own.
+local function IsOwnershipUnreported(itemID, presentation)
     if presentation then
-        return presentation.isOwnershipExcluded == true
+        return presentation.isOwnershipExcluded == true or presentation.ownershipState == "unknown"
     end
-    if itemID and HA.CatalogStore and HA.CatalogStore.IsOwnershipUnknowable then
-        return HA.CatalogStore:IsOwnershipUnknowable(itemID) == true
+    if itemID and HA.CatalogStore and HA.CatalogStore.IsOwnershipUnreported then
+        return HA.CatalogStore:IsOwnershipUnreported(itemID) == true
     end
     return false
 end
@@ -674,7 +675,7 @@ local function PopulateItemGrid(row, vendor, sourceFilter, highlightItems, itemI
         icon.lock:Hide()
         icon.check:Hide()
 
-        if IsOwnershipExcluded(itemID, presentation) then
+        if IsOwnershipUnreported(itemID, presentation) then
             -- Ownership not yet knowable — neutral grey border, no
             -- check and no lock tint. Tested first: neither the owned nor the
             -- available branch may claim an item we cannot resolve. The
@@ -944,7 +945,7 @@ local function PopulateBossItemGrid(row, dropGroup)
         if icon.matchRing then icon.matchRing:Hide() end
 
         -- Same neutral state as the vendor grid, same reason.
-        if IsOwnershipExcluded(itemID, presentation) then
+        if IsOwnershipUnreported(itemID, presentation) then
             icon.border:SetColorTexture(0.45, 0.45, 0.45, 1)
             SetIconBorderOutset(icon, 1)
         elseif owned then
@@ -1306,7 +1307,7 @@ local function RenderItemRow(row, rec)
     end
 
     -- Same neutral state as the item grids, same reason.
-    if IsOwnershipExcluded(itemID, presentation) then
+    if IsOwnershipUnreported(itemID, presentation) then
         row.iconBorder:SetColorTexture(0.45, 0.45, 0.45, 1)
         row.nameText:SetTextColor(1, 1, 1)
     elseif owned then

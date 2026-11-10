@@ -19,7 +19,6 @@ L["Used in %d known recipe for decor you haven't collected"] = "Использу
 L["Used in %d known recipes for decor you haven't collected"] = "Используется в %d известных рецептах для ещё не полученного декора"
 L["or"] = "или"
 L["Cost unverified"] = "Цена не подтверждена"
-L["(requirements unverified)"] = "(требования не подтверждены)"
 
 -------------------------------------------------------------------------------
 -- UI Labels
@@ -285,7 +284,6 @@ L["%s with %s"] = "%s (%s)"
 L["Level %s"] = "Уровень %s"
 L["Achievement: %s"] = "Достижение: %s"
 L["Quest: %s"] = "Задание: %s"
-L["Promotion: %s"] = "Акция: %s"
 L["Profession: %s"] = "Профессия: %s"
 L["Profession: %s rank %s"] = "Профессия: %s, ранг %s"
 L["Vendor: %s"] = "Торговец: %s"

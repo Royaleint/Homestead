@@ -370,9 +370,6 @@ function VendorData:FormatCost(cost, status, formatBundle)
         text = formatBundle(cost)
     end
 
-    if text and status == COST_STATUS_QUALIFIED then
-        text = text .. " " .. Text("(requirements unverified)")
-    end
     return text
 end
 
@@ -402,8 +399,8 @@ function VendorData:SplitCostOptions(cost, status)
     return views
 end
 
--- One display string per payment option; never carries the qualifier suffix.
--- Empty when there is nothing to show. FormatCost stays the one-string form.
+-- One display string per payment option. Empty when there is nothing to show.
+-- FormatCost stays the one-string form.
 function VendorData:FormatCostOptions(cost, status)
     status = status or (cost and cost.status) or COST_STATUS_LEGACY
     local views = self:SplitCostOptions(cost, status)
@@ -413,9 +410,6 @@ function VendorData:FormatCostOptions(cost, status)
             texts[i] = FormatCostBundle(view)
         end
         return texts
-    end
-    if status == COST_STATUS_QUALIFIED then
-        status = COST_STATUS_LEGACY
     end
     local text = self:FormatCost(cost, status)
     if text then return { text } end

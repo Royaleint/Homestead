@@ -17,7 +17,6 @@ L["Used in %d known recipe for decor you haven't collected"] = "획득하지 않
 L["Used in %d known recipes for decor you haven't collected"] = "획득하지 않은 하우징 장식의 알려진 제조법 %d개에 사용됨"
 L["or"] = "또는"
 L["Cost unverified"] = "비용 미확인"
-L["(requirements unverified)"] = "(요구 사항 미확인)"
 
 -------------------------------------------------------------------------------
 -- Options
@@ -272,7 +271,6 @@ L["%s with %s"] = "%s (%s 평판)"
 L["Level %s"] = "레벨 %s"
 L["Achievement: %s"] = "업적: %s"
 L["Quest: %s"] = "퀘스트: %s"
-L["Promotion: %s"] = "프로모션: %s"
 L["Profession: %s"] = "전문 기술: %s"
 L["Profession: %s rank %s"] = "전문 기술: %s %s 등급"
 L["Vendor: %s"] = "상인: %s"

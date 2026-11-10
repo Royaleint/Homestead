@@ -355,6 +355,7 @@ function CatalogScanner:ScanFullCatalog(callback)
     local currentIndex = 1
     local ownedCount = 0
     local checkedCount = 0
+    local noEntry = {}
 
     HA.Addon:Debug("Found", totalItems, "unique items to scan")
 
@@ -396,6 +397,7 @@ function CatalogScanner:ScanFullCatalog(callback)
             local itemData = itemList[i]
             if itemData and itemData.itemID then
                 local result = ScanItem(itemData.itemID)
+                if not result then noEntry[#noEntry + 1] = itemData.itemID end
                 if result then
                     checkedCount = checkedCount + 1
                     if result.isOwned then
@@ -438,6 +440,12 @@ function CatalogScanner:ScanFullCatalog(callback)
         else
             -- Scan complete
             isScanning = false
+
+            -- An empty read means no such entry only when storage had loaded before the pass began and the
+            -- catalog answered for other items in the same pass; otherwise the catalog was not answering.
+            if scanStartedWarm and checkedCount > 0 and HA.CatalogStore then
+                HA.CatalogStore:SetUnreported(noEntry)
+            end
 
             -- End batch mode on CatalogStore (fires single OWNERSHIP_UPDATED + CATALOG_ITEM_UPDATED)
             if HA.CatalogStore then

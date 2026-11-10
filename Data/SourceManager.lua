@@ -388,6 +388,7 @@ end
 --   true  = available now
 --   false = known blocked (requirements unmet / event inactive / etc.)
 --   nil   = unknown (insufficient data)
+-- A second return of true says a selling vendor is held back by its requirements.
 function SourceManager:IsSourceAvailableNow(itemID, source)
     if not itemID or not source or not source.type then return nil end
 
@@ -401,12 +402,13 @@ function SourceManager:IsSourceAvailableNow(itemID, source)
             if HA.VendorData and not HA.VendorData:IsVendorSellingNow(vendorNPCID) then
                 return false
             end
+            -- A requirement that cannot be checked holds the source back as an unmet one does,
+            -- the same rule the vendor-scoped state applies.
             local reqs = self:GetRequirements(itemID, vendorNPCID)
-            if reqs and #reqs > 0 then
+            if reqs then
                 for _, req in ipairs(reqs) do
-                    local met = self:IsRequirementMet(req)
-                    if met == false then
-                        return false
+                    if self:IsRequirementMet(req) ~= true then
+                        return false, true
                     end
                 end
             end
@@ -437,14 +439,10 @@ function SourceManager:IsSourceAvailableNow(itemID, source)
     -- route through the requirementMetCache (same "achievement"
     -- cache key IsRequirementMet already uses) instead of a live
     -- GetAchievementInfo call on every per-item availability probe.
+    -- An achievement the game cannot report as done counts as not done.
     if sourceType == "achievement" then
-        if data.achievementID then
-            local met = self:IsRequirementMet({ type = "achievement", id = data.achievementID })
-            if met ~= nil then
-                return met
-            end
-        end
-        return true  -- No achievementID to check → assume available
+        return data.achievementID ~= nil
+            and self:IsRequirementMet({ type = "achievement", id = data.achievementID }) == true
     end
 
     -- Profession sources: check whether the player has the required profession
@@ -510,6 +508,32 @@ function SourceManager:IsSourceAvailableNow(itemID, source)
 
     -- Drop and unknown types: treat as available unless explicitly blocked.
     return true
+end
+
+-- Walks an item's sources when no vendor scopes it. Returns the first source open now, the first open
+-- source that offers the item now, and whether a selling vendor's requirements held one back. A done
+-- achievement is open, but has already given what it gives.
+local function ScanSources(self, itemID, sources)
+    local best, held
+    for _, source in ipairs(sources) do
+        local available, locked = self:IsSourceAvailableNow(itemID, source)
+        if available ~= false then
+            best = best or source
+            if source.type ~= "achievement" then return best, source, held end
+        elseif locked then
+            held = true
+        end
+    end
+    return best, nil, held
+end
+
+-- The item's state from that walk: "available", "notOwned" (only a done achievement is open), "blocked"
+-- or "unknown" (no source).
+local function SourceState(self, itemID, best, offered)
+    if offered then return "available" end
+    if best then return "notOwned" end
+    if self:GetSource(itemID) then return "blocked" end
+    return "unknown"
 end
 
 -- Get the highest-priority source that appears available "right now".
@@ -1418,7 +1442,10 @@ function SourceManager:GetRequirementText(req)
     elseif t == "level" and req.level then
         return Text("Level %s"):format(tostring(req.level))
     elseif t == "promotion" then
-        return Text("Promotion: %s"):format(req.name or Text("Unknown"))
+        if self:IsPromotionExpired(req) then return Text("No longer obtainable") end
+        local name = req.name or Text("Unknown Promotion")
+        if req.endsAt then return Text("Promotion reward: %s, through %s"):format(name, req.endsAt) end
+        return Text("Promotion reward: %s"):format(name)
     elseif t == "professionRank" then
         if req.profession and req.rank then
             return Text("Profession: %s rank %s"):format(tostring(req.profession), tostring(req.rank))
@@ -1634,15 +1661,8 @@ function SourceManager:GetItemAvailabilityState(itemID, npcID)
         end
     end
 
-    if self:GetBestAvailableSource(itemID) then
-        return "available", false, false, nil
-    end
-
-    if self:GetSource(itemID) then
-        return "blocked", false, false, nil
-    end
-
-    return "unknown", false, false, nil
+    local best, offered = ScanSources(self, itemID, self:GetAllSources(itemID))
+    return SourceState(self, itemID, best, offered), false, false, nil
 end
 
 -- Return a normalized presentation payload for UI and overlay consumers.
@@ -1708,14 +1728,20 @@ function SourceManager:GetItemPresentation(itemID, options)
     if catalogStore and catalogStore.IsOwnershipUnknowable then
         isOwnershipExcluded = catalogStore:IsOwnershipUnknowable(itemID) == true
     end
+    -- Display only: surfaces show no owned state for these; counting still follows isOwnershipExcluded.
+    local ownershipState = "owned"
+    if not isOwned then
+        ownershipState = catalogStore and catalogStore.IsOwnershipUnreported
+            and catalogStore:IsOwnershipUnreported(itemID) and "unknown" or "unowned"
+    end
 
-    local availabilityState = "unknown"
+    local availabilityState
     local isUnverified = false
     local hasVerifiableRequirement = false
     local blockerLabels = nil
 
     local allSources = self:GetAllSources(itemID) or EMPTY_SOURCES
-    local bestSource = nil
+    local bestSource, offeredSource, requirementHeld = nil, nil, nil
     -- Scoped to exactly the contexts
     -- verified to never read bestSource/displaySource/sourceType off the
     -- returned presentation — badge recounts (UI/BadgeCalculation.lua, only
@@ -1731,13 +1757,7 @@ function SourceManager:GetItemPresentation(itemID, options)
     local skipBestSourceProbe = npcID
         and (context == "badge" or context == "vendorMapPin")
     if not skipBestSourceProbe then
-        for _, source in ipairs(allSources) do
-            local available = self:IsSourceAvailableNow(itemID, source)
-            if available ~= false then
-                bestSource = source
-                break
-            end
-        end
+        bestSource, offeredSource, requirementHeld = ScanSources(self, itemID, allSources)
     end
 
     -- consult item-keyed PrerequisiteSources for a promotion
@@ -1767,10 +1787,8 @@ function SourceManager:GetItemPresentation(itemID, options)
     elseif hasPromotionRequirement then
         availabilityState = "unobtainable"
         hasVerifiableRequirement = true
-    elseif bestSource then
-        availabilityState = "available"
-    elseif self:GetSource(itemID) then
-        availabilityState = "blocked"
+    else
+        availabilityState = SourceState(self, itemID, bestSource, offeredSource)
     end
     local displaySources = allSources
     local normalizedFilter = self:NormalizeSourceFilter(sourceFilter)
@@ -1826,7 +1844,8 @@ function SourceManager:GetItemPresentation(itemID, options)
     local catalogGlowState = nil
     if availabilityState == "owned" then
         catalogGlowState = "owned"
-    elseif availabilityState == "available" or availabilityState == "purchasable" then
+    elseif availabilityState == "available" or availabilityState == "purchasable"
+            or availabilityState == "notOwned" then
         catalogGlowState = "available"
     elseif availabilityState == "blocked" or availabilityState == "locked" then
         catalogGlowState = "blocked"
@@ -1848,9 +1867,11 @@ function SourceManager:GetItemPresentation(itemID, options)
         itemID = itemID,
         context = context,
         isOwned = isOwned,
-        ownershipState = isOwned and "owned" or "unowned",
+        ownershipState = ownershipState,
         isOwnershipExcluded = isOwnershipExcluded,
         availabilityState = availabilityState,
+        -- Blocked with a selling vendor held back by its requirements: worded "Locked".
+        requirementLocked = availabilityState == "blocked" and requirementHeld == true,
         isUnverified = isUnverified,
         hasVerifiableRequirement = hasVerifiableRequirement,
         blockerLabels = blockerLabels,
