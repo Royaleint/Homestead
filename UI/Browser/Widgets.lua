@@ -1065,6 +1065,9 @@ function W.NewEmptyState(parent)
             end
         end
         for i = n + 1, #self.buttons do self.buttons[i]:Hide() end
+        -- Two sides anchored and no height leave the frame zero-high, and its contents do not draw. Any real
+        -- height will do: the words and buttons hang from the top and may run past it.
+        self:SetHeight(W.TextHeight("subheader") + SP.xs + W.TextHeight("body"))
         self:Show()
     end
     return f
