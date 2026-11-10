@@ -415,16 +415,13 @@ function Waypoints:SetToVendor(vendor)
         return false
     end
 
-    -- Handle both old (coords.x/y) and new (x/y) coordinate formats
-    local x = vendor.x or (vendor.coords and vendor.coords.x)
-    local y = vendor.y or (vendor.coords and vendor.coords.y)
-
+    local mapID, x, y = HA.VendorFilter.GetVendorWaypoint(vendor)
     if not x or not y then
         return false
     end
 
-    return self:Set(vendor.mapID, x, y, {
-        title = vendor.name or "Vendor",
+    return self:Set(mapID, x, y, {
+        title = HA.VendorData:GetVendorName(vendor) or "Vendor",
         data = {
             type = "vendor",
             npcID = vendor.npcID,

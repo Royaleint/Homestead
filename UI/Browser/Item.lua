@@ -86,8 +86,9 @@ end
 
 local function VendorRow(itemID, b, flagged)
     local D, v = B.Data, b.vendor
-    local row = { status = {}, one = Labeled(L["Vendor:"], v.name or L["Unknown"], D.Price(itemID, v)) }
-    Status(row, F.Where(v) or L["Location not recorded"])
+    local name = HA.VendorData:GetVendorName(v)
+    local row = { status = {}, one = Labeled(L["Vendor:"], name or L["Unknown"], D.Price(itemID, v)) }
+    Status(row, HA.VendorPlaceText(v) or L["Location not recorded"])
     local label = D.IsOppositeFaction(v) and D.VendorFactionLabel(v)
     if label then Status(row, W.StateWords("faction", label), "stop", K.stop) end
     if b.offer == "can" then Status(row, L["Can get now here"], "dot", K.can) end
@@ -103,7 +104,7 @@ local function VendorRow(itemID, b, flagged)
     if confirmed then Status(row, L["Confirmed by a scan on %s"]:format(confirmed)) end
     local key = F.SourceKey("vendors", { npcID = b.npcID }, itemID)
     if key then row.show = { SHOW.vendor, ShowSource("vendors", key) } end
-    row.wp = Spot(b.mapID, b.x, b.y, v.name, { type = "vendor", npcID = b.npcID })
+    row.wp = Spot(b.mapID, b.x, b.y, name, { type = "vendor", npcID = b.npcID })
     return row
 end
 

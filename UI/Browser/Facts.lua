@@ -33,12 +33,6 @@ function F.Place(v)
     return HA.VendorFilter.GetVendorPlaceNames(v)
 end
 
--- Where a vendor is: "subzone, zone" when both are known, else the zone; nil when there is none.
-function F.Where(v)
-    local _, zone, subzone = F.Place(v)
-    return zone and subzone and L["%s, %s"]:format(subzone, zone) or zone
-end
-
 -- The player's zone: { zone, name, continent, maps = set of the zone and its child maps }; nil when unknown.
 local here
 function F.Here()

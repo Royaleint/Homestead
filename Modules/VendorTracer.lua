@@ -43,20 +43,6 @@ end
 -- Public Navigation API
 -------------------------------------------------------------------------------
 
--- Helper to get vendor coordinates (handles both old and new formats)
-local function GetVendorXY(vendor)
-    if not vendor then return nil, nil end
-    -- New format: x, y directly
-    if vendor.x and vendor.y then
-        return vendor.x, vendor.y
-    end
-    -- Old format: coords table
-    if vendor.coords then
-        return vendor.coords.x, vendor.coords.y
-    end
-    return nil, nil
-end
-
 -- Navigate to a specific vendor
 function VendorTracer:NavigateToVendor(npcID)
     if not VendorData then
@@ -70,13 +56,13 @@ function VendorTracer:NavigateToVendor(npcID)
         return false
     end
 
-    local x, y = GetVendorXY(vendor)
+    local mapID, x, y = HA.VendorFilter.GetVendorWaypoint(vendor)
     if not x or not y then
         HA.Addon:Print("Vendor has no coordinates")
         return false
     end
 
-    return self:SetWaypoint(vendor.mapID, x, y, vendor.name, vendor)
+    return self:SetWaypoint(mapID, x, y, VendorData:GetVendorName(vendor), vendor)
 end
 
 -- Navigate to the closest vendor selling an item
@@ -92,7 +78,7 @@ function VendorTracer:NavigateToItemVendor(itemID)
         return false
     end
 
-    local x, y = GetVendorXY(vendor)
+    local mapID, x, y = HA.VendorFilter.GetVendorWaypoint(vendor)
     if not x or not y then
         HA.Addon:Print("Vendor has no coordinates")
         return false
@@ -100,9 +86,9 @@ function VendorTracer:NavigateToItemVendor(itemID)
 
     -- Get item name for waypoint title
     local itemName = C_Item.GetItemInfo(itemID) or ("Item " .. itemID)
-    local title = vendor.name .. " (" .. itemName .. ")"
+    local title = VendorData:GetVendorName(vendor) .. " (" .. itemName .. ")"
 
-    return self:SetWaypoint(vendor.mapID, x, y, title, vendor)
+    return self:SetWaypoint(mapID, x, y, title, vendor)
 end
 
 -- Set a waypoint to a location. Delegates to the Waypoints utility, which is

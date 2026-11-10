@@ -780,9 +780,16 @@ function SourceManager:GetVendorSources(itemID)
             sources[#sources + 1] = { type = "vendor", data = vendorData }
         end
     end
-    for _, vendor in ipairs(vendors) do
-        listed[vendor.npcID] = true
-        Add(vendor)
+    -- The vendors this character can use come first, so the first vendor named is never a twin for the other
+    -- faction while its own is listed.
+    local CanUse = HA.VendorFilter.CanUseVendor
+    for pass = 1, 2 do
+        for _, vendor in ipairs(vendors) do
+            if CanUse(vendor) == (pass == 1) then
+                listed[vendor.npcID] = true
+                Add(vendor)
+            end
+        end
     end
     for _, npcID in ipairs(holiday or EMPTY_SOURCES) do
         if not listed[npcID] and VD:IsHolidayVendorHidden(npcID) then

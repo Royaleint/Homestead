@@ -361,12 +361,11 @@ local function IsVendorPinItemDetailsEnabled()
 end
 
 local function AddVendorHeaderLines(tooltip, vendor, isOpposite)
-    tooltip:AddLine(vendor.name, 1, 1, 1)
+    tooltip:AddLine(HA.VendorData:GetVendorName(vendor), 1, 1, 1)
 
-    if vendor.subzone then
-        tooltip:AddLine(vendor.subzone .. " (" .. vendor.zone .. ")", 0.7, 0.7, 0.7)
-    elseif vendor.zone then
-        tooltip:AddLine(vendor.zone, 0.7, 0.7, 0.7)
+    local place = HA.VendorPlaceText(vendor)
+    if place then
+        tooltip:AddLine(place, 0.7, 0.7, 0.7)
     end
 
     if vendor.faction and vendor.faction ~= "Neutral" then
@@ -946,7 +945,7 @@ function VendorPinTooltips:ShowPortalTooltip(pin, vendor)
     itemInfoEventFrame:UnregisterEvent("GET_ITEM_INFO_RECEIVED")
 
     local tooltip = BeginPinTooltip(pin, "ANCHOR_RIGHT")
-    tooltip:AddLine(vendor.name, 1, 1, 1)
+    tooltip:AddLine(HA.VendorData:GetVendorName(vendor), 1, 1, 1)
     tooltip:AddLine("Order Hall Portal", 0.7, 0.5, 1.0)
     if vendor.notes then
         tooltip:AddLine(vendor.notes, 1, 0.82, 0, true)
@@ -962,11 +961,10 @@ function VendorPinTooltips:ShowMinimapTooltip(pin, vendor, isOppositeFaction, el
     itemInfoEventFrame:UnregisterEvent("GET_ITEM_INFO_RECEIVED")
 
     local tooltip = BeginPinTooltip(pin, "ANCHOR_LEFT")
-    tooltip:AddLine(vendor.name, 1, 1, 1)
-    if vendor.subzone and vendor.subzone ~= "" then
-        tooltip:AddLine(vendor.subzone, 0.7, 0.7, 0.7)
-    elseif vendor.zone then
-        tooltip:AddLine(vendor.zone, 0.7, 0.7, 0.7)
+    tooltip:AddLine(HA.VendorData:GetVendorName(vendor), 1, 1, 1)
+    local place = HA.VendorPlaceText(vendor)
+    if place then
+        tooltip:AddLine(place, 0.7, 0.7, 0.7)
     end
     if isOppositeFaction then
         tooltip:AddLine("Opposite faction", 0.8, 0.3, 0.3)

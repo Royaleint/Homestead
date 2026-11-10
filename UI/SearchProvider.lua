@@ -270,8 +270,15 @@ function SearchProvider:Search(query, options)
         local matchType = nil
         local matchedItems = nil  -- set of matched itemIDs (item-level matches only)
 
+        -- The client's name for the vendor too, once the client has given it.
+        if not entry.clientLower then
+            local name = VD:GetVendorName(entry.vendor)
+            entry.clientLower = name ~= entry.vendor.name and name and name:lower() or nil
+        end
+
         -- Vendor / zone / subzone name match
-        if entry.nameLower:find(query, 1, true) or entry.placesLower:find(query, 1, true) then
+        if entry.nameLower:find(query, 1, true) or entry.placesLower:find(query, 1, true)
+                or entry.clientLower and entry.clientLower:find(query, 1, true) then
             matchType = "vendor"
             matchCount = #entry.items
         else

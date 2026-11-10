@@ -93,7 +93,7 @@ local function VendorEntry(v)
     local s = vend[key]
     if not s then
         s = { key = key, type = "vendors", vendor = v, title = v.name or L["Unknown"], items = D.VendorWares(v),
-            sub = Facts.Where(v) or "" }
+            sub = HA.VendorPlaceText(v) or "" }
         vend[key] = s
     end
     return s
@@ -122,7 +122,7 @@ end
 -- language when the client has it, else by the shipped English name.
 local function StartWords(g)
     if g.kind == "item" then return L["Use %s"]:format(D.ItemName(g.id) or L["Item %d"]:format(g.id)) end
-    return g.kind == "object" and g.name or HA.VendorData:GetNpcName(g.id) or g.name
+    return g.kind == "object" and g.name or HA.VendorData:GetNpcName(g.id, g.name) or g.name
 end
 
 -- One row per decor item of a quest. The giver's name is read when a row draws.
@@ -205,7 +205,7 @@ local function RowData(s)
     elseif can and can > 0 then state, arg = "some", can
     elseif s.type == "events" or (v and (D.HolidayActive(v) or Facts.EndeavorActive(v))) then state = "live" end
     return {
-        kind = "row", key = s.key, name = s.title, line2 = not oneLine and s.sub or s.where, noTile = true, state = state, arg = arg,
+        kind = "row", key = s.key, name = v and HA.VendorData:GetVendorName(v) or s.title, line2 = not oneLine and s.sub or s.where, noTile = true, state = state, arg = arg,
         iconsOf = oneLine and function() return Rows(s, true) end or nil,
         selected = vid ~= nil and s.key == vid or nil, narrow = Narrow() or nil,
         right = total == 0 and L["No decor"] or got and L["%d of %d"]:format(got, total) or L["%d decor"]:format(total),
@@ -896,7 +896,7 @@ function Draw(fresh, saved)
     local w = BodyWidth()
     V.wait, V.w = nil, w
     local items, left = D.VendorWares(v)
-    local s = { vendor = v, type = "vendors", title = v.name or L["Unknown"], items = items }
+    local s = { vendor = v, type = "vendors", title = HA.VendorData:GetVendorName(v) or L["Unknown"], items = items }
     V.s = s
     local rows = Rows(s, true)
     local ready = HA.CatalogScanner:GetReadState() == "ready"
@@ -923,7 +923,7 @@ function Draw(fresh, saved)
     V.tag:SetShown(live)
     local tagH = live and W.TextHeight("meta", V.tag:GetText(), cw) or 0
     V.tag:SetSize(cw, tagH)
-    local place = Facts.Where(v) or L["Unknown"]
+    local place = HA.VendorPlaceText(v) or L["Unknown"]
     local at = Facts.Place(v)
     local cont = Facts.Nearness(at, Facts.Here()) == 3 and Continent(at)
     V.where:SetText(cont and L["%s · %s"]:format(place, cont) or place)

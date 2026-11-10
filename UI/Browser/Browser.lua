@@ -25,7 +25,7 @@ local DATA_EVENTS = {
     "ACTIVE_ENDEAVOR_CHANGED", "HS_CATALOG_TRUE_WARM", "HS_CATALOG_READ_STATE",
 }
 local GAME_EVENTS = {
-    "GET_ITEM_INFO_RECEIVED", "TOOLTIP_DATA_UPDATE", "PORTRAITS_UPDATED", "COLOR_OVERRIDE_UPDATED", "COLOR_OVERRIDES_RESET",
+    "GET_ITEM_INFO_RECEIVED", "PORTRAITS_UPDATED", "COLOR_OVERRIDE_UPDATED", "COLOR_OVERRIDES_RESET",
     "ZONE_CHANGED_NEW_AREA", "UI_SCALE_CHANGED", "DISPLAY_SIZE_CHANGED",
     "PLAYER_REGEN_DISABLED", "PLAYER_REGEN_ENABLED",
     "PLAYER_MONEY", "CURRENCY_DISPLAY_UPDATE", "BAG_UPDATE_DELAYED", "ACCOUNT_CHARACTER_CURRENCY_DATA_RECEIVED",
@@ -236,7 +236,7 @@ function B.SetHideNA(on)
     if page then page:Refresh("hide") end
 end
 
--- Pending refresh: stale (walk out of date), names (item names arrived), wallet (money, a currency or a bag
+-- Pending refresh: stale (walk out of date), names (item or creature names arrived), wallet (money, a currency or a bag
 -- changed: judge again, no walk), walletPaint (account data arrived: draw again), plain (any other request),
 -- prewarm (a data change or a name may ask for the vendor-count fill; a fill-only repaint must not, or fill and
 -- repaint loop).
@@ -321,6 +321,7 @@ local function BuildCallbacks()
             end
         end,
         stats = function() if Shown() then B.RequestRefresh(true) end end,
+        names = function() names = true B.RequestRefresh() end,
     }
     textScaleOwner = {}
 end
@@ -329,11 +330,6 @@ local function OnEvent(_, event, arg1, arg2)
     if not Shown() then return end
     if event == "GET_ITEM_INFO_RECEIVED" then
         if B.Data.NameArrived(arg1, arg2) then
-            names = true
-            B.RequestRefresh()
-        end
-    elseif event == "TOOLTIP_DATA_UPDATE" then
-        if HA.VendorData:NpcNameArrived(arg1) then
             names = true
             B.RequestRefresh()
         end
@@ -375,6 +371,7 @@ local function OnShow()
     for _, name in ipairs(DATA_EVENTS) do HA.Events:RegisterCallback(name, callbacks.data) end
     HA.Events:RegisterCallback("VENDOR_SCANNED", callbacks.scan)
     HA.Events:RegisterCallback("HS_VENDOR_STATS_WARMED", callbacks.stats)
+    HA.Events:RegisterCallback("NPC_NAMES_ARRIVED", callbacks.names)
     HA.Events:RegisterCallback("SOURCE_CACHES_INVALIDATED", B.CanGet.ResetFactionOnly)
     B.CanGet.ResetFactionOnly()
     for _, name in ipairs(GAME_EVENTS) do events:RegisterEvent(name) end
@@ -392,6 +389,7 @@ local function OnHide()
     for _, name in ipairs(DATA_EVENTS) do HA.Events:UnregisterCallback(name, callbacks.data) end
     HA.Events:UnregisterCallback("VENDOR_SCANNED", callbacks.scan)
     HA.Events:UnregisterCallback("HS_VENDOR_STATS_WARMED", callbacks.stats)
+    HA.Events:UnregisterCallback("NPC_NAMES_ARRIVED", callbacks.names)
     HA.Events:UnregisterCallback("SOURCE_CACHES_INVALIDATED", B.CanGet.ResetFactionOnly)
     events:UnregisterAllEvents()
     asked = false

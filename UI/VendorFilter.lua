@@ -281,6 +281,19 @@ function VendorFilter.GetUsableVendorCoordinates(vendor)
     return { x = otherX, y = otherY }, otherMapID, "static"
 end
 
+-- Where a waypoint to the vendor goes, as mapID, x, y: the position given (the
+-- clicked pin's) when this character can use it, else the one
+-- GetUsableVendorCoordinates picks.
+function VendorFilter.GetVendorWaypoint(vendor)
+    local own = PositionFaction(vendor, vendor.mapID)
+    if own and own ~= UnitFactionGroup("player") and HA.VendorData:GetOtherPosition(vendor) then
+        local coords, mapID = VendorFilter.GetUsableVendorCoordinates(vendor)
+        if coords then return mapID, coords.x, coords.y end
+    end
+    local x, y = VendorFilter.GetVendorXY(vendor)
+    return vendor.mapID, x, y
+end
+
 -- The map, zone, subzone and area ID of the position GetUsableVendorCoordinates
 -- picks. A vendor with one position answers with its own fields.
 function VendorFilter.GetUsableVendorPlace(vendor)

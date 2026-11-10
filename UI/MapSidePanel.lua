@@ -148,7 +148,7 @@ local ORDER_HALL_MAPS = {
 }
 
 local function GetVendorDisplayName(vendor)
-    local name = vendor.name or "Unknown"
+    local name = HA.VendorData:GetVendorName(vendor) or "Unknown"
     if vendor.mapID and ORDER_HALL_MAPS[vendor.mapID] then
         name = name .. " |cff888888(" .. (L["Order Hall"] or "Order Hall") .. ")|r"
     end
@@ -1462,18 +1462,12 @@ local function CreateVendorRow(parent)
     row:SetScript("OnEnter", function(self)
         if not self.vendor then return end
         local tooltip = BeginPanelTooltip(self, "ANCHOR_RIGHT")
-        tooltip:AddLine(self.vendor.name or "Unknown", 1, 1, 1)
-        -- A search result names the position its click goes to.
-        local mapID, zone, subzone = self.vendor.mapID, self.vendor.zone, self.vendor.subzone
-        if self.searchMode then
-            mapID, zone, subzone = HA.VendorFilter.GetUsableVendorPlace(self.vendor)
+        tooltip:AddLine(HA.VendorData:GetVendorName(self.vendor) or "Unknown", 1, 1, 1)
+        local place = HA.VendorPlaceText(self.vendor)
+        if place then
+            tooltip:AddLine(place, 0.7, 0.7, 0.7)
         end
-        if subzone then
-            tooltip:AddLine(subzone .. " (" .. (zone or "?") .. ")", 0.7, 0.7, 0.7)
-        elseif zone then
-            tooltip:AddLine(zone, 0.7, 0.7, 0.7)
-        end
-        if mapID and ORDER_HALL_MAPS[mapID] then
+        if self.vendor.mapID and ORDER_HALL_MAPS[self.vendor.mapID] then
             tooltip:AddLine("Legion Order Hall", 1, 0.82, 0)
         end
         if self.vendor.faction and self.vendor.faction ~= "Neutral" then
@@ -1966,7 +1960,7 @@ local function BuildZoneExpansionRows(zoneMapID, rows)
             iconMode = "vendor",
             vendor = vendor,
             targetMapID = vendorMapID or zoneMapID,
-            tooltipText = vendor.name or "Unknown",
+            tooltipText = HA.VendorData:GetVendorName(vendor) or "Unknown",
             tooltipSub = tooltipSub,
             isOrderHall = vendor.mapID and ORDER_HALL_MAPS[vendor.mapID] or false,
             name = GetVendorDisplayName(vendor),
@@ -4865,6 +4859,8 @@ function MapSidePanel:Initialize()
         HA.Events:RegisterCallback("ACTIVE_ENDEAVOR_CHANGED", ScheduleContentRefresh)
 
         HA.Events:RegisterCallback("DREAMSURGE_LOCATION_CHANGED", ScheduleContentRefresh)
+
+        HA.Events:RegisterCallback("NPC_NAMES_ARRIVED", ScheduleContentRefresh)
 
         -- Source caches invalidated — covers achievement, quest, reputation,
         -- profession, and holiday changes through SourceManager. An

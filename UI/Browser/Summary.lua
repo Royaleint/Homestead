@@ -75,7 +75,7 @@ local function CanData(e)
     d.npcID = p.npcID
     local mapID, x, y
     if v then mapID, x, y = D.VendorLocation(v) end
-    if mapID then d.wp = { mapID = mapID, x = x, y = y, title = v.name } end
+    if mapID then d.wp = { mapID = mapID, x = x, y = y, title = HA.VendorData:GetVendorName(v) } end
     return d
 end
 

@@ -546,19 +546,21 @@ local function MapName(mapID, fallback)
     return mapID and VF and VF.GetMapName(mapID) or fallback
 end
 
--- A source's zone, subzone and second zone, in the game's language. Only a position's own map and area are
--- looked up: a drop's mapID can be an area ID, so drops are not placed here.
-local function Places(data)
-    local zone, altZone, subzone = MapName(data.mapID, data.zone), MapName(data.altMapID, data.altZone), data.subzone
-    local areaID = data.vendor and data.vendor.areaID
+-- A zone, subzone and second zone, in the game's language. Only a position's own map and area are looked up: a
+-- drop's mapID can be an area ID, so drops are not placed here.
+local function PlaceNames(mapID, zone, subzone, areaID, altMapID, altZone)
+    zone, altZone = MapName(mapID, zone), MapName(altMapID, altZone)
     local area = areaID and HA.VendorFilter and HA.VendorFilter.GetAreaName(areaID)
     if area and area ~= zone then subzone = area end
     return zone, subzone, altZone
 end
 
+local function Places(data)
+    return PlaceNames(data.mapID, data.zone, data.subzone, data.vendor and data.vendor.areaID, data.altMapID, data.altZone)
+end
+
 -- "Subzone, Zone"; a vendor with two positions names both zones.
-local function PlaceText(data)
-    local zone, subzone, altZone = Places(data)
+local function JoinPlace(zone, subzone, altZone)
     if altZone and zone and altZone ~= zone then
         return Text("%s / %s"):format(zone, altZone)
     end
@@ -566,6 +568,28 @@ local function PlaceText(data)
         return Text("%s, %s"):format(subzone, zone)
     end
     return zone or subzone
+end
+
+local function PlaceText(data)
+    return JoinPlace(Places(data))
+end
+
+-- A vendor's place as every surface shows it: the text of its source line, both spots for a vendor who stands in
+-- two. nil when it has none.
+function HA.VendorPlaceText(vendor)
+    local mapID, zone = vendor.mapID, vendor.zone
+    local altMapID, _, _, altZone = HA.VendorData:GetOtherPosition(vendor)
+    -- The copy at the second position names the zones in the same order as the vendor's own row.
+    if altMapID and mapID == vendor.altMapID then
+        mapID, zone, altMapID, altZone = altMapID, altZone, mapID, zone
+    end
+    return JoinPlace(PlaceNames(mapID, zone, vendor.subzone, vendor.areaID, altMapID, altZone))
+end
+
+-- A vendor source's name: the client's name for its vendor once known, else the shipped one.
+local function VendorName(data)
+    local v = data.vendor
+    return v and HA.VendorData:GetVendorName(v) or data.name or data.vendorName
 end
 
 local function Name(decorateName, name)
@@ -606,7 +630,7 @@ function HA.FormatSourceLine(source, decorateName)
     local t = source.type or source.sourceType
 
     if t == "vendor" then
-        local name = data.name or data.vendorName
+        local name = VendorName(data)
         if not name then return Text("A vendor") end
         local place = PlaceText(data)
         if place then return Text("Vendor: %s, %s"):format(Name(decorateName, name), place) .. NotSellingTag(data) end
@@ -650,7 +674,7 @@ local function RenderVendorSourceLines(tooltip, source, parsedTag, _itemID, _com
         return
     end
 
-    local vendorName = source.data.name or Text("Unknown Vendor")
+    local vendorName = VendorName(source.data) or Text("Unknown Vendor")
     local zone, subzone, altZone = Places(source.data)
     local zoneName = zone or Text("Unknown Location")
     local locationText = subzone
@@ -897,16 +921,19 @@ local function AddSourceInfoToTooltip(tooltip, itemID, context, detailed, presen
         sourcesToRender = filtered
     end
 
-    -- Consolidate same-name vendor sources: when parsed sourceText yields
-    -- multiple vendor entries for the same NPC in different zones, keep only
-    -- the first occurrence so the tooltip stays compact.
+    -- Each vendor is listed once, and two vendors who share a name are both
+    -- listed. A parsed source text vendor has no NPC ID, so it is folded into
+    -- any vendor of its name already listed: source text can name one NPC in
+    -- several zones.
     if #sourcesToRender > 1 then
         local seenVendors = {}
         local consolidated = {}
         for _, source in ipairs(sourcesToRender) do
-            if source.type == "vendor" and source.data and source.data.name then
-                if not seenVendors[source.data.name] then
-                    seenVendors[source.data.name] = true
+            local data = source.data
+            if source.type == "vendor" and data and data.name then
+                local key = data.npcID or data.name
+                if not seenVendors[key] then
+                    seenVendors[key], seenVendors[data.name], seenVendors[VendorName(data)] = true, true, true
                     consolidated[#consolidated + 1] = source
                 end
             else

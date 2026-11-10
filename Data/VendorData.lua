@@ -1187,19 +1187,29 @@ function VendorData:GetClosestVendorForItem(itemID)
         return nil
     end
 
+    -- Only vendors this character can use, when it can use any: a vendor with a twin for the other faction is
+    -- named, not its twin.
+    local CanUse = HA.VendorFilter.CanUseVendor
+    local first
+    for _, vendor in ipairs(vendorList) do
+        if CanUse(vendor) then first = vendor break end
+    end
+    local ownOnly = first ~= nil
+    first = first or vendorList[1]
+
     -- Get player's current map and position
     local playerMapID, playerPos = PlayerMapPosition()
 
     if not playerMapID or not playerPos then
-        -- Can't determine position, return first vendor
-        return vendorList[1]
+        return first
     end
 
     local closestVendor = nil
     local closestIsSecondPosition = false
     local closestDistance = math.huge
 
-    for _, vendor in ipairs(vendorList) do
+    for _, vendor in ipairs(vendorList) do repeat
+        if ownOnly and not CanUse(vendor) then break end
         local distance = DistanceOnPlayerMap(playerMapID, playerPos, vendor.mapID, vendor.x, vendor.y)
         if distance and distance < closestDistance then
             closestDistance = distance
@@ -1214,14 +1224,13 @@ function VendorData:GetClosestVendorForItem(itemID)
             closestVendor = vendor
             closestIsSecondPosition = true
         end
-    end
+    until true end
 
     if closestIsSecondPosition then
         return GetSecondPositionCopy(self, closestVendor) or closestVendor
     end
 
-    -- If no vendor on same map, just return first one
-    return closestVendor or vendorList[1]
+    return closestVendor or first
 end
 
 -- Search vendors by name or zone
@@ -2252,33 +2261,116 @@ function VendorData:GetVendorCurrencies(vendor, itemIDs)
     return out, pending
 end
 
--- A creature's name in the player's language, read from the game's tooltip data for its ID; nil while the client
--- has none. Each ask keeps the tooltip data's ID; when the client announces that ID (NpcNameArrived) the name is
--- asked again, three asks in all. Other tooltip updates do not count, and a creature past its last ask waits for
--- nothing.
+-- A creature's name in the player's language, read from the game's tooltip data for its ID. Placeholder text,
+-- an empty line and a secret value are no name. An ask that finds none waits for the client to announce that
+-- tooltip data, and the name queue then asks again, three asks in all; a wait the client never answers ends after
+-- NAME_WAIT_TICKS and the shipped name stays. Names are kept for the session only.
 local NPC_NAME_ASKS = 3
-local npcNames, npcAsks, npcWait = {}, {}, {}
+local npcNames, npcAsks, npcWait, npcWaitEnds, npcShipped = {}, {}, {}, {}, {}
+
+-- Names wanted, asked a few at a time and never in combat, so a long list asks the client nothing in the frame
+-- that draws it. NPC_NAMES_ARRIVED is announced at most once per tick, and only when a name differs from the
+-- shipped one.
+local NAMES_PER_TICK, NAME_TICK, NAME_WAIT_TICKS = 10, 0.2, 25
+local nameQueue, nameQueued, nameHead, nameTail, nameTicking, nameTick = {}, {}, 1, 0, false, 0
+local nameListener, AskQueuedNames
+
+local function StartNameTicks()
+    if nameTicking then return end
+    nameTicking = true
+    C_Timer.After(NAME_TICK, AskQueuedNames)
+end
+
+local function QueueName(npcID)
+    nameTail = nameTail + 1
+    nameQueue[nameTail] = npcID
+    StartNameTicks()
+end
+
+local function StopWaiting(npcID)
+    npcWait[npcID], npcWaitEnds[npcID] = nil, nil
+    if not next(npcWait) then nameListener:UnregisterEvent("TOOLTIP_DATA_UPDATE") end
+end
+
+-- An awaited tooltip update hands its creature back to the queue.
+local function OnTooltipData(_, _, dataInstanceID)
+    for npcID, id in pairs(npcWait) do
+        if id == dataInstanceID then
+            StopWaiting(npcID)
+            QueueName(npcID)
+        end
+    end
+end
+
+local function IsName(text)
+    if issecretvalue and issecretvalue(text) then return false end
+    return text and text ~= "" and text ~= _G.RETRIEVING_DATA and text ~= _G.UNKNOWNOBJECT
+end
 
 local function AskNpcName(npcID)
     npcAsks[npcID] = (npcAsks[npcID] or 0) + 1
     local data = C_TooltipInfo.GetHyperlink("unit:Creature-0-0-0-0-" .. npcID .. "-0000000000")
     local line = data and data.lines and data.lines[1]
-    npcNames[npcID] = line and line.leftText ~= "" and line.leftText or nil
-    npcWait[npcID] = not npcNames[npcID] and npcAsks[npcID] < NPC_NAME_ASKS and data and data.dataInstanceID or nil
-    return npcNames[npcID]
+    local text = line and line.leftText
+    if IsName(text) then
+        npcNames[npcID] = text
+        return text
+    end
+    if npcAsks[npcID] < NPC_NAME_ASKS and data and data.dataInstanceID then
+        if not nameListener then
+            nameListener = CreateFrame("Frame")
+            nameListener:SetScript("OnEvent", OnTooltipData)
+        end
+        nameListener:RegisterEvent("TOOLTIP_DATA_UPDATE")
+        npcWait[npcID], npcWaitEnds[npcID] = data.dataInstanceID, nameTick + NAME_WAIT_TICKS
+        StartNameTicks()
+    end
 end
 
-function VendorData:GetNpcName(npcID)
+AskQueuedNames = function()
+    nameTick = nameTick + 1
+    local changed = false
+    if not InCombatLockdown() then
+        for _ = 1, NAMES_PER_TICK do
+            local npcID = nameQueue[nameHead]
+            if not npcID then break end
+            nameQueue[nameHead], nameHead = nil, nameHead + 1
+            if not npcNames[npcID] and not npcWait[npcID] and (npcAsks[npcID] or 0) < NPC_NAME_ASKS then
+                local name = AskNpcName(npcID)
+                if name and name ~= npcShipped[npcID] then changed = true end
+            end
+        end
+    end
+    for npcID, ends in pairs(npcWaitEnds) do
+        if ends <= nameTick then StopWaiting(npcID) end
+    end
+    if changed then HA.Events:Fire("NPC_NAMES_ARRIVED") end
+    if nameQueue[nameHead] or next(npcWait) then
+        C_Timer.After(NAME_TICK, AskQueuedNames)
+    else
+        nameHead, nameTail, nameTicking = 1, 0, false
+    end
+end
+
+-- A creature's name as the client gives it; nil until known. The first ask is made at once; shippedName, when
+-- given, is the name already shown, so a client name equal to it announces nothing.
+function VendorData:GetNpcName(npcID, shippedName)
+    npcShipped[npcID] = npcShipped[npcID] or shippedName
     return npcNames[npcID] or not npcAsks[npcID] and AskNpcName(npcID) or nil
 end
 
--- Asks again for the creature whose tooltip data just updated; true when its name arrived.
-function VendorData:NpcNameArrived(dataInstanceID)
-    local arrived = false
-    for npcID, id in pairs(npcWait) do
-        if id == dataInstanceID and AskNpcName(npcID) then arrived = true end
+-- A vendor's name as the game client gives it, in the player's language; the shipped name until the client's is
+-- known. Reading it never asks the client at once: an unknown name is queued. Lists sort by the shipped name,
+-- which never changes; search matches either.
+function VendorData:GetVendorName(vendor)
+    local npcID = vendor.npcID
+    local name = npcID and npcNames[npcID]
+    if name then return name end
+    if npcID and not npcAsks[npcID] and not nameQueued[npcID] then
+        nameQueued[npcID], npcShipped[npcID] = true, npcShipped[npcID] or vendor.name
+        QueueName(npcID)
     end
-    return arrived
+    return vendor.name
 end
 
 function VendorData:GetPortrait(npcID)
