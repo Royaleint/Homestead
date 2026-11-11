@@ -233,7 +233,7 @@ local function LowGold(cost, payable)
 end
 CG.LowGold = LowGold
 
--- true when every source is an other-faction vendor. Kept per item; the router resets it on show, on
+-- The shared other-faction-only answer, kept per item; the router resets it on show, on
 -- SOURCE_CACHES_INVALIDATED and on a decor vendor scan.
 local factionOnly = {}
 function CG.ResetFactionOnly()
@@ -243,12 +243,7 @@ end
 local function FactionOnly(itemID)
     local only = factionOnly[itemID]
     if only == nil then
-        only = false
-        for _, s in ipairs(HA.SourceManager:GetAllSources(itemID) or {}) do
-            local v = s.type == "vendor" and s.data and s.data.vendor
-            only = v and D.IsOppositeFaction(v) or false
-            if not only then break end
-        end
+        only = HA.SourceManager:IsOtherFactionOnly(itemID)
         factionOnly[itemID] = only
     end
     return only

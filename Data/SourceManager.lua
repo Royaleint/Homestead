@@ -806,6 +806,19 @@ function SourceManager:GetVendorSources(itemID)
     return sources
 end
 
+-- True when every source of the item is a vendor this character can use at none of its positions; false for an
+-- item with no source.
+function SourceManager:IsOtherFactionOnly(itemID)
+    local sources = self:GetAllSources(itemID)
+    if not sources[1] then return false end
+    local CanUse = HA.VendorFilter.CanUseVendor
+    for _, source in ipairs(sources) do
+        local vendor = source.type == "vendor" and source.data and source.data.vendor
+        if not vendor or CanUse(vendor) then return false end
+    end
+    return true
+end
+
 -- Helper: Get best parsed source for an item (from SourceTextScanner)
 function SourceManager:GetParsedSource(itemID)
     if not HA.SourceTextScanner then return nil end
