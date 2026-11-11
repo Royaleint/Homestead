@@ -589,6 +589,8 @@ local function ShopSummary(data)
         return Text("Twitch Drop")
     elseif method == "charity" then
         return data.name or Text("Charity Pack")
+    elseif method == "unlisted" then
+        return Text("Not currently sold")
     end
     return data.name or Text("Promotion")
 end
@@ -631,6 +633,7 @@ function HA.FormatSourceLine(source, decorateName)
     elseif t == "shop" then
         local summary = Name(decorateName, ShopSummary(data))
         if data.expires then summary = Text("%s (until %s)"):format(summary, data.expires) end
+        if data.method == "promo" then return Text("Promotion: %s"):format(summary) end
         return Text("Shop: %s"):format(summary)
     end
     return Text("%s: %s"):format(Text(OTHER_LABEL_KEYS[t] or "Other source"),
@@ -793,12 +796,19 @@ local function RenderShopSourceLines(tooltip, source, parsedTag, _itemID, _compl
         return
     end
 
-    tooltip:AddLine(LabelLine("Source:", WhiteName(Text("In-Game Shop"))) .. parsedTag, COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
-    tooltip:AddLine("  " .. LabelLine("Zone:", WhiteName(Text("N/A"))), COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
+    local isPromo = method == "promo"
+    tooltip:AddLine(LabelLine("Source:", WhiteName(Text(isPromo and "Promotion" or "In-Game Shop"))) .. parsedTag, COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
+    if not isPromo and method ~= "unlisted" then
+        tooltip:AddLine("  " .. LabelLine("Zone:", WhiteName(Text("N/A"))), COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
+    end
     if method == "hearthsteel" and data.cost then
         tooltip:AddLine("  " .. LabelLine("Shop Price:", WhiteName(data.cost .. " " .. HEARTHSTEEL_ICON)), COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
     end
-    if data.name then
+    if method == "unlisted" then
+        tooltip:AddLine("  " .. WhiteName(Text("Not currently sold")), COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
+    elseif isPromo and data.name then
+        tooltip:AddLine("  " .. Text("Promotion: %s"):format(WhiteName(data.name)), COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
+    elseif data.name and not (method == "hearthsteel" and data.name == "In-Game Shop") then
         tooltip:AddLine("  " .. LabelLine("Pack:", WhiteName(data.name)), COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
     end
     if data.expires then
