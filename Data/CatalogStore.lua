@@ -782,6 +782,19 @@ function CatalogStore:GetDecorItemIDs()
     return decorItemIDs
 end
 
+-- Why an item counts toward no collected total, or nil when it counts: "unknown" when the game cannot report
+-- whether it is owned, "promotion" for an unowned item with a promotion requirement (at that vendor, given
+-- npcID). Ownership from the cache, unless the caller passes owned = true from its own read: an owned item
+-- always counts.
+function CatalogStore:LeftOutReason(itemID, npcID, owned)
+    if self:IsOwnershipUnknowable(itemID) then return "unknown" end
+    local reqs = not owned and self:IsOwned(itemID) ~= true and HA.SourceManager:GetRequirements(itemID, npcID)
+    if not reqs then return nil end
+    for _, req in ipairs(reqs) do
+        if req.type == "promotion" then return "promotion" end
+    end
+end
+
 -- Rebuild decorID ↔ itemID indexes (both directions)
 -- Seeds from static DecorMapping first, then overlays runtime discoveries
 function CatalogStore:BuildDecorIndex()

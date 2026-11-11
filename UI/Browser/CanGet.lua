@@ -376,6 +376,10 @@ function CG.Entry(itemID)
     return e
 end
 
+local function Add(t, n, got)
+    t.total, t.owned = t.total + n, t.owned + (got and n or 0)
+end
+
 local function RunWalk(items)
     local SM, memo, tables = HA.SourceManager, Memo(), SourceTables()
     local list = {}
@@ -390,14 +394,10 @@ local function RunWalk(items)
             entries[itemID] = e
         end
         list[i] = e
-        local owned = e.own == "owned"
-        progress.total = progress.total + 1
-        if owned then progress.owned = progress.owned + 1 end
-        for key in pairs(e.src) do
-            local s = src[key]
-            s.total = s.total + 1
-            if owned then s.owned = s.owned + 1 end
-        end
+        local got = e.own == "owned"
+        local n = HA.CatalogStore:LeftOutReason(itemID, nil, got) and 0 or 1
+        Add(progress, n, got)
+        for key in pairs(e.src) do Add(src[key], n, got) end
     end
     return { list = list, progress = progress, vendorCan = {} }
 end

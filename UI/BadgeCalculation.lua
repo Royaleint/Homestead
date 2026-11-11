@@ -491,7 +491,7 @@ function BadgeCalculation:PeekVendorStats(vendor, sourceFilter)
 end
 
 -- The wares that count toward a vendor's collected and total under the "all" filter, in the vendor's
--- order: ownership knowable, and owned or not unobtainable (AccumulateVendorItem's rule, read without the
+-- order: the wares the catalog store's rule counts (CatalogStore:LeftOutReason, the pins' rule read without the
 -- full item presentation). Second, the wares left out, in the same order: { promotion = unowned promotion
 -- items, unknown = items whose ownership the game does not report }. Both are shared, never changed by a caller.
 function BadgeCalculation:GetCountedItemIDs(vendor)
@@ -505,19 +505,14 @@ function BadgeCalculation:GetCountedItemIDs(vendor)
         return counted, leftOutOf[counted]
     end
 
-    local store, SM = HA.CatalogStore, HA.SourceManager
+    local store = HA.CatalogStore
     local itemIDs = HA.VendorData:GetMergedItemIDs(vendor) or EMPTY_ITEM_IDS
     local left = { promotion = {}, unknown = {} }
     counted = HA.PerformanceTrace:Measure("vendor_counted_wares", #itemIDs, function()
         local out = {}
         for _, itemID in ipairs(itemIDs) do
-            local list = out
-            if store:IsOwnershipUnknowable(itemID) then
-                list = left.unknown
-            elseif store:IsOwned(itemID) ~= true
-                    and SM:GetVendorItemAvailabilityState(itemID, vendor.npcID, true) == "unobtainable" then
-                list = left.promotion
-            end
+            local reason = store:LeftOutReason(itemID, vendor.npcID)
+            local list = reason and left[reason] or out
             list[#list + 1] = itemID
         end
         return out
