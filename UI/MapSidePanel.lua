@@ -626,6 +626,7 @@ local function PopulateItemGrid(row, vendor, sourceFilter, highlightItems, itemI
     local icons = row.itemIcons
 
     local npcID = vendor.npcID
+    local selling = VendorData:IsVendorSellingNow(vendor)
 
     -- Ensure enough icon frames (acquire from pool)
     while #icons < #itemIDs do
@@ -687,6 +688,10 @@ local function PopulateItemGrid(row, vendor, sourceFilter, highlightItems, itemI
             icon.texture:SetDesaturated(true)
             icon.texture:SetVertexColor(0.6, 0.4, 0.4)
             icon.lock:Show()
+        elseif not selling then
+            -- A vendor not selling now offers nothing to buy: the neutral grey border, never the gold one
+            icon.border:SetColorTexture(0.45, 0.45, 0.45, 1)
+            SetIconBorderOutset(icon, 1)
         else
             -- Available to purchase: gold border
             icon.border:SetColorTexture(0.6, 0.5, 0.2, 1)
@@ -1916,7 +1921,7 @@ local function BuildZoneExpansionRows(zoneMapID, rows)
     if not VendorData or not BC then return end
 
     local VF = HA.VendorFilter
-    local allVendors = VendorData:GetAllVendors()
+    local allVendors = VendorData:GetAllVendors(true)
     local showOpposite = VF.ShouldShowOppositeFaction()
 
     -- Gather vendors in this zone under the badge count's own key: sibling
@@ -1936,7 +1941,7 @@ local function BuildZoneExpansionRows(zoneMapID, rows)
     end
 
     table.sort(zoneVendors, function(a, b)
-        return (a.name or "") < (b.name or "")
+        return VendorData:VendorNameBefore(a, b)
     end)
 
     for _, vendor in ipairs(zoneVendors) do
@@ -1953,6 +1958,8 @@ local function BuildZoneExpansionRows(zoneMapID, rows)
         else
             countText = ""
         end
+        -- Listed in any season, marked as the zone list marks it.
+        if not VendorData:IsVendorSellingNow(vendor) then countText = countText .. HA.NotActiveTag() end
 
         rows[#rows + 1] = {
             kind = "subrow",
@@ -2649,7 +2656,8 @@ local function GetVendorsForCurrentMap(mapID)
     local seen = {}
     local isNeighborhoodMap = (mapID == 2351 or mapID == 2352)
 
-    -- Get vendors for this map + more-specific sub-zone child maps.
+    -- Get vendors for this map + more-specific sub-zone child maps, in any season: the ones not selling now are
+    -- listed marked and left out of the zone's totals.
     local mapsToCheck = { [mapID] = true }
     local childMapIDs = MPP:GetMoreSpecificChildMapIDs(mapID)
     for _, childMapID in ipairs(childMapIDs) do
@@ -2673,12 +2681,13 @@ local function GetVendorsForCurrentMap(mapID)
             vendors[#vendors + 1] = {
                 vendor = vendor,
                 isOpposite = isOpposite,
+                notSelling = not VendorData:IsVendorSellingNow(vendor),
             }
         end
     end
 
     for queryMapID in pairs(mapsToCheck) do
-        local mapVendors = VendorData:GetVendorsInMap(queryMapID)
+        local mapVendors = VendorData:GetVendorsInMap(queryMapID, true)
         if mapVendors then
             for _, vendor in ipairs(mapVendors) do
                 TryAddVendor(vendor)
@@ -2710,9 +2719,8 @@ local function GetVendorsForCurrentMap(mapID)
         end
     end
 
-    -- Sort alphabetically
     table.sort(vendors, function(a, b)
-        return (a.vendor.name or "") < (b.vendor.name or "")
+        return VendorData:VendorNameBefore(a.vendor, b.vendor)
     end)
 
     return vendors
@@ -3442,7 +3450,7 @@ function MapSidePanel:RefreshContent()
     local vendorList = GetVendorsForCurrentMap(mapID)
     local sourceFilter = State.panelSourceFilter
 
-    local totalCollected, totalItems, totalLocked = 0, 0, 0
+    local totalCollected, totalItems, totalLocked, counted = 0, 0, 0, 0
     local rows = {}
 
     for _, entry in ipairs(vendorList) do
@@ -3470,6 +3478,7 @@ function MapSidePanel:RefreshContent()
             end
             countColor = Layout.COLOR_DIM
         end
+        if entry.notSelling then countText = countText .. HA.NotActiveTag() end
 
         -- Check if this vendor is expanded (item grid visible)
         local isExpanded = (State.expandedVendorID == vendor.npcID)
@@ -3494,9 +3503,12 @@ function MapSidePanel:RefreshContent()
         }
         rows[#rows + 1] = rec
 
-        totalCollected = totalCollected + rec.collected
-        totalItems = totalItems + rec.total
-        totalLocked = totalLocked + rec.locked
+        if not entry.notSelling then
+            counted = counted + 1
+            totalCollected = totalCollected + rec.collected
+            totalItems = totalItems + rec.total
+            totalLocked = totalLocked + rec.locked
+        end
     end
 
     local childRowCount = AppendChildMapRows(mapID, rows)
@@ -3513,9 +3525,9 @@ function MapSidePanel:RefreshContent()
     -- Summary line
     if totalItems > 0 then
         State.summaryText:SetText(string.format("%d vendors | %s items",
-            #vendorList, FormatPurchasabilityCountText(totalCollected, totalItems, totalLocked)))
-    elseif #vendorList > 0 then
-        State.summaryText:SetText(string.format("%d vendors", #vendorList))
+            counted, FormatPurchasabilityCountText(totalCollected, totalItems, totalLocked)))
+    elseif counted > 0 then
+        State.summaryText:SetText(string.format("%d vendors", counted))
     else
         State.summaryText:SetText("")
     end

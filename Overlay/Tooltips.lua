@@ -596,9 +596,11 @@ local function Name(decorateName, name)
     return decorateName and decorateName(name) or name
 end
 
+-- The red "(Not Active)" after a vendor that is listed but not selling now; the side panel's vendor rows use it too.
 local function NotActiveTag()
     return " |cffff4444(" .. Text("Not Active") .. ")|r"
 end
+HA.NotActiveTag = NotActiveTag
 
 -- The not-active mark for a vendor source that is listed but not selling now; "" for any other.
 local function NotSellingTag(data)

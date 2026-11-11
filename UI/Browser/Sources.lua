@@ -114,9 +114,11 @@ local function DecorName(id)
     return D.ItemName(id, e and e.info or D.CatalogInfo(id, B.State.catalogMemo)) or L["Item %d"]:format(id)
 end
 
--- Titles that can arrive after the list was built: a shop item's name, a drop group's journal name.
+-- Titles that can arrive after the list was built: a shop item's name, a vendor's or a drop group's client name.
+-- A vendor row sorts by st, the name its list is ordered by.
 local function Retitle(s)
     if s.type == "shop" then s.title = DecorName(s.items[1])
+    elseif s.vendor then s.title, s.st = HA.VendorData:GetVendorName(s.vendor), HA.VendorData:GetVendorOrderName(s.vendor)
     elseif s.drop then s.title = HA.SourceManager:GetDropGroupName(s.drop) end
 end
 
@@ -159,7 +161,8 @@ local function Stats(s)
     if v then
         local n
         got, n = D.VendorCounts(v, asked)
-        if n == nil then asked = true else total = n end
+        -- A holiday vendor's count is warmed on its own, so it leaves the ask for the others.
+        if n ~= nil then total = n elseif D.HolidayActive(v) == nil then asked = true end
         can = CG.VendorCanCount(v)
     else
         got, total = 0, 0
@@ -205,7 +208,7 @@ local function RowData(s)
     local v, state, arg = s.vendor
     local oneLine = s.type ~= "vendors" and s.type ~= "drops"
     if v and D.IsOppositeFaction(v) then state, arg = "faction", D.VendorFactionLabel(v)
-    elseif s.type == "events" and not Live(s.key) then state = "idle"
+    elseif (s.type == "events" and not Live(s.key)) or (v and not Facts.OnSale(v)) then state = "idle"
     elseif cs == "counting" then state = "counting"
     elseif CG.HiddenBy(v and { vendor = v } or { items = s.items }) == "collected" then state = "allDone"
     elseif can and can > 0 then state, arg = "some", can
@@ -300,7 +303,8 @@ local function Before(a, b)
     if pa ~= pb then return pa < pb end
     local ga, gb = a.g or "", b.g or ""
     if ga ~= gb then return ga < gb end
-    if a.title ~= b.title then return a.title < b.title end
+    local na, nb = a.st or a.title, b.st or b.title
+    if na ~= nb then return na < nb end
     return tostring(a.key) < tostring(b.key)
 end
 

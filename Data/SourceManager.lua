@@ -416,8 +416,13 @@ function SourceManager:IsSourceAvailableNow(itemID, source)
         return true
     end
 
-    -- Event sources are unavailable when the event is known inactive.
+    -- Event sources are unavailable when the event is known inactive. An event vendor's ware is available only while
+    -- that vendor is selling, so it is not available before the calendar has said the event is on. A vendor with no
+    -- holiday row falls to the calendar check, so it cannot read available all year.
     if sourceType == "event" then
+        if data.npcID and HA.VendorData and HA.VendorData:GetHolidayEvent(data.npcID) then
+            return HA.VendorData:IsVendorSellingNow(data.npcID)
+        end
         if HA.CalendarDetector and data.event then
             local isActive = HA.CalendarDetector:IsHolidayActive(data.event)
             if isActive == false then
@@ -1636,6 +1641,10 @@ function SourceManager:GetVendorItemAvailabilityState(itemID, npcID, skipOwnersh
         if scannedItem and scannedItem.isPurchasable == false then
             return "locked", false, false, { Text("Purchase gated") }
         end
+        -- A vendor that is listed but not selling now offers nothing to buy, so its ware never reads available.
+        if HA.VendorData and not HA.VendorData:IsVendorSellingNow(npcID) then
+            return "notSelling", isUnverified, hasVerifiableRequirement, nil
+        end
     end
 
     return state, isUnverified, hasVerifiableRequirement, blockerLabels
@@ -1844,11 +1853,14 @@ function SourceManager:GetItemPresentation(itemID, options)
     local primarySourceBadgeAtlas = primarySourceType and sourceBadgeAtlases
         and sourceBadgeAtlases[primarySourceType] or nil
 
+    -- A reward whose achievement is done but which is not collected has a state of its own with no glow colour, so
+    -- the catalog does not fall back to the available glow for it.
     local catalogGlowState = nil
     if availabilityState == "owned" then
         catalogGlowState = "owned"
-    elseif availabilityState == "available" or availabilityState == "purchasable"
-            or availabilityState == "notOwned" then
+    elseif availabilityState == "notOwned" then
+        catalogGlowState = "notCollected"
+    elseif availabilityState == "available" or availabilityState == "purchasable" then
         catalogGlowState = "available"
     elseif availabilityState == "blocked" or availabilityState == "locked" then
         catalogGlowState = "blocked"

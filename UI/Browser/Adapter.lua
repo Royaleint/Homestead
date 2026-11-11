@@ -60,7 +60,7 @@ function D.ListedVendors()
     if listed then return listed end
     listed = {}
     local seen = {}
-    for _, v in ipairs(HA.VendorData:GetAllVendors()) do
+    for _, v in ipairs(HA.VendorData:GetAllVendors(true)) do
         local key = D.IsListedVendor(v) and B.Facts.SourceKey("vendors", v)
         if key and not seen[key] then
             seen[key] = true
@@ -213,7 +213,7 @@ function D.NearYou()
     end
     table.sort(out, function(a, b)
         if a.dist ~= b.dist then return a.dist < b.dist end
-        return (a.vendor.name or "") < (b.vendor.name or "")
+        return HA.VendorData:VendorNameBefore(a.vendor, b.vendor)
     end)
     local vendors = {}
     for i, e in ipairs(out) do vendors[i] = e.vendor end

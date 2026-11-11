@@ -325,7 +325,7 @@ function SearchProvider:Search(query, options)
     -- Vendor-name matches first, then alphabetical
     table.sort(results, function(a, b)
         if a.matchType ~= b.matchType then return a.matchType == "vendor" end
-        return (a.vendor.name or "") < (b.vendor.name or "")
+        return VD:VendorNameBefore(a.vendor, b.vendor)
     end)
 
     if not includeItemResults then

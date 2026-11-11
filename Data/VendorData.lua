@@ -901,8 +901,9 @@ local function GetSecondPositionCopy(self, vendor)
 end
 
 -- Get all vendors in a specific map/zone
--- Includes active event vendors from EventSources
-function VendorData:GetVendorsInMap(mapID)
+-- Includes active event vendors from EventSources; anySeason adds the holiday vendors whose holiday is off and the
+-- Endeavor vendors whose theme is not running.
+function VendorData:GetVendorsInMap(mapID, anySeason)
     local result = {}
     local addedNPCs = {}
     local tracker = HA.DreamsurgeTracker
@@ -937,7 +938,7 @@ function VendorData:GetVendorsInMap(mapID)
         if endeavorVendors then
             for _, vendor in ipairs(endeavorVendors) do
                 if vendor.npcID and not addedNPCs[vendor.npcID]
-                        and ShouldIncludeEndeavorVendorForDisplay(vendor) then
+                        and (anySeason or ShouldIncludeEndeavorVendorForDisplay(vendor)) then
                     result[#result + 1] = vendor
                     addedNPCs[vendor.npcID] = true
                 end
@@ -956,7 +957,7 @@ function VendorData:GetVendorsInMap(mapID)
                 -- Dedup: skip if already added (e.g., vendor was scanned in-game)
                 if vendor.npcID and not addedNPCs[vendor.npcID] then
                     -- Only while the holiday runs (unknown = off)
-                    if not self:IsHolidayVendorHidden(vendor.npcID) then
+                    if anySeason or not self:IsHolidayVendorHidden(vendor.npcID) then
                         result[#result + 1] = vendor
                         addedNPCs[vendor.npcID] = true
                     end
@@ -1313,8 +1314,8 @@ function VendorData:SearchVendors(searchText)
     return result
 end
 
--- Get all vendors (includes active event vendors)
-function VendorData:GetAllVendors()
+-- Get all vendors (includes active event vendors; anySeason adds the holiday vendors whose holiday is off)
+function VendorData:GetAllVendors(anySeason)
     local result = {}
     local addedNPCs = {}
 
@@ -1343,7 +1344,7 @@ function VendorData:GetAllVendors()
     if HA.EventSources and HA.EventSources.EventVendors then
         for npcID, vendor in pairs(HA.EventSources.EventVendors) do
             if vendor.npcID and not addedNPCs[vendor.npcID] then
-                if not self:IsHolidayVendorHidden(npcID) then  -- npcID = the pairs key
+                if anySeason or not self:IsHolidayVendorHidden(npcID) then  -- npcID = the pairs key
                     -- A copy, as for identity rows: callers may write fields onto
                     -- what they get, and the shipped row's npcID is the gate's key.
                     result[#result + 1] = ProjectVendorWithItems(self, vendor, npcID)
@@ -1996,10 +1997,11 @@ function VendorData:IsEndeavorVendorActive(vendor)
     return theme ~= nil and ED:IsThemeActive(theme) == true
 end
 
--- Whether a vendor listed as a source is selling now: false for a holiday vendor out of season and for an
--- Endeavor vendor whose theme is not running, true for every other vendor.
-function VendorData:IsVendorSellingNow(npcID)
-    return not self:IsHolidayVendorHidden(npcID) and self:IsEndeavorVendorActive(npcID) ~= false
+-- Whether a listed vendor (a record or an NPC ID) is selling now: false for a holiday vendor out of season and
+-- for an Endeavor vendor whose theme is not running, true for every other vendor.
+function VendorData:IsVendorSellingNow(vendor)
+    local npcID = type(vendor) == "table" and vendor.npcID or vendor
+    return not self:IsHolidayVendorHidden(npcID) and self:IsEndeavorVendorActive(vendor) ~= false
 end
 
 function VendorData:GetVendorWithItems(npcID)
@@ -2282,11 +2284,12 @@ function VendorData:GetVendorGroup(vendor)
     return GroupTokens()[vendor.expansion] ~= nil and vendor.expansion or "other"
 end
 
--- Endeavor first, then the expansions newest first, then Events and the rest.
+-- The expansions newest first, then Endeavor, Events and the rest.
 function VendorData:GetVendorGroups()
     local _ = self
-    local out = { "Endeavor" }
+    local out = {}
     for _, e in ipairs(HA.Constants.EXPANSION_ORDER) do out[#out + 1] = e[1] end
+    out[#out + 1] = "Endeavor"
     out[#out + 1] = "Events"
     out[#out + 1] = "other"
     return out
@@ -2314,10 +2317,15 @@ local npcNames, npcAsks, npcWait, npcWaitEnds, npcShipped = {}, {}, {}, {}, {}
 local NAMES_PER_TICK, NAME_TICK, NAME_WAIT_TICKS = 10, 0.2, 25
 local nameQueue, nameQueued, nameHead, nameTail, nameTicking, nameTick = {}, {}, 1, 0, false, 0
 local nameListener, AskQueuedNames
+-- While asks are pending, lists are ordered by the names known when the asks began, so a list keeps its order as
+-- names arrive. When the last ask is answered or given up after a name arrived, NPC_NAMES_ARRIVED is announced
+-- once more and lists sort by the arrived names.
+local orderNames, namesMoved = {}, false
 
 local function StartNameTicks()
     if nameTicking then return end
     nameTicking = true
+    for npcID, name in pairs(npcNames) do orderNames[npcID] = name end
     C_Timer.After(NAME_TICK, AskQueuedNames)
 end
 
@@ -2384,12 +2392,14 @@ AskQueuedNames = function()
     for npcID, ends in pairs(npcWaitEnds) do
         if ends <= nameTick then StopWaiting(npcID) end
     end
-    if changed then HA.Events:Fire("NPC_NAMES_ARRIVED") end
+    namesMoved = namesMoved or changed
     if nameQueue[nameHead] or next(npcWait) then
         C_Timer.After(NAME_TICK, AskQueuedNames)
     else
         nameHead, nameTail, nameTicking = 1, 0, false
+        changed, namesMoved = namesMoved, false
     end
+    if changed then HA.Events:Fire("NPC_NAMES_ARRIVED") end
 end
 
 -- A creature's name as the client gives it; nil until known. The first ask is made at once; shippedName, when
@@ -2400,8 +2410,7 @@ function VendorData:GetNpcName(npcID, shippedName)
 end
 
 -- A vendor's name as the game client gives it, in the player's language; the shipped name until the client's is
--- known. Reading it never asks the client at once: an unknown name is queued. Lists sort by the shipped name,
--- which never changes; search matches either.
+-- known. Reading it never asks the client at once: an unknown name is queued. Search matches either name.
 function VendorData:GetVendorName(vendor)
     local npcID = vendor.npcID
     local name = npcID and npcNames[npcID]
@@ -2411,6 +2420,22 @@ function VendorData:GetVendorName(vendor)
         QueueName(npcID)
     end
     return vendor.name
+end
+
+-- The name a vendor list is ordered by: the shown name, except that while names are still being asked for it is
+-- the name known when the asks began, so rows do not move under the cursor as each name arrives.
+function VendorData:GetVendorOrderName(vendor)
+    local shown, npcID = self:GetVendorName(vendor), vendor.npcID
+    if not (nameTicking and npcID) then return shown end
+    return orderNames[npcID] or vendor.name
+end
+
+-- The order of vendor lists: by GetVendorOrderName, then by NPC ID so equal names keep one order. Sort lists
+-- when they are built.
+function VendorData:VendorNameBefore(a, b)
+    local na, nb = self:GetVendorOrderName(a) or "", self:GetVendorOrderName(b) or ""
+    if na ~= nb then return na < nb end
+    return (a.npcID or 0) < (b.npcID or 0)
 end
 
 function VendorData:GetPortrait(npcID)
