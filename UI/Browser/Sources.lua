@@ -625,7 +625,7 @@ local function Line(fs, role, text, w)
 end
 
 -- A vendor card's left-out wares, by the shared reason, and the mark each is named by.
-local LEFT_OUT = { { "promotion", L["Promotion"] }, { "unknown", L["Ownership unknown"] } }
+local LEFT_OUT = { { "promotion", L["Promotion"] }, { "unknown", L["Collection unknown"] } }
 
 function Rows(s, cells)
     local v, rows = s.vendor, {}
@@ -959,7 +959,7 @@ function Draw(fresh, saved)
         and S.Colored(K.stop, L["%s only: can't buy on this character"]:format(D.VendorFactionLabel(v) or "")), w)
     Line(V.hdr, "bodyGold", L["Wares"], w)
     Line(V.key, "body", rows[1] and L["Corners: state top right, bonus top left, event bottom left, copies bottom right."]
-        .. (#rows > n and " " .. L["Greyed: a promotion item, or one whose ownership the game doesn't report. Not counted."] or ""), w)
+        .. (#rows > n and " " .. L["Greyed: promotion item, or collection status unknown. Not counted in totals."] or ""), w)
     V.report:Fit()
     V.grid:SetShown(rows[1] ~= nil)
     V.grid:SetData(rows, not fresh, w - LO.scrollBarGap)

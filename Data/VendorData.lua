@@ -2295,7 +2295,7 @@ end
 function VendorData:GetVendorGroupLabel(key)
     local _ = self
     if key == "other" then return Text("Other Vendors") end
-    if key == "Endeavor" then return Text("Endeavor") end
+    if key == "Endeavor" then return Text("Endeavors") end
     if key == "Events" then return Text("Events") end
     local token = GroupTokens()[key]
     return token and _G["EXPANSION_NAME" .. tostring(_G["LE_EXPANSION_" .. token])] or key
