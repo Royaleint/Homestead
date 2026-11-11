@@ -1731,16 +1731,12 @@ function SourceManager:GetItemPresentation(itemID, options)
     -- player. Counting surfaces must leave these items out entirely rather than
     -- read that false as "not owned"; isOwned itself is left untouched so the
     -- display paths that already nil-check it are unaffected.
+    -- Items the last trusted catalog scan found no entry for are left out the same way, unless owned.
     local isOwnershipExcluded = false
-    if catalogStore and catalogStore.IsOwnershipUnknowable then
-        isOwnershipExcluded = catalogStore:IsOwnershipUnknowable(itemID) == true
+    if catalogStore and catalogStore.IsOwnershipUnreported then
+        isOwnershipExcluded = catalogStore:IsOwnershipUnreported(itemID, isOwned) == true
     end
-    -- Display only: surfaces show no owned state for these; counting still follows isOwnershipExcluded.
-    local ownershipState = "owned"
-    if not isOwned then
-        ownershipState = catalogStore and catalogStore.IsOwnershipUnreported
-            and catalogStore:IsOwnershipUnreported(itemID) and "unknown" or "unowned"
-    end
+    local ownershipState = isOwned and "owned" or isOwnershipExcluded and "unknown" or "unowned"
 
     local availabilityState
     local isUnverified = false

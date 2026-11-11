@@ -225,17 +225,17 @@ local UNKNOWN_VENDOR_STATS = {
     vendorOnly = 0,
 }
 
--- Is this item's ownership knowable at all? Decor resolves by itemID, and a Room
--- plan resolves when it is in the curated RoomMapping; everything else (Dye,
--- RoomCustomization, ExteriorCustomization, ServiceItem, and any unmapped Room
--- plan) reads as a hard false that says nothing about the player. Mirrors the
+-- Does the game report this item's ownership at all? Housing items outside
+-- the Decor subclass (unless a mapped Room plan) and unowned items the last
+-- trusted catalog scan found no entry for read as a hard false that says
+-- nothing about the player (CatalogStore:IsOwnershipUnreported). Mirrors the
 -- isOwned resolution below, including the cache-only no-presentation fallback.
 local function IsOwnershipExcluded(itemID, presentation)
     if presentation then
         return presentation.isOwnershipExcluded == true
     end
-    if HA.CatalogStore and HA.CatalogStore.IsOwnershipUnknowable then
-        return HA.CatalogStore:IsOwnershipUnknowable(itemID) == true
+    if HA.CatalogStore and HA.CatalogStore.IsOwnershipUnreported then
+        return HA.CatalogStore:IsOwnershipUnreported(itemID) == true
     end
     return false
 end

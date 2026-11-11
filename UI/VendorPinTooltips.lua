@@ -1033,7 +1033,7 @@ function VendorPinTooltips:ShowDropPinTooltip(pin, record)
             sourceFilter = "drop",
             isVendorContext = false,
         }, suffix)
-        if CS and CS.IsOwnershipUnknowable and CS:IsOwnershipUnknowable(itemRecord.itemID) then
+        if CS and CS.IsOwnershipUnreported and CS:IsOwnershipUnreported(itemRecord.itemID) then
             excluded = excluded + 1
         elseif availabilityState == "owned" then
             collected = collected + 1

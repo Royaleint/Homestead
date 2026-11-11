@@ -315,7 +315,7 @@ end
 -- room they may already own.
 local function IsOwnershipUnreported(itemID, presentation)
     if presentation then
-        return presentation.isOwnershipExcluded == true or presentation.ownershipState == "unknown"
+        return presentation.isOwnershipExcluded == true
     end
     if itemID and HA.CatalogStore and HA.CatalogStore.IsOwnershipUnreported then
         return HA.CatalogStore:IsOwnershipUnreported(itemID) == true

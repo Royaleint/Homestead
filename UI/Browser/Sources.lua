@@ -162,10 +162,14 @@ local function Stats(s)
         if n == nil then asked = true else total = n end
         can = CG.VendorCanCount(v)
     else
-        got = 0
+        got, total = 0, 0
         for _, id in ipairs(s.items) do
             local e = CG.Entry(id)
-            if e and e.own == "owned" then got = got + 1 elseif e and e.verdict == "can" then can = can + 1 end
+            local own = e and e.own == "owned"
+            if not HA.CatalogStore:LeftOutReason(id, nil, own) then
+                total = total + 1
+                if own then got = got + 1 elseif e and e.verdict == "can" then can = can + 1 end
+            end
         end
     end
     return total, got, can

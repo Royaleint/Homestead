@@ -115,9 +115,9 @@ local function UpdateMilestoneDisplayImpl()
     if vendor and HA.VendorData and HA.VendorData.GetItemsForVendor then
         local vendorItems = HA.VendorData:GetItemsForVendor(vendor)
         -- This line derives its own counts rather than reading
-        -- BadgeCalculation, so it needs its own exclusion guard. Housing items
-        -- outside the Decor subclass have no resolvable ownership yet, and
-        -- would otherwise sit permanently in the denominator as unowned.
+        -- BadgeCalculation, so it needs its own exclusion guard. Items whose
+        -- ownership the game does not report (CatalogStore:IsOwnershipUnreported)
+        -- would otherwise sit in the denominator as unowned.
         -- total is counted rather than taken from #vendorItems for that
         -- reason; with nothing excluded the two are the same number.
         local total = 0
@@ -125,21 +125,20 @@ local function UpdateMilestoneDisplayImpl()
         local CS = HA.CatalogStore
         for _, item in ipairs(vendorItems) do
             local itemID = HA.VendorData:GetItemID(item)
-            local ownershipExcluded = itemID and CS and CS.IsOwnershipUnknowable
-                and CS:IsOwnershipUnknowable(itemID)
+            local isOwned, ownershipExcluded = false, false
+            if itemID and HA.SourceManager and HA.SourceManager.GetItemPresentation then
+                local presentation = HA.SourceManager:GetItemPresentation(itemID, {
+                    context = "housingDashboard",
+                    readOnlyOwnership = true,
+                })
+                isOwned = presentation and presentation.isOwned == true
+                ownershipExcluded = presentation and presentation.isOwnershipExcluded == true
+            elseif itemID and CS then
+                isOwned = CS:IsOwnedFresh(itemID, true) == true
+                ownershipExcluded = CS:IsOwnershipUnreported(itemID, isOwned)
+            end
             if not ownershipExcluded then
                 total = total + 1
-
-                local isOwned = false
-                if itemID and HA.SourceManager and HA.SourceManager.GetItemPresentation then
-                    local presentation = HA.SourceManager:GetItemPresentation(itemID, {
-                        context = "housingDashboard",
-                        readOnlyOwnership = true,
-                    })
-                    isOwned = presentation and presentation.isOwned == true
-                elseif itemID and CS then
-                    isOwned = CS:IsOwnedFresh(itemID, true) == true
-                end
                 if isOwned then owned = owned + 1 end
             end
         end

@@ -188,8 +188,9 @@ function VendorTracer:GetMissingItemVendors()
                 -- ServiceItem, unmapped Room plans) still resolves to no
                 -- catalog entry, so IsOwnedFresh answers a hard false for them
                 -- and they would be reported as missing. Leave those out.
-                local ownershipExcluded = CS and CS.IsOwnershipUnknowable
-                    and CS:IsOwnershipUnknowable(itemID)
+                -- Items the last catalog scan found no entry for are left out too.
+                local ownershipExcluded = CS and CS.IsOwnershipUnreported
+                    and CS:IsOwnershipUnreported(itemID)
 
                 if not ownershipExcluded then
                     -- Check if player owns this item

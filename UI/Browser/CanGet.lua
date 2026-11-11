@@ -590,12 +590,18 @@ function CG.HiddenBy(what)
         if D.IsOppositeFaction(vendor) then return "faction" end
         items = D.VendorWares(vendor)
     end
-    if not (items and items[1]) then return nil end
+    if not items then return nil end
+    -- A vendor's wares are already the counted ones; other sources leave out what the walk leaves out.
+    local any = false
     for _, itemID in ipairs(items) do
         local e = CG.Entry(itemID)
-        if not (e and e.own == "owned") then return nil end
+        local own = e and e.own == "owned"
+        if vendor or not HA.CatalogStore:LeftOutReason(itemID, nil, own) then
+            if not own then return nil end
+            any = true
+        end
     end
-    return "collected"
+    return any and "collected" or nil
 end
 
 local function FactionLabel(itemID, npcID)
