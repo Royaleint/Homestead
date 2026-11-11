@@ -273,7 +273,7 @@ local function ShowItemPreview(itemID)
     -- Get catalog entry info directly from itemID. Guarded like every other
     -- GetCatalogEntryInfoByItem call site (nil for some items) with
     -- the byRecordID fallback via CatalogStore's decorID reverse index — see
-    -- CatalogStore:IsOwnedFresh's readOnly branch for the reference pattern.
+    -- CatalogStore's WalkEntries for the reference pattern.
     local ok, info = pcall(C_HousingCatalog.GetCatalogEntryInfoByItem, itemID, true)
     if not ok then info = nil end
 
@@ -981,15 +981,6 @@ end
 -- Item Search Result Rows
 -------------------------------------------------------------------------------
 
-local function GetSourceTypeLabel(sourceType)
-    local SM = HA.SourceManager
-    local normalizedType = sourceType
-    if SM and SM.NormalizeSourceType then
-        normalizedType = SM:NormalizeSourceType(sourceType) or sourceType
-    end
-    return SOURCE_FILTER_LABELS[normalizedType] or normalizedType or "Source"
-end
-
 local function GetSourceBadgeAtlas(sourceType)
     local SM = HA.SourceManager
     local normalizedType = sourceType
@@ -1020,83 +1011,6 @@ local function ApplySourceBadge(texture, sourceType, atlas, icon)
     end
 
     texture:Show()
-end
-
-local function GetSourceLocationText(data)
-    if type(data) ~= "table" then return nil end
-
-    -- The summary line does not wrap, so two positions show zone names only.
-    if data.altZone and data.zone then
-        return data.zone .. " / " .. data.altZone
-    end
-
-    if data.subzone and data.zone then
-        return data.subzone .. ", " .. data.zone
-    end
-
-    return data.zone or data.subzone
-end
-
-local function FormatSourceSummary(source)
-    if not source then
-        return "Source details unavailable"
-    end
-
-    local sourceType = source.type or source.sourceType
-    local data = source.data or source
-    local label = GetSourceTypeLabel(sourceType)
-    local detail
-
-    if sourceType == "vendor" then
-        local vendorName = data.name or data.vendorName or "Unknown Vendor"
-        local location = GetSourceLocationText(data)
-        detail = location and (vendorName .. " (" .. location .. ")") or vendorName
-    elseif sourceType == "quest" then
-        detail = data.questName or "Unknown Quest"
-    elseif sourceType == "achievement" then
-        detail = data.achievementName or "Unknown Achievement"
-    elseif sourceType == "profession" then
-        local recipeName = data.recipeName or data.name
-        local professionName = data.skillTier or data.profession
-        if recipeName and professionName then
-            detail = recipeName .. " (" .. professionName .. ")"
-        else
-            detail = recipeName or professionName or "Unknown Recipe"
-        end
-    elseif sourceType == "event" then
-        local eventName = data.event or data.vendorName or "Unknown Event"
-        local vendorName = data.vendorName
-        local location = GetSourceLocationText(data)
-        if vendorName and vendorName ~= eventName then
-            local vendorDisplay = location and (vendorName .. " - " .. location) or vendorName
-            detail = eventName .. " / " .. vendorDisplay
-        else
-            detail = location and (eventName .. " (" .. location .. ")") or eventName
-        end
-    elseif sourceType == "drop" then
-        local mobName = data.mobName or "Unknown Drop"
-        local location = data.zone
-        detail = location and (mobName .. " (" .. location .. ")") or mobName
-    elseif sourceType == "shop" then
-        local method = data.method or "hearthsteel"
-        if method == "promo" then
-            label = "Promotion"
-        end
-        if method == "hearthsteel" and data.cost then
-            detail = data.cost .. " Hearthsteel"
-        elseif method == "unlisted" then
-            detail = "Not currently sold"
-        else
-            detail = data.name or "In-Game Shop"
-        end
-        if data.expires then
-            detail = detail .. " (until " .. data.expires .. ")"
-        end
-    else
-        detail = data.name or data.sourceText or "Unknown Source"
-    end
-
-    return label .. ": " .. detail
 end
 
 local function GetDisplaySourcesForItem(itemID, sourceFilter)
@@ -1239,7 +1153,7 @@ local function PopulateItemSourceList(row, itemID, sourceFilter)
             line:SetPoint("TOPLEFT", sourcesFrame, "TOPLEFT", 0, -((i - 1) * Layout.ITEM_RESULT_LINE_HEIGHT))
             line:SetPoint("TOPRIGHT", sourcesFrame, "TOPRIGHT", 0, -((i - 1) * Layout.ITEM_RESULT_LINE_HEIGHT))
             ApplySourceBadge(line.badge, source.type)
-            line.text:SetText(FormatSourceSummary(source))
+            line.text:SetText(HA.FormatSourceLine(source))
             line.text:SetTextColor(0.8, 0.8, 0.8)
             line:Show()
         end
@@ -1407,7 +1321,7 @@ local function RenderItemRow(row, rec)
         ApplySourceBadge(row.sourceBadge, preferredSource.type,
             presentation and presentation.sourceBadgeAtlas,
             presentation and presentation.sourceIcon)
-        row.sourceText:SetText(FormatSourceSummary(preferredSource))
+        row.sourceText:SetText(HA.FormatSourceLine(preferredSource))
         row.sourceText:SetTextColor(0.8, 0.8, 0.8)
     else
         row.sourceBadge:Hide()
@@ -1526,11 +1440,12 @@ local function CreateVendorRow(parent)
             State.expandedVendorID = nil
         else
             State.expandedVendorID = npcID
-            -- Search mode: also navigate the world map to this vendor's zone.
+            -- Search mode: also navigate the world map to the vendor's zone, at a
+            -- position this character can use.
             if self.searchMode then
                 local VF = HA.VendorFilter
                 if VF then
-                    local _, vendorMapID = VF.GetBestVendorCoordinates(self.vendor)
+                    local _, vendorMapID = VF.GetUsableVendorCoordinates(self.vendor)
                     if vendorMapID and WorldMapFrame then
                         if not WorldMapFrame:IsShown() then
                             WorldMapFrame:Show()
@@ -1547,20 +1462,32 @@ local function CreateVendorRow(parent)
         if not self.vendor then return end
         local tooltip = BeginPanelTooltip(self, "ANCHOR_RIGHT")
         tooltip:AddLine(self.vendor.name or "Unknown", 1, 1, 1)
-        if self.vendor.subzone then
-            tooltip:AddLine(self.vendor.subzone .. " (" .. (self.vendor.zone or "?") .. ")", 0.7, 0.7, 0.7)
-        elseif self.vendor.zone then
-            tooltip:AddLine(self.vendor.zone, 0.7, 0.7, 0.7)
+        -- A search result names the position its click goes to.
+        local mapID, zone, subzone = self.vendor.mapID, self.vendor.zone, self.vendor.subzone
+        if self.searchMode then
+            mapID, zone, subzone = HA.VendorFilter.GetUsableVendorPlace(self.vendor)
         end
-        if self.vendor.mapID and ORDER_HALL_MAPS[self.vendor.mapID] then
+        if subzone then
+            tooltip:AddLine(subzone .. " (" .. (zone or "?") .. ")", 0.7, 0.7, 0.7)
+        elseif zone then
+            tooltip:AddLine(zone, 0.7, 0.7, 0.7)
+        end
+        if mapID and ORDER_HALL_MAPS[mapID] then
             tooltip:AddLine("Legion Order Hall", 1, 0.82, 0)
         end
         if self.vendor.faction and self.vendor.faction ~= "Neutral" then
             local factionColor = self.vendor.faction == "Alliance" and {0, 0.44, 0.87} or {0.77, 0.12, 0.23}
             tooltip:AddLine(self.vendor.faction, unpack(factionColor))
         end
-        if HA.VendorFilter and HA.VendorFilter.IsOppositeFaction
-                and HA.VendorFilter.IsOppositeFaction(self.vendor) then
+        -- A search result is the vendor as a whole; a map row is the one position it stands at.
+        local VF = HA.VendorFilter
+        local opposite
+        if self.searchMode then
+            opposite = not VF.CanUseVendor(self.vendor)
+        else
+            opposite = VF.IsOppositeFaction(self.vendor)
+        end
+        if opposite then
             tooltip:AddLine("Cannot access - opposite faction vendor", 0.8, 0.3, 0.3)
         end
         if self.total and self.total > 0 then
@@ -4927,7 +4854,7 @@ function MapSidePanel:Initialize()
     if HA.Events then
         -- Deferred like its VENDOR_SCANNED sibling below: VendorMapPins' cache wipe
         -- on this same event is init-order dependent, so a synchronous repaint here
-        -- can race ahead of it and never repaint after the wipe lands. All four
+        -- can race ahead of it and never repaint after the wipe lands. All the
         -- listeners below share ScheduleContentRefresh's debounce so a burst of
         -- any one of them (or a mix) collapses into a single RefreshContent.
         HA.Events:RegisterCallback("OWNERSHIP_UPDATED", ScheduleContentRefresh)
@@ -4935,6 +4862,8 @@ function MapSidePanel:Initialize()
         HA.Events:RegisterCallback("VENDOR_SCANNED", ScheduleContentRefresh)
 
         HA.Events:RegisterCallback("ACTIVE_ENDEAVOR_CHANGED", ScheduleContentRefresh)
+
+        HA.Events:RegisterCallback("DREAMSURGE_LOCATION_CHANGED", ScheduleContentRefresh)
 
         -- Source caches invalidated — covers achievement, quest, reputation,
         -- profession, and holiday changes through SourceManager. An

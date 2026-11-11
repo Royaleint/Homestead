@@ -14,8 +14,8 @@ local Constants = HA.Constants
 -------------------------------------------------------------------------------
 -- Version Info
 -------------------------------------------------------------------------------
-Constants.VERSION = "2.16.0"
-Constants.RELEASE_DATE = "2026-10-31"   -- ISO YYYY-MM-DD. Bump alongside VERSION.
+Constants.VERSION = "2.17.0"
+Constants.RELEASE_DATE = "2026-11-10"   -- ISO YYYY-MM-DD. Bump alongside VERSION.
 Constants.ADDON_NAME = "Homestead"
 Constants.ADDON_SHORT = "HS"
 Constants.WELCOME_SEEN_VERSION_MAX = 4
@@ -391,6 +391,19 @@ Constants.ContinentToExpansion = {
     [2537] = "Midnight",            -- Midnight (Silvermoon / Blood Elf zones)
 }
 
+-- Expansions newest first, each with its LE_EXPANSION_ name.
+Constants.EXPANSION_ORDER = {
+    { "Midnight", "MIDNIGHT" }, { "The War Within", "WAR_WITHIN" }, { "Dragonflight", "DRAGONFLIGHT" },
+    { "Shadowlands", "SHADOWLANDS" }, { "Battle for Azeroth", "BATTLE_FOR_AZEROTH" }, { "Legion", "LEGION" },
+    { "Warlords of Draenor", "WARLORDS_OF_DRAENOR" }, { "Mists of Pandaria", "MISTS_OF_PANDARIA" },
+    { "Cataclysm", "CATACLYSM" }, { "Wrath of the Lich King", "WRATH_OF_THE_LICH_KING" },
+    { "The Burning Crusade", "BURNING_CRUSADE" }, { "Classic", "CLASSIC" },
+}
+
+-- Profession skill tiers, oldest first, as the start of a recipe's skill tier name.
+Constants.PROFESSION_TIERS = { "Classic", "Outland", "Northrend", "Cataclysm", "Pandaria", "Draenor", "Legion",
+    "Battle for Azeroth", "Shadowlands", "Dragon Isles", "Khaz Algar", "Midnight" }
+
 -------------------------------------------------------------------------------
 -- Vertical Zone Siblings (for minimap elevation arrows)
 -- Maps zones that are vertically stacked in the same physical location.
@@ -535,6 +548,13 @@ Constants.Defaults = {
         -- Vendor scanning settings
         vendorScanning = {
             enabled = true,  -- Auto-scan merchants for housing decor data
+        },
+
+        -- Decor Browser. position is absent until the player moves the window.
+        browser = {
+            hideNA = false,
+            tipSeen = false,
+            model3D = true,  -- the item page's 3D preview
         },
 
         -- Version-check notifications

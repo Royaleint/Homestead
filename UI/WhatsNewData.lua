@@ -7,6 +7,21 @@
 local _, HA = ...
 
 HA.WhatsNew = {
+    ["2.17.0"] = {
+        title = "Homestead - What's New in v2.17.0!",
+        features = {
+            {
+                atlas = "housing-decor-vendor_32",
+                heading = "Celestine Follows the Dreamsurge",
+                body = "Celestine of the Harvest's pins, side panel entry and waypoint now move with the Dreamsurge to whichever Dragon Isles zone it is in.",
+            },
+            {
+                icon = "Interface\\Icons\\INV_Misc_Coin_01",
+                heading = "Vendor Fixes",
+                body = "Seven more decor items show as locked until you finish their achievement or quest, items with more than one price list each one, and several vendor locations are corrected.",
+            },
+        },
+    },
     ["2.16.0"] = {
         title = "Homestead - What's New in v2.16.0!",
         features = {
