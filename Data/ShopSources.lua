@@ -17,7 +17,6 @@ HA.ShopSources = {
     ---------------------------------------------------------------------------
     [263052] = { method = "hearthsteel", cost = 100, name = "In-Game Shop" },   -- Beloved Lion Plushie
     [263053] = { method = "hearthsteel", cost = 100, name = "In-Game Shop" },   -- Beloved Wolf Plushie
-    [264384] = { method = "hearthsteel", name = "In-Game Shop" },              -- Zapmaster Viewer 3000
     [250794] = { method = "hearthsteel", cost = 10, name = "In-Game Shop" },    -- Colorful Shroomic Egg
     [250795] = { method = "hearthsteel", cost = 10, name = "In-Game Shop" },    -- Colorful Dotted Egg
     [250796] = { method = "hearthsteel", cost = 10, name = "In-Game Shop" },    -- Colorful Striped Egg
@@ -26,20 +25,20 @@ HA.ShopSources = {
     ---------------------------------------------------------------------------
     -- Sanctuary Chess Set (Diablo IV: Lord of Hatred purchase bonus; extra copies sold by decor vendors for gold)
     ---------------------------------------------------------------------------
-    [259057] = { method = "hearthsteel", name = "Sanctuary Chess Set" },           -- Sanctuary's Chess Match
-    [259058] = { method = "hearthsteel", name = "Sanctuary Chess Set" },           -- Sanctuary's Chess Board
-    [259059] = { method = "hearthsteel", name = "Sanctuary Chess Set" },           -- Sanctuary Chess Dark Bishop
-    [259060] = { method = "hearthsteel", name = "Sanctuary Chess Set" },           -- Sanctuary Chess Dark Rook
-    [259061] = { method = "hearthsteel", name = "Sanctuary Chess Set" },           -- Sanctuary Chess Dark Queen
-    [259062] = { method = "hearthsteel", name = "Sanctuary Chess Set" },           -- Sanctuary Chess Dark Pawn
-    [259063] = { method = "hearthsteel", name = "Sanctuary Chess Set" },           -- Sanctuary Chess Dark Knight
-    [259064] = { method = "hearthsteel", name = "Sanctuary Chess Set" },           -- Sanctuary Chess Dark King
-    [259065] = { method = "hearthsteel", name = "Sanctuary Chess Set" },           -- Sanctuary Chess Light Bishop
-    [259066] = { method = "hearthsteel", name = "Sanctuary Chess Set" },           -- Sanctuary Chess Light Rook
-    [259067] = { method = "hearthsteel", name = "Sanctuary Chess Set" },           -- Sanctuary Chess Light Queen
-    [259068] = { method = "hearthsteel", name = "Sanctuary Chess Set" },           -- Sanctuary Chess Light Pawn
-    [259069] = { method = "hearthsteel", name = "Sanctuary Chess Set" },           -- Sanctuary Chess Light Knight
-    [259070] = { method = "hearthsteel", name = "Sanctuary Chess Set" },           -- Sanctuary Chess Light King
+    [259057] = { method = "promo", name = "Diablo IV: Lord of Hatred" },    -- Sanctuary's Chess Match
+    [259058] = { method = "promo", name = "Diablo IV: Lord of Hatred" },    -- Sanctuary's Chess Board
+    [259059] = { method = "promo", name = "Diablo IV: Lord of Hatred" },    -- Sanctuary Chess Dark Bishop
+    [259060] = { method = "promo", name = "Diablo IV: Lord of Hatred" },    -- Sanctuary Chess Dark Rook
+    [259061] = { method = "promo", name = "Diablo IV: Lord of Hatred" },    -- Sanctuary Chess Dark Queen
+    [259062] = { method = "promo", name = "Diablo IV: Lord of Hatred" },    -- Sanctuary Chess Dark Pawn
+    [259063] = { method = "promo", name = "Diablo IV: Lord of Hatred" },    -- Sanctuary Chess Dark Knight
+    [259064] = { method = "promo", name = "Diablo IV: Lord of Hatred" },    -- Sanctuary Chess Dark King
+    [259065] = { method = "promo", name = "Diablo IV: Lord of Hatred" },    -- Sanctuary Chess Light Bishop
+    [259066] = { method = "promo", name = "Diablo IV: Lord of Hatred" },    -- Sanctuary Chess Light Rook
+    [259067] = { method = "promo", name = "Diablo IV: Lord of Hatred" },    -- Sanctuary Chess Light Queen
+    [259068] = { method = "promo", name = "Diablo IV: Lord of Hatred" },    -- Sanctuary Chess Light Pawn
+    [259069] = { method = "promo", name = "Diablo IV: Lord of Hatred" },    -- Sanctuary Chess Light Knight
+    [259070] = { method = "promo", name = "Diablo IV: Lord of Hatred" },    -- Sanctuary Chess Light King
 
     ---------------------------------------------------------------------------
     -- Spring Blossom (Hearthsteel, sold individually)
@@ -138,4 +137,9 @@ HA.ShopSources = {
     [264283] = { method = "promo", name = "Pinterest Promotion" },          -- Backboard and Hoop Playset
     [264396] = { method = "promo", name = "Zillow for Warcraft" },              -- Naturally Elegant Doormat
     [264397] = { method = "promo", name = "Zillow for Warcraft" },              -- Simply Adorned Vase and Flowers
+
+    ---------------------------------------------------------------------------
+    -- Marked as a shop item by the game, but not on sale and origin unknown
+    ---------------------------------------------------------------------------
+    [264384] = { method = "promo", name = "Not currently sold" },           -- Zapmaster Viewer 3000
 }
