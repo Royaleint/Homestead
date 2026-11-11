@@ -256,7 +256,7 @@ end
 
 -- What a tile's corners mean, each state with the mark it draws.
 local KEY_STATES = {
-    { "owned", L["Collected: you own it"] },
+    { "owned", L["Collected: it's in your collection"] },
     { "can", L["Can get now: this character can get it today"] },
     { "short", L["Not enough: this character can't pay for it yet"] },
     { "locked", L["Locked: a requirement isn't met yet"] },
@@ -283,7 +283,7 @@ local function KeyTip(owner)
     Corner(L["Bottom left"])
     Line(L["Its event is active now"], "clock", K.badge)
     Corner(L["Bottom right"])
-    Line(L["How many you own, placed and stored"])
+    Line(L["How many you have collected, placed and stored"])
     tip:Show()
 end
 

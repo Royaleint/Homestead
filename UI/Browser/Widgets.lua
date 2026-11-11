@@ -1006,7 +1006,7 @@ end
 local EMPTY = {
     counting = { L["Counting…"], L["Reading your collection. This list fills in when it's ready."] },
     countingSort = { L["Counting…"],
-        L["Reading your collection. This list fills in when it's ready, because Best to get now depends on what you own."],
+        L["Reading your collection. This list fills in when it's ready, because Best to get now depends on what you have collected."],
         { "onSort", L["Sort by name"] } },
     nothingMissing = { L["Nothing missing"], L["You've collected all %d decor Homestead knows about."] },
     nothingNow = { L["Nothing you can get right now"],

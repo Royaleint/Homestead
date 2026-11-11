@@ -1137,7 +1137,7 @@ local function AddDecorInfoToTooltip(tooltip, itemLink, gate)
         elseif availabilityState == "blocked" then
             gatedTooltip:AddLine(LabelLine("Status:", Text("Blocked")), COLOR_RED.r, COLOR_RED.g, COLOR_RED.b)
         elseif isOwned == false then
-            gatedTooltip:AddLine(LabelLine("Status:", Text("Not Owned")), COLOR_RED.r, COLOR_RED.g, COLOR_RED.b)
+            gatedTooltip:AddLine(LabelLine("Status:", Text("Not Collected")), COLOR_RED.r, COLOR_RED.g, COLOR_RED.b)
         else
             gatedTooltip:AddLine(LabelLine("Status:", Text("Unknown")), COLOR_GRAY.r, COLOR_GRAY.g, COLOR_GRAY.b)
         end
