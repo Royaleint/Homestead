@@ -4,7 +4,8 @@
 --
 -- Schema:
 --   [itemID] = {
---       method   = "hearthsteel" | "twitch" | "promo" | "charity"
+--       method   = "hearthsteel" | "twitch" | "promo" | "charity" | "unlisted"
+--                  ("unlisted" = marked as a shop item by the game but not on sale; no name)
 --       cost     = number or nil (nil = free)
 --       name     = string (pack/promo name for display)
 --       expires  = "YYYY-MM-DD" or nil (nil = permanent)
@@ -128,18 +129,18 @@ HA.ShopSources = {
     [256764] = { method = "promo", name = "Diablo II: Resurrected - Reign of the Warlock" },  -- Sanctuary's Horadric Cube
     [259055] = { method = "promo", name = "Diablo IV: Lord of Hatred" },    -- Hatred's Wolfpelt Rug
     [259056] = { method = "promo", name = "Diablo IV: Lord of Hatred" },    -- Prime Evil's Chest
-    [263383] = { method = "promo", name = "Fanta Promotion" },              -- Corked Bottle of Liquid Mystery
-    [264278] = { method = "promo", name = "Fanta Promotion" },              -- Sturdy Portable Ice Chest
-    [264279] = { method = "promo", name = "Fanta Promotion" },              -- Tall Corked Bottle of Liquid Mystery
-    [264280] = { method = "promo", name = "Fanta Promotion" },              -- Short Corked Bottle of Liquid Mystery
-    [264281] = { method = "promo", name = "Pinterest Promotion" },          -- Preserved Gift of Gilneas
-    [264282] = { method = "promo", name = "Pinterest Promotion" },          -- Bluebird's Golden Cage
-    [264283] = { method = "promo", name = "Pinterest Promotion" },          -- Backboard and Hoop Playset
+    [263383] = { method = "promo", name = "Fanta" },                        -- Corked Bottle of Liquid Mystery
+    [264278] = { method = "promo", name = "Fanta" },                        -- Sturdy Portable Ice Chest
+    [264279] = { method = "promo", name = "Fanta" },                        -- Tall Corked Bottle of Liquid Mystery
+    [264280] = { method = "promo", name = "Fanta" },                        -- Short Corked Bottle of Liquid Mystery
+    [264281] = { method = "promo", name = "Pinterest" },                    -- Preserved Gift of Gilneas
+    [264282] = { method = "promo", name = "Pinterest" },                    -- Bluebird's Golden Cage
+    [264283] = { method = "promo", name = "Pinterest" },                    -- Backboard and Hoop Playset
     [264396] = { method = "promo", name = "Zillow for Warcraft" },              -- Naturally Elegant Doormat
     [264397] = { method = "promo", name = "Zillow for Warcraft" },              -- Simply Adorned Vase and Flowers
 
     ---------------------------------------------------------------------------
     -- Marked as a shop item by the game, but not on sale and origin unknown
     ---------------------------------------------------------------------------
-    [264384] = { method = "promo", name = "Not currently sold" },           -- Zapmaster Viewer 3000
+    [264384] = { method = "unlisted" },           -- Zapmaster Viewer 3000
 }

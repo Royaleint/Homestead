@@ -694,22 +694,31 @@ local function RenderShopSourceLines(tooltip, source, parsedTag, _itemID, _compl
         summary = "Twitch Drop"
     elseif method == "charity" then
         summary = data.name or "Charity Pack"
+    elseif method == "unlisted" then
+        summary = "Not currently sold"
     else
         summary = data.name or "Promotion"
     end
 
+    local isPromo = method == "promo"
+    local heading = isPromo and "Promotion" or "In-Game Shop"
+
     if not detailed then
-        tooltip:AddLine("Source: In-Game Shop - |cFFFFFFFF" .. summary .. "|r" .. parsedTag, COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
+        tooltip:AddLine("Source: " .. heading .. " - |cFFFFFFFF" .. summary .. "|r" .. parsedTag, COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
         return
     end
 
-    tooltip:AddLine("Source: |cFFFFFFFFIn-Game Shop|r" .. parsedTag, COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
-    tooltip:AddLine("  Zone: |cFFFFFFFFN/A|r", COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
+    tooltip:AddLine("Source: |cFFFFFFFF" .. heading .. "|r" .. parsedTag, COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
+    if not isPromo and method ~= "unlisted" then
+        tooltip:AddLine("  Zone: |cFFFFFFFFN/A|r", COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
+    end
     if method == "hearthsteel" and data.cost then
         tooltip:AddLine("  Shop Price: |cFFFFFFFF" .. data.cost .. " " .. HEARTHSTEEL_ICON .. "|r", COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
     end
-    if data.name then
-        tooltip:AddLine("  Pack: |cFFFFFFFF" .. data.name .. "|r", COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
+    if method == "unlisted" then
+        tooltip:AddLine("  |cFFFFFFFFNot currently sold|r", COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
+    elseif data.name and not (method == "hearthsteel" and data.name == "In-Game Shop") then
+        tooltip:AddLine((isPromo and "  Promotion: |cFFFFFFFF" or "  Pack: |cFFFFFFFF") .. data.name .. "|r", COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
     end
     if data.expires then
         tooltip:AddLine("  Available until: |cFFFFFFFF" .. data.expires .. "|r", COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)

@@ -1079,8 +1079,13 @@ local function FormatSourceSummary(source)
         detail = location and (mobName .. " (" .. location .. ")") or mobName
     elseif sourceType == "shop" then
         local method = data.method or "hearthsteel"
+        if method == "promo" then
+            label = "Promotion"
+        end
         if method == "hearthsteel" and data.cost then
             detail = data.cost .. " Hearthsteel"
+        elseif method == "unlisted" then
+            detail = "Not currently sold"
         else
             detail = data.name or "In-Game Shop"
         end
