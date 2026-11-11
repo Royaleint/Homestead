@@ -319,6 +319,7 @@ L["Shop: %s"] = "Shop: %s"
 L["Twitch Drop"] = "Twitch Drop"
 L["Charity Pack"] = "Charity Pack"
 L["Promotion"] = "Promotion" -- untranslated
+L["Not currently sold"] = "Not currently sold" -- untranslated
 
 -------------------------------------------------------------------------------
 -- Tooltip: shared Homestead block
