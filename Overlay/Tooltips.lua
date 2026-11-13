@@ -1468,16 +1468,18 @@ local function OnTooltipSetItem(tooltip, data)
     end
 end
 
--- A tooltip owned by a Blizzard MapCanvas pin (AreaPOI / event-POI /
--- quest-offer / quest pins) must never be touched from our post-call. Doing so
--- runs Homestead (insecure) code inside Blizzard's secure map-data-provider flow
--- and taints it; the next time Blizzard touches a "secret" value in that flow
--- (UI-widget bar width arithmetic, ResizeLayoutMixin anchor-count compare,
--- SetPassThroughButtons) it errors or gets blocked. MapCanvas pins are the only
--- frames that expose a :GetMap() method (MapCanvasPinMixin); Homestead's own
--- world-map pins are plain CreateFrame frames with no such method, so this stays
--- narrowly targeted and changes nothing for any tooltip Homestead legitimately
--- decorates (bags, banks, merchants, the side panel, our own pins).
+-- A tooltip owned by a map pin must never be augmented from our post-call.
+-- Blizzard runs the post-call isolated, so our execution taint is cleared when
+-- it returns, but the lines we add to the shared tooltip stay tainted. Map pin
+-- code that reads that tooltip state later can then fail on a protected call
+-- or a secret-value compare (SetPassThroughButtons when a pin is acquired,
+-- ResizeLayoutMixin anchor counts, UI-widget bar widths). Blizzard's own pins
+-- never put an item tooltip on GameTooltip; other addons' map pins can, and
+-- that is the case this guards. The check is :GetMap(), which MapCanvas pins
+-- and a few other map frames expose; Homestead's own world-map pins are plain
+-- frames without it, so nothing Homestead decorates is skipped (bags, banks,
+-- merchants, the side panel, our own pins). Keep this guard: Blizzard content
+-- never reaching it is not evidence that it is unneeded.
 local function IsBlizzardMapPinOwnedTooltip(tooltip)
     local owner = tooltip and tooltip.GetOwner and tooltip:GetOwner()
     return owner ~= nil and type(owner.GetMap) == "function"
