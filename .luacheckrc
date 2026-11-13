@@ -168,13 +168,8 @@ ignore = {"21[23]"}  -- Ace3 callback patterns
 exclude_files = {
     "Libs/",
     ".worktrees/",
-    "Home_Dev/plans/",
-    "Home_Dev/reports/",
-    "Home_Dev/scan-data/",
-    "Home_Dev/Homestead_Dev/",
-    "Home_Dev/.claude/reports/",
-    "Home_Dev/scripts/templates/",
-    "Home_Dev/scripts/verify-handynotes-export.lua",
+    ".claude/reports/",
+    "Home_Dev/",
 }
 
 -- Game globals the enUS locale reads for its own labels, with a literal fallback.
