@@ -109,8 +109,8 @@ local AUTO_CLEAR_MAX = 5
 -- Delegates to CatalogStore:ComputeOwnedFromInfo — Blizzard's GetEntryTotalOwned
 -- contract (totalNumStored + remainingRedeemable + totalNumPlaced > 0). This is
 -- the single source of truth for ownership derivation. These count fields are
--- stale-0 cold (before storage data loads), which is why the scanner warm-gates
--- the SetUnowned branches below.
+-- stale-0 cold (before storage data loads), which is why the scanner only treats
+-- an unowned read as a clear candidate once storage data has loaded.
 local function IsOwned(info)
     if not info then return false end
     if HA.CatalogStore then
@@ -278,7 +278,7 @@ local function ScanItem(itemID)
             if info then
                 local result = BuildScanResult(itemID, info)
                 -- With the deprecation shim loaded, info.entryID.recordID is the
-                -- ROOM recordID, and ProcessBatch writes result.recordID as
+                -- ROOM recordID, and ReadAndRecordItem writes result.recordID as
                 -- decorID. A room result must carry no recordID.
                 result.recordID = nil
                 -- Room catalog text is not parsed into sources/requirements
