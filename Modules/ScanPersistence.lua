@@ -848,7 +848,7 @@ local function RefreshMapPins()
     -- site above, and the difference is frequency. That site is kept narrow
     -- because the broadcasting version restarts the badge prewarm, and paying
     -- that on every first-visit merchant is over-invalidation.
-    -- These three functions run only from the /hs clear* commands, where a
+    -- These three functions run only from the developer-tool data clears, where a
     -- full repaint is both affordable and what "forget my scan data" ought to
     -- mean. The narrow wipe also announced nothing, so caches downstream that
     -- key off source data -- CatalogOverlay's per-item verdicts, the search

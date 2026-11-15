@@ -174,7 +174,7 @@ function CatalogStore:SetUnowned(itemID)
     -- Room-plan ownership only moves unowned -> owned. The erase warm
     -- gate is proven for decor counts only, a stale-0 Room read would erase a
     -- real room, and no API reports "not owned" as a positive signal.
-    -- ClearAll remains the manual reset.
+    -- ClearAll is the reset, and it is a developer tool only.
     if itemIDToRoom[itemID] then return end
 
     -- 1. Detect current ownership state (catalogItems is counter authority)

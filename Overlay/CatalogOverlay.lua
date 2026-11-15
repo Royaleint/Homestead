@@ -704,7 +704,7 @@ end
 --     broadcasting version would restart the badge prewarm on every vendor
 --     visit — an over-invalidation). It announces VENDOR_SCANNED
 --     instead, which is why that is wired below.
---   * The /hs clear* commands wipe the memo through ScanPersistence's
+--   * The developer-tool data clears wipe the memo through ScanPersistence's
 --     RefreshMapPins. That one now uses the broadcasting variant, so it
 --     arrives as SOURCE_CACHES_INVALIDATED and needs no separate wiring here.
 --

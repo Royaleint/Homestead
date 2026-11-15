@@ -92,7 +92,7 @@ local professionDataLoaded = false
 -- and sharing the same table object across every caller is safe. Wiped in
 -- InvalidateAllSourceCaches (rep/quest/achievement/holiday triggers), the
 -- narrower InvalidateSourcesMemo (decor-bearing vendor scans and
--- the /hs clear* paths), and RefreshMapPins.
+-- the developer-tool clear paths), and RefreshMapPins.
 --
 -- useParsedSources's parsed
 -- sources are read inside GetAllSources below but written by a SEPARATE path
