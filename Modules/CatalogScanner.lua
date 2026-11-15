@@ -98,6 +98,8 @@ local pendingSearcher = nil -- luacheck: ignore 231
 local ITEMS_PER_BATCH = 20
 local BATCH_DELAY = 0.01 -- seconds between batches
 local SCAN_COMBAT_RETRY_DELAY = 1.0 -- seconds between combat re-checks at a batch boundary
+-- Most items an automatic scan may clear at once; over its limit it clears none.
+local AUTO_CLEAR_MAX = 5
 
 -------------------------------------------------------------------------------
 -- Ownership Detection
@@ -290,6 +292,68 @@ local function ScanItem(itemID)
     return byItemResult
 end
 
+-- How many read-unowned items an automatic scan may clear, from the saved
+-- owned count when the scan started. A stale read tends to zero many items at
+-- once; a larger real loss waits for /hs scan, which has no limit.
+local function ClearLimit(savedOwned)
+    return math.max(1, math.min(AUTO_CLEAR_MAX, math.floor(savedOwned / 2)))
+end
+
+-- Reads one item and records what the read learned. Returns owned (nil when
+-- the item did not resolve) and whether the item is a clear candidate: saved
+-- as owned, read as unowned once storage data is loaded, and not a room plan.
+-- Candidates are cleared only at the end of the scan. Always called under
+-- pcall, so an error here costs the scan this one item.
+local function ReadAndRecordItem(store, itemID, listedName)
+    local result = ScanItem(itemID)
+    if not result then return nil end
+
+    local candidate = false
+    if store then
+        if result.isOwned then
+            store:SetOwned(result.itemID, result.name or listedName, result.recordID)
+        else
+            -- Warm-gate: cold reads are stale-0 and would wrongly clear owned
+            -- items; the persistent cache serves them instead.
+            candidate = (dataLoaded and store:IsOwned(result.itemID)
+                and not store:GetRoomIDFromItemID(result.itemID)) and true or false
+            store:Save(result.itemID, {
+                decorID = result.recordID,
+                name = result.name or listedName,
+            })
+        end
+    end
+
+    if result.sourceText and HA.SourceTextScanner then
+        HA.SourceTextScanner:ProcessScannedItem(result)
+    end
+
+    return result.isOwned, candidate
+end
+
+-- The end-of-scan clear. An automatic scan with more candidates than its
+-- limit clears none of them. Otherwise every candidate is cleared, and one
+-- that errors stays owned without stopping the rest. Runs inside the scan's
+-- store batch, so the clears fire one ownership event at EndBatch.
+-- Returns cleared, heldBack, errors, firstError.
+local function ApplyClearDecision(store, candidates, limit, isManual)
+    local n = #candidates
+    if n == 0 then return 0, 0, 0, nil end
+    if not isManual and n > limit then return 0, n, 0, nil end
+
+    local cleared, errors, firstError = 0, 0, nil
+    for i = 1, n do
+        local ok, err = pcall(store.SetUnowned, store, candidates[i])
+        if ok then
+            cleared = cleared + 1
+        else
+            errors = errors + 1
+            if errors == 1 then firstError = err end
+        end
+    end
+    return cleared, 0, errors, firstError
+end
+
 -- Debounced scan request — coalesces rapid housing events into a single scan
 -- Forward-declared here so ScanFullCatalog's ProcessBatch can reference it
 local function RequestScan()
@@ -317,8 +381,9 @@ local function RequestScan()
     end)
 end
 
--- Perform a full scan of all known items (batched for performance)
-function CatalogScanner:ScanFullCatalog(callback)
+-- Perform a full scan of all known items (batched for performance). isManual
+-- is true only for /hs scan, which clears every candidate with no limit.
+function CatalogScanner:ScanFullCatalog(callback, isManual)
     if isScanning then
         HA.Addon:Debug("Catalog scan already in progress")
         return false
@@ -338,35 +403,62 @@ function CatalogScanner:ScanFullCatalog(callback)
         return
     end
 
+    -- The clear limit comes from the saved owned count before this scan
+    -- writes anything.
+    local store = HA.CatalogStore
+    local clearLimit = ClearLimit(store and store:GetOwnedCount() or 0)
+    local scanIsManual = isManual == true
+
     isScanning = true
     lastScanTime = currentTime
     local scanStartedWarm = dataLoaded
 
     -- Begin batch mode on CatalogStore to suppress per-item events
-    if HA.CatalogStore then
-        HA.CatalogStore:BeginBatch()
+    if store then
+        store:BeginBatch()
     end
 
     HA.Addon:Debug("Starting catalog scan (item-by-item method)...")
 
-    -- Collect all known item IDs
-    local itemList = CollectAllKnownItemIDs()
-    local totalItems = #itemList
-    local currentIndex = 1
     local ownedCount = 0
     local checkedCount = 0
+    local candidates = {}
+    local clearedCount, heldBackCount = 0, 0
+    local errorCount, firstError, errorRaised = 0, nil, false
+
+    local function DebugSummary()
+        HA.Addon:Debug("Catalog scan summary. Checked:", checkedCount, "Owned:", ownedCount,
+            "Candidates:", #candidates, "Cleared:", clearedCount, "Held back:", heldBackCount,
+            "Errors:", errorCount, "Limit:", clearLimit, "Manual:", tostring(scanIsManual))
+    end
+
+    -- Collect all known item IDs. If that fails the scan closes without
+    -- clearing anything or marking the first read done, then reports the error.
+    local listOk, itemList = pcall(CollectAllKnownItemIDs)
+    if not listOk then
+        isScanning = false
+        if store then
+            store:EndBatch()
+        end
+        errorCount = 1
+        DebugSummary()
+        error(itemList, 0)
+    end
+    local totalItems = #itemList
+    local currentIndex = 1
 
     HA.Addon:Debug("Found", totalItems, "unique items to scan")
 
     if totalItems == 0 then
         isScanning = false
-        if HA.CatalogStore then
-            HA.CatalogStore:EndBatch()
+        if store then
+            store:EndBatch()
         end
         if scanStartedWarm then
             SetFirstReadDone()
         end
         HA.Addon:Debug("No items to scan - vendor database may be empty")
+        DebugSummary()
         if callback then callback(0, 0) end
         return
     end
@@ -395,36 +487,18 @@ function CatalogScanner:ScanFullCatalog(callback)
         for i = currentIndex, batchEnd do
             local itemData = itemList[i]
             if itemData and itemData.itemID then
-                local result = ScanItem(itemData.itemID)
-                if result then
+                -- An item that errors is not counted and never becomes a candidate.
+                local ok, owned, candidate = pcall(ReadAndRecordItem, store, itemData.itemID, itemData.name)
+                if not ok then
+                    errorCount = errorCount + 1
+                    if errorCount == 1 then firstError = owned end
+                elseif owned ~= nil then
                     checkedCount = checkedCount + 1
-                    if result.isOwned then
+                    if owned then
                         ownedCount = ownedCount + 1
                     end
-
-                    -- Write to CatalogStore, the canonical ownership store.
-                    if HA.CatalogStore then
-                        if result.isOwned then
-                            -- Full path for owned items
-                            HA.CatalogStore:SetOwned(result.itemID, result.name or itemData.name, result.recordID)
-                        else
-                            -- Warm-gate: only erase ownership once storage data is
-                            -- loaded. Cold reads are stale-0 and would wrongly clear
-                            -- owned items; the persistent cache serves them instead.
-                            if dataLoaded and HA.CatalogStore:IsOwned(result.itemID) then
-                                HA.CatalogStore:SetUnowned(result.itemID)
-                            end
-                            -- Minimal fields for unowned items
-                            HA.CatalogStore:Save(result.itemID, {
-                                decorID = result.recordID,
-                                name = result.name or itemData.name,
-                            })
-                        end
-                    end
-
-                    -- Forward sourceText to SourceTextScanner for parsing
-                    if result.sourceText and HA.SourceTextScanner then
-                        HA.SourceTextScanner:ProcessScannedItem(result)
+                    if candidate then
+                        candidates[#candidates + 1] = itemData.itemID
                     end
                 end
             end
@@ -439,16 +513,25 @@ function CatalogScanner:ScanFullCatalog(callback)
             -- Scan complete
             isScanning = false
 
+            -- Every item has been read; apply the clear decision inside the batch.
+            local clearErrors, clearError
+            clearedCount, heldBackCount, clearErrors, clearError =
+                ApplyClearDecision(store, candidates, clearLimit, scanIsManual)
+            if clearErrors > 0 then
+                if errorCount == 0 then firstError = clearError end
+                errorCount = errorCount + clearErrors
+            end
+
             -- End batch mode on CatalogStore (fires single OWNERSHIP_UPDATED + CATALOG_ITEM_UPDATED)
-            if HA.CatalogStore then
-                HA.CatalogStore:EndBatch()
+            if store then
+                store:EndBatch()
             end
 
             if scanStartedWarm then
                 SetFirstReadDone()
             end
 
-            HA.Addon:Debug("Catalog scan complete. Checked:", checkedCount, "Owned:", ownedCount)
+            DebugSummary()
 
             -- removed an unconditional OWNERSHIP_UPDATED fire that
             -- lived here — it checked HA.Events.TriggerEvent/.FireEvent (methods
@@ -468,6 +551,13 @@ function CatalogScanner:ScanFullCatalog(callback)
                 scanRequestedDuringActive = false
                 RequestScan()
             end
+        end
+
+        -- Report the scan's first error once, after the next batch is
+        -- scheduled or the scan has closed, so the error cannot strand it.
+        if errorCount > 0 and not errorRaised then
+            errorRaised = true
+            error(firstError, 0)
         end
     end
 
@@ -896,7 +986,7 @@ function CatalogScanner:ManualScan()
             HA.Addon:Print("  Warning: No items found in vendor database.")
             HA.Addon:Print("  Visit vendors to scan their inventory.")
         end
-    end)
+    end, true)
     if started == false then
         if cooldownRemaining then
             HA.Addon:Print(L["Catalog scan is on cooldown. Try again in a few seconds."] or "Catalog scan is on cooldown. Try again in a few seconds.")
