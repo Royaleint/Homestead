@@ -3,10 +3,8 @@
     Exports scanned vendor data as text
 
     Dev-only: never listed in Homestead.toc and excluded from the
-    packaged zip (.pkgmeta); the DevBuild TOC loads it. It registers its own
-    slash commands at PLAYER_LOGIN, after core.lua's OnInitialize has created
-    HousingAddon.commands (see Core/DevMemoryDiagnostics.lua). /hs clearscans
-    stays in core.lua because players still clear their own scan data.
+    packaged zip (.pkgmeta); the DevBuild TOC loads it. It registers no slash
+    commands; the dev companion addon drives it.
 ]]
 
 local _, HA = ...
@@ -694,22 +692,4 @@ end
 
 if HA.Addon then
     HA.Addon:RegisterModule("ExportImport", ExportImport)
-end
-
--- Skipped when loaded without the game client (the offline test harness).
-if HA.Addon and CreateFrame then
-    local exportFrame = CreateFrame("Frame")
-    exportFrame:RegisterEvent("PLAYER_LOGIN")
-    exportFrame:SetScript("OnEvent", function()
-        local cmd = HA.Addon.commands
-        cmd:Register({ name = "export",
-            help = "Show the export dialog.",
-            handler = function() ExportImport:ShowExportDialog() end })
-        cmd:Register({ name = "export full",
-            help = "Export all scanned vendors.",
-            handler = function() ExportImport:ExportScannedVendors(true, false) end })
-        cmd:Register({ name = "exportall",
-            help = "Export ALL, bypassing the timestamp filter.",
-            handler = function() ExportImport:ExportScannedVendors(true, true) end })
-    end)
 end

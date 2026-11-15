@@ -70,7 +70,6 @@ Don't want it? Turn off **Auto-scan vendors** in the General tab of the options.
 | `/hs waypoint` | Clear the current map waypoint (also `/hs wp`) |
 | `/hs scan` | Rescan the housing catalog for items you own |
 | `/hs refreshmap` | Refresh the world map pins |
-| `/hs clearscans` | Clear your scanned vendor data |
 | `/hs welcome` | Reopen the welcome screen |
 | `/hs whatsnew` | Reopen the What's New screen |
 | `/hs version` | Show your version. Add `on` or `off` to toggle update notices |

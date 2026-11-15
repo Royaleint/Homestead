@@ -174,7 +174,7 @@ function CatalogStore:SetUnowned(itemID)
     -- Room-plan ownership only moves unowned -> owned. The erase warm
     -- gate is proven for decor counts only, a stale-0 Room read would erase a
     -- real room, and no API reports "not owned" as a positive signal.
-    -- /hs clear-ownership (ClearAll) remains the manual reset.
+    -- ClearAll remains the manual reset.
     if itemIDToRoom[itemID] then return end
 
     -- 1. Detect current ownership state (catalogItems is counter authority)
@@ -1247,8 +1247,8 @@ end
 -- whether the persistent
 -- cache holds an OWNERSHIP SIGNAL worth computing badge stats from. Record
 -- presence is not that signal: a cold full scan writes name-only records for
--- every item ("Checked: 1624 Owned: 0"), and the /hs clear-ownership
--- command empties isOwned on every record while leaving the records in
+-- every item ("Checked: 1624 Owned: 0"), and a manual ClearAll
+-- empties isOwned on every record while leaving the records in
 -- place — under a mere next(ci) check both states let a prewarm confidently
 -- cache "0 owned" everywhere for a player who owns plenty. ownedCount > 0 is
 -- the O(1) truth the counters already maintain. The escape hatch admits the

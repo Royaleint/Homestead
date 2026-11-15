@@ -154,15 +154,6 @@ function HousingAddon:OnInitialize()
     cmd:Register({ name = "scan",
         help = "Scan the catalog for owned items.",
         handler = function() self:ScanCatalog() end })
-    cmd:Register({ name = "vendors",
-        help = "Show scanned vendor data.",
-        handler = function() self:ShowScannedVendors() end })
-    cmd:Register({ name = "cache",
-        help = "Show ownership cache info.",
-        handler = function() self:ShowCacheInfo() end })
-    cmd:Register({ name = "clearcache",
-        help = "Clear the ownership cache.",
-        handler = function() self:ClearOwnershipCache() end })
     cmd:Register({ name = "panel",
         help = "Toggle the detached vendor panel.",
         handler = function()
@@ -173,13 +164,6 @@ function HousingAddon:OnInitialize()
     cmd:Register({ name = "refreshmap",
         help = "Refresh world map pins.",
         handler = function() self:RefreshMapPins() end })
-    cmd:Register({ name = "clearscans",
-        help = "Clear all scanned vendor data.",
-        handler = function()
-            if HA.VendorScanner then
-                HA.VendorScanner:ClearScannedData()
-            end
-        end })
     cmd:Register({ name = "welcome",
         help = "Show the welcome screen.",
         handler = function()
@@ -521,101 +505,11 @@ end
 -- Testing/Debugging
 -------------------------------------------------------------------------------
 
--- Show ownership cache information
-function HousingAddon:ShowCacheInfo()
-    local output = {}
-    table.insert(output, "=== Homestead Ownership Cache ===")
-    table.insert(output, "")
-
-    -- Use CatalogStore as primary data source
-    local count = HA.CatalogStore and HA.CatalogStore:GetOwnedCount() or 0
-    local items = {}
-
-    if HA.CatalogStore and self.db and self.db.global and self.db.global.catalogItems then
-        for itemID, record in pairs(self.db.global.catalogItems) do
-            if record.isOwned then
-                local name = record.name or ("ItemID: " .. itemID)
-                local lastSeen = record.lastSeen and date("%Y-%m-%d %H:%M", record.lastSeen) or "unknown"
-                table.insert(items, "  " .. name .. " (ID: " .. itemID .. ") - Last seen: " .. lastSeen)
-            end
-        end
-    else
-        table.insert(output, "CatalogStore unavailable: ownership data cannot be displayed.")
-    end
-
-    if count == 0 and #items == 0 then
-        table.insert(output, "No ownership cache data found.")
-        self:ShowCopyableText(table.concat(output, "\n"))
-        return
-    end
-
-    table.insert(output, "Total cached items: " .. count)
-    table.insert(output, "")
-    table.insert(output, "This cache persists across reloads as a backup for")
-    table.insert(output, "ownership detection via the Housing Catalog API.")
-    table.insert(output, "")
-
-    if #items > 0 then
-        table.insert(output, "Cached items:")
-        table.sort(items)
-        for _, item in ipairs(items) do
-            table.insert(output, item)
-        end
-    end
-
-    self:ShowCopyableText(table.concat(output, "\n"))
-end
-
--- Clear the ownership cache (delegates to CatalogStore which clears both tables)
-function HousingAddon:ClearOwnershipCache()
-    if HA.CatalogStore then
-        local count = HA.CatalogStore:GetOwnedCount()
-        HA.CatalogStore:ClearAll()
-        self:Print("Cleared ownership cache. Removed " .. count .. " cached items.")
-        self:Print("Use /hs scan to rebuild the cache.")
-    else
-        self:Print("CatalogStore unavailable: cannot clear ownership cache.")
-    end
-end
-
 -- MeasureAllSourcesCacheIsolatedKB, DebugMemAllSourcesReport, and
 -- DebugMemBudgetReport (and the /hs debug memallsources / membudget commands
 -- that drove them) moved to Core/DevMemoryDiagnostics.lua, a dev-only file
 -- never listed in Homestead.toc -- memory diagnostics are dev tooling, not a
 -- player-facing feature.
-
--- Show scanned vendor data
-function HousingAddon:ShowScannedVendors()
-    if not self.db or not self.db.global then
-        self:Print("SavedVariables not initialized.")
-        return
-    end
-
-    local scannedVendors = self.db.global.scannedVendors
-    if not scannedVendors then
-        self:Print("No vendors have been scanned yet.")
-        self:Print("Visit vendors to automatically scan their decor items.")
-        return
-    end
-
-    local count = 0
-    local totalItems = 0
-    for npcID, vendorData in pairs(scannedVendors) do
-        count = count + 1
-        local items = vendorData.items
-        local itemCount = items and #items or 0
-        totalItems = totalItems + itemCount
-        self:Print(string.format("  %s (NPC %d): %d decor items",
-            vendorData.name or "Unknown", npcID, itemCount))
-    end
-
-    if count == 0 then
-        self:Print("No vendors have been scanned yet.")
-        self:Print("Visit vendors to automatically scan their decor items.")
-    else
-        self:Print(string.format("Total: %d vendors scanned, %d decor items found.", count, totalItems))
-    end
-end
 
 -- Show text in a copyable popup window
 function HousingAddon:ShowCopyableText(text)
