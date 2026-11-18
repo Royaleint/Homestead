@@ -339,6 +339,7 @@ L["Locked"] = "Locked"
 L["Available Now"] = "Available Now"
 L["Blocked"] = "Blocked"
 L["Not Collected"] = "Not Collected"
+L["Other faction only"] = "Other faction only"
 L["Vendor Price:"] = "Vendor Price:"
 L["Shop Price:"] = "Shop Price:"
 L["Pack:"] = "Pack:"
@@ -425,7 +426,7 @@ L["The Decor Browser is not available yet."] = "The Decor Browser is not availab
 -------------------------------------------------------------------------------
 -- Welcome window
 -------------------------------------------------------------------------------
-L["Find every decor vendor on your map and see what you own before you buy."] = "Find every decor vendor on your map and see what you own before you buy."
+L["Find every decor vendor on your map and see what you've collected before you buy."] = "Find every decor vendor on your map and see what you've collected before you buy."
 L["What Homestead Does"] = "What Homestead Does"
 L["Every decor vendor pinned on your world map and minimap, with badges showing how many items you still need per zone."] = "Every decor vendor pinned on your world map and minimap, with badges showing how many items you still need per zone."
 L["Map Side Panel"] = "Map Side Panel"

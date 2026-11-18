@@ -305,6 +305,7 @@ L["Locked"] = "Gesperrt"
 L["Available Now"] = "Jetzt erhältlich"
 L["Blocked"] = "Blockiert"
 L["Not Collected"] = "Nicht gesammelt"
+L["Other faction only"] = "Nur andere Fraktion"
 L["Vendor Price:"] = "Händlerpreis:"
 L["Shop Price:"] = "WoW-Shop-Preis:"
 L["Pack:"] = "Paket:"
@@ -381,7 +382,7 @@ L["Left-click opens the Decor Browser, right-click opens options"] = "Linksklick
 L["The Decor Browser is not available yet."] = "Der Dekorationsbrowser ist noch nicht verfügbar."
 
 -- Welcome window
-L["Find every decor vendor on your map and see what you own before you buy."] = "Findet jeden Dekorationshändler auf Eurer Karte und seht, was Ihr besitzt, bevor Ihr kauft."
+L["Find every decor vendor on your map and see what you've collected before you buy."] = "Findet jeden Dekorationshändler auf Eurer Karte und seht, was Ihr bereits gesammelt habt, bevor Ihr kauft."
 L["What Homestead Does"] = "Was Homestead kann"
 L["Every decor vendor pinned on your world map and minimap, with badges showing how many items you still need per zone."] = "Jeder Dekorationshändler wird auf Eurer Weltkarte und Minikarte markiert, mit Abzeichen, die zeigen, wie viele Gegenstände Euch pro Zone noch fehlen."
 L["Map Side Panel"] = "Kartenseitenleiste"

@@ -313,7 +313,9 @@ local function AccumulateVendorItem(accum, itemID, vendor, sourceFilter)
     elseif matchesSourceFilter then
         accum.hasMatchingItems = true
 
-        local state = presentation and presentation.availabilityState or "purchasable"
+        -- The requirement-level state, not the shown one: an other-faction item a requirement holds back counts locked.
+        local state = presentation and (presentation.requirementState or presentation.availabilityState)
+            or "purchasable"
         local isUnverified = presentation and presentation.isUnverified or false
         local hasVerifiableRequirement = presentation and presentation.hasVerifiableRequirement or false
         local blockerLabels = presentation and presentation.blockerLabels or nil

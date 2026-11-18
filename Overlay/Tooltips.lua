@@ -1134,6 +1134,8 @@ local function AddDecorInfoToTooltip(tooltip, itemLink, gate)
         elseif vendorNpcID and availabilityState == "locked"
                 or availabilityState == "blocked" and presentation and presentation.requirementLocked then
             gatedTooltip:AddLine(LabelLine("Status:", Text("Locked")), COLOR_RED.r, COLOR_RED.g, COLOR_RED.b)
+        elseif availabilityState == "otherFaction" then
+            gatedTooltip:AddLine(LabelLine("Status:", Text("Other faction only")), COLOR_RED.r, COLOR_RED.g, COLOR_RED.b)
         elseif availabilityState == "available" then
             gatedTooltip:AddLine(LabelLine("Status:", Text("Available Now")), COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
         elseif availabilityState == "blocked" then

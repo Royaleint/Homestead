@@ -9,6 +9,7 @@ local L, S, W = HA.L, B.Style, B.Widgets
 local D, CG, Facts = B.Data, B.CanGet, B.Facts
 local SP, K, LO = S.space, S.color, S.layout
 local Vis = B.Vis
+local NK = HA.NameSortKey
 
 local function MapName(mapID)
     return mapID and HA.VendorFilter.GetMapName(mapID)
@@ -178,6 +179,14 @@ local function Stats(s)
     return total, got, can
 end
 
+-- A source whose decor is all left out of the counts gets no row.
+local function AllLeftOut(s)
+    if cs ~= "ready" then return false end
+    if not s.vendor then return s.items[1] ~= nil and Stats(s) == 0 end
+    local _, left = D.VendorWares(s.vendor)
+    return not s.items[1] and left ~= nil and (left.promotion[1] or left.unknown[1]) ~= nil
+end
+
 local function Head(t)
     local w = cs == "ready" and CG.Walk()
     local p = w and w.progress.src[t]
@@ -295,15 +304,24 @@ local function Place(s, order)
     end
 end
 
+-- nil for equal names; otherwise names in list order, accented Latin letters with their base letter.
+local function Lt(x, y)
+    if x == y then return nil end
+    local kx, ky = NK(x), NK(y)
+    if kx ~= ky then return kx < ky end
+    return x < y
+end
+
 local function Before(a, b)
     if a.o ~= b.o then return a.o < b.o end
     if a.late ~= b.late then return b.late == true end
-    local ta, tb, pa, pb = a.top or "", b.top or "", a.p or 0, b.p or 0
-    if ta ~= tb then return ta < tb end
+    local pa, pb = a.p or 0, b.p or 0
+    local lt = Lt(a.top or "", b.top or "")
+    if lt ~= nil then return lt end
     if pa ~= pb then return pa < pb end
-    local ga, gb = a.g or "", b.g or ""
-    if ga ~= gb then return ga < gb end
-    local na, nb = a.st or a.title, b.st or b.title
+    lt = Lt(a.g or "", b.g or "")
+    if lt ~= nil then return lt end
+    local na, nb = NK(a.st or a.title), NK(b.st or b.title)
     if na ~= nb then return na < nb end
     return tostring(a.key) < tostring(b.key)
 end
@@ -402,7 +420,7 @@ local function BuildList(keep, zone)
                 out[#out + 1] = s
                 Place(s, order)
             end
-        else
+        elseif grid or not AllLeftOut(s) then
             local why = hide and CG.HiddenBy(v and { vendor = v } or { items = s.items })
             if why then
                 hidden.hidden = hidden.hidden + 1
@@ -651,7 +669,8 @@ function Rows(s, cells)
     end
     table.sort(rows, function(a, b)
         if a.rank ~= b.rank then return a.rank < b.rank end
-        if a.name ~= b.name then return a.name < b.name end
+        local ka, kb = NK(a.name), NK(b.name)
+        if ka ~= kb then return ka < kb end
         return a.itemID < b.itemID
     end)
     return rows

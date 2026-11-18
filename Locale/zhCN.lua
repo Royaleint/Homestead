@@ -305,6 +305,7 @@ L["Locked"] = "未解锁"
 L["Available Now"] = "现在可获得"
 L["Blocked"] = "受阻"
 L["Not Collected"] = "未收集"
+L["Other faction only"] = "仅限另一阵营"
 L["Vendor Price:"] = "商人价格："
 L["Shop Price:"] = "游戏商城价格："
 L["Pack:"] = "礼包："
@@ -381,7 +382,7 @@ L["Left-click opens the Decor Browser, right-click opens options"] = "左键点�
 L["The Decor Browser is not available yet."] = "装饰浏览器尚不可用。"
 
 -- Welcome window
-L["Find every decor vendor on your map and see what you own before you buy."] = "在地图上找到每一位装饰商人，购买前先看看你已经拥有什么。"
+L["Find every decor vendor on your map and see what you've collected before you buy."] = "在地图上找到每一位装饰商人，购买前先看看你已经收集了什么。"
 L["What Homestead Does"] = "Homestead 的功能"
 L["Every decor vendor pinned on your world map and minimap, with badges showing how many items you still need per zone."] = "每位装饰商人都会标记在你的世界地图和微缩地图上，并用徽章显示每个区域你还缺少多少件物品。"
 L["Map Side Panel"] = "地图侧边面板"

@@ -416,7 +416,11 @@ function SearchProvider:Search(query, options)
         local ao = SOURCE_TYPE_ORDER[a.sourceType] or 99
         local bo = SOURCE_TYPE_ORDER[b.sourceType] or 99
         if ao ~= bo then return ao < bo end
-        return (a.itemName or "") < (b.itemName or "")
+        local an, bn = a.itemName or "", b.itemName or ""
+        local ka, kb = HA.NameSortKey(an), HA.NameSortKey(bn)
+        if ka ~= kb then return ka < kb end
+        if an ~= bn then return an < bn end
+        return a.itemID < b.itemID
     end)
 
     for _, itemResult in ipairs(itemResults) do

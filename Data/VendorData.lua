@@ -2430,10 +2430,10 @@ function VendorData:GetVendorOrderName(vendor)
     return orderNames[npcID] or vendor.name
 end
 
--- The order of vendor lists: by GetVendorOrderName, then by NPC ID so equal names keep one order. Sort lists
--- when they are built.
+-- The order of vendor lists: by the sort key of GetVendorOrderName, then by NPC ID so equal names keep one order.
+-- Sort lists when they are built.
 function VendorData:VendorNameBefore(a, b)
-    local na, nb = self:GetVendorOrderName(a) or "", self:GetVendorOrderName(b) or ""
+    local na, nb = HA.NameSortKey(self:GetVendorOrderName(a) or ""), HA.NameSortKey(self:GetVendorOrderName(b) or "")
     if na ~= nb then return na < nb end
     return (a.npcID or 0) < (b.npcID or 0)
 end

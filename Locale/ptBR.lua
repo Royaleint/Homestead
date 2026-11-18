@@ -305,6 +305,7 @@ L["Locked"] = "Bloqueado"
 L["Available Now"] = "Disponível agora"
 L["Blocked"] = "Indisponível"
 L["Not Collected"] = "Não coletado"
+L["Other faction only"] = "Somente a outra facção"
 L["Vendor Price:"] = "Preço do comerciante:"
 L["Shop Price:"] = "Preço na loja:"
 L["Pack:"] = "Pacote:"
@@ -381,7 +382,7 @@ L["Left-click opens the Decor Browser, right-click opens options"] = "O clique e
 L["The Decor Browser is not available yet."] = "O navegador de decoração ainda não está disponível."
 
 -- Welcome window
-L["Find every decor vendor on your map and see what you own before you buy."] = "Encontre todos os comerciantes de decoração no seu mapa e veja o que você já possui antes de comprar."
+L["Find every decor vendor on your map and see what you've collected before you buy."] = "Encontre todos os comerciantes de decoração no seu mapa e veja o que você já coletou antes de comprar."
 L["What Homestead Does"] = "O que o Homestead faz"
 L["Every decor vendor pinned on your world map and minimap, with badges showing how many items you still need per zone."] = "Todos os comerciantes de decoração marcados no mapa-múndi e no minimapa, com selos que mostram quantos itens ainda faltam em cada zona."
 L["Map Side Panel"] = "Painel lateral do mapa"

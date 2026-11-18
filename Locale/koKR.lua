@@ -305,6 +305,7 @@ L["Locked"] = "잠김"
 L["Available Now"] = "지금 획득 가능"
 L["Blocked"] = "이용 불가"
 L["Not Collected"] = "미수집"
+L["Other faction only"] = "다른 진영 전용"
 L["Vendor Price:"] = "상인 가격:"
 L["Shop Price:"] = "게임 내 상점 가격:"
 L["Pack:"] = "팩:"
@@ -381,7 +382,7 @@ L["Left-click opens the Decor Browser, right-click opens options"] = "왼쪽 클
 L["The Decor Browser is not available yet."] = "장식 탐색기를 아직 사용할 수 없습니다."
 
 -- Welcome window
-L["Find every decor vendor on your map and see what you own before you buy."] = "지도에서 모든 장식 상인을 찾고, 구매하기 전에 이미 가진 장식을 확인하세요."
+L["Find every decor vendor on your map and see what you've collected before you buy."] = "지도에서 모든 장식 상인을 찾고, 구매하기 전에 이미 수집한 장식을 확인하세요."
 L["What Homestead Does"] = "Homestead의 기능"
 L["Every decor vendor pinned on your world map and minimap, with badges showing how many items you still need per zone."] = "모든 장식 상인이 월드 지도와 미니맵에 표시되며, 지역별로 아직 필요한 아이템 수를 배지로 보여 줍니다."
 L["Map Side Panel"] = "지도 측면 패널"

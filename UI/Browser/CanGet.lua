@@ -6,6 +6,7 @@ local B = HA.DecorBrowser
 local L = HA.L
 local D = B.Data
 local Facts = B.Facts
+local NK = HA.NameSortKey
 
 local CG = {}
 B.CanGet = CG
@@ -467,7 +468,8 @@ local function Before(a, b)
     if (a.lowGold ~= nil) ~= (b.lowGold ~= nil) then return a.lowGold ~= nil end
     if a.lowGold ~= b.lowGold then return a.lowGold < b.lowGold end
     if (a.name ~= nil) ~= (b.name ~= nil) then return a.name ~= nil end
-    if a.name and a.name ~= b.name then return a.name < b.name end
+    local ka, kb = a.name and NK(a.name), b.name and NK(b.name)
+    if ka ~= kb then return ka < kb end
     return a.itemID < b.itemID
 end
 
@@ -564,7 +566,8 @@ function CG.Fill()
     table.sort(candidates, function(a, b)
         if a.step ~= b.step then return a.step < b.step end
         if a.unmet ~= b.unmet then return a.unmet < b.unmet end
-        if a.entry.name ~= b.entry.name then return a.entry.name < b.entry.name end
+        local ka, kb = NK(a.entry.name), NK(b.entry.name)
+        if ka ~= kb then return ka < kb end
         return a.entry.itemID < b.entry.itemID
     end)
     for i = 1, math.min(room, #candidates) do out.notYet[i] = candidates[i] end

@@ -1635,7 +1635,10 @@ end
 -- Standalone callers (tooltips, map pin hover, single-item panel lookups)
 -- omit the arg and keep the duplicate ownership guard, since they call this
 -- directly without a prior ownership check.
--- Returns: state, isUnverified, hasVerifiableRequirement, blockerLabels
+-- Returns: state, isUnverified, hasVerifiableRequirement, blockerLabels, requirementState
+-- state is the answer a player is shown. requirementState is the same read before the faction rule, what the
+-- requirements and the vendor make of the item: the badge counts read it, so an item only the other faction can get
+-- still counts as locked while a requirement holds it back, whatever it is called on screen.
 function SourceManager:GetVendorItemAvailabilityState(itemID, npcID, skipOwnershipProbe)
     if not itemID then return "unknown", false, false, nil end
 
@@ -1652,15 +1655,20 @@ function SourceManager:GetVendorItemAvailabilityState(itemID, npcID, skipOwnersh
     if state == "purchasable" then
         local scannedItem = GetScannedVendorItem(itemID, npcID)
         if scannedItem and scannedItem.isPurchasable == false then
-            return "locked", false, false, { Text("Purchase gated") }
-        end
-        -- A vendor that is listed but not selling now offers nothing to buy, so its ware never reads available.
-        if HA.VendorData and not HA.VendorData:IsVendorSellingNow(npcID) then
-            return "notSelling", isUnverified, hasVerifiableRequirement, nil
+            state, isUnverified, hasVerifiableRequirement, blockerLabels = "locked", false, false, { Text("Purchase gated") }
+        elseif HA.VendorData and not HA.VendorData:IsVendorSellingNow(npcID) then
+            -- A vendor that is listed but not selling now offers nothing to buy, so its ware never reads available.
+            state = "notSelling"
         end
     end
 
-    return state, isUnverified, hasVerifiableRequirement, blockerLabels
+    -- An item only the other faction can get reads so at each of its vendors, as it does with no vendor, whatever
+    -- else holds it back. A promotion that can no longer be earned still wins, as it does with no vendor.
+    if state ~= "unobtainable" and self:IsOtherFactionOnly(itemID) then
+        return "otherFaction", isUnverified, hasVerifiableRequirement, blockerLabels, state
+    end
+
+    return state, isUnverified, hasVerifiableRequirement, blockerLabels, state
 end
 
 -- Generic availability: uses vendor scope when npcID is given, otherwise
@@ -1688,6 +1696,10 @@ function SourceManager:GetItemAvailabilityState(itemID, npcID)
                 return "unobtainable", false, true, nil
             end
         end
+    end
+
+    if self:IsOtherFactionOnly(itemID) then
+        return "otherFaction", false, false, nil
     end
 
     local best, offered = ScanSources(self, itemID, self:GetAllSources(itemID))
@@ -1760,7 +1772,7 @@ function SourceManager:GetItemPresentation(itemID, options)
     end
     local ownershipState = isOwned and "owned" or isOwnershipExcluded and "unknown" or "unowned"
 
-    local availabilityState
+    local availabilityState, requirementState
     local isUnverified = false
     local hasVerifiableRequirement = false
     local blockerLabels = nil
@@ -1807,11 +1819,13 @@ function SourceManager:GetItemPresentation(itemID, options)
         -- the same probe the guard would repeat), so the internal ownership
         -- guard is redundant on the presentation path unconditionally. The
         -- guard stays for standalone 2-arg callers (tooltips, fallbacks).
-        availabilityState, isUnverified, hasVerifiableRequirement, blockerLabels =
+        availabilityState, isUnverified, hasVerifiableRequirement, blockerLabels, requirementState =
             self:GetVendorItemAvailabilityState(itemID, npcID, true)
     elseif hasPromotionRequirement then
         availabilityState = "unobtainable"
         hasVerifiableRequirement = true
+    elseif self:IsOtherFactionOnly(itemID) then
+        availabilityState = "otherFaction"
     else
         availabilityState = SourceState(self, itemID, bestSource, offeredSource)
     end
@@ -1875,7 +1889,7 @@ function SourceManager:GetItemPresentation(itemID, options)
         catalogGlowState = "notCollected"
     elseif availabilityState == "available" or availabilityState == "purchasable" then
         catalogGlowState = "available"
-    elseif availabilityState == "blocked" or availabilityState == "locked" then
+    elseif availabilityState == "blocked" or availabilityState == "locked" or availabilityState == "otherFaction" then
         catalogGlowState = "blocked"
     elseif availabilityState == "unobtainable" then
         catalogGlowState = "unobtainable"
@@ -1898,6 +1912,7 @@ function SourceManager:GetItemPresentation(itemID, options)
         ownershipState = ownershipState,
         isOwnershipExcluded = isOwnershipExcluded,
         availabilityState = availabilityState,
+        requirementState = requirementState or availabilityState,
         -- Blocked with a selling vendor held back by its requirements: worded "Locked".
         requirementLocked = availabilityState == "blocked" and requirementHeld == true,
         isUnverified = isUnverified,

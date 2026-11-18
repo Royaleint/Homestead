@@ -61,7 +61,7 @@ local function Rebuild()
     wipe(orders)
     recs = {}
     for i, e in ipairs(walk and walk.list or BareEntries()) do
-        local r = { kind = "item", id = e.itemID, e = e, lname = e.name and e.name:lower() or "",
+        local r = { kind = "item", id = e.itemID, e = e, lname = e.name and HA.NameSortKey(e.name) or "",
             hasName = e.name ~= nil, cat = KindOf(e.info), bonus = e.bonus,
             done = e.own == "owned", hid = hideFor and (walk and (e.own == "owned" and "collected" or e.factionOnly and "faction" or nil) or not walk and CG.HiddenBy(e.itemID)) or nil }
         r.g = walk and Group(e) or 1

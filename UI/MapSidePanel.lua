@@ -588,6 +588,16 @@ local function GetUnmetRequirements(itemID, npcID, presentation)
     return nil, reqs
 end
 
+-- Zone and continent names in list order: accented Latin letters with their base letter (HA.NameSortKey), then the
+-- raw name, then the map, so equal-looking names never swap places between builds.
+local function MapNameBefore(an, bn, aid, bid)
+    an, bn = an or "", bn or ""
+    local ka, kb = HA.NameSortKey(an), HA.NameSortKey(bn)
+    if ka ~= kb then return ka < kb end
+    if an ~= bn then return an < bn end
+    return aid < bid
+end
+
 local function ComputeItemGridHeight(itemCount)
     if itemCount == 0 then return 0 end
     return math.ceil(itemCount / Layout.ICONS_PER_ROW) * (Layout.ITEM_ICON_SIZE + Layout.ITEM_ICON_PAD) + Layout.ITEM_ICON_PAD
@@ -688,8 +698,9 @@ local function PopulateItemGrid(row, vendor, sourceFilter, highlightItems, itemI
             icon.texture:SetDesaturated(true)
             icon.texture:SetVertexColor(0.6, 0.4, 0.4)
             icon.lock:Show()
-        elseif not selling then
-            -- A vendor not selling now offers nothing to buy: the neutral grey border, never the gold one
+        elseif not selling or presentation and presentation.availabilityState == "otherFaction" then
+            -- Nothing to buy here (a vendor not selling now, an item only the other faction can get): the neutral
+            -- grey border, never the gold one
             icon.border:SetColorTexture(0.45, 0.45, 0.45, 1)
             SetIconBorderOutset(icon, 1)
         else
@@ -1988,7 +1999,7 @@ local function AppendZoneSubRows(zoneCounts, rows, skipEmpty)
         end
     end
     table.sort(zoneList, function(a, b)
-        return (a.data.zoneName or "") < (b.data.zoneName or "")
+        return MapNameBefore(a.data.zoneName, b.data.zoneName, a.mapID, b.mapID)
     end)
 
     for _, entry in ipairs(zoneList) do
@@ -2904,7 +2915,7 @@ function MapSidePanel:RefreshZoneSummaries(mapID, mapInfo)
         zoneList[#zoneList + 1] = { mapID = zoneMapID, data = data }
     end
     table.sort(zoneList, function(a, b)
-        return (a.data.zoneName or "") < (b.data.zoneName or "")
+        return MapNameBefore(a.data.zoneName, b.data.zoneName, a.mapID, b.mapID)
     end)
 
     if #zoneList == 0 then
@@ -3018,7 +3029,7 @@ function MapSidePanel:RefreshContinentSummaries(mapID, mapInfo)
         end
     end
     table.sort(continentList, function(a, b)
-        return (a.data.continentName or "") < (b.data.continentName or "")
+        return MapNameBefore(a.data.continentName, b.data.continentName, a.mapID, b.mapID)
     end)
 
     if #continentList == 0 then
