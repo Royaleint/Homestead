@@ -179,12 +179,15 @@ local function Stats(s)
     return total, got, can
 end
 
--- A source whose decor is all left out of the counts gets no row.
+-- A source other than a vendor whose decor is all left out of the counts gets no row.
 local function AllLeftOut(s)
-    if cs ~= "ready" then return false end
-    if not s.vendor then return s.items[1] ~= nil and Stats(s) == 0 end
-    local _, left = D.VendorWares(s.vendor)
-    return not s.items[1] and left ~= nil and (left.promotion[1] or left.unknown[1]) ~= nil
+    return cs == "ready" and not s.vendor and s.items[1] ~= nil and Stats(s) == 0
+end
+
+-- Why a vendor with nothing counted says so: its wares are left out.
+local function LeftOutMark(v)
+    local _, left = D.VendorWares(v)
+    return left and (left.unknown[1] and L["Collection unknown"] or left.promotion[1] and L["Promotion"])
 end
 
 local function Head(t)
@@ -226,7 +229,7 @@ local function RowData(s)
         kind = "row", key = s.key, name = v and HA.VendorData:GetVendorName(v) or s.title, line2 = not oneLine and s.sub or s.where, noTile = true, state = state, arg = arg,
         iconsOf = oneLine and function() return Rows(s, true) end or nil,
         selected = vid ~= nil and s.key == vid or nil, narrow = Narrow() or nil,
-        right = total == 0 and L["No decor"] or got and L["%d of %d"]:format(got, total) or L["%d decor"]:format(total),
+        right = total == 0 and (v and LeftOutMark(v) or L["No decor"]) or got and L["%d of %d"]:format(got, total) or L["%d decor"]:format(total),
         onClick = function()
             if not v then B.Go({ kind = "source", key = s.type, id = s.key })
             elseif vid == s.key then Page:CloseCard()
