@@ -303,6 +303,7 @@ L["%s with %s"] = "%s with %s"
 L["Level %s"] = "Level %s"
 L["Achievement: %s"] = "Achievement: %s"
 L["Quest: %s"] = "Quest: %s" -- untranslated
+L["Promotion: %s"] = "Promotion: %s"
 L["Profession: %s"] = "Profession: %s"
 L["Profession: %s rank %s"] = "Profession: %s rank %s"
 L["Profession requirement"] = "Profession requirement"
@@ -324,6 +325,7 @@ L["Shop: %s"] = "Shop: %s"
 L["Twitch Drop"] = "Twitch Drop"
 L["Charity Pack"] = "Charity Pack"
 L["Promotion"] = "Promotion" -- untranslated
+L["Not currently sold"] = "Not currently sold" -- untranslated
 
 -------------------------------------------------------------------------------
 -- Tooltip: shared Homestead block
