@@ -99,7 +99,7 @@ function SearchProvider:PreWarm()
         end
     end
 
-    local allVendors = VD:GetAllVendors()
+    local allVendors = VD:GetAllVendors(true)
     for _, vendor in ipairs(allVendors) do
         local itemIDs = VD:GetMergedItemIDs(vendor)
         if itemIDs then
@@ -156,7 +156,7 @@ local function BuildIndex()
     end
 
     -- Vendor → items mapping (names resolved at query time)
-    local allVendors = VD:GetAllVendors()
+    local allVendors = VD:GetAllVendors(true)
     local VF = HA.VendorFilter
     for _, vendor in ipairs(allVendors) do
         if vendor.npcID and not VF.IsHiddenOnThisBuild(vendor) then
@@ -257,14 +257,15 @@ function SearchProvider:Search(query, options)
     local decorItemID = queryNum and searchIndex.decorToItem[queryNum]
     local includeItemResults = type(options) == "table" and options.includeItemResults == true
 
-    -- Respect faction filter setting
+    -- Respect faction filter setting; options.anyFaction lists other-faction vendors whatever it says
     local VF = HA.VendorFilter
     local showOpposite = not VF or VF.ShouldShowOppositeFaction()
+    local anyFaction = type(options) == "table" and options.anyFaction == true
 
     local results = {}
     for npcID, entry in pairs(searchIndex.vendorItems) do repeat
         -- Skip vendors this character can't use at any position when the setting is off
-        if not showOpposite and not VF.CanUseVendor(entry.vendor) then break end
+        if not showOpposite and not anyFaction and not VF.CanUseVendor(entry.vendor) then break end
 
         local matchCount = 0
         local matchType = nil

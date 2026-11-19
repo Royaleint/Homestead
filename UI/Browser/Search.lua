@@ -9,7 +9,7 @@ local S, W, D, CG, Facts = B.Style, B.Widgets, B.Data, B.CanGet, B.Facts
 local LO = S.layout
 
 local DELAY = 0.3
-local OPTIONS = { includeItemResults = true }
+local OPTIONS = { includeItemResults = true, anyFaction = true }
 
 local Page = {}
 local host, list, empty, results, rev, timer

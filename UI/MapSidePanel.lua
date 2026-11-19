@@ -3220,6 +3220,8 @@ function MapSidePanel:RefreshSearchResults()
                     countText = dataLabel
                 end
             end
+            -- Found in any season, marked as the zone list marks it.
+            if not VendorData:IsVendorSellingNow(vendor) then countText = countText .. HA.NotActiveTag() end
 
             local isExpanded = (State.expandedVendorID == vendor.npcID)
             local itemIDs
