@@ -39,8 +39,9 @@ local scanRequestedDuringActive = false
 -- (totalNumStored etc.) are stale-0 until storage data loads, so a cold scan
 -- reads every owned item as not-owned. This gates trust only: a scan that
 -- started warm may mark the first read done and fill the unreported set, and
--- IsWarm feeds the negative identity memo, HasPersistedData's hatch and the
--- initial-scan skip. It never authorises clearing ownership. Latched on the
+-- IsWarm feeds, among others, the negative identity memo, HasPersistedData's
+-- and the reagent index's hatches, GetReadState and the initial-scan skip. It
+-- never authorises clearing ownership. Latched on the
 -- first HOUSING_STORAGE_UPDATED of the session. SetOwned needs no gate (counts
 -- are only > 0 warm, so it never false-positives cold).
 local dataLoaded = false
