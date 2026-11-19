@@ -273,15 +273,6 @@ local function HookContainerFrame(containerFrame)
                 UpdateContainerButton(self)
             end)
 
-            if type(button.SetItemButtonTexture) == "function" then
-                hooksecurefunc(button, "SetItemButtonTexture", function(self)
-                    -- Delay slightly to ensure item data is available
-                    C_Timer.After(0, function()
-                        UpdateContainerButton(self)
-                    end)
-                end)
-            end
-
             button.HousingAddonHooked = true
             hookedCount = hookedCount + 1
         else
