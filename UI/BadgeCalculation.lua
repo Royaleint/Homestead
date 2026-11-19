@@ -302,13 +302,23 @@ local function AccumulateVendorItem(accum, itemID, vendor, sourceFilter)
     local matchesSourceFilter = presentation and presentation.matchesSourceFilter
         or (not presentation and ItemMatchesSourceFilter(itemID, sourceFilter))
 
-    -- Tested ahead of everything else in the branch, unlike the
-    -- `unobtainable` divert below — that one comes after isOwned because
-    -- ownership is knowable and wins, whereas here it is unknowable and
-    -- consulting it is the thing being ruled out. hasMatchingItems stays
-    -- false too: a housing-only vendor that claimed matching items would
-    -- read "known, empty, all collected" instead of unknown.
-    if matchesSourceFilter and IsOwnershipExcluded(itemID, presentation) then
+    -- Badge recounts are an aggregate per-vendor-item loop —
+    -- this no-presentation fallback must stay cache-only the same way
+    -- the primary presentation.isOwned path is (SourceManager's
+    -- "badge" context), or it reintroduces the per-item API burst.
+    local isOwned = presentation and presentation.isOwned
+    if not presentation then
+        isOwned = HA.CatalogStore:IsOwned(itemID) == true
+    end
+    local leftOut = matchesSourceFilter and HA.CatalogStore:LeftOutReason(itemID, vendor.npcID, isOwned)
+
+    -- The shared rule leaves out an unowned promotion ware and a ware whose
+    -- ownership the game does not report; an owned ware still counts, except
+    -- a housing kind Homestead cannot read at all.
+    -- hasMatchingItems stays false for a left-out unknown ware: a
+    -- housing-only vendor that claimed matching items would read "known,
+    -- empty, all collected" instead of unknown.
+    if leftOut == "unknown" then
         accum.excluded = accum.excluded + 1
     elseif matchesSourceFilter then
         accum.hasMatchingItems = true
@@ -324,15 +334,6 @@ local function AccumulateVendorItem(accum, itemID, vendor, sourceFilter)
         -- never contradicts the collected/total numbers next to it.
         local isVendorOnlyItem = IsItemVendorOnly(itemID, presentation and presentation.allSources)
 
-        -- Badge recounts are an aggregate per-vendor-item loop —
-        -- this no-presentation fallback must stay cache-only the same way
-        -- the primary presentation.isOwned path is (SourceManager's
-        -- "badge" context), or it reintroduces the per-item API burst.
-        local isOwned = presentation and presentation.isOwned
-        if not presentation and HA.CatalogStore and HA.CatalogStore.IsOwned then
-            isOwned = HA.CatalogStore:IsOwned(itemID) == true
-        end
-
         if isOwned then
             -- Owned items always count toward collected/total, even if
             -- the underlying requirement (e.g. a promotion) is also
@@ -342,9 +343,9 @@ local function AccumulateVendorItem(accum, itemID, vendor, sourceFilter)
             if isVendorOnlyItem then
                 accum.vendorOnly = accum.vendorOnly + 1
             end
-        elseif state == "unobtainable" then
-            -- Unowned unobtainable items
-            -- (promotion-gated, live or expired) are EXCLUDED from total
+        elseif leftOut == "promotion" then
+            -- Unowned promotion items
+            -- (live or expired) are EXCLUDED from total
             -- so collected/total can reach completion. This must be
             -- checked before the locked/purchasable split below.
             accum.unobtainable = accum.unobtainable + 1
