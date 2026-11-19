@@ -12,9 +12,10 @@
 
     Ownership is derived from Blizzard's GetEntryTotalOwned contract
     (totalNumStored + remainingRedeemable + totalNumPlaced > 0) via
-    CatalogStore:ComputeOwnedFromInfo. Those count fields are stale-0 cold
-    (before storage data loads), so SetUnowned is warm-gated on dataLoaded —
-    the scanner never erases ownership from a cold read.
+    CatalogStore:ComputeOwnedFromInfo. A positive count records ownership; a
+    zero never clears it. Those count fields are stale-0 cold (before storage
+    data loads), which is why a scan's empty reads are trusted (the first
+    read, the unreported set) only when the scan started warm.
 
     Strategy: Scan every item a collected count uses: vendor and scanned wares,
     crafted decor, and the quest, achievement, event and drop sources, using
@@ -34,17 +35,20 @@ local SCAN_COOLDOWN = 5 -- Minimum seconds between scans
 local pendingScanTimer = nil
 local scanRequestedDuringActive = false
 
--- Warm-gate for ownership erasure. The catalog count fields (totalNumStored etc.)
--- are stale-0 until storage data loads, so a cold scan reads every owned item as
--- not-owned. SetUnowned must therefore run ONLY once storage data is known loaded.
--- Set true on the first HOUSING_STORAGE_UPDATED of the session. SetOwned needs no
--- gate (counts are only > 0 warm, so it never false-positives cold).
+-- Whether per-item counts are live this session. The catalog count fields
+-- (totalNumStored etc.) are stale-0 until storage data loads, so a cold scan
+-- reads every owned item as not-owned. This gates trust only: a scan that
+-- started warm may mark the first read done and fill the unreported set, and
+-- IsWarm feeds the negative identity memo, HasPersistedData's hatch and the
+-- initial-scan skip. It never authorises clearing ownership. Latched on the
+-- first HOUSING_STORAGE_UPDATED of the session. SetOwned needs no gate (counts
+-- are only > 0 warm, so it never false-positives cold).
 local dataLoaded = false
 
 -- SEPARATE, weaker one-shot -- true as soon as storage data exists
 -- at all (GetDecorMaxOwnedCount > 0), which is NOT the same claim as dataLoaded
--- above (per-item counts are live and safe to erase against). This is a
--- PREWARM SIGNAL only; it must never gate SetUnowned. See SetupEventScanning.
+-- above (per-item counts are live). This is a PREWARM SIGNAL only; it never
+-- stands in for dataLoaded. See SetupEventScanning.
 local storageResponded = false
 
 -- Whether this session's first trustworthy collection read has finished, so
@@ -107,8 +111,8 @@ local SCAN_COMBAT_RETRY_DELAY = 1.0 -- seconds between combat re-checks at a bat
 -- Delegates to CatalogStore:ComputeOwnedFromInfo — Blizzard's GetEntryTotalOwned
 -- contract (totalNumStored + remainingRedeemable + totalNumPlaced > 0). This is
 -- the single source of truth for ownership derivation. These count fields are
--- stale-0 cold (before storage data loads), which is why the scanner warm-gates
--- the SetUnowned branches below.
+-- stale-0 cold (before storage data loads); a false result only skips the
+-- owned write.
 local function IsOwned(info)
     if not info then return false end
     return HA.CatalogStore:ComputeOwnedFromInfo(info)
@@ -218,9 +222,8 @@ local function CollectAllKnownItemIDs()
     end
 
     -- Items only these tables add are read to record ownership only: their
-    -- catalog text is not parsed, so they gain no requirement lines, and a zero
-    -- read never clears them. An item a block above already added keeps that
-    -- entry, its parse and its clear.
+    -- catalog text is not parsed, so they gain no requirement lines. An item a
+    -- block above already added keeps that entry and its parse.
     local sourceTables = { HA.QuestSources, HA.AchievementSources, HA.EventSources, HA.DropSources }
     for i = 1, 4 do
         local sources = sourceTables[i]
@@ -430,13 +433,10 @@ function CatalogScanner:ScanFullCatalog(callback)
                             -- Full path for owned items
                             HA.CatalogStore:SetOwned(result.itemID, result.name or itemData.name, result.recordID)
                         else
-                            -- Warm-gate: only erase ownership once storage data is
-                            -- loaded. Cold reads are stale-0 and would wrongly clear
-                            -- owned items; the persistent cache serves them instead.
-                            if dataLoaded and not itemData.sourceOnly and HA.CatalogStore:IsOwned(result.itemID) then
-                                HA.CatalogStore:SetUnowned(result.itemID)
-                            end
-                            -- Minimal fields for unowned items
+                            -- Not owned by this read: save the name and decor ID
+                            -- only. A zero read never clears a saved collected
+                            -- item, warm or cold, because the game keeps no record
+                            -- of past ownership; only /hs clearcache resets it.
                             HA.CatalogStore:Save(result.itemID, {
                                 decorID = result.recordID,
                                 name = result.name or itemData.name,
@@ -545,12 +545,12 @@ local function TryLatchWarmFromCounts()
     local dataLoadedBefore = dataLoaded
 
     -- HOUSING_STORAGE_UPDATED is the signal that storage/ownership data
-    -- has loaded for this session. Latch the warm-gate so SetUnowned may
-    -- run — count fields are now authoritative, not stale-0. Corroborate
-    -- with GetDecorTotalOwnedCount() > 0 before latching: a bare event
-    -- can fire while counts are still stale-0, which would let SetUnowned
-    -- wrongly clear ownership. A 0-decor character never latches, but
-    -- SetUnowned is moot there anyway.
+    -- has loaded for this session. Latch dataLoaded so later scans may
+    -- trust their empty reads — count fields are now authoritative, not
+    -- stale-0. Corroborate with GetDecorTotalOwnedCount() > 0 before
+    -- latching: a bare event can fire while counts are still stale-0, which
+    -- would let a scan trust zero reads that are only stale. A 0-decor
+    -- character never latches.
     if (C_HousingCatalog.GetDecorTotalOwnedCount and C_HousingCatalog.GetDecorTotalOwnedCount() or 0) > 0 then
         dataLoaded = true
     end
@@ -569,8 +569,8 @@ local function TryLatchWarmFromCounts()
     -- Blizzard_HouseEditorStorageFrame.lua:9-14: GetDecorMaxOwnedCount is a
     -- static cap, non-zero the instant storage loads, ownership-independent)
     -- but NOT that per-item counts are live, so this is a PREWARM SIGNAL
-    -- only — it must never gate SetUnowned's erase authorization, which
-    -- stays on dataLoaded above exactly as before. Zero-decor players
+    -- only — it never stands in for dataLoaded above, which alone decides
+    -- when a scan's empty reads are trusted. Zero-decor players
     -- (whose dataLoaded never latches) still get this fire.
     if not storageResponded
             and (C_HousingCatalog.GetDecorMaxOwnedCount and C_HousingCatalog.GetDecorMaxOwnedCount() or 0) > 0 then
@@ -731,7 +731,7 @@ local function SetupEventScanning()
                 -- the ~2,200-probe rescan behind that forced event when the
                 -- API reports zero decor owned — every probe reads unowned and
                 -- dataLoaded cannot latch off a zero total, so the pass can
-                -- neither learn nor erase any ownership. (It would still
+                -- learn no ownership. (It would still
                 -- refresh cached names/sourceText; the housing UI's own
                 -- ADDON_LOADED scan and any genuine storage event both still
                 -- do that.) MUST NEVER BLOCK: a real storage change. It cannot
@@ -823,8 +823,8 @@ local function RunLoginStorageForceLoad()
     -- then correctly reports the true owned count. So the searcher is now
     -- created unconditionally every time -- dataLoaded/storageResponded are
     -- latched ONLY by the real event handler (SetupEventScanning), exactly
-    -- as it always was. That's what keeps erasure-authorization
-    -- trustworthy: it can never fire on anything but a genuine engine signal.
+    -- as it always was, so the warm trust only ever comes from a genuine
+    -- engine signal.
     if type(C_HousingCatalog.CreateCatalogSearcher) ~= "function" then
         HA.Addon:Debug("Login storage force-load skipped: CreateCatalogSearcher unavailable")
         SetFirstReadAttempted()
@@ -902,7 +902,7 @@ end
 -- the weak half of the two-flag split, exposed for consumers that need to
 -- distinguish "storage answered and the live total is zero" (a zero-decor
 -- player's CONFIRMED-true zero) from "storage never answered" (unknown).
--- Never an erase authorization — that stays on IsWarm/dataLoaded above.
+-- It never stands in for IsWarm/dataLoaded above.
 function CatalogScanner:HasStorageResponded()
     return storageResponded
 end

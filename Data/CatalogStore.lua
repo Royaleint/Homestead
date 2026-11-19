@@ -7,6 +7,7 @@
     All writes go through this module. Read API provides cache-only and fresh paths.
 
     catalogItems is the canonical ownership store.
+    Saved isOwned only moves false -> true; ClearAll (/hs clearcache) is the one reset.
 
     Event contract:
       _save()            — internal table merge, NEVER fires events
@@ -46,7 +47,7 @@ local itemIDToRoom = {}     -- forward index: itemID -> roomRecordID
 -- Enum.HousingCatalogEntryType.Room. A literal, like the existing `1` at the
 -- decor call sites: the Enum table is not read at file scope.
 local ENTRY_TYPE_ROOM = 2
-local ownedCount = 0        -- cached count of owned items (incremented in SetOwned)
+local ownedCount = 0        -- cached count of owned items (raised by SetOwned, reset only by ClearAll)
 -- nesting depth for BeginBatch/EndBatch, not a boolean. Two
 -- independent callers can hold a batch open at once (CatalogScanner's scan
 -- and ProfessionOverlay's reconcile pass, Overlay/ProfessionOverlay.lua:334-357)
@@ -153,60 +154,6 @@ function CatalogStore:SetOwned(itemID, name, decorID)
 
     -- Fire event (or defer in batch mode)
     if not wasOwned then
-        if batchDepth > 0 then
-            batchOwnershipChanged = true
-        elseif HA.Events then
-            HA.Events:Fire("OWNERSHIP_UPDATED")
-        end
-    end
-end
-
--- Mark an item as no longer owned.
--- Symmetric with SetOwned: maintains ownedCount, negativeGeneration, events.
--- Idempotent: second call on same item is a no-op (no counter/gen/event changes).
--- Used for manual ownership corrections.
---
--- Contract:
---   1. State check: wasOwned from catalogItems.isOwned (primary truth for counter)
---   2. Data: clear isOwned/firstSeen/lastSeen in catalogItems; keep name/decorID
---   3. Counter: decrement ownedCount only if catalogItems had isOwned=true
---   4. Cache: bump negativeGeneration on effective ownership change
---   5. Event: fire OWNERSHIP_UPDATED on transition only; respect batch depth
---
--- No-op for mapped room plans.
-function CatalogStore:SetUnowned(itemID)
-    if not itemID then return end
-
-    -- Room-plan ownership only moves unowned -> owned. The erase warm
-    -- gate is proven for decor counts only, a stale-0 Room read would erase a
-    -- real room, and no API reports "not owned" as a positive signal.
-    -- /hs clear-ownership (ClearAll) remains the manual reset.
-    if itemIDToRoom[itemID] then return end
-
-    -- 1. Detect current ownership state (catalogItems is counter authority)
-    local wasOwnedInCatalog = false
-    if ci and ci[itemID] then
-        wasOwnedInCatalog = ci[itemID].isOwned == true
-    end
-
-    -- No-op if not owned in catalogItems (idempotent).
-    if not wasOwnedInCatalog then return end
-
-    -- 2. Clear catalogItems ownership (keep metadata: name, decorID)
-    if ci and ci[itemID] then
-        ci[itemID].isOwned = false
-        ci[itemID].firstSeen = nil
-        ci[itemID].lastSeen = nil
-    end
-
-    -- 3-4. Counter and cache generation (only from catalogItems authority)
-    if wasOwnedInCatalog then
-        ownedCount = ownedCount - 1
-        negativeGeneration = negativeGeneration + 1
-    end
-
-    -- 5. Event on effective ownership transition
-    if wasOwnedInCatalog then
         if batchDepth > 0 then
             batchOwnershipChanged = true
         elseif HA.Events then
@@ -348,9 +295,8 @@ end
 -- source-confirmed field names; the older quantity/numPlaced are current aliases.
 -- firstAcquisitionBonus is display-only (a tooltip favor line) and is 0 for both
 -- owned items AND new décor that carry no favor — it is NOT an ownership signal.
--- These count fields are stale-0 cold (before storage data loads), so a "false"
--- result is only authoritative when storage data is loaded — callers that erase
--- ownership must warm-gate accordingly. nil-safe.
+-- These count fields are stale-0 cold (before storage data loads), so a cold
+-- "false" is only stale; no caller clears saved ownership on a false. nil-safe.
 function CatalogStore:ComputeOwnedFromInfo(info)
     return (info and ((info.totalNumStored or 0) + (info.remainingRedeemable or 0) + (info.totalNumPlaced or 0)) > 0) or false
 end
@@ -870,7 +816,9 @@ end
 -- Maintenance
 -------------------------------------------------------------------------------
 
--- Clear all ownership data.
+-- Clear all ownership data. The only path from collected back to not
+-- collected, reached only from the player's /hs clearcache. Records, names and
+-- decor IDs stay.
 function CatalogStore:ClearAll()
     -- Clear catalogItems ownership flags
     if ci then
@@ -990,7 +938,8 @@ end
 -- Room twin of ProbeByDecorID (entryType 2). Writes only on a positive
 -- read, and never a decorID: a room recordID must never enter the decor
 -- indexes, where it would collide with an unrelated real decorID (see
--- Overlay/Tooltips.lua's entryType gate). Never erases (see SetUnowned).
+-- Overlay/Tooltips.lua's entryType gate). Never erases; saved ownership only
+-- moves to owned (ClearAll aside).
 function CatalogStore:ProbeByRoomID(roomID)
     if not roomID then return nil end
     local CHC = _G.C_HousingCatalog
@@ -1418,7 +1367,7 @@ end
 -- whether the persistent
 -- cache holds an OWNERSHIP SIGNAL worth computing badge stats from. Record
 -- presence is not that signal: a cold full scan writes name-only records for
--- every item ("Checked: 1624 Owned: 0"), and the /hs clear-ownership
+-- every item ("Checked: 1624 Owned: 0"), and the /hs clearcache
 -- command empties isOwned on every record while leaving the records in
 -- place — under a mere next(ci) check both states let a prewarm confidently
 -- cache "0 owned" everywhere for a player who owns plenty. ownedCount > 0 is
