@@ -591,9 +591,9 @@ function W.BuildRow(row)
     row.Redraw, row.Reset = Redraw, Reset
     -- The row's width can arrive after its first Set; Set reads it again.
     row:SetScript("OnSizeChanged", Redraw)
-    row:SetScript("OnClick", function(self)
+    row:SetScript("OnClick", function(self, button)
         if W.Linked(self.itemID) then return end
-        if self.onClick then self.onClick() end
+        if self.onClick then self.onClick(button) end
     end)
     row:SetScript("OnEnter", ShowTip)
     row:SetScript("OnLeave", HideTip)
@@ -794,7 +794,7 @@ function W.NewWareCell(cell, named)
             name:SetText(d.name or "")
             name:SetTextColor(unpack(d.state == "owned" and K.nameOwned or K.nameMissing))
         end
-        tile.icon:SetDesaturated(d.state == "locked")
+        tile.icon:SetDesaturated(d.state == "locked" or d.mark ~= nil)
         Vis.Marker.Set(mark, st and st.glyph, st and st.color)
         Vis.Marker.Set(star, d.bonus and "star" or nil, K.gold)
         Vis.Marker.Set(clock, d.active and "clock" or nil, K.badge)
@@ -1006,7 +1006,7 @@ end
 local EMPTY = {
     counting = { L["Counting…"], L["Reading your collection. This list fills in when it's ready."] },
     countingSort = { L["Counting…"],
-        L["Reading your collection. This list fills in when it's ready, because Best to get now depends on what you own."],
+        L["Reading your collection. This list fills in when it's ready, because Best to get now depends on what you have collected."],
         { "onSort", L["Sort by name"] } },
     nothingMissing = { L["Nothing missing"], L["You've collected all %d decor Homestead knows about."] },
     nothingNow = { L["Nothing you can get right now"],
@@ -1017,8 +1017,7 @@ local EMPTY = {
     notReadFilters = { L["Collection not read yet"],
         L["These filters need your collection, which Homestead hasn't read yet. If this stays, open the Housing Dashboard once."],
         { "onReset", L["Reset filters"] } },
-    noResults = { L["No results"], L["No decor matches these words and filters. Search looks at item names only."],
-        { "onReset", L["Reset filters"] }, { "onShow", L["Show them"] }, { "onAll", L["Search all decor"] } },
+    noResults = { L["No results"], L["Nothing to show here."], { "onReset", L["Reset filters"] }, { "onShow", L["Show them"] } },
 }
 
 local NEEDS_ARG = { nothingMissing = true, nothingNow = true }

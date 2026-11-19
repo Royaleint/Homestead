@@ -7,36 +7,28 @@ local L = HA.L
 local F = {}
 B.Facts = F
 
--- Whether the browser lists a vendor at all. Unlike the map pins it ignores display settings. A holiday
--- vendor is listed in its season, and every Endeavor vendor is listed whichever theme is on.
+-- Whether the browser lists a vendor at all. Unlike the map pins it ignores display settings. Holiday vendors
+-- are listed in any season and Endeavor vendors whichever theme is on.
 function F.BrowserListed(vendor)
     if not vendor then return false end
-    local VD = HA.VendorData
-    return not VD:IsVendorHiddenByNpcID(vendor.npcID) and not VD:IsHolidayVendorHidden(vendor.npcID)
-        and not HA.VendorFilter.IsConfirmedNoDecor(vendor)
+    return not HA.VendorData:IsVendorHiddenByNpcID(vendor.npcID) and not HA.VendorFilter.IsConfirmedNoDecor(vendor)
 end
 
--- For an Endeavor vendor, whether this week's theme is its own: true only when the game has reported the
+-- For an Endeavor vendor, whether the running theme is its own: true only when the game has reported the
 -- theme, false otherwise. nil for any other vendor.
 function F.EndeavorActive(vendor)
     return HA.VendorData:IsEndeavorVendorActive(vendor)
 end
 
--- Whether a listed vendor is selling now: an Endeavor vendor sells only in its theme's week.
+-- Whether a listed vendor is selling now: a holiday vendor in its season, an Endeavor vendor while its theme runs.
 function F.OnSale(vendor)
-    return F.BrowserListed(vendor) and F.EndeavorActive(vendor) ~= false
+    return F.BrowserListed(vendor) and HA.VendorData:IsVendorSellingNow(vendor)
 end
 
 -- The position the browser points this character to for a vendor, the one its waypoint uses: mapID, and the
 -- client's zone and subzone names.
 function F.Place(v)
     return HA.VendorFilter.GetVendorPlaceNames(v)
-end
-
--- Where a vendor is: "subzone, zone" when both are known, else the zone; nil when there is none.
-function F.Where(v)
-    local _, zone, subzone = F.Place(v)
-    return zone and subzone and L["%s, %s"]:format(subzone, zone) or zone
 end
 
 -- The player's zone: { zone, name, continent, maps = set of the zone and its child maps }; nil when unknown.
@@ -46,8 +38,7 @@ function F.Here()
     local zone = MPP.ZoneOf(C_Map.GetBestMapForUnit("player"))
     if not zone then return nil end
     if here and here.zone == zone then return here end
-    local info = C_Map.GetMapInfo(zone)
-    here = { zone = zone, name = info and info.name, continent = MPP.ContinentOf(zone), maps = { [zone] = true } }
+    here = { zone = zone, name = HA.VendorFilter.GetMapName(zone), continent = MPP.ContinentOf(zone), maps = { [zone] = true } }
     for _, kid in ipairs(C_Map.GetMapChildrenInfo(zone, nil, true) or {}) do here.maps[kid.mapID] = true end
     return here
 end
@@ -89,12 +80,13 @@ F.LINK = {
     quests = function(d) return GetQuestLink(d.questID) or ("quest:" .. d.questID) end,
 }
 
--- The only builder of Sources row keys and onward-link keys. nil draws no "Show" button.
+-- The only builder of Sources row keys and onward-link keys. nil draws no "Show" button. A holiday vendor has a
+-- key out of season too.
 function F.SourceKey(sourceType, data, itemID)
     if not data then return nil end
     if sourceType == "vendors" then
         local npcID = data.npcID
-        return (npcID and HA.VendorData:GetVendor(npcID)) and npcID or nil
+        return (npcID and HA.VendorData:GetVendorAnySeason(npcID)) and npcID or nil
     elseif sourceType == "achievements" then
         return data.achievementID
     elseif sourceType == "quests" then
@@ -102,7 +94,7 @@ function F.SourceKey(sourceType, data, itemID)
     elseif sourceType == "professions" then
         return data.spellID
     elseif sourceType == "drops" then
-        return (data.mobName and data.zone) and (data.mobName .. "|" .. data.zone) or nil
+        return HA.SourceManager:GetDropGroupKey(data)
     elseif sourceType == "events" then
         return data.event
     elseif sourceType == "shop" then

@@ -147,14 +147,6 @@ local ORDER_HALL_MAPS = {
     [734] = true,  -- Hall of the Guardian (Mage)
 }
 
-local function GetVendorDisplayName(vendor)
-    local name = vendor.name or "Unknown"
-    if vendor.mapID and ORDER_HALL_MAPS[vendor.mapID] then
-        name = name .. " |cff888888(" .. (L["Order Hall"] or "Order Hall") .. ")|r"
-    end
-    return name
-end
-
 -- Map shift state (declared early so preview hooks can reference them)
 State.mapShifted = false
 State.savedMapPoint = nil  -- {point, relativeTo, relativePoint, xOfs, yOfs}
@@ -315,17 +307,18 @@ local function IsItemOwned(itemID)
     return false
 end
 
--- Is this item's ownership knowable at all? Housing items outside the
--- Decor subclass resolve to no catalog entry, so IsItemOwned answers a hard
--- false that says nothing about the player. The grids must render those in a
--- neutral state rather than the gold "available to purchase" border, which
--- would be telling the player to buy a room they may already own.
-local function IsOwnershipExcluded(itemID, presentation)
+-- Does the game report this item's ownership at all? Housing items outside
+-- the Decor subclass, and items the catalog returned no entry for this
+-- session, answer a hard false from IsItemOwned that says nothing about the
+-- player. The grids render those in a neutral state rather than the gold
+-- "available to purchase" border, which would be telling the player to buy a
+-- room they may already own.
+local function IsOwnershipUnreported(itemID, presentation)
     if presentation then
         return presentation.isOwnershipExcluded == true
     end
-    if itemID and HA.CatalogStore and HA.CatalogStore.IsOwnershipUnknowable then
-        return HA.CatalogStore:IsOwnershipUnknowable(itemID) == true
+    if itemID and HA.CatalogStore and HA.CatalogStore.IsOwnershipUnreported then
+        return HA.CatalogStore:IsOwnershipUnreported(itemID) == true
     end
     return false
 end
@@ -595,6 +588,16 @@ local function GetUnmetRequirements(itemID, npcID, presentation)
     return nil, reqs
 end
 
+-- Zone and continent names in list order: accented Latin letters with their base letter (HA.NameSortKey), then the
+-- raw name, then the map, so equal-looking names never swap places between builds.
+local function MapNameBefore(an, bn, aid, bid)
+    an, bn = an or "", bn or ""
+    local ka, kb = HA.NameSortKey(an), HA.NameSortKey(bn)
+    if ka ~= kb then return ka < kb end
+    if an ~= bn then return an < bn end
+    return aid < bid
+end
+
 local function ComputeItemGridHeight(itemCount)
     if itemCount == 0 then return 0 end
     return math.ceil(itemCount / Layout.ICONS_PER_ROW) * (Layout.ITEM_ICON_SIZE + Layout.ITEM_ICON_PAD) + Layout.ITEM_ICON_PAD
@@ -633,6 +636,7 @@ local function PopulateItemGrid(row, vendor, sourceFilter, highlightItems, itemI
     local icons = row.itemIcons
 
     local npcID = vendor.npcID
+    local selling = VendorData:IsVendorSellingNow(vendor)
 
     -- Ensure enough icon frames (acquire from pool)
     while #icons < #itemIDs do
@@ -674,7 +678,7 @@ local function PopulateItemGrid(row, vendor, sourceFilter, highlightItems, itemI
         icon.lock:Hide()
         icon.check:Hide()
 
-        if IsOwnershipExcluded(itemID, presentation) then
+        if IsOwnershipUnreported(itemID, presentation) then
             -- Ownership not yet knowable — neutral grey border, no
             -- check and no lock tint. Tested first: neither the owned nor the
             -- available branch may claim an item we cannot resolve. The
@@ -694,6 +698,11 @@ local function PopulateItemGrid(row, vendor, sourceFilter, highlightItems, itemI
             icon.texture:SetDesaturated(true)
             icon.texture:SetVertexColor(0.6, 0.4, 0.4)
             icon.lock:Show()
+        elseif not selling or presentation and presentation.availabilityState == "otherFaction" then
+            -- Nothing to buy here (a vendor not selling now, an item only the other faction can get): the neutral
+            -- grey border, never the gold one
+            icon.border:SetColorTexture(0.45, 0.45, 0.45, 1)
+            SetIconBorderOutset(icon, 1)
         else
             -- Available to purchase: gold border
             icon.border:SetColorTexture(0.6, 0.5, 0.2, 1)
@@ -764,13 +773,15 @@ local function GetInstanceDropGroups(encounters)
         return {}
     end
 
-    local recordsByEncounter = {}
+    -- The shared drop groups: a drop of an encounter is keyed by its encounter ID, the only groups listed here.
+    local recordsByGroup = {}
     for itemID, drop in pairs(drops) do
-        if drop.journalEncounterID then
-            local list = recordsByEncounter[drop.journalEncounterID]
+        local key = HA.SourceManager:GetDropGroupKey(drop)
+        if type(key) == "number" then
+            local list = recordsByGroup[key]
             if not list then
                 list = {}
-                recordsByEncounter[drop.journalEncounterID] = list
+                recordsByGroup[key] = list
             end
             list[#list + 1] = { itemID = itemID, drop = drop }
         end
@@ -778,7 +789,7 @@ local function GetInstanceDropGroups(encounters)
 
     local groups = {}
     for _, enc in ipairs(encounters) do
-        local records = enc.encounterID and recordsByEncounter[enc.encounterID]
+        local records = enc.encounterID and recordsByGroup[enc.encounterID]
         if records then
             table.sort(records, function(a, b) return a.itemID < b.itemID end)
             groups[#groups + 1] = {
@@ -944,7 +955,7 @@ local function PopulateBossItemGrid(row, dropGroup)
         if icon.matchRing then icon.matchRing:Hide() end
 
         -- Same neutral state as the vendor grid, same reason.
-        if IsOwnershipExcluded(itemID, presentation) then
+        if IsOwnershipUnreported(itemID, presentation) then
             icon.border:SetColorTexture(0.45, 0.45, 0.45, 1)
             SetIconBorderOutset(icon, 1)
         elseif owned then
@@ -1107,6 +1118,12 @@ local function HideItemSourceList(row)
     end
 end
 
+-- A source line with, for a quest, an achievement or a recipe, whether it is done.
+local function SourceLineText(itemID, source)
+    local line, done = HA.FormatSourceLine(source), HA.CompletionText(itemID, source)
+    return done and L["%s (%s)"]:format(line, done) or line
+end
+
 local function PopulateItemSourceList(row, itemID, sourceFilter)
     if not row then return 0 end
 
@@ -1153,7 +1170,7 @@ local function PopulateItemSourceList(row, itemID, sourceFilter)
             line:SetPoint("TOPLEFT", sourcesFrame, "TOPLEFT", 0, -((i - 1) * Layout.ITEM_RESULT_LINE_HEIGHT))
             line:SetPoint("TOPRIGHT", sourcesFrame, "TOPRIGHT", 0, -((i - 1) * Layout.ITEM_RESULT_LINE_HEIGHT))
             ApplySourceBadge(line.badge, source.type)
-            line.text:SetText(HA.FormatSourceLine(source))
+            line.text:SetText(SourceLineText(itemID, source))
             line.text:SetTextColor(0.8, 0.8, 0.8)
             line:Show()
         end
@@ -1306,7 +1323,7 @@ local function RenderItemRow(row, rec)
     end
 
     -- Same neutral state as the item grids, same reason.
-    if IsOwnershipExcluded(itemID, presentation) then
+    if IsOwnershipUnreported(itemID, presentation) then
         row.iconBorder:SetColorTexture(0.45, 0.45, 0.45, 1)
         row.nameText:SetTextColor(1, 1, 1)
     elseif owned then
@@ -1321,7 +1338,7 @@ local function RenderItemRow(row, rec)
         ApplySourceBadge(row.sourceBadge, preferredSource.type,
             presentation and presentation.sourceBadgeAtlas,
             presentation and presentation.sourceIcon)
-        row.sourceText:SetText(HA.FormatSourceLine(preferredSource))
+        row.sourceText:SetText(SourceLineText(itemID, preferredSource))
         row.sourceText:SetTextColor(0.8, 0.8, 0.8)
     else
         row.sourceBadge:Hide()
@@ -1381,10 +1398,10 @@ end
 -- Row Creation
 -------------------------------------------------------------------------------
 
--- Endeavor vendors are not tied to one expansion, so the tooltip names the activity.
+-- The group the vendor lists under, as the Decor Browser's vendor list names it.
 local function VendorExpansionText(vendor)
-    if vendor.endeavor then return L["Endeavor"] end
-    return vendor.expansion
+    local VD = HA.VendorData
+    return VD:GetVendorGroupLabel(VD:GetVendorGroup(vendor))
 end
 
 local function CreateVendorRow(parent)
@@ -1461,18 +1478,12 @@ local function CreateVendorRow(parent)
     row:SetScript("OnEnter", function(self)
         if not self.vendor then return end
         local tooltip = BeginPanelTooltip(self, "ANCHOR_RIGHT")
-        tooltip:AddLine(self.vendor.name or "Unknown", 1, 1, 1)
-        -- A search result names the position its click goes to.
-        local mapID, zone, subzone = self.vendor.mapID, self.vendor.zone, self.vendor.subzone
-        if self.searchMode then
-            mapID, zone, subzone = HA.VendorFilter.GetUsableVendorPlace(self.vendor)
+        tooltip:AddLine(HA.VendorData:GetVendorName(self.vendor) or "Unknown", 1, 1, 1)
+        local place = HA.VendorPlaceText(self.vendor)
+        if place then
+            tooltip:AddLine(place, 0.7, 0.7, 0.7)
         end
-        if subzone then
-            tooltip:AddLine(subzone .. " (" .. (zone or "?") .. ")", 0.7, 0.7, 0.7)
-        elseif zone then
-            tooltip:AddLine(zone, 0.7, 0.7, 0.7)
-        end
-        if mapID and ORDER_HALL_MAPS[mapID] then
+        if self.vendor.mapID and ORDER_HALL_MAPS[self.vendor.mapID] then
             tooltip:AddLine("Legion Order Hall", 1, 0.82, 0)
         end
         if self.vendor.faction and self.vendor.faction ~= "Neutral" then
@@ -1772,7 +1783,7 @@ local function RenderVendorRow(row, rec)
     row.searchMode = rec.searchMode
     row.searchMatchedItems = rec.matchedItems
 
-    row.nameText:SetText(GetVendorDisplayName(vendor))
+    row.nameText:SetText(HA.VendorData:GetVendorName(vendor) or "Unknown")
     row.nameText:SetTextColor(rec.nameColor[1], rec.nameColor[2], rec.nameColor[3])
 
     -- Set icon color
@@ -1921,7 +1932,7 @@ local function BuildZoneExpansionRows(zoneMapID, rows)
     if not VendorData or not BC then return end
 
     local VF = HA.VendorFilter
-    local allVendors = VendorData:GetAllVendors()
+    local allVendors = VendorData:GetAllVendors(true)
     local showOpposite = VF.ShouldShowOppositeFaction()
 
     -- Gather vendors in this zone under the badge count's own key: sibling
@@ -1941,7 +1952,7 @@ local function BuildZoneExpansionRows(zoneMapID, rows)
     end
 
     table.sort(zoneVendors, function(a, b)
-        return (a.name or "") < (b.name or "")
+        return VendorData:VendorNameBefore(a, b)
     end)
 
     for _, vendor in ipairs(zoneVendors) do
@@ -1958,6 +1969,8 @@ local function BuildZoneExpansionRows(zoneMapID, rows)
         else
             countText = ""
         end
+        -- Listed in any season, marked as the zone list marks it.
+        if not VendorData:IsVendorSellingNow(vendor) then countText = countText .. HA.NotActiveTag() end
 
         rows[#rows + 1] = {
             kind = "subrow",
@@ -1965,10 +1978,10 @@ local function BuildZoneExpansionRows(zoneMapID, rows)
             iconMode = "vendor",
             vendor = vendor,
             targetMapID = vendorMapID or zoneMapID,
-            tooltipText = vendor.name or "Unknown",
+            tooltipText = HA.VendorData:GetVendorName(vendor) or "Unknown",
             tooltipSub = tooltipSub,
             isOrderHall = vendor.mapID and ORDER_HALL_MAPS[vendor.mapID] or false,
-            name = GetVendorDisplayName(vendor),
+            name = HA.VendorData:GetVendorName(vendor) or "Unknown",
             countText = countText,
             countColor = countColor,
         }
@@ -1986,7 +1999,7 @@ local function AppendZoneSubRows(zoneCounts, rows, skipEmpty)
         end
     end
     table.sort(zoneList, function(a, b)
-        return (a.data.zoneName or "") < (b.data.zoneName or "")
+        return MapNameBefore(a.data.zoneName, b.data.zoneName, a.mapID, b.mapID)
     end)
 
     for _, entry in ipairs(zoneList) do
@@ -2654,7 +2667,8 @@ local function GetVendorsForCurrentMap(mapID)
     local seen = {}
     local isNeighborhoodMap = (mapID == 2351 or mapID == 2352)
 
-    -- Get vendors for this map + more-specific sub-zone child maps.
+    -- Get vendors for this map + more-specific sub-zone child maps, in any season: the ones not selling now are
+    -- listed marked and left out of the zone's totals.
     local mapsToCheck = { [mapID] = true }
     local childMapIDs = MPP:GetMoreSpecificChildMapIDs(mapID)
     for _, childMapID in ipairs(childMapIDs) do
@@ -2678,12 +2692,13 @@ local function GetVendorsForCurrentMap(mapID)
             vendors[#vendors + 1] = {
                 vendor = vendor,
                 isOpposite = isOpposite,
+                notSelling = not VendorData:IsVendorSellingNow(vendor),
             }
         end
     end
 
     for queryMapID in pairs(mapsToCheck) do
-        local mapVendors = VendorData:GetVendorsInMap(queryMapID)
+        local mapVendors = VendorData:GetVendorsInMap(queryMapID, true)
         if mapVendors then
             for _, vendor in ipairs(mapVendors) do
                 TryAddVendor(vendor)
@@ -2715,9 +2730,8 @@ local function GetVendorsForCurrentMap(mapID)
         end
     end
 
-    -- Sort alphabetically
     table.sort(vendors, function(a, b)
-        return (a.vendor.name or "") < (b.vendor.name or "")
+        return VendorData:VendorNameBefore(a.vendor, b.vendor)
     end)
 
     return vendors
@@ -2901,7 +2915,7 @@ function MapSidePanel:RefreshZoneSummaries(mapID, mapInfo)
         zoneList[#zoneList + 1] = { mapID = zoneMapID, data = data }
     end
     table.sort(zoneList, function(a, b)
-        return (a.data.zoneName or "") < (b.data.zoneName or "")
+        return MapNameBefore(a.data.zoneName, b.data.zoneName, a.mapID, b.mapID)
     end)
 
     if #zoneList == 0 then
@@ -2950,8 +2964,7 @@ function MapSidePanel:RefreshZoneSummaries(mapID, mapInfo)
             lockedItems = dataLocked,
             unverifiedItems = data.unverifiedItems or 0,
             name = data.zoneName or "Unknown",
-            -- Gold for a rolled-in continent's row, as on the world list
-            nameColor = data.isContinent and Layout.COLOR_GOLD or Layout.COLOR_WHITE,
+            nameColor = Layout.COLOR_WHITE,
             isContinent = data.isContinent,
             summaryLineText = summaryLineText,
             summaryLineColor = summaryLineColor,
@@ -3015,7 +3028,7 @@ function MapSidePanel:RefreshContinentSummaries(mapID, mapInfo)
         end
     end
     table.sort(continentList, function(a, b)
-        return (a.data.continentName or "") < (b.data.continentName or "")
+        return MapNameBefore(a.data.continentName, b.data.continentName, a.mapID, b.mapID)
     end)
 
     if #continentList == 0 then
@@ -3207,6 +3220,8 @@ function MapSidePanel:RefreshSearchResults()
                     countText = dataLabel
                 end
             end
+            -- Found in any season, marked as the zone list marks it.
+            if not VendorData:IsVendorSellingNow(vendor) then countText = countText .. HA.NotActiveTag() end
 
             local isExpanded = (State.expandedVendorID == vendor.npcID)
             local itemIDs
@@ -3297,7 +3312,7 @@ function MapSidePanel:RefreshInstanceDropSources(mapID, mapInfo, encounters)
             kind = "boss",
             height = Layout.ROW_HEIGHT + (isExpanded and ComputeItemGridHeight(#group.records) or 0),
             dropGroup = group,
-            name = (group.records[1].drop and group.records[1].drop.mobName) or "Unknown",
+            name = HA.SourceManager:GetDropGroupName(group.records[1].drop),
             collected = collected,
             total = total,
             locked = locked,
@@ -3447,7 +3462,7 @@ function MapSidePanel:RefreshContent()
     local vendorList = GetVendorsForCurrentMap(mapID)
     local sourceFilter = State.panelSourceFilter
 
-    local totalCollected, totalItems, totalLocked = 0, 0, 0
+    local totalCollected, totalItems, totalLocked, counted = 0, 0, 0, 0
     local rows = {}
 
     for _, entry in ipairs(vendorList) do
@@ -3475,6 +3490,7 @@ function MapSidePanel:RefreshContent()
             end
             countColor = Layout.COLOR_DIM
         end
+        if entry.notSelling then countText = countText .. HA.NotActiveTag() end
 
         -- Check if this vendor is expanded (item grid visible)
         local isExpanded = (State.expandedVendorID == vendor.npcID)
@@ -3499,9 +3515,12 @@ function MapSidePanel:RefreshContent()
         }
         rows[#rows + 1] = rec
 
-        totalCollected = totalCollected + rec.collected
-        totalItems = totalItems + rec.total
-        totalLocked = totalLocked + rec.locked
+        if not entry.notSelling then
+            counted = counted + 1
+            totalCollected = totalCollected + rec.collected
+            totalItems = totalItems + rec.total
+            totalLocked = totalLocked + rec.locked
+        end
     end
 
     local childRowCount = AppendChildMapRows(mapID, rows)
@@ -3518,9 +3537,9 @@ function MapSidePanel:RefreshContent()
     -- Summary line
     if totalItems > 0 then
         State.summaryText:SetText(string.format("%d vendors | %s items",
-            #vendorList, FormatPurchasabilityCountText(totalCollected, totalItems, totalLocked)))
-    elseif #vendorList > 0 then
-        State.summaryText:SetText(string.format("%d vendors", #vendorList))
+            counted, FormatPurchasabilityCountText(totalCollected, totalItems, totalLocked)))
+    elseif counted > 0 then
+        State.summaryText:SetText(string.format("%d vendors", counted))
     else
         State.summaryText:SetText("")
     end
@@ -4864,6 +4883,8 @@ function MapSidePanel:Initialize()
         HA.Events:RegisterCallback("ACTIVE_ENDEAVOR_CHANGED", ScheduleContentRefresh)
 
         HA.Events:RegisterCallback("DREAMSURGE_LOCATION_CHANGED", ScheduleContentRefresh)
+
+        HA.Events:RegisterCallback("NPC_NAMES_ARRIVED", ScheduleContentRefresh)
 
         -- Source caches invalidated — covers achievement, quest, reputation,
         -- profession, and holiday changes through SourceManager. An

@@ -87,6 +87,12 @@ local identityPositiveCache = {}
 -- freezing a non-answer for the session.
 local housingSubclassCache = {}
 
+-- Session-only: itemIDs the last trusted catalog scan found no entry for, so the game reports no
+-- ownership for them. Never saved; any read that finds an entry clears its item, and ClearAll empties it.
+-- These items count toward no total, so every change to the set is an ownership change for the caches.
+local unreported = {}
+local clearFirePending = false
+
 -------------------------------------------------------------------------------
 -- Internal: Table Merge (no events, no side effects beyond storage)
 -------------------------------------------------------------------------------
@@ -311,6 +317,26 @@ function CatalogStore:EndBatch()
     batchDataChanged = false
 end
 
+local function FireClearedUnreported()
+    clearFirePending = false
+    if HA.Events then
+        HA.Events:Fire("OWNERSHIP_UPDATED")
+    end
+end
+
+-- A read found an entry for this item. Reads run inside renders, so a burst of clears is announced once, on the
+-- next frame, rather than mid-render.
+local function ClearUnreported(itemID)
+    if not unreported[itemID] then return end
+    unreported[itemID] = nil
+    if batchDepth > 0 then
+        batchOwnershipChanged = true
+    elseif not clearFirePending then
+        clearFirePending = true
+        C_Timer.After(0, FireClearedUnreported)
+    end
+end
+
 -------------------------------------------------------------------------------
 -- Read API
 -------------------------------------------------------------------------------
@@ -498,7 +524,8 @@ end
 -- indexes the catalog directly without item-cache data and is reliable, so the
 -- record reads go through the static decor and room indexes.
 -- Without wantEntry a cached owned answers true with no API call; with it the
--- walk always runs, because the caller needs the entry itself. Writes nothing.
+-- walk always runs, because the caller needs the entry itself. Writes no
+-- ownership; an entry it finds takes the item off the session's unreported set.
 local function WalkEntries(self, itemID, wantEntry)
     local cachedOwned = self:IsOwned(itemID)
     if cachedOwned and not wantEntry then
@@ -512,6 +539,7 @@ local function WalkEntries(self, itemID, wantEntry)
     if CHC.GetCatalogEntryInfoByItem then
         local ok, info = pcall(CHC.GetCatalogEntryInfoByItem, "item:" .. tostring(itemID), true)
         if ok and info then
+            ClearUnreported(itemID)
             if self:ComputeOwnedFromInfo(info) then return true, info end
             entry = info
         end
@@ -522,6 +550,7 @@ local function WalkEntries(self, itemID, wantEntry)
         if decorID then
             local ok, info = pcall(CHC.GetCatalogEntryInfoByRecordID, 1, decorID, true)
             if ok and info then
+                ClearUnreported(itemID)
                 if self:ComputeOwnedFromInfo(info) then return true, info end
                 entry = entry or info
             end
@@ -531,6 +560,7 @@ local function WalkEntries(self, itemID, wantEntry)
         if roomID then
             local ok, info = pcall(CHC.GetCatalogEntryInfoByRecordID, ENTRY_TYPE_ROOM, roomID)
             if ok and info then
+                ClearUnreported(itemID)
                 if self:ComputeOwnedFromInfo(info) then return true, info end
                 entry = entry or info
             end
@@ -559,11 +589,15 @@ function CatalogStore:IsOwnedFresh(itemID, readOnly)
         return true
     end
 
+    if not C_HousingCatalog then return false end
+    local found = false
+
     -- Live byItem probe (handles post-purchase before next scan)
-    if C_HousingCatalog and C_HousingCatalog.GetCatalogEntryInfoByItem then
+    if C_HousingCatalog.GetCatalogEntryInfoByItem then
         local itemLink = "item:" .. tostring(itemID)
         local success, info = pcall(C_HousingCatalog.GetCatalogEntryInfoByItem, itemLink, true)
         if success and info then
+            found = true
             -- Ownership = GetEntryTotalOwned > 0 (Blizzard's contract)
             if self:ComputeOwnedFromInfo(info) then
                 local recordID = nil
@@ -584,6 +618,7 @@ function CatalogStore:IsOwnedFresh(itemID, readOnly)
         if self:ComputeOwnedFromInfo(info) then
             return true
         end
+        found = found or info ~= nil
     end
 
     local roomID = itemIDToRoom[itemID]
@@ -592,9 +627,45 @@ function CatalogStore:IsOwnedFresh(itemID, readOnly)
         if self:ComputeOwnedFromInfo(info) then
             return true
         end
+        found = found or info ~= nil
     end
 
+    if found then ClearUnreported(itemID) end
     return false
+end
+
+-- true when the game reports no ownership for this item, so it counts toward no total: a housing item
+-- Homestead cannot read, or one the last trusted catalog scan found no entry for that is not owned. Ownership
+-- from the cache, unless the caller passes owned = true from its own read. Lookups only; called per item.
+function CatalogStore:IsOwnershipUnreported(itemID, owned)
+    if not itemID then return false end
+    if self:IsOwnershipUnknowable(itemID) then return true end
+    return unreported[itemID] == true and not owned and self:IsOwned(itemID) ~= true
+end
+
+-- Replaces the unreported set with the items a full catalog scan found no entry for. Only the scan fills
+-- it: a single empty read cannot tell a missing entry from a catalog that is not answering yet. A set that
+-- changed is one ownership change, announced by the scan's EndBatch.
+function CatalogStore:SetUnreported(itemIDs)
+    local nextSet = {}
+    for _, itemID in ipairs(itemIDs) do nextSet[itemID] = true end
+    local changed = false
+    for itemID in pairs(nextSet) do
+        if not unreported[itemID] then changed = true break end
+    end
+    if not changed then
+        for itemID in pairs(unreported) do
+            if not nextSet[itemID] then changed = true break end
+        end
+    end
+    if not changed then return end
+
+    unreported = nextSet
+    if batchDepth > 0 then
+        batchOwnershipChanged = true
+    elseif HA.Events then
+        HA.Events:Fire("OWNERSHIP_UPDATED")
+    end
 end
 
 -- Read-only ownership state plus the catalog entry behind it, for callers that
@@ -603,7 +674,7 @@ end
 -- the walk's boolean; a cached owned stays "owned" even without an entry.
 -- For a cached owned item the entry may carry zero counts on a cold catalog,
 -- so callers take ownership from the state, never from the entry's counts.
--- Writes nothing.
+-- Writes no ownership; see WalkEntries for the unreported set.
 function CatalogStore:ReadOwnershipEntry(itemID)
     if not itemID or self:IsOwnershipUnknowable(itemID) then
         return "unknown", nil
@@ -725,6 +796,7 @@ function CatalogStore:ClearAll()
     end
 
     ownedCount = 0
+    wipe(unreported)
 
     -- Bust negative cache
     negativeGeneration = negativeGeneration + 1
@@ -750,6 +822,19 @@ function CatalogStore:GetDecorItemIDs()
         table.sort(decorItemIDs)
     end
     return decorItemIDs
+end
+
+-- Why an item counts toward no collected total, or nil when it counts: "unknown" when the game reports no
+-- ownership for it (IsOwnershipUnreported), "promotion" for an unowned item with a promotion requirement (at
+-- that vendor, given npcID). Ownership from the cache, unless the caller passes owned = true from its own read:
+-- an owned item counts.
+function CatalogStore:LeftOutReason(itemID, npcID, owned)
+    if self:IsOwnershipUnreported(itemID, owned) then return "unknown" end
+    local reqs = not owned and self:IsOwned(itemID) ~= true and HA.SourceManager:GetRequirements(itemID, npcID)
+    if not reqs then return nil end
+    for _, req in ipairs(reqs) do
+        if req.type == "promotion" then return "promotion" end
+    end
 end
 
 -- Rebuild decorID ↔ itemID indexes (both directions)

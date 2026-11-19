@@ -55,22 +55,12 @@ function D.IsListedVendor(vendor)
     return B.Facts.BrowserListed(vendor)
 end
 
--- Expansion name to its LE_EXPANSION_ token, from the shared newest-first order, built on first use.
-local TOKEN
-local function Tokens()
-    if not TOKEN then
-        TOKEN = {}
-        for _, e in ipairs(HA.Constants.EXPANSION_ORDER) do TOKEN[e[1]] = e[2] end
-    end
-    return TOKEN
-end
-
 -- Vendor tables only, one per vendor key, rebuilt after each InvalidateMemos.
 function D.ListedVendors()
     if listed then return listed end
     listed = {}
     local seen = {}
-    for _, v in ipairs(HA.VendorData:GetAllVendors()) do
+    for _, v in ipairs(HA.VendorData:GetAllVendors(true)) do
         local key = D.IsListedVendor(v) and B.Facts.SourceKey("vendors", v)
         if key and not seen[key] then
             seen[key] = true
@@ -81,7 +71,7 @@ function D.ListedVendors()
 end
 
 function D.VendorHome(vendor)
-    return Tokens()[vendor.expansion] and vendor.expansion or "other"
+    return HA.VendorData:GetVendorGroup(vendor)
 end
 
 function D.Expansions()
@@ -90,10 +80,9 @@ function D.Expansions()
     local has = {}
     for _, v in ipairs(vendors) do has[D.VendorHome(v)] = true end
     homes = {}
-    for _, e in ipairs(HA.Constants.EXPANSION_ORDER) do
-        if has[e[1]] then homes[#homes + 1] = e[1] end
+    for _, e in ipairs(HA.VendorData:GetVendorGroups()) do
+        if has[e] then homes[#homes + 1] = e end
     end
-    if has.other then homes[#homes + 1] = "other" end
     return homes
 end
 
@@ -105,16 +94,17 @@ function D.ExpansionRank(key)
 end
 
 function D.ExpansionLabel(key)
-    if key == "other" then return L["Other Vendors"] end
-    local token = Tokens()[key]
-    return token and _G["EXPANSION_NAME" .. tostring(_G["LE_EXPANSION_" .. token])] or key
+    return HA.VendorData:GetVendorGroupLabel(key)
+end
+
+function D.EventActive(event)
+    local CD = HA.CalendarDetector
+    return CD ~= nil and CD:IsHolidayActive(event) == true
 end
 
 function D.HolidayActive(vendor)
     local event = vendor and HA.VendorData:GetHolidayEvent(vendor.npcID)
-    if not event then return nil end
-    local CD = HA.CalendarDetector
-    return CD ~= nil and CD:IsHolidayActive(event) == true
+    if event then return D.EventActive(event) end
 end
 
 -- True when this character can use the vendor at none of its positions.
@@ -141,7 +131,8 @@ local function Memo(npcID)
     return perVendor[k]
 end
 
--- What the map pins count: knowable ownership, less unowned wares it can never sell (promotions).
+-- What the map pins count: knowable ownership, less unowned wares it can never sell (promotions). Second, the
+-- wares left out, as { promotion = ids, unknown = ids }; nil for a vendor without an NPC ID.
 function D.VendorWares(vendor)
     return HA.BadgeCalculation:GetCountedItemIDs(vendor)
 end
@@ -222,7 +213,7 @@ function D.NearYou()
     end
     table.sort(out, function(a, b)
         if a.dist ~= b.dist then return a.dist < b.dist end
-        return (a.vendor.name or "") < (b.vendor.name or "")
+        return HA.VendorData:VendorNameBefore(a.vendor, b.vendor)
     end)
     local vendors = {}
     for i, e in ipairs(out) do vendors[i] = e.vendor end
@@ -286,17 +277,15 @@ function D.RecordID(itemID, info)
 end
 
 -- Data-error report text. r = { itemID, name, recordID, build, buildNumber, version,
--- vendors = { { npcID, name, zone, mapID, x, y } } }.
+-- vendors = { { npcID, name, zone, mapID, x, y } } }; head, if given, replaces the item lines.
 function D.ReportText(r)
-    local out = {
+    local out = r.head or {
         L["Item: %s (%d)"]:format(r.name or "?", r.itemID),
         L["Record ID: %s"]:format(r.recordID and tostring(r.recordID) or L["none"]),
     }
     for _, v in ipairs(r.vendors) do
-        local where = L["no location"]
-        if v.mapID and v.x and v.y then
-            where = L["map %d at %.1f, %.1f"]:format(v.mapID, v.x * 100, v.y * 100)
-        end
+        local where = v.mapID and v.x and v.y and L["map %d at %.1f, %.1f"]:format(v.mapID, v.x * 100, v.y * 100)
+            or L["no location"]
         out[#out + 1] = L["Vendor %d: %s, %s, %s"]:format(v.npcID, v.name or L["Unknown"],
             v.zone or L["Unknown"], where)
     end
@@ -316,12 +305,16 @@ function D.VendorNote(vendor)
     return vendor.notes, vendor.notes ~= nil
 end
 
--- list of { text, met } where met is true / false / nil (cannot tell)
+-- list of { text, met, req, plain }, met true / false / nil (cannot tell). A promotion is not the player's to
+-- meet: plain, its text alone, as the tooltip words it.
 function D.Requirements(itemID, npcID)
     local SM = HA.SourceManager
     local out = {}
     for _, req in ipairs(SM:GetRequirements(itemID, npcID) or {}) do
-        out[#out + 1] = { text = SM:GetRequirementText(req), met = SM:IsRequirementMet(req) }
+        local plain = req.type == "promotion"
+        local met
+        if not plain then met = SM:IsRequirementMet(req) end
+        out[#out + 1] = { text = SM:GetRequirementText(req), met = met, req = req, plain = plain }
     end
     return out
 end
@@ -333,6 +326,13 @@ function D.VendorCurrencies(vendor)
     local out, pending = HA.VendorData:GetVendorCurrencies(vendor, D.VendorWares(vendor))
     if not pending then m.cur = out end
     return out, pending
+end
+
+-- A requirement's text with its state in words; a requirement that cannot be checked is its bare text.
+function D.RequirementWords(r)
+    if r.met == true then return L["%s (done)"]:format(r.text) end
+    if r.met == false then return L["%s (not yet)"]:format(r.text) end
+    return r.text
 end
 
 function D.VendorRequirements(vendor)
@@ -354,12 +354,7 @@ end
 
 -- A vendor as a source-manager source, for the shared source line: its name and both positions.
 function D.VendorSource(npcID)
-    local v = D.Vendor(npcID) or {}
-    local altMapID, _, _, altZone, altSubzone = HA.VendorData:GetOtherPosition(v)
-    return { type = "vendor", data = {
-        vendor = v, name = v.name, mapID = v.mapID, zone = v.zone, subzone = v.subzone,
-        altMapID = altMapID, altZone = altZone, altSubzone = altSubzone,
-    } }
+    return { type = "vendor", data = HA.SourceManager:BuildVendorSource(nil, D.Vendor(npcID) or {}) }
 end
 
 function D.ItemSources(itemID)
@@ -384,8 +379,6 @@ function D.ItemSources(itemID)
             e.name = d.questName
         elseif src.type == "profession" then
             e.name = d.recipeName
-            e.profession = d.profession
-            e.skillTier = d.skillTier
         elseif src.type == "drop" then
             e.name = d.mobName
             e.zone = d.zone
@@ -425,31 +418,31 @@ function D.CatalogInfo(itemID, catalogMemo)
     return (select(2, D.Ownership(itemID, catalogMemo)))
 end
 
+-- Placed plus stored; nil when none or not yet known.
+function D.Copies(info)
+    local n = info and select(3, HA.CatalogScanner:GetReadState()) and (info.totalNumPlaced or 0) + (info.totalNumStored or 0)
+    return n and n > 0 and n or nil
+end
+
 function D.IconData(itemID, wantCopies, catalogMemo)
     local quality, copies
     if wantCopies then
         local info = D.CatalogInfo(itemID, catalogMemo)
-        quality = info and info.quality
-        if info and select(3, HA.CatalogScanner:GetReadState()) then
-            local n = (info.totalNumPlaced or 0) + (info.totalNumStored or 0)
-            if n > 0 then copies = n end
-        end
+        quality, copies = info and info.quality, D.Copies(info)
     end
     return quality or C_Item.GetItemQualityByID(itemID), copies
+end
+
+-- The placed, stored and not-yet-redeemed counts of a catalog entry; nil until this session's counts and the entry are known.
+function D.Counts(info)
+    if not (info and select(3, HA.CatalogScanner:GetReadState())) then return nil end
+    return { placed = info.totalNumPlaced or 0, stored = info.totalNumStored or 0, redeemable = info.remainingRedeemable or 0 }
 end
 
 -- What the item tooltip adds to the shared tooltip: the event a vendor's stock is active in, and the counts, which are
 -- nil until this session's counts and the catalog entry are known; before storage loads they read 0 for owned items.
 function D.TooltipData(itemID, npcID, catalogMemo)
-    local info = D.CatalogInfo(itemID, catalogMemo)
-    local out = {}
-    if info and select(3, HA.CatalogScanner:GetReadState()) then
-        out.counts = {
-            placed = info.totalNumPlaced or 0,
-            stored = info.totalNumStored or 0,
-            redeemable = info.remainingRedeemable or 0,
-        }
-    end
+    local out = { counts = D.Counts(D.CatalogInfo(itemID, catalogMemo)) }
     local p = npcID and { type = "vendor", npcID = npcID } or B.CanGet.Primary(itemID)
     local v = p and p.type == "vendor" and p.npcID and D.Vendor(p.npcID)
     out.active = v and D.HolidayActive(v) and v.event or nil

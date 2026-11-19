@@ -50,11 +50,11 @@ local function Why(e)
     local near = Facts.Nearness(b.mapID, where)
     if b.event then r[#r + 1] = L["%s: active now"]:format(b.event) end
     if e.bonus then r[#r + 1] = L["First-Time Collection Bonus"] end
-    local continent = near == 2 and C_Map.GetMapInfo(where.continent)
+    local continent = near == 2 and HA.VendorFilter.GetMapName(where.continent)
     if near == 1 and where.name then
         r[#r + 1] = L["Sold here in %s"]:format(where.name)
-    elseif continent and continent.name then
-        r[#r + 1] = L["Sold on %s"]:format(continent.name)
+    elseif continent then
+        r[#r + 1] = L["Sold on %s"]:format(continent)
     elseif not (b.event or e.bonus) then
         r[#r + 1] = b.gold and L["Gold only, no requirements left"] or L["No requirements left"]
     end
@@ -75,7 +75,7 @@ local function CanData(e)
     d.npcID = p.npcID
     local mapID, x, y
     if v then mapID, x, y = D.VendorLocation(v) end
-    if mapID then d.wp = { mapID = mapID, x = x, y = y, title = v.name } end
+    if mapID then d.wp = { mapID = mapID, x = x, y = y, title = HA.VendorData:GetVendorName(v) } end
     return d
 end
 

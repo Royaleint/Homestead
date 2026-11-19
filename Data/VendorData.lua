@@ -370,9 +370,6 @@ function VendorData:FormatCost(cost, status, formatBundle)
         text = formatBundle(cost)
     end
 
-    if text and status == COST_STATUS_QUALIFIED then
-        text = text .. " " .. Text("(requirements unverified)")
-    end
     return text
 end
 
@@ -402,8 +399,8 @@ function VendorData:SplitCostOptions(cost, status)
     return views
 end
 
--- One display string per payment option; never carries the qualifier suffix.
--- Empty when there is nothing to show. FormatCost stays the one-string form.
+-- One display string per payment option. Empty when there is nothing to show.
+-- FormatCost stays the one-string form.
 function VendorData:FormatCostOptions(cost, status)
     status = status or (cost and cost.status) or COST_STATUS_LEGACY
     local views = self:SplitCostOptions(cost, status)
@@ -413,9 +410,6 @@ function VendorData:FormatCostOptions(cost, status)
             texts[i] = FormatCostBundle(view)
         end
         return texts
-    end
-    if status == COST_STATUS_QUALIFIED then
-        status = COST_STATUS_LEGACY
     end
     local text = self:FormatCost(cost, status)
     if text then return { text } end
@@ -770,15 +764,16 @@ local function ProjectVendorWithItems(self, vendor, npcID)
     return copy
 end
 
--- Get vendor info by NPC ID (resolves aliases)
-function VendorData:GetVendor(npcID)
+-- The row GetVendor answers with before it is copied: the row, whether GetVendor copies it, and the NPC ID
+-- it was found under.
+local function FindVendorRow(self, npcID)
     if HA.VendorIdentity then
         local vendor = HA.VendorIdentity:GetVendor(npcID)
-        if vendor then return ProjectVendorWithItems(self, vendor, npcID) end
+        if vendor then return vendor, true, npcID end
     end
     if HA.EndeavorsData and HA.EndeavorsData.Vendors then
         local vendor = HA.EndeavorsData.Vendors[npcID]
-        if vendor then return vendor end
+        if vendor then return vendor, false, npcID end
     end
     -- holiday vendors, only while their holiday runs. HasVendor
     -- deliberately does not learn them (scan saving and export read it).
@@ -786,14 +781,21 @@ function VendorData:GetVendor(npcID)
     local eventVendor = eventVendors and eventVendors[npcID]
     if eventVendor then
         if self:IsHolidayVendorHidden(npcID) then return nil end
-        return ProjectVendorWithItems(self, eventVendor, npcID)
+        return eventVendor, true, npcID
     end
     -- Resolve alias and retry (cycle guard: canonicalID must differ)
     local canonicalID = self:ResolveAlias(npcID)
     if canonicalID and canonicalID ~= npcID then
-        return self:GetVendor(canonicalID)
+        return FindVendorRow(self, canonicalID)
     end
     return nil
+end
+
+-- Get vendor info by NPC ID (resolves aliases)
+function VendorData:GetVendor(npcID)
+    local vendor, copied, foundID = FindVendorRow(self, npcID)
+    if copied then return ProjectVendorWithItems(self, vendor, foundID) end
+    return vendor
 end
 
 -- A vendor by NPC ID in any season: a holiday vendor resolves while its holiday is off too, which GetVendor
@@ -899,8 +901,9 @@ local function GetSecondPositionCopy(self, vendor)
 end
 
 -- Get all vendors in a specific map/zone
--- Includes active event vendors from EventSources
-function VendorData:GetVendorsInMap(mapID)
+-- Includes active event vendors from EventSources; anySeason adds the holiday vendors whose holiday is off and the
+-- Endeavor vendors whose theme is not running.
+function VendorData:GetVendorsInMap(mapID, anySeason)
     local result = {}
     local addedNPCs = {}
     local tracker = HA.DreamsurgeTracker
@@ -935,7 +938,7 @@ function VendorData:GetVendorsInMap(mapID)
         if endeavorVendors then
             for _, vendor in ipairs(endeavorVendors) do
                 if vendor.npcID and not addedNPCs[vendor.npcID]
-                        and ShouldIncludeEndeavorVendorForDisplay(vendor) then
+                        and (anySeason or ShouldIncludeEndeavorVendorForDisplay(vendor)) then
                     result[#result + 1] = vendor
                     addedNPCs[vendor.npcID] = true
                 end
@@ -954,7 +957,7 @@ function VendorData:GetVendorsInMap(mapID)
                 -- Dedup: skip if already added (e.g., vendor was scanned in-game)
                 if vendor.npcID and not addedNPCs[vendor.npcID] then
                     -- Only while the holiday runs (unknown = off)
-                    if not self:IsHolidayVendorHidden(vendor.npcID) then
+                    if anySeason or not self:IsHolidayVendorHidden(vendor.npcID) then
                         result[#result + 1] = vendor
                         addedNPCs[vendor.npcID] = true
                     end
@@ -1019,25 +1022,23 @@ local function IsHiddenVendor(vendor)
     return VendorData:IsVendorHiddenByNpcID(vendor.npcID)
 end
 
--- Get all vendors that sell a specific item
-function VendorData:GetVendorsForItem(itemID)
-    if not itemID then return {} end
-
-    local result = {}
-    local seenNPCs = {}  -- Track NPC IDs to avoid duplicates
-
+-- Hands each vendor selling the item to visit(self, out, kind, npcID, row), in listing order, and stops at
+-- the first visit that returns true. kind is "copy" (a row GetVendor copies), "row" (listed as is) or "scan"
+-- (a saved scan record). seenNPCs must arrive empty.
+local function EachSeller(self, itemID, seenNPCs, visit, out)
     -- Priority 1: Static offer index (curated, authoritative)
     if self.OfferByItemID and self.OfferByItemID[itemID] then
         for _, npcID in ipairs(self.OfferByItemID[itemID]) do
             if self:IsHolidayVendorHidden(npcID) then
                 seenNPCs[npcID] = true  -- a gated vendor must not re-enter below
             else
-                local vendor = self:GetVendor(npcID)
+                local vendor, copied, foundID = FindVendorRow(self, npcID)
                 if vendor then
-                    if not IsHiddenVendor(vendor) then
-                        table.insert(result, vendor)
-                    end
                     seenNPCs[npcID] = true  -- a hidden vendor must not re-enter below
+                    if not IsHiddenVendor(vendor)
+                            and visit(self, out, copied and "copy" or "row", foundID, vendor) then
+                        return true
+                    end
                 end
             end
         end
@@ -1049,10 +1050,10 @@ function VendorData:GetVendorsForItem(itemID)
             if not seenNPCs[npcID] then
                 local vendor = HA.EndeavorsData.Vendors[npcID]
                 if vendor then
-                    if not IsHiddenVendor(vendor) then
-                        table.insert(result, vendor)
-                    end
                     seenNPCs[npcID] = true
+                    if not IsHiddenVendor(vendor) and visit(self, out, "row", npcID, vendor) then
+                        return true
+                    end
                 end
             end
         end
@@ -1069,35 +1070,8 @@ function VendorData:GetVendorsForItem(itemID)
                     local listedVendor = scannedVendor and HA.VendorIdentity and HA.VendorIdentity:GetVendor(npcID)
                     if scannedVendor and not (listedVendor and HA.Constants.IsScanInOtherNeighborhoodHub(
                             listedVendor.mapID, scannedVendor.mapID)) then
-                        -- Resolve zone name from mapID
-                        local zoneName
-                        if scannedVendor.mapID and C_Map and C_Map.GetMapInfo then
-                            local mapInfo = C_Map.GetMapInfo(scannedVendor.mapID)
-                            if mapInfo then
-                                zoneName = mapInfo.name
-                            end
-                        end
-
-                        local vendorObj = {
-                            npcID = npcID,
-                            name = scannedVendor.name,
-                            mapID = scannedVendor.mapID,
-                            x = scannedVendor.coords and scannedVendor.coords.x,
-                            y = scannedVendor.coords and scannedVendor.coords.y,
-                            zone = zoneName or ("Map " .. (scannedVendor.mapID or "?")),
-                            faction = scannedVendor.faction,
-                            items = scannedVendor.items,
-                            _isScanned = true,
-                        }
-                        -- A scan of a vendor following a moving event holds a past spot.
-                        local tracker = HA.DreamsurgeTracker
-                        local row = tracker and npcID == tracker.NPC_ID and self:GetVendor(npcID)
-                        if row then
-                            vendorObj.mapID, vendorObj.x, vendorObj.y, vendorObj.zone =
-                                row.mapID, row.x, row.y, row.zone
-                        end
-                        table.insert(result, vendorObj)
                         seenNPCs[npcID] = true
+                        if visit(self, out, "scan", npcID, scannedVendor) then return true end
                     end
                 end
             end
@@ -1112,16 +1086,72 @@ function VendorData:GetVendorsForItem(itemID)
                     and not IsHiddenVendor(eventVendor) then
                 for _, eventItemID in ipairs(eventVendor.items) do
                     if eventItemID == itemID then
-                        result[#result + 1] = eventVendor
                         seenNPCs[eventVendor.npcID] = true
+                        if visit(self, out, "row", eventVendor.npcID, eventVendor) then return true end
                         break
                     end
                 end
             end
         end
     end
+    return false
+end
 
+local function ScannedVendorRecord(self, npcID, scannedVendor)
+    -- Resolve zone name from mapID
+    local zoneName
+    if scannedVendor.mapID and C_Map and C_Map.GetMapInfo then
+        local mapInfo = C_Map.GetMapInfo(scannedVendor.mapID)
+        if mapInfo then
+            zoneName = mapInfo.name
+        end
+    end
+
+    local vendorObj = {
+        npcID = npcID,
+        name = scannedVendor.name,
+        mapID = scannedVendor.mapID,
+        x = scannedVendor.coords and scannedVendor.coords.x,
+        y = scannedVendor.coords and scannedVendor.coords.y,
+        zone = zoneName or ("Map " .. (scannedVendor.mapID or "?")),
+        faction = scannedVendor.faction,
+        items = scannedVendor.items,
+        _isScanned = true,
+    }
+    -- A scan of a vendor following a moving event holds a past spot.
+    local tracker = HA.DreamsurgeTracker
+    local row = tracker and npcID == tracker.NPC_ID and self:GetVendor(npcID)
+    if row then
+        vendorObj.mapID, vendorObj.x, vendorObj.y, vendorObj.zone =
+            row.mapID, row.x, row.y, row.zone
+    end
+    return vendorObj
+end
+
+local function AddSeller(self, result, kind, npcID, vendor)
+    if kind == "copy" then
+        vendor = ProjectVendorWithItems(self, vendor, npcID)
+    elseif kind == "scan" then
+        vendor = ScannedVendorRecord(self, npcID, vendor)
+    end
+    result[#result + 1] = vendor
+end
+
+-- Get all vendors that sell a specific item
+function VendorData:GetVendorsForItem(itemID)
+    local result = {}
+    if itemID then EachSeller(self, itemID, {}, AddSeller, result) end
     return result
+end
+
+local sellerSeen = {}
+local function StopAtFirst() return true end
+
+-- Whether GetVendorsForItem lists any vendor for the item, building no vendor records.
+function VendorData:HasSellerForItem(itemID)
+    if not itemID then return false end
+    wipe(sellerSeen)
+    return EachSeller(self, itemID, sellerSeen, StopAtFirst)
 end
 
 -- The player's map and position on it; the position is nil when it can't be read.
@@ -1158,19 +1188,29 @@ function VendorData:GetClosestVendorForItem(itemID)
         return nil
     end
 
+    -- Only vendors this character can use, when it can use any: a vendor with a twin for the other faction is
+    -- named, not its twin.
+    local CanUse = HA.VendorFilter.CanUseVendor
+    local first
+    for _, vendor in ipairs(vendorList) do
+        if CanUse(vendor) then first = vendor break end
+    end
+    local ownOnly = first ~= nil
+    first = first or vendorList[1]
+
     -- Get player's current map and position
     local playerMapID, playerPos = PlayerMapPosition()
 
     if not playerMapID or not playerPos then
-        -- Can't determine position, return first vendor
-        return vendorList[1]
+        return first
     end
 
     local closestVendor = nil
     local closestIsSecondPosition = false
     local closestDistance = math.huge
 
-    for _, vendor in ipairs(vendorList) do
+    for _, vendor in ipairs(vendorList) do repeat
+        if ownOnly and not CanUse(vendor) then break end
         local distance = DistanceOnPlayerMap(playerMapID, playerPos, vendor.mapID, vendor.x, vendor.y)
         if distance and distance < closestDistance then
             closestDistance = distance
@@ -1185,14 +1225,13 @@ function VendorData:GetClosestVendorForItem(itemID)
             closestVendor = vendor
             closestIsSecondPosition = true
         end
-    end
+    until true end
 
     if closestIsSecondPosition then
         return GetSecondPositionCopy(self, closestVendor) or closestVendor
     end
 
-    -- If no vendor on same map, just return first one
-    return closestVendor or vendorList[1]
+    return closestVendor or first
 end
 
 -- Search vendors by name or zone
@@ -1275,8 +1314,8 @@ function VendorData:SearchVendors(searchText)
     return result
 end
 
--- Get all vendors (includes active event vendors)
-function VendorData:GetAllVendors()
+-- Get all vendors (includes active event vendors; anySeason adds the holiday vendors whose holiday is off)
+function VendorData:GetAllVendors(anySeason)
     local result = {}
     local addedNPCs = {}
 
@@ -1305,7 +1344,7 @@ function VendorData:GetAllVendors()
     if HA.EventSources and HA.EventSources.EventVendors then
         for npcID, vendor in pairs(HA.EventSources.EventVendors) do
             if vendor.npcID and not addedNPCs[vendor.npcID] then
-                if not self:IsHolidayVendorHidden(npcID) then  -- npcID = the pairs key
+                if anySeason or not self:IsHolidayVendorHidden(npcID) then  -- npcID = the pairs key
                     -- A copy, as for identity rows: callers may write fields onto
                     -- what they get, and the shipped row's npcID is the gate's key.
                     result[#result + 1] = ProjectVendorWithItems(self, vendor, npcID)
@@ -1944,7 +1983,7 @@ function VendorData:HasOfferForItem(itemID)
     return self.OfferByItemID ~= nil and self.OfferByItemID[itemID] ~= nil
 end
 
--- For an Endeavor vendor (a record or an NPC ID, scan-built records included), whether this week's theme is
+-- For an Endeavor vendor (a record or an NPC ID, scan-built records included), whether the running theme is
 -- its own: true only when the game has reported the theme; false for an unknown or unmapped theme. nil for any
 -- other vendor.
 function VendorData:IsEndeavorVendorActive(vendor)
@@ -1958,36 +1997,11 @@ function VendorData:IsEndeavorVendorActive(vendor)
     return theme ~= nil and ED:IsThemeActive(theme) == true
 end
 
--- One seller of an item, for IsCountedVendorItem: not retired or hidden, not confirmed as selling no decor,
--- and, for an Endeavor vendor, on this week's theme (an unknown theme is off). A holiday vendor counts in any
--- season. The probe stands in for a vendor record so the lookup allocates nothing.
-local sellerProbe = {}
-local function SellerCounts(self, npcID)
-    if self:IsVendorHiddenByNpcID(npcID) then return false end
-    local active = self:IsEndeavorVendorActive(npcID)
-    if active ~= nil then return active end
-    sellerProbe.npcID = npcID
-    sellerProbe._isEventVendor = self:GetHolidayEvent(npcID) ~= nil or nil
-    return not (HA.VendorFilter and HA.VendorFilter.IsConfirmedNoDecor(sellerProbe))
-end
-
--- Whether the item counts toward the Vendors source: any seller, from the offer index, the Endeavor wares or a
--- holiday vendor's own item list, counts by SellerCounts. Keeps nothing between calls.
-function VendorData:IsCountedVendorItem(itemID)
-    local offers = self.OfferByItemID and self.OfferByItemID[itemID]
-    for i = 1, offers and #offers or 0 do
-        if SellerCounts(self, offers[i]) then return true end
-    end
-    local ED = HA.EndeavorsData
-    local endeavors = ED and ED.ByItemID and ED.ByItemID[itemID]
-    for i = 1, endeavors and #endeavors or 0 do
-        if SellerCounts(self, endeavors[i]) then return true end
-    end
-    local holiday = self:GetHolidayVendorsForItem(itemID)
-    for i = 1, holiday and #holiday or 0 do
-        if SellerCounts(self, holiday[i]) then return true end
-    end
-    return false
+-- Whether a listed vendor (a record or an NPC ID) is selling now: false for a holiday vendor out of season and
+-- for an Endeavor vendor whose theme is not running, true for every other vendor.
+function VendorData:IsVendorSellingNow(vendor)
+    local npcID = type(vendor) == "table" and vendor.npcID or vendor
+    return not self:IsHolidayVendorHidden(npcID) and self:IsEndeavorVendorActive(vendor) ~= false
 end
 
 function VendorData:GetVendorWithItems(npcID)
@@ -2231,9 +2245,9 @@ function VendorData:GetVendorCurrencies(vendor, itemIDs)
             out[#out + 1] = (icon and "|T" .. icon .. ":0|t " or "") .. name
         end
     end
-    for _, id in ipairs(itemIDs) do
-        local cost = HA.SourceManager:GetVendorItemCost(id, vendor) or {}
-        if (cost.gold or 0) > 0 then add(nil, HA.L and HA.L["Gold"] or "Gold") end
+    -- Every price option counts, so a ware also sold for gold puts Gold in the list.
+    local function visit(cost)
+        if (cost.gold or 0) > 0 then add(nil, Text("Gold")) end
         for _, c in ipairs(cost.currencies or {}) do
             local info = c.id and C_CurrencyInfo.GetCurrencyInfo(c.id) or c
             add(info.iconFileID, info.name or c.name)
@@ -2246,36 +2260,182 @@ function VendorData:GetVendorCurrencies(vendor, itemIDs)
             elseif it.id and waiting then pending = true end
         end
     end
+    for _, id in ipairs(itemIDs) do
+        self:ForEachCostBundle(HA.SourceManager:GetVendorItemCost(id, vendor), visit)
+    end
     return out, pending
 end
 
--- A creature's name in the player's language, read from the game's tooltip data for its ID; nil while the client
--- has none. Each ask keeps the tooltip data's ID; when the client announces that ID (NpcNameArrived) the name is
--- asked again, three asks in all. Other tooltip updates do not count, and a creature past its last ask waits for
--- nothing.
+-- The group a vendor belongs to: "Endeavor", an expansion from Constants.EXPANSION_ORDER, "Events", or "other".
+-- A holiday vendor's group is Events in any season; whether it is listed at all is decided elsewhere.
+-- GetVendorGroups gives the groups in list order and GetVendorGroupLabel names one in the client's language.
+local groupTokens
+local function GroupTokens()
+    if not groupTokens then
+        groupTokens = { Endeavor = false, Events = false }
+        for _, e in ipairs(HA.Constants.EXPANSION_ORDER) do groupTokens[e[1]] = e[2] end
+    end
+    return groupTokens
+end
+
+function VendorData:GetVendorGroup(vendor)
+    if vendor.endeavor then return "Endeavor" end
+    if vendor.npcID and self:GetHolidayEvent(vendor.npcID) then return "Events" end
+    return GroupTokens()[vendor.expansion] ~= nil and vendor.expansion or "other"
+end
+
+-- The expansions newest first, then Endeavor, Events and the rest.
+function VendorData:GetVendorGroups()
+    local _ = self
+    local out = {}
+    for _, e in ipairs(HA.Constants.EXPANSION_ORDER) do out[#out + 1] = e[1] end
+    out[#out + 1] = "Endeavor"
+    out[#out + 1] = "Events"
+    out[#out + 1] = "other"
+    return out
+end
+
+function VendorData:GetVendorGroupLabel(key)
+    local _ = self
+    if key == "other" then return Text("Other Vendors") end
+    if key == "Endeavor" then return Text("Endeavors") end
+    if key == "Events" then return Text("Events") end
+    local token = GroupTokens()[key]
+    return token and _G["EXPANSION_NAME" .. tostring(_G["LE_EXPANSION_" .. token])] or key
+end
+
+-- A creature's name in the player's language, read from the game's tooltip data for its ID. Placeholder text,
+-- an empty line and a secret value are no name. An ask that finds none waits for the client to announce that
+-- tooltip data, and the name queue then asks again, three asks in all; a wait the client never answers ends after
+-- NAME_WAIT_TICKS and the shipped name stays. Names are kept for the session only.
 local NPC_NAME_ASKS = 3
-local npcNames, npcAsks, npcWait = {}, {}, {}
+local npcNames, npcAsks, npcWait, npcWaitEnds, npcShipped = {}, {}, {}, {}, {}
+
+-- Names wanted, asked a few at a time and never in combat, so a long list asks the client nothing in the frame
+-- that draws it. NPC_NAMES_ARRIVED is announced at most once per tick, and only when a name differs from the
+-- shipped one.
+local NAMES_PER_TICK, NAME_TICK, NAME_WAIT_TICKS = 10, 0.2, 25
+local nameQueue, nameQueued, nameHead, nameTail, nameTicking, nameTick = {}, {}, 1, 0, false, 0
+local nameListener, AskQueuedNames
+-- While asks are pending, lists are ordered by the names known when the asks began, so a list keeps its order as
+-- names arrive. When the last ask is answered or given up after a name arrived, NPC_NAMES_ARRIVED is announced
+-- once more and lists sort by the arrived names.
+local orderNames, namesMoved = {}, false
+
+local function StartNameTicks()
+    if nameTicking then return end
+    nameTicking = true
+    for npcID, name in pairs(npcNames) do orderNames[npcID] = name end
+    C_Timer.After(NAME_TICK, AskQueuedNames)
+end
+
+local function QueueName(npcID)
+    nameTail = nameTail + 1
+    nameQueue[nameTail] = npcID
+    StartNameTicks()
+end
+
+local function StopWaiting(npcID)
+    npcWait[npcID], npcWaitEnds[npcID] = nil, nil
+    if not next(npcWait) then nameListener:UnregisterEvent("TOOLTIP_DATA_UPDATE") end
+end
+
+-- An awaited tooltip update hands its creature back to the queue.
+local function OnTooltipData(_, _, dataInstanceID)
+    for npcID, id in pairs(npcWait) do
+        if id == dataInstanceID then
+            StopWaiting(npcID)
+            QueueName(npcID)
+        end
+    end
+end
+
+local function IsName(text)
+    if issecretvalue and issecretvalue(text) then return false end
+    return text and text ~= "" and text ~= _G.RETRIEVING_DATA and text ~= _G.UNKNOWNOBJECT
+end
 
 local function AskNpcName(npcID)
     npcAsks[npcID] = (npcAsks[npcID] or 0) + 1
     local data = C_TooltipInfo.GetHyperlink("unit:Creature-0-0-0-0-" .. npcID .. "-0000000000")
     local line = data and data.lines and data.lines[1]
-    npcNames[npcID] = line and line.leftText ~= "" and line.leftText or nil
-    npcWait[npcID] = not npcNames[npcID] and npcAsks[npcID] < NPC_NAME_ASKS and data and data.dataInstanceID or nil
-    return npcNames[npcID]
+    local text = line and line.leftText
+    if IsName(text) then
+        npcNames[npcID] = text
+        return text
+    end
+    if npcAsks[npcID] < NPC_NAME_ASKS and data and data.dataInstanceID then
+        if not nameListener then
+            nameListener = CreateFrame("Frame")
+            nameListener:SetScript("OnEvent", OnTooltipData)
+        end
+        nameListener:RegisterEvent("TOOLTIP_DATA_UPDATE")
+        npcWait[npcID], npcWaitEnds[npcID] = data.dataInstanceID, nameTick + NAME_WAIT_TICKS
+        StartNameTicks()
+    end
 end
 
-function VendorData:GetNpcName(npcID)
+AskQueuedNames = function()
+    nameTick = nameTick + 1
+    local changed = false
+    if not InCombatLockdown() then
+        for _ = 1, NAMES_PER_TICK do
+            local npcID = nameQueue[nameHead]
+            if not npcID then break end
+            nameQueue[nameHead], nameHead = nil, nameHead + 1
+            if not npcNames[npcID] and not npcWait[npcID] and (npcAsks[npcID] or 0) < NPC_NAME_ASKS then
+                local name = AskNpcName(npcID)
+                if name and name ~= npcShipped[npcID] then changed = true end
+            end
+        end
+    end
+    for npcID, ends in pairs(npcWaitEnds) do
+        if ends <= nameTick then StopWaiting(npcID) end
+    end
+    namesMoved = namesMoved or changed
+    if nameQueue[nameHead] or next(npcWait) then
+        C_Timer.After(NAME_TICK, AskQueuedNames)
+    else
+        nameHead, nameTail, nameTicking = 1, 0, false
+        changed, namesMoved = namesMoved, false
+    end
+    if changed then HA.Events:Fire("NPC_NAMES_ARRIVED") end
+end
+
+-- A creature's name as the client gives it; nil until known. The first ask is made at once; shippedName, when
+-- given, is the name already shown, so a client name equal to it announces nothing.
+function VendorData:GetNpcName(npcID, shippedName)
+    npcShipped[npcID] = npcShipped[npcID] or shippedName
     return npcNames[npcID] or not npcAsks[npcID] and AskNpcName(npcID) or nil
 end
 
--- Asks again for the creature whose tooltip data just updated; true when its name arrived.
-function VendorData:NpcNameArrived(dataInstanceID)
-    local arrived = false
-    for npcID, id in pairs(npcWait) do
-        if id == dataInstanceID and AskNpcName(npcID) then arrived = true end
+-- A vendor's name as the game client gives it, in the player's language; the shipped name until the client's is
+-- known. Reading it never asks the client at once: an unknown name is queued. Search matches either name.
+function VendorData:GetVendorName(vendor)
+    local npcID = vendor.npcID
+    local name = npcID and npcNames[npcID]
+    if name then return name end
+    if npcID and not npcAsks[npcID] and not nameQueued[npcID] then
+        nameQueued[npcID], npcShipped[npcID] = true, npcShipped[npcID] or vendor.name
+        QueueName(npcID)
     end
-    return arrived
+    return vendor.name
+end
+
+-- The name a vendor list is ordered by: the shown name, except that while names are still being asked for it is
+-- the name known when the asks began, so rows do not move under the cursor as each name arrives.
+function VendorData:GetVendorOrderName(vendor)
+    local shown, npcID = self:GetVendorName(vendor), vendor.npcID
+    if not (nameTicking and npcID) then return shown end
+    return orderNames[npcID] or vendor.name
+end
+
+-- The order of vendor lists: by the sort key of GetVendorOrderName, then by NPC ID so equal names keep one order.
+-- Sort lists when they are built.
+function VendorData:VendorNameBefore(a, b)
+    local na, nb = HA.NameSortKey(self:GetVendorOrderName(a) or ""), HA.NameSortKey(self:GetVendorOrderName(b) or "")
+    if na ~= nb then return na < nb end
+    return (a.npcID or 0) < (b.npcID or 0)
 end
 
 function VendorData:GetPortrait(npcID)
