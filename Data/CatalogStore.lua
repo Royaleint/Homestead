@@ -718,6 +718,92 @@ function CatalogStore:GetRoomIDFromItemID(itemID)
     return itemIDToRoom[itemID]
 end
 
+-- Reverse lookup: roomRecordID -> itemID, from the same static index.
+function CatalogStore:GetItemIDFromRoomID(roomID)
+    if not roomID then return nil end
+    return roomToItemID[roomID]
+end
+
+-- Above the largest vendor's counted wares. More candidates than this in one
+-- flush is a storage burst, which the full scan covers.
+local ACQUIRE_READ_CAP = 100
+
+-- The item's name from local data only: the saved record, else the client's
+-- item cache.
+local function KnownName(itemID)
+    local record = ci and ci[itemID]
+    if record and record.name then return record.name end
+    local CI = _G.C_Item
+    return CI and CI.GetItemNameByID and CI.GetItemNameByID(itemID)
+end
+
+-- Records what an acquisition added: the given items, plus the open vendor's
+-- counted wares. Each candidate the saved record does not already hold as
+-- collected is read live, and only an "owned" read is recorded. It never
+-- clears, never saves fields for an item that reads not owned, and never takes
+-- a record ID as a decor ID. With a vendor and the acquired item's name, the
+-- given items and the wares of that name are read first, and the other wares
+-- only if none of those is recorded. Over ACQUIRE_READ_CAP candidates it reads
+-- nothing. One batch, so at most one OWNERSHIP_UPDATED. Returns the number
+-- recorded.
+function CatalogStore:RecordAcquired(itemIDs, vendor, acquiredName)
+    local recorded = 0
+    self:BeginBatch()
+    local ok, err = pcall(function()
+        local candidates, given, seen = {}, {}, {}
+        local function add(itemID)
+            if not itemID or seen[itemID] then return end
+            seen[itemID] = true
+            if not self:IsOwned(itemID) and not self:IsOwnershipUnknowable(itemID) then
+                candidates[#candidates + 1] = itemID
+            end
+        end
+        for _, itemID in ipairs(itemIDs or {}) do
+            add(itemID)
+            given[itemID] = true
+        end
+        local BC = vendor and HA.BadgeCalculation
+        if BC then
+            for _, itemID in ipairs(BC:GetCountedItemIDs(vendor) or {}) do add(itemID) end
+        end
+
+        if #candidates > ACQUIRE_READ_CAP then
+            if HA.Addon then
+                HA.Addon:Debug("CatalogStore: acquisition read skipped,", #candidates,
+                    "candidates; the full scan covers them")
+            end
+            return
+        end
+
+        local function read(itemID)
+            local state, info = self:ReadOwnershipEntry(itemID)
+            if state == "owned" then
+                self:SetOwned(itemID, info and info.name, nil)
+                recorded = recorded + 1
+            end
+        end
+
+        local rest = candidates
+        if vendor and acquiredName then
+            rest = {}
+            for _, itemID in ipairs(candidates) do
+                if given[itemID] or KnownName(itemID) == acquiredName then
+                    read(itemID)
+                else
+                    rest[#rest + 1] = itemID
+                end
+            end
+            if recorded > 0 then return end
+        end
+        for _, itemID in ipairs(rest) do read(itemID) end
+    end)
+    self:EndBatch()
+    if not ok then
+        _G.geterrorhandler()(err)
+    end
+    return recorded
+end
+
 -- Get item-level requirements
 function CatalogStore:GetRequirements(itemID)
     if not ci or not itemID then return nil end

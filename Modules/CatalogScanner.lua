@@ -596,6 +596,49 @@ local function TryLatchWarmFromCounts()
     end
 end
 
+-- Acquisition read: the items the game just reported changed, and the vendor
+-- whose window was open for a purchase, read one frame later so the game's
+-- counts have moved. This is not a scan; the scan events are unchanged.
+local pendingAcquired = {}
+local pendingVendor, pendingName = nil, nil
+local acquireFlushPending = false
+
+local function FlushAcquired()
+    -- No reads in combat, as the scan pauses. The queue and the pending flag
+    -- are kept, so events meanwhile join this flush.
+    if _G.InCombatLockdown() then
+        C_Timer.After(SCAN_COMBAT_RETRY_DELAY, FlushAcquired)
+        return
+    end
+    acquireFlushPending = false
+    local queued, vendor, name = pendingAcquired, pendingVendor, pendingName
+    pendingAcquired, pendingVendor, pendingName = {}, nil, nil
+
+    local list = {}
+    for itemID in pairs(queued) do list[#list + 1] = itemID end
+    if HA.CatalogStore then
+        HA.CatalogStore:RecordAcquired(list, vendor, name)
+    end
+end
+
+local function ScheduleAcquiredFlush()
+    if acquireFlushPending then return end
+    acquireFlushPending = true
+    C_Timer.After(0, FlushAcquired)
+end
+
+local function QueueAcquired(itemID)
+    local store = HA.CatalogStore
+    if not itemID or not store or store:IsOwned(itemID) then return end
+    pendingAcquired[itemID] = true
+    ScheduleAcquiredFlush()
+end
+
+local function QueueVendor(vendor, name)
+    pendingVendor, pendingName = vendor, name
+    ScheduleAcquiredFlush()
+end
+
 local function SetupEventScanning()
     local eventFrame = CreateFrame("Frame")
 
@@ -608,6 +651,7 @@ local function SetupEventScanning()
         "NEW_HOUSING_ITEM_ACQUIRED",
         "HOUSING_DECOR_PLACE_SUCCESS",
         "HOUSING_DECOR_REMOVED",
+        "HOUSING_STORAGE_ENTRY_UPDATED",
     }
 
     for _, event in ipairs(housingEvents) do
@@ -642,7 +686,33 @@ local function SetupEventScanning()
             -- entry). A full ~220-vendor rescan on every decor placed/removed
             -- during a decorating session is a wasted pass; skip it.
             HA.Addon:Debug(event, "fired: ownership-neutral, skipping scan")
+        elseif event == "HOUSING_STORAGE_ENTRY_UPDATED" then
+            -- One storage entry changed: queue the item it maps to for the
+            -- acquisition read. It never requests a scan. Until the session's
+            -- first full read finishes, that read covers these entries, so the
+            -- login storage load reads nothing per entry.
+            local entry = ...
+            local store = HA.CatalogStore
+            if type(entry) == "table" and store and CatalogScanner:HasFirstReadCompleted() then
+                if entry.entryType == 1 then
+                    QueueAcquired(store:GetItemIDFromDecorID(entry.recordID))
+                elseif entry.entryType == 2 then
+                    QueueAcquired(store:GetItemIDFromRoomID(entry.recordID))
+                end
+            end
         else
+            if event == "NEW_HOUSING_ITEM_ACQUIRED" then
+                -- A purchase: read the open vendor's wares. Queued before the
+                -- scan request below, which stays the last timer scheduled.
+                local tracer = HA.VendorTracer
+                if tracer then
+                    local atVendor, vendor = tracer:IsAtDecorVendor()
+                    if atVendor and vendor then
+                        local _, itemName = ...
+                        QueueVendor(vendor, itemName)
+                    end
+                end
+            end
             if event == "HOUSING_STORAGE_UPDATED" then
                 -- latch logic lives in the shared TryLatchWarmFromCounts()
                 -- (see above) -- this is its sole caller. This
