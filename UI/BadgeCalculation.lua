@@ -828,6 +828,10 @@ end
 -- text. It reads the saved ownership record only and writes nothing.
 -------------------------------------------------------------------------------
 
+-- The base colour of a row's count line: white for a count, grey for the words that stand in for one. The inline
+-- escapes colour the numbers only, so both windows draw the rest of the line in this colour.
+BadgeCalculation.COUNT_COLORS = { number = { 1, 1, 1 }, words = { 0.5, 0.5, 0.5 } }
+
 BadgeCalculation.ROW_WORDS = {
     faction = L["%s only"], idle = L["Not active"], counting = L["Counting…"],
     allDone = "", some = L["%d can get now"], live = L["Active now"],
@@ -959,7 +963,7 @@ local NO_OPTIONS = {}
 -- options: filter (counting filter, default "all"), readState (the catalog read state, default "ready"; counts
 -- are known only when ready) and peek (vendor stats from the cache only; a cold vendor reports cold = true).
 -- Returns a fresh table: state, stateArg, words, collected (nil when counts are not known), total, locked,
--- canGet, empty, countText, cold.
+-- canGet, empty, countText, countColor, cold.
 function BadgeCalculation:DescribeRow(subject, options)
     options = options or NO_OPTIONS
     local filter = NormalizeSourceFilter(options.filter)
@@ -987,6 +991,7 @@ function BadgeCalculation:DescribeRow(subject, options)
         row.total = vendor and #counted or #records
     end
     row.empty = row.total == 0
+    row.countColor = row.empty and BadgeCalculation.COUNT_COLORS.words or BadgeCalculation.COUNT_COLORS.number
 
     if vendor then
         row.state, row.stateArg = VendorState(self, vendor, readState, known, row.total, row.collected, row.canGet)

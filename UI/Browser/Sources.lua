@@ -223,13 +223,13 @@ local function RowData(s)
     local BC, v = HA.BadgeCalculation, s.vendor
     local drops = s.type == "drops"
     local oneLine = s.type ~= "vendors" and not drops
-    local state, arg, right
+    local state, arg, right, color
     if v or drops then
         -- The vendor stats are asked for here so a cold count warms; the description only peeks.
         if v then Stats(s) end
         local r = BC:DescribeRow(v and { vendor = v } or { records = DropRecords(s), kind = "drops" },
             { readState = cs, peek = v and true or nil })
-        state, arg, right = r.state, r.stateArg, r.countText
+        state, arg, right, color = r.state, r.stateArg, r.countText, r.countColor
     else
         local total, got, can = Stats(s)
         if s.type == "events" and not Live(s.key) then state = "idle"
@@ -238,12 +238,13 @@ local function RowData(s)
         elseif can and can > 0 then state, arg = "some", can
         elseif s.type == "events" then state = "live" end
         right = total == 0 and L["No decor"] or got and BC.FormatCountText(got, total, 0) or L["%d decor"]:format(total)
+        color = total == 0 and BC.COUNT_COLORS.words or BC.COUNT_COLORS.number
     end
     return {
         kind = "row", key = s.key, name = v and HA.VendorData:GetVendorName(v) or s.title, line2 = not oneLine and s.sub or s.where, noTile = true, state = state, arg = arg,
         iconsOf = oneLine and function() return Rows(s, true) end or nil,
         selected = vid ~= nil and s.key == vid or nil, narrow = Narrow() or nil,
-        right = right,
+        right = right, rightColor = color,
         onClick = function()
             if not v then B.Go({ kind = "source", key = s.type, id = s.key })
             elseif vid == s.key then Page:CloseCard()
