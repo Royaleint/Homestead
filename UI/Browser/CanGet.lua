@@ -540,11 +540,11 @@ function CG.HiddenBy(what)
 end
 
 local function FactionLabel(itemID, npcID)
-    if npcID then return D.VendorFactionLabel(D.Vendor(npcID) or {}) end
+    if npcID then return HA.BadgeCalculation:FactionLabel(D.Vendor(npcID) or {}) end
     for _, s in ipairs(HA.SourceManager:GetAllSources(itemID) or {}) do
         local at = s.type == "vendor" and s.data and s.data.npcID
         local v = at and D.Vendor(at)
-        local label = v and D.IsOppositeFaction(v) and D.VendorFactionLabel(v)
+        local label = v and D.IsOppositeFaction(v) and HA.BadgeCalculation:FactionLabel(v)
         if label then return label end
     end
 end

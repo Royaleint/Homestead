@@ -87,7 +87,7 @@ local function Draw(keep)
             hidden.hidden = hidden.hidden + 1
             hidden[why] = hidden[why] + 1
             if why == "faction" then
-                local label = v and D.VendorFactionLabel(v) or not v and CG.FactionLabel(r.itemID) or ""
+                local label = v and HA.BadgeCalculation:FactionLabel(v) or not v and CG.FactionLabel(r.itemID) or ""
                 seen[label] = (seen[label] or 0) + 1
             end
         else

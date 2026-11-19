@@ -164,7 +164,6 @@ local function Stats(s)
         got, n = D.VendorCounts(v, asked)
         -- A holiday vendor's count is warmed on its own, so it leaves the ask for the others.
         if n ~= nil then total = n elseif D.HolidayActive(v) == nil then asked = true end
-        can = CG.VendorCanCount(v)
     else
         got, total = 0, 0
         for _, id in ipairs(s.items) do
@@ -184,10 +183,15 @@ local function AllLeftOut(s)
     return cs == "ready" and not s.vendor and s.items[1] ~= nil and Stats(s) == 0
 end
 
--- Why a vendor with nothing counted says so: its wares are left out.
-local function LeftOutMark(v)
-    local _, left = D.VendorWares(v)
-    return left and (left.unknown[1] and L["Collection unknown"] or left.promotion[1] and L["Promotion"])
+-- A drop group's wares as the shared description takes them, sorted by item.
+local function DropRecords(s)
+    if not s.records then
+        local out = {}
+        for i, id in ipairs(s.items) do out[i] = { itemID = id } end
+        table.sort(out, function(a, b) return a.itemID < b.itemID end)
+        s.records = out
+    end
+    return s.records
 end
 
 local function Head(t)
@@ -216,20 +220,30 @@ end
 local Rows
 
 local function RowData(s)
-    local total, got, can = Stats(s)
-    local v, state, arg = s.vendor
-    local oneLine = s.type ~= "vendors" and s.type ~= "drops"
-    if v and D.IsOppositeFaction(v) then state, arg = "faction", D.VendorFactionLabel(v)
-    elseif (s.type == "events" and not Live(s.key)) or (v and not Facts.OnSale(v)) then state = "idle"
-    elseif cs == "counting" then state = "counting"
-    elseif (v and got and total > 0 and got == total) or (not v and CG.HiddenBy({ items = s.items }) == "collected") then state = "allDone"
-    elseif can and can > 0 then state, arg = "some", can
-    elseif s.type == "events" or (v and (D.HolidayActive(v) or Facts.EndeavorActive(v))) then state = "live" end
+    local BC, v = HA.BadgeCalculation, s.vendor
+    local drops = s.type == "drops"
+    local oneLine = s.type ~= "vendors" and not drops
+    local state, arg, right
+    if v or drops then
+        -- The vendor stats are asked for here so a cold count warms; the description only peeks.
+        if v then Stats(s) end
+        local r = BC:DescribeRow(v and { vendor = v } or { records = DropRecords(s), kind = "drops" },
+            { readState = cs, peek = v and true or nil })
+        state, arg, right = r.state, r.stateArg, r.countText
+    else
+        local total, got, can = Stats(s)
+        if s.type == "events" and not Live(s.key) then state = "idle"
+        elseif cs == "counting" then state = "counting"
+        elseif CG.HiddenBy({ items = s.items }) == "collected" then state = "allDone"
+        elseif can and can > 0 then state, arg = "some", can
+        elseif s.type == "events" then state = "live" end
+        right = total == 0 and L["No decor"] or got and BC.FormatCountText(got, total, 0) or L["%d decor"]:format(total)
+    end
     return {
         kind = "row", key = s.key, name = v and HA.VendorData:GetVendorName(v) or s.title, line2 = not oneLine and s.sub or s.where, noTile = true, state = state, arg = arg,
         iconsOf = oneLine and function() return Rows(s, true) end or nil,
         selected = vid ~= nil and s.key == vid or nil, narrow = Narrow() or nil,
-        right = total == 0 and (v and LeftOutMark(v) or L["No decor"]) or got and L["%d of %d"]:format(got, total) or L["%d decor"]:format(total),
+        right = right,
         onClick = function()
             if not v then B.Go({ kind = "source", key = s.type, id = s.key })
             elseif vid == s.key then Page:CloseCard()
@@ -429,7 +443,7 @@ local function BuildList(keep, zone)
                 hidden.hidden = hidden.hidden + 1
                 hidden[why] = hidden[why] + 1
                 if why == "faction" then
-                    local label = v and D.VendorFactionLabel(v) or ""
+                    local label = v and HA.BadgeCalculation:FactionLabel(v) or ""
                     seen[label] = (seen[label] or 0) + 1
                 end
             else
@@ -987,7 +1001,7 @@ function Draw(fresh, saved)
     Line(V.req, "body", parts[1] and L["%s: %s"]:format(S.Colored(K.gold, L["Requires"]), W.Join(parts, L["%s; %s"]))
         .. (unknown and "\n" .. L["Can't check this requirement yet"] or ""), w)
     Line(V.stop, "body", D.IsOppositeFaction(v)
-        and S.Colored(K.stop, L["%s only: can't buy on this character"]:format(D.VendorFactionLabel(v) or "")), w)
+        and S.Colored(K.stop, L["%s only: can't buy on this character"]:format(HA.BadgeCalculation:FactionLabel(v) or "")), w)
     Line(V.hdr, "bodyGold", L["Wares"], w)
     Line(V.key, "body", rows[1] and L["Corners: state top right, bonus top left, event bottom left, copies bottom right."]
         .. (#rows > n and " " .. L["Greyed: promotion item, or collection status unknown. Not counted in totals."] or ""), w)

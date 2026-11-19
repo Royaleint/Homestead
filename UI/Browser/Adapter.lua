@@ -8,11 +8,6 @@ local L = HA.L
 local D = {}
 B.Data = D
 
-local FACTION_LABELS = {
-    ["Alliance"] = L["Alliance"],
-    ["Horde"] = L["Horde"],
-}
-
 -- Moves whenever an asked-for name arrives, so a page that sorted or searched by name can tell.
 local nameGen = 0
 
@@ -52,7 +47,7 @@ end
 
 -- The browser's vendor lists: its listing rule, ignoring the map pin settings.
 function D.IsListedVendor(vendor)
-    return B.Facts.BrowserListed(vendor)
+    return HA.BadgeCalculation:IsListedVendor(vendor)
 end
 
 -- Vendor tables only, one per vendor key, rebuilt after each InvalidateMemos.
@@ -110,14 +105,6 @@ end
 -- True when this character can use the vendor at none of its positions.
 function D.IsOppositeFaction(vendor)
     return not HA.VendorFilter.CanUseVendor(vendor)
-end
-
--- The faction (or two) that can use a vendor this character can't; nil when it can.
-function D.VendorFactionLabel(vendor)
-    local usable, a, b = HA.VendorFilter.CanUseVendor(vendor)
-    if usable then return nil end
-    a = FACTION_LABELS[a] or a
-    return b and L["%s, %s"]:format(a, FACTION_LABELS[b] or b) or a
 end
 
 -- An out-of-season holiday vendor still resolves here (GetVendor gives nil); vendor lists never use it.
@@ -200,7 +187,7 @@ function D.NearYou()
     for m in pairs(where.maps) do
         for _, vendor in ipairs(HA.VendorData:GetVendorsInMap(m)) do
             local id = vendor.npcID
-            if id and not seen[id] and B.Facts.OnSale(vendor) and VF.CanAccessVendor(vendor) then
+            if id and not seen[id] and HA.BadgeCalculation:VendorOnSale(vendor) and VF.CanAccessVendor(vendor) then
                 seen[id] = true
                 local dist = math.huge
                 local coords, vmap = VF.GetBestVendorCoordinates(vendor)
