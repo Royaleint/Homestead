@@ -222,7 +222,7 @@ local function RowData(s)
     if v and D.IsOppositeFaction(v) then state, arg = "faction", D.VendorFactionLabel(v)
     elseif (s.type == "events" and not Live(s.key)) or (v and not Facts.OnSale(v)) then state = "idle"
     elseif cs == "counting" then state = "counting"
-    elseif CG.HiddenBy(v and { vendor = v } or { items = s.items }) == "collected" then state = "allDone"
+    elseif (v and got and total > 0 and got == total) or (not v and CG.HiddenBy({ items = s.items }) == "collected") then state = "allDone"
     elseif can and can > 0 then state, arg = "some", can
     elseif s.type == "events" or (v and (D.HolidayActive(v) or Facts.EndeavorActive(v))) then state = "live" end
     return {
@@ -934,11 +934,10 @@ function Draw(fresh, saved)
     local ready = HA.CatalogScanner:GetReadState() == "ready"
     local act = D.HolidayActive(v) and v.event or Facts.EndeavorActive(v) == true or nil
     local live = act ~= nil
-    local n, owned = #rows, 0
+    local n = #rows
     for _, r in ipairs(rows) do
         local e = CG.Entry(r.itemID)
         r.bonus, r.active, r.copies = e and e.bonus, act, select(2, D.IconData(r.itemID, true, B.State.catalogMemo))
-        if r.state == "owned" then owned = owned + 1 end
     end
     -- Wares left out of the count follow it, greyed and named on hover.
     for _, why in ipairs(left and LEFT_OUT or {}) do
@@ -948,6 +947,8 @@ function Draw(fresh, saved)
         end
     end
 
+    local got, total
+    if ready then got, total = D.VendorCounts(v) end
     local cw, nh, bh = w - PORTRAIT - SP.m - XRES, W.TextHeight("subheader"), W.TextHeight("body")
     SetFace(v)
     V.name:SetText(s.title)
@@ -966,7 +967,7 @@ function Draw(fresh, saved)
     V.wp:SetShown(mapID ~= nil)
     V.wp.wp = { mapID = mapID, x = mx, y = my, title = s.title, data = { type = "vendor", npcID = v.npcID } }
     -- The count and the can-get line sit under the location, beside the portrait.
-    Line(V.count, "body", n > 0 and (ready and L["%d of %d collected"]:format(owned, n) or L["Counting…"]) or nil, cw)
+    Line(V.count, "body", n > 0 and (got and L["%d of %d collected"]:format(got, total) or L["Counting…"]) or nil, cw)
     V.count:ClearAllPoints()
     V.count:SetPoint("TOPLEFT", V.where, "BOTTOMLEFT", 0, -SP.xs)
     SetCan(V.can, ready and CG.VendorCanCount(v) or 0, cw)
