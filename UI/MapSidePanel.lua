@@ -580,6 +580,13 @@ local function RowWidth()
     return State.panelFrame:GetWidth() - Layout.LIST_CHROME_WIDTH
 end
 
+-- Sets the state text and says whether it is within room pixels.
+local function StateFits(stateText, text, room)
+    if text == "" then return false end
+    stateText:SetText(text)
+    return stateText:GetUnboundedStringWidth() <= room
+end
+
 -- Draws a row's count and, beside it, its state. The count keeps its full width up to countRoom; words for a row
 -- with nothing to count are cut at that width. The state shows its mark and words, else its mark alone, else
 -- nothing, in what is left of total after the count, the gap and the reserve: a phrase is never cut. The tooltip
@@ -595,13 +602,8 @@ local function DrawCountAndState(row, rec, countRoom, total, gap, reserve)
         local color, mark = RowStateStyle(rec.state)
         local words = BC.StateWords(rec.state, rec.stateArg)
         local room = total - countWidth - gap - reserve
-        local function Fits(text)
-            if text == "" then return false end
-            stateText:SetText(text)
-            return stateText:GetUnboundedStringWidth() <= room
-        end
         local whole = mark and words ~= "" and mark .. " " .. words or mark or words
-        shown = Fits(whole) or (mark ~= nil and Fits(mark))
+        shown = StateFits(stateText, whole, room) or (mark ~= nil and StateFits(stateText, mark, room))
         stateText:SetTextColor(color[1], color[2], color[3])
     end
     stateText:SetShown(shown)
@@ -2025,6 +2027,33 @@ local function SetListRows(rows)
     State.listScrollBox:SetDataProvider(CreateDataProvider(rows), ScrollBoxConstants.RetainScrollPosition)
 end
 
+-- The wares of an open vendor grid that its gold borders mark, as one string, so a later reading of the wallet
+-- can tell whether any border would change.
+local function GridCanKey(vendor, itemIDs)
+    local can = {}
+    for _, itemID in ipairs(itemIDs) do
+        if BC:WareVerdict(itemID, vendor) == "can" then can[#can + 1] = itemID end
+    end
+    return table.concat(can, ",")
+end
+
+-- Whether the wallet now gives a vendor row a different can-get count, or the open grid a different set of gold
+-- borders, than the list was drawn with. Reads the cache only: a vendor whose counts are cold reads as moved, and
+-- the redraw that follows builds them.
+local function WalletMovedRows()
+    local provider = State.listScrollBox:GetDataProvider()
+    if not provider then return false end
+    for _, rec in provider:Enumerate() do
+        local vendor = rec.vendor
+        if vendor and rec.canGet then
+            local now = BC:VendorCanGet(vendor, State.panelSourceFilter, true)
+            if now ~= rec.canGet then return true end
+            if rec.gridCan and GridCanKey(vendor, rec.itemIDs) ~= rec.gridCan then return true end
+        end
+    end
+    return false
+end
+
 -- Build zone expansion: append vendor sub-row records for a zone at continent level.
 -- Uses same data source as badge calculation (GetAllVendors + VendorFilter).
 local function BuildZoneExpansionRows(zoneMapID, rows)
@@ -2080,6 +2109,7 @@ local function BuildZoneExpansionRows(zoneMapID, rows)
             empty = described.empty,
             state = described.state,
             stateArg = described.stateArg,
+            canGet = described.canGet,
         }
     end
 end
@@ -3210,17 +3240,14 @@ end
 -- Search Results Refresh
 -------------------------------------------------------------------------------
 
--- Header labels keyed by source-section identifier. The vendor
--- section always shows when any vendor result is present; item sections only
--- show when at least one item-first row in that source type is present.
-local SEARCH_SECTION_LABELS = {
-    vendor      = L["Vendors"] or "Vendors",
-    profession  = L["Profession"] or "Profession",
-    quest       = L["Quest"] or "Quest",
-    achievement = L["Achievement"] or "Achievement",
-    event       = L["Event"] or "Event",
-    drop        = L["Drop"] or "Drop",
-}
+-- The empty state: the Decor Browser's two lines for a search that finds nothing.
+local function ShowNoSearchResults()
+    State.emptyText:SetText(L["No results"] .. "\n" .. L["Nothing matches your search."])
+    State.emptyText:Show()
+    State.summaryText:SetText("")
+    State.headerText:SetText("Search Results")
+    SetListRows({})
+end
 
 function MapSidePanel:RefreshSearchResults()
     -- Self-healing: re-query if index was invalidated since last results
@@ -3238,11 +3265,7 @@ function MapSidePanel:RefreshSearchResults()
     -- closing search returns to whatever was expanded before it.
 
     if not State.searchResults or #State.searchResults == 0 then
-        State.emptyText:SetText("No results found")
-        State.emptyText:Show()
-        State.summaryText:SetText("")
-        State.headerText:SetText("Search Results")
-        SetListRows({})
+        ShowNoSearchResults()
         return
     end
 
@@ -3260,7 +3283,7 @@ function MapSidePanel:RefreshSearchResults()
         rows[#rows + 1] = {
             kind = "header",
             height = Layout.SEARCH_HEADER_HEIGHT,
-            label = SEARCH_SECTION_LABELS[sectionKey] or sectionKey,
+            label = HA.DecorBrowser.Style.sourceLabel[sectionKey .. "s"] or sectionKey,
         }
     end
 
@@ -3284,40 +3307,19 @@ function MapSidePanel:RefreshSearchResults()
                 isExpanded = isExpanded,
                 sourceCount = sourceCount,
             }
-        else
+        elseif not VendorFilter.ShouldHideVendor(result.vendor) then
             EmitHeader("vendor")
             vendorCount = vendorCount + 1
             local vendor = result.vendor
 
-            -- Collection stats (uses State.panelSourceFilter for display only)
-            local stats = BC:GetVendorStats(vendor, State.panelSourceFilter)
-            local collected = stats.collected or 0
-            local total = stats.total or 0
-            local locked = stats.locked or 0
-
-            local countText, countColor
-            if total > 0 then
-                countColor = Layout.COLOR_WHITE
-                if result.matchType == "item" then
-                    countText = string.format("%d match%s | %s",
-                        result.matchCount, result.matchCount == 1 and "" or "es",
-                        FormatPurchasabilityCountText(collected, total, locked))
-                else
-                    countText = FormatPurchasabilityCountText(collected, total, locked)
-                end
-            else
-                countColor = Layout.COLOR_DIM
-                local dataLabel = (State.panelSourceFilter ~= "all") and "No matching items" or "No item data"
-                if result.matchType == "item" then
-                    countText = string.format("%d match%s | %s",
-                        result.matchCount, result.matchCount == 1 and "" or "es",
-                        dataLabel)
-                else
-                    countText = dataLabel
-                end
+            -- The row's state, counts and count text, as the zone list describes them
+            local described = BC:DescribeRow({ vendor = vendor },
+                { filter = State.panelSourceFilter, readState = "ready" })
+            local countText = described.countText
+            if result.matchType == "item" then
+                local text = result.matchCount == 1 and L["%d match, %s"] or L["%d matches, %s"]
+                countText = text:format(result.matchCount, countText)
             end
-            -- Found in any season, marked as the zone list marks it.
-            if not VendorData:IsVendorSellingNow(vendor) then countText = countText .. HA.NotActiveTag() end
 
             local isExpanded = (State.expandedVendorID == vendor.npcID)
             local itemIDs
@@ -3331,16 +3333,25 @@ function MapSidePanel:RefreshSearchResults()
                 vendor = vendor,
                 searchMode = true,
                 matchedItems = result.matchedItems,
-                collected = collected,
-                total = total,
-                locked = locked,
+                collected = described.collected,
+                total = described.total,
+                locked = described.locked,
                 countText = countText,
-                countColor = countColor,
+                countColor = described.empty and Layout.COLOR_DIM or Layout.COLOR_WHITE,
                 nameColor = Layout.COLOR_WHITE,
+                state = described.state,
+                stateArg = described.stateArg,
+                canGet = described.canGet,
+                gridCan = itemIDs and GridCanKey(vendor, itemIDs) or nil,
                 isExpanded = isExpanded,
                 itemIDs = itemIDs,
             }
         end
+    end
+
+    if #rows == 0 then
+        ShowNoSearchResults()
+        return
     end
 
     SetListRows(rows)
@@ -3580,6 +3591,8 @@ function MapSidePanel:RefreshContent()
             countColor = described.empty and Layout.COLOR_DIM or Layout.COLOR_WHITE,
             state = described.state,
             stateArg = described.stateArg,
+            canGet = described.canGet,
+            gridCan = itemIDs and GridCanKey(vendor, itemIDs) or nil,
             isExpanded = isExpanded,
             itemIDs = itemIDs,
         }
@@ -4162,9 +4175,16 @@ end
 -- PLAYER_REGEN_ENABLED when combat ends.
 -------------------------------------------------------------------------------
 
+local CheckWalletRows  -- defined with the wallet events, after ScheduleContentRefresh
+
 State.combatFrame = CreateFrame("Frame")
 State.combatFrame:RegisterEvent("PLAYER_REGEN_ENABLED")
 State.combatFrame:SetScript("OnEvent", function()
+    -- Gold, currencies or items that moved during combat are checked against the rows once it ends.
+    if State.walletDirty then
+        State.walletDirty = false
+        CheckWalletRows()
+    end
     if not State.pendingDockedAction then return end
     local action = State.pendingDockedAction
     State.pendingDockedAction = nil
@@ -4762,6 +4782,35 @@ local function ScheduleContentRefresh()
     end)
 end
 
+-- Redraws the list when the wallet now gives a shown count or border a different answer. A wallet that has
+-- not changed since the list was drawn costs one comparison.
+CheckWalletRows = function()
+    if not BC or not State.panelFrame or not State.panelFrame:IsShown() then return end
+    local gen = BC:WalletGen()
+    if gen == State.walletGen then return end
+    State.walletGen = gen
+    if WalletMovedRows() then ScheduleContentRefresh() end
+end
+
+-- Gold, currency and bag changes: re-read what the wallet already holds of that kind, then check the rows (which
+-- does nothing while the panel is hidden). During combat only the re-read happens; the check waits for the combat
+-- to end.
+local function OnWalletEvent(event, arg1)
+    if not BC then return end
+    if event == "PLAYER_MONEY" then
+        BC:WalletReread("gold")
+    elseif event == "BAG_UPDATE_DELAYED" then
+        BC:WalletReread("item")
+    elseif event == "CURRENCY_DISPLAY_UPDATE" and BC:WalletHasRead(arg1) then
+        BC:WalletReread("cur")
+    end
+    if InCombatLockdown() then
+        State.walletDirty = true
+        return
+    end
+    CheckWalletRows()
+end
+
 -------------------------------------------------------------------------------
 -- Initialization
 -------------------------------------------------------------------------------
@@ -4962,6 +5011,14 @@ function MapSidePanel:Initialize()
         -- ScheduleContentRefresh's debounce collapses that into one rebuild.
         HA.Events:RegisterCallback("SOURCE_CACHES_INVALIDATED", ScheduleContentRefresh)
     end
+
+    State.walletFrame = CreateFrame("Frame")
+    State.walletFrame:RegisterEvent("PLAYER_MONEY")
+    State.walletFrame:RegisterEvent("BAG_UPDATE_DELAYED")
+    State.walletFrame:RegisterEvent("CURRENCY_DISPLAY_UPDATE")
+    State.walletFrame:SetScript("OnEvent", function(_, event, arg1)
+        OnWalletEvent(event, arg1)
+    end)
 
     -- Initialize SearchProvider
     if HA.SearchProvider and HA.SearchProvider.Initialize then
