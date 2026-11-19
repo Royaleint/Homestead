@@ -615,9 +615,11 @@ function CatalogStore:SetUnreported(itemIDs)
 end
 
 -- Read-only ownership state plus the catalog entry behind it, for callers that
--- need both: "owned", "notOwned" or "unknown". Unknowable items and items no
--- read returned an entry for are "unknown", where IsOwnedFresh still answers
--- the walk's boolean; a cached owned stays "owned" even without an entry.
+-- need both: "owned", "notOwned" or "unknown". "unknown" is the rule every
+-- surface counts by (IsOwnershipUnreported): an item Homestead cannot read, or
+-- one the last trusted catalog scan found no entry for that no read finds now;
+-- a nil itemID is also "unknown". Any other item without an entry is
+-- "notOwned" with no entry, and a cached owned stays "owned" even without one.
 -- For a cached owned item the entry may carry zero counts on a cold catalog,
 -- so callers take ownership from the state, never from the entry's counts.
 -- Writes no ownership; see WalkEntries for the unreported set.
@@ -628,7 +630,7 @@ function CatalogStore:ReadOwnershipEntry(itemID)
 
     local owned, info = WalkEntries(self, itemID, true)
     if owned then return "owned", info end
-    if info == nil then return "unknown", nil end
+    if self:IsOwnershipUnreported(itemID) then return "unknown", nil end
     return "notOwned", info
 end
 

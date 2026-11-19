@@ -395,13 +395,13 @@ function D.ItemSources(itemID)
 end
 
 -- The shared ownership read: state ("owned", "notOwned", "unknown") and the catalog entry behind it. Take
--- ownership from the state, never the entry's counts. "unknown" without an entry is asked again, so late
+-- ownership from the state, never the entry's counts. Without an entry only owned is kept, so late
 -- catalog data still arrives.
 function D.Ownership(itemID, catalogMemo)
     local m = catalogMemo and catalogMemo[itemID]
     if m then return m.state, m.info end
     local state, info = HA.CatalogStore:ReadOwnershipEntry(itemID)
-    if catalogMemo and (info or state ~= "unknown") then catalogMemo[itemID] = { state = state, info = info } end
+    if catalogMemo and (info or state == "owned") then catalogMemo[itemID] = { state = state, info = info } end
     return state, info
 end
 
