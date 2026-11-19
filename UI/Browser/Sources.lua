@@ -178,9 +178,9 @@ local function Stats(s)
     return total, got, can
 end
 
--- A source other than a vendor whose decor is all left out of the counts gets no row.
+-- A source other than a vendor or a drop whose decor is all left out of the counts gets no row.
 local function AllLeftOut(s)
-    return cs == "ready" and not s.vendor and s.items[1] ~= nil and Stats(s) == 0
+    return cs == "ready" and not s.vendor and s.type ~= "drops" and s.items[1] ~= nil and Stats(s) == 0
 end
 
 -- A drop group's wares as the shared description takes them, sorted by item.
