@@ -16,9 +16,9 @@
     (before storage data loads), so SetUnowned is warm-gated on dataLoaded —
     the scanner never erases ownership from a cold read.
 
-    Strategy: Scan all known item IDs from the static vendor tables (via the
-    VendorData facade) and scannedVendors,
-    using the same API that tooltips use (GetCatalogEntryInfoByItem).
+    Strategy: Scan every item a collected count uses: vendor and scanned wares,
+    crafted decor, and the quest, achievement, event and drop sources, using
+    the same API that tooltips use (GetCatalogEntryInfoByItem).
 ]]
 
 local _, HA = ...
@@ -111,16 +111,7 @@ local SCAN_COMBAT_RETRY_DELAY = 1.0 -- seconds between combat re-checks at a bat
 -- the SetUnowned branches below.
 local function IsOwned(info)
     if not info then return false end
-    if HA.CatalogStore then
-        return HA.CatalogStore:ComputeOwnedFromInfo(info)
-    end
-    -- Fallback if CatalogStore is unavailable (should not happen given load order):
-    -- replicate the count formula directly. quantity/numPlaced are aliases of
-    -- totalNumStored/totalNumPlaced.
-    local totalNumStored = info.totalNumStored or info.quantity or 0
-    local totalNumPlaced = info.totalNumPlaced or info.numPlaced or 0
-    local remainingRedeemable = info.remainingRedeemable or 0
-    return (totalNumStored + remainingRedeemable + totalNumPlaced) > 0
+    return HA.CatalogStore:ComputeOwnedFromInfo(info)
 end
 
 local function ExtractRecordID(info)
@@ -165,14 +156,16 @@ end
 -- Item Collection
 -------------------------------------------------------------------------------
 
--- Gather all unique item IDs from vendor database and scanned vendors
+-- Gather every item the collected counts read from the saved record: vendor
+-- wares (holiday vendors in any season), scanned vendor wares, crafted decor,
+-- and the quest, achievement, event and drop sources.
 local function CollectAllKnownItemIDs()
     local itemIDs = {}
     local seen = {}
 
     -- Collect from static vendor accessors.
     if HA.VendorData and HA.VendorData.GetAllVendors and HA.VendorData.GetItemsForVendor then
-        local allVendors = HA.VendorData:GetAllVendors()
+        local allVendors = HA.VendorData:GetAllVendors(true)
         for _, vendor in ipairs(allVendors) do
             local vendorItems = HA.VendorData:GetItemsForVendor(vendor)
             for _, item in ipairs(vendorItems) do
@@ -220,6 +213,26 @@ local function CollectAllKnownItemIDs()
                     itemID = craftItemID,
                     name = nil,  -- fetched during ScanItem like vendor items
                 })
+            end
+        end
+    end
+
+    -- Items only these tables add are read to record ownership only: their
+    -- catalog text is not parsed, so they gain no requirement lines, and a zero
+    -- read never clears them. An item a block above already added keeps that
+    -- entry, its parse and its clear.
+    local sourceTables = { HA.QuestSources, HA.AchievementSources, HA.EventSources, HA.DropSources }
+    for i = 1, 4 do
+        local sources = sourceTables[i]
+        if sources then
+            for sourceItemID in pairs(sources) do
+                if type(sourceItemID) == "number" and not seen[sourceItemID] then
+                    seen[sourceItemID] = true
+                    table.insert(itemIDs, {
+                        itemID = sourceItemID,
+                        sourceOnly = true,
+                    })
+                end
             end
         end
     end
@@ -381,8 +394,8 @@ function CatalogScanner:ScanFullCatalog(callback)
 
     -- Process items in batches to prevent frame hitches
     local function ProcessBatch()
-        -- A login or /reload forces a full ~1,600-item pass (see
-        -- RunLoginStorageForceLoad), which is ~85 batches of catalog probes and
+        -- A login or /reload forces a full ~2,200-item pass (see
+        -- RunLoginStorageForceLoad), which is ~110 batches of catalog probes and
         -- store writes; landing those on combat frames because the player
         -- reloaded mid-fight is exactly the hitch the batching exists to avoid.
         -- Pause at the batch boundary and re-check until combat drops, matching
@@ -420,7 +433,7 @@ function CatalogScanner:ScanFullCatalog(callback)
                             -- Warm-gate: only erase ownership once storage data is
                             -- loaded. Cold reads are stale-0 and would wrongly clear
                             -- owned items; the persistent cache serves them instead.
-                            if dataLoaded and HA.CatalogStore:IsOwned(result.itemID) then
+                            if dataLoaded and not itemData.sourceOnly and HA.CatalogStore:IsOwned(result.itemID) then
                                 HA.CatalogStore:SetUnowned(result.itemID)
                             end
                             -- Minimal fields for unowned items
@@ -432,7 +445,7 @@ function CatalogScanner:ScanFullCatalog(callback)
                     end
 
                     -- Forward sourceText to SourceTextScanner for parsing
-                    if result.sourceText and HA.SourceTextScanner then
+                    if result.sourceText and not itemData.sourceOnly and HA.SourceTextScanner then
                         HA.SourceTextScanner:ProcessScannedItem(result)
                     end
                 end
@@ -645,7 +658,7 @@ local function SetupEventScanning()
 
                 -- The login force-load synthesizes this event on every login
                 -- whether or not the account has anything to find. FORBIDS:
-                -- the ~1,600-probe rescan behind that forced event when the
+                -- the ~2,200-probe rescan behind that forced event when the
                 -- API reports zero decor owned — every probe reads unowned and
                 -- dataLoaded cannot latch off a zero total, so the pass can
                 -- neither learn nor erase any ownership. (It would still
@@ -873,7 +886,7 @@ function CatalogScanner:Initialize()
     C_Timer.After(3, function()
         if C_HousingCatalog and C_HousingCatalog.GetCatalogEntryInfoByItem then
             -- don't scan cold — before dataLoaded latches, count fields
-            -- read stale-0, so this would burn ~1,600 API calls for zero learned
+            -- read stale-0, so this would burn ~2,200 API calls for zero learned
             -- data (observed live: "Checked: 1624 Owned: 0"); the existing
             -- HOUSING_STORAGE_UPDATED handler below already re-requests a full
             -- scan the moment it latches, so skipping here loses no coverage.
