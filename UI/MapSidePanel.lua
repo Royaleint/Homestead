@@ -2964,8 +2964,7 @@ function MapSidePanel:RefreshZoneSummaries(mapID, mapInfo)
             lockedItems = dataLocked,
             unverifiedItems = data.unverifiedItems or 0,
             name = data.zoneName or "Unknown",
-            -- Gold for a rolled-in continent's row, as on the world list
-            nameColor = data.isContinent and Layout.COLOR_GOLD or Layout.COLOR_WHITE,
+            nameColor = Layout.COLOR_WHITE,
             isContinent = data.isContinent,
             summaryLineText = summaryLineText,
             summaryLineColor = summaryLineColor,
