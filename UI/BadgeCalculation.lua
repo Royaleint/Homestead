@@ -117,6 +117,8 @@ local vendorStatsCache = {}
 
 -- Cached counted-ware lists keyed like vendorStatsCache, dropped with it.
 local countedWaresCache = {}
+-- Each counted list's left-out wares, gone when the list is.
+local leftOutOf = setmetatable({}, { __mode = "k" })
 
 -- Bumped on every vendorStatsCache wipe/invalidation so the sliced
 -- prewarm item loop (below) can detect a mid-vendor invalidation and discard
@@ -223,17 +225,17 @@ local UNKNOWN_VENDOR_STATS = {
     vendorOnly = 0,
 }
 
--- Is this item's ownership knowable at all? Decor resolves by itemID, and a Room
--- plan resolves when it is in the curated RoomMapping; everything else (Dye,
--- RoomCustomization, ExteriorCustomization, ServiceItem, and any unmapped Room
--- plan) reads as a hard false that says nothing about the player. Mirrors the
+-- Does the game report this item's ownership at all? Housing items outside
+-- the Decor subclass (unless a mapped Room plan) and unowned items the last
+-- trusted catalog scan found no entry for read as a hard false that says
+-- nothing about the player (CatalogStore:IsOwnershipUnreported). Mirrors the
 -- isOwned resolution below, including the cache-only no-presentation fallback.
 local function IsOwnershipExcluded(itemID, presentation)
     if presentation then
         return presentation.isOwnershipExcluded == true
     end
-    if HA.CatalogStore and HA.CatalogStore.IsOwnershipUnknowable then
-        return HA.CatalogStore:IsOwnershipUnknowable(itemID) == true
+    if HA.CatalogStore and HA.CatalogStore.IsOwnershipUnreported then
+        return HA.CatalogStore:IsOwnershipUnreported(itemID) == true
     end
     return false
 end
@@ -311,7 +313,9 @@ local function AccumulateVendorItem(accum, itemID, vendor, sourceFilter)
     elseif matchesSourceFilter then
         accum.hasMatchingItems = true
 
-        local state = presentation and presentation.availabilityState or "purchasable"
+        -- The requirement-level state, not the shown one: an other-faction item a requirement holds back counts locked.
+        local state = presentation and (presentation.requirementState or presentation.availabilityState)
+            or "purchasable"
         local isUnverified = presentation and presentation.isUnverified or false
         local hasVerifiableRequirement = presentation and presentation.hasVerifiableRequirement or false
         local blockerLabels = presentation and presentation.blockerLabels or nil
@@ -489,8 +493,9 @@ function BadgeCalculation:PeekVendorStats(vendor, sourceFilter)
 end
 
 -- The wares that count toward a vendor's collected and total under the "all" filter, in the vendor's
--- order: ownership knowable, and owned or not unobtainable (AccumulateVendorItem's rule, read without the
--- full item presentation). The list is shared, never changed by a caller.
+-- order: the wares the catalog store's rule counts (CatalogStore:LeftOutReason, the pins' rule read without the
+-- full item presentation). Second, the wares left out, in the same order: { promotion = unowned promotion
+-- items, unknown = items whose ownership the game does not report }. Both are shared, never changed by a caller.
 function BadgeCalculation:GetCountedItemIDs(vendor)
     if not vendor or not vendor.npcID then
         return EMPTY_ITEM_IDS
@@ -499,23 +504,24 @@ function BadgeCalculation:GetCountedItemIDs(vendor)
     local cacheKey = BuildVendorFilterCacheKey(vendor, "all")
     local counted = countedWaresCache[cacheKey]
     if counted then
-        return counted
+        return counted, leftOutOf[counted]
     end
 
-    local store, SM = HA.CatalogStore, HA.SourceManager
+    local store = HA.CatalogStore
     local itemIDs = HA.VendorData:GetMergedItemIDs(vendor) or EMPTY_ITEM_IDS
+    local left = { promotion = {}, unknown = {} }
     counted = HA.PerformanceTrace:Measure("vendor_counted_wares", #itemIDs, function()
         local out = {}
         for _, itemID in ipairs(itemIDs) do
-            if not store:IsOwnershipUnknowable(itemID) and (store:IsOwned(itemID) == true
-                    or SM:GetVendorItemAvailabilityState(itemID, vendor.npcID, true) ~= "unobtainable") then
-                out[#out + 1] = itemID
-            end
+            local reason = store:LeftOutReason(itemID, vendor.npcID)
+            local list = reason and left[reason] or out
+            list[#list + 1] = itemID
         end
         return out
     end)
     countedWaresCache[cacheKey] = counted
-    return counted
+    leftOutOf[counted] = left
+    return counted, left
 end
 
 -- Local alias for internal callers (aggregate builders) that need

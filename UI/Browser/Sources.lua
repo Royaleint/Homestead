@@ -9,38 +9,35 @@ local L, S, W = HA.L, B.Style, B.Widgets
 local D, CG, Facts = B.Data, B.CanGet, B.Facts
 local SP, K, LO = S.space, S.color, S.layout
 local Vis = B.Vis
+local NK = HA.NameSortKey
 
 local function MapName(mapID)
-    local info = mapID and C_Map.GetMapInfo(mapID)
-    return info and info.name
+    return mapID and HA.VendorFilter.GetMapName(mapID)
 end
 
 local KIND = {
-    vendors = { L["Vendor"], L["Search vendors and zones"] },
-    achievements = { L["Achievement"], L["Search achievements"], function(d)
+    vendors = { L["Vendor"] },
+    achievements = { L["Achievement"], function(d)
         return { title = d.achievementName, sub = d.category or L["Achievement"], group = d.category or L["Other"],
             achievementID = d.achievementID }
     end },
-    quests = { L["Quest"], L["Search quests"], function(d)
+    quests = { L["Quest"], function(d)
         local where = MapName(HA.SourceManager:GetQuestMap(d.questID))
         return { title = d.questName, sub = where or L["Location not recorded"], where = where, questID = d.questID }
     end },
-    professions = { L["Profession"], L["Search recipes and professions"],
-        function(d)
+    professions = { L["Profession"], function(d)
         return { title = d.recipeName, sub = d.skillTier or d.profession, group = d.profession, tier = d.skillTier }
     end },
-    drops = { L["Drop"], L["Search drops and zones"],
-        function(d) return { title = d.mobName, sub = d.zone, drop = d } end },
-    events = { L["Event"], L["Search events"],
-        function(d) return { title = d.event, sub = L["Holiday event"], namesKind = true } end },
-    shop = { L["Shop"], L["Search the Shop"], function() return { sub = L["Shop"] } end },
+    drops = { L["Drop"], function(d) return { sub = d.zone, drop = d } end },
+    events = { L["Event"], function(d) return { title = d.event, sub = L["Holiday event"], namesKind = true } end },
+    shop = { L["Shop"], function() return { sub = L["Shop"] } end },
 }
 local TYPES = CG.SOURCE_KEYS
 local LINK = Facts.LINK
 
 local Page = {}
 local st = { type = "achievements" }
-local now, query, wide = nil, "", false
+local now, wide = nil, false
 local head, list, empty, torn, asked, cs, static, vend, vendVer, collapse, expand
 local well, shown, vid
 local Vend, V = {}, {}
@@ -58,10 +55,7 @@ local function Narrow()
     return vid ~= nil and not cover
 end
 
-local function Live(event)
-    local CD = HA.CalendarDetector
-    return CD ~= nil and CD:IsHolidayActive(event) == true
-end
+local Live = D.EventActive
 
 local conts = {}
 local function Continent(mapID)
@@ -81,7 +75,7 @@ local function Statics()
             if key then
                 local s = bucket.by[key]
                 if not s then
-                    s = kind[3](d)
+                    s = kind[2](d)
                     s.key, s.type, s.items, s.title = key, t, {}, s.title or L["Unknown"]
                     bucket.by[key], bucket[#bucket + 1] = s, s
                 end
@@ -92,26 +86,25 @@ local function Statics()
     return static
 end
 
--- One entry per listed vendor, for all vendors or one expansion. Wares are read only for these.
-local function VendorList(home)
+-- A vendor's entry, kept until the memos are wiped. Wares are read only for the vendors asked for.
+local function VendorEntry(v)
     local version = D.MemoVersion()
     if vendVer ~= version then vend, vendVer = {}, version end
+    local key = Facts.SourceKey("vendors", v)
+    local s = vend[key]
+    if not s then
+        s = { key = key, type = "vendors", vendor = v, title = v.name or L["Unknown"], items = D.VendorWares(v),
+            sub = HA.VendorPlaceText(v) or "" }
+        vend[key] = s
+    end
+    return s
+end
+
+-- One entry per listed vendor, for all vendors or one expansion.
+local function VendorList(home)
     local out = {}
     for _, v in ipairs(D.ListedVendors()) do
-        if not home or D.VendorHome(v) == home then
-            local key = Facts.SourceKey("vendors", v)
-            local s = vend[key]
-            if not s then
-                -- The shipped names too, so a search in English still finds the place the row names.
-                local _, zone, subzone = HA.VendorFilter.GetUsableVendorPlace(v)
-                s = {
-                    key = key, type = "vendors", vendor = v, title = v.name or L["Unknown"], items = D.VendorWares(v),
-                    sub = Facts.Where(v) or "", en = (zone or "") .. " " .. (subzone or ""),
-                }
-                vend[key] = s
-            end
-            out[#out + 1] = s
-        end
+        if not home or D.VendorHome(v) == home then out[#out + 1] = VendorEntry(v) end
     end
     return out
 end
@@ -122,15 +115,19 @@ local function DecorName(id)
     return D.ItemName(id, e and e.info or D.CatalogInfo(id, B.State.catalogMemo)) or L["Item %d"]:format(id)
 end
 
-local function ShopTitle(s)
-    s.title = DecorName(s.items[1])
+-- Titles that can arrive after the list was built: a shop item's name, a vendor's or a drop group's client name.
+-- A vendor row sorts by st, the name its list is ordered by.
+local function Retitle(s)
+    if s.type == "shop" then s.title = DecorName(s.items[1])
+    elseif s.vendor then s.title, s.st = HA.VendorData:GetVendorName(s.vendor), HA.VendorData:GetVendorOrderName(s.vendor)
+    elseif s.drop then s.title = HA.SourceManager:GetDropGroupName(s.drop) end
 end
 
 -- What starts a quest, in words: an item is used, an object is named, and a creature is named in the player's
 -- language when the client has it, else by the shipped English name.
 local function StartWords(g)
     if g.kind == "item" then return L["Use %s"]:format(D.ItemName(g.id) or L["Item %d"]:format(g.id)) end
-    return g.kind == "object" and g.name or HA.VendorData:GetNpcName(g.id) or g.name
+    return g.kind == "object" and g.name or HA.VendorData:GetNpcName(g.id, g.name) or g.name
 end
 
 -- One row per decor item of a quest. The giver's name is read when a row draws.
@@ -165,16 +162,32 @@ local function Stats(s)
     if v then
         local n
         got, n = D.VendorCounts(v, asked)
-        if n == nil then asked = true else total = n end
+        -- A holiday vendor's count is warmed on its own, so it leaves the ask for the others.
+        if n ~= nil then total = n elseif D.HolidayActive(v) == nil then asked = true end
         can = CG.VendorCanCount(v)
     else
-        got = 0
+        got, total = 0, 0
         for _, id in ipairs(s.items) do
             local e = CG.Entry(id)
-            if e and e.own == "owned" then got = got + 1 elseif e and e.verdict == "can" then can = can + 1 end
+            local own = e and e.own == "owned"
+            if not HA.CatalogStore:LeftOutReason(id, nil, own) then
+                total = total + 1
+                if own then got = got + 1 elseif e and e.verdict == "can" then can = can + 1 end
+            end
         end
     end
     return total, got, can
+end
+
+-- A source other than a vendor whose decor is all left out of the counts gets no row.
+local function AllLeftOut(s)
+    return cs == "ready" and not s.vendor and s.items[1] ~= nil and Stats(s) == 0
+end
+
+-- Why a vendor with nothing counted says so: its wares are left out.
+local function LeftOutMark(v)
+    local _, left = D.VendorWares(v)
+    return left and (left.unknown[1] and L["Collection unknown"] or left.promotion[1] and L["Promotion"])
 end
 
 local function Head(t)
@@ -207,16 +220,16 @@ local function RowData(s)
     local v, state, arg = s.vendor
     local oneLine = s.type ~= "vendors" and s.type ~= "drops"
     if v and D.IsOppositeFaction(v) then state, arg = "faction", D.VendorFactionLabel(v)
-    elseif s.type == "events" and not Live(s.key) then state = "idle"
+    elseif (s.type == "events" and not Live(s.key)) or (v and not Facts.OnSale(v)) then state = "idle"
     elseif cs == "counting" then state = "counting"
     elseif CG.HiddenBy(v and { vendor = v } or { items = s.items }) == "collected" then state = "allDone"
     elseif can and can > 0 then state, arg = "some", can
     elseif s.type == "events" or (v and (D.HolidayActive(v) or Facts.EndeavorActive(v))) then state = "live" end
     return {
-        kind = "row", key = s.key, name = s.title, line2 = not oneLine and s.sub or s.where, noTile = true, state = state, arg = arg,
+        kind = "row", key = s.key, name = v and HA.VendorData:GetVendorName(v) or s.title, line2 = not oneLine and s.sub or s.where, noTile = true, state = state, arg = arg,
         iconsOf = oneLine and function() return Rows(s, true) end or nil,
         selected = vid ~= nil and s.key == vid or nil, narrow = Narrow() or nil,
-        right = total == 0 and L["No decor"] or got and L["%d of %d"]:format(got, total) or L["%d decor"]:format(total),
+        right = total == 0 and (v and LeftOutMark(v) or L["No decor"]) or got and L["%d of %d"]:format(got, total) or L["%d decor"]:format(total),
         onClick = function()
             if not v then B.Go({ kind = "source", key = s.type, id = s.key })
             elseif vid == s.key then Page:CloseCard()
@@ -224,6 +237,17 @@ local function RowData(s)
         end,
         onEnter = LINK[s.type] and function(self) B.ShowLinkTooltip(self, LINK[s.type](s)) end or nil,
     }
+end
+
+-- A vendor's row on another page's list, read as this page reads its own; it opens the card over all vendors.
+-- fill: a missing count may ask for the counts again, once per draw of that list.
+function B.VendorRow(v, fill)
+    cs = HA.CatalogScanner:GetReadState()
+    if fill then asked = false end
+    local d = RowData(VendorEntry(v))
+    d.selected, d.narrow = nil, nil
+    d.onClick = function() B.Go({ kind = "vendor", id = d.key, list = { kind = "allVendors" } }) end
+    return d
 end
 
 -- Quests: expansion of the continent the quest's spot is on, then the zone the spot is in; the unlocated quests last.
@@ -283,15 +307,25 @@ local function Place(s, order)
     end
 end
 
+-- nil for equal names; otherwise names in list order, accented Latin letters with their base letter.
+local function Lt(x, y)
+    if x == y then return nil end
+    local kx, ky = NK(x), NK(y)
+    if kx ~= ky then return kx < ky end
+    return x < y
+end
+
 local function Before(a, b)
     if a.o ~= b.o then return a.o < b.o end
     if a.late ~= b.late then return b.late == true end
-    local ta, tb, pa, pb = a.top or "", b.top or "", a.p or 0, b.p or 0
-    if ta ~= tb then return ta < tb end
+    local pa, pb = a.p or 0, b.p or 0
+    local lt = Lt(a.top or "", b.top or "")
+    if lt ~= nil then return lt end
     if pa ~= pb then return pa < pb end
-    local ga, gb = a.g or "", b.g or ""
-    if ga ~= gb then return ga < gb end
-    if a.title ~= b.title then return a.title < b.title end
+    lt = Lt(a.g or "", b.g or "")
+    if lt ~= nil then return lt end
+    local na, nb = NK(a.st or a.title), NK(b.st or b.title)
+    if na ~= nb then return na < nb end
     return tostring(a.key) < tostring(b.key)
 end
 
@@ -315,19 +349,16 @@ local footKind = {
     end,
 }
 
-local function ShowHidden()
+-- Turns the Hide toggle off: a footer's or an empty list's "Show them".
+function B.ShowHidden()
     B.Window.hideNA:SetChecked(false)
     B.SetHideNA(false)
 end
-
-local function ResetSearch()
-    B.Window.SetSearch("")
-    Page:Filter("")
-end
+local ShowHidden = B.ShowHidden
 
 -- Folded groups, for the session: a vendor zone, or the folding header under a plain one in the achievement,
--- quest and profession lists. A search shows every matching group open, and the seed zone opens. A fold changes
--- only which rows draw: the head and the hidden-items footer still count everything.
+-- quest and profession lists. The seed zone opens. A fold changes only which rows draw: the head and the
+-- hidden-items footer still count everything.
 local folded, keys = {}, {}
 local TOPS = { achievements = true, quests = true, professions = true }
 
@@ -359,7 +390,6 @@ local function BuildList(keep, zone)
     -- In the player's own zone the seed means everything the Overview "Here" line counts: the zone and its child maps.
     local here = zone and Facts.Here()
     local nearby = here and here.zone == zone and here.maps or nil
-    local q = query:lower()
     local entries, order
     if wide then
         entries = VendorList(now.kind == "vendors" and now.key or nil)
@@ -373,31 +403,27 @@ local function BuildList(keep, zone)
     local out, live, grid = {}, false, t == "shop"
     local hidden, seen = { kind = "foot", hidden = 0, collected = 0, faction = 0, onShow = ShowHidden }, {}
     for _, s in ipairs(entries) do
-        if t == "shop" then ShopTitle(s) end
+        Retitle(s)
         live = live or (t == "events" and Live(s.key))
         local v = s.vendor
-        local text = (s.title .. " " .. (s.sub or "") .. " " .. (s.group or "") .. " " .. (v and v.zone or "")
-            .. " " .. (s.en or "")):lower()
         if t == "quests" then
-            -- Each decor item is its own row: hidden on its own, and found by its name when the quest is not.
+            -- Each decor item is its own row, hidden on its own.
             s.pick = {}
             for _, id in ipairs(s.items) do
-                if q == "" or text:find(q, 1, true) or DecorName(id):lower():find(q, 1, true) then
-                    local why = hide and CG.HiddenBy(id)
-                    if why then
-                        hidden.hidden = hidden.hidden + 1
-                        hidden[why] = hidden[why] + 1
-                        if why == "faction" then seen[""] = (seen[""] or 0) + 1 end
-                    else
-                        s.pick[#s.pick + 1] = id
-                    end
+                local why = hide and CG.HiddenBy(id)
+                if why then
+                    hidden.hidden = hidden.hidden + 1
+                    hidden[why] = hidden[why] + 1
+                    if why == "faction" then seen[""] = (seen[""] or 0) + 1 end
+                else
+                    s.pick[#s.pick + 1] = id
                 end
             end
             if #s.pick > 0 then
                 out[#out + 1] = s
                 Place(s, order)
             end
-        elseif q == "" or text:find(q, 1, true) then
+        elseif grid or not AllLeftOut(s) then
             local why = hide and CG.HiddenBy(v and { vendor = v } or { items = s.items })
             if why then
                 hidden.hidden = hidden.hidden + 1
@@ -416,7 +442,7 @@ local function BuildList(keep, zone)
     table.sort(out, Before)
     local data, group, expansion, headAt, zoneAt, openAt, shut, topShut = {}, nil, nil, nil, nil, nil, nil, nil
     local tops = not wide and TOPS[t]
-    local fold = (wide or tops) and q == ""
+    local fold = wide or tops
     -- The fold keys of a source's plain header and of its folding one.
     local function KeysOf(s)
         local tk = order and tostring(s.e) or tops and t .. "\1" .. s.top or nil
@@ -480,11 +506,9 @@ local function BuildList(keep, zone)
         empty:Hide()
         if grid then tiles:SetData(out, keep) else list:SetData(data, keep) end
     else
-        local text = q ~= "" and L["Nothing matches your search."] or L["Nothing to show here."]
+        local text = L["Nothing to show here."]
         empty:Set("noResults", {
-            title = L["No results"], text = note and text .. " " .. W.FooterText(note) or text,
-            onShow = note and ShowHidden,
-            onReset = q ~= "" and ResetSearch or nil,
+            title = L["No results"], text = note and text .. " " .. W.FooterText(note) or text, onShow = note and ShowHidden,
         })
     end
     collapse:SetShown((wide or tops) and true or false)
@@ -629,29 +653,15 @@ local function Line(fs, role, text, w)
     if text then fs:SetSize(w, W.TextHeight(role, text, w)) end
 end
 
--- The requirement type that names a source of each page type.
-local OWN = { achievements = "achievement", quests = "quest" }
-
--- A locked item reads "Not collected" on the page of its own requirement: at the vendor it would be bought from,
--- at least one requirement is unmet and every unmet one is this source, by id or by the source's name.
-local function OwnRequirement(s, itemID, at)
-    local SM, kind, unmet = HA.SourceManager, OWN[s.type], 0
-    for _, r in ipairs(SM:GetRequirements(itemID, at) or {}) do
-        if SM:IsRequirementMet(r) ~= true then
-            if not (kind and r.type == kind and (r.id == s.key or r.name == s.title)) then return false end
-            unmet = unmet + 1
-        end
-    end
-    return unmet > 0
-end
+-- A vendor card's left-out wares, by the shared reason, and the mark each is named by.
+local LEFT_OUT = { { "promotion", L["Promotion"] }, { "unknown", L["Collection unknown"] } }
 
 function Rows(s, cells)
     local v, rows = s.vendor, {}
     for _, itemID in ipairs(s.items) do
         local e = CG.Entry(itemID)
         local info = e and e.info
-        local state, arg, at = B.ItemState(itemID, v and v.npcID)
-        if state == "locked" and not v and OwnRequirement(s, itemID, at) then state, arg = "notOwned", nil end
+        local state, arg = B.ItemState(itemID, v and v.npcID)
         rows[#rows + 1] = {
             kind = "row", name = D.ItemName(itemID, info) or L["Item %d"]:format(itemID),
             rank = state == "can" and 1 or state == "owned" and 3 or 2,
@@ -662,7 +672,8 @@ function Rows(s, cells)
     end
     table.sort(rows, function(a, b)
         if a.rank ~= b.rank then return a.rank < b.rank end
-        if a.name ~= b.name then return a.name < b.name end
+        local ka, kb = NK(a.name), NK(b.name)
+        if ka ~= kb then return ka < kb end
         return a.itemID < b.itemID
     end)
     return rows
@@ -678,14 +689,12 @@ local function Report(s)
     if not s then return end
     local v = s.vendor
     local mapID, x, y = Loc(s)
-    local where = mapID and L["map %d at %.1f, %.1f"]:format(mapID, x * 100, y * 100) or L["no location"]
     local build, number = GetBuildInfo()
-    HA.OutputWindow:Show(L["Report a data error"], table.concat({
-        v and L["Vendor %d: %s, %s, %s"]:format(v.npcID, v.name or L["Unknown"], select(2, Facts.Place(v)) or L["Unknown"], where)
-            or L["%s: %s"]:format(KIND[s.type][1], s.title),
-        L["Client: %s (%s)"]:format(build or "?", number or "?"),
-        L["Homestead: %s"]:format(HA.Constants.VERSION or "?"),
-    }, "\n"))
+    HA.OutputWindow:Show(L["Report a data error"], D.ReportText({
+        head = not v and { L["%s: %s"]:format(KIND[s.type][1], s.title) } or {},
+        vendors = { v and { npcID = v.npcID, name = v.name, zone = select(2, Facts.Place(v)), mapID = mapID, x = x, y = y } },
+        build = build, buildNumber = number, version = HA.Constants.VERSION,
+    }))
 end
 
 local Text = W.Text
@@ -730,10 +739,6 @@ local function TypeOf(route)
     return key ~= "vendors" and KIND[key] and key or st.type
 end
 
-function Page:Placeholder(route)
-    return KIND[route.kind == "sources" and TypeOf(route) or "vendors"][2]
-end
-
 -- An expansion with no listed vendor left is gone: the router falls back to all vendors. So is a vendor the
 -- data no longer has.
 function Page:Has(route)
@@ -752,7 +757,7 @@ function Page:ListOf(route)
     return self:Has(over) and over or { kind = "allVendors" }
 end
 
--- A forward Show starts from the route's seed (search or zone); Back gives saved. A vendor route is a card over
+-- A forward Show starts from the route's seed (a zone); Back gives saved. A vendor route is a card over
 -- its list (route.list): with keep, that list is already up, and opening, swapping and closing the card leave it.
 function Page:Show(route, saved, keep)
     local card = route.kind == "vendor"
@@ -769,8 +774,6 @@ function Page:Show(route, saved, keep)
         now, wide, torn, vid = over, over.kind ~= "sources", false, card and route.id or nil
         if not wide then st.type = TypeOf(over) end
         Arrange()
-        query = saved and saved.search or seed and seed.search or ""
-        B.Window.SetSearch(query)
         local at, openAt = BuildList(false, seed and seed.zone)
         if saved and saved.scroll then
             Scroller().box:ScrollToOffset(saved.scroll, true)
@@ -785,19 +788,13 @@ end
 
 function Page:Save()
     return {
-        search = query, scroll = Scroller().box:GetDerivedScrollOffset(), card = vid and Vend:Save() or nil,
+        scroll = Scroller().box:GetDerivedScrollOffset(), card = vid and Vend:Save() or nil,
     }
 end
 
 -- Closes the open card onto its list: Escape, and clicking the selected row.
 function Page:CloseCard()
     return vid ~= nil and B.CloseOver()
-end
-
-function Page:Filter(text)
-    if text == query then return end
-    query, torn = text, false
-    BuildList(false)
 end
 
 function Page:Hide()
@@ -930,17 +927,25 @@ function Draw(fresh, saved)
     end
     local w = BodyWidth()
     V.wait, V.w = nil, w
-    local s = { vendor = v, type = "vendors", title = v.name or L["Unknown"], items = D.VendorWares(v) }
+    local items, left = D.VendorWares(v)
+    local s = { vendor = v, type = "vendors", title = HA.VendorData:GetVendorName(v) or L["Unknown"], items = items }
     V.s = s
     local rows = Rows(s, true)
     local ready = HA.CatalogScanner:GetReadState() == "ready"
-    local act = D.HolidayActive(v) and v.event or nil
-    local live = act ~= nil or Facts.EndeavorActive(v) == true
+    local act = D.HolidayActive(v) and v.event or Facts.EndeavorActive(v) == true or nil
+    local live = act ~= nil
     local n, owned = #rows, 0
     for _, r in ipairs(rows) do
         local e = CG.Entry(r.itemID)
         r.bonus, r.active, r.copies = e and e.bonus, act, select(2, D.IconData(r.itemID, true, B.State.catalogMemo))
         if r.state == "owned" then owned = owned + 1 end
+    end
+    -- Wares left out of the count follow it, greyed and named on hover.
+    for _, why in ipairs(left and LEFT_OUT or {}) do
+        for _, r in ipairs(Rows({ vendor = v, items = left[why[1]] }, true)) do
+            r.state, r.mark = nil, why[2]
+            rows[#rows + 1] = r
+        end
     end
 
     local cw, nh, bh = w - PORTRAIT - SP.m - XRES, W.TextHeight("subheader"), W.TextHeight("body")
@@ -950,7 +955,7 @@ function Draw(fresh, saved)
     V.tag:SetShown(live)
     local tagH = live and W.TextHeight("meta", V.tag:GetText(), cw) or 0
     V.tag:SetSize(cw, tagH)
-    local place = Facts.Where(v) or L["Unknown"]
+    local place = HA.VendorPlaceText(v) or L["Unknown"]
     local at = Facts.Place(v)
     local cont = Facts.Nearness(at, Facts.Here()) == 3 and Continent(at)
     V.where:SetText(cont and L["%s · %s"]:format(place, cont) or place)
@@ -975,19 +980,20 @@ function Draw(fresh, saved)
     Line(V.cur, "body", cur[1] and L["%s: %s"]:format(S.Colored(K.gold, L["Currency"]), W.Join(cur, L["%s, %s"])), w)
     local parts, unknown = {}, false
     for _, r in ipairs(D.VendorRequirements(v)) do
-        parts[#parts + 1] = r.met == true and L["%s (done)"]:format(r.text) or r.met == false and L["%s (not yet)"]:format(r.text) or r.text
-        unknown = unknown or r.met == nil
+        parts[#parts + 1] = D.RequirementWords(r)
+        unknown = unknown or r.met == nil and not r.plain
     end
     Line(V.req, "body", parts[1] and L["%s: %s"]:format(S.Colored(K.gold, L["Requires"]), W.Join(parts, L["%s; %s"]))
         .. (unknown and "\n" .. L["Can't check this requirement yet"] or ""), w)
     Line(V.stop, "body", D.IsOppositeFaction(v)
         and S.Colored(K.stop, L["%s only: can't buy on this character"]:format(D.VendorFactionLabel(v) or "")), w)
     Line(V.hdr, "bodyGold", L["Wares"], w)
-    Line(V.key, "body", n > 0 and L["Corners: state top right, bonus top left, event bottom left, copies bottom right."], w)
+    Line(V.key, "body", rows[1] and L["Corners: state top right, bonus top left, event bottom left, copies bottom right."]
+        .. (#rows > n and " " .. L["Greyed: promotion item, or collection status unknown. Not counted in totals."] or ""), w)
     V.report:Fit()
-    V.grid:SetShown(n > 0)
+    V.grid:SetShown(rows[1] ~= nil)
     V.grid:SetData(rows, not fresh, w - LO.scrollBarGap)
-    if n > 0 then V.empty:Hide() else
+    if rows[1] then V.empty:Hide() else
         V.empty:Set("noResults", { title = L["No decor"], text = L["No decor is recorded here. If this source gives decor, report it below."] })
     end
 
@@ -1067,7 +1073,7 @@ end
 local function Source(sourceType, key)
     local bucket = Statics()[sourceType]
     local s = bucket and bucket.by[key]
-    if s and sourceType == "shop" then ShopTitle(s) end
+    if s then Retitle(s) end
     return s
 end
 

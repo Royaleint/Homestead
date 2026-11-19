@@ -211,17 +211,8 @@ local function AddRequirementsToTooltip(tooltip, itemID, npcID, dedupSet, reputa
                 -- from uncollected counts whether live or expired, but
                 -- the tooltip still differentiates live vs. expired so the
                 -- item stays discoverable while the promo is running.
-                local isExpired = HA.SourceManager.IsPromotionExpired
-                    and HA.SourceManager:IsPromotionExpired(req)
-                if isExpired then
-                    tooltip:AddLine("  " .. Text("No longer obtainable"), COLOR_GRAY.r, COLOR_GRAY.g, COLOR_GRAY.b)
-                else
-                    local promoName = req.name or Text("Unknown Promotion")
-                    local promoText = req.endsAt
-                        and Text("Promotion reward: %s, through %s"):format(promoName, req.endsAt)
-                        or Text("Promotion reward: %s"):format(promoName)
-                    tooltip:AddLine("  " .. promoText, COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
-                end
+                local color = HA.SourceManager:IsPromotionExpired(req) and COLOR_GRAY or COLOR_YELLOW
+                tooltip:AddLine("  " .. HA.SourceManager:GetRequirementText(req), color.r, color.g, color.b)
             elseif req.type == "unknown" and req.text then
                 text = HA.SourceManager:GetRequirementText(req)
             end
@@ -555,19 +546,21 @@ local function MapName(mapID, fallback)
     return mapID and VF and VF.GetMapName(mapID) or fallback
 end
 
--- A source's zone, subzone and second zone, in the game's language. Only a position's own map and area are
--- looked up: a drop's mapID can be an area ID, so drops are not placed here.
-local function Places(data)
-    local zone, altZone, subzone = MapName(data.mapID, data.zone), MapName(data.altMapID, data.altZone), data.subzone
-    local areaID = data.vendor and data.vendor.areaID
+-- A zone, subzone and second zone, in the game's language. Only a position's own map and area are looked up: a
+-- drop's mapID can be an area ID, so drops are not placed here.
+local function PlaceNames(mapID, zone, subzone, areaID, altMapID, altZone)
+    zone, altZone = MapName(mapID, zone), MapName(altMapID, altZone)
     local area = areaID and HA.VendorFilter and HA.VendorFilter.GetAreaName(areaID)
     if area and area ~= zone then subzone = area end
     return zone, subzone, altZone
 end
 
+local function Places(data)
+    return PlaceNames(data.mapID, data.zone, data.subzone, data.vendor and data.vendor.areaID, data.altMapID, data.altZone)
+end
+
 -- "Subzone, Zone"; a vendor with two positions names both zones.
-local function PlaceText(data)
-    local zone, subzone, altZone = Places(data)
+local function JoinPlace(zone, subzone, altZone)
     if altZone and zone and altZone ~= zone then
         return Text("%s / %s"):format(zone, altZone)
     end
@@ -577,8 +570,43 @@ local function PlaceText(data)
     return zone or subzone
 end
 
+local function PlaceText(data)
+    return JoinPlace(Places(data))
+end
+
+-- A vendor's place as every surface shows it: the text of its source line, both spots for a vendor who stands in
+-- two. nil when it has none.
+function HA.VendorPlaceText(vendor)
+    local mapID, zone = vendor.mapID, vendor.zone
+    local altMapID, _, _, altZone = HA.VendorData:GetOtherPosition(vendor)
+    -- The copy at the second position names the zones in the same order as the vendor's own row.
+    if altMapID and mapID == vendor.altMapID then
+        mapID, zone, altMapID, altZone = altMapID, altZone, mapID, zone
+    end
+    return JoinPlace(PlaceNames(mapID, zone, vendor.subzone, vendor.areaID, altMapID, altZone))
+end
+
+-- A vendor source's name: the client's name for its vendor once known, else the shipped one.
+local function VendorName(data)
+    local v = data.vendor
+    return v and HA.VendorData:GetVendorName(v) or data.name or data.vendorName
+end
+
 local function Name(decorateName, name)
     return decorateName and decorateName(name) or name
+end
+
+-- The red "(Not Active)" after a vendor that is listed but not selling now; the side panel's vendor rows use it too.
+local function NotActiveTag()
+    return " |cffff4444(" .. Text("Not Active") .. ")|r"
+end
+HA.NotActiveTag = NotActiveTag
+
+-- The not-active mark for a vendor source that is listed but not selling now; "" for any other.
+local function NotSellingTag(data)
+    local VD = HA.VendorData
+    if data.npcID and VD and not VD:IsVendorSellingNow(data.npcID) then return NotActiveTag() end
+    return ""
 end
 
 local function ShopSummary(data)
@@ -598,6 +626,21 @@ end
 -- Sources outside the named types read "<label>: <name>".
 local OTHER_LABEL_KEYS = { treasure = "Treasure" }
 
+-- A recipe's skill tier with the skill level it needs: "Battle for Azeroth Leatherworking (140)".
+function HA.ProfessionTierText(data)
+    local tier = data.skillTier or data.profession or Text("Unknown")
+    if data.skillLevel then tier = Text("%s (%s)"):format(tier, data.skillLevel) end
+    return tier
+end
+
+-- Whether a source's quest or achievement is done, or its recipe known, as coloured words; nil for any other
+-- source, or when the game cannot say.
+local COMPLETION_TYPES = { achievement = true, quest = true, profession = true }
+function HA.CompletionText(itemID, source)
+    local c = COMPLETION_TYPES[source.type] and HA.SourceManager:GetCompletionStatus(itemID, source.type, source.data)
+    return c and c.color .. c.text .. "|r"
+end
+
 -- source is a SourceManager source, { type = ..., data = ... }. decorateName,
 -- optional, takes the main name of the line and returns it coloured.
 function HA.FormatSourceLine(source, decorateName)
@@ -606,19 +649,18 @@ function HA.FormatSourceLine(source, decorateName)
     local t = source.type or source.sourceType
 
     if t == "vendor" then
-        local name = data.name or data.vendorName
+        local name = VendorName(data)
         if not name then return Text("A vendor") end
         local place = PlaceText(data)
-        if place then return Text("Vendor: %s, %s"):format(Name(decorateName, name), place) end
-        return Text("Vendor: %s"):format(Name(decorateName, name))
+        if place then return Text("Vendor: %s, %s"):format(Name(decorateName, name), place) .. NotSellingTag(data) end
+        return Text("Vendor: %s"):format(Name(decorateName, name)) .. NotSellingTag(data)
     elseif t == "quest" then
         return Text("Quest: %s"):format(Name(decorateName, data.questName or Text("Unknown")))
     elseif t == "achievement" then
         return Text("Achievement: %s"):format(Name(decorateName, data.achievementName or Text("Unknown")))
     elseif t == "profession" then
-        local tier = data.skillTier or data.profession or Text("Unknown")
-        if data.skillLevel then tier = Text("%s (%s)"):format(tier, data.skillLevel) end
-        return Text("Crafted: %s - %s"):format(Name(decorateName, tier), data.recipeName or data.name or Text("Unknown"))
+        return Text("Crafted: %s - %s"):format(Name(decorateName, HA.ProfessionTierText(data)),
+            data.recipeName or data.name or Text("Unknown"))
     elseif t == "drop" then
         local mob = Name(decorateName, data.mobName or data.name or Text("Unknown"))
         if data.zone then return Text("Drops from %s (%s)"):format(mob, data.zone) end
@@ -651,14 +693,15 @@ local function RenderVendorSourceLines(tooltip, source, parsedTag, _itemID, _com
         return
     end
 
-    local vendorName = source.data.name or Text("Unknown Vendor")
+    local vendorName = VendorName(source.data) or Text("Unknown Vendor")
     local zone, subzone, altZone = Places(source.data)
     local zoneName = zone or Text("Unknown Location")
     local locationText = subzone
         and (subzone .. " (" .. zoneName .. ")")
         or zoneName
 
-    tooltip:AddLine(LabelLine("Source:", WhiteName(vendorName)) .. parsedTag, COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
+    tooltip:AddLine(LabelLine("Source:", WhiteName(vendorName)) .. NotSellingTag(source.data) .. parsedTag,
+        COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
     tooltip:AddLine("  " .. LabelLine("Location:", WhiteName(locationText)), COLOR_WHITE.r, COLOR_WHITE.g, COLOR_WHITE.b)
 
     if altZone then
@@ -725,10 +768,7 @@ local function RenderProfessionSourceLines(tooltip, source, parsedTag, _itemID, 
         return
     end
 
-    local professionDisplay = source.data.skillTier or source.data.profession or Text("Unknown")
-    if source.data.skillLevel then
-        professionDisplay = Text("%s (%s)"):format(professionDisplay, source.data.skillLevel)
-    end
+    local professionDisplay = HA.ProfessionTierText(source.data)
 
     local recipeName = source.data.recipeName or Text("Unknown Recipe")
     local recipeColor = completion and completion.color or "|cFF808080"
@@ -748,7 +788,7 @@ local function RenderEventSourceLines(tooltip, source, parsedTag, _itemID, _comp
         if isActive == true then
             statusText = " |cff00ff00(" .. Text("Active Now") .. ")|r"
         elseif isActive == false then
-            statusText = " |cffff4444(" .. Text("Not Active") .. ")|r"
+            statusText = NotActiveTag()
         end
         -- nil = unknown/loading → omit status entirely
     end
@@ -904,16 +944,19 @@ local function AddSourceInfoToTooltip(tooltip, itemID, context, detailed, presen
         sourcesToRender = filtered
     end
 
-    -- Consolidate same-name vendor sources: when parsed sourceText yields
-    -- multiple vendor entries for the same NPC in different zones, keep only
-    -- the first occurrence so the tooltip stays compact.
+    -- Each vendor is listed once, and two vendors who share a name are both
+    -- listed. A parsed source text vendor has no NPC ID, so it is folded into
+    -- any vendor of its name already listed: source text can name one NPC in
+    -- several zones.
     if #sourcesToRender > 1 then
         local seenVendors = {}
         local consolidated = {}
         for _, source in ipairs(sourcesToRender) do
-            if source.type == "vendor" and source.data and source.data.name then
-                if not seenVendors[source.data.name] then
-                    seenVendors[source.data.name] = true
+            local data = source.data
+            if source.type == "vendor" and data and data.name then
+                local key = data.npcID or data.name
+                if not seenVendors[key] then
+                    seenVendors[key], seenVendors[data.name], seenVendors[VendorName(data)] = true, true, true
                     consolidated[#consolidated + 1] = source
                 end
             else
@@ -1091,19 +1134,24 @@ local function AddDecorInfoToTooltip(tooltip, itemLink, gate)
         availabilityState = HA.SourceManager:GetItemAvailabilityState(itemID, vendorNpcID)
     end
 
-    if not db or db.showOwned ~= false then
+    -- No status at all when the game reports no ownership for the item.
+    local unreported = presentation and presentation.ownershipState == "unknown"
+    if (not db or db.showOwned ~= false) and not unreported then
         if availabilityState == "owned" or isOwned == true then
             gatedTooltip:AddLine(LabelLine("Status:", Text("Owned")), COLOR_GREEN.r, COLOR_GREEN.g, COLOR_GREEN.b)
         elseif vendorNpcID and availabilityState == "purchasable" then
             gatedTooltip:AddLine(LabelLine("Status:", Text("Available")), COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
-        elseif vendorNpcID and availabilityState == "locked" then
+        elseif vendorNpcID and availabilityState == "locked"
+                or availabilityState == "blocked" and presentation and presentation.requirementLocked then
             gatedTooltip:AddLine(LabelLine("Status:", Text("Locked")), COLOR_RED.r, COLOR_RED.g, COLOR_RED.b)
+        elseif availabilityState == "otherFaction" then
+            gatedTooltip:AddLine(LabelLine("Status:", Text("Other faction only")), COLOR_RED.r, COLOR_RED.g, COLOR_RED.b)
         elseif availabilityState == "available" then
             gatedTooltip:AddLine(LabelLine("Status:", Text("Available Now")), COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
         elseif availabilityState == "blocked" then
             gatedTooltip:AddLine(LabelLine("Status:", Text("Blocked")), COLOR_RED.r, COLOR_RED.g, COLOR_RED.b)
         elseif isOwned == false then
-            gatedTooltip:AddLine(LabelLine("Status:", Text("Not Owned")), COLOR_RED.r, COLOR_RED.g, COLOR_RED.b)
+            gatedTooltip:AddLine(LabelLine("Status:", Text("Not Collected")), COLOR_RED.r, COLOR_RED.g, COLOR_RED.b)
         else
             gatedTooltip:AddLine(LabelLine("Status:", Text("Unknown")), COLOR_GRAY.r, COLOR_GRAY.g, COLOR_GRAY.b)
         end

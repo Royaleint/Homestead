@@ -22,13 +22,11 @@ local Page, ui, orders = {}, {}, {}
 local cat, recs, walk, version, hideFor, judged, named, bareList, bareVer
 local hiddenNote
 local shown = {}
--- What the header box holds, as typed; cat.q is the same words trimmed and lowercased.
-local query = ""
 
 local function NewView(sort)
     local types = {}
     for _, k in ipairs(KEYS) do types[k] = true end
-    return { q = "", kind = "all", coll = true, notColl = true, canGet = false, bonus = false,
+    return { kind = "all", coll = true, notColl = true, canGet = false, bonus = false,
         types = types, sort = sort or "best" }
 end
 
@@ -63,7 +61,7 @@ local function Rebuild()
     wipe(orders)
     recs = {}
     for i, e in ipairs(walk and walk.list or BareEntries()) do
-        local r = { kind = "item", id = e.itemID, e = e, lname = e.name and e.name:lower() or "",
+        local r = { kind = "item", id = e.itemID, e = e, lname = e.name and HA.NameSortKey(e.name) or "",
             hasName = e.name ~= nil, cat = KindOf(e.info), bonus = e.bonus,
             done = e.own == "owned", hid = hideFor and (walk and (e.own == "owned" and "collected" or e.factionOnly and "faction" or nil) or not walk and CG.HiddenBy(e.itemID)) or nil }
         r.g = walk and Group(e) or 1
@@ -79,23 +77,13 @@ local function Rejudged()
     judged = CG.Gen()
 end
 
--- The lowest gold-only price at any of the item's vendors: listed sources, then unlisted holiday vendors. The
--- source list changes with the season, but the two together always cover the same vendors, so the cached
--- value holds until the records rebuild.
+-- The lowest gold-only price at any of the item's vendors, holiday vendors in any season, so the cached value
+-- holds until the records rebuild.
 local function Gold(itemID)
-    local low, seen = math.huge, {}
-    local function Take(c)
-        local gold = CG.LowGold(c)
-        if gold then low = math.min(low, gold) end
-    end
+    local low = math.huge
     for _, s in ipairs(HA.SourceManager:GetAllSources(itemID) or {}) do
-        if s.type == "vendor" and s.data then
-            if s.data.npcID then seen[s.data.npcID] = true end
-            Take(D.SourceCost(itemID, s.data))
-        end
-    end
-    for _, npcID in ipairs(HA.VendorData:GetHolidayVendorsForItem(itemID) or {}) do
-        if not seen[npcID] then Take(HA.SourceManager:GetVendorItemCost(itemID, HA.VendorData:GetVendorAnySeason(npcID))) end
+        local gold = s.type == "vendor" and s.data and CG.LowGold(D.SourceCost(itemID, s.data))
+        if gold then low = math.min(low, gold) end
     end
     return low
 end
@@ -143,7 +131,6 @@ end
 local function Passes(r, c, anyOwn, subset)
     local e = r.e
     if c.kind ~= "all" and r.cat ~= c.kind then return false end
-    if c.q ~= "" and not r.lname:find(c.q, 1, true) then return false end
     if not anyOwn and not ((e.own == "owned" and c.coll) or (e.own == "notOwned" and c.notColl)) then return false end
     if (c.canGet and e.verdict ~= "can") or (c.bonus and not r.bonus) then return false end
     if subset then
@@ -180,12 +167,11 @@ end
 
 local Apply
 
--- Clears the filters and the search, keeping the kind and the sort.
+-- Clears the filters, keeping the kind and the sort.
 local function Reset()
     local kind = cat.kind
     cat = NewView(cat.sort)
-    cat.kind, query = kind, ""
-    B.Window.SetSearch("")
+    cat.kind = kind
     Apply(false)
 end
 
@@ -200,10 +186,9 @@ local function Describe(r)
         local active, state, arg = nil, B.ItemState(id)
         for _, o in pairs(e.canBy or {}) do active = active or o.event end
         local info = e.info
-        local copies = info and select(3, HA.CatalogScanner:GetReadState()) and (info.totalNumPlaced or 0) + (info.totalNumStored or 0) or 0
         d = { itemID = id, name = Name(r), quality = info and info.quality or C_Item.GetItemQualityByID(id),
             icon = info and info.iconTexture or D.ItemIcon(id), active = active, bonus = r.bonus,
-            copies = copies > 0 and copies or nil, state = state, arg = arg }
+            copies = D.Copies(info), state = state, arg = arg }
         r.d = d
     end
     return d
@@ -240,9 +225,7 @@ local function Empty(status, n, hidden, words)
         if kind == "counting" and c.sort == "best" then
             kind, d.onSort = "countingSort", function() ui.sort.Set("name") Apply(false) end
         end
-    elseif n == 0 and not hidden then
-        d.onAll = c.kind ~= "all" and function() B.Go({ kind = "catalog", key = "all", seed = { search = query } }) end or nil
-    else
+    elseif n > 0 or hidden then
         ui.empty:Hide()
         return false
     end
@@ -273,7 +256,7 @@ end
 
 -- What a tile's corners mean, each state with the mark it draws.
 local KEY_STATES = {
-    { "owned", L["Collected: you own it"] },
+    { "owned", L["Collected: it's in your collection"] },
     { "can", L["Can get now: this character can get it today"] },
     { "short", L["Not enough: this character can't pay for it yet"] },
     { "locked", L["Locked: a requirement isn't met yet"] },
@@ -300,7 +283,7 @@ local function KeyTip(owner)
     Corner(L["Bottom left"])
     Line(L["Its event is active now"], "clock", K.badge)
     Corner(L["Bottom right"])
-    Line(L["How many you own, placed and stored"])
+    Line(L["How many you have collected, placed and stored"])
     tip:Show()
 end
 
@@ -402,26 +385,19 @@ function Page:Build(parent)
     ui.empty = W.NewEmptyState(holder)
 end
 
-function Page:Placeholder()
-    return L["Search decor"]
-end
-
 -- A forward Show starts from the route's kind and seed, keeping only the sort; Back gives saved.
 function Page:Show(route, saved)
     if saved then
-        cat, query = saved.view, saved.query
+        cat = saved.view
     else
         local seed = route.seed or {}
         local f = seed.filters or {}
         cat = NewView(seed.sort or cat.sort)
-        query = seed.search or ""
-        cat.q = query:lower():match("^%s*(.-)%s*$")
         cat.kind = KIND[route.key] and route.key or "all"
         if f.collected or f.notCollected then cat.coll, cat.notColl = f.collected == true, f.notCollected == true end
         cat.canGet, cat.bonus = f.canGet == true, f.bonus == true
         for k in pairs(cat.types) do cat.types[k] = f.sources == nil or f.sources[k] == true end
     end
-    B.Window.SetSearch(query)
     ui.sort.Set(cat.sort)
     if not recs or version ~= D.MemoVersion() or hideFor ~= B.State.hideNA or named ~= D.NameGen() then
         walk = B.Walk()
@@ -435,16 +411,7 @@ end
 
 -- A forward Show builds a new view, so the one saved here is never touched again before Back gives it back.
 function Page:Save()
-    return { view = cat, query = query, scroll = ui.grid.box:GetDerivedScrollOffset() }
-end
-
--- The header box as the player types; a restore or a seed never gets here.
-function Page:Filter(text)
-    query = text
-    local q = text:lower():match("^%s*(.-)%s*$")
-    if q == cat.q then return end
-    cat.q = q
-    Apply(false)
+    return { view = cat, scroll = ui.grid.box:GetDerivedScrollOffset() }
 end
 
 function Page:Hide()

@@ -231,6 +231,9 @@ end
 -- Catalog Scanning
 -------------------------------------------------------------------------------
 
+-- Which read paths (item, decor, room) returned an entry for any item in the running scan.
+local answered = {}
+
 -- Scan a single item by itemID
 local function ScanItem(itemID)
     if not itemID or type(itemID) ~= "number" then return nil end
@@ -247,6 +250,7 @@ local function ScanItem(itemID)
         end)
 
         if success and info then
+            answered.item = true
             if IsOwned(info) then
                 return BuildScanResult(itemID, info)
             end
@@ -263,6 +267,7 @@ local function ScanItem(itemID)
         if decorID then
             local info = catalogStore:ProbeByDecorID(decorID)
             if info then
+                answered.decor = true
                 return BuildScanResult(itemID, info, decorID)
             end
         end
@@ -274,6 +279,7 @@ local function ScanItem(itemID)
         if roomID then
             local info = catalogStore:ProbeByRoomID(roomID)
             if info then
+                answered.room = true
                 local result = BuildScanResult(itemID, info)
                 -- With the deprecation shim loaded, info.entryID.recordID is the
                 -- ROOM recordID, and ProcessBatch writes result.recordID as
@@ -355,6 +361,8 @@ function CatalogScanner:ScanFullCatalog(callback)
     local currentIndex = 1
     local ownedCount = 0
     local checkedCount = 0
+    local noEntry = {}
+    answered.item, answered.decor, answered.room = nil, nil, nil
 
     HA.Addon:Debug("Found", totalItems, "unique items to scan")
 
@@ -396,6 +404,7 @@ function CatalogScanner:ScanFullCatalog(callback)
             local itemData = itemList[i]
             if itemData and itemData.itemID then
                 local result = ScanItem(itemData.itemID)
+                if not result then noEntry[#noEntry + 1] = itemData.itemID end
                 if result then
                     checkedCount = checkedCount + 1
                     if result.isOwned then
@@ -438,6 +447,21 @@ function CatalogScanner:ScanFullCatalog(callback)
         else
             -- Scan complete
             isScanning = false
+
+            -- An empty read means no such entry only when storage had loaded before the pass began and one of
+            -- the item's own read paths answered for other items in the same pass; otherwise that path was not
+            -- answering, and the item keeps counting.
+            local store = HA.CatalogStore
+            if scanStartedWarm and checkedCount > 0 and store then
+                local trusted = {}
+                for _, itemID in ipairs(noEntry) do
+                    if answered.item or (answered.decor and store:GetDecorIDFromItemID(itemID))
+                            or (answered.room and store:GetRoomIDFromItemID(itemID)) then
+                        trusted[#trusted + 1] = itemID
+                    end
+                end
+                store:SetUnreported(trusted)
+            end
 
             -- End batch mode on CatalogStore (fires single OWNERSHIP_UPDATED + CATALOG_ITEM_UPDATED)
             if HA.CatalogStore then

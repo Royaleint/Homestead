@@ -6,6 +6,7 @@ local B = HA.DecorBrowser
 local L = HA.L
 local D = B.Data
 local Facts = B.Facts
+local NK = HA.NameSortKey
 
 local CG = {}
 B.CanGet = CG
@@ -233,7 +234,7 @@ local function LowGold(cost, payable)
 end
 CG.LowGold = LowGold
 
--- true when every source is an other-faction vendor. Kept per item; the router resets it on show, on
+-- The shared other-faction-only answer, kept per item; the router resets it on show, on
 -- SOURCE_CACHES_INVALIDATED and on a decor vendor scan.
 local factionOnly = {}
 function CG.ResetFactionOnly()
@@ -243,12 +244,7 @@ end
 local function FactionOnly(itemID)
     local only = factionOnly[itemID]
     if only == nil then
-        only = false
-        for _, s in ipairs(HA.SourceManager:GetAllSources(itemID) or {}) do
-            local v = s.type == "vendor" and s.data and s.data.vendor
-            only = v and D.IsOppositeFaction(v) or false
-            if not only then break end
-        end
+        only = HA.SourceManager:IsOtherFactionOnly(itemID)
         factionOnly[itemID] = only
     end
     return only
@@ -335,12 +331,12 @@ local function SourceTables()
 end
 
 -- Offers are evaluated only for uncollected items; collected and unknown items never reach a vendor check.
-local function Evaluate(itemID, SM, VD, memo, tables)
+local function Evaluate(itemID, SM, memo, tables)
     local own, info = Own(itemID, memo)
     local e = { itemID = itemID, info = info, own = own, name = D.ItemName(itemID, info), src = {} }
     local bonus = info and info.firstAcquisitionBonus or 0
     e.bonus = own == "notOwned" and bonus > 0 and bonus or nil
-    e.src.vendors = VD:IsCountedVendorItem(itemID) or nil
+    e.src.vendors = SM:IsVendorItem(itemID) or nil
     for key, t in pairs(tables) do
         if t[itemID] then e.src[key] = true end
     end
@@ -349,16 +345,12 @@ local function Evaluate(itemID, SM, VD, memo, tables)
         e.verdict = own == "owned" and "owned" or "unknown"
         return e
     end
-    local best, seen = nil, {}
+    local best
     for _, s in ipairs(SM:GetAllSources(itemID) or {}) do
         if s.type == "vendor" then
             local d = s.data or {}
-            if d.npcID then seen[d.npcID] = true end
             best = Consider(e, SM, d.npcID, d.vendor, d.cost, best)
         end
-    end
-    for _, npcID in ipairs(HA.VendorData:GetHolidayVendorsForItem(itemID) or {}) do
-        if not seen[npcID] then best = Consider(e, SM, npcID, HA.VendorData:GetVendorAnySeason(npcID), nil, best) end
     end
     e.rest = best
     Settle(e)
@@ -374,14 +366,18 @@ function CG.Entry(itemID)
     Fresh()
     local e = entries[itemID]
     if not e then
-        e = Evaluate(itemID, HA.SourceManager, HA.VendorData, Memo(), SourceTables())
+        e = Evaluate(itemID, HA.SourceManager, Memo(), SourceTables())
         entries[itemID] = e
     end
     return e
 end
 
+local function Add(t, n, got)
+    t.total, t.owned = t.total + n, t.owned + (got and n or 0)
+end
+
 local function RunWalk(items)
-    local SM, VD, memo, tables = HA.SourceManager, HA.VendorData, Memo(), SourceTables()
+    local SM, memo, tables = HA.SourceManager, Memo(), SourceTables()
     local list = {}
     local progress = { known = true, total = 0, owned = 0, src = {} }
     local src = progress.src
@@ -390,18 +386,14 @@ local function RunWalk(items)
         local itemID = items[i]
         local e = entries[itemID]
         if not e then
-            e = Evaluate(itemID, SM, VD, memo, tables)
+            e = Evaluate(itemID, SM, memo, tables)
             entries[itemID] = e
         end
         list[i] = e
-        local owned = e.own == "owned"
-        progress.total = progress.total + 1
-        if owned then progress.owned = progress.owned + 1 end
-        for key in pairs(e.src) do
-            local s = src[key]
-            s.total = s.total + 1
-            if owned then s.owned = s.owned + 1 end
-        end
+        local got = e.own == "owned"
+        local n = HA.CatalogStore:LeftOutReason(itemID, nil, got) and 0 or 1
+        Add(progress, n, got)
+        for key in pairs(e.src) do Add(src[key], n, got) end
     end
     return { list = list, progress = progress, vendorCan = {} }
 end
@@ -476,7 +468,8 @@ local function Before(a, b)
     if (a.lowGold ~= nil) ~= (b.lowGold ~= nil) then return a.lowGold ~= nil end
     if a.lowGold ~= b.lowGold then return a.lowGold < b.lowGold end
     if (a.name ~= nil) ~= (b.name ~= nil) then return a.name ~= nil end
-    if a.name and a.name ~= b.name then return a.name < b.name end
+    local ka, kb = a.name and NK(a.name), b.name and NK(b.name)
+    if ka ~= kb then return ka < kb end
     return a.itemID < b.itemID
 end
 
@@ -498,7 +491,7 @@ function CG.Primary(itemID, sources)
     if at then
         local v = D.Vendor(at) or {}
         local _, zone, subzone = Facts.Place(v)
-        return { type = "vendor", npcID = at, name = v.name, zone = zone, subzone = subzone, price = D.Price(itemID, v),
+        return { type = "vendor", npcID = at, name = HA.VendorData:GetVendorName(v), zone = zone, subzone = subzone, price = D.Price(itemID, v),
             source = D.VendorSource(at) }
     end
     return own or first or sources[1]
@@ -573,7 +566,8 @@ function CG.Fill()
     table.sort(candidates, function(a, b)
         if a.step ~= b.step then return a.step < b.step end
         if a.unmet ~= b.unmet then return a.unmet < b.unmet end
-        if a.entry.name ~= b.entry.name then return a.entry.name < b.entry.name end
+        local ka, kb = NK(a.entry.name), NK(b.entry.name)
+        if ka ~= kb then return ka < kb end
         return a.entry.itemID < b.entry.itemID
     end)
     for i = 1, math.min(room, #candidates) do out.notYet[i] = candidates[i] end
@@ -594,12 +588,18 @@ function CG.HiddenBy(what)
         if D.IsOppositeFaction(vendor) then return "faction" end
         items = D.VendorWares(vendor)
     end
-    if not (items and items[1]) then return nil end
+    if not items then return nil end
+    -- A vendor's wares are already the counted ones; other sources leave out what the walk leaves out.
+    local any = false
     for _, itemID in ipairs(items) do
         local e = CG.Entry(itemID)
-        if not (e and e.own == "owned") then return nil end
+        local own = e and e.own == "owned"
+        if vendor or not HA.CatalogStore:LeftOutReason(itemID, nil, own) then
+            if not own then return nil end
+            any = true
+        end
     end
-    return "collected"
+    return any and "collected" or nil
 end
 
 local function FactionLabel(itemID, npcID)

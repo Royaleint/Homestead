@@ -201,7 +201,7 @@ local function CreateWelcomeFrame()
     tagline:SetPoint("TOP", title, "BOTTOM", -15, -12)
     tagline:SetWidth(CONTENT_WIDTH)
     tagline:SetJustifyH("CENTER")
-    tagline:SetText("|cFFFFD100" .. L["Find every decor vendor on your map and see what you own before you buy."] .. "|r")
+    tagline:SetText("|cFFFFD100" .. L["Find every decor vendor on your map and see what you've collected before you buy."] .. "|r")
 
     -- =========================================================================
     -- Content area

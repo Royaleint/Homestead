@@ -708,6 +708,10 @@ end
 --     RefreshMapPins. That one now uses the broadcasting variant, so it
 --     arrives as SOURCE_CACHES_INVALIDATED and needs no separate wiring here.
 --
+-- A change of the running Endeavor theme leaves the sources as they are but changes
+-- whether an Endeavor vendor sells now, and with it the glow; that arrives only as
+-- ACTIVE_ENDEAVOR_CHANGED.
+--
 -- "Known" is doing real work in that sentence: a third such path would be
 -- invisible from this file, so it is worth grepping the memo accessors when
 -- badges go stale for no apparent reason.
@@ -722,6 +726,7 @@ if HA.Events then
     HA.Events:RegisterCallback("OWNERSHIP_UPDATED", RefreshVisibleOverlays)
     HA.Events:RegisterCallback("SOURCE_CACHES_INVALIDATED", RefreshAvailabilityOverlays)
     HA.Events:RegisterCallback("VENDOR_SCANNED", RefreshVisibleOverlays)
+    HA.Events:RegisterCallback("ACTIVE_ENDEAVOR_CHANGED", RefreshAvailabilityOverlays)
 end
 
 -- Not wired, and not an oversight: CatalogStore:SetSources (the sourceText

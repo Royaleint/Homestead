@@ -388,6 +388,7 @@ end
 --   true  = available now
 --   false = known blocked (requirements unmet / event inactive / etc.)
 --   nil   = unknown (insufficient data)
+-- A second return of true says a selling vendor is held back by its requirements.
 function SourceManager:IsSourceAvailableNow(itemID, source)
     if not itemID or not source or not source.type then return nil end
 
@@ -398,12 +399,16 @@ function SourceManager:IsSourceAvailableNow(itemID, source)
     if sourceType == "vendor" then
         local vendorNPCID = data.npcID
         if vendorNPCID then
+            if HA.VendorData and not HA.VendorData:IsVendorSellingNow(vendorNPCID) then
+                return false
+            end
+            -- A requirement that cannot be checked holds the source back as an unmet one does,
+            -- the same rule the vendor-scoped state applies.
             local reqs = self:GetRequirements(itemID, vendorNPCID)
-            if reqs and #reqs > 0 then
+            if reqs then
                 for _, req in ipairs(reqs) do
-                    local met = self:IsRequirementMet(req)
-                    if met == false then
-                        return false
+                    if self:IsRequirementMet(req) ~= true then
+                        return false, true
                     end
                 end
             end
@@ -411,8 +416,13 @@ function SourceManager:IsSourceAvailableNow(itemID, source)
         return true
     end
 
-    -- Event sources are unavailable when the event is known inactive.
+    -- Event sources are unavailable when the event is known inactive. An event vendor's ware is available only while
+    -- that vendor is selling, so it is not available before the calendar has said the event is on. A vendor with no
+    -- holiday row falls to the calendar check, so it cannot read available all year.
     if sourceType == "event" then
+        if data.npcID and HA.VendorData and HA.VendorData:GetHolidayEvent(data.npcID) then
+            return HA.VendorData:IsVendorSellingNow(data.npcID)
+        end
         if HA.CalendarDetector and data.event then
             local isActive = HA.CalendarDetector:IsHolidayActive(data.event)
             if isActive == false then
@@ -434,14 +444,10 @@ function SourceManager:IsSourceAvailableNow(itemID, source)
     -- route through the requirementMetCache (same "achievement"
     -- cache key IsRequirementMet already uses) instead of a live
     -- GetAchievementInfo call on every per-item availability probe.
+    -- An achievement the game cannot report as done counts as not done.
     if sourceType == "achievement" then
-        if data.achievementID then
-            local met = self:IsRequirementMet({ type = "achievement", id = data.achievementID })
-            if met ~= nil then
-                return met
-            end
-        end
-        return true  -- No achievementID to check → assume available
+        return data.achievementID ~= nil
+            and self:IsRequirementMet({ type = "achievement", id = data.achievementID }) == true
     end
 
     -- Profession sources: check whether the player has the required profession
@@ -507,6 +513,32 @@ function SourceManager:IsSourceAvailableNow(itemID, source)
 
     -- Drop and unknown types: treat as available unless explicitly blocked.
     return true
+end
+
+-- Walks an item's sources when no vendor scopes it. Returns the first source open now, the first open
+-- source that offers the item now, and whether a selling vendor's requirements held one back. A done
+-- achievement is open, but has already given what it gives.
+local function ScanSources(self, itemID, sources)
+    local best, held
+    for _, source in ipairs(sources) do
+        local available, locked = self:IsSourceAvailableNow(itemID, source)
+        if available ~= false then
+            best = best or source
+            if source.type ~= "achievement" then return best, source, held end
+        elseif locked then
+            held = true
+        end
+    end
+    return best, nil, held
+end
+
+-- The item's state from that walk: "available", "notOwned" (only a done achievement is open), "blocked"
+-- or "unknown" (no source).
+local function SourceState(self, itemID, best, offered)
+    if offered then return "available" end
+    if best then return "notOwned" end
+    if self:GetSource(itemID) then return "blocked" end
+    return "unknown"
 end
 
 -- Get the highest-priority source that appears available "right now".
@@ -679,10 +711,10 @@ end
 -- parsedSource: optional pre-fetched parsed-source table, threaded through to
 -- GetVendorItemCost (see GetVendorSources, which hoists this per item).
 local function BuildVendorSourceData(itemID, vendor, parsedSource)
-    if not itemID or not vendor then return nil end
+    if not vendor then return nil end
 
     local cost, costStatus = nil, nil
-    if HA.SourceManager.GetVendorItemCost then
+    if itemID and HA.SourceManager.GetVendorItemCost then
         local _
         cost, _, costStatus = HA.SourceManager:GetVendorItemCost(
             itemID, vendor, nil, nil, nil, nil, nil, parsedSource)
@@ -712,6 +744,11 @@ local function BuildVendorSourceData(itemID, vendor, parsedSource)
     }
 end
 
+-- The vendor source record for a vendor; itemID is optional and only prices the item.
+function SourceManager:BuildVendorSource(itemID, vendor, parsedSource)
+    return BuildVendorSourceData(itemID, vendor, parsedSource)
+end
+
 -- Helper: Get vendor source from VendorData
 function SourceManager:GetVendorSource(itemID)
     if not HA.VendorData or not HA.VendorData.GetClosestVendorForItem then
@@ -723,29 +760,63 @@ function SourceManager:GetVendorSource(itemID)
 end
 
 -- Get ALL vendor sources for an item (not just the closest).
+-- Holiday vendors are listed all year: one out of season follows the vendors selling now, and
+-- IsSourceAvailableNow reads it as not available.
 -- Returns array of {type = "vendor", data = {...}} entries.
 function SourceManager:GetVendorSources(itemID)
-    if not itemID or not HA.VendorData or not HA.VendorData.GetVendorsForItem then
+    local VD = HA.VendorData
+    if not itemID or not VD or not VD.GetVendorsForItem then
         return EMPTY_SOURCES
     end
 
-    local vendors = HA.VendorData:GetVendorsForItem(itemID)
-    if not vendors or #vendors == 0 then
+    local vendors = VD:GetVendorsForItem(itemID) or EMPTY_SOURCES
+    local holiday = VD:GetHolidayVendorsForItem(itemID)
+    if #vendors == 0 and not holiday then
         return EMPTY_SOURCES
     end
 
-    -- fetch once for the item instead of once per vendor in the loop below.
+    -- fetch once for the item instead of once per vendor in the loops below.
     local parsedSource = HA.SourceTextScanner and HA.SourceTextScanner:GetParsedSource(itemID)
 
-    local sources = {}
-    for _, vendor in ipairs(vendors) do
+    local sources, listed = {}, {}
+    local function Add(vendor)
         local vendorData = BuildVendorSourceData(itemID, vendor, parsedSource)
         if vendorData then
             sources[#sources + 1] = { type = "vendor", data = vendorData }
         end
     end
+    -- The vendors this character can use come first, so the first vendor named is never a twin for the other
+    -- faction while its own is listed.
+    local CanUse = HA.VendorFilter.CanUseVendor
+    for pass = 1, 2 do
+        for _, vendor in ipairs(vendors) do
+            if CanUse(vendor) == (pass == 1) then
+                listed[vendor.npcID] = true
+                Add(vendor)
+            end
+        end
+    end
+    for _, npcID in ipairs(holiday or EMPTY_SOURCES) do
+        if not listed[npcID] and VD:IsHolidayVendorHidden(npcID) then
+            listed[npcID] = true
+            Add(VD:GetVendorAnySeason(npcID))
+        end
+    end
 
     return sources
+end
+
+-- True when every source of the item is a vendor this character can use at none of its positions; false for an
+-- item with no source.
+function SourceManager:IsOtherFactionOnly(itemID)
+    local sources = self:GetAllSources(itemID)
+    if not sources[1] then return false end
+    local CanUse = HA.VendorFilter.CanUseVendor
+    for _, source in ipairs(sources) do
+        local vendor = source.type == "vendor" and source.data and source.data.vendor
+        if not vendor or CanUse(vendor) then return false end
+    end
+    return true
 end
 
 -- Helper: Get best parsed source for an item (from SourceTextScanner)
@@ -1396,7 +1467,10 @@ function SourceManager:GetRequirementText(req)
     elseif t == "level" and req.level then
         return Text("Level %s"):format(tostring(req.level))
     elseif t == "promotion" then
-        return Text("Promotion: %s"):format(req.name or Text("Unknown"))
+        if self:IsPromotionExpired(req) then return Text("No longer obtainable") end
+        local name = req.name or Text("Unknown Promotion")
+        if req.endsAt then return Text("Promotion reward: %s, through %s"):format(name, req.endsAt) end
+        return Text("Promotion reward: %s"):format(name)
     elseif t == "professionRank" then
         if req.profession and req.rank then
             return Text("Profession: %s rank %s"):format(tostring(req.profession), tostring(req.rank))
@@ -1561,7 +1635,10 @@ end
 -- Standalone callers (tooltips, map pin hover, single-item panel lookups)
 -- omit the arg and keep the duplicate ownership guard, since they call this
 -- directly without a prior ownership check.
--- Returns: state, isUnverified, hasVerifiableRequirement, blockerLabels
+-- Returns: state, isUnverified, hasVerifiableRequirement, blockerLabels, requirementState
+-- state is the answer a player is shown. requirementState is the same read before the faction rule, what the
+-- requirements and the vendor make of the item: the badge counts read it, so an item only the other faction can get
+-- still counts as locked while a requirement holds it back, whatever it is called on screen.
 function SourceManager:GetVendorItemAvailabilityState(itemID, npcID, skipOwnershipProbe)
     if not itemID then return "unknown", false, false, nil end
 
@@ -1578,11 +1655,20 @@ function SourceManager:GetVendorItemAvailabilityState(itemID, npcID, skipOwnersh
     if state == "purchasable" then
         local scannedItem = GetScannedVendorItem(itemID, npcID)
         if scannedItem and scannedItem.isPurchasable == false then
-            return "locked", false, false, { Text("Purchase gated") }
+            state, isUnverified, hasVerifiableRequirement, blockerLabels = "locked", false, false, { Text("Purchase gated") }
+        elseif HA.VendorData and not HA.VendorData:IsVendorSellingNow(npcID) then
+            -- A vendor that is listed but not selling now offers nothing to buy, so its ware never reads available.
+            state = "notSelling"
         end
     end
 
-    return state, isUnverified, hasVerifiableRequirement, blockerLabels
+    -- An item only the other faction can get reads so at each of its vendors, as it does with no vendor, whatever
+    -- else holds it back. A promotion that can no longer be earned still wins, as it does with no vendor.
+    if state ~= "unobtainable" and self:IsOtherFactionOnly(itemID) then
+        return "otherFaction", isUnverified, hasVerifiableRequirement, blockerLabels, state
+    end
+
+    return state, isUnverified, hasVerifiableRequirement, blockerLabels, state
 end
 
 -- Generic availability: uses vendor scope when npcID is given, otherwise
@@ -1612,15 +1698,12 @@ function SourceManager:GetItemAvailabilityState(itemID, npcID)
         end
     end
 
-    if self:GetBestAvailableSource(itemID) then
-        return "available", false, false, nil
+    if self:IsOtherFactionOnly(itemID) then
+        return "otherFaction", false, false, nil
     end
 
-    if self:GetSource(itemID) then
-        return "blocked", false, false, nil
-    end
-
-    return "unknown", false, false, nil
+    local best, offered = ScanSources(self, itemID, self:GetAllSources(itemID))
+    return SourceState(self, itemID, best, offered), false, false, nil
 end
 
 -- Return a normalized presentation payload for UI and overlay consumers.
@@ -1682,18 +1765,20 @@ function SourceManager:GetItemPresentation(itemID, options)
     -- player. Counting surfaces must leave these items out entirely rather than
     -- read that false as "not owned"; isOwned itself is left untouched so the
     -- display paths that already nil-check it are unaffected.
+    -- Items the last trusted catalog scan found no entry for are left out the same way, unless owned.
     local isOwnershipExcluded = false
-    if catalogStore and catalogStore.IsOwnershipUnknowable then
-        isOwnershipExcluded = catalogStore:IsOwnershipUnknowable(itemID) == true
+    if catalogStore and catalogStore.IsOwnershipUnreported then
+        isOwnershipExcluded = catalogStore:IsOwnershipUnreported(itemID, isOwned) == true
     end
+    local ownershipState = isOwned and "owned" or isOwnershipExcluded and "unknown" or "unowned"
 
-    local availabilityState = "unknown"
+    local availabilityState, requirementState
     local isUnverified = false
     local hasVerifiableRequirement = false
     local blockerLabels = nil
 
     local allSources = self:GetAllSources(itemID) or EMPTY_SOURCES
-    local bestSource = nil
+    local bestSource, offeredSource, requirementHeld = nil, nil, nil
     -- Scoped to exactly the contexts
     -- verified to never read bestSource/displaySource/sourceType off the
     -- returned presentation — badge recounts (UI/BadgeCalculation.lua, only
@@ -1709,13 +1794,7 @@ function SourceManager:GetItemPresentation(itemID, options)
     local skipBestSourceProbe = npcID
         and (context == "badge" or context == "vendorMapPin")
     if not skipBestSourceProbe then
-        for _, source in ipairs(allSources) do
-            local available = self:IsSourceAvailableNow(itemID, source)
-            if available ~= false then
-                bestSource = source
-                break
-            end
-        end
+        bestSource, offeredSource, requirementHeld = ScanSources(self, itemID, allSources)
     end
 
     -- consult item-keyed PrerequisiteSources for a promotion
@@ -1740,15 +1819,15 @@ function SourceManager:GetItemPresentation(itemID, options)
         -- the same probe the guard would repeat), so the internal ownership
         -- guard is redundant on the presentation path unconditionally. The
         -- guard stays for standalone 2-arg callers (tooltips, fallbacks).
-        availabilityState, isUnverified, hasVerifiableRequirement, blockerLabels =
+        availabilityState, isUnverified, hasVerifiableRequirement, blockerLabels, requirementState =
             self:GetVendorItemAvailabilityState(itemID, npcID, true)
     elseif hasPromotionRequirement then
         availabilityState = "unobtainable"
         hasVerifiableRequirement = true
-    elseif bestSource then
-        availabilityState = "available"
-    elseif self:GetSource(itemID) then
-        availabilityState = "blocked"
+    elseif self:IsOtherFactionOnly(itemID) then
+        availabilityState = "otherFaction"
+    else
+        availabilityState = SourceState(self, itemID, bestSource, offeredSource)
     end
     local displaySources = allSources
     local normalizedFilter = self:NormalizeSourceFilter(sourceFilter)
@@ -1801,12 +1880,16 @@ function SourceManager:GetItemPresentation(itemID, options)
     local primarySourceBadgeAtlas = primarySourceType and sourceBadgeAtlases
         and sourceBadgeAtlases[primarySourceType] or nil
 
+    -- A reward whose achievement is done but which is not collected has a state of its own with no glow colour, so
+    -- the catalog does not fall back to the available glow for it.
     local catalogGlowState = nil
     if availabilityState == "owned" then
         catalogGlowState = "owned"
+    elseif availabilityState == "notOwned" then
+        catalogGlowState = "notCollected"
     elseif availabilityState == "available" or availabilityState == "purchasable" then
         catalogGlowState = "available"
-    elseif availabilityState == "blocked" or availabilityState == "locked" then
+    elseif availabilityState == "blocked" or availabilityState == "locked" or availabilityState == "otherFaction" then
         catalogGlowState = "blocked"
     elseif availabilityState == "unobtainable" then
         catalogGlowState = "unobtainable"
@@ -1826,9 +1909,12 @@ function SourceManager:GetItemPresentation(itemID, options)
         itemID = itemID,
         context = context,
         isOwned = isOwned,
-        ownershipState = isOwned and "owned" or "unowned",
+        ownershipState = ownershipState,
         isOwnershipExcluded = isOwnershipExcluded,
         availabilityState = availabilityState,
+        requirementState = requirementState or availabilityState,
+        -- Blocked with a selling vendor held back by its requirements: worded "Locked".
+        requirementLocked = availabilityState == "blocked" and requirementHeld == true,
         isUnverified = isUnverified,
         hasVerifiableRequirement = hasVerifiableRequirement,
         blockerLabels = blockerLabels,
@@ -2154,9 +2240,17 @@ local function CopyCompletionStatus(status)
     if not status then return nil end
     return {
         color = status.color,
+        text = status.text,
         suffix = status.suffix,
         met = status.met,
+        account = status.account,
     }
+end
+
+-- A completion status: its colour, its words in the client's language, the same words as a " (words)" suffix, and
+-- met. account marks an achievement earned on another character only.
+local function Completion(color, words, met, account)
+    return { color = color, text = words, suffix = " (" .. words .. ")", met = met, account = account }
 end
 
 local function ResolveCompletionSource(itemID, sourceType, sourceData)
@@ -2195,7 +2289,7 @@ end
 
 -- Returns completion state for source types that can be checked at runtime.
 -- Response shape:
---   { color = "|cFF......", suffix = " (...)", met = true|false|nil } or nil.
+--   { color = "|cFF......", text = words, suffix = " (words)", met = true|false|nil, account = true|nil } or nil.
 function SourceManager:GetCompletionStatus(itemID, sourceType, sourceData)
     local resolvedType, resolvedData = ResolveCompletionSource(itemID, sourceType, sourceData)
     if not resolvedType then return nil end
@@ -2217,15 +2311,14 @@ function SourceManager:GetCompletionStatus(itemID, sourceType, sourceData)
 
         local result
         if wasEarnedByMe then
-            result = { color = "|cFF00FF00", suffix = " (This Character)", met = true }
+            result = Completion("|cFF00FF00", Text("This Character"), true)
         elseif completed then
-            -- " (Account)" is load-bearing, not just display text --
-            -- the ACHIEVEMENT_EARNED handler's completionCache staleness
-            -- check compares against this exact string to detect an
-            -- Account -> This Character promotion. Reword both together.
-            result = { color = "|cFF66FF66", suffix = " (Account)", met = true }
+            -- account is load-bearing: the ACHIEVEMENT_EARNED handler's
+            -- completionCache staleness check reads it to detect an
+            -- Account -> This Character promotion.
+            result = Completion("|cFF66FF66", Text("Account"), true, true)
         else
-            result = { color = "|cFFFF0000", suffix = " (Incomplete)", met = false }
+            result = Completion("|cFFFF0000", Text("Incomplete"), false)
         end
 
         completionCache[cacheKey] = result
@@ -2243,8 +2336,8 @@ function SourceManager:GetCompletionStatus(itemID, sourceType, sourceData)
 
         local completed = C_QuestLog.IsQuestFlaggedCompleted(questID)
         local result = completed
-            and { color = "|cFF00FF00", suffix = " (Completed)", met = true }
-            or { color = "|cFFFF0000", suffix = " (Incomplete)", met = false }
+            and Completion("|cFF00FF00", Text("Completed"), true)
+            or Completion("|cFFFF0000", Text("Incomplete"), false)
 
         completionCache[cacheKey] = result
         return CopyCompletionStatus(result)
@@ -2254,13 +2347,14 @@ function SourceManager:GetCompletionStatus(itemID, sourceType, sourceData)
         -- Check if the player has this profession before querying recipe status.
         local hasProf = self:PlayerHasProfession(resolvedData)
         if hasProf == false then
-            return { color = "|cFFFF0000", suffix = " (Not Your Profession)", met = false }
+            return Completion("|cFFFF0000", Text("Not Your Profession"), false)
         end
 
-        -- Check expansion-tier skill level (e.g., Midnight Leatherworking 50)
-        local meetsLevel = self:PlayerMeetsSkillLevel(resolvedData)
-        if meetsLevel == false then
-            return { color = "|cFFFF0000", suffix = " (Skill Too Low)", met = false }
+        -- Check expansion-tier skill level (e.g., Midnight Leatherworking 50).
+        -- Before the profession window has opened this session the client
+        -- reads every skill as 0, so no skill verdict is given until then.
+        if professionDataLoaded and self:PlayerMeetsSkillLevel(resolvedData) == false then
+            return Completion("|cFFFF0000", Text("Skill Too Low"), false)
         end
 
         -- A profession block was recognized but we can't resolve recipe state
@@ -2269,18 +2363,18 @@ function SourceManager:GetCompletionStatus(itemID, sourceType, sourceData)
         -- renders a consistent suffix — never a bare line with no status.
         local spellID = resolvedData and resolvedData.spellID
         if not spellID then
-            return { color = "|cFF808080", suffix = " (Unknown)", met = nil }
+            return Completion("|cFF808080", Text("Unknown"), nil)
         end
 
         local tradeSkillUI = _G and _G.C_TradeSkillUI
         if not tradeSkillUI or not tradeSkillUI.GetRecipeInfo then
             -- API unavailable until profession systems are ready/opened.
-            return { color = "|cFF808080", suffix = " (Unknown)", met = nil }
+            return Completion("|cFF808080", Text("Unknown"), nil)
         end
 
         local recipeInfo = tradeSkillUI.GetRecipeInfo(spellID)
         if not recipeInfo then
-            return { color = "|cFF808080", suffix = " (Unknown)", met = nil }
+            return Completion("|cFF808080", Text("Unknown"), nil)
         end
 
         -- Report only what we KNOW: whether the recipe is learned. NOT "Can Craft
@@ -2289,9 +2383,9 @@ function SourceManager:GetCompletionStatus(itemID, sourceType, sourceData)
         -- reagents. A learned recipe reads "(Recipe Known)" regardless of craftable.
         local result
         if recipeInfo.learned then
-            result = { color = "|cFF00FF00", suffix = " (Recipe Known)", met = true }
+            result = Completion("|cFF00FF00", Text("Recipe Known"), true)
         else
-            result = { color = "|cFFFF0000", suffix = " (Recipe Unknown)", met = false }
+            result = Completion("|cFFFF0000", Text("Recipe Unknown"), false)
         end
 
         return CopyCompletionStatus(result)
@@ -2846,12 +2940,11 @@ local function HookCompletionCacheInvalidation()
             --    directly, never a name) via a direct GetAchievementInfo
             --    call that never touches IsRequirementMet, so that entry has
             --    no requirementEvalBaseline counterpart. Stale means either
-            --    met == false (was incomplete), or the cached suffix is
-            --    " (Account)" (earned by another character) -- earning it on
-            --    THIS character always promotes that to " (This Character)",
-            --    a label change the met boolean alone can't distinguish. The suffix is the addon's
-            --    own generated string, never a Blizzard one -- no locale
-            --    concern in that comparison.
+            --    met == false (was incomplete), or the cached status is
+            --    account (earned by another character) -- earning it on
+            --    THIS character always promotes that to "This Character",
+            --    a label change the met boolean alone can't distinguish. The
+            --    flag is compared, never the translated words.
             --
             -- 2. requirementEvalBaseline entries: the availability path
             --    (line ~398) baselines with req.id populated; Data/
@@ -2890,7 +2983,7 @@ local function HookCompletionCacheInvalidation()
 
             local idKey = "achievement:" .. achievementID
             local cachedCompletion = completionCache[idKey]
-            if cachedCompletion and (cachedCompletion.met == false or cachedCompletion.suffix == " (Account)") then
+            if cachedCompletion and (cachedCompletion.met == false or cachedCompletion.account) then
                 if HA.Addon then
                     HA.Addon:Debug("SourceManager: ACHIEVEMENT_EARNED invalidating (achievement "
                         .. achievementID .. " completion cache was stale)")
@@ -2989,8 +3082,11 @@ local function HookCompletionCacheInvalidation()
     end
 end
 
+-- The one vendor-item rule: some listed vendor sells the item, and a holiday vendor's item counts in any season.
 function SourceManager:IsVendorItem(itemID)
-    return self:GetVendorSource(itemID) ~= nil
+    local VD = HA.VendorData
+    if not (itemID and VD and VD.HasSellerForItem) then return false end
+    return VD:GetHolidayVendorsForItem(itemID) ~= nil or VD:HasSellerForItem(itemID)
 end
 
 function SourceManager:IsQuestItem(itemID)
@@ -3151,6 +3247,40 @@ local SOURCE_TABLES = {
 function SourceManager:GetSourceTable(kind)
     local name = SOURCE_TABLES[kind]
     return name and HA[name] or nil
+end
+
+-- Drops group by boss encounter: every drop of one Encounter Journal encounter is one source, whichever mob its row
+-- names. A drop with no encounter groups by its mob and zone. nil when the row names neither.
+function SourceManager:GetDropGroupKey(drop)
+    local _ = self
+    if drop.journalEncounterID then return drop.journalEncounterID end
+    return (drop.mobName and drop.zone) and (drop.mobName .. "|" .. drop.zone) or nil
+end
+
+-- A drop group's name: the encounter's name from the client's Encounter Journal, in the client's language and kept
+-- for the session. The read needs no journal selection and no journal window. Until the client gives a name, the
+-- shipped mob name of the encounter's lowest item ID; "Unknown" when there is none.
+local encounterNames, encounterMobs = {}, nil
+function SourceManager:GetDropGroupName(drop)
+    local _ = self
+    local id = drop.journalEncounterID
+    if not id then return drop.mobName or Text("Unknown") end
+    local name = encounterNames[id]
+    if not name and EJ_GetEncounterInfo then
+        name = EJ_GetEncounterInfo(id)
+        if (issecretvalue and issecretvalue(name)) or name == "" then name = nil end
+        encounterNames[id] = name
+    end
+    if name then return name end
+    if not encounterMobs then
+        encounterMobs = {}
+        local low = {}
+        for itemID, d in pairs(HA.DropSources or {}) do
+            local e = type(d) == "table" and type(itemID) == "number" and d.journalEncounterID
+            if e and d.mobName and not (low[e] and low[e] < itemID) then low[e], encounterMobs[e] = itemID, d.mobName end
+        end
+    end
+    return encounterMobs[id] or drop.mobName or Text("Unknown")
 end
 
 -- Where a decor quest starts, as { mapID, x, y }; nil when its start spot is not recorded. A zone is never a start.

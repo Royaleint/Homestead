@@ -97,6 +97,7 @@ read_globals = {
     "C_DateAndTime",
     "C_DateInfo",
     "C_EncounterJournal",  -- EJ-anchored drop pins
+    "EJ_GetEncounterInfo",  -- drop group names
     "C_GossipInfo",
     "C_Housing",
     "C_AreaPoiInfo",
@@ -179,6 +180,7 @@ files["Locale/enUS.lua"] = {
         "SHIFT_KEY_TEXT", "ALT_KEY_TEXT", "CTRL_KEY_TEXT", "HOUSING_DASHBOARD_ENDEAVOR",
         "BROWSE_NO_RESULTS", "FACTION_ALLIANCE", "FACTION_HORDE", "WORLD_MAP",
         "HOUSING_CATALOG_FILTERS_FIRST_ACQUISITION", "HOUSING_DECOR_FIRST_ACQUISITION_AVAILABLE",
-        "ZONE_COLON", "LOCATION_COLON",
+        "ZONE_COLON", "LOCATION_COLON", "CRITERIA_COMPLETED", "INCOMPLETE",
+        "ACCOUNT_QUEST_LABEL",
     },
 }
