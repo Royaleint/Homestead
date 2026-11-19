@@ -699,6 +699,116 @@ function BadgeCalculation.AddSummaryLine(tooltip, collected, total, locked, unve
 end
 
 -------------------------------------------------------------------------------
+-- Wallet
+-------------------------------------------------------------------------------
+
+-- What this character carries, each key read once until reset or re-read: gold in copper, cur[id] (false without
+-- currency info), item[id] in bags and reagent bank as the merchant counts. The generation moves whenever a
+-- value changes, so a consumer that cached verdicts can tell.
+local wallet = { cur = {}, item = {} }
+local walletGen = 0
+local WALLET_NONE, WALLET_KINDS = {}, { currencies = "cur", items = "item" }
+
+local function Have(kind, id)
+    local n = wallet[kind][id]
+    if n == nil then
+        n = HA.SourceManager:GetWalletCount(kind, id)
+        wallet[kind][id] = n
+    end
+    return n
+end
+
+-- Whether this currency (any currency when nil) has been read.
+function BadgeCalculation:WalletHasRead(currencyID)
+    if currencyID == nil then return next(wallet.cur) ~= nil end
+    return wallet.cur[currencyID] ~= nil
+end
+
+function BadgeCalculation:WalletGen()
+    return walletGen
+end
+
+function BadgeCalculation:WalletReset()
+    walletGen = walletGen + 1
+    wallet.gold = nil
+    wipe(wallet.cur)
+    wipe(wallet.item)
+end
+
+-- Re-reads the keys already held, in place: all of them, or only one kind ("gold", "cur" or "item"). Returns
+-- whether a value changed, and then moves the generation.
+function BadgeCalculation:WalletReread(kind)
+    local SM = HA.SourceManager
+    local changed = false
+    if wallet.gold and (kind == nil or kind == "gold") then
+        local gold = SM:GetWalletGold()
+        changed = gold ~= wallet.gold
+        wallet.gold = gold
+    end
+    for _, k in pairs(WALLET_KINDS) do
+        if kind == nil or kind == k then
+            local held = wallet[k]
+            for id, old in pairs(held) do
+                local n = SM:GetWalletCount(k, id)
+                held[id] = n
+                changed = changed or n ~= old
+            end
+        end
+    end
+    if changed then walletGen = walletGen + 1 end
+    return changed
+end
+
+-- "paid" when every part is checked and covered; "short" when a checked part isn't, which outweighs the rest;
+-- else "unknown": no part, or one with no id, no amount or no currency info. out gathers the short parts;
+-- onShort(currencyID) is told of each short currency part.
+function BadgeCalculation:WalletPayBundle(cost, out, onShort)
+    local parts, short, unknown = 0, false, false
+    local gold = cost.gold or 0
+    if gold > 0 then
+        wallet.gold = wallet.gold or HA.SourceManager:GetWalletGold()
+        parts, short = 1, wallet.gold < gold
+        if short and out then out.gold = gold end
+    end
+    for key, kind in pairs(WALLET_KINDS) do
+        for _, c in ipairs(cost[key] or WALLET_NONE) do
+            parts = parts + 1
+            local have = c.id and c.amount and Have(kind, c.id)
+            if not have then
+                unknown = true
+            elseif have < c.amount then
+                short = true
+                if onShort and kind == "cur" then onShort(c.id) end
+                if out then out[key] = out[key] or {} table.insert(out[key], c) end
+            end
+        end
+    end
+    if short then return "short" end
+    return (unknown or parts == 0) and "unknown" or "paid"
+end
+
+-- With alternatives: paid when any option is, short only when every option is, else unknown. The shared
+-- splitter says which options exist (an unresolved cost has none). onShort is only told on the second pass,
+-- when no option paid.
+function BadgeCalculation:WalletPay(cost, out, onShort)
+    if not cost then return "unknown" end
+    if not (cost.alternatives and cost.alternatives[1]) then return self:WalletPayBundle(cost, out, onShort) end
+    local views = HA.VendorData:SplitCostOptions(cost)
+    if not views then return "unknown" end
+    local paid, short = false, true
+    for _, view in ipairs(views) do
+        local verdict = self:WalletPayBundle(view)
+        paid = paid or verdict == "paid"
+        short = short and verdict == "short"
+    end
+    if paid then return "paid" end
+    if onShort then
+        for _, view in ipairs(views) do self:WalletPayBundle(view, nil, onShort) end
+    end
+    return short and "short" or "unknown"
+end
+
+-------------------------------------------------------------------------------
 -- Cache Invalidation
 -------------------------------------------------------------------------------
 

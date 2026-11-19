@@ -31,23 +31,9 @@ local function Verdict(SM, itemID, npcID, vendor, own)
     return state == "unobtainable" and "unobtainable" or "locked"
 end
 
--- What this character carries, each key read once per memo version, so the keys are what the offers need:
--- gold in copper, cur[id] (false without currency info), item[id] in bags and reagent bank as the merchant counts.
-local wallet = { cur = {}, item = {} }
-
-local function Have(kind, id)
-    local n = wallet[kind][id]
-    if n == nil then
-        n = HA.SourceManager:GetWalletCount(kind, id)
-        wallet[kind][id] = n
-    end
-    return n
-end
-
--- Whether this currency (any currency when nil) has been read in this snapshot.
+-- Whether this currency (any currency when nil) has been read since the wallet was last reset.
 function CG.HasReadCurrency(currencyID)
-    if currencyID == nil then return next(wallet.cur) ~= nil end
-    return wallet.cur[currencyID] ~= nil
+    return HA.BadgeCalculation:WalletHasRead(currencyID)
 end
 
 -- Whether a currency moves between the account's characters, asked once per walk, and whether a reachable offer
@@ -95,55 +81,20 @@ function CG.AccountData()
     for _, e in pairs(entries) do e.st = nil end
 end
 
--- "paid" when every part is checked and covered; "short" when a checked part isn't, which outweighs the rest;
--- else "unknown": no part, or one with no id, no amount or no currency info. out gathers the short parts; judging
--- marks a reachable offer's judgment, the only kind that can need account data.
-local NONE, KINDS = {}, { currencies = "cur", items = "item" }
+local NONE = {}
 
-local function PayBundle(cost, out, judging)
-    local SM = HA.SourceManager
-    local parts, short, unknown = 0, false, false
-    local gold = cost.gold or 0
-    if gold > 0 then
-        wallet.gold = wallet.gold or SM:GetWalletGold()
-        parts, short = 1, wallet.gold < gold
-        if short and out then out.gold = gold end
-    end
-    for key, kind in pairs(KINDS) do
-        for _, c in ipairs(cost[key] or NONE) do
-            parts = parts + 1
-            local have = c.id and c.amount and Have(kind, c.id)
-            if not have then
-                unknown = true
-            elseif have < c.amount then
-                short = true
-                if judging and kind == "cur" and not needAccount then needAccount = Transferable(c.id) end
-                if out then out[key] = out[key] or {} table.insert(out[key], c) end
-            end
-        end
-    end
-    if short then return "short" end
-    return (unknown or parts == 0) and "unknown" or "paid"
+-- The wallet rule is BadgeCalculation's; a reachable offer's judgment also learns whether a short currency
+-- moves between the account's characters.
+local function OnShort(id)
+    if not needAccount then needAccount = Transferable(id) end
 end
 
--- With alternatives: paid when any option is, short only when every option is, else unknown. The shared
--- splitter says which options exist (an unresolved cost has none).
+local function PayBundle(cost, out, judging)
+    return HA.BadgeCalculation:WalletPayBundle(cost, out, judging and OnShort or nil)
+end
+
 local function Pay(cost, out, judging)
-    if not cost then return "unknown" end
-    if not (cost.alternatives and cost.alternatives[1]) then return PayBundle(cost, out, judging) end
-    local views = HA.VendorData:SplitCostOptions(cost)
-    if not views then return "unknown" end
-    local paid, short = false, true
-    for _, view in ipairs(views) do
-        local verdict = PayBundle(view)
-        paid = paid or verdict == "paid"
-        short = short and verdict == "short"
-    end
-    if paid then return "paid" end
-    if judging then
-        for _, view in ipairs(views) do PayBundle(view, nil, true) end
-    end
-    return short and "short" or "unknown"
+    return HA.BadgeCalculation:WalletPay(cost, out, judging and OnShort or nil)
 end
 
 function CG.IsShort(cost)
@@ -173,7 +124,7 @@ end
 local VERDICT = { paid = "can", short = "short", unknown = "unpriced" }
 local PAY = { short = "short", unpriced = "unknown" }
 
-local walk, version = nil, nil
+local walk, version, seenGen = nil, nil, 0
 
 local function Fresh()
     local v = D.MemoVersion()
@@ -182,9 +133,8 @@ local function Fresh()
         wipe(entries)
         wipe(holders)
         wipe(transferable)
-        wallet.gold = nil
-        wipe(wallet.cur)
-        wipe(wallet.item)
+        HA.BadgeCalculation:WalletReset()
+        seenGen = HA.BadgeCalculation:WalletGen()
     end
 end
 
@@ -288,25 +238,14 @@ local function Settle(e)
     e.verdict = verdict
 end
 
--- Re-reads every key already in the wallet, in place. Nothing changed: false, and nothing is touched. A
--- change settles the entries again and drops what was derived from their verdicts; the walk stays.
+-- Re-reads every key already in the wallet. Nothing changed since this walk last looked: false, and nothing is
+-- touched. A change settles the entries again and drops what was derived from their verdicts; the walk stays.
 function CG.Rejudge()
     Fresh()
-    local changed = false
-    local gold = wallet.gold
-    if gold then
-        wallet.gold = HA.SourceManager:GetWalletGold()
-        changed = wallet.gold ~= gold
-    end
-    for _, kind in pairs(KINDS) do
-        local held = wallet[kind]
-        for id, old in pairs(held) do
-            local n = HA.SourceManager:GetWalletCount(kind, id)
-            held[id] = n
-            changed = changed or n ~= old
-        end
-    end
-    if not changed then return false end
+    local BC = HA.BadgeCalculation
+    BC:WalletReread()
+    if BC:WalletGen() == seenGen then return false end
+    seenGen = BC:WalletGen()
     gen = gen + 1
     wipe(holders)
     for _, e in pairs(entries) do
