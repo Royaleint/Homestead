@@ -676,7 +676,8 @@ function Rows(s, cells)
     for _, itemID in ipairs(s.items) do
         local e = CG.Entry(itemID)
         local info = e and e.info
-        local state, arg = B.ItemState(itemID, v and v.npcID)
+        local state, arg
+        if v then state, arg = B.CardState(itemID, v) else state, arg = B.ItemState(itemID) end
         rows[#rows + 1] = {
             kind = "row", name = D.ItemName(itemID, info) or L["Item %d"]:format(itemID),
             rank = state == "can" and 1 or state == "owned" and 3 or 2,
@@ -985,7 +986,7 @@ function Draw(fresh, saved)
     Line(V.count, "body", n > 0 and (got and L["%d of %d collected"]:format(got, total) or L["Counting…"]) or nil, cw)
     V.count:ClearAllPoints()
     V.count:SetPoint("TOPLEFT", V.where, "BOTTOMLEFT", 0, -SP.xs)
-    SetCan(V.can, ready and CG.VendorCanCount(v) or 0, cw)
+    SetCan(V.can, ready and HA.BadgeCalculation:VendorCanGet(v, "all", true) or 0, cw)
     V.can:ClearAllPoints()
     V.can:SetPoint("TOPLEFT", n > 0 and V.count or V.where, "BOTTOMLEFT", 0, -SP.xs)
     V.head:SetSize(w, math.max(PORTRAIT, nh + (live and tagH + 2 or 0) + SP.xs + bh
