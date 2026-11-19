@@ -586,8 +586,6 @@ end
 local SAVED = { idle = "unlisted", promotion = "unobtainable", can = "can", short = "short", unpriced = "unpriced",
     faction = "faction" }
 function B.CardState(itemID, vendor)
-    local phase = HA.CatalogScanner:GetReadState()
-    if phase ~= "ready" then return phase == "counting" and "counting" or nil end
     local verdict = HA.BadgeCalculation:WareVerdict(itemID, vendor)
     if verdict == "owned" then return "owned" end
     if verdict == "unknown" then return nil end

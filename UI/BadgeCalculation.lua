@@ -506,6 +506,20 @@ function BadgeCalculation:PeekVendorStats(vendor, sourceFilter)
     return vendorStatsCache[cacheKey]
 end
 
+-- Before the collection can be read: a vendor's stats from the saved record, for the Decor Browser. Kept out of
+-- vendorStatsCache, which the map pins peek, so a pin keeps its placeholder. Wiped with it.
+local unreadStatsCache = {}
+function BadgeCalculation:UnreadVendorStats(vendor, sourceFilter)
+    if not vendor or not vendor.npcID then return UNKNOWN_VENDOR_STATS end
+    local key = BuildVendorFilterCacheKey(vendor, sourceFilter)
+    local stats = vendorStatsCache[key] or unreadStatsCache[key]
+    if not stats then
+        stats = BuildVendorStats(vendor, sourceFilter)
+        unreadStatsCache[key] = stats
+    end
+    return stats
+end
+
 -- The wares that count toward a vendor's collected and total under the "all" filter, in the vendor's
 -- order: the wares the catalog store's rule counts (CatalogStore:LeftOutReason, the pins' rule read without the
 -- full item presentation). Second, the wares left out, in the same order: { promotion = unowned promotion
@@ -898,13 +912,14 @@ end
 local canGetMemo = setmetatable({}, { __mode = "k" })
 
 -- How many of a vendor's counted wares under the filter this character can get now. nil while the stats are
--- cold under peek.
+-- cold under peek. Peek "unread" builds the stats from the saved record, outside the map pins' cache, and is never nil.
 function BadgeCalculation:VendorCanGet(vendor, filter, peek)
     if not vendor or not vendor.npcID then return 0 end
     if not self:VendorOnSale(vendor) or not VF.CanUseVendor(vendor) then return 0 end
     filter = filter or "all"
     local stats
-    if peek then
+    if peek == "unread" then stats = self:UnreadVendorStats(vendor, filter)
+    elseif peek then
         stats = self:PeekVendorStats(vendor, filter)
         if not stats then return nil end
     else
@@ -961,7 +976,8 @@ local NO_OPTIONS = {}
 
 -- One row's description. subject is { vendor = record } or { records = { { itemID = n }, ... }, kind = "drops" }.
 -- options: filter (counting filter, default "all"), readState (the catalog read state, default "ready"; counts
--- are known only when ready) and peek (vendor stats from the cache only; a cold vendor reports cold = true).
+-- are known only when ready) and peek (vendor stats from the cache only; a cold vendor reports cold = true;
+-- "unread" builds them from the saved record, outside the map pins' cache, and is never cold).
 -- Returns a fresh table: state, stateArg, words, collected (nil when counts are not known), total, locked,
 -- canGet, empty, countText, countColor, cold.
 function BadgeCalculation:DescribeRow(subject, options)
@@ -976,7 +992,8 @@ function BadgeCalculation:DescribeRow(subject, options)
     local known = readState == "ready"
     if vendor then
         counted, left = self:GetCountedItemIDs(vendor)
-        if known then
+        if known and peek == "unread" then stats = self:UnreadVendorStats(vendor, filter)
+        elseif known then
             if peek then stats = self:PeekVendorStats(vendor, filter) else stats = GetVendorStats(vendor, filter) end
             if not stats then row.cold, known = true, false end
         end
@@ -1037,6 +1054,7 @@ end
 function BadgeCalculation:InvalidateAllCaches()
     vendorStatsCacheGeneration = vendorStatsCacheGeneration + 1
     wipe(vendorStatsCache)
+    wipe(unreadStatsCache)
     wipe(countedWaresCache)
     wipe(dropGroupStatsCache)
     self:InvalidateBadgeCache()
@@ -1061,6 +1079,11 @@ function BadgeCalculation:InvalidateVendorCache(npcID)
                 vendorStatsCache[key] = nil
             end
         end
+        for key in pairs(unreadStatsCache) do
+            if type(key) == "string" and key:sub(1, #prefix) == prefix then
+                unreadStatsCache[key] = nil
+            end
+        end
         for key in pairs(countedWaresCache) do
             if key:sub(1, #prefix) == prefix then
                 countedWaresCache[key] = nil
@@ -1077,6 +1100,7 @@ end
 function BadgeCalculation:GetDebugCacheTables()
     return {
         vendorStatsCache = vendorStatsCache,
+        unreadStatsCache = unreadStatsCache,
         countedWaresCache = countedWaresCache,
         dropGroupStatsCache = dropGroupStatsCache,
         cachedZoneBadges = cachedZoneBadges,
