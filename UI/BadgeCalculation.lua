@@ -20,6 +20,7 @@ HA.BadgeCalculation = BadgeCalculation
 local VF = HA.VendorFilter
 local Constants = HA.Constants
 local MPP = HA.MapPinProvider
+local L = HA.L
 
 -------------------------------------------------------------------------------
 -- Zone to Parent Map Mapping (delegated to MapPinProvider)
@@ -266,6 +267,12 @@ local function IsItemVendorOnly(itemID, sources)
     return true
 end
 
+-- The one per-ware test for "this character may be able to get it now": ownership is known and not yet held, and
+-- the shown availability is purchasable. Whether the wallet covers the price is judged afterwards.
+local function IsCanGetCandidate(_, _, owned, excluded, availabilityState)
+    return not excluded and not owned and availabilityState == "purchasable"
+end
+
 -- Per-vendor accumulator state, extracted out of BuildVendorStats so
 -- the prewarm pass's item loop (below) can resume it across ticks instead of
 -- running one vendor's whole item list in a single unbreakable call.
@@ -282,6 +289,7 @@ local function NewVendorStatsAccum()
         provisionalUnverified = 0,
         hasAnyVerifiableRequirements = false,
         lockedBlockerCounts = {},
+        candidates = {},
     }
 end
 
@@ -353,6 +361,10 @@ local function AccumulateVendorItem(accum, itemID, vendor, sourceFilter)
             accum.total = accum.total + 1
             if isVendorOnlyItem then
                 accum.vendorOnly = accum.vendorOnly + 1
+            end
+
+            if IsCanGetCandidate(itemID, vendor, isOwned, false, presentation and presentation.availabilityState) then
+                accum.candidates[#accum.candidates + 1] = itemID
             end
 
             if isUnverified then
@@ -430,6 +442,7 @@ local function FinalizeVendorStatsAccum(accum)
         blockers = blockers,
         total = accum.total,
         vendorOnly = accum.vendorOnly,
+        candidates = accum.candidates,
     }
 end
 
@@ -806,6 +819,197 @@ function BadgeCalculation:WalletPay(cost, out, onShort)
         for _, view in ipairs(views) do self:WalletPayBundle(view, nil, onShort) end
     end
     return short and "short" or "unknown"
+end
+
+-------------------------------------------------------------------------------
+-- Row Description
+--
+-- One description of a vendor or drop row for every window: the state, its words, the counts and the count
+-- text. It reads the saved ownership record only and writes nothing.
+-------------------------------------------------------------------------------
+
+BadgeCalculation.ROW_WORDS = {
+    faction = L["%s only"], idle = L["Not active"], counting = L["Counting…"],
+    allDone = "", some = L["%d can get now"], live = L["Active now"],
+}
+
+local FACTION_NAMES = { Alliance = L["Alliance"], Horde = L["Horde"] }
+
+-- The words for a row state; "" for nil. faction takes the faction name and some takes the count.
+function BadgeCalculation.StateWords(state, arg)
+    local words = state and BadgeCalculation.ROW_WORDS[state]
+    if not words then return "" end
+    if state == "faction" or state == "some" then return words:format(arg) end
+    return words
+end
+
+-- "Alliance", "Horde" or both, for a vendor this character can use at none of its positions; nil when it can
+-- use one.
+function BadgeCalculation:FactionLabel(vendor)
+    local usable, a, b = VF.CanUseVendor(vendor)
+    if usable then return nil end
+    a = FACTION_NAMES[a] or a
+    return b and L["%s, %s"]:format(a, FACTION_NAMES[b] or b) or a
+end
+
+-- A vendor that is not hidden by its NPC and not confirmed to sell no decor.
+function BadgeCalculation:IsListedVendor(vendor)
+    if not vendor then return false end
+    return not HA.VendorData:IsVendorHiddenByNpcID(vendor.npcID) and not VF.IsConfirmedNoDecor(vendor)
+end
+
+-- A listed vendor that is selling now: a holiday vendor in its season, an Endeavor vendor while its theme runs.
+function BadgeCalculation:VendorOnSale(vendor)
+    return self:IsListedVendor(vendor) and HA.VendorData:IsVendorSellingNow(vendor)
+end
+
+-- Why a ware cannot be had at a vendor, before ownership: "idle" when the vendor is not selling, "faction" when
+-- this character can use it at no position, else the availability state itself. availabilityState is an
+-- already-read value for the last step.
+function BadgeCalculation:WareState(itemID, vendor, availabilityState)
+    if not self:VendorOnSale(vendor) then return "idle" end
+    if not VF.CanUseVendor(vendor) then return "faction" end
+    return availabilityState or HA.SourceManager:GetVendorItemAvailabilityState(itemID, vendor.npcID, true)
+end
+
+local WARE_PAY = { paid = "can", short = "short", unknown = "unpriced" }
+
+-- One ware at one vendor from the saved record: "unknown", "owned", "promotion", the state WareState gives, or
+-- for a purchasable ware "can", "short" or "unpriced" by the wallet.
+function BadgeCalculation:WareVerdict(itemID, vendor)
+    local store = HA.CatalogStore
+    if store:IsOwnershipUnreported(itemID) then return "unknown" end
+    if store:IsOwned(itemID) == true then return "owned" end
+    if store:LeftOutReason(itemID, vendor.npcID, false) == "promotion" then return "promotion" end
+    local state = self:WareState(itemID, vendor)
+    if not IsCanGetCandidate(itemID, vendor, false, false, state) then
+        return state == "unobtainable" and "promotion" or state
+    end
+    local cost = HA.SourceManager:GetVendorItemCost(itemID, vendor)
+    return WARE_PAY[self:WalletPay(cost)]
+end
+
+-- Per stats table: each candidate's cost, resolved once, and the paid count with the wallet generation it was
+-- counted at. Kept beside the stats so a stats table is never written to.
+local canGetMemo = setmetatable({}, { __mode = "k" })
+
+-- How many of a vendor's counted wares under the filter this character can get now. nil while the stats are
+-- cold under peek.
+function BadgeCalculation:VendorCanGet(vendor, filter, peek)
+    if not vendor or not vendor.npcID then return 0 end
+    if not self:VendorOnSale(vendor) or not VF.CanUseVendor(vendor) then return 0 end
+    filter = filter or "all"
+    local stats
+    if peek then
+        stats = self:PeekVendorStats(vendor, filter)
+        if not stats then return nil end
+    else
+        stats = self:GetVendorStats(vendor, filter)
+    end
+    local candidates = stats.candidates
+    if not candidates or not candidates[1] then return 0 end
+
+    local gen = walletGen
+    local memo = canGetMemo[stats]
+    if memo and memo.gen == gen then return memo.can end
+    if not memo then
+        local SM = HA.SourceManager
+        local costs = {}
+        for i, itemID in ipairs(candidates) do
+            costs[i] = SM:GetVendorItemCost(itemID, vendor) or false
+        end
+        memo = { costs = costs }
+        canGetMemo[stats] = memo
+    end
+    local can = 0
+    for i = 1, #candidates do
+        if self:WalletPay(memo.costs[i] or nil) == "paid" then can = can + 1 end
+    end
+    memo.gen, memo.can = walletGen, can
+    return can
+end
+
+-- Why a row with nothing counted says so.
+local function EmptyText(filter, allTotal, leftUnknown, leftPromotion)
+    if filter ~= "all" and allTotal > 0 then return L["Nothing to show here."] end
+    if leftUnknown then return L["Collection unknown"] end
+    if leftPromotion then return L["Promotion"] end
+    return L["No decor"]
+end
+
+-- The state of a vendor row, first match wins.
+local function VendorState(self, vendor, readState, known, total, collected, canGet)
+    local label = self:FactionLabel(vendor)
+    if label then return "faction", label end
+    if not self:VendorOnSale(vendor) then return "idle" end
+    if readState == "counting" then return "counting" end
+    if known and total > 0 and collected == total then return "allDone" end
+    if canGet > 0 then return "some", canGet end
+    local VD = HA.VendorData
+    local event = VD:GetHolidayEvent(vendor.npcID)
+    if (event and HA.CalendarDetector and HA.CalendarDetector:IsHolidayActive(event) == true)
+        or VD:IsEndeavorVendorActive(vendor) == true then
+        return "live"
+    end
+end
+
+local NO_OPTIONS = {}
+
+-- One row's description. subject is { vendor = record } or { records = { { itemID = n }, ... }, kind = "drops" }.
+-- options: filter (counting filter, default "all"), readState (the catalog read state, default "ready"; counts
+-- are known only when ready) and peek (vendor stats from the cache only; a cold vendor reports cold = true).
+-- Returns a fresh table: state, stateArg, words, collected (nil when counts are not known), total, locked,
+-- canGet, empty, countText, cold.
+function BadgeCalculation:DescribeRow(subject, options)
+    options = options or NO_OPTIONS
+    local filter = NormalizeSourceFilter(options.filter)
+    local readState = options.readState or "ready"
+    local peek = options.peek
+    local vendor, records = subject.vendor, subject.records
+    local row = { locked = 0, canGet = 0, cold = false }
+
+    local stats, counted, left
+    local known = readState == "ready"
+    if vendor then
+        counted, left = self:GetCountedItemIDs(vendor)
+        if known then
+            if peek then stats = self:PeekVendorStats(vendor, filter) else stats = GetVendorStats(vendor, filter) end
+            if not stats then row.cold, known = true, false end
+        end
+    elseif known then
+        stats = self:GetDropGroupStats(records)
+    end
+
+    if known then
+        row.collected, row.total, row.locked = stats.collected or 0, stats.total or 0, stats.locked or 0
+        if vendor then row.canGet = self:VendorCanGet(vendor, filter, peek) or 0 end
+    else
+        row.total = vendor and #counted or #records
+    end
+    row.empty = row.total == 0
+
+    if vendor then
+        row.state, row.stateArg = VendorState(self, vendor, readState, known, row.total, row.collected, row.canGet)
+    elseif readState == "counting" then
+        row.state = "counting"
+    elseif known and row.total > 0 and row.collected == row.total then
+        row.state = "allDone"
+    end
+    row.words = self.StateWords(row.state, row.stateArg)
+
+    if row.empty then
+        if vendor then
+            row.countText = EmptyText(filter, #counted, left and left.unknown[1],
+                left and left.promotion[1])
+        else
+            row.countText = EmptyText("all", 0, known and stats.excluded > 0, known and stats.unobtainable > 0)
+        end
+    elseif not known then
+        row.countText = L["%d decor"]:format(row.total)
+    else
+        row.countText = self.FormatCountText(row.collected, row.total, row.locked)
+    end
+    return row
 end
 
 -------------------------------------------------------------------------------
@@ -1695,6 +1899,12 @@ end)
 
 if HA.Events then
     HA.Events:RegisterCallback("SOURCE_CACHES_INVALIDATED", function()
+        BadgeCalculation:InvalidateAllCaches()
+    end)
+
+    -- An Endeavor vendor's wares read as not selling until the running theme is known, and the stats keep
+    -- the can-get candidates found at build time, so they are rebuilt when the theme changes.
+    HA.Events:RegisterCallback("ACTIVE_ENDEAVOR_CHANGED", function()
         BadgeCalculation:InvalidateAllCaches()
     end)
 

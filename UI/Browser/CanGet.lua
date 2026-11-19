@@ -21,14 +21,12 @@ local function Own(itemID, memo)
     return state ~= "unknown" and state or nil, info
 end
 
-local function Verdict(SM, itemID, npcID, vendor, own)
+local VERDICT_OF = { idle = "unlisted", faction = "faction", purchasable = "can", unobtainable = "unobtainable" }
+
+local function Verdict(itemID, npcID, vendor, own)
     if own ~= "notOwned" then return own == "owned" and "owned" or "unknown" end
     if not (npcID and vendor) then return "unknown" end
-    if not Facts.OnSale(vendor) then return "unlisted" end
-    if D.IsOppositeFaction(vendor) then return "faction" end
-    local state = SM:GetVendorItemAvailabilityState(itemID, npcID, true)
-    if state == "purchasable" then return "can" end
-    return state == "unobtainable" and "unobtainable" or "locked"
+    return VERDICT_OF[HA.BadgeCalculation:WareState(itemID, vendor)] or "locked"
 end
 
 -- Whether this currency (any currency when nil) has been read since the wallet was last reset.
@@ -155,7 +153,7 @@ end
 function CG.Offer(itemID, npcID)
     if HA.CatalogScanner:GetReadState() ~= "ready" then return "unknown" end
     local vendor = npcID and HA.VendorData:GetVendorAnySeason(npcID)
-    local verdict = Verdict(HA.SourceManager, itemID, npcID, vendor, (Own(itemID, Memo())))
+    local verdict = Verdict(itemID, npcID, vendor, (Own(itemID, Memo())))
     if verdict ~= "can" then return verdict end
     return VERDICT[Pay(OfferCost(itemID, npcID, vendor))]
 end
@@ -201,7 +199,7 @@ local function FactionOnly(itemID)
 end
 
 local function Consider(e, SM, npcID, vendor, cost, best)
-    local verdict = Verdict(SM, e.itemID, npcID, vendor, "notOwned")
+    local verdict = Verdict(e.itemID, npcID, vendor, "notOwned")
     local event = HA.VendorData:GetHolidayEvent(npcID)
     if verdict == "can" then
         -- A source with no cost, and every event vendor, asks the resolver.
