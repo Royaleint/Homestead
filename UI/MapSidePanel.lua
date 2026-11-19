@@ -38,6 +38,9 @@ Layout.ROW_HEIGHT = 36
 Layout.HEADER_HEIGHT = 36
 Layout.PADDING = 8
 Layout.ICON_SIZE = 14
+Layout.LIST_CHROME_WIDTH = 42  -- Borders and scrollbar beside the rows
+Layout.STATE_MARK_SIZE = 12
+Layout.SUB_ROW_NAME_MIN = 40   -- The least a sub-row name keeps when a state shows beside its count
 Layout.ITEM_ICON_SIZE = 28
 Layout.ITEM_ICON_PAD = 3
 Layout.ITEM_RESULT_ICON_SIZE = 20
@@ -564,6 +567,79 @@ local function FormatPurchasabilityCountText(collected, total, locked)
     return BC.FormatCountText(collected, total, locked)
 end
 
+-- A row state's colour and its mark as inline text, as the Decor Browser draws them. The mark is nil for a state
+-- with no glyph and when the client has none of the glyph's atlases.
+local function RowStateStyle(state)
+    local B = HA.DecorBrowser
+    local style = B.Style.state[state]
+    local mark = style.glyph and B.Vis.Marker.Markup(style.glyph, style.color, Layout.STATE_MARK_SIZE)
+    return style.color, mark
+end
+
+local function RowWidth()
+    return State.panelFrame:GetWidth() - Layout.LIST_CHROME_WIDTH
+end
+
+-- Draws a row's count and, beside it, its state. The count keeps its full width up to countRoom; words for a row
+-- with nothing to count are cut at that width. The state shows its mark and words, else its mark alone, else
+-- nothing, in what is left of total after the count, the gap and the reserve: a phrase is never cut. The tooltip
+-- carries the words either way. Returns whether a state shows.
+local function DrawCountAndState(row, rec, countRoom, total, gap, reserve)
+    local countText, stateText = row.countText, row.stateText
+    countText:SetText(rec.countText)
+    local countWidth = math.min(math.ceil(countText:GetUnboundedStringWidth()), countRoom)
+    countText:SetWidth(countWidth)
+
+    local shown = false
+    if rec.state then
+        local color, mark = RowStateStyle(rec.state)
+        local words = BC.StateWords(rec.state, rec.stateArg)
+        local room = total - countWidth - gap - reserve
+        local function Fits(text)
+            if text == "" then return false end
+            stateText:SetText(text)
+            return stateText:GetUnboundedStringWidth() <= room
+        end
+        local whole = mark and words ~= "" and mark .. " " .. words or mark or words
+        shown = Fits(whole) or (mark ~= nil and Fits(mark))
+        stateText:SetTextColor(color[1], color[2], color[3])
+    end
+    stateText:SetShown(shown)
+    if not shown then stateText:SetText("") end
+    return shown
+end
+
+-- Line 2 of a vendor or boss row: the count from the icon's right edge, the state after it.
+local function DrawLineTwo(row, rec)
+    local lineWidth = RowWidth() - (Layout.PADDING + Layout.ICON_SIZE + 6) - Layout.PADDING
+    DrawCountAndState(row, rec, lineWidth, lineWidth, 6, 0)
+end
+
+-- A sub-row's right side: the count, then the state, with the name keeping what is left (at least
+-- SUB_ROW_NAME_MIN while the panel is wide enough for that).
+local function DrawSubRowRight(row, rec)
+    local nameLeft = Layout.SUB_ROW_INDENT + 12 + 4
+    local subWidth = RowWidth() - nameLeft - Layout.PADDING
+    local nameMin = math.min(Layout.SUB_ROW_NAME_MIN, math.floor(subWidth / 2))
+    local countRoom = subWidth - 4 - (rec.empty and nameMin or 0)
+    local shown = DrawCountAndState(row, rec, countRoom, subWidth, 4, nameMin + 4)
+    row.countText:ClearAllPoints()
+    if shown then
+        row.countText:SetPoint("RIGHT", row.stateText, "LEFT", -4, 0)
+    else
+        row.countText:SetPoint("RIGHT", row, "RIGHT", -Layout.PADDING, 0)
+    end
+end
+
+-- The row's state in words, in the state's colour, for a tooltip: the line is there whether or not the row had room
+-- for the words.
+local function AddStateLine(tooltip, row)
+    local state = row.state
+    if not state or state == "allDone" then return end
+    local color = HA.DecorBrowser.Style.state[state].color
+    tooltip:AddLine(BC.StateWords(state, row.stateArg), color[1], color[2], color[3])
+end
+
 -- Check if an item has unmet requirements the player hasn't satisfied
 local function GetUnmetRequirements(itemID, npcID, presentation)
     local SM = HA.SourceManager
@@ -636,7 +712,6 @@ local function PopulateItemGrid(row, vendor, sourceFilter, highlightItems, itemI
     local icons = row.itemIcons
 
     local npcID = vendor.npcID
-    local selling = VendorData:IsVendorSellingNow(vendor)
 
     -- Ensure enough icon frames (acquire from pool)
     while #icons < #itemIDs do
@@ -698,14 +773,13 @@ local function PopulateItemGrid(row, vendor, sourceFilter, highlightItems, itemI
             icon.texture:SetDesaturated(true)
             icon.texture:SetVertexColor(0.6, 0.4, 0.4)
             icon.lock:Show()
-        elseif not selling or presentation and presentation.availabilityState == "otherFaction" then
-            -- Nothing to buy here (a vendor not selling now, an item only the other faction can get): the neutral
-            -- grey border, never the gold one
-            icon.border:SetColorTexture(0.45, 0.45, 0.45, 1)
+        elseif BC:WareVerdict(itemID, vendor) == "can" then
+            -- This character can get it now: gold border
+            icon.border:SetColorTexture(0.6, 0.5, 0.2, 1)
             SetIconBorderOutset(icon, 1)
         else
-            -- Available to purchase: gold border
-            icon.border:SetColorTexture(0.6, 0.5, 0.2, 1)
+            -- Anything else that is not collected: the neutral grey border, never the gold one
+            icon.border:SetColorTexture(0.45, 0.45, 0.45, 1)
             SetIconBorderOutset(icon, 1)
         end
 
@@ -840,10 +914,14 @@ local function CreateBossRow(parent)
 
     local countText = row:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
     countText:SetPoint("TOPLEFT", icon, "BOTTOMRIGHT", 6, -2)
-    countText:SetPoint("RIGHT", row, "RIGHT", -Layout.PADDING, 0)
     countText:SetJustifyH("LEFT")
     countText:SetWordWrap(false)
     row.countText = countText
+
+    local stateText = row:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    stateText:SetPoint("LEFT", countText, "RIGHT", 6, 0)
+    stateText:SetWordWrap(false)
+    row.stateText = stateText
 
     local sep = row:CreateTexture(nil, "BACKGROUND")
     sep:SetHeight(1)
@@ -870,6 +948,7 @@ local function CreateBossRow(parent)
         local primaryDrop = self.dropGroup.records[1].drop
         local tooltip = BeginPanelTooltip(self, "ANCHOR_RIGHT")
         tooltip:AddLine((primaryDrop and primaryDrop.mobName) or "Unknown", 1, 1, 1)
+        AddStateLine(tooltip, self)
         if primaryDrop and primaryDrop.zone then
             tooltip:AddLine(primaryDrop.zone, 0.7, 0.7, 0.7)
         end
@@ -1429,13 +1508,17 @@ local function CreateVendorRow(parent)
     nameText:SetWordWrap(false)
     row.nameText = nameText
 
-    -- Collection count
+    -- Collection count, and the row's state after it
     local countText = row:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
     countText:SetPoint("TOPLEFT", icon, "BOTTOMRIGHT", 6, -2)
-    countText:SetPoint("RIGHT", row, "RIGHT", -Layout.PADDING, 0)
     countText:SetJustifyH("LEFT")
     countText:SetWordWrap(false)
     row.countText = countText
+
+    local stateText = row:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    stateText:SetPoint("LEFT", countText, "RIGHT", 6, 0)
+    stateText:SetWordWrap(false)
+    row.stateText = stateText
 
     -- Separator line
     local sep = row:CreateTexture(nil, "BACKGROUND")
@@ -1479,6 +1562,7 @@ local function CreateVendorRow(parent)
         if not self.vendor then return end
         local tooltip = BeginPanelTooltip(self, "ANCHOR_RIGHT")
         tooltip:AddLine(HA.VendorData:GetVendorName(self.vendor) or "Unknown", 1, 1, 1)
+        AddStateLine(tooltip, self)
         local place = HA.VendorPlaceText(self.vendor)
         if place then
             tooltip:AddLine(place, 0.7, 0.7, 0.7)
@@ -1702,10 +1786,17 @@ local function CreateSummarySubRow(parent)
     nameText:SetWordWrap(false)
     row.nameText = nameText
 
-    -- Count text (right side)
+    -- State text and count text (right side); the count sits beside the state when one shows
+    local stateText = row:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    stateText:SetPoint("RIGHT", row, "RIGHT", -Layout.PADDING, 0)
+    stateText:SetJustifyH("RIGHT")
+    stateText:SetWordWrap(false)
+    row.stateText = stateText
+
     local countText = row:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
     countText:SetPoint("RIGHT", row, "RIGHT", -Layout.PADDING, 0)
     countText:SetJustifyH("RIGHT")
+    countText:SetWordWrap(false)
     row.countText = countText
 
     -- Clamp name text to not overlap count
@@ -1740,6 +1831,7 @@ local function CreateSummarySubRow(parent)
         if not self.tooltipText then return end
         local tooltip = BeginPanelTooltip(self, "ANCHOR_RIGHT")
         tooltip:AddLine(self.tooltipText, 1, 1, 1)
+        AddStateLine(tooltip, self)
         if self.isOrderHall then
             tooltip:AddLine("Legion Order Hall", 1, 0.82, 0)
         end
@@ -1794,7 +1886,9 @@ local function RenderVendorRow(row, rec)
     row.total = rec.total
     row.locked = rec.locked
 
-    row.countText:SetText(rec.countText)
+    row.state, row.stateArg = rec.state, rec.stateArg
+
+    DrawLineTwo(row, rec)
     row.countText:SetTextColor(rec.countColor[1], rec.countColor[2], rec.countColor[3])
 
     if rec.isExpanded then
@@ -1838,7 +1932,9 @@ local function RenderSubRow(row, rec)
     row.nameText:SetText(rec.name)
     row.nameText:SetTextColor(0.9, 0.9, 0.9)
 
-    row.countText:SetText(rec.countText)
+    row.state, row.stateArg = rec.state, rec.stateArg
+
+    DrawSubRowRight(row, rec)
     if rec.countColor then
         row.countText:SetTextColor(rec.countColor[1], rec.countColor[2], rec.countColor[3])
     end
@@ -1868,7 +1964,9 @@ local function RenderBossRow(row, rec)
     row.total = rec.total
     row.locked = rec.locked
 
-    row.countText:SetText(rec.countText)
+    row.state, row.stateArg = rec.state, rec.stateArg
+
+    DrawLineTwo(row, rec)
     row.countText:SetTextColor(rec.countColor[1], rec.countColor[2], rec.countColor[3])
 
     if rec.isExpanded then
@@ -1914,6 +2012,7 @@ local function ResetListElement(container)
     content.isContinent = nil
     content.searchMode, content.searchMatchedItems = false, nil
     content.collected, content.total, content.locked = nil, nil, nil
+    content.state, content.stateArg = nil, nil
     content.vendorCount, content.totalItems = 0, 0
     content.collectedItems, content.lockedItems, content.unverifiedItems = nil, nil, nil
     content:Hide()
@@ -1960,17 +2059,11 @@ local function BuildZoneExpansionRows(zoneMapID, rows)
         local _, vendorMapID = VendorFilter.GetBestVendorCoordinates(vendor)
 
         -- Collection counts using same filter as panel
-        local stats = BC:GetVendorStats(vendor, State.panelSourceFilter)
-        local countText, countColor, tooltipSub
-        if (stats.total or 0) > 0 then
-            countText = FormatPurchasabilityCountText(stats.collected, stats.total, stats.locked)
-            countColor = Layout.COLOR_WHITE
-            tooltipSub = string.format("Collected: %d/%d", stats.collected or 0, stats.total or 0)
-        else
-            countText = ""
+        local described = BC:DescribeRow({ vendor = vendor }, { filter = State.panelSourceFilter, readState = "ready" })
+        local tooltipSub
+        if not described.empty then
+            tooltipSub = string.format("Collected: %d/%d", described.collected, described.total)
         end
-        -- Listed in any season, marked as the zone list marks it.
-        if not VendorData:IsVendorSellingNow(vendor) then countText = countText .. HA.NotActiveTag() end
 
         rows[#rows + 1] = {
             kind = "subrow",
@@ -1982,8 +2075,11 @@ local function BuildZoneExpansionRows(zoneMapID, rows)
             tooltipSub = tooltipSub,
             isOrderHall = vendor.mapID and ORDER_HALL_MAPS[vendor.mapID] or false,
             name = HA.VendorData:GetVendorName(vendor) or "Unknown",
-            countText = countText,
-            countColor = countColor,
+            countText = described.countText,
+            countColor = described.empty and Layout.COLOR_DIM or Layout.COLOR_WHITE,
+            empty = described.empty,
+            state = described.state,
+            stateArg = described.stateArg,
         }
     end
 end
@@ -3292,19 +3388,7 @@ function MapSidePanel:RefreshInstanceDropSources(mapID, mapInfo, encounters)
     local rows = {}
 
     for _, group in ipairs(groups) do
-        local stats = BC:GetDropGroupStats(group.records)
-        local collected = stats.collected or 0
-        local total = stats.total or 0
-        local locked = stats.locked or 0
-
-        local countText, countColor
-        if total > 0 then
-            countText = FormatPurchasabilityCountText(collected, total, locked)
-            countColor = Layout.COLOR_WHITE
-        else
-            countText = "No item data"
-            countColor = Layout.COLOR_DIM
-        end
+        local described = BC:DescribeRow({ records = group.records, kind = "drops" })
 
         local isExpanded = (State.expandedBossKey == group.encounterID)
 
@@ -3313,11 +3397,13 @@ function MapSidePanel:RefreshInstanceDropSources(mapID, mapInfo, encounters)
             height = Layout.ROW_HEIGHT + (isExpanded and ComputeItemGridHeight(#group.records) or 0),
             dropGroup = group,
             name = HA.SourceManager:GetDropGroupName(group.records[1].drop),
-            collected = collected,
-            total = total,
-            locked = locked,
-            countText = countText,
-            countColor = countColor,
+            collected = described.collected,
+            total = described.total,
+            locked = described.locked,
+            countText = described.countText,
+            countColor = described.empty and Layout.COLOR_DIM or Layout.COLOR_WHITE,
+            state = described.state,
+            stateArg = described.stateArg,
             isExpanded = isExpanded,
         }
         rows[#rows + 1] = rec
@@ -3471,26 +3557,8 @@ function MapSidePanel:RefreshContent()
         -- Set name with color coding
         local nameColor = entry.isOpposite and Layout.COLOR_DIM or Layout.COLOR_WHITE
 
-        -- Get collection stats (includes purchasable/locked breakdown)
-        local stats = BC:GetVendorStats(vendor, sourceFilter)
-        local collected = stats.collected or 0
-        local total = stats.total or 0
-        local locked = stats.locked or 0
-
-        local countText, countColor
-        if total > 0 then
-            countText = FormatPurchasabilityCountText(collected, total, locked)
-            -- White base color — inline escapes handle segment coloring
-            countColor = Layout.COLOR_WHITE
-        else
-            if sourceFilter ~= "all" then
-                countText = "No matching items"
-            else
-                countText = "No item data"
-            end
-            countColor = Layout.COLOR_DIM
-        end
-        if entry.notSelling then countText = countText .. HA.NotActiveTag() end
+        -- The row's state, counts and count text (white base colour: inline escapes colour the segments)
+        local described = BC:DescribeRow({ vendor = vendor }, { filter = sourceFilter, readState = "ready" })
 
         -- Check if this vendor is expanded (item grid visible)
         local isExpanded = (State.expandedVendorID == vendor.npcID)
@@ -3505,11 +3573,13 @@ function MapSidePanel:RefreshContent()
             vendor = vendor,
             searchMode = false,
             nameColor = nameColor,
-            collected = collected,
-            total = total,
-            locked = locked,
-            countText = countText,
-            countColor = countColor,
+            collected = described.collected,
+            total = described.total,
+            locked = described.locked,
+            countText = described.countText,
+            countColor = described.empty and Layout.COLOR_DIM or Layout.COLOR_WHITE,
+            state = described.state,
+            stateArg = described.stateArg,
             isExpanded = isExpanded,
             itemIDs = itemIDs,
         }
