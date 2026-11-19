@@ -157,10 +157,14 @@ end
 
 -- collected, total over the vendor's knowable wares, from the map pins' cache. nil while cold, which asks
 -- for the background fill unless noPrewarm or the browser's refresh says not to (a fill-triggered refresh
--- must not ask again).
+-- must not ask again). Before the collection can be read, built from the saved record, out of the pins' cache.
 function D.VendorCounts(vendor, noPrewarm)
     local BC = HA.BadgeCalculation
-    if not (BC and vendor and vendor.npcID) or HA.CatalogScanner:GetReadState() ~= "ready" then return nil end
+    if not (BC and vendor and vendor.npcID) then return nil end
+    if HA.CatalogScanner:GetReadState() ~= "ready" then
+        local stats = BC:UnreadVendorStats(vendor, "all")
+        return stats.collected, stats.total
+    end
     local stats = BC:PeekVendorStats(vendor, "all")
     if not stats then
         if D.HolidayActive(vendor) ~= nil then WarmHoliday(vendor)

@@ -250,10 +250,7 @@ function CG.Rejudge()
         e.st = nil
         if e.reach then Settle(e) end
     end
-    if walk then
-        walk.ranked = nil
-        wipe(walk.vendorCan)
-    end
+    if walk then walk.ranked = nil end
     return true
 end
 
@@ -332,7 +329,7 @@ local function RunWalk(items)
         Add(progress, n, got)
         for key in pairs(e.src) do Add(src[key], n, got) end
     end
-    return { list = list, progress = progress, vendorCan = {} }
+    return { list = list, progress = progress }
 end
 
 function CG.Walk()
@@ -357,22 +354,6 @@ function CG.RefreshNames()
     end
     if arrived then walk.ranked = nil end
     return arrived
-end
-
-function CG.VendorCanCount(vendor)
-    local w = CG.Walk()
-    if not (w and vendor and vendor.npcID) then return nil end
-    local npcID = vendor.npcID
-    local n = w.vendorCan[npcID]
-    if not n then
-        n = 0
-        for _, itemID in ipairs(D.VendorWares(vendor)) do
-            local e = CG.Entry(itemID)
-            if e.canBy and e.canBy[npcID] then n = n + 1 end
-        end
-        w.vendorCan[npcID] = n
-    end
-    return n
 end
 
 -- "Get it": event, gold only, lowest gold, nearest to where (none: all alike), lowest npcID.
@@ -562,8 +543,8 @@ function CG.MissingFactions()
     return seen
 end
 
-local function Judge(e, itemID, npcID)
-    local offer = npcID and CG.Offer(itemID, npcID) or e.verdict
+local function Judge(e, itemID, npcID, offer)
+    offer = offer or npcID and CG.Offer(itemID, npcID) or e.verdict
     if offer == "can" then return "can" end
     if PAY[offer] then
         local o = not npcID and BestOffer(e.reach, Facts.Here(), PAY[offer])
@@ -599,4 +580,14 @@ function B.ItemState(itemID, npcID)
         e.st = st
     end
     return st[1], st[2], st[3]
+end
+
+-- A ware on a vendor's card, owned or not by the saved record, as the card's count and the map's grid read it.
+local SAVED = { idle = "unlisted", promotion = "unobtainable", can = "can", short = "short", unpriced = "unpriced",
+    faction = "faction" }
+function B.CardState(itemID, vendor)
+    local verdict = HA.BadgeCalculation:WareVerdict(itemID, vendor)
+    if verdict == "owned" then return "owned" end
+    if verdict == "unknown" then return nil end
+    return Judge(NONE, itemID, vendor.npcID, SAVED[verdict] or "locked")
 end

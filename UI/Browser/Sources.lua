@@ -178,9 +178,9 @@ local function Stats(s)
     return total, got, can
 end
 
--- A source other than a vendor whose decor is all left out of the counts gets no row.
+-- A source other than a vendor or a drop whose decor is all left out of the counts gets no row.
 local function AllLeftOut(s)
-    return cs == "ready" and not s.vendor and s.items[1] ~= nil and Stats(s) == 0
+    return cs == "ready" and not s.vendor and s.type ~= "drops" and s.items[1] ~= nil and Stats(s) == 0
 end
 
 -- A drop group's wares as the shared description takes them, sorted by item.
@@ -225,10 +225,11 @@ local function RowData(s)
     local oneLine = s.type ~= "vendors" and not drops
     local state, arg, right, color
     if v or drops then
-        -- The vendor stats are asked for here so a cold count warms; the description only peeks.
+        -- The vendor stats are asked for here so a cold count warms; the description only peeks, and before the
+        -- read builds them out of the pins' cache.
         if v then Stats(s) end
         local r = BC:DescribeRow(v and { vendor = v } or { records = DropRecords(s), kind = "drops" },
-            { readState = cs, peek = v and true or nil })
+            { peek = v and (cs == "ready" or "unread") or nil })
         state, arg, right, color = r.state, r.stateArg, r.countText, r.countColor
     else
         local total, got, can = Stats(s)
@@ -676,7 +677,8 @@ function Rows(s, cells)
     for _, itemID in ipairs(s.items) do
         local e = CG.Entry(itemID)
         local info = e and e.info
-        local state, arg = B.ItemState(itemID, v and v.npcID)
+        local state, arg
+        if v then state, arg = B.CardState(itemID, v) else state, arg = B.ItemState(itemID) end
         rows[#rows + 1] = {
             kind = "row", name = D.ItemName(itemID, info) or L["Item %d"]:format(itemID),
             rank = state == "can" and 1 or state == "owned" and 3 or 2,
@@ -962,8 +964,7 @@ function Draw(fresh, saved)
         end
     end
 
-    local got, total
-    if ready then got, total = D.VendorCounts(v) end
+    local got, total = D.VendorCounts(v)
     local cw, nh, bh = w - PORTRAIT - SP.m - XRES, W.TextHeight("subheader"), W.TextHeight("body")
     SetFace(v)
     V.name:SetText(s.title)
@@ -985,7 +986,7 @@ function Draw(fresh, saved)
     Line(V.count, "body", n > 0 and (got and L["%d of %d collected"]:format(got, total) or L["Counting…"]) or nil, cw)
     V.count:ClearAllPoints()
     V.count:SetPoint("TOPLEFT", V.where, "BOTTOMLEFT", 0, -SP.xs)
-    SetCan(V.can, ready and CG.VendorCanCount(v) or 0, cw)
+    SetCan(V.can, HA.BadgeCalculation:VendorCanGet(v, "all", ready or "unread") or 0, cw)
     V.can:ClearAllPoints()
     V.can:SetPoint("TOPLEFT", n > 0 and V.count or V.where, "BOTTOMLEFT", 0, -SP.xs)
     V.head:SetSize(w, math.max(PORTRAIT, nh + (live and tagH + 2 or 0) + SP.xs + bh
