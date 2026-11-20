@@ -236,7 +236,7 @@ function B.SetHideNA(on)
     if page then page:Refresh("hide") end
 end
 
--- Pending refresh: stale (walk out of date), names (item or creature names arrived), wallet (money, a currency or a bag
+-- Pending refresh: stale (walk out of date: true, or the items an ownership update named), names (item or creature names arrived), wallet (money, a currency or a bag
 -- changed: judge again, no walk), walletPaint (account data arrived: draw again), plain (any other request),
 -- prewarm (a data change or a name may ask for the vendor-count fill; a fill-only repaint must not, or fill and
 -- repaint loop).
@@ -284,10 +284,10 @@ local function RunRefresh()
     timer = nil
     stale, names, wallet, walletPaint, plain, prewarm = false, false, false, false, false, false
     if not (Shown() and curRoute) then return end
-    if wasStale then B.Data.InvalidateMemos() end
+    if wasStale then B.CanGet.Plan(wasStale ~= true) B.Data.InvalidateMemos() end
     if hadNames then B.CanGet.RefreshNames() end
     local reason = wasStale and "data" or hadNames and "names" or nil
-    local changed = moved and not wasStale and Trace("browser_rejudge", nil, B.CanGet.Rejudge)
+    local changed = moved and wasStale ~= true and Trace("browser_rejudge", nil, B.CanGet.Rejudge)
     reason = reason or (changed or account) and "wallet" or other and "stats"
     if not reason then return end
     State.noPrewarm = not allowed
@@ -300,21 +300,16 @@ end
 function B.RequestRefresh(fromStatsFill, newData, fromWallet)
     if not fromStatsFill then prewarm = true end
     if not fromWallet then plain = true end
-    if newData then stale = true end
+    if newData then stale = stale == true or newData end
     if timer then return end
     timer = C_Timer.NewTimer(REFRESH_DELAY, RunRefresh)
 end
 
-local function ScanMatters(record)
-    if type(record) ~= "table" or record.hasHousing then return true end
-    return HA.VendorData:GetVendor(record.npcID) ~= nil
-end
-
 local function BuildCallbacks()
     callbacks = {
-        data = function() if Shown() then B.RequestRefresh(false, true) end end,
+        data = function(own) if Shown() then B.RequestRefresh(false, type(own) == "table" and own or true) end end,
         scan = function(record)
-            if Shown() and ScanMatters(record) then
+            if Shown() and HA.BadgeCalculation:ScanMatters(record) then
                 -- A scan adds sources without SOURCE_CACHES_INVALIDATED.
                 B.CanGet.ResetFactionOnly()
                 B.RequestRefresh(false, true)

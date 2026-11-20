@@ -15,6 +15,8 @@
       SetSources()       — _save() + CATALOG_ITEM_UPDATED
       SetRequirements()  — _save() + CATALOG_ITEM_UPDATED
       Save()             — _save() + CATALOG_ITEM_UPDATED
+      OWNERSHIP_UPDATED carries the items changed so far when the change names them, else nothing;
+      TakeOwnershipChanges() hands a listener the same set and starts the next one.
 
     Batch mode (BeginBatch/EndBatch):
       All per-item events suppressed. EndBatch fires one of each if needed.
@@ -94,6 +96,35 @@ local housingSubclassCache = {}
 local unreported = {}
 local clearFirePending = false
 
+-- Session-only: the items whose ownership changed since TakeOwnershipChanges was last called, so a listener that
+-- keeps per-item answers can redo only those. A change that names no item (the unreported set, ClearAll) or
+-- more items than the cap is a change of everything and keeps none.
+local changedSet, changedCount, changedAll = {}, 0, false
+local CHANGED_CAP = 256
+
+local function NoteChanged(itemID)
+    if changedAll then return end
+    if itemID then
+        if changedSet[itemID] then return end
+        changedSet[itemID], changedCount = true, changedCount + 1
+        if changedCount <= CHANGED_CAP then return end
+    end
+    changedSet, changedCount, changedAll = {}, 0, true
+end
+
+-- What OWNERSHIP_UPDATED carries: the changed items so far, nil when they are not known item by item.
+local function ChangedItems()
+    return not changedAll and changedCount > 0 and changedSet or nil
+end
+
+-- The items whose ownership changed since the last call, or nil when that is not known item by item (a change of
+-- the unreported set, ClearAll, a long run of changes, or an update that named none). Starts the next set.
+function CatalogStore:TakeOwnershipChanges()
+    local items = ChangedItems()
+    changedSet, changedCount, changedAll = {}, 0, false
+    return items
+end
+
 -------------------------------------------------------------------------------
 -- Internal: Table Merge (no events, no side effects beyond storage)
 -------------------------------------------------------------------------------
@@ -154,10 +185,11 @@ function CatalogStore:SetOwned(itemID, name, decorID)
 
     -- Fire event (or defer in batch mode)
     if not wasOwned then
+        NoteChanged(itemID)
         if batchDepth > 0 then
             batchOwnershipChanged = true
         elseif HA.Events then
-            HA.Events:Fire("OWNERSHIP_UPDATED")
+            HA.Events:Fire("OWNERSHIP_UPDATED", ChangedItems())
         end
     end
 end
@@ -253,7 +285,7 @@ function CatalogStore:EndBatch()
 
     if HA.Events then
         if batchOwnershipChanged then
-            HA.Events:Fire("OWNERSHIP_UPDATED")
+            HA.Events:Fire("OWNERSHIP_UPDATED", ChangedItems())
         end
         if batchDataChanged then
             HA.Events:Fire("CATALOG_ITEM_UPDATED")
@@ -267,7 +299,7 @@ end
 local function FireClearedUnreported()
     clearFirePending = false
     if HA.Events then
-        HA.Events:Fire("OWNERSHIP_UPDATED")
+        HA.Events:Fire("OWNERSHIP_UPDATED", ChangedItems())
     end
 end
 
@@ -276,6 +308,7 @@ end
 local function ClearUnreported(itemID)
     if not unreported[itemID] then return end
     unreported[itemID] = nil
+    NoteChanged(itemID)
     if batchDepth > 0 then
         batchOwnershipChanged = true
     elseif not clearFirePending then
@@ -607,6 +640,7 @@ function CatalogStore:SetUnreported(itemIDs)
     if not changed then return end
 
     unreported = nextSet
+    NoteChanged()
     if batchDepth > 0 then
         batchOwnershipChanged = true
     elseif HA.Events then
@@ -836,6 +870,7 @@ function CatalogStore:ClearAll()
 
     -- Bust negative cache
     negativeGeneration = negativeGeneration + 1
+    NoteChanged()
 
     if HA.Events then
         HA.Events:Fire("OWNERSHIP_UPDATED")

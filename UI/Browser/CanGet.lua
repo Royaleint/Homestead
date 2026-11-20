@@ -124,10 +124,24 @@ local PAY = { short = "short", unpriced = "unknown" }
 
 local walk, version, seenGen = nil, nil, 0
 
+-- The refresh that names the items whose ownership changed asks for the next memo version to keep every other
+-- entry: Plan holds those items and the version they follow.
+local plan
+function CG.Plan(only)
+    local items = HA.CatalogStore:TakeOwnershipChanges()
+    plan = only and items and { items = items, from = D.MemoVersion() } or nil
+end
+
 local function Fresh()
     local v = D.MemoVersion()
     if v ~= version then
-        version, walk, needAccount = v, nil, false
+        local kept = plan and plan.from == version and v == version + 1 and plan.items
+        plan, version, walk = nil, v, nil
+        if kept then
+            for itemID in pairs(kept) do entries[itemID] = nil end
+            return
+        end
+        needAccount = false
         wipe(entries)
         wipe(holders)
         wipe(transferable)
@@ -163,22 +177,8 @@ local PRIORITY = { can = 1, short = 2, unpriced = 3, locked = 4, unlisted = 5, f
 local SOURCE_KEYS = { "vendors", "achievements", "quests", "professions", "drops", "events", "shop" }
 CG.SOURCE_KEYS = SOURCE_KEYS
 
-local function GoldOnlyBundle(cost)
-    return (cost.gold or 0) > 0 and not (cost.currencies and cost.currencies[1])
-        and not (cost.items and cost.items[1])
-end
-
--- The smallest gold-only option, or nil. With payable, only options this character can pay count (a single option always counts).
 local function LowGold(cost, payable)
-    if not cost then return nil end
-    if not (cost.alternatives and cost.alternatives[1]) then
-        return GoldOnlyBundle(cost) and cost.gold or nil
-    end
-    local low
-    for _, v in ipairs(HA.VendorData:SplitCostOptions(cost) or NONE) do
-        if GoldOnlyBundle(v) and (not low or v.gold < low) and (not payable or PayBundle(v) == "paid") then low = v.gold end
-    end
-    return low
+    return HA.BadgeCalculation:LowGold(cost, payable)
 end
 CG.LowGold = LowGold
 

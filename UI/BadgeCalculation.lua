@@ -835,6 +835,24 @@ function BadgeCalculation:WalletPay(cost, out, onShort)
     return short and "short" or "unknown"
 end
 
+local function GoldOnlyBundle(cost)
+    return (cost.gold or 0) > 0 and not (cost.currencies and cost.currencies[1])
+        and not (cost.items and cost.items[1])
+end
+
+-- The smallest gold-only option, or nil. With payable, only options this character can pay count (a single option always counts).
+function BadgeCalculation:LowGold(cost, payable)
+    if not cost then return nil end
+    if not (cost.alternatives and cost.alternatives[1]) then
+        return GoldOnlyBundle(cost) and cost.gold or nil
+    end
+    local low
+    for _, v in ipairs(HA.VendorData:SplitCostOptions(cost) or WALLET_NONE) do
+        if GoldOnlyBundle(v) and (not low or v.gold < low) and (not payable or self:WalletPayBundle(v) == "paid") then low = v.gold end
+    end
+    return low
+end
+
 -------------------------------------------------------------------------------
 -- Row Description
 --
@@ -874,6 +892,13 @@ end
 function BadgeCalculation:IsListedVendor(vendor)
     if not vendor then return false end
     return not HA.VendorData:IsVendorHiddenByNpcID(vendor.npcID) and not VF.IsConfirmedNoDecor(vendor)
+end
+
+-- Whether a vendor scan's record can change what the vendor lists show: any record with housing, or a vendor in
+-- the shipped data.
+function BadgeCalculation:ScanMatters(record)
+    if type(record) ~= "table" or record.hasHousing then return true end
+    return HA.VendorData:GetVendor(record.npcID) ~= nil
 end
 
 -- A listed vendor that is selling now: a holiday vendor in its season, an Endeavor vendor while its theme runs.
