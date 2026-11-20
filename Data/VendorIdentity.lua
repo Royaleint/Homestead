@@ -2534,13 +2534,6 @@ VendorIdentity.Vendors = {
         expansion = "Midnight",
         removed = true,
     },
-    [262880] = {
-        name = "Er'inye",
-        mapID = 2509,
-        zone = "Vaults of Atal'Utek",
-        expansion = "Midnight",
-        unreleased = true,
-    },
     [264056] = {
         name = "Disguised Decor Duel Vendor",
         mapID = 2393,
