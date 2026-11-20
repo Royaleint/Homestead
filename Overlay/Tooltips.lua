@@ -711,6 +711,11 @@ local function RenderVendorSourceLines(tooltip, source, parsedTag, _itemID, _com
         tooltip:AddLine("  " .. LabelLine("Location:", WhiteName(altLocationText)), COLOR_WHITE.r, COLOR_WHITE.g, COLOR_WHITE.b)
     end
 
+    local note = source.data.vendor and source.data.vendor.notes
+    if note and note ~= "" then
+        tooltip:AddLine("  " .. note, 1, 0.82, 0, true)
+    end
+
     -- Show faction if not neutral
     if source.data.faction and source.data.faction ~= "Neutral" then
         local factionColor = source.data.faction == "Alliance" and "|cFF0078FF" or "|cFFFF0000"

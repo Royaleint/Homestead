@@ -169,9 +169,9 @@ local function BuildIndex()
                     end
                 end
             end
-            -- Both positions' shipped zone and subzone, then the client's names for them.
+            -- Both positions' shipped zone and subzone, the vendor's note, then the client's names for them.
             local otherMapID, _, _, otherZone, otherSubzone = VD:GetOtherPosition(vendor)
-            local places = AddLine(AddLine("", vendor.zone), vendor.subzone)
+            local places = AddLine(AddLine(AddLine("", vendor.zone), vendor.subzone), vendor.notes)
             places = AddLine(AddLine(places, otherZone), otherSubzone)
             places = AddLine(places, vendor.mapID and VF.GetMapName(vendor.mapID))
             places = AddLine(places, vendor.areaID and VF.GetAreaName(vendor.areaID))
