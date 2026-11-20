@@ -1,8 +1,8 @@
 --[[
     Homestead - PrerequisiteSources
-    Generated: 2026-11-20 18:00:01
-    Items with prerequisites: 619
-    Total prerequisite entries: 670
+    Generated: 2026-11-20 18:16:16
+    Items with prerequisites: 616
+    Total prerequisite entries: 667
 
     Vendor purchase prerequisites: Blizzard web API rows plus hand-checked additions.
     Used by SourceManager:GetRequirements() as a high-confidence source.
@@ -627,8 +627,5 @@ HA.PrerequisiteSources = {
     [283277] = {{type = "reputation", faction = "Voldunai", standing = "Revered", factionID = 2158}},
     [283297] = {{type = "reputation", faction = "Voldunai", standing = "Revered", factionID = 2158}},
     [283319] = {{type = "reputation", faction = "Voldunai", standing = "Revered", factionID = 2158}},
-    [283341] = {{type = "quest", id = 60778, name = "Wildseed Rescue"}},
     [283343] = {{type = "quest", id = 51364, name = "An Explosive Exit"}},
-    [284500] = {{type = "quest", id = 57982, name = "Breaking Down Barriers"}},
-    [284542] = {{type = "quest", id = 59426, name = "Your Personal Assistant"}},
 }
