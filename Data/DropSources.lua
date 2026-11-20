@@ -1,7 +1,7 @@
 --[[
     Homestead - DropSources
-    Generated: 2026-09-23 10:35:37
-    Total entries: 59
+    Generated: 2026-11-20 12:43:30
+    Total entries: 61
     Rows for patch 12.1.5 added by hand.
 
     World drop source data for housing decor items.
@@ -52,6 +52,8 @@ HA.DropSources = {
     [264332] = {mobName = "Nalorakk", zone = "Den of Nalorakk (Zul'Aman)", journalInstanceID = 1311, journalEncounterID = 2778, notes = "Midnight dungeon within Zul'Aman."},
     [264336] = {mobName = "Charonus", zone = "Voidscar Arena", journalInstanceID = 1313, journalEncounterID = 2793, notes = "Lighting drop."},
     [264338] = {mobName = "Lothraxion", zone = "Nexus-Point Xenas", journalInstanceID = 1316, journalEncounterID = 2815, notes = "Blinded by betrayal, Lothraxion storms the Nexus-Point alone."},
+    [264482] = {mobName = "Malignant Chest", zone = "Voidstorm"},
+    [264483] = {mobName = "Victorious Stormarion Pinnacle Cache", zone = "Voidstorm", notes = "Stormarion Assault"},
     [264491] = {mobName = "Vaelgor & Ezzorak", zone = "The Voidspire", journalInstanceID = 1307, journalEncounterID = 2735, notes = "Raid drop."},
     [264494] = {mobName = "Fallen-King Salhadaar", zone = "The Voidspire", journalInstanceID = 1307, journalEncounterID = 2736, notes = "Third boss of The Voidspire."},
     [264497] = {mobName = "Imperator Averzian", zone = "The Voidspire", journalInstanceID = 1307, journalEncounterID = 2733, notes = "Void-themed crystal."},
