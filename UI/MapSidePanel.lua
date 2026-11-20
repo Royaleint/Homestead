@@ -22,7 +22,6 @@ local MapSidePanel = {}
 HA.MapSidePanel = MapSidePanel
 
 local L = HA.L or {}
-local MPP = HA.MapPinProvider
 
 -- Module references (set during Initialize, after TOC load order)
 local VendorData
@@ -2790,69 +2789,10 @@ local function GetVendorsForCurrentMap(mapID)
     if not VendorData then return {} end
 
     local vendors = {}
-    local seen = {}
-    local isNeighborhoodMap = (mapID == 2351 or mapID == 2352)
-
-    -- Get vendors for this map + more-specific sub-zone child maps, in any season: the ones not selling now are
-    -- listed marked and left out of the zone's totals.
-    local mapsToCheck = { [mapID] = true }
-    local childMapIDs = MPP:GetMoreSpecificChildMapIDs(mapID)
-    for _, childMapID in ipairs(childMapIDs) do
-        mapsToCheck[childMapID] = true
-    end
-
     local showOpposite = VendorFilter.ShouldShowOppositeFaction()
-
-    local function TryAddVendor(vendor)
-        if not vendor or not vendor.npcID or seen[vendor.npcID] then
-            return
-        end
-        seen[vendor.npcID] = true
-
-        if VendorFilter.ShouldHideVendor(vendor) then
-            return
-        end
-
-        local isOpposite = VendorFilter.IsOppositeFaction(vendor)
-        if showOpposite or not isOpposite then
-            vendors[#vendors + 1] = {
-                vendor = vendor,
-                isOpposite = isOpposite,
-                notSelling = not VendorData:IsVendorSellingNow(vendor),
-            }
-        end
-    end
-
-    for queryMapID in pairs(mapsToCheck) do
-        local mapVendors = VendorData:GetVendorsInMap(queryMapID, true)
-        if mapVendors then
-            for _, vendor in ipairs(mapVendors) do
-                TryAddVendor(vendor)
-            end
-        end
-    end
-
-    -- Neighborhood maps are split across 2351/2352.
-    -- Inject only active endeavor vendor(s) from the sibling map.
-    if isNeighborhoodMap then
-        local endeavorsData = HA.EndeavorsData
-        for _, endeavorMapID in ipairs({2351, 2352}) do
-            if endeavorMapID ~= mapID then
-                local mapVendors = VendorData:GetVendorsInMap(endeavorMapID)
-                if mapVendors then
-                    for _, vendor in ipairs(mapVendors) do
-                        if vendor.endeavor then
-                            local isActive
-                            if endeavorsData and endeavorsData.IsVendorActive then
-                                isActive = endeavorsData:IsVendorActive(vendor)
-                            end
-                            if isActive == true then
-                                TryAddVendor(vendor)
-                            end
-                        end
-                    end
-                end
-            end
+    for _, entry in ipairs(VendorFilter.GetVendorsOnMap(mapID)) do
+        if showOpposite or not entry.isOpposite then
+            vendors[#vendors + 1] = entry
         end
     end
 

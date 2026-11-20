@@ -50,7 +50,7 @@ local FLOOR, GAP, LIFT = 2 * S.ware.size + S.ware.gap, SP.s, 20
 local INSET, XSIZE, XPAD, XRES = LO.wellPad, S.card.close, S.card.closePad, S.card.reserve
 local GLYPH = 14
 
--- Beside an open card the list is narrowed to its names and what can be got now; under a covering card it keeps its rows.
+-- Beside an open card the list narrows to names and what can be got now; under a covering card it keeps its rows.
 local function Narrow()
     return vid ~= nil and not cover
 end
@@ -100,11 +100,16 @@ local function VendorEntry(v)
     return s
 end
 
--- One entry per listed vendor, for all vendors or one expansion.
+local maps
 local function VendorList(home)
-    local out = {}
-    for _, v in ipairs(D.ListedVendors()) do
-        if not home or D.VendorHome(v) == home then out[#out + 1] = VendorEntry(v) end
+    local out, all = {}, D.ListedVendors()
+    maps = HA.VendorFilter.GetVendorMaps(all, maps)
+    for _, v in ipairs(all) do
+        if not home or D.VendorHome(v) == home then
+            for i, a in ipairs(maps[v.npcID]) do
+                out[#out + 1] = setmetatable({ mapID = a.mapID, zone = a.zone, again = i > 1 }, { __index = VendorEntry(v) })
+            end
+        end
     end
     return out
 end
@@ -115,7 +120,7 @@ local function DecorName(id)
     return D.ItemName(id, e and e.info or D.CatalogInfo(id, B.State.catalogMemo)) or L["Item %d"]:format(id)
 end
 
--- Titles that can arrive after the list was built: a shop item's name, a vendor's or a drop group's client name.
+-- Titles that can arrive after the list was built: a shop item's, vendor's or drop group's name.
 -- A vendor row sorts by st, the name its list is ordered by.
 local function Retitle(s)
     if s.type == "shop" then s.title = DecorName(s.items[1])
@@ -304,7 +309,7 @@ local function Place(s, order)
     s.o, s.g, s.late, s.top, s.p = 0, nil, nil, nil, nil
     local v, t = s.vendor, s.type
     if v then
-        local _, zone = Facts.Place(v)
+        local zone = s.zone or select(2, Facts.Place(v))
         s.e, s.g, s.late = D.VendorHome(v), zone or L["Location not recorded"], zone == nil
         s.o = order and order[s.e] or 0
     elseif t == "events" then
@@ -441,14 +446,14 @@ local function BuildList(keep, zone)
             end
         elseif grid or not AllLeftOut(s) then
             local why = hide and CG.HiddenBy(v and { vendor = v } or { items = s.items })
-            if why then
+            if why and not s.again then
                 hidden.hidden = hidden.hidden + 1
                 hidden[why] = hidden[why] + 1
                 if why == "faction" then
                     local label = v and HA.BadgeCalculation:FactionLabel(v) or ""
                     seen[label] = (seen[label] or 0) + 1
                 end
-            else
+            elseif not why then
                 out[#out + 1] = s
                 Place(s, order)
             end
@@ -465,7 +470,7 @@ local function BuildList(keep, zone)
         return tk, s.g and (wide and tostring(s.e) .. "\1" .. s.g or tops and tk .. "\1" .. s.g) or nil
     end
     local function Near(s)
-        local at = s.vendor and Facts.Place(s.vendor)
+        local at = s.vendor and (s.mapID or Facts.Place(s.vendor))
         return at and (nearby and nearby[at] or HA.MapPinProvider.ZoneOf(at) == zone)
     end
     if zone and fold then
@@ -542,7 +547,7 @@ local function FoldAll(on)
     BuildList(true)
 end
 
--- Lights the open card's row, or none, and narrows or widens the rows for the mode, without rebuilding the list.
+-- Lights the open card's row and narrows or widens the rows for the mode, without rebuilding the list.
 local function Scroller()
     return not wide and st.type == "shop" and tiles or list
 end
@@ -606,17 +611,16 @@ local headerKind = {
     end,
 }
 
--- The width the card's text takes: the page less the list beside it and the card's own well and gutter.
+-- The width the card's text takes: the page less the list, the card's well and its gutter.
 local function BodyWidth()
     return P:GetWidth() - (cover and 0 or colW + SP.xs) - FRAME
 end
 
--- The card's own width: the page less the narrowed list and the gap beside it.
 local function CardWidth()
     return P:GetWidth() - (colNow > 0 and colNow + SP.xs or 0)
 end
 
--- Reads the mode from the page's width; false while the page has none, when the draw is owed.
+-- Reads the mode from the page's width; false while it has none, when the draw is owed.
 local function Layout()
     local room = P:GetWidth()
     if room <= 0 then return false end
@@ -624,7 +628,7 @@ local function Layout()
     return true
 end
 
--- Places the list and the card for the mode: the list narrowed with the card beside it, or the card over the page.
+-- Places the list and the card for the mode.
 local function Arrange()
     local narrow = Narrow()
     colNow = narrow and colW or 0
@@ -647,8 +651,8 @@ local function Arrange()
 end
 
 -- Arranges an already-built list for the mode. Header and footer heights follow the width, and frames on screen
--- keep their old extent until their initializers run again, so a width change rebuilds the box in place, keeping
--- the scroll position. Rebuild raises on a box that was never given data.
+-- keep their old extent until re-initialized, so a width change rebuilds the box in place, keeping the scroll
+-- position. Rebuild raises on a box never given data.
 local function Fit()
     local was = colNow
     Arrange()
@@ -774,8 +778,8 @@ function Page:ListOf(route)
     return self:Has(over) and over or { kind = "allVendors" }
 end
 
--- A forward Show starts from the route's seed (a zone); Back gives saved. A vendor route is a card over
--- its list (route.list): with keep, that list is already up, and opening, swapping and closing the card leave it.
+-- A forward Show starts from the route's seed (a zone); Back gives saved. A vendor route is a card over its list
+-- (route.list): with keep, that list is already up, and opening, swapping and closing the card leave it.
 function Page:Show(route, saved, keep)
     local card = route.kind == "vendor"
     local over = card and route.list or route
@@ -875,9 +879,8 @@ local function SetFace(v)
 end
 
 -- The card is an opaque well that takes the mouse and the wheel, with a close button that stays still while the
--- card scrolls.
--- The template puts the button at frame level 510, above the window's trim.
--- The clip frame places, shows and clips the card, and reaches 1 px below it for the well's bottom corners.
+-- card scrolls (the template puts it at frame level 510, above the window's trim). The clip frame places, shows
+-- and clips the card, and reaches 1 px below it for the well's bottom corners.
 function Vend:Build(parent)
     local clip = CreateFrame("Frame", nil, parent)
     clip:SetClipsChildren(true)
@@ -1056,8 +1059,8 @@ function Vend:Refresh(reason, wasTorn)
     Draw(W.Owed(V.wait))
 end
 
--- The page of one other source: the achievement, quest, recipe, drop, event or shop item. Its elements
--- hang from the one above, so a wrapped line pushes the rest down.
+-- The page of one other source (achievement, quest, recipe, drop, event or shop item). Its elements hang from
+-- the one above, so a wrapped line pushes the rest down.
 local Src, A = {}, {}
 local srcID, srcType, srcTorn
 
@@ -1072,8 +1075,8 @@ local function PinLine(parent, role)
     return f
 end
 
--- No text hides the line; a spot puts the waypoint icon at the end of the text. The text is one line, cut off
--- where the icon and the page edge leave room.
+-- No text hides the line; a spot puts the waypoint icon at the end of the text, which is one line cut off where
+-- the icon and the page edge leave room.
 local function SetPinLine(f, text, spot, title)
     f:SetShown(text ~= nil)
     if not text then return end

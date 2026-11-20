@@ -344,6 +344,109 @@ function VendorFilter.GetVendorPlaceNames(vendor)
     return mapID, zone, subzone
 end
 
+-- The vendors the map side panel lists for a map, in no order, as { vendor, isOpposite, notSelling }: the vendors
+-- on the map and on the more specific maps below it, in any season, less those hide(vendor) is true for
+-- (ShouldHideVendor by default), and for a neighborhood map the running Endeavor vendors of its sibling map.
+-- Opposite-faction vendors are included; the panel drops them under its own setting.
+function VendorFilter.GetVendorsOnMap(mapID, hide)
+    hide = hide or VendorFilter.ShouldHideVendor
+    local VD = HA.VendorData
+    local out = {}
+    if not VD then return out end
+    local seen = {}
+    local isNeighborhoodMap = (mapID == 2351 or mapID == 2352)
+
+    local function TryAdd(vendor)
+        if not vendor or not vendor.npcID or seen[vendor.npcID] then return end
+        seen[vendor.npcID] = true
+        if hide(vendor) then return end
+        out[#out + 1] = {
+            vendor = vendor,
+            isOpposite = VendorFilter.IsOppositeFaction(vendor),
+            notSelling = not VD:IsVendorSellingNow(vendor),
+        }
+    end
+
+    local mapsToCheck = { [mapID] = true }
+    for _, childMapID in ipairs(HA.MapPinProvider:GetMoreSpecificChildMapIDs(mapID)) do
+        mapsToCheck[childMapID] = true
+    end
+    for queryMapID in pairs(mapsToCheck) do
+        for _, vendor in ipairs(VD:GetVendorsInMap(queryMapID, true) or {}) do
+            TryAdd(vendor)
+        end
+    end
+
+    -- Neighborhood maps are split across 2351/2352: only an active Endeavor vendor crosses over.
+    if isNeighborhoodMap then
+        for _, siblingMapID in ipairs({ 2351, 2352 }) do
+            if siblingMapID ~= mapID then
+                for _, vendor in ipairs(VD:GetVendorsInMap(siblingMapID) or {}) do
+                    if vendor.endeavor and HA.EndeavorsData and HA.EndeavorsData.IsVendorActive
+                            and HA.EndeavorsData:IsVendorActive(vendor) == true then
+                        TryAdd(vendor)
+                    end
+                end
+            end
+        end
+    end
+    return out
+end
+
+-- Where each of the given vendors is listed, by NPC id: one { mapID, zone } for every map the side panel
+-- lists it on, zone being the map's name, the vendor's own position first. The
+-- vendors given are the ones listed: the pin settings that hide a vendor on the map do not apply. A listed vendor
+-- on no map has a single empty entry, for the one place it is shown at. The maps asked are the vendors' positions.
+-- The answer reads only what the vendors and their maps hold (the listed vendors, the running Endeavor vendors of
+-- the neighborhoods, the moving event vendor's place), never ownership, so pass the last answer as prev: it is
+-- returned as it is while a key built from those has not changed. Nothing is kept here.
+function VendorFilter.GetVendorMaps(vendors, prev)
+    local VD, ED, tracker = HA.VendorData, HA.EndeavorsData, HA.DreamsurgeTracker
+    local key = { #vendors, tracker and tracker:GetEffectiveLocation(tracker.NPC_ID) or "" }
+    for _, mapID in ipairs({ 2351, 2352 }) do
+        for _, v in ipairs(ED and ED.ByMapID and ED.ByMapID[mapID] or {}) do
+            key[#key + 1] = ED:IsVendorActive(v) == true and 1 or 0
+        end
+    end
+    key = table.concat(key, ",")
+    if prev and prev.key == key then return prev end
+
+    local listed = {}
+    for _, v in ipairs(vendors) do listed[v.npcID] = true end
+    local function notListed(v) return not listed[v.npcID] end
+    local byNpc, asked = { key = key }, {}
+    local function Ask(mapID)
+        if not mapID or asked[mapID] then return end
+        asked[mapID] = true
+        local name = VendorFilter.GetMapName(mapID)
+        for _, e in ipairs(VendorFilter.GetVendorsOnMap(mapID, notListed)) do
+            local v = e.vendor
+            local list = byNpc[v.npcID] or {}
+            byNpc[v.npcID] = list
+            list[#list + 1] = { mapID = mapID, zone = name or v.mapID == mapID and v.zone or select(4, VD:GetOtherPosition(v)) }
+        end
+    end
+    for _, v in ipairs(vendors) do
+        Ask(v.mapID)
+        Ask((VD:GetOtherPosition(v)))
+    end
+    for _, v in ipairs(vendors) do
+        local list, out = byNpc[v.npcID] or { {} }, {}
+        table.sort(list, function(a, b)
+            local pa, pb = a.mapID == v.mapID, b.mapID == v.mapID
+            if pa ~= pb then return pa end
+            return (a.mapID or 0) < (b.mapID or 0)
+        end)
+        for _, at in ipairs(list) do
+            local dup
+            for _, o in ipairs(out) do dup = dup or (at.zone ~= nil and o.zone == at.zone) end
+            if not dup then out[#out + 1] = at end
+        end
+        byNpc[v.npcID] = out
+    end
+    return byNpc
+end
+
 -------------------------------------------------------------------------------
 -- Settings Queries
 -------------------------------------------------------------------------------
