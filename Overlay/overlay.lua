@@ -14,8 +14,6 @@ HA.Overlay = Overlay
 -- Local references
 local Constants = HA.Constants
 local Events = HA.Events
-local CatalogStore = HA.CatalogStore
-local SourceManager = HA.SourceManager
 
 -- Configuration
 local OVERLAY_CONFIG = Constants.Overlay or {
@@ -38,7 +36,6 @@ local activeOverlays = {}
 
 -- Read-only fallback for nil-opts SetHomestoneState callers (see its comment).
 local EMPTY_OPTS = {}
-local overlayPool = {}
 local overlayCount = 0
 local externalRefreshers = {}
 
@@ -132,30 +129,22 @@ function Overlay:CreateOverlay(parentFrame, updateFunc)
         return existingOverlay
     end
 
-    local overlay = table.remove(overlayPool)
+    overlayCount = overlayCount + 1
 
-    if not overlay then
-        -- Create new overlay frame
-        overlayCount = overlayCount + 1
+    -- Use unnamed frames/textures to avoid polluting the global namespace.
+    local overlay = CreateFrame("Frame", nil, parentFrame)
+    overlay:SetFrameStrata(OVERLAY_CONFIG.STRATA)
 
-        -- Use unnamed frames/textures to avoid polluting the global namespace.
-        overlay = CreateFrame("Frame", nil, parentFrame)
-        overlay:SetFrameStrata(OVERLAY_CONFIG.STRATA)
-
-        local icon = overlay:CreateTexture(nil, "OVERLAY")
-        icon:SetSize(OVERLAY_CONFIG.ICON_SIZE, OVERLAY_CONFIG.ICON_SIZE)
-        icon:SetPoint(
-            OVERLAY_CONFIG.DEFAULT_ANCHOR,
-            overlay,
-            OVERLAY_CONFIG.DEFAULT_ANCHOR,
-            OVERLAY_CONFIG.OFFSET_X,
-            OVERLAY_CONFIG.OFFSET_Y
-        )
-        overlay.icon = icon
-
-        -- Store update function reference
-        overlay.updateFunc = nil
-    end
+    local icon = overlay:CreateTexture(nil, "OVERLAY")
+    icon:SetSize(OVERLAY_CONFIG.ICON_SIZE, OVERLAY_CONFIG.ICON_SIZE)
+    icon:SetPoint(
+        OVERLAY_CONFIG.DEFAULT_ANCHOR,
+        overlay,
+        OVERLAY_CONFIG.DEFAULT_ANCHOR,
+        OVERLAY_CONFIG.OFFSET_X,
+        OVERLAY_CONFIG.OFFSET_Y
+    )
+    overlay.icon = icon
 
     -- Configure overlay for this parent
     overlay:SetParent(parentFrame)
@@ -173,28 +162,6 @@ function Overlay:CreateOverlay(parentFrame, updateFunc)
     activeOverlays[overlay] = true
 
     return overlay
-end
-
--- Release an overlay back to the pool
-function Overlay:ReleaseOverlay(overlay)
-    if not overlay then return end
-
-    -- Hide and clear
-    overlay:Hide()
-    overlay:ClearAllPoints()
-    self:ClearIcon(overlay)
-    overlay.updateFunc = nil
-
-    -- Remove from parent
-    if overlay:GetParent() then
-        overlay:GetParent().HousingAddonOverlay = nil
-    end
-
-    -- Remove from active tracking
-    activeOverlays[overlay] = nil
-
-    -- Return to pool
-    table.insert(overlayPool, overlay)
 end
 
 -------------------------------------------------------------------------------
@@ -241,7 +208,7 @@ function Overlay:SetHomestoneState(parent, state, opts)
     parent.HomestoneState = state
 
     -- Reuse the per-overlay options table in place instead of
-    -- allocating a new 4-field table every SetIcon-path call (CatalogOverlay
+    -- allocating a new 4-field table on every call (CatalogOverlay
     -- pattern). All four fields are always overwritten below, so no field can
     -- carry a stale value from a previous slot/state.
     local homestoneOptions = parent.HomestoneOptions
@@ -289,61 +256,6 @@ function Overlay:ClearHomestoneTextures(parent)
 
     parent.HomestoneState = nil
     parent.HomestoneOptions = nil
-end
-
--- Set the icon on an overlay based on item status
-function Overlay:SetIcon(overlay, itemLink)
-    if not overlay or not overlay.icon then return end
-
-    -- Check if overlays are enabled
-    if not HA.Addon or not HA.Addon.db or not HA.Addon.db.profile.overlay.enabled then
-        overlay.icon:Hide()
-        self:ClearHomestoneTextures(overlay)
-        return
-    end
-
-    -- Check if item is a decor item
-    if not CatalogStore or not SourceManager then
-        overlay.icon:Hide()
-        self:ClearHomestoneTextures(overlay)
-        return
-    end
-
-    if not itemLink then
-        overlay.icon:Hide()
-        self:ClearHomestoneTextures(overlay)
-        return
-    end
-
-    -- Check if this is a decor item
-    local itemID = C_Item.GetItemInfoInstant(itemLink)
-    if not itemID or not CatalogStore:IsDecorItem(itemLink) then
-        overlay.icon:Hide()
-        self:ClearHomestoneTextures(overlay)
-        return
-    end
-
-    -- Get status icon
-    local iconTexture = SourceManager:GetItemStatusIcon(itemID)
-    if not iconTexture then
-        overlay.icon:Hide()
-        self:ClearHomestoneTextures(overlay)
-        return
-    end
-
-    self:ClearHomestoneTextures(overlay)
-
-    -- Set the icon texture
-    overlay.icon:SetTexture(iconTexture)
-    overlay.icon:Show()
-
-    -- Apply color tint if needed
-    local color = SourceManager:GetItemStatusColor(itemID)
-    if color then
-        overlay.icon:SetVertexColor(color.r, color.g, color.b, color.a or 1)
-    else
-        overlay.icon:SetVertexColor(1, 1, 1, 1)
-    end
 end
 
 -- Clear the icon on an overlay
@@ -395,12 +307,6 @@ function Overlay:RefreshExternalOverlays()
     end
 end
 
--- Update a single overlay
-function Overlay:UpdateOverlay(overlay, itemLink)
-    if not overlay then return end
-    self:SetIcon(overlay, itemLink)
-end
-
 -------------------------------------------------------------------------------
 -- Frame Hooking Utilities
 -------------------------------------------------------------------------------
@@ -415,41 +321,6 @@ function Overlay:AddToFrame(frame, updateFunc)
     end
 
     return overlay
-end
-
--- Remove overlay from a frame
-function Overlay:RemoveFromFrame(frame)
-    if not frame then return end
-
-    local overlay = frame.HousingAddonOverlay
-    if overlay then
-        self:ReleaseOverlay(overlay)
-    end
-end
-
--- Hook a frame's OnShow to add overlay
-function Overlay:HookFrameOnShow(frame, getItemLinkFunc)
-    if not frame or frame.HousingAddonHooked then return end
-
-    frame:HookScript("OnShow", function(self) -- luacheck: ignore 432
-        Overlay:AddToFrame(self, function(o)
-            local itemLink = getItemLinkFunc(self)
-            Overlay:SetIcon(o, itemLink)
-        end)
-    end)
-
-    frame.HousingAddonHooked = true
-end
-
--- Hook a frame's OnHide to release overlay
-function Overlay:HookFrameOnHide(frame)
-    if not frame or frame.HousingAddonOnHideHooked then return end
-
-    frame:HookScript("OnHide", function(self) -- luacheck: ignore 432
-        Overlay:RemoveFromFrame(self)
-    end)
-
-    frame.HousingAddonOnHideHooked = true
 end
 
 -------------------------------------------------------------------------------
@@ -554,7 +425,7 @@ function Overlay:Initialize()
     -- that OWNERSHIP_UPDATED reaches (confirmed: no other RequestUpdate("all")
     -- or Fire("all") caller exists anywhere in the addon), so this is where
     -- the actual bag-overlay repaint work happens. Workload is overlayCount
-    -- (the pool-size local this file already tracks) — no new scan added to
+    -- (the overlay-count local this file already tracks) — no new scan added to
     -- compute it.
     Events:RegisterCallback("all", function()
         HA.PerformanceTrace:Measure("bag_refresh", overlayCount, Overlay.RefreshAll, Overlay)
@@ -579,21 +450,4 @@ function Overlay:Initialize()
     end)
 
     HA.Addon:Debug("Overlay system initialized")
-end
-
--------------------------------------------------------------------------------
--- Statistics
--------------------------------------------------------------------------------
-
-function Overlay:GetStats()
-    local activeCount = 0
-    for _ in pairs(activeOverlays) do
-        activeCount = activeCount + 1
-    end
-
-    return {
-        active = activeCount,
-        pooled = #overlayPool,
-        total = overlayCount,
-    }
 end

@@ -884,9 +884,10 @@ local function DetectContext(tooltip)
     -- Panel: MapSidePanel stamps this flag on item icon frames
     if owner.isHomesteadPanelIcon then return "panel" end
 
-    -- Merchant: only if a merchant is open AND the owner is a merchant item button.
-    -- Prevents misclassifying bag/AH/chat tooltips while vendor window is open.
-    if merchantFrameOpen then
+    -- Merchant: only if a merchant is open on its Merchant tab AND the owner is a
+    -- merchant item button. Prevents misclassifying bag/AH/chat tooltips while the
+    -- vendor window is open, and Buyback tooltips, which reuse the same buttons.
+    if merchantFrameOpen and MerchantFrame and MerchantFrame.selectedTab == 1 then
         local ownerName = owner.GetName and owner:GetName()
         if ownerName and ownerName:match("^MerchantItem%d+ItemButton$") then
             return "merchant"
