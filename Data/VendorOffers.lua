@@ -33,6 +33,8 @@
     deliberately: EndeavorsData and EventSources carry bare item IDs of their own, which also
     render a blank cost, and that check counts only this file.
 
+    A stored price is the undiscounted base price; a scan that reads an exact reputation discount below it is not a correction.
+
     Schema per entry:
         [npcID] = {
             [itemID] = {
