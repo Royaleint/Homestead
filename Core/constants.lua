@@ -193,6 +193,13 @@ function Constants.IsScanInOtherNeighborhoodHub(vendorMapID, scannedMapID)
     return vendorMapID ~= nil and OTHER_NEIGHBORHOOD_HUB[vendorMapID] == scannedMapID
 end
 
+-- Housing neighborhood maps are instances: their coordinates overlap real continent space,
+-- so the minimap nearby-zone scan neither offers them as siblings nor scans from inside one.
+Constants.InstancedNeighborhoodMaps = {
+    [2351] = true,  -- Razorwind Shores
+    [2352] = true,  -- Founder's Point
+}
+
 -- Canonical zone-to-continent map consumed by VendorDatabase, BadgeCalculation,
 -- and scanner inference paths.
 Constants.ZoneToContinentMap = {
@@ -338,8 +345,8 @@ Constants.ZoneToContinentMap = {
     [2339] = 2274,
     [2346] = 2274,
     [2350] = 2274, -- Arcantina
-    [2351] = 2274, -- Hollowed Halls (Housing)
-    [2352] = 2274, -- Housing instance
+    [2351] = 12, -- Razorwind Shores
+    [2352] = 13, -- Founder's Point
     [2393] = 2537, -- Murder Row (Midnight Silvermoon)
     [2395] = 2537, -- Midnight Silvermoon (zone parent)
     [2405] = 2537, -- Voidstorm (Midnight)
