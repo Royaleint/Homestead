@@ -124,8 +124,7 @@ local PAY = { short = "short", unpriced = "unknown" }
 
 local walk, version, seenGen = nil, nil, 0
 
--- The refresh that names the items whose ownership changed asks for the next memo version to keep every other
--- entry: Plan holds those items and the version they follow.
+-- An ownership-only refresh that names its items keeps the other entries in the next memo version.
 local plan
 function CG.Plan(only)
     local items = HA.CatalogStore:TakeOwnershipChanges()
@@ -177,10 +176,7 @@ local PRIORITY = { can = 1, short = 2, unpriced = 3, locked = 4, unlisted = 5, f
 local SOURCE_KEYS = { "vendors", "achievements", "quests", "professions", "drops", "events", "shop" }
 CG.SOURCE_KEYS = SOURCE_KEYS
 
-local function LowGold(cost, payable)
-    return HA.BadgeCalculation:LowGold(cost, payable)
-end
-CG.LowGold = LowGold
+function CG.LowGold(...) return HA.BadgeCalculation:LowGold(...) end
 
 -- The shared other-faction-only answer, kept per item; the router resets it on show, on
 -- SOURCE_CACHES_INVALIDATED and on a decor vendor scan.
@@ -225,8 +221,8 @@ local function Settle(e)
         for npcID, o in pairs(e.reach) do
             o.pay = Pay(o.cost, nil, true)
             -- Gold only: a gold option this wallet can pay; else, unless paid another way, the cheapest one.
-            local low = LowGold(o.cost, true)
-            if not low and o.pay ~= "paid" then low = LowGold(o.cost) end
+            local low = CG.LowGold(o.cost, true)
+            if not low and o.pay ~= "paid" then low = CG.LowGold(o.cost) end
             o.price, o.gold = low, low ~= nil
             local v = VERDICT[o.pay]
             if v == "can" then e.canBy[npcID] = o end
@@ -290,6 +286,9 @@ local function Evaluate(itemID, SM, memo, tables)
     Settle(e)
     return e
 end
+
+-- Copy counts change with no ownership update: a walked entry's record is read when drawn.
+function CG.Rec(e) return e.own and D.CatalogInfo(e.itemID, Memo()) or e.info or NONE end
 
 -- The walk's record for one item, decor or a vendor ware outside the decor list; nil before ready.
 -- Fields: itemID, info, own, name, bonus (the First-Time Collection amount, nil if none), src (Sources type set), factionOnly, verdict (nil without a

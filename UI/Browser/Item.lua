@@ -161,7 +161,7 @@ local function Describe(itemID)
     local D, CG = B.Data, B.CanGet
     local memo = B.State.catalogMemo
     local e = CG.Entry(itemID)
-    local info = e and e.info or D.CatalogInfo(itemID, memo)
+    local info = D.CatalogInfo(itemID, memo)
     local quality = D.IconData(itemID, true, memo)
     local m = {
         info = info, quality = quality, icon = D.ItemIcon(itemID),

@@ -185,9 +185,9 @@ local function Describe(r)
     if not d then
         local active, state, arg = nil, B.ItemState(id)
         for _, o in pairs(e.canBy or {}) do active = active or o.event end
-        local info = e.info
-        d = { itemID = id, name = Name(r), quality = info and info.quality or C_Item.GetItemQualityByID(id),
-            icon = info and info.iconTexture or D.ItemIcon(id), active = active, bonus = r.bonus,
+        local info = CG.Rec(e)
+        d = { itemID = id, name = Name(r), quality = info.quality or C_Item.GetItemQualityByID(id),
+            icon = info.iconTexture or D.ItemIcon(id), active = active, bonus = r.bonus,
             copies = D.Copies(info), state = state, arg = arg }
         r.d = d
     end
