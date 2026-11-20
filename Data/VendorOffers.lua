@@ -2765,7 +2765,7 @@ local GeneratedBase = {
     [255673] = {
       price = 0,
       currencies = {},
-      itemCosts = {{itemID = 207026, amount = 500}},
+      itemCosts = {{itemID = 207026, amount = 250}},
       isUsable = true,
       displayOrder = 1,
     },

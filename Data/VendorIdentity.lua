@@ -1253,7 +1253,7 @@ VendorIdentity.Vendors = {
         faction = "Neutral",
         expansion = "Events",
         notes = "Location is not static, she moves with the dreamsurge event",
-        scanConfirmed = "2026-11-08",
+        scanConfirmed = "2026-11-20",
     },
     [211065] = {
         name = "Marie Allen",
@@ -2533,13 +2533,6 @@ VendorIdentity.Vendors = {
         zone = "Razorwind Shores",
         expansion = "Midnight",
         removed = true,
-    },
-    [262880] = {
-        name = "Er'inye",
-        mapID = 2509,
-        zone = "Vaults of Atal'Utek",
-        expansion = "Midnight",
-        unreleased = true,
     },
     [264056] = {
         name = "Disguised Decor Duel Vendor",
