@@ -1,7 +1,7 @@
 --[[
     Homestead - DecorMapping
-    Generated: 2026-11-20 13:46:39
-    Total entries: 2241
+    Generated: 2026-11-20 15:50:42
+    Total entries: 2250
 
     Static decorID → itemID mapping from Blizzard web API.
     Used by CatalogStore to seed the bidirectional index at startup.
@@ -1579,15 +1579,24 @@ HA.DecorMapping = {
     [15399] = 263994,    -- Fungal Chest
     [15400] = 263995,    -- Delver's Bountiful Coffer
     [15401] = 263996,    -- Twilight Tabernacle
+    [15402] = 263997,    -- Midnight Alchemist's Shop Sign
+    [15403] = 263998,    -- Midnight Blacksmith's Shop Sign
+    [15404] = 263999,    -- Midnight Cook's Shop Sign
+    [15405] = 264000,    -- Midnight Enchanter's Shop Sign
+    [15406] = 264001,    -- Midnight Engineer's Shop Sign
+    [15407] = 264002,    -- Midnight Fisher's Shop Sign
     [15408] = 264003,    -- Midnight Herbalist's Shop Sign
     [15409] = 264004,    -- Midnight Scribe's Shop Sign
     [15410] = 264005,    -- Midnight Jewelcrafter's Shop Sign
+    [15411] = 264006,    -- Midnight Leatherworker's Shop Sign
     [15412] = 264007,    -- Corewarden's Spoils
     [15413] = 264008,    -- Root-Wrapped Reliquary
     [15453] = 264168,    -- Cenarion Round Rug
     [15454] = 264169,    -- Homestone Doormat
     [15455] = 264170,    -- Ancient Kaldorei Coffer
+    [15457] = 264172,    -- Midnight Miner's Shop Sign
     [15458] = 264173,    -- Midnight Skinner's Shop Sign
+    [15459] = 264174,    -- Midnight Tailor's Shop Sign
     [15460] = 264175,    -- Amani Strongbox
     [15463] = 264178,    -- Harandar Charcuterie Board
     [15467] = 264187,    -- Blessed Phoenix Egg

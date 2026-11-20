@@ -174,6 +174,27 @@ function VendorFilter.IsHiddenOnThisBuild(vendor)
     return false
 end
 
+-- Requirement tables for the profession sign vendors, built on first use so a
+-- refresh allocates nothing.
+local signRequirements = {}
+
+-- True when the vendor is a profession sign vendor and this character has not
+-- earned that profession's achievement. An unknown verdict, or no SourceManager,
+-- keeps the pin. Only the pin gate reads this; search and item sources still
+-- name the vendor.
+function VendorFilter.IsSignVendorLocked(vendor)
+    local npcID = vendor and vendor.npcID
+    local signVendors = HA.Constants and HA.Constants.ProfessionSignVendors
+    local achievementID = npcID and signVendors and signVendors[npcID]
+    if not achievementID or not HA.SourceManager then return false end
+    local req = signRequirements[npcID]
+    if not req then
+        req = { type = "achievement", id = achievementID }
+        signRequirements[npcID] = req
+    end
+    return HA.SourceManager:IsRequirementMet(req) == false
+end
+
 -- A scan confirmed the vendor sells no decor. Static vendors are never dropped (a noDecorVendors entry for
 -- a known vendor is a false positive), and holiday vendors skip this.
 function VendorFilter.IsConfirmedNoDecor(vendor)
@@ -201,6 +222,10 @@ function VendorFilter.ShouldHideVendor(vendor)
     end
 
     if VendorFilter.IsHiddenOnThisBuild(vendor) then
+        return true
+    end
+
+    if VendorFilter.IsSignVendorLocked(vendor) then
         return true
     end
 

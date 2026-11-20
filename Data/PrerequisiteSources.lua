@@ -1,8 +1,8 @@
 --[[
     Homestead - PrerequisiteSources
-    Generated: 2026-11-20 12:42:51
-    Items with prerequisites: 596
-    Total prerequisite entries: 647
+    Generated: 2026-11-20 15:50:42
+    Items with prerequisites: 608
+    Total prerequisite entries: 659
 
     Vendor purchase prerequisites: Blizzard web API rows plus hand-checked additions.
     Used by SourceManager:GetRequirements() as a high-confidence source.
@@ -522,8 +522,20 @@ HA.PrerequisiteSources = {
     [263320] = {{type = "reputation", faction = "Amani Tribe", standing = "Renown 3", factionID = 2696, renownLevel = 3}},
     [263873] = {{type = "achievement", id = 63358, name = "Coiled to Strike"}},
     [263876] = {{type = "quest", name = "Cursed Keepsake"}},
+    [263997] = {{type = "achievement", id = 42788, name = "Alchemizing at Midnight"}},
+    [263998] = {{type = "achievement", id = 42792, name = "Blacksmithing at Midnight"}},
+    [263999] = {{type = "achievement", id = 42795, name = "Cooking at Midnight"}},
+    [264000] = {{type = "achievement", id = 42787, name = "Enchanting at Midnight"}},
+    [264001] = {{type = "achievement", id = 42798, name = "Engineering at Midnight"}},
+    [264002] = {{type = "achievement", id = 42797, name = "Fishing at Midnight"}},
+    [264003] = {{type = "achievement", id = 42793, name = "Herbalism at Midnight"}},
+    [264004] = {{type = "achievement", id = 42796, name = "Inscribing at Midnight"}},
+    [264005] = {{type = "achievement", id = 42789, name = "Jewelcrafting at Midnight"}},
+    [264006] = {{type = "achievement", id = 42786, name = "Leatherworking at Midnight"}},
     [264168] = {{type = "reputation", faction = "Dreamweavers", standing = "Honored"}},
+    [264172] = {{type = "achievement", id = 42791, name = "Mining at Midnight"}},
     [264173] = {{type = "achievement", id = 42790, name = "Skinning at Midnight"}},
+    [264174] = {{type = "achievement", id = 42794, name = "Tailoring at Midnight"}},
     [264178] = {{type = "quest", id = 91589, name = "Root Dash Delivery"}},
     [264248] = {{type = "quest", id = 86739, name = "Fairbreeze Favors"}},
     [264253] = {{type = "reputation", faction = "Slayer's Duellum", standing = "Friendly"}},

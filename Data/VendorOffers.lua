@@ -3700,6 +3700,22 @@ local GeneratedBase = {
       costBuild = "12.0.7.68974",
     },
   },
+  [241451] = {
+    [263998] = {
+      price = 50000,
+      currencies = {},
+      isUsable = true,
+      displayOrder = 1,
+    },
+  },
+  [241453] = {
+    [264001] = {
+      price = 50000,
+      currencies = {},
+      isUsable = true,
+      displayOrder = 1,
+    },
+  },
   [241928] = {
     [256923] = {
       price = 0,
@@ -3936,6 +3952,46 @@ local GeneratedBase = {
       hasExtendedCost = true,
       displayOrder = 2,
       costBuild = "12.0.7.68974",
+    },
+  },
+  [243350] = {
+    [264000] = {
+      price = 50000,
+      currencies = {},
+      isUsable = true,
+      displayOrder = 1,
+    },
+  },
+  [243353] = {
+    [264174] = {
+      price = 50000,
+      currencies = {},
+      isUsable = true,
+      displayOrder = 1,
+    },
+  },
+  [243359] = {
+    [263997] = {
+      price = 50000,
+      currencies = {},
+      isUsable = true,
+      displayOrder = 1,
+    },
+  },
+  [243531] = {
+    [264006] = {
+      price = 50000,
+      currencies = {},
+      isUsable = true,
+      displayOrder = 1,
+    },
+  },
+  [243555] = {
+    [264004] = {
+      price = 50000,
+      currencies = {},
+      isUsable = true,
+      displayOrder = 1,
     },
   },
   [246721] = {
@@ -14059,13 +14115,6 @@ local GeneratedBase = {
       displayOrder = 1,
       costBuild = "12.0.7.68974",
     },
-    [264004] = {
-      price = 500000000,
-      currencies = {},
-      isUsable = true,
-      displayOrder = 2,
-      costBuild = "12.0.7.68974",
-    },
   },
   [256071] = {
     [239177] = {
@@ -15224,6 +15273,14 @@ local GeneratedBase = {
       costBuild = "12.0.7.68974",
     },
   },
+  [257914] = {
+    [263999] = {
+      price = 50000,
+      currencies = {},
+      isUsable = true,
+      displayOrder = 1,
+    },
+  },
   [258181] = {
     [250868] = {
       price = 0,
@@ -15660,6 +15717,30 @@ local GeneratedBase = {
       hasExtendedCost = true,
       displayOrder = 3,
       costBuild = "12.0.7.68974",
+    },
+  },
+  [258480] = {
+    [264005] = {
+      price = 50000,
+      currencies = {},
+      isUsable = true,
+      displayOrder = 1,
+    },
+  },
+  [258507] = {
+    [264002] = {
+      price = 50000,
+      currencies = {},
+      isUsable = true,
+      displayOrder = 1,
+    },
+  },
+  [258540] = {
+    [264172] = {
+      price = 50000,
+      currencies = {},
+      isUsable = true,
+      displayOrder = 1,
     },
   },
   [259864] = {
@@ -17093,12 +17174,8 @@ local ManualOverrides = {
     -- not independent of the first) plus the
     -- client's own catalog sourceText agree on both the price (50,000
     -- copper) and the vendor (Irodalmin) for this item specifically.
-    -- 264004 is deliberately NOT touched here: its own sourceText names no vendor, and
-    -- the game data puts it under a different npc (243555, one item on Irodalmin's own
-    -- record) that an external listing separately names "Lelorian" (the game data carries
-    -- npcIDs and items but no NPC names). That listing already carries a standing vendor
-    -- conflict for exactly this item, so writing a ManualOverrides row (highest precedence)
-    -- would have silently resolved an unresolved vendor dispute in Irodalmin's favor.
+    -- 264004 is not priced here: the game data puts it under Lelorian (243555), who carries
+    -- it at 50,000 copper, and the stale Irodalmin row is suppressed by a tombstone below.
     [256026] = { -- Irodalmin (Silvermoon City, profession achievement vendor)
         [264003] = { price = 50000, currencies = {}, isUsable = true, displayOrder = 1 }, -- Midnight Herbalist's Shop Sign
     },
@@ -18223,12 +18300,10 @@ local Tombstones = {
     ["210608:257352"] = true, -- sold by Moon Priestess Lasara, not Celestine
     ["231406:258265"] = true, -- sold by Gabbun, not Rocco Razzboom
     ["209192:248105"] = true, -- sold by Ironus Coldsteel, not Provisioner Aristta
-    -- Lonomia does not sell 264005 -- the catalog and external listings attribute it to three
-    -- other NPCs, none of which the addon carries a vendor row for. So removing this pairing
-    -- leaves the item with NO vendor path at all; only its AchievementSources entry remains.
-    -- That is deliberate (a wrong vendor is worse than none) but it is not "covered
-    -- elsewhere", and an earlier version of this comment read as though it were.
+    -- Lonomia does not sell 264005 (Amwa'ana, 258480, does), so this pairing stays suppressed.
     ["240465:264005"] = true,
+    -- Irodalmin does not sell 264004 (the sign is Lelorian's, 243555).
+    ["256026:264004"] = true,
     ["112434:248941"] = true, -- [DNT] developer placeholder, never a real item:
     -- the item name is "[DNT] Dreadscar Battle Planning Map - do not use - new asset" and it
     -- has no 12.1 catalog row. An earlier note here said it no longer exists in the game,
