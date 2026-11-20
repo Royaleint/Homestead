@@ -411,6 +411,32 @@ Constants.EXPANSION_ORDER = {
 Constants.PROFESSION_TIERS = { "Classic", "Outland", "Northrend", "Cataclysm", "Pandaria", "Draenor", "Legion",
     "Battle for Azeroth", "Shadowlands", "Dragon Isles", "Khaz Algar", "Midnight" }
 
+-- Midnight profession shop-sign vendors: npcID -> the achievement that opens the
+-- sign they sell. Each vendor's map pin follows that achievement for the current
+-- character only, so a character without it sees no pin.
+Constants.ProfessionSignVendors = {
+    [243359] = 42788,   -- Melaris: Alchemizing at Midnight
+    [241451] = 42792,   -- Eriden: Blacksmithing at Midnight
+    [257914] = 42795,   -- Quelis: Cooking at Midnight
+    [243350] = 42787,   -- Lyna: Enchanting at Midnight
+    [241453] = 42798,   -- Yatheon: Engineering at Midnight
+    [258507] = 42797,   -- Mowaia: Fishing at Midnight
+    [256026] = 42793,   -- Irodalmin: Herbalism at Midnight
+    [243555] = 42796,   -- Lelorian: Inscribing at Midnight
+    [258480] = 42789,   -- Amwa'ana: Jewelcrafting at Midnight
+    [243531] = 42786,   -- Zaralda: Leatherworking at Midnight
+    [258540] = 42791,   -- Hawli: Mining at Midnight
+    [256009] = 42790,   -- Rendron: Skinning at Midnight
+    [243353] = 42794,   -- Deynna: Tailoring at Midnight
+}
+
+-- The same achievements as a set. These are read as earned by this character,
+-- not by anyone on the account.
+Constants.ProfessionSignAchievements = {}
+for _, achievementID in pairs(Constants.ProfessionSignVendors) do
+    Constants.ProfessionSignAchievements[achievementID] = true
+end
+
 -------------------------------------------------------------------------------
 -- Vertical Zone Siblings (for minimap elevation arrows)
 -- Maps zones that are vertically stacked in the same physical location.

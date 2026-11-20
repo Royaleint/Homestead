@@ -1226,6 +1226,15 @@ function SourceManager:EvaluateRequirementMetLive(req)
     elseif req.type == "achievement" then
         local achID = ResolveAchievementID(req)
         if achID and GetAchievementInfo then
+            -- The profession sign achievements are earned per character: the sign
+            -- is sold per character, so the account-wide return would unlock it
+            -- for a character that cannot buy it.
+            local signAchievements = HA.Constants and HA.Constants.ProfessionSignAchievements
+            if signAchievements and signAchievements[achID] then
+                local _, _, _, completed, _, _, _, _, _, _, _, _, wasEarnedByMe = GetAchievementInfo(achID)
+                if completed == nil then return nil end
+                return wasEarnedByMe == true
+            end
             local _, _, _, completed = GetAchievementInfo(achID)
             return completed
         end
@@ -2815,6 +2824,7 @@ local function HookCompletionCacheInvalidation()
 
     completionInvalidationFrame = CreateFrame("Frame")
     completionInvalidationFrame:RegisterEvent("ACHIEVEMENT_EARNED")
+    completionInvalidationFrame:RegisterEvent("RECEIVED_ACHIEVEMENT_LIST")
     completionInvalidationFrame:RegisterEvent("QUEST_TURNED_IN")
     completionInvalidationFrame:RegisterEvent("NEW_RECIPE_LEARNED")
     completionInvalidationFrame:RegisterEvent("SKILL_LINES_CHANGED")
@@ -3029,6 +3039,28 @@ local function HookCompletionCacheInvalidation()
             if HA.Addon then
                 HA.Addon:Debug("SourceManager: ACHIEVEMENT_EARNED suppressed (achievement "
                     .. achievementID .. " not tracked, no cached state)")
+            end
+            return
+        elseif event == "RECEIVED_ACHIEVEMENT_LIST" then
+            -- Achievement data can arrive after the first read, which would leave
+            -- a sign vendor's verdict wrong until the next event. Re-check only
+            -- those verdicts and invalidate only if one changed.
+            local signAchievements = HA.Constants and HA.Constants.ProfessionSignAchievements
+            if not signAchievements then return end
+            local anyFlipped = false
+            for _, baseline in pairs(requirementEvalBaseline) do
+                local req = baseline.req
+                if req and req.type == "achievement" then
+                    local achID = ResolveAchievementID(req)
+                    if achID and signAchievements[achID] then
+                        local live = SourceManager:EvaluateRequirementMetLive(req)
+                        if live ~= baseline.met then anyFlipped = true end
+                        baseline.met = live
+                    end
+                end
+            end
+            if anyFlipped then
+                SourceManager:InvalidateAllSourceCaches()
             end
             return
         elseif event == "MAJOR_FACTION_RENOWN_LEVEL_CHANGED" then
