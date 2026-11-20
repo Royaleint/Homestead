@@ -1255,6 +1255,8 @@ function VendorData:SearchVendors(searchText)
                 matched = true
             elseif vendor.subzone and vendor.subzone:lower():find(lowerSearch, 1, true) then
                 matched = true
+            elseif vendor.notes and vendor.notes:lower():find(lowerSearch, 1, true) then
+                matched = true
             end
             if matched then
                 if not IsHiddenVendor(vendor) then
