@@ -138,15 +138,6 @@ local GeneratedBase = {
       displayOrder = 2,
     },
   },
-  [23995] = {
-    [256554] = {
-      price = 2500000,
-      currencies = {},
-      isUsable = true,
-      displayOrder = 1,
-      costBuild = "12.0.7.68974",
-    },
-  },
   [25206] = {
     [258220] = {
       price = 0,
@@ -4903,13 +4894,6 @@ local GeneratedBase = {
       currencies = {{id = 2815, amount = 300}},
       isUsable = true,
       displayOrder = 12,
-      costBuild = "12.0.7.68974",
-    },
-    [267265] = {
-      price = 0,
-      currencies = {{id = 2815, amount = 15000}},
-      isUsable = true,
-      displayOrder = 13,
       costBuild = "12.0.7.68974",
     },
   },
@@ -14318,68 +14302,6 @@ local GeneratedBase = {
       costBuild = "12.0.7.68974",
     },
   },
-  [256784] = {
-    [274464] = {
-      price = 10,
-      currencies = {},
-      isUsable = true,
-      displayOrder = 1,
-    },
-    [274468] = {
-      price = 10,
-      currencies = {},
-      isUsable = true,
-      displayOrder = 2,
-    },
-    [274469] = {
-      price = 10,
-      currencies = {},
-      isUsable = true,
-      displayOrder = 3,
-    },
-    [274470] = {
-      price = 10,
-      currencies = {},
-      isUsable = true,
-      displayOrder = 4,
-    },
-    [274471] = {
-      price = 10,
-      currencies = {},
-      isUsable = true,
-      displayOrder = 5,
-    },
-    [274472] = {
-      price = 10,
-      currencies = {},
-      isUsable = true,
-      displayOrder = 6,
-    },
-    [274473] = {
-      price = 10,
-      currencies = {},
-      isUsable = true,
-      displayOrder = 7,
-    },
-    [274474] = {
-      price = 10,
-      currencies = {},
-      isUsable = true,
-      displayOrder = 8,
-    },
-    [274475] = {
-      price = 10,
-      currencies = {},
-      isUsable = true,
-      displayOrder = 9,
-    },
-    [281540] = {
-      price = 1,
-      currencies = {},
-      isUsable = true,
-      displayOrder = 10,
-    },
-  },
   [256826] = {
     [258222] = {
       price = 1000000,
@@ -16582,12 +16504,6 @@ local GeneratedBase = {
       isUsable = true,
       displayOrder = 8,
     },
-    [276246] = {
-      price = 0,
-      currencies = {{id = 3363, amount = 10}},
-      isUsable = true,
-      displayOrder = 9,
-    },
     [277121] = {
       price = 500000,
       currencies = {},
@@ -16637,12 +16553,6 @@ local GeneratedBase = {
       currencies = {},
       isUsable = true,
       displayOrder = 8,
-    },
-    [276246] = {
-      price = 0,
-      currencies = {{id = 3363, amount = 10}},
-      isUsable = true,
-      displayOrder = 9,
     },
     [277121] = {
       price = 500000,
@@ -17550,7 +17460,6 @@ local ManualOverrides = {
     -- Live merchant capture, client 12.1.0.69933, 2026-09-27. Undermine
     -- Resonance Crystal (2815) prices all read lower than shipped, the same 12.1
     -- currency rebalance noted above.
-    -- Counterfeit Dark Heart of Galakrond (267265) read unchanged at 15000 and has no row.
     [251911] = { -- Stacks Topskimmer (Undermine)
         [243312] = { price = 0, currencies = {{id = 2815, amount = 350}}, isUsable = true, displayOrder = 1, costBuild = "12.1.0.69299" }, -- Undermine Rectangular Table (was g=0 c2815:700)
         [243321] = { price = 0, currencies = {{id = 2815, amount = 350}}, isUsable = true, displayOrder = 2, costBuild = "12.1.0.69299" }, -- Cartel Head's Schmancy Desk (was g=0 c2815:800)
