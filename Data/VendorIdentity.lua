@@ -1253,7 +1253,7 @@ VendorIdentity.Vendors = {
         faction = "Neutral",
         expansion = "Events",
         notes = "Location is not static, she moves with the dreamsurge event",
-        scanConfirmed = "2026-11-08",
+        scanConfirmed = "2026-11-20",
     },
     [211065] = {
         name = "Marie Allen",
