@@ -1,5 +1,5 @@
 -- ShopSources.lua — Static source data for shop, promotional, and charity items.
--- Created: 2026-03-22 | Entries: 95
+-- Created: 2026-03-22 | Entries: 103
 -- Sources: in-game shop listing (prices as of 2026-11-10), promotion announcements, Roofus charity pack
 --
 -- Schema:
@@ -138,6 +138,14 @@ HA.ShopSources = {
     [264283] = { method = "promo", name = "Pinterest" },                    -- Backboard and Hoop Playset
     [264396] = { method = "promo", name = "Zillow for Warcraft" },              -- Naturally Elegant Doormat
     [264397] = { method = "promo", name = "Zillow for Warcraft" },              -- Simply Adorned Vase and Flowers
+    [263301] = { method = "promo", name = "Twitch Drop, ended", expires = "2026-02-17" },   -- Cuddly Green Grrgle
+    [263298] = { method = "promo", name = "Twitch Drop, ended", expires = "2026-03-26" },   -- Cuddly Alliance Blue Grrgle
+    [263299] = { method = "promo", name = "Twitch Drop, ended", expires = "2026-03-26" },   -- Cuddly Horde Red Grrgle
+    [265545] = { method = "promo", name = "Twitch Drop, ended", expires = "2026-04-23" },   -- Cuddly Void Grrgle
+    [265394] = { method = "promo", name = "Twitch Drop, ended", expires = "2026-05-21" },   -- Cuddly Pearl Grrgle
+    [265389] = { method = "promo", name = "Twitch Drop, ended", expires = "2026-07-14" },   -- Cuddly Cotton Candy Grrgle
+    [263303] = { method = "promo", name = "Twitch Drop, ended", expires = "2026-09-27" },   -- Cuddly Blue Grrgle
+    [263294] = { method = "promo", name = "Twitch Drop, ended", expires = "2026-11-03" },   -- Cuddly Gold-Colored Grrgle
 
     ---------------------------------------------------------------------------
     -- Marked as a shop item by the game, but not on sale and origin unknown
