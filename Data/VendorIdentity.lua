@@ -2321,16 +2321,6 @@ VendorIdentity.Vendors = {
         faction = "Neutral",
         expansion = "The War Within",
     },
-    [256784] = {
-        name = "Dyezertauren",
-        mapID = 2351,
-        x = 0.5365,
-        y = 0.5804,
-        zone = "Razorwind Shores",
-        expansion = "Midnight",
-        unreleased = true,
-        scanConfirmed = "2026-08-11",
-    },
     [256826] = {
         name = "Mrgrgrl",
         mapID = 680,
