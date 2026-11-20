@@ -52,8 +52,8 @@ local HousingAddon = Homestead
 -- window before Foundry's Lifecycle release lands -- instead of an opaque
 -- nil-index. (Foundry-itself-missing is the guard above.)
 local Lifecycle = F:RequireModule("Lifecycle", 1)
--- Fail loud at load if this Foundry build lacks the DB module (HS-117; the
--- BSP-060 guard precedent — RequireModule raises in BOTH builds).
+-- Fail loud at load if this Foundry build lacks the DB module (RequireModule
+-- raises in BOTH builds).
 F:RequireModule("DB", 1)
 local lifecycle = Lifecycle:New(Homestead, addonName)
 -- Registration order does NOT protect OnInitialize-before-OnEnable on a
@@ -73,13 +73,72 @@ local print = print
 local format = string.format
 
 -------------------------------------------------------------------------------
+-- Item Names
+-------------------------------------------------------------------------------
+
+-- Items whose name was asked for: true while the load is out, "loaded" or "failed" once the client answered.
+local itemNameLoads = {}
+
+-- An item's name from the client, or fallback; nil (and true as the second result) while a requested load is
+-- still out. The load is requested once per item. The second result is false once the client reported it failed.
+function HA.GetItemName(itemID, fallback)
+    local name = C_Item.GetItemNameByID(itemID) or fallback
+    if name then return name, false end
+    if itemNameLoads[itemID] == nil then
+        itemNameLoads[itemID] = true
+        C_Item.RequestLoadItemDataByID(itemID)
+    end
+    return nil, itemNameLoads[itemID] ~= "failed"
+end
+
+-- The client answered a load GetItemName asked for; true when it was one of ours.
+function HA.ItemNameArrived(itemID, success)
+    if itemNameLoads[itemID] ~= true then return false end
+    itemNameLoads[itemID] = success == false and "failed" or "loaded"
+    return true
+end
+
+-- Accented Latin letters (U+00C0 to U+017F) as their base letters: first code point, last, base.
+local FOLD = {}
+for _, r in ipairs({
+    { 0xC0, 0xC5, "a" }, { 0xC6, 0xC6, "ae" }, { 0xC7, 0xC7, "c" }, { 0xC8, 0xCB, "e" }, { 0xCC, 0xCF, "i" },
+    { 0xD0, 0xD0, "d" }, { 0xD1, 0xD1, "n" }, { 0xD2, 0xD6, "o" }, { 0xD8, 0xD8, "o" }, { 0xD9, 0xDC, "u" },
+    { 0xDD, 0xDD, "y" }, { 0xDE, 0xDE, "th" }, { 0xDF, 0xDF, "ss" }, { 0xE0, 0xE5, "a" }, { 0xE6, 0xE6, "ae" },
+    { 0xE7, 0xE7, "c" }, { 0xE8, 0xEB, "e" }, { 0xEC, 0xEF, "i" }, { 0xF0, 0xF0, "d" }, { 0xF1, 0xF1, "n" },
+    { 0xF2, 0xF6, "o" }, { 0xF8, 0xF8, "o" }, { 0xF9, 0xFC, "u" }, { 0xFD, 0xFD, "y" }, { 0xFE, 0xFE, "th" },
+    { 0xFF, 0xFF, "y" }, { 0x100, 0x105, "a" }, { 0x106, 0x10D, "c" }, { 0x10E, 0x111, "d" }, { 0x112, 0x11B, "e" },
+    { 0x11C, 0x123, "g" }, { 0x124, 0x127, "h" }, { 0x128, 0x131, "i" }, { 0x132, 0x133, "ij" }, { 0x134, 0x135, "j" },
+    { 0x136, 0x138, "k" }, { 0x139, 0x142, "l" }, { 0x143, 0x14B, "n" }, { 0x14C, 0x151, "o" }, { 0x152, 0x153, "oe" },
+    { 0x154, 0x159, "r" }, { 0x15A, 0x161, "s" }, { 0x162, 0x167, "t" }, { 0x168, 0x173, "u" }, { 0x174, 0x175, "w" },
+    { 0x176, 0x178, "y" }, { 0x179, 0x17E, "z" }, { 0x17F, 0x17F, "s" },
+}) do
+    for cp = r[1], r[2] do
+        FOLD[string.char(0xC0 + math.floor(cp / 64), 0x80 + cp % 64)] = r[3]
+    end
+end
+
+local sortKeys = {}
+
+-- The key a shown name sorts by: lower case and folded for Latin only, with an accented Latin letter sorting as
+-- its base letter (Élise with E). Other scripts keep their byte order. Kept per name, so a sort does not fold on
+-- each comparison.
+function HA.NameSortKey(name)
+    local key = sortKeys[name]
+    if not key then
+        key = name:lower():gsub("[\195-\197][\128-\191]", FOLD)
+        sortKeys[name] = key
+    end
+    return key
+end
+
+-------------------------------------------------------------------------------
 -- Addon Lifecycle
 -------------------------------------------------------------------------------
 
 function HousingAddon:OnInitialize()
     -- Initialize SavedVariables database
     -- name must be the real folder name (Homestead or Homestead_DevBuild): Foundry
-    -- feeds it to C_AddOns.IsAddOnLoaded for the SV-availability check (STU-073).
+    -- feeds it to C_AddOns.IsAddOnLoaded for the SV-availability check.
     self.db = F.DB:New({ name = addonName, sv = "HomesteadDB", defaults = Constants.Defaults, defaultProfile = true })
 
     -- One-time migration: pin size default was too large for native pin system.
@@ -90,7 +149,7 @@ function HousingAddon:OnInitialize()
     end
 
     -- Initialize minimap button.
-    -- HS-221: HA.__collisionStandDown (set by the generated DevBuildGuard.lua,
+    -- HA.__collisionStandDown (set by the generated DevBuildGuard.lua,
     -- which loads earlier in the TOC, so the flag is already readable here)
     -- — narrow gate on just this call: a visible minimap button would
     -- otherwise duplicate if this session's DevBuild collision copy and the
@@ -147,46 +206,11 @@ function HousingAddon:OnInitialize()
     cmd:Register({ name = "refreshmap",
         help = "Refresh world map pins.",
         handler = function() self:RefreshMapPins() end })
-    cmd:Register({ name = "export",
-        help = "Show the export dialog.",
-        handler = function()
-            if HA.ExportImport then
-                HA.ExportImport:ShowExportDialog()
-            end
-        end })
-    cmd:Register({ name = "export full",
-        help = "Export all scanned vendors.",
-        handler = function()
-            if HA.ExportImport then
-                HA.ExportImport:ExportScannedVendors(true, false)
-            end
-        end })
-    cmd:Register({ name = "exportall",
-        help = "Export ALL, bypassing the timestamp filter.",
-        handler = function()
-            if HA.ExportImport then
-                HA.ExportImport:ExportScannedVendors(true, true)
-            end
-        end })
     cmd:Register({ name = "clearscans",
         help = "Clear all scanned vendor data.",
         handler = function()
-            if HA.ExportImport then
-                HA.ExportImport:ClearScannedData()
-            end
-        end })
-    cmd:Register({ name = "validate",
-        help = "Validate the vendor database.",
-        handler = function()
-            if HA.Validation then
-                HA.Validation:RunFullValidation()
-            end
-        end })
-    cmd:Register({ name = "validate details",
-        help = "Show validation details.",
-        handler = function()
-            if HA.Validation then
-                HA.Validation:ShowDetails()
+            if HA.VendorScanner then
+                HA.VendorScanner:ClearScannedData()
             end
         end })
     cmd:Register({ name = "welcome",
@@ -217,28 +241,9 @@ function HousingAddon:OnInitialize()
             self:Print(format(L["Debug mode: %s"] or "Debug mode: %s",
                 self.db.profile.debug and (L["ON"] or "ON") or (L["OFF"] or "OFF")))
         end })
-    cmd:Register({ name = "debug vertical",
-        help = "Print vertical-sibling info.",
-        handler = function()
-            local lines = HA.Constants.GetVerticalSiblingsInfo()
-            self:Print("VerticalSiblings (" .. #lines .. " pairs):")
-            for _, line in ipairs(lines) do
-                self:Print("  " .. line)
-            end
-        end })
-    cmd:Register({ name = "debug geography",
-        help = "Audit manual map geography entries.",
-        handler = function() self:PrintManualGeographyAuditReport() end })
-    cmd:Register({ name = "debug parsertest",
-        help = "Run SourceTextParser's built-in self-test suite.",
-        handler = function()
-            if HA.SourceTextParser and HA.SourceTextParser.RunTests then
-                HA.SourceTextParser:RunTests()
-            end
-        end })
-    -- HS-282: /hs debug memallsources and /hs debug membudget are dev-only
-    -- diagnostics; they register themselves from Core/DevMemoryDiagnostics.lua
-    -- (a file this shipped module never references) once self.commands below
+    -- The dev-only commands (memory diagnostics, geography,
+    -- vertical, parsertest, validate, export) register themselves from DevBuild-only
+    -- files this shipped module never references, once self.commands below
     -- exists and PLAYER_LOGIN has fired. Never registered here.
 
     self.commands = cmd
@@ -248,7 +253,7 @@ function HousingAddon:OnInitialize()
 end
 
 function HousingAddon:OnEnable()
-    -- HS-217: DevBuild collision poison flag (set by the generated
+    -- DevBuild collision poison flag (set by the generated
     -- DevBuildGuard.lua when it detects the live 'Homestead' addon is also
     -- enabled). DisableAddOn only takes effect on the NEXT reload, so this
     -- session's DevBuild copy is still fully loaded and would otherwise run
@@ -302,6 +307,11 @@ function HousingAddon:OnEnable()
         HA.CalendarDetector:Initialize()
     end
 
+    -- Initialize DreamsurgeTracker for Celestine of the Harvest's moving spot
+    if HA.DreamsurgeTracker then
+        HA.DreamsurgeTracker:Initialize()
+    end
+
     -- Initialize EndeavorsData for active endeavor detection
     if HA.EndeavorsData and HA.EndeavorsData.Initialize then
         HA.EndeavorsData:Initialize()
@@ -312,7 +322,7 @@ function HousingAddon:OnEnable()
         HA.SourceManager:Initialize()
     end
 
-    -- HS-209 H1: Overlay:Initialize() had zero call sites — its
+    -- Overlay:Initialize() had zero call sites — its
     -- Events:RegisterCallback("bags"/"merchant"/"all"/"OWNERSHIP_UPDATED")
     -- wiring never ran. Wired here, after CatalogStore/SourceManager (which
     -- its callbacks call into once fired) and before the more UI-specific
@@ -352,7 +362,7 @@ function HousingAddon:OnEnable()
         HA.WhatsNewFrame:Initialize()
     end
 
-    -- Version-check peer broadcast (HS-086)
+    -- Version-check peer broadcast
     if HA.VersionCheck then
         HA.VersionCheck:Initialize()
     end
@@ -368,7 +378,7 @@ function HousingAddon:OnEnable()
 end
 
 -- No OnDisable / runtime-disable path. AceAddon-3.0's manual :Enable/:Disable
--- affordance was removed with AceAddon (HS-109): the addon is enabled for the
+-- affordance was removed with AceAddon: the addon is enabled for the
 -- session, and disabling is done via the AddOns list + /reload. No logout
 -- teardown is needed -- frame/event cleanup happens on session end.
 
@@ -471,39 +481,6 @@ end
 -- Slash Command Helpers
 -------------------------------------------------------------------------------
 
-function HousingAddon:PrintManualGeographyAuditReport()
-    local MPP = HA.MapPinProvider
-    if not MPP or not MPP.GetManualGeographyAuditReport then
-        self:Print("MapPinProvider audit is not available.")
-        return
-    end
-
-    local report = MPP:GetManualGeographyAuditReport()
-    local summary = report and report.summary or {}
-    self:Print(format(
-        "Manual geography audit: %d checked, %d required, %d redundant candidates",
-        summary.checked or 0,
-        summary.manualRequired or 0,
-        summary.redundantCandidates or 0
-    ))
-
-    if not report or not report.rows or #report.rows == 0 then
-        return
-    end
-
-    for _, row in ipairs(report.rows) do
-        self:Print(format(
-            "  %s %s->%s: %s (%s; native=%s)",
-            row.tableName or "?",
-            tostring(row.sourceMapID),
-            tostring(row.viewMapID),
-            row.status or "?",
-            row.manualReason or "?",
-            row.nativeReason or "unknown"
-        ))
-    end
-end
-
 -- Refresh map pins manually
 function HousingAddon:RefreshMapPins()
     if HA.VendorMapPins then
@@ -596,7 +573,7 @@ function HousingAddon:ShowCacheInfo()
             end
         end
     else
-        table.insert(output, "CatalogStore unavailable — ownership data cannot be displayed.")
+        table.insert(output, "CatalogStore unavailable: ownership data cannot be displayed.")
     end
 
     if count == 0 and #items == 0 then
@@ -630,15 +607,15 @@ function HousingAddon:ClearOwnershipCache()
         self:Print("Cleared ownership cache. Removed " .. count .. " cached items.")
         self:Print("Use /hs scan to rebuild the cache.")
     else
-        self:Print("CatalogStore unavailable — cannot clear ownership cache.")
+        self:Print("CatalogStore unavailable: cannot clear ownership cache.")
     end
 end
 
--- HS-282: MeasureAllSourcesCacheIsolatedKB, DebugMemAllSourcesReport, and
+-- MeasureAllSourcesCacheIsolatedKB, DebugMemAllSourcesReport, and
 -- DebugMemBudgetReport (and the /hs debug memallsources / membudget commands
 -- that drove them) moved to Core/DevMemoryDiagnostics.lua, a dev-only file
 -- never listed in Homestead.toc -- memory diagnostics are dev tooling, not a
--- player-facing feature (owner ruling, 2026-08-14).
+-- player-facing feature.
 
 -- Show scanned vendor data
 function HousingAddon:ShowScannedVendors()
@@ -805,8 +782,8 @@ end
 -- Note: a core HousingAddon:OnMerchantShow handler previously existed here but
 -- was dead under AceEvent (its MERCHANT_SHOW registration was clobbered by
 -- VendorTracer's, last-write-wins) and had no other caller. The merchant overlay
--- still refreshes through Overlay/Merchant.lua's own standalone frame. Removed as
--- part of HS-097 to resolve the registration ambiguity (see RegisterEvents).
+-- still refreshes through Overlay/Merchant.lua's own standalone frame. Removed to
+-- resolve the registration ambiguity (see RegisterEvents).
 
 function HousingAddon:OnMerchantClosed()
     -- Clean up merchant overlays
@@ -840,7 +817,7 @@ end
 
 function HousingAddon:RefreshAllOverlays()
     if HA.Overlay then
-        -- HS-239: this direct RefreshAll fires on every loading screen via
+        -- this direct RefreshAll fires on every loading screen via
         -- PLAYER_ENTERING_WORLD -- a sibling entry into the same repaint the
         -- Events "all" callback measures. Wrapped so an armed trace can't
         -- miss a plot zone-in repaint and still render the affirmative
@@ -951,7 +928,7 @@ function HousingAddon:GetDecorInfo(itemLink)
     return setmetatable(info, DecorInfoCompatMT)
 end
 
--- HS-218: HousingAddon:GetVendorDecor removed — it delegated to
+-- HousingAddon:GetVendorDecor removed — it delegated to
 -- HA.VendorTracer:GetVendorDecor, a method that doesn't exist anywhere in
 -- VendorTracer.lua (would have errored if ever called). Zero callers of
 -- this wrapper anywhere in the codebase; removing beats implementing the

@@ -14,15 +14,15 @@ local Constants = HA.Constants
 -------------------------------------------------------------------------------
 -- Version Info
 -------------------------------------------------------------------------------
-Constants.VERSION = "2.14.2"
-Constants.RELEASE_DATE = "2026-10-22"   -- ISO YYYY-MM-DD. Bump alongside VERSION.
+Constants.VERSION = "2.17.0"
+Constants.RELEASE_DATE = "2026-11-10"   -- ISO YYYY-MM-DD. Bump alongside VERSION.
 Constants.ADDON_NAME = "Homestead"
 Constants.ADDON_SHORT = "HS"
 Constants.WELCOME_SEEN_VERSION_MAX = 4
 
 -- Texture path derived from the folder WoW loaded us from: "Homestead" when
--- installed from CurseForge, "Homestead_DevBuild" for the dev junction (STU-073).
--- Never hardcode the addon folder name in a texture path (STU-073 --check greps for it).
+-- installed from CurseForge, "Homestead_DevBuild" for the local dev build.
+-- Never hardcode the addon folder name in a texture path.
 Constants.TEXTURE_ROOT = "Interface\\AddOns\\" .. ADDON_NAME .. "\\Textures\\"
 
 -------------------------------------------------------------------------------
@@ -179,6 +179,20 @@ Constants.ZoneToFactionMap = {
     [2351] = "Horde",     -- Razorwind Shores
 }
 
+-- Each housing neighborhood hub mapped to the other one. Some hub vendors use a
+-- different NPC ID in each hub, and saved scans from older versions can hold one
+-- ID's record at the other hub's position.
+local OTHER_NEIGHBORHOOD_HUB = {
+    [2352] = 2351,
+    [2351] = 2352,
+}
+
+-- True when a vendor listed in one neighborhood hub has a saved scan placed in
+-- the other hub. That scan position is not used for the vendor.
+function Constants.IsScanInOtherNeighborhoodHub(vendorMapID, scannedMapID)
+    return vendorMapID ~= nil and OTHER_NEIGHBORHOOD_HUB[vendorMapID] == scannedMapID
+end
+
 -- Canonical zone-to-continent map consumed by VendorDatabase, BadgeCalculation,
 -- and scanner inference paths.
 Constants.ZoneToContinentMap = {
@@ -190,18 +204,18 @@ Constants.ZoneToContinentMap = {
     [27] = 13,
     [32] = 13,
     [36] = 13,
-    [47] = 13,     -- Duskwood (HS-393; scan V-row chain 47;13)
+    [47] = 13,     -- Duskwood (parent chain 47;13)
     [48] = 13,
     [50] = 13,     -- Northern Stranglethorn
     [56] = 13,
     [57] = 13,
-    [62] = 12,     -- Darkshore (HS-393)
+    [62] = 12,     -- Darkshore
     [69] = 12,
     [70] = 12,
     [71] = 12,     -- Tanaris
     [77] = 12,     -- Felwood
     [80] = 12,     -- Moonglade (Lunar Festival vendor)
-    [81] = 12,     -- Silithus (HS-393; Chamber of Heart interior is 1473 below)
+    [81] = 12,     -- Silithus (Chamber of Heart interior is 1473 below)
     [84] = 13,
     [85] = 12,
     [87] = 13,
@@ -334,11 +348,11 @@ Constants.ZoneToContinentMap = {
     [2437] = 2537, -- Zul'Aman (Midnight)
     [2444] = 2537, -- Slayer's Rise (Midnight)
     [2472] = 2274, -- Tazavesh
-    [2509] = 2537, -- Vaults of Atal'Utek (12.1 dungeon; UiMap parent 2512 per DB2)
-    [2512] = 2537, -- The Coiled Isle (12.1; continentMapID 2537 per client scan V-rows)
-    [2541] = 2537, -- Arcantina (HS-393; V-row chain 2541;2537)
+    [2509] = 2537, -- Vaults of Atal'Utek (12.1 dungeon; UiMap parent 2512 per game data)
+    [2512] = 2537, -- The Coiled Isle (12.1; continentMapID 2537 per game data)
+    [2541] = 2537, -- Arcantina (parent chain 2541;2537)
     [2576] = 2537, -- The Den / Harandar sub-zone (Midnight)
-    [2599] = 2537, -- Umbral Base Camp (HS-393; V-row chain 2599;2405;2537, parent Founder's Point)
+    [2599] = 2537, -- Umbral Base Camp (parent chain 2599;2405;2537, parent Founder's Point)
     [2694] = 2537, -- Harandar (Midnight)
     [15958] = 2537, -- Voidstorm (Midnight)
 }
@@ -377,6 +391,19 @@ Constants.ContinentToExpansion = {
     [2537] = "Midnight",            -- Midnight (Silvermoon / Blood Elf zones)
 }
 
+-- Expansions newest first, each with its LE_EXPANSION_ name.
+Constants.EXPANSION_ORDER = {
+    { "Midnight", "MIDNIGHT" }, { "The War Within", "WAR_WITHIN" }, { "Dragonflight", "DRAGONFLIGHT" },
+    { "Shadowlands", "SHADOWLANDS" }, { "Battle for Azeroth", "BATTLE_FOR_AZEROTH" }, { "Legion", "LEGION" },
+    { "Warlords of Draenor", "WARLORDS_OF_DRAENOR" }, { "Mists of Pandaria", "MISTS_OF_PANDARIA" },
+    { "Cataclysm", "CATACLYSM" }, { "Wrath of the Lich King", "WRATH_OF_THE_LICH_KING" },
+    { "The Burning Crusade", "BURNING_CRUSADE" }, { "Classic", "CLASSIC" },
+}
+
+-- Profession skill tiers, oldest first, as the start of a recipe's skill tier name.
+Constants.PROFESSION_TIERS = { "Classic", "Outland", "Northrend", "Cataclysm", "Pandaria", "Draenor", "Legion",
+    "Battle for Azeroth", "Shadowlands", "Dragon Isles", "Khaz Algar", "Midnight" }
+
 -------------------------------------------------------------------------------
 -- Vertical Zone Siblings (for minimap elevation arrows)
 -- Maps zones that are vertically stacked in the same physical location.
@@ -393,7 +420,7 @@ Constants.VerticalSiblings = {
     [628] = { [627] = "above" },
 }
 
--- HS-497: zones that keep their own badge on the continent map instead of
+-- zones that keep their own badge on the continent map instead of
 -- rolling up to the zone below the continent. Key: vendor map, value: the
 -- badge key it counts under. Undermine's zone and its dungeon map both hang off
 -- The Ringing Deeps in the client, but read as a place of their own.
@@ -405,30 +432,6 @@ Constants.ContinentBadgeOverrides = {
 function Constants.GetElevationDirection(playerMapID, vendorMapID)
     local siblings = Constants.VerticalSiblings[playerMapID]
     return siblings and siblings[vendorMapID]
-end
-
-function Constants.GetVerticalSiblingsInfo()
-    local seen, lines = {}, {}
-    for mapID, targets in pairs(Constants.VerticalSiblings) do
-        for targetID, direction in pairs(targets) do
-            local pairKey = mapID < targetID
-                and (mapID .. ":" .. targetID)
-                or (targetID .. ":" .. mapID)
-            if not seen[pairKey] then
-                seen[pairKey] = true
-                local infoA = C_Map.GetMapInfo(mapID)
-                local infoB = C_Map.GetMapInfo(targetID)
-                local nameA = infoA and infoA.name or tostring(mapID)
-                local nameB = infoB and infoB.name or tostring(targetID)
-                local arrow = direction == "below" and "above" or "below"
-                lines[#lines + 1] = string.format(
-                    "%d (%s) is %s %d (%s)",
-                    mapID, nameA, arrow, targetID, nameB
-                )
-            end
-        end
-    end
-    return lines
 end
 
 -------------------------------------------------------------------------------
@@ -504,7 +507,7 @@ Constants.Defaults = {
             useNativeWaypoints = true,
             autoWaypoint = false,
             showVendorDetails = true,
-            showVendorPinItemDetails = true,  -- HS-074B: gates the HS-074/HS-074B pin-tooltip enrichment (icons, cost column, vendor-only count) as a unit
+            showVendorPinItemDetails = true,  -- gates the pin-tooltip enrichment (icons, cost column, vendor-only count) as a unit
             navigateModifier = "shift",  -- shift, ctrl, alt, or none
             showOppositeFaction = true,  -- Show vendors for opposite faction with faction emblem
             pinColorPreset = "default",              -- Color preset key or "custom"
@@ -521,10 +524,10 @@ Constants.Defaults = {
             sidePanelHeight = nil,                     -- Saved detached height for /reload restore
             showEventVendors = true,                   -- Show seasonal event vendor pins when events are active
             -- showUnverifiedVendors removed: no vendors use the unverified flag
-            hideCompletedVendorPins = false,            -- HS-022: hide map/minimap pins for fully-collected vendors
+            hideCompletedVendorPins = false,            -- hide map/minimap pins for fully-collected vendors
         },
 
-        -- HS-231: per-source world-map/minimap pin visibility, exposed via
+        -- per-source world-map/minimap pin visibility, exposed via
         -- Blizzard's world map filter dropdown (Homestead section). Absent
         -- key = shown (default ON) — only an explicit `false` is ever
         -- written, and toggling a source back ON removes the key rather
@@ -554,7 +557,7 @@ Constants.Defaults = {
             model3D = true,  -- the item page's 3D preview
         },
 
-        -- Version-check notifications (HS-086)
+        -- Version-check notifications
         versionCheck = {
             notify = true,
         },
@@ -570,7 +573,7 @@ Constants.Defaults = {
         npcIDCorrections = {},  -- [vendorName] = { oldID, newID, correctedAt }
         -- Coordinate updates detected when visiting vendors at new locations
         coordsUpdates = {},     -- [vendorName] = { mapID, x, y, updatedAt }
-        -- HS-205: change-detection stamp only — the full parsed payload
+        -- change-detection stamp only — the full parsed payload
         -- (sources, decorID, raw sourceText) is owned by catalogItems below.
         parsedSources = {},          -- [itemID] = { sourceHash, lastParsed }
         -- Locale-learned vendor names for cross-reference

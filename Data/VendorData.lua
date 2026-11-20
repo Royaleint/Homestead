@@ -41,6 +41,7 @@ VendorData.VendorNameToNPC = {
     ["Lefton Farrer"] = {255299},
     ["Lonomia"] = {240465},
     ["Shon'ja"] = {255297},
+    ["The Last Architect"] = {248854, 253596},
     ["Trevor Grenner"] = {255221},
     ["Xiao Dan"] = {255203},
 
@@ -76,7 +77,7 @@ VendorData.VendorNameToNPC = {
     ["Amurra Thistledew"] = {112323},
     ["Berazus"] = {89939, 116305},
     ["Rasil Fireborne"] = {112716},
-    ["Toraan the Revered"] = {125346},
+    ["Toraan the Revered"] = {127151},
 
     -- Stormwind / Alliance
     ["Captain Lancy Revshon"] = {45389, 49877},
@@ -135,10 +136,136 @@ function VendorData:GetItemCost(item)
     return cost
 end
 
--- Format cost as a display string with icons (e.g., "10|Tgold|t 50|Tsilver|t" or "500 |Tcurrency|t")
-function VendorData:FormatCost(cost)
-    if not cost then return nil end
+-------------------------------------------------------------------------------
+-- Cost Sets
+-- A normalized cost is one payment bundle: its gold, currencies and items are
+-- all required together. cost.alternatives optionally lists further complete
+-- bundles, each an alternative way to pay. cost.status is one of the
+-- COST_STATUS values; a cost without one is legacy. purchaseQuantity is the
+-- stack one payment buys, when known; nil is unknown, never one.
+-------------------------------------------------------------------------------
 
+local COST_STATUS_LEGACY = "legacy"
+local COST_STATUS_VERIFIED = "verified"
+local COST_STATUS_QUALIFIED = "qualified"
+local COST_STATUS_UNRESOLVED = "unresolved"
+
+local function Text(key)
+    local L = HA.L
+    return (L and L[key]) or key
+end
+
+-- Calls visitor(bundle, index) for the primary bundle, then each alternative.
+function VendorData:ForEachCostBundle(cost, visitor)
+    local _ = self
+    if not cost then return end
+    visitor(cost, 1)
+    if cost.alternatives then
+        for i, alternative in ipairs(cost.alternatives) do
+            visitor(alternative, i + 1)
+        end
+    end
+end
+
+local function ComponentTokens(list, prefix, out)
+    if not list then return end
+    for _, component in ipairs(list) do
+        local id = component.id or component.currencyID or component.itemID
+        if id then
+            out[#out + 1] = prefix .. id .. "x" .. tostring(component.amount)
+        else
+            out[#out + 1] = prefix .. "n:" .. tostring(component.name) .. "x" .. tostring(component.amount)
+        end
+    end
+end
+
+-- Order-independent semantic signature of one bundle. Display names are
+-- ignored where a stable ID exists; quantity is part of the bundle.
+function VendorData:CostBundleSignature(bundle)
+    local _ = self
+    if not bundle then return nil end
+    local tokens = {}
+    ComponentTokens(bundle.currencies, "c", tokens)
+    ComponentTokens(bundle.items, "i", tokens)
+    table.sort(tokens)
+    local quantity = bundle.purchaseQuantity
+    return "g" .. tostring(bundle.gold or 0) .. "|q" .. (quantity and tostring(quantity) or "?")
+        .. "|" .. table.concat(tokens, ",")
+end
+
+-- Order-independent signature of a whole set, plus its bundle count.
+function VendorData:CostSetSignature(cost)
+    if not cost then return nil, 0 end
+    local signatures = {}
+    self:ForEachCostBundle(cost, function(bundle)
+        signatures[#signatures + 1] = self:CostBundleSignature(bundle)
+    end)
+    table.sort(signatures)
+    return table.concat(signatures, "||"), #signatures
+end
+
+local function IsWholeNumber(value, minimum)
+    return type(value) == "number" and value >= minimum and value == math.floor(value)
+end
+
+-- Validate a primary bundle plus alternatives into a detached candidate
+-- set. Returns candidate, nil or nil, reasons. Makes no authority decision
+-- and never mutates its inputs.
+function VendorData:BuildCostSet(primary, alternatives, metadata)
+    local reasons = {}
+    local function CopyBundle(bundle, label)
+        if type(bundle) ~= "table" then
+            reasons[#reasons + 1] = label .. ": missing bundle"
+            return nil
+        end
+        local copy = {
+            gold = bundle.gold,
+            purchaseQuantity = bundle.purchaseQuantity,
+        }
+        if copy.gold ~= nil and not IsWholeNumber(copy.gold, 0) then
+            reasons[#reasons + 1] = label .. ": invalid gold"
+        end
+        if not IsWholeNumber(copy.purchaseQuantity, 1) then
+            reasons[#reasons + 1] = label .. ": purchase quantity unknown"
+        end
+        for _, field in ipairs({"currencies", "items"}) do
+            if bundle[field] then
+                copy[field] = {}
+                for i, component in ipairs(bundle[field]) do
+                    if not IsWholeNumber(component.amount, 1) or not component.id then
+                        reasons[#reasons + 1] = string.format("%s: %s[%d] unresolved", label, field, i)
+                    end
+                    copy[field][i] = {id = component.id, amount = component.amount, name = component.name}
+                end
+            end
+        end
+        return copy
+    end
+
+    local candidate = CopyBundle(primary, "primary")
+    if candidate and alternatives and #alternatives > 0 then
+        candidate.alternatives = {}
+        for i, alternative in ipairs(alternatives) do
+            candidate.alternatives[i] = CopyBundle(alternative, "alternative " .. i)
+        end
+    end
+    if candidate then
+        local seen = {}
+        self:ForEachCostBundle(candidate, function(bundle, index)
+            local signature = self:CostBundleSignature(bundle)
+            if seen[signature] then
+                reasons[#reasons + 1] = "bundle " .. index .. ": duplicates another bundle"
+            end
+            seen[signature] = true
+        end)
+        candidate.status = metadata and metadata.status or nil
+    end
+    if #reasons > 0 then return nil, reasons end
+    return candidate, nil
+end
+
+-- One bundle as display text plus its number of parts; nil when it has none.
+local function FormatCostBundle(cost)
     local parts = {}
 
     -- Format gold (stored in copper) using C_CurrencyInfo.GetCoinTextureString for coin icons
@@ -203,7 +330,90 @@ function VendorData:FormatCost(cost)
         return nil
     end
 
-    return table.concat(parts, " + ")
+    return table.concat(parts, " + "), #parts
+end
+
+-- Format cost as a display string with icons (e.g., "10|Tgold|t 50|Tsilver|t" or "500 |Tcurrency|t").
+-- Alternative bundles join with a localized "or"; a bundle with several parts
+-- is parenthesized among alternatives. status defaults to cost.status, then
+-- legacy. An unresolved cost renders "Cost unverified" even when cost is nil.
+-- formatBundle optionally replaces the per-bundle formatter: it takes a bundle
+-- and returns its text and part count, as FormatCostBundle does.
+function VendorData:FormatCost(cost, status, formatBundle)
+    formatBundle = formatBundle or FormatCostBundle
+    status = status or (cost and cost.status) or COST_STATUS_LEGACY
+    if status == COST_STATUS_UNRESOLVED then
+        return Text("Cost unverified")
+    end
+    if not cost then return nil end
+
+    local text
+    if cost.alternatives and #cost.alternatives > 0 then
+        local options = {}
+        local renderable = true
+        self:ForEachCostBundle(cost, function(bundle)
+            local bundleText, partCount = formatBundle(bundle)
+            if not bundleText then
+                renderable = false
+            elseif partCount > 1 then
+                options[#options + 1] = "(" .. bundleText .. ")"
+            else
+                options[#options + 1] = bundleText
+            end
+        end)
+        -- An option with nothing to show cannot be told apart from free.
+        if not renderable then
+            return Text("Cost unverified")
+        end
+        text = table.concat(options, " " .. Text("or") .. " ")
+    else
+        text = formatBundle(cost)
+    end
+
+    return text
+end
+
+-- One view per payment option of a cost set with alternatives, primary first,
+-- or nil when the cost should stay a single entry (no cost, unresolved, no
+-- alternatives, or a bundle with nothing to show). Views are new tables that
+-- share the component arrays and carry no alternatives.
+function VendorData:SplitCostOptions(cost, status)
+    if not cost or not cost.alternatives or #cost.alternatives == 0 then return nil end
+    status = status or cost.status or COST_STATUS_LEGACY
+    if status == COST_STATUS_UNRESOLVED then return nil end
+
+    local views = {}
+    local renderable = true
+    self:ForEachCostBundle(cost, function(bundle)
+        if not FormatCostBundle(bundle) then
+            renderable = false
+        end
+        views[#views + 1] = {
+            gold = bundle.gold,
+            currencies = bundle.currencies,
+            items = bundle.items,
+            purchaseQuantity = bundle.purchaseQuantity,
+        }
+    end)
+    if not renderable then return nil end
+    return views
+end
+
+-- One display string per payment option. Empty when there is nothing to show.
+-- FormatCost stays the one-string form.
+function VendorData:FormatCostOptions(cost, status)
+    status = status or (cost and cost.status) or COST_STATUS_LEGACY
+    local views = self:SplitCostOptions(cost, status)
+    if views then
+        local texts = {}
+        for i, view in ipairs(views) do
+            texts[i] = FormatCostBundle(view)
+        end
+        return texts
+    end
+    local text = self:FormatCost(cost, status)
+    if text then return { text } end
+    return {}
 end
 
 -- Convert scanned item cost format to static item cost format
@@ -275,36 +485,62 @@ function VendorData:GetScannedVendorRecord(vendor)
     return record
 end
 
+-- Bundle signature of one scanned row, quantity included when recorded.
+local function ScannedRowSignature(item, cost)
+    return VendorData:CostBundleSignature(cost) .. "|s" .. tostring(item.stackCount)
+end
+
+-- The scanned cost of one item on one record. Rows of one item that carry
+-- different priced bundles have no single scanned cost: the third return is
+-- then "unresolved" and the cost nil, whatever the row order.
 local function GetScannedItemAndCost(record, itemID)
     if not record or not record.items or not itemID then return nil, nil end
 
-    local matchingItem
+    local matchingItem, firstCost, firstSignature
     for _, item in ipairs(record.items) do
         if item.itemID == itemID then
             matchingItem = matchingItem or item
             local cost = VendorData:NormalizeScannedCost(item)
             if cost then
-                return item, cost
+                local signature = ScannedRowSignature(item, cost)
+                if not firstCost then
+                    matchingItem, firstCost, firstSignature = item, cost, signature
+                elseif signature ~= firstSignature then
+                    return matchingItem, nil, COST_STATUS_UNRESOLVED
+                end
             end
         end
     end
-    return matchingItem, nil
+    return matchingItem, firstCost
 end
 
+-- true when two scanned rows of one item both carry a priced bundle and the
+-- bundles differ.
+function VendorData:ScannedRowsDisagree(rowA, rowB)
+    if not rowA or not rowB then return false end
+    local costA, costB = self:NormalizeScannedCost(rowA), self:NormalizeScannedCost(rowB)
+    return costA ~= nil and costB ~= nil
+        and ScannedRowSignature(rowA, costA) ~= ScannedRowSignature(rowB, costB)
+end
+
+-- Exactly one bundle that is gold only.
 local function HasOnlyGoldCost(cost)
     return cost and cost.gold and not cost.currencies and not cost.items
+        and not (cost.alternatives and #cost.alternatives > 0)
+        and cost.status ~= COST_STATUS_UNRESOLVED
 end
 
--- HS-383: scanned {cost, scannedAt} for one vendor/item pair, exposed so
+-- scanned {cost, scannedAt, status} for one vendor/item pair, exposed so
 -- callers can decide whether a source-text lookup is worth doing (see
 -- CanSkipSourceTextLookup below) without duplicating GetScannedItemAndCost.
+-- status is "unresolved" when the rows disagree.
 function VendorData:GetScannedItemCost(vendor, itemID)
     local record = self:GetScannedVendorRecord(vendor)
-    local _, cost = GetScannedItemAndCost(record, itemID)
-    return cost, record and record.lastScanned
+    local _, cost, status = GetScannedItemAndCost(record, itemID)
+    return cost, record and record.lastScanned, status
 end
 
--- HS-485: shipped cost for one vendor/item pair, or nil when no shipped row
+-- shipped cost for one vendor/item pair, or nil when no shipped row
 -- carries a price. Exposed like GetScannedItemCost so a caller can fetch it
 -- once for both CanSkipSourceTextLookup and ResolveVendorItemCost.
 function VendorData:GetStaticItemCost(vendor, itemID)
@@ -324,13 +560,16 @@ function VendorData:GetStaticItemCost(vendor, itemID)
     return nil
 end
 
--- HS-383: true when the given scanned cost/time already determines
+-- true when the given scanned cost/time already determines
 -- ResolveVendorItemCost's outcome regardless of any source-text cost --
 -- i.e. a source-text lookup for this item would be pure waste. Mirrors the
 -- exact gold-only + staleness gate the sourceText-discount branch below
 -- requires, so the two can never drift apart. With no scanned cost, a shipped
 -- cost (staticCost) outranks source text and decides the outcome instead.
-function VendorData:CanSkipSourceTextLookup(scannedCost, scannedAt, staticCost)
+-- costState is the optional GetCostSetState result for the pair: a pair with
+-- one is resolved as a whole set, which never reads source text.
+function VendorData:CanSkipSourceTextLookup(scannedCost, scannedAt, staticCost, costState)
+    if costState then return true end
     if not scannedCost then return staticCost ~= nil end
     if not HasOnlyGoldCost(scannedCost) then return true end
     if not scannedAt then return true end
@@ -342,12 +581,19 @@ end
 -- scan can lose to a cheaper newer source-text price (sourceText-discount).
 -- sourceText is optional {cost = normalizedCost, lastParsed = timestamp}.
 -- staticCostKnown with a nil staticCostOverride means "no shipped price".
--- Returns normalized cost and provenance: scanned, sourceText-discount, static,
--- sourceText, or nil.
+-- Returns normalized cost, provenance (scanned, sourceText-discount, static,
+-- sourceText, legacy or nil) and status (legacy, verified, qualified,
+-- unresolved or nil). A pair carrying alternatives or a cost status is
+-- resolved as a whole set (ResolveCostSetState) before any override is read.
 function VendorData:ResolveVendorItemCost(
         vendor, itemID, sourceText, scannedCostOverride, scannedCostKnown,
         staticCostOverride, staticCostKnown, scannedAtOverride)
     if not vendor or not itemID then return nil, nil end
+
+    local costState = self:GetCostSetState(vendor, itemID)
+    if costState then
+        return self:ResolveCostSetState(costState)
+    end
 
     local scannedVendor
     if not scannedCostKnown then
@@ -355,7 +601,11 @@ function VendorData:ResolveVendorItemCost(
     end
     local scannedCost = scannedCostOverride
     if not scannedCostKnown then
-        _, scannedCost = GetScannedItemAndCost(scannedVendor, itemID)
+        local scannedStatus
+        _, scannedCost, scannedStatus = GetScannedItemAndCost(scannedVendor, itemID)
+        if scannedStatus == COST_STATUS_UNRESOLVED then
+            return nil, "legacy", COST_STATUS_UNRESOLVED
+        end
     end
     local scannedAt = scannedAtOverride or (scannedVendor and scannedVendor.lastScanned)
     local sourceCost = sourceText and sourceText.cost
@@ -366,23 +616,26 @@ function VendorData:ResolveVendorItemCost(
             and scannedAt and sourceAt and sourceAt > scannedAt
             and now - scannedAt > VENDOR_COST_STALE_SECONDS
             and sourceCost.gold < scannedCost.gold then
-        return sourceCost, "sourceText-discount"
+        return sourceCost, "sourceText-discount", COST_STATUS_LEGACY
     end
 
     if scannedCost then
-        return scannedCost, "scanned"
+        return scannedCost, "scanned", scannedCost.status or COST_STATUS_LEGACY
     end
 
     local staticCost = staticCostOverride
     if not staticCostKnown then
         staticCost = self:GetStaticItemCost(vendor, itemID)
     end
+    if staticCost and staticCost.status == COST_STATUS_UNRESOLVED then
+        return nil, "static", COST_STATUS_UNRESOLVED
+    end
     if staticCost then
-        return staticCost, "static"
+        return staticCost, "static", staticCost.status or COST_STATUS_LEGACY
     end
 
     if sourceCost then
-        return sourceCost, "sourceText"
+        return sourceCost, "sourceText", COST_STATUS_LEGACY
     end
 
     return nil, nil
@@ -478,7 +731,7 @@ function VendorData:ResolveAlias(npcID)
     return nil
 end
 
--- HS-532: the single holiday gate. Holiday vendors (EventSources.EventVendors,
+-- the single holiday gate. Holiday vendors (EventSources.EventVendors,
 -- by npcID) are hidden unless CalendarDetector reads their holiday as exactly
 -- true; unknown counts as off. Every other npcID, endeavor vendors included,
 -- is never hidden here.
@@ -499,33 +752,89 @@ local function ProjectVendorWithItems(self, vendor, npcID)
         copy[key] = value
     end
     copy.items = vendor.items or self:GetVendorItems(npcID or vendor.npcID)
+
+    -- A vendor who follows a moving event stands where it is now.
+    local tracker = HA.DreamsurgeTracker
+    if tracker and (npcID or vendor.npcID) == tracker.NPC_ID then
+        local mapID, x, y = tracker:GetEffectiveLocation(tracker.NPC_ID)
+        if mapID then
+            copy.mapID, copy.x, copy.y = mapID, x, y
+        end
+    end
     return copy
 end
 
--- Get vendor info by NPC ID (resolves aliases)
-function VendorData:GetVendor(npcID)
+-- The row GetVendor answers with before it is copied: the row, whether GetVendor copies it, and the NPC ID
+-- it was found under.
+local function FindVendorRow(self, npcID)
     if HA.VendorIdentity then
         local vendor = HA.VendorIdentity:GetVendor(npcID)
-        if vendor then return ProjectVendorWithItems(self, vendor, npcID) end
+        if vendor then return vendor, true, npcID end
     end
     if HA.EndeavorsData and HA.EndeavorsData.Vendors then
         local vendor = HA.EndeavorsData.Vendors[npcID]
-        if vendor then return vendor end
+        if vendor then return vendor, false, npcID end
     end
-    -- HS-532: holiday vendors, only while their holiday runs. HasVendor
+    -- holiday vendors, only while their holiday runs. HasVendor
     -- deliberately does not learn them (scan saving and export read it).
     local eventVendors = HA.EventSources and HA.EventSources.EventVendors
     local eventVendor = eventVendors and eventVendors[npcID]
     if eventVendor then
         if self:IsHolidayVendorHidden(npcID) then return nil end
-        return ProjectVendorWithItems(self, eventVendor, npcID)
+        return eventVendor, true, npcID
     end
     -- Resolve alias and retry (cycle guard: canonicalID must differ)
     local canonicalID = self:ResolveAlias(npcID)
     if canonicalID and canonicalID ~= npcID then
-        return self:GetVendor(canonicalID)
+        return FindVendorRow(self, canonicalID)
     end
     return nil
+end
+
+-- Get vendor info by NPC ID (resolves aliases)
+function VendorData:GetVendor(npcID)
+    local vendor, copied, foundID = FindVendorRow(self, npcID)
+    if copied then return ProjectVendorWithItems(self, vendor, foundID) end
+    return vendor
+end
+
+-- A vendor by NPC ID in any season: a holiday vendor resolves while its holiday is off too, which GetVendor
+-- (and every vendor list) does not.
+function VendorData:GetVendorAnySeason(npcID)
+    local vendor = self:GetVendor(npcID)
+    if vendor then return vendor end
+    local eventVendors = HA.EventSources and HA.EventSources.EventVendors
+    return ProjectVendorWithItems(self, eventVendors and eventVendors[npcID], npcID)
+end
+
+-- The holiday a holiday vendor belongs to, from its shipped row; nil for any other vendor. Scan-built vendor
+-- records carry no event, so callers ask by NPC ID.
+function VendorData:GetHolidayEvent(npcID)
+    local eventVendors = HA.EventSources and HA.EventSources.EventVendors
+    local row = eventVendors and eventVendors[npcID]
+    return row and row.event
+end
+
+-- Holiday vendors selling an item, in or out of season, less those retired or not out on this build; nil when none.
+local holidayItemIndex
+function VendorData:GetHolidayVendorsForItem(itemID)
+    if not holidayItemIndex then
+        holidayItemIndex = {}
+        local eventVendors = HA.EventSources and HA.EventSources.EventVendors or {}
+        for npcID, v in pairs(eventVendors) do
+            if not self:IsVendorHiddenByNpcID(npcID) then
+                for _, entry in ipairs(v.items or self:GetVendorItems(npcID) or {}) do
+                    local id = UnpackItem(entry)
+                    if id then
+                        local list = holidayItemIndex[id] or {}
+                        list[#list + 1] = npcID
+                        holidayItemIndex[id] = list
+                    end
+                end
+            end
+        end
+    end
+    return holidayItemIndex[itemID]
 end
 
 -- Check if vendor exists (resolves aliases)
@@ -561,8 +870,9 @@ end
 -- the source summary and the closest-vendor waypoint. Map pins show both either way.
 local ALT_POSITION_FOR_ENDEAVOR_VENDORS = true
 
--- The vendor's other position as mapID, x, y, zone, subzone, or nil. A primary
--- row answers with its alt fields; the alt copy answers with the primary's.
+-- The vendor's other position as mapID, x, y, zone, subzone, areaID, or nil. A
+-- primary row answers with its alt fields (which carry no area ID); the alt copy
+-- answers with the primary's.
 function VendorData:GetOtherPosition(vendor)
     if not vendor or not vendor.altMapID then return nil end
     if vendor.endeavor and not ALT_POSITION_FOR_ENDEAVOR_VENDORS then return nil end
@@ -573,7 +883,7 @@ function VendorData:GetOtherPosition(vendor)
         and HA.EndeavorsData and HA.EndeavorsData.Vendors and HA.EndeavorsData.Vendors[vendor.npcID]
         or HA.VendorIdentity and HA.VendorIdentity:GetVendor(vendor.npcID)
     if primary then
-        return primary.mapID, primary.x, primary.y, primary.zone, primary.subzone
+        return primary.mapID, primary.x, primary.y, primary.zone, primary.subzone, primary.areaID
     end
     return nil
 end
@@ -591,20 +901,33 @@ local function GetSecondPositionCopy(self, vendor)
 end
 
 -- Get all vendors in a specific map/zone
--- Includes active event vendors from EventSources
-function VendorData:GetVendorsInMap(mapID)
+-- Includes active event vendors from EventSources; anySeason adds the holiday vendors whose holiday is off and the
+-- Endeavor vendors whose theme is not running.
+function VendorData:GetVendorsInMap(mapID, anySeason)
     local result = {}
     local addedNPCs = {}
+    local tracker = HA.DreamsurgeTracker
+    local trackedMapID = tracker and tracker:GetEffectiveLocation(tracker.NPC_ID)
 
     -- Static identity vendors
     if HA.VendorIdentity then
         local identityVendors = HA.VendorIdentity:GetVendorsByMapID(mapID)
         if identityVendors then
             for _, vendor in ipairs(identityVendors) do
-                result[#result + 1] = ProjectVendorWithItems(self, vendor)
-                if vendor.npcID then
-                    addedNPCs[vendor.npcID] = true
+                -- A vendor following a moving event is listed where it is now.
+                if not (trackedMapID and trackedMapID ~= mapID and vendor.npcID == tracker.NPC_ID) then
+                    result[#result + 1] = ProjectVendorWithItems(self, vendor)
+                    if vendor.npcID then
+                        addedNPCs[vendor.npcID] = true
+                    end
                 end
+            end
+        end
+        if trackedMapID == mapID and not addedNPCs[tracker.NPC_ID] then
+            local vendor = HA.VendorIdentity:GetVendor(tracker.NPC_ID)
+            if vendor then
+                result[#result + 1] = ProjectVendorWithItems(self, vendor, tracker.NPC_ID)
+                addedNPCs[tracker.NPC_ID] = true
             end
         end
     end
@@ -615,7 +938,7 @@ function VendorData:GetVendorsInMap(mapID)
         if endeavorVendors then
             for _, vendor in ipairs(endeavorVendors) do
                 if vendor.npcID and not addedNPCs[vendor.npcID]
-                        and ShouldIncludeEndeavorVendorForDisplay(vendor) then
+                        and (anySeason or ShouldIncludeEndeavorVendorForDisplay(vendor)) then
                     result[#result + 1] = vendor
                     addedNPCs[vendor.npcID] = true
                 end
@@ -634,7 +957,7 @@ function VendorData:GetVendorsInMap(mapID)
                 -- Dedup: skip if already added (e.g., vendor was scanned in-game)
                 if vendor.npcID and not addedNPCs[vendor.npcID] then
                     -- Only while the holiday runs (unknown = off)
-                    if not self:IsHolidayVendorHidden(vendor.npcID) then
+                    if anySeason or not self:IsHolidayVendorHidden(vendor.npcID) then
                         result[#result + 1] = vendor
                         addedNPCs[vendor.npcID] = true
                     end
@@ -674,23 +997,48 @@ function VendorData:GetVendorsForFaction(faction)
     return result
 end
 
--- Get all vendors that sell a specific item
-function VendorData:GetVendorsForItem(itemID)
-    if not itemID then return {} end
+-- True when any shipped row for this NPC (after alias resolution) is hidden on
+-- this build. Scanned vendor records carry no retired or unreleased flag, so
+-- anything built from a scan has to be judged by the shipped row instead.
+-- VendorFilter loads after this file, so it is looked up at call time.
+local function IsShippedRowHidden(filter, id)
+    local identity = HA.VendorIdentity and HA.VendorIdentity:GetVendor(id)
+    local endeavor = HA.EndeavorsData and HA.EndeavorsData.Vendors and HA.EndeavorsData.Vendors[id]
+    local event = HA.EventSources and HA.EventSources.EventVendors and HA.EventSources.EventVendors[id]
+    return filter.IsHiddenOnThisBuild(identity) or filter.IsHiddenOnThisBuild(endeavor)
+        or filter.IsHiddenOnThisBuild(event)
+end
 
-    local result = {}
-    local seenNPCs = {}  -- Track NPC IDs to avoid duplicates
+function VendorData:IsVendorHiddenByNpcID(npcID)
+    local filter = HA.VendorFilter
+    if not filter or not npcID then return false end
+    if IsShippedRowHidden(filter, npcID) then return true end
+    local canonicalID = self:ResolveAlias(npcID)
+    return canonicalID ~= nil and IsShippedRowHidden(filter, canonicalID)
+end
 
+-- True for a vendor object the player must not see on this build.
+local function IsHiddenVendor(vendor)
+    return VendorData:IsVendorHiddenByNpcID(vendor.npcID)
+end
+
+-- Hands each vendor selling the item to visit(self, out, kind, npcID, row), in listing order, and stops at
+-- the first visit that returns true. kind is "copy" (a row GetVendor copies), "row" (listed as is) or "scan"
+-- (a saved scan record). seenNPCs must arrive empty.
+local function EachSeller(self, itemID, seenNPCs, visit, out)
     -- Priority 1: Static offer index (curated, authoritative)
     if self.OfferByItemID and self.OfferByItemID[itemID] then
         for _, npcID in ipairs(self.OfferByItemID[itemID]) do
             if self:IsHolidayVendorHidden(npcID) then
-                seenNPCs[npcID] = true  -- HS-532: a gated vendor must not re-enter below
+                seenNPCs[npcID] = true  -- a gated vendor must not re-enter below
             else
-                local vendor = self:GetVendor(npcID)
+                local vendor, copied, foundID = FindVendorRow(self, npcID)
                 if vendor then
-                    table.insert(result, vendor)
-                    seenNPCs[npcID] = true
+                    seenNPCs[npcID] = true  -- a hidden vendor must not re-enter below
+                    if not IsHiddenVendor(vendor)
+                            and visit(self, out, copied and "copy" or "row", foundID, vendor) then
+                        return true
+                    end
                 end
             end
         end
@@ -702,8 +1050,10 @@ function VendorData:GetVendorsForItem(itemID)
             if not seenNPCs[npcID] then
                 local vendor = HA.EndeavorsData.Vendors[npcID]
                 if vendor then
-                    table.insert(result, vendor)
                     seenNPCs[npcID] = true
+                    if not IsHiddenVendor(vendor) and visit(self, out, "row", npcID, vendor) then
+                        return true
+                    end
                 end
             end
         end
@@ -714,31 +1064,14 @@ function VendorData:GetVendorsForItem(itemID)
         local db = HA.Addon and HA.Addon.db
         if db and db.global and db.global.scannedVendors then
             for _, npcID in ipairs(self.ScannedByItemID[itemID]) do
-                if not seenNPCs[npcID] and not self:IsHolidayVendorHidden(npcID) then
+                if not seenNPCs[npcID] and not self:IsHolidayVendorHidden(npcID)
+                        and not self:IsVendorHiddenByNpcID(npcID) then
                     local scannedVendor = db.global.scannedVendors[npcID]
-                    if scannedVendor then
-                        -- Resolve zone name from mapID
-                        local zoneName
-                        if scannedVendor.mapID and C_Map and C_Map.GetMapInfo then
-                            local mapInfo = C_Map.GetMapInfo(scannedVendor.mapID)
-                            if mapInfo then
-                                zoneName = mapInfo.name
-                            end
-                        end
-
-                        local vendorObj = {
-                            npcID = npcID,
-                            name = scannedVendor.name,
-                            mapID = scannedVendor.mapID,
-                            x = scannedVendor.coords and scannedVendor.coords.x,
-                            y = scannedVendor.coords and scannedVendor.coords.y,
-                            zone = zoneName or ("Map " .. (scannedVendor.mapID or "?")),
-                            faction = scannedVendor.faction,
-                            items = scannedVendor.items,
-                            _isScanned = true,
-                        }
-                        table.insert(result, vendorObj)
+                    local listedVendor = scannedVendor and HA.VendorIdentity and HA.VendorIdentity:GetVendor(npcID)
+                    if scannedVendor and not (listedVendor and HA.Constants.IsScanInOtherNeighborhoodHub(
+                            listedVendor.mapID, scannedVendor.mapID)) then
                         seenNPCs[npcID] = true
+                        if visit(self, out, "scan", npcID, scannedVendor) then return true end
                     end
                 end
             end
@@ -749,19 +1082,103 @@ function VendorData:GetVendorsForItem(itemID)
     if HA.EventSources and HA.EventSources.EventVendors then
         for _, eventVendor in pairs(HA.EventSources.EventVendors) do
             if eventVendor.npcID and not seenNPCs[eventVendor.npcID]
-                    and eventVendor.items and not self:IsHolidayVendorHidden(eventVendor.npcID) then
+                    and eventVendor.items and not self:IsHolidayVendorHidden(eventVendor.npcID)
+                    and not IsHiddenVendor(eventVendor) then
                 for _, eventItemID in ipairs(eventVendor.items) do
                     if eventItemID == itemID then
-                        result[#result + 1] = eventVendor
                         seenNPCs[eventVendor.npcID] = true
+                        if visit(self, out, "row", eventVendor.npcID, eventVendor) then return true end
                         break
                     end
                 end
             end
         end
     end
+    return false
+end
 
+local function ScannedVendorRecord(self, npcID, scannedVendor)
+    -- Resolve zone name from mapID
+    local zoneName
+    if scannedVendor.mapID and C_Map and C_Map.GetMapInfo then
+        local mapInfo = C_Map.GetMapInfo(scannedVendor.mapID)
+        if mapInfo then
+            zoneName = mapInfo.name
+        end
+    end
+
+    local vendorObj = {
+        npcID = npcID,
+        name = scannedVendor.name,
+        mapID = scannedVendor.mapID,
+        x = scannedVendor.coords and scannedVendor.coords.x,
+        y = scannedVendor.coords and scannedVendor.coords.y,
+        zone = zoneName or ("Map " .. (scannedVendor.mapID or "?")),
+        faction = scannedVendor.faction,
+        items = scannedVendor.items,
+        _isScanned = true,
+    }
+    -- A scan of a vendor following a moving event holds a past spot.
+    local tracker = HA.DreamsurgeTracker
+    local row = tracker and npcID == tracker.NPC_ID and self:GetVendor(npcID)
+    if row then
+        vendorObj.mapID, vendorObj.x, vendorObj.y, vendorObj.zone =
+            row.mapID, row.x, row.y, row.zone
+    end
+    return vendorObj
+end
+
+local function AddSeller(self, result, kind, npcID, vendor)
+    if kind == "copy" then
+        vendor = ProjectVendorWithItems(self, vendor, npcID)
+    elseif kind == "scan" then
+        vendor = ScannedVendorRecord(self, npcID, vendor)
+    end
+    result[#result + 1] = vendor
+end
+
+-- Get all vendors that sell a specific item
+function VendorData:GetVendorsForItem(itemID)
+    local result = {}
+    if itemID then EachSeller(self, itemID, {}, AddSeller, result) end
     return result
+end
+
+local sellerSeen = {}
+local function StopAtFirst() return true end
+
+-- Whether GetVendorsForItem lists any vendor for the item, building no vendor records.
+function VendorData:HasSellerForItem(itemID)
+    if not itemID then return false end
+    wipe(sellerSeen)
+    return EachSeller(self, itemID, sellerSeen, StopAtFirst)
+end
+
+-- The player's map and position on it; the position is nil when it can't be read.
+local function PlayerMapPosition()
+    local mapID = C_Map.GetBestMapForUnit("player")
+    return mapID, mapID and C_Map.GetPlayerMapPosition(mapID, "player")
+end
+
+-- Straight-line distance from the player to a position on the player's own map;
+-- nil for a position on any other map.
+local function DistanceOnPlayerMap(playerMapID, playerPos, mapID, x, y)
+    if mapID ~= playerMapID or not (x and y) then return nil end
+    local dx = x - playerPos.x
+    local dy = y - playerPos.y
+    return math.sqrt(dx*dx + dy*dy)
+end
+
+-- Whether the second of two positions is nearer the player, by the same rule as
+-- the closest-vendor pick: only a position on the player's map has a distance,
+-- and when neither does, or they tie, the first wins.
+function VendorData:IsSecondPositionNearer(mapID, x, y, otherMapID, otherX, otherY)
+    local playerMapID, playerPos = PlayerMapPosition()
+    if not playerPos then return false end
+    local other = DistanceOnPlayerMap(playerMapID, playerPos, otherMapID, otherX, otherY)
+    if not other then return false end
+    local first = DistanceOnPlayerMap(playerMapID, playerPos, mapID, x, y)
+    return not first or other < first
 end
 
 -- Get the closest vendor that sells a specific item
@@ -771,53 +1188,50 @@ function VendorData:GetClosestVendorForItem(itemID)
         return nil
     end
 
+    -- Only vendors this character can use, when it can use any: a vendor with a twin for the other faction is
+    -- named, not its twin.
+    local CanUse = HA.VendorFilter.CanUseVendor
+    local first
+    for _, vendor in ipairs(vendorList) do
+        if CanUse(vendor) then first = vendor break end
+    end
+    local ownOnly = first ~= nil
+    first = first or vendorList[1]
+
     -- Get player's current map and position
-    local playerMapID = C_Map.GetBestMapForUnit("player")
-    local playerPos = playerMapID and C_Map.GetPlayerMapPosition(playerMapID, "player")
+    local playerMapID, playerPos = PlayerMapPosition()
 
     if not playerMapID or not playerPos then
-        -- Can't determine position, return first vendor
-        return vendorList[1]
+        return first
     end
 
     local closestVendor = nil
     local closestIsSecondPosition = false
     local closestDistance = math.huge
 
-    for _, vendor in ipairs(vendorList) do
-        if vendor.mapID == playerMapID and vendor.x and vendor.y then
-            -- Same map - calculate direct distance
-            local dx = vendor.x - playerPos.x
-            local dy = vendor.y - playerPos.y
-            local distance = math.sqrt(dx*dx + dy*dy)
-
-            if distance < closestDistance then
-                closestDistance = distance
-                closestVendor = vendor
-                closestIsSecondPosition = false
-            end
+    for _, vendor in ipairs(vendorList) do repeat
+        if ownOnly and not CanUse(vendor) then break end
+        local distance = DistanceOnPlayerMap(playerMapID, playerPos, vendor.mapID, vendor.x, vendor.y)
+        if distance and distance < closestDistance then
+            closestDistance = distance
+            closestVendor = vendor
+            closestIsSecondPosition = false
         end
 
         local otherMapID, otherX, otherY = self:GetOtherPosition(vendor)
-        if otherMapID == playerMapID and otherX and otherY then
-            local dx = otherX - playerPos.x
-            local dy = otherY - playerPos.y
-            local distance = math.sqrt(dx*dx + dy*dy)
-
-            if distance < closestDistance then
-                closestDistance = distance
-                closestVendor = vendor
-                closestIsSecondPosition = true
-            end
+        distance = DistanceOnPlayerMap(playerMapID, playerPos, otherMapID, otherX, otherY)
+        if distance and distance < closestDistance then
+            closestDistance = distance
+            closestVendor = vendor
+            closestIsSecondPosition = true
         end
-    end
+    until true end
 
     if closestIsSecondPosition then
         return GetSecondPositionCopy(self, closestVendor) or closestVendor
     end
 
-    -- If no vendor on same map, just return first one
-    return closestVendor or vendorList[1]
+    return closestVendor or first
 end
 
 -- Search vendors by name or zone
@@ -843,7 +1257,9 @@ function VendorData:SearchVendors(searchText)
                 matched = true
             end
             if matched then
-                result[#result + 1] = ProjectVendorWithItems(self, vendor, npcID)
+                if not IsHiddenVendor(vendor) then
+                    result[#result + 1] = ProjectVendorWithItems(self, vendor, npcID)
+                end
                 addedNPCs[npcID] = true
             end
         end
@@ -864,7 +1280,9 @@ function VendorData:SearchVendors(searchText)
                     matched = true
                 end
                 if matched and ShouldIncludeEndeavorVendorForDisplay(vendor) then
-                    result[#result + 1] = vendor
+                    if not IsHiddenVendor(vendor) then
+                        result[#result + 1] = vendor
+                    end
                     addedNPCs[npcID] = true
                 end
             end
@@ -884,7 +1302,7 @@ function VendorData:SearchVendors(searchText)
                     elseif vendor.event and vendor.event:lower():find(lowerSearch, 1, true) then
                         matched = true
                     end
-                    if matched then
+                    if matched and not IsHiddenVendor(vendor) then
                         result[#result + 1] = vendor
                         addedNPCs[npcID] = true
                     end
@@ -896,8 +1314,8 @@ function VendorData:SearchVendors(searchText)
     return result
 end
 
--- Get all vendors (includes active event vendors)
-function VendorData:GetAllVendors()
+-- Get all vendors (includes active event vendors; anySeason adds the holiday vendors whose holiday is off)
+function VendorData:GetAllVendors(anySeason)
     local result = {}
     local addedNPCs = {}
 
@@ -926,7 +1344,7 @@ function VendorData:GetAllVendors()
     if HA.EventSources and HA.EventSources.EventVendors then
         for npcID, vendor in pairs(HA.EventSources.EventVendors) do
             if vendor.npcID and not addedNPCs[vendor.npcID] then
-                if not self:IsHolidayVendorHidden(npcID) then  -- npcID = the pairs key
+                if anySeason or not self:IsHolidayVendorHidden(npcID) then  -- npcID = the pairs key
                     -- A copy, as for identity rows: callers may write fields onto
                     -- what they get, and the shipped row's npcID is the gate's key.
                     result[#result + 1] = ProjectVendorWithItems(self, vendor, npcID)
@@ -1101,14 +1519,19 @@ end
 -- GetRequirements' requirement-normalizer (SourceManager.lua's
 -- normalizeAndValidateRequirement) already rewrites unknown-type requirements'
 -- .type/.faction/.standing fields in place through this same reference,
--- writing back into SavedVariables (pre-existing behavior, unchanged by
--- HS-280) -- callers must not assume nothing writes back through it.
+-- writing back into SavedVariables (pre-existing behavior, unchanged by this accessor) —
+-- callers must not assume nothing writes back through it.
 function VendorData:BuildScannedIndex()
     self.ScannedByItemID = {}
     self.ScannedItemsByNPC = {}
+    self.ScannedCostState = {}
 
     local db = HA.Addon and HA.Addon.db
-    if not db or not db.global or not db.global.scannedVendors then
+    if not db or not db.global then
+        return
+    end
+    self:BuildCostEvidenceIndex(db.global)
+    if not db.global.scannedVendors then
         return
     end
 
@@ -1133,6 +1556,10 @@ function VendorData:BuildScannedIndex()
                     table.insert(byItem[itemID], item)
                 end
             end
+            -- Every record's priced rows are compared, however the scan was
+            -- identified: evidence is only retained for pairs relevant when
+            -- scanned, so a set shipped later must still see these rows.
+            self:IndexLegacyCostRows(db.global, npcID, vendorRecord, byItem)
         end
     end
 
@@ -1141,9 +1568,76 @@ function VendorData:BuildScannedIndex()
     end
 end
 
+local function ScannedCostStateFor(self, npcID, itemID)
+    local byItem = self.ScannedCostState[npcID]
+    if not byItem then
+        byItem = {}
+        self.ScannedCostState[npcID] = byItem
+    end
+    local state = byItem[itemID]
+    if not state then
+        state = {}
+        byItem[itemID] = state
+    end
+    return state
+end
+
+-- Sidecar entries, keyed by the scanner's canonical vendor ID.
+function VendorData:BuildCostEvidenceIndex(global)
+    local evidence = global.vendorCostEvidence
+    if not evidence then return end
+    for npcID, byItem in pairs(evidence) do
+        for itemID, entry in pairs(byItem) do
+            ScannedCostStateFor(self, npcID, itemID).evidence = entry
+        end
+    end
+end
+
+-- A scanned record's rows for one item join the whole-set index when they
+-- hold several distinct priced bundles, or when the shipped pair is a
+-- whole-set pair (under this ID or the shipped ID a name correction
+-- replaced). Rows are never grouped into an observation.
+function VendorData:IndexLegacyCostRows(global, npcID, vendorRecord, byItem)
+    local shippedByNPC = self.ShippedCostState and self.ShippedCostState[npcID]
+    local correction = vendorRecord.name and global.npcIDCorrections
+        and global.npcIDCorrections[vendorRecord.name]
+    local correctedShipped = correction and correction.newID == npcID and self.ShippedCostState
+        and self.ShippedCostState[correction.oldID]
+    for itemID, rows in pairs(byItem) do
+        local tracked = (shippedByNPC and shippedByNPC[itemID])
+            or (correctedShipped and correctedShipped[itemID])
+        if tracked or #rows > 1 then
+            local bundles, seen, distinct = {}, {}, 0
+            for _, row in ipairs(rows) do
+                -- A row the scan marked incomplete is a partial read: it can
+                -- neither confirm nor contradict a set. Rows saved without the
+                -- field keep their legacy treatment.
+                local cost = row.costComplete ~= false and self:NormalizeScannedCost(row) or nil
+                if cost then
+                    local signature = ScannedRowSignature(row, cost)
+                    if not seen[signature] then
+                        seen[signature] = true
+                        distinct = distinct + 1
+                        local bundle = {
+                            gold = cost.gold,
+                            currencies = cost.currencies,
+                            items = cost.items,
+                            purchaseQuantity = row.stackCount,
+                        }
+                        bundles[#bundles + 1] = bundle
+                    end
+                end
+            end
+            if (tracked and distinct > 0) or distinct > 1 then
+                ScannedCostStateFor(self, npcID, itemID).legacyBundles = bundles
+            end
+        end
+    end
+end
+
 -- Get all scanned items for (npcID, itemID), in original scan-array order.
 -- May return more than one entry -- the same itemID can occupy more than one
--- merchant slot on one vendor (HS-280: why GetRequirements' merge-all
+-- merchant slot on one vendor (why GetRequirements' merge-all
 -- contract needs a list, not a single record). Returns nil if none scanned.
 --
 -- Init-order invariant: returns nil for everything until VendorData:Initialize()
@@ -1167,10 +1661,10 @@ function VendorData:Initialize()
 
     self:BuildOfferIndexes()
 
-    -- HS-281: per-npcID memo for GetVendorItems. GetOffers' four input tables
+    -- per-npcID memo for GetVendorItems. GetOffers' four input tables
     -- are static after load with no runtime writers, so this needs no
     -- invalidation hook -- see GetVendorItems for the full rationale.
-    -- HS-282: VendorItemsMemoCount tracks population for the insert-site
+    -- VendorItemsMemoCount tracks population for the insert-site
     -- eviction cap (InsertVendorItemsMemo below) -- reset here alongside the
     -- memo itself.
     self.VendorItemsMemo = {}
@@ -1204,7 +1698,7 @@ end
 
 -- Get the merged offer table for an NPC from VendorOffers.
 -- Returns {[itemID] = offerRecord, ...} with ManualOverrides winning over GeneratedBase,
--- StagedAdditions merging at lowest precedence (reviewed-but-unverified pipeline rows,
+-- StagedAdditions merging at lowest precedence (reviewed-but-unverified rows staged by the data build,
 -- Data/VendorStagedAdditions.lua), and Tombstones suppressing entries.
 -- Returns nil if no offer data exists for npcID.
 function VendorData:GetOffers(npcID)
@@ -1246,11 +1740,9 @@ function VendorData:GetOffers(npcID)
     return next(result) and result or nil
 end
 
--- Convert a VendorOffers row into the legacy item shape older consumers expect.
-function VendorData:OfferToLegacyItem(itemID, offer)
-    local _ = self
-    if not offer then return itemID end
-
+-- One offer bundle (primary fields or one alternativeCosts entry) as a
+-- normalized cost, or nil when it carries no price or component.
+local function OfferBundleToCost(offer)
     local cost = nil
 
     if offer.price and offer.price > 0 then
@@ -1293,6 +1785,77 @@ function VendorData:OfferToLegacyItem(itemID, offer)
         end
     end
 
+    return cost
+end
+
+-- Every bundle of an alternative set must be positively known to buy one
+-- item: the price column cannot say how many a payment buys.
+local function AllQuantitiesOne(offer)
+    if offer.purchaseQuantity ~= 1 then return false end
+    for _, alternative in ipairs(offer.alternativeCosts) do
+        if alternative.purchaseQuantity ~= 1 then return false end
+    end
+    return true
+end
+
+-- The cost status a shipped offer declares, or nil for an ordinary row.
+-- Alternatives without positively compatible eligibility are at most
+-- qualified (display-only review), otherwise unresolved.
+function VendorData:GetOfferCostStatus(offer)
+    local _ = self
+    if not offer then return nil end
+    if offer.costStatus == COST_STATUS_UNRESOLVED then
+        return COST_STATUS_UNRESOLVED
+    end
+    if offer.alternativeCosts and #offer.alternativeCosts > 0 then
+        local costSet = offer.costSet
+        if not costSet or costSet.coverage ~= "complete" or not AllQuantitiesOne(offer) then
+            return COST_STATUS_UNRESOLVED
+        end
+        if costSet.eligibility == "compatible" and offer.costStatus ~= COST_STATUS_QUALIFIED then
+            return COST_STATUS_VERIFIED
+        end
+        if costSet.qualification == "display-only" then
+            return COST_STATUS_QUALIFIED
+        end
+        return COST_STATUS_UNRESOLVED
+    end
+    if offer.costStatus == COST_STATUS_QUALIFIED or offer.costStatus == COST_STATUS_VERIFIED then
+        return offer.costStatus
+    end
+    return nil
+end
+
+-- A VendorOffers row as one normalized cost: primary bundle, alternatives,
+-- quantity and declared status. nil for a row without price or status.
+function VendorData:OfferToCost(offer, status)
+    if not offer then return nil end
+    status = status or self:GetOfferCostStatus(offer)
+    local cost = OfferBundleToCost(offer)
+    if offer.alternativeCosts and #offer.alternativeCosts > 0 then
+        cost = cost or {}
+        cost.alternatives = {}
+        for i, alternative in ipairs(offer.alternativeCosts) do
+            local bundle = OfferBundleToCost(alternative) or {}
+            bundle.purchaseQuantity = alternative.purchaseQuantity
+            cost.alternatives[i] = bundle
+        end
+    end
+    if cost then
+        cost.purchaseQuantity = offer.purchaseQuantity
+    end
+    if status then
+        cost = cost or {}
+        cost.status = status
+    end
+    return cost
+end
+
+-- Convert a VendorOffers row into the legacy item shape older consumers expect.
+function VendorData:OfferToLegacyItem(itemID, offer)
+    if not offer then return itemID end
+
+    local cost = self:OfferToCost(offer)
     if not cost then
         return itemID
     end
@@ -1300,14 +1863,14 @@ function VendorData:OfferToLegacyItem(itemID, offer)
     return { itemID, cost = cost }
 end
 
--- HS-281: memoized per npcID (VendorItemsMemo, built in Initialize()). The
+-- memoized per npcID (VendorItemsMemo, built in Initialize()). The
 -- lazy `or {}` below covers standalone/partial-mock test harnesses that load
 -- this file without calling Initialize(). GetOffers' four input tables
 -- (GeneratedBase, ManualOverrides, StagedAdditions, Tombstones) are static
 -- after addon load with no runtime writers -- no *correctness* invalidation
--- is needed; the wipes exist purely for memory (HS-282's eviction cap and
+-- is needed; the wipes exist purely for memory (the eviction cap and
 -- BadgeCalculation's end-of-pass flush, below).
--- HS-282: eviction cap for VendorItemsMemo. Unlike SourceManager's
+-- eviction cap for VendorItemsMemo. Unlike SourceManager's
 -- allSourcesCache (Cache A), which is capped by distinct ITEM count, this
 -- cache's unit is VENDORS: GetAllVendors() walks a static working set of
 -- ~225 vendors on every pass, and a live session adds scanned-vendor npcIDs
@@ -1332,7 +1895,7 @@ local function InsertVendorItemsMemo(self, npcID, value)
     return value
 end
 
--- HS-282: narrow wipe of VendorItemsMemo alone, mirroring
+-- narrow wipe of VendorItemsMemo alone, mirroring
 -- SourceManager:InvalidateSourcesMemo -- used by the cap above and by
 -- BadgeCalculation's end-of-prewarm-pass flush.
 function VendorData:InvalidateVendorItemsMemo()
@@ -1420,18 +1983,39 @@ function VendorData:HasOfferForItem(itemID)
     return self.OfferByItemID ~= nil and self.OfferByItemID[itemID] ~= nil
 end
 
+-- For an Endeavor vendor (a record or an NPC ID, scan-built records included), whether the running theme is
+-- its own: true only when the game has reported the theme; false for an unknown or unmapped theme. nil for any
+-- other vendor.
+function VendorData:IsEndeavorVendorActive(vendor)
+    local ED = HA.EndeavorsData
+    if not ED then return nil end
+    local isRecord = type(vendor) == "table"
+    local theme = ED:GetThemeForVendor(vendor)
+    if not (theme or (isRecord and vendor.endeavor) or (ED.Vendors and ED.Vendors[isRecord and vendor.npcID or vendor])) then
+        return nil
+    end
+    return theme ~= nil and ED:IsThemeActive(theme) == true
+end
+
+-- Whether a listed vendor (a record or an NPC ID) is selling now: false for a holiday vendor out of season and
+-- for an Endeavor vendor whose theme is not running, true for every other vendor.
+function VendorData:IsVendorSellingNow(vendor)
+    local npcID = type(vendor) == "table" and vendor.npcID or vendor
+    return not self:IsHolidayVendorHidden(npcID) and self:IsEndeavorVendorActive(vendor) ~= false
+end
+
 function VendorData:GetVendorWithItems(npcID)
     return self:GetVendor(npcID)
 end
 
--- HS-204(b): BuildOfferIndexes only needs "does this npcID sell this itemID
+-- BuildOfferIndexes only needs "does this npcID sell this itemID
 -- at all" for the reverse index — it never needed GetOffers()'s full
 -- ManualOverrides > GeneratedBase > StagedAdditions precedence merge (which
 -- source's offer record wins is irrelevant to itemID membership). The old
 -- version ran that full merge per npcID, then discarded everything but the
 -- itemID keys. It also built a "npcID:itemID" string per item to check
--- against Tombstones, which currently holds exactly 2 pair-specific entries
--- (HS-176, HS-182) — so building ~2,000 strings to check a 2-entry table was
+-- against Tombstones, which currently holds exactly 2 pair-specific entries,
+-- so building ~2,000 strings to check a 2-entry table was
 -- pure waste. This still reads the raw tables directly and still applies
 -- both tombstone forms (bare itemID and "npcID:itemID"), so tombstoned
 -- pairs are excluded exactly as before; only npcIDs that actually carry a
@@ -1486,9 +2070,407 @@ function VendorData:BuildOfferIndexes()
     for npcID in pairs(HA.VendorOffers.GeneratedBase or {}) do addNPC(npcID) end
     for npcID in pairs(HA.VendorOffers.ManualOverrides or {}) do addNPC(npcID) end
     for npcID in pairs(HA.VendorOffers.StagedAdditions or {}) do addNPC(npcID) end
+
+    self:BuildShippedCostStateIndex()
+end
+
+local function DeclaresCostSet(offer)
+    return offer and (offer.costStatus ~= nil or offer.costSet ~= nil
+        or (offer.alternativeCosts ~= nil and #offer.alternativeCosts > 0))
+end
+
+-- ShippedCostState[npcID][itemID] = {cost, status, observedAt} for every
+-- effective shipped pair resolved as a whole set: one declaring alternatives
+-- or a cost status, or an override over an alternative-bearing generated row.
+-- Such an override with no cost set of its own cannot replace or extend the
+-- generated set: an override repeating its primary bundle leaves it a
+-- qualified reference, any other override leaves the pair unresolved.
+function VendorData:BuildShippedCostStateIndex()
+    local index = {}
+    self.ShippedCostState = index
+    local offers = HA.VendorOffers
+    if not offers then return end
+    local tombstones = offers.Tombstones or {}
+    local base = offers.GeneratedBase or {}
+    local overrides = offers.ManualOverrides or {}
+    local staged = offers.StagedAdditions or {}
+
+    local function Note(npcID, itemID)
+        if index[npcID] and index[npcID][itemID] ~= nil then return end
+        if tombstones[itemID] or tombstones[tostring(npcID) .. ":" .. tostring(itemID)] then return end
+        local override = overrides[npcID] and overrides[npcID][itemID]
+        local generated = base[npcID] and base[npcID][itemID]
+        local effective = override or generated or (staged[npcID] and staged[npcID][itemID])
+
+        local state
+        if override and not DeclaresCostSet(override) and DeclaresCostSet(generated)
+                and generated.alternativeCosts and #generated.alternativeCosts > 0 then
+            local overrideSignature = self:CostSetSignature(OfferBundleToCost(override) or {})
+            local generatedPrimary = self:CostSetSignature(OfferBundleToCost(generated) or {})
+            local status = self:GetOfferCostStatus(generated)
+            if overrideSignature ~= generatedPrimary or status == COST_STATUS_UNRESOLVED then
+                status = COST_STATUS_UNRESOLVED
+            else
+                status = COST_STATUS_QUALIFIED
+            end
+            state = {cost = self:OfferToCost(generated, status), status = status, reconcile = true}
+            state.observedAt = generated.costSet and generated.costSet.observedAt
+        elseif DeclaresCostSet(effective) then
+            local status = self:GetOfferCostStatus(effective) or COST_STATUS_UNRESOLVED
+            state = {cost = self:OfferToCost(effective, status), status = status}
+            state.observedAt = effective.costSet and effective.costSet.observedAt
+        end
+        index[npcID] = index[npcID] or {}
+        index[npcID][itemID] = state or false
+    end
+
+    for _, tier in ipairs({base, overrides, staged}) do
+        for npcID, rows in pairs(tier) do
+            for itemID, offer in pairs(rows) do
+                if DeclaresCostSet(offer) then Note(npcID, itemID) end
+            end
+        end
+    end
+end
+
+-------------------------------------------------------------------------------
+-- Whole-set cost resolution
+-------------------------------------------------------------------------------
+
+-- O(1) lookup of everything that makes a pair a whole-set pair, or nil for
+-- an ordinary pair. Reads the shipped index (by the vendor's npcID) and the
+-- scanned/evidence index (direct ID, then the corrected-ID fallback
+-- GetScannedVendorRecord uses).
+function VendorData:GetCostSetState(vendor, itemID)
+    if not vendor or not itemID then return nil end
+    local shippedByNPC = self.ShippedCostState and vendor.npcID and self.ShippedCostState[vendor.npcID]
+    local shipped = shippedByNPC and shippedByNPC[itemID] or nil
+
+    local scannedIndex = self.ScannedCostState
+    local scannedByNPC = scannedIndex and vendor.npcID and scannedIndex[vendor.npcID]
+    if not scannedByNPC and scannedIndex and vendor.name and HA.VendorScanner then
+        local correctedID = HA.VendorScanner:GetCorrectedNPCID(vendor.name)
+        scannedByNPC = correctedID and scannedIndex[correctedID]
+    end
+    local scanned = scannedByNPC and scannedByNPC[itemID] or nil
+
+    if not shipped and not scanned then return nil end
+    return {shipped = shipped or nil, scanned = scanned or nil}
+end
+
+local function SignatureSet(self, cost)
+    local set = {}
+    self:ForEachCostBundle(cost, function(bundle)
+        set[self:CostBundleSignature(bundle)] = true
+    end)
+    return set
+end
+
+-- Whether every bundle of a witness or legacy row set is one of the
+-- effective set's bundles. Quantity compares only where both sides know it.
+local function BundleIn(self, signatureSet, bundle)
+    local signature = self:CostBundleSignature(bundle)
+    if signatureSet[signature] then return true end
+    if bundle.purchaseQuantity == nil then
+        local unknown = signature:gsub("|q[^|]*|", "|q?|", 1)
+        for known in pairs(signatureSet) do
+            if known:gsub("|q[^|]*|", "|q?|", 1) == unknown then return true end
+        end
+    end
+    return false
+end
+
+-- cost, provenance, status for a whole-set pair.
+--   * a retained complete local snapshot newer than the shipped set replaces
+--     it whole (scanned / verified);
+--   * otherwise the shipped set, with its declared status;
+--   * any retained witness or legacy row whose bundle is not in the
+--     effective set, or several distinct bundles with no approved set, leaves
+--     the pair unresolved: no hybrid, first-row or source-text fallback.
+function VendorData:ResolveCostSetState(state)
+    local shipped = state.shipped
+    local scanned = state.scanned
+    local effective, provenance, status
+    if shipped then
+        effective, provenance, status = shipped.cost, "static", shipped.status
+    end
+
+    local evidence = scanned and scanned.evidence
+    local selected = evidence and evidence.selected
+    if selected and selected.cost
+            and (not shipped or not shipped.observedAt
+                or (selected.observedAt and selected.observedAt > shipped.observedAt)) then
+        effective, provenance, status = selected.cost, "scanned", COST_STATUS_VERIFIED
+    end
+
+    local contradicted = false
+    local signatureSet = effective and SignatureSet(self, effective)
+    local function Check(bundle)
+        if not signatureSet or not BundleIn(self, signatureSet, bundle) then
+            contradicted = true
+        end
+    end
+    if scanned and scanned.legacyBundles then
+        for _, bundle in ipairs(scanned.legacyBundles) do Check(bundle) end
+        if not effective then
+            provenance = "legacy"
+        end
+    end
+    -- Only complete bundles are compared: an incomplete read can neither
+    -- confirm nor contradict a set.
+    if evidence and evidence.unresolved then
+        for _, witness in pairs(evidence.unresolved) do
+            for _, bundle in ipairs(witness.bundles or {}) do Check(bundle) end
+        end
+        provenance = provenance or "scanned"
+    end
+
+    if contradicted or not effective or status == COST_STATUS_UNRESOLVED then
+        return nil, provenance or "static", COST_STATUS_UNRESOLVED
+    end
+    return effective, provenance, status or COST_STATUS_LEGACY
+end
+
+-------------------------------------------------------------------------------
+-- Vendor lookups for the browser
+-------------------------------------------------------------------------------
+
+-- The currencies a vendor's wares cost, as display strings (gold included), and whether an item currency's
+-- name is still loading. itemIDs are the wares to judge.
+function VendorData:GetVendorCurrencies(vendor, itemIDs)
+    local out, seen, pending = {}, {}, false
+    local function add(icon, name)
+        if name and not seen[name] then
+            seen[name] = true
+            out[#out + 1] = (icon and "|T" .. icon .. ":0|t " or "") .. name
+        end
+    end
+    -- Every price option counts, so a ware also sold for gold puts Gold in the list.
+    local function visit(cost)
+        if (cost.gold or 0) > 0 then add(nil, Text("Gold")) end
+        for _, c in ipairs(cost.currencies or {}) do
+            local info = c.id and C_CurrencyInfo.GetCurrencyInfo(c.id) or c
+            add(info.iconFileID, info.name or c.name)
+        end
+        for _, it in ipairs(cost.items or {}) do
+            local name, waiting
+            if it.id then name, waiting = HA.GetItemName(it.id) end
+            name = name or it.name
+            if name then add(it.id and C_Item.GetItemIconByID(it.id), name)
+            elseif it.id and waiting then pending = true end
+        end
+    end
+    for _, id in ipairs(itemIDs) do
+        self:ForEachCostBundle(HA.SourceManager:GetVendorItemCost(id, vendor), visit)
+    end
+    return out, pending
+end
+
+-- The group a vendor belongs to: "Endeavor", an expansion from Constants.EXPANSION_ORDER, "Events", or "other".
+-- A holiday vendor's group is Events in any season; whether it is listed at all is decided elsewhere.
+-- GetVendorGroups gives the groups in list order and GetVendorGroupLabel names one in the client's language.
+local groupTokens
+local function GroupTokens()
+    if not groupTokens then
+        groupTokens = { Endeavor = false, Events = false }
+        for _, e in ipairs(HA.Constants.EXPANSION_ORDER) do groupTokens[e[1]] = e[2] end
+    end
+    return groupTokens
+end
+
+function VendorData:GetVendorGroup(vendor)
+    if vendor.endeavor then return "Endeavor" end
+    if vendor.npcID and self:GetHolidayEvent(vendor.npcID) then return "Events" end
+    return GroupTokens()[vendor.expansion] ~= nil and vendor.expansion or "other"
+end
+
+-- The expansions newest first, then Endeavor, Events and the rest.
+function VendorData:GetVendorGroups()
+    local _ = self
+    local out = {}
+    for _, e in ipairs(HA.Constants.EXPANSION_ORDER) do out[#out + 1] = e[1] end
+    out[#out + 1] = "Endeavor"
+    out[#out + 1] = "Events"
+    out[#out + 1] = "other"
+    return out
+end
+
+function VendorData:GetVendorGroupLabel(key)
+    local _ = self
+    if key == "other" then return Text("Other Vendors") end
+    if key == "Endeavor" then return Text("Endeavors") end
+    if key == "Events" then return Text("Events") end
+    local token = GroupTokens()[key]
+    return token and _G["EXPANSION_NAME" .. tostring(_G["LE_EXPANSION_" .. token])] or key
+end
+
+-- A creature's name in the player's language, read from the game's tooltip data for its ID. Placeholder text,
+-- an empty line and a secret value are no name. An ask that finds none waits for the client to announce that
+-- tooltip data, and the name queue then asks again, three asks in all; a wait the client never answers ends after
+-- NAME_WAIT_TICKS and the shipped name stays. Names are kept for the session only.
+local NPC_NAME_ASKS = 3
+local npcNames, npcAsks, npcWait, npcWaitEnds, npcShipped = {}, {}, {}, {}, {}
+
+-- Names wanted, asked a few at a time and never in combat, so a long list asks the client nothing in the frame
+-- that draws it. NPC_NAMES_ARRIVED is announced at most once per tick, and only when a name differs from the
+-- shipped one.
+local NAMES_PER_TICK, NAME_TICK, NAME_WAIT_TICKS = 10, 0.2, 25
+local nameQueue, nameQueued, nameHead, nameTail, nameTicking, nameTick = {}, {}, 1, 0, false, 0
+local nameListener, AskQueuedNames
+-- While asks are pending, lists are ordered by the names known when the asks began, so a list keeps its order as
+-- names arrive. When the last ask is answered or given up after a name arrived, NPC_NAMES_ARRIVED is announced
+-- once more and lists sort by the arrived names.
+local orderNames, namesMoved = {}, false
+
+local function StartNameTicks()
+    if nameTicking then return end
+    nameTicking = true
+    for npcID, name in pairs(npcNames) do orderNames[npcID] = name end
+    C_Timer.After(NAME_TICK, AskQueuedNames)
+end
+
+local function QueueName(npcID)
+    nameTail = nameTail + 1
+    nameQueue[nameTail] = npcID
+    StartNameTicks()
+end
+
+local function StopWaiting(npcID)
+    npcWait[npcID], npcWaitEnds[npcID] = nil, nil
+    if not next(npcWait) then nameListener:UnregisterEvent("TOOLTIP_DATA_UPDATE") end
+end
+
+-- An awaited tooltip update hands its creature back to the queue.
+local function OnTooltipData(_, _, dataInstanceID)
+    for npcID, id in pairs(npcWait) do
+        if id == dataInstanceID then
+            StopWaiting(npcID)
+            QueueName(npcID)
+        end
+    end
+end
+
+local function IsName(text)
+    if issecretvalue and issecretvalue(text) then return false end
+    return text and text ~= "" and text ~= _G.RETRIEVING_DATA and text ~= _G.UNKNOWNOBJECT
+end
+
+local function AskNpcName(npcID)
+    npcAsks[npcID] = (npcAsks[npcID] or 0) + 1
+    local data = C_TooltipInfo.GetHyperlink("unit:Creature-0-0-0-0-" .. npcID .. "-0000000000")
+    local line = data and data.lines and data.lines[1]
+    local text = line and line.leftText
+    if IsName(text) then
+        npcNames[npcID] = text
+        return text
+    end
+    if npcAsks[npcID] < NPC_NAME_ASKS and data and data.dataInstanceID then
+        if not nameListener then
+            nameListener = CreateFrame("Frame")
+            nameListener:SetScript("OnEvent", OnTooltipData)
+        end
+        nameListener:RegisterEvent("TOOLTIP_DATA_UPDATE")
+        npcWait[npcID], npcWaitEnds[npcID] = data.dataInstanceID, nameTick + NAME_WAIT_TICKS
+        StartNameTicks()
+    end
+end
+
+AskQueuedNames = function()
+    nameTick = nameTick + 1
+    local changed = false
+    if not InCombatLockdown() then
+        for _ = 1, NAMES_PER_TICK do
+            local npcID = nameQueue[nameHead]
+            if not npcID then break end
+            nameQueue[nameHead], nameHead = nil, nameHead + 1
+            if not npcNames[npcID] and not npcWait[npcID] and (npcAsks[npcID] or 0) < NPC_NAME_ASKS then
+                local name = AskNpcName(npcID)
+                if name and name ~= npcShipped[npcID] then changed = true end
+            end
+        end
+    end
+    for npcID, ends in pairs(npcWaitEnds) do
+        if ends <= nameTick then StopWaiting(npcID) end
+    end
+    namesMoved = namesMoved or changed
+    if nameQueue[nameHead] or next(npcWait) then
+        C_Timer.After(NAME_TICK, AskQueuedNames)
+    else
+        nameHead, nameTail, nameTicking = 1, 0, false
+        changed, namesMoved = namesMoved, false
+    end
+    if changed then HA.Events:Fire("NPC_NAMES_ARRIVED") end
+end
+
+-- A creature's name as the client gives it; nil until known. The first ask is made at once; shippedName, when
+-- given, is the name already shown, so a client name equal to it announces nothing.
+function VendorData:GetNpcName(npcID, shippedName)
+    npcShipped[npcID] = npcShipped[npcID] or shippedName
+    return npcNames[npcID] or not npcAsks[npcID] and AskNpcName(npcID) or nil
+end
+
+-- A vendor's name as the game client gives it, in the player's language; the shipped name until the client's is
+-- known. Reading it never asks the client at once: an unknown name is queued. Search matches either name.
+function VendorData:GetVendorName(vendor)
+    local npcID = vendor.npcID
+    local name = npcID and npcNames[npcID]
+    if name then return name end
+    if npcID and not npcAsks[npcID] and not nameQueued[npcID] then
+        nameQueued[npcID], npcShipped[npcID] = true, npcShipped[npcID] or vendor.name
+        QueueName(npcID)
+    end
+    return vendor.name
+end
+
+-- The name a vendor list is ordered by: the shown name, except that while names are still being asked for it is
+-- the name known when the asks began, so rows do not move under the cursor as each name arrives.
+function VendorData:GetVendorOrderName(vendor)
+    local shown, npcID = self:GetVendorName(vendor), vendor.npcID
+    if not (nameTicking and npcID) then return shown end
+    return orderNames[npcID] or vendor.name
+end
+
+-- The order of vendor lists: by the sort key of GetVendorOrderName, then by NPC ID so equal names keep one order.
+-- Sort lists when they are built.
+function VendorData:VendorNameBefore(a, b)
+    local na, nb = HA.NameSortKey(self:GetVendorOrderName(a) or ""), HA.NameSortKey(self:GetVendorOrderName(b) or "")
+    if na ~= nb then return na < nb end
+    return (a.npcID or 0) < (b.npcID or 0)
+end
+
+function VendorData:GetPortrait(npcID)
+    return HA.VendorPortraits and HA.VendorPortraits[npcID]
+end
+
+-- The newer of the shipped confirmation and the player's own scan, as "YYYY-MM-DD"; nil when neither.
+function VendorData:GetConfirmedDate(vendor)
+    local shipped = vendor.scanConfirmed
+    local record = self:GetScannedVendorRecord(vendor)
+    local mine = record and record.lastScanned and date("%Y-%m-%d", record.lastScanned)
+    if mine and (not shipped or mine > shipped) then return mine end
+    return shipped
+end
+
+local function WorldPosition(mapID, pos)
+    local continent, world = C_Map.GetWorldPosFromMapPos(mapID, pos)
+    if continent and world then
+        local x, y = world:GetXY()
+        return continent, x, y
+    end
+end
+
+-- The squared world distance between two map positions (pos and otherPos are map vectors); nil when either has
+-- no world position or they lie on different continents.
+function VendorData:GetWorldDistance(mapID, pos, otherMapID, otherPos)
+    local continent, x, y = WorldPosition(mapID, pos)
+    if not continent then return nil end
+    local otherContinent, otherX, otherY = WorldPosition(otherMapID, otherPos)
+    if otherContinent ~= continent then return nil end
+    return (otherX - x) ^ 2 + (otherY - y) ^ 2
 end
 
 function VendorData:InvalidateVendorCaches()
+    holidayItemIndex = nil
     if HA.VendorIdentity and HA.VendorIdentity.InvalidateVendorCache then
         HA.VendorIdentity:InvalidateVendorCache()
     end

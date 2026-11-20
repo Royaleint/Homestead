@@ -26,7 +26,7 @@ local projectionRectCache = {}
 local parentMapCache = {}
 local childMapIDsCache = {}
 
--- HS-282: read-only debug accessor for the /hs debug membudget walker.
+-- Read-only debug accessor for the /hs debug membudget walker.
 -- Read-only references, never mutated by the caller.
 function MapPinProvider.GetDebugCacheTables()
     return {
@@ -55,6 +55,49 @@ end
 
 function MapPinProvider.GetContinentForZone(zoneMapID)
     return zoneToContinent[zoneMapID] or nil
+end
+
+-- The zone-level map at or above mapID, read live: a building or dungeon map walks up to its zone. Unlike
+-- GetContinentForZone it answers for maps the static table does not list.
+function MapPinProvider.ZoneOf(mapID)
+    local zoneType = Enum.UIMapType.Zone
+    while mapID do
+        local info = C_Map.GetMapInfo(mapID)
+        if not info then return nil end
+        if info.mapType <= zoneType or not info.parentMapID or info.parentMapID == 0 then return mapID end
+        mapID = info.parentMapID
+    end
+    return nil
+end
+
+-- The map of the zone mapID sits in, climbing past dungeon and building maps; nil once the climb reaches a
+-- continent or higher, or when there is no map data.
+function MapPinProvider.ZoneOnlyOf(mapID)
+    local id = mapID
+    while id and id ~= 0 do
+        local info = C_Map.GetMapInfo(id)
+        if not info or info.mapType <= Enum.UIMapType.Continent then return nil end
+        if info.mapType == Enum.UIMapType.Zone then return id end
+        id = info.parentMapID
+    end
+end
+
+-- The continent map at or above mapID, read live and kept per map; nil when none is above it.
+local liveContinent = {}
+function MapPinProvider.ContinentOf(mapID)
+    if not mapID then return nil end
+    local known = liveContinent[mapID]
+    if known ~= nil then return known or nil end
+    local continentType, id = Enum.UIMapType.Continent, mapID
+    local found = false
+    while id and id ~= 0 do
+        local info = C_Map.GetMapInfo(id)
+        if not info then break end
+        if info.mapType == continentType then found = id break end
+        id = info.parentMapID
+    end
+    liveContinent[mapID] = found
+    return found or nil
 end
 
 -------------------------------------------------------------------------------
@@ -139,20 +182,20 @@ MapPinProvider.manualZoneCenters = {
 -- Notes shown in zone badge tooltips for special locations (class halls, etc.)
 MapPinProvider.zoneNotes = {
     -- Class halls physically on the Broken Isles
-    [739] = "Hunter Order Hall — Trueshot Lodge in Highmountain",
-    [747] = "Druid Order Hall — Dreamwalk spell",
-    [647] = "Death Knight Order Hall — Death Gate spell",
-    [695] = "Warrior Order Hall — Jump from Krasus' Landing, Dalaran",
+    [739] = "Hunter Order Hall: Trueshot Lodge in Highmountain",
+    [747] = "Druid Order Hall: Dreamwalk spell",
+    [647] = "Death Knight Order Hall: Death Gate spell",
+    [695] = "Warrior Order Hall: Jump from Krasus' Landing, Dalaran",
     -- Class halls under/inside Dalaran
-    [626] = "Rogue Order Hall — Entrance in Dalaran sewers",
-    [734] = "Mage Order Hall — Portal from Dalaran",
+    [626] = "Rogue Order Hall: Entrance in Dalaran sewers",
+    [734] = "Mage Order Hall: Portal from Dalaran",
     -- Class halls off-world, accessed via Dalaran
-    [24]  = "Paladin Order Hall — Portal from Dalaran",
-    [702] = "Priest Order Hall — Portal from Dalaran",
-    [709] = "Monk Order Hall — Zen Pilgrimage spell",
-    [717] = "Warlock Order Hall — Portal from Dalaran",
-    [720] = "Demon Hunter Order Hall — Portal from Krasus' Landing, Dalaran",
-    [726] = "Shaman Order Hall — Portal from Dalaran",
+    [24]  = "Paladin Order Hall: Portal from Dalaran",
+    [702] = "Priest Order Hall: Portal from Dalaran",
+    [709] = "Monk Order Hall: Zen Pilgrimage spell",
+    [717] = "Warlock Order Hall: Portal from Dalaran",
+    [720] = "Demon Hunter Order Hall: Portal from Krasus' Landing, Dalaran",
+    [726] = "Shaman Order Hall: Portal from Dalaran",
 }
 
 -- Exclude continents in separate world spaces where cross-zone minimap translation
@@ -391,80 +434,6 @@ function MapPinProvider:ProjectContinentBadgeToWorldView(continentMapID)
     return false, nil, nil, reason
 end
 
-local function AddManualGeographyAuditRow(rows, tableName, sourceMapID, viewMapID, nativeOk, nativeReason, manualReason)
-    local status = nativeOk and "manual_redundant_candidate" or "manual_required"
-    rows[#rows + 1] = {
-        tableName = tableName,
-        sourceMapID = sourceMapID,
-        viewMapID = viewMapID,
-        nativeStatus = nativeOk and "native_ok" or "native_failed",
-        status = status,
-        nativeReason = nativeReason,
-        manualReason = manualReason,
-    }
-end
-
-function MapPinProvider:GetManualGeographyAuditReport()
-    local rows = {}
-    local summary = {
-        checked = 0,
-        manualRequired = 0,
-        redundantCandidates = 0,
-    }
-
-    for continentMapID in pairs(self.offWorldContinentPositions or {}) do
-        local nativeOk, _, _, nativeReason = self:ProjectMapPositionToAncestorView(continentMapID, 947, 0.5, 0.5)
-        AddManualGeographyAuditRow(
-            rows,
-            "offWorldContinentPositions",
-            continentMapID,
-            947,
-            nativeOk,
-            nativeReason,
-            "manual_continent_position"
-        )
-    end
-
-    for zoneMapID, parentPositions in pairs(self.manualZoneCenters or {}) do
-        for parentMapID in pairs(parentPositions) do
-            local nativeOk, _, _, nativeReason = self:ProjectMapPositionToAncestorView(zoneMapID, parentMapID, 0.5, 0.5)
-            AddManualGeographyAuditRow(
-                rows,
-                "manualZoneCenters",
-                zoneMapID,
-                parentMapID,
-                nativeOk,
-                nativeReason,
-                "manual_zone_center"
-            )
-        end
-    end
-
-    table.sort(rows, function(a, b)
-        if a.tableName ~= b.tableName then
-            return a.tableName < b.tableName
-        end
-        if a.sourceMapID ~= b.sourceMapID then
-            return a.sourceMapID < b.sourceMapID
-        end
-        return a.viewMapID < b.viewMapID
-    end)
-
-    summary.checked = #rows
-    for _, row in ipairs(rows) do
-        if row.status == "manual_redundant_candidate" then
-            summary.redundantCandidates = summary.redundantCandidates + 1
-        elseif row.status == "manual_required" then
-            summary.manualRequired = summary.manualRequired + 1
-        end
-    end
-
-    return {
-        rows = rows,
-        summary = summary,
-    }
-end
-
 -- Native world-map pins
 -- Homestead uses a self-managed pool instead of WorldMapFrame.pinPools to
 -- avoid tainting Blizzard's protected map pin state.
@@ -479,9 +448,8 @@ end
 
 local nativePins = {}          -- active wrapper frames
 local nativePinPool = {}       -- recycled wrapper frames
--- Blizzard's map pin frame levels (MEDIUM strata). Per HS-319
--- (Home_Dev/reference/MAP_LAYERING_STUDY.md, verified against Blizzard
--- source):
+-- Blizzard's map pin frame levels (MEDIUM strata), verified against Blizzard
+-- source:
 --   Area POI:    2023
 --   Map Link:    2025
 --   Encounter:   2026
@@ -492,7 +460,7 @@ local nativePinPool = {}       -- recycled wrapper frames
 -- exactly TIES Gossip (2024); sibling order vs Gossip at that tie is
 -- creation-order dependent/unspecified. Quests, world quests, vignettes,
 -- and waypoints already sit at 2025+, so they still outrank Homestead.
--- Intentional placement (HS-319 ruling) — do not change the level to chase
+-- Intentional placement (deliberate) — do not change the level to chase
 -- the old "parity with Area POI" language this replaced.
 --
 -- Constants below Vignette are patch-stable; PIN_FRAME_LEVEL_ACTIVE_QUEST
@@ -596,7 +564,7 @@ function MapPinProvider.RepositionWorldMapPins()
     end
     for _, wrapper in ipairs(nativePins) do
         if wrapper.__hsNormX and wrapper.__hsNormY then
-            -- HS-274 follow-up: this now runs on every canvas-scale tick during
+            -- This now runs on every canvas-scale tick during
             -- a zoom (previously only on rare resize/maximize), so the parent
             -- and ignore-parent-scale calls -- one-time setup from Acquire that
             -- never actually changes mid-gesture -- were re-issued dozens of
@@ -620,7 +588,7 @@ function MapPinProvider.RepositionWorldMapPins()
     end
 end
 
--- HS-536: overlapping-pin nudge. Vendors that stand side by side get map
+-- Overlapping-pin nudge. Vendors that stand side by side get map
 -- positions about 0.001 apart, which draws their pins on top of each other.
 -- AssignOverlapNudge gives pins that overlap a small screen-pixel offset
 -- (nudgeX/nudgeY, +x right, +y up). Display only: the caller passes it to
@@ -638,7 +606,7 @@ end
 -- OVERLAP_THRESHOLD: the default pin is 10 px (setting range 8-18) on a
 -- canvas about NUDGE_REF_CANVAS_PX wide at default zoom, so 0.005 is half a
 -- pin: closer than that, one pin hides at least half of the other. The two
--- HS-536 pairs are 0.0011 and 0.0013 apart.
+-- The two known pairs are 0.0011 and 0.0013 apart.
 -- NUDGE_SPACING is the largest pin the size slider allows, so a nudged pair
 -- never covers itself at any setting.
 -- NUDGE_CROWD_NEIGHBORS: a group in which any pin has this many other pins
@@ -870,14 +838,21 @@ function MapPinProvider.AssignOverlapNudge(pins, xKey, yKey, mapKey)
     WipeNudgeSort(n)
 end
 
--- HS-536: final minimap position of a nudged pin. diffX/diffY are the pin's
+-- Final minimap position of a nudged pin. diffX/diffY are the pin's
 -- real position in minimap-radius units (already tested for range, and
 -- already clamped to the rim for floatOnEdge pins). The pixel nudge is
 -- rotated with the minimap, added to the drawn position only, and the result
 -- is clamped back to the rim when it would land past the mask (the same
 -- 0.9 rim and shape rule DrawPin uses). isRound is DrawPin's own value.
+-- The nudge is sized for world-map pins of NUDGE_SPACING px; pinSize, the
+-- minimap pin's drawn width, scales it so a pair ends up one minimap pin
+-- apart (half a pin each) instead of a world-map pin apart.
 function MapPinProvider.NudgeMinimapPosition(diffX, diffY, nudgeX, nudgeY, minimapWidth, minimapHeight,
-        facingSin, facingCos, rotate, isRound)
+        facingSin, facingCos, rotate, isRound, pinSize)
+    if pinSize then
+        local scale = pinSize / NUDGE_SPACING
+        nudgeX, nudgeY = nudgeX * scale, nudgeY * scale
+    end
     if rotate then
         nudgeX, nudgeY = nudgeX * facingCos + nudgeY * facingSin, nudgeY * facingCos - nudgeX * facingSin
     end

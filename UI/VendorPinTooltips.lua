@@ -3,7 +3,7 @@
     Homestead - VendorPinTooltips
     Pin tooltips: vendor, zone/continent badge, portal, minimap, and drop pins
 
-    Extracted from VendorMapPins.lua (HS-301 cut #1) to reduce file size.
+    Extracted from VendorMapPins.lua to reduce file size.
     Owns the pin-tooltip GameTooltip instance, GET_ITEM_INFO_RECEIVED-driven
     tooltip refresh, and the five Show*Tooltip entry points PinFrameFactory
     calls on hover.
@@ -140,7 +140,7 @@ local function IsActivePinTooltipVisible()
     return pinTooltip:GetOwner() == activeTooltipData.pin
 end
 
--- HS-235: shared debounced rebuild, factored out of the GET_ITEM_INFO_RECEIVED
+-- shared debounced rebuild, factored out of the GET_ITEM_INFO_RECEIVED
 -- handler below so a second arrival signal (Item:ContinueOnItemLoad's own
 -- callback, see RequestItemDataForTooltip) can drive the exact same render
 -- path through the exact same tooltipRebuildPending debounce, instead of
@@ -177,10 +177,10 @@ itemInfoEventFrame:SetScript("OnEvent", function(self, event, itemID, success)
     RebuildActivePinTooltip()
 end)
 
--- HS-235: item 264500 class — C_Item.DoesItemExistByID true, but the server
+-- item 264500 class — C_Item.DoesItemExistByID true, but the server
 -- never volunteers the data, so GetItemInfo stays nil forever and
 -- GET_ITEM_INFO_RECEIVED never arrives to drive a rebuild; the tooltip line
--- was stuck on "Unknown Item" across hovers AND sessions. HS-190 precedent
+-- was stuck on "Unknown Item" across hovers AND sessions. The existing precedent
 -- (Overlay/Tooltips.lua's cold-cache re-render on OnTooltipSetItem) is the
 -- idiom reused here verbatim: Item:CreateFromItemID(itemID):ContinueOnItemLoad
 -- rather than a manual C_Item.RequestLoadItemDataByID + GET_ITEM_INFO_RECEIVED
@@ -194,7 +194,7 @@ end)
 -- (through RebuildActivePinTooltip, the SAME debounce GET_ITEM_INFO_RECEIVED
 -- already uses) rather than assumed to also arrive via GET_ITEM_INFO_RECEIVED
 -- — GET_ITEM_INFO_RECEIVED and ITEM_DATA_LOAD_RESULT are distinct events, and
--- the already-shipped HS-190 precedent in Tooltips.lua does the same thing
+-- the existing precedent in Tooltips.lua does the same thing
 -- (never waits on GET_ITEM_INFO_RECEIVED for its own cold-cache path). This
 -- means no new event registration was needed to close this gap.
 --
@@ -243,7 +243,7 @@ end
 -- Tooltips
 -------------------------------------------------------------------------------
 
--- HS-074 test: atlas-based inline glyphs for non-vendor source types.
+-- atlas-based inline glyphs for non-vendor source types.
 -- Atlas rendering tends to be sharper at small inline sizes than item-icon
 -- texture paths (which can look pixelated when scaled down from 64x64). Atlas
 -- names mirror Constants.SourceBadgeAtlas (the catalog overlay's pick).
@@ -256,11 +256,11 @@ local SOURCE_TOOLTIP_ICONS = {
     achievement = "|A:UI-Achievement-Shield-NoPoints:16:16|a",
 }
 
--- HS-074 test: concatenated icon string for an item's non-vendor source types.
+-- concatenated icon string for an item's non-vendor source types.
 -- Returns empty string when item is vendor-only or has no source data.
 -- Optional `sources` lets a caller that already fetched GetAllSources (e.g.
 -- AddPinTooltipItemLine's presentation.allSources) pass them in and skip the
--- second lookup; GetAllSources is memoized regardless (HS-273/281/282).
+-- second lookup; GetAllSources is memoized regardless.
 -- src.type runs through NormalizeSourceType, matching every other
 -- source.type consumer (SourceManager.lua's own display-source resolution).
 local function BuildItemSourceIconText(itemID, sources)
@@ -290,7 +290,7 @@ end
 local function AddPinTooltipItemLine(tooltip, item, options, suffix)
     local itemID = item and item.itemID
     local resolvedName = (item and item.name) or (itemID and C_Item.GetItemInfo(itemID))
-    -- HS-235: name genuinely unresolved (not just "item has no .name override") —
+    -- name genuinely unresolved (not just "item has no .name override") —
     -- request the data once per session so a future hover (this one still
     -- shows the honest fallback) or the debounced rebuild below can pick it
     -- up once/if it arrives.
@@ -306,7 +306,7 @@ local function AddPinTooltipItemLine(tooltip, item, options, suffix)
         local presentation = SM:GetItemPresentation(itemID, options)
         availabilityState = presentation and presentation.availabilityState
         allSources = presentation and presentation.allSources
-    -- HS-203: no-presentation fallback stays cache-only, matching
+    -- no-presentation fallback stays cache-only, matching
     -- SourceManager's "vendorMapPin" context (the primary path above).
     elseif itemID and HA.CatalogStore and HA.CatalogStore:IsOwned(itemID) then
         availabilityState = "owned"
@@ -315,7 +315,7 @@ local function AddPinTooltipItemLine(tooltip, item, options, suffix)
         availabilityState = SM:GetVendorItemAvailabilityState(itemID, options.npcID)
     end
 
-    -- HS-229: entrance-grouped drop pins can carry records from several
+    -- entrance-grouped drop pins can carry records from several
     -- different bosses; callers pass a suffix (e.g. "(Boss Name)") so each
     -- item line stays attributable when the tooltip header can't name one.
     local lineText = suffix and ("  " .. itemName .. " " .. suffix) or ("  " .. itemName)
@@ -327,13 +327,15 @@ local function AddPinTooltipItemLine(tooltip, item, options, suffix)
         lr, lg, lb = 1, 0.25, 0.25
     end
 
-    -- HS-074: vendor-pin tooltips additionally show alternative-source glyphs
+    -- vendor-pin tooltips additionally show alternative-source glyphs
     -- trailing the name and the vendor's cost in a right-aligned column.
     -- Drop-pin tooltips (isVendorContext false/absent) keep the plain
     -- single-line rendering unchanged.
     if options and options.isVendorContext then
         local sourceIcons = BuildItemSourceIconText(itemID, allSources)
-        local costText = HA.VendorData and HA.VendorData:FormatCost(item and item.cost) or "?"
+        local costTexts = HA.VendorData
+            and HA.VendorData:FormatCostOptions(item and item.cost, item and item.costStatus)
+        local costText = costTexts and costTexts[1] or "?"
         tooltip:AddDoubleLine(lineText .. sourceIcons, costText, lr, lg, lb, 1, 0.82, 0)
     else
         tooltip:AddLine(lineText, lr, lg, lb)
@@ -342,8 +344,8 @@ local function AddPinTooltipItemLine(tooltip, item, options, suffix)
     return availabilityState
 end
 
--- HS-074B: "Vendor pin item details" toggle (default ON) gates the whole
--- HS-074/HS-074B pin-tooltip enrichment as a unit -- source icons, cost
+-- "Vendor pin item details" toggle (default ON) gates the whole
+-- pin-tooltip enrichment as a unit -- source icons, cost
 -- column, and the vendor-only summary line. Read fresh per tooltip build
 -- (cheap -- tooltip content already rebuilds per hover), not cached at load.
 -- profile.vendorTracer.showVendorPinItemDetails has a registered
@@ -359,12 +361,11 @@ local function IsVendorPinItemDetailsEnabled()
 end
 
 local function AddVendorHeaderLines(tooltip, vendor, isOpposite)
-    tooltip:AddLine(vendor.name, 1, 1, 1)
+    tooltip:AddLine(HA.VendorData:GetVendorName(vendor), 1, 1, 1)
 
-    if vendor.subzone then
-        tooltip:AddLine(vendor.subzone .. " (" .. vendor.zone .. ")", 0.7, 0.7, 0.7)
-    elseif vendor.zone then
-        tooltip:AddLine(vendor.zone, 0.7, 0.7, 0.7)
+    local place = HA.VendorPlaceText(vendor)
+    if place then
+        tooltip:AddLine(place, 0.7, 0.7, 0.7)
     end
 
     if vendor.faction and vendor.faction ~= "Neutral" then
@@ -415,13 +416,12 @@ local function AddVendorFooterLines(tooltip, vendor, isOpposite, itemDetailsEnab
         tooltip:AddLine(" ")
         BC.AddSummaryLine(tooltip, stats.collected, stats.total, stats.locked, stats.unverified)
 
-        -- HS-074 test: count of items at this vendor with no non-vendor source
+        -- count of items at this vendor with no non-vendor source
         -- type. Read from stats.vendorOnly (BadgeCalculation) rather than
         -- re-walking allItems here — that keeps this number counting the exact
         -- same population as the collected/total/locked figures above it
-        -- (source filter, HS-249 exclusion, merged static+scanned set) instead
-        -- of a second, differently-filtered pass. Wording is a stand-in;
-        -- refine during design review.
+        -- (source filter, exclusion rules, merged static+scanned set) instead
+        -- of a second, differently-filtered pass. Wording is a placeholder.
         if itemDetailsEnabled and stats.vendorOnly and stats.vendorOnly > 0 then
             AddFooterLine(tooltip, wrap, string.format("Vendor-only: %d", stats.vendorOnly), 0.85, 0.85, 0.85)
         end
@@ -567,8 +567,9 @@ local function OnInteractiveMouseWheel(_, delta)
     end
 end
 
--- Search text is built when the wares are gathered, following FormatCost's guards
--- for what the cost column shows; a keystroke then only scans cached strings.
+-- Search text is built when the wares are gathered, following the cost column's
+-- guards for what it shows; each row searches its own payment option, and a
+-- keystroke then only scans cached strings.
 local function BuildWareSearchText(hover)
     local itemIDs = {}
     hover.itemIDs = itemIDs
@@ -577,25 +578,29 @@ local function BuildWareSearchText(hover)
         if ware.itemID then itemIDs[ware.itemID] = true end
         local name = ware.name or (ware.itemID and C_Item.GetItemNameByID(ware.itemID))
         if name then parts[#parts + 1] = name end
-        local cost = hover.itemDetailsEnabled and ware.cost or nil
-        if cost and cost.currencies then
-            for _, currency in ipairs(cost.currencies) do
-                if currency.amount then
-                    local info = currency.id and C_CurrencyInfo.GetCurrencyInfo(currency.id)
-                    local currencyName = (info and info.name) or currency.name
-                    if currencyName then parts[#parts + 1] = currencyName end
+        -- Every payment option is searchable; an unverified cost shows no
+        -- components, so none of them are searched either.
+        local cost = hover.itemDetailsEnabled and ware.costStatus ~= "unresolved" and ware.cost or nil
+        HA.VendorData:ForEachCostBundle(cost, function(bundle)
+            if bundle.currencies then
+                for _, currency in ipairs(bundle.currencies) do
+                    if currency.amount then
+                        local info = currency.id and C_CurrencyInfo.GetCurrencyInfo(currency.id)
+                        local currencyName = (info and info.name) or currency.name
+                        if currencyName then parts[#parts + 1] = currencyName end
+                    end
                 end
             end
-        end
-        if cost and cost.items then
-            for _, itemCost in ipairs(cost.items) do
-                if itemCost.id then itemIDs[itemCost.id] = true end
-                if itemCost.amount and itemCost.id then
-                    local reagentName = C_Item.GetItemNameByID(itemCost.id) or itemCost.name
-                    if reagentName then parts[#parts + 1] = reagentName end
+            if bundle.items then
+                for _, itemCost in ipairs(bundle.items) do
+                    if itemCost.id then itemIDs[itemCost.id] = true end
+                    if itemCost.amount and itemCost.id then
+                        local reagentName = C_Item.GetItemNameByID(itemCost.id) or itemCost.name
+                        if reagentName then parts[#parts + 1] = reagentName end
+                    end
                 end
             end
-        end
+        end)
         ware.searchText = table.concat(parts, "\n"):lower()
     end
 end
@@ -737,6 +742,32 @@ local function ShowInteractiveVendorTooltip(pin, vendor, allItems, itemDetailsEn
     end
 end
 
+-- An item with an approved set of payment options gets one adjacent row per
+-- option, primary first; every other ware keeps its single untagged row.
+local function SplitWareCostOptions(wares)
+    for i = #wares, 1, -1 do
+        local ware = wares[i]
+        local views = ware.cost and HA.VendorData:SplitCostOptions(ware.cost, ware.costStatus)
+        if views then
+            for optionIndex = #views, 1, -1 do
+                local row = {
+                    itemID = ware.itemID,
+                    name = ware.name,
+                    cost = views[optionIndex],
+                    costStatus = ware.costStatus,
+                    optionIndex = optionIndex,
+                    optionCount = #views,
+                }
+                if optionIndex == 1 then
+                    wares[i] = row
+                else
+                    tinsert(wares, i + 1, row)
+                end
+            end
+        end
+    end
+end
+
 function VendorPinTooltips:ShowVendorTooltip(pin, vendor, isRebuild)
     if not vendor then return end
 
@@ -761,6 +792,13 @@ function VendorPinTooltips:ShowVendorTooltip(pin, vendor, isRebuild)
     end
     local scannedCostByItemID = {}
     local scannedCostKnownByItemID = {}
+    -- Rows of one item with different priced bundles have no single scanned
+    -- cost: such an item shows its cost as unverified, whatever the row order.
+    -- A whole-set pair is decided by its set state first, exactly as the item
+    -- tooltip's SourceManager path does; the disagreement fallback applies
+    -- only to pairs without one (an approved set's own rows always differ).
+    local scannedRowByItemID = {}
+    local scannedConflictByItemID = {}
     if scannedItems and itemDetailsEnabled then
         for _, item in ipairs(scannedItems) do
             if item.itemID then
@@ -768,6 +806,9 @@ function VendorPinTooltips:ShowVendorTooltip(pin, vendor, isRebuild)
             end
             if item.itemID and scannedCostByItemID[item.itemID] == nil then
                     scannedCostByItemID[item.itemID] = HA.VendorData and HA.VendorData:NormalizeScannedCost(item)
+                    scannedRowByItemID[item.itemID] = item
+            elseif item.itemID and HA.VendorData:ScannedRowsDisagree(scannedRowByItemID[item.itemID], item) then
+                scannedConflictByItemID[item.itemID] = true
             end
         end
     end
@@ -778,7 +819,7 @@ function VendorPinTooltips:ShowVendorTooltip(pin, vendor, isRebuild)
         local itemID = HA.VendorData:GetItemID(item)
         if itemID and not itemsSeen[itemID] then
             itemsSeen[itemID] = true
-            -- HS-074 test: preserve cost on the wrapped record so the right column
+            -- preserve cost on the wrapped record so the right column
             -- can format it. Previously stripped, which is why the cost column
             -- rendered "?" even for vendors that had data populated.
             local cost = HA.VendorData:GetItemCost(item)
@@ -786,8 +827,16 @@ function VendorPinTooltips:ShowVendorTooltip(pin, vendor, isRebuild)
                 cost = scannedCostByItemID[itemID]
             end
             tinsert(allItems, {itemID = itemID, cost = cost})
-            if itemDetailsEnabled and HA.SourceManager and HA.SourceManager.GetVendorItemCost then
-                allItems[#allItems].cost = HA.SourceManager:GetVendorItemCost(
+            local ware = allItems[#allItems]
+            local costState = itemDetailsEnabled and HA.VendorData:GetCostSetState(vendor, itemID)
+            if costState then
+                local _
+                ware.cost, _, ware.costStatus = HA.VendorData:ResolveCostSetState(costState)
+            elseif scannedConflictByItemID[itemID] then
+                ware.cost, ware.costStatus = nil, "unresolved"
+            elseif itemDetailsEnabled and HA.SourceManager and HA.SourceManager.GetVendorItemCost then
+                local _
+                ware.cost, _, ware.costStatus = HA.SourceManager:GetVendorItemCost(
                     itemID, vendor, scannedCostByItemID[itemID],
                     true, cost, true, scannedLastScanned)
             end
@@ -800,14 +849,26 @@ function VendorPinTooltips:ShowVendorTooltip(pin, vendor, isRebuild)
             if item.itemID and not itemsSeen[item.itemID] then
                 itemsSeen[item.itemID] = true
                 local cost = scannedCostByItemID[item.itemID]
-                if itemDetailsEnabled and HA.SourceManager and HA.SourceManager.GetVendorItemCost then
-                    cost = HA.SourceManager:GetVendorItemCost(
+                local costStatus
+                local costState = itemDetailsEnabled and HA.VendorData:GetCostSetState(vendor, item.itemID)
+                if costState then
+                    local _
+                    cost, _, costStatus = HA.VendorData:ResolveCostSetState(costState)
+                elseif scannedConflictByItemID[item.itemID] then
+                    cost, costStatus = nil, "unresolved"
+                elseif itemDetailsEnabled and HA.SourceManager and HA.SourceManager.GetVendorItemCost then
+                    local _
+                    cost, _, costStatus = HA.SourceManager:GetVendorItemCost(
                         item.itemID, vendor, scannedCostByItemID[item.itemID],
                         scannedCostKnownByItemID[item.itemID] == true, nil, true, scannedLastScanned)
                 end
-                tinsert(allItems, {itemID = item.itemID, name = item.name, cost = cost})
+                tinsert(allItems, {itemID = item.itemID, name = item.name, cost = cost, costStatus = costStatus})
             end
         end
+    end
+
+    if itemDetailsEnabled and HA.VendorData then
+        SplitWareCostOptions(allItems)
     end
 
     if #allItems > LONG_WARES_THRESHOLD then
@@ -884,7 +945,7 @@ function VendorPinTooltips:ShowPortalTooltip(pin, vendor)
     itemInfoEventFrame:UnregisterEvent("GET_ITEM_INFO_RECEIVED")
 
     local tooltip = BeginPinTooltip(pin, "ANCHOR_RIGHT")
-    tooltip:AddLine(vendor.name, 1, 1, 1)
+    tooltip:AddLine(HA.VendorData:GetVendorName(vendor), 1, 1, 1)
     tooltip:AddLine("Order Hall Portal", 0.7, 0.5, 1.0)
     if vendor.notes then
         tooltip:AddLine(vendor.notes, 1, 0.82, 0, true)
@@ -900,11 +961,10 @@ function VendorPinTooltips:ShowMinimapTooltip(pin, vendor, isOppositeFaction, el
     itemInfoEventFrame:UnregisterEvent("GET_ITEM_INFO_RECEIVED")
 
     local tooltip = BeginPinTooltip(pin, "ANCHOR_LEFT")
-    tooltip:AddLine(vendor.name, 1, 1, 1)
-    if vendor.subzone and vendor.subzone ~= "" then
-        tooltip:AddLine(vendor.subzone, 0.7, 0.7, 0.7)
-    elseif vendor.zone then
-        tooltip:AddLine(vendor.zone, 0.7, 0.7, 0.7)
+    tooltip:AddLine(HA.VendorData:GetVendorName(vendor), 1, 1, 1)
+    local place = HA.VendorPlaceText(vendor)
+    if place then
+        tooltip:AddLine(place, 0.7, 0.7, 0.7)
     end
     if isOppositeFaction then
         tooltip:AddLine("Opposite faction", 0.8, 0.3, 0.3)
@@ -955,7 +1015,7 @@ function VendorPinTooltips:ShowDropPinTooltip(pin, record)
         and ("Items Dropped (%d):"):format(#record.records)
         or "Items Dropped:", 1, 1, 0)
 
-    -- HS-249: this loop derives its own counts rather than reading
+    -- this loop derives its own counts rather than reading
     -- BadgeCalculation, so it needs its own exclusion guard. The denominator
     -- is the record count, so an item whose ownership we cannot resolve would
     -- otherwise inflate it and read as "0/1 collected" on a room plan.
@@ -973,7 +1033,7 @@ function VendorPinTooltips:ShowDropPinTooltip(pin, record)
             sourceFilter = "drop",
             isVendorContext = false,
         }, suffix)
-        if CS and CS.IsOwnershipUnknowable and CS:IsOwnershipUnknowable(itemRecord.itemID) then
+        if CS and CS.IsOwnershipUnreported and CS:IsOwnershipUnreported(itemRecord.itemID) then
             excluded = excluded + 1
         elseif availabilityState == "owned" then
             collected = collected + 1

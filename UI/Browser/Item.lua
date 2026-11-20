@@ -71,7 +71,7 @@ end
 -- A part of a source row's second line; the first one with a glyph also marks the row.
 local function Status(row, words, glyph, color)
     row.status[#row.status + 1] = color and S.Colored(color, words) or words
-    if glyph and not row.glyph then row.glyph, row.color = glyph, color or K.muted end
+    if glyph and not row.glyph then row.glyph, row.color = glyph, color or K.body end
 end
 
 -- An event the head already flags as on is not repeated on the row.
@@ -86,8 +86,9 @@ end
 
 local function VendorRow(itemID, b, flagged)
     local D, v = B.Data, b.vendor
-    local row = { status = {}, one = Labeled(L["Vendor:"], v.name or L["Unknown"], D.Price(itemID, v)) }
-    Status(row, F.Where(v) or L["Location not recorded"])
+    local name = HA.VendorData:GetVendorName(v)
+    local row = { status = {}, one = Labeled(L["Vendor:"], name or L["Unknown"], D.Price(itemID, v)) }
+    Status(row, HA.VendorPlaceText(v) or L["Location not recorded"])
     local label = D.IsOppositeFaction(v) and D.VendorFactionLabel(v)
     if label then Status(row, W.StateWords("faction", label), "stop", K.stop) end
     if b.offer == "can" then Status(row, L["Can get now here"], "dot", K.can) end
@@ -96,19 +97,14 @@ local function VendorRow(itemID, b, flagged)
         local st = S.state[b.offer]
         Status(row, W.StateWords(b.offer, words), st.glyph, st.color)
     end
-    local ev = F.EventVendor(b.npcID)
-    local event = ev and ev.event or v.event
-    if event then EventStatus(row, event, F.BrowserListed(v), flagged) end
-    local confirmed = F.Confirmed(v)
-    if confirmed then
-        Status(row, L["Confirmed by a scan on %s"]:format(confirmed))
-    else
-        Status(row, L["Not confirmed"])
-        row.note = F.NotConfirmed()
-    end
+    local event = HA.VendorData:GetHolidayEvent(b.npcID) or v.event
+    if event then EventStatus(row, event, D.HolidayActive(v), flagged)
+    elseif F.EndeavorActive(v) == false then Status(row, W.StateWords("idle"), "clock") end
+    local confirmed = HA.VendorData:GetConfirmedDate(v)
+    if confirmed then Status(row, L["Confirmed by a scan on %s"]:format(confirmed)) end
     local key = F.SourceKey("vendors", { npcID = b.npcID }, itemID)
     if key then row.show = { SHOW.vendor, ShowSource("vendors", key) } end
-    row.wp = Spot(b.mapID, b.x, b.y, v.name, { type = "vendor", npcID = b.npcID })
+    row.wp = Spot(b.mapID, b.x, b.y, name, { type = "vendor", npcID = b.npcID })
     return row
 end
 
@@ -120,21 +116,21 @@ local function OtherRow(itemID, src, flagged)
         row.one = Labeled(L["Achievement:"], name)
     elseif t == "quest" then
         row.one = Labeled(L["Quest:"], name)
-        local start, spot = F.QuestStart(src.questID), F.TreasureSpot(src.questID)
+        local SM = HA.SourceManager
+        local start, spot = SM:GetQuestStart(src.questID), SM:GetTreasureSpot(src.questID)
         if start then
-            local map = C_Map.GetMapInfo(start.mapID)
-            Status(row, L["Starts in %s"]:format(map and map.name or L["Unknown"]))
+            Status(row, L["Starts in %s"]:format(HA.VendorFilter.GetMapName(start.mapID) or L["Unknown"]))
             row.wp = Spot(start.mapID, start.x, start.y, name)
         end
         if spot then
-            local map = C_Map.GetMapInfo(spot.mapID)
             Status(row, L["Daily from The Last Architect"])
-            Status(row, L["Dig site in %s"]:format(map and map.name or L["Unknown"]))
+            Status(row, L["Dig site in %s"]:format(HA.VendorFilter.GetMapName(spot.mapID) or L["Unknown"]))
             row.wp2 = Spot(spot.mapID, spot.x, spot.y, name)
         end
     elseif t == "profession" then
         row.one = Labeled(L["Recipe:"], name)
-        if src.profession then Status(row, src.profession) end
+        local d = src.source.data
+        if d.skillTier or d.profession then Status(row, HA.ProfessionTierText(d)) end
     elseif t == "drop" then
         row.one = Labeled(L["Drop:"], name)
         if src.zone then Status(row, src.zone) end
@@ -144,14 +140,15 @@ local function OtherRow(itemID, src, flagged)
         row.one = Labeled(L["Event:"], name)
         if src.vendorName then Status(row, src.vendorName) end
         if src.zone then Status(row, src.zone) end
-        local CD = HA.CalendarDetector
-        EventStatus(row, name, CD and CD:IsHolidayActive(name) == true, flagged)
+        EventStatus(row, name, B.Data.EventActive(name), flagged)
         row.wp = Spot(src.mapID, src.x, src.y, name)
     else
-        row.one = B.Data.SourceLine(itemID, { src })
+        row.one = HA.FormatSourceLine(src.source)
     end
+    local done = HA.CompletionText(itemID, src.source)
+    if done then Status(row, done) end
     local sourceType = F.SOURCE_TYPE[t]
-    local file = HA[B.CanGet.SOURCE_TABLES[sourceType] or ""]
+    local file = HA.SourceManager:GetSourceTable(sourceType)
     local key = sourceType and t ~= "shop" and F.SourceKey(sourceType, file and file[itemID], itemID)
     if key then row.show = { SHOW[t], ShowSource(sourceType, key) } end
     local link = F.LINK[sourceType]
@@ -181,8 +178,8 @@ local function Describe(itemID)
         seen[npcID] = true
         local mapID, x, y = D.VendorLocation(v)
         blocks[#blocks + 1] = { vendor = v, npcID = npcID, mapID = mapID, x = x, y = y,
-            offer = CG.Offer(itemID, npcID, e and e.info) }
-        vendors[#vendors + 1] = { npcID = npcID, name = v.name, zone = v.zone, mapID = mapID, x = x, y = y }
+            offer = CG.Offer(itemID, npcID) }
+        vendors[#vendors + 1] = { npcID = npcID, name = v.name, zone = select(2, F.Place(v)), mapID = mapID, x = x, y = y }
         return true
     end
     local sources = D.ItemSources(itemID)
@@ -192,7 +189,6 @@ local function Describe(itemID)
             blocks[#blocks + 1] = { src = src }
         end
     end
-    for _, npcID in ipairs(F.EventVendorsFor(itemID) or {}) do addVendor(npcID) end
     for i, b in ipairs(blocks) do b.rank = Rank(b, primary and primary.npcID) + i / 1000 end
     table.sort(blocks, function(a, c) return a.rank < c.rank end)
     m.vendors = vendors
@@ -224,20 +220,15 @@ local function Describe(itemID)
     if #reqs > 0 then
         facts[#facts + 1] = { text = L["Requires"], color = K.gold, role = "bodyGold" }
         for _, r in ipairs(reqs) do
-            if r.met == true then
-                facts[#facts + 1] = { text = L["%s (done)"]:format(r.text), glyph = "check", color = K.muted }
-            elseif r.met == false then
-                facts[#facts + 1] = { text = L["%s (not yet)"]:format(r.text), glyph = "lock", color = K.body }
-            else
-                facts[#facts + 1] = { text = r.text, glyph = "lock", color = K.body }
-                facts[#facts + 1] = { text = L["Can't check this requirement yet"], color = K.muted }
-            end
+            facts[#facts + 1] = { text = D.RequirementWords(r), glyph = not r.plain and (r.met == true and "check" or "lock") or nil, color = K.body }
+            if r.met == nil and not r.plain then facts[#facts + 1] = { text = L["Can't check this requirement yet"], color = K.body } end
         end
     end
-    if info and D.CollectionState() == "ready" then
-        local n, counts = { info.totalNumPlaced, info.totalNumStored, info.remainingRedeemable }, {}
-        for i, label in ipairs({ L["Placed"], L["In storage"], L["Not yet redeemed"] }) do
-            if (n[i] or 0) > 0 then counts[#counts + 1] = S.Colored(K.gold, label) .. " " .. n[i] end
+    local have = D.Counts(info)
+    if have then
+        local counts = {}
+        for _, row in ipairs({ { L["Placed"], have.placed }, { L["In storage"], have.stored }, { L["Not yet redeemed"], have.redeemable } }) do
+            if row[2] > 0 then counts[#counts + 1] = S.Colored(K.gold, row[1]) .. " " .. row[2] end
         end
         if counts[1] then facts[#facts + 1] = { text = Joined(counts), color = K.body } end
     end
@@ -278,9 +269,9 @@ local function Load(info, asset)
     return true
 end
 
--- Loads once per item, model and setting; true when the preview shows.
+-- Loads once per item, model and setting; true when the preview shows. A room plan has no decor model.
 local function Preview(itemID, info)
-    local asset = B.Model3D() and info and info.asset or nil
+    local asset = B.Model3D() and info and not B.Data.RoomID(itemID) and info.asset or nil
     local key = itemID .. ":" .. tostring(asset)
     if key ~= modelKey then
         modelKey = key
@@ -349,8 +340,8 @@ local function RowTip(self)
     local tip = B.Tooltip()
     tip:SetOwner(self, "ANCHOR_RIGHT")
     tip:SetText(d.one, 1, 1, 1, 1, true)
-    if self.two:IsShown() then tip:AddLine(self.two:GetText(), K.muted[1], K.muted[2], K.muted[3], true) end
-    if d.note then tip:AddLine(d.note, K.muted[1], K.muted[2], K.muted[3], true) end
+    if self.two:IsShown() then tip:AddLine(self.two:GetText(), K.body[1], K.body[2], K.body[3], true) end
+    if d.note then tip:AddLine(d.note, K.body[1], K.body[2], K.body[3], true) end
     tip:Show()
 end
 
@@ -358,7 +349,7 @@ local function NewRow()
     local f = CreateFrame("Button", nil, P.body)
     f.mark = f:CreateTexture(nil, "OVERLAY")
     f.mark:SetSize(MARK, MARK)
-    f.one, f.two = W.Text(f, "body"), W.Text(f, "bodyMuted")
+    f.one, f.two = W.Text(f, "body"), W.Text(f, "body")
     f.one:SetWordWrap(false)
     f.two:SetWordWrap(false)
     f.show = W.NewButton(f, "", function(self) self.act() end)
@@ -415,7 +406,7 @@ local function SetRow(f, d, w)
     B.Vis.Marker.Set(f.mark, d.glyph, d.color)
     f.mark:SetPoint("TOPLEFT", f, "TOPLEFT", 0, -(h - MARK) / 2)
     f.two:SetShown(d.status[1] ~= nil)
-    if d.status[1] then h = h + RowLine(f, f.two, "bodyMuted", Joined(d.status), w, h, f.wp2) end
+    if d.status[1] then h = h + RowLine(f, f.two, "body", Joined(d.status), w, h, f.wp2) end
     f:SetSize(w, h)
     f:Show()
     return h
@@ -436,7 +427,7 @@ local function Draw(fresh, saved)
     local r, g, b = W.QualityRGB(m.quality)
     W.SetTile(P.tile, { icon = m.icon }, r, g, b)
     local tw = w - THUMB - SP.s
-    local nh, mh = W.TextHeight("subheader"), W.TextHeight("bodyMuted")
+    local nh, mh = W.TextHeight("subheader"), W.TextHeight("body")
     P.name:SetText(m.name)
     P.name:SetTextColor(r, g, b)
     P.name:SetSize(tw, nh)
@@ -469,7 +460,7 @@ local function Draw(fresh, saved)
     y = y + P.where:GetHeight() + SP.xs
     P.unknown:SetShown(#m.rows == 0)
     if #m.rows == 0 then
-        P.unknown:SetSize(cw, W.TextHeight("bodyMuted"))
+        P.unknown:SetSize(cw, W.TextHeight("body"))
         P.unknown:SetPoint("TOPLEFT", P.body, "TOPLEFT", 0, -y)
         y = y + P.unknown:GetHeight() + SP.s
     end
@@ -493,7 +484,7 @@ function Page:Build(parent)
     P.top:SetPoint("TOPLEFT", parent, "TOPLEFT", 0, 0)
     P.tile = W.NewTile(P.top, THUMB)
     P.tile.icon:SetPoint("TOPLEFT", P.top, "TOPLEFT", 0, 0)
-    P.name, P.meta = W.Text(P.top, "subheader"), W.Text(P.top, "bodyMuted")
+    P.name, P.meta = W.Text(P.top, "subheader"), W.Text(P.top, "body")
     P.name:SetWordWrap(false)
     P.meta:SetWordWrap(false)
     W.Clip(P.name)
@@ -515,7 +506,7 @@ function Page:Build(parent)
     P.sf:SetScrollChild(P.body)
     P.where = W.Text(P.body, "bodyGold")
     P.where:SetText(L["Where to get it"])
-    P.unknown = W.Text(P.body, "bodyMuted")
+    P.unknown = W.Text(P.body, "body")
     P.unknown:SetText(L["Source unknown"])
     P.report = W.ReportLink(P.body, Report)
 

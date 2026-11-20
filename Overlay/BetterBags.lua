@@ -21,7 +21,7 @@ local eventsModule = nil
 local constantsModule = nil
 local isHooked = false
 
--- HS-204(d): SetHomestoneState only reads opts.* synchronously within the
+-- SetHomestoneState only reads opts.* synchronously within the
 -- call (it copies values into its own per-overlay table) and never retains
 -- this table afterward, so one reused scratch table is safe across the many
 -- OnItemUpdated calls per bag refresh instead of a fresh table per item.
@@ -87,7 +87,7 @@ local function RefreshWidgets()
     if not isHooked or not eventsModule or not eventsModule.SendMessage then
         return
     end
-    -- HS-239: one of the two external_bag_refresh call sites (Baganator.lua
+    -- One of the two external_bag_refresh call sites (Baganator.lua
     -- is the other). Workload is "betterbags", the same literal already used
     -- as this refresher's RegisterExternalRefresher key.
     HA.PerformanceTrace:Measure("external_bag_refresh", "betterbags",
@@ -200,7 +200,7 @@ local function Initialize()
     local waitFrame = CreateFrame("Frame")
     waitFrame:RegisterEvent("ADDON_LOADED")
     waitFrame:SetScript("OnEvent", function(self)
-        -- HS-211: ADDON_LOADED firing for BetterBags specifically is not a
+        -- ADDON_LOADED firing for BetterBags specifically is not a
         -- readiness guarantee — its AceAddon Events/Constants modules can
         -- still be unregistered at that exact moment, and BetterBags's own
         -- ADDON_LOADED never fires again to retry. Gating on

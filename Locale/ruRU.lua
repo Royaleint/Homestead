@@ -17,6 +17,8 @@ local L = HA.L
 -------------------------------------------------------------------------------
 L["Used in %d known recipe for decor you haven't collected"] = "Используется в %d известном рецепте для ещё не полученного декора"
 L["Used in %d known recipes for decor you haven't collected"] = "Используется в %d известных рецептах для ещё не полученного декора"
+L["or"] = "или"
+L["Cost unverified"] = "Цена не подтверждена"
 
 -------------------------------------------------------------------------------
 -- UI Labels
@@ -29,7 +31,6 @@ L["Homestead"] = "Homestead" -- human-translated
 L["Homestead Options"] = "Настройки Homestead"
 L["Overlays"] = "Оверлеи" -- human-translated
 L["Tooltips"] = "Подсказки" -- human-translated
-L["Export"] = "Экспорт" -- human-translated
 
 L["Show minimap button"] = "Показывать кнопку у миникарты" -- human-translated
 L["Enable overlays"] = "Включить оверлеи" -- human-translated
@@ -93,12 +94,6 @@ L["No newer version seen this session."] = "Более новых версий �
 L["Version-check notifications: %s"] = "Уведомления о проверке версии: %s" -- human-translated
 
 -------------------------------------------------------------------------------
--- Export Dialog
--------------------------------------------------------------------------------
-L["Export Vendor Data"] = "Экспорт данных торговцев" -- human-translated
-L["Choose export option:"] = "Выберите вариант экспорта:" -- human-translated
-
--------------------------------------------------------------------------------
 -- Map Side Panel
 -------------------------------------------------------------------------------
 L["All"] = "Все" -- human-translated
@@ -106,7 +101,6 @@ L["Vendors"] = "Торговцы" -- human-translated
 L["Zone Collection Progress"] = "Прогресс коллекции зоны" -- human-translated
 L["Continent Collection Progress"] = "Прогресс коллекции континента" -- human-translated
 L["Global Collection Progress"] = "Общий прогресс коллекции" -- human-translated
-L["Order Hall"] = "Оплот класса" -- human-translated
 L["Click to preview"] = "Нажмите для предпросмотра" -- human-translated
 
 -------------------------------------------------------------------------------
@@ -152,8 +146,6 @@ L["Minimap nearby-zone pins"] = "Метки соседних зон на мин�
 L["Minimap pin size"] = "Размер меток на миникарте" -- human-translated
 L["Waypoints"] = "Точки маршрута" -- human-translated
 L["Show milestone progress on dashboard"] = "Показывать прогресс этапов на панели" -- human-translated
-L["Export New Scans"] = "Экспортировать новые сканы" -- human-translated
-L["Export All"] = "Экспортировать всё" -- human-translated
 L["Inventory"] = "Предметы" -- human-translated
 L["Merchant"] = "Торговец" -- human-translated
 L["Housing Catalog"] = "Каталог декора" -- human-translated
@@ -169,7 +161,6 @@ L["desc_options_tooltips"] = "Дополнительные сведения о �
 L["desc_options_world_map"] = "Метки торговцев на карте мира, значки зон, поведение боковой панели и отображение меток на карте." -- human-translated
 L["desc_options_minimap"] = "Метки ближайших торговцев, стрелки высоты и поведение точек маршрута на миникарте." -- human-translated
 L["desc_options_endeavors"] = "Прогресс предприятия на стандартной панели жилья от Blizzard." -- human-translated
-L["desc_options_export"] = "Экспорт отсканированных данных о торговцах для проверки или резервного копирования." -- human-translated
 L["desc_vendor_visibility_section"] = "Выберите, какие группы торговцев будут отображаться на картах и учитываться в общем количестве коллекции." -- human-translated
 L["desc_pin_appearance_section"] = "Настройка цвета и предварительного просмотра для меток торговцев Homestead." -- human-translated
 L["desc_overlay_inventory_section"] = "Показывать индикаторы коллекции на ячейках предметов за пределами каталога декора." -- human-translated
@@ -222,9 +213,6 @@ L["desc_use_native_waypoints"] = "Использовать встроенную 
 L["desc_auto_waypoint"] = "Автоматически создавать точку маршрута при нажатии на торговца в списке или на карте" -- human-translated
 L["desc_navigate_modifier"] = "Удерживайте эту клавишу при нажатии, чтобы создать точку маршрута (если автоматическое создание отключено)" -- human-translated
 L["desc_milestone_xp"] = "Отображать прогресс опыта до следующего этапа на вкладке «Предприятия» стандартной панели жилья от Blizzard. Отключите, если используете для этого другой аддон (например, Endeavor Simple Progress Tracker)." -- human-translated
-L["desc_export"] = "Экспорт отсканированных данных о торговцах для резервного копирования." -- human-translated
-L["desc_export_new"] = "Экспортирует торговцев, отсканированных с момента вашего последнего экспорта. Включает цену, валюту, фракцию и информацию о каталоге." -- human-translated
-L["desc_export_all"] = "Экспортирует всех отсканированных торговцев в обход фильтра по времени." -- human-translated
 
 -------------------------------------------------------------------------------
 -- Options - Select Values
@@ -275,7 +263,8 @@ L["None (always)"] = "Нет (всегда)" -- human-translated
 
 -- Misc
 L["Approximate map appearance"] = "Примерный вид карты" -- human-translated
-L["ExportImport not available."] = "Экспорт/Импорт недоступен." -- human-translated
+L["Catalog scan is on cooldown. Try again in a few seconds."] = "Сканирование каталога ещё на перезарядке. Повторите попытку через несколько секунд."
+L["A catalog scan is already in progress."] = "Сканирование каталога уже выполняется."
 
 -------------------------------------------------------------------------------
 -- Decor Browser: data adapter
@@ -284,6 +273,11 @@ L["Unknown"] = "Неизвестно"
 L["A vendor"] = "Торговец"
 L["Required"] = "Требуется"
 L["Unknown faction"] = "Неизвестная фракция"
+L["This Character"] = "Этот персонаж"
+L["Not Your Profession"] = "Не ваша профессия"
+L["Skill Too Low"] = "Низкий уровень навыка"
+L["Recipe Known"] = "Рецепт изучен"
+L["Recipe Unknown"] = "Рецепт не изучен"
 L["Other requirement"] = "Другое требование"
 L["Source unknown"] = "Источник неизвестен"
 L["Item %d"] = "Предмет %d"
@@ -305,6 +299,56 @@ L["Drops from %s (%s)"] = "Добыча с: %s (%s)"
 L["Event: %s"] = "Событие: %s"
 L["Event: %s - %s"] = "Событие: %s - %s"
 L["Other source"] = "Другой источник"
+L["Profession requirement"] = "Требование к профессии"
+L["Profession rank requirement"] = "Требование к рангу профессии"
+L["Purchase gated"] = "Покупка закрыта"
+L["Requires %s"] = "Требуется: %s"
+L["%s (until %s)"] = "%s (до %s)"
+L["Shop: %s"] = "Внутриигровой магазин: %s"
+L["Twitch Drop"] = "Дроп Twitch"
+L["Charity Pack"] = "Благотворительный набор"
+L["Promotion"] = "Акция"
+L["Not currently sold"] = "Not currently sold"
+L["%s / %s"] = "%s / %s"
+L["%s (%s)"] = "%s (%s)"
+L["Source:"] = "Источник:"
+L["Faction:"] = "Фракция:"
+L["Status:"] = "Статус:"
+L["Owned"] = "Получено"
+L["Available"] = "Доступно"
+L["Locked"] = "Закрыто"
+L["Available Now"] = "Можно получить сейчас"
+L["Blocked"] = "Заблокировано"
+L["Not Collected"] = "Не получено"
+L["Other faction only"] = "Только для другой фракции"
+L["Vendor Price:"] = "Цена у торговца:"
+L["Shop Price:"] = "Цена во внутриигровом магазине:"
+L["Pack:"] = "Набор:"
+L["Currency:"] = "Валюта:"
+L["Available until:"] = "Доступно до:"
+L["In-Game Shop"] = "Внутриигровой магазин"
+L["N/A"] = "Н/Д"
+L["Unknown Vendor"] = "Неизвестный торговец"
+L["Unknown Location"] = "Местность неизвестна"
+L["Unknown Quest"] = "Неизвестное задание"
+L["Unknown Achievement"] = "Неизвестное достижение"
+L["Unknown Recipe"] = "Неизвестный рецепт"
+L["Unknown Event"] = "Неизвестное событие"
+L["Event Vendor"] = "Торговец события"
+L["Unknown Promotion"] = "Неизвестная акция"
+L["Active Now"] = "Сейчас активно"
+L["Not Active"] = "Не активно"
+L["unverified"] = "не проверено"
+L["Your renown: %s / %s"] = "Ваша известность: %s / %s"
+L["Your standing: %s / %s"] = "Ваша репутация: %s / %s"
+L["Your %s: %s"] = "Ваш навык (%s): %s"
+L["Completing this grants one copy; price applies to additional copies"] = "Выполнение даёт один экземпляр; цена относится к дополнительным экземплярам"
+L["No longer obtainable"] = "Больше нельзя получить"
+L["Promotion reward: %s"] = "Награда за акцию: %s"
+L["Promotion reward: %s, through %s"] = "Награда за акцию: %s, до %s"
+L["Vendor access: Opposite-faction vendor on this character"] = "Доступ к торговцу: торговец противоположной фракции для этого персонажа"
+L["Hold Shift for details"] = "Удерживайте SHIFT для подробностей"
+L["Not yet mapped by Homestead"] = "Ещё не внесено в Homestead"
 
 -- Decor Browser: visuals and widgets
 L["Set waypoint"] = "Поставить метку"
@@ -315,7 +359,6 @@ L["Overview"] = "Обзор"
 L["Catalog"] = "Каталог"
 L["Back"] = "Назад"
 L["Other Vendors"] = "Прочие торговцы"
-L["%d of %d decor collected"] = "Собрано предметов декора: %d из %d"
 L["%d of %d collected"] = "Собрано: %d из %d"
 L["Help"] = "Справка"
 L["Hide collected and other-faction"] = "Без собранного и противоположной фракции"
@@ -334,6 +377,7 @@ L["Price"] = "Цена"
 L["Seasonal: %s"] = "Сезонное: %s"
 L["Rotates with the %s Endeavor"] = "Меняется вместе с предприятием %s"
 L["Rotates with neighborhood Endeavors"] = "Меняется вместе с предприятиями района"
+L["Endeavor"] = "Предприятие"
 L["Not available in combat"] = "Недоступно в бою"
 L["Report a data error"] = "Сообщить об ошибке в данных"
 L["Item: %s (%d)"] = "Предмет: %s (%d)"
@@ -353,7 +397,7 @@ L["Left-click opens the Decor Browser, right-click opens options"] = "ЛКМ о�
 L["The Decor Browser is not available yet."] = "Обозреватель декора пока недоступен."
 
 -- Welcome window
-L["Find every decor vendor on your map and see what you own before you buy."] = "Находите всех торговцев декором на карте и смотрите, что у вас уже есть, прежде чем покупать."
+L["Find every decor vendor on your map and see what you've collected before you buy."] = "Находите всех торговцев декором на карте и смотрите, что вы уже собрали, прежде чем покупать."
 L["What Homestead Does"] = "Что умеет Homestead"
 L["Every decor vendor pinned on your world map and minimap, with badges showing how many items you still need per zone."] = "Все торговцы декором отмечены на карте мира и миникарте, а значки показывают, сколько предметов вам ещё нужно в каждой зоне."
 L["Map Side Panel"] = "Боковая панель карты"
@@ -361,7 +405,6 @@ L["Click the Homestead button on the world map to open the side panel listing th
 L["Tooltips Expanded"] = "Расширенные подсказки"
 L["Every item in the Housing Catalog gets tooltips showing where it comes from (vendor, quest, achievement, profession, or drop), what it costs, and what you need to unlock it, so you never have to leave the game to look something up."] = "Каждый предмет каталога жилья получает подсказки: откуда он берётся (торговец, задание, достижение, профессия или добыча), сколько стоит и что нужно для его открытия, так что искать информацию вне игры не придётся."
 L["Key Commands"] = "Основные команды"
-L["Export everything you've scanned"] = "Экспортировать всё отсканированное"
 L["Show all commands"] = "Показать все команды"
 L["Found a Problem?"] = "Нашли проблему?"
 L["Report bugs or wrong vendor info on GitHub using the link below."] = "Сообщайте об ошибках и неверных данных о торговцах на GitHub по ссылке ниже."
@@ -392,32 +435,30 @@ L["Not enough: %s"] = "Не хватает: %s"
 L["(%1$s has %2$s)"] = "(у %1$s есть %2$s)"
 L["Price not recorded"] = "Цена не записана"
 L["%s only"] = "Только %s"
-L["Not collected"] = "Не собрано"
+L["Not collected"] = "Не получено"
 L["Counting…"] = "Подсчёт…"
-L["Not confirmed"] = "Не подтверждено"
 L["Active now"] = "Сейчас активно"
 L["Best to get now"] = "Лучшее для получения сейчас"
 L["Search decor"] = "Поиск декора"
 L["More vendors here"] = "Другие торговцы здесь"
 L["Reset filters"] = "Сбросить фильтры"
-L["Search all decor"] = "Искать по всему декору"
 L["Show what's missing"] = "Показать недостающее"
 L["Sort by name"] = "Сортировать по названию"
 L["Show them"] = "Показать"
 L["Show vendor"] = "Показать торговца"
 L["Report a problem"] = "Сообщить о проблеме"
 L["Reading your collection. This list fills in when it's ready."] = "Чтение вашей коллекции. Этот список заполнится, когда всё будет готово."
-L["Reading your collection. This list fills in when it's ready, because Best to get now depends on what you own."] = "Чтение вашей коллекции. Этот список заполнится, когда всё будет готово, потому что порядок Лучшее для получения сейчас зависит от того, что у вас есть."
+L["Reading your collection. This list fills in when it's ready, because Best to get now depends on what you have collected."] = "Чтение вашей коллекции. Этот список заполнится, когда всё будет готово, потому что порядок Лучшее для получения сейчас зависит от того, что у вас собрано."
 L["Nothing missing"] = "Всё собрано"
 L["You've collected all %d decor Homestead knows about."] = "Вы собрали весь декор, известный Homestead (%d)."
 L["Nothing you can get right now"] = "Сейчас ничего нельзя получить"
 L["Everything you're missing needs a reputation, achievement or quest first, is sold only during an event, or is sold only to the %s."] = "Всё, чего вам не хватает, сначала требует репутации, достижения или задания, продаётся только во время события или только фракции: %s."
 L["Everything you're missing needs a reputation, achievement or quest first, or is sold only during an event."] = "Всё, чего вам не хватает, сначала требует репутации, достижения или задания или продаётся только во время события."
 L["Collection not read yet"] = "Коллекция ещё не прочитана"
+L["Collection not refreshed this session"] = "Коллекция не обновлена в этой сессии"
 L["Homestead hasn't read this character's decor collection yet, so it can't tell what you're missing. It reads it shortly after you log in. If this message stays, open the Housing Dashboard once."] = "Homestead ещё не прочитал коллекцию декора этого персонажа, поэтому не знает, чего вам не хватает. Он читает её вскоре после входа в игру. Если это сообщение не исчезает, один раз откройте панель жилья."
 L["These filters need your collection, which Homestead hasn't read yet. If this stays, open the Housing Dashboard once."] = "Для этих фильтров нужна ваша коллекция, которую Homestead ещё не прочитал. Если это не проходит, один раз откройте панель жилья."
 L["No results"] = "Ничего не найдено"
-L["No decor matches these words and filters. Search looks at item names only."] = "Ни один декор не подходит под эти слова и фильтры. Поиск учитывает только названия предметов."
 L["%d hidden by '%s' (%d collected, %d %s only)."] = "Скрыто %d по настройке '%s' (собрано: %d; ещё %d только для %s)."
 L["%d hidden by '%s' (%d collected, %d %s only, %d %s only)."] = "Скрыто %d по настройке '%s' (собрано: %d; %d только для %s; %d только для %s)."
 L["%d hidden by '%s' (%d collected)."] = "Скрыто %d по настройке '%s' (собрано: %d)."
@@ -432,7 +473,6 @@ L["Can get now means this character can get it today: the right faction, no requ
 L["Show"] = "Показать"
 L["%s and %d more"] = "%s и ещё %d"
 L["See all you can get now (%d)"] = "Показать все, что можно получить сейчас (%d)"
-L["Here in %s: %s sells %d decor you can get now."] = "Здесь, в %s: %s продаёт %d ед. декора, доступного сейчас."
 L["Sold here in %s"] = "Продаётся здесь, в %s"
 L["Sold on %s"] = "Продаётся на %s"
 L["%s: active now"] = "%s: сейчас активно"
@@ -442,6 +482,7 @@ L["Gold only, no requirements left"] = "Только за золото, треб
 L["No requirements left"] = "Требований не осталось"
 L["%d of %d"] = "%d из %d"
 L["Reading your collection"] = "Чтение коллекции"
+L["Your Collection Status"] = "Состояние вашей коллекции"
 -- end: Summary
 
 -------------------------------------------------------------------------------
@@ -464,34 +505,48 @@ L["(+%d more)"] = "(+%d ещё)"
 -------------------------------------------------------------------------------
 -- Decor Browser: Sources
 -------------------------------------------------------------------------------
-L["Search vendors and zones"] = "Поиск торговцев и зон"
-L["Search achievements"] = "Поиск достижений"
-L["Search quests"] = "Поиск заданий"
-L["Search recipes and professions"] = "Поиск рецептов и профессий"
-L["Search drops and zones"] = "Поиск добычи и зон"
-L["Search events"] = "Поиск событий"
-L["Search the Shop"] = "Поиск в магазине"
 L["%d decor"] = "Предметов декора: %d"
 L["No decor"] = "Нет декора"
 L["Not active"] = "Не активно"
-L["All collected"] = "Все собрано"
 L["%d can get now"] = "Можно получить сейчас: %d"
 L["Holiday event"] = "Праздничное событие"
 L["%s only: can't buy on this character"] = "Только %s: этим персонажем купить нельзя"
 L["Confirmed by a scan on %s"] = "Подтверждено сканированием: %s"
-L["No scan has confirmed this vendor yet. Visit the vendor to check."] = "Ни одно сканирование еще не подтвердило этого торговца. Посетите его, чтобы проверить."
 L["Decor from this source"] = "Декор из этого источника"
 L["No decor is recorded here. If this source gives decor, report it below."] = "Здесь нет записанного декора. Если этот источник дает декор, сообщите об этом ниже."
 L["Dig site in %s"] = "Место раскопок: %s"
 L["No events active right now. Event decor is sold only while its event runs."] = "Сейчас нет активных событий. Декор событий продается только во время события."
 L["Nothing matches your search."] = "По вашему запросу ничего не найдено."
+L["%d match, %s"] = "Совпадений: %d, %s"
+L["%d matches, %s"] = "Совпадений: %d, %s"
 L["Nothing to show here."] = "Здесь нечего показывать."
+L["Collapse all"] = "Свернуть все"
+L["Expand all"] = "Развернуть все"
 L["Currency"] = "Валюта"
 L["Wares"] = "Товары"
-L["Not confirmed: visit to check."] = "Не подтверждено: посетите торговца, чтобы проверить."
 L["Corners: state top right, bonus top left, event bottom left, copies bottom right."] = "Углы: состояние справа вверху, бонус слева вверху, событие слева внизу, количество копий справа внизу."
+L["Collection unknown"] = "Собрано: неизвестно"
+L["Greyed: promotion item, or collection status unknown. Not counted in totals."] = "Серым: акционный предмет или неизвестно, собран ли он. Не входит в итоги."
+L["Tile markers"] = "Метки на ячейках"
+L["Top right"] = "Справа вверху"
+L["Top left"] = "Слева вверху"
+L["Bottom left"] = "Слева внизу"
+L["Bottom right"] = "Справа внизу"
+L["Collected: it's in your collection"] = "Собрано: он есть в вашей коллекции"
+L["Can get now: this character can get it today"] = "Можно получить сейчас: этот персонаж может получить его сегодня"
+L["Not enough: this character can't pay for it yet"] = "Не хватает: этот персонаж пока не может за него заплатить"
+L["Locked: a requirement isn't met yet"] = "Закрыто: условие ещё не выполнено"
+L["Other faction only: this character's faction can't get it"] = "Только для другой фракции: фракция этого персонажа не может его получить"
+L["Event only: available while its event runs"] = "Только во время события: доступно, пока идёт событие"
+L["Its event is active now"] = "Событие сейчас активно"
+L["How many you have collected, placed and stored"] = "Сколько у вас собрано, расставлено и на хранении"
+L["Left-click: details"] = "Левый клик: подробности"
+L["Right-click: open in the Housing Dashboard"] = "Правый клик: открыть на панели жилища"
+L["Right-click: Housing Dashboard unavailable in combat"] = "Правый клик: панель жилища недоступна в бою"
 L["%s; %s"] = "%s; %s"
 L["%s · %s"] = "%s · %s"
+L["Start:"] = "Начало:"
+L["Use %s"] = "Использовать %s"
 -- end: Sources
 
 -------------------------------------------------------------------------------

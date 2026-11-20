@@ -10,7 +10,7 @@
 ## X-License: All Rights Reserved
 ## X-Wago-ID: aNDMQ86o
 ## X-Curse-Project-ID: 1450714
-## OptionalDeps: WagoAnalytics, Foundry-1.0, Foundry-1.0_DevBuild
+## OptionalDeps: WagoAnalytics, Foundry-1.0, Foundry-1.0_DevBuild, Krowi_ExtendedVendorUI
 
 # Libraries
 embeds.xml
@@ -43,13 +43,13 @@ Data\VendorStagedAdditions.lua
 Data\VendorData.lua
 Data\EndeavorsData.lua
 Data\DecorMapping.lua
+Data\RoomMapping.lua
 Data\CatalogStore.lua
 
 # Source Data (non-vendor acquisition)
 Data\AchievementSources.lua
 Data\QuestSources.lua
 Data\TreasureHuntSpots.lua
-Data\QuestStarts.lua
 Data\ProfessionSources.lua
 Data\ReagentIndex.lua
 Data\EventSources.lua
@@ -67,12 +67,11 @@ Utils\waypoints.lua
 Modules\CatalogScanner.lua
 Modules\SourceTextScanner.lua
 Modules\CalendarDetector.lua
+Modules\DreamsurgeTracker.lua
 Modules\VendorTracer.lua
 Modules\DecorClassifier.lua
 Modules\ScanPersistence.lua
 Modules\VendorScanner.lua
-Modules/ExportImport.lua
-Modules/Validation.lua
 Modules\VersionCheck.lua
 
 # Overlay System
@@ -81,6 +80,7 @@ Overlay\Containers.lua
 Overlay\Baganator.lua
 Overlay\BetterBags.lua
 Overlay\Merchant.lua
+Overlay\KrowiEVU.lua
 Overlay\Tooltips.lua
 Overlay\CatalogOverlay.lua
 # ProfessionOverlay depends on SourceManager + ProfessionSources + CatalogStore (all in the Data block above)
@@ -122,6 +122,7 @@ UI\Browser\Browser.lua
 UI\Browser\Summary.lua
 UI\Browser\Catalog.lua
 UI\Browser\Sources.lua
+UI\Browser\Search.lua
 UI\Browser\Item.lua
 UI\Options.lua
 

@@ -1,5 +1,5 @@
 --[[
-    Homestead - Profession Window Décor Overlay (HS-024 Phase 1)
+    Homestead - Profession Window Décor Overlay
 
     Ambiently badges Blizzard's Professions recipe-list rows that produce
     housing décor the player CAN craft (recipe LEARNED and craftable now) and
@@ -7,8 +7,7 @@
     not-craftable, or non-décor rows. No new UI window; this enhances
     Blizzard's own Professions frame (Apple method).
 
-    Smart filter (HS-075, absorbed; HS-024 Rev-2 "can craft" = learned +
-    craftable-now) — a row badges iff:
+    Smart filter ("can craft" = learned + craftable-now): a row badges iff:
       1. recipeID resolves to a known décor item (ResolveDecorForRecipe), AND
       2. the player can craft it now — read from the row's own recipeInfo
          (node:GetData().recipeInfo), ZERO extra C calls:
@@ -16,7 +15,7 @@
          `learned == true` subsumes the old profession+skillTier check (a
          recipe can only be learned if the player has the profession and met
          the tier), so SourceManager:IsSourceAvailableNow is no longer called
-         on the hot path (HS-024 Rev-2 #1/#3 — kills the per-row allocation in
+         on the hot path (kills the per-row allocation in
          PlayerMeetsSkillLevel). `craftable == true` is Blizzard's own
          can-make-it-now flag (Blizzard_ProfessionsCrafting.lua:570 gates on
          `not craftable or disabled`). AND
@@ -33,7 +32,7 @@
     ways, 1:1 reverse map). Live-row repaint reads recipeInfo via
     frame:GetElementData().data.recipeInfo (the .data FIELD — verified vs
     Blizzard_ProfessionsRecipeList.lua:353-354), distinct from the Init node's
-    :GetData() METHOD (HS-024 Rev-2 #2).
+    :GetData() METHOD.
 
     Taint: the row is ProfessionsRecipeListRecipeTemplate, a plain virtual
     <Button> (not Secure/Protected). We parent an unmanaged Texture and only
@@ -56,9 +55,9 @@ HA.ProfessionOverlay = M
 -- Badge: a dedicated, tightly-cropped Homestead house texture
 -- (Textures/HomesteadProfBadge) — the mockup house art with the minimap-button
 -- padding removed so the house fills the badge. Chosen over the catalog's
--- profession source-type glyph for recognizability (design decision, 2026-06-05; the
+-- profession source-type glyph for recognizability (deliberate choice, 2026-06-05; the
 -- catalog overlay keeps its glyph). Placed on the LEFT, just before the recipe
--- name (design decision, 2026-06-05) — anchored to the Label so it tracks the name
+-- name (deliberate choice) — anchored to the Label so it tracks the name
 -- and never overlaps it (reads the Label's position, does not mutate it).
 local BADGE_TEXTURE = HA.Constants.TEXTURE_ROOT .. "HomesteadProfBadge"
 local BADGE_SIZE = 18
@@ -70,7 +69,7 @@ local badgeTextures = setmetatable({}, { __mode = "k" })
 
 -- Reverse map: recipe spellID → décor entry. Built once at file load from the
 -- static HA.ProfessionSources table (308 entries). Stores the full entry (not a
--- bare itemID) so the craftability gate and Phases 2/3 get profession/skillTier
+-- bare itemID) so the craftability gate and later passes get profession/skillTier
 -- for free.  spellToEntry[spellID] = { itemID = <catalog itemID>, entry = <source entry> }
 local spellToEntry = {}
 
@@ -80,9 +79,9 @@ local spellToEntry = {}
 
 -- Invert HA.ProfessionSources (keyed by itemID) into spellToEntry (keyed by
 -- spellID).  One O(n) pass at file load — static data, no runtime rebuild.
--- Dup-tolerant: first-write-wins + dev-log on collision (1:1 verified this
--- session; the builder degrades to one un-badged item + a dev note rather than
--- erroring if a future pipeline regeneration introduces a duplicate spellID).
+-- Dup-tolerant: first-write-wins + dev-log on collision (1:1 when written;
+-- the builder degrades to one un-badged item + a dev note rather than
+-- erroring if a future data regeneration introduces a duplicate spellID).
 local function BuildIndex()
     local sources = HA.ProfessionSources
     if type(sources) ~= "table" then
@@ -115,7 +114,7 @@ local function BuildIndex()
 end
 
 -------------------------------------------------------------------------------
--- Public resolvers (Phase 2/3 reuse ResolveDecorForRecipe)
+-- Public resolvers (ResolveDecorForRecipe is reused by later passes)
 -------------------------------------------------------------------------------
 
 -- Resolve a recipe's spellID to its décor output.
@@ -131,7 +130,7 @@ end
 -- `recipeInfo` is the row's own recipeInfo table (node:GetData().recipeInfo on
 -- the Init path, GetElementData().data.recipeInfo on the live-repaint path);
 -- both expose recipeID, learned, and craftable. Returns shouldBadge (bool),
--- itemID, entry. Smart-filter short-circuit order (HS-024 Rev-2):
+-- itemID, entry. Smart-filter short-circuit order:
 --   1. resolves to décor (else no badge)
 --   2. can craft now: recipeInfo.learned == true AND recipeInfo.craftable == true
 --      — read straight off the row's recipeInfo, ZERO extra C calls. `learned`
@@ -145,7 +144,7 @@ function M:ShouldBadgeRecipe(recipeInfo)
         return false
     end
 
-    -- Can craft now? "can craft" = learned + craftable-now (HS-024 Rev-2).
+    -- Can craft now? "can craft" = learned + craftable-now.
     -- Both flags live on the row's recipeInfo already in hand (no C call). An
     -- unlearned recipe (Blizzard still renders it as an Init-firing row) or one
     -- not currently craftable (missing reagents / wrong context) does not badge.
@@ -154,7 +153,7 @@ function M:ShouldBadgeRecipe(recipeInfo)
     end
 
     -- Already owned? Cache-only on the hot path (IsOwnedFresh is reserved for
-    -- the bounded window-open reconcile in Commit 3).
+    -- the bounded window-open reconcile).
     local store = HA.CatalogStore
     if store and store.IsOwned and store:IsOwned(itemID) then
         return false, itemID, entry
@@ -203,7 +202,7 @@ end
 -- node:GetData()` then reads `elementData.recipeInfo.learned`). Headers/dividers
 -- use a different element shape, so a nil here = not a recipe row. We return the
 -- whole recipeInfo (not a bare recipeID) so ShouldBadgeRecipe can read its
--- learned/craftable flags with zero extra C calls (HS-024 Rev-2 #1).
+-- learned/craftable flags with zero extra C calls.
 local function ResolveNodeRecipeInfo(node)
     if not node or type(node.GetData) ~= "function" then return nil end
     local data = node:GetData()
@@ -302,7 +301,7 @@ end
 -- (Blizzard_ProfessionsRecipeList.lua:353-354). This is a DIFFERENT shape from
 -- the Init node (which is the raw node, accessed via node:GetData()), so the
 -- repaint path needs its own accessor — reusing the Init-node accessor here
--- silently no-ops the stationary-window repaint (HS-024 Rev-2 #2).
+-- silently no-ops the stationary-window repaint.
 -- GetFrames() returns a mixed-template list (categories/dividers too), so a nil
 -- here = a non-recipe frame the caller must skip.
 local function ResolveFrameRecipeInfo(frame)
@@ -338,7 +337,7 @@ RepaintVisibleRows = function(reconcileFresh)
 
     -- The reconcile body runs protected so an error in any row can never skip
     -- EndBatch below — a leaked BeginBatch depth would suppress ownership
-    -- events for the rest of the session (HS-209, review suggestion).
+    -- events for the rest of the session.
     local ok, bodyErr = pcall(function()
         for _, frame in ipairs(frames) do
             local recipeInfo = ResolveFrameRecipeInfo(frame)

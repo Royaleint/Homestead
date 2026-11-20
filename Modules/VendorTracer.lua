@@ -24,7 +24,7 @@ local isInitialized = false
 -- TomTom Availability
 -------------------------------------------------------------------------------
 
--- HS-218: the rest of this module's own TomTom/native waypoint
+-- the rest of this module's own TomTom/native waypoint
 -- implementation (SetTomTomWaypoint/ClearTomTomWaypoint/SetNativeWaypoint/
 -- ClearNativeWaypoint + the currentWaypoint/tomtomUID locals) was dead code
 -- — SetWaypoint below always delegates to HA.Waypoints when it's available,
@@ -43,20 +43,6 @@ end
 -- Public Navigation API
 -------------------------------------------------------------------------------
 
--- Helper to get vendor coordinates (handles both old and new formats)
-local function GetVendorXY(vendor)
-    if not vendor then return nil, nil end
-    -- New format: x, y directly
-    if vendor.x and vendor.y then
-        return vendor.x, vendor.y
-    end
-    -- Old format: coords table
-    if vendor.coords then
-        return vendor.coords.x, vendor.coords.y
-    end
-    return nil, nil
-end
-
 -- Navigate to a specific vendor
 function VendorTracer:NavigateToVendor(npcID)
     if not VendorData then
@@ -70,13 +56,13 @@ function VendorTracer:NavigateToVendor(npcID)
         return false
     end
 
-    local x, y = GetVendorXY(vendor)
+    local mapID, x, y = HA.VendorFilter.GetVendorWaypoint(vendor)
     if not x or not y then
         HA.Addon:Print("Vendor has no coordinates")
         return false
     end
 
-    return self:SetWaypoint(vendor.mapID, x, y, vendor.name, vendor)
+    return self:SetWaypoint(mapID, x, y, VendorData:GetVendorName(vendor), vendor)
 end
 
 -- Navigate to the closest vendor selling an item
@@ -92,7 +78,7 @@ function VendorTracer:NavigateToItemVendor(itemID)
         return false
     end
 
-    local x, y = GetVendorXY(vendor)
+    local mapID, x, y = HA.VendorFilter.GetVendorWaypoint(vendor)
     if not x or not y then
         HA.Addon:Print("Vendor has no coordinates")
         return false
@@ -100,14 +86,14 @@ function VendorTracer:NavigateToItemVendor(itemID)
 
     -- Get item name for waypoint title
     local itemName = C_Item.GetItemInfo(itemID) or ("Item " .. itemID)
-    local title = vendor.name .. " (" .. itemName .. ")"
+    local title = VendorData:GetVendorName(vendor) .. " (" .. itemName .. ")"
 
-    return self:SetWaypoint(vendor.mapID, x, y, title, vendor)
+    return self:SetWaypoint(mapID, x, y, title, vendor)
 end
 
 -- Set a waypoint to a location. Delegates to the Waypoints utility, which is
 -- always loaded (Utils/waypoints.lua is unconditionally part of the TOC) and
--- respects the user's TomTom/native preferences itself. HS-218: data.npcID
+-- respects the user's TomTom/native preferences itself. data.npcID
 -- is threaded through so OnMerchantShow's arrival-check below can confirm
 -- the waypoint we're clearing on arrival is actually the one for THIS
 -- vendor, not just "a" waypoint.
@@ -194,14 +180,17 @@ function VendorTracer:GetMissingItemVendors()
         for _, item in ipairs(vendorItems) do
             local itemID = HA.VendorData:GetItemID(item)
             if itemID then
-                -- HS-249: this derives its own ownership rather than reading
-                -- BadgeCalculation, so it needs its own exclusion guard.
-                -- Housing items outside the Decor subclass resolve to no
+                -- This derives its own ownership rather than reading
+                -- BadgeCalculation, so it needs its own exclusion guard. Decor
+                -- resolves by itemID, and a mapped Room plan resolves through
+                -- the curated RoomMapping; every other non-Decor housing
+                -- subclass (Dye, RoomCustomization, ExteriorCustomization,
+                -- ServiceItem, unmapped Room plans) still resolves to no
                 -- catalog entry, so IsOwnedFresh answers a hard false for them
-                -- and every room plan on the vendor would be reported as
-                -- missing. Leave them out until Phase 2 can resolve ownership.
-                local ownershipExcluded = CS and CS.IsOwnershipUnknowable
-                    and CS:IsOwnershipUnknowable(itemID)
+                -- and they would be reported as missing. Leave those out.
+                -- Items the last catalog scan found no entry for are left out too.
+                local ownershipExcluded = CS and CS.IsOwnershipUnreported
+                    and CS:IsOwnershipUnreported(itemID)
 
                 if not ownershipExcluded then
                     -- Check if player owns this item
@@ -241,7 +230,7 @@ function VendorTracer:OnDecorItemClick(itemID, button)
         return false
     end
 
-    -- Check if modifier key is held (for navigation). HS-218: this read a
+    -- Check if modifier key is held (for navigation). This read a
     -- top-level profile.navigateModifier key nothing ever writes — the
     -- actual setting lives at profile.vendorTracer.navigateModifier
     -- (Core/constants.lua default, UI/OptionsModel.lua's get/set) — so a
@@ -344,7 +333,7 @@ function VendorTracer:OnMerchantShow()
         return
     end
 
-    -- HS-218: currentWaypoint (this module's own local) was only ever
+    -- currentWaypoint (this module's own local) was only ever
     -- populated by the dead SetNativeWaypoint fallback removed above — this
     -- check never actually fired in production. Consult the Waypoints
     -- utility's real current waypoint instead, matched by npcID (threaded

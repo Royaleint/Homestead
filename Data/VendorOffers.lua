@@ -2,27 +2,25 @@
     Homestead - VendorOffers
     Per-vendor offer data: price, currencies, merchantSlot flags.
 
-    GENERATED table: do not hand-edit. Regenerate:
-        node Home_Dev/scripts/generate-vendor-offers.mjs
+    GENERATED table: do not hand-edit.
     MANUAL table: safe to edit. Same schema as GeneratedBase. Values here win over GeneratedBase.
     TOMBSTONES: bare itemID or "npcID:itemID" string key to suppress from all offer output.
 
     RUNTIME SOURCE OF TRUTH for what a vendor sells and what it costs. This file and
     VendorIdentity.lua are what the addon actually reads. Data/VendorDatabase.lua is a
     build-time seed: it is not listed in any .toc and never loads, so editing a cost
-    there changes nothing a player sees -- the generator only copies a seed cost into a
+    there changes nothing a player sees. Generation only copies a seed cost into a
     row that has NO cost at all, and never over one that already has one. If a shipped
-    price is wrong, fix it here (ManualOverrides wins at runtime) or blank the generated
-    row first and regenerate. Blaming VendorDatabase for a wrong shipped price is the
-    mistake HS-370 started from.
+    price is wrong, fix the seed and the generated base rows and regenerate. Use a ManualOverrides
+    row only when that is impossible. A costed generated row is never overwritten by the seed,
+    so blank its cost first so the seed value is copied in.
 
     A COSTLESS ROW (price = 0 with no currencies) means the cost is UNKNOWN, not that the
     item is free -- the schema cannot tell those apart, which is how 170 rows once shipped
-    with a blank cost column and nothing detected it (HS-370). Do not read one as a claim
+    with a blank cost column and nothing detected it. Do not read one as a claim
     about price. Every costless row is classified on demand, against scans, the other
-    shipped vendor tables and the build captures, by:
-        node Home_Dev/scripts/validate-offer-costs.mjs --repo .
-    That command is the live answer to "why is this blank?"; a list here would go stale.
+    shipped vendor tables and the build captures, by an offer-cost check.
+    That check is the live answer to "why is this blank?"; a list here would go stale.
     As of 2026-08-23 every costless row left belongs to a vendor that is not released yet.
     Thirteen offers at five live vendors (MOTHER, Boatswain Hardee, Shredz the Scrapper, Lab
     Assistant Laszly, Janey Forrest) once had a bulk-entered 10 gold default that was never
@@ -33,7 +31,7 @@
     free -- the one row that looked free turned out to be a 10g row a scan had captured with
     an empty cost field, which is precisely the ambiguity described above. Scoped to this file
     deliberately: EndeavorsData and EventSources carry bare item IDs of their own, which also
-    render a blank cost, and the command above counts only this file.
+    render a blank cost, and that check counts only this file.
 
     Schema per entry:
         [npcID] = {
@@ -56,7 +54,7 @@
 
 local _, HA = ...
 
--- GENERATED: do not hand-edit. Regenerate: node Home_Dev/scripts/generate-vendor-offers.mjs
+-- GENERATED: do not hand-edit.
 -- [npcID] = { [itemID] = { price, currencies, itemCosts, namedCosts,
 --     isUsable, isPurchasable, merchantSlot, hasExtendedCost, displayOrder } }
 local GeneratedBase = {
@@ -153,10 +151,10 @@ local GeneratedBase = {
     [258220] = {
       price = 0,
       currencies = {},
-      itemCosts = {{itemID = 34597, amount = 50}},
+      itemCosts = {{itemID = 34597, amount = 20}},
       isUsable = true,
       displayOrder = 1,
-      costBuild = "12.0.7.68974",
+      costBuild = "12.1.5.70688",
     },
   },
   [27391] = {
@@ -426,11 +424,10 @@ local GeneratedBase = {
   },
   [50488] = {
     [253168] = {
-      price = 190000,
+      price = 200000,
       currencies = {},
       isUsable = false,
       displayOrder = 1,
-      costBuild = "12.0.7.68974",
     },
   },
   [58414] = {
@@ -487,20 +484,6 @@ local GeneratedBase = {
       displayOrder = 1,
     },
   },
-  [62032] = {
-    [247729] = {
-      price = 3000000,
-      currencies = {},
-      isUsable = true,
-      displayOrder = 1,
-    },
-    [264362] = {
-      price = 5000000,
-      currencies = {},
-      isUsable = true,
-      displayOrder = 2,
-    },
-  },
   [62088] = {
     [245332] = {
       price = 20000000,
@@ -536,6 +519,20 @@ local GeneratedBase = {
       isUsable = true,
       displayOrder = 5,
       costBuild = "12.0.7.68974",
+    },
+  },
+  [64001] = {
+    [247729] = {
+      price = 3000000,
+      currencies = {},
+      isUsable = true,
+      displayOrder = 1,
+    },
+    [264362] = {
+      price = 5000000,
+      currencies = {},
+      isUsable = true,
+      displayOrder = 2,
     },
   },
   [64032] = {
@@ -699,10 +696,10 @@ local GeneratedBase = {
   [79774] = {
     [244315] = {
       price = 0,
-      currencies = {{id = 824, amount = 1500}},
+      currencies = {{id = 824, amount = 300}},
       isUsable = true,
       displayOrder = 1,
-      costBuild = "12.0.7.68974",
+      costBuild = "12.1.5.70688",
     },
     [244316] = {
       price = 2000000,
@@ -723,11 +720,10 @@ local GeneratedBase = {
       displayOrder = 4,
     },
     [245438] = {
-      price = 2700000,
-      currencies = {{id = 824, amount = 500}},
+      price = 3000000,
+      currencies = {{id = 824, amount = 250}},
       isUsable = true,
       displayOrder = 5,
-      costBuild = "12.0.7.68974",
     },
     [245443] = {
       price = 2000000,
@@ -756,26 +752,24 @@ local GeneratedBase = {
   [81133] = {
     [257349] = {
       price = 2000000,
-      currencies = {{id = 824, amount = 300}},
+      currencies = {{id = 824, amount = 150}},
       isUsable = true,
-      displayOrder = 3,
-      costBuild = "12.0.7.68974",
+      displayOrder = 1,
+      costBuild = "12.1.5.70688",
     },
   },
   [85427] = {
     [245424] = {
-      price = 4000000,
-      currencies = {{id = 823, amount = 1000}},
+      price = 5000000,
+      currencies = {{id = 823, amount = 350}},
       isUsable = true,
       displayOrder = 1,
-      costBuild = "12.0.7.68974",
     },
     [251544] = {
-      price = 4000000,
-      currencies = {{id = 823, amount = 1000}},
+      price = 5000000,
+      currencies = {{id = 823, amount = 350}},
       isUsable = true,
       displayOrder = 2,
-      costBuild = "12.0.7.68974",
     },
   },
   [85932] = {
@@ -838,25 +832,22 @@ local GeneratedBase = {
   },
   [85946] = {
     [258743] = {
-      price = 3200000,
-      currencies = {{id = 823, amount = 800}},
+      price = 4000000,
+      currencies = {{id = 823, amount = 350}},
       isUsable = true,
       displayOrder = 1,
-      costBuild = "12.0.7.68974",
     },
     [258746] = {
-      price = 6000000,
-      currencies = {{id = 823, amount = 1500}},
+      price = 7500000,
+      currencies = {{id = 823, amount = 450}},
       isUsable = true,
       displayOrder = 2,
-      costBuild = "12.0.7.68974",
     },
     [258747] = {
-      price = 2800000,
-      currencies = {{id = 823, amount = 700}},
+      price = 3500000,
+      currencies = {{id = 823, amount = 300}},
       isUsable = true,
       displayOrder = 3,
-      costBuild = "12.0.7.68974",
     },
   },
   [85950] = {
@@ -927,24 +918,21 @@ local GeneratedBase = {
   [86037] = {
     [258743] = {
       price = 4000000,
-      currencies = {{id = 823, amount = 800}},
+      currencies = {{id = 823, amount = 350}},
       isUsable = false,
       displayOrder = 1,
-      costBuild = "12.0.7.68974",
     },
     [258746] = {
       price = 7500000,
-      currencies = {{id = 823, amount = 1500}},
+      currencies = {{id = 823, amount = 450}},
       isUsable = false,
       displayOrder = 2,
-      costBuild = "12.0.7.68974",
     },
     [258747] = {
       price = 3500000,
-      currencies = {{id = 823, amount = 700}},
+      currencies = {{id = 823, amount = 300}},
       isUsable = false,
       displayOrder = 3,
-      costBuild = "12.0.7.68974",
     },
   },
   [86776] = {
@@ -964,10 +952,10 @@ local GeneratedBase = {
     },
     [245444] = {
       price = 0,
-      currencies = {{id = 824, amount = 250}},
+      currencies = {{id = 824, amount = 150}},
       isUsable = true,
       displayOrder = 3,
-      costBuild = "12.0.7.68974",
+      costBuild = "12.1.5.70688",
     },
     [245445] = {
       price = 0,
@@ -994,10 +982,10 @@ local GeneratedBase = {
     },
     [245444] = {
       price = 0,
-      currencies = {{id = 824, amount = 250}},
+      currencies = {{id = 824, amount = 150}},
       isUsable = true,
       displayOrder = 3,
-      costBuild = "12.0.7.68974",
+      costBuild = "12.1.5.70688",
     },
     [245445] = {
       price = 0,
@@ -1024,10 +1012,10 @@ local GeneratedBase = {
     },
     [245444] = {
       price = 0,
-      currencies = {{id = 824, amount = 250}},
+      currencies = {{id = 824, amount = 150}},
       isUsable = true,
       displayOrder = 3,
-      costBuild = "12.0.7.68974",
+      costBuild = "12.1.5.70688",
     },
     [245445] = {
       price = 0,
@@ -1040,17 +1028,17 @@ local GeneratedBase = {
   [87015] = {
     [245431] = {
       price = 5000000,
-      currencies = {{id = 823, amount = 1000}},
+      currencies = {{id = 823, amount = 350}},
       isUsable = true,
       displayOrder = 1,
-      costBuild = "12.0.7.68974",
+      costBuild = "12.1.5.70688",
     },
     [245433] = {
       price = 5000000,
-      currencies = {{id = 823, amount = 1000}},
+      currencies = {{id = 823, amount = 350}},
       isUsable = true,
       displayOrder = 2,
-      costBuild = "12.0.7.68974",
+      costBuild = "12.1.5.70688",
     },
   },
   [87200] = {
@@ -1070,10 +1058,10 @@ local GeneratedBase = {
     },
     [245444] = {
       price = 0,
-      currencies = {{id = 824, amount = 250}},
+      currencies = {{id = 824, amount = 150}},
       isUsable = true,
       displayOrder = 3,
-      costBuild = "12.0.7.68974",
+      costBuild = "12.1.5.70688",
     },
     [245445] = {
       price = 0,
@@ -1094,48 +1082,43 @@ local GeneratedBase = {
   },
   [87775] = {
     [258740] = {
-      price = 4500000,
-      currencies = {{id = 823, amount = 1000}},
+      price = 4000000,
+      currencies = {{id = 823, amount = 350}},
       isUsable = true,
       displayOrder = 1,
-      costBuild = "12.0.7.68974",
     },
     [258741] = {
-      price = 3600000,
-      currencies = {{id = 823, amount = 800}},
+      price = 4000000,
+      currencies = {{id = 823, amount = 350}},
       isUsable = true,
       displayOrder = 2,
-      costBuild = "12.0.7.68974",
     },
     [258745] = {
-      price = 6750000,
-      currencies = {{id = 823, amount = 1500}},
+      price = 7500000,
+      currencies = {{id = 823, amount = 450}},
       isUsable = true,
       displayOrder = 3,
-      costBuild = "12.0.7.68974",
     },
     [258748] = {
-      price = 9000000,
-      currencies = {{id = 823, amount = 2000}},
+      price = 10000000,
+      currencies = {{id = 823, amount = 500}},
       isUsable = true,
       displayOrder = 4,
-      costBuild = "12.0.7.68974",
     },
     [258749] = {
-      price = 5400000,
-      currencies = {{id = 823, amount = 1200}},
+      price = 6000000,
+      currencies = {{id = 823, amount = 400}},
       isUsable = true,
       displayOrder = 5,
-      costBuild = "12.0.7.68974",
     },
   },
   [88126] = {
     [253527] = {
       price = 3000000,
-      currencies = {{id = 824, amount = 500}},
+      currencies = {{id = 824, amount = 250}},
       isUsable = true,
       displayOrder = 1,
-      costBuild = "12.0.7.68974",
+      costBuild = "12.1.5.70688",
     },
   },
   [88220] = {
@@ -1627,13 +1610,13 @@ local GeneratedBase = {
       displayOrder = 5,
     },
     [245454] = {
-      price = 2400000,
+      price = 3000000,
       currencies = {{id = 1220, amount = 200}},
       isUsable = true,
       displayOrder = 6,
     },
     [245458] = {
-      price = 2400000,
+      price = 3000000,
       currencies = {{id = 1220, amount = 200}},
       isUsable = true,
       displayOrder = 7,
@@ -1647,19 +1630,19 @@ local GeneratedBase = {
   },
   [108017] = {
     [245405] = {
-      price = 2400000,
+      price = 3000000,
       currencies = {{id = 1220, amount = 200}},
       isUsable = true,
       displayOrder = 1,
     },
     [245409] = {
-      price = 2400000,
+      price = 3000000,
       currencies = {{id = 1220, amount = 200}},
       isUsable = true,
       displayOrder = 2,
     },
     [245453] = {
-      price = 2400000,
+      price = 3000000,
       currencies = {{id = 1220, amount = 200}},
       isUsable = true,
       displayOrder = 3,
@@ -1671,7 +1654,7 @@ local GeneratedBase = {
       displayOrder = 4,
     },
     [245457] = {
-      price = 2400000,
+      price = 3000000,
       currencies = {{id = 1220, amount = 200}},
       isUsable = true,
       displayOrder = 5,
@@ -1689,7 +1672,7 @@ local GeneratedBase = {
       displayOrder = 7,
     },
     [256913] = {
-      price = 2400000,
+      price = 3000000,
       currencies = {{id = 1220, amount = 200}},
       isUsable = true,
       displayOrder = 8,
@@ -1707,13 +1690,13 @@ local GeneratedBase = {
       displayOrder = 10,
     },
     [257721] = {
-      price = 2400000,
+      price = 3000000,
       currencies = {{id = 1220, amount = 200}},
       isUsable = true,
       displayOrder = 11,
     },
     [257722] = {
-      price = 2400000,
+      price = 3000000,
       currencies = {{id = 1220, amount = 200}},
       isUsable = true,
       displayOrder = 12,
@@ -1740,24 +1723,21 @@ local GeneratedBase = {
   [108537] = {
     [258219] = {
       price = 0,
-      currencies = {{id = 1220, amount = 175}},
+      currencies = {{id = 1220, amount = 150}},
       isUsable = false,
       displayOrder = 1,
-      costBuild = "12.0.7.68974",
     },
     [258221] = {
       price = 0,
-      currencies = {{id = 1220, amount = 450}},
+      currencies = {{id = 1220, amount = 200}},
       isUsable = false,
       displayOrder = 2,
-      costBuild = "12.0.7.68974",
     },
     [258223] = {
       price = 0,
-      currencies = {{id = 1220, amount = 400}},
+      currencies = {{id = 1220, amount = 200}},
       isUsable = false,
       displayOrder = 3,
-      costBuild = "12.0.7.68974",
     },
   },
   [109306] = {
@@ -2231,7 +2211,7 @@ local GeneratedBase = {
       displayOrder = 1,
     },
   },
-  [125346] = {
+  [127151] = {
     [245422] = {
       price = 8000000,
       currencies = {},
@@ -2255,24 +2235,24 @@ local GeneratedBase = {
     },
     [245488] = {
       price = 0,
-      currencies = {{id = 1560, amount = 500}},
+      currencies = {{id = 1560, amount = 200}},
       isUsable = true,
       displayOrder = 2,
-      costBuild = "12.0.7.68974",
+      costBuild = "12.1.5.70688",
     },
     [245495] = {
       price = 0,
-      currencies = {{id = 1560, amount = 400}},
+      currencies = {{id = 1560, amount = 200}},
       isUsable = true,
       displayOrder = 3,
-      costBuild = "12.0.7.68974",
+      costBuild = "12.1.5.70688",
     },
     [245500] = {
       price = 0,
-      currencies = {{id = 1560, amount = 400}},
+      currencies = {{id = 1560, amount = 200}},
       isUsable = true,
       displayOrder = 4,
-      costBuild = "12.0.7.68974",
+      costBuild = "12.1.5.70688",
     },
     [257394] = {
       price = 0,
@@ -2292,10 +2272,10 @@ local GeneratedBase = {
     },
     [252036] = {
       price = 0,
-      currencies = {{id = 1560, amount = 500}},
+      currencies = {{id = 1560, amount = 200}},
       isUsable = true,
       displayOrder = 2,
-      costBuild = "12.0.7.68974",
+      costBuild = "12.1.5.70688",
     },
     [252387] = {
       price = 0,
@@ -2313,10 +2293,18 @@ local GeneratedBase = {
     },
     [252402] = {
       price = 0,
-      currencies = {{id = 1560, amount = 450}},
+      currencies = {{id = 1560, amount = 200}},
       isUsable = true,
       displayOrder = 5,
-      costBuild = "12.0.7.68974",
+      costBuild = "12.1.5.70688",
+    },
+  },
+  [143244] = {
+    [284384] = {
+      price = 0,
+      currencies = {{id = 1560, amount = 150}},
+      isUsable = true,
+      displayOrder = 1,
     },
   },
   [144129] = {
@@ -2362,17 +2350,17 @@ local GeneratedBase = {
   [148924] = {
     [241067] = {
       price = 0,
-      currencies = {{id = 1560, amount = 200}},
+      currencies = {{id = 1560, amount = 150}},
       isUsable = true,
       displayOrder = 1,
-      costBuild = "12.0.7.68974",
+      costBuild = "12.1.5.70688",
     },
     [245464] = {
       price = 0,
-      currencies = {{id = 1560, amount = 200}},
+      currencies = {{id = 1560, amount = 150}},
       isUsable = true,
       displayOrder = 2,
-      costBuild = "12.0.7.68974",
+      costBuild = "12.1.5.70688",
     },
     [245471] = {
       price = 0,
@@ -2390,24 +2378,24 @@ local GeneratedBase = {
     },
     [245474] = {
       price = 0,
-      currencies = {{id = 1560, amount = 300}},
+      currencies = {{id = 1560, amount = 150}},
       isUsable = true,
       displayOrder = 5,
-      costBuild = "12.0.7.68974",
+      costBuild = "12.1.5.70688",
     },
     [245476] = {
       price = 0,
-      currencies = {{id = 1560, amount = 300}},
+      currencies = {{id = 1560, amount = 150}},
       isUsable = true,
       displayOrder = 6,
-      costBuild = "12.0.7.68974",
+      costBuild = "12.1.5.70688",
     },
     [245477] = {
       price = 0,
-      currencies = {{id = 1560, amount = 200}},
+      currencies = {{id = 1560, amount = 150}},
       isUsable = true,
       displayOrder = 7,
-      costBuild = "12.0.7.68974",
+      costBuild = "12.1.5.70688",
     },
   },
   [150716] = {
@@ -2420,68 +2408,60 @@ local GeneratedBase = {
       costBuild = "12.0.7.68974",
     },
     [246480] = {
-      price = 8000000,
+      price = 10000000,
       currencies = {},
-      itemCosts = {{itemID = 168327, amount = 5}, {itemID = 168832, amount = 5}},
+      itemCosts = {{itemID = 168327, amount = 2}, {itemID = 168832, amount = 2}},
       isUsable = true,
       displayOrder = 2,
-      costBuild = "12.0.7.68974",
     },
     [246483] = {
-      price = 4000000,
+      price = 5000000,
       currencies = {},
-      itemCosts = {{itemID = 166970, amount = 2}, {itemID = 168327, amount = 1}},
+      itemCosts = {{itemID = 166970, amount = 1}, {itemID = 168327, amount = 1}},
       isUsable = true,
       displayOrder = 3,
-      costBuild = "12.0.7.68974",
     },
     [246484] = {
-      price = 800000,
+      price = 1000000,
       currencies = {},
       itemCosts = {{itemID = 166970, amount = 1}},
       isUsable = true,
       displayOrder = 4,
-      costBuild = "12.0.7.68974",
     },
     [246497] = {
-      price = 800000,
+      price = 1000000,
       currencies = {},
       itemCosts = {{itemID = 166970, amount = 1}},
       isUsable = true,
       displayOrder = 5,
-      costBuild = "12.0.7.68974",
     },
     [246498] = {
-      price = 800000,
+      price = 1000000,
       currencies = {},
       itemCosts = {{itemID = 166970, amount = 1}},
       isUsable = true,
       displayOrder = 6,
-      costBuild = "12.0.7.68974",
     },
     [246499] = {
-      price = 1200000,
+      price = 1500000,
       currencies = {},
-      itemCosts = {{itemID = 166970, amount = 2}},
+      itemCosts = {{itemID = 166970, amount = 1}},
       isUsable = true,
       displayOrder = 7,
-      costBuild = "12.0.7.68974",
     },
     [246501] = {
-      price = 1600000,
+      price = 2000000,
       currencies = {},
-      itemCosts = {{itemID = 168832, amount = 2}},
+      itemCosts = {{itemID = 168832, amount = 1}},
       isUsable = true,
       displayOrder = 8,
-      costBuild = "12.0.7.68974",
     },
     [246503] = {
-      price = 800000,
+      price = 1000000,
       currencies = {},
-      itemCosts = {{itemID = 169610, amount = 2}},
+      itemCosts = {{itemID = 169610, amount = 1}},
       isUsable = true,
       displayOrder = 9,
-      costBuild = "12.0.7.68974",
     },
     [246598] = {
       price = 0,
@@ -2508,28 +2488,25 @@ local GeneratedBase = {
       costBuild = "12.0.7.68974",
     },
     [246605] = {
-      price = 1200000,
+      price = 1500000,
       currencies = {},
-      itemCosts = {{itemID = 168327, amount = 2}},
+      itemCosts = {{itemID = 168327, amount = 1}},
       isUsable = true,
       displayOrder = 13,
-      costBuild = "12.0.7.68974",
     },
     [246701] = {
-      price = 1600000,
+      price = 2000000,
+      currencies = {},
+      itemCosts = {{itemID = 169610, amount = 1}},
+      isUsable = true,
+      displayOrder = 14,
+    },
+    [246703] = {
+      price = 3000000,
       currencies = {},
       itemCosts = {{itemID = 169610, amount = 2}},
       isUsable = true,
-      displayOrder = 14,
-      costBuild = "12.0.7.68974",
-    },
-    [246703] = {
-      price = 2400000,
-      currencies = {},
-      itemCosts = {{itemID = 169610, amount = 3}},
-      isUsable = true,
       displayOrder = 15,
-      costBuild = "12.0.7.68974",
     },
   },
   [151941] = {
@@ -2591,17 +2568,17 @@ local GeneratedBase = {
   [188265] = {
     [238975] = {
       price = 0,
-      currencies = {{id = 2003, amount = 750}},
+      currencies = {{id = 2003, amount = 500}},
       isUsable = true,
       displayOrder = 1,
-      costBuild = "12.0.7.68974",
+      costBuild = "12.1.5.70688",
     },
     [245283] = {
       price = 0,
-      currencies = {{id = 2003, amount = 400}},
+      currencies = {{id = 2003, amount = 200}},
       isUsable = true,
       displayOrder = 2,
-      costBuild = "12.0.7.68974",
+      costBuild = "12.1.5.70688",
     },
     [245285] = {
       price = 0,
@@ -2612,40 +2589,48 @@ local GeneratedBase = {
     },
     [245286] = {
       price = 0,
-      currencies = {{id = 2003, amount = 250}},
+      currencies = {{id = 2003, amount = 150}},
       isUsable = true,
       displayOrder = 4,
-      costBuild = "12.0.7.68974",
+      costBuild = "12.1.5.70688",
     },
     [245287] = {
       price = 0,
-      currencies = {{id = 2003, amount = 250}},
+      currencies = {{id = 2003, amount = 150}},
       isUsable = true,
       displayOrder = 5,
-      costBuild = "12.0.7.68974",
+      costBuild = "12.1.5.70688",
     },
     [245288] = {
       price = 0,
-      currencies = {{id = 2003, amount = 250}},
+      currencies = {{id = 2003, amount = 150}},
       isUsable = true,
       displayOrder = 6,
-      costBuild = "12.0.7.68974",
+      costBuild = "12.1.5.70688",
+    },
+  },
+  [188623] = {
+    [284579] = {
+      price = 0,
+      currencies = {{id = 2003, amount = 500}},
+      isUsable = true,
+      displayOrder = 1,
     },
   },
   [189226] = {
     [238975] = {
       price = 0,
-      currencies = {{id = 2003, amount = 750}},
+      currencies = {{id = 2003, amount = 500}},
       isUsable = true,
       displayOrder = 1,
-      costBuild = "12.0.7.68974",
+      costBuild = "12.1.5.70688",
     },
     [245283] = {
       price = 0,
-      currencies = {{id = 2003, amount = 400}},
+      currencies = {{id = 2003, amount = 200}},
       isUsable = true,
       displayOrder = 2,
-      costBuild = "12.0.7.68974",
+      costBuild = "12.1.5.70688",
     },
     [245285] = {
       price = 0,
@@ -2656,56 +2641,56 @@ local GeneratedBase = {
     },
     [245286] = {
       price = 0,
-      currencies = {{id = 2003, amount = 250}},
+      currencies = {{id = 2003, amount = 150}},
       isUsable = true,
       displayOrder = 4,
-      costBuild = "12.0.7.68974",
+      costBuild = "12.1.5.70688",
     },
     [245287] = {
       price = 0,
-      currencies = {{id = 2003, amount = 250}},
+      currencies = {{id = 2003, amount = 150}},
       isUsable = true,
       displayOrder = 5,
-      costBuild = "12.0.7.68974",
+      costBuild = "12.1.5.70688",
     },
     [245288] = {
       price = 0,
-      currencies = {{id = 2003, amount = 250}},
+      currencies = {{id = 2003, amount = 150}},
       isUsable = true,
       displayOrder = 6,
-      costBuild = "12.0.7.68974",
+      costBuild = "12.1.5.70688",
     },
   },
   [191025] = {
     [246863] = {
       price = 0,
-      currencies = {{id = 2003, amount = 500}},
+      currencies = {{id = 2003, amount = 250}},
       isUsable = true,
       displayOrder = 1,
-      costBuild = "12.0.7.68974",
+      costBuild = "12.1.5.70688",
     },
   },
   [193015] = {
     [248103] = {
       price = 0,
-      currencies = {{id = 2003, amount = 300}},
+      currencies = {{id = 2003, amount = 150}},
       isUsable = false,
       displayOrder = 1,
-      costBuild = "12.0.7.68974",
+      costBuild = "12.1.5.70688",
     },
     [248112] = {
       price = 0,
-      currencies = {{id = 2003, amount = 400}},
+      currencies = {{id = 2003, amount = 250}},
       isUsable = false,
       displayOrder = 2,
-      costBuild = "12.0.7.68974",
+      costBuild = "12.1.5.70688",
     },
     [248652] = {
       price = 0,
-      currencies = {{id = 2003, amount = 250}},
+      currencies = {{id = 2003, amount = 150}},
       isUsable = false,
       displayOrder = 3,
-      costBuild = "12.0.7.68974",
+      costBuild = "12.1.5.70688",
     },
     [256168] = {
       price = 0,
@@ -2716,19 +2701,19 @@ local GeneratedBase = {
     },
     [256169] = {
       price = 0,
-      currencies = {{id = 2003, amount = 500}},
+      currencies = {{id = 2003, amount = 250}},
       isUsable = false,
       displayOrder = 5,
-      costBuild = "12.0.7.68974",
+      costBuild = "12.1.5.70688",
     },
   },
   [193659] = {
     [250912] = {
       price = 0,
-      currencies = {{id = 2003, amount = 600}},
+      currencies = {{id = 2003, amount = 250}},
       isUsable = false,
       displayOrder = 1,
-      costBuild = "12.0.7.68974",
+      costBuild = "12.1.5.70688",
     },
   },
   [196637] = {
@@ -2851,13 +2836,6 @@ local GeneratedBase = {
       isUsable = true,
       displayOrder = 2,
     },
-    [256429] = {
-      price = 100000,
-      currencies = {{id = 2003, amount = 200}},
-      isUsable = true,
-      displayOrder = 3,
-      costBuild = "12.0.7.68974",
-    },
   },
   [216285] = {
     [245625] = {
@@ -2959,10 +2937,10 @@ local GeneratedBase = {
   [217642] = {
     [260583] = {
       price = 0,
-      currencies = {{id = 2815, amount = 500}},
+      currencies = {{id = 2815, amount = 250}},
       isUsable = true,
       displayOrder = 1,
-      costBuild = "12.0.7.68974",
+      costBuild = "12.1.5.70688",
     },
   },
   [218202] = {
@@ -3100,17 +3078,17 @@ local GeneratedBase = {
   [231406] = {
     [245313] = {
       price = 0,
-      currencies = {{id = 2815, amount = 450}},
+      currencies = {{id = 2815, amount = 250}},
       isUsable = true,
       displayOrder = 1,
-      costBuild = "12.0.7.68974",
+      costBuild = "12.1.5.70688",
     },
     [255674] = {
       price = 0,
-      currencies = {{id = 2815, amount = 450}},
+      currencies = {{id = 2815, amount = 250}},
       isUsable = true,
       displayOrder = 2,
-      costBuild = "12.0.7.68974",
+      costBuild = "12.1.5.70688",
     },
   },
   [231407] = {
@@ -4343,6 +4321,177 @@ local GeneratedBase = {
       costBuild = "12.0.7.68974",
     },
   },
+  [248854] = {
+    [244347] = {
+      price = 0,
+      currencies = {},
+      itemCosts = {{itemID = 274481, amount = 100}},
+      gated = true,
+      isUsable = true,
+      displayOrder = 2,
+    },
+    [245991] = {
+      price = 0,
+      currencies = {},
+      itemCosts = {{itemID = 274481, amount = 100}},
+      gated = true,
+      isUsable = true,
+      displayOrder = 3,
+    },
+    [245993] = {
+      price = 0,
+      currencies = {},
+      itemCosts = {{itemID = 274481, amount = 100}},
+      gated = true,
+      isUsable = true,
+      displayOrder = 4,
+    },
+    [252042] = {
+      price = 0,
+      currencies = {},
+      itemCosts = {{itemID = 274481, amount = 100}},
+      gated = true,
+      isUsable = true,
+      displayOrder = 5,
+    },
+    [253396] = {
+      price = 0,
+      currencies = {},
+      itemCosts = {{itemID = 274481, amount = 100}},
+      gated = true,
+      isUsable = true,
+      displayOrder = 6,
+    },
+    [253703] = {
+      price = 0,
+      currencies = {},
+      itemCosts = {{itemID = 274481, amount = 100}},
+      gated = true,
+      isUsable = true,
+      displayOrder = 7,
+    },
+    [255652] = {
+      price = 0,
+      currencies = {},
+      itemCosts = {{itemID = 274481, amount = 100}},
+      gated = true,
+      isUsable = true,
+      displayOrder = 8,
+    },
+    [255712] = {
+      price = 0,
+      currencies = {},
+      itemCosts = {{itemID = 274481, amount = 100}},
+      gated = true,
+      isUsable = true,
+      displayOrder = 9,
+    },
+    [256361] = {
+      price = 0,
+      currencies = {},
+      itemCosts = {{itemID = 274481, amount = 100}},
+      gated = true,
+      isUsable = true,
+      displayOrder = 10,
+    },
+    [256684] = {
+      price = 0,
+      currencies = {},
+      itemCosts = {{itemID = 274481, amount = 100}},
+      gated = true,
+      isUsable = true,
+      displayOrder = 11,
+    },
+    [258540] = {
+      price = 0,
+      currencies = {},
+      itemCosts = {{itemID = 274481, amount = 100}},
+      gated = true,
+      isUsable = true,
+      displayOrder = 12,
+    },
+    [262453] = {
+      price = 0,
+      currencies = {{id = 3363, amount = 30}},
+      purchaseQuantity = 1,
+      alternativeCosts = {{price = 5000000, purchaseQuantity = 1}},
+      costSet = {coverage = "complete", eligibility = "unknown", qualification = "display-only", build = "12.1.0.69299", observedAt = 1786759942},
+      isUsable = true,
+      displayOrder = 1,
+    },
+    [263876] = {
+      price = 0,
+      currencies = {},
+      itemCosts = {{itemID = 274481, amount = 100}},
+      gated = true,
+      isUsable = true,
+      displayOrder = 13,
+    },
+    [267205] = {
+      price = 0,
+      currencies = {},
+      itemCosts = {{itemID = 274481, amount = 100}},
+      gated = true,
+      isUsable = true,
+      displayOrder = 14,
+    },
+    [267355] = {
+      price = 0,
+      currencies = {},
+      itemCosts = {{itemID = 274481, amount = 100}},
+      gated = true,
+      isUsable = true,
+      displayOrder = 15,
+    },
+    [267435] = {
+      price = 0,
+      currencies = {},
+      itemCosts = {{itemID = 274481, amount = 100}},
+      gated = true,
+      isUsable = true,
+      displayOrder = 16,
+    },
+    [268943] = {
+      price = 0,
+      currencies = {},
+      itemCosts = {{itemID = 274481, amount = 100}},
+      gated = true,
+      isUsable = true,
+      displayOrder = 17,
+    },
+    [272129] = {
+      price = 0,
+      currencies = {},
+      itemCosts = {{itemID = 274481, amount = 100}},
+      gated = true,
+      isUsable = true,
+      displayOrder = 18,
+    },
+    [272142] = {
+      price = 0,
+      currencies = {},
+      itemCosts = {{itemID = 274481, amount = 100}},
+      gated = true,
+      isUsable = true,
+      displayOrder = 19,
+    },
+    [278696] = {
+      price = 0,
+      currencies = {},
+      itemCosts = {{itemID = 274481, amount = 100}},
+      gated = true,
+      isUsable = true,
+      displayOrder = 20,
+    },
+    [278701] = {
+      price = 0,
+      currencies = {},
+      itemCosts = {{itemID = 274481, amount = 100}},
+      gated = true,
+      isUsable = true,
+      displayOrder = 21,
+    },
+  },
   [249196] = {
     [245284] = {
       price = 0,
@@ -4670,27 +4819,6 @@ local GeneratedBase = {
       displayOrder = 999999,
       costBuild = "12.0.7.68974",
     },
-    [265943] = {
-      price = 0,
-      currencies = {{id = 3385, amount = 10}},
-      isUsable = true,
-      displayOrder = 1,
-      costBuild = "12.0.7.68974",
-    },
-    [265945] = {
-      price = 0,
-      currencies = {{id = 3385, amount = 10}},
-      isUsable = true,
-      displayOrder = 2,
-      costBuild = "12.0.7.68974",
-    },
-    [265946] = {
-      price = 0,
-      currencies = {{id = 3385, amount = 10}},
-      isUsable = true,
-      displayOrder = 3,
-      costBuild = "12.0.7.68974",
-    },
   },
   [251911] = {
     [243312] = {
@@ -4788,17 +4916,17 @@ local GeneratedBase = {
   [251921] = {
     [239606] = {
       price = 0,
-      currencies = {{id = 1560, amount = 200}},
+      currencies = {{id = 1560, amount = 150}},
       isUsable = true,
       displayOrder = 1,
-      costBuild = "12.0.7.68974",
+      costBuild = "12.1.5.70688",
     },
     [241062] = {
       price = 0,
-      currencies = {{id = 1560, amount = 200}},
+      currencies = {{id = 1560, amount = 150}},
       isUsable = true,
       displayOrder = 2,
-      costBuild = "12.0.7.68974",
+      costBuild = "12.1.5.70688",
     },
     [245463] = {
       price = 0,
@@ -4809,17 +4937,17 @@ local GeneratedBase = {
     },
     [245465] = {
       price = 0,
-      currencies = {{id = 1560, amount = 200}},
+      currencies = {{id = 1560, amount = 150}},
       isUsable = true,
       displayOrder = 4,
-      costBuild = "12.0.7.68974",
+      costBuild = "12.1.5.70688",
     },
     [245466] = {
       price = 0,
-      currencies = {{id = 1560, amount = 200}},
+      currencies = {{id = 1560, amount = 150}},
       isUsable = true,
       displayOrder = 5,
-      costBuild = "12.0.7.68974",
+      costBuild = "12.1.5.70688",
     },
     [245467] = {
       price = 0,
@@ -4830,66 +4958,66 @@ local GeneratedBase = {
     },
     [245469] = {
       price = 0,
-      currencies = {{id = 1560, amount = 300}},
+      currencies = {{id = 1560, amount = 150}},
       isUsable = true,
       displayOrder = 7,
-      costBuild = "12.0.7.68974",
+      costBuild = "12.1.5.70688",
     },
     [245470] = {
       price = 0,
-      currencies = {{id = 1560, amount = 300}},
+      currencies = {{id = 1560, amount = 150}},
       isUsable = true,
       displayOrder = 8,
-      costBuild = "12.0.7.68974",
+      costBuild = "12.1.5.70688",
     },
     [245473] = {
       price = 0,
-      currencies = {{id = 1560, amount = 300}},
+      currencies = {{id = 1560, amount = 150}},
       isUsable = true,
       displayOrder = 9,
-      costBuild = "12.0.7.68974",
+      costBuild = "12.1.5.70688",
     },
     [245475] = {
       price = 0,
-      currencies = {{id = 1560, amount = 300}},
+      currencies = {{id = 1560, amount = 150}},
       isUsable = true,
       displayOrder = 10,
-      costBuild = "12.0.7.68974",
+      costBuild = "12.1.5.70688",
     },
     [245478] = {
       price = 0,
-      currencies = {{id = 1560, amount = 200}},
+      currencies = {{id = 1560, amount = 150}},
       isUsable = true,
       displayOrder = 11,
-      costBuild = "12.0.7.68974",
+      costBuild = "12.1.5.70688",
     },
     [245479] = {
       price = 0,
-      currencies = {{id = 1560, amount = 300}},
+      currencies = {{id = 1560, amount = 150}},
       isUsable = true,
       displayOrder = 12,
-      costBuild = "12.0.7.68974",
+      costBuild = "12.1.5.70688",
     },
     [245480] = {
       price = 0,
-      currencies = {{id = 1560, amount = 200}},
+      currencies = {{id = 1560, amount = 150}},
       isUsable = true,
       displayOrder = 13,
-      costBuild = "12.0.7.68974",
+      costBuild = "12.1.5.70688",
     },
     [245481] = {
       price = 0,
-      currencies = {{id = 1560, amount = 300}},
+      currencies = {{id = 1560, amount = 150}},
       isUsable = true,
       displayOrder = 14,
-      costBuild = "12.0.7.68974",
+      costBuild = "12.1.5.70688",
     },
     [245483] = {
       price = 0,
-      currencies = {{id = 1560, amount = 200}},
+      currencies = {{id = 1560, amount = 150}},
       isUsable = true,
       displayOrder = 15,
-      costBuild = "12.0.7.68974",
+      costBuild = "12.1.5.70688",
     },
   },
   [252043] = {
@@ -5847,17 +5975,17 @@ local GeneratedBase = {
     },
     [247223] = {
       price = 0,
-      currencies = {{id = 2003, amount = 175}},
+      currencies = {{id = 2003, amount = 150}},
       isUsable = true,
       displayOrder = 2,
-      costBuild = "12.0.7.68974",
+      costBuild = "12.1.5.70688",
     },
     [248103] = {
       price = 0,
-      currencies = {{id = 2003, amount = 300}},
+      currencies = {{id = 2003, amount = 150}},
       isUsable = true,
       displayOrder = 3,
-      costBuild = "12.0.7.68974",
+      costBuild = "12.1.5.70688",
     },
     [248104] = {
       price = 0,
@@ -5868,24 +5996,24 @@ local GeneratedBase = {
     },
     [248112] = {
       price = 0,
-      currencies = {{id = 2003, amount = 400}},
+      currencies = {{id = 2003, amount = 250}},
       isUsable = true,
       displayOrder = 5,
-      costBuild = "12.0.7.68974",
+      costBuild = "12.1.5.70688",
     },
     [248651] = {
       price = 0,
-      currencies = {{id = 2003, amount = 600}},
+      currencies = {{id = 2003, amount = 250}},
       isUsable = true,
       displayOrder = 6,
-      costBuild = "12.0.7.68974",
+      costBuild = "12.1.5.70688",
     },
     [248652] = {
       price = 0,
-      currencies = {{id = 2003, amount = 250}},
+      currencies = {{id = 2003, amount = 150}},
       isUsable = true,
       displayOrder = 7,
-      costBuild = "12.0.7.68974",
+      costBuild = "12.1.5.70688",
     },
     [248653] = {
       price = 0,
@@ -5896,47 +6024,33 @@ local GeneratedBase = {
     },
     [248655] = {
       price = 0,
-      currencies = {{id = 2003, amount = 200}},
+      currencies = {{id = 2003, amount = 150}},
       isUsable = true,
       displayOrder = 9,
-      costBuild = "12.0.7.68974",
+      costBuild = "12.1.5.70688",
     },
     [256169] = {
       price = 0,
-      currencies = {{id = 2003, amount = 500}},
+      currencies = {{id = 2003, amount = 250}},
       isUsable = true,
       displayOrder = 10,
-      costBuild = "12.0.7.68974",
+      costBuild = "12.1.5.70688",
     },
     [256429] = {
       price = 0,
-      currencies = {{id = 2003, amount = 200}},
+      currencies = {{id = 2003, amount = 150}},
       isUsable = true,
       displayOrder = 11,
-      costBuild = "12.0.7.68974",
+      costBuild = "12.1.5.70688",
     },
   },
   [253086] = {
     [248656] = {
       price = 0,
-      currencies = {{id = 2118, amount = 1500}},
+      currencies = {{id = 2118, amount = 500}},
       isUsable = true,
       displayOrder = 1,
-      costBuild = "12.0.7.68974",
-    },
-    [256168] = {
-      price = 0,
-      currencies = {{id = 2003, amount = 10}},
-      isUsable = true,
-      displayOrder = 2,
-      costBuild = "12.0.7.68974",
-    },
-    [256169] = {
-      price = 100000,
-      currencies = {{id = 2003, amount = 500}},
-      isUsable = true,
-      displayOrder = 3,
-      costBuild = "12.0.7.68974",
+      costBuild = "12.1.5.70688",
     },
   },
   [253227] = {
@@ -6125,19 +6239,181 @@ local GeneratedBase = {
   [253434] = {
     [245701] = {
       price = 0,
-      currencies = {{id = 1220, amount = 175}},
+      currencies = {{id = 1220, amount = 150}},
       isUsable = true,
       displayOrder = 1,
-      costBuild = "12.0.7.68974",
+      costBuild = "12.1.5.70688",
     },
   },
   [253596] = {
+    [244347] = {
+      price = 0,
+      currencies = {},
+      itemCosts = {{itemID = 274481, amount = 100}},
+      gated = true,
+      isUsable = true,
+      displayOrder = 2,
+    },
+    [245991] = {
+      price = 0,
+      currencies = {},
+      itemCosts = {{itemID = 274481, amount = 100}},
+      gated = true,
+      isUsable = true,
+      displayOrder = 3,
+    },
+    [245993] = {
+      price = 0,
+      currencies = {},
+      itemCosts = {{itemID = 274481, amount = 100}},
+      gated = true,
+      isUsable = true,
+      displayOrder = 4,
+    },
+    [252042] = {
+      price = 0,
+      currencies = {},
+      itemCosts = {{itemID = 274481, amount = 100}},
+      gated = true,
+      isUsable = true,
+      displayOrder = 5,
+    },
+    [253396] = {
+      price = 0,
+      currencies = {},
+      itemCosts = {{itemID = 274481, amount = 100}},
+      gated = true,
+      isUsable = true,
+      displayOrder = 6,
+    },
+    [253703] = {
+      price = 0,
+      currencies = {},
+      itemCosts = {{itemID = 274481, amount = 100}},
+      gated = true,
+      isUsable = true,
+      displayOrder = 7,
+    },
+    [255652] = {
+      price = 0,
+      currencies = {},
+      itemCosts = {{itemID = 274481, amount = 100}},
+      gated = true,
+      isUsable = true,
+      displayOrder = 8,
+    },
+    [255712] = {
+      price = 0,
+      currencies = {},
+      itemCosts = {{itemID = 274481, amount = 100}},
+      gated = true,
+      isUsable = true,
+      displayOrder = 9,
+    },
+    [256361] = {
+      price = 0,
+      currencies = {},
+      itemCosts = {{itemID = 274481, amount = 100}},
+      gated = true,
+      isUsable = true,
+      displayOrder = 10,
+    },
+    [256684] = {
+      price = 0,
+      currencies = {},
+      itemCosts = {{itemID = 274481, amount = 100}},
+      gated = true,
+      isUsable = true,
+      displayOrder = 11,
+    },
+    [258540] = {
+      price = 0,
+      currencies = {},
+      itemCosts = {{itemID = 274481, amount = 100}},
+      gated = true,
+      isUsable = true,
+      displayOrder = 12,
+    },
     [262453] = {
       price = 0,
       currencies = {{id = 3363, amount = 30}},
+      purchaseQuantity = 1,
+      alternativeCosts = {{price = 5000000, purchaseQuantity = 1}},
+      costSet = {coverage = "complete", eligibility = "unknown", qualification = "display-only", build = "12.1.0.69299", observedAt = 1786759942},
       isUsable = true,
       displayOrder = 1,
-      costBuild = "12.0.7.68974",
+    },
+    [263876] = {
+      price = 0,
+      currencies = {},
+      itemCosts = {{itemID = 274481, amount = 100}},
+      gated = true,
+      isUsable = true,
+      displayOrder = 13,
+    },
+    [267205] = {
+      price = 0,
+      currencies = {},
+      itemCosts = {{itemID = 274481, amount = 100}},
+      gated = true,
+      isUsable = true,
+      displayOrder = 14,
+    },
+    [267355] = {
+      price = 0,
+      currencies = {},
+      itemCosts = {{itemID = 274481, amount = 100}},
+      gated = true,
+      isUsable = true,
+      displayOrder = 15,
+    },
+    [267435] = {
+      price = 0,
+      currencies = {},
+      itemCosts = {{itemID = 274481, amount = 100}},
+      gated = true,
+      isUsable = true,
+      displayOrder = 16,
+    },
+    [268943] = {
+      price = 0,
+      currencies = {},
+      itemCosts = {{itemID = 274481, amount = 100}},
+      gated = true,
+      isUsable = true,
+      displayOrder = 17,
+    },
+    [272129] = {
+      price = 0,
+      currencies = {},
+      itemCosts = {{itemID = 274481, amount = 100}},
+      gated = true,
+      isUsable = true,
+      displayOrder = 18,
+    },
+    [272142] = {
+      price = 0,
+      currencies = {},
+      itemCosts = {{itemID = 274481, amount = 100}},
+      gated = true,
+      isUsable = true,
+      displayOrder = 19,
+    },
+    [278696] = {
+      price = 0,
+      currencies = {},
+      itemCosts = {{itemID = 274481, amount = 100}},
+      gated = true,
+      isUsable = true,
+      displayOrder = 20,
+    },
+    [278701] = {
+      price = 0,
+      currencies = {},
+      itemCosts = {{itemID = 274481, amount = 100}},
+      gated = true,
+      isUsable = true,
+      displayOrder = 21,
     },
   },
   [254603] = {
@@ -6402,17 +6678,17 @@ local GeneratedBase = {
     },
     [253170] = {
       price = 0,
-      currencies = {{id = 1792, amount = 750}},
+      currencies = {{id = 1792, amount = 350}},
       isUsable = false,
       displayOrder = 5,
-      costBuild = "12.0.7.68974",
+      costBuild = "12.1.5.70688",
     },
     [256896] = {
       price = 0,
-      currencies = {{id = 1792, amount = 450}},
+      currencies = {{id = 1792, amount = 250}},
       isUsable = false,
       displayOrder = 3,
-      costBuild = "12.0.7.68974",
+      costBuild = "12.1.5.70688",
     },
   },
   [254944] = {
@@ -6536,6 +6812,26 @@ local GeneratedBase = {
       displayOrder = 12,
       costBuild = "12.0.7.68974",
     },
+    [264718] = {
+      price = 0,
+      currencies = {{id = 3316, amount = 250}},
+      isUsable = true,
+      isPurchasable = true,
+      merchantSlot = 15,
+      hasExtendedCost = true,
+      displayOrder = 13,
+      costBuild = "12.1.5.70688",
+    },
+    [279067] = {
+      price = 0,
+      currencies = {{id = 3316, amount = 500}},
+      isUsable = true,
+      isPurchasable = true,
+      merchantSlot = 14,
+      hasExtendedCost = true,
+      displayOrder = 14,
+      costBuild = "12.1.5.70688",
+    },
   },
   [255101] = {
     [257393] = {
@@ -6545,11 +6841,10 @@ local GeneratedBase = {
       displayOrder = 1,
     },
     [257598] = {
-      price = 100000,
+      price = 0,
       currencies = {{id = 1155, amount = 125}},
       isUsable = true,
       displayOrder = 2,
-      costBuild = "12.0.7.68974",
     },
   },
   [255114] = {
@@ -9328,11 +9623,10 @@ local GeneratedBase = {
       costBuild = "12.0.7.68974",
     },
     [244778] = {
-      price = 2500000,
+      price = 200,
       currencies = {},
       isUsable = true,
       displayOrder = 11,
-      costBuild = "12.0.7.68974",
     },
     [245264] = {
       price = 100000,
@@ -12841,11 +13135,10 @@ local GeneratedBase = {
       costBuild = "12.0.7.68974",
     },
     [244778] = {
-      price = 2500000,
+      price = 200,
       currencies = {},
       isUsable = true,
       displayOrder = 15,
-      costBuild = "12.0.7.68974",
     },
     [245267] = {
       price = 100000,
@@ -14351,10 +14644,9 @@ local GeneratedBase = {
   [256946] = {
     [258742] = {
       price = 3000000,
-      currencies = {{id = 823, amount = 600}},
+      currencies = {{id = 823, amount = 300}},
       isUsable = true,
       displayOrder = 1,
-      costBuild = "12.0.7.68974",
     },
   },
   [257257] = {
@@ -16747,23 +17039,115 @@ local GeneratedBase = {
       displayOrder = 15,
     },
   },
+  [276366] = {
+    [256924] = {
+      price = 0,
+      currencies = {{id = 3316, amount = 250}},
+      isUsable = true,
+      displayOrder = 1,
+    },
+    [256926] = {
+      price = 0,
+      currencies = {{id = 3316, amount = 250}},
+      isUsable = true,
+      displayOrder = 2,
+    },
+    [256927] = {
+      price = 0,
+      currencies = {{id = 3316, amount = 250}},
+      isUsable = true,
+      displayOrder = 3,
+    },
+    [256933] = {
+      price = 0,
+      currencies = {{id = 3316, amount = 250}},
+      isUsable = true,
+      displayOrder = 4,
+    },
+    [256934] = {
+      price = 0,
+      currencies = {{id = 3316, amount = 250}},
+      isUsable = true,
+      displayOrder = 5,
+    },
+    [258290] = {
+      price = 0,
+      currencies = {{id = 3316, amount = 250}},
+      isUsable = true,
+      displayOrder = 6,
+    },
+    [258549] = {
+      price = 0,
+      currencies = {{id = 3316, amount = 250}},
+      isUsable = true,
+      displayOrder = 7,
+    },
+    [260202] = {
+      price = 0,
+      currencies = {{id = 3316, amount = 500}},
+      isUsable = true,
+      displayOrder = 8,
+    },
+    [260514] = {
+      price = 0,
+      currencies = {{id = 3316, amount = 500}},
+      isUsable = true,
+      displayOrder = 9,
+    },
+    [260515] = {
+      price = 0,
+      currencies = {{id = 3316, amount = 500}},
+      isUsable = true,
+      displayOrder = 10,
+    },
+    [260516] = {
+      price = 0,
+      currencies = {{id = 3316, amount = 500}},
+      isUsable = true,
+      displayOrder = 11,
+    },
+    [263318] = {
+      price = 0,
+      currencies = {{id = 3316, amount = 150}},
+      isUsable = true,
+      displayOrder = 12,
+    },
+    [263320] = {
+      price = 0,
+      currencies = {{id = 3316, amount = 150}},
+      isUsable = true,
+      displayOrder = 13,
+    },
+    [264333] = {
+      price = 0,
+      currencies = {{id = 3316, amount = 150}},
+      isUsable = true,
+      displayOrder = 14,
+    },
+    [264350] = {
+      price = 0,
+      currencies = {{id = 3316, amount = 250}},
+      isUsable = true,
+      displayOrder = 15,
+    },
+  },
 }
 
 -- MANUAL: safe to edit. Same schema as GeneratedBase. Values here win over GeneratedBase.
 -- 266443/266444 prices were swapped in a PTR scan vs live. Boh'an (255301, Razorwind Shores)
 -- was not in the 2026-06-27 VendorOffers refresh, so its GeneratedBase still carries the PTR
 -- swap and needs this correction. Trevor 255221's override was pruned 2026-06-27 once the
--- refresh corrected its GeneratedBase (HS-110).
+-- refresh corrected its GeneratedBase.
 local ManualOverrides = {
-    -- HS-370 (Sage Gate 1 C4): Valdrakken Sconce was tombstoned off Provisioner Aristta,
+    -- Valdrakken Sconce was tombstoned off Provisioner Aristta,
     -- whose listing was wrong, but nothing was added to its real home -- which left Ironus
     -- Coldsteel with items = {} while keeping his VendorIdentity row, so he pinned on the
     -- Thaldraszus map selling nothing, and the item lost its only buy path. The 12.1 catalog
     -- source text names him directly: "Vendor: Ironus Coldsteel Zone: Thaldraszus
     -- Cost: 150|Hcurrency:2003" (150 Dragon Isles Supplies).
-    -- This is an override rather than a seed-generated row because the generator only
-    -- creates rows from seed-only entries under --seed-current-db, which the normal write
-    -- path does not pass. GetOffers reads ManualOverrides first and unconditionally, so this
+    -- This is an override rather than a generated row because generation only
+    -- creates rows from seed-only entries when asked to use the current seed, which the
+    -- normal build does not. GetOffers reads ManualOverrides first and unconditionally, so this
     -- renders with no GeneratedBase row beneath it.
     [209220] = { -- Ironus Coldsteel (1)
         [248105] = { price = 0, currencies = {{id = 2003, amount = 150}}, isUsable = true, displayOrder = 1 }, -- Valdrakken Sconce
@@ -16772,7 +17156,7 @@ local ManualOverrides = {
         [266443] = { price = 750000, currencies = {}, isUsable = true, costBuild = "12.0.7.68974" }, -- Granite Cobblestone Long Path
         [266444] = { price = 500000, currencies = {}, isUsable = true, costBuild = "12.0.7.68974" }, -- Granite Cobblestone Path
     },
-    -- HS-183: prices captured from the 2026-07-10 scans for rows GeneratedBase
+    -- Prices captured from the 2026-07-10 scans for rows GeneratedBase
     -- carried at price 0 (never captured). Wilkinson's is the BASE price: his
     -- sibling item scanned at exactly 0.95x its known base, so the same 5% rep
     -- discount is divided back out (1662500 / 0.95). Quackenbush's two are the
@@ -16785,7 +17169,7 @@ local ManualOverrides = {
         [259071] = { price = 40000000, currencies = {}, isUsable = true, costBuild = "12.0.7.68974" }, -- Brawler's Guild Punching Bag
         [263026] = { price = 5000000, currencies = {}, isUsable = true, costBuild = "12.0.7.68974" }, -- Brawler's Barricade
     },
-    -- HS-183 batch 2 (store-base policy, ratified 2026-07-10): gold prices
+    -- Batch 2 (store-base pricing rule, 2026-07-10): gold prices
     -- normalized to BASE where a compound rep-discount fingerprint pins the base
     -- exactly — every row below fit scan = d1 x base and GeneratedBase = d2 x base
     -- with d in {0.80, 0.95} and a round base. Currency amounts are never
@@ -16793,39 +17177,31 @@ local ManualOverrides = {
     [1247] = { -- Innkeeper Belm (Thunderbrew Distillery, Dun Morogh)
         [256330] = { price = 8000000, currencies = {}, isUsable = true, costBuild = "12.0.7.68974" }, -- Kharanos Stone Bed
     },
-    [85427] = { -- Maaria (Lunarfall Trading Post)
-        [245424] = { price = 5000000, currencies = {{id = 823, amount = 1000}}, isUsable = true, costBuild = "12.0.7.68974" }, -- Draenic Chest
-        [251544] = { price = 5000000, currencies = {{id = 823, amount = 1000}}, isUsable = true, costBuild = "12.0.7.68974" }, -- Telredor Recliner
-    },
-    -- HS-326 (2026-08-13): GeneratedBase carries the original 500000000
-    -- (50,000g) entry-error price. Corrected here for 264003 only — a
-    -- second Blizzard-lineage path (ItemSparse.BuyPrice, CLAIM-PIPELINE-0086;
-    -- not epistemically independent, that claim says so itself) plus the
+    -- 2026-08-13: GeneratedBase carries the original 500000000
+    -- (50,000g) entry-error price. Corrected here for 264003 only: a
+    -- second Blizzard-lineage path (the item's buy price in the client's game data;
+    -- not independent of the first) plus the
     -- client's own catalog sourceText agree on both the price (50,000
     -- copper) and the vendor (Irodalmin) for this item specifically.
-    -- 264004 is deliberately NOT touched here (rejected in review):
-    -- its own sourceText names no vendor, the DB2 export puts it
-    -- under a different npc (243555, itemCount 1 on Irodalmin's own
-    -- record) that vendor_external_candidates.csv separately names
-    -- "Lelorian" (DB2 carries npcIDs and items but no NPC names). That same
-    -- candidates file already carries a standing conflict_vendor row for
-    -- exactly this item —
-    -- writing a ManualOverrides row (highest precedence) would have
-    -- silently resolved an already-recorded, unresolved vendor dispute in
-    -- Irodalmin's favor. Tracked separately: HS-327.
+    -- 264004 is deliberately NOT touched here: its own sourceText names no vendor, and
+    -- the game data puts it under a different npc (243555, one item on Irodalmin's own
+    -- record) that an external listing separately names "Lelorian" (the game data carries
+    -- npcIDs and items but no NPC names). That listing already carries a standing vendor
+    -- conflict for exactly this item, so writing a ManualOverrides row (highest precedence)
+    -- would have silently resolved an unresolved vendor dispute in Irodalmin's favor.
     [256026] = { -- Irodalmin (Silvermoon City, profession achievement vendor)
         [264003] = { price = 50000, currencies = {}, isUsable = true, displayOrder = 1 }, -- Midnight Herbalist's Shop Sign
     },
     [97140] = { -- First Arcanist Thalyssra (Shal'Aran, Suramar)
         [247908] = { price = 300000, currencies = {{id = 1220, amount = 50}}, isUsable = true, costBuild = "12.0.7.68974" }, -- Nightborne Lantern
     },
-    -- HS-250 (2026-08-11): scan-confirmed cost corrections for rows GeneratedBase
-    -- carried stale. The generator preserves pre-existing GeneratedBase rows
-    -- verbatim by design, so VendorDatabase.lua-side cost corrections never reach
+    -- 2026-08-11: scan-confirmed cost corrections for rows GeneratedBase
+    -- carried stale. Generation preserves pre-existing GeneratedBase rows
+    -- verbatim by design, so seed-side cost corrections never reach
     -- rows that already exist -- these overrides carry the corrected values from
     -- real PTR scans (2026-08-11, build 12.1.0.69214). Telemancer Astrandis is the
-    -- same defect caught by runtime-file audit: values from the scan-confirmed
-    -- 250 -> 500 Voidlight Marl correction already in VendorDatabase.lua.
+    -- same defect: values from the scan-confirmed
+    -- 250 -> 500 Voidlight Marl correction.
     [257332] = { -- Devin Slatesmith
         [280142] = { price = 250000, currencies = {}, isUsable = true, isPurchasable = true, merchantSlot = 7, hasExtendedCost = false, displayOrder = 1 }, -- Small Wooden Floor Tile (was 0/none)
         [280144] = { price = 1000000, currencies = {}, isUsable = true, isPurchasable = true, merchantSlot = 2, hasExtendedCost = false, displayOrder = 2 }, -- Large Wooden Floor Tile (was 0/none)
@@ -16906,7 +17282,7 @@ local ManualOverrides = {
         [279508] = { price = 0, currencies = {{id = 3316, amount = 500}}, isUsable = true, isPurchasable = false, merchantSlot = 5, hasExtendedCost = true, displayOrder = 7 }, -- "The Hunger Awakens" Mural (was 0/none)
         [280218] = { price = 0, currencies = {{id = 3316, amount = 150}}, isUsable = true, isPurchasable = false, merchantSlot = 8, hasExtendedCost = true, displayOrder = 8 }, -- Tortollan Scholar Satchel (was 0/none)
     },
-    [242399] = { -- Telemancer Astrandis (264007 added from the 2026-09-27 live 12.1.0.69933 capture, HS-459)
+    [242399] = { -- Telemancer Astrandis (264007 added from the 2026-09-27 live 12.1.0.69933 capture)
         [263994] = { price = 0, currencies = {{id = 3316, amount = 500}}, isUsable = true, isPurchasable = true, merchantSlot = 5, hasExtendedCost = true, displayOrder = 1 }, -- (was c3316:250)
         [263995] = { price = 0, currencies = {{id = 3316, amount = 500}}, isUsable = true, isPurchasable = false, merchantSlot = 10, hasExtendedCost = true, displayOrder = 2 }, -- (was c3316:250)
         [263996] = { price = 0, currencies = {{id = 3316, amount = 500}}, isUsable = true, isPurchasable = true, merchantSlot = 4, hasExtendedCost = true, displayOrder = 3 }, -- (was c3316:250)
@@ -16915,11 +17291,9 @@ local ManualOverrides = {
         [264170] = { price = 0, currencies = {{id = 3316, amount = 500}}, isUsable = true, isPurchasable = true, merchantSlot = 7, hasExtendedCost = true, displayOrder = 6 }, -- (was c3316:250)
         [264175] = { price = 0, currencies = {{id = 3316, amount = 500}}, isUsable = true, isPurchasable = true, merchantSlot = 6, hasExtendedCost = true, displayOrder = 7 }, -- (was c3316:250)
     },
-    -- HS-341 (2026-08-15): 12.1 rebalanced TWW-era CURRENCY prices downward. These 40
+    -- 2026-08-15: 12.1 rebalanced TWW-era CURRENCY prices downward. These 40
     -- rows are corrected from two live 12.1.0.69299 scans, 12 vendors in total
-    -- (Home_Dev/scan-data/2026-08-15-live-12.1-tww-dornogal-tazavesh.txt and
-    -- ...-ringing-deeps.txt; field counts proven, rows GENERATED from those files by
-    -- script rather than hand-typed).
+    -- (the 2026-08-15 Dornogal/Tazavesh and Ringing Deeps scans; field counts checked).
     -- Measured, not assumed. Batch 1: 42 scanned rows, 31 differ, 11 identical. Batch 2:
     -- 9 scanned rows, 9 differ. Every difference is a DROP.
     --   CHANGED: currency 2815 (Resonance Crystals), 1792 (Honor), 3056 (Kej, at Thripps
@@ -16933,9 +17307,9 @@ local ManualOverrides = {
     -- both a changed and an unchanged currency -- so "older currencies did not move" is a
     -- 3-row single-vendor observation, NOT an established partition. Do not treat it as
     -- settled. (An earlier revision of this comment claimed item-costs were unchanged as a
-    -- class; the Cendvin row refutes that, and it was missed because the generator's cost
-    -- regex only matched c-prefix components -- silence read as "unchanged". Caught in
-    -- review; the comparator is now cost-kind-complete.)
+    -- class; the Cendvin row refutes that, and it was missed because the cost
+    -- matching only covered currency components, so silence read as "unchanged".
+    -- The comparison now covers every cost kind.)
     -- Ratios vary 1.5x to 4x with no formula (1000->250, 2000->500, 750->500, 2500->1250),
     -- so NOTHING can be inferred for an unscanned item -- every affected row needs a scan.
     -- Gabbun's four rows are BOTH things at once. Stored as 10g with no currency at all
@@ -16946,12 +17320,11 @@ local ManualOverrides = {
     -- drops, and they carry the best before/after evidence in this batch. One of them,
     -- Kobold Candle Trio at 200 -> 150, is a 1.33x move -- below the 1.5x-4x band quoted
     -- above, which was measured DB-vs-scan and misses it.
-    -- The seed and GeneratedBase agree at the old values, so no comparison BETWEEN OUR
-    -- OWN TABLES -- including the cost-drift report -- can see any of this. But dated live
-    -- captures we already hold can: Home_Dev/scan-data/channel-live-2026-07-13.txt supplies
+    -- The seed and GeneratedBase agree at the old values, so no comparison between our own
+    -- tables can see any of this. But dated live
+    -- scans we already hold can: the 2026-07-13 live scan supplies
     -- a pre-patch baseline for 33 of these rows and agrees with the post-patch scans on
-    -- exactly the 11 that did not move. An offline check against that file would have
-    -- flagged most of this without logging in. See HS-343.
+    -- exactly the 11 that did not move.
     [219217] = { -- Velerd (2)
         [247750] = { price = 0, currencies = {{id = 1792, amount = 1250}}, isUsable = true, isPurchasable = false, merchantSlot = 2, hasExtendedCost = true, displayOrder = 1, costBuild = "12.1.0.69299" }, -- Deephaul Crystal (was g=0 c1792:2500)
         [253170] = { price = 0, currencies = {{id = 1792, amount = 350}}, isUsable = true, isPurchasable = false, merchantSlot = 1, hasExtendedCost = true, displayOrder = 2, costBuild = "12.1.0.69299" }, -- Earthen Contender's Target (was g=0 c1792:750)
@@ -17014,54 +17387,36 @@ local ManualOverrides = {
         [258265] = { price = 0, currencies = {{id = 2815, amount = 400}}, isUsable = true, isPurchasable = true, merchantSlot = 4, hasExtendedCost = true, displayOrder = 3, costBuild = "12.1.0.69299" }, -- Kobold Wagon (was g=100000)
         [258267] = { price = 0, currencies = {{id = 2815, amount = 350}}, isUsable = true, isPurchasable = true, merchantSlot = 3, hasExtendedCost = true, displayOrder = 4, costBuild = "12.1.0.69299" }, -- Candle-Festooned Wooden Awning (was g=100000)
     },
-    -- HS-250 (2026-08-14): Thripps' Kej price dropped in 12.1 -- 1500 to 500.
-    -- CONFIRMED BY RAWB against the live merchant window (2026-08-14), which is the
-    -- authority here and outranks the offline corpus. Worth recording why the corpus
+    -- 2026-08-14: Thripps' Kej price dropped in 12.1 -- 1500 to 500.
+    -- CONFIRMED against the live merchant window (2026-08-14), which is the
+    -- authority here and outranks the offline data. Worth recording why the offline data
     -- disagreed, because it will disagree again: a February 2026 live scan of this
-    -- same npc/item, the crawl catalog in three files, `vendor_external_candidates`,
+    -- same npc/item, an external catalog listing, an external candidate list,
     -- and the seed ALL say 1500. Every one of them predates 12.1. They are not four
     -- independent confirmations of a current price, they are four snapshots of the
-    -- same stale moment. This override was written, rejected in review on the
-    -- reasoning that 1500 -> 500 looks exactly like a dropped leading digit, and then
-    -- restored on the owner's in-game reading.
-    -- No discount question: reputation and racial discounts are GOLD-only (HS-252),
+    -- same stale moment. 1500 -> 500 looks exactly like a dropped leading digit, so
+    -- it was first reverted as a suspected typo, then restored on an in-game reading.
+    -- No discount question: reputation and racial discounts are GOLD-only,
     -- so a currency amount is charged and base alike.
     -- WHY THIS CLASS IS INVISIBLE: seed and GeneratedBase AGREE at 1500. No
-    -- cross-file validator and no cost-drift report can see it -- consistent sources,
+    -- cross-file check and no cost-drift comparison can see it -- consistent sources,
     -- both stale. Only a live rescan finds it. Thripps is The War Within content and
     -- the first older-expansion vendor rescanned since 12.1; the same repricing may
-    -- reach other TWW-era currencies. Confirmed 2026-08-15: it did. See HS-341.
+    -- reach other TWW-era currencies. Confirmed 2026-08-15: it did.
     [218202] = { -- Thripps (City of Threads, Lower City Armaments)
         [246866] = { price = 0, currencies = {{id = 3056, amount = 500}}, isUsable = true, isPurchasable = false, merchantSlot = 1, hasExtendedCost = true, displayOrder = 1, costBuild = "12.1.0.69299" }, -- Kaheti Scribe's Records (was c3056:1500)
     },
-    -- HS-250 (2026-08-14): NO override for The Last Architect [253596] item 262453,
-    -- deliberately. A live 12.1.0.69299 scan shows that vendor listing the item in
-    -- TWO merchant slots, one per payment method -- slot 1 at 30 Community Coupons,
-    -- slot 2 at 500g, an EITHER/OR. An override carrying both costs on one row was
-    -- written here and rejected in review (2026-08-14): VendorData.FormatCost
-    -- joins cost components with " + " (Data/VendorData.lua, table.concat), so the
-    -- tooltip would have read "Vendor Price: 500g + 30 Community Coupons" and
-    -- overstated the cost to exactly the gold-holding player the fix was meant to
-    -- help. Incomplete beat false, so GeneratedBase's coupon-only row stands until
-    -- the schema can express alternative costs -- see HS-340. Of the 85 both-cost
-    -- (npcID, itemID) pairs in this file, 81 are positively proven SINGLE-slot
-    -- combined costs by a scan row carrying price and currency together on one
-    -- line, where the " + " reading is correct; the other four have no scan
-    -- coverage on disk (216284:256429, 253086:256169, 255101:257598,
-    -- 88126:253527) and are unproven either way. Do not use any of them as
-    -- precedent for an either/or: 253596:262453 is the only item ever recorded in
-    -- two slots with different payment methods, across every export on disk.
-    -- HS-370 (2026-08-22): 35 rows that shipped with no cost at all -- price = 0 and no
+    -- 2026-08-22: 35 rows that shipped with no cost at all -- price = 0 and no
     -- currency -- on four vendors whose live scans have carried real gold prices since
     -- July. Each of these items is a bare item ID in the build seed, so offer generation
     -- had no cost to emit and wrote a zero-cost row; nothing downstream compares a
     -- zero-cost row against a scan, so the gap stayed invisible. Players saw the cost
     -- column as "?" while anyone who had scanned the vendor themselves saw the right
     -- price from their own saved scan data, which is why it read as a display problem.
-    -- Costs come from Home_Dev/scan-data/channel-live-2026-07-13.txt (per-vendor scan
-    -- dates 2026-07-09..07-11, confirmed), generated from that file by script rather
+    -- Costs come from the 2026-07-13 live scan (per-vendor scan
+    -- dates 2026-07-09..07-11, confirmed), copied from that data rather
     -- than hand-typed.
-    -- Gold only, deliberately: 12.1 rebalanced currency prices downward (HS-341) but
+    -- Gold only, deliberately: 12.1 rebalanced currency prices downward but
     -- left every scanned gold price unchanged, so a pre-12.1 gold observation is still
     -- current and a pre-12.1 currency observation is not. The 20 currency-costed rows
     -- in this same class are held for a live 12.1 rescan.
@@ -17073,8 +17428,8 @@ local ManualOverrides = {
     -- sitting at exactly 0.95 while most others sit at 1.00, so the discount is real and
     -- vendor-specific. (The cluster is larger than an earlier draft of this comment claimed,
     -- and the non-discounted vendors are not uniformly 1.00 -- a few rows differ for
-    -- unrelated reasons. The per-vendor ratio is the signal; the exact membership is
-    -- HS-371's to enumerate.) This is the same rule HS-183 applied to Wilkinson.
+    -- unrelated reasons. The per-vendor ratio is the signal; the exact membership is still
+    -- to be enumerated.) The same rule applies to Wilkinson.
     -- isPurchasable is omitted on Adams' two rows: the scan observed false, but that field
     -- is character-relative (it reflects whether the scanning character could afford the
     -- item that moment), and an absent field means unknown while a false would read as a
@@ -17122,31 +17477,30 @@ local ManualOverrides = {
         [259069] = { price = 2500000, currencies = {}, isUsable = true, isPurchasable = true, merchantSlot = 15, hasExtendedCost = false, displayOrder = 16 }, -- Sanctuary Chess Light Knight
         [259070] = { price = 2500000, currencies = {}, isUsable = true, isPurchasable = true, merchantSlot = 14, hasExtendedCost = false, displayOrder = 17 }, -- Sanctuary Chess Light King
     },
-    -- HS-387 (2026-08-30 export corroborated by Sage, HS-388 review): the Disguised Decor
+    -- 2026-08-30 catalog-text export: the Disguised Decor
     -- Duel Vendor (Silvermoon City, Falconwing Square) no longer sells any of these 12
-    -- items for currency 3393 -- the 2026-08-30 in-game export shows currency 3393 zero
+    -- items for currency 3393 -- the 2026-08-30 catalog-text export shows currency 3393 zero
     -- times where the 2026-08-10 export had it 12 times, and the same 12 items now read
-    -- one clean currency-3316 row each in the export, at 200-750. GeneratedBase still ships
-    -- all 12 at the old 3393 prices (10-120). A structural lua load+walk of GeneratedBase,
+    -- one clean currency-3316 row each, at 200-750. GeneratedBase still ships
+    -- all 12 at the old 3393 prices (10-120). A walk of GeneratedBase,
     -- ManualOverrides, and Tombstones confirms these are the entire currency-3393 family
     -- (229 vendors / 2066 GeneratedBase rows scanned; 12 hits, all this vendor; 0 in
-    -- ManualOverrides' 30 vendors / 171 rows; 0 tombstoned) — no other vendor, row, or
+    -- ManualOverrides' 30 vendors / 171 rows; 0 tombstoned) -- no other vendor, row, or
     -- existing override references 3393, and this vendor carries no prior override.
     --
-    -- Corroboration beyond the ingested catalog-text export: a direct merchant-inventory
-    -- scan of this vendor, export_archive/2026-08-23-exportall.tsv (clientBuild
-    -- 12.1.0.69404), matches all 12 amounts and the 3316 currency exactly, and that same
+    -- Corroboration: a direct merchant-inventory
+    -- scan of this vendor (client build 12.1.0.69404, 2026-08-23) matches all 12 amounts
+    -- and the 3316 currency exactly, and that same
     -- scan's vendor row shows the vendor's own `currency` field changed from
     -- "Illusionary Coin" (every scan through 2026-08-02 PTR) to "Voidlight Marl" -- a
     -- positive, vendor-specific assertion of the rollover, not an absence. A competing,
-    -- older reading also exists on disk: `vendor_external_candidates.csv` carries a
-    -- `cost_delta` row for all 12 items agreeing on currency 3316 but disagreeing on
-    -- amount for 11 of 12; its content is dated 2026-06-29 (62 days stale, pre-rollover),
-    -- so newest-wins resolves to the export/scan values used here. That crawl reading is
-    -- not an independent competing measurement, either: the previously-ingested
-    -- 2026-08-10 export (commit fed16d4) carried BOTH currencies per item during the
-    -- transition, and its 3316 amounts match the crawl's disputed numbers exactly on all
-    -- 12 items -- the crawl is the same pre-live tuning pass Blizzard revised upward
+    -- older external reading also exists, agreeing on currency 3316 but disagreeing on
+    -- amount for 11 of 12; it is dated 2026-06-29 (62 days stale, pre-rollover),
+    -- so newest-wins resolves to the scan values used here. That older reading is
+    -- not an independent competing measurement, either: the 2026-08-10 scan
+    -- carried BOTH currencies per item during the
+    -- transition, and its 3316 amounts match the older reading's numbers exactly on all
+    -- 12 items -- it is the same pre-live tuning pass Blizzard revised upward
     -- before release, not a second independent reading. Membership at this vendor was
     -- stable across every vintage checked; only prices moved.
     --
@@ -17170,7 +17524,7 @@ local ManualOverrides = {
         [272446] = { price = 0, currencies = {{id = 3316, amount = 200}}, isUsable = true, isPurchasable = true, merchantSlot = 12, hasExtendedCost = true, displayOrder = 999999, costBuild = "12.1.0.69299" }, -- Large Decorative Dornogal Opal
     },
     -- Live merchant capture, client 12.1.0.69404, 2026-08-23; currency only, gold
-    -- untouched (HS-341, HS-371).
+    -- untouched.
     [85932] = { -- Vindicator Nuurem (Stormshield)
         [245423] = { price = 0, currencies = {{id = 824, amount = 150}}, isUsable = true, displayOrder = 1, costBuild = "12.1.0.69299" }, -- Spherical Draenic Topiary (was g=0 c824:250)
         [251476] = { price = 0, currencies = {{id = 824, amount = 350}}, isUsable = true, displayOrder = 2, costBuild = "12.1.0.69299" }, -- Embroidered Embaari Tent (was g=0 c824:1000)
@@ -17181,11 +17535,6 @@ local ManualOverrides = {
         [251493] = { price = 0, currencies = {{id = 824, amount = 250}}, isUsable = true, displayOrder = 7, costBuild = "12.1.0.69299" }, -- Small Karabor Fountain (was g=0 c824:500)
         [251551] = { price = 0, currencies = {{id = 824, amount = 350}}, isUsable = true, displayOrder = 8, costBuild = "12.1.0.69299" }, -- Grand Draenethyst Lamp (was g=0 c824:1500)
         [285179] = { price = 0, currencies = {{id = 824, amount = 350}}, isUsable = true },
-    },
-    [85946] = { -- Shadow-Sage Brakoss (Stormshield)
-        [258743] = { price = 3200000, currencies = {{id = 823, amount = 350}}, isUsable = true, displayOrder = 1, costBuild = "12.1.0.69299" }, -- Arakkoan Alchemy Tools (was g=3200000 c823:800)
-        [258746] = { price = 6000000, currencies = {{id = 823, amount = 450}}, isUsable = true, displayOrder = 2, costBuild = "12.1.0.69299" }, -- High Arakkoan Alchemist's Shelf (was g=6000000 c823:1500)
-        [258747] = { price = 2800000, currencies = {{id = 823, amount = 300}}, isUsable = true, displayOrder = 3, costBuild = "12.1.0.69299" }, -- High Arakkoan Shelf (was g=2800000 c823:700)
     },
     [85950] = { -- Trader Caerel (Stormshield)
         [245425] = { price = 3000000, currencies = {{id = 823, amount = 250}}, isUsable = true, displayOrder = 1, costBuild = "12.1.0.69299" }, -- Hanging Draenethyst Light (was g=3000000 c823:500)
@@ -17198,9 +17547,9 @@ local ManualOverrides = {
         [251653] = { price = 5000000, currencies = {{id = 824, amount = 400}}, isUsable = true, displayOrder = 8, costBuild = "12.1.0.69299" }, -- Draenethyst Lamppost (was g=5000000 c824:1000)
         [251654] = { price = 8000000, currencies = {{id = 823, amount = 500}}, isUsable = true, displayOrder = 9, costBuild = "12.1.0.69299" }, -- Large Karabor Fountain (was g=8000000 c823:2000)
     },
-    -- HS-459: live merchant capture, client 12.1.0.69933, 2026-09-27. Undermine
+    -- Live merchant capture, client 12.1.0.69933, 2026-09-27. Undermine
     -- Resonance Crystal (2815) prices all read lower than shipped, the same 12.1
-    -- currency rebalance as HS-341.
+    -- currency rebalance noted above.
     -- Counterfeit Dark Heart of Galakrond (267265) read unchanged at 15000 and has no row.
     [251911] = { -- Stacks Topskimmer (Undermine)
         [243312] = { price = 0, currencies = {{id = 2815, amount = 350}}, isUsable = true, displayOrder = 1, costBuild = "12.1.0.69299" }, -- Undermine Rectangular Table (was g=0 c2815:700)
@@ -17229,16 +17578,14 @@ local ManualOverrides = {
     [239333] = { -- Street Food Vendor (Undermine)
         [256328] = { price = 0, currencies = {{id = 2815, amount = 200}}, isUsable = true, displayOrder = 1, costBuild = "12.1.0.69299" }, -- Leftover Undermine Takeout (was g=0 c2815:350)
     },
-    -- HS-459: the same capture read this row at 950000, a 5% reputation discount on a
-    -- 1000000 base. Its 17 siblings are stored at the 20% tier (0.80 x base), so it is
-    -- stored on that basis too; the stored 2400000 was out of line with all of them.
+    -- 284223 is stored at its base price, 250 gold, the price the game client lists
+    -- for it; a reputation-discounted price seen at the vendor is not stored.
     [49877] = { -- Captain Lancy Revshon (Stormwind)
-        [284223] = { price = 2000000, currencies = {}, isUsable = true },
+        [284223] = { price = 2500000, currencies = {}, isUsable = true },
     },
-    -- HS-459: offers the same capture shows that shipped data did not carry.
+    -- Offers the same capture shows that shipped data did not carry.
     [252873] = { -- Morta Gage (Arcantina)
         [278038] = { price = 0, currencies = {{id = 3316, amount = 150}}, isUsable = true, displayOrder = 999999, costBuild = "12.1.0.69299" }, -- Arathor Toy Sword (new row)
-        [278044] = { price = 0, currencies = {{id = 3316, amount = 150}}, isUsable = true, displayOrder = 999999, costBuild = "12.1.0.69299" }, -- Kobold's Hanging Kandles (new row)
         [278694] = { price = 0, currencies = {{id = 3316, amount = 250}}, isUsable = true, displayOrder = 999999, costBuild = "12.1.0.69299" }, -- Stormstout Hanging Lantern (new row)
     },
     [256828] = { -- Dennia Silvertongue (Silvermoon City)
@@ -17251,9 +17598,9 @@ local ManualOverrides = {
         [253473] = { price = 0, currencies = {{id = 3448, amount = 750}}, isUsable = true, displayOrder = 999999, costBuild = "12.1.0.69299" }, -- Unearthed Amani Sarcophagus Base (new row)
         [280764] = { price = 0, currencies = {{id = 3448, amount = 750}}, isUsable = true, displayOrder = 999999, costBuild = "12.1.0.69299" }, -- Venomous Defender's Barricade (new row)
     },
-    -- HS-475: Order Resources, Veiled Argunite, War Resources, Honor and Elemental Overflow
+    -- Order Resources, Veiled Argunite, War Resources, Honor and Elemental Overflow
     -- costs corrected to the live 12.1.0 values (checked in game, 2026-10-08).
-    [93550] = { -- Quartermaster Ozorg (Broken Shore)
+    [93550] = { -- Quartermaster Ozorg (Acherus: The Ebon Hold)
         [250112] = { price = 0, currencies = {{id = 1220, amount = 350}}, displayOrder = 1, isUsable = true, costBuild = "12.1.0.69933" }, -- (was c1220:1500)
         [250113] = { price = 0, currencies = {{id = 1220, amount = 150}}, costBuild = "12.1.0.69933", displayOrder = 2, isUsable = true },
         [250114] = { price = 0, currencies = {{id = 1220, amount = 150}}, costBuild = "12.1.0.69933", displayOrder = 3, isUsable = true },
@@ -17402,9 +17749,6 @@ local ManualOverrides = {
         [256919] = { price = 0, currencies = {{id = 1560, amount = 150}}, costBuild = "12.1.0.69299", displayOrder = 18, isUsable = true },
         [257399] = { price = 0, currencies = {{id = 1560, amount = 150}}, costBuild = "12.1.0.69299", displayOrder = 19, isUsable = true },
     },
-    [253086] = { -- Jolinth (Forbidden Reach)
-        [248656] = { price = 0, currencies = {{id = 2118, amount = 500}}, displayOrder = 1, isUsable = true, costBuild = "12.1.0.69933" }, -- (was c2118:1500)
-    },
     [253387] = { -- Selfira Ambergrove (Val'sharah)
         [238860] = { price = 0, currencies = {{id = 1220, amount = 300}}, costBuild = "12.1.0.69933", displayOrder = 2, isUsable = true },
         [245700] = { price = 0, currencies = {{id = 1220, amount = 150}}, costBuild = "12.1.0.69933", displayOrder = 6, isUsable = true },
@@ -17481,7 +17825,7 @@ local ManualOverrides = {
     [254944] = {
         [278691] = { price = 0, currencies = {{id = 3316, amount = 250}}, costBuild = "12.1.0.69299", isUsable = true },
     },
-    -- HS-478: these 13 rows carried a flat 10g default that was never seen at the vendor. Each
+    -- These 13 rows carried a flat 10g default that was never seen at the vendor. Each
     -- now carries the price seen there on 2026-10-10. Keep the overrides: the generated rows
     -- beneath still hold the old default.
     [152194] = { -- MOTHER
@@ -17619,13 +17963,13 @@ local ManualOverrides = {
         [283385] = { price = 0, currencies = {{id = 1813, amount = 500}}, isUsable = true },
     },
     [266188] = {
-        [275865] = { price = 0, currencies = {{id = 3316, amount = 500}}, isUsable = true },
-        [275867] = { price = 0, currencies = {{id = 3316, amount = 350}}, isUsable = true },
-        [275869] = { price = 0, currencies = {{id = 3316, amount = 350}}, isUsable = true },
-        [275871] = { price = 0, currencies = {{id = 3316, amount = 500}}, isUsable = true },
-        [275873] = { price = 0, currencies = {{id = 3316, amount = 350}}, isUsable = true },
-        [275879] = { price = 0, currencies = {{id = 3316, amount = 350}}, isUsable = true },
-        [280050] = { price = 0, currencies = {{id = 3316, amount = 1500}}, isUsable = true },
+        [275865] = { price = 0, currencies = {{id = 3316, amount = 350}}, isUsable = true, costBuild = "12.1.5.70688" },
+        [275867] = { price = 0, currencies = {{id = 3316, amount = 250}}, isUsable = true, costBuild = "12.1.5.70688" },
+        [275869] = { price = 0, currencies = {{id = 3316, amount = 250}}, isUsable = true, costBuild = "12.1.5.70688" },
+        [275871] = { price = 0, currencies = {{id = 3316, amount = 350}}, isUsable = true, costBuild = "12.1.5.70688" },
+        [275873] = { price = 0, currencies = {{id = 3316, amount = 250}}, isUsable = true, costBuild = "12.1.5.70688" },
+        [275879] = { price = 0, currencies = {{id = 3316, amount = 250}}, isUsable = true, costBuild = "12.1.5.70688" },
+        [280050] = { price = 0, currencies = {{id = 3316, amount = 1000}}, isUsable = true, costBuild = "12.1.5.70688" },
     },
     -- Jolli Maxiboom, Razorwind Shores: prices seen at the vendor on 2026-10-13.
     -- Her Brewfest Crate (280335) is priced in the generated table above.
@@ -17928,13 +18272,13 @@ local ManualOverrides = {
 
 -- TOMBSTONES: bare itemID or "npcID:itemID" string key to suppress from all offer output.
 local Tombstones = {
-    -- HS-370 (Sage Gate 1): Draenor Cookpot was the one row kept from Brakoss while nine
-    -- siblings were removed, and the same evidence refutes it. Rawb's 2026-08-23 capture
+    -- Draenor Cookpot was the one row kept from Brakoss while nine
+    -- siblings were removed, and the same evidence refutes it. The 2026-08-23 scan
     -- (client 12.1.0.69404) shows Shadow-Sage Brakoss selling exactly three items and this
     -- is not one of them; the 12.1 catalog gives Kil'rip in Frostfire Ridge, who already
     -- carries it at the identical 500g + 1000 Apexis Crystal. Nothing is lost by removing it.
     ["86698:245431"] = true,
-    -- HS-370 (2026-08-23): pair tombstones for rows that were never this vendor's to sell.
+    -- 2026-08-23: pair tombstones for rows that were never this vendor's to sell.
     -- Each was a blank-cost row; checking why turned up not a missing price but a wrong
     -- attribution -- the item is sold by someone else, by nobody, or no longer exists.
     -- Vendor listings were confirmed item by item before each key was added.
@@ -17944,7 +18288,7 @@ local Tombstones = {
     ["86698:245423"] = true, -- sold by Vindicator Nuurem, not Brakoss
     ["86698:245444"] = true, -- sold by Tai'tasi / Ribchewer / Elder Surehide, not Brakoss
     ["86698:245445"] = true, -- sold by Tai'tasi / Ribchewer / Elder Surehide, not Brakoss
-    -- HS-370: these three have NO vendor in any source we hold. Catalog and crawl agree they
+    -- These three have NO vendor in any source we hold. The catalog and external listings agree they
     -- are drops or a profession recipe (Skulloc in Iron Docks, Warlord Zaela in Upper
     -- Blackrock Spire, Draenor Blacksmithing), each with an empty vendor list. Removing the
     -- vendor pairing leaves them with no source of any kind in the addon, which is correct
@@ -17952,12 +18296,12 @@ local Tombstones = {
     ["86698:245434"] = true, -- Orgrimmar Sconce: no vendor sells it in any source
     ["86698:245435"] = true, -- Horde Battle Emblem: no vendor sells it in any source
     ["86698:245436"] = true, -- Blackrock Weapon Rack: no vendor sells it in any source
-    -- HS-371 (2026-09-01): 86698 itself is folded into 85946 via VendorDatabase.Aliases
-    -- (86698 appears in zero captures across seven months of merchant-window scans; 85946
+    -- 2026-09-01: 86698 itself is folded into 85946 via VendorDatabase.Aliases
+    -- (86698 appears in zero scans across seven months of merchant-window scans; 85946
     -- returns the same three items every time). These are the two rows 86698 had left after
-    -- HS-370; both are Midnight-zone items the 12.1 catalog and crawl attribute to four other
+    -- the 2026-08-23 removal pass; both are Midnight-zone items the 12.1 catalog and external listings attribute to four other
     -- vendors, not to Brakoss under either ID, so they are tombstoned rather than folded into
-    -- 85946's real offer list. Analyst rec HS353-341-371 (2026-09-01).
+    -- 85946's real offer list.
     ["86698:244533"] = true,
     ["86698:251545"] = true,
     ["196637:246091"] = true, -- sold by Mythrin'dir; Tethalash's real 5-item list confirmed against two independent references
@@ -17970,7 +18314,7 @@ local Tombstones = {
     ["210608:257352"] = true, -- sold by Moon Priestess Lasara, not Celestine
     ["231406:258265"] = true, -- sold by Gabbun, not Rocco Razzboom
     ["209192:248105"] = true, -- sold by Ironus Coldsteel, not Provisioner Aristta
-    -- HS-370: Lonomia does not sell 264005 -- the catalog and the crawl attribute it to three
+    -- Lonomia does not sell 264005 -- the catalog and external listings attribute it to three
     -- other NPCs, none of which the addon carries a vendor row for. So removing this pairing
     -- leaves the item with NO vendor path at all; only its AchievementSources entry remains.
     -- That is deliberate (a wrong vendor is worse than none) but it is not "covered
@@ -17979,18 +18323,18 @@ local Tombstones = {
     ["112434:248941"] = true, -- [DNT] developer placeholder, never a real item:
     -- the item name is "[DNT] Dreadscar Battle Planning Map - do not use - new asset" and it
     -- has no 12.1 catalog row. An earlier note here said it no longer exists in the game,
-    -- which our own crawl refutes -- it is still listed. Suppressed for what it is.
-    -- HS-176: Murder Row Wine Decanter was never sold by Captain Donald Adams
+    -- which external listings refute -- it is still listed. Suppressed for what it is.
+    -- Murder Row Wine Decanter was never sold by Captain Donald Adams
     -- (2026-07-09 in-game scan: item absent from his inventory; Neriv [242726]
     -- is the verified source and keeps its own GeneratedBase row).
     -- Pair-specific key so only the wrong pairing is suppressed.
     ["50304:246692"] = true,
-    -- HS-182: Small Gilnean Table was never sold by Innkeeper Belm (2026-07-10
+    -- Small Gilnean Table was never sold by Innkeeper Belm (2026-07-10
     -- in-game scan: 15 merchant slots, 1 decor item, 256905 absent; the row
     -- dates to the v1.1.0 crowd-data pass and carried price 0). Wilkinson
     -- [44114] in Darkshire is the remaining source and keeps his own row.
     ["1247:256905"] = true,
-    -- HS-287: these 12 items were crawl-misattributed to Er'inye [262880] by
+    -- These 12 items were misattributed to Er'inye [262880] by an external listing, by
     -- name-similarity; Blizzard's 12.1 catalog sourceText attributes every one
     -- to "Skull of Er'inye" [272751], which keeps the costed rows. Blizzard's
     -- sourceText has zero rows naming plain "Er'inye" as a vendor.

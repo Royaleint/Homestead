@@ -3,13 +3,16 @@
     Search index and query engine for vendor/item discovery
 
     Builds a lightweight index of vendor metadata + item IDs, resolves item names
-    at query time via C_Item.GetItemNameByID. Batched pre-warming populates WoW's
-    item cache on first search focus.
+    at query time via HA.GetItemName, so a name that loads later reaches the
+    consumers that listen for it. Batched pre-warming populates WoW's item cache
+    on first search focus.
 
-    Consumers: MapSidePanel (search bar UI + result rendering)
+    Consumers: MapSidePanel (search bar UI + result rendering), the Decor Browser's
+    result page
 ]]
 
 local _, HA = ...
+local L = HA.L
 
 local SearchProvider = {}
 HA.SearchProvider = SearchProvider
@@ -21,10 +24,10 @@ local initialized = false
 local VD  -- VendorData reference, set in Initialize
 local NON_VENDOR_SOURCE_DESCRIPTORS = {
     { tableKey = "QuestSources", type = "quest", nameField = "questName" },
-    { tableKey = "AchievementSources", type = "achievement", nameField = "achievementName" },
-    { tableKey = "ProfessionSources", type = "profession", nameField = "recipeName" },
+    { tableKey = "AchievementSources", type = "achievement", nameField = "achievementName", extraField = "category" },
+    { tableKey = "ProfessionSources", type = "profession", nameField = "recipeName", extraField = "profession" },
     { tableKey = "EventSources", type = "event", nameField = "vendorName" },
-    { tableKey = "DropSources", type = "drop", nameField = "mobName" },
+    { tableKey = "DropSources", type = "drop", nameField = "mobName", extraField = "zone" },
 }
 
 local function ForEachNonVendorSourceItem(callback)
@@ -35,7 +38,7 @@ local function ForEachNonVendorSourceItem(callback)
         if sourceTable then
             for itemID, data in pairs(sourceTable) do
                 if type(itemID) == "number" then
-                    callback(itemID, descriptor.type, descriptor.nameField, data)
+                    callback(itemID, descriptor.type, descriptor.nameField, data, descriptor.extraField)
                 end
             end
         end
@@ -71,7 +74,7 @@ function SearchProvider:GetRevision()
     return indexRevision
 end
 
--- HS-282: dev-only debug accessor for the /hs debug membudget walker.
+-- dev-only debug accessor for the /hs debug membudget walker.
 -- Returns nil if the index hasn't been built yet (lazy -- first search or
 -- side-panel open) so the caller can report "not measurable" instead of a
 -- misleading 0 KB for an index that just hasn't warmed.
@@ -96,7 +99,7 @@ function SearchProvider:PreWarm()
         end
     end
 
-    local allVendors = VD:GetAllVendors()
+    local allVendors = VD:GetAllVendors(true)
     for _, vendor in ipairs(allVendors) do
         local itemIDs = VD:GetMergedItemIDs(vendor)
         if itemIDs then
@@ -131,6 +134,16 @@ end
 -- Index (built lazily on first Search)
 -------------------------------------------------------------------------------
 
+-- Adds a field to match text on its own line, so a query never matches across two fields. A field already
+-- contained in one line adds nothing.
+local function AddLine(text, line)
+    if not line or line == "" then return text end
+    line = line:lower()
+    if text == "" then return line end
+    if text:find(line, 1, true) then return text end
+    return text .. "\n" .. line
+end
+
 local function BuildIndex()
     if searchIndex or not VD then return end
     searchIndex = { vendorItems = {}, sourceItems = {}, decorToItem = {} }
@@ -143,9 +156,10 @@ local function BuildIndex()
     end
 
     -- Vendor → items mapping (names resolved at query time)
-    local allVendors = VD:GetAllVendors()
+    local allVendors = VD:GetAllVendors(true)
+    local VF = HA.VendorFilter
     for _, vendor in ipairs(allVendors) do
-        if vendor.npcID then
+        if vendor.npcID and not VF.IsHiddenOnThisBuild(vendor) then
             local itemIDs = VD:GetMergedItemIDs(vendor)
             local items = {}
             if itemIDs then
@@ -155,18 +169,25 @@ local function BuildIndex()
                     end
                 end
             end
+            -- Both positions' shipped zone and subzone, then the client's names for them.
+            local otherMapID, _, _, otherZone, otherSubzone = VD:GetOtherPosition(vendor)
+            local places = AddLine(AddLine("", vendor.zone), vendor.subzone)
+            places = AddLine(AddLine(places, otherZone), otherSubzone)
+            places = AddLine(places, vendor.mapID and VF.GetMapName(vendor.mapID))
+            places = AddLine(places, vendor.areaID and VF.GetAreaName(vendor.areaID))
+            places = AddLine(places, otherMapID and VF.GetMapName(otherMapID))
             searchIndex.vendorItems[vendor.npcID] = {
                 vendor = vendor,
                 nameLower = (vendor.name or ""):lower(),
-                zoneLower = (vendor.zone or ""):lower(),
-                subzoneLower = (vendor.subzone or ""):lower(),
+                placesLower = places,
                 items = items,
             }
         end
     end
 
     -- Item-first index for non-vendor sources (names resolved lazily at query time)
-    ForEachNonVendorSourceItem(function(itemID, sourceType, nameField, data)
+    local SM = HA.SourceManager
+    ForEachNonVendorSourceItem(function(itemID, sourceType, nameField, data, extraField)
         local entry = searchIndex.sourceItems[itemID]
         if not entry then
             entry = {
@@ -186,6 +207,17 @@ local function BuildIndex()
                     or eventText
             end
         end
+        if extraField then
+            searchText = AddLine(searchText, data[extraField])
+        elseif sourceType == "event" then
+            searchText = AddLine(searchText, L["Holiday event"])
+        elseif sourceType == "quest" and data.questID then
+            -- The quest giver's shipped English name, and the client's name for the quest's map.
+            local starter = SM:GetQuestStarter(data.questID)
+            searchText = AddLine(searchText, starter and starter.name)
+            local mapID = SM:GetQuestMap(data.questID)
+            searchText = AddLine(searchText, mapID and VF.GetMapName(mapID))
+        end
 
         entry.sources[#entry.sources + 1] = {
             type = sourceType,
@@ -201,7 +233,7 @@ local function ResolveIndexedItemName(itemID, entry)
         return entry.itemName, entry.itemNameLower
     end
 
-    local itemName = C_Item.GetItemNameByID(itemID)
+    local itemName = HA.GetItemName(itemID)
     if itemName then
         entry.itemName = itemName
         entry.itemNameLower = itemName:lower()
@@ -220,28 +252,34 @@ function SearchProvider:Search(query, options)
     BuildIndex()
     if not searchIndex then return {} end
 
-    query = query:lower()
+    query = query:match("^%s*(.-)%s*$"):lower()
     local queryNum = tonumber(query)
     local decorItemID = queryNum and searchIndex.decorToItem[queryNum]
     local includeItemResults = type(options) == "table" and options.includeItemResults == true
 
-    -- Respect faction filter setting
+    -- Respect faction filter setting; options.anyFaction lists other-faction vendors whatever it says
     local VF = HA.VendorFilter
     local showOpposite = not VF or VF.ShouldShowOppositeFaction()
+    local anyFaction = type(options) == "table" and options.anyFaction == true
 
     local results = {}
     for npcID, entry in pairs(searchIndex.vendorItems) do repeat
-        -- Skip opposite-faction vendors when setting is off
-        if not showOpposite and VF.IsOppositeFaction(entry.vendor) then break end
+        -- Skip vendors this character can't use at any position when the setting is off
+        if not showOpposite and not anyFaction and not VF.CanUseVendor(entry.vendor) then break end
 
         local matchCount = 0
         local matchType = nil
         local matchedItems = nil  -- set of matched itemIDs (item-level matches only)
 
+        -- The client's name for the vendor too, once the client has given it.
+        if not entry.clientLower then
+            local name = VD:GetVendorName(entry.vendor)
+            entry.clientLower = name ~= entry.vendor.name and name and name:lower() or nil
+        end
+
         -- Vendor / zone / subzone name match
-        if entry.nameLower:find(query, 1, true)
-            or entry.zoneLower:find(query, 1, true)
-            or (entry.subzoneLower ~= "" and entry.subzoneLower:find(query, 1, true)) then
+        if entry.nameLower:find(query, 1, true) or entry.placesLower:find(query, 1, true)
+                or entry.clientLower and entry.clientLower:find(query, 1, true) then
             matchType = "vendor"
             matchCount = #entry.items
         else
@@ -258,7 +296,7 @@ function SearchProvider:Search(query, options)
                 if not matched then
                     -- Resolve name lazily (may have been nil at index time)
                     if not item.nameLower then
-                        local name = C_Item.GetItemNameByID(item.itemID)
+                        local name = HA.GetItemName(item.itemID)
                         if name then item.nameLower = name:lower() end
                     end
                     if item.nameLower and item.nameLower:find(query, 1, true) then
@@ -288,7 +326,7 @@ function SearchProvider:Search(query, options)
     -- Vendor-name matches first, then alphabetical
     table.sort(results, function(a, b)
         if a.matchType ~= b.matchType then return a.matchType == "vendor" end
-        return (a.vendor.name or "") < (b.vendor.name or "")
+        return VD:VendorNameBefore(a.vendor, b.vendor)
     end)
 
     if not includeItemResults then
@@ -369,7 +407,7 @@ function SearchProvider:Search(query, options)
         end
     end
 
-    -- HS-019: group item-first results by source type so the panel can emit
+    -- Group item-first results by source type so the panel can emit
     -- section headers (Profession / Quest / Achievement / Event / Drop) on
     -- sourceType transitions. Alphabetical within each group.
     local SOURCE_TYPE_ORDER = {
@@ -379,7 +417,11 @@ function SearchProvider:Search(query, options)
         local ao = SOURCE_TYPE_ORDER[a.sourceType] or 99
         local bo = SOURCE_TYPE_ORDER[b.sourceType] or 99
         if ao ~= bo then return ao < bo end
-        return (a.itemName or "") < (b.itemName or "")
+        local an, bn = a.itemName or "", b.itemName or ""
+        local ka, kb = HA.NameSortKey(an), HA.NameSortKey(bn)
+        if ka ~= kb then return ka < kb end
+        if an ~= bn then return an < bn end
+        return a.itemID < b.itemID
     end)
 
     for _, itemResult in ipairs(itemResults) do

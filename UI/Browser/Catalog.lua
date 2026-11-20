@@ -19,15 +19,14 @@ local function Group(e)
 end
 
 local Page, ui, orders = {}, {}, {}
-local cat, recs, counts, owns, walk, version, hideFor, judged, bare, bareList, bareVer
+local cat, recs, walk, version, hideFor, judged, named, bareList, bareVer
+local hiddenNote
 local shown = {}
--- What the header box holds, as typed; cat.q is the same words trimmed and lowercased.
-local query = ""
 
 local function NewView(sort)
     local types = {}
     for _, k in ipairs(KEYS) do types[k] = true end
-    return { q = "", kind = "all", coll = true, notColl = true, canGet = false, bonus = false,
+    return { kind = "all", coll = true, notColl = true, canGet = false, bonus = false,
         types = types, sort = sort or "best" }
 end
 
@@ -45,23 +44,12 @@ local function Words(c)
 end
 
 local function BareEntries()
-    if not bare then
-        local seen = {}
-        bare = {}
-        for _, id in pairs(HA.DecorMapping or {}) do
-            if not seen[id] then
-                seen[id] = true
-                bare[#bare + 1] = id
-            end
-        end
-        table.sort(bare)
-    end
     if bareVer == D.MemoVersion() then
         for _, e in ipairs(bareList) do e.name = e.name or D.ItemName(e.itemID, e.info) end
         return bareList
     end
     bareList, bareVer = {}, D.MemoVersion()
-    for i, id in ipairs(bare) do
+    for i, id in ipairs(HA.CatalogStore:GetDecorItemIDs()) do
         local info = D.CatalogInfo(id, B.State.catalogMemo)
         bareList[i] = { itemID = id, info = info, name = D.ItemName(id, info), src = {} }
     end
@@ -69,17 +57,15 @@ local function BareEntries()
 end
 
 local function Rebuild()
-    version, hideFor, judged = D.MemoVersion(), B.State.hideNA, CG.Gen()
+    version, hideFor, judged, named = D.MemoVersion(), B.State.hideNA, CG.Gen(), D.NameGen()
     wipe(orders)
-    counts, owns, recs = {}, {}, {}
+    recs = {}
     for i, e in ipairs(walk and walk.list or BareEntries()) do
-        local r = { kind = "item", id = e.itemID, e = e, lname = e.name and e.name:lower() or "",
+        local r = { kind = "item", id = e.itemID, e = e, lname = e.name and HA.NameSortKey(e.name) or "",
             hasName = e.name ~= nil, cat = KindOf(e.info), bonus = e.bonus,
             done = e.own == "owned", hid = hideFor and (walk and (e.own == "owned" and "collected" or e.factionOnly and "faction" or nil) or not walk and CG.HiddenBy(e.itemID)) or nil }
         r.g = walk and Group(e) or 1
         recs[i] = r
-        counts[r.cat], counts.all = (counts[r.cat] or 0) + 1, (counts.all or 0) + 1
-        if r.done then owns[r.cat], owns.all = (owns[r.cat] or 0) + 1, (owns.all or 0) + 1 end
     end
 end
 
@@ -91,22 +77,13 @@ local function Rejudged()
     judged = CG.Gen()
 end
 
--- The lowest gold-only price at any of the item's vendors: listed sources, then unlisted holiday vendors. The
--- source list changes with the season, but the two together always cover the same vendors, so the cached
--- value holds until the records rebuild.
+-- The lowest gold-only price at any of the item's vendors, holiday vendors in any season, so the cached value
+-- holds until the records rebuild.
 local function Gold(itemID)
-    local low, seen = math.huge, {}
-    local function Take(c)
-        if c and CG.GoldOnly(c) then low = math.min(low, c.gold) end
-    end
+    local low = math.huge
     for _, s in ipairs(HA.SourceManager:GetAllSources(itemID) or {}) do
-        if s.type == "vendor" and s.data then
-            if s.data.npcID then seen[s.data.npcID] = true end
-            Take(D.SourceCost(itemID, s.data))
-        end
-    end
-    for _, npcID in ipairs(B.Facts.EventVendorsFor(itemID) or {}) do
-        if not seen[npcID] then Take(HA.SourceManager:GetVendorItemCost(itemID, B.Facts.EventVendor(npcID))) end
+        local gold = s.type == "vendor" and s.data and CG.LowGold(D.SourceCost(itemID, s.data))
+        if gold then low = math.min(low, gold) end
     end
     return low
 end
@@ -154,7 +131,6 @@ end
 local function Passes(r, c, anyOwn, subset)
     local e = r.e
     if c.kind ~= "all" and r.cat ~= c.kind then return false end
-    if c.q ~= "" and not r.lname:find(c.q, 1, true) then return false end
     if not anyOwn and not ((e.own == "owned" and c.coll) or (e.own == "notOwned" and c.notColl)) then return false end
     if (c.canGet and e.verdict ~= "can") or (c.bonus and not r.bonus) then return false end
     if subset then
@@ -191,49 +167,55 @@ end
 
 local Apply
 
--- Clears the filters and the search, keeping the kind and the sort.
+-- Clears the filters, keeping the kind and the sort.
 local function Reset()
     local kind = cat.kind
     cat = NewView(cat.sort)
-    cat.kind, query = kind, ""
-    B.Window.SetSearch("")
+    cat.kind = kind
     Apply(false)
 end
 
+local function Name(r)
+    return r.e.name or L["Item %d"]:format(r.id)
+end
+
+-- What a tile draws. Its price, source and confirmation are in the tooltip.
 local function Describe(r)
     local d, e, id = r.d, r.e, r.id
     if not d then
-        local sources = D.ItemSources(id)
-        local p = CG.Primary(id, sources)
-        local v = p and p.type == "vendor" and p.npcID and HA.VendorData:GetVendor(p.npcID)
         local active, state, arg = nil, B.ItemState(id)
-        local more = #sources
-        for _, s in ipairs(sources) do if s == p then more = more - 1 end end
         for _, o in pairs(e.canBy or {}) do active = active or o.event end
-        d = { itemID = id, name = e.name or L["Item %d"]:format(id),
-            quality = e.info and e.info.quality or C_Item.GetItemQualityByID(id),
-            icon = e.info and e.info.iconTexture or D.ItemIcon(id), active = active, bonus = r.bonus,
-            right = p and p.price, line2 = D.SourceLine(id, { p }) .. (more > 0 and " " .. L["(+%d more)"]:format(more) or ""),
-            unconfirmed = v and not B.Facts.Confirmed(v) or nil, state = state, arg = arg,
-            onClick = function() B.Go({ kind = "item", id = id }) end }
+        local info = e.info
+        d = { itemID = id, name = Name(r), quality = info and info.quality or C_Item.GetItemQualityByID(id),
+            icon = info and info.iconTexture or D.ItemIcon(id), active = active, bonus = r.bonus,
+            copies = D.Copies(info), state = state, arg = arg }
         r.d = d
     end
     return d
 end
 
-local ITEM = { frameType = W.rowKind.frameType, build = W.rowKind.build,
-    init = function(f, r) f.rec = r f:Set(Describe(r)) end }
-
+-- Over the grid only when the collection is stale, and then just the note; one pixel otherwise.
 local function PaintHead()
-    local k = cat.kind
-    ui.head:SetHeight(W.TextHeight("bodyMuted") + SP.s)
-    ui.head:SetText(walk and L["%d of %d collected"]:format(owns[k] or 0, counts[k] or 0) or L["Counting…"])
+    local stale = select(2, HA.CatalogScanner:GetReadState())
+    ui.head:SetShown(stale)
+    ui.head:SetHeight(stale and W.TextHeight("body") + SP.s or 1)
+    ui.head:SetText(stale and L["Collection not refreshed this session"] or "")
 end
 
 local function PaintLine(words)
     ui.fl:SetShown(words ~= "")
     ui.fl:SetHeight(words ~= "" and W.TextHeight("body") + SP.s or 1)
     ui.fl.text:SetText(L["Filtered: %s"]:format(words) .. " \194\183 " .. S.Colored(K.gold, L["Reset filters"]))
+end
+
+-- The hidden-items line sits between the filter line and the grid, as wide as the filter line: one line's
+-- height, or one pixel when it is not shown.
+local function PaintFixed()
+    local line = ui.hidden
+    line.d = hiddenNote
+    line:SetShown(hiddenNote ~= nil)
+    line:SetHeight(hiddenNote and W.FooterHeight(hiddenNote, math.max(ui.fl:GetWidth(), 1)) or 1)
+    if hiddenNote then W.footerKind.init(line, hiddenNote) end
 end
 
 local function Empty(status, n, hidden, words)
@@ -243,9 +225,7 @@ local function Empty(status, n, hidden, words)
         if kind == "counting" and c.sort == "best" then
             kind, d.onSort = "countingSort", function() ui.sort.Set("name") Apply(false) end
         end
-    elseif n == 0 and not hidden then
-        d.onAll = c.kind ~= "all" and function() B.Go({ kind = "catalog", key = "all", seed = { search = query } }) end or nil
-    else
+    elseif n > 0 or hidden then
         ui.empty:Hide()
         return false
     end
@@ -256,15 +236,15 @@ end
 function Apply(keep)
     local out, n, hc, hf, seen = Filter()
     local words = Words(cat)
-    if hc + hf > 0 then
-        out[n + 1] = { kind = "footer", hidden = hc + hf, collected = hc, faction = hf, parts = B.Facts.FactionParts(seen),
-            onShow = function() B.SetHideNA(false) B.Window.hideNA:SetChecked(false) end }
-    end
-    local empty = Empty(D.CollectionState(), n, hc + hf > 0, words)
-    ui.list:SetShown(not empty)
+    local empty = Empty(HA.CatalogScanner:GetReadState(), n, hc + hf > 0, words)
+    hiddenNote = not empty and hc + hf > 0 and { hidden = hc + hf, collected = hc, faction = hf,
+        parts = B.Facts.FactionParts(seen),
+        onShow = function() B.SetHideNA(false) B.Window.hideNA:SetChecked(false) end } or nil
+    PaintFixed()
+    ui.grid:SetShown(not empty)
     if not empty then
         shown = out
-        ui.list:SetData(out, keep)
+        ui.grid:SetData(out, keep)
     end
     PaintHead()
     PaintLine(words)
@@ -272,6 +252,39 @@ end
 
 local function Changed()
     Apply(false)
+end
+
+-- What a tile's corners mean, each state with the mark it draws.
+local KEY_STATES = {
+    { "owned", L["Collected: it's in your collection"] },
+    { "can", L["Can get now: this character can get it today"] },
+    { "short", L["Not enough: this character can't pay for it yet"] },
+    { "locked", L["Locked: a requirement isn't met yet"] },
+    { "faction", L["Other faction only: this character's faction can't get it"] },
+    { "event", L["Event only: available while its event runs"] },
+}
+
+local function KeyTip(owner)
+    local tip, gold = B.Tooltip(), NORMAL_FONT_COLOR
+    local function Line(text, glyph, c)
+        local mark = glyph and B.Vis.Marker.Markup(glyph, c, 14)
+        tip:AddLine(mark and mark .. " " .. text or text, 1, 1, 1, true)
+    end
+    local function Corner(text) tip:AddLine(text, gold.r, gold.g, gold.b) end
+    tip:SetOwner(owner, "ANCHOR_BOTTOMLEFT")
+    tip:SetText(L["Tile markers"], 1, 1, 1)
+    Corner(L["Top right"])
+    for _, s in ipairs(KEY_STATES) do
+        local st = S.state[s[1]]
+        Line(s[2], st.glyph, st.color)
+    end
+    Corner(L["Top left"])
+    Line(L["First-Time Collection Bonus"], "star", K.gold)
+    Corner(L["Bottom left"])
+    Line(L["Its event is active now"], "clock", K.badge)
+    Corner(L["Bottom right"])
+    Line(L["How many you have collected, placed and stored"])
+    tip:Show()
 end
 
 local function BuildToolbar(bar)
@@ -282,6 +295,18 @@ local function BuildToolbar(bar)
     sort:SetWidth(150)
     filters:SetPoint("RIGHT", sort, "LEFT", -SP.xs, 0)
     filters:SetWidth(100)
+    -- Blizzard's hover-help "i", beside the controls it explains.
+    local help = CreateFrame("Button", nil, bar)
+    help:SetSize(26, 26)
+    help:SetPoint("RIGHT", filters, "LEFT", -SP.xs, 0)
+    help:SetNormalTexture([[Interface\common\help-i]])
+    local glow = help:CreateTexture(nil, "HIGHLIGHT")
+    glow:SetAllPoints()
+    glow:SetTexture([[Interface\common\help-i]])
+    glow:SetBlendMode("ADD")
+    glow:SetVertexColor(1, 1, 1, 0.2)
+    help:SetScript("OnEnter", KeyTip)
+    help:SetScript("OnLeave", B.HideTooltip)
     filters.resizeToText = false
     filters:SetText(L["Filters"])
     filters:SetupMenu(function(_, root)
@@ -332,7 +357,7 @@ function Page:Build(parent)
     local body = W.Well(parent)
     body:SetPoint("TOPLEFT", bar, "BOTTOMLEFT", 0, -SP.xs)
     body:SetPoint("BOTTOMRIGHT")
-    local head = S.Text(body, "bodyMuted", "OVERLAY")
+    local head = S.Text(body, "body", "OVERLAY")
     ui.head = head
     head:SetPoint("TOPLEFT", LO.wellPad, -LO.wellPad)
     head:SetPoint("TOPRIGHT", -LO.wellPad, -LO.wellPad)
@@ -343,65 +368,50 @@ function Page:Build(parent)
     fl:SetPoint("TOPLEFT", head, "BOTTOMLEFT")
     fl:SetPoint("TOPRIGHT", head, "BOTTOMRIGHT")
     fl:SetScript("OnClick", Reset)
-    fl.text = S.Text(fl, "bodyMuted", "OVERLAY")
+    fl.text = S.Text(fl, "body", "OVERLAY")
     fl.text:SetAllPoints()
     fl.text:SetJustifyH("LEFT")
     fl.text:SetWordWrap(false)
+    local hidden = CreateFrame("Frame", nil, body)
+    ui.hidden = hidden
+    hidden:SetPoint("TOPLEFT", fl, "BOTTOMLEFT")
+    hidden:SetPoint("TOPRIGHT", fl, "BOTTOMRIGHT")
+    W.footerKind.build(hidden)
+    fl:SetScript("OnSizeChanged", PaintFixed)
     local holder = CreateFrame("Frame", nil, body)
-    holder:SetPoint("TOPLEFT", fl, "BOTTOMLEFT", -LO.wellPad, 0)
+    holder:SetPoint("TOPLEFT", hidden, "BOTTOMLEFT", 0, -SP.xs)
     holder:SetPoint("BOTTOMRIGHT", -LO.wellPad, LO.wellPad)
-    ui.list = W.NewList(holder, {
-        kinds = { item = ITEM, footer = W.footerKind },
-        extent = function(d)
-            return d.kind == "footer" and W.FooterHeight(d, ui.list.box:GetWidth()) or W.RowHeight()
-        end,
-    })
+    ui.grid = W.NewTileGrid(holder, S.tile.min, S.tile.gap, Describe, Name)
     ui.empty = W.NewEmptyState(holder)
-end
-
-function Page:Placeholder()
-    return L["Search decor"]
 end
 
 -- A forward Show starts from the route's kind and seed, keeping only the sort; Back gives saved.
 function Page:Show(route, saved)
     if saved then
-        cat, query = saved.view, saved.query
+        cat = saved.view
     else
         local seed = route.seed or {}
         local f = seed.filters or {}
         cat = NewView(seed.sort or cat.sort)
-        query = seed.search or ""
-        cat.q = query:lower():match("^%s*(.-)%s*$")
         cat.kind = KIND[route.key] and route.key or "all"
         if f.collected or f.notCollected then cat.coll, cat.notColl = f.collected == true, f.notCollected == true end
         cat.canGet, cat.bonus = f.canGet == true, f.bonus == true
         for k in pairs(cat.types) do cat.types[k] = f.sources == nil or f.sources[k] == true end
     end
-    B.Window.SetSearch(query)
     ui.sort.Set(cat.sort)
-    if not recs or version ~= D.MemoVersion() or hideFor ~= B.State.hideNA then
+    if not recs or version ~= D.MemoVersion() or hideFor ~= B.State.hideNA or named ~= D.NameGen() then
         walk = B.Walk()
         Rebuild()
     elseif judged ~= CG.Gen() then
         Rejudged()
     end
     Apply(false)
-    if saved then ui.list.box:ScrollToOffset(saved.scroll, true) end
+    if saved then ui.grid.box:ScrollToOffset(saved.scroll, true) end
 end
 
 -- A forward Show builds a new view, so the one saved here is never touched again before Back gives it back.
 function Page:Save()
-    return { view = cat, query = query, scroll = ui.list.box:GetDerivedScrollOffset() }
-end
-
--- The header box as the player types; a restore or a seed never gets here.
-function Page:Filter(text)
-    query = text
-    local q = text:lower():match("^%s*(.-)%s*$")
-    if q == cat.q then return end
-    cat.q = q
-    Apply(false)
+    return { view = cat, scroll = ui.grid.box:GetDerivedScrollOffset() }
 end
 
 function Page:Hide()
@@ -416,9 +426,10 @@ function Page:Refresh(reason)
             Fit()
             PaintHead()
             PaintLine(Words(cat))
-            ui.list:SetData(shown, true)
+            PaintFixed()
+            ui.grid:SetData(shown, true)
         end
-        W.RepaintRows(ui.list)
+        W.RepaintRows(ui.grid)
     elseif reason == "zone" or reason == "stats" then
         return
     elseif reason == "wallet" then

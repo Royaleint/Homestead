@@ -6,7 +6,7 @@
 local _, HA = ...
 
 local function RegisterOptions()
-    -- HS-217: this bootstrap runs on its own C_Timer.After(0, ...), independent
+    -- This bootstrap runs on its own C_Timer.After(0, ...), independent
     -- of the Foundry.Lifecycle OnEnable chain (see core.lua's OnEnable gate) —
     -- a DevBuild-collision session would otherwise still reach
     -- OptionsFrame:Initialize() here and throw on the duplicate

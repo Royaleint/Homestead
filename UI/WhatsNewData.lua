@@ -7,6 +7,51 @@
 local _, HA = ...
 
 HA.WhatsNew = {
+    ["2.17.0"] = {
+        title = "Homestead - What's New in v2.17.0!",
+        features = {
+            {
+                atlas = "housing-decor-vendor_32",
+                heading = "Celestine Follows the Dreamsurge",
+                body = "Celestine of the Harvest's pins, side panel entry and waypoint now move with the Dreamsurge to whichever Dragon Isles zone it is in.",
+            },
+            {
+                icon = "Interface\\Icons\\INV_Misc_Coin_01",
+                heading = "Vendor Fixes",
+                body = "Seven more decor items show as locked until you finish their achievement or quest, items with more than one price list each one, and several vendor locations are corrected.",
+            },
+        },
+    },
+    ["2.16.0"] = {
+        title = "Homestead - What's New in v2.16.0!",
+        features = {
+            {
+                atlas = "housing-decor-vendor_32",
+                heading = "Room Plans",
+                body = "Fen Rucket's room plans now count as collected or not collected like other decor, so his search rows, map pins and zone badges show real totals.",
+            },
+            {
+                icon = "Interface\\Icons\\INV_Misc_Coin_01",
+                heading = "Vendor Fixes",
+                body = "Vendors that are retired or not yet released no longer show up in search or item sources, and many decor prices are corrected.",
+            },
+        },
+    },
+    ["2.15.0"] = {
+        title = "Homestead - What's New in v2.15.0!",
+        features = {
+            {
+                icon = "Interface\\Icons\\INV_Misc_Map_01",
+                heading = "Endeavor Vendors",
+                body = "Endeavor and holiday vendors no longer disappear from the map after you visit them, and endeavors are better identified on non-English clients.",
+            },
+            {
+                atlas = "housing-decor-vendor_32",
+                heading = "Krowi's Extended Vendor UI",
+                body = "Added support for Homestead decor ownership markers for those who use Krowi's Extended Vendor UI.",
+            },
+        },
+    },
     ["2.11.0"] = {
         title = "Homestead - What's New in v2.11.0!",
         features = {

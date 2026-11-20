@@ -201,7 +201,7 @@ local function CreateWelcomeFrame()
     tagline:SetPoint("TOP", title, "BOTTOM", -15, -12)
     tagline:SetWidth(CONTENT_WIDTH)
     tagline:SetJustifyH("CENTER")
-    tagline:SetText("|cFFFFD100" .. L["Find every decor vendor on your map and see what you own before you buy."] .. "|r")
+    tagline:SetText("|cFFFFD100" .. L["Find every decor vendor on your map and see what you've collected before you buy."] .. "|r")
 
     -- =========================================================================
     -- Content area
@@ -286,16 +286,15 @@ local function CreateWelcomeFrame()
     local sec2Header = AddHeader(content, bullet3, L["Key Commands"], SECTION_GAP)
 
     local cmd1 = AddCommand(content, sec2Header, "/hs", L["Open the Decor Browser, or bind a key under Keybindings > Homestead"], 6)
-    local cmd2 = AddCommand(content, cmd1, "/hs exportall", L["Export everything you've scanned"])
-    local cmd3 = AddCommand(content, cmd2, "/hs help", L["Show all commands"])
-    local cmd4 = AddCommand(content, cmd3, L["Minimap button"], L["Left-click opens the Decor Browser, right-click opens options"])
+    local cmd2 = AddCommand(content, cmd1, "/hs help", L["Show all commands"])
+    local cmd3 = AddCommand(content, cmd2, L["Minimap button"], L["Left-click opens the Decor Browser, right-click opens options"])
 
     -- =====================================================================
     -- SECTION 3: Found a Problem?
     -- =====================================================================
 
     local sec3Header = content:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
-    sec3Header:SetPoint("TOP", cmd4, "BOTTOM", 0, -(SECTION_GAP + 10))
+    sec3Header:SetPoint("TOP", cmd3, "BOTTOM", 0, -(SECTION_GAP + 10))
     sec3Header:SetWidth(CONTENT_WIDTH)
     sec3Header:SetJustifyH("CENTER")
     sec3Header:SetText("|cFFFFD100" .. L["Found a Problem?"] .. "|r")
@@ -355,7 +354,7 @@ function WelcomeFrame:Hide()
     if welcomeFrame then
         welcomeFrame:Hide()
         if HA.Addon and HA.Addon.db then
-            -- HS-219: read the checkbox at close time (mirrors WhatsNewFrame's
+            -- Read the checkbox at close time (mirrors WhatsNewFrame's
             -- OnHide) instead of unconditionally marking it seen. Every close
             -- path (X button, Escape, "Let's Decorate!") funnels through this
             -- one Hide(), so this is the single authoritative point. An
@@ -364,9 +363,9 @@ function WelcomeFrame:Hide()
             if welcomeFrame.dontShowCheck and welcomeFrame.dontShowCheck:GetChecked() then
                 HA.Addon.db.global[SV_KEY] = true
             end
-            -- HS-224 (product decision, 2026-07-19): closing the
+            -- As of 2026-07-19, closing the
             -- Welcome screen no longer stamps lastSeenVersion. The old stamp
-            -- silently consumed What's New for the version. With the HS-219
+            -- silently consumed What's New for the version. With the
             -- stacking gate, that meant acknowledging Welcome ate the What's
             -- New popup entirely. Now What's New auto-shows on the next login
             -- after the Welcome is out of the way, exactly what the gate was
@@ -387,7 +386,7 @@ function WelcomeFrame:Toggle()
     end
 end
 
--- HS-219: lets WhatsNewFrame's onboarding stacking gate ask "is Welcome
+-- lets WhatsNewFrame's onboarding stacking gate ask "is Welcome
 -- already up" without reaching into this module's private welcomeFrame local.
 function WelcomeFrame:IsShown()
     return welcomeFrame ~= nil and welcomeFrame:IsShown()

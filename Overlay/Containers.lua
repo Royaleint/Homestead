@@ -110,15 +110,11 @@ local function IsBankBagID(bagID)
         or bagID == bagIndex.AccountBankTab_5
 end
 
-local function IsContextEnabled(button, isBankButton)
+local function IsContextEnabled(button)
     local profile = HA.Addon and HA.Addon.db and HA.Addon.db.profile
     local settings = profile and profile.overlay
     if not settings or not settings.enabled then
         return false
-    end
-
-    if isBankButton then
-        return settings.showOnBank
     end
 
     local bagID = GetButtonBagID(button)
@@ -167,7 +163,7 @@ local function IsLikelyItemButton(frame)
     return false
 end
 
--- HS-204(e): hoisted to file scope + a reused result table (CatalogOverlay's
+-- hoisted to file scope + a reused result table (CatalogOverlay's
 -- ProcessChildren pattern) instead of allocating a fresh {buttons, seen} pair
 -- plus two closures every call. HookContainerFrame (the only caller) reads
 -- the result synchronously within the same call and never retains it, so
@@ -228,7 +224,7 @@ local function UpdateContainerButton(button)
 
     if not overlay then return end
 
-    -- HS-283: the single choke point every update path funnels through
+    -- The single choke point every update path funnels through
     -- (HookContainerFrame's already-hooked branch, the hook-time immediate
     -- paint above via Overlay:AddToFrame, and UpdateAllContainerOverlays) --
     -- skip the context/item-link/catalog-probe work for a currently-invisible
@@ -325,37 +321,6 @@ local function ScheduleHookAllContainers()
 end
 
 -------------------------------------------------------------------------------
--- Bank Frame Hooking
--------------------------------------------------------------------------------
-
-local function HookBankFrame()
-    -- Hook bank slots when bank opens
-    -- Note: Bank UI structure may vary, this is a general approach
-
-    local bankFrame = BankFrame
-    if not bankFrame then return end
-
-    -- Hook bank item buttons
-    for i = 1, NUM_BANKGENERIC_SLOTS or 28 do
-        local button = _G["BankFrameItem" .. i]
-        if button and not button.HousingAddonHooked then
-            Overlay:AddToFrame(button, function(overlay)
-                if not IsContextEnabled(button, true) then
-                    Overlay:ClearIcon(overlay)
-                    return
-                end
-
-                local itemLink = C_Container.GetContainerItemLink(BANK_CONTAINER, i)
-                SetInventoryHomestone(overlay, itemLink)
-            end)
-            button.HousingAddonHooked = true -- luacheck: ignore 122
-        end
-    end
-
-    HA.Addon:Debug("Bank frame hooked")
-end
-
--------------------------------------------------------------------------------
 -- Update Functions
 -------------------------------------------------------------------------------
 
@@ -369,7 +334,7 @@ end
 -- Event Handlers
 -------------------------------------------------------------------------------
 
--- HS-283: true if any bag container frame is currently shown. Checks exactly
+-- true if any bag container frame is currently shown. Checks exactly
 -- the same frame universe HookAllContainers() hooks from (combined bags +
 -- every frame in ContainerFrameContainer.ContainerFrames, which also covers
 -- bank/reagent bank/warband bank tabs -- confirmed via Blizzard UI source,
@@ -396,25 +361,24 @@ local function IsAnyContainerFrameVisible()
 end
 
 local function OnBagUpdate()
-    -- HS-283: skip the traversal entirely when nothing is open -- the
+    -- Skip the traversal entirely when nothing is open -- the
     -- per-loot-event cost this event previously paid unconditionally.
     if not IsAnyContainerFrameVisible() then
         return
     end
 
     -- Frames can be rebuilt dynamically; re-scan hook targets then refresh.
-    -- HS-283: no separate UpdateAllContainerOverlays() call here anymore --
+    -- No separate UpdateAllContainerOverlays() call here anymore --
     -- HookAllContainers()'s own traversal (HookContainerFrame's else-branch,
     -- for already-hooked buttons) already updates every currently-collected
     -- button on this pass; a second full pass over containerButtons was a
     -- pure duplicate for this call site. OnBankOpened() and the
     -- ToggleBag/OpenAllBags/ToggleAllBags hooksecurefunc sites are
-    -- deliberately left untouched -- see the plan's design notes.
+    -- deliberately left untouched.
     HookAllContainers()
 end
 
 local function OnBankOpened()
-    HookBankFrame()
     UpdateAllContainerOverlays()
 end
 
@@ -423,7 +387,7 @@ end
 -------------------------------------------------------------------------------
 
 local function Initialize()
-    -- Register callbacks. Ownership rule (HS-209): this module OWNS the "bags"
+    -- Register callbacks. Ownership rule: this module OWNS the "bags"
     -- update type — requested from core.lua's OnBagUpdate (BAG_UPDATE_DELAYED)
     -- and consumed here. Overlay/overlay.lua deliberately registers no "bags"
     -- callback; cross-surface repaints arrive via "all"/OWNERSHIP_UPDATED.
@@ -448,7 +412,7 @@ local function Initialize()
         hooksecurefunc("ToggleAllBags", ScheduleHookAllContainers)
     end
 
-    -- HS-283 (review finding): ToggleBackpack (combined-bags mode) and
+    -- ToggleBackpack (combined-bags mode) and
     -- OpenAllBagsMatchingContext (the item-upgrade/keystone/soulbinds
     -- auto-open) both bypass the three hooks above, routing through OpenBag
     -- directly (ContainerFrame.lua:272) -- without this hook, a bag opened

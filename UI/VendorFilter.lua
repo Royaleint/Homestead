@@ -6,7 +6,7 @@
     Stateless utility functions for vendor visibility, faction checks,
     coordinate resolution, and settings queries.
 
-    Reusable by VendorMapPins, VendorTracer, ExportImport, etc.
+    Reusable by VendorMapPins, VendorTracer, etc.
 ]]
 
 local _, HA = ...
@@ -66,8 +66,21 @@ function VendorFilter.GetBestVendorCoordinates(vendor)
         return nil, nil, nil
     end
 
+    -- A vendor following a moving event: its tracked spot, else its shipped
+    -- row. Never the scan, and never the passed copy, which may be older
+    -- than the last move.
+    local tracker = HA.DreamsurgeTracker
+    local tracked = tracker and vendor.npcID == tracker.NPC_ID
+    if tracked then
+        local mapID, x, y = tracker:GetEffectiveLocation(vendor.npcID)
+        if mapID then
+            return {x = x, y = y}, mapID, "static"
+        end
+        vendor = HA.VendorIdentity and HA.VendorIdentity:GetVendor(vendor.npcID) or vendor
+    end
+
     -- First check scanned vendor data (uses old coords format)
-    if HA.Addon and HA.Addon.db and HA.Addon.db.global.scannedVendors then
+    if not tracked and HA.Addon and HA.Addon.db and HA.Addon.db.global.scannedVendors then
         local scannedData = HA.Addon.db.global.scannedVendors[vendor.npcID]
         if scannedData and scannedData.coords then
             local scannedX = scannedData.coords.x
@@ -78,7 +91,9 @@ function VendorFilter.GetBestVendorCoordinates(vendor)
             -- For endeavor vendors, skip scan data from a different mapID — it may
             -- be stale from a previous neighborhood rotation. Vendors with a second
             -- position stand in two maps, so a scan on one never moves the other.
-            local scanMapMismatch = (vendor.endeavor or vendor.altMapID) and scannedMapID ~= vendor.mapID
+            -- A scan in the other neighborhood hub belongs to that hub's NPC ID.
+            local scanMapMismatch = ((vendor.endeavor or vendor.altMapID) and scannedMapID ~= vendor.mapID)
+                or HA.Constants.IsScanInOtherNeighborhoodHub(vendor.mapID, scannedMapID)
             if VendorFilter.AreValidCoordinates(scannedX, scannedY) and scannedMapID
                     and not scanMapMismatch then
                 -- Debug output
@@ -119,11 +134,11 @@ end
 -- Vendor Visibility Filters
 -------------------------------------------------------------------------------
 
--- HS-245: the client build that ships the vendors currently flagged
+-- the client build that ships the vendors currently flagged
 -- `unreleased`. This serves ONE batch at a time — it is a floor, not a match,
 -- so raising it for a later patch would stop revealing today's rows rather than
 -- adding to them. A second batch targeting a different build needs the per-row
--- target field in HS-246, not a bump here. When 12.1 ships, clear the data flags.
+-- target field, not a bump here. When 12.1 ships, clear the data flags.
 local UNRELEASED_CONTENT_INTERFACE = 120100  -- 12.1
 
 -- The build cannot change mid-session, so read it once.
@@ -147,6 +162,29 @@ function VendorFilter.ShouldRevealUnreleasedVendors()
         and CLIENT_INTERFACE >= UNRELEASED_CONTENT_INTERFACE
 end
 
+-- True when the vendor is retired, or not out yet and not being revealed this
+-- session. Shared by the pin filter and by every list that names vendors (search,
+-- item sources, closest-vendor picks), so a hidden vendor shows up nowhere.
+function VendorFilter.IsHiddenOnThisBuild(vendor)
+    if not vendor then return false end
+    if vendor.removed then return true end
+    if vendor.unreleased and not VendorFilter.ShouldRevealUnreleasedVendors() then
+        return true
+    end
+    return false
+end
+
+-- A scan confirmed the vendor sells no decor. Static vendors are never dropped (a noDecorVendors entry for
+-- a known vendor is a false positive), and holiday vendors skip this.
+function VendorFilter.IsConfirmedNoDecor(vendor)
+    if not vendor or vendor._isEventVendor or not vendor.npcID then return false end
+    local db = HA.Addon and HA.Addon.db and HA.Addon.db.global
+    local entry = db and db.noDecorVendors and db.noDecorVendors[vendor.npcID]
+    -- Only trust confirmed entries (guards against corrupted SVs)
+    if not (entry and entry.scanConfidence == "confirmed") then return false end
+    return not (HA.VendorData and HA.VendorData:HasVendor(vendor.npcID))
+end
+
 -- Check if a vendor should be hidden from all pin displays
 -- Returns true if vendor should be hidden (removed, unreleased, or scanned with no decor)
 function VendorFilter.ShouldHideVendor(vendor)
@@ -162,49 +200,36 @@ function VendorFilter.ShouldHideVendor(vendor)
         return not VendorFilter.ShouldShowEventVendors()
     end
 
-    if vendor.unreleased and not VendorFilter.ShouldRevealUnreleasedVendors() then
+    if VendorFilter.IsHiddenOnThisBuild(vendor) then
         return true
     end
 
-    local npcID = vendor.npcID
-    if not npcID then return false end
-
-    local db = HA.Addon and HA.Addon.db and HA.Addon.db.global
-    if not db then return false end
-
     -- Persistent no-decor list (survives ClearScannedData)
-    if db.noDecorVendors and db.noDecorVendors[npcID] then
-        local data = db.noDecorVendors[npcID]
-        -- Defensive: only trust confirmed entries (guards against corrupted SVs)
-        if data.scanConfidence == "confirmed" then
-            -- Never hide vendors that exist in static databases.
-            -- A noDecorVendors entry for a known vendor is a false positive.
-            if HA.VendorData and HA.VendorData:HasVendor(npcID) then
-                return false
-            end
-            return true
-        end
-    end
-
-    return false
+    return VendorFilter.IsConfirmedNoDecor(vendor)
 end
 
 -------------------------------------------------------------------------------
 -- Faction Checks
 -------------------------------------------------------------------------------
 
--- Resolve effective faction for a vendor: explicit field first, then zone map fallback.
-function VendorFilter.GetEffectiveFaction(vendor)
+-- The faction a vendor serves at a position on mapID: its own faction, or for a
+-- Neutral vendor the faction of the zone it stands in. nil serves everyone.
+local function PositionFaction(vendor, mapID)
     local f = vendor.faction
     if f and f ~= "Neutral" then return f end
-    if vendor.mapID then
-        return HA.Constants.ZoneToFactionMap[vendor.mapID]
+    if mapID then
+        return HA.Constants.ZoneToFactionMap[mapID]
     end
+end
+
+-- Resolve effective faction for a vendor: explicit field first, then zone map fallback.
+local function GetEffectiveFaction(vendor)
+    return PositionFaction(vendor, vendor.mapID)
 end
 
 -- Check if vendor is accessible to player's faction
 function VendorFilter.CanAccessVendor(vendor)
-    local faction = VendorFilter.GetEffectiveFaction(vendor)
+    local faction = GetEffectiveFaction(vendor)
     if not faction then return true end
     local playerFaction = UnitFactionGroup("player")
     return faction == playerFaction
@@ -212,10 +237,111 @@ end
 
 -- Check if vendor is opposite faction (not neutral, not player's faction)
 function VendorFilter.IsOppositeFaction(vendor)
-    local faction = VendorFilter.GetEffectiveFaction(vendor)
+    local faction = GetEffectiveFaction(vendor)
     if not faction then return false end
     local playerFaction = UnitFactionGroup("player")
     return faction ~= playerFaction
+end
+
+-- CanAccessVendor and IsOppositeFaction judge the one position a map pin stands
+-- for. This judges the vendor as a whole: whether this character can use it at
+-- any of its positions, its own and VendorData:GetOtherPosition's. When it
+-- can't, it also returns the faction each position serves (the second only
+-- when it differs from the first). For a vendor with one position the verdict
+-- is CanAccessVendor's.
+function VendorFilter.CanUseVendor(vendor)
+    local playerFaction = UnitFactionGroup("player")
+    local faction = PositionFaction(vendor, vendor.mapID)
+    if not faction or faction == playerFaction then return true end
+    local otherMapID = HA.VendorData:GetOtherPosition(vendor)
+    if not otherMapID then return false, faction end
+    local other = PositionFaction(vendor, otherMapID)
+    if not other or other == playerFaction then return true end
+    return false, faction, other ~= faction and other or nil
+end
+
+-- Where this character should go for the vendor, in GetBestVendorCoordinates'
+-- shape: a position it can use, the nearer one when it can use both, and the
+-- vendor's own position when it can use neither.
+function VendorFilter.GetUsableVendorCoordinates(vendor)
+    local coords, mapID, source = VendorFilter.GetBestVendorCoordinates(vendor)
+    local VD = HA.VendorData
+    local otherMapID, otherX, otherY = VD:GetOtherPosition(vendor)
+    if not (otherMapID and VendorFilter.AreValidCoordinates(otherX, otherY)) then
+        return coords, mapID, source
+    end
+    local playerFaction = UnitFactionGroup("player")
+    local other = PositionFaction(vendor, otherMapID)
+    if other and other ~= playerFaction then return coords, mapID, source end
+    local own = PositionFaction(vendor, vendor.mapID)
+    if coords and (not own or own == playerFaction)
+            and not VD:IsSecondPositionNearer(mapID, coords.x, coords.y, otherMapID, otherX, otherY) then
+        return coords, mapID, source
+    end
+    return { x = otherX, y = otherY }, otherMapID, "static"
+end
+
+-- Where a waypoint to the vendor goes, as mapID, x, y: the position given (the
+-- clicked pin's) when this character can use it, else the one
+-- GetUsableVendorCoordinates picks.
+function VendorFilter.GetVendorWaypoint(vendor)
+    local own = PositionFaction(vendor, vendor.mapID)
+    if own and own ~= UnitFactionGroup("player") and HA.VendorData:GetOtherPosition(vendor) then
+        local coords, mapID = VendorFilter.GetUsableVendorCoordinates(vendor)
+        if coords then return mapID, coords.x, coords.y end
+    end
+    local x, y = VendorFilter.GetVendorXY(vendor)
+    return vendor.mapID, x, y
+end
+
+-- The map, zone, subzone and area ID of the position GetUsableVendorCoordinates
+-- picks. A vendor with one position answers with its own fields.
+function VendorFilter.GetUsableVendorPlace(vendor)
+    local otherMapID, _, _, zone, subzone, areaID = HA.VendorData:GetOtherPosition(vendor)
+    if otherMapID and select(2, VendorFilter.GetUsableVendorCoordinates(vendor)) == otherMapID then
+        return otherMapID, zone, subzone, areaID
+    end
+    return vendor.mapID, vendor.zone, vendor.subzone, vendor.areaID
+end
+
+-- The client's names for the position GetUsableVendorPlace picks, in the
+-- player's language: mapID, zone (the map's name) and subzone (the area's
+-- name). Each falls back to the shipped text when the client has no name or the
+-- position has no area ID; an area name that only repeats the zone is the zone-level
+-- area row, so the shipped subzone stays.
+local mapNames, areaNames = {}, {}
+
+-- The client's name for a map, or nil when it has none.
+function VendorFilter.GetMapName(mapID)
+    local name = mapNames[mapID]
+    if name == nil then
+        local info = C_Map.GetMapInfo(mapID)
+        name = info and info.name or false
+        mapNames[mapID] = name
+    end
+    return name or nil
+end
+
+-- The client's name for an area, or nil when it has none.
+function VendorFilter.GetAreaName(areaID)
+    local name = areaNames[areaID]
+    if name == nil then
+        name = C_Map.GetAreaInfo(areaID) or false
+        areaNames[areaID] = name
+    end
+    return name or nil
+end
+
+function VendorFilter.GetVendorPlaceNames(vendor)
+    local mapID, zone, subzone, areaID = VendorFilter.GetUsableVendorPlace(vendor)
+    if mapID then
+        zone = VendorFilter.GetMapName(mapID) or zone
+    end
+    if areaID then
+        local name = VendorFilter.GetAreaName(areaID)
+        if name and name ~= zone then subzone = name end
+    end
+    return mapID, zone, subzone
 end
 
 -------------------------------------------------------------------------------
@@ -239,7 +365,7 @@ function VendorFilter.ShouldShowEventVendors()
     return true  -- Default to showing
 end
 
--- Get the setting for hiding fully-collected vendor pins (HS-022)
+-- Get the setting for hiding fully-collected vendor pins
 function VendorFilter.ShouldHideCompletedVendorPins()
     if HA.Addon and HA.Addon.db and HA.Addon.db.profile.vendorTracer then
         return HA.Addon.db.profile.vendorTracer.hideCompletedVendorPins == true
@@ -253,16 +379,16 @@ function VendorFilter.IsEventVendor(vendor)
 end
 
 -------------------------------------------------------------------------------
--- Map Pin Completion Gate (HS-022)
+-- Map Pin Completion Gate
 -------------------------------------------------------------------------------
 
 -- Map-pin-only completion gate: true only when the setting is on AND the
 -- vendor is confirmed fully collected. Unknown/nil completion always shows
--- (same fail-direction discipline as the HS-313 endeavour gate) so a vendor
+-- (same fail-direction discipline as the endeavour gate) so a vendor
 -- never disappears because its collection state couldn't be determined.
 --
 -- Deliberately separate from ShouldHideVendor: that gate is reused by
--- non-map callers (VendorTracer, ExportImport) which must not inherit
+-- non-map callers (VendorTracer) which must not inherit
 -- completion-hiding.
 function VendorFilter.ShouldHideCompletedVendorPin(vendor, sourceFilter)
     if not VendorFilter.ShouldHideCompletedVendorPins() then return false end

@@ -455,7 +455,7 @@ local function CreateSettingsPanel()
 end
 
 function OptionsFrame:Initialize()
-    -- HS-217: mirrors the gate in UI/Options.lua's RegisterOptions bootstrap —
+    -- Mirrors the gate in UI/Options.lua's RegisterOptions bootstrap —
     -- kept here too since Open()/Toggle() also call Initialize() directly,
     -- outside that bootstrap.
     if HA.__collisionStandDown then
@@ -483,7 +483,7 @@ function OptionsFrame:Initialize()
 end
 
 function OptionsFrame:Open(sectionKey)
-    -- HS-217: in a collision stand-down session Initialize()
+    -- In a collision stand-down session Initialize()
     -- returns with `frame` still nil — Open must no-op cleanly, not index nil.
     if HA.__collisionStandDown then return end
     self:Initialize()

@@ -3,7 +3,7 @@
     Zone, continent, and portal badge emission — pure renderState producers,
     no frame contact.
 
-    Extracted from VendorMapPins.lua (HS-301 cut #2) to reduce file size.
+    Extracted from VendorMapPins.lua to reduce file size.
     Badge counts and collection status come from BadgeCalculation; coordinate
     projection comes from MapPinProvider. This module only appends entries to
     a caller-supplied renderState table.
@@ -50,7 +50,7 @@ function BadgeEmission:EmitPortalBadges(mapID, renderState)
     for _, vendor in ipairs(allVendors) do
         local portal = vendor.portal
         if portal and portal.mapID == mapID then
-            -- HS-022: a hidden vendor must not leave an orphaned portal badge.
+            -- A hidden vendor must not leave an orphaned portal badge.
             if not VF.ShouldHideVendor(vendor) and not VF.ShouldHideCompletedVendorPin(vendor, sourceFilter) then
                 renderState.portalBadges[#renderState.portalBadges + 1] = {
                     portalData = { vendor = vendor },

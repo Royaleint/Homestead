@@ -58,7 +58,7 @@ local function ApplyPosition()
     -- No ClearAllPoints: SetPoint("CENTER", ...) overwrites the single existing CENTER
     -- anchor. This keeps the button collector-safe -- MinimapButtonBag-style addons grab
     -- the button and neutralize its SetPoint; without a ClearAllPoints our update becomes a
-    -- harmless no-op instead of unanchoring the button (matches LibDBIcon/ATT behavior).
+    -- harmless no-op instead of unanchoring the button (matches LibDBIcon behavior).
     button:SetPoint("CENTER", Minimap, "CENTER", math.floor(x + 0.5), math.floor(y + 0.5))
 end
 

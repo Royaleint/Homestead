@@ -2,13 +2,12 @@
     RUNTIME SOURCE OF TRUTH for who a vendor is and where they are. This file
     and VendorOffers.lua are what the addon actually reads; Data/VendorDatabase.lua
     is a build-time seed that is not in any .toc and never loads. Fix identity
-    problems here, not there (HS-370).
+    problems here, not there.
 
     Homestead - VendorIdentity
     Generated vendor identity, location, lifecycle, and alias data.
 
-    GENERATED: do not hand-edit. Regenerate with:
-        node Home_Dev/scripts/generate-vendor-identity.mjs --write
+    GENERATED: do not hand-edit.
 ]]
 
 local _, HA = ...
@@ -32,7 +31,6 @@ VendorIdentity.Aliases = {
     [116305] = 89939,
     [120897] = 252969,
     [120899] = 253387,
-    [127151] = 125346,
     [135447] = 106902,
     [138223] = 252345,
     [142115] = 45417,
@@ -42,7 +40,6 @@ VendorIdentity.Aliases = {
     [177774] = 162804,
     [179482] = 174710,
     [231012] = 255222,
-    [248854] = 253596,
     [253283] = 242723,
     [253284] = 242725,
     [253285] = 240838,
@@ -81,8 +78,8 @@ VendorIdentity.Vendors = {
         x = 0.441,
         y = 0.397,
         zone = "Silverpine Forest",
-        subzone = "Pyrewood Village",
-        areaID = 204,
+        subzone = "The Sepulcher",
+        areaID = 228,
         faction = "Horde",
         expansion = "Classic",
     },
@@ -336,15 +333,6 @@ VendorIdentity.Vendors = {
         faction = "Neutral",
         expansion = "Mists of Pandaria",
     },
-    [62032] = {
-        name = "Sage Lotusbloom",
-        mapID = 390,
-        x = 0.628,
-        y = 0.232,
-        zone = "Shrine of Two Moons",
-        faction = "Horde",
-        expansion = "Mists of Pandaria",
-    },
     [62088] = {
         name = "Lali the Assistant",
         mapID = 390,
@@ -356,6 +344,15 @@ VendorIdentity.Vendors = {
         faction = "Neutral",
         expansion = "Events",
         scanConfirmed = "2026-07-06",
+    },
+    [64001] = {
+        name = "Sage Lotusbloom",
+        mapID = 390,
+        x = 0.628,
+        y = 0.232,
+        zone = "Shrine of Two Moons",
+        faction = "Horde",
+        expansion = "Mists of Pandaria",
     },
     [64032] = {
         name = "Sage Whiteheart",
@@ -372,8 +369,8 @@ VendorIdentity.Vendors = {
         x = 0.822,
         y = 0.294,
         zone = "Vale of Eternal Blossoms",
-        subzone = "Mogushan Palace",
-        areaID = 6143,
+        subzone = "Seat of Knowledge",
+        areaID = 6295,
         faction = "Neutral",
         expansion = "Mists of Pandaria",
     },
@@ -604,15 +601,15 @@ VendorIdentity.Vendors = {
     },
     [93550] = {
         name = "Quartermaster Ozorg",
-        mapID = 646,
-        x = 0.9762,
-        y = 0.5593,
-        zone = "Broken Shore",
-        subzone = "Acherus: The Ebon Hold (DK Order Hall)",
-        areaID = 4281,
+        mapID = 647,
+        x = 0.445,
+        y = 0.383,
+        zone = "Acherus: The Ebon Hold",
+        subzone = "The Heart of Acherus",
+        areaID = 7679,
         faction = "Neutral",
         expansion = "Legion",
-        notes = "Death Knight only — enter via class spell Death Gate (usable from anywhere). Pin marks the Dalaran Order Hall portal entrance.",
+        notes = "Death Knight only: enter via class spell Death Gate (usable from anywhere).",
     },
     [93971] = {
         name = "Leyweaver Inondra",
@@ -644,7 +641,7 @@ VendorIdentity.Vendors = {
         areaID = 7638,
         faction = "Neutral",
         expansion = "Legion",
-        notes = "Paladin only — enter via portal in Dalaran.",
+        notes = "Paladin only: enter via portal in Dalaran.",
         class = "PALADIN",
         portal = { mapID = 627, x = 0.325, y = 0.689 },
         badgeMapID = 627,
@@ -657,7 +654,7 @@ VendorIdentity.Vendors = {
         zone = "Trueshot Lodge",
         faction = "Neutral",
         expansion = "Legion",
-        notes = "Hunter only — talk to Talua in Dalaran to fly to Trueshot Lodge.",
+        notes = "Hunter only: talk to Talua in Dalaran to fly to Trueshot Lodge.",
         class = "HUNTER",
         portal = { mapID = 627, x = 0.72, y = 0.403 },
         badgeMapID = 627,
@@ -682,7 +679,7 @@ VendorIdentity.Vendors = {
         subzone = "Den of Thieves",
         faction = "Neutral",
         expansion = "Legion",
-        notes = "Rogue only — enter via pipe entrance in Dalaran.",
+        notes = "Rogue only: enter via pipe entrance in Dalaran.",
         class = "ROGUE",
         portal = { mapID = 627, x = 0.467, y = 0.264 },
         badgeMapID = 627,
@@ -750,7 +747,7 @@ VendorIdentity.Vendors = {
         areaID = 7753,
         faction = "Neutral",
         expansion = "Legion",
-        notes = "Shaman only — enter via portal in Dalaran.",
+        notes = "Shaman only: enter via portal in Dalaran.",
         class = "SHAMAN",
         portal = { mapID = 627, x = 0.683, y = 0.502 },
         badgeMapID = 627,
@@ -763,7 +760,7 @@ VendorIdentity.Vendors = {
         zone = "The Dreamgrove",
         faction = "Neutral",
         expansion = "Legion",
-        notes = "Druid only — enter via class spell Dreamwalk (usable from anywhere).",
+        notes = "Druid only: enter via class spell Dreamwalk (usable from anywhere).",
     },
     [112338] = {
         name = "Caydori Brightstar",
@@ -775,7 +772,7 @@ VendorIdentity.Vendors = {
         areaID = 7911,
         faction = "Neutral",
         expansion = "Legion",
-        notes = "Monk only — enter via class spell Zen Pilgrimage (usable from anywhere).",
+        notes = "Monk only: enter via class spell Zen Pilgrimage (usable from anywhere).",
         class = "MONK",
         scanConfirmed = "2026-07-06",
         portal = { mapID = 627, x = 0.523, y = 0.567 },
@@ -789,7 +786,7 @@ VendorIdentity.Vendors = {
         zone = "Skyhold",
         faction = "Neutral",
         expansion = "Legion",
-        notes = "Warrior only — enter via portal in Dalaran.",
+        notes = "Warrior only: enter via portal in Dalaran.",
         class = "WARRIOR",
         portal = { mapID = 627, x = 0.754, y = 0.4738 },
         badgeMapID = 627,
@@ -802,7 +799,7 @@ VendorIdentity.Vendors = {
         zone = "Netherlight Temple",
         faction = "Neutral",
         expansion = "Legion",
-        notes = "Priest only — enter via portal in Dalaran.",
+        notes = "Priest only: enter via portal in Dalaran.",
         class = "PRIEST",
         portal = { mapID = 627, x = 0.391, y = 0.572 },
         badgeMapID = 627,
@@ -817,7 +814,7 @@ VendorIdentity.Vendors = {
         areaID = 8023,
         faction = "Neutral",
         expansion = "Legion",
-        notes = "Demon Hunter only — enter via portal at the eastern edge of Dalaran.",
+        notes = "Demon Hunter only: enter via portal at the eastern edge of Dalaran.",
         class = "DEMONHUNTER",
         portal = { mapID = 627, x = 0.924, y = 0.642 },
         badgeMapID = 627,
@@ -830,7 +827,7 @@ VendorIdentity.Vendors = {
         zone = "Dreadscar Rift",
         faction = "Neutral",
         expansion = "Legion",
-        notes = "Warlock only — enter via portal in the Dalaran Underbelly.",
+        notes = "Warlock only: enter via portal in the Dalaran Underbelly.",
         class = "WARLOCK",
         portal = { mapID = 628, x = 0.273, y = 0.438 },
         badgeMapID = 628,
@@ -843,7 +840,7 @@ VendorIdentity.Vendors = {
         zone = "Hall of the Guardian",
         faction = "Neutral",
         expansion = "Legion",
-        notes = "Mage only — enter via class spell Teleport: Hall of the Guardian.",
+        notes = "Mage only: enter via class spell Teleport: Hall of the Guardian.",
         class = "MAGE",
         portal = { mapID = 627, x = 0.286, y = 0.524 },
         badgeMapID = 627,
@@ -856,7 +853,7 @@ VendorIdentity.Vendors = {
         zone = "Val'sharah",
         faction = "Neutral",
         expansion = "Legion",
-        notes = "Patrols the road through Lorlathil — coordinates may vary.",
+        notes = "Patrols the road through Lorlathil, so coordinates may vary.",
     },
     [112716] = {
         name = "Rasil Fireborne",
@@ -880,7 +877,19 @@ VendorIdentity.Vendors = {
         faction = "Neutral",
         expansion = "Classic",
     },
-    [125346] = {
+    [127120] = {
+        name = "Vindicator Jaelaana",
+        mapID = 831,
+        x = 0.4343,
+        y = 0.7439,
+        zone = "The Vindicaar",
+        subzone = "The Vindicaar",
+        areaID = 8714,
+        faction = "Neutral",
+        expansion = "Legion",
+        scanConfirmed = "2026-10-12",
+    },
+    [127151] = {
         name = "Toraan the Revered",
         mapID = 831,
         x = 0.682,
@@ -891,22 +900,14 @@ VendorIdentity.Vendors = {
         faction = "Neutral",
         expansion = "Legion",
     },
-    [127120] = {
-        name = "Vindicator Jaelaana",
-        mapID = 831,
-        x = 0.4343,
-        y = 0.7439,
-        zone = "The Vindicaar",
-        faction = "Neutral",
-        expansion = "Legion",
-        scanConfirmed = "2026-10-12",
-    },
     [127518] = {
         name = "Adjutant Vortus",
         mapID = 831,
         x = 0.3301,
         y = 0.6546,
         zone = "The Vindicaar",
+        subzone = "The Vindicaar",
+        areaID = 8714,
         faction = "Neutral",
         expansion = "Legion",
         scanConfirmed = "2026-10-12",
@@ -944,6 +945,18 @@ VendorIdentity.Vendors = {
         faction = "Alliance",
         expansion = "Battle for Azeroth",
         scanConfirmed = "2026-03-15",
+    },
+    [143244] = {
+        name = "Victor Esquivias",
+        mapID = 1161,
+        x = 0.7394,
+        y = 0.1262,
+        zone = "Boralus",
+        subzone = "Snug Harbor Inn",
+        faction = "Alliance",
+        expansion = "Battle for Azeroth",
+        notes = "Walks a route through Boralus, returning to this spot before setting off again.",
+        scanConfirmed = "2026-11-02",
     },
     [143325] = {
         name = "Jeni",
@@ -993,8 +1006,8 @@ VendorIdentity.Vendors = {
         x = 0.512,
         y = 0.952,
         zone = "Dazar'alor",
-        subzone = "Grand Bazaar",
-        areaID = 8666,
+        subzone = "Port of Zandalar",
+        areaID = 8665,
         faction = "Horde",
         expansion = "Battle for Azeroth",
     },
@@ -1127,6 +1140,16 @@ VendorIdentity.Vendors = {
         expansion = "Dragonflight",
         scanConfirmed = "2026-03-08",
     },
+    [188623] = {
+        name = "Samia Inkling",
+        mapID = 2022,
+        x = 0.247,
+        y = 0.5679,
+        zone = "The Waking Shores",
+        faction = "Neutral",
+        expansion = "Dragonflight",
+        scanConfirmed = "2026-11-02",
+    },
     [189226] = {
         name = "Cataloger Jakes",
         mapID = 2022,
@@ -1222,14 +1245,15 @@ VendorIdentity.Vendors = {
     },
     [210608] = {
         name = "Celestine of the Harvest",
-        mapID = 2025,
-        x = 0.512,
-        y = 0.432,
+        mapID = 2023,
+        x = 0.642,
+        y = 0.417,
         zone = "Dragon Isles",
         subzone = "Dreamsurge (Rotating)",
         faction = "Neutral",
         expansion = "Events",
         notes = "Location is not static, she moves with the dreamsurge event",
+        scanConfirmed = "2026-11-08",
     },
     [211065] = {
         name = "Marie Allen",
@@ -1389,8 +1413,8 @@ VendorIdentity.Vendors = {
         x = 0.632,
         y = 0.168,
         zone = "Undermine",
-        subzone = "Blackwater Marina",
-        areaID = 15461,
+        subzone = "Port Authority",
+        areaID = 15454,
         faction = "Neutral",
         expansion = "The War Within",
         scanConfirmed = "2026-10-10",
@@ -1412,8 +1436,8 @@ VendorIdentity.Vendors = {
         x = 0.532,
         y = 0.726,
         zone = "Undermine",
-        subzone = "The Heaps",
-        areaID = 15351,
+        subzone = "Venture Plaza",
+        areaID = 15455,
         faction = "Neutral",
         expansion = "The War Within",
         scanConfirmed = "2026-10-10",
@@ -1424,8 +1448,8 @@ VendorIdentity.Vendors = {
         x = 0.272,
         y = 0.724,
         zone = "Undermine",
-        subzone = "The Vatworks",
-        areaID = 15350,
+        subzone = "Steamwheedle Laboratories",
+        areaID = 15456,
         faction = "Neutral",
         expansion = "The War Within",
         scanConfirmed = "2026-10-10",
@@ -1465,8 +1489,8 @@ VendorIdentity.Vendors = {
         x = 0.433,
         y = 0.519,
         zone = "Liberation of Undermine",
-        subzone = "Incontinental Hotel",
-        areaID = 15388,
+        subzone = "The Incontinental Hotel",
+        areaID = 15646,
         faction = "Neutral",
         expansion = "The War Within",
     },
@@ -1661,6 +1685,16 @@ VendorIdentity.Vendors = {
         expansion = "Midnight",
         scanConfirmed = "2026-03-22",
     },
+    [248854] = {
+        name = "The Last Architect",
+        mapID = 2352,
+        x = 0.5271,
+        y = 0.3751,
+        zone = "Founder's Point",
+        faction = "Alliance",
+        expansion = "The War Within",
+        scanConfirmed = "2026-11-01",
+    },
     [249196] = {
         name = "Materialist Ophinell",
         mapID = 241,
@@ -1815,8 +1849,8 @@ VendorIdentity.Vendors = {
         x = 0.338,
         y = 0.083,
         zone = "Darkshore",
-        subzone = "Teldrassil",
-        areaID = 141,
+        subzone = "Rut'theran Village",
+        areaID = 702,
         faction = "Alliance",
         expansion = "Classic",
     },
@@ -1973,8 +2007,9 @@ VendorIdentity.Vendors = {
         x = 0.538,
         y = 0.574,
         zone = "Razorwind Shores",
-        faction = "Neutral",
+        faction = "Horde",
         expansion = "The War Within",
+        scanConfirmed = "2026-11-08",
     },
     [254603] = {
         name = "Riica",
@@ -2019,7 +2054,7 @@ VendorIdentity.Vendors = {
         areaID = 16183,
         faction = "Neutral",
         expansion = "Midnight",
-        scanConfirmed = "2026-10-10",
+        scanConfirmed = "2026-11-02",
     },
     [255101] = {
         name = "Mynde",
@@ -2242,7 +2277,7 @@ VendorIdentity.Vendors = {
         zone = "Silvermoon City",
         faction = "Neutral",
         expansion = "Midnight",
-        notes = "Profession achievement vendor — items require specific profession achievements.",
+        notes = "Profession achievement vendor. Items require specific profession achievements.",
     },
     [256071] = {
         name = "Solelo",
@@ -2293,6 +2328,7 @@ VendorIdentity.Vendors = {
         y = 0.5804,
         zone = "Razorwind Shores",
         expansion = "Midnight",
+        unreleased = true,
         scanConfirmed = "2026-08-11",
     },
     [256826] = {
@@ -2323,7 +2359,8 @@ VendorIdentity.Vendors = {
         x = 0.704,
         y = 0.574,
         zone = "Talador",
-        subzone = "Refuge",
+        subzone = "Terokkar Refuge",
+        areaID = 6933,
         faction = "Neutral",
         expansion = "Warlords of Draenor",
     },
@@ -2482,7 +2519,8 @@ VendorIdentity.Vendors = {
         x = 0.4858,
         y = 0.6895,
         zone = "Stormwind",
-        subzone = "Near Trading Post",
+        subzone = "Lion's Rest",
+        areaID = 8411,
         faction = "Alliance",
         expansion = "Classic",
         scanConfirmed = "2026-04-22",
@@ -2493,7 +2531,8 @@ VendorIdentity.Vendors = {
         x = 0.483,
         y = 0.811,
         zone = "Orgrimmar",
-        subzone = "Near Trading Post",
+        subzone = "Valley of Strength",
+        areaID = 5170,
         faction = "Horde",
         expansion = "Classic",
         scanConfirmed = "2026-04-22",
@@ -2503,7 +2542,7 @@ VendorIdentity.Vendors = {
         mapID = 2351,
         zone = "Razorwind Shores",
         expansion = "Midnight",
-        unreleased = true,
+        removed = true,
     },
     [262880] = {
         name = "Er'inye",
@@ -2745,6 +2784,16 @@ VendorIdentity.Vendors = {
         expansion = "Midnight",
         scanConfirmed = "2026-10-12",
     },
+    [276366] = {
+        name = "Amani Representative",
+        mapID = 2393,
+        x = 0.3947,
+        y = 0.8009,
+        zone = "Silvermoon City",
+        faction = "Neutral",
+        expansion = "Midnight",
+        scanConfirmed = "2026-11-01",
+    },
 }
 
 VendorIdentity.ZoneToContinentMap = (HA.Constants and HA.Constants.ZoneToContinentMap) or {}
@@ -2782,7 +2831,7 @@ function VendorIdentity:BuildIndexes()
     for npcID, vendor in pairs(self.Vendors) do
         indexVendor(npcID, vendor)
     end
-    -- Staged additions (Data/VendorStagedAdditions.lua, pipeline-owned) join
+    -- Staged additions (Data/VendorStagedAdditions.lua, generation-owned) join
     -- the indexes unless a baseline row already owns the npcID.
     for npcID, vendor in pairs(self.StagedAdditions or {}) do
         if not self.Vendors[npcID] then
@@ -2825,7 +2874,7 @@ function VendorIdentity:GetVendorsByMapID(mapID)
     local npcIDs = self.ByMapID and self.ByMapID[mapID]
     local result = {}
     for _, npcID in ipairs(npcIDs or {}) do
-        -- HS-217: BuildIndexes indexes StagedAdditions-only vendors into
+        -- BuildIndexes indexes StagedAdditions-only vendors into
         -- ByMapID too, but this lookup was checking self.Vendors alone —
         -- staged-only vendors indexed fine and then dropped silently here.
         -- Mirrors GetVendor's fallback exactly.
@@ -2849,7 +2898,7 @@ function VendorIdentity:GetVendorsByExpansion(expansion)
     if not npcIDs then return {} end
     local result = {}
     for _, npcID in ipairs(npcIDs) do
-        -- HS-217: same StagedAdditions fallback as GetVendorsByMapID above.
+        -- Same StagedAdditions fallback as GetVendorsByMapID above.
         local vendor = self.Vendors[npcID] or (self.StagedAdditions and self.StagedAdditions[npcID])
         if vendor then result[#result + 1] = vendor end
     end

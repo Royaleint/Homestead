@@ -28,15 +28,15 @@ read_globals = {
     "error", "pcall", "rawget", "rawset", "setmetatable", "getmetatable",
     "issecretvalue", -- Midnight combat-secrecy probe
     "GetBuildInfo",
+    "GetAchievementCategory", "GetCategoryInfo", "GetCategoryList",
+    "IsPublicTestClient", -- cost-evidence environment (retail/ptr)
 
     -- WoW constants
     "BANK_CONTAINER",
     "MERCHANT_ITEMS_PER_PAGE",
-    "NUM_BANKGENERIC_SLOTS",
 
     -- WoW frames/UI
     "BackdropTemplateMixin",
-    "BankFrame",
     "ChatFontNormal",
     "ContainerFrameCombinedBags", "ContainerFrameContainer",
     "CreateFrame", "CreateFont", "CreateVector2D",
@@ -44,7 +44,7 @@ read_globals = {
     "CreateDataProvider",
     "CreateFromMixins",
     "CreateScrollBoxListLinearView", "CreateScrollBoxListGridView",
-    "CreateColor", "CreateAnchor",
+    "CreateColor", "CreateAnchor", "CreateAtlasMarkup",
     "CreateFramePool", "CreateUnsecuredRegionPoolInstance",
     "EventRegistry",
     "FrameUtil", "TextSizeManager",
@@ -58,6 +58,7 @@ read_globals = {
     "CAMERA_TRANSITION_TYPE_IMMEDIATE", "CAMERA_MODIFICATION_TYPE_DISCARD",
     "NORMAL_FONT_COLOR", "Item",
     "ItemRefTooltip", "HandleModifiedItemClick", "IsModifiedClick",
+    "SetItemRef", "LinkUtil", "LinkTypes", "PlayerIsTimerunning", "HousingDashboardFrame",
     "MerchantFrame", "MerchantFrameTab1", "MerchantFrameTab2",
     "MerchantNextPageButton", "MerchantPrevPageButton",
     "InterfaceOptions_AddCategory",
@@ -76,6 +77,7 @@ read_globals = {
     "NineSliceUtil",
     "PixelUtil",
     "PlaySound",
+    "OpenWorldMap",
     "WorldMapFrame",
     -- Templates
     "BackdropTemplate",
@@ -93,6 +95,7 @@ read_globals = {
     "C_DateAndTime",
     "C_DateInfo",
     "C_EncounterJournal",  -- EJ-anchored drop pins
+    "EJ_GetEncounterInfo",  -- drop group names
     "C_GossipInfo",
     "C_Housing",
     "C_AreaPoiInfo",
@@ -127,6 +130,7 @@ read_globals = {
     "GetSubZoneText",
     "GetScreenWidth", "GetScreenHeight",
     "GetRealmName",
+    "GetServerTime",
     "GetTime",
     "HideUIPanel",
     "InCombatLockdown",
@@ -147,6 +151,7 @@ read_globals = {
 
     -- Optional external addons
     "Baganator",
+    "KrowiEVU",
     "TomTom",
 }
 
@@ -162,13 +167,8 @@ ignore = {"21[23]"}  -- Ace3 callback patterns
 exclude_files = {
     "Libs/",
     ".worktrees/",
-    "Home_Dev/plans/",
-    "Home_Dev/reports/",
-    "Home_Dev/scan-data/",
-    "Home_Dev/Homestead_Dev/",
-    "Home_Dev/.claude/reports/",
-    "Home_Dev/scripts/templates/",
-    "Home_Dev/scripts/verify-handynotes-export.lua",
+    ".claude/reports/",
+    "Home_Dev/",
 }
 
 -- Game globals the enUS locale reads for its own labels, with a literal fallback.
@@ -176,7 +176,9 @@ files["Locale/enUS.lua"] = {
     read_globals = {
         "GENERAL", "CLOSE", "MINIMAP_LABEL", "BLIZZARD_STORE", "WORLDMAP_BUTTON",
         "SHIFT_KEY_TEXT", "ALT_KEY_TEXT", "CTRL_KEY_TEXT", "HOUSING_DASHBOARD_ENDEAVOR",
-        "BROWSE_NO_RESULTS", "FACTION_ALLIANCE", "FACTION_HORDE",
+        "BROWSE_NO_RESULTS", "FACTION_ALLIANCE", "FACTION_HORDE", "WORLD_MAP",
         "HOUSING_CATALOG_FILTERS_FIRST_ACQUISITION", "HOUSING_DECOR_FIRST_ACQUISITION_AVAILABLE",
+        "ZONE_COLON", "LOCATION_COLON", "CRITERIA_COMPLETED", "INCOMPLETE",
+        "ACCOUNT_QUEST_LABEL",
     },
 }

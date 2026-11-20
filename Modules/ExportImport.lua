@@ -1,6 +1,12 @@
 --[[
     Homestead - Export Module
-    Allows users to export scanned vendor data for community sharing
+    Exports scanned vendor data as text
+
+    Dev-only: never listed in Homestead.toc and excluded from the
+    packaged zip (.pkgmeta); the DevBuild TOC loads it. It registers its own
+    slash commands at PLAYER_LOGIN, after core.lua's OnInitialize has created
+    HousingAddon.commands (see Core/DevMemoryDiagnostics.lua). /hs clearscans
+    stays in core.lua because players still clear their own scan data.
 ]]
 
 local _, HA = ...
@@ -146,6 +152,141 @@ local function FormatCostData(currencies, itemCosts)
     return table.concat(parts, ",")
 end
 
+-------------------------------------------------------------------------------
+-- Cost evidence records (costEvidenceFormatVersion 1)
+-- G: one item's frozen rows from one listing observation. Identity fields
+--    are the original ones; nothing here is re-dated at export.
+-- S: the mutable status of that observation for that item, keyed by the
+--    same identity. A status change re-exports S without changing G.
+-- Empty field = unknown (never zero or false). Text fields escape % , ; : |
+-- and whitespace delimiters as %XX.
+-------------------------------------------------------------------------------
+
+local function EscapeEvidenceText(value)
+    return (tostring(value):gsub("[%%,;:|\t\n\r]", function(c)
+        return string.format("%%%02X", c:byte())
+    end))
+end
+
+local function EvidenceField(value)
+    if value == nil then return "" end
+    if type(value) == "boolean" then return tostring(value) end
+    if type(value) == "number" then
+        if value ~= value or value == math.huge or value == -math.huge or value ~= math.floor(value) then
+            error("unrepresentable evidence number")
+        end
+        return string.format("%d", value)
+    end
+    return EscapeEvidenceText(value)
+end
+
+local function EvidenceRow(row)
+    local components = {}
+    for i, component in ipairs(row.components or {}) do
+        components[i] = table.concat({
+            EvidenceField(component.kind), EvidenceField(component.id),
+            EvidenceField(component.amount), EvidenceField(component.kind == "unknown" and component.name or nil),
+        }, ":")
+    end
+    return table.concat({
+        EvidenceField(row.slot), EvidenceField(row.itemID), EvidenceField(row.price),
+        EvidenceField(row.quantity), EvidenceField(row.extended), EvidenceField(row.costCount),
+        EvidenceField(row.purchasable), EvidenceField(row.usable), EvidenceField(row.complete),
+        table.concat(components, "|"),
+    }, ",")
+end
+
+local function EvidenceIdentity(group)
+    return {
+        EvidenceField(group.origin), EvidenceField(group.context), EvidenceField(group.vendor),
+        EvidenceField(group.serial), EvidenceField(group.epoch),
+    }
+end
+
+local function EvidenceLines(witness, status, out)
+    local group, coverage = witness.group, witness.coverage
+    local identity = EvidenceIdentity(group)
+    local rows = {}
+    for i, row in ipairs(witness.rows) do rows[i] = EvidenceRow(row) end
+    local fields = {"G", "1"}
+    for _, value in ipairs(identity) do fields[#fields + 1] = value end
+    for _, value in ipairs({
+        EvidenceField(group.build), EvidenceField(group.environment), EvidenceField(group.locale),
+        EvidenceField(group.mapID), EvidenceField(coverage.total), EvidenceField(coverage.capped),
+        EvidenceField(coverage.coherent), EvidenceField(coverage.complete), EvidenceField(coverage.reason),
+        EvidenceField(witness.itemID), table.concat(rows, ";"),
+    }) do
+        fields[#fields + 1] = value
+    end
+    out[#out + 1] = table.concat(fields, "\t") .. "\n"
+
+    local statusFields = {"S", "1"}
+    for _, value in ipairs(identity) do statusFields[#statusFields + 1] = value end
+    statusFields[#statusFields + 1] = EvidenceField(witness.itemID)
+    statusFields[#statusFields + 1] = status
+    out[#out + 1] = table.concat(statusFields, "\t") .. "\n"
+end
+
+-- A witness holding a value the format cannot carry is held, not dropped:
+-- an S record with status "malformed: <reason>" under its original identity
+-- when that identity itself is representable. Returns that S line or nil.
+local function HeldWitnessLine(witness, reason)
+    local ok, line = pcall(function()
+        local fields = {"S", "1"}
+        for _, value in ipairs(EvidenceIdentity(witness.group)) do fields[#fields + 1] = value end
+        fields[#fields + 1] = EvidenceField(witness.itemID)
+        fields[#fields + 1] = EvidenceField("malformed: " .. reason)
+        return table.concat(fields, "\t") .. "\n"
+    end)
+    return ok and line or nil
+end
+
+-- G/S lines for retained evidence changed after cursor (all when exportAll).
+-- Returns lines, entry count and the held witnesses ({npcID, itemID, reason}).
+-- One unrepresentable witness is held alone; the rest still export.
+local function BuildCostEvidenceLines(evidence, cursor, exportAll)
+    local out, count, held = {}, 0, {}
+    local npcIDs = {}
+    for npcID in pairs(evidence or {}) do npcIDs[#npcIDs + 1] = npcID end
+    table.sort(npcIDs)
+    for _, npcID in ipairs(npcIDs) do
+        local itemIDs = {}
+        for itemID in pairs(evidence[npcID]) do itemIDs[#itemIDs + 1] = itemID end
+        table.sort(itemIDs)
+        for _, itemID in ipairs(itemIDs) do
+            local entry = evidence[npcID][itemID]
+            if exportAll or (entry.changed or 0) > cursor then
+                count = count + 1
+                local witnesses = {}
+                if entry.selected and entry.selected.witness then
+                    witnesses[#witnesses + 1] = {entry.selected.witness, "selected"}
+                end
+                for _, witness in pairs(entry.unresolved or {}) do
+                    witnesses[#witnesses + 1] = {witness, "unresolved"}
+                end
+                table.sort(witnesses, function(a, b)
+                    if a[1].observedAt ~= b[1].observedAt then
+                        return (a[1].observedAt or 0) < (b[1].observedAt or 0)
+                    end
+                    return (a[1].group.serial or 0) < (b[1].group.serial or 0)
+                end)
+                for _, pair in ipairs(witnesses) do
+                    local lines = {}
+                    local ok, err = pcall(EvidenceLines, pair[1], pair[2], lines)
+                    if ok then
+                        for _, line in ipairs(lines) do out[#out + 1] = line end
+                    else
+                        local reason = tostring(err):gsub("^.-:%d+: ", "")
+                        held[#held + 1] = {npcID = npcID, itemID = itemID, reason = reason}
+                        out[#out + 1] = HeldWitnessLine(pair[1], reason)
+                    end
+                end
+            end
+        end
+    end
+    return out, count, held
+end
+
 -- Sanitize string fields for tab-delimited export
 -- Replaces tabs, newlines, carriage returns with spaces (lossy but safe)
 local function SanitizeExportField(value)
@@ -231,17 +372,17 @@ local function IsDelistCandidate(vendor, npcID)
         return false
     end
 
-    -- HS-250: ask whether the last scan found any HOUSING item, not whether it
+    -- ask whether the last scan found any HOUSING item, not whether it
     -- found decor. A vendor selling only room plans, dyes or customizations
     -- scans successfully and captures items, but lastScanHadDecor is false for
     -- it — correctly, since it sells no decor. Reading that as "this vendor had
     -- nothing" emitted a delist row and suppressed every item row below, so the
-    -- stock we had just captured never reached the pipeline while the pipeline
+    -- stock we had just captured never reached the export while the export
     -- was told to consider retiring the vendor.
     --
     -- Records saved before lastScanHadHousing existed fall back to the decor
     -- flag, which on those records IS the housing answer: decor was the only
-    -- subclass the pre-HS-249 capture gate could see.
+    -- subclass the earlier capture gate could see.
     local hadHousing = vendor.lastScanHadHousing
     if hadHousing == nil then
         hadHousing = vendor.lastScanHadDecor
@@ -255,18 +396,33 @@ local function IsDelistCandidate(vendor, npcID)
 end
 
 -- Export scanned vendor data
--- fullExport: include vendors already in VendorDatabase
--- exportAll: bypass timestamp filter (export everything scanned)
+-- fullExport: unused; kept for the existing call sites
+-- exportAll: bypass both the vendor timestamp filter and the cost-evidence
+-- cursor (export everything scanned and every retained cost claim)
 function ExportImport:ExportScannedVendors(fullExport, exportAll)
     if not HA.Addon or not HA.Addon.db then
         HA.Addon:Print("Database not available.")
         return
     end
 
-    local data = HA.Addon.db.global.scannedVendors
-    if not data or not next(data) then
+    local global = HA.Addon.db.global
+    local data = global.scannedVendors or {}
+    local evidence = global.vendorCostEvidence
+    local counters = global.costEvidenceCounters
+    if not next(data) and not (evidence and next(evidence)) then
         HA.Addon:Print("No scanned vendor data to export. Visit some vendors first!")
         return
+    end
+
+    -- Cost evidence has its own cursor over the merge serial, independent
+    -- of lastScanned and lastExportTimestamp.
+    local evidenceCursor = counters and counters.exportCursor or 0
+    local evidenceSnapshot = counters and counters.mergeSerial or 0
+    local okEvidence, evidenceLines, evidenceCount, heldWitnesses = pcall(BuildCostEvidenceLines,
+        evidence, evidenceCursor, exportAll)
+    if not okEvidence then
+        HA.Addon:Print("Cost evidence could not be exported; it stays queued for the next export.")
+        evidenceLines, evidenceCount = {}, 0
     end
 
     -- Get last export timestamp for differential exports
@@ -283,23 +439,26 @@ function ExportImport:ExportScannedVendors(fullExport, exportAll)
 
     table.insert(output, EXPORT_PREFIX .. "\n")
     table.insert(output, "# exportFormatVersion: 3\n")
-    -- Client build stamps every export so the data pipeline reads the live
+    -- Client build stamps every export so the importer reads the live
     -- build from scans instead of external checkouts that lag hotfix builds.
     local clientVersion, clientBuild = GetBuildInfo()
     if clientVersion and clientBuild then
         table.insert(output, "# clientBuild: " .. clientVersion .. "." .. clientBuild .. "\n")
     end
-    -- HS-251 Stage C: housingCount appended at the END of the row. This is
+    -- housingCount is appended at the END of the row. This is
     -- positional TSV and other columns are indexed by position downstream, so
     -- a mid-row insert would break every existing consumer; append-only is
     -- the only safe way to extend it.
     table.insert(output, "# V: npcID\tname\tmapID\tx\ty\tfaction\ttimestamp\titemCount\tdecorCount\tzone\tsubZone\trealZone\tparentMapID\tcontinentMapID\texpansion\tcurrency\tmapChain\tscanConfidence\thousingCount\n")
-    -- HS-285: subclassID appended at the END of the row, same append-only
-    -- rule HS-251 Stage C established for the V-row's housingCount — this is
+    -- subclassID appended at the END of the row, same append-only
+    -- rule used for the V-row's housingCount — this is
     -- positional TSV and other columns are indexed by position downstream, so
     -- a mid-row insert would break every existing consumer.
     table.insert(output, "# I: npcID\titemID\tname\tprice\tcostData\tisUsable\tisPurchasable\tspellID\trequirements\tdecorID\tmerchantSlot\thasExtendedCost\tsubclassID\n")
     table.insert(output, "# D: npcID\tname\tmapID\tx\ty\tzone\ttimestamp (vendor in DB but scanned with 0 housing items)\n")
+    table.insert(output, "# costEvidenceFormatVersion: 1\n")
+    table.insert(output, "# G: version\torigin\tcontext\tvendor\tserial\tobservedAt\tbuild\tenvironment\tlocale\tmapID\ttotal\tcapped\tcoherent\tcomplete\treason\titemID\trows (slot,itemID,price,quantity,extended,costCount,purchasable,usable,complete,kind:id:amount:name|...;...)\n")
+    table.insert(output, "# S: version\torigin\tcontext\tvendor\tserial\tobservedAt\titemID\tstatus\n")
 
     -- Collect and sort npcIDs for deterministic output
     local sortedNPCs = {}
@@ -323,7 +482,7 @@ function ExportImport:ExportScannedVendors(fullExport, exportAll)
         -- Handle vendors with no decor items
         if shouldProcess and IsDelistCandidate(vendor, npcID) then
             -- Vendor is in our DB but scanned with 0 housing items — flag for
-            -- review. HS-250: housing-wide, not decor-only; a vendor selling
+            -- review. housing-wide, not decor-only; a vendor selling
             -- only room plans or dyes is stock, not an empty vendor.
             shouldProcess = false
             skipReason = "delist"
@@ -380,7 +539,7 @@ function ExportImport:ExportScannedVendors(fullExport, exportAll)
                 SanitizeExportField(vendor.currency or ""),
                 (vendor.mapChain and #vendor.mapChain > 0) and table.concat(vendor.mapChain, ";") or "",
                 tostring(vendor.scanConfidence or "unknown"),
-                -- HS-251 Stage C: a housing-only (non-decor) vendor's total stock was
+                -- A housing-only (non-decor) vendor's total stock was
                 -- invisible to anything reading only V-rows, since this column used
                 -- to be decorCount's job alone. Same fallback idiom decorCount already
                 -- uses: pre-housing-gate records have no housingCount, and decorCount
@@ -434,6 +593,13 @@ function ExportImport:ExportScannedVendors(fullExport, exportAll)
         end
     end
 
+    for _, line in ipairs(evidenceLines) do
+        table.insert(output, line)
+    end
+    if evidenceCount > 0 then
+        hasReportData = true
+    end
+
     -- Export source summary comments (primary-only categorization, one bucket per unique item).
     local uniqueItemCount = 0
     for _ in pairs(exportedUniqueItems) do
@@ -469,6 +635,13 @@ function ExportImport:ExportScannedVendors(fullExport, exportAll)
         skipMsg = skipMsg .. string.format(" [%d flagged for delist - in DB but 0 housing items]", delistedCount)
     end
 
+    for _, held in ipairs(okEvidence and heldWitnesses or {}) do
+        HA.Addon:Print(string.format("Cost evidence for NPC %s item %s held, not exported: %s",
+            tostring(held.npcID), tostring(held.itemID), held.reason))
+    end
+    if evidenceCount > 0 then
+        skipMsg = skipMsg .. string.format(" [%d item cost record(s)]", evidenceCount)
+    end
     if exportAll then
         HA.Addon:Print(string.format("Export ALL: %d vendors, %d items.%s", vendorCount, itemCount, skipMsg))
     else
@@ -491,6 +664,12 @@ function ExportImport:ExportScannedVendors(fullExport, exportAll)
                 HA.Addon:Print(line)
             end
         end
+
+        -- Presented: the evidence included up to this snapshot is exported.
+        -- Merges after the snapshot stay above the cursor.
+        if okEvidence and counters and evidenceSnapshot > counters.exportCursor then
+            counters.exportCursor = evidenceSnapshot
+        end
     else
         HA.Addon:Print("Nothing new to export. All scanned data is already exported or has no decor items.")
     end
@@ -510,18 +689,27 @@ function ExportImport:ClearScannedData()
 end
 
 -------------------------------------------------------------------------------
--- Slash Command Integration
--------------------------------------------------------------------------------
-
--- These get registered in core.lua:
--- /hs export - shows export dialog
--- /hs exportall - exports all scanned data (bypasses timestamp filter)
--- /hs clearscans - clears all scanned vendor data
-
--------------------------------------------------------------------------------
 -- Module Registration
 -------------------------------------------------------------------------------
 
 if HA.Addon then
     HA.Addon:RegisterModule("ExportImport", ExportImport)
+end
+
+-- Skipped when loaded without the game client (the offline test harness).
+if HA.Addon and CreateFrame then
+    local exportFrame = CreateFrame("Frame")
+    exportFrame:RegisterEvent("PLAYER_LOGIN")
+    exportFrame:SetScript("OnEvent", function()
+        local cmd = HA.Addon.commands
+        cmd:Register({ name = "export",
+            help = "Show the export dialog.",
+            handler = function() ExportImport:ShowExportDialog() end })
+        cmd:Register({ name = "export full",
+            help = "Export all scanned vendors.",
+            handler = function() ExportImport:ExportScannedVendors(true, false) end })
+        cmd:Register({ name = "exportall",
+            help = "Export ALL, bypassing the timestamp filter.",
+            handler = function() ExportImport:ExportScannedVendors(true, true) end })
+    end)
 end

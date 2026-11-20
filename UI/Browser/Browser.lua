@@ -3,8 +3,8 @@
 -- Page contract: Show(route, saved) gets saved only on Back. Hide tears down transient state, resets render
 -- keys and keeps the route. Refresh may follow Hide without Show (UI restore) and must restore what Hide tore
 -- down. Optional page hooks: Has(route) (a gone target falls back to its list home on Go, is dropped from Back,
--- and replaces the route with no history step on Refresh), Filter(text) and Placeholder(route) for list pages
--- (Filter is never called for a restore).
+-- and replaces the route with no history step on Refresh) and Closed() (the Browser hid, whatever page was up). The
+-- header box belongs to the search page (Search.lua).
 -- A route may carry list, the route it sits over (a vendor card over its list). Moving between a route and its
 -- list, or between two routes over one list, on one page hides nothing and leaves the header box alone. Such a
 -- page defines ListOf(route) (stored on the route as Transition runs; Resolved and GoNow's swap check run earlier
@@ -118,7 +118,7 @@ local asked = false
 local function AskAccount()
     if not asked and B.CanGet.NeedAccount() then
         asked = true
-        C_CurrencyInfo.RequestCurrencyDataForAccountCharacters()
+        HA.SourceManager:RequestOtherCharacterCurrencies()
     end
 end
 
@@ -149,9 +149,7 @@ local function Transition(route, saved)
     Win.SetBack(#history > 0)
     Win.SetCrumb(B.Home(route))
     page:Show(route, saved, keep)
-    Win.SetPlaceholder(page.Placeholder and page:Placeholder(route))
     Win.SelectNav(route)
-    Win.UpdateCount()
     page:SetCombat(State.inCombat)
     AskAccount()
     return keep
@@ -197,10 +195,12 @@ function B.GoTop(route)
     Traced(route, GoNow, true)
 end
 
+-- False when there was nothing to go back to.
 function B.Back()
     local entry
     repeat entry = table.remove(history) until not entry or not Gone(entry[1])
     if entry then Traced(entry[1], Transition, entry[2]) else Win.SetBack(false) end
+    return entry ~= nil
 end
 
 local function Replace(route)
@@ -236,7 +236,7 @@ function B.SetHideNA(on)
     if page then page:Refresh("hide") end
 end
 
--- Pending refresh: stale (walk out of date), names (item names arrived), wallet (money, a currency or a bag
+-- Pending refresh: stale (walk out of date), names (item or creature names arrived), wallet (money, a currency or a bag
 -- changed: judge again, no walk), walletPaint (account data arrived: draw again), plain (any other request),
 -- prewarm (a data change or a name may ask for the vendor-count fill; a fill-only repaint must not, or fill and
 -- repaint loop).
@@ -262,7 +262,6 @@ local function Repaint(reason)
         if not (at.list and kept) then return end
     end
     Current():Refresh(reason)
-    Win.UpdateCount()
     AskAccount()
 end
 
@@ -322,6 +321,7 @@ local function BuildCallbacks()
             end
         end,
         stats = function() if Shown() then B.RequestRefresh(true) end end,
+        names = function() names = true B.RequestRefresh() end,
     }
     textScaleOwner = {}
 end
@@ -348,8 +348,7 @@ local function OnEvent(_, event, arg1, arg2)
         B.RequestRefresh(true, false, true)
     elseif event == "CURRENCY_DISPLAY_UPDATE" then
         -- A nil currencyType could be any currency.
-        local cur = B.CanGet.wallet.cur
-        if arg1 == nil and next(cur) ~= nil or cur[arg1] ~= nil then
+        if B.CanGet.HasReadCurrency(arg1) then
             wallet = true
             B.RequestRefresh(true, false, true)
         end
@@ -372,6 +371,7 @@ local function OnShow()
     for _, name in ipairs(DATA_EVENTS) do HA.Events:RegisterCallback(name, callbacks.data) end
     HA.Events:RegisterCallback("VENDOR_SCANNED", callbacks.scan)
     HA.Events:RegisterCallback("HS_VENDOR_STATS_WARMED", callbacks.stats)
+    HA.Events:RegisterCallback("NPC_NAMES_ARRIVED", callbacks.names)
     HA.Events:RegisterCallback("SOURCE_CACHES_INVALIDATED", B.CanGet.ResetFactionOnly)
     B.CanGet.ResetFactionOnly()
     for _, name in ipairs(GAME_EVENTS) do events:RegisterEvent(name) end
@@ -389,13 +389,16 @@ local function OnHide()
     for _, name in ipairs(DATA_EVENTS) do HA.Events:UnregisterCallback(name, callbacks.data) end
     HA.Events:UnregisterCallback("VENDOR_SCANNED", callbacks.scan)
     HA.Events:UnregisterCallback("HS_VENDOR_STATS_WARMED", callbacks.stats)
+    HA.Events:UnregisterCallback("NPC_NAMES_ARRIVED", callbacks.names)
     HA.Events:UnregisterCallback("SOURCE_CACHES_INVALIDATED", B.CanGet.ResetFactionOnly)
     events:UnregisterAllEvents()
     asked = false
     EventRegistry:UnregisterCallback(TEXT_SCALE_EVENT, textScaleOwner)
     ClearPending()
+    for _, page in pairs(kindPage) do
+        if page.Closed then page:Closed() end
+    end
     Win.closing = false
-    Win.StopGlow()
     local page = Current()
     if page then page:Hide() end
     B.HideTooltip()
@@ -412,15 +415,7 @@ local function Build()
             local page = Current()
             return page and page.CloseCard and page:CloseCard()
         end,
-        Search = function(text)
-            local page = Current()
-            if page and page.Filter then return end
-            B.Go({ kind = "catalog", key = "all", seed = { search = text } })
-        end,
-        Filter = function(text)
-            local page = Current()
-            if page and page.Filter then page:Filter(text) end
-        end,
+        Search = B.SearchNow, Filter = B.SearchTyped, Focus = B.SearchFocus,
         HideNA = B.SetHideNA,
     })
     events = CreateFrame("Frame", nil, f)
@@ -475,7 +470,6 @@ end
 function B:Close()
     if not Win.frame then return end
     B.HideTooltip()
-    Win.StopGlow()
     Win.PlayClose()
 end
 
@@ -488,6 +482,10 @@ local tooltip
 function B.Tooltip()
     if not tooltip then
         tooltip = CreateFrame("GameTooltip", "HomesteadBrowserTooltip", UIParent, "GameTooltipTemplate")
+        -- The side panel's tooltip flags: the format (Tooltips.lua DetectContext) and the managed tooltip the
+        -- item post-call decorates when SetItemByID stands in for the game's item lines.
+        tooltip.isHomesteadPanelTooltip = true
+        tooltip.isHomesteadManagedTooltip = true
     end
     return tooltip
 end
@@ -508,45 +506,83 @@ function B.ShowLinkTooltip(owner, link)
     if tip:NumLines() == 0 then tip:Hide() else tip:Show() end
 end
 
-local LABEL = { 0.74, 0.70, 0.62 }
-
+-- A label in gold and its value in white, as Blizzard's tooltips pair them.
 local function Pair(tip, label, value)
-    tip:AddDoubleLine(label, tostring(value), LABEL[1], LABEL[2], LABEL[3], 1, 1, 1)
+    local gold = NORMAL_FONT_COLOR
+    tip:AddDoubleLine(label, tostring(value), gold.r, gold.g, gold.b, 1, 1, 1)
 end
 
-function B.ShowItemTooltip(owner, itemID, npcID)
-    local W = B.Widgets
+-- Off, a tile's right-click opens the item page as its left-click does.
+B.dashboardClick = true
+
+-- The decor ID a tile's right-click opens in the Housing Dashboard, or nil when it opens the item page.
+function B.DashboardID(itemID)
+    if not B.dashboardClick or InCombatLockdown() or B.Data.RoomID(itemID) or PlayerIsTimerunning()
+            or not C_Housing.IsHousingServiceEnabled() or not LinkUtil.IsLinkHandlerRegistered(LinkTypes.HousingDecor) then
+        return nil
+    end
+    return B.Data.RecordID(itemID)
+end
+
+-- Opens the item in the Housing Dashboard through the game's own decor link; false when it can't.
+function B.OpenInCatalog(itemID)
+    local id = B.DashboardID(itemID)
+    if not id then return false end
+    if not HousingDashboardFrame then pcall(C_AddOns.LoadAddOn, "Blizzard_HousingDashboard") end
+    if not HousingDashboardFrame then return false end
+    SetItemRef("housingdecor:" .. id, "", "LeftButton")
+    return true
+end
+
+-- A room plan is not decor, so the shared block skips it: its state and shared source line stand in, under the
+-- same tooltip options as the block (additions off hides both; showOwned and showSource each hide their line).
+local function AddRoomPlanLines(tip, itemID, npcID)
+    local db = HA.Addon and HA.Addon.db and HA.Addon.db.profile.tooltip
+    if db and not db.enabled then return end
+    if not db or db.showOwned ~= false then
+        local state, arg = B.ItemState(itemID, npcID)
+        if state then
+            local c = B.Style.state[state].color
+            tip:AddLine(B.Widgets.StateWords(state, arg), c[1], c[2], c[3])
+        end
+    end
+    if not db or db.showSource ~= false then
+        local primary = npcID and { source = B.Data.VendorSource(npcID) } or B.CanGet.Primary(itemID)
+        tip:AddLine(HA.FormatSourceLine(primary and primary.source), 1, 1, 1, true)
+    end
+end
+
+-- The game's own item lines, then the [Homestead] block as the side panel renders it (the tooltip is flagged for
+-- that format; a vendor's npcID scopes the block through the owner frame). The counts and click hints are the
+-- browser's own, after a room plan's state and source. tile: the click hints end the tooltip.
+function B.ShowItemTooltip(owner, itemID, npcID, tile)
     local d = B.Data.TooltipData(itemID, npcID, State.catalogMemo)
     local tip = B.Tooltip()
     local gold = NORMAL_FONT_COLOR
-    local r, g, b = W.QualityRGB(d.quality)
-    local state, arg = B.ItemState(itemID, npcID)
 
     tip:SetOwner(owner, "ANCHOR_RIGHT")
-    tip:AddLine(d.name, r, g, b)
-    if state then
-        local c = B.Style.state[state].color
-        tip:AddLine(W.StateWords(state, arg), c[1], c[2], c[3])
-    end
+    owner.npcID = npcID -- the block reads the vendor scope from the owner; none of an earlier hover stays
+    HA.SetManagedItemTooltip(tip, itemID)
+    if B.Data.RoomID(itemID) then AddRoomPlanLines(tip, itemID, npcID) end
     if d.active then tip:AddLine(L["Active now: %s"]:format(d.active), unpack(B.Style.color.badge)) end
-    if d.bonus then
-        if GameTooltip_AddNormalLine and HOUSING_DECOR_FIRST_ACQUISITION_FORMAT then
-            GameTooltip_AddNormalLine(tip, HOUSING_DECOR_FIRST_ACQUISITION_FORMAT:format(d.bonus))
-        else
-            tip:AddLine(L["First-Time Collection Bonus Available"], gold.r, gold.g, gold.b)
-        end
-    end
+    -- A ware a vendor card lists outside its count says why.
+    if owner.d and owner.d.mark then tip:AddLine(owner.d.mark, 1, 1, 1) end
     tip:AddLine(L["Collection"], gold.r, gold.g, gold.b)
     if d.counts then
         Pair(tip, L["Placed"], d.counts.placed)
         Pair(tip, L["In storage"], d.counts.stored)
         if d.counts.redeemable > 0 then Pair(tip, L["Not yet redeemed"], d.counts.redeemable) end
     else
-        tip:AddLine(L["Counts not loaded yet"], 0.6, 0.6, 0.6)
+        tip:AddLine(L["Counts not loaded yet"], 1, 1, 1)
     end
-    tip:AddLine(L["Source"], gold.r, gold.g, gold.b)
-    if d.price then Pair(tip, L["Price"], d.price) end
-    tip:AddLine(d.source, LABEL[1], LABEL[2], LABEL[3], true)
-    if d.unconfirmed then tip:AddLine(B.Facts.NotConfirmed(), LABEL[1], LABEL[2], LABEL[3], true) end
+    if tile then
+        tip:AddLine(" ")
+        tip:AddLine(L["Left-click: details"], gold.r, gold.g, gold.b)
+        if B.DashboardID(itemID) then
+            tip:AddLine(L["Right-click: open in the Housing Dashboard"], gold.r, gold.g, gold.b)
+        elseif InCombatLockdown() and not B.Data.RoomID(itemID) then
+            tip:AddLine(L["Right-click: Housing Dashboard unavailable in combat"], 1, 1, 1, true)
+        end
+    end
     tip:Show()
 end

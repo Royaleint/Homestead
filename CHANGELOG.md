@@ -2,6 +2,74 @@
 
 ---
 
+## Homestead v2.17.0 (11-10-2026)
+
+Celestine follows the Dreamsurge, plus vendor fixes.
+
+---
+
+## Dreamsurge
+
+- Celestine of the Harvest's pins, side panel entry and waypoint now follow the Dreamsurge to whichever Dragon Isles zone it is in. If your character can't see it, Homestead uses where another of your characters last found it, or her usual spot in Ohn'ahran Plains.
+
+---
+
+## Vendors
+
+- Seven more decor items now show as locked until you finish their achievement or quest.
+- Items you can buy more than one way now list each price, like the Hearthlight Armillary from The Last Architect.
+- The Last Architect has an Alliance pin at Founder's Point again.
+- Corrected the location names for a dozen vendors, and Quartermaster Ozorg's pin is now in Acherus: The Ebon Hold.
+- Achievement reward lists no longer include items that aren't decor, and eight missing decor items are added.
+
+---
+
+## Homestead v2.16.0 (11-03-2026)
+
+Room plan collection, cleaner vendor search, and more price fixes.
+
+---
+
+## Room Plans
+
+- Fen Rucket's room plans now count as collected or not collected, so his search rows, map pins and zone badges show real totals.
+
+---
+
+## Vendors
+
+- Vendors that are retired or not yet released no longer appear in search, item source lists, tooltips or closest-vendor picks.
+- Added Victor Esquivias in Boralus, Samia Inkling in The Waking Shores and the Amani Representative in Silvermoon City.
+- Tajaka Sawtusk's canoe and Symbol of Halazzi, and The Last Architect's Purified decor, now show the quest that unlocks them.
+- Removed Kobold's Hanging Kandles from Morta Gage, who no longer sells it.
+
+---
+
+## Prices
+
+- Updated decor prices lowered in patch 12.1 across many expansions, and corrected prices at Ruuan the Seer, Duskcaller Erthix, the Stolen Royal Vendorbot, Crafty Palu, Mothkeeper Wew'tam (thanks Briandris!), both High Tides Ren vendors and 26 other decor offers.
+
+---
+
+## Homestead v2.15.0 (10-31-2026)
+
+Endeavor vendor fixes and decor markers for Krowi's Extended Vendor UI.
+
+---
+
+## Endeavor Vendors
+
+- Fixed endeavor and holiday vendors sometimes disappearing from the map after you visited them.
+- Improved how neighborhood endeavors are identified on non-English clients, so each endeavor shows its own vendors.
+
+---
+
+## Krowi's Extended Vendor UI
+
+- Added support for Homestead decor ownership markers for those who use Krowi's Extended Vendor UI.
+
+---
+
 ## Homestead v2.14.2 (10-22-2026)
 
 Hallow's End vendors, holiday detection that works, and pins that no longer hide each other.

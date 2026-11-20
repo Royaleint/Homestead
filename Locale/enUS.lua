@@ -15,6 +15,10 @@ HA.L = L
 L["Used in %d known recipe for decor you haven't collected"] = "Used in %d known recipe for decor you haven't collected"
 L["Used in %d known recipes for decor you haven't collected"] = "Used in %d known recipes for decor you haven't collected"
 
+-- Vendor cost: joins alternative ways to pay ("30 coupons or 500 gold")
+L["or"] = "or"
+L["Cost unverified"] = "Cost unverified"
+
 -------------------------------------------------------------------------------
 -- UI Labels
 -------------------------------------------------------------------------------
@@ -28,7 +32,6 @@ L["Homestead Options"] = "Homestead Options"
 L["General"] = GENERAL or "General"
 L["Overlays"] = "Overlays"
 L["Tooltips"] = "Tooltips" -- untranslated
-L["Export"] = "Export"
 
 L["Show minimap button"] = "Show minimap button"
 L["Enable overlays"] = "Enable overlays"
@@ -97,14 +100,6 @@ L["No newer version seen this session."] = "No newer version seen this session."
 L["Version-check notifications: %s"] = "Version-check notifications: %s"
 
 -------------------------------------------------------------------------------
--- Export Dialog
--------------------------------------------------------------------------------
-L["Export Vendor Data"] = "Export Vendor Data"
-L["Choose export option:"] = "Choose export option:"
-L["Export New Scans"] = "Export New Scans"
-L["Export All"] = "Export All"
-
--------------------------------------------------------------------------------
 -- Map Side Panel
 -------------------------------------------------------------------------------
 L["All"] = "All"
@@ -120,7 +115,6 @@ L["Treasure"] = "Treasure"
 L["Zone Collection Progress"] = "Zone Collection Progress"
 L["Continent Collection Progress"] = "Continent Collection Progress"
 L["Global Collection Progress"] = "Global Collection Progress"
-L["Order Hall"] = "Order Hall"
 L["Click to preview"] = "Click to preview"
 L["No items found"] = BROWSE_NO_RESULTS or "No items found"
 
@@ -181,7 +175,6 @@ L["desc_options_tooltips"] = "Extra ownership, source, requirement, and vendor d
 L["desc_options_world_map"] = "World map vendor pins, zone badges, side-panel behavior, and map pin display."
 L["desc_options_minimap"] = "Nearby vendor pins, elevation arrows, and waypoint behavior on the minimap."
 L["desc_options_endeavors"] = "Housing Endeavor progress shown on Blizzard's Housing Dashboard."
-L["desc_options_export"] = "Scanned vendor data export for review or backup."
 L["desc_vendor_visibility_section"] = "Choose which vendor groups appear on maps and in collection totals."
 L["desc_pin_appearance_section"] = "Adjust the color and preview for Homestead vendor pins."
 L["desc_overlay_inventory_section"] = "Show collection markers on item slots outside the Housing Catalog."
@@ -212,7 +205,7 @@ L["desc_accessibility_glow"] = "Add a colored border glow to Housing Catalog ite
 L["desc_owned_item_style"] = "Choose how collected items look in the Housing Catalog. Green highlight shows the default glow, Dimmed fades them out, and Checkmark adds a small green check. Pick None to leave them untouched."
 L["desc_enable_tooltips"] = "Add Homestead information to item tooltips when you hover over decor items. Turning this off removes all tooltip additions."
 L["desc_show_ownership"] = "Add a line to tooltips showing whether you've already collected a decor item."
-L["desc_show_source"] = "Show how to obtain a decor item — vendors, quests, achievements, professions, events, and drops."
+L["desc_show_source"] = "Show how to obtain a decor item: vendors, quests, achievements, professions, events, and drops."
 L["desc_show_requirements"] = "Display purchase requirements like reputation, quest completion, or achievements needed to buy an item."
 L["desc_show_all_sources"] = "List every known way to obtain an item instead of just the best available source. Helpful when an item can be acquired from multiple vendors, quests, or other sources."
 L["desc_vendor_details"] = "Show a vendor's full inventory and your collection progress when hovering over their map pin. Disable for a simpler tooltip with just the vendor name."
@@ -234,9 +227,6 @@ L["desc_use_native_waypoints"] = "Use WoW's built-in waypoint system with map pi
 L["desc_auto_waypoint"] = "Automatically create a waypoint when clicking on a vendor in the list or map"
 L["desc_navigate_modifier"] = "Hold this key when clicking to create a waypoint (if auto-waypoint is off)"
 L["desc_milestone_xp"] = "Display next milestone XP progress on Blizzard's Housing Dashboard Endeavors tab. Disable if you use another addon for this (e.g., Endeavor Simple Progress Tracker)."
-L["desc_export"] = "Export scanned vendor data for backup."
-L["desc_export_new"] = "Exports vendors scanned since your last export. Includes price, currencies, faction, and catalog info."
-L["desc_export_all"] = "Exports all scanned vendors, bypassing the timestamp filter."
 
 -------------------------------------------------------------------------------
 -- Options - Select Values
@@ -283,7 +273,8 @@ L["None (always)"] = "None (always)"
 
 -- Misc
 L["Approximate map appearance"] = "Approximate map appearance"
-L["ExportImport not available."] = "ExportImport not available."
+L["Catalog scan is on cooldown. Try again in a few seconds."] = "Catalog scan is on cooldown. Try again in a few seconds."
+L["A catalog scan is already in progress."] = "A catalog scan is already in progress."
 
 -------------------------------------------------------------------------------
 -- Decor Browser: data adapter
@@ -294,6 +285,14 @@ L["Unknown"] = "Unknown"
 L["A vendor"] = "A vendor"
 L["Required"] = "Required"
 L["Unknown faction"] = "Unknown faction"
+L["This Character"] = "This Character"
+L["Account"] = ACCOUNT_QUEST_LABEL or "Warband"
+L["Completed"] = CRITERIA_COMPLETED or "Completed"
+L["Incomplete"] = INCOMPLETE or "Incomplete"
+L["Not Your Profession"] = "Not Your Profession"
+L["Skill Too Low"] = "Skill Too Low"
+L["Recipe Known"] = "Recipe Known"
+L["Recipe Unknown"] = "Recipe Unknown"
 L["Other requirement"] = "Other requirement"
 L["Source unknown"] = "Source unknown"
 L["Item %d"] = "Item %d" -- untranslated
@@ -307,6 +306,9 @@ L["Quest: %s"] = "Quest: %s" -- untranslated
 L["Promotion: %s"] = "Promotion: %s"
 L["Profession: %s"] = "Profession: %s"
 L["Profession: %s rank %s"] = "Profession: %s rank %s"
+L["Profession requirement"] = "Profession requirement"
+L["Profession rank requirement"] = "Profession rank requirement"
+L["Purchase gated"] = "Purchase gated"
 L["Vendor: %s"] = "Vendor: %s"
 L["Vendor: %s, %s"] = "Vendor: %s, %s"
 L["Crafted: %s - %s"] = "Crafted: %s - %s"
@@ -315,6 +317,59 @@ L["Drops from %s (%s)"] = "Drops from %s (%s)"
 L["Event: %s"] = "Event: %s"
 L["Event: %s - %s"] = "Event: %s - %s"
 L["Other source"] = "Other source"
+L["%s / %s"] = "%s / %s" -- untranslated
+L["Requires %s"] = "Requires %s"
+L["%s (%s)"] = "%s (%s)" -- untranslated
+L["%s (until %s)"] = "%s (until %s)"
+L["Shop: %s"] = "Shop: %s"
+L["Twitch Drop"] = "Twitch Drop"
+L["Charity Pack"] = "Charity Pack"
+L["Promotion"] = "Promotion" -- untranslated
+L["Not currently sold"] = "Not currently sold" -- untranslated
+
+-------------------------------------------------------------------------------
+-- Tooltip: shared Homestead block
+-------------------------------------------------------------------------------
+L["Zone:"] = ZONE_COLON or "Zone:"
+L["Location:"] = LOCATION_COLON or "Location:"
+L["Source:"] = "Source:"
+L["Faction:"] = "Faction:"
+L["Status:"] = "Status:" -- untranslated
+L["Owned"] = "Owned"
+L["Available"] = "Available"
+L["Locked"] = "Locked"
+L["Available Now"] = "Available Now"
+L["Blocked"] = "Blocked"
+L["Not Collected"] = "Not Collected"
+L["Other faction only"] = "Other faction only"
+L["Vendor Price:"] = "Vendor Price:"
+L["Shop Price:"] = "Shop Price:"
+L["Pack:"] = "Pack:"
+L["Currency:"] = "Currency:"
+L["Available until:"] = "Available until:"
+L["In-Game Shop"] = "In-Game Shop"
+L["N/A"] = "N/A"
+L["Unknown Vendor"] = "Unknown Vendor"
+L["Unknown Location"] = "Unknown Location"
+L["Unknown Quest"] = "Unknown Quest"
+L["Unknown Achievement"] = "Unknown Achievement"
+L["Unknown Recipe"] = "Unknown Recipe"
+L["Unknown Event"] = "Unknown Event"
+L["Event Vendor"] = "Event Vendor"
+L["Unknown Promotion"] = "Unknown Promotion"
+L["Active Now"] = "Active Now"
+L["Not Active"] = "Not Active"
+L["unverified"] = "unverified"
+L["Your renown: %s / %s"] = "Your renown: %s / %s"
+L["Your standing: %s / %s"] = "Your standing: %s / %s"
+L["Your %s: %s"] = "Your %s: %s"
+L["Completing this grants one copy; price applies to additional copies"] = "Completing this grants one copy; price applies to additional copies"
+L["No longer obtainable"] = "No longer obtainable"
+L["Promotion reward: %s"] = "Promotion reward: %s"
+L["Promotion reward: %s, through %s"] = "Promotion reward: %s, through %s"
+L["Vendor access: Opposite-faction vendor on this character"] = "Vendor access: Opposite-faction vendor on this character"
+L["Hold Shift for details"] = "Hold Shift for details"
+L["Not yet mapped by Homestead"] = "Not yet mapped by Homestead"
 
 -------------------------------------------------------------------------------
 -- Decor Browser: visuals and widgets
@@ -329,7 +384,6 @@ L["Overview"] = "Overview"
 L["Catalog"] = "Catalog"
 L["Back"] = "Back"
 L["Other Vendors"] = "Other Vendors"
-L["%d of %d decor collected"] = "%d of %d decor collected"
 L["%d of %d collected"] = "%d of %d collected"
 L["Help"] = "Help"
 L["Hide collected and other-faction"] = "Hide collected and other-faction"
@@ -350,6 +404,7 @@ L["Price"] = "Price"
 L["Seasonal: %s"] = "Seasonal: %s"
 L["Rotates with the %s Endeavor"] = "Rotates with the %s Endeavor"
 L["Rotates with neighborhood Endeavors"] = "Rotates with neighborhood Endeavors"
+L["Endeavor"] = "Endeavor"
 L["Not available in combat"] = "Not available in combat"
 L["Report a data error"] = "Report a data error"
 L["Item: %s (%d)"] = "Item: %s (%d)" -- untranslated
@@ -373,7 +428,7 @@ L["The Decor Browser is not available yet."] = "The Decor Browser is not availab
 -------------------------------------------------------------------------------
 -- Welcome window
 -------------------------------------------------------------------------------
-L["Find every decor vendor on your map and see what you own before you buy."] = "Find every decor vendor on your map and see what you own before you buy."
+L["Find every decor vendor on your map and see what you've collected before you buy."] = "Find every decor vendor on your map and see what you've collected before you buy."
 L["What Homestead Does"] = "What Homestead Does"
 L["Every decor vendor pinned on your world map and minimap, with badges showing how many items you still need per zone."] = "Every decor vendor pinned on your world map and minimap, with badges showing how many items you still need per zone."
 L["Map Side Panel"] = "Map Side Panel"
@@ -381,7 +436,6 @@ L["Click the Homestead button on the world map to open the side panel listing th
 L["Tooltips Expanded"] = "Tooltips Expanded"
 L["Every item in the Housing Catalog gets tooltips showing where it comes from (vendor, quest, achievement, profession, or drop), what it costs, and what you need to unlock it, so you never have to leave the game to look something up."] = "Every item in the Housing Catalog gets tooltips showing where it comes from (vendor, quest, achievement, profession, or drop), what it costs, and what you need to unlock it, so you never have to leave the game to look something up."
 L["Key Commands"] = "Key Commands"
-L["Export everything you've scanned"] = "Export everything you've scanned"
 L["Show all commands"] = "Show all commands"
 L["Found a Problem?"] = "Found a Problem?"
 L["Report bugs or wrong vendor info on GitHub using the link below."] = "Report bugs or wrong vendor info on GitHub using the link below."
@@ -416,30 +470,28 @@ L["Price not recorded"] = "Price not recorded"
 L["%s only"] = "%s only"
 L["Not collected"] = "Not collected"
 L["Counting…"] = "Counting…"
-L["Not confirmed"] = "Not confirmed"
 L["Active now"] = "Active now"
 L["Best to get now"] = "Best to get now"
 L["Search decor"] = "Search decor"
 L["More vendors here"] = "More vendors here"
 L["Reset filters"] = "Reset filters"
-L["Search all decor"] = "Search all decor"
 L["Show what's missing"] = "Show what's missing"
 L["Sort by name"] = "Sort by name"
 L["Show them"] = "Show them"
 L["Show vendor"] = "Show vendor"
 L["Report a problem"] = "Report a problem"
 L["Reading your collection. This list fills in when it's ready."] = "Reading your collection. This list fills in when it's ready."
-L["Reading your collection. This list fills in when it's ready, because Best to get now depends on what you own."] = "Reading your collection. This list fills in when it's ready, because Best to get now depends on what you own."
+L["Reading your collection. This list fills in when it's ready, because Best to get now depends on what you have collected."] = "Reading your collection. This list fills in when it's ready, because Best to get now depends on what you have collected."
 L["Nothing missing"] = "Nothing missing"
 L["You've collected all %d decor Homestead knows about."] = "You've collected all %d decor Homestead knows about."
 L["Nothing you can get right now"] = "Nothing you can get right now"
 L["Everything you're missing needs a reputation, achievement or quest first, is sold only during an event, or is sold only to the %s."] = "Everything you're missing needs a reputation, achievement or quest first, is sold only during an event, or is sold only to the %s."
 L["Everything you're missing needs a reputation, achievement or quest first, or is sold only during an event."] = "Everything you're missing needs a reputation, achievement or quest first, or is sold only during an event."
 L["Collection not read yet"] = "Collection not read yet"
+L["Collection not refreshed this session"] = "Collection not refreshed this session"
 L["Homestead hasn't read this character's decor collection yet, so it can't tell what you're missing. It reads it shortly after you log in. If this message stays, open the Housing Dashboard once."] = "Homestead hasn't read this character's decor collection yet, so it can't tell what you're missing. It reads it shortly after you log in. If this message stays, open the Housing Dashboard once."
 L["These filters need your collection, which Homestead hasn't read yet. If this stays, open the Housing Dashboard once."] = "These filters need your collection, which Homestead hasn't read yet. If this stays, open the Housing Dashboard once."
 L["No results"] = "No results"
-L["No decor matches these words and filters. Search looks at item names only."] = "No decor matches these words and filters. Search looks at item names only."
 L["%d hidden by '%s' (%d collected, %d %s only)."] = "%d hidden by '%s' (%d collected, %d %s only)."
 L["%d hidden by '%s' (%d collected, %d %s only, %d %s only)."] = "%d hidden by '%s' (%d collected, %d %s only, %d %s only)."
 L["%d hidden by '%s' (%d collected)."] = "%d hidden by '%s' (%d collected)."
@@ -454,7 +506,6 @@ L["Can get now means this character can get it today: the right faction, no requ
 L["Show"] = "Show"
 L["%s and %d more"] = "%s and %d more"
 L["See all you can get now (%d)"] = "See all you can get now (%d)"
-L["Here in %s: %s sells %d decor you can get now."] = "Here in %s: %s sells %d decor you can get now."
 L["Sold here in %s"] = "Sold here in %s"
 L["Sold on %s"] = "Sold on %s"
 L["%s: active now"] = "%s: active now"
@@ -464,6 +515,7 @@ L["Gold only, no requirements left"] = "Gold only, no requirements left"
 L["No requirements left"] = "No requirements left"
 L["%d of %d"] = "%d of %d"
 L["Reading your collection"] = "Reading your collection"
+L["Your Collection Status"] = "Your Collection Status"
 -- end: Summary
 
 -------------------------------------------------------------------------------
@@ -486,34 +538,49 @@ L["(+%d more)"] = "(+%d more)"
 -------------------------------------------------------------------------------
 -- Decor Browser: Sources
 -------------------------------------------------------------------------------
-L["Search vendors and zones"] = "Search vendors and zones"
-L["Search achievements"] = "Search achievements"
-L["Search quests"] = "Search quests"
-L["Search recipes and professions"] = "Search recipes and professions"
-L["Search drops and zones"] = "Search drops and zones"
-L["Search events"] = "Search events"
-L["Search the Shop"] = "Search the Shop"
 L["%d decor"] = "%d decor"
 L["No decor"] = "No decor"
 L["Not active"] = "Not active"
-L["All collected"] = "All collected"
 L["%d can get now"] = "%d can get now"
 L["Holiday event"] = "Holiday event"
 L["%s only: can't buy on this character"] = "%s only: can't buy on this character"
 L["Confirmed by a scan on %s"] = "Confirmed by a scan on %s"
-L["No scan has confirmed this vendor yet. Visit the vendor to check."] = "No scan has confirmed this vendor yet. Visit the vendor to check."
 L["Decor from this source"] = "Decor from this source"
 L["No decor is recorded here. If this source gives decor, report it below."] = "No decor is recorded here. If this source gives decor, report it below."
 L["Dig site in %s"] = "Dig site in %s"
 L["No events active right now. Event decor is sold only while its event runs."] = "No events active right now. Event decor is sold only while its event runs."
 L["Nothing matches your search."] = "Nothing matches your search."
+L["%d match, %s"] = "%d match, %s"
+L["%d matches, %s"] = "%d matches, %s"
 L["Nothing to show here."] = "Nothing to show here."
+L["Collapse all"] = "Collapse all"
+L["Expand all"] = "Expand all"
 L["Currency"] = "Currency"
 L["Wares"] = "Wares"
-L["Not confirmed: visit to check."] = "Not confirmed: visit to check."
 L["Corners: state top right, bonus top left, event bottom left, copies bottom right."] = "Corners: state top right, bonus top left, event bottom left, copies bottom right."
+L["Collection unknown"] = "Collection unknown"
+L["Greyed: promotion item, or collection status unknown. Not counted in totals."] = "Greyed: promotion item, or collection status unknown. Not counted in totals."
+L["Tile markers"] = "Tile markers"
+L["Top right"] = "Top right"
+L["Top left"] = "Top left"
+L["Bottom left"] = "Bottom left"
+L["Bottom right"] = "Bottom right"
+L["Collected: it's in your collection"] = "Collected: it's in your collection"
+L["Can get now: this character can get it today"] = "Can get now: this character can get it today"
+L["Not enough: this character can't pay for it yet"] = "Not enough: this character can't pay for it yet"
+L["Locked: a requirement isn't met yet"] = "Locked: a requirement isn't met yet"
+L["Other faction only: this character's faction can't get it"] = "Other faction only: this character's faction can't get it"
+L["Event only: available while its event runs"] = "Event only: available while its event runs"
+L["Its event is active now"] = "Its event is active now"
+L["How many you have collected, placed and stored"] = "How many you have collected, placed and stored"
+L["Left-click: details"] = "Left-click: details"
+L["Right-click: open in the Housing Dashboard"] = "Right-click: open in the Housing Dashboard"
+L["Right-click: Housing Dashboard unavailable in combat"] = "Right-click: Housing Dashboard unavailable in combat"
 L["%s; %s"] = "%s; %s" -- untranslated
 L["%s · %s"] = "%s · %s" -- untranslated
+L["Map"] = WORLD_MAP or "Map"
+L["Start:"] = "Start:" -- untranslated
+L["Use %s"] = "Use %s"
 -- end: Sources
 
 -------------------------------------------------------------------------------
