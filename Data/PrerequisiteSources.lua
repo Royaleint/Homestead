@@ -1,8 +1,8 @@
 --[[
     Homestead - PrerequisiteSources
-    Generated: 2026-11-20 15:50:42
-    Items with prerequisites: 608
-    Total prerequisite entries: 659
+    Generated: 2026-11-20 18:16:16
+    Items with prerequisites: 616
+    Total prerequisite entries: 667
 
     Vendor purchase prerequisites: Blizzard web API rows plus hand-checked additions.
     Used by SourceManager:GetRequirements() as a high-confidence source.
@@ -431,6 +431,7 @@ HA.PrerequisiteSources = {
     [256361] = {{type = "quest", name = "Cursed Keepsake"}},
     [256425] = {{type = "achievement", id = 8316, name = "Blood in the Snow"}},
     [256429] = {{type = "quest", id = 70745, name = "Enforced Relaxation"}},
+    [256673] = {{type = "quest", id = 7604, name = "A Binding Contract"}},
     [256679] = {{type = "achievement", id = 60967, name = "Legendary Research of Five Dawns"}},
     [256684] = {{type = "quest", name = "Cursed Keepsake"}},
     [256896] = {{type = "achievement", id = 5245, name = "Battle for Gilneas Victory"}},
@@ -620,4 +621,11 @@ HA.PrerequisiteSources = {
     [279452] = {{type = "quest", id = 92930, name = "Written by the Victors"}},
     [279508] = {{type = "quest", id = 93418, name = "The Venomous Abyss"}},
     [280218] = {{type = "quest", id = 96099, name = "La'una's Fate"}},
+    [281682] = {{type = "achievement", id = 12102, name = "To Kill Demons..."}},
+    [282162] = {{type = "achievement", id = 12026, name = "Invasion Obliteration"}},
+    [283269] = {{type = "quest", id = 49676, name = "Dressed for Battle"}},
+    [283277] = {{type = "reputation", faction = "Voldunai", standing = "Revered", factionID = 2158}},
+    [283297] = {{type = "reputation", faction = "Voldunai", standing = "Revered", factionID = 2158}},
+    [283319] = {{type = "reputation", faction = "Voldunai", standing = "Revered", factionID = 2158}},
+    [283343] = {{type = "quest", id = 51364, name = "An Explosive Exit"}},
 }
