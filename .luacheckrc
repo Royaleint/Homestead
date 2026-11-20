@@ -34,11 +34,9 @@ read_globals = {
     -- WoW constants
     "BANK_CONTAINER",
     "MERCHANT_ITEMS_PER_PAGE",
-    "NUM_BANKGENERIC_SLOTS",
 
     -- WoW frames/UI
     "BackdropTemplateMixin",
-    "BankFrame",
     "ChatFontNormal",
     "ContainerFrameCombinedBags", "ContainerFrameContainer",
     "CreateFrame", "CreateFont", "CreateVector2D",
