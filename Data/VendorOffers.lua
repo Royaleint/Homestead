@@ -140,6 +140,15 @@ local GeneratedBase = {
       displayOrder = 2,
     },
   },
+  [23995] = {
+    [256554] = {
+      price = 2500000,
+      currencies = {},
+      isUsable = true,
+      displayOrder = 1,
+      costBuild = "12.0.7.68974",
+    },
+  },
   [25206] = {
     [258220] = {
       price = 0,
@@ -4952,6 +4961,13 @@ local GeneratedBase = {
       currencies = {{id = 2815, amount = 300}},
       isUsable = true,
       displayOrder = 12,
+      costBuild = "12.0.7.68974",
+    },
+    [267265] = {
+      price = 0,
+      currencies = {{id = 2815, amount = 15000}},
+      isUsable = true,
+      displayOrder = 13,
       costBuild = "12.0.7.68974",
     },
   },

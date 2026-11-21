@@ -137,6 +137,18 @@ VendorIdentity.Vendors = {
         faction = "Horde",
         expansion = "The Burning Crusade",
     },
+    [23995] = {
+        name = "Axle",
+        mapID = 70,
+        x = 0.419,
+        y = 0.742,
+        zone = "Dustwallow Marsh",
+        subzone = "Mudsprocket",
+        areaID = 4010,
+        faction = "Neutral",
+        expansion = "Classic",
+        scanConfirmed = "2026-03-15",
+    },
     [25206] = {
         name = "Ahlurglgr",
         mapID = 114,
