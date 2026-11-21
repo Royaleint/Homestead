@@ -1226,15 +1226,6 @@ function SourceManager:EvaluateRequirementMetLive(req)
     elseif req.type == "achievement" then
         local achID = ResolveAchievementID(req)
         if achID and GetAchievementInfo then
-            -- The profession sign achievements are earned per character: the sign
-            -- is sold per character, so the account-wide return would unlock it
-            -- for a character that cannot buy it.
-            local signAchievements = HA.Constants and HA.Constants.ProfessionSignAchievements
-            if signAchievements and signAchievements[achID] then
-                local _, _, _, completed, _, _, _, _, _, _, _, _, wasEarnedByMe = GetAchievementInfo(achID)
-                if completed == nil then return nil end
-                return wasEarnedByMe == true
-            end
             local _, _, _, completed = GetAchievementInfo(achID)
             return completed
         end
@@ -3042,8 +3033,8 @@ local function HookCompletionCacheInvalidation()
             end
             return
         elseif event == "RECEIVED_ACHIEVEMENT_LIST" then
-            -- Achievement data can arrive after the first read, which would leave
-            -- a sign vendor's verdict wrong until the next event. Re-check only
+            -- Account achievement data can arrive after the first read, which would
+            -- leave a sign vendor's verdict wrong until the next event. Re-check only
             -- those verdicts and invalidate only if one changed.
             local signAchievements = HA.Constants and HA.Constants.ProfessionSignAchievements
             if not signAchievements then return end

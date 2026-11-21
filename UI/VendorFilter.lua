@@ -178,10 +178,10 @@ end
 -- refresh allocates nothing.
 local signRequirements = {}
 
--- True when the vendor is a profession sign vendor and this character has not
--- earned that profession's achievement. An unknown verdict, or no SourceManager,
--- keeps the pin. Only the pin gate reads this; search and item sources still
--- name the vendor.
+-- True when the vendor is a profession sign vendor and no character on the
+-- account has earned that profession's achievement. An unknown verdict, or no
+-- SourceManager, keeps the pin. Only the pin gate reads this; search and item
+-- sources still name the vendor.
 function VendorFilter.IsSignVendorLocked(vendor)
     local npcID = vendor and vendor.npcID
     local signVendors = HA.Constants and HA.Constants.ProfessionSignVendors
