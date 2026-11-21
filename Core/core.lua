@@ -403,7 +403,11 @@ function HousingAddon:InitializeMinimapButton()
             if button == "LeftButton" then
                 self:ToggleMainWindow()
             elseif button == "RightButton" then
-                self:OpenOptions()
+                if Constants.IsDecorBrowserAvailable() then
+                    self:OpenOptions()
+                elseif HA.MapSidePanel then
+                    HA.MapSidePanel:ToggleDetached()
+                end
             end
         end,
         OnTooltipShow = function(tooltip)
@@ -445,7 +449,11 @@ function HousingAddon:InitializeMinimapButton()
             else
                 tooltip:AddLine(L["Left-Click: Toggle options"] or "|cFFFFFFFFLeft-Click:|r Toggle options")
             end
-            tooltip:AddLine(L["Right-Click: Open options"] or "|cFFFFFFFFRight-Click:|r Open options")
+            if Constants.IsDecorBrowserAvailable() then
+                tooltip:AddLine(L["Right-Click: Open options"] or "|cFFFFFFFFRight-Click:|r Open options")
+            else
+                tooltip:AddLine(L["Right-Click: Detach/close vendor panel"] or "|cFFFFFFFFRight-Click:|r Detach/close vendor panel")
+            end
         end,
     })
 
@@ -465,7 +473,8 @@ function HousingAddon:InitializeMinimapButton()
             icon = Constants.Icons.MINIMAP,
             -- Blizzard passes the mouse button in menuInputData.buttonName.
             func = function(_, menuInputData)
-                if menuInputData and menuInputData.buttonName == "RightButton" then
+                if menuInputData and menuInputData.buttonName == "RightButton"
+                    and Constants.IsDecorBrowserAvailable() then
                     self:OpenOptions()
                 else
                     self:ToggleMainWindow()
