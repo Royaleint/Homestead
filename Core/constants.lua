@@ -25,6 +25,12 @@ Constants.WELCOME_SEEN_VERSION_MAX = 4
 -- Never hardcode the addon folder name in a texture path.
 Constants.TEXTURE_ROOT = "Interface\\AddOns\\" .. ADDON_NAME .. "\\Textures\\"
 
+-- Whether the Decor Browser is reachable by the player. To turn it on for everyone,
+-- make this return true.
+function Constants.IsDecorBrowserAvailable()
+    return ADDON_NAME == "Homestead_DevBuild"
+end
+
 -------------------------------------------------------------------------------
 -- Icon Definitions
 -- These represent the various states a decor item can be in

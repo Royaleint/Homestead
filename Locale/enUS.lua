@@ -61,6 +61,8 @@ L["Collection: %d / %d (%d%%)"] = "Collection: %d / %d (%d%%)"
 L["Vendors nearby: %d"] = "Vendors nearby: %d"
 L["Vendors scanned: %d"] = "Vendors scanned: %d"
 L["Left-Click: Toggle Decor Browser"] = "|cFFFFFFFFLeft-Click:|r Toggle Decor Browser"
+L["Toggle options"] = "Toggle options"
+L["Left-Click: Toggle options"] = "|cFFFFFFFFLeft-Click:|r Toggle options"
 L["Right-Click: Open options"] = "|cFFFFFFFFRight-Click:|r Open options"
 
 -------------------------------------------------------------------------------
@@ -422,6 +424,8 @@ L["Homestead: %s"] = "Homestead: %s" -- untranslated
 L["Toggle Decor Browser"] = "Toggle Decor Browser"
 L["Open the Decor Browser, or bind a key under Keybindings > Homestead"] = "Open the Decor Browser, or bind a key under Keybindings > Homestead"
 L["Minimap button"] = "Minimap button"
+L["Open options"] = "Open options"
+L["Left-click toggles options, right-click opens them"] = "Left-click toggles options, right-click opens them"
 L["Left-click opens the Decor Browser, right-click opens options"] = "Left-click opens the Decor Browser, right-click opens options"
 L["The Decor Browser is not available yet."] = "The Decor Browser is not available yet."
 
