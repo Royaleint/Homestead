@@ -412,8 +412,8 @@ Constants.PROFESSION_TIERS = { "Classic", "Outland", "Northrend", "Cataclysm", "
     "Battle for Azeroth", "Shadowlands", "Dragon Isles", "Khaz Algar", "Midnight" }
 
 -- Midnight profession shop-sign vendors: npcID -> the achievement that opens the
--- sign they sell. Each vendor's map pin follows that achievement for the current
--- character only, so a character without it sees no pin.
+-- sign they sell. The achievement is shared across the account, and each vendor's
+-- map pin is hidden only when no character on the account has it.
 Constants.ProfessionSignVendors = {
     [243359] = 42788,   -- Melaris: Alchemizing at Midnight
     [241451] = 42792,   -- Eriden: Blacksmithing at Midnight
@@ -430,8 +430,8 @@ Constants.ProfessionSignVendors = {
     [243353] = 42794,   -- Deynna: Tailoring at Midnight
 }
 
--- The same achievements as a set. These are read as earned by this character,
--- not by anyone on the account.
+-- The same achievements as a set, for re-checking their verdicts when account
+-- achievement data arrives.
 Constants.ProfessionSignAchievements = {}
 for _, achievementID in pairs(Constants.ProfessionSignVendors) do
     Constants.ProfessionSignAchievements[achievementID] = true
