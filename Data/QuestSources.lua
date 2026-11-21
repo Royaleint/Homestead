@@ -1,10 +1,10 @@
 --[[
     Homestead - QuestSources
-    Generated: 2026-11-20 12:41:22
-    Total entries: 110
+    Generated: 2026-11-20 20:27:37
+    Total entries: 119
     Hand-corrected (2026-09-13): one refuted entry removed.
     Rows for patch 12.1.5 added by hand.
-    HA.QuestFacts: start spot, starter and zone for 10 quests.
+    HA.QuestFacts: start spot, starter and zone for 19 quests.
 
     Quest source data for housing decor items.
     DO NOT EDIT — this file is generated and changes will be overwritten.
@@ -121,14 +121,32 @@ HA.QuestSources = {
     [257690] = {questID = 93003, questName = "Decor Treasure Hunt"},
     [257691] = {questID = 93142, questName = "Decor Treasure Hunt"},
     [257692] = {questID = 93151, questName = "Decor Treasure Hunt"},
+    [260582] = {questID = 86820, questName = "Manaforge Omega: Dimensius Looms"},
+    [260583] = {questID = 82141, questName = "To Kill a Queen"},
+    [264362] = {questID = 30000, questName = "The Jade Serpent"},
+    [264477] = {questID = 39487, questName = "Crystal Fury"},
     [264718] = {questID = 95203, questName = "The Ties That Bind"},
     [279067] = {questID = 95200, questName = "An Offering for Halazzi"},
+    [283269] = {questID = 49676, questName = "Dressed for Battle"},
+    [283341] = {questID = 60778, questName = "Wildseed Rescue"},
+    [283343] = {questID = 51364, questName = "An Explosive Exit"},
+    [284500] = {questID = 57982, questName = "Breaking Down Barriers"},
+    [284542] = {questID = 59426, questName = "Your Personal Assistant"},
 }
 
 HA.QuestFacts = {
+    [30000] = {start = {mapID = 371, x = 0.580, y = 0.590}},
     [36685] = {zone = {mapID = 582}},
     [38197] = {starter = {id = 122415, kind = "item"}, zone = {mapID = 582}},
     [38201] = {starter = {id = 122410, kind = "item"}, zone = {mapID = 582}},
+    [39487] = {start = {mapID = 650, x = 0.384, y = 0.612}},
+    [49676] = {start = {mapID = 864, x = 0.660, y = 0.366}},
+    [51364] = {start = {mapID = 864, x = 0.612, y = 0.337}},
+    [57982] = {start = {mapID = 1536, x = 0.302, y = 0.238}},
+    [59426] = {start = {mapID = 1533, x = 0.528, y = 0.478}},
+    [60778] = {start = {mapID = 1565, x = 0.651, y = 0.196}},
+    [82141] = {start = {mapID = 2213, x = 0.529, y = 0.460}},
+    [86820] = {start = {mapID = 2371, x = 0.429, y = 0.215}},
     [92572] = {starter = {id = 252312, name = "Second Chair Pawdo"}, zone = {mapID = 2339, expansion = "Midnight"}},
     [92577] = {starter = {id = 252312, name = "Second Chair Pawdo"}, zone = {mapID = 2339, expansion = "Midnight"}},
     [92578] = {starter = {id = 252312, name = "Second Chair Pawdo"}, zone = {mapID = 2339, expansion = "Midnight"}},
