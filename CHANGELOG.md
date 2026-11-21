@@ -2,6 +2,37 @@
 
 ---
 
+## Homestead v2.18.0 (11-20-2026)
+
+Profession shop signs, crafted decor, and vendor fixes.
+
+---
+
+## Vendors
+
+- Added the thirteen Midnight profession shop-sign vendors, and the Counterfeit Dark Heart of Galakrond at Stacks Topskimmer.
+- More vendor decor items show the achievement, quest or reputation they need.
+- Quest-locked vendor items unlock once you finish the quest.
+- About twenty vendors show a location note, and search finds it.
+- Corrected three vendor pins and the price of Moonclasp Satchel.
+
+---
+
+## Sources
+
+- Twenty-three crafted decor items show the profession that makes them.
+- Eleven more decor items list the quest or achievement that rewards them.
+- Eight Cuddly Grrgles show as ended Twitch drops.
+- Shop items carry current prices, and promotion items are labelled as promotions.
+
+---
+
+## Fixes
+
+- Fixed vendor item markers appearing on the Buyback tab.
+
+---
+
 ## Homestead v2.17.0 (11-10-2026)
 
 Celestine follows the Dreamsurge, plus vendor fixes.
