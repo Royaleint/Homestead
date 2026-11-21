@@ -1,7 +1,7 @@
 --[[
     Homestead - AchievementSources
-    Generated: 2026-11-20 15:50:42
-    Total entries: 194
+    Generated: 2026-11-20 20:24:25
+    Total entries: 196
 
     Achievement source data for housing decor items.
     DO NOT EDIT — this file is generated and changes will be overwritten.
@@ -65,6 +65,8 @@ local sourceData = {
     [245703] = {achievementID = 11258, achievementName = "Treasures of Val'sharah", category = "Legion"},
     [247843] = {achievementID = 11340, achievementName = "Insurrection", category = "Legion"},
     [257721] = {achievementID = 10398, achievementName = "Drum Circle", category = "Legion"},
+    [281682] = {achievementID = 12102, achievementName = "To Kill Demons...", category = "Legion"},
+    [282162] = {achievementID = 12026, achievementName = "Invasion Obliteration", category = "Legion"},
 
     -- Expansion Features
     [247667] = {achievementID = 40953, achievementName = "A Farewell to Arms", category = "Expansion Features"},
