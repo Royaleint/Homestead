@@ -16587,6 +16587,12 @@ local GeneratedBase = {
       isUsable = true,
       displayOrder = 8,
     },
+    [276246] = {
+      price = 0,
+      currencies = {{id = 3363, amount = 10}},
+      isUsable = true,
+      displayOrder = 9,
+    },
     [277121] = {
       price = 500000,
       currencies = {},
@@ -16636,6 +16642,12 @@ local GeneratedBase = {
       currencies = {},
       isUsable = true,
       displayOrder = 8,
+    },
+    [276246] = {
+      price = 0,
+      currencies = {{id = 3363, amount = 10}},
+      isUsable = true,
+      displayOrder = 9,
     },
     [277121] = {
       price = 500000,
