@@ -144,6 +144,7 @@ local function OtherRow(itemID, src, flagged)
         row.wp = Spot(src.mapID, src.x, src.y, name)
     else
         row.one = HA.FormatSourceLine(src.source)
+        if t == "shop" then row.note = src.source.data.notes end
     end
     local done = HA.CompletionText(itemID, src.source)
     if done then Status(row, done) end

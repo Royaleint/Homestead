@@ -1,7 +1,7 @@
 --[[
     Homestead - AchievementSources
-    Generated: 2026-11-20 20:24:25
-    Total entries: 196
+    Generated: 2026-11-22 02:55:36
+    Total entries: 199
 
     Achievement source data for housing decor items.
     DO NOT EDIT — this file is generated and changes will be overwritten.
@@ -272,6 +272,9 @@ local sourceData = {
 
     -- Events
     [260785] = {achievementID = 62387, achievementName = "It's Nearly Midnight", category = "Events"},
+    [274731] = {achievementID = 63343, achievementName = "Goal!", category = "Events"},
+    [274734] = {achievementID = 63343, achievementName = "Goal!", category = "Events"},
+    [274736] = {achievementID = 63343, achievementName = "Goal!", category = "Events"},
 
     -- Hallow's End
     [282287] = {achievementID = 10365, achievementName = "A Frightening Friend", category = "Hallow's End"},

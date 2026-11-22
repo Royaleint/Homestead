@@ -1,7 +1,7 @@
 --[[
     Homestead - Event Sources
     Created: 2026-02-17
-    Total entries: 27
+    Total entries: 18
 
     Maps itemID to seasonal/holiday event vendor source information.
     These items are only purchasable during their respective holiday events.
@@ -19,8 +19,8 @@ local _, HA = ...
 -- Each event has metadata used for display.
 -- Holiday detection (eventID matching) is handled by CalendarDetector.
 local EventDefinitions = {
-    ["Lunar Festival"] = {},
     ["Noblegarden"] = {},
+    ["Brewfest"] = {},
     ["Hallow's End"] = {},
 }
 
@@ -29,22 +29,6 @@ local EventDefinitions = {
 -------------------------------------------------------------------------------
 
 HA.EventSources = {
-    -- Lunar Festival — Vendor: Valadar Starsong [15864], Moonglade
-    -- Currency: Coin of Ancestry (itemID 21100)
-    [253244] = {event = "Lunar Festival", vendorName = "Valadar Starsong", npcID = 15864, zone = "Moonglade", mapID = 80, x = 0.534, y = 0.353, currency = "Coin of Ancestry", currencyItemID = 21100},
-    [253254] = {event = "Lunar Festival", vendorName = "Valadar Starsong", npcID = 15864, zone = "Moonglade", mapID = 80, x = 0.534, y = 0.353, currency = "Coin of Ancestry", currencyItemID = 21100},
-    [253255] = {event = "Lunar Festival", vendorName = "Valadar Starsong", npcID = 15864, zone = "Moonglade", mapID = 80, x = 0.534, y = 0.353, currency = "Coin of Ancestry", currencyItemID = 21100},
-    [253256] = {event = "Lunar Festival", vendorName = "Valadar Starsong", npcID = 15864, zone = "Moonglade", mapID = 80, x = 0.534, y = 0.353, currency = "Coin of Ancestry", currencyItemID = 21100},
-    [253257] = {event = "Lunar Festival", vendorName = "Valadar Starsong", npcID = 15864, zone = "Moonglade", mapID = 80, x = 0.534, y = 0.353, currency = "Coin of Ancestry", currencyItemID = 21100},
-    [253290] = {event = "Lunar Festival", vendorName = "Valadar Starsong", npcID = 15864, zone = "Moonglade", mapID = 80, x = 0.534, y = 0.353, currency = "Coin of Ancestry", currencyItemID = 21100},
-    [253291] = {event = "Lunar Festival", vendorName = "Valadar Starsong", npcID = 15864, zone = "Moonglade", mapID = 80, x = 0.534, y = 0.353, currency = "Coin of Ancestry", currencyItemID = 21100},
-    [253292] = {event = "Lunar Festival", vendorName = "Valadar Starsong", npcID = 15864, zone = "Moonglade", mapID = 80, x = 0.534, y = 0.353, currency = "Coin of Ancestry", currencyItemID = 21100},
-    [253293] = {event = "Lunar Festival", vendorName = "Valadar Starsong", npcID = 15864, zone = "Moonglade", mapID = 80, x = 0.534, y = 0.353, currency = "Coin of Ancestry", currencyItemID = 21100},
-    [253294] = {event = "Lunar Festival", vendorName = "Valadar Starsong", npcID = 15864, zone = "Moonglade", mapID = 80, x = 0.534, y = 0.353, currency = "Coin of Ancestry", currencyItemID = 21100},
-    [253295] = {event = "Lunar Festival", vendorName = "Valadar Starsong", npcID = 15864, zone = "Moonglade", mapID = 80, x = 0.534, y = 0.353, currency = "Coin of Ancestry", currencyItemID = 21100},
-    [253296] = {event = "Lunar Festival", vendorName = "Valadar Starsong", npcID = 15864, zone = "Moonglade", mapID = 80, x = 0.534, y = 0.353, currency = "Coin of Ancestry", currencyItemID = 21100},
-    [253297] = {event = "Lunar Festival", vendorName = "Valadar Starsong", npcID = 15864, zone = "Moonglade", mapID = 80, x = 0.534, y = 0.353, currency = "Coin of Ancestry", currencyItemID = 21100},
-
     -- Noblegarden — Vendor: Noblegarden Merchant/Vendor (various NPCs per race zone)
     -- Currency: Noblegarden Chocolate (itemID 44791)
     [250794] = {event = "Noblegarden", vendorName = "Noblegarden Merchant", zone = "Starting Zones", currency = "Noblegarden Chocolate", currencyItemID = 44791},
@@ -63,6 +47,10 @@ HA.EventSources = {
     [282208] = {event = "Hallow's End", vendorName = "Hallow's End Vendor", zone = "Tirisfal Glades / Elwynn Forest / Founder's Point / Razorwind Shores"},
     [282213] = {event = "Hallow's End", vendorName = "Hallow's End Vendor", zone = "Tirisfal Glades / Elwynn Forest / Founder's Point / Razorwind Shores"},
     [282289] = {event = "Hallow's End", vendorName = "Hallow's End Vendor", zone = "Tirisfal Glades / Elwynn Forest / Founder's Point / Razorwind Shores"},
+    [280337] = {event = "Brewfest", vendorName = "Fizz Alechux / Kay Stouthammer", zone = "Razorwind Shores / Founder's Point", currency = "Brewfest Prize Token", currencyItemID = 37829, notes = "Also sold by Dizzy Alechux and Fay Stouthammer at the Brewfest camps outside Orgrimmar and Ironforge."},
+    [280339] = {event = "Brewfest", vendorName = "Fizz Alechux / Kay Stouthammer", zone = "Razorwind Shores / Founder's Point", currency = "Brewfest Prize Token", currencyItemID = 37829, notes = "Also sold by Dizzy Alechux and Fay Stouthammer at the Brewfest camps outside Orgrimmar and Ironforge."},
+    [280341] = {event = "Brewfest", vendorName = "Fizz Alechux / Kay Stouthammer", zone = "Razorwind Shores / Founder's Point", currency = "Brewfest Prize Token", currencyItemID = 37829, notes = "Also sold by Dizzy Alechux and Fay Stouthammer at the Brewfest camps outside Orgrimmar and Ironforge."},
+    [280343] = {event = "Brewfest", vendorName = "Fizz Alechux / Kay Stouthammer", zone = "Razorwind Shores / Founder's Point", currency = "Brewfest Prize Token", currencyItemID = 37829, notes = "Also sold by Dizzy Alechux and Fay Stouthammer at the Brewfest camps outside Orgrimmar and Ironforge."},
 }
 
 -- Attach event definitions for CalendarDetector cross-reference
@@ -76,18 +64,6 @@ HA.EventSources.EventDefinitions = EventDefinitions
 -------------------------------------------------------------------------------
 
 HA.EventSources.EventVendors = {
-    [15864] = {
-        npcID = 15864,
-        name = "Valadar Starsong",
-        mapID = 80,
-        zone = "Moonglade",
-        x = 0.534,
-        y = 0.353,
-        faction = "Neutral",
-        event = "Lunar Festival",
-        _isEventVendor = true,
-        items = {253244, 253254, 253255, 253256, 253257, 253290, 253291, 253292, 253293, 253294, 253295, 253296, 253297},
-    },
     [273402] = { npcID = 273402, name = "Echo", mapID = 18, zone = "Tirisfal Glades", subzone = "Ruins of Lordaeron",
         x = 0.6232, y = 0.6674, faction = "Horde", event = "Hallow's End", _isEventVendor = true, scanConfirmed = "2026-10-19" },
     [273403] = { npcID = 273403, name = "Jack", mapID = 37, zone = "Elwynn Forest", subzone = "Stormwind Gate",

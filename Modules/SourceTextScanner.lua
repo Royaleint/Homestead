@@ -18,6 +18,7 @@
 ]]
 
 local _, HA = ...
+local excludedDecorItems = HA.Constants and HA.Constants.ExcludedDecorItems or {}
 
 local SourceTextScanner = {}
 HA.SourceTextScanner = SourceTextScanner
@@ -44,6 +45,7 @@ end
 -- Interface contract: result = { itemID, sourceText, recordID }
 function SourceTextScanner:ProcessScannedItem(result)
     if not result or not result.itemID or not result.sourceText then return end
+    if excludedDecorItems[result.itemID] then return end
     if result.sourceText == "" then return end
 
     -- Ensure db is available
@@ -96,7 +98,7 @@ end
 -- historical one-time migration ever did; decorID on the catalogItems record
 -- is the modern, independently-maintained equivalent, set by CatalogScanner).
 function SourceTextScanner:GetParsedSource(itemID)
-    if not itemID then return nil end
+    if not itemID or excludedDecorItems[itemID] then return nil end
     if not HA.Addon or not HA.Addon.db then return nil end
 
     -- A stamp must exist (this item was actually parsed) before we treat
@@ -127,13 +129,15 @@ function SourceTextScanner:GetStats()
     local parsedSources = HA.Addon.db.global.parsedSources
 
     for itemID in pairs(parsedSources) do
-        stats.total = stats.total + 1
-        local record = HA.CatalogStore and HA.CatalogStore:Get(itemID)
-        if record and record.sources then
-            for _, source in ipairs(record.sources) do
-                local t = source.sourceType
-                if stats[t] then
-                    stats[t] = stats[t] + 1
+        if not excludedDecorItems[itemID] then
+            stats.total = stats.total + 1
+            local record = HA.CatalogStore and HA.CatalogStore:Get(itemID)
+            if record and record.sources then
+                for _, source in ipairs(record.sources) do
+                    local t = source.sourceType
+                    if stats[t] then
+                        stats[t] = stats[t] + 1
+                    end
                 end
             end
         end
