@@ -1,8 +1,8 @@
 --[[
     Homestead - PrerequisiteSources
     Generated: 2026-11-22 09:16:33
-    Prerequisite rows: 535
-    Total prerequisite entries: 586
+    Prerequisite rows: 536
+    Total prerequisite entries: 587
 
     Vendor purchase prerequisites: Blizzard web API rows plus hand-checked additions.
     Used by SourceManager:GetRequirements() as a high-confidence source.
@@ -409,7 +409,6 @@ HA.PrerequisiteSources = {
     [262472] = {{type = "quest", id = 86561, name = "A Strange, Different World"}},
     [262606] = {{type = "quest", id = 86521, name = "Nexus-Point Xenas: Eclipse"}},
     [262610] = {{type = "quest", id = 88700, name = "Two Tons of Metal and Holy Fire"}},
-    [262614] = {{type = "quest", id = 86956, name = "The Traveling Flowers"}},
     [262619] = {{type = "achievement", id = 42292, name = "Hidden Potential of the Grandmaster"}},
     [262906] = {{type = "quest", id = 88997, name = "Russula's Outreach"}},
     [263020] = {{type = "quest", id = 90834, name = "From This Point Forward"}},
@@ -540,7 +539,9 @@ HA.PrerequisiteSources = {
     [283343] = {{type = "quest", id = 51364, name = "An Explosive Exit"}},
     ["106901:251494"] = {{type = "reputation", faction = "Dreamweavers", standing = "Friendly", factionID = 1883}},
     ["135459:257394"] = {{type = "reputation", faction = "Talanji's Expedition", standing = "Honored", factionID = 2156}},
+    ["252916:244656"] = {{type = "achievement", id = 62185, name = "Ever Painting"}},
     ["253387:251494"] = {{type = "reputation", faction = "Dreamweavers", standing = "Friendly", factionID = 1883}},
+    ["255114:262614"] = {{type = "quest", id = 88994, name = "The Cauldron of Echoes"}},
     ["255495:271158"] = {{type = "unknown", text = "Requires Ritual Sites Rank 7"}},
     ["255495:273135"] = {{type = "unknown", text = "Requires Ritual Sites Rank 3"}},
     ["255495:273142"] = {{type = "unknown", text = "Requires Ritual Sites Rank 3"}},
