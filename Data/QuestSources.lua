@@ -1,7 +1,7 @@
 --[[
     Homestead - QuestSources
     Generated: 2026-11-22 09:22:57
-    Total entries: 120
+    Total entries: 121
     Hand-corrected (2026-09-13): one refuted entry removed.
     Rows for patch 12.1.5 added by hand.
     HA.QuestFacts: start spot, starter and zone for 21 quests.
@@ -124,6 +124,7 @@ HA.QuestSources = {
     [258145] = {questIDs = {Alliance = 13103, Horde = 13115}, questName = "Cheese for Glowergold"},
     [260582] = {questID = 86820, questName = "Manaforge Omega: Dimensius Looms"},
     [260583] = {questID = 82141, questName = "To Kill a Queen"},
+    [262614] = {questID = 86956, questName = "The Traveling Flowers"},
     [264362] = {questID = 30000, questName = "The Jade Serpent"},
     [264477] = {questID = 39487, questName = "Crystal Fury"},
     [264718] = {questID = 95203, questName = "The Ties That Bind"},
