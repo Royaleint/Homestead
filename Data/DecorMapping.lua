@@ -1,7 +1,7 @@
 --[[
     Homestead - DecorMapping
-    Generated: 2026-11-22 01:55:35
-    Total entries: 2304
+    Generated: 2026-11-22 12:10:43
+    Total entries: 2316
 
     Static decorID → itemID mapping from Blizzard web API.
     Used by CatalogStore to seed the bidirectional index at startup.
@@ -1191,6 +1191,7 @@ HA.DecorMapping = {
     [11283] = 256682,    -- Magistrix's Garden Fountain
     [11284] = 256683,    -- Silvermoon Training Dummy
     [11285] = 256684,    -- Purified Troll Amulet
+    [11287] = 256764,    -- Sanctuary's Horadric Cube
     [11296] = 256896,    -- Smoke Lamppost
     [11301] = 256903,    -- Gilnean Banded Crate
     [11305] = 256905,    -- Small Gilnean Table
@@ -1568,6 +1569,7 @@ HA.DecorMapping = {
     [15158] = 263318,    -- Simple Amani Basket
     [15160] = 263320,    -- Rope-Bound Amani Basket
     [15161] = 263321,    -- Frayed Amani Offering Basket
+    [15229] = 263383,    -- Corked Bottle of Liquid Mystery
     [15260] = 263499,    -- Sturdy Void Elf Trunk
     [15261] = 263581,    -- Razorwind Roofer's Shingle
     [15262] = 263582,    -- Razorwind Roofer's Shingle Pile
@@ -1631,6 +1633,12 @@ HA.DecorMapping = {
     [15547] = 264275,    -- Paw Pal Dog House Durotar Roof
     [15548] = 264276,    -- Paw Pal Dog House Eversong Roof
     [15549] = 264277,    -- Paw Pal Dog House Shadowglen Roof
+    [15550] = 264278,    -- Sturdy Portable Ice Chest
+    [15551] = 264279,    -- Tall Corked Bottle of Liquid Mystery
+    [15552] = 264280,    -- Short Corked Bottle of Liquid Mystery
+    [15553] = 264281,    -- Preserved Gift of Gilneas
+    [15554] = 264282,    -- Bluebird's Golden Cage
+    [15555] = 264283,    -- Backboard and Hoop Playset
     [15567] = 264329,    -- Amani Dining Table
     [15568] = 264330,    -- Amani Hanging Brazier
     [15569] = 264331,    -- Amani Wayfarer's Torch
@@ -1654,6 +1662,8 @@ HA.DecorMapping = {
     [15598] = 264352,    -- Elegant Elven Bathtub
     [15599] = 264353,    -- Empty Elegant Elven Bathtub
     [15605] = 264362,    -- Golden Pandaren Privacy Screen
+    [15668] = 264396,    -- Naturally Elegant Doormat
+    [15669] = 264397,    -- Simply Adorned Vase and Flowers
     [15741] = 264477,    -- Thunder Totem Mailbox
     [15743] = 264479,    -- Skyweave Amani Tapestry
     [15744] = 264480,    -- Greenvine Amani Tapestry
@@ -1991,6 +2001,7 @@ HA.DecorMapping = {
     [26010] = 282081,    -- Candlelit Smiling Jack-o'-Lantern
     [26011] = 282192,    -- Candlelit Shrieking Jack-o'-Lantern
     [26012] = 282194,    -- Candlelit Ogre Jack-o'-Lantern
+    [26013] = 282287,    -- Scarecrow Pepe
     [26015] = 282190,    -- Apple Bobbing Bucket
     [26016] = 282196,    -- Filled Candy Bucket
     [26017] = 282184,    -- Spidery Witch Hat
@@ -2089,6 +2100,7 @@ HA.DecorMapping = {
     [26887] = 282098,    -- Elaborate Heartsbane Doom Catcher
     [26888] = 282100,    -- Heartsbane Doom Catcher
     [26889] = 282075,    -- Heartsbane Candle
+    [26890] = 281372,
     [26936] = 280273,    -- Droopy Longwick Rope
     [26937] = 280271,    -- Longwick Rope
     [26938] = 280269,    -- Cozy Kobold Crate
