@@ -1190,7 +1190,7 @@ end
 
 -- Search-result section header. Non-interactive divider that labels
 -- the section by source type (Vendors / Profession / Quest / Achievement /
--- Event / Drop). One per active section; emitted on type transitions in
+-- Event / Shop / Drop). One per active section; emitted on type transitions in
 -- RefreshSearchResults.
 Layout.SEARCH_HEADER_HEIGHT = 22
 
@@ -3123,6 +3123,7 @@ local SEARCH_SECTION_LABELS = {
     quest       = L["Quest"] or "Quest",
     achievement = L["Achievement"] or "Achievement",
     event       = L["Event"] or "Event",
+    shop        = L["Shop"] or "Shop",
     drop        = L["Drop"] or "Drop",
 }
 

@@ -94,7 +94,7 @@ local function Draw(keep)
             local t = v and "vendor" or r.sourceType
             if t ~= group then
                 group = t
-                data[#data + 1] = { kind = "header", text = S.sourceLabel[t .. "s"] }
+                data[#data + 1] = { kind = "header", text = S.sourceLabel[t .. "s"] or S.sourceLabel[t] }
             end
             data[#data + 1] = { kind = "row", r = r }
         end
