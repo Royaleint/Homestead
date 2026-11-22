@@ -21,17 +21,13 @@
     about price. Every costless row is classified on demand, against scans, the other
     shipped vendor tables and the build captures, by an offer-cost check.
     That check is the live answer to "why is this blank?"; a list here would go stale.
-    As of 2026-08-23 every costless row left belongs to a vendor that is not released yet.
     Thirteen offers at five live vendors (MOTHER, Boatswain Hardee, Shredz the Scrapper, Lab
     Assistant Laszly, Janey Forrest) once had a bulk-entered 10 gold default that was never
     seen at the vendor. Each now carries the price seen at the vendor on 2026-10-10 as a
     ManualOverrides row; the override must stay, because the generated row beneath still
     holds the old default.
-    No row IN THIS FILE is costless on a live vendor, and none is costless because it is
-    free -- the one row that looked free turned out to be a 10g row a scan had captured with
-    an empty cost field, which is precisely the ambiguity described above. Scoped to this file
-    deliberately: EndeavorsData and EventSources carry bare item IDs of their own, which also
-    render a blank cost, and that check counts only this file.
+    A confirmed merchant route may have an unknown cost. Do not substitute a price
+    until its exact cost has been verified.
 
     A stored price is the undiscounted base price; a scan that reads an exact reputation discount below it is not a correction.
 
@@ -5182,7 +5178,7 @@ local GeneratedBase = {
     },
     [252394] = {
       price = 0,
-      currencies = {{id = 1560, amount = 550}},
+      currencies = {{id = 1560, amount = 200}},
       isUsable = true,
       displayOrder = 2,
     },
@@ -17160,6 +17156,9 @@ local GeneratedBase = {
 -- swap and needs this correction. Trevor 255221's override was pruned 2026-06-27 once the
 -- refresh corrected its GeneratedBase.
 local ManualOverrides = {
+    [236861] = {
+        [246857] = { price = 0 },
+    },
     -- Valdrakken Sconce was tombstoned off Provisioner Aristta,
     -- whose listing was wrong, but nothing was added to its real home -- which left Ironus
     -- Coldsteel with items = {} while keeping his VendorIdentity row, so he pinned on the
@@ -17458,7 +17457,16 @@ local ManualOverrides = {
     [115805] = { -- Hoddruc Bladebender (1)
         [256331] = { price = 4500000, currencies = {}, isUsable = true, isPurchasable = true, merchantSlot = 1, hasExtendedCost = false, displayOrder = 1 }, -- Shadowforge Lamppost
     },
-    [261231] = { -- Tuuran (16)
+    [261231] = { -- Tuuran
+        [268337] = { price = 50000000, currencies = {}, isUsable = true, costBuild = "12.1.5.70961" },
+        [268338] = { price = 5000000, currencies = {}, isUsable = true, costBuild = "12.1.5.70961" },
+        [268339] = { price = 20000000, currencies = {}, isUsable = true, costBuild = "12.1.5.70961" },
+        [268340] = { price = 50000000, currencies = {}, isUsable = true, costBuild = "12.1.5.70961" },
+        [268722] = { price = 5000000, currencies = {}, isUsable = true, costBuild = "12.1.5.70961" },
+        [274731] = { price = 50000000, currencies = {}, isUsable = true, costBuild = "12.1.5.70961" },
+        [274734] = { price = 50000000, currencies = {}, isUsable = true, costBuild = "12.1.5.70961" },
+        [274736] = { price = 50000000, currencies = {}, isUsable = true, costBuild = "12.1.5.70961" },
+        [281107] = { price = 5000000, currencies = {}, isUsable = true, costBuild = "12.1.5.70961" },
         [259055] = { price = 10000000, currencies = {}, isUsable = true, isPurchasable = true, merchantSlot = 3, hasExtendedCost = false, displayOrder = 2 }, -- Hatred's Wolfpelt Rug
         [259056] = { price = 10000000, currencies = {}, isUsable = true, isPurchasable = true, merchantSlot = 5, hasExtendedCost = false, displayOrder = 3 }, -- Prime Evil's Chest
         [259057] = { price = 10000000, currencies = {}, isUsable = true, isPurchasable = true, merchantSlot = 20, hasExtendedCost = false, displayOrder = 4 }, -- Sanctuary's Chess Match
@@ -17476,7 +17484,16 @@ local ManualOverrides = {
         [259069] = { price = 2500000, currencies = {}, isUsable = true, isPurchasable = true, merchantSlot = 15, hasExtendedCost = false, displayOrder = 16 }, -- Sanctuary Chess Light Knight
         [259070] = { price = 2500000, currencies = {}, isUsable = true, isPurchasable = true, merchantSlot = 14, hasExtendedCost = false, displayOrder = 17 }, -- Sanctuary Chess Light King
     },
-    [261262] = { -- Gabbi (16)
+    [261262] = { -- Gabbi
+        [268337] = { price = 50000000, currencies = {}, isUsable = true, costBuild = "12.1.5.70961" },
+        [268338] = { price = 5000000, currencies = {}, isUsable = true, costBuild = "12.1.5.70961" },
+        [268339] = { price = 20000000, currencies = {}, isUsable = true, costBuild = "12.1.5.70961" },
+        [268340] = { price = 50000000, currencies = {}, isUsable = true, costBuild = "12.1.5.70961" },
+        [268722] = { price = 5000000, currencies = {}, isUsable = true, costBuild = "12.1.5.70961" },
+        [274731] = { price = 50000000, currencies = {}, isUsable = true, costBuild = "12.1.5.70961" },
+        [274734] = { price = 50000000, currencies = {}, isUsable = true, costBuild = "12.1.5.70961" },
+        [274736] = { price = 50000000, currencies = {}, isUsable = true, costBuild = "12.1.5.70961" },
+        [281107] = { price = 5000000, currencies = {}, isUsable = true, costBuild = "12.1.5.70961" },
         [259055] = { price = 10000000, currencies = {}, isUsable = true, isPurchasable = true, merchantSlot = 3, hasExtendedCost = false, displayOrder = 2 }, -- Hatred's Wolfpelt Rug
         [259056] = { price = 10000000, currencies = {}, isUsable = true, isPurchasable = true, merchantSlot = 5, hasExtendedCost = false, displayOrder = 3 }, -- Prime Evil's Chest
         [259057] = { price = 10000000, currencies = {}, isUsable = true, isPurchasable = true, merchantSlot = 20, hasExtendedCost = false, displayOrder = 4 }, -- Sanctuary's Chess Match
@@ -17605,6 +17622,12 @@ local ManualOverrides = {
         [278694] = { price = 0, currencies = {{id = 3316, amount = 250}}, isUsable = true, displayOrder = 999999, costBuild = "12.1.0.69299" }, -- Stormstout Hanging Lantern (new row)
     },
     [256828] = { -- Dennia Silvertongue (Silvermoon City)
+        [268337] = { price = 50000000, currencies = {}, isUsable = true, costBuild = "12.1.5.70961" },
+        [268338] = { price = 5000000, currencies = {}, isUsable = true, costBuild = "12.1.5.70961" },
+        [268339] = { price = 20000000, currencies = {}, isUsable = true, costBuild = "12.1.5.70961" },
+        [268340] = { price = 50000000, currencies = {}, isUsable = true, costBuild = "12.1.5.70961" },
+        [268722] = { price = 5000000, currencies = {}, isUsable = true, costBuild = "12.1.5.70961" },
+        [281107] = { price = 5000000, currencies = {}, isUsable = true, costBuild = "12.1.5.70961" },
         [274731] = { price = 50000000, currencies = {}, isUsable = true, displayOrder = 999999, costBuild = "12.1.0.69299" }, -- Prized Orb of Azeroth (new row)
         [274734] = { price = 50000000, currencies = {}, isUsable = true, displayOrder = 999999, costBuild = "12.1.0.69299" }, -- Framed Horde Pride (new row)
         [274736] = { price = 50000000, currencies = {}, isUsable = true, displayOrder = 999999, costBuild = "12.1.0.69299" }, -- Framed Alliance Pride (new row)
@@ -17812,7 +17835,6 @@ local ManualOverrides = {
         [238863] = { price = 0, currencies = {{id = 1220, amount = 150}}, costBuild = "12.1.0.69933", displayOrder = 1, isUsable = true },
     },
     [252313] = {
-        [252652] = { price = 0, currencies = {{id = 1560, amount = 150}}, costBuild = "12.1.0.69933", displayOrder = 6, isUsable = true },
     },
     [252316] = {
         [252392] = { price = 0, currencies = {{id = 1560, amount = 150}}, costBuild = "12.1.0.69933", displayOrder = 1, isUsable = true },
@@ -18232,6 +18254,9 @@ local ManualOverrides = {
         [246959] = { price = 0, currencies = {{id = 3316, amount = 150}}, isUsable = true },
         [249768] = { price = 0, currencies = {{id = 3316, amount = 250}}, isUsable = true },
         [251980] = { price = 0, currencies = {{id = 3316, amount = 150}}, isUsable = true },
+        [263039] = { price = 0, currencies = {{id = 3316, amount = 250}}, isUsable = true },
+        [263194] = { price = 0, currencies = {{id = 3316, amount = 250}}, isUsable = true },
+        [263195] = { price = 0, currencies = {{id = 3316, amount = 250}}, isUsable = true },
     },
     [276363] = {
         [249765] = { price = 0, currencies = {{id = 3316, amount = 150}}, isUsable = true },

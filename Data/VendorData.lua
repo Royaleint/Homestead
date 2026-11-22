@@ -15,6 +15,7 @@
 ]]
 
 local _, HA = ...
+local excludedDecorItems = HA.Constants and HA.Constants.ExcludedDecorItems or {}
 
 local VendorData = {}
 HA.VendorData = VendorData
@@ -662,7 +663,7 @@ function VendorData:GetMergedItemSet(vendor, includeOrderedIDs)
     local orderedItemIDs = includeOrderedIDs and {} or nil
 
     local function AddItem(itemID)
-        if itemID and not itemSet[itemID] then
+        if itemID and not excludedDecorItems[itemID] and not itemSet[itemID] then
             itemSet[itemID] = true
             if orderedItemIDs then
                 orderedItemIDs[#orderedItemIDs + 1] = itemID

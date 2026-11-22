@@ -1,8 +1,8 @@
 --[[
     Homestead - PrerequisiteSources
-    Generated: 2026-11-20 19:21:18
-    Items with prerequisites: 517
-    Total prerequisite entries: 568
+    Generated: 2026-11-22 09:16:33
+    Prerequisite rows: 535
+    Total prerequisite entries: 586
 
     Vendor purchase prerequisites: Blizzard web API rows plus hand-checked additions.
     Used by SourceManager:GetRequirements() as a high-confidence source.
@@ -502,12 +502,20 @@ HA.PrerequisiteSources = {
     [267209] = {{type = "quest", id = 86541, name = "Just In Case..."}},
     [267355] = {{type = "quest", name = "Cursed Keepsake"}},
     [267435] = {{type = "quest", name = "Cursed Keepsake"}},
+    [268337] = {{type = "promotion", name = "World of Warcraft: Forever Skyborne decor"}},
+    [268338] = {{type = "promotion", name = "World of Warcraft: Forever Skyborne decor"}},
+    [268339] = {{type = "promotion", name = "World of Warcraft: Forever Skyborne decor"}},
+    [268340] = {{type = "promotion", name = "World of Warcraft: Forever Skyborne decor"}},
+    [268722] = {{type = "promotion", name = "World of Warcraft: Forever Skyborne decor"}},
     [268943] = {{type = "quest", name = "Cursed Keepsake"}},
     [271176] = {{type = "quest", id = 93339, name = "Trinket Trading"}},
     [271609] = {{type = "quest", id = 96457, name = "Nothing Must Remain"}},
     [271851] = {{type = "quest", id = 95564, name = "The Serpent's Tail"}},
     [272129] = {{type = "quest", name = "Cursed Keepsake"}},
     [272142] = {{type = "quest", name = "Cursed Keepsake"}},
+    [274731] = {{type = "achievement", id = 63343, name = "Goal!"}},
+    [274734] = {{type = "achievement", id = 63343, name = "Goal!"}},
+    [274736] = {{type = "achievement", id = 63343, name = "Goal!"}},
     [278038] = {{type = "quest", id = 95780, name = "Hope for the Orphans"}},
     [278369] = {{type = "achievement", id = 63451, name = "Scales for Days"}},
     [278372] = {{type = "achievement", id = 63452, name = "Fangs for the Memories"}},
@@ -522,6 +530,7 @@ HA.PrerequisiteSources = {
     [279452] = {{type = "quest", id = 92930, name = "Written by the Victors"}},
     [279508] = {{type = "quest", id = 93418, name = "The Venomous Abyss"}},
     [280218] = {{type = "quest", id = 96099, name = "La'una's Fate"}},
+    [281107] = {{type = "promotion", name = "BlizzCon 2026 login reward", endsAt = "2026-09-27"}},
     [281682] = {{type = "achievement", id = 12102, name = "To Kill Demons..."}},
     [282162] = {{type = "achievement", id = 12026, name = "Invasion Obliteration"}},
     [283269] = {{type = "quest", id = 49676, name = "Dressed for Battle"}},
@@ -529,4 +538,13 @@ HA.PrerequisiteSources = {
     [283297] = {{type = "reputation", faction = "Voldunai", standing = "Revered", factionID = 2158}},
     [283319] = {{type = "reputation", faction = "Voldunai", standing = "Revered", factionID = 2158}},
     [283343] = {{type = "quest", id = 51364, name = "An Explosive Exit"}},
+    ["106901:251494"] = {{type = "reputation", faction = "Dreamweavers", standing = "Friendly", factionID = 1883}},
+    ["135459:257394"] = {{type = "reputation", faction = "Talanji's Expedition", standing = "Honored", factionID = 2156}},
+    ["253387:251494"] = {{type = "reputation", faction = "Dreamweavers", standing = "Friendly", factionID = 1883}},
+    ["255495:271158"] = {{type = "unknown", text = "Requires Ritual Sites Rank 7"}},
+    ["255495:273135"] = {{type = "unknown", text = "Requires Ritual Sites Rank 3"}},
+    ["255495:273142"] = {{type = "unknown", text = "Requires Ritual Sites Rank 3"}},
+    ["255495:273147"] = {{type = "unknown", text = "Requires Ritual Sites Rank 3"}},
+    ["255495:273157"] = {{type = "unknown", text = "Requires Ritual Sites Rank 3"}},
+    ["255495:273159"] = {{type = "unknown", text = "Requires Ritual Sites Rank 3"}},
 }

@@ -77,7 +77,7 @@ F.SOURCE_TYPE = {
 -- The game's own hyperlink for the source types it describes, by Sources type.
 F.LINK = {
     achievements = function(d) return GetAchievementLink(d.achievementID) end,
-    quests = function(d) return GetQuestLink(d.questID) or ("quest:" .. d.questID) end,
+    quests = function(d) return d.questID and (GetQuestLink(d.questID) or ("quest:" .. d.questID)) end,
 }
 
 -- The only builder of Sources row keys and onward-link keys. nil draws no "Show" button. A holiday vendor has a

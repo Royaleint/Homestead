@@ -19,6 +19,7 @@ HA.BadgeCalculation = BadgeCalculation
 -- VendorFilter reference (loaded before this file per TOC order)
 local VF = HA.VendorFilter
 local Constants = HA.Constants
+local excludedDecorItems = Constants.ExcludedDecorItems or {}
 local MPP = HA.MapPinProvider
 
 -------------------------------------------------------------------------------
@@ -288,6 +289,7 @@ end
 -- One item's worth of BuildVendorStats' loop body, mutating accum fields
 -- instead of closure locals so it can be called once per tick when sliced.
 local function AccumulateVendorItem(accum, itemID, vendor, sourceFilter)
+    if excludedDecorItems[itemID] then return end
     local SM = HA.SourceManager
     local presentation = nil
     if SM and SM.GetItemPresentation then
@@ -514,8 +516,12 @@ function BadgeCalculation:GetCountedItemIDs(vendor)
         local out = {}
         for _, itemID in ipairs(itemIDs) do
             local reason = store:LeftOutReason(itemID, vendor.npcID)
-            local list = reason and left[reason] or out
-            list[#list + 1] = itemID
+            if not reason then
+                out[#out + 1] = itemID
+            elseif left[reason] then
+                local list = left[reason]
+                list[#list + 1] = itemID
+            end
         end
         return out
     end)
