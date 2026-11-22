@@ -1495,6 +1495,13 @@ VendorIdentity.Vendors = {
         faction = "Neutral",
         expansion = "The War Within",
     },
+    [236861] = {
+        name = "Cravitz Lorent",
+        zone = "Murder Row",
+        faction = "Neutral",
+        expansion = "Midnight",
+        notes = "Inside the dungeon, in the back-left corner of the first boss room. Exact map position is not recorded.",
+    },
     [239333] = {
         name = "Street Food Vendor",
         mapID = 2346,
@@ -2406,7 +2413,7 @@ VendorIdentity.Vendors = {
         areaID = 16082,
         faction = "Neutral",
         expansion = "Midnight",
-        scanConfirmed = "2026-06-25",
+        scanConfirmed = "2026-11-21",
     },
     [256946] = {
         name = "Duskcaller Erthix",
@@ -2614,7 +2621,7 @@ VendorIdentity.Vendors = {
         areaID = 8411,
         faction = "Alliance",
         expansion = "Classic",
-        scanConfirmed = "2026-04-22",
+        scanConfirmed = "2026-11-05",
     },
     [261262] = {
         name = "Gabbi",
@@ -2626,7 +2633,7 @@ VendorIdentity.Vendors = {
         areaID = 5170,
         faction = "Horde",
         expansion = "Classic",
-        scanConfirmed = "2026-04-22",
+        scanConfirmed = "2026-11-06",
     },
     [262726] = {
         name = "Cursed Keepsake",
@@ -2836,7 +2843,7 @@ VendorIdentity.Vendors = {
         zone = "Silvermoon City",
         faction = "Neutral",
         expansion = "Midnight",
-        scanConfirmed = "2026-10-12",
+        scanConfirmed = "2026-11-20",
     },
     [276363] = {
         name = "Zul'jarra's Forces Representative",

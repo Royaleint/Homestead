@@ -838,26 +838,28 @@ local function RenderShopSourceLines(tooltip, source, parsedTag, _itemID, _compl
 
     if not detailed then
         tooltip:AddLine(HA.FormatSourceLine(source, WhiteName) .. parsedTag, COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
-        return
+    else
+        local isPromo = method == "promo"
+        tooltip:AddLine(LabelLine("Source:", WhiteName(Text(isPromo and "Promotion" or "In-Game Shop"))) .. parsedTag, COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
+        if not isPromo and method ~= "unlisted" then
+            tooltip:AddLine("  " .. LabelLine("Zone:", WhiteName(Text("N/A"))), COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
+        end
+        if method == "hearthsteel" and data.cost then
+            tooltip:AddLine("  " .. LabelLine("Shop Price:", WhiteName(data.cost .. " " .. HEARTHSTEEL_ICON)), COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
+        end
+        if method == "unlisted" then
+            tooltip:AddLine("  " .. WhiteName(Text("Not currently sold")), COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
+        elseif isPromo and data.name then
+            tooltip:AddLine("  " .. Text("Promotion: %s"):format(WhiteName(data.name)), COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
+        elseif data.name and not (method == "hearthsteel" and data.name == "In-Game Shop") then
+            tooltip:AddLine("  " .. LabelLine("Pack:", WhiteName(data.name)), COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
+        end
+        if data.expires then
+            tooltip:AddLine("  " .. LabelLine("Available until:", WhiteName(data.expires)), COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
+        end
     end
-
-    local isPromo = method == "promo"
-    tooltip:AddLine(LabelLine("Source:", WhiteName(Text(isPromo and "Promotion" or "In-Game Shop"))) .. parsedTag, COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
-    if not isPromo and method ~= "unlisted" then
-        tooltip:AddLine("  " .. LabelLine("Zone:", WhiteName(Text("N/A"))), COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
-    end
-    if method == "hearthsteel" and data.cost then
-        tooltip:AddLine("  " .. LabelLine("Shop Price:", WhiteName(data.cost .. " " .. HEARTHSTEEL_ICON)), COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
-    end
-    if method == "unlisted" then
-        tooltip:AddLine("  " .. WhiteName(Text("Not currently sold")), COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
-    elseif isPromo and data.name then
-        tooltip:AddLine("  " .. Text("Promotion: %s"):format(WhiteName(data.name)), COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
-    elseif data.name and not (method == "hearthsteel" and data.name == "In-Game Shop") then
-        tooltip:AddLine("  " .. LabelLine("Pack:", WhiteName(data.name)), COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
-    end
-    if data.expires then
-        tooltip:AddLine("  " .. LabelLine("Available until:", WhiteName(data.expires)), COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
+    if data.notes then
+        tooltip:AddLine(data.notes, 1, 0.82, 0, true)
     end
 end
 

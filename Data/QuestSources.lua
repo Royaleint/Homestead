@@ -1,10 +1,10 @@
 --[[
     Homestead - QuestSources
-    Generated: 2026-11-20 20:27:37
-    Total entries: 119
+    Generated: 2026-11-22 09:22:57
+    Total entries: 120
     Hand-corrected (2026-09-13): one refuted entry removed.
     Rows for patch 12.1.5 added by hand.
-    HA.QuestFacts: start spot, starter and zone for 19 quests.
+    HA.QuestFacts: start spot, starter and zone for 21 quests.
 
     Quest source data for housing decor items.
     DO NOT EDIT — this file is generated and changes will be overwritten.
@@ -121,6 +121,7 @@ HA.QuestSources = {
     [257690] = {questID = 93003, questName = "Decor Treasure Hunt"},
     [257691] = {questID = 93142, questName = "Decor Treasure Hunt"},
     [257692] = {questID = 93151, questName = "Decor Treasure Hunt"},
+    [258145] = {questIDs = {Alliance = 13103, Horde = 13115}, questName = "Cheese for Glowergold"},
     [260582] = {questID = 86820, questName = "Manaforge Omega: Dimensius Looms"},
     [260583] = {questID = 82141, questName = "To Kill a Queen"},
     [264362] = {questID = 30000, questName = "The Jade Serpent"},
@@ -134,7 +135,17 @@ HA.QuestSources = {
     [284542] = {questID = 59426, questName = "Your Personal Assistant"},
 }
 
+function HA.RefreshFactionQuestSources()
+    local faction = UnitFactionGroup and UnitFactionGroup("player")
+    for _, source in pairs(HA.QuestSources) do
+        if source.questIDs then source.questID = source.questIDs[faction] end
+    end
+end
+HA.RefreshFactionQuestSources()
+
 HA.QuestFacts = {
+    [13103] = {zone = {mapID = 125, expansion = "Wrath of the Lich King"}},
+    [13115] = {zone = {mapID = 125, expansion = "Wrath of the Lich King"}},
     [30000] = {start = {mapID = 371, x = 0.580, y = 0.590}},
     [36685] = {zone = {mapID = 582}},
     [38197] = {starter = {id = 122415, kind = "item"}, zone = {mapID = 582}},

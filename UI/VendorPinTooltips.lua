@@ -14,6 +14,7 @@
 ]]
 
 local _, HA = ...
+local excludedDecorItems = HA.Constants and HA.Constants.ExcludedDecorItems or {}
 
 local VendorPinTooltips = {}
 HA.VendorPinTooltips = VendorPinTooltips
@@ -801,14 +802,14 @@ function VendorPinTooltips:ShowVendorTooltip(pin, vendor, isRebuild)
     local scannedConflictByItemID = {}
     if scannedItems and itemDetailsEnabled then
         for _, item in ipairs(scannedItems) do
-            if item.itemID then
+            if item.itemID and not excludedDecorItems[item.itemID] then
                 scannedCostKnownByItemID[item.itemID] = true
-            end
-            if item.itemID and scannedCostByItemID[item.itemID] == nil then
+                if scannedCostByItemID[item.itemID] == nil then
                     scannedCostByItemID[item.itemID] = HA.VendorData and HA.VendorData:NormalizeScannedCost(item)
                     scannedRowByItemID[item.itemID] = item
-            elseif item.itemID and HA.VendorData:ScannedRowsDisagree(scannedRowByItemID[item.itemID], item) then
-                scannedConflictByItemID[item.itemID] = true
+                elseif HA.VendorData:ScannedRowsDisagree(scannedRowByItemID[item.itemID], item) then
+                    scannedConflictByItemID[item.itemID] = true
+                end
             end
         end
     end
@@ -817,7 +818,7 @@ function VendorPinTooltips:ShowVendorTooltip(pin, vendor, isRebuild)
     local vendorItems = HA.VendorData and HA.VendorData.GetItemsForVendor and HA.VendorData:GetItemsForVendor(vendor) or {}
     for _, item in ipairs(vendorItems) do
         local itemID = HA.VendorData:GetItemID(item)
-        if itemID and not itemsSeen[itemID] then
+        if itemID and not excludedDecorItems[itemID] and not itemsSeen[itemID] then
             itemsSeen[itemID] = true
             -- preserve cost on the wrapped record so the right column
             -- can format it. Previously stripped, which is why the cost column
@@ -846,7 +847,7 @@ function VendorPinTooltips:ShowVendorTooltip(pin, vendor, isRebuild)
     -- Add scanned items (new format: items = {...}, old format: decor = {...})
     if scannedItems then
         for _, item in ipairs(scannedItems) do
-            if item.itemID and not itemsSeen[item.itemID] then
+            if item.itemID and not excludedDecorItems[item.itemID] and not itemsSeen[item.itemID] then
                 itemsSeen[item.itemID] = true
                 local cost = scannedCostByItemID[item.itemID]
                 local costStatus

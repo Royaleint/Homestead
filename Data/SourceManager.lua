@@ -24,6 +24,7 @@
 ]]
 
 local _, HA = ...
+local excludedDecorItems = HA.Constants and HA.Constants.ExcludedDecorItems or {}
 
 -- Create SourceManager module
 local SourceManager = {}
@@ -260,6 +261,7 @@ end
 -- Walks registered providers in priority order (SOURCE_TYPE_ORDER).
 -- Returns: {type = "vendor|quest|achievement|profession|event|shop|drop", data = {...}} or nil
 function SourceManager:GetSource(itemID)
+    if excludedDecorItems[itemID] then return nil end
     if not itemID then return nil end
     EnsureProvidersRegistered()
 
@@ -569,6 +571,7 @@ end
 -- Unlike GetSource(), this returns every vendor location emitted by GetVendorSources().
 -- Returns: array of {type = "...", data = {...}}
 function SourceManager:GetAllSources(itemID)
+    if excludedDecorItems[itemID] then return {} end
     if not itemID then return {} end
     local cached = allSourcesCache[itemID]
     if cached then
@@ -821,6 +824,7 @@ end
 
 -- Helper: Get best parsed source for an item (from SourceTextScanner)
 function SourceManager:GetParsedSource(itemID)
+    if excludedDecorItems[itemID] then return nil end
     if not HA.SourceTextScanner then return nil end
     local parsed = HA.SourceTextScanner:GetParsedSource(itemID)
     if not parsed or not parsed.sources or #parsed.sources == 0 then return nil end
@@ -2810,6 +2814,9 @@ local function HookCompletionCacheInvalidation()
             if entry.questID then
                 trackedQuestIDs[entry.questID] = true
             end
+            for _, questID in pairs(entry.questIDs or {}) do
+                trackedQuestIDs[questID] = true
+            end
         end
     end
 
@@ -2817,12 +2824,18 @@ local function HookCompletionCacheInvalidation()
     completionInvalidationFrame:RegisterEvent("ACHIEVEMENT_EARNED")
     completionInvalidationFrame:RegisterEvent("RECEIVED_ACHIEVEMENT_LIST")
     completionInvalidationFrame:RegisterEvent("QUEST_TURNED_IN")
+    completionInvalidationFrame:RegisterEvent("PLAYER_LOGIN")
+    completionInvalidationFrame:RegisterEvent("NEUTRAL_FACTION_SELECT_RESULT")
     completionInvalidationFrame:RegisterEvent("NEW_RECIPE_LEARNED")
     completionInvalidationFrame:RegisterEvent("SKILL_LINES_CHANGED")
     completionInvalidationFrame:RegisterEvent("UPDATE_FACTION")
     completionInvalidationFrame:RegisterEvent("MAJOR_FACTION_RENOWN_LEVEL_CHANGED")
     completionInvalidationFrame:RegisterEvent("TRAIT_CONFIG_UPDATED")
     completionInvalidationFrame:SetScript("OnEvent", function(_, event, ...)
+        if (event == "PLAYER_LOGIN" or event == "NEUTRAL_FACTION_SELECT_RESULT")
+            and HA.RefreshFactionQuestSources then
+            HA.RefreshFactionQuestSources()
+        end
         -- SKILL_LINES_CHANGED fires spuriously on profession-
         -- window open (confirmed via live testing) — every other registered event
         -- stays unconditional, only this one is fingerprint-gated.
@@ -3423,6 +3436,7 @@ function SourceManager:Initialize()
     if sourceManagerInitialized then return end
     sourceManagerInitialized = true
 
+    if HA.RefreshFactionQuestSources then HA.RefreshFactionQuestSources() end
     EnsureProvidersRegistered()
     HookCompletionCacheInvalidation()
 
