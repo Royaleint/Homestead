@@ -148,10 +148,10 @@ local GeneratedBase = {
     [258220] = {
       price = 0,
       currencies = {},
-      itemCosts = {{itemID = 34597, amount = 20}},
+      itemCosts = {{itemID = 34597, amount = 50}},
       isUsable = true,
       displayOrder = 1,
-      costBuild = "12.1.5.70688",
+      costBuild = "12.1.5.70961",
     },
   },
   [27391] = {
@@ -952,10 +952,10 @@ local GeneratedBase = {
     },
     [245444] = {
       price = 0,
-      currencies = {{id = 824, amount = 150}},
+      currencies = {{id = 824, amount = 250}},
       isUsable = true,
       displayOrder = 3,
-      costBuild = "12.1.5.70688",
+      costBuild = "12.1.5.70961",
     },
     [245445] = {
       price = 0,
@@ -982,10 +982,10 @@ local GeneratedBase = {
     },
     [245444] = {
       price = 0,
-      currencies = {{id = 824, amount = 150}},
+      currencies = {{id = 824, amount = 250}},
       isUsable = true,
       displayOrder = 3,
-      costBuild = "12.1.5.70688",
+      costBuild = "12.1.5.70961",
     },
     [245445] = {
       price = 0,
@@ -1012,10 +1012,10 @@ local GeneratedBase = {
     },
     [245444] = {
       price = 0,
-      currencies = {{id = 824, amount = 150}},
+      currencies = {{id = 824, amount = 250}},
       isUsable = true,
       displayOrder = 3,
-      costBuild = "12.1.5.70688",
+      costBuild = "12.1.5.70961",
     },
     [245445] = {
       price = 0,
@@ -1058,10 +1058,10 @@ local GeneratedBase = {
     },
     [245444] = {
       price = 0,
-      currencies = {{id = 824, amount = 150}},
+      currencies = {{id = 824, amount = 250}},
       isUsable = true,
       displayOrder = 3,
-      costBuild = "12.1.5.70688",
+      costBuild = "12.1.5.70961",
     },
     [245445] = {
       price = 0,
@@ -2710,10 +2710,10 @@ local GeneratedBase = {
   [193659] = {
     [250912] = {
       price = 0,
-      currencies = {{id = 2003, amount = 250}},
+      currencies = {{id = 2003, amount = 600}},
       isUsable = false,
       displayOrder = 1,
-      costBuild = "12.1.5.70688",
+      costBuild = "12.1.5.70961",
     },
   },
   [196637] = {
@@ -3078,17 +3078,17 @@ local GeneratedBase = {
   [231406] = {
     [245313] = {
       price = 0,
-      currencies = {{id = 2815, amount = 250}},
+      currencies = {{id = 2815, amount = 450}},
       isUsable = true,
       displayOrder = 1,
-      costBuild = "12.1.5.70688",
+      costBuild = "12.1.5.70961",
     },
     [255674] = {
       price = 0,
-      currencies = {{id = 2815, amount = 250}},
+      currencies = {{id = 2815, amount = 450}},
       isUsable = true,
       displayOrder = 2,
-      costBuild = "12.1.5.70688",
+      costBuild = "12.1.5.70961",
     },
   },
   [231407] = {
