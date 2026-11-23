@@ -1,8 +1,8 @@
 --[[
     Homestead - PrerequisiteSources
-    Generated: 2026-11-22 09:16:33
-    Prerequisite rows: 536
-    Total prerequisite entries: 587
+    Generated: 2026-11-23 12:58:55
+    Prerequisite rows: 537
+    Total prerequisite entries: 588
 
     Vendor purchase prerequisites: Blizzard web API rows plus hand-checked additions.
     Used by SourceManager:GetRequirements() as a high-confidence source.
@@ -313,6 +313,7 @@ HA.PrerequisiteSources = {
     [253443] = {{type = "quest", id = 88999, name = "Sky's Hope"}},
     [253467] = {{type = "quest", id = 86867, name = "Into the Lightbloom"}},
     [253485] = {{type = "quest", id = 90493, name = "The Heart of Tranquillien"}},
+    [253527] = {{type = "quest", id = 114, name = "The Escape"}},
     [253542] = {{type = "quest", id = 92319, name = "A Favor to Axe"}},
     [253544] = {{type = "quest", id = 92325, name = "Hellscream's Heritage"}},
     [253598] = {{type = "quest", id = 92321, name = "A Frostbitten Tally"}},
