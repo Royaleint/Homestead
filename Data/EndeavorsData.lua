@@ -457,10 +457,7 @@ EndeavorsData.Vendors = {
             {280242, cost = {currencies = {{id = 3363, amount = 15}}}},
             {280244, cost = {currencies = {{id = 3363, amount = 5}}}},
             {280873, cost = {currencies = {{id = 3363, amount = 5}}}}, -- Protected Tortollan Scroll Case
-            -- Beguiling Memories of the Sea: CSV-attributed (external_resolved,
-            -- add_or_complete_vendor_offer), no published price -- left bare
-            -- pending confirmation.
-            {280846},
+            {280846, cost = {currencies = {{id = 3363, amount = 30}}}}, -- Beguiling Memories of the Sea
         },
     },
 
