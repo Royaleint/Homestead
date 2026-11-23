@@ -1500,7 +1500,7 @@ VendorIdentity.Vendors = {
         zone = "Murder Row",
         faction = "Neutral",
         expansion = "Midnight",
-        notes = "Inside the dungeon, in the back-left corner of the first boss room. Exact map position is not recorded.",
+        notes = "Inside the dungeon, in the back-left corner of the first boss room. The \"Shu'halo Perspective\" Painting drops to 999 gold while all 13 Sargle's Fortunes are in your bags.",
     },
     [239333] = {
         name = "Street Food Vendor",
