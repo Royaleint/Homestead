@@ -23,9 +23,8 @@
     That check is the live answer to "why is this blank?"; a list here would go stale.
     Thirteen offers at five live vendors (MOTHER, Boatswain Hardee, Shredz the Scrapper, Lab
     Assistant Laszly, Janey Forrest) once had a bulk-entered 10 gold default that was never
-    seen at the vendor. Each now carries the price seen at the vendor on 2026-10-10 as a
-    ManualOverrides row; the override must stay, because the generated row beneath still
-    holds the old default.
+    seen at the vendor. Each now carries the price seen at the vendor on 2026-10-10, in the
+    generated row and in a ManualOverrides row.
     A confirmed merchant route may have an unknown cost. Do not substitute a price
     until its exact cost has been verified.
 
@@ -58,7 +57,7 @@ local _, HA = ...
 local GeneratedBase = {
   [1247] = {
     [256330] = {
-      price = 6400000,
+      price = 8000000,
       currencies = {},
       isUsable = true,
       displayOrder = 1,
@@ -1370,122 +1369,122 @@ local GeneratedBase = {
   [105333] = {
     [250307] = {
       price = 0,
-      currencies = {{id = 1508, amount = 50}, {id = 1220, amount = 6000}},
+      currencies = {{id = 1508, amount = 50}, {id = 1220, amount = 2000}},
       isUsable = false,
       displayOrder = 1,
-      costBuild = "12.0.7.68974",
+      costBuild = "12.1.0.69933",
     },
     [250402] = {
       price = 0,
-      currencies = {{id = 1508, amount = 50}, {id = 1220, amount = 12000}},
+      currencies = {{id = 1508, amount = 50}, {id = 1220, amount = 4000}},
       isUsable = false,
       displayOrder = 2,
-      costBuild = "12.0.7.68974",
+      costBuild = "12.1.0.69933",
     },
     [250403] = {
       price = 0,
-      currencies = {{id = 1508, amount = 50}, {id = 1220, amount = 18000}},
+      currencies = {{id = 1508, amount = 50}, {id = 1220, amount = 6000}},
       isUsable = false,
       displayOrder = 3,
-      costBuild = "12.0.7.68974",
+      costBuild = "12.1.0.69933",
     },
     [250404] = {
       price = 0,
-      currencies = {{id = 1508, amount = 50}, {id = 1220, amount = 3000}},
+      currencies = {{id = 1508, amount = 50}, {id = 1220, amount = 1000}},
       isUsable = false,
       displayOrder = 4,
-      costBuild = "12.0.7.68974",
+      costBuild = "12.1.0.69933",
     },
     [250405] = {
       price = 0,
-      currencies = {{id = 1508, amount = 50}, {id = 1220, amount = 3000}},
+      currencies = {{id = 1508, amount = 50}, {id = 1220, amount = 1000}},
       isUsable = false,
       displayOrder = 5,
-      costBuild = "12.0.7.68974",
+      costBuild = "12.1.0.69933",
     },
     [250406] = {
       price = 0,
-      currencies = {{id = 1508, amount = 50}, {id = 1220, amount = 18000}},
+      currencies = {{id = 1508, amount = 50}, {id = 1220, amount = 6000}},
       isUsable = false,
       displayOrder = 6,
-      costBuild = "12.0.7.68974",
+      costBuild = "12.1.0.69933",
     },
     [250407] = {
       price = 0,
-      currencies = {{id = 1508, amount = 50}, {id = 1220, amount = 3000}},
+      currencies = {{id = 1508, amount = 50}, {id = 1220, amount = 1000}},
       isUsable = false,
       displayOrder = 7,
-      costBuild = "12.0.7.68974",
+      costBuild = "12.1.0.69933",
     },
     [250622] = {
       price = 0,
-      currencies = {{id = 1508, amount = 50}, {id = 1220, amount = 3000}},
+      currencies = {{id = 1508, amount = 50}, {id = 1220, amount = 1000}},
       isUsable = false,
       displayOrder = 8,
-      costBuild = "12.0.7.68974",
+      costBuild = "12.1.0.69933",
     },
     [250689] = {
       price = 0,
-      currencies = {{id = 1508, amount = 50}, {id = 1220, amount = 6000}},
+      currencies = {{id = 1508, amount = 50}, {id = 1220, amount = 2000}},
       isUsable = false,
       displayOrder = 9,
-      costBuild = "12.0.7.68974",
+      costBuild = "12.1.0.69933",
     },
     [250690] = {
       price = 0,
-      currencies = {{id = 1508, amount = 50}, {id = 1220, amount = 3000}},
+      currencies = {{id = 1508, amount = 50}, {id = 1220, amount = 1000}},
       isUsable = false,
       displayOrder = 10,
-      costBuild = "12.0.7.68974",
+      costBuild = "12.1.0.69933",
     },
     [250693] = {
       price = 0,
-      currencies = {{id = 1508, amount = 50}, {id = 1220, amount = 18000}},
+      currencies = {{id = 1508, amount = 50}, {id = 1220, amount = 6000}},
       isUsable = false,
       displayOrder = 11,
-      costBuild = "12.0.7.68974",
+      costBuild = "12.1.0.69933",
     },
     [251778] = {
       price = 0,
-      currencies = {{id = 1508, amount = 50}, {id = 1220, amount = 18000}},
+      currencies = {{id = 1508, amount = 50}, {id = 1220, amount = 6000}},
       isUsable = false,
       displayOrder = 12,
-      costBuild = "12.0.7.68974",
+      costBuild = "12.1.0.69933",
     },
     [251779] = {
       price = 0,
-      currencies = {{id = 1508, amount = 50}, {id = 1220, amount = 18000}},
+      currencies = {{id = 1508, amount = 50}, {id = 1220, amount = 6000}},
       isUsable = false,
       displayOrder = 13,
-      costBuild = "12.0.7.68974",
+      costBuild = "12.1.0.69933",
     },
     [252753] = {
       price = 0,
-      currencies = {{id = 1508, amount = 50}, {id = 1220, amount = 3000}},
+      currencies = {{id = 1508, amount = 50}, {id = 1220, amount = 1000}},
       isUsable = false,
       displayOrder = 14,
-      costBuild = "12.0.7.68974",
+      costBuild = "12.1.0.69933",
     },
     [256677] = {
       price = 0,
-      currencies = {{id = 1508, amount = 50}, {id = 1220, amount = 3000}},
+      currencies = {{id = 1508, amount = 50}, {id = 1220, amount = 1000}},
       isUsable = false,
       displayOrder = 15,
-      costBuild = "12.0.7.68974",
+      costBuild = "12.1.0.69933",
     },
     [256678] = {
       price = 0,
-      currencies = {{id = 1508, amount = 50}, {id = 1220, amount = 1500}},
+      currencies = {{id = 1508, amount = 50}, {id = 1220, amount = 500}},
       isUsable = false,
       displayOrder = 16,
-      costBuild = "12.0.7.68974",
+      costBuild = "12.1.0.69933",
     },
     [258299] = {
       price = 0,
-      currencies = {{id = 1508, amount = 50}, {id = 1220, amount = 12000}},
+      currencies = {{id = 1508, amount = 50}, {id = 1220, amount = 4000}},
       isUsable = false,
       displayOrder = 17,
-      costBuild = "12.0.7.68974",
+      costBuild = "12.1.0.69933",
     },
   },
   [105986] = {
@@ -2077,31 +2076,31 @@ local GeneratedBase = {
   [112434] = {
     [248940] = {
       price = 0,
-      currencies = {{id = 1220, amount = 2500}},
+      currencies = {{id = 1220, amount = 500}},
       isUsable = true,
       displayOrder = 1,
-      costBuild = "12.0.7.68974",
+      costBuild = "12.1.0.69933",
     },
     [248943] = {
       price = 0,
-      currencies = {{id = 1220, amount = 1000}},
+      currencies = {{id = 1220, amount = 250}},
       isUsable = true,
-      displayOrder = 3,
-      costBuild = "12.0.7.68974",
+      displayOrder = 2,
+      costBuild = "12.1.0.69933",
     },
     [248959] = {
       price = 0,
-      currencies = {{id = 1220, amount = 500}},
+      currencies = {{id = 1220, amount = 150}},
       isUsable = true,
-      displayOrder = 4,
-      costBuild = "12.0.7.68974",
+      displayOrder = 3,
+      costBuild = "12.1.0.69933",
     },
     [248960] = {
       price = 0,
-      currencies = {{id = 1220, amount = 1200}},
+      currencies = {{id = 1220, amount = 350}},
       isUsable = true,
-      displayOrder = 5,
-      costBuild = "12.0.7.68974",
+      displayOrder = 4,
+      costBuild = "12.1.0.69933",
     },
     [249004] = {
       price = 0,
@@ -2112,17 +2111,17 @@ local GeneratedBase = {
     },
     [256907] = {
       price = 0,
-      currencies = {{id = 1220, amount = 2000}},
+      currencies = {{id = 1220, amount = 400}},
       isUsable = true,
-      displayOrder = 7,
-      costBuild = "12.0.7.68974",
+      displayOrder = 6,
+      costBuild = "12.1.0.69933",
     },
     [264242] = {
       price = 0,
-      currencies = {{id = 1220, amount = 1500}},
+      currencies = {{id = 1220, amount = 350}},
       isUsable = true,
-      displayOrder = 8,
-      costBuild = "12.0.7.68974",
+      displayOrder = 7,
+      costBuild = "12.1.0.69933",
     },
   },
   [112440] = {
@@ -3025,10 +3024,10 @@ local GeneratedBase = {
     [246707] = {
       price = 0,
       currencies = {},
-      itemCosts = {{itemID = 225557, amount = 75}},
+      itemCosts = {{itemID = 225557, amount = 30}},
       isUsable = false,
       displayOrder = 1,
-      costBuild = "12.0.7.68974",
+      costBuild = "12.1.0.69299",
     },
   },
   [226994] = {
@@ -5982,10 +5981,10 @@ local GeneratedBase = {
     },
     [247843] = {
       price = 0,
-      currencies = {{id = 1220, amount = 1200}},
+      currencies = {{id = 1220, amount = 400}},
       isUsable = false,
       displayOrder = 4,
-      costBuild = "12.0.7.68974",
+      costBuild = "12.1.0.69933",
     },
     [247911] = {
       price = 0,
@@ -14330,32 +14329,32 @@ local GeneratedBase = {
   },
   [256783] = {
     [258262] = {
-      price = 100000,
-      currencies = {},
+      price = 0,
+      currencies = {{id = 2815, amount = 200}},
       isUsable = true,
       displayOrder = 1,
-      costBuild = "12.0.7.68974",
+      costBuild = "12.1.0.69299",
     },
     [258264] = {
-      price = 100000,
-      currencies = {},
+      price = 0,
+      currencies = {{id = 2815, amount = 150}},
       isUsable = true,
       displayOrder = 2,
-      costBuild = "12.0.7.68974",
+      costBuild = "12.1.0.69299",
     },
     [258265] = {
-      price = 100000,
-      currencies = {},
+      price = 0,
+      currencies = {{id = 2815, amount = 400}},
       isUsable = true,
       displayOrder = 3,
-      costBuild = "12.0.7.68974",
+      costBuild = "12.1.0.69299",
     },
     [258267] = {
-      price = 100000,
-      currencies = {},
+      price = 0,
+      currencies = {{id = 2815, amount = 350}},
       isUsable = true,
       displayOrder = 4,
-      costBuild = "12.0.7.68974",
+      costBuild = "12.1.0.69299",
     },
   },
   [256826] = {
@@ -17158,8 +17157,8 @@ local ManualOverrides = {
     [1247] = { -- Innkeeper Belm (Thunderbrew Distillery, Dun Morogh)
         [256330] = { price = 8000000, currencies = {}, isUsable = true, costBuild = "12.0.7.68974" }, -- Kharanos Stone Bed
     },
-    -- 2026-08-13: GeneratedBase carries the original 500000000
-    -- (50,000g) entry-error price. Corrected here for 264003 only: a
+    -- 2026-08-13: the generated row once carried an entry-error price of 500000000 copper
+    -- (50,000 gold). Corrected here and in the generated row for 264003 only: a
     -- second Blizzard-lineage path (the item's buy price in the client's game data;
     -- not independent of the first) plus the
     -- client's own catalog sourceText agree on both the price (50,000
@@ -17178,7 +17177,8 @@ local ManualOverrides = {
     -- rows that already exist -- these overrides carry the corrected values from
     -- real PTR scans (2026-08-11, build 12.1.0.69214). Telemancer Astrandis is the
     -- same defect: values from the scan-confirmed
-    -- 250 -> 500 Voidlight Marl correction.
+    -- 250 -> 500 Voidlight Marl correction. The seed and generated rows now carry the
+    -- corrected values too.
     [257332] = { -- Devin Slatesmith
         [280142] = { price = 250000, currencies = {}, isUsable = true, isPurchasable = true, merchantSlot = 7, hasExtendedCost = false, displayOrder = 1 }, -- Small Wooden Floor Tile (was 0/none)
         [280144] = { price = 1000000, currencies = {}, isUsable = true, isPurchasable = true, merchantSlot = 2, hasExtendedCost = false, displayOrder = 2 }, -- Large Wooden Floor Tile (was 0/none)
@@ -17297,8 +17297,9 @@ local ManualOverrides = {
     -- drops, and they carry the best before/after evidence in this batch. One of them,
     -- Kobold Candle Trio at 200 -> 150, is a 1.33x move -- below the 1.5x-4x band quoted
     -- above, which was measured DB-vs-scan and misses it.
-    -- The seed and GeneratedBase agree at the old values, so no comparison between our own
-    -- tables can see any of this. But dated live
+    -- For most of these rows the seed and GeneratedBase agree at the old values, so no
+    -- comparison between our own tables can see it; Gabbun's and Cendvin's rows have since
+    -- been corrected in both. But dated live
     -- scans we already hold can: the 2026-07-13 live scan supplies
     -- a pre-patch baseline for 33 of these rows and agrees with the post-patch scans on
     -- exactly the 11 that did not move.
@@ -17476,8 +17477,8 @@ local ManualOverrides = {
     -- Duel Vendor (Silvermoon City, Falconwing Square) no longer sells any of these 12
     -- items for currency 3393 -- the 2026-08-30 catalog-text export shows currency 3393 zero
     -- times where the 2026-08-10 export had it 12 times, and the same 12 items now read
-    -- one clean currency-3316 row each, at 200-750. GeneratedBase still ships
-    -- all 12 at the old 3393 prices (10-120). A walk of GeneratedBase,
+    -- one clean currency-3316 row each, at 200-750. GeneratedBase used to ship
+    -- all 12 at the old 3393 prices (10-120) and now carries the 3316 prices. A walk of GeneratedBase,
     -- ManualOverrides, and Tombstones confirms these are the entire currency-3393 family
     -- (229 vendors / 2066 GeneratedBase rows scanned; 12 hits, all this vendor; 0 in
     -- ManualOverrides' 30 vendors / 171 rows; 0 tombstoned) -- no other vendor, row, or
@@ -17825,8 +17826,7 @@ local ManualOverrides = {
         [278691] = { price = 0, currencies = {{id = 3316, amount = 250}}, costBuild = "12.1.0.69299", isUsable = true },
     },
     -- These 13 rows carried a flat 10g default that was never seen at the vendor. Each
-    -- now carries the price seen there on 2026-10-10. Keep the overrides: the generated rows
-    -- beneath still hold the old default.
+    -- now carries the price seen there on 2026-10-10, in the generated row and here.
     [152194] = { -- MOTHER
         [247667] = { price = 0, currencies = {{id = 1803, amount = 10000}}, isUsable = true, displayOrder = 1, costBuild = "12.1.0.69299" },
         [247668] = { price = 0, currencies = {{id = 1803, amount = 10000}}, isUsable = true, displayOrder = 2, costBuild = "12.1.0.69299" },
