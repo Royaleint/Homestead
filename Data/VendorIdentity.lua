@@ -576,7 +576,7 @@ VendorIdentity.Vendors = {
         zone = "Lunarfall (Alliance Garrison)",
         faction = "Alliance",
         expansion = "Warlords of Draenor",
-        notes = "Requires the quest 'The Escape' (Elwynn Forest).",
+        notes = "Appears near your Barn once it is built.",
     },
     [88220] = {
         name = "Peter",
