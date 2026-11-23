@@ -15,6 +15,7 @@
 ]]
 
 local _, HA = ...
+local L = HA.L or {}
 local excludedDecorItems = HA.Constants and HA.Constants.ExcludedDecorItems or {}
 
 local VendorData = {}
@@ -150,11 +151,6 @@ local COST_STATUS_LEGACY = "legacy"
 local COST_STATUS_VERIFIED = "verified"
 local COST_STATUS_QUALIFIED = "qualified"
 local COST_STATUS_UNRESOLVED = "unresolved"
-
-local function Text(key)
-    local L = HA.L
-    return (L and L[key]) or key
-end
 
 -- Calls visitor(bundle, index) for the primary bundle, then each alternative.
 function VendorData:ForEachCostBundle(cost, visitor)
@@ -344,7 +340,7 @@ function VendorData:FormatCost(cost, status, formatBundle)
     formatBundle = formatBundle or FormatCostBundle
     status = status or (cost and cost.status) or COST_STATUS_LEGACY
     if status == COST_STATUS_UNRESOLVED then
-        return Text("Cost unverified")
+        return L["Cost unverified"] or "Cost unverified"
     end
     if not cost then return nil end
 
@@ -364,9 +360,9 @@ function VendorData:FormatCost(cost, status, formatBundle)
         end)
         -- An option with nothing to show cannot be told apart from free.
         if not renderable then
-            return Text("Cost unverified")
+            return L["Cost unverified"] or "Cost unverified"
         end
-        text = table.concat(options, " " .. Text("or") .. " ")
+        text = table.concat(options, " " .. (L["or"] or "or") .. " ")
     else
         text = formatBundle(cost)
     end
@@ -2250,7 +2246,7 @@ function VendorData:GetVendorCurrencies(vendor, itemIDs)
     end
     -- Every price option counts, so a ware also sold for gold puts Gold in the list.
     local function visit(cost)
-        if (cost.gold or 0) > 0 then add(nil, Text("Gold")) end
+        if (cost.gold or 0) > 0 then add(nil, L["Gold"] or "Gold") end
         for _, c in ipairs(cost.currencies or {}) do
             local info = c.id and C_CurrencyInfo.GetCurrencyInfo(c.id) or c
             add(info.iconFileID, info.name or c.name)
@@ -2300,9 +2296,9 @@ end
 
 function VendorData:GetVendorGroupLabel(key)
     local _ = self
-    if key == "other" then return Text("Other Vendors") end
-    if key == "Endeavor" then return Text("Endeavors") end
-    if key == "Events" then return Text("Events") end
+    if key == "other" then return L["Other Vendors"] or "Other Vendors" end
+    if key == "Endeavor" then return L["Endeavors"] or "Endeavors" end
+    if key == "Events" then return L["Events"] or "Events" end
     local token = GroupTokens()[key]
     return token and _G["EXPANSION_NAME" .. tostring(_G["LE_EXPANSION_" .. token])] or key
 end

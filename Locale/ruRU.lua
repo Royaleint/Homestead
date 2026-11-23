@@ -56,6 +56,9 @@ L["Vendors nearby: %d"] = "Торговцев рядом: %d" -- human-translate
 L["Vendors scanned: %d"] = "Просканировано торговцев: %d" -- human-translated
 L["Left-Click: Toggle Decor Browser"] = "|cFFFFFFFFЛКМ:|r Открыть/закрыть обозреватель декора"
 L["Right-Click: Open options"] = "|cFFFFFFFFПКМ:|r Открыть настройки"
+L["Toggle options"] = "Открыть или закрыть параметры"
+L["Left-Click: Toggle options"] = "|cFFFFFFFFЛКМ:|r Открыть настройки" -- human-translated
+L["Right-Click: Detach/close vendor panel"] = "|cFFFFFFFFПКМ:|r Открепить/закрыть панель торговцев" -- human-translated
 
 -------------------------------------------------------------------------------
 -- Slash Commands
@@ -393,6 +396,9 @@ L["Homestead: %s"] = "Homestead: %s"
 L["Toggle Decor Browser"] = "Открыть/закрыть обозреватель декора"
 L["Open the Decor Browser, or bind a key under Keybindings > Homestead"] = "Открывает обозреватель декора. Можно также назначить клавишу в разделе «Назначение клавиш» > Homestead"
 L["Minimap button"] = "Кнопка у миникарты"
+L["Open options"] = "Открыть параметры"
+L["Right-click minimap button"] = "Щёлкните правой кнопкой мыши по кнопке мини-карты"
+L["Open the standalone vendor panel"] = "Открыть отдельную панель торговцев"
 L["Left-click opens the Decor Browser, right-click opens options"] = "ЛКМ открывает обозреватель декора, ПКМ открывает настройки"
 L["The Decor Browser is not available yet."] = "Обозреватель декора пока недоступен."
 

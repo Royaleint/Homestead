@@ -55,6 +55,9 @@ L["Vendors nearby: %d"] = "Händler in der Nähe: %d"
 L["Vendors scanned: %d"] = "Gescannte Händler: %d"
 L["Left-Click: Toggle Decor Browser"] = "|cFFFFFFFFLinksklick:|r Dekorationsbrowser ein-/ausblenden"
 L["Right-Click: Open options"] = "|cFFFFFFFFRechtsklick:|r Optionen öffnen"
+L["Toggle options"] = "Optionen ein-/ausblenden"
+L["Left-Click: Toggle options"] = "|cFFFFFFFFLinksklick:|r Optionen ein-/ausblenden"
+L["Right-Click: Detach/close vendor panel"] = "|cFFFFFFFFRechtsklick:|r Händlerleiste lösen/schließen"
 
 -------------------------------------------------------------------------------
 -- Slash Commands
@@ -380,6 +383,9 @@ L["Homestead: %s"] = "Homestead: %s"
 L["Toggle Decor Browser"] = "Dekorationsbrowser ein-/ausblenden"
 L["Open the Decor Browser, or bind a key under Keybindings > Homestead"] = "Öffnet den Dekorationsbrowser. Unter Tastaturbelegung > Homestead könnt Ihr auch eine Taste zuweisen."
 L["Minimap button"] = "Minikartenknopf"
+L["Open options"] = "Optionen öffnen"
+L["Right-click minimap button"] = "Rechtsklick auf den Minikartenknopf"
+L["Open the standalone vendor panel"] = "Separate Händlerleiste öffnen"
 L["Left-click opens the Decor Browser, right-click opens options"] = "Linksklick öffnet den Dekorationsbrowser, Rechtsklick die Optionen"
 L["The Decor Browser is not available yet."] = "Der Dekorationsbrowser ist noch nicht verfügbar."
 

@@ -55,6 +55,9 @@ L["Vendors nearby: %d"] = "附近商人：%d"
 L["Vendors scanned: %d"] = "已掃描商人：%d"
 L["Left-Click: Toggle Decor Browser"] = "|cFFFFFFFF左鍵點擊：|r開啟/關閉裝飾瀏覽器"
 L["Right-Click: Open options"] = "|cFFFFFFFF右鍵點擊：|r開啟選項"
+L["Toggle options"] = "開啟/關閉選項"
+L["Left-Click: Toggle options"] = "|cFFFFFFFF左鍵點擊：|r開啟/關閉選項"
+L["Right-Click: Detach/close vendor panel"] = "|cFFFFFFFF右鍵點擊：|r分離/關閉商人面板"
 
 -------------------------------------------------------------------------------
 -- Slash Commands
@@ -380,6 +383,9 @@ L["Homestead: %s"] = "Homestead: %s"
 L["Toggle Decor Browser"] = "開啟/關閉裝飾瀏覽器"
 L["Open the Decor Browser, or bind a key under Keybindings > Homestead"] = "開啟裝飾瀏覽器，也可以在「按鍵設定」> Homestead 中綁定按鍵"
 L["Minimap button"] = "小地圖按鈕"
+L["Open options"] = "開啟選項"
+L["Right-click minimap button"] = "右鍵點擊小地圖按鈕"
+L["Open the standalone vendor panel"] = "開啟獨立的商人面板"
 L["Left-click opens the Decor Browser, right-click opens options"] = "左鍵點擊開啟裝飾瀏覽器，右鍵點擊開啟選項"
 L["The Decor Browser is not available yet."] = "裝飾瀏覽器尚無法使用。"
 

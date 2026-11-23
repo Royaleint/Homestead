@@ -55,6 +55,9 @@ L["Vendors nearby: %d"] = "Vendeurs à proximité : %d"
 L["Vendors scanned: %d"] = "Vendeurs analysés : %d"
 L["Left-Click: Toggle Decor Browser"] = "|cFFFFFFFFClic gauche :|r Afficher/masquer le navigateur de décoration"
 L["Right-Click: Open options"] = "|cFFFFFFFFClic droit :|r Ouvrir les options"
+L["Toggle options"] = "Afficher/masquer les options"
+L["Left-Click: Toggle options"] = "|cFFFFFFFFClic gauche :|r Afficher/masquer les options"
+L["Right-Click: Detach/close vendor panel"] = "|cFFFFFFFFClic droit :|r Détacher/fermer le panneau des vendeurs"
 
 -------------------------------------------------------------------------------
 -- Slash Commands
@@ -380,6 +383,9 @@ L["Homestead: %s"] = "Homestead : %s"
 L["Toggle Decor Browser"] = "Afficher/masquer le navigateur de décoration"
 L["Open the Decor Browser, or bind a key under Keybindings > Homestead"] = "Ouvre le navigateur de décoration, ou assignez une touche dans Raccourcis > Homestead"
 L["Minimap button"] = "Bouton de la minicarte"
+L["Open options"] = "Ouvrir les options"
+L["Right-click minimap button"] = "Clic droit sur le bouton de la minicarte"
+L["Open the standalone vendor panel"] = "Ouvrir le panneau indépendant des vendeurs"
 L["Left-click opens the Decor Browser, right-click opens options"] = "Le clic gauche ouvre le navigateur de décoration, le clic droit ouvre les options"
 L["The Decor Browser is not available yet."] = "Le navigateur de décoration n’est pas encore disponible."
 
