@@ -1775,6 +1775,7 @@ VendorIdentity.Vendors = {
         faction = "Neutral",
         expansion = "Cataclysm",
         notes = "At the Twilight Ascension Camp.",
+        removed = true,
     },
     [250982] = {
         name = "Dethelin",
