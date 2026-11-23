@@ -696,10 +696,10 @@ local GeneratedBase = {
   [79774] = {
     [244315] = {
       price = 0,
-      currencies = {{id = 824, amount = 300}},
+      currencies = {{id = 824, amount = 1500}},
       isUsable = true,
       displayOrder = 1,
-      costBuild = "12.1.5.70688",
+      costBuild = "12.1.5.70961",
     },
     [244316] = {
       price = 2000000,
