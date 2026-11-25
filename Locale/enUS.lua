@@ -303,6 +303,7 @@ L["%s %s"] = "%s %s" -- untranslated
 L["%s, %s"] = "%s, %s" -- untranslated
 L["%s: %s"] = "%s: %s" -- untranslated
 L["%s with %s"] = "%s with %s"
+L["Renown Rank %d with %s"] = "Renown Rank %d with %s"
 L["Level %s"] = "Level %s"
 L["Achievement: %s"] = "Achievement: %s"
 L["Quest: %s"] = "Quest: %s" -- untranslated

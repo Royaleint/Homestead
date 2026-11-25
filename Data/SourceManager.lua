@@ -905,7 +905,8 @@ end
 -- (first-seen kept; later duplicates with the same key are discarded).
 local function getRequirementDedupeKey(req)
     if req.type == "reputation" then
-        return "reputation:" .. (req.faction or "")
+        -- Catalog text can end the faction name with a full stop; the same faction must still match.
+        return "reputation:" .. ((req.faction or ""):gsub("%.$", ""))
     elseif req.type == "achievement" then
         return "achievement:" .. tostring(req.id or req.name or "")
     elseif req.type == "quest" then
@@ -1457,8 +1458,10 @@ function SourceManager:GetRequirementText(req)
         local standing = req.standing or L["Required"] or "Required"
         -- Scanned factions can end in a period.
         local faction = (req.faction or L["Unknown faction"] or "Unknown faction"):gsub("%.$", "")
-        if standing:match("^Renown") then
-            return (L["%s %s"] or "%s %s"):format(standing, faction)
+        -- Renown reads as the game's own vendor line does: "Renown Rank 18 with The Singularity".
+        local rank = tonumber(standing:match("^Renown%s+(%d+)$"))
+        if rank then
+            return (L["Renown Rank %d with %s"] or "Renown Rank %d with %s"):format(rank, faction)
         end
         return (L["%s with %s"] or "%s with %s"):format(standing, faction)
     elseif t == "achievement" then
