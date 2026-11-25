@@ -94,8 +94,11 @@ local function UpdateMerchantButton(button, index)
 end
 
 -- Real merchant index for the slot at position `slot` on the current page.
+-- Fails closed: Buyback reuses these buttons, so anything but the Merchant tab
+-- (or a missing frame) gives nil and the caller clears the marker.
 local function GetMerchantIndexForSlot(slot, itemsPerPage)
-    local page = MerchantFrame and MerchantFrame.page
+    if not MerchantFrame or MerchantFrame.selectedTab ~= 1 then return nil end
+    local page = MerchantFrame.page
     if page then
         return slot + ((page - 1) * itemsPerPage)
     end
@@ -154,7 +157,7 @@ local function HookMerchantFrame()
     local tab1 = MerchantFrameTab1
     if tab1 and not tab1.HousingAddonTabHooked then
         tab1:HookScript("OnClick", function()
-            ScheduleOverlayUpdate()
+            UpdateAllMerchantOverlays()
         end)
         tab1.HousingAddonTabHooked = true -- luacheck: ignore 122
     end
@@ -162,7 +165,7 @@ local function HookMerchantFrame()
     local tab2 = MerchantFrameTab2
     if tab2 and not tab2.HousingAddonTabHooked then
         tab2:HookScript("OnClick", function()
-            ScheduleOverlayUpdate()
+            UpdateAllMerchantOverlays()
         end)
         tab2.HousingAddonTabHooked = true -- luacheck: ignore 122
     end
@@ -214,7 +217,7 @@ local function OnMerchantClosed()
 end
 
 local function OnMerchantUpdate()
-    -- Route through the same 0.1s debounce page/tab/scroll clicks
+    -- Route through the same 0.1s debounce page and scroll clicks
     -- use. MERCHANT_UPDATE can fire in bursts (e.g. repeated stack-count
     -- updates); calling UpdateAllMerchantOverlays() directly bypassed that
     -- coalescing entirely.

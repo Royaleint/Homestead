@@ -110,15 +110,11 @@ local function IsBankBagID(bagID)
         or bagID == bagIndex.AccountBankTab_5
 end
 
-local function IsContextEnabled(button, isBankButton)
+local function IsContextEnabled(button)
     local profile = HA.Addon and HA.Addon.db and HA.Addon.db.profile
     local settings = profile and profile.overlay
     if not settings or not settings.enabled then
         return false
-    end
-
-    if isBankButton then
-        return settings.showOnBank
     end
 
     local bagID = GetButtonBagID(button)
@@ -273,15 +269,6 @@ local function HookContainerFrame(containerFrame)
                 UpdateContainerButton(self)
             end)
 
-            if type(button.SetItemButtonTexture) == "function" then
-                hooksecurefunc(button, "SetItemButtonTexture", function(self)
-                    -- Delay slightly to ensure item data is available
-                    C_Timer.After(0, function()
-                        UpdateContainerButton(self)
-                    end)
-                end)
-            end
-
             button.HousingAddonHooked = true
             hookedCount = hookedCount + 1
         else
@@ -331,37 +318,6 @@ local function ScheduleHookAllContainers()
         hookAllPending = false
         HookAllContainers()
     end)
-end
-
--------------------------------------------------------------------------------
--- Bank Frame Hooking
--------------------------------------------------------------------------------
-
-local function HookBankFrame()
-    -- Hook bank slots when bank opens
-    -- Note: Bank UI structure may vary, this is a general approach
-
-    local bankFrame = BankFrame
-    if not bankFrame then return end
-
-    -- Hook bank item buttons
-    for i = 1, NUM_BANKGENERIC_SLOTS or 28 do
-        local button = _G["BankFrameItem" .. i]
-        if button and not button.HousingAddonHooked then
-            Overlay:AddToFrame(button, function(overlay)
-                if not IsContextEnabled(button, true) then
-                    Overlay:ClearIcon(overlay)
-                    return
-                end
-
-                local itemLink = C_Container.GetContainerItemLink(BANK_CONTAINER, i)
-                SetInventoryHomestone(overlay, itemLink)
-            end)
-            button.HousingAddonHooked = true -- luacheck: ignore 122
-        end
-    end
-
-    HA.Addon:Debug("Bank frame hooked")
 end
 
 -------------------------------------------------------------------------------
@@ -423,7 +379,6 @@ local function OnBagUpdate()
 end
 
 local function OnBankOpened()
-    HookBankFrame()
     UpdateAllContainerOverlays()
 end
 

@@ -61,6 +61,9 @@ L["Collection: %d / %d (%d%%)"] = "Collection: %d / %d (%d%%)"
 L["Vendors nearby: %d"] = "Vendors nearby: %d"
 L["Vendors scanned: %d"] = "Vendors scanned: %d"
 L["Left-Click: Toggle Decor Browser"] = "|cFFFFFFFFLeft-Click:|r Toggle Decor Browser"
+L["Toggle options"] = "Toggle options"
+L["Left-Click: Toggle options"] = "|cFFFFFFFFLeft-Click:|r Toggle options"
+L["Right-Click: Detach/close vendor panel"] = "|cFFFFFFFFRight-Click:|r Detach/close vendor panel"
 L["Right-Click: Open options"] = "|cFFFFFFFFRight-Click:|r Open options"
 
 -------------------------------------------------------------------------------
@@ -300,6 +303,7 @@ L["%s %s"] = "%s %s" -- untranslated
 L["%s, %s"] = "%s, %s" -- untranslated
 L["%s: %s"] = "%s: %s" -- untranslated
 L["%s with %s"] = "%s with %s"
+L["Renown Rank %d with %s"] = "Renown Rank %d with %s"
 L["Level %s"] = "Level %s"
 L["Achievement: %s"] = "Achievement: %s"
 L["Quest: %s"] = "Quest: %s" -- untranslated
@@ -422,6 +426,9 @@ L["Homestead: %s"] = "Homestead: %s" -- untranslated
 L["Toggle Decor Browser"] = "Toggle Decor Browser"
 L["Open the Decor Browser, or bind a key under Keybindings > Homestead"] = "Open the Decor Browser, or bind a key under Keybindings > Homestead"
 L["Minimap button"] = "Minimap button"
+L["Open options"] = "Open options"
+L["Right-click minimap button"] = "Right-click minimap button"
+L["Open the standalone vendor panel"] = "Open the standalone vendor panel"
 L["Left-click opens the Decor Browser, right-click opens options"] = "Left-click opens the Decor Browser, right-click opens options"
 L["The Decor Browser is not available yet."] = "The Decor Browser is not available yet."
 

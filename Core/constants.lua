@@ -11,11 +11,79 @@ local ADDON_NAME, HA = ...
 HA.Constants = {}
 local Constants = HA.Constants
 
+-- Retired or unreleased decor stays excluded when old saves or live discovery contain it.
+Constants.ExcludedDecorItems = {
+    [253244] = true,
+    [253254] = true,
+    [253255] = true,
+    [253256] = true,
+    [253257] = true,
+    [253290] = true,
+    [253291] = true,
+    [253292] = true,
+    [253293] = true,
+    [253294] = true,
+    [253295] = true,
+    [253296] = true,
+    [253297] = true,
+    [263239] = true,
+    [263241] = true,
+    [263242] = true,
+    [263243] = true,
+    [263292] = true,
+    [263293] = true,
+    [263294] = true,
+    [263295] = true,
+    [263296] = true,
+    [263297] = true,
+    [263298] = true,
+    [263299] = true,
+    [263300] = true,
+    [263301] = true,
+    [263302] = true,
+    [263303] = true,
+    [264384] = true,
+    [264680] = true,
+    [264681] = true,
+    [264682] = true,
+    [264683] = true,
+    [264684] = true,
+    [264685] = true,
+    [264686] = true,
+    [264687] = true,
+    [264688] = true,
+    [264689] = true,
+    [264690] = true,
+    [264691] = true,
+    [265387] = true,
+    [265388] = true,
+    [265389] = true,
+    [265390] = true,
+    [265391] = true,
+    [265392] = true,
+    [265393] = true,
+    [265394] = true,
+    [265395] = true,
+    [265396] = true,
+    [265397] = true,
+    [265398] = true,
+    [265544] = true,
+    [265545] = true,
+    [265546] = true,
+    [265547] = true,
+    [265548] = true,
+    [265549] = true,
+    [265550] = true,
+    [265551] = true,
+    [265552] = true,
+    [265553] = true,
+}
+
 -------------------------------------------------------------------------------
 -- Version Info
 -------------------------------------------------------------------------------
-Constants.VERSION = "2.17.0"
-Constants.RELEASE_DATE = "2026-11-10"   -- ISO YYYY-MM-DD. Bump alongside VERSION.
+Constants.VERSION = "2.18.0"
+Constants.RELEASE_DATE = "2026-11-20"   -- ISO YYYY-MM-DD. Bump alongside VERSION.
 Constants.ADDON_NAME = "Homestead"
 Constants.ADDON_SHORT = "HS"
 Constants.WELCOME_SEEN_VERSION_MAX = 4
@@ -24,6 +92,12 @@ Constants.WELCOME_SEEN_VERSION_MAX = 4
 -- installed from CurseForge, "Homestead_DevBuild" for the local dev build.
 -- Never hardcode the addon folder name in a texture path.
 Constants.TEXTURE_ROOT = "Interface\\AddOns\\" .. ADDON_NAME .. "\\Textures\\"
+
+-- Whether the Decor Browser is reachable by the player. To turn it on for everyone,
+-- make this return true.
+function Constants.IsDecorBrowserAvailable()
+    return ADDON_NAME == "Homestead_DevBuild"
+end
 
 -------------------------------------------------------------------------------
 -- Icon Definitions
@@ -193,6 +267,13 @@ function Constants.IsScanInOtherNeighborhoodHub(vendorMapID, scannedMapID)
     return vendorMapID ~= nil and OTHER_NEIGHBORHOOD_HUB[vendorMapID] == scannedMapID
 end
 
+-- Housing neighborhood maps are instances: their coordinates overlap real continent space,
+-- so the minimap nearby-zone scan neither offers them as siblings nor scans from inside one.
+Constants.InstancedNeighborhoodMaps = {
+    [2351] = true,  -- Razorwind Shores
+    [2352] = true,  -- Founder's Point
+}
+
 -- Canonical zone-to-continent map consumed by VendorDatabase, BadgeCalculation,
 -- and scanner inference paths.
 Constants.ZoneToContinentMap = {
@@ -208,7 +289,7 @@ Constants.ZoneToContinentMap = {
     [48] = 13,
     [50] = 13,     -- Northern Stranglethorn
     [56] = 13,
-    [57] = 13,
+    [57] = 12,     -- Teldrassil (parent chain 57;12)
     [62] = 12,     -- Darkshore
     [69] = 12,
     [70] = 12,
@@ -338,8 +419,8 @@ Constants.ZoneToContinentMap = {
     [2339] = 2274,
     [2346] = 2274,
     [2350] = 2274, -- Arcantina
-    [2351] = 2274, -- Hollowed Halls (Housing)
-    [2352] = 2274, -- Housing instance
+    [2351] = 12, -- Razorwind Shores
+    [2352] = 13, -- Founder's Point
     [2393] = 2537, -- Murder Row (Midnight Silvermoon)
     [2395] = 2537, -- Midnight Silvermoon (zone parent)
     [2405] = 2537, -- Voidstorm (Midnight)
@@ -403,6 +484,32 @@ Constants.EXPANSION_ORDER = {
 -- Profession skill tiers, oldest first, as the start of a recipe's skill tier name.
 Constants.PROFESSION_TIERS = { "Classic", "Outland", "Northrend", "Cataclysm", "Pandaria", "Draenor", "Legion",
     "Battle for Azeroth", "Shadowlands", "Dragon Isles", "Khaz Algar", "Midnight" }
+
+-- Midnight profession shop-sign vendors: npcID -> the achievement that opens the
+-- sign they sell. The achievement is shared across the account, and each vendor's
+-- map pin is hidden only when no character on the account has it.
+Constants.ProfessionSignVendors = {
+    [243359] = 42788,   -- Melaris: Alchemizing at Midnight
+    [241451] = 42792,   -- Eriden: Blacksmithing at Midnight
+    [257914] = 42795,   -- Quelis: Cooking at Midnight
+    [243350] = 42787,   -- Lyna: Enchanting at Midnight
+    [241453] = 42798,   -- Yatheon: Engineering at Midnight
+    [258507] = 42797,   -- Mowaia: Fishing at Midnight
+    [256026] = 42793,   -- Irodalmin: Herbalism at Midnight
+    [243555] = 42796,   -- Lelorian: Inscribing at Midnight
+    [258480] = 42789,   -- Amwa'ana: Jewelcrafting at Midnight
+    [243531] = 42786,   -- Zaralda: Leatherworking at Midnight
+    [258540] = 42791,   -- Hawli: Mining at Midnight
+    [256009] = 42790,   -- Rendron: Skinning at Midnight
+    [243353] = 42794,   -- Deynna: Tailoring at Midnight
+}
+
+-- The same achievements as a set, for re-checking their verdicts when account
+-- achievement data arrives.
+Constants.ProfessionSignAchievements = {}
+for _, achievementID in pairs(Constants.ProfessionSignVendors) do
+    Constants.ProfessionSignAchievements[achievementID] = true
+end
 
 -------------------------------------------------------------------------------
 -- Vertical Zone Siblings (for minimap elevation arrows)

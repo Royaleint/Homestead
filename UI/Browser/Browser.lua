@@ -17,7 +17,9 @@ local L = HA.L
 local Win = B.Window
 
 BINDING_HEADER_HOMESTEAD = L["Homestead"]
-BINDING_NAME_HOMESTEAD_TOGGLE_BROWSER = L["Toggle Decor Browser"]
+-- The one binding toggles the options instead while the Browser is unavailable.
+BINDING_NAME_HOMESTEAD_TOGGLE_BROWSER = HA.Constants.IsDecorBrowserAvailable()
+    and L["Toggle Decor Browser"] or L["Toggle options"]
 
 local REFRESH_DELAY = 0.5
 local DATA_EVENTS = {

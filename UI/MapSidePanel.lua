@@ -1270,7 +1270,7 @@ end
 
 -- Search-result section header. Non-interactive divider that labels
 -- the section by source type (Vendors / Profession / Quest / Achievement /
--- Event / Drop). One per active section; emitted on type transitions in
+-- Event / Shop / Drop). One per active section; emitted on type transitions in
 -- RefreshSearchResults.
 Layout.SEARCH_HEADER_HEIGHT = 22
 
@@ -3223,7 +3223,7 @@ function MapSidePanel:RefreshSearchResults()
         rows[#rows + 1] = {
             kind = "header",
             height = Layout.SEARCH_HEADER_HEIGHT,
-            label = HA.DecorBrowser.Style.sourceLabel[sectionKey .. "s"] or sectionKey,
+            label = HA.DecorBrowser.Style.sourceLabel[sectionKey .. "s"] or HA.DecorBrowser.Style.sourceLabel[sectionKey] or sectionKey,
         }
     end
 
@@ -3247,7 +3247,7 @@ function MapSidePanel:RefreshSearchResults()
                 isExpanded = isExpanded,
                 sourceCount = sourceCount,
             }
-        elseif not VendorFilter.ShouldHideVendor(result.vendor) then
+        elseif BC:IsListedVendor(result.vendor) then
             EmitHeader("vendor")
             vendorCount = vendorCount + 1
             local vendor = result.vendor

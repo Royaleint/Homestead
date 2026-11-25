@@ -23,6 +23,7 @@
 ]]
 
 local _, HA = ...
+local excludedDecorItems = HA.Constants and HA.Constants.ExcludedDecorItems or {}
 
 -- existing idiom for reaching Foundry from a Homestead module
 -- (core.lua:14, UI/MapSidePanel.lua:18, UI/OptionsFrame.lua:11). F is never
@@ -130,7 +131,7 @@ end
 -------------------------------------------------------------------------------
 
 local function _save(itemID, fields)
-    if not ci or not itemID then return end
+    if not ci or not itemID or excludedDecorItems[itemID] then return end
 
     local record = ci[itemID]
     if not record then
@@ -157,7 +158,7 @@ end
 -- Mark an item as owned.
 -- Fires OWNERSHIP_UPDATED only if newly owned (not on repeated calls).
 function CatalogStore:SetOwned(itemID, name, decorID)
-    if not ci or not itemID then return end
+    if not ci or not itemID or excludedDecorItems[itemID] then return end
 
     local record = ci[itemID]
     local wasOwned = record and record.isOwned
@@ -203,7 +204,7 @@ end
 -- diagnostic) — SourceTextScanner passes it only when HA.DevAddon is loaded,
 -- so it never affects a normal player's SavedVariables size.
 function CatalogStore:SetSources(itemID, sources, rawSourceText)
-    if not ci or not itemID then return end
+    if not ci or not itemID or excludedDecorItems[itemID] then return end
 
     _save(itemID, {
         sources = sources,
@@ -219,7 +220,7 @@ end
 
 -- Store requirements for an item (item-level "best-known")
 function CatalogStore:SetRequirements(itemID, requirements)
-    if not ci or not itemID then return end
+    if not ci or not itemID or excludedDecorItems[itemID] then return end
 
     _save(itemID, {
         requirements = requirements,
@@ -234,7 +235,7 @@ end
 
 -- General-purpose save (catch-all for metadata fields)
 function CatalogStore:Save(itemID, fields)
-    if not ci or not itemID or not fields then return end
+    if not ci or not itemID or not fields or excludedDecorItems[itemID] then return end
 
     _save(itemID, fields)
 
@@ -363,6 +364,8 @@ function CatalogStore:IsDecorItem(itemLink)
         return false
     end
 
+    if excludedDecorItems[itemID] then return false end
+
     if ci and ci[itemID] then
         -- ci also holds room-plan records. A record identifies decor
         -- only for the Decor housing subclass; any other housing subclass is
@@ -477,13 +480,13 @@ end
 
 -- Raw record access (no allocation, direct table reference)
 function CatalogStore:Get(itemID)
-    if not ci or not itemID then return nil end
+    if not ci or not itemID or excludedDecorItems[itemID] then return nil end
     return ci[itemID]
 end
 
 -- Cache-only ownership check (fast, no API calls)
 function CatalogStore:IsOwned(itemID)
-    if not itemID then return false end
+    if not itemID or excludedDecorItems[itemID] then return false end
 
     if ci then
         local record = ci[itemID]
@@ -557,7 +560,7 @@ end
 -- write would fire OWNERSHIP_UPDATED mid-render, wipe the overlay cache and thrash.
 -- The scanner remains the authoritative cache writer.
 function CatalogStore:IsOwnedFresh(itemID, readOnly)
-    if not itemID then return false end
+    if not itemID or excludedDecorItems[itemID] then return false end
 
     if readOnly then
         return (WalkEntries(self, itemID, false))
@@ -658,7 +661,7 @@ end
 -- so callers take ownership from the state, never from the entry's counts.
 -- Writes no ownership; see WalkEntries for the unreported set.
 function CatalogStore:ReadOwnershipEntry(itemID)
-    if not itemID or self:IsOwnershipUnknowable(itemID) then
+    if not itemID or excludedDecorItems[itemID] or self:IsOwnershipUnknowable(itemID) then
         return "unknown", nil
     end
 
@@ -670,7 +673,7 @@ end
 
 -- Get decorID for an item
 function CatalogStore:GetDecorID(itemID)
-    if not ci or not itemID then return nil end
+    if not ci or not itemID or excludedDecorItems[itemID] then return nil end
     local record = ci[itemID]
     return record and record.decorID
 end
@@ -788,7 +791,7 @@ end
 
 -- Get item-level requirements
 function CatalogStore:GetRequirements(itemID)
-    if not ci or not itemID then return nil end
+    if not ci or not itemID or excludedDecorItems[itemID] then return nil end
     local record = ci[itemID]
     return record and record.requirements
 end
@@ -821,7 +824,7 @@ function CatalogStore:GetOwnedItemsBySourceType(mode)
 
     local ownedItemSet = {}
     for itemID, record in pairs(ci) do
-        if record and record.isOwned then
+        if record and record.isOwned and not excludedDecorItems[itemID] then
             ownedItemSet[itemID] = true
         end
     end
@@ -885,7 +888,7 @@ function CatalogStore:GetDecorItemIDs()
         decorItemIDs = {}
         local seen = {}
         for _, itemID in pairs(HA.DecorMapping or {}) do
-            if not seen[itemID] then
+            if not seen[itemID] and not excludedDecorItems[itemID] then
                 seen[itemID] = true
                 decorItemIDs[#decorItemIDs + 1] = itemID
             end
@@ -900,6 +903,7 @@ end
 -- that vendor, given npcID). Ownership from the cache, unless the caller passes owned = true from its own read:
 -- an owned item counts.
 function CatalogStore:LeftOutReason(itemID, npcID, owned)
+    if excludedDecorItems[itemID] then return "unavailable" end
     if self:IsOwnershipUnreported(itemID, owned) then return "unknown" end
     local reqs = not owned and self:IsOwned(itemID) ~= true and HA.SourceManager:GetRequirements(itemID, npcID)
     if not reqs then return nil end
@@ -919,15 +923,17 @@ function CatalogStore:BuildDecorIndex()
     local staticMapping = HA.DecorMapping
     if staticMapping then
         for decorID, itemID in pairs(staticMapping) do
-            decorToItemID[decorID] = itemID
-            itemIDToDecor[itemID] = decorID
+            if not excludedDecorItems[itemID] then
+                decorToItemID[decorID] = itemID
+                itemIDToDecor[itemID] = decorID
+            end
         end
     end
 
     -- Overlay runtime discoveries from catalogItems (may contain newer data)
     if ci then
         for itemID, record in pairs(ci) do
-            if record.decorID and record.decorID ~= 0 then
+            if not excludedDecorItems[itemID] and record.decorID and record.decorID ~= 0 then
                 decorToItemID[record.decorID] = itemID
                 itemIDToDecor[itemID] = record.decorID
             end
@@ -1029,6 +1035,19 @@ local function WriteV5Backup(global, fromVersion)
                           savedAt = time(), addonVersion = HA.Constants.VERSION }
 end
 
+local function MigrateDecorID(itemID, decorID)
+    if not ci or not decorID then return end
+    local record = ci[itemID]
+    if record and record.decorID then return end
+    if excludedDecorItems[itemID] then
+        record = record or {}
+        record.decorID = decorID
+        ci[itemID] = record
+    else
+        _save(itemID, { decorID = decorID })
+    end
+end
+
 -- Migration 1→2: Backfill from parsedSources
 local function Migration_1_to_2(db)
     local global = db.global
@@ -1044,13 +1063,7 @@ local function Migration_1_to_2(db)
             record.sources = record.sources or data.sources
             record.sourceHash = record.sourceHash or data.sourceHash
             record.lastParsed = record.lastParsed or data.lastParsed
-            -- Map parsedSources recordID to decorID.
-            -- Route through _save so the reverse index (itemIDToDecor /
-            -- decorToItemID) is updated structurally rather than
-            -- depending on BuildDecorIndex ordering.
-            if data.recordID and not record.decorID then
-                _save(itemID, { decorID = data.recordID })
-            end
+            MigrateDecorID(itemID, data.recordID)
         end
     end
 
@@ -1177,12 +1190,10 @@ local function Migration_4_to_5(db)
                     record.rawSourceText = data.raw
                 end
 
-                -- Map parsedSources recordID to decorID (mirrors Migration_1_to_2;
-                -- harmless to repeat for a record that still lacks one). Route
-                -- through _save so the reverse index updates structurally.
-                if data.recordID and not (ci[itemID] and ci[itemID].decorID) then
-                    _save(itemID, { decorID = data.recordID })
-                end
+            end
+
+            if data.sources or excludedDecorItems[itemID] then
+                MigrateDecorID(itemID, data.recordID)
             end
 
             -- Rewrite to the stamp-only shape. Must mirror whichever payload
@@ -1374,10 +1385,12 @@ function CatalogStore:Initialize()
     ownedCount = 0
     local totalItems = 0
     if ci then
-        for _, record in pairs(ci) do
-            totalItems = totalItems + 1
-            if record.isOwned then
-                ownedCount = ownedCount + 1
+        for itemID, record in pairs(ci) do
+            if not excludedDecorItems[itemID] then
+                totalItems = totalItems + 1
+                if record.isOwned then
+                    ownedCount = ownedCount + 1
+                end
             end
         end
     end

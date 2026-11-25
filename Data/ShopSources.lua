@@ -1,5 +1,5 @@
 -- ShopSources.lua — Static source data for shop, promotional, and charity items.
--- Created: 2026-03-22 | Entries: 95
+-- Created: 2026-03-22 | Entries: 94
 -- Sources: in-game shop listing (prices as of 2026-11-10), promotion announcements, Roofus charity pack
 --
 -- Schema:
@@ -8,11 +8,24 @@
 --                  ("unlisted" = marked as a shop item by the game but not on sale; no name)
 --       cost     = number or nil (nil = free)
 --       name     = string (pack/promo name for display)
+--       notes    = optional acquisition instructions for item tooltips
 --       expires  = "YYYY-MM-DD" or nil (nil = permanent)
 --   }
 local _, HA = ...
 
+local resupply = "Owners can purchase additional copies from the promotional decor resupply vendors."
+local endedPromotion = "This promotion has ended. " .. resupply
+local endedRoofus = "The Roofus Pack is no longer sold in the Battle.net Shop. " .. resupply
+
+local skyborneDecor = "Included with the Skyborne Heroic Pack, Skyborne Epic Pack, or Warcraft Forever Collection."
+
 HA.ShopSources = {
+    [268337] = { method = "promo", name = "World of Warcraft: Forever", notes = skyborneDecor },
+    [268338] = { method = "promo", name = "World of Warcraft: Forever", notes = skyborneDecor },
+    [268339] = { method = "promo", name = "World of Warcraft: Forever", notes = skyborneDecor },
+    [268340] = { method = "promo", name = "World of Warcraft: Forever", notes = skyborneDecor },
+    [268722] = { method = "promo", name = "World of Warcraft: Forever", notes = skyborneDecor },
+    [281107] = { method = "promo", name = "BlizzCon 2026", notes = "The September 2026 login reward has ended. Players who earned the BlizzCon 2026 achievement can buy additional copies from the promotional decor resupply vendors." },
     ---------------------------------------------------------------------------
     -- Individual Hearthsteel items (shop-only, not available from gold vendors)
     ---------------------------------------------------------------------------
@@ -114,14 +127,14 @@ HA.ShopSources = {
     ---------------------------------------------------------------------------
     -- Roofus Charity Pack
     ---------------------------------------------------------------------------
-    [259044] = { method = "charity", name = "Roofus Charity Pack" },            -- Paw Pal Water Dish
-    [259045] = { method = "charity", name = "Roofus Charity Pack" },            -- Paw Pal Bed and Blanket
-    [259046] = { method = "charity", name = "Roofus Charity Pack" },            -- Paw Pal Bed
-    [259093] = { method = "charity", name = "Roofus Charity Pack" },            -- Paw Pal Dog House Frame
-    [259094] = { method = "charity", name = "Roofus Charity Pack" },            -- Paw Pal Dog House Elwynn Roof
-    [264275] = { method = "charity", name = "Roofus Charity Pack" },            -- Paw Pal Dog House Durotar Roof
-    [264276] = { method = "charity", name = "Roofus Charity Pack" },            -- Paw Pal Dog House Eversong Roof
-    [264277] = { method = "charity", name = "Roofus Charity Pack" },            -- Paw Pal Dog House Shadowglen Roof
+    [259044] = { method = "charity", name = "Roofus Charity Pack", notes = endedRoofus },            -- Paw Pal Water Dish
+    [259045] = { method = "charity", name = "Roofus Charity Pack", notes = endedRoofus },            -- Paw Pal Bed and Blanket
+    [259046] = { method = "charity", name = "Roofus Charity Pack", notes = endedRoofus },            -- Paw Pal Bed
+    [259093] = { method = "charity", name = "Roofus Charity Pack", notes = endedRoofus },            -- Paw Pal Dog House Frame
+    [259094] = { method = "charity", name = "Roofus Charity Pack", notes = endedRoofus },            -- Paw Pal Dog House Elwynn Roof
+    [264275] = { method = "charity", name = "Roofus Charity Pack", notes = endedRoofus },            -- Paw Pal Dog House Durotar Roof
+    [264276] = { method = "charity", name = "Roofus Charity Pack", notes = endedRoofus },            -- Paw Pal Dog House Eversong Roof
+    [264277] = { method = "charity", name = "Roofus Charity Pack", notes = endedRoofus },            -- Paw Pal Dog House Shadowglen Roof
 
     ---------------------------------------------------------------------------
     -- Promotional and purchase-bonus items (not sold for Hearthsteel)
@@ -129,18 +142,23 @@ HA.ShopSources = {
     [256764] = { method = "promo", name = "Diablo II: Resurrected - Reign of the Warlock" },  -- Sanctuary's Horadric Cube
     [259055] = { method = "promo", name = "Diablo IV: Lord of Hatred" },    -- Hatred's Wolfpelt Rug
     [259056] = { method = "promo", name = "Diablo IV: Lord of Hatred" },    -- Prime Evil's Chest
-    [263383] = { method = "promo", name = "Fanta" },                        -- Corked Bottle of Liquid Mystery
-    [264278] = { method = "promo", name = "Fanta" },                        -- Sturdy Portable Ice Chest
-    [264279] = { method = "promo", name = "Fanta" },                        -- Tall Corked Bottle of Liquid Mystery
-    [264280] = { method = "promo", name = "Fanta" },                        -- Short Corked Bottle of Liquid Mystery
-    [264281] = { method = "promo", name = "Pinterest" },                    -- Preserved Gift of Gilneas
-    [264282] = { method = "promo", name = "Pinterest" },                    -- Bluebird's Golden Cage
-    [264283] = { method = "promo", name = "Pinterest" },                    -- Backboard and Hoop Playset
-    [264396] = { method = "promo", name = "Zillow for Warcraft" },              -- Naturally Elegant Doormat
+    [263383] = { method = "promo", name = "Fanta", notes = endedPromotion },                        -- Corked Bottle of Liquid Mystery
+    [264278] = { method = "promo", name = "Fanta", notes = endedPromotion },                        -- Sturdy Portable Ice Chest
+    [264279] = { method = "promo", name = "Fanta", notes = endedPromotion },                        -- Tall Corked Bottle of Liquid Mystery
+    [264280] = { method = "promo", name = "Fanta", notes = endedPromotion },                        -- Short Corked Bottle of Liquid Mystery
+    [264281] = { -- Preserved Gift of Gilneas
+        method = "promo", name = "Pinterest",
+        notes = [[Enter "Kalimdor Collage" at https://craftyourworldpromo.com/.]],
+    },
+    [264282] = { -- Bluebird's Golden Cage
+        method = "promo", name = "Pinterest",
+        notes = [[Enter "Azeroth Inspiration" at https://craftyourworldpromo.com/.]],
+    },
+    [264283] = { -- Backboard and Hoop Playset
+        method = "promo", name = "Pinterest",
+        notes = [[Enter "Horde Board" at https://craftyourworldpromo.com/. Unlocks for both Horde and Alliance characters on your Battle.net account.]],
+    },
+    [264396] = { method = "promo", name = "Zillow for Warcraft", notes = endedPromotion },              -- Naturally Elegant Doormat
     [264397] = { method = "promo", name = "Zillow for Warcraft" },              -- Simply Adorned Vase and Flowers
 
-    ---------------------------------------------------------------------------
-    -- Marked as a shop item by the game, but not on sale and origin unknown
-    ---------------------------------------------------------------------------
-    [264384] = { method = "unlisted" },           -- Zapmaster Viewer 3000
 }

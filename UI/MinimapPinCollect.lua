@@ -157,12 +157,12 @@ function MinimapPinCollect:RefreshMinimapPins()
         end
 
         local continentID = GetContinentForZone(playerMapID)
-        if includeSiblingZones then
+        if includeSiblingZones and not Constants.InstancedNeighborhoodMaps[playerMapID] then
             if continentID and not MPP.minimapExcludedContinents[continentID] then
                 local siblingZones = MPP.continentToZones[continentID]
                 if siblingZones then
                     for _, zoneMapID in ipairs(siblingZones) do
-                        if not mapsToCheckSet[zoneMapID] then
+                        if not mapsToCheckSet[zoneMapID] and not Constants.InstancedNeighborhoodMaps[zoneMapID] then
                             mapsToCheck[#mapsToCheck + 1] = zoneMapID
                             mapsToCheckSet[zoneMapID] = true
                         end

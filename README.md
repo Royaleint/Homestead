@@ -62,7 +62,7 @@ Don't want it? Turn off **Auto-scan vendors** in the General tab of the options.
 
 | Command | What it does |
 |---------|-------------|
-| `/hs` | Toggle the Decor Browser |
+| `/hs` | Open the options panel (same as `/hs config`) |
 | `/hs config` | Open the options panel |
 | `/hs help` | List every command |
 | `/hs panel` | Toggle the detached vendor panel |

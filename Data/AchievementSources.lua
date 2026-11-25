@@ -1,7 +1,7 @@
 --[[
     Homestead - AchievementSources
-    Generated: 2026-11-08 17:24:42
-    Total entries: 207
+    Generated: 2026-11-22 02:55:36
+    Total entries: 199
 
     Achievement source data for housing decor items.
     DO NOT EDIT — this file is generated and changes will be overwritten.
@@ -65,6 +65,8 @@ local sourceData = {
     [245703] = {achievementID = 11258, achievementName = "Treasures of Val'sharah", category = "Legion"},
     [247843] = {achievementID = 11340, achievementName = "Insurrection", category = "Legion"},
     [257721] = {achievementID = 10398, achievementName = "Drum Circle", category = "Legion"},
+    [281682] = {achievementID = 12102, achievementName = "To Kill Demons...", category = "Legion"},
+    [282162] = {achievementID = 12026, achievementName = "Invasion Obliteration", category = "Legion"},
 
     -- Expansion Features
     [247667] = {achievementID = 40953, achievementName = "A Farewell to Arms", category = "Expansion Features"},
@@ -193,19 +195,6 @@ local sourceData = {
     -- Professions
     [245490] = {achievementID = 12733, achievementName = "Professional Zandalari Master", category = "Professions"},
     [253163] = {achievementID = 19408, achievementName = "Professional Algari Master", category = "Professions"},
-    [263997] = {achievementID = 42788, achievementName = "Alchemizing at Midnight", category = "Professions"},
-    [263998] = {achievementID = 42792, achievementName = "Blacksmithing at Midnight", category = "Professions"},
-    [263999] = {achievementID = 42795, achievementName = "Cooking at Midnight", category = "Professions"},
-    [264000] = {achievementID = 42787, achievementName = "Enchanting at Midnight", category = "Professions"},
-    [264001] = {achievementID = 42798, achievementName = "Engineering at Midnight", category = "Professions"},
-    [264002] = {achievementID = 42797, achievementName = "Fishing at Midnight", category = "Professions"},
-    [264003] = {achievementID = 42793, achievementName = "Herbalism at Midnight", category = "Professions"},
-    [264004] = {achievementID = 42796, achievementName = "Inscribing at Midnight", category = "Professions"},
-    [264005] = {achievementID = 42789, achievementName = "Jewelcrafting at Midnight", category = "Professions"},
-    [264006] = {achievementID = 42786, achievementName = "Leatherworking at Midnight", category = "Professions"},
-    [264172] = {achievementID = 42791, achievementName = "Mining at Midnight", category = "Professions"},
-    [264173] = {achievementID = 42790, achievementName = "Skinning at Midnight", category = "Professions"},
-    [264174] = {achievementID = 42794, achievementName = "Tailoring at Midnight", category = "Professions"},
 
     -- War Effort
     [245463] = {achievementID = 12867, achievementName = "Azeroth at War: The Barrens", category = "War Effort"},
@@ -283,6 +272,9 @@ local sourceData = {
 
     -- Events
     [260785] = {achievementID = 62387, achievementName = "It's Nearly Midnight", category = "Events"},
+    [274731] = {achievementID = 63343, achievementName = "Goal!", category = "Events"},
+    [274734] = {achievementID = 63343, achievementName = "Goal!", category = "Events"},
+    [274736] = {achievementID = 63343, achievementName = "Goal!", category = "Events"},
 
     -- Hallow's End
     [282287] = {achievementID = 10365, achievementName = "A Frightening Friend", category = "Hallow's End"},

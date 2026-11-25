@@ -10,6 +10,7 @@
 ]]
 
 local _, HA = ...
+local L = HA.L or {}
 
 -- Upvalued Lua stdlib
 local ipairs = ipairs
@@ -38,13 +39,9 @@ local COLOR_GRAY = {r = 0.5, g = 0.5, b = 0.5}
 -- Helper Functions
 -------------------------------------------------------------------------------
 
-local function Text(key)
-    return HA.L and HA.L[key] or key
-end
-
--- A localized label key followed by its value, e.g. "Source:" then the vendor name.
-local function LabelLine(labelKey, value)
-    return Text(labelKey) .. " " .. value
+-- A localized label followed by its value, e.g. "Source:" then the vendor name.
+local function LabelLine(label, value)
+    return label .. " " .. value
 end
 
 -- Extract item ID from item link
@@ -100,7 +97,7 @@ end
 
 -- "Requires <text>", the text from the one shared requirement wording.
 local function RequirementLine(req)
-    return Text("Requires %s"):format(HA.SourceManager:GetRequirementText(req))
+    return (L["Requires %s"] or "Requires %s"):format(HA.SourceManager:GetRequirementText(req))
 end
 
 -- Add requirement lines to tooltip for an item (optionally vendor-scoped)
@@ -152,9 +149,9 @@ local function AddRequirementsToTooltip(tooltip, itemID, npcID, dedupSet, reputa
                 if progress then
                     isMet = progress.met
                     if progress.isRenown then
-                        text = Text("Your renown: %s / %s"):format(progress.currentText, progress.requiredText)
+                        text = (L["Your renown: %s / %s"] or "Your renown: %s / %s"):format(progress.currentText, progress.requiredText)
                     else
-                        text = Text("Your standing: %s / %s"):format(progress.currentText, progress.requiredText)
+                        text = (L["Your standing: %s / %s"] or "Your standing: %s / %s"):format(progress.currentText, progress.requiredText)
                     end
                     -- Track rendered faction for cross-path dedup with AddReputationProgressToTooltip
                     renderedFactions = renderedFactions or {}
@@ -168,8 +165,9 @@ local function AddRequirementsToTooltip(tooltip, itemID, npcID, dedupSet, reputa
                 -- price only applies to buying extras. Not gated by isMet — always
                 -- show the note once an achievement req is marked granted=true.
                 if req.granted then
-                    tooltip:AddLine("  " .. Text("Completing this grants one copy; price applies to additional copies"),
-                        COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
+                    local note = L["Completing this grants one copy; price applies to additional copies"]
+                        or "Completing this grants one copy; price applies to additional copies"
+                    tooltip:AddLine("  " .. note, COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
                 end
             elseif req.type == "level" and req.level then
                 text = RequirementLine(req)
@@ -187,7 +185,7 @@ local function AddRequirementsToTooltip(tooltip, itemID, npcID, dedupSet, reputa
                             if profName == req.profession then
                                 tooltip:AddLine("  " .. text,
                                     isMet and 0.0 or 0.8, isMet and 0.8 or 0.0, 0.0)
-                                tooltip:AddLine("  " .. Text("Your %s: %s"):format(req.profession, tostring(skillLevel or 0)),
+                                tooltip:AddLine("  " .. (L["Your %s: %s"] or "Your %s: %s"):format(req.profession, tostring(skillLevel or 0)),
                                     COLOR_WHITE.r, COLOR_WHITE.g, COLOR_WHITE.b)
                                 text = nil  -- lines already rendered above
                                 break
@@ -281,9 +279,9 @@ local function AddReputationProgressToTooltip(tooltip, itemReqs, renderedFaction
             if progress then
                 local text
                 if progress.isRenown then
-                    text = Text("Your renown: %s / %s"):format(progress.currentText, progress.requiredText)
+                    text = (L["Your renown: %s / %s"] or "Your renown: %s / %s"):format(progress.currentText, progress.requiredText)
                 else
-                    text = Text("Your standing: %s / %s"):format(progress.currentText, progress.requiredText)
+                    text = (L["Your standing: %s / %s"] or "Your standing: %s / %s"):format(progress.currentText, progress.requiredText)
                 end
                 if progress.met == true then
                     tooltip:AddLine(text, 0.0, 0.8, 0.0)  -- Green
@@ -551,10 +549,10 @@ end
 -- "Subzone, Zone"; a vendor with two positions names both zones.
 local function JoinPlace(zone, subzone, altZone)
     if altZone and zone and altZone ~= zone then
-        return Text("%s / %s"):format(zone, altZone)
+        return (L["%s / %s"] or "%s / %s"):format(zone, altZone)
     end
     if subzone and zone then
-        return Text("%s, %s"):format(subzone, zone)
+        return (L["%s, %s"] or "%s, %s"):format(subzone, zone)
     end
     return zone or subzone
 end
@@ -587,7 +585,7 @@ end
 
 -- The red "(Not Active)" after a vendor that is listed but not selling now; the side panel's vendor rows use it too.
 local function NotActiveTag()
-    return " |cffff4444(" .. Text("Not Active") .. ")|r"
+    return " |cffff4444(" .. (L["Not Active"] or "Not Active") .. ")|r"
 end
 HA.NotActiveTag = NotActiveTag
 
@@ -603,22 +601,19 @@ local function ShopSummary(data)
     if method == "hearthsteel" and data.cost then
         return data.cost .. " " .. HEARTHSTEEL_ICON
     elseif method == "twitch" then
-        return Text("Twitch Drop")
+        return L["Twitch Drop"] or "Twitch Drop"
     elseif method == "charity" then
-        return data.name or Text("Charity Pack")
+        return data.name or L["Charity Pack"] or "Charity Pack"
     elseif method == "unlisted" then
-        return Text("Not currently sold")
+        return L["Not currently sold"] or "Not currently sold"
     end
-    return data.name or Text("Promotion")
+    return data.name or L["Promotion"] or "Promotion"
 end
-
--- Sources outside the named types read "<label>: <name>".
-local OTHER_LABEL_KEYS = { treasure = "Treasure" }
 
 -- A recipe's skill tier with the skill level it needs: "Battle for Azeroth Leatherworking (140)".
 function HA.ProfessionTierText(data)
-    local tier = data.skillTier or data.profession or Text("Unknown")
-    if data.skillLevel then tier = Text("%s (%s)"):format(tier, data.skillLevel) end
+    local tier = data.skillTier or data.profession or L["Unknown"] or "Unknown"
+    if data.skillLevel then tier = (L["%s (%s)"] or "%s (%s)"):format(tier, data.skillLevel) end
     return tier
 end
 
@@ -633,42 +628,43 @@ end
 -- source is a SourceManager source, { type = ..., data = ... }. decorateName,
 -- optional, takes the main name of the line and returns it coloured.
 function HA.FormatSourceLine(source, decorateName)
-    if not source then return Text("Source unknown") end
+    if not source then return L["Source unknown"] or "Source unknown" end
     local data = source.data or {}
     local t = source.type or source.sourceType
 
     if t == "vendor" then
         local name = VendorName(data)
-        if not name then return Text("A vendor") end
+        if not name then return L["A vendor"] or "A vendor" end
         local place = PlaceText(data)
-        if place then return Text("Vendor: %s, %s"):format(Name(decorateName, name), place) .. NotSellingTag(data) end
-        return Text("Vendor: %s"):format(Name(decorateName, name)) .. NotSellingTag(data)
+        if place then return (L["Vendor: %s, %s"] or "Vendor: %s, %s"):format(Name(decorateName, name), place) .. NotSellingTag(data) end
+        return (L["Vendor: %s"] or "Vendor: %s"):format(Name(decorateName, name)) .. NotSellingTag(data)
     elseif t == "quest" then
-        return Text("Quest: %s"):format(Name(decorateName, data.questName or Text("Unknown")))
+        return (L["Quest: %s"] or "Quest: %s"):format(Name(decorateName, data.questName or L["Unknown"] or "Unknown"))
     elseif t == "achievement" then
-        return Text("Achievement: %s"):format(Name(decorateName, data.achievementName or Text("Unknown")))
+        return (L["Achievement: %s"] or "Achievement: %s"):format(Name(decorateName, data.achievementName or L["Unknown"] or "Unknown"))
     elseif t == "profession" then
-        return Text("Crafted: %s - %s"):format(Name(decorateName, HA.ProfessionTierText(data)),
-            data.recipeName or data.name or Text("Unknown"))
+        return (L["Crafted: %s - %s"] or "Crafted: %s - %s"):format(Name(decorateName, HA.ProfessionTierText(data)),
+            data.recipeName or data.name or L["Unknown"] or "Unknown")
     elseif t == "drop" then
-        local mob = Name(decorateName, data.mobName or data.name or Text("Unknown"))
-        if data.zone then return Text("Drops from %s (%s)"):format(mob, data.zone) end
-        return Text("Drops from %s"):format(mob)
+        local mob = Name(decorateName, data.mobName or data.name or L["Unknown"] or "Unknown")
+        if data.zone then return (L["Drops from %s (%s)"] or "Drops from %s (%s)"):format(mob, data.zone) end
+        return (L["Drops from %s"] or "Drops from %s"):format(mob)
     elseif t == "event" then
-        local event = data.event or data.vendorName or Text("Unknown")
+        local event = data.event or data.vendorName or L["Unknown"] or "Unknown"
         local vendor = data.vendorName ~= event and data.vendorName or nil
         local place = PlaceText(data)
-        local where = vendor and place and Text("%s, %s"):format(vendor, place) or vendor or place
-        if where then return Text("Event: %s - %s"):format(Name(decorateName, event), where) end
-        return Text("Event: %s"):format(Name(decorateName, event))
+        local where = vendor and place and (L["%s, %s"] or "%s, %s"):format(vendor, place) or vendor or place
+        if where then return (L["Event: %s - %s"] or "Event: %s - %s"):format(Name(decorateName, event), where) end
+        return (L["Event: %s"] or "Event: %s"):format(Name(decorateName, event))
     elseif t == "shop" then
         local summary = Name(decorateName, ShopSummary(data))
-        if data.expires then summary = Text("%s (until %s)"):format(summary, data.expires) end
-        if data.method == "promo" then return Text("Promotion: %s"):format(summary) end
-        return Text("Shop: %s"):format(summary)
+        if data.expires then summary = (L["%s (until %s)"] or "%s (until %s)"):format(summary, data.expires) end
+        if data.method == "promo" then return (L["Promotion: %s"] or "Promotion: %s"):format(summary) end
+        return (L["Shop: %s"] or "Shop: %s"):format(summary)
     end
-    return Text("%s: %s"):format(Text(OTHER_LABEL_KEYS[t] or "Other source"),
-        Name(decorateName, data.name or data.sourceText or Text("Unknown")))
+    local label = t == "treasure" and (L["Treasure"] or "Treasure") or L["Other source"] or "Other source"
+    return (L["%s: %s"] or "%s: %s"):format(label,
+        Name(decorateName, data.name or data.sourceText or L["Unknown"] or "Unknown"))
 end
 
 -------------------------------------------------------------------------------
@@ -682,28 +678,39 @@ local function RenderVendorSourceLines(tooltip, source, parsedTag, _itemID, _com
         return
     end
 
-    local vendorName = VendorName(source.data) or Text("Unknown Vendor")
+    local vendorName = VendorName(source.data) or L["Unknown Vendor"] or "Unknown Vendor"
     local zone, subzone, altZone = Places(source.data)
-    local zoneName = zone or Text("Unknown Location")
+    local zoneName = zone or L["Unknown Location"] or "Unknown Location"
     local locationText = subzone
         and (subzone .. " (" .. zoneName .. ")")
         or zoneName
 
-    tooltip:AddLine(LabelLine("Source:", WhiteName(vendorName)) .. NotSellingTag(source.data) .. parsedTag,
+    tooltip:AddLine(LabelLine(L["Source:"] or "Source:", WhiteName(vendorName)) .. NotSellingTag(source.data) .. parsedTag,
         COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
-    tooltip:AddLine("  " .. LabelLine("Location:", WhiteName(locationText)), COLOR_WHITE.r, COLOR_WHITE.g, COLOR_WHITE.b)
+    tooltip:AddLine("  " .. LabelLine(L["Location:"] or "Location:", WhiteName(locationText)), COLOR_WHITE.r, COLOR_WHITE.g, COLOR_WHITE.b)
 
     if altZone then
         local altLocationText = source.data.altSubzone
             and (source.data.altSubzone .. " (" .. altZone .. ")")
             or altZone
-        tooltip:AddLine("  " .. LabelLine("Location:", WhiteName(altLocationText)), COLOR_WHITE.r, COLOR_WHITE.g, COLOR_WHITE.b)
+        tooltip:AddLine("  " .. LabelLine(L["Location:"] or "Location:", WhiteName(altLocationText)), COLOR_WHITE.r, COLOR_WHITE.g, COLOR_WHITE.b)
+    end
+
+    local note = source.data.vendor and source.data.vendor.notes
+    if note and note ~= "" then
+        tooltip:AddLine("  " .. note, 1, 0.82, 0, true)
     end
 
     -- Show faction if not neutral
     if source.data.faction and source.data.faction ~= "Neutral" then
-        local factionColor = source.data.faction == "Alliance" and "|cFF0078FF" or "|cFFFF0000"
-        tooltip:AddLine("  " .. LabelLine("Faction:", factionColor .. Text(source.data.faction) .. "|r"), COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
+        local faction = source.data.faction
+        local factionColor = faction == "Alliance" and "|cFF0078FF" or "|cFFFF0000"
+        if faction == "Alliance" then
+            faction = L["Alliance"] or faction
+        elseif faction == "Horde" then
+            faction = L["Horde"] or faction
+        end
+        tooltip:AddLine("  " .. LabelLine(L["Faction:"] or "Faction:", factionColor .. faction .. "|r"), COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
     end
 
     -- Show cost if available (SourceManager includes cost in vendor source data).
@@ -715,14 +722,14 @@ local function RenderVendorSourceLines(tooltip, source, parsedTag, _itemID, _com
                 -- "Vendor Price", not "Cost": Blizzard's native item tooltip can carry a
                 -- "Sell Price" (sell-back) line on the same tooltip; an unqualified "Cost"
                 -- label reads as contradicting it.
-                tooltip:AddLine("  " .. LabelLine("Vendor Price:", WhiteName(costStr)), COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
+                tooltip:AddLine("  " .. LabelLine(L["Vendor Price:"] or "Vendor Price:", WhiteName(costStr)), COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
             end
         end
     end
 end
 
 local function RenderQuestSourceLines(tooltip, source, parsedTag, _itemID, completion, detailed)
-    local questName = source.data.questName or Text("Unknown Quest")
+    local questName = source.data.questName or L["Unknown Quest"] or "Unknown Quest"
     local questColor = completion and completion.color or "|cFFFFFFFF"
     local statusSuffix = completion and (completion.color .. completion.suffix .. "|r") or ""
 
@@ -732,12 +739,12 @@ local function RenderQuestSourceLines(tooltip, source, parsedTag, _itemID, compl
         return
     end
 
-    tooltip:AddLine(LabelLine("Source:", Text("Quest")) .. parsedTag, COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
+    tooltip:AddLine(LabelLine(L["Source:"] or "Source:", L["Quest"] or "Quest") .. parsedTag, COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
     tooltip:AddLine("  " .. questColor .. questName .. "|r" .. statusSuffix, 1, 1, 1)
 end
 
 local function RenderAchievementSourceLines(tooltip, source, parsedTag, _itemID, completion, detailed)
-    local achievementName = source.data.achievementName or Text("Unknown Achievement")
+    local achievementName = source.data.achievementName or L["Unknown Achievement"] or "Unknown Achievement"
     local nameColor = completion and completion.color or "|cFFFFFFFF"
     local statusSuffix = completion and (completion.color .. completion.suffix .. "|r") or ""
 
@@ -747,7 +754,7 @@ local function RenderAchievementSourceLines(tooltip, source, parsedTag, _itemID,
         return
     end
 
-    tooltip:AddLine(LabelLine("Source:", Text("Achievement")) .. parsedTag, COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
+    tooltip:AddLine(LabelLine(L["Source:"] or "Source:", L["Achievement"] or "Achievement") .. parsedTag, COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
     tooltip:AddLine("  " .. nameColor .. achievementName .. "|r" .. statusSuffix, 1, 1, 1)
 end
 
@@ -759,23 +766,23 @@ local function RenderProfessionSourceLines(tooltip, source, parsedTag, _itemID, 
 
     local professionDisplay = HA.ProfessionTierText(source.data)
 
-    local recipeName = source.data.recipeName or Text("Unknown Recipe")
+    local recipeName = source.data.recipeName or L["Unknown Recipe"] or "Unknown Recipe"
     local recipeColor = completion and completion.color or "|cFF808080"
-    local recipeSuffix = completion and (completion.color .. completion.suffix .. "|r") or "|cFF808080 (" .. Text("Unknown") .. ")|r"
+    local recipeSuffix = completion and (completion.color .. completion.suffix .. "|r") or "|cFF808080 (" .. (L["Unknown"] or "Unknown") .. ")|r"
 
-    tooltip:AddLine(LabelLine("Source:", WhiteName(professionDisplay)) .. parsedTag, COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
-    tooltip:AddLine("  " .. LabelLine("Recipe:", recipeColor .. recipeName .. "|r" .. recipeSuffix), 1, 1, 1)
+    tooltip:AddLine(LabelLine(L["Source:"] or "Source:", WhiteName(professionDisplay)) .. parsedTag, COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
+    tooltip:AddLine("  " .. LabelLine(L["Recipe:"] or "Recipe:", recipeColor .. recipeName .. "|r" .. recipeSuffix), 1, 1, 1)
 end
 
 local function RenderEventSourceLines(tooltip, source, parsedTag, _itemID, _completion, detailed)
-    local eventName = source.data.event or Text("Unknown Event")
+    local eventName = source.data.event or L["Unknown Event"] or "Unknown Event"
 
     -- Show active/inactive status (omit when unknown/nil)
     local statusText = ""
     if HA.CalendarDetector then
         local isActive = HA.CalendarDetector:IsHolidayActive(eventName)
         if isActive == true then
-            statusText = " |cff00ff00(" .. Text("Active Now") .. ")|r"
+            statusText = " |cff00ff00(" .. (L["Active Now"] or "Active Now") .. ")|r"
         elseif isActive == false then
             statusText = NotActiveTag()
         end
@@ -787,16 +794,16 @@ local function RenderEventSourceLines(tooltip, source, parsedTag, _itemID, _comp
         return
     end
 
-    local vendorName = source.data.vendorName or Text("Event Vendor")
+    local vendorName = source.data.vendorName or L["Event Vendor"] or "Event Vendor"
     local currency = source.data.currency
 
-    tooltip:AddLine(LabelLine("Source:", WhiteName(eventName)) .. statusText .. parsedTag, COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
-    tooltip:AddLine("  " .. LabelLine("Vendor:", WhiteName(vendorName)), COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
+    tooltip:AddLine(LabelLine(L["Source:"] or "Source:", WhiteName(eventName)) .. statusText .. parsedTag, COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
+    tooltip:AddLine("  " .. LabelLine(L["Vendor:"] or "Vendor:", WhiteName(vendorName)), COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
     if source.data.zone then
-        tooltip:AddLine("  " .. LabelLine("Zone:", WhiteName((Places(source.data)))), COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
+        tooltip:AddLine("  " .. LabelLine(L["Zone:"] or "Zone:", WhiteName((Places(source.data)))), COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
     end
     if currency then
-        tooltip:AddLine("  " .. LabelLine("Currency:", WhiteName(currency)), COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
+        tooltip:AddLine("  " .. LabelLine(L["Currency:"] or "Currency:", WhiteName(currency)), COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
     end
 end
 
@@ -806,11 +813,11 @@ local function RenderDropSourceLines(tooltip, source, parsedTag, _itemID, _compl
         return
     end
 
-    local mobName = source.data.mobName or Text("Unknown")
-    local zone = source.data.zone or Text("Unknown Location")
-    tooltip:AddLine(LabelLine("Source:", Text("Drop")) .. parsedTag, COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
+    local mobName = source.data.mobName or L["Unknown"] or "Unknown"
+    local zone = source.data.zone or L["Unknown Location"] or "Unknown Location"
+    tooltip:AddLine(LabelLine(L["Source:"] or "Source:", L["Drop"] or "Drop") .. parsedTag, COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
     tooltip:AddLine("  |cFFFFFFFF" .. mobName .. "|r", COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
-    tooltip:AddLine("  " .. LabelLine("Zone:", WhiteName(zone)), COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
+    tooltip:AddLine("  " .. LabelLine(L["Zone:"] or "Zone:", WhiteName(zone)), COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
     if source.data.notes then
         tooltip:AddLine("  |cFFFFFFFF" .. source.data.notes .. "|r", COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
     end
@@ -822,26 +829,30 @@ local function RenderShopSourceLines(tooltip, source, parsedTag, _itemID, _compl
 
     if not detailed then
         tooltip:AddLine(HA.FormatSourceLine(source, WhiteName) .. parsedTag, COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
-        return
+    else
+        local isPromo = method == "promo"
+        local sourceName = isPromo and (L["Promotion"] or "Promotion") or L["In-Game Shop"] or "In-Game Shop"
+        tooltip:AddLine(LabelLine(L["Source:"] or "Source:", WhiteName(sourceName)) .. parsedTag,
+            COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
+        if not isPromo and method ~= "unlisted" then
+            tooltip:AddLine("  " .. LabelLine(L["Zone:"] or "Zone:", WhiteName(L["N/A"] or "N/A")), COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
+        end
+        if method == "hearthsteel" and data.cost then
+            tooltip:AddLine("  " .. LabelLine(L["Shop Price:"] or "Shop Price:", WhiteName(data.cost .. " " .. HEARTHSTEEL_ICON)), COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
+        end
+        if method == "unlisted" then
+            tooltip:AddLine("  " .. WhiteName(L["Not currently sold"] or "Not currently sold"), COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
+        elseif isPromo and data.name then
+            tooltip:AddLine("  " .. (L["Promotion: %s"] or "Promotion: %s"):format(WhiteName(data.name)), COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
+        elseif data.name and not (method == "hearthsteel" and data.name == "In-Game Shop") then
+            tooltip:AddLine("  " .. LabelLine(L["Pack:"] or "Pack:", WhiteName(data.name)), COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
+        end
+        if data.expires then
+            tooltip:AddLine("  " .. LabelLine(L["Available until:"] or "Available until:", WhiteName(data.expires)), COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
+        end
     end
-
-    local isPromo = method == "promo"
-    tooltip:AddLine(LabelLine("Source:", WhiteName(Text(isPromo and "Promotion" or "In-Game Shop"))) .. parsedTag, COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
-    if not isPromo and method ~= "unlisted" then
-        tooltip:AddLine("  " .. LabelLine("Zone:", WhiteName(Text("N/A"))), COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
-    end
-    if method == "hearthsteel" and data.cost then
-        tooltip:AddLine("  " .. LabelLine("Shop Price:", WhiteName(data.cost .. " " .. HEARTHSTEEL_ICON)), COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
-    end
-    if method == "unlisted" then
-        tooltip:AddLine("  " .. WhiteName(Text("Not currently sold")), COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
-    elseif isPromo and data.name then
-        tooltip:AddLine("  " .. Text("Promotion: %s"):format(WhiteName(data.name)), COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
-    elseif data.name and not (method == "hearthsteel" and data.name == "In-Game Shop") then
-        tooltip:AddLine("  " .. LabelLine("Pack:", WhiteName(data.name)), COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
-    end
-    if data.expires then
-        tooltip:AddLine("  " .. LabelLine("Available until:", WhiteName(data.expires)), COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
+    if data.notes then
+        tooltip:AddLine(data.notes, 1, 0.82, 0, true)
     end
 end
 
@@ -873,9 +884,10 @@ local function DetectContext(tooltip)
     -- Panel: MapSidePanel stamps this flag on item icon frames
     if owner.isHomesteadPanelIcon then return "panel" end
 
-    -- Merchant: only if a merchant is open AND the owner is a merchant item button.
-    -- Prevents misclassifying bag/AH/chat tooltips while vendor window is open.
-    if merchantFrameOpen then
+    -- Merchant: only if a merchant is open on its Merchant tab AND the owner is a
+    -- merchant item button. Prevents misclassifying bag/AH/chat tooltips while the
+    -- vendor window is open, and Buyback tooltips, which reuse the same buttons.
+    if merchantFrameOpen and MerchantFrame and MerchantFrame.selectedTab == 1 then
         local ownerName = owner.GetName and owner:GetName()
         if ownerName and ownerName:match("^MerchantItem%d+ItemButton$") then
             return "merchant"
@@ -963,7 +975,7 @@ local function AddSourceInfoToTooltip(tooltip, itemID, context, detailed, presen
     for _, source in ipairs(sourcesToRender) do
         local renderer = SOURCE_RENDERERS[source.type]
         if renderer then
-            local parsedTag = source._isParsed and " |cFFAAAAFF(" .. Text("unverified") .. ")|r" or ""
+            local parsedTag = source._isParsed and " |cFFAAAAFF(" .. (L["unverified"] or "unverified") .. ")|r" or ""
             local completion = HA.SourceManager.GetCompletionStatus
                 and HA.SourceManager:GetCompletionStatus(itemID, source.type, source.data)
                 or nil
@@ -1052,7 +1064,7 @@ local function AddFirstAcquisitionLine(tooltip, itemID)
     if GameTooltip_AddNormalLine and HOUSING_DECOR_FIRST_ACQUISITION_FORMAT then
         GameTooltip_AddNormalLine(tooltip, HOUSING_DECOR_FIRST_ACQUISITION_FORMAT:format(bonus))
     else
-        tooltip:AddLine(Text("First-Time Collection Bonus Available"),
+        tooltip:AddLine(L["First-Time Collection Bonus Available"] or "First-Time Collection Bonus Available",
             NORMAL_FONT_COLOR.r, NORMAL_FONT_COLOR.g, NORMAL_FONT_COLOR.b)
     end
 end
@@ -1120,23 +1132,24 @@ local function AddDecorInfoToTooltip(tooltip, itemLink, gate)
     -- No status at all when the game reports no ownership for the item.
     local unreported = presentation and presentation.ownershipState == "unknown"
     if (not db or db.showOwned ~= false) and not unreported then
+        local statusLabel = L["Status:"] or "Status:"
         if availabilityState == "owned" or isOwned == true then
-            gatedTooltip:AddLine(LabelLine("Status:", Text("Owned")), COLOR_GREEN.r, COLOR_GREEN.g, COLOR_GREEN.b)
+            gatedTooltip:AddLine(LabelLine(statusLabel, L["Owned"] or "Owned"), COLOR_GREEN.r, COLOR_GREEN.g, COLOR_GREEN.b)
         elseif vendorNpcID and availabilityState == "purchasable" then
-            gatedTooltip:AddLine(LabelLine("Status:", Text("Available")), COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
+            gatedTooltip:AddLine(LabelLine(statusLabel, L["Available"] or "Available"), COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
         elseif vendorNpcID and availabilityState == "locked"
                 or availabilityState == "blocked" and presentation and presentation.requirementLocked then
-            gatedTooltip:AddLine(LabelLine("Status:", Text("Locked")), COLOR_RED.r, COLOR_RED.g, COLOR_RED.b)
+            gatedTooltip:AddLine(LabelLine(statusLabel, L["Locked"] or "Locked"), COLOR_RED.r, COLOR_RED.g, COLOR_RED.b)
         elseif availabilityState == "otherFaction" then
-            gatedTooltip:AddLine(LabelLine("Status:", Text("Other faction only")), COLOR_RED.r, COLOR_RED.g, COLOR_RED.b)
+            gatedTooltip:AddLine(LabelLine(statusLabel, L["Other faction only"] or "Other faction only"), COLOR_RED.r, COLOR_RED.g, COLOR_RED.b)
         elseif availabilityState == "available" then
-            gatedTooltip:AddLine(LabelLine("Status:", Text("Available Now")), COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
+            gatedTooltip:AddLine(LabelLine(statusLabel, L["Available Now"] or "Available Now"), COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b)
         elseif availabilityState == "blocked" then
-            gatedTooltip:AddLine(LabelLine("Status:", Text("Blocked")), COLOR_RED.r, COLOR_RED.g, COLOR_RED.b)
+            gatedTooltip:AddLine(LabelLine(statusLabel, L["Blocked"] or "Blocked"), COLOR_RED.r, COLOR_RED.g, COLOR_RED.b)
         elseif isOwned == false then
-            gatedTooltip:AddLine(LabelLine("Status:", Text("Not Collected")), COLOR_RED.r, COLOR_RED.g, COLOR_RED.b)
+            gatedTooltip:AddLine(LabelLine(statusLabel, L["Not Collected"] or "Not Collected"), COLOR_RED.r, COLOR_RED.g, COLOR_RED.b)
         else
-            gatedTooltip:AddLine(LabelLine("Status:", Text("Unknown")), COLOR_GRAY.r, COLOR_GRAY.g, COLOR_GRAY.b)
+            gatedTooltip:AddLine(LabelLine(statusLabel, L["Unknown"] or "Unknown"), COLOR_GRAY.r, COLOR_GRAY.g, COLOR_GRAY.b)
         end
     end
 
@@ -1152,7 +1165,9 @@ local function AddDecorInfoToTooltip(tooltip, itemLink, gate)
             and HA.VendorData:GetVendor(vendorNpcID)
         if scopedVendor and HA.VendorFilter and HA.VendorFilter.CanUseVendor
                 and not HA.VendorFilter.CanUseVendor(scopedVendor) then
-            gatedTooltip:AddLine(Text("Vendor access: Opposite-faction vendor on this character"), 1.0, 0.5, 0.5)
+            local note = L["Vendor access: Opposite-faction vendor on this character"]
+                or "Vendor access: Opposite-faction vendor on this character"
+            gatedTooltip:AddLine(note, 1.0, 0.5, 0.5)
         end
     end
 
@@ -1190,7 +1205,7 @@ local function AddDecorInfoToTooltip(tooltip, itemLink, gate)
             hasSource, renderedFactions = AddSourceInfoToTooltip(
                 gatedTooltip, itemID, context, detailed, presentation)
             if not hasSource then
-                gatedTooltip:AddLine(LabelLine("Source:", Text("Unknown")), COLOR_GRAY.r, COLOR_GRAY.g, COLOR_GRAY.b)
+                gatedTooltip:AddLine(LabelLine(L["Source:"] or "Source:", L["Unknown"] or "Unknown"), COLOR_GRAY.r, COLOR_GRAY.g, COLOR_GRAY.b)
             end
         end
     end
@@ -1229,7 +1244,7 @@ local function AddDecorInfoToTooltip(tooltip, itemLink, gate)
             end
         end
         if showHint then
-            gatedTooltip:AddLine(Text("Hold Shift for details"), COLOR_GRAY.r, COLOR_GRAY.g, COLOR_GRAY.b)
+            gatedTooltip:AddLine(L["Hold Shift for details"] or "Hold Shift for details", COLOR_GRAY.r, COLOR_GRAY.g, COLOR_GRAY.b)
         end
     end
 end
@@ -1312,7 +1327,7 @@ local function OnHousingCatalogTooltipCreated(ownerID, entryFrame, tooltip)
             if not db or db.showSource ~= false then
                 tooltip:AddLine(" ")
                 tooltip:AddLine("|cFFFFD700[Homestead]|r")
-                tooltip:AddLine(Text("Not yet mapped by Homestead"), COLOR_GRAY.r, COLOR_GRAY.g, COLOR_GRAY.b)
+                tooltip:AddLine(L["Not yet mapped by Homestead"] or "Not yet mapped by Homestead", COLOR_GRAY.r, COLOR_GRAY.g, COLOR_GRAY.b)
                 tooltip:Show()
             end
             return
@@ -1365,7 +1380,7 @@ local function OnHousingCatalogTooltipCreated(ownerID, entryFrame, tooltip)
         -- is excluded here — AddReputationProgressToTooltip below already covers
         -- reputation/renown progress for every item on this surface.
         if not hasSource then
-            gatedTooltip:AddLine(LabelLine("Source:", Text("Unknown")), COLOR_GRAY.r, COLOR_GRAY.g, COLOR_GRAY.b)
+            gatedTooltip:AddLine(LabelLine(L["Source:"] or "Source:", L["Unknown"] or "Unknown"), COLOR_GRAY.r, COLOR_GRAY.g, COLOR_GRAY.b)
             AddRequirementsToTooltip(gatedTooltip, itemID, nil, nil, false, true)
         end
     end

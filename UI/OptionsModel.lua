@@ -186,6 +186,22 @@ local navigateModifierValues = {
     { key = "none", label = L["None (always)"] },
 }
 
+local browserRows = {
+    {
+        key = "browserHeader",
+        type = "header",
+        label = L["Decor Browser"],
+    },
+    {
+        key = "browserModel3D",
+        type = "checkbox",
+        label = L["Show 3D preview"],
+        tooltip = L["desc_browser_model3d"],
+        get = function() return HA.DecorBrowser.Model3D() end,
+        set = function(value) HA.DecorBrowser.SetModel3D(value) end,
+    },
+}
+
 OptionsModel.sections = {
     {
         key = "general",
@@ -337,19 +353,6 @@ OptionsModel.sections = {
                 key = "pinColorPreview",
                 type = "pinPreview",
                 label = L["Approximate map appearance"],
-            },
-            {
-                key = "browserHeader",
-                type = "header",
-                label = L["Decor Browser"],
-            },
-            {
-                key = "browserModel3D",
-                type = "checkbox",
-                label = L["Show 3D preview"],
-                tooltip = L["desc_browser_model3d"],
-                get = function() return HA.DecorBrowser.Model3D() end,
-                set = function(value) HA.DecorBrowser.SetModel3D(value) end,
             },
         },
     },
@@ -979,6 +982,13 @@ OptionsModel.sections = {
         },
     },
 }
+
+if HA.Constants.IsDecorBrowserAvailable() then
+    local generalRows = OptionsModel.sections[1].rows
+    for _, row in ipairs(browserRows) do
+        generalRows[#generalRows + 1] = row
+    end
+end
 
 function OptionsModel:GetSections()
     return self.sections

@@ -3,8 +3,9 @@
     Search index and query engine for vendor/item discovery
 
     Builds a lightweight index of vendor metadata + item IDs, resolves item names
-    at query time via HA.GetItemName, so a name that loads later reaches the
-    consumers that listen for it. Batched pre-warming populates WoW's item cache
+    at query time via HA.GetItemName (then the housing catalog's name where the
+    client has none), so a name that loads later reaches the consumers that
+    listen for it. Batched pre-warming populates WoW's item cache
     on first search focus.
 
     Consumers: MapSidePanel (search bar UI + result rendering), the Decor Browser's
@@ -18,6 +19,8 @@ local SearchProvider = {}
 HA.SearchProvider = SearchProvider
 
 local searchIndex = nil
+local catalogMissState = {}  -- itemID -> catalog read state when a live catalog read found no name
+local readState = false      -- the catalog read state, read once per Search
 local preWarmed = false
 local indexRevision = 0
 local initialized = false
@@ -28,16 +31,18 @@ local NON_VENDOR_SOURCE_DESCRIPTORS = {
     { tableKey = "ProfessionSources", type = "profession", nameField = "recipeName", extraField = "profession" },
     { tableKey = "EventSources", type = "event", nameField = "vendorName" },
     { tableKey = "DropSources", type = "drop", nameField = "mobName", extraField = "zone" },
+    { tableKey = "ShopSources", type = "shop", nameField = "name" },
 }
 
 local function ForEachNonVendorSourceItem(callback)
     if type(callback) ~= "function" then return end
+    local excluded = HA.Constants and HA.Constants.ExcludedDecorItems or {}
 
     for _, descriptor in ipairs(NON_VENDOR_SOURCE_DESCRIPTORS) do
         local sourceTable = HA[descriptor.tableKey]
         if sourceTable then
             for itemID, data in pairs(sourceTable) do
-                if type(itemID) == "number" then
+                if type(itemID) == "number" and not excluded[itemID] then
                     callback(itemID, descriptor.type, descriptor.nameField, data, descriptor.extraField)
                 end
             end
@@ -67,6 +72,7 @@ end
 
 function SearchProvider:Invalidate()
     searchIndex = nil
+    wipe(catalogMissState)
     indexRevision = indexRevision + 1
 end
 
@@ -169,9 +175,9 @@ local function BuildIndex()
                     end
                 end
             end
-            -- Both positions' shipped zone and subzone, then the client's names for them.
+            -- Both positions' shipped zone and subzone, the vendor's note, then the client's names for them.
             local otherMapID, _, _, otherZone, otherSubzone = VD:GetOtherPosition(vendor)
-            local places = AddLine(AddLine("", vendor.zone), vendor.subzone)
+            local places = AddLine(AddLine(AddLine("", vendor.zone), vendor.subzone), vendor.notes)
             places = AddLine(AddLine(places, otherZone), otherSubzone)
             places = AddLine(places, vendor.mapID and VF.GetMapName(vendor.mapID))
             places = AddLine(places, vendor.areaID and VF.GetAreaName(vendor.areaID))
@@ -227,13 +233,42 @@ local function BuildIndex()
     end)
 end
 
+-- The housing catalog's name for an item the client supplies no name for, as the Browser list shows it: the name
+-- CatalogStore already holds, then, when live is set, one catalog read. A found name is final. A live miss is
+-- asked again only after the catalog read state changes or the index is invalidated, so a keystroke costs no
+-- catalog read per unresolved item.
+local catalogNames = {}
+
+local function CatalogItemName(itemID, live)
+    local name = catalogNames[itemID]
+    if name then return name end
+    local record = HA.CatalogStore:Get(itemID)
+    name = record and record.name
+    if not name or name == "" then
+        if not live or catalogMissState[itemID] == readState then return nil end
+        local _, info = HA.CatalogStore:ReadOwnershipEntry(itemID)
+        name = info and info.name
+        if not name or name == "" then
+            catalogMissState[itemID] = readState
+            return nil
+        end
+    end
+    catalogNames[itemID] = name
+    return name
+end
+
+-- The client's item name, else the catalog's. Only items of the non-vendor sources may cost a live catalog read.
+local function ResolveItemName(itemID, live)
+    return HA.GetItemName(itemID) or CatalogItemName(itemID, live)
+end
+
 local function ResolveIndexedItemName(itemID, entry)
     if not entry then return nil, nil end
     if entry.itemNameLower then
         return entry.itemName, entry.itemNameLower
     end
 
-    local itemName = HA.GetItemName(itemID)
+    local itemName = ResolveItemName(itemID, true)
     if itemName then
         entry.itemName = itemName
         entry.itemNameLower = itemName:lower()
@@ -251,6 +286,7 @@ end
 function SearchProvider:Search(query, options)
     BuildIndex()
     if not searchIndex then return {} end
+    readState = HA.CatalogScanner and HA.CatalogScanner:GetReadState() or false
 
     query = query:match("^%s*(.-)%s*$"):lower()
     local queryNum = tonumber(query)
@@ -296,7 +332,7 @@ function SearchProvider:Search(query, options)
                 if not matched then
                     -- Resolve name lazily (may have been nil at index time)
                     if not item.nameLower then
-                        local name = HA.GetItemName(item.itemID)
+                        local name = ResolveItemName(item.itemID)
                         if name then item.nameLower = name:lower() end
                     end
                     if item.nameLower and item.nameLower:find(query, 1, true) then
@@ -408,10 +444,10 @@ function SearchProvider:Search(query, options)
     end
 
     -- Group item-first results by source type so the panel can emit
-    -- section headers (Profession / Quest / Achievement / Event / Drop) on
+    -- section headers (Profession / Quest / Achievement / Event / Shop / Drop) on
     -- sourceType transitions. Alphabetical within each group.
     local SOURCE_TYPE_ORDER = {
-        profession = 1, quest = 2, achievement = 3, event = 4, drop = 5,
+        profession = 1, quest = 2, achievement = 3, event = 4, shop = 5, drop = 6,
     }
     table.sort(itemResults, function(a, b)
         local ao = SOURCE_TYPE_ORDER[a.sourceType] or 99

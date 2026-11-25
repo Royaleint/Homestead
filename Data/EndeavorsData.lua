@@ -12,7 +12,7 @@
     - 4-tier milestone progression gates item availability
     - Dedicated API: C_NeighborhoodInitiative
 
-    12 vendors, 144 items total. The four Midnight 12.1 theme vendors were
+    12 vendors, 143 items total. The four Midnight 12.1 theme vendors were
     promoted visible for the 12.1 release.
 ]]
 
@@ -390,12 +390,6 @@ EndeavorsData.Vendors = {
             {274535, cost = {currencies = {{id = 3363, amount = 30}}}},
             {274537, cost = {currencies = {{id = 3363, amount = 30}}}},
             {274539, cost = {currencies = {{id = 3363, amount = 30}}}},
-            -- "Bag of Totally Legitimate Amani Goods": 1 Griftah's Token of
-            -- Appreciation (Blizzard's own 12.1 endeavor post, 2026-08-10).
-            -- Task-completion reward currency, distinct from Community
-            -- Coupons -- no numeric currency ID published; do not model as
-            -- currency 3363. Left bare pending confirmation.
-            {269029},
         },
     },
 
@@ -463,10 +457,7 @@ EndeavorsData.Vendors = {
             {280242, cost = {currencies = {{id = 3363, amount = 15}}}},
             {280244, cost = {currencies = {{id = 3363, amount = 5}}}},
             {280873, cost = {currencies = {{id = 3363, amount = 5}}}}, -- Protected Tortollan Scroll Case
-            -- Beguiling Memories of the Sea: CSV-attributed (external_resolved,
-            -- add_or_complete_vendor_offer), no published price -- left bare
-            -- pending confirmation, same as Griftah's 269029.
-            {280846},
+            {280846, cost = {currencies = {{id = 3363, amount = 30}}}}, -- Beguiling Memories of the Sea
         },
     },
 

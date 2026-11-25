@@ -24,6 +24,8 @@
 ]]
 
 local _, HA = ...
+local L = HA.L or {}
+local excludedDecorItems = HA.Constants and HA.Constants.ExcludedDecorItems or {}
 
 -- Create SourceManager module
 local SourceManager = {}
@@ -260,6 +262,7 @@ end
 -- Walks registered providers in priority order (SOURCE_TYPE_ORDER).
 -- Returns: {type = "vendor|quest|achievement|profession|event|shop|drop", data = {...}} or nil
 function SourceManager:GetSource(itemID)
+    if excludedDecorItems[itemID] then return nil end
     if not itemID then return nil end
     EnsureProvidersRegistered()
 
@@ -569,6 +572,7 @@ end
 -- Unlike GetSource(), this returns every vendor location emitted by GetVendorSources().
 -- Returns: array of {type = "...", data = {...}}
 function SourceManager:GetAllSources(itemID)
+    if excludedDecorItems[itemID] then return {} end
     if not itemID then return {} end
     local cached = allSourcesCache[itemID]
     if cached then
@@ -821,6 +825,7 @@ end
 
 -- Helper: Get best parsed source for an item (from SourceTextScanner)
 function SourceManager:GetParsedSource(itemID)
+    if excludedDecorItems[itemID] then return nil end
     if not HA.SourceTextScanner then return nil end
     local parsed = HA.SourceTextScanner:GetParsedSource(itemID)
     if not parsed or not parsed.sources or #parsed.sources == 0 then return nil end
@@ -900,7 +905,8 @@ end
 -- (first-seen kept; later duplicates with the same key are discarded).
 local function getRequirementDedupeKey(req)
     if req.type == "reputation" then
-        return "reputation:" .. (req.faction or "")
+        -- Catalog text can end the faction name with a full stop; the same faction must still match.
+        return "reputation:" .. ((req.faction or ""):gsub("%.$", ""))
     elseif req.type == "achievement" then
         return "achievement:" .. tostring(req.id or req.name or "")
     elseif req.type == "quest" then
@@ -1444,46 +1450,44 @@ end
 
 -- Translated text for one requirement. Shared by pin tallies, the side panel
 -- and the Decor Browser.
-local function Text(key)
-    return HA.L and HA.L[key] or key
-end
-
 function SourceManager:GetRequirementText(req)
     if not req then return nil end
     local t = req.type
 
     if t == "reputation" then
-        local standing = req.standing or Text("Required")
+        local standing = req.standing or L["Required"] or "Required"
         -- Scanned factions can end in a period.
-        local faction = (req.faction or Text("Unknown faction")):gsub("%.$", "")
-        if standing:match("^Renown") then
-            return Text("%s %s"):format(standing, faction)
+        local faction = (req.faction or L["Unknown faction"] or "Unknown faction"):gsub("%.$", "")
+        -- Renown reads as the game's own vendor line does: "Renown Rank 18 with The Singularity".
+        local rank = tonumber(standing:match("^Renown%s+(%d+)$"))
+        if rank then
+            return (L["Renown Rank %d with %s"] or "Renown Rank %d with %s"):format(rank, faction)
         end
-        return Text("%s with %s"):format(standing, faction)
+        return (L["%s with %s"] or "%s with %s"):format(standing, faction)
     elseif t == "achievement" then
-        return Text("Achievement: %s"):format(req.name or Text("Unknown"))
+        return (L["Achievement: %s"] or "Achievement: %s"):format(req.name or L["Unknown"] or "Unknown")
     elseif t == "quest" then
-        return Text("Quest: %s"):format(req.name or Text("Unknown"))
+        return (L["Quest: %s"] or "Quest: %s"):format(req.name or L["Unknown"] or "Unknown")
     elseif t == "level" and req.level then
-        return Text("Level %s"):format(tostring(req.level))
+        return (L["Level %s"] or "Level %s"):format(tostring(req.level))
     elseif t == "promotion" then
-        if self:IsPromotionExpired(req) then return Text("No longer obtainable") end
-        local name = req.name or Text("Unknown Promotion")
-        if req.endsAt then return Text("Promotion reward: %s, through %s"):format(name, req.endsAt) end
-        return Text("Promotion reward: %s"):format(name)
+        if self:IsPromotionExpired(req) then return L["No longer obtainable"] or "No longer obtainable" end
+        local name = req.name or L["Unknown Promotion"] or "Unknown Promotion"
+        if req.endsAt then return (L["Promotion reward: %s, through %s"] or "Promotion reward: %s, through %s"):format(name, req.endsAt) end
+        return (L["Promotion reward: %s"] or "Promotion reward: %s"):format(name)
     elseif t == "professionRank" then
         if req.profession and req.rank then
-            return Text("Profession: %s rank %s"):format(tostring(req.profession), tostring(req.rank))
+            return (L["Profession: %s rank %s"] or "Profession: %s rank %s"):format(tostring(req.profession), tostring(req.rank))
         end
-        return Text("Profession rank requirement")
+        return L["Profession rank requirement"] or "Profession rank requirement"
     elseif t == "profession" then
         if req.profession then
-            return Text("Profession: %s"):format(tostring(req.profession))
+            return (L["Profession: %s"] or "Profession: %s"):format(tostring(req.profession))
         end
-        return Text("Profession requirement")
+        return L["Profession requirement"] or "Profession requirement"
     end
 
-    return req.text or Text("Other requirement")
+    return req.text or L["Other requirement"] or "Other requirement"
 end
 
 -------------------------------------------------------------------------------
@@ -1655,7 +1659,7 @@ function SourceManager:GetVendorItemAvailabilityState(itemID, npcID, skipOwnersh
     if state == "purchasable" then
         local scannedItem = GetScannedVendorItem(itemID, npcID)
         if scannedItem and scannedItem.isPurchasable == false then
-            state, isUnverified, hasVerifiableRequirement, blockerLabels = "locked", false, false, { Text("Purchase gated") }
+            state, isUnverified, hasVerifiableRequirement, blockerLabels = "locked", false, false, { (L["Purchase gated"] or "Purchase gated") }
         elseif HA.VendorData and not HA.VendorData:IsVendorSellingNow(npcID) then
             -- A vendor that is listed but not selling now offers nothing to buy, so its ware never reads available.
             state = "notSelling"
@@ -2311,14 +2315,14 @@ function SourceManager:GetCompletionStatus(itemID, sourceType, sourceData)
 
         local result
         if wasEarnedByMe then
-            result = Completion("|cFF00FF00", Text("This Character"), true)
+            result = Completion("|cFF00FF00", L["This Character"] or "This Character", true)
         elseif completed then
             -- account is load-bearing: the ACHIEVEMENT_EARNED handler's
             -- completionCache staleness check reads it to detect an
             -- Account -> This Character promotion.
-            result = Completion("|cFF66FF66", Text("Account"), true, true)
+            result = Completion("|cFF66FF66", L["Account"] or "Account", true, true)
         else
-            result = Completion("|cFFFF0000", Text("Incomplete"), false)
+            result = Completion("|cFFFF0000", L["Incomplete"] or "Incomplete", false)
         end
 
         completionCache[cacheKey] = result
@@ -2336,8 +2340,8 @@ function SourceManager:GetCompletionStatus(itemID, sourceType, sourceData)
 
         local completed = C_QuestLog.IsQuestFlaggedCompleted(questID)
         local result = completed
-            and Completion("|cFF00FF00", Text("Completed"), true)
-            or Completion("|cFFFF0000", Text("Incomplete"), false)
+            and Completion("|cFF00FF00", L["Completed"] or "Completed", true)
+            or Completion("|cFFFF0000", L["Incomplete"] or "Incomplete", false)
 
         completionCache[cacheKey] = result
         return CopyCompletionStatus(result)
@@ -2347,14 +2351,14 @@ function SourceManager:GetCompletionStatus(itemID, sourceType, sourceData)
         -- Check if the player has this profession before querying recipe status.
         local hasProf = self:PlayerHasProfession(resolvedData)
         if hasProf == false then
-            return Completion("|cFFFF0000", Text("Not Your Profession"), false)
+            return Completion("|cFFFF0000", L["Not Your Profession"] or "Not Your Profession", false)
         end
 
         -- Check expansion-tier skill level (e.g., Midnight Leatherworking 50).
         -- Before the profession window has opened this session the client
         -- reads every skill as 0, so no skill verdict is given until then.
         if professionDataLoaded and self:PlayerMeetsSkillLevel(resolvedData) == false then
-            return Completion("|cFFFF0000", Text("Skill Too Low"), false)
+            return Completion("|cFFFF0000", L["Skill Too Low"] or "Skill Too Low", false)
         end
 
         -- A profession block was recognized but we can't resolve recipe state
@@ -2363,18 +2367,18 @@ function SourceManager:GetCompletionStatus(itemID, sourceType, sourceData)
         -- renders a consistent suffix — never a bare line with no status.
         local spellID = resolvedData and resolvedData.spellID
         if not spellID then
-            return Completion("|cFF808080", Text("Unknown"), nil)
+            return Completion("|cFF808080", L["Unknown"] or "Unknown", nil)
         end
 
         local tradeSkillUI = _G and _G.C_TradeSkillUI
         if not tradeSkillUI or not tradeSkillUI.GetRecipeInfo then
             -- API unavailable until profession systems are ready/opened.
-            return Completion("|cFF808080", Text("Unknown"), nil)
+            return Completion("|cFF808080", L["Unknown"] or "Unknown", nil)
         end
 
         local recipeInfo = tradeSkillUI.GetRecipeInfo(spellID)
         if not recipeInfo then
-            return Completion("|cFF808080", Text("Unknown"), nil)
+            return Completion("|cFF808080", L["Unknown"] or "Unknown", nil)
         end
 
         -- Report only what we KNOW: whether the recipe is learned. NOT "Can Craft
@@ -2383,9 +2387,9 @@ function SourceManager:GetCompletionStatus(itemID, sourceType, sourceData)
         -- reagents. A learned recipe reads "(Recipe Known)" regardless of craftable.
         local result
         if recipeInfo.learned then
-            result = Completion("|cFF00FF00", Text("Recipe Known"), true)
+            result = Completion("|cFF00FF00", L["Recipe Known"] or "Recipe Known", true)
         else
-            result = Completion("|cFFFF0000", Text("Recipe Unknown"), false)
+            result = Completion("|cFFFF0000", L["Recipe Unknown"] or "Recipe Unknown", false)
         end
 
         return CopyCompletionStatus(result)
@@ -2810,18 +2814,28 @@ local function HookCompletionCacheInvalidation()
             if entry.questID then
                 trackedQuestIDs[entry.questID] = true
             end
+            for _, questID in pairs(entry.questIDs or {}) do
+                trackedQuestIDs[questID] = true
+            end
         end
     end
 
     completionInvalidationFrame = CreateFrame("Frame")
     completionInvalidationFrame:RegisterEvent("ACHIEVEMENT_EARNED")
+    completionInvalidationFrame:RegisterEvent("RECEIVED_ACHIEVEMENT_LIST")
     completionInvalidationFrame:RegisterEvent("QUEST_TURNED_IN")
+    completionInvalidationFrame:RegisterEvent("PLAYER_LOGIN")
+    completionInvalidationFrame:RegisterEvent("NEUTRAL_FACTION_SELECT_RESULT")
     completionInvalidationFrame:RegisterEvent("NEW_RECIPE_LEARNED")
     completionInvalidationFrame:RegisterEvent("SKILL_LINES_CHANGED")
     completionInvalidationFrame:RegisterEvent("UPDATE_FACTION")
     completionInvalidationFrame:RegisterEvent("MAJOR_FACTION_RENOWN_LEVEL_CHANGED")
     completionInvalidationFrame:RegisterEvent("TRAIT_CONFIG_UPDATED")
     completionInvalidationFrame:SetScript("OnEvent", function(_, event, ...)
+        if (event == "PLAYER_LOGIN" or event == "NEUTRAL_FACTION_SELECT_RESULT")
+            and HA.RefreshFactionQuestSources then
+            HA.RefreshFactionQuestSources()
+        end
         -- SKILL_LINES_CHANGED fires spuriously on profession-
         -- window open (confirmed via live testing) — every other registered event
         -- stays unconditional, only this one is fingerprint-gated.
@@ -3029,6 +3043,28 @@ local function HookCompletionCacheInvalidation()
             if HA.Addon then
                 HA.Addon:Debug("SourceManager: ACHIEVEMENT_EARNED suppressed (achievement "
                     .. achievementID .. " not tracked, no cached state)")
+            end
+            return
+        elseif event == "RECEIVED_ACHIEVEMENT_LIST" then
+            -- Account achievement data can arrive after the first read, which would
+            -- leave a sign vendor's verdict wrong until the next event. Re-check only
+            -- those verdicts and invalidate only if one changed.
+            local signAchievements = HA.Constants and HA.Constants.ProfessionSignAchievements
+            if not signAchievements then return end
+            local anyFlipped = false
+            for _, baseline in pairs(requirementEvalBaseline) do
+                local req = baseline.req
+                if req and req.type == "achievement" then
+                    local achID = ResolveAchievementID(req)
+                    if achID and signAchievements[achID] then
+                        local live = SourceManager:EvaluateRequirementMetLive(req)
+                        if live ~= baseline.met then anyFlipped = true end
+                        baseline.met = live
+                    end
+                end
+            end
+            if anyFlipped then
+                SourceManager:InvalidateAllSourceCaches()
             end
             return
         elseif event == "MAJOR_FACTION_RENOWN_LEVEL_CHANGED" then
@@ -3264,7 +3300,7 @@ local encounterNames, encounterMobs = {}, nil
 function SourceManager:GetDropGroupName(drop)
     local _ = self
     local id = drop.journalEncounterID
-    if not id then return drop.mobName or Text("Unknown") end
+    if not id then return drop.mobName or (L["Unknown"] or "Unknown") end
     local name = encounterNames[id]
     if not name and EJ_GetEncounterInfo then
         name = EJ_GetEncounterInfo(id)
@@ -3280,7 +3316,7 @@ function SourceManager:GetDropGroupName(drop)
             if e and d.mobName and not (low[e] and low[e] < itemID) then low[e], encounterMobs[e] = itemID, d.mobName end
         end
     end
-    return encounterMobs[id] or drop.mobName or Text("Unknown")
+    return encounterMobs[id] or drop.mobName or L["Unknown"] or "Unknown"
 end
 
 -- Where a decor quest starts, as { mapID, x, y }; nil when its start spot is not recorded. A zone is never a start.
@@ -3400,6 +3436,7 @@ function SourceManager:Initialize()
     if sourceManagerInitialized then return end
     sourceManagerInitialized = true
 
+    if HA.RefreshFactionQuestSources then HA.RefreshFactionQuestSources() end
     EnsureProvidersRegistered()
     HookCompletionCacheInvalidation()
 

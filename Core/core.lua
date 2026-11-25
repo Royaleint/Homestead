@@ -165,7 +165,7 @@ function HousingAddon:OnInitialize()
     local cmd = F.Commands:New({
         name = "Homestead",
         slashes = { "/hs", "/homestead" },
-        defaultHandler = function() self:ToggleBrowser() end,
+        defaultHandler = function() self:ToggleMainWindow(true) end,
         description = L["Homestead Commands:"] or "Homestead Commands:",
         unknownMessage = function(input)
             local msg = format(L["Unknown command: %s"] or "Unknown command: %s", input)
@@ -368,7 +368,7 @@ function HousingAddon:OnEnable()
     end
 
     -- At login, before the browser's window exists: its key propagation cannot be set in combat
-    if HA.DecorBrowser then
+    if HA.DecorBrowser and Constants.IsDecorBrowserAvailable() then
         HA.DecorBrowser.Window.Prepare()
     end
 
@@ -401,9 +401,13 @@ function HousingAddon:InitializeMinimapButton()
         icon = Constants.Icons.MINIMAP,
         OnClick = function(_, button)
             if button == "LeftButton" then
-                self:ToggleBrowser()
+                self:ToggleMainWindow()
             elseif button == "RightButton" then
-                self:OpenOptions()
+                if Constants.IsDecorBrowserAvailable() then
+                    self:OpenOptions()
+                elseif HA.MapSidePanel then
+                    HA.MapSidePanel:ToggleDetached()
+                end
             end
         end,
         OnTooltipShow = function(tooltip)
@@ -440,8 +444,16 @@ function HousingAddon:InitializeMinimapButton()
             end
 
             tooltip:AddLine(" ")
-            tooltip:AddLine(L["Left-Click: Toggle Decor Browser"] or "|cFFFFFFFFLeft-Click:|r Toggle Decor Browser")
-            tooltip:AddLine(L["Right-Click: Open options"] or "|cFFFFFFFFRight-Click:|r Open options")
+            if Constants.IsDecorBrowserAvailable() then
+                tooltip:AddLine(L["Left-Click: Toggle Decor Browser"] or "|cFFFFFFFFLeft-Click:|r Toggle Decor Browser")
+            else
+                tooltip:AddLine(L["Left-Click: Toggle options"] or "|cFFFFFFFFLeft-Click:|r Toggle options")
+            end
+            if Constants.IsDecorBrowserAvailable() then
+                tooltip:AddLine(L["Right-Click: Open options"] or "|cFFFFFFFFRight-Click:|r Open options")
+            else
+                tooltip:AddLine(L["Right-Click: Detach/close vendor panel"] or "|cFFFFFFFFRight-Click:|r Detach/close vendor panel")
+            end
         end,
     })
 
@@ -461,10 +473,11 @@ function HousingAddon:InitializeMinimapButton()
             icon = Constants.Icons.MINIMAP,
             -- Blizzard passes the mouse button in menuInputData.buttonName.
             func = function(_, menuInputData)
-                if menuInputData and menuInputData.buttonName == "RightButton" then
+                if menuInputData and menuInputData.buttonName == "RightButton"
+                    and Constants.IsDecorBrowserAvailable() then
                     self:OpenOptions()
                 else
-                    self:ToggleBrowser()
+                    self:ToggleMainWindow()
                 end
             end,
             funcOnEnter = function(btn)
@@ -801,8 +814,30 @@ function HousingAddon:OpenOptions()
     end
 end
 
+function HousingAddon:ToggleOptions()
+    if HA.OptionsFrame and HA.OptionsFrame.Toggle then
+        HA.OptionsFrame:Toggle()
+    else
+        self:Print("Options are not available yet.")
+    end
+end
+
+-- The player's main entry (slash, minimap left click, addon menu): the Decor Browser
+-- where it is available, otherwise the options window.
+function HousingAddon:ToggleMainWindow(openOnly)
+    if Constants.IsDecorBrowserAvailable() then
+        self:ToggleBrowser()
+    elseif openOnly then
+        self:OpenOptions()
+    else
+        self:ToggleOptions()
+    end
+end
+
 function HousingAddon:ToggleBrowser()
-    if HA.DecorBrowser and HA.DecorBrowser.Toggle then
+    if not Constants.IsDecorBrowserAvailable() then
+        self:Print(L["The Decor Browser is not available yet."] or "The Decor Browser is not available yet.")
+    elseif HA.DecorBrowser and HA.DecorBrowser.Toggle then
         HA.DecorBrowser:Toggle()
     else
         self:Print(L["The Decor Browser is not available yet."] or "The Decor Browser is not available yet.")
