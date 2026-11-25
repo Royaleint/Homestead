@@ -1,6 +1,6 @@
 --[[
     Homestead - PrerequisiteSources
-    Generated: 2026-11-24 21:02:36
+    Generated: 2026-11-24 21:32:37
     Prerequisite rows: 643
     Total prerequisite entries: 694
 
@@ -282,8 +282,8 @@ HA.PrerequisiteSources = {
     [250786] = {{type = "achievement", id = 60989, name = "Raise an Army for the Hall of Shadows"}},
     [250787] = {{type = "achievement", id = 42295, name = "Hidden Potential of the Shadowblade"}},
     [250788] = {{type = "achievement", id = 60970, name = "Legendary Research of the Uncrowned"}},
-    [250868] = {{type = "unknown", text = "Requires Preyhunter's Journey rank 10."}},
-    [250870] = {{type = "unknown", text = "Requires Preyhunter's Journey rank 5."}},
+    [250868] = {{type = "reputation", faction = "Preyhunter's Journey", standing = "Renown 10", factionID = 2808, renownLevel = 10}},
+    [250870] = {{type = "reputation", faction = "Preyhunter's Journey", standing = "Renown 5", factionID = 2808, renownLevel = 5}},
     [250912] = {{type = "quest", id = 76597, name = "On New Wings"}},
     [251022] = {{type = "quest", id = 78864, name = "The Returning"}},
     [251330] = {{type = "quest", id = 34792, name = "The Traitor's True Name"}},
@@ -348,7 +348,7 @@ HA.PrerequisiteSources = {
     [253178] = {{type = "quest", id = 92320, name = "Still Behind Enemy Portals"}},
     [253396] = {{type = "quest", name = "Cursed Keepsake"}},
     [253443] = {{type = "quest", id = 88999, name = "Sky's Hope"}},
-    [253449] = {{type = "unknown", text = "Requires Preyhunter's Journey rank 5."}},
+    [253449] = {{type = "reputation", faction = "Preyhunter's Journey", standing = "Renown 5", factionID = 2808, renownLevel = 5}},
     [253467] = {{type = "quest", id = 86867, name = "Into the Lightbloom"}},
     [253469] = {{type = "quest", id = 86660, name = "Rescue from the Shadows"}},
     [253485] = {{type = "quest", id = 90493, name = "The Heart of Tranquillien"}},
@@ -612,13 +612,13 @@ HA.PrerequisiteSources = {
     [277280] = {{type = "reputation", faction = "Zul'jarra's Forces", standing = "Renown 7", factionID = 2772, renownLevel = 7}},
     [277323] = {{type = "reputation", faction = "Zul'jarra's Forces", standing = "Renown 18", factionID = 2772, renownLevel = 18}},
     [278038] = {{type = "quest", id = 95780, name = "Hope for the Orphans"}},
-    [278123] = {{type = "unknown", text = "Requires Preyhunter's Journey rank 1."}},
-    [278126] = {{type = "unknown", text = "Requires Preyhunter's Journey rank 2."}},
+    [278123] = {{type = "reputation", faction = "Preyhunter's Journey", standing = "Renown 1", factionID = 2808, renownLevel = 1}},
+    [278126] = {{type = "reputation", faction = "Preyhunter's Journey", standing = "Renown 2", factionID = 2808, renownLevel = 2}},
     [278130] = {{type = "unknown", text = "Requires Preyhunter's Journey rank 3."}},
-    [278134] = {{type = "unknown", text = "Requires Preyhunter's Journey rank 4."}},
-    [278145] = {{type = "unknown", text = "Requires Preyhunter's Journey rank 6."}},
-    [278148] = {{type = "unknown", text = "Requires Preyhunter's Journey rank 7."}},
-    [278151] = {{type = "unknown", text = "Requires Preyhunter's Journey rank 9."}},
+    [278134] = {{type = "reputation", faction = "Preyhunter's Journey", standing = "Renown 4", factionID = 2808, renownLevel = 4}},
+    [278145] = {{type = "reputation", faction = "Preyhunter's Journey", standing = "Renown 6", factionID = 2808, renownLevel = 6}},
+    [278148] = {{type = "reputation", faction = "Preyhunter's Journey", standing = "Renown 7", factionID = 2808, renownLevel = 7}},
+    [278151] = {{type = "reputation", faction = "Preyhunter's Journey", standing = "Renown 9", factionID = 2808, renownLevel = 9}},
     [278369] = {{type = "achievement", id = 63451, name = "Scales for Days"}},
     [278372] = {{type = "achievement", id = 63452, name = "Fangs for the Memories"}},
     [278376] = {{type = "achievement", id = 63454, name = "Nine, Ten, Never Sleep Again"}},
