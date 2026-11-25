@@ -1,8 +1,8 @@
 --[[
     Homestead - PrerequisiteSources
-    Generated: 2026-11-24 17:44:33
-    Prerequisite rows: 629
-    Total prerequisite entries: 680
+    Generated: 2026-11-24 21:02:36
+    Prerequisite rows: 643
+    Total prerequisite entries: 694
 
     Vendor purchase prerequisites: Blizzard web API rows plus hand-checked additions.
     Used by SourceManager:GetRequirements() as a high-confidence source.
@@ -52,6 +52,7 @@ HA.PrerequisiteSources = {
     [245286] = {{type = "reputation", faction = "Dragonscale Expedition", standing = "Renown 10"}},
     [245287] = {{type = "reputation", faction = "Dragonscale Expedition", standing = "Renown 10"}},
     [245288] = {{type = "reputation", faction = "Dragonscale Expedition", standing = "Renown 10"}},
+    [245290] = {{type = "reputation", faction = "Silvermoon Court", standing = "Renown 7", factionID = 2710, renownLevel = 7}},
     [245293] = {{type = "reputation", faction = "Flame's Radiance", standing = "Renown 8", factionID = 2688, renownLevel = 8}},
     [245303] = {{type = "quest", id = 85780, name = "Right Where We Want Him"}},
     [245306] = {{type = "quest", id = 86408, name = "My Hole in the Wall"}},
@@ -141,6 +142,7 @@ HA.PrerequisiteSources = {
     [245739] = {{type = "quest", id = 40890, name = "Tears of Elune"}},
     [245941] = {{type = "reputation", faction = "Silvermoon Court", standing = "Renown 18", factionID = 2710, renownLevel = 18}},
     [245984] = {{type = "quest", id = 50783, name = "The Abyssal Council"}},
+    [245985] = {{type = "reputation", faction = "Silvermoon Court", standing = "Renown 15", factionID = 2710, renownLevel = 15}},
     [245991] = {{type = "quest", name = "Cursed Keepsake"}},
     [245992] = {{type = "quest", id = 86741, name = "Lightbloom Looming"}},
     [245993] = {{type = "quest", name = "Cursed Keepsake"}},
@@ -366,6 +368,7 @@ HA.PrerequisiteSources = {
     [255652] = {{type = "quest", name = "Cursed Keepsake"}},
     [255674] = {{type = "reputation", faction = "Bilgewater Cartel", standing = "Honored"}},
     [255712] = {{type = "quest", name = "Cursed Keepsake"}},
+    [256040] = {{type = "reputation", faction = "Silvermoon Court", standing = "Renown 7", factionID = 2710, renownLevel = 7}},
     [256049] = {{type = "reputation", faction = "Tranquillien", standing = "Exalted"}},
     [256169] = {{type = "reputation", faction = "Valdrakken Accord", standing = "Renown 3"}},
     [256327] = {{type = "reputation", faction = "Darkfuse Solutions", standing = "Friendly"}},
@@ -396,6 +399,8 @@ HA.PrerequisiteSources = {
     [257412] = {{type = "quest", id = 27550, name = "Pyrewood's Fall"}},
     [257418] = {{type = "quest", id = 92025, name = "Flowers for Amalthea"}},
     [257419] = {{type = "reputation", faction = "Tranquillien", standing = "Exalted"}},
+    [257421] = {{type = "reputation", faction = "Silvermoon Court", standing = "Renown 15", factionID = 2710, renownLevel = 15}},
+    [257422] = {{type = "reputation", faction = "Silvermoon Court", standing = "Renown 7", factionID = 2710, renownLevel = 7}},
     [257721] = {{type = "achievement", id = 10398, name = "Drum Circle"}},
     [257722] = {{type = "quest", id = 39426, name = "Blood Debt"}},
     [257723] = {{type = "quest", id = 39305, name = "Empty Nest"}},
@@ -468,8 +473,15 @@ HA.PrerequisiteSources = {
     [263194] = {{type = "reputation", faction = "Hara'ti", standing = "Renown 12", factionID = 2704, renownLevel = 12}},
     [263195] = {{type = "reputation", faction = "Hara'ti", standing = "Renown 12", factionID = 2704, renownLevel = 12}},
     [263196] = {{type = "quest", id = 88995, name = "Aln'hara's Bloom"}},
+    [263205] = {{type = "reputation", faction = "Silvermoon Court", standing = "Renown 3", factionID = 2710, renownLevel = 3}},
+    [263206] = {{type = "reputation", faction = "Silvermoon Court", standing = "Renown 3", factionID = 2710, renownLevel = 3}},
     [263211] = {{type = "unknown", text = "You must discover the treasure \"Gift of the Phoenix\" to purchase this."}},
+    [263223] = {{type = "reputation", faction = "Silvermoon Court", standing = "Renown 3", factionID = 2710, renownLevel = 3}},
+    [263228] = {{type = "reputation", faction = "Silvermoon Court", standing = "Renown 7", factionID = 2710, renownLevel = 7}},
+    [263229] = {{type = "reputation", faction = "Silvermoon Court", standing = "Renown 7", factionID = 2710, renownLevel = 7}},
     [263231] = {{type = "quest", name = "Paved in Ash"}},
+    [263232] = {{type = "reputation", faction = "Silvermoon Court", standing = "Renown 11", factionID = 2710, renownLevel = 11}},
+    [263234] = {{type = "reputation", faction = "Silvermoon Court", standing = "Renown 11", factionID = 2710, renownLevel = 11}},
     [263240] = {{type = "quest", id = 86531, name = "Work Disruption"}},
     [263315] = {{type = "quest", id = 88994, name = "The Cauldron of Echoes"}},
     [263316] = {{type = "reputation", faction = "Zul'jarra's Forces", standing = "Renown 3", factionID = 2772, renownLevel = 3}},
@@ -501,6 +513,8 @@ HA.PrerequisiteSources = {
     [264257] = {{type = "quest", id = 86712, name = "The Amani Stand Strong"}},
     [264259] = {{type = "achievement", id = 61574, name = "Legends Never Die"}},
     [264262] = {{type = "quest", id = 88996, name = "The Echoless Flame"}},
+    [264264] = {{type = "reputation", faction = "Silvermoon Court", standing = "Renown 15", factionID = 2710, renownLevel = 15}},
+    [264265] = {{type = "reputation", faction = "Silvermoon Court", standing = "Renown 15", factionID = 2710, renownLevel = 15}},
     [264266] = {{type = "achievement", id = 61264, name = "Leaf None Behind"}},
     [264267] = {{type = "reputation", faction = "Hara'ti", standing = "Renown 15", factionID = 2704, renownLevel = 15}},
     [264268] = {{type = "reputation", faction = "Hara'ti", standing = "Renown 15", factionID = 2704, renownLevel = 15}},
