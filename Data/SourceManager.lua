@@ -905,7 +905,8 @@ end
 -- (first-seen kept; later duplicates with the same key are discarded).
 local function getRequirementDedupeKey(req)
     if req.type == "reputation" then
-        return "reputation:" .. (req.faction or "")
+        -- Catalog text can end the faction name with a full stop; the same faction must still match.
+        return "reputation:" .. ((req.faction or ""):gsub("%.$", ""))
     elseif req.type == "achievement" then
         return "achievement:" .. tostring(req.id or req.name or "")
     elseif req.type == "quest" then
