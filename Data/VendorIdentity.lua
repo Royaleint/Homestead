@@ -2727,12 +2727,6 @@ VendorIdentity.Vendors = {
         expansion = "Midnight",
         scanConfirmed = "2026-08-11",
     },
-    [271165] = {
-        name = "Carver Sprocket",
-        zone = "Founder's Point",
-        expansion = "Midnight",
-        unreleased = true,
-    },
     [271366] = {
         name = "Jolli Maxiboom",
         mapID = 2351,
