@@ -205,5 +205,5 @@ S.chrome = { linePad = SP.s, shadowHeight = SP.m, wellShadowHeight = SP.l, wellS
 S.model = { thumb = 44, preview = { 220, 160 } }
 
 S.plate = {
-    windowTitle = L["Homestead Decor"],
+    windowTitle = L["Homestead Hub"],
 }

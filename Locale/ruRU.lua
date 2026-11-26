@@ -54,7 +54,7 @@ L["Use TomTom for waypoints"] = "Использовать TomTom для путе
 L["Collection: %d / %d (%d%%)"] = "Коллекция: %d / %d (%d%%)" -- human-translated
 L["Vendors nearby: %d"] = "Торговцев рядом: %d" -- human-translated
 L["Vendors scanned: %d"] = "Просканировано торговцев: %d" -- human-translated
-L["Left-Click: Toggle Decor Browser"] = "|cFFFFFFFFЛКМ:|r Открыть/закрыть обозреватель декора"
+L["Left-Click: Toggle Homestead Hub"] = "|cFFFFFFFFЛКМ:|r Открыть/закрыть Homestead Hub"
 L["Right-Click: Open options"] = "|cFFFFFFFFПКМ:|r Открыть настройки"
 L["Toggle options"] = "Открыть или закрыть параметры"
 L["Left-Click: Toggle options"] = "|cFFFFFFFFЛКМ:|r Открыть настройки" -- human-translated
@@ -358,7 +358,7 @@ L["Not yet mapped by Homestead"] = "Ещё не внесено в Homestead"
 L["Set waypoint"] = "Поставить метку"
 
 -- Decor Browser: window and navigation
-L["Homestead Decor"] = "Декор Homestead"
+L["Homestead Hub"] = "Homestead Hub"
 L["Overview"] = "Обзор"
 L["Catalog"] = "Каталог"
 L["Back"] = "Назад"
@@ -368,7 +368,7 @@ L["Help"] = "Справка"
 L["Hide collected and other-faction"] = "Без собранного и противоположной фракции"
 L["Hides decor you have collected, vendors with nothing left to collect, and anything only the other faction can get."] = "Скрывает собранный декор, торговцев, у которых больше нечего собирать, и всё, что может получить только противоположная фракция."
 L["Opens a page explaining this window."] = "Открывает страницу с описанием этого окна."
-L["The Decor Browser opens once Homestead has finished loading."] = "Обозреватель декора откроется, когда Homestead закончит загрузку."
+L["The Homestead Hub opens once Homestead has finished loading."] = "Homestead Hub откроется, когда Homestead закончит загрузку."
 L["Collection"] = "Коллекция"
 L["Placed"] = "Размещено"
 L["In storage"] = "На хранении"
@@ -394,14 +394,14 @@ L["Client: %s (%s)"] = "Клиент: %s (%s)"
 L["Homestead: %s"] = "Homestead: %s"
 
 -- Decor Browser: entry points
-L["Toggle Decor Browser"] = "Открыть/закрыть обозреватель декора"
-L["Open the Decor Browser, or bind a key under Keybindings > Homestead"] = "Открывает обозреватель декора. Можно также назначить клавишу в разделе «Назначение клавиш» > Homestead"
+L["Toggle Homestead Hub"] = "Открыть/закрыть Homestead Hub"
+L["Open the Homestead Hub, or bind a key under Keybindings > Homestead"] = "Открывает Homestead Hub. Можно также назначить клавишу в разделе «Назначение клавиш» > Homestead"
 L["Minimap button"] = "Кнопка у миникарты"
 L["Open options"] = "Открыть параметры"
 L["Right-click minimap button"] = "Щёлкните правой кнопкой мыши по кнопке мини-карты"
 L["Open the standalone vendor panel"] = "Открыть отдельную панель торговцев"
-L["Left-click opens the Decor Browser, right-click opens options"] = "ЛКМ открывает обозреватель декора, ПКМ открывает настройки"
-L["The Decor Browser is not available yet."] = "Обозреватель декора пока недоступен."
+L["Left-click opens the Homestead Hub, right-click opens options"] = "ЛКМ открывает Homestead Hub, ПКМ открывает настройки"
+L["The Homestead Hub is not available yet."] = "Homestead Hub пока недоступен."
 
 -- Welcome window
 L["Find every decor vendor on your map and see what you've collected before you buy."] = "Находите всех торговцев декором на карте и смотрите, что вы уже собрали, прежде чем покупать."
@@ -578,7 +578,6 @@ L["%s (done)"] = "%s (выполнено)"
 L["%s (not yet)"] = "%s (ещё нет)"
 L["Can't check this requirement yet"] = "Это требование пока нельзя проверить"
 L["Active now: %s"] = "Сейчас активно: %s"
-L["Decor Browser"] = "Обозреватель декора"
 L["Show 3D preview"] = "Показывать 3D-превью"
-L["desc_browser_model3d"] = "Показывает 3D-модель предмета на его странице в обозревателе декора."
+L["desc_browser_model3d"] = "Показывает 3D-модель предмета на его странице в Homestead Hub."
 -- end: Item
