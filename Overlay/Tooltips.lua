@@ -79,17 +79,6 @@ local function IsDecorItem(itemLink)
     return false
 end
 
--- Check if a decor item is owned (by itemLink)
--- Delegates to CatalogStore:IsOwnedFresh()
-local function IsDecorOwned(itemLink)
-    local itemID = GetItemIDFromLink(itemLink)
-    if not itemID then return nil end
-    if HA.CatalogStore then
-        return HA.CatalogStore:IsOwnedFresh(itemID)
-    end
-    return nil
-end
-
 -------------------------------------------------------------------------------
 -- Cost Lookup Functions
 -------------------------------------------------------------------------------
@@ -1133,18 +1122,12 @@ local function AddDecorInfoToTooltip(tooltip, itemLink, gate)
         presentation = HA.SourceManager:GetItemPresentation(itemID, {
             context = context,
             npcID = vendorNpcID,
+            readOnlyOwnership = true,
         })
     end
 
     local isOwned = presentation and presentation.isOwned
-    if not presentation then
-        isOwned = IsDecorOwned(itemLink)
-    end
-
     local availabilityState = detailed and presentation and presentation.availabilityState or nil
-    if detailed and not presentation and HA.SourceManager and HA.SourceManager.GetItemAvailabilityState then
-        availabilityState = HA.SourceManager:GetItemAvailabilityState(itemID, vendorNpcID)
-    end
 
     -- No status at all when the game reports no ownership for the item.
     local unreported = presentation and presentation.ownershipState == "unknown"

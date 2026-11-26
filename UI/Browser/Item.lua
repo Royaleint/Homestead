@@ -89,7 +89,7 @@ local function VendorRow(itemID, b, flagged)
     local name = HA.VendorData:GetVendorName(v)
     local row = { status = {}, one = Labeled(L["Vendor:"], name or L["Unknown"], D.Price(itemID, v)) }
     Status(row, HA.VendorPlaceText(v) or L["Location not recorded"])
-    local label = D.IsOppositeFaction(v) and D.VendorFactionLabel(v)
+    local label = D.IsOppositeFaction(v) and HA.BadgeCalculation:FactionLabel(v)
     if label then Status(row, W.StateWords("faction", label), "stop", K.stop) end
     if b.offer == "can" then Status(row, L["Can get now here"], "dot", K.can) end
     if SHORT_RANK[b.offer] then
@@ -162,7 +162,7 @@ local function Describe(itemID)
     local D, CG = B.Data, B.CanGet
     local memo = B.State.catalogMemo
     local e = CG.Entry(itemID)
-    local info = e and e.info or D.CatalogInfo(itemID, memo)
+    local info = D.CatalogInfo(itemID, memo)
     local quality = D.IconData(itemID, true, memo)
     local m = {
         info = info, quality = quality, icon = D.ItemIcon(itemID),

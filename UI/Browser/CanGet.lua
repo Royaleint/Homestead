@@ -21,33 +21,17 @@ local function Own(itemID, memo)
     return state ~= "unknown" and state or nil, info
 end
 
-local function Verdict(SM, itemID, npcID, vendor, own)
+local VERDICT_OF = { idle = "unlisted", faction = "faction", purchasable = "can", unobtainable = "unobtainable" }
+
+local function Verdict(itemID, npcID, vendor, own)
     if own ~= "notOwned" then return own == "owned" and "owned" or "unknown" end
     if not (npcID and vendor) then return "unknown" end
-    if not Facts.OnSale(vendor) then return "unlisted" end
-    if D.IsOppositeFaction(vendor) then return "faction" end
-    local state = SM:GetVendorItemAvailabilityState(itemID, npcID, true)
-    if state == "purchasable" then return "can" end
-    return state == "unobtainable" and "unobtainable" or "locked"
+    return VERDICT_OF[HA.BadgeCalculation:WareState(itemID, vendor)] or "locked"
 end
 
--- What this character carries, each key read once per memo version, so the keys are what the offers need:
--- gold in copper, cur[id] (false without currency info), item[id] in bags and reagent bank as the merchant counts.
-local wallet = { cur = {}, item = {} }
-
-local function Have(kind, id)
-    local n = wallet[kind][id]
-    if n == nil then
-        n = HA.SourceManager:GetWalletCount(kind, id)
-        wallet[kind][id] = n
-    end
-    return n
-end
-
--- Whether this currency (any currency when nil) has been read in this snapshot.
+-- Whether this currency (any currency when nil) has been read since the wallet was last reset.
 function CG.HasReadCurrency(currencyID)
-    if currencyID == nil then return next(wallet.cur) ~= nil end
-    return wallet.cur[currencyID] ~= nil
+    return HA.BadgeCalculation:WalletHasRead(currencyID)
 end
 
 -- Whether a currency moves between the account's characters, asked once per walk, and whether a reachable offer
@@ -95,55 +79,20 @@ function CG.AccountData()
     for _, e in pairs(entries) do e.st = nil end
 end
 
--- "paid" when every part is checked and covered; "short" when a checked part isn't, which outweighs the rest;
--- else "unknown": no part, or one with no id, no amount or no currency info. out gathers the short parts; judging
--- marks a reachable offer's judgment, the only kind that can need account data.
-local NONE, KINDS = {}, { currencies = "cur", items = "item" }
+local NONE = {}
 
-local function PayBundle(cost, out, judging)
-    local SM = HA.SourceManager
-    local parts, short, unknown = 0, false, false
-    local gold = cost.gold or 0
-    if gold > 0 then
-        wallet.gold = wallet.gold or SM:GetWalletGold()
-        parts, short = 1, wallet.gold < gold
-        if short and out then out.gold = gold end
-    end
-    for key, kind in pairs(KINDS) do
-        for _, c in ipairs(cost[key] or NONE) do
-            parts = parts + 1
-            local have = c.id and c.amount and Have(kind, c.id)
-            if not have then
-                unknown = true
-            elseif have < c.amount then
-                short = true
-                if judging and kind == "cur" and not needAccount then needAccount = Transferable(c.id) end
-                if out then out[key] = out[key] or {} table.insert(out[key], c) end
-            end
-        end
-    end
-    if short then return "short" end
-    return (unknown or parts == 0) and "unknown" or "paid"
+-- The wallet rule is BadgeCalculation's; a reachable offer's judgment also learns whether a short currency
+-- moves between the account's characters.
+local function OnShort(id)
+    if not needAccount then needAccount = Transferable(id) end
 end
 
--- With alternatives: paid when any option is, short only when every option is, else unknown. The shared
--- splitter says which options exist (an unresolved cost has none).
+local function PayBundle(cost, out, judging)
+    return HA.BadgeCalculation:WalletPayBundle(cost, out, judging and OnShort or nil)
+end
+
 local function Pay(cost, out, judging)
-    if not cost then return "unknown" end
-    if not (cost.alternatives and cost.alternatives[1]) then return PayBundle(cost, out, judging) end
-    local views = HA.VendorData:SplitCostOptions(cost)
-    if not views then return "unknown" end
-    local paid, short = false, true
-    for _, view in ipairs(views) do
-        local verdict = PayBundle(view)
-        paid = paid or verdict == "paid"
-        short = short and verdict == "short"
-    end
-    if paid then return "paid" end
-    if judging then
-        for _, view in ipairs(views) do PayBundle(view, nil, true) end
-    end
-    return short and "short" or "unknown"
+    return HA.BadgeCalculation:WalletPay(cost, out, judging and OnShort or nil)
 end
 
 function CG.IsShort(cost)
@@ -173,18 +122,30 @@ end
 local VERDICT = { paid = "can", short = "short", unknown = "unpriced" }
 local PAY = { short = "short", unpriced = "unknown" }
 
-local walk, version = nil, nil
+local walk, version, seenGen = nil, nil, 0
+
+-- An ownership-only refresh that names its items keeps the other entries in the next memo version.
+local plan
+function CG.Plan(only)
+    local items = HA.CatalogStore:TakeOwnershipChanges()
+    plan = only and items and { items = items, from = D.MemoVersion() } or nil
+end
 
 local function Fresh()
     local v = D.MemoVersion()
     if v ~= version then
-        version, walk, needAccount = v, nil, false
+        local kept = plan and plan.from == version and v == version + 1 and plan.items
+        plan, version, walk = nil, v, nil
+        if kept then
+            for itemID in pairs(kept) do entries[itemID] = nil end
+            return
+        end
+        needAccount = false
         wipe(entries)
         wipe(holders)
         wipe(transferable)
-        wallet.gold = nil
-        wipe(wallet.cur)
-        wipe(wallet.item)
+        HA.BadgeCalculation:WalletReset()
+        seenGen = HA.BadgeCalculation:WalletGen()
     end
 end
 
@@ -205,7 +166,7 @@ end
 function CG.Offer(itemID, npcID)
     if HA.CatalogScanner:GetReadState() ~= "ready" then return "unknown" end
     local vendor = npcID and HA.VendorData:GetVendorAnySeason(npcID)
-    local verdict = Verdict(HA.SourceManager, itemID, npcID, vendor, (Own(itemID, Memo())))
+    local verdict = Verdict(itemID, npcID, vendor, (Own(itemID, Memo())))
     if verdict ~= "can" then return verdict end
     return VERDICT[Pay(OfferCost(itemID, npcID, vendor))]
 end
@@ -215,24 +176,7 @@ local PRIORITY = { can = 1, short = 2, unpriced = 3, locked = 4, unlisted = 5, f
 local SOURCE_KEYS = { "vendors", "achievements", "quests", "professions", "drops", "events", "shop" }
 CG.SOURCE_KEYS = SOURCE_KEYS
 
-local function GoldOnlyBundle(cost)
-    return (cost.gold or 0) > 0 and not (cost.currencies and cost.currencies[1])
-        and not (cost.items and cost.items[1])
-end
-
--- The smallest gold-only option, or nil. With payable, only options this character can pay count (a single option always counts).
-local function LowGold(cost, payable)
-    if not cost then return nil end
-    if not (cost.alternatives and cost.alternatives[1]) then
-        return GoldOnlyBundle(cost) and cost.gold or nil
-    end
-    local low
-    for _, v in ipairs(HA.VendorData:SplitCostOptions(cost) or NONE) do
-        if GoldOnlyBundle(v) and (not low or v.gold < low) and (not payable or PayBundle(v) == "paid") then low = v.gold end
-    end
-    return low
-end
-CG.LowGold = LowGold
+function CG.LowGold(...) return HA.BadgeCalculation:LowGold(...) end
 
 -- The shared other-faction-only answer, kept per item; the router resets it on show, on
 -- SOURCE_CACHES_INVALIDATED and on a decor vendor scan.
@@ -251,7 +195,7 @@ local function FactionOnly(itemID)
 end
 
 local function Consider(e, SM, npcID, vendor, cost, best)
-    local verdict = Verdict(SM, e.itemID, npcID, vendor, "notOwned")
+    local verdict = Verdict(e.itemID, npcID, vendor, "notOwned")
     local event = HA.VendorData:GetHolidayEvent(npcID)
     if verdict == "can" then
         -- A source with no cost, and every event vendor, asks the resolver.
@@ -277,8 +221,8 @@ local function Settle(e)
         for npcID, o in pairs(e.reach) do
             o.pay = Pay(o.cost, nil, true)
             -- Gold only: a gold option this wallet can pay; else, unless paid another way, the cheapest one.
-            local low = LowGold(o.cost, true)
-            if not low and o.pay ~= "paid" then low = LowGold(o.cost) end
+            local low = CG.LowGold(o.cost, true)
+            if not low and o.pay ~= "paid" then low = CG.LowGold(o.cost) end
             o.price, o.gold = low, low ~= nil
             local v = VERDICT[o.pay]
             if v == "can" then e.canBy[npcID] = o end
@@ -288,35 +232,21 @@ local function Settle(e)
     e.verdict = verdict
 end
 
--- Re-reads every key already in the wallet, in place. Nothing changed: false, and nothing is touched. A
--- change settles the entries again and drops what was derived from their verdicts; the walk stays.
+-- Re-reads every key already in the wallet. Nothing changed since this walk last looked: false, and nothing is
+-- touched. A change settles the entries again and drops what was derived from their verdicts; the walk stays.
 function CG.Rejudge()
     Fresh()
-    local changed = false
-    local gold = wallet.gold
-    if gold then
-        wallet.gold = HA.SourceManager:GetWalletGold()
-        changed = wallet.gold ~= gold
-    end
-    for _, kind in pairs(KINDS) do
-        local held = wallet[kind]
-        for id, old in pairs(held) do
-            local n = HA.SourceManager:GetWalletCount(kind, id)
-            held[id] = n
-            changed = changed or n ~= old
-        end
-    end
-    if not changed then return false end
+    local BC = HA.BadgeCalculation
+    BC:WalletReread()
+    if BC:WalletGen() == seenGen then return false end
+    seenGen = BC:WalletGen()
     gen = gen + 1
     wipe(holders)
     for _, e in pairs(entries) do
         e.st = nil
         if e.reach then Settle(e) end
     end
-    if walk then
-        walk.ranked = nil
-        wipe(walk.vendorCan)
-    end
+    if walk then walk.ranked = nil end
     return true
 end
 
@@ -357,6 +287,9 @@ local function Evaluate(itemID, SM, memo, tables)
     return e
 end
 
+-- Copy counts change with no ownership update: a walked entry's record is read when drawn.
+function CG.Rec(e) return e.own and D.CatalogInfo(e.itemID, Memo()) or e.info or NONE end
+
 -- The walk's record for one item, decor or a vendor ware outside the decor list; nil before ready.
 -- Fields: itemID, info, own, name, bonus (the First-Time Collection amount, nil if none), src (Sources type set), factionOnly, verdict (nil without a
 -- vendor offer), reach (npcID to each offer with requirements met, with cost and pay), canBy (its paid ones),
@@ -395,7 +328,7 @@ local function RunWalk(items)
         Add(progress, n, got)
         for key in pairs(e.src) do Add(src[key], n, got) end
     end
-    return { list = list, progress = progress, vendorCan = {} }
+    return { list = list, progress = progress }
 end
 
 function CG.Walk()
@@ -420,22 +353,6 @@ function CG.RefreshNames()
     end
     if arrived then walk.ranked = nil end
     return arrived
-end
-
-function CG.VendorCanCount(vendor)
-    local w = CG.Walk()
-    if not (w and vendor and vendor.npcID) then return nil end
-    local npcID = vendor.npcID
-    local n = w.vendorCan[npcID]
-    if not n then
-        n = 0
-        for _, itemID in ipairs(D.VendorWares(vendor)) do
-            local e = CG.Entry(itemID)
-            if e.canBy and e.canBy[npcID] then n = n + 1 end
-        end
-        w.vendorCan[npcID] = n
-    end
-    return n
 end
 
 -- "Get it": event, gold only, lowest gold, nearest to where (none: all alike), lowest npcID.
@@ -603,11 +520,11 @@ function CG.HiddenBy(what)
 end
 
 local function FactionLabel(itemID, npcID)
-    if npcID then return D.VendorFactionLabel(D.Vendor(npcID) or {}) end
+    if npcID then return HA.BadgeCalculation:FactionLabel(D.Vendor(npcID) or {}) end
     for _, s in ipairs(HA.SourceManager:GetAllSources(itemID) or {}) do
         local at = s.type == "vendor" and s.data and s.data.npcID
         local v = at and D.Vendor(at)
-        local label = v and D.IsOppositeFaction(v) and D.VendorFactionLabel(v)
+        local label = v and D.IsOppositeFaction(v) and HA.BadgeCalculation:FactionLabel(v)
         if label then return label end
     end
 end
@@ -625,8 +542,8 @@ function CG.MissingFactions()
     return seen
 end
 
-local function Judge(e, itemID, npcID)
-    local offer = npcID and CG.Offer(itemID, npcID) or e.verdict
+local function Judge(e, itemID, npcID, offer)
+    offer = offer or npcID and CG.Offer(itemID, npcID) or e.verdict
     if offer == "can" then return "can" end
     if PAY[offer] then
         local o = not npcID and BestOffer(e.reach, Facts.Here(), PAY[offer])
@@ -662,4 +579,14 @@ function B.ItemState(itemID, npcID)
         e.st = st
     end
     return st[1], st[2], st[3]
+end
+
+-- A ware on a vendor's card, owned or not by the saved record, as the card's count and the map's grid read it.
+local SAVED = { idle = "unlisted", promotion = "unobtainable", can = "can", short = "short", unpriced = "unpriced",
+    faction = "faction" }
+function B.CardState(itemID, vendor)
+    local verdict = HA.BadgeCalculation:WareVerdict(itemID, vendor)
+    if verdict == "owned" then return "owned" end
+    if verdict == "unknown" then return nil end
+    return Judge(NONE, itemID, vendor.npcID, SAVED[verdict] or "locked")
 end

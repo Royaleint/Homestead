@@ -50,7 +50,7 @@ local FLOOR, GAP, LIFT = 2 * S.ware.size + S.ware.gap, SP.s, 20
 local INSET, XSIZE, XPAD, XRES = LO.wellPad, S.card.close, S.card.closePad, S.card.reserve
 local GLYPH = 14
 
--- Beside an open card the list is narrowed to its names and what can be got now; under a covering card it keeps its rows.
+-- Beside an open card the list narrows to names and what can be got now; under a covering card it keeps its rows.
 local function Narrow()
     return vid ~= nil and not cover
 end
@@ -100,11 +100,16 @@ local function VendorEntry(v)
     return s
 end
 
--- One entry per listed vendor, for all vendors or one expansion.
+local maps
 local function VendorList(home)
-    local out = {}
-    for _, v in ipairs(D.ListedVendors()) do
-        if not home or D.VendorHome(v) == home then out[#out + 1] = VendorEntry(v) end
+    local out, all = {}, D.ListedVendors()
+    maps = HA.VendorFilter.GetVendorMaps(all, maps)
+    for _, v in ipairs(all) do
+        if not home or D.VendorHome(v) == home then
+            for i, a in ipairs(maps[v.npcID]) do
+                out[#out + 1] = setmetatable({ mapID = a.mapID, zone = a.zone, again = i > 1 }, { __index = VendorEntry(v) })
+            end
+        end
     end
     return out
 end
@@ -115,7 +120,7 @@ local function DecorName(id)
     return D.ItemName(id, e and e.info or D.CatalogInfo(id, B.State.catalogMemo)) or L["Item %d"]:format(id)
 end
 
--- Titles that can arrive after the list was built: a shop item's name, a vendor's or a drop group's client name.
+-- Titles that can arrive after the list was built: a shop item's, vendor's or drop group's name.
 -- A vendor row sorts by st, the name its list is ordered by.
 local function Retitle(s)
     if s.type == "shop" then s.title = DecorName(s.items[1])
@@ -164,7 +169,6 @@ local function Stats(s)
         got, n = D.VendorCounts(v, asked)
         -- A holiday vendor's count is warmed on its own, so it leaves the ask for the others.
         if n ~= nil then total = n elseif D.HolidayActive(v) == nil then asked = true end
-        can = CG.VendorCanCount(v)
     else
         got, total = 0, 0
         for _, id in ipairs(s.items) do
@@ -179,15 +183,20 @@ local function Stats(s)
     return total, got, can
 end
 
--- A source other than a vendor whose decor is all left out of the counts gets no row.
+-- A source other than a vendor or a drop whose decor is all left out of the counts gets no row.
 local function AllLeftOut(s)
-    return cs == "ready" and not s.vendor and s.items[1] ~= nil and Stats(s) == 0
+    return cs == "ready" and not s.vendor and s.type ~= "drops" and s.items[1] ~= nil and Stats(s) == 0
 end
 
--- Why a vendor with nothing counted says so: its wares are left out.
-local function LeftOutMark(v)
-    local _, left = D.VendorWares(v)
-    return left and (left.unknown[1] and L["Collection unknown"] or left.promotion[1] and L["Promotion"])
+-- A drop group's wares as the shared description takes them, sorted by item.
+local function DropRecords(s)
+    if not s.records then
+        local out = {}
+        for i, id in ipairs(s.items) do out[i] = { itemID = id } end
+        table.sort(out, function(a, b) return a.itemID < b.itemID end)
+        s.records = out
+    end
+    return s.records
 end
 
 local function Head(t)
@@ -216,20 +225,32 @@ end
 local Rows
 
 local function RowData(s)
-    local total, got, can = Stats(s)
-    local v, state, arg = s.vendor
-    local oneLine = s.type ~= "vendors" and s.type ~= "drops"
-    if v and D.IsOppositeFaction(v) then state, arg = "faction", D.VendorFactionLabel(v)
-    elseif (s.type == "events" and not Live(s.key)) or (v and not Facts.OnSale(v)) then state = "idle"
-    elseif cs == "counting" then state = "counting"
-    elseif CG.HiddenBy(v and { vendor = v } or { items = s.items }) == "collected" then state = "allDone"
-    elseif can and can > 0 then state, arg = "some", can
-    elseif s.type == "events" or (v and (D.HolidayActive(v) or Facts.EndeavorActive(v))) then state = "live" end
+    local BC, v = HA.BadgeCalculation, s.vendor
+    local drops = s.type == "drops"
+    local oneLine = s.type ~= "vendors" and not drops
+    local state, arg, right, color
+    if v or drops then
+        -- The vendor stats are asked for here so a cold count warms; the description only peeks, and before the
+        -- read builds them out of the pins' cache.
+        if v then Stats(s) end
+        local r = BC:DescribeRow(v and { vendor = v } or { records = DropRecords(s), kind = "drops" },
+            { peek = v and (cs == "ready" or "unread") or nil })
+        state, arg, right, color = r.state, r.stateArg, r.countText, r.countColor
+    else
+        local total, got, can = Stats(s)
+        if s.type == "events" and not Live(s.key) then state = "idle"
+        elseif cs == "counting" then state = "counting"
+        elseif CG.HiddenBy({ items = s.items }) == "collected" then state = "allDone"
+        elseif can and can > 0 then state, arg = "some", can
+        elseif s.type == "events" then state = "live" end
+        right = total == 0 and L["No decor"] or got and BC.FormatCountText(got, total, 0) or L["%d decor"]:format(total)
+        color = total == 0 and BC.COUNT_COLORS.words or BC.COUNT_COLORS.number
+    end
     return {
         kind = "row", key = s.key, name = v and HA.VendorData:GetVendorName(v) or s.title, line2 = not oneLine and s.sub or s.where, noTile = true, state = state, arg = arg,
         iconsOf = oneLine and function() return Rows(s, true) end or nil,
         selected = vid ~= nil and s.key == vid or nil, narrow = Narrow() or nil,
-        right = total == 0 and (v and LeftOutMark(v) or L["No decor"]) or got and L["%d of %d"]:format(got, total) or L["%d decor"]:format(total),
+        right = right, rightColor = color,
         onClick = function()
             if not v then B.Go({ kind = "source", key = s.type, id = s.key })
             elseif vid == s.key then Page:CloseCard()
@@ -288,7 +309,7 @@ local function Place(s, order)
     s.o, s.g, s.late, s.top, s.p = 0, nil, nil, nil, nil
     local v, t = s.vendor, s.type
     if v then
-        local _, zone = Facts.Place(v)
+        local zone = s.zone or select(2, Facts.Place(v))
         s.e, s.g, s.late = D.VendorHome(v), zone or L["Location not recorded"], zone == nil
         s.o = order and order[s.e] or 0
     elseif t == "events" then
@@ -425,14 +446,14 @@ local function BuildList(keep, zone)
             end
         elseif grid or not AllLeftOut(s) then
             local why = hide and CG.HiddenBy(v and { vendor = v } or { items = s.items })
-            if why then
+            if why and not s.again then
                 hidden.hidden = hidden.hidden + 1
                 hidden[why] = hidden[why] + 1
                 if why == "faction" then
-                    local label = v and D.VendorFactionLabel(v) or ""
+                    local label = v and HA.BadgeCalculation:FactionLabel(v) or ""
                     seen[label] = (seen[label] or 0) + 1
                 end
-            else
+            elseif not why then
                 out[#out + 1] = s
                 Place(s, order)
             end
@@ -449,7 +470,7 @@ local function BuildList(keep, zone)
         return tk, s.g and (wide and tostring(s.e) .. "\1" .. s.g or tops and tk .. "\1" .. s.g) or nil
     end
     local function Near(s)
-        local at = s.vendor and Facts.Place(s.vendor)
+        local at = s.vendor and (s.mapID or Facts.Place(s.vendor))
         return at and (nearby and nearby[at] or HA.MapPinProvider.ZoneOf(at) == zone)
     end
     if zone and fold then
@@ -526,7 +547,7 @@ local function FoldAll(on)
     BuildList(true)
 end
 
--- Lights the open card's row, or none, and narrows or widens the rows for the mode, without rebuilding the list.
+-- Lights the open card's row and narrows or widens the rows for the mode, without rebuilding the list.
 local function Scroller()
     return not wide and st.type == "shop" and tiles or list
 end
@@ -590,17 +611,16 @@ local headerKind = {
     end,
 }
 
--- The width the card's text takes: the page less the list beside it and the card's own well and gutter.
+-- The width the card's text takes: the page less the list, the card's well and its gutter.
 local function BodyWidth()
     return P:GetWidth() - (cover and 0 or colW + SP.xs) - FRAME
 end
 
--- The card's own width: the page less the narrowed list and the gap beside it.
 local function CardWidth()
     return P:GetWidth() - (colNow > 0 and colNow + SP.xs or 0)
 end
 
--- Reads the mode from the page's width; false while the page has none, when the draw is owed.
+-- Reads the mode from the page's width; false while it has none, when the draw is owed.
 local function Layout()
     local room = P:GetWidth()
     if room <= 0 then return false end
@@ -608,7 +628,7 @@ local function Layout()
     return true
 end
 
--- Places the list and the card for the mode: the list narrowed with the card beside it, or the card over the page.
+-- Places the list and the card for the mode.
 local function Arrange()
     local narrow = Narrow()
     colNow = narrow and colW or 0
@@ -631,8 +651,8 @@ local function Arrange()
 end
 
 -- Arranges an already-built list for the mode. Header and footer heights follow the width, and frames on screen
--- keep their old extent until their initializers run again, so a width change rebuilds the box in place, keeping
--- the scroll position. Rebuild raises on a box that was never given data.
+-- keep their old extent until re-initialized, so a width change rebuilds the box in place, keeping the scroll
+-- position. Rebuild raises on a box never given data.
 local function Fit()
     local was = colNow
     Arrange()
@@ -661,7 +681,8 @@ function Rows(s, cells)
     for _, itemID in ipairs(s.items) do
         local e = CG.Entry(itemID)
         local info = e and e.info
-        local state, arg = B.ItemState(itemID, v and v.npcID)
+        local state, arg
+        if v then state, arg = B.CardState(itemID, v) else state, arg = B.ItemState(itemID) end
         rows[#rows + 1] = {
             kind = "row", name = D.ItemName(itemID, info) or L["Item %d"]:format(itemID),
             rank = state == "can" and 1 or state == "owned" and 3 or 2,
@@ -757,8 +778,8 @@ function Page:ListOf(route)
     return self:Has(over) and over or { kind = "allVendors" }
 end
 
--- A forward Show starts from the route's seed (a zone); Back gives saved. A vendor route is a card over
--- its list (route.list): with keep, that list is already up, and opening, swapping and closing the card leave it.
+-- A forward Show starts from the route's seed (a zone); Back gives saved. A vendor route is a card over its list
+-- (route.list): with keep, that list is already up, and opening, swapping and closing the card leave it.
 function Page:Show(route, saved, keep)
     local card = route.kind == "vendor"
     local over = card and route.list or route
@@ -858,9 +879,8 @@ local function SetFace(v)
 end
 
 -- The card is an opaque well that takes the mouse and the wheel, with a close button that stays still while the
--- card scrolls.
--- The template puts the button at frame level 510, above the window's trim.
--- The clip frame places, shows and clips the card, and reaches 1 px below it for the well's bottom corners.
+-- card scrolls (the template puts it at frame level 510, above the window's trim). The clip frame places, shows
+-- and clips the card, and reaches 1 px below it for the well's bottom corners.
 function Vend:Build(parent)
     local clip = CreateFrame("Frame", nil, parent)
     clip:SetClipsChildren(true)
@@ -934,11 +954,10 @@ function Draw(fresh, saved)
     local ready = HA.CatalogScanner:GetReadState() == "ready"
     local act = D.HolidayActive(v) and v.event or Facts.EndeavorActive(v) == true or nil
     local live = act ~= nil
-    local n, owned = #rows, 0
+    local n = #rows
     for _, r in ipairs(rows) do
         local e = CG.Entry(r.itemID)
         r.bonus, r.active, r.copies = e and e.bonus, act, select(2, D.IconData(r.itemID, true, B.State.catalogMemo))
-        if r.state == "owned" then owned = owned + 1 end
     end
     -- Wares left out of the count follow it, greyed and named on hover.
     for _, why in ipairs(left and LEFT_OUT or {}) do
@@ -948,6 +967,7 @@ function Draw(fresh, saved)
         end
     end
 
+    local got, total = D.VendorCounts(v)
     local cw, nh, bh = w - PORTRAIT - SP.m - XRES, W.TextHeight("subheader"), W.TextHeight("body")
     SetFace(v)
     V.name:SetText(s.title)
@@ -966,10 +986,10 @@ function Draw(fresh, saved)
     V.wp:SetShown(mapID ~= nil)
     V.wp.wp = { mapID = mapID, x = mx, y = my, title = s.title, data = { type = "vendor", npcID = v.npcID } }
     -- The count and the can-get line sit under the location, beside the portrait.
-    Line(V.count, "body", n > 0 and (ready and L["%d of %d collected"]:format(owned, n) or L["Counting…"]) or nil, cw)
+    Line(V.count, "body", n > 0 and (got and L["%d of %d collected"]:format(got, total) or L["Counting…"]) or nil, cw)
     V.count:ClearAllPoints()
     V.count:SetPoint("TOPLEFT", V.where, "BOTTOMLEFT", 0, -SP.xs)
-    SetCan(V.can, ready and CG.VendorCanCount(v) or 0, cw)
+    SetCan(V.can, HA.BadgeCalculation:VendorCanGet(v, "all", ready or "unread") or 0, cw)
     V.can:ClearAllPoints()
     V.can:SetPoint("TOPLEFT", n > 0 and V.count or V.where, "BOTTOMLEFT", 0, -SP.xs)
     V.head:SetSize(w, math.max(PORTRAIT, nh + (live and tagH + 2 or 0) + SP.xs + bh
@@ -986,7 +1006,7 @@ function Draw(fresh, saved)
     Line(V.req, "body", parts[1] and L["%s: %s"]:format(S.Colored(K.gold, L["Requires"]), W.Join(parts, L["%s; %s"]))
         .. (unknown and "\n" .. L["Can't check this requirement yet"] or ""), w)
     Line(V.stop, "body", D.IsOppositeFaction(v)
-        and S.Colored(K.stop, L["%s only: can't buy on this character"]:format(D.VendorFactionLabel(v) or "")), w)
+        and S.Colored(K.stop, L["%s only: can't buy on this character"]:format(HA.BadgeCalculation:FactionLabel(v) or "")), w)
     Line(V.hdr, "bodyGold", L["Wares"], w)
     Line(V.key, "body", rows[1] and L["Corners: state top right, bonus top left, event bottom left, copies bottom right."]
         .. (#rows > n and " " .. L["Greyed: promotion item, or collection status unknown. Not counted in totals."] or ""), w)
@@ -1039,8 +1059,8 @@ function Vend:Refresh(reason, wasTorn)
     Draw(W.Owed(V.wait))
 end
 
--- The page of one other source: the achievement, quest, recipe, drop, event or shop item. Its elements
--- hang from the one above, so a wrapped line pushes the rest down.
+-- The page of one other source (achievement, quest, recipe, drop, event or shop item). Its elements hang from
+-- the one above, so a wrapped line pushes the rest down.
 local Src, A = {}, {}
 local srcID, srcType, srcTorn
 
@@ -1055,8 +1075,8 @@ local function PinLine(parent, role)
     return f
 end
 
--- No text hides the line; a spot puts the waypoint icon at the end of the text. The text is one line, cut off
--- where the icon and the page edge leave room.
+-- No text hides the line; a spot puts the waypoint icon at the end of the text, which is one line cut off where
+-- the icon and the page edge leave room.
 local function SetPinLine(f, text, spot, title)
     f:SetShown(text ~= nil)
     if not text then return end
