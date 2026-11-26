@@ -233,6 +233,19 @@ function VendorFilter.ShouldHideVendor(vendor)
     return VendorFilter.IsConfirmedNoDecor(vendor)
 end
 
+-- A vendor the map side panel leaves out of its zone lists and its search, though the Browser lists it: one not
+-- selling now (an Endeavor vendor whose theme is not running, a holiday vendor out of season), or an event vendor
+-- while Show event vendors is off.
+function VendorFilter.IsOffPanel(vendor)
+    if vendor._isEventVendor and not VendorFilter.ShouldShowEventVendors() then return true end
+    return not HA.VendorData:IsVendorSellingNow(vendor)
+end
+
+-- The side panel's zone list gate: the map pin gate, then IsOffPanel.
+function VendorFilter.ShouldHideFromPanel(vendor)
+    return VendorFilter.ShouldHideVendor(vendor) or VendorFilter.IsOffPanel(vendor)
+end
+
 -------------------------------------------------------------------------------
 -- Faction Checks
 -------------------------------------------------------------------------------
@@ -369,9 +382,9 @@ function VendorFilter.GetVendorPlaceNames(vendor)
     return mapID, zone, subzone
 end
 
--- The vendors the map side panel lists for a map, in no order, as { vendor, isOpposite, notSelling }: the vendors
--- on the map and on the more specific maps below it, in any season, less those hide(vendor) is true for
--- (ShouldHideVendor by default), and for a neighborhood map the running Endeavor vendors of its sibling map.
+-- The vendors listed for a map, in no order, as { vendor, isOpposite, notSelling }: the vendors on the map and on
+-- the more specific maps below it, in any season, less those hide(vendor) is true for (ShouldHideVendor by default;
+-- the side panel passes ShouldHideFromPanel), and for a neighborhood map the running Endeavor vendors of its sibling map.
 -- Opposite-faction vendors are included; the panel drops them under its own setting.
 function VendorFilter.GetVendorsOnMap(mapID, hide)
     hide = hide or VendorFilter.ShouldHideVendor
@@ -418,7 +431,7 @@ function VendorFilter.GetVendorsOnMap(mapID, hide)
     return out
 end
 
--- Where each of the given vendors is listed, by NPC id: one { mapID, zone } for every map the side panel
+-- Where each of the given vendors is listed, by NPC id: one { mapID, zone } for every map GetVendorsOnMap
 -- lists it on, zone being the map's name, the vendor's own position first. The
 -- vendors given are the ones listed: the pin settings that hide a vendor on the map do not apply. A listed vendor
 -- on no map has a single empty entry, for the one place it is shown at. The maps asked are the vendors' positions.

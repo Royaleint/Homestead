@@ -2066,7 +2066,7 @@ local function BuildZoneExpansionRows(zoneMapID, rows)
     -- merge and sub-zone roll-up both happen inside GetVendorBadgeZone.
     local zoneVendors = {}
     for _, vendor in ipairs(allVendors) do
-        if not VF.ShouldHideVendor(vendor) then
+        if not VF.ShouldHideFromPanel(vendor) then
             local coords, badgeZoneMapID = BC.GetVendorBadgeZone(vendor)
             if coords and badgeZoneMapID == zoneMapID then
                 local canAccess = VF.CanAccessVendor(vendor)
@@ -2790,7 +2790,7 @@ local function GetVendorsForCurrentMap(mapID)
 
     local vendors = {}
     local showOpposite = VendorFilter.ShouldShowOppositeFaction()
-    for _, entry in ipairs(VendorFilter.GetVendorsOnMap(mapID)) do
+    for _, entry in ipairs(VendorFilter.GetVendorsOnMap(mapID, VendorFilter.ShouldHideFromPanel)) do
         if showOpposite or not entry.isOpposite then
             vendors[#vendors + 1] = entry
         end
@@ -3247,7 +3247,7 @@ function MapSidePanel:RefreshSearchResults()
                 isExpanded = isExpanded,
                 sourceCount = sourceCount,
             }
-        elseif BC:IsListedVendor(result.vendor) then
+        elseif BC:IsListedVendor(result.vendor) and not VendorFilter.IsOffPanel(result.vendor) then
             EmitHeader("vendor")
             vendorCount = vendorCount + 1
             local vendor = result.vendor
