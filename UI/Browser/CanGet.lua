@@ -590,3 +590,58 @@ function B.CardState(itemID, vendor)
     if verdict == "unknown" then return nil end
     return Judge(NONE, itemID, vendor.npcID, SAVED[verdict] or "locked")
 end
+
+-------------------------------------------------------------------------------
+-- What changed since the last check. Heard whether or not the Hub is shown, so a change made while it is closed
+-- is still known at the next open; only a job that starts a check clears it. Session-only, never saved.
+-------------------------------------------------------------------------------
+
+local CHANGED_CAP = 256
+local dirty = { all = false, items = {}, n = 0 }
+
+function CG.Dirty() return dirty end
+
+-- The job coordinator replaces this; with no job running there is nothing to stop.
+CG.CancelJob = CG.CancelJob or function() end
+
+local function MarkAll()
+    dirty.all, dirty.n = true, 0
+    wipe(dirty.items)
+    CG.CancelJob()
+end
+
+-- The changed items of an ownership update, copied now: the store hands out its own set. Nothing is kept beside
+-- "all", and more than the store's cap of distinct items is "all" too.
+local function OnOwnership(items)
+    if type(items) ~= "table" then return MarkAll() end
+    if dirty.all then return end
+    for itemID in pairs(items) do
+        if not dirty.items[itemID] then
+            dirty.items[itemID] = true
+            dirty.n = dirty.n + 1
+            if dirty.n > CHANGED_CAP then return MarkAll() end
+        end
+    end
+end
+
+-- A scan that can change what the vendor lists show; with no way to tell, or if the check fails, it counts.
+local function OnVendorScanned(record)
+    local BC = HA.BadgeCalculation
+    if not (BC and BC.ScanMatters) then return MarkAll() end
+    local ok, matters = pcall(BC.ScanMatters, BC, record)
+    if not ok or matters then MarkAll() end
+end
+
+local listening
+function CG.Listen()
+    if listening then return end
+    listening = true
+    HA.Events:RegisterCallback("OWNERSHIP_UPDATED", OnOwnership)
+    HA.Events:RegisterCallback("VENDOR_SCANNED", OnVendorScanned)
+    for _, name in ipairs({ "SOURCE_CACHES_INVALIDATED", "ACTIVE_HOLIDAYS_CHANGED", "ACTIVE_ENDEAVOR_CHANGED",
+        "HS_CATALOG_TRUE_WARM", "HS_CATALOG_READ_STATE" }) do
+        HA.Events:RegisterCallback(name, MarkAll)
+    end
+end
+
+CG.Listen()
