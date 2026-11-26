@@ -72,7 +72,8 @@ local entries = {}
 local gen = 0
 function CG.Gen() return gen end
 
--- Account data arrived: the hints and the words built from them are stale; nothing is judged again.
+-- Account data arrived, or may have while the Hub was closed and no event reached it: the hints and the words built
+-- from them are stale; nothing is judged again.
 function CG.AccountData()
     gen = gen + 1
     wipe(holders)
@@ -227,15 +228,6 @@ local function Settle(e)
         end
     end
     e.verdict = verdict
-end
-
--- Other characters' amounts can land while the Hub is closed, where no event reaches it, so each showing reads the
--- holder hints again and drops the words that carry one (only a short offer's do).
-function CG.ForgetHints()
-    wipe(holders)
-    for _, e in pairs(entries) do
-        if e.st and e.st[1] == "short" then e.st = nil end
-    end
 end
 
 -- Re-reads every key already in the wallet. Nothing changed since this walk last looked: false, and nothing is
@@ -707,8 +699,23 @@ local function Guarded(step, j, workload)
     end
 end
 
+-- The last list position this frame's slice reaches, kept on the check, and the work it does: the positions it steps
+-- over plus the entries it has to evaluate (a kept entry costs a step only). Both stop at the same bounds as the
+-- slice itself, which walks to the position kept here.
+local function SliceWork(j)
+    if job ~= j then return 0 end
+    local items, i, evals = j.items, j.cursor, 0
+    local last = math.min(#items, i + STEPS_PER_SLICE - 1)
+    while i <= last and evals < EVALS_PER_SLICE do
+        if not entries[items[i]] then evals = evals + 1 end
+        i = i + 1
+    end
+    j.last = i - 1
+    return (i - j.cursor) + evals
+end
+
 local function NextSlice(j)
-    C_Timer.After(0, function() Guarded(Slice, j, #j.items - j.cursor + 1) end)
+    C_Timer.After(0, function() Guarded(Slice, j, SliceWork(j)) end)
 end
 
 local function Publish(j)
@@ -747,14 +754,13 @@ function Slice(j)
     local SM, memo, tables, store = HA.SourceManager, Memo(), SourceTables(), HA.CatalogStore
     local items, list, progress = j.items, j.list, j.progress
     local src = progress.src
-    local i, last, evals = j.cursor, math.min(#items, j.cursor + STEPS_PER_SLICE - 1), 0
-    while i <= last and evals < EVALS_PER_SLICE do
+    local i = j.cursor
+    while i <= j.last do
         local itemID = items[i]
         local e = entries[itemID]
         if not e then
             e = Evaluate(itemID, SM, memo, tables)
             entries[itemID] = e
-            evals = evals + 1
         end
         list[i] = e
         local got = e.own == "owned"

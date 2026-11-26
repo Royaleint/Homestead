@@ -391,7 +391,7 @@ local function OnShow()
     State.generation = State.generation + 1
     ClearPending()
     B.Data.WipeCatalogMemo()
-    B.CanGet.ForgetHints()
+    B.CanGet.AccountData()
     if not B.CanGet.Recheck() then
         Trace("browser_rejudge", nil, B.CanGet.Rejudge)
         B.CanGet.RefreshNames()
@@ -469,7 +469,7 @@ local function OpenNow()
     -- Copy counts are read again; the walk is checked again only for what changed while closed. With nothing to
     -- check, the wallet and the names are still read again, as a check would.
     B.Data.WipeCatalogMemo()
-    B.CanGet.ForgetHints()
+    B.CanGet.AccountData()
     if not B.CanGet.Recheck() then
         Trace("browser_rejudge", nil, B.CanGet.Rejudge)
         B.CanGet.RefreshNames()
