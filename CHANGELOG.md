@@ -11,7 +11,7 @@ Purchase requirements, shop decor in search, and price fixes.
 ## Vendors
 
 - More than 100 vendor decor items now show the quest, renown rank or treasure that unlocks them.
-- Carver Sprocket's decor and Taifa's Beguiling Memories of the Sea now show their prices.
+- Taifa's Beguiling Memories of the Sea now shows its price.
 - The "Shu'halo Perspective" Painting shows its full price, with a note on how to buy it for 999 gold.
 - The Goldshire Wardrobe shows the quest that unlocks it and where to find Maybell Maclure-Stonefield.
 - Materialist Ophinell has left the game and is no longer listed. Dethelin in Silvermoon City sells her items.
