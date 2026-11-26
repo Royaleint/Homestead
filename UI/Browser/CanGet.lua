@@ -678,17 +678,19 @@ end
 
 local Slice
 
--- A slice or publish that throws stops its check, so the next refresh starts one over; the error still goes on to
--- the game.
-local function Guarded(step, j)
-    local ok, err = pcall(step, j)
-    if ok then return end
-    if job == j then CG.CancelJob() end
-    error(err, 0)
+local function Trace(operation, workload, fn, ...)
+    return HA.PerformanceTrace:Measure(operation, workload, fn, ...)
+end
+
+-- One frame of a check, traced as a slice. A step that throws stops its check, so the next refresh starts one
+-- over; the game's error handler gets the error from where it was raised, with its stack.
+local function Guarded(step, j, workload)
+    local ok = _G.xpcall(function() Trace("browser_walk_slice", workload, step, j) end, _G.geterrorhandler())
+    if not ok and job == j then CG.CancelJob() end
 end
 
 local function NextSlice(j)
-    C_Timer.After(0, function() Guarded(Slice, j) end)
+    C_Timer.After(0, function() Guarded(Slice, j, #j.items - j.cursor + 1) end)
 end
 
 local function Publish(j)
@@ -708,7 +710,7 @@ local function Publish(j)
         return NextSlice(j)
     end
     walk = { list = j.list, progress = j.progress }
-    CG.Rejudge()
+    Trace("browser_rejudge", nil, CG.Rejudge)
     if j.scope == "items" or j.nameGen ~= D.NameGen() then CG.RefreshNames() end
     job = nil
     walkGen = walkGen + 1
@@ -745,7 +747,7 @@ function Slice(j)
     end
     j.cursor = i
     if i <= #items then return NextSlice(j) end
-    C_Timer.After(0, function() Guarded(Publish, j) end)
+    C_Timer.After(0, function() Guarded(Publish, j, #j.list) end)
 end
 
 -- Starts the check the scope names: the changes heard so far are taken into it, the store's own list is taken
@@ -769,7 +771,7 @@ local function Start(scope, items)
         seenGen = HA.BadgeCalculation:WalletGen()
         lastLevel, lastDate = UnitLevel("player"), DateKey()
     else
-        CG.Rejudge()
+        Trace("browser_rejudge", nil, CG.Rejudge)
         for _, itemID in ipairs(changed) do entries[itemID] = nil end
     end
     walk = nil
@@ -792,7 +794,7 @@ function CG.Recheck()
     local scope = CG.Scope()
     if not scope then return nil end
     local items = HA.CatalogStore:GetDecorItemIDs()
-    HA.PerformanceTrace:Measure("browser_walk", #items, Start, scope, items)
+    Trace("browser_recheck", scope .. ":" .. (scope == "full" and #items or dirty.n), Start, scope, items)
     return scope
 end
 

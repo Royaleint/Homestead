@@ -469,7 +469,7 @@ local function OpenNow()
     -- check, the wallet and the names are still read again, as a check would.
     B.Data.WipeCatalogMemo()
     if not B.CanGet.Recheck() then
-        B.CanGet.Rejudge()
+        Trace("browser_rejudge", nil, B.CanGet.Rejudge)
         B.CanGet.RefreshNames()
     end
     B.Go({ kind = "overview" })
