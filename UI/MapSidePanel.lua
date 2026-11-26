@@ -3524,7 +3524,8 @@ function MapSidePanel:RefreshContent()
         end
     end
 
-    local childRowCount = AppendChildMapRows(mapID, rows)
+    -- Child-map rows stand in only for a zone with no vendors of its own.
+    local childRowCount = #rows == 0 and AppendChildMapRows(mapID, rows) or 0
     SetListRows(rows)
 
     -- Empty state
