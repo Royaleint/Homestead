@@ -229,6 +229,15 @@ local function Settle(e)
     e.verdict = verdict
 end
 
+-- Other characters' amounts can land while the Hub is closed, where no event reaches it, so each showing reads the
+-- holder hints again and drops the words that carry one (only a short offer's do).
+function CG.ForgetHints()
+    wipe(holders)
+    for _, e in pairs(entries) do
+        if e.st and e.st[1] == "short" then e.st = nil end
+    end
+end
+
 -- Re-reads every key already in the wallet. Nothing changed since this walk last looked: false, and nothing is
 -- touched. A change settles the entries again and drops what was derived from their verdicts; the walk stays.
 function CG.Rejudge()
@@ -682,11 +691,20 @@ local function Trace(operation, workload, fn, ...)
     return HA.PerformanceTrace:Measure(operation, workload, fn, ...)
 end
 
--- One frame of a check, traced as a slice. A step that throws stops its check, so the next refresh starts one
--- over; the game's error handler gets the error from where it was raised, with its stack.
+-- One frame of a check, traced as a slice. A step that throws stops its check; the shown Hub asks once for another,
+-- so it is not left on Counting with nothing running, and a second throw in a row is left alone (a refresh every
+-- half second would flood the handler) until a data change or a reopen asks. The game's error handler gets the
+-- error from where it was raised, with its stack.
+local thrown = false
 local function Guarded(step, j, workload)
     local ok = _G.xpcall(function() Trace("browser_walk_slice", workload, step, j) end, _G.geterrorhandler())
-    if not ok and job == j then CG.CancelJob() end
+    if not ok and job == j then
+        CG.CancelJob()
+        if not thrown and B.Shown() then
+            thrown = true
+            B.RequestRefresh(false, true)
+        end
+    end
 end
 
 local function NextSlice(j)
@@ -712,7 +730,7 @@ local function Publish(j)
     walk = { list = j.list, progress = j.progress }
     Trace("browser_rejudge", nil, CG.Rejudge)
     if j.scope == "items" or j.nameGen ~= D.NameGen() then CG.RefreshNames() end
-    job = nil
+    job, thrown = nil, false
     walkGen = walkGen + 1
     if j.scope == "full" then lastFullAt = GetTime() end
     local generation = j.gen
