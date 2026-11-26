@@ -2,6 +2,37 @@
 
 ---
 
+## Homestead v2.19.0 (11-26-2026)
+
+Purchase requirements, shop decor in search, and price fixes.
+
+---
+
+## Vendors
+
+- More than 100 vendor decor items now show the quest, renown rank or treasure that unlocks them.
+- Carver Sprocket's decor and Taifa's Beguiling Memories of the Sea now show their prices.
+- The "Shu'halo Perspective" Painting shows its full price, with a note on how to buy it for 999 gold.
+- The Goldshire Wardrobe shows the quest that unlocks it and where to find Maybell Maclure-Stonefield.
+- Materialist Ophinell has left the game and is no longer listed. Dethelin in Silvermoon City sells her items.
+- Corrected the map pins for First Arcanist Thalyssra and Hilseth Travelstride.
+- The map side panel lists a city, such as Silvermoon City under Eversong Woods, only when the zone has no vendors of its own.
+
+---
+
+## Search and Collection
+
+- Search on the map panel now finds decor sold in the in-game shop.
+- More decor items are recognized, so they can be searched and counted as collected.
+
+---
+
+## Fixes
+
+- Fixed missing minimap translations.
+
+---
+
 ## Homestead v2.18.0 (11-20-2026)
 
 Profession shop signs, crafted decor, and vendor fixes.
