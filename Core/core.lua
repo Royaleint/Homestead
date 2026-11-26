@@ -445,7 +445,7 @@ function HousingAddon:InitializeMinimapButton()
 
             tooltip:AddLine(" ")
             if Constants.IsDecorBrowserAvailable() then
-                tooltip:AddLine(L["Left-Click: Toggle Decor Browser"] or "|cFFFFFFFFLeft-Click:|r Toggle Decor Browser")
+                tooltip:AddLine(L["Left-Click: Toggle Homestead Hub"] or "|cFFFFFFFFLeft-Click:|r Toggle Homestead Hub")
             else
                 tooltip:AddLine(L["Left-Click: Toggle options"] or "|cFFFFFFFFLeft-Click:|r Toggle options")
             end
@@ -836,11 +836,11 @@ end
 
 function HousingAddon:ToggleBrowser()
     if not Constants.IsDecorBrowserAvailable() then
-        self:Print(L["The Decor Browser is not available yet."] or "The Decor Browser is not available yet.")
+        self:Print(L["The Homestead Hub is not available yet."] or "The Homestead Hub is not available yet.")
     elseif HA.DecorBrowser and HA.DecorBrowser.Toggle then
         HA.DecorBrowser:Toggle()
     else
-        self:Print(L["The Decor Browser is not available yet."] or "The Decor Browser is not available yet.")
+        self:Print(L["The Homestead Hub is not available yet."] or "The Homestead Hub is not available yet.")
     end
 end
 

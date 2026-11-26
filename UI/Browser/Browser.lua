@@ -19,7 +19,7 @@ local Win = B.Window
 BINDING_HEADER_HOMESTEAD = L["Homestead"]
 -- The one binding toggles the options instead while the Browser is unavailable.
 BINDING_NAME_HOMESTEAD_TOGGLE_BROWSER = HA.Constants.IsDecorBrowserAvailable()
-    and L["Toggle Decor Browser"] or L["Toggle options"]
+    and L["Toggle Homestead Hub"] or L["Toggle options"]
 
 local REFRESH_DELAY = 0.5
 local DATA_EVENTS = {
@@ -457,7 +457,7 @@ end
 function B:Open()
     if Shown() then return end
     if not Ready() then
-        local msg = L["The Decor Browser opens once Homestead has finished loading."]
+        local msg = L["The Homestead Hub opens once Homestead has finished loading."]
         if HA.Addon and HA.Addon.Print then HA.Addon:Print(msg) else print(msg) end
         return
     end

@@ -190,7 +190,7 @@ local browserRows = {
     {
         key = "browserHeader",
         type = "header",
-        label = L["Decor Browser"],
+        label = L["Homestead Hub"],
     },
     {
         key = "browserModel3D",

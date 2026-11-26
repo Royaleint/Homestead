@@ -60,7 +60,7 @@ L["Navigate modifier key"] = "Navigate modifier key"
 L["Collection: %d / %d (%d%%)"] = "Collection: %d / %d (%d%%)"
 L["Vendors nearby: %d"] = "Vendors nearby: %d"
 L["Vendors scanned: %d"] = "Vendors scanned: %d"
-L["Left-Click: Toggle Decor Browser"] = "|cFFFFFFFFLeft-Click:|r Toggle Decor Browser"
+L["Left-Click: Toggle Homestead Hub"] = "|cFFFFFFFFLeft-Click:|r Toggle Homestead Hub"
 L["Toggle options"] = "Toggle options"
 L["Left-Click: Toggle options"] = "|cFFFFFFFFLeft-Click:|r Toggle options"
 L["Right-Click: Detach/close vendor panel"] = "|cFFFFFFFFRight-Click:|r Detach/close vendor panel"
@@ -383,7 +383,7 @@ L["Set waypoint"] = "Set waypoint"
 -------------------------------------------------------------------------------
 -- Decor Browser: window and navigation
 -------------------------------------------------------------------------------
-L["Homestead Decor"] = "Homestead Decor"
+L["Homestead Hub"] = "Homestead Hub" -- untranslated
 L["Overview"] = "Overview"
 L["Catalog"] = "Catalog"
 L["Back"] = "Back"
@@ -393,7 +393,7 @@ L["Help"] = "Help"
 L["Hide collected and other-faction"] = "Hide collected and other-faction"
 L["Hides decor you have collected, vendors with nothing left to collect, and anything only the other faction can get."] = "Hides decor you have collected, vendors with nothing left to collect, and anything only the other faction can get."
 L["Opens a page explaining this window."] = "Opens a page explaining this window."
-L["The Decor Browser opens once Homestead has finished loading."] = "The Decor Browser opens once Homestead has finished loading."
+L["The Homestead Hub opens once Homestead has finished loading."] = "The Homestead Hub opens once Homestead has finished loading."
 L["Collection"] = "Collection" -- untranslated
 L["Placed"] = "Placed"
 L["In storage"] = "In storage"
@@ -423,14 +423,14 @@ L["Homestead: %s"] = "Homestead: %s" -- untranslated
 -------------------------------------------------------------------------------
 -- Decor Browser: entry points
 -------------------------------------------------------------------------------
-L["Toggle Decor Browser"] = "Toggle Decor Browser"
-L["Open the Decor Browser, or bind a key under Keybindings > Homestead"] = "Open the Decor Browser, or bind a key under Keybindings > Homestead"
+L["Toggle Homestead Hub"] = "Toggle Homestead Hub"
+L["Open the Homestead Hub, or bind a key under Keybindings > Homestead"] = "Open the Homestead Hub, or bind a key under Keybindings > Homestead"
 L["Minimap button"] = "Minimap button"
 L["Open options"] = "Open options"
 L["Right-click minimap button"] = "Right-click minimap button"
 L["Open the standalone vendor panel"] = "Open the standalone vendor panel"
-L["Left-click opens the Decor Browser, right-click opens options"] = "Left-click opens the Decor Browser, right-click opens options"
-L["The Decor Browser is not available yet."] = "The Decor Browser is not available yet."
+L["Left-click opens the Homestead Hub, right-click opens options"] = "Left-click opens the Homestead Hub, right-click opens options"
+L["The Homestead Hub is not available yet."] = "The Homestead Hub is not available yet."
 
 -------------------------------------------------------------------------------
 -- Welcome window
@@ -612,7 +612,6 @@ L["%s (done)"] = "%s (done)"
 L["%s (not yet)"] = "%s (not yet)"
 L["Can't check this requirement yet"] = "Can't check this requirement yet"
 L["Active now: %s"] = "Active now: %s"
-L["Decor Browser"] = "Decor Browser"
 L["Show 3D preview"] = "Show 3D preview"
-L["desc_browser_model3d"] = "Show a 3D model of the item on its page in the Decor Browser."
+L["desc_browser_model3d"] = "Show a 3D model of the item on its page in the Homestead Hub."
 -- end: Item
