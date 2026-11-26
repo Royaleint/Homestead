@@ -649,4 +649,30 @@ function CG.Listen()
     end
 end
 
+-------------------------------------------------------------------------------
+-- How much of the walk a check must redo. Reads only; the snapshot is taken when a full check starts.
+-------------------------------------------------------------------------------
+
+local AGE_CAP_SECONDS = 1800
+local lastFullAt, lastLevel, lastDate
+
+local function DateKey()
+    local t = C_DateAndTime.GetCurrentCalendarTime()
+    return t and (t.year * 10000 + t.month * 100 + t.monthDay) or nil
+end
+
+-- Sets the snapshot to chosen values, so a test can place it.
+function CG.SetSnapshot(at, level, date)
+    lastFullAt, lastLevel, lastDate = at, level, date
+end
+
+-- "full", "items" or nil for nothing to redo.
+function CG.Scope()
+    if dirty.all or walk == nil or lastFullAt == nil then return "full" end
+    if GetTime() - lastFullAt > AGE_CAP_SECONDS or UnitLevel("player") ~= lastLevel or DateKey() ~= lastDate then
+        return "full"
+    end
+    if dirty.n > 0 then return "items" end
+end
+
 CG.Listen()
