@@ -196,7 +196,7 @@ end
 
 -- Over the grid only when the collection is stale, and then just the note; one pixel otherwise.
 local function PaintHead()
-    local stale = select(2, HA.CatalogScanner:GetReadState())
+    local stale = select(2, D.ReadState())
     ui.head:SetShown(stale)
     ui.head:SetHeight(stale and W.TextHeight("body") + SP.s or 1)
     ui.head:SetText(stale and L["Collection not refreshed this session"] or "")
@@ -236,7 +236,7 @@ end
 function Apply(keep)
     local out, n, hc, hf, seen = Filter()
     local words = Words(cat)
-    local empty = Empty(HA.CatalogScanner:GetReadState(), n, hc + hf > 0, words)
+    local empty = Empty(D.ReadState(), n, hc + hf > 0, words)
     hiddenNote = not empty and hc + hf > 0 and { hidden = hc + hf, collected = hc, faction = hf,
         parts = B.Facts.FactionParts(seen),
         onShow = function() B.SetHideNA(false) B.Window.hideNA:SetChecked(false) end } or nil

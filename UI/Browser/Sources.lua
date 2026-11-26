@@ -263,7 +263,7 @@ end
 -- A vendor's row on another page's list, read as this page reads its own; it opens the card over all vendors.
 -- fill: a missing count may ask for the counts again, once per draw of that list.
 function B.VendorRow(v, fill)
-    cs = HA.CatalogScanner:GetReadState()
+    cs = D.ReadState()
     if fill then asked = false end
     local d = RowData(VendorEntry(v))
     d.selected, d.narrow = nil, nil
@@ -406,7 +406,7 @@ end
 -- Returns the index of the header of the zone (a map id) when given and the list has a vendor in it, then
 -- the index of the open card's row.
 local function BuildList(keep, zone)
-    asked, cs = false, HA.CatalogScanner:GetReadState()
+    asked, cs = false, D.ReadState()
     local t, hide = wide and "vendors" or st.type, B.State.hideNA
     -- In the player's own zone the seed means everything the Overview "Here" line counts: the zone and its child maps.
     local here = zone and Facts.Here()
@@ -951,7 +951,7 @@ function Draw(fresh, saved)
     local s = { vendor = v, type = "vendors", title = HA.VendorData:GetVendorName(v) or L["Unknown"], items = items }
     V.s = s
     local rows = Rows(s, true)
-    local ready = HA.CatalogScanner:GetReadState() == "ready"
+    local ready = D.ReadState() == "ready"
     local act = D.HolidayActive(v) and v.event or Facts.EndeavorActive(v) == true or nil
     local live = act ~= nil
     local n = #rows
@@ -1143,7 +1143,7 @@ end
 
 local function DrawSource(keep)
     local s = Source(srcType, srcID)
-    cs, A.s = HA.CatalogScanner:GetReadState(), s
+    cs, A.s = D.ReadState(), s
     local kind = KIND[srcType][1]
     A.name:SetText(s.title)
     local mapID, x, y = Loc(s)

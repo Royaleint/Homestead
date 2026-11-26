@@ -164,7 +164,7 @@ end
 
 -- One vendor's offer: requirements first, then payment.
 function CG.Offer(itemID, npcID)
-    if HA.CatalogScanner:GetReadState() ~= "ready" then return "unknown" end
+    if D.ReadState() ~= "ready" then return "unknown" end
     local vendor = npcID and HA.VendorData:GetVendorAnySeason(npcID)
     local verdict = Verdict(itemID, npcID, vendor, (Own(itemID, Memo())))
     if verdict ~= "can" then return verdict end
@@ -295,7 +295,7 @@ function CG.Rec(e) return e.own and D.CatalogInfo(e.itemID, Memo()) or e.info or
 -- vendor offer), reach (npcID to each offer with requirements met, with cost and pay), canBy (its paid ones),
 -- eventPaid and lowGold (set by Rank: a paid event offer, the lowest paid gold-only price), rest (the others' best verdict), locked (npcIDs), event and eventAt (an off-season holiday that sells it, and its vendor).
 function CG.Entry(itemID)
-    if HA.CatalogScanner:GetReadState() ~= "ready" then return nil end
+    if D.ReadState() ~= "ready" then return nil end
     Fresh()
     local e = entries[itemID]
     if not e then
@@ -331,8 +331,13 @@ local function RunWalk(items)
     return { list = list, progress = progress }
 end
 
+-- True while the walk is being rebuilt; D.ReadState shows "counting" then.
+function CG.Building()
+    return false
+end
+
 function CG.Walk()
-    if HA.CatalogScanner:GetReadState() ~= "ready" then return nil end
+    if D.ReadState() ~= "ready" then return nil end
     Fresh()
     if not walk then
         local items = HA.CatalogStore:GetDecorItemIDs()
@@ -564,7 +569,7 @@ end
 -- npcID judges that vendor's offer; without it, the item's best short or unpriced offer, its easiest locked
 -- vendor or its holiday vendor.
 function B.ItemState(itemID, npcID)
-    local phase = HA.CatalogScanner:GetReadState()
+    local phase = D.ReadState()
     if phase ~= "ready" then return phase == "counting" and "counting" or nil end
     local e = CG.Entry(itemID)
     if not e then return end
