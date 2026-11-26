@@ -61,6 +61,12 @@ local function BareEntries()
     return bareList
 end
 
+-- The records were built from another walk, name set, memo or filter than the ones now.
+local function Moved()
+    return version ~= D.MemoVersion() or built ~= CG.WalkGen() or hideFor ~= B.State.hideNA
+        or named ~= D.NameGen() or renamed ~= CG.Renamed()
+end
+
 local function Rebuild()
     version, built, hideFor, judged = D.MemoVersion(), CG.WalkGen(), B.State.hideNA, CG.Gen()
     named, renamed, opened = D.NameGen(), CG.Renamed(), B.Generation()
@@ -407,8 +413,7 @@ function Page:Show(route, saved)
         for k in pairs(cat.types) do cat.types[k] = f.sources == nil or f.sources[k] == true end
     end
     ui.sort.Set(cat.sort)
-    if not recs or version ~= D.MemoVersion() or built ~= CG.WalkGen() or hideFor ~= B.State.hideNA
-            or named ~= D.NameGen() or renamed ~= CG.Renamed() then
+    if not recs or Moved() then
         walk = B.Walk()
         Rebuild()
     elseif judged ~= CG.Gen() or opened ~= B.Generation() then
@@ -427,7 +432,7 @@ function Page:Hide()
     B.HideTooltip()
 end
 
--- Only "data" reads the walk. The rest reuse the cached records, and may follow Hide without a Show.
+-- Only "data" and "return" read the walk. The rest reuse the cached records, and may follow Hide without a Show.
 function Page:Refresh(reason)
     if not recs then return end
     if reason == "layout" or reason == "paint" then
@@ -443,6 +448,10 @@ function Page:Refresh(reason)
         return
     elseif reason == "wallet" then
         Rejudged()
+        Apply(true)
+    elseif reason == "return" then
+        walk = B.Walk()
+        if not walk or Moved() then Rebuild() else Rejudged() end
         Apply(true)
     else
         if reason == "data" then walk = B.Walk() end

@@ -385,9 +385,17 @@ local function OnShow()
     Win.CheckTextScale()
     Win.Fit()
     if opening then return end
-    -- Back from Alt+Z: nothing was heard while hidden.
+    -- Back from Alt+Z, with or without an OnHide before it: the generation moves so a cached page and a running
+    -- check are not trusted, and the open's reads are made again before the one draw.
     SetCombat(InCombatLockdown())
-    B.RequestRefresh(false, true)
+    State.generation = State.generation + 1
+    ClearPending()
+    B.Data.WipeCatalogMemo()
+    if not B.CanGet.Recheck() then
+        Trace("browser_rejudge", nil, B.CanGet.Rejudge)
+        B.CanGet.RefreshNames()
+    end
+    if curRoute then Trace("browser_refresh", "return", Repaint, "return") end
 end
 
 local function OnHide()

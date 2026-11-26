@@ -197,9 +197,14 @@ end
 function Page:Refresh(reason)
     if not results then return end
     active = true
-    if reason == "paint" and rev == Engine():GetRevision() then
-        W.RepaintRows(list)
-        return
+    if rev == Engine():GetRevision() then
+        if reason == "paint" then
+            W.RepaintRows(list)
+            return
+        elseif reason == "return" then
+            Draw(true)
+            return
+        end
     end
     Run()
     Draw(true)
