@@ -1542,7 +1542,7 @@ VendorIdentity.Vendors = {
         y = 0.755,
         zone = "Razorwind Shores",
         faction = "Horde",
-        expansion = "The War Within",
+        expansion = "Midnight",
     },
     [240838] = {
         name = "Caeris Fairdawn",
@@ -1763,7 +1763,7 @@ VendorIdentity.Vendors = {
         y = 0.3751,
         zone = "Founder's Point",
         faction = "Alliance",
-        expansion = "The War Within",
+        expansion = "Midnight",
         scanConfirmed = "2026-11-01",
     },
     [249196] = {
@@ -2080,7 +2080,7 @@ VendorIdentity.Vendors = {
         y = 0.574,
         zone = "Razorwind Shores",
         faction = "Horde",
-        expansion = "The War Within",
+        expansion = "Midnight",
         scanConfirmed = "2026-11-08",
     },
     [254603] = {
@@ -2157,7 +2157,7 @@ VendorIdentity.Vendors = {
         subzone = "Town Center",
         areaID = 16588,
         faction = "Alliance",
-        expansion = "The War Within",
+        expansion = "Midnight",
         scanConfirmed = "2026-06-27",
     },
     [255213] = {
@@ -2167,7 +2167,7 @@ VendorIdentity.Vendors = {
         y = 0.3833,
         zone = "Founder's Point",
         faction = "Alliance",
-        expansion = "The War Within",
+        expansion = "Midnight",
         scanConfirmed = "2026-06-27",
     },
     [255216] = {
@@ -2177,7 +2177,7 @@ VendorIdentity.Vendors = {
         y = 0.3781,
         zone = "Founder's Point",
         faction = "Alliance",
-        expansion = "The War Within",
+        expansion = "Midnight",
         scanConfirmed = "2026-06-27",
     },
     [255218] = {
@@ -2187,7 +2187,7 @@ VendorIdentity.Vendors = {
         y = 0.379,
         zone = "Founder's Point",
         faction = "Alliance",
-        expansion = "The War Within",
+        expansion = "Midnight",
         scanConfirmed = "2026-06-27",
     },
     [255221] = {
@@ -2199,7 +2199,7 @@ VendorIdentity.Vendors = {
         subzone = "Town Center",
         areaID = 16588,
         faction = "Neutral",
-        expansion = "The War Within",
+        expansion = "Midnight",
         scanConfirmed = "2026-06-27",
     },
     [255222] = {
@@ -2211,7 +2211,7 @@ VendorIdentity.Vendors = {
         subzone = "Breakwater Bight",
         areaID = 16704,
         faction = "Neutral",
-        expansion = "The War Within",
+        expansion = "Midnight",
         scanConfirmed = "2026-06-27",
     },
     [255228] = {
@@ -2223,7 +2223,7 @@ VendorIdentity.Vendors = {
         subzone = "Breakwater Bight",
         areaID = 16704,
         faction = "Neutral",
-        expansion = "The War Within",
+        expansion = "Midnight",
         scanConfirmed = "2026-06-27",
     },
     [255230] = {
@@ -2235,7 +2235,7 @@ VendorIdentity.Vendors = {
         subzone = "Breakwater Bight",
         areaID = 16704,
         faction = "Neutral",
-        expansion = "The War Within",
+        expansion = "Midnight",
         scanConfirmed = "2026-06-27",
     },
     [255278] = {
@@ -2245,7 +2245,7 @@ VendorIdentity.Vendors = {
         y = 0.5911,
         zone = "Razorwind Shores",
         faction = "Horde",
-        expansion = "The War Within",
+        expansion = "Midnight",
         scanConfirmed = "2026-07-06",
     },
     [255297] = {
@@ -2255,7 +2255,7 @@ VendorIdentity.Vendors = {
         y = 0.5905,
         zone = "Razorwind Shores",
         faction = "Horde",
-        expansion = "The War Within",
+        expansion = "Midnight",
         scanConfirmed = "2026-07-06",
     },
     [255298] = {
@@ -2265,7 +2265,7 @@ VendorIdentity.Vendors = {
         y = 0.5849,
         zone = "Razorwind Shores",
         faction = "Horde",
-        expansion = "The War Within",
+        expansion = "Midnight",
         scanConfirmed = "2026-07-07",
     },
     [255299] = {
@@ -2275,7 +2275,7 @@ VendorIdentity.Vendors = {
         y = 0.5853,
         zone = "Razorwind Shores",
         faction = "Horde",
-        expansion = "The War Within",
+        expansion = "Midnight",
         scanConfirmed = "2026-07-07",
     },
     [255301] = {
@@ -2285,7 +2285,7 @@ VendorIdentity.Vendors = {
         y = 0.5755,
         zone = "Razorwind Shores",
         faction = "Horde",
-        expansion = "The War Within",
+        expansion = "Midnight",
     },
     [255319] = {
         name = "\"Yen\" Malone",
@@ -2294,7 +2294,7 @@ VendorIdentity.Vendors = {
         y = 0.7313,
         zone = "Razorwind Shores",
         faction = "Horde",
-        expansion = "The War Within",
+        expansion = "Midnight",
         scanConfirmed = "2026-10-15",
     },
     [255325] = {
@@ -2304,7 +2304,7 @@ VendorIdentity.Vendors = {
         y = 0.7277,
         zone = "Razorwind Shores",
         faction = "Horde",
-        expansion = "The War Within",
+        expansion = "Midnight",
         notes = "Aboard The Hull.",
         scanConfirmed = "2026-07-07",
     },
@@ -2315,7 +2315,7 @@ VendorIdentity.Vendors = {
         y = 0.7024,
         zone = "Razorwind Shores",
         faction = "Horde",
-        expansion = "The War Within",
+        expansion = "Midnight",
     },
     [255495] = {
         name = "Rae'ana",
@@ -2383,7 +2383,7 @@ VendorIdentity.Vendors = {
         y = 0.6168,
         zone = "Founder's Point",
         faction = "Alliance",
-        expansion = "The War Within",
+        expansion = "Midnight",
     },
     [256783] = {
         name = "Gabbun",
