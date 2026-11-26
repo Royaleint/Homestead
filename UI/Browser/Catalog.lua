@@ -19,8 +19,10 @@ local function Group(e)
 end
 
 local Page, ui, orders = {}, {}, {}
-local cat, recs, walk, version, hideFor, judged, named, bareList, bareVer
+local cat, recs, walk, version, built, hideFor, judged, named, renamed, opened, bareList, bareVer
 local hiddenNote
+-- A decor item's catalog record, as the last walk or the counting records read it.
+local bareInfo = {}
 local shown = {}
 
 local function NewView(sort)
@@ -43,6 +45,8 @@ local function Words(c)
     return table.concat(f, ", ")
 end
 
+-- The records drawn while there is no walk. Kind and name do not move with ownership, so each record's info is
+-- kept from the last walk, or read once; a tile reads its copies when it draws.
 local function BareEntries()
     if bareVer == D.MemoVersion() then
         for _, e in ipairs(bareList) do e.name = e.name or D.ItemName(e.itemID, e.info) end
@@ -50,14 +54,16 @@ local function BareEntries()
     end
     bareList, bareVer = {}, D.MemoVersion()
     for i, id in ipairs(HA.CatalogStore:GetDecorItemIDs()) do
-        local info = D.CatalogInfo(id, B.State.catalogMemo)
+        local info = bareInfo[id] or CG.KeptInfo(id) or D.CatalogInfo(id, B.State.catalogMemo)
+        bareInfo[id] = info
         bareList[i] = { itemID = id, info = info, name = D.ItemName(id, info), src = {} }
     end
     return bareList
 end
 
 local function Rebuild()
-    version, hideFor, judged, named = D.MemoVersion(), B.State.hideNA, CG.Gen(), D.NameGen()
+    version, built, hideFor, judged = D.MemoVersion(), CG.WalkGen(), B.State.hideNA, CG.Gen()
+    named, renamed, opened = D.NameGen(), CG.Renamed(), B.Generation()
     wipe(orders)
     recs = {}
     for i, e in ipairs(walk and walk.list or BareEntries()) do
@@ -65,16 +71,17 @@ local function Rebuild()
             hasName = e.name ~= nil, cat = KindOf(e.info), bonus = e.bonus,
             done = e.own == "owned", hid = hideFor and (walk and (e.own == "owned" and "collected" or e.factionOnly and "faction" or nil) or not walk and CG.HiddenBy(e.itemID)) or nil }
         r.g = walk and Group(e) or 1
+        if walk and e.info then bareInfo[e.itemID] = e.info end
         recs[i] = r
     end
 end
 
--- A re-judge or account data changed the verdicts and words under the records: regroup them and drop what was
--- built from the old ones, without rebuilding the records.
+-- A re-judge, account data or a reopen changed the verdicts, words or copy counts under the records: regroup them
+-- and drop what was built from the old ones, without rebuilding the records.
 local function Rejudged()
     wipe(orders)
     for _, r in ipairs(recs) do r.g, r.d = walk and Group(r.e) or 1, nil end
-    judged = CG.Gen()
+    judged, opened = CG.Gen(), B.Generation()
 end
 
 -- The lowest gold-only price at any of the item's vendors, holiday vendors in any season, so the cached value
@@ -185,7 +192,8 @@ local function Describe(r)
     if not d then
         local active, state, arg = nil, B.ItemState(id)
         for _, o in pairs(e.canBy or {}) do active = active or o.event end
-        local info = CG.Rec(e)
+        local info = walk and CG.Rec(e)
+            or select(3, HA.CatalogScanner:GetReadState()) and D.CatalogInfo(id, B.State.catalogMemo) or e.info or {}
         d = { itemID = id, name = Name(r), quality = info.quality or C_Item.GetItemQualityByID(id),
             icon = info.iconTexture or D.ItemIcon(id), active = active, bonus = r.bonus,
             copies = D.Copies(info), state = state, arg = arg }
@@ -399,10 +407,11 @@ function Page:Show(route, saved)
         for k in pairs(cat.types) do cat.types[k] = f.sources == nil or f.sources[k] == true end
     end
     ui.sort.Set(cat.sort)
-    if not recs or version ~= D.MemoVersion() or hideFor ~= B.State.hideNA or named ~= D.NameGen() then
+    if not recs or version ~= D.MemoVersion() or built ~= CG.WalkGen() or hideFor ~= B.State.hideNA
+            or named ~= D.NameGen() or renamed ~= CG.Renamed() then
         walk = B.Walk()
         Rebuild()
-    elseif judged ~= CG.Gen() then
+    elseif judged ~= CG.Gen() or opened ~= B.Generation() then
         Rejudged()
     end
     Apply(false)

@@ -124,29 +124,26 @@ local PAY = { short = "short", unpriced = "unknown" }
 
 local walk, version, seenGen = nil, nil, 0
 
--- An ownership-only refresh that names its items keeps the other entries in the next memo version.
-local plan
-function CG.Plan(only)
-    local items = HA.CatalogStore:TakeOwnershipChanges()
-    plan = only and items and { items = items, from = D.MemoVersion() } or nil
-end
+-- The running check, if any: see Recheck. What changed since the last one is heard whether or not the Hub is shown
+-- (see the listener below); only a check that starts clears it.
+local job, walkGen = nil, 0
+local CHANGED_CAP = 256
+local dirty = { all = false, items = {}, n = 0 }
 
+-- Only a check moves the memo version. Any other move leaves nothing built on the old one standing: the walk and
+-- a check under way are dropped, the next check is a full one, and a shown Hub asks for it.
 local function Fresh()
     local v = D.MemoVersion()
-    if v ~= version then
-        local kept = plan and plan.from == version and v == version + 1 and plan.items
-        plan, version, walk = nil, v, nil
-        if kept then
-            for itemID in pairs(kept) do entries[itemID] = nil end
-            return
-        end
-        needAccount = false
-        wipe(entries)
-        wipe(holders)
-        wipe(transferable)
-        HA.BadgeCalculation:WalletReset()
-        seenGen = HA.BadgeCalculation:WalletGen()
-    end
+    if v == version then return end
+    version, walk, job = v, nil, nil
+    dirty.all = true
+    needAccount = false
+    wipe(entries)
+    wipe(holders)
+    wipe(transferable)
+    HA.BadgeCalculation:WalletReset()
+    seenGen = HA.BadgeCalculation:WalletGen()
+    if B.Shown() then B.RequestRefresh(false, true) end
 end
 
 function CG.NeedAccount()
@@ -290,13 +287,18 @@ end
 -- Copy counts change with no ownership update: a walked entry's record is read when drawn.
 function CG.Rec(e) return e.own and D.CatalogInfo(e.itemID, Memo()) or e.info or NONE end
 
+-- The catalog record a kept entry read, published or not; nil when there is none.
+function CG.KeptInfo(itemID)
+    local e = entries[itemID]
+    return e and e.info
+end
+
 -- The walk's record for one item, decor or a vendor ware outside the decor list; nil before ready.
 -- Fields: itemID, info, own, name, bonus (the First-Time Collection amount, nil if none), src (Sources type set), factionOnly, verdict (nil without a
 -- vendor offer), reach (npcID to each offer with requirements met, with cost and pay), canBy (its paid ones),
 -- eventPaid and lowGold (set by Rank: a paid event offer, the lowest paid gold-only price), rest (the others' best verdict), locked (npcIDs), event and eventAt (an off-season holiday that sells it, and its vendor).
 function CG.Entry(itemID)
     if D.ReadState() ~= "ready" then return nil end
-    Fresh()
     local e = entries[itemID]
     if not e then
         e = Evaluate(itemID, HA.SourceManager, Memo(), SourceTables())
@@ -309,42 +311,27 @@ local function Add(t, n, got)
     t.total, t.owned = t.total + n, t.owned + (got and n or 0)
 end
 
-local function RunWalk(items)
-    local SM, memo, tables = HA.SourceManager, Memo(), SourceTables()
-    local list = {}
-    local progress = { known = true, total = 0, owned = 0, src = {} }
-    local src = progress.src
-    for _, key in ipairs(SOURCE_KEYS) do src[key] = { total = 0, owned = 0 } end
-    for i = 1, #items do
-        local itemID = items[i]
-        local e = entries[itemID]
-        if not e then
-            e = Evaluate(itemID, SM, memo, tables)
-            entries[itemID] = e
-        end
-        list[i] = e
-        local got = e.own == "owned"
-        local n = HA.CatalogStore:LeftOutReason(itemID, nil, got) and 0 or 1
-        Add(progress, n, got)
-        for key in pairs(e.src) do Add(src[key], n, got) end
-    end
-    return { list = list, progress = progress }
-end
-
--- True while the walk is being rebuilt; D.ReadState shows "counting" then.
+-- True while the walk is being rebuilt or has not been built; D.ReadState shows "counting" then.
 function CG.Building()
-    return false
+    Fresh()
+    return job ~= nil or walk == nil
 end
 
+-- True while a check runs, not when there is merely no walk yet: a cold scanner still reads from the saved record.
+function CG.Checking()
+    return job ~= nil
+end
+
+-- The published walk; nil while one is being built or the collection cannot be read. It never builds one inline:
+-- a check does that, a slice per frame.
 function CG.Walk()
     if D.ReadState() ~= "ready" then return nil end
-    Fresh()
-    if not walk then
-        local items = HA.CatalogStore:GetDecorItemIDs()
-        walk = HA.PerformanceTrace:Measure("browser_walk", #items, RunWalk, items)
-    end
     return walk
 end
+
+-- Moves each time a name lands on a kept entry, so a page that sorted by the old names can tell.
+local renamed = 0
+function CG.Renamed() return renamed end
 
 function CG.RefreshNames()
     Fresh()
@@ -356,7 +343,7 @@ function CG.RefreshNames()
             arrived = arrived or e.name ~= nil
         end
     end
-    if arrived then walk.ranked = nil end
+    if arrived then walk.ranked, renamed = nil, renamed + 1 end
     return arrived
 end
 
@@ -601,22 +588,19 @@ end
 -- is still known at the next open; only a job that starts a check clears it. Session-only, never saved.
 -------------------------------------------------------------------------------
 
-local CHANGED_CAP = 256
-local dirty = { all = false, items = {}, n = 0 }
-
 function CG.Dirty() return dirty end
 
--- The job coordinator replaces this; with no job running there is nothing to stop.
-CG.CancelJob = CG.CancelJob or function() end
-
+-- A change that cannot be named item by item: the next check is a full one, and a check under way stops.
 local function MarkAll()
     dirty.all, dirty.n = true, 0
     wipe(dirty.items)
     CG.CancelJob()
 end
+CG.MarkAll = MarkAll
 
 -- The changed items of an ownership update, copied now: the store hands out its own set. Nothing is kept beside
--- "all", and more than the store's cap of distinct items is "all" too.
+-- "all", and more than the store's cap of distinct items is "all" too. The store already hands over no items past
+-- its cap, so this cap is only a second line of defence.
 local function OnOwnership(items)
     if type(items) ~= "table" then return MarkAll() end
     if dirty.all then return end
@@ -650,7 +634,8 @@ function CG.Listen()
 end
 
 -------------------------------------------------------------------------------
--- How much of the walk a check must redo. Reads only; the snapshot is taken when a full check starts.
+-- How much of the walk a check must redo. Reads only; a full check takes the level and day when it starts and
+-- the time when it publishes.
 -------------------------------------------------------------------------------
 
 local AGE_CAP_SECONDS = 1800
@@ -661,11 +646,6 @@ local function DateKey()
     return t and (t.year * 10000 + t.month * 100 + t.monthDay) or nil
 end
 
--- Sets the snapshot to chosen values, so a test can place it.
-function CG.SetSnapshot(at, level, date)
-    lastFullAt, lastLevel, lastDate = at, level, date
-end
-
 -- "full", "items" or nil for nothing to redo.
 function CG.Scope()
     if dirty.all or walk == nil or lastFullAt == nil then return "full" end
@@ -674,5 +654,149 @@ function CG.Scope()
     end
     if dirty.n > 0 then return "items" end
 end
+
+-------------------------------------------------------------------------------
+-- The check: rebuilds the walk, or only the changed items' entries, one slice per frame while the Hub is shown.
+-- Nothing is published until a pass ends with nothing new heard, and a check that is stopped publishes nothing.
+-------------------------------------------------------------------------------
+
+local EVALS_PER_SLICE, STEPS_PER_SLICE = 100, 1000
+
+local function NewProgress()
+    local progress = { known = true, total = 0, owned = 0, src = {} }
+    for _, key in ipairs(SOURCE_KEYS) do progress.src[key] = { total = 0, owned = 0 } end
+    return progress
+end
+
+-- Stops the check and keeps none of it: the next one starts over.
+function CG.CancelJob()
+    if not job then return end
+    job, walk = nil, nil
+    wipe(entries)
+    dirty.all = true
+end
+
+local Slice
+
+-- A slice or publish that throws stops its check, so the next refresh starts one over; the error still goes on to
+-- the game.
+local function Guarded(step, j)
+    local ok, err = pcall(step, j)
+    if ok then return end
+    if job == j then CG.CancelJob() end
+    error(err, 0)
+end
+
+local function NextSlice(j)
+    C_Timer.After(0, function() Guarded(Slice, j) end)
+end
+
+local function Publish(j)
+    if job ~= j then return end
+    Fresh()
+    if job ~= j then return end
+    if not B.Shown() or B.Generation() ~= j.gen then return CG.CancelJob() end
+    -- A change heard since the pass ended: one more pass for those items.
+    if dirty.n > 0 then
+        local memo = Memo()
+        for itemID in pairs(dirty.items) do
+            entries[itemID], memo[itemID] = nil, nil
+        end
+        wipe(dirty.items)
+        dirty.n = 0
+        j.cursor, j.list, j.progress = 1, {}, NewProgress()
+        return NextSlice(j)
+    end
+    walk = { list = j.list, progress = j.progress }
+    CG.Rejudge()
+    if j.scope == "items" or j.nameGen ~= D.NameGen() then CG.RefreshNames() end
+    job = nil
+    walkGen = walkGen + 1
+    if j.scope == "full" then lastFullAt = GetTime() end
+    local generation = j.gen
+    C_Timer.After(0, function()
+        if B.Shown() and B.Generation() == generation then B.RepaintData() end
+    end)
+end
+
+function Slice(j)
+    if job ~= j then return end
+    Fresh()
+    if job ~= j then return end
+    if not B.Shown() or B.Generation() ~= j.gen then return CG.CancelJob() end
+    local SM, memo, tables, store = HA.SourceManager, Memo(), SourceTables(), HA.CatalogStore
+    local items, list, progress = j.items, j.list, j.progress
+    local src = progress.src
+    local i, last, evals = j.cursor, math.min(#items, j.cursor + STEPS_PER_SLICE - 1), 0
+    while i <= last and evals < EVALS_PER_SLICE do
+        local itemID = items[i]
+        local e = entries[itemID]
+        if not e then
+            e = Evaluate(itemID, SM, memo, tables)
+            entries[itemID] = e
+            evals = evals + 1
+        end
+        list[i] = e
+        local got = e.own == "owned"
+        local n = store:LeftOutReason(itemID, nil, got) and 0 or 1
+        Add(progress, n, got)
+        for key in pairs(e.src) do Add(src[key], n, got) end
+        i = i + 1
+    end
+    j.cursor = i
+    if i <= #items then return NextSlice(j) end
+    C_Timer.After(0, function() Guarded(Publish, j) end)
+end
+
+-- Starts the check the scope names: the changes heard so far are taken into it, the store's own list is taken
+-- once and dropped, and what was derived from them is cleared. No entry is judged until the first slice.
+local function Start(scope, items)
+    local changed = {}
+    for itemID in pairs(dirty.items) do changed[#changed + 1] = itemID end
+    dirty.all, dirty.n = false, 0
+    wipe(dirty.items)
+    HA.CatalogStore:TakeOwnershipChanges()
+    D.InvalidateMemos()
+    D.WipeCatalogMemo()
+    version = D.MemoVersion()
+    if scope == "full" then
+        wipe(entries)
+        wipe(holders)
+        wipe(transferable)
+        wipe(factionOnly)
+        needAccount = false
+        HA.BadgeCalculation:WalletReset()
+        seenGen = HA.BadgeCalculation:WalletGen()
+        lastLevel, lastDate = UnitLevel("player"), DateKey()
+    else
+        CG.Rejudge()
+        for _, itemID in ipairs(changed) do entries[itemID] = nil end
+    end
+    walk = nil
+    job = { scope = scope, items = items, list = {}, progress = NewProgress(), cursor = 1, gen = B.Generation(),
+        nameGen = D.NameGen() }
+    NextSlice(job)
+end
+
+-- Starts a check if anything needs one and the collection can be read: "full", "items", or nil with nothing
+-- touched. There is never more than one: a check running for this showing goes on, and takes in at its pass end
+-- the items heard meanwhile (a change that is not item by item has already stopped it); one left from before a
+-- reopen is stopped, and the next is full.
+function CG.Recheck()
+    if D.ReadState(true) ~= "ready" then return nil end
+    Fresh()
+    if job then
+        if job.gen == B.Generation() then return job.scope end
+        CG.CancelJob()
+    end
+    local scope = CG.Scope()
+    if not scope then return nil end
+    local items = HA.CatalogStore:GetDecorItemIDs()
+    HA.PerformanceTrace:Measure("browser_walk", #items, Start, scope, items)
+    return scope
+end
+
+-- Moves at each publish, so a page that cached something built from the walk can tell.
+function CG.WalkGen() return walkGen end
 
 CG.Listen()

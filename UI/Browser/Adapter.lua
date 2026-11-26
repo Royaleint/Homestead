@@ -28,11 +28,12 @@ function D.WipeCatalogMemo()
     wipe(B.State.catalogMemo)
 end
 
--- The scanner's read state, with "ready" shown as "counting" while the can-get walk is being rebuilt. Every browser
--- read of the phase goes through here; the stale and done values pass through.
-function D.ReadState()
+-- The scanner's read state, with "ready" shown as "counting" while the can-get walk is being rebuilt (raw: the
+-- scanner's own, for deciding whether a check can run). Every browser read of the phase goes through here; the
+-- stale and done values pass through.
+function D.ReadState(raw)
     local state, stale, done = HA.CatalogScanner:GetReadState()
-    if state == "ready" and B.CanGet.Building() then state = "counting" end
+    if state == "ready" and not raw and B.CanGet.Building() then state = "counting" end
     return state, stale, done
 end
 
