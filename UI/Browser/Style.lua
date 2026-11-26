@@ -169,20 +169,21 @@ local K = S.color
 
 -- The words and second signal of each row state. Locked, short and faction/event take their argument; the
 -- last four are Sources' list rows.
+local WORDS = HA.BadgeCalculation.ROW_WORDS
 S.state = {
     owned = { word = L["Collected"], glyph = "check", color = K.body },
     can = { word = L["Can get now"], glyph = "dot", color = K.can },
     short = { word = L["Not enough: %s"], glyph = "coin", color = K.stop },
     unpriced = { word = L["Price not recorded"], color = K.body },
     locked = { word = L["Requires: %s"], glyph = "lock", color = K.body },
-    faction = { word = L["%s only"], glyph = "stop", color = K.stop },
+    faction = { word = WORDS.faction, glyph = "stop", color = K.stop },
     event = { word = L["%s only"], glyph = "clock", color = K.body },
     notOwned = { word = L["Not collected"], color = K.body },
-    counting = { word = L["Counting…"], color = K.body },
-    allDone = { word = "", glyph = "check", color = K.body },
-    some = { word = L["%d can get now"], glyph = "dot", color = K.can },
-    idle = { word = L["Not active"], glyph = "clock", color = K.body },
-    live = { word = L["Active now"], glyph = "clock", color = K.badge },
+    counting = { word = WORDS.counting, color = K.body },
+    allDone = { word = WORDS.allDone, glyph = "check", color = K.body },
+    some = { word = WORDS.some, glyph = "dot", color = K.can },
+    idle = { word = WORDS.idle, glyph = "clock", color = K.body },
+    live = { word = WORDS.live, glyph = "clock", color = K.badge },
 }
 
 S.sourceLabel = {

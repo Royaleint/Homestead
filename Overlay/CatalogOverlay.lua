@@ -727,6 +727,10 @@ if HA.Events then
     HA.Events:RegisterCallback("SOURCE_CACHES_INVALIDATED", RefreshAvailabilityOverlays)
     HA.Events:RegisterCallback("VENDOR_SCANNED", RefreshVisibleOverlays)
     HA.Events:RegisterCallback("ACTIVE_ENDEAVOR_CHANGED", RefreshAvailabilityOverlays)
+    -- An owned item with no saved record reads live, and a cold catalog's live
+    -- read is a stale zero. When the catalog turns warm nothing else may fire,
+    -- so repaint then (once or twice a session; the repaint is idempotent).
+    HA.Events:RegisterCallback("HS_CATALOG_TRUE_WARM", RefreshVisibleOverlays)
 end
 
 -- Not wired, and not an oversight: CatalogStore:SetSources (the sourceText

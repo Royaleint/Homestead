@@ -8,11 +8,6 @@ local L = HA.L
 local D = {}
 B.Data = D
 
-local FACTION_LABELS = {
-    ["Alliance"] = L["Alliance"],
-    ["Horde"] = L["Horde"],
-}
-
 -- Moves whenever an asked-for name arrives, so a page that sorted or searched by name can tell.
 local nameGen = 0
 
@@ -52,7 +47,7 @@ end
 
 -- The browser's vendor lists: its listing rule, ignoring the map pin settings.
 function D.IsListedVendor(vendor)
-    return B.Facts.BrowserListed(vendor)
+    return HA.BadgeCalculation:IsListedVendor(vendor)
 end
 
 -- Vendor tables only, one per vendor key, rebuilt after each InvalidateMemos.
@@ -112,14 +107,6 @@ function D.IsOppositeFaction(vendor)
     return not HA.VendorFilter.CanUseVendor(vendor)
 end
 
--- The faction (or two) that can use a vendor this character can't; nil when it can.
-function D.VendorFactionLabel(vendor)
-    local usable, a, b = HA.VendorFilter.CanUseVendor(vendor)
-    if usable then return nil end
-    a = FACTION_LABELS[a] or a
-    return b and L["%s, %s"]:format(a, FACTION_LABELS[b] or b) or a
-end
-
 -- An out-of-season holiday vendor still resolves here (GetVendor gives nil); vendor lists never use it.
 function D.Vendor(npcID)
     return HA.VendorData:GetVendorAnySeason(npcID)
@@ -170,10 +157,14 @@ end
 
 -- collected, total over the vendor's knowable wares, from the map pins' cache. nil while cold, which asks
 -- for the background fill unless noPrewarm or the browser's refresh says not to (a fill-triggered refresh
--- must not ask again).
+-- must not ask again). Before the collection can be read, built from the saved record, out of the pins' cache.
 function D.VendorCounts(vendor, noPrewarm)
     local BC = HA.BadgeCalculation
-    if not (BC and vendor and vendor.npcID) or HA.CatalogScanner:GetReadState() ~= "ready" then return nil end
+    if not (BC and vendor and vendor.npcID) then return nil end
+    if HA.CatalogScanner:GetReadState() ~= "ready" then
+        local stats = BC:UnreadVendorStats(vendor, "all")
+        return stats.collected, stats.total
+    end
     local stats = BC:PeekVendorStats(vendor, "all")
     if not stats then
         if D.HolidayActive(vendor) ~= nil then WarmHoliday(vendor)
@@ -200,7 +191,7 @@ function D.NearYou()
     for m in pairs(where.maps) do
         for _, vendor in ipairs(HA.VendorData:GetVendorsInMap(m)) do
             local id = vendor.npcID
-            if id and not seen[id] and B.Facts.OnSale(vendor) and VF.CanAccessVendor(vendor) then
+            if id and not seen[id] and HA.BadgeCalculation:VendorOnSale(vendor) and VF.CanAccessVendor(vendor) then
                 seen[id] = true
                 local dist = math.huge
                 local coords, vmap = VF.GetBestVendorCoordinates(vendor)
@@ -404,13 +395,13 @@ function D.ItemSources(itemID)
 end
 
 -- The shared ownership read: state ("owned", "notOwned", "unknown") and the catalog entry behind it. Take
--- ownership from the state, never the entry's counts. "unknown" without an entry is asked again, so late
+-- ownership from the state, never the entry's counts. Without an entry only owned is kept, so late
 -- catalog data still arrives.
 function D.Ownership(itemID, catalogMemo)
     local m = catalogMemo and catalogMemo[itemID]
     if m then return m.state, m.info end
     local state, info = HA.CatalogStore:ReadOwnershipEntry(itemID)
-    if catalogMemo and (info or state ~= "unknown") then catalogMemo[itemID] = { state = state, info = info } end
+    if catalogMemo and (info or state == "owned") then catalogMemo[itemID] = { state = state, info = info } end
     return state, info
 end
 

@@ -270,9 +270,9 @@ end
 
 -- The buttons for the vendor here who sells the most this character can get now; none with no such vendor.
 local function DrawZone(vendors, mapID)
-    local best, most = nil, 0
+    local best, most, ready = nil, 0, HA.CatalogScanner:GetReadState() == "ready"
     for _, v in ipairs(vendors) do
-        local n = CG.VendorCanCount(v) or 0
+        local n = ready and HA.BadgeCalculation:VendorCanGet(v, "all", true) or 0
         if n > most then best, most = v, n end
     end
     if not best then return end

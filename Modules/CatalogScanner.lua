@@ -12,13 +12,14 @@
 
     Ownership is derived from Blizzard's GetEntryTotalOwned contract
     (totalNumStored + remainingRedeemable + totalNumPlaced > 0) via
-    CatalogStore:ComputeOwnedFromInfo. Those count fields are stale-0 cold
-    (before storage data loads), so SetUnowned is warm-gated on dataLoaded —
-    the scanner never erases ownership from a cold read.
+    CatalogStore:ComputeOwnedFromInfo. A positive count records ownership; a
+    zero never clears it. Those count fields are stale-0 cold (before storage
+    data loads), which is why a scan's empty reads are trusted (the first
+    read, the unreported set) only when the scan started warm.
 
-    Strategy: Scan all known item IDs from the static vendor tables (via the
-    VendorData facade) and scannedVendors,
-    using the same API that tooltips use (GetCatalogEntryInfoByItem).
+    Strategy: Scan every item a collected count uses: vendor and scanned wares,
+    crafted decor, and the quest, achievement, event and drop sources, using
+    the same API that tooltips use (GetCatalogEntryInfoByItem).
 ]]
 
 local _, HA = ...
@@ -34,17 +35,21 @@ local SCAN_COOLDOWN = 5 -- Minimum seconds between scans
 local pendingScanTimer = nil
 local scanRequestedDuringActive = false
 
--- Warm-gate for ownership erasure. The catalog count fields (totalNumStored etc.)
--- are stale-0 until storage data loads, so a cold scan reads every owned item as
--- not-owned. SetUnowned must therefore run ONLY once storage data is known loaded.
--- Set true on the first HOUSING_STORAGE_UPDATED of the session. SetOwned needs no
--- gate (counts are only > 0 warm, so it never false-positives cold).
+-- Whether per-item counts are live this session. The catalog count fields
+-- (totalNumStored etc.) are stale-0 until storage data loads, so a cold scan
+-- reads every owned item as not-owned. This gates trust only: a scan that
+-- started warm may mark the first read done and fill the unreported set, and
+-- IsWarm feeds, among others, the negative identity memo, HasPersistedData's
+-- and the reagent index's hatches, GetReadState and the initial-scan skip. It
+-- never authorises clearing ownership. Latched on the
+-- first HOUSING_STORAGE_UPDATED of the session. SetOwned needs no gate (counts
+-- are only > 0 warm, so it never false-positives cold).
 local dataLoaded = false
 
 -- SEPARATE, weaker one-shot -- true as soon as storage data exists
 -- at all (GetDecorMaxOwnedCount > 0), which is NOT the same claim as dataLoaded
--- above (per-item counts are live and safe to erase against). This is a
--- PREWARM SIGNAL only; it must never gate SetUnowned. See SetupEventScanning.
+-- above (per-item counts are live). This is a PREWARM SIGNAL only; it never
+-- stands in for dataLoaded. See SetupEventScanning.
 local storageResponded = false
 
 -- Whether this session's first trustworthy collection read has finished, so
@@ -107,20 +112,11 @@ local SCAN_COMBAT_RETRY_DELAY = 1.0 -- seconds between combat re-checks at a bat
 -- Delegates to CatalogStore:ComputeOwnedFromInfo — Blizzard's GetEntryTotalOwned
 -- contract (totalNumStored + remainingRedeemable + totalNumPlaced > 0). This is
 -- the single source of truth for ownership derivation. These count fields are
--- stale-0 cold (before storage data loads), which is why the scanner warm-gates
--- the SetUnowned branches below.
+-- stale-0 cold (before storage data loads); a false result only skips the
+-- owned write.
 local function IsOwned(info)
     if not info then return false end
-    if HA.CatalogStore then
-        return HA.CatalogStore:ComputeOwnedFromInfo(info)
-    end
-    -- Fallback if CatalogStore is unavailable (should not happen given load order):
-    -- replicate the count formula directly. quantity/numPlaced are aliases of
-    -- totalNumStored/totalNumPlaced.
-    local totalNumStored = info.totalNumStored or info.quantity or 0
-    local totalNumPlaced = info.totalNumPlaced or info.numPlaced or 0
-    local remainingRedeemable = info.remainingRedeemable or 0
-    return (totalNumStored + remainingRedeemable + totalNumPlaced) > 0
+    return HA.CatalogStore:ComputeOwnedFromInfo(info)
 end
 
 local function ExtractRecordID(info)
@@ -165,14 +161,16 @@ end
 -- Item Collection
 -------------------------------------------------------------------------------
 
--- Gather all unique item IDs from vendor database and scanned vendors
+-- Gather every item the collected counts read from the saved record: vendor
+-- wares (holiday vendors in any season), scanned vendor wares, crafted decor,
+-- and the quest, achievement, event and drop sources.
 local function CollectAllKnownItemIDs()
     local itemIDs = {}
     local seen = {}
 
     -- Collect from static vendor accessors.
     if HA.VendorData and HA.VendorData.GetAllVendors and HA.VendorData.GetItemsForVendor then
-        local allVendors = HA.VendorData:GetAllVendors()
+        local allVendors = HA.VendorData:GetAllVendors(true)
         for _, vendor in ipairs(allVendors) do
             local vendorItems = HA.VendorData:GetItemsForVendor(vendor)
             for _, item in ipairs(vendorItems) do
@@ -220,6 +218,25 @@ local function CollectAllKnownItemIDs()
                     itemID = craftItemID,
                     name = nil,  -- fetched during ScanItem like vendor items
                 })
+            end
+        end
+    end
+
+    -- Items only these tables add are read to record ownership only: their
+    -- catalog text is not parsed, so they gain no requirement lines. An item a
+    -- block above already added keeps that entry and its parse.
+    local sourceTables = { HA.QuestSources, HA.AchievementSources, HA.EventSources, HA.DropSources }
+    for i = 1, 4 do
+        local sources = sourceTables[i]
+        if sources then
+            for sourceItemID in pairs(sources) do
+                if type(sourceItemID) == "number" and not seen[sourceItemID] then
+                    seen[sourceItemID] = true
+                    table.insert(itemIDs, {
+                        itemID = sourceItemID,
+                        sourceOnly = true,
+                    })
+                end
             end
         end
     end
@@ -381,8 +398,8 @@ function CatalogScanner:ScanFullCatalog(callback)
 
     -- Process items in batches to prevent frame hitches
     local function ProcessBatch()
-        -- A login or /reload forces a full ~1,600-item pass (see
-        -- RunLoginStorageForceLoad), which is ~85 batches of catalog probes and
+        -- A login or /reload forces a full ~2,200-item pass (see
+        -- RunLoginStorageForceLoad), which is ~110 batches of catalog probes and
         -- store writes; landing those on combat frames because the player
         -- reloaded mid-fight is exactly the hitch the batching exists to avoid.
         -- Pause at the batch boundary and re-check until combat drops, matching
@@ -417,13 +434,10 @@ function CatalogScanner:ScanFullCatalog(callback)
                             -- Full path for owned items
                             HA.CatalogStore:SetOwned(result.itemID, result.name or itemData.name, result.recordID)
                         else
-                            -- Warm-gate: only erase ownership once storage data is
-                            -- loaded. Cold reads are stale-0 and would wrongly clear
-                            -- owned items; the persistent cache serves them instead.
-                            if dataLoaded and HA.CatalogStore:IsOwned(result.itemID) then
-                                HA.CatalogStore:SetUnowned(result.itemID)
-                            end
-                            -- Minimal fields for unowned items
+                            -- Not owned by this read: save the name and decor ID
+                            -- only. A zero read never clears a saved collected
+                            -- item, warm or cold, because the game keeps no record
+                            -- of past ownership; only /hs clearcache resets it.
                             HA.CatalogStore:Save(result.itemID, {
                                 decorID = result.recordID,
                                 name = result.name or itemData.name,
@@ -432,7 +446,7 @@ function CatalogScanner:ScanFullCatalog(callback)
                     end
 
                     -- Forward sourceText to SourceTextScanner for parsing
-                    if result.sourceText and HA.SourceTextScanner then
+                    if result.sourceText and not itemData.sourceOnly and HA.SourceTextScanner then
                         HA.SourceTextScanner:ProcessScannedItem(result)
                     end
                 end
@@ -532,12 +546,12 @@ local function TryLatchWarmFromCounts()
     local dataLoadedBefore = dataLoaded
 
     -- HOUSING_STORAGE_UPDATED is the signal that storage/ownership data
-    -- has loaded for this session. Latch the warm-gate so SetUnowned may
-    -- run — count fields are now authoritative, not stale-0. Corroborate
-    -- with GetDecorTotalOwnedCount() > 0 before latching: a bare event
-    -- can fire while counts are still stale-0, which would let SetUnowned
-    -- wrongly clear ownership. A 0-decor character never latches, but
-    -- SetUnowned is moot there anyway.
+    -- has loaded for this session. Latch dataLoaded so later scans may
+    -- trust their empty reads — count fields are now authoritative, not
+    -- stale-0. Corroborate with GetDecorTotalOwnedCount() > 0 before
+    -- latching: a bare event can fire while counts are still stale-0, which
+    -- would let a scan trust zero reads that are only stale. A 0-decor
+    -- character never latches.
     if (C_HousingCatalog.GetDecorTotalOwnedCount and C_HousingCatalog.GetDecorTotalOwnedCount() or 0) > 0 then
         dataLoaded = true
     end
@@ -556,8 +570,8 @@ local function TryLatchWarmFromCounts()
     -- Blizzard_HouseEditorStorageFrame.lua:9-14: GetDecorMaxOwnedCount is a
     -- static cap, non-zero the instant storage loads, ownership-independent)
     -- but NOT that per-item counts are live, so this is a PREWARM SIGNAL
-    -- only — it must never gate SetUnowned's erase authorization, which
-    -- stays on dataLoaded above exactly as before. Zero-decor players
+    -- only — it never stands in for dataLoaded above, which alone decides
+    -- when a scan's empty reads are trusted. Zero-decor players
     -- (whose dataLoaded never latches) still get this fire.
     if not storageResponded
             and (C_HousingCatalog.GetDecorMaxOwnedCount and C_HousingCatalog.GetDecorMaxOwnedCount() or 0) > 0 then
@@ -583,6 +597,49 @@ local function TryLatchWarmFromCounts()
     end
 end
 
+-- Acquisition read: the items the game just reported changed, and the vendor
+-- whose window was open for a purchase, read one frame later so the game's
+-- counts have moved. This is not a scan; the scan events are unchanged.
+local pendingAcquired = {}
+local pendingVendor, pendingName = nil, nil
+local acquireFlushPending = false
+
+local function FlushAcquired()
+    -- No reads in combat, as the scan pauses. The queue and the pending flag
+    -- are kept, so events meanwhile join this flush.
+    if _G.InCombatLockdown() then
+        C_Timer.After(SCAN_COMBAT_RETRY_DELAY, FlushAcquired)
+        return
+    end
+    acquireFlushPending = false
+    local queued, vendor, name = pendingAcquired, pendingVendor, pendingName
+    pendingAcquired, pendingVendor, pendingName = {}, nil, nil
+
+    local list = {}
+    for itemID in pairs(queued) do list[#list + 1] = itemID end
+    if HA.CatalogStore then
+        HA.CatalogStore:RecordAcquired(list, vendor, name)
+    end
+end
+
+local function ScheduleAcquiredFlush()
+    if acquireFlushPending then return end
+    acquireFlushPending = true
+    C_Timer.After(0, FlushAcquired)
+end
+
+local function QueueAcquired(itemID)
+    local store = HA.CatalogStore
+    if not itemID or not store or store:IsOwned(itemID) then return end
+    pendingAcquired[itemID] = true
+    ScheduleAcquiredFlush()
+end
+
+local function QueueVendor(vendor, name)
+    pendingVendor, pendingName = vendor, name
+    ScheduleAcquiredFlush()
+end
+
 local function SetupEventScanning()
     local eventFrame = CreateFrame("Frame")
 
@@ -595,6 +652,7 @@ local function SetupEventScanning()
         "NEW_HOUSING_ITEM_ACQUIRED",
         "HOUSING_DECOR_PLACE_SUCCESS",
         "HOUSING_DECOR_REMOVED",
+        "HOUSING_STORAGE_ENTRY_UPDATED",
     }
 
     for _, event in ipairs(housingEvents) do
@@ -629,7 +687,33 @@ local function SetupEventScanning()
             -- entry). A full ~220-vendor rescan on every decor placed/removed
             -- during a decorating session is a wasted pass; skip it.
             HA.Addon:Debug(event, "fired: ownership-neutral, skipping scan")
+        elseif event == "HOUSING_STORAGE_ENTRY_UPDATED" then
+            -- One storage entry changed: queue the item it maps to for the
+            -- acquisition read. It never requests a scan. Until the session's
+            -- first full read finishes, that read covers these entries, so the
+            -- login storage load reads nothing per entry.
+            local entry = ...
+            local store = HA.CatalogStore
+            if type(entry) == "table" and store and CatalogScanner:HasFirstReadCompleted() then
+                if entry.entryType == 1 then
+                    QueueAcquired(store:GetItemIDFromDecorID(entry.recordID))
+                elseif entry.entryType == 2 then
+                    QueueAcquired(store:GetItemIDFromRoomID(entry.recordID))
+                end
+            end
         else
+            if event == "NEW_HOUSING_ITEM_ACQUIRED" then
+                -- A purchase: read the open vendor's wares. Queued before the
+                -- scan request below, which stays the last timer scheduled.
+                local tracer = HA.VendorTracer
+                if tracer then
+                    local atVendor, vendor = tracer:IsAtDecorVendor()
+                    if atVendor and vendor then
+                        local _, itemName = ...
+                        QueueVendor(vendor, itemName)
+                    end
+                end
+            end
             if event == "HOUSING_STORAGE_UPDATED" then
                 -- latch logic lives in the shared TryLatchWarmFromCounts()
                 -- (see above) -- this is its sole caller. This
@@ -645,10 +729,10 @@ local function SetupEventScanning()
 
                 -- The login force-load synthesizes this event on every login
                 -- whether or not the account has anything to find. FORBIDS:
-                -- the ~1,600-probe rescan behind that forced event when the
+                -- the ~2,200-probe rescan behind that forced event when the
                 -- API reports zero decor owned — every probe reads unowned and
                 -- dataLoaded cannot latch off a zero total, so the pass can
-                -- neither learn nor erase any ownership. (It would still
+                -- learn no ownership. (It would still
                 -- refresh cached names/sourceText; the housing UI's own
                 -- ADDON_LOADED scan and any genuine storage event both still
                 -- do that.) MUST NEVER BLOCK: a real storage change. It cannot
@@ -740,8 +824,8 @@ local function RunLoginStorageForceLoad()
     -- then correctly reports the true owned count. So the searcher is now
     -- created unconditionally every time -- dataLoaded/storageResponded are
     -- latched ONLY by the real event handler (SetupEventScanning), exactly
-    -- as it always was. That's what keeps erasure-authorization
-    -- trustworthy: it can never fire on anything but a genuine engine signal.
+    -- as it always was, so the warm trust only ever comes from a genuine
+    -- engine signal.
     if type(C_HousingCatalog.CreateCatalogSearcher) ~= "function" then
         HA.Addon:Debug("Login storage force-load skipped: CreateCatalogSearcher unavailable")
         SetFirstReadAttempted()
@@ -819,7 +903,7 @@ end
 -- the weak half of the two-flag split, exposed for consumers that need to
 -- distinguish "storage answered and the live total is zero" (a zero-decor
 -- player's CONFIRMED-true zero) from "storage never answered" (unknown).
--- Never an erase authorization — that stays on IsWarm/dataLoaded above.
+-- It never stands in for IsWarm/dataLoaded above.
 function CatalogScanner:HasStorageResponded()
     return storageResponded
 end
@@ -873,7 +957,7 @@ function CatalogScanner:Initialize()
     C_Timer.After(3, function()
         if C_HousingCatalog and C_HousingCatalog.GetCatalogEntryInfoByItem then
             -- don't scan cold — before dataLoaded latches, count fields
-            -- read stale-0, so this would burn ~1,600 API calls for zero learned
+            -- read stale-0, so this would burn ~2,200 API calls for zero learned
             -- data (observed live: "Checked: 1624 Owned: 0"); the existing
             -- HOUSING_STORAGE_UPDATED handler below already re-requests a full
             -- scan the moment it latches, so skipping here loses no coverage.

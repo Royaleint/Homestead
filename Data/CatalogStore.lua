@@ -7,6 +7,7 @@
     All writes go through this module. Read API provides cache-only and fresh paths.
 
     catalogItems is the canonical ownership store.
+    Saved isOwned only moves false -> true; ClearAll (/hs clearcache) is the one reset.
 
     Event contract:
       _save()            — internal table merge, NEVER fires events
@@ -14,6 +15,8 @@
       SetSources()       — _save() + CATALOG_ITEM_UPDATED
       SetRequirements()  — _save() + CATALOG_ITEM_UPDATED
       Save()             — _save() + CATALOG_ITEM_UPDATED
+      OWNERSHIP_UPDATED carries the items changed so far when the change names them, else nothing;
+      TakeOwnershipChanges() hands a listener the same set and starts the next one.
 
     Batch mode (BeginBatch/EndBatch):
       All per-item events suppressed. EndBatch fires one of each if needed.
@@ -47,7 +50,7 @@ local itemIDToRoom = {}     -- forward index: itemID -> roomRecordID
 -- Enum.HousingCatalogEntryType.Room. A literal, like the existing `1` at the
 -- decor call sites: the Enum table is not read at file scope.
 local ENTRY_TYPE_ROOM = 2
-local ownedCount = 0        -- cached count of owned items (incremented in SetOwned)
+local ownedCount = 0        -- cached count of owned items (raised by SetOwned, reset only by ClearAll)
 -- nesting depth for BeginBatch/EndBatch, not a boolean. Two
 -- independent callers can hold a batch open at once (CatalogScanner's scan
 -- and ProfessionOverlay's reconcile pass, Overlay/ProfessionOverlay.lua:334-357)
@@ -93,6 +96,35 @@ local housingSubclassCache = {}
 -- These items count toward no total, so every change to the set is an ownership change for the caches.
 local unreported = {}
 local clearFirePending = false
+
+-- Session-only: the items whose ownership changed since TakeOwnershipChanges was last called, so a listener that
+-- keeps per-item answers can redo only those. A change that names no item (the unreported set, ClearAll) or
+-- more items than the cap is a change of everything and keeps none.
+local changedSet, changedCount, changedAll = {}, 0, false
+local CHANGED_CAP = 256
+
+local function NoteChanged(itemID)
+    if changedAll then return end
+    if itemID then
+        if changedSet[itemID] then return end
+        changedSet[itemID], changedCount = true, changedCount + 1
+        if changedCount <= CHANGED_CAP then return end
+    end
+    changedSet, changedCount, changedAll = {}, 0, true
+end
+
+-- What OWNERSHIP_UPDATED carries: the changed items so far, nil when they are not known item by item.
+local function ChangedItems()
+    return not changedAll and changedCount > 0 and changedSet or nil
+end
+
+-- The items whose ownership changed since the last call, or nil when that is not known item by item (a change of
+-- the unreported set, ClearAll, a long run of changes, or an update that named none). Starts the next set.
+function CatalogStore:TakeOwnershipChanges()
+    local items = ChangedItems()
+    changedSet, changedCount, changedAll = {}, 0, false
+    return items
+end
 
 -------------------------------------------------------------------------------
 -- Internal: Table Merge (no events, no side effects beyond storage)
@@ -154,64 +186,11 @@ function CatalogStore:SetOwned(itemID, name, decorID)
 
     -- Fire event (or defer in batch mode)
     if not wasOwned then
+        NoteChanged(itemID)
         if batchDepth > 0 then
             batchOwnershipChanged = true
         elseif HA.Events then
-            HA.Events:Fire("OWNERSHIP_UPDATED")
-        end
-    end
-end
-
--- Mark an item as no longer owned.
--- Symmetric with SetOwned: maintains ownedCount, negativeGeneration, events.
--- Idempotent: second call on same item is a no-op (no counter/gen/event changes).
--- Used for manual ownership corrections.
---
--- Contract:
---   1. State check: wasOwned from catalogItems.isOwned (primary truth for counter)
---   2. Data: clear isOwned/firstSeen/lastSeen in catalogItems; keep name/decorID
---   3. Counter: decrement ownedCount only if catalogItems had isOwned=true
---   4. Cache: bump negativeGeneration on effective ownership change
---   5. Event: fire OWNERSHIP_UPDATED on transition only; respect batch depth
---
--- No-op for mapped room plans.
-function CatalogStore:SetUnowned(itemID)
-    if not itemID or excludedDecorItems[itemID] then return end
-
-    -- Room-plan ownership only moves unowned -> owned. The erase warm
-    -- gate is proven for decor counts only, a stale-0 Room read would erase a
-    -- real room, and no API reports "not owned" as a positive signal.
-    -- /hs clear-ownership (ClearAll) remains the manual reset.
-    if itemIDToRoom[itemID] then return end
-
-    -- 1. Detect current ownership state (catalogItems is counter authority)
-    local wasOwnedInCatalog = false
-    if ci and ci[itemID] then
-        wasOwnedInCatalog = ci[itemID].isOwned == true
-    end
-
-    -- No-op if not owned in catalogItems (idempotent).
-    if not wasOwnedInCatalog then return end
-
-    -- 2. Clear catalogItems ownership (keep metadata: name, decorID)
-    if ci and ci[itemID] then
-        ci[itemID].isOwned = false
-        ci[itemID].firstSeen = nil
-        ci[itemID].lastSeen = nil
-    end
-
-    -- 3-4. Counter and cache generation (only from catalogItems authority)
-    if wasOwnedInCatalog then
-        ownedCount = ownedCount - 1
-        negativeGeneration = negativeGeneration + 1
-    end
-
-    -- 5. Event on effective ownership transition
-    if wasOwnedInCatalog then
-        if batchDepth > 0 then
-            batchOwnershipChanged = true
-        elseif HA.Events then
-            HA.Events:Fire("OWNERSHIP_UPDATED")
+            HA.Events:Fire("OWNERSHIP_UPDATED", ChangedItems())
         end
     end
 end
@@ -307,7 +286,7 @@ function CatalogStore:EndBatch()
 
     if HA.Events then
         if batchOwnershipChanged then
-            HA.Events:Fire("OWNERSHIP_UPDATED")
+            HA.Events:Fire("OWNERSHIP_UPDATED", ChangedItems())
         end
         if batchDataChanged then
             HA.Events:Fire("CATALOG_ITEM_UPDATED")
@@ -321,7 +300,7 @@ end
 local function FireClearedUnreported()
     clearFirePending = false
     if HA.Events then
-        HA.Events:Fire("OWNERSHIP_UPDATED")
+        HA.Events:Fire("OWNERSHIP_UPDATED", ChangedItems())
     end
 end
 
@@ -330,6 +309,7 @@ end
 local function ClearUnreported(itemID)
     if not unreported[itemID] then return end
     unreported[itemID] = nil
+    NoteChanged(itemID)
     if batchDepth > 0 then
         batchOwnershipChanged = true
     elseif not clearFirePending then
@@ -349,9 +329,8 @@ end
 -- source-confirmed field names; the older quantity/numPlaced are current aliases.
 -- firstAcquisitionBonus is display-only (a tooltip favor line) and is 0 for both
 -- owned items AND new décor that carry no favor — it is NOT an ownership signal.
--- These count fields are stale-0 cold (before storage data loads), so a "false"
--- result is only authoritative when storage data is loaded — callers that erase
--- ownership must warm-gate accordingly. nil-safe.
+-- These count fields are stale-0 cold (before storage data loads), so a cold
+-- "false" is only stale; no caller clears saved ownership on a false. nil-safe.
 function CatalogStore:ComputeOwnedFromInfo(info)
     return (info and ((info.totalNumStored or 0) + (info.remainingRedeemable or 0) + (info.totalNumPlaced or 0)) > 0) or false
 end
@@ -664,6 +643,7 @@ function CatalogStore:SetUnreported(itemIDs)
     if not changed then return end
 
     unreported = nextSet
+    NoteChanged()
     if batchDepth > 0 then
         batchOwnershipChanged = true
     elseif HA.Events then
@@ -672,9 +652,11 @@ function CatalogStore:SetUnreported(itemIDs)
 end
 
 -- Read-only ownership state plus the catalog entry behind it, for callers that
--- need both: "owned", "notOwned" or "unknown". Unknowable items and items no
--- read returned an entry for are "unknown", where IsOwnedFresh still answers
--- the walk's boolean; a cached owned stays "owned" even without an entry.
+-- need both: "owned", "notOwned" or "unknown". "unknown" is the rule every
+-- surface counts by (IsOwnershipUnreported): an item Homestead cannot read, or
+-- one the last trusted catalog scan found no entry for that no read finds now;
+-- a nil itemID is also "unknown". Any other item without an entry is
+-- "notOwned" with no entry, and a cached owned stays "owned" even without one.
 -- For a cached owned item the entry may carry zero counts on a cold catalog,
 -- so callers take ownership from the state, never from the entry's counts.
 -- Writes no ownership; see WalkEntries for the unreported set.
@@ -685,7 +667,7 @@ function CatalogStore:ReadOwnershipEntry(itemID)
 
     local owned, info = WalkEntries(self, itemID, true)
     if owned then return "owned", info end
-    if info == nil then return "unknown", nil end
+    if self:IsOwnershipUnreported(itemID) then return "unknown", nil end
     return "notOwned", info
 end
 
@@ -719,6 +701,92 @@ end
 function CatalogStore:GetRoomIDFromItemID(itemID)
     if not itemID then return nil end
     return itemIDToRoom[itemID]
+end
+
+-- Reverse lookup: roomRecordID -> itemID, from the same static index.
+function CatalogStore:GetItemIDFromRoomID(roomID)
+    if not roomID then return nil end
+    return roomToItemID[roomID]
+end
+
+-- Above the largest vendor's counted wares. More candidates than this in one
+-- flush is a storage burst, which the full scan covers.
+local ACQUIRE_READ_CAP = 100
+
+-- The item's name from local data only: the saved record, else the client's
+-- item cache.
+local function KnownName(itemID)
+    local record = ci and ci[itemID]
+    if record and record.name then return record.name end
+    local CI = _G.C_Item
+    return CI and CI.GetItemNameByID and CI.GetItemNameByID(itemID)
+end
+
+-- Records what an acquisition added: the given items, plus the open vendor's
+-- counted wares. Each candidate the saved record does not already hold as
+-- collected is read live, and only an "owned" read is recorded. It never
+-- clears, never saves fields for an item that reads not owned, and never takes
+-- a record ID as a decor ID. With a vendor and the acquired item's name, the
+-- given items and the wares of that name are read first, and the other wares
+-- only if none of those is recorded. Over ACQUIRE_READ_CAP candidates it reads
+-- nothing. One batch, so at most one OWNERSHIP_UPDATED. Returns the number
+-- recorded.
+function CatalogStore:RecordAcquired(itemIDs, vendor, acquiredName)
+    local recorded = 0
+    self:BeginBatch()
+    local ok, err = pcall(function()
+        local candidates, given, seen = {}, {}, {}
+        local function add(itemID)
+            if not itemID or seen[itemID] then return end
+            seen[itemID] = true
+            if not self:IsOwned(itemID) and not self:IsOwnershipUnknowable(itemID) then
+                candidates[#candidates + 1] = itemID
+            end
+        end
+        for _, itemID in ipairs(itemIDs or {}) do
+            add(itemID)
+            given[itemID] = true
+        end
+        local BC = vendor and HA.BadgeCalculation
+        if BC then
+            for _, itemID in ipairs(BC:GetCountedItemIDs(vendor) or {}) do add(itemID) end
+        end
+
+        if #candidates > ACQUIRE_READ_CAP then
+            if HA.Addon then
+                HA.Addon:Debug("CatalogStore: acquisition read skipped,", #candidates,
+                    "candidates; the full scan covers them")
+            end
+            return
+        end
+
+        local function read(itemID)
+            local state, info = self:ReadOwnershipEntry(itemID)
+            if state == "owned" then
+                self:SetOwned(itemID, info and info.name, nil)
+                recorded = recorded + 1
+            end
+        end
+
+        local rest = candidates
+        if vendor and acquiredName then
+            rest = {}
+            for _, itemID in ipairs(candidates) do
+                if given[itemID] or KnownName(itemID) == acquiredName then
+                    read(itemID)
+                else
+                    rest[#rest + 1] = itemID
+                end
+            end
+            if recorded > 0 then return end
+        end
+        for _, itemID in ipairs(rest) do read(itemID) end
+    end)
+    self:EndBatch()
+    if not ok then
+        _G.geterrorhandler()(err)
+    end
+    return recorded
 end
 
 -- Get item-level requirements
@@ -787,7 +855,9 @@ end
 -- Maintenance
 -------------------------------------------------------------------------------
 
--- Clear all ownership data.
+-- Clear all ownership data. The only path from collected back to not
+-- collected, reached only from the player's /hs clearcache. Records, names and
+-- decor IDs stay.
 function CatalogStore:ClearAll()
     -- Clear catalogItems ownership flags
     if ci then
@@ -803,6 +873,7 @@ function CatalogStore:ClearAll()
 
     -- Bust negative cache
     negativeGeneration = negativeGeneration + 1
+    NoteChanged()
 
     if HA.Events then
         HA.Events:Fire("OWNERSHIP_UPDATED")
@@ -910,7 +981,8 @@ end
 -- Room twin of ProbeByDecorID (entryType 2). Writes only on a positive
 -- read, and never a decorID: a room recordID must never enter the decor
 -- indexes, where it would collide with an unrelated real decorID (see
--- Overlay/Tooltips.lua's entryType gate). Never erases (see SetUnowned).
+-- Overlay/Tooltips.lua's entryType gate). Never erases; saved ownership only
+-- moves to owned (ClearAll aside).
 function CatalogStore:ProbeByRoomID(roomID)
     if not roomID then return nil end
     local CHC = _G.C_HousingCatalog
@@ -1345,7 +1417,7 @@ end
 -- whether the persistent
 -- cache holds an OWNERSHIP SIGNAL worth computing badge stats from. Record
 -- presence is not that signal: a cold full scan writes name-only records for
--- every item ("Checked: 1624 Owned: 0"), and the /hs clear-ownership
+-- every item ("Checked: 1624 Owned: 0"), and the /hs clearcache
 -- command empties isOwned on every record while leaving the records in
 -- place — under a mere next(ci) check both states let a prewarm confidently
 -- cache "0 owned" everywhere for a player who owns plenty. ownedCount > 0 is
