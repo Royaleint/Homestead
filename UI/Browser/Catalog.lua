@@ -186,7 +186,8 @@ end
 
 -- Brings the drawn set's records up to the walk last read, names, filter, verdicts and wallet words now. A record whose
 -- entry and name are unchanged keeps everything built from it but its tile words; one whose sort keys moved is mended
--- into the cached orders. Unless forced, nothing is done when none of those moved since the last time.
+-- into the cached orders. Unless forced, nothing is done when none of those moved since the last time; returns
+-- whether anything was done.
 local function Sync(force)
     set = walk and sets.walk or sets.bare
     local k = set.keys
@@ -194,7 +195,7 @@ local function Sync(force)
         B.Generation(), D.MemoVersion() }
     local same = set.recs ~= nil and not force
     for i = 1, #now do same = same and k[i] == now[i] end
-    if same then return end
+    if same then return false end
     local list = walk and walk.list or BareEntries()
     local recs, byId, hide, moved = set.recs, set.byId, now[1], {}
     if not recs or #recs ~= #list then
@@ -238,6 +239,15 @@ local function Sync(force)
     end
     for _, r in ipairs(moved) do r.moving = nil end
     set.keys = now
+    return true
+end
+
+local function SameList(a, b)
+    if #a ~= #b then return false end
+    for i = 1, #a do
+        if a[i] ~= b[i] then return false end
+    end
+    return true
 end
 
 -- Collected and Not collected match owned and notOwned only; unknown ownership is in neither.
@@ -349,11 +359,11 @@ end
 
 function Apply(keep, force)
     local words, status = Words(cat), D.ReadState()
-    local out, n, hc, hf, seen = {}, 0, 0, 0, {}
+    local out, n, hc, hf, seen, synced = {}, 0, 0, 0, {}, false
     -- Counting with a filter on, or best first, draws its words over no tiles: the records wait for a draw that
     -- shows them.
     if status == "ready" or words == "" and not (status == "counting" and cat.sort == "best") then
-        Trace("browser_catalog_sync", nil, Sync, force)
+        synced = Trace("browser_catalog_sync", nil, Sync, force)
         out, n, hc, hf, seen = Filter()
     end
     local empty = Empty(status, n, hc + hf > 0, words)
@@ -362,7 +372,11 @@ function Apply(keep, force)
         onShow = function() B.SetHideNA(false) B.Window.hideNA:SetChecked(false) end } or nil
     PaintFixed()
     ui.grid:SetShown(not empty)
-    if not empty then
+    -- The same records with nothing rebuilt under them draw the same tiles: the grid keeps them, back at the top
+    -- unless the place is kept.
+    if not empty and not synced and SameList(out, shown) then
+        if not keep then ui.grid.box:ScrollToOffset(0, true) end
+    elseif not empty then
         shown = out
         Trace("browser_catalog_grid", n, ui.grid.SetData, ui.grid, out, keep)
     end

@@ -12,6 +12,11 @@ local K = S.color
 local SP = S.space
 local R = S.row
 
+-- The steps of a list's draw are traced on their own, so the performance report can tell them apart.
+local function Trace(operation, workload, fn, ...)
+    return HA.PerformanceTrace:Measure(operation, workload, fn, ...)
+end
+
 local W = {}
 B.Widgets = W
 
@@ -632,8 +637,7 @@ local function SetQuestRow(row, d)
 end
 
 W.questKind = {
-    -- The Sources list draws its own headers from "Frame", so the header template's pool is free for these rows.
-    -- A template named for them would be a new entry on the frozen globals allowlist.
+    -- The Sources list draws its own headers from a plain frame, so the header template's pool is free for these rows.
     frameType = "HomesteadDecorBrowserHeader",
     init = SetQuestRow,
     build = function(row)
@@ -692,15 +696,21 @@ end
 
 -- Frames are built once, pooled by frameType: kinds in one list need distinct values (a template if it repeats).
 function W.KindFactory(kinds)
+    local inits = {}
     return function(factory, data)
         local spec = kinds[data.kind]
-        factory(spec.frameType, function(frame, d)
-            if not frame.built then
-                frame.built = true
-                spec.build(frame)
+        local init = inits[spec]
+        if not init then
+            init = function(frame, d)
+                if not frame.built then
+                    frame.built = true
+                    spec.build(frame)
+                end
+                spec.init(frame, d)
             end
-            spec.init(frame, d)
-        end)
+            inits[spec] = init
+        end
+        factory(spec.frameType, init)
     end
 end
 
@@ -728,7 +738,7 @@ function W.NewList(parent, opts)
     end
     list.box, list.bar = box, bar
     function list:SetData(tbl, keepPosition)
-        box:SetDataProvider(CreateDataProvider(tbl), keepPosition)
+        Trace("browser_list_set", #tbl, box.SetDataProvider, box, CreateDataProvider(tbl), keepPosition)
     end
     function list:SetShown(shown)
         box:SetShown(shown)
@@ -859,29 +869,30 @@ function W.NewTileGrid(parent, min, gap, describe)
     local function RedrawRow(f)
         for i = 1, #f.row do f.cells[i]:Redraw() end
     end
+    local function Bind(f, row)
+        f.row = row
+        for i, item in ipairs(row) do
+            local c = f.cells[i]
+            if not c then
+                c = W.NewWareCell(CreateFrame("Button", nil, f), true)
+                f.cells[i] = c
+            end
+            c:SetPoint("TOPLEFT", (i - 1) * (width + gap), 0)
+            c:SetSize(width, row.h)
+            c:Fit(width, row.h)
+            c:Set(describe(item))
+            c:Show()
+        end
+        for i = #row + 1, #f.cells do
+            f.cells[i]:Reset()
+            f.cells[i]:Hide()
+        end
+    end
     local kind = { frameType = "Frame",
         build = function(f) f.cells, f.Reset, f.Redraw = {}, ResetRow, RedrawRow end,
-        init = function(f, row)
-            f.row = row
-            for i, item in ipairs(row) do
-                local c = f.cells[i]
-                if not c then
-                    c = W.NewWareCell(CreateFrame("Button", nil, f), true)
-                    f.cells[i] = c
-                end
-                c:SetPoint("TOPLEFT", (i - 1) * (width + gap), 0)
-                c:SetSize(width, row.h)
-                c:Fit(width, row.h)
-                c:Set(describe(item))
-                c:Show()
-            end
-            for i = #row + 1, #f.cells do
-                f.cells[i]:Reset()
-                f.cells[i]:Hide()
-            end
-        end }
+        init = function(f, row) Trace("browser_grid_bind", #row, Bind, f, row) end }
     local list = W.NewList(parent, { spacing = gap, kinds = { tiles = kind }, extent = function(row) return row.h end })
-    local box, set = list.box, list.SetData
+    local box = list.box
 
     local function Restride()
         local w = box:GetWidth()
@@ -906,9 +917,11 @@ function W.NewTileGrid(parent, min, gap, describe)
         local h = TileHeight(width)
         for _, r in ipairs(rows) do r.h = h end
     end
-    -- A box with nothing to scroll gives the wheel to whatever scrolls behind it.
+    -- A box with nothing to scroll gives the wheel to whatever scrolls behind it. Setting the data lays out the
+    -- rows and binds the shown ones, each bind traced inside it.
     local function Draw(keep)
-        set(list, rows, keep)
+        local provider = Trace("browser_grid_provider", #rows, CreateDataProvider, rows)
+        Trace("browser_grid_set", #rows, box.SetDataProvider, box, provider, keep)
         box:EnableMouseWheel(box:HasScrollableExtent())
     end
     box:HookScript("OnSizeChanged", function()
@@ -921,7 +934,7 @@ function W.NewTileGrid(parent, min, gap, describe)
     function list:SetData(tbl, keep)
         data = tbl
         Restride()
-        Group()
+        Trace("browser_grid_rows", #tbl, Group)
         Draw(keep)
     end
     return list
