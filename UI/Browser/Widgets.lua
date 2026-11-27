@@ -25,21 +25,19 @@ end
 
 local ruler
 
-local function Ruler(role, text, width, anywhere)
+local function Ruler(role, text, width)
     if not ruler then
         ruler = UIParent:CreateFontString(nil, "ARTWORK")
         ruler:Hide()
     end
     ruler:SetFontObject(S.FontName(role))
-    ruler:SetNonSpaceWrap(anywhere == true)
     ruler:SetWidth(width or 0)
     ruler:SetText(text or "Ag")
     return ruler
 end
 
--- anywhere lets a word wider than the width break, as a text with SetNonSpaceWrap does.
-function W.TextHeight(role, text, width, anywhere)
-    return Ruler(role, text, width, anywhere):GetStringHeight()
+function W.TextHeight(role, text, width)
+    return Ruler(role, text, width):GetStringHeight()
 end
 
 -- The text on one line.
@@ -90,23 +88,14 @@ function W.IconRowHeight()
     return Measured("iconRow", MeasureIconRow)
 end
 
--- The height of a catalog tile w wide: the icon square inside the pad, a pad, and the tallest name among items
--- (nameOf gives one) wrapped at the icon's width, then a pad. A name is measured once per width, until the text size changes.
-local function TileHeight(items, nameOf, w)
-    local room, seen = w - 2 * S.tile.pad, Measured("tileNames", function() return {} end)
-    local at = seen[room] or {}
-    seen[room] = at
-    local tallest = W.TextHeight("body")
-    for _, item in ipairs(items) do
-        local name = nameOf(item)
-        local h = at[name]
-        if not h then
-            h = W.TextHeight("body", name, room, true)
-            at[name] = h
-        end
-        if h > tallest then tallest = h end
-    end
-    return w + S.tile.pad + tallest
+-- A catalog tile's name takes at most this many lines and is cut with an ellipsis after them; the tooltip has it whole.
+local TILE_NAME_LINES = 2
+
+-- The height of a catalog tile w wide: the icon square inside the pad, a pad, and room for the name's lines, then
+-- a pad. Every tile is this tall, so no name is measured.
+local function TileHeight(w)
+    local lines = Measured("tileLines", function() return TILE_NAME_LINES * W.TextHeight("body") end)
+    return w + S.tile.pad + lines
 end
 
 function W.StateWords(state, arg)
@@ -748,8 +737,8 @@ function W.NewList(parent, opts)
     return list
 end
 
--- A ware cell is its icon. A named one is a catalog tile: the icon filling the top, the full name wrapped under
--- it, and its own tooltip and clicks (the Housing Dashboard on a right-click when it can open, else the item).
+-- A ware cell is its icon. A named one is a catalog tile: the icon filling the top, the name under it (cut after
+-- its lines), and its own tooltip and clicks (the Housing Dashboard on a right-click when it can open, else the item).
 function W.NewWareCell(cell, named)
     local t = S.tile
     local tile = W.NewTile(cell, S.ware.size, named)
@@ -775,7 +764,8 @@ function W.NewWareCell(cell, named)
         name:SetJustifyV("TOP")
         name:SetNonSpaceWrap(true)
         name:SetPoint("TOP", tile.icon, "BOTTOM", 0, -t.pad)
-        -- A tile w by h: the name gets a fixed box as wide as the icon and as tall as its row's tallest name,
+        name:SetMaxLines(TILE_NAME_LINES)
+        -- A tile w by h: the name gets a fixed box as wide as the icon and as tall as its lines,
         -- so its wrap never waits on the pooled frame's size.
         function cell:Fit(w, h)
             if self.w == w and self.h == h then return end
@@ -859,9 +849,9 @@ function W.NewGrid(parent, cell, gap)
 end
 
 -- The catalog's tiles, as a list of rows: each row holds up to n tiles at least min wide that share out the box's
--- width, and is as tall as its own tallest name wraps (nameOf gives one); describe(element) gives what a tile
--- draws. A width change groups the rows again.
-function W.NewTileGrid(parent, min, gap, describe, nameOf)
+-- width, and is as tall as the tile's fixed height; describe(element) gives what a tile draws. A width change
+-- groups the rows again.
+function W.NewTileGrid(parent, min, gap, describe)
     local n, width, data, rows = 0, min, {}, {}
     local function ResetRow(f)
         for _, c in ipairs(f.cells) do c:Reset() end
@@ -902,7 +892,7 @@ function W.NewTileGrid(parent, min, gap, describe, nameOf)
         n, width = k, cw
         return true
     end
-    -- Rows of n in order, each as tall as its icon and its tallest name.
+    -- Rows of n in order, each one tile tall.
     local function Group()
         rows = {}
         local row
@@ -913,7 +903,8 @@ function W.NewTileGrid(parent, min, gap, describe, nameOf)
             end
             row[#row + 1] = item
         end
-        for _, r in ipairs(rows) do r.h = TileHeight(r, nameOf, width) end
+        local h = TileHeight(width)
+        for _, r in ipairs(rows) do r.h = h end
     end
     -- A box with nothing to scroll gives the wheel to whatever scrolls behind it.
     local function Draw(keep)
