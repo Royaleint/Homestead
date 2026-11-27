@@ -1066,8 +1066,9 @@ function W.NewTileGrid(parent, describe)
         for _ = 1, i do table.remove(queue, 1) end
         if owed or queue[1] then Wake() end
     end
+    -- A new stride draws the rows again, and a draw still owed is made as soon as the box can lay out a row.
     box:HookScript("OnSizeChanged", function()
-        if Restride() then
+        if Restride() or owed and Ready() then
             Group()
             Draw(kept or not owed)
         else

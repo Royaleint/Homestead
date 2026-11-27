@@ -332,13 +332,15 @@ local function PaintLine(words)
     ui.fl.text:SetText(L["Filtered: %s"]:format(words) .. " \194\183 " .. S.Colored(K.gold, L["Reset filters"]))
 end
 
--- The hidden-items line sits between the filter line and the grid, as wide as the filter line: one line's
--- height, or one pixel when it is not shown.
+-- The hidden-items line sits between the filter line and the grid, as wide as the filter line: its text's
+-- height at its own width, or one pixel when it is not shown or has no width yet (it is measured again when it
+-- gets one).
 local function PaintFixed()
     local line = ui.hidden
+    local w = line:GetWidth()
     line.d = hiddenNote
     line:SetShown(hiddenNote ~= nil)
-    line:SetHeight(hiddenNote and W.FooterHeight(hiddenNote, math.max(ui.fl:GetWidth(), 1)) or 1)
+    line:SetHeight(hiddenNote and w > 2 * SP.s and W.FooterHeight(hiddenNote, w) or 1)
     if hiddenNote then W.footerKind.init(line, hiddenNote) end
 end
 
@@ -511,7 +513,8 @@ function Page:Build(parent)
     hidden:SetPoint("TOPLEFT", fl, "BOTTOMLEFT")
     hidden:SetPoint("TOPRIGHT", fl, "BOTTOMRIGHT")
     W.footerKind.build(hidden)
-    fl:SetScript("OnSizeChanged", PaintFixed)
+    -- Measured by its own size: the filter line is hidden whenever no filter is on.
+    hidden:SetScript("OnSizeChanged", PaintFixed)
     local holder = CreateFrame("Frame", nil, body)
     holder:SetPoint("TOPLEFT", hidden, "BOTTOMLEFT", 0, -SP.xs)
     holder:SetPoint("BOTTOMRIGHT", -LO.wellPad, LO.wellPad)
