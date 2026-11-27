@@ -1017,6 +1017,10 @@ function W.NewTileGrid(parent, describe)
         n, width = k, cw
         return true
     end
+    -- A box with no width or no height yet lays out no row.
+    local function Ready()
+        return n > 0 and box:GetHeight() >= 1
+    end
     -- Rows of n in order, each as tall as a tile is wide.
     local function Group()
         rows = {}
@@ -1041,13 +1045,14 @@ function W.NewTileGrid(parent, describe)
         drawn, owed = true, false
         Wheel()
     end
-    -- A frame's work while the box is shown (its OnShow starts it again): a draw still owed for want of a width, then
-    -- up to t.perFrame models. Measuring a box laid out since the last frame can resize it at once, and the size hook
-    -- then draws.
+    -- A frame's work while the box is shown (its OnShow starts it again): a draw still owed until the box can lay out
+    -- a row, then up to t.perFrame models. Measuring a box laid out since the last frame can resize it at once, and
+    -- the size hook then draws.
     function Tick()
         ticking = false
         if not box:IsVisible() then return end
-        if owed and Restride() then
+        if owed then Restride() end
+        if owed and Ready() then
             Group()
             Draw()
         end
@@ -1084,12 +1089,15 @@ function W.NewTileGrid(parent, describe)
 
     function list:SetData(tbl, keep)
         local same = drawn and Same(tbl)
-        data = tbl
+        data, owed = tbl, true
         local moved = Restride()
-        if n == 0 then
-            owed = true
-            return Wake()
+        -- The size hook drew these records while Restride measured the box.
+        if not owed then
+            if not keep then box:ScrollToBegin(ScrollBoxConstants.NoScrollInterpolation) end
+            return
         end
+        if not Ready() then return Wake() end
+        owed = false
         if same and not moved then
             if not keep then box:ScrollToBegin(ScrollBoxConstants.NoScrollInterpolation) end
             Trace("browser_grid_rebind", #rows, box.ReinitializeFrames, box)
