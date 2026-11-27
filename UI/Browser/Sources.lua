@@ -26,7 +26,9 @@ local KIND = {
         return { title = d.questName, sub = where or L["Location not recorded"], where = where, questID = d.questID }
     end },
     professions = { L["Profession"], function(d)
-        return { title = d.recipeName, sub = d.skillTier or d.profession, group = d.profession, tier = d.skillTier }
+        return { title = d.recipeName, sub = d.skillTier or d.profession, group = d.profession, tier = d.skillTier,
+            spellID = d.spellID,
+            line = d.skillLevel and L["Requires %s"]:format(("%s (%d)"):format(d.skillTier or d.profession, d.skillLevel)) or nil }
     end },
     drops = { L["Drop"], function(d) return { sub = d.zone, drop = d } end },
     events = { L["Event"], function(d) return { title = d.event, sub = L["Holiday event"], namesKind = true } end },
@@ -1140,6 +1142,36 @@ local function SetPinLine(f, text, spot, title)
 end
 
 -- The source of that type and key, named as the page and the crumb show it; nil when the data has none.
+-- A recipe's Basic reagents as { itemID, count }, kept for the session. A read the game cannot answer, or that
+-- leaves a Basic slot with no item, gives nil and is made again next time.
+local kept = {}
+local function Reagents(spellID)
+    if kept[spellID] then return kept[spellID] end
+    if not (C_TradeSkillUI and C_TradeSkillUI.GetRecipeSchematic) then return nil end
+    local ok, schematic = pcall(C_TradeSkillUI.GetRecipeSchematic, spellID, false)
+    if not (ok and schematic and schematic.reagentSlotSchematics) then return nil end
+    local out = {}
+    for _, slot in ipairs(schematic.reagentSlotSchematics) do
+        -- Enum.CraftingReagentType.Basic is 1; modifying, finishing and automatic slots are not listed.
+        if (slot.reagentType or 1) == 1 then
+            local r = slot.reagents and slot.reagents[1]
+            if not (r and r.currencyID) then
+                if not (r and r.itemID) then return nil end
+                out[#out + 1] = { r.itemID, slot.quantityRequired or 1 }
+            end
+        end
+    end
+    kept[spellID] = out[1] and out or nil
+    return kept[spellID]
+end
+
+local function ReagentRow(r)
+    local id = r[1]
+    return { kind = "row", itemID = id, name = D.ItemName(id) or L["Item %d"]:format(id), icon = D.ItemIcon(id),
+        quality = C_Item.GetItemQualityByID(id), right = L["%d needed"]:format(r[2]), rightColor = K.body,
+        onEnter = function(self) B.ShowLinkTooltip(self, "item:" .. id) end }
+end
+
 local function Source(sourceType, key)
     local bucket = Statics()[sourceType]
     local s = bucket and bucket.by[key]
@@ -1168,7 +1200,10 @@ function Src:Build(parent)
     A.count = Text(parent)
     A.can = CanLine(parent)
     A.holder = CreateFrame("Frame", nil, parent)
-    A.list = W.NewList(A.holder, { extent = W.RowHeight, kinds = { row = W.rowKind }, reclaim = true })
+    A.list = W.NewList(A.holder, {
+        extent = function(d) return d.kind == "header" and W.HeaderExtent(d, A.list.box:GetWidth()) or W.RowHeight() end,
+        kinds = { row = W.rowKind, header = headerKind }, reclaim = true,
+    })
     A.report = W.ReportLink(parent, function() Report(A.s) end)
     A.report:SetPoint("BOTTOMLEFT")
     A.stack = { A.head, A.start, A.dig, A.event, A.notes, A.count, A.can, A.hdr }
@@ -1216,8 +1251,13 @@ local function DrawSource(keep)
     Para(A.hdr, #rows > 0 and "bodyGold" or "body",
         #rows > 0 and L["Decor from this source"] or L["No decor is recorded here. If this source gives decor, report it below."])
     A.report:Fit()
-    A.list:SetShown(#rows > 0)
-    if #rows > 0 then A.list:SetData(rows, keep) end
+    local reagents = srcType == "professions" and s.spellID and Reagents(s.spellID)
+    if reagents then
+        rows[#rows + 1] = { kind = "header", text = L["Reagents"] }
+        for _, r in ipairs(reagents) do rows[#rows + 1] = ReagentRow(r) end
+    end
+    A.list:SetShown(rows[1] ~= nil)
+    if rows[1] then A.list:SetData(rows, keep) end
     Stack()
 end
 
