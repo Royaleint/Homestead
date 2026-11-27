@@ -1141,7 +1141,6 @@ local function SetPinLine(f, text, spot, title)
     f.wp.wp = spot and { mapID = spot.mapID, x = spot.x, y = spot.y, title = title } or nil
 end
 
--- The source of that type and key, named as the page and the crumb show it; nil when the data has none.
 -- A recipe's Basic reagents as { itemID, count }, kept for the session. A read the game cannot answer, or that
 -- leaves a Basic slot with no item, gives nil and is made again next time.
 local kept = {}
@@ -1172,6 +1171,7 @@ local function ReagentRow(r)
         onEnter = function(self) B.ShowLinkTooltip(self, "item:" .. id) end }
 end
 
+-- The source of that type and key, named as the page and the crumb show it; nil when the data has none.
 local function Source(sourceType, key)
     local bucket = Statics()[sourceType]
     local s = bucket and bucket.by[key]
