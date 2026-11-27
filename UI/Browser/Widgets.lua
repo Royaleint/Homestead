@@ -960,7 +960,8 @@ end
 function W.NewTileGrid(parent, describe)
     local t = S.tile
     local n, width, data, rows, drawn, mode = 0, t.min, {}, {}, false, nil
-    local queue, queued, owed, ticking, Tick = {}, {}, false, false, nil
+    -- owed: data is not yet drawn; kept: whether that draw keeps the scroll position.
+    local queue, queued, owed, kept, ticking, Tick = {}, {}, false, false, false, nil
     local function Wake()
         if ticking then return end
         ticking = true
@@ -1054,7 +1055,7 @@ function W.NewTileGrid(parent, describe)
         if owed then Restride() end
         if owed and Ready() then
             Group()
-            Draw()
+            Draw(kept)
         end
         local room, i = t.perFrame, 0
         while room > 0 and i < #queue do
@@ -1068,7 +1069,7 @@ function W.NewTileGrid(parent, describe)
     box:HookScript("OnSizeChanged", function()
         if Restride() then
             Group()
-            Draw(true)
+            Draw(kept or not owed)
         else
             Wheel()
         end
@@ -1088,14 +1089,11 @@ function W.NewTileGrid(parent, describe)
     end
 
     function list:SetData(tbl, keep)
-        local same = drawn and Same(tbl)
-        data, owed = tbl, true
+        local same = drawn and not owed and Same(tbl)
+        data, owed, kept = tbl, true, keep
         local moved = Restride()
         -- The size hook drew these records while Restride measured the box.
-        if not owed then
-            if not keep then box:ScrollToBegin(ScrollBoxConstants.NoScrollInterpolation) end
-            return
-        end
+        if not owed then return end
         if not Ready() then return Wake() end
         owed = false
         if same and not moved then
