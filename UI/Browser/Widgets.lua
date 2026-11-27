@@ -93,16 +93,6 @@ function W.IconRowHeight()
     return Measured("iconRow", MeasureIconRow)
 end
 
--- A catalog tile's name takes at most this many lines and is cut with an ellipsis after them; the tooltip has it whole.
-local TILE_NAME_LINES = 2
-
--- The height of a catalog tile w wide: the icon square inside the pad, a pad, and room for the name's lines, then
--- a pad. Every tile is this tall, so no name is measured.
-local function TileHeight(w)
-    local lines = Measured("tileLines", function() return TILE_NAME_LINES * W.TextHeight("body") end)
-    return w + S.tile.pad + lines
-end
-
 function W.StateWords(state, arg)
     return S.state[state].word:format(arg or "")
 end
@@ -273,11 +263,11 @@ function W.NewTile(parent, size, bare)
     return tile
 end
 
--- d = { icon (file) or atlas }; the border takes the colour r, g, b. Sets every field, so a recycled tile
--- keeps nothing.
+-- d = { icon (file) or atlas }; the border, if the tile has one, takes the colour r, g, b. Sets every field, so a
+-- recycled tile keeps nothing.
 function W.SetTile(tile, d, r, g, b)
     if d.atlas then tile.icon:SetAtlas(d.atlas) else tile.icon:SetTexture(d.icon or T.placeholderIcon) end
-    tile.border:SetVertexColor(r, g, b, 1)
+    if tile.border then tile.border:SetVertexColor(r, g, b, 1) end
 end
 
 local function Natural(el)
@@ -747,42 +737,66 @@ function W.NewList(parent, opts)
     return list
 end
 
--- A ware cell is its icon. A named one is a catalog tile: the icon filling the top, the name under it (cut after
--- its lines), and its own tooltip and clicks (the Housing Dashboard on a right-click when it can open, else the item).
+-- A ware cell is its icon. A named one is a catalog tile: Blizzard's tile frame round a picture, the icon until
+-- the decor's 3D model has loaded and then the model, with its own tooltip and clicks (the Housing Dashboard on a
+-- right-click when it can open, else the item).
 function W.NewWareCell(cell, named)
     local t = S.tile
-    local tile = W.NewTile(cell, S.ware.size, named)
+    local tile, top, scene, hover
+    if named then
+        tile = { icon = cell:CreateTexture(nil, "ARTWORK") }
+        Coord(tile.icon, C.wareIcon)
+        tile.icon:SetPoint("CENTER")
+        local frame = cell:CreateTexture(nil, "BACKGROUND")
+        frame:SetAllPoints()
+        frame:SetAtlas(t.atlas)
+        hover = cell:CreateTexture(nil, "BACKGROUND", nil, 1)
+        hover:SetAllPoints()
+        hover:SetAtlas(t.atlas)
+        hover:SetBlendMode("ADD")
+        hover:SetAlpha(0.75)
+        hover:Hide()
+        scene = CreateFrame("ModelScene", nil, cell, "NonInteractableModelSceneMixinTemplate")
+        scene:SetPoint("CENTER")
+        scene:TransitionToModelSceneID(t.sceneID, CAMERA_TRANSITION_TYPE_IMMEDIATE, CAMERA_MODIFICATION_TYPE_DISCARD, true)
+        scene:Hide()
+        scene:SetFrameLevel(cell:GetFrameLevel() + 1)
+        scene:EnableMouse(false)
+        scene:EnableMouseWheel(false)
+        -- The markers sit on a frame above the scene, which a model would otherwise cover.
+        top = CreateFrame("Frame", nil, cell)
+        top:SetAllPoints()
+        top:SetFrameLevel(scene:GetFrameLevel() + 1)
+        top:EnableMouse(false)
+    else
+        tile = W.NewTile(cell, S.ware.size)
+        tile.icon:SetPoint("CENTER")
+        local wash = cell:CreateTexture(nil, "HIGHLIGHT")
+        wash:SetAllPoints()
+        wash:SetColorTexture(unpack(K.hoverRow))
+    end
     cell.named = named
-    if named then tile.icon:SetPoint("TOP", 0, -t.pad) else tile.icon:SetPoint("CENTER") end
-    local hover = cell:CreateTexture(nil, "HIGHLIGHT")
-    hover:SetAllPoints()
-    hover:SetColorTexture(unpack(K.hoverRow))
     if named then cell:RegisterForClicks("LeftButtonUp", "RightButtonUp") else cell:RegisterForClicks("LeftButtonUp") end
+    local host = top or cell
     local function Corner(point, x, y)
-        local c = cell:CreateTexture(nil, "OVERLAY", nil, 1)
+        local c = host:CreateTexture(nil, "OVERLAY", nil, 1)
         c:SetSize(14, 14)
         c:SetPoint(point, tile.icon, point, x, y)
         return c
     end
     local mark, star, clock = Corner("TOPRIGHT", -2, -2), Corner("TOPLEFT", 2, -2), Corner("BOTTOMLEFT", 2, 2)
-    local copies = S.Text(cell, "meta", "OVERLAY")
+    local copies = S.Text(host, "meta", "OVERLAY")
     copies:SetPoint("BOTTOMRIGHT", tile.icon, "BOTTOMRIGHT", -3, 3)
-    local name
     if named then
-        name = S.Text(cell, "body", "OVERLAY")
-        name:SetJustifyH("CENTER")
-        name:SetJustifyV("TOP")
-        name:SetNonSpaceWrap(true)
-        name:SetPoint("TOP", tile.icon, "BOTTOM", 0, -t.pad)
-        name:SetMaxLines(TILE_NAME_LINES)
-        -- A tile w by h: the name gets a fixed box as wide as the icon and as tall as its lines,
-        -- so its wrap never waits on the pooled frame's size.
+        -- A tile w by h: the icon inside its inset, the scene by Blizzard's share of the tile, the markers above.
         function cell:Fit(w, h)
             if self.w == w and self.h == h then return end
             self.w, self.h = w, h
-            local room = w - 2 * t.pad
-            tile.icon:SetSize(room, room)
-            name:SetSize(room, h - w - t.pad)
+            tile.icon:SetSize(w - 2 * t.inset, h - 2 * t.inset)
+            local s = math.floor(w * t.scene + 0.5)
+            scene:SetSize(s, s)
+            scene:SetFrameLevel(cell:GetFrameLevel() + 1)
+            top:SetFrameLevel(scene:GetFrameLevel() + 1)
         end
     end
 
@@ -791,10 +805,6 @@ function W.NewWareCell(cell, named)
         local st = S.state[d.state]
         local r, g, b = W.QualityRGB(d.quality)
         W.SetTile(tile, d, r, g, b)
-        if name then
-            name:SetText(d.name or "")
-            name:SetTextColor(unpack(d.state == "owned" and K.nameOwned or K.nameMissing))
-        end
         tile.icon:SetDesaturated(d.state == "locked" or d.mark ~= nil)
         Vis.Marker.Set(mark, st and st.glyph, st and st.color)
         Vis.Marker.Set(star, d.bonus and "star" or nil, K.gold)
@@ -808,8 +818,19 @@ function W.NewWareCell(cell, named)
         if named and button == "RightButton" and B.OpenInCatalog(self.itemID) then return end
         B.Go({ kind = "item", id = self.itemID })
     end)
-    cell:SetScript("OnEnter", ShowTip)
-    cell:SetScript("OnLeave", HideTip)
+    if named then
+        cell:SetScript("OnEnter", function(self)
+            hover:Show()
+            ShowTip(self)
+        end)
+        cell:SetScript("OnLeave", function()
+            hover:Hide()
+            HideTip()
+        end)
+    else
+        cell:SetScript("OnEnter", ShowTip)
+        cell:SetScript("OnLeave", HideTip)
+    end
     return cell
 end
 
@@ -859,7 +880,7 @@ function W.NewGrid(parent, cell, gap)
 end
 
 -- The catalog's tiles, as a list of rows: each row holds up to n tiles at least min wide that share out the box's
--- width, and is as tall as the tile's fixed height; describe(element) gives what a tile draws. A width change
+-- width, and is as tall as a tile is wide; describe(element) gives what a tile draws. A width change
 -- groups the rows again.
 function W.NewTileGrid(parent, min, gap, describe)
     local n, width, data, rows = 0, min, {}, {}
@@ -914,8 +935,7 @@ function W.NewTileGrid(parent, min, gap, describe)
             end
             row[#row + 1] = item
         end
-        local h = TileHeight(width)
-        for _, r in ipairs(rows) do r.h = h end
+        for _, r in ipairs(rows) do r.h = width end
     end
     -- A box with nothing to scroll gives the wheel to whatever scrolls behind it. Setting the data lays out the
     -- rows and binds the shown ones, each bind traced inside it.
