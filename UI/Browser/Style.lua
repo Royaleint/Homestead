@@ -61,9 +61,11 @@ S.layout = {
 S.row = { pad = 6, gap = 2, tile = 30, icon = 22, iconPad = 4, maxIcons = 14, dim = 0.6,
     flag = 30, check = 11, checkLift = 1 }
 S.ware = { size = 48, gap = 4 }
--- The catalog tile: its narrowest width (the columns share out the grid's width), the gap, and the pad round the
--- icon, which fills the tile, and the name under it.
-S.tile = { min = 92, gap = 3, pad = 2 }
+-- The catalog tile, a square picture: its narrowest width (the columns share out the grid's width), the gaps
+-- across and down, the 3D scene's share of the tile's width, the flat icon's inset, the frame atlas and the model
+-- scene the picture is lit and framed by. pad is the retiring name layout's.
+S.tile = { min = 93, gapX = 5, gapY = 10, scene = 80 / 97, inset = 5, atlas = "house-chest-list-item-default",
+    sceneID = 691, pad = 2 }
 -- Overview bars: a source's slim track, the gap between a bar's text and its track, the collection bar's height
 -- (the Housing Dashboard's Endeavor bar), a source's icon and its card's width.
 S.bar = { track = 8, gap = SP.xs, big = 25, icon = 32, card = 184 }

@@ -749,7 +749,7 @@ function Page:Build(parent)
     local th = CreateFrame("Frame", nil, lh)
     th:SetPoint("TOPLEFT", shopNote, "BOTTOMLEFT", 0, -SP.xs)
     th:SetPoint("BOTTOMRIGHT")
-    tiles = W.NewTileGrid(th, S.tile.min, S.tile.gap, ShopTile)
+    tiles = W.NewTileGrid(th, S.tile.min, S.tile.gapX, ShopTile)
     P = parent
     Vend:Build(parent)
 end
