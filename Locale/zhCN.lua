@@ -566,5 +566,5 @@ L["%s (not yet)"] = "%s（尚未）"
 L["Can't check this requirement yet"] = "暂时无法检查此要求"
 L["Active now: %s"] = "当前活跃：%s"
 L["Show 3D preview"] = "显示3D预览"
-L["desc_browser_model3d"] = "在 Homestead Hub 的目录和商城图块上以及每个物品的页面上显示装饰的3D模型。"
+L["desc_browser_model3d"] = "在 Homestead Hub 的目录和商城格子上，以及每个物品的页面上显示装饰的3D模型。"
 -- end: Item
