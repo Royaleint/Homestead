@@ -141,6 +141,7 @@ local function QuestRows(s, data)
     local giver = SM:GetQuestStarter(s.questID)
     local at = SM:GetTreasureSpot(s.questID) or SM:GetQuestStart(s.questID)
     local where = at and s.where and s.where .. " " .. HA.Waypoints:FormatCoords(at.x, at.y) or s.sub
+    if s.line then where = L["%s · %s"]:format(s.line, where) end
     table.sort(s.pick)
     for _, id in ipairs(s.pick) do
         local e = CG.Entry(id)
@@ -181,6 +182,25 @@ local function Stats(s)
         end
     end
     return total, got, can
+end
+
+-- Whether an achievement or quest is done (nil when the game gives no answer), and whether only the account has it.
+local function Done(s)
+    if s.type == "achievements" then
+        local r = HA.SourceManager:GetCompletionStatus(s.items[1], "achievement", s)
+        return r and r.met, r and r.account
+    end
+    local q = s.type == "quests" and s.questID and C_QuestLog
+    if not (q and q.IsQuestFlaggedCompleted) then return nil end
+    if q.IsQuestFlaggedCompleted(s.questID) then return true end
+    if q.IsQuestFlaggedCompletedOnAccount and q.IsQuestFlaggedCompletedOnAccount(s.questID) then return true, true end
+    return false
+end
+
+local function Words(done, acct)
+    if done == nil then return nil end
+    if not done then return L["Incomplete"] end
+    return acct and L["%s · %s"]:format(L["Completed"], L["Account"]) or L["Completed"]
 end
 
 -- A source other than a vendor or a drop whose decor is all left out of the counts gets no row.
@@ -247,7 +267,7 @@ local function RowData(s)
         color = total == 0 and BC.COUNT_COLORS.words or BC.COUNT_COLORS.number
     end
     return {
-        kind = "row", key = s.key, name = v and HA.VendorData:GetVendorName(v) or s.title, line2 = not oneLine and s.sub or s.where, noTile = true, state = state, arg = arg,
+        kind = "row", key = s.key, name = v and HA.VendorData:GetVendorName(v) or s.title, line2 = not oneLine and s.sub or s.where or s.line, noTile = true, state = state, arg = arg,
         iconsOf = oneLine and function() return Rows(s, true) end or nil,
         selected = vid ~= nil and s.key == vid or nil, narrow = Narrow() or nil,
         right = right, rightColor = color,
@@ -352,7 +372,10 @@ end
 
 local function Extent(d)
     if d.kind == "quest" then return W.QuestRowHeight() end
-    if d.kind == "header" then return W.HeaderExtent(d, list.box:GetWidth() - (d.fold and GLYPH + SP.xs or 0)) end
+    if d.kind == "header" then
+        return W.HeaderExtent(d, list.box:GetWidth() - (d.fold and GLYPH + SP.xs or 0)
+            - (d.count and W.TextWidth("body", d.count) + SP.s or 0))
+    end
     if d.kind == "foot" then
         local w = list.box:GetWidth()
         return d.text and W.TextHeight("body", d.text, w - 2 * SP.s) + W.TextHeight("body") + 3 * SP.s
@@ -469,6 +492,25 @@ local function BuildList(keep, zone)
         local tk = order and tostring(s.e) or tops and t .. "\1" .. s.top or nil
         return tk, s.g and (wide and tostring(s.e) .. "\1" .. s.g or tops and tk .. "\1" .. s.g) or nil
     end
+    -- Achievements and quests carry their state, and each header counts the sources under it that have one.
+    local have, got = {}, {}
+    local function Tally(k, done)
+        if k then have[k], got[k] = (have[k] or 0) + 1, (got[k] or 0) + (done and 1 or 0) end
+    end
+    if tops and t ~= "professions" then
+        for _, s in ipairs(out) do
+            local done, acct = Done(s)
+            s.line = Words(done, acct)
+            if done ~= nil then
+                local tk, sk = KeysOf(s)
+                Tally(tk, done)
+                Tally(sk, done)
+            end
+        end
+    end
+    local function Count(k)
+        return have[k] and L["%d of %d completed"]:format(got[k], have[k]) or nil
+    end
     local function Near(s)
         local at = s.vendor and (s.mapID or Facts.Place(s.vendor))
         return at and (nearby and nearby[at] or HA.MapPinProvider.ZoneOf(at) == zone)
@@ -496,7 +538,7 @@ local function BuildList(keep, zone)
             keys[tk] = true
             canShut = canShut or (fold and not topShut)
             data[#data + 1] = { kind = "header", text = order and D.ExpansionLabel(top) or top, top = true, zone = tk,
-                big = (order or t == "quests") and true or nil, fold = fold or nil, folded = topShut }
+                big = (order or t == "quests") and true or nil, fold = fold or nil, folded = topShut, count = Count(tk) }
         end
         if s.g and s.g ~= group then
             group = s.g
@@ -504,7 +546,7 @@ local function BuildList(keep, zone)
             shut = fold and folded[sk]
             if not topShut then
                 data[#data + 1] = { kind = "header", text = group, nested = (order or tops) and true or nil, zone = sk,
-                    fold = fold or nil, folded = shut }
+                    fold = fold or nil, folded = shut, count = Count(sk) }
                 headAt = #data
                 canShut = canShut or (fold and not shut)
             end
@@ -579,7 +621,10 @@ local headerKind = {
         f.fold = f:CreateTexture(nil, "OVERLAY")
         f.fold:SetSize(GLYPH, GLYPH)
         f.text = S.Text(f, "bodyGold", "OVERLAY")
-        f.text:SetPoint("RIGHT", -SP.s, 0)
+        f.count = S.Text(f, "body", "OVERLAY")
+        f.count:SetPoint("RIGHT", -SP.s, 0)
+        f.count:SetTextColor(unpack(K.body))
+        f.count:SetWordWrap(false)
         f.text:SetJustifyH("LEFT")
         f.text:SetWordWrap(true)
         f:SetScript("OnMouseUp", function(self, button)
@@ -604,6 +649,9 @@ local headerKind = {
         f.fold:SetShown(f.zone ~= nil)
         f.fold:SetPoint("LEFT", x, 0)
         if f.zone then f.fold:SetAtlas(d.folded and S.atlas.expand or S.atlas.collapse) end
+        f.count:SetShown(d.count ~= nil)
+        f.count:SetText(d.count or "")
+        f.text:SetPoint("RIGHT", -(SP.s + (d.count and W.TextWidth("body", d.count) + SP.s or 0)), 0)
         f.text:SetPoint("LEFT", f.zone and x + GLYPH + SP.xs or x, 0)
         f.text:SetFontObject(S.font[d.big and "subheader" or "bodyGold"])
         f.text:SetTextColor(unpack(cap and K.body or K.gold))
@@ -1158,7 +1206,7 @@ local function DrawSource(keep)
     local start, dig = s.questID and SM:GetQuestStart(s.questID), s.questID and SM:GetTreasureSpot(s.questID)
     SetPinLine(A.start, start and L["Starts in %s"]:format(MapName(start.mapID) or L["Unknown"]), start, s.title)
     SetPinLine(A.dig, dig and L["Dig site in %s"]:format(MapName(dig.mapID) or L["Unknown"]), dig, s.title)
-    Para(A.event, "body", srcType == "events" and (Live(s.key) and S.Colored(K.badge, L["Active now"]) or L["Not active"]) or nil)
+    Para(A.event, "body", srcType == "events" and (Live(s.key) and S.Colored(K.badge, L["Active now"]) or L["Not active"]) or Words(Done(s)))
     Para(A.notes, "body", s.drop and s.drop.notes)
 
     local rows = Rows(s)
