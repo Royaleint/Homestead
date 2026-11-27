@@ -734,10 +734,11 @@ function W.NewList(parent, opts)
     return list
 end
 
--- A tile's picture: the decor's 3D model in a scene of the tile's own, loaded only when the decor changes. The icon
--- stays until the model has loaded, and for good when there is no model or no actor. Returns the picture and the
+-- A tile's picture: the decor's 3D model in a scene of the tile's own. The icon stays until the wanted model has
+-- loaded, and for good when there is no model or no actor. The actor is brought to the wanted model later, when
+-- load(pic) runs pic.Load, so a tile given back the model it still holds keeps it. Returns the picture and the
 -- frame above it for the markers.
-local function NewPicture(cell, icon)
+local function NewPicture(cell, icon, load)
     local scene = CreateFrame("ModelScene", nil, cell, "NonInteractableModelSceneMixinTemplate")
     scene:SetPoint("CENTER")
     scene:TransitionToModelSceneID(S.tile.sceneID, CAMERA_TRANSITION_TYPE_IMMEDIATE, CAMERA_MODIFICATION_TYPE_DISCARD, true)
@@ -748,11 +749,11 @@ local function NewPicture(cell, icon)
     local top = CreateFrame("Frame", nil, cell)
     top:SetAllPoints()
     top:EnableMouse(false)
-    local want, pic = nil, {}
+    local want, have, pic = nil, nil, {}
 
     -- Shows the model in place of the icon once it is the wanted one and has loaded.
     local function Reveal()
-        if want and actor:IsLoaded() then
+        if want and want == have and actor:IsLoaded() then
             actor:Show()
             icon:Hide()
         end
@@ -773,9 +774,19 @@ local function NewPicture(cell, icon)
         if not want then return end
         want = nil
         actor:Hide()
-        actor:ClearModel()
         scene:Hide()
         icon:Show()
+        load(pic)
+    end
+    -- Gives the actor the wanted model, or lets go of the one it holds; true when a model was asked for.
+    function pic.Load()
+        if want == have then return false end
+        if have then actor:ClearModel() end
+        have = want
+        if not want then return false end
+        scene:Show()
+        if actor:SetModelByFileID(want) then Reveal() else pic.Clear() end
+        return true
     end
     -- The model of d.asset, unless it is a room plan, a secret value, or the option is off; a greyed decor is dimmed.
     function pic.Set(d, grey)
@@ -787,19 +798,20 @@ local function NewPicture(cell, icon)
         actor:SetAlpha(grey and 0.5 or 1)
         if a == want then return end
         if not a then return pic.Clear() end
-        if want then actor:ClearModel() end
         want = a
         actor:Hide()
         icon:Show()
+        if a ~= have then return load(pic) end
         scene:Show()
-        if actor:SetModelByFileID(a) then Reveal() else pic.Clear() end
+        Reveal()
     end
     return pic, top
 end
 
--- A ware cell is its icon. A named one is a catalog tile: Blizzard's tile frame round a picture, with its own
--- tooltip and clicks (the Housing Dashboard on a right-click when it can open, else the item).
-function W.NewWareCell(cell, named)
+-- A ware cell is its icon. Given load (see NewPicture), it is a catalog tile: Blizzard's tile frame round a picture,
+-- with its own tooltip and clicks (the Housing Dashboard on a right-click when it can open, else the item).
+function W.NewWareCell(cell, load)
+    local named = load and true
     local t = S.tile
     local tile, top, picture, hover
     if named then
@@ -815,7 +827,7 @@ function W.NewWareCell(cell, named)
         hover:SetBlendMode("ADD")
         hover:SetAlpha(0.75)
         hover:Hide()
-        picture, top = NewPicture(cell, tile.icon)
+        picture, top = NewPicture(cell, tile.icon, load)
     else
         tile = W.NewTile(cell, S.ware.size)
         tile.icon:SetPoint("CENTER")
@@ -943,9 +955,23 @@ end
 -- The catalog's tiles, as a list of rows: each row holds up to n tiles at least S.tile.min wide that share out the
 -- box's width, and is as tall as a tile is wide; describe(element) gives what a tile draws. A width change groups
 -- the rows again. The same elements in the same order, at the same width, keep their rows and only bind again.
+-- Pictures load t.perFrame models a frame while the grid is shown, and a grid given its elements before it has a
+-- width draws them on the first frame that has one.
 function W.NewTileGrid(parent, describe)
     local t = S.tile
     local n, width, data, rows, drawn, mode = 0, t.min, {}, {}, false, nil
+    local queue, queued, owed, ticking, Tick = {}, {}, false, false, nil
+    local function Wake()
+        if ticking then return end
+        ticking = true
+        C_Timer.After(0, Tick)
+    end
+    local function Load(pic)
+        if queued[pic] then return end
+        queued[pic] = true
+        queue[#queue + 1] = pic
+        Wake()
+    end
     local function ResetRow(f)
         for _, c in ipairs(f.cells) do c:Reset() end
     end
@@ -954,7 +980,7 @@ function W.NewTileGrid(parent, describe)
         for i = 1, #f.row do f.cells[i]:Redraw() end
     end
     local function Make(f, i)
-        f.cells[i] = W.NewWareCell(CreateFrame("Button", nil, f), true)
+        f.cells[i] = W.NewWareCell(CreateFrame("Button", nil, f), Load)
         return f.cells[i]
     end
     local function Bind(f, row)
@@ -1012,8 +1038,27 @@ function W.NewTileGrid(parent, describe)
     local function Draw(keep)
         local provider = Trace("browser_grid_provider", #rows, CreateDataProvider, rows)
         Trace("browser_grid_set", #rows, box.SetDataProvider, box, provider, keep)
-        drawn = true
+        drawn, owed = true, false
         Wheel()
+    end
+    -- A frame's work while the box is shown (its OnShow starts it again): a draw still owed for want of a width, then
+    -- up to t.perFrame models. Measuring a box laid out since the last frame can resize it at once, and the size hook
+    -- then draws.
+    function Tick()
+        ticking = false
+        if not box:IsVisible() then return end
+        if owed and Restride() then
+            Group()
+            Draw()
+        end
+        local room, i = t.perFrame, 0
+        while room > 0 and i < #queue do
+            i = i + 1
+            queued[queue[i]] = nil
+            if queue[i].Load() then room = room - 1 end
+        end
+        for _ = 1, i do table.remove(queue, 1) end
+        if owed or queue[1] then Wake() end
     end
     box:HookScript("OnSizeChanged", function()
         if Restride() then
@@ -1026,6 +1071,7 @@ function W.NewTileGrid(parent, describe)
     -- The option can change while the page is hidden, and only the shown page is drawn again then.
     box:HookScript("OnShow", function()
         if drawn and mode ~= B.Model3D() then box:ReinitializeFrames() end
+        if owed or queue[1] then Wake() end
     end)
 
     local function Same(tbl)
@@ -1040,6 +1086,10 @@ function W.NewTileGrid(parent, describe)
         local same = drawn and Same(tbl)
         data = tbl
         local moved = Restride()
+        if n == 0 then
+            owed = true
+            return Wake()
+        end
         if same and not moved then
             if not keep then box:ScrollToBegin(ScrollBoxConstants.NoScrollInterpolation) end
             Trace("browser_grid_rebind", #rows, box.ReinitializeFrames, box)
