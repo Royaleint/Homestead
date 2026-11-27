@@ -312,7 +312,7 @@ local function Describe(r)
             or select(3, HA.CatalogScanner:GetReadState()) and D.CatalogInfo(id, B.State.catalogMemo) or e.info or {}
         d = { itemID = id, name = Name(r), quality = info.quality or C_Item.GetItemQualityByID(id),
             icon = info.iconTexture or D.ItemIcon(id), active = active, bonus = r.bonus,
-            copies = D.Copies(info), state = state, arg = arg }
+            copies = D.Copies(info), state = state, arg = arg, asset = info.asset }
         r.d = d
     end
     return d
@@ -515,7 +515,7 @@ function Page:Build(parent)
     local holder = CreateFrame("Frame", nil, body)
     holder:SetPoint("TOPLEFT", hidden, "BOTTOMLEFT", 0, -SP.xs)
     holder:SetPoint("BOTTOMRIGHT", -LO.wellPad, LO.wellPad)
-    ui.grid = W.NewTileGrid(holder, S.tile.min, S.tile.gapX, Describe)
+    ui.grid = W.NewTileGrid(holder, Describe)
     ui.empty = W.NewEmptyState(holder)
 end
 

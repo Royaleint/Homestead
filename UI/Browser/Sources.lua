@@ -392,7 +392,7 @@ local function ShopTile(s)
     local info = e and e.info
     local state, arg = B.ItemState(id)
     return { itemID = id, name = s.title, quality = info and info.quality or C_Item.GetItemQualityByID(id),
-        icon = D.ItemIcon(id), state = state, arg = arg, bonus = e and e.bonus,
+        icon = D.ItemIcon(id), state = state, arg = arg, bonus = e and e.bonus, asset = info and info.asset,
         copies = select(2, D.IconData(id, true, B.State.catalogMemo)) }
 end
 
@@ -749,7 +749,7 @@ function Page:Build(parent)
     local th = CreateFrame("Frame", nil, lh)
     th:SetPoint("TOPLEFT", shopNote, "BOTTOMLEFT", 0, -SP.xs)
     th:SetPoint("BOTTOMRIGHT")
-    tiles = W.NewTileGrid(th, S.tile.min, S.tile.gapX, ShopTile)
+    tiles = W.NewTileGrid(th, ShopTile)
     P = parent
     Vend:Build(parent)
 end
