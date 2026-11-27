@@ -501,7 +501,7 @@ function Page:Build(parent)
     local holder = CreateFrame("Frame", nil, body)
     holder:SetPoint("TOPLEFT", hidden, "BOTTOMLEFT", 0, -SP.xs)
     holder:SetPoint("BOTTOMRIGHT", -LO.wellPad, LO.wellPad)
-    ui.grid = W.NewTileGrid(holder, S.tile.min, S.tile.gap, Describe, Name)
+    ui.grid = W.NewTileGrid(holder, S.tile.min, S.tile.gap, Describe)
     ui.empty = W.NewEmptyState(holder)
 end
 
