@@ -68,9 +68,11 @@ end
 
 local entries = {}
 
--- Moves whenever the verdicts or the words built from the wallet change, so a page that cached them can tell.
-local gen = 0
+-- Moves whenever the verdicts or the words built from the wallet change, so a page that cached them can tell;
+-- verdictGen only when the verdicts were settled again, so a page that sorted by them can tell that apart.
+local gen, verdictGen = 0, 0
 function CG.Gen() return gen end
+function CG.VerdictGen() return verdictGen end
 
 -- Account data arrived, or may have while the Hub was closed and no event reached it: the hints and the words built
 -- from them are stale; nothing is judged again.
@@ -177,8 +179,9 @@ CG.SOURCE_KEYS = SOURCE_KEYS
 function CG.LowGold(...) return HA.BadgeCalculation:LowGold(...) end
 
 -- The shared other-faction-only answer, kept per item; the router resets it on show, on
--- SOURCE_CACHES_INVALIDATED and on a decor vendor scan.
-local factionOnly = {}
+-- SOURCE_CACHES_INVALIDATED and on a decor vendor scan. Each item's last answer outlives a reset, for a list drawn
+-- while a check runs: asking every item again would take one frame, and the check asks each in its turn.
+local factionOnly, factionWas = {}, {}
 function CG.ResetFactionOnly()
     wipe(factionOnly)
 end
@@ -187,8 +190,15 @@ local function FactionOnly(itemID)
     local only = factionOnly[itemID]
     if only == nil then
         only = HA.SourceManager:IsOtherFactionOnly(itemID)
-        factionOnly[itemID] = only
+        factionOnly[itemID], factionWas[itemID] = only, only
     end
+    return only
+end
+
+-- The answer without asking: the current one, else the last one known, else nil.
+function CG.KnownFactionOnly(itemID)
+    local only = factionOnly[itemID]
+    if only == nil then only = factionWas[itemID] end
     return only
 end
 
@@ -238,7 +248,7 @@ function CG.Rejudge()
     BC:WalletReread()
     if BC:WalletGen() == seenGen then return false end
     seenGen = BC:WalletGen()
-    gen = gen + 1
+    gen, verdictGen = gen + 1, verdictGen + 1
     wipe(holders)
     for _, e in pairs(entries) do
         e.st = nil
@@ -614,12 +624,21 @@ local function OnOwnership(items)
     end
 end
 
+-- Moves when the sources may have changed, so a page that kept what it read from them can tell.
+local sourcesGen = 0
+function CG.SourcesGen() return sourcesGen end
+
+local function OnSources()
+    sourcesGen = sourcesGen + 1
+    MarkAll()
+end
+
 -- A scan that can change what the vendor lists show; with no way to tell, or if the check fails, it counts.
 local function OnVendorScanned(record)
     local BC = HA.BadgeCalculation
-    if not (BC and BC.ScanMatters) then return MarkAll() end
+    if not (BC and BC.ScanMatters) then return OnSources() end
     local ok, matters = pcall(BC.ScanMatters, BC, record)
-    if not ok or matters then MarkAll() end
+    if not ok or matters then OnSources() end
 end
 
 local listening
@@ -628,8 +647,9 @@ function CG.Listen()
     listening = true
     HA.Events:RegisterCallback("OWNERSHIP_UPDATED", OnOwnership)
     HA.Events:RegisterCallback("VENDOR_SCANNED", OnVendorScanned)
-    for _, name in ipairs({ "SOURCE_CACHES_INVALIDATED", "ACTIVE_HOLIDAYS_CHANGED", "ACTIVE_ENDEAVOR_CHANGED",
-        "HS_CATALOG_TRUE_WARM", "HS_CATALOG_READ_STATE" }) do
+    HA.Events:RegisterCallback("SOURCE_CACHES_INVALIDATED", OnSources)
+    for _, name in ipairs({ "ACTIVE_HOLIDAYS_CHANGED", "ACTIVE_ENDEAVOR_CHANGED", "HS_CATALOG_TRUE_WARM",
+        "HS_CATALOG_READ_STATE" }) do
         HA.Events:RegisterCallback(name, MarkAll)
     end
 end
@@ -661,7 +681,10 @@ end
 -- Nothing is published until a pass ends with nothing new heard, and a check that is stopped publishes nothing.
 -------------------------------------------------------------------------------
 
-local EVALS_PER_SLICE, STEPS_PER_SLICE = 100, 1000
+-- A slice ends once it has run SLICE_MS by the precise clock, checked after each evaluation (one item can cost a
+-- third of a millisecond or more), or at the count caps, whichever comes first. It always evaluates one, so a
+-- check always ends.
+local SLICE_MS, EVALS_PER_SLICE, STEPS_PER_SLICE = 8, 100, 1000
 
 local function NewProgress()
     local progress = { known = true, total = 0, owned = 0, src = {} }
@@ -699,9 +722,9 @@ local function Guarded(step, j, workload)
     end
 end
 
--- The last list position this frame's slice reaches, kept on the check, and the work it does: the positions it steps
--- over plus the entries it has to evaluate (a kept entry costs a step only). Both stop at the same bounds as the
--- slice itself, which walks to the position kept here.
+-- The last list position this frame's slice may reach, kept on the check, and the most work it may do: the positions
+-- it steps over plus the entries it has to evaluate (a kept entry costs a step only). Both stop at the count caps;
+-- the slice walks no further than the position kept here, and stops sooner when its time is up.
 local function SliceWork(j)
     if job ~= j then return 0 end
     local items, i, evals = j.items, j.cursor, 0
@@ -754,11 +777,12 @@ function Slice(j)
     local SM, memo, tables, store = HA.SourceManager, Memo(), SourceTables(), HA.CatalogStore
     local items, list, progress = j.items, j.list, j.progress
     local src = progress.src
-    local i = j.cursor
+    local i, start = j.cursor, _G.GetTimePreciseSec()
     while i <= j.last do
         local itemID = items[i]
         local e = entries[itemID]
-        if not e then
+        local evaluated = not e
+        if evaluated then
             e = Evaluate(itemID, SM, memo, tables)
             entries[itemID] = e
         end
@@ -768,6 +792,7 @@ function Slice(j)
         Add(progress, n, got)
         for key in pairs(e.src) do Add(src[key], n, got) end
         i = i + 1
+        if evaluated and (_G.GetTimePreciseSec() - start) * 1000 >= SLICE_MS then break end
     end
     j.cursor = i
     if i <= #items then return NextSlice(j) end

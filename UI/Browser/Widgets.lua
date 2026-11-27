@@ -90,13 +90,17 @@ function W.IconRowHeight()
     return Measured("iconRow", MeasureIconRow)
 end
 
+local function MeasureBodyLine()
+    return W.TextHeight("body")
+end
+
 -- The height of a catalog tile w wide: the icon square inside the pad, a pad, and the tallest name among items
 -- (nameOf gives one) wrapped at the icon's width, then a pad. A name is measured once per width, until the text size changes.
 local function TileHeight(items, nameOf, w)
     local room, seen = w - 2 * S.tile.pad, Measured("tileNames", function() return {} end)
     local at = seen[room] or {}
     seen[room] = at
-    local tallest = W.TextHeight("body")
+    local tallest = Measured("bodyLine", MeasureBodyLine)
     for _, item in ipairs(items) do
         local name = nameOf(item)
         local h = at[name]

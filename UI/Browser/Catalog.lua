@@ -5,6 +5,11 @@ local B, L = HA.DecorBrowser, HA.L
 local S, W, D, CG = B.Style, B.Widgets, B.Data, B.CanGet
 local SP, K, LO = S.space, S.color, S.layout
 
+-- The Catalog's own steps are traced inside the page's draw, so the performance report can tell them apart.
+local function Trace(operation, workload, fn, ...)
+    return HA.PerformanceTrace:Measure(operation, workload, fn, ...)
+end
+
 local KEYS = CG.SOURCE_KEYS
 local KIND, KindOf = S.kind, S.KindOf
 local TYPE = S.sourceLabel
@@ -18,12 +23,16 @@ local function Group(e)
     return (e.locked or v == "short" or v == "unpriced" or v == "unlisted" and e.event) and 2 or 1
 end
 
-local Page, ui, orders = {}, {}, {}
-local cat, recs, walk, version, built, hideFor, judged, named, renamed, opened, bareList, bareVer
+local Page, ui = {}, {}
+local cat, walk, readGen, readVer, bareList, drawn
 local hiddenNote
 -- A decor item's catalog record, as the last walk or the counting records read it.
 local bareInfo = {}
 local shown = {}
+-- The records drawn from the walk, and the ones drawn while there is none, each kept per item with its sorted
+-- orders, so going into a check and out of it again rebuilds and sorts neither. set is the one drawn now.
+local sets = { walk = { byId = {}, orders = {}, keys = {} }, bare = { byId = {}, orders = {}, keys = {} } }
+local set
 
 local function NewView(sort)
     local types = {}
@@ -45,49 +54,29 @@ local function Words(c)
     return table.concat(f, ", ")
 end
 
--- The records drawn while there is no walk. Kind and name do not move with ownership, so each record's info is
--- kept from the last walk, or read once; a tile reads its copies when it draws.
+-- The records drawn while there is no walk, one per decor item for the session. Kind and name do not move with
+-- ownership, so each record's info is kept from the last walk, or read once; a tile reads its copies when it draws.
 local function BareEntries()
-    if bareVer == D.MemoVersion() then
-        for _, e in ipairs(bareList) do e.name = e.name or D.ItemName(e.itemID, e.info) end
+    local ids = HA.CatalogStore:GetDecorItemIDs()
+    if bareList and bareList.ids == ids and #bareList == #ids then
+        -- New data may bring the records not read yet.
+        local fresh = bareList.version ~= D.MemoVersion()
+        bareList.version = D.MemoVersion()
+        for _, e in ipairs(bareList) do
+            local id = e.itemID
+            e.info = e.info or bareInfo[id] or CG.KeptInfo(id) or fresh and D.CatalogInfo(id, B.State.catalogMemo) or nil
+            bareInfo[id] = e.info
+            e.name = e.name or D.ItemName(id, e.info)
+        end
         return bareList
     end
-    bareList, bareVer = {}, D.MemoVersion()
-    for i, id in ipairs(HA.CatalogStore:GetDecorItemIDs()) do
+    bareList = { ids = ids, version = D.MemoVersion() }
+    for i, id in ipairs(ids) do
         local info = bareInfo[id] or CG.KeptInfo(id) or D.CatalogInfo(id, B.State.catalogMemo)
         bareInfo[id] = info
         bareList[i] = { itemID = id, info = info, name = D.ItemName(id, info), src = {} }
     end
     return bareList
-end
-
--- The records were built from another walk, name set, memo or filter than the ones now.
-local function Moved()
-    return version ~= D.MemoVersion() or built ~= CG.WalkGen() or hideFor ~= B.State.hideNA
-        or named ~= D.NameGen() or renamed ~= CG.Renamed()
-end
-
-local function Rebuild()
-    version, built, hideFor, judged = D.MemoVersion(), CG.WalkGen(), B.State.hideNA, CG.Gen()
-    named, renamed, opened = D.NameGen(), CG.Renamed(), B.Generation()
-    wipe(orders)
-    recs = {}
-    for i, e in ipairs(walk and walk.list or BareEntries()) do
-        local r = { kind = "item", id = e.itemID, e = e, lname = e.name and HA.NameSortKey(e.name) or "",
-            hasName = e.name ~= nil, cat = KindOf(e.info), bonus = e.bonus,
-            done = e.own == "owned", hid = hideFor and (walk and (e.own == "owned" and "collected" or e.factionOnly and "faction" or nil) or not walk and CG.HiddenBy(e.itemID)) or nil }
-        r.g = walk and Group(e) or 1
-        if walk and e.info then bareInfo[e.itemID] = e.info end
-        recs[i] = r
-    end
-end
-
--- A re-judge, account data or a reopen changed the verdicts, words or copy counts under the records: regroup them
--- and drop what was built from the old ones, without rebuilding the records.
-local function Rejudged()
-    wipe(orders)
-    for _, r in ipairs(recs) do r.g, r.d = walk and Group(r.e) or 1, nil end
-    judged, opened = CG.Gen(), B.Generation()
 end
 
 -- The lowest gold-only price at any of the item's vendors, holiday vendors in any season, so the cached value
@@ -124,20 +113,131 @@ local SORTERS = {
     end,
 }
 
+-- Each record's place in the best-first ranking of the walk drawn now.
+local function SetRanks(recs)
+    local rank = {}
+    for i, e in ipairs(walk and CG.Rank() or {}) do rank[e.itemID] = i end
+    for _, r in ipairs(recs) do r.rank = rank[r.id] or math.huge end
+end
+
 local function Order(sort)
-    local o = orders[sort]
+    local o = set.orders[sort]
     if o then return o end
     o = {}
-    for i, r in ipairs(recs) do o[i] = r end
-    local rank = {}
-    for i, e in ipairs(sort == "best" and walk and CG.Rank() or {}) do rank[e.itemID] = i end
-    for _, r in ipairs(o) do
-        r.rank = rank[r.id] or math.huge
-        if sort == "price" then r.gold = r.gold or Gold(r.id) end
+    for i, r in ipairs(set.recs) do o[i] = r end
+    if sort == "best" then SetRanks(o) end
+    if sort == "price" then
+        for _, r in ipairs(o) do r.gold = r.gold or Gold(r.id) end
     end
-    table.sort(o, SORTERS[sort])
-    orders[sort] = o
+    Trace("browser_catalog_sort", sort, table.sort, o, SORTERS[sort])
+    set.orders[sort] = o
     return o
+end
+
+-- More moved records than this and a cached order is sorted afresh instead of mended.
+local MEND_MAX = 64
+
+-- Mends a cached order after the moved records' sort keys changed: the rest keep their order, which a pass over
+-- neighbours confirms (a ranking that shifted under them fails it, and the order is then dropped to be sorted afresh),
+-- and each moved record is put back where the sort puts it.
+local function Mend(sort, moved)
+    local o = set.orders[sort]
+    if #moved > MEND_MAX then set.orders[sort] = nil return end
+    local before = SORTERS[sort]
+    if sort == "best" then SetRanks(set.recs) end
+    local kept, n = {}, 0
+    for _, r in ipairs(o) do
+        if not r.moving then
+            if n > 0 and before(r, kept[n]) then set.orders[sort] = nil return end
+            n = n + 1
+            kept[n] = r
+        end
+    end
+    for _, r in ipairs(moved) do
+        if sort == "price" then r.gold = r.gold or Gold(r.id) end
+        local lo, hi = 1, n + 1
+        while lo < hi do
+            local mid = math.floor((lo + hi) / 2)
+            if before(kept[mid], r) then lo = mid + 1 else hi = mid end
+        end
+        table.insert(kept, lo, r)
+        n = n + 1
+    end
+    set.orders[sort] = kept
+end
+
+local function ReadWalk()
+    walk, readGen, readVer = B.Walk(), CG.WalkGen(), D.MemoVersion()
+end
+
+-- Why Hide hides a record, if it does. With no walk, the other faction's answer already known stands. While a
+-- check runs, an item with none known yet is shown: asking every item here would take one frame, and the check asks
+-- each in its turn and draws again when it ends. With no check either, an item with none known is asked once; the
+-- answer is kept for the session.
+local function Hidden(e, done)
+    if walk then return done and "collected" or e.factionOnly and "faction" or nil end
+    local known = CG.KnownFactionOnly(e.itemID)
+    if CG.Checking() then return known and "faction" or nil end
+    if known == nil then return CG.HiddenBy(e.itemID) end
+    local kept = CG.Entry(e.itemID)
+    if kept and kept.own == "owned" then return "collected" end
+    return known and "faction" or nil
+end
+
+-- Brings the drawn set's records up to the walk last read, names, filter, verdicts and wallet words now. A record whose
+-- entry and name are unchanged keeps everything built from it but its tile words; one whose sort keys moved is mended
+-- into the cached orders. Unless forced, nothing is done when none of those moved since the last time.
+local function Sync(force)
+    set = walk and sets.walk or sets.bare
+    local k = set.keys
+    local now = { B.State.hideNA, walk or false, D.NameGen(), CG.Renamed(), CG.VerdictGen(), CG.SourcesGen(), CG.Gen(),
+        B.Generation(), D.MemoVersion() }
+    local same = set.recs ~= nil and not force
+    for i = 1, #now do same = same and k[i] == now[i] end
+    if same then return end
+    local list = walk and walk.list or BareEntries()
+    local recs, byId, hide, moved = set.recs, set.byId, now[1], {}
+    if not recs or #recs ~= #list then
+        recs = {}
+        set.recs = recs
+        wipe(set.orders)
+    end
+    -- Prices and faction names come from the sources.
+    if k[6] ~= now[6] then
+        for _, r in pairs(byId) do r.gold, r.fl = nil, nil end
+        set.orders.price = nil
+    end
+    for i, e in ipairs(list) do
+        local id = e.itemID
+        local r = byId[id]
+        if not r then
+            r = { kind = "item", id = id }
+            byId[id] = r
+        end
+        local g, done = walk and Group(e) or 1, e.own == "owned"
+        if r.name ~= e.name or not r.e then
+            local lname = e.name and HA.NameSortKey(e.name) or ""
+            if r.lname ~= lname then r.moving = true end
+            r.name, r.lname, r.hasName = e.name, lname, e.name ~= nil
+        end
+        if r.g ~= g or r.done ~= done then r.moving = true end
+        if r.moving then moved[#moved + 1] = r end
+        -- A counting record's info can come in after it was built.
+        if r.e ~= e or r.info ~= e.info then r.e, r.info, r.cat, r.bonus = e, e.info, KindOf(e.info), e.bonus end
+        r.g, r.done, r.d = g, done, nil
+        r.hid = hide and Hidden(e, done) or nil
+        if walk and e.info then bareInfo[id] = e.info end
+        recs[i] = r
+    end
+    local ranked = k[2] ~= now[2] or k[5] ~= now[5]
+    -- Only the order drawn now is mended; another that would need it is dropped, to be sorted if it is chosen.
+    for sort in pairs(set.orders) do
+        if moved[1] or ranked and sort == "best" then
+            if sort == cat.sort then Mend(sort, moved) else set.orders[sort] = nil end
+        end
+    end
+    for _, r in ipairs(moved) do r.moving = nil end
+    set.keys = now
 end
 
 -- Collected and Not collected match owned and notOwned only; unknown ownership is in neither.
@@ -247,10 +347,16 @@ local function Empty(status, n, hidden, words)
     return true
 end
 
-function Apply(keep)
-    local out, n, hc, hf, seen = Filter()
-    local words = Words(cat)
-    local empty = Empty(D.ReadState(), n, hc + hf > 0, words)
+function Apply(keep, force)
+    local words, status = Words(cat), D.ReadState()
+    local out, n, hc, hf, seen = {}, 0, 0, 0, {}
+    -- Counting with a filter on, or best first, draws its words over no tiles: the records wait for a draw that
+    -- shows them.
+    if status == "ready" or words == "" and not (status == "counting" and cat.sort == "best") then
+        Trace("browser_catalog_sync", nil, Sync, force)
+        out, n, hc, hf, seen = Filter()
+    end
+    local empty = Empty(status, n, hc + hf > 0, words)
     hiddenNote = not empty and hc + hf > 0 and { hidden = hc + hf, collected = hc, faction = hf,
         parts = B.Facts.FactionParts(seen),
         onShow = function() B.SetHideNA(false) B.Window.hideNA:SetChecked(false) end } or nil
@@ -258,7 +364,7 @@ function Apply(keep)
     ui.grid:SetShown(not empty)
     if not empty then
         shown = out
-        ui.grid:SetData(out, keep)
+        Trace("browser_catalog_grid", n, ui.grid.SetData, ui.grid, out, keep)
     end
     PaintHead()
     PaintLine(words)
@@ -413,12 +519,9 @@ function Page:Show(route, saved)
         for k in pairs(cat.types) do cat.types[k] = f.sources == nil or f.sources[k] == true end
     end
     ui.sort.Set(cat.sort)
-    if not recs or Moved() then
-        walk = B.Walk()
-        Rebuild()
-    elseif judged ~= CG.Gen() or opened ~= B.Generation() then
-        Rejudged()
-    end
+    drawn = true
+    -- A check that started or published since the walk was last read changed it.
+    if readGen ~= CG.WalkGen() or readVer ~= D.MemoVersion() then ReadWalk() end
     Apply(false)
     if saved then ui.grid.box:ScrollToOffset(saved.scroll, true) end
 end
@@ -432,9 +535,11 @@ function Page:Hide()
     B.HideTooltip()
 end
 
--- Only "data" and "return" read the walk. The rest reuse the cached records, and may follow Hide without a Show.
+-- Only Show, "data" and "return" read the walk. Layout and paint draw the shown tiles again; the rest bring the
+-- records up to date (only what moved under them; data and names look at every name again), and may follow Hide
+-- without a Show.
 function Page:Refresh(reason)
-    if not recs then return end
+    if not drawn then return end
     if reason == "layout" or reason == "paint" then
         if reason == "layout" then
             Fit()
@@ -444,19 +549,9 @@ function Page:Refresh(reason)
             ui.grid:SetData(shown, true)
         end
         W.RepaintRows(ui.grid)
-    elseif reason == "zone" or reason == "stats" then
-        return
-    elseif reason == "wallet" then
-        Rejudged()
-        Apply(true)
-    elseif reason == "return" then
-        walk = B.Walk()
-        if not walk or Moved() then Rebuild() else Rejudged() end
-        Apply(true)
-    else
-        if reason == "data" then walk = B.Walk() end
-        Rebuild()
-        Apply(true)
+    elseif reason ~= "zone" and reason ~= "stats" then
+        if reason == "data" or reason == "return" then ReadWalk() end
+        Apply(true, reason == "data" or reason == "names")
     end
 end
 
