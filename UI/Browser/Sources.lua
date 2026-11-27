@@ -691,12 +691,12 @@ function Rows(s, cells)
             onClick = function() B.Go({ kind = "item", id = itemID }) end,
         }
     end
-    table.sort(rows, function(a, b)
+    if not v then table.sort(rows, function(a, b)
         if a.rank ~= b.rank then return a.rank < b.rank end
         local ka, kb = NK(a.name), NK(b.name)
         if ka ~= kb then return ka < kb end
         return a.itemID < b.itemID
-    end)
+    end) end
     return rows
 end
 
