@@ -943,26 +943,29 @@ function W.NewGrid(parent, cell, gap)
     return list
 end
 
--- The catalog's tiles, as a list of rows: each row holds up to n tiles at least min wide that share out the box's
--- width, and is as tall as a tile is wide; describe(element) gives what a tile draws. A width change
--- groups the rows again.
-function W.NewTileGrid(parent, min, gap, describe)
-    local n, width, data, rows = 0, min, {}, {}
+-- The catalog's tiles, as a list of rows: each row holds up to n tiles at least S.tile.min wide that share out the
+-- box's width, and is as tall as a tile is wide; describe(element) gives what a tile draws. A width change groups
+-- the rows again. The same elements in the same order, at the same width, keep their rows and only bind again.
+function W.NewTileGrid(parent, describe)
+    local t = S.tile
+    local n, width, data, rows, drawn, mode = 0, t.min, {}, {}, false, nil
     local function ResetRow(f)
         for _, c in ipairs(f.cells) do c:Reset() end
     end
     local function RedrawRow(f)
+        mode = B.Model3D()
         for i = 1, #f.row do f.cells[i]:Redraw() end
     end
     local function Bind(f, row)
         f.row = row
+        mode = B.Model3D()
         for i, item in ipairs(row) do
             local c = f.cells[i]
             if not c then
                 c = W.NewWareCell(CreateFrame("Button", nil, f), true)
                 f.cells[i] = c
             end
-            c:SetPoint("TOPLEFT", (i - 1) * (width + gap), 0)
+            c:SetPoint("TOPLEFT", (i - 1) * (width + t.gapX), 0)
             c:SetSize(width, row.h)
             c:Fit(width, row.h)
             c:Set(describe(item))
@@ -976,19 +979,19 @@ function W.NewTileGrid(parent, min, gap, describe)
     local kind = { frameType = "Frame",
         build = function(f) f.cells, f.Reset, f.Redraw = {}, ResetRow, RedrawRow end,
         init = function(f, row) Trace("browser_grid_bind", #row, Bind, f, row) end }
-    local list = W.NewList(parent, { spacing = gap, kinds = { tiles = kind }, extent = function(row) return row.h end })
+    local list = W.NewList(parent, { spacing = t.gapY, kinds = { tiles = kind }, extent = function(row) return row.h end })
     local box = list.box
 
     local function Restride()
         local w = box:GetWidth()
-        if w < min then return false end
-        local k = math.floor((w + gap) / (min + gap))
-        local cw = math.floor((w - (k - 1) * gap) / k)
+        if w < t.min then return false end
+        local k = math.floor((w + t.gapX) / (t.min + t.gapX))
+        local cw = math.floor((w - (k - 1) * t.gapX) / k)
         if k == n and cw == width then return false end
         n, width = k, cw
         return true
     end
-    -- Rows of n in order, each one tile tall.
+    -- Rows of n in order, each as tall as a tile is wide.
     local function Group()
         rows = {}
         local row
@@ -1001,23 +1004,48 @@ function W.NewTileGrid(parent, min, gap, describe)
         end
         for _, r in ipairs(rows) do r.h = width end
     end
-    -- A box with nothing to scroll gives the wheel to whatever scrolls behind it. Setting the data lays out the
-    -- rows and binds the shown ones, each bind traced inside it.
+    -- A box with nothing to scroll gives the wheel to whatever scrolls behind it.
+    local function Wheel()
+        box:EnableMouseWheel(box:HasScrollableExtent())
+    end
+    -- Setting the data lays out the rows and binds the shown ones, each bind traced inside it.
     local function Draw(keep)
         local provider = Trace("browser_grid_provider", #rows, CreateDataProvider, rows)
         Trace("browser_grid_set", #rows, box.SetDataProvider, box, provider, keep)
-        box:EnableMouseWheel(box:HasScrollableExtent())
+        drawn = true
+        Wheel()
     end
     box:HookScript("OnSizeChanged", function()
         if Restride() then
             Group()
             Draw(true)
+        else
+            Wheel()
         end
     end)
+    -- The option can change while the page is hidden, and only the shown page is drawn again then.
+    box:HookScript("OnShow", function()
+        if drawn and mode ~= B.Model3D() then box:ReinitializeFrames() end
+    end)
+
+    local function Same(tbl)
+        if #tbl ~= #data then return false end
+        for i = 1, #tbl do
+            if tbl[i] ~= data[i] then return false end
+        end
+        return true
+    end
 
     function list:SetData(tbl, keep)
+        local same = drawn and Same(tbl)
         data = tbl
-        Restride()
+        local moved = Restride()
+        if same and not moved then
+            if not keep then box:ScrollToBegin(ScrollBoxConstants.NoScrollInterpolation) end
+            Trace("browser_grid_rebind", #rows, box.ReinitializeFrames, box)
+            Wheel()
+            return
+        end
         Trace("browser_grid_rows", #tbl, Group)
         Draw(keep)
     end
