@@ -737,12 +737,68 @@ function W.NewList(parent, opts)
     return list
 end
 
+-- The picture a catalog tile shows over its icon: the decor's 3D model, in a scene of the tile's own that is set up
+-- once. A model loads only when the decor changes. The icon stays until the model has loaded, and for good when
+-- the decor has no model to show or the scene has no actor. Returns the picture and its scene.
+local function NewPicture(cell, icon)
+    local scene = CreateFrame("ModelScene", nil, cell, "NonInteractableModelSceneMixinTemplate")
+    scene:SetPoint("CENTER")
+    scene:TransitionToModelSceneID(S.tile.sceneID, CAMERA_TRANSITION_TYPE_IMMEDIATE, CAMERA_MODIFICATION_TYPE_DISCARD, true)
+    local actor = scene:GetActorByTag("decor")
+    scene:Hide()
+    scene:EnableMouse(false)
+    scene:EnableMouseWheel(false)
+    local want, pic = nil, {}
+
+    -- Shows the model in place of the icon once it is the wanted one and has loaded.
+    local function Reveal()
+        if want and actor:IsLoaded() then
+            actor:Show()
+            icon:Hide()
+        end
+    end
+    if actor then
+        actor:SetOnModelLoadedCallback(Reveal)
+        actor:Hide()
+    end
+
+    function pic.Fit(w)
+        local side = math.floor(w * S.tile.scene + 0.5)
+        scene:SetSize(side, side)
+    end
+    function pic.Clear()
+        if not want then return end
+        want = nil
+        actor:Hide()
+        actor:ClearModel()
+        scene:Hide()
+        icon:Show()
+    end
+    -- The model of d.asset, unless it is a room plan, a secret value, or the option is off; a greyed decor is dimmed.
+    function pic.Set(d, grey)
+        if not actor then return end
+        local a = d.asset
+        if issecretvalue and issecretvalue(a) then a = nil end
+        a = a and B.Model3D() and not B.Data.RoomID(d.itemID) and a or nil
+        actor:SetDesaturation(grey and 1 or 0)
+        actor:SetAlpha(grey and 0.5 or 1)
+        if a == want then return end
+        if not a then return pic.Clear() end
+        want = a
+        actor:Hide()
+        icon:Show()
+        scene:Show()
+        if actor:SetModelByFileID(a) then Reveal() else pic.Clear() end
+    end
+    return pic, scene
+end
+
 -- A ware cell is its icon. A named one is a catalog tile: Blizzard's tile frame round a picture, the icon until
 -- the decor's 3D model has loaded and then the model, with its own tooltip and clicks (the Housing Dashboard on a
 -- right-click when it can open, else the item).
 function W.NewWareCell(cell, named)
     local t = S.tile
-    local tile, top, scene, hover
+    local tile, top, scene, picture, hover
     if named then
         tile = { icon = cell:CreateTexture(nil, "ARTWORK") }
         Coord(tile.icon, C.wareIcon)
@@ -756,17 +812,10 @@ function W.NewWareCell(cell, named)
         hover:SetBlendMode("ADD")
         hover:SetAlpha(0.75)
         hover:Hide()
-        scene = CreateFrame("ModelScene", nil, cell, "NonInteractableModelSceneMixinTemplate")
-        scene:SetPoint("CENTER")
-        scene:TransitionToModelSceneID(t.sceneID, CAMERA_TRANSITION_TYPE_IMMEDIATE, CAMERA_MODIFICATION_TYPE_DISCARD, true)
-        scene:Hide()
-        scene:SetFrameLevel(cell:GetFrameLevel() + 1)
-        scene:EnableMouse(false)
-        scene:EnableMouseWheel(false)
+        picture, scene = NewPicture(cell, tile.icon)
         -- The markers sit on a frame above the scene, which a model would otherwise cover.
         top = CreateFrame("Frame", nil, cell)
         top:SetAllPoints()
-        top:SetFrameLevel(scene:GetFrameLevel() + 1)
         top:EnableMouse(false)
     else
         tile = W.NewTile(cell, S.ware.size)
@@ -787,16 +836,19 @@ function W.NewWareCell(cell, named)
     local mark, star, clock = Corner("TOPRIGHT", -2, -2), Corner("TOPLEFT", 2, -2), Corner("BOTTOMLEFT", 2, 2)
     local copies = S.Text(host, "meta", "OVERLAY")
     copies:SetPoint("BOTTOMRIGHT", tile.icon, "BOTTOMRIGHT", -3, 3)
+    local function Levels()
+        scene:SetFrameLevel(cell:GetFrameLevel() + 1)
+        top:SetFrameLevel(scene:GetFrameLevel() + 1)
+    end
     if named then
+        Levels()
         -- A tile w by h: the icon inside its inset, the scene by Blizzard's share of the tile, the markers above.
         function cell:Fit(w, h)
             if self.w == w and self.h == h then return end
             self.w, self.h = w, h
             tile.icon:SetSize(w - 2 * t.inset, h - 2 * t.inset)
-            local s = math.floor(w * t.scene + 0.5)
-            scene:SetSize(s, s)
-            scene:SetFrameLevel(cell:GetFrameLevel() + 1)
-            top:SetFrameLevel(scene:GetFrameLevel() + 1)
+            picture.Fit(w)
+            Levels()
         end
     end
 
@@ -805,14 +857,26 @@ function W.NewWareCell(cell, named)
         local st = S.state[d.state]
         local r, g, b = W.QualityRGB(d.quality)
         W.SetTile(tile, d, r, g, b)
-        tile.icon:SetDesaturated(d.state == "locked" or d.mark ~= nil)
+        local grey = d.state == "locked" or d.mark ~= nil
+        tile.icon:SetDesaturated(grey)
+        if picture then picture.Set(d, grey) end
         Vis.Marker.Set(mark, st and st.glyph, st and st.color)
         Vis.Marker.Set(star, d.bonus and "star" or nil, K.gold)
         Vis.Marker.Set(clock, d.active and "clock" or nil, K.badge)
         copies:SetShown(d.copies ~= nil)
         copies:SetText(d.copies and d.copies > 99 and "99+" or d.copies or "")
+        -- A tile rebound under the pointer shows the new decor's tooltip.
+        if hover and hover:IsShown() then ShowTip(self) end
     end
-    cell.Redraw, cell.Reset = Redraw, Reset
+    cell.Redraw = Redraw
+    cell.Reset = Reset
+    if named then
+        cell.Reset = function(self)
+            Reset(self)
+            hover:Hide()
+            picture.Clear()
+        end
+    end
     cell:SetScript("OnClick", function(self, button)
         if W.Linked(self.itemID) or not self.itemID then return end
         if named and button == "RightButton" and B.OpenInCatalog(self.itemID) then return end
