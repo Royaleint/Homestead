@@ -90,6 +90,8 @@ State.isInitialized = false
 -- nothing, so assigning its result to the guard variable would leave it nil
 -- immediately and never actually debounce.
 State.pendingContentRefresh = false
+State.pendingItemNames = {}     -- itemID -> true: item rows drawn with a stand-in name
+State.itemNameFrame = nil
 -- One free-list bucket per record kind, acquired and released through FramePoolUtils.
 -- Replaces the six per-kind row pools the manual scroll layout used.
 State.rowPool = { vendor = {}, summary = {}, subrow = {}, boss = {}, item = {}, header = {} }
@@ -1381,12 +1383,18 @@ local function CreateItemResultRow(parent)
     return row
 end
 
+local WatchItemName  -- defined after ScheduleContentRefresh
+
 local function RenderItemRow(row, rec)
     local result = rec.result
     local sourceFilter = State.panelSourceFilter
 
     local itemID = result.itemID
-    local itemName = result.itemName or C_Item.GetItemNameByID(itemID) or ("Item " .. tostring(itemID))
+    local itemName = HA.GetItemName(itemID, result.itemName)
+    if not itemName then
+        itemName = "Item " .. tostring(itemID)
+        WatchItemName(itemID)
+    end
     local itemIcon = C_Item.GetItemIconByID(itemID)
     local presentation = GetPanelItemPresentation(itemID, nil, sourceFilter, result)
     local displaySources = presentation and presentation.displaySources or GetDisplaySourcesForItem(itemID, sourceFilter)
@@ -4721,6 +4729,25 @@ local function ScheduleContentRefresh()
         State.pendingContentRefresh = false
         MapSidePanel:RefreshContent()
     end)
+end
+
+-- An item row drawn with a stand-in name waits here for the client to load the real one. The event is listened to
+-- only while a name is out; names arriving together share ScheduleContentRefresh's debounce, and nothing is
+-- redrawn while the panel is hidden (showing it draws the rows again).
+WatchItemName = function(itemID)
+    State.pendingItemNames[itemID] = true
+    if not State.itemNameFrame then
+        State.itemNameFrame = CreateFrame("Frame")
+        State.itemNameFrame:SetScript("OnEvent", function(frame, _, arrivedID, success)
+            if not State.pendingItemNames[arrivedID] then return end
+            State.pendingItemNames[arrivedID] = nil
+            if next(State.pendingItemNames) == nil then frame:UnregisterEvent("GET_ITEM_INFO_RECEIVED") end
+            if success ~= false and State.panelFrame and State.panelFrame:IsShown() then
+                ScheduleContentRefresh()
+            end
+        end)
+    end
+    State.itemNameFrame:RegisterEvent("GET_ITEM_INFO_RECEIVED")
 end
 
 -- Redraws the list when the wallet now gives a shown count or border a different answer. A wallet that has
