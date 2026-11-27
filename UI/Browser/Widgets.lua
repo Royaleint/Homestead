@@ -246,17 +246,14 @@ function W.WaypointButton(parent)
     return b
 end
 
--- bare leaves out the plate behind the icon.
-function W.NewTile(parent, size, bare)
+function W.NewTile(parent, size)
     local tile = { icon = parent:CreateTexture(nil, "ARTWORK") }
     tile.icon:SetSize(size, size)
     Coord(tile.icon, C.wareIcon)
-    if not bare then
-        tile.plate = parent:CreateTexture(nil, "ARTWORK", nil, -1)
-        tile.plate:SetAllPoints(tile.icon)
-        tile.plate:SetColorTexture(1, 1, 1, 1)
-        tile.plate:SetGradient("VERTICAL", CreateColor(unpack(K.iconPlateBottom)), CreateColor(unpack(K.iconPlateTop)))
-    end
+    tile.plate = parent:CreateTexture(nil, "ARTWORK", nil, -1)
+    tile.plate:SetAllPoints(tile.icon)
+    tile.plate:SetColorTexture(1, 1, 1, 1)
+    tile.plate:SetGradient("VERTICAL", CreateColor(unpack(K.iconPlateBottom)), CreateColor(unpack(K.iconPlateTop)))
     tile.border = parent:CreateTexture(nil, "OVERLAY")
     tile.border:SetTexture(T.iconBorder)
     tile.border:SetAllPoints(tile.icon)
@@ -737,9 +734,9 @@ function W.NewList(parent, opts)
     return list
 end
 
--- The picture a catalog tile shows over its icon: the decor's 3D model, in a scene of the tile's own that is set up
--- once. A model loads only when the decor changes. The icon stays until the model has loaded, and for good when
--- the decor has no model to show or the scene has no actor. Returns the picture and its scene.
+-- A tile's picture: the decor's 3D model in a scene of the tile's own, loaded only when the decor changes. The icon
+-- stays until the model has loaded, and for good when there is no model or no actor. Returns the picture and the
+-- frame above it for the markers.
 local function NewPicture(cell, icon)
     local scene = CreateFrame("ModelScene", nil, cell, "NonInteractableModelSceneMixinTemplate")
     scene:SetPoint("CENTER")
@@ -748,6 +745,9 @@ local function NewPicture(cell, icon)
     scene:Hide()
     scene:EnableMouse(false)
     scene:EnableMouseWheel(false)
+    local top = CreateFrame("Frame", nil, cell)
+    top:SetAllPoints()
+    top:EnableMouse(false)
     local want, pic = nil, {}
 
     -- Shows the model in place of the icon once it is the wanted one and has loaded.
@@ -764,7 +764,10 @@ local function NewPicture(cell, icon)
 
     function pic.Fit(w)
         local side = math.floor(w * S.tile.scene + 0.5)
+        local level = cell:GetFrameLevel()
         scene:SetSize(side, side)
+        scene:SetFrameLevel(level + 1)
+        top:SetFrameLevel(level + 2)
     end
     function pic.Clear()
         if not want then return end
@@ -784,21 +787,21 @@ local function NewPicture(cell, icon)
         actor:SetAlpha(grey and 0.5 or 1)
         if a == want then return end
         if not a then return pic.Clear() end
+        if want then actor:ClearModel() end
         want = a
         actor:Hide()
         icon:Show()
         scene:Show()
         if actor:SetModelByFileID(a) then Reveal() else pic.Clear() end
     end
-    return pic, scene
+    return pic, top
 end
 
--- A ware cell is its icon. A named one is a catalog tile: Blizzard's tile frame round a picture, the icon until
--- the decor's 3D model has loaded and then the model, with its own tooltip and clicks (the Housing Dashboard on a
--- right-click when it can open, else the item).
+-- A ware cell is its icon. A named one is a catalog tile: Blizzard's tile frame round a picture, with its own
+-- tooltip and clicks (the Housing Dashboard on a right-click when it can open, else the item).
 function W.NewWareCell(cell, named)
     local t = S.tile
-    local tile, top, scene, picture, hover
+    local tile, top, picture, hover
     if named then
         tile = { icon = cell:CreateTexture(nil, "ARTWORK") }
         Coord(tile.icon, C.wareIcon)
@@ -812,11 +815,7 @@ function W.NewWareCell(cell, named)
         hover:SetBlendMode("ADD")
         hover:SetAlpha(0.75)
         hover:Hide()
-        picture, scene = NewPicture(cell, tile.icon)
-        -- The markers sit on a frame above the scene, which a model would otherwise cover.
-        top = CreateFrame("Frame", nil, cell)
-        top:SetAllPoints()
-        top:EnableMouse(false)
+        picture, top = NewPicture(cell, tile.icon)
     else
         tile = W.NewTile(cell, S.ware.size)
         tile.icon:SetPoint("CENTER")
@@ -836,19 +835,13 @@ function W.NewWareCell(cell, named)
     local mark, star, clock = Corner("TOPRIGHT", -2, -2), Corner("TOPLEFT", 2, -2), Corner("BOTTOMLEFT", 2, 2)
     local copies = S.Text(host, "meta", "OVERLAY")
     copies:SetPoint("BOTTOMRIGHT", tile.icon, "BOTTOMRIGHT", -3, 3)
-    local function Levels()
-        scene:SetFrameLevel(cell:GetFrameLevel() + 1)
-        top:SetFrameLevel(scene:GetFrameLevel() + 1)
-    end
     if named then
-        Levels()
         -- A tile w by h: the icon inside its inset, the scene by Blizzard's share of the tile, the markers above.
         function cell:Fit(w, h)
             if self.w == w and self.h == h then return end
             self.w, self.h = w, h
             tile.icon:SetSize(w - 2 * t.inset, h - 2 * t.inset)
             picture.Fit(w)
-            Levels()
         end
     end
 
@@ -865,8 +858,11 @@ function W.NewWareCell(cell, named)
         Vis.Marker.Set(clock, d.active and "clock" or nil, K.badge)
         copies:SetShown(d.copies ~= nil)
         copies:SetText(d.copies and d.copies > 99 and "99+" or d.copies or "")
-        -- A tile rebound under the pointer shows the new decor's tooltip.
-        if hover and hover:IsShown() then ShowTip(self) end
+        -- A tile rebound under the pointer shows the new decor's tooltip, if the tooltip is still on this tile.
+        if hover and hover:IsShown() then
+            local tip = B.Tooltip()
+            if tip:IsShown() and tip:GetOwner() == self then ShowTip(self) end
+        end
     end
     cell.Redraw = Redraw
     cell.Reset = Reset
@@ -891,6 +887,7 @@ function W.NewWareCell(cell, named)
             hover:Hide()
             HideTip()
         end)
+        cell:SetScript("OnHide", function() hover:Hide() end)
     else
         cell:SetScript("OnEnter", ShowTip)
         cell:SetScript("OnLeave", HideTip)
@@ -956,15 +953,15 @@ function W.NewTileGrid(parent, describe)
         mode = B.Model3D()
         for i = 1, #f.row do f.cells[i]:Redraw() end
     end
+    local function Make(f, i)
+        f.cells[i] = W.NewWareCell(CreateFrame("Button", nil, f), true)
+        return f.cells[i]
+    end
     local function Bind(f, row)
         f.row = row
         mode = B.Model3D()
         for i, item in ipairs(row) do
-            local c = f.cells[i]
-            if not c then
-                c = W.NewWareCell(CreateFrame("Button", nil, f), true)
-                f.cells[i] = c
-            end
+            local c = f.cells[i] or Make(f, i)
             c:SetPoint("TOPLEFT", (i - 1) * (width + t.gapX), 0)
             c:SetSize(width, row.h)
             c:Fit(width, row.h)
@@ -977,7 +974,10 @@ function W.NewTileGrid(parent, describe)
         end
     end
     local kind = { frameType = "Frame",
-        build = function(f) f.cells, f.Reset, f.Redraw = {}, ResetRow, RedrawRow end,
+        build = function(f)
+            f.cells, f.Reset, f.Redraw = {}, ResetRow, RedrawRow
+            for i = 1, n do Make(f, i) end
+        end,
         init = function(f, row) Trace("browser_grid_bind", #row, Bind, f, row) end }
     local list = W.NewList(parent, { spacing = t.gapY, kinds = { tiles = kind }, extent = function(row) return row.h end })
     local box = list.box
