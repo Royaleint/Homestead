@@ -408,6 +408,8 @@ local ShowHidden = B.ShowHidden
 local folded, keys = {}, {}
 local TOPS = { achievements = true, quests = true, professions = true }
 
+local WarmReagents
+local warm = { at = 1, asked = {} }
 -- The Shop is a grid of the Catalog's tiles, one per item, with the Catalog's clicks.
 local tiles, shopNote
 
@@ -564,6 +566,10 @@ local function BuildList(keep, zone)
     local note = hidden.hidden > 0 and hidden or nil
     if note and #out > 0 and not grid then data[#data + 1] = note end
     shown = grid and out or data
+    if t == "professions" then
+        warm.wanted = true
+        WarmReagents()
+    end
     list:SetShown(#out > 0 and not grid)
     tiles:SetShown(#out > 0 and grid)
     PaintShopNote(grid and #out > 0 and note or nil)
@@ -889,6 +895,7 @@ end
 
 -- Only the card has a control that waits for the end of combat.
 function Page:SetCombat(inCombat)
+    if not inCombat and warm.wanted then WarmReagents() end
     if V.report then V.report:SetEnabled(not inCombat) end
     if list then W.RepaintRows(list) end
 end
@@ -1181,6 +1188,53 @@ local function ReagentRow(r)
     return { kind = "row", itemID = id, name = ReagentName(id), icon = D.ItemIcon(id),
         quality = C_Item.GetItemQualityByID(id), right = L["%d needed"]:format(r[2]), rightColor = K.body,
         onEnter = function(self) B.ShowLinkTooltip(self, "item:" .. id) end }
+end
+
+-- Reagent names are asked for ahead of time, a few recipes a step while the Hub is open and out of combat, the
+-- ones on the list first, so a recipe's page opens with them loaded. The client is asked directly, leaving the
+-- record GetItemName keeps alone: a name that arrives with no page waiting for it draws nothing, and a page
+-- opened later still asks and draws for itself. A step that finds the Hub hidden or combat on stops; the next
+-- draw of the profession list, or the end of combat, carries on.
+local WARM_STEP, WARM_DELAY = 8, 0.1
+
+local function WarmStep()
+    warm.waiting = false
+    if not B.Shown() or InCombatLockdown() then return end
+    for _ = 1, WARM_STEP do
+        local spellID = warm.queue[warm.at]
+        if not spellID then return end
+        warm.at = warm.at + 1
+        for _, r in ipairs(Reagents(spellID) or {}) do
+            local id = r[1]
+            if not (warm.asked[id] or C_Item.GetItemNameByID(id)) and C_Item.DoesItemExistByID(id) then
+                warm.asked[id] = true
+                C_Item.RequestLoadItemDataByID(id)
+            end
+        end
+    end
+    warm.waiting = true
+    C_Timer.After(WARM_DELAY, WarmStep)
+end
+
+function WarmReagents()
+    if warm.waiting or not B.Shown() or InCombatLockdown() then return end
+    if not warm.queue then
+        local bucket, seen = Statics().professions, {}
+        warm.queue = {}
+        local function Add(s)
+            if s and s.spellID and not seen[s.spellID] then
+                seen[s.spellID] = true
+                warm.queue[#warm.queue + 1] = s.spellID
+            end
+        end
+        for _, d in ipairs(shown) do
+            if d.kind == "row" then Add(bucket.by[d.key]) end
+        end
+        for _, s in ipairs(bucket) do Add(s) end
+    end
+    if not warm.queue[warm.at] then return end
+    warm.waiting = true
+    C_Timer.After(WARM_DELAY, WarmStep)
 end
 
 -- The source of that type and key, named as the page and the crumb show it; nil when the data has none.
