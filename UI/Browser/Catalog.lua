@@ -332,15 +332,14 @@ local function PaintLine(words)
     ui.fl.text:SetText(L["Filtered: %s"]:format(words) .. " \194\183 " .. S.Colored(K.gold, L["Reset filters"]))
 end
 
--- The hidden-items line sits between the filter line and the grid, as wide as the filter line: its text's
--- height at its own width, or one pixel when it is not shown or has no width yet (it is measured again when it
--- gets one).
+-- The hidden-items line sits between the filter line and the grid, as wide as the filter line, or one pixel when it
+-- is not shown. Its text is measured at its own width once shown, as one line until it has a width (it is measured
+-- again when it gets one), and never as more than two, so the grid below keeps its room.
 local function PaintFixed()
     local line = ui.hidden
-    local w = line:GetWidth()
     line.d = hiddenNote
     line:SetShown(hiddenNote ~= nil)
-    line:SetHeight(hiddenNote and w > 2 * SP.s and W.FooterHeight(hiddenNote, w) or 1)
+    line:SetHeight(hiddenNote and W.FooterHeight(hiddenNote, line:GetWidth(), 2) or 1)
     if hiddenNote then W.footerKind.init(line, hiddenNote) end
 end
 

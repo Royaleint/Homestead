@@ -1048,12 +1048,13 @@ function W.NewTileGrid(parent, describe)
     end
     -- A frame's work while the box is shown (its OnShow starts it again): a draw still owed until the box can lay out
     -- a row, then up to t.perFrame models. Measuring a box laid out since the last frame can resize it at once, and
-    -- the size hook then draws.
+    -- the size hook then draws, so owed is read again after each measure.
     function Tick()
         ticking = false
         if not box:IsVisible() then return end
         if owed then Restride() end
-        if owed and Ready() then
+        local ready = owed and Ready()
+        if owed and ready then
             Group()
             Draw(kept)
         end
@@ -1068,7 +1069,9 @@ function W.NewTileGrid(parent, describe)
     end
     -- A new stride draws the rows again, and a draw still owed is made as soon as the box can lay out a row.
     box:HookScript("OnSizeChanged", function()
-        if Restride() or owed and Ready() then
+        local moved = Restride()
+        local ready = not moved and Ready()
+        if moved or owed and ready then
             Group()
             Draw(kept or not owed)
         else
@@ -1093,9 +1096,10 @@ function W.NewTileGrid(parent, describe)
         local same = drawn and not owed and Same(tbl)
         data, owed, kept = tbl, true, keep
         local moved = Restride()
-        -- The size hook drew these records while Restride measured the box.
+        local ready = Ready()
+        -- The size hook drew these records while the box was measured.
         if not owed then return end
-        if not Ready() then return Wake() end
+        if not ready then return Wake() end
         owed = false
         if same and not moved then
             if not keep then box:ScrollToBegin(ScrollBoxConstants.NoScrollInterpolation) end
@@ -1173,8 +1177,11 @@ W.footerKind = {
     end,
 }
 
-function W.FooterHeight(d, width)
-    return W.TextHeight("body", FooterText(d), width - 2 * SP.s) + W.TextHeight("body") + 2 * SP.s + R.gap
+-- The text at width, as one line when there is no room to measure it in, and at most lines lines if given.
+function W.FooterHeight(d, width, lines)
+    local one = W.TextHeight("body")
+    local text = width > 2 * SP.s and W.TextHeight("body", FooterText(d), width - 2 * SP.s) or one
+    return math.min(text, (lines or math.huge) * one) + one + 2 * SP.s + R.gap
 end
 
 local EMPTY = {
