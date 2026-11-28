@@ -1042,8 +1042,8 @@ function W.NewTileGrid(parent, describe)
     -- Setting the data lays out the rows and binds the shown ones, each bind traced inside it.
     local function Draw(keep)
         local provider = Trace("browser_grid_provider", #rows, CreateDataProvider, rows)
-        Trace("browser_grid_set", #rows, box.SetDataProvider, box, provider, keep)
         drawn, owed = true, false
+        Trace("browser_grid_set", #rows, box.SetDataProvider, box, provider, keep)
         Wheel()
     end
     -- A frame's work while the box is shown (its OnShow starts it again): a draw still owed until the box can lay out
