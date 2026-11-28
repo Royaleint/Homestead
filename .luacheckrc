@@ -34,6 +34,7 @@ read_globals = {
     -- WoW constants
     "BANK_CONTAINER",
     "MERCHANT_ITEMS_PER_PAGE",
+    "RETRIEVING_ITEM_INFO",
 
     -- WoW frames/UI
     "BackdropTemplateMixin",
@@ -56,7 +57,7 @@ read_globals = {
     "HOUSING_DECOR_FIRST_ACQUISITION_AVAILABLE",
     "GameTooltip_AddColoredLine", "GameTooltip_AddColoredDoubleLine", "GameTooltip_AddHighlightLine",
     "CAMERA_TRANSITION_TYPE_IMMEDIATE", "CAMERA_MODIFICATION_TYPE_DISCARD",
-    "NORMAL_FONT_COLOR", "Item",
+    "NORMAL_FONT_COLOR", "Item", "ContinuableContainer",
     "ItemRefTooltip", "HandleModifiedItemClick", "IsModifiedClick",
     "SetItemRef", "LinkUtil", "LinkTypes", "PlayerIsTimerunning", "HousingDashboardFrame",
     "MerchantFrame", "MerchantFrameTab1", "MerchantFrameTab2",

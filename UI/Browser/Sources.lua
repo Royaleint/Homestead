@@ -1164,23 +1164,67 @@ local function Reagents(spellID)
     return kept[spellID]
 end
 
--- The item event cannot be relied on to announce a loaded name, so each unnamed reagent the client knows also
--- asks it to call back when it has loaded; the page then draws again.
-local reagentAsked = {}
-local function ReagentName(id)
-    local name = D.ItemName(id)
-    if not name and not reagentAsked[id] and C_Item.DoesItemExistByID(id) then
-        reagentAsked[id] = true
-        Item:CreateFromItemID(id):ContinueOnItemLoad(function() B.RequestRefresh(true) end)
-    end
-    return name or L["Item %d"]:format(id)
-end
-
 local function ReagentRow(r)
     local id = r[1]
-    return { kind = "row", itemID = id, name = ReagentName(id), icon = D.ItemIcon(id),
+    return { kind = "row", itemID = id, name = D.ItemName(id) or RETRIEVING_ITEM_INFO, icon = D.ItemIcon(id),
         quality = C_Item.GetItemQualityByID(id), right = L["%d needed"]:format(r[2]), rightColor = K.body,
         onEnter = function(self) B.ShowLinkTooltip(self, "item:" .. id) end }
+end
+
+-- The decor rows, then the Reagents header and a row for each reagent.
+local function WithReagents(decor, reagents)
+    local rows = {}
+    for i, d in ipairs(decor) do rows[i] = d end
+    rows[#rows + 1] = { kind = "header", text = L["Reagents"] }
+    for _, r in ipairs(reagents) do rows[#rows + 1] = ReagentRow(r) end
+    return rows
+end
+
+-- The reagent section waits until every reagent item has loaded, so a row is never drawn without its name. A
+-- load that does not arrive within REAGENT_WAIT draws the section anyway, the game's waiting words standing in
+-- for each name still out; the names replace them if the load arrives while the recipe is on screen. An item
+-- the game has no record of cannot be waited on (asking raises an error) and keeps the waiting words. wait is
+-- the recipe's load, its time limit and whether that has passed; a redraw of the same recipe keeps the last two.
+local REAGENT_WAIT = 3
+local wait = {}
+
+local function StopWait()
+    if wait.load then wait.load:Cancel() end
+    if wait.timer then wait.timer:Cancel() end
+    wait = {}
+end
+
+-- Draws the section under the decor rows of the page's last draw, keeping the list's scroll if it had rows.
+local function PlaceReagents(spellID, reagents)
+    if not (A.page:IsVisible() and A.s and A.s.spellID == spellID) then return end
+    A.list:SetShown(true)
+    A.list:SetData(WithReagents(A.decor, reagents), A.decor[1] ~= nil)
+end
+
+-- Starts the wait for a recipe's reagents; true when they have all loaded and the section can be drawn now.
+local function WaitReagents(spellID, reagents)
+    local same = wait.spellID == spellID
+    if wait.load then wait.load:Cancel() end
+    if wait.timer and not same then wait.timer:Cancel() end
+    local load = ContinuableContainer:Create()
+    wait = { spellID = spellID, load = load, timer = same and wait.timer or nil, late = same and wait.late }
+    for _, r in ipairs(reagents) do
+        if C_Item.DoesItemExistByID(r[1]) then load:AddContinuable(Item:CreateFromItemID(r[1])) end
+    end
+    local drawing, ready = true, false
+    load:ContinueOnLoad(function()
+        if wait.load ~= load then return end
+        if wait.timer then wait.timer:Cancel() end
+        wait.load, wait.timer = nil, nil
+        if drawing then ready = true else PlaceReagents(spellID, reagents) end
+    end)
+    drawing = false
+    if ready or wait.late then return true end
+    wait.timer = wait.timer or C_Timer.NewTimer(REAGENT_WAIT, function()
+        wait.timer, wait.late = nil, true
+        PlaceReagents(spellID, reagents)
+    end)
+    return false
 end
 
 -- The source of that type and key, named as the page and the crumb show it; nil when the data has none.
@@ -1263,10 +1307,12 @@ local function DrawSource(keep)
     Para(A.hdr, #rows > 0 and "bodyGold" or "body",
         #rows > 0 and L["Decor from this source"] or L["No decor is recorded here. If this source gives decor, report it below."])
     A.report:Fit()
+    A.decor = rows
     local reagents = srcType == "professions" and s.spellID and Reagents(s.spellID)
-    if reagents then
-        rows[#rows + 1] = { kind = "header", text = L["Reagents"] }
-        for _, r in ipairs(reagents) do rows[#rows + 1] = ReagentRow(r) end
+    if not reagents then
+        StopWait()
+    elseif WaitReagents(s.spellID, reagents) then
+        rows = WithReagents(rows, reagents)
     end
     A.list:SetShown(rows[1] ~= nil)
     if rows[1] then A.list:SetData(rows, keep) end
@@ -1289,6 +1335,7 @@ end
 
 function Src:Hide()
     srcTorn = true
+    StopWait()
     B.HideTooltip()
 end
 
