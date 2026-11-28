@@ -566,5 +566,5 @@ L["%s (not yet)"] = "%s (아직 아님)"
 L["Can't check this requirement yet"] = "아직 이 조건을 확인할 수 없습니다"
 L["Active now: %s"] = "현재 활성: %s"
 L["Show 3D preview"] = "3D 미리보기 표시"
-L["desc_browser_model3d"] = "Homestead Hub의 카탈로그 및 블리자드 샵 타일과 각 아이템 페이지에 장식의 3D 모델을 표시합니다."
+L["desc_browser_model3d"] = "Homestead Hub의 아이템 페이지에 3D 모델을 표시합니다."
 -- end: Item

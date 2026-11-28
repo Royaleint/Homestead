@@ -613,5 +613,5 @@ L["%s (not yet)"] = "%s (not yet)"
 L["Can't check this requirement yet"] = "Can't check this requirement yet"
 L["Active now: %s"] = "Active now: %s"
 L["Show 3D preview"] = "Show 3D preview"
-L["desc_browser_model3d"] = "Show 3D models of decor in the Homestead Hub, on the Catalog and Shop tiles and on each item's page."
+L["desc_browser_model3d"] = "Show a 3D model of the item on its page in the Homestead Hub."
 -- end: Item

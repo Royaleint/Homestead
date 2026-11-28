@@ -392,8 +392,7 @@ local function ShopTile(s)
     local info = e and e.info
     local state, arg = B.ItemState(id)
     return { itemID = id, name = s.title, quality = info and info.quality or C_Item.GetItemQualityByID(id),
-        icon = D.ItemIcon(id), state = state, arg = arg, bonus = e and e.bonus, asset = info and info.asset,
-        scene = info and info.uiModelSceneID,
+        icon = D.ItemIcon(id), state = state, arg = arg, bonus = e and e.bonus,
         copies = select(2, D.IconData(id, true, B.State.catalogMemo)) }
 end
 

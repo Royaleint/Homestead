@@ -734,109 +734,11 @@ function W.NewList(parent, opts)
     return list
 end
 
--- A tile's picture: the decor's 3D model in a scene of the tile's own. The icon stays until the wanted model has
--- loaded, and for good when there is no model or no actor. The actor is brought to the wanted model later, when
--- load(pic) runs pic.Load, so a tile given back the model it still holds keeps it. Returns the picture and the
--- frame above it for the markers.
-local function NewPicture(cell, icon, load)
-    local scene = CreateFrame("ModelScene", nil, cell, "NonInteractableModelSceneMixinTemplate")
-    scene:SetPoint("CENTER")
-    scene:Hide()
-    scene:EnableMouse(false)
-    scene:EnableMouseWheel(false)
-    local top = CreateFrame("Frame", nil, cell)
-    top:SetAllPoints()
-    top:EnableMouse(false)
-    local actor, framed, greyed
-    local want, have, view, pic = nil, nil, nil, {}
-
-    -- A greyed decor's model is dimmed. A new scene sets the actor's alpha afresh, so this runs again after one.
-    local function Tint()
-        actor:SetDesaturation(greyed and 1 or 0)
-        actor:SetAlpha(greyed and 0.5 or 1)
-    end
-
-    -- Shows the model in place of the icon once it is the wanted one, framed as wanted, and has loaded.
-    local function Reveal()
-        if want and want == have and view == framed and actor:IsLoaded() then
-            actor:Show()
-            icon:Hide()
-        end
-    end
-    local function To(id)
-        scene:TransitionToModelSceneID(id, CAMERA_TRANSITION_TYPE_IMMEDIATE, CAMERA_MODIFICATION_TYPE_DISCARD, true)
-        return scene:GetModelSceneID() == id and scene:GetActorByTag("decor")
-    end
-    -- Frames the actor by the decor's own model scene, as the game's preview does, else by the tile's.
-    local function Frame(id)
-        if id == framed then return end
-        framed = id
-        local a = To(id) or id ~= S.tile.sceneID and To(S.tile.sceneID)
-        if not a then return end
-        actor = a
-        actor:SetOnModelLoadedCallback(Reveal)
-        actor:Hide()
-        Tint()
-    end
-    Frame(S.tile.sceneID)
-
-    function pic.Fit(w)
-        local side = math.floor(w * S.tile.scene + 0.5)
-        local level = cell:GetFrameLevel()
-        scene:SetSize(side, side)
-        scene:SetFrameLevel(level + 1)
-        top:SetFrameLevel(level + 2)
-    end
-    function pic.Clear()
-        if not want then return end
-        want = nil
-        actor:Hide()
-        scene:Hide()
-        icon:Show()
-        load(pic)
-    end
-    -- Gives the actor the wanted model, or lets go of the one it holds; true when a model was asked for.
-    function pic.Load()
-        if want == have and (not want or view == framed) then return false end
-        if have then actor:ClearModel() end
-        have = want
-        if not want then return false end
-        Frame(view)
-        scene:Show()
-        -- The scene sizes a model by its bounds, which on some decor reach far past what is drawn; the collision
-        -- bounds, which the game's preview also prefers, keep such a model filling the scene.
-        actor:SetPreferModelCollisionBounds(true)
-        if actor:SetModelByFileID(want) then Reveal() else pic.Clear() end
-        return true
-    end
-    -- The model of d.asset framed by d.scene, unless it is a room plan, a secret value, or the option is off; a
-    -- greyed decor is dimmed.
-    function pic.Set(d, grey)
-        if not actor then return end
-        local a, v = d.asset, d.scene
-        if issecretvalue and (issecretvalue(a) or issecretvalue(v)) then a, v = nil, nil end
-        a = a and B.Model3D() and not B.Data.RoomID(d.itemID) and a or nil
-        v = v or S.tile.sceneID
-        greyed = grey
-        Tint()
-        if a == want and v == view then return end
-        if not a then return pic.Clear() end
-        want, view = a, v
-        actor:Hide()
-        icon:Show()
-        if a ~= have or v ~= framed then return load(pic) end
-        scene:Show()
-        Reveal()
-    end
-    return pic, top
-end
-
--- A ware cell is its icon. Given load (see NewPicture), it is a catalog tile: Blizzard's tile frame round a picture,
--- with its own tooltip and clicks (the Housing Dashboard on a right-click when it can open, else the item).
-function W.NewWareCell(cell, load)
-    local named = load and true
+-- A ware cell is its icon. Given named, it is a catalog tile: Blizzard's tile frame round the icon, with its own
+-- tooltip and clicks (the Housing Dashboard on a right-click when it can open, else the item).
+function W.NewWareCell(cell, named)
     local t = S.tile
-    local tile, top, picture, hover
+    local tile, hover
     if named then
         tile = { icon = cell:CreateTexture(nil, "ARTWORK") }
         Coord(tile.icon, C.wareIcon)
@@ -850,7 +752,6 @@ function W.NewWareCell(cell, load)
         hover:SetBlendMode("ADD")
         hover:SetAlpha(0.75)
         hover:Hide()
-        picture, top = NewPicture(cell, tile.icon, load)
     else
         tile = W.NewTile(cell, S.ware.size)
         tile.icon:SetPoint("CENTER")
@@ -860,23 +761,21 @@ function W.NewWareCell(cell, load)
     end
     cell.named = named
     if named then cell:RegisterForClicks("LeftButtonUp", "RightButtonUp") else cell:RegisterForClicks("LeftButtonUp") end
-    local host = top or cell
     local function Corner(point, x, y)
-        local c = host:CreateTexture(nil, "OVERLAY", nil, 1)
+        local c = cell:CreateTexture(nil, "OVERLAY", nil, 1)
         c:SetSize(14, 14)
         c:SetPoint(point, tile.icon, point, x, y)
         return c
     end
     local mark, star, clock = Corner("TOPRIGHT", -2, -2), Corner("TOPLEFT", 2, -2), Corner("BOTTOMLEFT", 2, 2)
-    local copies = S.Text(host, "meta", "OVERLAY")
+    local copies = S.Text(cell, "meta", "OVERLAY")
     copies:SetPoint("BOTTOMRIGHT", tile.icon, "BOTTOMRIGHT", -3, 3)
     if named then
-        -- A tile w by h: the icon inside its inset, the scene by Blizzard's share of the tile, the markers above.
+        -- A tile w by h: the icon fills it inside its inset.
         function cell:Fit(w, h)
             if self.w == w and self.h == h then return end
             self.w, self.h = w, h
             tile.icon:SetSize(w - 2 * t.inset, h - 2 * t.inset)
-            picture.Fit(w)
         end
     end
 
@@ -887,7 +786,6 @@ function W.NewWareCell(cell, load)
         W.SetTile(tile, d, r, g, b)
         local grey = d.state == "locked" or d.mark ~= nil
         tile.icon:SetDesaturated(grey)
-        if picture then picture.Set(d, grey) end
         Vis.Marker.Set(mark, st and st.glyph, st and st.color)
         Vis.Marker.Set(star, d.bonus and "star" or nil, K.gold)
         Vis.Marker.Set(clock, d.active and "clock" or nil, K.badge)
@@ -905,7 +803,6 @@ function W.NewWareCell(cell, load)
         cell.Reset = function(self)
             Reset(self)
             hover:Hide()
-            picture.Clear()
         end
     end
     cell:SetScript("OnClick", function(self, button)
@@ -978,38 +875,29 @@ end
 -- The catalog's tiles, as a list of rows: each row holds up to n tiles at least S.tile.min wide that share out the
 -- box's width, and is as tall as a tile is wide; describe(element) gives what a tile draws. A width change groups
 -- the rows again. The same elements in the same order, at the same width, keep their rows and only bind again.
--- Pictures load t.perFrame models a frame while the grid is shown, and a grid given its elements before it has a
--- width draws them on the first frame that has one.
+-- A grid given its elements before it has a width draws them on the first frame that has one.
 function W.NewTileGrid(parent, describe)
     local t = S.tile
-    local n, width, data, rows, drawn, mode = 0, t.min, {}, {}, false, nil
+    local n, width, data, rows, drawn = 0, t.min, {}, {}, false
     -- owed: data is not yet drawn; kept: whether that draw keeps the scroll position.
-    local queue, queued, owed, kept, ticking, Tick = {}, {}, false, false, false, nil
+    local owed, kept, ticking, Tick = false, false, false, nil
     local function Wake()
         if ticking then return end
         ticking = true
         C_Timer.After(0, Tick)
     end
-    local function Load(pic)
-        if queued[pic] then return end
-        queued[pic] = true
-        queue[#queue + 1] = pic
-        Wake()
-    end
     local function ResetRow(f)
         for _, c in ipairs(f.cells) do c:Reset() end
     end
     local function RedrawRow(f)
-        mode = B.Model3D()
         for i = 1, #f.row do f.cells[i]:Redraw() end
     end
     local function Make(f, i)
-        f.cells[i] = W.NewWareCell(CreateFrame("Button", nil, f), Load)
+        f.cells[i] = W.NewWareCell(CreateFrame("Button", nil, f), true)
         return f.cells[i]
     end
     local function Bind(f, row)
         f.row = row
-        mode = B.Model3D()
         for i, item in ipairs(row) do
             local c = f.cells[i] or Make(f, i)
             c:SetPoint("TOPLEFT", (i - 1) * (width + t.gapX), 0)
@@ -1070,8 +958,8 @@ function W.NewTileGrid(parent, describe)
         Wheel()
     end
     -- A frame's work while the box is shown (its OnShow starts it again): a draw still owed until the box can lay out
-    -- a row, then up to t.perFrame models. Measuring a box laid out since the last frame can resize it at once, and
-    -- the size hook then draws, so owed is read again after each measure.
+    -- a row. Measuring a box laid out since the last frame can resize it at once, and the size hook then draws, so
+    -- owed is read again after each measure.
     function Tick()
         ticking = false
         if not box:IsVisible() then return end
@@ -1081,14 +969,7 @@ function W.NewTileGrid(parent, describe)
             Group()
             Draw(kept)
         end
-        local room, i = t.perFrame, 0
-        while room > 0 and i < #queue do
-            i = i + 1
-            queued[queue[i]] = nil
-            if queue[i].Load() then room = room - 1 end
-        end
-        for _ = 1, i do table.remove(queue, 1) end
-        if owed or queue[1] then Wake() end
+        if owed then Wake() end
     end
     -- A new stride draws the rows again, and a draw still owed is made as soon as the box can lay out a row.
     box:HookScript("OnSizeChanged", function()
@@ -1101,10 +982,8 @@ function W.NewTileGrid(parent, describe)
             Wheel()
         end
     end)
-    -- The option can change while the page is hidden, and only the shown page is drawn again then.
     box:HookScript("OnShow", function()
-        if drawn and mode ~= B.Model3D() then box:ReinitializeFrames() end
-        if owed or queue[1] then Wake() end
+        if owed then Wake() end
     end)
 
     local function Same(tbl)
